@@ -1,0 +1,5 @@
+# The compiler recurses once per `Succ` while `Nat` is unary
+# (docs/proposals/native-numbers.md), so give the browser build a larger stack
+# than WebAssembly's default 1 MB.
+[target.wasm32-unknown-unknown]
+rustflags = ["-C", "link-args=-z stack-size=16777216"]
