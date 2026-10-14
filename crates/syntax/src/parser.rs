@@ -180,6 +180,23 @@ impl<'t> Parser<'t> {
         let start = self.here();
         match self.peek() {
             Some(Tok::KwType) => self.data(),
+            Some(Tok::KwTest) => {
+                self.bump();
+                let name = match self.peek() {
+                    Some(Tok::Str(text)) => {
+                        self.bump();
+                        text.clone()
+                    }
+                    _ => return Err(self.unexpected("the test's name, in quotes")),
+                };
+                self.expect(Tok::Equals, "`=`")?;
+                let expr = self.expr()?;
+                Ok(Decl::Test {
+                    span: start.to(expr.span()),
+                    name,
+                    expr,
+                })
+            }
             Some(Tok::KwExport) => {
                 self.bump();
                 let theorem = self.eat(&Tok::KwTheorem);
@@ -612,6 +629,8 @@ fn describe(tok: &Tok) -> String {
     match tok {
         Tok::Lower(s) | Tok::Upper(s) => format!("`{s}`"),
         Tok::Num(n) => format!("`{n}`"),
+        Tok::Str(s) => format!("`\"{s}\"`"),
+        Tok::KwTest => "`test`".into(),
         Tok::KwType => "`type`".into(),
         Tok::KwTheorem => "`theorem`".into(),
         Tok::KwExport => "`export`".into(),
@@ -719,6 +738,16 @@ mod tests {
         assert!(matches!(expr("a <= b + 1"), Expr::Binary(BinOp::Le, ..)));
         assert!(matches!(expr("a != b"), Expr::Binary(BinOp::Ne, ..)));
         assert!(matches!(expr("a < b"), Expr::Binary(BinOp::Lt, ..)));
+    }
+
+    #[test]
+    fn parses_tests() {
+        let module = parse("test \"two \\\"words\\\"\" =\n  1 + 1 = 2\n");
+        let Decl::Test { name, expr, .. } = &module.decls[0] else {
+            panic!("expected a test");
+        };
+        assert_eq!(name, "two \"words\"");
+        assert!(matches!(expr, Expr::Binary(BinOp::Eq, ..)));
     }
 
     #[test]

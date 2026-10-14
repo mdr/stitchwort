@@ -7,10 +7,13 @@ pub enum Tok {
     /// Identifier starting with an uppercase letter: data types and constructors.
     Upper(String),
     Num(u64),
+    /// A string literal, used for test names: `"reverse twice"`.
+    Str(String),
     /// `type`, which starts a data type declaration.
     KwType,
     KwTheorem,
     KwExport,
+    KwTest,
     /// `Type`, the universe.
     TypeU,
     Prop,
@@ -99,6 +102,7 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
                 "type" => Tok::KwType,
                 "theorem" => Tok::KwTheorem,
                 "export" => Tok::KwExport,
+                "test" => Tok::KwTest,
                 "if" => Tok::KwIf,
                 "then" => Tok::KwThen,
                 "else" => Tok::KwElse,
@@ -115,6 +119,33 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
                 .parse()
                 .map_err(|_| error(file, start, i, "this number is too large"))?;
             Tok::Num(n)
+        } else if c == b'"' {
+            i += 1;
+            let mut text = String::new();
+            loop {
+                match bytes.get(i) {
+                    None | Some(b'\n') => {
+                        return Err(error(file, start, i, "this string isn't closed with `\"`"));
+                    }
+                    Some(b'"') => {
+                        i += 1;
+                        break;
+                    }
+                    Some(b'\\') if matches!(bytes.get(i + 1), Some(b'"' | b'\\')) => {
+                        text.push(bytes[i + 1] as char);
+                        i += 2;
+                    }
+                    Some(_) => {
+                        let ch = std::str::from_utf8(&bytes[i..])
+                            .ok()
+                            .and_then(|s| s.chars().next());
+                        let ch = ch.unwrap_or('\u{fffd}');
+                        text.push(ch);
+                        i += ch.len_utf8();
+                    }
+                }
+            }
+            Tok::Str(text)
         } else if !c.is_ascii() {
             let ch = text[start..].chars().next().expect("non-empty");
             let end = start + ch.len_utf8();

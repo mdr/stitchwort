@@ -1,6 +1,6 @@
 # Surface syntax (implemented subset)
 
-**Status:** describes `crates/syntax` as of 15 October 2026. DESIGN.md §4 shows the intended language. Not yet implemented: records, abilities, tests, `let`, a `case` expression, and nested patterns.
+**Status:** describes `crates/syntax` as of 15 October 2026. DESIGN.md §4 shows the intended language. Not yet implemented: records, abilities, `let`, a `case` expression, and nested patterns.
 
 ## Layout
 
@@ -34,6 +34,9 @@ cong f p = J (\y' p' -> f x = f y') rfl p
 -- A theorem's type must be a proposition
 theorem zeroPlus : (n : Nat) -> 0 + n = n
 zeroPlus n = rfl
+
+-- A test: a `Bool` that `stitchwort test` checks is `True`
+test "lengths add up" = leq (length (append [1] [2, 3])) 3
 
 -- Exported to JavaScript by `stitchwort build --js`
 export

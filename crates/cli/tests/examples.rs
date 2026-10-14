@@ -1,6 +1,6 @@
 //! Runs every example program under `examples/` through the compiler.
 //!
-//! - `accept/` and `extract/`: must check without errors.
+//! - `accept/` and `extract/`: must check without errors, and their tests must pass.
 //! - `reject/` and `soundness/`: must fail with the error code declared on a
 //!   `-- expect-error: <CODE>` line at the top of the file. Failing with any other
 //!   code (or panicking) is a test failure. The rendered errors are snapshot-tested.
@@ -12,7 +12,8 @@
 
 use std::path::{Path, PathBuf};
 
-use stitchwort_cli::{driver::Session, render::render};
+use stitchwort_cli::driver::{Cache, Outcome, Session};
+use stitchwort_cli::render::render;
 use stitchwort_syntax::{Diagnostic, SourceMap};
 
 const KNOWN_GAP: &str = "-- known-gap";
@@ -76,12 +77,20 @@ fn snapshot_name(example: &Example) -> String {
 fn accepted_examples_check() {
     let mut failures = Vec::new();
     for example in examples("accept").into_iter().chain(examples("extract")) {
-        if let (sources, Err(diagnostics)) = check(&example) {
+        let mut session = Session::new();
+        if let Err(diagnostics) = session.load(&example.name, &example.text) {
             failures.push(format!(
                 "{}:\n{}",
                 example.name,
-                rendered(&sources, &diagnostics)
+                rendered(&session.sources, &diagnostics)
             ));
+            continue;
+        }
+        // Their tests must pass too.
+        for result in session.run_tests(&Cache::disabled()) {
+            if result.outcome != Outcome::Passed {
+                failures.push(format!("{}: test \"{}\" failed\n", example.name, result.name));
+            }
         }
     }
     assert!(

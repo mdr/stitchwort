@@ -4,7 +4,7 @@ use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
 use rustyline::error::ReadlineError;
-use stitchwort_cli::driver::Session;
+use stitchwort_cli::driver::{Cache, Outcome, Session};
 use stitchwort_cli::render::render;
 use stitchwort_syntax::{Diagnostic, SourceMap, parse_expression};
 
@@ -21,6 +21,17 @@ enum Command {
     Check {
         #[arg(required = true)]
         files: Vec<PathBuf>,
+    },
+    /// Run a file's tests, reusing cached results where nothing they depend on
+    /// has changed
+    Test {
+        file: PathBuf,
+        /// Run every test, ignoring (and not writing) cached results
+        #[arg(long)]
+        no_cache: bool,
+        /// Where to keep cached results
+        #[arg(long, default_value = ".stitchwort/cache")]
+        cache_dir: PathBuf,
     },
     /// Evaluate an expression in the context of a file
     Eval { file: PathBuf, expr: String },
@@ -41,6 +52,11 @@ enum Command {
 fn main() -> ExitCode {
     match Cli::parse().command {
         Command::Check { files } => check(&files),
+        Command::Test {
+            file,
+            no_cache,
+            cache_dir,
+        } => test(&file, if no_cache { Cache::disabled() } else { Cache::at(cache_dir) }),
         Command::Eval { file, expr } => eval(&file, &expr),
         Command::Repl { file } => repl(file.as_deref()),
         Command::Build { file, out, .. } => build(&file, &out),
@@ -75,6 +91,36 @@ fn check(paths: &[PathBuf]) -> ExitCode {
     } else {
         ExitCode::FAILURE
     }
+}
+
+fn test(path: &Path, cache: Cache) -> ExitCode {
+    let mut session = Session::new();
+    if !load(&mut session, path) {
+        return ExitCode::FAILURE;
+    }
+    let results = session.run_tests(&cache);
+    let width = results.iter().map(|r| r.name.len()).max().unwrap_or(0);
+    for result in &results {
+        let mark = match result.outcome {
+            Outcome::Passed => "✓",
+            Outcome::Failed => "✗",
+        };
+        let how = if result.cached { "cached" } else { "ran" };
+        let failed = if result.outcome == Outcome::Failed {
+            "  (evaluated to False)"
+        } else {
+            ""
+        };
+        println!("  {mark} {:width$}  {how}{failed}", result.name);
+    }
+    let failed = results.iter().filter(|r| r.outcome == Outcome::Failed).count();
+    let cached = results.iter().filter(|r| r.cached).count();
+    println!(
+        "{} test(s): {} passed, {failed} failed ({cached} from the cache)",
+        results.len(),
+        results.len() - failed
+    );
+    if failed == 0 { ExitCode::SUCCESS } else { ExitCode::FAILURE }
 }
 
 fn eval(path: &Path, expr: &str) -> ExitCode {

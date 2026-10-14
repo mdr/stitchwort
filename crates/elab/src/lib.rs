@@ -38,9 +38,17 @@ enum Global {
     Ctor(DataId, usize),
 }
 
+/// A `test "name" = expr` declaration, checked as a definition of type `Bool`.
+pub struct TestDecl {
+    pub name: String,
+    pub def: DefId,
+    pub span: Span,
+}
+
 #[derive(Default)]
 pub struct Elaborator {
     pub globals: Globals,
+    pub tests: Vec<TestDecl>,
     names: HashMap<String, (Global, Span)>,
     /// Auto arguments still to be proved in the current declaration.
     obligations: RefCell<Vec<auto::Obligation>>,
@@ -118,6 +126,12 @@ impl Elaborator {
                     }
                     i += 1;
                 }
+                Decl::Test { name, expr, span } => {
+                    if let Err(d) = self.test(name, expr, *span) {
+                        diagnostics.push(d);
+                    }
+                    i += 1;
+                }
                 decl @ Decl::Signature { name, .. } => {
                     let end = equations_for(&name.text, i + 1);
                     if let Err(d) = self.definition(decl, &decls[i + 1..end]) {
@@ -185,6 +199,36 @@ impl Elaborator {
                 .with_label(span, "the compiler couldn't work out what goes here")
                 .with_note("supply it explicitly with `f [x := …]`, or add a type annotation")
         })
+    }
+
+    fn test(&mut self, name: &str, expr: &Expr, span: Span) -> Result<()> {
+        if let Some(earlier) = self.tests.iter().find(|t| t.name == name) {
+            return Err(error(
+                "E-DUPLICATE",
+                span,
+                format!("there's already a test called \"{name}\""),
+            )
+            .with_label(earlier.span, "first defined here"));
+        }
+        let Some((Global::Data(bool_data), _)) = self.names.get("Bool").copied() else {
+            return Err(error("E-UNKNOWN-NAME", span, "tests need the prelude's `Bool`"));
+        };
+        self.clear_metas();
+        let body = {
+            let mut cx = Ctx::new(self, span);
+            let term = check(&mut cx, expr, &Value::Data(bool_data, Vec::new()))?;
+            self.finish(&term, 0)?
+        };
+        let ty = Term::Data(bool_data, Vec::new());
+        let label: Name = format!("test \"{name}\"").into();
+        let id = kernel::declare_def(&mut self.globals, &label, &ty, false, false, span)?;
+        kernel::define_def(&mut self.globals, id, &body)?;
+        self.tests.push(TestDecl {
+            name: name.to_string(),
+            def: id,
+            span,
+        });
+        Ok(())
     }
 
     fn check_new_name(&self, n: &ast::Name) -> Result<()> {

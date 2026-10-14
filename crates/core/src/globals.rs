@@ -66,6 +66,15 @@ pub struct Globals {
     pub datas: Vec<Data>,
     /// The elaborator's metavariables. Empty whenever the kernel runs.
     pub metas: RefCell<Vec<Meta>>,
+    /// Content hashes computed so far. Declarations never change once
+    /// checked, so these never go stale.
+    pub hashes: RefCell<std::collections::HashMap<HashKey, crate::hash::ContentHash>>,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub enum HashKey {
+    Def(DefId),
+    Data(DataId),
 }
 
 impl Globals {

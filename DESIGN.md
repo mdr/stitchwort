@@ -906,7 +906,7 @@ Each rejected example is paired with a nearby example that must be **accepted**,
 
 ## 14. Implementation
 
-**Current state:** milestones 1–4 are implemented, except the `.d.ts` decoder tests for cyclic and getter-backed inputs. The elaborator and kernel are separate, as principle 4 requires. [`docs/core.md`](docs/core.md) gives the core rules as implemented, including where the implementation still differs from this document. [`docs/syntax.md`](docs/syntax.md) describes the implemented syntax.
+**Current state:** milestones 1–4 are implemented, and milestone 5 in part: tests, declaration hashes and a test-result cache, but not yet caching kernel checks or generated JS, nor resource budgets. The elaborator and kernel are separate, as principle 4 requires. [`docs/core.md`](docs/core.md) gives the core rules as implemented, including where the implementation still differs from this document. [`docs/syntax.md`](docs/syntax.md) describes the implemented syntax.
 
 Written in **Rust**. The compiler itself compiles to **WASM** for the browser playground.
 

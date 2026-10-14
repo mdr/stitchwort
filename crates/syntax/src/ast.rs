@@ -160,6 +160,12 @@ pub enum Decl {
         export: bool,
         span: Span,
     },
+    /// `test "name" = expr`: a `Bool` that `stitchwort test` checks is `True`.
+    Test {
+        name: String,
+        expr: Expr,
+        span: Span,
+    },
     /// `name pattern* = expr`, or without `= expr` when a pattern is `()`.
     Equation {
         name: Name,

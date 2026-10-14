@@ -1,0 +1,14 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-DUPLICATE] Error: there's already a test called "same name"
+   ╭─[ reject/duplicate-test.sw:3:1 ]
+   │
+ 2 │ test "same name" = True
+   │ ───────────┬───────────  
+   │            ╰───────────── first defined here
+ 3 │ test "same name" = True
+   │ ───────────┬───────────  
+   │            ╰───────────── there's already a test called "same name"
+───╯

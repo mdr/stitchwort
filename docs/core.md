@@ -14,6 +14,7 @@ The core is the small, explicit language that every Stitchwort definition is tra
 | Abilities, `Partial` | None. Every term has the empty effect row, so the effect judgment `t : A ! ε` always has `ε = {}`. Non-terminating definitions are rejected outright. |
 | Tracked assumptions | There's no `assume` yet, so every checked definition is assumption-free |
 | Evaluation budget, "inconclusive" results | Not yet. Evaluation is guaranteed to terminate, but may be slow |
+| Caching (§11) | Test results are cached by content hash. Kernel checks and generated JS aren't cached yet, and nothing is cached across elaboration |
 | Native numbers | `Nat` is unary in the core, so every `Succ` costs a level of recursion in the compiler. Number literals are limited to 200 to stay within small stacks (test threads, and later WASM). Extracted JS uses `bigint`. A native representation is needed before the playground |
 | Pattern matching | One constructor deep, no nested patterns. No forward references or mutual recursion |
 | Data types | Parameters but no indices. Equality is the only built-in indexed type |
@@ -151,6 +152,21 @@ The elaborator (`crates/elab`) checks surface syntax bidirectionally, following 
 - **Equations.** Parameters are bound from the signature. Implicit ones are in scope by their signature names. Explicit ones are matched by the equation's patterns, so `length (Cons x xs)` has one pattern while `length` has two parameters.
 
 What the elaborator *doesn't* check is left to the kernel: `Prop` elimination, positivity, universe constraints on fields, and termination. Those errors come from the kernel, with source locations kept from the elaborated term.
+
+## Tests and content hashes
+
+`test "name" = expr` checks `expr` against `Bool` and adds it to the kernel as an unnamed definition. `stitchwort test` evaluates each test; `True` passes.
+
+Every checked declaration has a content hash (`crates/core/src/hash.rs`, BLAKE3). A definition's hash covers whether it's a theorem, its type and its body, after elaboration (so implicit arguments are included). Inside it:
+
+- **references to other declarations are hashed as their hashes**, so a hash covers everything it depends on;
+- **a recursive reference is a fixed marker**;
+- **names aren't hashed**: not the definition's own, not binder names, not local variables (which are de Bruijn indices). Source locations aren't hashed either;
+- **data types are nominal**, so their hash includes their name and their constructors' names, but not field names.
+
+Renaming a function or reformatting code changes no hashes. Changing a body changes its hash and the hash of everything that uses it.
+
+**The test cache** stores each result under `.stitchwort/cache/tests/<compiler version>-<test hash>`. A test runs again only when its hash changes. Failures are cached as well as passes. The local cache is trusted. `--no-cache` ignores it, which is also how to avoid stale results while changing the compiler itself (the key includes the compiler's version number, not its code).
 
 ## The prelude
 
