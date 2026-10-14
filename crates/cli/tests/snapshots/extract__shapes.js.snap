@@ -27,14 +27,25 @@ const dec_Bool = (x, path) => {
 };
 const enc_Bool = (v) => v.tag === "True";
 
-// Decoding reads `length` and each element exactly once, into a fresh list.
-const dec_List = (dec) => (x, path) => {
+// Decoders read each property exactly once, into fresh values. `inside` holds
+// the objects currently being decoded, so an input that contains itself is
+// refused instead of recursing forever. (Shared, acyclic parts are fine.)
+const enter = (x, path, inside) => {
+  if (inside.has(x)) {
+    throw new StitchwortInputError(`${path}: the input contains itself`);
+  }
+  inside.add(x);
+};
+
+const dec_List = (dec) => (x, path, inside = new Set()) => {
   if (!Array.isArray(x)) {
     throw new StitchwortInputError(`${path}: expected an array`);
   }
+  enter(x, path, inside);
   const n = x.length;
   const items = new Array(n);
-  for (let i = 0; i < n; i++) items[i] = dec(x[i], `${path}[${i}]`);
+  for (let i = 0; i < n; i++) items[i] = dec(x[i], `${path}[${i}]`, inside);
+  inside.delete(x);
   let list = { tag: "Nil" };
   for (let i = n - 1; i >= 0; i--) list = { tag: "Cons", head: items[i], tail: list };
   return list;
@@ -48,19 +59,22 @@ const enc_List = (enc) => (v) => {
   return out;
 };
 
-function dec_Shape(x, path) {
+function dec_Shape(x, path, inside = new Set()) {
   if (typeof x !== "object" || x === null) {
     throw new StitchwortInputError(`${path}: expected a Shape object`);
   }
+  enter(x, path, inside);
   const tag = x.tag;
   switch (tag) {
     case "Square": {
-      const side = dec_Nat(x.side, `${path}.side`);
+      const side = dec_Nat(x.side, `${path}.side`, inside);
+      inside.delete(x);
       return { tag: "Square", side };
     }
     case "Rect": {
-      const width = dec_Nat(x.width, `${path}.width`);
-      const height = dec_Nat(x.height, `${path}.height`);
+      const width = dec_Nat(x.width, `${path}.width`, inside);
+      const height = dec_Nat(x.height, `${path}.height`, inside);
+      inside.delete(x);
       return { tag: "Rect", width, height };
     }
     default:

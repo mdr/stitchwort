@@ -27,14 +27,25 @@ const dec_Bool = (x, path) => {
 };
 const enc_Bool = (v) => v.tag === "True";
 
-// Decoding reads `length` and each element exactly once, into a fresh list.
-const dec_List = (dec) => (x, path) => {
+// Decoders read each property exactly once, into fresh values. `inside` holds
+// the objects currently being decoded, so an input that contains itself is
+// refused instead of recursing forever. (Shared, acyclic parts are fine.)
+const enter = (x, path, inside) => {
+  if (inside.has(x)) {
+    throw new StitchwortInputError(`${path}: the input contains itself`);
+  }
+  inside.add(x);
+};
+
+const dec_List = (dec) => (x, path, inside = new Set()) => {
   if (!Array.isArray(x)) {
     throw new StitchwortInputError(`${path}: expected an array`);
   }
+  enter(x, path, inside);
   const n = x.length;
   const items = new Array(n);
-  for (let i = 0; i < n; i++) items[i] = dec(x[i], `${path}[${i}]`);
+  for (let i = 0; i < n; i++) items[i] = dec(x[i], `${path}[${i}]`, inside);
+  inside.delete(x);
   let list = { tag: "Nil" };
   for (let i = n - 1; i >= 0; i--) list = { tag: "Cons", head: items[i], tail: list };
   return list;
@@ -48,18 +59,21 @@ const enc_List = (enc) => (v) => {
   return out;
 };
 
-function dec_Tree(x, path) {
+function dec_Tree(x, path, inside = new Set()) {
   if (typeof x !== "object" || x === null) {
     throw new StitchwortInputError(`${path}: expected a Tree object`);
   }
+  enter(x, path, inside);
   const tag = x.tag;
   switch (tag) {
     case "Leaf": {
+      inside.delete(x);
       return { tag: "Leaf" };
     }
     case "Node": {
-      const left = dec_Tree(x.left, `${path}.left`);
-      const right = dec_Tree(x.right, `${path}.right`);
+      const left = dec_Tree(x.left, `${path}.left`, inside);
+      const right = dec_Tree(x.right, `${path}.right`, inside);
+      inside.delete(x);
       return { tag: "Node", left, right };
     }
     default:

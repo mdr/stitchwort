@@ -369,3 +369,69 @@ fn parse_pairs(json: &str) -> Vec<(String, String)> {
         .map(|pair| (pair[0].clone(), pair[1].clone()))
         .collect()
 }
+
+/// DESIGN.md §12: decoders copy their input, reading each property once, and
+/// refuse inputs that contain themselves rather than recursing forever.
+#[test]
+fn decoders_refuse_cycles_and_read_each_property_once() {
+    let examples = examples();
+    let (_, _, trees) = examples
+        .iter()
+        .find(|(n, _, _)| n == "trees.sw")
+        .expect("trees.sw");
+    let (_, _, shapes) = examples
+        .iter()
+        .find(|(n, _, _)| n == "shapes.sw")
+        .expect("shapes.sw");
+    let script = r#"
+import * as trees from "./trees.mjs";
+import * as shapes from "./shapes.mjs";
+import assert from "node:assert/strict";
+
+// A tree that contains itself is refused cleanly.
+const loop = { tag: "Node", left: null, right: { tag: "Leaf" } };
+loop.left = loop;
+assert.throws(() => trees.leaves(loop), (e) => e instanceof trees.StitchwortInputError && /contains itself/.test(e.message));
+
+// Sharing without a cycle is fine: both children are the same object.
+const leaf = { tag: "Leaf" };
+assert.equal(trees.leaves({ tag: "Node", left: leaf, right: leaf }), 2n);
+
+// Each property is read exactly once, so a getter can't change its answer
+// between validation and use.
+let reads = 0;
+const sneaky = { tag: "Square", get side() { reads += 1; return reads === 1 ? 3n : 1000n; } };
+assert.equal(shapes.area(sneaky), 9n);
+assert.equal(reads, 1);
+
+// Mutating the input after the call can't affect a result already computed,
+// and a list is copied before use.
+const list = [{ tag: "Square", side: 2n }];
+const result = shapes.areas(list);
+list[0].side = 100n;
+assert.deepEqual(result, [4n]);
+
+// Wrong shapes are refused with a path to the problem.
+assert.throws(() => shapes.area({ tag: "Circle" }), /unknown tag Circle/);
+assert.throws(() => shapes.areas([{ tag: "Rect", width: 1n, height: -1n }]), /\[0\]\.height: expected a non-negative bigint/);
+console.log("ok");
+"#;
+    let dir = std::env::temp_dir().join(format!("stitchwort-decoders-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).expect("create temp dir");
+    for (file, session) in [("trees.mjs", trees), ("shapes.mjs", shapes)] {
+        let output = stitchwort_js::generate(&session.elab.globals).expect("extraction succeeds");
+        std::fs::write(dir.join(file), output.js).expect("write module");
+    }
+    std::fs::write(dir.join("test.mjs"), script).expect("write script");
+    let result = Command::new("node")
+        .arg("test.mjs")
+        .current_dir(&dir)
+        .output()
+        .expect("run `node`");
+    assert!(
+        result.status.success() && String::from_utf8_lossy(&result.stdout).trim() == "ok",
+        "{}",
+        String::from_utf8_lossy(&result.stderr)
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}

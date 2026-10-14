@@ -300,14 +300,25 @@ const dec_Bool = (x, path) => {
 };
 const enc_Bool = (v) => v.tag === "True";
 
-// Decoding reads `length` and each element exactly once, into a fresh list.
-const dec_List = (dec) => (x, path) => {
+// Decoders read each property exactly once, into fresh values. `inside` holds
+// the objects currently being decoded, so an input that contains itself is
+// refused instead of recursing forever. (Shared, acyclic parts are fine.)
+const enter = (x, path, inside) => {
+  if (inside.has(x)) {
+    throw new StitchwortInputError(`${path}: the input contains itself`);
+  }
+  inside.add(x);
+};
+
+const dec_List = (dec) => (x, path, inside = new Set()) => {
   if (!Array.isArray(x)) {
     throw new StitchwortInputError(`${path}: expected an array`);
   }
+  enter(x, path, inside);
   const n = x.length;
   const items = new Array(n);
-  for (let i = 0; i < n; i++) items[i] = dec(x[i], `${path}[${i}]`);
+  for (let i = 0; i < n; i++) items[i] = dec(x[i], `${path}[${i}]`, inside);
+  inside.delete(x);
   let list = { tag: "Nil" };
   for (let i = n - 1; i >= 0; i--) list = { tag: "Cons", head: items[i], tail: list };
   return list;
@@ -620,7 +631,7 @@ impl<'g> Gen<'g> {
         let data = self.g.data(d);
         let name = &data.name;
         let mut dec = format!(
-            "\nfunction dec_{name}(x, path) {{\n  if (typeof x !== \"object\" || x === null) {{\n    throw new StitchwortInputError(`${{path}}: expected a {name} object`);\n  }}\n  const tag = x.tag;\n  switch (tag) {{\n"
+            "\nfunction dec_{name}(x, path, inside = new Set()) {{\n  if (typeof x !== \"object\" || x === null) {{\n    throw new StitchwortInputError(`${{path}}: expected a {name} object`);\n  }}\n  enter(x, path, inside);\n  const tag = x.tag;\n  switch (tag) {{\n"
         );
         let mut enc = format!("function enc_{name}(v) {{\n  switch (v.tag) {{\n");
         for (ctor, fields) in data.ctors.iter().zip(self.field_boundaries(d)) {
@@ -631,13 +642,17 @@ impl<'g> Gen<'g> {
                 let f = js_field(field);
                 let _ = writeln!(
                     dec,
-                    "      const {f} = {}(x.{f}, `${{path}}.{f}`);",
+                    "      const {f} = {}(x.{f}, `${{path}}.{f}`, inside);",
                     self.decoder(b)
                 );
                 built.push(f.clone());
                 encoded.push(format!("{f}: {}(v.{f})", self.encoder(b)));
             }
-            let _ = writeln!(dec, "      return {{ {} }};\n    }}", built.join(", "));
+            let _ = writeln!(
+                dec,
+                "      inside.delete(x);\n      return {{ {} }};\n    }}",
+                built.join(", ")
+            );
             let _ = writeln!(
                 enc,
                 "    case \"{}\": return {{ {} }};",
