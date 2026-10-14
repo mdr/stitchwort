@@ -1,0 +1,19 @@
+[package]
+name = "stitchwort-driver"
+description = "The compiler pipeline (sessions, tests, caching) and error rendering, shared by the CLI and the browser playground"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+stitchwort-syntax.workspace = true
+stitchwort-core.workspace = true
+stitchwort-elab.workspace = true
+stitchwort-js.workspace = true
+ariadne.workspace = true
+
+[dev-dependencies]
+insta.workspace = true
+
+[lints]
+workspace = true

@@ -84,16 +84,48 @@
             }
           );
           fmt = craneLib.cargoFmt { inherit src; };
+
+          # The browser playground: the compiler as WebAssembly, plus the page.
+          playground = craneLib.buildPackage (
+            commonArgs
+            // {
+              pname = "stitchwort-playground";
+              cargoArtifacts = null;
+              CARGO_BUILD_TARGET = "wasm32-unknown-unknown";
+              cargoExtraArgs = "-p stitchwort-web";
+              doCheck = false;
+              nativeBuildInputs = [
+                pkgs.wasm-bindgen-cli
+                pkgs.binaryen
+              ];
+              installPhaseCommand = ''
+                mkdir -p $out/pkg
+                wasm-bindgen --target web --no-typescript --out-dir $out/pkg \
+                  target/wasm32-unknown-unknown/release/stitchwort_web.wasm
+                wasm-opt -Oz --enable-bulk-memory --enable-nontrapping-float-to-int \
+                  $out/pkg/stitchwort_web_bg.wasm -o $out/pkg/stitchwort_web_bg.wasm
+                cp ${./web/index.html} $out/index.html
+              '';
+            }
+          );
         };
     in
     {
       packages = forAllSystems (pkgs: rec {
-        inherit (buildsFor pkgs) stitchwort;
+        inherit (buildsFor pkgs) stitchwort playground;
         default = stitchwort;
       });
 
       # `nix flake check`: build + tests, clippy, rustfmt
-      checks = forAllSystems (pkgs: buildsFor pkgs);
+      checks = forAllSystems (
+        pkgs:
+        let
+          builds = buildsFor pkgs;
+        in
+        {
+          inherit (builds) stitchwort clippy fmt;
+        }
+      );
 
       devShells = forAllSystems (pkgs: {
         default = pkgs.mkShell {

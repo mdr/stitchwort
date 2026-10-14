@@ -1,5 +1,5 @@
 ---
-source: crates/cli/src/render.rs
+source: crates/driver/src/render.rs
 expression: "render(&sources, &diagnostic, false)"
 ---
 [E-NO-INPUT] Error: no input files

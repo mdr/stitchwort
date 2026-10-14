@@ -88,6 +88,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "bumpalo"
+version = "3.20.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "72f5acc6cb2ba439de613abc23857ec3d78374d8ed5ac84e9d11336e87da8649"
+
+[[package]]
 name = "cc"
 version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -379,6 +385,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustversion"
+version = "1.0.23"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cf54715a573b99ac80df0bc206da022bcd442c974952c7b9720069370852e21f"
+
+[[package]]
 name = "rustyline"
 version = "18.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -421,11 +433,11 @@ checksum = "5b3dc8af474f516a851ff4bd12db780f948b9250ad37211e4eec0bccea54e01b"
 name = "stitchwort-cli"
 version = "0.1.0"
 dependencies = [
- "ariadne",
  "clap",
  "insta",
  "rustyline",
  "stitchwort-core",
+ "stitchwort-driver",
  "stitchwort-elab",
  "stitchwort-js",
  "stitchwort-syntax",
@@ -436,6 +448,18 @@ name = "stitchwort-core"
 version = "0.1.0"
 dependencies = [
  "blake3",
+ "stitchwort-syntax",
+]
+
+[[package]]
+name = "stitchwort-driver"
+version = "0.1.0"
+dependencies = [
+ "ariadne",
+ "insta",
+ "stitchwort-core",
+ "stitchwort-elab",
+ "stitchwort-js",
  "stitchwort-syntax",
 ]
 
@@ -458,6 +482,17 @@ dependencies = [
 [[package]]
 name = "stitchwort-syntax"
 version = "0.1.0"
+
+[[package]]
+name = "stitchwort-web"
+version = "0.1.0"
+dependencies = [
+ "stitchwort-core",
+ "stitchwort-driver",
+ "stitchwort-js",
+ "stitchwort-syntax",
+ "wasm-bindgen",
+]
 
 [[package]]
 name = "strsim"
@@ -512,6 +547,51 @@ name = "utf8parse"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
+
+[[package]]
+name = "wasm-bindgen"
+version = "0.2.129"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9bb54f33acc68fd454578d9820b0bde1a1a3d17aa17bb7b6595806d02886d409"
+dependencies = [
+ "cfg-if",
+ "once_cell",
+ "rustversion",
+ "wasm-bindgen-macro",
+ "wasm-bindgen-shared",
+]
+
+[[package]]
+name = "wasm-bindgen-macro"
+version = "0.2.129"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2e29d0c35b16e224a7eeb5cd2d25e3e1968fbd65604117b44d3b789d00ee8535"
+dependencies = [
+ "quote",
+ "wasm-bindgen-macro-support",
+]
+
+[[package]]
+name = "wasm-bindgen-macro-support"
+version = "0.2.129"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6f501a8bc3719dba86ef8ae4728879c08001bea749eb1333ac5b91e040e2a6b7"
+dependencies = [
+ "bumpalo",
+ "proc-macro2",
+ "quote",
+ "syn",
+ "wasm-bindgen-shared",
+]
+
+[[package]]
+name = "wasm-bindgen-shared"
+version = "0.2.129"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "23f0c9c52aa7cd7d77769a4cfe2a9adb1b331f489a41d912ce14513d5ab995c6"
+dependencies = [
+ "unicode-ident",
+]
 
 [[package]]
 name = "windows-link"

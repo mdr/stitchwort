@@ -1,7 +1,8 @@
 /target
-/result
+/result*
 /.direnv
 /.stitchwort
 node_modules/
 *.snap.new
 mutants.out*
+/web/pkg

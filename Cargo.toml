@@ -12,6 +12,7 @@ stitchwort-syntax = { path = "crates/syntax" }
 stitchwort-core = { path = "crates/core" }
 stitchwort-elab = { path = "crates/elab" }
 stitchwort-js = { path = "crates/js" }
+stitchwort-driver = { path = "crates/driver" }
 
 ariadne = "0.6.0"
 blake3 = "1.8.7"

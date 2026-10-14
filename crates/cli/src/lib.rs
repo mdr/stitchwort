@@ -1,7 +1,4 @@
-//! The compiler driver and diagnostic rendering behind the `stitchwort` command.
-//!
-//! This is a library so the example-program tests can run the same pipeline as
-//! the command line.
+//! The `stitchwort` command. The pipeline itself lives in `stitchwort-driver`;
+//! it's re-exported here for the tests.
 
-pub mod driver;
-pub mod render;
+pub use stitchwort_driver::{driver, render};

@@ -13,6 +13,9 @@ cargo run -- test examples/accept/tests.sw      # run it twice: results are cach
 cargo run -- repl examples/extract/append.sw
 cargo run -- build --js examples/extract/append.sw -o out/
 
+nix build .#playground          # the browser playground: open result/index.html via a web server
+./web/build.sh                  # or build it into web/pkg/ during development
+
 cargo test                      # example programs, snapshots, JS differential tests
 nix flake check                 # build, tests, clippy, rustfmt
 ```
