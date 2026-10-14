@@ -4,7 +4,7 @@
 //! line that is indented belongs to it. A line containing only `export` attaches
 //! to the declaration after it.
 
-use crate::ast::{Binder, CtorDecl, Decl, Expr, Module, Name, Pattern};
+use crate::ast::{BinOp, Binder, CtorDecl, Decl, Expr, Module, Name, Pattern};
 use crate::lexer::{Tok, Token, lex};
 use crate::{Diagnostic, FileId, Span};
 
@@ -154,6 +154,13 @@ impl<'t> Parser<'t> {
         }
     }
 
+    fn def_name(&mut self) -> Result<Name> {
+        match self.peek() {
+            Some(Tok::Upper(_)) => self.upper("a name"),
+            _ => self.lower("a name"),
+        }
+    }
+
     fn upper(&mut self, what: &str) -> Result<Name> {
         match self.peek() {
             Some(Tok::Upper(text)) => {
@@ -182,16 +189,18 @@ impl<'t> Parser<'t> {
                 self.bump();
                 self.signature(start, true, false)
             }
-            Some(Tok::Lower(_)) if self.peek_at(1) == Some(&Tok::Colon) => {
+            // Definitions may be named in either case: `length`, or `Not` for a
+            // function returning a type.
+            Some(Tok::Lower(_) | Tok::Upper(_)) if self.peek_at(1) == Some(&Tok::Colon) => {
                 self.signature(start, false, false)
             }
-            Some(Tok::Lower(_)) => self.equation(),
+            Some(Tok::Lower(_) | Tok::Upper(_)) => self.equation(),
             _ => Err(self.unexpected("a declaration")),
         }
     }
 
     fn signature(&mut self, start: Span, theorem: bool, export: bool) -> Result<Decl> {
-        let name = self.lower("a name")?;
+        let name = self.def_name()?;
         self.expect(Tok::Colon, "`:`")?;
         let ty = self.expr()?;
         Ok(Decl::Signature {
@@ -204,18 +213,28 @@ impl<'t> Parser<'t> {
     }
 
     fn equation(&mut self) -> Result<Decl> {
-        let name = self.lower("a name")?;
+        let name = self.def_name()?;
         let mut patterns = Vec::new();
-        while self.peek() != Some(&Tok::Equals) {
+        while self.peek().is_some() && self.peek() != Some(&Tok::Equals) {
             patterns.push(self.pattern()?);
         }
-        self.bump();
+        let absurd = patterns.iter().any(|p| matches!(p, Pattern::Absurd(_)));
+        if absurd && self.peek().is_none() {
+            // `f ()` needs no right-hand side.
+            return Ok(Decl::Equation {
+                span: name.span.to(self.prev_span()),
+                name,
+                patterns,
+                rhs: None,
+            });
+        }
+        self.expect(Tok::Equals, "`=`")?;
         let rhs = self.expr()?;
         Ok(Decl::Equation {
             span: name.span.to(rhs.span()),
             name,
             patterns,
-            rhs,
+            rhs: Some(rhs),
         })
     }
 
@@ -234,6 +253,11 @@ impl<'t> Parser<'t> {
             Some(Tok::Upper(_)) => {
                 let name = self.upper("a constructor")?;
                 Ok(Pattern::Ctor(name, Vec::new(), span))
+            }
+            Some(Tok::LParen) if self.peek_at(1) == Some(&Tok::RParen) => {
+                self.bump();
+                let end = self.bump().span;
+                Ok(Pattern::Absurd(span.to(end)))
             }
             Some(Tok::LParen) => {
                 self.bump();
@@ -330,12 +354,37 @@ impl<'t> Parser<'t> {
             let span = start.to(body.span());
             return Ok(Expr::Lam(names, Box::new(body), span));
         }
+        if self.eat(&Tok::KwIf) {
+            // `if h : P then …` binds a proof; `if c then …` tests a `Bool`.
+            let binder = if matches!(self.peek(), Some(Tok::Lower(_)))
+                && self.peek_at(1) == Some(&Tok::Colon)
+            {
+                let name = self.lower("a name")?;
+                self.bump();
+                Some(name)
+            } else {
+                None
+            };
+            let cond = self.expr()?;
+            self.expect(Tok::KwThen, "`then`")?;
+            let then = self.expr()?;
+            self.expect(Tok::KwElse, "`else`")?;
+            let otherwise = self.expr()?;
+            let span = start.to(otherwise.span());
+            return Ok(Expr::If {
+                binder,
+                cond: Box::new(cond),
+                then: Box::new(then),
+                otherwise: Box::new(otherwise),
+                span,
+            });
+        }
         let implicit = self.is_implicit_binder();
         if implicit || self.is_pi_binder() {
-            let binder = if implicit {
+            let (binder, auto) = if implicit {
                 self.implicit_binder()?
             } else {
-                self.binder()?
+                (self.binder()?, false)
             };
             self.expect(Tok::Arrow, "`->`")?;
             let cod = self.expr()?;
@@ -343,12 +392,13 @@ impl<'t> Parser<'t> {
             return Ok(Expr::Pi {
                 names: binder.names,
                 implicit,
+                auto,
                 dom: Box::new(binder.ty),
                 cod: Box::new(cod),
                 span,
             });
         }
-        let lhs = self.eq_expr()?;
+        let lhs = self.cmp_expr()?;
         if self.eat(&Tok::Arrow) {
             let rhs = self.expr()?;
             return Ok(Expr::Arrow(Box::new(lhs), Box::new(rhs)));
@@ -371,16 +421,22 @@ impl<'t> Parser<'t> {
         i > self.pos + 1 && self.tokens.get(i).map(|t| &t.tok) == Some(&Tok::Colon)
     }
 
-    fn implicit_binder(&mut self) -> Result<Binder> {
+    /// `[x y : A]`, or `[auto x : P]`. Returns whether it's `auto`.
+    fn implicit_binder(&mut self) -> Result<(Binder, bool)> {
         self.expect(Tok::LBracket, "`[`")?;
         let mut names = vec![self.lower("a name")?];
         while let Some(Tok::Lower(_)) = self.peek() {
             names.push(self.lower("a name")?);
         }
+        // `auto` is only special as the first word of a binder with names after it.
+        let auto = names.len() > 1 && names[0].text == "auto";
+        if auto {
+            names.remove(0);
+        }
         self.expect(Tok::Colon, "`:`")?;
         let ty = self.expr()?;
         self.expect(Tok::RBracket, "`]`")?;
-        Ok(Binder { names, ty })
+        Ok((Binder { names, ty }, auto))
     }
 
     /// `( name+ : ... ) ->`
@@ -415,22 +471,50 @@ impl<'t> Parser<'t> {
         false
     }
 
-    fn eq_expr(&mut self) -> Result<Expr> {
+    /// `a = b`, `a != b`, `a < b`, `a <= b`: not associative.
+    fn cmp_expr(&mut self) -> Result<Expr> {
         let lhs = self.add_expr()?;
-        if self.eat(&Tok::Equals) {
-            let rhs = self.add_expr()?;
-            return Ok(Expr::Eq(Box::new(lhs), Box::new(rhs)));
-        }
-        Ok(lhs)
+        let op = match self.peek() {
+            Some(Tok::Equals) => BinOp::Eq,
+            Some(Tok::NotEq) => BinOp::Ne,
+            Some(Tok::Lt) => BinOp::Lt,
+            Some(Tok::Le) => BinOp::Le,
+            _ => return Ok(lhs),
+        };
+        self.bump();
+        let rhs = self.add_expr()?;
+        Ok(Expr::Binary(op, Box::new(lhs), Box::new(rhs)))
     }
 
+    /// `+`, `-`: left-associative.
     fn add_expr(&mut self) -> Result<Expr> {
-        let mut lhs = self.app()?;
-        while self.eat(&Tok::Plus) {
-            let rhs = self.app()?;
-            lhs = Expr::Add(Box::new(lhs), Box::new(rhs));
+        let mut lhs = self.mul_expr()?;
+        loop {
+            let op = match self.peek() {
+                Some(Tok::Plus) => BinOp::Add,
+                Some(Tok::Minus) => BinOp::Sub,
+                _ => return Ok(lhs),
+            };
+            self.bump();
+            let rhs = self.mul_expr()?;
+            lhs = Expr::Binary(op, Box::new(lhs), Box::new(rhs));
         }
-        Ok(lhs)
+    }
+
+    /// `*`, `/`, `%`: left-associative, binding tighter than `+`.
+    fn mul_expr(&mut self) -> Result<Expr> {
+        let mut lhs = self.app()?;
+        loop {
+            let op = match self.peek() {
+                Some(Tok::Star) => BinOp::Mul,
+                Some(Tok::Slash) => BinOp::Div,
+                Some(Tok::Percent) => BinOp::Mod,
+                _ => return Ok(lhs),
+            };
+            self.bump();
+            let rhs = self.app()?;
+            lhs = Expr::Binary(op, Box::new(lhs), Box::new(rhs));
+        }
     }
 
     fn app(&mut self) -> Result<Expr> {
@@ -546,6 +630,16 @@ fn describe(tok: &Tok) -> String {
         Tok::Pipe => "`|`".into(),
         Tok::Plus => "`+`".into(),
         Tok::Underscore => "`_`".into(),
+        Tok::Minus => "`-`".into(),
+        Tok::Star => "`*`".into(),
+        Tok::Slash => "`/`".into(),
+        Tok::Percent => "`%`".into(),
+        Tok::NotEq => "`!=`".into(),
+        Tok::Lt => "`<`".into(),
+        Tok::Le => "`<=`".into(),
+        Tok::KwIf => "`if`".into(),
+        Tok::KwThen => "`then`".into(),
+        Tok::KwElse => "`else`".into(),
     }
 }
 
@@ -599,10 +693,74 @@ mod tests {
         let Expr::Arrow(lhs, _) = cod.as_ref() else {
             panic!("expected an arrow, got {cod:?}");
         };
-        let Expr::Eq(sum, _) = lhs.as_ref() else {
+        let Expr::Binary(BinOp::Eq, sum, _) = lhs.as_ref() else {
             panic!("expected an equation, got {lhs:?}");
         };
-        assert!(matches!(sum.as_ref(), Expr::Add(..)));
+        assert!(matches!(sum.as_ref(), Expr::Binary(BinOp::Add, ..)));
+    }
+
+    fn expr(text: &str) -> Expr {
+        let mut sources = SourceMap::new();
+        let file = sources.add("test.sw", text);
+        parse_expression(file, text).unwrap_or_else(|e| panic!("{e:?}"))
+    }
+
+    #[test]
+    fn multiplication_binds_tighter_than_addition_and_both_associate_left() {
+        let Expr::Binary(BinOp::Sub, lhs, rhs) = expr("a + b * c - d") else {
+            panic!("expected `(a + b * c) - d`");
+        };
+        assert!(matches!(*rhs, Expr::Var(_)));
+        let Expr::Binary(BinOp::Add, _, product) = *lhs else {
+            panic!("expected `a + (b * c)`");
+        };
+        assert!(matches!(*product, Expr::Binary(BinOp::Mul, ..)));
+        assert!(matches!(expr("a / b % c"), Expr::Binary(BinOp::Mod, ..)));
+        assert!(matches!(expr("a <= b + 1"), Expr::Binary(BinOp::Le, ..)));
+        assert!(matches!(expr("a != b"), Expr::Binary(BinOp::Ne, ..)));
+        assert!(matches!(expr("a < b"), Expr::Binary(BinOp::Lt, ..)));
+    }
+
+    #[test]
+    fn parses_both_kinds_of_if() {
+        assert!(matches!(
+            expr("if b then 1 else 2"),
+            Expr::If { binder: None, .. }
+        ));
+        assert!(matches!(
+            expr("if h : d != 0 then n / d else 0"),
+            Expr::If {
+                binder: Some(_),
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn parses_auto_binders_and_absurd_patterns() {
+        let module = parse(
+            "div : (n d : Nat) -> [auto ok : d != 0] -> Nat\nabsurd : Void -> a\nabsurd ()\n",
+        );
+        let Decl::Signature { ty, .. } = &module.decls[0] else {
+            panic!("expected a signature");
+        };
+        let Expr::Pi { cod, .. } = ty else {
+            panic!("expected a function type");
+        };
+        assert!(
+            matches!(cod.as_ref(), Expr::Pi { implicit: true, auto: true, names, .. } if names[0].text == "ok")
+        );
+        let Decl::Equation { patterns, rhs, .. } = &module.decls[2] else {
+            panic!("expected an equation");
+        };
+        assert!(matches!(patterns[..], [Pattern::Absurd(_)]));
+        assert!(rhs.is_none());
+        // `auto` alone is an ordinary name.
+        let module = parse("f : [auto : Type] -> auto\n");
+        let Decl::Signature { ty, .. } = &module.decls[0] else {
+            panic!("expected a signature");
+        };
+        assert!(matches!(ty, Expr::Pi { auto: false, .. }));
     }
 
     #[test]
@@ -615,7 +773,7 @@ mod tests {
         let Decl::Equation { rhs, .. } = &module.decls[1] else {
             panic!("expected an equation");
         };
-        let Expr::App(f, hole) = rhs else {
+        let Some(Expr::App(f, hole)) = rhs else {
             panic!("expected an application, got {rhs:?}");
         };
         assert!(matches!(hole.as_ref(), Expr::Hole(_)));

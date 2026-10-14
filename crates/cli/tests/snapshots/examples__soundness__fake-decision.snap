@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+   ╭─[ soundness/fake-decision.sw:6:35 ]
+   │
+ 6 │ oneIsTwo = fromYes (decEqNat 1 2) Trivial
+   │                                   ───┬───  
+   │                                      ╰───── expected `Void`, but this has type `Unit`
+───╯

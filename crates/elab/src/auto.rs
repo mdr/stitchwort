@@ -1,0 +1,203 @@
+//! Finding proofs for `[auto x : P]` arguments (DESIGN.md §6).
+//!
+//! When an auto argument is inserted, the elaborator records an obligation and
+//! carries on. Once the declaration has been elaborated, so unification has
+//! worked out as much as it can, each obligation is proved, in this order:
+//!
+//! 1. a hypothesis in scope whose type is `P` (e.g. the `h` in
+//!    `if h : d != 0 then n / d else 0`);
+//! 2. a decision procedure for `P`: any definition whose result type is
+//!    `Decidable …`. Its arguments are found by unification, and any
+//!    `Decidable` or auto arguments it needs are found recursively. It's run at
+//!    compile time, and must say `Yes`. The proof is then `fromYes d Trivial`,
+//!    which the kernel re-checks by running `d` itself.
+
+use stitchwort_core::value::{Head, force};
+use stitchwort_core::{DataId, DefId, Icit, Name, Term, Value};
+use stitchwort_syntax::{Diagnostic, Span};
+
+use crate::Elaborator;
+use crate::check::{Ctx, ctor_named, def_named};
+
+type Result<T> = std::result::Result<T, Diagnostic>;
+
+/// How deep decision procedures may depend on each other.
+const MAX_DEPTH: usize = 8;
+
+/// An auto argument still to be proved: the metavariable standing for it, its
+/// type, and the context it was created in.
+pub struct Obligation {
+    pub env: Vec<Value>,
+    pub types: Vec<Value>,
+    pub names: Vec<Name>,
+    pub goal: Value,
+    pub meta: Term,
+    pub span: Span,
+}
+
+impl Elaborator {
+    /// Proves every outstanding obligation.
+    pub(crate) fn solve_obligations(&self) -> Result<()> {
+        loop {
+            let obligations = std::mem::take(&mut *self.obligations.borrow_mut());
+            if obligations.is_empty() {
+                return Ok(());
+            }
+            for ob in obligations {
+                let mut cx = Ctx::from_parts(self, ob.env, ob.types, ob.names, ob.span);
+                let placeholder = cx.eval(&ob.meta);
+                if !matches!(
+                    force(cx.g(), placeholder.clone()),
+                    Value::Neutral(Head::Meta(_), _)
+                ) {
+                    continue; // already determined by unification
+                }
+                let proof = prove(&mut cx, &ob.goal, 0)?;
+                let proof_value = cx.eval(&proof);
+                if !cx.unify(&placeholder, &proof_value) {
+                    return Err(cx.error(
+                        "E-AUTO",
+                        "internal error: a found proof doesn't fit",
+                        "here",
+                    ));
+                }
+            }
+        }
+    }
+}
+
+/// A proof of `goal`.
+pub fn prove(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Term> {
+    let goal = force(cx.g(), goal.clone());
+    for level in (0..cx.level()).rev() {
+        let ty = cx.types[level].clone();
+        if attempt(cx, |cx| cx.unify(&ty, &goal).then_some(())).is_some() {
+            return Ok(Term::Var(cx.level() - 1 - level));
+        }
+    }
+    let decision = decide(cx, &goal, depth)?;
+    let shown = cx.show(&goal);
+    match force(cx.g(), cx.eval(&decision)) {
+        Value::Ctor(_, 0, _) => {
+            // `fromYes [p := goal] decision Trivial`
+            let from_yes = def_named(cx, "fromYes")?;
+            let (unit, trivial) = ctor_named(cx, "Trivial")?;
+            let goal_term = cx.quote(&goal);
+            Ok(Term::app(
+                Term::app(
+                    Term::app_icit(Term::Def(from_yes), goal_term, Icit::Implicit),
+                    decision,
+                ),
+                Term::Ctor(unit, trivial, Vec::new()),
+            ))
+        }
+        Value::Ctor(_, _, _) => Err(cx.error(
+            "E-AUTO-FALSE",
+            format!("`{shown}` is false"),
+            "this needs a proof that can't exist",
+        )),
+        _ => Err(cx
+            .error(
+                "E-AUTO-STUCK",
+                format!("can't decide `{shown}` here"),
+                "it depends on values that aren't known until the program runs",
+            )
+            .with_note("establish it first, with `if h : … then … else …`")),
+    }
+}
+
+/// A term of type `Decidable prop`, from the decision procedures in scope.
+pub fn decide(cx: &mut Ctx, prop: &Value, depth: usize) -> Result<Term> {
+    let decidable = decidable(cx)?;
+    if depth <= MAX_DEPTH {
+        for id in decision_procedures(cx, decidable) {
+            if let Some(term) = attempt(cx, |cx| instantiate(cx, id, decidable, prop, depth)) {
+                return Ok(term);
+            }
+        }
+    }
+    let shown = cx.show(prop);
+    Err(cx
+        .error(
+            "E-AUTO-NONE",
+            format!("no way to decide `{shown}`"),
+            "the compiler needs a proof of this",
+        )
+        .with_note("supply a proof by name, or write a decision procedure: a function returning `Decidable …`"))
+}
+
+/// Runs `f`, undoing any metavariable solutions it made if it fails.
+fn attempt<T>(cx: &mut Ctx, f: impl FnOnce(&mut Ctx) -> Option<T>) -> Option<T> {
+    let snapshot = cx.g().metas.borrow().clone();
+    let result = f(cx);
+    if result.is_none() {
+        *cx.g().metas.borrow_mut() = snapshot;
+    }
+    result
+}
+
+fn decidable(cx: &Ctx) -> Result<DataId> {
+    Ok(ctor_named(cx, "Yes")?.0)
+}
+
+/// Definitions whose result type is `Decidable …`, in declaration order.
+fn decision_procedures(cx: &Ctx, decidable: DataId) -> Vec<DefId> {
+    let g = cx.g();
+    (0..g.defs.len())
+        .map(DefId)
+        .filter(|id| {
+            let def = g.def(*id);
+            if def.body.is_none() {
+                return false; // not finished checking (e.g. the one being defined)
+            }
+            let mut ty = def.ty_value.clone();
+            let mut level = 0;
+            while let Value::Pi(_, _, _, cod) = &ty {
+                ty = cod.apply(g, Value::var(level));
+                level += 1;
+            }
+            matches!(ty, Value::Data(d, _) if d == decidable)
+        })
+        .collect()
+}
+
+/// Applies decision procedure `id` to fresh unknowns, unifies its result with
+/// `Decidable prop`, and fills in what's left: `Decidable` arguments by
+/// recursive search, auto arguments by proof search.
+fn instantiate(
+    cx: &mut Ctx,
+    id: DefId,
+    decidable: DataId,
+    prop: &Value,
+    depth: usize,
+) -> Option<Term> {
+    let g = cx.g();
+    let mut term = Term::Def(id);
+    let mut ty = g.def(id).ty_value.clone();
+    let mut args = Vec::new();
+    while let Value::Pi(_, icit, dom, cod) = force(g, ty.clone()) {
+        let meta = cx.fresh_meta();
+        let value = cx.eval(&meta);
+        args.push((value.clone(), icit, (*dom).clone()));
+        term = Term::app_icit(term, meta, icit);
+        ty = cod.apply(g, value);
+    }
+    if !cx.unify(&ty, &Value::Data(decidable, vec![prop.clone()])) {
+        return None;
+    }
+    for (value, icit, dom) in args {
+        if !matches!(force(g, value.clone()), Value::Neutral(Head::Meta(_), _)) {
+            continue;
+        }
+        let found = match force(g, dom) {
+            Value::Data(d, params) if d == decidable => decide(cx, &params[0], depth + 1).ok()?,
+            dom if icit == Icit::Auto => prove(cx, &dom, depth + 1).ok()?,
+            _ => return None,
+        };
+        let found = cx.eval(&found);
+        if !cx.unify(&value, &found) {
+            return None;
+        }
+    }
+    Some(term)
+}

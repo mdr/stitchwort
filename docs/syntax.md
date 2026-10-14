@@ -1,6 +1,6 @@
 # Surface syntax (implemented subset)
 
-**Status:** describes `crates/syntax` as of 14 October 2026. DESIGN.md §4 shows the intended language. Not yet implemented: `[auto …]`, records, abilities, tests, `let`, `if`, and a `case` expression.
+**Status:** describes `crates/syntax` as of 15 October 2026. DESIGN.md §4 shows the intended language. Not yet implemented: records, abilities, tests, `let`, a `case` expression, and nested patterns.
 
 ## Layout
 
@@ -42,7 +42,22 @@ total Nil         = 0
 total (Cons x xs) = x + total xs
 ```
 
-Patterns are variables, `_`, `0`, or a constructor applied to variables and `_`, one level deep.
+Definitions may be named in either case: `length`, or `Not` for a function returning a type.
+
+Patterns are variables, `_`, `0`, a constructor applied to variables and `_` (one level deep), or `()`. `()` says the argument's type has no values, and an equation using it has no right-hand side:
+
+```
+absurd : Void -> a
+absurd ()
+```
+
+Implicit and auto parameters are in scope by name in every equation, wherever they appear in the signature:
+
+```
+get : (xs : List a) -> (i : Nat) -> [auto ok : i < length xs] -> a
+get Nil i = absurd (falseNotTrue ok)    -- ok : i < 0, which computes to False = True
+…
+```
 
 ## Expressions
 
@@ -53,9 +68,14 @@ Loosest-binding first:
 | `\x y -> e` | Function |
 | `(x y : A) -> B` | Dependent function type |
 | `[x y : A] -> B` | Function type with implicit parameters, filled in by the compiler |
+| `[auto x : P] -> B` | An implicit proof of `P`, found from hypotheses in scope or a decision procedure |
+| `if c then a else b` | On a `Bool` |
+| `if h : P then a else b` | Decides `P` (at runtime if need be). `h : P` in `a`, `h : Not P` in `b` |
 | `A -> B` | Function type |
-| `a = b` | Equality (a proposition) |
-| `a + b` | `add a b` (on `Nat`) |
+| `a = b`, `a != b` | Equality and inequality (propositions). Not associative |
+| `a < b`, `a <= b` | Comparisons on `Nat` (propositions, decided by computation) |
+| `a + b`, `a - b` | Addition, and subtraction stopping at zero. Left-associative |
+| `a * b`, `a / b`, `a % b` | Bind tighter than `+`. `/` and `%` need a proof that `b != 0` |
 | `f a b` | Application |
 | `f [x := e]` | Supplying the implicit parameter `x` by name |
 | `_` | A hole the compiler fills in |

@@ -70,15 +70,28 @@ impl Printer<'_> {
                 let name = self.g.data(*d).ctors[*c].name.to_string();
                 self.applied(names, name, args.iter())
             }
+            // `p -> Void` is how `Not p` computes; print it the way it's written.
+            Term::Pi(_, Icit::Explicit, a, b)
+                if !b.mentions(0)
+                    && matches!(b.strip_loc(), Term::Data(d, _) if data_named(self.g, *d, "Void")) =>
+            {
+                if let Term::Eq(_, lhs, rhs) = a.strip_loc() {
+                    let lhs = self.print(names, lhs, Prec::Add);
+                    let rhs = self.print(names, rhs, Prec::Add);
+                    return (format!("{lhs} != {rhs}"), Prec::Eq);
+                }
+                self.applied(names, "Not".into(), [&**a].into_iter())
+            }
             Term::Pi(x, icit, a, b) => {
                 let dom = self.print(names, a, Prec::Eq);
                 let uses = b.mentions(0);
                 names.push(x.clone());
                 let cod = self.print(names, b, Prec::Arrow);
                 names.pop();
-                if *icit == Icit::Implicit {
+                if icit.is_implicit() {
                     let dom = self.print(names, a, Prec::Arrow);
-                    (format!("[{x} : {dom}] -> {cod}"), Prec::Arrow)
+                    let auto = if *icit == Icit::Auto { "auto " } else { "" };
+                    (format!("[{auto}{x} : {dom}] -> {cod}"), Prec::Arrow)
                 } else if uses {
                     let dom = self.print(names, a, Prec::Arrow);
                     (format!("({x} : {dom}) -> {cod}"), Prec::Arrow)

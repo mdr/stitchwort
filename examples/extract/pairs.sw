@@ -23,11 +23,7 @@ zipSum Nil         ys          = Nil
 zipSum (Cons x xs) Nil         = Nil
 zipSum (Cons x xs) (Cons y ys) = Cons (x + y) (zipSum xs ys)
 
-pred : Nat -> Nat
-pred Zero     = Zero
-pred (Succ k) = k
-
--- A nested match on a field.
+-- Applies the prelude's `pred` to each element.
 export
 predecessors : List Nat -> List Nat
 predecessors Nil         = Nil

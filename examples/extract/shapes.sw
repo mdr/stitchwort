@@ -10,14 +10,10 @@ type Shape : Type =
   | Square (side : Nat)
   | Rect (width : Nat) (height : Nat)
 
-mul : Nat -> Nat -> Nat
-mul Zero     n = 0
-mul (Succ m) n = n + mul m n
-
 export
 area : Shape -> Nat
-area (Square s) = mul s s
-area (Rect w h) = mul w h
+area (Square s) = s * s
+area (Rect w h) = w * h
 
 export
 areas : List Shape -> List Nat

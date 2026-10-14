@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-NOT-A-TYPE] Error: expected a type
+   ╭─[ reject/if-proof-on-bool.sw:4:17 ]
+   │
+ 4 │ pick b = if h : b then 1 else 2
+   │                 ┬  
+   │                 ╰── this has type `Bool`, so it isn't a type
+   │ 
+   │ Note: `if h : P` needs a proposition `P`; for a `Bool`, write `if c then … else …`
+───╯

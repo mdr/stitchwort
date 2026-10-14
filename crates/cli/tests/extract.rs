@@ -230,6 +230,7 @@ impl Rng {
 fn random_value(g: &Globals, b: &Boundary, rng: &mut Rng, depth: usize) -> Value {
     let named = |name: &str| -> DataId { g.find_data(name).expect("prelude type") };
     match b {
+        Boundary::Bool => Value::Ctor(named("Bool"), rng.below(2), vec![]),
         Boundary::Nat => (0..rng.below(8)).fold(Value::Ctor(named("Nat"), 0, vec![]), |n, _| {
             Value::Ctor(named("Nat"), 1, vec![n])
         }),

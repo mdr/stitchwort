@@ -54,13 +54,22 @@ impl Sort {
     }
 }
 
-/// Whether a function parameter is explicit `(x : A)` or implicit `[x : A]`.
-/// Implicit arguments are filled in by the elaborator. The kernel only checks
-/// that functions and applications agree.
+/// Whether a function parameter is explicit `(x : A)`, implicit `[x : A]`, or
+/// an implicit proof found automatically, `[auto x : P]`. Implicit and auto
+/// arguments are filled in by the elaborator. The kernel only checks that
+/// functions and applications agree.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Icit {
     Explicit,
     Implicit,
+    Auto,
+}
+
+impl Icit {
+    /// Implicit or auto: filled in by the compiler.
+    pub fn is_implicit(self) -> bool {
+        self != Icit::Explicit
+    }
 }
 
 /// Variables are de Bruijn indices: `Var(0)` is the nearest enclosing binder.

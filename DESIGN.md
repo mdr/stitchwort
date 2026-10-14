@@ -906,7 +906,7 @@ Each rejected example is paired with a nearby example that must be **accepted**,
 
 ## 14. Implementation
 
-**Current state:** milestones 1 and 2, implicit arguments from milestone 3 (but not yet `auto`), and a first slice of milestone 4 are implemented. The elaborator and kernel are separate, as principle 4 requires. [`docs/core.md`](docs/core.md) gives the core rules as implemented, including where the implementation still differs from this document. [`docs/syntax.md`](docs/syntax.md) describes the implemented syntax.
+**Current state:** milestones 1–3, and a first slice of milestone 4, are implemented. The elaborator and kernel are separate, as principle 4 requires. [`docs/core.md`](docs/core.md) gives the core rules as implemented, including where the implementation still differs from this document. [`docs/syntax.md`](docs/syntax.md) describes the implemented syntax.
 
 Written in **Rust**. The compiler itself compiles to **WASM** for the browser playground.
 

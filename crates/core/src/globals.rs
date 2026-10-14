@@ -43,6 +43,7 @@ pub struct Ctor {
 
 /// A metavariable created by the elaborator. Solutions are closed values
 /// (functions of the variables in scope where the metavariable was created).
+#[derive(Clone)]
 pub struct Meta {
     pub solution: Option<Value>,
     /// Where it was created, for "can't work out" errors.

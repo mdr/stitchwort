@@ -95,9 +95,24 @@ fn walk(
             walk(e, body, bound, false, uses);
             bound.truncate(before);
         }
-        Expr::Eq(a, b) | Expr::Add(a, b) => {
+        Expr::Binary(_, a, b) => {
             walk(e, a, bound, false, uses);
             walk(e, b, bound, false, uses);
+        }
+        Expr::If {
+            binder,
+            cond,
+            then,
+            otherwise,
+            ..
+        } => {
+            // With a binder, the condition is a proposition: a type position.
+            walk(e, cond, bound, binder.is_some(), uses);
+            let before = bound.len();
+            bound.extend(binder.iter().map(|n| n.text.clone()));
+            walk(e, then, bound, false, uses);
+            walk(e, otherwise, bound, false, uses);
+            bound.truncate(before);
         }
         Expr::Ann(x, ty, _) => {
             walk(e, x, bound, false, uses);

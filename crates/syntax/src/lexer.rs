@@ -27,6 +27,18 @@ pub enum Tok {
     Backslash,
     Pipe,
     Plus,
+    Minus,
+    Star,
+    Slash,
+    Percent,
+    /// `!=`
+    NotEq,
+    Lt,
+    /// `<=`
+    Le,
+    KwIf,
+    KwThen,
+    KwElse,
     Underscore,
 }
 
@@ -87,6 +99,9 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
                 "type" => Tok::KwType,
                 "theorem" => Tok::KwTheorem,
                 "export" => Tok::KwExport,
+                "if" => Tok::KwIf,
+                "then" => Tok::KwThen,
+                "else" => Tok::KwElse,
                 "Type" => Tok::TypeU,
                 "Prop" => Tok::Prop,
                 _ if c.is_ascii_uppercase() => Tok::Upper(word.to_string()),
@@ -130,6 +145,19 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
                     i += 1;
                     Tok::Arrow
                 }
+                b'-' => Tok::Minus,
+                b'*' => Tok::Star,
+                b'/' => Tok::Slash,
+                b'%' => Tok::Percent,
+                b'!' if bytes.get(i) == Some(&b'=') => {
+                    i += 1;
+                    Tok::NotEq
+                }
+                b'<' if bytes.get(i) == Some(&b'=') => {
+                    i += 1;
+                    Tok::Le
+                }
+                b'<' => Tok::Lt,
                 _ => {
                     return Err(error(
                         file,
@@ -171,7 +199,9 @@ mod tests {
     #[test]
     fn distinguishes_keywords_names_and_symbols() {
         assert_eq!(
-            tokens("type Type x Xs _ _y x' := : = -> [ ] ( ) , | + \\ 42"),
+            tokens(
+                "type Type x Xs _ _y x' := : = -> [ ] ( ) , | + \\ 42 - * / % != < <= if then else"
+            ),
             Ok(vec![
                 Tok::KwType,
                 Tok::TypeU,
@@ -193,6 +223,16 @@ mod tests {
                 Tok::Plus,
                 Tok::Backslash,
                 Tok::Num(42),
+                Tok::Minus,
+                Tok::Star,
+                Tok::Slash,
+                Tok::Percent,
+                Tok::NotEq,
+                Tok::Lt,
+                Tok::Le,
+                Tok::KwIf,
+                Tok::KwThen,
+                Tok::KwElse,
             ])
         );
     }
@@ -223,6 +263,7 @@ mod tests {
         assert_eq!(tokens("\tx"), Err("E-PARSE"));
         assert_eq!(tokens("a ∧ b"), Err("E-PARSE"));
         assert_eq!(tokens("a ; b"), Err("E-PARSE"));
+        assert_eq!(tokens("a ! b"), Err("E-PARSE"));
         assert_eq!(tokens("99999999999999999999999"), Err("E-PARSE"));
     }
 }

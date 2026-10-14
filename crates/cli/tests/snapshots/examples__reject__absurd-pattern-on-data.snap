@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-NOT-EMPTY] Error: `Nat` has values, so this argument can't be `()`
+   ╭─[ reject/absurd-pattern-on-data.sw:4:7 ]
+   │
+ 4 │ wrong ()
+   │       ─┬  
+   │        ╰── `Nat` has values, so this argument can't be `()`
+───╯

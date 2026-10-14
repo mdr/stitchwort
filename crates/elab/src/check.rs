@@ -6,7 +6,7 @@ use std::rc::Rc;
 
 use stitchwort_core::value::{Closure, Head, apply, eval, force, quote};
 use stitchwort_core::{DataId, Globals, Icit, Name, Sort, Term, Value, pretty};
-use stitchwort_syntax::ast::{Expr, Name as AstName};
+use stitchwort_syntax::ast::{BinOp, Expr, Name as AstName};
 use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::unify::unify;
@@ -41,6 +41,24 @@ impl<'e> Ctx<'e> {
             env: Vec::new(),
             types: Vec::new(),
             names: Vec::new(),
+            scope: Vec::new(),
+            span,
+        }
+    }
+
+    /// A context with the given variables in scope (none of them by name).
+    pub fn from_parts(
+        e: &'e Elaborator,
+        env: Vec<Value>,
+        types: Vec<Value>,
+        names: Vec<Name>,
+        span: Span,
+    ) -> Self {
+        Ctx {
+            e,
+            env,
+            types,
+            names,
             scope: Vec::new(),
             span,
         }
@@ -214,14 +232,15 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
         Expr::Pi {
             names,
             implicit,
+            auto,
             dom,
             cod,
             ..
         } => {
-            let icit = if *implicit {
-                Icit::Implicit
-            } else {
-                Icit::Explicit
+            let icit = match (implicit, auto) {
+                (_, true) => Icit::Auto,
+                (true, false) => Icit::Implicit,
+                (false, false) => Icit::Explicit,
             };
             let (dom, s1) = check_type(cx, dom)?;
             let mark = cx.mark();
@@ -255,26 +274,41 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
                 Value::Sort(Sort::pi(s1, s2)),
             ))
         }
-        Expr::Eq(a, b) => {
-            let (a, b, ty) = match infer(cx, a).map(|(t, ty)| insert(cx, t, ty)) {
-                Ok((a, ty)) => (a, check(cx, b, &ty)?, ty),
-                Err(e) if e.code == "E-CANNOT-INFER" => {
-                    let (b, ty) = infer(cx, b)?;
-                    let (b, ty) = insert(cx, b, ty);
-                    (check(cx, a, &ty)?, b, ty)
-                }
-                Err(e) => return Err(e),
-            };
-            let ty = cx.quote(&ty);
-            Ok((
-                Term::Eq(Some(Rc::new(ty)), Rc::new(a), Rc::new(b)),
-                Value::Sort(Sort::Prop),
-            ))
+        Expr::Binary(BinOp::Eq, a, b) => Ok((equation(cx, a, b)?, Value::Sort(Sort::Prop))),
+        Expr::Binary(BinOp::Ne, a, b) => {
+            // `a != b` means `Not (a = b)`.
+            let not = def_named(cx, "Not")?;
+            let eq = equation(cx, a, b)?;
+            Ok((Term::app(Term::Def(not), eq), Value::Sort(Sort::Prop)))
         }
-        Expr::Add(a, b) => {
-            let add = def_named(cx, "add")?;
-            let head = (Term::Def(add), g.def(add).ty_value.clone());
-            apply_args(cx, head, &[Arg::Explicit(a), Arg::Explicit(b)])
+        Expr::Binary(op, a, b) => {
+            let name = match op {
+                BinOp::Lt => "LessThan",
+                BinOp::Le => "LessEq",
+                BinOp::Add => "add",
+                BinOp::Sub => "sub",
+                BinOp::Mul => "mul",
+                BinOp::Div => "div",
+                BinOp::Mod => "mod",
+                BinOp::Eq | BinOp::Ne => unreachable!("handled above"),
+            };
+            let id = def_named(cx, name)?;
+            let head = (Term::Def(id), g.def(id).ty_value.clone());
+            let (term, ty) = apply_args(cx, head, &[Arg::Explicit(a), Arg::Explicit(b)])?;
+            // `/` and `%` take an automatic proof that the divisor isn't zero.
+            Ok(insert(cx, term, ty))
+        }
+        Expr::If {
+            binder,
+            cond,
+            then,
+            otherwise,
+            ..
+        } => {
+            let ty = cx.fresh_meta();
+            let ty = cx.eval(&ty);
+            let term = check_if(cx, binder.as_ref(), cond, then, otherwise, &ty)?;
+            Ok((term, ty))
         }
         Expr::Ann(e, ty, _) => {
             let (ty, _) = check_type(cx, ty)?;
@@ -415,12 +449,12 @@ fn apply_args(cx: &mut Ctx, head: (Term, Value), args: &[Arg]) -> Result<(Term, 
         match arg {
             Arg::Named(name, value) => {
                 (term, ty) = insert_until(cx, term, ty, name)?;
-                let Value::Pi(_, Icit::Implicit, dom, cod) = force(cx.g(), ty.clone()) else {
+                let Value::Pi(_, icit, dom, cod) = force(cx.g(), ty.clone()) else {
                     unreachable!("insert_until stops at the named implicit parameter");
                 };
                 let value = check(cx, value, &dom)?;
                 let v = cx.eval(&value);
-                term = Term::app_icit(term, value, Icit::Implicit);
+                term = Term::app_icit(term, value, icit);
                 ty = cod.apply(cx.g(), v);
             }
             Arg::Explicit(value) => {
@@ -471,15 +505,34 @@ fn apply_args(cx: &mut Ctx, head: (Term, Value), args: &[Arg]) -> Result<(Term, 
     Ok((term, ty))
 }
 
-/// Applies `term` to fresh metavariables for each leading implicit parameter.
+/// Applies `term` to a fresh metavariable for each leading implicit or auto
+/// parameter. An auto argument is also recorded as an obligation, to be proved
+/// once the declaration has been elaborated (see `auto.rs`).
 pub fn insert(cx: &mut Ctx, mut term: Term, mut ty: Value) -> (Term, Value) {
-    while let Value::Pi(_, Icit::Implicit, _, cod) = force(cx.g(), ty.clone()) {
-        let meta = cx.fresh_meta();
+    while let Value::Pi(_, icit, dom, cod) = force(cx.g(), ty.clone())
+        && icit.is_implicit()
+    {
+        let meta = implicit_arg(cx, icit, &dom);
         let value = cx.eval(&meta);
-        term = Term::app_icit(term, meta, Icit::Implicit);
+        term = Term::app_icit(term, meta, icit);
         ty = cod.apply(cx.g(), value);
     }
     (term, ty)
+}
+
+fn implicit_arg(cx: &mut Ctx, icit: Icit, ty: &Value) -> Term {
+    let meta = cx.fresh_meta();
+    if icit == Icit::Auto {
+        cx.e.obligations.borrow_mut().push(crate::auto::Obligation {
+            env: cx.env.clone(),
+            types: cx.types.clone(),
+            names: cx.names.clone(),
+            goal: ty.clone(),
+            meta: meta.clone(),
+            span: cx.span,
+        });
+    }
+    meta
 }
 
 /// Inserts implicit arguments up to the implicit parameter called `name`.
@@ -491,11 +544,13 @@ fn insert_until(
 ) -> Result<(Term, Value)> {
     loop {
         match force(cx.g(), ty.clone()) {
-            Value::Pi(x, Icit::Implicit, _, _) if *x == *name.text => return Ok((term, ty)),
-            Value::Pi(_, Icit::Implicit, _, cod) => {
-                let meta = cx.fresh_meta();
+            Value::Pi(x, icit, _, _) if icit.is_implicit() && *x == *name.text => {
+                return Ok((term, ty));
+            }
+            Value::Pi(_, icit, dom, cod) if icit.is_implicit() => {
+                let meta = implicit_arg(cx, icit, &dom);
                 let value = cx.eval(&meta);
-                term = Term::app_icit(term, meta, Icit::Implicit);
+                term = Term::app_icit(term, meta, icit);
                 ty = cod.apply(cx.g(), value);
             }
             _ => {
@@ -523,14 +578,24 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     match (expr, &expected) {
         (Expr::Hole(_), _) => Ok(cx.fresh_meta()),
         // Implicit parameters are introduced automatically.
-        (_, Value::Pi(x, Icit::Implicit, dom, cod)) => {
+        (_, Value::Pi(x, icit, dom, cod)) if icit.is_implicit() => {
             let mark = cx.mark();
             let var = Value::var(cx.level());
             cx.bind_hidden(x.clone(), (**dom).clone());
             let result = check(cx, expr, &cod.apply(g, var));
             cx.reset(mark);
-            Ok(Term::Lam(x.clone(), Icit::Implicit, Rc::new(result?)))
+            Ok(Term::Lam(x.clone(), *icit, Rc::new(result?)))
         }
+        (
+            Expr::If {
+                binder,
+                cond,
+                then,
+                otherwise,
+                ..
+            },
+            _,
+        ) => check_if(cx, binder.as_ref(), cond, then, otherwise, &expected),
         (Expr::Lam(names, body, span), Value::Pi(_, Icit::Explicit, dom, cod)) => {
             let (first, rest) = names.split_first().expect("lambdas have parameters");
             let mark = cx.mark();
@@ -613,6 +678,87 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
             }
         }
         _ => fallback(cx, expr, &expected),
+    }
+}
+
+/// `a = b`, with the type of both sides inferred from either one.
+fn equation(cx: &mut Ctx, a: &Expr, b: &Expr) -> Result<Term> {
+    let (a, b, ty) = match infer(cx, a).map(|(t, ty)| insert(cx, t, ty)) {
+        Ok((a, ty)) => (a, check(cx, b, &ty)?, ty),
+        Err(e) if e.code == "E-CANNOT-INFER" => {
+            let (b, ty) = infer(cx, b)?;
+            let (b, ty) = insert(cx, b, ty);
+            (check(cx, a, &ty)?, b, ty)
+        }
+        Err(e) => return Err(e),
+    };
+    let ty = cx.quote(&ty);
+    Ok(Term::Eq(Some(Rc::new(ty)), Rc::new(a), Rc::new(b)))
+}
+
+/// `if c then a else b` is `ifThenElse c (\_ -> a) (\_ -> b)`, and
+/// `if h : P then a else b` is `elimDec (decision for P) (\h -> a) (\h -> b)`.
+/// The branches are functions so only the chosen one is evaluated.
+fn check_if(
+    cx: &mut Ctx,
+    binder: Option<&AstName>,
+    cond: &Expr,
+    then: &Expr,
+    otherwise: &Expr,
+    expected: &Value,
+) -> Result<Term> {
+    let result_ty = cx.quote(expected);
+    let branch = |cx: &mut Ctx, name: &str, ty: Value, body: &Expr| -> Result<Term> {
+        let mark = cx.mark();
+        cx.bind(name, ty);
+        let result = check(cx, body, expected);
+        cx.reset(mark);
+        Ok(Term::Lam(name.into(), Icit::Explicit, Rc::new(result?)))
+    };
+    match binder {
+        None => {
+            let (bool_data, _) = ctor_named(cx, "True")?;
+            let (unit_data, _) = ctor_named(cx, "Trivial")?;
+            let cond = check(cx, cond, &Value::Data(bool_data, Vec::new()))?;
+            let unit = Value::Data(unit_data, Vec::new());
+            let then = branch(cx, "_", unit.clone(), then)?;
+            let otherwise = branch(cx, "_", unit, otherwise)?;
+            let ite = def_named(cx, "ifThenElse")?;
+            let head = Term::app_icit(Term::Def(ite), result_ty, Icit::Implicit);
+            Ok(Term::app(Term::app(Term::app(head, cond), then), otherwise))
+        }
+        Some(h) => {
+            let (prop, sort) = check_type(cx, cond).map_err(|e| {
+                if e.code == "E-NOT-A-TYPE" {
+                    e.with_note("`if h : P` needs a proposition `P`; for a `Bool`, write `if c then … else …`")
+                } else {
+                    e
+                }
+            })?;
+            if sort != Sort::Prop {
+                return Err(cx.error(
+                    "E-TYPE-MISMATCH",
+                    "`if h : …` needs a proposition",
+                    "this is a type of data; use `if c then … else …` for a `Bool`",
+                ));
+            }
+            let prop_value = cx.eval(&prop);
+            let decision = crate::auto::decide(cx, &prop_value, 0)?;
+            let not = def_named(cx, "Not")?;
+            let not_prop = cx.eval(&Term::app(Term::Def(not), prop.clone()));
+            let then = branch(cx, &h.text, prop_value, then)?;
+            let otherwise = branch(cx, &h.text, not_prop, otherwise)?;
+            let elim = def_named(cx, "elimDec")?;
+            let head = Term::app_icit(
+                Term::app_icit(Term::Def(elim), prop, Icit::Implicit),
+                result_ty,
+                Icit::Implicit,
+            );
+            Ok(Term::app(
+                Term::app(Term::app(head, decision), then),
+                otherwise,
+            ))
+        }
     }
 }
 
@@ -863,7 +1009,7 @@ fn nat(cx: &Ctx) -> Result<(DataId, usize, usize)> {
     Ok((d, zero, succ))
 }
 
-fn ctor_named(cx: &Ctx, name: &str) -> Result<(DataId, usize)> {
+pub fn ctor_named(cx: &Ctx, name: &str) -> Result<(DataId, usize)> {
     match cx.e.names.get(name) {
         Some((Global::Ctor(d, c), _)) => Ok((*d, *c)),
         _ => Err(cx.error(
@@ -874,7 +1020,7 @@ fn ctor_named(cx: &Ctx, name: &str) -> Result<(DataId, usize)> {
     }
 }
 
-fn def_named(cx: &Ctx, name: &str) -> Result<stitchwort_core::DefId> {
+pub fn def_named(cx: &Ctx, name: &str) -> Result<stitchwort_core::DefId> {
     match cx.e.names.get(name) {
         Some((Global::Def(id), _)) => Ok(*id),
         _ => Err(cx.error(

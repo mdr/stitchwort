@@ -19,6 +19,14 @@ const dec_Nat = (x, path) => {
 };
 const enc_Nat = (v) => v;
 
+const dec_Bool = (x, path) => {
+  if (typeof x !== "boolean") {
+    throw new StitchwortInputError(`${path}: expected a boolean`);
+  }
+  return x ? { tag: "True" } : { tag: "False" };
+};
+const enc_Bool = (v) => v.tag === "True";
+
 // Decoding reads `length` and each element exactly once, into a fresh list.
 const dec_List = (dec) => (x, path) => {
   if (!Array.isArray(x)) {
@@ -70,31 +78,13 @@ const $add = (v0) => (v1) => {
     return ($add(v2)(v1) + 1n);
   }
 };
-const $length = (v1) => {
-  switch (v1.tag) {
-    case "Nil": {
-      return 0n;
-    }
-    case "Cons": {
-      const v2 = v1.head;
-      const v3 = v1.tail;
-      return ($length(v3) + 1n);
-    }
+const $pred = (v0) => {
+  if (v0 === 0n) {
+    return 0n;
+  } else {
+    const v1 = v0 - 1n;
+    return v1;
   }
-  throw new Error("unreachable");
-};
-const $append = (v1) => (v2) => {
-  switch (v1.tag) {
-    case "Nil": {
-      return v2;
-    }
-    case "Cons": {
-      const v3 = v1.head;
-      const v4 = v1.tail;
-      return { tag: "Cons", head: v3, tail: $append(v4)(v2) };
-    }
-  }
-  throw new Error("unreachable");
 };
 const $first = (v0) => {
   switch (v0.tag) {
@@ -138,14 +128,6 @@ const $zipSum = (v0) => (v1) => {
     }
   }
   throw new Error("unreachable");
-};
-const $pred = (v0) => {
-  if (v0 === 0n) {
-    return 0n;
-  } else {
-    const v1 = v0 - 1n;
-    return v1;
-  }
 };
 const $predecessors = (v0) => {
   switch (v0.tag) {

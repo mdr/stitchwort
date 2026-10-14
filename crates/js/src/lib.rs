@@ -19,6 +19,8 @@ use stitchwort_syntax::Diagnostic;
 pub enum Boundary {
     /// `bigint`, non-negative.
     Nat,
+    /// `boolean`.
+    Bool,
     /// `readonly T[]`.
     List(Box<Boundary>),
     /// A tagged object union.
@@ -95,6 +97,7 @@ fn boundary(g: &Globals, ty: &Value, visiting: &mut HashSet<DataId>) -> Result<B
             let data = g.data(*d);
             match (&*data.name, params.as_slice()) {
                 ("Nat", []) => Ok(Boundary::Nat),
+                ("Bool", []) => Ok(Boundary::Bool),
                 ("List", [elem]) => Ok(Boundary::List(Box::new(boundary(g, elem, visiting)?))),
                 (_, []) if data.sort != Sort::Prop => {
                     if !visiting.insert(*d) {
@@ -183,7 +186,9 @@ pub fn generate(g: &Globals) -> Result<Output, Diagnostic> {
         js.push_str(&codegen.codecs(d));
     }
     js.push('\n');
-    for id in (0..g.defs.len()).map(DefId) {
+    // Only what the exports use, in declaration order (which is dependency order).
+    let used = reachable(g, exports.iter().map(|sig| sig.id));
+    for id in (0..g.defs.len()).map(DefId).filter(|id| used[id.0]) {
         js.push_str(&codegen.def(id));
     }
     for sig in &exports {
@@ -215,7 +220,7 @@ pub fn generate(g: &Globals) -> Result<Output, Diagnostic> {
 
 fn collect_datas(g: &Globals, b: &Boundary, out: &mut Vec<DataId>) {
     match b {
-        Boundary::Nat => {}
+        Boundary::Nat | Boundary::Bool => {}
         Boundary::List(elem) => collect_datas(g, elem, out),
         Boundary::Data(d) => {
             if out.contains(d) {
@@ -248,6 +253,14 @@ const dec_Nat = (x, path) => {
   return x;
 };
 const enc_Nat = (v) => v;
+
+const dec_Bool = (x, path) => {
+  if (typeof x !== "boolean") {
+    throw new StitchwortInputError(`${path}: expected a boolean`);
+  }
+  return x ? { tag: "True" } : { tag: "False" };
+};
+const enc_Bool = (v) => v.tag === "True";
 
 // Decoding reads `length` and each element exactly once, into a fresh list.
 const dec_List = (dec) => (x, path) => {
@@ -322,7 +335,9 @@ impl<'g> Gen<'g> {
         let rhs = if matches!(tree, Term::Case(..)) {
             let block = self.tree(tree, &mut env, 1);
             if params.is_empty() {
-                format!("(() => {{\n{block}}})()")
+                // No runtime parameters, but a case on an erased proof (like
+                // `absurd`): a function, so it only runs when it's used.
+                format!("() => {{\n{block}}}")
             } else {
                 format!("{{\n{block}}}")
             }
@@ -465,12 +480,28 @@ impl<'g> Gen<'g> {
             return "undefined".into();
         }
         let mut out = def_name(&self.g.def(id).name);
+        if self.is_thunk(id) {
+            out.push_str("()");
+        }
         for (i, arg) in args.iter().enumerate() {
             if !mask.get(i).copied().unwrap_or(false) {
                 let _ = write!(out, "({})", self.expr(arg, env));
             }
         }
         out
+    }
+
+    /// A definition with a case tree but no runtime parameters is compiled to
+    /// a function of no arguments (see [`Gen::def`]).
+    fn is_thunk(&self, id: DefId) -> bool {
+        let def = self.g.def(id);
+        let (erased, mask) = &self.erased[id.0];
+        !erased
+            && mask.iter().all(|e| *e)
+            && def
+                .body
+                .as_ref()
+                .is_some_and(|b| matches!(b.peel_lams(def.arity), Term::Case(..)))
     }
 
     fn wrapper(&self, sig: &ExportSig) -> String {
@@ -488,6 +519,7 @@ impl<'g> Gen<'g> {
     fn decoder(&self, b: &Boundary) -> String {
         match b {
             Boundary::Nat => "dec_Nat".into(),
+            Boundary::Bool => "dec_Bool".into(),
             Boundary::List(elem) => format!("dec_List({})", self.decoder(elem)),
             Boundary::Data(d) => format!("dec_{}", self.g.data(*d).name),
         }
@@ -496,6 +528,7 @@ impl<'g> Gen<'g> {
     fn encoder(&self, b: &Boundary) -> String {
         match b {
             Boundary::Nat => "enc_Nat".into(),
+            Boundary::Bool => "enc_Bool".into(),
             Boundary::List(elem) => format!("enc_List({})", self.encoder(elem)),
             Boundary::Data(d) => format!("enc_{}", self.g.data(*d).name),
         }
@@ -546,6 +579,7 @@ impl<'g> Gen<'g> {
     fn ts_type(&self, b: &Boundary, readonly: bool) -> String {
         match b {
             Boundary::Nat => "bigint".into(),
+            Boundary::Bool => "boolean".into(),
             Boundary::List(elem) if readonly => format!("readonly {}[]", self.ts_type(elem, true)),
             Boundary::List(elem) => format!("{}[]", self.ts_type(elem, false)),
             Boundary::Data(d) => self.g.data(*d).name.to_string(),
@@ -589,6 +623,46 @@ fn lam_names(body: Option<&Term>) -> Vec<stitchwort_core::Name> {
     names
 }
 
+/// Which definitions the given ones use, directly or indirectly.
+fn reachable(g: &Globals, roots: impl IntoIterator<Item = DefId>) -> Vec<bool> {
+    fn visit(term: &Term, found: &mut Vec<DefId>) {
+        match term {
+            Term::Def(id) => found.push(*id),
+            Term::Var(_) | Term::Sort(_) | Term::Refl | Term::Meta(_) => {}
+            Term::Data(_, args) | Term::Ctor(_, _, args) => {
+                args.iter().for_each(|a| visit(a, found))
+            }
+            Term::Pi(_, _, a, b) | Term::App(a, b, _) | Term::Ann(a, b) => {
+                visit(a, found);
+                visit(b, found);
+            }
+            Term::Lam(_, _, b) | Term::Loc(_, b) => visit(b, found),
+            Term::Case(_, _, branches) => branches.iter().for_each(|b| visit(&b.body, found)),
+            Term::Eq(t, a, b) => {
+                t.iter().for_each(|t| visit(t, found));
+                visit(a, found);
+                visit(b, found);
+            }
+            Term::J(m, b, p) => {
+                visit(m, found);
+                visit(b, found);
+                visit(p, found);
+            }
+        }
+    }
+    let mut used = vec![false; g.defs.len()];
+    let mut stack: Vec<DefId> = roots.into_iter().collect();
+    while let Some(id) = stack.pop() {
+        if std::mem::replace(&mut used[id.0], true) {
+            continue;
+        }
+        if let Some(body) = &g.def(id).body {
+            visit(body, &mut stack);
+        }
+    }
+    used
+}
+
 fn var(level: usize) -> String {
     format!("v{level}")
 }
@@ -614,6 +688,7 @@ fn is_js_identifier(name: &str) -> bool {
 pub fn boundary_literal(g: &Globals, b: &Boundary, value: &Value) -> Result<String, String> {
     let stuck = || format!("not a fully evaluated value: {value:?}");
     match (b, value) {
+        (Boundary::Bool, Value::Ctor(_, c, _)) => Ok((*c == 1).to_string()),
         (Boundary::Nat, _) => {
             let mut n: u64 = 0;
             let mut v = value;

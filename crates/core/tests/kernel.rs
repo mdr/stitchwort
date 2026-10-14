@@ -977,3 +977,51 @@ fn rejects_a_constructor_of_a_parameterised_type_where_another_type_is_expected(
     let nil = Term::Ctor(p.list, 0, vec![]);
     assert_eq!(define(&mut p.g, "x", nat, nil), Err("E-TYPE-MISMATCH"));
 }
+
+#[test]
+fn auto_parameters_must_agree_like_other_implicitness() {
+    let mut p = Prelude::new();
+    let ty = Term::Pi(
+        "n".into(),
+        Icit::Auto,
+        Rc::new(p.nat_ty()),
+        Rc::new(p.nat_ty()),
+    );
+    let f = define(
+        &mut p.g,
+        "f",
+        ty.clone(),
+        Term::Lam("n".into(), Icit::Auto, Rc::new(v(0))),
+    )
+    .expect("matching auto lambda checks");
+    assert_eq!(
+        define(&mut p.g, "g", ty, ilam("n", v(0))),
+        Err("E-TYPE-MISMATCH"),
+        "an implicit lambda isn't an auto one"
+    );
+    let implicit_call = Term::App(Rc::new(Term::Def(f)), Rc::new(p.num(1)), Icit::Implicit);
+    assert_eq!(infer_code(&p.g, &implicit_call), "E-NOT-A-FUNCTION");
+    let auto_call = Term::App(Rc::new(Term::Def(f)), Rc::new(p.num(1)), Icit::Auto);
+    assert_eq!(infer_code(&p.g, &auto_call), "ok");
+}
+
+#[test]
+fn matching_refines_the_types_of_later_variables() {
+    let mut p = Prelude::new();
+    let nat = p.nat_ty();
+    // (n : Nat) -> n = 0 -> Nat, matching on n: in the `Zero` branch the proof
+    // has type `0 = 0`, so it can be returned where that's expected.
+    let ty = pi(
+        "n",
+        nat.clone(),
+        arrow(eq(None, v(0), p.num(0)), eq(None, p.num(0), p.num(0))),
+    );
+    let body = lam(
+        "n",
+        lam(
+            "h",
+            case(1, p.nat, vec![(vec![], v(0)), (vec!["k"], Term::Refl)]),
+        ),
+    );
+    assert_eq!(define(&mut p.g, "refined", ty, body).err(), None);
+}

@@ -463,11 +463,14 @@ fn check_case(
         let fields: Vec<Value> = (0..ctor.fields.len())
             .map(|i| Value::var(base + i))
             .collect();
-        // Inside the branch, the matched variable *is* the constructor value.
+        // Inside the branch, the matched variable *is* the constructor value,
+        // so the goal and the types of later variables are refined with it.
         let mut env = cx.env.clone();
         env[x] = Value::Ctor(d, c, fields.clone());
         let branch_goal = eval(g, &env, &goal_term);
+        let refined_types = refine_types(cx, x, &env);
         let saved_env = std::mem::replace(&mut cx.env, env);
+        let saved_types = std::mem::replace(&mut cx.types, refined_types);
 
         let mut field_env = params.clone();
         for ((_, field_ty), (name, field)) in
@@ -480,12 +483,29 @@ fn check_case(
         let result = check(cx, &branch.body, &branch_goal);
         cx.unbind(ctor.fields.len());
         cx.env = saved_env;
+        cx.types = saved_types;
         out.push(Branch {
             names: branch.names.clone(),
             body: result?,
         });
     }
     Ok(Term::Case(ix, d, out.into()))
+}
+
+/// The context's types, with every variable after `x` re-evaluated in `env`
+/// (where `x` has been replaced by a constructor value).
+pub fn refine_types(cx: &Ctx, x: usize, env: &[Value]) -> Vec<Value> {
+    cx.types
+        .iter()
+        .enumerate()
+        .map(|(level, ty)| {
+            if level > x {
+                eval(cx.g, env, &cx.quote(ty))
+            } else {
+                ty.clone()
+            }
+        })
+        .collect()
 }
 
 /// Infers the type of a closed term.

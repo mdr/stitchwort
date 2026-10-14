@@ -126,3 +126,14 @@ fn hides_implicit_arguments() {
     assert_eq!(show(&p, &[], &call), "add 1");
     assert_eq!(show(&p, &[], &Term::Meta(4)), "?4");
 }
+
+#[test]
+fn prints_negations_the_way_they_are_written() {
+    let mut p = Prelude::new();
+    let void = data(&mut p.g, "Void", vec![], Sort::Prop);
+    stitchwort_core::check::define_ctors(&mut p.g, void, vec![]).expect("Void");
+    let not_equal = arrow(eq(None, v(0), p.num(0)), Term::Data(void, vec![]));
+    assert_eq!(show(&p, &["d"], &not_equal), "d != 0");
+    let not_prop = arrow(prop(), Term::Data(void, vec![]));
+    assert_eq!(show(&p, &[], &not_prop), "Not Prop");
+}

@@ -6,10 +6,12 @@
 //! (`stitchwort-core`), so a bug here can cause a confusing error but can't
 //! make the kernel accept something false.
 
+mod auto;
 mod autobind;
 mod check;
 mod unify;
 
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -40,6 +42,8 @@ enum Global {
 pub struct Elaborator {
     pub globals: Globals,
     names: HashMap<String, (Global, Span)>,
+    /// Auto arguments still to be proved in the current declaration.
+    obligations: RefCell<Vec<auto::Obligation>>,
 }
 
 /// A pattern that matches a constructor.
@@ -55,15 +59,20 @@ struct CtorPattern<'p> {
 struct Row<'a> {
     pats: Vec<&'a Pattern>,
     aliases: Vec<(&'a str, usize)>,
-    rhs: &'a Expr,
+    /// `None` for an equation with an absurd pattern `()`.
+    rhs: Option<&'a Expr>,
+    span: Span,
 }
 
 /// A compiled pattern match, before its right-hand sides are checked.
 enum Tree<'a> {
     Leaf {
         aliases: Vec<(&'a str, usize)>,
-        rhs: &'a Expr,
+        rhs: Option<&'a Expr>,
+        span: Span,
     },
+    /// The variable at `level` has a type with no values.
+    Absurd { level: usize, span: Span },
     Case {
         /// The level of the variable being matched.
         level: usize,
@@ -157,11 +166,13 @@ impl Elaborator {
 
     fn clear_metas(&self) {
         self.globals.metas.borrow_mut().clear();
+        self.obligations.borrow_mut().clear();
     }
 
-    /// Substitutes metavariable solutions into `term`, failing if any are
-    /// unsolved.
+    /// Proves outstanding auto arguments, then substitutes metavariable
+    /// solutions into `term`, failing if any are unsolved.
     fn finish(&self, term: &Term, level: usize) -> Result<Term> {
+        self.solve_obligations()?;
         unify::zonk(&self.globals, level, term).map_err(|m| {
             let span = self.globals.metas.borrow()[m].span;
             Diagnostic::error("E-UNSOLVED", "can't work out an implicit argument")
@@ -331,7 +342,7 @@ impl Elaborator {
 
     fn body(&self, id: DefId, def_name: &ast::Name, equations: &[Decl]) -> Result<Term> {
         let g = &self.globals;
-        let equations: Vec<(&Vec<Pattern>, &Expr, Span)> = equations
+        let equations: Vec<(&Vec<Pattern>, Option<&Expr>, Span)> = equations
             .iter()
             .map(|eq| match eq {
                 Decl::Equation {
@@ -339,7 +350,7 @@ impl Elaborator {
                     rhs,
                     span,
                     ..
-                } => (patterns, rhs, *span),
+                } => (patterns, rhs.as_ref(), *span),
                 _ => unreachable!(),
             })
             .collect();
@@ -366,17 +377,20 @@ impl Elaborator {
         let span = first_span.to(equations.last().expect("non-empty").2);
 
         // Bind the parameters: implicit ones by their names in the signature,
-        // explicit ones to be matched by the patterns.
+        // explicit ones to be matched by the patterns. Implicit parameters after
+        // the last pattern are bound too, so they can be used by name.
         let mut cx = Ctx::new(self, span);
         let mut lams: Vec<(Name, Icit)> = Vec::new();
         let mut columns = Vec::new();
         let mut ty = g.def(id).ty_value.clone();
         loop {
             match force(g, ty.clone()) {
-                Value::Pi(x, Icit::Implicit, dom, cod) if columns.len() < arity || arity == 0 => {
+                // Implicit and auto parameters are in scope by name, wherever
+                // they are in the signature.
+                Value::Pi(x, icit, dom, cod) if icit.is_implicit() => {
                     let var = Value::var(cx.level());
                     cx.bind(&x, (*dom).clone());
-                    lams.push((x, Icit::Implicit));
+                    lams.push((x, icit));
                     ty = cod.apply(g, var);
                 }
                 Value::Pi(x, Icit::Explicit, dom, cod) if columns.len() < arity => {
@@ -416,14 +430,16 @@ impl Elaborator {
             Tree::Leaf {
                 aliases: Vec::new(),
                 rhs: first_rhs,
+                span: first_span,
             }
         } else {
             let rows: Vec<Row> = equations
                 .iter()
-                .map(|&(patterns, rhs, _)| Row {
+                .map(|&(patterns, rhs, span)| Row {
                     pats: patterns.iter().collect(),
                     aliases: Vec::new(),
                     rhs,
+                    span,
                 })
                 .collect();
             self.compile(&rows, cx.level(), &columns, span)?
@@ -446,6 +462,16 @@ impl Elaborator {
         span: Span,
     ) -> Result<Tree<'a>> {
         let first = &rows[0];
+        if let Some(j) = first
+            .pats
+            .iter()
+            .position(|p| matches!(p, Pattern::Absurd(_)))
+        {
+            return Ok(Tree::Absurd {
+                level: columns[j],
+                span: first.pats[j].span(),
+            });
+        }
         let mut split = None;
         for (j, pattern) in first.pats.iter().enumerate() {
             if let Some(ctor) = self.pattern_ctor(pattern)? {
@@ -464,6 +490,7 @@ impl Elaborator {
             return Ok(Tree::Leaf {
                 aliases,
                 rhs: first.rhs,
+                span: first.span,
             });
         };
 
@@ -551,6 +578,7 @@ impl Elaborator {
                         .collect(),
                     aliases,
                     rhs: row.rhs,
+                    span: row.span,
                 });
             }
             if branch_rows.is_empty() {
@@ -583,7 +611,7 @@ impl Elaborator {
     /// The constructor `pattern` matches, if any.
     fn pattern_ctor<'p>(&self, pattern: &'p Pattern) -> Result<Option<CtorPattern<'p>>> {
         match pattern {
-            Pattern::Var(_) | Pattern::Wildcard(_) => Ok(None),
+            Pattern::Var(_) | Pattern::Wildcard(_) | Pattern::Absurd(_) => Ok(None),
             Pattern::Num(0, span) => {
                 let (d, c) = self.ctor_named("Zero", *span)?;
                 Ok(Some(CtorPattern {
@@ -632,7 +660,14 @@ impl Elaborator {
 /// branch (the kernel does the same when it re-checks the result).
 fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
     match tree {
-        Tree::Leaf { aliases, rhs } => {
+        Tree::Leaf { aliases, rhs, span } => {
+            let Some(rhs) = rhs else {
+                return Err(error(
+                    "E-ARITY",
+                    *span,
+                    "this equation needs `= …`: only an equation with a `()` pattern can leave it out",
+                ));
+            };
             let mark = cx.mark();
             for (x, level) in aliases {
                 cx.alias(x, *level);
@@ -641,6 +676,20 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
             cx.reset(mark);
             result
         }
+        Tree::Absurd { level, span } => match force(cx.g(), cx.types[*level].clone()) {
+            Value::Data(d, _) if cx.g().data(d).ctors.is_empty() => Ok(Term::Loc(
+                *span,
+                Rc::new(Term::Case(cx.level() - 1 - level, d, Vec::new().into())),
+            )),
+            other => Err(error(
+                "E-NOT-EMPTY",
+                *span,
+                format!(
+                    "`{}` has values, so this argument can't be `()`",
+                    cx.show(&other)
+                ),
+            )),
+        },
         Tree::Case {
             level: x,
             data: d,
@@ -671,11 +720,26 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                 let fields: Vec<Value> = (0..ctor.fields.len())
                     .map(|i| Value::var(base + i))
                     .collect();
-                // Inside the branch, the matched variable *is* the constructor value.
+                // Inside the branch, the matched variable *is* the constructor
+                // value, so the goal and the types of later variables are
+                // refined with it (as the kernel does).
                 let mut env = cx.env.clone();
                 env[*x] = Value::Ctor(*d, c, fields.clone());
                 let branch_goal = eval(g, &env, &goal_term);
+                let refined: Vec<Value> = cx
+                    .types
+                    .iter()
+                    .enumerate()
+                    .map(|(l, ty)| {
+                        if l > *x {
+                            eval(g, &env, &cx.quote(ty))
+                        } else {
+                            ty.clone()
+                        }
+                    })
+                    .collect();
                 let saved_env = std::mem::replace(&mut cx.env, env);
+                let saved_types = std::mem::replace(&mut cx.types, refined);
                 let mut field_env = params.clone();
                 for ((_, field_ty), (name, field)) in
                     ctor.fields.iter().zip(names.iter().zip(&fields))
@@ -687,6 +751,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                 let result = check_tree(cx, subtree, &branch_goal);
                 cx.reset(mark);
                 cx.env = saved_env;
+                cx.types = saved_types;
                 out.push(Branch {
                     names: names.clone(),
                     body: result?,

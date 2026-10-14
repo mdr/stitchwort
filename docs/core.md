@@ -9,7 +9,8 @@ The core is the small, explicit language that every Stitchwort definition is tra
 | DESIGN.md | Implemented now |
 |---|---|
 | A separate trusted kernel re-checks the elaborator's output (principle 4) | **Done.** The elaborator (`crates/elab`) has its own type checker, with metavariables and unification. It produces complete core terms, which the checker in `crates/core` (the kernel) re-checks from scratch. |
-| Implicit arguments, `auto` | Implicit arguments are implemented ([below](#elaboration)). `auto`, `Decidable` and division with non-zero proofs are not yet |
+| Implicit arguments, `auto` | Implemented ([below](#elaboration)). Decision procedures are found by their result type (any function returning `Decidable …`), not registered explicitly |
+| `if` | Both branches are functions, so only the chosen one runs. Branches must produce data (`Type`), not proofs, until universe polymorphism exists |
 | Abilities, `Partial` | None. Every term has the empty effect row, so the effect judgment `t : A ! ε` always has `ε = {}`. Non-terminating definitions are rejected outright. |
 | Tracked assumptions | There's no `assume` yet, so every checked definition is assumption-free |
 | Evaluation budget, "inconclusive" results | Not yet. Evaluation is guaranteed to terminate, but may be slow |
@@ -29,7 +30,7 @@ Variables are de Bruijn indices in terms and de Bruijn levels in values.
 | `Data(D, params)` | A data type applied to all its parameters |
 | `Ctor(D, c, fields)` | Constructor `c` of `D` applied to all its fields. Parameters come from the expected type |
 | `Sort(s)` | `Prop` or `Type i` |
-| `Pi(x, i, A, B)` | `(x : A) -> B`, or `[x : A] -> B` when `i` is implicit |
+| `Pi(x, i, A, B)` | `(x : A) -> B`; with `i` implicit, `[x : A] -> B`; with `i` auto, `[auto x : A] -> B` |
 | `Lam(x, i, b)` | `\x -> b` |
 | `App(f, a, i)` | Application, to an explicit or implicit argument |
 | `Ann(e, T)` | `(e : T)` |
@@ -98,7 +99,8 @@ A declaration `type D (params) : s = | C₁ fields | …`:
 
 1. There must be exactly one branch per constructor, in declaration order (`E-NONEXHAUSTIVE`).
 2. **`Prop` elimination (`E-PROP-ELIM`).** If `D : Prop` and `G`'s universe isn't `Prop`, then `D` must have at most one constructor, and every field of it must be a proof. This is Lean's subsingleton-elimination rule. It's stated over the declaration's fields, not over runtime erasure: a `Type` field is erased but still disqualifies (`HiddenType`). `D` has no indices, so the "or appears in an index" clause from DESIGN.md §6 doesn't arise yet. Equality is built in, and its eliminator `J` is always allowed.
-3. **Goal refinement.** For constructor `c` with fields `f₁ … fₖ`, the branch is checked with the fields in scope, against `G` with `x` replaced by `c f₁ … fₖ`. Inside the branch, `x` also *evaluates* to that constructor value, so its uses compute. Other context entries that mention `x` aren't refined. That's incomplete but sound.
+3. **Refinement.** For constructor `c` with fields `f₁ … fₖ`, the branch is checked with the fields in scope, against `G` with `x` replaced by `c f₁ … fₖ`. Inside the branch, `x` also *evaluates* to that constructor value, so its uses compute, and the types of the variables after `x` are re-evaluated with it. For example, in `fromYes (No r) u`, the hypothesis `u : IsYes d` becomes `u : IsYes (No r)`, which computes to `Void`.
+4. **No constructors.** A case with no branches is how an absurd pattern `()` compiles. It's only accepted when the data type has no constructors, and since such a type is trivially a subsingleton, it may produce anything.
 
 ## Equality
 
@@ -134,10 +136,27 @@ The elaborator (`crates/elab`) checks surface syntax bidirectionally, following 
 - **Pattern unification.** `?m x₁ … xₙ = t` is solved when the `xᵢ` are distinct variables. The solution is `\x₁ … xₙ -> t`. There's an occurs check, so `?m` can't appear in `t`, and a scope check, so `t` may only mention the `xᵢ`. **Pruning:** if `t` contains another metavariable applied to variables outside the `xᵢ`, that metavariable is narrowed so it can't depend on them.
 - **Constructors.** A constructor's data parameters come from the expected type, or from fresh metavariables. An inferred constructor of a parameterised type is wrapped in a type annotation, so the kernel can infer it too.
 - **Zonking.** After a declaration is elaborated, solved metavariables are substituted in. Any left unsolved is an error (`E-UNSOLVED`) at the place it was created.
+- **Auto arguments.** Inserting an `[auto x : P]` argument creates a metavariable and records an obligation. Once the declaration is elaborated, each obligation is proved (`crates/elab/src/auto.rs`):
+  1. a hypothesis in scope whose type unifies with `P`;
+  2. otherwise a **decision procedure**: a definition whose result type is `Decidable …`. Its arguments are found by unifying `Decidable …` with `Decidable P`. Arguments it still needs that are `Decidable` (like `decNot`'s) are found recursively, up to depth 8, and auto arguments by proof search. It's evaluated at compile time:
+     - `Yes` → the proof is `fromYes d Trivial`. The kernel accepts this only if `IsYes d` computes to `Unit`, so it re-checks the decision itself;
+     - `No` → `E-AUTO-FALSE`;
+     - stuck on unknown values → `E-AUTO-STUCK`, with a hint to use `if h : P then … else …`;
+     - no procedure fits → `E-AUTO-NONE`.
+
+  Failed attempts are undone, by restoring the metavariables from a snapshot.
+- **`if`.** `if c then a else b` elaborates to `ifThenElse c (\_ -> a) (\_ -> b)`. `if h : P then a else b` finds a decision procedure for `P` (it must exist, but may be stuck: it runs at runtime) and elaborates to `elimDec d (\h -> a) (\h -> b)`, with `h : P` in `a` and `h : Not P` in `b`.
+- **Operators.** `a != b` is `Not (a = b)`. `<`, `<=`, `+`, `-`, `*`, `/`, `%` are the prelude's `LessThan`, `LessEq`, `add`, `sub`, `mul`, `div`, `mod`. `div` and `mod` take `[auto ok : d != 0]`.
 - **Implicitly bound type variables.** An unknown lowercase name in a signature becomes an implicit parameter at the front if *every* use of it is where a type is expected: the domain or result of a function type, a binder's type, or an argument of a data type whose parameter is a type (`List a`, `Or p q`). Its own type is a metavariable, usually solved to `Type`, which is also the default. Any other use (`length xs` with `xs` unbound) stays an unknown name.
 - **Equations.** Parameters are bound from the signature. Implicit ones are in scope by their signature names. Explicit ones are matched by the equation's patterns, so `length (Cons x xs)` has one pattern while `length` has two parameters.
 
 What the elaborator *doesn't* check is left to the kernel: `Prop` elimination, positivity, universe constraints on fields, and termination. Those errors come from the kernel, with source locations kept from the elaborated term.
+
+## The prelude
+
+`crates/elab/src/prelude.sw` defines everything above that isn't built in: `Void`, `Unit`, `Not`, `absurd`/`exfalso`; `Nat` with `+ - *`, `pred`, `/`, `%`; `Bool` with `not`, `ifThenElse`, `leq`; `<=` and `<` as propositions computed via `leq`; `List`, `length`, `append`; `cong`, `sym`, `trans`; constructor disjointness and injectivity; and `Decidable` with `IsYes`, `fromYes`, `elimDec` and decision procedures for `=` on `Nat`, `<=`, `<`, `Not`, and `b = True`.
+
+Division is defined by structural recursion on fuel (`n` steps is always enough when the divisor isn't zero). Its non-zero precondition is what makes `n / 0` a compile-time error rather than a convention.
 
 ## Erasure and JS extraction
 
@@ -174,4 +193,6 @@ The exportability check, the boundary encodings and the decode → compute → e
 | `E-PROP-ELIM` | Matching on a proof to produce data, where that's not allowed |
 | `E-EXPORT` | Export can't cross the JS boundary |
 | `E-UNSOLVED` | An implicit argument the elaborator couldn't work out |
+| `E-AUTO-FALSE` / `E-AUTO-STUCK` / `E-AUTO-NONE` | An auto argument is false, can't be decided at compile time, or has no decision procedure |
+| `E-NOT-EMPTY` | An absurd pattern `()` for a type that has values |
 | `E-UNSUPPORTED` | Not implemented yet |
