@@ -28,9 +28,16 @@ pub fn render(sources: &SourceMap, diagnostic: &Diagnostic, color: bool) -> Stri
         .with_code(diagnostic.code)
         .with_message(&diagnostic.message);
     // ariadne starts a new excerpt whenever a label comes before the previous one
-    // in the file, so pass labels in source order.
+    // in the file, so pass labels in source order, with the primary label's file
+    // first (ariadne reports the error's position in the first file).
     let mut labels: Vec<_> = diagnostic.labels.iter().collect();
-    labels.sort_by_key(|label| (sources.get(label.span.file).name.as_str(), label.span.start));
+    labels.sort_by_key(|label| {
+        (
+            label.span.file != primary.file,
+            sources.get(label.span.file).name.as_str(),
+            label.span.start,
+        )
+    });
     for label in labels {
         report = report.with_label(
             Label::new((name(label.span), label.span.range())).with_message(&label.message),
@@ -73,6 +80,17 @@ mod tests {
             )
             .with_note("write `Nat -> {Partial} Nat` to allow it");
 
+        insta::assert_snapshot!(render(&sources, &diagnostic, false));
+    }
+
+    #[test]
+    fn reports_the_position_in_the_primary_file() {
+        let mut sources = SourceMap::new();
+        let first = sources.add("a.sw", "length : Nat\n");
+        let second = sources.add("b.sw", "x\nlength : Nat\n");
+        let diagnostic = Diagnostic::error("E-DUPLICATE", "`length` is already defined")
+            .with_label(Span::new(second, 2, 8), "defined again here")
+            .with_label(Span::new(first, 0, 6), "first defined here");
         insta::assert_snapshot!(render(&sources, &diagnostic, false));
     }
 

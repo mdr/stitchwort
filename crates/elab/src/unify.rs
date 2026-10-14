@@ -313,3 +313,328 @@ fn first_meta(term: &Term) -> Option<usize> {
             .or_else(|| first_meta(p)),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use stitchwort_core::{Icit, Sort};
+    use stitchwort_syntax::{SourceMap, Span};
+
+    fn globals() -> Globals {
+        Globals::default()
+    }
+
+    fn span() -> Span {
+        let mut sources = SourceMap::new();
+        Span::point(sources.add("test", ""), 0)
+    }
+
+    /// A fresh metavariable applied to the variables at `levels`.
+    fn meta(g: &Globals, levels: &[usize]) -> (usize, Value) {
+        let m = g.new_meta(span());
+        let spine = levels
+            .iter()
+            .map(|l| Elim::App(Value::var(*l), Icit::Explicit))
+            .collect();
+        (m, Value::Neutral(Head::Meta(m), spine))
+    }
+
+    fn ty() -> Value {
+        Value::Sort(Sort::Type(0))
+    }
+
+    fn eq(a: Value, b: Value) -> Value {
+        Value::Eq(Rc::new(ty()), Rc::new(a), Rc::new(b))
+    }
+
+    fn is_var(g: &Globals, v: &Value, level: usize) -> bool {
+        matches!(force(g, v.clone()), Value::Neutral(Head::Var(l), s) if l == level && s.is_empty())
+    }
+
+    #[test]
+    fn solves_a_pattern() {
+        let g = globals();
+        // ?m x0 x1 = x1, so ?m = \a b -> b
+        let (m, lhs) = meta(&g, &[0, 1]);
+        assert!(unify(&g, 2, &lhs, &Value::var(1)));
+        let solution = g.meta_solution(m).expect("solved");
+        let applied = apply_icit(
+            &g,
+            apply_icit(&g, solution, Value::var(5), Icit::Explicit),
+            Value::var(7),
+            Icit::Explicit,
+        );
+        assert!(is_var(&g, &applied, 7));
+    }
+
+    #[test]
+    fn solves_from_either_side() {
+        let g = globals();
+        let (m, rhs) = meta(&g, &[]);
+        assert!(unify(&g, 0, &ty(), &rhs));
+        assert!(matches!(
+            g.meta_solution(m),
+            Some(Value::Sort(Sort::Type(0)))
+        ));
+    }
+
+    #[test]
+    fn refuses_a_circular_solution() {
+        let g = globals();
+        // ?m x0 = (?m x0 = x0) has no finite solution.
+        let (m, lhs) = meta(&g, &[0]);
+        assert!(!unify(&g, 1, &lhs, &eq(lhs.clone(), Value::var(0))));
+        assert!(g.meta_solution(m).is_none());
+    }
+
+    #[test]
+    fn refuses_a_solution_mentioning_a_variable_out_of_scope() {
+        let g = globals();
+        // ?m only receives x0, so it can't be x1.
+        let (m, lhs) = meta(&g, &[0]);
+        assert!(!unify(&g, 2, &lhs, &Value::var(1)));
+        assert!(g.meta_solution(m).is_none());
+    }
+
+    #[test]
+    fn refuses_a_spine_that_repeats_a_variable() {
+        let g = globals();
+        // ?m x0 x0 = x0 has two solutions (\a b -> a and \a b -> b), so neither is chosen.
+        let (m, lhs) = meta(&g, &[0, 0]);
+        assert!(!unify(&g, 1, &lhs, &Value::var(0)));
+        assert!(g.meta_solution(m).is_none());
+    }
+
+    #[test]
+    fn the_same_metavariable_needs_matching_arguments() {
+        let g = globals();
+        let (_, a) = meta(&g, &[0, 1]);
+        let b = match &a {
+            Value::Neutral(head, _) => Value::Neutral(
+                *head,
+                vec![
+                    Elim::App(Value::var(1), Icit::Explicit),
+                    Elim::App(Value::var(0), Icit::Explicit),
+                ],
+            ),
+            _ => unreachable!(),
+        };
+        assert!(unify(&g, 2, &a, &a.clone()));
+        assert!(!unify(&g, 2, &a, &b));
+    }
+
+    #[test]
+    fn prunes_dependencies_that_a_solution_cannot_have() {
+        let g = globals();
+        // ?a = (?b x0 = Type), where ?a can't depend on x0. Pruning solves
+        // ?b := \_ -> ?c, so the equation has the solution ?a := (?c = Type).
+        let (a, lhs) = meta(&g, &[]);
+        let (b, b_applied) = meta(&g, &[0]);
+        assert!(unify(&g, 1, &lhs, &eq(b_applied.clone(), ty())));
+        assert!(g.meta_solution(a).is_some());
+        assert!(g.meta_solution(b).is_some());
+        match force(&g, b_applied) {
+            Value::Neutral(Head::Meta(c), spine) => {
+                assert_ne!(c, b);
+                assert!(spine.is_empty(), "?c doesn't depend on x0");
+            }
+            other => panic!("expected ?b x0 to reduce to a new metavariable, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn zonk_reports_an_unsolved_metavariable() {
+        let g = globals();
+        let (m, _) = meta(&g, &[]);
+        assert_eq!(zonk(&g, 0, &Term::Meta(m)).err(), Some(m));
+    }
+
+    #[test]
+    fn zonk_substitutes_and_normalises_a_solution() {
+        let g = globals();
+        let (m, lhs) = meta(&g, &[0]);
+        assert!(unify(&g, 1, &lhs, &Value::var(0)));
+        // ?m x0 with ?m = \a -> a zonks to x0.
+        let term = Term::app(Term::Meta(m), Term::Var(0));
+        let zonked = zonk(&g, 1, &term).expect("solved");
+        assert!(matches!(zonked, Term::Var(0)), "{zonked:?}");
+    }
+
+    fn closed(g: &Globals, t: &Term) -> Value {
+        eval(g, &[], t)
+    }
+
+    fn pi(i: Icit, a: Term, b: Term) -> Term {
+        Term::Pi("x".into(), i, Rc::new(a), Rc::new(b))
+    }
+
+    fn lam(b: Term) -> Term {
+        Term::Lam("x".into(), Icit::Explicit, Rc::new(b))
+    }
+
+    fn sort(i: u32) -> Term {
+        Term::Sort(Sort::Type(i))
+    }
+
+    #[test]
+    fn refuses_to_unify_things_that_differ_anywhere() {
+        let g = globals();
+        let refl_eq = |a: Term, b: Term| Term::Eq(Some(Rc::new(sort(1))), Rc::new(a), Rc::new(b));
+        let differ = [
+            (
+                pi(Icit::Explicit, sort(0), sort(0)),
+                pi(Icit::Explicit, sort(1), sort(0)),
+            ),
+            (
+                pi(Icit::Explicit, sort(0), sort(0)),
+                pi(Icit::Explicit, sort(0), sort(1)),
+            ),
+            (
+                pi(Icit::Explicit, sort(0), sort(0)),
+                pi(Icit::Implicit, sort(0), sort(0)),
+            ),
+            (lam(Term::Var(0)), lam(sort(0))),
+            (lam(lam(Term::Var(1))), lam(lam(Term::Var(0)))),
+            (refl_eq(sort(0), sort(0)), refl_eq(sort(1), sort(0))),
+            (refl_eq(sort(0), sort(0)), refl_eq(sort(0), sort(1))),
+            (Term::Refl, sort(0)),
+        ];
+        for (a, b) in &differ {
+            assert!(
+                !unify(&g, 0, &closed(&g, a), &closed(&g, b)),
+                "{a:?} vs {b:?}"
+            );
+            assert!(
+                !unify(&g, 0, &closed(&g, b), &closed(&g, a)),
+                "{b:?} vs {a:?}"
+            );
+            assert!(
+                unify(&g, 0, &closed(&g, a), &closed(&g, a)),
+                "{a:?} vs itself"
+            );
+        }
+        // Eta: `\x -> f x` unifies with `f`, but `\x y -> f y x` doesn't.
+        let f = Value::var(0);
+        let eta = eval(
+            &g,
+            std::slice::from_ref(&f),
+            &lam(Term::app(Term::Var(1), Term::Var(0))),
+        );
+        assert!(unify(&g, 1, &eta, &f));
+        assert!(unify(&g, 1, &f, &eta));
+        let flipped = eval(
+            &g,
+            std::slice::from_ref(&f),
+            &lam(lam(Term::app(
+                Term::app(Term::Var(2), Term::Var(0)),
+                Term::Var(1),
+            ))),
+        );
+        assert!(!unify(&g, 1, &flipped, &f));
+    }
+
+    #[test]
+    fn spines_must_match_in_length_and_elements() {
+        let g = globals();
+        let x = Value::var(0);
+        let applied = |args: Vec<usize>| {
+            Value::Neutral(
+                Head::Var(0),
+                args.into_iter()
+                    .map(|l| Elim::App(Value::var(l), Icit::Explicit))
+                    .collect(),
+            )
+        };
+        assert!(unify(&g, 3, &applied(vec![1, 2]), &applied(vec![1, 2])));
+        assert!(!unify(&g, 3, &applied(vec![1, 2]), &applied(vec![2, 1])));
+        assert!(!unify(&g, 3, &applied(vec![1]), &applied(vec![1, 2])));
+        assert!(!unify(&g, 3, &x, &Value::var(1)));
+        let stuck =
+            |motive: Value| Value::Neutral(Head::Var(0), vec![Elim::J { motive, base: ty() }]);
+        assert!(unify(&g, 1, &stuck(ty()), &stuck(ty())));
+        assert!(!unify(&g, 1, &stuck(ty()), &stuck(Value::Sort(Sort::Prop))));
+    }
+
+    #[test]
+    fn solutions_can_contain_binders() {
+        let g = globals();
+        // ?m x0 = (\y -> x0), so ?m = \a -> \y -> a.
+        let (m, lhs) = meta(&g, &[0]);
+        let rhs = eval(&g, &[Value::var(0)], &lam(Term::Var(1)));
+        assert!(unify(&g, 1, &lhs, &rhs));
+        let solution = g.meta_solution(m).expect("solved");
+        let applied = apply_icit(
+            &g,
+            apply_icit(&g, solution, Value::var(5), Icit::Explicit),
+            Value::var(9),
+            Icit::Explicit,
+        );
+        assert!(is_var(&g, &applied, 5));
+        // ?n x0 = ((y : Type) -> x0), a function type mentioning the argument.
+        let (n, lhs) = meta(&g, &[0]);
+        let rhs = eval(
+            &g,
+            &[Value::var(0)],
+            &pi(Icit::Explicit, sort(0), Term::Var(1)),
+        );
+        assert!(unify(&g, 1, &lhs, &rhs));
+        assert!(g.meta_solution(n).is_some());
+    }
+
+    #[test]
+    fn pruning_keeps_the_arguments_a_solution_may_mention() {
+        let g = globals();
+        // With x0, x1, x2 in scope: ?a x0 x2 = (?b x0 x1 x2 = Type). ?b can't
+        // depend on x1, but it may depend on x0 and x2, in that order.
+        let (_, lhs) = meta(&g, &[0, 2]);
+        let (b, b_applied) = meta(&g, &[0, 1, 2]);
+        assert!(unify(&g, 3, &lhs, &eq(b_applied.clone(), ty())));
+        assert!(g.meta_solution(b).is_some());
+        match force(&g, b_applied) {
+            Value::Neutral(Head::Meta(_), spine) => {
+                let kept: Vec<bool> = spine
+                    .iter()
+                    .map(|e| matches!(e, Elim::App(v, _) if is_var(&g, v, 0)))
+                    .collect();
+                assert_eq!(spine.len(), 2, "x1 was pruned");
+                assert_eq!(kept, vec![true, false], "x0 first, then x2");
+                assert!(matches!(&spine[1], Elim::App(v, _) if is_var(&g, v, 2)));
+            }
+            other => panic!("expected a new metavariable, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn zonk_works_under_binders() {
+        let g = globals();
+        let (m, lhs) = meta(&g, &[]);
+        assert!(unify(&g, 0, &lhs, &ty()));
+        // \x -> ?m, inside a case branch with two fields.
+        let term = lam(Term::Meta(m));
+        assert!(
+            matches!(zonk(&g, 0, &term), Ok(Term::Lam(_, _, body)) if matches!(*body, Term::Sort(_)))
+        );
+        // ?id x0 = x0, used inside a case branch with two fields.
+        let (id, id_applied) = meta(&g, &[0]);
+        assert!(unify(&g, 1, &id_applied, &Value::var(0)));
+        let branch = Term::Case(
+            0,
+            stitchwort_core::DataId(0),
+            vec![stitchwort_core::term::Branch {
+                names: vec!["a".into(), "b".into()],
+                body: Term::app(Term::Meta(id), Term::Var(0)),
+            }]
+            .into(),
+        );
+        match zonk(&g, 1, &branch) {
+            Ok(Term::Case(_, _, branches)) => {
+                assert!(
+                    matches!(branches[0].body, Term::Var(0)),
+                    "{:?}",
+                    branches[0].body
+                );
+            }
+            other => panic!("expected a case, got {other:?}"),
+        }
+    }
+}

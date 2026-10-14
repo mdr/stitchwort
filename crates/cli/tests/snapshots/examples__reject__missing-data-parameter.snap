@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-ARITY] Error: `List` needs 1 argument(s)
+   ╭─[ reject/missing-data-parameter.sw:3:8 ]
+   │
+ 3 │ size : List -> Nat
+   │        ──┬─  
+   │          ╰─── here
+───╯

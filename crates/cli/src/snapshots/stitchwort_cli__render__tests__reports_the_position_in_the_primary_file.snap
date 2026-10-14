@@ -1,0 +1,17 @@
+---
+source: crates/cli/src/render.rs
+expression: "render(&sources, &diagnostic, false)"
+---
+[E-DUPLICATE] Error: `length` is already defined
+   ╭─[ b.sw:2:1 ]
+   │
+ 2 │ length : Nat
+   │ ───┬──  
+   │    ╰──── defined again here
+   │
+   ├─[ a.sw:1:1 ]
+   │
+ 1 │ length : Nat
+   │ ───┬──  
+   │    ╰──── first defined here
+───╯

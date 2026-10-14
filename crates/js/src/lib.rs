@@ -140,6 +140,23 @@ fn data_fields(g: &Globals, d: DataId) -> Vec<Vec<(String, Value)>> {
         .collect()
 }
 
+/// For each constructor of a data type that crosses the boundary, its fields'
+/// names and boundary types.
+pub fn field_boundaries(g: &Globals, d: DataId) -> Vec<Vec<(String, Boundary)>> {
+    data_fields(g, d)
+        .into_iter()
+        .map(|fields| {
+            fields
+                .into_iter()
+                .map(|(name, ty)| {
+                    let b = boundary(g, &ty, &mut HashSet::new()).expect("checked by exportable");
+                    (name, b)
+                })
+                .collect()
+        })
+        .collect()
+}
+
 pub struct Output {
     pub js: String,
     pub dts: String,
@@ -485,19 +502,7 @@ impl<'g> Gen<'g> {
     }
 
     fn field_boundaries(&self, d: DataId) -> Vec<Vec<(String, Boundary)>> {
-        data_fields(self.g, d)
-            .into_iter()
-            .map(|fields| {
-                fields
-                    .into_iter()
-                    .map(|(name, ty)| {
-                        let b = boundary(self.g, &ty, &mut HashSet::new())
-                            .expect("checked by exportable");
-                        (name, b)
-                    })
-                    .collect()
-            })
-            .collect()
+        field_boundaries(self.g, d)
     }
 
     fn codecs(&self, d: DataId) -> String {
@@ -639,7 +644,7 @@ pub fn boundary_literal(g: &Globals, b: &Boundary, value: &Value) -> Result<Stri
         }
         (Boundary::Data(d), Value::Ctor(_, c, fields)) => {
             let ctor = &g.data(*d).ctors[*c];
-            let boundaries = &Gen::new(g).field_boundaries(*d)[*c];
+            let boundaries = &field_boundaries(g, *d)[*c];
             let mut parts = vec![format!("tag: \"{}\"", ctor.name)];
             for ((name, b), field) in boundaries.iter().zip(fields) {
                 parts.push(format!(
@@ -651,5 +656,20 @@ pub fn boundary_literal(g: &Globals, b: &Boundary, value: &Value) -> Result<Stri
             Ok(format!("{{ {} }}", parts.join(", ")))
         }
         _ => Err(stuck()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_js_identifier;
+
+    #[test]
+    fn recognises_javascript_identifiers() {
+        for ok in ["f", "appendNats", "_private", "$x", "x1", "a_b$c"] {
+            assert!(is_js_identifier(ok), "{ok}");
+        }
+        for bad in ["", "1x", "x'", "x-y", "x y", "é"] {
+            assert!(!is_js_identifier(bad), "{bad}");
+        }
     }
 }

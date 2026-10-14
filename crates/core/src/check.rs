@@ -115,15 +115,24 @@ pub fn infer(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
             let (inner, ty) = result?;
             Ok((Term::Loc(*span, Rc::new(inner)), ty))
         }
-        Term::Var(ix) => Ok((term.clone(), cx.types[cx.level() - 1 - ix].clone())),
-        Term::Def(id) => Ok((term.clone(), g.def(*id).ty_value.clone())),
+        Term::Var(ix) if *ix < cx.level() => {
+            Ok((term.clone(), cx.types[cx.level() - 1 - ix].clone()))
+        }
+        Term::Var(ix) => Err(malformed(cx, format!("variable {ix} is out of scope"))),
+        Term::Def(id) => match g.defs.get(id.0) {
+            Some(def) => Ok((term.clone(), def.ty_value.clone())),
+            None => Err(malformed(cx, "reference to an unknown definition")),
+        },
         Term::Data(d, args) => {
-            let data = g.data(*d);
-            assert_eq!(
-                args.len(),
-                data.params.len(),
-                "internal error: unsaturated data type"
-            );
+            let Some(data) = g.datas.get(d.0) else {
+                return Err(malformed(cx, "reference to an unknown data type"));
+            };
+            if args.len() != data.params.len() {
+                return Err(malformed(
+                    cx,
+                    format!("`{}` needs {} parameter(s)", data.name, data.params.len()),
+                ));
+            }
             let mut params = Vec::new();
             let mut out = Vec::new();
             for ((_, param_ty), arg) in data.params.iter().zip(args) {
@@ -198,11 +207,11 @@ pub fn infer(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
         }
         Term::J(motive, base, proof) => infer_j(cx, motive, base, proof),
         // A constructor of a data type without parameters has only one possible type.
-        Term::Ctor(d, _, _) if g.data(*d).params.is_empty() => {
+        Term::Ctor(d, _, _) if g.datas.get(d.0).is_some_and(|d| d.params.is_empty()) => {
             let ty = Value::Data(*d, Vec::new());
             Ok((check(cx, term, &ty)?, ty))
         }
-        Term::Meta(_) => panic!("internal error: the kernel was given an unsolved metavariable"),
+        Term::Meta(_) => Err(malformed(cx, "unsolved metavariable")),
         Term::Lam(..) | Term::Ctor(..) | Term::Refl | Term::Case(..) => Err(cx.error(
             "E-CANNOT-INFER",
             "can't work out the type of this",
@@ -235,13 +244,17 @@ pub fn check(cx: &mut Ctx, term: &Term, expected: &Value) -> Result<Term> {
                 cx.show(expected)
             ),
         )),
+        (Term::Ctor(d, c, _), _) if g.datas.get(d.0).and_then(|d| d.ctors.get(*c)).is_none() => {
+            Err(malformed(cx, "reference to an unknown constructor"))
+        }
         (Term::Ctor(d, c, args), Value::Data(d2, params)) if d == d2 => {
             let ctor = &g.data(*d).ctors[*c];
-            assert_eq!(
-                args.len(),
-                ctor.fields.len(),
-                "internal error: unsaturated constructor"
-            );
+            if args.len() != ctor.fields.len() {
+                return Err(malformed(
+                    cx,
+                    format!("`{}` needs {} field(s)", ctor.name, ctor.fields.len()),
+                ));
+            }
             let mut env = params.clone();
             let mut out = Vec::new();
             for ((_, field_ty), arg) in ctor.fields.iter().zip(args) {
@@ -375,8 +388,13 @@ fn check_case(
     goal: &Value,
 ) -> Result<Term> {
     let g = cx.g;
+    if ix >= cx.level() {
+        return Err(malformed(cx, format!("variable {ix} is out of scope")));
+    }
     let x = cx.level() - 1 - ix;
-    let data = g.data(d);
+    let Some(data) = g.datas.get(d.0) else {
+        return Err(malformed(cx, "reference to an unknown data type"));
+    };
     let params = match &cx.types[x] {
         Value::Data(d2, params) if *d2 == d => params.clone(),
         other => {
@@ -419,6 +437,23 @@ fn check_case(
                     data.name
                 )));
         }
+    }
+
+    if let Some((ctor, branch)) = data
+        .ctors
+        .iter()
+        .zip(branches)
+        .find(|(ctor, branch)| ctor.fields.len() != branch.names.len())
+    {
+        return Err(malformed(
+            cx,
+            format!(
+                "the `{}` branch binds {} field(s), but it has {}",
+                ctor.name,
+                branch.names.len(),
+                ctor.fields.len()
+            ),
+        ));
     }
 
     let goal_term = cx.quote(goal);
@@ -466,7 +501,14 @@ pub fn infer_closed(g: &Globals, term: &Term, span: Span) -> Result<(Term, Value
 pub fn define_def(g: &mut Globals, id: DefId, body: &Term) -> Result<()> {
     let def = g.def(id);
     let (name, span, ty_value) = (def.name.clone(), def.span, def.ty_value.clone());
-    let body = check(&mut Ctx::new(g, span), body, &ty_value)?;
+    let mut cx = Ctx::new(g, span);
+    if !case_only_in_tree(body.peel_lams(body.count_lams()), true) {
+        return Err(malformed(
+            &cx,
+            "`case` may only appear at the top of a definition",
+        ));
+    }
+    let body = check(&mut cx, body, &ty_value)?;
     termination::check(&body, id, &name, span)?;
     let def = &mut g.defs[id.0];
     def.arity = body.count_lams();
@@ -484,6 +526,12 @@ pub fn declare_def(
     span: Span,
 ) -> Result<DefId> {
     let mut cx = Ctx::new(g, span);
+    if !case_only_in_tree(ty, false) {
+        return Err(malformed(
+            &cx,
+            "`case` may only appear at the top of a definition",
+        ));
+    }
     let (ty, sort) = check_type(&mut cx, ty)?;
     if theorem && sort != Sort::Prop {
         let ty_value = cx.eval(&ty);
@@ -560,6 +608,12 @@ pub fn define_ctors(g: &mut Globals, d: DataId, ctors: Vec<CtorDecl>) -> Result<
         let mut field_erased = Vec::new();
         for (x, ty, span) in ctor.fields {
             cx.span = span;
+            if !case_only_in_tree(&ty, false) {
+                return Err(malformed(
+                    &cx,
+                    "`case` may only appear at the top of a definition",
+                ));
+            }
             let (ty, sort) = check_type(&mut cx, &ty)?;
             if !sort.fits_in(data.sort) {
                 return Err(cx.error(
@@ -601,6 +655,31 @@ pub fn define_ctors(g: &mut Globals, d: DataId, ctors: Vec<CtorDecl>) -> Result<
     }
     g.datas[d.0].ctors = out;
     Ok(())
+}
+
+/// An error for a term no correct elaborator would produce.
+fn malformed(cx: &Ctx, message: impl Into<String>) -> Diagnostic {
+    cx.error("E-MALFORMED", "malformed core term", message)
+        .with_note("this is a bug in the compiler, not in your program")
+}
+
+/// Whether `case` appears only in case-tree positions: at the top of a
+/// definition's body (`in_tree`), and at the top of each branch. Evaluation
+/// relies on this.
+fn case_only_in_tree(term: &Term, in_tree: bool) -> bool {
+    let no_case = |t: &Term| case_only_in_tree(t, false);
+    match term {
+        Term::Case(_, _, branches) => {
+            in_tree && branches.iter().all(|b| case_only_in_tree(&b.body, true))
+        }
+        Term::Loc(_, t) => case_only_in_tree(t, in_tree),
+        Term::Var(_) | Term::Def(_) | Term::Sort(_) | Term::Refl | Term::Meta(_) => true,
+        Term::Data(_, args) | Term::Ctor(_, _, args) => args.iter().all(no_case),
+        Term::Pi(_, _, a, b) | Term::App(a, b, _) | Term::Ann(a, b) => no_case(a) && no_case(b),
+        Term::Lam(_, _, b) => no_case(b),
+        Term::Eq(t, a, b) => t.as_deref().is_none_or(no_case) && no_case(a) && no_case(b),
+        Term::J(m, b, p) => no_case(m) && no_case(b) && no_case(p),
+    }
 }
 
 /// Strict positivity: the data type `d` may appear in a field's type only as

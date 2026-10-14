@@ -154,3 +154,75 @@ fn error(file: FileId, start: usize, end: usize, message: impl Into<String>) -> 
     Diagnostic::error("E-PARSE", message.clone())
         .with_label(Span::new(file, start as u32, end as u32), message)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::SourceMap;
+
+    fn tokens(text: &str) -> Result<Vec<Tok>, &'static str> {
+        let mut sources = SourceMap::new();
+        let file = sources.add("test.sw", text);
+        lex(file, text)
+            .map(|ts| ts.into_iter().map(|t| t.tok).collect())
+            .map_err(|d| d.code)
+    }
+
+    #[test]
+    fn distinguishes_keywords_names_and_symbols() {
+        assert_eq!(
+            tokens("type Type x Xs _ _y x' := : = -> [ ] ( ) , | + \\ 42"),
+            Ok(vec![
+                Tok::KwType,
+                Tok::TypeU,
+                Tok::Lower("x".into()),
+                Tok::Upper("Xs".into()),
+                Tok::Underscore,
+                Tok::Lower("_y".into()),
+                Tok::Lower("x'".into()),
+                Tok::ColonEq,
+                Tok::Colon,
+                Tok::Equals,
+                Tok::Arrow,
+                Tok::LBracket,
+                Tok::RBracket,
+                Tok::LParen,
+                Tok::RParen,
+                Tok::Comma,
+                Tok::Pipe,
+                Tok::Plus,
+                Tok::Backslash,
+                Tok::Num(42),
+            ])
+        );
+    }
+
+    #[test]
+    fn skips_comments_but_not_arrows() {
+        assert_eq!(
+            tokens("a -- comment -> b\n-> c"),
+            Ok(vec![
+                Tok::Lower("a".into()),
+                Tok::Arrow,
+                Tok::Lower("c".into()),
+            ])
+        );
+    }
+
+    #[test]
+    fn records_columns_for_layout() {
+        let mut sources = SourceMap::new();
+        let text = "f x\n  = y\n";
+        let file = sources.add("test.sw", text);
+        let columns: Vec<u32> = lex(file, text).unwrap().iter().map(|t| t.column).collect();
+        assert_eq!(columns, vec![0, 2, 2, 4]);
+    }
+
+    #[test]
+    fn rejects_tabs_unknown_characters_and_huge_numbers() {
+        assert_eq!(tokens("\tx"), Err("E-PARSE"));
+        assert_eq!(tokens("a ∧ b"), Err("E-PARSE"));
+        assert_eq!(tokens("a ; b"), Err("E-PARSE"));
+        assert_eq!(tokens("99999999999999999999999"), Err("E-PARSE"));
+    }
+}

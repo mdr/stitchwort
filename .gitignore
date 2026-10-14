@@ -4,3 +4,4 @@
 /.stitchwort
 node_modules/
 *.snap.new
+mutants.out*

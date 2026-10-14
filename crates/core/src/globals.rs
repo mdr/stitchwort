@@ -86,8 +86,4 @@ impl Globals {
     pub fn solve_meta(&self, m: usize, solution: Value) {
         self.metas.borrow_mut()[m].solution = Some(solution);
     }
-
-    pub fn find_def(&self, name: &str) -> Option<DefId> {
-        self.defs.iter().position(|d| &*d.name == name).map(DefId)
-    }
 }

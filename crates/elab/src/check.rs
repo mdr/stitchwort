@@ -364,10 +364,37 @@ fn infer_app(cx: &mut Ctx, head: &Expr, args: &[Arg]) -> Result<(Term, Value)> {
         }
         Some((Global::Ctor(d, c), _)) => {
             let explicit = explicit_args(cx, args)?;
+            let missing = g.data(*d).ctors[*c]
+                .fields
+                .len()
+                .saturating_sub(explicit.len());
+            if missing > 0 {
+                // A partially applied constructor is a function; unification
+                // works out its type.
+                let expected = fresh_function_type(cx, missing);
+                let expected = cx.eval(&expected);
+                let (term, ty) = ctor_app(cx, *d, *c, &explicit, Some(&expected))?;
+                let ann = Term::Ann(Rc::new(term), Rc::new(cx.quote(&ty)));
+                return Ok((ann, ty));
+            }
             let (term, ty) = ctor_app(cx, *d, *c, &explicit, None)?;
             Ok((annotate(cx, term, &ty), ty))
         }
     }
+}
+
+/// `?a1 -> … -> ?an -> ?b`, with each type a fresh metavariable.
+fn fresh_function_type(cx: &mut Ctx, arity: usize) -> Term {
+    if arity == 0 {
+        return cx.fresh_meta();
+    }
+    let dom = cx.fresh_meta();
+    let mark = cx.mark();
+    let dom_value = cx.eval(&dom);
+    cx.bind_hidden("x".into(), dom_value);
+    let cod = fresh_function_type(cx, arity - 1);
+    cx.reset(mark);
+    Term::Pi("x".into(), Icit::Explicit, Rc::new(dom), Rc::new(cod))
 }
 
 fn explicit_args<'a>(cx: &Ctx, args: &[Arg<'a>]) -> Result<Vec<&'a Expr>> {
@@ -812,7 +839,7 @@ fn motive_error(cx: &Ctx) -> Diagnostic {
 }
 
 fn numeral(cx: &Ctx, n: u64) -> Result<Term> {
-    const MAX: u64 = 10_000;
+    const MAX: u64 = 200;
     if n > MAX {
         return Err(cx
             .error(

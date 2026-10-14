@@ -13,7 +13,7 @@ The core is the small, explicit language that every Stitchwort definition is tra
 | Abilities, `Partial` | None. Every term has the empty effect row, so the effect judgment `t : A ! ε` always has `ε = {}`. Non-terminating definitions are rejected outright. |
 | Tracked assumptions | There's no `assume` yet, so every checked definition is assumption-free |
 | Evaluation budget, "inconclusive" results | Not yet. Evaluation is guaranteed to terminate, but may be slow |
-| Native numbers | `Nat` is unary in the evaluator (number literals up to 10,000). Extracted JS uses `bigint` |
+| Native numbers | `Nat` is unary in the core, so every `Succ` costs a level of recursion in the compiler. Number literals are limited to 200 to stay within small stacks (test threads, and later WASM). Extracted JS uses `bigint`. A native representation is needed before the playground |
 | Pattern matching | One constructor deep, no nested patterns. No forward references or mutual recursion |
 | Data types | Parameters but no indices. Equality is the only built-in indexed type |
 | Universes | Numbered, no polymorphism, no cumulativity |

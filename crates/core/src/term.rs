@@ -213,3 +213,119 @@ impl Term {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn v(ix: usize) -> Term {
+        Term::Var(ix)
+    }
+
+    fn rc(t: Term) -> Rc<Term> {
+        Rc::new(t)
+    }
+
+    fn lam(body: Term) -> Term {
+        Term::Lam("x".into(), Icit::Explicit, rc(body))
+    }
+
+    fn pi(dom: Term, cod: Term) -> Term {
+        Term::Pi("x".into(), Icit::Explicit, rc(dom), rc(cod))
+    }
+
+    fn data(args: Vec<Term>) -> Term {
+        Term::Data(DataId(0), args)
+    }
+
+    fn case(ix: usize, names: usize, body: Term) -> Term {
+        Term::Case(
+            ix,
+            DataId(0),
+            vec![Branch {
+                names: (0..names).map(|_| "y".into()).collect(),
+                body,
+            }]
+            .into(),
+        )
+    }
+
+    /// Compares terms by their debug output (binder names are all the same here).
+    fn assert_same(actual: Term, expected: Term) {
+        assert_eq!(format!("{actual:?}"), format!("{expected:?}"));
+    }
+
+    #[test]
+    fn shift_moves_only_free_variables() {
+        // \x -> x y, with y free: y moves, x doesn't.
+        assert_same(
+            lam(Term::app(v(0), v(1))).shift(2, 0),
+            lam(Term::app(v(0), v(3))),
+        );
+        // Below the cutoff, nothing moves.
+        assert_same(Term::app(v(0), v(1)).shift(5, 1), Term::app(v(0), v(6)));
+    }
+
+    #[test]
+    fn shift_goes_under_every_binder_and_into_every_child() {
+        // In (x : v0) -> v0 v1, the domain's v0 is free, the codomain's v0 is x.
+        assert_same(
+            pi(v(0), Term::app(v(0), v(1))).shift(1, 0),
+            pi(v(1), Term::app(v(0), v(2))),
+        );
+        // A case binds its fields in its branches, and its scrutinee can move.
+        assert_same(
+            case(1, 2, Term::app(v(1), v(2))).shift(1, 0),
+            case(2, 2, Term::app(v(1), v(3))),
+        );
+        assert_same(case(0, 1, v(0)).shift(1, 1), case(0, 1, v(0)));
+        assert_same(
+            Term::Eq(Some(rc(v(0))), rc(v(1)), rc(v(2))).shift(1, 0),
+            Term::Eq(Some(rc(v(1))), rc(v(2)), rc(v(3))),
+        );
+        assert_same(
+            Term::J(rc(v(0)), rc(v(1)), rc(v(2))).shift(1, 1),
+            Term::J(rc(v(0)), rc(v(2)), rc(v(3))),
+        );
+        assert_same(
+            Term::Ann(
+                rc(data(vec![v(0)])),
+                rc(Term::Ctor(DataId(0), 0, vec![v(1)])),
+            )
+            .shift(3, 0),
+            Term::Ann(
+                rc(data(vec![v(3)])),
+                rc(Term::Ctor(DataId(0), 0, vec![v(4)])),
+            ),
+        );
+    }
+
+    #[test]
+    fn mentions_finds_free_occurrences_only() {
+        assert!(v(0).mentions(0));
+        assert!(!v(1).mentions(0));
+        assert!(lam(v(1)).mentions(0));
+        assert!(!lam(v(0)).mentions(0), "bound by the lambda");
+        assert!(
+            pi(v(0), Term::Sort(Sort::Prop)).mentions(0),
+            "free in the domain"
+        );
+        assert!(
+            !pi(Term::Sort(Sort::Prop), v(0)).mentions(0),
+            "bound in the codomain"
+        );
+        assert!(pi(Term::Sort(Sort::Prop), v(1)).mentions(0));
+        assert!(Term::app(Term::Refl, v(0)).mentions(0));
+        assert!(Term::app(v(0), Term::Refl).mentions(0));
+        assert!(data(vec![Term::Refl, v(0)]).mentions(0));
+        assert!(case(0, 1, Term::Refl).mentions(0), "the scrutinee");
+        assert!(case(1, 2, v(2)).mentions(0), "under the branch's fields");
+        assert!(!case(1, 2, v(1)).mentions(0), "a field, not the variable");
+        assert!(Term::Eq(Some(rc(v(0))), rc(Term::Refl), rc(Term::Refl)).mentions(0));
+        assert!(Term::Eq(None, rc(Term::Refl), rc(v(0))).mentions(0));
+        assert!(Term::J(rc(Term::Refl), rc(Term::Refl), rc(v(0))).mentions(0));
+        assert!(Term::J(rc(Term::Refl), rc(v(0)), rc(Term::Refl)).mentions(0));
+        assert!(Term::Ann(rc(Term::Refl), rc(v(0))).mentions(0));
+        assert!(!Term::Meta(0).mentions(0));
+    }
+}

@@ -37,3 +37,37 @@ plusZeroNat (Succ m) = cong Succ (plusZeroNat m)
 -- `sym` and `trans` from the prelude, with everything implicit.
 theorem twoWays : (n : Nat) -> n + 0 = 0 + n
 twoWays n = trans (plusZeroNat n) (sym rfl)
+
+-- An implicit parameter between two explicit ones: `b` is in scope by name.
+constant : a -> [b : Type] -> b -> a
+constant x y = x
+
+-- A later implicit parameter, supplied by name (`cong` has `a` before `b`).
+theorem succCong : (m : Nat) -> (n : Nat) -> m = n -> Succ m = Succ n
+succCong m n p = cong [b := Nat] Succ p
+
+-- A definition without patterns still has its implicit parameters in scope.
+identity : [a : Type] -> a -> a
+identity = \x -> x
+
+-- A lambda passed where a polymorphic function is expected.
+applyToThree : ([a : Type] -> a -> a) -> Nat
+applyToThree f = f 3
+
+three : Nat
+three = applyToThree (\x -> x)
+
+-- A constructor with both fields missing, used as a function.
+foldr : (a -> b -> b) -> b -> List a -> b
+foldr f z Nil         = z
+foldr f z (Cons x xs) = f x (foldr f z xs)
+
+copy : List Nat -> List Nat
+copy xs = foldr Cons Nil xs
+
+theorem copyWorks : copy [1, 2] = [1, 2]
+copyWorks = rfl
+
+-- The largest number literal allowed (`Nat` is unary for now).
+twoHundred : Nat
+twoHundred = 200

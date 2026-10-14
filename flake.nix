@@ -68,7 +68,11 @@
             // {
               inherit cargoArtifacts;
               INSTA_UPDATE = "no"; # fail on snapshot changes instead of writing .snap.new files
-              nativeCheckInputs = [ pkgs.nodejs_22 ]; # differential tests run extracted JS
+              # Differential tests run extracted JS; generated declarations are type-checked.
+              nativeCheckInputs = [
+                pkgs.nodejs_22
+                pkgs.typescript
+              ];
               meta.mainProgram = "stitchwort";
             }
           );
@@ -97,6 +101,8 @@
             (toolchainFor pkgs)
             pkgs.cargo-insta # snapshot tests for example programs
             pkgs.cargo-watch
+            pkgs.cargo-llvm-cov # test coverage
+            pkgs.cargo-mutants # mutation testing: do the tests notice when code changes?
 
             # Browser playground: Rust -> WASM
             pkgs.wasm-bindgen-cli

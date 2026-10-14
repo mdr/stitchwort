@@ -14,7 +14,7 @@ type List (a : Type) : Type =
   | Nil
   | Cons (head : a) (tail : List a)
 
--- `a` is bound automatically, as an implicit argument: `length : [a : Type] -> …`.
+-- `a` is bound automatically, as an implicit argument: `length : [a : Type] -> ...`.
 length : List a -> Nat
 length Nil         = 0
 length (Cons x xs) = Succ (length xs)

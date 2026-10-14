@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+   ╭─[ reject/function-for-number.sw:3:5 ]
+   │
+ 3 │ x = \y -> y
+   │     ───┬───  
+   │        ╰───── this is a function, but the expected type is `Nat`
+───╯
