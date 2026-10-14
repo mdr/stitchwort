@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REFL] Error: `rfl` can't prove this
+   ╭─[ reject/plus-zero-by-rfl.sw:5:14 ]
+   │
+ 5 │ plusZero n = rfl
+   │              ─┬─  
+   │               ╰─── `n + 0` and `n` aren't equal
+   │ 
+   │ Note: `rfl` proves `a = b` only when both sides compute to the same value
+───╯

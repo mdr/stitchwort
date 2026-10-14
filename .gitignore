@@ -1,0 +1,6 @@
+/target
+/result
+/.direnv
+/.stitchwort
+node_modules/
+*.snap.new

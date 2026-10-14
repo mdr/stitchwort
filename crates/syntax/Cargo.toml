@@ -1,0 +1,9 @@
+[package]
+name = "stitchwort-syntax"
+description = "Lexer, parser, surface AST, source spans and diagnostics"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true

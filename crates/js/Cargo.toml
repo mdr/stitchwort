@@ -1,0 +1,13 @@
+[package]
+name = "stitchwort-js"
+description = "JavaScript extraction: erasure, code generation and the TypeScript boundary"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+stitchwort-syntax.workspace = true
+stitchwort-core.workspace = true
+
+[lints]
+workspace = true

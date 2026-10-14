@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-UNIVERSE] Error: universe mismatch
+   ╭─[ soundness/type-in-type.sw:5:14 ]
+   │
+ 5 │ typeInType = Type
+   │              ──┬─  
+   │                ╰─── expected something of type `Type`, but this has type `Type 1`
+   │ 
+   │ Note: `Type n` lives in `Type (n+1)`; allowing `Type : Type` would make the logic inconsistent
+───╯

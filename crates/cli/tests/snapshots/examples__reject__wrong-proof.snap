@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REFL] Error: `rfl` can't prove this
+   ╭─[ reject/wrong-proof.sw:4:9 ]
+   │
+ 4 │ wrong = rfl
+   │         ─┬─  
+   │          ╰─── `4` and `5` aren't equal
+   │ 
+   │ Note: `rfl` proves `a = b` only when both sides compute to the same value
+───╯

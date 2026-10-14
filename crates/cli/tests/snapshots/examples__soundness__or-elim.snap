@@ -1,0 +1,14 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PROP-ELIM] Error: can't match on a proof of `Or` to produce data
+   ╭─[ soundness/or-elim.sw:8:1 ]
+   │
+ 8 │ ╭─▶ which p q (Inl h) = 0
+ 9 │ ├─▶ which p q (Inr h) = 1
+   │ │                           
+   │ ╰─────────────────────────── the result type `Nat` isn't a proposition
+   │     
+   │     Note: `Or` is a proposition, so its proofs are erased at runtime. Matching on one can only produce data when the proposition has at most one constructor and every field is itself a proof.
+───╯

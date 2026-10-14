@@ -1,0 +1,6 @@
+---
+source: crates/cli/src/render.rs
+expression: "render(&sources, &diagnostic, false)"
+---
+[E-NO-INPUT] Error: no input files
+  note: pass a .sw file

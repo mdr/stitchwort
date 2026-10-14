@@ -1,0 +1,13 @@
+[package]
+name = "stitchwort-elab"
+description = "Elaboration from surface syntax to core terms"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+stitchwort-syntax.workspace = true
+stitchwort-core.workspace = true
+
+[lints]
+workspace = true

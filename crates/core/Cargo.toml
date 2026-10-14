@@ -1,0 +1,12 @@
+[package]
+name = "stitchwort-core"
+description = "Core terms, evaluator and the trusted kernel"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+stitchwort-syntax.workspace = true
+
+[lints]
+workspace = true

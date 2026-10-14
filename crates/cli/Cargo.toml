@@ -1,0 +1,25 @@
+[package]
+name = "stitchwort-cli"
+description = "The `stitchwort` command-line tool"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "stitchwort"
+path = "src/main.rs"
+
+[dependencies]
+stitchwort-syntax.workspace = true
+stitchwort-core.workspace = true
+stitchwort-elab.workspace = true
+stitchwort-js.workspace = true
+ariadne.workspace = true
+clap.workspace = true
+rustyline.workspace = true
+
+[dev-dependencies]
+insta.workspace = true
+
+[lints]
+workspace = true

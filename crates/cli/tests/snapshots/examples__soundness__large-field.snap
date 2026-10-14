@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-UNIVERSE] Error: field `t` is too large for `Box`
+   ╭─[ soundness/large-field.sw:4:16 ]
+   │
+ 4 │   | MkBox (t : Type)
+   │                ──┬─  
+   │                  ╰─── its type is in `Type 1`, but `Box` is in `Type`
+───╯
