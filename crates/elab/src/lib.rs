@@ -147,7 +147,13 @@ impl Elaborator {
         self.clear_metas();
         let (term, ty) = {
             let mut cx = Ctx::new(self, expr.span());
-            let (term, ty) = infer(&mut cx, expr)?;
+            let (mut term, mut ty) = infer(&mut cx, expr)?;
+            // A call gets its trailing implicit and auto arguments too (so
+            // `div 7 2` gets its proof); a bare name like `length` keeps its
+            // polymorphic type.
+            if matches!(expr, Expr::App(..) | Expr::Binary(..)) {
+                (term, ty) = check::insert(&mut cx, term, ty);
+            }
             (term, cx.quote(&ty))
         };
         let term = self.finish(&term, 0)?;
@@ -337,7 +343,53 @@ impl Elaborator {
             .insert(def_name.text.clone(), (Global::Def(id), def_name.span));
         self.clear_metas();
         let body = self.body(id, def_name, equations)?;
-        kernel::define_def(&mut self.globals, id, &body)
+        kernel::define_def(&mut self.globals, id, &body)?;
+        if *export {
+            self.add_validators(id)?;
+        }
+        Ok(())
+    }
+
+    /// For each proof parameter of an export, a decision procedure that the
+    /// extracted JS runs on its inputs (DESIGN.md §12). A proof parameter with
+    /// no decision procedure can't be checked at runtime, so the export is
+    /// refused.
+    fn add_validators(&mut self, id: DefId) -> Result<()> {
+        let Some((Global::Data(decidable), _)) = self.names.get("Decidable").copied() else {
+            return Ok(()); // no prelude
+        };
+        let def = self.globals.def(id);
+        let (name, span) = (def.name.clone(), def.span);
+        let tel = kernel::telescope(&self.globals, &def.ty_value, span);
+        let mut found = Vec::new();
+        for (i, (_, ty, erased)) in tel.params.iter().enumerate() {
+            if !erased || kernel::is_type_former(&self.globals, i, ty) {
+                continue; // runtime data, or a type parameter (refused when exporting)
+            }
+            self.clear_metas();
+            let mut cx = Ctx::from_parts(
+                self,
+                (0..i).map(Value::var).collect(),
+                tel.params[..i].iter().map(|(_, t, _)| t.clone()).collect(),
+                tel.params[..i].iter().map(|(x, _, _)| x.clone()).collect(),
+                span,
+            );
+            let shown = cx.show(ty);
+            let decision = auto::decide(&mut cx, ty, 0).map_err(|_| {
+                Diagnostic::error("E-EXPORT", format!("`{name}` can't be exported"))
+                    .with_label(
+                        span,
+                        format!("its precondition `{shown}` can't be checked at runtime"),
+                    )
+                    .with_note("an exported function's proof arguments need a decision procedure (a function returning `Decidable …`)")
+            })?;
+            found.push((i, self.finish(&decision, i)?));
+        }
+        self.clear_metas();
+        for (i, decision) in found {
+            kernel::add_validator(&mut self.globals, id, i, decidable, &decision)?;
+        }
+        Ok(())
     }
 
     fn body(&self, id: DefId, def_name: &ast::Name, equations: &[Decl]) -> Result<Term> {

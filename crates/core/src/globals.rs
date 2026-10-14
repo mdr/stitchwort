@@ -19,7 +19,17 @@ pub struct Def {
     pub arity: usize,
     pub theorem: bool,
     pub export: bool,
+    /// For an export: how to check each proof parameter at runtime.
+    pub validators: Vec<Validator>,
     pub span: Span,
+}
+
+/// A decision procedure for an exported function's proof parameter `param`,
+/// in the context of the parameters before it. Extracted JS runs it on the
+/// decoded inputs, and rejects them unless it says `Yes`.
+pub struct Validator {
+    pub param: usize,
+    pub decision: Term,
 }
 
 pub struct Data {

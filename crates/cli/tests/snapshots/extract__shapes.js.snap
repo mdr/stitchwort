@@ -134,16 +134,16 @@ const $grow = (v0) => {
 };
 
 export function area(arg0) {
-  const a0 = dec_Shape(arg0, "arg0");
-  return enc_Nat($area(a0));
+  const v0 = dec_Shape(arg0, "arg0");
+  return enc_Nat($area(v0));
 }
 
 export function areas(arg0) {
-  const a0 = dec_List(dec_Shape)(arg0, "arg0");
-  return enc_List(enc_Nat)($areas(a0));
+  const v0 = dec_List(dec_Shape)(arg0, "arg0");
+  return enc_List(enc_Nat)($areas(v0));
 }
 
 export function grow(arg0) {
-  const a0 = dec_Shape(arg0, "arg0");
-  return enc_Shape($grow(a0));
+  const v0 = dec_Shape(arg0, "arg0");
+  return enc_Shape($grow(v0));
 }

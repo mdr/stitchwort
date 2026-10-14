@@ -8,7 +8,7 @@ expression: output
  3 │ ╭─▶ export
  4 │ ├─▶ identity : a -> a
    │ │                       
-   │ ╰─────────────────────── parameter `a` is a type or a proof; only concrete data can cross the JS boundary for now
+   │ ╰─────────────────────── parameter `a` is a type; only concrete data can cross the JS boundary for now
    │     
-   │     Note: for a type parameter, export a version specialised to a concrete type; proof parameters need decision procedures, which aren't implemented yet
+   │     Note: export a version specialised to a concrete type
 ───╯

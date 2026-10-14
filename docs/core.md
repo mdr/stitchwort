@@ -169,7 +169,11 @@ What's erased:
 
 Representations: `Nat` is `bigint` (`Zero` is `0n`, `Succ n` is `n + 1n`, and a case on `Nat` tests `=== 0n`). Other data types are `{ tag, …fields }`, omitting erased fields.
 
-The exportability check, the boundary encodings and the decode → compute → encode contract are as described in DESIGN.md §12, restricted to `Nat`, `List` and parameterless data types built from them.
+The exportability check, the boundary encodings and the decode → compute → encode contract are as described in DESIGN.md §12, restricted to `Nat`, `Bool`, `List` and parameterless data types built from them.
+
+**Preconditions.** An export's proof parameters (like `[auto ok : percent <= 100]`) aren't passed by JS. For each one, the elaborator finds a decision procedure in the context of the earlier parameters. The kernel checks it has type `Decidable P` (`add_validator`), and that the data type used really is shaped like `Decidable`, with its first constructor carrying a proof of `P`. The generated wrapper decodes the inputs, runs each decision procedure on them, and throws `StitchwortInputError` unless it says `Yes`. A proof parameter with no decision procedure makes the export `E-EXPORT`.
+
+Only definitions reachable from the exports (and their checks) are emitted. A definition with a case tree but no runtime parameters (such as `absurd`, whose only parameter is an erased proof) becomes a function of no arguments, so it only runs if it's reached.
 
 ## Error codes
 

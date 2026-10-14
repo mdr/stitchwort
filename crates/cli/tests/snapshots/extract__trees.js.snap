@@ -85,7 +85,7 @@ const $add = (v0) => (v1) => {
 const $leaves = (v0) => {
   switch (v0.tag) {
     case "Leaf": {
-      return (0n + 1n);
+      return 1n;
     }
     case "Node": {
       const v1 = v0.left;
@@ -110,11 +110,11 @@ const $mirror = (v0) => {
 };
 
 export function leaves(arg0) {
-  const a0 = dec_Tree(arg0, "arg0");
-  return enc_Nat($leaves(a0));
+  const v0 = dec_Tree(arg0, "arg0");
+  return enc_Nat($leaves(v0));
 }
 
 export function mirror(arg0) {
-  const a0 = dec_Tree(arg0, "arg0");
-  return enc_Tree($mirror(a0));
+  const v0 = dec_Tree(arg0, "arg0");
+  return enc_Tree($mirror(v0));
 }

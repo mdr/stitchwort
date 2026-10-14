@@ -2,8 +2,11 @@
 //! agree with the reference evaluator, through the boundary encoding.
 //!
 //! - Every `-- run: f arg1 arg2` line in `examples/extract/*.sw` is checked.
+//! - Every `-- rejects: f arg1 arg2` line must be refused by the generated
+//!   precondition checks, with a `StitchwortInputError`.
 //! - Every export is also called on random inputs generated from its boundary
-//!   types, from a fixed seed so failures are reproducible.
+//!   types, from a fixed seed so failures are reproducible. Where the reference
+//!   evaluator's precondition check says no, JS must refuse the input.
 //!
 //! Requires `node` on the PATH (the Nix dev shell provides it).
 
@@ -12,12 +15,16 @@ use std::process::Command;
 
 use stitchwort_cli::driver::Session;
 use stitchwort_cli::render::render;
-use stitchwort_core::value::{apply, eval};
+use stitchwort_core::value::{apply, eval, force};
 use stitchwort_core::{DataId, DefId, Globals, Term, Value};
 use stitchwort_js::{Boundary, boundary_literal, exportable, field_boundaries};
+use stitchwort_syntax::ast::Expr;
 use stitchwort_syntax::parse_expression;
 
 const RUN: &str = "-- run:";
+const REJECTS: &str = "-- rejects:";
+/// What a case expects when the input must be refused.
+const REJECTED: &str = "\"rejected\"";
 const RANDOM_CASES_PER_EXPORT: usize = 100;
 
 #[test]
@@ -34,6 +41,14 @@ fn run_lines_agree_with_the_reference_evaluator() {
             });
         }
         assert!(!cases.is_empty(), "{name} has no `{RUN}` lines");
+        for line in text.lines().filter_map(|l| l.strip_prefix(REJECTS)) {
+            let source = line.trim();
+            cases.push(Case {
+                description: source.to_string(),
+                call: rejected_call(&mut session, source),
+                expected: REJECTED.into(),
+            });
+        }
         check_in_node(&name, &session.elab.globals, &cases);
     }
 }
@@ -46,25 +61,46 @@ fn random_inputs_agree_with_the_reference_evaluator() {
         let mut cases = Vec::new();
         for id in (0..g.defs.len()).map(DefId).filter(|id| g.def(*id).export) {
             let sig = exportable(g, id).expect("exports check");
+            let arity = sig.params.len() + sig.checks.len();
             for _ in 0..RANDOM_CASES_PER_EXPORT {
-                let args: Vec<Value> = sig
+                let data: Vec<Value> = sig
                     .params
                     .iter()
                     .map(|(_, b)| random_value(g, b, &mut rng, 3))
                     .collect();
-                let result = args
-                    .iter()
-                    .fold(eval(g, &[], &Term::Def(id)), |f, a| apply(g, f, a.clone()));
-                let literals: Vec<String> = args
+                // All the arguments in order, with proofs as placeholders (they're
+                // erased, so their value doesn't matter), and whether each
+                // precondition holds according to the reference evaluator.
+                let mut args = Vec::new();
+                let mut accepted = true;
+                for position in 0..arity {
+                    if let Some(i) = sig.param_positions.iter().position(|p| *p == position) {
+                        args.push(data[i].clone());
+                    } else {
+                        let check = sig.checks.iter().find(|c| c.position == position).unwrap();
+                        let decision = force(g, eval(g, &args, &check.decision));
+                        accepted &= matches!(decision, Value::Ctor(_, 0, _));
+                        args.push(Value::Refl);
+                    }
+                }
+                let literals: Vec<String> = data
                     .iter()
                     .zip(&sig.params)
                     .map(|(a, (_, b))| boundary_literal(g, b, a).expect("argument encodes"))
                     .collect();
                 let call = format!("{}({})", sig.name, literals.join(", "));
+                let expected = if accepted {
+                    let result = args
+                        .into_iter()
+                        .fold(eval(g, &[], &Term::Def(id)), |f, a| apply(g, f, a));
+                    boundary_literal(g, &sig.result, &result).expect("result evaluates")
+                } else {
+                    REJECTED.into()
+                };
                 cases.push(Case {
                     description: call.clone(),
                     call,
-                    expected: boundary_literal(g, &sig.result, &result).expect("result evaluates"),
+                    expected,
                 });
             }
         }
@@ -144,11 +180,15 @@ fn check_in_node(name: &str, g: &Globals, cases: &[Case]) {
     let mut script = String::from(
         "import * as m from \"./module.mjs\";\n\
          const canon = (v) => JSON.stringify(v, (_, x) => typeof x === \"bigint\" ? `${x}n` : x);\n\
-         const results = [];\n",
+         const results = [];\n\
+         const attempt = (f) => {\n\
+           try { return canon(f()); }\n\
+           catch (e) { if (e instanceof m.StitchwortInputError) return canon(\"rejected\"); throw e; }\n\
+         };\n",
     );
     for case in cases {
         script.push_str(&format!(
-            "results.push([canon(m.{}), canon({})]);\n",
+            "results.push([attempt(() => m.{}), canon({})]);\n",
             case.call, case.expected
         ));
     }
@@ -202,16 +242,60 @@ fn run_line(session: &mut Session, source: &str) -> (String, String) {
         panic!("`{source}` must be a call to an exported function");
     };
     let sig = exportable(g, *id).unwrap_or_else(|d| panic!("{}", d.message));
-    let js_args: Vec<String> = args
+    // Proof arguments aren't passed to JS.
+    let js_args: Vec<String> = sig
+        .params
         .iter()
-        .zip(&sig.params)
-        .map(|(arg, (_, b))| {
-            boundary_literal(g, b, &eval(g, &[], arg)).expect("argument evaluates")
+        .zip(&sig.param_positions)
+        .map(|((_, b), position)| {
+            boundary_literal(g, b, &eval(g, &[], args[*position])).expect("argument evaluates")
         })
         .collect();
     let expected =
         boundary_literal(g, &sig.result, &eval(g, &[], &term)).expect("result evaluates");
     (format!("{}({})", sig.name, js_args.join(", ")), expected)
+}
+
+/// For `f a b`, a JS call `f(<a>, <b>)` that's expected to be refused. The
+/// call itself wouldn't type-check (its precondition fails), so each argument
+/// is evaluated separately.
+fn rejected_call(session: &mut Session, source: &str) -> String {
+    let file = session.sources.add("<rejects>", source);
+    let expr = parse_expression(file, source).expect("rejects line parses");
+    let mut args = Vec::new();
+    let mut head = &expr;
+    while let Expr::App(f, a) = head {
+        args.push(a.as_ref());
+        head = f;
+    }
+    args.reverse();
+    let Expr::Var(name) = head else {
+        panic!("`{source}` must be a call to an exported function");
+    };
+    let g = &session.elab.globals;
+    let id = (0..g.defs.len())
+        .map(DefId)
+        .find(|id| *g.def(*id).name == *name.text)
+        .unwrap_or_else(|| panic!("no export called `{}`", name.text));
+    let sig = exportable(g, id).unwrap_or_else(|d| panic!("{}", d.message));
+    assert_eq!(
+        args.len(),
+        sig.params.len(),
+        "`{source}`: wrong number of arguments"
+    );
+    let literals: Vec<String> = args
+        .iter()
+        .zip(&sig.params)
+        .map(|(arg, (_, b))| {
+            let (term, _) = session
+                .elab
+                .infer_expr(arg)
+                .unwrap_or_else(|d| panic!("`{source}`: {}", d.message));
+            let g = &session.elab.globals;
+            boundary_literal(g, b, &eval(g, &[], &term)).expect("argument evaluates")
+        })
+        .collect();
+    format!("{}({})", sig.name, literals.join(", "))
 }
 
 /// xorshift64*: tiny and deterministic.

@@ -85,12 +85,12 @@ const $total = (v0) => {
 };
 
 export function appendNats(xs, ys) {
-  const a0 = dec_List(dec_Nat)(xs, "xs");
-  const a1 = dec_List(dec_Nat)(ys, "ys");
-  return enc_List(enc_Nat)($appendNats(a0)(a1));
+  const v0 = dec_List(dec_Nat)(xs, "xs");
+  const v1 = dec_List(dec_Nat)(ys, "ys");
+  return enc_List(enc_Nat)($appendNats(v0)(v1));
 }
 
 export function total(arg0) {
-  const a0 = dec_List(dec_Nat)(arg0, "arg0");
-  return enc_Nat($total(a0));
+  const v0 = dec_List(dec_Nat)(arg0, "arg0");
+  return enc_Nat($total(v0));
 }

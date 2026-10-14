@@ -25,6 +25,8 @@ fn evaluates_and_prints_expressions() {
         ("append [1] [2, 3]", "[1, 2, 3] : List Nat"),
         ("[[1], []]", "[[1], []] : List (List Nat)"),
         ("Succ", "\\n -> Succ n : Nat -> Nat"),
+        ("7 / 2", "3 : Nat"),
+        ("div 7 2", "3 : Nat"),
     ];
     for (source, expected) in cases {
         assert_eq!(

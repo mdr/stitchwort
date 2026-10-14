@@ -229,20 +229,20 @@ const $get = (v1) => (v2) => {
   }
   throw new Error("unreachable");
 };
-const $third = (v0) => $elimDec($decTrue($leq((((0n + 1n) + 1n) + 1n))($length(v0))))(((v1) => $get(v0)(((0n + 1n) + 1n))))(((v1) => 0n));
-const $isEven = (v0) => $leq($mod(v0)(((0n + 1n) + 1n)))(0n);
+const $third = (v0) => $elimDec($decTrue($leq(3n)($length(v0))))(((v1) => $get(v0)(2n)))(((v1) => 0n));
+const $isEven = (v0) => $leq($mod(v0)(2n))(0n);
 
 export function average(xs) {
-  const a0 = dec_List(dec_Nat)(xs, "xs");
-  return enc_Nat($average(a0));
+  const v0 = dec_List(dec_Nat)(xs, "xs");
+  return enc_Nat($average(v0));
 }
 
 export function third(xs) {
-  const a0 = dec_List(dec_Nat)(xs, "xs");
-  return enc_Nat($third(a0));
+  const v0 = dec_List(dec_Nat)(xs, "xs");
+  return enc_Nat($third(v0));
 }
 
 export function isEven(n) {
-  const a0 = dec_Nat(n, "n");
-  return enc_Bool($isEven(a0));
+  const v0 = dec_Nat(n, "n");
+  return enc_Bool($isEven(v0));
 }

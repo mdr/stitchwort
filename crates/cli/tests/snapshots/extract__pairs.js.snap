@@ -144,22 +144,22 @@ const $predecessors = (v0) => {
 };
 
 export function first(arg0) {
-  const a0 = dec_Pair(arg0, "arg0");
-  return enc_Nat($first(a0));
+  const v0 = dec_Pair(arg0, "arg0");
+  return enc_Nat($first(v0));
 }
 
 export function swap(arg0) {
-  const a0 = dec_Pair(arg0, "arg0");
-  return enc_Pair($swap(a0));
+  const v0 = dec_Pair(arg0, "arg0");
+  return enc_Pair($swap(v0));
 }
 
 export function zipSum(arg0, ys) {
-  const a0 = dec_List(dec_Nat)(arg0, "arg0");
-  const a1 = dec_List(dec_Nat)(ys, "ys");
-  return enc_List(enc_Nat)($zipSum(a0)(a1));
+  const v0 = dec_List(dec_Nat)(arg0, "arg0");
+  const v1 = dec_List(dec_Nat)(ys, "ys");
+  return enc_List(enc_Nat)($zipSum(v0)(v1));
 }
 
 export function predecessors(arg0) {
-  const a0 = dec_List(dec_Nat)(arg0, "arg0");
-  return enc_List(enc_Nat)($predecessors(a0));
+  const v0 = dec_List(dec_Nat)(arg0, "arg0");
+  return enc_List(enc_Nat)($predecessors(v0));
 }

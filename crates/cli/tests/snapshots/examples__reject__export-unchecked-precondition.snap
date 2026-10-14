@@ -1,0 +1,14 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-EXPORT] Error: `pick` can't be exported
+   ╭─[ reject/export-unchecked-precondition.sw:4:1 ]
+   │
+ 4 │ ╭─▶ export
+ 5 │ ├─▶ pick : (f : Nat -> Nat) -> [auto same : f = f] -> Nat
+   │ │                                                           
+   │ ╰─────────────────────────────────────────────────────────── its precondition `f = f` can't be checked at runtime
+   │     
+   │     Note: an exported function's proof arguments need a decision procedure (a function returning `Decidable …`)
+───╯

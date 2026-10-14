@@ -7,7 +7,7 @@ use std::rc::Rc;
 
 use stitchwort_syntax::{Diagnostic, Span};
 
-use crate::globals::{Ctor, Data, Def, Globals};
+use crate::globals::{Ctor, Data, Def, Globals, Validator};
 use crate::pretty;
 use crate::term::{Branch, DataId, DefId, Icit, Name, Sort, Term};
 use crate::termination;
@@ -577,6 +577,7 @@ pub fn declare_def(
         arity: 0,
         theorem,
         export,
+        validators: Vec::new(),
         span,
     });
     Ok(DefId(g.defs.len() - 1))
@@ -732,6 +733,50 @@ fn occurs(term: &Term, d: DataId) -> bool {
         }
         Term::J(m, b, p) => occurs(m, d) || occurs(b, d) || occurs(p, d),
     }
+}
+
+/// Checks and adds a validator for proof parameter `param` of an exported
+/// definition: `decision` must have type `decidable P`, where `P` is the
+/// parameter's type, in the context of the parameters before it.
+///
+/// `decidable` must be shaped like the prelude's `Decidable`: one `Prop`
+/// parameter `p`, and a first constructor whose only field is a proof of `p`.
+/// That's what lets extracted code treat the first constructor as "the
+/// precondition holds".
+pub fn add_validator(
+    g: &mut Globals,
+    id: DefId,
+    param: usize,
+    decidable: DataId,
+    decision: &Term,
+) -> Result<()> {
+    let def = g.def(id);
+    let span = def.span;
+    let tel = telescope(g, &def.ty_value, span);
+    let mut cx = Ctx::new(g, span);
+    let Some((_, prop, true)) = tel.params.get(param) else {
+        return Err(malformed(
+            &cx,
+            "a validator for a parameter that isn't erased",
+        ));
+    };
+    let shaped_like_decidable = g.datas.get(decidable.0).is_some_and(|d| {
+        d.params.len() == 1
+            && matches!(d.params[0].1.strip_loc(), Term::Sort(Sort::Prop))
+            && d.ctors.len() == 2
+            && d.ctors[0].fields.len() == 1
+            && matches!(d.ctors[0].fields[0].1.strip_loc(), Term::Var(0))
+    });
+    if !shaped_like_decidable || !case_only_in_tree(decision, false) {
+        return Err(malformed(&cx, "a validator that isn't a decision"));
+    }
+    for (x, ty, _) in &tel.params[..param] {
+        cx.bind(x.clone(), ty.clone());
+    }
+    let expected = Value::Data(decidable, vec![prop.clone()]);
+    let decision = check(&mut cx, decision, &expected)?;
+    g.defs[id.0].validators.push(Validator { param, decision });
+    Ok(())
 }
 
 /// Whether `ty` is `Type`, `Prop`, or a function type ending in one: values of

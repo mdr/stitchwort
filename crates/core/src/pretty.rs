@@ -110,13 +110,33 @@ impl Printer<'_> {
                 // Implicit arguments are filled in by the compiler, so they
                 // aren't shown.
                 let (head, args) = explicit_spine(term);
-                if let Term::Def(id) = head
-                    && &*self.g.def(*id).name == "add"
-                    && args.len() == 2
-                {
-                    let lhs = self.print(names, args[0], Prec::Add);
-                    let rhs = self.print(names, args[1], Prec::App);
-                    return (format!("{lhs} + {rhs}"), Prec::Add);
+                if let Term::Def(id) = head {
+                    let name = &*self.g.def(*id).name;
+                    let infix = match name {
+                        "add" => Some(("+", Prec::Add)),
+                        "sub" => Some(("-", Prec::Add)),
+                        "LessEq" => Some(("<=", Prec::Eq)),
+                        "LessThan" => Some(("<", Prec::Eq)),
+                        _ => None,
+                    };
+                    if let (Some((op, prec)), [lhs, rhs]) = (infix, &args[..]) {
+                        // `+` and `-` associate left; comparisons don't associate.
+                        let right = if prec == Prec::Add {
+                            Prec::App
+                        } else {
+                            Prec::Add
+                        };
+                        let lhs = self.print(names, lhs, Prec::Add);
+                        let rhs = self.print(names, rhs, right);
+                        return (format!("{lhs} {op} {rhs}"), prec);
+                    }
+                    if let ("Not", [prop]) = (name, &args[..])
+                        && let Term::Eq(_, a, b) = prop.strip_loc()
+                    {
+                        let a = self.print(names, a, Prec::Add);
+                        let b = self.print(names, b, Prec::Add);
+                        return (format!("{a} != {b}"), Prec::Eq);
+                    }
                 }
                 let head = self.print(names, head, Prec::App);
                 self.applied(names, head, args.into_iter())

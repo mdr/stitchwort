@@ -8,7 +8,7 @@
 use std::collections::HashSet;
 use std::fmt::Write;
 
-use stitchwort_core::check::telescope;
+use stitchwort_core::check::{is_type_former, telescope};
 use stitchwort_core::term::Branch;
 use stitchwort_core::value::eval;
 use stitchwort_core::{DataId, DefId, Globals, Sort, Term, Value, pretty};
@@ -30,12 +30,29 @@ pub enum Boundary {
 pub struct ExportSig {
     pub id: DefId,
     pub name: String,
+    /// The parameters JS passes: name and boundary type.
     pub params: Vec<(String, Boundary)>,
+    /// For each of `params`, its position among all the function's parameters.
+    pub param_positions: Vec<usize>,
+    /// The proof parameters, which JS doesn't pass: they're checked at runtime.
+    pub checks: Vec<Check>,
     pub result: Boundary,
 }
 
+/// A proof parameter of an export, checked at runtime by a decision procedure.
+pub struct Check {
+    /// Its position among all the function's parameters.
+    pub position: usize,
+    /// A `Decidable P` term, in the context of the parameters before it.
+    pub decision: Term,
+    /// `P`, for the error message.
+    pub description: String,
+}
+
 /// The exportability check: an export must be pure, take and return concrete
-/// data with a codec, and have no type or proof parameters.
+/// data with a codec, and have no type parameters. Each proof parameter must
+/// have a decision procedure (found by the elaborator), which becomes a
+/// runtime check.
 pub fn exportable(g: &Globals, id: DefId) -> Result<ExportSig, Diagnostic> {
     let def = g.def(id);
     let refuse = |why: String| {
@@ -56,15 +73,33 @@ pub fn exportable(g: &Globals, id: DefId) -> Result<ExportSig, Diagnostic> {
     // Prefer the names from the signature, then from the equations.
     let equation_names = lam_names(def.body.as_ref());
     let mut params = Vec::new();
+    let mut param_positions = Vec::new();
+    let mut checks = Vec::new();
     for (i, (x, ty, erased)) in tel.params.iter().enumerate() {
-        if *erased {
+        if *erased && is_type_former(g, i, ty) {
             return Err(refuse(format!(
-                "parameter `{x}` is a type or a proof; only concrete data can cross the JS boundary for now"
+                "parameter `{x}` is a type; only concrete data can cross the JS boundary for now"
             ))
-            .with_note(
-                "for a type parameter, export a version specialised to a concrete type; \
-                 proof parameters need decision procedures, which aren't implemented yet",
-            ));
+            .with_note("export a version specialised to a concrete type"));
+        }
+        if *erased {
+            let Some(validator) = def.validators.iter().find(|v| v.param == i) else {
+                return Err(refuse(format!(
+                    "proof parameter `{x}` has no runtime check"
+                )));
+            };
+            // Describe the precondition as written in the signature.
+            let names: Vec<_> = tel.params[..i].iter().map(|(n, _, _)| n.clone()).collect();
+            let description = written_param_type(&def.ty, i).map_or_else(
+                || pretty::value(g, &names, ty),
+                |t| pretty::term(g, &names, t),
+            );
+            checks.push(Check {
+                position: i,
+                decision: validator.decision.clone(),
+                description,
+            });
+            continue;
         }
         let boundary = boundary(g, ty, &mut HashSet::new())
             .map_err(|why| refuse(format!("parameter `{x}`: {why}")))?;
@@ -74,6 +109,7 @@ pub fn exportable(g: &Globals, id: DefId) -> Result<ExportSig, Diagnostic> {
             .find(|n| is_js_identifier(n) && *n != "_" && !n.starts_with("arg"))
             .map_or_else(|| format!("arg{i}"), str::to_string);
         params.push((js_name, boundary));
+        param_positions.push(i);
     }
     let result = boundary(g, &tel.result, &mut HashSet::new())
         .map_err(|why| refuse(format!("its result: {why}")))?;
@@ -81,6 +117,8 @@ pub fn exportable(g: &Globals, id: DefId) -> Result<ExportSig, Diagnostic> {
         id,
         name: def.name.to_string(),
         params,
+        param_positions,
+        checks,
         result,
     })
 }
@@ -445,9 +483,17 @@ impl<'g> Gen<'g> {
                     return "undefined".into();
                 }
                 if Some(*d) == self.nat {
-                    return match c {
-                        0 => "0n".into(),
-                        _ => format!("({} + 1n)", self.expr(&args[0], env)),
+                    // Count the `Succ`s: `Succ (Succ x)` is `x + 2n`, and a
+                    // literal is just a number.
+                    let mut count = 0u64;
+                    let mut inner = term;
+                    while let Term::Ctor(_, 1, succ) = inner.strip_loc() {
+                        count += 1;
+                        inner = &succ[0];
+                    }
+                    return match (inner.strip_loc(), count) {
+                        (Term::Ctor(_, 0, _), n) => format!("{n}n"),
+                        (_, n) => format!("({} + {n}n)", self.expr(inner, env)),
                     };
                 }
                 let ctor = &data.ctors[*c];
@@ -504,16 +550,48 @@ impl<'g> Gen<'g> {
                 .is_some_and(|b| matches!(b.peel_lams(def.arity), Term::Case(..)))
     }
 
+    /// `export function f(…)`: decode the inputs, run the precondition checks,
+    /// call the compiled definition, encode the result. Decoded parameter `i`
+    /// (counting all parameters) is `v{i}`, which is what the compiled checks
+    /// refer to.
     fn wrapper(&self, sig: &ExportSig) -> String {
         let params: Vec<&str> = sig.params.iter().map(|(x, _)| x.as_str()).collect();
         let mut out = format!("\nexport function {}({}) {{\n", sig.name, params.join(", "));
         let mut call = def_name(&self.g.def(sig.id).name);
-        for (i, (x, b)) in sig.params.iter().enumerate() {
-            let _ = writeln!(out, "  const a{i} = {}({x}, \"{x}\");", self.decoder(b));
-            let _ = write!(call, "(a{i})");
+        for ((x, b), position) in sig.params.iter().zip(&sig.param_positions) {
+            let _ = writeln!(
+                out,
+                "  const {} = {}({x}, \"{x}\");",
+                var(*position),
+                self.decoder(b)
+            );
+            let _ = write!(call, "({})", var(*position));
+        }
+        let yes = self.decision_yes_tag();
+        for check in &sig.checks {
+            // Parameters before the check: proofs are erased, data is decoded.
+            let mut env: Vec<bool> = (0..check.position)
+                .map(|i| !sig.param_positions.contains(&i))
+                .collect();
+            let decision = self.expr(&check.decision, &mut env);
+            let message = format!("precondition `{}` doesn't hold", check.description)
+                .replace('\\', "\\\\")
+                .replace('"', "\\\"");
+            let _ = writeln!(
+                out,
+                "  if ({decision}.tag !== \"{yes}\") {{\n    throw new StitchwortInputError(\"{message}\");\n  }}"
+            );
         }
         let _ = writeln!(out, "  return {}({call});\n}}", self.encoder(&sig.result));
         out
+    }
+
+    /// The tag of `Decidable`'s first constructor (`Yes`).
+    fn decision_yes_tag(&self) -> String {
+        self.g.find_data("Decidable").map_or_else(
+            || "Yes".into(),
+            |d| self.g.data(d).ctors[0].name.to_string(),
+        )
     }
 
     fn decoder(&self, b: &Boundary) -> String {
@@ -623,6 +701,21 @@ fn lam_names(body: Option<&Term>) -> Vec<stitchwort_core::Name> {
     names
 }
 
+/// The type of parameter `i` as written in a signature (before evaluation).
+fn written_param_type(ty: &Term, i: usize) -> Option<&Term> {
+    let mut ty = ty.strip_loc();
+    for _ in 0..i {
+        let Term::Pi(_, _, _, cod) = ty else {
+            return None;
+        };
+        ty = cod.strip_loc();
+    }
+    match ty {
+        Term::Pi(_, _, dom, _) => Some(dom),
+        _ => None,
+    }
+}
+
 /// Which definitions the given ones use, directly or indirectly.
 fn reachable(g: &Globals, roots: impl IntoIterator<Item = DefId>) -> Vec<bool> {
     fn visit(term: &Term, found: &mut Vec<DefId>) {
@@ -656,8 +749,12 @@ fn reachable(g: &Globals, roots: impl IntoIterator<Item = DefId>) -> Vec<bool> {
         if std::mem::replace(&mut used[id.0], true) {
             continue;
         }
-        if let Some(body) = &g.def(id).body {
+        let def = g.def(id);
+        if let Some(body) = &def.body {
             visit(body, &mut stack);
+        }
+        for validator in &def.validators {
+            visit(&validator.decision, &mut stack);
         }
     }
     used
