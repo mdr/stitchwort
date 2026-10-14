@@ -89,7 +89,10 @@ fn accepted_examples_check() {
         // Their tests must pass too.
         for result in session.run_tests(&Cache::disabled()) {
             if result.outcome != Outcome::Passed {
-                failures.push(format!("{}: test \"{}\" failed\n", example.name, result.name));
+                failures.push(format!(
+                    "{}: test \"{}\" failed\n",
+                    example.name, result.name
+                ));
             }
         }
     }

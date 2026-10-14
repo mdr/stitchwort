@@ -56,7 +56,14 @@ fn main() -> ExitCode {
             file,
             no_cache,
             cache_dir,
-        } => test(&file, if no_cache { Cache::disabled() } else { Cache::at(cache_dir) }),
+        } => test(
+            &file,
+            if no_cache {
+                Cache::disabled()
+            } else {
+                Cache::at(cache_dir)
+            },
+        ),
         Command::Eval { file, expr } => eval(&file, &expr),
         Command::Repl { file } => repl(file.as_deref()),
         Command::Build { file, out, .. } => build(&file, &out),
@@ -113,14 +120,21 @@ fn test(path: &Path, cache: Cache) -> ExitCode {
         };
         println!("  {mark} {:width$}  {how}{failed}", result.name);
     }
-    let failed = results.iter().filter(|r| r.outcome == Outcome::Failed).count();
+    let failed = results
+        .iter()
+        .filter(|r| r.outcome == Outcome::Failed)
+        .count();
     let cached = results.iter().filter(|r| r.cached).count();
     println!(
         "{} test(s): {} passed, {failed} failed ({cached} from the cache)",
         results.len(),
         results.len() - failed
     );
-    if failed == 0 { ExitCode::SUCCESS } else { ExitCode::FAILURE }
+    if failed == 0 {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::FAILURE
+    }
 }
 
 fn eval(path: &Path, expr: &str) -> ExitCode {

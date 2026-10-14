@@ -17,7 +17,11 @@ fn hash_of(session: &Session, name: &str) -> ContentHash {
     if let Some(i) = g.defs.iter().position(|d| &*d.name == name) {
         return def_hash(g, DefId(i)).expect("checked");
     }
-    let d = g.datas.iter().position(|d| &*d.name == name).expect("declared");
+    let d = g
+        .datas
+        .iter()
+        .position(|d| &*d.name == name)
+        .expect("declared");
     data_hash(g, DataId(d))
 }
 
@@ -37,7 +41,11 @@ fn hashes_change_with_anything_a_definition_depends_on() {
     let a = load("double : Nat -> Nat\ndouble n = n + n\n\nuse : Nat\nuse = double 2\n");
     let b = load("double : Nat -> Nat\ndouble n = 2 * n\n\nuse : Nat\nuse = double 2\n");
     assert_ne!(hash_of(&a, "double"), hash_of(&b, "double"));
-    assert_ne!(hash_of(&a, "use"), hash_of(&b, "use"), "a dependency changed");
+    assert_ne!(
+        hash_of(&a, "use"),
+        hash_of(&b, "use"),
+        "a dependency changed"
+    );
     let c = load("double : Nat -> Nat\ndouble n = n + n\n\nuse : Nat\nuse = double 3\n");
     assert_eq!(hash_of(&a, "double"), hash_of(&c, "double"));
     assert_ne!(hash_of(&a, "use"), hash_of(&c, "use"));
@@ -87,7 +95,11 @@ fn test_results_are_reused_until_a_dependency_changes() {
     );
     let second = run(program("n + n", "triple"));
     assert!(second.iter().all(|r| r.cached), "nothing changed");
-    assert_eq!(second[2].outcome, Outcome::Failed, "failures are cached too");
+    assert_eq!(
+        second[2].outcome,
+        Outcome::Failed,
+        "failures are cached too"
+    );
 
     let changed = run(program("2 * n", "triple"));
     assert_eq!(
@@ -99,7 +111,10 @@ fn test_results_are_reused_until_a_dependency_changes() {
         ]
     );
     let renamed = run(program("2 * n", "thrice"));
-    assert!(renamed.iter().all(|r| r.cached), "renaming changes no hashes");
+    assert!(
+        renamed.iter().all(|r| r.cached),
+        "renaming changes no hashes"
+    );
 
     let uncached = load(&program("2 * n", "thrice")).run_tests(&Cache::disabled());
     assert!(uncached.iter().all(|r| !r.cached));

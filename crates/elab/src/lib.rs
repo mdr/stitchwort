@@ -211,7 +211,11 @@ impl Elaborator {
             .with_label(earlier.span, "first defined here"));
         }
         let Some((Global::Data(bool_data), _)) = self.names.get("Bool").copied() else {
-            return Err(error("E-UNKNOWN-NAME", span, "tests need the prelude's `Bool`"));
+            return Err(error(
+                "E-UNKNOWN-NAME",
+                span,
+                "tests need the prelude's `Bool`",
+            ));
         };
         self.clear_metas();
         let body = {
