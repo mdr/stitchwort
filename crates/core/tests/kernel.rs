@@ -1025,3 +1025,124 @@ fn matching_refines_the_types_of_later_variables() {
     );
     assert_eq!(define(&mut p.g, "refined", ty, body).err(), None);
 }
+
+// Validators: what extracted JS runs to check an export's preconditions.
+
+/// A prelude with `Decidable`, and a definition `f : (n : Nat) -> [auto ok : n = n] -> Nat`.
+fn with_decidable() -> (Prelude, stitchwort_core::DataId, stitchwort_core::DefId) {
+    let mut p = Prelude::new();
+    let void = data(&mut p.g, "Void", vec![], Sort::Prop);
+    stitchwort_core::check::define_ctors(&mut p.g, void, vec![]).unwrap();
+    let decidable = data(&mut p.g, "Decidable", vec![("p", prop())], Sort::Type(0));
+    stitchwort_core::check::define_ctors(
+        &mut p.g,
+        decidable,
+        vec![
+            ctor("Yes", vec![("proof", v(0))]),
+            ctor(
+                "No",
+                vec![("refutation", arrow(v(0), Term::Data(void, vec![])))],
+            ),
+        ],
+    )
+    .unwrap();
+    let ty = pi(
+        "n",
+        p.nat_ty(),
+        Term::Pi(
+            "ok".into(),
+            Icit::Auto,
+            Rc::new(eq(None, v(0), v(0))),
+            Rc::new(p.nat_ty()),
+        ),
+    );
+    let body = lam("n", Term::Lam("ok".into(), Icit::Auto, Rc::new(v(1))));
+    let f = define(&mut p.g, "f", ty, body).unwrap();
+    (p, decidable, f)
+}
+
+fn validate(
+    p: &mut Prelude,
+    f: stitchwort_core::DefId,
+    param: usize,
+    d: stitchwort_core::DataId,
+    decision: Term,
+) -> &'static str {
+    stitchwort_core::check::add_validator(&mut p.g, f, param, d, &decision)
+        .err()
+        .map_or("ok", |e| e.code)
+}
+
+#[test]
+fn accepts_a_validator_that_decides_the_precondition() {
+    let (mut p, decidable, f) = with_decidable();
+    // `Yes rfl`, in the context [n].
+    let yes = Term::Ctor(decidable, 0, vec![Term::Refl]);
+    assert_eq!(validate(&mut p, f, 1, decidable, yes), "ok");
+    assert_eq!(p.g.def(f).validators.len(), 1);
+}
+
+#[test]
+fn rejects_validators_that_do_not_decide_the_precondition() {
+    let (mut p, decidable, f) = with_decidable();
+    let yes = || Term::Ctor(decidable, 0, vec![Term::Refl]);
+    // Not for a proof parameter: `n` is data.
+    assert_eq!(validate(&mut p, f, 0, decidable, yes()), "E-MALFORMED");
+    // No such parameter.
+    assert_eq!(validate(&mut p, f, 5, decidable, yes()), "E-MALFORMED");
+    // A decision of something else: `Yes` of a proof of `0 = 0` has type
+    // `Decidable (0 = 0)`, not `Decidable (n = n)`.
+    let other = Term::Ann(
+        Rc::new(Term::Ctor(decidable, 0, vec![Term::Refl])),
+        Rc::new(Term::Data(decidable, vec![eq(None, p.num(0), p.num(0))])),
+    );
+    assert_eq!(validate(&mut p, f, 1, decidable, other), "E-TYPE-MISMATCH");
+    // A `case` isn't allowed in a validator.
+    let with_case = case(0, p.nat, vec![(vec![], yes()), (vec!["k"], yes())]);
+    assert_eq!(validate(&mut p, f, 1, decidable, with_case), "E-MALFORMED");
+}
+
+#[test]
+fn rejects_validators_whose_data_type_is_not_shaped_like_decidable() {
+    let (mut p, _, f) = with_decidable();
+    // Each of these differs from `Decidable` in one way that matters: extracted
+    // JS reads the first constructor as "the precondition holds".
+    type Shape<'a> = (Vec<(&'a str, Term)>, Vec<stitchwort_core::check::CtorDecl>);
+    let shapes: Vec<Shape> = vec![
+        // A `Type` parameter instead of a `Prop`.
+        (
+            vec![("p", ty())],
+            vec![ctor("Yes", vec![("proof", v(0))]), ctor("No", vec![])],
+        ),
+        // Two parameters.
+        (
+            vec![("p", prop()), ("q", prop())],
+            vec![ctor("Yes", vec![("proof", v(1))]), ctor("No", vec![])],
+        ),
+        // Only one constructor.
+        (
+            vec![("p", prop())],
+            vec![ctor("Yes", vec![("proof", v(0))])],
+        ),
+        // The first constructor carries no proof.
+        (
+            vec![("p", prop())],
+            vec![ctor("Yes", vec![]), ctor("No", vec![("proof", v(0))])],
+        ),
+        // The first constructor carries something other than a proof of `p`.
+        (
+            vec![("p", prop())],
+            vec![ctor("Yes", vec![("proof", prop())]), ctor("No", vec![])],
+        ),
+    ];
+    for (i, (params, ctors)) in shapes.into_iter().enumerate() {
+        let d = data(&mut p.g, &format!("Fake{i}"), params, Sort::Type(1));
+        stitchwort_core::check::define_ctors(&mut p.g, d, ctors).expect("data checks");
+        // Whatever the decision term, the shape is refused first.
+        assert_eq!(
+            validate(&mut p, f, 1, d, Term::Refl),
+            "E-MALFORMED",
+            "shape {i}"
+        );
+    }
+}

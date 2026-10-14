@@ -5,6 +5,7 @@ mod common;
 use std::rc::Rc;
 
 use common::*;
+use stitchwort_core::check;
 use stitchwort_core::{Icit, Sort, Term, pretty};
 
 fn show(p: &Prelude, names: &[&str], term: &Term) -> String {
@@ -136,4 +137,33 @@ fn prints_negations_the_way_they_are_written() {
     assert_eq!(show(&p, &["d"], &not_equal), "d != 0");
     let not_prop = arrow(prop(), Term::Data(void, vec![]));
     assert_eq!(show(&p, &[], &not_prop), "Not Prop");
+}
+
+#[test]
+fn prints_the_prelude_operators_infix() {
+    let mut p = Prelude::new();
+    let nat = p.nat_ty();
+    let binary = |p: &mut Prelude, name: &str| {
+        let ty = arrow(nat.clone(), arrow(nat.clone(), nat.clone()));
+        check::declare_def(&mut p.g, &name.into(), &ty, false, false, span()).unwrap()
+    };
+    let sub = binary(&mut p, "sub");
+    let less = binary(&mut p, "LessThan");
+    let less_eq = binary(&mut p, "LessEq");
+    let names = ["x", "y"];
+    assert_eq!(
+        show(&p, &names, &app(Term::Def(sub), [v(1), v(0)])),
+        "x - y"
+    );
+    assert_eq!(
+        show(&p, &names, &app(Term::Def(less), [v(1), v(0)])),
+        "x < y"
+    );
+    assert_eq!(
+        show(&p, &names, &app(Term::Def(less_eq), [v(1), v(0)])),
+        "x <= y"
+    );
+    // Subtraction associates to the left, like addition.
+    let nested = app(Term::Def(sub), [app(Term::Def(sub), [v(1), v(0)]), v(0)]);
+    assert_eq!(show(&p, &names, &nested), "x - y - y");
 }

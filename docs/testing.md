@@ -8,7 +8,10 @@ Stitchwort's guarantees are only as good as the compiler's correctness, so the t
 | **Kernel tests** | `crates/core/tests/kernel.rs` | The kernel on hand-built core terms, including terms the elaborator never produces. The examples can't do this: they only feed the kernel the elaborator's output, and when the elaborator rejects something first, the kernel never runs. |
 | **Kernel fuzzing** | `crates/core/tests/fuzz.rs` | That the kernel never panics. Thousands of random, mostly ill-formed terms must each be accepted or rejected with a diagnostic. |
 | **Unit tests** | `#[cfg(test)]` modules (lexer, parser, unifier, rendering) | Internal algorithms on cases the examples don't happen to reach: pattern unification's occurs and scope checks, pruning, layout columns, … |
-| **Differential tests** | `crates/cli/tests/extract.rs` | That extracted JS agrees with the reference evaluator, on the `-- run:` lines and on 100 random inputs per export. |
+| **Differential tests** | `crates/cli/tests/extract.rs` | That extracted JS agrees with the reference evaluator, on the `-- run:` lines and on 100 random inputs per export. Where an export has a precondition, random inputs that fail it must be refused with `StitchwortInputError`, as must the `-- rejects:` lines. |
+| **Generated code** | `crates/cli/tests/extract.rs` | Snapshots of the generated JS and `.d.ts`, which must type-check with `tsc`. Decoders are tested against cyclic inputs, getters and later mutation. |
+| **Caching** | `crates/cli/tests/caching.rs` | That hashes ignore names and layout but change with anything depended on, that data types are nominal, and that test results are reused exactly until a dependency changes. |
+| **REPL and playground** | `crates/cli/tests/session.rs`, `crates/web` | Evaluating and printing expressions, natively and through the WebAssembly interface. |
 | **Coverage** | `cargo llvm-cov --workspace --summary-only` | Which code no test reaches |
 | **Mutation testing** | `cargo mutants` | Code that tests reach but don't really *check*. Each mutant is a small deliberate bug, such as replacing a condition with `true`. A "missed" mutant is a bug no test would notice. |
 
