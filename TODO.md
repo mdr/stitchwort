@@ -40,10 +40,10 @@ Round 2:
   [number-patterns.md](docs/proposals/number-patterns.md), then
   implementation (go-ahead given, no second review).
 - ~~Recorded benchmarks~~ (lane `benchmarks`): merged as `07550ff`.
-- **Compact text**: design note written
-  ([compact-text.md](docs/proposals/compact-text.md)), **awaiting review**.
-  Recommends JS strings in generated code first, then a compact list
-  representation in the evaluator, no primitive kernel type.
+- **Compact text** ([compact-text.md](docs/proposals/compact-text.md)):
+  stage 1, `Text` as JS strings in generated code (lane `compact-text-js`),
+  in progress; the kernel and evaluator are unchanged. Stages 2–3 (evaluator
+  representation and natives) **await review** of the note.
 - **Forward references and mutual recursion**: design note written
   ([mutual-recursion.md](docs/proposals/mutual-recursion.md)), **awaiting
   review**. Recommends any order within a file, grouped automatically, with
