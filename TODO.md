@@ -29,27 +29,20 @@ The main session orchestrates: it chooses lanes, hands each to a background
 agent, then reviews, merges and updates this file.
 
 Running:
-
-
-- **Mutual recursion, phase 2, stage 2** (lane `mutual-recursion-s2`;
-  stage 1 merged as `9eb1487`); stage 3 follows
-  ([mutual-recursion.md](docs/proposals/mutual-recursion.md), draft 3;
-  two reviews; implementation approved). Stage 2: `define_group` with
-  several members, forward references, cycle hashing, scheduling and `auto`
-  diagnostics, the JS calling convention, the §5.5 partition tests. Stage
-  3: mutual data types. A number case adds no descent (decided in stage 1).
+- **Mutual recursion, stage 2** (lane `mutual-recursion-s2`;
+  [mutual-recursion.md](docs/proposals/mutual-recursion.md) draft 3, two
+  reviews, implementation approved; stage 1 merged as `9eb1487`): groups of
+  functions in the kernel, forward references, cycle hashing, scheduling and
+  `auto` diagnostics, the JS calling convention, the §5.5 partition tests.
+  Stage 3 (mutual data types) follows. A number case adds no descent.
+- **`Partial`, stage 1** (lane `partial-draft3`;
+  [partial.md](docs/proposals/partial.md)): reviewed; the user chose stage 1
+  only (partial code visible in types, run only by the runtime, proofs only
+  about the total parts). Draft 3 adopting the review, plus a standalone
+  prototype of the runtime semantics running the reviewer's test table.
+  Implementation after mutual recursion stage 2 merges.
 
 Waiting on a decision:
-- **`Partial`** ([partial.md](docs/proposals/partial.md) draft 2, **with
-  the reviewer**): `{Partial}` in types; recursive calls become requests,
-  run by one built-in `Delay` type that only the runtime steps (McBride's
-  recursion as an effect plus Capretta's delay monad).
-- **`decSucc` is no longer used in the prelude** (after the `decEqNat`
-  fix); keep it for users or remove it.
-- **For a kernel `decEqText` native** (compact text stage 3), follow the
-  `decEqNat` pattern: make the definition ask a Boolean test so its `No` is
-  `No (textNeq a b rfl)`, which the native can return, with whole-result
-  tests.
 - **Compact text stages 2–3** ([compact-text.md](docs/proposals/compact-text.md)
   draft 2, reviewed): compact `List Char` in the evaluator, then selected
   natives; a native `decEqText` waits for a whole-result test.
@@ -134,12 +127,18 @@ Nothing queued: choose from **Later**, or continue the lanes above.
   "didn't check" and "failed while running" should differ.
 - **`IO` operations that return `Result`** for recoverable errors (deferred
   by the text-and-IO proposal).
-- **`Partial`** ([proposal](docs/proposals/partial.md)): no way yet to write
-  code that may not terminate, such as a `main` that loops until end of
-  input (today's examples use fuel, e.g. `addLines 1000`). Draft 1's design
-  was unsound; the program showing why is a must-reject test
-  (`examples/soundness/infinite-computation.sw`), so the language is sound
-  without it.
+- **`decSucc` is no longer used in the prelude** (after the `decEqNat`
+  fix); keep it for users or remove it.
+- **For a kernel `decEqText` native** (compact text stage 3), follow the
+  `decEqNat` pattern: make the definition ask a Boolean test so its `No` is
+  `No (textNeq a b rfl)`, which the native can return, with whole-result
+  tests.
+- **`Partial`, someday/maybe** (see partial.md): stage 2, fuel-bounded runs
+  inside total code and partial-correctness proofs ("if it finishes, it's
+  right"), which needs a productive-observer argument and foreign calls kept
+  out of steps; promoting partial code to total once termination is proven;
+  equivalence of partial programs (research-level); handlers over `Delay`;
+  JS exports of partial functions (a stepper).
 - **Lacks constraints on row variables** aren't enforced (only reachable with
   a hand-written `Sig`).
 - **Inferring a bare lambda's type** needs an annotation, e.g.
