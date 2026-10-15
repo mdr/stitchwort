@@ -1,190 +1,219 @@
-# Proposal: how abilities and handlers run
+# Stitchwort: abilities and handlers
 
-**Status:** draft for discussion, 15 October 2026. Nothing here is implemented. A self-contained version for reviewers is in [`abilities-review.md`](abilities-review.md). This is the "written operational semantics" that DESIGN.md §15 requires before milestone 7, plus a recommendation for how to build it.
+**Status:** draft 2, 15 October 2026. The foundation is implemented (see [Status](#status)): `Comp`, its fold and `bind`, and the termination rule they need. Hand-written handlers for `State`, `Abort` and `Choose` pass the semantic tests below. There's no `ability` or `handle` syntax yet. `Partial` has moved to its own proposal, [`partial.md`](partial.md).
 
-## Summary
+## Changes since draft 1
 
-- **The behaviour** (what a program means) follows the usual design for deep handlers, as in Koka, Eff and Unison. A handler clause runs *outside* the handler. Operations a handler doesn't handle pass through to the next one out. Resuming `k` re-installs the handler. The precise rules are in [The rules](#the-rules).
-- **The implementation** is the main decision. I recommend translating effectful code into ordinary data, a *tree of operations*, before it reaches the kernel, rather than adding effects to the kernel. Then the kernel's existing checks (positivity and structural recursion) prove that admissible handlers terminate. The conjecture in DESIGN.md §8 becomes a theorem that the kernel checks for each program, and `IsData` may no longer be needed.
-- **`Partial`** fits the same scheme: a partial computation is a tree that may be infinite, built one step at a time. The type checker never unfolds it. Only the runtime runs it. A generic `withFuel`, which DESIGN.md postponed, then falls out for free.
+Draft 1 was reviewed. The review supported option B (effects as data), found a soundness problem in the `Partial` design, and asked for several parts of the specification to be tightened. In response:
 
-## What DESIGN.md asks to pin down
+- **`Partial` is split out.** Draft 1 let a `Partial` definition build an *infinite* `Comp` tree by guarded recursion. That is unsound: with an infinite tree, an ordinary fold over `Comp` proves `Void` (`drain (forever ())`). Infinite computations need a separate representation, and that is now an open proposal of its own. The counterexample is in the must-reject suite.
+- **The comparison with option A is corrected.** Effects in the kernel don't leave handler termination unprovable; they need their own metatheory. Option B's advantage is that it reuses the kernel's existing argument.
+- **Termination now rests on two separate things:** the kernel checks that the *translated* program terminates. Whether the translation matches the semantics in Part 1 is a separate obligation for the elaborator, tested by comparing behaviour.
+- **The termination rule is specified by provenance** (where the function came from), not by its type: see [The termination rule](#the-termination-rule).
+- **The `IsData` claim is corrected.** Draft 1 said state holding effectful functions "can't be written down". That's wrong, and it isn't the problem. State may hold effectful functions whose effects don't refer back to the state's own signature. The must-reject entry "function-valued state" is replaced by specific forms of Landin's knot.
+- **New specification items:** rows, handler coverage, the intermediate types in `runState`, `bind`, dependent results, the empty row, and polymorphic operations.
+- **Implemented:** the termination rule, `Comp`, `foldComp`, `bind`, and the semantic and must-reject tests. Building them found and fixed a bug in nested pattern matching.
 
-DESIGN.md §8 lists three questions. Short answers first, using `State` as the example:
+## Background
 
-```
-ability State s where
-  get : () -> {State s} s
-  put : s -> {State s} ()
-```
+Stitchwort is a small, strict, pure, dependently typed language, built for fun and to explore ideas. It's implemented in Rust, with a small trusted kernel that re-checks everything the elaborator produces. It extracts to JavaScript, and a playground runs the compiler as WebAssembly.
 
-1. **Does a clause run inside or outside its own handler?** *Outside.* If the `get` clause itself calls `get ()`, that call goes to the *next* `State` handler out, not to this one. (Running inside would let a clause loop back into its own handler.)
-2. **How are unhandled operations forwarded?** To the nearest enclosing handler that handles them. The computation is suspended exactly as for a handled operation, and when that outer handler resumes it, it continues under the inner handler again. Handlers are invisible to operations they don't handle.
-3. **What is the type of `k`?** For a handler whose result type is `r` and whose remaining abilities are `e`, handling an operation that returns `b`:
+The goal that matters most here: **totality must be a real guarantee.** A function whose type doesn't mention `Partial` must terminate, including everything it calls. (Lean's `partial def` is the motivating counterexample: it's invisible in types.) Partiality is meant to be an *ability* (an algebraic effect, in Unison's terminology) that appears in function types and spreads to callers.
 
-   ```
-   k : b -> {e} r
-   ```
+The language today has:
+- A dependently typed core, with numbered universes and an impredicative `Prop` (with subsingleton elimination).
+- Data types with parameters (no indices), strict positivity, and structural termination checking.
+- Case trees compiled from nested patterns, where branches refine the types of other variables.
+- Built-in equality with `J`.
+- Implicit arguments and proof search (`auto`).
+- JavaScript extraction.
 
-   `k` resumes the computation *with the handler still in place* (that's what "deep" means), so its result is the handler's result `r`, and calling it can perform only the abilities left over, `e`.
+Abilities follow Unison and Frank. Code is written in direct style, and function arrows carry ability rows (`a -> {State s} b`, with row variables `{State s | e}`). A plain arrow `a -> b` means pure and total. Handlers are **deep**.
 
-## The rules
-
-Evaluation is strict and left to right, as now. Written as rewriting steps on a running program:
-
-**Calling an operation.** `op v` suspends the computation up to the nearest handler that handles `op`. Everything between the call and that handler is the *continuation*.
-
-**Return.** When the handled computation finishes with value `x`, the `return x` clause runs:
+Two counterexamples show that "handlers that resume at most once" doesn't guarantee termination:
 
 ```
-handle x with H    ⟶    (return clause of H) with x bound
-```
+-- A handler that restarts the computation instead of resuming it.
+ability Ping where
+  ping : () -> {Ping} ()
 
-**Handled operation.** If the computation inside `handle … with H` calls `op v`, and nothing between the call and `H` handles `op`:
-
-```
-handle C[op v] with H    ⟶    (op clause of H) with its argument bound to v,
-                                and k = \y -> handle C[y] with H
-```
-
-`C[…]` is the rest of the computation, with a hole where `op v` was. Two things follow from the shape of this rule:
-
-- The clause replaces the whole `handle` expression, so it runs **outside** `H` (question 1).
-- `k` wraps the rest of the computation in `handle … with H` again, so the handler is **deep** (question 3).
-
-**Forwarded operation.** If `H` doesn't handle `op`, the step happens at whichever outer handler does. `C` then contains `handle … with H`, and resuming re-enters it (question 2).
-
-**Abilities in types.** A function type `a -> {e} b` says calling it may perform `e`. A plain `a -> b` means pure and total. `handle` removes the handled ability from the row:
-
-```
-prog       : () -> {State s | e} a
-runState   : s -> (() -> {State s | e} a) -> {e} (a, s)
-```
-
-### Examples
-
-```
--- Resuming more than once: collect every outcome of the choices.
-ability Choose where
-  choose : () -> {Choose} Bool
-
-allResults : (() -> {Choose | e} a) -> {e} List a
-allResults prog =
+bad : (() -> {Ping} a) -> a
+bad prog =
   handle prog () with
-    | return x        -> [x]
-    | choose () => k  -> append (k True) (k False)
+    | return x     -> x
+    | ping () => k -> bad prog
 
--- Not resuming at all: stop early.
-ability Abort where
-  abort : () -> {Abort} a
-
-toOptional : (() -> {Abort | e} a) -> {e} Optional a
-toOptional prog =
-  handle prog () with
-    | return x       -> Some x
-    | abort () => k  -> None
+-- Landin's knot: a stored function that reads itself back.
+ability Cell where
+  read  : () -> {Cell} (() -> {Cell} ())
+  write : (() -> {Cell} ()) -> {Cell} ()
 ```
 
-A clause performing the ability it handles (question 1):
+## Part 1: semantics
+
+### Rules
+
+Evaluation is call-by-value, left to right. `C[…]` is an evaluation context with no handler for `op` between the hole and `H`.
 
 ```
--- Inside `inner`, `get` answers from the *outer* State: the clause's own
--- `get ()` goes past `inner`'s handler.
-inner : () -> {State Nat | e} Nat
-inner () =
-  handle (\() -> get () + 1) () with
-    | return x      -> x
-    | get () => k   -> k (get () * 10)
+handle v with H        ⟶  e_return[v/x]
+
+handle C[op v] with H  ⟶  e_op[v/x, (\y -> handle C[y] with H)/k]
+                          if H handles op
 ```
 
-## How to build it: two options
+- **A clause runs outside its own handler.** It replaces the whole `handle` expression, so if a `get` clause calls `get ()`, that call goes to the next `State` handler out.
+- **Deep.** `k` wraps the continuation in `handle … with H` again.
+- **Forwarding.** If `H` doesn't handle `op`, the step happens at an outer handler, whose `C` contains `handle … with H`. Resuming re-enters `H`, and any other handlers in between.
 
-### A. Effects in the kernel
+Shallow handlers aren't planned.
 
-The core gets ability rows on function types, an effect judgment `Γ ⊢ t : A ! ε`, and `handle`/operation terms. The kernel's evaluator implements the rules above directly, with continuations.
+### Typing
 
-- **Gain:** a direct implementation of the semantics. Effectful code runs fast in the evaluator.
-- **Cost:** the trusted kernel grows a lot: continuations, rows, row polymorphism and the effect judgment. Termination of handlers stays a *conjecture*, a tracked assumption, as DESIGN.md §8 has it now.
+- **`k`.** For a handler whose result type is `r` and whose output row is `e'`, handling an operation that returns `b`:
 
-### B. Effects as data (recommended)
+  ```
+  k : b -> {e'} r
+  ```
 
-The elaborator translates effectful code into ordinary values of one data type, a tree of operations, defined in the prelude:
+- **The output row.** `handle` removes the handled ability from the *handled computation's* row. The output row `e'` is that remainder **plus whatever the clauses themselves perform**, which may include the handled ability again: a `State` clause may call the outer `State`.
+- **Coverage.** For now, a handler that removes an ability must have a `return` clause and a clause for every operation of that ability.
+- **`runState` has two effect positions.** In the function-returning presentation, the handler produces a function waiting for the state:
+
+  ```
+  run : s -> {e} (a, s)              -- applying it may perform e
+  k   : s -> {e} (s -> {e} (a, s))   -- resuming may perform e, and so may the function it returns
+  ```
+
+  Both positions are needed. The elaborator must keep track of both rather than lose one.
+
+### Semantic tests
+
+Kernel acceptance can't show that a program does the right thing, so these tests pin down behaviour. They're implemented over hand-written trees in `examples/accept/handlers.sw`, and all pass.
+
+The test program:
 
 ```
--- A computation that returns an `a`, performing operations from a
--- signature: `op` is the type of operation calls, and `res o` is what
--- call `o` gives back.
+p () =
+  let b = choose ()
+  if b then put 1 else ()
+  get ()
+```
+
+| Test | Expected | Shows |
+|---|---|---|
+| `allResults (\() -> runState 0 p)` | `[(1, 1), (0, 0)]` | State inside choice: each branch has its own state. Forwarding, and resuming twice |
+| `runState 0 (\() -> allResults p)` | `([1, 1], 1)` | Choice inside state: one state threads through both branches |
+| A `State` clause whose own `get` scales the outer state's value | `51` for `get () + 1` with outer state `5` | A clause runs outside its handler; the output row keeps `State` |
+| `toMaybe (safeDiv 7 0)` | `Nothing` | Not resuming |
+| `allResults` written with `foldComp` | the same as the handler, `[7, 6, …, 0]` for three choices | The generic fold |
+| State holding a function that uses `Choose` | `[15, 5]` | Effectful functions in state are fine when their effects are independent |
+
+When the direct-style translation exists, these become source programs. Their results, and the order in which operations happen, will be compared with the rules above.
+
+## Part 2: implementation — effects as data
+
+### The options
+
+**A. Effects in the kernel.** The core gets ability rows, an effect judgment `Γ ⊢ t : A ! ε`, and terms for `handle` and operations, run with continuations. It's direct and fast. Handler termination then needs its own metatheoretic argument, separate from the kernel's existing one for inductive types, and the trusted kernel grows considerably.
+
+**B. Effects as data (chosen).** The elaborator translates effectful code into ordinary values of an inductive type, so the kernel's existing account of inductive types covers termination. The kernel adds one rule to the termination checker, and nothing else.
+
+### The representation
+
+These are in the prelude:
+
+```
 type Comp (op : Type) (res : op -> Type) (a : Type) : Type =
   | Done (value : a)
   | Call (o : op) (rest : res o -> Comp op res a)
+
+foldComp : (a -> r) -> ((o : op) -> (res o -> r) -> r) -> Comp op res a -> r
+foldComp done call (Done x)      = done x
+foldComp done call (Call o rest) = call o (\y -> foldComp done call (rest y))
+
+bind : Comp op res a -> (a -> Comp op res b) -> Comp op res b
+bind (Done x)      next = next x
+bind (Call o rest) next = Call o (\y -> bind (rest y) next)
 ```
 
-- An effectful function `a -> {e} b` becomes a pure function `a -> Comp (ops of e) (results of e) b`. The kernel never sees ability rows, only this data type.
-- Direct-style code is translated into nested `Call`s: `let n = get (); put (n + 1); n` becomes "call `get`, then with its result `n` call `put (n + 1)`, then be `Done n`". This is the main work for the elaborator.
-- **A deep handler is a fold** over the tree: a recursive function with one case for `Done` (the `return` clause) and one for `Call`. For a handled operation it runs the clause, with `k = \y -> handler (rest y)`. For any other operation it rebuilds the `Call` with the handler wrapped round `rest`. These are exactly the rules above, written as an ordinary definition.
-- Rows are combined by summing signatures. The elaborator keeps them in a canonical order, so `{State s, Abort}` and `{Abort, State s}` are the same type. A row variable `e` becomes an implicit signature parameter.
+- **`foldComp` is the eliminator handlers are justified by.** `call` receives the operation together with the results of folding every way it could continue, packaged as a function. It may use that function any number of times.
+- **A deep handler is a fold.** In practice it's written as a structurally recursive function, which is checked by the same rule as `foldComp`.
 
-**Why this answers the termination question.** The kernel already checks two things that together prove an admissible handler terminates:
+### The termination rule
 
-- **Positivity.** `Comp` is strictly positive, since `rest`'s domain `res o` doesn't mention `Comp`, so every tree is finite (well-founded).
-- **Structural recursion.** The handler recurses on `rest y`, which is structurally smaller than `Call o rest`. Coq and Lean accept this standard rule for function-typed fields. Our termination checker needs a small extension to accept it, limited (as in Coq) to fields whose result is the data type being matched.
+A `Comp` is a well-founded tree: it's strictly positive, because `rest`'s domain doesn't mention `Comp`. The termination checker accepts a recursive call on:
 
-The two counterexamples in DESIGN.md §8 are then rejected by these existing checks, with no special rule:
+1. a variable bound as a field of a constructor matched from the parameter (as before);
+2. a constructor applied to exactly the fields of such a match, which is the matched value itself (`Succ n` where `m` was matched as `Succ n`);
+3. **a recursive function field applied to arguments** (new): `rest y`, where `rest` is the *variable bound by the match* for a field whose declared type is a function returning the data type being matched.
 
-| Counterexample | Why it fails |
+Rule 3 goes by provenance. It doesn't accept any application whose result type happens to be the matched type. Only the field variable itself counts: not a lambda wrapping the original tree, not another definition applied to the field, not an alias. Field types are read from the data declaration, as in Rocq. Case branches substitute constructor values into *types*, but never into terms, so the provenance of a variable doesn't change inside a branch.
+
+This corresponds to `Comp`'s dependent eliminator, whose `Call` branch has the induction hypothesis `ih : (y : res o) -> P (rest y)`. Generating that recursor and compiling folds to it would be an alternative implementation. For now the fixpoint checker stays, with the rule above.
+
+**Not yet verified:** a soundness argument for rule 3 alongside this kernel's other features (impredicative `Prop`, and branches that refine other variables' types). The rule is standard. The kernel's must-reject tests exercise it, but they aren't a proof.
+
+### What the kernel rejects
+
+These are must-reject tests in `examples/soundness/`:
+
+| Attempt | Rejected by |
 |---|---|
-| `Ping`: a clause calls the handler on the original program, restarting it | The recursive call isn't on a smaller tree: `E-TERMINATION` |
-| `Cell`: an operation stores an effectful function | The operation's argument type would mention `Comp` itself, which needs a recursive signature the kernel's positivity check refuses (and the elaborator can't even form) |
+| `forever u = Call Later (\v -> forever u)`, which with `drain` would prove `Void` | Termination: `u` isn't smaller |
+| A fake child: `loop ((\b -> Call o rest) True)` | Termination: the head isn't the field variable |
+| `Ping`: `bad (Call o rest) = bad (Call o rest)` | Termination: rebuilding the parameter isn't smaller |
+| `Cell`, with an effectful function in an operation's *result*: `CellRes Read = Unit -> Comp CellOp CellRes Unit` | Termination: a self-referential type function |
+| `Cell`, with an effectful function in an operation's *argument* | Positivity |
 
-**Checked against today's kernel** (scratch files, not committed):
+**Still to add:** indirect versions of `Cell`, through type aliases, records (once they exist) and mutually dependent abilities (once rows exist).
 
-- The kernel accepts `Comp` as written above, so it passes the positivity and universe checks.
-- A `State` handler written by hand as a fold over `Comp` is refused only with `E-TERMINATION` on `runState s (rest s)`. That's the one extension described above.
-- Both ways of writing `Cell` are refused. A result-type function that mentions itself gets `E-TERMINATION`. An operation type whose field mentions `Comp` of itself gets `E-POSITIVITY`.
+### `IsData` is replaced by the kernel's own checks
 
-So with option B, *a handler that the kernel accepts terminates*. That's not a conjecture and not a tracked assumption; it rests only on the kernel being correct, like everything else. As far as I can see, this also makes `IsData` unnecessary. State holding *pure* functions (`State (Nat -> Nat)`) can't loop, and state holding *effectful* functions can't be written down, for the same reason as `Cell`. I'd want to check this carefully with must-reject tests before dropping `IsData`.
+| Case | Treatment |
+|---|---|
+| State holding pure, total functions (`State (Nat -> Nat)`) | Accepted |
+| State holding functions whose effects use an independent signature (`State (() -> {Choose} Bool)`) | Accepted. Tested: storing and running a `Choose` function |
+| Effects creating the recursive dependency of Landin's knot | Rejected, because the translated declarations fail positivity or termination |
 
-- **Gain:** the kernel stays as it is (apart from the termination-checker extension above), and handler termination is checked, not assumed. Dependent types work naturally with effects: in `(n : Nat) -> {IO} Vec Nat n`, the result type is just `Comp … (Vec Nat n)`, and a result used later in a type is an ordinary bound variable in the continuation. That settles the open question in DESIGN.md §6, "Effects and dependent types", for free.
-- **Cost:**
-  - Effectful code runs as tree-building and folding, which is slower in the evaluator than option A. That's fine for tests and the playground at POC scale.
-  - Error messages must be phrased in terms of abilities, never `Comp`, so the elaborator has to translate them back.
-  - Extracted JS would also build and fold trees. That's acceptable at first, since exports must be pure anyway. Compiling handlers to generators can come later.
+There's no separate data-only restriction. A signature is accepted when its translation passes the kernel.
 
-## `Partial`
+### Elaboration decisions still to specify
 
-A partial function's recursion can't be a finite tree. With option B it becomes a tree that may be *infinite*, built lazily. The prelude gets a signature with one operation, `later`. A partial definition may make a recursive call only inside the `rest` of a `later` call, so each step builds only one layer:
+These come before the direct-style translation:
 
-```
-spin : Nat -> {Partial} Nat
-spin n = spin n
--- becomes, roughly:
-spin n = Call later (\_ -> spin n)
-```
+- **Rows.** Duplicate labels (`{State Nat, State Bool}`) are refused for now. A row is a sum of signatures, in a canonical order. The elaborator must generate explicit, checkable mappings: injecting an operation into a larger row, weakening a computation to a larger row, and handling one label of an abstract row. The hand-written tests use `Plus l r`, with handlers written separately for the left and the right. The general mapping scheme still needs writing.
+- **Sequencing is `bind`.** An operation's result is bound by the continuation's lambda, and can index types inside it. It can't escape `bind`'s fixed result type: a function returning `Vec Nat n` for a locally obtained `n` needs a dependent pair. That's a restriction worth stating, not a solved problem.
+- **The empty row.** `Comp` over an empty signature is equivalent to a plain value, but it isn't the same type. The plan:
+  - pure functions stay plain;
+  - code polymorphic in a row and instantiated at the empty row is run with an explicit `runPure : Comp Empty … a -> a`;
+  - a pure function used where an effectful one is expected is wrapped with `Done`.
+- **Polymorphic operations.** `abort : () -> {Abort} a` is encoded as a primitive operation returning `Empty`, followed by eliminating the impossible result (as in the tests). Other genuinely polymorphic operations would store a type in the operation, which raises universe questions. They're excluded until needed.
+- **`Partial` in a row.** Handlers here are inductive folds, so `Partial` can't appear in their residual rows until [`partial.md`](partial.md) is settled.
 
-- **For the kernel:** a `Partial` definition is checked for *guardedness* (each recursive call is inside a `later`'s `rest`) instead of structural recursion. And it is **never unfolded during type checking**, only when a program runs (principle 2, DESIGN.md §5 rule 7). Without that rule, comparing two `Partial` values could unfold them forever, because comparison looks inside functions.
-- **Still visible in types:** `Partial` appears in the type and spreads to callers, because calling `spin` produces a `Comp` with `later` calls in it, and only a function whose type includes `{Partial}` may return one.
-- **Handled only by the runtime:** it runs the tree, looping for as long as it takes. Ordinary handlers may not handle `later` (DESIGN.md §5 rule 4).
-- **A bonus:** `withFuel : Nat -> (() -> {Partial | e} a) -> {e} Optional a`, which DESIGN.md §5 postponed, can now be written in the prelude. It counts `later` steps and gives up when the fuel runs out. It's total, because it recurses on the fuel. The three requirements DESIGN.md lists for it are met: the "tick" is part of the core encoding, and it's checked by the kernel's guardedness rule. Foreign partial functions remain excluded.
+### Costs
 
-## `IO`
+- Effectful code runs by building and folding trees, which is slower in the evaluator than option A.
+- Error messages must talk about abilities, never `Comp`.
+- Extracted JS builds and folds trees. Even an export whose final row is empty may use multi-shot handlers internally, and the backend must preserve that. Building and folding trees as ordinary data does preserve it, so it's the safe first backend. Generators would need the "at most once" restriction.
 
-`IO` is a signature like any other, but only the runtime handles it, at `main`, by performing each operation for real. The type checker never runs `IO` operations: they're just `Call` nodes, which it never needs to evaluate.
+## Status
 
-## What would be built, in order
+**Done:**
+- The termination rule.
+- `Comp`, `foldComp` and `bind` in the prelude.
+- Handlers written by hand, with the semantic tests and the must-reject tests above.
+- A nested-pattern fix that this needed: a branch now refines every variable whose type mentions the matched one, including variables bound earlier (`rest : res o` after `o` is matched as `L Get`).
 
-1. **The core:** `Comp` in the prelude, and the termination-checker extension for function-typed fields. Hand-written handlers over hand-written trees, to test the kernel side alone.
-2. **The elaborator:**
-   - `ability` declarations, and rows on arrows (`{State s | e}`) with row variables.
-   - The direct-style translation of effectful code into `Call`s, including `let` and sequencing (`a; b`), which don't exist yet.
-   - `handle … with` clauses.
-3. **The standard handlers:** `State` (`runState`), `Abort` (`toOptional`), `Choose` (`allResults`), and the must-reject suite: `Ping`, `Cell`, function-valued state, a user handler for `Partial`.
-4. **`Partial`:** guardedness, no unfolding during type checking, the runtime loop, `withFuel`.
-5. **`IO` and `main`:** a CLI runner that handles `IO` (console output to start with).
+**Next:**
+1. The row mappings (injection, weakening, handling one label of an abstract row), written as hand-written examples first.
+2. `ability` declarations and rows on arrows.
+3. The direct-style translation, with `let` and sequencing, compared with Part 1 on the semantic tests, including operation order.
+4. `handle … with`, with the coverage rule.
+5. `IO` and `main`.
 
-Steps 1–3 deliver the milestone 7 demo ("Effectful code tested through pure handlers. `Ping`, `Cell` and function-valued state are rejected"). Step 4 is what makes totality visible in types. With option B, results no longer need to show a handler assumption, because there isn't one.
+## Questions
 
-## Questions for you
-
-1. **Option A or B?** I recommend B: the kernel checks handler termination instead of trusting a conjecture, at the cost of slower effectful code in the evaluator.
-2. **New syntax** this needs that doesn't exist yet: `let x = e` (with the body continuing on the following lines) and sequencing. DESIGN.md already uses both in its examples. Is the layout in DESIGN.md's `tick` example what you want?
-3. **Duplicate abilities in a row,** like `{State Nat, State Bool}`: refuse them for now (simplest), or allow them, which needs a way to say which one an operation means?
+1. **Rule 3.** Is the provenance rule as stated sufficient for this kernel? Is there a known interaction with impredicative `Prop`, or with branches refining the types of earlier variables?
+2. **Rows.** Duplicate labels refused, in a canonical order, with generated mappings: is that a reasonable first design, or is it worth going straight to Koka-style duplicate labels?
+3. **Dependent results.** Is a dependent pair the right answer for effectful functions whose result type depends on an operation's result, or is a dependent `bind` worth specifying?

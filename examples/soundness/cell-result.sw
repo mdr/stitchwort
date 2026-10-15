@@ -1,0 +1,14 @@
+-- expect-error: E-TERMINATION
+-- Landin's knot (`Cell`, DESIGN.md §8): `read` would return an effectful
+-- function, so the result type of `Cell`'s operations would have to mention
+-- itself. That self-reference isn't a terminating definition.
+type CellOp : Type =
+  | Read
+  | Write
+
+type Unit1 : Type =
+  | MkUnit
+
+CellRes : CellOp -> Type
+CellRes Read  = Unit1 -> Comp CellOp CellRes Unit1
+CellRes Write = Unit1

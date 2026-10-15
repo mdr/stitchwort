@@ -639,7 +639,7 @@ Each continuation here is resumed exactly once. The recursion comes from the sto
 
 Splitting it this way avoids assuming "the computation is total" before totality has been defined for open, effectful computations, and shows that the restrictions on operations belong to part 1. This is an argument, not yet a proof. Until it's written up properly, it's a **tracked assumption** (principle 3): results that rely on a handler show it ([§3](#3-precise-guarantees)). Built-in handlers like `runState` and `runAbort` might get their own specific arguments later, so they no longer depend on the general conjecture.
 
-**Operational semantics to pin down before milestone 7.** A draft answer, with a recommended implementation, is in [`docs/proposals/abilities.md`](docs/proposals/abilities.md). "Deep" isn't a complete specification. Before implementing handlers, the core rules must say:
+**Operational semantics to pin down before milestone 7.** Answered in [`docs/proposals/abilities.md`](docs/proposals/abilities.md), which also chooses an implementation: effects are translated into an inductive tree type, so the kernel's positivity and termination checks prove that handlers terminate, replacing the conjecture below. `Partial` is a separate open proposal, [`docs/proposals/partial.md`](docs/proposals/partial.md). "Deep" isn't a complete specification. Before implementing handlers, the core rules must say:
 
 - whether a clause runs *inside* or *outside* the handler it belongs to (i.e. what happens if a clause itself performs an operation of the ability being handled);
 - how operations the handler doesn't handle are forwarded to outer handlers;

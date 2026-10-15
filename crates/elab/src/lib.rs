@@ -865,23 +865,17 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                     .map(|i| Value::var(base + i))
                     .collect();
                 // Inside the branch, the matched variable *is* the constructor
-                // value, so the goal and the types of later variables are
-                // refined with it (as the kernel does).
-                let mut env = cx.env.clone();
-                env[*x] = Value::Ctor(*d, c, fields.clone());
-                let branch_goal = eval(g, &env, &goal_term);
-                let refined: Vec<Value> = cx
-                    .types
-                    .iter()
-                    .enumerate()
-                    .map(|(l, ty)| {
-                        if l > *x {
-                            eval(g, &env, &cx.quote(ty))
-                        } else {
-                            ty.clone()
-                        }
-                    })
-                    .collect();
+                // value, so it's substituted into the goal and the whole
+                // context (as the kernel does).
+                let value = Value::Ctor(*d, c, fields.clone());
+                let level = cx.level();
+                let mut env = kernel::substitute(g, level, *x, &value, &cx.env);
+                env[*x] = value.clone();
+                let refined = kernel::substitute(g, level, *x, &value, &cx.types);
+                let branch_goal =
+                    kernel::substitute(g, level, *x, &value, &[eval(g, &cx.env, &goal_term)])
+                        .pop()
+                        .expect("one value in, one out");
                 let saved_env = std::mem::replace(&mut cx.env, env);
                 let saved_types = std::mem::replace(&mut cx.types, refined);
                 let mut field_env = params.clone();

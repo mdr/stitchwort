@@ -468,11 +468,15 @@ fn check_case(
             .map(|i| Value::var(base + i))
             .collect();
         // Inside the branch, the matched variable *is* the constructor value,
-        // so the goal and the types of later variables are refined with it.
-        let mut env = cx.env.clone();
-        env[x] = Value::Ctor(d, c, fields.clone());
-        let branch_goal = eval(g, &env, &goal_term);
-        let refined_types = refine_types(cx, x, &env);
+        // so it's substituted into the goal and the whole context.
+        let value = Value::Ctor(d, c, fields.clone());
+        let level = cx.level();
+        let mut env = substitute(g, level, x, &value, &cx.env);
+        env[x] = value.clone();
+        let refined_types = substitute(g, level, x, &value, &cx.types);
+        let branch_goal = substitute(g, level, x, &value, &[eval(g, &cx.env, &goal_term)])
+            .pop()
+            .expect("one value in, one out");
         let saved_env = std::mem::replace(&mut cx.env, env);
         let saved_types = std::mem::replace(&mut cx.types, refined_types);
 
@@ -496,19 +500,22 @@ fn check_case(
     Ok(Term::Case(ix, d, out.into()))
 }
 
-/// The context's types, with every variable after `x` re-evaluated in `env`
-/// (where `x` has been replaced by a constructor value).
-pub fn refine_types(cx: &Ctx, x: usize, env: &[Value]) -> Vec<Value> {
-    cx.types
+/// Substitutes `value` for variable `x` in each of `values`, with `level`
+/// variables in scope. Case branches use this to refine the whole context:
+/// with nested patterns, a variable matched later can appear in the type of
+/// one bound earlier (`rest : res o` after `o` is matched as `L o'`).
+pub fn substitute(
+    g: &Globals,
+    level: usize,
+    x: usize,
+    value: &Value,
+    values: &[Value],
+) -> Vec<Value> {
+    let mut env: Vec<Value> = (0..level).map(Value::var).collect();
+    env[x] = value.clone();
+    values
         .iter()
-        .enumerate()
-        .map(|(level, ty)| {
-            if level > x {
-                eval(cx.g, env, &cx.quote(ty))
-            } else {
-                ty.clone()
-            }
-        })
+        .map(|v| eval(g, &env, &quote(g, level, v)))
         .collect()
 }
 
@@ -533,7 +540,7 @@ pub fn define_def(g: &mut Globals, id: DefId, body: &Term) -> Result<()> {
         ));
     }
     let body = check(&mut cx, body, &ty_value)?;
-    termination::check(&body, id, &name, span)?;
+    termination::check(g, &body, id, &name, span)?;
     let def = &mut g.defs[id.0];
     def.arity = body.count_lams();
     def.body = Some(body);

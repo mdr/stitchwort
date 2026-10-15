@@ -5,19 +5,34 @@
 //! a constructor pattern-matched (directly or transitively) from parameter `i`.
 //! Rebuilding a matched value counts as that value: in the branch where `m` is
 //! `Succ n`, the argument `Succ n` is `m`.
+//!
+//! A *recursive function field* (a field whose type is a function returning
+//! the data type being matched, like `rest : res o -> Comp op res a`) applied
+//! to arguments is smaller too, as in Rocq: each result is a child in the
+//! well-founded tree. Only the field variable itself counts, not some other
+//! function that happens to return the same type.
 
 use stitchwort_syntax::{Diagnostic, Span};
 
+use crate::globals::Globals;
 use crate::term::{DataId, DefId, Term};
 
-pub fn check(body: &Term, self_id: DefId, name: &str, span: Span) -> Result<(), Diagnostic> {
+pub fn check(
+    g: &Globals,
+    body: &Term,
+    self_id: DefId,
+    name: &str,
+    span: Span,
+) -> Result<(), Diagnostic> {
     let arity = body.count_lams();
     let mut walker = Walker {
+        g,
         self_id,
         infos: (0..arity)
             .map(|i| Info {
                 param: Some(i),
                 smaller_than: None,
+                recursive_fn: false,
             })
             .collect(),
         calls: Vec::new(),
@@ -60,9 +75,12 @@ struct Info {
     param: Option<usize>,
     /// This variable is structurally smaller than parameter `i`.
     smaller_than: Option<usize>,
+    /// This variable is a recursive function field of a matched constructor.
+    recursive_fn: bool,
 }
 
-struct Walker {
+struct Walker<'g> {
+    g: &'g Globals,
     self_id: DefId,
     /// Indexed by de Bruijn level.
     infos: Vec<Info>,
@@ -82,7 +100,18 @@ struct Matched {
     fields: std::ops::Range<usize>,
 }
 
-impl Walker {
+/// Whether a constructor field's type is a function returning data type `d`.
+fn is_recursive_fn(ty: &Term, d: DataId) -> bool {
+    let mut ty = ty.strip_loc();
+    let mut arrows = 0;
+    while let Term::Pi(_, _, _, cod) = ty {
+        arrows += 1;
+        ty = cod.strip_loc();
+    }
+    arrows > 0 && matches!(ty, Term::Data(d2, _) if *d2 == d)
+}
+
+impl Walker<'_> {
     fn walk(&mut self, term: &Term) {
         match term {
             Term::Loc(span, inner) => {
@@ -116,10 +145,10 @@ impl Walker {
                     self.walk(arg);
                 }
             }
-            Term::Lam(_, _, body) => self.under(1, None, body),
+            Term::Lam(_, _, body) => self.under(&[false], None, body),
             Term::Pi(_, _, dom, cod) => {
                 self.walk(dom);
-                self.under(1, None, cod);
+                self.under(&[false], None, cod);
             }
             Term::Data(_, args) | Term::Ctor(_, _, args) => {
                 for arg in args {
@@ -134,6 +163,7 @@ impl Walker {
                 let scrutinee = &self.infos[self.infos.len() - 1 - ix];
                 let source = scrutinee.param.or(scrutinee.smaller_than);
                 let level = self.infos.len();
+                let g = self.g;
                 for (c, branch) in branches.iter().enumerate() {
                     self.matched.push(Matched {
                         scrutinee: level - 1 - ix,
@@ -141,7 +171,12 @@ impl Walker {
                         ctor: c,
                         fields: level..level + branch.names.len(),
                     });
-                    self.under(branch.names.len(), source, &branch.body);
+                    let recursive: Vec<bool> = g.data(*d).ctors[c]
+                        .fields
+                        .iter()
+                        .map(|(_, ty)| is_recursive_fn(ty, *d))
+                        .collect();
+                    self.under(&recursive, source, &branch.body);
                     self.matched.pop();
                 }
             }
@@ -161,11 +196,23 @@ impl Walker {
     }
 
     /// The parameter `arg` is structurally smaller than, if any: a variable
-    /// matched from it, or a constructor rebuilding one.
+    /// matched from it, a recursive function field applied to arguments, or a
+    /// constructor rebuilding a matched value.
     fn smaller_than(&self, arg: &Term) -> Option<usize> {
         let level = self.infos.len();
         match arg.strip_loc() {
             Term::Var(ix) => self.infos.get(level.checked_sub(ix + 1)?)?.smaller_than,
+            Term::App(..) => {
+                let Term::Var(ix) = arg.spine().0 else {
+                    return None;
+                };
+                let info = self.infos.get(level.checked_sub(ix + 1)?)?;
+                if info.recursive_fn {
+                    info.smaller_than
+                } else {
+                    None
+                }
+            }
             Term::Ctor(d, c, args) => {
                 let fields: Option<Vec<usize>> = args
                     .iter()
@@ -184,14 +231,16 @@ impl Walker {
         }
     }
 
-    fn under(&mut self, binders: usize, smaller_than: Option<usize>, body: &Term) {
-        for _ in 0..binders {
+    /// Walks `body` under new binders, one per entry of `recursive_fn`.
+    fn under(&mut self, recursive_fn: &[bool], smaller_than: Option<usize>, body: &Term) {
+        for &recursive_fn in recursive_fn {
             self.infos.push(Info {
                 param: None,
                 smaller_than,
+                recursive_fn,
             });
         }
         self.walk(body);
-        self.infos.truncate(self.infos.len() - binders);
+        self.infos.truncate(self.infos.len() - recursive_fn.len());
     }
 }

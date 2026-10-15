@@ -100,7 +100,7 @@ A declaration `type D (params) : s = | C₁ fields | …`:
 
 1. There must be exactly one branch per constructor, in declaration order (`E-NONEXHAUSTIVE`).
 2. **`Prop` elimination (`E-PROP-ELIM`).** If `D : Prop` and `G`'s universe isn't `Prop`, then `D` must have at most one constructor, and every field of it must be a proof. This is Lean's subsingleton-elimination rule. It's stated over the declaration's fields, not over runtime erasure: a `Type` field is erased but still disqualifies (`HiddenType`). `D` has no indices, so the "or appears in an index" clause from DESIGN.md §6 doesn't arise yet. Equality is built in, and its eliminator `J` is always allowed.
-3. **Refinement.** For constructor `c` with fields `f₁ … fₖ`, the branch is checked with the fields in scope, against `G` with `x` replaced by `c f₁ … fₖ`. Inside the branch, `x` also *evaluates* to that constructor value, so its uses compute, and the types of the variables after `x` are re-evaluated with it. For example, in `fromYes (No r) u`, the hypothesis `u : IsYes d` becomes `u : IsYes (No r)`, which computes to `Void`.
+3. **Refinement.** For constructor `c` with fields `f₁ … fₖ`, the branch is checked with the fields in scope, against `G` with `x` replaced by `c f₁ … fₖ`. Inside the branch, `x` also *evaluates* to that constructor value, so its uses compute, and the constructor value is substituted for `x` throughout the context: in every variable's type and value, including variables bound before `x` (with nested patterns, `rest : res o` is bound before `o` is matched). For example, in `fromYes (No r) u`, the hypothesis `u : IsYes d` becomes `u : IsYes (No r)`, which computes to `Void`.
 4. **No constructors.** A case with no branches is how an absurd pattern `()` compiles. It's only accepted when the data type has no constructors, and since such a type is trivially a subsingleton, it may produce anything.
 
 ## Equality
@@ -114,7 +114,7 @@ A declaration `type D (params) : s = | C₁ fields | …`:
 
 1. **Declare:** the signature is checked to be a type. For `theorem`, it must be a proposition (`E-NOT-A-PROP`). The definition is added *without a body*.
 2. **Define:** the body is checked against the signature. While this happens, the definition has no body, so recursive references to it are opaque and never unfold.
-3. **Termination (`E-TERMINATION`).** There must be one parameter position `i` such that every recursive call passes, in position `i`, a variable bound as a field of a constructor matched out of parameter `i` (directly, or through further matches on such fields), or a constructor applied to exactly the fields of such a match (`Succ n` in the branch where `m` is `Succ n` is `m`). A bare or under-applied recursive reference fails.
+3. **Termination (`E-TERMINATION`).** There must be one parameter position `i` such that every recursive call passes, in position `i`, a variable bound as a field of a constructor matched out of parameter `i` (directly, or through further matches on such fields), or a constructor applied to exactly the fields of such a match (`Succ n` in the branch where `m` is `Succ n` is `m`), or a *recursive function field* applied to arguments (`rest y`, where `rest` is the variable bound for a field whose declared type is a function returning the matched data type; only that variable counts, not other functions of the same type). A bare or under-applied recursive reference fails.
 4. The body's number of leading lambdas becomes the definition's **arity**.
 
 If a body fails to check, the definition stays without a body (opaque), so later declarations can still refer to it. A file with any errors produces no guarantees and can't be extracted.
@@ -181,7 +181,7 @@ Renaming a function or reformatting code changes no hashes. Changing a body chan
 
 ## The prelude
 
-`crates/elab/src/prelude.sw` defines everything above that isn't built in: `Void`, `Unit`, `Not`, `absurd`/`exfalso`; `Nat` with `+ - *`, `pred`, `/`, `%`, `eqNat`; `Bool` with `not`, `ifThenElse`, `leq`, `decEqBool`; `<=` and `<` as propositions computed via `leq`; `List`, `length`, `append`; `cong`, `sym`, `trans`; constructor disjointness and injectivity; and `Decidable` with `IsYes`, `fromYes`, `toBool`, `elimDec` and decision procedures for `=` on `Nat`, `<=`, `<`, `Not`, and `b = True`.
+`crates/elab/src/prelude.sw` defines everything above that isn't built in: `Void`, `Unit`, `Not`, `absurd`/`exfalso`; `Nat` with `+ - *`, `pred`, `/`, `%`, `eqNat`; `Bool` with `not`, `ifThenElse`, `leq`, `decEqBool`; `<=` and `<` as propositions computed via `leq`; `List`, `length`, `append`; `cong`, `sym`, `trans`; constructor disjointness and injectivity; and `Comp` (computations as trees of operations, docs/proposals/abilities.md) with `foldComp` and `bind`; `Decidable` with `IsYes`, `fromYes`, `toBool`, `elimDec` and decision procedures for `=` on `Nat`, `<=`, `<`, `Not`, and `b = True`.
 
 Division is defined by structural recursion on fuel (`n` steps is always enough when the divisor isn't zero). Its non-zero precondition is what makes `n / 0` a compile-time error rather than a convention.
 

@@ -225,3 +225,26 @@ div n d = divFuel n n d
 
 mod : (n : Nat) -> (d : Nat) -> [auto ok : d != 0] -> Nat
 mod n d = n - d * (n / d)
+
+-- Computations (docs/proposals/abilities.md)
+
+-- A computation that returns an `a`, performing operations from a signature:
+-- `op` is the type of operation calls, and `res o` is what call `o` gives
+-- back. Every computation is a finite tree, so folds over it terminate.
+type Comp (op : Type) (res : op -> Type) (a : Type) : Type =
+  | Done (value : a)
+  | Call (o : op) (rest : res o -> Comp op res a)
+
+-- The fold over a computation. `call` gets each operation together with the
+-- results of folding every way it could continue, and may use them any
+-- number of times. A deep handler is a fold.
+foldComp : [op : Type] -> [res : op -> Type] -> [a r : Type] ->
+  (a -> r) -> ((o : op) -> (res o -> r) -> r) -> Comp op res a -> r
+foldComp done call (Done x)      = done x
+foldComp done call (Call o rest) = call o (\y -> foldComp done call (rest y))
+
+-- Sequencing: run `c`, then `next` with its result.
+bind : [op : Type] -> [res : op -> Type] -> [a b : Type] ->
+  Comp op res a -> (a -> Comp op res b) -> Comp op res b
+bind (Done x)      next = next x
+bind (Call o rest) next = Call o (\y -> bind (rest y) next)
