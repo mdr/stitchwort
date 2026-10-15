@@ -27,6 +27,8 @@ Round 2:
 - ~~Syntax colouring in the playground~~ (lane `syntax-colour`): merged as
   `ccebba3`.
 - **Text step 3** (lane `js-text`): item 1 of **Next**, in progress.
+- **Number patterns** (lane `number-patterns`): item 2 of **Next**, design
+  note first, then implementation.
 
 ## Next
 
@@ -35,6 +37,13 @@ Round 2:
    noncharacters, both round-trip laws), and differential tests including the
    cross-runtime counterexamples. Decide how generated JS copes with long
    texts, since JS engines don't eliminate tail calls.
+2. **Number patterns as comparisons**: `statusText 404 = "Not Found"` is
+   refused today (`E-UNSUPPORTED`, numbers above 256), because a number
+   pattern is compiled as that many nested `Succ`s. Below the cap the cost
+   grows about cubically (release CLI: `f 100` 0.16 s, `f 200` 1.0 s,
+   `f 256` 2.0 s and 230 MB; ~75% in `check_tree`, ~25% in the kernel's
+   `check_case`). Compile them to tests instead, keeping the proof that the
+   number matched for dependent result types.
 
 ## Later
 
@@ -93,19 +102,6 @@ Round 2:
 - **Namespaces or modules.** Prelude names can't be redefined, so text
   operations are prefixed (`textLength`, `textSplit`) and every new prelude
   name risks clashing with user code.
-- **Number patterns: the 256 cap, and the cost below it** (low priority).
-  A number pattern `f n = …` is compiled as `n` nested `Succ`s, so patterns
-  above 256 are refused (`E-UNSUPPORTED`), e.g. HTTP status codes. Below the
-  cap, checking time grows faster than quadratically with the largest number
-  (release CLI: `f 100` 0.16 s, `f 200` 1.0 s, `f 256` 2.0 s and 230 MB; a
-  table `f 0` … `f 255` is the same 2.0 s). A sample of `f 256` puts ~75% of
-  the time in checking the case tree (`check_tree`) and ~25% in the kernel's
-  `check_case`, not in building the tree. Hand-written deep constructor
-  patterns (the depth-guards lane: 400 deep, 17 s, 1.4 GB) are unrealistic;
-  ordinary ones (3-deep list patterns, equality on a 40-constructor enum)
-  check in under 0.1 s. A fix that would remove both the cap and the cost:
-  compile number patterns to comparisons (`n == 404`) instead of `Succ`
-  chains, which needs case trees that can branch on a test.
 - **Solving metavariables without recursion** (low priority: only large
   literal values in types hit it): `solve`, `rename`, `prune` and `zonk`
   still recurse over a solution. They're guarded, so a deep one is
