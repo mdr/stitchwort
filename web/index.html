@@ -49,8 +49,10 @@
     --hl-selection: rgb(130 199 149 / 0.25);
   }
 
-  html, body { height: 100%; }
+  /* The page fills the window, and grows when the editor is dragged taller. */
+  html { height: 100%; }
   body {
+    min-height: 100%;
     background: var(--paper);
     color: var(--ink);
     font-family: var(--sans);
@@ -61,8 +63,8 @@
     padding-right: max(16px, env(safe-area-inset-right, 0px));
     padding-block: 16px;
     box-sizing: border-box;
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-rows: auto 1fr;
     gap: 14px;
   }
   *, *::before, *::after { box-sizing: inherit; }
@@ -108,8 +110,6 @@
   :focus-visible { outline: 2px solid var(--leaf); outline-offset: 2px; }
 
   main {
-    flex: 1;
-    min-height: 0;
     display: grid;
     grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
     gap: 16px;
@@ -121,7 +121,6 @@
 
   .pane {
     min-width: 0;
-    min-height: 0;
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -161,7 +160,8 @@
     overflow-wrap: normal;
   }
   textarea#source {
-    flex: 1;
+    /* Its height is the resize handle's, or else fills the pane. */
+    flex: 1 0 auto;
     position: relative;
     min-height: 420px;
     width: 100%;
@@ -232,6 +232,8 @@
   .output {
     flex: 1;
     min-height: 240px;
+    /* Long results scroll inside it, rather than making the page longer. */
+    contain: size;
     background: var(--petal);
     border: 1px solid var(--line);
     border-radius: 8px;
@@ -606,9 +608,10 @@ area (Rect w h) = w * h
     /**
      * Runs `request` and resolves to { out } (the compiler's answer),
      * { crashed, error }, { timedOut } or { cancelled }. A call while
-     * another is running cancels that one.
+     * another is running cancels that one. A run's output is passed to
+     * `onOutput` as it's printed.
      */
-    async call(request, seconds) {
+    async call(request, seconds, onOutput) {
       this.cancel();
       let module;
       try {
@@ -620,7 +623,7 @@ area (Rect w h) = w * h
       return new Promise((resolve) => {
         const id = ++this.nextId;
         const timer = setTimeout(() => this.finish(id, { timedOut: true, seconds }), seconds * 1000);
-        this.pending = { id, resolve, timer };
+        this.pending = { id, resolve, timer, onOutput };
         try {
           if (!this.worker) this.start();
           this.worker.postMessage({ ...request, id, module });
@@ -639,7 +642,11 @@ area (Rect w h) = w * h
       const worker = new Worker(new URL("playground-worker.js", import.meta.url), { type: "module" });
       worker.onmessage = ({ data }) => {
         workersWork = true;
-        this.finish(data.id, data);
+        if ("output" in data) {
+          if (this.pending?.id === data.id) this.pending.onOutput?.(data.output);
+        } else {
+          this.finish(data.id, data);
+        }
       };
       worker.onerror = (e) => {
         e.preventDefault();
@@ -668,17 +675,18 @@ area (Rect w h) = w * h
   // page has to be reloaded.
   class InPage {
     broken = null;
-    async call(request) {
+    async call(request, seconds, onOutput) {
       if (this.broken) return { crashed: true, error: this.broken, inPage: true };
       try {
         const compiler = await import("./pkg/stitchwort_web.js");
         await compiler.default({ module_or_path: await wasm });
+        const sink = { write: (text) => onOutput?.(text) };
         const answer = {
           check: () => compiler.check(request.source),
           test: () => compiler.test(request.source),
           evaluate: () => compiler.evaluate(request.source, request.expr),
           extract: () => compiler.extract(request.source),
-          run: () => compiler.run(request.source, request.input, request.maxOutput),
+          run: () => compiler.run_streaming(request.source, request.input, request.maxOutput, sink),
         }[request.action];
         return { out: JSON.parse(answer()) };
       } catch (e) {
@@ -760,12 +768,32 @@ area (Rect w h) = w * h
     const src = source.value;
     runButton.disabled = runAgain.disabled = true;
     stopButton.disabled = false;
-    runResult.replaceChildren(el("p", { className: "hint" }, "Running…"));
+    // The output shows as it's printed: the worker sends each line, and the
+    // lines that arrive between frames are added together.
+    const shown = el("pre", { className: "program-output" });
+    const running = el("p", { className: "hint" }, "Running…");
+    runResult.replaceChildren(running);
+    let printed = "";
+    let unshown = "";
+    let ended = false;
+    const onOutput = (text) => {
+      if (!unshown) {
+        requestAnimationFrame(() => {
+          if (ended) return;
+          if (!shown.isConnected) runResult.replaceChildren(el("h2", {}, "Output"), shown, running);
+          shown.append(unshown);
+          unshown = "";
+        });
+      }
+      printed += text;
+      unshown += text;
+    };
     const request = { action: "run", source: src, input: runInput.value, maxOutput: MAX_OUTPUT };
     const started = performance.now();
-    let result = await runner.call(request, RUN_SECONDS);
-    if (fallBack(result)) result = await runner.call(request, RUN_SECONDS);
+    let result = await runner.call(request, RUN_SECONDS, onOutput);
+    if (fallBack(result)) result = await runner.call(request, RUN_SECONDS, onOutput);
     const took = performance.now() - started;
+    ended = true;
     runButton.disabled = runAgain.disabled = false;
     stopButton.disabled = true;
     ranSource = src;
@@ -773,19 +801,19 @@ area (Rect w h) = w * h
 
     const parts = [];
     const out = result.out;
-    if (out && "output" in out) {
+    if (out?.ran || printed || result.cancelled || result.timedOut) {
       parts.push(el("h2", {}, "Output"),
-                 out.output ? el("pre", { className: "program-output" }, out.output)
-                            : el("p", { className: "hint" }, "Nothing was printed."));
+                 printed ? el("pre", { className: "program-output" }, printed)
+                         : el("p", { className: "hint" }, "Nothing was printed."));
     }
     if (out?.ok) {
       parts.push(el("p", { className: "summary" }, `Finished in ${secs(took)}.`));
     } else if (out) {
       parts.push(...errorsView(out.errors));
     } else if (result.cancelled) {
-      parts.push(el("p", {}, "Stopped. Output is shown when a run finishes, so there's none to show."));
+      parts.push(el("p", {}, `Stopped after ${secs(took)}.`));
     } else if (result.timedOut) {
-      parts.push(el("p", {}, `Stopped after ${RUN_SECONDS} s. Output is shown when a run finishes, so there's none to show.`));
+      parts.push(el("p", {}, `Stopped after ${RUN_SECONDS} s, the longest a run may take.`));
     } else {
       parts.push(el("p", {}, trouble(result)));
     }
@@ -1053,10 +1081,16 @@ area (Rect w h) = w * h
   picker.addEventListener("change", () => loadExample(picker.value));
   source.addEventListener("input", refresh);
   source.addEventListener("keydown", (e) => {
-    if (e.key === "Tab" && !e.shiftKey) {
+    if (e.key === "Tab" && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
       e.preventDefault();
-      source.setRangeText("  ", source.selectionStart, source.selectionEnd, "end");
-      refresh();
+      // As typing does, so that undo takes it back, and its `input` event
+      // repaints. Changing the value from script (setRangeText) would clear
+      // the textarea's undo history instead; that's the fallback, for a
+      // browser without insertText.
+      if (!document.execCommand("insertText", false, "  ")) {
+        source.setRangeText("  ", source.selectionStart, source.selectionEnd, "end");
+        refresh();
+      }
     }
   });
   // Ctrl+Enter (⌘+Enter on a Mac) runs, from the source or the input.

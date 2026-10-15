@@ -20,6 +20,7 @@ nix build .#playground          # the browser playground: open result/index.html
 ./web/serve.sh                  # build, then serve web/ at http://127.0.0.1:8000:
                                 #   index.html (playground), stress.html (deep and large programs
                                 #   in WebAssembly; stress.html#run runs them all on load)
+./web/test.sh                   # build, then test the playground in headless Chrome (needs Chrome)
 
 cargo test                      # example programs, snapshots, JS differential tests
 nix flake check                 # build, tests, clippy, rustfmt

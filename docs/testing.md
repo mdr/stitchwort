@@ -12,7 +12,8 @@ Stitchwort's guarantees are only as good as the compiler's correctness, so the t
 | **Generated code** | `crates/cli/tests/extract.rs` | Snapshots of the generated JS and `.d.ts`, which must type-check with `tsc`. Decoders are tested against cyclic inputs, getters and later mutation; text decoders against the text proposal's boundary cases (lone surrogates, NUL, noncharacters, one scalar per `Char`) and both round-trip laws. Long inputs: tail calls to the same function must be loops, and running out of stack a `StitchwortResourceError`; values a million deep must cross the boundary both ways. Awkward names (`tag`, `__proto__`, primes, JS globals and reserved words, the runtime's own names) are generated at random: every object must have its own key for each field, and the `.d.ts` must accept exactly what the module does. |
 | **Caching** | `crates/cli/tests/caching.rs` | That hashes ignore names and layout but change with anything depended on, that data types are nominal, and that test results are reused exactly until a dependency changes. |
 | **Running `main`** | `crates/driver/tests/run.rs`, `crates/cli/tests/run.rs` | That `stitchwort run` prints exactly what the prelude's `simulate` records for the same input, and follows the interpreter's contract: line endings, end of input, UTF-8, flushing, errors and exit codes. The CLI tests run the built command as a subprocess. |
-| **REPL and playground** | `crates/cli/tests/session.rs`, `crates/web` | Evaluating and printing expressions, natively and through the WebAssembly interface; running `main` with scripted input and an output budget; and that every example in `web/index.html` checks and passes its tests. The page itself (its worker, Run and Stop) has no automated test. |
+| **REPL and playground** | `crates/cli/tests/session.rs`, `crates/web` | Evaluating and printing expressions, natively and through the WebAssembly interface; running `main` with scripted input, an output budget and a limit on reading past the end of the input, with its output returned or streamed a line at a time; and that every example in `web/index.html` checks and passes its tests. |
+| **Browser tests** | `web/tests/browser.mjs` (not in `nix flake check`: see [Browser tests](#browser-tests)) | The playground page in headless Chrome: every example checks and passes its tests (the failing one shows its failure); the Check, Tests, Evaluate, JavaScript and Run tabs; Run with scripted input, `E-NO-MAIN`, `E-OUTPUT`, `E-INPUT`; output appearing while a run is going; Stop, and the 15 s timeout, keeping what was printed; a fresh worker after a crash; the in-page compiler when the `Worker` constructor throws or the worker script is missing; the syntax colouring lining up with the text (highlights and spans, scrolled, after typing); the draft, input and tab kept across a reload; Tab and undo; resizing the editor by dragging. |
 | **Benchmarks** | `crates/bench`, `bench/baseline.toml` | Performance regressions: work, allocations and memory that grew more than 10% against the recorded baseline, and (by hand only) time that grew more than 50%. See [Benchmarks](#benchmarks). |
 | **Coverage** | `cargo llvm-cov --workspace --summary-only` | Which code no test reaches |
 | **Mutation testing** | `cargo mutants` | Code that tests reach but don't really *check*. Each mutant is a small deliberate bug, such as replacing a condition with `true`. A "missed" mutant is a bug no test would notice. |
@@ -28,7 +29,22 @@ cargo llvm-cov --workspace --summary-only      # coverage per file
 cargo mutants --package stitchwort-core --test-workspace=true --jobs 6   # slow: minutes to an hour
 cargo run --release -p stitchwort-bench        # benchmarks against the baseline: about a minute
 nix flake check                                # build, tests, clippy, rustfmt, as CI would
+./web/test.sh                                  # the playground in headless Chrome: about 35 s
 ```
+
+## Browser tests
+
+`web/test.sh` builds the playground into `web/pkg/`, then runs `web/tests/browser.mjs` with Node: it serves `web/` itself (on a port the system picks), starts headless Chrome with a temporary profile, drives the page over the DevTools protocol, and stops Chrome at the end. Each test has a fresh tab with empty storage.
+
+```sh
+nix develop -c ./web/test.sh                   # build, then run them all
+nix develop -c ./web/test.sh --no-build Run    # only tests whose names contain "Run"
+nix build .#playground && nix develop -c node web/tests/browser.mjs --dir result   # test the Nix build
+```
+
+Chrome comes from the system: `$CHROME`, then `/Applications/Google Chrome.app` or Chromium on a Mac, then `google-chrome` or `chromium` on the `PATH`. Without it, the tests are skipped with a message (exit status 0). They're not part of `nix flake check`: Chrome isn't in the Nix build sandbox (nixpkgs' Chromium doesn't build on macOS), and one test waits out the page's real 15 s timeout, so they depend on the machine's speed. Only Chrome is tested, not Firefox or Safari.
+
+No program is known to crash the compiler any more (its depth guards stop deep programs first), so the crash test serves a worker that checks a marked program with the engine's stack nearly used up, which overflows it inside the WebAssembly as deep programs once did.
 
 ## Benchmarks
 

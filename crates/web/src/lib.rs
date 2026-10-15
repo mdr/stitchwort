@@ -2,7 +2,7 @@
 //! editor's source text and returns a JSON string, so the page needs no
 //! knowledge of the compiler's types.
 
-use std::io::{self, Write};
+use std::io::{self, BufRead, Read, Write};
 
 use stitchwort_driver::driver::{Cache, Outcome, Session};
 use stitchwort_driver::render::render;
@@ -124,77 +124,227 @@ pub fn extract(source: &str) -> String {
     }
 }
 
+/// How many times a run may ask for a line after its input has run out
+/// (`readLine` giving `Nothing`). Printing is bounded by the output cap, and
+/// reading lines by the input, so this bounds how many operations a run
+/// performs: a program that keeps reading at the end of its input stops at
+/// once with `E-INPUT`, rather than when the page's timeout stops it.
+pub const MAX_READS_PAST_END: usize = 10_000;
+
 /// Runs a program's `main`, as `stitchwort run` does, with `input` as its
 /// input: `readLine` gives its lines, then `Nothing`. Returns `{"ok": true,
 /// "output": "…"}`, or `{"ok": false, "errors": "…", "output": "…"}` with
 /// what was printed before the error. Each step between operations has the
 /// same resource limits as a test, and the program is stopped with
-/// `E-OUTPUT` once it tries to print more than `max_output` bytes.
+/// `E-OUTPUT` once it tries to print more than `max_output` bytes, or with
+/// `E-INPUT` once it has read past the end of its input more than
+/// [`MAX_READS_PAST_END`] times.
 #[wasm_bindgen]
 pub fn run(source: &str, input: &str, max_output: usize) -> String {
     let session = match load(source) {
         Ok(session) => session,
         Err(errors) => return failure(&errors),
     };
-    run_in(session, input, max_output)
+    run_loaded(session, input, max_output, MAX_READS_PAST_END)
 }
 
 /// [`run`], in a session that's already loaded.
-fn run_in(mut session: Session, input: &str, max_output: usize) -> String {
-    let main = match session.main() {
-        Ok(main) => main,
-        Err(error) => return failure_in(&session, &[error]),
-    };
-    let mut output = Capped {
-        bytes: Vec::new(),
-        max: max_output,
-        full: false,
-    };
-    let result = session.run_main(&main, &mut input.as_bytes(), &mut output);
+fn run_loaded(session: Session, input: &str, max_output: usize, max_past_end: usize) -> String {
+    let mut bytes = Vec::new();
+    let ran = run_in(session, input, max_output, max_past_end, &mut |b| {
+        bytes.extend_from_slice(b)
+    });
     // The cap can cut a character in two.
-    let printed = json_string(&String::from_utf8_lossy(&output.bytes));
-    match result {
-        Ok(()) => format!(r#"{{"ok":true,"output":{printed}}}"#),
-        Err(error) => {
-            let error = match error {
-                RunError::Write(_) if output.full => Diagnostic::error(
-                    "E-OUTPUT",
-                    format!(
-                        "the program printed more than {max_output} bytes, the playground's limit"
-                    ),
-                )
-                .with_label(main.span, "while running this program"),
-                error => error.diagnostic(&main),
-            };
-            format!(
-                r#"{{"ok":false,"errors":{},"output":{printed}}}"#,
-                json_string(&rendered(&session, &[error]))
-            )
-        }
+    let printed = json_string(&String::from_utf8_lossy(&bytes));
+    match ran {
+        Err(errors) => failure(&errors),
+        Ok(Ok(())) => format!(r#"{{"ok":true,"output":{printed}}}"#),
+        Ok(Err(errors)) => format!(
+            r#"{{"ok":false,"errors":{},"output":{printed}}}"#,
+            json_string(&errors)
+        ),
     }
 }
 
-/// Output that keeps at most `max` bytes, and fails once more is written.
-struct Capped {
-    bytes: Vec<u8>,
+#[wasm_bindgen]
+extern "C" {
+    /// Where [`run_streaming`] sends a program's output as it's printed: a
+    /// JavaScript object with a `write(text)` method.
+    pub type OutputSink;
+
+    #[wasm_bindgen(method)]
+    fn write(this: &OutputSink, text: &str);
+}
+
+/// [`run`], but sending the output to `sink` as it's printed, a `print` at a
+/// time, so that a run that's stopped still shows what it printed. Returns
+/// `{"ok": true, "ran": true}`, `{"ok": false, "errors": "…", "ran": true}`
+/// for an error once `main` had started, or `{"ok": false, "errors": "…"}`.
+#[wasm_bindgen]
+pub fn run_streaming(source: &str, input: &str, max_output: usize, sink: &OutputSink) -> String {
+    let session = match load(source) {
+        Ok(session) => session,
+        Err(errors) => return failure(&errors),
+    };
+    let ran = run_by_line(
+        session,
+        input,
+        max_output,
+        MAX_READS_PAST_END,
+        &mut |text| sink.write(text),
+    );
+    match ran {
+        Err(errors) => failure(&errors),
+        Ok(Ok(())) => r#"{"ok":true,"ran":true}"#.into(),
+        Ok(Err(errors)) => format!(
+            r#"{{"ok":false,"errors":{},"ran":true}}"#,
+            json_string(&errors)
+        ),
+    }
+}
+
+/// [`run_in`], passing on the output a line at a time. Each `print` writes
+/// its text, then a line ending, so each line is one `print`. A write is only
+/// cut short at the cap; then the last piece ends with U+FFFD if the cut went
+/// through a character, as in [`run`].
+fn run_by_line(
+    session: Session,
+    input: &str,
+    max_output: usize,
+    max_past_end: usize,
+    print: &mut dyn FnMut(&str),
+) -> Ran {
+    let mut line = Vec::new();
+    let ran = run_in(session, input, max_output, max_past_end, &mut |b| {
+        line.extend_from_slice(b);
+        if b.ends_with(b"\n") {
+            print(&String::from_utf8_lossy(&line));
+            line.clear();
+        }
+    });
+    if !line.is_empty() {
+        print(&String::from_utf8_lossy(&line));
+    }
+    ran
+}
+
+/// How a run went: `Err` with the rendered errors if `main` couldn't start,
+/// otherwise `Ok` with the errors it stopped with, if any.
+type Ran = Result<Result<(), String>, String>;
+
+/// Runs `main` in a session that's already loaded, passing what it prints to
+/// `print` as it's written.
+fn run_in(
+    mut session: Session,
+    input: &str,
+    max_output: usize,
+    max_past_end: usize,
+    print: &mut dyn FnMut(&[u8]),
+) -> Ran {
+    let main = match session.main() {
+        Ok(main) => main,
+        Err(error) => return Err(rendered(&session, &[error])),
+    };
+    let mut output = Capped {
+        print,
+        written: 0,
+        max: max_output,
+        full: false,
+    };
+    let mut input = Scripted {
+        rest: input.as_bytes(),
+        mid_line: false,
+        past_end: 0,
+        max_past_end,
+    };
+    let result = session.run_main(&main, &mut input, &mut output);
+    Ok(result.map_err(|error| {
+        let error = match error {
+            RunError::Write(_) if output.full => Diagnostic::error(
+                "E-OUTPUT",
+                format!("the program printed more than {max_output} bytes, the playground's limit"),
+            )
+            .with_label(main.span, "while running this program"),
+            RunError::Read(_) if input.past_end > max_past_end => Diagnostic::error(
+                "E-INPUT",
+                format!(
+                    "the program read past the end of its input more than {max_past_end} times, \
+                     the playground's limit"
+                ),
+            )
+            .with_label(main.span, "while running this program")
+            .with_note("`readLine ()` gives `Nothing` at the end of the input"),
+            error => error.diagnostic(&main),
+        };
+        rendered(&session, &[error])
+    }))
+}
+
+/// Output that passes on at most `max` bytes, and fails once more is
+/// written.
+struct Capped<'a> {
+    print: &'a mut dyn FnMut(&[u8]),
+    written: usize,
     max: usize,
     full: bool,
 }
 
-impl Write for Capped {
+impl Write for Capped<'_> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        let room = self.max - self.bytes.len();
+        let room = self.max - self.written;
         if room == 0 && !buf.is_empty() {
             self.full = true;
             return Err(io::Error::other("the output budget is used up"));
         }
         let n = room.min(buf.len());
-        self.bytes.extend_from_slice(&buf[..n]);
+        (self.print)(&buf[..n]);
+        self.written += n;
         Ok(n)
     }
 
     fn flush(&mut self) -> io::Result<()> {
         Ok(())
+    }
+}
+
+/// The input box's text, which fails once it has been read past its end
+/// more than `max_past_end` times.
+struct Scripted<'a> {
+    rest: &'a [u8],
+    /// Part of a last line without a line ending has been read, so the next
+    /// look at the empty rest ends that line, rather than reading past the
+    /// end.
+    mid_line: bool,
+    past_end: usize,
+    max_past_end: usize,
+}
+
+impl Read for Scripted<'_> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let n = self.fill_buf()?.read(buf)?;
+        self.consume(n);
+        Ok(n)
+    }
+}
+
+impl BufRead for Scripted<'_> {
+    fn fill_buf(&mut self) -> io::Result<&[u8]> {
+        if self.rest.is_empty() {
+            if self.mid_line {
+                self.mid_line = false;
+            } else {
+                self.past_end += 1;
+                if self.past_end > self.max_past_end {
+                    return Err(io::Error::other("read past the end too often"));
+                }
+            }
+        }
+        Ok(self.rest)
+    }
+
+    fn consume(&mut self, n: usize) {
+        self.mid_line = n > 0 && self.rest[n - 1] != b'\n';
+        self.rest = &self.rest[n..];
     }
 }
 
@@ -351,12 +501,74 @@ mod tests {
                       print (natToText (length (replicate 100000 1)))\n";
         let mut session = load(source).expect("it checks");
         session.elab.limits.work = 100_000;
-        let result = run_in(session, "", 1000);
+        let result = run_loaded(session, "", 1000, MAX_READS_PAST_END);
         assert!(
             result.starts_with(r#"{"ok":false,"errors":"[E-RESOURCE]"#),
             "{result}"
         );
         assert_eq!(printed(&result), r"before\n");
+    }
+
+    /// Reads `n` lines, printing each, or `none` for `Nothing`.
+    fn reads(n: usize) -> String {
+        format!(
+            "textOr : Maybe Text -> Text\ntextOr Nothing  = \"none\"\ntextOr (Just t) = t\n\n\
+             readN : Nat -> {{IO}} ()\nreadN 0        = ()\nreadN (Succ n) =\n  \
+             print (textOr (readLine ()))\n  readN n\n\n\
+             main : () -> {{IO}} ()\nmain u = readN {n}\n"
+        )
+    }
+
+    #[test]
+    fn stops_a_program_that_keeps_reading_past_the_end_of_its_input() {
+        let run_reads = |n, input| run_loaded(load(&reads(n)).expect("it checks"), input, 1000, 3);
+        // Two lines, the last without a line ending, then three reads past
+        // the end: within the limit.
+        let within = run_reads(5, "a\nb");
+        assert_eq!(within, r#"{"ok":true,"output":"a\nb\nnone\nnone\nnone\n"}"#);
+        let over = run_reads(6, "a\nb");
+        assert!(
+            over.starts_with(r#"{"ok":false,"errors":"[E-INPUT] Error: the program read past the end of its input more than 3 times"#),
+            "{over}"
+        );
+        assert!(over.contains("while running this program"), "{over}");
+        assert_eq!(printed(&over), r"a\nb\nnone\nnone\nnone\n");
+        // With the playground's limit, a runaway loop stops.
+        let runaway = run(&reads(1_000_000_000), "", 100_000);
+        assert!(runaway.contains("[E-INPUT]"), "{runaway}");
+        assert!(runaway.contains("more than 10000 times"), "{runaway}");
+    }
+
+    /// What [`run_by_line`] passes on, piece by piece, and its result.
+    fn lines(source: &str, max_output: usize) -> (Vec<String>, Ran) {
+        let mut pieces = Vec::new();
+        let session = load(source).expect("it checks");
+        let ran = run_by_line(session, "", max_output, 3, &mut |line| {
+            pieces.push(line.to_string())
+        });
+        (pieces, ran)
+    }
+
+    #[test]
+    fn streams_output_a_line_at_a_time() {
+        let (pieces, ran) = lines(PRINT_MANY, 3000);
+        assert_eq!(pieces, vec!["ab\n"; 1000]);
+        assert_eq!(ran, Ok(Ok(())));
+        // Cut at the cap: the last piece is what fits.
+        let (pieces, ran) = lines(PRINT_MANY, 2999);
+        assert_eq!(pieces.len(), 1000);
+        assert_eq!(pieces[999], "ab");
+        assert!(matches!(ran, Ok(Err(e)) if e.starts_with("[E-OUTPUT]")));
+        let (pieces, _) = lines("main : () -> {IO} ()\nmain u = print \"a\u{E9}\"\n", 2);
+        assert_eq!(pieces, vec!["a\u{FFFD}"]);
+        // Errors stop it after what was printed, and before `main` there's
+        // nothing.
+        let (pieces, ran) = lines(&reads(5), 1000);
+        assert_eq!(pieces, vec!["none\n"; 3]);
+        assert!(matches!(ran, Ok(Err(e)) if e.starts_with("[E-INPUT]")));
+        let (pieces, ran) = lines("main : Nat\nmain = 1\n", 1000);
+        assert!(pieces.is_empty());
+        assert!(matches!(ran, Err(e) if e.starts_with("[E-MAIN-TYPE]")));
     }
 
     /// The playground's examples: `(id, source)`, unescaped as a browser
