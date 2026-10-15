@@ -40,12 +40,8 @@ Round 2:
   [number-patterns.md](docs/proposals/number-patterns.md), then
   implementation (go-ahead given, no second review).
 - ~~Recorded benchmarks~~ (lane `benchmarks`): merged as `07550ff`.
-- **Compact text** ([compact-text.md](docs/proposals/compact-text.md)):
-  reviewed (supports A, then B1, then selected B2 natives). Lane
-  `compact-text-js`: draft 2 adopting the review, then stage 1 (`Text` as JS
-  strings in generated code; kernel and evaluator unchanged). Stage 2 (B1)
-  can follow draft 2 without another review; a native `decEqText` waits for
-  a whole-result (proofs included) native-on/off test.
+- ~~Compact text stage 1~~ (lane `compact-text-js`): draft 2 and stage 1
+  merged as `f31d1c9`. Stages 2 (B1) and 3 (B2) await a decision.
 - **Forward references and mutual recursion**
   ([mutual-recursion.md](docs/proposals/mutual-recursion.md)): reviewed
   (supports whole-module scope with size-change termination; requires
@@ -71,15 +67,30 @@ Round 2:
   isn't timed as a subprocess; no deterministic count catches loops that
   neither evaluate, recurse through a guarded pass nor allocate (e.g. the
   `expr.span()` walk in long chains).
-- **Compact text** (text step 7) is also what lifts the JS limit on text:
+- **Compact text stages 2–3** ([compact-text.md](docs/proposals/compact-text.md)
+  draft 2): B1 (compact `List Char` in the evaluator) and selected B2
+  natives. Prerequisites in draft 2: the expansion invariant, the list of
+  passes to update, binding to declarations, an automatic build fingerprint
+  in the test-cache key.
+- **After merging number patterns:** regenerate JS snapshots and re-check
+  the `TEXT_NATIVES` hashes in `crates/js/src/lib.rs` (`textTrim` and
+  `natToText` depend on helpers that use number patterns).
+- **Faster `textOfChars`** in JS (10⁶ characters: 98 ms) and stack-safe
+  list helpers (`foldChars`, `compareChars`, …) when user code calls them
+  directly.
+- **(Done in stage 1 for JS) The JS limit on text:**
   in generated JS, prelude text operations stop at a few thousand
   characters (`length`, `append`, split, join, `==` aren't tail-recursive),
   with a catchable `StitchwortResourceError`. Measured in Node 22:
   `textLength` about 8,000, `textSplit`/`textJoin` about 5,500, `textToNat`
   about 3,000.
-- **Audit the native `decEqNat`** (from the compact-text review): its `No`
-  proof must be definitionally the one the prelude's definition produces,
-  not just a valid proof of the same proposition.
+- **Native `decEqNat`'s `No` proof isn't the definition's** (confirmed by
+  the compact-text lane): with a copy `myDecEqNat` of the prelude
+  definition, `theorem sameNo : myDecEqNat 3 5 = decEqNat 3 5; sameNo = rfl`
+  is rejected (`No (\p -> J …)` vs `No (natNeq 3 5 rfl)`), while `3 3`
+  checks. Not a proof of anything false, but turning natives on changes
+  which `rfl` proofs check. Make the native build the definition's own `No`
+  term, with a whole-result natives-on/off test.
 - **More tail calls as loops in generated JS:** only a function's calls to
   itself (including in either branch of an `if`) are loops today. Not
   through `if h : P`, helpers like `maybeThen`, or between functions.
@@ -200,6 +211,7 @@ Round 2:
 
 ## Recently done
 
+- `f31d1c9` Compact text stage 1: `Text` is a JS string in generated code with 14 native operations bound to the prelude definitions by hash; prelude text operations handle over 4 million characters in Node (from ~5,000–8,000).
 - `84bc590` JS boundary hardening: names can't collide by construction (field `tag` becomes `$tag`, exports aliased, reserved names refused), iterative codecs (a million-element list in about 0.2 s), clearer boundary errors.
 - `07550ff` Recorded benchmarks (`crates/bench`, `bench/baseline.toml`): deterministic counts (steps, visits, allocations, peak heap) checked in `nix flake check`; timings reported, not checked.
 - `017d554` Text step 3 (js-text lane, merged): `Text` and `Char` as JS strings with strict decoding, parameterised data types at the boundary, self tail calls as loops, `StitchwortResourceError`.
