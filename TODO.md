@@ -28,38 +28,25 @@ this file.
 The main session orchestrates: it chooses lanes, hands each to a background
 agent, then reviews, merges and updates this file.
 
-Round 2:
-- ~~Stack-safe step 4~~ (lane `depth-guards`): merged as `d166039`.
-- ~~Text step 5~~ (lane `run`): merged as `65f91ce`.
-- ~~Text step 6~~ (lane `playground-run`): merged as `f35f1a7`.
-- ~~Syntax colouring in the playground~~ (lane `syntax-colour`): merged as
-  `ccebba3`.
-- ~~Text step 3~~ (lane `js-text`): merged as `017d554`.
-- ~~Number patterns~~ (lane `number-patterns`): merged as `813fe74`.
-- **Forward references and mutual recursion**
-  ([mutual-recursion.md](docs/proposals/mutual-recursion.md)): reviewed
-  (supports whole-module scope with size-change termination; requires
-  kernel-enforced group completeness, a partial-application policy, and an
-  honest account of `auto` and scheduling). Draft 2 merged; implementation
-  second review **approves implementation** of the staged design, with
-  specification clarifications: phase-specific reference permissions, one
-  shared definition-entry arity (leading lambdas before the case tree, used
-  everywhere), induction over semantic call instances in §6.4, and a
-  test for arity-zero cycles. Not a completed soundness proof.
-  Implementation approved by the user. Phase 1 merged (`72d3004`): draft 3
-  and `crates/core/src/sct.rs`, tested against a naive reference over about
-  230,000 exhaustive and 3,000 random call groups. Phase 2 (wiring into the
-  termination checker for single functions, then group admission and
-  forward references, then mutual data types) is unblocked; it needs a
-  rule for whether a number case counts as descent (today it doesn't).
-- ~~Kernel admission fix~~ (lane `kernel-admission`): merged as `afad1e0`.
-- **JS boundary follow-ups** (lane `js-followups`): own properties only,
-  no exponential decoding of shared input, fail loudly on a definition
-  without a body, DESIGN.md's boundary table.
+Running:
+- **JS boundary follow-ups** (lane `js-followups`): own properties only, no
+  exponential decoding of shared input, fail loudly on a definition without
+  a body, DESIGN.md's boundary table.
 - **`Partial`** (lane `partial-design`): a thoroughly researched draft 2 of
-  [partial.md](docs/proposals/partial.md), docs only, for the reviewer. Recommends any order within a file, grouped automatically, with
-  size-change termination checked by the kernel.
-- ~~JS boundary hardening~~ (lane `js-boundary`): merged as `84bc590`.
+  [partial.md](docs/proposals/partial.md), docs only, for the reviewer.
+
+Ready to start:
+- **Mutual recursion, phase 2**
+  ([mutual-recursion.md](docs/proposals/mutual-recursion.md), draft 3;
+  two reviews; implementation approved). Wire `crates/core/src/sct.rs` into
+  the termination checker for single functions (Ackermann accepted), then
+  group admission and forward references, then mutual data types. Needs a
+  rule for whether a number case counts as descent (today it doesn't).
+
+Waiting on a decision:
+- **Compact text stages 2–3** ([compact-text.md](docs/proposals/compact-text.md)
+  draft 2, reviewed): compact `List Char` in the evaluator, then selected
+  natives; a native `decEqText` waits for a whole-result test.
 
 ## Next
 
