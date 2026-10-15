@@ -26,20 +26,15 @@ Round 2:
 - ~~Text step 6~~ (lane `playground-run`): merged as `f35f1a7`.
 - ~~Syntax colouring in the playground~~ (lane `syntax-colour`): merged as
   `ccebba3`.
-- **Text step 3** (lane `js-text`): item 1 of **Next**, in progress.
-- **Number patterns** (lane `number-patterns`): item 2 of **Next**, design
+- ~~Text step 3~~ (lane `js-text`): merged as `017d554`.
+- **Number patterns** (lane `number-patterns`): item 1 of **Next**, design
   note first, then implementation.
 - **Recorded benchmarks** (lane `benchmarks`): moved up from **Later** at
   the user's request.
 
 ## Next
 
-1. **Text, step 3** ([proposal](docs/proposals/text-and-io.md)): JS encoders
-   and decoders for `Text` and `Char`, the boundary tests (surrogates, NUL,
-   noncharacters, both round-trip laws), and differential tests including the
-   cross-runtime counterexamples. Decide how generated JS copes with long
-   texts, since JS engines don't eliminate tail calls.
-2. **Number patterns as comparisons**: `statusText 404 = "Not Found"` is
+1. **Number patterns as comparisons**: `statusText 404 = "Not Found"` is
    refused today (`E-UNSUPPORTED`, numbers above 256), because a number
    pattern is compiled as that many nested `Succ`s. Below the cap the cost
    grows about cubically (release CLI: `f 100` 0.16 s, `f 200` 1.0 s,
@@ -49,6 +44,18 @@ Round 2:
 
 ## Later
 
+- **Compact text** (text step 7) is also what lifts the JS limit on text:
+  in generated JS, prelude text operations stop at a few thousand
+  characters (`length`, `append`, split, join, `==` aren't tail-recursive),
+  with a catchable `StitchwortResourceError`. Measured in Node 22:
+  `textLength` about 8,000, `textSplit`/`textJoin` about 5,500, `textToNat`
+  about 3,000.
+- **More tail calls as loops in generated JS:** only a function's calls to
+  itself (including in either branch of an `if`) are loops today. Not
+  through `if h : P`, helpers like `maybeThen`, or between functions.
+- **Iterative codecs for recursive user data types** at the JS boundary
+  (deep input is a resource error today).
+- **Measure the JS limits in browsers** (only Node so far).
 - **Compact text** (text step 7): in generated JS first, then possibly in the
   checking evaluator, with differential tests against the plain-list version.
 - **`==` operands are computed at check time.** `f x == y` puts `f x = y` in
@@ -143,6 +150,11 @@ Round 2:
 - **Agents' clean-up can hit the user's processes:** the depth-guards lane
   ran `pkill -f serve_forever`, which stopped the local playground server.
   Agent prompts now say to stop only processes they started, by PID.
+- **A data field named `tag` breaks its JS codec** (clashes with the
+  constructor tag). Fields named `x`, `path` and `inside` were fixed.
+- **`long n == long n` gives `E-RESOURCE` at 100,000 characters** in the
+  reference evaluator (fine at 10,000); probably the "`==` operands are
+  computed at check time" issue, unconfirmed.
 - **Remaining surviving mutants** judged equivalent or unreachable:
   `effects.rs` lines 223 (×3), 403, 414, 706 (×2), 709, 745, 844;
   `termination.rs` line 111 (`>` → `>=`); the `auto` fix in step 1 (masked
@@ -150,6 +162,7 @@ Round 2:
 
 ## Recently done
 
+- `017d554` Text step 3 (js-text lane, merged): `Text` and `Char` as JS strings with strict decoding, parameterised data types at the boundary, self tail calls as loops, `StitchwortResourceError`.
 - `ccebba3` Syntax colouring in the playground's editor (CSS Custom Highlight API, with a fallback); restoring the saved draft on reload fixed.
 - `d166039` Stack-safe step 4 (depth-guards lane, merged): every recursive pass guarded by stack use; deep nesting is `E-RESOURCE` natively and in WebAssembly (`crates/driver/tests/nesting.rs`).
 - `f35f1a7` Text step 6 (playground-run lane, merged): the playground's Run button and its compiler in Web Workers, replaced after a crash. View it locally with `web/serve.sh`.
