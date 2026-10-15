@@ -2,8 +2,9 @@
 //! (`stitchwort_core::native`). The natives are trusted, so these tests are
 //! what stands between a bug in one and the kernel accepting `2 + 2 = 5`.
 
+use stitchwort_core::check::{declare_def, define_def};
 use stitchwort_core::native::{self, Native};
-use stitchwort_core::value::{apply, conv, eval, force};
+use stitchwort_core::value::{apply, conv, eval, force, quote};
 use stitchwort_core::{BigUint, DefId, Globals, Term, Value};
 use stitchwort_driver::driver::Session;
 use stitchwort_elab::{Elaborator, PRELUDE};
@@ -30,7 +31,8 @@ fn call(g: &Globals, id: DefId, args: &[Value]) -> Value {
     force(g, f).unwrap()
 }
 
-/// Runs `op` both ways on `args`, and checks the results agree.
+/// Runs `op` with natives on, and its definition with every native off, on
+/// numbers `args`, and checks the whole results are the same.
 fn compare(g: &mut Globals, op: Native, args: &[Value]) {
     let id = def(g, op.name());
     assert_eq!(
@@ -39,40 +41,42 @@ fn compare(g: &mut Globals, op: Native, args: &[Value]) {
         "`{}` isn't native",
         op.name()
     );
-    let fast = call(g, id, args);
+    let args = with_proof(op, args);
+    let fast = call(g, id, &args);
     g.builtins.disable_natives = true;
-    let slow = call(g, id, args);
+    let slow = call(g, id, &args);
     g.builtins.disable_natives = false;
-    let shown = || {
-        format!(
-            "{}{args:?}: native {fast:?}, definition {slow:?}",
-            op.name()
-        )
-    };
-    match op {
-        Native::Add | Native::Sub | Native::Mul | Native::DivFuel => {
-            let (a, b) = (
-                native::as_nat(g, &fast).unwrap(),
-                native::as_nat(g, &slow).unwrap(),
-            );
-            assert!(a.is_some() && a == b, "{}", shown());
-        }
-        Native::EqNatRefl => {
-            assert!(conv(g, 0, &fast, &slow).unwrap(), "{}", shown());
-        }
-        // Booleans and decisions: the same constructor. For `decEqNat`, a `Yes`
-        // holds `rfl` either way; a `No`'s refutation differs (it's a
-        // function, built differently) but has the same type.
-        Native::Leq | Native::EqNat | Native::DecEqNat => match (&fast, &slow) {
-            (Value::Ctor(d1, c1, f1), Value::Ctor(d2, c2, f2)) => {
-                assert!(d1 == d2 && c1 == c2, "{}", shown());
-                if *c1 == 0 && op == Native::DecEqNat {
-                    assert!(conv(g, 0, &f1[0], &f2[0]).unwrap(), "{}", shown());
-                }
-            }
-            _ => panic!("not constructors: {}", shown()),
-        },
+    same_result(g, &format!("{}{args:?}", op.name()), &fast, &slow);
+}
+
+/// `op`'s arguments: the numbers `nums`, and for `eqNatSound` its proof,
+/// `rfl` when the numbers are equal and otherwise a variable (level 0), as
+/// there's no closed proof then.
+fn with_proof(op: Native, nums: &[Value]) -> Vec<Value> {
+    let mut args = nums.to_vec();
+    if op == Native::EqNatSound {
+        let equal = match nums {
+            [Value::Nat(m), Value::Nat(n)] => m == n,
+            _ => panic!("`eqNatSound` takes two numbers"),
+        };
+        args.push(if equal { Value::Refl } else { Value::var(0) });
     }
+    args
+}
+
+/// Checks that a native's whole result is definitionally the definition's,
+/// proofs included, not just the same answer. One variable is in scope.
+fn same_result(g: &Globals, what: &str, fast: &Value, slow: &Value) {
+    let shown = |v: &Value| match quote(g, 1, v) {
+        Ok(term) => format!("{term:?}"),
+        Err(e) => format!("{v:?} ({e:?})"),
+    };
+    assert!(
+        conv(g, 1, fast, slow).unwrap(),
+        "{what}: native {}, definition {}",
+        shown(fast),
+        shown(slow)
+    );
 }
 
 #[test]
@@ -80,7 +84,7 @@ fn natives_agree_with_their_definitions_on_small_numbers() {
     let mut session = Session::new();
     let g = &mut session.elab.globals;
     for op in Native::ALL {
-        match op.arity() {
+        match op.numbers() {
             1 => (0..=40).for_each(|n| compare(g, op, &[nat(n)])),
             2 => {
                 for m in 0..=24 {
@@ -133,7 +137,7 @@ fn random_numbers() {
     for _ in 0..300 {
         for op in Native::ALL {
             let bound = if op == Native::Mul { 30 } else { 100 };
-            let args: Vec<Value> = (0..op.arity()).map(|_| nat(next(bound))).collect();
+            let args: Vec<Value> = (0..op.numbers()).map(|_| nat(next(bound))).collect();
             compare(g, op, &args);
         }
     }
@@ -332,6 +336,19 @@ fn shortcuts_with_unknowns_agree_with_the_definitions() {
                 }
             }
         }
+        // `eqNatRefl (k + x)` is `eqNatRefl x`.
+        let id = def(g, Native::EqNatRefl.name());
+        for k in 0..12 {
+            let n = plus_var(k, Some(0));
+            let fast = call(g, id, std::slice::from_ref(&n));
+            g.builtins.disable_natives = true;
+            let slow = call(g, id, std::slice::from_ref(&n));
+            g.builtins.disable_natives = false;
+            assert!(
+                conv(g, 1, &fast, &slow).unwrap(),
+                "eqNatRefl({n:?}): native {fast:?}, definition {slow:?}"
+            );
+        }
     });
 }
 
@@ -347,4 +364,137 @@ fn a_big_number_plus_an_unknown_stays_compact() {
     let expected = native::from_view(BigUint::from(10u32).pow(30) - 1u32, Some(Value::var(0)));
     assert!(conv(g, 1, &pred, &expected).unwrap());
     assert!(!conv(g, 1, &pred, &sum).unwrap());
+}
+
+/// Loads `source` after the prelude, panicking with the rendered errors.
+fn accepts(source: &str) {
+    let mut session = Session::new();
+    if let Err(diagnostics) = session.load("natives.sw", source) {
+        let rendered: String = diagnostics
+            .iter()
+            .map(|d| stitchwort_driver::render::render(&session.sources, d, false))
+            .collect();
+        panic!("rejected:\n{rendered}");
+    }
+}
+
+/// Copies of the prelude's definitions that return proofs, which never run
+/// natively (only the calls inside them to other natives do).
+const COPIES: &str = "\
+myDecEqNat : (m : Nat) -> (n : Nat) -> Decidable (m = n)
+myDecEqNat Zero     Zero     = Yes rfl
+myDecEqNat Zero     (Succ n) = No (natNeq 0 (Succ n) rfl)
+myDecEqNat (Succ m) Zero     = No (natNeq (Succ m) 0 rfl)
+myDecEqNat (Succ m) (Succ n) = decEqNatFrom (Succ m) (Succ n) (eqNat m n) rfl
+
+theorem myEqNatRefl : (n : Nat) -> eqNat n n = True
+myEqNatRefl Zero     = rfl
+myEqNatRefl (Succ n) = myEqNatRefl n
+
+theorem myEqNatSound : (m : Nat) -> (n : Nat) -> eqNat m n = True -> m = n
+myEqNatSound Zero     Zero     h = rfl
+myEqNatSound Zero     (Succ n) h = exfalso (falseNotTrue h)
+myEqNatSound (Succ m) Zero     h = exfalso (falseNotTrue h)
+myEqNatSound (Succ m) (Succ n) h = cong Succ (myEqNatSound m n h)
+";
+
+const BIG: &str = "1180591620717411303424"; // 2^70
+
+/// `rfl` proves a native's result equal to its definition's, for the natives
+/// that return proofs. (`decEqNat 3 5` used to give a different refutation.)
+#[test]
+fn rfl_proves_proof_natives_equal_to_their_definitions() {
+    let mut source = COPIES.to_string();
+    let pairs = [
+        ("0", "0"),
+        ("0", "1"),
+        ("1", "0"),
+        ("1", "1"),
+        ("3", "5"),
+        ("5", "3"),
+        ("4", "4"),
+        ("0", BIG),
+        (BIG, "1"),
+        (BIG, BIG),
+        (BIG, "1180591620717411303425"),
+    ];
+    for (i, (m, n)) in pairs.iter().enumerate() {
+        source += &format!(
+            "\ntheorem sameDec{i} : myDecEqNat {m} {n} = decEqNat {m} {n}\nsameDec{i} = rfl\n"
+        );
+    }
+    for n in ["0", "1", "7"] {
+        source += &format!(
+            "\ntheorem sameRefl{n} : myEqNatRefl {n} = eqNatRefl {n}\nsameRefl{n} = rfl\n\
+             \ntheorem sameSound{n} : myEqNatSound {n} {n} rfl = eqNatSound {n} {n} rfl\n\
+             sameSound{n} = rfl\n"
+        );
+    }
+    accepts(&source);
+}
+
+/// A copy of `op`'s definition, unfolding once to the same body, in which
+/// the recursive calls go to the native `op`.
+fn unfolded_once(g: &mut Globals, op: Native) -> DefId {
+    let id = def(g, op.name());
+    let d = g.def(id);
+    let (ty, body, span) = (d.ty.clone(), d.body.clone().unwrap(), d.span);
+    let name = format!("{}Once", op.name());
+    let copy = declare_def(g, &name.as_str().into(), &ty, d.theorem, false, span).unwrap();
+    define_def(g, copy, &body).unwrap();
+    copy
+}
+
+/// On numbers too big for the definitions to count down, each native's whole
+/// result is what one step of its definition gives, with the native for the
+/// steps after it. With the comparison on small numbers, that's an induction:
+/// the native agrees with its definition everywhere.
+#[test]
+fn natives_agree_with_one_step_of_their_definitions_on_big_numbers() {
+    let mut session = Session::new();
+    let g = &mut session.elab.globals;
+    let big = |s: &str| native::nat_value(s.parse::<BigUint>().unwrap());
+    let b = BIG.parse::<BigUint>().unwrap();
+    let numbers = [
+        big("0"),
+        big("1"),
+        native::nat_value(b.clone()),
+        native::nat_value(&b + 1u32),
+        native::nat_value(&b * 3u32),
+        big("340282366920938463463374607431768211457"), // 2^128 + 1
+    ];
+    for op in Native::ALL {
+        let id = def(g, op.name());
+        let once = unfolded_once(g, op);
+        let mut inputs: Vec<Vec<Value>> = Vec::new();
+        match op.numbers() {
+            1 => inputs.extend(numbers.iter().map(|n| vec![n.clone()])),
+            2 => {
+                for m in &numbers {
+                    for n in &numbers {
+                        inputs.push(vec![m.clone(), n.clone()]);
+                    }
+                }
+            }
+            3 => {
+                for a in &numbers {
+                    for (n, d) in [(&b, 7u32), (&b, 1), (&b, 0)] {
+                        inputs.push(vec![a.clone(), native::nat_value(n.clone()), nat(d.into())]);
+                    }
+                }
+            }
+            n => panic!("no inputs for {n} numbers"),
+        }
+        for nums in inputs {
+            // `eqNatSound` on different numbers isn't native: the definition
+            // counts down both ways.
+            if op == Native::EqNatSound && !conv(g, 0, &nums[0], &nums[1]).unwrap() {
+                continue;
+            }
+            let args = with_proof(op, &nums);
+            let fast = call(g, id, &args);
+            let slow = call(g, once, &args);
+            same_result(g, &format!("{}{nums:?}", op.name()), &fast, &slow);
+        }
+    }
 }

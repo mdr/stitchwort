@@ -25,9 +25,10 @@ exfalso ()
 -- Numbers
 
 -- Numbers are stored compactly, but mean exactly this. `add`, `sub`, `mul`,
--- `leq`, `eqNat`, `divFuel` and `decEqNat` also have native implementations,
--- used when all their arguments are numbers; they're tested against the
--- definitions here.
+-- `leq`, `eqNat`, `divFuel`, `decEqNat`, `eqNatRefl` and `eqNatSound` also
+-- have native implementations, used when all their arguments are numbers.
+-- Each computes exactly what the definition here computes, proofs included;
+-- they're tested against these definitions.
 type Nat : Type =
   | Zero
   | Succ (n : Nat)
@@ -161,8 +162,14 @@ theorem eqNatRefl : (n : Nat) -> eqNat n n = True
 eqNatRefl Zero     = rfl
 eqNatRefl (Succ n) = eqNatRefl n
 
--- Numbers that `eqNat` says differ are different. The native `decEqNat`
--- builds its `No` from this.
+-- Numbers that `eqNat` says are equal are equal.
+theorem eqNatSound : (m : Nat) -> (n : Nat) -> eqNat m n = True -> m = n
+eqNatSound Zero     Zero     h = rfl
+eqNatSound Zero     (Succ n) h = exfalso (falseNotTrue h)
+eqNatSound (Succ m) Zero     h = exfalso (falseNotTrue h)
+eqNatSound (Succ m) (Succ n) h = cong Succ (eqNatSound m n h)
+
+-- Numbers that `eqNat` says differ are different.
 theorem natNeq : (m : Nat) -> (n : Nat) -> eqNat m n = False -> Not (m = n)
 natNeq m n h p = falseNotTrue (trans (sym h) (J (\y q -> eqNat m y = True) (eqNatRefl m) p))
 
@@ -206,11 +213,21 @@ decSucc : (m : Nat) -> (n : Nat) -> Decidable (m = n) -> Decidable (Succ m = Suc
 decSucc m n (Yes p) = Yes (cong Succ p)
 decSucc m n (No r)  = No (\p -> r (succInjective m n p))
 
+-- A decision from what `eqNat` says.
+decEqNatFrom : (m : Nat) -> (n : Nat) -> (b : Bool) -> eqNat m n = b -> Decidable (m = n)
+decEqNatFrom m n True  h = Yes (eqNatSound m n h)
+decEqNatFrom m n False h = No (natNeq m n h)
+
+-- For two numbers this computes `Yes rfl` or `No (natNeq m n rfl)`, and the
+-- native gives exactly that, however big they are. (Recursing with `decSucc`
+-- would build a refutation as deep as the smaller number.) It matches on
+-- both numbers so it waits until they're known, rather than unfolding around
+-- an unknown one.
 decEqNat : (m : Nat) -> (n : Nat) -> Decidable (m = n)
 decEqNat Zero     Zero     = Yes rfl
-decEqNat Zero     (Succ n) = No (zeroNotSucc n)
-decEqNat (Succ m) Zero     = No (succNotZero m)
-decEqNat (Succ m) (Succ n) = decSucc m n (decEqNat m n)
+decEqNat Zero     (Succ n) = No (natNeq 0 (Succ n) rfl)
+decEqNat (Succ m) Zero     = No (natNeq (Succ m) 0 rfl)
+decEqNat (Succ m) (Succ n) = decEqNatFrom (Succ m) (Succ n) (eqNat m n) rfl
 
 theorem trueNotFalse : Not (True = False)
 trueNotFalse p = falseNotTrue (sym p)

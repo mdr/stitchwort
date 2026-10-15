@@ -248,6 +248,8 @@ sameNo = rfl
 
 The same theorem with `3 3` is accepted (`Yes rfl` on both sides). So the native changes which conversions the kernel accepts: it doesn't prove anything false (both payloads are valid refutations, and rejecting a conversion can't make the kernel unsound), but a program that checks with natives off can fail with them on. It's a precedent to audit, not a justification. The fix options are to make the native return the definition's own `No` term (built by the native for the specific numbers, which is O(min(m, n)) in size), to return the `No` only when the payload is never compared (not decidable locally), or to accept and document the difference. This note recommends the first, tested by the whole-result comparison above; it's listed as follow-up work, separate from text.
 
+**Since fixed** by changing the definition instead, so that it computes `No (natNeq m n rfl)` itself; the number natives now have whole-result tests ([native numbers, as built](native-numbers.md#as-built-what-a-native-must-compute)).
+
 ### Eligibility: when a native may fire
 
 A native may only fire when the arguments' expansions are what the native assumes. Each native gets an explicit **eligibility predicate** over all its arguments, including every one that can carry a proof:

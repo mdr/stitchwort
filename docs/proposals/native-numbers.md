@@ -46,3 +46,35 @@ C is a cheap first step whichever option is chosen, and would also help with oth
 
 1. Is growing the trusted base by a handful of arithmetic functions acceptable, given the tests and the visibility?
 2. Should `Int` (signed, with truncating division, DESIGN.md §10) arrive at the same time, since it would share the machinery?
+
+## As built: what a native must compute
+
+A native replaces a definition, so it must compute exactly what the definition does, as the whole result: for numbers and booleans that's the answer, but for a native that returns a proof it's the proof term too, up to conversion. Otherwise turning natives on changes which `rfl` proofs check, even though both proofs are valid. ([compact text](compact-text.md#what-the-same-meaning-must-mean) states this obligation for any native: `expand(native_D(args)) ≡ D(expand(args))` under the reference rules.)
+
+The first native `decEqNat` didn't meet it. The definition recursed with `decSucc`, so `decEqNat 3 5` computed a `No` holding a refutation three `succInjective` steps deep, while the native gave `No (natNeq 3 5 rfl)`; `rfl` couldn't prove a copy of the definition equal to the native on `3 5`. Building the definition's own refutation natively would make it as deep as the smaller number, which defeats a native. So the definition changed instead, to one whose result is small:
+
+```
+decEqNatFrom : (m : Nat) -> (n : Nat) -> (b : Bool) -> eqNat m n = b -> Decidable (m = n)
+decEqNatFrom m n True  h = Yes (eqNatSound m n h)
+decEqNatFrom m n False h = No (natNeq m n h)
+
+decEqNat Zero     Zero     = Yes rfl
+decEqNat Zero     (Succ n) = No (natNeq 0 (Succ n) rfl)
+decEqNat (Succ m) Zero     = No (natNeq (Succ m) 0 rfl)
+decEqNat (Succ m) (Succ n) = decEqNatFrom (Succ m) (Succ n) (eqNat m n) rfl
+```
+
+For two numbers this computes `Yes rfl` (`eqNatSound m m rfl` unfolds to `rfl`) or `No (natNeq m n rfl)` (`natNeq` needs a fourth argument, so it stays as it is), which is what the native returns. `eqNatSound` is native too, giving `rfl` when its two numbers are equal, whatever its proof argument; otherwise the `Yes` would count down. It matches on both numbers only so that it waits for them, as before: unfolding `decEqNat x 0` around an unknown `x` would copy `x` into two places in elaborated decisions and so in generated JS.
+
+Trade-offs: `decEqNat (Succ m) (Succ n)` no longer computes to `decSucc m n (decEqNat m n)`, so a proof by induction that relied on that would need `eqNat` reasoning instead (nothing in the repository did); the prelude has two more definitions, and one more native (`eqNatSound`, as simple as `eqNatRefl`).
+
+The tests (`crates/driver/tests/natives.rs`) compare whole results by conversion, not just which constructor came back: every native with natives on against its definition with all natives off, on all small inputs and random ones; on numbers above 2^64, against one step of its definition (a copy of its body whose recursive calls go to the native), which with the small-number comparison is an induction; and `rfl` proofs that a copy of each proof-returning definition equals the native.
+
+| Native | Result | Agrees with its definition, as a whole result |
+|---|---|---|
+| `add`, `sub`, `mul`, `divFuel` | a number | yes: a number is its `Succ` chain |
+| `leq`, `eqNat` | a `Bool` | yes: a constructor without fields |
+| `decEqNat` | `Yes rfl` or `No (natNeq m n rfl)` | yes, since the definition changed (above) |
+| `eqNatRefl` | `rfl` | yes: the definition counts down to `rfl` |
+| `eqNatSound` (equal numbers only) | `rfl` | yes: the definition gives `cong Succ` of `rfl`, which is `rfl`, ignoring the proof |
+| the `k + x` shortcuts (`add`, `sub`, `leq`, `eqNat`, `eqNatRefl`) | some steps of the definition at once | yes: each is a number of the definition's own steps |
