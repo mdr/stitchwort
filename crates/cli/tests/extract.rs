@@ -10,6 +10,7 @@
 //!
 //! Requires `node` on the PATH (the Nix dev shell provides it).
 
+use std::fmt::Write;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -17,7 +18,7 @@ use stitchwort_cli::driver::Session;
 use stitchwort_cli::render::render;
 use stitchwort_core::value::{apply, eval, force};
 use stitchwort_core::{BigUint, DataId, DefId, Globals, Limits, Term, Value};
-use stitchwort_js::{Boundary, boundary_literal, exportable, field_boundaries};
+use stitchwort_js::{Boundary, boundary_literal, exportable, field_boundaries, js_string_literal};
 use stitchwort_syntax::ast::Expr;
 use stitchwort_syntax::parse_expression;
 
@@ -460,7 +461,11 @@ list[0].side = 100n;
 assert.deepEqual(result, [4n]);
 
 // Wrong shapes are refused with a path to the problem.
-assert.throws(() => shapes.area({ tag: "Circle" }), /unknown tag Circle/);
+assert.throws(() => shapes.area({ tag: "Circle" }), / arg0: unknown tag "Circle"; expected "Square" or "Rect"$/);
+assert.throws(() => shapes.area({}), / arg0: unknown tag undefined; expected "Square" or "Rect"$/);
+assert.throws(() => shapes.area({ tag: "x".repeat(1000) }), (e) => e.message.length < 120);
+// An inherited property isn't a tag.
+assert.throws(() => shapes.area({ tag: "toString" }), /unknown tag "toString"/);
 assert.throws(() => shapes.areas([{ tag: "Rect", width: 1n, height: -1n }]), /\[0\]\.height: expected a non-negative bigint/);
 console.log("ok");
 "#;
@@ -694,4 +699,355 @@ console.log("ok");
         ],
         script,
     );
+}
+
+/// Decoding and encoding keep their own stack, so deeply nested values cross
+/// the boundary both ways: a user's list of a million elements, a tree a
+/// million deep, and a list type with a
+/// parameter. Errors deep inside still say where they are, briefly.
+#[test]
+fn deep_values_cross_the_boundary() {
+    let examples = examples();
+    let script = r#"
+import * as m from "./deep.mjs";
+import assert from "node:assert/strict";
+
+const N = 1000000;
+const refused = (f, pattern) =>
+  assert.throws(f, (e) => e instanceof m.StitchwortInputError && pattern.test(e.message));
+
+// A user's list, a million long: decoded only, decoded and encoded, and
+// built by Stitchwort code and encoded.
+const chainOf = (n, head = (i) => BigInt(i)) => {
+  let c = { tag: "End" };
+  for (let i = n - 1; i >= 0; i--) c = { tag: "More", head: head(i), tail: c };
+  return c;
+};
+const checkChain = (c, n, head = (i) => BigInt(i)) => {
+  let i = 0;
+  for (; c.tag === "More"; c = c.tail, i++) {
+    if (c.head !== head(i) || Object.keys(c).length !== 3) assert.fail(`element ${i}`);
+  }
+  assert.equal(c.tag, "End");
+  assert.equal(i, n);
+};
+const chain = chainOf(N);
+assert.equal(m.count(chain), BigInt(N));
+checkChain(m.echo(chain), N);
+checkChain(m.flip(chain), N, (i) => BigInt(N - 1 - i));
+checkChain(m.build(BigInt(N)), N);
+
+// The path to a problem deep inside is summarised.
+refused(() => m.count(chainOf(N, (i) => (i === N - 1 ? -1n : 0n))),
+  /^c\(\.tail ×999999\)\.head: expected a non-negative bigint$/);
+refused(() => m.count(chainOf(5, (i) => (i === 4 ? -1n : 0n))),
+  /^c\.tail\.tail\.tail\.tail\.head: expected a non-negative bigint$/);
+const loop = chainOf(N);
+let last = loop;
+while (last.tail.tag === "More") last = last.tail;
+last.tail = loop;
+refused(() => m.count(loop), /^c\(\.tail ×1000000\): the input contains itself$/);
+
+// A tree a million deep down its left side, both ways.
+let tree = { tag: "Leaf" };
+for (let i = 0; i < N; i++) tree = { tag: "Node", left: tree, right: { tag: "Leaf" } };
+const checkSpine = (t, n) => {
+  let depth = 0;
+  for (; t.tag === "Node"; t = t.left, depth++) {
+    if (t.right.tag !== "Leaf") assert.fail(`depth ${depth}`);
+  }
+  assert.equal(depth, n);
+};
+checkSpine(m.echoTree(tree), N);
+checkSpine(m.spine(BigInt(N)), N);
+
+// A zigzag path doesn't repeat, so its middle is left out.
+let zigzag = { tag: "Node", left: { tag: "Leaf" }, right: 7 };
+for (let i = 0; i < N; i++) {
+  zigzag = i % 2 === 0
+    ? { tag: "Node", left: zigzag, right: { tag: "Leaf" } }
+    : { tag: "Node", left: { tag: "Leaf" }, right: zigzag };
+}
+refused(() => m.echoTree(zigzag),
+  /^t\.right\.left\.right\.left\.right\.left…\(999989 more steps\)…\.left\.right\.left\.right\.left\.right: expected a Tree object$/);
+
+// A list type with a parameter.
+let seq = { tag: "Stop" };
+for (let i = 0; i < N; i++) seq = { tag: "Step", item: "x", rest: seq };
+const checkSeq = (s, n) => {
+  let i = 0;
+  for (; s.tag === "Step"; s = s.rest, i++) if (s.item !== "x") assert.fail(`item ${i}`);
+  assert.equal(i, n);
+};
+checkSeq(m.echoSeq(seq), N);
+checkSeq(m.steps(BigInt(N)), N);
+refused(() => m.echoSeq({ tag: "Step", item: "x", rest: { tag: "Step", item: "\uD800", rest: { tag: "Stop" } } }),
+  /^s\.rest\.item: a lone surrogate \(U\+D800\) at index 0;/);
+console.log("ok");
+"#;
+    run_script(
+        "deep",
+        &[("deep.mjs", example(&examples, "deep.sw"))],
+        script,
+    );
+}
+
+/// A type without constructors has no values: its declaration is `never`,
+/// and the decoder says so.
+#[test]
+fn a_type_without_values_refuses_everything() {
+    let source = "type Never : Type\n\nexport\nfromNever : Never -> Nat\nfromNever n = 0\n";
+    let mut session = Session::new();
+    session.load("never.sw", source).expect("checks");
+    let output = stitchwort_js::generate(&session.elab.globals, session.elab.limits)
+        .expect("extraction succeeds");
+    assert!(
+        output.dts.contains("export type Never = never;\n"),
+        "{}",
+        output.dts
+    );
+    let script = r#"
+import * as m from "./never.mjs";
+import assert from "node:assert/strict";
+assert.throws(() => m.fromNever({ tag: "Never" }), /^StitchwortInputError: n: unknown tag "Never"; expected nothing: Never has no values$/);
+console.log("ok");
+"#;
+    run_script("never", &[("never.mjs", &session)], script);
+}
+
+/// Property-style: data types whose fields, constructors and parameters are
+/// named from a pool of awkward names (`tag`, `__proto__`, primes, the
+/// runtime's own names, JS globals and reserved words), exported under such
+/// names too. On random values, each export must give back exactly what it
+/// was given; every object must have its own key for each of its fields (so
+/// no two fields share one, and none sets the prototype); and the TypeScript
+/// declarations must accept exactly those objects.
+#[test]
+fn awkward_names_never_collide() {
+    const FIELDS: &[&str] = &[
+        "tag",
+        "__proto__",
+        "constructor",
+        "toString",
+        "valueOf",
+        "hasOwnProperty",
+        "prototype",
+        "length",
+        "x",
+        "x'",
+        "x''",
+        "tag'",
+        "tag''",
+        "_tag",
+        "tag_",
+        "__proto__'",
+        "path",
+        "inside",
+        "v0",
+        "v1",
+        "s0",
+        "arg0",
+        "arg1",
+        "e",
+        "m",
+        "n",
+        "undefined",
+        "eval",
+        "arguments",
+        "class",
+        "new",
+        "delete",
+        "default",
+        "this",
+        "enter",
+        "decode",
+        "encode",
+        "data",
+        "list",
+        "close",
+        "refuse",
+        "value",
+        "kind",
+        "open",
+        "info",
+        "args",
+        "fields",
+        "out",
+        "root",
+        "head",
+        "tail",
+        "chars",
+        "code",
+    ];
+    // Types and definitions share a namespace, so these are disjoint.
+    const TYPES: &[&str] = &[
+        "Tag", "Map", "Error", "Array", "Symbol", "Box'", "Box''", "Tag'", "LEAF", "DATA", "PARAM",
+        "Promise", "Function",
+    ];
+    const EXPORTS: &[&str] = &[
+        "enter",
+        "decode",
+        "encode",
+        "data",
+        "list",
+        "close",
+        "refuse",
+        "describe",
+        "pathText",
+        "scalars",
+        "outOfResources",
+        "define",
+        "datatype",
+        "leaf",
+        "param",
+        "encodeChar",
+        "Set",
+        "BigInt",
+        "String",
+        "JSON",
+        "Object",
+        "Number",
+        "RangeError",
+        "Refusal",
+        "NONE",
+        "NAT",
+        "TEXT",
+        "LIST",
+        "globalThis",
+        "NaN",
+        "Infinity",
+    ];
+    const CTORS: &[&str] = &["Tag", "Object", "X'", "X''", "Proto", "C"];
+    const ROUNDS: usize = 4;
+    const TYPES_PER_ROUND: usize = 8;
+    const CASES_PER_EXPORT: usize = 10;
+
+    let mut rng = Rng(0x5eed_0fa7_4a3e);
+    let pick = |rng: &mut Rng, pool: &[&'static str], n: usize| -> Vec<&'static str> {
+        let mut pool = pool.to_vec();
+        (0..n.min(pool.len()))
+            .map(|_| pool.swap_remove(rng.below(pool.len())))
+            .collect()
+    };
+    for round in 0..ROUNDS {
+        let types = pick(&mut rng, TYPES, TYPES_PER_ROUND);
+        let exports = pick(&mut rng, EXPORTS, TYPES_PER_ROUND);
+        let mut source = String::new();
+        // Each constructor's number of fields, which its objects' own keys
+        // must match (one more, for the tag).
+        let mut counts = Vec::new();
+        for (k, (ty, export)) in types.iter().zip(&exports).enumerate() {
+            let mut field_types = vec!["Nat", "Text", "Bool", "Char", "List Nat", "Maybe Text"];
+            field_types.extend(&types[..k]);
+            let mut ctors = Vec::new();
+            let n = 1 + rng.below(3);
+            for (c, ctor) in pick(&mut rng, CTORS, n).into_iter().enumerate() {
+                let ctor = format!("{ctor}{round}{k}");
+                let n = rng.below(6);
+                let fields = pick(&mut rng, FIELDS, n);
+                let fields: Vec<String> = fields
+                    .iter()
+                    .map(|f| {
+                        // The first constructor isn't recursive, so values end.
+                        let ty = if c > 0 && rng.below(3) == 0 {
+                            ty
+                        } else {
+                            field_types[rng.below(field_types.len())]
+                        };
+                        format!("({f} : {ty})")
+                    })
+                    .collect();
+                counts.push(format!(
+                    "{}: {}",
+                    js_string_literal(&ctor),
+                    fields.len() + 1
+                ));
+                ctors.push((ctor, fields));
+            }
+            let _ = writeln!(source, "type {ty} : Type =");
+            for (ctor, fields) in &ctors {
+                let _ = writeln!(source, "  | {ctor} {}", fields.join(" "));
+            }
+            let param = FIELDS[rng.below(FIELDS.len())];
+            let _ = writeln!(source, "\nexport\n{export} : ({param} : {ty}) -> {ty}");
+            for (ctor, fields) in &ctors {
+                let vars: Vec<String> = (0..fields.len()).map(|i| format!("y{i}")).collect();
+                let vars = vars.join(" ");
+                let _ = writeln!(source, "{export} ({ctor} {vars}) = {ctor} {vars}");
+            }
+            source.push('\n');
+        }
+
+        let name = format!("awkward-{round}.sw");
+        let mut session = Session::new();
+        if let Err(diagnostics) = session.load(&name, &source) {
+            let rendered: String = diagnostics
+                .iter()
+                .map(|d| render(&session.sources, d, false))
+                .collect();
+            panic!("{name} doesn't check:\n{rendered}\n{source}");
+        }
+        let g = &session.elab.globals;
+        let output = stitchwort_js::generate(g, Limits::default()).expect("extraction succeeds");
+        let mut script = format!(
+            "import * as m from \"./module.mjs\";\n\
+             import assert from \"node:assert/strict\";\n\
+             const counts = {{ {} }};\n\
+             const check = (v) => {{\n\
+               if (typeof v !== \"object\" || v === null) return;\n\
+               if (Array.isArray(v)) {{ v.forEach(check); return; }}\n\
+               assert.equal(Object.getPrototypeOf(v), Object.prototype);\n\
+               if (Object.hasOwn(counts, v.tag)) assert.equal(Object.keys(v).length, counts[v.tag], JSON.stringify(Object.keys(v)));\n\
+               Object.values(v).forEach(check);\n\
+             }};\n",
+            counts.join(", ")
+        );
+        let mut typescript = String::from("import * as m from \"./module\";\n");
+        for id in (0..g.defs.len()).map(DefId).filter(|id| g.def(*id).export) {
+            let sig = exportable(g, id).expect("exports check");
+            let (_, b) = &sig.params[0];
+            for _ in 0..CASES_PER_EXPORT {
+                let value = random_value(g, b, &mut rng, 3);
+                let literal = boundary_literal(g, b, &value).expect("argument encodes");
+                let _ = writeln!(
+                    script,
+                    "{{ const input = {literal}; check(input); const r = m.{}({literal}); check(r); assert.deepEqual(r, input); }}",
+                    sig.name
+                );
+                let _ = writeln!(typescript, "m.{}({literal});", sig.name);
+            }
+        }
+        script.push_str("console.log(\"ok\");\n");
+
+        let dir =
+            std::env::temp_dir().join(format!("stitchwort-awkward-{}-{round}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("create temp dir");
+        std::fs::write(dir.join("module.mjs"), &output.js).expect("write module");
+        std::fs::write(dir.join("module.d.ts"), &output.dts).expect("write declarations");
+        std::fs::write(dir.join("test.mjs"), &script).expect("write script");
+        std::fs::write(dir.join("check.ts"), &typescript).expect("write TypeScript");
+        let result = Command::new("node")
+            .arg("test.mjs")
+            .current_dir(&dir)
+            .output()
+            .expect("run `node`");
+        assert!(
+            result.status.success() && String::from_utf8_lossy(&result.stdout).trim() == "ok",
+            "{name}:\n{}\n--- source ---\n{source}",
+            String::from_utf8_lossy(&result.stderr)
+        );
+        let result = Command::new("tsc")
+            .args(["--noEmit", "--strict", "--target", "es2020", "check.ts"])
+            .current_dir(&dir)
+            .output()
+            .expect("run `tsc`");
+        assert!(
+            result.status.success(),
+            "{name}: the declarations don't accept the module's values:\n{}{}\n--- module.d.ts ---\n{}",
+            String::from_utf8_lossy(&result.stdout),
+            String::from_utf8_lossy(&result.stderr),
+            output.dts
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }

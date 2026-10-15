@@ -36,8 +36,9 @@ pub enum Boundary {
     List(Box<Boundary>),
     /// A tagged object union, with the type's arguments if it has parameters.
     Data(DataId, Vec<Boundary>),
-    /// Parameter `i` of the data type whose codec this is: only inside a
-    /// codec, which takes its parameters' codecs as arguments.
+    /// Parameter `i` of the data type whose fields these are: only in the
+    /// description of a data type's fields, where `close` (in the runtime)
+    /// replaces it with the type's argument.
     Param(usize),
 }
 
@@ -93,6 +94,14 @@ pub fn exportable(g: &Globals, id: DefId) -> Result<ExportSig, Diagnostic> {
             "its name isn't a valid JavaScript identifier".into(),
         ));
     }
+    if JS_RESERVED.contains(&&*def.name) {
+        return Err(refuse("its name is reserved in JavaScript".into()));
+    }
+    if MODULE_NAMES.contains(&&*def.name) {
+        return Err(refuse(
+            "the generated module exports something else with that name".into(),
+        ));
+    }
     let tel = telescope(g, &def.ty_value, def.span)?;
     if tel.result_erased {
         return Err(refuse(
@@ -130,13 +139,18 @@ pub fn exportable(g: &Globals, id: DefId) -> Result<ExportSig, Diagnostic> {
             });
             continue;
         }
-        let boundary = boundary(g, ty, 0, &mut HashSet::new())
-            .map_err(|why| refuse(format!("parameter `{x}`: {why}")))?;
         let js_name = [Some(&**x), equation_names.get(i).map(|n| &**n)]
             .into_iter()
             .flatten()
-            .find(|n| is_js_identifier(n) && *n != "_" && !n.starts_with("arg"))
+            .find(|n| {
+                is_js_identifier(n)
+                    && !JS_RESERVED.contains(n)
+                    && *n != "_"
+                    && !n.starts_with("arg")
+            })
             .map_or_else(|| format!("arg{i}"), str::to_string);
+        let boundary = boundary(g, ty, 0, &mut HashSet::new())
+            .map_err(|why| refuse(format!("parameter `{js_name}`: {why}")))?;
         params.push((js_name, boundary));
         param_positions.push(i);
     }
@@ -152,7 +166,7 @@ pub fn exportable(g: &Globals, id: DefId) -> Result<ExportSig, Diagnostic> {
     })
 }
 
-/// How `ty` crosses the boundary. Inside a data type's codec, its first
+/// How `ty` crosses the boundary. In a data type's fields' types, its first
 /// `params` variables are the type's parameters.
 fn boundary(
     g: &Globals,
@@ -199,13 +213,19 @@ fn boundary(
 
 /// Whether a data type can have a codec: its parameters are types, and its
 /// fields all cross the boundary, whatever data the parameters stand for.
-/// The codec of a type with parameters takes their codecs as arguments, as
-/// `dec_List` does.
+/// A type with parameters is described once, and its fields' types are
+/// filled in with its arguments as a value is decoded or encoded.
 fn check_codec(g: &Globals, d: DataId, visiting: &mut HashSet<DataId>) -> Result<(), String> {
     if !visiting.insert(d) {
         return Ok(());
     }
     let data = g.data(d);
+    if MODULE_NAMES.contains(&&*data.name) {
+        return Err(format!(
+            "`{}` is the name of something else the generated module exports",
+            data.name
+        ));
+    }
     let mut env = Vec::new();
     for (x, ty) in &data.params {
         if !matches!(
@@ -226,8 +246,9 @@ fn check_codec(g: &Globals, d: DataId, visiting: &mut HashSet<DataId>) -> Result
                 data.name
             ));
         }
-        for (_, field_ty) in fields {
-            boundary(g, &field_ty, data.params.len(), visiting)?;
+        for (field, field_ty) in fields {
+            boundary(g, &field_ty, data.params.len(), visiting)
+                .map_err(|why| format!("`{}`'s field `{field}`: {why}", data.name))?;
         }
     }
     Ok(())
@@ -310,8 +331,20 @@ pub fn generate(g: &Globals, limits: Limits) -> Result<Output, Diagnostic> {
 
     let codegen = Gen::new(g)?;
     let mut js = String::from(RUNTIME);
+    js.push('\n');
+    // Every data type is declared before any is defined, so their fields'
+    // types can refer to each other (and themselves).
     for &d in &boundary_datas {
-        js.push_str(&codegen.codecs(d));
+        let name = &g.data(d).name;
+        let _ = writeln!(
+            js,
+            "const {} = datatype({});",
+            info_name(name),
+            js_string_literal(name)
+        );
+    }
+    for &d in &boundary_datas {
+        js.push_str(&codegen.define(d));
     }
     js.push('\n');
     // Only what the exports use, in declaration order (which is dependency order).
@@ -328,6 +361,15 @@ pub fn generate(g: &Globals, limits: Limits) -> Result<Output, Diagnostic> {
     }
     for sig in &exports {
         js.push_str(&codegen.wrapper(sig).map_err(while_generating(sig.id))?);
+    }
+    // Exports aren't names in the module's scope, so they can't hide its
+    // own names or the JS globals it uses (`Set`, `BigInt`, …).
+    let exported: Vec<String> = exports
+        .iter()
+        .map(|sig| format!("{} as {}", wrapper_name(&sig.name), sig.name))
+        .collect();
+    if !exported.is_empty() {
+        let _ = writeln!(js, "\nexport {{ {} }};", exported.join(", "));
     }
 
     let mut dts = String::from(
@@ -404,29 +446,63 @@ const outOfResources = (name, e) =>
       )
     : e;
 
-const dec_Nat = (x, path) => {
-  if (typeof x !== "bigint" || x < 0n) {
-    throw new StitchwortInputError(`${path}: expected a non-negative bigint`);
-  }
-  return x;
+// Boundary types are described by data, and one loop decodes (or encodes) a
+// value of any of them, keeping its own stack, so deeply nested input
+// doesn't use up the JS stack:
+// - a leaf (`NAT`, `BOOL`, `TEXT`, `CHAR`) is decoded and encoded in one step;
+// - `list(t)` is an array;
+// - `data(info, args)` is a data type applied to its arguments: a tagged
+//   object, with the constructors and fields given by `define`;
+// - `param(i)`, in a field's type, is the data type's parameter `i`.
+// `open` says whether a type mentions a parameter.
+const LEAF = 0, LIST = 1, DATA = 2, PARAM = 3;
+const leaf = (dec, enc) => ({ kind: LEAF, open: false, dec, enc });
+const list = (elem) => ({ kind: LIST, open: elem.open, elem });
+const data = (info, args = []) => ({ kind: DATA, open: args.some((a) => a.open), info, args });
+const param = (i) => ({ kind: PARAM, open: true, i });
+const datatype = (name) => ({ name, ctors: new Map(), tags: "" });
+// Each constructor's tag, and its fields' keys and types, in order.
+const define = (info, ctors) => {
+  for (const [tag, fields] of ctors) info.ctors.set(tag, fields);
+  const tags = ctors.map(([tag]) => JSON.stringify(tag));
+  info.tags =
+    tags.length > 1 ? `${tags.slice(0, -1).join(", ")} or ${tags.at(-1)}`
+    : tags.length === 1 ? tags[0]
+    : `nothing: ${info.name} has no values`;
 };
-const enc_Nat = (v) => v;
+// A field's type `t`, with its data type's parameters replaced by `args`.
+const close = (t, args) =>
+  !t.open ? t
+  : t.kind === PARAM ? args[t.i]
+  : t.kind === LIST ? list(close(t.elem, args))
+  : data(t.info, t.args.map((a) => close(a, args)));
 
-const dec_Bool = (x, path) => {
-  if (typeof x !== "boolean") {
-    throw new StitchwortInputError(`${path}: expected a boolean`);
+// A leaf decoder refuses its input by throwing a `Refusal`, which `decode`
+// turns into a `StitchwortInputError` saying where the input was wrong.
+class Refusal {
+  constructor(message) {
+    this.message = message;
   }
-  return x ? { tag: "True" } : { tag: "False" };
+}
+const refuse = (message) => {
+  throw new Refusal(message);
 };
-const enc_Bool = (v) => v.tag === "True";
+
+const NAT = leaf(
+  (x) => (typeof x === "bigint" && x >= 0n ? x : refuse("expected a non-negative bigint")),
+  (v) => v,
+);
+
+const BOOL = leaf(
+  (x) => (typeof x === "boolean" ? { tag: x ? "True" : "False" } : refuse("expected a boolean")),
+  (v) => v.tag === "True",
+);
 
 // `Text` is a string. Decoding takes its Unicode scalar values in order, and
 // refuses a string with a lone surrogate (which JS allows) rather than
 // repairing it, so encoding gives back exactly the string that was decoded.
-const scalars = (x, path) => {
-  if (typeof x !== "string") {
-    throw new StitchwortInputError(`${path}: expected a string`);
-  }
+const scalars = (x) => {
+  if (typeof x !== "string") refuse("expected a string");
   const codes = [];
   for (let i = 0; i < x.length; i++) {
     const unit = x.charCodeAt(i);
@@ -437,72 +513,185 @@ const scalars = (x, path) => {
     const low = i + 1 < x.length ? x.charCodeAt(i + 1) : 0;
     if (unit > 0xdbff || low < 0xdc00 || low > 0xdfff) {
       const hex = unit.toString(16).toUpperCase();
-      throw new StitchwortInputError(
-        `${path}: a lone surrogate (U+${hex}) at index ${i}; text must be a well-formed string`,
-      );
+      refuse(`a lone surrogate (U+${hex}) at index ${i}; text must be a well-formed string`);
     }
     codes.push(BigInt(0x10000 + ((unit - 0xd800) << 10) + (low - 0xdc00)));
     i++;
   }
   return codes;
 };
-const dec_Text = (x, path) => {
-  const codes = scalars(x, path);
-  let chars = { tag: "Nil" };
-  for (let i = codes.length - 1; i >= 0; i--) {
-    chars = { tag: "Cons", head: { tag: "MkChar", code: codes[i] }, tail: chars };
-  }
-  return { tag: "MkText", chars };
-};
-const enc_Text = (v) => {
-  const parts = [];
-  for (let l = v.chars; l.tag === "Cons"; l = l.tail) parts.push(enc_Char(l.head));
-  return parts.join("");
-};
+const encodeChar = (v) => String.fromCodePoint(Number(v.code));
+const TEXT = leaf(
+  (x) => {
+    const codes = scalars(x);
+    let chars = { tag: "Nil" };
+    for (let i = codes.length - 1; i >= 0; i--) {
+      chars = { tag: "Cons", head: { tag: "MkChar", code: codes[i] }, tail: chars };
+    }
+    return { tag: "MkText", chars };
+  },
+  (v) => {
+    const parts = [];
+    for (let l = v.chars; l.tag === "Cons"; l = l.tail) parts.push(encodeChar(l.head));
+    return parts.join("");
+  },
+);
 
 // `Char` is a string holding exactly one scalar value: one or two UTF-16
 // code units.
-const dec_Char = (x, path) => {
-  const codes = scalars(x, path);
-  if (codes.length !== 1) {
-    throw new StitchwortInputError(
-      `${path}: expected exactly one character, but the string has ${codes.length}`,
-    );
-  }
-  return { tag: "MkChar", code: codes[0] };
-};
-const enc_Char = (v) => String.fromCodePoint(Number(v.code));
+const CHAR = leaf(
+  (x) => {
+    const codes = scalars(x);
+    if (codes.length !== 1) {
+      refuse(`expected exactly one character, but the string has ${codes.length}`);
+    }
+    return { tag: "MkChar", code: codes[0] };
+  },
+  encodeChar,
+);
 
-// Decoders read each property exactly once, into fresh values. `inside` holds
-// the objects currently being decoded, so an input that contains itself is
-// refused instead of recursing forever. (Shared, acyclic parts are fine.)
-const enter = (x, path, inside) => {
-  if (inside.has(x)) {
-    throw new StitchwortInputError(`${path}: the input contains itself`);
+// A short description of an unexpected tag.
+const describe = (x) =>
+  typeof x !== "string" ? (x === null ? "null" : typeof x)
+  : x.length > 40 ? `${JSON.stringify(x.slice(0, 40))}…`
+  : JSON.stringify(x);
+
+// The path to a value, as in `arg0.left[2].tail`, from its steps: an array
+// index or a field's key. A path into deeply nested input is summarised, so
+// that the message stays short: a run of the same step is written once with
+// a count, and the middle of a long path is left out.
+const step = (s) => (typeof s === "number" ? `[${s}]` : `.${s}`);
+const pathText = (root, path) => {
+  if (path.length <= 12) return root + path.map(step).join("");
+  const runs = [];
+  for (let i = 0; i < path.length; ) {
+    let j = i + 1;
+    while (j < path.length && path[j] === path[i]) j++;
+    const text = j - i > 3 ? `(${step(path[i])} ×${j - i})` : path.slice(i, j).map(step).join("");
+    runs.push({ text, steps: j - i });
+    i = j;
   }
-  inside.add(x);
+  const text = (rs) => rs.map((r) => r.text).join("");
+  if (runs.length <= 12) return root + text(runs);
+  const hidden = runs.slice(6, -6).reduce((n, r) => n + r.steps, 0);
+  return `${root}${text(runs.slice(0, 6))}…(${hidden} more steps)…${text(runs.slice(-6))}`;
 };
 
-const dec_List = (dec) => (x, path, inside = new Set()) => {
-  if (!Array.isArray(x)) {
-    throw new StitchwortInputError(`${path}: expected an array`);
+const NONE = Symbol("none");
+
+// Decodes `x` as a value of type `t` (which mentions no parameters), reading
+// each property exactly once, into fresh values. `root` names the argument,
+// for error messages. Each array or object being decoded has a frame, and
+// `inside` holds them, so an input that contains itself is refused instead of
+// looping forever. (Shared, acyclic parts are fine.) Elements and fields are
+// read and decoded in order, each completely before the next is read.
+const decode = (t, x, root) => {
+  const frames = [];
+  const path = [];
+  const inside = new Set();
+  try {
+    for (;;) {
+      // Start on `x`: a leaf is done at once; an array or object gets a frame.
+      let value = NONE;
+      if (t.kind === LEAF) {
+        value = t.dec(x);
+      } else {
+        if (t.kind === LIST) {
+          if (!Array.isArray(x)) refuse("expected an array");
+        } else if (typeof x !== "object" || x === null) {
+          refuse(`expected a ${t.info.name} object`);
+        }
+        if (inside.has(x)) refuse("the input contains itself");
+        inside.add(x);
+        if (t.kind === LIST) {
+          frames.push({ t, x, fields: undefined, i: 0, n: x.length, out: [] });
+        } else {
+          const tag = x.tag;
+          const fields = t.info.ctors.get(tag);
+          if (fields === undefined) refuse(`unknown tag ${describe(tag)}; expected ${t.info.tags}`);
+          frames.push({ t, x, fields, i: 0, n: fields.length, out: { tag } });
+        }
+      }
+      // Give `value` to the frame waiting for it, and finish frames, until
+      // one has another element or field to decode, or the outermost is done.
+      for (;;) {
+        const f = frames[frames.length - 1];
+        if (value !== NONE) {
+          if (f === undefined) return value;
+          if (f.fields === undefined) f.out.push(value);
+          else f.out[f.fields[f.i][0]] = value;
+          f.i++;
+          path.pop();
+        }
+        if (f.i < f.n) {
+          if (f.fields === undefined) {
+            path.push(f.i);
+            x = f.x[f.i];
+            t = f.t.elem;
+          } else {
+            const [key, type] = f.fields[f.i];
+            path.push(key);
+            x = f.x[key];
+            t = close(type, f.t.args);
+          }
+          break;
+        }
+        frames.pop();
+        inside.delete(f.x);
+        if (f.fields === undefined) {
+          value = { tag: "Nil" };
+          for (let i = f.n - 1; i >= 0; i--) value = { tag: "Cons", head: f.out[i], tail: value };
+        } else {
+          value = f.out;
+        }
+      }
+    }
+  } catch (e) {
+    if (e instanceof Refusal) {
+      throw new StitchwortInputError(`${pathText(root, path)}: ${e.message}`);
+    }
+    throw e;
   }
-  enter(x, path, inside);
-  const n = x.length;
-  const items = new Array(n);
-  for (let i = 0; i < n; i++) items[i] = dec(x[i], `${path}[${i}]`, inside);
-  inside.delete(x);
-  let list = { tag: "Nil" };
-  for (let i = n - 1; i >= 0; i--) list = { tag: "Cons", head: items[i], tail: list };
-  return list;
 };
-const enc_List = (enc) => (v) => {
-  const out = [];
-  while (v.tag === "Cons") {
-    out.push(enc(v.head));
-    v = v.tail;
+
+// Encodes `v`, a value of type `t`, as fresh JS values, the same way round.
+// Values made by Stitchwort code are well-formed, so this can't fail.
+const encode = (t, v) => {
+  const frames = [];
+  for (;;) {
+    let value = NONE;
+    if (t.kind === LEAF) {
+      value = t.enc(v);
+    } else if (t.kind === LIST) {
+      frames.push({ t, v, fields: undefined, out: [] });
+    } else {
+      frames.push({ t, v, fields: t.info.ctors.get(v.tag), i: 0, out: { tag: v.tag } });
+    }
+    for (;;) {
+      const f = frames[frames.length - 1];
+      if (value !== NONE) {
+        if (f === undefined) return value;
+        if (f.fields === undefined) f.out.push(value);
+        else f.out[f.fields[f.i++][0]] = value;
+      }
+      if (f.fields === undefined) {
+        // `f.v` is the rest of the list.
+        if (f.v.tag === "Cons") {
+          v = f.v.head;
+          f.v = f.v.tail;
+          t = f.t.elem;
+          break;
+        }
+      } else if (f.i < f.fields.length) {
+        const [key, type] = f.fields[f.i];
+        v = f.v[key];
+        t = close(type, f.t.args);
+        break;
+      }
+      frames.pop();
+      value = f.out;
+    }
   }
-  return out;
 };
 "#;
 
@@ -687,7 +876,7 @@ impl<'g> Gen<'g> {
                         out,
                         "{pad}const {} = {scrutinee}.{};",
                         var(level + f),
-                        js_field(field)
+                        field_key(field)
                     );
                 }
                 env.push(*erased);
@@ -839,7 +1028,7 @@ impl<'g> Gen<'g> {
                     ctor.fields.iter().zip(&ctor.field_erased).zip(args)
                 {
                     if !erased {
-                        fields.push(format!("{}: {}", js_field(field), self.expr(arg, env)?));
+                        fields.push(format!("{}: {}", field_key(field), self.expr(arg, env)?));
                     }
                 }
                 format!("{{ {} }}", fields.join(", "))
@@ -887,25 +1076,26 @@ impl<'g> Gen<'g> {
                 .is_some_and(|b| matches!(b.peel_lams(def.arity), Term::Case(..)))
     }
 
-    /// `export function f(…)`: decode the inputs, run the precondition checks,
-    /// call the compiled definition, encode the result. Running out of stack
-    /// on the way is a `StitchwortResourceError`. Decoded parameter `i`
-    /// (counting all parameters) is `v{i}`, which is what the compiled checks
-    /// refer to.
+    /// `function $$f(…)`, exported as `f`: decode the inputs, run the
+    /// precondition checks, call the compiled definition, encode the result.
+    /// Running out of stack on the way is a `StitchwortResourceError`.
+    /// Parameter `i` (counting all parameters) is `arg{i}`, decoded as
+    /// `v{i}`, which is what the compiled checks refer to.
     fn wrapper(&self, sig: &ExportSig) -> Fallible<String> {
-        let params: Vec<&str> = sig.params.iter().map(|(x, _)| x.as_str()).collect();
+        let params: Vec<String> = sig.param_positions.iter().map(|p| arg(*p)).collect();
         let mut out = format!(
-            "\nexport function {}({}) {{\n  try {{\n",
-            sig.name,
+            "\nfunction {}({}) {{\n  try {{\n",
+            wrapper_name(&sig.name),
             params.join(", ")
         );
         let mut call = def_name(&self.g.def(sig.id).name);
         for ((x, b), position) in sig.params.iter().zip(&sig.param_positions) {
             let _ = writeln!(
                 out,
-                "    const {} = {}({x}, \"{x}\");",
+                "    const {} = decode({}, {}, \"{x}\");",
                 var(*position),
-                self.decoder(b)
+                self.type_expr(b),
+                arg(*position)
             );
             let _ = write!(call, "({})", var(*position));
         }
@@ -926,8 +1116,8 @@ impl<'g> Gen<'g> {
         }
         let _ = writeln!(
             out,
-            "    return {}({call});\n  }} catch (e) {{\n    throw outOfResources(\"{}\", e);\n  }}\n}}",
-            self.encoder(&sig.result),
+            "    return encode({}, {call});\n  }} catch (e) {{\n    throw outOfResources(\"{}\", e);\n  }}\n}}",
+            self.type_expr(&sig.result),
             sig.name
         );
         Ok(out)
@@ -941,93 +1131,56 @@ impl<'g> Gen<'g> {
         )
     }
 
-    fn decoder(&self, b: &Boundary) -> String {
-        self.codec("dec", b)
-    }
-
-    fn encoder(&self, b: &Boundary) -> String {
-        self.codec("enc", b)
-    }
-
-    /// The decoder (`dec`) or encoder (`enc`) for a boundary type. A codec
-    /// for a type with arguments is applied to theirs.
-    fn codec(&self, kind: &str, b: &Boundary) -> String {
+    /// A JS expression for a boundary type, as the runtime's `decode` and
+    /// `encode` take it.
+    fn type_expr(&self, b: &Boundary) -> String {
         match b {
-            Boundary::Nat => format!("{kind}_Nat"),
-            Boundary::Bool => format!("{kind}_Bool"),
-            Boundary::Text => format!("{kind}_Text"),
-            Boundary::Char => format!("{kind}_Char"),
-            Boundary::List(elem) => format!("{kind}_List({})", self.codec(kind, elem)),
+            Boundary::Nat => "NAT".into(),
+            Boundary::Bool => "BOOL".into(),
+            Boundary::Text => "TEXT".into(),
+            Boundary::Char => "CHAR".into(),
+            Boundary::List(elem) => format!("list({})", self.type_expr(elem)),
             Boundary::Data(d, args) if args.is_empty() => {
-                format!("{kind}_{}", self.g.data(*d).name)
+                format!("data({})", info_name(&self.g.data(*d).name))
             }
             Boundary::Data(d, args) => {
-                let args: Vec<String> = args.iter().map(|a| self.codec(kind, a)).collect();
-                format!("{kind}_{}({})", self.g.data(*d).name, args.join(", "))
+                let args: Vec<String> = args.iter().map(|a| self.type_expr(a)).collect();
+                format!(
+                    "data({}, [{}])",
+                    info_name(&self.g.data(*d).name),
+                    args.join(", ")
+                )
             }
-            Boundary::Param(i) => codec_param(*i),
+            Boundary::Param(i) => format!("param({i})"),
         }
     }
 
-    /// The decoder and encoder for a data type. With parameters, each takes
-    /// the parameters' codecs and returns the codec.
-    fn codecs(&self, d: DataId) -> String {
+    /// A data type's constructors, and the keys and types of their fields.
+    /// Only names the runtime chose, and `info$`-prefixed ones, are used as
+    /// JS names; tags and keys are strings.
+    fn define(&self, d: DataId) -> String {
         let data = self.g.data(d);
-        let name = &data.name;
-        let (dec_head, enc_head, end) = if data.params.is_empty() {
-            (
-                format!("function dec_{name}(x, path, inside = new Set()) {{"),
-                format!("function enc_{name}(v) {{"),
-                "}",
-            )
-        } else {
-            let ps: Vec<String> = (0..data.params.len()).map(codec_param).collect();
-            let ps = ps.join(", ");
-            (
-                format!("const dec_{name} = ({ps}) => function (x, path, inside = new Set()) {{"),
-                format!("const enc_{name} = ({ps}) => function (v) {{"),
-                "};",
-            )
-        };
-        let mut dec = format!(
-            "\n{dec_head}\n  if (typeof x !== \"object\" || x === null) {{\n    throw new StitchwortInputError(`${{path}}: expected a {name} object`);\n  }}\n  enter(x, path, inside);\n  const tag = x.tag;\n  switch (tag) {{\n"
-        );
-        let mut enc = format!("{enc_head}\n  switch (v.tag) {{\n");
+        let mut out = format!("define({}, [\n", info_name(&data.name));
         for (ctor, fields) in data.ctors.iter().zip(generic_field_boundaries(self.g, d)) {
-            let _ = writeln!(dec, "    case \"{}\": {{", ctor.name);
-            let mut built = vec![format!("tag: \"{}\"", ctor.name)];
-            let mut encoded = built.clone();
-            for (field, b) in &fields {
-                let f = js_field(field);
-                // `$` keeps a field called `x` or `path` from hiding the
-                // decoder's own variables. (Stitchwort names can't start
-                // with `$`.)
-                let _ = writeln!(
-                    dec,
-                    "      const ${f} = {}(x.{f}, `${{path}}.{f}`, inside);",
-                    self.decoder(b)
-                );
-                built.push(format!("{f}: ${f}"));
-                encoded.push(format!("{f}: {}(v.{f})", self.encoder(b)));
-            }
+            let fields: Vec<String> = fields
+                .iter()
+                .map(|(field, b)| {
+                    format!(
+                        "[{}, {}]",
+                        js_string_literal(&field_key(field)),
+                        self.type_expr(b)
+                    )
+                })
+                .collect();
             let _ = writeln!(
-                dec,
-                "      inside.delete(x);\n      return {{ {} }};\n    }}",
-                built.join(", ")
-            );
-            let _ = writeln!(
-                enc,
-                "    case \"{}\": return {{ {} }};",
-                ctor.name,
-                encoded.join(", ")
+                out,
+                "  [{}, [{}]],",
+                js_string_literal(&ctor.name),
+                fields.join(", ")
             );
         }
-        let _ = writeln!(
-            dec,
-            "    default:\n      throw new StitchwortInputError(`${{path}}: unknown tag ${{String(tag)}}`);\n  }}\n{end}"
-        );
-        let _ = writeln!(enc, "  }}\n  throw new Error(\"unreachable\");\n{end}");
-        dec + &enc
+        out.push_str("]);\n");
+        out
     }
 
     /// Inputs are `readonly`; outputs are freshly built, so they're mutable.
@@ -1041,13 +1194,13 @@ impl<'g> Gen<'g> {
                 format!("readonly {}[]", self.ts_type(elem, true, params))
             }
             Boundary::List(elem) => format!("{}[]", self.ts_type(elem, false, params)),
-            Boundary::Data(d, args) if args.is_empty() => self.g.data(*d).name.to_string(),
+            Boundary::Data(d, args) if args.is_empty() => type_name(&self.g.data(*d).name),
             Boundary::Data(d, args) => {
                 let args: Vec<String> = args
                     .iter()
                     .map(|a| self.ts_type(a, readonly, params))
                     .collect();
-                format!("{}<{}>", self.g.data(*d).name, args.join(", "))
+                format!("{}<{}>", type_name(&self.g.data(*d).name), args.join(", "))
             }
             Boundary::Param(i) => params[*i].clone(),
         }
@@ -1065,7 +1218,7 @@ impl<'g> Gen<'g> {
                 for (field, b) in &fields {
                     parts.push(format!(
                         "readonly {}: {}",
-                        js_field(field),
+                        field_key(field),
                         self.ts_type(b, true, &params)
                     ));
                 }
@@ -1077,9 +1230,13 @@ impl<'g> Gen<'g> {
         } else {
             format!("<{}>", params.join(", "))
         };
+        if variants.is_empty() {
+            // A type without constructors has no values.
+            return format!("export type {}{generics} = never;\n", type_name(&data.name));
+        }
         format!(
             "export type {}{generics} =\n  | {};\n",
-            data.name,
+            type_name(&data.name),
             variants.join("\n  | ")
         )
     }
@@ -1119,11 +1276,6 @@ impl<'g> Gen<'g> {
             })
             .collect()
     }
-}
-
-/// The name of a codec's argument: the codec for its type's parameter `i`.
-fn codec_param(i: usize) -> String {
-    format!("${i}")
 }
 
 /// Parameter names of a definition's leading lambdas.
@@ -1220,8 +1372,44 @@ fn def_name(name: &str) -> String {
     format!("${}", name.replace('\'', "$").replace('.', "$$"))
 }
 
-fn js_field(name: &str) -> String {
+/// The key of a constructor's field in a JS object, at the boundary and in
+/// generated code: its name, with each prime as `$`. A name the
+/// representation already uses (`tag` for the constructor, and `__proto__`,
+/// which sets an object's prototype) gets a `$` in front: a field `tag` is
+/// `$tag`. Stitchwort names can't contain `$` or start with a prime, so two
+/// fields never get the same key, and no field's key is `tag`.
+pub fn field_key(name: &str) -> String {
+    let key = name.replace('\'', "$");
+    if RESERVED_KEYS.contains(&name) {
+        format!("${key}")
+    } else {
+        key
+    }
+}
+
+const RESERVED_KEYS: &[&str] = &["tag", "__proto__"];
+
+/// A data type's name in the TypeScript declarations, with each prime as `$`.
+fn type_name(name: &str) -> String {
     name.replace('\'', "$")
+}
+
+/// The JS name of the description of a data type (see `datatype` in
+/// [`RUNTIME`]).
+fn info_name(name: &str) -> String {
+    format!("info${}", type_name(name))
+}
+
+/// The JS name of an export's wrapper, which is exported under the export's
+/// own name. Definitions are `$name`, so they're never `$$name`.
+fn wrapper_name(name: &str) -> String {
+    format!("$${name}")
+}
+
+/// The JS name of an export's wrapper's parameter at `position`. (Its
+/// Stitchwort name is used in the declarations and in error messages.)
+fn arg(position: usize) -> String {
+    format!("arg{position}")
 }
 
 fn is_js_identifier(name: &str) -> bool {
@@ -1231,6 +1419,66 @@ fn is_js_identifier(name: &str) -> bool {
         .is_some_and(|c| c.is_ascii_alphabetic() || c == '_' || c == '$')
         && chars.all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '$')
 }
+
+/// JavaScript's reserved words, in strict mode and in modules, and names
+/// that can't be bound there (`eval`, `arguments`) or that TypeScript treats
+/// specially. An export can't have one as its name (it couldn't be imported
+/// by name), and the declarations don't use one as a parameter's name.
+const JS_RESERVED: &[&str] = &[
+    "arguments",
+    "await",
+    "break",
+    "case",
+    "catch",
+    "class",
+    "const",
+    "continue",
+    "debugger",
+    "default",
+    "delete",
+    "do",
+    "else",
+    "enum",
+    "eval",
+    "export",
+    "extends",
+    "false",
+    "finally",
+    "for",
+    "function",
+    "if",
+    "implements",
+    "import",
+    "in",
+    "instanceof",
+    "interface",
+    "let",
+    "new",
+    "null",
+    "package",
+    "private",
+    "protected",
+    "public",
+    "return",
+    "static",
+    "super",
+    "switch",
+    "this",
+    "throw",
+    "true",
+    "try",
+    "typeof",
+    "undefined",
+    "var",
+    "void",
+    "while",
+    "with",
+    "yield",
+];
+
+/// Names the generated module exports itself, which an export or a data
+/// type at the boundary can't also have.
+const MODULE_NAMES: &[&str] = &["StitchwortInputError", "StitchwortResourceError"];
 
 /// Extraction runs on checked definitions, with no limit but the stack's
 /// (see [`generate`]), so evaluating their types can't run out.
@@ -1285,7 +1533,7 @@ pub fn boundary_literal(g: &Globals, b: &Boundary, value: &Value) -> Result<Stri
             for ((name, b), field) in boundaries.iter().zip(fields.iter()) {
                 parts.push(format!(
                     "{}: {}",
-                    js_field(name),
+                    field_key(name),
                     boundary_literal(g, b, field)?
                 ));
             }

@@ -815,7 +815,7 @@ The guarantee starts *after* decoding succeeds. It makes no promise that decodin
 | `List a` | `readonly A[]` (copied on decode; `readonly` is only a hint to TS callers) |
 | `{ name : Text, age : Nat }` | `{ readonly name: string; readonly age: bigint }` |
 | `Optional a` | `{ tag: "None" } \| { tag: "Some"; value: A }` |
-| sum type `Square … \| Rect …` | `{ tag: "Square"; side: bigint } \| { tag: "Rect"; … }` (exported constructors must name their fields) |
+| sum type `Square … \| Rect …` | `{ tag: "Square"; side: bigint } \| { tag: "Rect"; … }` (exported constructors must name their fields; a field called `tag` is `$tag`, see [Names](#names)) |
 | proof arguments and fields | omitted |
 | data types with parameters, such as `Maybe Text` or `Pair Char Nat` | `Maybe<string>`, `Pair<string, bigint>`: generic aliases, whose codecs take the arguments' codecs |
 | functions, abilities, `Float`, type parameters of the exported function | not exportable yet |
@@ -825,18 +825,31 @@ Notes:
 - **Integers are `bigint`** for now. With `number`, an input that passes validation could produce an output too large to represent exactly: `addTwo 9007199254740991` would give `9007199254740993`, which a JS `number` can't hold. Plain-`number` options (via bounded types) can come later. `Int` division and remainder are defined to match `BigInt`'s ([§10](#10-numbers)).
 - **`Optional` is tagged.** Mapping it to `A | null` would make `None` and `Some None` both `null` for `Optional (Optional Nat)`. A `null`-based encoding can be added later as an optimisation where the payload can never itself be `null`.
 - **`Text`** is a sequence of Unicode scalar values, so decoding refuses a JS string containing an unpaired surrogate (which JS allows) with `StitchwortInputError`, rather than repairing it. Encoding then gives back exactly the string that was decoded. See [the text proposal](docs/proposals/text-and-io.md#the-javascript-boundary).
+- **Decoding and encoding don't recurse.** Each boundary type is described by data (`list(NAT)`, `data(info$Tree)`, `data(info$Maybe, [TEXT])`), and one loop in the generated module's runtime decodes or encodes a value of any of them, keeping its own stack. So a user's list a million long, or a tree a million deep, crosses the boundary both ways; what the exported function then does with it may still run out of stack ([Caveats](#caveats)). Decoding works depth first, reading each property once and in order, each completely before the next, so the first problem found is the same as a recursive decoder's. An error message gives the path to the problem (`order.items[2].price: expected a non-negative bigint`), summarised for deeply nested input: a run of the same step is written once with a count (`c(.tail ×999999).head`), and the middle of a long path that doesn't repeat is left out.
+
+### Names
+
+Stitchwort names (ASCII letters, digits, `_` and primes) don't line up with JavaScript's, and some names mean something to JS objects or to the generated module. These rules make sure nothing a program names can clash with anything else, by construction rather than by a list of names to avoid:
+
+- **Fields.** A field's key, in boundary objects, in the generated code and in the `.d.ts`, is its name with each prime written `$` (`x'` is `x$`). The representation already uses two keys: `tag`, for the constructor, and `__proto__`, which in an object literal sets the prototype instead of a property. A field with one of those names gets a `$` in front, so `MkLabelled (tag : Text) (count : Nat)` is `{ tag: "MkLabelled"; $tag: string; count: bigint }`. Stitchwort names can't contain `$`, and only these keys start with one, so two fields never share a key, and none is `tag`. Other names with a meaning on JS objects (`constructor`, `toString`, `length`) or reserved in JS (`class`, `default`) are fine as keys, so they're kept.
+- **Constructors** only appear as tag strings, so any name works (`"MkBox'"`).
+- **Data types** are named with each prime as `$` in the `.d.ts` (`Box'` is `Box$`). A data type at the boundary can't be called `StitchwortInputError` or `StitchwortResourceError`, which the module exports itself.
+- **Exports** must be JS identifiers (so no primes) that aren't reserved in JS (`delete`, `class`, `this`, `eval`, `undefined`, …), or they couldn't be imported by name; nor can they be the module's own two exports. An export isn't a name in the module's own scope: its wrapper is `$$name`, exported with `export { $$name as name }`. So an export can be called anything else, `Set`, `BigInt` or `decode`, without hiding a JS global or one of the runtime's helpers.
+- **Everything else in the module** has a namespace of its own. Definitions are `$name` (primes as `$`, and the dot in a generated name like `State.elim` as `$$`), wrappers `$$name`, data type descriptions `info$Name`, and locals generated names (`v0`, `s0`, `arg0`). The runtime's helpers have plain names, which only exports could have reached. A parameter's Stitchwort name appears only in the `.d.ts` and in error messages; a reserved word there is replaced by the name in the equations, or `arg0`.
+
+`examples/extract/names.sw` uses each of these, and a property-style test (`awkward_names_never_collide` in `crates/cli/tests/extract.rs`) generates data types and exports from a pool of awkward names and checks that every object has its own key for each field, values round-trip, and the `.d.ts` accepts exactly the objects the module takes.
 
 ### Code generation
 
 1. **Erase** types, proofs and proof fields.
 2. **Lower** to a small untyped IR: functions, constructors, `case`.
 3. **Generate JS**, with a function's tail calls to itself turned into loops (including calls in the branches of an `if`).
-4. **Wrap** each `export` with the decode → validate → compute → encode steps.
+4. **Wrap** each `export` with the decode → validate → compute → encode steps, and export the wrapper under the export's name ([Names](#names)).
 5. **Emit** `.d.ts` from the Stitchwort types.
 
 ### Caveats
 
-- **Stack depth.** JS engines generally don't optimise tail calls. A function's tail calls to itself become loops; other recursion, such as `length` or `append` over a long list or text, uses a stack frame per step and can overflow the stack (in Node, after a few thousand characters; the [text proposal](docs/proposals/text-and-io.md#as-built) has measurements). The guarantee doesn't cover that, but it's reported cleanly: the export throws a `StitchwortResourceError`, with the engine's error as its `cause`.
+- **Stack depth.** JS engines generally don't optimise tail calls. A function's tail calls to itself become loops; other recursion, such as `length` or `append` over a long list or text, uses a stack frame per step and can overflow the stack (in Node, after a few thousand characters; the [text proposal](docs/proposals/text-and-io.md#as-built) has measurements). The guarantee doesn't cover that, but it's reported cleanly: the export throws a `StitchwortResourceError`, with the engine's error as its `cause`. Decoding and encoding themselves don't use the JS stack (see above).
 - **Erasure must be correct.** The `Prop` elimination rules ([§6](#6-proofs-universes-and-erasure)) ensure nothing that runs depends on an erased value.
 
 ### Later: effects from the host

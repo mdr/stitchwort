@@ -907,7 +907,7 @@ area (Rect w h) = w * h
       const result = await ask({ action: "extract", source: src });
       if (current !== rendering || !result) return;
       if (!result.ok) { output.append(...errorsView(result.errors)); return; }
-      if (!/export function/.test(result.js)) {
+      if (!/export declare function/.test(result.dts)) {
         output.append(el("p", { className: "hint" }, "Nothing is exported. Put `export` on the line before a function's signature."));
         return;
       }

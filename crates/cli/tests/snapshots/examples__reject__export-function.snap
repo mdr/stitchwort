@@ -8,5 +8,5 @@ expression: output
  3 │ ╭─▶ export
  4 │ ├─▶ twice : (Nat -> Nat) -> Nat -> Nat
    │ │                                        
-   │ ╰──────────────────────────────────────── parameter `_`: functions can't cross the JS boundary yet
+   │ ╰──────────────────────────────────────── parameter `f`: functions can't cross the JS boundary yet
 ───╯
