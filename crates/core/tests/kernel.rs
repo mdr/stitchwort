@@ -1146,3 +1146,152 @@ fn rejects_validators_whose_data_type_is_not_shaped_like_decidable() {
         );
     }
 }
+
+// Refinement with dependent fields (from the second review of the abilities
+// design): matching a field after later fields are bound must refine their
+// types, in the kernel itself.
+
+/// `B = F | T`, `PT : B -> Type` with `PT F = B` and `PT T = Nat`, and
+/// `Tree = Leaf | Node (tag : B) (payload : PT tag) (rest : PT tag -> Tree)`.
+struct DepTree {
+    b: stitchwort_core::DataId,
+    tree: stitchwort_core::DataId,
+}
+
+fn dep_tree(p: &mut Prelude) -> DepTree {
+    use stitchwort_core::check::define_ctors;
+    let b = data(&mut p.g, "B", vec![], Sort::Type(0));
+    define_ctors(&mut p.g, b, vec![ctor("F", vec![]), ctor("T", vec![])]).unwrap();
+    let b_ty = Term::Data(b, vec![]);
+    let pt_body = lam(
+        "x",
+        case(0, b, vec![(vec![], b_ty.clone()), (vec![], p.nat_ty())]),
+    );
+    let pt = define(&mut p.g, "PT", arrow(b_ty.clone(), ty()), pt_body).unwrap();
+    let tree = data(&mut p.g, "Tree", vec![], Sort::Type(0));
+    let pt_of = |ix| app(Term::Def(pt), [v(ix)]);
+    define_ctors(
+        &mut p.g,
+        tree,
+        vec![
+            ctor("Leaf", vec![]),
+            ctor(
+                "Node",
+                vec![
+                    ("tag", b_ty),
+                    ("payload", pt_of(0)),
+                    ("rest", arrow(pt_of(1), Term::Data(tree, vec![]))),
+                ],
+            ),
+        ],
+    )
+    .unwrap();
+    DepTree { b, tree }
+}
+
+/// `walk : Tree -> Nat`, matching `Node tag payload rest` and then `tag`,
+/// with the given bodies for the `F` and `T` branches. In them, `rest` is
+/// `v(0)`, `payload` is `v(1)` and `tag` is `v(2)`.
+fn walk_tree(
+    p: &mut Prelude,
+    f_body: impl Fn(&Prelude, Term) -> Term,
+    t_body: impl Fn(&Prelude, Term) -> Term,
+) -> Result<(), &'static str> {
+    let d = dep_tree(p);
+    let ty = arrow(Term::Data(d.tree, vec![]), p.nat_ty());
+    let id = declare(&mut p.g, "walk", ty);
+    let walk = Term::Def(id);
+    let body = lam(
+        "t",
+        case(
+            0,
+            d.tree,
+            vec![
+                (vec![], p.num(0)),
+                (
+                    vec!["tag", "payload", "rest"],
+                    case(
+                        2,
+                        d.b,
+                        vec![(vec![], f_body(p, walk.clone())), (vec![], t_body(p, walk))],
+                    ),
+                ),
+            ],
+        ),
+    );
+    stitchwort_core::check::define_def(&mut p.g, id, &body).map_err(|e| e.code)
+}
+
+#[test]
+fn matching_an_earlier_field_refines_later_ones() {
+    let mut p = Prelude::new();
+    // F: walk (rest payload), with payload : B. T: walk (rest (payload + 1)).
+    let result = walk_tree(
+        &mut p,
+        |_, walk| app(walk, [app(v(0), [v(1)])]),
+        |p, walk| app(walk, [app(v(0), [p.plus(v(1), p.num(1))])]),
+    );
+    assert_eq!(result, Ok(()));
+}
+
+#[test]
+fn refinement_keeps_branches_apart() {
+    // Treating the `F` branch's payload (a `B`) as a number.
+    let mut p = Prelude::new();
+    let result = walk_tree(
+        &mut p,
+        |p, walk| app(walk, [app(v(0), [p.plus(v(1), p.num(1))])]),
+        |p, walk| app(walk, [app(v(0), [p.plus(v(1), p.num(1))])]),
+    );
+    assert_eq!(result, Err("E-TYPE-MISMATCH"));
+    // Passing a `B` to the `T` branch's `rest`, which wants a number.
+    let mut p = Prelude::new();
+    let result = walk_tree(
+        &mut p,
+        |_, walk| app(walk, [app(v(0), [v(1)])]),
+        |p, walk| {
+            let f = Term::Ctor(p.g.find_data("B").unwrap(), 0, vec![]);
+            app(walk, [app(v(0), [f])])
+        },
+    );
+    assert_eq!(result, Err("E-TYPE-MISMATCH"));
+}
+
+#[test]
+fn a_hidden_negative_occurrence_is_refused() {
+    use stitchwort_core::check::define_ctors;
+    // `Bad` is declared, then `Neg n = Bad -> Nat` is defined, then `Bad`'s
+    // constructor takes a `Neg 0`, which is `Bad -> Nat` in disguise.
+    let mut p = Prelude::new();
+    let bad = data(&mut p.g, "Bad", vec![], Sort::Type(0));
+    let neg_ty = arrow(p.nat_ty(), ty());
+    let neg_body = lam("n", arrow(Term::Data(bad, vec![]), p.nat_ty()));
+    let neg = define(&mut p.g, "Neg", neg_ty, neg_body).unwrap();
+    let field = app(Term::Def(neg), [p.num(0)]);
+    let result = define_ctors(&mut p.g, bad, vec![ctor("MkBad", vec![("f", field)])]);
+    assert_eq!(result.err().map(|e| e.code), Some("E-POSITIVITY"));
+}
+
+#[test]
+fn a_negative_occurrence_hidden_in_a_later_data_type_is_refused() {
+    use stitchwort_core::check::define_ctors;
+    // `Wrap = MkWrap (Bad -> Nat)`, declared after `Bad`, then used in `Bad`.
+    let mut p = Prelude::new();
+    let bad = data(&mut p.g, "Bad", vec![], Sort::Type(0));
+    let wrap = data(&mut p.g, "Wrap", vec![], Sort::Type(0));
+    let neg = arrow(Term::Data(bad, vec![]), p.nat_ty());
+    define_ctors(&mut p.g, wrap, vec![ctor("MkWrap", vec![("f", neg)])]).unwrap();
+    let field = Term::Data(wrap, vec![]);
+    let result = define_ctors(&mut p.g, bad, vec![ctor("MkBad", vec![("w", field)])]);
+    assert_eq!(result.err().map(|e| e.code), Some("E-POSITIVITY"));
+}
+
+#[test]
+fn constructors_are_defined_only_once() {
+    use stitchwort_core::check::define_ctors;
+    let mut p = Prelude::new();
+    let d = data(&mut p.g, "D", vec![], Sort::Type(0));
+    define_ctors(&mut p.g, d, vec![]).unwrap();
+    let again = define_ctors(&mut p.g, d, vec![ctor("C", vec![])]);
+    assert_eq!(again.err().map(|e| e.code), Some("E-MALFORMED"));
+}

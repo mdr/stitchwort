@@ -39,6 +39,12 @@ pub struct Data {
     pub params: Vec<(Name, Term)>,
     pub sort: Sort,
     pub ctors: Vec<Ctor>,
+    /// How many definitions existed when this type was declared. Its fields
+    /// may only use those (and earlier data types), since anything defined
+    /// later could mention this type and hide a negative occurrence.
+    pub defs_before: usize,
+    /// Whether its constructors have been defined (they can be only once).
+    pub ctors_defined: bool,
     pub span: Span,
 }
 

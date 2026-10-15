@@ -14,7 +14,7 @@ Draft 1 represented a partial computation as a `Comp` tree that may be infinite,
 spin n = Call later (\_ -> spin n)
 ```
 
-But `Comp` is an *inductive* type: its fold (any structurally recursive function over it) assumes every tree is finite. With an infinite tree available, an ordinary function proves anything:
+But `Comp` is an *inductive* type: its fold (any structurally recursive function over it) assumes every tree is *well-founded*, meaning every path through it ends. (A tree may still have infinitely many paths, as when an operation returns a `Nat`.) With an infinite tree available, an ordinary function proves anything:
 
 ```
 drain : Comp LaterOp LaterRes a -> a
@@ -36,7 +36,7 @@ This is now a must-reject test (`examples/soundness/infinite-computation.sw`).
 
 ## Requirements for a design
 
-1. **Keep finite and possibly-infinite computations distinct in the core.** Options:
+1. **Keep well-founded computations and computations that may continue indefinitely distinct in the core.** Options:
    - A separate type for possibly-infinite computations, coinductive or productivity-checked (Capretta's delay monad, Interaction Trees), with its own rules for constructing, observing and eliminating it.
    - A resumable machine with a total step function.
 
@@ -47,6 +47,30 @@ This is now a must-reject test (`examples/soundness/infinite-computation.sw`).
    - excluding `Partial` from handlers' residual rows at first.
 3. **Bounded observation versus unbounded running.** Only the runtime may run `Partial` code without a bound. A checked, bounded observer (`withFuel`) may be allowed. Their policies must fit together.
 4. **What type checking may do.** Opaque partial definitions block computing through bounded observations. Decide whether a bounded observer may expose delayed steps while checking. A runtime result doesn't automatically become a proof by computation.
+
+## A first experiment: a machine with a total step function
+
+This one needs no coinduction. A partial computation is a state together with a total step function:
+
+```
+type Step op res s a =
+  | Finish (x : a)
+  | Continue (next : s)
+  | Request (o : op) (next : res o -> s)
+
+runFuel : Nat -> (s -> Step op res s a) -> s -> Comp op res (Optional a)
+runFuel 0        step st = Done None
+runFuel (Succ n) step st =
+  match step st with
+  | Finish x       -> Done (Some x)
+  | Continue st'   -> runFuel n step st'
+  | Request o next -> Call o (\r -> runFuel n step (next r))
+```
+
+Every call to `step` costs one unit of fuel, including one that makes a request, so every recursive call decreases the fuel. This would show bounded observation working on the existing total core. It doesn't settle:
+- compiling recursive source functions into machines;
+- composing machines;
+- how row-polymorphic handlers work on them.
 
 ## `withFuel` is not free
 
@@ -60,10 +84,14 @@ With an inductive input, recursion on the tree would justify this; with a coindu
 - each suspension is a well-founded `Comp` segment, ending in either a result or the next suspension;
 - an observer recurses structurally through a segment, and uses up fuel moving on to the next.
 
+That invariant is needed only if ordinary forwarded operations *don't* use up fuel. If they do, as in the machine experiment above, it isn't needed, which is the simpler choice to start with.
+
 That's a direction, not a specification. It also needs a definition of what fuel counts:
 - **What produces a step?** Counting steps isn't wall-clock time, and can't interrupt a blocking foreign call.
 - **Do ordinary operations use up fuel?**
 - **Must program transformations preserve the exact count?**
+- **Is fuel per path or shared?** In the machine sketch, a multi-shot handler that resumes twice gives each resumption the remaining fuel, so `allResults` can explore more steps in total than the budget, though each path respects it. That's not a soundness problem, but it's an observable policy, and a shared budget would make handler order matter.
+- **What a total step guarantees.** It bounds the number of steps, not how long each one takes, and a request to the host may block.
 
 ## Until then
 

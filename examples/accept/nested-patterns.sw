@@ -35,3 +35,12 @@ test "not three" = not (hasTwo [1, 2, 3])
 test "special" = describe 7 == 70
 test "ordinary" = describe 5 == 5
 test "booleans" = True == not False
+
+-- Rebuilding a known child keeps it smaller: `Succ n` here is the argument's
+-- predecessor, not the argument itself.
+peel : Nat -> Nat
+peel 0               = 0
+peel 1               = 0
+peel (Succ (Succ n)) = peel (Succ n)
+
+test "peel" = peel 10 == 0

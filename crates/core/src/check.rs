@@ -611,11 +611,14 @@ pub fn declare_data(
         cx.bind(x.clone(), value);
         checked.push((x, ty));
     }
+    let defs_before = g.defs.len();
     g.datas.push(Data {
         name,
         params: checked,
         sort,
         ctors: Vec::new(),
+        defs_before,
+        ctors_defined: false,
         span,
     });
     Ok(DataId(g.datas.len() - 1))
@@ -627,8 +630,19 @@ pub struct CtorDecl {
 }
 
 pub fn define_ctors(g: &mut Globals, d: DataId, ctors: Vec<CtorDecl>) -> Result<()> {
-    let data = g.data(d);
+    let Some(data) = g.datas.get(d.0) else {
+        return Err(Diagnostic::error(
+            "E-MALFORMED",
+            "malformed core term: reference to an unknown data type",
+        ));
+    };
     let mut cx = Ctx::new(g, data.span);
+    if data.ctors_defined {
+        return Err(malformed(
+            &cx,
+            format!("`{}`'s constructors are already defined", data.name),
+        ));
+    }
     for (x, ty) in &data.params {
         let value = cx.eval(ty);
         cx.bind(x.clone(), value);
@@ -645,6 +659,21 @@ pub fn define_ctors(g: &mut Globals, d: DataId, ctors: Vec<CtorDecl>) -> Result<
                     &cx,
                     "`case` may only appear at the top of a definition",
                 ));
+            }
+            if let Some(later) = declared_later(g, &ty, d) {
+                return Err(cx
+                    .error(
+                        "E-POSITIVITY",
+                        format!(
+                            "field `{x}` uses {later}, which was declared after `{}`",
+                            data.name
+                        ),
+                        "declared later",
+                    )
+                    .with_note(
+                        "something declared after a data type could mention it, hiding a \
+                         negative occurrence from the positivity check",
+                    ));
             }
             let (ty, sort) = check_type(&mut cx, &ty)?;
             if !sort.fits_in(data.sort) {
@@ -686,7 +715,40 @@ pub fn define_ctors(g: &mut Globals, d: DataId, ctors: Vec<CtorDecl>) -> Result<
         });
     }
     g.datas[d.0].ctors = out;
+    g.datas[d.0].ctors_defined = true;
     Ok(())
+}
+
+/// A definition or data type in `term` declared after data type `d`, if any.
+fn declared_later(g: &Globals, term: &Term, d: DataId) -> Option<String> {
+    let later_data = |d2: &DataId| {
+        (d2.0 > d.0).then(|| {
+            let name = g.datas.get(d2.0).map_or("?".into(), |x| x.name.to_string());
+            format!("the data type `{name}`")
+        })
+    };
+    let go = |t: &Term| declared_later(g, t, d);
+    match term {
+        Term::Def(id) => (id.0 >= g.data(d).defs_before).then(|| {
+            let name = g.defs.get(id.0).map_or("?".into(), |x| x.name.to_string());
+            format!("`{name}`")
+        }),
+        Term::Var(_) | Term::Nat(_) | Term::Sort(_) | Term::Refl | Term::Meta(_) => None,
+        Term::Data(d2, args) | Term::Ctor(d2, _, args) => {
+            later_data(d2).or_else(|| args.iter().find_map(go))
+        }
+        Term::Pi(_, _, a, b) | Term::App(a, b, _) | Term::Ann(a, b) => go(a).or_else(|| go(b)),
+        Term::Lam(_, _, b) | Term::Loc(_, b) => go(b),
+        Term::Case(_, d2, branches) => {
+            later_data(d2).or_else(|| branches.iter().find_map(|b| go(&b.body)))
+        }
+        Term::Eq(t, a, b) => t
+            .as_deref()
+            .and_then(go)
+            .or_else(|| go(a))
+            .or_else(|| go(b)),
+        Term::J(m, b, p) => go(m).or_else(|| go(b)).or_else(|| go(p)),
+    }
 }
 
 /// An error for a term no correct elaborator would produce.
