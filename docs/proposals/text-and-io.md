@@ -1,6 +1,6 @@
 # Stitchwort: text, `IO` and `main`
 
-**Status:** draft 2, 15 October 2026. Accepted after review. Build steps 1 (`Char`), 2 (`Text`), 4 (the `IO` ability and `simulate`), 5 (`main` and `stitchwort run`) and 6 (the playground's Run button) are implemented; see [As built](#as-built). [Acceptance criteria](#acceptance-criteria) lists what the first milestone must show.
+**Status:** draft 2, 15 October 2026. Accepted after review. Build steps 1 to 6 are implemented: `Char`, `Text`, the JavaScript boundary, the `IO` ability and `simulate`, `main` and `stitchwort run`, and the playground's Run button; see [As built](#as-built). Step 7 (compact text) is later. [Acceptance criteria](#acceptance-criteria) lists what the first milestone must show.
 
 ## As built
 
@@ -13,7 +13,48 @@ Where steps 1 and 2 differ from, or add to, the design below:
 - **`charExt` needs uniqueness of proofs of `b = True`.** The kernel has `J` but not axiom K, so this is proved by Hedberg's argument (`uniqueBoolEq`): a function that picks a canonical proof from `decEqBool` ignores which proof it's given, and every proof can be recovered from the canonical one.
 - **Proved, for every input:** `textToList (textFromList cs) = cs`, `textFromList (textToList t) = t`, `textLength (a ++ b) = textLength a + textLength b`, and `textJoin s (textSplit s t) = t`.
 - **Tested, not proved:** `textToNat (natToText n) = Just n`, for 0 to 100 and some larger numbers up to 2^64. A proof would need lemmas about `/` and `%`.
-- **Long texts overflow the stack.** Every text operation recurses once per character, and the evaluator uses the Rust stack. A 1,000-character text overflows 8 MB in a debug build, and in a release build the limit is between 3,000 and 6,000 characters. Ordinary lists behave the same way. This is the Robustness row of the acceptance criteria, and needs fixing before text is useful for real input.
+- **Long texts overflowed the stack** when this was built: the evaluator used the Rust stack, and a release build stopped between 3,000 and 6,000 characters. Since the evaluator became an abstract machine (the stack-safe evaluation work), a release build splits a 100,000-character text and takes the length of a 200,000-character one; at a million characters it stops cleanly with `E-RESOURCE` (measured during step 3 with `stitchwort eval`). Generated JavaScript has its own limits; see step 3 below.
+
+Where step 3 differs from, or adds to, the design below:
+
+- **The codecs are as proposed.** In the generated JavaScript, `Text` is `{ tag: "MkText", chars: <list> }` with each character `{ tag: "MkChar", code: <bigint> }` (the proof field is erased). At the boundary both are strings, and `string` in the TypeScript declarations. Decoding walks the UTF-16 code units, joining each surrogate pair into one scalar value, and refuses any other surrogate with `StitchwortInputError` (``t: a lone surrogate (U+D83D) at index 2; text must be a well-formed string``); nothing is repaired. A `Char` must decode to exactly one scalar value (``c: expected exactly one character, but the string has 2``). Encoding joins `String.fromCodePoint` of each character.
+- **Data types with parameters can cross the boundary now**, so `Maybe Text`, `Pair Char Text` (what `textUncons` returns) and `List (Maybe Nat)` work, as well as `Text` inside a user's data type. Each such type gets one generic codec, which takes its parameters' codecs (`dec_Maybe(dec_Text)`), and a generic TypeScript alias (`Maybe<string>`). A parameter must be a type: `Decidable p`, whose parameter is a proposition, still can't cross.
+- **Fixed on the way:** a field called `x`, `path` or `inside` hid the decoder's own variables, so decoding failed with a `ReferenceError`. Decoded fields are now `$`-prefixed locals. (A field called `tag` still clashes with the constructor tag; see below.)
+- **Tested** in `crates/cli/tests/extract.rs`, with the exports in `examples/extract/text.sw`:
+  - **every boundary case listed below:** a valid surrogate pair; lone high and low surrogates at the start, middle and end, a pair the wrong way round, two highs then a low, and a low after a valid pair, each refused as `Text` and as `Char` with its index; the same inside a list, `Maybe`, `Pair` and a user's type, with the path to it (`ts[1]`, `arg0.value`, `p.snd`, `arg0.tags[0]`); the empty string, two scalars and a base letter with a combining accent as `Char`; non-strings (`97n`, an array, a `String` object, `null`); NUL and noncharacters (U+FDD0, U+FDEF, U+FFFE, U+FFFF, U+1FFFE, U+10FFFF), accepted and not truncated;
+  - **`encodeText (decodeText s) = s`:** 5,000 random strings of code units, about a third of them surrogates. Each is decoded exactly when JavaScript's own `isWellFormed` says it's well-formed, and then comes back as the same string, with `textLength` equal to its number of code points;
+  - **`decodeText (encodeText t) = t`:** a text of about 1,100 scalar values (the edges of every range, and every 997th one) is encoded and decoded again, and each one round-trips as a `Char` with the right code;
+  - **differential tests:** the reference evaluator and the generated JavaScript agree on 55 `-- run:` cases and 100 random inputs per export, built from awkward characters (NUL, a combining accent, U+D7FF, U+E000, noncharacters, U+10000, an emoji, U+10FFFF, U+00A0, U+2028). The `-- run:` cases include the cross-runtime counterexamples, each a place where the obvious JavaScript gives a different answer: `.length` of an emoji is 2, but `textLength` is 1; JavaScript's `<` puts `"\u{10000}"` before `"\u{E000}"`, but `textCompare` doesn't; `trim()` also removes U+00A0, U+2028 and U+FEFF; `Number` or `parseInt` accepts each of `""`, `" 12"`, `"+5"`, `"12abc"`, `"0x10"` and `"1e3"`, which `textToNat` refuses; `slice(1)` and `split("")` would cut an emoji in half (`textUncons`, and a user's `reverse`); and `"\u{E9}"` and `"e\u{301}"` are different texts, though `localeCompare` calls them equal.
+- **Long texts in generated JavaScript.** JS engines don't eliminate tail calls, and nearly every text operation recurses once per character, so a long enough text overflows the JS stack. Measured in Node 22.23 with its default stack (about 1 MB), by bisection to within 1%, the longest text each operation handled:
+
+  | Operation (input) | Before | After step 3 |
+  |---|---|---|
+  | decoding and encoding only | over 4 million | over a million (not tried further) |
+  | `textLength` | 8,128 | 8,128 |
+  | `a ++ b` (`a` long) | 9,152 | 8,128 |
+  | `a ++ b` (`b` long) | over 4 million | over a million |
+  | `textSplit` (no separators; all separators) | 6,112; 5,504 | 6,112; 5,504 |
+  | `textJoin` (that many one-character texts) | 6,848 | 6,848 |
+  | `textTrim` (no spaces; leading spaces) | 9,152; 3,056 | over a million |
+  | `textToNat` (digits) | 2,544 | 3,056 |
+  | `natToText` (digits of the result) | 5,888 | over 65,536 (not tried further) |
+  | `==`; `textCompare` | 6,112; 5,504 | 6,112; 6,112 |
+  | `textFold` | 6,848 | 6,848 |
+  | `reverseOnto` (a user's `reverse`) | 9,152 | over a million |
+  | a user's count, recursing in one branch of an `if` | 3,056 | 6,112 |
+  | a user's count with an accumulator | 5,504 | over a million |
+
+  The numbers move by tens of percent with the JIT's state (`textLength`, measured on its own in a fresh process, reached 11,008), and other engines' stacks differ (not measured). So the documented limit is **a few thousand characters**, and a test checks that each operation exported by `examples/extract/text.sw` handles 1,000.
+- **What was done about it** is the simplest sound step, leaving the real fix to compact text (step 7):
+  - **Running out of stack is a clean error.** Each export catches the engine's stack overflow (a `RangeError` in V8 and JavaScriptCore, an `InternalError` in SpiderMonkey) and throws a new `StitchwortResourceError`, declared in the `.d.ts`, whose `cause` is the engine's error. A `BigInt` or string too large for the engine is the same kind of error. Pure generated code has no state to corrupt, so the module carries on working; a test overflows `textLength`, `textSplit`, a user's recursion and the decoder of a nested tree, each a million deep, then calls them again normally. Input errors stay `StitchwortInputError`.
+  - **A function's tail calls to itself are loops**, as DESIGN.md §12 always said they would be. A call to the function being defined, with all its arguments, in tail position (including either branch of an `if`, which is written out as a JS `if`) becomes another turn of a loop. Each turn has its own `const` copies of the parameters, so closures made in one turn keep its values, and the parameters themselves aren't assigned, so a partial application can be called again; `examples/extract/loops.sw` tests both, and fails if either is broken. This made `textTrim`, `reverseOnto`, `natToText` and a user's accumulator loops unlimited, and halved the stack use of recursion in one branch of an `if`.
+  - **Why not more.** `length`, `append`, `textSplit`, `textJoin`, `==`, `textCompare` and `textFold` aren't tail-recursive, and their definitions are what the proofs are about, so rewriting them would mean re-proving their laws. Making all generated code stack-safe (a trampoline, or continuation-passing) would slow every call and enlarge the trusted code generator. Compact text in generated JS (step 7) replaces exactly these operations with native string code.
+- **Left for later:**
+  - compact text in generated JS (step 7), which removes the limit for the prelude's operations;
+  - tail calls between different functions, and through helpers (`textToNat`'s `readDigits` recurses through `maybeThen`), aren't loops; nor are the branches of `if h : P`;
+  - decoding and encoding a user's recursive data type recurse too, so a deeply nested input is a `StitchwortResourceError` (lists and texts are decoded and encoded with loops);
+  - a field called `tag` clashes with the constructor tag in the boundary representation (found during step 3, not fixed);
+  - the limits in browsers, and the `InternalError` branch for SpiderMonkey, aren't tested.
 
 Where step 4 differs from, or adds to, the design below:
 

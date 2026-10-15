@@ -16,7 +16,7 @@ use std::process::Command;
 use stitchwort_cli::driver::Session;
 use stitchwort_cli::render::render;
 use stitchwort_core::value::{apply, eval, force};
-use stitchwort_core::{DataId, DefId, Globals, Limits, Term, Value};
+use stitchwort_core::{BigUint, DataId, DefId, Globals, Limits, Term, Value};
 use stitchwort_js::{Boundary, boundary_literal, exportable, field_boundaries};
 use stitchwort_syntax::ast::Expr;
 use stitchwort_syntax::parse_expression;
@@ -330,11 +330,20 @@ fn random_value(g: &Globals, b: &Boundary, rng: &mut Rng, depth: usize) -> Value
                 Value::Ctor(named("List"), 1, vec![head, tail].into())
             })
         }
-        Boundary::Data(d) => {
-            let ctors = field_boundaries(g, *d);
+        Boundary::Char => random_char(g, rng),
+        Boundary::Text => {
+            let len = rng.below(7);
+            let chars = (0..len).fold(Value::Ctor(named("List"), 0, vec![].into()), |tail, _| {
+                Value::Ctor(named("List"), 1, vec![random_char(g, rng), tail].into())
+            });
+            Value::Ctor(named("Text"), 0, vec![chars].into())
+        }
+        Boundary::Data(d, args) => {
+            let ctors = field_boundaries(g, *d, args);
             // Near the depth limit, prefer constructors without recursive fields.
+            let recursive = |f: &Boundary| matches!(f, Boundary::Data(e, _) if e == d);
             let candidates: Vec<usize> = (0..ctors.len())
-                .filter(|&c| depth > 0 || ctors[c].iter().all(|(_, f)| *f != Boundary::Data(*d)))
+                .filter(|&c| depth > 0 || !ctors[c].iter().any(|(_, f)| recursive(f)))
                 .collect();
             let candidates = if candidates.is_empty() {
                 (0..ctors.len()).collect()
@@ -348,7 +357,47 @@ fn random_value(g: &Globals, b: &Boundary, rng: &mut Rng, depth: usize) -> Value
                 .collect();
             Value::Ctor(*d, c, fields)
         }
+        Boundary::Param(_) => panic!("a boundary type of an export has no parameters"),
     }
+}
+
+/// Characters where JavaScript's strings and Stitchwort's text disagree
+/// about length, order or iteration, and ordinary ones for contrast.
+const AWKWARD_CHARS: &[char] = &[
+    'a',
+    'Z',
+    '0',
+    '7',
+    ' ',
+    ',',
+    '\t',
+    '\n',
+    '\r',
+    '\0',
+    'é',
+    '\u{301}',
+    '\u{d7ff}',
+    '\u{e000}',
+    '\u{fdd0}',
+    '\u{fffe}',
+    '\u{ffff}',
+    '\u{10000}',
+    '\u{1f600}',
+    '\u{10ffff}',
+    '\u{2028}',
+    '\u{a0}',
+];
+
+/// A random `Char`, built as the evaluator builds one (its proof is erased
+/// at runtime, so a placeholder will do).
+fn random_char(g: &Globals, rng: &mut Rng) -> Value {
+    let c = AWKWARD_CHARS[rng.below(AWKWARD_CHARS.len())];
+    let code = Value::Nat(std::rc::Rc::new(BigUint::from(u32::from(c))));
+    Value::Ctor(
+        g.find_data("Char").expect("prelude type"),
+        0,
+        vec![code, Value::Refl].into(),
+    )
 }
 
 /// Parses `[["a","b"],["c","d"]]` as printed by the script. The strings are
@@ -380,14 +429,8 @@ fn parse_pairs(json: &str) -> Vec<(String, String)> {
 #[test]
 fn decoders_refuse_cycles_and_read_each_property_once() {
     let examples = examples();
-    let (_, _, trees) = examples
-        .iter()
-        .find(|(n, _, _)| n == "trees.sw")
-        .expect("trees.sw");
-    let (_, _, shapes) = examples
-        .iter()
-        .find(|(n, _, _)| n == "shapes.sw")
-        .expect("shapes.sw");
+    let trees = example(&examples, "trees.sw");
+    let shapes = example(&examples, "shapes.sw");
     let script = r#"
 import * as trees from "./trees.mjs";
 import * as shapes from "./shapes.mjs";
@@ -421,9 +464,19 @@ assert.throws(() => shapes.area({ tag: "Circle" }), /unknown tag Circle/);
 assert.throws(() => shapes.areas([{ tag: "Rect", width: 1n, height: -1n }]), /\[0\]\.height: expected a non-negative bigint/);
 console.log("ok");
 "#;
-    let dir = std::env::temp_dir().join(format!("stitchwort-decoders-{}", std::process::id()));
+    run_script(
+        "decoders",
+        &[("trees.mjs", trees), ("shapes.mjs", shapes)],
+        script,
+    );
+}
+
+/// Runs a Node script, next to the generated modules it imports, and
+/// requires it to print `ok`.
+fn run_script(name: &str, modules: &[(&str, &Session)], script: &str) {
+    let dir = std::env::temp_dir().join(format!("stitchwort-{name}-{}", std::process::id()));
     std::fs::create_dir_all(&dir).expect("create temp dir");
-    for (file, session) in [("trees.mjs", trees), ("shapes.mjs", shapes)] {
+    for (file, session) in modules {
         let output = stitchwort_js::generate(&session.elab.globals, session.elab.limits)
             .expect("extraction succeeds");
         std::fs::write(dir.join(file), output.js).expect("write module");
@@ -440,4 +493,205 @@ console.log("ok");
         String::from_utf8_lossy(&result.stderr)
     );
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+fn example<'a>(examples: &'a [(String, String, Session)], name: &str) -> &'a Session {
+    &examples
+        .iter()
+        .find(|(n, _, _)| n == name)
+        .unwrap_or_else(|| panic!("{name}"))
+        .2
+}
+
+/// The text-and-IO proposal's boundary cases: a `Text` decodes only from a
+/// well-formed string, which it gives back unchanged; a `Char` from exactly
+/// one scalar value. Nothing is repaired, truncated or normalised.
+#[test]
+fn text_and_chars_cross_the_boundary_strictly() {
+    let examples = examples();
+    let text = example(&examples, "text.sw");
+    let script = r#"
+import * as m from "./text.mjs";
+import assert from "node:assert/strict";
+
+const refused = (f, pattern) =>
+  assert.throws(f, (e) => e instanceof m.StitchwortInputError && pattern.test(e.message));
+
+// A valid surrogate pair is one character, and comes back unchanged.
+assert.equal(m.len("😀"), 1n);
+assert.equal(m.echo("😀"), "\u{1F600}");
+assert.deepEqual(m.chars("a\u{1F600}b"), ["a", "\u{1F600}", "b"]);
+
+// Lone and malformed surrogates are refused, not repaired, wherever they are.
+for (const [bad, index] of [
+  ["\uD83D", 0],             // a lone high surrogate
+  ["\uDE00", 0],             // a lone low surrogate
+  ["ab\uD83D", 2],           // high, at the end
+  ["a\uD83Db", 1],           // high, followed by something else
+  ["\uDE00\uD83D", 0],       // a pair the wrong way round
+  ["\uD83D😀", 0], // two highs, then a low
+  ["\u{1F600}\uDE00", 2],    // a low after a valid pair
+]) {
+  const where = new RegExp(`lone surrogate \\(U\\+D[0-9A-F]{3}\\) at index ${index};`);
+  refused(() => m.echo(bad), new RegExp(`^t: a ${where.source}`));
+  refused(() => m.len(bad), where);
+  refused(() => m.echoChar(bad), where);
+}
+
+// Nested inside a list, the prelude's `Maybe` and `Pair`, and a user's type,
+// with the path to the problem.
+refused(() => m.fromChars(["a", "\uD800"]), /^cs\[1\]: a lone surrogate/);
+refused(() => m.joinOn(",", ["ok", "x\uDFFF"]), /^ts\[1\]: a lone surrogate \(U\+DFFF\) at index 1/);
+refused(() => m.orEmpty({ tag: "Just", value: "\uD800" }), /^arg0\.value: a lone surrogate/);
+refused(() => m.firstOf({ tag: "MkPair", fst: "a", snd: "\uDBFF" }), /^p\.snd: a lone surrogate/);
+refused(() => m.greet({ tag: "MkPerson", name: "\uDC00", initial: "x", tags: [] }), /^arg0\.name: a lone surrogate/);
+refused(() => m.greet({ tag: "MkPerson", name: "x", initial: "xy", tags: [] }), /^arg0\.initial: expected exactly one character, but the string has 2$/);
+refused(() => m.greet({ tag: "MkPerson", name: "x", initial: "x", tags: ["\uD800"] }), /^arg0\.tags\[0\]: a lone surrogate/);
+assert.equal(m.greet({ tag: "MkPerson", name: "Zoë", initial: "\u{1F600}", tags: [] }), "Hello, Zoë (\u{1F600})");
+assert.deepEqual(m.uncons("\u{1F600}x"), { tag: "Just", value: { tag: "MkPair", fst: "\u{1F600}", snd: "x" } });
+
+// A `Char` is exactly one scalar value: a supplementary one (`.length` 2) is
+// accepted; a lone surrogate (one element of `[...s]`) isn't; nor is an
+// empty string, or several scalars, even if they make one grapheme.
+assert.equal(m.echoChar("\u{1F600}"), "\u{1F600}");
+assert.equal(m.codeOf("\u{10FFFF}"), 0x10FFFFn);
+assert.equal([..."\uD800"].length, 1);
+refused(() => m.echoChar("\uD800"), /^c: a lone surrogate \(U\+D800\) at index 0;/);
+refused(() => m.echoChar(""), /^c: expected exactly one character, but the string has 0$/);
+refused(() => m.echoChar("ab"), /but the string has 2$/);
+refused(() => m.echoChar("é"), /but the string has 2$/);
+refused(() => m.echoChar("\u{1F600}\u{1F600}"), /but the string has 2$/);
+
+// Only strings: not numbers, arrays, String objects or code points.
+for (const notString of [97n, 97, ["a"], new String("a"), null, undefined, { tag: "MkText" }]) {
+  refused(() => m.echo(notString), /^t: expected a string$/);
+  refused(() => m.echoChar(notString), /^c: expected a string$/);
+}
+
+// NUL and noncharacters are ordinary characters: accepted, not truncated.
+assert.equal(m.len("a\0b"), 3n);
+assert.equal(m.echo("a\0b"), "a\0b");
+assert.equal(m.echoChar("\0"), "\0");
+assert.equal(m.codeOf("\0"), 0n);
+const nonchars = "﷐﷯￾￿\u{1FFFE}\u{10FFFF}";
+assert.equal(m.len(nonchars), 6n);
+assert.equal(m.echo(nonchars), nonchars);
+assert.deepEqual(m.chars(nonchars), [...nonchars]);
+assert.equal(m.echo(""), "");
+assert.equal(m.len(""), 0n);
+
+// Round trips. A deterministic generator (mulberry32), so failures repeat.
+let seed = 0x5717c4;
+const random = () => {
+  seed = (seed + 0x6d2b79f5) | 0;
+  let t = seed;
+  t = Math.imul(t ^ (t >>> 15), t | 1);
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+};
+const unit = () => {
+  const r = random();
+  if (r < 0.3) return 0xd800 + Math.floor(random() * 0x800); // any surrogate
+  if (r < 0.5) return Math.floor(random() * 0x80);
+  return Math.floor(random() * 0x10000);
+};
+
+// encode (decode s) = s, as the same JS string, whenever decoding succeeds;
+// and decoding succeeds exactly when the string is well-formed, as
+// JavaScript's own `isWellFormed` says. Lengths count code points.
+let wellFormed = 0;
+for (let i = 0; i < 5000; i++) {
+  const n = Math.floor(random() * 8);
+  const s = String.fromCharCode(...Array.from({ length: n }, unit));
+  if (s.isWellFormed()) {
+    wellFormed++;
+    assert.equal(m.echo(s), s);
+    assert.equal(m.fromChars(m.chars(s)), s);
+    assert.equal(m.len(s), BigInt([...s].length));
+  } else {
+    refused(() => m.echo(s), /lone surrogate/);
+  }
+}
+assert.ok(wellFormed > 1000 && wellFormed < 4000, `${wellFormed} well-formed`);
+
+// decode (encode t) = t: `fromChars` encodes a text built from characters,
+// and `chars` decodes it again. Every scalar value from the edges of each
+// range, and a sweep through all of them.
+const codes = [0, 0x7f, 0x80, 0x7ff, 0x800, 0xd7ff, 0xe000, 0xfffd, 0xffff, 0x10000, 0x10ffff];
+for (let c = 0; c <= 0x10ffff; c += 997) if (c < 0xd800 || c > 0xdfff) codes.push(c);
+const all = codes.map((c) => String.fromCodePoint(c));
+assert.deepEqual(m.chars(m.fromChars(all)), all);
+for (const c of all) {
+  assert.equal(m.echoChar(c), c);
+  assert.equal(m.codeOf(c), BigInt(c.codePointAt(0)));
+}
+console.log("ok");
+"#;
+    run_script("text", &[("text.mjs", text)], script);
+}
+
+/// Long inputs in generated JS. Tail calls to the same function are loops,
+/// so they handle any length. Other recursion uses a JS stack frame per
+/// character (or element, or level of nesting); running out of stack is a
+/// `StitchwortResourceError`, after which the module still works. The
+/// text-and-IO proposal records the measured limits: a few thousand
+/// characters, so 1,000 must work everywhere.
+#[test]
+fn long_inputs_are_loops_or_resource_errors() {
+    let examples = examples();
+    let script = r#"
+import * as loops from "./loops.mjs";
+import * as text from "./text.mjs";
+import * as trees from "./trees.mjs";
+import assert from "node:assert/strict";
+
+assert.equal(loops.sumTo(1000000n), 500000500000n);
+assert.equal(loops.lastChar("ab".repeat(500000)), "b");
+assert.equal(loops.countTail("a", "ab".repeat(500000)), 500000n);
+assert.equal(text.reverse("ab".repeat(500000)), "ba".repeat(500000));
+assert.equal(text.trim(" ".repeat(100000) + "x" + " ".repeat(100000)), "x");
+assert.equal(text.fromNat(10n ** 20000n).length, 20001);
+
+const exhausted = (f, name) =>
+  assert.throws(f, (e) =>
+    e instanceof text.StitchwortResourceError || e instanceof trees.StitchwortResourceError
+      ? new RegExp(`^${name}: ran out of resources`).test(e.message) && e.cause instanceof RangeError
+      : false);
+const long = "a".repeat(1000000);
+exhausted(() => text.len(long), "len");
+exhausted(() => text.split(",", long), "split");
+exhausted(() => text.countChar("a", long), "countChar");
+let deep = { tag: "Leaf" };
+for (let i = 0; i < 1000000; i++) deep = { tag: "Node", left: deep, right: { tag: "Leaf" } };
+exhausted(() => trees.leaves(deep), "leaves");
+// Input errors are still input errors.
+assert.throws(() => text.len("\uD800"), text.StitchwortInputError);
+
+// Afterwards, everything still works.
+assert.equal(text.len("abc"), 3n);
+assert.equal(trees.leaves({ tag: "Node", left: { tag: "Leaf" }, right: { tag: "Leaf" } }), 2n);
+
+const k = "a,\u{1F600} ".repeat(250);
+assert.equal(text.len(k), 1000n);
+assert.equal(text.split(",", k).length, 251);
+assert.equal(text.joinOn(",", text.split(",", k)), k);
+assert.equal(text.join(k, k).length, 2 * k.length);
+assert.equal(text.trim(k), k.slice(0, -1));
+assert.equal(text.same(k, k), true);
+assert.deepEqual(text.order(k, k), { tag: "Equal" });
+assert.equal(text.countChar("a", k), 250n);
+assert.equal(text.fromChars(text.chars(k)), k);
+assert.deepEqual(text.toNat("7".repeat(1000)), { tag: "Just", value: BigInt("7".repeat(1000)) });
+assert.equal(text.fromNat(10n ** 999n).length, 1000);
+console.log("ok");
+"#;
+    run_script(
+        "long",
+        &[
+            ("loops.mjs", example(&examples, "loops.sw")),
+            ("text.mjs", example(&examples, "text.sw")),
+            ("trees.mjs", example(&examples, "trees.sw")),
+        ],
+        script,
+    );
 }

@@ -11,6 +11,27 @@ export class StitchwortInputError extends Error {
   }
 }
 
+// Thrown when an export runs out of the JS engine's stack (recursion over a
+// long text or list, or deeply nested data), or a number or string grows too
+// large for it. The engine's own error is its `cause`.
+export class StitchwortResourceError extends Error {
+  constructor(message, options) {
+    super(message, options);
+    this.name = "StitchwortResourceError";
+  }
+}
+
+// V8 and JavaScriptCore throw a `RangeError` when the stack overflows, and
+// SpiderMonkey an `InternalError`. Nothing else in generated code throws
+// either, but a too-large `BigInt` or string is a `RangeError` too.
+const outOfResources = (name, e) =>
+  e instanceof RangeError || (e instanceof Error && e.name === "InternalError")
+    ? new StitchwortResourceError(
+        `${name}: ran out of resources (${e.message}); the input may be too large`,
+        { cause: e },
+      )
+    : e;
+
 const dec_Nat = (x, path) => {
   if (typeof x !== "bigint" || x < 0n) {
     throw new StitchwortInputError(`${path}: expected a non-negative bigint`);
@@ -26,6 +47,59 @@ const dec_Bool = (x, path) => {
   return x ? { tag: "True" } : { tag: "False" };
 };
 const enc_Bool = (v) => v.tag === "True";
+
+// `Text` is a string. Decoding takes its Unicode scalar values in order, and
+// refuses a string with a lone surrogate (which JS allows) rather than
+// repairing it, so encoding gives back exactly the string that was decoded.
+const scalars = (x, path) => {
+  if (typeof x !== "string") {
+    throw new StitchwortInputError(`${path}: expected a string`);
+  }
+  const codes = [];
+  for (let i = 0; i < x.length; i++) {
+    const unit = x.charCodeAt(i);
+    if (unit < 0xd800 || unit > 0xdfff) {
+      codes.push(BigInt(unit));
+      continue;
+    }
+    const low = i + 1 < x.length ? x.charCodeAt(i + 1) : 0;
+    if (unit > 0xdbff || low < 0xdc00 || low > 0xdfff) {
+      const hex = unit.toString(16).toUpperCase();
+      throw new StitchwortInputError(
+        `${path}: a lone surrogate (U+${hex}) at index ${i}; text must be a well-formed string`,
+      );
+    }
+    codes.push(BigInt(0x10000 + ((unit - 0xd800) << 10) + (low - 0xdc00)));
+    i++;
+  }
+  return codes;
+};
+const dec_Text = (x, path) => {
+  const codes = scalars(x, path);
+  let chars = { tag: "Nil" };
+  for (let i = codes.length - 1; i >= 0; i--) {
+    chars = { tag: "Cons", head: { tag: "MkChar", code: codes[i] }, tail: chars };
+  }
+  return { tag: "MkText", chars };
+};
+const enc_Text = (v) => {
+  const parts = [];
+  for (let l = v.chars; l.tag === "Cons"; l = l.tail) parts.push(enc_Char(l.head));
+  return parts.join("");
+};
+
+// `Char` is a string holding exactly one scalar value: one or two UTF-16
+// code units.
+const dec_Char = (x, path) => {
+  const codes = scalars(x, path);
+  if (codes.length !== 1) {
+    throw new StitchwortInputError(
+      `${path}: expected exactly one character, but the string has ${codes.length}`,
+    );
+  }
+  return { tag: "MkChar", code: codes[0] };
+};
+const enc_Char = (v) => String.fromCodePoint(Number(v.code));
 
 // Decoders read each property exactly once, into fresh values. `inside` holds
 // the objects currently being decoded, so an input that contains itself is
@@ -192,32 +266,56 @@ const $sameLength = (v0) => (v1) => $toBool($decEqNat($length(v0))($length(v1)))
 const $bigEqual = (v0) => $toBool($decEqNat($mul(v0)(2n))($add(v0)(v0)));
 
 export function half(arg0) {
-  const v0 = dec_Nat(arg0, "arg0");
-  return enc_Nat($half(v0));
+  try {
+    const v0 = dec_Nat(arg0, "arg0");
+    return enc_Nat($half(v0));
+  } catch (e) {
+    throw outOfResources("half", e);
+  }
 }
 
 export function fib(arg0) {
-  const v0 = dec_Nat(arg0, "arg0");
-  return enc_Nat($fib(v0));
+  try {
+    const v0 = dec_Nat(arg0, "arg0");
+    return enc_Nat($fib(v0));
+  } catch (e) {
+    throw outOfResources("fib", e);
+  }
 }
 
 export function hasTwo(arg0) {
-  const v0 = dec_List(dec_Nat)(arg0, "arg0");
-  return enc_Bool($hasTwo(v0));
+  try {
+    const v0 = dec_List(dec_Nat)(arg0, "arg0");
+    return enc_Bool($hasTwo(v0));
+  } catch (e) {
+    throw outOfResources("hasTwo", e);
+  }
 }
 
 export function describe(arg0) {
-  const v0 = dec_Nat(arg0, "arg0");
-  return enc_Nat($describe(v0));
+  try {
+    const v0 = dec_Nat(arg0, "arg0");
+    return enc_Nat($describe(v0));
+  } catch (e) {
+    throw outOfResources("describe", e);
+  }
 }
 
 export function sameLength(xs, ys) {
-  const v0 = dec_List(dec_Nat)(xs, "xs");
-  const v1 = dec_List(dec_Nat)(ys, "ys");
-  return enc_Bool($sameLength(v0)(v1));
+  try {
+    const v0 = dec_List(dec_Nat)(xs, "xs");
+    const v1 = dec_List(dec_Nat)(ys, "ys");
+    return enc_Bool($sameLength(v0)(v1));
+  } catch (e) {
+    throw outOfResources("sameLength", e);
+  }
 }
 
 export function bigEqual(n) {
-  const v0 = dec_Nat(n, "n");
-  return enc_Bool($bigEqual(v0));
+  try {
+    const v0 = dec_Nat(n, "n");
+    return enc_Bool($bigEqual(v0));
+  } catch (e) {
+    throw outOfResources("bigEqual", e);
+  }
 }

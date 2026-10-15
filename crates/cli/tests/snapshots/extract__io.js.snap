@@ -11,6 +11,27 @@ export class StitchwortInputError extends Error {
   }
 }
 
+// Thrown when an export runs out of the JS engine's stack (recursion over a
+// long text or list, or deeply nested data), or a number or string grows too
+// large for it. The engine's own error is its `cause`.
+export class StitchwortResourceError extends Error {
+  constructor(message, options) {
+    super(message, options);
+    this.name = "StitchwortResourceError";
+  }
+}
+
+// V8 and JavaScriptCore throw a `RangeError` when the stack overflows, and
+// SpiderMonkey an `InternalError`. Nothing else in generated code throws
+// either, but a too-large `BigInt` or string is a `RangeError` too.
+const outOfResources = (name, e) =>
+  e instanceof RangeError || (e instanceof Error && e.name === "InternalError")
+    ? new StitchwortResourceError(
+        `${name}: ran out of resources (${e.message}); the input may be too large`,
+        { cause: e },
+      )
+    : e;
+
 const dec_Nat = (x, path) => {
   if (typeof x !== "bigint" || x < 0n) {
     throw new StitchwortInputError(`${path}: expected a non-negative bigint`);
@@ -26,6 +47,59 @@ const dec_Bool = (x, path) => {
   return x ? { tag: "True" } : { tag: "False" };
 };
 const enc_Bool = (v) => v.tag === "True";
+
+// `Text` is a string. Decoding takes its Unicode scalar values in order, and
+// refuses a string with a lone surrogate (which JS allows) rather than
+// repairing it, so encoding gives back exactly the string that was decoded.
+const scalars = (x, path) => {
+  if (typeof x !== "string") {
+    throw new StitchwortInputError(`${path}: expected a string`);
+  }
+  const codes = [];
+  for (let i = 0; i < x.length; i++) {
+    const unit = x.charCodeAt(i);
+    if (unit < 0xd800 || unit > 0xdfff) {
+      codes.push(BigInt(unit));
+      continue;
+    }
+    const low = i + 1 < x.length ? x.charCodeAt(i + 1) : 0;
+    if (unit > 0xdbff || low < 0xdc00 || low > 0xdfff) {
+      const hex = unit.toString(16).toUpperCase();
+      throw new StitchwortInputError(
+        `${path}: a lone surrogate (U+${hex}) at index ${i}; text must be a well-formed string`,
+      );
+    }
+    codes.push(BigInt(0x10000 + ((unit - 0xd800) << 10) + (low - 0xdc00)));
+    i++;
+  }
+  return codes;
+};
+const dec_Text = (x, path) => {
+  const codes = scalars(x, path);
+  let chars = { tag: "Nil" };
+  for (let i = codes.length - 1; i >= 0; i--) {
+    chars = { tag: "Cons", head: { tag: "MkChar", code: codes[i] }, tail: chars };
+  }
+  return { tag: "MkText", chars };
+};
+const enc_Text = (v) => {
+  const parts = [];
+  for (let l = v.chars; l.tag === "Cons"; l = l.tail) parts.push(enc_Char(l.head));
+  return parts.join("");
+};
+
+// `Char` is a string holding exactly one scalar value: one or two UTF-16
+// code units.
+const dec_Char = (x, path) => {
+  const codes = scalars(x, path);
+  if (codes.length !== 1) {
+    throw new StitchwortInputError(
+      `${path}: expected exactly one character, but the string has ${codes.length}`,
+    );
+  }
+  return { tag: "MkChar", code: codes[0] };
+};
+const enc_Char = (v) => String.fromCodePoint(Number(v.code));
 
 // Decoders read each property exactly once, into fresh values. `inside` holds
 // the objects currently being decoded, so an input that contains itself is
@@ -111,17 +185,23 @@ const $fst = (v2) => {
   throw new Error("unreachable");
 };
 const $reverseOnto = (v1) => (v2) => {
-  switch (v1.tag) {
-    case "Nil": {
-      return v2;
+  let s1 = v1, s2 = v2;
+  for (;;) {
+    const v1 = s1, v2 = s2;
+    switch (v1.tag) {
+      case "Nil": {
+        return v2;
+      }
+      case "Cons": {
+        const v3 = v1.head;
+        const v4 = v1.tail;
+        s1 = v4;
+        s2 = { tag: "Cons", head: v3, tail: v2 };
+        continue;
+      }
     }
-    case "Cons": {
-      const v3 = v1.head;
-      const v4 = v1.tail;
-      return $reverseOnto(v4)({ tag: "Cons", head: v3, tail: v2 });
-    }
+    throw new Error("unreachable");
   }
-  throw new Error("unreachable");
 };
 const $toBool = (v1) => {
   switch (v1.tag) {
@@ -211,11 +291,22 @@ const $digitChar = (v0) => {
   }
 };
 const $natDigits = (v0) => (v1) => (v2) => {
-  if (v0 === 0n) {
-    return v2;
-  } else {
-    const v3 = v0 - 1n;
-    return $ifThenElse($leq(v1)(9n))(((v4) => ({ tag: "Cons", head: $digitChar(v1), tail: v2 })))(((v4) => $natDigits(v3)($div(v1)(10n))({ tag: "Cons", head: $digitChar($mod(v1)(10n)), tail: v2 })));
+  let s0 = v0, s1 = v1, s2 = v2;
+  for (;;) {
+    const v0 = s0, v1 = s1, v2 = s2;
+    if (v0 === 0n) {
+      return v2;
+    } else {
+      const v3 = v0 - 1n;
+      if ($leq(v1)(9n).tag === "True") {
+        return { tag: "Cons", head: $digitChar(v1), tail: v2 };
+      } else {
+        s0 = v3;
+        s1 = $div(v1)(10n);
+        s2 = { tag: "Cons", head: $digitChar($mod(v1)(10n)), tail: v2 };
+        continue;
+      }
+    }
   }
 };
 const $natToText = (v0) => ({ tag: "MkText", chars: $natDigits((v0 + 1n))(v0)({ tag: "Nil" }) });
@@ -465,22 +556,38 @@ const $printLines = (v0) => {
 const $oneEntryPerPrint = (v0) => $runPure($bind($bind($bind($simulate({ tag: "MkSig" })({ tag: "Nil" })(((v1) => $translate($sigCase($sigLeft)($sigFromNo))($printLines(v0)))))(((v1) => ({ tag: "Done", value: $fst(v1) }))))(((v1) => ({ tag: "Done", value: $length(v1) }))))(((v1) => ({ tag: "Done", value: $toBool($decEqNat(v1)(v0)) }))));
 
 export function linesEchoed(ns, bound) {
-  const v0 = dec_List(dec_Nat)(ns, "ns");
-  const v1 = dec_Nat(bound, "bound");
-  return enc_Nat($linesEchoed(v0)(v1));
+  try {
+    const v0 = dec_List(dec_Nat)(ns, "ns");
+    const v1 = dec_Nat(bound, "bound");
+    return enc_Nat($linesEchoed(v0)(v1));
+  } catch (e) {
+    throw outOfResources("linesEchoed", e);
+  }
 }
 
 export function numberedLength(ns) {
-  const v0 = dec_List(dec_Nat)(ns, "ns");
-  return enc_Nat($numberedLength(v0));
+  try {
+    const v0 = dec_List(dec_Nat)(ns, "ns");
+    return enc_Nat($numberedLength(v0));
+  } catch (e) {
+    throw outOfResources("numberedLength", e);
+  }
 }
 
 export function countdownLines(n) {
-  const v0 = dec_Nat(n, "n");
-  return enc_Nat($countdownLines(v0));
+  try {
+    const v0 = dec_Nat(n, "n");
+    return enc_Nat($countdownLines(v0));
+  } catch (e) {
+    throw outOfResources("countdownLines", e);
+  }
 }
 
 export function oneEntryPerPrint(n) {
-  const v0 = dec_Nat(n, "n");
-  return enc_Bool($oneEntryPerPrint(v0));
+  try {
+    const v0 = dec_Nat(n, "n");
+    return enc_Bool($oneEntryPerPrint(v0));
+  } catch (e) {
+    throw outOfResources("oneEntryPerPrint", e);
+  }
 }

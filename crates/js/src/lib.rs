@@ -2,16 +2,17 @@
 //! ES module, and wrap each export in decode → compute → encode.
 //!
 //! First-milestone scope: exports take and return concrete first-order data
-//! (`Nat`, `List`, and data types built from them) and have no proof
-//! arguments.
+//! (`Nat`, `Bool`, `Text`, `Char`, `List`, and data types built from them,
+//! such as `Maybe Text`), and their proof arguments are checked at runtime.
 
+use std::cell::Cell;
 use std::collections::HashSet;
 use std::fmt::Write;
 
 use stitchwort_core::check::{is_type_former, telescope};
 use stitchwort_core::native;
 use stitchwort_core::term::Branch;
-use stitchwort_core::value::eval;
+use stitchwort_core::value::{Head, eval};
 use stitchwort_core::{DataId, DefId, Globals, Limits, ResourceError, Sort, Term, Value, pretty};
 use stitchwort_syntax::Diagnostic;
 
@@ -27,10 +28,32 @@ pub enum Boundary {
     Nat,
     /// `boolean`.
     Bool,
+    /// `string`, well-formed (no lone surrogates).
+    Text,
+    /// `string`, holding exactly one Unicode scalar value.
+    Char,
     /// `readonly T[]`.
     List(Box<Boundary>),
-    /// A tagged object union.
-    Data(DataId),
+    /// A tagged object union, with the type's arguments if it has parameters.
+    Data(DataId, Vec<Boundary>),
+    /// Parameter `i` of the data type whose codec this is: only inside a
+    /// codec, which takes its parameters' codecs as arguments.
+    Param(usize),
+}
+
+impl Boundary {
+    /// Replaces each [`Boundary::Param`] with the corresponding argument.
+    #[must_use]
+    pub fn instantiate(&self, args: &[Boundary]) -> Boundary {
+        match self {
+            Boundary::Param(i) => args[*i].clone(),
+            Boundary::List(elem) => Boundary::List(Box::new(elem.instantiate(args))),
+            Boundary::Data(d, own) => {
+                Boundary::Data(*d, own.iter().map(|b| b.instantiate(args)).collect())
+            }
+            other => other.clone(),
+        }
+    }
 }
 
 pub struct ExportSig {
@@ -107,7 +130,7 @@ pub fn exportable(g: &Globals, id: DefId) -> Result<ExportSig, Diagnostic> {
             });
             continue;
         }
-        let boundary = boundary(g, ty, &mut HashSet::new())
+        let boundary = boundary(g, ty, 0, &mut HashSet::new())
             .map_err(|why| refuse(format!("parameter `{x}`: {why}")))?;
         let js_name = [Some(&**x), equation_names.get(i).map(|n| &**n)]
             .into_iter()
@@ -117,7 +140,7 @@ pub fn exportable(g: &Globals, id: DefId) -> Result<ExportSig, Diagnostic> {
         params.push((js_name, boundary));
         param_positions.push(i);
     }
-    let result = boundary(g, &tel.result, &mut HashSet::new())
+    let result = boundary(g, &tel.result, 0, &mut HashSet::new())
         .map_err(|why| refuse(format!("its result: {why}")))?;
     Ok(ExportSig {
         id,
@@ -129,7 +152,14 @@ pub fn exportable(g: &Globals, id: DefId) -> Result<ExportSig, Diagnostic> {
     })
 }
 
-fn boundary(g: &Globals, ty: &Value, visiting: &mut HashSet<DataId>) -> Result<Boundary, String> {
+/// How `ty` crosses the boundary. Inside a data type's codec, its first
+/// `params` variables are the type's parameters.
+fn boundary(
+    g: &Globals,
+    ty: &Value,
+    params: usize,
+    visiting: &mut HashSet<DataId>,
+) -> Result<Boundary, String> {
     let cannot = |ty: &Value| {
         format!(
             "`{}` can't cross the JS boundary yet",
@@ -137,28 +167,27 @@ fn boundary(g: &Globals, ty: &Value, visiting: &mut HashSet<DataId>) -> Result<B
         )
     };
     match ty {
-        Value::Data(d, params) => {
+        Value::Neutral(Head::Var(level), elims) if elims.is_empty() && *level < params => {
+            Ok(Boundary::Param(*level))
+        }
+        Value::Data(d, args) => {
             let data = g.data(*d);
-            match (&*data.name, params.as_slice()) {
+            match (&*data.name, args.as_slice()) {
                 ("Nat", []) => Ok(Boundary::Nat),
                 ("Bool", []) => Ok(Boundary::Bool),
-                ("List", [elem]) => Ok(Boundary::List(Box::new(boundary(g, elem, visiting)?))),
-                (_, []) if data.sort != Sort::Prop => {
-                    if !visiting.insert(*d) {
-                        return Ok(Boundary::Data(*d));
-                    }
-                    for (ctor, fields) in data.ctors.iter().zip(data_fields(g, *d)) {
-                        if ctor.field_erased.iter().any(|e| *e) {
-                            return Err(format!(
-                                "`{}` has a proof or type field, which can't be checked at the boundary yet",
-                                data.name
-                            ));
-                        }
-                        for (_, field_ty) in fields {
-                            boundary(g, &field_ty, visiting)?;
-                        }
-                    }
-                    Ok(Boundary::Data(*d))
+                // Prelude names can't be redefined, so these are the prelude's.
+                ("Text", []) => Ok(Boundary::Text),
+                ("Char", []) => Ok(Boundary::Char),
+                ("List", [elem]) => Ok(Boundary::List(Box::new(boundary(
+                    g, elem, params, visiting,
+                )?))),
+                _ if data.sort != Sort::Prop => {
+                    let args = args
+                        .iter()
+                        .map(|arg| boundary(g, arg, params, visiting))
+                        .collect::<Result<Vec<_>, _>>()?;
+                    check_codec(g, *d, visiting)?;
+                    Ok(Boundary::Data(*d, args))
                 }
                 _ => Err(cannot(ty)),
             }
@@ -168,13 +197,50 @@ fn boundary(g: &Globals, ty: &Value, visiting: &mut HashSet<DataId>) -> Result<B
     }
 }
 
-/// Field names and types of each constructor of a parameterless data type.
+/// Whether a data type can have a codec: its parameters are types, and its
+/// fields all cross the boundary, whatever data the parameters stand for.
+/// The codec of a type with parameters takes their codecs as arguments, as
+/// `dec_List` does.
+fn check_codec(g: &Globals, d: DataId, visiting: &mut HashSet<DataId>) -> Result<(), String> {
+    if !visiting.insert(d) {
+        return Ok(());
+    }
+    let data = g.data(d);
+    let mut env = Vec::new();
+    for (x, ty) in &data.params {
+        if !matches!(
+            eval(g, &env, ty).expect(OUTSIDE_LIMITS),
+            Value::Sort(Sort::Type(_))
+        ) {
+            return Err(format!(
+                "`{}`'s parameter `{x}` isn't a type, which can't cross the JS boundary yet",
+                data.name
+            ));
+        }
+        env.push(Value::var(env.len()));
+    }
+    for (ctor, fields) in data.ctors.iter().zip(data_fields(g, d)) {
+        if ctor.field_erased.iter().any(|e| *e) {
+            return Err(format!(
+                "`{}` has a proof or type field, which can't be checked at the boundary yet",
+                data.name
+            ));
+        }
+        for (_, field_ty) in fields {
+            boundary(g, &field_ty, data.params.len(), visiting)?;
+        }
+    }
+    Ok(())
+}
+
+/// Field names and types of each constructor of a data type, with its
+/// parameters as the first variables.
 fn data_fields(g: &Globals, d: DataId) -> Vec<Vec<(String, Value)>> {
-    g.data(d)
-        .ctors
+    let data = g.data(d);
+    data.ctors
         .iter()
         .map(|ctor| {
-            let mut env = Vec::new();
+            let mut env: Vec<Value> = (0..data.params.len()).map(Value::var).collect();
             ctor.fields
                 .iter()
                 .map(|(name, ty)| {
@@ -188,15 +254,30 @@ fn data_fields(g: &Globals, d: DataId) -> Vec<Vec<(String, Value)>> {
 }
 
 /// For each constructor of a data type that crosses the boundary, its fields'
-/// names and boundary types.
-pub fn field_boundaries(g: &Globals, d: DataId) -> Vec<Vec<(String, Boundary)>> {
+/// names and boundary types, for the given arguments of its parameters.
+pub fn field_boundaries(g: &Globals, d: DataId, args: &[Boundary]) -> Vec<Vec<(String, Boundary)>> {
+    generic_field_boundaries(g, d)
+        .into_iter()
+        .map(|fields| {
+            fields
+                .into_iter()
+                .map(|(name, b)| (name, b.instantiate(args)))
+                .collect()
+        })
+        .collect()
+}
+
+/// [`field_boundaries`] with the parameters left as [`Boundary::Param`].
+fn generic_field_boundaries(g: &Globals, d: DataId) -> Vec<Vec<(String, Boundary)>> {
+    let params = g.data(d).params.len();
     data_fields(g, d)
         .into_iter()
         .map(|fields| {
             fields
                 .into_iter()
                 .map(|(name, ty)| {
-                    let b = boundary(g, &ty, &mut HashSet::new()).expect("checked by exportable");
+                    let b = boundary(g, &ty, params, &mut HashSet::new())
+                        .expect("checked by exportable");
                     (name, b)
                 })
                 .collect()
@@ -250,7 +331,7 @@ pub fn generate(g: &Globals, limits: Limits) -> Result<Output, Diagnostic> {
     }
 
     let mut dts = String::from(
-        "// Generated by stitchwort. Do not edit.\n\nexport declare class StitchwortInputError extends Error {}\n",
+        "// Generated by stitchwort. Do not edit.\n\nexport declare class StitchwortInputError extends Error {}\nexport declare class StitchwortResourceError extends Error {}\n",
     );
     for &d in &boundary_datas {
         dts.push_str(&codegen.ts_alias(d));
@@ -259,14 +340,14 @@ pub fn generate(g: &Globals, limits: Limits) -> Result<Output, Diagnostic> {
         let params: Vec<String> = sig
             .params
             .iter()
-            .map(|(x, b)| format!("{x}: {}", codegen.ts_type(b, true)))
+            .map(|(x, b)| format!("{x}: {}", codegen.ts_type(b, true, &[])))
             .collect();
         let _ = writeln!(
             dts,
             "export declare function {}({}): {};",
             sig.name,
             params.join(", "),
-            codegen.ts_type(&sig.result, false)
+            codegen.ts_type(&sig.result, false, &[])
         );
     }
     Ok(Output { js, dts })
@@ -274,16 +355,18 @@ pub fn generate(g: &Globals, limits: Limits) -> Result<Output, Diagnostic> {
 
 fn collect_datas(g: &Globals, b: &Boundary, out: &mut Vec<DataId>) {
     match b {
-        Boundary::Nat | Boundary::Bool => {}
+        Boundary::Nat | Boundary::Bool | Boundary::Text | Boundary::Char | Boundary::Param(_) => {}
         Boundary::List(elem) => collect_datas(g, elem, out),
-        Boundary::Data(d) => {
+        Boundary::Data(d, args) => {
+            for arg in args {
+                collect_datas(g, arg, out);
+            }
             if out.contains(d) {
                 return;
             }
             out.push(*d);
-            for fields in data_fields(g, *d) {
-                for (_, ty) in fields {
-                    let b = boundary(g, &ty, &mut HashSet::new()).expect("checked by exportable");
+            for fields in generic_field_boundaries(g, *d) {
+                for (_, b) in fields {
                     collect_datas(g, &b, out);
                 }
             }
@@ -300,6 +383,27 @@ export class StitchwortInputError extends Error {
   }
 }
 
+// Thrown when an export runs out of the JS engine's stack (recursion over a
+// long text or list, or deeply nested data), or a number or string grows too
+// large for it. The engine's own error is its `cause`.
+export class StitchwortResourceError extends Error {
+  constructor(message, options) {
+    super(message, options);
+    this.name = "StitchwortResourceError";
+  }
+}
+
+// V8 and JavaScriptCore throw a `RangeError` when the stack overflows, and
+// SpiderMonkey an `InternalError`. Nothing else in generated code throws
+// either, but a too-large `BigInt` or string is a `RangeError` too.
+const outOfResources = (name, e) =>
+  e instanceof RangeError || (e instanceof Error && e.name === "InternalError")
+    ? new StitchwortResourceError(
+        `${name}: ran out of resources (${e.message}); the input may be too large`,
+        { cause: e },
+      )
+    : e;
+
 const dec_Nat = (x, path) => {
   if (typeof x !== "bigint" || x < 0n) {
     throw new StitchwortInputError(`${path}: expected a non-negative bigint`);
@@ -315,6 +419,59 @@ const dec_Bool = (x, path) => {
   return x ? { tag: "True" } : { tag: "False" };
 };
 const enc_Bool = (v) => v.tag === "True";
+
+// `Text` is a string. Decoding takes its Unicode scalar values in order, and
+// refuses a string with a lone surrogate (which JS allows) rather than
+// repairing it, so encoding gives back exactly the string that was decoded.
+const scalars = (x, path) => {
+  if (typeof x !== "string") {
+    throw new StitchwortInputError(`${path}: expected a string`);
+  }
+  const codes = [];
+  for (let i = 0; i < x.length; i++) {
+    const unit = x.charCodeAt(i);
+    if (unit < 0xd800 || unit > 0xdfff) {
+      codes.push(BigInt(unit));
+      continue;
+    }
+    const low = i + 1 < x.length ? x.charCodeAt(i + 1) : 0;
+    if (unit > 0xdbff || low < 0xdc00 || low > 0xdfff) {
+      const hex = unit.toString(16).toUpperCase();
+      throw new StitchwortInputError(
+        `${path}: a lone surrogate (U+${hex}) at index ${i}; text must be a well-formed string`,
+      );
+    }
+    codes.push(BigInt(0x10000 + ((unit - 0xd800) << 10) + (low - 0xdc00)));
+    i++;
+  }
+  return codes;
+};
+const dec_Text = (x, path) => {
+  const codes = scalars(x, path);
+  let chars = { tag: "Nil" };
+  for (let i = codes.length - 1; i >= 0; i--) {
+    chars = { tag: "Cons", head: { tag: "MkChar", code: codes[i] }, tail: chars };
+  }
+  return { tag: "MkText", chars };
+};
+const enc_Text = (v) => {
+  const parts = [];
+  for (let l = v.chars; l.tag === "Cons"; l = l.tail) parts.push(enc_Char(l.head));
+  return parts.join("");
+};
+
+// `Char` is a string holding exactly one scalar value: one or two UTF-16
+// code units.
+const dec_Char = (x, path) => {
+  const codes = scalars(x, path);
+  if (codes.length !== 1) {
+    throw new StitchwortInputError(
+      `${path}: expected exactly one character, but the string has ${codes.length}`,
+    );
+  }
+  return { tag: "MkChar", code: codes[0] };
+};
+const enc_Char = (v) => String.fromCodePoint(Number(v.code));
 
 // Decoders read each property exactly once, into fresh values. `inside` holds
 // the objects currently being decoded, so an input that contains itself is
@@ -355,6 +512,17 @@ struct Gen<'g> {
     /// Per definition: whether it's erased, and which of its leading
     /// parameters (up to its arity) are erased.
     erased: Vec<(bool, Vec<bool>)>,
+    /// The prelude's `ifThenElse`, which `if` becomes.
+    if_then_else: Option<DefId>,
+}
+
+/// The definition being generated, for turning calls to itself in tail
+/// position into another turn of a loop. JS engines don't eliminate tail
+/// calls, so otherwise each would use a stack frame.
+struct SelfCall {
+    id: DefId,
+    /// Whether any call was turned into a loop.
+    used: Cell<bool>,
 }
 
 impl<'g> Gen<'g> {
@@ -377,6 +545,11 @@ impl<'g> Gen<'g> {
             g,
             nat: g.find_data("Nat"),
             erased,
+            if_then_else: g
+                .defs
+                .iter()
+                .position(|def| &*def.name == "ifThenElse")
+                .map(DefId),
         })
     }
 
@@ -405,7 +578,15 @@ impl<'g> Gen<'g> {
         }
         let tree = body.peel_lams(def.arity);
         let rhs = if matches!(tree, Term::Case(..)) {
-            let block = self.tree(tree, &mut env, 1)?;
+            if !params.is_empty()
+                && let Some(block) = self.self_tail_loop(id, tree, &mut env)?
+            {
+                return Ok(format!(
+                    "const {} = {params}{block};\n",
+                    def_name(&def.name)
+                ));
+            }
+            let block = self.tree(tree, &mut env, 1, None)?;
             if params.is_empty() {
                 // No runtime parameters, but a case on an erased proof (like
                 // `absurd`): a function, so it only runs when it's used.
@@ -425,13 +606,68 @@ impl<'g> Gen<'g> {
         Ok(format!("const {} = {params}{rhs};\n", def_name(&def.name)))
     }
 
-    /// Statements for a case tree, ending in `return`. `env` says, for each
+    /// If the definition `id`, with case tree `tree`, calls itself in tail
+    /// position, its body as a loop, where each such call is another turn:
+    ///
+    /// ```js
+    /// {
+    ///   let s0 = v0, s1 = v1;
+    ///   for (;;) {
+    ///     const v0 = s0, v1 = s1;
+    ///     … s0 = next0; s1 = next1; continue; …
+    ///   }
+    /// }
+    /// ```
+    ///
+    /// Each turn has its own `const`s, so a closure made in one turn keeps
+    /// that turn's values, and the parameters themselves are never assigned,
+    /// so a partial application can be called again.
+    fn self_tail_loop(
+        &self,
+        id: DefId,
+        tree: &Term,
+        env: &mut Vec<bool>,
+    ) -> Fallible<Option<String>> {
+        let call = SelfCall {
+            id,
+            used: Cell::new(false),
+        };
+        let block = self.tree(tree, env, 2, Some(&call))?;
+        if !call.used.get() {
+            return Ok(None);
+        }
+        let slots: Vec<usize> = (0..env.len()).filter(|level| !env[*level]).collect();
+        let copy = |from: fn(usize) -> String, to: fn(usize) -> String| {
+            slots
+                .iter()
+                .map(|level| format!("{} = {}", to(*level), from(*level)))
+                .collect::<Vec<_>>()
+                .join(", ")
+        };
+        Ok(Some(format!(
+            "{{\n  let {};\n  for (;;) {{\n    const {};\n{block}  }}\n}}",
+            copy(var, slot),
+            copy(slot, var)
+        )))
+    }
+
+    /// Statements for a case tree, ending in `return` (or, for a call to
+    /// `self_call` in tail position, `continue`). `env` says, for each
     /// variable level, whether it's erased.
-    fn tree(&self, term: &Term, env: &mut Vec<bool>, depth: usize) -> Fallible<String> {
+    fn tree(
+        &self,
+        term: &Term,
+        env: &mut Vec<bool>,
+        depth: usize,
+        self_call: Option<&SelfCall>,
+    ) -> Fallible<String> {
         self.g.budget.nesting(PASS)?;
         let pad = "  ".repeat(depth);
         let Term::Case(ix, d, branches) = term.strip_loc() else {
-            return Ok(format!("{pad}return {};\n", self.expr(term, env)?));
+            return match self_call {
+                Some(call) => self.tail(term, env, depth, call),
+                None => Ok(format!("{pad}return {};\n", self.expr(term, env)?)),
+            };
         };
         let data = self.g.data(*d);
         let scrutinee = var(env.len() - 1 - ix);
@@ -456,7 +692,7 @@ impl<'g> Gen<'g> {
                 }
                 env.push(*erased);
             }
-            out.push_str(&self.tree(&b.body, env, depth)?);
+            out.push_str(&self.tree(&b.body, env, depth, self_call)?);
             env.truncate(level);
             Ok(())
         };
@@ -487,6 +723,56 @@ impl<'g> Gen<'g> {
             let _ = writeln!(out, "{pad}throw new Error(\"unreachable\");");
         }
         Ok(out)
+    }
+
+    /// A leaf of the case tree of a definition that's being made a loop
+    /// ([`Gen::self_tail_loop`]). A call to itself with all its arguments is
+    /// another turn. `if` is written out as a JS `if`, so that calls in its
+    /// branches are in tail position too.
+    fn tail(
+        &self,
+        term: &Term,
+        env: &mut Vec<bool>,
+        depth: usize,
+        call: &SelfCall,
+    ) -> Fallible<String> {
+        self.g.budget.nesting(PASS)?;
+        let pad = "  ".repeat(depth);
+        let (head, args) = term.spine();
+        let Term::Def(id) = head else {
+            return Ok(format!("{pad}return {};\n", self.expr(term, env)?));
+        };
+        if *id == call.id && args.len() == self.g.def(*id).arity {
+            call.used.set(true);
+            let mut out = String::new();
+            for (level, arg) in args.iter().enumerate() {
+                if !env[level] {
+                    let _ = writeln!(out, "{pad}{} = {};", slot(level), self.expr(arg, env)?);
+                }
+            }
+            let _ = writeln!(out, "{pad}continue;");
+            return Ok(out);
+        }
+        if Some(*id) == self.if_then_else
+            && let [_, cond, then, otherwise] = args.as_slice()
+            && let (Term::Lam(_, _, then), Term::Lam(_, _, otherwise)) =
+                (then.strip_loc(), otherwise.strip_loc())
+        {
+            let cond = self.expr(cond, env)?;
+            // The branches' parameter is a proof of `Unit`, so it's erased.
+            let mut branch = |body: &Term| -> Fallible<String> {
+                env.push(true);
+                let out = self.tail(body, env, depth + 1, call);
+                env.pop();
+                out
+            };
+            let then = branch(then)?;
+            let otherwise = branch(otherwise)?;
+            return Ok(format!(
+                "{pad}if ({cond}.tag === \"True\") {{\n{then}{pad}}} else {{\n{otherwise}{pad}}}\n"
+            ));
+        }
+        Ok(format!("{pad}return {};\n", self.expr(term, env)?))
     }
 
     fn expr(&self, term: &Term, env: &mut Vec<bool>) -> Fallible<String> {
@@ -602,17 +888,22 @@ impl<'g> Gen<'g> {
     }
 
     /// `export function f(…)`: decode the inputs, run the precondition checks,
-    /// call the compiled definition, encode the result. Decoded parameter `i`
+    /// call the compiled definition, encode the result. Running out of stack
+    /// on the way is a `StitchwortResourceError`. Decoded parameter `i`
     /// (counting all parameters) is `v{i}`, which is what the compiled checks
     /// refer to.
     fn wrapper(&self, sig: &ExportSig) -> Fallible<String> {
         let params: Vec<&str> = sig.params.iter().map(|(x, _)| x.as_str()).collect();
-        let mut out = format!("\nexport function {}({}) {{\n", sig.name, params.join(", "));
+        let mut out = format!(
+            "\nexport function {}({}) {{\n  try {{\n",
+            sig.name,
+            params.join(", ")
+        );
         let mut call = def_name(&self.g.def(sig.id).name);
         for ((x, b), position) in sig.params.iter().zip(&sig.param_positions) {
             let _ = writeln!(
                 out,
-                "  const {} = {}({x}, \"{x}\");",
+                "    const {} = {}({x}, \"{x}\");",
                 var(*position),
                 self.decoder(b)
             );
@@ -630,10 +921,15 @@ impl<'g> Gen<'g> {
                 .replace('"', "\\\"");
             let _ = writeln!(
                 out,
-                "  if ({decision}.tag !== \"{yes}\") {{\n    throw new StitchwortInputError(\"{message}\");\n  }}"
+                "    if ({decision}.tag !== \"{yes}\") {{\n      throw new StitchwortInputError(\"{message}\");\n    }}"
             );
         }
-        let _ = writeln!(out, "  return {}({call});\n}}", self.encoder(&sig.result));
+        let _ = writeln!(
+            out,
+            "    return {}({call});\n  }} catch (e) {{\n    throw outOfResources(\"{}\", e);\n  }}\n}}",
+            self.encoder(&sig.result),
+            sig.name
+        );
         Ok(out)
     }
 
@@ -646,46 +942,72 @@ impl<'g> Gen<'g> {
     }
 
     fn decoder(&self, b: &Boundary) -> String {
-        match b {
-            Boundary::Nat => "dec_Nat".into(),
-            Boundary::Bool => "dec_Bool".into(),
-            Boundary::List(elem) => format!("dec_List({})", self.decoder(elem)),
-            Boundary::Data(d) => format!("dec_{}", self.g.data(*d).name),
-        }
+        self.codec("dec", b)
     }
 
     fn encoder(&self, b: &Boundary) -> String {
+        self.codec("enc", b)
+    }
+
+    /// The decoder (`dec`) or encoder (`enc`) for a boundary type. A codec
+    /// for a type with arguments is applied to theirs.
+    fn codec(&self, kind: &str, b: &Boundary) -> String {
         match b {
-            Boundary::Nat => "enc_Nat".into(),
-            Boundary::Bool => "enc_Bool".into(),
-            Boundary::List(elem) => format!("enc_List({})", self.encoder(elem)),
-            Boundary::Data(d) => format!("enc_{}", self.g.data(*d).name),
+            Boundary::Nat => format!("{kind}_Nat"),
+            Boundary::Bool => format!("{kind}_Bool"),
+            Boundary::Text => format!("{kind}_Text"),
+            Boundary::Char => format!("{kind}_Char"),
+            Boundary::List(elem) => format!("{kind}_List({})", self.codec(kind, elem)),
+            Boundary::Data(d, args) if args.is_empty() => {
+                format!("{kind}_{}", self.g.data(*d).name)
+            }
+            Boundary::Data(d, args) => {
+                let args: Vec<String> = args.iter().map(|a| self.codec(kind, a)).collect();
+                format!("{kind}_{}({})", self.g.data(*d).name, args.join(", "))
+            }
+            Boundary::Param(i) => codec_param(*i),
         }
     }
 
-    fn field_boundaries(&self, d: DataId) -> Vec<Vec<(String, Boundary)>> {
-        field_boundaries(self.g, d)
-    }
-
+    /// The decoder and encoder for a data type. With parameters, each takes
+    /// the parameters' codecs and returns the codec.
     fn codecs(&self, d: DataId) -> String {
         let data = self.g.data(d);
         let name = &data.name;
+        let (dec_head, enc_head, end) = if data.params.is_empty() {
+            (
+                format!("function dec_{name}(x, path, inside = new Set()) {{"),
+                format!("function enc_{name}(v) {{"),
+                "}",
+            )
+        } else {
+            let ps: Vec<String> = (0..data.params.len()).map(codec_param).collect();
+            let ps = ps.join(", ");
+            (
+                format!("const dec_{name} = ({ps}) => function (x, path, inside = new Set()) {{"),
+                format!("const enc_{name} = ({ps}) => function (v) {{"),
+                "};",
+            )
+        };
         let mut dec = format!(
-            "\nfunction dec_{name}(x, path, inside = new Set()) {{\n  if (typeof x !== \"object\" || x === null) {{\n    throw new StitchwortInputError(`${{path}}: expected a {name} object`);\n  }}\n  enter(x, path, inside);\n  const tag = x.tag;\n  switch (tag) {{\n"
+            "\n{dec_head}\n  if (typeof x !== \"object\" || x === null) {{\n    throw new StitchwortInputError(`${{path}}: expected a {name} object`);\n  }}\n  enter(x, path, inside);\n  const tag = x.tag;\n  switch (tag) {{\n"
         );
-        let mut enc = format!("function enc_{name}(v) {{\n  switch (v.tag) {{\n");
-        for (ctor, fields) in data.ctors.iter().zip(self.field_boundaries(d)) {
+        let mut enc = format!("{enc_head}\n  switch (v.tag) {{\n");
+        for (ctor, fields) in data.ctors.iter().zip(generic_field_boundaries(self.g, d)) {
             let _ = writeln!(dec, "    case \"{}\": {{", ctor.name);
             let mut built = vec![format!("tag: \"{}\"", ctor.name)];
             let mut encoded = built.clone();
             for (field, b) in &fields {
                 let f = js_field(field);
+                // `$` keeps a field called `x` or `path` from hiding the
+                // decoder's own variables. (Stitchwort names can't start
+                // with `$`.)
                 let _ = writeln!(
                     dec,
-                    "      const {f} = {}(x.{f}, `${{path}}.{f}`, inside);",
+                    "      const ${f} = {}(x.{f}, `${{path}}.{f}`, inside);",
                     self.decoder(b)
                 );
-                built.push(f.clone());
+                built.push(format!("{f}: ${f}"));
                 encoded.push(format!("{f}: {}(v.{f})", self.encoder(b)));
             }
             let _ = writeln!(
@@ -702,47 +1024,106 @@ impl<'g> Gen<'g> {
         }
         let _ = writeln!(
             dec,
-            "    default:\n      throw new StitchwortInputError(`${{path}}: unknown tag ${{String(tag)}}`);\n  }}\n}}"
+            "    default:\n      throw new StitchwortInputError(`${{path}}: unknown tag ${{String(tag)}}`);\n  }}\n{end}"
         );
-        let _ = writeln!(enc, "  }}\n  throw new Error(\"unreachable\");\n}}");
+        let _ = writeln!(enc, "  }}\n  throw new Error(\"unreachable\");\n{end}");
         dec + &enc
     }
 
     /// Inputs are `readonly`; outputs are freshly built, so they're mutable.
-    fn ts_type(&self, b: &Boundary, readonly: bool) -> String {
+    /// `params` names a data type's parameters, inside its alias.
+    fn ts_type(&self, b: &Boundary, readonly: bool, params: &[String]) -> String {
         match b {
             Boundary::Nat => "bigint".into(),
             Boundary::Bool => "boolean".into(),
-            Boundary::List(elem) if readonly => format!("readonly {}[]", self.ts_type(elem, true)),
-            Boundary::List(elem) => format!("{}[]", self.ts_type(elem, false)),
-            Boundary::Data(d) => self.g.data(*d).name.to_string(),
+            Boundary::Text | Boundary::Char => "string".into(),
+            Boundary::List(elem) if readonly => {
+                format!("readonly {}[]", self.ts_type(elem, true, params))
+            }
+            Boundary::List(elem) => format!("{}[]", self.ts_type(elem, false, params)),
+            Boundary::Data(d, args) if args.is_empty() => self.g.data(*d).name.to_string(),
+            Boundary::Data(d, args) => {
+                let args: Vec<String> = args
+                    .iter()
+                    .map(|a| self.ts_type(a, readonly, params))
+                    .collect();
+                format!("{}<{}>", self.g.data(*d).name, args.join(", "))
+            }
+            Boundary::Param(i) => params[*i].clone(),
         }
     }
 
     fn ts_alias(&self, d: DataId) -> String {
         let data = self.g.data(d);
+        let params = self.ts_params(d);
         let variants: Vec<String> = data
             .ctors
             .iter()
-            .zip(self.field_boundaries(d))
+            .zip(generic_field_boundaries(self.g, d))
             .map(|(ctor, fields)| {
                 let mut parts = vec![format!("readonly tag: \"{}\"", ctor.name)];
                 for (field, b) in &fields {
                     parts.push(format!(
                         "readonly {}: {}",
                         js_field(field),
-                        self.ts_type(b, true)
+                        self.ts_type(b, true, &params)
                     ));
                 }
                 format!("{{ {} }}", parts.join("; "))
             })
             .collect();
+        let generics = if params.is_empty() {
+            String::new()
+        } else {
+            format!("<{}>", params.join(", "))
+        };
         format!(
-            "export type {} =\n  | {};\n",
+            "export type {}{generics} =\n  | {};\n",
             data.name,
             variants.join("\n  | ")
         )
     }
+
+    /// TypeScript names for a data type's parameters: their own names where
+    /// those can't be mistaken for anything else, otherwise `$0`, `$1`, …
+    /// (Stitchwort names can't start with `$`.)
+    fn ts_params(&self, d: DataId) -> Vec<String> {
+        const TS_TYPE_WORDS: &[&str] = &[
+            "any",
+            "bigint",
+            "boolean",
+            "never",
+            "null",
+            "number",
+            "object",
+            "string",
+            "symbol",
+            "undefined",
+            "unknown",
+            "void",
+        ];
+        let data = self.g.data(d);
+        data.params
+            .iter()
+            .enumerate()
+            .map(|(i, (x, _))| {
+                let clear = is_js_identifier(x)
+                    && !TS_TYPE_WORDS.contains(&&**x)
+                    && self.g.find_data(x).is_none()
+                    && data.params[..i].iter().all(|(y, _)| y != x);
+                if clear {
+                    x.to_string()
+                } else {
+                    format!("${i}")
+                }
+            })
+            .collect()
+    }
+}
+
+/// The name of a codec's argument: the codec for its type's parameter `i`.
+fn codec_param(i: usize) -> String {
+    format!("${i}")
 }
 
 /// Parameter names of a definition's leading lambdas.
@@ -828,6 +1209,11 @@ fn var(level: usize) -> String {
     format!("v{level}")
 }
 
+/// Where a loop keeps parameter `level`'s value for its next turn.
+fn slot(level: usize) -> String {
+    format!("s{level}")
+}
+
 fn def_name(name: &str) -> String {
     // Primes become `$`; the dot in a generated name like `State.elim`
     // becomes `$$` (source names can't contain dots).
@@ -874,9 +1260,27 @@ pub fn boundary_literal(g: &Globals, b: &Boundary, value: &Value) -> Result<Stri
                 }
             }
         }
-        (Boundary::Data(d), Value::Ctor(_, c, fields)) => {
+        (Boundary::Char, _) => {
+            let c = char_value(g, value)?.ok_or_else(stuck)?;
+            Ok(js_string_literal(&c.to_string()))
+        }
+        (Boundary::Text, Value::Ctor(_, 0, fields)) => {
+            let mut text = String::new();
+            let mut v = &fields[0];
+            loop {
+                match v {
+                    Value::Ctor(_, 0, _) => return Ok(js_string_literal(&text)),
+                    Value::Ctor(_, 1, fields) => {
+                        text.push(char_value(g, &fields[0])?.ok_or_else(stuck)?);
+                        v = &fields[1];
+                    }
+                    _ => return Err(stuck()),
+                }
+            }
+        }
+        (Boundary::Data(d, args), Value::Ctor(_, c, fields)) => {
             let ctor = &g.data(*d).ctors[*c];
-            let boundaries = &field_boundaries(g, *d)[*c];
+            let boundaries = &field_boundaries(g, *d, args)[*c];
             let mut parts = vec![format!("tag: \"{}\"", ctor.name)];
             for ((name, b), field) in boundaries.iter().zip(fields.iter()) {
                 parts.push(format!(
@@ -889,6 +1293,37 @@ pub fn boundary_literal(g: &Globals, b: &Boundary, value: &Value) -> Result<Stri
         }
         _ => Err(stuck()),
     }
+}
+
+/// The character a `Char` value stands for.
+fn char_value(g: &Globals, value: &Value) -> Result<Option<char>, String> {
+    let Value::Ctor(_, 0, fields) = value else {
+        return Ok(None);
+    };
+    let code = native::as_nat(g, &fields[0]).map_err(|e| e.to_string())?;
+    Ok(code
+        .and_then(|n| u32::try_from(n).ok())
+        .and_then(char::from_u32))
+}
+
+/// A JS string literal for `text`, with everything but printable ASCII
+/// escaped, so it reads the same whatever the file's encoding.
+pub fn js_string_literal(text: &str) -> String {
+    let mut out = String::from("\"");
+    for c in text.chars() {
+        match c {
+            '"' | '\\' => {
+                out.push('\\');
+                out.push(c);
+            }
+            ' '..='~' => out.push(c),
+            _ => {
+                let _ = write!(out, "\\u{{{:x}}}", u32::from(c));
+            }
+        }
+    }
+    out.push('"');
+    out
 }
 
 #[cfg(test)]
