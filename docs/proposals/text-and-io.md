@@ -336,6 +336,7 @@ So a genuinely unbounded interactive loop (a REPL, a server) isn't available in 
 5. **`main` and `stitchwort run`**, tested against `simulate` and against real standard input and output.
 6. **The playground's Run button.**
 7. **Later, and separately justified:** compact text in generated JS, then possibly in the checking evaluator.
+   Design: [compact text](compact-text.md).
 
 ## Acceptance criteria
 
