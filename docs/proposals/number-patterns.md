@@ -1,6 +1,8 @@
 # Proposal: number patterns without `Succ` chains
 
-**Status:** proposed, 15 October 2026, for external review. Not implemented.
+**Status:** draft 2, 15 October 2026. Draft 1 was reviewed externally; the
+review recommended option B with corrections, which this draft adopts (see
+[Changes since draft 1](#changes-since-draft-1)). Not implemented yet.
 
 This note is meant to be read without knowing the codebase. The first section
 describes the parts of Stitchwort it touches.
@@ -16,12 +18,13 @@ language into it.
   value, which behaves exactly like its chain of `Succ`s: matching on `5`
   takes the `Succ` branch with field `4`, and conversion treats `3` and
   `Succ 2` as equal. A number with an unknown inside, `Succ (Succ x)` or
-  `k + x`, is kept as "`k` `Succ`s around `x`". A few prelude functions run
-  natively on numbers (`add`, `eqNat`, `decEqNat : (m n : Nat) -> Decidable
-  (m = n)`, …), and are trusted ([native numbers](native-numbers.md)).
+  `k + x`, is kept as "`k` `Succ`s around `x`" (a *successor prefix* of
+  length `k`). A few prelude functions run natively on numbers (`add`,
+  `eqNat`, `decEqNat : (m n : Nat) -> Decidable (m = n)`, …), and are
+  trusted ([native numbers](native-numbers.md)).
 - **Data types have no indices** (only parameters). A "vector of length `n`"
   is a function computing a type from `n`, so dependent types over numbers
-  come from computation.
+  come from computation: `ResultType : Nat -> Type` defined by matching.
 - **Definitions are case trees.** Equations compile (by the usual
   pattern-matrix method) to nested `case` nodes, each on one variable, with
   one branch per constructor. The kernel allows `case` *only* at the top of a
@@ -30,12 +33,16 @@ language into it.
   for the matched variable throughout the context and the goal (that's how a
   branch learns `n = Succ m`).
 - **Unfolding.** A definition applied to all its arguments unfolds only if
-  its case tree can take a step; otherwise it stays folded (`length xs` with
-  unknown `xs` stays `length xs`). This keeps conversion terminating.
+  its case tree can take a step all the way to a leaf; otherwise it stays
+  folded (`length xs` with unknown `xs` stays `length xs`). This keeps
+  conversion terminating.
 - **Totality.** Exhaustiveness is checked by the elaborator and re-checked
   by the kernel (one branch per constructor). Termination is structural: a
   recursive call must pass, in some fixed position, a variable bound by a
   `case` on that parameter (or something matched out of it).
+- **Content hashes.** Each declaration has a hash of its checked core term,
+  used to reuse cached test results; there's no serialised form of core
+  terms.
 - **Extraction.** Checked programs compile to JavaScript; `Nat` is `bigint`.
 
 ## The problem
@@ -59,10 +66,10 @@ becomes `f (Succ (Succ … (Succ Zero)))`, 404 deep, so 405 nested `case`s.
   ```
 
 - **Checking is slow below the cap.** Each `case` level rewrites the whole
-  context and goal, and the context grows by one variable per level, so the
-  cost grows roughly with the cube of the largest number. Measured with the
-  release build of the command-line checker on an Apple-silicon Mac, for
-  `f N = True; f _ = False`:
+  context and goal, and the context grows by one variable per level, so for a
+  single pattern the cost grows roughly with the cube of its value `N`.
+  Measured with the release build of the command-line checker on an
+  Apple-silicon Mac, for `f N = True; f _ = False`:
 
   | program | time | peak memory |
   |---|---|---|
@@ -81,38 +88,33 @@ becomes `f (Succ (Succ … (Succ Zero)))`, 404 deep, so 405 nested `case`s.
   test. GHC desugars an overloaded literal pattern to an equality test using
   the type's `Eq`; OCaml compiles integer and string patterns to comparisons
   or jump tables. The classic algorithm (Maranget 2008) treats a column of
-  literals like a constructor column with infinitely many constructors: one
-  branch per literal that appears, plus a default.
+  literals like a constructor column whose list of constructors is never
+  complete: one branch per literal that appears, plus a default.
 - **Lean 4.** A `Nat` literal pattern is turned into a *value* pattern, and
   the match compiler handles value patterns with `caseValues`, which splits a
   goal `C x` into one subgoal per listed value plus a catch-all, requires
   decidable equality on the type, gives each value's subgoal a hypothesis
-  `x = v` and substitutes it, and gives the catch-all nothing (or the
-  inequalities). This all happens in the elaborator, with Lean's general
-  `subst`/`casesOn` machinery; the kernel never sees a literal pattern, and
-  the code generator compiles the test to a native comparison.
+  `x = v` and substitutes it, and can give the catch-all the inequalities.
+  This happens in the elaborator, with Lean's general `subst`/`casesOn`
+  machinery; the kernel never sees a literal pattern.
 - **Agda.** Its internal case trees (`CompiledClauses`) have a `Case` node
   with constructor branches, a map from *literal* to subtree
   (`litBranches`), and a catch-all branch. Separately, the type checker has
   `expandLitPattern`, which rewrites a natural-number literal pattern into
-  `suc`/`zero` patterns and refuses literals above 20 with "Matching on
-  natural number literals is done by expanding the literal to the
-  corresponding constructor pattern, so you probably don't want to do it
-  this way." We didn't establish exactly when each path is taken (our
-  reading: literal branches for a column of literals, expansion when a
-  literal must be checked against constructor patterns).
+  `suc`/`zero` patterns and refuses literals above 20. We didn't establish
+  exactly when each path is taken.
 - **Idris 2.** Case trees branch only on variables, with alternatives for
   constructors, `ConstCase` for a literal of a primitive type, and a
-  `DefaultCase`. `Nat` is a Peano type that's represented as an integer at
-  runtime; we haven't confirmed how a `Nat` literal *pattern* is checked.
-- **Rocq.** `nat` numerals are notation for `S (S … O)`, so a numeral
-  pattern is a chain of constructor patterns, like Stitchwort today (not
-  re-checked for this note).
+  `DefaultCase`. We haven't confirmed how a `Nat` literal *pattern* is
+  checked.
+- **Rocq.** `nat` numerals in patterns are, as far as we know (not re-checked
+  for this note), notation for `S (S … O)`: a chain, like Stitchwort today.
 
-So there are two families: literal tests handled entirely in the elaborator
-using decidable equality and rewriting (Lean), and a literal-switch node in
-the case-tree language with a default branch (Agda's `litBranches`, Idris's
-`ConstCase`).
+Agda's `litBranches` and Idris's `ConstCase` are **precedents for the
+representation** (a literal switch with a default in the case-tree
+language). They are not evidence for the *typing rule* proposed below: we
+haven't established that either system checks `Nat` literal branches this
+way, so the soundness argument stands on its own.
 
 ## Options
 
@@ -123,160 +125,483 @@ where `elimDec : Decidable p -> (p -> a) -> (Not p -> a) -> a`. The kernel
 already checks all of this, and `decEqNat` runs natively, so a test is one
 step.
 
-No new kernel feature, but it fits Stitchwort's kernel poorly:
+No new kernel feature, but a poor fit for this kernel:
 
 - **`case` may only appear at the top of a definition.** A test written as a
-  function application isn't at the top, so nothing below it may be a
-  `case`. Every constructor split would have to be made before any number
-  test: a second, reordered compilation strategy.
+  function application isn't at the top. Without generated helper
+  definitions or other restructuring, this encoding can't preserve the
+  existing nesting of case-tree splits: constructor splits would have to
+  come before number tests. Helper definitions (one per subtree below a
+  test, each with its case tree at the top) could avoid that, but they'd
+  have to lift the right dependent context and preserve termination
+  checking (the recursive calls would move into the helpers) and the
+  unfolding behaviour.
 - **The matched branch has to learn `n = 404` from `h`.** For a goal that
-  mentions `n` (`f : (n : Nat) -> Vec n Bool`), the branch's value must be
-  transported along `h` with `J`, and so must every argument whose type
-  mentions `n` ("generalise, then rewrite"). Lean has tactics for this;
-  Stitchwort's elaborator would need it written by hand, including
-  replacing `n` by `404` inside the branch's elaborated term.
+  mentions `n`, the branch's value must be transported along `h` with `J`,
+  and so must every argument whose type mentions `n` ("generalise, then
+  rewrite"), written by hand in the elaborator.
 - **Definitions would unfold differently.** A test inside an application
   isn't a case-tree step, so `statusText n` with unknown `n` would unfold to
-  a chain of stuck `elimDec`s, in error messages and in conversion, where
-  today it stays `statusText n`.
-- **The JavaScript would allocate** a `Decidable` object and two closures
-  per test, unless the JS backend learned to recognise the shape.
+  a chain of stuck `elimDec`s, where today it stays `statusText n`.
+- **The JavaScript would build** a `Decidable` object and two branch
+  closures per test, unless the JS backend learned to recognise the shape.
 
-### B. A number switch in the case tree (Agda's / Idris's approach) — recommended
+This is an engineering trade-off, not an impossibility; B is preferred.
+
+### B. A number switch in the case tree — recommended
 
 Add one node to the kernel's case trees:
 
 ```
-NumCase(n, [(200, b₁), (404, b₂), …], default)
+NumCase(n, [(k₁, b₁), …, (kₘ, bₘ)], d)
 ```
 
-"If variable `n` is 200, take `b₁`; if it's 404, take `b₂`; …; otherwise
-take `default`." The numbers are listed in increasing order, without
-repeats. Like `case`, it's only allowed in case-tree positions.
-
-- **Checking.** `n` must have type `Nat`. Each listed branch is checked with
-  `n` replaced by its number throughout the context and the goal, exactly
-  as a `case` branch replaces `n` by `Succ m`. So in the `404` branch the
-  goal `Vec n Bool` is `Vec 404 Bool`, and `rfl : n = 404` checks. The
-  default branch is checked with nothing new known. One rewrite per listed
-  number, over a context that doesn't grow: linear, not cubic.
-- **Evaluation.** If `n` is a number, pick its branch (or the default). If
-  `n` is `k + x` with `x` unknown and every listed number is below `k`, `n`
-  can't be any of them: take the default. Otherwise the tree is stuck, and
-  the definition stays folded, as with a `case` on an unknown.
-- **Elaboration.** In the pattern matrix, a column whose patterns are
-  numbers, variables and `_`, with no `Zero`/`Succ` constructor pattern,
-  compiles to a `NumCase` (Maranget's literal column): the `404` branch
-  keeps the rows with `404`, a variable or `_` there; the default keeps the
-  rows with a variable or `_`. A column that mixes numbers with
-  `Zero`/`Succ` patterns (`half 0`, `half 1`, `half (Succ (Succ n))`)
-  compiles exactly as today: a `case`, where a number `k` in the `Succ`
-  branch becomes `k - 1` on the field. That peels only as many levels as the
-  source writes `Succ`s, so the cap can go.
-- **JavaScript.** `switch (n) { case 200n: … case 404n: … }` then the
-  default: native `bigint` comparison, no allocation.
+"If variable `n` is `k₁`, take `b₁`; …; if it's `kₘ`, take `bₘ`; otherwise
+take the default `d`." Its parts are specified below: kernel invariants and
+checking, evaluation, the pattern compiler, extraction.
 
 ### C. Keep `Succ` chains but make them cheaper
 
 Share work between levels, or skip re-substituting variables that can't
 mention the scrutinee. This could lower the constant and maybe the exponent,
-but a pattern `10^30` still can't be a chain, and the tree is still
-proportional to the number. Rejected.
+but a pattern `10^30` still can't be a chain: the tree is proportional to
+the value. Rejected.
 
-## Why B is sound
+## B in detail
 
-A `NumCase` is shorthand for something the kernel already accepts: nested
-`case`s on `Zero`/`Succ` (the `Succ` chain) whose leaves at the listed
-numbers are the listed branches and whose every other leaf is a copy of the
-default. Compare the two rules:
+### Kernel invariants
 
-- **Listed branches:** identical. In both, `n` is replaced by the number
-  throughout the context and goal (the chain does it one `Succ` at a time).
-- **Default:** the chain's copies of the default are each checked knowing a
-  little about `n` ("`n` is `Zero`", "`n` is `Succ (Succ m)`", …).
-  `NumCase` checks the default once, knowing nothing. Any default that
-  checks with less information also checks with more, so every `NumCase`
-  the kernel accepts corresponds to a chain it would accept. The rule is
-  weaker, never stronger.
-- **Evaluation agrees.** On a number, both pick the same branch. On
-  `k + x`, the chain peels `k` `Succ`s and then needs to look at `x` unless
-  every listed number is below `k`, in which case it reaches a default leaf;
-  `NumCase` takes the default in exactly that case and is otherwise stuck.
-  So conversion gives the same answers, and so does type checking.
-- **Exhaustiveness.** A `NumCase` always has a default, so it's exhaustive
-  by construction. The elaborator reports a column of only numbers with no
-  variable or `_` row as `E-NONEXHAUSTIVE` (listing the numbers it handles);
-  the kernel would treat a missing default as a malformed term.
-- **Termination.** A `NumCase` binds no variables, so the structural
-  termination checker learns nothing from it, and it can't make a recursive
-  call look smaller. Recursion through `f (Succ n) = … f n …` still goes
-  through a `case`, as today, so it's accepted exactly where it is now, and
-  the existing must-reject examples (rebuilding the matched value, as in
-  `loop (Succ n) = loop (Succ n)`) stay rejected.
-- **Trusted code.** The kernel rule and the branch choice in the evaluator
-  are new trusted code, roughly 100 lines. A second, deliberately
-  independent reference evaluator already exists for differential testing;
-  it would get its own implementation of the branch choice (a linear scan
-  where the main one uses binary search), and the existing kernel fuzzer
-  could generate `NumCase` nodes.
+The kernel checks these itself; they aren't promises from the elaborator. A
+violation is `E-MALFORMED` (a compiler bug, not a user error).
 
-## Interactions
+1. `n` is a variable in scope whose type is the registered `Nat` type.
+2. The keys `k₁ < k₂ < … < kₘ` are natural numbers in strictly increasing
+   order (so there are no duplicates).
+3. **`m ≥ 1`.** An empty table is non-canonical and rejected; the elaborator
+   never produces one (a column with no numbers isn't compiled to a
+   `NumCase`).
+4. The default `d` is present (it's a required field of the node, so this is
+   enforced by the term's type; there's no deserialisation boundary to test,
+   since core terms aren't serialised).
+5. A `NumCase` appears only where a `case` may: at the top of a definition's
+   body or at the top of a branch of a `case` or `NumCase`. Its branches and
+   default are themselves case-tree positions.
 
-- **Dependent result types.** Because the kernel substitutes the number, the
-  `404` branch knows `n = 404` by computation, without a proof object:
-  `f : (n : Nat) -> Vec n Bool` with `f 3 = [True, True, True]` checks as it
-  does today.
-- **Mixing numbers, `Zero`/`Succ` and variables in one column.** Any
-  `Zero`/`Succ` pattern in the column means a `case` split (today's
-  behaviour); otherwise a `NumCase`. A variable row belongs to every branch,
-  with the variable naming `n`.
-- **Several columns, first match wins.** Row order is kept in every branch;
-  later columns are compiled in each branch as usual, so `g 404 True = …`
-  followed by `g n b = …` works. A column chosen for a `NumCase` contains
-  only variables and `_` afterwards, so compilation terminates.
-- **Behaviour change for small numbers.** `f 0 = …; f n = …` becomes a
-  `NumCase` instead of a `case`. It computes the same on numbers and on
-  `Succ x` (which takes the default, as before). What it loses: inside the
-  default, nothing is known about `n`, where today it's known to be
-  `Succ m`. That matters only if something there depends on it, for example
-  an absurd pattern `()` on a proof of `IsZero n` in another column. Writing
-  `f (Succ m)` instead of `f n` restores today's behaviour. Nothing in the
-  repository's examples or prelude relies on it: the prelude's `isSpaceCode`
-  and `digitChar` use only numbers and `_`, and `half`, `fib` and `peel`
-  mix in `Succ` patterns, so they keep the `case` split.
-- **Text and characters.** There are no `Char` or `Text` literal patterns
-  today. A `Char` pattern `'a'` could later be sugar for `MkChar 97 _` (a
-  `Char` is its code plus a proof that the code is valid), which this design
-  already compiles well: a `case` on `MkChar`, then a `NumCase` on the code.
-  A `Text` pattern would be a `case` on the text's list of characters, one
-  character at a time, so linear in its length. Neither is part of this
-  change.
+### Checking
 
-## Open questions for the reviewer
+`NumCase(n, [(k₁, b₁), …, (kₘ, bₘ)], d) ⇐ G` in context `Γ`:
 
-1. **Kernel feature or not?** B adds a node to the kernel's case trees
-   (about 100 trusted lines) to avoid the elaborator-side transport of
-   option A. Is the soundness argument above (a `NumCase` is a weakened
-   `Succ` chain) convincing enough to justify the new trusted code, or would
-   you rather pay A's costs to keep the kernel unchanged?
-2. **Should the default branch learn anything?** Lean's catch-all can carry
-   `x ≠ v` hypotheses. B gives the default nothing. Is there a reasonable
-   program where that matters enough to bind a proof of `Not (n = 404)` in
-   the default (which would need a name in the surface syntax)?
-3. **The behaviour change for `f 0 = …; f n = …`.** Is losing "`n` is
-   `Succ m`" in the default acceptable, or should a column whose numbers
-   are all small (say, at most 1) keep the `case` split for compatibility?
-   That would mean two compilation rules for the same syntax.
-4. **Choosing between `case` and `NumCase` per column.** The rule is "any
-   `Zero`/`Succ` pattern in the column forces a `case`". With
-   `f 404 = …; f (Succ n) = …; f 0 = …`, that peels one level, and the
-   `Succ` branch's `403` becomes a `NumCase` on the predecessor. Is there a
-   better rule, for example splitting `case` only where the first row has a
-   constructor?
-5. **Evaluation on `k + x`.** B takes the default when every listed number
-   is below `k`, matching the chain. Any concern that this makes conversion
-   behave differently from the chain in a case we haven't thought of (for
-   example with metavariables during unification)?
+- each `bᵢ` is checked against `G[n := kᵢ]` in `Γ[n := kᵢ]`: the number
+  `kᵢ` is substituted for `n` in every variable's type and value and in the
+  goal, exactly as a `case` branch substitutes `Succ m`;
+- `d` is checked against `G` in `Γ`, unchanged.
+
+### Why it's sound: one-way conservativity
+
+The claim is:
+
+> Every well-typed `NumCase` has a well-typed expansion into ordinary
+> constructor `case`s, with corresponding evaluation behaviour. The converse
+> need not hold.
+
+So a `NumCase` adds no power beyond what the kernel already accepts, assuming
+the existing rules are sound. Some programs that the expansion would accept
+are rejected (see "the default-branch regression"); that is the price of the
+simpler rule.
+
+**The expansion.** Let `K = kₘ` (the largest key). Expand by peeling one
+`Succ` at a time, `K + 1` levels deep:
+
+```
+expand(n, j, table, d) =                       -- n is known to be j + p,
+  case p of                                    -- where p is the current variable
+    Zero    -> if j is a key kᵢ then bᵢ[σ] else d[σ]
+    Succ p' -> if j = K then d[σ'] else expand(n, j + 1, table, d)  -- on p'
+```
+
+starting with `p = n`, `j = 0`. At each leaf, `σ` is the substitution the
+constructor path has introduced: the original variable `n` is replaced by
+the value it is known to have on that path, `Succ (Succ … (Succ Zero))` (`j`
+`Succ`s, i.e. the number `j`) on a `Zero` leaf, or
+`Succ (Succ … (Succ p'))` (`K + 1` `Succ`s around the last predecessor) on
+the final `Succ` leaf; and every variable index in the copied branch is
+shifted past the predecessors bound on the way. The copies are properly
+scoped, specialised copies: `n` in a copy of `d` must still mean the
+original value, not the current predecessor; dependent types of local
+variables, the result type and the body all refer to the corresponding
+values.
+
+**Typing.** On a `Zero` leaf at depth `j = kᵢ`, the `case` rule has
+substituted the number `kᵢ` for `n` in context and goal, exactly what the
+`NumCase` rule did for `bᵢ`, so `bᵢ[σ]` checks. Every other leaf holds
+`d[σ]`; `d` was checked in `Γ` against `G` for arbitrary `n`, and the
+standard typed-substitution property (a term checked for a variable stays
+checked after substituting a well-typed value for it, here the value the
+path has fixed) makes `d[σ]` check against `G[σ]` in `Γ[σ]`, which is what
+the `case` rule asks for at that leaf. "More information can't hurt" is the
+intuition; correct substitution is the mechanism.
+
+**Evaluation.** On a number `v`: the expansion reaches the `Zero` leaf at
+depth `v` if `v ≤ K` (taking `bᵢ` if `v = kᵢ`, else `d`), or the final
+`Succ` leaf if `v > K` (taking `d`); `NumCase` takes the same branch. On a
+successor prefix `k + x` with `x` unknown: the expansion peels `k` `Succ`s
+without looking at `x`; if `k > K` it reaches the final `Succ` leaf (taking
+`d`) without inspecting `x`, and otherwise it must inspect `x` and is stuck.
+`NumCase` does exactly this (see the rule below). On anything else, both are
+stuck.
+
+### Evaluation
+
+Selecting a branch for scrutinee value `v` (after forcing solved
+metavariables, as for `case`):
+
+- `v` is a number: binary-search the keys; take the matching branch or `d`.
+- `v` is a successor prefix `k + x` (including a chain of `Succ`
+  constructors around an unknown, and nested prefixes, all normalised by the
+  existing view of numbers): if `kₘ < k`, take `d`; otherwise stuck. The
+  boundary is strict: `kₘ = k` is stuck, since `x = 0` would match.
+- anything else (a variable, a stuck call, an unsolved metavariable): stuck.
+
+**Failure to establish that `v` equals a key is never evidence that `v`
+differs from it.** The implementation must not compare `v` with each key by
+conversion and take `d` when every comparison fails: for an open `v` that
+would be wrong. It distinguishes exactly three cases: a concrete number, a
+certified successor prefix, and anything else (blocked).
+
+**Substitution stability.** Once a successor prefix justifies taking `d`,
+every later well-typed substitution for its unknown tail still does: the
+value is at least `k > kₘ` whatever the tail becomes. The strict lower-bound
+rule has this property. Conversely, a *blocked* value can become a listed
+one after a metavariable is solved (`403 + ?m` with `?m := 1`); a blocked
+result must not be cached as a decision. This is the existing behaviour for
+`case` (a stuck definition stays a folded call, which is evaluated again
+when it's next forced or re-evaluated after solving); `NumCase` reuses it
+and is tested on exactly this example.
+
+**A blocked subtree.** Selecting a branch doesn't mean the definition can
+return: the selected subtree may be blocked on another variable (a number
+test followed by a `case` on a `Bool`). Then the definition stays folded,
+with its original arguments, through the existing mechanism (the evaluator
+tracks the definition and its arguments while walking the case tree, and
+returns the folded call if any node is stuck). No new partially unfolded
+form is introduced.
+
+Required behaviours, for
+
+```
+hit : Nat -> Bool
+hit 404 = True
+hit _   = False
+```
+
+| scrutinee | required |
+|---|---|
+| `404` | `True` |
+| `403`, `405` | `False` |
+| an unknown `x` | stuck: `hit x` stays folded |
+| `404 + x` | stuck (`x = 0` would match) |
+| `405 + x` | `False` |
+| `403 + x` | stuck (`x = 1` would match) |
+| `403 + ?m`, then `?m := 1` | stuck, then `True` |
+
+and, as a kernel test, `bad : (x : Nat) -> hit x = False` with
+`bad x = rfl` must be rejected.
+
+### Termination
+
+- A `NumCase` introduces no new evidence of structural descent: it binds no
+  variables, and a number key is never "smaller than" anything.
+- Evidence from surrounding constructor `case`s is kept: a variable matched
+  out of a parameter before the `NumCase` is still smaller inside every
+  branch and the default.
+- Every child, each listed branch **and the default**, is traversed by the
+  termination checker. (Binding nothing isn't enough if an implementation
+  skipped a subtree.)
+
+So `f (Succ n) = … f n …` is accepted exactly where it is today (that
+recursion goes through a `case`), and the must-reject examples (rebuilding
+the matched value, `loop (Succ n) = loop (Succ n)`) stay rejected.
+
+### The pattern compiler
+
+The elaborator compiles equations by the usual matrix method; this changes
+only how a column is split.
+
+1. **The first-row base case comes first.** If the first remaining row
+   matches whatever is left (only variables and `_`), it's the result, as
+   today, before any column is classified. So in
+   `constant n = 1; constant 404 = 2` the second equation is unreachable
+   and `constant` doesn't inspect `n`.
+2. **Choosing the column** is unchanged: the first column where the first
+   row has a refutable pattern (a constructor or a number).
+3. **Classifying it.** If any row has an explicit `Zero` or `Succ` pattern
+   in that column, it's split with a constructor `case`, as today: in the
+   `Succ` branch a number `k > 0` becomes `k - 1` on the predecessor, and
+   `0` belongs to the `Zero` branch. Otherwise (numbers, variables, `_`) it
+   becomes a `NumCase`. Constructor splits happen only where the source
+   writes explicit `Zero`/`Succ` patterns, so how deep the tree gets depends
+   on the explicit pattern structure, not on the values of the literals.
+   (Keep this rule for now; splitting on constructors only where the first
+   row has one could change which open terms reduce.)
+4. **The keys** are the distinct numbers in the column, sorted. Repeated
+   source literals merge into one key: `g 404 True = 1; g 404 False = 2;
+   g _ _ = 3` gives one `404` entry whose subtree splits on the `Bool`. The
+   kernel's unique-key rule is about the core term, not the source.
+5. **A listed branch keeps every applicable row**, in order: the rows with
+   that number there, and the rows with a variable or `_`. The default keeps
+   the rows with a variable or `_`. Failing a later column inside the `404`
+   branch falls through to the next applicable row in that branch, not to
+   the switch's default. With
+
+   ```
+   g : Nat -> Bool -> Nat
+   g 404 True  = 1
+   g n   False = n
+   g _   _     = 3
+   ```
+
+   `g 404 True = 1`, `g 404 False = 404`, `g 405 False = 405`,
+   `g 405 True = 3`. The row `g n False = n` runs with `n = 404` in the
+   `404` branch; it doesn't acquire an assumption `n ≠ 404`.
+6. **Variables bind the original value.** A variable pattern names the
+   value of the column it appears in, even after constructor splits on that
+   column have introduced predecessors. Regression test:
+
+   ```
+   h 404              = 0
+   h (Succ (Succ k))  = k
+   h n                = n
+   ```
+
+   `h 1` must be `1` (not the predecessor `0`), `h 0 = 0`, `h 404 = 0`,
+   `h 405 = 403`.
+7. **Exhaustiveness.** A `NumCase` needs a default, so a column of only
+   numbers with no variable or `_` row is `E-NONEXHAUSTIVE`, naming the
+   numbers that are handled.
+8. **The cap is removed.**
+
+### The default-branch regression, and the policy
+
+The default is checked knowing nothing about `n`, where the old expansion
+knew more on each path. This affects ordinary dependent programs, not just
+proofs:
+
+```
+ResultType : Nat -> Type
+ResultType Zero     = Nat
+ResultType (Succ _) = Bool
+
+make : (n : Nat) -> ResultType n
+make 0 = 0
+make n = False
+```
+
+Today the second equation is checked knowing `n = Succ m`, so
+`ResultType n` computes to `Bool` and `False` checks. With `NumCase`, it's
+checked for an arbitrary `n`: `ResultType n` doesn't compute, and `False` is
+rejected. The repair is to say what's meant:
+
+```
+make Zero     = 0
+make (Succ _) = False
+```
+
+The policy, uniformly, with no special threshold for small numbers:
+
+> A number pattern tests for a value. Explicit `Zero`/`Succ` patterns expose
+> structure. A catch-all after number patterns learns nothing about the
+> value: no predecessor, and no exclusions.
+
+So `0` and `Zero` in a pattern can lead to different checking. Inequalities
+in the default (`Not (n = 404)`, as Lean can provide) would be useful for
+some programs (excluding zero for a division), but they're a separate
+feature and don't restore constructor refinement (`ResultType n` still
+wouldn't compute), so not in this milestone. Where evidence is needed, match
+on constructors or use `if h : n = 404 then … else …`.
+
+**A targeted diagnostic.** When checking a `NumCase` default fails, and the
+goal or a variable's type mentions the scrutinee, the error gets a note:
+"number patterns test values: in this equation, nothing is known about `n`.
+To use its shape, match on `Zero` and `Succ` instead of `0`." (Wording to be
+settled with the snapshot tests.)
+
+Nothing in the repository's examples or prelude is affected, as far as a
+read of them shows: the prelude's `isSpaceCode` and `digitChar` use only
+numbers and `_` with non-dependent results, and `half`, `fib` and `peel`
+mix in `Succ` patterns, so they keep the `case` split. The implementation's
+test run will confirm it.
+
+### Other consumers of case trees
+
+Every place that understands `case` must understand `NumCase`. The audit
+list (from reading the code; each gets a test or a line of review):
+
+- **Kernel checking** (the rule above), and the "case only in a case tree"
+  position check.
+- **Termination checker** (above: traverse every child, keep outer
+  evidence).
+- **Scope and substitution:** shifting variable indices, "does this term
+  mention variable `i`" (the scrutinee counts as a mention), the
+  elaborator's metavariable substitution (zonking), freeing deep terms
+  without recursion.
+- **Both evaluators** (the main abstract machine and the independent
+  reference evaluator), and the unfolding policy.
+- **Content hashing:** the scrutinee, every key, every branch and the
+  default contribute to the declaration's hash, and so does a reference to
+  the `Nat` type (as a `case` hashes its data type). Changing `404` to
+  `405` must change the hash, invalidating cached test results. Canonical
+  key order helps but doesn't replace hashing all the content.
+- **Pretty-printing** of core terms (in error messages).
+- **Dependency collection:** what a definition refers to (for extraction's
+  reachability and for hashing).
+- **JS extraction:** a `switch` on the `bigint`, each listed branch as a
+  `case 404n:` block, then the default. This avoids the `Decidable` object
+  and branch closures option A would build; the exact runtime strategy
+  (`switch`, `if` chain) isn't part of the language's guarantee.
+- **Serialisation:** none exists for core terms today.
+
+### Performance: what's claimed
+
+Numeric dispatch no longer needs work proportional to the *value* of a
+literal. For a fixed context, checking does one refinement per distinct key
+(`m` refinements), each costing about as much as one `case` branch today,
+plus the cost of the branch bodies. That is not free: comparing and
+substituting big numbers costs time in their bit length, a dependent result
+type may itself compute on the literal (a value of a type with `10^30`
+elements is still expensive), and rows with variables are copied into every
+listed branch, so a wide table with many wildcard-heavy columns can still
+grow.
+
+To be measured separately, each with elaborator time, kernel time, peak
+memory and generated JS size:
+
+- **literal magnitude:** one key at increasing bit lengths (`2^8` … `2^100`);
+- **table width:** `m` distinct keys, `m` = 10, 100, 1,000;
+- **context and pattern complexity:** dependent arguments, several columns,
+  wildcard-heavy tables.
+
+The repository's benchmark suite (`crates/bench`) gets these cases.
+
+### Testing plan
+
+1. **A bounded constructor-expansion oracle.** A test-only function expands
+   a `NumCase` with small keys into ordinary constructor `case`s (the
+   expansion above, built from real `case` nodes, never calling the new
+   dispatcher). For generated and hand-written definitions: if the kernel
+   accepts the `NumCase` version, it must accept the expansion; and both
+   must evaluate alike on numbers, successor prefixes and unknowns (the same
+   result, or both stuck). The old elaborator path (number patterns as
+   `Succ` chains) is kept as a test-only option, bounded to small numbers,
+   so whole programs can be compared too.
+2. **Compiled patterns against a source-row matcher.** A tiny matcher that
+   tries the source equations top to bottom on closed inputs gives the
+   expected result; the compiled case tree must agree (first-match priority,
+   rows kept in listed branches, variable bindings: the `g` and `h` examples
+   above, plus generated tables).
+3. **Reference evaluator against generated JS**, under Node, especially
+   mixed constructor/number columns and large numbers (`10^30`).
+4. **Kernel tests on hand-built terms that must be rejected:**
+   - a listed branch whose body is only valid for a different key, and a
+     default that tries `rfl : n = 404`;
+   - refinement of dependent arguments in one branch, with a sibling branch
+     that would only type-check if the refinement leaked into it;
+   - non-decreasing recursion hidden in a listed branch, and in the default;
+   - a malformed scrutinee (not a variable in scope, not of type `Nat`),
+     duplicate keys, unsorted keys, an empty table;
+   - a `NumCase` inside an expression rather than a case-tree position;
+   - `bad x = rfl` for `hit x = False` (above).
+   And one that must be accepted: a recursive call on a structural
+   descendant established by a `case` *before* the `NumCase`, so the new
+   node doesn't discard existing evidence.
+5. **Evaluation tests:** the `hit` table above, including the metavariable
+   example, nested successor prefixes, solved metavariables inside a
+   prefix's tail, and the zero-offset case (`0 + x`, which is just `x`).
+6. **End to end:** `statusText` with codes 200…503 and a fallback (checking
+   time, results in the CLI, the evaluator and JS), a dependent result where
+   a branch needs `n = k`, the `ResultType`/`make` regression and its
+   diagnostic, several columns, `E-NONEXHAUSTIVE`, termination cases, and
+   the existing differential tests.
+
+## Text and characters
+
+There are no `Char` or `Text` literal patterns today. A `Char` pattern `'a'`
+could later be sugar for `MkChar 97 _` (a `Char` is its code plus a proof
+that the code is valid), which this design already compiles well: a `case`
+on `MkChar`, then a `NumCase` on the code. A `Text` pattern would be a
+`case` on the text's list of characters, one character at a time, so linear
+in its length. Neither is part of this change.
+
+## Open questions
+
+1. **The diagnostic's trigger.** "The default failed and the goal or
+   context mentions the scrutinee" may fire on errors unrelated to the
+   number pattern. Is a note that's occasionally irrelevant acceptable, or
+   should it require that the failure involve a stuck computation on the
+   scrutinee?
+2. **Default inequalities later.** If they're added, how should the surface
+   syntax name the proof, given that a wildcard equation isn't necessarily
+   (only) the default (it also runs inside listed branches, where the
+   inequality would be false)?
+
+## Changes since draft 1
+
+Adopted from the external review:
+
+1. The soundness claim is now **one-way conservativity** (every well-typed
+   `NumCase` has a well-typed expansion into ordinary `case`s with
+   corresponding evaluation; not the converse), with the expansion's
+   substitutions spelled out. Draft 1's "conversion gives the same answers,
+   and so does type checking" overstated it.
+2. **Termination:** no new descent evidence, surrounding evidence kept,
+   every child including the default traversed.
+3. **Kernel-checked invariants:** scrutinee a `Nat` variable, keys strictly
+   increasing, default present, case-tree positions only; an **empty table
+   is rejected** as non-canonical.
+4. **The default-branch regression** is documented with the
+   `ResultType`/`make` example (an ordinary dependent program, not just a
+   proof), with the uniform policy (numbers test values, `Zero`/`Succ`
+   expose structure, no threshold, no default inequalities this milestone)
+   and a targeted diagnostic.
+5. **Evaluation:** the `k + x` rule with `kₘ < k` (strict), the `hit` table,
+   "failure to establish equality is never disequality", substitution
+   stability, metavariable re-forcing (`403 + ?m`), and blocked selected
+   subtrees reusing the existing folding mechanism.
+6. **Pattern compiler details:** listed branches keep applicable wildcard
+   rows (the `g` example), repeated source literals merge into one key, the
+   first-row base case stays first, the mixed-binding test `h`, and "only as
+   many levels as the source writes `Succ`s" softened (explicit `Zero` also
+   forces a split; depth depends on pattern structure, not literal values).
+7. **Testing plan:** a bounded constructor-expansion oracle using real
+   `case`s, the old small-number compiler kept as a test-only path, a
+   source-row matcher on closed inputs, reference against JS, and the
+   invalid-kernel tests including `bad x = rfl`.
+8. **Performance claims** tightened: named variables (value of the literal,
+   number of distinct keys), separate measurements of magnitude, table width
+   and context complexity, and the JS benefit worded as avoiding the
+   `Decidable` object and closures.
+9. **Audit of every case-tree consumer**, including keys and default in the
+   declaration hash.
+10. **Option A** softened to an engineering trade-off (helper definitions
+    could restructure it), and the prior art qualified as precedent for the
+    representation, not for the typing rule.
+
+Draft 1's five open questions were answered by the review (B; no default
+inequalities yet; no small-number threshold; keep the "any constructor in
+the column" rule; the `k + x` default with a strict bound) and are folded in
+above.
+
+Not adopted, or adapted:
+
+- **Deserialisation-boundary tests** for invariants enforced by the term's
+  type: there's no serialised form of core terms, so there's nothing to
+  test; the note records that instead.
+- **Metavariable re-forcing:** the review asks that forcing reconsider a
+  blocked match after a solution. In this codebase, a stuck definition call
+  stays a folded call and is evaluated again when re-evaluated after
+  solving, rather than being "re-forced" in place; `NumCase` reuses that
+  unchanged, and the `403 + ?m` test checks the observable behaviour.
+  Exactly where re-evaluation happens during unification hasn't been traced
+  for this note.
 
 ## Sources
 
@@ -286,7 +611,7 @@ default. Compare the two rules:
   <https://doi.org/10.1145/1411304.1411311>
 - J. Cockx and A. Abel, *Elaborating Dependent (Co)pattern Matching*,
   ICFP 2018 (case trees for a dependently typed core, as in Agda).
-  <https://dl.acm.org/doi/10.1145/3236770>
+  <https://doi.org/10.1145/3236770>
 - Lean 4 API, `Lean.Meta.caseValues` ("Split goal `... |- C x` … into
   `values.size + 1` subgoals … The type of `x` must have decidable
   equality … the last subgoal is for the "else" catchall case").
