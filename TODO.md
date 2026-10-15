@@ -20,21 +20,16 @@ this file.
 The main session orchestrates: it chooses lanes, hands each to a background
 agent, then reviews, merges and updates this file.
 
-Round 2, in progress:
-- **Stack-safe step 4** (lane `depth-guards`): item 1 of **Next**.
+Round 2:
+- ~~Stack-safe step 4~~ (lane `depth-guards`): merged as `d166039`.
 - ~~Text step 5~~ (lane `run`): merged as `65f91ce`.
 - ~~Text step 6~~ (lane `playground-run`): merged as `f35f1a7`.
-
-Text step 3 waits for round 3: it edits `js/lib.rs` alongside step 4.
+- **Syntax colouring in the playground** (lane `syntax-colour`, asked for
+  directly): in progress.
 
 ## Next
 
-1. **Stack-safe evaluation, step 4:** depth guards in the parser, elaborator,
-   unifier, kernel, hasher, termination checker, JS generator and printer,
-   tested in subprocesses just past each limit. `web/stress.html` shows the
-   three cases that still crash the browser (long list and text literals,
-   deep nesting); they should become `E-RESOURCE`.
-2. **Text, step 3** ([proposal](docs/proposals/text-and-io.md)): JS encoders
+1. **Text, step 3** ([proposal](docs/proposals/text-and-io.md)): JS encoders
    and decoders for `Text` and `Char`, the boundary tests (surrogates, NUL,
    noncharacters, both round-trip laws), and differential tests including the
    cross-runtime counterexamples. Decide how generated JS copes with long
@@ -47,6 +42,20 @@ Text step 3 waits for round 3: it edits `js/lib.rs` alongside step 4.
 - **`==` operands are computed at check time.** `f x == y` puts `f x = y` in
   a type, so checking computes `f x`. Needs lazily evaluated values, or a
   translation of `==` that keeps its operands out of types.
+- **The pattern compiler grows about as the cube of nesting depth:** a
+  pattern 200 deep takes 2.4 s and 190 MB, 400 deep 17 s and 1.4 GB.
+- **Elaborating a chain is quadratic:** `expr.span()` and `may_perform` walk
+  the whole subexpression at every level.
+- **The WebAssembly guard size:** 128 KiB gives the playground about 25
+  levels of nesting and list literals of about 200 elements. 256 KiB would
+  roughly double that, with a 2× margin in Node. Separately, the parser's
+  stack use per level could be cut (e.g. by boxing the `Diagnostic` in its
+  `Result`).
+- **Long list and text literals** stop at about 1,800 elements in a 2 MiB
+  thread (about 75,000 in the CLI); waits on compact literals or checking
+  literals without recursion.
+- **The printer prints a function type's domain twice** in some branches,
+  which may grow exponentially with nested domains (not measured).
 - **Solving metavariables without recursion:** `solve`, `rename`, `prune`
   and `zonk` still recurse over a solution (they count against the budget,
   so a deep one is `E-RESOURCE`).
@@ -111,6 +120,13 @@ Text step 3 waits for round 3: it edits `js/lib.rs` alongside step 4.
   program depth, but it's the one exception to "no re-entry".
 - **Memory per frame:** a million-deep recursion peaks at about 750 MB; the
   default limit is 2 million frames.
+- **The differential test overflows in debug builds:**
+  `the_evaluators_agree_on_the_prelude_and_every_example` overflows its
+  64 MiB thread in a debug build (already so before step 4); release builds,
+  which the gate uses, pass.
+- **Agents' clean-up can hit the user's processes:** the depth-guards lane
+  ran `pkill -f serve_forever`, which stopped the local playground server.
+  Agent prompts now say to stop only processes they started, by PID.
 - **Remaining surviving mutants** judged equivalent or unreachable:
   `effects.rs` lines 223 (×3), 403, 414, 706 (×2), 709, 745, 844;
   `termination.rs` line 111 (`>` → `>=`); the `auto` fix in step 1 (masked
@@ -118,6 +134,7 @@ Text step 3 waits for round 3: it edits `js/lib.rs` alongside step 4.
 
 ## Recently done
 
+- `d166039` Stack-safe step 4 (depth-guards lane, merged): every recursive pass guarded by stack use; deep nesting is `E-RESOURCE` natively and in WebAssembly (`crates/driver/tests/nesting.rs`).
 - `f35f1a7` Text step 6 (playground-run lane, merged): the playground's Run button and its compiler in Web Workers, replaced after a crash. View it locally with `web/serve.sh`.
 - `65f91ce` Text step 5 (run lane, merged): `main` and `stitchwort run`, tested against `simulate` and real standard input and output; `examples/accept/adder.sw`.
 - `3fb4764` Text step 4 (IO lane, merged): the `IO` ability and `simulate`, `examples/accept/io.sw`, `examples/extract/io.sw`.
