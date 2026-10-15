@@ -1,6 +1,6 @@
 # Proposal: how abilities and handlers run
 
-**Status:** draft for discussion, 15 October 2026. Nothing here is implemented. This is the "written operational semantics" that DESIGN.md §15 requires before milestone 7, plus a recommendation for how to build it.
+**Status:** draft for discussion, 15 October 2026. Nothing here is implemented. A self-contained version for reviewers is in [`abilities-review.md`](abilities-review.md). This is the "written operational semantics" that DESIGN.md §15 requires before milestone 7, plus a recommendation for how to build it.
 
 ## Summary
 
@@ -112,11 +112,11 @@ The elaborator translates effectful code into ordinary values of one data type, 
 
 ```
 -- A computation that returns an `a`, performing operations from a
--- signature: `Op` is the type of operation calls, and `Res op` is what
--- operation `op` gives back.
-type Comp (Op : Type) (Res : Op -> Type) (a : Type) : Type =
+-- signature: `op` is the type of operation calls, and `res o` is what
+-- call `o` gives back.
+type Comp (op : Type) (res : op -> Type) (a : Type) : Type =
   | Done (value : a)
-  | Call (op : Op) (rest : Res op -> Comp Op Res a)
+  | Call (o : op) (rest : res o -> Comp op res a)
 ```
 
 - An effectful function `a -> {e} b` becomes a pure function `a -> Comp (ops of e) (results of e) b`. The kernel never sees ability rows, only this data type.
@@ -126,8 +126,8 @@ type Comp (Op : Type) (Res : Op -> Type) (a : Type) : Type =
 
 **Why this answers the termination question.** The kernel already checks two things that together prove an admissible handler terminates:
 
-- **Positivity.** `Comp` is strictly positive, since `rest`'s domain `Res op` doesn't mention `Comp`, so every tree is finite (well-founded).
-- **Structural recursion.** The handler recurses on `rest y`, which is structurally smaller than `Call op rest`. Coq and Lean accept this standard rule for function-typed fields. Our termination checker needs a small extension to accept it, limited (as in Coq) to fields whose result is the data type being matched.
+- **Positivity.** `Comp` is strictly positive, since `rest`'s domain `res o` doesn't mention `Comp`, so every tree is finite (well-founded).
+- **Structural recursion.** The handler recurses on `rest y`, which is structurally smaller than `Call o rest`. Coq and Lean accept this standard rule for function-typed fields. Our termination checker needs a small extension to accept it, limited (as in Coq) to fields whose result is the data type being matched.
 
 The two counterexamples in DESIGN.md §8 are then rejected by these existing checks, with no special rule:
 
