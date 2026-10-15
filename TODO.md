@@ -17,7 +17,15 @@ Work runs in lanes, each in its own git worktree and branch, merged into
 `main` one at a time (with `nix flake check` after each). Only `main` edits
 this file.
 
-Nothing in progress: the next round of lanes is to be chosen from **Next**.
+The main session orchestrates: it chooses lanes, hands each to a background
+agent, then reviews, merges and updates this file.
+
+Round 2, in progress:
+- **Stack-safe step 4** (lane `depth-guards`): item 1 of **Next**.
+- **Text step 5** (lane `run`): item 3 of **Next**, `main` and
+  `stitchwort run`; mostly the CLI and driver, so it shouldn't clash.
+
+Text step 3 waits for round 3: it edits `js/lib.rs` alongside step 4.
 
 ## Next
 
