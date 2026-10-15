@@ -896,7 +896,7 @@ Host implementations are **trusted contracts**: JS can't be checked for purity o
 | **Checking never runs effects** | Principle 2. |
 | **Tracked assumptions** | `stitchwort assumptions <name>` lists every `assume`, foreign function, proof hole and conjecture a definition depends on. |
 | **A "must reject" test suite** | Readable example programs that must fail to type-check. |
-| **Native arithmetic is listed and tested** | A few prelude definitions on `Nat` run natively, in the kernel's evaluator and in extracted JS. They're trusted, so each is compared with its own definition by tests ([`docs/core.md`](docs/core.md#numbers)). |
+| **Native arithmetic is listed and tested** | A few prelude definitions on `Nat` run natively, in the kernel's evaluator and in extracted JS. They're trusted, so each is compared with its own definition by tests, as the whole result: a native returning a proof must give the definition's own proof term, so natives never change which `rfl` proofs check ([`docs/core.md`](docs/core.md#numbers)). |
 | **Native text in extracted JS is listed and tested** | In extracted JS only (not the kernel), 14 prelude text operations are native JS, each used only for the exact definition it was written for (by content hash) and compared with the list-based code compiled from its definition ([compact text](docs/proposals/compact-text.md#as-built-stage-1)). A wrong one would give a wrong answer in JS, not a false theorem. |
 
 ### The "must reject" suite

@@ -1590,8 +1590,8 @@ fn native_js(op: native::Native) -> &'static str {
             "(fuel) => (n) => (d) => { if (d === 0n) return fuel; const q = n / d; return q < fuel ? q : fuel; }"
         }
         Native::DecEqNat => "(m) => (n) => ({ tag: m === n ? \"Yes\" : \"No\" })",
-        // A proof, so it's erased and never emitted.
-        Native::EqNatRefl => "undefined",
+        // Proofs, so they're erased and never emitted.
+        Native::EqNatRefl | Native::EqNatSound => "undefined",
     }
 }
 
@@ -1654,7 +1654,7 @@ const TEXT_NATIVES: &[(&str, TextNative, &str)] = &[
     (
         "decEqText",
         TextNative::DecEqText,
-        "3661f137695e49aed7f500f37ae354aad2d7d5570feaf9b1fcceacbd6245df93",
+        "315a9486c26869db111f0cbe299dda583787a3f56421626ba8d1a12648463cac",
     ),
     (
         "textCompare",
@@ -1679,7 +1679,7 @@ const TEXT_NATIVES: &[(&str, TextNative, &str)] = &[
     (
         "textSplit",
         TextNative::TextSplit,
-        "b55a5453c14ae439d0e4b19c87dd7d8a7d14ab05c1f86c108c72f54985cada45",
+        "0d1ba51fdc8e3ca0229687d960da99908e33fdc62c9f03c0c06b18c535bd4081",
     ),
     (
         "textJoin",

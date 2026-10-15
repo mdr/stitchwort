@@ -10,7 +10,11 @@
 //! their arguments are numbers. Otherwise they unfold as usual, so proofs by
 //! induction still work. The native implementations are part of the trusted
 //! base (DESIGN.md §13): a bug in one could make the kernel accept `2 + 2 = 5`.
-//! The tests compare each one with its definition on many inputs.
+//! Each must compute exactly what its definition computes, as the whole
+//! result: for a native returning a proof, the same proof term up to
+//! conversion, not just another proof of the same thing (otherwise turning
+//! natives on would change which `rfl` proofs check). The tests compare whole
+//! results with the definitions on many inputs.
 //!
 //! Built-ins are registered by name, only while the prelude is loaded, and the
 //! registration functions check the shapes of the types involved.
@@ -48,15 +52,20 @@ pub enum Native {
     EqNat,
     /// `divFuel fuel n d`: how many times `d` fits into `n`, at most `fuel`.
     DivFuel,
-    /// `decEqNat m n : Decidable (m = n)`
+    /// `decEqNat m n : Decidable (m = n)`: `Yes rfl` or `No (natNeq m n rfl)`,
+    /// exactly what its definition computes.
     DecEqNat,
     /// `eqNatRefl n : eqNat n n = True`, which is `rfl` for any number. Without
     /// this, using `natNeq` would count down its first argument.
     EqNatRefl,
+    /// `eqNatSound m n h : m = n`, which is `rfl` when `m` and `n` are the same
+    /// number, whatever `h` is. Without this, the `Yes` that `decEqNat`'s
+    /// definition computes would count down its arguments.
+    EqNatSound,
 }
 
 impl Native {
-    pub const ALL: [Native; 8] = [
+    pub const ALL: [Native; 9] = [
         Native::Add,
         Native::Sub,
         Native::Mul,
@@ -65,6 +74,7 @@ impl Native {
         Native::DivFuel,
         Native::DecEqNat,
         Native::EqNatRefl,
+        Native::EqNatSound,
     ];
 
     /// The prelude definition this implements.
@@ -78,14 +88,24 @@ impl Native {
             Native::DivFuel => "divFuel",
             Native::DecEqNat => "decEqNat",
             Native::EqNatRefl => "eqNatRefl",
+            Native::EqNatSound => "eqNatSound",
         }
     }
 
     pub fn arity(self) -> usize {
         match self {
-            Native::DivFuel => 3,
+            Native::DivFuel | Native::EqNatSound => 3,
             Native::EqNatRefl => 1,
             _ => 2,
+        }
+    }
+
+    /// How many of the arguments are numbers: all of them except
+    /// `eqNatSound`'s proof, which it never looks at.
+    pub fn numbers(self) -> usize {
+        match self {
+            Native::EqNatSound => 2,
+            _ => self.arity(),
         }
     }
 }
@@ -99,8 +119,8 @@ pub struct Builtins {
     pub bool: Option<DataId>,
     /// `Decidable p`: constructor 0 is `Yes`, constructor 1 is `No`.
     pub decidable: Option<DataId>,
-    /// `natNeq : (m n : Nat) -> eqNat m n = False -> Not (m = n)`, used to
-    /// build the refutation in `decEqNat`'s `No`.
+    /// `natNeq : (m n : Nat) -> eqNat m n = False -> Not (m = n)`, which
+    /// `decEqNat`'s definition puts in its `No`, and so the native does too.
     pub nat_neq: Option<DefId>,
     natives: HashMap<DefId, Native>,
     /// Off in tests that compare natives with their definitions.
@@ -235,6 +255,29 @@ pub fn register_native(g: &mut Globals, id: DefId, native: Native) -> Result<()>
                     )],
                 )
             }),
+        // (m : Nat) -> (n : Nat) -> eqNat m n = True -> m = n
+        Native::EqNatSound => {
+            g.builtins
+                .bool
+                .zip(native_def(g, Native::EqNat))
+                .map(|(bool, eq_nat)| {
+                    arrow(
+                        Term::Eq(
+                            Some(Rc::new(Term::Data(bool, Vec::new()))),
+                            Rc::new(Term::app(
+                                Term::app(Term::Def(eq_nat), Term::Var(1)),
+                                Term::Var(0),
+                            )),
+                            Rc::new(Term::Ctor(bool, 1, Vec::new())),
+                        ),
+                        Term::Eq(
+                            Some(Rc::new(nat_ty())),
+                            Rc::new(Term::Var(2)),
+                            Rc::new(Term::Var(1)),
+                        ),
+                    )
+                })
+        }
         // (n : Nat) -> eqNat n n = True
         Native::EqNatRefl => {
             g.builtins
@@ -255,7 +298,7 @@ pub fn register_native(g: &mut Globals, id: DefId, native: Native) -> Result<()>
     let Some(mut expected) = result else {
         return Err(shape_error(span, native.name()));
     };
-    for _ in 0..native.arity() {
+    for _ in 0..native.numbers() {
         expected = arrow(nat_ty(), expected);
     }
     if def.arity != native.arity() || !conv(g, 0, &eval(g, &[], &expected)?, &def.ty_value)? {
@@ -582,7 +625,7 @@ pub fn run(
         return Ok(None);
     };
     let mut args = Vec::new();
-    for v in &values {
+    for v in values.iter().take(native.numbers()) {
         match as_nat_with(g, v, force)? {
             Some(n) => args.push(n),
             None => return run_partial(g, id, native, &values, force),
@@ -606,13 +649,17 @@ fn run_numbers(g: &Globals, native: Native, args: &[BigUint]) -> Option<Value> {
             fuel.min(&(n / d)).clone()
         }),
         (Native::EqNatRefl, [_]) => Some(Value::Refl),
+        // When the numbers differ, the definition unfolds instead (to a proof
+        // from `h`, which can only be a hypothesis).
+        (Native::EqNatSound, [m, n]) => (m == n).then_some(Value::Refl),
         (Native::DecEqNat, [m, n]) => {
             let dec = g.builtins.decidable?;
             if m == n {
                 Some(Value::Ctor(dec, 0, [Value::Refl].into()))
             } else {
-                // `natNeq m n rfl`, which is stuck until it's given a proof
-                // of `m = n` (and there isn't one).
+                // `natNeq m n rfl`, as the definition's `False` case gives
+                // (`eqNat m n` is `False`, so `h` is `rfl`). It's stuck until
+                // it's given a proof of `m = n`, and there isn't one.
                 let arg = |v| Elim::App(v, Icit::Explicit);
                 let refutation = Value::Neutral(
                     Head::Def(g.builtins.nat_neq?),
