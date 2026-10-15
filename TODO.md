@@ -47,8 +47,11 @@ Round 2:
   (supports whole-module scope with size-change termination; requires
   kernel-enforced group completeness, a partial-application policy, and an
   honest account of `auto` and scheduling). Draft 2 merged; implementation
-  waits for the user (a second review of the new admission protocol and
-  termination argument is suggested). Recommends any order within a file, grouped automatically, with
+  waits for a **second review** (sent: §5 admission, §6.4 termination,
+  arity, the data-group call, the deferred parts).
+- **Kernel admission fix** (lane `kernel-admission`): explicit declaration
+  states and the admission rule for single declarations, closing the
+  split-cycle and pending-datatype holes (see Known issues). Recommends any order within a file, grouped automatically, with
   size-change termination checked by the kernel.
 - ~~JS boundary hardening~~ (lane `js-boundary`): merged as `84bc590`.
 
