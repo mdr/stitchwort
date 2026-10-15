@@ -1,0 +1,12 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-EXPORT] Error: `delete` can't be exported
+   ╭─[ reject/export-reserved-name.sw:4:1 ]
+   │
+ 4 │ ╭─▶ export
+ 5 │ ├─▶ delete : Nat -> Nat
+   │ │                         
+   │ ╰───────────────────────── its name is reserved in JavaScript
+───╯

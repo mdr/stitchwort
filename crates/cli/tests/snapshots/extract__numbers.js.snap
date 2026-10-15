@@ -32,29 +32,63 @@ const outOfResources = (name, e) =>
       )
     : e;
 
-const dec_Nat = (x, path) => {
-  if (typeof x !== "bigint" || x < 0n) {
-    throw new StitchwortInputError(`${path}: expected a non-negative bigint`);
-  }
-  return x;
+// Boundary types are described by data, and one loop decodes (or encodes) a
+// value of any of them, keeping its own stack, so deeply nested input
+// doesn't use up the JS stack:
+// - a leaf (`NAT`, `BOOL`, `TEXT`, `CHAR`) is decoded and encoded in one step;
+// - `list(t)` is an array;
+// - `data(info, args)` is a data type applied to its arguments: a tagged
+//   object, with the constructors and fields given by `define`;
+// - `param(i)`, in a field's type, is the data type's parameter `i`.
+// `open` says whether a type mentions a parameter.
+const LEAF = 0, LIST = 1, DATA = 2, PARAM = 3;
+const leaf = (dec, enc) => ({ kind: LEAF, open: false, dec, enc });
+const list = (elem) => ({ kind: LIST, open: elem.open, elem });
+const data = (info, args = []) => ({ kind: DATA, open: args.some((a) => a.open), info, args });
+const param = (i) => ({ kind: PARAM, open: true, i });
+const datatype = (name) => ({ name, ctors: new Map(), tags: "" });
+// Each constructor's tag, and its fields' keys and types, in order.
+const define = (info, ctors) => {
+  for (const [tag, fields] of ctors) info.ctors.set(tag, fields);
+  const tags = ctors.map(([tag]) => JSON.stringify(tag));
+  info.tags =
+    tags.length > 1 ? `${tags.slice(0, -1).join(", ")} or ${tags.at(-1)}`
+    : tags.length === 1 ? tags[0]
+    : `nothing: ${info.name} has no values`;
 };
-const enc_Nat = (v) => v;
+// A field's type `t`, with its data type's parameters replaced by `args`.
+const close = (t, args) =>
+  !t.open ? t
+  : t.kind === PARAM ? args[t.i]
+  : t.kind === LIST ? list(close(t.elem, args))
+  : data(t.info, t.args.map((a) => close(a, args)));
 
-const dec_Bool = (x, path) => {
-  if (typeof x !== "boolean") {
-    throw new StitchwortInputError(`${path}: expected a boolean`);
+// A leaf decoder refuses its input by throwing a `Refusal`, which `decode`
+// turns into a `StitchwortInputError` saying where the input was wrong.
+class Refusal {
+  constructor(message) {
+    this.message = message;
   }
-  return x ? { tag: "True" } : { tag: "False" };
+}
+const refuse = (message) => {
+  throw new Refusal(message);
 };
-const enc_Bool = (v) => v.tag === "True";
+
+const NAT = leaf(
+  (x) => (typeof x === "bigint" && x >= 0n ? x : refuse("expected a non-negative bigint")),
+  (v) => v,
+);
+
+const BOOL = leaf(
+  (x) => (typeof x === "boolean" ? { tag: x ? "True" : "False" } : refuse("expected a boolean")),
+  (v) => v.tag === "True",
+);
 
 // `Text` is a string. Decoding takes its Unicode scalar values in order, and
 // refuses a string with a lone surrogate (which JS allows) rather than
 // repairing it, so encoding gives back exactly the string that was decoded.
-const scalars = (x, path) => {
-  if (typeof x !== "string") {
-    throw new StitchwortInputError(`${path}: expected a string`);
-  }
+const scalars = (x) => {
+  if (typeof x !== "string") refuse("expected a string");
   const codes = [];
   for (let i = 0; i < x.length; i++) {
     const unit = x.charCodeAt(i);
@@ -65,73 +99,187 @@ const scalars = (x, path) => {
     const low = i + 1 < x.length ? x.charCodeAt(i + 1) : 0;
     if (unit > 0xdbff || low < 0xdc00 || low > 0xdfff) {
       const hex = unit.toString(16).toUpperCase();
-      throw new StitchwortInputError(
-        `${path}: a lone surrogate (U+${hex}) at index ${i}; text must be a well-formed string`,
-      );
+      refuse(`a lone surrogate (U+${hex}) at index ${i}; text must be a well-formed string`);
     }
     codes.push(BigInt(0x10000 + ((unit - 0xd800) << 10) + (low - 0xdc00)));
     i++;
   }
   return codes;
 };
-const dec_Text = (x, path) => {
-  const codes = scalars(x, path);
-  let chars = { tag: "Nil" };
-  for (let i = codes.length - 1; i >= 0; i--) {
-    chars = { tag: "Cons", head: { tag: "MkChar", code: codes[i] }, tail: chars };
-  }
-  return { tag: "MkText", chars };
-};
-const enc_Text = (v) => {
-  const parts = [];
-  for (let l = v.chars; l.tag === "Cons"; l = l.tail) parts.push(enc_Char(l.head));
-  return parts.join("");
-};
+const encodeChar = (v) => String.fromCodePoint(Number(v.code));
+const TEXT = leaf(
+  (x) => {
+    const codes = scalars(x);
+    let chars = { tag: "Nil" };
+    for (let i = codes.length - 1; i >= 0; i--) {
+      chars = { tag: "Cons", head: { tag: "MkChar", code: codes[i] }, tail: chars };
+    }
+    return { tag: "MkText", chars };
+  },
+  (v) => {
+    const parts = [];
+    for (let l = v.chars; l.tag === "Cons"; l = l.tail) parts.push(encodeChar(l.head));
+    return parts.join("");
+  },
+);
 
 // `Char` is a string holding exactly one scalar value: one or two UTF-16
 // code units.
-const dec_Char = (x, path) => {
-  const codes = scalars(x, path);
-  if (codes.length !== 1) {
-    throw new StitchwortInputError(
-      `${path}: expected exactly one character, but the string has ${codes.length}`,
-    );
-  }
-  return { tag: "MkChar", code: codes[0] };
-};
-const enc_Char = (v) => String.fromCodePoint(Number(v.code));
+const CHAR = leaf(
+  (x) => {
+    const codes = scalars(x);
+    if (codes.length !== 1) {
+      refuse(`expected exactly one character, but the string has ${codes.length}`);
+    }
+    return { tag: "MkChar", code: codes[0] };
+  },
+  encodeChar,
+);
 
-// Decoders read each property exactly once, into fresh values. `inside` holds
-// the objects currently being decoded, so an input that contains itself is
-// refused instead of recursing forever. (Shared, acyclic parts are fine.)
-const enter = (x, path, inside) => {
-  if (inside.has(x)) {
-    throw new StitchwortInputError(`${path}: the input contains itself`);
+// A short description of an unexpected tag.
+const describe = (x) =>
+  typeof x !== "string" ? (x === null ? "null" : typeof x)
+  : x.length > 40 ? `${JSON.stringify(x.slice(0, 40))}…`
+  : JSON.stringify(x);
+
+// The path to a value, as in `arg0.left[2].tail`, from its steps: an array
+// index or a field's key. A path into deeply nested input is summarised, so
+// that the message stays short: a run of the same step is written once with
+// a count, and the middle of a long path is left out.
+const step = (s) => (typeof s === "number" ? `[${s}]` : `.${s}`);
+const pathText = (root, path) => {
+  if (path.length <= 12) return root + path.map(step).join("");
+  const runs = [];
+  for (let i = 0; i < path.length; ) {
+    let j = i + 1;
+    while (j < path.length && path[j] === path[i]) j++;
+    const text = j - i > 3 ? `(${step(path[i])} ×${j - i})` : path.slice(i, j).map(step).join("");
+    runs.push({ text, steps: j - i });
+    i = j;
   }
-  inside.add(x);
+  const text = (rs) => rs.map((r) => r.text).join("");
+  if (runs.length <= 12) return root + text(runs);
+  const hidden = runs.slice(6, -6).reduce((n, r) => n + r.steps, 0);
+  return `${root}${text(runs.slice(0, 6))}…(${hidden} more steps)…${text(runs.slice(-6))}`;
 };
 
-const dec_List = (dec) => (x, path, inside = new Set()) => {
-  if (!Array.isArray(x)) {
-    throw new StitchwortInputError(`${path}: expected an array`);
+const NONE = Symbol("none");
+
+// Decodes `x` as a value of type `t` (which mentions no parameters), reading
+// each property exactly once, into fresh values. `root` names the argument,
+// for error messages. Each array or object being decoded has a frame, and
+// `inside` holds them, so an input that contains itself is refused instead of
+// looping forever. (Shared, acyclic parts are fine.) Elements and fields are
+// read and decoded in order, each completely before the next is read.
+const decode = (t, x, root) => {
+  const frames = [];
+  const path = [];
+  const inside = new Set();
+  try {
+    for (;;) {
+      // Start on `x`: a leaf is done at once; an array or object gets a frame.
+      let value = NONE;
+      if (t.kind === LEAF) {
+        value = t.dec(x);
+      } else {
+        if (t.kind === LIST) {
+          if (!Array.isArray(x)) refuse("expected an array");
+        } else if (typeof x !== "object" || x === null) {
+          refuse(`expected a ${t.info.name} object`);
+        }
+        if (inside.has(x)) refuse("the input contains itself");
+        inside.add(x);
+        if (t.kind === LIST) {
+          frames.push({ t, x, fields: undefined, i: 0, n: x.length, out: [] });
+        } else {
+          const tag = x.tag;
+          const fields = t.info.ctors.get(tag);
+          if (fields === undefined) refuse(`unknown tag ${describe(tag)}; expected ${t.info.tags}`);
+          frames.push({ t, x, fields, i: 0, n: fields.length, out: { tag } });
+        }
+      }
+      // Give `value` to the frame waiting for it, and finish frames, until
+      // one has another element or field to decode, or the outermost is done.
+      for (;;) {
+        const f = frames[frames.length - 1];
+        if (value !== NONE) {
+          if (f === undefined) return value;
+          if (f.fields === undefined) f.out.push(value);
+          else f.out[f.fields[f.i][0]] = value;
+          f.i++;
+          path.pop();
+        }
+        if (f.i < f.n) {
+          if (f.fields === undefined) {
+            path.push(f.i);
+            x = f.x[f.i];
+            t = f.t.elem;
+          } else {
+            const [key, type] = f.fields[f.i];
+            path.push(key);
+            x = f.x[key];
+            t = close(type, f.t.args);
+          }
+          break;
+        }
+        frames.pop();
+        inside.delete(f.x);
+        if (f.fields === undefined) {
+          value = { tag: "Nil" };
+          for (let i = f.n - 1; i >= 0; i--) value = { tag: "Cons", head: f.out[i], tail: value };
+        } else {
+          value = f.out;
+        }
+      }
+    }
+  } catch (e) {
+    if (e instanceof Refusal) {
+      throw new StitchwortInputError(`${pathText(root, path)}: ${e.message}`);
+    }
+    throw e;
   }
-  enter(x, path, inside);
-  const n = x.length;
-  const items = new Array(n);
-  for (let i = 0; i < n; i++) items[i] = dec(x[i], `${path}[${i}]`, inside);
-  inside.delete(x);
-  let list = { tag: "Nil" };
-  for (let i = n - 1; i >= 0; i--) list = { tag: "Cons", head: items[i], tail: list };
-  return list;
 };
-const enc_List = (enc) => (v) => {
-  const out = [];
-  while (v.tag === "Cons") {
-    out.push(enc(v.head));
-    v = v.tail;
+
+// Encodes `v`, a value of type `t`, as fresh JS values, the same way round.
+// Values made by Stitchwort code are well-formed, so this can't fail.
+const encode = (t, v) => {
+  const frames = [];
+  for (;;) {
+    let value = NONE;
+    if (t.kind === LEAF) {
+      value = t.enc(v);
+    } else if (t.kind === LIST) {
+      frames.push({ t, v, fields: undefined, out: [] });
+    } else {
+      frames.push({ t, v, fields: t.info.ctors.get(v.tag), i: 0, out: { tag: v.tag } });
+    }
+    for (;;) {
+      const f = frames[frames.length - 1];
+      if (value !== NONE) {
+        if (f === undefined) return value;
+        if (f.fields === undefined) f.out.push(value);
+        else f.out[f.fields[f.i++][0]] = value;
+      }
+      if (f.fields === undefined) {
+        // `f.v` is the rest of the list.
+        if (f.v.tag === "Cons") {
+          v = f.v.head;
+          f.v = f.v.tail;
+          t = f.t.elem;
+          break;
+        }
+      } else if (f.i < f.fields.length) {
+        const [key, type] = f.fields[f.i];
+        v = f.v[key];
+        t = close(type, f.t.args);
+        break;
+      }
+      frames.pop();
+      value = f.out;
+    }
   }
-  return out;
 };
+
 
 const $absurd = () => {
   throw new Error("unreachable");
@@ -232,29 +380,31 @@ const $get = (v1) => (v2) => {
 const $third = (v0) => $elimDec($decLessThan(2n)($length(v0)))(((v1) => $get(v0)(2n)))(((v1) => 0n));
 const $isEven = (v0) => $leq($mod(v0)(2n))(0n);
 
-export function average(xs) {
+function $$average(arg0) {
   try {
-    const v0 = dec_List(dec_Nat)(xs, "xs");
-    return enc_Nat($average(v0));
+    const v0 = decode(list(NAT), arg0, "xs");
+    return encode(NAT, $average(v0));
   } catch (e) {
     throw outOfResources("average", e);
   }
 }
 
-export function third(xs) {
+function $$third(arg0) {
   try {
-    const v0 = dec_List(dec_Nat)(xs, "xs");
-    return enc_Nat($third(v0));
+    const v0 = decode(list(NAT), arg0, "xs");
+    return encode(NAT, $third(v0));
   } catch (e) {
     throw outOfResources("third", e);
   }
 }
 
-export function isEven(n) {
+function $$isEven(arg0) {
   try {
-    const v0 = dec_Nat(n, "n");
-    return enc_Bool($isEven(v0));
+    const v0 = decode(NAT, arg0, "n");
+    return encode(BOOL, $isEven(v0));
   } catch (e) {
     throw outOfResources("isEven", e);
   }
 }
+
+export { $$average as average, $$third as third, $$isEven as isEven };

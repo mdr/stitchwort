@@ -1,0 +1,12 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-EXPORT] Error: `useOuter` can't be exported
+    ╭─[ reject/export-function-field.sw:10:1 ]
+    │
+ 10 │ ╭─▶ export
+ 11 │ ├─▶ useOuter : Outer -> Nat
+    │ │                             
+    │ ╰───────────────────────────── parameter `o`: `Outer`'s field `inner`: `Holder`'s field `f`: functions can't cross the JS boundary yet
+────╯

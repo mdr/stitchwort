@@ -1,0 +1,12 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-EXPORT] Error: `oops` can't be exported
+   ╭─[ reject/export-module-name.sw:6:1 ]
+   │
+ 6 │ ╭─▶ export
+ 7 │ ├─▶ oops : Nat -> StitchwortInputError
+   │ │                                        
+   │ ╰──────────────────────────────────────── its result: `StitchwortInputError` is the name of something else the generated module exports
+───╯
