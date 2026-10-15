@@ -1,7 +1,15 @@
 # Proposal: forward references and mutual recursion
 
-**Status:** draft 2, 15 October 2026. Revised after an external review of
-draft 1; awaiting confirmation before implementation. Not implemented.
+**Status:** draft 3, 15 October 2026. Draft 2 was revised after an
+external review of draft 1; a second review approved implementing draft 2,
+with the clarifications folded in here. Implementation has started (§10):
+the size-change graph algorithm exists as a standalone, independently
+tested module (`crates/core/src/sct.rs`) that the termination checker
+doesn't call yet.
+
+**This note gives a proof outline, not a completed soundness proof** (§6.4).
+The design is ready to implement and test; its full soundness theorem is not
+established.
 
 This note is meant to be read without knowing the codebase. The first section
 describes the parts of Stitchwort it touches; everything said there was
@@ -12,7 +20,7 @@ throwaway test, not committed.
 
 ## Contents
 
-0. [Changes since draft 1](#0-changes-since-draft-1)
+0. [Changes since draft 2](#0-changes-since-draft-2)
 1. [Background: how things work today](#1-background-how-things-work-today)
 2. [The problem](#2-the-problem)
 3. [How other systems do it](#3-how-other-systems-do-it)
@@ -27,7 +35,55 @@ throwaway test, not committed.
 12. [The review's answers, and where this draft stands](#12-the-reviews-answers-and-where-this-draft-stands)
 13. [Sources](#sources)
 
-## 0. Changes since draft 1
+## 0. Changes since draft 2
+
+The second review approved implementing draft 2 ("the remaining changes are
+specification clarifications, not another architectural redesign"), asking
+for these clarifications, all adopted:
+
+- **§5.2: why the direct check suffices** is now an induction over
+  *group-finalization events*, not over individual members, and the
+  invariant must be enforced on **every** admission path: today's
+  `declare_*`/`define_*` functions, builtin and native registration (which,
+  read from the code, checks shapes and types but not that the declarations
+  it names are finished), and any future path that loads cached or imported
+  declarations (none exists today: the driver caches test results, not
+  declarations).
+- **§5.2: phase-specific reference permissions.** Draft 2 claimed the
+  signature, mixed-kind and sibling-constructor exclusions follow from the
+  invariant. They don't: the invariant permits references to group members,
+  which taken literally would allow all three. They follow from the
+  invariant *plus* a table of what each phase may reference *plus*
+  homogeneous group APIs. Something at the kernel boundary enforces each.
+- **§5.1/§5.2: opaque assumptions.** The invariant is stated for today's
+  assumption-free fragment; admitting assumptions later needs "final or
+  assumption" with assumption propagation.
+- **§5.2: forgeable identifiers.** Core terms name declarations by plain
+  indices (`DefId(pub usize)`, `DataId(pub usize)`), so a reference to a
+  declaration that doesn't exist yet, or to a member of a group not yet
+  declared, *is* expressible. Such references are refused before anything is
+  allocated. §5.5 test 8 changes accordingly.
+- **§5.4/§5.5: the pending-datatype test is corrected.** Under the rules,
+  `declare impossible : D -> Void` already fails at the signature, so it
+  never reaches the empty `case`. The case-target rule gets its own test, and
+  the accepted neighbour is a genuinely empty *final* data type (draft 2's
+  "neighbour" was another rejection).
+- **§6.4 is reworded**: induction over *semantic call instances* (member,
+  argument tuple), not call sites; step 3 quantifies over well-typed good
+  substitutions of the whole local context; the relation is defined
+  conservatively from the recorded graph constraints, and "an actual call
+  satisfies them" is a separate lemma.
+- **§5.3, §6.3, §6.5: one definition-entry arity contract**, shared by
+  saturation, graph dimensions, provenance and evaluator unfolding; counted
+  before erasure; over-applied calls visit every argument; arity-zero cycles
+  are tested and rejected.
+- **§10: staging** restated as three milestones: (1) kernel admission and
+  SCT on single functions, (2) function groups, forward references, hashing,
+  scheduling diagnostics and the JS calling convention, (3) mutual data
+  types.
+- **§12** records the second review's verdicts.
+
+### Changes from draft 1 to draft 2
 
 The review supported option 2 (whole-module scope) with size-change
 termination (criterion S) and the conservative data-type restrictions, and
@@ -460,11 +516,60 @@ admitted on the assumption that they're opaque.
 The transitions are driven only by the kernel's own admission functions;
 the elaborator can't set a state.
 
+**Opaque assumptions are outside the invariant as stated.** §5.2 says a
+group may depend only on its members and *final* declarations, which
+describes today's assumption-free fragment (nothing creates an opaque
+assumption). When assumptions are added, the admissible terminal
+dependencies become "final or opaque assumption", every declaration carries
+the set of assumptions it reaches (propagated at admission), and every
+guarantee names that set. Until then the state exists only so that
+"permanently bodiless" can't be confused with "pending".
+
 ### 5.2 The admission invariant
 
 > **Every dependency of a submitted group is either a member of that group
 > or a final declaration.** A pending or failed declaration outside the
 > group is never treated as an assumption-free dependency.
+
+This is the invariant for today's assumption-free fragment (§5.1). On its
+own it is too permissive: it allows *any* reference to a member of the
+group, including ones the protocol must exclude (a signature mentioning a
+sibling, a constructor field using a sibling's constructor). So the kernel
+enforces three things together:
+
+1. **The invariant**, above.
+2. **Phase-specific reference permissions.** What may refer to a *pending*
+   declaration depends on what is being checked:
+
+   | Component being checked | Pending references permitted |
+   |---|---|
+   | Function signatures, and a data group's shared parameters and universe | **None.** Only final declarations (and earlier parameters). |
+   | Function bodies | **Definition** members of *that* function group. |
+   | Constructor fields | **Data-type** members of *that* data group, **as types only**: `Data(member, params)`, not `Ctor(member, …)` and not `Case(…, member, …)`. |
+
+3. **Homogeneous group APIs.** A function group is submitted through
+   `define_group` and contains only definitions; a data group through
+   `declare_data_group`/`define_data_group` and contains only data types.
+   There is no call that submits both, so a mixed group can't be expressed.
+
+The exclusions draft 2 derived from the invariant alone follow from these
+three together: a signature can't mention a sibling (row 1), a mixed cycle
+can't be submitted (rule 3, and rows 2–3 refuse the cross-kind references
+that would close it), and a field can't use a sibling's constructor or match
+on a sibling (row 3). They need not be three duplicated checks, but each is
+enforced at the kernel boundary, by one dependency walk parameterised by the
+row that applies.
+
+**Forgeable identifiers.** Core terms name declarations by plain indices
+(`DefId(pub usize)`, `DataId(pub usize)` in `crates/core/src/term.rs`), not
+by unforgeable handles. So a raw term *can* mention an index that doesn't
+exist yet, including the index a group member is about to receive. The
+kernel already refuses unknown definitions during checking (`check.rs`:
+"reference to an unknown definition"); the dependency walk must also refuse
+every out-of-range or not-yet-allocated reference **before** it allocates
+anything, so a group header can never come to refer to its own members by
+guessing their indices. Unforgeable handles would make this hold by
+construction; Stitchwort's don't, so it is a check.
 
 "Dependency" means every reference anywhere in what the group submits:
 signatures, annotations, types inside bodies, proof terms, bodies,
@@ -473,16 +578,37 @@ forms are those the hasher already enumerates: `Def`, `Data`, `Ctor` and
 `Case` (§1). Implicit dependencies count too: a `Nat` literal depends on the
 builtin `Nat` type, and natives on the prelude definitions they accelerate;
 these must be final when registered (they are, since the prelude is checked
-first, but the registration functions should check it rather than assume it
-— whether they do today is **unverified**).
+first, but the registration functions should check it rather than assume it;
+read from the code, today they don't — see "every admission path" below).
 
 The check is a walk over the submitted terms looking at each reference's
-state; it doesn't need to follow references further, because **closure is
-transitive by induction on admission order**: each final declaration was
-itself admitted under this invariant, so everything it reaches is final.
-That's what makes the guarantee "a final definition terminates, together
-with everything it can reach" hold for the whole reachable set, not just the
-group's own calls.
+state; it doesn't need to follow references further. **Why:** by induction
+over *group-finalization events* (not over individual members, which in a
+cycle can't be ordered). The claim is that after every finalization event,
+every final declaration's dependencies are final. When a group becomes
+final, each of its dependencies is either internal to the group (final at
+the same moment, because installation is atomic) or belongs to a group
+finalized earlier, whose dependencies are final by the induction
+hypothesis. Final declarations never change (§5.1), so the property, once
+true of a declaration, stays true. That's what makes the guarantee "a final
+definition terminates, together with everything it can reach" hold for the
+whole reachable set, not just the group's own calls.
+
+**Every admission path enforces it.** The induction only works if no
+declaration becomes final any other way. The paths are:
+
+- the kernel's admission functions (today `declare_def`, `define_def`,
+  `declare_data`, `define_ctors`; after milestone 1, the group versions);
+- builtin and native registration (`native.rs`: `register_nat`,
+  `register_bool`, `register_decidable`, `register_native`,
+  `register_nat_neq`). Read from the code, they check each declaration's
+  shape and type but not that it is finished; they must require it final;
+- any future path that loads declarations from a cache or another module.
+  None exists today (read from the code: the driver caches *test results*
+  by hash, not declarations). If one is added, it must re-check or verify
+  the declarations it installs and refuse any whose references aren't
+  final: a final term must never contain a reference that could later be
+  given a different meaning.
 
 What it rules out:
 
@@ -511,10 +637,10 @@ What it rules out:
   code.)
 
 Draft 1's `E-MUTUAL-SIGNATURE` rule ("a member's signature may not mention a
-sibling") becomes a special case: signatures are checked when the members are
-declared, at which point every sibling is pending, so **a signature may
-refer only to final declarations**. The error code can stay, for a clearer
-message when the elaborator gets it wrong.
+sibling") is row 1 of the permission table: signatures are checked when the
+members are declared, at which point every sibling is pending, so **a
+signature may refer only to final declarations**. The error code can stay,
+for a clearer message when the elaborator gets it wrong.
 
 ### 5.3 Function groups
 
@@ -528,9 +654,8 @@ a group of one):
    induction-recursion for functions — and gains little.
 2. **Dependency check** (§5.2) on every body.
 3. **Saturation check** (§6.3): every occurrence of a member in a body is
-   applied to at least that member's arity, where a member's arity is the
-   number of leading lambdas of its submitted body. All bodies are submitted
-   together, so every arity is known before any body is checked.
+   applied to at least that member's *entry arity* (below). All bodies are
+   submitted together, so every arity is known before any body is checked.
 4. **Check every body** against its signature, **with every member
    opaque**. `even 2` doesn't compute while `odd` is being checked. This is
    today's rule for a single recursive definition, extended to the group. It
@@ -541,6 +666,42 @@ a group of one):
    any step fails for any member, *no* body is installed and every member
    becomes failed. Nothing computed while checking (hashes, cached test
    results) is published (§5.6).
+
+**The definition-entry arity contract.** There is one notion of a
+definition's arity, and every consumer uses it:
+
+- **Shape.** A submitted body has the canonical shape `λp₁ … λpᵣ. caseTree`,
+  and its *entry arity* is `r`. The parameter prefix is the maximal run of
+  lambdas before the case tree; lambdas returned by a branch are part of the
+  result, not entry parameters. So `f : Nat -> (Nat -> Nat)` with `f Zero =
+  \x -> x; f (Succ n) = f n` has entry arity 1, and `f n` is saturated even
+  though its result is a function. Arity is not read from the type.
+- **Wrappers.** The prefix is found by stripping exactly the
+  non-computational wrappers that `Term::count_lams` and `Term::peel_lams`
+  strip today (`Loc`), and the same function is used everywhere; there are
+  no slightly different "count the leading lambdas" loops. The kernel
+  computes it once, when the group is submitted, and stores it in
+  `Def.arity` (which already exists, and today is set from `count_lams`
+  after checking).
+- **Consumers.** The same stored number decides saturation (§6.3), the
+  dimensions of size-change graphs (§6.5: a graph into `g` has `arity(g)`
+  entries), parameter provenance in the termination walker (parameters
+  `0..arity` are the ones calls are related to), and the evaluator's
+  unfolding rule (a definition unfolds once applied to `arity` arguments and
+  its case tree can step).
+- **Before erasure.** Implicit, type and proof lambdas count. The JS
+  backend's *runtime* arity (erased parameters removed, §8.6) is a separate
+  number derived from it, never used by the kernel.
+- **Over-application.** A call with more than `arity` arguments relates the
+  first `arity` of them in its graph; the walker still visits *every*
+  argument, including the extra ones, for calls inside them.
+- **Arity zero.** A member with entry arity 0 (a constant defined in the
+  group) has graphs with no entries. Its occurrences are trivially
+  saturated, but that doesn't let a cycle through it escape: any loop
+  through it composes to a graph whose entries are all unknown (nothing
+  passes through an empty parameter list), and a self-loop on it is the
+  empty graph, which is idempotent and has no diagonal at all. Both are
+  rejected. Tested (§6.6).
 
 The cost of step 4: a body whose *type-checking* needs a sibling to compute
 fails. In practice that's a proof about `even` written in the same group as
@@ -563,7 +724,8 @@ principles to worry about (Rocq needs `Scheme` for these [R1]).
    they can't refer to members, which don't exist yet. Each member's group
    identity (the group and its index in it) is fixed here, as immutable
    kernel metadata (§7.3). Members are pending.
-2. **Define all constructors** of all members in one call, with positivity
+2. **Define all constructors** of all members in one call
+   (`define_data_group`), with positivity
    checked against the whole group (§7.1), the dependency check (§5.2: a
    field may refer to final declarations and to the *types* of group
    members), and no references to any member's *constructors* or `case` on
@@ -576,21 +738,34 @@ principles to worry about (Rocq needs `Scheme` for these [R1]).
    status flag.
 
 **An unfinished data type is never treated as an empty one.** The review's
-example is a must-reject raw-kernel test (accepted today, §1):
+example (accepted by today's raw kernel, §1):
 
 ```
 declare_data D : Type                       -- pending, no constructors yet
-declare impossible : D -> Void
+declare impossible : D -> Void              -- refused here: the signature mentions pending `D`
 define_group [impossible] with
-  impossible x = case x of {}                -- refused: `D` is pending
+  impossible x = case x of {}
 define_ctors D [MakeD : D]
 -- had it been accepted: `impossible MakeD : Void`
 ```
 
-The refusal comes from §5.2 (the body refers to pending `D`), and, as a
-second line, from the `case` rule (a pending data type isn't a `case`
-target). Its accepted neighbour defines `impossible` after `D` is final, and
-is rejected as non-exhaustive (`E-NONEXHAUSTIVE`).
+Under the permission table (§5.2, row 1) this never reaches the empty
+`case`: `declare impossible` is refused because its *signature* mentions the
+pending `D`. So it is two separate tests (§5.5 test 2):
+
+- **2a, signature rejection**: the sequence above, refused at `declare
+  impossible`, with an error naming the pending `D`.
+- **2b, the case-target rule**: a pending data type isn't a valid `case`
+  target, even in a body that the dependency walk would otherwise let
+  through. No public API sequence reaches this past 2a and row 2 (any `case`
+  on `D` mentions `D`), which is what a second line of defence means; so it
+  is a kernel-internal unit test that calls the `case`-checking rule
+  directly on a pending data type and expects a refusal.
+- **Accepted neighbour**: a genuinely empty *final* data type, `E` declared
+  and finalized with no constructors, and `absurdE : E -> Void; absurdE x =
+  case x of {}`, accepted. (A further rejection, not a neighbour:
+  `impossible` defined after `D` is final with `MakeD` is
+  `E-NONEXHAUSTIVE`.)
 
 **Mixed groups** — data types and definitions in one cycle — are rejected
 (`E-MUTUAL-KIND`, say). Such a cycle is either induction-recursion (a
@@ -606,7 +781,10 @@ the expected error code, and each paired with an accepted neighbour:
 
 1. The split cycle, `define_group [f]` then `[g]` (§5.2). Neighbour: `[f, g]`
    with a decreasing call, accepted.
-2. The pending data type `impossible : D -> Void` (§5.4).
+2. The pending data type (§5.4): 2a, `declare impossible : D -> Void` while
+   `D` is pending is refused at the signature; 2b, the `case`-target rule
+   refuses a pending data type (kernel-internal unit test). Neighbour: the
+   empty final data type `E` and `absurdE`, accepted.
 3. A group that refers to a *failed* declaration: checked, result failed, no
    hash, not usable by a later final declaration.
 4. Re-defining a final definition: refused.
@@ -615,17 +793,21 @@ the expected error code, and each paired with an accepted neighbour:
 6. A signature referring to a pending declaration: refused.
 7. A constructor field referring to a pending definition, or to a sibling's
    constructor: refused.
-8. A data group whose shared parameters refer to a member: impossible to
-   express with `declare_data_group`, so no test; instead a test that a
-   member can't be added to an existing group after declaration.
+8. A data group whose shared parameters refer to a member. Because
+   identifiers are forgeable indices (§5.2), this *is* expressible: the
+   parameters mention `DataId(n)` where `n` is the index the first member
+   would receive. Refused before anything is allocated, and the global
+   tables are unchanged afterwards. Likewise any out-of-range `DefId` or
+   `DataId` in any submitted term. Plus a test that a member can't be added
+   to an existing group after declaration.
 9. Incorrect partitions of a correct program: a cycle `f → g → h → f`
    submitted as `[f, g]` then `[h]`, or as `[f]` then `[g, h]`: refused.
    Neighbour: `[f, g, h]`, accepted.
 10. Budget exhaustion during a group's termination check (§6.5): the
     members end up failed, not final; no hash.
 
-Tests 1 and 2 fail today (§1). Writing them first makes milestone 1 (§10)
-start from a red test.
+Tests 1 and 2a fail today (§1: both sequences are accepted). Writing them
+first makes milestone 1 (§10) start from a red test.
 
 ### 5.6 Failed groups publish nothing
 
@@ -721,8 +903,8 @@ Unchanged rules that matter for soundness:
 
 **Policy.** In the checked core, every occurrence of a group member inside
 the group's bodies must be the head of an application with at least as many
-arguments as the member's arity (its submitted body's leading lambdas,
-counting implicit ones). Otherwise the group is refused, with an error that
+arguments as the member's entry arity (§5.3: its submitted body's
+parameter prefix, counting implicit ones). Otherwise the group is refused, with an error that
 says what to write:
 
 ```
@@ -829,26 +1011,55 @@ standard route, for the reviewer to check, not a proof:
    and a good data value has good fields. Then prove, by well-founded
    induction, that every call of a group member on good arguments
    terminates with a good result.
-3. The induction is over the **static call relation**: the pair
-   (member `f`, its arguments) is related to (member `g`, arguments `w`) if
-   `f`'s body, on those arguments, contains a call site to `g` that would
-   receive `w` — for *some* values of any lambda-bound variables in scope
-   at the site. SCT, by the size-change theorem [S1], is what shows this
-   relation has no infinite chains: an infinite chain would be an infinite
-   path through call sites, and every idempotent loop has a strict
-   self-arc, so some parameter would descend infinitely often in the order
-   of step 1, which is impossible.
-4. Because the induction is over call sites, not over the runtime stack,
-   **delayed calls are covered**: a closure `\x -> g k x` created by one
-   invocation of `f` and called much later, or many times, by a final
-   helper is a call `g k x` whose relation to *that invocation of `f`* is
-   the recorded one. The closure is good because, for every good `x`, the
-   call is below the current one in the induction. Outside code applied to
-   good functions is good because it was itself admitted (and §5.2 makes
-   sure it was admitted without assuming anything about this group). Draft
-   1's "outside code terminates, so a divergent run must make infinitely
-   many nested group calls" took the goodness of the group's closures for
-   granted; this is the version the review asked for.
+3. The induction is over **semantic call instances**: pairs (member `f`,
+   argument tuple `v`) of good values. Not over call *sites*: the finite
+   graph of syntactic call sites can contain cycles, and it is the relation
+   on instantiated calls that must be well-founded. To avoid circularity
+   ("the call site *would receive* `w`" presupposes running the body), the
+   relation is defined **conservatively from the recorded graph
+   constraints**:
+
+   > `(g, w) ≺ (f, v)` iff some recorded call-site graph `G` from `f` to
+   > `g` has all its constraints satisfied: for every arc `j ← (i, <)` in
+   > `G`, `wⱼ` is strictly below `vᵢ` in the order of step 1, and for every
+   > arc `j ← (i, ≤)`, `wⱼ` is below or equal to `vᵢ`.
+
+   Different call sites (and different branches) give different graphs and
+   the relation is their *union*; it is never one merged graph (§6.5). SCT,
+   by the size-change theorem [S1], shows `≺` has no infinite descending
+   chain: such a chain would follow an infinite path of recorded graphs, and
+   since every idempotent loop in the closure has a strict self-arc, some
+   parameter would descend infinitely often in the order of step 1, which
+   is impossible.
+
+   **Separate lemma (call faithfulness).** If `f`'s body, applied to good
+   `v`, reaches a call site to `g` and that site receives `w`, then `(g, w)
+   ≺ (f, v)`. This must hold under **every well-typed good substitution
+   for the complete local context at the site**: the parameters, the fields
+   bound by enclosing matches (with their refined types), and every lambda-
+   and let-bound variable in scope, where later variables' types may depend
+   on earlier ones' values — not arbitrary independent values for the
+   lambda-bound variables alone. This lemma is exactly obligations 1 and 2
+   of the table above (coverage and valid relations); it is about the
+   provenance rules of §6.2, and doesn't need the recursive body to finish.
+4. Because the induction is over call instances, not over the runtime
+   stack, **delayed calls are covered**: a closure `\x -> g k x` created by
+   one invocation `f(v)` and called much later, or many times, by a final
+   helper. For every appropriately typed good `x`, the call instance
+   `g(k, x)` is `≺ f(v)` (by the lemma, with `x` part of the substitution),
+   so the induction hypothesis gives a terminating, good result; hence the
+   closure itself is good. That statement doesn't expire when `f` returns
+   and isn't used up by one invocation. Outside code applied to good
+   functions is good because it was itself admitted (and §5.2 makes sure it
+   was admitted without assuming anything about this group). "Below" means
+   below in `≺`, not that each individual call strictly decreases some
+   argument: non-decreasing wrapper edges (`countdown n = step n`) are
+   allowed. Draft 1's "outside code terminates, so a divergent run must
+   make infinitely many nested group calls" took the goodness of the
+   group's closures for granted; this is the version the reviews asked
+   for, and the second review accepted it **as a conditional proof outline,
+   not a proof**: it closes the delayed-callback objection at the level of
+   the outline, not the broader logical-relations argument.
 
 Wahlstedt's thesis [S3] does steps 2–3 for a dependent type theory with
 first-order parameterised data. **Infinitely branching data (function
@@ -900,13 +1111,14 @@ saturation) is trusted reasoning too, even though it reuses existing code.
 Representation and rules, fixed before coding:
 
 - **A graph** is `(from: member, to: member, arcs)`, where `arcs` has one
-  entry per parameter position of `to` (its arity), each entry either
+  entry per parameter position of `to` (its entry arity, §5.3), each entry
+  either
   *unknown* or `(position of from, label)` with label `<` or `≤`. This
   encodes the one-incoming-arc invariant (§6.2) in the type. Graphs between
   members of different arities are not square; nothing assumes they are.
-- **One graph per call site.** Distinct call sites — including the
+- **One graph per call alternative.** Distinct call sites — including the
   alternatives in different branches of a `case` — give distinct graphs,
-  **never merged**. One branch decreasing argument 0 and another decreasing
+  **never merged**, even when they have the same endpoints. One branch decreasing argument 0 and another decreasing
   argument 1 doesn't mean either decreases both; merging their arcs into one
   optimistic graph would accept the alternating-growth program (§6.8
   example 11).
@@ -918,7 +1130,13 @@ Representation and rules, fixed before coding:
 - **Unknown stays unknown.** A missing argument or missing relation is
   never turned into `≤` by a default value, truncation or indexing past the
   end. Saturation (§6.3) means every callee position has an argument; an
-  argument with no relation is *unknown*.
+  argument with no relation is *unknown*. Arguments beyond the callee's
+  arity (over-application) get no entry, but are still walked for calls.
+- **Arity zero.** A graph into an arity-0 member has no entries, and a
+  graph out of one can have no arcs. A loop through such a member therefore
+  composes to an all-unknown graph, and a self-loop on it is the empty
+  graph, which is idempotent with an empty diagonal: rejected, as it must
+  be (`c = d; d = c` loops).
 - **Composition** `G₁ ; G₂` is defined only when `G₁.to == G₂.from` (and so
   the dimensions match); it has `from = G₁.from`, `to = G₂.to`, and for each
   position `k` of `G₂.to`: if `G₂` maps `k` to `(j, l₂)` and `G₁` maps `j` to
@@ -935,9 +1153,11 @@ Representation and rules, fixed before coding:
 - **Size.** Between members of arities `m` and `n` there are at most
   `(2m + 1)^n` distinct graphs (draft 1's `3^(m·n)` was for unrestricted
   arcs), and the closure is a set, so it terminates.
-- **Budget.** Each composition is counted against the operation's resource
-  budget. Exhaustion is `E-RESOURCE`, "inconclusive": the group fails as a
-  whole (§5.3 step 6). Nothing is partially accepted.
+- **Budget.** Each composition is counted as a step of the operation's
+  resource budget (`Budget::step`), and the number of distinct graphs in
+  the closure is capped separately (a parameter, default 100 000), which
+  bounds memory. Exhaustion of either is `E-RESOURCE`, "inconclusive": the
+  group fails as a whole (§5.3 step 6). Nothing is partially accepted.
 - **Witnesses.** For the error message, each graph in the closure stores a
   parent link — the graph it was composed from and the call site added —
   not a copied path. The path for a rejected graph is rebuilt by following
@@ -970,7 +1190,10 @@ code needs its own tests, separate from the example programs:
   one-incoming-arc invariant.
 - **Unit cases:** composition of non-square graphs (arities 1, 2 and 3 in
   one chain); a graph with every entry unknown; the identity is *not* in the
-  closure of a group with no calls.
+  closure of a group with no calls; cycles through arity-0 members
+  (rejected).
+- **Mutation evidence:** temporarily breaking the "never merge
+  alternatives" rule, or the idempotence check, must make tests fail.
 - **Known programs:** every example in §6.8, both directions.
 
 ### 6.7 Arguments that are types or proofs
@@ -1539,7 +1762,7 @@ changed trusted code:
 | `globals.rs`, `check.rs` | Declaration states; the dependency check over every reference form; failed-taint; refusing re-definition | ~80 lines |
 | `check.rs` | `define_group`: saturation; bodies checked with all members opaque; atomic finalisation | ~60 lines |
 | `termination.rs` | Graph extraction for calls to any group member, with the new `≤` relation tied to the recorded match; "recursive function field" over the data group | ~80 lines changed |
-| `termination.rs` | Composition, closure and the idempotent-loop check, with budget and witness links | ~120 lines, new |
+| `sct.rs` (new; standalone until milestone 1 wires it in) | Composition, closure and the idempotent-loop check, with a resource bound and witness links | ~300 lines with comments, plus an independent reference implementation in its tests |
 | `check.rs` | `declare_data_group` (one telescope, immutable metadata); group-wide positivity; no sibling constructors; no subsingleton elimination for groups; `case` only on final types | ~80 lines |
 | `hash.rs` | Cycle hashing, only for final groups | ~60 lines (trusted for cache correctness, not for proofs) |
 | `crates/js` | One calling convention; emission order | small (the extractor is trusted, DESIGN.md §13) |
@@ -1551,38 +1774,43 @@ justification for all three and is a sketch, not a proof.
 
 ## 10. Staging
 
-0. **Optional, any time: acyclic forward references** (feature A). Only the
-   elaborator changes (the pre-pass and dependency-order checking); the
-   kernel sees the same sequence of admissions as today. It doesn't need to
-   wait for the kernel work, and the kernel work doesn't need to wait for it.
-1. **Kernel admission and SCT, no surface change.**
-   - Declaration states, the admission invariant, failed-taint, refusing
-     re-definition (§5). The raw-kernel tests of §5.5 (1 and 2 fail today).
+Three milestones, each finished (gated, merged) before the next starts:
+
+1. **Kernel admission, and SCT on single functions. No surface change.**
+   - Declaration states, the admission invariant with the phase-specific
+     permissions, forgeable-identifier checks, failed-taint, refusing
+     re-definition, and finality checks in builtin/native registration
+     (§5). The raw-kernel tests of §5.5 (1 and 2a fail today) are committed
+     as permanent regressions.
    - The graph algorithm (§6.5) with its independent tests and reference
-     oracle (§6.6), *before* it is wired into the kernel.
-   - SCT used for single definitions (groups of one): Ackermann and swapped
-     arguments become accepted; the whole example suite must still pass.
-   - The saturation rule (§6.3); the two `soundness/` snapshots that change
-     wording are reviewed.
-2. **Function groups and forward references** (option 2). `define_group` for
-   groups of more than one, atomic checking, cycle hashing (§8.4),
+     oracle (§6.6), *before* it is wired into the kernel. **Done** as a
+     standalone module, `crates/core/src/sct.rs`.
+   - The definition-entry arity contract (§5.3) and the saturation rule
+     (§6.3); the two `soundness/` snapshots that change wording are
+     reviewed.
+   - SCT used for single definitions (groups of one), with the new `≤`
+     relation (§6.2): Ackermann and swapped arguments become accepted; the
+     whole example suite must still pass.
+2. **Function groups and forward references** (option 2). `define_group`
+   for groups of more than one, atomic checking, cycle hashing (§8.4),
    scheduling and the `auto` diagnostics (§8.1), the JS calling convention
    (§8.6). Incorrect partitions tested directly through the kernel API
    (§5.5 test 9). Examples: 1, 3, 5, 7–16 of §6.8, all using only data types
-   that exist today (`Nat`, `List`, `Comp`); none needs a data group. (Draft
-   1 promised `size`/`sizeForest` and example 6 here, before data groups
-   existed; they move to milestone 3, and example 12 is rewritten over
-   `List`.)
+   that exist today (`Nat`, `List`, `Comp`); none needs a data group.
+   Acyclic forward references (feature A) arrive here too; they could be
+   delivered separately and earlier, since only the elaborator changes, but
+   nothing waits on them.
 3. **Mutual data types.** `declare_data_group` with one telescope, group-wide
    positivity, immutable metadata, atomic finalisation, then elaborator
    support. Adds `Tree`/`Forest`, `size`/`sizeForest`, example 6, `Bad1`/
    `Bad2`, the pending-datatype test at the surface level, and the deep
    `Tree`/`Forest` codec test.
-4. **Later, separately:** nested inductives (via translation to mutual
-   groups, as Lean does, or a variance analysis); closure-aware partial
-   applications (§6.3); mutual tail calls as loops in JS; `decreasing`
-   measures (DESIGN.md §5) for a group; `auto` eligibility by source position
-   with on-demand scheduling (§8.1).
+
+**Later, separately:** nested inductives (via translation to mutual groups,
+as Lean does, or a variance analysis); closure-aware partial applications
+(§6.3); mutual tail calls as loops in JS; `decreasing` measures (DESIGN.md
+§5) for a group; `auto` eligibility by source position with on-demand
+scheduling (§8.1); opaque assumptions with propagation (§5.1).
 
 ## 11. Recommendation
 
@@ -1646,12 +1874,21 @@ draft deliberately stops short:
   terms) is stated rather than closed. It may stay a documented gap, as it
   already is for the single-function rule.
 
-**Still deserving a second review before implementation:** the §6.4
-outline (in particular step 4's claim that induction over call sites covers
-callbacks invoked repeatedly or after their creator returns); the claim
-that §5.2's check need not follow references transitively; and the
-saturation rule's definition of arity as "leading lambdas of the submitted
-body" (§5.3 step 3).
+**Second review (of draft 2).** It approved implementation. Its verdicts on
+the three points draft 2 asked it to look at again, and what draft 3 does:
+
+| Point | Second review | Draft 3 |
+|---|---|---|
+| §5.2: the direct check need not follow references | Sufficient, justified by induction over group-finalization events; must hold on every admission path, including cached/imported and builtin registration. The three exclusions don't follow from the invariant alone. Opaque assumptions are inconsistent between the table and the invariant. The pending-datatype test fails at the signature and its "neighbour" is a rejection. | Induction restated (§5.2); every admission path listed; the permission table and homogeneous APIs (§5.2); invariant scoped to the assumption-free fragment (§5.1); test split into 2a/2b with an empty final type as neighbour (§5.4, §5.5). |
+| §6.4 step 4: callbacks invoked repeatedly or after their creator returns | Approved as a conditional proof outline. Say "semantic call instances", quantify over good substitutions of the whole local context, define the relation from recorded constraints with faithfulness as a separate lemma. Don't promote this to a normalisation proof. | Reworded as asked (§6.4 steps 3–4); "proof outline, not a proof" stated at the top of the note and in §6.4. |
+| §5.3: arity as leading lambdas | Reasonable as operational arity; specify one shared entry-arity contract, used by every consumer, counted before erasure, over-applied calls fully visited, arity zero tested. | The contract (§5.3), referenced from §6.3 and §6.5; arity-zero tests (§6.6). |
+| Shared data telescope | Approved; but forgeable numeric identifiers make "a header mentioning a member" expressible, so refuse such references before allocation. | Core identifiers are forgeable indices; checked before allocation (§5.2, §5.5 test 8). |
+| `auto` and theory gaps | Acceptable; diagnostic searches must not install or unfold unavailable candidates. | Unchanged policy (§8.1). |
+
+**Not adopted.** Nothing. One point is narrower than the review might be
+read to ask: the case-target test (2b) can't be reached through the public
+API once the dependency walk is in place, so it is a kernel-internal unit
+test rather than a raw-kernel API sequence.
 
 ## Research gaps
 
@@ -1680,8 +1917,10 @@ body" (§5.3 step 3).
   2026 by PR #8707, proves `⊥` under `--safe`).
 - Claims about Stitchwort's JS emission for group members with only erased
   parameters (§8.6) come from reading the code, not from running it.
-- Whether the native-registration functions check that the definitions they
-  name are finished (§5.2) was not checked.
+- Read for draft 3, not run: the native-registration functions check shapes
+  and types, not that the declarations they name are finished (§5.2); core
+  identifiers are plain public indices (`term.rs`); the driver caches test
+  results, not declarations.
 - Run for draft 2 (throwaway tests, not committed, at `14649d5`): the
   split-cycle and pending-datatype raw-kernel sequences (§1, both accepted
   today); the partial/bare self-call probe over the CLI example suite
