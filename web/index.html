@@ -463,13 +463,16 @@ area (Rect w h) = w * h
       }
       const list = el("ul", { className: "tests" });
       for (const t of result.tests) {
+        const unfinished = t.outcome !== "passed" && t.outcome !== "failed";
         list.append(el("li", { className: t.passed ? "pass" : "fail" },
-          el("span", { className: "mark" }, t.passed ? "✓" : "✗"),
-          el("span", {}, t.name + (t.passed ? "" : " (evaluated to False)"))));
+          el("span", { className: "mark" }, t.passed ? "✓" : unfinished ? "!" : "✗"),
+          el("span", {}, t.name + (t.passed ? "" : unfinished ? ` (${t.outcome})` : " (evaluated to False)"))));
       }
-      const failed = result.tests.filter((t) => !t.passed).length;
+      const failed = result.tests.filter((t) => t.outcome === "failed").length;
+      const unfinished = result.tests.filter((t) => !t.passed && t.outcome !== "failed").length;
       output.append(list, el("p", { className: "summary" },
-        `${result.tests.length} tests: ${result.tests.length - failed} passed, ${failed} failed`));
+        `${result.tests.length} tests: ${result.tests.length - failed - unfinished} passed, ${failed} failed` +
+        (unfinished ? `, ${unfinished} ran out of resources` : "")));
       return;
     }
 

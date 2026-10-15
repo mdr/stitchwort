@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stitchwort stress tests</title>
+<style>
+  :root {
+    --bg: #fbfaf7; --panel: #ffffff; --fg: #1f2421; --muted: #5d665f; --line: #dfe3dc;
+    --accent: #3d6b4f; --ok: #2f7d4a; --bad: #b3261e; --warn: #a15c00; --info: #2d5f8b;
+    --ok-bg: #e8f3ec; --bad-bg: #fbeaea; --warn-bg: #fdf1e1; --info-bg: #e7eff7;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #151816; --panel: #1d211e; --fg: #e4e8e3; --muted: #9aa49c; --line: #313830;
+      --accent: #8cc49e; --ok: #7fcf98; --bad: #f09088; --warn: #f0b562; --info: #8db8e0;
+      --ok-bg: #1d3325; --bad-bg: #3a1f1d; --warn-bg: #3a2b16; --info-bg: #1b2a38;
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+    padding: 24px max(16px, env(safe-area-inset-left, 0px)) 48px max(16px, env(safe-area-inset-right, 0px));
+  }
+  main { max-width: 1100px; margin: 0 auto; display: grid; gap: 20px; }
+  h1 { font-size: 1.5rem; margin: 0; }
+  h2 { font-size: 1.1rem; margin: 0 0 8px; }
+  p { margin: 0; max-width: 70ch; }
+  .muted { color: var(--muted); }
+  code, pre, textarea, input, select { font-family: var(--mono); font-size: 13px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
+  .bar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  button {
+    font: inherit; padding: 6px 12px; border-radius: 6px; cursor: pointer;
+    border: 1px solid var(--accent); background: var(--accent); color: var(--bg);
+  }
+  button.secondary { background: transparent; color: var(--accent); }
+  button:disabled { opacity: .5; cursor: default; }
+  .table-wrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; min-width: 760px; }
+  th, td { text-align: left; vertical-align: top; padding: 8px; border-top: 1px solid var(--line); }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); border-top: none; }
+  td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .tag { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 999px; white-space: nowrap; }
+  .ok { color: var(--ok); background: var(--ok-bg); }
+  .bad { color: var(--bad); background: var(--bad-bg); }
+  .warn { color: var(--warn); background: var(--warn-bg); }
+  .info { color: var(--info); background: var(--info-bg); }
+  .detail { font-family: var(--mono); font-size: 12px; color: var(--muted); white-space: pre-wrap; word-break: break-word; max-height: 8em; overflow: auto; margin-top: 4px; }
+  textarea { width: 100%; min-height: 160px; padding: 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg); }
+  input[type=text], select { padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg); }
+  input[type=text] { flex: 1 1 260px; min-width: 0; }
+  #custom-out { margin-top: 12px; }
+</style>
+</head>
+<body>
+<main>
+  <header style="display:grid;gap:6px">
+    <h1>Stitchwort stress tests</h1>
+    <p class="muted">The compiler as WebAssembly, run on deep and large programs. Each case runs in its own Web Worker, so a crash (a trap, or the engine's own stack overflowing) is reported rather than breaking the page, and a case still running after the timeout is stopped. Open <code>stress.html#run</code> to run every case on load. <a href="index.html">Playground</a></p>
+    <p id="limits" class="muted">Limits: loading…</p>
+  </header>
+
+  <section class="panel">
+    <div class="bar" style="margin-bottom:12px">
+      <button id="run-all">Run all</button>
+      <label><input type="checkbox" id="heavy"> include heavy cases (hundreds of MB)</label>
+      <label>timeout <input type="text" id="timeout" value="120" size="4" style="flex:none;width:4em"> s</label>
+      <span id="summary" class="muted"></span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Case</th><th>Expected now</th><th>Result</th><th>Time</th><th>Memory</th><th></th></tr></thead>
+        <tbody id="cases"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Your own program</h2>
+    <textarea id="custom-source" spellcheck="false"></textarea>
+    <div class="bar" style="margin-top:8px">
+      <select id="custom-action">
+        <option value="evaluate">evaluate</option>
+        <option value="test">run tests</option>
+        <option value="check">check</option>
+      </select>
+      <input type="text" id="custom-expr" value="length (replicate 100000 1)" aria-label="expression">
+      <button id="custom-run">Run</button>
+    </div>
+    <div id="custom-out"></div>
+  </section>
+</main>
+
+<script type="module">
+// Helpers shared by the cases.
+const HELPERS = `replicate : Nat -> a -> List a
+replicate Zero     x = Nil
+replicate (Succ n) x = Cons x (replicate n x)
+
+replicateHasLength : Nat -> Bool
+replicateHasLength n = length (replicate n 1) == n
+
+-- A loop: the recursive call is the last thing it does.
+countDown : Nat -> Nat
+countDown Zero     = 0
+countDown (Succ n) = countDown n
+
+repeatText : Nat -> Text -> Text
+repeatText Zero     t = ""
+repeatText (Succ n) t = t ++ repeatText n t
+
+splitJoinRoundTrips : Nat -> Bool
+splitJoinRoundTrips n = textJoin ',' (textSplit ',' (repeatText n "a,")) == repeatText n "a,"
+`;
+
+const list = (n) => "[" + Array(n).fill("1").join(", ") + "]";
+const nested = (n) => "f (".repeat(n) + "x" + ")".repeat(n);
+
+// expect: what should happen today.
+//   { value }        evaluates to exactly this
+//   { tests: true }  every test passes
+//   { checks: true } the program checks
+//   { resource }     reported as running out of resources (E-RESOURCE, or a
+//                    test with no result), not a crash
+//   { gap }          a known gap: no expectation yet, just see what happens
+// `until` notes when an expectation should change.
+const CASES = [
+  { name: "length of a 1,000-element list", action: "evaluate", expr: "length (replicate 1000 1)", expect: { value: "1000" } },
+  { name: "length of a 100,000-element list", action: "evaluate", expr: "length (replicate 100000 1)", expect: { value: "100000" } },
+  { name: "length of a 1,000,000-element list", action: "evaluate", expr: "length (replicate 1000000 1)", expect: { value: "1000000" }, heavy: true },
+  { name: "a test recursing 1,000,000 deep", action: "test", extra: 'test "deep" = replicateHasLength 1000000', expect: { tests: true }, heavy: true },
+  { name: "a loop of 1,000,000 steps (no frames)", action: "evaluate", expr: "countDown 1000000", expect: { value: "0" } },
+  { name: "past the frame limit (3,000,000 deep)", action: "evaluate", expr: "length (replicate 3000000 1)", expect: { resource: true }, heavy: true },
+  { name: "length of a 200,000-character text", action: "evaluate", expr: "textLength (repeatText 100000 \"ab\")", expect: { value: "200000" } },
+  { name: "split and join 20,000 fields", action: "evaluate", expr: "splitJoinRoundTrips 10000", expect: { value: "True" } },
+  { name: "printing a 20,000-element list", action: "evaluate", expr: "replicate 20000 1", expect: { resource: true, until: "step 3 (printing still recurses)" } },
+  { name: "comparing two 20,000-element lists in a proof", action: "check", extra: "theorem same : replicate 20000 1 = replicate 20000 1\nsame = rfl", expect: { resource: true, until: "step 3 (comparison still recurses)" } },
+  { name: "a 20,000-element list literal", action: "check", extra: `big : List Nat\nbig = ${list(20000)}`, expect: { gap: "step 4: checking literals still recurses" } },
+  { name: "a 20,000-character text literal", action: "check", extra: `big : Text\nbig = "${"ab".repeat(10000)}"`, expect: { gap: "step 4: checking literals still recurses" } },
+  { name: "an expression nested 5,000 deep", action: "check", extra: `f : Nat -> Nat\nf n = n\n\nx : Nat\nx = 0\n\ny : Nat\ny = ${nested(5000)}`, expect: { gap: "step 4: the parser and elaborator still recurse" } },
+];
+
+const $ = (id) => document.getElementById(id);
+const el = (tag, props = {}, ...kids) => {
+  const e = Object.assign(document.createElement(tag), props);
+  e.append(...kids);
+  return e;
+};
+const mb = (bytes) => bytes == null ? "" :
+  bytes < 1048576 ? `${(bytes / 1024).toFixed(0)} KB` : `${(bytes / 1048576).toFixed(0)} MB`;
+const secs = (ms) => ms < 1000 ? `${ms.toFixed(0)} ms` : `${(ms / 1000).toFixed(1)} s`;
+
+/** Runs one request in a fresh worker, with a timeout. */
+function runInWorker(request) {
+  const timeout = Number($("timeout").value || 120) * 1000;
+  return new Promise((resolve) => {
+    const worker = new Worker("stress-worker.js", { type: "module" });
+    const started = performance.now();
+    const timer = setTimeout(() => {
+      worker.terminate();
+      resolve({ timedOut: true, ms: performance.now() - started });
+    }, timeout);
+    worker.onmessage = ({ data }) => { clearTimeout(timer); worker.terminate(); resolve(data); };
+    worker.onerror = (e) => {
+      clearTimeout(timer); worker.terminate();
+      resolve({ crashed: true, error: e.message || "the worker failed", ms: performance.now() - started });
+    };
+    worker.postMessage(request);
+  });
+}
+
+/** What happened, as { kind, label, detail }. */
+function describe(r) {
+  if (r.timedOut) return { kind: "timeout", label: "timed out", detail: "" };
+  if (r.crashed) return { kind: "crash", label: "crashed", detail: r.error };
+  const out = r.out;
+  if (!out.ok) {
+    const resource = out.errors.includes("E-RESOURCE");
+    return { kind: resource ? "resource" : "error", label: resource ? "out of resources" : "error", detail: out.errors };
+  }
+  if (out.tests) {
+    const bad = out.tests.filter((t) => !t.passed);
+    if (bad.length === 0) return { kind: "tests", label: `${out.tests.length} test(s) passed`, detail: "" };
+    const resource = bad.every((t) => t.outcome.startsWith("no result"));
+    return { kind: resource ? "resource" : "error", label: resource ? "test ran out of resources" : "test failed",
+             detail: bad.map((t) => `${t.name}: ${t.outcome}`).join("\n") };
+  }
+  if ("value" in out) {
+    const v = out.value.length > 200 ? out.value.slice(0, 200) + `… (${out.value.length} characters)` : out.value;
+    return { kind: "value", label: "evaluated", detail: `${v} : ${out.type}`, value: out.value };
+  }
+  return { kind: "checks", label: "checks", detail: "" };
+}
+
+function verdict(expect, d) {
+  if (expect.gap) return d.kind === "crash" || d.kind === "timeout" ? "warn" : "info";
+  if (expect.value !== undefined) return d.kind === "value" && d.value === expect.value ? "ok" : "bad";
+  if (expect.tests) return d.kind === "tests" ? "ok" : "bad";
+  if (expect.checks) return d.kind === "checks" ? "ok" : "bad";
+  if (expect.resource) return d.kind === "resource" ? "ok" : "bad";
+  return "info";
+}
+
+const expectText = (e) =>
+  e.gap ? `known gap (${e.gap})` :
+  e.value !== undefined ? `evaluates to ${e.value}` :
+  e.tests ? "tests pass" : e.checks ? "checks" :
+  e.resource ? "out of resources, not a crash" + (e.until ? `, until ${e.until}` : "") : "";
+
+function sourceFor(c) { return HELPERS + (c.extra ? "\n" + c.extra + "\n" : ""); }
+
+const rows = CASES.map((c) => {
+  const result = el("td");
+  const time = el("td", { className: "num" });
+  const memory = el("td", { className: "num" });
+  const button = el("button", { className: "secondary", textContent: "Run" });
+  const name = el("td", {}, c.name, c.heavy ? el("span", { className: "muted", textContent: " (heavy)" }) : "");
+  const row = el("tr", {}, name, el("td", { className: "muted", textContent: expectText(c.expect) }), result, time, memory, el("td", {}, button));
+  const run = async () => {
+    button.disabled = true;
+    result.replaceChildren(el("span", { className: "tag info", textContent: "running…" }));
+    time.textContent = memory.textContent = "";
+    const r = await runInWorker({ action: c.action, source: sourceFor(c), expr: c.expr });
+    const d = describe(r);
+    const v = verdict(c.expect, d);
+    result.replaceChildren(el("span", { className: `tag ${v}`, textContent: d.label }));
+    if (d.detail) result.append(el("div", { className: "detail", textContent: d.detail }));
+    time.textContent = secs(r.ms);
+    memory.textContent = mb(r.memory);
+    button.disabled = false;
+    return v;
+  };
+  button.onclick = run;
+  $("cases").append(row);
+  return { c, run };
+});
+
+$("run-all").onclick = async () => {
+  $("run-all").disabled = true;
+  const counts = { ok: 0, bad: 0, warn: 0, info: 0 };
+  for (const { c, run } of rows) {
+    if (c.heavy && !$("heavy").checked) continue;
+    $("summary").textContent = `running ${c.name}…`;
+    counts[await run()]++;
+  }
+  $("summary").textContent = `${counts.ok} as expected, ${counts.bad} not as expected, ` +
+    `${counts.warn} known gap(s) crashed, ${counts.info} known gap(s) reported an error`;
+  $("run-all").disabled = false;
+};
+
+// `stress.html#run` runs every case on load (`#run-heavy` includes the heavy ones).
+if (location.hash === "#run" || location.hash === "#run-heavy") {
+  $("heavy").checked = location.hash === "#run-heavy";
+  $("run-all").click();
+}
+
+$("custom-source").value = HELPERS;
+$("custom-run").onclick = async () => {
+  $("custom-run").disabled = true;
+  $("custom-out").replaceChildren(el("span", { className: "tag info", textContent: "running…" }));
+  const r = await runInWorker({ action: $("custom-action").value, source: $("custom-source").value, expr: $("custom-expr").value });
+  const d = describe(r);
+  const kind = d.kind === "crash" || d.kind === "timeout" || d.kind === "error" ? "bad" : d.kind === "resource" ? "warn" : "ok";
+  $("custom-out").replaceChildren(
+    el("span", { className: `tag ${kind}`, textContent: d.label }),
+    el("span", { className: "muted", textContent: `  ${secs(r.ms)}${r.memory ? ", " + mb(r.memory) : ""}` }),
+    el("div", { className: "detail", textContent: d.detail }));
+  $("custom-run").disabled = false;
+};
+
+runInWorker({ action: "limits" }).then((r) => {
+  if (r.crashed || r.timedOut) { $("limits").textContent = "Limits: couldn't load the compiler (" + (r.error ?? "timed out") + "). Was web/pkg built?"; return; }
+  const l = r.out;
+  $("limits").textContent = `Limits: ${mb(l.stack)} WebAssembly stack (${mb(l.guarded)} guarded), ` +
+    `${l.frames.toLocaleString()} frames, ${l.work.toLocaleString()} steps, ${l.size.toLocaleString()} nodes printed.`;
+});
+</script>
+</body>
+</html>

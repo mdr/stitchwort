@@ -10,6 +10,39 @@ use wasm_bindgen::prelude::wasm_bindgen;
 /// The file name shown in error messages.
 const FILE: &str = "playground.sw";
 
+/// The stack this build runs on, set by `build.rs`: the resource limits are
+/// sized to it.
+fn stack() -> usize {
+    env!("STITCHWORT_STACK")
+        .parse()
+        .expect("build.rs sets a number")
+}
+
+/// The limits sessions run with: sized to the stack, except that in
+/// WebAssembly the stack guard is much smaller (see `build.rs`).
+fn session_limits() -> stitchwort_core::Limits {
+    let mut l = stitchwort_core::Limits::for_stack(stack());
+    if let Ok(guard) = env!("STITCHWORT_GUARD").parse() {
+        l.stack = guard;
+    }
+    l
+}
+
+/// The resource limits programs run with:
+/// `{"stack": …, "frames": …, "work": …, "size": …}`.
+#[wasm_bindgen]
+pub fn limits() -> String {
+    let l = session_limits();
+    format!(
+        r#"{{"stack":{},"guarded":{},"frames":{},"work":{},"size":{}}}"#,
+        stack(),
+        l.stack,
+        l.frames,
+        l.work,
+        l.size
+    )
+}
+
 /// Checks a program: `{"ok": true}` or `{"ok": false, "errors": "…"}`.
 #[wasm_bindgen]
 pub fn check(source: &str) -> String {
@@ -19,7 +52,9 @@ pub fn check(source: &str) -> String {
     }
 }
 
-/// Runs a program's tests: `{"ok": true, "tests": [{"name": …, "passed": …}]}`.
+/// Runs a program's tests: `{"ok": true, "tests": [{"name": …, "passed": …,
+/// "outcome": …}]}`, where the outcome is `passed`, `failed`, or what the test
+/// ran out of.
 #[wasm_bindgen]
 pub fn test(source: &str) -> String {
     let session = match load(source) {
@@ -30,10 +65,16 @@ pub fn test(source: &str) -> String {
         .run_tests(&Cache::disabled())
         .iter()
         .map(|r| {
+            let outcome = match r.outcome {
+                Outcome::Passed => "passed".to_string(),
+                Outcome::Failed => "failed".to_string(),
+                Outcome::OutOfResources(e) => format!("no result: {e}"),
+            };
             format!(
-                r#"{{"name":{},"passed":{}}}"#,
+                r#"{{"name":{},"passed":{},"outcome":{}}}"#,
                 json_string(&r.name),
-                r.outcome == Outcome::Passed
+                r.outcome == Outcome::Passed,
+                json_string(&outcome)
             )
         })
         .collect();
@@ -82,6 +123,7 @@ pub fn extract(source: &str) -> String {
 /// A session with `source` loaded, or its errors rendered as text.
 fn load(source: &str) -> Result<Session, String> {
     let mut session = Session::new();
+    session.elab.limits = session_limits();
     match session.load(FILE, source) {
         Ok(_) => Ok(session),
         Err(errors) => Err(rendered(&session, &errors)),
@@ -134,7 +176,7 @@ mod tests {
         );
         assert_eq!(
             test("test \"one\" = True\ntest \"two\" = False\n"),
-            r#"{"ok":true,"tests":[{"name":"one","passed":true},{"name":"two","passed":false}]}"#
+            r#"{"ok":true,"tests":[{"name":"one","passed":true,"outcome":"passed"},{"name":"two","passed":false,"outcome":"failed"}]}"#
         );
         assert_eq!(
             evaluate("double : Nat -> Nat\ndouble n = n + n\n", "double 4"),

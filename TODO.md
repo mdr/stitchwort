@@ -24,9 +24,9 @@ How it's kept:
 
 1. **Stack-safe evaluation, step 4:** depth guards in the parser, elaborator,
    unifier, kernel, hasher, termination checker, JS generator and printer,
-   tested in subprocesses just past each limit. Measure what deep programs do
-   in the WebAssembly playground (linear-memory stack and the engine's own
-   call-stack limit).
+   tested in subprocesses just past each limit. `web/stress.html` shows the
+   three cases that still crash the browser (long list and text literals,
+   deep nesting); they should become `E-RESOURCE`.
 2. **Text, step 3** ([proposal](docs/proposals/text-and-io.md)): JS encoders
    and decoders for `Text` and `Char`, the boundary tests (surrogates, NUL,
    noncharacters, both round-trip laws), and differential tests including the
@@ -35,9 +35,10 @@ How it's kept:
 3. **Text, step 4:** the `IO` ability and `simulate`.
 4. **Text, step 5:** `main` and `stitchwort run`, tested against `simulate`
    and real standard input and output.
-5. **Text, step 6:** the playground's Run button. Also show tests that ran out
-   of resources as such (today they show as not passed), give the playground
-   its own smaller limits, and republish it
+5. **Text, step 6:** the playground's Run button. Also run the playground's
+   compiler in a Web Worker, as `web/stress.html` does: after the engine's
+   stack overflows (`RangeError`), the WebAssembly instance's state isn't
+   restored, so it shouldn't be reused. Republish it
    (https://claude.ai/artifact/T7p2cjuvWBGWdiEdCQVLcj).
 
 ## Later
@@ -73,6 +74,12 @@ How it's kept:
 
 ## Known issues
 
+- **In WebAssembly the stack guard measures the wrong stack.** Each call uses
+  both the stack in linear memory (which the guard measures) and the
+  engine's own call stack (about 1 MiB in V8), and the engine's runs out
+  first. So the guard is set to 128 KiB there (`crates/web/build.rs`),
+  calibrated in Node and Chrome only; Firefox and Safari are unmeasured.
+  Eliminating recursion (steps 3 and 4) is the real fix.
 - **A failed declaration stays declared without a body**, so later
   declarations in the same module can use it. Safe only because a module with
   any error is rejected as a whole. Consider removing failed declarations.
@@ -88,6 +95,7 @@ How it's kept:
 
 ## Recently done
 
+- Local WebAssembly test page: `web/stress.html`, served by `web/serve.sh`.
 - `5caa024` `unsafe` allowed with a written justification (lint `deny`, was `forbid`).
 - `cdfae0d` Stack-safe step 2: the abstract machine, the reference evaluator, differential tests, iterative freeing of values.
 - `14ac90d` Every sub-term the evaluator runs is behind its own `Rc`.
