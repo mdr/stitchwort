@@ -31,9 +31,6 @@ agent, then reviews, merges and updates this file.
 Running:
 
 
-- **Playground polish** (lane `playground-polish`): automated headless
-  browser tests, editor quirks (resize, Tab and undo), streaming run output,
-  maybe an operations budget per run.
 - **Mutual recursion, phase 2, stage 2** (lane `mutual-recursion-s2`;
   stage 1 merged as `9eb1487`); stage 3 follows
   ([mutual-recursion.md](docs/proposals/mutual-recursion.md), draft 3;
@@ -101,6 +98,13 @@ Nothing queued: choose from **Later**, or continue the lanes above.
 - **Nested recursive types** (`rest : Nest (Box a)`, probably rose trees
   `List Tree`) are refused with a misleading "negative position" message,
   and aren't supported.
+- **Checking evaluates expensive input-independent expressions in `main`**
+  (a `main` printing `spin 6000000` takes 2.4 s to check), which can tie
+  up the playground's checker.
+- **Playground layout:** no viewport meta tag (phones lay it out at 980 px);
+  the declarations box on the JavaScript tab is squeezed to one line.
+- **Browser tests** (`web/test.sh`) run only locally with Chrome; Firefox
+  and Safari untested.
 - **Measure the JS limits in browsers** (only Node so far).
 - **Compact text** (text step 7): in generated JS first, then possibly in the
   checking evaluator, with differential tests against the plain-list version.
@@ -130,19 +134,6 @@ Nothing queued: choose from **Later**, or continue the lanes above.
   "didn't check" and "failed while running" should differ.
 - **`IO` operations that return `Result`** for recoverable errors (deferred
   by the text-and-IO proposal).
-- (in progress) **Stream a run's output** to the playground (the worker could post each
-  flush), so a stopped or timed-out run still shows what it printed.
-- (in progress) **An automated browser test of the playground** (headless Chrome over the
-  DevTools protocol, as done by hand for step 6): the tabs, Run, Stop, crash
-  recovery, and the in-page fallback when workers can't start.
-- (in progress) **A budget on operations per playground run**, alongside the 15 s limit (a
-  program reading past the end of its input many times is caught only by
-  the timeout).
-- (in progress) **Playground editor quirks** (from before syntax colouring): dragging to
-  resize the editor does nothing, and Tab's inserted spaces (via
-  `setRangeText`) can't be undone and break Ctrl+Z for earlier typing.
-  Colouring is checked only in headless Chrome (not Firefox or Safari, not
-  with physical typing, not at phone width).
 - **`Partial`** ([proposal](docs/proposals/partial.md)): no way yet to write
   code that may not terminate, such as a `main` that loops until end of
   input (today's examples use fuel, e.g. `addLines 1000`). Draft 1's design
@@ -215,6 +206,7 @@ Nothing queued: choose from **Later**, or continue the lanes above.
 
 ## Recently done
 
+- `73899f9` Playground polish: 18 headless-Chrome tests (`nix develop -c ./web/test.sh`), streamed run output (Stop keeps what was printed), Tab/undo and resize fixed, `E-INPUT` after 10,000 reads past end of input.
 - `01208f2` Natives match their definitions as whole results, proofs included: `decEqNat` redefined so its `No` proof is small and the native returns exactly it (new native `eqNatSound`); every native audited; natives-on/off whole-result tests including numbers above 2^64.
 - `9eb1487` Size-change termination for single definitions: Ackermann, swapped arguments and `merge` accepted; partial recursive calls refused with a suggested lambda; one shared entry arity; compared with the old checker on 20,000 generated programs (the new one accepts all the old one did except 7 partial calls).
 - `4776303` JS boundary follow-ups: decoders read only own properties (blocks prototype pollution), shared input decoded once (a 60-level DAG went from never finishing to instant), the generator refuses a definition without a body, DESIGN's boundary table matches what's built.
