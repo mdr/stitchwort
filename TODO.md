@@ -39,11 +39,12 @@ Running:
   about the total parts). Draft 3 adopting the review, plus a standalone
   prototype of the runtime semantics running the reviewer's test table.
   Implementation can follow (mutual recursion stage 2 has merged).
-- **Records** (lane `records-design`; milestone 8): a thoroughly
-  researched design note (`docs/proposals/records.md`), docs only, for the
-  user and the reviewer.
 
 Waiting on a decision:
+- **Records** ([records.md](docs/proposals/records.md) draft 1): declared
+  records as one-constructor data types, then eta, then anonymous records,
+  then `Has` constraints for "any record with a `name`". Questions U1–U7
+  for the user, then the reviewer.
 - **Compact text stages 2–3** ([compact-text.md](docs/proposals/compact-text.md)
   draft 2, reviewed): compact `List Char` in the evaluator, then selected
   natives; a native `decEqText` waits for a whole-result test.
@@ -106,6 +107,9 @@ Nothing queued: choose from **Later**, or continue the lanes above.
   no pattern match, termination errors point at the whole definition.
 - **Mutual tail calls aren't loops in generated JS** (`isEven 10000000n`
   is a `StitchwortResourceError`).
+- **Data-type hashes leave out field names**, though they become JS keys:
+  a renamed field wouldn't change the hash (matters for caching generated
+  JS, which is planned). Found by the records research.
 - **Measure the JS limits in browsers** (only Node so far).
 - **Compact text** (text step 7): in generated JS first, then possibly in the
   checking evaluator, with differential tests against the plain-list version.
