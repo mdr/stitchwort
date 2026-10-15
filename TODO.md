@@ -31,9 +31,9 @@ Round 2:
 - ~~Syntax colouring in the playground~~ (lane `syntax-colour`): merged as
   `ccebba3`.
 - ~~Text step 3~~ (lane `js-text`): merged as `017d554`.
-- **Number patterns** (lane `number-patterns`): item 1 of **Next**. A design
-  note with a literature survey, then a pause for external review before
-  implementation.
+- **Number patterns** (lane `number-patterns`): design note written
+  ([number-patterns.md](docs/proposals/number-patterns.md)), **awaiting
+  review**. Recommends a number-switch node in kernel case trees.
 - **Recorded benchmarks** (lane `benchmarks`): moved up from **Later** at
   the user's request.
 - **JS boundary hardening** (lane `js-boundary`): the `tag` field bug, a
