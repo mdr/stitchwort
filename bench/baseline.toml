@@ -1,0 +1,105 @@
+# Benchmark baseline (docs/testing.md, "Benchmarks"). Written by
+#   cargo run --release -p stitchwort-bench -- --update
+# steps, visits, allocations and peak_bytes are deterministic: the same on
+# every run.
+# time_ms is the median wall time on the machine that recorded it.
+
+[examples]
+inputs = "89 files, a27758e63b082bc2"
+steps = 27764156
+visits = 2803093
+allocations = 33583826
+peak_bytes = 28158321
+time_ms = 1610.0
+
+[extract-js]
+inputs = "9 files, a67ccda8d9e2bd85"
+steps = 104848
+visits = 21971
+allocations = 122753
+peak_bytes = 39234
+time_ms = 8.0
+
+[eval-lengths]
+steps = 44422459
+visits = 24
+allocations = 15606500
+peak_bytes = 1912734
+time_ms = 922.9
+
+[text-append]
+steps = 4760463
+visits = 63
+allocations = 1720484
+peak_bytes = 51843567
+time_ms = 110.7
+
+[text-split-join]
+steps = 2292436
+visits = 70
+allocations = 816390
+peak_bytes = 6558530
+time_ms = 55.7
+
+[text-nat-to-text]
+steps = 18916670
+visits = 24
+allocations = 6737124
+peak_bytes = 8927
+time_ms = 445.7
+
+[run-prints]
+steps = 16164442
+visits = 0
+allocations = 6064076
+peak_bytes = 6088
+time_ms = 406.3
+
+[check-number-pattern]
+steps = 16574087
+visits = 3038
+allocations = 23220486
+peak_bytes = 101024733
+time_ms = 1014.2
+
+[check-number-table]
+steps = 34091294
+visits = 5148
+allocations = 47458470
+peak_bytes = 206771116
+time_ms = 1989.2
+
+[check-list-rfl]
+steps = 800058
+visits = 500034
+allocations = 1240236
+peak_bytes = 44809233
+time_ms = 51.6
+
+[check-list-sym-rfl]
+steps = 1400274
+visits = 700061
+allocations = 2020557
+peak_bytes = 74251185
+time_ms = 83.9
+
+[check-long-sum]
+steps = 269980
+visits = 162206990
+allocations = 450019
+peak_bytes = 11614528
+time_ms = 1193.6
+
+[check-nested-parens]
+steps = 10
+visits = 15
+allocations = 47
+peak_bytes = 1859880
+time_ms = 3.4
+
+[check-nested-apps]
+steps = 12030040
+visits = 4028042
+allocations = 8056142
+peak_bytes = 1468383
+time_ms = 624.4

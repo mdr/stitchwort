@@ -1,0 +1,19 @@
+[package]
+name = "stitchwort-bench"
+description = "Recorded benchmarks: counts work and allocations, times runs, and compares them with bench/baseline.toml"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "stitchwort-bench"
+path = "src/main.rs"
+
+[dependencies]
+stitchwort-syntax.workspace = true
+stitchwort-driver.workspace = true
+blake3.workspace = true
+clap.workspace = true
+
+[lints]
+workspace = true

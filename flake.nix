@@ -53,6 +53,7 @@
               (lib.fileset.fileFilter (file: file.hasExt "snap") ./crates)
               (lib.fileset.fileFilter (file: file.hasExt "sw") ./crates) # the prelude
               ./web/index.html # the playground's examples are checked
+              ./bench # benchmark counts are checked against the baseline
             ];
           };
           commonArgs = {
