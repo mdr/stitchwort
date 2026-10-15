@@ -1,3 +1,5 @@
+use num_bigint::BigUint;
+
 use crate::{Diagnostic, FileId, Span};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -6,7 +8,8 @@ pub enum Tok {
     Lower(String),
     /// Identifier starting with an uppercase letter: data types and constructors.
     Upper(String),
-    Num(u64),
+    /// A number literal, of any size.
+    Num(BigUint),
     /// A string literal, used for test names: `"reverse twice"`.
     Str(String),
     /// `type`, which starts a data type declaration.
@@ -117,7 +120,7 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
             }
             let n = text[start..i]
                 .parse()
-                .map_err(|_| error(file, start, i, "this number is too large"))?;
+                .expect("a run of ASCII digits is a valid number");
             Tok::Num(n)
         } else if c == b'"' {
             i += 1;
@@ -253,7 +256,7 @@ mod tests {
                 Tok::Pipe,
                 Tok::Plus,
                 Tok::Backslash,
-                Tok::Num(42),
+                Tok::Num(42u32.into()),
                 Tok::Minus,
                 Tok::Star,
                 Tok::Slash,
@@ -290,11 +293,16 @@ mod tests {
     }
 
     #[test]
-    fn rejects_tabs_unknown_characters_and_huge_numbers() {
+    fn rejects_tabs_and_unknown_characters() {
         assert_eq!(tokens("\tx"), Err("E-PARSE"));
         assert_eq!(tokens("a ∧ b"), Err("E-PARSE"));
         assert_eq!(tokens("a ; b"), Err("E-PARSE"));
         assert_eq!(tokens("a ! b"), Err("E-PARSE"));
-        assert_eq!(tokens("99999999999999999999999"), Err("E-PARSE"));
+    }
+
+    #[test]
+    fn numbers_can_be_any_size() {
+        let huge = "99999999999999999999999999999999999999";
+        assert_eq!(tokens(huge), Ok(vec![Tok::Num(huge.parse().unwrap())]));
     }
 }

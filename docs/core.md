@@ -15,7 +15,7 @@ The core is the small, explicit language that every Stitchwort definition is tra
 | Tracked assumptions | There's no `assume` yet, so every checked definition is assumption-free |
 | Evaluation budget, "inconclusive" results | Not yet. Evaluation is guaranteed to terminate, but may be slow |
 | Caching (§11) | Test results are cached by content hash. Kernel checks and generated JS aren't cached yet, and nothing is cached across elaboration |
-| Numbers | `Nat` only; no `Int` yet. Numbers are native (see [Numbers](#numbers)), and literals must fit in 64 bits, though results can be any size |
+| Numbers | `Nat` only; no `Int` yet. Numbers are native and can be any size (see [Numbers](#numbers)) |
 | Pattern matching | One constructor deep, no nested patterns. No forward references or mutual recursion |
 | Data types | Parameters but no indices. Equality is the only built-in indexed type |
 | Universes | Numbered, no polymorphism, no cumulativity |

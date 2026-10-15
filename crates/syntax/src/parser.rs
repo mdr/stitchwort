@@ -265,7 +265,7 @@ impl<'t> Parser<'t> {
             }
             Some(Tok::Num(n)) => {
                 self.bump();
-                Ok(Pattern::Num(*n, span))
+                Ok(Pattern::Num(n.clone(), span))
             }
             Some(Tok::Upper(_)) => {
                 let name = self.upper("a constructor")?;
@@ -566,7 +566,7 @@ impl<'t> Parser<'t> {
             Some(Tok::Upper(_)) => Ok(Expr::Var(self.upper("an expression")?)),
             Some(Tok::Num(n)) => {
                 self.bump();
-                Ok(Expr::Num(*n, span))
+                Ok(Expr::Num(n.clone(), span))
             }
             Some(Tok::Underscore) => {
                 self.bump();
@@ -577,7 +577,7 @@ impl<'t> Parser<'t> {
                 if let Some(Tok::Num(n)) = self.peek() {
                     let end = self.bump().span;
                     let level =
-                        u32::try_from(*n).map_err(|_| error(end, "universe level is too large"))?;
+                        u32::try_from(n).map_err(|_| error(end, "universe level is too large"))?;
                     return Ok(Expr::Type(level, span.to(end)));
                 }
                 Ok(Expr::Type(0, span))

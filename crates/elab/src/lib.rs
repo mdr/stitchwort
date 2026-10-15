@@ -731,7 +731,7 @@ impl Elaborator {
     fn pattern_ctor<'p>(&self, pattern: &'p Pattern) -> Result<Option<CtorPattern<'p>>> {
         match pattern {
             Pattern::Var(_) | Pattern::Wildcard(_) | Pattern::Absurd(_) => Ok(None),
-            Pattern::Num(0, span) => {
+            Pattern::Num(n, span) if n.bits() == 0 => {
                 let (d, c) = self.ctor_named("Zero", *span)?;
                 Ok(Some(CtorPattern {
                     data: d,

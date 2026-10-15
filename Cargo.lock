@@ -518,6 +518,9 @@ dependencies = [
 [[package]]
 name = "stitchwort-syntax"
 version = "0.1.0"
+dependencies = [
+ "num-bigint",
+]
 
 [[package]]
 name = "stitchwort-web"

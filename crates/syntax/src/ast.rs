@@ -1,5 +1,7 @@
 //! The surface syntax tree, as written by the user.
 
+use num_bigint::BigUint;
+
 use crate::Span;
 
 #[derive(Clone, Debug)]
@@ -12,7 +14,7 @@ pub struct Name {
 pub enum Expr {
     /// A variable, function, data type or constructor name.
     Var(Name),
-    Num(u64, Span),
+    Num(BigUint, Span),
     /// `Type` or `Type n`.
     Type(u32, Span),
     Prop(Span),
@@ -113,7 +115,7 @@ pub enum Pattern {
     /// right-hand side.
     Absurd(Span),
     /// Only `0` is supported for now.
-    Num(u64, Span),
+    Num(BigUint, Span),
     Ctor(Name, Vec<Pattern>, Span),
 }
 

@@ -217,7 +217,7 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             "write `f [x := …]`",
         )),
         Expr::Num(n, _) => Ok((
-            Term::Nat(Rc::new((*n).into())),
+            Term::Nat(Rc::new(n.clone())),
             Value::Data(nat(cx)?, Vec::new()),
         )),
         Expr::Type(i, _) => Ok((Term::Sort(Sort::Type(*i)), Value::Sort(Sort::Type(i + 1)))),
