@@ -995,7 +995,7 @@ Reviewers' opinions are especially welcome here. The second review recommended s
 ### Before later milestones
 
 4. **Finding decision procedures** (milestone 3). How does the compiler find the `Decidable p` for a given `p`? Type-class-style instances, or something simpler?
-5. **`Text`** (milestone 4). Unicode scalar values or something else, and what that means for JS decoding.
+5. **`Text`** (milestone 4). Settled in [docs/proposals/text-and-io.md](docs/proposals/text-and-io.md): Unicode scalar values, with `Text` meaning a list of them, and strict JS decoding.
 6. **Handler admissibility** (milestone 7). Write up the two-part conjecture in [§8](#8-abilities-and-handlers) properly. Is "data-only operations" too restrictive in practice?
 7. **Handler operational semantics** (milestone 7). The points listed in [§8](#8-abilities-and-handlers).
 8. **Effects and dependency.** The precise typing rules for sequencing effectful code when its results are used as type indices.
