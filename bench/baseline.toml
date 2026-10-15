@@ -7,15 +7,15 @@
 [examples]
 inputs = "96 files, a58d51598638c76d"
 steps = 29531932
-visits = 3016273
-allocations = 35976542
+visits = 3013047
+allocations = 36073870
 peak_bytes = 28158321
 time_ms = 1707.9
 
 [extract-js]
 inputs = "13 files, 066c3823059b615a"
 steps = 151735
-visits = 34753
+visits = 34688
 allocations = 198193
 peak_bytes = 144260
 time_ms = 11.8
@@ -58,48 +58,48 @@ time_ms = 391.6
 [check-number-pattern]
 steps = 16574087
 visits = 3038
-allocations = 23220486
+allocations = 23220492
 peak_bytes = 101024733
 time_ms = 976.0
 
 [check-number-table]
 steps = 34091294
 visits = 5148
-allocations = 47458470
+allocations = 47458476
 peak_bytes = 206771116
 time_ms = 1996.9
 
 [check-list-rfl]
 steps = 800058
 visits = 500034
-allocations = 1240236
+allocations = 1240241
 peak_bytes = 44809233
 time_ms = 51.1
 
 [check-list-sym-rfl]
 steps = 1400274
 visits = 700061
-allocations = 2020557
+allocations = 2020564
 peak_bytes = 74251185
 time_ms = 85.5
 
 [check-long-sum]
 steps = 269980
 visits = 162206990
-allocations = 450019
+allocations = 450035
 peak_bytes = 11614528
 time_ms = 1182.8
 
 [check-nested-parens]
 steps = 10
 visits = 15
-allocations = 47
+allocations = 50
 peak_bytes = 1859880
 time_ms = 3.3
 
 [check-nested-apps]
 steps = 12030040
 visits = 4028042
-allocations = 8056142
+allocations = 8056151
 peak_bytes = 1468383
 time_ms = 629.8
