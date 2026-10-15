@@ -52,6 +52,7 @@
               ./examples # example programs are the main test suite
               (lib.fileset.fileFilter (file: file.hasExt "snap") ./crates)
               (lib.fileset.fileFilter (file: file.hasExt "sw") ./crates) # the prelude
+              ./web/index.html # the playground's examples are checked
             ];
           };
           commonArgs = {
@@ -105,6 +106,7 @@
                 wasm-opt -Oz --enable-bulk-memory --enable-nontrapping-float-to-int \
                   $out/pkg/stitchwort_web_bg.wasm -o $out/pkg/stitchwort_web_bg.wasm
                 cp ${./web/index.html} $out/index.html
+                cp ${./web/playground-worker.js} $out/playground-worker.js
               '';
             }
           );

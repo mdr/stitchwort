@@ -1,6 +1,6 @@
 # Stitchwort: text, `IO` and `main`
 
-**Status:** draft 2, 15 October 2026. Accepted after review. Build steps 1 (`Char`), 2 (`Text`), 4 (the `IO` ability and `simulate`) and 5 (`main` and `stitchwort run`) are implemented; see [As built](#as-built). [Acceptance criteria](#acceptance-criteria) lists what the first milestone must show.
+**Status:** draft 2, 15 October 2026. Accepted after review. Build steps 1 (`Char`), 2 (`Text`), 4 (the `IO` ability and `simulate`), 5 (`main` and `stitchwort run`) and 6 (the playground's Run button) are implemented; see [As built](#as-built). [Acceptance criteria](#acceptance-criteria) lists what the first milestone must show.
 
 ## As built
 
@@ -42,6 +42,15 @@ Where step 5 differs from, or adds to, the design below:
   - `E-NO-MAIN`, `E-MAIN-TYPE` for five wrong types, a pure `main`, and exit codes for each error kind.
 - **Not tested end to end:** running out of resources under the real command. With the command's limits, that takes a recursion two million frames deep, which needs over a gigabyte of memory. The driver test checks the error and where it points; the command reports it the same way as `E-IO`, which is tested end to end.
 - **The example** is `examples/accept/adder.sw`: it asks for a name, then adds up numbers, one per line, until an empty line or the end of input. Its tests run the same `main` through `simulate`.
+
+Where step 6 differs from, or adds to, the design below:
+
+- **Input is scripted, not empty.** The playground has no terminal, so the Run tab has a box of input lines: `readLine` gets them one at a time, then `Nothing`. They go through the same runner as `stitchwort run` (`Session::run_main`, reading the box's text as its input), so the interpreter's contract holds unchanged; an empty box gives the proposal's "no input".
+- **The interface** is `run(source, input, max_output)` in `crates/web`, returning JSON like the playground's other functions: `{"ok": true, "output": …}`, or `{"ok": false, "errors": …}` with the output printed before the error if `main` had started. Check errors, `E-NO-MAIN`, `E-MAIN-TYPE` and `E-RESOURCE` are rendered as in the Check tab.
+- **Budgets.** Each step between operations has a test's resource limits, as in `stitchwort run`. Output is capped at 256 KB: a program that prints more is stopped with a new error, `E-OUTPUT`, and the output up to the cap is shown. A run is stopped after 15 seconds, or by the Stop button; then its output is lost, because the page only gets the output when the run returns. A program that reads past the end of its input a billion times, printing nothing, is what the timeout is for.
+- **The compiler runs in a Web Worker** (`web/playground-worker.js`), as `web/stress.html` does. The page compiles the WebAssembly once and gives the module to each worker it starts, so a fresh worker is quick. A worker is discarded, and the next request starts a new one, after it crashes (a trap, or the JavaScript engine's stack overflowing: a `RangeError` leaves the instance's state broken), times out (60 seconds for checking, testing, evaluating and extracting; 15 for a run), is stopped, or is superseded by a newer request (editing while a slow check runs). Running uses a second worker, so the editor keeps checking during a run. If the host doesn't allow workers, the page falls back to running the compiler in the page, where nothing can be stopped and a crash needs a reload.
+- **The example** in the playground ("Input and output: `main`") is `adder.sw` with its scripted input filled in.
+- **Tested** in `crates/web`: scripted input (including an empty line versus end of input, and no input), a pure `main`, `E-NO-MAIN`, `E-MAIN-TYPE`, a check error, the output cap (exactly at it, one byte over, and a cut through a character), and `E-RESOURCE` with the output before it. Every playground example must check and pass its tests (except the deliberate failure), and the `main` example must print what's expected for its input. The page itself was tried by hand in headless Chrome, not by an automated test: the existing tabs, Run, `E-NO-MAIN`, the output cap, Stop, the timeout, recovery after a crash, and the fallback when workers can't start.
 
 ## Changes since draft 1
 
@@ -270,7 +279,7 @@ So a genuinely unbounded interactive loop (a REPL, a server) isn't available in 
 ### Extraction and the playground
 
 - **Exports stay pure.** A pure export may use `IO` internally only if it handles it, for example with `simulate`. Host-provided `IO` for exports is a later milestone.
-- **The playground gets a Run button.** It runs `main` with no input (`readLine` gives `Nothing`), within budgets, and shows the printed lines.
+- **The playground gets a Run button.** It runs `main` with no input (`readLine` gives `Nothing`), within budgets, and shows the printed lines. (As built, it takes scripted input lines; see [As built](#as-built).)
 
 ## Build order
 

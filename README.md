@@ -15,6 +15,7 @@ cargo run -- repl examples/extract/append.sw
 cargo run -- build --js examples/extract/append.sw -o out/
 
 nix build .#playground          # the browser playground: open result/index.html via a web server
+                                #   (it needs result/playground-worker.js and result/pkg/ beside it)
 ./web/build.sh                  # or build it into web/pkg/ during development
 ./web/serve.sh                  # build, then serve web/ at http://127.0.0.1:8000:
                                 #   index.html (playground), stress.html (deep and large programs

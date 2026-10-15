@@ -1,3 +1,4 @@
+<meta charset="utf-8">
 <title>Stitchwort Playground</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -190,7 +191,23 @@
   }
   pre.errors { color: var(--bad); }
 
-  .evalrow { display: flex; gap: 8px; }
+  .evalrow, .runrow { display: flex; gap: 8px; }
+  button.run { margin-left: auto; }
+  button:disabled { cursor: default; opacity: 0.55; }
+  textarea#run-input {
+    width: 100%;
+    resize: vertical;
+    font-family: var(--mono);
+    font-variation-settings: "MONO" 1, "CASL" 0;
+    font-size: 13px;
+    color: var(--ink);
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 8px 10px;
+  }
+  .run-result { display: flex; flex-direction: column; gap: 10px; }
+  pre.program-output { border-left: 3px solid var(--leaf); padding-left: 10px; }
   .evalrow input { flex: 1; min-width: 0; font-family: var(--mono); font-variation-settings: "MONO" 1; }
   .result {
     font-family: var(--mono);
@@ -251,6 +268,7 @@
   <section class="pane" aria-label="Source">
     <div class="pane-head">
       <span id="status" class="status idle">Loading the compiler…</span>
+      <button id="run" class="primary run" type="button" title="Run main (Ctrl+Enter)">Run ▸</button>
     </div>
     <textarea id="source" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="Stitchwort source"></textarea>
   </section>
@@ -262,6 +280,7 @@
         <button role="tab" id="tab-tests" aria-selected="false" data-view="tests">Tests</button>
         <button role="tab" id="tab-eval" aria-selected="false" data-view="eval">Evaluate</button>
         <button role="tab" id="tab-js" aria-selected="false" data-view="js">JavaScript</button>
+        <button role="tab" id="tab-run" aria-selected="false" data-view="run">Run</button>
       </div>
     </div>
     <div class="output" id="output" role="tabpanel"></div>
@@ -367,6 +386,83 @@ test "state inside choice" = length (allResults (\u -> runState 1 step)) == 2
 -- ...or one state threads through both branches.
 test "choice inside state" = sndOf (runState 1 (\u -> allResults step)) == 11
 </script>
+<script type="text/plain" id="ex-main" data-title="Input and output: main">-- A program with input and output. `main` prints with `print` and reads
+-- lines with `readLine`, which gives `Nothing` at the end of the input. Press
+-- Run: the Run tab's box holds the input lines. The tests run the same `main`
+-- with `simulate`, which takes the input as a list.
+
+-- The text, or a default at end of input.
+textOr : Text -> Maybe Text -> Text
+textOr d Nothing  = d
+textOr d (Just t) = t
+
+-- Reports a line that should be a number, and goes on with the new total.
+stepNumber : Nat -> Text -> Maybe Nat -> (Nat -> {IO} Nat) -> {IO} Nat
+stepNumber total l Nothing  more =
+  print ("\"" ++ l ++ "\" isn't a number; skipped")
+  more total
+stepNumber total l (Just n) more =
+  print ("  total: " ++ natToText (total + n))
+  more (total + n)
+
+-- What to do with a line, given the total so far. An empty line, or the end
+-- of input, stops.
+step : Nat -> Maybe Text -> (Nat -> {IO} Nat) -> {IO} Nat
+step total Nothing  more = total
+step total (Just l) more =
+  if textIsEmpty l then total else stepNumber total l (textToNat (textTrim l)) more
+
+-- Adds the numbers on at most this many more lines. The bound keeps the
+-- recursion structural: every run of `main` performs a bounded number of
+-- operations.
+addLines : Nat -> Nat -> {IO} Nat
+addLines 0        total = total
+addLines (Succ n) total = step total (readLine ()) (\t -> addLines n t)
+
+main : () -> {IO} ()
+main u =
+  print "What's your name?"
+  let name = textOr "stranger" (readLine ())
+  print ("Hello, " ++ name ++ "! Type numbers to add, one per line, and an empty line to stop.")
+  let total = addLines 1000 0
+  print ("The sum is " ++ natToText total ++ ". Goodbye, " ++ name ++ ".")
+
+-- Testing `main` with scripted input
+
+eqTexts : List Text -> List Text -> Bool
+eqTexts Nil         Nil         = True
+eqTexts (Cons x xs) (Cons y ys) = if x == y then eqTexts xs ys else False
+eqTexts _           _           = False
+
+printed : List Text -> List Text
+printed input = fst (simulate input main)
+
+test "a session" =
+  eqTexts (printed ["Ada", "1", "2", "x", " 39 ", ""])
+    [ "What's your name?"
+    , "Hello, Ada! Type numbers to add, one per line, and an empty line to stop."
+    , "  total: 1"
+    , "  total: 3"
+    , "\"x\" isn't a number; skipped"
+    , "  total: 42"
+    , "The sum is 42. Goodbye, Ada."
+    ]
+
+test "end of input stops it too" =
+  eqTexts (printed ["Ada", "5"])
+    [ "What's your name?"
+    , "Hello, Ada! Type numbers to add, one per line, and an empty line to stop."
+    , "  total: 5"
+    , "The sum is 5. Goodbye, Ada."
+    ]
+
+test "no input at all" =
+  eqTexts (printed [])
+    [ "What's your name?"
+    , "Hello, stranger! Type numbers to add, one per line, and an empty line to stop."
+    , "The sum is 0. Goodbye, stranger."
+    ]
+</script>
 <script type="text/plain" id="ex-js" data-title="Extract to JavaScript">-- Exports become an ES module with TypeScript types. Preconditions that JS
 -- can't prove are checked at runtime instead. See the JavaScript tab.
 
@@ -389,10 +485,17 @@ area (Rect w h) = w * h
   const source = document.getElementById("source");
   const output = document.getElementById("output");
   const picker = document.getElementById("example");
+  const runButton = document.getElementById("run");
   const tabs = [...document.querySelectorAll(".tabs button")];
   const examples = [...document.querySelectorAll('script[type="text/plain"]')];
 
-  let compiler = null;
+  /** Most a run may print, in bytes. */
+  const MAX_OUTPUT = 256 * 1024;
+  /** How long a run may take before it's stopped. */
+  const RUN_SECONDS = 15;
+  /** How long checking, testing, evaluating or extracting may take. */
+  const CHECK_SECONDS = 60;
+
   let view = "check";
   let evalInput = "";
 
@@ -406,13 +509,239 @@ area (Rect w h) = w * h
   const stored = (key) => { try { return localStorage.getItem(key); } catch { return null; } };
   const store = (key, value) => { try { localStorage.setItem(key, value); } catch {} };
 
+  function el(tag, attrs = {}, ...children) {
+    const node = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) node[k] = v;
+    node.append(...children);
+    return node;
+  }
+
+  const secs = (ms) => ms < 1000 ? `${ms.toFixed(0)} ms` : `${(ms / 1000).toFixed(1)} s`;
+
+  // The compiler runs in a Web Worker (playground-worker.js), one request at
+  // a time. After a crash (a trap, or the engine's stack running out, which
+  // deep nesting can still cause) the WebAssembly instance's state isn't
+  // restored, so that worker is discarded and the next request starts a
+  // fresh one. A request that's superseded, stopped or too slow is cancelled
+  // by terminating its worker. The page compiles the WebAssembly once and
+  // hands the module to each new worker, so restarting is quick.
+  const wasm = fetch(new URL("pkg/stitchwort_web_bg.wasm", import.meta.url))
+    .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.arrayBuffer(); })
+    .then((bytes) => WebAssembly.compile(bytes));
+
+  /** A worker that has answered: workers can run here. */
+  let workersWork = false;
+
+  class Compiler {
+    worker = null;
+    pending = null;
+    nextId = 0;
+
+    /**
+     * Runs `request` and resolves to { out } (the compiler's answer),
+     * { crashed, error }, { timedOut } or { cancelled }. A call while
+     * another is running cancels that one.
+     */
+    async call(request, seconds) {
+      this.cancel();
+      let module;
+      try {
+        module = await wasm;
+      } catch (e) {
+        return { crashed: true, error: String(e), noCompiler: true };
+      }
+      this.cancel();
+      return new Promise((resolve) => {
+        const id = ++this.nextId;
+        const timer = setTimeout(() => this.finish(id, { timedOut: true, seconds }), seconds * 1000);
+        this.pending = { id, resolve, timer };
+        try {
+          if (!this.worker) this.start();
+          this.worker.postMessage({ ...request, id, module });
+        } catch (e) {
+          this.finish(id, { crashed: true, error: String(e), noWorker: true });
+        }
+      });
+    }
+
+    /** Stops the running request, if there is one. */
+    cancel() {
+      if (this.pending) this.finish(this.pending.id, { cancelled: true });
+    }
+
+    start() {
+      const worker = new Worker(new URL("playground-worker.js", import.meta.url), { type: "module" });
+      worker.onmessage = ({ data }) => {
+        workersWork = true;
+        this.finish(data.id, data);
+      };
+      worker.onerror = (e) => {
+        e.preventDefault();
+        this.finish(this.pending?.id, { crashed: true, error: e.message || "the worker failed", noWorker: !workersWork });
+      };
+      this.worker = worker;
+    }
+
+    finish(id, result) {
+      if (!this.pending || this.pending.id !== id) return;
+      const { resolve, timer } = this.pending;
+      this.pending = null;
+      clearTimeout(timer);
+      if (!result.out) {
+        // Crashed, too slow or cancelled: this worker can't be trusted, or
+        // is still busy. Start afresh next time.
+        this.worker?.terminate();
+        this.worker = null;
+      }
+      resolve(result);
+    }
+  }
+
+  // If workers can't start here (a host that forbids them), the compiler
+  // runs in the page instead: it can't be stopped, and after a crash the
+  // page has to be reloaded.
+  class InPage {
+    broken = null;
+    async call(request) {
+      if (this.broken) return { crashed: true, error: this.broken, inPage: true };
+      try {
+        const compiler = await import("./pkg/stitchwort_web.js");
+        await compiler.default({ module_or_path: await wasm });
+        const answer = {
+          check: () => compiler.check(request.source),
+          test: () => compiler.test(request.source),
+          evaluate: () => compiler.evaluate(request.source, request.expr),
+          extract: () => compiler.extract(request.source),
+          run: () => compiler.run(request.source, request.input, request.maxOutput),
+        }[request.action];
+        return { out: JSON.parse(answer()) };
+      } catch (e) {
+        this.broken = `${e?.name ?? "Error"}: ${e?.message ?? e}`;
+        return { crashed: true, error: this.broken, inPage: true };
+      }
+    }
+    cancel() {}
+  }
+
+  /** Checking, testing, evaluating and extracting. */
+  let checker = new Compiler();
+  /** Running `main`, separately, so editing stays responsive during a run. */
+  let runner = new Compiler();
+
+  /** If the worker couldn't start at all, switches to the in-page compiler. */
+  function fallBack(result) {
+    if (!result.noWorker || workersWork || checker instanceof InPage) return false;
+    console.warn("The playground's worker didn't start, so the compiler runs in the page:", result.error);
+    checker = runner = new InPage();
+    return true;
+  }
+
+  // What a crash or timeout means, for the person using the page.
+  function trouble(result) {
+    if (result.noCompiler) {
+      return "This page runs the Stitchwort compiler as WebAssembly, and it couldn’t start here: " + result.error;
+    }
+    if (result.inPage) {
+      return `The compiler crashed (${result.error}). Reload the page to restart it.`;
+    }
+    if (result.timedOut) {
+      return `The compiler took longer than ${result.seconds} s, so it was stopped.`;
+    }
+    return `The compiler crashed (${result.error}). This can happen with very deeply nested ` +
+      "programs or values. It has been restarted; change the program to try again.";
+  }
+
+  /**
+   * Asks the checker; resolves to the compiler's answer, or to null after
+   * showing what went wrong (or nothing, if the request was superseded).
+   */
+  async function ask(request) {
+    let result = await checker.call(request, CHECK_SECONDS);
+    if (fallBack(result)) result = await checker.call(request, CHECK_SECONDS);
+    if (result.out) return result.out;
+    if (!result.cancelled) {
+      setStatus(result.noCompiler ? "The compiler didn’t load" : result.timedOut ? "Took too long" : "The compiler crashed", "bad");
+      output.replaceChildren(el("p", {}, trouble(result)));
+    }
+    return null;
+  }
+
+  // Running `main`. The controls persist across renders, so the input and the
+  // last run's output stay while switching tabs.
+  const runInput = el("textarea", { id: "run-input", spellcheck: false, rows: 4,
+                                    placeholder: "Input, one line per readLine ()" });
+  runInput.setAttribute("aria-label", "Input lines for the program");
+  const runAgain = el("button", { className: "primary", type: "button" }, "Run");
+  const stopButton = el("button", { type: "button", disabled: true }, "Stop");
+  const runResult = el("div", { className: "run-result" });
+  const runChecked = el("div");
+  const runStale = el("p", { className: "hint", hidden: true }, "The source has changed since this run.");
+  let ranSource = null;
+
+  const runPanel = [
+    el("p", { className: "hint" },
+       "Run calls main (). Its readLine () gets the lines below, one at a time, then Nothing. " +
+       `A run may print up to ${MAX_OUTPUT / 1024} KB and take up to ${RUN_SECONDS} s.`),
+    runInput,
+    el("div", { className: "runrow" }, runAgain, stopButton),
+    runChecked,
+    runStale,
+    runResult,
+  ];
+
+  async function runMain() {
+    selectView("run");
+    const src = source.value;
+    runButton.disabled = runAgain.disabled = true;
+    stopButton.disabled = false;
+    runResult.replaceChildren(el("p", { className: "hint" }, "Running…"));
+    const request = { action: "run", source: src, input: runInput.value, maxOutput: MAX_OUTPUT };
+    const started = performance.now();
+    let result = await runner.call(request, RUN_SECONDS);
+    if (fallBack(result)) result = await runner.call(request, RUN_SECONDS);
+    const took = performance.now() - started;
+    runButton.disabled = runAgain.disabled = false;
+    stopButton.disabled = true;
+    ranSource = src;
+    runStale.hidden = true;
+
+    const parts = [];
+    const out = result.out;
+    if (out && "output" in out) {
+      parts.push(el("h2", {}, "Output"),
+                 out.output ? el("pre", { className: "program-output" }, out.output)
+                            : el("p", { className: "hint" }, "Nothing was printed."));
+    }
+    if (out?.ok) {
+      parts.push(el("p", { className: "summary" }, `Finished in ${secs(took)}.`));
+    } else if (out) {
+      parts.push(...errorsView(out.errors));
+    } else if (result.cancelled) {
+      parts.push(el("p", {}, "Stopped. Output is shown when a run finishes, so there's none to show."));
+    } else if (result.timedOut) {
+      parts.push(el("p", {}, `Stopped after ${RUN_SECONDS} s. Output is shown when a run finishes, so there's none to show.`));
+    } else {
+      parts.push(el("p", {}, trouble(result)));
+    }
+    runResult.replaceChildren(...parts);
+  }
+
+  runButton.addEventListener("click", runMain);
+  runAgain.addEventListener("click", runMain);
+  stopButton.addEventListener("click", () => runner.cancel());
+  runInput.addEventListener("input", () => store("stitchwort.input", runInput.value));
+
   function loadExample(id) {
     const ex = document.getElementById(id) || examples[0];
     picker.value = ex.id;
     source.value = ex.textContent.replace(/^\n/, "");
     evalInput = { "ex-lists": "reverse [1, 2, 3]", "ex-division": "safeDiv 9 0",
-                  "ex-tests": "double 21", "ex-js": "applyDiscount 8 25" }[ex.id] || "";
+                  "ex-tests": "double 21", "ex-js": "applyDiscount 8 25",
+                  "ex-main": 'printed ["Ada", "1", "2"]' }[ex.id] || "";
+    runInput.value = { "ex-main": "Ada\n40\ntwo\n2\n" }[ex.id] || "";
+    runResult.replaceChildren();
     store("stitchwort.example", ex.id);
+    store("stitchwort.input", runInput.value);
     refresh();
   }
 
@@ -421,29 +750,36 @@ area (Rect w h) = w * h
     status.className = "status " + (kind || "");
   }
 
-  function el(tag, attrs = {}, ...children) {
-    const node = document.createElement(tag);
-    for (const [k, v] of Object.entries(attrs)) node[k] = v;
-    node.append(...children);
-    return node;
-  }
-
   function errorsView(errors) {
     return [el("h2", {}, "Errors"), el("pre", { className: "errors" }, errors)];
   }
 
-  function render() {
-    if (!compiler) return;
-    const src = source.value;
-    const checked = JSON.parse(compiler.check(src));
-    setStatus(checked.ok ? "Checked by the kernel" : "Doesn’t check", checked.ok ? "" : "bad");
-    output.replaceChildren();
+  /** Each render has a number; a newer one supersedes it. */
+  let rendering = 0;
 
+  async function render() {
+    const current = ++rendering;
+    const src = source.value;
+    if (view === "run") {
+      output.replaceChildren(...runPanel);
+      runStale.hidden = ranSource === null || ranSource === src;
+    }
+    const checked = await ask({ action: "check", source: src });
+    if (current !== rendering || !checked) return;
+    setStatus(checked.ok ? "Checked by the kernel" : "Doesn’t check", checked.ok ? "" : "bad");
+
+    if (view === "run") {
+      runChecked.replaceChildren(...(checked.ok ? [] :
+        [el("p", { className: "hint" }, "This doesn’t check yet."), ...errorsView(checked.errors)]));
+      return;
+    }
+
+    output.replaceChildren();
     if (view === "check") {
       if (checked.ok) {
         output.append(
           el("p", {}, "Every definition type-checks, every recursive function terminates, and every proof holds. The kernel re-checked them all."),
-          el("p", { className: "hint" }, "Edit the source to see errors as you type. The Tests, Evaluate and JavaScript tabs use the same program."));
+          el("p", { className: "hint" }, "Edit the source to see errors as you type. The Tests, Evaluate, JavaScript and Run tabs use the same program."));
       } else {
         output.append(...errorsView(checked.errors));
       }
@@ -456,7 +792,10 @@ area (Rect w h) = w * h
     }
 
     if (view === "tests") {
-      const result = JSON.parse(compiler.test(src));
+      output.append(el("p", { className: "hint" }, "Running the tests…"));
+      const result = await ask({ action: "test", source: src });
+      if (current !== rendering || !result) return;
+      output.replaceChildren();
       if (result.tests.length === 0) {
         output.append(el("p", { className: "hint" }, 'No tests yet. Add one: test "name" = leq (1 + 1) 2'));
         return;
@@ -483,21 +822,24 @@ area (Rect w h) = w * h
       const go = el("button", { className: "primary", type: "submit" }, "Evaluate");
       const form = el("form", { className: "evalrow" }, input, go);
       const answer = el("div");
-      const run = () => {
+      const evaluate = async () => {
         evalInput = input.value;
-        const result = JSON.parse(compiler.evaluate(src, input.value));
+        answer.replaceChildren(el("p", { className: "hint" }, "Evaluating…"));
+        const result = await ask({ action: "evaluate", source: src, expr: input.value });
+        if (current !== rendering || !result) return;
         answer.replaceChildren(result.ok
           ? el("div", { className: "result" }, result.value, el("span", { className: "type" }, " : " + result.type))
           : el("pre", { className: "errors" }, result.errors));
       };
-      form.addEventListener("submit", (e) => { e.preventDefault(); run(); });
+      form.addEventListener("submit", (e) => { e.preventDefault(); evaluate(); });
       output.append(form, answer);
-      if (input.value) run();
+      if (input.value) evaluate();
       return;
     }
 
     if (view === "js") {
-      const result = JSON.parse(compiler.extract(src));
+      const result = await ask({ action: "extract", source: src });
+      if (current !== rendering || !result) return;
       if (!result.ok) { output.append(...errorsView(result.errors)); return; }
       if (!/export function/.test(result.js)) {
         output.append(el("p", { className: "hint" }, "Nothing is exported. Put `export` on the line before a function's signature."));
@@ -515,14 +857,15 @@ area (Rect w h) = w * h
     timer = setTimeout(render, 250);
   }
 
-  for (const tab of tabs) {
-    tab.addEventListener("click", () => {
-      view = tab.dataset.view;
-      for (const t of tabs) t.setAttribute("aria-selected", String(t === tab));
-      store("stitchwort.view", view);
-      render();
-    });
+  function selectView(name) {
+    if (view === name) return;
+    view = name;
+    for (const t of tabs) t.setAttribute("aria-selected", String(t.dataset.view === name));
+    store("stitchwort.view", view);
+    render();
   }
+
+  for (const tab of tabs) tab.addEventListener("click", () => selectView(tab.dataset.view));
   picker.addEventListener("change", () => loadExample(picker.value));
   source.addEventListener("input", refresh);
   source.addEventListener("keydown", (e) => {
@@ -532,20 +875,21 @@ area (Rect w h) = w * h
       refresh();
     }
   });
+  // Ctrl+Enter (⌘+Enter on a Mac) runs, from the source or the input.
+  for (const box of [source, runInput]) {
+    box.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && !runButton.disabled) {
+        e.preventDefault();
+        runMain();
+      }
+    });
+  }
 
-  const savedView = stored("stitchwort.view");
-  if (savedView) tabs.find((t) => t.dataset.view === savedView)?.click();
   loadExample(stored("stitchwort.example") || "ex-lists");
   const draft = stored("stitchwort.draft");
   if (draft) source.value = draft;
-
-  try {
-    const module = await import("./pkg/stitchwort_web.js");
-    await module.default();
-    compiler = module;
-    render();
-  } catch (error) {
-    setStatus("The compiler didn’t load", "bad");
-    output.replaceChildren(el("p", {}, "This page runs the Stitchwort compiler as WebAssembly, and it couldn’t start here: " + error));
-  }
+  const input = stored("stitchwort.input");
+  if (input !== null) runInput.value = input;
+  const savedView = stored("stitchwort.view");
+  if (savedView && tabs.some((t) => t.dataset.view === savedView)) selectView(savedView);
 </script>
