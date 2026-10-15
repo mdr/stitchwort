@@ -51,8 +51,12 @@ Round 2:
   specification clarifications: phase-specific reference permissions, one
   shared definition-entry arity (leading lambdas before the case tree, used
   everywhere), induction over semantic call instances in §6.4, and a
-  test for arity-zero cycles. Not a completed soundness proof. Waits for
-  the user's go-ahead and for the kernel admission fix to merge.
+  test for arity-zero cycles. Not a completed soundness proof.
+  Implementation approved by the user; lane `mutual-recursion-impl` phase 1:
+  draft 3 and the size-change graph algorithm as a standalone module with an
+  independent reference implementation. Phase 2 (wiring into the
+  termination checker, then groups, then data types) after number patterns
+  and the admission fix merge.
 - **Kernel admission fix** (lane `kernel-admission`): explicit declaration
   states and the admission rule for single declarations, closing the
   split-cycle and pending-datatype holes (see Known issues). Recommends any order within a file, grouped automatically, with
