@@ -13,7 +13,15 @@ How it's kept:
 
 ## Now
 
-- **Stack-safe evaluation, step 3**
+Work runs in lanes, each in its own git worktree and branch, merged into
+`main` one at a time (with `nix flake check` after each). Only `main` edits
+this file.
+
+- **Lane: IO** (background agent, own worktree): text step 4, the `IO`
+  ability and `simulate`. Owns `prelude.sw`, `examples/`, the text-and-io
+  proposal; doesn't touch `core/src/value.rs`, `term.rs`, `budget.rs`,
+  `reference.rs`.
+- **Lane: core runtime** (main session), **stack-safe evaluation, step 3**
   ([proposal](docs/proposals/stack-safe-evaluation.md)): conversion (`conv`)
   as a work list, iterative `quote`, and iterative freeing of `Term`. Tests:
   two independently built long lists compared (equal, differing at the head,
@@ -32,10 +40,9 @@ How it's kept:
    noncharacters, both round-trip laws), and differential tests including the
    cross-runtime counterexamples. Decide how generated JS copes with long
    texts, since JS engines don't eliminate tail calls.
-3. **Text, step 4:** the `IO` ability and `simulate`.
-4. **Text, step 5:** `main` and `stitchwort run`, tested against `simulate`
+3. **Text, step 5:** `main` and `stitchwort run`, tested against `simulate`
    and real standard input and output.
-5. **Text, step 6:** the playground's Run button. Also run the playground's
+4. **Text, step 6:** the playground's Run button. Also run the playground's
    compiler in a Web Worker, as `web/stress.html` does: after the engine's
    stack overflows (`RangeError`), the WebAssembly instance's state isn't
    restored, so it shouldn't be reused. Republish it
