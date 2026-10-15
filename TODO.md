@@ -59,7 +59,12 @@ Round 2:
   forward references, then mutual data types) starts after number patterns
   merges; it needs a rule for whether a number pattern's predecessor counts
   as smaller.
-- ~~Kernel admission fix~~ (lane `kernel-admission`): merged as `afad1e0`. Recommends any order within a file, grouped automatically, with
+- ~~Kernel admission fix~~ (lane `kernel-admission`): merged as `afad1e0`.
+- **JS boundary follow-ups** (lane `js-followups`): own properties only,
+  no exponential decoding of shared input, fail loudly on a definition
+  without a body, DESIGN.md's boundary table.
+- **`Partial`** (lane `partial-design`): a thoroughly researched draft 2 of
+  [partial.md](docs/proposals/partial.md), docs only, for the reviewer. Recommends any order within a file, grouped automatically, with
   size-change termination checked by the kernel.
 - ~~JS boundary hardening~~ (lane `js-boundary`): merged as `84bc590`.
 
@@ -103,21 +108,13 @@ Round 2:
   checks. Not a proof of anything false, but turning natives on changes
   which `rfl` proofs check. Make the native build the definition's own `No`
   term, with a whole-result natives-on/off test.
-- **JS generation silently skips a definition with no body** (unreachable
-  today: the driver refuses modules with errors); make it fail explicitly.
 - **`Globals` fields `state` and `body` are `pub`**; make them private
   behind the admission API (with the mutual-recursion work).
 - **More tail calls as loops in generated JS:** only a function's calls to
   itself (including in either branch of an `if`) are loops today. Not
   through `if h : P`, helpers like `maybeThen`, or between functions.
-- **JS decoders read inherited properties** (`Object.create({tag: "Leaf"})`
-  is accepted). Decide whether to read own properties only.
-- **Decoding shared acyclic JS input is exponential** (decoded once per path
-  to it), so a hostile input can hang a call. Memoise, or limit the work.
 - **JS codecs are about 2× slower on small inputs** since they became
   iterative (5,000-element list: 0.3 → 0.7 ms both ways), if it matters.
-- **DESIGN.md's JS boundary table** lists `Int`, `Optional` and records,
-  which aren't built.
 - **Measure the JS limits in browsers** (only Node so far).
 - **Compact text** (text step 7): in generated JS first, then possibly in the
   checking evaluator, with differential tests against the plain-list version.
