@@ -810,31 +810,33 @@ The guarantee starts *after* decoding succeeds. It makes no promise that decodin
 | `Nat` | `bigint` (decoding rejects negative values) |
 | `Int` | `bigint` |
 | `Bool` | `boolean` |
-| `Text` | `string` |
+| `Text` | `string`, well-formed (decoding refuses lone surrogates) |
+| `Char` | `string` holding exactly one Unicode scalar value |
 | `List a` | `readonly A[]` (copied on decode; `readonly` is only a hint to TS callers) |
 | `{ name : Text, age : Nat }` | `{ readonly name: string; readonly age: bigint }` |
 | `Optional a` | `{ tag: "None" } \| { tag: "Some"; value: A }` |
 | sum type `Square … \| Rect …` | `{ tag: "Square"; side: bigint } \| { tag: "Rect"; … }` (exported constructors must name their fields) |
 | proof arguments and fields | omitted |
-| functions, abilities, `Float`, type parameters | not exportable yet |
+| data types with parameters, such as `Maybe Text` or `Pair Char Nat` | `Maybe<string>`, `Pair<string, bigint>`: generic aliases, whose codecs take the arguments' codecs |
+| functions, abilities, `Float`, type parameters of the exported function | not exportable yet |
 
 Notes:
 
 - **Integers are `bigint`** for now. With `number`, an input that passes validation could produce an output too large to represent exactly: `addTwo 9007199254740991` would give `9007199254740993`, which a JS `number` can't hold. Plain-`number` options (via bounded types) can come later. `Int` division and remainder are defined to match `BigInt`'s ([§10](#10-numbers)).
 - **`Optional` is tagged.** Mapping it to `A | null` would make `None` and `Some None` both `null` for `Optional (Optional Nat)`. A `null`-based encoding can be added later as an optimisation where the payload can never itself be `null`.
-- **`Text`**: if `Text` is defined as a sequence of Unicode characters (scalar values), decoding must reject JS strings containing unpaired surrogates, which JS allows. To be decided along with `Text`'s definition.
+- **`Text`** is a sequence of Unicode scalar values, so decoding refuses a JS string containing an unpaired surrogate (which JS allows) with `StitchwortInputError`, rather than repairing it. Encoding then gives back exactly the string that was decoded. See [the text proposal](docs/proposals/text-and-io.md#the-javascript-boundary).
 
 ### Code generation
 
 1. **Erase** types, proofs and proof fields.
 2. **Lower** to a small untyped IR: functions, constructors, `case`.
-3. **Generate JS**, with tail calls turned into loops.
+3. **Generate JS**, with a function's tail calls to itself turned into loops (including calls in the branches of an `if`).
 4. **Wrap** each `export` with the decode → validate → compute → encode steps.
 5. **Emit** `.d.ts` from the Stitchwort types.
 
 ### Caveats
 
-- **Stack depth.** JS engines generally don't optimise tail calls. Tail recursion becomes loops. Deep non-tail recursion can still overflow the stack, and the guarantee doesn't cover that.
+- **Stack depth.** JS engines generally don't optimise tail calls. A function's tail calls to itself become loops; other recursion, such as `length` or `append` over a long list or text, uses a stack frame per step and can overflow the stack (in Node, after a few thousand characters; the [text proposal](docs/proposals/text-and-io.md#as-built) has measurements). The guarantee doesn't cover that, but it's reported cleanly: the export throws a `StitchwortResourceError`, with the engine's error as its `cause`.
 - **Erasure must be correct.** The `Prop` elimination rules ([§6](#6-proofs-universes-and-erasure)) ensure nothing that runs depends on an erased value.
 
 ### Later: effects from the host
