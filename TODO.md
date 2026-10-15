@@ -46,8 +46,9 @@ Round 2:
   ([mutual-recursion.md](docs/proposals/mutual-recursion.md)): reviewed
   (supports whole-module scope with size-change termination; requires
   kernel-enforced group completeness, a partial-application policy, and an
-  honest account of `auto` and scheduling). Lane `mutual-recursion-2`: draft
-  2, docs only; implementation waits for the user. Recommends any order within a file, grouped automatically, with
+  honest account of `auto` and scheduling). Draft 2 merged; implementation
+  waits for the user (a second review of the new admission protocol and
+  termination argument is suggested). Recommends any order within a file, grouped automatically, with
   size-change termination checked by the kernel.
 - ~~JS boundary hardening~~ (lane `js-boundary`): merged as `84bc590`.
 
@@ -186,9 +187,17 @@ Round 2:
   first. So the guard is set to 128 KiB there (`crates/web/build.rs`),
   calibrated in Node and Chrome only; Firefox and Safari are unmeasured.
   Eliminating recursion (steps 3 and 4) is the real fix.
-- **A failed declaration stays declared without a body**, so later
-  declarations in the same module can use it. Safe only because a module with
-  any error is rejected as a whole. Consider removing failed declarations.
+- **The kernel doesn't track whether a declaration is finished.** Its
+  state is only `body: Option<…>`, which can't tell pending from failed,
+  and it never checks that what a body refers to is finished. Called
+  directly (not reachable from source, which declares and defines each item
+  back to back), it accepts a split cycle (`define_def f (\n. g n)` then
+  `define_def g (\n. f n)`, so `f 0` loops) and an empty match on a
+  datatype whose constructors aren't added yet, giving `impossible MakeD :
+  Void` (confirmed by the mutual-recursion lane). A failed declaration also
+  stays declared, so later declarations can use it; safe only because a
+  module with any error is rejected as a whole. The admission protocol in
+  mutual-recursion.md draft 2 (§5) fixes this.
 - **The machine starts a nested machine** when a native forces an argument
   that's a solved metavariable (elaboration only). Bounded by the term, not by
   program depth, but it's the one exception to "no re-entry".
