@@ -31,6 +31,8 @@ Round 2:
   note first, then implementation.
 - **Recorded benchmarks** (lane `benchmarks`): moved up from **Later** at
   the user's request.
+- **JS boundary hardening** (lane `js-boundary`): the `tag` field bug, a
+  general rule for field names, and iterative codecs for recursive types.
 
 ## Next
 
@@ -53,8 +55,6 @@ Round 2:
 - **More tail calls as loops in generated JS:** only a function's calls to
   itself (including in either branch of an `if`) are loops today. Not
   through `if h : P`, helpers like `maybeThen`, or between functions.
-- **Iterative codecs for recursive user data types** at the JS boundary
-  (deep input is a resource error today).
 - **Measure the JS limits in browsers** (only Node so far).
 - **Compact text** (text step 7): in generated JS first, then possibly in the
   checking evaluator, with differential tests against the plain-list version.
@@ -154,8 +154,6 @@ Round 2:
 - **Agents' clean-up can hit the user's processes:** the depth-guards lane
   ran `pkill -f serve_forever`, which stopped the local playground server.
   Agent prompts now say to stop only processes they started, by PID.
-- **A data field named `tag` breaks its JS codec** (clashes with the
-  constructor tag). Fields named `x`, `path` and `inside` were fixed.
 - **`long n == long n` gives `E-RESOURCE` at 100,000 characters** in the
   reference evaluator (fine at 10,000); probably the "`==` operands are
   computed at check time" issue, unconfirmed.
