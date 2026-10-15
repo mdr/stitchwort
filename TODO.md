@@ -97,8 +97,12 @@ Round 2:
   `setRangeText`) can't be undone and break Ctrl+Z for earlier typing.
   Colouring is checked only in headless Chrome (not Firefox or Safari, not
   with physical typing, not at phone width).
-- **`Partial`** ([proposal](docs/proposals/partial.md)): until it's settled, an
-  infinite `Comp` is unsound.
+- **`Partial`** ([proposal](docs/proposals/partial.md)): no way yet to write
+  code that may not terminate, such as a `main` that loops until end of
+  input (today's examples use fuel, e.g. `addLines 1000`). Draft 1's design
+  was unsound; the program showing why is a must-reject test
+  (`examples/soundness/infinite-computation.sw`), so the language is sound
+  without it.
 - **Lacks constraints on row variables** aren't enforced (only reachable with
   a hand-written `Sig`).
 - **Inferring a bare lambda's type** needs an annotation, e.g.
