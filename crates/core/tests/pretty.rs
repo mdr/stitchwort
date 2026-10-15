@@ -22,15 +22,15 @@ fn prints_numbers_and_lists_as_literals() {
             .into_iter()
             .rev()
             .fold(Term::Ctor(p.list, 0, vec![]), |tail, head| {
-                Term::Ctor(p.list, 1, vec![head, tail])
+                Term::ctor(p.list, 1, vec![head, tail])
             })
     };
     assert_eq!(show(&p, &[], &list(vec![p.num(1), p.num(2)])), "[1, 2]");
     assert_eq!(show(&p, &[], &list(vec![])), "[]");
     // Not a literal when the end isn't a constructor.
-    let open = Term::Ctor(p.list, 1, vec![p.num(1), v(0)]);
+    let open = Term::ctor(p.list, 1, vec![p.num(1), v(0)]);
     assert_eq!(show(&p, &["xs"], &open), "Cons 1 xs");
-    let succ_of_var = Term::Ctor(p.nat, 1, vec![v(0)]);
+    let succ_of_var = Term::ctor(p.nat, 1, vec![v(0)]);
     assert_eq!(show(&p, &["n"], &succ_of_var), "Succ n");
 }
 
@@ -56,7 +56,7 @@ fn prints_other_data_types_by_constructor_name() {
     let leaf = || Term::Ctor(tree, 0, vec![]);
     assert_eq!(show(&p, &[], &leaf()), "Leaf");
     assert_eq!(
-        show(&p, &[], &Term::Ctor(tree, 1, vec![leaf(), leaf()])),
+        show(&p, &[], &Term::ctor(tree, 1, vec![leaf(), leaf()])),
         "Node Leaf Leaf"
     );
 }

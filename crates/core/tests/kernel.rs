@@ -56,7 +56,7 @@ fn same(a: &Term, b: &Term) -> bool {
     }
 }
 
-fn all_same(xs: &[Term], ys: &[Term]) -> bool {
+fn all_same(xs: &[Rc<Term>], ys: &[Rc<Term>]) -> bool {
     xs.len() == ys.len() && xs.iter().zip(ys).all(|(x, y)| same(x, y))
 }
 
@@ -179,7 +179,7 @@ fn rejects_a_case_in_a_type() {
 #[test]
 fn rejects_a_case_on_a_variable_of_another_type() {
     let mut p = Prelude::new();
-    let ty = arrow(Term::Data(p.list, vec![p.nat_ty()]), p.nat_ty());
+    let ty = arrow(Term::data(p.list, vec![p.nat_ty()]), p.nat_ty());
     let body = lam(
         "xs",
         case(0, p.nat, vec![(vec![], p.num(0)), (vec!["k"], p.num(1))]),
@@ -255,7 +255,7 @@ fn rejects_recursion_on_a_larger_argument() {
     let mut p = Prelude::new();
     let nat = p.nat;
     let result = recursive(&mut p, "grow", |f| {
-        lam("n", app(f, [Term::Ctor(nat, 1, vec![v(0)])]))
+        lam("n", app(f, [Term::ctor(nat, 1, vec![v(0)])]))
     });
     assert_eq!(result, Err("E-TERMINATION"));
 }
@@ -314,7 +314,7 @@ fn accepts_recursion_on_a_field_of_a_field() {
                             nat,
                             vec![
                                 (vec![], zero()),
-                                (vec!["k"], Term::Ctor(nat, 1, vec![app(f, [v(0)])])),
+                                (vec!["k"], Term::ctor(nat, 1, vec![app(f, [v(0)])])),
                             ],
                         ),
                     ),
@@ -343,7 +343,7 @@ fn accepts_recursion_on_the_second_parameter() {
                     (vec![], v(1)),
                     (
                         vec!["k"],
-                        Term::Ctor(nat, 1, vec![app(Term::Def(id), [v(2), v(0)])]),
+                        Term::ctor(nat, 1, vec![app(Term::Def(id), [v(2), v(0)])]),
                     ),
                 ],
             ),
@@ -406,7 +406,7 @@ fn rejects_a_recursive_occurrence_with_different_parameters() {
     let mut p = Prelude::new();
     let nat = p.nat_ty();
     let code = data_code(&mut p.g, "T", vec![("a", ty())], Sort::Type(0), |d| {
-        vec![("f", Term::Data(d, vec![nat]))]
+        vec![("f", Term::data(d, vec![nat]))]
     });
     assert_eq!(code, "E-POSITIVITY");
 }
@@ -416,7 +416,7 @@ fn rejects_a_nested_occurrence_conservatively() {
     let mut p = Prelude::new();
     let list = p.list;
     let code = data_code(&mut p.g, "Rose", vec![], Sort::Type(0), |d| {
-        vec![("children", Term::Data(list, vec![Term::Data(d, vec![])]))]
+        vec![("children", Term::data(list, vec![Term::Data(d, vec![])]))]
     });
     assert_eq!(code, "E-POSITIVITY");
 }
@@ -484,7 +484,7 @@ fn eliminate(
     let ty = pi(
         "p",
         prop(),
-        pi("q", prop(), arrow(Term::Data(d, vec![v(1), v(0)]), result)),
+        pi("q", prop(), arrow(Term::data(d, vec![v(1), v(0)]), result)),
     );
     let body = lam("p", lam("q", lam("h", case(0, d, branches))));
     define(&mut props.p.g, "elim", ty, body)
@@ -512,14 +512,14 @@ fn accepts_matching_on_or_to_produce_a_proof() {
     let mut s = props();
     let or = s.or;
     // (p q : Prop) -> Or p q -> Or q p. In the branches: [p, q, h, field].
-    let swapped = Term::Data(or, vec![v(0), v(1)]);
+    let swapped = Term::data(or, vec![v(0), v(1)]);
     let result = eliminate(
         &mut s,
         or,
         swapped,
         vec![
-            (vec!["l"], Term::Ctor(or, 1, vec![v(0)])),
-            (vec!["r"], Term::Ctor(or, 0, vec![v(0)])),
+            (vec!["l"], Term::ctor(or, 1, vec![v(0)])),
+            (vec!["r"], Term::ctor(or, 0, vec![v(0)])),
         ],
     );
     assert_eq!(result.err(), None);
@@ -636,8 +636,8 @@ fn conversion_distinguishes_values_that_differ_anywhere() {
     let p = Prelude::new();
     let g = &p.g;
     let nat = p.nat_ty();
-    let list = |t: Term| Term::Data(p.list, vec![t]);
-    let cons = |h: Term, t: Term| Term::Ctor(p.list, 1, vec![h, t]);
+    let list = |t: Term| Term::data(p.list, vec![t]);
+    let cons = |h: Term, t: Term| Term::ctor(p.list, 1, vec![h, t]);
     let nil = || Term::Ctor(p.list, 0, vec![]);
     // Closed values, built without type checking.
     let value = |t: &Term| eval(g, &[], t).unwrap();
@@ -774,7 +774,7 @@ fn constants_unfold() {
 #[test]
 fn rejects_a_constructor_of_another_type() {
     let mut p = Prelude::new();
-    let list_of_nat = Term::Data(p.list, vec![p.nat_ty()]);
+    let list_of_nat = Term::data(p.list, vec![p.nat_ty()]);
     let zero = Term::Ctor(p.nat, 0, vec![]);
     assert_eq!(
         define(&mut p.g, "x", list_of_nat, zero),
@@ -803,7 +803,7 @@ fn infers_an_equation_from_its_right_side_when_the_left_is_ambiguous() {
     // (xs : List Nat) -> Nil = xs: `Nil` alone could be any list.
     let statement = pi(
         "xs",
-        Term::Data(p.list, vec![p.nat_ty()]),
+        Term::data(p.list, vec![p.nat_ty()]),
         eq(None, Term::Ctor(p.list, 0, vec![]), v(0)),
     );
     assert_eq!(infer_code(&p.g, &statement), "ok");
@@ -855,7 +855,7 @@ fn accepts_a_parameterised_type_as_a_function_result() {
     let nat = p.nat_ty();
     // type T (a : Type) = C (f : Nat -> T a). Under the arrow, `a` is v(1).
     let code = data_code(&mut p.g, "T", vec![("a", ty())], Sort::Type(0), |d| {
-        vec![("f", pi("_", nat, Term::Data(d, vec![v(1)])))]
+        vec![("f", pi("_", nat, Term::data(d, vec![v(1)])))]
     });
     assert_eq!(code, "ok");
 }
@@ -878,7 +878,7 @@ fn rejects_a_case_anywhere_outside_a_case_tree() {
         pi("n", nat.clone(), arrow(nat.clone(), a_case())),
         pi("n", nat.clone(), app(lam("x", v(0)), [a_case()])),
         pi("n", nat.clone(), app(a_case(), [nat.clone()])),
-        pi("n", nat.clone(), Term::Data(p.list, vec![a_case()])),
+        pi("n", nat.clone(), Term::data(p.list, vec![a_case()])),
         pi(
             "n",
             nat.clone(),
@@ -916,7 +916,7 @@ fn rejects_a_case_anywhere_outside_a_case_tree() {
         pi(
             "n",
             nat.clone(),
-            Term::Ctor(p.list, 1, vec![nat.clone(), a_case()]),
+            Term::ctor(p.list, 1, vec![nat.clone(), a_case()]),
         ),
     ];
     for (i, ty) in places.into_iter().enumerate() {
@@ -1086,7 +1086,7 @@ fn validate(
 fn accepts_a_validator_that_decides_the_precondition() {
     let (mut p, decidable, f) = with_decidable();
     // `Yes rfl`, in the context [n].
-    let yes = Term::Ctor(decidable, 0, vec![Term::Refl]);
+    let yes = Term::ctor(decidable, 0, vec![Term::Refl]);
     assert_eq!(validate(&mut p, f, 1, decidable, yes), "ok");
     assert_eq!(p.g.def(f).validators.len(), 1);
 }
@@ -1094,7 +1094,7 @@ fn accepts_a_validator_that_decides_the_precondition() {
 #[test]
 fn rejects_validators_that_do_not_decide_the_precondition() {
     let (mut p, decidable, f) = with_decidable();
-    let yes = || Term::Ctor(decidable, 0, vec![Term::Refl]);
+    let yes = || Term::ctor(decidable, 0, vec![Term::Refl]);
     // Not for a proof parameter: `n` is data.
     assert_eq!(validate(&mut p, f, 0, decidable, yes()), "E-MALFORMED");
     // No such parameter.
@@ -1102,8 +1102,8 @@ fn rejects_validators_that_do_not_decide_the_precondition() {
     // A decision of something else: `Yes` of a proof of `0 = 0` has type
     // `Decidable (0 = 0)`, not `Decidable (n = n)`.
     let other = Term::Ann(
-        Rc::new(Term::Ctor(decidable, 0, vec![Term::Refl])),
-        Rc::new(Term::Data(decidable, vec![eq(None, p.num(0), p.num(0))])),
+        Rc::new(Term::ctor(decidable, 0, vec![Term::Refl])),
+        Rc::new(Term::data(decidable, vec![eq(None, p.num(0), p.num(0))])),
     );
     assert_eq!(validate(&mut p, f, 1, decidable, other), "E-TYPE-MISMATCH");
     // A `case` isn't allowed in a validator.
@@ -1315,11 +1315,11 @@ fn an_under_applied_definition_is_a_function_for_conversion() {
         &mut p.g,
         "succ",
         ty,
-        lam("n", Term::Ctor(nat, 1, vec![v(0)])),
+        lam("n", Term::ctor(nat, 1, vec![v(0)])),
     )
     .unwrap();
     let f = eval(&p.g, &[], &Term::Def(succ)).unwrap();
-    let g = eval(&p.g, &[], &lam("n", Term::Ctor(nat, 1, vec![v(0)]))).unwrap();
+    let g = eval(&p.g, &[], &lam("n", Term::ctor(nat, 1, vec![v(0)]))).unwrap();
     assert!(conv(&p.g, 0, &f, &g).unwrap());
     assert!(conv(&p.g, 0, &g, &f).unwrap());
     let other = eval(&p.g, &[], &lam("n", v(0))).unwrap();

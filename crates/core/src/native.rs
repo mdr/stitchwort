@@ -218,7 +218,7 @@ pub fn register_native(g: &mut Globals, id: DefId, native: Native) -> Result<()>
             .decidable
             .filter(|_| g.builtins.nat_neq.is_some())
             .map(|dec| {
-                Term::Data(
+                Term::data(
                     dec,
                     vec![Term::Eq(
                         Some(Rc::new(nat_ty())),
@@ -400,7 +400,7 @@ pub fn nat_add_term(g: &Globals, k: &BigUint, base: Term) -> Term {
     if let Some(nat) = g.builtins.nat
         && *k == BigUint::from(1u32)
     {
-        return Term::Ctor(nat, 1, vec![base]);
+        return Term::ctor(nat, 1, vec![base]);
     }
     match native_def(g, Native::Add) {
         Some(add) => Term::app(
@@ -412,7 +412,7 @@ pub fn nat_add_term(g: &Globals, k: &BigUint, base: Term) -> Term {
             let mut term = base;
             let mut i = BigUint::zero();
             while &i < k {
-                term = Term::Ctor(nat, 1, vec![term]);
+                term = Term::ctor(nat, 1, vec![term]);
                 i += 1u32;
             }
             term

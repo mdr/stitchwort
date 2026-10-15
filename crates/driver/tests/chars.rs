@@ -24,7 +24,7 @@ fn span() -> Span {
 /// `MkChar code rfl`, checked by the kernel. For a code that isn't a scalar
 /// value, `rfl` would have to prove `False = True`.
 fn check_code(g: &Globals, code: u32) -> Result<(), &'static str> {
-    let term = Term::Ctor(
+    let term = Term::ctor(
         mk_char(g),
         0,
         vec![Term::Nat(BigUint::from(code).into()), Term::Refl],
@@ -60,7 +60,7 @@ fn the_kernel_accepts_exactly_the_scalar_values() {
 fn the_kernel_refuses_a_char_without_its_proof() {
     let session = Session::new();
     let g = &session.elab.globals;
-    let term = Term::Ctor(mk_char(g), 0, vec![Term::Nat(BigUint::from(65u32).into())]);
+    let term = Term::ctor(mk_char(g), 0, vec![Term::Nat(BigUint::from(65u32).into())]);
     assert_eq!(
         infer_closed(g, &term, span())
             .map(|_| ())

@@ -756,7 +756,7 @@ fn performs_after(cx: &Ctx, mut ty: Value, mut explicit: usize) -> Result<bool> 
 fn done(cx: &Ctx, row: &Row, t: &Value, v: Term) -> Result<Term> {
     let ty = comp_type(cx, row, t.clone())?;
     Ok(Term::Ann(
-        Rc::new(Term::Ctor(data(cx, "Comp")?, 0, vec![v])),
+        Rc::new(Term::ctor(data(cx, "Comp")?, 0, vec![v])),
         Rc::new(cx.quote(&ty)?),
     ))
 }
@@ -1204,19 +1204,19 @@ fn make_call(
     let op_value = Value::Ctor(op_data, i, Rc::new([x_value]));
     let result_ty = apply(cx.g(), label_res(cx, label)?, op_value)?;
     let plus = data(cx, "Plus")?;
-    let mut injected = Term::Ctor(plus, 0, vec![Term::Ctor(op_data, i, vec![x])]);
+    let mut injected = Term::ctor(plus, 0, vec![Term::ctor(op_data, i, vec![x])]);
     for _ in 0..pos {
-        injected = Term::Ctor(plus, 1, vec![injected]);
+        injected = Term::ctor(plus, 1, vec![injected]);
     }
     let comp = comp_type(cx, row, result_ty.clone())?;
     let comp_inner = stitchwort_core::value::quote(cx.g(), cx.level() + 1, &comp)?;
     let done = Term::Ann(
-        Rc::new(Term::Ctor(data(cx, "Comp")?, 0, vec![Term::Var(0)])),
+        Rc::new(Term::ctor(data(cx, "Comp")?, 0, vec![Term::Var(0)])),
         Rc::new(comp_inner),
     );
     let rest = Term::Lam("r".into(), Icit::Explicit, Rc::new(done));
     let call = Term::Ann(
-        Rc::new(Term::Ctor(data(cx, "Comp")?, 1, vec![injected, rest])),
+        Rc::new(Term::ctor(data(cx, "Comp")?, 1, vec![injected, rest])),
         Rc::new(cx.quote(&comp)?),
     );
     Ok((call, result_ty))
@@ -1474,7 +1474,7 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
             Icit::Explicit,
             Rc::new(Term::app(Term::Var(1), reply)),
         );
-        let call_term = Term::Ctor(data(cx, "Comp")?, 1, vec![inject, rest_fn]);
+        let call_term = Term::ctor(data(cx, "Comp")?, 1, vec![inject, rest_fn]);
         Term::Lam(
             "o".into(),
             Icit::Explicit,

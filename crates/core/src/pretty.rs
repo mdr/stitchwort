@@ -94,12 +94,14 @@ impl Printer<'_> {
                         let result = self.print(names, &args[2], Prec::App);
                         (format!("{row} {result}"), Prec::App)
                     }
-                    None => self.applied(names, "Comp".into(), args.iter()),
+                    None => self.applied(names, "Comp".into(), args.iter().map(|a| &**a)),
                 }
             }
-            Term::Data(d, args) => {
-                self.applied(names, self.g.data(*d).name.to_string(), args.iter())
-            }
+            Term::Data(d, args) => self.applied(
+                names,
+                self.g.data(*d).name.to_string(),
+                args.iter().map(|a| &**a),
+            ),
             Term::Ctor(d, 0, _) if data_named(self.g, *d, "UnitType") => ("()".into(), Prec::Atom),
             Term::Ctor(d, c, args) => {
                 if let Some(n) = nat_literal(self.g, term) {
@@ -119,7 +121,7 @@ impl Printer<'_> {
                     return (format!("[{}]", items.join(", ")), Prec::Atom);
                 }
                 let name = self.g.data(*d).ctors[*c].name.to_string();
-                self.applied(names, name, args.iter())
+                self.applied(names, name, args.iter().map(|a| &**a))
             }
             // `p -> Void` is how `Not p` computes; print it the way it's written.
             Term::Pi(_, Icit::Explicit, a, b)

@@ -91,7 +91,7 @@ impl Value {
 pub fn eval(g: &Globals, env: &[Value], term: &Term) -> Result<Value> {
     g.budget.step()?;
     // A loop rather than `collect`, which can't size the vector in advance.
-    let eval_all = |args: &[Term]| -> Result<Vec<Value>> {
+    let eval_all = |args: &[Rc<Term>]| -> Result<Vec<Value>> {
         let mut values = Vec::with_capacity(args.len());
         for a in args {
             values.push(eval(g, env, a)?);
@@ -316,8 +316,8 @@ fn quote_sized(g: &Globals, level: usize, value: &Value, size: &mut u64) -> Resu
             let b = b.apply(g, Value::var(level))?;
             Term::Lam(x.clone(), i, Rc::new(quote_sized(g, level + 1, &b, size)?))
         }
-        Value::Data(d, args) => Term::Data(d, args.iter().map(q).collect::<Result<_>>()?),
-        Value::Ctor(d, c, args) => Term::Ctor(d, c, args.iter().map(q).collect::<Result<_>>()?),
+        Value::Data(d, args) => Term::data(d, args.iter().map(q).collect::<Result<_>>()?),
+        Value::Ctor(d, c, args) => Term::ctor(d, c, args.iter().map(q).collect::<Result<_>>()?),
         Value::Nat(n) => Term::Nat(n),
         Value::NatAdd(k, base) => native::nat_add_term(g, &k, q(&base)?),
         Value::Eq(ty, a, b) => Term::Eq(Some(Rc::new(q(&ty)?)), Rc::new(q(&a)?), Rc::new(q(&b)?)),

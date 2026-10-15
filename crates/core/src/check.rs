@@ -146,7 +146,7 @@ pub fn infer(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
                 });
                 out.push(arg);
             }
-            Ok((Term::Data(*d, out), Value::Sort(data.sort)))
+            Ok((Term::data(*d, out), Value::Sort(data.sort)))
         }
         Term::Sort(s) => Ok((term.clone(), Value::Sort(s.succ()))),
         Term::Nat(_) => match g.builtins.nat {
@@ -276,7 +276,7 @@ pub fn check(cx: &mut Ctx, term: &Term, expected: &Value) -> Result<Term> {
                 });
                 out.push(arg);
             }
-            Ok(Term::Ctor(*d, *c, out))
+            Ok(Term::ctor(*d, *c, out))
         }
         (Term::Ctor(d, c, _), _) => Err(cx.error(
             "E-TYPE-MISMATCH",
@@ -507,7 +507,7 @@ fn check_case(
         cx.types = saved_types;
         out.push(Branch {
             names: branch.names.clone(),
-            body: result?,
+            body: Rc::new(result?),
         });
     }
     Ok(Term::Case(ix, d, out.into()))
@@ -567,7 +567,7 @@ pub fn define_def(g: &mut Globals, id: DefId, body: &Term) -> Result<()> {
     termination::check(g, &body, id, &name, span)?;
     let def = &mut g.defs[id.0];
     def.arity = body.count_lams();
-    def.body = Some(body);
+    def.body = Some(Rc::new(body));
     Ok(())
 }
 
@@ -759,7 +759,7 @@ fn declared_later(g: &Globals, term: &Term, d: DataId) -> Option<String> {
         }),
         Term::Var(_) | Term::Nat(_) | Term::Sort(_) | Term::Refl | Term::Meta(_) => None,
         Term::Data(d2, args) | Term::Ctor(d2, _, args) => {
-            later_data(d2).or_else(|| args.iter().find_map(go))
+            later_data(d2).or_else(|| args.iter().find_map(|a| go(a)))
         }
         Term::Pi(_, _, a, b) | Term::App(a, b, _) | Term::Ann(a, b) => go(a).or_else(|| go(b)),
         Term::Lam(_, _, b) | Term::Loc(_, b) => go(b),
@@ -794,7 +794,7 @@ fn case_only_in_tree(term: &Term, in_tree: bool) -> bool {
         Term::Var(_) | Term::Def(_) | Term::Nat(_) | Term::Sort(_) | Term::Refl | Term::Meta(_) => {
             true
         }
-        Term::Data(_, args) | Term::Ctor(_, _, args) => args.iter().all(no_case),
+        Term::Data(_, args) | Term::Ctor(_, _, args) => args.iter().all(|a| no_case(a)),
         Term::Pi(_, _, a, b) | Term::App(a, b, _) | Term::Ann(a, b) => no_case(a) && no_case(b),
         Term::Lam(_, _, b) => no_case(b),
         Term::Eq(t, a, b) => t.as_deref().is_none_or(no_case) && no_case(a) && no_case(b),

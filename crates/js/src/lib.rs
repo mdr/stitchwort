@@ -72,7 +72,7 @@ pub fn exportable(g: &Globals, id: DefId) -> Result<ExportSig, Diagnostic> {
         ));
     }
     // Prefer the names from the signature, then from the equations.
-    let equation_names = lam_names(def.body.as_ref());
+    let equation_names = lam_names(def.body.as_deref());
     let mut params = Vec::new();
     let mut param_positions = Vec::new();
     let mut checks = Vec::new();

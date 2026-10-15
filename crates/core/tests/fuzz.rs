@@ -69,12 +69,12 @@ impl Gen<'_> {
                 let args = (0..self.rng.below(3))
                     .map(|_| self.term(depth - 1, scope))
                     .collect();
-                Term::Data(d, args)
+                Term::data(d, args)
             }
             7 => {
                 let (d, c) = (self.data(), self.rng.below(3));
                 let args = (0..self.rng.below(3))
-                    .map(|_| self.term(depth - 1, scope))
+                    .map(|_| Rc::new(self.term(depth - 1, scope)))
                     .collect();
                 Term::Ctor(d, c, args)
             }
@@ -98,7 +98,7 @@ impl Gen<'_> {
                         let k = self.rng.below(3);
                         Branch {
                             names: (0..k).map(|_| "y".into()).collect(),
-                            body: self.term(depth - 1, scope + k),
+                            body: Rc::new(self.term(depth - 1, scope + k)),
                         }
                     })
                     .collect();

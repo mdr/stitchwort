@@ -1260,7 +1260,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                 cx.types = saved_types;
                 out.push(Branch {
                     names: names.clone(),
-                    body: result?,
+                    body: Rc::new(result?),
                 });
             }
             Ok(Term::Loc(

@@ -12,6 +12,7 @@
 
 use crate::globals::{Globals, HashKey};
 use crate::term::{DataId, DefId, Icit, Sort, Term};
+use std::rc::Rc;
 
 /// A 256-bit content hash.
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -163,7 +164,7 @@ impl<'g> Hasher<'g> {
         }
     }
 
-    fn terms(&mut self, terms: &[Term]) {
+    fn terms(&mut self, terms: &[Rc<Term>]) {
         self.usize(terms.len());
         for t in terms {
             self.term(t);

@@ -214,8 +214,8 @@ fn rename(
         Value::Refl => Term::Refl,
         Value::Pi(x, i, a, b) => Term::Pi(x, i, Rc::new(go(&a)?), Rc::new(under(&b)?)),
         Value::Lam(x, i, b) => Term::Lam(x, i, Rc::new(under(&b)?)),
-        Value::Data(d, args) => Term::Data(d, args.iter().map(go).collect::<Renamed<_>>()?),
-        Value::Ctor(d, c, args) => Term::Ctor(d, c, args.iter().map(go).collect::<Renamed<_>>()?),
+        Value::Data(d, args) => Term::data(d, args.iter().map(go).collect::<Renamed<_>>()?),
+        Value::Ctor(d, c, args) => Term::ctor(d, c, args.iter().map(go).collect::<Renamed<_>>()?),
         Value::Nat(n) => Term::Nat(n),
         Value::NatAdd(k, base) => native::nat_add_term(g, &k, go(&base)?),
         Value::Eq(t, a, b) => Term::Eq(Some(Rc::new(go(&t)?)), Rc::new(go(&a)?), Rc::new(go(&b)?)),
@@ -352,14 +352,14 @@ pub fn zonk(g: &Globals, level: usize, term: &Term) -> std::result::Result<Term,
         Term::Data(d, args) => Term::Data(
             *d,
             args.iter()
-                .map(|a| zonk(g, level, a))
+                .map(|a| zonk(g, level, a).map(Rc::new))
                 .collect::<std::result::Result<_, _>>()?,
         ),
         Term::Ctor(d, c, args) => Term::Ctor(
             *d,
             *c,
             args.iter()
-                .map(|a| zonk(g, level, a))
+                .map(|a| zonk(g, level, a).map(Rc::new))
                 .collect::<std::result::Result<_, _>>()?,
         ),
         Term::Pi(x, i, a, b) => Term::Pi(x.clone(), *i, go(a, level)?, go(b, level + 1)?),
@@ -374,7 +374,7 @@ pub fn zonk(g: &Globals, level: usize, term: &Term) -> std::result::Result<Term,
                 .map(|b| {
                     Ok(stitchwort_core::term::Branch {
                         names: b.names.clone(),
-                        body: zonk(g, level + b.names.len(), &b.body)?,
+                        body: Rc::new(zonk(g, level + b.names.len(), &b.body)?),
                     })
                 })
                 .collect::<std::result::Result<_, ZonkError>>()?,
@@ -393,7 +393,7 @@ fn first_meta(term: &Term) -> Option<usize> {
     match term {
         Term::Meta(m) => Some(*m),
         Term::Var(_) | Term::Def(_) | Term::Nat(_) | Term::Sort(_) | Term::Refl => None,
-        Term::Data(_, args) | Term::Ctor(_, _, args) => args.iter().find_map(first_meta),
+        Term::Data(_, args) | Term::Ctor(_, _, args) => args.iter().find_map(|a| first_meta(a)),
         Term::Pi(_, _, a, b) | Term::App(a, b, _) | Term::Ann(a, b) => {
             first_meta(a).or_else(|| first_meta(b))
         }
@@ -726,14 +726,14 @@ mod tests {
             stitchwort_core::DataId(0),
             vec![stitchwort_core::term::Branch {
                 names: vec!["a".into(), "b".into()],
-                body: Term::app(Term::Meta(id), Term::Var(0)),
+                body: Rc::new(Term::app(Term::Meta(id), Term::Var(0))),
             }]
             .into(),
         );
         match zonk(&g, 1, &branch) {
             Ok(Term::Case(_, _, branches)) => {
                 assert!(
-                    matches!(branches[0].body, Term::Var(0)),
+                    matches!(*branches[0].body, Term::Var(0)),
                     "{:?}",
                     branches[0].body
                 );

@@ -1,6 +1,7 @@
 //! Checked top-level declarations.
 
 use std::cell::RefCell;
+use std::rc::Rc;
 
 use stitchwort_syntax::Span;
 
@@ -14,7 +15,7 @@ pub struct Def {
     pub ty_value: Value,
     /// `None` while the definition's own body is being checked (so recursive
     /// references don't unfold), or if checking it failed.
-    pub body: Option<Term>,
+    pub body: Option<Rc<Term>>,
     /// Number of leading lambdas in `body`. The definition unfolds once it's
     /// applied to this many arguments and its case tree can make progress.
     pub arity: usize,

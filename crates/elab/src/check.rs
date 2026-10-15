@@ -253,10 +253,10 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             let (_, cons) = ctor_named(cx, "Cons")?;
             let mut chars = Term::Ctor(list, nil, Vec::new());
             for c in s.chars().rev() {
-                chars = Term::Ctor(list, cons, vec![char_term(cx, c)?, chars]);
+                chars = Term::ctor(list, cons, vec![char_term(cx, c)?, chars]);
             }
             Ok((
-                Term::Ctor(text, mk_text, vec![chars]),
+                Term::ctor(text, mk_text, vec![chars]),
                 Value::Data(text, Vec::new()),
             ))
         }
@@ -460,7 +460,7 @@ fn infer_app(cx: &mut Ctx, head: &Expr, args: &[Arg]) -> Result<(Term, Value)> {
                 params.push(cx.eval(&term)?);
                 terms.push(term);
             }
-            let head = (Term::Data(*d, terms), Value::Sort(data.sort));
+            let head = (Term::data(*d, terms), Value::Sort(data.sort));
             apply_args(cx, head, &args[n..])
         }
         Some((Global::Ability(_), _)) => Err(cx.error(
@@ -782,7 +782,7 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
             }
             let mut term = Term::Ctor(list, nil, Vec::new());
             for item in terms.into_iter().rev() {
-                term = Term::Ctor(list, cons, vec![item, term]);
+                term = Term::ctor(list, cons, vec![item, term]);
             }
             Ok(term)
         }
@@ -808,7 +808,7 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
 fn char_term(cx: &Ctx, c: char) -> Result<Term> {
     let (char_data, mk_char) = ctor_named(cx, "MkChar")?;
     let code = Term::Nat(Rc::new(u32::from(c).into()));
-    Ok(Term::Ctor(char_data, mk_char, vec![code, Term::Refl]))
+    Ok(Term::ctor(char_data, mk_char, vec![code, Term::Refl]))
 }
 
 /// `a ++ b`: `textAppend` for texts, `append` for lists, chosen by the type of
@@ -1064,7 +1064,7 @@ fn ctor_app(
         return Err(error);
     }
     cx.reset(mark);
-    let mut term = Term::Ctor(d, c, terms);
+    let mut term = Term::ctor(d, c, terms);
     if missing_types.is_empty() {
         return Ok((term, result_ty));
     }

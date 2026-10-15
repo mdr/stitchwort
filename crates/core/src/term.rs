@@ -79,10 +79,10 @@ pub enum Term {
     Var(usize),
     Def(DefId),
     /// A data type applied to all of its parameters.
-    Data(DataId, Vec<Term>),
+    Data(DataId, Vec<Rc<Term>>),
     /// A constructor applied to all of its fields. The data type's parameters
     /// come from the expected type, so constructors can only be checked.
-    Ctor(DataId, usize, Vec<Term>),
+    Ctor(DataId, usize, Vec<Rc<Term>>),
     /// A number: the same as that many `Succ`s around `Zero`, stored compactly.
     Nat(Rc<BigUint>),
     Sort(Sort),
@@ -110,7 +110,7 @@ pub enum Term {
 pub struct Branch {
     /// Names of the constructor's fields, bound in `body`.
     pub names: Vec<Name>,
-    pub body: Term,
+    pub body: Rc<Term>,
 }
 
 impl Term {
@@ -120,6 +120,16 @@ impl Term {
             term = inner;
         }
         term
+    }
+
+    /// Every sub-term the evaluator may evaluate is behind its own `Rc`, so it
+    /// can hold on to it while evaluating (see `value.rs`).
+    pub fn data(d: DataId, args: Vec<Term>) -> Term {
+        Term::Data(d, args.into_iter().map(Rc::new).collect())
+    }
+
+    pub fn ctor(d: DataId, c: usize, fields: Vec<Term>) -> Term {
+        Term::Ctor(d, c, fields.into_iter().map(Rc::new).collect())
     }
 
     pub fn app(f: Term, a: Term) -> Term {
@@ -154,6 +164,27 @@ impl Term {
         term
     }
 
+    /// `strip_loc`, keeping the `Rc`.
+    pub fn strip_loc_rc(term: &Rc<Term>) -> Rc<Term> {
+        let mut term = term;
+        while let Term::Loc(_, inner) = &**term {
+            term = inner;
+        }
+        term.clone()
+    }
+
+    /// `peel_lams`, keeping the `Rc`.
+    pub fn peel_lams_rc(term: &Rc<Term>, n: usize) -> Rc<Term> {
+        let mut term = Term::strip_loc_rc(term);
+        for _ in 0..n {
+            term = match &*term {
+                Term::Lam(_, _, body) => Term::strip_loc_rc(body),
+                _ => panic!("internal error: expected {n} lambdas"),
+            };
+        }
+        term
+    }
+
     pub fn count_lams(&self) -> usize {
         let mut term = self.strip_loc();
         let mut n = 0;
@@ -177,10 +208,10 @@ impl Term {
             | Term::Refl
             | Term::Meta(_) => self.clone(),
             Term::Data(d, args) => {
-                Term::Data(*d, args.iter().map(|a| a.shift(by, cutoff)).collect())
+                Term::data(*d, args.iter().map(|a| a.shift(by, cutoff)).collect())
             }
             Term::Ctor(d, c, args) => {
-                Term::Ctor(*d, *c, args.iter().map(|a| a.shift(by, cutoff)).collect())
+                Term::ctor(*d, *c, args.iter().map(|a| a.shift(by, cutoff)).collect())
             }
             Term::Pi(x, i, a, b) => Term::Pi(x.clone(), *i, go(a, cutoff), go(b, cutoff + 1)),
             Term::Lam(x, i, b) => Term::Lam(x.clone(), *i, go(b, cutoff + 1)),
@@ -193,7 +224,7 @@ impl Term {
                     .iter()
                     .map(|b| Branch {
                         names: b.names.clone(),
-                        body: b.body.shift(by, cutoff + b.names.len()),
+                        body: Rc::new(b.body.shift(by, cutoff + b.names.len())),
                     })
                     .collect(),
             ),
@@ -250,7 +281,7 @@ mod tests {
     }
 
     fn data(args: Vec<Term>) -> Term {
-        Term::Data(DataId(0), args)
+        Term::data(DataId(0), args)
     }
 
     fn case(ix: usize, names: usize, body: Term) -> Term {
@@ -259,7 +290,7 @@ mod tests {
             DataId(0),
             vec![Branch {
                 names: (0..names).map(|_| "y".into()).collect(),
-                body,
+                body: Rc::new(body),
             }]
             .into(),
         )
@@ -305,12 +336,12 @@ mod tests {
         assert_same(
             Term::Ann(
                 rc(data(vec![v(0)])),
-                rc(Term::Ctor(DataId(0), 0, vec![v(1)])),
+                rc(Term::ctor(DataId(0), 0, vec![v(1)])),
             )
             .shift(3, 0),
             Term::Ann(
                 rc(data(vec![v(3)])),
-                rc(Term::Ctor(DataId(0), 0, vec![v(4)])),
+                rc(Term::ctor(DataId(0), 0, vec![v(4)])),
             ),
         );
     }

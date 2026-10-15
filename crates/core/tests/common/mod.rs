@@ -70,7 +70,7 @@ pub fn case(ix: usize, d: DataId, branches: Vec<(Vec<&str>, Term)>) -> Term {
             .into_iter()
             .map(|(names, body)| Branch {
                 names: names.into_iter().map(Into::into).collect(),
-                body,
+                body: Rc::new(body),
             })
             .collect(),
     )
@@ -116,7 +116,7 @@ impl Prelude {
                         (vec![], v(0)),
                         (
                             vec!["m'"],
-                            Term::Ctor(nat, 1, vec![app(Term::Def(add), [v(0), v(1)])]),
+                            Term::ctor(nat, 1, vec![app(Term::Def(add), [v(0), v(1)])]),
                         ),
                     ],
                 ),
@@ -132,7 +132,7 @@ impl Prelude {
                 ctor("Nil", vec![]),
                 ctor(
                     "Cons",
-                    vec![("head", v(0)), ("tail", Term::Data(list, vec![v(1)]))],
+                    vec![("head", v(0)), ("tail", Term::data(list, vec![v(1)]))],
                 ),
             ],
         )
@@ -146,7 +146,7 @@ impl Prelude {
 
     pub fn num(&self, n: usize) -> Term {
         (0..n).fold(Term::Ctor(self.nat, 0, vec![]), |t, _| {
-            Term::Ctor(self.nat, 1, vec![t])
+            Term::ctor(self.nat, 1, vec![t])
         })
     }
 
