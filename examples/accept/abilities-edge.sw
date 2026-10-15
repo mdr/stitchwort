@@ -205,3 +205,10 @@ handledHere u =
 test "a handle expression forwards to a concrete row" =
   let r = collect handledHere
   if eqNats (fstOf r) [5] then eqNats (sndOf r) [1, 2] else False
+
+-- An operation on its own is a function: `choose` is `\x -> choose x`.
+countTrue : (() -> {Choose} Bool) -> {Choose} Nat
+countTrue f = if f () then (if f () then 2 else 1) else 0
+
+test "an operation as a value" = length (allResults choose) == 2
+test "passing an operation" = eqNats (allResults (\u -> countTrue choose)) [2, 1, 0]

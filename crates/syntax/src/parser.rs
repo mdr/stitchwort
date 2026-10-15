@@ -566,7 +566,19 @@ impl<'t> Parser<'t> {
         let body = self.expr_inline()?;
         self.expect(Tok::KwWith, "`with`")?;
         let mut clauses = Vec::new();
-        while self.eat(&Tok::Pipe) {
+        // Clauses on their own lines line up: a `|` at another column belongs
+        // to an enclosing handler (or isn't a clause at all).
+        let mut column = None;
+        while self.peek() == Some(&Tok::Pipe) {
+            let token = &self.tokens[self.pos];
+            if token.line_start {
+                match column {
+                    None => column = Some(token.column),
+                    Some(c) if c != token.column => break,
+                    Some(_) => {}
+                }
+            }
+            self.bump();
             if self.eat(&Tok::KwReturn) {
                 let var = self.lower("a name for the result")?;
                 self.expect(Tok::Arrow, "`->`")?;

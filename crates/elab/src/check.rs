@@ -444,6 +444,11 @@ fn infer_app(cx: &mut Ctx, head: &Expr, args: &[Arg]) -> Result<(Term, Value)> {
             format!("`{}` is an ability, not a type or a value", name.text),
             "abilities go in a function type's row: `-> {State s} …`",
         )),
+        Some((Global::Op(a, i), _)) if args.is_empty() => {
+            let (term, ty) = effects::op_value(cx, *a, *i)?;
+            let ty_term = cx.quote(&ty);
+            Ok((Term::Ann(Rc::new(term), Rc::new(ty_term)), ty))
+        }
         Some((Global::Op(a, _), _)) => {
             let ability = cx.e.abilities[*a].name.clone();
             Err(cx

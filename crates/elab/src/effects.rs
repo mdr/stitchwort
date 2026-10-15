@@ -650,7 +650,8 @@ pub fn may_perform(cx: &Ctx, expr: &Expr) -> bool {
                 .count();
             match head {
                 Expr::Var(name) => match head_type(cx, name) {
-                    HeadType::Op => true,
+                    // An operation on its own is a function value.
+                    HeadType::Op => explicit > 0,
                     HeadType::Typed(ty) => performs_after(cx, ty, explicit),
                     HeadType::Other => false,
                 },
@@ -1116,28 +1117,7 @@ fn op_call(
     let field_ty = cx.g().data(op_data).ctors[i].fields[0].1.clone();
     let dom = stitchwort_core::value::eval(cx.g(), &label.args, &field_ty);
 
-    let make = |cx: &mut Ctx, x: Term| -> Result<(Term, Value)> {
-        let x_value = cx.eval(&x);
-        let op_value = Value::Ctor(op_data, i, vec![x_value]);
-        let result_ty = apply(cx.g(), label_res(cx, &label), op_value);
-        let plus = data(cx, "Plus")?;
-        let mut injected = Term::Ctor(plus, 0, vec![Term::Ctor(op_data, i, vec![x])]);
-        for _ in 0..pos {
-            injected = Term::Ctor(plus, 1, vec![injected]);
-        }
-        let comp = comp_type(cx, row, result_ty.clone())?;
-        let comp_inner = stitchwort_core::value::quote(cx.g(), cx.level() + 1, &comp);
-        let done = Term::Ann(
-            Rc::new(Term::Ctor(data(cx, "Comp")?, 0, vec![Term::Var(0)])),
-            Rc::new(comp_inner),
-        );
-        let rest = Term::Lam("r".into(), Icit::Explicit, Rc::new(done));
-        let call = Term::Ann(
-            Rc::new(Term::Ctor(data(cx, "Comp")?, 1, vec![injected, rest])),
-            Rc::new(cx.quote(&comp)),
-        );
-        Ok((call, result_ty))
-    };
+    let make = |cx: &mut Ctx, x: Term| make_call(cx, op_data, i, &label, pos, row, x);
 
     if !may_perform(cx, arg) {
         let x = check(cx, arg, &dom)?;
@@ -1165,6 +1145,73 @@ fn op_call(
         vec![c, lam],
     )?;
     Ok((bind, result_ty))
+}
+
+/// `Call (op x) (\r -> Done r)`, with the operation injected at position
+/// `pos` of `row`, and its result type.
+fn make_call(
+    cx: &mut Ctx,
+    op_data: DataId,
+    i: usize,
+    label: &Label,
+    pos: usize,
+    row: &Row,
+    x: Term,
+) -> Result<(Term, Value)> {
+    let x_value = cx.eval(&x);
+    let op_value = Value::Ctor(op_data, i, vec![x_value]);
+    let result_ty = apply(cx.g(), label_res(cx, label), op_value);
+    let plus = data(cx, "Plus")?;
+    let mut injected = Term::Ctor(plus, 0, vec![Term::Ctor(op_data, i, vec![x])]);
+    for _ in 0..pos {
+        injected = Term::Ctor(plus, 1, vec![injected]);
+    }
+    let comp = comp_type(cx, row, result_ty.clone())?;
+    let comp_inner = stitchwort_core::value::quote(cx.g(), cx.level() + 1, &comp);
+    let done = Term::Ann(
+        Rc::new(Term::Ctor(data(cx, "Comp")?, 0, vec![Term::Var(0)])),
+        Rc::new(comp_inner),
+    );
+    let rest = Term::Lam("r".into(), Icit::Explicit, Rc::new(done));
+    let call = Term::Ann(
+        Rc::new(Term::Ctor(data(cx, "Comp")?, 1, vec![injected, rest])),
+        Rc::new(cx.quote(&comp)),
+    );
+    Ok((call, result_ty))
+}
+
+/// An operation used as a value, `op`: the function `\x -> op x`, of type
+/// `(x : A) -> {Ability args} B`.
+pub fn op_value(cx: &mut Ctx, a: usize, i: usize) -> Result<(Term, Value)> {
+    let op_data = cx.e.abilities[a].op_data;
+    let params = cx.g().data(op_data).params.len();
+    let args: Vec<Value> = (0..params)
+        .map(|_| {
+            let m = cx.fresh_meta();
+            cx.eval(&m)
+        })
+        .collect();
+    let label = Label { ability: a, args };
+    let row = Row {
+        labels: vec![label.clone()],
+        tail: None,
+    };
+    let field_ty = cx.g().data(op_data).ctors[i].fields[0].1.clone();
+    let dom = stitchwort_core::value::eval(cx.g(), &label.args, &field_ty);
+    let mark = cx.mark();
+    cx.bind_hidden("x".into(), dom.clone());
+    let result = make_call(cx, op_data, i, &label, 0, &row, Term::Var(0));
+    let cod = result.and_then(|(call, b)| Ok((call, cx.quote(&comp_type(cx, &row, b)?))));
+    cx.reset(mark);
+    let (call, cod) = cod?;
+    let ty = Term::Pi(
+        "x".into(),
+        Icit::Explicit,
+        Rc::new(cx.quote(&dom)),
+        Rc::new(cod),
+    );
+    let ty = cx.eval(&ty);
+    Ok((Term::Lam("x".into(), Icit::Explicit, Rc::new(call)), ty))
 }
 
 /// Runs a computation that performs nothing, in a pure context.

@@ -62,8 +62,9 @@ fn rows_must_list_abilities_with_the_right_arguments() {
 #[test]
 fn abilities_are_not_types_or_values() {
     assert_refused("f : State Nat -> Nat\nf s = 0", "E-ABILITY");
-    // An operation is called, not passed around.
-    assert_refused("f : Nat\nf = ask", "E-ARITY");
+    // An operation on its own is a function, not a number.
+    assert_refused("f : Nat\nf = ask", "E-TYPE-MISMATCH");
+    assert_refused("f : () -> {Ask} Nat\nf u = ask () ()", "E-ARITY");
 }
 
 #[test]

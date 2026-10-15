@@ -302,7 +302,6 @@ These come before the direct-style translation:
 
 **Not done:**
 - "Lacks" constraints aren't enforced on row variables yet. Rows built by the elaborator never contain duplicates, but a row variable instantiated by hand could.
-- There are no first-class operations: `get` can only be called, not passed as a function.
 - There's no `IO` or `main`, and no `Partial` (see [`partial.md`](partial.md)).
 
 ## Questions

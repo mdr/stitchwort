@@ -194,7 +194,10 @@ Abilities are translated into ordinary data before the kernel sees them, so the 
   - The result is `foldComp done step e`, where `done` is the `return` clause, and `step` dispatches `A`'s operations to the clauses through `A.elim`, forwarding every other operation into `out`.
   - Clauses are elaborated in `out`, so a clause can perform `A` again: it goes to the next handler out.
   - The `return` clause and a clause for each operation are required (`E-HANDLER`).
-- **Different orders.** An effectful function passed where a row lists the same abilities in a different order is wrapped as `\x -> translate m (f x)`. Plain unification can't reorder a `Plus` chain.
+- **Different orders, fewer abilities.** An effectful function passed where a row lists its abilities in a different order, or lists more of them, is wrapped as `\x -> translate m (f x)`. Plain unification can't reorder or widen a `Plus` chain.
+- **Unknown tails.** When a call needs abilities the context's row doesn't list, and the row ends in an unknown, the unknown is solved with them plus a fresh unknown, so later calls can add more. Two open rows `{A | ?f}` and `{B | ?t}` meet with a fresh `?r`: `?f := B∖A | ?r` and `?t := A∖B | ?r`.
+- **Operations as values.** `op` on its own is `\x -> op x`, of type `(x : A) -> {Ability args} B`.
+- **Messages** show computation types as rows (`{State Nat | e} a`) and the unit type as `()`.
 
 The termination checker accepts recursion on `rest y` for a recursive function field `rest`, which is what makes folds over `Comp` structural ([Definitions](#definitions)).
 

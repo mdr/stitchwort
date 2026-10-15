@@ -40,6 +40,32 @@ impl Printer<'_> {
         }
     }
 
+    /// `{A args, B | e}`, if `ops` is the operation type of a row: a chain of
+    /// `Plus` ending in `NoOp` or `sigOp e`.
+    fn row(&self, names: &mut Vec<Name>, ops: &Term) -> Option<String> {
+        let mut labels = Vec::new();
+        let mut ops = ops.strip_loc();
+        let tail = loop {
+            match ops {
+                Term::Data(d, args) if data_named(self.g, *d, "Plus") && args.len() == 2 => {
+                    labels.push(self.print(names, &args[0], Prec::Arrow));
+                    ops = args[1].strip_loc();
+                }
+                Term::Data(d, _) if data_named(self.g, *d, "NoOp") => break None,
+                Term::App(f, e, _) if matches!(f.strip_loc(), Term::Def(id) if &*self.g.def(*id).name == "sigOp") =>
+                {
+                    break Some(self.print(names, e, Prec::App));
+                }
+                _ => return None,
+            }
+        };
+        Some(match (labels.is_empty(), tail) {
+            (true, Some(t)) => format!("{{{t}}}"),
+            (_, Some(t)) => format!("{{{} | {t}}}", labels.join(", ")),
+            (_, None) => format!("{{{}}}", labels.join(", ")),
+        })
+    }
+
     fn go(&self, names: &mut Vec<Name>, term: &Term) -> (String, Prec) {
         match term {
             Term::Loc(_, t) | Term::Ann(t, _) => self.go(names, t),
@@ -56,9 +82,21 @@ impl Printer<'_> {
             Term::Sort(Sort::Type(i)) => (format!("Type {i}"), Prec::App),
             Term::Refl => ("rfl".into(), Prec::Atom),
             Term::Nat(n) => (n.to_string(), Prec::Atom),
+            Term::Data(d, _) if data_named(self.g, *d, "UnitType") => ("()".into(), Prec::Atom),
+            // A computation over a row of abilities: `{State Nat | e} a`.
+            Term::Data(d, args) if data_named(self.g, *d, "Comp") && args.len() == 3 => {
+                match self.row(names, &args[0]) {
+                    Some(row) => {
+                        let result = self.print(names, &args[2], Prec::App);
+                        (format!("{row} {result}"), Prec::App)
+                    }
+                    None => self.applied(names, "Comp".into(), args.iter()),
+                }
+            }
             Term::Data(d, args) => {
                 self.applied(names, self.g.data(*d).name.to_string(), args.iter())
             }
+            Term::Ctor(d, 0, _) if data_named(self.g, *d, "UnitType") => ("()".into(), Prec::Atom),
             Term::Ctor(d, c, args) => {
                 if let Some(n) = nat_literal(self.g, term) {
                     return (n.to_string(), Prec::Atom);
