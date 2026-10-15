@@ -47,8 +47,7 @@ Round 2:
   ([mutual-recursion.md](docs/proposals/mutual-recursion.md)), **awaiting
   review**. Recommends any order within a file, grouped automatically, with
   size-change termination checked by the kernel.
-- **JS boundary hardening** (lane `js-boundary`): the `tag` field bug, a
-  general rule for field names, and iterative codecs for recursive types.
+- ~~JS boundary hardening~~ (lane `js-boundary`): merged as `84bc590`.
 
 ## Next
 
@@ -75,6 +74,14 @@ Round 2:
 - **More tail calls as loops in generated JS:** only a function's calls to
   itself (including in either branch of an `if`) are loops today. Not
   through `if h : P`, helpers like `maybeThen`, or between functions.
+- **JS decoders read inherited properties** (`Object.create({tag: "Leaf"})`
+  is accepted). Decide whether to read own properties only.
+- **Decoding shared acyclic JS input is exponential** (decoded once per path
+  to it), so a hostile input can hang a call. Memoise, or limit the work.
+- **JS codecs are about 2× slower on small inputs** since they became
+  iterative (5,000-element list: 0.3 → 0.7 ms both ways), if it matters.
+- **DESIGN.md's JS boundary table** lists `Int`, `Optional` and records,
+  which aren't built.
 - **Measure the JS limits in browsers** (only Node so far).
 - **Compact text** (text step 7): in generated JS first, then possibly in the
   checking evaluator, with differential tests against the plain-list version.
@@ -169,8 +176,8 @@ Round 2:
   default limit is 2 million frames.
 - **The differential test overflows in debug builds:**
   `the_evaluators_agree_on_the_prelude_and_every_example` overflows its
-  64 MiB thread in a debug build (already so before step 4); release builds,
-  which the gate uses, pass.
+  64 MiB thread in a debug build (already so before step 4), at
+  `examples/accept/io.sw`; release builds, which the gate uses, pass.
 - **Agents' clean-up can hit the user's processes:** the depth-guards lane
   ran `pkill -f serve_forever`, which stopped the local playground server.
   Agent prompts now say to stop only processes they started, by PID.
@@ -184,6 +191,7 @@ Round 2:
 
 ## Recently done
 
+- `84bc590` JS boundary hardening: names can't collide by construction (field `tag` becomes `$tag`, exports aliased, reserved names refused), iterative codecs (a million-element list in about 0.2 s), clearer boundary errors.
 - `07550ff` Recorded benchmarks (`crates/bench`, `bench/baseline.toml`): deterministic counts (steps, visits, allocations, peak heap) checked in `nix flake check`; timings reported, not checked.
 - `017d554` Text step 3 (js-text lane, merged): `Text` and `Char` as JS strings with strict decoding, parameterised data types at the boundary, self tail calls as loops, `StitchwortResourceError`.
 - `ccebba3` Syntax colouring in the playground's editor (CSS Custom Highlight API, with a fallback); restoring the saved draft on reload fixed.
