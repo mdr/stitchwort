@@ -34,11 +34,6 @@ Running:
 - **Playground polish** (lane `playground-polish`): automated headless
   browser tests, editor quirks (resize, Tab and undo), streaming run output,
   maybe an operations budget per run.
-- **Native proofs match their definitions** (lane `deceqnat-fix`):
-  `decEqNat`'s `No` proof, and an audit of every native against the
-  whole-result obligation, with natives-on/off tests.
-
-In progress:
 - **Mutual recursion, phase 2, stage 2** (lane `mutual-recursion-s2`;
   stage 1 merged as `9eb1487`); stage 3 follows
   ([mutual-recursion.md](docs/proposals/mutual-recursion.md), draft 3;
@@ -52,6 +47,12 @@ Waiting on a decision:
   the reviewer**): `{Partial}` in types; recursive calls become requests,
   run by one built-in `Delay` type that only the runtime steps (McBride's
   recursion as an effect plus Capretta's delay monad).
+- **`decSucc` is no longer used in the prelude** (after the `decEqNat`
+  fix); keep it for users or remove it.
+- **For a kernel `decEqText` native** (compact text stage 3), follow the
+  `decEqNat` pattern: make the definition ask a Boolean test so its `No` is
+  `No (textNeq a b rfl)`, which the native can return, with whole-result
+  tests.
 - **Compact text stages 2–3** ([compact-text.md](docs/proposals/compact-text.md)
   draft 2, reviewed): compact `List Char` in the evaluator, then selected
   natives; a native `decEqText` waits for a whole-result test.
@@ -83,13 +84,6 @@ Nothing queued: choose from **Later**, or continue the lanes above.
   with a catchable `StitchwortResourceError`. Measured in Node 22:
   `textLength` about 8,000, `textSplit`/`textJoin` about 5,500, `textToNat`
   about 3,000.
-- (in progress) **Native `decEqNat`'s `No` proof isn't the definition's** (confirmed by
-  the compact-text lane): with a copy `myDecEqNat` of the prelude
-  definition, `theorem sameNo : myDecEqNat 3 5 = decEqNat 3 5; sameNo = rfl`
-  is rejected (`No (\p -> J …)` vs `No (natNeq 3 5 rfl)`), while `3 3`
-  checks. Not a proof of anything false, but turning natives on changes
-  which `rfl` proofs check. Make the native build the definition's own `No`
-  term, with a whole-result natives-on/off test.
 - **`Globals` fields `state` and `body` are `pub`**; make them private
   behind the admission API (with the mutual-recursion work).
 - **More tail calls as loops in generated JS:** only a function's calls to
@@ -221,6 +215,7 @@ Nothing queued: choose from **Later**, or continue the lanes above.
 
 ## Recently done
 
+- `01208f2` Natives match their definitions as whole results, proofs included: `decEqNat` redefined so its `No` proof is small and the native returns exactly it (new native `eqNatSound`); every native audited; natives-on/off whole-result tests including numbers above 2^64.
 - `9eb1487` Size-change termination for single definitions: Ackermann, swapped arguments and `merge` accepted; partial recursive calls refused with a suggested lambda; one shared entry arity; compared with the old checker on 20,000 generated programs (the new one accepts all the old one did except 7 partial calls).
 - `4776303` JS boundary follow-ups: decoders read only own properties (blocks prototype pollution), shared input decoded once (a 60-level DAG went from never finishing to instant), the generator refuses a definition without a body, DESIGN's boundary table matches what's built.
 - `813fe74` Number patterns: a number switch in kernel case trees; the 256 cap is gone (`statusText 404` works, 10^30 too); `f 256` checks in 0.01 s instead of 2 s; 3 columns × 5 keys from 85 s to under a millisecond; constructor-expansion oracle over 300 generated definitions.
