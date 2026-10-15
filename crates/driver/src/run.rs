@@ -14,7 +14,7 @@ use std::io::{self, BufRead, Write};
 
 use stitchwort_core::value::{apply, eval, force};
 use stitchwort_core::{DataId, ResourceError, Term, Value, native};
-use stitchwort_syntax::{Diagnostic, Span, parse_expression};
+use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::driver::Session;
 
@@ -87,8 +87,7 @@ impl Session {
                 .with_note(format!("define `main : {MAIN_TYPE}`")));
         };
         let (span, ty) = (def.span, self.elab.show(&def.ty_value));
-        let file = self.sources.add("<main>", MAIN_CALL);
-        let expr = parse_expression(file, MAIN_CALL)?;
+        let expr = self.parse_expression("<main>", MAIN_CALL)?;
         match self.elab.infer_expr(&expr) {
             Ok((term, _)) => Ok(Main { term, span }),
             Err(d) if d.code == "E-RESOURCE" => Err(d),
@@ -122,8 +121,7 @@ impl Session {
             "fst (simulate [{}] ((\\u -> main ()) : {MAIN_TYPE}))",
             lines.join(", ")
         );
-        let file = self.sources.add("<simulate>", &source);
-        let expr = parse_expression(file, &source)?;
+        let expr = self.parse_expression("<simulate>", &source)?;
         let (term, _) = self.elab.infer_expr(&expr)?;
         let g = &self.elab.globals;
         let s = Shapes::new(self);

@@ -224,12 +224,11 @@ impl Elaborator {
         let run = || -> Result<(String, String)> {
             let (term, ty) = self.infer_expr_in_operation(expr)?;
             let value = eval(&self.globals, &[], &term)?;
-            let shown = pretty::term(
-                &self.globals,
-                &[],
-                &stitchwort_core::value::quote(&self.globals, 0, &value)?,
-            );
-            Ok((shown, self.show(&ty)))
+            let g = &self.globals;
+            let show = |v: &Value| -> std::result::Result<String, stitchwort_core::ResourceError> {
+                pretty::term_in_full(g, &[], &stitchwort_core::value::quote(g, 0, v)?)
+            };
+            Ok((show(&value)?, show(&ty)?))
         };
         run().map_err(|d| self.locate(d, expr.span()))
     }
@@ -267,7 +266,10 @@ impl Elaborator {
         eval(&self.globals, &[], term)
     }
 
+    /// Prints a closed value, as one operation: a part too large or nested
+    /// too deeply to print within its limits is shown as `…`.
     pub fn show(&self, value: &Value) -> String {
+        let _op = self.globals.budget.operation(self.limits);
         pretty::value(&self.globals, &[], value)
     }
 
@@ -648,7 +650,7 @@ impl Elaborator {
             for binder in params {
                 let (ty, _) = check_type(&mut cx, &binder.ty)?;
                 for (k, n) in binder.names.iter().enumerate() {
-                    let ty = self.finish(&ty.shift(k, 0), cx.level())?;
+                    let ty = self.finish(&ty.shift(&self.globals, k, 0)?, cx.level())?;
                     let value = cx.eval(&ty)?;
                     checked.push((name(n), ty));
                     cx.bind(&n.text, value);
@@ -697,7 +699,7 @@ impl Elaborator {
             for binder in &ctor.fields {
                 let (ty, _) = check_type(&mut cx, &binder.ty)?;
                 for (k, n) in binder.names.iter().enumerate() {
-                    let ty = self.finish(&ty.shift(k, 0), cx.level())?;
+                    let ty = self.finish(&ty.shift(&self.globals, k, 0)?, cx.level())?;
                     let value = cx.eval(&ty)?;
                     fields.push((name(n), ty, binder.ty.span()));
                     cx.bind(&n.text, value);
@@ -739,7 +741,7 @@ impl Elaborator {
         self.clear_metas();
 
         let ty = {
-            let auto = autobind::auto_bound(self, ty);
+            let auto = autobind::auto_bound(self, ty)?;
             let mut cx = Ctx::new(self, *span);
             let mut domains = Vec::new();
             for n in &auto {
@@ -965,6 +967,7 @@ impl Elaborator {
         columns: &[usize],
         span: Span,
     ) -> Result<Tree<'a>> {
+        self.globals.budget.nesting(check::PASS)?;
         let first = &rows[0];
         if let Some(j) = first
             .pats
@@ -1171,6 +1174,7 @@ impl Elaborator {
 /// Checks a compiled pattern match against `goal`, refining the goal in each
 /// branch (the kernel does the same when it re-checks the result).
 fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
+    cx.g().budget.nesting(check::PASS)?;
     match tree {
         Tree::Leaf { aliases, rhs, span } => {
             let Some(rhs) = rhs else {
@@ -1271,26 +1275,34 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
     }
 }
 
-/// Whether a row in `expr` mentions ability `name`.
+/// Whether a row in `expr` mentions ability `name`. Uses a work list: the
+/// expression can nest more deeply than recursion could follow.
 fn mentions_ability(expr: &ast::Expr, name: &str) -> bool {
     use ast::Expr;
-    let go = |e: &Expr| mentions_ability(e, name);
-    match expr {
-        Expr::Effect(row, ty) => {
-            row.abilities.iter().any(|a| {
-                let mut h = a;
-                while let Expr::App(f, _) = h {
-                    h = f;
+    let mut pending = vec![expr];
+    while let Some(expr) = pending.pop() {
+        match expr {
+            Expr::Effect(row, ty) => {
+                let mentioned = row.abilities.iter().any(|a| {
+                    let mut h = a;
+                    while let Expr::App(f, _) = h {
+                        h = f;
+                    }
+                    matches!(h, Expr::Var(v) if v.text == name)
+                });
+                if mentioned {
+                    return true;
                 }
-                matches!(h, Expr::Var(v) if v.text == name)
-            }) || go(ty)
+                pending.push(ty);
+            }
+            Expr::App(a, b) | Expr::Arrow(a, b) | Expr::Binary(_, a, b) | Expr::Seq(a, b) => {
+                pending.extend([&**a, &**b]);
+            }
+            Expr::Pi { dom, cod, .. } => pending.extend([&**dom, &**cod]),
+            Expr::Lam(_, b, _) | Expr::Ann(b, _, _) | Expr::NamedArg(_, b, _) => pending.push(b),
+            Expr::List(items, _) => pending.extend(items),
+            _ => {}
         }
-        Expr::App(a, b) | Expr::Arrow(a, b) | Expr::Binary(_, a, b) | Expr::Seq(a, b) => {
-            go(a) || go(b)
-        }
-        Expr::Pi { dom, cod, .. } => go(dom) || go(cod),
-        Expr::Lam(_, b, _) | Expr::Ann(b, _, _) | Expr::NamedArg(_, b, _) => go(b),
-        Expr::List(items, _) => items.iter().any(go),
-        _ => false,
     }
+    false
 }

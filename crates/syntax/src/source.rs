@@ -13,6 +13,13 @@ pub struct Span {
 }
 
 impl Span {
+    /// For placeholders that are never shown.
+    pub(crate) const NOWHERE: Span = Span {
+        file: FileId(0),
+        start: 0,
+        end: 0,
+    };
+
     pub fn new(file: FileId, start: u32, end: u32) -> Self {
         debug_assert!(start <= end, "span start {start} is after end {end}");
         Span { file, start, end }

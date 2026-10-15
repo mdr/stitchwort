@@ -14,11 +14,15 @@
 use stitchwort_core::Term;
 use stitchwort_syntax::ast::{Expr, Name};
 
+use stitchwort_core::ResourceError;
+
 use crate::{Elaborator, Global, RESERVED};
 
-pub fn auto_bound(e: &Elaborator, ty: &Expr) -> Vec<Name> {
+type Result<T> = std::result::Result<T, ResourceError>;
+
+pub fn auto_bound(e: &Elaborator, ty: &Expr) -> Result<Vec<Name>> {
     let mut uses = Vec::new();
-    walk(e, ty, &mut Vec::new(), true, &mut uses);
+    walk(e, ty, &mut Vec::new(), true, &mut uses)?;
     let mut names: Vec<Name> = Vec::new();
     for (name, _) in &uses {
         let all_types = uses
@@ -29,7 +33,7 @@ pub fn auto_bound(e: &Elaborator, ty: &Expr) -> Vec<Name> {
             names.push(name.clone());
         }
     }
-    names
+    Ok(names)
 }
 
 fn walk(
@@ -38,7 +42,8 @@ fn walk(
     bound: &mut Vec<String>,
     is_type: bool,
     uses: &mut Vec<(Name, bool)>,
-) {
+) -> Result<()> {
+    e.globals.budget.nesting(crate::check::PASS)?;
     match expr {
         Expr::Var(name) => {
             let candidate = name.text.starts_with(|c: char| c.is_ascii_lowercase())
@@ -67,7 +72,7 @@ fn walk(
                 _ => None,
             };
             if data.is_none() {
-                walk(e, head, bound, false, uses);
+                walk(e, head, bound, false, uses)?;
             }
             for (i, arg) in args.iter().enumerate() {
                 let type_param = data.is_some_and(|d| {
@@ -75,31 +80,31 @@ fn walk(
                         .get(i)
                         .is_some_and(|(_, ty)| matches!(ty.strip_loc(), Term::Sort(_)))
                 });
-                walk(e, arg, bound, type_param, uses);
+                walk(e, arg, bound, type_param, uses)?;
             }
         }
         Expr::Pi {
             names, dom, cod, ..
         } => {
-            walk(e, dom, bound, true, uses);
+            walk(e, dom, bound, true, uses)?;
             let before = bound.len();
             bound.extend(names.iter().map(|n| n.text.clone()));
-            walk(e, cod, bound, true, uses);
+            walk(e, cod, bound, true, uses)?;
             bound.truncate(before);
         }
         Expr::Arrow(a, b) => {
-            walk(e, a, bound, true, uses);
-            walk(e, b, bound, true, uses);
+            walk(e, a, bound, true, uses)?;
+            walk(e, b, bound, true, uses)?;
         }
         Expr::Lam(names, body, _) => {
             let before = bound.len();
             bound.extend(names.iter().map(|n| n.text.clone()));
-            walk(e, body, bound, false, uses);
+            walk(e, body, bound, false, uses)?;
             bound.truncate(before);
         }
         Expr::Binary(_, a, b) => {
-            walk(e, a, bound, false, uses);
-            walk(e, b, bound, false, uses);
+            walk(e, a, bound, false, uses)?;
+            walk(e, b, bound, false, uses)?;
         }
         Expr::If {
             binder,
@@ -109,23 +114,23 @@ fn walk(
             ..
         } => {
             // With a binder, the condition is a proposition: a type position.
-            walk(e, cond, bound, binder.is_some(), uses);
+            walk(e, cond, bound, binder.is_some(), uses)?;
             let before = bound.len();
             bound.extend(binder.iter().map(|n| n.text.clone()));
-            walk(e, then, bound, false, uses);
-            walk(e, otherwise, bound, false, uses);
+            walk(e, then, bound, false, uses)?;
+            walk(e, otherwise, bound, false, uses)?;
             bound.truncate(before);
         }
         Expr::Ann(x, ty, _) => {
-            walk(e, x, bound, false, uses);
-            walk(e, ty, bound, true, uses);
+            walk(e, x, bound, false, uses)?;
+            walk(e, ty, bound, true, uses)?;
         }
         Expr::List(items, _) => {
             for item in items {
-                walk(e, item, bound, false, uses);
+                walk(e, item, bound, false, uses)?;
             }
         }
-        Expr::NamedArg(_, value, _) => walk(e, value, bound, false, uses),
+        Expr::NamedArg(_, value, _) => walk(e, value, bound, false, uses)?,
         Expr::Num(..)
         | Expr::Char(..)
         | Expr::Str(..)
@@ -136,12 +141,12 @@ fn walk(
         // `{State s | e} b`: `e` is a row variable, bound like a type.
         Expr::Effect(row, ty) => {
             for ability in &row.abilities {
-                walk(e, ability, bound, true, uses);
+                walk(e, ability, bound, true, uses)?;
             }
             if let Some(tail) = &row.tail {
-                walk(e, &Expr::Var(tail.clone()), bound, true, uses);
+                walk(e, &Expr::Var(tail.clone()), bound, true, uses)?;
             }
-            walk(e, ty, bound, true, uses);
+            walk(e, ty, bound, true, uses)?;
         }
         Expr::Let {
             name,
@@ -151,19 +156,19 @@ fn walk(
             ..
         } => {
             if let Some(ty) = ty {
-                walk(e, ty, bound, true, uses);
+                walk(e, ty, bound, true, uses)?;
             }
-            walk(e, value, bound, false, uses);
+            walk(e, value, bound, false, uses)?;
             bound.push(name.text.clone());
-            walk(e, body, bound, false, uses);
+            walk(e, body, bound, false, uses)?;
             bound.pop();
         }
         Expr::Seq(a, b) => {
-            walk(e, a, bound, false, uses);
-            walk(e, b, bound, false, uses);
+            walk(e, a, bound, false, uses)?;
+            walk(e, b, bound, false, uses)?;
         }
         Expr::Handle { body, clauses, .. } => {
-            walk(e, body, bound, false, uses);
+            walk(e, body, bound, false, uses)?;
             for clause in clauses {
                 let before = bound.len();
                 let body = match clause {
@@ -179,9 +184,10 @@ fn walk(
                         body
                     }
                 };
-                walk(e, body, bound, false, uses);
+                walk(e, body, bound, false, uses)?;
                 bound.truncate(before);
             }
         }
     }
+    Ok(())
 }

@@ -1,7 +1,14 @@
 //! Printing core terms in surface-like syntax, for error messages and the REPL.
+//!
+//! The printer recurses over the term. Within an operation, a part nested
+//! too deeply to reach with the stack the operation may use is shown as `…`
+//! (docs/proposals/stack-safe-evaluation.md).
+
+use std::cell::Cell;
 
 use num_bigint::BigUint;
 
+use crate::budget::Result;
 use crate::globals::Globals;
 use crate::term::{DataId, Icit, Name, Sort, Term};
 use crate::value::{Value, quote};
@@ -9,8 +16,23 @@ use crate::value::{Value, quote};
 /// Prints `term`, whose free variables are named by `names` (outermost first).
 pub fn term(g: &Globals, names: &[Name], term: &Term) -> String {
     let mut names = names.to_vec();
-    Printer { g }.print(&mut names, term, Prec::Arrow)
+    Printer::new(g).print(&mut names, term, Prec::Arrow)
 }
+
+/// Prints all of `term`, or fails if part of it is nested too deeply to
+/// print: for showing a result, where `…` would hide part of it.
+pub fn term_in_full(g: &Globals, names: &[Name], term: &Term) -> Result<String> {
+    let mut names = names.to_vec();
+    let printer = Printer::new(g);
+    let text = printer.print(&mut names, term, Prec::Arrow);
+    if printer.elided.get() {
+        return Err(g.budget.too_deep(PASS));
+    }
+    Ok(text)
+}
+
+/// The name the printer's depth guard reports.
+const PASS: &str = "printer";
 
 /// Prints `value`, whose free variables are named by `names` (outermost first).
 /// If the value can't be quoted within the resource limits, it's shown as `…`.
@@ -32,9 +54,18 @@ enum Prec {
 
 struct Printer<'g> {
     g: &'g Globals,
+    /// Whether something was too deeply nested to print, and shown as `…`.
+    elided: Cell<bool>,
 }
 
-impl Printer<'_> {
+impl<'g> Printer<'g> {
+    fn new(g: &'g Globals) -> Self {
+        Printer {
+            g,
+            elided: Cell::new(false),
+        }
+    }
+
     fn print(&self, names: &mut Vec<Name>, term: &Term, prec: Prec) -> String {
         let (text, own) = self.go(names, term);
         if own < prec {
@@ -71,6 +102,10 @@ impl Printer<'_> {
     }
 
     fn go(&self, names: &mut Vec<Name>, term: &Term) -> (String, Prec) {
+        if self.g.budget.stack_exhausted() {
+            self.elided.set(true);
+            return ("…".into(), Prec::Atom);
+        }
         match term {
             Term::Loc(_, t) | Term::Ann(t, _) => self.go(names, t),
             Term::Var(ix) => {

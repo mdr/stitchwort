@@ -9,10 +9,16 @@
 //! names, local variable names (variables are de Bruijn indices) and source
 //! locations. Data types are nominal, so their names *are* included, along
 //! with their constructors' names.
+//!
+//! A term is walked with a work list, since it can nest more deeply than
+//! recursion could follow. Hashing a reference hashes the declaration it
+//! refers to first (if it hasn't been yet), which does recurse, once per
+//! declaration in a chain of dependencies: that's guarded like the other
+//! recursive passes, and needs an operation to be running.
 
+use crate::budget::Result;
 use crate::globals::{Globals, HashKey};
 use crate::term::{DataId, DefId, Icit, Sort, Term};
-use std::rc::Rc;
 
 /// A 256-bit content hash.
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -37,26 +43,34 @@ enum Itself {
     Data(DataId),
 }
 
-pub fn def_hash(g: &Globals, id: DefId) -> Option<ContentHash> {
+/// The name the hasher's depth guard reports.
+const PASS: &str = "hasher";
+
+/// `None` for a definition without a body (its check failed).
+pub fn def_hash(g: &Globals, id: DefId) -> Result<Option<ContentHash>> {
     if let Some(hash) = g.hashes.borrow().get(&HashKey::Def(id)) {
-        return Some(*hash);
+        return Ok(Some(*hash));
     }
+    g.budget.nesting(PASS)?;
     let def = g.def(id);
-    let body = def.body.as_ref()?;
+    let Some(body) = def.body.as_ref() else {
+        return Ok(None);
+    };
     let mut h = Hasher::new(g, Itself::Def(id));
     h.tag("def");
     h.bool(def.theorem);
-    h.term(&def.ty);
-    h.term(body);
+    h.term(&def.ty)?;
+    h.term(body)?;
     let hash = h.finish();
     g.hashes.borrow_mut().insert(HashKey::Def(id), hash);
-    Some(hash)
+    Ok(Some(hash))
 }
 
-pub fn data_hash(g: &Globals, id: DataId) -> ContentHash {
+pub fn data_hash(g: &Globals, id: DataId) -> Result<ContentHash> {
     if let Some(hash) = g.hashes.borrow().get(&HashKey::Data(id)) {
-        return *hash;
+        return Ok(*hash);
     }
+    g.budget.nesting(PASS)?;
     let data = g.data(id);
     let mut h = Hasher::new(g, Itself::Data(id));
     h.tag("data");
@@ -64,14 +78,14 @@ pub fn data_hash(g: &Globals, id: DataId) -> ContentHash {
     h.sort(data.sort);
     h.usize(data.params.len());
     for (_, ty) in &data.params {
-        h.term(ty);
+        h.term(ty)?;
     }
     h.usize(data.ctors.len());
     for ctor in &data.ctors {
         h.str(&ctor.name);
         h.usize(ctor.fields.len());
         for (_, ty) in &ctor.fields {
-            h.term(ty);
+            h.term(ty)?;
         }
     }
     let hash = h.finish();
@@ -80,7 +94,7 @@ pub fn data_hash(g: &Globals, id: DataId) -> ContentHash {
     if !data.ctors.is_empty() {
         g.hashes.borrow_mut().insert(HashKey::Data(id), hash);
     }
-    hash
+    Ok(hash)
 }
 
 struct Hasher<'g> {
@@ -142,110 +156,126 @@ impl<'g> Hasher<'g> {
         });
     }
 
-    fn def_ref(&mut self, id: DefId) {
+    fn def_ref(&mut self, id: DefId) -> Result<()> {
         match self.itself {
             Itself::Def(me) if me == id => self.tag("self"),
             _ => {
-                let hash = def_hash(self.g, id).map_or([0; 32], |h| h.0);
+                let hash = def_hash(self.g, id)?.map_or([0; 32], |h| h.0);
                 self.tag("ref");
                 self.bytes(&hash);
             }
         }
+        Ok(())
     }
 
-    fn data_ref(&mut self, id: DataId) {
+    fn data_ref(&mut self, id: DataId) -> Result<()> {
         match self.itself {
             Itself::Data(me) if me == id => self.tag("self"),
             _ => {
-                let hash = data_hash(self.g, id);
+                let hash = data_hash(self.g, id)?;
                 self.tag("ref");
                 self.bytes(&hash.0);
             }
         }
+        Ok(())
     }
 
-    fn terms(&mut self, terms: &[Rc<Term>]) {
-        self.usize(terms.len());
-        for t in terms {
-            self.term(t);
+    /// Hashes `term` in the order a recursive walk would: each node, then its
+    /// parts left to right. The work list holds the parts still to hash, and
+    /// the counts and tags that go between them, last first.
+    fn term(&mut self, term: &Term) -> Result<()> {
+        enum Item<'t> {
+            Term(&'t Term),
+            Usize(usize),
+            Tag(&'static str),
         }
-    }
-
-    fn term(&mut self, term: &Term) {
-        match term {
-            Term::Loc(_, t) => self.term(t),
-            Term::Var(ix) => {
-                self.tag("var");
-                self.usize(*ix);
-            }
-            Term::Def(id) => self.def_ref(*id),
-            Term::Data(d, args) => {
-                self.tag("data");
-                self.data_ref(*d);
-                self.terms(args);
-            }
-            Term::Ctor(d, c, args) => {
-                self.tag("ctor");
-                self.data_ref(*d);
-                self.usize(*c);
-                self.terms(args);
-            }
-            Term::Nat(n) => {
-                self.tag("nat");
-                let bytes = n.to_bytes_le();
-                self.usize(bytes.len());
-                self.bytes(&bytes);
-            }
-            Term::Sort(s) => self.sort(*s),
-            Term::Pi(_, icit, a, b) => {
-                self.tag("pi");
-                self.icit(*icit);
-                self.term(a);
-                self.term(b);
-            }
-            Term::Lam(_, icit, b) => {
-                self.tag("lam");
-                self.icit(*icit);
-                self.term(b);
-            }
-            Term::App(f, a, icit) => {
-                self.tag("app");
-                self.icit(*icit);
-                self.term(f);
-                self.term(a);
-            }
-            Term::Ann(e, t) => {
-                self.tag("ann");
-                self.term(e);
-                self.term(t);
-            }
-            Term::Case(ix, d, branches) => {
-                self.tag("case");
-                self.usize(*ix);
-                self.data_ref(*d);
-                self.usize(branches.len());
-                for b in branches.iter() {
-                    self.usize(b.names.len());
-                    self.term(&b.body);
+        let mut pending = vec![Item::Term(term)];
+        while let Some(item) = pending.pop() {
+            let term = match item {
+                Item::Term(term) => term,
+                Item::Usize(n) => {
+                    self.usize(n);
+                    continue;
                 }
-            }
-            Term::Eq(ty, a, b) => {
-                self.tag("eq");
-                match ty {
-                    Some(t) => self.term(t),
-                    None => self.tag("none"),
+                Item::Tag(tag) => {
+                    self.tag(tag);
+                    continue;
                 }
-                self.term(a);
-                self.term(b);
+            };
+            // The parts of `term`, in order; reversed onto `pending` below.
+            let first = pending.len();
+            match term {
+                Term::Loc(_, t) => pending.push(Item::Term(t)),
+                Term::Var(ix) => {
+                    self.tag("var");
+                    self.usize(*ix);
+                }
+                Term::Def(id) => self.def_ref(*id)?,
+                Term::Data(d, args) => {
+                    self.tag("data");
+                    self.data_ref(*d)?;
+                    pending.push(Item::Usize(args.len()));
+                    pending.extend(args.iter().map(|t| Item::Term(t)));
+                }
+                Term::Ctor(d, c, args) => {
+                    self.tag("ctor");
+                    self.data_ref(*d)?;
+                    self.usize(*c);
+                    pending.push(Item::Usize(args.len()));
+                    pending.extend(args.iter().map(|t| Item::Term(t)));
+                }
+                Term::Nat(n) => {
+                    self.tag("nat");
+                    let bytes = n.to_bytes_le();
+                    self.usize(bytes.len());
+                    self.bytes(&bytes);
+                }
+                Term::Sort(s) => self.sort(*s),
+                Term::Pi(_, icit, a, b) => {
+                    self.tag("pi");
+                    self.icit(*icit);
+                    pending.extend([Item::Term(a), Item::Term(b)]);
+                }
+                Term::Lam(_, icit, b) => {
+                    self.tag("lam");
+                    self.icit(*icit);
+                    pending.push(Item::Term(b));
+                }
+                Term::App(f, a, icit) => {
+                    self.tag("app");
+                    self.icit(*icit);
+                    pending.extend([Item::Term(f), Item::Term(a)]);
+                }
+                Term::Ann(e, t) => {
+                    self.tag("ann");
+                    pending.extend([Item::Term(e), Item::Term(t)]);
+                }
+                Term::Case(ix, d, branches) => {
+                    self.tag("case");
+                    self.usize(*ix);
+                    self.data_ref(*d)?;
+                    self.usize(branches.len());
+                    for b in branches.iter() {
+                        pending.extend([Item::Usize(b.names.len()), Item::Term(&b.body)]);
+                    }
+                }
+                Term::Eq(ty, a, b) => {
+                    self.tag("eq");
+                    pending.push(match ty {
+                        Some(t) => Item::Term(t),
+                        None => Item::Tag("none"),
+                    });
+                    pending.extend([Item::Term(a), Item::Term(b)]);
+                }
+                Term::Refl => self.tag("refl"),
+                Term::J(m, b, p) => {
+                    self.tag("j");
+                    pending.extend([Item::Term(m), Item::Term(b), Item::Term(p)]);
+                }
+                Term::Meta(_) => panic!("internal error: hashing an unsolved metavariable"),
             }
-            Term::Refl => self.tag("refl"),
-            Term::J(m, b, p) => {
-                self.tag("j");
-                self.term(m);
-                self.term(b);
-                self.term(p);
-            }
-            Term::Meta(_) => panic!("internal error: hashing an unsolved metavariable"),
+            pending[first..].reverse();
         }
+        Ok(())
     }
 }

@@ -16,7 +16,7 @@ use std::process::Command;
 use stitchwort_cli::driver::Session;
 use stitchwort_cli::render::render;
 use stitchwort_core::value::{apply, eval, force};
-use stitchwort_core::{DataId, DefId, Globals, Term, Value};
+use stitchwort_core::{DataId, DefId, Globals, Limits, Term, Value};
 use stitchwort_js::{Boundary, boundary_literal, exportable, field_boundaries};
 use stitchwort_syntax::ast::Expr;
 use stitchwort_syntax::parse_expression;
@@ -115,7 +115,8 @@ fn random_inputs_agree_with_the_reference_evaluator() {
 #[test]
 fn generated_code_is_stable_and_the_declarations_type_check() {
     for (name, _, session) in examples() {
-        let output = stitchwort_js::generate(&session.elab.globals).expect("extraction succeeds");
+        let output = stitchwort_js::generate(&session.elab.globals, session.elab.limits)
+            .expect("extraction succeeds");
         let stem = name.trim_end_matches(".sw");
         insta::assert_snapshot!(format!("{stem}.js"), output.js);
         insta::assert_snapshot!(format!("{stem}.d.ts"), output.dts);
@@ -178,7 +179,7 @@ fn examples() -> Vec<(String, String, Session)> {
 
 /// Runs every case against the generated JS under Node, and compares.
 fn check_in_node(name: &str, g: &Globals, cases: &[Case]) {
-    let output = stitchwort_js::generate(g).expect("extraction succeeds");
+    let output = stitchwort_js::generate(g, Limits::default()).expect("extraction succeeds");
     let mut script = String::from(
         "import * as m from \"./module.mjs\";\n\
          const canon = (v) => JSON.stringify(v, (_, x) => typeof x === \"bigint\" ? `${x}n` : x);\n\
@@ -423,7 +424,8 @@ console.log("ok");
     let dir = std::env::temp_dir().join(format!("stitchwort-decoders-{}", std::process::id()));
     std::fs::create_dir_all(&dir).expect("create temp dir");
     for (file, session) in [("trees.mjs", trees), ("shapes.mjs", shapes)] {
-        let output = stitchwort_js::generate(&session.elab.globals).expect("extraction succeeds");
+        let output = stitchwort_js::generate(&session.elab.globals, session.elab.limits)
+            .expect("extraction succeeds");
         std::fs::write(dir.join(file), output.js).expect("write module");
     }
     std::fs::write(dir.join("test.mjs"), script).expect("write script");

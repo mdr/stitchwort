@@ -12,8 +12,13 @@ use stitchwort_core::check::{is_type_former, telescope};
 use stitchwort_core::native;
 use stitchwort_core::term::Branch;
 use stitchwort_core::value::eval;
-use stitchwort_core::{DataId, DefId, Globals, Sort, Term, Value, pretty};
+use stitchwort_core::{DataId, DefId, Globals, Limits, ResourceError, Sort, Term, Value, pretty};
 use stitchwort_syntax::Diagnostic;
+
+/// Generating code recurses over a definition's body, so each level checks
+/// there's stack left first (docs/proposals/stack-safe-evaluation.md).
+type Fallible<T> = Result<T, ResourceError>;
+const PASS: &str = "JavaScript generator";
 
 /// How a type crosses the JS boundary.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -205,7 +210,10 @@ pub struct Output {
 }
 
 /// Generates the ES module and its TypeScript declarations for every export.
-pub fn generate(g: &Globals) -> Result<Output, Diagnostic> {
+/// It's one operation, using at most `limits.stack` bytes of stack: a
+/// definition nested too deeply for that is an `E-RESOURCE` error.
+pub fn generate(g: &Globals, limits: Limits) -> Result<Output, Diagnostic> {
+    let _op = g.budget.operation(Limits::stack_only(limits.stack));
     let exports = (0..g.defs.len())
         .map(DefId)
         .filter(|id| g.def(*id).export)
@@ -219,7 +227,7 @@ pub fn generate(g: &Globals) -> Result<Output, Diagnostic> {
         }
     }
 
-    let codegen = Gen::new(g);
+    let codegen = Gen::new(g)?;
     let mut js = String::from(RUNTIME);
     for &d in &boundary_datas {
         js.push_str(&codegen.codecs(d));
@@ -229,11 +237,16 @@ pub fn generate(g: &Globals) -> Result<Output, Diagnostic> {
     let used = reachable(g, exports.iter().map(|sig| sig.id), |id| {
         codegen.erased[id.0].0 || g.builtins.native(id).is_some()
     });
+    let while_generating = |id: DefId| {
+        move |e: ResourceError| {
+            Diagnostic::from(e).with_label(g.def(id).span, "while generating JavaScript for this")
+        }
+    };
     for id in (0..g.defs.len()).map(DefId).filter(|id| used[id.0]) {
-        js.push_str(&codegen.def(id));
+        js.push_str(&codegen.def(id).map_err(while_generating(id))?);
     }
     for sig in &exports {
-        js.push_str(&codegen.wrapper(sig));
+        js.push_str(&codegen.wrapper(sig).map_err(while_generating(sig.id))?);
     }
 
     let mut dts = String::from(
@@ -345,39 +358,43 @@ struct Gen<'g> {
 }
 
 impl<'g> Gen<'g> {
-    fn new(g: &'g Globals) -> Self {
+    fn new(g: &'g Globals) -> Result<Self, Diagnostic> {
         let erased = g
             .defs
             .iter()
             .map(|def| {
-                let tel = telescope(g, &def.ty_value, def.span).expect(OUTSIDE_LIMITS);
+                let tel = telescope(g, &def.ty_value, def.span)?;
                 let mask = tel
                     .params
                     .iter()
                     .take(def.arity)
                     .map(|(_, _, erased)| *erased)
                     .collect();
-                (tel.result_erased, mask)
+                Ok((tel.result_erased, mask))
             })
-            .collect();
-        Gen {
+            .collect::<Result<_, Diagnostic>>()?;
+        Ok(Gen {
             g,
             nat: g.find_data("Nat"),
             erased,
-        }
+        })
     }
 
-    fn def(&self, id: DefId) -> String {
+    fn def(&self, id: DefId) -> Fallible<String> {
         let def = self.g.def(id);
         let (erased, mask) = &self.erased[id.0];
         let Some(body) = &def.body else {
-            return String::new();
+            return Ok(String::new());
         };
         if *erased {
-            return String::new();
+            return Ok(String::new());
         }
         if let Some(op) = self.g.builtins.native(id) {
-            return format!("const {} = {};\n", def_name(&def.name), native_js(op));
+            return Ok(format!(
+                "const {} = {};\n",
+                def_name(&def.name),
+                native_js(op)
+            ));
         }
         let mut env = mask.clone();
         let mut params = String::new();
@@ -388,7 +405,7 @@ impl<'g> Gen<'g> {
         }
         let tree = body.peel_lams(def.arity);
         let rhs = if matches!(tree, Term::Case(..)) {
-            let block = self.tree(tree, &mut env, 1);
+            let block = self.tree(tree, &mut env, 1)?;
             if params.is_empty() {
                 // No runtime parameters, but a case on an erased proof (like
                 // `absurd`): a function, so it only runs when it's used.
@@ -397,7 +414,7 @@ impl<'g> Gen<'g> {
                 format!("{{\n{block}}}")
             }
         } else {
-            let rhs = self.expr(tree, &mut env);
+            let rhs = self.expr(tree, &mut env)?;
             // An object literal after `=>` needs parentheses.
             if !params.is_empty() && rhs.starts_with('{') {
                 format!("({rhs})")
@@ -405,15 +422,16 @@ impl<'g> Gen<'g> {
                 rhs
             }
         };
-        format!("const {} = {params}{rhs};\n", def_name(&def.name))
+        Ok(format!("const {} = {params}{rhs};\n", def_name(&def.name)))
     }
 
     /// Statements for a case tree, ending in `return`. `env` says, for each
     /// variable level, whether it's erased.
-    fn tree(&self, term: &Term, env: &mut Vec<bool>, depth: usize) -> String {
+    fn tree(&self, term: &Term, env: &mut Vec<bool>, depth: usize) -> Fallible<String> {
+        self.g.budget.nesting(PASS)?;
         let pad = "  ".repeat(depth);
         let Term::Case(ix, d, branches) = term.strip_loc() else {
-            return format!("{pad}return {};\n", self.expr(term, env));
+            return Ok(format!("{pad}return {};\n", self.expr(term, env)?));
         };
         let data = self.g.data(*d);
         let scrutinee = var(env.len() - 1 - ix);
@@ -438,41 +456,43 @@ impl<'g> Gen<'g> {
                 }
                 env.push(*erased);
             }
-            out.push_str(&self.tree(&b.body, env, depth));
+            out.push_str(&self.tree(&b.body, env, depth)?);
             env.truncate(level);
+            Ok(())
         };
         if data.sort == Sort::Prop {
             // The proof doesn't exist at runtime. Matching on it into data is
             // only allowed for at most one constructor with only proof fields.
             match branches.first() {
-                Some(b) => branch(&mut out, 0, b, depth),
+                Some(b) => branch(&mut out, 0, b, depth)?,
                 None => {
                     let _ = writeln!(out, "{pad}throw new Error(\"unreachable\");");
                 }
             }
         } else if Some(*d) == self.nat {
             let _ = writeln!(out, "{pad}if ({scrutinee} === 0n) {{");
-            branch(&mut out, 0, &branches[0], depth + 1);
+            branch(&mut out, 0, &branches[0], depth + 1)?;
             let _ = writeln!(out, "{pad}}} else {{");
             let _ = writeln!(out, "{pad}  const {predecessor} = {scrutinee} - 1n;");
-            branch(&mut out, 1, &branches[1], depth + 1);
+            branch(&mut out, 1, &branches[1], depth + 1)?;
             let _ = writeln!(out, "{pad}}}");
         } else {
             let _ = writeln!(out, "{pad}switch ({scrutinee}.tag) {{");
             for (c, b) in branches.iter().enumerate() {
                 let _ = writeln!(out, "{pad}  case \"{}\": {{", data.ctors[c].name);
-                branch(&mut out, c, b, depth + 2);
+                branch(&mut out, c, b, depth + 2)?;
                 let _ = writeln!(out, "{pad}  }}");
             }
             let _ = writeln!(out, "{pad}}}");
             let _ = writeln!(out, "{pad}throw new Error(\"unreachable\");");
         }
-        out
+        Ok(out)
     }
 
-    fn expr(&self, term: &Term, env: &mut Vec<bool>) -> String {
-        match term {
-            Term::Loc(_, t) | Term::Ann(t, _) => self.expr(t, env),
+    fn expr(&self, term: &Term, env: &mut Vec<bool>) -> Fallible<String> {
+        self.g.budget.nesting(PASS)?;
+        Ok(match term {
+            Term::Loc(_, t) | Term::Ann(t, _) => self.expr(t, env)?,
             Term::Var(ix) => {
                 let level = env.len() - 1 - ix;
                 if env[level] {
@@ -481,23 +501,23 @@ impl<'g> Gen<'g> {
                     var(level)
                 }
             }
-            Term::Def(id) => self.def_ref(*id, &[], env),
+            Term::Def(id) => self.def_ref(*id, &[], env)?,
             Term::Nat(n) => format!("{n}n"),
             Term::App(..) => {
                 let (head, args) = term.spine();
                 if let Term::Def(id) = head {
                     return self.def_ref(*id, &args, env);
                 }
-                let mut out = format!("({})", self.expr(head, env));
+                let mut out = format!("({})", self.expr(head, env)?);
                 for arg in args {
-                    let _ = write!(out, "({})", self.expr(arg, env));
+                    let _ = write!(out, "({})", self.expr(arg, env)?);
                 }
                 out
             }
             Term::Lam(_, _, body) => {
                 let level = env.len();
                 env.push(false);
-                let body = self.expr(body, env);
+                let body = self.expr(body, env)?;
                 env.pop();
                 // An object literal as an arrow function's body needs
                 // parentheses, or it's read as a block.
@@ -510,7 +530,7 @@ impl<'g> Gen<'g> {
             Term::Ctor(d, c, args) => {
                 let data = self.g.data(*d);
                 if data.sort == Sort::Prop {
-                    return "undefined".into();
+                    return Ok("undefined".into());
                 }
                 if Some(*d) == self.nat {
                     // Count the `Succ`s: `Succ (Succ x)` is `x + 2n`, and a
@@ -521,11 +541,11 @@ impl<'g> Gen<'g> {
                         count += 1;
                         inner = &succ[0];
                     }
-                    return match (inner.strip_loc(), count) {
+                    return Ok(match (inner.strip_loc(), count) {
                         (Term::Ctor(_, 0, _), n) => format!("{n}n"),
                         (Term::Nat(k), n) => format!("{}n", &**k + n),
-                        (_, n) => format!("({} + {n}n)", self.expr(inner, env)),
-                    };
+                        (_, n) => format!("({} + {n}n)", self.expr(inner, env)?),
+                    });
                 }
                 let ctor = &data.ctors[*c];
                 let mut fields = vec![format!("tag: \"{}\"", ctor.name)];
@@ -533,13 +553,13 @@ impl<'g> Gen<'g> {
                     ctor.fields.iter().zip(&ctor.field_erased).zip(args)
                 {
                     if !erased {
-                        fields.push(format!("{}: {}", js_field(field), self.expr(arg, env)));
+                        fields.push(format!("{}: {}", js_field(field), self.expr(arg, env)?));
                     }
                 }
                 format!("{{ {} }}", fields.join(", "))
             }
             // Proofs are erased, and transport along an equality does nothing.
-            Term::J(_, base, _) => self.expr(base, env),
+            Term::J(_, base, _) => self.expr(base, env)?,
             Term::Data(..) | Term::Sort(_) | Term::Pi(..) | Term::Eq(..) | Term::Refl => {
                 "undefined".into()
             }
@@ -547,14 +567,14 @@ impl<'g> Gen<'g> {
             Term::Meta(_) => {
                 panic!("internal error: unsolved metavariable in a checked definition")
             }
-        }
+        })
     }
 
     /// A call to a definition, leaving out its erased arguments.
-    fn def_ref(&self, id: DefId, args: &[&Term], env: &mut Vec<bool>) -> String {
+    fn def_ref(&self, id: DefId, args: &[&Term], env: &mut Vec<bool>) -> Fallible<String> {
         let (erased, mask) = &self.erased[id.0];
         if *erased {
-            return "undefined".into();
+            return Ok("undefined".into());
         }
         let mut out = def_name(&self.g.def(id).name);
         if self.is_thunk(id) {
@@ -562,10 +582,10 @@ impl<'g> Gen<'g> {
         }
         for (i, arg) in args.iter().enumerate() {
             if !mask.get(i).copied().unwrap_or(false) {
-                let _ = write!(out, "({})", self.expr(arg, env));
+                let _ = write!(out, "({})", self.expr(arg, env)?);
             }
         }
-        out
+        Ok(out)
     }
 
     /// A definition with a case tree but no runtime parameters is compiled to
@@ -585,7 +605,7 @@ impl<'g> Gen<'g> {
     /// call the compiled definition, encode the result. Decoded parameter `i`
     /// (counting all parameters) is `v{i}`, which is what the compiled checks
     /// refer to.
-    fn wrapper(&self, sig: &ExportSig) -> String {
+    fn wrapper(&self, sig: &ExportSig) -> Fallible<String> {
         let params: Vec<&str> = sig.params.iter().map(|(x, _)| x.as_str()).collect();
         let mut out = format!("\nexport function {}({}) {{\n", sig.name, params.join(", "));
         let mut call = def_name(&self.g.def(sig.id).name);
@@ -604,7 +624,7 @@ impl<'g> Gen<'g> {
             let mut env: Vec<bool> = (0..check.position)
                 .map(|i| !sig.param_positions.contains(&i))
                 .collect();
-            let decision = self.expr(&check.decision, &mut env);
+            let decision = self.expr(&check.decision, &mut env)?;
             let message = format!("precondition `{}` doesn't hold", check.description)
                 .replace('\\', "\\\\")
                 .replace('"', "\\\"");
@@ -614,7 +634,7 @@ impl<'g> Gen<'g> {
             );
         }
         let _ = writeln!(out, "  return {}({call});\n}}", self.encoder(&sig.result));
-        out
+        Ok(out)
     }
 
     /// The tag of `Decidable`'s first constructor (`Yes`).
@@ -760,29 +780,10 @@ fn reachable(
     opaque: impl Fn(DefId) -> bool,
 ) -> Vec<bool> {
     fn visit(term: &Term, found: &mut Vec<DefId>) {
-        match term {
-            Term::Def(id) => found.push(*id),
-            Term::Var(_) | Term::Nat(_) | Term::Sort(_) | Term::Refl | Term::Meta(_) => {}
-            Term::Data(_, args) | Term::Ctor(_, _, args) => {
-                args.iter().for_each(|a| visit(a, found))
-            }
-            Term::Pi(_, _, a, b) | Term::App(a, b, _) | Term::Ann(a, b) => {
-                visit(a, found);
-                visit(b, found);
-            }
-            Term::Lam(_, _, b) | Term::Loc(_, b) => visit(b, found),
-            Term::Case(_, _, branches) => branches.iter().for_each(|b| visit(&b.body, found)),
-            Term::Eq(t, a, b) => {
-                t.iter().for_each(|t| visit(t, found));
-                visit(a, found);
-                visit(b, found);
-            }
-            Term::J(m, b, p) => {
-                visit(m, found);
-                visit(b, found);
-                visit(p, found);
-            }
-        }
+        found.extend(term.subterms().filter_map(|(t, _)| match t {
+            Term::Def(id) => Some(*id),
+            _ => None,
+        }));
     }
     let mut used = vec![false; g.defs.len()];
     let mut stack: Vec<DefId> = roots.into_iter().collect();
@@ -845,9 +846,9 @@ fn is_js_identifier(name: &str) -> bool {
         && chars.all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '$')
 }
 
-/// Extraction runs on checked definitions, outside any operation's resource
-/// limits, so evaluating their types can't run out.
-const OUTSIDE_LIMITS: &str = "internal error: evaluation outside an operation ran out of resources";
+/// Extraction runs on checked definitions, with no limit but the stack's
+/// (see [`generate`]), so evaluating their types can't run out.
+const OUTSIDE_LIMITS: &str = "internal error: evaluating a checked type ran out of resources";
 
 /// A JS expression for `value`, encoded as it would cross the boundary. Used by
 /// differential tests to compare the reference evaluator with generated JS.
