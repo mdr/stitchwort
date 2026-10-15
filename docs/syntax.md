@@ -63,6 +63,26 @@ get Nil i = absurd (falseNotTrue ok)    -- ok : i < 0, which computes to False =
 …
 ```
 
+### Declaration order
+
+Declarations can be written in any order: every top-level name (definitions, data types and their constructors, abilities and their operations) is visible throughout its module. So `main` can come first and its helpers below it. The compiler checks each declaration after the ones it refers to, and otherwise in source order; errors are reported, and tests run, in source order. Definitions that refer to each other are checked together, and their termination is decided together (docs/proposals/mutual-recursion.md):
+
+```
+isEven : Nat -> Bool
+isEven 0        = True
+isEven (Succ n) = isOdd n
+
+isOdd : Nat -> Bool
+isOdd 0        = False
+isOdd (Succ n) = isEven n
+```
+
+- **A type can't mention a definition it's checked together with** (`E-MUTUAL-SIGNATURE`): the definitions in a cycle are finished all at once, and a type may only use what's finished. A proof about `isEven` belongs outside the cycle, where its type computes.
+- **Inside a cycle, a definition must be given all its arguments** wherever it's used, so the termination checker sees what each call passes: `map isOdd xs` inside `isEven` is refused, `map (\n -> isOdd n) xs` isn't. Outside the cycle, anything goes.
+- **Data types and abilities can't be in a cycle** yet: not with each other (`E-MUTUAL-DATA`), and not with definitions (`E-MUTUAL-KIND`). A data type's fields can mention the type itself, but not its constructors (`E-MUTUAL-CONSTRUCTOR`).
+- **A name in the module takes priority over a type variable.** In `length : List a -> Nat`, `a` is a type variable only if nothing in the module is called `a`; otherwise it means that declaration, wherever it is, with a warning (`W-MODULE-NAME`) pointing at both. Write `[a : Type] -> List a -> Nat` to make it a type variable regardless.
+- **`auto` only uses decision procedures that are already checked and written above the use.** One written above that's still waiting for something below to be checked isn't available yet; `E-AUTO-NONE` says which case applies. Passing the procedure explicitly makes it an ordinary dependency, checked first.
+
 ## Abilities
 
 ```

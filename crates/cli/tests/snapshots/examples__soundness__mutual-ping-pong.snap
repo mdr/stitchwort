@@ -1,0 +1,21 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TERMINATION] Error: can't show that `ping` and `pong` terminate
+   ╭─[ soundness/mutual-ping-pong.sw:6:1 ]
+   │
+ 6 │ ping : Nat -> Nat
+   │ ────────┬────────  
+   │         ╰────────── this call to `pong` might not terminate: `pong`'s 1st argument is `ping`'s 1st argument
+   │ 
+ 9 │ pong : Nat -> Nat
+   │ ────────┬────────  
+   │         ╰────────── then this call to `ping`: `ping`'s 1st argument is `pong`'s 1st argument
+   │ 
+   │ Note 1: going round `ping` → `pong` → `ping`, over and over: the 1st argument stays the same, so no argument keeps getting smaller
+   │ 
+   │ Note 2: however the recursive calls are repeated, some argument must get smaller (a part of a pattern-matched constructor); an argument passed on unchanged, or rebuilt from its own pattern, is no smaller
+   │ 
+   │ Note 3: non-terminating definitions are rejected; `{Partial}` isn't implemented yet
+───╯

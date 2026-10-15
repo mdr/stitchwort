@@ -2,12 +2,13 @@
 
 **Status:** draft 3, 15 October 2026. Draft 2 was revised after an
 external review of draft 1; a second review approved implementing draft 2,
-with the clarifications folded in here. **Milestone 1 is built** (§10.1):
-kernel admission for single declarations ([kernel-admission.md](kernel-admission.md)),
+with the clarifications folded in here. **Milestones 1 and 2 are built**
+(§10.1, §10.2): kernel admission ([kernel-admission.md](kernel-admission.md)),
 the size-change graph algorithm (`crates/core/src/sct.rs`), the
-definition-entry arity contract, the saturation rule, and size-change
-termination for single definitions. Function groups, forward references
-and mutual data types (milestones 2 and 3) are not.
+definition-entry arity contract, the saturation rule, size-change
+termination, function groups (`define_group`), whole-module scope with
+dependency-ordered checking, group hashing and the JS calling convention.
+Mutual data types (milestone 3) are not.
 
 **This note gives a proof outline, not a completed soundness proof** (§6.4).
 The design is ready to implement and test; its full soundness theorem is not
@@ -1896,6 +1897,209 @@ Not done in milestone 1: §6.3 tests 1–6 and §6.8 are mostly about groups
 and belong to milestone 2. Their single-function versions are above: a
 callback passed to a helper (`sumWith`), and a closure returned by the
 function and called after it returns (`over_applied_calls_are_walked_in_every_argument`).
+
+### 10.2 As built: milestone 2 (function groups and forward references)
+
+**The kernel API** (`crates/core/src/check.rs`). `declare_def` is unchanged:
+it checks a signature with *no* pending references allowed, which is row 1
+of the permission table (§5.2). `define_group(g, &[(id, body), …])` admits a
+group; `define_def` is now a one-member call to it, so single definitions
+and groups take the same path (the error messages for a single definition
+are unchanged). In order:
+
+1. Refused before anything changes: an empty group, or an id that isn't a
+   definition. Then refused, with every pending member left failed: a member
+   that isn't pending, or one listed twice.
+2. Every member's entry arity is set from its submitted body, and its group
+   (`Def::group`, the members in submission order) is recorded, before any
+   body is checked. The group metadata is set once and never changed.
+3. The reference walk (`admissible`) over every member, before anything is
+   type-checked: the signature again with no pending references (row 1), and
+   the body with pending references only to members of this group
+   (`Itself::Group`, row 2; a pending reference outside it is `E-MALFORMED`,
+   "isn't finished and isn't in this group"). Data fields keep row 3 as
+   built in milestone 1. A failed reference is remembered, as before. The
+   case-tree shape is checked too.
+4. Every body is type-checked against its signature with every member
+   opaque (no member has a body yet).
+5. Termination for the whole group (`termination::check_group`).
+6. Atomic install: every body and `Final`, or (on any error, including
+   `E-RESOURCE` from the termination check) every member `Failed`, no body,
+   no hash. A remembered failed reference makes the group fail with
+   `E-FAILED-DEPENDENCY` after checking.
+
+The API is homogeneous: `define_group` takes definition ids only, and the
+data path (`declare_data`/`define_ctors`) takes one data type, whose fields
+may refer to no pending definition. There's no call that submits both, so a
+mixed group can't be expressed.
+
+**Termination across members** (`crates/core/src/termination.rs`). The walker
+runs over each member's body with that member as the caller, and records an
+occurrence of *any* member as a call to it, with a graph sized by the
+callee's arity; saturation is checked against the callee's arity. All calls
+go into one `sct::Group` with one member per definition, never merged. A
+`NoDescent` error is titled with the members on the witness cycle ("can't
+show that `f` and `g` terminate"), labels each call with where it goes
+("this call to `g` might not terminate: `g`'s 1st argument is smaller than
+`f`'s 1st argument"), and says what going round does overall ("going round
+`f` → `g` → `f`, over and over, no argument is known to get smaller").
+Messages for a group of one are unchanged.
+
+**Whole-module scope** (`crates/elab/src/module.rs`). Option 2, as §8.1:
+
+- *Names first.* Every name a declaration declares is entered as
+  `Global::Unchecked(item)`: definitions, data types and constructors,
+  abilities, their operations and what they generate (`A.op`, `A.res`,
+  `A.elim`). Duplicates are reported here (`E-DUPLICATE`; the later one is
+  dropped), so a use above a duplicate resolves to the first.
+- *Dependencies* are the free names of each declaration, by a work-list
+  walk (no recursion) that binds lambda, `let`, `if h :`, Pi, pattern,
+  handler-clause and field/parameter names, and, in equations, the implicit
+  parameters the elaborator binds by name. A constructor depends on its
+  data type and an operation on its ability, since they map to the same
+  item. An `auto` argument is not a reference; an explicit procedure is.
+- *Order.* Tarjan's strongly connected components (iterative), then Kahn's
+  algorithm with a heap keyed by each component's earliest source position.
+  A module with no forward references is checked in source order, exactly
+  as before. Each component is one budgeted operation.
+- *A component of definitions* that is recursive (more than one, or one
+  calling itself) is a group. A signature mentioning a member is found from
+  the dependency walk before anything is elaborated, and reported once per
+  member pair as `E-MUTUAL-SIGNATURE`, with both sites and the cycle ("they're
+  checked together because `g` uses `f`"). Then every signature is
+  elaborated and declared, every member's name is made to refer to its
+  declaration, every body is elaborated (members are pending, so they're
+  opaque and `auto` can't use them), and the kernel gets one `define_group`.
+  Errors in any signature or body are all reported, and the group fails as a
+  whole.
+- *A component with a data type or ability* and anything else is refused:
+  `E-MUTUAL-DATA` (all data/abilities; milestone 3) or `E-MUTUAL-KIND`, with
+  the cycle. A data type's own constructors in its fields are
+  `E-MUTUAL-CONSTRUCTOR` (they used to be "unknown name").
+- *Error reporting.* Diagnostics are sorted by source position, and tests
+  run in source order, whatever order things were checked in. A use of a
+  declaration that failed before it was declared (say its signature didn't
+  check) is `E-FAILED-DEPENDENCY` rather than "unknown name", so it's dropped
+  when the original error is reported. A use of an unchecked name the
+  scheduler should have checked first is an internal error (`E-INTERNAL`).
+- *Type variables.* Module names take priority. When a name that would
+  otherwise have been bound implicitly names a module declaration (anywhere
+  in the module), the warning `W-MODULE-NAME` points at both sites and
+  suggests `[a : Type] ->`; if the signature then fails, its error carries
+  the same note. Warnings don't fail a load: `Session::load` keeps them in
+  `Session::warnings`, and the CLI prints them. (The playground doesn't show
+  warnings yet; `crates/web` wasn't changed.)
+- *Ability order.* Rows are sorted by each ability's (module, source
+  position), not by the order abilities were checked in.
+- *`auto`* searches definitions that are final *and*, if they're from this
+  module, written above the use (most recent first, as before). When it
+  finds nothing, `E-AUTO-NONE` adds a note for each module definition whose
+  signature ends in `Decidable …`: in the same group ("can't run while
+  they're being checked: move the proof out of the cycle"), failed, below
+  the use ("move it above `client`, or pass it explicitly"), or above but
+  waiting, with the chain ("`decToken` uses `laterHelper`, which is checked
+  after `client`"). Nothing unavailable is installed or run to produce these.
+
+**Hashing** (`crates/core/src/hash.rs`): §8.4 with shape ordering. A member
+of a group of two or more is hashed with the whole group: each member's
+shape (its `def`, theorem flag, type and body, with every reference to a
+member hashed as one marker); the canonical order by shape, ties by
+submission order; the group hash over the count and every member's full
+declaration in that order, with member references as `("member", index)`;
+each member's hash `H("member", group hash, index)`. Only final groups are
+hashed, and shapes are never stored. A single definition, recursive or not,
+is hashed exactly as before (pinned by a test against the old hasher's
+output). Data references are unchanged (no data groups yet).
+
+**JavaScript** (`crates/js`). One `Convention` per definition, computed once
+in `Gen::new` and used by the declaration, every reference and application,
+first-class uses and export wrappers: `Erased`, `Function` (runtime
+parameters), `Thunk` (no runtime parameters, and a case tree or a member of
+a group of two or more) or `Value`. `is_thunk` is gone. Emission is in kernel
+order, which is dependency order. An export wrapper for a thunk calls it.
+(Read from the code, not run: before, the wrapper named a thunk without
+calling it; whether any export could have been a thunk wasn't checked.) Mutual tail calls aren't loops: `isEven
+10000000n` throws `StitchwortResourceError`, tested.
+
+**Changes to previously accepted or rejected programs.** None found: every
+file in `examples/` and the prelude checks as before, and every existing
+error snapshot and generated-JS snapshot is unchanged. The benchmark counts
+for checking small programs gained about 40 allocations each (the
+pre-pass's tables); steps are unchanged.
+
+**Newly accepted** (`examples/accept/mutual.sw`, `accept/auto-explicit.sw`,
+`extract/mutual.sw`): `main` written above its helpers; `isEven`/`isOdd`;
+the `countdown`/`step` wrapper; `total`/`inner` over a list of lists (the
+`size`/`sizeForest` shape with existing types); `evenNotOdd`/`oddNotEven`;
+effectful `ping`/`pong`; a callback `\x -> stepBy k x` passed to a helper;
+local names spelled like definitions; a decision procedure passed
+explicitly, wherever it's written; in JS, a bare member passed outside its
+group, members returning functions, and a value computed from a member at
+load time. **Newly rejected**: `soundness/mutual-*.sw` (alternating growth,
+ping/pong without descent, a member passed bare, the same eta-expanded,
+rebuilding across the group, a hidden call, the restarting handler split in
+two, two constants defined as each other, a signature mentioning a member),
+`reject/mutual-kind.sw`, `reject/mutual-data.sw`,
+`reject/own-constructor-in-field.sw` and the three `reject/auto-*.sw`
+cases.
+
+**Tests.** `crates/core/tests/groups.rs`: the §5.5 tests that need groups
+(the split cycle with its neighbour, both incorrect partitions of a 3-cycle
+with the neighbour, non-pending and duplicate members, unknown ids leaving
+the tables unchanged, a pending data type or outside definition in a body,
+a signature mentioning a sibling, budget exhaustion failing every member
+with no hash), members opaque while checked, termination across members
+both ways, §6.3 tests 3–5 for groups, arity-zero cycles, failed groups
+publishing nothing, the hashing tests of §8.4 that apply to function groups
+(determinism, reordering members with distinct shapes, tied shapes,
+changing one signature, a reference outside the group, a single
+definition's hash unchanged), and **generated groups**: 20 000 pairs of
+definitions over `Nat` (arities 1–2, case trees, calls to either member),
+of which about 2 200 are accepted, about 500 with calls both ways; every
+accepted member runs to an answer on every input up to 2, within a step
+budget. `crates/cli/tests/scope.rs`: checking order, source-ordered errors
+and tests, binder-aware dependencies, no cascade from a failed signature,
+duplicates, the `W-MODULE-NAME` warning both ways, ability order.
+`crates/cli/tests/extract.rs`: mutual tail calls as a resource error, and a
+kernel-built group whose member has only an erased parameter (a thunk).
+
+**Mutation evidence** (each applied by hand, run, reverted):
+
+- *Pending references allowed in group bodies*: six kernel tests fail,
+  among them `incorrect_partitions_of_a_cycle_are_refused` (`left: "ok"`,
+  `right: "E-MALFORMED"`) and `a_cycle_split_into_two_groups_is_refused`
+  (`unwrap_err()` on an `Ok`). The example suites still pass: the
+  elaborator never submits a split group, which is why it's a kernel test.
+- *Calls between different members dropped* (only self-calls analysed, the
+  shape of Rocq's CVE-2026-72703): seven group tests fail, including the
+  generated groups ("seed 15: accepted, but member 0 on [0, 2] didn't
+  finish"), and `soundness/mutual-alternating-growth.sw should be rejected
+  but checks`.
+- *Graphs with the same caller and callee merged*: the generated groups
+  ("seed 6: accepted, but member 1 on [0, 0] didn't finish"), five
+  single-definition termination tests, and `soundness/alternating-growth.sw
+  should be rejected but checks`.
+- In the elaborator: ignoring binders in the dependency walk makes `f` a
+  group of 3 in `local_names_make_no_dependencies`, and sorting rows by
+  checking order changes `f`'s hash in
+  `abilities_are_ordered_by_where_they_are_written`.
+
+**Not done in milestone 2.** §6.3 test 2 (a callback retained after its
+creator returns) is tested for a single definition only. Ties between
+members with the same shape are broken by submission order and are tested
+for determinism, not for stability under reordering (they may change, as
+§8.4 allows). The playground doesn't display warnings. Error labels for a
+call in a body with no case tree point at the whole definition (as for
+single definitions before). Everything about data groups is milestone 3.
+
+**Milestone 3 needs:** `declare_data_group` with one telescope and immutable
+group metadata (the `E-MUTUAL-DATA` refusal in `module.rs` is where the
+elaborator would submit one); positivity, the "declared later" guard and
+`is_recursive_fn` reading the group; `Ctor`/`Case`/`Data` member references
+in the hasher (data groups ordered by name); `E-MUTUAL-CONSTRUCTOR` for
+siblings' constructors (the own-constructor case is in place); no data
+elimination from `Prop` groups; and the deep `Tree`/`Forest` codec test.
+Groups of functions over such types then need nothing new.
 
 **Later, separately:** nested inductives (via translation to mutual groups,
 as Lean does, or a variance analysis); closure-aware partial applications

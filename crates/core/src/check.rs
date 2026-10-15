@@ -645,59 +645,134 @@ pub fn infer_closed(g: &Globals, term: &Term, span: Span) -> Result<(Term, Value
 // Declarations
 
 /// Checks the body of a definition added by [`declare_def`], which makes it
-/// final, or failed if it's refused. Until then the definition has no body,
-/// so it never unfolds: recursive references inside its own body stay opaque
-/// while it's being checked.
+/// final, or failed if it's refused: a group of one ([`define_group`]).
+/// Until then the definition has no body, so it never unfolds: recursive
+/// references inside its own body stay opaque while it's being checked.
 pub fn define_def(g: &mut Globals, id: DefId, body: &Term) -> Result<()> {
-    let Some(def) = g.defs.get(id.0) else {
+    define_group(g, &[(id, body.clone())])
+}
+
+/// Checks the bodies of a group of definitions, each added by
+/// [`declare_def`], which may call each other
+/// (docs/proposals/mutual-recursion.md §5.3). Either every member becomes
+/// final, or (on any error, including running out of resources) every one
+/// becomes failed and no body is installed.
+///
+/// - Every member must be pending, and listed once.
+/// - Every member's entry arity is fixed (from its submitted body) before
+///   any body is checked.
+/// - A body may refer to final declarations and to members of this group,
+///   and to nothing else that's pending; a signature (checked by
+///   `declare_def`) only to final declarations.
+/// - Every body is checked with every member opaque: none has a body until
+///   all are accepted, so checking can't unfold an unchecked definition.
+/// - Termination is decided for the whole group at once, from every call
+///   between any two members.
+pub fn define_group(g: &mut Globals, members: &[(DefId, Term)]) -> Result<()> {
+    // Refused before anything changes: an empty group, or an id that isn't
+    // a definition at all.
+    if members.is_empty() {
+        return Err(Diagnostic::error(
+            "E-MALFORMED",
+            "malformed core term: an empty group of definitions",
+        ));
+    }
+    if members.iter().any(|(id, _)| id.0 >= g.defs.len()) {
         return Err(Diagnostic::error(
             "E-MALFORMED",
             "malformed core term: reference to an unknown definition",
         ));
-    };
-    if def.state != State::Pending {
-        return Err(malformed(
-            &Ctx::new(g, def.span),
-            format!("`{}` has already been defined", def.name),
-        ));
     }
-    // The definition-entry arity, fixed before anything is checked: every
-    // consumer (the termination checker's saturation rule, graph dimensions
-    // and parameters, the evaluator's unfolding, extraction) reads this one
-    // number.
-    g.defs[id.0].arity = body.count_lams();
-    match admit_def(g, id, body) {
-        Ok(body) => {
+    let ids: Rc<[DefId]> = members.iter().map(|(id, _)| *id).collect();
+    // From here on, a refusal leaves every member that was pending failed.
+    let fail = |g: &mut Globals, e: Diagnostic| {
+        for id in ids.iter() {
             let def = &mut g.defs[id.0];
-            def.body = Some(Rc::new(body));
-            def.state = State::Final;
+            if def.state == State::Pending {
+                def.state = State::Failed;
+            }
+        }
+        Err(e)
+    };
+    for (k, (id, _)) in members.iter().enumerate() {
+        let def = g.def(*id);
+        let problem = if ids[..k].contains(id) {
+            Some("is listed twice in one group")
+        } else if def.state != State::Pending {
+            Some("has already been defined")
+        } else {
+            None
+        };
+        if let Some(problem) = problem {
+            let e = malformed(&Ctx::new(g, def.span), format!("`{}` {problem}", def.name));
+            return fail(g, e);
+        }
+    }
+    // The definition-entry arities and the group, fixed before anything is
+    // checked: every consumer (the termination checker's saturation rule,
+    // graph dimensions and parameters, the evaluator's unfolding,
+    // extraction) reads these.
+    for (id, body) in members {
+        let def = &mut g.defs[id.0];
+        def.arity = body.count_lams();
+        def.group = Some(ids.clone());
+    }
+    match admit_group(g, members) {
+        Ok(bodies) => {
+            for ((id, _), body) in members.iter().zip(bodies) {
+                let def = &mut g.defs[id.0];
+                def.body = Some(Rc::new(body));
+                def.state = State::Final;
+            }
             Ok(())
         }
-        Err(e) => {
-            g.defs[id.0].state = State::Failed;
-            Err(e)
-        }
+        Err(e) => fail(g, e),
     }
 }
 
-fn admit_def(g: &Globals, id: DefId, body: &Term) -> Result<Term> {
-    let def = g.def(id);
-    let (name, span, ty_value) = (def.name.clone(), def.span, def.ty_value.clone());
-    let mut cx = Ctx::new(g, span);
-    let failed = admissible(&cx, [&def.ty, body], Some(Itself::Def(id)))?;
-    if !case_only_in_tree(body.peel_lams(def.arity), true) {
-        return Err(malformed(
-            &cx,
-            "`case` may only appear at the top of a definition",
-        ));
+/// Everything [`define_group`] checks once the members are known to be
+/// pending: the checked bodies, in order.
+fn admit_group(g: &Globals, members: &[(DefId, Term)]) -> Result<Vec<Term>> {
+    let ids: Vec<DefId> = members.iter().map(|(id, _)| *id).collect();
+    // Every reference in every member is checked first, so a malformed one
+    // is refused before any body is type-checked.
+    let mut failed = None;
+    for (id, body) in members {
+        let def = g.def(*id);
+        let cx = Ctx::new(g, def.span);
+        failed = failed.or(admissible(&cx, [&def.ty], None)?);
+        failed = failed.or(admissible(&cx, [body], Some(Itself::Group(&ids)))?);
+        if !case_only_in_tree(body.peel_lams(def.arity), true) {
+            return Err(malformed(
+                &cx,
+                "`case` may only appear at the top of a definition",
+            ));
+        }
     }
-    let body = check(&mut cx, body, &ty_value)?;
-    // Checking keeps every location and lambda, so the checked body has the
-    // same parameters; the termination checker refuses it if not.
-    termination::check(g, &body, id, &name, span)?;
+    let mut checked = Vec::new();
+    for (id, body) in members {
+        let def = g.def(*id);
+        let mut cx = Ctx::new(g, def.span);
+        // Checking keeps every location and lambda, so the checked body has
+        // the same parameters; the termination checker refuses it if not.
+        checked.push(check(&mut cx, body, &def.ty_value)?);
+    }
+    let group: Vec<termination::Member> = ids
+        .iter()
+        .zip(&checked)
+        .map(|(id, body)| termination::Member { id: *id, body })
+        .collect();
+    termination::check_group(g, &group, crate::sct::MAX_GRAPHS)?;
     match failed {
-        Some(dep) => Err(failed_dependency(&cx, &name, &dep)),
-        None => Ok(body),
+        Some(dep) => {
+            let first = g.def(ids[0]);
+            Err(failed_dependency(
+                &Ctx::new(g, first.span),
+                &first.name,
+                &dep,
+            ))
+        }
+        None => Ok(checked),
     }
 }
 
@@ -743,6 +818,7 @@ pub fn declare_def(
         body: None,
         state: State::Pending,
         arity: 0,
+        group: None,
         theorem,
         export,
         validators: Vec::new(),
@@ -916,11 +992,11 @@ pub fn abandon_pending(g: &mut Globals) {
     }
 }
 
-/// The declaration being admitted, which may refer to itself.
+/// The declarations being admitted, which may refer to each other.
 #[derive(Clone, Copy, PartialEq)]
-enum Itself {
-    /// A definition, in its own body.
-    Def(DefId),
+enum Itself<'a> {
+    /// The definitions of a function group, in their bodies.
+    Group(&'a [DefId]),
     /// A data type, as a type (not a constructor or a `case`) in its fields.
     Data(DataId),
 }
@@ -938,11 +1014,13 @@ fn admissible<'t>(
     itself: Option<Itself>,
 ) -> Result<Option<Name>> {
     let g = cx.g;
+    let in_group =
+        |id: &DefId| matches!(itself, Some(Itself::Group(members)) if members.contains(id));
     let mut failed = None;
     for term in terms {
         for (t, _) in term.subterms() {
             let (state, name) = match t {
-                Term::Def(id) if itself != Some(Itself::Def(*id)) => match g.defs.get(id.0) {
+                Term::Def(id) if !in_group(id) => match g.defs.get(id.0) {
                     Some(def) => (def.state, &def.name),
                     None => return Err(malformed(cx, "reference to an unknown definition")),
                 },
@@ -964,10 +1042,13 @@ fn admissible<'t>(
             match state {
                 State::Final => {}
                 State::Pending => {
-                    return Err(malformed(
-                        cx,
-                        format!("this refers to `{name}`, which isn't finished"),
-                    ));
+                    let message = match itself {
+                        Some(Itself::Group(members)) if members.len() > 1 => format!(
+                            "this refers to `{name}`, which isn't finished and isn't in this group"
+                        ),
+                        _ => format!("this refers to `{name}`, which isn't finished"),
+                    };
+                    return Err(malformed(cx, message));
                 }
                 State::Failed => {
                     failed.get_or_insert_with(|| name.clone());

@@ -10,6 +10,11 @@
 //!
 //! Anywhere else (e.g. `length xs` with `xs` unbound) it stays an unknown name,
 //! so a misspelt value doesn't silently become a new parameter.
+//!
+//! A name declared anywhere in the module isn't unknown, wherever it's
+//! declared: it means that declaration. Such names that would otherwise have
+//! been bound are reported, so the elaborator can warn
+//! (docs/proposals/mutual-recursion.md §8.1).
 
 use stitchwort_core::Term;
 use stitchwort_syntax::ast::{Expr, Name};
@@ -20,20 +25,43 @@ use crate::{Elaborator, Global, RESERVED};
 
 type Result<T> = std::result::Result<T, ResourceError>;
 
-pub fn auto_bound(e: &Elaborator, ty: &Expr) -> Result<Vec<Name>> {
+/// The implicitly bound names of a signature, and the names of this module
+/// that would have been bound if they weren't declared by it.
+pub struct AutoBound {
+    pub names: Vec<Name>,
+    /// The first use of each.
+    pub shadowing: Vec<Name>,
+}
+
+pub fn auto_bound(e: &Elaborator, ty: &Expr) -> Result<AutoBound> {
     let mut uses = Vec::new();
     walk(e, ty, &mut Vec::new(), true, &mut uses)?;
     let mut names: Vec<Name> = Vec::new();
-    for (name, _) in &uses {
+    let mut shadowing: Vec<Name> = Vec::new();
+    for use_ in &uses {
+        let name = &use_.name;
         let all_types = uses
             .iter()
-            .filter(|(n, _)| n.text == name.text)
-            .all(|(_, type_position)| *type_position);
-        if all_types && !names.iter().any(|n| n.text == name.text) {
-            names.push(name.clone());
+            .filter(|u| u.name.text == name.text)
+            .all(|u| u.type_position);
+        let found = if use_.module {
+            &mut shadowing
+        } else {
+            &mut names
+        };
+        if all_types && !found.iter().any(|n| n.text == name.text) {
+            found.push(name.clone());
         }
     }
-    Ok(names)
+    Ok(AutoBound { names, shadowing })
+}
+
+/// A use of a name that's a candidate for binding.
+struct Use {
+    name: Name,
+    type_position: bool,
+    /// The name is declared by the module being elaborated.
+    module: bool,
 }
 
 fn walk(
@@ -41,17 +69,21 @@ fn walk(
     expr: &Expr,
     bound: &mut Vec<String>,
     is_type: bool,
-    uses: &mut Vec<(Name, bool)>,
+    uses: &mut Vec<Use>,
 ) -> Result<()> {
     e.globals.budget.nesting(crate::check::PASS)?;
     match expr {
         Expr::Var(name) => {
             let candidate = name.text.starts_with(|c: char| c.is_ascii_lowercase())
                 && !bound.contains(&name.text)
-                && !e.names.contains_key(&name.text)
                 && !RESERVED.contains(&name.text.as_str());
-            if candidate {
-                uses.push((name.clone(), is_type));
+            let module = e.module.names.contains(&name.text);
+            if candidate && (module || !e.names.contains_key(&name.text)) {
+                uses.push(Use {
+                    name: name.clone(),
+                    type_position: is_type,
+                    module,
+                });
             }
         }
         Expr::App(..) => {

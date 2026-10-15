@@ -8,13 +8,16 @@ use stitchwort_core::{Limits, ResourceError, Term, Value};
 use stitchwort_elab::{Elaborator, PRELUDE};
 use stitchwort_syntax::ast::Expr;
 use stitchwort_syntax::{
-    Diagnostic, FileId, SourceMap, parse_expression_within, parse_module_within,
+    Diagnostic, FileId, Severity, SourceMap, parse_expression_within, parse_module_within,
 };
 
 /// A compiler session: the prelude plus whatever has been loaded since.
 pub struct Session {
     pub sources: SourceMap,
     pub elab: Elaborator,
+    /// Warnings from files loaded without errors. (A file with errors
+    /// returns its warnings with them.)
+    pub warnings: Vec<Diagnostic>,
 }
 
 impl Default for Session {
@@ -48,6 +51,7 @@ impl Session {
         let mut session = Session {
             sources: SourceMap::new(),
             elab: Elaborator::new(),
+            warnings: Vec::new(),
         };
         session.elab.loading_prelude = true;
         if let Err(diagnostics) = session.load("<prelude>", PRELUDE) {
@@ -64,7 +68,8 @@ impl Session {
         let module = parse_module_within(file, text, self.elab.limits.stack)?;
         let first_new_def = self.elab.globals.defs.len();
         let mut diagnostics = self.elab.elaborate_module(&module);
-        if diagnostics.is_empty() {
+        let errors = |ds: &[Diagnostic]| ds.iter().any(|d| d.severity == Severity::Error);
+        if !errors(&diagnostics) {
             let g = &self.elab.globals;
             let _op = g
                 .budget
@@ -78,10 +83,11 @@ impl Session {
                 }
             }
         }
-        if diagnostics.is_empty() {
-            Ok(file)
-        } else {
+        if errors(&diagnostics) {
             Err(diagnostics)
+        } else {
+            self.warnings.extend(diagnostics);
+            Ok(file)
         }
     }
 

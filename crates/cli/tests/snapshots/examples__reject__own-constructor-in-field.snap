@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-MUTUAL-CONSTRUCTOR] Error: `A` can't be used in the constructors of `T`, which declares it
+   ╭─[ reject/own-constructor-in-field.sw:6:12 ]
+   │
+ 6 │   | B (p : A = A)
+   │            ┬  
+   │            ╰── used here
+   │ 
+   │ Note: a data type's fields can mention the type itself, but not its constructors: they don't exist until the fields are finished
+───╯

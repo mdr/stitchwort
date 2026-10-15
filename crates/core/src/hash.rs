@@ -5,6 +5,18 @@
 //! everything a definition depends on, transitively. A recursive reference is
 //! hashed as a fixed marker, which keeps recursion from looping.
 //!
+//! A group of definitions that call each other (two or more, submitted to
+//! `define_group` together) is hashed as a unit, after Unison
+//! (docs/proposals/mutual-recursion.md §8.4): the members are put in a
+//! canonical order, the group's hash covers every member's full declaration
+//! in that order, with references to members hashed as their index in it,
+//! and each member's hash is the group's hash and its index. So changing any
+//! member changes every member's hash. The order is by each member's *shape*
+//! (its hash with every reference to a member replaced by one marker), so
+//! moving members around in the source doesn't change their hashes; members
+//! with the same shape are ordered as they were submitted. Only final groups
+//! are hashed, and the shapes are never stored.
+//!
 //! Left out, so they don't affect identity: the definition's own name, binder
 //! names, local variable names (variables are de Bruijn indices) and source
 //! locations. Data types are nominal, so their names *are* included, along
@@ -38,9 +50,16 @@ impl std::fmt::Debug for ContentHash {
 
 /// What a declaration refers to itself as, inside its own hash.
 #[derive(Clone, Copy)]
-enum Itself {
+enum Itself<'a> {
     Def(DefId),
     Data(DataId),
+    /// The members of a group: each is the marker `member` alone (for a
+    /// member's shape), or with its index in `order` (`order[i]` is the
+    /// position in `members` of the member with index `i`).
+    Group {
+        members: &'a [DefId],
+        order: Option<&'a [usize]>,
+    },
 }
 
 /// The name the hasher's depth guard reports.
@@ -56,6 +75,10 @@ pub fn def_hash(g: &Globals, id: DefId) -> Result<Option<ContentHash>> {
     let (State::Final, Some(body)) = (def.state, def.body.as_ref()) else {
         return Ok(None);
     };
+    if let Some(members) = def.group.as_ref().filter(|m| m.len() > 1) {
+        group_hashes(g, members)?;
+        return Ok(g.hashes.borrow().get(&HashKey::Def(id)).copied());
+    }
     let mut h = Hasher::new(g, Itself::Def(id));
     h.tag("def");
     h.bool(def.theorem);
@@ -98,14 +121,70 @@ pub fn data_hash(g: &Globals, id: DataId) -> Result<Option<ContentHash>> {
     Ok(Some(hash))
 }
 
+/// Hashes every member of a final group of two or more definitions, and
+/// stores their hashes.
+fn group_hashes(g: &Globals, members: &[DefId]) -> Result<()> {
+    let declaration = |h: &mut Hasher, id: DefId| -> Result<()> {
+        let def = g.def(id);
+        let body = def
+            .body
+            .as_ref()
+            .expect("internal error: hashing a group that isn't final");
+        h.tag("def");
+        h.bool(def.theorem);
+        h.term(&def.ty)?;
+        h.term(body)
+    };
+    // Every member's shape, then the canonical order: by shape, and as
+    // submitted where shapes are the same.
+    let mut shapes = Vec::new();
+    for &id in members {
+        let mut h = Hasher::new(
+            g,
+            Itself::Group {
+                members,
+                order: None,
+            },
+        );
+        h.tag("shape");
+        declaration(&mut h, id)?;
+        shapes.push(h.finish().0);
+    }
+    let mut order: Vec<usize> = (0..members.len()).collect();
+    order.sort_by_key(|&m| (shapes[m], m));
+    let mut h = Hasher::new(
+        g,
+        Itself::Group {
+            members,
+            order: Some(&order),
+        },
+    );
+    h.tag("group");
+    h.usize(members.len());
+    for &m in &order {
+        declaration(&mut h, members[m])?;
+    }
+    let group = h.finish();
+    for (index, &m) in order.iter().enumerate() {
+        let mut h = Hasher::new(g, Itself::Def(members[m]));
+        h.tag("member");
+        h.bytes(&group.0);
+        h.usize(index);
+        g.hashes
+            .borrow_mut()
+            .insert(HashKey::Def(members[m]), h.finish());
+    }
+    Ok(())
+}
+
 struct Hasher<'g> {
     g: &'g Globals,
-    itself: Itself,
+    itself: Itself<'g>,
     inner: blake3::Hasher,
 }
 
 impl<'g> Hasher<'g> {
-    fn new(g: &'g Globals, itself: Itself) -> Self {
+    fn new(g: &'g Globals, itself: Itself<'g>) -> Self {
         Hasher {
             g,
             itself,
@@ -166,6 +245,14 @@ impl<'g> Hasher<'g> {
     fn def_ref(&mut self, id: DefId) -> Result<()> {
         match self.itself {
             Itself::Def(me) if me == id => self.tag("self"),
+            Itself::Group { members, order } if members.contains(&id) => {
+                self.tag("member");
+                if let Some(order) = order {
+                    let m = members.iter().position(|m| *m == id).expect("a member");
+                    let index = order.iter().position(|o| *o == m).expect("ordered");
+                    self.usize(index);
+                }
+            }
             _ => {
                 let hash = def_hash(self.g, id)?.map_or([0; 32], |h| h.0);
                 self.tag("ref");

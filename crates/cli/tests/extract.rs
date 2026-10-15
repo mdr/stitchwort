@@ -1495,3 +1495,103 @@ fn text_natives_are_bound_to_the_prelude() {
         unbound.join("\n")
     );
 }
+
+/// Definitions that call each other (docs/proposals/mutual-recursion.md
+/// §8.6). Only a definition's tail calls to itself are loops, so `isEven` on
+/// a large number uses a stack frame per step and runs out: a resource
+/// error, never a wrong answer, after which the module still works.
+#[test]
+fn mutual_tail_calls_run_out_of_stack_cleanly() {
+    let examples = examples();
+    let script = r#"
+import * as mutual from "./mutual.mjs";
+import assert from "node:assert/strict";
+
+assert.equal(mutual.isEven(1000n), true);
+assert.throws(
+  () => mutual.isEven(10000000n),
+  (e) =>
+    e instanceof mutual.StitchwortResourceError &&
+    /^isEven: ran out of resources/.test(e.message) &&
+    e.cause instanceof RangeError,
+);
+assert.equal(mutual.isOdd(7n), true);
+console.log("ok");
+"#;
+    run_script(
+        "mutual",
+        &[("mutual.mjs", example(&examples, "mutual.sw"))],
+        script,
+    );
+}
+
+/// A member of a group with no runtime parameters (only an erased type
+/// parameter) is a thunk, never a value computed when the module loads:
+/// `k` calls `f`, which is defined after it. No source program reaches this
+/// (any cycle through such a member loses every argument's size, so it's
+/// refused), so the group, with no cycle at all, is built in the kernel
+/// directly: a group bigger than necessary is still admitted.
+#[test]
+fn a_group_member_with_only_erased_parameters_is_a_thunk() {
+    use std::rc::Rc;
+    use stitchwort_core::check::{declare_def, define_def, define_group};
+    use stitchwort_core::{Icit, Sort};
+
+    let mut session = Session::new();
+    session
+        .load("empty.sw", "")
+        .expect("an empty module checks");
+    let g = &mut session.elab.globals;
+    let nat = g.find_data("Nat").expect("Nat");
+    let add = DefId(g.defs.iter().position(|d| &*d.name == "add").expect("add"));
+    let nat_ty = || Rc::new(Term::Data(nat, Vec::new()));
+    let span = g.def(add).span;
+    let num = |n: u32| Term::Nat(Rc::new(BigUint::from(n)));
+    let app = |f: Term, a: Term| Term::App(Rc::new(f), Rc::new(a), Icit::Explicit);
+    // k : [a : Type] -> Nat;  k = f 3
+    let k_ty = Term::Pi(
+        "a".into(),
+        Icit::Implicit,
+        Rc::new(Term::Sort(Sort::Type(0))),
+        nat_ty(),
+    );
+    let k = declare_def(g, &"k".into(), &k_ty, false, false, span).unwrap();
+    // f : Nat -> Nat;  f n = n + 1
+    let f_ty = Term::Pi("n".into(), Icit::Explicit, nat_ty(), nat_ty());
+    let f = declare_def(g, &"f".into(), &f_ty, false, false, span).unwrap();
+    let k_body = Term::Lam(
+        "a".into(),
+        Icit::Implicit,
+        Rc::new(app(Term::Def(f), num(3))),
+    );
+    let f_body = Term::Lam(
+        "n".into(),
+        Icit::Explicit,
+        Rc::new(app(app(Term::Def(add), Term::Var(0)), num(1))),
+    );
+    define_group(g, &[(k, k_body), (f, f_body)]).unwrap();
+    // export useK : Nat -> Nat;  useK n = n + k [Nat]
+    let use_k = declare_def(g, &"useK".into(), &f_ty, false, true, span).unwrap();
+    let k_nat = Term::App(
+        Rc::new(Term::Def(k)),
+        Rc::new(Term::Data(nat, Vec::new())),
+        Icit::Implicit,
+    );
+    let use_k_body = Term::Lam(
+        "n".into(),
+        Icit::Explicit,
+        Rc::new(app(app(Term::Def(add), Term::Var(0)), k_nat)),
+    );
+    define_def(g, use_k, &use_k_body).unwrap();
+
+    let output = stitchwort_js::generate(&session.elab.globals, session.elab.limits)
+        .expect("extraction succeeds");
+    assert!(output.js.contains("const $k = () => "), "{}", output.js);
+    let script = r#"
+import { useK } from "./erased.mjs";
+import assert from "node:assert/strict";
+assert.equal(useK(1n), 5n);
+console.log("ok");
+"#;
+    run_script_on("erased", &[("erased.mjs", output.js)], script);
+}

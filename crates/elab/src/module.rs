@@ -1,0 +1,1189 @@
+//! Whole-module scope (docs/proposals/mutual-recursion.md §8.1): every
+//! top-level name is visible throughout its module, whatever the order of
+//! the declarations.
+//!
+//! [`Elaborator::elaborate_module`] works in three steps:
+//!
+//! 1. **Names.** Every top-level name (definitions, data types and their
+//!    constructors, abilities and their operations) is entered in the name
+//!    table first, as [`Global::Unchecked`], reporting duplicates.
+//! 2. **Dependencies.** For each declaration, the module declarations it
+//!    refers to: its *free* names, so a pattern variable, a lambda or `let`
+//!    binder or an implicit parameter called `f` doesn't make a dependency on
+//!    a top-level `f`. A constructor depends on its data type, an operation
+//!    on its ability. An `auto` argument is no reference (the procedure that
+//!    proves it isn't known yet); a procedure passed explicitly is.
+//! 3. **Order.** The declarations are split into strongly connected
+//!    components, and checked in dependency order, earliest in the source
+//!    first among those whose dependencies are checked. So a module with no
+//!    forward references is checked in source order, as before. A component
+//!    of several definitions (or one that calls itself) is a group of
+//!    definitions that call each other: all their signatures are checked,
+//!    then all their bodies, and the kernel admits them together
+//!    (`define_group`). Data types and abilities can't be in a cycle yet.
+//!
+//! Untrusted: the kernel refuses a group that refers to an unfinished
+//! declaration outside it, so a mistake here can't split a cycle.
+
+use std::cmp::Reverse;
+use std::collections::{BinaryHeap, HashMap, HashSet};
+
+use stitchwort_core::DefId;
+use stitchwort_core::check as kernel;
+use stitchwort_syntax::ast::{self, Clause, Decl, Expr, Module, Pattern};
+use stitchwort_syntax::{Diagnostic, Severity, Span};
+
+use crate::{Elaborator, Global, RESERVED, error};
+
+/// What a declaration of the module is.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) enum Kind {
+    Data,
+    Ability,
+    Def,
+    Test,
+}
+
+/// Where a declaration is in being checked.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) enum Status {
+    /// Not checked yet.
+    Waiting,
+    Checked,
+    Failed,
+}
+
+/// What part of a declaration is being elaborated, which decides what a
+/// reference to an unchecked declaration of the same component means.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub(crate) enum Phase {
+    /// A data type's parameters and universe.
+    Header,
+    /// A data type's constructors.
+    Fields,
+    /// A definition's signature.
+    Signature,
+    /// A definition's equations, a test, or anything else.
+    #[default]
+    Body,
+}
+
+/// A reference from one declaration to another.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct Dep {
+    pub item: usize,
+    /// Where the name is used.
+    pub span: Span,
+    /// In a definition's signature, or a data type's parameters or universe.
+    pub in_header: bool,
+}
+
+/// A declaration of the module being elaborated.
+pub(crate) struct ItemInfo {
+    /// Its name, for messages (a test's is its label).
+    pub name: String,
+    /// Where it's declared: the name.
+    pub span: Span,
+    /// The index of its first declaration in the module.
+    pub position: usize,
+    pub kind: Kind,
+    pub deps: Vec<Dep>,
+    /// Its strongly connected component.
+    pub component: usize,
+    pub status: Status,
+    /// A definition whose type ends in `Decidable …`: something `auto`
+    /// might have used.
+    pub decides: bool,
+}
+
+/// The module being elaborated, and what's being checked in it.
+#[derive(Default)]
+pub(crate) struct ModuleState {
+    pub items: Vec<ItemInfo>,
+    /// The items of the component being checked.
+    pub current: Vec<usize>,
+    /// The item being elaborated.
+    pub item: Option<usize>,
+    pub phase: Phase,
+    /// The item that declared each definition of this module.
+    pub def_items: HashMap<DefId, usize>,
+    /// Every name the module declares.
+    pub names: HashSet<String>,
+}
+
+impl ModuleState {
+    /// Whether `item` is in the component being checked.
+    pub fn in_current(&self, item: usize) -> bool {
+        self.current.contains(&item)
+    }
+}
+
+/// A declaration, with its equations if it's a signature.
+struct Item<'m> {
+    decl: &'m Decl,
+    equations: &'m [Decl],
+    position: usize,
+}
+
+impl Elaborator {
+    /// Elaborates and checks every declaration, continuing past errors.
+    /// Declarations may refer to each other in any order.
+    pub fn elaborate_module(&mut self, module: &Module) -> Vec<Diagnostic> {
+        let mut diagnostics: Vec<(usize, Diagnostic)> = Vec::new();
+        let first_test = self.tests.len();
+        self.module = ModuleState::default();
+        self.modules += 1;
+        let items = self.collect(&module.decls, &mut diagnostics);
+        self.dependencies(&items);
+        let order = self.components();
+
+        for component in order {
+            // Each component is one operation, with its own resource limits.
+            let saved = self.globals.budget.start(self.limits);
+            self.module.current = component.clone();
+            let before = diagnostics.len();
+            self.check_component(&items, &component, &mut diagnostics);
+            self.globals.budget.restore(saved);
+            let failed = diagnostics[before..]
+                .iter()
+                .any(|(_, d)| d.severity == Severity::Error)
+                || component
+                    .iter()
+                    .any(|i| self.module.items[*i].status == Status::Failed);
+            for &i in &component {
+                self.module.items[i].status = if failed {
+                    Status::Failed
+                } else {
+                    Status::Checked
+                };
+            }
+            // A component that failed leaves nothing behind for the next,
+            // and anything it left declared is failed, so later uses fail
+            // too.
+            if failed {
+                self.clear_metas();
+                kernel::abandon_pending(&mut self.globals);
+                // Running out of resources is reported where it happened
+                // only as precisely as the declaration.
+                for (position, d) in &mut diagnostics[before..] {
+                    if d.labels.is_empty() {
+                        let span = module.decls[*position].span();
+                        *d = d.clone().with_label(span, "while checking this");
+                    }
+                }
+            }
+        }
+        self.clear_metas();
+        self.module.current.clear();
+        self.module.item = None;
+        self.module.phase = Phase::Body;
+        // Names that were never checked now just name failures.
+        for (global, _) in self.names.values_mut() {
+            if let Global::Unchecked(_) = global {
+                *global = Global::Failed;
+            }
+        }
+        // Tests run in source order, whatever order they were checked in.
+        self.tests[first_test..].sort_by_key(|t| t.span.start);
+        // Reported in source order, whatever order things were checked in.
+        diagnostics.sort_by_key(|(position, _)| *position);
+        let mut diagnostics: Vec<Diagnostic> = diagnostics.into_iter().map(|(_, d)| d).collect();
+        // Failing because something used failed goes without saying when
+        // that failure is reported too.
+        if diagnostics
+            .iter()
+            .any(|d| d.severity == Severity::Error && d.code != "E-FAILED-DEPENDENCY")
+        {
+            diagnostics.retain(|d| d.code != "E-FAILED-DEPENDENCY");
+        }
+        diagnostics
+    }
+
+    /// Step 1: the module's declarations, with every name they declare
+    /// entered as unchecked. A declaration whose own name is taken is
+    /// reported and left out; one with a constructor or operation whose name
+    /// is taken is reported and fails.
+    fn collect<'m>(
+        &mut self,
+        decls: &'m [Decl],
+        diagnostics: &mut Vec<(usize, Diagnostic)>,
+    ) -> Vec<Item<'m>> {
+        let mut items = Vec::new();
+        let mut test_names: HashMap<&str, Span> = HashMap::new();
+        let mut i = 0;
+        while i < decls.len() {
+            let equations_for = |name: &str, from: usize| {
+                let mut j = from;
+                while let Some(Decl::Equation { name: n, .. }) = decls.get(j)
+                    && n.text == name
+                {
+                    j += 1;
+                }
+                j
+            };
+            let position = i;
+            let (decl, equations) = match &decls[i] {
+                Decl::Signature { name, .. } => {
+                    let end = equations_for(&name.text, i + 1);
+                    i = end;
+                    (&decls[position], &decls[position + 1..end])
+                }
+                Decl::Equation { name, .. } => {
+                    diagnostics.push((
+                        position,
+                        error(
+                            "E-MISSING-SIGNATURE",
+                            name.span,
+                            format!(
+                                "`{}` needs a type signature before its equations",
+                                name.text
+                            ),
+                        ),
+                    ));
+                    i = equations_for(&name.text, i);
+                    continue;
+                }
+                decl => {
+                    i += 1;
+                    (decl, &decls[..0])
+                }
+            };
+            if let Decl::Test { name, span, .. } = decl {
+                if let Some(earlier) = test_names.get(name.as_str()) {
+                    diagnostics.push((
+                        position,
+                        error(
+                            "E-DUPLICATE",
+                            *span,
+                            format!("there's already a test called \"{name}\""),
+                        )
+                        .with_label(*earlier, "first defined here"),
+                    ));
+                    continue;
+                }
+                test_names.insert(name, *span);
+            }
+            let (main, others) = declared_names(decl);
+            // The declaration's own name.
+            let index = self.module.items.len();
+            if let Some(main) = &main {
+                if let Err(d) = self.new_module_name(main) {
+                    diagnostics.push((position, d));
+                    continue;
+                }
+                self.names
+                    .insert(main.text.clone(), (Global::Unchecked(index), main.span));
+                self.module.names.insert(main.text.clone());
+            }
+            let mut status = Status::Waiting;
+            for (k, other) in others.iter().enumerate() {
+                let within = others[..k].iter().find(|o| o.text == other.text);
+                let result = match within {
+                    Some(earlier) => Err(error(
+                        "E-DUPLICATE",
+                        other.span,
+                        format!("`{}` is already defined", other.text),
+                    )
+                    .with_label(earlier.span, "first defined here")),
+                    None => self.new_module_name(other),
+                };
+                match result {
+                    Ok(()) => {
+                        self.names
+                            .insert(other.text.clone(), (Global::Unchecked(index), other.span));
+                        self.module.names.insert(other.text.clone());
+                    }
+                    Err(d) => {
+                        diagnostics.push((position, d));
+                        status = Status::Failed;
+                    }
+                }
+            }
+            let (kind, name, span) = match decl {
+                Decl::Data { name, .. } => (Kind::Data, name.text.clone(), name.span),
+                Decl::Ability { name, .. } => (Kind::Ability, name.text.clone(), name.span),
+                Decl::Signature { name, .. } => (Kind::Def, name.text.clone(), name.span),
+                Decl::Test { name, span, .. } => (Kind::Test, format!("test \"{name}\""), *span),
+                Decl::Equation { .. } => unreachable!("equations go with signatures"),
+            };
+            let decides = match decl {
+                Decl::Signature { ty, .. } => ends_in_decidable(ty),
+                _ => false,
+            };
+            self.module.items.push(ItemInfo {
+                name,
+                span,
+                position,
+                kind,
+                deps: Vec::new(),
+                component: 0,
+                status,
+                decides,
+            });
+            items.push(Item {
+                decl,
+                equations,
+                position,
+            });
+        }
+        items
+    }
+
+    /// A name a module declaration claims: not built in, and not already
+    /// taken (by an earlier module or earlier in this one).
+    fn new_module_name(&self, n: &ast::Name) -> crate::Result<()> {
+        if RESERVED.contains(&n.text.as_str()) {
+            return Err(error(
+                "E-DUPLICATE",
+                n.span,
+                format!("`{}` is built in and can't be redefined", n.text),
+            ));
+        }
+        if let Some((_, previous)) = self.names.get(&n.text) {
+            return Err(error(
+                "E-DUPLICATE",
+                n.span,
+                format!("`{}` is already defined", n.text),
+            )
+            .with_label(*previous, "first defined here"));
+        }
+        Ok(())
+    }
+
+    /// Step 2: what each declaration refers to.
+    fn dependencies(&mut self, items: &[Item]) {
+        for (index, item) in items.iter().enumerate() {
+            let mut deps = Vec::new();
+            let mut add = |names: Vec<&ast::Name>, in_header: bool| {
+                for n in names {
+                    if let Some((Global::Unchecked(j), _)) = self.names.get(&n.text) {
+                        deps.push(Dep {
+                            item: *j,
+                            span: n.span,
+                            in_header,
+                        });
+                    }
+                }
+            };
+            match item.decl {
+                Decl::Signature { ty, .. } => {
+                    add(free_names(vec![Work::Expr(ty)]), true);
+                    let binders = body_binders(ty, item.equations);
+                    for eq in item.equations {
+                        let Decl::Equation { patterns, rhs, .. } = eq else {
+                            continue;
+                        };
+                        let mut work: Vec<Work> = binders.iter().map(|x| Work::Bind(x)).collect();
+                        work.extend(patterns.iter().map(Work::Pattern));
+                        work.extend(rhs.iter().map(Work::Expr));
+                        add(free_names(work), false);
+                    }
+                }
+                Decl::Data {
+                    params,
+                    sort,
+                    ctors,
+                    ..
+                } => {
+                    let mut header = Vec::new();
+                    let mut bind_params = Vec::new();
+                    for binder in params {
+                        header.push(Work::Expr(&binder.ty));
+                        for n in &binder.names {
+                            header.push(Work::Bind(&n.text));
+                            bind_params.push(Work::Bind(&n.text));
+                        }
+                    }
+                    add(free_names(header), true);
+                    if let Some(sort) = sort {
+                        add(free_names(vec![Work::Expr(sort)]), true);
+                    }
+                    for ctor in ctors {
+                        let mut work = bind_params.clone();
+                        for binder in &ctor.fields {
+                            work.push(Work::Expr(&binder.ty));
+                            work.extend(binder.names.iter().map(|n| Work::Bind(&n.text)));
+                        }
+                        add(free_names(work), false);
+                    }
+                }
+                Decl::Ability { params, ops, .. } => {
+                    let mut bind_params = Vec::new();
+                    let mut header = Vec::new();
+                    for binder in params {
+                        header.push(Work::Expr(&binder.ty));
+                        for n in &binder.names {
+                            header.push(Work::Bind(&n.text));
+                            bind_params.push(Work::Bind(&n.text));
+                        }
+                    }
+                    add(free_names(header), true);
+                    for (_, ty) in ops {
+                        let mut work = bind_params.clone();
+                        work.push(Work::Expr(ty));
+                        add(free_names(work), false);
+                    }
+                }
+                Decl::Test { expr, .. } => add(free_names(vec![Work::Expr(expr)]), false),
+                Decl::Equation { .. } => {}
+            }
+            self.module.items[index].deps = deps;
+        }
+    }
+
+    /// Step 3: the strongly connected components, in the order to check
+    /// them: each after everything it depends on, and of those ready, the
+    /// one starting earliest in the source first.
+    fn components(&mut self) -> Vec<Vec<usize>> {
+        let edges: Vec<Vec<usize>> = self
+            .module
+            .items
+            .iter()
+            .map(|item| {
+                let mut targets: Vec<usize> = item.deps.iter().map(|d| d.item).collect();
+                targets.sort_unstable();
+                targets.dedup();
+                targets
+            })
+            .collect();
+        let components = tarjan(&edges);
+        for (c, members) in components.iter().enumerate() {
+            for &i in members {
+                self.module.items[i].component = c;
+            }
+        }
+        // Kahn's algorithm over the components.
+        let mut waiting_on = vec![0usize; components.len()];
+        let mut dependents: Vec<Vec<usize>> = vec![Vec::new(); components.len()];
+        for (i, targets) in edges.iter().enumerate() {
+            let c = self.module.items[i].component;
+            for &j in targets {
+                let d = self.module.items[j].component;
+                if d != c {
+                    waiting_on[c] += 1;
+                    dependents[d].push(c);
+                }
+            }
+        }
+        let start = |c: usize| {
+            components[c]
+                .iter()
+                .map(|i| self.module.items[*i].position)
+                .min()
+                .unwrap_or(0)
+        };
+        let mut ready: BinaryHeap<Reverse<(usize, usize)>> = (0..components.len())
+            .filter(|c| waiting_on[*c] == 0)
+            .map(|c| Reverse((start(c), c)))
+            .collect();
+        let mut order = Vec::new();
+        while let Some(Reverse((_, c))) = ready.pop() {
+            let mut members = components[c].clone();
+            members.sort_by_key(|i| self.module.items[*i].position);
+            order.push(members);
+            for &d in &dependents[c] {
+                waiting_on[d] -= 1;
+                if waiting_on[d] == 0 {
+                    ready.push(Reverse((start(d), d)));
+                }
+            }
+        }
+        order
+    }
+
+    /// Checks one component, adding its errors (by source position).
+    fn check_component(
+        &mut self,
+        items: &[Item],
+        component: &[usize],
+        diagnostics: &mut Vec<(usize, Diagnostic)>,
+    ) {
+        let first = &items[component[0]];
+        if component
+            .iter()
+            .any(|i| self.module.items[*i].status == Status::Failed)
+        {
+            // Already reported (a constructor or operation name taken).
+            return;
+        }
+        let recursive = component.len() > 1
+            || self.module.items[component[0]]
+                .deps
+                .iter()
+                .any(|d| d.item == component[0]);
+        let kinds: Vec<Kind> = component
+            .iter()
+            .map(|i| self.module.items[*i].kind)
+            .collect();
+        if component.len() > 1 && kinds.iter().any(|k| *k != Kind::Def) {
+            diagnostics.push((first.position, self.mixed_cycle(component)));
+            return;
+        }
+        if kinds[0] == Kind::Def && recursive {
+            // A signature may only mention what's finished before it.
+            let mut refused = false;
+            for &i in component {
+                let mut reported = Vec::new();
+                for dep in self.module.items[i].deps.clone() {
+                    // Once for each sibling, at its first use.
+                    if dep.in_header
+                        && self.module.in_current(dep.item)
+                        && !reported.contains(&dep.item)
+                    {
+                        reported.push(dep.item);
+                        diagnostics.push((
+                            items[i].position,
+                            self.mutual_signature(i, dep.item, dep.span),
+                        ));
+                        refused = true;
+                    }
+                }
+            }
+            if refused {
+                return;
+            }
+            let members: Vec<(usize, &Decl, &[Decl])> = component
+                .iter()
+                .map(|i| (*i, items[*i].decl, items[*i].equations))
+                .collect();
+            let found = self.group(&members);
+            diagnostics.extend(found.into_iter().map(|(i, d)| (items[i].position, d)));
+            return;
+        }
+        let index = component[0];
+        let item = &items[index];
+        self.module.item = Some(index);
+        let result = match item.decl {
+            decl @ Decl::Data { .. } => self.data(decl),
+            decl @ Decl::Ability { .. } => self.ability(decl),
+            Decl::Test { name, expr, span } => self.test(name, expr, *span),
+            decl @ Decl::Signature { .. } => {
+                let found = self.group(&[(index, decl, item.equations)]);
+                diagnostics.extend(found.into_iter().map(|(i, d)| (items[i].position, d)));
+                return;
+            }
+            Decl::Equation { .. } => unreachable!("equations go with signatures"),
+        };
+        diagnostics.extend(self.warnings.drain(..).map(|w| (item.position, w)));
+        if let Err(d) = result {
+            diagnostics.push((item.position, d));
+        }
+    }
+
+    /// A path of references from `from` to `to`, through the component
+    /// being checked: the items along it, starting with `from` and ending
+    /// with `to`.
+    fn path_within(&self, from: usize, to: usize) -> Vec<usize> {
+        let mut parent: HashMap<usize, usize> = HashMap::new();
+        let mut queue = std::collections::VecDeque::from([from]);
+        while let Some(i) = queue.pop_front() {
+            for dep in &self.module.items[i].deps {
+                let j = dep.item;
+                if !self.module.in_current(j) || parent.contains_key(&j) || j == from {
+                    continue;
+                }
+                parent.insert(j, i);
+                if j == to {
+                    let mut path = vec![to];
+                    let mut at = to;
+                    while let Some(&p) = parent.get(&at) {
+                        path.push(p);
+                        at = p;
+                        if p == from {
+                            break;
+                        }
+                    }
+                    path.reverse();
+                    return path;
+                }
+                queue.push_back(j);
+            }
+        }
+        vec![from, to]
+    }
+
+    /// "`a` uses `b`, which uses `c`".
+    fn describe_path(&self, path: &[usize]) -> String {
+        let quoted = |i: &usize| format!("`{}`", self.module.items[*i].name);
+        let mut out = quoted(&path[0]);
+        for (k, i) in path[1..].iter().enumerate() {
+            out.push_str(if k == 0 { " uses " } else { ", which uses " });
+            out.push_str(&quoted(i));
+        }
+        out
+    }
+
+    /// The error for a cycle that includes a data type or an ability.
+    fn mixed_cycle(&self, component: &[usize]) -> Diagnostic {
+        let items = &self.module.items;
+        let first = component[0];
+        let back = items[first]
+            .deps
+            .iter()
+            .find(|d| d.item != first && self.module.in_current(d.item))
+            .map_or(first, |d| d.item);
+        let mut cycle = vec![first];
+        cycle.extend(self.path_within(back, first));
+        let all_types = component.iter().all(|i| items[*i].kind != Kind::Def);
+        let names = listed(component.iter().map(|i| &items[*i].name));
+        let mut d = if all_types {
+            Diagnostic::error(
+                "E-MUTUAL-DATA",
+                format!(
+                    "{names} refer to each other, and data types that refer to each other aren't \
+                     supported yet"
+                ),
+            )
+        } else {
+            Diagnostic::error(
+                "E-MUTUAL-KIND",
+                format!(
+                    "{names} refer to each other, but data types and definitions can't be defined \
+                     together"
+                ),
+            )
+        };
+        for &i in component {
+            d = d.with_label(
+                items[i].span,
+                format!("`{}` is defined here", items[i].name),
+            );
+        }
+        d = d.with_note(self.describe_path(&cycle));
+        if !all_types {
+            d = d.with_note(
+                "a data type's constructors can't use a definition that's being defined with \
+                 it, and a definition can't use a data type before its constructors are finished",
+            );
+        }
+        d
+    }
+
+    /// The error for a signature (of `item`) that mentions `other`, in the
+    /// same group, at `span`.
+    fn mutual_signature(&self, item: usize, other: usize, span: Span) -> Diagnostic {
+        let items = &self.module.items;
+        let (name, other_name) = (&items[item].name, &items[other].name);
+        if item == other {
+            return Diagnostic::error(
+                "E-MUTUAL-SIGNATURE",
+                format!("`{name}`'s type mentions `{name}` itself"),
+            )
+            .with_label(span, format!("`{name}` is used here, in its own type"))
+            .with_note("a definition's type can only mention definitions that are finished");
+        }
+        let path = self.path_within(other, item);
+        Diagnostic::error(
+            "E-MUTUAL-SIGNATURE",
+            format!("`{name}`'s type mentions `{other_name}`, which is defined together with it"),
+        )
+        .with_label(
+            span,
+            format!("`{other_name}` is used here, in `{name}`'s type"),
+        )
+        .with_label(items[other].span, format!("`{other_name}` is defined here"))
+        .with_note(format!(
+            "they're checked together because {}",
+            self.describe_path(&path)
+        ))
+        .with_note(
+            "a definition's type can only mention definitions that are finished before it, and \
+             definitions that call each other are finished together; move what the type needs \
+             out of the cycle",
+        )
+    }
+
+    /// The error for using `name`, which declaration `item` of this module
+    /// declares, before it's checked.
+    pub(crate) fn unchecked(&self, name: &ast::Name, item: usize) -> Diagnostic {
+        let info = &self.module.items[item];
+        if info.status == Status::Failed {
+            return failed_name(name);
+        }
+        if self.module.in_current(item) {
+            let current = self.module.item.unwrap_or(item);
+            let owner = &self.module.items[current].name;
+            return match self.module.phase {
+                Phase::Signature => self.mutual_signature(current, item, name.span),
+                Phase::Header => Diagnostic::error(
+                    "E-MUTUAL-SIGNATURE",
+                    format!("`{}` can't be used in `{owner}`'s parameters", name.text),
+                )
+                .with_label(name.span, "used here")
+                .with_note("a data type's parameters can only use declarations that are finished"),
+                Phase::Fields => Diagnostic::error(
+                    "E-MUTUAL-CONSTRUCTOR",
+                    format!(
+                        "`{}` can't be used in the constructors of `{owner}`, which declares it",
+                        name.text
+                    ),
+                )
+                .with_label(name.span, "used here")
+                .with_note(
+                    "a data type's fields can mention the type itself, but not its constructors: \
+                     they don't exist until the fields are finished",
+                ),
+                Phase::Body => internal_order(name),
+            };
+        }
+        internal_order(name)
+    }
+
+    /// Notes for `E-AUTO-NONE`: decision procedures in this module that
+    /// `auto` couldn't use where it's being elaborated, and why.
+    pub(crate) fn auto_hints(&self) -> Vec<String> {
+        let Some(current) = self.module.item else {
+            return Vec::new();
+        };
+        let items = &self.module.items;
+        let here = &items[current];
+        let mut hints = Vec::new();
+        for (j, item) in items.iter().enumerate() {
+            if !item.decides {
+                continue;
+            }
+            let name = &item.name;
+            if self.module.in_current(j) {
+                hints.push(format!(
+                    "`{name}` is checked together with `{}` (they refer to each other), so it \
+                     can't run while they're being checked: move the proof out of the cycle",
+                    here.name
+                ));
+            } else if item.status == Status::Failed {
+                hints.push(format!("`{name}` has errors, so `auto` can't use it"));
+            } else if item.position > here.position {
+                hints.push(format!(
+                    "`auto` only uses decision procedures defined above where it's used, and \
+                     `{name}` is below: move it above `{}`, or pass it explicitly",
+                    here.name
+                ));
+            } else if item.status == Status::Waiting {
+                hints.push(format!(
+                    "`{name}` is above `{}`, but isn't checked yet: {}. Pass it explicitly, so \
+                     it's checked first",
+                    here.name,
+                    self.why_waiting(j)
+                ));
+            }
+        }
+        hints
+    }
+
+    /// Why `item`, which isn't checked, isn't: the chain of declarations it
+    /// waits for.
+    fn why_waiting(&self, item: usize) -> String {
+        let items = &self.module.items;
+        let mut parent: HashMap<usize, usize> = HashMap::new();
+        let mut queue = std::collections::VecDeque::from([item]);
+        let mut end = None;
+        while let Some(i) = queue.pop_front() {
+            let waiting: Vec<usize> = items[i]
+                .deps
+                .iter()
+                .map(|d| d.item)
+                .filter(|j| *j != i && items[*j].status == Status::Waiting)
+                .collect();
+            if i != item && (waiting.is_empty() || self.module.in_current(i)) {
+                end = Some(i);
+                break;
+            }
+            for j in waiting {
+                if j != item && !parent.contains_key(&j) {
+                    parent.insert(j, i);
+                    queue.push_back(j);
+                }
+            }
+        }
+        let Some(end) = end else {
+            return format!("`{}` waits for other declarations", items[item].name);
+        };
+        let mut path = vec![end];
+        let mut at = end;
+        while let Some(&p) = parent.get(&at) {
+            path.push(p);
+            at = p;
+        }
+        path.reverse();
+        let current = self
+            .module
+            .item
+            .map(|c| items[c].name.clone())
+            .unwrap_or_default();
+        if self.module.in_current(end) {
+            format!(
+                "{}, so it's checked after `{current}`",
+                self.describe_path(&path)
+            )
+        } else {
+            format!(
+                "{}, which is checked after `{current}`",
+                self.describe_path(&path)
+            )
+        }
+    }
+
+    /// Whether `auto` may use definition `id` where it's being elaborated:
+    /// it's final, and (if it's from this module) declared above.
+    pub(crate) fn auto_eligible(&self, id: DefId) -> bool {
+        if self.globals.def(id).body.is_none() {
+            return false; // not finished checking (e.g. one being defined)
+        }
+        match (self.module.def_items.get(&id), self.module.item) {
+            (Some(item), Some(current)) => {
+                self.module.items[*item].position < self.module.items[current].position
+            }
+            _ => true,
+        }
+    }
+}
+
+/// "`a`, `b` and `c`".
+fn listed<'a>(names: impl Iterator<Item = &'a String>) -> String {
+    let names: Vec<String> = names.map(|n| format!("`{n}`")).collect();
+    match names.split_last() {
+        Some((last, rest)) if !rest.is_empty() => format!("{} and {last}", rest.join(", ")),
+        _ => names.join(""),
+    }
+}
+
+/// The error for using a declaration that failed.
+pub(crate) fn failed_name(name: &ast::Name) -> Diagnostic {
+    Diagnostic::error("E-FAILED-DEPENDENCY", format!("`{}` has errors", name.text))
+        .with_label(name.span, format!("`{}` has errors", name.text))
+        .with_note(format!(
+            "this can't be accepted until the errors in `{}` are fixed",
+            name.text
+        ))
+}
+
+fn internal_order(name: &ast::Name) -> Diagnostic {
+    Diagnostic::error(
+        "E-INTERNAL",
+        format!(
+            "internal error: `{}` is used before it's checked",
+            name.text
+        ),
+    )
+    .with_label(name.span, "here")
+    .with_note("this is a bug in the compiler, not in your program")
+}
+
+/// The names a declaration declares: its own (none for a test), and those
+/// of its constructors or operations (and what an ability generates).
+fn declared_names(decl: &Decl) -> (Option<ast::Name>, Vec<ast::Name>) {
+    match decl {
+        Decl::Data { name, ctors, .. } => (
+            Some(name.clone()),
+            ctors.iter().map(|c| c.name.clone()).collect(),
+        ),
+        Decl::Ability {
+            name, ops, span, ..
+        } => {
+            let generated = |text: String| ast::Name { text, span: *span };
+            let mut others: Vec<ast::Name> = ops.iter().map(|(op, _)| op.clone()).collect();
+            others.extend(
+                ops.iter()
+                    .map(|(op, _)| generated(format!("{}.{}", name.text, op.text))),
+            );
+            others.push(generated(format!("{}.res", name.text)));
+            others.push(generated(format!("{}.elim", name.text)));
+            (Some(name.clone()), others)
+        }
+        Decl::Signature { name, .. } => (Some(name.clone()), Vec::new()),
+        Decl::Test { .. } | Decl::Equation { .. } => (None, Vec::new()),
+    }
+}
+
+/// Whether a signature's result, after its parameters, is `Decidable …`.
+fn ends_in_decidable(ty: &Expr) -> bool {
+    let mut ty = ty;
+    while let Expr::Pi { cod, .. } | Expr::Arrow(_, cod) = ty {
+        ty = cod;
+    }
+    while let Expr::App(f, _) = ty {
+        ty = f;
+    }
+    matches!(ty, Expr::Var(n) if n.text == "Decidable")
+}
+
+/// The names a definition's equations can use for its implicit parameters,
+/// as the elaborator binds them: every implicit parameter along the
+/// signature, until the explicit ones the equations' patterns match have
+/// been passed.
+fn body_binders<'a>(ty: &'a Expr, equations: &[Decl]) -> Vec<&'a str> {
+    let arity = match equations.first() {
+        Some(Decl::Equation { patterns, .. }) => patterns.len(),
+        _ => 0,
+    };
+    let mut names = Vec::new();
+    let mut explicit = 0;
+    let mut ty = ty;
+    loop {
+        match ty {
+            Expr::Pi {
+                names: ns,
+                implicit: true,
+                cod,
+                ..
+            } => {
+                names.extend(ns.iter().map(|n| n.text.as_str()));
+                ty = cod;
+            }
+            Expr::Pi { names: ns, cod, .. } if explicit + ns.len() <= arity => {
+                explicit += ns.len();
+                ty = cod;
+            }
+            Expr::Arrow(_, cod) if explicit < arity => {
+                explicit += 1;
+                ty = cod;
+            }
+            _ => break,
+        }
+    }
+    names
+}
+
+/// One step of the walk in [`free_names`].
+#[derive(Clone)]
+enum Work<'a> {
+    Expr(&'a Expr),
+    /// A pattern: its constructors are references, its variables binders
+    /// (for the rest of the walk).
+    Pattern(&'a Pattern),
+    Bind(&'a str),
+    Unbind(&'a str),
+    /// A name that's a reference.
+    Name(&'a ast::Name),
+}
+
+/// The free names in `work`, in order: names used that aren't bound by a
+/// binder around them. A work list rather than recursion, since expressions
+/// can nest more deeply than recursion could follow.
+fn free_names(work: Vec<Work<'_>>) -> Vec<&ast::Name> {
+    let mut stack: Vec<Work> = work;
+    stack.reverse();
+    let mut bound: HashMap<&str, usize> = HashMap::new();
+    let mut out = Vec::new();
+    // Pushes steps to run in the order given.
+    fn then<'a>(stack: &mut Vec<Work<'a>>, steps: Vec<Work<'a>>) {
+        stack.extend(steps.into_iter().rev());
+    }
+    while let Some(step) = stack.pop() {
+        let expr = match step {
+            Work::Bind(x) => {
+                *bound.entry(x).or_default() += 1;
+                continue;
+            }
+            Work::Unbind(x) => {
+                if let Some(count) = bound.get_mut(x) {
+                    *count = count.saturating_sub(1);
+                }
+                continue;
+            }
+            Work::Name(n) => {
+                if bound.get(n.text.as_str()).copied().unwrap_or(0) == 0 {
+                    out.push(n);
+                }
+                continue;
+            }
+            Work::Pattern(p) => {
+                match p {
+                    Pattern::Var(x) => *bound.entry(&x.text).or_default() += 1,
+                    Pattern::Ctor(n, args, _) => {
+                        out.push(n);
+                        then(&mut stack, args.iter().map(Work::Pattern).collect());
+                    }
+                    Pattern::Wildcard(_) | Pattern::Absurd(_) | Pattern::Num(..) => {}
+                }
+                continue;
+            }
+            Work::Expr(e) => e,
+        };
+        match expr {
+            Expr::Var(n) => stack.push(Work::Name(n)),
+            Expr::Num(..)
+            | Expr::Str(..)
+            | Expr::Char(..)
+            | Expr::Type(..)
+            | Expr::Prop(_)
+            | Expr::Hole(_)
+            | Expr::Unit(_) => {}
+            Expr::App(a, b) | Expr::Arrow(a, b) | Expr::Binary(_, a, b) | Expr::Seq(a, b) => {
+                then(&mut stack, vec![Work::Expr(a), Work::Expr(b)]);
+            }
+            Expr::Lam(names, body, _) => {
+                let (bind, unbind) = binds(names);
+                let mut steps = bind;
+                steps.push(Work::Expr(body));
+                steps.extend(unbind);
+                then(&mut stack, steps);
+            }
+            Expr::Pi {
+                names, dom, cod, ..
+            } => {
+                let (bind, unbind) = binds(names);
+                let mut steps = vec![Work::Expr(dom)];
+                steps.extend(bind);
+                steps.push(Work::Expr(cod));
+                steps.extend(unbind);
+                then(&mut stack, steps);
+            }
+            Expr::NamedArg(_, value, _) => stack.push(Work::Expr(value)),
+            Expr::If {
+                binder,
+                cond,
+                then: yes,
+                otherwise,
+                ..
+            } => {
+                let mut steps = vec![Work::Expr(cond)];
+                steps.extend(binder.iter().map(|b| Work::Bind(&b.text)));
+                steps.extend([Work::Expr(yes), Work::Expr(otherwise)]);
+                steps.extend(binder.iter().map(|b| Work::Unbind(&b.text)));
+                then(&mut stack, steps);
+            }
+            Expr::Ann(e, t, _) => then(&mut stack, vec![Work::Expr(e), Work::Expr(t)]),
+            Expr::List(items, _) => then(&mut stack, items.iter().map(Work::Expr).collect()),
+            Expr::Effect(row, ty) => {
+                let mut steps: Vec<Work> = row.abilities.iter().map(Work::Expr).collect();
+                steps.extend(row.tail.iter().map(Work::Name));
+                steps.push(Work::Expr(ty));
+                then(&mut stack, steps);
+            }
+            Expr::Let {
+                name,
+                ty,
+                value,
+                body,
+                ..
+            } => {
+                let mut steps: Vec<Work> = ty.iter().map(|t| Work::Expr(t)).collect();
+                steps.extend([
+                    Work::Expr(value),
+                    Work::Bind(&name.text),
+                    Work::Expr(body),
+                    Work::Unbind(&name.text),
+                ]);
+                then(&mut stack, steps);
+            }
+            Expr::Handle { body, clauses, .. } => {
+                let mut steps = vec![Work::Expr(body)];
+                for clause in clauses {
+                    match clause {
+                        Clause::Return { var, body } => steps.extend([
+                            Work::Bind(&var.text),
+                            Work::Expr(body),
+                            Work::Unbind(&var.text),
+                        ]),
+                        Clause::Op { op, arg, k, body } => {
+                            steps.push(Work::Name(op));
+                            let arg_var = match arg {
+                                Pattern::Var(x) => Some(x.text.as_str()),
+                                _ => None,
+                            };
+                            if arg_var.is_none() {
+                                steps.push(Work::Pattern(arg));
+                            }
+                            steps.extend(arg_var.map(Work::Bind));
+                            steps.extend([
+                                Work::Bind(&k.text),
+                                Work::Expr(body),
+                                Work::Unbind(&k.text),
+                            ]);
+                            steps.extend(arg_var.map(Work::Unbind));
+                        }
+                    }
+                }
+                then(&mut stack, steps);
+            }
+        }
+    }
+    out
+}
+
+/// Binding `names` around a part of an expression: the steps before it and
+/// after it.
+fn binds(names: &[ast::Name]) -> (Vec<Work<'_>>, Vec<Work<'_>>) {
+    (
+        names.iter().map(|n| Work::Bind(&n.text)).collect(),
+        names.iter().map(|n| Work::Unbind(&n.text)).collect(),
+    )
+}
+
+/// Tarjan's strongly connected components of a graph given by adjacency
+/// lists, without recursion. Each component's members, components in no
+/// particular order.
+fn tarjan(edges: &[Vec<usize>]) -> Vec<Vec<usize>> {
+    let n = edges.len();
+    let mut index = vec![usize::MAX; n];
+    let mut low = vec![0; n];
+    let mut on_stack = vec![false; n];
+    let mut stack = Vec::new();
+    let mut components = Vec::new();
+    let mut next = 0;
+    for root in 0..n {
+        if index[root] != usize::MAX {
+            continue;
+        }
+        // (node, how many of its edges have been followed)
+        let mut calls = vec![(root, 0)];
+        index[root] = next;
+        low[root] = next;
+        next += 1;
+        stack.push(root);
+        on_stack[root] = true;
+        while let Some(&mut (v, ref mut e)) = calls.last_mut() {
+            if let Some(&w) = edges[v].get(*e) {
+                *e += 1;
+                if index[w] == usize::MAX {
+                    index[w] = next;
+                    low[w] = next;
+                    next += 1;
+                    stack.push(w);
+                    on_stack[w] = true;
+                    calls.push((w, 0));
+                } else if on_stack[w] {
+                    low[v] = low[v].min(index[w]);
+                }
+                continue;
+            }
+            calls.pop();
+            if let Some(&(parent, _)) = calls.last() {
+                low[parent] = low[parent].min(low[v]);
+            }
+            if low[v] == index[v] {
+                let mut component = Vec::new();
+                loop {
+                    let w = stack.pop().expect("v is on the stack");
+                    on_stack[w] = false;
+                    component.push(w);
+                    if w == v {
+                        break;
+                    }
+                }
+                components.push(component);
+            }
+        }
+    }
+    components
+}
+
+#[cfg(test)]
+mod tests {
+    use super::tarjan;
+
+    #[test]
+    fn finds_components() {
+        // 0 → 1 → 2 → 0, 2 → 3, 3 → 3, 4 alone.
+        let edges = vec![vec![1], vec![2], vec![0, 3], vec![3], vec![]];
+        let mut found: Vec<Vec<usize>> = tarjan(&edges)
+            .into_iter()
+            .map(|mut c| {
+                c.sort();
+                c
+            })
+            .collect();
+        found.sort();
+        assert_eq!(found, vec![vec![0, 1, 2], vec![3], vec![4]]);
+    }
+}

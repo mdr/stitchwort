@@ -92,7 +92,10 @@ fn load(session: &mut Session, path: &Path) -> bool {
         }
     };
     match session.load(&path.display().to_string(), &text) {
-        Ok(_) => true,
+        Ok(_) => {
+            report(&session.sources, &std::mem::take(&mut session.warnings));
+            true
+        }
         Err(diagnostics) => {
             report(&session.sources, &diagnostics);
             false

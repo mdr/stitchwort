@@ -10,6 +10,7 @@ mod auto;
 mod autobind;
 mod check;
 mod effects;
+mod module;
 mod unify;
 
 use std::borrow::Cow;
@@ -23,10 +24,11 @@ use stitchwort_core::native::{self, Native};
 use stitchwort_core::term::{Branch, NumArm};
 use stitchwort_core::value::{eval, force};
 use stitchwort_core::{DataId, DefId, Globals, Icit, Limits, Name, Sort, Term, Value, pretty};
-use stitchwort_syntax::ast::{Decl, Expr, Module, Pattern};
+use stitchwort_syntax::ast::{Decl, Expr, Pattern};
 use stitchwort_syntax::{Diagnostic, Span, ast};
 
 use check::{Ctx, check, check_type, infer};
+use module::Phase;
 
 pub const PRELUDE: &str = include_str!("prelude.sw");
 
@@ -44,6 +46,11 @@ enum Global {
     Ability(usize),
     /// Operation `i` of an ability.
     Op(usize, usize),
+    /// Declared by this item of the module being elaborated, which hasn't
+    /// been checked yet (`module::ModuleState::items`).
+    Unchecked(usize),
+    /// Declared by a declaration that failed before it was checked.
+    Failed,
 }
 
 /// A `test "name" = expr` declaration, checked as a definition of type `Bool`.
@@ -70,6 +77,12 @@ pub struct Elaborator {
     /// patterns, even where a number case would do. Only usable with small
     /// numbers. Tests compare the two compilations.
     pub numbers_as_succ: bool,
+    /// The module being elaborated, and what's being checked in it.
+    module: module::ModuleState,
+    /// Warnings found while elaborating the current declaration.
+    warnings: Vec<Diagnostic>,
+    /// How many modules have been elaborated (the prelude is the first).
+    modules: usize,
 }
 
 /// A pattern that matches a constructor.
@@ -141,88 +154,6 @@ fn name(n: &ast::Name) -> Name {
 impl Elaborator {
     pub fn new() -> Self {
         Self::default()
-    }
-
-    /// Elaborates and checks every declaration, continuing past errors.
-    pub fn elaborate_module(&mut self, module: &Module) -> Vec<Diagnostic> {
-        let mut diagnostics = Vec::new();
-        let decls = &module.decls;
-        let mut i = 0;
-        while i < decls.len() {
-            let equations_for = |name: &str, from: usize| {
-                let mut j = from;
-                while let Some(Decl::Equation { name: n, .. }) = decls.get(j)
-                    && n.text == name
-                {
-                    j += 1;
-                }
-                j
-            };
-            // Each declaration is one operation, with its own resource limits.
-            let saved = self.globals.budget.start(self.limits);
-            let before = diagnostics.len();
-            let start = i;
-            match &decls[i] {
-                decl @ Decl::Data { .. } => {
-                    if let Err(d) = self.data(decl) {
-                        diagnostics.push(d);
-                    }
-                    i += 1;
-                }
-                decl @ Decl::Ability { .. } => {
-                    if let Err(d) = self.ability(decl) {
-                        diagnostics.push(d);
-                    }
-                    i += 1;
-                }
-                Decl::Test { name, expr, span } => {
-                    if let Err(d) = self.test(name, expr, *span) {
-                        diagnostics.push(d);
-                    }
-                    i += 1;
-                }
-                decl @ Decl::Signature { name, .. } => {
-                    let end = equations_for(&name.text, i + 1);
-                    if let Err(d) = self.definition(decl, &decls[i + 1..end]) {
-                        diagnostics.push(d);
-                    }
-                    i = end;
-                }
-                Decl::Equation { name, .. } => {
-                    diagnostics.push(error(
-                        "E-MISSING-SIGNATURE",
-                        name.span,
-                        format!(
-                            "`{}` needs a type signature before its equations",
-                            name.text
-                        ),
-                    ));
-                    i = equations_for(&name.text, i);
-                }
-            }
-            self.globals.budget.restore(saved);
-            // A declaration that failed leaves nothing behind for the next,
-            // and anything it left declared is failed, so later uses fail too.
-            if diagnostics.len() > before {
-                self.clear_metas();
-                kernel::abandon_pending(&mut self.globals);
-                // Running out of resources is reported where it happened
-                // only as precisely as the declaration.
-                let span = decls[start].span();
-                for d in &mut diagnostics[before..] {
-                    if d.labels.is_empty() {
-                        *d = d.clone().with_label(span, "while checking this");
-                    }
-                }
-            }
-        }
-        self.clear_metas();
-        // Failing because something used failed goes without saying when
-        // that failure is reported too.
-        if diagnostics.iter().any(|d| d.code != "E-FAILED-DEPENDENCY") {
-            diagnostics.retain(|d| d.code != "E-FAILED-DEPENDENCY");
-        }
-        diagnostics
     }
 
     /// Elaborates a closed expression, and infers its type with the kernel.
@@ -311,6 +242,7 @@ impl Elaborator {
     }
 
     fn test(&mut self, name: &str, expr: &Expr, span: Span) -> Result<()> {
+        self.module.phase = Phase::Body;
         if let Some(earlier) = self.tests.iter().find(|t| t.name == name) {
             return Err(error(
                 "E-DUPLICATE",
@@ -618,6 +550,12 @@ impl Elaborator {
             res,
             elim,
             ops: sigs.iter().map(|(op, ..)| op.text.clone()).collect(),
+            order: (
+                self.modules,
+                self.module
+                    .item
+                    .map_or(0, |i| self.module.items[i].position),
+            ),
         });
         self.names
             .insert(ability.text.clone(), (Global::Ability(index), ability.span));
@@ -635,6 +573,13 @@ impl Elaborator {
                 n.span,
                 format!("`{}` is built in and can't be redefined", n.text),
             ));
+        }
+        // Claimed for this declaration when the module's names were
+        // collected.
+        if let Some((Global::Unchecked(item), _)) = self.names.get(&n.text)
+            && self.module.in_current(*item)
+        {
+            return Ok(());
         }
         if let Some((_, previous)) = self.names.get(&n.text) {
             return Err(error(
@@ -660,6 +605,7 @@ impl Elaborator {
         };
         self.check_new_name(data_name)?;
         self.clear_metas();
+        self.module.phase = Phase::Header;
 
         let (params, sort) = {
             let mut cx = Ctx::new(self, *span);
@@ -694,6 +640,7 @@ impl Elaborator {
         let d = kernel::declare_data(&mut self.globals, name(data_name), params, sort, *span)?;
         self.names
             .insert(data_name.text.clone(), (Global::Data(d), data_name.span));
+        self.module.phase = Phase::Fields;
 
         let mut core_ctors = Vec::new();
         for (c, ctor) in ctors.iter().enumerate() {
@@ -743,7 +690,87 @@ impl Elaborator {
         Ok(())
     }
 
+    /// A definition on its own (one an ability generates): its signature,
+    /// then its body.
     fn definition(&mut self, signature: &Decl, equations: &[Decl]) -> Result<()> {
+        let Decl::Signature { name: def_name, .. } = signature else {
+            unreachable!()
+        };
+        let id = self.signature(signature)?;
+        // Registered before the body is elaborated, so it can refer to itself.
+        // If the body fails, the definition stays declared but failed, so
+        // later uses don't cascade into "unknown name" errors.
+        self.names
+            .insert(def_name.text.clone(), (Global::Def(id), def_name.span));
+        self.clear_metas();
+        self.module.phase = Phase::Body;
+        let body = self.body(id, def_name, equations)?;
+        kernel::define_def(&mut self.globals, id, &body)?;
+        self.after_definition(signature, id)
+    }
+
+    /// A group of definitions that may call each other (or one definition),
+    /// given as module items: every signature, then every body, then the
+    /// kernel admits them together, or none of them
+    /// (docs/proposals/mutual-recursion.md §5.3). The diagnostics, each with
+    /// the item it's about.
+    fn group(&mut self, members: &[(usize, &Decl, &[Decl])]) -> Vec<(usize, Diagnostic)> {
+        let mut out = Vec::new();
+        let mut ids = Vec::new();
+        for &(item, signature, _) in members {
+            self.module.item = Some(item);
+            let result = self.signature(signature);
+            out.extend(self.warnings.drain(..).map(|w| (item, w)));
+            match result {
+                Ok(id) => ids.push(id),
+                Err(d) => out.push((item, d)),
+            }
+        }
+        if ids.len() < members.len() {
+            return out;
+        }
+        // Every member can be referred to now, by its signature. None has a
+        // body until the kernel admits them all, so none unfolds while the
+        // others are checked.
+        for (&(_, signature, _), id) in members.iter().zip(&ids) {
+            if let Decl::Signature { name: n, .. } = signature {
+                self.names
+                    .insert(n.text.clone(), (Global::Def(*id), n.span));
+            }
+        }
+        let mut bodies = Vec::new();
+        for (&(item, signature, equations), id) in members.iter().zip(&ids) {
+            let Decl::Signature { name: def_name, .. } = signature else {
+                unreachable!()
+            };
+            self.module.item = Some(item);
+            self.module.phase = Phase::Body;
+            self.clear_metas();
+            match self.body(*id, def_name, equations) {
+                Ok(body) => bodies.push((*id, body)),
+                Err(d) => out.push((item, d)),
+            }
+        }
+        if bodies.len() < members.len() {
+            return out;
+        }
+        self.module.item = Some(members[0].0);
+        if let Err(d) = kernel::define_group(&mut self.globals, &bodies) {
+            out.push((members[0].0, d));
+            return out;
+        }
+        for (&(item, signature, _), id) in members.iter().zip(&ids) {
+            self.module.item = Some(item);
+            if let Err(d) = self.after_definition(signature, *id) {
+                out.push((item, d));
+            }
+        }
+        out
+    }
+
+    /// Elaborates a definition's signature and declares it to the kernel,
+    /// without making its name refer to it.
+    fn signature(&mut self, signature: &Decl) -> Result<DefId> {
         let Decl::Signature {
             name: def_name,
             ty,
@@ -756,12 +783,41 @@ impl Elaborator {
         };
         self.check_new_name(def_name)?;
         self.clear_metas();
+        self.module.phase = Phase::Signature;
 
-        let ty = {
-            let auto = autobind::auto_bound(self, ty)?;
+        let auto = autobind::auto_bound(self, ty)?;
+        // A name that would have been a type variable, but is the name of
+        // something in this module.
+        let mut notes = Vec::new();
+        for used in &auto.shadowing {
+            let Some((_, defined)) = self.names.get(&used.text) else {
+                continue;
+            };
+            let note = format!(
+                "to make `{0}` a type variable instead, bind it explicitly: start the type with \
+                 `[{0} : Type] ->`",
+                used.text
+            );
+            self.warnings.push(
+                Diagnostic::warning(
+                    "W-MODULE-NAME",
+                    format!(
+                        "`{}` in this type is the declaration of that name in this module, not a \
+                         type variable",
+                        used.text
+                    ),
+                )
+                .with_label(used.span, format!("this is the module's `{}`", used.text))
+                .with_label(*defined, format!("`{}` is defined here", used.text))
+                .with_note(note.clone()),
+            );
+            notes.push(note);
+        }
+        let with_notes = |d: Diagnostic| notes.iter().fold(d, |d, n| d.with_note(n.clone()));
+        let ty = (|| {
             let mut cx = Ctx::new(self, *span);
             let mut domains = Vec::new();
-            for n in &auto {
+            for n in &auto.names {
                 // The type of an implicitly bound variable is worked out from
                 // how it's used (usually `Type`).
                 cx.span = n.span;
@@ -772,11 +828,12 @@ impl Elaborator {
             }
             cx.span = *span;
             let (mut term, _) = check_type(&mut cx, ty)?;
-            for (n, dom) in auto.iter().zip(domains).rev() {
+            for (n, dom) in auto.names.iter().zip(domains).rev() {
                 term = Term::Pi(name(n), Icit::Implicit, Rc::new(dom), Rc::new(term));
             }
-            self.finish(&term, 0)?
-        };
+            self.finish(&term, 0)
+        })()
+        .map_err(with_notes)?;
         let id = kernel::declare_def(
             &mut self.globals,
             &name(def_name),
@@ -784,15 +841,25 @@ impl Elaborator {
             *theorem,
             *export,
             *span,
-        )?;
-        // Registered before the body is elaborated, so it can refer to itself.
-        // If the body fails, the definition stays declared but failed, so
-        // later uses don't cascade into "unknown name" errors.
-        self.names
-            .insert(def_name.text.clone(), (Global::Def(id), def_name.span));
-        self.clear_metas();
-        let body = self.body(id, def_name, equations)?;
-        kernel::define_def(&mut self.globals, id, &body)?;
+        )
+        .map_err(with_notes)?;
+        if let Some(item) = self.module.item {
+            self.module.def_items.insert(id, item);
+        }
+        Ok(id)
+    }
+
+    /// After a definition is admitted: registering natives (in the prelude)
+    /// and an export's validators.
+    fn after_definition(&mut self, signature: &Decl, id: DefId) -> Result<()> {
+        let Decl::Signature {
+            name: def_name,
+            export,
+            ..
+        } = signature
+        else {
+            unreachable!()
+        };
         if self.loading_prelude {
             if let Some(op) = Native::ALL.into_iter().find(|n| n.name() == def_name.text) {
                 native::register_native(&mut self.globals, id, op)?;
@@ -1237,8 +1304,14 @@ impl Elaborator {
     }
 
     fn ctor_named(&self, ctor: &str, span: Span) -> Result<(DataId, usize)> {
+        let used = || ast::Name {
+            text: ctor.to_string(),
+            span,
+        };
         match self.names.get(ctor) {
             Some((Global::Ctor(d, c), _)) => Ok((*d, *c)),
+            Some((Global::Unchecked(item), _)) => Err(self.unchecked(&used(), *item)),
+            Some((Global::Failed, _)) => Err(module::failed_name(&used())),
             Some(_) => Err(error(
                 "E-NOT-A-CONSTRUCTOR",
                 span,
