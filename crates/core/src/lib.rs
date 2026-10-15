@@ -7,11 +7,13 @@
 pub mod check;
 pub mod globals;
 pub mod hash;
+pub mod native;
 pub mod pretty;
 pub mod term;
 mod termination;
 pub mod value;
 
 pub use globals::Globals;
+pub use num_bigint::BigUint;
 pub use term::{DataId, DefId, Icit, Name, Sort, Term};
 pub use value::Value;

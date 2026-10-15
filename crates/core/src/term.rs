@@ -2,6 +2,7 @@
 
 use std::rc::Rc;
 
+use num_bigint::BigUint;
 use stitchwort_syntax::Span;
 
 pub type Name = Rc<str>;
@@ -82,6 +83,8 @@ pub enum Term {
     /// A constructor applied to all of its fields. The data type's parameters
     /// come from the expected type, so constructors can only be checked.
     Ctor(DataId, usize, Vec<Term>),
+    /// A number: the same as that many `Succ`s around `Zero`, stored compactly.
+    Nat(Rc<BigUint>),
     Sort(Sort),
     Pi(Name, Icit, Rc<Term>, Rc<Term>),
     Lam(Name, Icit, Rc<Term>),
@@ -167,9 +170,12 @@ impl Term {
         let go = |t: &Rc<Term>, cutoff| Rc::new(t.shift(by, cutoff));
         match self {
             Term::Var(ix) if *ix >= cutoff => Term::Var(ix + by),
-            Term::Var(_) | Term::Def(_) | Term::Sort(_) | Term::Refl | Term::Meta(_) => {
-                self.clone()
-            }
+            Term::Var(_)
+            | Term::Def(_)
+            | Term::Nat(_)
+            | Term::Sort(_)
+            | Term::Refl
+            | Term::Meta(_) => self.clone(),
             Term::Data(d, args) => {
                 Term::Data(*d, args.iter().map(|a| a.shift(by, cutoff)).collect())
             }
@@ -205,7 +211,7 @@ impl Term {
     pub fn mentions(&self, ix: usize) -> bool {
         match self {
             Term::Var(i) => *i == ix,
-            Term::Def(_) | Term::Sort(_) | Term::Refl | Term::Meta(_) => false,
+            Term::Def(_) | Term::Nat(_) | Term::Sort(_) | Term::Refl | Term::Meta(_) => false,
             Term::Data(_, args) | Term::Ctor(_, _, args) => args.iter().any(|a| a.mentions(ix)),
             Term::Pi(_, _, a, b) => a.mentions(ix) || b.mentions(ix + 1),
             Term::Lam(_, _, b) => b.mentions(ix + 1),

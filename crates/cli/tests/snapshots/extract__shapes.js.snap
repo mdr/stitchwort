@@ -89,22 +89,7 @@ function enc_Shape(v) {
   throw new Error("unreachable");
 }
 
-const $add = (v0) => (v1) => {
-  if (v0 === 0n) {
-    return v1;
-  } else {
-    const v2 = v0 - 1n;
-    return ($add(v2)(v1) + 1n);
-  }
-};
-const $mul = (v0) => (v1) => {
-  if (v0 === 0n) {
-    return 0n;
-  } else {
-    const v2 = v0 - 1n;
-    return $add(v1)($mul(v2)(v1));
-  }
-};
+const $mul = (m) => (n) => m * n;
 const $area = (v0) => {
   switch (v0.tag) {
     case "Square": {

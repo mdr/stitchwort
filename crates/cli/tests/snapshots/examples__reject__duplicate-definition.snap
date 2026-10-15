@@ -9,9 +9,9 @@ expression: output
     │ ───┬──  
     │    ╰──── `length` is already defined
     │
-    ├─[ <prelude>:87:1 ]
+    ├─[ <prelude>:91:1 ]
     │
- 87 │ length : List a -> Nat
+ 91 │ length : List a -> Nat
     │ ───┬──  
     │    ╰──── first defined here
 ────╯

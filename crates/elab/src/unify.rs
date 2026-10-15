@@ -4,6 +4,7 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
+use stitchwort_core::native;
 use stitchwort_core::value::{Closure, Elim, Head, apply_icit, eval, force, quote};
 use stitchwort_core::{Globals, Term, Value};
 
@@ -40,6 +41,14 @@ pub fn unify(g: &Globals, level: usize, a: &Value, b: &Value) -> bool {
         (Value::Data(d1, a1), Value::Data(d2, a2)) => d1 == d2 && unify_all(g, level, a1, a2),
         (Value::Ctor(d1, c1, a1), Value::Ctor(d2, c2, a2)) => {
             d1 == d2 && c1 == c2 && unify_all(g, level, a1, a2)
+        }
+        (Value::Nat(m), Value::Nat(n)) => m == n,
+        // `3` and `Succ ?x` unify by solving `?x` with `2`.
+        (Value::Nat(n), Value::Ctor(d, c, fields)) | (Value::Ctor(d, c, fields), Value::Nat(n)) => {
+            Some(*d) == g.builtins.nat && {
+                let (c2, fields2) = native::split(n);
+                *c == c2 && unify_all(g, level, fields, &fields2)
+            }
         }
         (Value::Eq(t1, x1, y1), Value::Eq(t2, x2, y2)) => {
             unify(g, level, t1, t2) && unify(g, level, x1, x2) && unify(g, level, y1, y2)
@@ -139,6 +148,7 @@ fn rename(
         Value::Lam(x, i, b) => Term::Lam(x, i, Rc::new(under(&b)?)),
         Value::Data(d, args) => Term::Data(d, args.iter().map(go).collect::<Option<_>>()?),
         Value::Ctor(d, c, args) => Term::Ctor(d, c, args.iter().map(go).collect::<Option<_>>()?),
+        Value::Nat(n) => Term::Nat(n),
         Value::Eq(t, a, b) => Term::Eq(Some(Rc::new(go(&t)?)), Rc::new(go(&a)?), Rc::new(go(&b)?)),
         Value::Neutral(Head::Meta(m2), spine) if m2 != m => {
             if let Some((m3, kept)) = prune(g, m2, &spine, renaming) {
@@ -252,7 +262,9 @@ pub fn zonk(g: &Globals, level: usize, term: &Term) -> Result<Term, usize> {
             }
             solved
         }
-        Term::Var(_) | Term::Def(_) | Term::Sort(_) | Term::Refl | Term::Meta(_) => term.clone(),
+        Term::Var(_) | Term::Def(_) | Term::Nat(_) | Term::Sort(_) | Term::Refl | Term::Meta(_) => {
+            term.clone()
+        }
         Term::Data(d, args) => Term::Data(
             *d,
             args.iter()
@@ -296,7 +308,7 @@ pub fn zonk(g: &Globals, level: usize, term: &Term) -> Result<Term, usize> {
 fn first_meta(term: &Term) -> Option<usize> {
     match term {
         Term::Meta(m) => Some(*m),
-        Term::Var(_) | Term::Def(_) | Term::Sort(_) | Term::Refl => None,
+        Term::Var(_) | Term::Def(_) | Term::Nat(_) | Term::Sort(_) | Term::Refl => None,
         Term::Data(_, args) | Term::Ctor(_, _, args) => args.iter().find_map(first_meta),
         Term::Pi(_, _, a, b) | Term::App(a, b, _) | Term::Ann(a, b) => {
             first_meta(a).or_else(|| first_meta(b))

@@ -1,6 +1,6 @@
 # Proposal: native numbers
 
-**Status:** for discussion, 15 October 2026. Nothing here is implemented.
+**Status:** accepted and implemented, 15 October 2026: option A, for `Nat` only (no `Int` yet). See "Numbers" in [`docs/core.md`](../core.md). One correction to the text below: extracted JS did use `bigint`, but its arithmetic still recursed once per unit. It now uses native `bigint` operations too.
 
 ## The problem
 

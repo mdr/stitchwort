@@ -16,6 +16,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use stitchwort_core::check as kernel;
+use stitchwort_core::native::{self, Native};
 use stitchwort_core::term::Branch;
 use stitchwort_core::value::{eval, force};
 use stitchwort_core::{DataId, DefId, Globals, Icit, Name, Sort, Term, Value, pretty};
@@ -52,6 +53,9 @@ pub struct Elaborator {
     names: HashMap<String, (Global, Span)>,
     /// Auto arguments still to be proved in the current declaration.
     obligations: RefCell<Vec<auto::Obligation>>,
+    /// While the prelude is loaded, its built-in types and natively
+    /// implemented definitions are registered with the kernel by name.
+    pub loading_prelude: bool,
 }
 
 /// A pattern that matches a constructor.
@@ -335,6 +339,14 @@ impl Elaborator {
             });
         }
         kernel::define_ctors(&mut self.globals, d, core_ctors)?;
+        if self.loading_prelude {
+            match data_name.text.as_str() {
+                "Nat" => native::register_nat(&mut self.globals, d)?,
+                "Bool" => native::register_bool(&mut self.globals, d)?,
+                "Decidable" => native::register_decidable(&mut self.globals, d)?,
+                _ => {}
+            }
+        }
         for (c, ctor) in ctors.iter().enumerate() {
             self.names
                 .insert(ctor.name.text.clone(), (Global::Ctor(d, c), ctor.name.span));
@@ -392,6 +404,13 @@ impl Elaborator {
         self.clear_metas();
         let body = self.body(id, def_name, equations)?;
         kernel::define_def(&mut self.globals, id, &body)?;
+        if self.loading_prelude {
+            if let Some(op) = Native::ALL.into_iter().find(|n| n.name() == def_name.text) {
+                native::register_native(&mut self.globals, id, op)?;
+            } else if def_name.text == "natNeq" {
+                native::register_nat_neq(&mut self.globals, id)?;
+            }
+        }
         if *export {
             self.add_validators(id)?;
         }

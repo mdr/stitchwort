@@ -189,6 +189,12 @@ impl<'g> Hasher<'g> {
                 self.usize(*c);
                 self.terms(args);
             }
+            Term::Nat(n) => {
+                self.tag("nat");
+                let bytes = n.to_bytes_le();
+                self.usize(bytes.len());
+                self.bytes(&bytes);
+            }
             Term::Sort(s) => self.sort(*s),
             Term::Pi(_, icit, a, b) => {
                 self.tag("pi");

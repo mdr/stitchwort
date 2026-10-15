@@ -1,5 +1,7 @@
 //! Printing core terms in surface-like syntax, for error messages and the REPL.
 
+use num_bigint::BigUint;
+
 use crate::globals::Globals;
 use crate::term::{DataId, Icit, Name, Sort, Term};
 use crate::value::{Value, quote};
@@ -53,6 +55,7 @@ impl Printer<'_> {
             Term::Sort(Sort::Type(0)) => ("Type".into(), Prec::Atom),
             Term::Sort(Sort::Type(i)) => (format!("Type {i}"), Prec::App),
             Term::Refl => ("rfl".into(), Prec::Atom),
+            Term::Nat(n) => (n.to_string(), Prec::Atom),
             Term::Data(d, args) => {
                 self.applied(names, self.g.data(*d).name.to_string(), args.iter())
             }
@@ -189,12 +192,13 @@ fn data_named(g: &Globals, d: DataId, name: &str) -> bool {
 }
 
 /// `Succ (Succ Zero)` as `2`.
-fn nat_literal(g: &Globals, term: &Term) -> Option<u64> {
-    let mut n = 0;
+fn nat_literal(g: &Globals, term: &Term) -> Option<BigUint> {
+    let mut n = 0u64;
     let mut term = term.strip_loc();
     loop {
         match term {
-            Term::Ctor(d, 0, _) if data_named(g, *d, "Nat") => return Some(n),
+            Term::Nat(k) => return Some(&**k + n),
+            Term::Ctor(d, 0, _) if data_named(g, *d, "Nat") => return Some(n.into()),
             Term::Ctor(d, 1, args) if data_named(g, *d, "Nat") => {
                 n += 1;
                 term = args[0].strip_loc();

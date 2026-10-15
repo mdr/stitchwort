@@ -24,6 +24,10 @@ exfalso ()
 
 -- Numbers
 
+-- Numbers are stored compactly, but mean exactly this. `add`, `sub`, `mul`,
+-- `leq`, `eqNat`, `divFuel` and `decEqNat` also have native implementations,
+-- used when all their arguments are numbers; they're tested against the
+-- definitions here.
 type Nat : Type =
   | Zero
   | Succ (n : Nat)
@@ -125,6 +129,22 @@ IsFalse True  = Void
 
 theorem falseNotTrue : Not (False = True)
 falseNotTrue p = J (\y q -> IsFalse y) Trivial p
+
+-- Whether two numbers are equal, as a `Bool`.
+eqNat : Nat -> Nat -> Bool
+eqNat Zero     Zero     = True
+eqNat Zero     (Succ n) = False
+eqNat (Succ m) Zero     = False
+eqNat (Succ m) (Succ n) = eqNat m n
+
+theorem eqNatRefl : (n : Nat) -> eqNat n n = True
+eqNatRefl Zero     = rfl
+eqNatRefl (Succ n) = eqNatRefl n
+
+-- Numbers that `eqNat` says differ are different. The native `decEqNat`
+-- builds its `No` from this.
+theorem natNeq : (m : Nat) -> (n : Nat) -> eqNat m n = False -> Not (m = n)
+natNeq m n h p = falseNotTrue (trans (sym h) (J (\y q -> eqNat m y = True) (eqNatRefl m) p))
 
 -- Decisions
 

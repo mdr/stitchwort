@@ -144,6 +144,10 @@ pub fn infer(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
             Ok((Term::Data(*d, out), Value::Sort(data.sort)))
         }
         Term::Sort(s) => Ok((term.clone(), Value::Sort(s.succ()))),
+        Term::Nat(_) => match g.builtins.nat {
+            Some(nat) => Ok((term.clone(), Value::Data(nat, Vec::new()))),
+            None => Err(malformed(cx, "a number, but `Nat` isn't defined")),
+        },
         Term::Pi(x, icit, dom, cod) => {
             let (dom, s1) = check_type(cx, dom)?;
             let dom_value = cx.eval(&dom);
@@ -694,7 +698,9 @@ fn case_only_in_tree(term: &Term, in_tree: bool) -> bool {
             in_tree && branches.iter().all(|b| case_only_in_tree(&b.body, true))
         }
         Term::Loc(_, t) => case_only_in_tree(t, in_tree),
-        Term::Var(_) | Term::Def(_) | Term::Sort(_) | Term::Refl | Term::Meta(_) => true,
+        Term::Var(_) | Term::Def(_) | Term::Nat(_) | Term::Sort(_) | Term::Refl | Term::Meta(_) => {
+            true
+        }
         Term::Data(_, args) | Term::Ctor(_, _, args) => args.iter().all(no_case),
         Term::Pi(_, _, a, b) | Term::App(a, b, _) | Term::Ann(a, b) => no_case(a) && no_case(b),
         Term::Lam(_, _, b) => no_case(b),
@@ -723,7 +729,9 @@ fn positive(ty: &Term, d: DataId, depth: usize) -> bool {
 fn occurs(term: &Term, d: DataId) -> bool {
     match term {
         Term::Data(d2, args) => *d2 == d || args.iter().any(|a| occurs(a, d)),
-        Term::Var(_) | Term::Def(_) | Term::Sort(_) | Term::Refl | Term::Meta(_) => false,
+        Term::Var(_) | Term::Def(_) | Term::Nat(_) | Term::Sort(_) | Term::Refl | Term::Meta(_) => {
+            false
+        }
         Term::Ctor(_, _, args) => args.iter().any(|a| occurs(a, d)),
         Term::Pi(_, _, a, b) | Term::App(a, b, _) | Term::Ann(a, b) => occurs(a, d) || occurs(b, d),
         Term::Lam(_, _, b) | Term::Loc(_, b) => occurs(b, d),

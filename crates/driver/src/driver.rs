@@ -26,9 +26,11 @@ impl Session {
             sources: SourceMap::new(),
             elab: Elaborator::new(),
         };
+        session.elab.loading_prelude = true;
         if let Err(diagnostics) = session.load("<prelude>", PRELUDE) {
             panic!("internal error: the prelude doesn't check: {diagnostics:#?}");
         }
+        session.elab.loading_prelude = false;
         session
     }
 

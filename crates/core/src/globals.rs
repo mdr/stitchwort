@@ -4,6 +4,7 @@ use std::cell::RefCell;
 
 use stitchwort_syntax::Span;
 
+use crate::native::Builtins;
 use crate::term::{DataId, DefId, Name, Sort, Term};
 use crate::value::Value;
 
@@ -64,6 +65,8 @@ pub struct Meta {
 pub struct Globals {
     pub defs: Vec<Def>,
     pub datas: Vec<Data>,
+    /// `Nat` and the definitions with native implementations.
+    pub builtins: Builtins,
     /// The elaborator's metavariables. Empty whenever the kernel runs.
     pub metas: RefCell<Vec<Meta>>,
     /// Content hashes computed so far. Declarations never change once

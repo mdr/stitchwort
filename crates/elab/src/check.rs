@@ -216,7 +216,10 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             "a named implicit argument must follow a function",
             "write `f [x := …]`",
         )),
-        Expr::Num(n, _) => Ok((numeral(cx, *n)?, Value::Data(nat(cx)?.0, Vec::new()))),
+        Expr::Num(n, _) => Ok((
+            Term::Nat(Rc::new((*n).into())),
+            Value::Data(nat(cx)?, Vec::new()),
+        )),
         Expr::Type(i, _) => Ok((Term::Sort(Sort::Type(*i)), Value::Sort(Sort::Type(i + 1)))),
         Expr::Prop(_) => Ok((Term::Sort(Sort::Prop), Value::Sort(Sort::Type(0)))),
         Expr::Hole(_) => {
@@ -470,7 +473,7 @@ fn apply_args(cx: &mut Ctx, head: (Term, Value), args: &[Arg]) -> Result<(Term, 
                         let cod = cx.fresh_meta();
                         cx.reset(mark);
                         let cod = Closure {
-                            env: cx.env.clone(),
+                            env: cx.env.as_slice().into(),
                             body: Rc::new(cod),
                         };
                         let pi = Value::Pi(
@@ -984,29 +987,12 @@ fn motive_error(cx: &Ctx) -> Diagnostic {
     )
 }
 
-fn numeral(cx: &Ctx, n: u64) -> Result<Term> {
-    const MAX: u64 = 200;
-    if n > MAX {
-        return Err(cx
-            .error(
-                "E-UNSUPPORTED",
-                format!("numbers above {MAX} aren't supported yet"),
-                "too large",
-            )
-            .with_note("`Nat` is represented in unary for now"));
-    }
-    let (d, zero, succ) = nat(cx)?;
-    let mut term = Term::Ctor(d, zero, Vec::new());
-    for _ in 0..n {
-        term = Term::Ctor(d, succ, vec![term]);
-    }
-    Ok(term)
-}
-
-fn nat(cx: &Ctx) -> Result<(DataId, usize, usize)> {
-    let (d, zero) = ctor_named(cx, "Zero")?;
-    let (_, succ) = ctor_named(cx, "Succ")?;
-    Ok((d, zero, succ))
+/// `Nat`, which numbers need.
+fn nat(cx: &Ctx) -> Result<DataId> {
+    cx.e.globals
+        .builtins
+        .nat
+        .ok_or_else(|| cx.error("E-UNKNOWN-NAME", "numbers need the prelude's `Nat`", "here"))
 }
 
 pub fn ctor_named(cx: &Ctx, name: &str) -> Result<(DataId, usize)> {

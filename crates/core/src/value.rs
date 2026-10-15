@@ -8,7 +8,10 @@
 
 use std::rc::Rc;
 
+use num_bigint::BigUint;
+
 use crate::globals::Globals;
+use crate::native;
 use crate::term::{Branch, DataId, DefId, Icit, Name, Sort, Term};
 
 #[derive(Clone, Debug)]
@@ -18,6 +21,8 @@ pub enum Value {
     Lam(Name, Icit, Closure),
     Data(DataId, Vec<Value>),
     Ctor(DataId, usize, Vec<Value>),
+    /// A number, standing for `Succ (Succ … Zero)`. See [`native`].
+    Nat(Rc<BigUint>),
     Eq(Rc<Value>, Rc<Value>, Rc<Value>),
     Refl,
     /// A computation stuck on a variable or an unsolved metavariable, or a
@@ -40,13 +45,15 @@ pub enum Elim {
 
 #[derive(Clone, Debug)]
 pub struct Closure {
-    pub env: Vec<Value>,
+    /// Shared, not copied: values captured by nested closures would
+    /// otherwise be copied again at every level.
+    pub env: Rc<[Value]>,
     pub body: Rc<Term>,
 }
 
 impl Closure {
     pub fn apply(&self, g: &Globals, arg: Value) -> Value {
-        let mut env = self.env.clone();
+        let mut env = self.env.to_vec();
         env.push(arg);
         eval(g, &env, &self.body)
     }
@@ -74,15 +81,16 @@ pub fn eval(g: &Globals, env: &[Value], term: &Term) -> Value {
         },
         Term::Data(d, args) => Value::Data(*d, args.iter().map(|a| eval(g, env, a)).collect()),
         Term::Ctor(d, c, args) => {
-            Value::Ctor(*d, *c, args.iter().map(|a| eval(g, env, a)).collect())
+            native::ctor(g, *d, *c, args.iter().map(|a| eval(g, env, a)).collect())
         }
+        Term::Nat(n) => Value::Nat(n.clone()),
         Term::Sort(s) => Value::Sort(*s),
         Term::Pi(x, i, a, b) => Value::Pi(
             x.clone(),
             *i,
             Rc::new(eval(g, env, a)),
             Closure {
-                env: env.to_vec(),
+                env: env.into(),
                 body: b.clone(),
             },
         ),
@@ -90,7 +98,7 @@ pub fn eval(g: &Globals, env: &[Value], term: &Term) -> Value {
             x.clone(),
             *i,
             Closure {
-                env: env.to_vec(),
+                env: env.into(),
                 body: b.clone(),
             },
         ),
@@ -174,6 +182,12 @@ pub fn force(g: &Globals, value: Value) -> Value {
 /// Unfolds a definition applied to `spine` if it has all its arguments and its
 /// case tree can make progress. Otherwise it stays folded.
 fn unfold(g: &Globals, id: DefId, spine: Vec<Elim>) -> Value {
+    if let Some(op) = g.builtins.native(id)
+        && op.arity() == spine.len()
+        && let Some(value) = native::run(g, op, &spine)
+    {
+        return value;
+    }
     let def = g.def(id);
     if let Some(body) = &def.body
         && def.arity == spine.len()
@@ -197,15 +211,17 @@ fn unfold(g: &Globals, id: DefId, spine: Vec<Elim>) -> Value {
 /// Evaluates a case tree. Returns `None` if a case is stuck on a non-constructor.
 fn eval_tree(g: &Globals, env: Vec<Value>, term: &Term) -> Option<Value> {
     match term.strip_loc() {
-        Term::Case(ix, _, branches) => match force(g, env[env.len() - 1 - ix].clone()) {
-            Value::Ctor(_, c, fields) => {
-                let Branch { body, .. } = &branches[c];
-                let mut env = env.clone();
-                env.extend(fields);
-                eval_tree(g, env, body)
-            }
-            _ => None,
-        },
+        Term::Case(ix, d, branches) => {
+            let (c, fields) = match force(g, env[env.len() - 1 - ix].clone()) {
+                Value::Ctor(_, c, fields) => (c, fields),
+                Value::Nat(n) if Some(*d) == g.builtins.nat => native::split(&n),
+                _ => return None,
+            };
+            let Branch { body, .. } = &branches[c];
+            let mut env = env.clone();
+            env.extend(fields);
+            eval_tree(g, env, body)
+        }
         other => Some(eval(g, &env, other)),
     }
 }
@@ -229,6 +245,7 @@ pub fn quote(g: &Globals, level: usize, value: &Value) -> Term {
         ),
         Value::Data(d, args) => Term::Data(d, args.iter().map(q).collect()),
         Value::Ctor(d, c, args) => Term::Ctor(d, c, args.iter().map(q).collect()),
+        Value::Nat(n) => Term::Nat(n),
         Value::Eq(ty, a, b) => Term::Eq(Some(Rc::new(q(&ty))), Rc::new(q(&a)), Rc::new(q(&b))),
         Value::Refl => Term::Refl,
         Value::Neutral(head, spine) => {
@@ -282,6 +299,14 @@ pub fn conv(g: &Globals, level: usize, a: &Value, b: &Value) -> bool {
         (Value::Data(d1, a1), Value::Data(d2, a2)) => d1 == d2 && all_conv(g, level, a1, a2),
         (Value::Ctor(d1, c1, a1), Value::Ctor(d2, c2, a2)) => {
             d1 == d2 && c1 == c2 && all_conv(g, level, a1, a2)
+        }
+        (Value::Nat(m), Value::Nat(n)) => m == n,
+        // `3` and `Succ x` are equal when `x` is `2`.
+        (Value::Nat(n), Value::Ctor(d, c, fields)) | (Value::Ctor(d, c, fields), Value::Nat(n)) => {
+            Some(*d) == g.builtins.nat && {
+                let (c2, fields2) = native::split(n);
+                *c == c2 && all_conv(g, level, fields, &fields2)
+            }
         }
         (Value::Eq(t1, x1, y1), Value::Eq(t2, x2, y2)) => {
             conv(g, level, t1, t2) && conv(g, level, x1, x2) && conv(g, level, y1, y2)

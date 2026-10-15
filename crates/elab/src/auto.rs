@@ -7,7 +7,8 @@
 //! 1. a hypothesis in scope whose type is `P` (e.g. the `h` in
 //!    `if h : d != 0 then n / d else 0`);
 //! 2. a decision procedure for `P`: any definition whose result type is
-//!    `Decidable …`. Its arguments are found by unification, and any
+//!    `Decidable …`, trying the most recently defined first (so a file's own
+//!    procedures take priority over the prelude's). Its arguments are found by unification, and any
 //!    `Decidable` or auto arguments it needs are found recursively. It's run at
 //!    compile time, and must say `Yes`. The proof is then `fromYes d Trivial`,
 //!    which the kernel re-checks by running `d` itself.
@@ -140,10 +141,11 @@ fn decidable(cx: &Ctx) -> Result<DataId> {
     Ok(ctor_named(cx, "Yes")?.0)
 }
 
-/// Definitions whose result type is `Decidable …`, in declaration order.
+/// Definitions whose result type is `Decidable …`, most recent first.
 fn decision_procedures(cx: &Ctx, decidable: DataId) -> Vec<DefId> {
     let g = cx.g();
     (0..g.defs.len())
+        .rev()
         .map(DefId)
         .filter(|id| {
             let def = g.def(*id);

@@ -83,14 +83,7 @@ function enc_Pair(v) {
   throw new Error("unreachable");
 }
 
-const $add = (v0) => (v1) => {
-  if (v0 === 0n) {
-    return v1;
-  } else {
-    const v2 = v0 - 1n;
-    return ($add(v2)(v1) + 1n);
-  }
-};
+const $add = (m) => (n) => m + n;
 const $pred = (v0) => {
   if (v0 === 0n) {
     return 0n;

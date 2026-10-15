@@ -9,6 +9,7 @@ use std::collections::HashSet;
 use std::fmt::Write;
 
 use stitchwort_core::check::{is_type_former, telescope};
+use stitchwort_core::native;
 use stitchwort_core::term::Branch;
 use stitchwort_core::value::eval;
 use stitchwort_core::{DataId, DefId, Globals, Sort, Term, Value, pretty};
@@ -225,7 +226,9 @@ pub fn generate(g: &Globals) -> Result<Output, Diagnostic> {
     }
     js.push('\n');
     // Only what the exports use, in declaration order (which is dependency order).
-    let used = reachable(g, exports.iter().map(|sig| sig.id));
+    let used = reachable(g, exports.iter().map(|sig| sig.id), |id| {
+        codegen.erased[id.0].0 || g.builtins.native(id).is_some()
+    });
     for id in (0..g.defs.len()).map(DefId).filter(|id| used[id.0]) {
         js.push_str(&codegen.def(id));
     }
@@ -373,6 +376,9 @@ impl<'g> Gen<'g> {
         if *erased {
             return String::new();
         }
+        if let Some(op) = self.g.builtins.native(id) {
+            return format!("const {} = {};\n", def_name(&def.name), native_js(op));
+        }
         let mut env = mask.clone();
         let mut params = String::new();
         for (level, erased) in mask.iter().enumerate() {
@@ -470,6 +476,7 @@ impl<'g> Gen<'g> {
                 }
             }
             Term::Def(id) => self.def_ref(*id, &[], env),
+            Term::Nat(n) => format!("{n}n"),
             Term::App(..) => {
                 let (head, args) = term.spine();
                 if let Term::Def(id) = head {
@@ -504,6 +511,7 @@ impl<'g> Gen<'g> {
                     }
                     return match (inner.strip_loc(), count) {
                         (Term::Ctor(_, 0, _), n) => format!("{n}n"),
+                        (Term::Nat(k), n) => format!("{}n", &**k + n),
                         (_, n) => format!("({} + {n}n)", self.expr(inner, env)),
                     };
                 }
@@ -731,12 +739,18 @@ fn written_param_type(ty: &Term, i: usize) -> Option<&Term> {
     }
 }
 
-/// Which definitions the given ones use, directly or indirectly.
-fn reachable(g: &Globals, roots: impl IntoIterator<Item = DefId>) -> Vec<bool> {
+/// Which definitions the given ones use, directly or indirectly. What an
+/// `opaque` definition's body uses doesn't count: an erased one (a proof or a
+/// type) or a natively implemented one.
+fn reachable(
+    g: &Globals,
+    roots: impl IntoIterator<Item = DefId>,
+    opaque: impl Fn(DefId) -> bool,
+) -> Vec<bool> {
     fn visit(term: &Term, found: &mut Vec<DefId>) {
         match term {
             Term::Def(id) => found.push(*id),
-            Term::Var(_) | Term::Sort(_) | Term::Refl | Term::Meta(_) => {}
+            Term::Var(_) | Term::Nat(_) | Term::Sort(_) | Term::Refl | Term::Meta(_) => {}
             Term::Data(_, args) | Term::Ctor(_, _, args) => {
                 args.iter().for_each(|a| visit(a, found))
             }
@@ -765,7 +779,9 @@ fn reachable(g: &Globals, roots: impl IntoIterator<Item = DefId>) -> Vec<bool> {
             continue;
         }
         let def = g.def(id);
-        if let Some(body) = &def.body {
+        if let Some(body) = &def.body
+            && !opaque(id)
+        {
             visit(body, &mut stack);
         }
         for validator in &def.validators {
@@ -773,6 +789,26 @@ fn reachable(g: &Globals, roots: impl IntoIterator<Item = DefId>) -> Vec<bool> {
         }
     }
     used
+}
+
+/// JS for a prelude definition with a native implementation (see
+/// `stitchwort_core::native`). Like the evaluator's, these are trusted, and
+/// tested against the definitions they replace.
+fn native_js(op: native::Native) -> &'static str {
+    use native::Native;
+    match op {
+        Native::Add => "(m) => (n) => m + n",
+        Native::Sub => "(m) => (n) => (m >= n ? m - n : 0n)",
+        Native::Mul => "(m) => (n) => m * n",
+        Native::Leq => "(m) => (n) => ({ tag: m <= n ? \"True\" : \"False\" })",
+        Native::EqNat => "(m) => (n) => ({ tag: m === n ? \"True\" : \"False\" })",
+        Native::DivFuel => {
+            "(fuel) => (n) => (d) => { if (d === 0n) return fuel; const q = n / d; return q < fuel ? q : fuel; }"
+        }
+        Native::DecEqNat => "(m) => (n) => ({ tag: m === n ? \"Yes\" : \"No\" })",
+        // A proof, so it's erased and never emitted.
+        Native::EqNatRefl => "undefined",
+    }
 }
 
 fn var(level: usize) -> String {
@@ -801,20 +837,10 @@ pub fn boundary_literal(g: &Globals, b: &Boundary, value: &Value) -> Result<Stri
     let stuck = || format!("not a fully evaluated value: {value:?}");
     match (b, value) {
         (Boundary::Bool, Value::Ctor(_, c, _)) => Ok((*c == 1).to_string()),
-        (Boundary::Nat, _) => {
-            let mut n: u64 = 0;
-            let mut v = value;
-            loop {
-                match v {
-                    Value::Ctor(_, 0, _) => return Ok(format!("{n}n")),
-                    Value::Ctor(_, 1, fields) => {
-                        n += 1;
-                        v = &fields[0];
-                    }
-                    _ => return Err(stuck()),
-                }
-            }
-        }
+        (Boundary::Nat, _) => match native::as_nat(g, value) {
+            Some(n) => Ok(format!("{n}n")),
+            None => Err(stuck()),
+        },
         (Boundary::List(elem), _) => {
             let mut items = Vec::new();
             let mut v = value;

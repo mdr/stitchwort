@@ -18,6 +18,8 @@ ariadne = "0.6.0"
 blake3 = "1.8.7"
 clap = { version = "4.6.7", features = ["derive"] }
 insta = "1.49.0"
+num-bigint = "0.5.1"
+num-traits = "0.2.19"
 rustyline = "18.0.1"
 
 [workspace.lints.rust]

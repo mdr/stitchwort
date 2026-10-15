@@ -15,7 +15,7 @@ The core is the small, explicit language that every Stitchwort definition is tra
 | Tracked assumptions | There's no `assume` yet, so every checked definition is assumption-free |
 | Evaluation budget, "inconclusive" results | Not yet. Evaluation is guaranteed to terminate, but may be slow |
 | Caching (§11) | Test results are cached by content hash. Kernel checks and generated JS aren't cached yet, and nothing is cached across elaboration |
-| Native numbers | `Nat` is unary in the core, so every `Succ` costs a level of recursion in the compiler. Number literals are limited to 200 to stay within small stacks (test threads, and later WASM). Extracted JS uses `bigint`. A native representation is needed before the playground |
+| Numbers | `Nat` only; no `Int` yet. Numbers are native (see [Numbers](#numbers)), and literals must fit in 64 bits, though results can be any size |
 | Pattern matching | One constructor deep, no nested patterns. No forward references or mutual recursion |
 | Data types | Parameters but no indices. Equality is the only built-in indexed type |
 | Universes | Numbered, no polymorphism, no cumulativity |
@@ -128,6 +128,17 @@ Normalisation by evaluation (`crates/core/src/value.rs`):
 - **Running a program** uses the same evaluator, strictly. Arguments are evaluated before calls.
 - **Comparing types** reduces under binders. It never reaches an effectful operation, because there aren't any yet.
 
+## Numbers
+
+`Nat` means `Zero | Succ Nat`, but a number is stored as one arbitrary-precision value (`Term::Nat`, `Value::Nat`; `crates/core/src/native.rs`), following option A of [the proposal](proposals/native-numbers.md):
+
+- A number has type `Nat`. Matching on `n` takes the `Zero` branch if it's 0, and otherwise the `Succ` branch with field `n - 1`, without building a chain.
+- Conversion treats `3` and `Succ 2` as equal (`Succ x` is never equal to a number unless `x` is). Evaluating `Succ` of a number, or `Zero`, gives a number.
+- **Native implementations.** `add`, `sub`, `mul`, `leq`, `eqNat`, `divFuel`, `decEqNat` and `eqNatRefl` run natively when all their arguments are numbers (or `Succ`s around one). Otherwise they unfold as usual, so proofs by induction are unaffected. A native `decEqNat` gives `Yes rfl`, or `No (natNeq m n rfl)`, where the prelude's `natNeq` turns `eqNat m n = False` into `Not (m = n)`; `eqNatRefl n` gives `rfl`.
+- **Trust.** The native implementations are trusted (DESIGN.md §13). They're registered by name only while the prelude loads, and registration checks each definition's type and arity, and that `Nat`, `Bool` and `Decidable` have the expected shapes (`E-BUILTIN`). `crates/driver/tests/natives.rs` compares each with its own definition on every small input and on random larger ones.
+
+Extracted JS uses native `bigint` arithmetic for the same definitions.
+
 ## Elaboration
 
 The elaborator (`crates/elab`) checks surface syntax bidirectionally, following András Kovács' elaboration-zoo, and produces core terms for the kernel.
@@ -139,7 +150,7 @@ The elaborator (`crates/elab`) checks surface syntax bidirectionally, following 
 - **Zonking.** After a declaration is elaborated, solved metavariables are substituted in. Any left unsolved is an error (`E-UNSOLVED`) at the place it was created.
 - **Auto arguments.** Inserting an `[auto x : P]` argument creates a metavariable and records an obligation. Once the declaration is elaborated, each obligation is proved (`crates/elab/src/auto.rs`):
   1. a hypothesis in scope whose type unifies with `P`;
-  2. otherwise a **decision procedure**: a definition whose result type is `Decidable …`. Its arguments are found by unifying `Decidable …` with `Decidable P`. Arguments it still needs that are `Decidable` (like `decNot`'s) are found recursively, up to depth 8, and auto arguments by proof search. It's evaluated at compile time:
+  2. otherwise a **decision procedure**: a definition whose result type is `Decidable …`, trying the most recently defined first, so a file's own procedures take priority over the prelude's. Its arguments are found by unifying `Decidable …` with `Decidable P`. Arguments it still needs that are `Decidable` (like `decNot`'s) are found recursively, up to depth 8, and auto arguments by proof search. It's evaluated at compile time:
      - `Yes` → the proof is `fromYes d Trivial`. The kernel accepts this only if `IsYes d` computes to `Unit`, so it re-checks the decision itself;
      - `No` → `E-AUTO-FALSE`;
      - stuck on unknown values → `E-AUTO-STUCK`, with a hint to use `if h : P then … else …`;
@@ -170,7 +181,7 @@ Renaming a function or reformatting code changes no hashes. Changing a body chan
 
 ## The prelude
 
-`crates/elab/src/prelude.sw` defines everything above that isn't built in: `Void`, `Unit`, `Not`, `absurd`/`exfalso`; `Nat` with `+ - *`, `pred`, `/`, `%`; `Bool` with `not`, `ifThenElse`, `leq`; `<=` and `<` as propositions computed via `leq`; `List`, `length`, `append`; `cong`, `sym`, `trans`; constructor disjointness and injectivity; and `Decidable` with `IsYes`, `fromYes`, `elimDec` and decision procedures for `=` on `Nat`, `<=`, `<`, `Not`, and `b = True`.
+`crates/elab/src/prelude.sw` defines everything above that isn't built in: `Void`, `Unit`, `Not`, `absurd`/`exfalso`; `Nat` with `+ - *`, `pred`, `/`, `%`, `eqNat`; `Bool` with `not`, `ifThenElse`, `leq`; `<=` and `<` as propositions computed via `leq`; `List`, `length`, `append`; `cong`, `sym`, `trans`; constructor disjointness and injectivity; and `Decidable` with `IsYes`, `fromYes`, `elimDec` and decision procedures for `=` on `Nat`, `<=`, `<`, `Not`, and `b = True`.
 
 Division is defined by structural recursion on fuel (`n` steps is always enough when the divisor isn't zero). Its non-zero precondition is what makes `n / 0` a compile-time error rather than a convention.
 
@@ -216,3 +227,4 @@ Only definitions reachable from the exports (and their checks) are emitted. A de
 | `E-AUTO-FALSE` / `E-AUTO-STUCK` / `E-AUTO-NONE` | An auto argument is false, can't be decided at compile time, or has no decision procedure |
 | `E-NOT-EMPTY` | An absurd pattern `()` for a type that has values |
 | `E-UNSUPPORTED` | Not implemented yet |
+| `E-BUILTIN` | A prelude type or definition the compiler implements natively doesn't have the expected shape |

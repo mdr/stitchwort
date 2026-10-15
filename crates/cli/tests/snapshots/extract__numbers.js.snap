@@ -62,67 +62,10 @@ const enc_List = (enc) => (v) => {
 const $absurd = () => {
   throw new Error("unreachable");
 };
-const $add = (v0) => (v1) => {
-  if (v0 === 0n) {
-    return v1;
-  } else {
-    const v2 = v0 - 1n;
-    return ($add(v2)(v1) + 1n);
-  }
-};
-const $sub = (v0) => (v1) => {
-  if (v1 === 0n) {
-    return v0;
-  } else {
-    const v2 = v1 - 1n;
-    if (v0 === 0n) {
-      return 0n;
-    } else {
-      const v3 = v0 - 1n;
-      return $sub(v3)(v2);
-    }
-  }
-};
-const $mul = (v0) => (v1) => {
-  if (v0 === 0n) {
-    return 0n;
-  } else {
-    const v2 = v0 - 1n;
-    return $add(v1)($mul(v2)(v1));
-  }
-};
-const $pred = (v0) => {
-  if (v0 === 0n) {
-    return 0n;
-  } else {
-    const v1 = v0 - 1n;
-    return v1;
-  }
-};
-const $ifThenElse = (v1) => (v2) => (v3) => {
-  switch (v1.tag) {
-    case "False": {
-      return (v3)(undefined);
-    }
-    case "True": {
-      return (v2)(undefined);
-    }
-  }
-  throw new Error("unreachable");
-};
-const $leq = (v0) => (v1) => {
-  if (v0 === 0n) {
-    return { tag: "True" };
-  } else {
-    const v2 = v0 - 1n;
-    if (v1 === 0n) {
-      return { tag: "False" };
-    } else {
-      const v3 = v1 - 1n;
-      return $leq(v2)(v3);
-    }
-  }
-};
+const $add = (m) => (n) => m + n;
+const $sub = (m) => (n) => (m >= n ? m - n : 0n);
+const $mul = (m) => (n) => m * n;
+const $leq = (m) => (n) => ({ tag: m <= n ? "True" : "False" });
 const $length = (v1) => {
   switch (v1.tag) {
     case "Nil": {
@@ -158,35 +101,7 @@ const $decTrue = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $decSucc = (v0) => (v1) => (v2) => {
-  switch (v2.tag) {
-    case "Yes": {
-      return { tag: "Yes" };
-    }
-    case "No": {
-      return { tag: "No" };
-    }
-  }
-  throw new Error("unreachable");
-};
-const $decEqNat = (v0) => (v1) => {
-  if (v0 === 0n) {
-    if (v1 === 0n) {
-      return { tag: "Yes" };
-    } else {
-      const v2 = v1 - 1n;
-      return { tag: "No" };
-    }
-  } else {
-    const v2 = v0 - 1n;
-    if (v1 === 0n) {
-      return { tag: "No" };
-    } else {
-      const v3 = v1 - 1n;
-      return $decSucc(v2)(v3)($decEqNat(v2)(v3));
-    }
-  }
-};
+const $decEqNat = (m) => (n) => ({ tag: m === n ? "Yes" : "No" });
 const $decNot = (v1) => {
   switch (v1.tag) {
     case "Yes": {
@@ -198,14 +113,8 @@ const $decNot = (v1) => {
   }
   throw new Error("unreachable");
 };
-const $divFuel = (v0) => (v1) => (v2) => {
-  if (v0 === 0n) {
-    return 0n;
-  } else {
-    const v3 = v0 - 1n;
-    return $ifThenElse($leq(v2)(v1))(((v4) => ($divFuel(v3)($sub(v1)(v2))(v2) + 1n)))(((v4) => 0n));
-  }
-};
+const $decLessThan = (v0) => (v1) => $decTrue($leq((v0 + 1n))(v1));
+const $divFuel = (fuel) => (n) => (d) => { if (d === 0n) return fuel; const q = n / d; return q < fuel ? q : fuel; };
 const $div = (v0) => (v1) => $divFuel(v0)(v0)(v1);
 const $mod = (v0) => (v1) => $sub(v0)($mul(v1)($div(v0)(v1)));
 const $total = (v0) => {
@@ -240,7 +149,7 @@ const $get = (v1) => (v2) => {
   }
   throw new Error("unreachable");
 };
-const $third = (v0) => $elimDec($decTrue($leq(3n)($length(v0))))(((v1) => $get(v0)(2n)))(((v1) => 0n));
+const $third = (v0) => $elimDec($decLessThan(2n)($length(v0)))(((v1) => $get(v0)(2n)))(((v1) => 0n));
 const $isEven = (v0) => $leq($mod(v0)(2n))(0n);
 
 export function average(xs) {
