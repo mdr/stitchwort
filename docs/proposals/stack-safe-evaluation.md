@@ -1,10 +1,22 @@
 # Stitchwort: evaluation that doesn't overflow the stack
 
-**Status:** draft 2, 15 October 2026. Draft 1 was reviewed; this draft adopts the review's changes and is the basis for implementation. Steps 0, 1 and 2 are done; see [Progress](#progress).
+**Status:** draft 2, 15 October 2026. Draft 1 was reviewed; this draft adopts the review's changes and is the basis for implementation. Steps 0 to 3 are done; see [Progress](#progress).
 
 ## Progress
 
 **Step 0**, shared constructor fields: commit `02235d8`.
+
+**Step 3**, conversion, quotation and freeing: done.
+
+- **`conv`** keeps the pairs still to compare on a work list, depth first and left to right, so it stops at the first difference as before. A function type's codomain is only evaluated once its domain has compared equal. Its one remaining recursion is two partially applied uses of the same definition: they're equal if their arguments are, *or else* by eta. A work list can't express "or else", so it compares the arguments with a nested call. The depth of that is the nesting of partially applied definitions in the program, not the size of the data.
+- **`unify`** was moved forward from step 5. Checking a proof by `rfl` unifies the two sides in the elaborator before the kernel checks them, so `rfl : allOnes 20000 = allOnes 20000` failed there. It now has the same structure as `conv`, in the same order, so metavariables are solved in the same order as before. Solving one (`solve`, `rename`, `prune`) and `zonk` still recurse over the solution. They count against the budget, so a deep case is `E-RESOURCE`, not a crash.
+- **`quote`** builds the term from a list of tasks: values to visit, and terms to assemble from the parts already finished. It still enforces the size limit.
+- **`Term`** frees its sub-terms on a work list, like `Values`. It only does so when one of them is uniquely owned, since otherwise freeing just decrements a count.
+- **Tests:**
+  - The differential tests now also compare the machine's `quote` with the reference's on every definition, and the work-list `conv` with the reference's recursive one. That covers every pair of the prelude's and examples' definitions whose types are convertible (141 pairs in the prelude), plus each definition's type.
+  - New stress tests, in 2 MiB test threads: two separately built 100,000-element lists compared as equal, differing at the head, and differing only at the end; printing a 100,000-element list; a proof by `rfl` that two 20,000-element lists are equal; and freeing terms nested a million deep.
+- **Measured** in a release build: `lengths 400 3000` unchanged at 0.98 s. Checking and running every example went from 0.87 s to 0.93–0.98 s.
+- **In the browser** (headless Chrome, `web/stress.html`): printing a 100,000-element list and comparing two 20,000-element lists in a proof now work. Long list and text literals now report `E-RESOURCE` instead of crashing. Only a deeply nested expression still crashes (the parser, step 4).
 
 **Step 2**, the machine: done.
 

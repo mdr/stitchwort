@@ -21,12 +21,8 @@ this file.
   ability and `simulate`. Owns `prelude.sw`, `examples/`, the text-and-io
   proposal; doesn't touch `core/src/value.rs`, `term.rs`, `budget.rs`,
   `reference.rs`.
-- **Lane: core runtime** (main session), **stack-safe evaluation, step 3**
-  ([proposal](docs/proposals/stack-safe-evaluation.md)): conversion (`conv`)
-  as a work list, iterative `quote`, and iterative freeing of `Term`. Tests:
-  two independently built long lists compared (equal, differing at the head,
-  differing only at the end); printing a 10⁵-element value; freeing deep
-  terms.
+- **Lane: core runtime** (main session): step 3 finished; merging the IO
+  lane next.
 
 ## Next
 
@@ -55,8 +51,9 @@ this file.
 - **`==` operands are computed at check time.** `f x == y` puts `f x = y` in
   a type, so checking computes `f x`. Needs lazily evaluated values, or a
   translation of `==` that keeps its operands out of types.
-- **Unification as a work list**, keeping its constraint order (it has a
-  depth guard meanwhile, after step 4).
+- **Solving metavariables without recursion:** `solve`, `rename`, `prune`
+  and `zonk` still recurse over a solution (they count against the budget,
+  so a deep one is `E-RESOURCE`).
 - **Mutation testing** (in small sharded runs): the machine (`value.rs`),
   `budget.rs`, `native.rs` (167 mutants, never done).
 - **Recorded benchmarks** with a regression threshold: the example suite,
@@ -102,6 +99,7 @@ this file.
 
 ## Recently done
 
+- Stack-safe step 3: `conv`, `unify` and `quote` as work lists; iterative freeing of terms.
 - Local WebAssembly test page: `web/stress.html`, served by `web/serve.sh`.
 - `5caa024` `unsafe` allowed with a written justification (lint `deny`, was `forbid`).
 - `cdfae0d` Stack-safe step 2: the abstract machine, the reference evaluator, differential tests, iterative freeing of values.

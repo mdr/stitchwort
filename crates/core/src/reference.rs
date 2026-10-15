@@ -257,3 +257,101 @@ pub fn quote(g: &Globals, level: usize, value: &Value) -> Result<Term> {
         }
     })
 }
+
+/// Definitional equality (the recursive version `value::conv` was derived
+/// from).
+pub fn conv(g: &Globals, level: usize, a: &Value, b: &Value) -> Result<bool> {
+    if native::nat_like(g, a) || native::nat_like(g, b) {
+        return native::compare_with(
+            g,
+            a,
+            b,
+            |x, y| conv(g, level, x, y),
+            |_, _| Ok(false),
+            force,
+        );
+    }
+    let fresh = Value::var(level);
+    let apply = |c: &Closure, v: Value| apply_closure(g, c, v);
+    Ok(match (a, b) {
+        (Value::Sort(s), Value::Sort(t)) => s == t,
+        (Value::Pi(_, i1, a1, b1), Value::Pi(_, i2, a2, b2)) => {
+            i1 == i2
+                && conv(g, level, a1, a2)?
+                && conv(g, level + 1, &apply(b1, fresh.clone())?, &apply(b2, fresh)?)?
+        }
+        (Value::Lam(_, _, b1), Value::Lam(_, _, b2)) => {
+            conv(g, level + 1, &apply(b1, fresh.clone())?, &apply(b2, fresh)?)?
+        }
+        (Value::Lam(_, i, b), other) | (other, Value::Lam(_, i, b)) => conv(
+            g,
+            level + 1,
+            &apply(b, fresh.clone())?,
+            &apply_icit(g, other.clone(), fresh, *i)?,
+        )?,
+        (Value::Data(d1, a1), Value::Data(d2, a2)) => d1 == d2 && all_conv(g, level, a1, a2)?,
+        (Value::Ctor(d1, c1, a1), Value::Ctor(d2, c2, a2)) => {
+            d1 == d2 && c1 == c2 && all_conv(g, level, a1, a2)?
+        }
+        (Value::Eq(t1, x1, y1), Value::Eq(t2, x2, y2)) => {
+            conv(g, level, t1, t2)? && conv(g, level, x1, x2)? && conv(g, level, y1, y2)?
+        }
+        (Value::Refl, Value::Refl) => true,
+        (Value::Neutral(h1, s1), Value::Neutral(h2, s2)) => {
+            (h1 == h2 && s1.len() == s2.len() && conv_spines(g, level, s1, s2)?)
+                || eta(g, level, a, b)?
+        }
+        _ => eta(g, level, a, b)?,
+    })
+}
+
+fn all_conv(g: &Globals, level: usize, xs: &[Value], ys: &[Value]) -> Result<bool> {
+    if xs.len() != ys.len() {
+        return Ok(false);
+    }
+    for (x, y) in xs.iter().zip(ys) {
+        if !conv(g, level, x, y)? {
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}
+
+fn conv_spines(g: &Globals, level: usize, s1: &[Elim], s2: &[Elim]) -> Result<bool> {
+    for pair in s1.iter().zip(s2) {
+        let same = match pair {
+            (Elim::App(x, _), Elim::App(y, _)) => conv(g, level, x, y)?,
+            (
+                Elim::J {
+                    motive: m1,
+                    base: b1,
+                },
+                Elim::J {
+                    motive: m2,
+                    base: b2,
+                },
+            ) => conv(g, level, m1, m2)? && conv(g, level, b1, b2)?,
+            _ => false,
+        };
+        if !same {
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}
+
+/// Eta for partially applied definitions: both sides applied to a fresh
+/// variable.
+fn eta(g: &Globals, level: usize, a: &Value, b: &Value) -> Result<bool> {
+    let underapplied = |v| crate::value::underapplied(g, v);
+    let Some(icit) = underapplied(a).or_else(|| underapplied(b)) else {
+        return Ok(false);
+    };
+    let fresh = Value::var(level);
+    conv(
+        g,
+        level + 1,
+        &apply_icit(g, a.clone(), fresh.clone(), icit)?,
+        &apply_icit(g, b.clone(), fresh, icit)?,
+    )
+}

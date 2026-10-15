@@ -106,6 +106,101 @@ pub enum Term {
     Meta(usize),
 }
 
+/// Freeing a term frees its sub-terms without recursing, however deeply they
+/// nest (a long list literal is a long chain of `Ctor`s): the sub-terms this
+/// is the last owner of are taken out onto a work list and freed one at a
+/// time. Rust frees nested data recursively by default, which would overflow
+/// the stack.
+impl Drop for Term {
+    fn drop(&mut self) {
+        if !has_unique_child(self) {
+            return; // freeing it only decrements its children's counts
+        }
+        let Ok(leaf) = LEAF.try_with(Rc::clone) else {
+            return; // the thread is ending
+        };
+        let mut free = |pending: &mut Vec<Rc<Term>>| {
+            take_children(self, &leaf, pending);
+            while let Some(child) = pending.pop() {
+                if let Ok(mut term) = Rc::try_unwrap(child) {
+                    take_children(&mut term, &leaf, pending);
+                }
+            }
+        };
+        // Freeing never starts another free that needs the shared work list
+        // (everything it frees has had its children taken), but if it ever
+        // did, a local one would do.
+        let shared = FREEING.try_with(|p| match p.try_borrow_mut() {
+            Ok(mut p) => {
+                free(&mut p);
+                true
+            }
+            Err(_) => false,
+        });
+        if shared != Ok(true) {
+            free(&mut Vec::new());
+        }
+    }
+}
+
+thread_local! {
+    /// What a taken-apart term's children are replaced with.
+    static LEAF: Rc<Term> = Rc::new(Term::Refl);
+    /// The work list for freeing, kept between uses.
+    static FREEING: std::cell::RefCell<Vec<Rc<Term>>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+fn has_unique_child(term: &Term) -> bool {
+    let unique = |t: &Rc<Term>| Rc::strong_count(t) == 1;
+    match term {
+        Term::Pi(_, _, a, b) | Term::App(a, b, _) | Term::Ann(a, b) => unique(a) || unique(b),
+        Term::Lam(_, _, b) | Term::Loc(_, b) => unique(b),
+        Term::Data(_, args) | Term::Ctor(_, _, args) => args.iter().any(unique),
+        Term::Eq(ty, a, b) => ty.as_ref().is_some_and(unique) || unique(a) || unique(b),
+        Term::J(m, b, p) => unique(m) || unique(b) || unique(p),
+        Term::Case(_, _, branches) => {
+            Rc::strong_count(branches) == 1 && branches.iter().any(|b| unique(&b.body))
+        }
+        Term::Var(_) | Term::Def(_) | Term::Nat(_) | Term::Sort(_) | Term::Refl | Term::Meta(_) => {
+            false
+        }
+    }
+}
+
+/// Moves `term`'s sub-terms onto `pending`, leaving `leaf` in their place.
+fn take_children(term: &mut Term, leaf: &Rc<Term>, pending: &mut Vec<Rc<Term>>) {
+    let mut take = |t: &mut Rc<Term>| pending.push(std::mem::replace(t, leaf.clone()));
+    match term {
+        Term::Pi(_, _, a, b) | Term::App(a, b, _) | Term::Ann(a, b) => {
+            take(a);
+            take(b);
+        }
+        Term::Lam(_, _, b) | Term::Loc(_, b) => take(b),
+        Term::Data(_, args) | Term::Ctor(_, _, args) => pending.append(args),
+        Term::Eq(ty, a, b) => {
+            if let Some(ty) = ty {
+                take(ty);
+            }
+            take(a);
+            take(b);
+        }
+        Term::J(m, b, p) => {
+            take(m);
+            take(b);
+            take(p);
+        }
+        Term::Case(_, _, branches) => {
+            if let Some(branches) = Rc::get_mut(branches) {
+                for branch in branches {
+                    take(&mut branch.body);
+                }
+            }
+        }
+        Term::Var(_) | Term::Def(_) | Term::Nat(_) | Term::Sort(_) | Term::Refl | Term::Meta(_) => {
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct Branch {
     /// Names of the constructor's fields, bound in `body`.

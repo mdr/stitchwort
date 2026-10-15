@@ -394,8 +394,20 @@ pub fn compare(
     same: impl FnOnce(&Value, &Value) -> budget::Result<bool>,
     assign: impl FnOnce(&Value, &Value) -> budget::Result<bool>,
 ) -> budget::Result<bool> {
-    let (k1, b1) = view(g, a)?;
-    let (k2, b2) = view(g, b)?;
+    compare_with(g, a, b, same, assign, force)
+}
+
+/// [`compare`], forcing with `force`.
+pub fn compare_with(
+    g: &Globals,
+    a: &Value,
+    b: &Value,
+    same: impl FnOnce(&Value, &Value) -> budget::Result<bool>,
+    assign: impl FnOnce(&Value, &Value) -> budget::Result<bool>,
+    force: Force,
+) -> budget::Result<bool> {
+    let (k1, b1) = view_with(g, a, force)?;
+    let (k2, b2) = view_with(g, b, force)?;
     let shared = k1.clone().min(k2.clone());
     let (k1, k2) = (k1 - &shared, k2 - &shared);
     match (b1, b2) {

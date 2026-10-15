@@ -254,3 +254,88 @@ wrong = cong (\\x -> x) rfl
         ["E-TYPE-MISMATCH"]
     );
 }
+
+const LISTS: &str = "
+allOnes : Nat -> List Nat
+allOnes Zero     = [1]
+allOnes (Succ n) = Cons 1 (allOnes n)
+
+endsInTwo : Nat -> List Nat
+endsInTwo Zero     = [2]
+endsInTwo (Succ n) = Cons 1 (endsInTwo n)
+
+startsWithTwo : Nat -> List Nat
+startsWithTwo n = Cons 2 (allOnes n)
+";
+
+/// Comparing long values, as checking a proof does, walks them with a work
+/// list: two lists of 100,000 elements, built separately (so they share
+/// nothing), compared equal, differing at the head and differing only at the
+/// end.
+#[test]
+fn comparing_long_values_runs_without_using_the_stack() {
+    use stitchwort_core::value::{conv, eval};
+    let mut session = Session::new();
+    session.load("lists.sw", LISTS).expect("checks");
+    let g = &session.elab.globals;
+    let def =
+        |name: &str| stitchwort_core::DefId(g.defs.iter().position(|d| &*d.name == name).unwrap());
+    let call = |name: &str| {
+        let term = stitchwort_core::Term::app(
+            stitchwort_core::Term::Def(def(name)),
+            stitchwort_core::Term::Nat(std::rc::Rc::new(100_000u32.into())),
+        );
+        eval(g, &[], &term).unwrap()
+    };
+    let _op = g.budget.operation(Limits::default());
+    let ones = call("allOnes");
+    assert!(conv(g, 0, &ones, &call("allOnes")).unwrap());
+    assert!(!conv(g, 0, &ones, &call("startsWithTwo")).unwrap());
+    assert!(!conv(g, 0, &ones, &call("endsInTwo")).unwrap());
+}
+
+/// Printing a long value quotes it with a work list.
+#[test]
+fn printing_long_values_runs_without_using_the_stack() {
+    let mut session = Session::new();
+    session.load("lists.sw", LISTS).expect("checks");
+    let file = session.sources.add("<input>", "allOnes 100000");
+    let expr = stitchwort_syntax::parse_expression(file, "allOnes 100000").unwrap();
+    let (value, ty) = session.elab.eval_expr(&expr).unwrap();
+    assert_eq!(ty, "List Nat");
+    // `[1, 1, …, 1]`: 100,001 ones, with ", " between them.
+    assert_eq!(value.len(), 2 + 100_001 + 2 * 100_000);
+}
+
+/// A proof that compares two long lists.
+#[test]
+fn proofs_about_long_values_check() {
+    let mut session = Session::new();
+    let source = format!(
+        "{LISTS}\ntheorem same : allOnes 20000 = allOnes 20000\nsame = rfl\n\n\
+         theorem differ : Not (allOnes 20000 = endsInTwo 20000)\ndiffer = \\p -> p\n"
+    );
+    let codes: Vec<_> = match session.load("proofs.sw", &source) {
+        Ok(_) => Vec::new(),
+        Err(ds) => ds.iter().map(|d| d.code).collect(),
+    };
+    // `differ` is wrong on purpose: its body isn't a proof. It must be
+    // rejected as a type error, after comparing the lists, not run out.
+    assert_eq!(codes, ["E-TYPE-MISMATCH"]);
+}
+
+/// Freeing a deeply nested term doesn't recurse.
+#[test]
+fn freeing_deep_terms_runs_without_using_the_stack() {
+    use stitchwort_core::{DataId, Term};
+    let mut term = Term::Refl;
+    for _ in 0..1_000_000 {
+        term = Term::ctor(DataId(0), 1, vec![Term::Refl, term]);
+    }
+    drop(term);
+    let mut term = Term::Refl;
+    for _ in 0..1_000_000 {
+        term = Term::app(Term::Refl, term);
+    }
+    drop(term);
+}

@@ -6,15 +6,56 @@ use std::rc::Rc;
 
 use stitchwort_core::budget::{ResourceError, Result};
 use stitchwort_core::native;
-use stitchwort_core::value::{Closure, Elim, Head, apply_icit, eta_definition, eval, force, quote};
+use stitchwort_core::value::{Closure, Elim, Head, apply_icit, eval, force, quote, underapplied};
 use stitchwort_core::{Globals, Term, Value};
 
 /// Makes `a` and `b` equal by solving metavariables, with `level` variables in
 /// scope. `Ok(false)` if they can't be made equal; an error if it ran out of
 /// resources before finding out. A `false` may be followed by trying another
 /// way; an error never is.
+///
+/// The pairs still to unify are kept on a work list, depth first and left to
+/// right as a recursive version would take them, so metavariables are solved
+/// in the same order; a function type's codomain is only evaluated once its
+/// domain has been unified, so it sees the solutions.
 pub fn unify(g: &Globals, level: usize, a: &Value, b: &Value) -> Result<bool> {
-    g.budget.step()?;
+    let mut work = vec![Task::Values(level, a.clone(), b.clone())];
+    while let Some(task) = work.pop() {
+        g.budget.step()?;
+        let same = match task {
+            Task::Values(level, a, b) => unify_step(g, level, &a, &b, &mut work)?,
+            Task::Codomains(level, b1, b2) => {
+                let fresh = Value::var(level);
+                work.push(Task::Values(
+                    level + 1,
+                    b1.apply(g, fresh.clone())?,
+                    b2.apply(g, fresh)?,
+                ));
+                true
+            }
+        };
+        if !same {
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}
+
+/// Unification still to do.
+enum Task {
+    Values(usize, Value, Value),
+    Codomains(usize, Closure, Closure),
+}
+
+/// Unifies the outermost layer of `a` and `b`: `false` if they can't be made
+/// equal there; otherwise pushes the pairs of parts still to unify.
+fn unify_step(
+    g: &Globals,
+    level: usize,
+    a: &Value,
+    b: &Value,
+    work: &mut Vec<Task>,
+) -> Result<bool> {
     let a = force(g, a.clone())?;
     let b = force(g, b.clone())?;
     let is_meta = |v: &Value| matches!(v, Value::Neutral(Head::Meta(_), _));
@@ -25,55 +66,165 @@ pub fn unify(g: &Globals, level: usize, a: &Value, b: &Value) -> Result<bool> {
             g,
             &a,
             &b,
-            |x, y| unify(g, level, x, y),
+            |x, y| {
+                work.push(Task::Values(level, x.clone(), y.clone()));
+                Ok(true)
+            },
             |x, v| Ok(is_meta(x) && unify(g, level, x, v)?),
         );
     }
     let fresh = Value::var(level);
+    // Parts are pushed last-first, so they're unified first-first.
+    let push_all = |work: &mut Vec<Task>, xs: &[Value], ys: &[Value]| {
+        for (x, y) in xs.iter().zip(ys).rev() {
+            work.push(Task::Values(level, x.clone(), y.clone()));
+        }
+    };
     Ok(match (&a, &b) {
         (Value::Sort(s), Value::Sort(t)) => s == t,
         (Value::Pi(_, i1, a1, b1), Value::Pi(_, i2, a2, b2)) => {
-            i1 == i2
-                && unify(g, level, a1, a2)?
-                && unify(
-                    g,
-                    level + 1,
-                    &b1.apply(g, fresh.clone())?,
-                    &b2.apply(g, fresh)?,
-                )?
+            if i1 != i2 {
+                return Ok(false);
+            }
+            work.push(Task::Codomains(level, b1.clone(), b2.clone()));
+            work.push(Task::Values(level, (**a1).clone(), (**a2).clone()));
+            true
         }
-        (Value::Lam(_, _, b1), Value::Lam(_, _, b2)) => unify(
-            g,
-            level + 1,
-            &b1.apply(g, fresh.clone())?,
-            &b2.apply(g, fresh)?,
-        )?,
-        (Value::Lam(_, i, b), other) | (other, Value::Lam(_, i, b)) => unify(
-            g,
-            level + 1,
-            &b.apply(g, fresh.clone())?,
-            &apply_icit(g, other.clone(), fresh, *i)?,
-        )?,
-        (Value::Data(d1, a1), Value::Data(d2, a2)) => d1 == d2 && unify_all(g, level, a1, a2)?,
+        (Value::Lam(_, _, b1), Value::Lam(_, _, b2)) => {
+            work.push(Task::Values(
+                level + 1,
+                b1.apply(g, fresh.clone())?,
+                b2.apply(g, fresh)?,
+            ));
+            true
+        }
+        (Value::Lam(_, i, b), other) | (other, Value::Lam(_, i, b)) => {
+            work.push(Task::Values(
+                level + 1,
+                b.apply(g, fresh.clone())?,
+                apply_icit(g, other.clone(), fresh, *i)?,
+            ));
+            true
+        }
+        (Value::Data(d1, a1), Value::Data(d2, a2)) => {
+            if d1 != d2 || a1.len() != a2.len() {
+                return Ok(false);
+            }
+            push_all(work, a1, a2);
+            true
+        }
         (Value::Ctor(d1, c1, a1), Value::Ctor(d2, c2, a2)) => {
-            d1 == d2 && c1 == c2 && unify_all(g, level, a1, a2)?
+            if d1 != d2 || c1 != c2 || a1.len() != a2.len() {
+                return Ok(false);
+            }
+            push_all(work, a1, a2);
+            true
         }
         (Value::Eq(t1, x1, y1), Value::Eq(t2, x2, y2)) => {
-            unify(g, level, t1, t2)? && unify(g, level, x1, x2)? && unify(g, level, y1, y2)?
+            push_all(
+                work,
+                &[(**t1).clone(), (**x1).clone(), (**y1).clone()],
+                &[(**t2).clone(), (**x2).clone(), (**y2).clone()],
+            );
+            true
         }
         (Value::Refl, Value::Refl) => true,
         (Value::Neutral(Head::Meta(m1), s1), Value::Neutral(Head::Meta(m2), s2)) if m1 == m2 => {
-            unify_spines(g, level, s1, s2)?
+            match spine_pairs(level, s1, s2) {
+                Some(pairs) => {
+                    work.extend(pairs.into_iter().rev());
+                    true
+                }
+                None => false,
+            }
         }
+        // Solving a metavariable is a leaf: it builds a solution from the
+        // other side, or tries matching last arguments.
         (Value::Neutral(Head::Meta(m), spine), other)
         | (other, Value::Neutral(Head::Meta(m), spine)) => {
             solve(g, level, *m, spine, other)? || first_order(g, level, *m, spine, other)?
         }
         (Value::Neutral(h1, s1), Value::Neutral(h2, s2)) if h1 == h2 => {
-            unify_spines(g, level, s1, s2)? || eta_definition(g, level, &a, &b, unify)?
+            if underapplied(g, &a).is_none() && underapplied(g, &b).is_none() {
+                // Eta for definitions doesn't apply, so the spines must match.
+                match spine_pairs(level, s1, s2) {
+                    Some(pairs) => {
+                        work.extend(pairs.into_iter().rev());
+                        true
+                    }
+                    None => false,
+                }
+            } else {
+                // A function: the spines, or else eta. The one place this
+                // recurses, once per level of nested partially applied
+                // definitions.
+                let spines = match spine_pairs(level, s1, s2) {
+                    Some(pairs) => {
+                        let mut same = true;
+                        for pair in pairs {
+                            let Task::Values(l, x, y) = pair else {
+                                unreachable!()
+                            };
+                            if !unify(g, l, &x, &y)? {
+                                same = false;
+                                break;
+                            }
+                        }
+                        same
+                    }
+                    None => false,
+                };
+                spines || push_eta(g, level, &a, &b, work)?
+            }
         }
-        _ => eta_definition(g, level, &a, &b, unify)?,
+        _ => push_eta(g, level, &a, &b, work)?,
     })
+}
+
+/// The pairs of values in two spines, or `None` if they differ in length or
+/// their eliminations don't match.
+fn spine_pairs(level: usize, s1: &[Elim], s2: &[Elim]) -> Option<Vec<Task>> {
+    if s1.len() != s2.len() {
+        return None;
+    }
+    let mut pairs = Vec::new();
+    for pair in s1.iter().zip(s2) {
+        match pair {
+            (Elim::App(x, _), Elim::App(y, _)) => {
+                pairs.push(Task::Values(level, x.clone(), y.clone()));
+            }
+            (
+                Elim::J {
+                    motive: m1,
+                    base: b1,
+                },
+                Elim::J {
+                    motive: m2,
+                    base: b2,
+                },
+            ) => {
+                pairs.push(Task::Values(level, (**m1).clone(), (**m2).clone()));
+                pairs.push(Task::Values(level, (**b1).clone(), (**b2).clone()));
+            }
+            _ => return None,
+        }
+    }
+    Some(pairs)
+}
+
+/// Eta for definitions: pushes both sides applied to a fresh variable, or
+/// returns `false` if neither is a partially applied definition.
+fn push_eta(g: &Globals, level: usize, a: &Value, b: &Value, work: &mut Vec<Task>) -> Result<bool> {
+    let Some(icit) = underapplied(g, a).or_else(|| underapplied(g, b)) else {
+        return Ok(false);
+    };
+    let fresh = Value::var(level);
+    work.push(Task::Values(
+        level + 1,
+        apply_icit(g, a.clone(), fresh.clone(), icit)?,
+        apply_icit(g, b.clone(), fresh, icit)?,
+    ));
+    Ok(true)
 }
 
 /// When `?m … x = f … y` isn't a pattern (`x` isn't a variable), tries
@@ -97,44 +248,6 @@ fn first_order(g: &Globals, level: usize, m: usize, spine: &[Elim], other: &Valu
             &Value::Neutral(Head::Meta(m), rest1.to_vec()),
             &Value::Neutral(*head, rest2.to_vec()),
         )?)
-}
-
-fn unify_all(g: &Globals, level: usize, xs: &[Value], ys: &[Value]) -> Result<bool> {
-    if xs.len() != ys.len() {
-        return Ok(false);
-    }
-    for (x, y) in xs.iter().zip(ys) {
-        if !unify(g, level, x, y)? {
-            return Ok(false);
-        }
-    }
-    Ok(true)
-}
-
-fn unify_spines(g: &Globals, level: usize, s1: &[Elim], s2: &[Elim]) -> Result<bool> {
-    if s1.len() != s2.len() {
-        return Ok(false);
-    }
-    for pair in s1.iter().zip(s2) {
-        let same = match pair {
-            (Elim::App(x, _), Elim::App(y, _)) => unify(g, level, x, y)?,
-            (
-                Elim::J {
-                    motive: m1,
-                    base: b1,
-                },
-                Elim::J {
-                    motive: m2,
-                    base: b2,
-                },
-            ) => unify(g, level, m1, m2)? && unify(g, level, b1, b2)?,
-            _ => false,
-        };
-        if !same {
-            return Ok(false);
-        }
-    }
-    Ok(true)
 }
 
 /// Why a solution couldn't be built: there isn't one of the right shape, or
@@ -723,7 +836,7 @@ mod tests {
         // \x -> ?m, inside a case branch with two fields.
         let term = lam(Term::Meta(m));
         assert!(
-            matches!(zonk(&g, 0, &term), Ok(Term::Lam(_, _, body)) if matches!(*body, Term::Sort(_)))
+            matches!(zonk(&g, 0, &term), Ok(Term::Lam(_, _, ref body)) if matches!(**body, Term::Sort(_)))
         );
         // ?id x0 = x0, used inside a case branch with two fields.
         let (id, id_applied) = meta(&g, &[0]);
@@ -738,7 +851,7 @@ mod tests {
             .into(),
         );
         match zonk(&g, 1, &branch) {
-            Ok(Term::Case(_, _, branches)) => {
+            Ok(Term::Case(_, _, ref branches)) => {
                 assert!(
                     matches!(*branches[0].body, Term::Var(0)),
                     "{:?}",

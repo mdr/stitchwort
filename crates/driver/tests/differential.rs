@@ -70,15 +70,64 @@ fn compare_definitions(g: &Globals, what: &str) -> usize {
                 "{what}: `{}` applied to {n} variable(s)",
                 def.name
             );
+            // The machine's quote (a work list) against the reference's.
+            assert_eq!(
+                format!("{:?}", value::quote(g, n, &fast).expect("no limits")),
+                normal(g, n, &fast),
+                "{what}: quoting `{}` applied to {n} variable(s)",
+                def.name
+            );
+            assert!(
+                value::conv(g, n, &fast, &slow).expect("no limits"),
+                "{what}: `{}` applied to {n} variable(s) isn't convertible with itself",
+                def.name
+            );
             compared += 1;
         }
         let ty = reference::eval(g, &[], &def.ty).expect("no limits");
+        assert!(value::conv(g, 0, &def.ty_value, &ty).expect("no limits"));
         assert_eq!(
             normal(g, 0, &def.ty_value),
             normal(g, 0, &ty),
             "{what}: the type of `{}`",
             def.name
         );
+    }
+    compared
+}
+
+/// The machine's `conv` (a work list) against the reference's. Conversion is
+/// only meaningful between values of the same type, so it compares each
+/// definition's value (unapplied, so partially applied definitions and eta
+/// are covered) with every other definition's whose type is convertible
+/// with its own, and each definition's type with the next few types.
+fn compare_conversion(g: &Globals, what: &str) -> usize {
+    let defs: Vec<(String, Value, Value)> = (0..g.defs.len())
+        .filter(|&i| g.defs[i].body.is_some())
+        .map(|i| {
+            let def = &g.defs[i];
+            let value = value::eval(g, &[], &Term::Def(DefId(i))).expect("no limits");
+            (def.name.to_string(), value, def.ty_value.clone())
+        })
+        .collect();
+    let agree = |x: &Value, y: &Value, what: &str| {
+        let fast = value::conv(g, 0, x, y).expect("no limits");
+        let slow = reference::conv(g, 0, x, y).expect("no limits");
+        assert_eq!(fast, slow, "{what}");
+        fast
+    };
+    let mut compared = 0;
+    for (i, (x_name, x, x_ty)) in defs.iter().enumerate() {
+        for (y_name, y, y_ty) in defs.iter().skip(i) {
+            if agree(
+                x_ty,
+                y_ty,
+                &format!("{what}: the types of `{x_name}` and `{y_name}`"),
+            ) {
+                agree(x, y, &format!("{what}: `{x_name}` and `{y_name}`"));
+                compared += 1;
+            }
+        }
     }
     compared
 }
@@ -107,11 +156,17 @@ fn the_evaluators_agree_on_the_prelude_and_every_example() {
         let session = Session::for_stack(STACK);
         let prelude = compare_definitions(&session.elab.globals, "prelude");
         assert!(prelude > 200, "only {prelude} comparisons in the prelude");
+        let conversions = compare_conversion(&session.elab.globals, "prelude");
+        assert!(
+            conversions > 100,
+            "only {conversions} conversions in the prelude"
+        );
         for (name, text) in examples() {
             let mut session = Session::for_stack(STACK);
             session.load(&name, &text).expect("examples check");
             let g = &session.elab.globals;
             compare_definitions(g, &name);
+            compare_conversion(g, &name);
             for test in &session.elab.tests {
                 let term = Term::Def(test.def);
                 let fast = value::eval(g, &[], &term).expect("no limits");

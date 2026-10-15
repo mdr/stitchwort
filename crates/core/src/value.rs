@@ -843,116 +843,331 @@ fn unfold(g: &Globals, id: DefId, spine: Vec<Elim>) -> Result<Control> {
 /// Converts a value back into a term, with `level` variables in scope.
 /// Solved metavariables are replaced by their solutions.
 pub fn quote(g: &Globals, level: usize, value: &Value) -> Result<Term> {
-    let mut size = 0;
-    quote_sized(g, level, value, &mut size)
+    // A work list rather than recursion: `tasks` are values still to visit
+    // and terms still to assemble, and `done` holds finished terms, which
+    // each assembly takes its parts from.
+    let mut tasks = vec![QuoteTask::Visit(level, value.clone())];
+    let mut done: Vec<Term> = Vec::new();
+    let mut size = 0u64;
+    let limit = g.budget.size_limit();
+    let rc = |t: Term| Rc::new(t);
+    while let Some(task) = tasks.pop() {
+        match task {
+            QuoteTask::Visit(level, value) => {
+                g.budget.step()?;
+                size += 1;
+                if size > limit {
+                    return Err(ResourceError::Size);
+                }
+                visit(g, level, value, &mut tasks, &mut done)?;
+            }
+            QuoteTask::Pi(x, i) => {
+                let (a, b) = pop2(&mut done);
+                done.push(Term::Pi(x, i, rc(a), rc(b)));
+            }
+            QuoteTask::Lam(x, i) => {
+                let b = done.pop().expect("a body");
+                done.push(Term::Lam(x, i, rc(b)));
+            }
+            QuoteTask::Data(d, n) => {
+                let args = done.split_off(done.len() - n);
+                done.push(Term::data(d, args));
+            }
+            QuoteTask::Ctor(d, c, n) => {
+                let args = done.split_off(done.len() - n);
+                done.push(Term::ctor(d, c, args));
+            }
+            QuoteTask::NatAdd(k) => {
+                let base = done.pop().expect("a base");
+                done.push(native::nat_add_term(g, &k, base));
+            }
+            QuoteTask::Eq => {
+                let b = done.pop().expect("three parts");
+                let (ty, a) = pop2(&mut done);
+                done.push(Term::Eq(Some(rc(ty)), rc(a), rc(b)));
+            }
+            QuoteTask::Spine(head, shape) => {
+                let n: usize = shape.iter().map(|s| if s.is_some() { 1 } else { 2 }).sum();
+                let mut parts = done.split_off(done.len() - n).into_iter();
+                let mut term = head;
+                for icit in shape {
+                    term = match icit {
+                        Some(icit) => {
+                            Term::app_icit(term, parts.next().expect("an argument"), icit)
+                        }
+                        None => {
+                            let motive = parts.next().expect("a motive");
+                            let base = parts.next().expect("a base");
+                            Term::J(rc(motive), rc(base), rc(term))
+                        }
+                    };
+                }
+                done.push(term);
+            }
+        }
+    }
+    Ok(done.pop().expect("one term"))
 }
 
-/// `quote`, counting the nodes built in `size`.
-fn quote_sized(g: &Globals, level: usize, value: &Value, size: &mut u64) -> Result<Term> {
-    g.budget.step()?;
-    *size += 1;
-    if *size > g.budget.size_limit() {
-        return Err(ResourceError::Size);
-    }
-    let mut q = |v: &Value| quote_sized(g, level, v, size);
-    Ok(match force(g, value.clone())? {
-        Value::Sort(s) => Term::Sort(s),
+/// Quotation still to do.
+enum QuoteTask {
+    /// Quote a value, with this many variables in scope.
+    Visit(usize, Value),
+    /// Assemble from the finished terms on top of the stack:
+    Pi(Name, Icit),
+    Lam(Name, Icit),
+    Data(DataId, usize),
+    Ctor(DataId, usize, usize),
+    NatAdd(Rc<BigUint>),
+    Eq,
+    /// A head and its eliminations: `Some(icit)` an application, `None` a
+    /// `J` (whose motive and base come first).
+    Spine(Term, Vec<Option<Icit>>),
+}
+
+fn pop2(done: &mut Vec<Term>) -> (Term, Term) {
+    let b = done.pop().expect("two parts");
+    let a = done.pop().expect("two parts");
+    (a, b)
+}
+
+/// Quotes the outermost layer of `value`: finished at once, or an assembly
+/// task with its parts to visit first.
+fn visit(
+    g: &Globals,
+    level: usize,
+    value: Value,
+    tasks: &mut Vec<QuoteTask>,
+    done: &mut Vec<Term>,
+) -> Result<()> {
+    // Parts are pushed last-first, so they're finished first-first.
+    let visit_all = |tasks: &mut Vec<QuoteTask>, values: &[Value]| {
+        for v in values.iter().rev() {
+            tasks.push(QuoteTask::Visit(level, v.clone()));
+        }
+    };
+    match force(g, value)? {
+        Value::Sort(s) => done.push(Term::Sort(s)),
+        Value::Nat(n) => done.push(Term::Nat(n)),
+        Value::Refl => done.push(Term::Refl),
         Value::Pi(x, i, a, b) => {
-            let a = q(&a)?;
-            let b = b.apply(g, Value::var(level))?;
-            Term::Pi(
-                x.clone(),
-                i,
-                Rc::new(a),
-                Rc::new(quote_sized(g, level + 1, &b, size)?),
-            )
+            tasks.push(QuoteTask::Pi(x, i));
+            tasks.push(QuoteTask::Visit(level + 1, b.apply(g, Value::var(level))?));
+            tasks.push(QuoteTask::Visit(level, (*a).clone()));
         }
         Value::Lam(x, i, b) => {
-            let b = b.apply(g, Value::var(level))?;
-            Term::Lam(x.clone(), i, Rc::new(quote_sized(g, level + 1, &b, size)?))
+            tasks.push(QuoteTask::Lam(x, i));
+            tasks.push(QuoteTask::Visit(level + 1, b.apply(g, Value::var(level))?));
         }
-        Value::Data(d, args) => Term::data(d, args.iter().map(q).collect::<Result<_>>()?),
-        Value::Ctor(d, c, args) => Term::ctor(d, c, args.iter().map(q).collect::<Result<_>>()?),
-        Value::Nat(n) => Term::Nat(n),
-        Value::NatAdd(k, base) => native::nat_add_term(g, &k, q(&base)?),
-        Value::Eq(ty, a, b) => Term::Eq(Some(Rc::new(q(&ty)?)), Rc::new(q(&a)?), Rc::new(q(&b)?)),
-        Value::Refl => Term::Refl,
+        Value::Data(d, args) => {
+            tasks.push(QuoteTask::Data(d, args.len()));
+            visit_all(tasks, &args);
+        }
+        Value::Ctor(d, c, args) => {
+            tasks.push(QuoteTask::Ctor(d, c, args.len()));
+            visit_all(tasks, &args);
+        }
+        Value::NatAdd(k, base) => {
+            tasks.push(QuoteTask::NatAdd(k));
+            tasks.push(QuoteTask::Visit(level, (*base).clone()));
+        }
+        Value::Eq(ty, a, b) => {
+            tasks.push(QuoteTask::Eq);
+            visit_all(tasks, &[(*ty).clone(), (*a).clone(), (*b).clone()]);
+        }
         Value::Neutral(head, spine) => {
-            let mut term = match head {
+            let head = match head {
                 Head::Var(l) => Term::Var(level - 1 - l),
                 Head::Def(id) => Term::Def(id),
                 Head::Meta(m) => Term::Meta(m),
             };
+            let mut shape = Vec::with_capacity(spine.len());
+            let mut parts = Vec::new();
             for elim in &spine {
-                term = match elim {
-                    Elim::App(v, i) => Term::app_icit(term, q(v)?, *i),
-                    Elim::J { motive, base } => {
-                        Term::J(Rc::new(q(motive)?), Rc::new(q(base)?), Rc::new(term))
+                match elim {
+                    Elim::App(v, i) => {
+                        shape.push(Some(*i));
+                        parts.push(v.clone());
                     }
-                };
+                    Elim::J { motive, base } => {
+                        shape.push(None);
+                        parts.push((**motive).clone());
+                        parts.push((**base).clone());
+                    }
+                }
             }
-            term
+            tasks.push(QuoteTask::Spine(head, shape));
+            visit_all(tasks, &parts);
         }
-    })
+    }
+    Ok(())
 }
 
 /// Definitional equality, with `level` variables in scope. Used by the kernel,
 /// which never sees metavariables (the elaborator unifies instead).
 /// `Ok(false)` means the values were compared and differ; an error means
 /// there's no answer.
+///
+/// It doesn't recurse on the Rust stack: the pairs still to compare are kept
+/// on a work list, depth first and left to right, so the first difference
+/// found stops it, as a recursive version would.
 pub fn conv(g: &Globals, level: usize, a: &Value, b: &Value) -> Result<bool> {
-    g.budget.step()?;
+    let mut work = vec![ConvTask::Values(level, a.clone(), b.clone())];
+    while let Some(task) = work.pop() {
+        g.budget.step()?;
+        let same = match task {
+            ConvTask::Values(level, a, b) => conv_step(g, level, a, b, &mut work)?,
+            // Function types' codomains, compared once their domains are.
+            ConvTask::Codomains(level, b1, b2) => {
+                let fresh = Value::var(level);
+                work.push(ConvTask::Values(
+                    level + 1,
+                    b1.apply(g, fresh.clone())?,
+                    b2.apply(g, fresh)?,
+                ));
+                true
+            }
+        };
+        if !same {
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}
+
+/// Comparison still to do.
+enum ConvTask {
+    Values(usize, Value, Value),
+    Codomains(usize, Closure, Closure),
+}
+
+/// Compares the outermost layer of `a` and `b`: `false` if they differ
+/// there; otherwise pushes the pairs of parts still to compare.
+fn conv_step(
+    g: &Globals,
+    level: usize,
+    a: Value,
+    b: Value,
+    work: &mut Vec<ConvTask>,
+) -> Result<bool> {
     // Numbers, `k + x`, `Zero` and `Succ` all compare by their `k + x` forms:
     // `3` and `Succ x` are equal when `x` is `2`.
-    if native::nat_like(g, a) || native::nat_like(g, b) {
-        return native::compare(g, a, b, |x, y| conv(g, level, x, y), |_, _| Ok(false));
+    if native::nat_like(g, &a) || native::nat_like(g, &b) {
+        return native::compare(
+            g,
+            &a,
+            &b,
+            |x, y| {
+                work.push(ConvTask::Values(level, x.clone(), y.clone()));
+                Ok(true)
+            },
+            |_, _| Ok(false),
+        );
     }
     let fresh = Value::var(level);
-    Ok(match (a, b) {
+    // Parts are pushed last-first, so they're compared first-first.
+    let push_all = |work: &mut Vec<ConvTask>, xs: &[Value], ys: &[Value]| {
+        for (x, y) in xs.iter().zip(ys).rev() {
+            work.push(ConvTask::Values(level, x.clone(), y.clone()));
+        }
+    };
+    Ok(match (&a, &b) {
         (Value::Sort(s), Value::Sort(t)) => s == t,
         (Value::Pi(_, i1, a1, b1), Value::Pi(_, i2, a2, b2)) => {
-            i1 == i2
-                && conv(g, level, a1, a2)?
-                && conv(
-                    g,
-                    level + 1,
-                    &b1.apply(g, fresh.clone())?,
-                    &b2.apply(g, fresh)?,
-                )?
+            if i1 != i2 {
+                return Ok(false);
+            }
+            work.push(ConvTask::Codomains(level, b1.clone(), b2.clone()));
+            work.push(ConvTask::Values(level, (**a1).clone(), (**a2).clone()));
+            true
         }
-        (Value::Lam(_, _, b1), Value::Lam(_, _, b2)) => conv(
-            g,
-            level + 1,
-            &b1.apply(g, fresh.clone())?,
-            &b2.apply(g, fresh)?,
-        )?,
+        (Value::Lam(_, _, b1), Value::Lam(_, _, b2)) => {
+            work.push(ConvTask::Values(
+                level + 1,
+                b1.apply(g, fresh.clone())?,
+                b2.apply(g, fresh)?,
+            ));
+            true
+        }
         // Eta: `f` and `\x -> f x` are equal.
-        (Value::Lam(_, i, b), other) | (other, Value::Lam(_, i, b)) => conv(
-            g,
-            level + 1,
-            &b.apply(g, fresh.clone())?,
-            &apply_icit(g, other.clone(), fresh, *i)?,
-        )?,
-        (Value::Data(d1, a1), Value::Data(d2, a2)) => d1 == d2 && all_conv(g, level, a1, a2)?,
+        (Value::Lam(_, i, b), other) | (other, Value::Lam(_, i, b)) => {
+            work.push(ConvTask::Values(
+                level + 1,
+                b.apply(g, fresh.clone())?,
+                apply_icit(g, other.clone(), fresh, *i)?,
+            ));
+            true
+        }
+        (Value::Data(d1, a1), Value::Data(d2, a2)) => {
+            if d1 != d2 || a1.len() != a2.len() {
+                return Ok(false);
+            }
+            push_all(work, a1, a2);
+            true
+        }
         (Value::Ctor(d1, c1, a1), Value::Ctor(d2, c2, a2)) => {
-            d1 == d2 && c1 == c2 && all_conv(g, level, a1, a2)?
+            if d1 != d2 || c1 != c2 || a1.len() != a2.len() {
+                return Ok(false);
+            }
+            push_all(work, a1, a2);
+            true
         }
         (Value::Eq(t1, x1, y1), Value::Eq(t2, x2, y2)) => {
-            conv(g, level, t1, t2)? && conv(g, level, x1, x2)? && conv(g, level, y1, y2)?
+            push_all(
+                work,
+                &[(**t1).clone(), (**x1).clone(), (**y1).clone()],
+                &[(**t2).clone(), (**x2).clone(), (**y2).clone()],
+            );
+            true
         }
         (Value::Refl, Value::Refl) => true,
-        (Value::Neutral(h1, s1), Value::Neutral(h2, s2)) => {
-            (h1 == h2 && s1.len() == s2.len() && conv_spines(g, level, s1, s2)?)
-                || eta_definition(g, level, a, b, conv)?
+        (Value::Neutral(h1, s1), Value::Neutral(h2, s2)) if h1 == h2 && s1.len() == s2.len() => {
+            if underapplied(g, &a).is_none() && underapplied(g, &b).is_none() {
+                // Eta for definitions doesn't apply, so the spines must match.
+                match spine_pairs(level, s1, s2) {
+                    Some(pairs) => {
+                        work.extend(pairs.into_iter().rev());
+                        true
+                    }
+                    None => false,
+                }
+            } else {
+                // A function: equal if the spines match, or else by eta. This
+                // is the one place `conv` recurses, once per level of nested
+                // partially applied definitions, which is bounded by the
+                // program, not by the size of the data.
+                let spines = match spine_pairs(level, s1, s2) {
+                    Some(pairs) => {
+                        let mut same = true;
+                        for pair in pairs {
+                            let ConvTask::Values(l, x, y) = pair else {
+                                unreachable!()
+                            };
+                            if !conv(g, l, &x, &y)? {
+                                same = false;
+                                break;
+                            }
+                        }
+                        same
+                    }
+                    None => false,
+                };
+                spines || push_eta(g, level, &a, &b, work)?
+            }
         }
-        _ => eta_definition(g, level, a, b, conv)?,
+        _ => push_eta(g, level, &a, &b, work)?,
     })
 }
 
-fn conv_spines(g: &Globals, level: usize, s1: &[Elim], s2: &[Elim]) -> Result<bool> {
+/// The pairs of values in two spines of the same length, or `None` if their
+/// eliminations don't match.
+fn spine_pairs(level: usize, s1: &[Elim], s2: &[Elim]) -> Option<Vec<ConvTask>> {
+    let mut pairs = Vec::new();
     for pair in s1.iter().zip(s2) {
-        let same = match pair {
-            (Elim::App(x, _), Elim::App(y, _)) => conv(g, level, x, y)?,
+        match pair {
+            (Elim::App(x, _), Elim::App(y, _)) => {
+                pairs.push(ConvTask::Values(level, x.clone(), y.clone()));
+            }
             (
                 Elim::J {
                     motive: m1,
@@ -962,13 +1177,37 @@ fn conv_spines(g: &Globals, level: usize, s1: &[Elim], s2: &[Elim]) -> Result<bo
                     motive: m2,
                     base: b2,
                 },
-            ) => conv(g, level, m1, m2)? && conv(g, level, b1, b2)?,
-            _ => false,
-        };
-        if !same {
-            return Ok(false);
+            ) => {
+                pairs.push(ConvTask::Values(level, (**m1).clone(), (**m2).clone()));
+                pairs.push(ConvTask::Values(level, (**b1).clone(), (**b2).clone()));
+            }
+            _ => return None,
         }
     }
+    Some(pairs)
+}
+
+/// Eta for definitions: a partially applied definition is a function, so it's
+/// compared with the other side by applying both to a fresh variable (as for
+/// lambdas); `SCRes` defined as `SCRes o = PlusRes … o` then equals
+/// `PlusRes …`. Pushes that comparison, or returns `false` if neither side is
+/// a partially applied definition.
+fn push_eta(
+    g: &Globals,
+    level: usize,
+    a: &Value,
+    b: &Value,
+    work: &mut Vec<ConvTask>,
+) -> Result<bool> {
+    let Some(icit) = underapplied(g, a).or_else(|| underapplied(g, b)) else {
+        return Ok(false);
+    };
+    let fresh = Value::var(level);
+    work.push(ConvTask::Values(
+        level + 1,
+        apply_icit(g, a.clone(), fresh.clone(), icit)?,
+        apply_icit(g, b.clone(), fresh, icit)?,
+    ));
     Ok(true)
 }
 
@@ -988,39 +1227,4 @@ pub fn underapplied(g: &Globals, value: &Value) -> Option<Icit> {
         Term::Lam(_, icit, _) => Some(*icit),
         _ => None,
     }
-}
-
-/// Eta for definitions: an under-applied definition is a function, so it's
-/// compared with `other` by applying both to a fresh variable (as for
-/// lambdas). `SCRes` defined as `SCRes o = PlusRes … o` then equals
-/// `PlusRes …`.
-pub fn eta_definition(
-    g: &Globals,
-    level: usize,
-    a: &Value,
-    b: &Value,
-    compare: impl Fn(&Globals, usize, &Value, &Value) -> Result<bool>,
-) -> Result<bool> {
-    let Some(icit) = underapplied(g, a).or_else(|| underapplied(g, b)) else {
-        return Ok(false);
-    };
-    let fresh = Value::var(level);
-    compare(
-        g,
-        level + 1,
-        &apply_icit(g, a.clone(), fresh.clone(), icit)?,
-        &apply_icit(g, b.clone(), fresh, icit)?,
-    )
-}
-
-fn all_conv(g: &Globals, level: usize, xs: &[Value], ys: &[Value]) -> Result<bool> {
-    if xs.len() != ys.len() {
-        return Ok(false);
-    }
-    for (x, y) in xs.iter().zip(ys) {
-        if !conv(g, level, x, y)? {
-            return Ok(false);
-        }
-    }
-    Ok(true)
 }

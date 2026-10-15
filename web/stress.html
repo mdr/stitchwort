@@ -123,6 +123,7 @@ const nested = (n) => "f (".repeat(n) + "x" + ")".repeat(n);
 
 // expect: what should happen today.
 //   { value }        evaluates to exactly this
+//   { printed }      evaluates to something this many characters long
 //   { tests: true }  every test passes
 //   { checks: true } the program checks
 //   { resource }     reported as running out of resources (E-RESOURCE, or a
@@ -138,10 +139,10 @@ const CASES = [
   { name: "past the frame limit (3,000,000 deep)", action: "evaluate", expr: "length (replicate 3000000 1)", expect: { resource: true }, heavy: true },
   { name: "length of a 200,000-character text", action: "evaluate", expr: "textLength (repeatText 100000 \"ab\")", expect: { value: "200000" } },
   { name: "split and join 20,000 fields", action: "evaluate", expr: "splitJoinRoundTrips 10000", expect: { value: "True" } },
-  { name: "printing a 20,000-element list", action: "evaluate", expr: "replicate 20000 1", expect: { resource: true, until: "step 3 (printing still recurses)" } },
-  { name: "comparing two 20,000-element lists in a proof", action: "check", extra: "theorem same : replicate 20000 1 = replicate 20000 1\nsame = rfl", expect: { resource: true, until: "step 3 (comparison still recurses)" } },
-  { name: "a 20,000-element list literal", action: "check", extra: `big : List Nat\nbig = ${list(20000)}`, expect: { gap: "step 4: checking literals still recurses" } },
-  { name: "a 20,000-character text literal", action: "check", extra: `big : Text\nbig = "${"ab".repeat(10000)}"`, expect: { gap: "step 4: checking literals still recurses" } },
+  { name: "printing a 100,000-element list", action: "evaluate", expr: "replicate 100000 1", expect: { printed: 300000 } },
+  { name: "comparing two 20,000-element lists in a proof", action: "check", extra: "theorem same : replicate 20000 1 = replicate 20000 1\nsame = rfl", expect: { checks: true } },
+  { name: "a 20,000-element list literal", action: "check", extra: `big : List Nat\nbig = ${list(20000)}`, expect: { resource: true, until: "step 4 (checking literals still recurses)" } },
+  { name: "a 20,000-character text literal", action: "check", extra: `big : Text\nbig = "${"ab".repeat(10000)}"`, expect: { resource: true, until: "step 4 (checking literals still recurses)" } },
   { name: "an expression nested 5,000 deep", action: "check", extra: `f : Nat -> Nat\nf n = n\n\nx : Nat\nx = 0\n\ny : Nat\ny = ${nested(5000)}`, expect: { gap: "step 4: the parser and elaborator still recurse" } },
 ];
 
@@ -200,6 +201,7 @@ function describe(r) {
 function verdict(expect, d) {
   if (expect.gap) return d.kind === "crash" || d.kind === "timeout" ? "warn" : "info";
   if (expect.value !== undefined) return d.kind === "value" && d.value === expect.value ? "ok" : "bad";
+  if (expect.printed !== undefined) return d.kind === "value" && d.value.length === expect.printed ? "ok" : "bad";
   if (expect.tests) return d.kind === "tests" ? "ok" : "bad";
   if (expect.checks) return d.kind === "checks" ? "ok" : "bad";
   if (expect.resource) return d.kind === "resource" ? "ok" : "bad";
@@ -209,6 +211,7 @@ function verdict(expect, d) {
 const expectText = (e) =>
   e.gap ? `known gap (${e.gap})` :
   e.value !== undefined ? `evaluates to ${e.value}` :
+  e.printed !== undefined ? `prints ${e.printed.toLocaleString()} characters` :
   e.tests ? "tests pass" : e.checks ? "checks" :
   e.resource ? "out of resources, not a crash" + (e.until ? `, until ${e.until}` : "") : "";
 
