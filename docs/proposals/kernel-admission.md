@@ -131,4 +131,7 @@ apply to single declarations:
 §5.5 test 9 (incorrect partitions of a group), §5.3's group admission and
 the mixed-group rule are built with function groups (mutual-recursion.md
 §10.2, tests in `crates/core/tests/groups.rs`). §5.5 test 8 (adding a member
-to an existing data group) and §5.4 wait for data groups.
+to an existing data group) and §5.4 are built with data groups
+(mutual-recursion.md §10.3, tests in `crates/core/tests/data_groups.rs`).
+A data type's fields may now mention the members of its group as types:
+row 3 of the table above, for a group of one, is the data type itself.

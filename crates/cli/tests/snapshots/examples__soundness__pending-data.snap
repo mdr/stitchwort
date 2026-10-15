@@ -1,0 +1,19 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-MUTUAL-KIND] Error: `D` and `impossible` refer to each other, but data types and definitions can't be defined together
+    ╭─[ soundness/pending-data.sw:9:6 ]
+    │
+  9 │ type D : Type =
+    │      ┬  
+    │      ╰── `D` is defined here
+    │ 
+ 12 │ impossible : D -> Void
+    │ ─────┬────  
+    │      ╰────── `impossible` is defined here
+    │ 
+    │ Note 1: `D` uses `impossible`, which uses `D`
+    │ 
+    │ Note 2: a data type's constructors can't use a definition that's being defined with it, and a definition can't use a data type before its constructors are finished
+────╯

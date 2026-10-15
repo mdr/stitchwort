@@ -21,7 +21,8 @@
 //! - **`<`**: a variable bound as a field of a constructor matched (directly or
 //!   through further matches) out of parameter `i`; a *recursive function
 //!   field* (a field whose type is a function returning the matched data type,
-//!   like `rest : res o -> Comp op res a`) applied to arguments, as in Rocq:
+//!   or another member of its data group, like `rest : res o -> Comp op res
+//!   a`) applied to arguments, as in Rocq:
 //!   each result is a child in the well-founded tree, and only the field
 //!   variable itself counts, not some other function that happens to return
 //!   the same type; and the constructor of such a descendant's match, applied
@@ -224,15 +225,18 @@ struct Matched {
     fields: std::ops::Range<usize>,
 }
 
-/// Whether a constructor field's type is a function returning data type `d`.
-fn is_recursive_fn(ty: &Term, d: DataId) -> bool {
+/// Whether a field of a constructor of data type `d` is a function returning
+/// `d` or another member of its data group (the group's metadata, fixed when
+/// it was declared). Strict positivity across the group makes each result a
+/// part of the matched value.
+fn is_recursive_fn(g: &Globals, ty: &Term, d: DataId) -> bool {
     let mut ty = ty.strip_loc();
     let mut arrows = 0;
     while let Term::Pi(_, _, _, cod) = ty {
         arrows += 1;
         ty = cod.strip_loc();
     }
-    arrows > 0 && matches!(ty, Term::Data(d2, _) if *d2 == d)
+    arrows > 0 && matches!(ty, Term::Data(d2, _) if g.data(d).group.contains(d2))
 }
 
 impl Walker<'_> {
@@ -297,7 +301,7 @@ impl Walker<'_> {
                         .names
                         .iter()
                         .zip(&g.data(*d).ctors[c].fields)
-                        .map(|(x, (_, ty))| (x.clone(), is_recursive_fn(ty, *d)))
+                        .map(|(x, (_, ty))| (x.clone(), is_recursive_fn(g, ty, *d)))
                         .collect();
                     let result = self.under(&fields, source, &branch.body);
                     self.matched.pop();

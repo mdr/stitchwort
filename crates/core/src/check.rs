@@ -450,24 +450,38 @@ fn check_case(
         ));
     }
     if data.sort == Sort::Prop && sort_of(cx, goal)? != Sort::Prop {
-        let subsingleton = data.ctors.len() <= 1
+        // Like Lean, propositions defined together never eliminate into
+        // data: a deliberately conservative rule
+        // (docs/proposals/mutual-recursion.md §7.3).
+        let subsingleton = data.group.len() == 1
+            && data.ctors.len() <= 1
             && data
                 .ctors
                 .iter()
                 .all(|c| c.field_sorts.iter().all(|s| *s == Sort::Prop));
         if !subsingleton {
+            let note = if data.group.len() > 1 {
+                format!(
+                    "`{}` is a proposition, so its proofs are erased at runtime. It's defined \
+                     together with other types, and matching on a proof of one of those can only \
+                     produce another proof.",
+                    data.name
+                )
+            } else {
+                format!(
+                    "`{}` is a proposition, so its proofs are erased at runtime. Matching on one \
+                     can only produce data when the proposition has at most one constructor and \
+                     every field is itself a proof.",
+                    data.name
+                )
+            };
             return Err(cx
                 .error(
                     "E-PROP-ELIM",
                     format!("can't match on a proof of `{}` to produce data", data.name),
                     format!("the result type `{}` isn't a proposition", cx.show(goal)),
                 )
-                .with_note(format!(
-                    "`{}` is a proposition, so its proofs are erased at runtime. Matching on one \
-                     can only produce data when the proposition has at most one constructor and \
-                     every field is itself a proof.",
-                    data.name
-                )));
+                .with_note(note));
         }
     }
 
@@ -828,7 +842,8 @@ pub fn declare_def(
 }
 
 /// Checks a data type's parameters and adds it with no constructors yet, so
-/// its constructors can refer to it.
+/// its constructors can refer to it: a data group of one
+/// ([`declare_data_group`]).
 pub fn declare_data(
     g: &mut Globals,
     name: Name,
@@ -836,8 +851,32 @@ pub fn declare_data(
     sort: Sort,
     span: Span,
 ) -> Result<DataId> {
+    let ids = declare_data_group(g, params, sort, vec![(name, span)])?;
+    Ok(ids[0])
+}
+
+/// Declares a group of data types whose constructors may mention each other
+/// (docs/proposals/mutual-recursion.md §5.4, §7): one shared parameter
+/// telescope, checked once, in one context, and one universe. The members
+/// are added in order, with no constructors yet, each recording the group
+/// (the immutable metadata of §7.3). The parameters may refer only to final
+/// declarations: a reference to a declaration that doesn't exist yet,
+/// including one a member is about to become, is refused before anything is
+/// added.
+pub fn declare_data_group(
+    g: &mut Globals,
+    params: Vec<(Name, Term)>,
+    sort: Sort,
+    members: Vec<(Name, Span)>,
+) -> Result<Vec<DataId>> {
+    let Some(&(_, span)) = members.first() else {
+        return Err(Diagnostic::error(
+            "E-MALFORMED",
+            "malformed core term: an empty group of data types",
+        ));
+    };
     let mut cx = Ctx::new(g, span);
-    // A failed reference is let through: `define_ctors` finds it again.
+    // A failed reference is let through: `define_data_group` finds it again.
     admissible(&cx, params.iter().map(|(_, ty)| ty), None)?;
     let mut checked = Vec::new();
     for (x, ty) in params {
@@ -846,17 +885,24 @@ pub fn declare_data(
         cx.bind(x.clone(), value);
         checked.push((x, ty));
     }
-    let defs_before = g.defs.len();
-    g.datas.push(Data {
-        name,
-        params: checked,
-        sort,
-        ctors: Vec::new(),
-        defs_before,
-        state: State::Pending,
-        span,
-    });
-    Ok(DataId(g.datas.len() - 1))
+    let (defs_before, datas_before) = (g.defs.len(), g.datas.len());
+    let group: Rc<[DataId]> = (0..members.len())
+        .map(|i| DataId(datas_before + i))
+        .collect();
+    for (name, span) in members {
+        g.datas.push(Data {
+            name,
+            params: checked.clone(),
+            sort,
+            ctors: Vec::new(),
+            group: group.clone(),
+            defs_before,
+            datas_before,
+            state: State::Pending,
+            span,
+        });
+    }
+    Ok(group.to_vec())
 }
 
 pub struct CtorDecl {
@@ -865,113 +911,185 @@ pub struct CtorDecl {
 }
 
 /// Checks and adds the constructors of a data type added by
-/// [`declare_data`], which makes it final, or failed if they're refused.
+/// [`declare_data`], which makes it final, or failed if they're refused: a
+/// data group of one ([`define_data_group`]).
 pub fn define_ctors(g: &mut Globals, d: DataId, ctors: Vec<CtorDecl>) -> Result<()> {
-    let Some(data) = g.datas.get(d.0) else {
+    define_data_group(g, vec![(d, ctors)])
+}
+
+/// Checks and adds the constructors of every member of a data group added
+/// by [`declare_data_group`]. Either every member becomes final, or (on any
+/// error) every one becomes failed and none has constructors.
+///
+/// - Every member of the group must be listed, once, and be pending; nothing
+///   else may be.
+/// - A field may refer to final declarations and to the group's members *as
+///   types*: not to their constructors, and no `case` on one (none has
+///   constructors until all are accepted).
+/// - Strict positivity is checked for every member in every field of every
+///   member's constructors: a member can't occur to the left of an arrow,
+///   even in a sibling's constructor.
+pub fn define_data_group(g: &mut Globals, members: Vec<(DataId, Vec<CtorDecl>)>) -> Result<()> {
+    // Refused before anything changes: an empty group, or an id that isn't
+    // a data type at all.
+    if members.is_empty() {
+        return Err(Diagnostic::error(
+            "E-MALFORMED",
+            "malformed core term: an empty group of data types",
+        ));
+    }
+    if members.iter().any(|(d, _)| d.0 >= g.datas.len()) {
         return Err(Diagnostic::error(
             "E-MALFORMED",
             "malformed core term: reference to an unknown data type",
         ));
-    };
-    if data.state != State::Pending {
-        return Err(malformed(
-            &Ctx::new(g, data.span),
-            format!("`{}`'s constructors are already defined", data.name),
-        ));
     }
-    match admit_ctors(g, d, ctors) {
+    let listed: Vec<DataId> = members.iter().map(|(d, _)| *d).collect();
+    // From here on, a refusal leaves failed every pending member of every
+    // group a listed type belongs to.
+    let fail = |g: &mut Globals, e: Diagnostic| {
+        let groups: Vec<Rc<[DataId]>> = listed.iter().map(|d| g.data(*d).group.clone()).collect();
+        for d in groups.iter().flat_map(|group| group.iter()) {
+            let data = &mut g.datas[d.0];
+            if data.state == State::Pending {
+                data.state = State::Failed;
+            }
+        }
+        Err(e)
+    };
+    let group = g.data(listed[0]).group.clone();
+    for (k, d) in listed.iter().enumerate() {
+        let data = g.data(*d);
+        let problem = if listed[..k].contains(d) {
+            Some(format!("`{}` is listed twice in one group", data.name))
+        } else if data.state != State::Pending {
+            Some(format!(
+                "`{}`'s constructors are already defined",
+                data.name
+            ))
+        } else if !group.contains(d) {
+            Some(format!(
+                "`{}` wasn't declared in the same group as `{}`",
+                data.name,
+                g.data(listed[0]).name
+            ))
+        } else {
+            None
+        };
+        if let Some(problem) = problem {
+            let e = malformed(&Ctx::new(g, data.span), problem);
+            return fail(g, e);
+        }
+    }
+    if let Some(missing) = group.iter().find(|d| !listed.contains(d)) {
+        let data = g.data(*missing);
+        let e = malformed(
+            &Ctx::new(g, data.span),
+            format!(
+                "`{}` was declared in this group, but its constructors aren't given",
+                data.name
+            ),
+        );
+        return fail(g, e);
+    }
+    match admit_data_group(g, &group, members) {
         Ok(ctors) => {
-            g.datas[d.0].ctors = ctors;
-            g.datas[d.0].state = State::Final;
+            // Every member at once: until now none had constructors, could
+            // be matched on, or had a hash.
+            for (d, ctors) in ctors {
+                g.datas[d.0].ctors = ctors;
+                g.datas[d.0].state = State::Final;
+            }
             Ok(())
         }
-        Err(e) => {
-            g.datas[d.0].state = State::Failed;
-            Err(e)
-        }
+        Err(e) => fail(g, e),
     }
 }
 
-fn admit_ctors(g: &Globals, d: DataId, ctors: Vec<CtorDecl>) -> Result<Vec<Ctor>> {
-    let data = g.data(d);
-    let mut cx = Ctx::new(g, data.span);
-    let mut failed = admissible(&cx, data.params.iter().map(|(_, ty)| ty), None)?;
-    for (x, ty) in &data.params {
+/// Everything [`define_data_group`] checks once the members are known to be
+/// the group's, and pending: each member's checked constructors.
+fn admit_data_group(
+    g: &Globals,
+    group: &[DataId],
+    members: Vec<(DataId, Vec<CtorDecl>)>,
+) -> Result<Vec<(DataId, Vec<Ctor>)>> {
+    // The members' parameters are one telescope, shared by construction.
+    let first = g.data(group[0]);
+    let mut cx = Ctx::new(g, first.span);
+    let mut failed = admissible(&cx, first.params.iter().map(|(_, ty)| ty), None)?;
+    for (x, ty) in &first.params {
         let value = cx.eval(ty)?;
         cx.bind(x.clone(), value);
     }
     let mut out = Vec::new();
-    for ctor in ctors {
-        let mut fields = Vec::new();
-        let mut field_sorts = Vec::new();
-        let mut field_erased = Vec::new();
-        for (x, ty, span) in ctor.fields {
-            cx.span = span;
-            if !case_only_in_tree(&ty, false) {
-                return Err(malformed(
-                    &cx,
-                    "`case` may only appear at the top of a definition",
-                ));
-            }
-            // Its own type may appear in a field, but not its constructors.
-            let field_failed = admissible(&cx, [&ty], Some(Itself::Data(d)))?;
-            failed = failed.or(field_failed);
-            if let Some(later) = declared_later(g, &ty, d) {
-                return Err(cx
-                    .error(
-                        "E-POSITIVITY",
+    for (d, ctors) in members {
+        let data = g.data(d);
+        let mut checked = Vec::new();
+        for ctor in ctors {
+            let mut fields = Vec::new();
+            let mut field_sorts = Vec::new();
+            let mut field_erased = Vec::new();
+            for (x, ty, span) in ctor.fields {
+                cx.span = span;
+                if !case_only_in_tree(&ty, false) {
+                    return Err(malformed(
+                        &cx,
+                        "`case` may only appear at the top of a definition",
+                    ));
+                }
+                // The group's types may appear in a field, but not their
+                // constructors.
+                let field_failed = admissible(&cx, [&ty], Some(Itself::DataGroup(group)))?;
+                failed = failed.or(field_failed);
+                if let Some(later) = declared_later(g, &ty, d) {
+                    return Err(cx
+                        .error(
+                            "E-POSITIVITY",
+                            format!(
+                                "field `{x}` uses {later}, which was declared after `{}`",
+                                data.name
+                            ),
+                            "declared later",
+                        )
+                        .with_note(
+                            "something declared after a data type could mention it, hiding a \
+                             negative occurrence from the positivity check",
+                        ));
+                }
+                let (ty, sort) = check_type(&mut cx, &ty)?;
+                if !sort.fits_in(data.sort) {
+                    return Err(cx.error(
+                        "E-UNIVERSE",
+                        format!("field `{x}` is too large for `{}`", data.name),
                         format!(
-                            "field `{x}` uses {later}, which was declared after `{}`",
-                            data.name
+                            "its type is in `{}`, but `{}` is in `{}`",
+                            pretty::term(g, &[], &Term::Sort(sort)),
+                            data.name,
+                            pretty::term(g, &[], &Term::Sort(data.sort))
                         ),
-                        "declared later",
-                    )
-                    .with_note(
-                        "something declared after a data type could mention it, hiding a \
-                         negative occurrence from the positivity check",
                     ));
+                }
+                if let Some((found, how)) = not_positive(&ty, group, cx.level()) {
+                    return Err(not_positive_error(&cx, &x, found, how, group));
+                }
+                let value = cx.eval(&ty)?;
+                field_erased.push(sort == Sort::Prop || is_type_former(g, cx.level(), &value)?);
+                cx.bind(x.clone(), value);
+                fields.push((x, ty));
+                field_sorts.push(sort);
             }
-            let (ty, sort) = check_type(&mut cx, &ty)?;
-            if !sort.fits_in(data.sort) {
-                return Err(cx.error(
-                    "E-UNIVERSE",
-                    format!("field `{x}` is too large for `{}`", data.name),
-                    format!(
-                        "its type is in `{}`, but `{}` is in `{}`",
-                        pretty::term(g, &[], &Term::Sort(sort)),
-                        data.name,
-                        pretty::term(g, &[], &Term::Sort(data.sort))
-                    ),
-                ));
-            }
-            if !positive(&ty, d, cx.level()) {
-                return Err(cx
-                    .error(
-                        "E-POSITIVITY",
-                        format!("`{}` is used in a negative position", data.name),
-                        format!("field `{x}` takes a `{}` as input", data.name),
-                    )
-                    .with_note(
-                        "a data type can't contain functions that take that same type as input; \
-                         that would make it possible to prove anything",
-                    ));
-            }
-            let value = cx.eval(&ty)?;
-            field_erased.push(sort == Sort::Prop || is_type_former(g, cx.level(), &value)?);
-            cx.bind(x.clone(), value);
-            fields.push((x, ty));
-            field_sorts.push(sort);
+            cx.unbind(fields.len());
+            checked.push(Ctor {
+                name: ctor.name,
+                fields,
+                field_sorts,
+                field_erased,
+            });
         }
-        cx.unbind(fields.len());
-        out.push(Ctor {
-            name: ctor.name,
-            fields,
-            field_sorts,
-            field_erased,
-        });
+        out.push((d, checked));
     }
     match failed {
-        Some(dep) => Err(failed_dependency(&cx, &data.name, &dep)),
+        Some(dep) => Err(failed_dependency(&cx, &first.name, &dep)),
         None => Ok(out),
     }
 }
@@ -997,8 +1115,9 @@ pub fn abandon_pending(g: &mut Globals) {
 enum Itself<'a> {
     /// The definitions of a function group, in their bodies.
     Group(&'a [DefId]),
-    /// A data type, as a type (not a constructor or a `case`) in its fields.
-    Data(DataId),
+    /// The data types of a data group, as types (not their constructors or
+    /// a `case`) in their fields.
+    DataGroup(&'a [DataId]),
 }
 
 /// The admission rule (docs/proposals/kernel-admission.md): everything
@@ -1016,6 +1135,8 @@ fn admissible<'t>(
     let g = cx.g;
     let in_group =
         |id: &DefId| matches!(itself, Some(Itself::Group(members)) if members.contains(id));
+    let in_data_group =
+        |d: &DataId| matches!(itself, Some(Itself::DataGroup(members)) if members.contains(d));
     let mut failed = None;
     for term in terms {
         for (t, _) in term.subterms() {
@@ -1024,7 +1145,7 @@ fn admissible<'t>(
                     Some(def) => (def.state, &def.name),
                     None => return Err(malformed(cx, "reference to an unknown definition")),
                 },
-                Term::Data(d, _) if itself == Some(Itself::Data(*d)) => continue,
+                Term::Data(d, _) if in_data_group(d) => continue,
                 Term::Data(d, _) | Term::Ctor(d, _, _) | Term::Case(_, d, _) => {
                     match g.datas.get(d.0) {
                         Some(data) => (data.state, &data.name),
@@ -1046,6 +1167,16 @@ fn admissible<'t>(
                         Some(Itself::Group(members)) if members.len() > 1 => format!(
                             "this refers to `{name}`, which isn't finished and isn't in this group"
                         ),
+                        // A constructor of, or a match on, one of the
+                        // group's own types.
+                        Some(Itself::DataGroup(_))
+                            if matches!(t, Term::Ctor(..) | Term::Case(..)) =>
+                        {
+                            format!(
+                                "this uses `{name}`'s constructors, which aren't finished: a \
+                                 field may use the group's types, but not their constructors"
+                            )
+                        }
                         _ => format!("this refers to `{name}`, which isn't finished"),
                     };
                     return Err(malformed(cx, message));
@@ -1071,22 +1202,31 @@ fn failed_dependency(cx: &Ctx, what: &Name, dep: &Name) -> Diagnostic {
     ))
 }
 
-/// A definition or data type in `term` declared after data type `d`, if any:
-/// the first one, reading left to right.
+/// A definition or data type in `term` declared after data type `d`'s group
+/// (and not in it), if any: the first one, reading left to right.
 fn declared_later(g: &Globals, term: &Term, d: DataId) -> Option<String> {
+    let data = g.data(d);
     term.subterms().find_map(|(t, _)| match t {
-        Term::Def(id) => (id.0 >= g.data(d).defs_before).then(|| {
+        Term::Def(id) => (id.0 >= data.defs_before).then(|| {
             let name = g.defs.get(id.0).map_or("?".into(), |x| x.name.to_string());
             format!("`{name}`")
         }),
         Term::Data(d2, _) | Term::Ctor(d2, _, _) | Term::Case(_, d2, _) => {
-            (d2.0 > d.0).then(|| {
+            (d2.0 >= data.datas_before && !data.group.contains(d2)).then(|| {
                 let name = g.datas.get(d2.0).map_or("?".into(), |x| x.name.to_string());
                 format!("the data type `{name}`")
             })
         }
         _ => None,
     })
+}
+
+/// "`a`, `b` and `c`".
+fn listed(names: &[String]) -> String {
+    match names.split_last() {
+        Some((last, rest)) if !rest.is_empty() => format!("{} and {last}", rest.join(", ")),
+        _ => names.join(""),
+    }
 }
 
 /// An error for a term no correct elaborator would produce.
@@ -1124,30 +1264,121 @@ fn case_only_in_tree(term: &Term, in_tree: bool) -> bool {
     true
 }
 
-/// Strict positivity: the data type `d` may appear in a field's type only as
-/// itself applied to its own parameters, possibly as the result of a function
-/// whose inputs don't mention it.
-fn positive(ty: &Term, d: DataId, depth: usize) -> bool {
+/// How a member of a data group occurs in a field's type, when that isn't
+/// strictly positive.
+#[derive(Clone, Copy, PartialEq, Debug)]
+enum Occurrence {
+    /// In the input of a function.
+    Input,
+    /// Applied to something other than the group's parameters.
+    OtherParameters,
+    /// Inside another type (a nested occurrence, like `List Rose`), or
+    /// anywhere else.
+    Inside,
+}
+
+/// Strict positivity across a data group: each member may appear in a
+/// field's type only as itself applied to the group's parameters, possibly
+/// as the result of a function whose inputs mention no member. The member
+/// that doesn't, if one doesn't (the first found), and how it occurs.
+fn not_positive(ty: &Term, group: &[DataId], depth: usize) -> Option<(DataId, Occurrence)> {
     let (mut ty, mut depth) = (ty, depth);
     loop {
-        if !occurs(ty, d) {
-            return true;
-        }
+        let found = occurs(ty, group)?;
         match ty.strip_loc() {
-            Term::Data(d2, args) if *d2 == d => {
-                return args.iter().enumerate().all(
+            Term::Data(d2, args) if group.contains(d2) => {
+                let own_params = args.iter().enumerate().all(
                     |(j, arg)| matches!(arg.strip_loc(), Term::Var(ix) if depth - 1 - ix == j),
                 );
+                return (!own_params).then_some((*d2, Occurrence::OtherParameters));
             }
-            Term::Pi(_, _, dom, cod) if !occurs(dom, d) => (ty, depth) = (cod, depth + 1),
-            _ => return false,
+            Term::Pi(_, _, dom, cod) => match occurs(dom, group) {
+                Some(d2) => return Some((d2, Occurrence::Input)),
+                None => (ty, depth) = (cod, depth + 1),
+            },
+            _ => return Some((found, Occurrence::Inside)),
         }
     }
 }
 
-fn occurs(term: &Term, d: DataId) -> bool {
-    term.subterms()
-        .any(|(t, _)| matches!(t, Term::Data(d2, _) | Term::Case(_, d2, _) if *d2 == d))
+/// The error for field `x`, in which `found`, a member of `group`, occurs
+/// `how`.
+fn not_positive_error(
+    cx: &Ctx,
+    x: &Name,
+    found: DataId,
+    how: Occurrence,
+    group: &[DataId],
+) -> Diagnostic {
+    let g = cx.g;
+    let name = &g.data(found).name;
+    let together = (group.len() > 1).then(|| {
+        let names: Vec<String> = group
+            .iter()
+            .map(|d| format!("`{}`", g.data(*d).name))
+            .collect();
+        listed(&names)
+    });
+    match how {
+        Occurrence::Input => {
+            let note = match &together {
+                Some(names) => format!(
+                    "{names} are defined together, so their constructors can't contain functions \
+                     that take any of them as input; that would make it possible to prove anything"
+                ),
+                None => "a data type can't contain functions that take that same type as input; \
+                         that would make it possible to prove anything"
+                    .to_string(),
+            };
+            cx.error(
+                "E-POSITIVITY",
+                format!("`{name}` is used in a negative position"),
+                format!("field `{x}` takes a `{name}` as input"),
+            )
+            .with_note(note)
+        }
+        Occurrence::OtherParameters => cx
+            .error(
+                "E-POSITIVITY",
+                format!("`{name}` is used with different parameters"),
+                format!("field `{x}` uses `{name}` with parameters other than its own"),
+            )
+            .with_note(match &together {
+                Some(names) => format!(
+                    "{names} are defined together, so in their fields each can only be applied to \
+                     the parameters they're all declared with, as written"
+                ),
+                None => "in its own fields, a data type can only be applied to the parameters \
+                         it's declared with, as written"
+                    .to_string(),
+            }),
+        Occurrence::Inside => cx
+            .error(
+                "E-POSITIVITY",
+                format!("`{name}` is used inside another type"),
+                format!("field `{x}` has `{name}` inside another type"),
+            )
+            .with_note(format!(
+                "a data type's fields can contain {} only directly, or as the result of a function \
+                 field: whether it's safe inside another type (such as a `List`) would depend on \
+                 how that type uses it, which isn't checked",
+                together
+                    .as_deref()
+                    .map_or_else(|| "it".to_string(), |names| names.to_string())
+            ))
+            .with_note(
+                "for a tree whose children are in a list, write two types defined together \
+                 instead: a tree, and a forest of trees",
+            ),
+    }
+}
+
+/// The first member of `group` that `term` mentions as a type or matches on.
+fn occurs(term: &Term, group: &[DataId]) -> Option<DataId> {
+    term.subterms().find_map(|(t, _)| match t {
+        Term::Data(d2, _) | Term::Case(_, d2, _) if group.contains(d2) => Some(*d2),
+        _ => None,
+    })
 }
 
 /// Checks and adds a validator for proof parameter `param` of an exported

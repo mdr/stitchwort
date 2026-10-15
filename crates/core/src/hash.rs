@@ -17,6 +17,15 @@
 //! with the same shape are ordered as they were submitted. Only final groups
 //! are hashed, and the shapes are never stored.
 //!
+//! A group of data types declared together (two or more, by
+//! `declare_data_group`) is hashed as a unit in the same way, ordered by name
+//! (data types are nominal, so no shapes are needed), ties broken by
+//! declaration order. The group's hash covers the shared parameters and
+//! universe, the number of members, and each member's name and constructors;
+//! a reference to a member, whether as a type, a constructor or a `case`, is
+//! its index in that order (and a constructor's index after it). So changing
+//! any constructor of any member changes every member's hash.
+//!
 //! Left out, so they don't affect identity: the definition's own name, binder
 //! names, local variable names (variables are de Bruijn indices) and source
 //! locations. Data types are nominal, so their names *are* included, along
@@ -60,6 +69,12 @@ enum Itself<'a> {
         members: &'a [DefId],
         order: Option<&'a [usize]>,
     },
+    /// The members of a data group: each is the marker `member` with its
+    /// index in `order`, as for a group of definitions.
+    DataGroup {
+        members: &'a [DataId],
+        order: &'a [usize],
+    },
 }
 
 /// The name the hasher's depth guard reports.
@@ -99,6 +114,10 @@ pub fn data_hash(g: &Globals, id: DataId) -> Result<Option<ContentHash>> {
     let data = g.data(id);
     if data.state != State::Final {
         return Ok(None);
+    }
+    if data.group.len() > 1 {
+        data_group_hashes(g, &data.group)?;
+        return Ok(g.hashes.borrow().get(&HashKey::Data(id)).copied());
     }
     let mut h = Hasher::new(g, Itself::Data(id));
     h.tag("data");
@@ -173,6 +192,57 @@ fn group_hashes(g: &Globals, members: &[DefId]) -> Result<()> {
         g.hashes
             .borrow_mut()
             .insert(HashKey::Def(members[m]), h.finish());
+    }
+    Ok(())
+}
+
+/// Hashes every member of a final group of two or more data types, and
+/// stores their hashes.
+fn data_group_hashes(g: &Globals, members: &[DataId]) -> Result<()> {
+    // The canonical order: by name, and as declared where names are the same.
+    let mut order: Vec<usize> = (0..members.len()).collect();
+    order.sort_by(|&a, &b| {
+        let name = |m: usize| &g.data(members[m]).name;
+        name(a).cmp(name(b)).then(a.cmp(&b))
+    });
+    let first = g.data(members[0]);
+    let mut h = Hasher::new(
+        g,
+        Itself::DataGroup {
+            members,
+            order: &order,
+        },
+    );
+    h.tag("data-group");
+    h.usize(members.len());
+    // The parameters and universe are the group's, shared by every member.
+    h.sort(first.sort);
+    h.usize(first.params.len());
+    for (_, ty) in &first.params {
+        h.term(ty)?;
+    }
+    for &m in &order {
+        let data = g.data(members[m]);
+        h.tag("data");
+        h.str(&data.name);
+        h.usize(data.ctors.len());
+        for ctor in &data.ctors {
+            h.str(&ctor.name);
+            h.usize(ctor.fields.len());
+            for (_, ty) in &ctor.fields {
+                h.term(ty)?;
+            }
+        }
+    }
+    let group = h.finish();
+    for (index, &m) in order.iter().enumerate() {
+        let mut h = Hasher::new(g, Itself::Data(members[m]));
+        h.tag("data-member");
+        h.bytes(&group.0);
+        h.usize(index);
+        g.hashes
+            .borrow_mut()
+            .insert(HashKey::Data(members[m]), h.finish());
     }
     Ok(())
 }
@@ -265,6 +335,12 @@ impl<'g> Hasher<'g> {
     fn data_ref(&mut self, id: DataId) -> Result<()> {
         match self.itself {
             Itself::Data(me) if me == id => self.tag("self"),
+            Itself::DataGroup { members, order } if members.contains(&id) => {
+                let m = members.iter().position(|m| *m == id).expect("a member");
+                let index = order.iter().position(|o| *o == m).expect("ordered");
+                self.tag("member");
+                self.usize(index);
+            }
             _ => {
                 // Final declarations only refer to final ones.
                 let hash = data_hash(self.g, id)?.map_or([0; 32], |h| h.0);

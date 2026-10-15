@@ -64,10 +64,19 @@ pub struct Data {
     pub params: Vec<(Name, Term)>,
     pub sort: Sort,
     pub ctors: Vec<Ctor>,
-    /// How many definitions existed when this type was declared. Its fields
-    /// may only use those (and earlier data types), since anything defined
-    /// later could mention this type and hide a negative occurrence.
+    /// The data group this type was declared in (`declare_data_group`), in
+    /// declaration order, including itself: a group of one for a type on its
+    /// own. Every member has the same parameters and universe. Set once, when
+    /// the group is declared, and never changed. Positivity, the termination
+    /// checker's recursive function fields, elimination from `Prop` and
+    /// hashing read it.
+    pub group: Rc<[DataId]>,
+    /// How many definitions, and data types, existed when this type's group
+    /// was declared. Its fields may only use those (and its group's
+    /// members), since anything declared later could mention this type and
+    /// hide a negative occurrence.
     pub defs_before: usize,
+    pub datas_before: usize,
     /// Final once its constructors are defined (they can be only once).
     /// Until then it isn't empty: it can't be matched on or hashed.
     pub state: State,

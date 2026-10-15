@@ -1,0 +1,17 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-MUTUAL-CONSTRUCTOR] Error: `FNil` can't be used in the constructors of `Tree`, which is defined together with `Forest`
+   ╭─[ reject/mutual-sibling-constructor.sw:6:39 ]
+   │
+ 6 │   | Node (kids : Forest) (ok : kids = FNil)
+   │                                       ──┬─  
+   │                                         ╰─── used here
+   │ 
+ 8 │ type Forest : Type =
+   │      ───┬──  
+   │         ╰──── `Forest` is defined here
+   │ 
+   │ Note: the fields of data types defined together can mention the types, like `Forest`, but not their constructors: those don't exist until all the fields are finished
+───╯

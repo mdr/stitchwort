@@ -1,0 +1,19 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-MUTUAL-KIND] Error: `Ask` and `Box` refer to each other, but an ability can't be defined together with what it uses
+   ╭─[ reject/mutual-ability.sw:5:9 ]
+   │
+ 5 │ ability Ask where
+   │         ─┬─  
+   │          ╰─── `Ask` is defined here
+   │ 
+ 8 │ type Box : Type =
+   │      ─┬─  
+   │       ╰─── `Box` is defined here
+   │ 
+   │ Note 1: `Ask` uses `Box`, which uses `Ask`
+   │ 
+   │ Note 2: an ability's operations can't mention a type or definition that uses the ability: a stored computation could then call itself forever (Landin's knot)
+───╯

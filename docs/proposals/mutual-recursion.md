@@ -2,13 +2,13 @@
 
 **Status:** draft 3, 15 October 2026. Draft 2 was revised after an
 external review of draft 1; a second review approved implementing draft 2,
-with the clarifications folded in here. **Milestones 1 and 2 are built**
-(§10.1, §10.2): kernel admission ([kernel-admission.md](kernel-admission.md)),
+with the clarifications folded in here. **All three milestones are built**
+(§10.1–§10.3): kernel admission ([kernel-admission.md](kernel-admission.md)),
 the size-change graph algorithm (`crates/core/src/sct.rs`), the
 definition-entry arity contract, the saturation rule, size-change
 termination, function groups (`define_group`), whole-module scope with
-dependency-ordered checking, group hashing and the JS calling convention.
-Mutual data types (milestone 3) are not.
+dependency-ordered checking, group hashing, the JS calling convention, and
+data groups (`declare_data_group`/`define_data_group`).
 
 **This note gives a proof outline, not a completed soundness proof** (§6.4).
 The design is ready to implement and test; its full soundness theorem is not
@@ -2106,6 +2106,171 @@ as Lean does, or a variance analysis); closure-aware partial applications
 (§6.3); mutual tail calls as loops in JS; `decreasing` measures (DESIGN.md
 §5) for a group; `auto` eligibility by source position with on-demand
 scheduling (§8.1); opaque assumptions with propagation (§5.1).
+
+### 10.3 As built: milestone 3 (mutual data types)
+
+**The kernel API** (`crates/core/src/check.rs`).
+`declare_data_group(params, sort, names)` checks the parameter telescope
+once, sequentially in one context, with *no* pending references allowed
+(row 1 of §5.2): a reference to a declaration that doesn't exist yet,
+including the id a member is about to receive, is `E-MALFORMED` before
+anything is allocated. It then adds every member, pending, with that
+telescope and universe, and with its group (`Data::group`, the members in
+declaration order) and `datas_before`/`defs_before`, all fixed then and
+never changed. `define_data_group(&[(member, constructors), …])` admits the
+constructors of every member:
+
+1. Refused before anything changes: an empty list, or an id that isn't a
+   data type. Then refused, with every pending member of every listed
+   type's group left failed: a member listed twice, one that isn't pending
+   (re-defining), one from another group, or a member of the group left out.
+   So a group is defined whole or not at all, and nothing can join a group
+   after it's declared (there is no call that would add one).
+2. For every field of every constructor of every member: the reference walk
+   (`admissible`, `Itself::DataGroup`, row 3), which lets the group's
+   members through only as `Data(member, …)`; a member's constructor or a
+   `case` on one is a pending reference (`E-MALFORMED`: "this uses
+   `Forest`'s constructors, which aren't finished"). The "declared later"
+   guard allows the group's members and refuses anything declared after the
+   group (by `datas_before`, not by comparing with the member's own index).
+   The universe check against the shared sort. **Positivity across the
+   group**: every member may occur only applied to exactly the group's
+   parameters, directly or as the result of a function whose inputs mention
+   no member (`not_positive`). The error now says how a member occurs: in a
+   function's input, with other parameters, or inside another type.
+3. Atomic install: every member's constructors and `Final` at once, or (on
+   any error) every member `Failed`, no constructors, no hash. Constructor
+   availability, `case` (`check_case` refuses a type that isn't final) and
+   hashing all read the state, so until then no member can be built,
+   matched on (not even emptily) or hashed.
+
+`declare_data` and `define_ctors` are now a group of one, so single data
+types take the same path. `check_case` allows elimination from a `Prop` into
+data only for a type alone in its group (§7.3; Lean's rule, kept as a
+conservative restriction); matching a proof to produce a proof is
+unaffected.
+
+**Termination** (`crates/core/src/termination.rs`). Nothing new was needed
+for structural descent: a variable bound by a match on a parameter was
+already smaller than it whatever its type, so `size (Node n kids) = Succ
+(sizeForest kids)` is a smaller call. `is_recursive_fn` reads the group: a
+function field returning any member of the matched type's group is a
+recursive function field (`child : Nat -> Layer` in `Branching`).
+
+**Elaborator** (`crates/elab/src/module.rs`, `lib.rs`). A component made only
+of data types is a group: a header mentioning a member is refused first
+(`E-MUTUAL-SIGNATURE`, with the cycle); then every header is elaborated, and
+every member must have the same parameters, names included, and universe as
+the first (`E-MUTUAL-PARAMETERS`, untrusted: the kernel gets one telescope);
+the kernel declares the group; every member's name is made to refer to its
+declaration; every member's constructors are elaborated (a sibling's
+constructor is `E-MUTUAL-CONSTRUCTOR`, naming the sibling); the kernel gets
+one `define_data_group`. Errors in any member are all reported, and the
+group fails as a whole. A cycle with a data type and a definition is
+`E-MUTUAL-KIND` as before; one with an ability is now `E-MUTUAL-KIND` too,
+with a note about Landin's knot (it was `E-MUTUAL-DATA` when only types were
+involved). `E-MUTUAL-DATA` is gone.
+
+**Hashing** (`crates/core/src/hash.rs`): §8.4 for data, ordered by name, ties
+by declaration order. The group hash covers the member count, the shared
+universe and parameters, and each member's name and constructors (names and
+field types); a reference to a member as `Data`, `Ctor` (with the
+constructor's index) or in a `case` is `("member", index)`. Each member's
+hash is `H("data-member", group hash, index)`. Only final groups are hashed.
+A single data type is hashed exactly as before.
+
+**JavaScript.** Nothing changed in the extractor: `collect_datas` already
+stopped at types it had seen, every boundary data type is declared before
+any is defined, and the codecs keep their own stack. Only a comment in the
+generated runtime changed (siblings are among the finitely many types inside
+a boundary type), which changes every generated-JS snapshot by that comment.
+
+**Changes to previously accepted or rejected programs.** Every file in
+`examples/` and the prelude checks as before. `reject/mutual-data.sw`
+(`Tree`/`Forest`) is now accepted and was removed. The
+`soundness/cell-operation.sw` message changed from "used in a negative
+position … takes a `CellOp` as input" (which was wrong: it's inside `Comp`)
+to "`CellOp` is used inside another type". Benchmark counts are unchanged;
+the baseline was updated only because the example inputs changed (new
+files).
+
+**Newly accepted** (`examples/accept/mutual-data.sw`,
+`extract/mutual-data.sw`): `Tree`/`Forest` in either order, with
+`size`/`sizeForest`, `sumTree`/`sumForest`, `mapTree`/`mapForest`, and the
+theorems `sizeMap`/`sizeMapForest` (by mutual induction) and `sizeNotZero`;
+`Even`/`Odd` as data with `evenToNat`/`oddToNat` and the theorems
+`evenIsEven`/`oddIsOdd`; `EvenP`/`OddP` as propositions with a proof-to-proof
+mutual recursion; `Rose a`/`Roses a` with a parameter; a function field
+returning a sibling (`Branching`/`Layer`); a group of three
+(`Expr`/`Stmt`/`Stmts`); in JS, codecs and `.d.ts` types for both groups.
+Even/odd as *predicates on `Nat`* (`Even n`) isn't expressible: there are no
+indexed types, and a field `Odd m` would apply a member to something other
+than the group's parameter. **Newly rejected**:
+`soundness/mutual-non-positive.sw` (`Bad1`/`Bad2`, with the proof of `Void`
+written out), `soundness/pending-data.sw` (the pending-datatype case at the
+surface: `E-MUTUAL-KIND`), `reject/mutual-sibling-constructor.sw`,
+`reject/mutual-prop-elim.sw`, `reject/mutual-data-parameters.sw`,
+`reject/mutual-data-header.sw`, `reject/mutual-ability.sw` and
+`reject/nested-data.sw` (`List Rose`).
+
+**Tests.** `crates/core/tests/data_groups.rs`, each must-reject case with its
+neighbour: `Tree`/`Forest` with `size` running; rebuilding a tree from a
+forest (`E-TERMINATION`); `Bad1`/`Bad2` refused with every member failed,
+unhashed and unmatchable, and the same pair split into two single types
+refused either way round (`E-MALFORMED`); every positivity shape across
+siblings, with the accepted shapes; a pending member (signature, empty
+match, constructor, hash) and the same after finalisation (then
+`E-NONEXHAUSTIVE`); partitions (a member left out, listed twice, a type from
+another group, re-defining, empty and unknown ids), with any order of the
+whole group accepted; headers mentioning forged data and definition ids,
+pending ones, leaving the tables unchanged; a sibling's constructor, a
+pending definition and a later type in a field; a failed dependency; one
+universe; the `Prop` restriction with both neighbours; a sibling-returning
+function field; hashing (determinism, declaration order, one constructor or
+constructor name or the universe changing every member's hash, member
+references distinguished, constructor references distinguished, same-named
+members). `crates/cli/tests/caching.rs`: the same at the surface (changing a
+`Forest` constructor changes `Tree`'s hash and that of a definition using
+only `Node` and `FNil`). `crates/cli/tests/scope.rs`: grouping and order, a
+failed group without cascades, errors in two members.
+`crates/cli/tests/extract.rs`: `deep_mutual_values_cross_the_boundary`, a
+tree a million deep through its forest decoded and encoded, built by a
+Stitchwort loop, with the error path, a self-containing input, `size` as a
+`StitchwortResourceError`, and a rose tree with a parameter a million deep.
+
+**Mutation evidence** (each applied by hand, run, reverted):
+
+- *Positivity checked only for the member being defined*
+  (`not_positive(&ty, &[d], …)`): `soundness/mutual-non-positive.sw should
+  be rejected but checks`; `stitchwort check` accepts it (exit 0), with
+  `theorem boom : Void` in it (evaluating `boom` doesn't finish).
+  `a_negative_occurrence_through_a_sibling_is_refused` (`unwrap_err()` on an
+  `Ok`) and `every_member_must_be_strictly_positive_in_every_member`
+  (`left: "ok"`, `right: "E-POSITIVITY"`) fail.
+- *Part of a group may be defined without the rest*:
+  `a_group_is_defined_whole_or_not_at_all` fails (`unwrap_err()` on an
+  `Ok`).
+- *`Prop` groups eliminate into data like single types*:
+  `propositions_defined_together_eliminate_only_into_propositions`
+  (`left: None`, `right: Some("E-PROP-ELIM")`) and `reject/mutual-prop-elim.sw
+  should be rejected but checks`.
+- *Function fields recursive only for their own type*:
+  `a_function_field_returning_a_sibling_gives_smaller_values` (`left:
+  "E-TERMINATION"`, `right: "ok"`).
+
+Not run, read from the code: letting a member through the reference walk
+in a header, or a sibling's constructor in a field, would still be refused
+when the term is type-checked (the member's id isn't allocated yet; the
+sibling has no constructors yet), so those mutations wouldn't show the walk
+on its own.
+
+**Not done.** Nested inductives, induction-recursion and
+induction-induction stay out (§7.5). Members' parameters must be written
+identically, names included; differently named but equal telescopes are
+refused rather than renamed. A deep tree's error path alternates two steps
+(`.kids.first`), which the JS path summary doesn't compress as it does a
+repeated one. `E-MUTUAL-CONSTRUCTOR` is the elaborator's; the kernel reports
+the same mistake as `E-MALFORMED`.
 
 ## 11. Recommendation
 

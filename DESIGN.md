@@ -356,7 +356,7 @@ innocent n = spin n + 1
 
 Checking is deliberately conservative. It may reject total functions, but it must never accept a non-terminating one.
 
-- **POC:** structural recursion, checked by size change ([docs/core.md](docs/core.md#definitions)). Each recursive call must pass, in each position, a sub-part of a pattern-matched argument, the argument itself, or something unknown, and some argument must get smaller however the calls are repeated: so lexicographic recursion (Ackermann's function) and swapped arguments are accepted. Definitions can be written in any order, and definitions that call each other are checked as a group, with every call between any two of them in the analysis ([proposal](docs/proposals/mutual-recursion.md)); data types that refer to each other are next.
+- **POC:** structural recursion, checked by size change ([docs/core.md](docs/core.md#definitions)). Each recursive call must pass, in each position, a sub-part of a pattern-matched argument, the argument itself, or something unknown, and some argument must get smaller however the calls are repeated: so lexicographic recursion (Ackermann's function) and swapped arguments are accepted. Definitions can be written in any order, and definitions that call each other are checked as a group, with every call between any two of them in the analysis ([proposal](docs/proposals/mutual-recursion.md)). Data types that refer to each other (a tree and a forest) are checked as a group too, with positivity across the group, and a field of a sibling type matched out of an argument is smaller than it.
 - **Next:** `decreasing <measure>` clauses for well-founded recursion. The compiler tries to prove the measure decreases with simple arithmetic and asks for a proof if it can't.
 - **Later:** handling recursion through higher-order functions (e.g. `map size children` on a rose tree), probably by automatically attaching "this element is in the list" facts, as recent Lean versions do.
 
@@ -722,7 +722,7 @@ A definition's hash covers its **whole elaborated declaration**:
 
 **Names of functions and values aren't part of the hash.** Renaming a function doesn't invalidate anything.
 
-**Recursive groups.** A recursive function refers to itself, and mutually recursive functions refer to each other, so they can't be hashed one at a time with their dependencies first. Each group of mutually recursive definitions is hashed as a unit, with members referring to each other by their index within the group. This follows Unison's cycle hashing. As built ([docs/core.md](docs/core.md#groups-of-definitions)): members are ordered by their hash with references to members blanked out, ties broken by source order, so moving members around doesn't change their hashes; a single recursive definition refers to itself by a fixed marker.
+**Recursive groups.** A recursive function refers to itself, and mutually recursive functions refer to each other, so they can't be hashed one at a time with their dependencies first. Each group of mutually recursive definitions is hashed as a unit, with members referring to each other by their index within the group. This follows Unison's cycle hashing. As built ([docs/core.md](docs/core.md#groups-of-definitions)): members are ordered by their hash with references to members blanked out, ties broken by source order, so moving members around doesn't change their hashes; a single recursive definition refers to itself by a fixed marker. Data types that refer to each other are hashed the same way, ordered by name ([docs/core.md](docs/core.md#groups-of-data-types)).
 
 **Nominal types.** Two nominal data types with identical structure must still be different, so their identity needs something extra. Unison stores a unique identifier in its codebase. With plain text files, the policy is: **a nominal type's hash includes its logical module name and its own name.**
 
@@ -906,6 +906,7 @@ Each rejected example is paired with a nearby example that must be **accepted**,
 | Must be rejected | Because | Paired accepted example |
 |---|---|---|
 | Non-positive data type (`MkBad (Bad -> Void)`) | Positivity check | A positive recursive type (`List`) |
+| A negative occurrence through a sibling (`Bad1 = MkBad1 (Bad2 -> Void)`, `Bad2 = MkBad2 Bad1`) | Positivity across the data group | `Tree`/`Forest` |
 | Girard / Hurkens paradox | Universe levels | A function quantifying over `Type 0` values |
 | A total function calling a `Partial` one | Ability checking | The same function declared `{Partial}` |
 | A missing pattern-match case | Exhaustiveness | The complete match |

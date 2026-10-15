@@ -180,3 +180,68 @@ fn abilities_are_ordered_by_where_they_are_written() {
     };
     assert_eq!(module(true), module(false));
 }
+
+/// The data types added after the prelude, and the size of each one's group.
+fn new_datas(session: &Session) -> Vec<(String, usize)> {
+    let prelude = Session::new().elab.globals.datas.len();
+    session.elab.globals.datas[prelude..]
+        .iter()
+        .map(|d| (d.name.to_string(), d.group.len()))
+        .collect()
+}
+
+#[test]
+fn data_types_that_refer_to_each_other_are_one_group() {
+    // Written forest first: they're still one group, declared in source
+    // order. `Label` is used by both but uses neither, so it's on its own,
+    // first.
+    let (session, result) = load(
+        "type Forest : Type =\n  | FNil\n  | FCons (first : Tree) (rest : Forest)\n\n\
+         type Tree : Type =\n  | Node (label : Label) (kids : Forest)\n\n\
+         type Label : Type =\n  | MkLabel (n : Nat)\n",
+    );
+    result.unwrap();
+    assert_eq!(
+        new_datas(&session),
+        [
+            ("Label".into(), 1),
+            ("Forest".into(), 2),
+            ("Tree".into(), 2)
+        ]
+    );
+}
+
+#[test]
+fn a_failed_data_group_fails_every_member_without_cascading() {
+    // `Forest`'s field has a mistake; `Tree` is fine on its own, but fails
+    // with it, and `size`, which uses `Tree`, isn't reported again.
+    let (session, result) = load(
+        "type Tree : Type =\n  | Node (kids : Forest)\n\n\
+         type Forest : Type =\n  | FNil\n  | FCons (first : Tree) (rest : Forst)\n\n\
+         size : Tree -> Nat\nsize t = 0\n",
+    );
+    let errors = result.unwrap_err();
+    assert_eq!(codes(&errors), ["E-UNKNOWN-NAME"], "{errors:#?}");
+    let g = &session.elab.globals;
+    let prelude = Session::new().elab.globals.datas.len();
+    for data in &g.datas[prelude..] {
+        assert_eq!(
+            data.state,
+            stitchwort_core::globals::State::Failed,
+            "{}",
+            data.name
+        );
+        assert!(data.ctors.is_empty());
+    }
+    // Mistakes in both are both reported, in source order.
+    let (_, result) = load(
+        "type Tree : Type =\n  | Node (kids : Forest) (n : Nat Nat)\n\n\
+         type Forest : Type =\n  | FNil\n  | FCons (first : Tree) (rest : Forst)\n",
+    );
+    let errors = result.unwrap_err();
+    assert_eq!(
+        codes(&errors),
+        ["E-NOT-A-FUNCTION", "E-UNKNOWN-NAME"],
+        "{errors:#?}"
+    );
+}
