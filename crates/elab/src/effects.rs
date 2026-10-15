@@ -273,7 +273,11 @@ fn solve_tail(cx: &mut Ctx, open: &Row, other: &Row) -> Result<bool> {
             .collect(),
         tail: other.tail.clone(),
     };
-    let sig = Value::Ctor(data(cx, "Sig")?, 0, vec![ops(cx, &rest)?, res(cx, &rest)?]);
+    let sig = Value::Ctor(
+        data(cx, "Sig")?,
+        0,
+        vec![ops(cx, &rest)?, res(cx, &rest)?].into(),
+    );
     Ok(cx.unify(tail, &sig))
 }
 
@@ -434,7 +438,7 @@ fn extend_with(cx: &mut Ctx, row: &Row, extra: Vec<Label>, tail: Value) -> Resul
     let sig = Value::Ctor(
         data(cx, "Sig")?,
         0,
-        vec![ops(cx, &added)?, res(cx, &added)?],
+        vec![ops(cx, &added)?, res(cx, &added)?].into(),
     );
     Ok(cx.unify(old, &sig))
 }
@@ -1159,7 +1163,7 @@ fn make_call(
     x: Term,
 ) -> Result<(Term, Value)> {
     let x_value = cx.eval(&x);
-    let op_value = Value::Ctor(op_data, i, vec![x_value]);
+    let op_value = Value::Ctor(op_data, i, Rc::new([x_value]));
     let result_ty = apply(cx.g(), label_res(cx, label), op_value);
     let plus = data(cx, "Plus")?;
     let mut injected = Term::Ctor(plus, 0, vec![Term::Ctor(op_data, i, vec![x])]);
@@ -1366,7 +1370,7 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
         };
         let x_level = cx.level();
         cx.bind(&x_name, dom.clone());
-        let op_value = Value::Ctor(op_data, i, vec![Value::var(x_level)]);
+        let op_value = Value::Ctor(op_data, i, Rc::new([Value::var(x_level)]));
         let b = apply(cx.g(), label_res(cx, &handled), op_value);
         let k_ty = Value::Pi(
             "y".into(),

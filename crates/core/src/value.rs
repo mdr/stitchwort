@@ -20,7 +20,8 @@ pub enum Value {
     Pi(Name, Icit, Rc<Value>, Closure),
     Lam(Name, Icit, Closure),
     Data(DataId, Vec<Value>),
-    Ctor(DataId, usize, Vec<Value>),
+    /// Fields are shared, so copying a value (a list, say) is cheap.
+    Ctor(DataId, usize, Rc<[Value]>),
     /// A number, standing for `Succ (Succ … Zero)`. See [`native`].
     Nat(Rc<BigUint>),
     /// `k + x` for a number `k ≥ 1` and an `x` not built from numbers:
@@ -216,7 +217,7 @@ fn eval_tree(g: &Globals, env: Vec<Value>, term: &Term) -> Option<Value> {
     match term.strip_loc() {
         Term::Case(ix, d, branches) => {
             let (c, fields) = match force(g, env[env.len() - 1 - ix].clone()) {
-                Value::Ctor(_, c, fields) => (c, fields),
+                Value::Ctor(_, c, fields) => (c, fields.to_vec()),
                 other @ (Value::Nat(_) | Value::NatAdd(..)) if Some(*d) == g.builtins.nat => {
                     native::split_value(&other)?
                 }

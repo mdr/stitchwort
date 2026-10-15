@@ -314,15 +314,16 @@ impl Rng {
 fn random_value(g: &Globals, b: &Boundary, rng: &mut Rng, depth: usize) -> Value {
     let named = |name: &str| -> DataId { g.find_data(name).expect("prelude type") };
     match b {
-        Boundary::Bool => Value::Ctor(named("Bool"), rng.below(2), vec![]),
-        Boundary::Nat => (0..rng.below(8)).fold(Value::Ctor(named("Nat"), 0, vec![]), |n, _| {
-            Value::Ctor(named("Nat"), 1, vec![n])
-        }),
+        Boundary::Bool => Value::Ctor(named("Bool"), rng.below(2), vec![].into()),
+        Boundary::Nat => (0..rng.below(8))
+            .fold(Value::Ctor(named("Nat"), 0, vec![].into()), |n, _| {
+                Value::Ctor(named("Nat"), 1, vec![n].into())
+            }),
         Boundary::List(elem) => {
             let len = if depth == 0 { 0 } else { rng.below(5) };
-            (0..len).fold(Value::Ctor(named("List"), 0, vec![]), |tail, _| {
+            (0..len).fold(Value::Ctor(named("List"), 0, vec![].into()), |tail, _| {
                 let head = random_value(g, elem, rng, depth.saturating_sub(1));
-                Value::Ctor(named("List"), 1, vec![head, tail])
+                Value::Ctor(named("List"), 1, vec![head, tail].into())
             })
         }
         Boundary::Data(d) => {

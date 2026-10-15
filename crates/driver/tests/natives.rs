@@ -142,8 +142,8 @@ fn natives_accept_succ_around_a_number() {
     let g = &session.elab.globals;
     let nat_data = g.builtins.nat.unwrap();
     // `Succ 4`, built without the evaluator's compaction.
-    let succ_4 = Value::Ctor(nat_data, 1, vec![nat(4)]);
-    let zero = Value::Ctor(nat_data, 0, Vec::new());
+    let succ_4 = Value::Ctor(nat_data, 1, vec![nat(4)].into());
+    let zero = Value::Ctor(nat_data, 0, Vec::new().into());
     assert_eq!(
         native::as_nat(g, &call(g, def(g, "add"), &[succ_4, zero])),
         Some(BigUint::from(5u32))
@@ -194,20 +194,31 @@ fn a_number_is_its_succ_chain() {
         vec![Value::Ctor(
             d,
             1,
-            vec![Value::Ctor(d, 1, vec![Value::Ctor(d, 0, vec![])])],
-        )],
+            vec![Value::Ctor(
+                d,
+                1,
+                vec![Value::Ctor(d, 0, vec![].into())].into(),
+            )]
+            .into(),
+        )]
+        .into(),
     );
     assert!(conv(g, 0, &nat(3), &three));
     assert!(conv(g, 0, &three, &nat(3)));
     assert!(!conv(g, 0, &nat(2), &three));
     assert!(!conv(g, 0, &nat(4), &three));
-    assert!(!conv(g, 0, &nat(0), &Value::Ctor(d, 1, vec![nat(0)])));
+    assert!(!conv(
+        g,
+        0,
+        &nat(0),
+        &Value::Ctor(d, 1, vec![nat(0)].into())
+    ));
     // `Succ x` is not any particular number.
     assert!(!conv(
         g,
         0,
         &nat(1),
-        &Value::Ctor(d, 1, vec![Value::var(0)])
+        &Value::Ctor(d, 1, vec![Value::var(0)].into())
     ));
 }
 

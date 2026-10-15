@@ -873,7 +873,7 @@ pub fn boundary_literal(g: &Globals, b: &Boundary, value: &Value) -> Result<Stri
             let ctor = &g.data(*d).ctors[*c];
             let boundaries = &field_boundaries(g, *d)[*c];
             let mut parts = vec![format!("tag: \"{}\"", ctor.name)];
-            for ((name, b), field) in boundaries.iter().zip(fields) {
+            for ((name, b), field) in boundaries.iter().zip(fields.iter()) {
                 parts.push(format!(
                     "{}: {}",
                     js_field(name),

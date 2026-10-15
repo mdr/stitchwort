@@ -469,7 +469,7 @@ fn check_case(
             .collect();
         // Inside the branch, the matched variable *is* the constructor value,
         // so it's substituted into the goal and the whole context.
-        let value = Value::Ctor(d, c, fields.clone());
+        let value = Value::Ctor(d, c, fields.clone().into());
         let level = cx.level();
         let mut env = substitute(g, level, x, &value, &cx.env);
         env[x] = value.clone();

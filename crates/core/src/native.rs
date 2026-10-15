@@ -321,7 +321,7 @@ pub fn ctor(g: &Globals, d: DataId, c: usize, fields: Vec<Value>) -> Value {
             _ => {}
         }
     }
-    Value::Ctor(d, c, fields)
+    Value::Ctor(d, c, fields.into())
 }
 
 /// A number as `k + base`: `Succ` applied `k` times to `base`. The base is
@@ -338,9 +338,9 @@ pub fn view(g: &Globals, value: &Value) -> (BigUint, Option<Value>) {
                 value = force(g, (*base).clone());
             }
             Value::Ctor(d, 0, _) if Some(d) == g.builtins.nat => return (k, None),
-            Value::Ctor(d, 1, mut fields) if Some(d) == g.builtins.nat && fields.len() == 1 => {
+            Value::Ctor(d, 1, fields) if Some(d) == g.builtins.nat && fields.len() == 1 => {
                 k += 1u32;
-                value = force(g, fields.pop().expect("one field"));
+                value = force(g, fields[0].clone());
             }
             other => return (k, Some(other)),
         }
@@ -488,9 +488,9 @@ pub fn as_nat(g: &Globals, value: &Value) -> Option<BigUint> {
         match value {
             Value::Nat(n) => return Some(&*n + succs),
             Value::Ctor(d, 0, _) if Some(d) == g.builtins.nat => return Some(BigUint::from(succs)),
-            Value::Ctor(d, 1, mut fields) if Some(d) == g.builtins.nat => {
+            Value::Ctor(d, 1, fields) if Some(d) == g.builtins.nat => {
                 succs += 1;
-                value = force(g, fields.pop()?);
+                value = force(g, fields.last()?.clone());
             }
             _ => return None,
         }
@@ -507,7 +507,7 @@ pub fn split(n: &BigUint) -> (usize, Vec<Value>) {
 }
 
 fn bool_value(g: &Globals, b: bool) -> Option<Value> {
-    Some(Value::Ctor(g.builtins.bool?, b as usize, Vec::new()))
+    Some(Value::Ctor(g.builtins.bool?, b as usize, Rc::new([])))
 }
 
 /// Runs a native implementation of definition `id`, if all its arguments
@@ -540,7 +540,7 @@ pub fn run(g: &Globals, id: DefId, native: Native, spine: &[Elim]) -> Option<Val
         (Native::DecEqNat, [m, n]) => {
             let dec = g.builtins.decidable?;
             if m == n {
-                Some(Value::Ctor(dec, 0, vec![Value::Refl]))
+                Some(Value::Ctor(dec, 0, Rc::new([Value::Refl])))
             } else {
                 // `natNeq m n rfl`, which is stuck until it's given a proof
                 // of `m = n` (and there isn't one).
@@ -553,7 +553,7 @@ pub fn run(g: &Globals, id: DefId, native: Native, spine: &[Elim]) -> Option<Val
                         arg(Value::Refl),
                     ],
                 );
-                Some(Value::Ctor(dec, 1, vec![refutation]))
+                Some(Value::Ctor(dec, 1, Rc::new([refutation])))
             }
         }
         _ => None,
