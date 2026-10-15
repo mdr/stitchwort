@@ -22,8 +22,7 @@ agent, then reviews, merges and updates this file.
 
 Round 2, in progress:
 - **Stack-safe step 4** (lane `depth-guards`): item 1 of **Next**.
-- **Text step 5** (lane `run`): item 3 of **Next**, `main` and
-  `stitchwort run`; mostly the CLI and driver, so it shouldn't clash.
+- ~~Text step 5~~ (lane `run`): merged as `65f91ce`.
 
 Text step 3 waits for round 3: it edits `js/lib.rs` alongside step 4.
 
@@ -39,9 +38,9 @@ Text step 3 waits for round 3: it edits `js/lib.rs` alongside step 4.
    noncharacters, both round-trip laws), and differential tests including the
    cross-runtime counterexamples. Decide how generated JS copes with long
    texts, since JS engines don't eliminate tail calls.
-3. **Text, step 5:** `main` and `stitchwort run`, tested against `simulate`
-   and real standard input and output.
-4. **Text, step 6:** the playground's Run button. Also run the playground's
+3. **Text, step 6:** the playground's Run button (it can reuse the driver's
+   `Session::main` and `Session::run_main`, with scripted input and an output
+   budget). Also run the playground's
    compiler in a Web Worker, as `web/stress.html` does: after the engine's
    stack overflows (`RangeError`), the WebAssembly instance's state isn't
    restored, so it shouldn't be reused. Republish it
@@ -63,6 +62,13 @@ Text step 3 waits for round 3: it edits `js/lib.rs` alongside step 4.
   `lengths 400 3000`, text split/join on 10⁴ characters, generated rows.
 - **Prove** `textToNat (natToText n) = Just n` (needs lemmas about `/` and
   `%`; tested only, for now).
+- **`stitchwort run` out of resources** is tested only in the driver, not
+  through the command (with the command's limits it needs about 1.5 GB).
+  Perhaps a hidden option or environment variable to lower the limits.
+- **Exit codes for `stitchwort run`:** every failure is 1. Decide whether
+  "didn't check" and "failed while running" should differ.
+- **`IO` operations that return `Result`** for recoverable errors (deferred
+  by the text-and-IO proposal).
 - **`Partial`** ([proposal](docs/proposals/partial.md)): until it's settled, an
   infinite `Comp` is unsound.
 - **Lacks constraints on row variables** aren't enforced (only reachable with
@@ -110,6 +116,7 @@ Text step 3 waits for round 3: it edits `js/lib.rs` alongside step 4.
 
 ## Recently done
 
+- `65f91ce` Text step 5 (run lane, merged): `main` and `stitchwort run`, tested against `simulate` and real standard input and output; `examples/accept/adder.sw`.
 - `3fb4764` Text step 4 (IO lane, merged): the `IO` ability and `simulate`, `examples/accept/io.sw`, `examples/extract/io.sw`.
 - `fae5cc2` Stack-safe step 3: `conv`, `unify` and `quote` as work lists; iterative freeing of terms.
 - `78a9ddc` Local WebAssembly test page: `web/stress.html`, served by `web/serve.sh`.
