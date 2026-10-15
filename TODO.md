@@ -13,8 +13,8 @@ How it's kept:
 
 ## Now
 
-Work runs in lanes, each in its own git worktree and branch, merged into
-`main` one at a time (with `nix flake check` after each). Only `main` edits
+Work runs in lanes (up to three at once), each in its own git worktree and
+branch, merged into `main` one at a time (with `nix flake check` after each). Only `main` edits
 this file.
 
 The main session orchestrates: it chooses lanes, hands each to a background
@@ -29,6 +29,8 @@ Round 2:
 - **Text step 3** (lane `js-text`): item 1 of **Next**, in progress.
 - **Number patterns** (lane `number-patterns`): item 2 of **Next**, design
   note first, then implementation.
+- **Recorded benchmarks** (lane `benchmarks`): moved up from **Later** at
+  the user's request.
 
 ## Next
 
@@ -66,8 +68,6 @@ Round 2:
   which may grow exponentially with nested domains (not measured).
 - **Mutation testing** (in small sharded runs): the machine (`value.rs`),
   `budget.rs`, `native.rs` (167 mutants, never done).
-- **Recorded benchmarks** with a regression threshold: the example suite,
-  `lengths 400 3000`, text split/join on 10⁴ characters, generated rows.
 - **Prove** `textToNat (natToText n) = Just n` (needs lemmas about `/` and
   `%`; tested only, for now).
 - **`stitchwort run` out of resources** is tested only in the driver, not
