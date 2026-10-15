@@ -182,6 +182,18 @@ pub enum Pattern {
     Ctor(Name, Vec<Pattern>, Span),
 }
 
+impl Decl {
+    pub fn span(&self) -> Span {
+        match self {
+            Decl::Data { span, .. }
+            | Decl::Signature { span, .. }
+            | Decl::Test { span, .. }
+            | Decl::Ability { span, .. }
+            | Decl::Equation { span, .. } => *span,
+        }
+    }
+}
+
 impl Pattern {
     pub fn span(&self) -> Span {
         match self {

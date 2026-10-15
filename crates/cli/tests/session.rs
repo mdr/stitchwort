@@ -8,7 +8,7 @@ fn eval(session: &mut Session, source: &str) -> Result<String, &'static str> {
     let file = session.sources.add("<test>", source);
     let expr = parse_expression(file, source).map_err(|d| d.code)?;
     let (term, ty) = session.elab.infer_expr(&expr).map_err(|d| d.code)?;
-    let value = session.elab.eval(&term);
+    let value = session.elab.eval(&term).unwrap();
     Ok(format!(
         "{} : {}",
         session.elab.show(&value),

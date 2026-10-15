@@ -7,6 +7,7 @@ use std::rc::Rc;
 
 use stitchwort_syntax::{Diagnostic, Span};
 
+use crate::budget;
 use crate::globals::{Ctor, Data, Def, Globals, Validator};
 use crate::pretty;
 use crate::term::{Branch, DataId, DefId, Icit, Name, Sort, Term};
@@ -54,16 +55,16 @@ impl<'g> Ctx<'g> {
         self.names.truncate(keep);
     }
 
-    fn eval(&self, term: &Term) -> Value {
-        eval(self.g, &self.env, term)
+    fn eval(&self, term: &Term) -> Result<Value> {
+        Ok(eval(self.g, &self.env, term)?)
     }
 
-    fn quote(&self, value: &Value) -> Term {
-        quote(self.g, self.level(), value)
+    fn quote(&self, value: &Value) -> Result<Term> {
+        Ok(quote(self.g, self.level(), value)?)
     }
 
-    fn conv(&self, a: &Value, b: &Value) -> bool {
-        conv(self.g, self.level(), a, b)
+    fn conv(&self, a: &Value, b: &Value) -> Result<bool> {
+        Ok(conv(self.g, self.level(), a, b)?)
     }
 
     fn show(&self, value: &Value) -> String {
@@ -136,9 +137,9 @@ pub fn infer(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
             let mut params = Vec::new();
             let mut out = Vec::new();
             for ((_, param_ty), arg) in data.params.iter().zip(args) {
-                let ty = eval(g, &params, param_ty);
+                let ty = eval(g, &params, param_ty)?;
                 let arg = check(cx, arg, &ty)?;
-                params.push(cx.eval(&arg));
+                params.push(cx.eval(&arg)?);
                 out.push(arg);
             }
             Ok((Term::Data(*d, out), Value::Sort(data.sort)))
@@ -150,7 +151,7 @@ pub fn infer(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
         },
         Term::Pi(x, icit, dom, cod) => {
             let (dom, s1) = check_type(cx, dom)?;
-            let dom_value = cx.eval(&dom);
+            let dom_value = cx.eval(&dom)?;
             cx.bind(x.clone(), dom_value);
             let result = check_type(cx, cod);
             cx.unbind(1);
@@ -165,8 +166,8 @@ pub fn infer(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
             match f_ty {
                 Value::Pi(_, pi_icit, dom, cod) if pi_icit == *icit => {
                     let a = check(cx, a, &dom)?;
-                    let a_value = cx.eval(&a);
-                    Ok((Term::app_icit(f, a, *icit), cod.apply(g, a_value)))
+                    let a_value = cx.eval(&a)?;
+                    Ok((Term::app_icit(f, a, *icit), cod.apply(g, a_value)?))
                 }
                 other => Err(cx.error(
                     "E-NOT-A-FUNCTION",
@@ -180,13 +181,13 @@ pub fn infer(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
         }
         Term::Ann(e, ty) => {
             let (ty, _) = check_type(cx, ty)?;
-            let ty_value = cx.eval(&ty);
+            let ty_value = cx.eval(&ty)?;
             let e = check(cx, e, &ty_value)?;
             Ok((Term::Ann(Rc::new(e), Rc::new(ty)), ty_value))
         }
         Term::Eq(Some(ty), a, b) => {
             let (ty, _) = check_type(cx, ty)?;
-            let ty_value = cx.eval(&ty);
+            let ty_value = cx.eval(&ty)?;
             let a = check(cx, a, &ty_value)?;
             let b = check(cx, b, &ty_value)?;
             Ok((
@@ -203,7 +204,7 @@ pub fn infer(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
                 }
                 Err(e) => return Err(e),
             };
-            let ty = cx.quote(&ty);
+            let ty = cx.quote(&ty)?;
             Ok((
                 Term::Eq(Some(Rc::new(ty)), Rc::new(a), Rc::new(b)),
                 Value::Sort(Sort::Prop),
@@ -236,7 +237,7 @@ pub fn check(cx: &mut Ctx, term: &Term, expected: &Value) -> Result<Term> {
         (Term::Lam(x, icit, body), Value::Pi(_, pi_icit, dom, cod)) if icit == pi_icit => {
             let var = Value::var(cx.level());
             cx.bind(x.clone(), (**dom).clone());
-            let result = check(cx, body, &cod.apply(g, var));
+            let result = check(cx, body, &cod.apply(g, var)?);
             cx.unbind(1);
             Ok(Term::Lam(x.clone(), *icit, Rc::new(result?)))
         }
@@ -262,9 +263,9 @@ pub fn check(cx: &mut Ctx, term: &Term, expected: &Value) -> Result<Term> {
             let mut env = params.clone();
             let mut out = Vec::new();
             for ((_, field_ty), arg) in ctor.fields.iter().zip(args) {
-                let ty = eval(g, &env, field_ty);
+                let ty = eval(g, &env, field_ty)?;
                 let arg = check(cx, arg, &ty)?;
-                env.push(cx.eval(&arg));
+                env.push(cx.eval(&arg)?);
                 out.push(arg);
             }
             Ok(Term::Ctor(*d, *c, out))
@@ -280,7 +281,7 @@ pub fn check(cx: &mut Ctx, term: &Term, expected: &Value) -> Result<Term> {
             ),
         )),
         (Term::Refl, Value::Eq(_, a, b)) => {
-            if cx.conv(a, b) {
+            if cx.conv(a, b)? {
                 Ok(Term::Refl)
             } else {
                 Err(cx
@@ -305,7 +306,7 @@ pub fn check(cx: &mut Ctx, term: &Term, expected: &Value) -> Result<Term> {
         (Term::Case(ix, d, branches), _) => check_case(cx, *ix, *d, branches, expected),
         _ => {
             let (term, found) = infer(cx, term)?;
-            if cx.conv(&found, expected) {
+            if cx.conv(&found, expected)? {
                 Ok(term)
             } else {
                 Err(cx.mismatch(expected, &found))
@@ -331,7 +332,7 @@ fn sort_of(cx: &mut Ctx, ty: &Value) -> Result<Sort> {
     if let Value::Sort(s) = ty {
         return Ok(s.succ());
     }
-    let term = cx.quote(ty);
+    let term = cx.quote(ty)?;
     Ok(check_type(cx, &term)?.1)
 }
 
@@ -365,11 +366,15 @@ fn infer_j(cx: &mut Ctx, motive: &Term, base: &Term, proof: &Term) -> Result<(Te
         Icit::Explicit,
         Rc::new(Term::Lam(p_name.clone(), Icit::Explicit, Rc::new(body))),
     );
-    let motive_value = cx.eval(&motive);
-    let base_ty = apply(g, apply(g, motive_value.clone(), (*x).clone()), Value::Refl);
+    let motive_value = cx.eval(&motive)?;
+    let base_ty = apply(
+        g,
+        apply(g, motive_value.clone(), (*x).clone())?,
+        Value::Refl,
+    )?;
     let base = check(cx, base, &base_ty)?;
-    let proof_value = cx.eval(&proof);
-    let result = apply(g, apply(g, motive_value, (*y).clone()), proof_value);
+    let proof_value = cx.eval(&proof)?;
+    let result = apply(g, apply(g, motive_value, (*y).clone())?, proof_value)?;
     Ok((
         Term::J(Rc::new(motive), Rc::new(base), Rc::new(proof)),
         result,
@@ -460,7 +465,7 @@ fn check_case(
         ));
     }
 
-    let goal_term = cx.quote(goal);
+    let goal_term = cx.quote(goal)?;
     let mut out = Vec::new();
     for (c, (ctor, branch)) in data.ctors.iter().zip(branches).enumerate() {
         let base = cx.level();
@@ -471,10 +476,10 @@ fn check_case(
         // so it's substituted into the goal and the whole context.
         let value = Value::Ctor(d, c, fields.clone().into());
         let level = cx.level();
-        let mut env = substitute(g, level, x, &value, &cx.env);
+        let mut env = substitute(g, level, x, &value, &cx.env)?;
         env[x] = value.clone();
-        let refined_types = substitute(g, level, x, &value, &cx.types);
-        let branch_goal = substitute(g, level, x, &value, &[eval(g, &cx.env, &goal_term)])
+        let refined_types = substitute(g, level, x, &value, &cx.types)?;
+        let branch_goal = substitute(g, level, x, &value, &[eval(g, &cx.env, &goal_term)?])?
             .pop()
             .expect("one value in, one out");
         let saved_env = std::mem::replace(&mut cx.env, env);
@@ -484,7 +489,7 @@ fn check_case(
         for ((_, field_ty), (name, field)) in
             ctor.fields.iter().zip(branch.names.iter().zip(&fields))
         {
-            let ty = eval(g, &field_env, field_ty);
+            let ty = eval(g, &field_env, field_ty)?;
             field_env.push(field.clone());
             cx.bind(name.clone(), ty);
         }
@@ -510,12 +515,12 @@ pub fn substitute(
     x: usize,
     value: &Value,
     values: &[Value],
-) -> Vec<Value> {
+) -> budget::Result<Vec<Value>> {
     let mut env: Vec<Value> = (0..level).map(Value::var).collect();
     env[x] = value.clone();
     values
         .iter()
-        .map(|v| eval(g, &env, &quote(g, level, v)))
+        .map(|v| eval(g, &env, &quote(g, level, v)?))
         .collect()
 }
 
@@ -565,7 +570,7 @@ pub fn declare_def(
     }
     let (ty, sort) = check_type(&mut cx, ty)?;
     if theorem && sort != Sort::Prop {
-        let ty_value = cx.eval(&ty);
+        let ty_value = cx.eval(&ty)?;
         return Err(Diagnostic::error(
             "E-NOT-A-PROP",
             format!("`{name}` is declared as a theorem, but its type isn't a proposition"),
@@ -579,7 +584,7 @@ pub fn declare_def(
         )
         .with_note("remove `theorem` to make it an ordinary definition"));
     }
-    let ty_value = eval(g, &[], &ty);
+    let ty_value = eval(g, &[], &ty)?;
     g.defs.push(Def {
         name: name.clone(),
         ty,
@@ -607,7 +612,7 @@ pub fn declare_data(
     let mut checked = Vec::new();
     for (x, ty) in params {
         let (ty, _) = check_type(&mut cx, &ty)?;
-        let value = cx.eval(&ty);
+        let value = cx.eval(&ty)?;
         cx.bind(x.clone(), value);
         checked.push((x, ty));
     }
@@ -644,7 +649,7 @@ pub fn define_ctors(g: &mut Globals, d: DataId, ctors: Vec<CtorDecl>) -> Result<
         ));
     }
     for (x, ty) in &data.params {
-        let value = cx.eval(ty);
+        let value = cx.eval(ty)?;
         cx.bind(x.clone(), value);
     }
     let mut out = Vec::new();
@@ -700,8 +705,8 @@ pub fn define_ctors(g: &mut Globals, d: DataId, ctors: Vec<CtorDecl>) -> Result<
                          that would make it possible to prove anything",
                     ));
             }
-            let value = cx.eval(&ty);
-            field_erased.push(sort == Sort::Prop || is_type_former(g, cx.level(), &value));
+            let value = cx.eval(&ty)?;
+            field_erased.push(sort == Sort::Prop || is_type_former(g, cx.level(), &value)?);
             cx.bind(x.clone(), value);
             fields.push((x, ty));
             field_sorts.push(sort);
@@ -829,7 +834,7 @@ pub fn add_validator(
 ) -> Result<()> {
     let def = g.def(id);
     let span = def.span;
-    let tel = telescope(g, &def.ty_value, span);
+    let tel = telescope(g, &def.ty_value, span)?;
     let mut cx = Ctx::new(g, span);
     let Some((_, prop, true)) = tel.params.get(param) else {
         return Err(malformed(
@@ -858,11 +863,11 @@ pub fn add_validator(
 
 /// Whether `ty` is `Type`, `Prop`, or a function type ending in one: values of
 /// such types are types, which are erased at runtime.
-pub fn is_type_former(g: &Globals, level: usize, ty: &Value) -> bool {
+pub fn is_type_former(g: &Globals, level: usize, ty: &Value) -> budget::Result<bool> {
     match ty {
-        Value::Sort(_) => true,
-        Value::Pi(_, _, _, cod) => is_type_former(g, level + 1, &cod.apply(g, Value::var(level))),
-        _ => false,
+        Value::Sort(_) => Ok(true),
+        Value::Pi(_, _, _, cod) => is_type_former(g, level + 1, &cod.apply(g, Value::var(level))?),
+        _ => Ok(false),
     }
 }
 
@@ -877,26 +882,25 @@ pub struct Telescope {
 }
 
 /// Splits an already-checked type into its parameters and result.
-pub fn telescope(g: &Globals, ty: &Value, span: Span) -> Telescope {
+pub fn telescope(g: &Globals, ty: &Value, span: Span) -> Result<Telescope> {
     let mut cx = Ctx::new(g, span);
     let mut params = Vec::new();
     let mut ty = ty.clone();
     while let Value::Pi(x, _, dom, cod) = &ty {
-        let erased = is_erased(&mut cx, dom);
-        let next = cod.apply(g, Value::var(cx.level()));
+        let erased = is_erased(&mut cx, dom)?;
+        let next = cod.apply(g, Value::var(cx.level()))?;
         cx.bind(x.clone(), (**dom).clone());
         params.push((x.clone(), (**dom).clone(), erased));
         ty = next;
     }
-    let result_erased = is_erased(&mut cx, &ty);
-    Telescope {
+    let result_erased = is_erased(&mut cx, &ty)?;
+    Ok(Telescope {
         params,
         result: ty,
         result_erased,
-    }
+    })
 }
 
-fn is_erased(cx: &mut Ctx, ty: &Value) -> bool {
-    is_type_former(cx.g, cx.level(), ty)
-        || sort_of(cx, ty).expect("internal error: telescope of an unchecked type") == Sort::Prop
+fn is_erased(cx: &mut Ctx, ty: &Value) -> Result<bool> {
+    Ok(is_type_former(cx.g, cx.level(), ty)? || sort_of(cx, ty)? == Sort::Prop)
 }

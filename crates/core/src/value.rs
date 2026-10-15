@@ -10,6 +10,7 @@ use std::rc::Rc;
 
 use num_bigint::BigUint;
 
+use crate::budget::{ResourceError, Result};
 use crate::globals::Globals;
 use crate::native;
 use crate::term::{Branch, DataId, DefId, Icit, Name, Sort, Term};
@@ -56,7 +57,7 @@ pub struct Closure {
 }
 
 impl Closure {
-    pub fn apply(&self, g: &Globals, arg: Value) -> Value {
+    pub fn apply(&self, g: &Globals, arg: Value) -> Result<Value> {
         let mut env = self.env.to_vec();
         env.push(arg);
         eval(g, &env, &self.body)
@@ -69,13 +70,22 @@ impl Value {
     }
 }
 
-pub fn eval(g: &Globals, env: &[Value], term: &Term) -> Value {
-    match term {
+pub fn eval(g: &Globals, env: &[Value], term: &Term) -> Result<Value> {
+    g.budget.step()?;
+    // A loop rather than `collect`, which can't size the vector in advance.
+    let eval_all = |args: &[Term]| -> Result<Vec<Value>> {
+        let mut values = Vec::with_capacity(args.len());
+        for a in args {
+            values.push(eval(g, env, a)?);
+        }
+        Ok(values)
+    };
+    Ok(match term {
         Term::Var(ix) => env[env.len() - 1 - ix].clone(),
         Term::Def(id) => {
             let def = g.def(*id);
             match &def.body {
-                Some(body) if def.arity == 0 => eval(g, &[], body),
+                Some(body) if def.arity == 0 => eval(g, &[], body)?,
                 _ => Value::Neutral(Head::Def(*id), Vec::new()),
             }
         }
@@ -83,16 +93,14 @@ pub fn eval(g: &Globals, env: &[Value], term: &Term) -> Value {
             Some(value) => value,
             None => Value::Neutral(Head::Meta(*m), Vec::new()),
         },
-        Term::Data(d, args) => Value::Data(*d, args.iter().map(|a| eval(g, env, a)).collect()),
-        Term::Ctor(d, c, args) => {
-            native::ctor(g, *d, *c, args.iter().map(|a| eval(g, env, a)).collect())
-        }
+        Term::Data(d, args) => Value::Data(*d, eval_all(args)?),
+        Term::Ctor(d, c, args) => native::ctor(g, *d, *c, eval_all(args)?),
         Term::Nat(n) => Value::Nat(n.clone()),
         Term::Sort(s) => Value::Sort(*s),
         Term::Pi(x, i, a, b) => Value::Pi(
             x.clone(),
             *i,
-            Rc::new(eval(g, env, a)),
+            Rc::new(eval(g, env, a)?),
             Closure {
                 env: env.into(),
                 body: b.clone(),
@@ -106,9 +114,12 @@ pub fn eval(g: &Globals, env: &[Value], term: &Term) -> Value {
                 body: b.clone(),
             },
         ),
-        Term::App(f, a, i) => apply_icit(g, eval(g, env, f), eval(g, env, a), *i),
-        Term::Ann(e, _) => eval(g, env, e),
-        Term::Case(..) => eval_tree(g, env.to_vec(), term)
+        Term::App(f, a, i) => {
+            let f = eval(g, env, f)?;
+            apply_icit(g, f, eval(g, env, a)?, *i)?
+        }
+        Term::Ann(e, _) => eval(g, env, e)?,
+        Term::Case(..) => eval_tree(g, env.to_vec(), term)?
             .expect("internal error: a case outside a definition's case tree got stuck"),
         Term::Eq(ty, a, b) => Value::Eq(
             Rc::new(eval(
@@ -116,31 +127,47 @@ pub fn eval(g: &Globals, env: &[Value], term: &Term) -> Value {
                 env,
                 ty.as_ref()
                     .expect("internal error: evaluating an unchecked equation"),
-            )),
-            Rc::new(eval(g, env, a)),
-            Rc::new(eval(g, env, b)),
+            )?),
+            Rc::new(eval(g, env, a)?),
+            Rc::new(eval(g, env, b)?),
         ),
         Term::Refl => Value::Refl,
-        Term::J(motive, base, proof) => match force(g, eval(g, env, proof)) {
-            Value::Refl => eval(g, env, base),
+        Term::J(motive, base, proof) => match force(g, eval(g, env, proof)?)? {
+            Value::Refl => eval(g, env, base)?,
             Value::Neutral(head, mut spine) => {
                 spine.push(Elim::J {
-                    motive: eval(g, env, motive),
-                    base: eval(g, env, base),
+                    motive: eval(g, env, motive)?,
+                    base: eval(g, env, base)?,
                 });
                 Value::Neutral(head, spine)
             }
-            other => panic!("internal error: J applied to {other:?}"),
+            other => panic!("internal error: J applied to {}", describe(&other)),
         },
-        Term::Loc(_, t) => eval(g, env, t),
+        Term::Loc(_, t) => eval(g, env, t)?,
+    })
+}
+
+/// A short description of a value for internal errors, which mustn't print
+/// a value that may be arbitrarily deep.
+fn describe(value: &Value) -> &'static str {
+    match value {
+        Value::Sort(_) => "a sort",
+        Value::Pi(..) => "a function type",
+        Value::Lam(..) => "a function",
+        Value::Data(..) => "a data type",
+        Value::Ctor(..) => "a constructor",
+        Value::Nat(_) | Value::NatAdd(..) => "a number",
+        Value::Eq(..) => "an equation",
+        Value::Refl => "rfl",
+        Value::Neutral(..) => "a stuck term",
     }
 }
 
-pub fn apply(g: &Globals, f: Value, arg: Value) -> Value {
+pub fn apply(g: &Globals, f: Value, arg: Value) -> Result<Value> {
     apply_icit(g, f, arg, Icit::Explicit)
 }
 
-pub fn apply_icit(g: &Globals, f: Value, arg: Value, icit: Icit) -> Value {
+pub fn apply_icit(g: &Globals, f: Value, arg: Value, icit: Icit) -> Result<Value> {
     match f {
         Value::Lam(_, _, closure) => closure.apply(g, arg),
         Value::Neutral(Head::Def(id), mut spine) => {
@@ -149,48 +176,52 @@ pub fn apply_icit(g: &Globals, f: Value, arg: Value, icit: Icit) -> Value {
         }
         Value::Neutral(head, mut spine) => {
             spine.push(Elim::App(arg, icit));
-            Value::Neutral(head, spine)
+            Ok(Value::Neutral(head, spine))
         }
-        other => panic!("internal error: applying {other:?}"),
+        other => panic!("internal error: applying {}", describe(&other)),
     }
 }
 
-fn apply_spine(g: &Globals, mut value: Value, spine: &[Elim]) -> Value {
+fn apply_spine(g: &Globals, mut value: Value, spine: &[Elim]) -> Result<Value> {
     for elim in spine {
         value = match elim {
-            Elim::App(arg, icit) => apply_icit(g, value, arg.clone(), *icit),
-            Elim::J { base, .. } => match force(g, value) {
+            Elim::App(arg, icit) => apply_icit(g, value, arg.clone(), *icit)?,
+            Elim::J { base, .. } => match force(g, value)? {
                 Value::Refl => base.clone(),
                 Value::Neutral(head, mut spine) => {
                     spine.push(elim.clone());
                     Value::Neutral(head, spine)
                 }
-                other => panic!("internal error: J applied to {other:?}"),
+                other => panic!("internal error: J applied to {}", describe(&other)),
             },
         };
     }
-    value
+    Ok(value)
 }
 
 /// Replaces a solved metavariable at the head of `value` by its solution.
-pub fn force(g: &Globals, value: Value) -> Value {
+pub fn force(g: &Globals, value: Value) -> Result<Value> {
     match &value {
         Value::Neutral(Head::Meta(m), spine) => match g.meta_solution(*m) {
-            Some(solution) => force(g, apply_spine(g, solution, spine)),
-            None => value,
+            Some(solution) => {
+                g.budget.step()?;
+                let applied = apply_spine(g, solution, spine)?;
+                force(g, applied)
+            }
+            None => Ok(value),
         },
-        _ => value,
+        _ => Ok(value),
     }
 }
 
 /// Unfolds a definition applied to `spine` if it has all its arguments and its
 /// case tree can make progress. Otherwise it stays folded.
-fn unfold(g: &Globals, id: DefId, spine: Vec<Elim>) -> Value {
+fn unfold(g: &Globals, id: DefId, spine: Vec<Elim>) -> Result<Value> {
     if let Some(op) = g.builtins.native(id)
         && op.arity() == spine.len()
-        && let Some(value) = native::run(g, id, op, &spine)
+        && let Some(value) = native::run(g, id, op, &spine)?
     {
-        return value;
+        return Ok(value);
     }
     let def = g.def(id);
     if let Some(body) = &def.body
@@ -204,56 +235,74 @@ fn unfold(g: &Globals, id: DefId, spine: Vec<Elim>) -> Value {
             })
             .collect();
         if let Some(args) = args
-            && let Some(value) = eval_tree(g, args, body.peel_lams(def.arity))
+            && let Some(value) = eval_tree(g, args, body.peel_lams(def.arity))?
         {
-            return value;
+            return Ok(value);
         }
     }
-    Value::Neutral(Head::Def(id), spine)
+    Ok(Value::Neutral(Head::Def(id), spine))
 }
 
 /// Evaluates a case tree. Returns `None` if a case is stuck on a non-constructor.
-fn eval_tree(g: &Globals, env: Vec<Value>, term: &Term) -> Option<Value> {
-    match term.strip_loc() {
-        Term::Case(ix, d, branches) => {
-            let (c, fields) = match force(g, env[env.len() - 1 - ix].clone()) {
-                Value::Ctor(_, c, fields) => (c, fields.to_vec()),
-                other @ (Value::Nat(_) | Value::NatAdd(..)) if Some(*d) == g.builtins.nat => {
-                    native::split_value(&other)?
-                }
-                _ => return None,
-            };
-            let Branch { body, .. } = &branches[c];
-            let mut env = env.clone();
-            env.extend(fields);
-            eval_tree(g, env, body)
+fn eval_tree(g: &Globals, mut env: Vec<Value>, mut term: &Term) -> Result<Option<Value>> {
+    loop {
+        match term.strip_loc() {
+            Term::Case(ix, d, branches) => {
+                let (c, fields) = match force(g, env[env.len() - 1 - ix].clone())? {
+                    Value::Ctor(_, c, fields) => (c, fields.to_vec()),
+                    other @ (Value::Nat(_) | Value::NatAdd(..)) if Some(*d) == g.builtins.nat => {
+                        match native::split_value(&other) {
+                            Some(split) => split,
+                            None => return Ok(None),
+                        }
+                    }
+                    _ => return Ok(None),
+                };
+                let Branch { body, .. } = &branches[c];
+                env.extend(fields);
+                term = body;
+            }
+            other => return eval(g, &env, other).map(Some),
         }
-        other => Some(eval(g, &env, other)),
     }
 }
 
 /// Converts a value back into a term, with `level` variables in scope.
 /// Solved metavariables are replaced by their solutions.
-pub fn quote(g: &Globals, level: usize, value: &Value) -> Term {
-    let q = |v: &Value| quote(g, level, v);
-    match force(g, value.clone()) {
+pub fn quote(g: &Globals, level: usize, value: &Value) -> Result<Term> {
+    let mut size = 0;
+    quote_sized(g, level, value, &mut size)
+}
+
+/// `quote`, counting the nodes built in `size`.
+fn quote_sized(g: &Globals, level: usize, value: &Value, size: &mut u64) -> Result<Term> {
+    g.budget.step()?;
+    *size += 1;
+    if *size > g.budget.size_limit() {
+        return Err(ResourceError::Size);
+    }
+    let mut q = |v: &Value| quote_sized(g, level, v, size);
+    Ok(match force(g, value.clone())? {
         Value::Sort(s) => Term::Sort(s),
-        Value::Pi(x, i, a, b) => Term::Pi(
-            x.clone(),
-            i,
-            Rc::new(q(&a)),
-            Rc::new(quote(g, level + 1, &b.apply(g, Value::var(level)))),
-        ),
-        Value::Lam(x, i, b) => Term::Lam(
-            x.clone(),
-            i,
-            Rc::new(quote(g, level + 1, &b.apply(g, Value::var(level)))),
-        ),
-        Value::Data(d, args) => Term::Data(d, args.iter().map(q).collect()),
-        Value::Ctor(d, c, args) => Term::Ctor(d, c, args.iter().map(q).collect()),
+        Value::Pi(x, i, a, b) => {
+            let a = q(&a)?;
+            let b = b.apply(g, Value::var(level))?;
+            Term::Pi(
+                x.clone(),
+                i,
+                Rc::new(a),
+                Rc::new(quote_sized(g, level + 1, &b, size)?),
+            )
+        }
+        Value::Lam(x, i, b) => {
+            let b = b.apply(g, Value::var(level))?;
+            Term::Lam(x.clone(), i, Rc::new(quote_sized(g, level + 1, &b, size)?))
+        }
+        Value::Data(d, args) => Term::Data(d, args.iter().map(q).collect::<Result<_>>()?),
+        Value::Ctor(d, c, args) => Term::Ctor(d, c, args.iter().map(q).collect::<Result<_>>()?),
         Value::Nat(n) => Term::Nat(n),
-        Value::NatAdd(k, base) => native::nat_add_term(g, &k, q(&base)),
-        Value::Eq(ty, a, b) => Term::Eq(Some(Rc::new(q(&ty))), Rc::new(q(&a)), Rc::new(q(&b))),
+        Value::NatAdd(k, base) => native::nat_add_term(g, &k, q(&base)?),
+        Value::Eq(ty, a, b) => Term::Eq(Some(Rc::new(q(&ty)?)), Rc::new(q(&a)?), Rc::new(q(&b)?)),
         Value::Refl => Term::Refl,
         Value::Neutral(head, spine) => {
             let mut term = match head {
@@ -263,80 +312,91 @@ pub fn quote(g: &Globals, level: usize, value: &Value) -> Term {
             };
             for elim in &spine {
                 term = match elim {
-                    Elim::App(v, i) => Term::app_icit(term, q(v), *i),
+                    Elim::App(v, i) => Term::app_icit(term, q(v)?, *i),
                     Elim::J { motive, base } => {
-                        Term::J(Rc::new(q(motive)), Rc::new(q(base)), Rc::new(term))
+                        Term::J(Rc::new(q(motive)?), Rc::new(q(base)?), Rc::new(term))
                     }
                 };
             }
             term
         }
-    }
+    })
 }
 
 /// Definitional equality, with `level` variables in scope. Used by the kernel,
 /// which never sees metavariables (the elaborator unifies instead).
-pub fn conv(g: &Globals, level: usize, a: &Value, b: &Value) -> bool {
+/// `Ok(false)` means the values were compared and differ; an error means
+/// there's no answer.
+pub fn conv(g: &Globals, level: usize, a: &Value, b: &Value) -> Result<bool> {
+    g.budget.step()?;
     // Numbers, `k + x`, `Zero` and `Succ` all compare by their `k + x` forms:
     // `3` and `Succ x` are equal when `x` is `2`.
     if native::nat_like(g, a) || native::nat_like(g, b) {
-        return native::compare(g, a, b, |x, y| conv(g, level, x, y), |_, _| false);
+        return native::compare(g, a, b, |x, y| conv(g, level, x, y), |_, _| Ok(false));
     }
     let fresh = Value::var(level);
-    match (a, b) {
+    Ok(match (a, b) {
         (Value::Sort(s), Value::Sort(t)) => s == t,
         (Value::Pi(_, i1, a1, b1), Value::Pi(_, i2, a2, b2)) => {
             i1 == i2
-                && conv(g, level, a1, a2)
+                && conv(g, level, a1, a2)?
                 && conv(
                     g,
                     level + 1,
-                    &b1.apply(g, fresh.clone()),
-                    &b2.apply(g, fresh),
-                )
+                    &b1.apply(g, fresh.clone())?,
+                    &b2.apply(g, fresh)?,
+                )?
         }
         (Value::Lam(_, _, b1), Value::Lam(_, _, b2)) => conv(
             g,
             level + 1,
-            &b1.apply(g, fresh.clone()),
-            &b2.apply(g, fresh),
-        ),
+            &b1.apply(g, fresh.clone())?,
+            &b2.apply(g, fresh)?,
+        )?,
         // Eta: `f` and `\x -> f x` are equal.
         (Value::Lam(_, i, b), other) | (other, Value::Lam(_, i, b)) => conv(
             g,
             level + 1,
-            &b.apply(g, fresh.clone()),
-            &apply_icit(g, other.clone(), fresh, *i),
-        ),
-        (Value::Data(d1, a1), Value::Data(d2, a2)) => d1 == d2 && all_conv(g, level, a1, a2),
+            &b.apply(g, fresh.clone())?,
+            &apply_icit(g, other.clone(), fresh, *i)?,
+        )?,
+        (Value::Data(d1, a1), Value::Data(d2, a2)) => d1 == d2 && all_conv(g, level, a1, a2)?,
         (Value::Ctor(d1, c1, a1), Value::Ctor(d2, c2, a2)) => {
-            d1 == d2 && c1 == c2 && all_conv(g, level, a1, a2)
+            d1 == d2 && c1 == c2 && all_conv(g, level, a1, a2)?
         }
         (Value::Eq(t1, x1, y1), Value::Eq(t2, x2, y2)) => {
-            conv(g, level, t1, t2) && conv(g, level, x1, x2) && conv(g, level, y1, y2)
+            conv(g, level, t1, t2)? && conv(g, level, x1, x2)? && conv(g, level, y1, y2)?
         }
         (Value::Refl, Value::Refl) => true,
         (Value::Neutral(h1, s1), Value::Neutral(h2, s2)) => {
-            (h1 == h2
-                && s1.len() == s2.len()
-                && s1.iter().zip(s2).all(|pair| match pair {
-                    (Elim::App(x, _), Elim::App(y, _)) => conv(g, level, x, y),
-                    (
-                        Elim::J {
-                            motive: m1,
-                            base: b1,
-                        },
-                        Elim::J {
-                            motive: m2,
-                            base: b2,
-                        },
-                    ) => conv(g, level, m1, m2) && conv(g, level, b1, b2),
-                    _ => false,
-                }))
-                || eta_definition(g, level, a, b, conv)
+            (h1 == h2 && s1.len() == s2.len() && conv_spines(g, level, s1, s2)?)
+                || eta_definition(g, level, a, b, conv)?
         }
-        _ => eta_definition(g, level, a, b, conv),
+        _ => eta_definition(g, level, a, b, conv)?,
+    })
+}
+
+fn conv_spines(g: &Globals, level: usize, s1: &[Elim], s2: &[Elim]) -> Result<bool> {
+    for pair in s1.iter().zip(s2) {
+        let same = match pair {
+            (Elim::App(x, _), Elim::App(y, _)) => conv(g, level, x, y)?,
+            (
+                Elim::J {
+                    motive: m1,
+                    base: b1,
+                },
+                Elim::J {
+                    motive: m2,
+                    base: b2,
+                },
+            ) => conv(g, level, m1, m2)? && conv(g, level, b1, b2)?,
+            _ => false,
+        };
+        if !same {
+            return Ok(false);
+        }
     }
+    Ok(true)
 }
 
 /// If `value` is a definition applied to fewer arguments than it takes (so
@@ -366,20 +426,28 @@ pub fn eta_definition(
     level: usize,
     a: &Value,
     b: &Value,
-    compare: impl Fn(&Globals, usize, &Value, &Value) -> bool,
-) -> bool {
+    compare: impl Fn(&Globals, usize, &Value, &Value) -> Result<bool>,
+) -> Result<bool> {
     let Some(icit) = underapplied(g, a).or_else(|| underapplied(g, b)) else {
-        return false;
+        return Ok(false);
     };
     let fresh = Value::var(level);
     compare(
         g,
         level + 1,
-        &apply_icit(g, a.clone(), fresh.clone(), icit),
-        &apply_icit(g, b.clone(), fresh, icit),
+        &apply_icit(g, a.clone(), fresh.clone(), icit)?,
+        &apply_icit(g, b.clone(), fresh, icit)?,
     )
 }
 
-fn all_conv(g: &Globals, level: usize, xs: &[Value], ys: &[Value]) -> bool {
-    xs.len() == ys.len() && xs.iter().zip(ys).all(|(x, y)| conv(g, level, x, y))
+fn all_conv(g: &Globals, level: usize, xs: &[Value], ys: &[Value]) -> Result<bool> {
+    if xs.len() != ys.len() {
+        return Ok(false);
+    }
+    for (x, y) in xs.iter().zip(ys) {
+        if !conv(g, level, x, y)? {
+            return Ok(false);
+        }
+    }
+    Ok(true)
 }

@@ -46,16 +46,16 @@ impl Elaborator {
             }
             for ob in obligations {
                 let mut cx = Ctx::from_parts(self, ob.env, ob.types, ob.names, ob.span);
-                let placeholder = cx.eval(&ob.meta);
+                let placeholder = cx.eval(&ob.meta)?;
                 if !matches!(
-                    force(cx.g(), placeholder.clone()),
+                    force(cx.g(), placeholder.clone())?,
                     Value::Neutral(Head::Meta(_), _)
                 ) {
                     continue; // already determined by unification
                 }
                 let proof = prove(&mut cx, &ob.goal, 0)?;
-                let proof_value = cx.eval(&proof);
-                if !cx.unify(&placeholder, &proof_value) {
+                let proof_value = cx.eval(&proof)?;
+                if !cx.unify(&placeholder, &proof_value)? {
                     return Err(cx.error(
                         "E-AUTO",
                         "internal error: a found proof doesn't fit",
@@ -69,21 +69,21 @@ impl Elaborator {
 
 /// A proof of `goal`.
 pub fn prove(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Term> {
-    let goal = force(cx.g(), goal.clone());
+    let goal = force(cx.g(), goal.clone())?;
     for level in (0..cx.level()).rev() {
         let ty = cx.types[level].clone();
-        if attempt(cx, |cx| cx.unify(&ty, &goal).then_some(())).is_some() {
+        if attempt(cx, |cx| Ok(cx.unify(&ty, &goal)?.then_some(())))?.is_some() {
             return Ok(Term::Var(cx.level() - 1 - level));
         }
     }
     let decision = decide(cx, &goal, depth)?;
     let shown = cx.show(&goal);
-    match force(cx.g(), cx.eval(&decision)) {
+    match force(cx.g(), cx.eval(&decision)?)? {
         Value::Ctor(_, 0, _) => {
             // `fromYes [p := goal] decision Trivial`
             let from_yes = def_named(cx, "fromYes")?;
             let (unit, trivial) = ctor_named(cx, "Trivial")?;
-            let goal_term = cx.quote(&goal);
+            let goal_term = cx.quote(&goal)?;
             Ok(Term::app(
                 Term::app(
                     Term::app_icit(Term::Def(from_yes), goal_term, Icit::Implicit),
@@ -111,8 +111,8 @@ pub fn prove(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Term> {
 pub fn decide(cx: &mut Ctx, prop: &Value, depth: usize) -> Result<Term> {
     let decidable = decidable(cx)?;
     if depth <= MAX_DEPTH {
-        for id in decision_procedures(cx, decidable) {
-            if let Some(term) = attempt(cx, |cx| instantiate(cx, id, decidable, prop, depth)) {
+        for id in decision_procedures(cx, decidable)? {
+            if let Some(term) = attempt(cx, |cx| instantiate(cx, id, decidable, prop, depth))? {
                 return Ok(term);
             }
         }
@@ -127,14 +127,27 @@ pub fn decide(cx: &mut Ctx, prop: &Value, depth: usize) -> Result<Term> {
         .with_note("supply a proof by name, or write a decision procedure: a function returning `Decidable …`"))
 }
 
-/// Runs `f`, undoing any metavariable solutions it made if it fails.
-fn attempt<T>(cx: &mut Ctx, f: impl FnOnce(&mut Ctx) -> Option<T>) -> Option<T> {
+/// Runs `f`, undoing any metavariable solutions it made unless it succeeds.
+/// `Ok(None)` means this way didn't work, so another may be tried. An error
+/// (running out of resources, say) means stop.
+fn attempt<T>(cx: &mut Ctx, f: impl FnOnce(&mut Ctx) -> Result<Option<T>>) -> Result<Option<T>> {
     let snapshot = cx.g().metas.borrow().clone();
     let result = f(cx);
-    if result.is_none() {
+    if !matches!(result, Ok(Some(_))) {
         *cx.g().metas.borrow_mut() = snapshot;
     }
     result
+}
+
+/// A failed search for an argument means this candidate doesn't work, unless
+/// it failed by running out of resources: then there's no answer, and the
+/// search must stop rather than try something else.
+fn give_up_on<T>(e: Diagnostic) -> Result<Option<T>> {
+    if e.code == "E-RESOURCE" {
+        Err(e)
+    } else {
+        Ok(None)
+    }
 }
 
 fn decidable(cx: &Ctx) -> Result<DataId> {
@@ -142,25 +155,25 @@ fn decidable(cx: &Ctx) -> Result<DataId> {
 }
 
 /// Definitions whose result type is `Decidable …`, most recent first.
-fn decision_procedures(cx: &Ctx, decidable: DataId) -> Vec<DefId> {
+fn decision_procedures(cx: &Ctx, decidable: DataId) -> Result<Vec<DefId>> {
     let g = cx.g();
-    (0..g.defs.len())
-        .rev()
-        .map(DefId)
-        .filter(|id| {
-            let def = g.def(*id);
-            if def.body.is_none() {
-                return false; // not finished checking (e.g. the one being defined)
-            }
-            let mut ty = def.ty_value.clone();
-            let mut level = 0;
-            while let Value::Pi(_, _, _, cod) = &ty {
-                ty = cod.apply(g, Value::var(level));
-                level += 1;
-            }
-            matches!(ty, Value::Data(d, _) if d == decidable)
-        })
-        .collect()
+    let mut found = Vec::new();
+    for id in (0..g.defs.len()).rev().map(DefId) {
+        let def = g.def(id);
+        if def.body.is_none() {
+            continue; // not finished checking (e.g. the one being defined)
+        }
+        let mut ty = def.ty_value.clone();
+        let mut level = 0;
+        while let Value::Pi(_, _, _, cod) = &ty {
+            ty = cod.apply(g, Value::var(level))?;
+            level += 1;
+        }
+        if matches!(ty, Value::Data(d, _) if d == decidable) {
+            found.push(id);
+        }
+    }
+    Ok(found)
 }
 
 /// Applies decision procedure `id` to fresh unknowns, unifies its result with
@@ -172,34 +185,37 @@ fn instantiate(
     decidable: DataId,
     prop: &Value,
     depth: usize,
-) -> Option<Term> {
+) -> Result<Option<Term>> {
     let g = cx.g();
     let mut term = Term::Def(id);
     let mut ty = g.def(id).ty_value.clone();
     let mut args = Vec::new();
-    while let Value::Pi(_, icit, dom, cod) = force(g, ty.clone()) {
+    while let Value::Pi(_, icit, dom, cod) = force(g, ty.clone())? {
         let meta = cx.fresh_meta();
-        let value = cx.eval(&meta);
+        let value = cx.eval(&meta)?;
         args.push((value.clone(), icit, (*dom).clone()));
         term = Term::app_icit(term, meta, icit);
-        ty = cod.apply(g, value);
+        ty = cod.apply(g, value)?;
     }
-    if !cx.unify(&ty, &Value::Data(decidable, vec![prop.clone()])) {
-        return None;
+    if !cx.unify(&ty, &Value::Data(decidable, vec![prop.clone()]))? {
+        return Ok(None);
     }
     for (value, icit, dom) in args {
-        if !matches!(force(g, value.clone()), Value::Neutral(Head::Meta(_), _)) {
+        if !matches!(force(g, value.clone())?, Value::Neutral(Head::Meta(_), _)) {
             continue;
         }
-        let found = match force(g, dom) {
-            Value::Data(d, params) if d == decidable => decide(cx, &params[0], depth + 1).ok()?,
-            dom if icit == Icit::Auto => prove(cx, &dom, depth + 1).ok()?,
-            _ => return None,
+        let found = match force(g, dom)? {
+            Value::Data(d, params) if d == decidable => decide(cx, &params[0], depth + 1),
+            dom if icit == Icit::Auto => prove(cx, &dom, depth + 1),
+            _ => return Ok(None),
         };
-        let found = cx.eval(&found);
-        if !cx.unify(&value, &found) {
-            return None;
+        let found = match found {
+            Ok(found) => cx.eval(&found)?,
+            Err(e) => return give_up_on(e),
+        };
+        if !cx.unify(&value, &found)? {
+            return Ok(None);
         }
     }
-    Some(term)
+    Ok(Some(term))
 }

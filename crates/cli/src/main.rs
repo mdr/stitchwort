@@ -49,8 +49,17 @@ enum Command {
     },
 }
 
+/// The compiler runs on a thread with this much stack, so that deep programs
+/// have room before they run into their resource limits.
+const STACK: usize = 64 * 1024 * 1024;
+
 fn main() -> ExitCode {
-    match Cli::parse().command {
+    let cli = Cli::parse();
+    stitchwort_cli::driver::with_stack(STACK, move || run(cli))
+}
+
+fn run(cli: Cli) -> ExitCode {
+    match cli.command {
         Command::Check { files } => check(&files),
         Command::Test {
             file,
@@ -91,7 +100,7 @@ fn check(paths: &[PathBuf]) -> ExitCode {
     let mut ok = true;
     for path in paths {
         // Files can't refer to each other yet, so each gets its own session.
-        ok &= load(&mut Session::new(), path);
+        ok &= load(&mut Session::for_stack(STACK), path);
     }
     if ok {
         ExitCode::SUCCESS
@@ -101,36 +110,36 @@ fn check(paths: &[PathBuf]) -> ExitCode {
 }
 
 fn test(path: &Path, cache: Cache) -> ExitCode {
-    let mut session = Session::new();
+    let mut session = Session::for_stack(STACK);
     if !load(&mut session, path) {
         return ExitCode::FAILURE;
     }
     let results = session.run_tests(&cache);
     let width = results.iter().map(|r| r.name.len()).max().unwrap_or(0);
     for result in &results {
-        let mark = match result.outcome {
-            Outcome::Passed => "✓",
-            Outcome::Failed => "✗",
+        let (mark, why) = match result.outcome {
+            Outcome::Passed => ("✓", String::new()),
+            Outcome::Failed => ("✗", "  (evaluated to False)".to_string()),
+            Outcome::OutOfResources(e) => ("!", format!("  (no result: {e})")),
         };
         let how = if result.cached { "cached" } else { "ran" };
-        let failed = if result.outcome == Outcome::Failed {
-            "  (evaluated to False)"
-        } else {
-            ""
-        };
-        println!("  {mark} {:width$}  {how}{failed}", result.name);
+        println!("  {mark} {:width$}  {how}{why}", result.name);
     }
-    let failed = results
-        .iter()
-        .filter(|r| r.outcome == Outcome::Failed)
-        .count();
+    let count = |f: fn(&Outcome) -> bool| results.iter().filter(|r| f(&r.outcome)).count();
+    let passed = count(|o| *o == Outcome::Passed);
+    let failed = count(|o| *o == Outcome::Failed);
+    let unfinished = count(|o| matches!(o, Outcome::OutOfResources(_)));
     let cached = results.iter().filter(|r| r.cached).count();
+    let unfinished_note = if unfinished > 0 {
+        format!(", {unfinished} ran out of resources")
+    } else {
+        String::new()
+    };
     println!(
-        "{} test(s): {} passed, {failed} failed ({cached} from the cache)",
+        "{} test(s): {passed} passed, {failed} failed{unfinished_note} ({cached} from the cache)",
         results.len(),
-        results.len() - failed
     );
-    if failed == 0 {
+    if passed == results.len() {
         ExitCode::SUCCESS
     } else {
         ExitCode::FAILURE
@@ -138,7 +147,7 @@ fn test(path: &Path, cache: Cache) -> ExitCode {
 }
 
 fn eval(path: &Path, expr: &str) -> ExitCode {
-    let mut session = Session::new();
+    let mut session = Session::for_stack(STACK);
     if !load(&mut session, path) {
         return ExitCode::FAILURE;
     }
@@ -158,17 +167,16 @@ fn eval(path: &Path, expr: &str) -> ExitCode {
 fn evaluate(session: &mut Session, expr: &str, type_only: bool) -> Result<String, Diagnostic> {
     let file = session.sources.add("<input>", expr);
     let expr = parse_expression(file, expr)?;
-    let (term, ty) = session.elab.infer_expr(&expr)?;
-    let ty = session.elab.show(&ty);
     if type_only {
-        return Ok(ty);
+        let (_, ty) = session.elab.infer_expr(&expr)?;
+        return Ok(session.elab.show(&ty));
     }
-    let value = session.elab.eval(&term);
-    Ok(format!("{} : {ty}", session.elab.show(&value)))
+    let (value, ty) = session.elab.eval_expr(&expr)?;
+    Ok(format!("{value} : {ty}"))
 }
 
 fn repl(path: Option<&Path>) -> ExitCode {
-    let mut session = Session::new();
+    let mut session = Session::for_stack(STACK);
     if let Some(path) = path
         && !load(&mut session, path)
     {
@@ -215,7 +223,7 @@ fn repl(path: Option<&Path>) -> ExitCode {
 }
 
 fn build(path: &Path, out: &Path) -> ExitCode {
-    let mut session = Session::new();
+    let mut session = Session::for_stack(STACK);
     if !load(&mut session, path) {
         return ExitCode::FAILURE;
     }

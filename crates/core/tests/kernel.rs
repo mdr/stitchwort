@@ -22,7 +22,7 @@ fn nat_value(term: &Term) -> Option<usize> {
 /// Checks a closed term with the kernel and normalises it.
 fn normalise(g: &Globals, term: &Term) -> Term {
     let (term, _) = infer_closed(g, term, span()).expect("term checks");
-    quote(g, 0, &eval(g, &[], &term))
+    quote(g, 0, &eval(g, &[], &term).unwrap()).unwrap()
 }
 
 fn infer_code(g: &Globals, term: &Term) -> &'static str {
@@ -591,10 +591,10 @@ fn recursive_definitions_stay_folded_on_unknown_arguments() {
 #[test]
 fn conversion_includes_eta() {
     let p = Prelude::new();
-    let add = eval(&p.g, &[], &Term::Def(p.add));
-    let eta = eval(&p.g, &[], &lam("x", app(Term::Def(p.add), [v(0)])));
-    assert!(conv(&p.g, 0, &add, &eta));
-    assert!(conv(&p.g, 0, &eta, &add));
+    let add = eval(&p.g, &[], &Term::Def(p.add)).unwrap();
+    let eta = eval(&p.g, &[], &lam("x", app(Term::Def(p.add), [v(0)]))).unwrap();
+    assert!(conv(&p.g, 0, &add, &eta).unwrap());
+    assert!(conv(&p.g, 0, &eta, &add).unwrap());
 }
 
 #[test]
@@ -614,11 +614,14 @@ fn normalising_twice_changes_nothing() {
             &p.g,
             &Term::Ann(
                 Rc::new(once.clone()),
-                Rc::new(quote(
-                    &p.g,
-                    0,
-                    &infer_closed(&p.g, &term, span()).expect("checks").1,
-                )),
+                Rc::new(
+                    quote(
+                        &p.g,
+                        0,
+                        &infer_closed(&p.g, &term, span()).expect("checks").1,
+                    )
+                    .unwrap(),
+                ),
             ),
         );
         assert!(same(&once, &twice), "{once:?} vs {twice:?}");
@@ -637,7 +640,7 @@ fn conversion_distinguishes_values_that_differ_anywhere() {
     let cons = |h: Term, t: Term| Term::Ctor(p.list, 1, vec![h, t]);
     let nil = || Term::Ctor(p.list, 0, vec![]);
     // Closed values, built without type checking.
-    let value = |t: &Term| eval(g, &[], t);
+    let value = |t: &Term| eval(g, &[], t).unwrap();
     let differ = [
         // Function types: domain, codomain, implicitness.
         (
@@ -679,17 +682,17 @@ fn conversion_distinguishes_values_that_differ_anywhere() {
     ];
     for (a, b) in &differ {
         assert!(
-            !conv(g, 0, &value(a), &value(b)),
+            !conv(g, 0, &value(a), &value(b)).unwrap(),
             "{a:?} should differ from {b:?}"
         );
         assert!(
-            !conv(g, 0, &value(b), &value(a)),
+            !conv(g, 0, &value(b), &value(a)).unwrap(),
             "{b:?} should differ from {a:?}"
         );
     }
     for (a, _) in &differ {
         assert!(
-            conv(g, 0, &value(a), &value(a)),
+            conv(g, 0, &value(a), &value(a)).unwrap(),
             "{a:?} should equal itself"
         );
     }
@@ -701,7 +704,7 @@ fn conversion_distinguishes_stuck_computations() {
     let g = &p.g;
     // With two variables x (level 0) and y (level 1) in scope.
     let env = [Value::var(0), Value::var(1)];
-    let value = |t: &Term| eval(g, &env, t);
+    let value = |t: &Term| eval(g, &env, t).unwrap();
     let x = v(1);
     let y = v(0);
     let differ = [
@@ -715,16 +718,19 @@ fn conversion_distinguishes_stuck_computations() {
     ];
     for (a, b) in &differ {
         assert!(
-            !conv(g, 2, &value(a), &value(b)),
+            !conv(g, 2, &value(a), &value(b)).unwrap(),
             "{a:?} should differ from {b:?}"
         );
     }
-    assert!(conv(
-        g,
-        2,
-        &value(&p.plus(x.clone(), y.clone())),
-        &value(&p.plus(x, y))
-    ));
+    assert!(
+        conv(
+            g,
+            2,
+            &value(&p.plus(x.clone(), y.clone())),
+            &value(&p.plus(x, y))
+        )
+        .unwrap()
+    );
 }
 
 #[test]
@@ -739,16 +745,17 @@ fn conversion_compares_stuck_transports() {
             &[Value::var(0)],
             &Term::J(Rc::new(motive), Rc::new(base), Rc::new(v(0))),
         )
+        .unwrap()
     };
     let motive = |t: Term| lam("y", lam("q", t));
     let a = stuck(motive(nat.clone()), p.num(1));
-    assert!(conv(g, 1, &a, &stuck(motive(nat.clone()), p.num(1))));
+    assert!(conv(g, 1, &a, &stuck(motive(nat.clone()), p.num(1))).unwrap());
     assert!(
-        !conv(g, 1, &a, &stuck(motive(nat.clone()), p.num(2))),
+        !conv(g, 1, &a, &stuck(motive(nat.clone()), p.num(2))).unwrap(),
         "different base"
     );
     assert!(
-        !conv(g, 1, &a, &stuck(motive(ty()), p.num(1))),
+        !conv(g, 1, &a, &stuck(motive(ty()), p.num(1))).unwrap(),
         "different motive"
     );
 }
@@ -945,29 +952,31 @@ fn records_which_fields_are_erased() {
 fn conversion_keeps_nested_binders_apart() {
     let p = Prelude::new();
     let g = &p.g;
-    let closed = |t: &Term| eval(g, &[], t);
+    let closed = |t: &Term| eval(g, &[], t).unwrap();
     // \x y -> x  vs  \x y -> y
     let first = lam("x", lam("y", v(1)));
     let second = lam("x", lam("y", v(0)));
-    assert!(!conv(g, 0, &closed(&first), &closed(&second)));
+    assert!(!conv(g, 0, &closed(&first), &closed(&second)).unwrap());
     // (x : Type) -> (y : Type) -> x  vs  … -> y
     let first = pi("x", ty(), pi("y", ty(), v(1)));
     let second = pi("x", ty(), pi("y", ty(), v(0)));
-    assert!(!conv(g, 0, &closed(&first), &closed(&second)));
+    assert!(!conv(g, 0, &closed(&first), &closed(&second)).unwrap());
     // Eta, twice: with f a variable, \x y -> f y x is not f.
     let f = Value::var(0);
     let flipped = eval(
         g,
         std::slice::from_ref(&f),
         &lam("x", lam("y", app(v(2), [v(0), v(1)]))),
-    );
+    )
+    .unwrap();
     let unflipped = eval(
         g,
         std::slice::from_ref(&f),
         &lam("x", lam("y", app(v(2), [v(1), v(0)]))),
-    );
-    assert!(!conv(g, 1, &flipped, &f));
-    assert!(conv(g, 1, &unflipped, &f));
+    )
+    .unwrap();
+    assert!(!conv(g, 1, &flipped, &f).unwrap());
+    assert!(conv(g, 1, &unflipped, &f).unwrap());
 }
 
 #[test]
@@ -1309,10 +1318,10 @@ fn an_under_applied_definition_is_a_function_for_conversion() {
         lam("n", Term::Ctor(nat, 1, vec![v(0)])),
     )
     .unwrap();
-    let f = eval(&p.g, &[], &Term::Def(succ));
-    let g = eval(&p.g, &[], &lam("n", Term::Ctor(nat, 1, vec![v(0)])));
-    assert!(conv(&p.g, 0, &f, &g));
-    assert!(conv(&p.g, 0, &g, &f));
-    let other = eval(&p.g, &[], &lam("n", v(0)));
-    assert!(!conv(&p.g, 0, &f, &other));
+    let f = eval(&p.g, &[], &Term::Def(succ)).unwrap();
+    let g = eval(&p.g, &[], &lam("n", Term::Ctor(nat, 1, vec![v(0)]))).unwrap();
+    assert!(conv(&p.g, 0, &f, &g).unwrap());
+    assert!(conv(&p.g, 0, &g, &f).unwrap());
+    let other = eval(&p.g, &[], &lam("n", v(0))).unwrap();
+    assert!(!conv(&p.g, 0, &f, &other).unwrap());
 }

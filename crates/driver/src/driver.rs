@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use stitchwort_core::hash::{ContentHash, def_hash};
 use stitchwort_core::value::{eval, force};
-use stitchwort_core::{Term, Value};
+use stitchwort_core::{Limits, ResourceError, Term, Value};
 use stitchwort_elab::{Elaborator, PRELUDE};
 use stitchwort_syntax::{Diagnostic, FileId, SourceMap, parse_module};
 
@@ -20,7 +20,27 @@ impl Default for Session {
     }
 }
 
+/// Runs `f` on a new thread with `stack` bytes of stack, for a session whose
+/// limits are [`Limits::for_stack`] of the same size.
+pub fn with_stack<T: Send>(stack: usize, f: impl FnOnce() -> T + Send) -> T {
+    std::thread::scope(|scope| {
+        std::thread::Builder::new()
+            .stack_size(stack)
+            .spawn_scoped(scope, f)
+            .expect("can't start a thread")
+            .join()
+            .unwrap_or_else(|panic| std::panic::resume_unwind(panic))
+    })
+}
+
 impl Session {
+    /// A session for a thread with `stack` bytes of stack.
+    pub fn for_stack(stack: usize) -> Self {
+        let mut session = Session::new();
+        session.elab.limits = Limits::for_stack(stack);
+        session
+    }
+
     pub fn new() -> Self {
         let mut session = Session {
             sources: SourceMap::new(),
@@ -64,6 +84,9 @@ impl Session {
 pub enum Outcome {
     Passed,
     Failed,
+    /// It ran out of resources before finishing: neither passed nor failed.
+    /// Never cached.
+    OutOfResources(ResourceError),
 }
 
 pub struct TestResult {
@@ -121,6 +144,8 @@ impl Cache {
         let text = match outcome {
             Outcome::Passed => "passed",
             Outcome::Failed => "failed",
+            // Not a result: running it again with other limits may finish.
+            Outcome::OutOfResources(_) => return,
         };
         if let Some(parent) = path.parent() {
             let _ = std::fs::create_dir_all(parent);
@@ -146,10 +171,15 @@ impl Session {
                         hash,
                     };
                 }
-                // `Bool` is `False | True`: constructor 1 is `True`.
-                let outcome = match force(g, eval(g, &[], &Term::Def(test.def))) {
-                    Value::Ctor(_, 1, _) => Outcome::Passed,
-                    _ => Outcome::Failed,
+                // Each test is one operation, with its own resource limits.
+                let outcome = {
+                    let _op = g.budget.operation(self.elab.limits);
+                    match eval(g, &[], &Term::Def(test.def)).and_then(|v| force(g, v)) {
+                        // `Bool` is `False | True`: constructor 1 is `True`.
+                        Ok(Value::Ctor(_, 1, _)) => Outcome::Passed,
+                        Ok(_) => Outcome::Failed,
+                        Err(e) => Outcome::OutOfResources(e),
+                    }
                 };
                 cache.put(&hash, outcome);
                 TestResult {

@@ -12,7 +12,7 @@
 
 use std::path::{Path, PathBuf};
 
-use stitchwort_cli::driver::{Cache, Outcome, Session};
+use stitchwort_cli::driver::{Cache, Outcome, Session, with_stack};
 use stitchwort_cli::render::render;
 use stitchwort_syntax::{Diagnostic, SourceMap};
 
@@ -73,11 +73,19 @@ fn snapshot_name(example: &Example) -> String {
     example.name.trim_end_matches(".sw").replace('/', "__")
 }
 
+/// Examples run with this much stack (and the matching resource limits), as
+/// they would from the command line, rather than a test thread's 2 MiB.
+const STACK: usize = 16 * 1024 * 1024;
+
 #[test]
 fn accepted_examples_check() {
+    with_stack(STACK, accepted_examples)
+}
+
+fn accepted_examples() {
     let mut failures = Vec::new();
     for example in examples("accept").into_iter().chain(examples("extract")) {
-        let mut session = Session::new();
+        let mut session = Session::for_stack(STACK);
         if let Err(diagnostics) = session.load(&example.name, &example.text) {
             failures.push(format!(
                 "{}:\n{}",

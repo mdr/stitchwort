@@ -49,14 +49,13 @@ pub fn evaluate(source: &str, expr: &str) -> String {
         Err(errors) => return failure(&errors),
     };
     let file = session.sources.add("expression", expr);
-    let result = parse_expression(file, expr).and_then(|e| session.elab.infer_expr(&e));
+    let result = parse_expression(file, expr).and_then(|e| session.elab.eval_expr(&e));
     match result {
-        Ok((term, ty)) => {
-            let value = session.elab.eval(&term);
+        Ok((value, ty)) => {
             format!(
                 r#"{{"ok":true,"value":{},"type":{}}}"#,
-                json_string(&session.elab.show(&value)),
-                json_string(&session.elab.show(&ty))
+                json_string(&value),
+                json_string(&ty)
             )
         }
         Err(error) => failure_in(&session, &[error]),

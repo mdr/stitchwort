@@ -112,16 +112,18 @@ impl<'e> Ctx<'e> {
             .map(|(_, level)| *level)
     }
 
-    pub fn eval(&self, term: &Term) -> Value {
-        eval(self.g(), &self.env, term)
+    pub fn eval(&self, term: &Term) -> Result<Value> {
+        Ok(eval(self.g(), &self.env, term)?)
     }
 
-    pub fn quote(&self, value: &Value) -> Term {
-        quote(self.g(), self.level(), value)
+    pub fn quote(&self, value: &Value) -> Result<Term> {
+        Ok(quote(self.g(), self.level(), value)?)
     }
 
-    pub fn unify(&self, a: &Value, b: &Value) -> bool {
-        unify(self.g(), self.level(), a, b)
+    /// `Ok(false)` if `a` and `b` can't be made equal; an error if it ran out
+    /// of resources finding out.
+    pub fn unify(&self, a: &Value, b: &Value) -> Result<bool> {
+        Ok(unify(self.g(), self.level(), a, b)?)
     }
 
     pub fn show(&self, value: &Value) -> String {
@@ -153,7 +155,7 @@ impl<'e> Ctx<'e> {
     pub(crate) fn mismatch(&self, expected: &Value, found: &Value) -> Diagnostic {
         let expected_shown = self.show(expected);
         let found_shown = self.show(found);
-        if let (Value::Sort(_), Value::Sort(_)) = (
+        if let (Ok(Value::Sort(_)), Ok(Value::Sort(_))) = (
             force(self.g(), expected.clone()),
             force(self.g(), found.clone()),
         ) {
@@ -199,7 +201,7 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
     let g = cx.g();
     // Code that performs operations, in a pure context: it may only perform
     // what it handles itself.
-    if effects::may_perform(cx, expr) {
+    if effects::may_perform(cx, expr)? {
         return effects::run_pure(cx, expr, None);
     }
     match expr {
@@ -262,7 +264,7 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
         Expr::Prop(_) => Ok((Term::Sort(Sort::Prop), Value::Sort(Sort::Type(0)))),
         Expr::Hole(_) => {
             let ty = cx.fresh_meta();
-            let ty = cx.eval(&ty);
+            let ty = cx.eval(&ty)?;
             Ok((cx.fresh_meta(), ty))
         }
         Expr::Lam(..) => Err(cx.error(
@@ -286,7 +288,7 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             let (dom, s1) = check_type(cx, dom)?;
             let mark = cx.mark();
             for (k, name) in names.iter().enumerate() {
-                let ty = cx.eval(&dom.shift(k, 0));
+                let ty = cx.eval(&dom.shift(k, 0))?;
                 cx.bind(&name.text, ty);
             }
             let result = check_type(cx, cod);
@@ -305,7 +307,7 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
         Expr::Arrow(a, b) => {
             let (a, s1) = check_type(cx, a)?;
             let mark = cx.mark();
-            let a_value = cx.eval(&a);
+            let a_value = cx.eval(&a)?;
             cx.bind_hidden("_".into(), a_value);
             let result = check_type(cx, b);
             cx.reset(mark);
@@ -326,7 +328,7 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             // `a == b` is `toBool d`, for a decision procedure `d` for
             // `a = b`, found as for `if h : a = b`.
             let eq = equation(cx, a, b)?;
-            let decision = crate::auto::decide(cx, &cx.eval(&eq), 0)?;
+            let decision = crate::auto::decide(cx, &cx.eval(&eq)?, 0)?;
             let to_bool = def_named(cx, "toBool")?;
             let (bool_data, _) = ctor_named(cx, "True")?;
             Ok((
@@ -354,7 +356,7 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             let head = (Term::Def(id), g.def(id).ty_value.clone());
             let (term, ty) = apply_args(cx, head, &[Arg::Explicit(a), Arg::Explicit(b)])?;
             // `/` and `%` take an automatic proof that the divisor isn't zero.
-            Ok(insert(cx, term, ty))
+            Ok(insert(cx, term, ty)?)
         }
         Expr::If {
             binder,
@@ -364,22 +366,22 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             ..
         } => {
             let ty = cx.fresh_meta();
-            let ty = cx.eval(&ty);
+            let ty = cx.eval(&ty)?;
             let term = check_if(cx, binder.as_ref(), cond, then, otherwise, &ty)?;
             Ok((term, ty))
         }
         Expr::Ann(e, ty, _) => {
             let (ty, _) = check_type(cx, ty)?;
-            let ty_value = cx.eval(&ty);
+            let ty_value = cx.eval(&ty)?;
             let e = check(cx, e, &ty_value)?;
             Ok((Term::Ann(Rc::new(e), Rc::new(ty)), ty_value))
         }
         Expr::List(..) => {
             let (list, _) = ctor_named(cx, "Nil")?;
             let elem = cx.fresh_meta();
-            let ty = Value::Data(list, vec![cx.eval(&elem)]);
+            let ty = Value::Data(list, vec![cx.eval(&elem)?]);
             let term = check(cx, expr, &ty)?;
-            Ok((annotate(cx, term, &ty), ty))
+            Ok((annotate(cx, term, &ty)?, ty))
         }
     }
 }
@@ -452,9 +454,9 @@ fn infer_app(cx: &mut Ctx, head: &Expr, args: &[Arg]) -> Result<(Term, Value)> {
                 let Arg::Explicit(arg) = arg else {
                     return Err(cx.error("E-ARITY", "data type parameters are explicit", "here"));
                 };
-                let ty = eval(g, &params, param_ty);
+                let ty = eval(g, &params, param_ty)?;
                 let term = check(cx, arg, &ty)?;
-                params.push(cx.eval(&term));
+                params.push(cx.eval(&term)?);
                 terms.push(term);
             }
             let head = (Term::Data(*d, terms), Value::Sort(data.sort));
@@ -467,7 +469,7 @@ fn infer_app(cx: &mut Ctx, head: &Expr, args: &[Arg]) -> Result<(Term, Value)> {
         )),
         Some((Global::Op(a, i), _)) if args.is_empty() => {
             let (term, ty) = effects::op_value(cx, *a, *i)?;
-            let ty_term = cx.quote(&ty);
+            let ty_term = cx.quote(&ty)?;
             Ok((Term::Ann(Rc::new(term), Rc::new(ty_term)), ty))
         }
         Some((Global::Op(a, _), _)) => {
@@ -494,30 +496,35 @@ fn infer_app(cx: &mut Ctx, head: &Expr, args: &[Arg]) -> Result<(Term, Value)> {
             if missing > 0 {
                 // A partially applied constructor is a function; unification
                 // works out its type.
-                let expected = fresh_function_type(cx, missing);
-                let expected = cx.eval(&expected);
+                let expected = fresh_function_type(cx, missing)?;
+                let expected = cx.eval(&expected)?;
                 let (term, ty) = ctor_app(cx, *d, *c, &explicit, Some(&expected))?;
-                let ann = Term::Ann(Rc::new(term), Rc::new(cx.quote(&ty)));
+                let ann = Term::Ann(Rc::new(term), Rc::new(cx.quote(&ty)?));
                 return Ok((ann, ty));
             }
             let (term, ty) = ctor_app(cx, *d, *c, &explicit, None)?;
-            Ok((annotate(cx, term, &ty), ty))
+            Ok((annotate(cx, term, &ty)?, ty))
         }
     }
 }
 
 /// `?a1 -> … -> ?an -> ?b`, with each type a fresh metavariable.
-fn fresh_function_type(cx: &mut Ctx, arity: usize) -> Term {
+fn fresh_function_type(cx: &mut Ctx, arity: usize) -> Result<Term> {
     if arity == 0 {
-        return cx.fresh_meta();
+        return Ok(cx.fresh_meta());
     }
     let dom = cx.fresh_meta();
     let mark = cx.mark();
-    let dom_value = cx.eval(&dom);
+    let dom_value = cx.eval(&dom)?;
     cx.bind_hidden("x".into(), dom_value);
-    let cod = fresh_function_type(cx, arity - 1);
+    let cod = fresh_function_type(cx, arity - 1)?;
     cx.reset(mark);
-    Term::Pi("x".into(), Icit::Explicit, Rc::new(dom), Rc::new(cod))
+    Ok(Term::Pi(
+        "x".into(),
+        Icit::Explicit,
+        Rc::new(dom),
+        Rc::new(cod),
+    ))
 }
 
 fn explicit_args<'a>(cx: &Ctx, args: &[Arg<'a>]) -> Result<Vec<&'a Expr>> {
@@ -547,22 +554,22 @@ fn apply_args(cx: &mut Ctx, head: (Term, Value), args: &[Arg]) -> Result<(Term, 
         match arg {
             Arg::Named(name, value) => {
                 (term, ty) = insert_until(cx, term, ty, name)?;
-                let Value::Pi(_, icit, dom, cod) = force(cx.g(), ty.clone()) else {
+                let Value::Pi(_, icit, dom, cod) = force(cx.g(), ty.clone())? else {
                     unreachable!("insert_until stops at the named implicit parameter");
                 };
                 let value = check(cx, value, &dom)?;
-                let v = cx.eval(&value);
+                let v = cx.eval(&value)?;
                 term = Term::app_icit(term, value, icit);
-                ty = cod.apply(cx.g(), v);
+                ty = cod.apply(cx.g(), v)?;
             }
             Arg::Explicit(value) => {
-                (term, ty) = insert(cx, term, ty);
-                let (dom, cod) = match force(cx.g(), ty.clone()) {
+                (term, ty) = insert(cx, term, ty)?;
+                let (dom, cod) = match force(cx.g(), ty.clone())? {
                     Value::Pi(_, Icit::Explicit, dom, cod) => ((*dom).clone(), cod),
                     Value::Neutral(Head::Meta(_), _) => {
                         // Unknown type: it must be a function type.
                         let dom = cx.fresh_meta();
-                        let dom = cx.eval(&dom);
+                        let dom = cx.eval(&dom)?;
                         let mark = cx.mark();
                         cx.bind_hidden("x".into(), dom.clone());
                         let cod = cx.fresh_meta();
@@ -577,7 +584,7 @@ fn apply_args(cx: &mut Ctx, head: (Term, Value), args: &[Arg]) -> Result<(Term, 
                             Rc::new(dom.clone()),
                             cod.clone(),
                         );
-                        if !cx.unify(&ty, &pi) {
+                        if !cx.unify(&ty, &pi)? {
                             return Err(cx.mismatch(&pi, &ty));
                         }
                         (dom, cod)
@@ -594,9 +601,9 @@ fn apply_args(cx: &mut Ctx, head: (Term, Value), args: &[Arg]) -> Result<(Term, 
                     }
                 };
                 let value = check(cx, value, &dom)?;
-                let v = cx.eval(&value);
+                let v = cx.eval(&value)?;
                 term = Term::app(term, value);
-                ty = cod.apply(cx.g(), v);
+                ty = cod.apply(cx.g(), v)?;
             }
         }
     }
@@ -606,16 +613,16 @@ fn apply_args(cx: &mut Ctx, head: (Term, Value), args: &[Arg]) -> Result<(Term, 
 /// Applies `term` to a fresh metavariable for each leading implicit or auto
 /// parameter. An auto argument is also recorded as an obligation, to be proved
 /// once the declaration has been elaborated (see `auto.rs`).
-pub fn insert(cx: &mut Ctx, mut term: Term, mut ty: Value) -> (Term, Value) {
-    while let Value::Pi(_, icit, dom, cod) = force(cx.g(), ty.clone())
+pub fn insert(cx: &mut Ctx, mut term: Term, mut ty: Value) -> Result<(Term, Value)> {
+    while let Value::Pi(_, icit, dom, cod) = force(cx.g(), ty.clone())?
         && icit.is_implicit()
     {
         let meta = implicit_arg(cx, icit, &dom);
-        let value = cx.eval(&meta);
+        let value = cx.eval(&meta)?;
         term = Term::app_icit(term, meta, icit);
-        ty = cod.apply(cx.g(), value);
+        ty = cod.apply(cx.g(), value)?;
     }
-    (term, ty)
+    Ok((term, ty))
 }
 
 fn implicit_arg(cx: &mut Ctx, icit: Icit, ty: &Value) -> Term {
@@ -641,15 +648,15 @@ fn insert_until(
     name: &AstName,
 ) -> Result<(Term, Value)> {
     loop {
-        match force(cx.g(), ty.clone()) {
+        match force(cx.g(), ty.clone())? {
             Value::Pi(x, icit, _, _) if icit.is_implicit() && *x == *name.text => {
                 return Ok((term, ty));
             }
             Value::Pi(_, icit, dom, cod) if icit.is_implicit() => {
                 let meta = implicit_arg(cx, icit, &dom);
-                let value = cx.eval(&meta);
+                let value = cx.eval(&meta)?;
                 term = Term::app_icit(term, meta, icit);
-                ty = cod.apply(cx.g(), value);
+                ty = cod.apply(cx.g(), value)?;
             }
             _ => {
                 return Err(Diagnostic::error(
@@ -672,21 +679,21 @@ pub fn check(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
 
 fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     let g = cx.g();
-    let expected = force(g, expected.clone());
+    let expected = force(g, expected.clone())?;
     // A computation in a row of abilities: computation mode.
     if !matches!(expr, Expr::Hole(_))
-        && let Some((row, t)) = effects::comp_parts(cx, &expected)
+        && let Some((row, t)) = effects::comp_parts(cx, &expected)?
     {
         return effects::comp_check(cx, expr, &row, &t);
     }
-    if effects::may_perform(cx, expr) {
+    if effects::may_perform(cx, expr)? {
         return Ok(effects::run_pure(cx, expr, Some(&expected))?.0);
     }
     match (expr, &expected) {
         (Expr::Unit(_), Value::Sort(_)) => {
             let unit = data_named(cx, "UnitType")?;
             let found = Value::Sort(Sort::Type(0));
-            if cx.unify(&found, &expected) {
+            if cx.unify(&found, &expected)? {
                 Ok(Term::Data(unit, Vec::new()))
             } else {
                 Err(cx.mismatch(&expected, &found))
@@ -698,7 +705,7 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
             let mark = cx.mark();
             let var = Value::var(cx.level());
             cx.bind_hidden(x.clone(), (**dom).clone());
-            let result = check(cx, expr, &cod.apply(g, var));
+            let result = check(cx, expr, &cod.apply(g, var)?);
             cx.reset(mark);
             Ok(Term::Lam(x.clone(), *icit, Rc::new(result?)))
         }
@@ -717,7 +724,7 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
             let mark = cx.mark();
             let var = Value::var(cx.level());
             cx.bind(&first.text, (**dom).clone());
-            let cod = cod.apply(g, var);
+            let cod = cod.apply(g, var)?;
             let result = if rest.is_empty() {
                 check(cx, body, &cod)
             } else {
@@ -741,7 +748,7 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
         (Expr::Var(name), Value::Eq(_, a, b))
             if name.text == "rfl" && cx.lookup("rfl").is_none() =>
         {
-            if cx.unify(a, b) {
+            if cx.unify(a, b)? {
                 Ok(Term::Refl)
             } else {
                 Err(cx
@@ -784,7 +791,7 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
             match ctor_head(cx, expr)? {
                 Some((d, c, args)) => {
                     let (term, ty) = ctor_app(cx, d, c, &args, Some(&expected))?;
-                    if cx.unify(&ty, &expected) {
+                    if cx.unify(&ty, &expected)? {
                         Ok(term)
                     } else {
                         Err(cx.mismatch(&expected, &ty))
@@ -808,21 +815,21 @@ fn char_term(cx: &Ctx, c: char) -> Result<Term> {
 /// `a ++ b`: `textAppend` for texts, `append` for lists, chosen by the type of
 /// whichever side can be inferred.
 fn append(cx: &mut Ctx, a: &Expr, b: &Expr) -> Result<(Term, Value)> {
-    let (a, b, ty) = match infer(cx, a).map(|(t, ty)| insert(cx, t, ty)) {
+    let (a, b, ty) = match infer(cx, a).and_then(|(t, ty)| insert(cx, t, ty)) {
         Ok((a, ty)) => (a, check(cx, b, &ty)?, ty),
         Err(e) if e.code == "E-CANNOT-INFER" => {
             let (b, ty) = infer(cx, b)?;
-            let (b, ty) = insert(cx, b, ty);
+            let (b, ty) = insert(cx, b, ty)?;
             (check(cx, a, &ty)?, b, ty)
         }
         Err(e) => return Err(e),
     };
     let (text, _) = ctor_named(cx, "MkText")?;
     let (list, _) = ctor_named(cx, "Nil")?;
-    let head = match force(cx.g(), ty.clone()) {
+    let head = match force(cx.g(), ty.clone())? {
         Value::Data(d, _) if d == text => Term::Def(def_named(cx, "textAppend")?),
         Value::Data(d, params) if d == list => {
-            let elem = cx.quote(&params[0]);
+            let elem = cx.quote(&params[0])?;
             Term::app_icit(Term::Def(def_named(cx, "append")?), elem, Icit::Implicit)
         }
         other => {
@@ -838,16 +845,16 @@ fn append(cx: &mut Ctx, a: &Expr, b: &Expr) -> Result<(Term, Value)> {
 
 /// `a = b`, with the type of both sides inferred from either one.
 fn equation(cx: &mut Ctx, a: &Expr, b: &Expr) -> Result<Term> {
-    let (a, b, ty) = match infer(cx, a).map(|(t, ty)| insert(cx, t, ty)) {
+    let (a, b, ty) = match infer(cx, a).and_then(|(t, ty)| insert(cx, t, ty)) {
         Ok((a, ty)) => (a, check(cx, b, &ty)?, ty),
         Err(e) if e.code == "E-CANNOT-INFER" => {
             let (b, ty) = infer(cx, b)?;
-            let (b, ty) = insert(cx, b, ty);
+            let (b, ty) = insert(cx, b, ty)?;
             (check(cx, a, &ty)?, b, ty)
         }
         Err(e) => return Err(e),
     };
-    let ty = cx.quote(&ty);
+    let ty = cx.quote(&ty)?;
     Ok(Term::Eq(Some(Rc::new(ty)), Rc::new(a), Rc::new(b)))
 }
 
@@ -862,7 +869,7 @@ pub(crate) fn check_if(
     otherwise: &Expr,
     expected: &Value,
 ) -> Result<Term> {
-    let result_ty = cx.quote(expected);
+    let result_ty = cx.quote(expected)?;
     let branch = |cx: &mut Ctx, name: &str, ty: Value, body: &Expr| -> Result<Term> {
         let mark = cx.mark();
         cx.bind(name, ty);
@@ -897,10 +904,10 @@ pub(crate) fn check_if(
                     "this is a type of data; use `if c then … else …` for a `Bool`",
                 ));
             }
-            let prop_value = cx.eval(&prop);
+            let prop_value = cx.eval(&prop)?;
             let decision = crate::auto::decide(cx, &prop_value, 0)?;
             let not = def_named(cx, "Not")?;
-            let not_prop = cx.eval(&Term::app(Term::Def(not), prop.clone()));
+            let not_prop = cx.eval(&Term::app(Term::Def(not), prop.clone()))?;
             let then = branch(cx, &h.text, prop_value, then)?;
             let otherwise = branch(cx, &h.text, not_prop, otherwise)?;
             let elim = def_named(cx, "elimDec")?;
@@ -919,10 +926,10 @@ pub(crate) fn check_if(
 
 fn fallback(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     let (term, found) = infer(cx, expr)?;
-    let (term, found) = insert(cx, term, found);
-    if cx.unify(&found, expected) {
+    let (term, found) = insert(cx, term, found)?;
+    if cx.unify(&found, expected)? {
         Ok(term)
-    } else if let Some(term) = effects::coerce(cx, &term, &found, expected) {
+    } else if let Some(term) = effects::coerce(cx, &term, &found, expected)? {
         // An effectful function whose row lists the same abilities in a
         // different order.
         Ok(term)
@@ -996,13 +1003,13 @@ fn ctor_app(
     let mark = cx.mark();
     let mut target = expected.cloned();
     for i in args.len()..k {
-        match target.as_ref().map(|t| force(g, t.clone())) {
+        match target.as_ref().map(|t| force(g, t.clone())).transpose()? {
             Some(Value::Pi(_, Icit::Explicit, dom, cod)) => {
                 let var = Value::var(cx.level());
                 let name: Name = ctor.fields[i].0.clone();
                 cx.bind_hidden(name.clone(), (*dom).clone());
                 missing_types.push(name);
-                target = Some(cod.apply(g, var));
+                target = Some(cod.apply(g, var)?);
             }
             _ => {
                 cx.reset(mark);
@@ -1015,7 +1022,7 @@ fn ctor_app(
         }
     }
 
-    let params = match target.as_ref().map(|t| force(g, t.clone())) {
+    let params = match target.as_ref().map(|t| force(g, t.clone())).transpose()? {
         Some(Value::Data(d2, params)) if d2 == d => params,
         _ => data
             .params
@@ -1024,30 +1031,30 @@ fn ctor_app(
                 let meta = cx.fresh_meta();
                 cx.eval(&meta)
             })
-            .collect(),
+            .collect::<Result<_>>()?,
     };
     let mut env = params.clone();
     let mut terms = Vec::new();
     let first_missing_level = mark.level;
     for (i, (_, field_ty)) in ctor.fields.iter().enumerate() {
-        let ty = eval(g, &env, field_ty);
+        let ty = eval(g, &env, field_ty)?;
         let term = if let Some(arg) = args.get(i) {
             check(cx, arg, &ty)?
         } else {
             let level = first_missing_level + (i - args.len());
             let found = cx.types[level].clone();
-            if !cx.unify(&found, &ty) {
+            if !cx.unify(&found, &ty)? {
                 cx.reset(mark);
                 return Err(cx.mismatch(&ty, &found));
             }
             Term::Var(cx.level() - 1 - level)
         };
-        env.push(cx.eval(&term));
+        env.push(cx.eval(&term)?);
         terms.push(term);
     }
     let result_ty = Value::Data(d, params);
     if let Some(target) = &target
-        && !cx.unify(&result_ty, target)
+        && !cx.unify(&result_ty, target)?
     {
         let error = cx.mismatch(target, &result_ty);
         cx.reset(mark);
@@ -1066,13 +1073,13 @@ fn ctor_app(
 
 /// Wraps an inferred constructor in a type annotation, so the kernel (which
 /// can only check constructors of parameterised types) can infer it too.
-fn annotate(cx: &Ctx, term: Term, ty: &Value) -> Term {
-    match ty {
+fn annotate(cx: &Ctx, term: Term, ty: &Value) -> Result<Term> {
+    Ok(match ty {
         Value::Data(d, _) if !cx.g().data(*d).params.is_empty() => {
-            Term::Ann(Rc::new(term), Rc::new(cx.quote(ty)))
+            Term::Ann(Rc::new(term), Rc::new(cx.quote(ty)?))
         }
         _ => term,
-    }
+    })
 }
 
 pub fn check_type(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Sort)> {
@@ -1084,11 +1091,11 @@ pub fn check_type(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Sort)> {
         ));
     }
     let (term, ty) = infer(cx, expr)?;
-    match force(cx.g(), ty) {
+    match force(cx.g(), ty)? {
         Value::Sort(s) => Ok((term, s)),
         ty @ Value::Neutral(Head::Meta(_), _) => {
             // An unknown type of types defaults to `Type`.
-            if cx.unify(&ty, &Value::Sort(Sort::Type(0))) {
+            if cx.unify(&ty, &Value::Sort(Sort::Type(0)))? {
                 Ok((term, Sort::Type(0)))
             } else {
                 Err(not_a_type(cx, span, &ty))
@@ -1108,8 +1115,8 @@ fn not_a_type(cx: &Ctx, span: Span, ty: &Value) -> Diagnostic {
 fn infer_j(cx: &mut Ctx, motive: &Expr, base: &Expr, proof: &Expr) -> Result<(Term, Value)> {
     let g = cx.g();
     let (proof, proof_ty) = infer(cx, proof)?;
-    let (proof, proof_ty) = insert(cx, proof, proof_ty);
-    let Value::Eq(ty, x, y) = force(g, proof_ty.clone()) else {
+    let (proof, proof_ty) = insert(cx, proof, proof_ty)?;
+    let Value::Eq(ty, x, y) = force(g, proof_ty.clone())? else {
         return Err(cx.error(
             "E-TYPE-MISMATCH",
             "`J` needs a proof of an equation",
@@ -1141,11 +1148,15 @@ fn infer_j(cx: &mut Ctx, motive: &Expr, base: &Expr, proof: &Expr) -> Result<(Te
             Rc::new(body),
         )),
     );
-    let motive_value = cx.eval(&motive);
-    let base_ty = apply(g, apply(g, motive_value.clone(), (*x).clone()), Value::Refl);
+    let motive_value = cx.eval(&motive)?;
+    let base_ty = apply(
+        g,
+        apply(g, motive_value.clone(), (*x).clone())?,
+        Value::Refl,
+    )?;
     let base = check(cx, base, &base_ty)?;
-    let proof_value = cx.eval(&proof);
-    let result = apply(g, apply(g, motive_value, (*y).clone()), proof_value);
+    let proof_value = cx.eval(&proof)?;
+    let result = apply(g, apply(g, motive_value, (*y).clone())?, proof_value)?;
     Ok((
         Term::J(Rc::new(motive), Rc::new(base), Rc::new(proof)),
         result,

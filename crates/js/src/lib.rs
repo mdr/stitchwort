@@ -65,7 +65,7 @@ pub fn exportable(g: &Globals, id: DefId) -> Result<ExportSig, Diagnostic> {
             "its name isn't a valid JavaScript identifier".into(),
         ));
     }
-    let tel = telescope(g, &def.ty_value, def.span);
+    let tel = telescope(g, &def.ty_value, def.span)?;
     if tel.result_erased {
         return Err(refuse(
             "it's a proof or a type, so it has no runtime value".into(),
@@ -77,7 +77,7 @@ pub fn exportable(g: &Globals, id: DefId) -> Result<ExportSig, Diagnostic> {
     let mut param_positions = Vec::new();
     let mut checks = Vec::new();
     for (i, (x, ty, erased)) in tel.params.iter().enumerate() {
-        if *erased && is_type_former(g, i, ty) {
+        if *erased && is_type_former(g, i, ty)? {
             return Err(refuse(format!(
                 "parameter `{x}` is a type; only concrete data can cross the JS boundary for now"
             ))
@@ -173,7 +173,7 @@ fn data_fields(g: &Globals, d: DataId) -> Vec<Vec<(String, Value)>> {
             ctor.fields
                 .iter()
                 .map(|(name, ty)| {
-                    let value = eval(g, &env, ty);
+                    let value = eval(g, &env, ty).expect(OUTSIDE_LIMITS);
                     env.push(Value::var(env.len()));
                     (name.to_string(), value)
                 })
@@ -350,7 +350,7 @@ impl<'g> Gen<'g> {
             .defs
             .iter()
             .map(|def| {
-                let tel = telescope(g, &def.ty_value, def.span);
+                let tel = telescope(g, &def.ty_value, def.span).expect(OUTSIDE_LIMITS);
                 let mask = tel
                     .params
                     .iter()
@@ -845,13 +845,17 @@ fn is_js_identifier(name: &str) -> bool {
         && chars.all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '$')
 }
 
+/// Extraction runs on checked definitions, outside any operation's resource
+/// limits, so evaluating their types can't run out.
+const OUTSIDE_LIMITS: &str = "internal error: evaluation outside an operation ran out of resources";
+
 /// A JS expression for `value`, encoded as it would cross the boundary. Used by
 /// differential tests to compare the reference evaluator with generated JS.
 pub fn boundary_literal(g: &Globals, b: &Boundary, value: &Value) -> Result<String, String> {
     let stuck = || format!("not a fully evaluated value: {value:?}");
     match (b, value) {
         (Boundary::Bool, Value::Ctor(_, c, _)) => Ok((*c == 1).to_string()),
-        (Boundary::Nat, _) => match native::as_nat(g, value) {
+        (Boundary::Nat, _) => match native::as_nat(g, value).map_err(|e| e.to_string())? {
             Some(n) => Ok(format!("{n}n")),
             None => Err(stuck()),
         },

@@ -1,6 +1,24 @@
 # Stitchwort: evaluation that doesn't overflow the stack
 
-**Status:** draft 2, 15 October 2026. Draft 1 was reviewed; this draft adopts the review's changes and is the basis for implementation. Step 0 is done (commit `02235d8`).
+**Status:** draft 2, 15 October 2026. Draft 1 was reviewed; this draft adopts the review's changes and is the basis for implementation. Steps 0 and 1 are done; see [Progress](#progress).
+
+## Progress
+
+**Step 0**, shared constructor fields: commit `02235d8`.
+
+**Step 1**, resource errors: done. Where it differs from the plan below, or found something:
+
+- **The budget lives in `Globals`, not in an explicit parameter.** Threading a `&mut Budget` through about 300 call sites as well as changing their return types would have doubled the churn. Instead, an operation starts with `budget.operation(limits)` (or `start`/`restore`), which resets the counters and restores the previous state when it ends. The parts the review cared about still hold: every function returns `Result`, the budget resets per operation, and nothing outside an operation is counted.
+- **Depth is measured, not counted.** Until the machine exists, the recursive evaluator guards depth by comparing the address of a local variable with where the operation started: a measurement of stack actually used. This works the same on any thread and in WebAssembly's linear-memory stack, and step 4's depth guards can reuse it. Limits come from the thread's stack size (`Limits::for_stack`). The CLI now runs on a 64 MiB thread, and the examples test on a 16 MiB one.
+- **Operations:** each top-level declaration (elaboration and kernel check), each test run, and each `eval` (elaboration, evaluation and printing).
+- **Results:** tests have a third outcome, `OutOfResources`, which is never cached and makes `stitchwort test` fail. Declarations get `E-RESOURCE`, pointing at the declaration.
+- **Recovery points fixed:**
+  - `auto`'s search turned *any* error in a recursive search into "try the next candidate" (`.ok()?`), and so did `coerce` (`lift(…).ok()`). Both now propagate `E-RESOURCE`.
+  - Unification's `solve` and `rename`, which used `Option` for "no solution", now keep "no" separate from "ran out".
+  - Mutation check: putting the old behaviour back in `auto` isn't caught by the fault-injection test. The budget is sticky: once an operation runs out, every later step fails. So the next candidate fails with `E-RESOURCE` anyway. The two safeguards cover for each other.
+- **Invariant relied on:** a module is accepted only if it produces no diagnostics at all. A declaration that fails stays declared without a body, so later declarations in the same module can refer to it. That's safe only because the whole module is then rejected, and the REPL and playground never use a rejected module.
+- **Measured** in a release build, `lengths 400 3000`: 0.72 s before and 0.79 s after (10% slower). Recursion 10,000 deep now runs in the CLI (before, 6,000 crashed), and 100,000 deep gives `E-RESOURCE` instead of a crash.
+- **Found: checking evaluates arguments.** To type `f a`, the kernel evaluates `a` and substitutes it into `f`'s result type, even when that type doesn't mention it. Evaluation is strict, so every closed argument in a program is computed while it's checked. A test like `test "t" = length (replicate n 1) == n` does all its work at check time, and nested sums (`a + b + c + …`) are re-evaluated at every level, which makes checking quadratic in their length. The fix is not to evaluate an argument when the codomain doesn't mention it. That's a separate change to the kernel and elaborator, to be done with its own tests.
 
 ## Changes since draft 1
 

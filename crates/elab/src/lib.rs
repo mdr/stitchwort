@@ -21,7 +21,7 @@ use stitchwort_core::check as kernel;
 use stitchwort_core::native::{self, Native};
 use stitchwort_core::term::Branch;
 use stitchwort_core::value::{eval, force};
-use stitchwort_core::{DataId, DefId, Globals, Icit, Name, Sort, Term, Value, pretty};
+use stitchwort_core::{DataId, DefId, Globals, Icit, Limits, Name, Sort, Term, Value, pretty};
 use stitchwort_syntax::ast::{Decl, Expr, Module, Pattern};
 use stitchwort_syntax::{Diagnostic, Span, ast};
 
@@ -63,6 +63,8 @@ pub struct Elaborator {
     /// implemented definitions are registered with the kernel by name.
     pub loading_prelude: bool,
     abilities: Vec<effects::AbilityInfo>,
+    /// Resource limits for checking each declaration.
+    pub limits: Limits,
 }
 
 /// A pattern that matches a constructor.
@@ -146,6 +148,10 @@ impl Elaborator {
                 }
                 j
             };
+            // Each declaration is one operation, with its own resource limits.
+            let saved = self.globals.budget.start(self.limits);
+            let before = diagnostics.len();
+            let start = i;
             match &decls[i] {
                 decl @ Decl::Data { .. } => {
                     if let Err(d) = self.data(decl) {
@@ -184,13 +190,61 @@ impl Elaborator {
                     i = equations_for(&name.text, i);
                 }
             }
+            self.globals.budget.restore(saved);
+            // A declaration that failed leaves nothing behind for the next.
+            if diagnostics.len() > before {
+                self.clear_metas();
+                // Running out of resources is reported where it happened
+                // only as precisely as the declaration.
+                let span = decls[start].span();
+                for d in &mut diagnostics[before..] {
+                    if d.labels.is_empty() {
+                        *d = d.clone().with_label(span, "while checking this");
+                    }
+                }
+            }
         }
         self.clear_metas();
         diagnostics
     }
 
     /// Elaborates a closed expression, and infers its type with the kernel.
+    /// One operation, with its own resource limits.
     pub fn infer_expr(&self, expr: &Expr) -> Result<(Term, Value)> {
+        let _op = self.globals.budget.operation(self.limits);
+        self.infer_expr_in_operation(expr)
+            .map_err(|d| self.locate(d, expr.span()))
+    }
+
+    /// Elaborates and evaluates a closed expression: its value and its type,
+    /// printed. One operation, with its own resource limits, including
+    /// printing the value.
+    pub fn eval_expr(&self, expr: &Expr) -> Result<(String, String)> {
+        let _op = self.globals.budget.operation(self.limits);
+        let run = || -> Result<(String, String)> {
+            let (term, ty) = self.infer_expr_in_operation(expr)?;
+            let value = eval(&self.globals, &[], &term)?;
+            let shown = pretty::term(
+                &self.globals,
+                &[],
+                &stitchwort_core::value::quote(&self.globals, 0, &value)?,
+            );
+            Ok((shown, self.show(&ty)))
+        };
+        run().map_err(|d| self.locate(d, expr.span()))
+    }
+
+    /// A diagnostic without a location (running out of resources) is
+    /// reported at `span`.
+    fn locate(&self, d: Diagnostic, span: Span) -> Diagnostic {
+        if d.labels.is_empty() {
+            d.with_label(span, "while evaluating this")
+        } else {
+            d
+        }
+    }
+
+    fn infer_expr_in_operation(&self, expr: &Expr) -> Result<(Term, Value)> {
         self.clear_metas();
         let (term, ty) = {
             let mut cx = Ctx::new(self, expr.span());
@@ -199,9 +253,9 @@ impl Elaborator {
             // `div 7 2` gets its proof); a bare name like `length` keeps its
             // polymorphic type.
             if matches!(expr, Expr::App(..) | Expr::Binary(..)) {
-                (term, ty) = check::insert(&mut cx, term, ty);
+                (term, ty) = check::insert(&mut cx, term, ty)?;
             }
-            (term, cx.quote(&ty))
+            (term, cx.quote(&ty)?)
         };
         let term = self.finish(&term, 0)?;
         self.finish(&ty, 0)?;
@@ -209,7 +263,7 @@ impl Elaborator {
         kernel::infer_closed(&self.globals, &term, expr.span())
     }
 
-    pub fn eval(&self, term: &Term) -> Value {
+    pub fn eval(&self, term: &Term) -> std::result::Result<Value, stitchwort_core::ResourceError> {
         eval(&self.globals, &[], term)
     }
 
@@ -226,11 +280,14 @@ impl Elaborator {
     /// solutions into `term`, failing if any are unsolved.
     fn finish(&self, term: &Term, level: usize) -> Result<Term> {
         self.solve_obligations()?;
-        unify::zonk(&self.globals, level, term).map_err(|m| {
-            let span = self.globals.metas.borrow()[m].span;
-            Diagnostic::error("E-UNSOLVED", "can't work out an implicit argument")
-                .with_label(span, "the compiler couldn't work out what goes here")
-                .with_note("supply it explicitly with `f [x := …]`, or add a type annotation")
+        unify::zonk(&self.globals, level, term).map_err(|e| match e {
+            unify::ZonkError::Resource(e) => e.into(),
+            unify::ZonkError::Unsolved(m) => {
+                let span = self.globals.metas.borrow()[m].span;
+                Diagnostic::error("E-UNSOLVED", "can't work out an implicit argument")
+                    .with_label(span, "the compiler couldn't work out what goes here")
+                    .with_note("supply it explicitly with `f [x := …]`, or add a type annotation")
+            }
         })
     }
 
@@ -592,7 +649,7 @@ impl Elaborator {
                 let (ty, _) = check_type(&mut cx, &binder.ty)?;
                 for (k, n) in binder.names.iter().enumerate() {
                     let ty = self.finish(&ty.shift(k, 0), cx.level())?;
-                    let value = cx.eval(&ty);
+                    let value = cx.eval(&ty)?;
                     checked.push((name(n), ty));
                     cx.bind(&n.text, value);
                 }
@@ -633,7 +690,7 @@ impl Elaborator {
             self.clear_metas();
             let mut cx = Ctx::new(self, *span);
             for (x, ty) in &self.globals.data(d).params {
-                let value = cx.eval(ty);
+                let value = cx.eval(ty)?;
                 cx.bind(x, value);
             }
             let mut fields = Vec::new();
@@ -641,7 +698,7 @@ impl Elaborator {
                 let (ty, _) = check_type(&mut cx, &binder.ty)?;
                 for (k, n) in binder.names.iter().enumerate() {
                     let ty = self.finish(&ty.shift(k, 0), cx.level())?;
-                    let value = cx.eval(&ty);
+                    let value = cx.eval(&ty)?;
                     fields.push((name(n), ty, binder.ty.span()));
                     cx.bind(&n.text, value);
                 }
@@ -690,7 +747,7 @@ impl Elaborator {
                 // how it's used (usually `Type`).
                 cx.span = n.span;
                 let dom = cx.fresh_meta();
-                let value = cx.eval(&dom);
+                let value = cx.eval(&dom)?;
                 domains.push(dom);
                 cx.bind(&n.text, value);
             }
@@ -740,10 +797,10 @@ impl Elaborator {
         };
         let def = self.globals.def(id);
         let (name, span) = (def.name.clone(), def.span);
-        let tel = kernel::telescope(&self.globals, &def.ty_value, span);
+        let tel = kernel::telescope(&self.globals, &def.ty_value, span)?;
         let mut found = Vec::new();
         for (i, (_, ty, erased)) in tel.params.iter().enumerate() {
-            if !erased || kernel::is_type_former(&self.globals, i, ty) {
+            if !erased || kernel::is_type_former(&self.globals, i, ty)? {
                 continue; // runtime data, or a type parameter (refused when exporting)
             }
             self.clear_metas();
@@ -816,14 +873,14 @@ impl Elaborator {
         let mut columns = Vec::new();
         let mut ty = g.def(id).ty_value.clone();
         loop {
-            match force(g, ty.clone()) {
+            match force(g, ty.clone())? {
                 // Implicit and auto parameters are in scope by name, wherever
                 // they are in the signature.
                 Value::Pi(x, icit, dom, cod) if icit.is_implicit() => {
                     let var = Value::var(cx.level());
                     cx.bind(&x, (*dom).clone());
                     lams.push((x, icit));
-                    ty = cod.apply(g, var);
+                    ty = cod.apply(g, var)?;
                 }
                 Value::Pi(x, Icit::Explicit, dom, cod) if columns.len() < arity => {
                     let param = match &first_patterns[columns.len()] {
@@ -834,7 +891,7 @@ impl Elaborator {
                     columns.push(cx.level());
                     cx.bind_hidden(param.clone(), (*dom).clone());
                     lams.push((param, Icit::Explicit));
-                    ty = cod.apply(g, var);
+                    ty = cod.apply(g, var)?;
                 }
                 _ => break,
             }
@@ -1131,7 +1188,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
             cx.reset(mark);
             result
         }
-        Tree::Absurd { level, span } => match force(cx.g(), cx.types[*level].clone()) {
+        Tree::Absurd { level, span } => match force(cx.g(), cx.types[*level].clone())? {
             Value::Data(d, _) if cx.g().data(d).ctors.is_empty() => Ok(Term::Loc(
                 *span,
                 Rc::new(Term::Case(cx.level() - 1 - level, d, Vec::new().into())),
@@ -1153,7 +1210,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
         } => {
             let g = cx.g();
             let data = g.data(*d);
-            let params = match force(g, cx.types[*x].clone()) {
+            let params = match force(g, cx.types[*x].clone())? {
                 Value::Data(d2, params) if d2 == *d => params,
                 other => {
                     return Err(error(
@@ -1167,7 +1224,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                     ));
                 }
             };
-            let goal_term = cx.quote(goal);
+            let goal_term = cx.quote(goal)?;
             let mut out = Vec::new();
             for (c, ((names, subtree), ctor)) in branches.iter().zip(&data.ctors).enumerate() {
                 let mark = cx.mark();
@@ -1180,11 +1237,11 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                 // context (as the kernel does).
                 let value = Value::Ctor(*d, c, fields.clone().into());
                 let level = cx.level();
-                let mut env = kernel::substitute(g, level, *x, &value, &cx.env);
+                let mut env = kernel::substitute(g, level, *x, &value, &cx.env)?;
                 env[*x] = value.clone();
-                let refined = kernel::substitute(g, level, *x, &value, &cx.types);
+                let refined = kernel::substitute(g, level, *x, &value, &cx.types)?;
                 let branch_goal =
-                    kernel::substitute(g, level, *x, &value, &[eval(g, &cx.env, &goal_term)])
+                    kernel::substitute(g, level, *x, &value, &[eval(g, &cx.env, &goal_term)?])?
                         .pop()
                         .expect("one value in, one out");
                 let saved_env = std::mem::replace(&mut cx.env, env);
@@ -1193,7 +1250,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                 for ((_, field_ty), (name, field)) in
                     ctor.fields.iter().zip(names.iter().zip(&fields))
                 {
-                    let ty = eval(g, &field_env, field_ty);
+                    let ty = eval(g, &field_env, field_ty)?;
                     field_env.push(field.clone());
                     cx.bind_hidden(name.clone(), ty);
                 }

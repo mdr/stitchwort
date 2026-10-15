@@ -78,7 +78,7 @@ fn random_inputs_agree_with_the_reference_evaluator() {
                         args.push(data[i].clone());
                     } else {
                         let check = sig.checks.iter().find(|c| c.position == position).unwrap();
-                        let decision = force(g, eval(g, &args, &check.decision));
+                        let decision = force(g, eval(g, &args, &check.decision).unwrap()).unwrap();
                         accepted &= matches!(decision, Value::Ctor(_, 0, _));
                         args.push(Value::Refl);
                     }
@@ -92,7 +92,9 @@ fn random_inputs_agree_with_the_reference_evaluator() {
                 let expected = if accepted {
                     let result = args
                         .into_iter()
-                        .fold(eval(g, &[], &Term::Def(id)), |f, a| apply(g, f, a));
+                        .fold(eval(g, &[], &Term::Def(id)).unwrap(), |f, a| {
+                            apply(g, f, a).unwrap()
+                        });
                     boundary_literal(g, &sig.result, &result).expect("result evaluates")
                 } else {
                     REJECTED.into()
@@ -248,11 +250,12 @@ fn run_line(session: &mut Session, source: &str) -> (String, String) {
         .iter()
         .zip(&sig.param_positions)
         .map(|((_, b), position)| {
-            boundary_literal(g, b, &eval(g, &[], args[*position])).expect("argument evaluates")
+            boundary_literal(g, b, &eval(g, &[], args[*position]).unwrap())
+                .expect("argument evaluates")
         })
         .collect();
     let expected =
-        boundary_literal(g, &sig.result, &eval(g, &[], &term)).expect("result evaluates");
+        boundary_literal(g, &sig.result, &eval(g, &[], &term).unwrap()).expect("result evaluates");
     (format!("{}({})", sig.name, js_args.join(", ")), expected)
 }
 
@@ -292,7 +295,7 @@ fn rejected_call(session: &mut Session, source: &str) -> String {
                 .infer_expr(arg)
                 .unwrap_or_else(|d| panic!("`{source}`: {}", d.message));
             let g = &session.elab.globals;
-            boundary_literal(g, b, &eval(g, &[], &term)).expect("argument evaluates")
+            boundary_literal(g, b, &eval(g, &[], &term).unwrap()).expect("argument evaluates")
         })
         .collect();
     format!("{}({})", sig.name, literals.join(", "))

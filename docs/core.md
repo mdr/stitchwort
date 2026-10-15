@@ -267,4 +267,5 @@ Only definitions reachable from the exports (and their checks) are emitted. A de
 | `E-ABILITY` | An operation or effectful call where its ability isn't allowed, or a malformed `ability` |
 | `E-HANDLER` | A handler without a `return` clause or a clause for every operation |
 | `E-EFFECT-ESCAPE` | A result type that depends on the result of an operation |
+| `E-RESOURCE` | Checking or evaluation ran out of steps, stack depth or printing size before finishing: there's no answer, rather than a wrong one (docs/proposals/stack-safe-evaluation.md) |
 | `E-BUILTIN` | A prelude type or definition the compiler implements natively doesn't have the expected shape |

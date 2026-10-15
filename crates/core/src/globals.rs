@@ -78,6 +78,8 @@ pub struct Globals {
     /// Content hashes computed so far. Declarations never change once
     /// checked, so these never go stale.
     pub hashes: RefCell<std::collections::HashMap<HashKey, crate::hash::ContentHash>>,
+    /// Resource limits for the operation in progress.
+    pub budget: crate::budget::Budget,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]

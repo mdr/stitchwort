@@ -13,8 +13,12 @@ pub fn term(g: &Globals, names: &[Name], term: &Term) -> String {
 }
 
 /// Prints `value`, whose free variables are named by `names` (outermost first).
+/// If the value can't be quoted within the resource limits, it's shown as `…`.
 pub fn value(g: &Globals, names: &[Name], value: &Value) -> String {
-    term(g, names, &quote(g, names.len(), value))
+    match quote(g, names.len(), value) {
+        Ok(t) => term(g, names, &t),
+        Err(_) => "…".into(),
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]

@@ -28,6 +28,7 @@ use num_bigint::BigUint;
 use num_traits::Zero;
 use stitchwort_syntax::{Diagnostic, Span};
 
+use crate::budget;
 use crate::globals::Globals;
 use crate::term::{DataId, DefId, Icit, Sort, Term};
 use crate::value::{Elim, Head, Value, conv, eval, force};
@@ -167,25 +168,29 @@ pub fn register_decidable(g: &mut Globals, d: DataId) -> Result<()> {
     let void = g.find_data("Void");
     let shaped = data.params.len() == 1
         && data.sort == Sort::Type(0)
-        && data_sig(g, d) == [vec![0], vec![0]]
-        && void.is_some_and(|void| {
-            let params = [p.clone()];
-            let yes = eval(g, &params, &data.ctors[0].fields[0].1);
-            let no = eval(g, &params, &data.ctors[1].fields[0].1);
-            let param = eval(g, &[], &data.params[0].1);
-            let not_p = Value::Pi(
-                "h".into(),
-                Icit::Explicit,
-                Rc::new(p.clone()),
-                crate::value::Closure {
-                    env: Rc::new([p.clone()]),
-                    body: Rc::new(Term::Data(void, Vec::new())),
-                },
-            );
-            conv(g, 0, &param, &Value::Sort(Sort::Prop))
-                && conv(g, 1, &yes, &p)
-                && conv(g, 1, &no, &not_p)
-        });
+        && data_sig(g, d) == [vec![0], vec![0]];
+    let shaped = shaped
+        && match void {
+            None => false,
+            Some(void) => {
+                let params = [p.clone()];
+                let yes = eval(g, &params, &data.ctors[0].fields[0].1)?;
+                let no = eval(g, &params, &data.ctors[1].fields[0].1)?;
+                let param = eval(g, &[], &data.params[0].1)?;
+                let not_p = Value::Pi(
+                    "h".into(),
+                    Icit::Explicit,
+                    Rc::new(p.clone()),
+                    crate::value::Closure {
+                        env: Rc::new([p.clone()]),
+                        body: Rc::new(Term::Data(void, Vec::new())),
+                    },
+                );
+                conv(g, 0, &param, &Value::Sort(Sort::Prop))?
+                    && conv(g, 1, &yes, &p)?
+                    && conv(g, 1, &no, &not_p)?
+            }
+        };
     if !shaped {
         return Err(shape_error(data.span, "Decidable"));
     }
@@ -245,7 +250,7 @@ pub fn register_native(g: &mut Globals, id: DefId, native: Native) -> Result<()>
     for _ in 0..native.arity() {
         expected = arrow(nat_ty(), expected);
     }
-    if def.arity != native.arity() || !conv(g, 0, &eval(g, &[], &expected), &def.ty_value) {
+    if def.arity != native.arity() || !conv(g, 0, &eval(g, &[], &expected)?, &def.ty_value)? {
         return Err(shape_error(span, native.name()));
     }
     g.builtins.natives.insert(id, native);
@@ -297,7 +302,7 @@ pub fn register_nat_neq(g: &mut Globals, id: DefId) -> Result<()> {
         ),
     );
     // It must still need its last argument, so applying it to three stays stuck.
-    if def.arity != 4 || !conv(g, 0, &eval(g, &[], &expected), &def.ty_value) {
+    if def.arity != 4 || !conv(g, 0, &eval(g, &[], &expected)?, &def.ty_value)? {
         return Err(shape_error(span, "natNeq"));
     }
     g.builtins.nat_neq = Some(id);
@@ -327,22 +332,22 @@ pub fn ctor(g: &Globals, d: DataId, c: usize, fields: Vec<Value>) -> Value {
 /// A number as `k + base`: `Succ` applied `k` times to `base`. The base is
 /// `None` for `Zero` (so it's the number `k`), or a value that isn't built
 /// from numbers (usually stuck on a variable).
-pub fn view(g: &Globals, value: &Value) -> (BigUint, Option<Value>) {
+pub fn view(g: &Globals, value: &Value) -> budget::Result<(BigUint, Option<Value>)> {
     let mut k = BigUint::zero();
-    let mut value = force(g, value.clone());
+    let mut value = force(g, value.clone())?;
     loop {
         match value {
-            Value::Nat(n) => return (k + &*n, None),
+            Value::Nat(n) => return Ok((k + &*n, None)),
             Value::NatAdd(n, base) => {
                 k += &*n;
-                value = force(g, (*base).clone());
+                value = force(g, (*base).clone())?;
             }
-            Value::Ctor(d, 0, _) if Some(d) == g.builtins.nat => return (k, None),
+            Value::Ctor(d, 0, _) if Some(d) == g.builtins.nat => return Ok((k, None)),
             Value::Ctor(d, 1, fields) if Some(d) == g.builtins.nat && fields.len() == 1 => {
                 k += 1u32;
-                value = force(g, fields[0].clone());
+                value = force(g, fields[0].clone())?;
             }
-            other => return (k, Some(other)),
+            other => return Ok((k, Some(other))),
         }
     }
 }
@@ -373,19 +378,19 @@ pub fn compare(
     g: &Globals,
     a: &Value,
     b: &Value,
-    same: impl FnOnce(&Value, &Value) -> bool,
-    assign: impl FnOnce(&Value, &Value) -> bool,
-) -> bool {
-    let (k1, b1) = view(g, a);
-    let (k2, b2) = view(g, b);
+    same: impl FnOnce(&Value, &Value) -> budget::Result<bool>,
+    assign: impl FnOnce(&Value, &Value) -> budget::Result<bool>,
+) -> budget::Result<bool> {
+    let (k1, b1) = view(g, a)?;
+    let (k2, b2) = view(g, b)?;
     let shared = k1.clone().min(k2.clone());
     let (k1, k2) = (k1 - &shared, k2 - &shared);
     match (b1, b2) {
-        (None, None) => k1 == k2,
+        (None, None) => Ok(k1 == k2),
         (Some(x), Some(y)) if k1.is_zero() && k2.is_zero() => same(&x, &y),
         (Some(x), other) if k1.is_zero() => assign(&x, &from_view(k2, other)),
         (other, Some(y)) if k2.is_zero() => assign(&y, &from_view(k1, other)),
-        _ => false,
+        _ => Ok(false),
     }
 }
 
@@ -426,18 +431,23 @@ pub fn split_value(value: &Value) -> Option<(usize, Vec<Value>)> {
 
 /// Shortcuts for numbers with unknowns in them, each a number of steps of
 /// the definition taken at once.
-fn run_partial(g: &Globals, id: DefId, native: Native, args: &[&Value]) -> Option<Value> {
+fn run_partial(
+    g: &Globals,
+    id: DefId,
+    native: Native,
+    args: &[&Value],
+) -> budget::Result<Option<Value>> {
     let call = |a: Value, b: Value| {
         let f = Value::Neutral(Head::Def(id), Vec::new());
-        crate::value::apply(g, crate::value::apply(g, f, a), b)
+        crate::value::apply(g, crate::value::apply(g, f, a)?, b)
     };
     match (native, args) {
         // `add (Succ m) n = Succ (add m n)`, so `add (k + m) n = k + add m n`.
         (Native::Add, [m, n]) => {
-            let (k, base) = view(g, m);
-            match base {
+            let (k, base) = view(g, m)?;
+            Ok(match base {
                 None => {
-                    let (k2, base2) = view(g, n);
+                    let (k2, base2) = view(g, n)?;
                     Some(from_view(k + k2, base2))
                 }
                 Some(_) if k.is_zero() => None,
@@ -451,48 +461,45 @@ fn run_partial(g: &Globals, id: DefId, native: Native, args: &[&Value]) -> Optio
                     );
                     Some(from_view(k, Some(stuck)))
                 }
-            }
+            })
         }
         // `op (Succ m) (Succ n) = op m n`: take off the shared `Succ`s.
         (Native::Sub | Native::Leq | Native::EqNat, [m, n]) => {
-            let (k1, b1) = view(g, m);
-            let (k2, b2) = view(g, n);
+            let (k1, b1) = view(g, m)?;
+            let (k2, b2) = view(g, n)?;
             let shared = k1.clone().min(k2.clone());
             if shared.is_zero() {
-                return None;
+                return Ok(None);
             }
-            Some(call(
-                from_view(k1 - &shared, b1),
-                from_view(k2 - &shared, b2),
-            ))
+            call(from_view(k1 - &shared, b1), from_view(k2 - &shared, b2)).map(Some)
         }
         // `eqNatRefl (Succ n) = eqNatRefl n`.
         (Native::EqNatRefl, [n]) => {
-            let (k, base) = view(g, n);
-            let base = base.filter(|_| !k.is_zero())?;
-            Some(crate::value::apply(
-                g,
-                Value::Neutral(Head::Def(id), Vec::new()),
-                base,
-            ))
+            let (k, base) = view(g, n)?;
+            let Some(base) = base.filter(|_| !k.is_zero()) else {
+                return Ok(None);
+            };
+            crate::value::apply(g, Value::Neutral(Head::Def(id), Vec::new()), base).map(Some)
         }
-        _ => None,
+        _ => Ok(None),
     }
 }
 
 /// The number `value` is, if it's a number (possibly with `Succ`s around it).
-pub fn as_nat(g: &Globals, value: &Value) -> Option<BigUint> {
+pub fn as_nat(g: &Globals, value: &Value) -> budget::Result<Option<BigUint>> {
     let mut succs = 0u64;
-    let mut value = force(g, value.clone());
+    let mut value = force(g, value.clone())?;
     loop {
         match value {
-            Value::Nat(n) => return Some(&*n + succs),
-            Value::Ctor(d, 0, _) if Some(d) == g.builtins.nat => return Some(BigUint::from(succs)),
-            Value::Ctor(d, 1, fields) if Some(d) == g.builtins.nat => {
-                succs += 1;
-                value = force(g, fields.last()?.clone());
+            Value::Nat(n) => return Ok(Some(&*n + succs)),
+            Value::Ctor(d, 0, _) if Some(d) == g.builtins.nat => {
+                return Ok(Some(BigUint::from(succs)));
             }
-            _ => return None,
+            Value::Ctor(d, 1, fields) if Some(d) == g.builtins.nat && fields.len() == 1 => {
+                succs += 1;
+                value = force(g, fields[0].clone())?;
+            }
+            _ => return Ok(None),
         }
     }
 }
@@ -512,20 +519,36 @@ fn bool_value(g: &Globals, b: bool) -> Option<Value> {
 
 /// Runs a native implementation of definition `id`, if all its arguments
 /// are numbers, or takes a shortcut for some numbers with unknowns in them.
-pub fn run(g: &Globals, id: DefId, native: Native, spine: &[Elim]) -> Option<Value> {
-    let values: Vec<&Value> = spine
+pub fn run(
+    g: &Globals,
+    id: DefId,
+    native: Native,
+    spine: &[Elim],
+) -> budget::Result<Option<Value>> {
+    let Some(values) = spine
         .iter()
         .map(|e| match e {
             Elim::App(v, Icit::Explicit) => Some(v),
             _ => None,
         })
-        .collect::<Option<_>>()?;
-    let args: Option<Vec<BigUint>> = values.iter().map(|v| as_nat(g, v)).collect();
-    let Some(args) = args else {
-        return run_partial(g, id, native, &values);
+        .collect::<Option<Vec<&Value>>>()
+    else {
+        return Ok(None);
     };
+    let mut args = Vec::new();
+    for v in &values {
+        match as_nat(g, v)? {
+            Some(n) => args.push(n),
+            None => return run_partial(g, id, native, &values),
+        }
+    }
+    Ok(run_numbers(g, native, &args))
+}
+
+/// A native implementation on numbers.
+fn run_numbers(g: &Globals, native: Native, args: &[BigUint]) -> Option<Value> {
     let nat = |n: BigUint| Some(nat_value(n));
-    match (native, args.as_slice()) {
+    match (native, args) {
         (Native::Add, [m, n]) => nat(m + n),
         (Native::Sub, [m, n]) => nat(if m >= n { m - n } else { BigUint::zero() }),
         (Native::Mul, [m, n]) => nat(m * n),
