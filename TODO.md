@@ -35,8 +35,11 @@ Running:
 - **`Partial`** (lane `partial-design`): a thoroughly researched draft 2 of
   [partial.md](docs/proposals/partial.md), docs only, for the reviewer.
 
-Ready to start:
-- **Mutual recursion, phase 2**
+- **Mutual recursion, phase 2, stage 1** (lane `mutual-recursion-p2`):
+  size-change termination for single functions.
+
+Next after that:
+- **Mutual recursion, phase 2, stages 2–3**
   ([mutual-recursion.md](docs/proposals/mutual-recursion.md), draft 3;
   two reviews; implementation approved). Wire `crates/core/src/sct.rs` into
   the termination checker for single functions (Ackermann accepted), then
