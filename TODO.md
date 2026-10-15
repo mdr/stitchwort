@@ -46,9 +46,12 @@ Round 2:
   strings in generated code; kernel and evaluator unchanged). Stage 2 (B1)
   can follow draft 2 without another review; a native `decEqText` waits for
   a whole-result (proofs included) native-on/off test.
-- **Forward references and mutual recursion**: design note written
-  ([mutual-recursion.md](docs/proposals/mutual-recursion.md)), **with the
-  reviewer**. Recommends any order within a file, grouped automatically, with
+- **Forward references and mutual recursion**
+  ([mutual-recursion.md](docs/proposals/mutual-recursion.md)): reviewed
+  (supports whole-module scope with size-change termination; requires
+  kernel-enforced group completeness, a partial-application policy, and an
+  honest account of `auto` and scheduling). Lane `mutual-recursion-2`: draft
+  2, docs only; implementation waits for the user. Recommends any order within a file, grouped automatically, with
   size-change termination checked by the kernel.
 - ~~JS boundary hardening~~ (lane `js-boundary`): merged as `84bc590`.
 
