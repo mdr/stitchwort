@@ -23,8 +23,7 @@ agent, then reviews, merges and updates this file.
 Round 2, in progress:
 - **Stack-safe step 4** (lane `depth-guards`): item 1 of **Next**.
 - ~~Text step 5~~ (lane `run`): merged as `65f91ce`.
-- ~~Text step 6~~ (lane `playground-run`): merged as `f35f1a7`, playground
-  republished (version 4).
+- ~~Text step 6~~ (lane `playground-run`): merged as `f35f1a7`.
 
 Text step 3 waits for round 3: it edits `js/lib.rs` alongside step 4.
 
@@ -119,7 +118,7 @@ Text step 3 waits for round 3: it edits `js/lib.rs` alongside step 4.
 
 ## Recently done
 
-- `f35f1a7` Text step 6 (playground-run lane, merged): the playground's Run button and its compiler in Web Workers, replaced after a crash; republished.
+- `f35f1a7` Text step 6 (playground-run lane, merged): the playground's Run button and its compiler in Web Workers, replaced after a crash. View it locally with `web/serve.sh`.
 - `65f91ce` Text step 5 (run lane, merged): `main` and `stitchwort run`, tested against `simulate` and real standard input and output; `examples/accept/adder.sw`.
 - `3fb4764` Text step 4 (IO lane, merged): the `IO` ability and `simulate`, `examples/accept/io.sw`, `examples/extract/io.sw`.
 - `fae5cc2` Stack-safe step 3: `conv`, `unify` and `quote` as work lists; iterative freeing of terms.
