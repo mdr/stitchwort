@@ -29,9 +29,6 @@ The main session orchestrates: it chooses lanes, hands each to a background
 agent, then reviews, merges and updates this file.
 
 Running:
-- **JS boundary follow-ups** (lane `js-followups`): own properties only, no
-  exponential decoding of shared input, fail loudly on a definition without
-  a body, DESIGN.md's boundary table.
 
 
 - **Mutual recursion, phase 2, stage 1** (lane `mutual-recursion-p2`):
@@ -95,6 +92,16 @@ Nothing queued: choose from **Later**, or continue the lanes above.
   through `if h : P`, helpers like `maybeThen`, or between functions.
 - **JS codecs are about 2× slower on small inputs** since they became
   iterative (5,000-element list: 0.3 → 0.7 ms both ways), if it matters.
+- **JS encoding doesn't preserve sharing:** a result with much sharing is
+  encoded once per path (`echoTree(dag(12))` gives 2^13−1 objects), so it
+  can be exponential. Accept and document (done, DESIGN §12), or bound it.
+- **JS strings are checked at every place they appear** (the same 1 MB
+  string in 1,000 slots is scanned 1,000 times).
+- **Hostile Proxies at the JS boundary:** `Array.isArray`, `length` and
+  traps outside `own()` aren't wrapped, so a throwing trap escapes raw.
+- **Nested recursive types** (`rest : Nest (Box a)`, probably rose trees
+  `List Tree`) are refused with a misleading "negative position" message,
+  and aren't supported.
 - **Measure the JS limits in browsers** (only Node so far).
 - **Compact text** (text step 7): in generated JS first, then possibly in the
   checking evaluator, with differential tests against the plain-list version.
@@ -209,6 +216,7 @@ Nothing queued: choose from **Later**, or continue the lanes above.
 
 ## Recently done
 
+- `4776303` JS boundary follow-ups: decoders read only own properties (blocks prototype pollution), shared input decoded once (a 60-level DAG went from never finishing to instant), the generator refuses a definition without a body, DESIGN's boundary table matches what's built.
 - `813fe74` Number patterns: a number switch in kernel case trees; the 256 cap is gone (`statusText 404` works, 10^30 too); `f 256` checks in 0.01 s instead of 2 s; 3 columns × 5 keys from 85 s to under a millisecond; constructor-expansion oracle over 300 generated definitions.
 - `72d3004` Mutual recursion phase 1: draft 3 of the design and the size-change graph algorithm (`sct.rs`), with an independent reference implementation and mutation evidence.
 - `afad1e0` Kernel admission ([kernel-admission.md](docs/proposals/kernel-admission.md)): declarations are pending, final or failed, and may refer only to final ones; closes a split cycle (`f 0` looping) and `impossible MakeD : Void` via the raw kernel API; 11 must-reject tests.
