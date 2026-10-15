@@ -262,13 +262,26 @@ These come before the direct-style translation:
 - `Comp`, `foldComp` and `bind` in the prelude.
 - Handlers written by hand, with the semantic tests and the must-reject tests above.
 - A nested-pattern fix that this needed: a branch now refines every variable whose type mentions the matched one, including variables bound earlier (`rest : res o` after `o` is matched as `L Get`).
+- **Row mappings**, in the prelude:
+  - `Plus` and `PlusRes` combine two signatures.
+  - `SigMap` is a mapping that carries responses back (`inject` and `reply`), and `translate` moves a computation along one.
+  - The basic mappings are `sigId`, `sigCompose`, `sigLeft`, `sigRight` and `sigSwap`.
+- **Row tests** in `examples/accept/rows.sw`, comparing operation traces as well as results:
+  - identity;
+  - swap, and swap followed by swap back;
+  - two composed weakenings against the direct mapping;
+  - the same generic `runStateL` with the rest of the row as `Choose` and as `{Choose, Abort}`;
+  - `Choose` handled when it's on the left instead of the right.
+- **Three things this needed:**
+  - Unifying `?res (inject o)` with `PlusRes … (inject o)` matches the last arguments, then the rest.
+  - A definition applied to fewer arguments than it takes is a function for conversion, so type-level helpers like `SCRes o = PlusRes … o` work.
+  - `1000 + x` stays compact instead of unfolding into a thousand `Succ`s, which used to crash the checker.
 
 **Next:**
-1. One generic handler over an abstract residual row, with checked injection and response mappings, run under different row orders and concrete instantiations (the tests listed under Rows).
-2. `ability` declarations and rows on arrows.
-3. The direct-style translation, with `let` and sequencing, compared with Part 1 on the semantic tests, including operation order.
-4. `handle … with`, with the coverage rule.
-5. `IO` and `main`.
+1. `ability` declarations and rows on arrows.
+2. The direct-style translation, with `let` and sequencing, compared with Part 1 on the semantic tests, including operation order.
+3. `handle … with`, with the coverage rule.
+4. `IO` and `main`.
 
 ## Questions
 

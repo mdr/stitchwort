@@ -14,6 +14,12 @@
 //!
 //! Built-ins are registered by name, only while the prelude is loaded, and the
 //! registration functions check the shapes of the types involved.
+//!
+//! A number with unknowns in it is kept compact too: `1000 + x` is
+//! `Value::NatAdd(1000, x)`, which means `Succ` applied 1000 times to `x`
+//! (exactly what `add` computes by its definition). `sub`, `leq` and `eqNat`
+//! take off the `Succ`s two such numbers share in one step, as their
+//! definitions do one at a time.
 
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -309,10 +315,169 @@ pub fn ctor(g: &Globals, d: DataId, c: usize, fields: Vec<Value>) -> Value {
         match (c, fields.as_slice()) {
             (0, []) => return nat_value(BigUint::zero()),
             (1, [Value::Nat(n)]) => return nat_value(&**n + 1u32),
+            (1, [Value::NatAdd(k, base)]) => {
+                return Value::NatAdd(Rc::new(&**k + 1u32), base.clone());
+            }
             _ => {}
         }
     }
     Value::Ctor(d, c, fields)
+}
+
+/// A number as `k + base`: `Succ` applied `k` times to `base`. The base is
+/// `None` for `Zero` (so it's the number `k`), or a value that isn't built
+/// from numbers (usually stuck on a variable).
+pub fn view(g: &Globals, value: &Value) -> (BigUint, Option<Value>) {
+    let mut k = BigUint::zero();
+    let mut value = force(g, value.clone());
+    loop {
+        match value {
+            Value::Nat(n) => return (k + &*n, None),
+            Value::NatAdd(n, base) => {
+                k += &*n;
+                value = force(g, (*base).clone());
+            }
+            Value::Ctor(d, 0, _) if Some(d) == g.builtins.nat => return (k, None),
+            Value::Ctor(d, 1, mut fields) if Some(d) == g.builtins.nat && fields.len() == 1 => {
+                k += 1u32;
+                value = force(g, fields.pop().expect("one field"));
+            }
+            other => return (k, Some(other)),
+        }
+    }
+}
+
+/// The value for `k + base` (see [`view`]).
+pub fn from_view(k: BigUint, base: Option<Value>) -> Value {
+    match base {
+        None => nat_value(k),
+        Some(base) if k.is_zero() => base,
+        Some(base) => Value::NatAdd(Rc::new(k), Rc::new(base)),
+    }
+}
+
+/// Whether `value` is built from numbers: a number, `k + x`, `Zero` or `Succ`.
+pub fn nat_like(g: &Globals, value: &Value) -> bool {
+    match value {
+        Value::Nat(_) | Value::NatAdd(..) => true,
+        Value::Ctor(d, _, _) => Some(*d) == g.builtins.nat,
+        _ => false,
+    }
+}
+
+/// Compares two numbers by their `k + base` forms, after taking off the
+/// `Succ`s they share. Two bases are compared with `same`. A base on its own
+/// against anything else is handed to `assign`: never equal for conversion,
+/// but the unifier can solve a metavariable there.
+pub fn compare(
+    g: &Globals,
+    a: &Value,
+    b: &Value,
+    same: impl FnOnce(&Value, &Value) -> bool,
+    assign: impl FnOnce(&Value, &Value) -> bool,
+) -> bool {
+    let (k1, b1) = view(g, a);
+    let (k2, b2) = view(g, b);
+    let shared = k1.clone().min(k2.clone());
+    let (k1, k2) = (k1 - &shared, k2 - &shared);
+    match (b1, b2) {
+        (None, None) => k1 == k2,
+        (Some(x), Some(y)) if k1.is_zero() && k2.is_zero() => same(&x, &y),
+        (Some(x), other) if k1.is_zero() => assign(&x, &from_view(k2, other)),
+        (other, Some(y)) if k2.is_zero() => assign(&y, &from_view(k1, other)),
+        _ => false,
+    }
+}
+
+/// The term for `k + base`: `Succ base` when `k` is 1 (as proofs usually
+/// write it), and otherwise an application of `add`.
+pub fn nat_add_term(g: &Globals, k: &BigUint, base: Term) -> Term {
+    if let Some(nat) = g.builtins.nat
+        && *k == BigUint::from(1u32)
+    {
+        return Term::Ctor(nat, 1, vec![base]);
+    }
+    match native_def(g, Native::Add) {
+        Some(add) => Term::app(
+            Term::app(Term::Def(add), Term::Nat(Rc::new(k.clone()))),
+            base,
+        ),
+        None => {
+            let nat = g.builtins.nat.expect("`k + x` values need `Nat`");
+            let mut term = base;
+            let mut i = BigUint::zero();
+            while &i < k {
+                term = Term::Ctor(nat, 1, vec![term]);
+                i += 1u32;
+            }
+            term
+        }
+    }
+}
+
+/// Matching on a number value: the constructor and its fields.
+pub fn split_value(value: &Value) -> Option<(usize, Vec<Value>)> {
+    match value {
+        Value::Nat(n) => Some(split(n)),
+        Value::NatAdd(k, base) => Some((1, vec![from_view(&**k - 1u32, Some((**base).clone()))])),
+        _ => None,
+    }
+}
+
+/// Shortcuts for numbers with unknowns in them, each a number of steps of
+/// the definition taken at once.
+fn run_partial(g: &Globals, id: DefId, native: Native, args: &[&Value]) -> Option<Value> {
+    let call = |a: Value, b: Value| {
+        let f = Value::Neutral(Head::Def(id), Vec::new());
+        crate::value::apply(g, crate::value::apply(g, f, a), b)
+    };
+    match (native, args) {
+        // `add (Succ m) n = Succ (add m n)`, so `add (k + m) n = k + add m n`.
+        (Native::Add, [m, n]) => {
+            let (k, base) = view(g, m);
+            match base {
+                None => {
+                    let (k2, base2) = view(g, n);
+                    Some(from_view(k + k2, base2))
+                }
+                Some(_) if k.is_zero() => None,
+                Some(base) => {
+                    let stuck = Value::Neutral(
+                        Head::Def(id),
+                        vec![
+                            Elim::App(base, Icit::Explicit),
+                            Elim::App((*n).clone(), Icit::Explicit),
+                        ],
+                    );
+                    Some(from_view(k, Some(stuck)))
+                }
+            }
+        }
+        // `op (Succ m) (Succ n) = op m n`: take off the shared `Succ`s.
+        (Native::Sub | Native::Leq | Native::EqNat, [m, n]) => {
+            let (k1, b1) = view(g, m);
+            let (k2, b2) = view(g, n);
+            let shared = k1.clone().min(k2.clone());
+            if shared.is_zero() {
+                return None;
+            }
+            Some(call(
+                from_view(k1 - &shared, b1),
+                from_view(k2 - &shared, b2),
+            ))
+        }
+        // `eqNatRefl (Succ n) = eqNatRefl n`.
+        (Native::EqNatRefl, [n]) => {
+            let (k, base) = view(g, n);
+            let base = base.filter(|_| !k.is_zero())?;
+            Some(crate::value::apply(
+                g,
+                Value::Neutral(Head::Def(id), Vec::new()),
+                base,
+            ))
+        }
+        _ => None,
+    }
 }
 
 /// The number `value` is, if it's a number (possibly with `Succ`s around it).
@@ -345,15 +510,20 @@ fn bool_value(g: &Globals, b: bool) -> Option<Value> {
     Some(Value::Ctor(g.builtins.bool?, b as usize, Vec::new()))
 }
 
-/// Runs a native implementation, if all its arguments are numbers.
-pub fn run(g: &Globals, native: Native, spine: &[Elim]) -> Option<Value> {
-    let args: Vec<BigUint> = spine
+/// Runs a native implementation of definition `id`, if all its arguments
+/// are numbers, or takes a shortcut for some numbers with unknowns in them.
+pub fn run(g: &Globals, id: DefId, native: Native, spine: &[Elim]) -> Option<Value> {
+    let values: Vec<&Value> = spine
         .iter()
         .map(|e| match e {
-            Elim::App(v, Icit::Explicit) => as_nat(g, v),
+            Elim::App(v, Icit::Explicit) => Some(v),
             _ => None,
         })
         .collect::<Option<_>>()?;
+    let args: Option<Vec<BigUint>> = values.iter().map(|v| as_nat(g, v)).collect();
+    let Some(args) = args else {
+        return run_partial(g, id, native, &values);
+    };
     let nat = |n: BigUint| Some(nat_value(n));
     match (native, args.as_slice()) {
         (Native::Add, [m, n]) => nat(m + n),

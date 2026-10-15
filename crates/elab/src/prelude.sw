@@ -248,3 +248,67 @@ bind : [op : Type] -> [res : op -> Type] -> [a b : Type] ->
   Comp op res a -> (a -> Comp op res b) -> Comp op res b
 bind (Done x)      next = next x
 bind (Call o rest) next = Call o (\y -> bind (rest y) next)
+
+-- Rows: signatures side by side, and mappings between signatures.
+
+-- The operations of two signatures: the row `{l, r}`.
+type Plus (l : Type) (r : Type) : Type =
+  | L (o : l)
+  | R (o : r)
+
+PlusRes : [l r : Type] -> (l -> Type) -> (r -> Type) -> Plus l r -> Type
+PlusRes lres rres (L o) = lres o
+PlusRes lres rres (R o) = rres o
+
+-- A mapping from one signature into another. Because what an operation
+-- returns depends on the operation, a mapping says both where each
+-- operation goes and how its response comes back.
+type SigMap (op1 : Type) (res1 : op1 -> Type) (op2 : Type) (res2 : op2 -> Type) : Type =
+  | MkSigMap (inject : op1 -> op2) (reply : (o : op1) -> res2 (inject o) -> res1 o)
+
+sigInject : [op1 : Type] -> [res1 : op1 -> Type] -> [op2 : Type] -> [res2 : op2 -> Type] ->
+  SigMap op1 res1 op2 res2 -> op1 -> op2
+sigInject (MkSigMap inj rep) o = inj o
+
+sigReply : [op1 : Type] -> [res1 : op1 -> Type] -> [op2 : Type] -> [res2 : op2 -> Type] ->
+  (m : SigMap op1 res1 op2 res2) -> (o : op1) -> res2 (sigInject m o) -> res1 o
+sigReply (MkSigMap inj rep) o r = rep o r
+
+-- Moves a computation along a mapping. Operations stay in the same order;
+-- only their names in the signature change.
+translate : [op1 : Type] -> [res1 : op1 -> Type] -> [op2 : Type] -> [res2 : op2 -> Type] -> [a : Type] ->
+  SigMap op1 res1 op2 res2 -> Comp op1 res1 a -> Comp op2 res2 a
+translate m (Done x)      = Done x
+translate m (Call o rest) = Call (sigInject m o) (\r -> translate m (rest (sigReply m o r)))
+
+sigId : [op : Type] -> [res : op -> Type] -> SigMap op res op res
+sigId = MkSigMap (\o -> o) (\o r -> r)
+
+sigCompose : [op1 : Type] -> [res1 : op1 -> Type] -> [op2 : Type] -> [res2 : op2 -> Type] ->
+  [op3 : Type] -> [res3 : op3 -> Type] ->
+  SigMap op1 res1 op2 res2 -> SigMap op2 res2 op3 res3 -> SigMap op1 res1 op3 res3
+sigCompose (MkSigMap i1 r1) (MkSigMap i2 r2) =
+  MkSigMap (\o -> i2 (i1 o)) (\o r -> r1 o (r2 (i1 o) r))
+
+-- Weakening: a signature into a row with something else on the right or left.
+sigLeft : [l r : Type] -> [lres : l -> Type] -> [rres : r -> Type] ->
+  SigMap l lres (Plus l r) (PlusRes lres rres)
+sigLeft = MkSigMap (\o -> L o) (\o x -> x)
+
+sigRight : [l r : Type] -> [lres : l -> Type] -> [rres : r -> Type] ->
+  SigMap r rres (Plus l r) (PlusRes lres rres)
+sigRight = MkSigMap (\o -> R o) (\o x -> x)
+
+-- Reordering: `{l, r}` to `{r, l}`.
+swapOp : [l r : Type] -> Plus l r -> Plus r l
+swapOp (L o) = R o
+swapOp (R o) = L o
+
+swapReply : [l r : Type] -> [lres : l -> Type] -> [rres : r -> Type] ->
+  (o : Plus l r) -> PlusRes rres lres (swapOp o) -> PlusRes lres rres o
+swapReply (L o) x = x
+swapReply (R o) x = x
+
+sigSwap : [l r : Type] -> [lres : l -> Type] -> [rres : r -> Type] ->
+  SigMap (Plus l r) (PlusRes lres rres) (Plus r l) (PlusRes rres lres)
+sigSwap = MkSigMap swapOp swapReply

@@ -43,3 +43,24 @@ theorem hugeLiteral : 18446744073709551616 * 18446744073709551616 = 340282366920
 hugeLiteral = rfl
 
 test "huge subtraction" = eqNat (340282366920938463463374607431768211456 - 18446744073709551616) 340282366920938463444927863358058659840
+
+-- A big number plus an unknown stays compact (this used to expand into a
+-- million `Succ`s and crash the checker).
+shifted : Nat -> List Nat
+shifted x = [1000000 + x]
+
+theorem shiftSucc : (x : Nat) -> 1000000 + Succ x = Succ (1000000 + x)
+shiftSucc x = rfl
+
+-- `-`, `<=` and `eqNat` take off shared `Succ`s in one step.
+theorem subShared : (x : Nat) -> (500000 + x) - 500000 = x
+subShared x = rfl
+
+theorem leqShared : (x : Nat) -> leq (1000000 + x) (1000000 + Succ x) = leq x (Succ x)
+leqShared x = rfl
+
+headOr0 : List Nat -> Nat
+headOr0 Nil        = 0
+headOr0 (Cons x _) = x
+
+test "shifted" = headOr0 (shifted 5) == 1000005

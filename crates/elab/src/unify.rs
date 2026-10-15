@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use stitchwort_core::native;
-use stitchwort_core::value::{Closure, Elim, Head, apply_icit, eval, force, quote};
+use stitchwort_core::value::{Closure, Elim, Head, apply_icit, eta_definition, eval, force, quote};
 use stitchwort_core::{Globals, Term, Value};
 
 /// Makes `a` and `b` equal by solving metavariables, with `level` variables in
@@ -13,6 +13,18 @@ use stitchwort_core::{Globals, Term, Value};
 pub fn unify(g: &Globals, level: usize, a: &Value, b: &Value) -> bool {
     let a = force(g, a.clone());
     let b = force(g, b.clone());
+    let is_meta = |v: &Value| matches!(v, Value::Neutral(Head::Meta(_), _));
+    // Numbers compare by their `k + x` forms (see `conv`): `3` and `Succ ?x`
+    // unify by solving `?x` with `2`.
+    if !is_meta(&a) && !is_meta(&b) && (native::nat_like(g, &a) || native::nat_like(g, &b)) {
+        return native::compare(
+            g,
+            &a,
+            &b,
+            |x, y| unify(g, level, x, y),
+            |x, v| is_meta(x) && unify(g, level, x, v),
+        );
+    }
     let fresh = Value::var(level);
     match (&a, &b) {
         (Value::Sort(s), Value::Sort(t)) => s == t,
@@ -42,14 +54,6 @@ pub fn unify(g: &Globals, level: usize, a: &Value, b: &Value) -> bool {
         (Value::Ctor(d1, c1, a1), Value::Ctor(d2, c2, a2)) => {
             d1 == d2 && c1 == c2 && unify_all(g, level, a1, a2)
         }
-        (Value::Nat(m), Value::Nat(n)) => m == n,
-        // `3` and `Succ ?x` unify by solving `?x` with `2`.
-        (Value::Nat(n), Value::Ctor(d, c, fields)) | (Value::Ctor(d, c, fields), Value::Nat(n)) => {
-            Some(*d) == g.builtins.nat && {
-                let (c2, fields2) = native::split(n);
-                *c == c2 && unify_all(g, level, fields, &fields2)
-            }
-        }
         (Value::Eq(t1, x1, y1), Value::Eq(t2, x2, y2)) => {
             unify(g, level, t1, t2) && unify(g, level, x1, x2) && unify(g, level, y1, y2)
         }
@@ -58,12 +62,37 @@ pub fn unify(g: &Globals, level: usize, a: &Value, b: &Value) -> bool {
             unify_spines(g, level, s1, s2)
         }
         (Value::Neutral(Head::Meta(m), spine), other)
-        | (other, Value::Neutral(Head::Meta(m), spine)) => solve(g, level, *m, spine, other),
-        (Value::Neutral(h1, s1), Value::Neutral(h2, s2)) if h1 == h2 => {
-            unify_spines(g, level, s1, s2)
+        | (other, Value::Neutral(Head::Meta(m), spine)) => {
+            solve(g, level, *m, spine, other) || first_order(g, level, *m, spine, other)
         }
-        _ => false,
+        (Value::Neutral(h1, s1), Value::Neutral(h2, s2)) if h1 == h2 => {
+            unify_spines(g, level, s1, s2) || eta_definition(g, level, &a, &b, unify)
+        }
+        _ => eta_definition(g, level, &a, &b, unify),
     }
+}
+
+/// When `?m … x = f … y` isn't a pattern (`x` isn't a variable), tries
+/// matching the last arguments and then the rest: `?m … = f …` and `x = y`.
+/// This finds *a* solution, not necessarily the most general one, which is
+/// fine because the kernel re-checks the result.
+fn first_order(g: &Globals, level: usize, m: usize, spine: &[Elim], other: &Value) -> bool {
+    let Value::Neutral(head, other_spine) = other else {
+        return false;
+    };
+    let (Some((Elim::App(x, i1), rest1)), Some((Elim::App(y, i2), rest2))) =
+        (spine.split_last(), other_spine.split_last())
+    else {
+        return false;
+    };
+    i1 == i2
+        && unify(g, level, x, y)
+        && unify(
+            g,
+            level,
+            &Value::Neutral(Head::Meta(m), rest1.to_vec()),
+            &Value::Neutral(*head, rest2.to_vec()),
+        )
 }
 
 fn unify_all(g: &Globals, level: usize, xs: &[Value], ys: &[Value]) -> bool {
@@ -149,6 +178,7 @@ fn rename(
         Value::Data(d, args) => Term::Data(d, args.iter().map(go).collect::<Option<_>>()?),
         Value::Ctor(d, c, args) => Term::Ctor(d, c, args.iter().map(go).collect::<Option<_>>()?),
         Value::Nat(n) => Term::Nat(n),
+        Value::NatAdd(k, base) => native::nat_add_term(g, &k, go(&base)?),
         Value::Eq(t, a, b) => Term::Eq(Some(Rc::new(go(&t)?)), Rc::new(go(&a)?), Rc::new(go(&b)?)),
         Value::Neutral(Head::Meta(m2), spine) if m2 != m => {
             if let Some((m3, kept)) = prune(g, m2, &spine, renaming) {

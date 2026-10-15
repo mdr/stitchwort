@@ -23,6 +23,9 @@ pub enum Value {
     Ctor(DataId, usize, Vec<Value>),
     /// A number, standing for `Succ (Succ … Zero)`. See [`native`].
     Nat(Rc<BigUint>),
+    /// `k + x` for a number `k ≥ 1` and an `x` not built from numbers:
+    /// `Succ` applied `k` times to `x`. See [`native::view`].
+    NatAdd(Rc<BigUint>, Rc<Value>),
     Eq(Rc<Value>, Rc<Value>, Rc<Value>),
     Refl,
     /// A computation stuck on a variable or an unsolved metavariable, or a
@@ -184,7 +187,7 @@ pub fn force(g: &Globals, value: Value) -> Value {
 fn unfold(g: &Globals, id: DefId, spine: Vec<Elim>) -> Value {
     if let Some(op) = g.builtins.native(id)
         && op.arity() == spine.len()
-        && let Some(value) = native::run(g, op, &spine)
+        && let Some(value) = native::run(g, id, op, &spine)
     {
         return value;
     }
@@ -214,7 +217,9 @@ fn eval_tree(g: &Globals, env: Vec<Value>, term: &Term) -> Option<Value> {
         Term::Case(ix, d, branches) => {
             let (c, fields) = match force(g, env[env.len() - 1 - ix].clone()) {
                 Value::Ctor(_, c, fields) => (c, fields),
-                Value::Nat(n) if Some(*d) == g.builtins.nat => native::split(&n),
+                other @ (Value::Nat(_) | Value::NatAdd(..)) if Some(*d) == g.builtins.nat => {
+                    native::split_value(&other)?
+                }
                 _ => return None,
             };
             let Branch { body, .. } = &branches[c];
@@ -246,6 +251,7 @@ pub fn quote(g: &Globals, level: usize, value: &Value) -> Term {
         Value::Data(d, args) => Term::Data(d, args.iter().map(q).collect()),
         Value::Ctor(d, c, args) => Term::Ctor(d, c, args.iter().map(q).collect()),
         Value::Nat(n) => Term::Nat(n),
+        Value::NatAdd(k, base) => native::nat_add_term(g, &k, q(&base)),
         Value::Eq(ty, a, b) => Term::Eq(Some(Rc::new(q(&ty))), Rc::new(q(&a)), Rc::new(q(&b))),
         Value::Refl => Term::Refl,
         Value::Neutral(head, spine) => {
@@ -270,6 +276,11 @@ pub fn quote(g: &Globals, level: usize, value: &Value) -> Term {
 /// Definitional equality, with `level` variables in scope. Used by the kernel,
 /// which never sees metavariables (the elaborator unifies instead).
 pub fn conv(g: &Globals, level: usize, a: &Value, b: &Value) -> bool {
+    // Numbers, `k + x`, `Zero` and `Succ` all compare by their `k + x` forms:
+    // `3` and `Succ x` are equal when `x` is `2`.
+    if native::nat_like(g, a) || native::nat_like(g, b) {
+        return native::compare(g, a, b, |x, y| conv(g, level, x, y), |_, _| false);
+    }
     let fresh = Value::var(level);
     match (a, b) {
         (Value::Sort(s), Value::Sort(t)) => s == t,
@@ -300,20 +311,12 @@ pub fn conv(g: &Globals, level: usize, a: &Value, b: &Value) -> bool {
         (Value::Ctor(d1, c1, a1), Value::Ctor(d2, c2, a2)) => {
             d1 == d2 && c1 == c2 && all_conv(g, level, a1, a2)
         }
-        (Value::Nat(m), Value::Nat(n)) => m == n,
-        // `3` and `Succ x` are equal when `x` is `2`.
-        (Value::Nat(n), Value::Ctor(d, c, fields)) | (Value::Ctor(d, c, fields), Value::Nat(n)) => {
-            Some(*d) == g.builtins.nat && {
-                let (c2, fields2) = native::split(n);
-                *c == c2 && all_conv(g, level, fields, &fields2)
-            }
-        }
         (Value::Eq(t1, x1, y1), Value::Eq(t2, x2, y2)) => {
             conv(g, level, t1, t2) && conv(g, level, x1, x2) && conv(g, level, y1, y2)
         }
         (Value::Refl, Value::Refl) => true,
         (Value::Neutral(h1, s1), Value::Neutral(h2, s2)) => {
-            h1 == h2
+            (h1 == h2
                 && s1.len() == s2.len()
                 && s1.iter().zip(s2).all(|pair| match pair {
                     (Elim::App(x, _), Elim::App(y, _)) => conv(g, level, x, y),
@@ -328,10 +331,52 @@ pub fn conv(g: &Globals, level: usize, a: &Value, b: &Value) -> bool {
                         },
                     ) => conv(g, level, m1, m2) && conv(g, level, b1, b2),
                     _ => false,
-                })
+                }))
+                || eta_definition(g, level, a, b, conv)
         }
-        _ => false,
+        _ => eta_definition(g, level, a, b, conv),
     }
+}
+
+/// If `value` is a definition applied to fewer arguments than it takes (so
+/// it's a function that doesn't unfold yet), the implicitness of its next
+/// parameter.
+pub fn underapplied(g: &Globals, value: &Value) -> Option<Icit> {
+    let Value::Neutral(Head::Def(id), spine) = value else {
+        return None;
+    };
+    let def = g.def(*id);
+    let body = def.body.as_ref()?;
+    if spine.len() >= def.arity {
+        return None;
+    }
+    match body.peel_lams(spine.len()) {
+        Term::Lam(_, icit, _) => Some(*icit),
+        _ => None,
+    }
+}
+
+/// Eta for definitions: an under-applied definition is a function, so it's
+/// compared with `other` by applying both to a fresh variable (as for
+/// lambdas). `SCRes` defined as `SCRes o = PlusRes … o` then equals
+/// `PlusRes …`.
+pub fn eta_definition(
+    g: &Globals,
+    level: usize,
+    a: &Value,
+    b: &Value,
+    compare: impl Fn(&Globals, usize, &Value, &Value) -> bool,
+) -> bool {
+    let Some(icit) = underapplied(g, a).or_else(|| underapplied(g, b)) else {
+        return false;
+    };
+    let fresh = Value::var(level);
+    compare(
+        g,
+        level + 1,
+        &apply_icit(g, a.clone(), fresh.clone(), icit),
+        &apply_icit(g, b.clone(), fresh, icit),
+    )
 }
 
 fn all_conv(g: &Globals, level: usize, xs: &[Value], ys: &[Value]) -> bool {

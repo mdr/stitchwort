@@ -43,14 +43,7 @@ type AbortOp : Type =
 AbortRes : AbortOp -> Type
 AbortRes Abort = Empty
 
--- Two signatures side by side: the row `{l, r}`.
-type Plus (l : Type) (r : Type) : Type =
-  | L (o : l)
-  | R (o : r)
-
-PlusRes : [l r : Type] -> (l -> Type) -> (r -> Type) -> Plus l r -> Type
-PlusRes lres rres (L o) = lres o
-PlusRes lres rres (R o) = rres o
+-- Two signatures side by side, `{l, r}`, use the prelude's `Plus` and `PlusRes`.
 
 -- Handlers that remove the only ability
 

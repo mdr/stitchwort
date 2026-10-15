@@ -1295,3 +1295,24 @@ fn constructors_are_defined_only_once() {
     let again = define_ctors(&mut p.g, d, vec![ctor("C", vec![])]);
     assert_eq!(again.err().map(|e| e.code), Some("E-MALFORMED"));
 }
+
+#[test]
+fn an_under_applied_definition_is_a_function_for_conversion() {
+    // `succ n = Succ n`, unapplied, equals `\n -> Succ n`.
+    let mut p = Prelude::new();
+    let nat = p.nat;
+    let ty = arrow(p.nat_ty(), p.nat_ty());
+    let succ = define(
+        &mut p.g,
+        "succ",
+        ty,
+        lam("n", Term::Ctor(nat, 1, vec![v(0)])),
+    )
+    .unwrap();
+    let f = eval(&p.g, &[], &Term::Def(succ));
+    let g = eval(&p.g, &[], &lam("n", Term::Ctor(nat, 1, vec![v(0)])));
+    assert!(conv(&p.g, 0, &f, &g));
+    assert!(conv(&p.g, 0, &g, &f));
+    let other = eval(&p.g, &[], &lam("n", v(0)));
+    assert!(!conv(&p.g, 0, &f, &other));
+}

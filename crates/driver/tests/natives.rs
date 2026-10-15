@@ -282,3 +282,54 @@ fn builtins_with_the_wrong_shape_are_refused() {
             .is_ok()
     );
 }
+
+/// `k + x` for an unknown `x` (variable `level`), or the number `k`.
+fn plus_var(k: u64, level: Option<usize>) -> Value {
+    native::from_view(BigUint::from(k), level.map(Value::var))
+}
+
+#[test]
+fn shortcuts_with_unknowns_agree_with_the_definitions() {
+    with_big_stack(|| {
+        let mut session = Session::new();
+        let g = &mut session.elab.globals;
+        for op in [Native::Add, Native::Sub, Native::Leq, Native::EqNat] {
+            let id = def(g, op.name());
+            for k1 in 0..12 {
+                for k2 in 0..12 {
+                    // `k1 + x` against `k2 + y`, `k2`, and `k2 + x`.
+                    for (a, b) in [
+                        (plus_var(k1, Some(0)), plus_var(k2, Some(1))),
+                        (plus_var(k1, Some(0)), plus_var(k2, None)),
+                        (plus_var(k1, None), plus_var(k2, Some(0))),
+                        (plus_var(k1, Some(0)), plus_var(k2, Some(0))),
+                    ] {
+                        let fast = call(g, id, &[a.clone(), b.clone()]);
+                        g.builtins.disable_natives = true;
+                        let slow = call(g, id, &[a.clone(), b.clone()]);
+                        g.builtins.disable_natives = false;
+                        assert!(
+                            conv(g, 2, &fast, &slow),
+                            "{}({a:?}, {b:?}): native {fast:?}, definition {slow:?}",
+                            op.name()
+                        );
+                    }
+                }
+            }
+        }
+    });
+}
+
+#[test]
+fn a_big_number_plus_an_unknown_stays_compact() {
+    let session = Session::new();
+    let g = &session.elab.globals;
+    let big = native::nat_value(BigUint::from(10u32).pow(30));
+    let sum = call(g, def(g, "add"), &[big, Value::var(0)]);
+    assert!(matches!(sum, Value::NatAdd(..)), "{sum:?}");
+    // Matching on it takes the `Succ` branch: `pred` takes one off.
+    let pred = call(g, def(g, "pred"), std::slice::from_ref(&sum));
+    let expected = native::from_view(BigUint::from(10u32).pow(30) - 1u32, Some(Value::var(0)));
+    assert!(conv(g, 1, &pred, &expected));
+    assert!(!conv(g, 1, &pred, &sum));
+}
