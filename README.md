@@ -23,4 +23,5 @@ nix build .#playground          # the browser playground: open result/index.html
 
 cargo test                      # example programs, snapshots, JS differential tests
 nix flake check                 # build, tests, clippy, rustfmt
+cargo run --release -p stitchwort-bench   # benchmarks, compared with bench/baseline.toml
 ```

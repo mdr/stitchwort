@@ -104,6 +104,10 @@ impl Default for Limits {
 #[derive(Debug)]
 pub struct Budget {
     work: Cell<u64>,
+    /// Steps taken by operations that have ended, for [`Budget::total_work`].
+    finished_work: Cell<u64>,
+    /// Calls to [`Budget::nesting`], ever: see [`Budget::total_visits`].
+    visits: Cell<u64>,
     /// `u64::MAX` outside an operation, and 0 once it has run out, so that
     /// [`Budget::step`]'s fast path is one comparison.
     work_limit: Cell<u64>,
@@ -119,6 +123,8 @@ impl Default for Budget {
     fn default() -> Budget {
         Budget {
             work: Cell::new(0),
+            finished_work: Cell::new(0),
+            visits: Cell::new(0),
             work_limit: Cell::new(u64::MAX),
             stack_floor: Cell::new(0),
             frame_limit: Cell::new(usize::MAX),
@@ -181,12 +187,30 @@ impl Budget {
     }
 
     pub fn restore(&self, saved: Saved) {
+        self.finished_work
+            .set(self.finished_work.get() + self.work.get());
         self.work.set(saved.work);
         self.work_limit.set(saved.work_limit);
         self.stack_floor.set(saved.stack_floor);
         self.frame_limit.set(saved.frame_limit);
         self.limits.set(saved.limits);
         self.exhausted.set(saved.exhausted);
+    }
+
+    /// Every evaluation step taken so far, in all operations and outside
+    /// them: a measure of work that, unlike time, is the same on every run
+    /// (for benchmarks). Exact between operations; while one is running, it
+    /// leaves out the steps of any operation it interrupted.
+    pub fn total_work(&self) -> u64 {
+        self.finished_work.get() + self.work.get()
+    }
+
+    /// Every level of every recursive pass so far (each call to
+    /// [`Budget::nesting`]): the work of the elaborator, type checker,
+    /// printer and so on, which isn't evaluation and so isn't counted as
+    /// steps. Like [`Budget::total_work`], it's for benchmarks.
+    pub fn total_visits(&self) -> u64 {
+        self.visits.get()
     }
 
     /// The error the current operation ran out with, if it did.
@@ -218,6 +242,7 @@ impl Budget {
     /// else. Not an evaluation step, so it doesn't count as work.
     #[inline]
     pub fn nesting(&self, pass: &'static str) -> Result<()> {
+        self.visits.set(self.visits.get() + 1);
         if stack_position() < self.stack_floor.get() || self.work_limit.get() == 0 {
             return Err(self.too_deep(pass));
         }
