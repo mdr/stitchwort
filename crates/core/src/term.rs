@@ -5,6 +5,9 @@ use std::rc::Rc;
 use num_bigint::BigUint;
 use stitchwort_syntax::Span;
 
+use crate::budget::Result;
+use crate::globals::Globals;
+
 pub type Name = Rc<str>;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -292,9 +295,10 @@ impl Term {
 
     /// Adds `by` to every variable at or above `cutoff`, for moving a term
     /// under `by` new binders.
-    pub fn shift(&self, by: usize, cutoff: usize) -> Term {
-        let go = |t: &Rc<Term>, cutoff| Rc::new(t.shift(by, cutoff));
-        match self {
+    pub fn shift(&self, g: &Globals, by: usize, cutoff: usize) -> Result<Term> {
+        g.budget.nesting("elaborator")?;
+        let go = |t: &Rc<Term>, cutoff| Ok(Rc::new(t.shift(g, by, cutoff)?));
+        Ok(match self {
             Term::Var(ix) if *ix >= cutoff => Term::Var(ix + by),
             Term::Var(_)
             | Term::Def(_)
@@ -302,55 +306,108 @@ impl Term {
             | Term::Sort(_)
             | Term::Refl
             | Term::Meta(_) => self.clone(),
-            Term::Data(d, args) => {
-                Term::data(*d, args.iter().map(|a| a.shift(by, cutoff)).collect())
-            }
-            Term::Ctor(d, c, args) => {
-                Term::ctor(*d, *c, args.iter().map(|a| a.shift(by, cutoff)).collect())
-            }
-            Term::Pi(x, i, a, b) => Term::Pi(x.clone(), *i, go(a, cutoff), go(b, cutoff + 1)),
-            Term::Lam(x, i, b) => Term::Lam(x.clone(), *i, go(b, cutoff + 1)),
-            Term::App(f, a, i) => Term::App(go(f, cutoff), go(a, cutoff), *i),
-            Term::Ann(e, t) => Term::Ann(go(e, cutoff), go(t, cutoff)),
+            Term::Data(d, args) => Term::Data(
+                *d,
+                args.iter().map(|a| go(a, cutoff)).collect::<Result<_>>()?,
+            ),
+            Term::Ctor(d, c, args) => Term::Ctor(
+                *d,
+                *c,
+                args.iter().map(|a| go(a, cutoff)).collect::<Result<_>>()?,
+            ),
+            Term::Pi(x, i, a, b) => Term::Pi(x.clone(), *i, go(a, cutoff)?, go(b, cutoff + 1)?),
+            Term::Lam(x, i, b) => Term::Lam(x.clone(), *i, go(b, cutoff + 1)?),
+            Term::App(f, a, i) => Term::App(go(f, cutoff)?, go(a, cutoff)?, *i),
+            Term::Ann(e, t) => Term::Ann(go(e, cutoff)?, go(t, cutoff)?),
             Term::Case(ix, d, branches) => Term::Case(
                 if *ix >= cutoff { ix + by } else { *ix },
                 *d,
                 branches
                     .iter()
-                    .map(|b| Branch {
-                        names: b.names.clone(),
-                        body: Rc::new(b.body.shift(by, cutoff + b.names.len())),
+                    .map(|b| {
+                        Ok(Branch {
+                            names: b.names.clone(),
+                            body: go(&b.body, cutoff + b.names.len())?,
+                        })
                     })
-                    .collect(),
+                    .collect::<Result<_>>()?,
             ),
             Term::Eq(ty, a, b) => Term::Eq(
-                ty.as_ref().map(|t| go(t, cutoff)),
-                go(a, cutoff),
-                go(b, cutoff),
+                ty.as_ref().map(|t| go(t, cutoff)).transpose()?,
+                go(a, cutoff)?,
+                go(b, cutoff)?,
             ),
-            Term::J(m, b, p) => Term::J(go(m, cutoff), go(b, cutoff), go(p, cutoff)),
-            Term::Loc(span, t) => Term::Loc(*span, go(t, cutoff)),
-        }
+            Term::J(m, b, p) => Term::J(go(m, cutoff)?, go(b, cutoff)?, go(p, cutoff)?),
+            Term::Loc(span, t) => Term::Loc(*span, go(t, cutoff)?),
+        })
     }
 
     /// Whether variable `ix` occurs free.
     pub fn mentions(&self, ix: usize) -> bool {
+        self.subterms().any(|(t, binders)| match t {
+            Term::Var(i) | Term::Case(i, ..) => *i == ix + binders,
+            _ => false,
+        })
+    }
+
+    /// This term and every sub-term in it, in the order a left-to-right
+    /// recursive walk would visit them, each with the number of binders it's
+    /// under (counted from this term). Uses a work list, not recursion, since
+    /// terms can nest more deeply than recursion could follow: a long list
+    /// literal is a long chain of `Ctor`s.
+    pub fn subterms(&self) -> impl Iterator<Item = (&Term, usize)> {
+        let mut pending = vec![(self, 0)];
+        std::iter::from_fn(move || {
+            let (term, binders) = pending.pop()?;
+            let first = pending.len();
+            term.for_each_child(|child, under| pending.push((child, binders + under)));
+            pending[first..].reverse();
+            Some((term, binders))
+        })
+    }
+
+    /// Calls `f` on each immediate sub-term, left to right, with the number
+    /// of binders it's under.
+    pub fn for_each_child<'t>(&'t self, mut f: impl FnMut(&'t Term, usize)) {
         match self {
-            Term::Var(i) => *i == ix,
-            Term::Def(_) | Term::Nat(_) | Term::Sort(_) | Term::Refl | Term::Meta(_) => false,
-            Term::Data(_, args) | Term::Ctor(_, _, args) => args.iter().any(|a| a.mentions(ix)),
-            Term::Pi(_, _, a, b) => a.mentions(ix) || b.mentions(ix + 1),
-            Term::Lam(_, _, b) => b.mentions(ix + 1),
-            Term::App(f, a, _) => f.mentions(ix) || a.mentions(ix),
-            Term::Ann(e, t) => e.mentions(ix) || t.mentions(ix),
-            Term::Case(i, _, branches) => {
-                *i == ix || branches.iter().any(|b| b.body.mentions(ix + b.names.len()))
+            Term::Var(_)
+            | Term::Def(_)
+            | Term::Nat(_)
+            | Term::Sort(_)
+            | Term::Refl
+            | Term::Meta(_) => {}
+            Term::Data(_, args) | Term::Ctor(_, _, args) => {
+                for a in args {
+                    f(a, 0);
+                }
+            }
+            Term::Pi(_, _, a, b) => {
+                f(a, 0);
+                f(b, 1);
+            }
+            Term::Lam(_, _, b) => f(b, 1),
+            Term::App(a, b, _) | Term::Ann(a, b) => {
+                f(a, 0);
+                f(b, 0);
+            }
+            Term::Case(_, _, branches) => {
+                for b in branches.iter() {
+                    f(&b.body, b.names.len());
+                }
             }
             Term::Eq(ty, a, b) => {
-                ty.as_ref().is_some_and(|t| t.mentions(ix)) || a.mentions(ix) || b.mentions(ix)
+                if let Some(ty) = ty {
+                    f(ty, 0);
+                }
+                f(a, 0);
+                f(b, 0);
             }
-            Term::J(m, b, p) => m.mentions(ix) || b.mentions(ix) || p.mentions(ix),
-            Term::Loc(_, t) => t.mentions(ix),
+            Term::J(m, b, p) => {
+                f(m, 0);
+                f(b, 0);
+                f(p, 0);
+            }
+            Term::Loc(_, t) => f(t, 0),
         }
     }
 }
@@ -391,6 +448,12 @@ mod tests {
         )
     }
 
+    impl Term {
+        fn shifted(&self, by: usize, cutoff: usize) -> Term {
+            self.shift(&Globals::default(), by, cutoff).unwrap()
+        }
+    }
+
     /// Compares terms by their debug output (binder names are all the same here).
     fn assert_same(actual: Term, expected: Term) {
         assert_eq!(format!("{actual:?}"), format!("{expected:?}"));
@@ -400,32 +463,32 @@ mod tests {
     fn shift_moves_only_free_variables() {
         // \x -> x y, with y free: y moves, x doesn't.
         assert_same(
-            lam(Term::app(v(0), v(1))).shift(2, 0),
+            lam(Term::app(v(0), v(1))).shifted(2, 0),
             lam(Term::app(v(0), v(3))),
         );
         // Below the cutoff, nothing moves.
-        assert_same(Term::app(v(0), v(1)).shift(5, 1), Term::app(v(0), v(6)));
+        assert_same(Term::app(v(0), v(1)).shifted(5, 1), Term::app(v(0), v(6)));
     }
 
     #[test]
     fn shift_goes_under_every_binder_and_into_every_child() {
         // In (x : v0) -> v0 v1, the domain's v0 is free, the codomain's v0 is x.
         assert_same(
-            pi(v(0), Term::app(v(0), v(1))).shift(1, 0),
+            pi(v(0), Term::app(v(0), v(1))).shifted(1, 0),
             pi(v(1), Term::app(v(0), v(2))),
         );
         // A case binds its fields in its branches, and its scrutinee can move.
         assert_same(
-            case(1, 2, Term::app(v(1), v(2))).shift(1, 0),
+            case(1, 2, Term::app(v(1), v(2))).shifted(1, 0),
             case(2, 2, Term::app(v(1), v(3))),
         );
-        assert_same(case(0, 1, v(0)).shift(1, 1), case(0, 1, v(0)));
+        assert_same(case(0, 1, v(0)).shifted(1, 1), case(0, 1, v(0)));
         assert_same(
-            Term::Eq(Some(rc(v(0))), rc(v(1)), rc(v(2))).shift(1, 0),
+            Term::Eq(Some(rc(v(0))), rc(v(1)), rc(v(2))).shifted(1, 0),
             Term::Eq(Some(rc(v(1))), rc(v(2)), rc(v(3))),
         );
         assert_same(
-            Term::J(rc(v(0)), rc(v(1)), rc(v(2))).shift(1, 1),
+            Term::J(rc(v(0)), rc(v(1)), rc(v(2))).shifted(1, 1),
             Term::J(rc(v(0)), rc(v(2)), rc(v(3))),
         );
         assert_same(
@@ -433,7 +496,7 @@ mod tests {
                 rc(data(vec![v(0)])),
                 rc(Term::ctor(DataId(0), 0, vec![v(1)])),
             )
-            .shift(3, 0),
+            .shifted(3, 0),
             Term::Ann(
                 rc(data(vec![v(3)])),
                 rc(Term::ctor(DataId(0), 0, vec![v(4)])),

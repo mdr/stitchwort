@@ -14,6 +14,7 @@
 
 use stitchwort_syntax::{Diagnostic, Span};
 
+use crate::budget::Result as Fallible;
 use crate::globals::Globals;
 use crate::term::{DataId, DefId, Term};
 
@@ -39,7 +40,7 @@ pub fn check(
         matched: Vec::new(),
         span,
     };
-    walker.walk(body.peel_lams(arity));
+    walker.walk(body.peel_lams(arity))?;
 
     let Some((first, rest)) = walker.calls.split_first() else {
         return Ok(());
@@ -112,12 +113,13 @@ fn is_recursive_fn(ty: &Term, d: DataId) -> bool {
 }
 
 impl Walker<'_> {
-    fn walk(&mut self, term: &Term) {
+    fn walk(&mut self, term: &Term) -> Fallible<()> {
+        self.g.budget.nesting("termination checker")?;
         match term {
             Term::Loc(span, inner) => {
                 let saved = self.span;
                 self.span = *span;
-                self.walk(inner);
+                self.walk(inner)?;
                 self.span = saved;
             }
             Term::Var(_) | Term::Nat(_) | Term::Sort(_) | Term::Refl | Term::Meta(_) => {}
@@ -139,25 +141,25 @@ impl Walker<'_> {
                         .collect();
                     self.calls.push((candidates, self.span));
                 } else {
-                    self.walk(head);
+                    self.walk(head)?;
                 }
                 for arg in args {
-                    self.walk(arg);
+                    self.walk(arg)?;
                 }
             }
-            Term::Lam(_, _, body) => self.under(&[false], None, body),
+            Term::Lam(_, _, body) => self.under(&[false], None, body)?,
             Term::Pi(_, _, dom, cod) => {
-                self.walk(dom);
-                self.under(&[false], None, cod);
+                self.walk(dom)?;
+                self.under(&[false], None, cod)?;
             }
             Term::Data(_, args) | Term::Ctor(_, _, args) => {
                 for arg in args {
-                    self.walk(arg);
+                    self.walk(arg)?;
                 }
             }
             Term::Ann(e, t) => {
-                self.walk(e);
-                self.walk(t);
+                self.walk(e)?;
+                self.walk(t)?;
             }
             Term::Case(ix, d, branches) => {
                 let scrutinee = &self.infos[self.infos.len() - 1 - ix];
@@ -176,23 +178,24 @@ impl Walker<'_> {
                         .iter()
                         .map(|(_, ty)| is_recursive_fn(ty, *d))
                         .collect();
-                    self.under(&recursive, source, &branch.body);
+                    self.under(&recursive, source, &branch.body)?;
                     self.matched.pop();
                 }
             }
             Term::Eq(ty, a, b) => {
                 if let Some(ty) = ty {
-                    self.walk(ty);
+                    self.walk(ty)?;
                 }
-                self.walk(a);
-                self.walk(b);
+                self.walk(a)?;
+                self.walk(b)?;
             }
             Term::J(m, b, p) => {
-                self.walk(m);
-                self.walk(b);
-                self.walk(p);
+                self.walk(m)?;
+                self.walk(b)?;
+                self.walk(p)?;
             }
         }
+        Ok(())
     }
 
     /// The parameter `arg` is structurally smaller than, if any: a variable
@@ -232,7 +235,12 @@ impl Walker<'_> {
     }
 
     /// Walks `body` under new binders, one per entry of `recursive_fn`.
-    fn under(&mut self, recursive_fn: &[bool], smaller_than: Option<usize>, body: &Term) {
+    fn under(
+        &mut self,
+        recursive_fn: &[bool],
+        smaller_than: Option<usize>,
+        body: &Term,
+    ) -> Fallible<()> {
         for &recursive_fn in recursive_fn {
             self.infos.push(Info {
                 param: None,
@@ -240,7 +248,8 @@ impl Walker<'_> {
                 recursive_fn,
             });
         }
-        self.walk(body);
+        let result = self.walk(body);
         self.infos.truncate(self.infos.len() - recursive_fn.len());
+        result
     }
 }

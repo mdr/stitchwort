@@ -663,6 +663,7 @@ fn ability_label(cx: &mut Ctx, expr: &Expr) -> Result<Label> {
 /// an effectful function (with enough arguments), or contains `let`,
 /// sequencing or `handle`. Lambda bodies don't count.
 pub fn may_perform(cx: &Ctx, expr: &Expr) -> Result<bool> {
+    cx.g().budget.nesting(crate::check::PASS)?;
     let any = |items: &mut dyn Iterator<Item = &Expr>| -> Result<bool> {
         for item in items {
             if may_perform(cx, item)? {
@@ -763,6 +764,7 @@ fn done(cx: &Ctx, row: &Row, t: &Value, v: Term) -> Result<Term> {
 
 /// Checks `expr` as a computation in `row` returning a `t`.
 pub fn comp_check(cx: &mut Ctx, expr: &Expr, row: &Row, t: &Value) -> Result<Term> {
+    cx.g().budget.nesting(crate::check::PASS)?;
     match expr {
         Expr::Let {
             name,
@@ -873,6 +875,7 @@ pub fn comp_check(cx: &mut Ctx, expr: &Expr, row: &Row, t: &Value) -> Result<Ter
 
 /// Elaborates `expr` as a computation in `row`, inferring its result type.
 pub fn comp_infer(cx: &mut Ctx, expr: &Expr, row: &Row) -> Result<(Term, Value)> {
+    cx.g().budget.nesting(crate::check::PASS)?;
     match expr {
         Expr::Let { .. } | Expr::Seq(..) | Expr::If { .. } | Expr::Handle { .. } => {
             let t = cx.fresh_meta();
@@ -1416,7 +1419,7 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
             Rc::new(b),
             stitchwort_core::value::Closure {
                 env: cx.env.as_slice().into(),
-                body: Rc::new(cx.quote(&r)?.shift(1, 0)),
+                body: Rc::new(cx.quote(&r)?.shift(cx.g(), 1, 0)?),
             },
         );
         cx.bind(&k.text, k_ty);
@@ -1459,12 +1462,12 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
         // Under `o` and `k`: `o` is Var(1). Under `y` as well: `o` is Var(2),
         // `k` is Var(1).
         let inject = Term::app(
-            Term::app(with_implicits("sigInject", 2)?, m.shift(2, 0)),
+            Term::app(with_implicits("sigInject", 2)?, m.shift(cx.g(), 2, 0)?),
             Term::Var(1),
         );
         let reply = Term::app(
             Term::app(
-                Term::app(with_implicits("sigReply", 3)?, m.shift(3, 0)),
+                Term::app(with_implicits("sigReply", 3)?, m.shift(cx.g(), 3, 0)?),
                 Term::Var(2),
             ),
             Term::Var(0),
@@ -1537,7 +1540,7 @@ pub fn coerce(cx: &mut Ctx, term: &Term, found: &Value, expected: &Value) -> Res
             return Ok(None);
         }
         let n = names.len();
-        let mut applied = term.shift(n, 0);
+        let mut applied = term.shift(cx.g(), n, 0)?;
         for i in (0..n).rev() {
             applied = Term::app(applied, Term::Var(i));
         }

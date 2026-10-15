@@ -43,7 +43,7 @@ pub fn ipi(x: &str, a: Term, b: Term) -> Term {
 
 /// `a -> b`, where `b` is written outside the binder (it's shifted under it).
 pub fn arrow(a: Term, b: Term) -> Term {
-    pi("_", a, b.shift(1, 0))
+    pi("_", a, b.shift(&Globals::default(), 1, 0).unwrap())
 }
 
 pub fn lam(x: &str, body: Term) -> Term {

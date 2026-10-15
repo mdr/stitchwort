@@ -20,7 +20,7 @@ fn hash(
     let id = check::declare_def(&mut p.g, &"x".into(), &ty, theorem, false, span())
         .expect("type checks");
     check::define_def(&mut p.g, id, &body).expect("body checks");
-    def_hash(&p.g, id).expect("defined")
+    def_hash(&p.g, id).unwrap().expect("defined")
 }
 
 #[test]
@@ -89,12 +89,12 @@ fn hashes_distinguish_which_data_type_is_used() {
         d
     };
     let (a, b) = (declare("A"), declare("B"));
-    assert_ne!(data_hash(&p.g, a), data_hash(&p.g, b));
+    assert_ne!(data_hash(&p.g, a).unwrap(), data_hash(&p.g, b).unwrap());
     let mut identity_on = |d: DataId| {
         let ty = arrow(Term::Data(d, vec![]), Term::Data(d, vec![]));
         let id = check::declare_def(&mut p.g, &"f".into(), &ty, false, false, span()).unwrap();
         check::define_def(&mut p.g, id, &lam("x", v(0))).unwrap();
-        def_hash(&p.g, id).unwrap()
+        def_hash(&p.g, id).unwrap().unwrap()
     };
     assert_ne!(identity_on(a), identity_on(b));
 }
@@ -103,11 +103,11 @@ fn hashes_distinguish_which_data_type_is_used() {
 fn a_data_types_hash_includes_its_constructors_once_they_are_defined() {
     let mut p = Prelude::new();
     let d = data(&mut p.g, "Later", vec![], Sort::Type(0));
-    let before = data_hash(&p.g, d);
+    let before = data_hash(&p.g, d).unwrap();
     check::define_ctors(&mut p.g, d, vec![ctor("One", vec![])]).unwrap();
     assert_ne!(
         before,
-        data_hash(&p.g, d),
+        data_hash(&p.g, d).unwrap(),
         "not stuck at the hash it had with no constructors"
     );
 }

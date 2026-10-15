@@ -11,6 +11,7 @@ use std::cell::Cell;
 use std::fmt;
 
 use stitchwort_syntax::Diagnostic;
+use stitchwort_syntax::stack::position as stack_position;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ResourceError {
@@ -18,6 +19,9 @@ pub enum ResourceError {
     Work,
     /// Recursion too deep for the stack this operation may use.
     Depth,
+    /// A term or expression nested too deeply for one of the passes that
+    /// recurse over them (named here) to follow.
+    Nesting(&'static str),
     /// A value too large to turn back into a term or print.
     Size,
 }
@@ -27,6 +31,9 @@ impl fmt::Display for ResourceError {
         f.write_str(match self {
             ResourceError::Work => "it took more evaluation steps than allowed",
             ResourceError::Depth => "it recursed more deeply than allowed",
+            ResourceError::Nesting(pass) => {
+                return write!(f, "the program is nested too deeply for the {pass}");
+            }
             ResourceError::Size => "a value was too large to show",
         })
     }
@@ -71,6 +78,18 @@ impl Limits {
             frames: 2_000_000,
         }
     }
+
+    /// Only `stack` bytes of stack: for passes over checked declarations
+    /// (like generating JavaScript), whose only limit is how deeply they may
+    /// recurse. Evaluating a checked type can't run out of anything else.
+    pub fn stack_only(stack: usize) -> Limits {
+        Limits {
+            work: u64::MAX,
+            stack,
+            size: u64::MAX,
+            frames: usize::MAX,
+        }
+    }
 }
 
 impl Default for Limits {
@@ -107,15 +126,6 @@ impl Default for Budget {
             exhausted: Cell::new(None),
         }
     }
-}
-
-/// The address of a local variable: where the stack currently is. Stacks grow
-/// downwards on every target we build for, including WebAssembly's stack in
-/// linear memory.
-#[inline(always)]
-fn stack_position() -> usize {
-    let marker = 0u8;
-    std::hint::black_box(&marker) as *const u8 as usize
 }
 
 /// While this is alive, an operation is running. Dropping it restores
@@ -202,6 +212,25 @@ impl Budget {
         Ok(())
     }
 
+    /// One level of a pass that recurses on the Rust stack over terms or
+    /// syntax (the elaborator, the type checker, the printer, …): fails once
+    /// the operation has used the stack it may, or has run out of anything
+    /// else. Not an evaluation step, so it doesn't count as work.
+    #[inline]
+    pub fn nesting(&self, pass: &'static str) -> Result<()> {
+        if stack_position() < self.stack_floor.get() || self.work_limit.get() == 0 {
+            return Err(self.too_deep(pass));
+        }
+        Ok(())
+    }
+
+    /// Whether the operation has used the stack it may, without stopping it:
+    /// for printing, which shows what it can't reach as `…`.
+    #[inline]
+    pub fn stack_exhausted(&self) -> bool {
+        stack_position() < self.stack_floor.get()
+    }
+
     /// The evaluator is about to have `frames` frames of pending work.
     #[inline]
     pub fn frames(&self, frames: usize) -> Result<()> {
@@ -212,6 +241,16 @@ impl Budget {
             return Err(e);
         }
         Ok(())
+    }
+
+    /// Stops the operation because `pass` can't go deeper. Returns the error
+    /// to report: the first one, if the operation had already run out.
+    #[cold]
+    pub fn too_deep(&self, pass: &'static str) -> ResourceError {
+        let e = self.exhausted.get().unwrap_or(ResourceError::Nesting(pass));
+        self.exhausted.set(Some(e));
+        self.work_limit.set(0);
+        e
     }
 
     #[cold]

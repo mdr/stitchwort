@@ -6,7 +6,10 @@ use stitchwort_core::hash::{ContentHash, def_hash};
 use stitchwort_core::value::{eval, force};
 use stitchwort_core::{Limits, ResourceError, Term, Value};
 use stitchwort_elab::{Elaborator, PRELUDE};
-use stitchwort_syntax::{Diagnostic, FileId, SourceMap, parse_module};
+use stitchwort_syntax::ast::Expr;
+use stitchwort_syntax::{
+    Diagnostic, FileId, SourceMap, parse_expression_within, parse_module_within,
+};
 
 /// A compiler session: the prelude plus whatever has been loaded since.
 pub struct Session {
@@ -58,14 +61,18 @@ impl Session {
     /// cross the JS boundary.
     pub fn load(&mut self, name: &str, text: &str) -> Result<FileId, Vec<Diagnostic>> {
         let file = self.sources.add(name, text);
-        let module = parse_module(file, text)?;
+        let module = parse_module_within(file, text, self.elab.limits.stack)?;
         let first_new_def = self.elab.globals.defs.len();
         let mut diagnostics = self.elab.elaborate_module(&module);
         if diagnostics.is_empty() {
-            for id in first_new_def..self.elab.globals.defs.len() {
+            let g = &self.elab.globals;
+            let _op = g
+                .budget
+                .operation(Limits::stack_only(self.elab.limits.stack));
+            for id in first_new_def..g.defs.len() {
                 let id = stitchwort_core::DefId(id);
-                if self.elab.globals.def(id).export
-                    && let Err(d) = stitchwort_js::exportable(&self.elab.globals, id)
+                if g.def(id).export
+                    && let Err(d) = stitchwort_js::exportable(g, id)
                 {
                     diagnostics.push(d);
                 }
@@ -76,6 +83,18 @@ impl Session {
         } else {
             Err(diagnostics)
         }
+    }
+
+    /// Parses an expression typed in (for `eval` or the REPL), within this
+    /// session's stack limit.
+    pub fn parse_expression(&mut self, name: &str, text: &str) -> Result<Expr, Diagnostic> {
+        let file = self.sources.add(name, text);
+        parse_expression_within(file, text, self.elab.limits.stack)
+    }
+
+    /// Generates JavaScript for the exports loaded so far.
+    pub fn extract(&self) -> Result<stitchwort_js::Output, Diagnostic> {
+        stitchwort_js::generate(&self.elab.globals, self.elab.limits)
     }
 }
 
@@ -94,7 +113,8 @@ pub struct TestResult {
     pub outcome: Outcome,
     /// Whether the outcome came from the cache, rather than running the test.
     pub cached: bool,
-    pub hash: ContentHash,
+    /// `None` if hashing the test ran out of resources.
+    pub hash: Option<ContentHash>,
 }
 
 /// Test results, stored by the test's content hash (DESIGN.md §11). A test's
@@ -162,31 +182,40 @@ impl Session {
             .tests
             .iter()
             .map(|test| {
-                let hash = def_hash(g, test.def).expect("tests are checked before they run");
+                // Each test is one operation, with its own resource limits:
+                // hashing it, then running it unless its result is cached.
+                let _op = g.budget.operation(self.elab.limits);
+                let hash = match def_hash(g, test.def) {
+                    Ok(hash) => hash.expect("tests are checked before they run"),
+                    Err(e) => {
+                        return TestResult {
+                            name: test.name.clone(),
+                            outcome: Outcome::OutOfResources(e),
+                            cached: false,
+                            hash: None,
+                        };
+                    }
+                };
                 if let Some(outcome) = cache.get(&hash) {
                     return TestResult {
                         name: test.name.clone(),
                         outcome,
                         cached: true,
-                        hash,
+                        hash: Some(hash),
                     };
                 }
-                // Each test is one operation, with its own resource limits.
-                let outcome = {
-                    let _op = g.budget.operation(self.elab.limits);
-                    match eval(g, &[], &Term::Def(test.def)).and_then(|v| force(g, v)) {
-                        // `Bool` is `False | True`: constructor 1 is `True`.
-                        Ok(Value::Ctor(_, 1, _)) => Outcome::Passed,
-                        Ok(_) => Outcome::Failed,
-                        Err(e) => Outcome::OutOfResources(e),
-                    }
+                let outcome = match eval(g, &[], &Term::Def(test.def)).and_then(|v| force(g, v)) {
+                    // `Bool` is `False | True`: constructor 1 is `True`.
+                    Ok(Value::Ctor(_, 1, _)) => Outcome::Passed,
+                    Ok(_) => Outcome::Failed,
+                    Err(e) => Outcome::OutOfResources(e),
                 };
                 cache.put(&hash, outcome);
                 TestResult {
                     name: test.name.clone(),
                     outcome,
                     cached: false,
-                    hash,
+                    hash: Some(hash),
                 }
             })
             .collect()

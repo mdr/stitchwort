@@ -106,8 +106,12 @@ impl<'g> Ctx<'g> {
     }
 }
 
+/// The name the type checker's depth guard reports.
+const PASS: &str = "type checker";
+
 pub fn infer(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
     let g = cx.g;
+    g.budget.nesting(PASS)?;
     match term {
         Term::Loc(span, inner) => {
             let saved = std::mem::replace(&mut cx.span, *span);
@@ -231,6 +235,7 @@ pub fn infer(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
 
 pub fn check(cx: &mut Ctx, term: &Term, expected: &Value) -> Result<Term> {
     let g = cx.g;
+    g.budget.nesting(PASS)?;
     match (term, expected) {
         (Term::Loc(span, inner), _) => {
             let saved = std::mem::replace(&mut cx.span, *span);
@@ -405,6 +410,7 @@ fn check_case(
     goal: &Value,
 ) -> Result<Term> {
     let g = cx.g;
+    g.budget.nesting(PASS)?;
     if ix >= cx.level() {
         return Err(malformed(cx, format!("variable {ix} is out of scope")));
     }
@@ -743,36 +749,22 @@ pub fn define_ctors(g: &mut Globals, d: DataId, ctors: Vec<CtorDecl>) -> Result<
     Ok(())
 }
 
-/// A definition or data type in `term` declared after data type `d`, if any.
+/// A definition or data type in `term` declared after data type `d`, if any:
+/// the first one, reading left to right.
 fn declared_later(g: &Globals, term: &Term, d: DataId) -> Option<String> {
-    let later_data = |d2: &DataId| {
-        (d2.0 > d.0).then(|| {
-            let name = g.datas.get(d2.0).map_or("?".into(), |x| x.name.to_string());
-            format!("the data type `{name}`")
-        })
-    };
-    let go = |t: &Term| declared_later(g, t, d);
-    match term {
+    term.subterms().find_map(|(t, _)| match t {
         Term::Def(id) => (id.0 >= g.data(d).defs_before).then(|| {
             let name = g.defs.get(id.0).map_or("?".into(), |x| x.name.to_string());
             format!("`{name}`")
         }),
-        Term::Var(_) | Term::Nat(_) | Term::Sort(_) | Term::Refl | Term::Meta(_) => None,
-        Term::Data(d2, args) | Term::Ctor(d2, _, args) => {
-            later_data(d2).or_else(|| args.iter().find_map(|a| go(a)))
+        Term::Data(d2, _) | Term::Ctor(d2, _, _) | Term::Case(_, d2, _) => {
+            (d2.0 > d.0).then(|| {
+                let name = g.datas.get(d2.0).map_or("?".into(), |x| x.name.to_string());
+                format!("the data type `{name}`")
+            })
         }
-        Term::Pi(_, _, a, b) | Term::App(a, b, _) | Term::Ann(a, b) => go(a).or_else(|| go(b)),
-        Term::Lam(_, _, b) | Term::Loc(_, b) => go(b),
-        Term::Case(_, d2, branches) => {
-            later_data(d2).or_else(|| branches.iter().find_map(|b| go(&b.body)))
-        }
-        Term::Eq(t, a, b) => t
-            .as_deref()
-            .and_then(go)
-            .or_else(|| go(a))
-            .or_else(|| go(b)),
-        Term::J(m, b, p) => go(m).or_else(|| go(b)).or_else(|| go(p)),
-    }
+        _ => None,
+    })
 }
 
 /// An error for a term no correct elaborator would produce.
@@ -784,56 +776,49 @@ fn malformed(cx: &Ctx, message: impl Into<String>) -> Diagnostic {
 /// Whether `case` appears only in case-tree positions: at the top of a
 /// definition's body (`in_tree`), and at the top of each branch. Evaluation
 /// relies on this.
+/// It runs before the term is type-checked, so it uses a work list rather
+/// than recursion: the term may nest more deeply than recursion could follow.
 fn case_only_in_tree(term: &Term, in_tree: bool) -> bool {
-    let no_case = |t: &Term| case_only_in_tree(t, false);
-    match term {
-        Term::Case(_, _, branches) => {
-            in_tree && branches.iter().all(|b| case_only_in_tree(&b.body, true))
+    let mut pending = vec![(term, in_tree)];
+    while let Some((term, in_tree)) = pending.pop() {
+        match term {
+            Term::Case(_, _, branches) => {
+                if !in_tree {
+                    return false;
+                }
+                pending.extend(branches.iter().map(|b| (&*b.body, true)));
+            }
+            Term::Loc(_, t) => pending.push((t, in_tree)),
+            _ => term.for_each_child(|t, _| pending.push((t, false))),
         }
-        Term::Loc(_, t) => case_only_in_tree(t, in_tree),
-        Term::Var(_) | Term::Def(_) | Term::Nat(_) | Term::Sort(_) | Term::Refl | Term::Meta(_) => {
-            true
-        }
-        Term::Data(_, args) | Term::Ctor(_, _, args) => args.iter().all(|a| no_case(a)),
-        Term::Pi(_, _, a, b) | Term::App(a, b, _) | Term::Ann(a, b) => no_case(a) && no_case(b),
-        Term::Lam(_, _, b) => no_case(b),
-        Term::Eq(t, a, b) => t.as_deref().is_none_or(no_case) && no_case(a) && no_case(b),
-        Term::J(m, b, p) => no_case(m) && no_case(b) && no_case(p),
     }
+    true
 }
 
 /// Strict positivity: the data type `d` may appear in a field's type only as
 /// itself applied to its own parameters, possibly as the result of a function
 /// whose inputs don't mention it.
 fn positive(ty: &Term, d: DataId, depth: usize) -> bool {
-    if !occurs(ty, d) {
-        return true;
-    }
-    match ty.strip_loc() {
-        Term::Data(d2, args) if *d2 == d => args
-            .iter()
-            .enumerate()
-            .all(|(j, arg)| matches!(arg.strip_loc(), Term::Var(ix) if depth - 1 - ix == j)),
-        Term::Pi(_, _, dom, cod) => !occurs(dom, d) && positive(cod, d, depth + 1),
-        _ => false,
+    let (mut ty, mut depth) = (ty, depth);
+    loop {
+        if !occurs(ty, d) {
+            return true;
+        }
+        match ty.strip_loc() {
+            Term::Data(d2, args) if *d2 == d => {
+                return args.iter().enumerate().all(
+                    |(j, arg)| matches!(arg.strip_loc(), Term::Var(ix) if depth - 1 - ix == j),
+                );
+            }
+            Term::Pi(_, _, dom, cod) if !occurs(dom, d) => (ty, depth) = (cod, depth + 1),
+            _ => return false,
+        }
     }
 }
 
 fn occurs(term: &Term, d: DataId) -> bool {
-    match term {
-        Term::Data(d2, args) => *d2 == d || args.iter().any(|a| occurs(a, d)),
-        Term::Var(_) | Term::Def(_) | Term::Nat(_) | Term::Sort(_) | Term::Refl | Term::Meta(_) => {
-            false
-        }
-        Term::Ctor(_, _, args) => args.iter().any(|a| occurs(a, d)),
-        Term::Pi(_, _, a, b) | Term::App(a, b, _) | Term::Ann(a, b) => occurs(a, d) || occurs(b, d),
-        Term::Lam(_, _, b) | Term::Loc(_, b) => occurs(b, d),
-        Term::Case(_, d2, branches) => *d2 == d || branches.iter().any(|b| occurs(&b.body, d)),
-        Term::Eq(ty, a, b) => {
-            ty.as_ref().is_some_and(|t| occurs(t, d)) || occurs(a, d) || occurs(b, d)
-        }
-        Term::J(m, b, p) => occurs(m, d) || occurs(b, d) || occurs(p, d),
-    }
+    term.subterms()
+        .any(|(t, _)| matches!(t, Term::Data(d2, _) | Term::Case(_, d2, _) if *d2 == d))
 }
 
 /// Checks and adds a validator for proof parameter `param` of an exported
@@ -883,10 +868,16 @@ pub fn add_validator(
 /// Whether `ty` is `Type`, `Prop`, or a function type ending in one: values of
 /// such types are types, which are erased at runtime.
 pub fn is_type_former(g: &Globals, level: usize, ty: &Value) -> budget::Result<bool> {
-    match ty {
-        Value::Sort(_) => Ok(true),
-        Value::Pi(_, _, _, cod) => is_type_former(g, level + 1, &cod.apply(g, Value::var(level))?),
-        _ => Ok(false),
+    let (mut level, mut ty) = (level, ty.clone());
+    loop {
+        match ty {
+            Value::Sort(_) => return Ok(true),
+            Value::Pi(_, _, _, cod) => {
+                ty = cod.apply(g, Value::var(level))?;
+                level += 1;
+            }
+            _ => return Ok(false),
+        }
     }
 }
 

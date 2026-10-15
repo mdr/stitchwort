@@ -4,7 +4,7 @@
 
 use stitchwort_driver::driver::{Cache, Outcome, Session};
 use stitchwort_driver::render::render;
-use stitchwort_syntax::{Diagnostic, parse_expression};
+use stitchwort_syntax::Diagnostic;
 use wasm_bindgen::prelude::wasm_bindgen;
 
 /// The file name shown in error messages.
@@ -89,8 +89,9 @@ pub fn evaluate(source: &str, expr: &str) -> String {
         Ok(session) => session,
         Err(errors) => return failure(&errors),
     };
-    let file = session.sources.add("expression", expr);
-    let result = parse_expression(file, expr).and_then(|e| session.elab.eval_expr(&e));
+    let result = session
+        .parse_expression("expression", expr)
+        .and_then(|e| session.elab.eval_expr(&e));
     match result {
         Ok((value, ty)) => {
             format!(
@@ -110,7 +111,7 @@ pub fn extract(source: &str) -> String {
         Ok(session) => session,
         Err(errors) => return failure(&errors),
     };
-    match stitchwort_js::generate(&session.elab.globals) {
+    match session.extract() {
         Ok(output) => format!(
             r#"{{"ok":true,"js":{},"dts":{}}}"#,
             json_string(&output.js),

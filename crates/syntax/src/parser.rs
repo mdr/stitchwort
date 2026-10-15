@@ -12,16 +12,37 @@
 
 use crate::ast::{BinOp, Binder, Clause, CtorDecl, Decl, Expr, Module, Name, Pattern, Row};
 use crate::lexer::{Tok, Token, lex};
+use crate::stack::StackLimit;
 use crate::{Diagnostic, FileId, Span};
 
 type Result<T> = std::result::Result<T, Diagnostic>;
 
+/// Bytes of stack the parser may use when the caller doesn't say: safe on a
+/// 2 MiB thread (Rust's default for spawned threads and tests), like the
+/// core's default `Limits`.
+pub const DEFAULT_STACK: usize = 1536 * 1024;
+
 pub fn parse_module(file: FileId, text: &str) -> std::result::Result<Module, Vec<Diagnostic>> {
+    parse_module_within(file, text, DEFAULT_STACK)
+}
+
+pub fn parse_expression(file: FileId, text: &str) -> Result<Expr> {
+    parse_expression_within(file, text, DEFAULT_STACK)
+}
+
+/// Parses a module, using at most `stack` bytes of stack: a program nested
+/// more deeply than that allows is an `E-RESOURCE` error, not a crash.
+pub fn parse_module_within(
+    file: FileId,
+    text: &str,
+    stack: usize,
+) -> std::result::Result<Module, Vec<Diagnostic>> {
+    let limit = StackLimit::from_here(stack);
     let tokens = lex(file, text).map_err(|d| vec![d])?;
     let mut decls = Vec::new();
     let mut errors = Vec::new();
     for group in split_decls(&tokens).map_err(|d| vec![d])? {
-        let mut parser = Parser::new(group, file, text.len());
+        let mut parser = Parser::new(group, file, text.len(), limit);
         match parser
             .decl()
             .and_then(|decl| parser.finish().map(|()| decl))
@@ -37,9 +58,11 @@ pub fn parse_module(file: FileId, text: &str) -> std::result::Result<Module, Vec
     }
 }
 
-pub fn parse_expression(file: FileId, text: &str) -> Result<Expr> {
+/// Parses an expression, using at most `stack` bytes of stack.
+pub fn parse_expression_within(file: FileId, text: &str, stack: usize) -> Result<Expr> {
+    let limit = StackLimit::from_here(stack);
     let tokens = lex(file, text)?;
-    let mut parser = Parser::new(&tokens, file, text.len());
+    let mut parser = Parser::new(&tokens, file, text.len(), limit);
     let expr = parser.expr()?;
     parser.finish()?;
     Ok(expr)
@@ -84,6 +107,8 @@ struct Parser<'t> {
     allow: Option<usize>,
     /// Whether `=` ends the expression, as in the type of `let x : T = e`.
     no_equals: bool,
+    /// How deep the recursion may go.
+    stack: StackLimit,
 }
 
 /// One line of a block.
@@ -93,7 +118,7 @@ enum Stmt {
 }
 
 impl<'t> Parser<'t> {
-    fn new(tokens: &'t [Token], file: FileId, text_len: usize) -> Self {
+    fn new(tokens: &'t [Token], file: FileId, text_len: usize, stack: StackLimit) -> Self {
         let eof = tokens.last().map_or(text_len as u32, |t| t.span.end);
         Parser {
             tokens,
@@ -103,7 +128,24 @@ impl<'t> Parser<'t> {
             limit: None,
             allow: None,
             no_equals: false,
+            stack,
         }
+    }
+
+    /// Called by each function the parser recurses through (`expr`,
+    /// `append_expr` and `pattern`), before going deeper.
+    fn deeper(&self) -> Result<()> {
+        if self.stack.exceeded() {
+            return Err(Diagnostic::error(
+                "E-RESOURCE",
+                "ran out of resources: the program is nested too deeply to parse",
+            )
+            .with_label(self.here(), "nested too deeply here")
+            .with_note(
+                "this isn't a syntax error: there's a limit on how deeply expressions nest",
+            ));
+        }
+        Ok(())
     }
 
     /// Whether the token at `i` ends the current statement of a block.
@@ -305,6 +347,7 @@ impl<'t> Parser<'t> {
     }
 
     fn pattern(&mut self) -> Result<Pattern> {
+        self.deeper()?;
         let span = self.here();
         match self.peek() {
             Some(Tok::Lower(_)) => Ok(Pattern::Var(self.lower("a pattern")?)),
@@ -445,6 +488,7 @@ impl<'t> Parser<'t> {
 
     /// An expression, or a block if it starts on a new line.
     fn expr(&mut self) -> Result<Expr> {
+        self.deeper()?;
         if let Some(token) = self.tokens.get(self.pos)
             && token.line_start
             && self.pos > 0
@@ -768,6 +812,7 @@ impl<'t> Parser<'t> {
     /// `++`: right-associative, binding more loosely than `+`, so
     /// `"n = " ++ natToText (n + 1)` and `a ++ b ++ c` mean what they look like.
     fn append_expr(&mut self) -> Result<Expr> {
+        self.deeper()?;
         let lhs = self.add_expr()?;
         if self.peek() != Some(&Tok::PlusPlus) {
             return Ok(lhs);
@@ -1032,14 +1077,14 @@ mod tests {
 
     #[test]
     fn multiplication_binds_tighter_than_addition_and_both_associate_left() {
-        let Expr::Binary(BinOp::Sub, lhs, rhs) = expr("a + b * c - d") else {
+        let Expr::Binary(BinOp::Sub, lhs, rhs) = &expr("a + b * c - d") else {
             panic!("expected `(a + b * c) - d`");
         };
-        assert!(matches!(*rhs, Expr::Var(_)));
-        let Expr::Binary(BinOp::Add, _, product) = *lhs else {
+        assert!(matches!(**rhs, Expr::Var(_)));
+        let Expr::Binary(BinOp::Add, _, product) = &**lhs else {
             panic!("expected `a + (b * c)`");
         };
-        assert!(matches!(*product, Expr::Binary(BinOp::Mul, ..)));
+        assert!(matches!(**product, Expr::Binary(BinOp::Mul, ..)));
         assert!(matches!(expr("a / b % c"), Expr::Binary(BinOp::Mod, ..)));
         assert!(matches!(expr("a <= b + 1"), Expr::Binary(BinOp::Le, ..)));
         assert!(matches!(expr("a != b"), Expr::Binary(BinOp::Ne, ..)));
@@ -1246,7 +1291,7 @@ mod tests {
         let body = rhs(
             "f p =\n  handle p () with\n    | return x -> x\n    | get () => k -> k 1\n    | put s => k ->\n      k ()\n",
         );
-        let Expr::Handle { clauses, .. } = body else {
+        let Expr::Handle { clauses, .. } = &body else {
             panic!("{body:?}")
         };
         assert!(matches!(clauses[0], Clause::Return { .. }));

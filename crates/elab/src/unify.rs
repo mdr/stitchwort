@@ -503,24 +503,10 @@ pub fn zonk(g: &Globals, level: usize, term: &Term) -> std::result::Result<Term,
 }
 
 fn first_meta(term: &Term) -> Option<usize> {
-    match term {
+    term.subterms().find_map(|(t, _)| match t {
         Term::Meta(m) => Some(*m),
-        Term::Var(_) | Term::Def(_) | Term::Nat(_) | Term::Sort(_) | Term::Refl => None,
-        Term::Data(_, args) | Term::Ctor(_, _, args) => args.iter().find_map(|a| first_meta(a)),
-        Term::Pi(_, _, a, b) | Term::App(a, b, _) | Term::Ann(a, b) => {
-            first_meta(a).or_else(|| first_meta(b))
-        }
-        Term::Lam(_, _, b) | Term::Loc(_, b) => first_meta(b),
-        Term::Case(_, _, branches) => branches.iter().find_map(|b| first_meta(&b.body)),
-        Term::Eq(t, a, b) => t
-            .as_deref()
-            .and_then(first_meta)
-            .or_else(|| first_meta(a))
-            .or_else(|| first_meta(b)),
-        Term::J(m, b, p) => first_meta(m)
-            .or_else(|| first_meta(b))
-            .or_else(|| first_meta(p)),
-    }
+        _ => None,
+    })
 }
 
 #[cfg(test)]

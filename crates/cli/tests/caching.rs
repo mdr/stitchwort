@@ -15,14 +15,14 @@ fn load(source: &str) -> Session {
 fn hash_of(session: &Session, name: &str) -> ContentHash {
     let g = &session.elab.globals;
     if let Some(i) = g.defs.iter().position(|d| &*d.name == name) {
-        return def_hash(g, DefId(i)).expect("checked");
+        return def_hash(g, DefId(i)).unwrap().expect("checked");
     }
     let d = g
         .datas
         .iter()
         .position(|d| &*d.name == name)
         .expect("declared");
-    data_hash(g, DataId(d))
+    data_hash(g, DataId(d)).unwrap()
 }
 
 #[test]

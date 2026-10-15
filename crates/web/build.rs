@@ -10,9 +10,11 @@ const WASM_STACK: usize = 8 * 1024 * 1024;
 /// uses the engine's own call stack (about 1 MiB in V8), which overflows
 /// first, as a `RangeError` the compiler can't recover from. Only variables
 /// whose address is taken live on the stack in linear memory, so it grows
-/// much more slowly. Measured in Node (V8): a 1 MiB guard still let printing
-/// and comparing long lists overflow V8's stack; 256 KiB stopped them
-/// cleanly. 128 KiB leaves a margin for engines with smaller stacks. Check
+/// much more slowly. Measured in Node 22 (V8) once every recursive pass was
+/// guarded: with a guard of up to 512 KiB, every deep case stopped cleanly;
+/// from 640 KiB, elaborating a long sum (`1 + 1 + …`) overflowed V8's stack.
+/// 128 KiB leaves a margin of 4 for engines with smaller stacks, but allows
+/// little: nesting about 25 deep, list literals of about 200 elements. Check
 /// with web/stress.html; set `STITCHWORT_GUARD` (bytes) to experiment.
 const WASM_GUARD: usize = 128 * 1024;
 /// Native builds of this crate only run as tests, on 2 MiB test threads.

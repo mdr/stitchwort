@@ -15,6 +15,12 @@ use crate::{Elaborator, Global, effects};
 
 pub type Result<T> = std::result::Result<T, Diagnostic>;
 
+/// The name the elaborator's depth guards report. Each function the
+/// elaborator recurses through over syntax or terms (`infer`, `check`,
+/// `may_perform`, …) checks it has stack left first
+/// (docs/proposals/stack-safe-evaluation.md).
+pub(crate) const PASS: &str = "elaborator";
+
 pub struct Ctx<'e> {
     pub e: &'e Elaborator,
     /// What each variable evaluates to (inside a case branch, the matched
@@ -191,6 +197,7 @@ enum Arg<'a> {
 }
 
 pub fn infer(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
+    cx.g().budget.nesting(PASS)?;
     let span = expr.span();
     with_span(cx, span, |cx| {
         let (term, ty) = infer_inner(cx, expr)?;
@@ -289,7 +296,7 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             let (dom, s1) = check_type(cx, dom)?;
             let mark = cx.mark();
             for (k, name) in names.iter().enumerate() {
-                let ty = cx.eval(&dom.shift(k, 0))?;
+                let ty = cx.eval(&dom.shift(cx.g(), k, 0)?)?;
                 cx.bind(&name.text, ty);
             }
             let result = check_type(cx, cod);
@@ -299,7 +306,7 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
                 term = Term::Pi(
                     name.text.as_str().into(),
                     icit,
-                    Rc::new(dom.shift(k, 0)),
+                    Rc::new(dom.shift(cx.g(), k, 0)?),
                     Rc::new(term),
                 );
             }
@@ -669,6 +676,7 @@ fn insert_until(
 }
 
 pub fn check(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
+    cx.g().budget.nesting(PASS)?;
     let span = expr.span();
     with_span(cx, span, |cx| {
         let term = check_inner(cx, expr, expected)?;

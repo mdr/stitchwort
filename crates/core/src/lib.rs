@@ -13,7 +13,7 @@ pub mod pretty;
 #[cfg(any(test, feature = "reference"))]
 pub mod reference;
 pub mod term;
-mod termination;
+pub mod termination;
 pub mod value;
 
 pub use budget::{Limits, ResourceError};

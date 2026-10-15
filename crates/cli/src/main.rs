@@ -6,7 +6,7 @@ use clap::{Parser, Subcommand};
 use rustyline::error::ReadlineError;
 use stitchwort_cli::driver::{Cache, Outcome, Session};
 use stitchwort_cli::render::render;
-use stitchwort_syntax::{Diagnostic, SourceMap, parse_expression};
+use stitchwort_syntax::{Diagnostic, SourceMap};
 
 #[derive(Parser)]
 #[command(name = "stitchwort", version, about = "The Stitchwort language")]
@@ -165,8 +165,7 @@ fn eval(path: &Path, expr: &str) -> ExitCode {
 
 /// Evaluates `expr`, or with `type_only`, shows its type.
 fn evaluate(session: &mut Session, expr: &str, type_only: bool) -> Result<String, Diagnostic> {
-    let file = session.sources.add("<input>", expr);
-    let expr = parse_expression(file, expr)?;
+    let expr = session.parse_expression("<input>", expr)?;
     if type_only {
         let (_, ty) = session.elab.infer_expr(&expr)?;
         return Ok(session.elab.show(&ty));
@@ -227,7 +226,7 @@ fn build(path: &Path, out: &Path) -> ExitCode {
     if !load(&mut session, path) {
         return ExitCode::FAILURE;
     }
-    let output = match stitchwort_js::generate(&session.elab.globals) {
+    let output = match session.extract() {
         Ok(output) => output,
         Err(diagnostic) => {
             report(&session.sources, &[diagnostic]);
