@@ -57,9 +57,7 @@ Round 2:
   independent reference implementation. Phase 2 (wiring into the
   termination checker, then groups, then data types) after number patterns
   and the admission fix merge.
-- **Kernel admission fix** (lane `kernel-admission`): explicit declaration
-  states and the admission rule for single declarations, closing the
-  split-cycle and pending-datatype holes (see Known issues). Recommends any order within a file, grouped automatically, with
+- ~~Kernel admission fix~~ (lane `kernel-admission`): merged as `afad1e0`. Recommends any order within a file, grouped automatically, with
   size-change termination checked by the kernel.
 - ~~JS boundary hardening~~ (lane `js-boundary`): merged as `84bc590`.
 
@@ -103,6 +101,10 @@ Round 2:
   checks. Not a proof of anything false, but turning natives on changes
   which `rfl` proofs check. Make the native build the definition's own `No`
   term, with a whole-result natives-on/off test.
+- **JS generation silently skips a definition with no body** (unreachable
+  today: the driver refuses modules with errors); make it fail explicitly.
+- **`Globals` fields `state` and `body` are `pub`**; make them private
+  behind the admission API (with the mutual-recursion work).
 - **More tail calls as loops in generated JS:** only a function's calls to
   itself (including in either branch of an `if`) are loops today. Not
   through `if h : P`, helpers like `maybeThen`, or between functions.
@@ -198,17 +200,6 @@ Round 2:
   first. So the guard is set to 128 KiB there (`crates/web/build.rs`),
   calibrated in Node and Chrome only; Firefox and Safari are unmeasured.
   Eliminating recursion (steps 3 and 4) is the real fix.
-- **The kernel doesn't track whether a declaration is finished.** Its
-  state is only `body: Option<…>`, which can't tell pending from failed,
-  and it never checks that what a body refers to is finished. Called
-  directly (not reachable from source, which declares and defines each item
-  back to back), it accepts a split cycle (`define_def f (\n. g n)` then
-  `define_def g (\n. f n)`, so `f 0` loops) and an empty match on a
-  datatype whose constructors aren't added yet, giving `impossible MakeD :
-  Void` (confirmed by the mutual-recursion lane). A failed declaration also
-  stays declared, so later declarations can use it; safe only because a
-  module with any error is rejected as a whole. The admission protocol in
-  mutual-recursion.md draft 2 (§5) fixes this.
 - **The machine starts a nested machine** when a native forces an argument
   that's a solved metavariable (elaboration only). Bounded by the term, not by
   program depth, but it's the one exception to "no re-entry".
@@ -231,6 +222,7 @@ Round 2:
 
 ## Recently done
 
+- `afad1e0` Kernel admission ([kernel-admission.md](docs/proposals/kernel-admission.md)): declarations are pending, final or failed, and may refer only to final ones; closes a split cycle (`f 0` looping) and `impossible MakeD : Void` via the raw kernel API; 11 must-reject tests.
 - `f31d1c9` Compact text stage 1: `Text` is a JS string in generated code with 14 native operations bound to the prelude definitions by hash; prelude text operations handle over 4 million characters in Node (from ~5,000–8,000).
 - `84bc590` JS boundary hardening: names can't collide by construction (field `tag` becomes `$tag`, exports aliased, reserved names refused), iterative codecs (a million-element list in about 0.2 s), clearer boundary errors.
 - `07550ff` Recorded benchmarks (`crates/bench`, `bench/baseline.toml`): deterministic counts (steps, visits, allocations, peak heap) checked in `nix flake check`; timings reported, not checked.
