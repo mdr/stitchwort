@@ -1270,12 +1270,16 @@ fn refinement_keeps_branches_apart() {
 fn a_hidden_negative_occurrence_is_refused() {
     use stitchwort_core::check::define_ctors;
     // `Bad` is declared, then `Neg n = Bad -> Nat` is defined, then `Bad`'s
-    // constructor takes a `Neg 0`, which is `Bad -> Nat` in disguise.
+    // constructor takes a `Neg 0`, which is `Bad -> Nat` in disguise. `Neg`
+    // is refused for using `Bad` before it's finished, and `Bad` for using
+    // something declared later.
     let mut p = Prelude::new();
     let bad = data(&mut p.g, "Bad", vec![], Sort::Type(0));
     let neg_ty = arrow(p.nat_ty(), ty());
+    let neg = declare(&mut p.g, "Neg", neg_ty);
     let neg_body = lam("n", arrow(Term::Data(bad, vec![]), p.nat_ty()));
-    let neg = define(&mut p.g, "Neg", neg_ty, neg_body).unwrap();
+    let result = stitchwort_core::check::define_def(&mut p.g, neg, &neg_body);
+    assert_eq!(result.err().map(|e| e.code), Some("E-MALFORMED"));
     let field = app(Term::Def(neg), [p.num(0)]);
     let result = define_ctors(&mut p.g, bad, vec![ctor("MkBad", vec![("f", field)])]);
     assert_eq!(result.err().map(|e| e.code), Some("E-POSITIVITY"));
@@ -1285,11 +1289,14 @@ fn a_hidden_negative_occurrence_is_refused() {
 fn a_negative_occurrence_hidden_in_a_later_data_type_is_refused() {
     use stitchwort_core::check::define_ctors;
     // `Wrap = MkWrap (Bad -> Nat)`, declared after `Bad`, then used in `Bad`.
+    // `Wrap` is refused for using `Bad` before it's finished, and `Bad` for
+    // using something declared later.
     let mut p = Prelude::new();
     let bad = data(&mut p.g, "Bad", vec![], Sort::Type(0));
     let wrap = data(&mut p.g, "Wrap", vec![], Sort::Type(0));
     let neg = arrow(Term::Data(bad, vec![]), p.nat_ty());
-    define_ctors(&mut p.g, wrap, vec![ctor("MkWrap", vec![("f", neg)])]).unwrap();
+    let result = define_ctors(&mut p.g, wrap, vec![ctor("MkWrap", vec![("f", neg)])]);
+    assert_eq!(result.err().map(|e| e.code), Some("E-MALFORMED"));
     let field = Term::Data(wrap, vec![]);
     let result = define_ctors(&mut p.g, bad, vec![ctor("MkBad", vec![("w", field)])]);
     assert_eq!(result.err().map(|e| e.code), Some("E-POSITIVITY"));

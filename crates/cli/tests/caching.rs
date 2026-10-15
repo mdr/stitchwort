@@ -22,7 +22,7 @@ fn hash_of(session: &Session, name: &str) -> ContentHash {
         .iter()
         .position(|d| &*d.name == name)
         .expect("declared");
-    data_hash(g, DataId(d)).unwrap()
+    data_hash(g, DataId(d)).unwrap().expect("checked")
 }
 
 #[test]
