@@ -68,9 +68,20 @@ fn abilities_are_not_types_or_values() {
 
 #[test]
 fn an_ability_is_used_with_one_set_of_arguments() {
-    assert_refused(
-        "f : () -> {State Bool} Bool\nf u = get ()\n\ng : () -> {State Nat} Bool\ng u = f ()",
-        "E-TYPE-MISMATCH",
+    let source =
+        "f : () -> {State Bool} Bool\nf u = get ()\n\ng : () -> {State Nat} Bool\ng u = f ()";
+    assert_refused(source, "E-TYPE-MISMATCH");
+    // Said in terms of the ability, not of the generated types.
+    let mut session = Session::new();
+    let Err(diagnostics) = session.load("test.sw", &format!("{HEADER}\n{source}\n")) else {
+        panic!("accepted");
+    };
+    assert!(
+        diagnostics[0]
+            .message
+            .contains("`State` is used with different arguments"),
+        "{:?}",
+        diagnostics[0].message
     );
 }
 

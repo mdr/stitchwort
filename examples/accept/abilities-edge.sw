@@ -142,3 +142,66 @@ bigger u =
 test "a smaller row inside a bigger one" =
   let r = runState 7 (\u -> collect (\v -> answer 2 bigger))
   if eqNats (fstOf (fstOf r)) [2, 2] then sndOf (fstOf r) == 7 else False
+
+-- A partially applied effectful function is a value (it doesn't run yet).
+pickFrom : Nat -> () -> {Choose} Nat
+pickFrom n u = if choose () then n else 0
+
+test "a partial application is passed, not run" =
+  eqNats (allResults (pickFrom 3)) [3, 0]
+
+-- A pure `let` in a function whose row and result mention variables.
+peek : () -> {State s | e} s
+peek u =
+  let unused = 1
+  get ()
+
+test "a pure let under a row variable" = fstOf (runState 9 (\u -> peek ())) == 9
+
+-- A handler inside a function with other abilities: what it doesn't handle
+-- (`say`) goes out to the function's own row.
+choicesLogged : () -> {Log} (List Nat)
+choicesLogged u =
+  allResults (\v ->
+    say 1
+    if choose () then 10 else 20)
+
+-- `say 1` runs once, before the choice; both results come back.
+test "a handler forwards to a concrete row" =
+  let r = collect choicesLogged
+  if eqNats (fstOf r) [1] then eqNats (sndOf r) [10, 20] else False
+
+-- A row-polymorphic function passed where a concrete row, in another
+-- order, is expected.
+anyChoice : () -> {Choose | e} Nat
+anyChoice u = if choose () then 1 else 2
+
+useBoth : (() -> {State Nat, Choose} Nat) -> {State Nat, Choose} Nat
+useBoth f = f () + get ()
+
+test "a row-polymorphic function, reordered" =
+  eqNats (allResults (\u -> fstOf (runState 5 (\v -> useBoth anyChoice)))) [6, 7]
+
+-- A function that performs fewer abilities than a parameter allows.
+onlyChoice : () -> {Choose} Nat
+onlyChoice u = if choose () then 1 else 2
+
+test "fewer abilities than allowed" =
+  eqNats (allResults (\u -> fstOf (runState 5 (\v -> useBoth onlyChoice)))) [6, 7]
+
+-- A `handle` written inside a function with a concrete row: `say` isn't
+-- handled here, so it's forwarded to the function's own `Log`.
+chooseAndSay : () -> {Choose, Log} Nat
+chooseAndSay u =
+  say 5
+  if choose () then 1 else 2
+
+handledHere : () -> {Log} (List Nat)
+handledHere u =
+  handle chooseAndSay () with
+    | return x       -> [x]
+    | choose _ => k  -> append (k True) (k False)
+
+test "a handle expression forwards to a concrete row" =
+  let r = collect handledHere
+  if eqNats (fstOf r) [5] then eqNats (sndOf r) [1, 2] else False

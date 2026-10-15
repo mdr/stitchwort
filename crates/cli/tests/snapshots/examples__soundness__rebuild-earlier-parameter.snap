@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TERMINATION] Error: can't show that `loop` terminates
+   ╭─[ soundness/rebuild-earlier-parameter.sw:6:19 ]
+   │
+ 6 │ loop (Succ n) m = loop (Succ n) m
+   │                   ───────┬───────  
+   │                          ╰───────── this recursive call might not terminate
+   │ 
+   │ Note 1: every recursive call must pass a structurally smaller argument (a field of a pattern-matched constructor) in the same parameter position
+   │ 
+   │ Note 2: non-terminating definitions are rejected; `{Partial}` isn't implemented yet
+───╯

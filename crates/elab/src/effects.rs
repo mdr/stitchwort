@@ -1414,9 +1414,9 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
 
 // Coercions between rows in a different order
 
-/// If `found` and `expected` are both effectful function types whose rows
-/// have the same abilities (after solving unknown tails) but differ in
-/// order, wraps `term` so it has the expected type:
+/// If `found` and `expected` are both effectful function types, and
+/// `found`'s abilities are among `expected`'s (after solving unknown tails)
+/// though not in the same form, wraps `term` so it has the expected type:
 /// `\x … -> translate m (term x …)`.
 pub fn coerce(cx: &mut Ctx, term: &Term, found: &Value, expected: &Value) -> Option<Term> {
     let g = cx.g();
@@ -1437,17 +1437,11 @@ pub fn coerce(cx: &mut Ctx, term: &Term, found: &Value, expected: &Value) -> Opt
             found = c1.apply(g, v.clone());
             expected = c2.apply(g, v);
         }
-        let (rf, _) = comp_parts(cx, &found)?;
-        let (re, _) = comp_parts(cx, &expected)?;
-        if !solve_tail(cx, &re, &rf).ok()? {
-            solve_tail(cx, &rf, &re).ok()?;
-        }
-        // Look again, with the solutions.
-        let (rf, tf) = comp_parts(cx, &cx.eval(&cx.quote(&found)))?;
-        let (re, te) = comp_parts(cx, &cx.eval(&cx.quote(&expected)))?;
-        let same_abilities = rf.labels.len() == re.labels.len()
-            && rf.labels.iter().all(|l| re.position(l.ability).is_some());
-        if !same_abilities || !cx.unify(&tf, &te) {
+        // `lift` solves unknown tails on either side, and refuses abilities
+        // that aren't allowed.
+        let (rf, tf) = comp_parts(cx, &found)?;
+        let (re, te) = comp_parts(cx, &expected)?;
+        if !cx.unify(&tf, &te) {
             return None;
         }
         let n = names.len();

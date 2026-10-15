@@ -209,3 +209,22 @@ storeAndRun =
 
 test "effectful function in state" =
   eqNats (runFnState (\n -> Done n) storeAndRun) [15, 5]
+
+-- A computation type whose operations come from a type function stuck on a
+-- variable: not a row of abilities, so it's an ordinary data type here.
+OpsOf : Bool -> Type
+OpsOf True  = ChooseOp
+OpsOf False = AbortOp
+
+ResOf : (b : Bool) -> OpsOf b -> Type
+ResOf True  o = ChooseRes o
+ResOf False o = AbortRes o
+
+doneAnyway : (b : Bool) -> Comp (OpsOf b) (ResOf b) Nat
+doneAnyway b = Done 7
+
+valueOr0 : [o : Type] -> [r : o -> Type] -> Comp o r Nat -> Nat
+valueOr0 (Done x)      = x
+valueOr0 (Call c rest) = 0
+
+test "a stuck operation type isn't a row" = valueOr0 (doneAnyway True) == 7
