@@ -1,6 +1,6 @@
 -- Pure exports that use `IO` inside, handled by the prelude's `simulate`.
--- The scripted input lines are built from the arguments, since exports
--- can't take or return `Text` yet.
+-- The scripted input lines are built from numbers: this example was
+-- written before exports could take `Text`.
 --
 -- run: linesEchoed [] 5
 -- run: linesEchoed [1, 2, 3] 5
