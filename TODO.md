@@ -29,18 +29,16 @@ The main session orchestrates: it chooses lanes, hands each to a background
 agent, then reviews, merges and updates this file.
 
 Running:
-- **Mutual recursion, stage 2** (lane `mutual-recursion-s2`;
-  [mutual-recursion.md](docs/proposals/mutual-recursion.md) draft 3, two
-  reviews, implementation approved; stage 1 merged as `9eb1487`): groups of
-  functions in the kernel, forward references, cycle hashing, scheduling and
-  `auto` diagnostics, the JS calling convention, the §5.5 partition tests.
-  Stage 3 (mutual data types) follows. A number case adds no descent.
+- **Mutual recursion, stage 3** (lane `mutual-recursion-s3`; stage 2
+  merged as `af02abc`): mutual data types (`declare_data_group` with one
+  shared telescope, positivity across the group, no data elimination from
+  `Prop` groups, hashing, the deep `Tree`/`Forest` codec test).
 - **`Partial`, stage 1** (lane `partial-draft3`;
   [partial.md](docs/proposals/partial.md)): reviewed; the user chose stage 1
   only (partial code visible in types, run only by the runtime, proofs only
   about the total parts). Draft 3 adopting the review, plus a standalone
   prototype of the runtime semantics running the reviewer's test table.
-  Implementation after mutual recursion stage 2 merges.
+  Implementation can follow (mutual recursion stage 2 has merged).
 - **Records** (lane `records-design`; milestone 8): a thoroughly
   researched design note (`docs/proposals/records.md`), docs only, for the
   user and the reviewer.
@@ -101,6 +99,13 @@ Nothing queued: choose from **Later**, or continue the lanes above.
   the declarations box on the JavaScript tab is squeezed to one line.
 - **Browser tests** (`web/test.sh`) run only locally with Chrome; Firefox
   and Safari untested.
+- **Mutual recursion stage 2 gaps:** a callback kept after its creator
+  returns is tested only for single definitions; hash stability under
+  reordering of identical-shaped members isn't tested (allowed to change);
+  the playground doesn't show warnings (`W-MODULE-NAME`); for a body with
+  no pattern match, termination errors point at the whole definition.
+- **Mutual tail calls aren't loops in generated JS** (`isEven 10000000n`
+  is a `StitchwortResourceError`).
 - **Measure the JS limits in browsers** (only Node so far).
 - **Compact text** (text step 7): in generated JS first, then possibly in the
   checking evaluator, with differential tests against the plain-list version.
@@ -146,7 +151,6 @@ Nothing queued: choose from **Later**, or continue the lanes above.
   a hand-written `Sig`).
 - **Inferring a bare lambda's type** needs an annotation, e.g.
   `runState ((\n -> n) : Nat -> {Choose} Nat) …`.
-- **Forward references and mutual recursion.**
 - **Performance of effectful code** (deep handler trees) hasn't been measured.
 - **Namespaces or modules.** Prelude names can't be redefined, so text
   operations are prefixed (`textLength`, `textSplit`) and every new prelude
@@ -207,6 +211,7 @@ Nothing queued: choose from **Later**, or continue the lanes above.
 
 ## Recently done
 
+- `af02abc` Mutual recursion stage 2: declarations in any order within a file, function groups checked as a unit by the kernel (`define_group`), witness messages naming each member, group hashing, `auto` diagnostics explaining unavailable candidates, one JS calling convention; mutation evidence including the Rocq-bug shape.
 - `73899f9` Playground polish: 18 headless-Chrome tests (`nix develop -c ./web/test.sh`), streamed run output (Stop keeps what was printed), Tab/undo and resize fixed, `E-INPUT` after 10,000 reads past end of input.
 - `01208f2` Natives match their definitions as whole results, proofs included: `decEqNat` redefined so its `No` proof is small and the native returns exactly it (new native `eqNatSound`); every native audited; natives-on/off whole-result tests including numbers above 2^64.
 - `9eb1487` Size-change termination for single definitions: Ackermann, swapped arguments and `merge` accepted; partial recursive calls refused with a suggested lambda; one shared entry arity; compared with the old checker on 20,000 generated programs (the new one accepts all the old one did except 7 partial calls).
