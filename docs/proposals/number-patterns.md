@@ -613,7 +613,9 @@ Option B as specified above, with these specifics.
   `check_num_case` in `crates/core/src/check.rs`. Every invariant in
   [Kernel invariants](#kernel-invariants) is checked there or by the
   existing position check (`case_only_in_tree`), and a violation, including
-  a scrutinee that isn't a `Nat`, is `E-MALFORMED`.
+  a scrutinee that isn't a `Nat`, is `E-MALFORMED`. For admission, a
+  number case counts as a use of `Nat` (`admissible`), and like `case` it's
+  refused while the type it matches on isn't finished.
 - **Evaluation.** The machine (`value.rs`, `branch`) uses the existing view of
   numbers (`native::view`, which forces solved metavariables along the way)
   and distinguishes a number (binary search of the keys), `k + x` (the
