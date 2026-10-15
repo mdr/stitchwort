@@ -478,7 +478,7 @@ assert.deepEqual(result, [4n]);
 
 // Wrong shapes are refused with a path to the problem.
 assert.throws(() => shapes.area({ tag: "Circle" }), / arg0: unknown tag "Circle"; expected "Square" or "Rect"$/);
-assert.throws(() => shapes.area({}), / arg0: unknown tag undefined; expected "Square" or "Rect"$/);
+assert.throws(() => shapes.area({}), / arg0: no tag; expected "Square" or "Rect"$/);
 assert.throws(() => shapes.area({ tag: "x".repeat(1000) }), (e) => e.message.length < 120);
 // An inherited property isn't a tag.
 assert.throws(() => shapes.area({ tag: "toString" }), /unknown tag "toString"/);
@@ -489,6 +489,231 @@ console.log("ok");
         "decoders",
         &[("trees.mjs", trees), ("shapes.mjs", shapes)],
         script,
+    );
+}
+
+/// DESIGN.md §12: decoders read only an object's own properties, so nothing
+/// comes from a prototype (including `Object.prototype`, which any code can
+/// add to). Any prototype is fine otherwise, as are extra properties, frozen
+/// objects and getters; a getter that throws is the input's fault.
+#[test]
+fn decoders_read_only_own_properties() {
+    let examples = examples();
+    let script = r#"
+import * as trees from "./trees.mjs";
+import * as shapes from "./shapes.mjs";
+import assert from "node:assert/strict";
+
+// Each module has its own error classes.
+const inputError = (e) =>
+  e instanceof shapes.StitchwortInputError || e instanceof trees.StitchwortInputError;
+const refused = (f, pattern) => assert.throws(f, (e) => inputError(e) && pattern.test(e.message));
+
+// An inherited tag, or field, isn't the object's own.
+refused(() => trees.leaves(Object.create({ tag: "Leaf" })),
+  /^arg0: its tag is inherited, not its own property$/);
+const inheritsSide = Object.create({ side: 3n });
+inheritsSide.tag = "Square";
+refused(() => shapes.area(inheritsSide), /^arg0\.side: inherited, not the object's own property$/);
+refused(() => shapes.area({ tag: "Square" }), /^arg0\.side: missing$/);
+// So adding to `Object.prototype` can't fill in a missing field.
+Object.prototype.side = 3n;
+try {
+  refused(() => shapes.area({ tag: "Square" }), /^arg0\.side: inherited, not the object's own property$/);
+} finally {
+  delete Object.prototype.side;
+}
+// Nor a class's getter.
+class Square {
+  get tag() { return "Square"; }
+  side = 2n;
+}
+refused(() => shapes.area(new Square()), /^arg0: its tag is inherited, not its own property$/);
+
+// Own properties are fine, whatever the prototype: none, or a class's.
+const bare = Object.create(null);
+bare.tag = "Square";
+bare.side = 3n;
+assert.equal(shapes.area(bare), 9n);
+class Rect {
+  constructor(width, height) {
+    this.tag = "Rect";
+    this.width = width;
+    this.height = height;
+  }
+  area() { return this.width * this.height; }
+}
+assert.equal(shapes.area(new Rect(2n, 5n)), 10n);
+// Extra properties are ignored, as TypeScript allows them.
+assert.equal(shapes.area({ tag: "Square", side: 2n, colour: "red" }), 4n);
+// Frozen objects and arrays are fine.
+assert.deepEqual(shapes.areas(Object.freeze([Object.freeze({ tag: "Square", side: 2n })])), [4n]);
+
+// A getter that throws refuses the input, with the error as the cause, even
+// an error that would otherwise mean running out of resources.
+const boom = new Error("boom");
+assert.throws(() => shapes.area({ tag: "Square", get side() { throw boom; } }),
+  (e) => e instanceof shapes.StitchwortInputError && e.message === "arg0.side: reading it threw Error: boom" && e.cause === boom);
+assert.throws(() => shapes.area({ tag: "Square", get side() { throw new RangeError("deep"); } }),
+  (e) => e instanceof shapes.StitchwortInputError && /^arg0\.side: reading it threw RangeError: deep$/.test(e.message));
+refused(() => shapes.area({ get tag() { throw "a string"; } }), /^arg0: reading it threw a string$/);
+// A getter whose answer changes is read once, even if its object is reached
+// twice.
+let reads = 0;
+const shared = { tag: "Node", left: { tag: "Leaf" }, get right() { reads += 1; return reads === 1 ? { tag: "Leaf" } : 7; } };
+assert.equal(trees.leaves({ tag: "Node", left: shared, right: shared }), 4n);
+assert.equal(reads, 1);
+
+// Arrays and objects aren't interchangeable, and an array can't have holes
+// (which would be read from `Array.prototype`).
+refused(() => shapes.area(["Square", 2n]), /^arg0: expected a Shape object, not an array$/);
+refused(() => shapes.areas({ 0: { tag: "Square", side: 2n }, length: 1 }), /^arg0: expected an array$/);
+refused(() => shapes.areas([{ tag: "Square", side: 2n }, , { tag: "Square", side: 2n }]), /^arg0\[1\]: a hole in the array$/);
+Array.prototype[0] = { tag: "Square", side: 2n };
+try {
+  refused(() => shapes.areas(new Array(1)), /^arg0\[0\]: a hole in the array$/);
+} finally {
+  delete Array.prototype[0];
+}
+console.log("ok");
+"#;
+    run_script(
+        "own",
+        &[
+            ("trees.mjs", example(&examples, "trees.sw")),
+            ("shapes.mjs", example(&examples, "shapes.sw")),
+        ],
+        script,
+    );
+}
+
+/// DESIGN.md §12: an object reached by many paths is decoded once (at each
+/// type), so input with much sharing, such as a DAG with 2^60 paths, decodes
+/// quickly, and the value is the same as if nothing were shared.
+#[test]
+fn shared_input_is_decoded_once() {
+    let source = "\
+type Tree : Type =
+  | Leaf
+  | Node (left : Tree) (right : Tree)
+
+leftDepthOnto : Nat -> Tree -> Nat
+leftDepthOnto n Leaf       = n
+leftDepthOnto n (Node l r) = leftDepthOnto (Succ n) l
+
+export
+leftDepth : Tree -> Nat
+leftDepth t = leftDepthOnto 0 t
+
+export
+leaves : Tree -> Nat
+leaves Leaf       = 1
+leaves (Node l r) = leaves l + leaves r
+
+export
+echoTree : Tree -> Tree
+echoTree t = t
+
+type Both (a : Type) (b : Type) : Type =
+  | MkBoth (first : a) (second : b)
+
+export
+echoBoth : Both (List Nat) (List Text) -> Both (List Nat) (List Text)
+echoBoth p = p
+";
+    let mut session = Session::new();
+    session.load("shared.sw", source).expect("checks");
+    let script = r#"
+import * as m from "./shared.mjs";
+import assert from "node:assert/strict";
+
+// `d` levels, each node's children both the next level's one node: 2^d paths
+// to the leaf, through d + 1 objects.
+const dag = (d) => {
+  let t = { tag: "Leaf" };
+  for (let i = 0; i < d; i++) t = { tag: "Node", left: t, right: t };
+  return t;
+};
+// Each node is read once: if not, this fails (quickly) rather than the
+// next line taking forever.
+let reads = 0;
+let counted = { tag: "Leaf" };
+for (let i = 0; i < 20; i++) {
+  const child = counted;
+  counted = { tag: "Node", get left() { reads++; return child; }, get right() { reads++; return child; } };
+}
+assert.equal(m.leftDepth(counted), 20n);
+assert.equal(reads, 40);
+const start = performance.now();
+assert.equal(m.leftDepth(dag(60)), 60n);
+assert.equal(m.leftDepth(dag(100000)), 100000n);
+const elapsed = performance.now() - start;
+assert.ok(elapsed < 5000, `took ${elapsed} ms`);
+
+// The value is the full tree: Stitchwort code sees 2^16 leaves, and encoding
+// it gives back a tree of fresh objects, none shared.
+assert.equal(m.leaves(dag(16)), 65536n);
+const out = m.echoTree(dag(12));
+const objects = new Set();
+let count = 0;
+for (const stack = [out]; stack.length > 0; ) {
+  const t = stack.pop();
+  objects.add(t);
+  count++;
+  if (t.tag === "Node") stack.push(t.left, t.right);
+  else assert.equal(t.tag, "Leaf");
+}
+assert.equal(count, 2 ** 13 - 1);
+assert.equal(objects.size, count);
+
+// What's remembered is per type: the same array is a `List Nat` in one place
+// and a `List Text` in another, so it's refused in the second.
+const shared = [1n];
+assert.throws(() => m.echoBoth({ tag: "MkBoth", first: shared, second: shared }),
+  (e) => e instanceof m.StitchwortInputError && e.message === "p.second[0]: expected a string");
+const empty = [];
+assert.deepEqual(m.echoBoth({ tag: "MkBoth", first: empty, second: empty }),
+  { tag: "MkBoth", first: [], second: [] });
+
+// Cycles are still refused.
+const loop = { tag: "Node", left: { tag: "Leaf" }, right: null };
+loop.right = { tag: "Node", left: loop, right: loop };
+assert.throws(() => m.leftDepth(loop),
+  (e) => e instanceof m.StitchwortInputError && e.message === "t.right.left: the input contains itself");
+console.log("ok");
+"#;
+    run_script("shared", &[("shared.mjs", &session)], script);
+}
+
+/// A definition that failed to check has no body. The driver never extracts
+/// a module with errors, but the generator refuses one rather than emitting
+/// JS that calls a function that isn't there.
+#[test]
+fn the_generator_refuses_a_definition_without_a_body() {
+    let source = "\
+helper : Nat -> Nat
+helper n = True
+
+export
+f : Nat -> Nat
+f n = helper n
+";
+    let mut session = Session::new();
+    assert!(session.load("broken.sw", source).is_err());
+    let g = &session.elab.globals;
+    let helper = (0..g.defs.len())
+        .map(DefId)
+        .find(|id| &*g.def(*id).name == "helper")
+        .expect("`helper` is declared");
+    assert!(g.def(helper).body.is_none());
+    let e = stitchwort_js::generate(g, session.elab.limits)
+        .err()
+        .expect("generation is refused");
+    assert_eq!(e.code, "E-EXPORT");
+    let rendered = render(&session.sources, &e, false);
+    assert!(
+        rendered.contains("can't generate JavaScript for `"),
+        "{rendered}"
     );
 }
 
