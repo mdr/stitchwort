@@ -35,9 +35,10 @@ Round 2:
 - ~~Syntax colouring in the playground~~ (lane `syntax-colour`): merged as
   `ccebba3`.
 - ~~Text step 3~~ (lane `js-text`): merged as `017d554`.
-- **Number patterns** (lane `number-patterns`): design note written
-  ([number-patterns.md](docs/proposals/number-patterns.md)), **awaiting
-  review**. Recommends a number-switch node in kernel case trees.
+- **Number patterns** (lane `number-patterns`): reviewed; the reviewer
+  recommends the number-switch node with corrections. Draft 2 of
+  [number-patterns.md](docs/proposals/number-patterns.md), then
+  implementation (go-ahead given, no second review).
 - ~~Recorded benchmarks~~ (lane `benchmarks`): merged as `07550ff`.
 - **Compact text**: design note written
   ([compact-text.md](docs/proposals/compact-text.md)), **awaiting review**.
