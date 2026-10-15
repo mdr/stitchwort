@@ -368,47 +368,15 @@ const $hasTwo = (v0) => {
   throw new Error("unreachable");
 };
 const $describe = (v0) => {
-  if (v0 === 0n) {
-    return v0;
-  } else {
-    const v1 = v0 - 1n;
-    if (v1 === 0n) {
-      return v0;
-    } else {
-      const v2 = v1 - 1n;
-      if (v2 === 0n) {
-        return v0;
-      } else {
-        const v3 = v2 - 1n;
-        if (v3 === 0n) {
-          return 30n;
-        } else {
-          const v4 = v3 - 1n;
-          if (v4 === 0n) {
-            return v0;
-          } else {
-            const v5 = v4 - 1n;
-            if (v5 === 0n) {
-              return v0;
-            } else {
-              const v6 = v5 - 1n;
-              if (v6 === 0n) {
-                return v0;
-              } else {
-                const v7 = v6 - 1n;
-                if (v7 === 0n) {
-                  return 70n;
-                } else {
-                  const v8 = v7 - 1n;
-                  return v0;
-                }
-              }
-            }
-          }
-        }
-      }
+  switch (v0) {
+    case 3n: {
+      return 30n;
+    }
+    case 7n: {
+      return 70n;
     }
   }
+  return v0;
 };
 const $sameLength = (v0) => (v1) => $toBool($decEqNat($length(v0))($length(v1)));
 const $bigEqual = (v0) => $toBool($decEqNat($mul(v0)(2n))($add(v0)(v0)));

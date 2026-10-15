@@ -407,7 +407,7 @@ fn run(g: &Globals, mut control: Control) -> Result<Value> {
             Control::Tree(node, env, stuck) => {
                 let node = Term::strip_loc_rc(&node);
                 match &*node {
-                    Term::Case(ix, ..) => {
+                    Term::Case(ix, ..) | Term::NumCase(ix, ..) => {
                         let scrutinee = env[env.len() - 1 - ix].clone();
                         if needs_forcing(g, &scrutinee) {
                             push(
@@ -421,7 +421,7 @@ fn run(g: &Globals, mut control: Control) -> Result<Value> {
                             )?;
                             Control::Force(scrutinee)
                         } else {
-                            branch(g, node, env, stuck, scrutinee)
+                            branch(g, node, env, stuck, scrutinee)?
                         }
                     }
                     _ => Control::Eval(node, env.into()),
@@ -541,7 +541,7 @@ fn eval_step(g: &Globals, term: Rc<Term>, env: Env, stack: &mut Vec<Frame>) -> R
         },
         Term::Ann(e, _) => Control::Eval(e.clone(), env),
         Term::Loc(_, t) => Control::Eval(t.clone(), env),
-        Term::Case(..) => Control::Tree(term.clone(), env.to_vec(), None),
+        Term::Case(..) | Term::NumCase(..) => Control::Tree(term.clone(), env.to_vec(), None),
         Term::Eq(ty, _, _) => {
             let ty = ty
                 .clone()
@@ -725,7 +725,7 @@ fn resume(g: &Globals, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Re
             });
             Control::Return(Value::Neutral(head, spine))
         }
-        Frame::Scrutinee { tree, env, stuck } => branch(g, tree, env, stuck, value),
+        Frame::Scrutinee { tree, env, stuck } => branch(g, tree, env, stuck, value)?,
         Frame::Replay { spine, next } => match spine.get(next) {
             None => Control::Force(value),
             Some(Elim::App(arg, icit)) => {
@@ -783,22 +783,40 @@ fn branch(
     mut env: Vec<Value>,
     stuck: Option<(DefId, Vec<Elim>)>,
     value: Value,
-) -> Control {
-    let Term::Case(_, d, branches) = &*tree else {
-        unreachable!("a case node")
+) -> Result<Control> {
+    let (d, branches) = match &*tree {
+        Term::Case(_, d, branches) => (d, branches),
+        Term::NumCase(_, arms, default) => {
+            let next = match native::view(g, &value)? {
+                // A number: its arm, or the default.
+                (k, None) => match arms.binary_search_by(|a| (*a.value).cmp(&k)) {
+                    Ok(i) => arms[i].body.clone(),
+                    Err(_) => default.clone(),
+                },
+                // `k + x` is at least `k`, so if every arm's number is below
+                // `k`, it can't be any of them. Otherwise it depends on `x`
+                // (failing to show `x` is some number never means it isn't).
+                (k, Some(_)) => match arms.last() {
+                    Some(last) if *last.value < k => default.clone(),
+                    _ => return Ok(stuck_tree(stuck)),
+                },
+            };
+            return Ok(Control::Tree(next, env, stuck));
+        }
+        _ => unreachable!("a case node"),
     };
     let (c, fields) = match value {
         Value::Ctor(_, c, fields) => (c, fields.to_vec()),
         other @ (Value::Nat(_) | Value::NatAdd(..)) if Some(*d) == g.builtins.nat => {
             match native::split_value(&other) {
                 Some(split) => split,
-                None => return stuck_tree(stuck),
+                None => return Ok(stuck_tree(stuck)),
             }
         }
-        _ => return stuck_tree(stuck),
+        _ => return Ok(stuck_tree(stuck)),
     };
     env.extend(fields);
-    Control::Tree(branches[c].body.clone(), env, stuck)
+    Ok(Control::Tree(branches[c].body.clone(), env, stuck))
 }
 
 /// A case tree that can't take a step: its definition stays folded.

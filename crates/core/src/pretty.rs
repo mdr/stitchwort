@@ -229,7 +229,7 @@ impl<'g> Printer<'g> {
                 let head = self.print(names, head, Prec::App);
                 self.applied(names, head, args.into_iter())
             }
-            Term::Case(ix, _, _) => {
+            Term::Case(ix, _, _) | Term::NumCase(ix, _, _) => {
                 let scrutinee = self.print(names, &Term::Var(*ix), Prec::Atom);
                 (format!("case {scrutinee} of …"), Prec::Arrow)
             }

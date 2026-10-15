@@ -391,52 +391,36 @@ const $textToList = (v0) => {
 const $textAppend = (v0) => (v1) => ({ tag: "MkText", chars: $append($textToList(v0))($textToList(v1)) });
 const $textLength = (v0) => $length($textToList(v0));
 const $digitChar = (v0) => {
-  if (v0 === 0n) {
-    return { tag: "MkChar", code: 48n };
-  } else {
-    const v1 = v0 - 1n;
-    if (v1 === 0n) {
+  switch (v0) {
+    case 0n: {
+      return { tag: "MkChar", code: 48n };
+    }
+    case 1n: {
       return { tag: "MkChar", code: 49n };
-    } else {
-      const v2 = v1 - 1n;
-      if (v2 === 0n) {
-        return { tag: "MkChar", code: 50n };
-      } else {
-        const v3 = v2 - 1n;
-        if (v3 === 0n) {
-          return { tag: "MkChar", code: 51n };
-        } else {
-          const v4 = v3 - 1n;
-          if (v4 === 0n) {
-            return { tag: "MkChar", code: 52n };
-          } else {
-            const v5 = v4 - 1n;
-            if (v5 === 0n) {
-              return { tag: "MkChar", code: 53n };
-            } else {
-              const v6 = v5 - 1n;
-              if (v6 === 0n) {
-                return { tag: "MkChar", code: 54n };
-              } else {
-                const v7 = v6 - 1n;
-                if (v7 === 0n) {
-                  return { tag: "MkChar", code: 55n };
-                } else {
-                  const v8 = v7 - 1n;
-                  if (v8 === 0n) {
-                    return { tag: "MkChar", code: 56n };
-                  } else {
-                    const v9 = v8 - 1n;
-                    return { tag: "MkChar", code: 57n };
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
+    }
+    case 2n: {
+      return { tag: "MkChar", code: 50n };
+    }
+    case 3n: {
+      return { tag: "MkChar", code: 51n };
+    }
+    case 4n: {
+      return { tag: "MkChar", code: 52n };
+    }
+    case 5n: {
+      return { tag: "MkChar", code: 53n };
+    }
+    case 6n: {
+      return { tag: "MkChar", code: 54n };
+    }
+    case 7n: {
+      return { tag: "MkChar", code: 55n };
+    }
+    case 8n: {
+      return { tag: "MkChar", code: 56n };
     }
   }
+  return { tag: "MkChar", code: 57n };
 };
 const $natDigits = (v0) => (v1) => (v2) => {
   let s0 = v0, s1 = v1, s2 = v2;

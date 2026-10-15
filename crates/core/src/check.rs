@@ -10,7 +10,7 @@ use stitchwort_syntax::{Diagnostic, Span};
 use crate::budget;
 use crate::globals::{Ctor, Data, Def, Globals, Validator};
 use crate::pretty;
-use crate::term::{Branch, DataId, DefId, Icit, Name, Sort, Term};
+use crate::term::{Branch, DataId, DefId, Icit, Name, NumArm, Sort, Term};
 use crate::termination;
 use crate::value::{Value, apply, conv, eval, quote, unused};
 
@@ -225,11 +225,12 @@ pub fn infer(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
             Ok((check(cx, term, &ty)?, ty))
         }
         Term::Meta(_) => Err(malformed(cx, "unsolved metavariable")),
-        Term::Lam(..) | Term::Ctor(..) | Term::Refl | Term::Case(..) => Err(cx.error(
-            "E-CANNOT-INFER",
-            "can't work out the type of this",
-            "add a type annotation: `(… : T)`",
-        )),
+        Term::Lam(..) | Term::Ctor(..) | Term::Refl | Term::Case(..) | Term::NumCase(..) => Err(cx
+            .error(
+                "E-CANNOT-INFER",
+                "can't work out the type of this",
+                "add a type annotation: `(… : T)`",
+            )),
     }
 }
 
@@ -317,6 +318,7 @@ pub fn check(cx: &mut Ctx, term: &Term, expected: &Value) -> Result<Term> {
             ),
         )),
         (Term::Case(ix, d, branches), _) => check_case(cx, *ix, *d, branches, expected),
+        (Term::NumCase(ix, arms, default), _) => check_num_case(cx, *ix, arms, default, expected),
         _ => {
             let (term, found) = infer(cx, term)?;
             if cx.conv(&found, expected)? {
@@ -517,6 +519,77 @@ fn check_case(
         });
     }
     Ok(Term::Case(ix, d, out.into()))
+}
+
+/// `NumCase(x, arms, default) ⇐ G`: `x` must be a variable of type `Nat`,
+/// and the arms' numbers strictly increasing (and at least one). Each arm is
+/// checked with its number substituted for `x` throughout the context and the
+/// goal, as a `case` branch substitutes its constructor value. The default is
+/// checked with nothing new known. That makes it a weakened form of the nested
+/// `Zero`/`Succ` cases it stands for (docs/proposals/number-patterns.md).
+fn check_num_case(
+    cx: &mut Ctx,
+    ix: usize,
+    arms: &[NumArm],
+    default: &Term,
+    goal: &Value,
+) -> Result<Term> {
+    let g = cx.g;
+    g.budget.nesting(PASS)?;
+    if ix >= cx.level() {
+        return Err(malformed(cx, format!("variable {ix} is out of scope")));
+    }
+    let x = cx.level() - 1 - ix;
+    let Some(nat) = g.builtins.nat else {
+        return Err(malformed(cx, "a number case without `Nat`"));
+    };
+    // The elaborator only compiles a column of a `Nat` to a number case, so
+    // anything else is a compiler bug.
+    match &cx.types[x] {
+        Value::Data(d, params) if *d == nat && params.is_empty() => {}
+        other => {
+            return Err(malformed(
+                cx,
+                format!(
+                    "a number case on `{}`, which has type `{}`",
+                    cx.names[x],
+                    cx.show(other)
+                ),
+            ));
+        }
+    }
+    if arms.is_empty() {
+        return Err(malformed(cx, "a number case with no numbers"));
+    }
+    if arms.windows(2).any(|w| w[0].value >= w[1].value) {
+        return Err(malformed(
+            cx,
+            "a number case's numbers aren't in strictly increasing order",
+        ));
+    }
+    let goal_term = cx.quote(goal)?;
+    let mut out = Vec::new();
+    for arm in arms {
+        let value = Value::Nat(arm.value.clone());
+        let level = cx.level();
+        let mut env = substitute(g, level, x, &value, &cx.env)?;
+        env[x] = value.clone();
+        let refined_types = substitute(g, level, x, &value, &cx.types)?;
+        let arm_goal = substitute(g, level, x, &value, &[eval(g, &cx.env, &goal_term)?])?
+            .pop()
+            .expect("one value in, one out");
+        let saved_env = std::mem::replace(&mut cx.env, env);
+        let saved_types = std::mem::replace(&mut cx.types, refined_types);
+        let result = check(cx, &arm.body, &arm_goal);
+        cx.env = saved_env;
+        cx.types = saved_types;
+        out.push(NumArm {
+            value: arm.value.clone(),
+            body: Rc::new(result?),
+        });
+    }
+    let default = check(cx, default, goal)?;
+    Ok(Term::NumCase(ix, out.into(), Rc::new(default)))
 }
 
 /// Substitutes `value` for variable `x` in each of `values`, with `level`
@@ -787,6 +860,13 @@ fn case_only_in_tree(term: &Term, in_tree: bool) -> bool {
                     return false;
                 }
                 pending.extend(branches.iter().map(|b| (&*b.body, true)));
+            }
+            Term::NumCase(_, arms, default) => {
+                if !in_tree {
+                    return false;
+                }
+                pending.extend(arms.iter().map(|a| (&*a.body, true)));
+                pending.push((default, true));
             }
             Term::Loc(_, t) => pending.push((t, in_tree)),
             _ => term.for_each_child(|t, _| pending.push((t, false))),

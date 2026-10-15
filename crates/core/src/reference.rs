@@ -67,7 +67,7 @@ pub fn eval(g: &Globals, env: &[Value], term: &Term) -> Result<Value> {
             apply_icit(g, f, eval(g, env, a)?, *i)?
         }
         Term::Ann(e, _) => eval(g, env, e)?,
-        Term::Case(..) => eval_tree(g, env.to_vec(), term)?
+        Term::Case(..) | Term::NumCase(..) => eval_tree(g, env.to_vec(), term)?
             .expect("internal error: a case outside a definition's case tree got stuck"),
         Term::Eq(ty, a, b) => Value::Eq(
             Rc::new(eval(
@@ -192,6 +192,21 @@ fn eval_tree(g: &Globals, mut env: Vec<Value>, term: &Term) -> Result<Option<Val
             };
             let Branch { body, .. } = &branches[c];
             env.extend(fields);
+            eval_tree(g, env, body)
+        }
+        Term::NumCase(ix, arms, default) => {
+            let (k, base) = native::view_with(g, &env[env.len() - 1 - ix], force)?;
+            let body = if base.is_none() {
+                match arms.iter().find(|a| *a.value == k) {
+                    Some(arm) => &arm.body,
+                    None => default,
+                }
+            } else if arms.iter().all(|a| *a.value < k) {
+                // `k + x` is at least `k`.
+                default
+            } else {
+                return Ok(None);
+            };
             eval_tree(g, env, body)
         }
         other => eval(g, &env, other).map(Some),

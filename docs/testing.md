@@ -32,7 +32,7 @@ nix flake check                                # build, tests, clippy, rustfmt, 
 
 ## Benchmarks
 
-`crates/bench` runs a fixed set of benchmarks (`--list` shows them): the example suite, evaluation (`lengths 400 3000`), text operations, running a `main` that prints 20,000 lines, generating JS, and checking programs that are known to be slow or near the resource limits (number patterns, a 256-row table, long list equations, long sums, deep nesting). Each checks its own result, so it can't get faster by doing something else.
+`crates/bench` runs a fixed set of benchmarks (`--list` shows them): the example suite, evaluation (`lengths 400 3000`), text operations, running a `main` that prints 20,000 lines, generating JS, and checking programs that are known to be slow or near the resource limits (number patterns: one of 200, a 256-row table, one of 10^30, a 1,000-row table, dependent arguments, several columns; long list equations, long sums, deep nesting). Each checks its own result, so it can't get faster by doing something else.
 
 Each benchmark is measured in two ways:
 

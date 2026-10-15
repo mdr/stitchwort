@@ -766,7 +766,7 @@ impl<'g> Gen<'g> {
             }
         }
         let tree = body.peel_lams(def.arity);
-        let rhs = if matches!(tree, Term::Case(..)) {
+        let rhs = if matches!(tree, Term::Case(..) | Term::NumCase(..)) {
             if !params.is_empty()
                 && let Some(block) = self.self_tail_loop(id, tree, &mut env)?
             {
@@ -852,6 +852,20 @@ impl<'g> Gen<'g> {
     ) -> Fallible<String> {
         self.g.budget.nesting(PASS)?;
         let pad = "  ".repeat(depth);
+        if let Term::NumCase(ix, arms, default) = term.strip_loc() {
+            // Each arm ends in `return` (or `continue`), so nothing falls
+            // through, and after the `switch` comes the default.
+            let scrutinee = var(env.len() - 1 - ix);
+            let mut out = format!("{pad}switch ({scrutinee}) {{\n");
+            for arm in arms.iter() {
+                let _ = writeln!(out, "{pad}  case {}n: {{", arm.value);
+                out.push_str(&self.tree(&arm.body, env, depth + 2, self_call)?);
+                let _ = writeln!(out, "{pad}  }}");
+            }
+            let _ = writeln!(out, "{pad}}}");
+            out.push_str(&self.tree(default, env, depth, self_call)?);
+            return Ok(out);
+        }
         let Term::Case(ix, d, branches) = term.strip_loc() else {
             return match self_call {
                 Some(call) => self.tail(term, env, depth, call),
@@ -1038,7 +1052,9 @@ impl<'g> Gen<'g> {
             Term::Data(..) | Term::Sort(_) | Term::Pi(..) | Term::Eq(..) | Term::Refl => {
                 "undefined".into()
             }
-            Term::Case(..) => panic!("internal error: case outside a case tree"),
+            Term::Case(..) | Term::NumCase(..) => {
+                panic!("internal error: case outside a case tree")
+            }
             Term::Meta(_) => {
                 panic!("internal error: unsolved metavariable in a checked definition")
             }
@@ -1070,10 +1086,9 @@ impl<'g> Gen<'g> {
         let (erased, mask) = &self.erased[id.0];
         !erased
             && mask.iter().all(|e| *e)
-            && def
-                .body
-                .as_ref()
-                .is_some_and(|b| matches!(b.peel_lams(def.arity), Term::Case(..)))
+            && def.body.as_ref().is_some_and(|b| {
+                matches!(b.peel_lams(def.arity), Term::Case(..) | Term::NumCase(..))
+            })
     }
 
     /// `function $$f(…)`, exported as `f`: decode the inputs, run the

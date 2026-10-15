@@ -1,8 +1,9 @@
 # Proposal: number patterns without `Succ` chains
 
-**Status:** draft 2, 15 October 2026. Draft 1 was reviewed externally; the
-review recommended option B with corrections, which this draft adopts (see
-[Changes since draft 1](#changes-since-draft-1)). Not implemented yet.
+**Status:** implemented (option B), 15 October 2026; see
+[As built](#as-built). Draft 1 was reviewed externally; the review
+recommended option B with corrections, which draft 2 adopted (see
+[Changes since draft 1](#changes-since-draft-1)).
 
 This note is meant to be read without knowing the codebase. The first section
 describes the parts of Stitchwort it touches.
@@ -602,6 +603,152 @@ Not adopted, or adapted:
   unchanged, and the `403 + ?m` test checks the observable behaviour.
   Exactly where re-evaluation happens during unification hasn't been traced
   for this note.
+
+## As built
+
+Option B as specified above, with these specifics.
+
+- **The node** is `Term::NumCase(x, arms, default)` in `crates/core/src/term.rs`
+  (`NumArm` holds a number and a body). The kernel rule is
+  `check_num_case` in `crates/core/src/check.rs`. Every invariant in
+  [Kernel invariants](#kernel-invariants) is checked there or by the
+  existing position check (`case_only_in_tree`), and a violation, including
+  a scrutinee that isn't a `Nat`, is `E-MALFORMED`.
+- **Evaluation.** The machine (`value.rs`, `branch`) uses the existing view of
+  numbers (`native::view`, which forces solved metavariables along the way)
+  and distinguishes a number (binary search of the keys), `k + x` (the
+  default only if the largest key is below `k`) and anything else (stuck,
+  so the definition stays folded). The reference evaluator does the same
+  with a linear search, sharing only the view. Metavariables: a scrutinee
+  that needs forcing is forced first, exactly as for `case`; a stuck call
+  is re-evaluated when next forced, which is what the `403 + ?m` test sees.
+- **The pattern compiler** (`compile_numbers` in `crates/elab/src/lib.rs`)
+  follows rules 1 to 8 above. Rows are grouped by number once, so a table
+  of `m` numbers is compiled in time about linear in `m` (a first version
+  filtered every row for every number, which was quadratic: 4.7 ms for
+  1,000 rows instead of 1.2 ms). The elaborator checks the tree with the
+  same refinement as the kernel before the kernel re-checks it.
+- **The diagnostic** is added when checking the default fails with
+  `E-TYPE-MISMATCH`, `E-NOT-EMPTY` or `E-REFL` and the goal, or the type of
+  a variable bound after the scrutinee, mentions it (open question 1: the
+  broader trigger, accepting an occasionally irrelevant note). Its wording:
+  "number patterns only test values: an equation with a variable or `_`
+  where the others have numbers knows nothing about `n`, not even that it's
+  a different number. To use the shape of `n`, match on `Zero` and `Succ`
+  instead".
+- **The old compilation** stays as `Elaborator::numbers_as_succ`, a flag
+  only tests set. It's a public field rather than `#[cfg(test)]` because the
+  tests that use it are integration tests in another crate.
+- **Other consumers:** termination (walks every arm and the default, adds
+  nothing), shifting and `mentions` (the scrutinee counts), zonking,
+  freeing without recursion, hashing (tag, scrutinee, `Nat`, the number of
+  arms, each number and arm, the default), pretty-printing (`case x of …`,
+  as for `case`), and JS (a `switch` on the `bigint` with a `case 404n:`
+  block per arm, each of which returns or continues a loop, then the
+  default). Dependency collection needed nothing: the node refers to no
+  definition, and its children are visited by the generic traversal.
+
+Behaviour changes that users can see: the 256 cap and its `E-UNSUPPORTED`
+error are gone; `make 0 = 0; make n = False` style programs (a catch-all
+that needs `n` to be a `Succ`) are now rejected with the note above, where
+they were accepted before (none in the repository's examples or prelude
+were); and on *open* arguments, definitions can unfold differently from the
+old `Succ` chains, in both directions. On closed arguments the two
+compilations agree (the generated tests check it). For example, a
+generated definition applied to `6 + x`:
+
+```
+f 4 = 100
+f _ = 101
+f (Succ (Succ y)) = y
+f 6 = 103
+f (Succ 1) = 104
+f Zero = 105
+```
+
+The old chain for `4` peeled `Succ`s, found it isn't `4`, and fell through
+to `f _ = 101`. Now, after the two constructor splits that the `Succ`
+patterns force, a number case on the remaining `4 + x` has keys `0`, `2`
+and `4` (from `Succ 1`, `4` and the unreachable `6`), so it's stuck: `x`
+could be `0`. Conversely, a number case rules out all of a column's
+numbers at once on `k + x`, where the old chain, having ruled out the first
+row's number, could go on to split another column on an unknown and get
+stuck. Neither changes what a closed program
+computes; both follow from the specified rule (unreachable rows still
+contribute keys).
+
+### Tests
+
+In `crates/driver/tests/number_patterns.rs`:
+
+- the kernel rejects a listed arm valid only for another number, `rfl : n =
+  404` in the default and in an arm for another number, a sibling arm that
+  would need a leaked refinement, a default that relies on refinement,
+  hidden non-decreasing recursion in an arm and in the default; it accepts
+  recursion on a predecessor matched by a `case` before the number case;
+  and it rejects an empty table, a repeated key, unsorted keys, a
+  scrutinee out of scope or not a `Nat`, and a number case inside an
+  expression;
+- the `hit` table, in both evaluators, including `0 + x`, `Succ (404 + x)`,
+  `403 + ?m` before and after solving `?m := 1`, and a solved metavariable
+  applied to an argument inside a prefix;
+- hashes differ when a key or the default changes, and agree for equal
+  bodies;
+- the oracle: 300 generated definitions (one to three columns of `Nat` or
+  `Bool`; numbers up to 6, `Zero`, `Succ` patterns, variables, `_`) are
+  compiled with number cases and checked against a matcher that tries the
+  source rows in order, against the old `Succ`-chain compilation, and
+  against the expansion of each number case into ordinary `Zero`/`Succ`
+  `case`s, which the kernel must accept; on open arguments (`x`, `1 + x`,
+  `6 + x`, `7 + x`) the compiled definition and its expansion must both be
+  stuck or both give the same result. The examples' and prelude's number
+  cases with small keys are expanded and checked too.
+
+In `examples/`: `accept/number-patterns.sw` (`statusText`, `10^30`, a
+dependent result and dependent argument, `g`, the repeated-literal `g2`,
+`h`, `constant`, recursion through `Succ` with a number column, the
+`make` repair), `extract/number-patterns.sw` (the same against the
+reference evaluator in Node, plus random inputs), `reject/number-pattern-default.sw`
+(the `make` regression and its note), `reject/number-patterns-missing-case.sw`,
+and in `soundness/` `bad x = rfl`, a default claiming `n = 404`, and
+`loop n = loop n` after a number pattern.
+
+### Performance
+
+Release build of the command-line checker, Apple-silicon Mac, median of
+three runs; elaborator and kernel time for the one definition (measured
+with temporary instrumentation around the elaborator's `body` and the
+kernel's `define_def`), wall time and peak resident memory of the whole
+process; generated JS includes about 10 kB of runtime.
+
+| program | before: elab / kernel / wall / peak | after: elab / kernel / wall / peak |
+|---|---|---|
+| `f 100` | 64 ms / 64 ms / 0.15 s / 21 MB | < 0.01 ms / < 0.01 ms / 0.01 s / 6 MB |
+| `f 256` | 989 ms / 993 ms / 2.0 s / 231 MB | < 0.01 ms / < 0.01 ms / 0.01 s / 6 MB |
+| `f 2^16`, `f 10^30`, `f 2^1000` | `E-UNSUPPORTED` | ≤ 0.01 ms / < 0.01 ms / 0.01 s / 6 MB |
+| table of 100 | 63 ms / 62 ms / 0.15 s / 22 MB | 0.13 ms / 0.08 ms / 0.02 s / 6 MB |
+| table of 256 | 1009 ms / 988 ms / 2.0 s / 234 MB | 0.33 ms / 0.21 ms / 0.02 s / 7 MB |
+| table of 1,000 | `E-UNSUPPORTED` | 1.2 ms / 0.7 ms / 0.02 s / 8 MB |
+| table of 10,000 | `E-UNSUPPORTED` | 12 ms / 7 ms / 0.04 s / 23 MB |
+| 50 keys, three arguments of type `Shape n` | 65 ms / 64 ms / 0.15 s / 22 MB | 0.24 ms / 0.20 ms / 0.02 s / 6 MB |
+| 3 number columns × 5 keys, `_` elsewhere | 42.6 s / 42.8 s / 85 s / 157 MB | 0.04 ms / 0.03 ms / 0.01 s / 6 MB |
+| 3 number columns × 20 keys | stopped after 5 minutes, over 2.6 GB | 0.18 ms / 0.11 ms / 0.01 s / 6 MB |
+
+Generated JS: `f 200` 230 kB before, 10 kB after; the table of 256 357 kB
+before, 21 kB after; 3 columns × 5 keys 76 MB before, 11 kB after.
+
+The benchmark suite has `check-number-huge`, `check-number-wide`,
+`check-number-dependent` and `check-number-columns` for these, alongside
+`check-number-pattern` and `check-number-table` (which went from about
+1 s and 2 s to under 1 ms each). Prelude functions with number patterns
+(`digitChar`) also evaluate in one step now, which shows in
+`text-nat-to-text` and `run-prints` (about 12% fewer allocations).
+
+### Not done
+
+- The review's "deserialisation boundary" tests: there's no serialised form
+  of core terms (as noted above).
+- Default inequalities and `Char`/`Text` patterns, as planned.
 
 ## Sources
 

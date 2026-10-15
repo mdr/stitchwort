@@ -14,12 +14,13 @@ mod unify;
 
 use std::borrow::Cow;
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
 
+use num_bigint::BigUint;
 use stitchwort_core::check as kernel;
 use stitchwort_core::native::{self, Native};
-use stitchwort_core::term::Branch;
+use stitchwort_core::term::{Branch, NumArm};
 use stitchwort_core::value::{eval, force};
 use stitchwort_core::{DataId, DefId, Globals, Icit, Limits, Name, Sort, Term, Value, pretty};
 use stitchwort_syntax::ast::{Decl, Expr, Module, Pattern};
@@ -65,6 +66,10 @@ pub struct Elaborator {
     abilities: Vec<effects::AbilityInfo>,
     /// Resource limits for checking each declaration.
     pub limits: Limits,
+    /// For tests only: compile number patterns the old way, as nested `Succ`
+    /// patterns, even where a number case would do. Only usable with small
+    /// numbers. Tests compare the two compilations.
+    pub numbers_as_succ: bool,
 }
 
 /// A pattern that matches a constructor.
@@ -79,10 +84,6 @@ struct CtorPattern<'a> {
 /// compiler (a wildcard for a field, or `n - 1` inside a number pattern `n`).
 type Pat<'a> = Cow<'a, Pattern>;
 
-/// Number patterns are compiled to that many nested `Succ`s, so they're
-/// limited to keep case trees small.
-const MAX_NUMBER_PATTERN: u32 = 256;
-
 /// The variable a pattern binds, if it's a variable from the source.
 fn pattern_var<'a>(pattern: &Pat<'a>) -> Option<&'a ast::Name> {
     match pattern {
@@ -93,6 +94,7 @@ fn pattern_var<'a>(pattern: &Pat<'a>) -> Option<&'a ast::Name> {
 
 /// One equation during pattern-match compilation: the patterns still to be
 /// matched, and the pattern variables already bound (to de Bruijn levels).
+#[derive(Clone)]
 struct Row<'a> {
     pats: Vec<Pat<'a>>,
     aliases: Vec<(&'a str, usize)>,
@@ -115,6 +117,14 @@ enum Tree<'a> {
         level: usize,
         data: DataId,
         branches: Vec<(Vec<Name>, Tree<'a>)>,
+        span: Span,
+    },
+    /// The variable at `level` is a `Nat`, compared with numbers in
+    /// increasing order (docs/proposals/number-patterns.md).
+    NumCase {
+        level: usize,
+        arms: Vec<(BigUint, Tree<'a>)>,
+        default: Box<Tree<'a>>,
         span: Span,
     },
 }
@@ -981,6 +991,15 @@ impl Elaborator {
         }
         let mut split = None;
         for (j, pattern) in first.pats.iter().enumerate() {
+            // A column of numbers (with variables and `_`) is compared with
+            // numbers. One with a `Zero` or `Succ` pattern is split into
+            // those constructors, and numbers in it count down as it's split.
+            if matches!(**pattern, Pattern::Num(..))
+                && !self.numbers_as_succ
+                && !rows.iter().any(|r| matches!(*r.pats[j], Pattern::Ctor(..)))
+            {
+                return self.compile_numbers(rows, depth, columns, j, span);
+            }
             if let Some(ctor) = self.pattern_ctor(pattern)? {
                 split = Some((j, ctor.data));
                 break;
@@ -1106,22 +1125,78 @@ impl Elaborator {
         })
     }
 
+    /// Compiles a split on column `j`, which holds numbers, variables and
+    /// `_` (and maybe `()`), into a number case: one arm per number, keeping the rows that have
+    /// that number or a variable there, in order, and a default keeping the
+    /// rows with a variable. The same number in several rows is one arm.
+    fn compile_numbers<'a>(
+        &self,
+        rows: &[Row<'a>],
+        depth: usize,
+        columns: &[usize],
+        j: usize,
+        span: Span,
+    ) -> Result<Tree<'a>> {
+        // The rows with each number there, and the rest, by index.
+        let mut by_key: BTreeMap<&BigUint, Vec<usize>> = BTreeMap::new();
+        let mut others = Vec::new();
+        for (i, row) in rows.iter().enumerate() {
+            match &*row.pats[j] {
+                Pattern::Num(n, _) => by_key.entry(n).or_default().push(i),
+                _ => others.push(i),
+            }
+        }
+        if others.is_empty() {
+            let mut shown: Vec<String> = by_key.keys().take(5).map(|k| k.to_string()).collect();
+            let listed = match (by_key.len(), shown.pop()) {
+                (n, Some(last)) if n <= 5 && !shown.is_empty() => {
+                    format!("{} and {last}", shown.join(", "))
+                }
+                (n, Some(last)) if n <= 5 => last,
+                (_, last) => format!("{}, {}, …", shown.join(", "), last.unwrap_or_default()),
+            };
+            return Err(error(
+                "E-NONEXHAUSTIVE",
+                span,
+                format!("missing case: no equation matches numbers other than {listed}"),
+            )
+            .with_note("add an equation with a variable or `_` in that position"));
+        }
+        let mut arms = Vec::new();
+        for (key, matching) in by_key {
+            // In the order of the source.
+            let mut indices: Vec<usize> =
+                matching.into_iter().chain(others.iter().copied()).collect();
+            indices.sort_unstable();
+            let arm_rows: Vec<Row> = indices
+                .into_iter()
+                .map(|i| {
+                    let mut row = rows[i].clone();
+                    if let Pattern::Num(_, s) = &*row.pats[j] {
+                        row.pats[j] = Cow::Owned(Pattern::Wildcard(*s));
+                    }
+                    row
+                })
+                .collect();
+            let tree = self.compile(&arm_rows, depth, columns, span)?;
+            arms.push((key.clone(), tree));
+        }
+        let default_rows: Vec<Row> = others.iter().map(|&i| rows[i].clone()).collect();
+        let default = self.compile(&default_rows, depth, columns, span)?;
+        Ok(Tree::NumCase {
+            level: columns[j],
+            arms,
+            default: Box::new(default),
+            span,
+        })
+    }
+
     /// The constructor `pattern` matches, if any, and its argument patterns.
     /// A number `n` is `Succ` of `n - 1`.
     fn pattern_ctor<'a>(&self, pattern: &Pat<'a>) -> Result<Option<CtorPattern<'a>>> {
         match &**pattern {
             Pattern::Var(_) | Pattern::Wildcard(_) | Pattern::Absurd(_) => Ok(None),
             Pattern::Num(n, span) => {
-                if n.bits() > 0 && *n > MAX_NUMBER_PATTERN.into() {
-                    return Err(error(
-                        "E-UNSUPPORTED",
-                        *span,
-                        format!("number patterns above {MAX_NUMBER_PATTERN} aren't supported"),
-                    )
-                    .with_note(
-                        "match with a variable, and compare it using `==` or `if h : n = …`",
-                    ));
-                }
                 let (ctor, args) = if n.bits() == 0 {
                     ("Zero", Vec::new())
                 } else {
@@ -1270,6 +1345,79 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
             Ok(Term::Loc(
                 *span,
                 Rc::new(Term::Case(cx.level() - 1 - x, *d, out.into())),
+            ))
+        }
+        Tree::NumCase {
+            level: x,
+            arms,
+            default,
+            span,
+        } => {
+            let g = cx.g();
+            let nat = g.builtins.nat;
+            match force(g, cx.types[*x].clone())? {
+                Value::Data(d, params) if Some(d) == nat && params.is_empty() => {}
+                other => {
+                    return Err(error(
+                        "E-TYPE-MISMATCH",
+                        *span,
+                        format!(
+                            "these patterns match a `Nat`, but the argument has type `{}`",
+                            cx.show(&other)
+                        ),
+                    ));
+                }
+            }
+            let goal_term = cx.quote(goal)?;
+            let mut out = Vec::new();
+            for (key, subtree) in arms {
+                // In this arm, the matched variable *is* the number, so it's
+                // substituted into the goal and the whole context (as the
+                // kernel does).
+                let value = Value::Nat(Rc::new(key.clone()));
+                let level = cx.level();
+                let mut env = kernel::substitute(g, level, *x, &value, &cx.env)?;
+                env[*x] = value.clone();
+                let refined = kernel::substitute(g, level, *x, &value, &cx.types)?;
+                let arm_goal =
+                    kernel::substitute(g, level, *x, &value, &[eval(g, &cx.env, &goal_term)?])?
+                        .pop()
+                        .expect("one value in, one out");
+                let saved_env = std::mem::replace(&mut cx.env, env);
+                let saved_types = std::mem::replace(&mut cx.types, refined);
+                let result = check_tree(cx, subtree, &arm_goal);
+                cx.env = saved_env;
+                cx.types = saved_types;
+                out.push(NumArm {
+                    value: Rc::new(key.clone()),
+                    body: Rc::new(result?),
+                });
+            }
+            // The default knows nothing new about the variable. If its type
+            // mentions it, the programmer may have expected otherwise.
+            let default = check_tree(cx, default, goal).map_err(|d| {
+                let ix = cx.level() - 1 - x;
+                let mentioned = |v: &Value| cx.quote(v).is_ok_and(|t| t.mentions(ix));
+                let depends = mentioned(goal) || cx.types[*x + 1..].iter().any(mentioned);
+                if depends && ["E-TYPE-MISMATCH", "E-NOT-EMPTY", "E-REFL"].contains(&d.code) {
+                    let n = cx.show(&Value::var(*x));
+                    d.with_note(format!(
+                        "number patterns only test values: an equation with a variable or `_` \
+                         where the others have numbers knows nothing about `{n}`, not even that \
+                         it's a different number. To use the shape of `{n}`, match on `Zero` and \
+                         `Succ` instead"
+                    ))
+                } else {
+                    d
+                }
+            })?;
+            Ok(Term::Loc(
+                *span,
+                Rc::new(Term::NumCase(
+                    cx.level() - 1 - x,
+                    out.into(),
+                    Rc::new(default),
+                )),
             ))
         }
     }

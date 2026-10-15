@@ -97,6 +97,10 @@ pub enum Term {
     /// constructor, in declaration order. Only appears at the top of a
     /// definition's body (after its parameters), forming a case tree.
     Case(usize, DataId, Rc<[Branch]>),
+    /// Match variable `x : Nat` against numbers: the arm whose number it is,
+    /// or else the default. The numbers are in strictly increasing order, and
+    /// there's at least one. Only appears where `Case` may.
+    NumCase(usize, Rc<[NumArm]>, Rc<Term>),
     /// `a = b`. The type of `a` and `b` is filled in by the checker.
     Eq(Option<Rc<Term>>, Rc<Term>, Rc<Term>),
     Refl,
@@ -164,6 +168,9 @@ fn has_unique_child(term: &Term) -> bool {
         Term::Case(_, _, branches) => {
             Rc::strong_count(branches) == 1 && branches.iter().any(|b| unique(&b.body))
         }
+        Term::NumCase(_, arms, default) => {
+            unique(default) || (Rc::strong_count(arms) == 1 && arms.iter().any(|a| unique(&a.body)))
+        }
         Term::Var(_) | Term::Def(_) | Term::Nat(_) | Term::Sort(_) | Term::Refl | Term::Meta(_) => {
             false
         }
@@ -199,6 +206,14 @@ fn take_children(term: &mut Term, leaf: &Rc<Term>, pending: &mut Vec<Rc<Term>>) 
                 }
             }
         }
+        Term::NumCase(_, arms, default) => {
+            if let Some(arms) = Rc::get_mut(arms) {
+                for arm in arms {
+                    take(&mut arm.body);
+                }
+            }
+            take(default);
+        }
         Term::Var(_) | Term::Def(_) | Term::Nat(_) | Term::Sort(_) | Term::Refl | Term::Meta(_) => {
         }
     }
@@ -208,6 +223,13 @@ fn take_children(term: &mut Term, leaf: &Rc<Term>, pending: &mut Vec<Rc<Term>>) 
 pub struct Branch {
     /// Names of the constructor's fields, bound in `body`.
     pub names: Vec<Name>,
+    pub body: Rc<Term>,
+}
+
+/// One arm of a `NumCase`: taken when the variable is `value`.
+#[derive(Clone, Debug)]
+pub struct NumArm {
+    pub value: Rc<BigUint>,
     pub body: Rc<Term>,
 }
 
@@ -332,6 +354,18 @@ impl Term {
                     })
                     .collect::<Result<_>>()?,
             ),
+            Term::NumCase(ix, arms, default) => Term::NumCase(
+                if *ix >= cutoff { ix + by } else { *ix },
+                arms.iter()
+                    .map(|a| {
+                        Ok(NumArm {
+                            value: a.value.clone(),
+                            body: go(&a.body, cutoff)?,
+                        })
+                    })
+                    .collect::<Result<_>>()?,
+                go(default, cutoff)?,
+            ),
             Term::Eq(ty, a, b) => Term::Eq(
                 ty.as_ref().map(|t| go(t, cutoff)).transpose()?,
                 go(a, cutoff)?,
@@ -345,7 +379,7 @@ impl Term {
     /// Whether variable `ix` occurs free.
     pub fn mentions(&self, ix: usize) -> bool {
         self.subterms().any(|(t, binders)| match t {
-            Term::Var(i) | Term::Case(i, ..) => *i == ix + binders,
+            Term::Var(i) | Term::Case(i, ..) | Term::NumCase(i, ..) => *i == ix + binders,
             _ => false,
         })
     }
@@ -394,6 +428,12 @@ impl Term {
                 for b in branches.iter() {
                     f(&b.body, b.names.len());
                 }
+            }
+            Term::NumCase(_, arms, default) => {
+                for a in arms.iter() {
+                    f(&a.body, 0);
+                }
+                f(default, 0);
             }
             Term::Eq(ty, a, b) => {
                 if let Some(ty) = ty {

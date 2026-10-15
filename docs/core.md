@@ -36,6 +36,7 @@ Variables are de Bruijn indices in terms and de Bruijn levels in values.
 | `App(f, a, i)` | Application, to an explicit or implicit argument |
 | `Ann(e, T)` | `(e : T)` |
 | `Case(x, D, branches)` | Match variable `x : D params`, one branch per constructor. Only appears at the top of a definition, forming a case tree |
+| `NumCase(x, arms, default)` | Compare variable `x : Nat` with numbers: one arm per number, in strictly increasing order (at least one), and a default. Only appears where `Case` may |
 | `Eq(A?, a, b)` | `a = b`. `A` is filled in by the checker |
 | `Refl` | `rfl : a = a` |
 | `J(P, d, p)` | Transport along an equality |
@@ -103,6 +104,10 @@ A declaration `type D (params) : s = | C₁ fields | …`:
 3. **Refinement.** For constructor `c` with fields `f₁ … fₖ`, the branch is checked with the fields in scope, against `G` with `x` replaced by `c f₁ … fₖ`. Inside the branch, `x` also *evaluates* to that constructor value, so its uses compute, and the constructor value is substituted for `x` throughout the context: in every variable's type and value, including variables bound before `x` (with nested patterns, `rest : res o` is bound before `o` is matched). For example, in `fromYes (No r) u`, the hypothesis `u : IsYes d` becomes `u : IsYes (No r)`, which computes to `Void`.
 4. **No constructors.** A case with no branches is how an absurd pattern `()` compiles. It's only accepted when the data type has no constructors, and since such a type is trivially a subsingleton, it may produce anything.
 
+`NumCase(x, [(k₁, b₁), …, (kₘ, bₘ)], d) ⇐ G` is how number patterns compile (docs/proposals/number-patterns.md). `x` must be a variable of the prelude's `Nat`, and the numbers strictly increasing with `m ≥ 1`; anything else is `E-MALFORMED`, since the elaborator never produces it. Each arm `bᵢ` is checked with the number `kᵢ` substituted for `x` throughout the context and the goal, as a `Case` branch substitutes its constructor value. The default `d` is checked with nothing new known about `x`: not a predecessor, and not that it differs from the `kᵢ`. So a `NumCase` stands for the nested `Zero`/`Succ` cases that count down to `kₘ`, with the default copied to every other leaf, and accepts no more than they would (it accepts less: the copies of the default know more about `x`). It binds nothing, so it's no evidence of structural descent for termination, but evidence from cases around it still counts in every arm and the default.
+
+It evaluates by the value of `x`: a number takes its arm, or the default; `k + x'` (a number of `Succ`s around something unknown) takes the default when every `kᵢ < k`, since it's at least `k`; anything else is stuck, so the definition stays folded. Failing to show that `x` is some `kᵢ` is never taken to mean it isn't.
+
 ## Equality
 
 - `Eq(A, a, b) : Prop` and `Refl ⇐ a = b` when `a ≡ b`.
@@ -123,7 +128,7 @@ If a body fails to check, the definition stays without a body (opaque), so later
 
 Normalisation by evaluation (`crates/core/src/value.rs`):
 
-- **Unfolding policy.** A definition applied to fewer than its arity arguments stays folded, as a neutral term headed by the definition. Once it has all its arguments, it unfolds **only if its case tree can take a step**, meaning every case it reaches is on a constructor. Otherwise it stays folded. That makes conversion terminate even though `length a xs` mentions `length`. Definitions with arity 0 always unfold.
+- **Unfolding policy.** A definition applied to fewer than its arity arguments stays folded, as a neutral term headed by the definition. Once it has all its arguments, it unfolds **only if its case tree can take a step**, meaning every case it reaches is on a constructor (and every `NumCase` can choose an arm or its default, as above). Otherwise it stays folded. That makes conversion terminate even though `length a xs` mentions `length`. Definitions with arity 0 always unfold.
 - **Arguments are computed only when a type needs them.** The type of `f a` is `f`'s result type with `a`'s value put in, so checking would compute `a`. When the result type doesn't mention its parameter, as in `constant 0 (length bigList)`, `a` isn't computed at all; the same goes for constructor fields and data parameters that later types don't mention (`Closure::apply_lazy`, `later_types_mention`). A computation that does appear in a type is still run while checking: in `test "t" = f x == y`, the equation `f x = y` is the type of the decision, so `f x` is computed when the test is checked as well as when it runs.
 - **Conversion `≡`:** structural on values, with eta for functions (`f ≡ \x -> f x`). Folded definitions are equal when they're the same definition applied to convertible arguments. A definition applied to fewer arguments than it takes is a function too, so it's compared by applying both sides to a fresh variable: `F` defined by `F o = PlusRes … o` equals `PlusRes …`.
 - **Running a program** uses the same evaluator, strictly. Arguments are evaluated before calls.
@@ -162,7 +167,7 @@ The elaborator (`crates/elab`) checks surface syntax bidirectionally, following 
 - **`if`.** `if c then a else b` elaborates to `ifThenElse c (\_ -> a) (\_ -> b)`. `if h : P then a else b` finds a decision procedure for `P` (it must exist, but may be stuck: it runs at runtime) and elaborates to `elimDec d (\h -> a) (\h -> b)`, with `h : P` in `a` and `h : Not P` in `b`.
 - **Operators.** `a != b` is `Not (a = b)`. `a == b` is `toBool d`, where `d` is a decision procedure for `a = b`, found as for `if h :`. `<`, `<=`, `+`, `-`, `*`, `/`, `%` are the prelude's `LessThan`, `LessEq`, `add`, `sub`, `mul`, `div`, `mod`. `div` and `mod` take `[auto ok : d != 0]`.
 - **Implicitly bound type variables.** An unknown lowercase name in a signature becomes an implicit parameter at the front if *every* use of it is where a type is expected: the domain or result of a function type, a binder's type, or an argument of a data type whose parameter is a type (`List a`, `Or p q`). Its own type is a metavariable, usually solved to `Type`, which is also the default. Any other use (`length xs` with `xs` unbound) stays an unknown name.
-- **Equations.** Parameters are bound from the signature. Implicit ones are in scope by their signature names. Explicit ones are matched by the equation's patterns, so `length (Cons x xs)` has one pattern while `length` has two parameters. Equations compile to a case tree by the usual matrix method: split on the first constructor pattern in the first remaining equation, and in each branch replace that column by the constructor's fields (rows with a variable there get wildcards). The first equation whose patterns are all variables wins. A number pattern `n` is `Succ` of the pattern `n - 1`.
+- **Equations.** Parameters are bound from the signature. Implicit ones are in scope by their signature names. Explicit ones are matched by the equation's patterns, so `length (Cons x xs)` has one pattern while `length` has two parameters. Equations compile to a case tree by the usual matrix method: split on the first constructor pattern in the first remaining equation, and in each branch replace that column by the constructor's fields (rows with a variable there get wildcards). The first equation whose patterns are all variables wins. A column with a number pattern in the first remaining equation compiles to a `NumCase`, unless some equation has `Zero` or `Succ` in that column: then it's split into `Zero` and `Succ` like any constructor column, and a number pattern `n` is `Succ` of the pattern `n - 1`. In a `NumCase`, the arm for each number keeps, in order, the equations with that number in the column and those with a variable or `_`; the default keeps only the latter, and there must be at least one (`E-NONEXHAUSTIVE`).
 
 What the elaborator *doesn't* check is left to the kernel: `Prop` elimination, positivity, universe constraints on fields, and termination. Those errors come from the kernel, with source locations kept from the elaborated term.
 
@@ -232,7 +237,7 @@ What's erased:
 - **Terms:** `Data`, `Sort`, `Pi`, `Eq` and `Refl` compile to `undefined`. `J P d p` compiles to `d`.
 - **Case on a proof:** this is only possible for the subsingleton propositions above, so it compiles to its single branch.
 
-Representations: `Nat` is `bigint` (`Zero` is `0n`, `Succ n` is `n + 1n`, and a case on `Nat` tests `=== 0n`). Other data types are `{ tag, …fields }`, omitting erased fields.
+Representations: `Nat` is `bigint` (`Zero` is `0n`, `Succ n` is `n + 1n`, a case on `Nat` tests `=== 0n`, and a `NumCase` is a `switch` whose arms each return, followed by the default). Other data types are `{ tag, …fields }`, omitting erased fields.
 
 The exportability check, the boundary encodings and the decode → compute → encode contract are as described in DESIGN.md §12, restricted to `Nat`, `Bool`, `List` and parameterless data types built from them.
 

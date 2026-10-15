@@ -1,0 +1,14 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-NONEXHAUSTIVE] Error: missing case: no equation matches numbers other than 200 and 404
+   ╭─[ reject/number-patterns-missing-case.sw:4:1 ]
+   │
+ 4 │ ╭─▶ statusText 200 = "OK"
+ 5 │ ├─▶ statusText 404 = "Not Found"
+   │ │                                  
+   │ ╰────────────────────────────────── missing case: no equation matches numbers other than 200 and 404
+   │     
+   │     Note: add an equation with a variable or `_` in that position
+───╯

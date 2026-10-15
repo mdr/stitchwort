@@ -120,6 +120,12 @@ impl<'g> Hasher<'g> {
         self.inner.update(bytes);
     }
 
+    fn nat(&mut self, n: &num_bigint::BigUint) {
+        let bytes = n.to_bytes_le();
+        self.usize(bytes.len());
+        self.bytes(&bytes);
+    }
+
     fn usize(&mut self, n: usize) {
         self.bytes(&(n as u64).to_le_bytes());
     }
@@ -187,6 +193,7 @@ impl<'g> Hasher<'g> {
         enum Item<'t> {
             Term(&'t Term),
             Usize(usize),
+            Nat(&'t num_bigint::BigUint),
             Tag(&'static str),
         }
         let mut pending = vec![Item::Term(term)];
@@ -195,6 +202,10 @@ impl<'g> Hasher<'g> {
                 Item::Term(term) => term,
                 Item::Usize(n) => {
                     self.usize(n);
+                    continue;
+                }
+                Item::Nat(n) => {
+                    self.nat(n);
                     continue;
                 }
                 Item::Tag(tag) => {
@@ -226,9 +237,7 @@ impl<'g> Hasher<'g> {
                 }
                 Term::Nat(n) => {
                     self.tag("nat");
-                    let bytes = n.to_bytes_le();
-                    self.usize(bytes.len());
-                    self.bytes(&bytes);
+                    self.nat(n);
                 }
                 Term::Sort(s) => self.sort(*s),
                 Term::Pi(_, icit, a, b) => {
@@ -258,6 +267,23 @@ impl<'g> Hasher<'g> {
                     for b in branches.iter() {
                         pending.extend([Item::Usize(b.names.len()), Item::Term(&b.body)]);
                     }
+                }
+                // Every number, every arm and the default, and `Nat` itself
+                // (as a `case` hashes its data type).
+                Term::NumCase(ix, arms, default) => {
+                    self.tag("numcase");
+                    self.usize(*ix);
+                    let nat = self
+                        .g
+                        .builtins
+                        .nat
+                        .expect("internal error: a number case without `Nat`");
+                    self.data_ref(nat)?;
+                    self.usize(arms.len());
+                    for a in arms.iter() {
+                        pending.extend([Item::Nat(&a.value), Item::Term(&a.body)]);
+                    }
+                    pending.push(Item::Term(default));
                 }
                 Term::Eq(ty, a, b) => {
                     self.tag("eq");
