@@ -10,6 +10,7 @@ nix develop                     # or `direnv allow`
 cargo run -- check examples/extract/append.sw
 cargo run -- eval examples/extract/append.sw "appendNats [1, 2] [3]"
 cargo run -- test examples/accept/tests.sw      # run it twice: results are cached
+cargo run -- run examples/accept/adder.sw       # run `main`, reading and printing lines
 cargo run -- repl examples/extract/append.sw
 cargo run -- build --js examples/extract/append.sw -o out/
 

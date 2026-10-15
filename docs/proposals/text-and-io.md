@@ -1,6 +1,6 @@
 # Stitchwort: text, `IO` and `main`
 
-**Status:** draft 2, 15 October 2026. Accepted after review. Build steps 1 (`Char`), 2 (`Text`) and 4 (the `IO` ability and `simulate`) are implemented; see [As built](#as-built). [Acceptance criteria](#acceptance-criteria) lists what the first milestone must show.
+**Status:** draft 2, 15 October 2026. Accepted after review. Build steps 1 (`Char`), 2 (`Text`), 4 (the `IO` ability and `simulate`) and 5 (`main` and `stitchwort run`) are implemented; see [As built](#as-built). [Acceptance criteria](#acceptance-criteria) lists what the first milestone must show.
 
 ## As built
 
@@ -22,7 +22,26 @@ Where step 4 differs from, or adds to, the design below:
 - **`IO` always comes first in a row.** Rows are kept in the order abilities were declared, and the prelude is declared before any file, so `{IO, State Nat}` and `{State Nat, IO}` are the same type. The test cache shows it: in `examples/accept/io.sw`, the tests that differ only in row order have the same hash.
 - **Tested** in `examples/accept/io.sw`: payloads in order, one entry per payload even with a line feed, an empty line versus end of input, end of input repeated, interleaved reading and printing, `IO` with `State` and `Abort` with the handlers nested either way round, a program without `IO`, and 5,000 prints. A small simulated run is also proved by `rfl`. In a debug build, 100,000 prints run in about 14 seconds without overflowing the stack.
 - **Exports can use it.** `examples/extract/io.sw` exports pure functions that run `IO` code through `simulate`, and the generated JavaScript agrees with the reference evaluator.
-- **Not yet:** `main`, `stitchwort run` and the real interpreter (step 5). So the `IO` row of the acceptance criteria is met only for the simulator: CRLF, invalid UTF-8 and write failures are the runner's to test.
+
+Where step 5 differs from, or adds to, the design below:
+
+- **`stitchwort run file.sw`** checks the file as `check` does (without running its tests), finds `main`, and runs it against standard input and output. The runner is in the driver (`crates/driver/src/run.rs`), so the playground can use it too.
+- **Checking `main`.** The runner checks `(\u -> main ()) : () -> {IO} ()`. Calling a pure function from `{IO}` code is allowed, so a pure `main : () -> ()` passes; any other type, including a row with an unhandled ability or a result other than `()`, is `E-MAIN-TYPE`, pointing at `main`. A file without `main` is `E-NO-MAIN`. A plain annotation `(main : () -> {IO} ())` wouldn't do: it doesn't accept the pure `main`.
+- **The loop** is as proposed. Each step, from one operation to the next, is one operation with its own resource limits (the same limits as a test). So a long-running interactive program doesn't run out just by running long, but a single step that does too much stops it with `E-RESOURCE`, pointing at `main`.
+- **Errors.** A read error, input that isn't UTF-8 (`E-IO: line 2 of standard input isn't valid UTF-8`), and a write or flush error each stop the program with `E-IO`. What was printed before an error is flushed, as far as possible. Every failure (a file that doesn't check, a missing or ill-typed `main`, running out of resources, an `E-IO` error) exits with code 1; success is 0. Clap's own usage errors exit with 2.
+- **A final line ending in a lone CR** (no LF) keeps its CR: only a CR immediately before the removed LF goes.
+- **Output is buffered** and flushed before every read and at the end, so a pipe that closes early (`stitchwort run … | head -1`) is a write error, reported with exit code 1.
+- **Tested** in `crates/driver/tests/run.rs` (in memory) and `crates/cli/tests/run.rs` (the built command, as a subprocess):
+  - **the simulator and the runner agree**: six programs, including `examples/accept/adder.sw`, a pure `main` and one with `State` handled inside, each with seven scripted inputs, written with LF and CRLF endings, and with and without the final line ending. The runner's output must be `simulate`'s payloads, each followed by LF. The command is checked the same way on the example;
+  - empty input, an empty line versus end of input, a final line without a line ending, CRLF, CR elsewhere in a line, NUL and non-ASCII text;
+  - invalid UTF-8 (an invalid byte, a truncated sequence, an encoded surrogate, an overlong NUL), with the earlier output still printed;
+  - a read error, a write error, a flush error (in memory), and a write to a closed pipe (end to end);
+  - flushing before every read, both by recording the order of reads and writes, and end to end by reading the prompt from a running `stitchwort run` before giving it any input;
+  - running out of resources, and that the limits are per step: 2,000 prints finish within a budget that `simulate`, running the whole program as one operation, exceeds;
+  - 20,000 prints, for the loop's stack use;
+  - `E-NO-MAIN`, `E-MAIN-TYPE` for five wrong types, a pure `main`, and exit codes for each error kind.
+- **Not tested end to end:** running out of resources under the real command. With the command's limits, that takes a recursion two million frames deep, which needs over a gigabyte of memory. The driver test checks the error and where it points; the command reports it the same way as `E-IO`, which is tested end to end.
+- **The example** is `examples/accept/adder.sw`: it asks for a name, then adds up numbers, one per line, until an empty line or the end of input. Its tests run the same `main` through `simulate`.
 
 ## Changes since draft 1
 

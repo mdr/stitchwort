@@ -33,6 +33,9 @@ enum Command {
         #[arg(long, default_value = ".stitchwort/cache")]
         cache_dir: PathBuf,
     },
+    /// Type-check a file, then run its `main`, reading standard input and
+    /// writing standard output
+    Run { file: PathBuf },
     /// Evaluate an expression in the context of a file
     Eval { file: PathBuf, expr: String },
     /// Start an interactive session, optionally with a file loaded
@@ -73,6 +76,7 @@ fn run(cli: Cli) -> ExitCode {
                 Cache::at(cache_dir)
             },
         ),
+        Command::Run { file } => run_main(&file),
         Command::Eval { file, expr } => eval(&file, &expr),
         Command::Repl { file } => repl(file.as_deref()),
         Command::Build { file, out, .. } => build(&file, &out),
@@ -143,6 +147,29 @@ fn test(path: &Path, cache: Cache) -> ExitCode {
         ExitCode::SUCCESS
     } else {
         ExitCode::FAILURE
+    }
+}
+
+fn run_main(path: &Path) -> ExitCode {
+    let mut session = Session::for_stack(STACK);
+    if !load(&mut session, path) {
+        return ExitCode::FAILURE;
+    }
+    let main = match session.main() {
+        Ok(main) => main,
+        Err(diagnostic) => {
+            report(&session.sources, &[diagnostic]);
+            return ExitCode::FAILURE;
+        }
+    };
+    let mut input = std::io::stdin().lock();
+    let mut output = std::io::BufWriter::new(std::io::stdout().lock());
+    match session.run_main(&main, &mut input, &mut output) {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(err) => {
+            report(&session.sources, &[err.diagnostic(&main)]);
+            ExitCode::FAILURE
+        }
     }
 }
 

@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/run.rs
+expression: "stderr(&run(&path, b\"\")).replace(path.to_str().unwrap(), \"main-type.sw\")"
+---
+[E-MAIN-TYPE] Error: `main` must have type `() -> {IO} ()`
+   ╭─[ main-type.sw:4:1 ]
+   │
+ 4 │ main : () -> {IO, Abort} ()
+   │ ─────────────┬─────────────  
+   │              ╰─────────────── this has type `() -> {IO, Abort} ()`
+   │ 
+   │ Note: a pure `main : () -> ()` is allowed too; other abilities must be handled inside `main`
+───╯
