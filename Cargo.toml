@@ -23,7 +23,9 @@ num-traits = "0.2.19"
 rustyline = "18.0.1"
 
 [workspace.lints.rust]
-unsafe_code = "forbid"
+# `unsafe` is allowed where there's a compelling engineering reason: mark the
+# item `#[allow(unsafe_code)]` and explain why it's needed and why it's sound.
+unsafe_code = "deny"
 
 [workspace.lints.clippy]
 all = { level = "warn", priority = -1 }
