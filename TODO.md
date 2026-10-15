@@ -52,11 +52,13 @@ Round 2:
   shared definition-entry arity (leading lambdas before the case tree, used
   everywhere), induction over semantic call instances in §6.4, and a
   test for arity-zero cycles. Not a completed soundness proof.
-  Implementation approved by the user; lane `mutual-recursion-impl` phase 1:
-  draft 3 and the size-change graph algorithm as a standalone module with an
-  independent reference implementation. Phase 2 (wiring into the
-  termination checker, then groups, then data types) after number patterns
-  and the admission fix merge.
+  Implementation approved by the user. Phase 1 merged (`72d3004`): draft 3
+  and `crates/core/src/sct.rs`, tested against a naive reference over about
+  230,000 exhaustive and 3,000 random call groups. Phase 2 (wiring into the
+  termination checker for single functions, then group admission and
+  forward references, then mutual data types) starts after number patterns
+  merges; it needs a rule for whether a number pattern's predecessor counts
+  as smaller.
 - ~~Kernel admission fix~~ (lane `kernel-admission`): merged as `afad1e0`. Recommends any order within a file, grouped automatically, with
   size-change termination checked by the kernel.
 - ~~JS boundary hardening~~ (lane `js-boundary`): merged as `84bc590`.
@@ -222,6 +224,7 @@ Round 2:
 
 ## Recently done
 
+- `72d3004` Mutual recursion phase 1: draft 3 of the design and the size-change graph algorithm (`sct.rs`), with an independent reference implementation and mutation evidence.
 - `afad1e0` Kernel admission ([kernel-admission.md](docs/proposals/kernel-admission.md)): declarations are pending, final or failed, and may refer only to final ones; closes a split cycle (`f 0` looping) and `impossible MakeD : Void` via the raw kernel API; 11 must-reject tests.
 - `f31d1c9` Compact text stage 1: `Text` is a JS string in generated code with 14 native operations bound to the prelude definitions by hash; prelude text operations handle over 4 million characters in Node (from ~5,000–8,000).
 - `84bc590` JS boundary hardening: names can't collide by construction (field `tag` becomes `$tag`, exports aliased, reserved names refused), iterative codecs (a million-element list in about 0.2 s), clearer boundary errors.
