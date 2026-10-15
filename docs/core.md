@@ -11,7 +11,7 @@ The core is the small, explicit language that every Stitchwort definition is tra
 | A separate trusted kernel re-checks the elaborator's output (principle 4) | **Done.** The elaborator (`crates/elab`) has its own type checker, with metavariables and unification. It produces complete core terms, which the checker in `crates/core` (the kernel) re-checks from scratch. |
 | Implicit arguments, `auto` | Implemented ([below](#elaboration)). Decision procedures are found by their result type (any function returning `Decidable …`), not registered explicitly |
 | `if` | Both branches are functions, so only the chosen one runs. Branches must produce data (`Type`), not proofs, until universe polymorphism exists |
-| Abilities, `Partial` | None. Every term has the empty effect row, so the effect judgment `t : A ! ε` always has `ε = {}`. Non-terminating definitions are rejected outright. |
+| Abilities, `Partial` | Abilities and handlers are implemented by translation into the prelude's `Comp` trees ([below](#abilities)), so the core has no effect judgment: an effectful function's type *is* a function into `Comp`. `Partial` and `IO` aren't implemented, so non-terminating definitions are still rejected outright. |
 | Tracked assumptions | There's no `assume` yet, so every checked definition is assumption-free |
 | Evaluation budget, "inconclusive" results | Not yet. Evaluation is guaranteed to terminate, but may be slow |
 | Caching (§11) | Test results are cached by content hash. Kernel checks and generated JS aren't cached yet, and nothing is cached across elaboration |
@@ -165,6 +165,39 @@ The elaborator (`crates/elab`) checks surface syntax bidirectionally, following 
 
 What the elaborator *doesn't* check is left to the kernel: `Prop` elimination, positivity, universe constraints on fields, and termination. Those errors come from the kernel, with source locations kept from the elaborated term.
 
+## Abilities
+
+Abilities are translated into ordinary data before the kernel sees them, so the kernel's existing checks (positivity and structural recursion) are what show that handlers terminate. The design, and why, is in [docs/proposals/abilities.md](proposals/abilities.md). The translation is in `crates/elab/src/effects.rs`.
+
+- **`ability A params where op : X -> {A params} Y …`** generates:
+  - a data type `A params`, with a constructor `A.op (x : X)` for each operation;
+  - `A.res : params -> A params -> Type`, giving each operation's result type;
+  - `A.elim`, which dispatches a handler's clauses on an operation.
+
+  An operation's argument and result can't mention `A` itself (Landin's knot). The kernel's positivity and termination checks would refuse the generated declarations anyway, but less clearly.
+- **Rows.**
+  - `{A, B | e}` is the operation type `Plus A (Plus B (sigOp e))`, with matching result types built from `PlusRes`.
+  - Abilities are sorted by the order they were declared in. A closed row ends in `NoOp`.
+  - A row variable `e` has type `Sig` (an operation type together with its result types) and is bound implicitly.
+  - Each ability appears at most once (`E-DUPLICATE`).
+  - `a -> {E} b` is `a -> Comp (ops E) (res E) b`.
+- **Computation mode.** Checking against `Comp` over a row of abilities:
+  - Expressions that perform nothing become `Done v`.
+  - An operation call becomes `Call (inject op) (\r -> Done r)`, injected into the row with `L`/`R`.
+  - Effectful arguments, conditions and operands run first, left to right, through `bind`.
+  - `let` and the lines of a block are `bind`s; a pure `let` is a beta-redex.
+  - A call to an effectful function whose row differs from the current one is moved into it with `translate` and a generated `SigMap`. Every ability it uses must be in the row (`E-ABILITY`). An unknown row variable in the callee is solved with the rest of the row.
+  - A result type that depends on an operation's result is refused (`E-EFFECT-ESCAPE`); return a pair instead.
+- **Pure contexts.** Code there may perform only what it handles itself: it's elaborated in the empty row and run with `runPure`.
+- **`handle e with …`**, with output row `out`:
+  - `e` runs in the row `{A} + (out without A)`, with fresh unknowns for `A`'s parameters.
+  - The result is `foldComp done step e`, where `done` is the `return` clause, and `step` dispatches `A`'s operations to the clauses through `A.elim`, forwarding every other operation into `out`.
+  - Clauses are elaborated in `out`, so a clause can perform `A` again: it goes to the next handler out.
+  - The `return` clause and a clause for each operation are required (`E-HANDLER`).
+- **Different orders.** An effectful function passed where a row lists the same abilities in a different order is wrapped as `\x -> translate m (f x)`. Plain unification can't reorder a `Plus` chain.
+
+The termination checker accepts recursion on `rest y` for a recursive function field `rest`, which is what makes folds over `Comp` structural ([Definitions](#definitions)).
+
 ## Tests and content hashes
 
 `test "name" = expr` checks `expr` against `Bool` and adds it to the kernel as an unnamed definition. `stitchwort test` evaluates each test; `True` passes.
@@ -228,4 +261,7 @@ Only definitions reachable from the exports (and their checks) are emitted. A de
 | `E-AUTO-FALSE` / `E-AUTO-STUCK` / `E-AUTO-NONE` | An auto argument is false, can't be decided at compile time, or has no decision procedure |
 | `E-NOT-EMPTY` | An absurd pattern `()` for a type that has values |
 | `E-UNSUPPORTED` | Not implemented yet |
+| `E-ABILITY` | An operation or effectful call where its ability isn't allowed, or a malformed `ability` |
+| `E-HANDLER` | A handler without a `return` clause or a clause for every operation |
+| `E-EFFECT-ESCAPE` | A result type that depends on the result of an operation |
 | `E-BUILTIN` | A prelude type or definition the compiler implements natively doesn't have the expected shape |

@@ -312,3 +312,64 @@ swapReply (R o) x = x
 sigSwap : [l r : Type] -> [lres : l -> Type] -> [rres : r -> Type] ->
   SigMap (Plus l r) (PlusRes lres rres) (Plus r l) (PlusRes rres lres)
 sigSwap = MkSigMap swapOp swapReply
+
+-- Support for abilities (docs/proposals/abilities.md). The elaborator
+-- translates `ability`, rows `{A | e}`, effectful code and `handle` into these.
+
+-- `()`: the unit type and its only value.
+type UnitType : Type =
+  | UnitValue
+
+-- The signature with no operations: the end of a closed row.
+type NoOp : Type
+
+NoRes : NoOp -> Type
+NoRes ()
+
+-- A signature as one value, so a row variable `e` is one parameter.
+type Sig : Type 1 =
+  | MkSig (op : Type) (res : op -> Type)
+
+sigOp : Sig -> Type
+sigOp (MkSig op res) = op
+
+sigRes : (s : Sig) -> sigOp s -> Type
+sigRes (MkSig op res) = res
+
+-- Combining two mappings into one from `{l, r}`.
+caseInject : [l r t : Type] -> [lres : l -> Type] -> [rres : r -> Type] -> [tres : t -> Type] ->
+  SigMap l lres t tres -> SigMap r rres t tres -> Plus l r -> t
+caseInject ml mr (L o) = sigInject ml o
+caseInject ml mr (R o) = sigInject mr o
+
+caseReply : [l r t : Type] -> [lres : l -> Type] -> [rres : r -> Type] -> [tres : t -> Type] ->
+  (ml : SigMap l lres t tres) -> (mr : SigMap r rres t tres) ->
+  (o : Plus l r) -> tres (caseInject ml mr o) -> PlusRes lres rres o
+caseReply ml mr (L o) x = sigReply ml o x
+caseReply ml mr (R o) x = sigReply mr o x
+
+sigCase : [l r t : Type] -> [lres : l -> Type] -> [rres : r -> Type] -> [tres : t -> Type] ->
+  SigMap l lres t tres -> SigMap r rres t tres -> SigMap (Plus l r) (PlusRes lres rres) t tres
+sigCase ml mr = MkSigMap (caseInject ml mr) (caseReply ml mr)
+
+-- The empty signature maps into anything.
+noInject : [t : Type] -> NoOp -> t
+noInject ()
+
+noReply : [t : Type] -> [tres : t -> Type] -> (o : NoOp) -> tres (noInject o) -> NoRes o
+noReply ()
+
+sigFromNo : [t : Type] -> [tres : t -> Type] -> SigMap NoOp NoRes t tres
+sigFromNo = MkSigMap noInject noReply
+
+-- A handler's step for the row `{l, r}`, from steps for each side.
+handlePlus : [l r : Type] -> [lres : l -> Type] -> [rres : r -> Type] -> [res : Type] ->
+  ((o : l) -> (lres o -> res) -> res) -> ((o : r) -> (rres o -> res) -> res) ->
+  (o : Plus l r) -> (PlusRes lres rres o -> res) -> res
+handlePlus fl fr (L o) k = fl o k
+handlePlus fl fr (R o) k = fr o k
+
+-- A computation that performs nothing is just its result.
+runPure : [a : Type] -> Comp NoOp NoRes a -> a
+runPure (Done x)       = x
+runPure (Call () rest)

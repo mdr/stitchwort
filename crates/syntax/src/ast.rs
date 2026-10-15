@@ -53,6 +53,51 @@ pub enum Expr {
     Ann(Box<Expr>, Box<Expr>, Span),
     /// `[a, b, c]`
     List(Vec<Expr>, Span),
+    /// `()`: the unit value, or the unit type.
+    Unit(Span),
+    /// `{E} B`, the result of a function type that may perform the
+    /// abilities in `E`: `Nat -> {State Nat} Nat`.
+    Effect(Row, Box<Expr>),
+    /// `let x = e` (or `let x : T = e`) on one line of a block, with the rest
+    /// of the block as `body`.
+    Let {
+        name: Name,
+        ty: Option<Box<Expr>>,
+        value: Box<Expr>,
+        body: Box<Expr>,
+        span: Span,
+    },
+    /// One line of a block followed by the rest: `a` is run for its effects.
+    Seq(Box<Expr>, Box<Expr>),
+    /// `handle e with | return x -> … | op p => k -> …`
+    Handle {
+        body: Box<Expr>,
+        clauses: Vec<Clause>,
+        span: Span,
+    },
+}
+
+/// An ability row, `{State s, Abort | e}`. A row ending in a lowercase name
+/// without `|` (`{e}`) has only a tail.
+#[derive(Clone, Debug)]
+pub struct Row {
+    pub abilities: Vec<Expr>,
+    pub tail: Option<Name>,
+    pub span: Span,
+}
+
+/// A handler clause.
+#[derive(Clone, Debug)]
+pub enum Clause {
+    /// `return x -> body`
+    Return { var: Name, body: Expr },
+    /// `op arg => k -> body`, where `arg` is a variable, `_` or `()`.
+    Op {
+        op: Name,
+        arg: Pattern,
+        k: Name,
+        body: Expr,
+    },
 }
 
 impl Expr {
@@ -68,8 +113,14 @@ impl Expr {
             | Expr::If { span, .. }
             | Expr::Hole(span)
             | Expr::Ann(_, _, span)
-            | Expr::List(_, span) => *span,
-            Expr::App(a, b) | Expr::Arrow(a, b) | Expr::Binary(_, a, b) => a.span().to(b.span()),
+            | Expr::List(_, span)
+            | Expr::Unit(span)
+            | Expr::Let { span, .. }
+            | Expr::Handle { span, .. } => *span,
+            Expr::Effect(row, b) => row.span.to(b.span()),
+            Expr::App(a, b) | Expr::Arrow(a, b) | Expr::Binary(_, a, b) | Expr::Seq(a, b) => {
+                a.span().to(b.span())
+            }
         }
     }
 }
@@ -169,6 +220,14 @@ pub enum Decl {
     Test {
         name: String,
         expr: Expr,
+        span: Span,
+    },
+    /// `ability State (s : Type) where` followed by its operations, one per
+    /// line: `get : () -> {State s} s`.
+    Ability {
+        name: Name,
+        params: Vec<Binder>,
+        ops: Vec<(Name, Expr)>,
         span: Span,
     },
     /// `name pattern* = expr`, or without `= expr` when a pattern is `()`.

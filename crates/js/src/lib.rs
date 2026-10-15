@@ -397,7 +397,13 @@ impl<'g> Gen<'g> {
                 format!("{{\n{block}}}")
             }
         } else {
-            self.expr(tree, &mut env)
+            let rhs = self.expr(tree, &mut env);
+            // An object literal after `=>` needs parentheses.
+            if !params.is_empty() && rhs.starts_with('{') {
+                format!("({rhs})")
+            } else {
+                rhs
+            }
         };
         format!("const {} = {params}{rhs};\n", def_name(&def.name))
     }
@@ -493,7 +499,13 @@ impl<'g> Gen<'g> {
                 env.push(false);
                 let body = self.expr(body, env);
                 env.pop();
-                format!("(({}) => {body})", var(level))
+                // An object literal as an arrow function's body needs
+                // parentheses, or it's read as a block.
+                if body.starts_with('{') {
+                    format!("(({}) => ({body}))", var(level))
+                } else {
+                    format!("(({}) => {body})", var(level))
+                }
             }
             Term::Ctor(d, c, args) => {
                 let data = self.g.data(*d);
@@ -816,7 +828,9 @@ fn var(level: usize) -> String {
 }
 
 fn def_name(name: &str) -> String {
-    format!("${}", name.replace('\'', "$"))
+    // Primes become `$`; the dot in a generated name like `State.elim`
+    // becomes `$$` (source names can't contain dots).
+    format!("${}", name.replace('\'', "$").replace('.', "$$"))
 }
 
 fn js_field(name: &str) -> String {

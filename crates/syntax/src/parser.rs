@@ -3,8 +3,14 @@
 //! Layout rule (interim): a declaration starts at column 0, and every following
 //! line that is indented belongs to it. A line containing only `export` attaches
 //! to the declaration after it.
+//!
+//! Blocks: an expression that starts on a new line is a block, whose lines
+//! start at that line's column. Each line is a statement (`let x = e`, or an
+//! expression run for its effects) and the last is the result. Lines indented
+//! further continue the line above. A line at the block's column right after
+//! one ending in an operator (like `->`) continues it too.
 
-use crate::ast::{BinOp, Binder, CtorDecl, Decl, Expr, Module, Name, Pattern};
+use crate::ast::{BinOp, Binder, Clause, CtorDecl, Decl, Expr, Module, Name, Pattern, Row};
 use crate::lexer::{Tok, Token, lex};
 use crate::{Diagnostic, FileId, Span};
 
@@ -71,6 +77,19 @@ struct Parser<'t> {
     pos: usize,
     file: FileId,
     eof: u32,
+    /// Inside a block: its column. A token starting a line at or left of it
+    /// ends the current statement, so `peek` doesn't see it.
+    limit: Option<u32>,
+    /// The token starting the current statement, which `limit` doesn't stop.
+    allow: Option<usize>,
+    /// Whether `=` ends the expression, as in the type of `let x : T = e`.
+    no_equals: bool,
+}
+
+/// One line of a block.
+enum Stmt {
+    Let(Name, Option<Expr>, Expr, Span),
+    Expr(Expr),
 }
 
 impl<'t> Parser<'t> {
@@ -81,14 +100,35 @@ impl<'t> Parser<'t> {
             pos: 0,
             file,
             eof,
+            limit: None,
+            allow: None,
+            no_equals: false,
         }
     }
 
+    /// Whether the token at `i` ends the current statement of a block.
+    fn is_stop(&self, i: usize) -> bool {
+        let Some(limit) = self.limit else {
+            return false;
+        };
+        self.allow != Some(i)
+            && self
+                .tokens
+                .get(i)
+                .is_some_and(|t| t.line_start && t.column <= limit)
+    }
+
     fn peek(&self) -> Option<&'t Tok> {
+        if self.is_stop(self.pos) {
+            return None;
+        }
         self.tokens.get(self.pos).map(|t| &t.tok)
     }
 
     fn peek_at(&self, offset: usize) -> Option<&'t Tok> {
+        if (0..=offset).any(|k| self.is_stop(self.pos + k)) {
+            return None;
+        }
         self.tokens.get(self.pos + offset).map(|t| &t.tok)
     }
 
@@ -180,6 +220,7 @@ impl<'t> Parser<'t> {
         let start = self.here();
         match self.peek() {
             Some(Tok::KwType) => self.data(),
+            Some(Tok::KwAbility) => self.ability(),
             Some(Tok::KwTest) => {
                 self.bump();
                 let name = match self.peek() {
@@ -235,7 +276,14 @@ impl<'t> Parser<'t> {
         while self.peek().is_some() && self.peek() != Some(&Tok::Equals) {
             patterns.push(self.pattern()?);
         }
-        let absurd = patterns.iter().any(|p| matches!(p, Pattern::Absurd(_)));
+        fn has_absurd(p: &Pattern) -> bool {
+            match p {
+                Pattern::Absurd(_) => true,
+                Pattern::Ctor(_, args, _) => args.iter().any(has_absurd),
+                _ => false,
+            }
+        }
+        let absurd = patterns.iter().any(has_absurd);
         if absurd && self.peek().is_none() {
             // `f ()` needs no right-hand side.
             return Ok(Decl::Equation {
@@ -332,6 +380,54 @@ impl<'t> Parser<'t> {
         })
     }
 
+    /// `ability Name (params) where`, then one operation per line.
+    fn ability(&mut self) -> Result<Decl> {
+        let start = self.bump().span;
+        let name = self.upper("an ability name (starting with an uppercase letter)")?;
+        let mut params = Vec::new();
+        while self.peek() == Some(&Tok::LParen) {
+            params.push(self.binder()?);
+        }
+        self.expect(Tok::KwWhere, "`where`")?;
+        let Some(first) = self.tokens.get(self.pos).filter(|_| self.peek().is_some()) else {
+            return Err(self.unexpected("the ability's operations"));
+        };
+        let column = first.column;
+        let saved = (self.limit, self.allow);
+        self.limit = Some(column);
+        let mut ops = Vec::new();
+        let result = loop {
+            self.allow = Some(self.pos);
+            let op = (|| {
+                let op = self.lower("an operation name")?;
+                self.expect(Tok::Colon, "`:`")?;
+                Ok((op, self.expr_inline()?))
+            })();
+            match op {
+                Ok(op) => ops.push(op),
+                Err(e) => break Err(e),
+            }
+            if !self.starts_line_at(column) {
+                break Ok(());
+            }
+        };
+        (self.limit, self.allow) = saved;
+        result?;
+        Ok(Decl::Ability {
+            span: start.to(self.prev_span()),
+            name,
+            params,
+            ops,
+        })
+    }
+
+    /// Whether the next token starts a line at exactly `column`.
+    fn starts_line_at(&self, column: u32) -> bool {
+        self.tokens
+            .get(self.pos)
+            .is_some_and(|t| t.line_start && t.column == column)
+    }
+
     fn binder(&mut self) -> Result<Binder> {
         self.expect(Tok::LParen, "`(`")?;
         let mut names = vec![self.lower("a name")?];
@@ -346,8 +442,160 @@ impl<'t> Parser<'t> {
 
     // Expressions, loosest-binding first
 
+    /// An expression, or a block if it starts on a new line.
     fn expr(&mut self) -> Result<Expr> {
+        if let Some(token) = self.tokens.get(self.pos)
+            && token.line_start
+            && self.pos > 0
+            && self.allow != Some(self.pos)
+        {
+            match self.limit {
+                None => return self.block(token.column, true),
+                Some(limit) if token.column > limit => return self.block(token.column, true),
+                // A line at the block's own column after a line ending in an
+                // operator: it continues that line.
+                Some(limit) if token.column == limit => return self.block(token.column, false),
+                Some(_) => {}
+            }
+        }
+        self.expr_inline()
+    }
+
+    /// Lines at `column`, each a statement, the last being the result. With
+    /// `many` false, just one line.
+    fn block(&mut self, column: u32, many: bool) -> Result<Expr> {
+        let saved = (self.limit, self.allow);
+        self.limit = Some(column);
+        let mut stmts = Vec::new();
+        let result = loop {
+            self.allow = Some(self.pos);
+            match self.statement() {
+                Ok(stmt) => stmts.push(stmt),
+                Err(e) => break Err(e),
+            }
+            if !(many && self.starts_line_at(column)) {
+                break Ok(());
+            }
+        };
+        (self.limit, self.allow) = saved;
+        result?;
+        let mut rest = match stmts.pop() {
+            Some(Stmt::Expr(e)) => e,
+            Some(Stmt::Let(_, _, _, span)) => {
+                return Err(error(
+                    span,
+                    "a block must end with an expression, not `let`",
+                ));
+            }
+            None => return Err(self.unexpected("an expression")),
+        };
+        for stmt in stmts.into_iter().rev() {
+            rest = match stmt {
+                Stmt::Let(name, ty, value, span) => Expr::Let {
+                    span: span.to(rest.span()),
+                    name,
+                    ty: ty.map(Box::new),
+                    value: Box::new(value),
+                    body: Box::new(rest),
+                },
+                Stmt::Expr(e) => Expr::Seq(Box::new(e), Box::new(rest)),
+            };
+        }
+        Ok(rest)
+    }
+
+    fn statement(&mut self) -> Result<Stmt> {
+        if self.peek() != Some(&Tok::KwLet) {
+            return Ok(Stmt::Expr(self.expr_inline()?));
+        }
+        let start = self.bump().span;
+        let name = self.lower("a name")?;
+        let ty = if self.eat(&Tok::Colon) {
+            let saved = std::mem::replace(&mut self.no_equals, true);
+            let ty = self.expr_inline();
+            self.no_equals = saved;
+            Some(ty?)
+        } else {
+            None
+        };
+        self.expect(Tok::Equals, "`=`")?;
+        let value = self.expr()?;
+        Ok(Stmt::Let(name, ty, value, start))
+    }
+
+    /// A function's result type, possibly with abilities: `{State s} Nat`.
+    fn result_type(&mut self) -> Result<Expr> {
+        if self.peek() != Some(&Tok::LBrace) {
+            return self.expr();
+        }
+        let row = self.row()?;
+        let ty = self.expr()?;
+        Ok(Expr::Effect(row, Box::new(ty)))
+    }
+
+    /// `{A, B args | e}`, `{e}` or `{}`.
+    fn row(&mut self) -> Result<Row> {
+        let start = self.expect(Tok::LBrace, "`{`")?.span;
+        let mut abilities = Vec::new();
+        let mut tail = None;
+        if self.peek() != Some(&Tok::RBrace) && self.peek() != Some(&Tok::Pipe) {
+            abilities.push(self.app()?);
+            while self.eat(&Tok::Comma) {
+                abilities.push(self.app()?);
+            }
+        }
+        if self.eat(&Tok::Pipe) {
+            tail = Some(self.lower("a row variable")?);
+        } else if let Some(Expr::Var(name)) = abilities.last()
+            && name.text.starts_with(|c: char| c.is_ascii_lowercase())
+        {
+            tail = Some(name.clone());
+            abilities.pop();
+        }
+        let end = self.expect(Tok::RBrace, "`}`")?.span;
+        Ok(Row {
+            abilities,
+            tail,
+            span: start.to(end),
+        })
+    }
+
+    /// `handle e with | return x -> … | op arg => k -> …`
+    fn handle(&mut self, start: Span) -> Result<Expr> {
+        let body = self.expr_inline()?;
+        self.expect(Tok::KwWith, "`with`")?;
+        let mut clauses = Vec::new();
+        while self.eat(&Tok::Pipe) {
+            if self.eat(&Tok::KwReturn) {
+                let var = self.lower("a name for the result")?;
+                self.expect(Tok::Arrow, "`->`")?;
+                let body = self.expr()?;
+                clauses.push(Clause::Return { var, body });
+            } else {
+                let op = self.lower("an operation, or `return`")?;
+                let arg = self.pattern()?;
+                self.expect(Tok::FatArrow, "`=>`")?;
+                let k = self.lower("a name for the continuation")?;
+                self.expect(Tok::Arrow, "`->`")?;
+                let body = self.expr()?;
+                clauses.push(Clause::Op { op, arg, k, body });
+            }
+        }
+        if clauses.is_empty() {
+            return Err(self.unexpected("`|` and a handler clause"));
+        }
+        Ok(Expr::Handle {
+            span: start.to(self.prev_span()),
+            body: Box::new(body),
+            clauses,
+        })
+    }
+
+    fn expr_inline(&mut self) -> Result<Expr> {
         let start = self.here();
+        if self.eat(&Tok::KwHandle) {
+            return self.handle(start);
+        }
         if self.eat(&Tok::Backslash) {
             let mut names = Vec::new();
             loop {
@@ -404,7 +652,7 @@ impl<'t> Parser<'t> {
                 (self.binder()?, false)
             };
             self.expect(Tok::Arrow, "`->`")?;
-            let cod = self.expr()?;
+            let cod = self.result_type()?;
             let span = start.to(cod.span());
             return Ok(Expr::Pi {
                 names: binder.names,
@@ -417,7 +665,7 @@ impl<'t> Parser<'t> {
         }
         let lhs = self.cmp_expr()?;
         if self.eat(&Tok::Arrow) {
-            let rhs = self.expr()?;
+            let rhs = self.result_type()?;
             return Ok(Expr::Arrow(Box::new(lhs), Box::new(rhs)));
         }
         Ok(lhs)
@@ -492,7 +740,7 @@ impl<'t> Parser<'t> {
     fn cmp_expr(&mut self) -> Result<Expr> {
         let lhs = self.add_expr()?;
         let op = match self.peek() {
-            Some(Tok::Equals) => BinOp::Eq,
+            Some(Tok::Equals) if !self.no_equals => BinOp::Eq,
             Some(Tok::NotEq) => BinOp::Ne,
             Some(Tok::EqEq) => BinOp::EqEq,
             Some(Tok::Lt) => BinOp::Lt,
@@ -587,9 +835,17 @@ impl<'t> Parser<'t> {
                 self.bump();
                 Ok(Expr::Prop(span))
             }
+            Some(Tok::LParen) if self.peek_at(1) == Some(&Tok::RParen) => {
+                self.bump();
+                let end = self.bump().span;
+                Ok(Expr::Unit(span.to(end)))
+            }
             Some(Tok::LParen) => {
                 self.bump();
-                let inner = self.expr()?;
+                let saved = std::mem::replace(&mut self.no_equals, false);
+                let inner = self.expr();
+                self.no_equals = saved;
+                let inner = inner?;
                 if self.eat(&Tok::Colon) {
                     let ty = self.expr()?;
                     let end = self.expect(Tok::RParen, "`)`")?.span;
@@ -655,6 +911,15 @@ fn describe(tok: &Tok) -> String {
         Tok::Slash => "`/`".into(),
         Tok::Percent => "`%`".into(),
         Tok::NotEq => "`!=`".into(),
+        Tok::KwAbility => "`ability`".into(),
+        Tok::KwWhere => "`where`".into(),
+        Tok::KwHandle => "`handle`".into(),
+        Tok::KwWith => "`with`".into(),
+        Tok::KwReturn => "`return`".into(),
+        Tok::KwLet => "`let`".into(),
+        Tok::LBrace => "`{`".into(),
+        Tok::RBrace => "`}`".into(),
+        Tok::FatArrow => "`=>`".into(),
         Tok::EqEq => "`==`".into(),
         Tok::Lt => "`<`".into(),
         Tok::Le => "`<=`".into(),

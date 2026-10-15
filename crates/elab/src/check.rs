@@ -10,7 +10,7 @@ use stitchwort_syntax::ast::{BinOp, Expr, Name as AstName};
 use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::unify::unify;
-use crate::{Elaborator, Global};
+use crate::{Elaborator, Global, effects};
 
 pub type Result<T> = std::result::Result<T, Diagnostic>;
 
@@ -104,7 +104,7 @@ impl<'e> Ctx<'e> {
         self.scope.push((name.to_string(), level));
     }
 
-    fn lookup(&self, name: &str) -> Option<usize> {
+    pub(crate) fn lookup(&self, name: &str) -> Option<usize> {
         self.scope
             .iter()
             .rev()
@@ -150,7 +150,7 @@ impl<'e> Ctx<'e> {
         term
     }
 
-    fn mismatch(&self, expected: &Value, found: &Value) -> Diagnostic {
+    pub(crate) fn mismatch(&self, expected: &Value, found: &Value) -> Diagnostic {
         let expected_shown = self.show(expected);
         let found_shown = self.show(found);
         if let (Value::Sort(_), Value::Sort(_)) = (
@@ -197,7 +197,26 @@ pub fn infer(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
 
 fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
     let g = cx.g();
+    // Code that performs operations, in a pure context: it may only perform
+    // what it handles itself.
+    if effects::may_perform(cx, expr) {
+        return effects::run_pure(cx, expr, None);
+    }
     match expr {
+        Expr::Unit(_) => {
+            let unit = data_named(cx, "UnitType")?;
+            Ok((
+                Term::Ctor(unit, 0, Vec::new()),
+                Value::Data(unit, Vec::new()),
+            ))
+        }
+        Expr::Effect(row, ty) => {
+            let (term, sort) = effects::effect_type(cx, row, ty)?;
+            Ok((term, Value::Sort(sort)))
+        }
+        Expr::Let { .. } | Expr::Seq(..) | Expr::Handle { .. } => {
+            unreachable!("these may perform operations, so they're handled above")
+        }
         Expr::Var(_) | Expr::App(..) => {
             let mut args = Vec::new();
             let mut head = expr;
@@ -344,6 +363,12 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
     }
 }
 
+/// Infers a function on its own, ready to be applied (a name, without
+/// inserting its implicit arguments).
+pub(crate) fn infer_head(cx: &mut Ctx, head: &Expr) -> Result<(Term, Value)> {
+    infer_app(cx, head, &[])
+}
+
 /// Infers an application `head args`.
 fn infer_app(cx: &mut Ctx, head: &Expr, args: &[Arg]) -> Result<(Term, Value)> {
     let g = cx.g();
@@ -414,6 +439,26 @@ fn infer_app(cx: &mut Ctx, head: &Expr, args: &[Arg]) -> Result<(Term, Value)> {
             let head = (Term::Data(*d, terms), Value::Sort(data.sort));
             apply_args(cx, head, &args[n..])
         }
+        Some((Global::Ability(_), _)) => Err(cx.error(
+            "E-ABILITY",
+            format!("`{}` is an ability, not a type or a value", name.text),
+            "abilities go in a function type's row: `-> {State s} …`",
+        )),
+        Some((Global::Op(a, _), _)) => {
+            let ability = cx.e.abilities[*a].name.clone();
+            Err(cx
+                .error(
+                    "E-ABILITY",
+                    format!(
+                        "`{}` is an operation of `{ability}`, which isn't allowed here",
+                        name.text
+                    ),
+                    "this function's type has no abilities",
+                )
+                .with_note(format!(
+                    "add `{ability}` to the function's type: `-> {{{ability} …}} …`"
+                )))
+        }
         Some((Global::Ctor(d, c), _)) => {
             let explicit = explicit_args(cx, args)?;
             let missing = g.data(*d).ctors[*c]
@@ -458,6 +503,15 @@ fn explicit_args<'a>(cx: &Ctx, args: &[Arg<'a>]) -> Result<Vec<&'a Expr>> {
             }
         })
         .collect()
+}
+
+/// Applies `head` to one argument, which may be a named implicit `[x := e]`.
+pub(crate) fn apply_one(cx: &mut Ctx, head: (Term, Value), arg: &Expr) -> Result<(Term, Value)> {
+    let arg = match arg {
+        Expr::NamedArg(name, value, _) => Arg::Named(name, value),
+        other => Arg::Explicit(other),
+    };
+    apply_args(cx, head, &[arg])
 }
 
 /// Applies `head` to `args`, inserting implicit arguments where needed.
@@ -593,7 +647,25 @@ pub fn check(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
 fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     let g = cx.g();
     let expected = force(g, expected.clone());
+    // A computation in a row of abilities: computation mode.
+    if !matches!(expr, Expr::Hole(_))
+        && let Some((row, t)) = effects::comp_parts(cx, &expected)
+    {
+        return effects::comp_check(cx, expr, &row, &t);
+    }
+    if effects::may_perform(cx, expr) {
+        return Ok(effects::run_pure(cx, expr, Some(&expected))?.0);
+    }
     match (expr, &expected) {
+        (Expr::Unit(_), Value::Sort(_)) => {
+            let unit = data_named(cx, "UnitType")?;
+            let found = Value::Sort(Sort::Type(0));
+            if cx.unify(&found, &expected) {
+                Ok(Term::Data(unit, Vec::new()))
+            } else {
+                Err(cx.mismatch(&expected, &found))
+            }
+        }
         (Expr::Hole(_), _) => Ok(cx.fresh_meta()),
         // Implicit parameters are introduced automatically.
         (_, Value::Pi(x, icit, dom, cod)) if icit.is_implicit() => {
@@ -717,7 +789,7 @@ fn equation(cx: &mut Ctx, a: &Expr, b: &Expr) -> Result<Term> {
 /// `if c then a else b` is `ifThenElse c (\_ -> a) (\_ -> b)`, and
 /// `if h : P then a else b` is `elimDec (decision for P) (\h -> a) (\h -> b)`.
 /// The branches are functions so only the chosen one is evaluated.
-fn check_if(
+pub(crate) fn check_if(
     cx: &mut Ctx,
     binder: Option<&AstName>,
     cond: &Expr,
@@ -785,8 +857,23 @@ fn fallback(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     let (term, found) = insert(cx, term, found);
     if cx.unify(&found, expected) {
         Ok(term)
+    } else if let Some(term) = effects::coerce(cx, &term, &found, expected) {
+        // An effectful function whose row lists the same abilities in a
+        // different order.
+        Ok(term)
     } else {
         Err(cx.mismatch(expected, &found))
+    }
+}
+
+fn data_named(cx: &Ctx, name: &str) -> Result<DataId> {
+    match cx.e.names.get(name) {
+        Some((Global::Data(d), _)) => Ok(*d),
+        _ => Err(cx.error(
+            "E-UNKNOWN-NAME",
+            format!("this needs the prelude's `{name}`"),
+            "here",
+        )),
     }
 }
 
@@ -925,6 +1012,12 @@ fn annotate(cx: &Ctx, term: Term, ty: &Value) -> Term {
 
 pub fn check_type(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Sort)> {
     let span = expr.span();
+    if let Expr::Unit(_) = expr {
+        return Ok((
+            Term::Data(data_named(cx, "UnitType")?, Vec::new()),
+            Sort::Type(0),
+        ));
+    }
     let (term, ty) = infer(cx, expr)?;
     match force(cx.g(), ty) {
         Value::Sort(s) => Ok((term, s)),

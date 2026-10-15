@@ -46,6 +46,20 @@ pub enum Tok {
     KwIf,
     KwThen,
     KwElse,
+    /// `ability Name params where`, then its operations.
+    KwAbility,
+    KwWhere,
+    /// `handle e with | clause …`
+    KwHandle,
+    KwWith,
+    /// `return x -> …`, a handler's clause for the result.
+    KwReturn,
+    /// `let x = e`, binding `x` for the following lines of a block.
+    KwLet,
+    LBrace,
+    RBrace,
+    /// `=>`, in a handler clause: `get () => k -> …`.
+    FatArrow,
     Underscore,
 }
 
@@ -55,6 +69,9 @@ pub struct Token {
     pub span: Span,
     /// Byte offset from the start of the line. Declarations start at column 0.
     pub column: u32,
+    /// Whether this is the first token on its line. Blocks use this to find
+    /// where each line starts.
+    pub line_start: bool,
 }
 
 pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
@@ -62,6 +79,7 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
     let mut tokens = Vec::new();
     let mut i = 0;
     let mut line_start = 0;
+    let mut fresh_line = true;
 
     while i < bytes.len() {
         let c = bytes[i];
@@ -69,6 +87,7 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
             b'\n' => {
                 i += 1;
                 line_start = i;
+                fresh_line = true;
                 continue;
             }
             b' ' | b'\r' => {
@@ -110,6 +129,12 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
                 "if" => Tok::KwIf,
                 "then" => Tok::KwThen,
                 "else" => Tok::KwElse,
+                "ability" => Tok::KwAbility,
+                "where" => Tok::KwWhere,
+                "handle" => Tok::KwHandle,
+                "with" => Tok::KwWith,
+                "return" => Tok::KwReturn,
+                "let" => Tok::KwLet,
                 "Type" => Tok::TypeU,
                 "Prop" => Tok::Prop,
                 _ if c.is_ascii_uppercase() => Tok::Upper(word.to_string()),
@@ -165,6 +190,8 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
                 b'(' => Tok::LParen,
                 b')' => Tok::RParen,
                 b'[' => Tok::LBracket,
+                b'{' => Tok::LBrace,
+                b'}' => Tok::RBrace,
                 b']' => Tok::RBracket,
                 b',' => Tok::Comma,
                 b':' if bytes.get(i) == Some(&b'=') => {
@@ -175,6 +202,10 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
                 b'=' if bytes.get(i) == Some(&b'=') => {
                     i += 1;
                     Tok::EqEq
+                }
+                b'=' if bytes.get(i) == Some(&b'>') => {
+                    i += 1;
+                    Tok::FatArrow
                 }
                 b'=' => Tok::Equals,
                 b'\\' => Tok::Backslash,
@@ -211,7 +242,9 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
             tok,
             span: Span::new(file, start as u32, i as u32),
             column,
+            line_start: fresh_line,
         });
+        fresh_line = false;
     }
     Ok(tokens)
 }

@@ -60,6 +60,8 @@ fn walk(
             let data = match head {
                 Expr::Var(name) if !bound.contains(&name.text) => match e.names.get(&name.text) {
                     Some((Global::Data(d), _)) => Some(e.globals.data(*d)),
+                    // An ability's parameters are those of its operations' type.
+                    Some((Global::Ability(a), _)) => Some(e.globals.data(e.abilities[*a].op_data)),
                     _ => None,
                 },
                 _ => None,
@@ -124,6 +126,56 @@ fn walk(
             }
         }
         Expr::NamedArg(_, value, _) => walk(e, value, bound, false, uses),
-        Expr::Num(..) | Expr::Type(..) | Expr::Prop(_) | Expr::Hole(_) => {}
+        Expr::Num(..) | Expr::Type(..) | Expr::Prop(_) | Expr::Hole(_) | Expr::Unit(_) => {}
+        // `{State s | e} b`: `e` is a row variable, bound like a type.
+        Expr::Effect(row, ty) => {
+            for ability in &row.abilities {
+                walk(e, ability, bound, true, uses);
+            }
+            if let Some(tail) = &row.tail {
+                walk(e, &Expr::Var(tail.clone()), bound, true, uses);
+            }
+            walk(e, ty, bound, true, uses);
+        }
+        Expr::Let {
+            name,
+            ty,
+            value,
+            body,
+            ..
+        } => {
+            if let Some(ty) = ty {
+                walk(e, ty, bound, true, uses);
+            }
+            walk(e, value, bound, false, uses);
+            bound.push(name.text.clone());
+            walk(e, body, bound, false, uses);
+            bound.pop();
+        }
+        Expr::Seq(a, b) => {
+            walk(e, a, bound, false, uses);
+            walk(e, b, bound, false, uses);
+        }
+        Expr::Handle { body, clauses, .. } => {
+            walk(e, body, bound, false, uses);
+            for clause in clauses {
+                let before = bound.len();
+                let body = match clause {
+                    stitchwort_syntax::ast::Clause::Return { var, body } => {
+                        bound.push(var.text.clone());
+                        body
+                    }
+                    stitchwort_syntax::ast::Clause::Op { arg, k, body, .. } => {
+                        if let stitchwort_syntax::ast::Pattern::Var(x) = arg {
+                            bound.push(x.text.clone());
+                        }
+                        bound.push(k.text.clone());
+                        body
+                    }
+                };
+                walk(e, body, bound, false, uses);
+                bound.truncate(before);
+            }
+        }
     }
 }

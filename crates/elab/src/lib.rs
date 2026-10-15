@@ -9,6 +9,7 @@
 mod auto;
 mod autobind;
 mod check;
+mod effects;
 mod unify;
 
 use std::borrow::Cow;
@@ -38,6 +39,10 @@ enum Global {
     Def(DefId),
     Data(DataId),
     Ctor(DataId, usize),
+    /// An ability, by its index in `Elaborator::abilities`.
+    Ability(usize),
+    /// Operation `i` of an ability.
+    Op(usize, usize),
 }
 
 /// A `test "name" = expr` declaration, checked as a definition of type `Bool`.
@@ -57,6 +62,7 @@ pub struct Elaborator {
     /// While the prelude is loaded, its built-in types and natively
     /// implemented definitions are registered with the kernel by name.
     pub loading_prelude: bool,
+    abilities: Vec<effects::AbilityInfo>,
 }
 
 /// A pattern that matches a constructor.
@@ -143,6 +149,12 @@ impl Elaborator {
             match &decls[i] {
                 decl @ Decl::Data { .. } => {
                     if let Err(d) = self.data(decl) {
+                        diagnostics.push(d);
+                    }
+                    i += 1;
+                }
+                decl @ Decl::Ability { .. } => {
+                    if let Err(d) = self.ability(decl) {
                         diagnostics.push(d);
                     }
                     i += 1;
@@ -253,6 +265,290 @@ impl Elaborator {
             def: id,
             span,
         });
+        Ok(())
+    }
+
+    /// `ability A params where op : X -> {A params} Y …`, as three generated
+    /// declarations (see `effects`): the data type of its operations
+    /// (constructors `A.op`), `A.res` giving each operation's result type,
+    /// and the eliminator `A.elim` that handlers use.
+    fn ability(&mut self, decl: &Decl) -> Result<()> {
+        use ast::{Binder, CtorDecl, Expr};
+        let Decl::Ability {
+            name: ability,
+            params,
+            ops,
+            span,
+        } = decl
+        else {
+            unreachable!()
+        };
+        self.check_new_name(ability)?;
+        let n = |text: String| ast::Name { text, span: *span };
+        let var = |text: &str| Expr::Var(n(text.to_string()));
+        let apps = |head: Expr, args: Vec<Expr>| {
+            args.into_iter()
+                .fold(head, |f, a| Expr::App(Box::new(f), Box::new(a)))
+        };
+        let param_names: Vec<ast::Name> = params.iter().flat_map(|b| b.names.clone()).collect();
+        let applied = apps(
+            var(&ability.text),
+            param_names.iter().map(|p| var(&p.text)).collect(),
+        );
+
+        // Each operation is `x : A -> {Ability params} B`.
+        let mut sigs = Vec::new();
+        for (op, ty) in ops {
+            self.check_new_name(op)?;
+            let bad = || {
+                error(
+                    "E-ABILITY",
+                    ty.span(),
+                    format!(
+                        "an operation's type must be `A -> {{{} …}} B`",
+                        ability.text
+                    ),
+                )
+            };
+            let (x, dom, row, cod) = match ty {
+                Expr::Arrow(a, b) => match b.as_ref() {
+                    Expr::Effect(row, cod) => (None, a.as_ref(), row, cod.as_ref()),
+                    _ => return Err(bad()),
+                },
+                Expr::Pi {
+                    names,
+                    implicit: false,
+                    dom,
+                    cod,
+                    ..
+                } if names.len() == 1 => match cod.as_ref() {
+                    Expr::Effect(row, cod) => {
+                        (Some(names[0].clone()), dom.as_ref(), row, cod.as_ref())
+                    }
+                    _ => return Err(bad()),
+                },
+                _ => return Err(bad()),
+            };
+            let only_self = row.tail.is_none()
+                && row.abilities.len() == 1
+                && matches!(
+                    {
+                        let mut h = &row.abilities[0];
+                        while let Expr::App(f, _) = h {
+                            h = f;
+                        }
+                        h
+                    },
+                    Expr::Var(v) if v.text == ability.text
+                );
+            if !only_self {
+                return Err(error(
+                    "E-ABILITY",
+                    row.span,
+                    format!(
+                        "an operation of `{}` performs just `{}`",
+                        ability.text, ability.text
+                    ),
+                ));
+            }
+            // Its argument and result can't use the ability itself: that's
+            // Landin's knot (`Cell` in DESIGN.md §8).
+            for (part, what) in [(dom, "argument"), (cod, "result")] {
+                if mentions_ability(part, &ability.text) {
+                    return Err(error(
+                        "E-ABILITY",
+                        part.span(),
+                        format!(
+                            "an operation's {what} can't perform `{}` itself",
+                            ability.text
+                        ),
+                    )
+                    .with_note(
+                        "storing or returning a computation that uses the same ability could \
+                         loop forever (Landin's knot)",
+                    ));
+                }
+            }
+            sigs.push((op.clone(), x, dom.clone(), cod.clone()));
+        }
+        let ctor_name = |op: &ast::Name| n(format!("{}.{}", ability.text, op.text));
+        let x_name = |x: &Option<ast::Name>| x.clone().unwrap_or_else(|| n("x".into()));
+
+        // type A params : Type = | A.op (x : X) …
+        let data_decl = Decl::Data {
+            name: ability.clone(),
+            params: params.clone(),
+            sort: None,
+            ctors: sigs
+                .iter()
+                .map(|(op, x, dom, _)| CtorDecl {
+                    name: ctor_name(op),
+                    fields: vec![Binder {
+                        names: vec![x_name(x)],
+                        ty: dom.clone(),
+                    }],
+                })
+                .collect(),
+            span: *span,
+        };
+        self.data(&data_decl)?;
+        let Some((Global::Data(op_data), _)) = self.names.get(&ability.text).copied() else {
+            unreachable!("just declared");
+        };
+
+        // A.res : (params) -> A params -> Type
+        let res_name = n(format!("{}.res", ability.text));
+        let mut res_ty = Expr::Arrow(Box::new(applied.clone()), Box::new(Expr::Type(0, *span)));
+        for binder in params.iter().rev() {
+            res_ty = Expr::Pi {
+                names: binder.names.clone(),
+                implicit: false,
+                auto: false,
+                dom: Box::new(binder.ty.clone()),
+                cod: Box::new(res_ty),
+                span: *span,
+            };
+        }
+        let res_sig = Decl::Signature {
+            name: res_name.clone(),
+            ty: res_ty,
+            theorem: false,
+            export: false,
+            span: *span,
+        };
+        let res_eqs: Vec<Decl> = sigs
+            .iter()
+            .map(|(op, x, _, cod)| {
+                let mut patterns: Vec<Pattern> = param_names
+                    .iter()
+                    .map(|p| Pattern::Var(p.clone()))
+                    .collect();
+                patterns.push(Pattern::Ctor(
+                    ctor_name(op),
+                    vec![Pattern::Var(x_name(x))],
+                    *span,
+                ));
+                Decl::Equation {
+                    name: res_name.clone(),
+                    patterns,
+                    rhs: Some(cod.clone()),
+                    span: *span,
+                }
+            })
+            .collect();
+        self.definition(&res_sig, &res_eqs)?;
+        let Some((Global::Def(res), _)) = self.names.get(&res_name.text).copied() else {
+            unreachable!("just defined");
+        };
+
+        // A.elim : [params] -> [r : Type] -> ((x : X) -> (Y -> r) -> r) -> … ->
+        //   (o : A params) -> (A.res params o -> r) -> r
+        let elim_name = n(format!("{}.elim", ability.text));
+        let r = || var("%r");
+        let clause = |i: usize| format!("%clause{i}");
+        let res_of_o = apps(
+            var(&res_name.text),
+            param_names
+                .iter()
+                .map(|p| var(&p.text))
+                .chain([var("%o")])
+                .collect(),
+        );
+        let mut elim_ty = Expr::Pi {
+            names: vec![n("%o".into())],
+            implicit: false,
+            auto: false,
+            dom: Box::new(applied.clone()),
+            cod: Box::new(Expr::Arrow(
+                Box::new(Expr::Arrow(Box::new(res_of_o), Box::new(r()))),
+                Box::new(r()),
+            )),
+            span: *span,
+        };
+        for (i, (_, x, dom, cod)) in sigs.iter().enumerate().rev() {
+            let k_ty = Expr::Arrow(Box::new(cod.clone()), Box::new(r()));
+            let clause_ty = Expr::Pi {
+                names: vec![x_name(x)],
+                implicit: false,
+                auto: false,
+                dom: Box::new(dom.clone()),
+                cod: Box::new(Expr::Arrow(Box::new(k_ty), Box::new(r()))),
+                span: *span,
+            };
+            elim_ty = Expr::Pi {
+                names: vec![n(clause(i))],
+                implicit: false,
+                auto: false,
+                dom: Box::new(clause_ty),
+                cod: Box::new(elim_ty),
+                span: *span,
+            };
+        }
+        elim_ty = Expr::Pi {
+            names: vec![n("%r".into())],
+            implicit: true,
+            auto: false,
+            dom: Box::new(Expr::Type(0, *span)),
+            cod: Box::new(elim_ty),
+            span: *span,
+        };
+        for binder in params.iter().rev() {
+            elim_ty = Expr::Pi {
+                names: binder.names.clone(),
+                implicit: true,
+                auto: false,
+                dom: Box::new(binder.ty.clone()),
+                cod: Box::new(elim_ty),
+                span: *span,
+            };
+        }
+        let elim_sig = Decl::Signature {
+            name: elim_name.clone(),
+            ty: elim_ty,
+            theorem: false,
+            export: false,
+            span: *span,
+        };
+        let elim_eqs: Vec<Decl> = sigs
+            .iter()
+            .enumerate()
+            .map(|(i, (op, x, _, _))| {
+                let mut patterns: Vec<Pattern> = (0..sigs.len())
+                    .map(|j| Pattern::Var(n(clause(j))))
+                    .collect();
+                patterns.push(Pattern::Ctor(
+                    ctor_name(op),
+                    vec![Pattern::Var(x_name(x))],
+                    *span,
+                ));
+                patterns.push(Pattern::Var(n("%k".into())));
+                Decl::Equation {
+                    name: elim_name.clone(),
+                    patterns,
+                    rhs: Some(apps(var(&clause(i)), vec![var(&x_name(x).text), var("%k")])),
+                    span: *span,
+                }
+            })
+            .collect();
+        self.definition(&elim_sig, &elim_eqs)?;
+        let Some((Global::Def(elim), _)) = self.names.get(&elim_name.text).copied() else {
+            unreachable!("just defined");
+        };
+
+        let index = self.abilities.len();
+        self.abilities.push(effects::AbilityInfo {
+            name: ability.text.clone(),
+            op_data,
+            res,
+            elim,
+            ops: sigs.iter().map(|(op, ..)| op.text.clone()).collect(),
+        });
+        self.names
+            .insert(ability.text.clone(), (Global::Ability(index), ability.span));
+        for (i, (op, ..)) in sigs.iter().enumerate() {
+            self.names
+                .insert(op.text.clone(), (Global::Op(index, i), op.span));
+        }
         Ok(())
     }
 
@@ -572,7 +868,22 @@ impl Elaborator {
             let rows: Vec<Row> = equations
                 .iter()
                 .map(|&(patterns, rhs, span)| Row {
-                    pats: patterns.iter().map(Cow::Borrowed).collect(),
+                    // `()` with a right-hand side is the unit pattern; without
+                    // one, it's absurd.
+                    pats: patterns
+                        .iter()
+                        .map(|p| match p {
+                            Pattern::Absurd(span) if rhs.is_some() => Cow::Owned(Pattern::Ctor(
+                                ast::Name {
+                                    text: "UnitValue".into(),
+                                    span: *span,
+                                },
+                                Vec::new(),
+                                *span,
+                            )),
+                            p => Cow::Borrowed(p),
+                        })
+                        .collect(),
                     aliases: Vec::new(),
                     rhs,
                     span,
@@ -900,5 +1211,29 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                 Rc::new(Term::Case(cx.level() - 1 - x, *d, out.into())),
             ))
         }
+    }
+}
+
+/// Whether a row in `expr` mentions ability `name`.
+fn mentions_ability(expr: &ast::Expr, name: &str) -> bool {
+    use ast::Expr;
+    let go = |e: &Expr| mentions_ability(e, name);
+    match expr {
+        Expr::Effect(row, ty) => {
+            row.abilities.iter().any(|a| {
+                let mut h = a;
+                while let Expr::App(f, _) = h {
+                    h = f;
+                }
+                matches!(h, Expr::Var(v) if v.text == name)
+            }) || go(ty)
+        }
+        Expr::App(a, b) | Expr::Arrow(a, b) | Expr::Binary(_, a, b) | Expr::Seq(a, b) => {
+            go(a) || go(b)
+        }
+        Expr::Pi { dom, cod, .. } => go(dom) || go(cod),
+        Expr::Lam(_, b, _) | Expr::Ann(b, _, _) | Expr::NamedArg(_, b, _) => go(b),
+        Expr::List(items, _) => items.iter().any(go),
+        _ => false,
     }
 }

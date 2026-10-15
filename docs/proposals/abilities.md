@@ -1,6 +1,12 @@
 # Stitchwort: abilities and handlers
 
-**Status:** draft 3, 15 October 2026. The foundation is implemented (see [Status](#status)): `Comp`, its fold and `bind`, and the termination rule they need. Hand-written handlers for `State`, `Abort` and `Choose` pass the semantic tests below. There's no `ability` or `handle` syntax yet. `Partial` has moved to its own proposal, [`partial.md`](partial.md).
+**Status:** draft 3, 15 October 2026. **Implemented**, apart from `Partial` and `IO`; see [Status](#status). The language has:
+- `ability` declarations;
+- rows on function types;
+- direct-style effectful code with `let` and blocks;
+- `handle`.
+
+All of it is translated as described here, and checked by the kernel. The semantic tests below pass in source syntax (`examples/accept/abilities.sw`) and in extracted JS (`examples/extract/effects.sw`). `Partial` has moved to its own proposal, [`partial.md`](partial.md).
 
 ## Changes since draft 2
 
@@ -277,11 +283,27 @@ These come before the direct-style translation:
   - A definition applied to fewer arguments than it takes is a function for conversion, so type-level helpers like `SCRes o = PlusRes … o` work.
   - `1000 + x` stays compact instead of unfolding into a thousand `Succ`s, which used to crash the checker.
 
-**Next:**
-1. `ability` declarations and rows on arrows.
-2. The direct-style translation, with `let` and sequencing, compared with Part 1 on the semantic tests, including operation order.
-3. `handle … with`, with the coverage rule.
-4. `IO` and `main`.
+- **The source language:**
+  - `ability` declarations;
+  - rows on function types, with row variables;
+  - blocks with `let` and sequencing;
+  - the direct-style translation, with effectful arguments run left to right;
+  - `handle … with`, with the coverage rule;
+  - coercions between rows that list the same abilities in a different order.
+
+  These are described in `docs/core.md` under "Abilities". The semantic tests pass in source syntax, alongside tests of operation order (lines in order, arguments left to right), and the tests can fail: flipping an expected value fails them. Must-reject tests cover:
+  - an operation in a pure function;
+  - an ability missing from a row;
+  - a missing clause, and a missing `return`;
+  - a duplicate ability;
+  - `Cell` as an `ability`;
+  - `Ping` as a real handler.
+- **Extraction:** a pure export that uses handlers inside, including one that resumes twice, gives the same results in JS as the reference evaluator.
+
+**Not done:**
+- "Lacks" constraints aren't enforced on row variables yet. Rows built by the elaborator never contain duplicates, but a row variable instantiated by hand could.
+- There are no first-class operations: `get` can only be called, not passed as a function.
+- There's no `IO` or `main`, and no `Partial` (see [`partial.md`](partial.md)).
 
 ## Questions
 
