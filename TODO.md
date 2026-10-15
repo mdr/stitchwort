@@ -23,6 +23,8 @@ agent, then reviews, merges and updates this file.
 Round 2, in progress:
 - **Stack-safe step 4** (lane `depth-guards`): item 1 of **Next**.
 - ~~Text step 5~~ (lane `run`): merged as `65f91ce`.
+- **Text step 6** (lane `playground-run`): item 3 of **Next**, the Run
+  button and the compiler in a Web Worker. Republished by main after merging.
 
 Text step 3 waits for round 3: it edits `js/lib.rs` alongside step 4.
 
