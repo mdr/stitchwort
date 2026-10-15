@@ -13,9 +13,9 @@ replicate : Nat -> a -> List a
 replicate Zero     x = Nil
 replicate (Succ n) x = Cons x (replicate n x)
 
--- Checking computes closed arguments (the kernel evaluates an argument to
--- substitute it into the function's type), so the list is built from `n`
--- inside a function, where checking can't compute it.
+-- In `length (replicate n 1) == n`, the computation appears in a type (the
+-- decision's, `Decidable (length … = n)`), so checking a test written that
+-- way would compute it. Inside a function, `n` is a variable when checked.
 replicateHasLength : Nat -> Bool
 replicateHasLength n = length (replicate n 1) == n
 ";
@@ -187,4 +187,51 @@ fn running_out_leaves_nothing_behind() {
         .expect("checks");
     let results = session.run_tests(&Cache::disabled());
     assert!(results.iter().all(|r| r.outcome == Outcome::Passed));
+}
+
+/// Checking `f a` needs `a`'s value only when `f`'s result type depends on it.
+/// These arguments would run out of resources if they were computed.
+#[test]
+fn checking_does_not_compute_arguments_the_types_ignore() {
+    let mut session = Session::new();
+    let source = format!(
+        "{REPLICATE}
+constant : a -> b -> a
+constant x y = x
+
+ignored : Nat
+ignored = constant 0 (length (replicate 1000000 1))
+
+inField : Pair Nat Nat
+inField = MkPair 0 (length (replicate 1000000 1))
+
+inList : List Nat
+inList = [length (replicate 1000000 1)]
+"
+    );
+    assert_eq!(codes(session.load("lazy.sw", &source)), Vec::<&str>::new());
+}
+
+/// When the result type does depend on an argument, its value is still used:
+/// here a wrong proof is still rejected.
+#[test]
+fn arguments_the_types_need_are_still_computed() {
+    let mut session = Session::new();
+    let source = format!(
+        "{REPLICATE}
+theorem three : length (replicate 3 1) = 3
+three = rfl
+
+ok : Pair Nat Nat
+ok = MkPair (length (replicate 3 1)) 0
+
+-- `cong`'s result type mentions its arguments.
+theorem wrong : length (replicate 3 1) = 4
+wrong = cong (\\x -> x) rfl
+"
+    );
+    assert_eq!(
+        codes(session.load("needed.sw", &source)),
+        ["E-TYPE-MISMATCH"]
+    );
 }

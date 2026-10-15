@@ -12,7 +12,7 @@ use crate::globals::{Ctor, Data, Def, Globals, Validator};
 use crate::pretty;
 use crate::term::{Branch, DataId, DefId, Icit, Name, Sort, Term};
 use crate::termination;
-use crate::value::{Value, apply, conv, eval, quote};
+use crate::value::{Value, apply, conv, eval, quote, unused};
 
 type Result<T> = std::result::Result<T, Diagnostic>;
 
@@ -136,10 +136,14 @@ pub fn infer(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
             }
             let mut params = Vec::new();
             let mut out = Vec::new();
-            for ((_, param_ty), arg) in data.params.iter().zip(args) {
+            for (i, ((_, param_ty), arg)) in data.params.iter().zip(args).enumerate() {
                 let ty = eval(g, &params, param_ty)?;
                 let arg = check(cx, arg, &ty)?;
-                params.push(cx.eval(&arg)?);
+                params.push(if later_types_mention(&data.params, i) {
+                    cx.eval(&arg)?
+                } else {
+                    unused()
+                });
                 out.push(arg);
             }
             Ok((Term::Data(*d, out), Value::Sort(data.sort)))
@@ -166,8 +170,8 @@ pub fn infer(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
             match f_ty {
                 Value::Pi(_, pi_icit, dom, cod) if pi_icit == *icit => {
                     let a = check(cx, a, &dom)?;
-                    let a_value = cx.eval(&a)?;
-                    Ok((Term::app_icit(f, a, *icit), cod.apply(g, a_value)?))
+                    let ty = cod.apply_lazy(g, || eval(g, &cx.env, &a))?;
+                    Ok((Term::app_icit(f, a, *icit), ty))
                 }
                 other => Err(cx.error(
                     "E-NOT-A-FUNCTION",
@@ -262,10 +266,14 @@ pub fn check(cx: &mut Ctx, term: &Term, expected: &Value) -> Result<Term> {
             }
             let mut env = params.clone();
             let mut out = Vec::new();
-            for ((_, field_ty), arg) in ctor.fields.iter().zip(args) {
+            for (i, ((_, field_ty), arg)) in ctor.fields.iter().zip(args).enumerate() {
                 let ty = eval(g, &env, field_ty)?;
                 let arg = check(cx, arg, &ty)?;
-                env.push(cx.eval(&arg)?);
+                env.push(if later_types_mention(&ctor.fields, i) {
+                    cx.eval(&arg)?
+                } else {
+                    unused()
+                });
                 out.push(arg);
             }
             Ok(Term::Ctor(*d, *c, out))
@@ -522,6 +530,17 @@ pub fn substitute(
         .iter()
         .map(|v| eval(g, &env, &quote(g, level, v)?))
         .collect()
+}
+
+/// Whether the types of the binders after binder `i` in a telescope (data
+/// parameters, or constructor fields) mention it. If not, checking doesn't
+/// need its value. In binder `j`'s type, binder `i` is variable `j - 1 - i`.
+pub fn later_types_mention(binders: &[(Name, Term)], i: usize) -> bool {
+    binders
+        .iter()
+        .enumerate()
+        .skip(i + 1)
+        .any(|(j, (_, ty))| ty.mentions(j - 1 - i))
 }
 
 /// Infers the type of a closed term.

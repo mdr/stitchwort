@@ -62,6 +62,24 @@ impl Closure {
         env.push(arg);
         eval(g, &env, &self.body)
     }
+
+    /// Like `apply`, but only computes the argument if the body uses it. For
+    /// the result type of an application: `f a : B a` needs the value of `a`
+    /// only when `B` depends on it, and computing it may be expensive.
+    pub fn apply_lazy(&self, g: &Globals, arg: impl FnOnce() -> Result<Value>) -> Result<Value> {
+        let arg = if self.body.mentions(0) {
+            arg()?
+        } else {
+            unused()
+        };
+        self.apply(g, arg)
+    }
+}
+
+/// A placeholder for a value that's never looked at: an environment entry the
+/// body doesn't mention.
+pub fn unused() -> Value {
+    Value::Neutral(Head::Var(usize::MAX), Vec::new())
 }
 
 impl Value {

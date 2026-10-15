@@ -4,7 +4,8 @@
 
 use std::rc::Rc;
 
-use stitchwort_core::value::{Closure, Head, apply, eval, force, quote};
+use stitchwort_core::check as kernel;
+use stitchwort_core::value::{Closure, Head, apply, eval, force, quote, unused};
 use stitchwort_core::{DataId, Globals, Icit, Name, Sort, Term, Value, pretty};
 use stitchwort_syntax::ast::{BinOp, Expr, Name as AstName};
 use stitchwort_syntax::{Diagnostic, Span};
@@ -558,9 +559,8 @@ fn apply_args(cx: &mut Ctx, head: (Term, Value), args: &[Arg]) -> Result<(Term, 
                     unreachable!("insert_until stops at the named implicit parameter");
                 };
                 let value = check(cx, value, &dom)?;
-                let v = cx.eval(&value)?;
+                ty = cod.apply_lazy(cx.g(), || eval(cx.g(), &cx.env, &value))?;
                 term = Term::app_icit(term, value, icit);
-                ty = cod.apply(cx.g(), v)?;
             }
             Arg::Explicit(value) => {
                 (term, ty) = insert(cx, term, ty)?;
@@ -601,9 +601,8 @@ fn apply_args(cx: &mut Ctx, head: (Term, Value), args: &[Arg]) -> Result<(Term, 
                     }
                 };
                 let value = check(cx, value, &dom)?;
-                let v = cx.eval(&value)?;
+                ty = cod.apply_lazy(cx.g(), || eval(cx.g(), &cx.env, &value))?;
                 term = Term::app(term, value);
-                ty = cod.apply(cx.g(), v)?;
             }
         }
     }
@@ -1049,7 +1048,11 @@ fn ctor_app(
             }
             Term::Var(cx.level() - 1 - level)
         };
-        env.push(cx.eval(&term)?);
+        env.push(if kernel::later_types_mention(&ctor.fields, i) {
+            cx.eval(&term)?
+        } else {
+            unused()
+        });
         terms.push(term);
     }
     let result_ty = Value::Data(d, params);
