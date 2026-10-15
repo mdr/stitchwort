@@ -774,7 +774,7 @@ $ stitchwort build --js src/pricing.sw -o dist/
 The first extraction milestone supports a deliberately narrow subset. An **exportability check** refuses an `export` unless all of these hold:
 
 1. **Pure.** The exported function performs no abilities.
-2. **Concrete boundary types with codecs.** Every input and output type is fully concrete (no type parameters such as `identity : [a : Type] -> a -> a`), and has a supported encoder and decoder: `Nat`, `Int`, `Bool`, `Text`, `List`, `Optional`, records and data types built from these. No functions, no `Float`. Polymorphic helpers are fine *inside* the library, just not at the boundary.
+2. **Concrete boundary types with codecs.** Every input and output type is fully concrete (no type parameters such as `identity : [a : Type] -> a -> a`), and has a supported encoder and decoder: `Nat`, `Bool`, `Text`, `Char`, `List`, and data types built from these (such as the prelude's `Maybe` and `Pair`). `Int`, `Optional` and records will join them once they're built. No functions, no `Float`. Polymorphic helpers are fine *inside* the library, just not at the boundary.
 3. **Decidable preconditions.** Every erased proof argument of the exported function has a registered decision procedure ([§6](#6-proofs-universes-and-erasure)), which becomes a runtime check.
 4. **Assumption-free.** The exported function, everything it depends on, *and the decision procedures used by its validators* are assumption-free ([§3](#3-precise-guarantees)). Otherwise an assumed proof hidden inside a decision procedure could let invalid input through as validated, and an assumed falsehood can make extracted code wrong or non-terminating even though the assumption itself is erased. (Rocq's extraction documentation warns about exactly this.) For example, this is refused:
 
@@ -794,27 +794,27 @@ Host-provided abilities, exporting handlers, and functions as arguments come lat
 
 Each exported function is wrapped like this:
 
-1. **Decode** every input into a fresh internal representation that the wrapper owns, reading each property exactly once. After this, the original JS objects are never read again, so mutating them (even through another reference) can't affect the result. TypeScript's `readonly` doesn't prevent mutation at runtime.
+1. **Decode** every input into a fresh internal representation that the wrapper owns, reading each property once and only an object's own properties ([Objects at the boundary](#objects-at-the-boundary)). After this, the original JS objects are never read again, so mutating them (even through another reference) can't affect the result. TypeScript's `readonly` doesn't prevent mutation at runtime.
 2. **Validate** the decoded value: its shape, and any decidable preconditions (e.g. `pct <= 100`). Invalid input throws a `StitchwortInputError` saying what was wrong.
 3. **Compute** with the extracted Stitchwort code.
 4. **Encode** the result back into JS values. Encoding is lossless, so it can't fail.
 
 **The guarantee** ([§3](#3-precise-guarantees)): if decoding and validation succeed, the function returns the encoding of the Stitchwort result for the decoded inputs. The trusted parts are the code generator, the **encoders and decoders**, the JS engine, and enough memory and stack.
 
-The guarantee starts *after* decoding succeeds. It makes no promise that decoding an arbitrary hostile JS object terminates or succeeds: a getter can loop or throw, and a structure can be cyclic. Decoder tests cover cyclic inputs and getter-backed properties, so these fail cleanly where possible.
+The guarantee starts *after* decoding succeeds. It makes no promise that decoding an arbitrary hostile JS object terminates or succeeds: a getter can loop or throw, and a structure can be cyclic. Decoder tests cover cyclic inputs, shared inputs, inherited properties and getter-backed properties, so these fail cleanly where possible.
 
 ### Boundary representations
 
 | Stitchwort | TypeScript at the boundary |
 |---|---|
 | `Nat` | `bigint` (decoding rejects negative values) |
-| `Int` | `bigint` |
+| `Int` (planned: there's no `Int` yet) | `bigint` |
 | `Bool` | `boolean` |
 | `Text` | `string`, well-formed (decoding refuses lone surrogates) |
 | `Char` | `string` holding exactly one Unicode scalar value |
 | `List a` | `readonly A[]` (copied on decode; `readonly` is only a hint to TS callers) |
-| `{ name : Text, age : Nat }` | `{ readonly name: string; readonly age: bigint }` |
-| `Optional a` | `{ tag: "None" } \| { tag: "Some"; value: A }` |
+| `{ name : Text, age : Nat }` (planned: records aren't built yet) | `{ readonly name: string; readonly age: bigint }` |
+| `Optional a` (planned; for now the prelude's `Maybe a` is an ordinary data type) | `{ tag: "None" } \| { tag: "Some"; value: A }` (for now, `Maybe<A>`: `{ tag: "Nothing" } \| { tag: "Just"; value: A }`) |
 | sum type `Square … \| Rect …` | `{ tag: "Square"; side: bigint } \| { tag: "Rect"; … }` (exported constructors must name their fields; a field called `tag` is `$tag`, see [Names](#names)) |
 | proof arguments and fields | omitted |
 | data types with parameters, such as `Maybe Text` or `Pair Char Nat` | `Maybe<string>`, `Pair<string, bigint>`: generic aliases, whose codecs take the arguments' codecs |
@@ -823,9 +823,21 @@ The guarantee starts *after* decoding succeeds. It makes no promise that decodin
 Notes:
 
 - **Integers are `bigint`** for now. With `number`, an input that passes validation could produce an output too large to represent exactly: `addTwo 9007199254740991` would give `9007199254740993`, which a JS `number` can't hold. Plain-`number` options (via bounded types) can come later. `Int` division and remainder are defined to match `BigInt`'s ([§10](#10-numbers)).
-- **`Optional` is tagged.** Mapping it to `A | null` would make `None` and `Some None` both `null` for `Optional (Optional Nat)`. A `null`-based encoding can be added later as an optimisation where the payload can never itself be `null`.
+- **`Optional` will be tagged**, as `Maybe` is. Mapping it to `A | null` would make `None` and `Some None` both `null` for `Optional (Optional Nat)`. A `null`-based encoding can be added later as an optimisation where the payload can never itself be `null`.
 - **`Text`** is a sequence of Unicode scalar values, so decoding refuses a JS string containing an unpaired surrogate (which JS allows) with `StitchwortInputError`, rather than repairing it. Encoding then gives back exactly the string that was decoded. See [the text proposal](docs/proposals/text-and-io.md#the-javascript-boundary). Inside the generated code, too, a `Text` is that well-formed string (strings are immutable, so it needs no copy), and the prelude's text operations (`textLength`, `==`, `textCompare`, `textSplit`, `textJoin`, `textFold` and the rest) are native JS working on scalar values, not code units. Code that matches or builds `MkText cs` itself converts between the string and its `List Char` in a loop, only when `cs` is used ([compact text](docs/proposals/compact-text.md#as-built-stage-1)).
 - **Decoding and encoding don't recurse.** Each boundary type is described by data (`list(NAT)`, `data(info$Tree)`, `data(info$Maybe, [TEXT])`), and one loop in the generated module's runtime decodes or encodes a value of any of them, keeping its own stack. So a user's list a million long, or a tree a million deep, crosses the boundary both ways; what the exported function then does with it may still run out of stack ([Caveats](#caveats)). Decoding works depth first, reading each property once and in order, each completely before the next, so the first problem found is the same as a recursive decoder's. An error message gives the path to the problem (`order.items[2].price: expected a non-negative bigint`), summarised for deeply nested input: a run of the same step is written once with a count (`c(.tail ×999999).head`), and the middle of a long path that doesn't repeat is left out.
+
+### Objects at the boundary
+
+A decoder takes the data it needs from an input object and nothing else, so that what a call means depends only on the object's own data:
+
+- **Only own properties count.** A tag, field or array element must be the object's own property (an ordinary one or a getter). An inherited one is refused (`shape.side: inherited, not the object's own property`), so nothing can come from a prototype: not from a class's getters, and not from `Object.prototype`, which any code in the app can add to ("prototype pollution"), filling in a field the caller left out. An array with a hole is refused for the same reason (`items[1]: a hole in the array`).
+- **Any prototype is fine otherwise.** Objects made by `Object.create(null)`, or by a class whose constructor sets the fields, are accepted: TypeScript's types are structural, so the `.d.ts` accepts them, and their own properties are all a decoder reads.
+- **Extra properties are ignored.** TypeScript allows them too (on any object that isn't a literal), and an app's objects often carry more than a library needs.
+- **Arrays and objects aren't interchangeable.** A `List` must be an array (`Array.isArray`), and a data value mustn't be one.
+- **Frozen objects are fine.** Decoding never writes to its input.
+- **Each property is read once** each time its object is decoded, so a getter is called once there, and can't give one answer to validation and another to the computation. If reading a property throws, the input is refused with a `StitchwortInputError` whose `cause` is what was thrown.
+- **Shared parts are decoded once.** An array or object reached again by another path (but not inside itself, which is a cycle and refused) isn't read or decoded again: the value decoded the first time is used, for each type it's decoded at. Stitchwort values are never changed, so sharing them is safe. So decoding takes time and memory in proportion to the number of distinct objects in the input, not the number of paths through it: a DAG 60 levels deep whose nodes' two children are the same object has 2^60 paths but 61 objects. (An object whose fields are all numbers, booleans or text is decoded again wherever it's reached, which costs no more than reading it, and is quicker than remembering it.)
 
 ### Names
 
@@ -850,6 +862,7 @@ Stitchwort names (ASCII letters, digits, `_` and primes) don't line up with Java
 ### Caveats
 
 - **Stack depth.** JS engines generally don't optimise tail calls. A function's tail calls to itself become loops; other recursion, such as `length` or `append` over a long list, or a user's own recursion over a text's characters, uses a stack frame per step and can overflow the stack (in Node, after a few thousand elements; the [text proposal](docs/proposals/text-and-io.md#as-built) has measurements). The prelude's text operations are native, and they and the conversions between a text and its `List Char` don't use stack space proportional to a text's length, so they handle millions of characters. The guarantee doesn't cover that, but it's reported cleanly: the export throws a `StitchwortResourceError`, with the engine's error as its `cause`. Decoding and encoding themselves don't use the JS stack (see above).
+- **Encoding doesn't share.** Each output is a tree of fresh objects, so a result with much sharing (such as a shared input passed straight back, or a tree built by a function that uses one subtree twice at each level) is encoded once per path, which can take exponentially long. Similarly, decoding checks a string each place it appears, so the same long string in many places is checked many times.
 - **Erasure must be correct.** The `Prop` elimination rules ([§6](#6-proofs-universes-and-erasure)) ensure nothing that runs depends on an erased value.
 
 ### Later: effects from the host
