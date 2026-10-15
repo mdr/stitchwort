@@ -35,13 +35,7 @@ Round 2:
 - ~~Syntax colouring in the playground~~ (lane `syntax-colour`): merged as
   `ccebba3`.
 - ~~Text step 3~~ (lane `js-text`): merged as `017d554`.
-- **Number patterns** (lane `number-patterns`): reviewed; the reviewer
-  recommends the number-switch node with corrections. Draft 2 of
-  [number-patterns.md](docs/proposals/number-patterns.md), then
-  implementation (go-ahead given, no second review).
-- ~~Recorded benchmarks~~ (lane `benchmarks`): merged as `07550ff`.
-- ~~Compact text stage 1~~ (lane `compact-text-js`): draft 2 and stage 1
-  merged as `f31d1c9`. Stages 2 (B1) and 3 (B2) await a decision.
+- ~~Number patterns~~ (lane `number-patterns`): merged as `813fe74`.
 - **Forward references and mutual recursion**
   ([mutual-recursion.md](docs/proposals/mutual-recursion.md)): reviewed
   (supports whole-module scope with size-change termination; requires
@@ -56,9 +50,8 @@ Round 2:
   and `crates/core/src/sct.rs`, tested against a naive reference over about
   230,000 exhaustive and 3,000 random call groups. Phase 2 (wiring into the
   termination checker for single functions, then group admission and
-  forward references, then mutual data types) starts after number patterns
-  merges; it needs a rule for whether a number pattern's predecessor counts
-  as smaller.
+  forward references, then mutual data types) is unblocked; it needs a
+  rule for whether a number case counts as descent (today it doesn't).
 - ~~Kernel admission fix~~ (lane `kernel-admission`): merged as `afad1e0`.
 - **JS boundary follow-ups** (lane `js-followups`): own properties only,
   no exponential decoding of shared input, fail loudly on a definition
@@ -70,13 +63,7 @@ Round 2:
 
 ## Next
 
-1. **Number patterns as comparisons**: `statusText 404 = "Not Found"` is
-   refused today (`E-UNSUPPORTED`, numbers above 256), because a number
-   pattern is compiled as that many nested `Succ`s. Below the cap the cost
-   grows about cubically (release CLI: `f 100` 0.16 s, `f 200` 1.0 s,
-   `f 256` 2.0 s and 230 MB; ~75% in `check_tree`, ~25% in the kernel's
-   `check_case`). Compile them to tests instead, keeping the proof that the
-   number matched for dependent result types.
+Nothing queued: choose from **Later**, or continue the lanes above.
 
 ## Later
 
@@ -173,6 +160,14 @@ Round 2:
 - **Namespaces or modules.** Prelude names can't be redefined, so text
   operations are prefixed (`textLength`, `textSplit`) and every new prelude
   name risks clashing with user code.
+- **Number patterns follow-ups:** rows after an equation that matches
+  everything still add keys, so open terms can stay stuck needlessly (the
+  `f6` example in number-patterns.md); prune unreachable rows before
+  choosing keys. Default inequalities (`n ≠ k`) and `Char` literal patterns
+  (`MkChar k _`) as later features.
+- **Re-record benchmark times on a quiet machine** (the last `--update` ran
+  under heavy load, so times were taken from earlier runs; counts are
+  current).
 - **Solving metavariables without recursion** (low priority: only large
   literal values in types hit it): `solve`, `rename`, `prune` and `zonk`
   still recurse over a solution. They're guarded, so a deep one is
@@ -221,6 +216,7 @@ Round 2:
 
 ## Recently done
 
+- `813fe74` Number patterns: a number switch in kernel case trees; the 256 cap is gone (`statusText 404` works, 10^30 too); `f 256` checks in 0.01 s instead of 2 s; 3 columns × 5 keys from 85 s to under a millisecond; constructor-expansion oracle over 300 generated definitions.
 - `72d3004` Mutual recursion phase 1: draft 3 of the design and the size-change graph algorithm (`sct.rs`), with an independent reference implementation and mutation evidence.
 - `afad1e0` Kernel admission ([kernel-admission.md](docs/proposals/kernel-admission.md)): declarations are pending, final or failed, and may refer only to final ones; closes a split cycle (`f 0` looping) and `impossible MakeD : Void` via the raw kernel API; 11 must-reject tests.
 - `f31d1c9` Compact text stage 1: `Text` is a JS string in generated code with 14 native operations bound to the prelude definitions by hash; prelude text operations handle over 4 million characters in Node (from ~5,000–8,000).
