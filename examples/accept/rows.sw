@@ -9,9 +9,6 @@ type Unit1 : Type =
 
 type Empty : Type
 
-type Pair (a : Type) (b : Type) : Type =
-  | MkPair (fst : a) (snd : b)
-
 fstOf : Pair a b -> a
 fstOf (MkPair x y) = x
 

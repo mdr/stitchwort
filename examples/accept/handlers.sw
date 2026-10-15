@@ -11,9 +11,6 @@ type Empty : Type
 fromEmpty : Empty -> a
 fromEmpty ()
 
-type Pair (a : Type) (b : Type) : Type =
-  | MkPair (fst : a) (snd : b)
-
 -- Signatures
 
 -- `State Nat`: `get` returns the state, `put` replaces it.

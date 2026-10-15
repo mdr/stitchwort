@@ -1,9 +1,6 @@
 -- Less common shapes of effectful code, each checked against an exact
 -- result. (abilities.sw has the main semantic tests.)
 
-type Pair (a : Type) (b : Type) : Type =
-  | MkPair (fst : a) (snd : b)
-
 fstOf : Pair a b -> a
 fstOf (MkPair x y) = x
 

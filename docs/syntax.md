@@ -113,6 +113,7 @@ Loosest-binding first:
 | `a = b`, `a != b` | Equality and inequality (propositions). Not associative |
 | `a == b` | Whether `a = b`, as a `Bool`, using the decision procedure for `a = b` (as `if h :` does). Works for `Nat`, `Bool`, and any type with a decision procedure for `=` |
 | `a < b`, `a <= b` | Comparisons on `Nat` (propositions, decided by computation) |
+| `a ++ b` | Joins two texts (`textAppend`) or two lists (`append`). Binds more loosely than `+`, and groups to the right |
 | `a + b`, `a - b` | Addition, and subtraction stopping at zero. Left-associative |
 | `a * b`, `a / b`, `a % b` | Bind tighter than `+`. `/` and `%` need a proof that `b != 0` |
 | `f a b` | Application |
@@ -120,7 +121,8 @@ Loosest-binding first:
 | `_` | A hole the compiler fills in |
 | `x`, `Nat`, `Succ` | Names. Constructors and data types start with an uppercase letter |
 | `0`, `42` | `Nat` literals |
-| `'a'`, `'\n'`, `'\u{1F600}'` | `Char` literals: one Unicode scalar value. Escapes are `\n`, `\t`, `\\`, `\"`, `\'` and `\u{…}` with 1–6 hex digits; `\u{…}` must name a scalar value, so `'\u{D800}'` is an error. Strings (test names) take the same escapes |
+| `'a'`, `'\n'`, `'\u{1F600}'` | `Char` literals: one Unicode scalar value. Escapes are `\n`, `\t`, `\r`, `\\`, `\"`, `\'` and `\u{…}` with 1–6 hex digits; `\u{…}` must name a scalar value, so `'\u{D800}'` is an error. Text literals take the same escapes |
+| `"héllo"` | `Text` literal: a sequence of Unicode scalar values (see [text-and-io.md](proposals/text-and-io.md)) |
 | `Type`, `Type 1`, `Prop` | Universes |
 | `(e : T)` | Type annotation |
 | `[a, b, c]` | `List` literal. In an expression, `[x := e]` supplies an implicit argument and every other `[…]` is a list |

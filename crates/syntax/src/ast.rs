@@ -15,6 +15,8 @@ pub enum Expr {
     /// A variable, function, data type or constructor name.
     Var(Name),
     Num(BigUint, Span),
+    /// A text literal: `"héllo"`.
+    Str(String, Span),
     /// A character literal: `'a'`.
     Char(char, Span),
     /// `Type` or `Type n`.
@@ -108,6 +110,7 @@ impl Expr {
             Expr::Var(name) => name.span,
             Expr::Num(_, span)
             | Expr::Char(_, span)
+            | Expr::Str(_, span)
             | Expr::Type(_, span)
             | Expr::Prop(span)
             | Expr::Lam(_, _, span)
@@ -139,6 +142,8 @@ pub enum BinOp {
     /// `<`, `<=`: propositions about `Nat`.
     Lt,
     Le,
+    /// `++`: joins texts, or lists.
+    Append,
     Add,
     Sub,
     Mul,
@@ -155,6 +160,7 @@ impl BinOp {
             BinOp::EqEq => "==",
             BinOp::Lt => "<",
             BinOp::Le => "<=",
+            BinOp::Append => "++",
             BinOp::Add => "+",
             BinOp::Sub => "-",
             BinOp::Mul => "*",

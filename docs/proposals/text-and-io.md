@@ -1,6 +1,19 @@
 # Stitchwort: text, `IO` and `main`
 
-**Status:** draft 2, 15 October 2026. Accepted after review; nothing is implemented yet. [Acceptance criteria](#acceptance-criteria) lists what the first milestone must show.
+**Status:** draft 2, 15 October 2026. Accepted after review. Build steps 1 (`Char`) and 2 (`Text`) are implemented; see [As built](#as-built). [Acceptance criteria](#acceptance-criteria) lists what the first milestone must show.
+
+## As built
+
+Where steps 1 and 2 differ from, or add to, the design below:
+
+- **Names are prefixed.** The prelude has no modules and its names can't be redefined, so the text operations are `textLength`, `textIsEmpty`, `textToList`, `textFromList`, `textUncons`, `textFold`, `textCompare`, `textLess`, `textTrim`, `textSplit`, `textJoin`, `natToText` and `textToNat`. `Char`'s are `isScalar`, `charToNat` and `charFromNat`.
+- **`++` is chosen by type:** `textAppend` for texts, `append` for lists. It binds more loosely than `+` and groups to the right.
+- **New prelude types:** `Maybe`, `Pair` (with `fst` and `snd`) and `Ordering` (`Less`, `Equal`, `Greater`). Examples that defined their own `Maybe` or `Pair` now use these.
+- **`\r` is also an escape**, for line-ending tests. Values print as literals (`'a'`, `"h\u{301}"`), with invisible and combining characters escaped.
+- **`charExt` needs uniqueness of proofs of `b = True`.** The kernel has `J` but not axiom K, so this is proved by Hedberg's argument (`uniqueBoolEq`): a function that picks a canonical proof from `decEqBool` ignores which proof it's given, and every proof can be recovered from the canonical one.
+- **Proved, for every input:** `textToList (textFromList cs) = cs`, `textFromList (textToList t) = t`, `textLength (a ++ b) = textLength a + textLength b`, and `textJoin s (textSplit s t) = t`.
+- **Tested, not proved:** `textToNat (natToText n) = Just n`, for 0 to 100 and some larger numbers up to 2^64. A proof would need lemmas about `/` and `%`.
+- **Long texts overflow the stack.** Every text operation recurses once per character, and the evaluator uses the Rust stack. A 1,000-character text overflows 8 MB in a debug build, and in a release build the limit is between 3,000 and 6,000 characters. Ordinary lists behave the same way. This is the Robustness row of the acceptance criteria, and needs fixing before text is useful for real input.
 
 ## Changes since draft 1
 

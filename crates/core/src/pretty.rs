@@ -101,6 +101,12 @@ impl Printer<'_> {
                 if let Some(n) = nat_literal(self.g, term) {
                     return (n.to_string(), Prec::Atom);
                 }
+                if let Some(c) = char_literal(self.g, term) {
+                    return (format!("'{}'", escape(&[c], '\'')), Prec::Atom);
+                }
+                if let Some(chars) = text_literal(self.g, term) {
+                    return (format!("\"{}\"", escape(&chars, '"')), Prec::Atom);
+                }
                 if let Some(items) = list_literal(self.g, term) {
                     let items: Vec<String> = items
                         .iter()
@@ -244,6 +250,53 @@ fn nat_literal(g: &Globals, term: &Term) -> Option<BigUint> {
             _ => return None,
         }
     }
+}
+
+/// `MkChar 97 _` as `'a'`.
+fn char_literal(g: &Globals, term: &Term) -> Option<char> {
+    match term.strip_loc() {
+        Term::Ctor(d, 0, args) if data_named(g, *d, "Char") && args.len() == 2 => {
+            let code = u32::try_from(nat_literal(g, &args[0])?).ok()?;
+            char::from_u32(code)
+        }
+        _ => None,
+    }
+}
+
+/// `MkText ['h', 'i']` as `"hi"`.
+fn text_literal(g: &Globals, term: &Term) -> Option<Vec<char>> {
+    match term.strip_loc() {
+        Term::Ctor(d, 0, args) if data_named(g, *d, "Text") && args.len() == 1 => {
+            list_literal(g, &args[0])?
+                .into_iter()
+                .map(|c| char_literal(g, c))
+                .collect()
+        }
+        _ => None,
+    }
+}
+
+/// Characters as they'd be written in a literal quoted by `quote`. Control
+/// and other invisible characters are written as `\u{…}` escapes, so that
+/// `"e\u{301}"` isn't shown as if it were `"é"`.
+fn escape(chars: &[char], quote: char) -> String {
+    let mut out = String::new();
+    for &c in chars {
+        match c {
+            '\n' => out.push_str("\\n"),
+            '\t' => out.push_str("\\t"),
+            '\r' => out.push_str("\\r"),
+            '\\' => out.push_str("\\\\"),
+            c if c == quote => {
+                out.push('\\');
+                out.push(c);
+            }
+            c if c.is_ascii_graphic() || c == ' ' => out.push(c),
+            c if c.is_alphanumeric() => out.push(c),
+            c => out.push_str(&format!("\\u{{{:X}}}", u32::from(c))),
+        }
+    }
+    out
 }
 
 /// `Cons a (Cons b Nil)` as `[a, b]`.

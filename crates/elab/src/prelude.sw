@@ -101,6 +101,21 @@ type Maybe (a : Type) : Type =
   | Nothing
   | Just (value : a)
 
+-- Two values together.
+type Pair (a : Type) (b : Type) : Type =
+  | MkPair (fst : a) (snd : b)
+
+fst : Pair a b -> a
+fst (MkPair x y) = x
+
+snd : Pair a b -> b
+snd (MkPair x y) = y
+
+-- `reverseOnto xs acc` is `xs` reversed, followed by `acc`.
+reverseOnto : List a -> List a -> List a
+reverseOnto Nil         acc = acc
+reverseOnto (Cons x xs) acc = reverseOnto xs (Cons x acc)
+
 -- Equality lemmas, all built from `J`.
 
 theorem cong : (f : a -> b) -> [x y : a] -> x = y -> f x = f y
@@ -295,6 +310,271 @@ div n d = divFuel n n d
 
 mod : (n : Nat) -> (d : Nat) -> [auto ok : d != 0] -> Nat
 mod n d = n - d * (n / d)
+
+-- Lists, continued
+
+theorem lengthAppend : (xs : List a) -> (ys : List a) -> length (append xs ys) = length xs + length ys
+lengthAppend Nil         ys = rfl
+lengthAppend (Cons x xs) ys = cong Succ (lengthAppend xs ys)
+
+IsNil : List a -> Prop
+IsNil Nil         = Unit
+IsNil (Cons x xs) = Void
+
+theorem nilNotCons : (x : a) -> (xs : List a) -> Not (Nil = Cons x xs)
+nilNotCons x xs p = J (\y q -> IsNil y) Trivial p
+
+theorem consNotNil : (x : a) -> (xs : List a) -> Not (Cons x xs = Nil)
+consNotNil x xs p = nilNotCons x xs (sym p)
+
+headOr : a -> List a -> a
+headOr d Nil         = d
+headOr d (Cons x xs) = x
+
+tailOf : List a -> List a
+tailOf Nil         = Nil
+tailOf (Cons x xs) = xs
+
+decCons : (x : a) -> (y : a) -> (xs : List a) -> (ys : List a) ->
+  Decidable (x = y) -> Decidable (xs = ys) -> Decidable (Cons x xs = Cons y ys)
+decCons x y xs ys (Yes p) (Yes q) = Yes (J (\y' p' -> Cons x xs = Cons y' ys) (cong (Cons x) q) p)
+decCons x y xs ys (No r)  dq      = No (\e -> r (cong (headOr x) e))
+decCons x y xs ys (Yes p) (No r)  = No (\e -> r (cong tailOf e))
+
+-- Equality of lists, from equality of their elements.
+decEqList : ((x : a) -> (y : a) -> Decidable (x = y)) -> (xs : List a) -> (ys : List a) -> Decidable (xs = ys)
+decEqList d Nil         Nil         = Yes rfl
+decEqList d Nil         (Cons y ys) = No (nilNotCons y ys)
+decEqList d (Cons x xs) Nil         = No (consNotNil x xs)
+decEqList d (Cons x xs) (Cons y ys) = decCons x y xs ys (d x y) (decEqList d xs ys)
+
+-- Comparisons
+
+type Ordering : Type =
+  | Less
+  | Equal
+  | Greater
+
+compareNat : Nat -> Nat -> Ordering
+compareNat m n = if eqNat m n then Equal else (if leq m n then Less else Greater)
+
+-- The first comparison, unless it's `Equal`.
+thenCompare : Ordering -> Ordering -> Ordering
+thenCompare Less    o = Less
+thenCompare Equal   o = o
+thenCompare Greater o = Greater
+
+isLess : Ordering -> Bool
+isLess Less    = True
+isLess Equal   = False
+isLess Greater = False
+
+-- Text (docs/proposals/text-and-io.md)
+
+-- A sequence of Unicode scalar values. `"héllo"` is a `Text`. Equality and
+-- ordering compare the sequence exactly, by scalar value, and length counts
+-- scalar values; nothing is normalised, so `"\u{E9}"` and `"e\u{301}"` are
+-- different texts. Code that goes through `textToList` and `textFromList`
+-- and their lemmas, rather than `MkText`, won't depend on the representation.
+type Text : Type =
+  | MkText (chars : List Char)
+
+textToList : Text -> List Char
+textToList (MkText cs) = cs
+
+textFromList : List Char -> Text
+textFromList cs = MkText cs
+
+theorem textToFromList : (cs : List Char) -> textToList (textFromList cs) = cs
+textToFromList cs = rfl
+
+theorem textFromToList : (t : Text) -> textFromList (textToList t) = t
+textFromToList (MkText cs) = rfl
+
+-- `a ++ b`
+textAppend : Text -> Text -> Text
+textAppend a b = MkText (append (textToList a) (textToList b))
+
+-- The number of scalar values.
+textLength : Text -> Nat
+textLength t = length (textToList t)
+
+theorem textLengthAppend : (a : Text) -> (b : Text) ->
+  textLength (textAppend a b) = textLength a + textLength b
+textLengthAppend a b = lengthAppend (textToList a) (textToList b)
+
+textIsEmpty : Text -> Bool
+textIsEmpty (MkText Nil)         = True
+textIsEmpty (MkText (Cons c cs)) = False
+
+decTextFrom : (a : Text) -> (b : Text) -> Decidable (textToList a = textToList b) -> Decidable (a = b)
+decTextFrom a b (Yes p) = Yes (trans (sym (textFromToList a)) (trans (cong textFromList p) (textFromToList b)))
+decTextFrom a b (No r)  = No (\p -> r (cong textToList p))
+
+decEqText : (a : Text) -> (b : Text) -> Decidable (a = b)
+decEqText a b = decTextFrom a b (decEqList decEqChar (textToList a) (textToList b))
+
+-- The first character and the rest, unless the text is empty.
+textUncons : Text -> Maybe (Pair Char Text)
+textUncons (MkText Nil)         = Nothing
+textUncons (MkText (Cons c cs)) = Just (MkPair c (MkText cs))
+
+foldChars : (Char -> b -> b) -> b -> List Char -> b
+foldChars f z Nil         = z
+foldChars f z (Cons c cs) = f c (foldChars f z cs)
+
+-- `textFold f z "abc"` is `f 'a' (f 'b' (f 'c' z))`.
+textFold : (Char -> b -> b) -> b -> Text -> b
+textFold f z t = foldChars f z (textToList t)
+
+compareChars : List Char -> List Char -> Ordering
+compareChars Nil         Nil         = Equal
+compareChars Nil         (Cons y ys) = Less
+compareChars (Cons x xs) Nil         = Greater
+compareChars (Cons x xs) (Cons y ys) =
+  thenCompare (compareNat (charToNat x) (charToNat y)) (compareChars xs ys)
+
+-- Lexicographic, by scalar value. (Not JavaScript's order, which compares
+-- UTF-16 code units: there, "\u{10000}" sorts before "\u{E000}".)
+textCompare : Text -> Text -> Ordering
+textCompare a b = compareChars (textToList a) (textToList b)
+
+textLess : Text -> Text -> Bool
+textLess a b = isLess (textCompare a b)
+
+-- Whitespace, for `textTrim`: exactly space, tab, line feed, vertical tab,
+-- form feed and carriage return. Not Unicode's `White_Space`.
+isSpaceCode : Nat -> Bool
+isSpaceCode 9  = True
+isSpaceCode 10 = True
+isSpaceCode 11 = True
+isSpaceCode 12 = True
+isSpaceCode 13 = True
+isSpaceCode 32 = True
+isSpaceCode _  = False
+
+isSpace : Char -> Bool
+isSpace c = isSpaceCode (charToNat c)
+
+dropSpaces : List Char -> List Char
+dropSpaces Nil         = Nil
+dropSpaces (Cons c cs) = if isSpace c then dropSpaces cs else Cons c cs
+
+-- Removes whitespace (as `isSpace` defines it) from both ends.
+textTrim : Text -> Text
+textTrim t = MkText (reverseOnto (dropSpaces (reverseOnto (dropSpaces (textToList t)) Nil)) Nil)
+
+-- Numbers as text
+
+digitChar : Nat -> Char
+digitChar 0 = '0'
+digitChar 1 = '1'
+digitChar 2 = '2'
+digitChar 3 = '3'
+digitChar 4 = '4'
+digitChar 5 = '5'
+digitChar 6 = '6'
+digitChar 7 = '7'
+digitChar 8 = '8'
+digitChar _ = '9'
+
+-- The digits of `n` in front of `acc`. `fuel` keeps it structurally
+-- recursive; `n + 1` is always enough.
+natDigits : Nat -> Nat -> List Char -> List Char
+natDigits Zero        n acc = acc
+natDigits (Succ fuel) n acc =
+  if leq n 9 then Cons (digitChar n) acc else natDigits fuel (n / 10) (Cons (digitChar (n % 10)) acc)
+
+-- Decimal, without leading zeros: `natToText 42` is `"42"`.
+natToText : Nat -> Text
+natToText n = MkText (natDigits (Succ n) n Nil)
+
+maybeThen : Maybe a -> (a -> Maybe b) -> Maybe b
+maybeThen Nothing  f = Nothing
+maybeThen (Just x) f = f x
+
+digitValue : Char -> Maybe Nat
+digitValue c = if leq 48 (charToNat c) then (if leq (charToNat c) 57 then Just (charToNat c - 48) else Nothing) else Nothing
+
+readDigits : Nat -> List Char -> Maybe Nat
+readDigits acc Nil         = Just acc
+readDigits acc (Cons c cs) = maybeThen (digitValue c) (\d -> readDigits (acc * 10 + d) cs)
+
+-- A non-empty sequence of ASCII digits, and nothing else: no sign,
+-- whitespace or separators. Leading zeros are allowed, so
+-- `textToNat (natToText n) = Just n` but `"007"` reads as 7.
+textToNat : Text -> Maybe Nat
+textToNat (MkText Nil)         = Nothing
+textToNat (MkText (Cons c cs)) = readDigits 0 (Cons c cs)
+
+-- Splitting and joining
+
+-- `splitChars s cs` is the first field and the rest: never empty.
+splitCons : Char -> Char -> Bool -> Pair (List Char) (List (List Char)) -> Pair (List Char) (List (List Char))
+splitCons s c True  (MkPair f fs) = MkPair Nil (Cons f fs)
+splitCons s c False (MkPair f fs) = MkPair (Cons c f) fs
+
+splitChars : Char -> List Char -> Pair (List Char) (List (List Char))
+splitChars s Nil         = MkPair Nil Nil
+splitChars s (Cons c cs) = splitCons s c (toBool (decEqChar c s)) (splitChars s cs)
+
+joinChars : Char -> List Char -> List (List Char) -> List Char
+joinChars s f Nil         = f
+joinChars s f (Cons g gs) = append f (Cons s (joinChars s g gs))
+
+joinPair : Char -> Pair (List Char) (List (List Char)) -> List Char
+joinPair s (MkPair f fs) = joinChars s f fs
+
+theorem joinCons : (s : Char) -> (c : Char) -> (f : List Char) -> (fs : List (List Char)) ->
+  joinChars s (Cons c f) fs = Cons c (joinChars s f fs)
+joinCons s c f Nil         = rfl
+joinCons s c f (Cons g gs) = rfl
+
+theorem joinSplitCons : (s : Char) -> (c : Char) -> (cs : List Char) ->
+  (p : Pair (List Char) (List (List Char))) -> joinPair s p = cs ->
+  (d : Decidable (c = s)) -> joinPair s (splitCons s c (toBool d) p) = Cons c cs
+joinSplitCons s c cs (MkPair f fs) h (Yes e) =
+  trans (cong (Cons s) h) (cong (\x -> Cons x cs) (sym e))
+joinSplitCons s c cs (MkPair f fs) h (No r) =
+  trans (joinCons s c f fs) (cong (Cons c) h)
+
+theorem joinSplitChars : (s : Char) -> (cs : List Char) -> joinPair s (splitChars s cs) = cs
+joinSplitChars s Nil         = rfl
+joinSplitChars s (Cons c cs) =
+  joinSplitCons s c cs (splitChars s cs) (joinSplitChars s cs) (decEqChar c s)
+
+textsOf : List (List Char) -> List Text
+textsOf Nil         = Nil
+textsOf (Cons f fs) = Cons (MkText f) (textsOf fs)
+
+charListsOf : List Text -> List (List Char)
+charListsOf Nil         = Nil
+charListsOf (Cons t ts) = Cons (textToList t) (charListsOf ts)
+
+theorem charListsOfTexts : (fs : List (List Char)) -> charListsOf (textsOf fs) = fs
+charListsOfTexts Nil         = rfl
+charListsOfTexts (Cons f fs) = cong (Cons f) (charListsOfTexts fs)
+
+splitTexts : Pair (List Char) (List (List Char)) -> List Text
+splitTexts (MkPair f fs) = Cons (MkText f) (textsOf fs)
+
+-- The fields between separators, keeping empty ones: splitting "a,,b" on
+-- ',' gives ["a", "", "b"], and splitting "" gives [""].
+textSplit : Char -> Text -> List Text
+textSplit s t = splitTexts (splitChars s (textToList t))
+
+-- The texts with `s` between them. `textJoin s (textSplit s t) = t`.
+textJoin : Char -> List Text -> Text
+textJoin s Nil         = MkText Nil
+textJoin s (Cons t ts) = MkText (joinChars s (textToList t) (charListsOf ts))
+
+theorem joinSplitTexts : (s : Char) -> (p : Pair (List Char) (List (List Char))) ->
+  textJoin s (splitTexts p) = MkText (joinPair s p)
+joinSplitTexts s (MkPair f fs) = cong (\l -> MkText (joinChars s f l)) (charListsOfTexts fs)
+
+theorem textJoinSplit : (s : Char) -> (t : Text) -> textJoin s (textSplit s t) = t
+textJoinSplit s (MkText cs) =
+  trans (joinSplitTexts s (splitChars s cs)) (cong MkText (joinSplitChars s cs))
 
 -- Computations (docs/proposals/abilities.md)
 

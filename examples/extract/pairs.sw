@@ -1,20 +1,20 @@
 -- Functions that treat their fields differently, so mixing fields up in the
 -- generated code would be noticed. Also: matching on two lists at once.
 --
--- run: first (MkPair 1 2)
--- run: swap (MkPair 1 2)
+-- run: first (MkNatPair 1 2)
+-- run: swap (MkNatPair 1 2)
 -- run: zipSum [1, 2, 3] [10, 20]
 
-type Pair : Type =
-  | MkPair (left : Nat) (right : Nat)
+type NatPair : Type =
+  | MkNatPair (left : Nat) (right : Nat)
 
 export
-first : Pair -> Nat
-first (MkPair a b) = a
+first : NatPair -> Nat
+first (MkNatPair a b) = a
 
 export
-swap : Pair -> Pair
-swap (MkPair a b) = MkPair b a
+swap : NatPair -> NatPair
+swap (MkNatPair a b) = MkNatPair b a
 
 -- Two columns of constructor patterns.
 export

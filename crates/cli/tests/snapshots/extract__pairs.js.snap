@@ -59,26 +59,26 @@ const enc_List = (enc) => (v) => {
   return out;
 };
 
-function dec_Pair(x, path, inside = new Set()) {
+function dec_NatPair(x, path, inside = new Set()) {
   if (typeof x !== "object" || x === null) {
-    throw new StitchwortInputError(`${path}: expected a Pair object`);
+    throw new StitchwortInputError(`${path}: expected a NatPair object`);
   }
   enter(x, path, inside);
   const tag = x.tag;
   switch (tag) {
-    case "MkPair": {
+    case "MkNatPair": {
       const left = dec_Nat(x.left, `${path}.left`, inside);
       const right = dec_Nat(x.right, `${path}.right`, inside);
       inside.delete(x);
-      return { tag: "MkPair", left, right };
+      return { tag: "MkNatPair", left, right };
     }
     default:
       throw new StitchwortInputError(`${path}: unknown tag ${String(tag)}`);
   }
 }
-function enc_Pair(v) {
+function enc_NatPair(v) {
   switch (v.tag) {
-    case "MkPair": return { tag: "MkPair", left: enc_Nat(v.left), right: enc_Nat(v.right) };
+    case "MkNatPair": return { tag: "MkNatPair", left: enc_Nat(v.left), right: enc_Nat(v.right) };
   }
   throw new Error("unreachable");
 }
@@ -94,7 +94,7 @@ const $pred = (v0) => {
 };
 const $first = (v0) => {
   switch (v0.tag) {
-    case "MkPair": {
+    case "MkNatPair": {
       const v1 = v0.left;
       const v2 = v0.right;
       return v1;
@@ -104,10 +104,10 @@ const $first = (v0) => {
 };
 const $swap = (v0) => {
   switch (v0.tag) {
-    case "MkPair": {
+    case "MkNatPair": {
       const v1 = v0.left;
       const v2 = v0.right;
-      return { tag: "MkPair", left: v2, right: v1 };
+      return { tag: "MkNatPair", left: v2, right: v1 };
     }
   }
   throw new Error("unreachable");
@@ -150,13 +150,13 @@ const $predecessors = (v0) => {
 };
 
 export function first(arg0) {
-  const v0 = dec_Pair(arg0, "arg0");
+  const v0 = dec_NatPair(arg0, "arg0");
   return enc_Nat($first(v0));
 }
 
 export function swap(arg0) {
-  const v0 = dec_Pair(arg0, "arg0");
-  return enc_Pair($swap(v0));
+  const v0 = dec_NatPair(arg0, "arg0");
+  return enc_NatPair($swap(v0));
 }
 
 export function zipSum(arg0, ys) {

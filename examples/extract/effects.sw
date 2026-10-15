@@ -8,9 +8,6 @@
 -- run: divideOrZero 7 2
 -- run: divideOrZero 7 0
 
-type Pair (a : Type) (b : Type) : Type =
-  | MkPair (fst : a) (snd : b)
-
 sndOf : Pair a b -> b
 sndOf (MkPair x y) = y
 

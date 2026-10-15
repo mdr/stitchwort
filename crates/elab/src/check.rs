@@ -239,16 +239,25 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             Term::Nat(Rc::new(n.clone())),
             Value::Data(nat(cx)?, Vec::new()),
         )),
-        // `'a'` is `MkChar 97 rfl`: the kernel checks that 97 is a scalar
-        // value by computing `isScalar 97`.
         Expr::Char(c, _) => {
-            let (char_data, mk_char) = ctor_named(cx, "MkChar")?;
-            let code = Term::Nat(Rc::new(u32::from(*c).into()));
+            let (char_data, _) = ctor_named(cx, "MkChar")?;
+            Ok((char_term(cx, *c)?, Value::Data(char_data, Vec::new())))
+        }
+        // `"ab"` is `MkText ['a', 'b']`.
+        Expr::Str(s, _) => {
+            let (text, mk_text) = ctor_named(cx, "MkText")?;
+            let (list, nil) = ctor_named(cx, "Nil")?;
+            let (_, cons) = ctor_named(cx, "Cons")?;
+            let mut chars = Term::Ctor(list, nil, Vec::new());
+            for c in s.chars().rev() {
+                chars = Term::Ctor(list, cons, vec![char_term(cx, c)?, chars]);
+            }
             Ok((
-                Term::Ctor(char_data, mk_char, vec![code, Term::Refl]),
-                Value::Data(char_data, Vec::new()),
+                Term::Ctor(text, mk_text, vec![chars]),
+                Value::Data(text, Vec::new()),
             ))
         }
+        Expr::Binary(BinOp::Append, a, b) => append(cx, a, b),
         Expr::Type(i, _) => Ok((Term::Sort(Sort::Type(*i)), Value::Sort(Sort::Type(i + 1)))),
         Expr::Prop(_) => Ok((Term::Sort(Sort::Prop), Value::Sort(Sort::Type(0)))),
         Expr::Hole(_) => {
@@ -337,7 +346,9 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
                 BinOp::Mul => "mul",
                 BinOp::Div => "div",
                 BinOp::Mod => "mod",
-                BinOp::Eq | BinOp::Ne | BinOp::EqEq => unreachable!("handled above"),
+                BinOp::Eq | BinOp::Ne | BinOp::EqEq | BinOp::Append => {
+                    unreachable!("handled above")
+                }
             };
             let id = def_named(cx, name)?;
             let head = (Term::Def(id), g.def(id).ty_value.clone());
@@ -784,6 +795,45 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
         }
         _ => fallback(cx, expr, &expected),
     }
+}
+
+/// `'a'` is `MkChar 97 rfl`: the kernel checks that 97 is a scalar value by
+/// computing `isScalar 97`.
+fn char_term(cx: &Ctx, c: char) -> Result<Term> {
+    let (char_data, mk_char) = ctor_named(cx, "MkChar")?;
+    let code = Term::Nat(Rc::new(u32::from(c).into()));
+    Ok(Term::Ctor(char_data, mk_char, vec![code, Term::Refl]))
+}
+
+/// `a ++ b`: `textAppend` for texts, `append` for lists, chosen by the type of
+/// whichever side can be inferred.
+fn append(cx: &mut Ctx, a: &Expr, b: &Expr) -> Result<(Term, Value)> {
+    let (a, b, ty) = match infer(cx, a).map(|(t, ty)| insert(cx, t, ty)) {
+        Ok((a, ty)) => (a, check(cx, b, &ty)?, ty),
+        Err(e) if e.code == "E-CANNOT-INFER" => {
+            let (b, ty) = infer(cx, b)?;
+            let (b, ty) = insert(cx, b, ty);
+            (check(cx, a, &ty)?, b, ty)
+        }
+        Err(e) => return Err(e),
+    };
+    let (text, _) = ctor_named(cx, "MkText")?;
+    let (list, _) = ctor_named(cx, "Nil")?;
+    let head = match force(cx.g(), ty.clone()) {
+        Value::Data(d, _) if d == text => Term::Def(def_named(cx, "textAppend")?),
+        Value::Data(d, params) if d == list => {
+            let elem = cx.quote(&params[0]);
+            Term::app_icit(Term::Def(def_named(cx, "append")?), elem, Icit::Implicit)
+        }
+        other => {
+            return Err(cx.error(
+                "E-TYPE-MISMATCH",
+                "`++` joins two texts or two lists",
+                format!("this is a `{}`", cx.show(&other)),
+            ));
+        }
+    };
+    Ok((Term::app(Term::app(head, a), b), ty))
 }
 
 /// `a = b`, with the type of both sides inferred from either one.

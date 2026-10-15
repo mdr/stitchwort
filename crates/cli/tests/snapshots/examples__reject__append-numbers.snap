@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: `++` joins two texts or two lists
+   ╭─[ reject/append-numbers.sw:4:7 ]
+   │
+ 4 │ bad = 1 ++ 2
+   │       ───┬──  
+   │          ╰──── this is a `Nat`
+───╯

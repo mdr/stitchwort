@@ -2,9 +2,6 @@
 -- tests as handlers.sw, written in the source syntax: the compiler
 -- translates them into `Comp` trees, and the kernel checks the result.
 
-type Pair (a : Type) (b : Type) : Type =
-  | MkPair (fst : a) (snd : b)
-
 fstOf : Pair a b -> a
 fstOf (MkPair x y) = x
 

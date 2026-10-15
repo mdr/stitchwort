@@ -334,9 +334,6 @@ ability State (s : Type) where
 ability Choose where
   choose : () -> {Choose} Bool
 
-type Pair (a : Type) (b : Type) : Type =
-  | MkPair (fst : a) (snd : b)
-
 fstOf : Pair a b -> a
 fstOf (MkPair x y) = x
 

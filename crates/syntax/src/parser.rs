@@ -751,7 +751,7 @@ impl<'t> Parser<'t> {
 
     /// `a = b`, `a != b`, `a == b`, `a < b`, `a <= b`: not associative.
     fn cmp_expr(&mut self) -> Result<Expr> {
-        let lhs = self.add_expr()?;
+        let lhs = self.append_expr()?;
         let op = match self.peek() {
             Some(Tok::Equals) if !self.no_equals => BinOp::Eq,
             Some(Tok::NotEq) => BinOp::Ne,
@@ -761,8 +761,20 @@ impl<'t> Parser<'t> {
             _ => return Ok(lhs),
         };
         self.bump();
-        let rhs = self.add_expr()?;
+        let rhs = self.append_expr()?;
         Ok(Expr::Binary(op, Box::new(lhs), Box::new(rhs)))
+    }
+
+    /// `++`: right-associative, binding more loosely than `+`, so
+    /// `"n = " ++ natToText (n + 1)` and `a ++ b ++ c` mean what they look like.
+    fn append_expr(&mut self) -> Result<Expr> {
+        let lhs = self.add_expr()?;
+        if self.peek() != Some(&Tok::PlusPlus) {
+            return Ok(lhs);
+        }
+        self.bump();
+        let rhs = self.append_expr()?;
+        Ok(Expr::Binary(BinOp::Append, Box::new(lhs), Box::new(rhs)))
     }
 
     /// `+`, `-`: left-associative.
@@ -813,6 +825,7 @@ impl<'t> Parser<'t> {
                     | Tok::Upper(_)
                     | Tok::Num(_)
                     | Tok::Char(_)
+                    | Tok::Str(_)
                     | Tok::TypeU
                     | Tok::Prop
                     | Tok::LParen
@@ -830,6 +843,11 @@ impl<'t> Parser<'t> {
             Some(Tok::Num(n)) => {
                 self.bump();
                 Ok(Expr::Num(n.clone(), span))
+            }
+            Some(Tok::Str(s)) => {
+                let s = s.clone();
+                self.bump();
+                Ok(Expr::Str(s, span))
             }
             Some(Tok::Char(c)) => {
                 let c = *c;
@@ -925,6 +943,7 @@ fn describe(tok: &Tok) -> String {
         Tok::Backslash => "`\\`".into(),
         Tok::Pipe => "`|`".into(),
         Tok::Plus => "`+`".into(),
+        Tok::PlusPlus => "`++`".into(),
         Tok::Underscore => "`_`".into(),
         Tok::Minus => "`-`".into(),
         Tok::Star => "`*`".into(),

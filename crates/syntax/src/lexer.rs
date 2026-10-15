@@ -35,6 +35,8 @@ pub enum Tok {
     Backslash,
     Pipe,
     Plus,
+    /// `++`
+    PlusPlus,
     Minus,
     Star,
     Slash,
@@ -233,6 +235,10 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
                 b'=' => Tok::Equals,
                 b'\\' => Tok::Backslash,
                 b'|' => Tok::Pipe,
+                b'+' if bytes.get(i) == Some(&b'+') => {
+                    i += 1;
+                    Tok::PlusPlus
+                }
                 b'+' => Tok::Plus,
                 b'-' if bytes.get(i) == Some(&b'>') => {
                     i += 1;
@@ -280,6 +286,7 @@ fn escape(file: FileId, text: &str, i: usize) -> Result<(char, usize), Diagnosti
     let simple = match bytes.get(i + 1) {
         Some(b'n') => Some('\n'),
         Some(b't') => Some('\t'),
+        Some(b'r') => Some('\r'),
         Some(b'\\') => Some('\\'),
         Some(b'"') => Some('"'),
         Some(b'\'') => Some('\''),
@@ -297,7 +304,7 @@ fn escape(file: FileId, text: &str, i: usize) -> Result<(char, usize), Diagnosti
             file,
             i,
             end,
-            "unknown escape: use `\\n`, `\\t`, `\\\\`, `\\\"`, `\\'` or `\\u{…}`",
+            "unknown escape: use `\\n`, `\\t`, `\\r`, `\\\\`, `\\\"`, `\\'` or `\\u{…}`",
         ));
     }
     let bad = |end: usize| {
@@ -433,6 +440,17 @@ mod tests {
         assert_eq!(
             tokens(r#""a\n\t\\\"\'\u{1F600}b""#),
             Ok(vec![Tok::Str("a\n\t\\\"'\u{1F600}b".into())])
+        );
+        assert_eq!(
+            tokens("a ++ b + +c"),
+            Ok(vec![
+                Tok::Lower("a".into()),
+                Tok::PlusPlus,
+                Tok::Lower("b".into()),
+                Tok::Plus,
+                Tok::Plus,
+                Tok::Lower("c".into()),
+            ])
         );
         // `'` inside a name is still part of the name.
         assert_eq!(

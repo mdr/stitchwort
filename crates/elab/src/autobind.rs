@@ -128,6 +128,7 @@ fn walk(
         Expr::NamedArg(_, value, _) => walk(e, value, bound, false, uses),
         Expr::Num(..)
         | Expr::Char(..)
+        | Expr::Str(..)
         | Expr::Type(..)
         | Expr::Prop(_)
         | Expr::Hole(_)

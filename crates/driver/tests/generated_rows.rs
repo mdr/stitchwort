@@ -14,9 +14,6 @@ use stitchwort_driver::driver::{Cache, Outcome, Session};
 const ABILITIES: usize = 4;
 
 const PRELUDE: &str = "
-type Pair (a : Type) (b : Type) : Type =
-  | MkPair (fst : a) (snd : b)
-
 fstOf : Pair a b -> a
 fstOf (MkPair x y) = x
 
