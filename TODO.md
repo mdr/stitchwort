@@ -41,12 +41,14 @@ Round 2:
   implementation (go-ahead given, no second review).
 - ~~Recorded benchmarks~~ (lane `benchmarks`): merged as `07550ff`.
 - **Compact text** ([compact-text.md](docs/proposals/compact-text.md)):
-  stage 1, `Text` as JS strings in generated code (lane `compact-text-js`),
-  in progress; the kernel and evaluator are unchanged. Stages 2–3 (evaluator
-  representation and natives) **await review** of the note.
+  reviewed (supports A, then B1, then selected B2 natives). Lane
+  `compact-text-js`: draft 2 adopting the review, then stage 1 (`Text` as JS
+  strings in generated code; kernel and evaluator unchanged). Stage 2 (B1)
+  can follow draft 2 without another review; a native `decEqText` waits for
+  a whole-result (proofs included) native-on/off test.
 - **Forward references and mutual recursion**: design note written
-  ([mutual-recursion.md](docs/proposals/mutual-recursion.md)), **awaiting
-  review**. Recommends any order within a file, grouped automatically, with
+  ([mutual-recursion.md](docs/proposals/mutual-recursion.md)), **with the
+  reviewer**. Recommends any order within a file, grouped automatically, with
   size-change termination checked by the kernel.
 - ~~JS boundary hardening~~ (lane `js-boundary`): merged as `84bc590`.
 
@@ -72,6 +74,9 @@ Round 2:
   with a catchable `StitchwortResourceError`. Measured in Node 22:
   `textLength` about 8,000, `textSplit`/`textJoin` about 5,500, `textToNat`
   about 3,000.
+- **Audit the native `decEqNat`** (from the compact-text review): its `No`
+  proof must be definitionally the one the prelude's definition produces,
+  not just a valid proof of the same proposition.
 - **More tail calls as loops in generated JS:** only a function's calls to
   itself (including in either branch of an `if`) are loops today. Not
   through `if h : P`, helpers like `maybeThen`, or between functions.
