@@ -41,6 +41,9 @@ Running:
   about the total parts). Draft 3 adopting the review, plus a standalone
   prototype of the runtime semantics running the reviewer's test table.
   Implementation after mutual recursion stage 2 merges.
+- **Records** (lane `records-design`; milestone 8): a thoroughly
+  researched design note (`docs/proposals/records.md`), docs only, for the
+  user and the reviewer.
 
 Waiting on a decision:
 - **Compact text stages 2–3** ([compact-text.md](docs/proposals/compact-text.md)
@@ -144,7 +147,6 @@ Nothing queued: choose from **Later**, or continue the lanes above.
 - **Inferring a bare lambda's type** needs an annotation, e.g.
   `runState ((\n -> n) : Nat -> {Choose} Nat) …`.
 - **Forward references and mutual recursion.**
-- **Records** (milestone 8).
 - **Performance of effectful code** (deep handler trees) hasn't been measured.
 - **Namespaces or modules.** Prelude names can't be redefined, so text
   operations are prefixed (`textLength`, `textSplit`) and every new prelude
