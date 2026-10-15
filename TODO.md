@@ -32,8 +32,7 @@ Running:
 - **JS boundary follow-ups** (lane `js-followups`): own properties only, no
   exponential decoding of shared input, fail loudly on a definition without
   a body, DESIGN.md's boundary table.
-- **`Partial`** (lane `partial-design`): a thoroughly researched draft 2 of
-  [partial.md](docs/proposals/partial.md), docs only, for the reviewer.
+
 
 - **Mutual recursion, phase 2, stage 1** (lane `mutual-recursion-p2`):
   size-change termination for single functions.
@@ -47,6 +46,10 @@ Next after that:
   rule for whether a number case counts as descent (today it doesn't).
 
 Waiting on a decision:
+- **`Partial`** ([partial.md](docs/proposals/partial.md) draft 2, **with
+  the reviewer**): `{Partial}` in types; recursive calls become requests,
+  run by one built-in `Delay` type that only the runtime steps (McBride's
+  recursion as an effect plus Capretta's delay monad).
 - **Compact text stages 2–3** ([compact-text.md](docs/proposals/compact-text.md)
   draft 2, reviewed): compact `List Char` in the evaluator, then selected
   natives; a native `decEqText` waits for a whole-result test.
