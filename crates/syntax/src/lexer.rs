@@ -12,6 +12,8 @@ pub enum Tok {
     Num(BigUint),
     /// A string literal, used for test names: `"reverse twice"`.
     Str(String),
+    /// A character literal: `'a'`.
+    Char(char),
     /// `type`, which starts a data type declaration.
     KwType,
     KwTheorem,
@@ -148,33 +150,54 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
                 .parse()
                 .expect("a run of ASCII digits is a valid number");
             Tok::Num(n)
-        } else if c == b'"' {
+        } else if c == b'"' || c == b'\'' {
+            let quote = c;
             i += 1;
-            let mut text = String::new();
+            let mut chars = String::new();
             loop {
                 match bytes.get(i) {
                     None | Some(b'\n') => {
-                        return Err(error(file, start, i, "this string isn't closed with `\"`"));
+                        let what = if quote == b'"' { "string" } else { "character" };
+                        let q = quote as char;
+                        return Err(error(
+                            file,
+                            start,
+                            i,
+                            format!("this {what} isn't closed with `{q}`"),
+                        ));
                     }
-                    Some(b'"') => {
+                    Some(&b) if b == quote => {
                         i += 1;
                         break;
                     }
-                    Some(b'\\') if matches!(bytes.get(i + 1), Some(b'"' | b'\\')) => {
-                        text.push(bytes[i + 1] as char);
-                        i += 2;
+                    Some(b'\\') => {
+                        let (ch, len) = escape(file, text, i)?;
+                        chars.push(ch);
+                        i += len;
                     }
                     Some(_) => {
-                        let ch = std::str::from_utf8(&bytes[i..])
-                            .ok()
-                            .and_then(|s| s.chars().next());
-                        let ch = ch.unwrap_or('\u{fffd}');
-                        text.push(ch);
+                        let ch = text[i..].chars().next().expect("non-empty");
+                        chars.push(ch);
                         i += ch.len_utf8();
                     }
                 }
             }
-            Tok::Str(text)
+            if quote == b'"' {
+                Tok::Str(chars)
+            } else {
+                let mut it = chars.chars();
+                match (it.next(), it.next()) {
+                    (Some(ch), None) => Tok::Char(ch),
+                    _ => {
+                        return Err(error(
+                            file,
+                            start,
+                            i,
+                            "a character literal holds exactly one character",
+                        ));
+                    }
+                }
+            }
         } else if !c.is_ascii() {
             let ch = text[start..].chars().next().expect("non-empty");
             let end = start + ch.len_utf8();
@@ -247,6 +270,65 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
         fresh_line = false;
     }
     Ok(tokens)
+}
+
+/// The escape sequence starting with the `\\` at `i`: the character it
+/// stands for, and its length in bytes. `\\u{…}` takes 1 to 6 hex digits and
+/// must name a Unicode scalar value, so it can't be a surrogate.
+fn escape(file: FileId, text: &str, i: usize) -> Result<(char, usize), Diagnostic> {
+    let bytes = text.as_bytes();
+    let simple = match bytes.get(i + 1) {
+        Some(b'n') => Some('\n'),
+        Some(b't') => Some('\t'),
+        Some(b'\\') => Some('\\'),
+        Some(b'"') => Some('"'),
+        Some(b'\'') => Some('\''),
+        _ => None,
+    };
+    if let Some(ch) = simple {
+        return Ok((ch, 2));
+    }
+    if bytes.get(i + 1) != Some(&b'u') {
+        let end = text[i + 1..]
+            .chars()
+            .next()
+            .map_or(i + 1, |c| i + 1 + c.len_utf8());
+        return Err(error(
+            file,
+            i,
+            end,
+            "unknown escape: use `\\n`, `\\t`, `\\\\`, `\\\"`, `\\'` or `\\u{…}`",
+        ));
+    }
+    let bad = |end: usize| {
+        error(
+            file,
+            i,
+            end,
+            "`\\u{…}` takes 1 to 6 hexadecimal digits in braces",
+        )
+    };
+    if bytes.get(i + 2) != Some(&b'{') {
+        return Err(bad(i + 2));
+    }
+    let digits_start = i + 3;
+    let mut j = digits_start;
+    while j < bytes.len() && bytes[j].is_ascii_hexdigit() {
+        j += 1;
+    }
+    if bytes.get(j) != Some(&b'}') || j == digits_start || j - digits_start > 6 {
+        return Err(bad(j));
+    }
+    let code = u32::from_str_radix(&text[digits_start..j], 16).expect("1 to 6 hex digits");
+    let Some(ch) = char::from_u32(code) else {
+        return Err(error(
+            file,
+            i,
+            j + 1,
+            format!("U+{code:X} isn't a Unicode scalar value, so it can't be a character"),
+        ));
+    };
+    Ok((ch, j + 1 - i))
 }
 
 fn error(file: FileId, start: usize, end: usize, message: impl Into<String>) -> Diagnostic {
@@ -336,6 +418,49 @@ mod tests {
         assert_eq!(tokens("a ∧ b"), Err("E-PARSE"));
         assert_eq!(tokens("a ; b"), Err("E-PARSE"));
         assert_eq!(tokens("a ! b"), Err("E-PARSE"));
+    }
+
+    #[test]
+    fn character_and_string_literals_with_escapes() {
+        assert_eq!(tokens("'a'"), Ok(vec![Tok::Char('a')]));
+        assert_eq!(tokens("'é'"), Ok(vec![Tok::Char('é')]));
+        assert_eq!(tokens("'\\''"), Ok(vec![Tok::Char('\'')]));
+        assert_eq!(tokens("'\"'"), Ok(vec![Tok::Char('"')]));
+        assert_eq!(tokens("'\\u{0}'"), Ok(vec![Tok::Char('\0')]));
+        assert_eq!(tokens("'\\u{10FFFF}'"), Ok(vec![Tok::Char('\u{10FFFF}')]));
+        assert_eq!(tokens("'\\u{d7ff}'"), Ok(vec![Tok::Char('\u{D7FF}')]));
+        assert_eq!(tokens("'\\u{E000}'"), Ok(vec![Tok::Char('\u{E000}')]));
+        assert_eq!(
+            tokens(r#""a\n\t\\\"\'\u{1F600}b""#),
+            Ok(vec![Tok::Str("a\n\t\\\"'\u{1F600}b".into())])
+        );
+        // `'` inside a name is still part of the name.
+        assert_eq!(
+            tokens("x' 'y'"),
+            Ok(vec![Tok::Lower("x'".into()), Tok::Char('y')])
+        );
+    }
+
+    #[test]
+    fn rejects_malformed_literals() {
+        for bad in [
+            "''",
+            "'ab'",
+            "'a",
+            "'\\q'",
+            "'\\u{D800}'",
+            "'\\u{DFFF}'",
+            "'\\u{110000}'",
+            "'\\u{}'",
+            "'\\u{1234567}'",
+            "'\\u41'",
+            "'\\u{41'",
+            "\"\\u{D800}\"",
+            "\"\\x\"",
+            "\"abc",
+        ] {
+            assert_eq!(tokens(bad), Err("E-PARSE"), "{bad}");
+        }
     }
 
     #[test]

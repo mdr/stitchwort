@@ -126,7 +126,12 @@ fn walk(
             }
         }
         Expr::NamedArg(_, value, _) => walk(e, value, bound, false, uses),
-        Expr::Num(..) | Expr::Type(..) | Expr::Prop(_) | Expr::Hole(_) | Expr::Unit(_) => {}
+        Expr::Num(..)
+        | Expr::Char(..)
+        | Expr::Type(..)
+        | Expr::Prop(_)
+        | Expr::Hole(_)
+        | Expr::Unit(_) => {}
         // `{State s | e} b`: `e` is a row variable, bound like a type.
         Expr::Effect(row, ty) => {
             for ability in &row.abilities {

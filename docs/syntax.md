@@ -120,6 +120,7 @@ Loosest-binding first:
 | `_` | A hole the compiler fills in |
 | `x`, `Nat`, `Succ` | Names. Constructors and data types start with an uppercase letter |
 | `0`, `42` | `Nat` literals |
+| `'a'`, `'\n'`, `'\u{1F600}'` | `Char` literals: one Unicode scalar value. Escapes are `\n`, `\t`, `\\`, `\"`, `\'` and `\u{…}` with 1–6 hex digits; `\u{…}` must name a scalar value, so `'\u{D800}'` is an error. Strings (test names) take the same escapes |
 | `Type`, `Type 1`, `Prop` | Universes |
 | `(e : T)` | Type annotation |
 | `[a, b, c]` | `List` literal. In an expression, `[x := e]` supplies an implicit argument and every other `[…]` is a list |

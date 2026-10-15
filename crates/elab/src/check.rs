@@ -239,6 +239,16 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             Term::Nat(Rc::new(n.clone())),
             Value::Data(nat(cx)?, Vec::new()),
         )),
+        // `'a'` is `MkChar 97 rfl`: the kernel checks that 97 is a scalar
+        // value by computing `isScalar 97`.
+        Expr::Char(c, _) => {
+            let (char_data, mk_char) = ctor_named(cx, "MkChar")?;
+            let code = Term::Nat(Rc::new(u32::from(*c).into()));
+            Ok((
+                Term::Ctor(char_data, mk_char, vec![code, Term::Refl]),
+                Value::Data(char_data, Vec::new()),
+            ))
+        }
         Expr::Type(i, _) => Ok((Term::Sort(Sort::Type(*i)), Value::Sort(Sort::Type(i + 1)))),
         Expr::Prop(_) => Ok((Term::Sort(Sort::Prop), Value::Sort(Sort::Type(0)))),
         Expr::Hole(_) => {

@@ -18,10 +18,6 @@ fstOf (MkPair x y) = x
 sndOf : Pair a b -> b
 sndOf (MkPair x y) = y
 
-type Maybe (a : Type) : Type =
-  | Nothing
-  | Just (x : a)
-
 eqNats : List Nat -> List Nat -> Bool
 eqNats Nil         Nil         = True
 eqNats (Cons x xs) (Cons y ys) = if x == y then eqNats xs ys else False

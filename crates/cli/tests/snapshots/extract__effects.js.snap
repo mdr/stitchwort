@@ -288,7 +288,7 @@ const $Abort$$elim = (v1) => (v2) => (v3) => {
 };
 const $allResults = (v0) => (v2) => $foldComp(((v3) => ({ tag: "Done", value: { tag: "Cons", head: v3, tail: { tag: "Nil" } } })))($handlePlus($Choose$$elim(((v3) => ((v4) => $bind((v4)({ tag: "True" }))(((v5) => $bind((v4)({ tag: "False" }))(((v6) => ({ tag: "Done", value: $append(v5)(v6) })))))))))(((v3) => ((v4) => ({ tag: "Call", o: $sigInject($sigId)(v3), rest: ((v5) => (v4)($sigReply($sigId)(v3)(v5))) })))))((v2)({ tag: "UnitValue" }));
 const $runState = (v1) => (v3) => (v4) => $bind($foldComp(((v5) => ({ tag: "Done", value: ((v6) => ({ tag: "Done", value: { tag: "MkPair", fst: v5, snd: v6 } })) })))($handlePlus($State$$elim(((v5) => ((v6) => ({ tag: "Done", value: ((v7) => $bind((v6)(v7))(((v8) => (v8)(v7)))) }))))(((v5) => ((v6) => ({ tag: "Done", value: ((v7) => $bind((v6)({ tag: "UnitValue" }))(((v8) => (v8)(v5)))) })))))(((v5) => ((v6) => ({ tag: "Call", o: $sigInject($sigId)(v5), rest: ((v7) => (v6)($sigReply($sigId)(v5)(v7))) })))))((v4)({ tag: "UnitValue" })))(((v5) => (v5)(v3)));
-const $toMaybe = (v0) => (v2) => $foldComp(((v3) => ({ tag: "Done", value: { tag: "Just", x: v3 } })))($handlePlus($Abort$$elim(((v3) => ((v4) => ({ tag: "Done", value: { tag: "Nothing" } })))))(((v3) => ((v4) => ({ tag: "Call", o: $sigInject($sigId)(v3), rest: ((v5) => (v4)($sigReply($sigId)(v3)(v5))) })))))((v2)({ tag: "UnitValue" }));
+const $toMaybe = (v0) => (v2) => $foldComp(((v3) => ({ tag: "Done", value: { tag: "Just", value: v3 } })))($handlePlus($Abort$$elim(((v3) => ((v4) => ({ tag: "Done", value: { tag: "Nothing" } })))))(((v3) => ((v4) => ({ tag: "Call", o: $sigInject($sigId)(v3), rest: ((v5) => (v4)($sigReply($sigId)(v3)(v5))) })))))((v2)({ tag: "UnitValue" }));
 const $someSum = (v0) => {
   switch (v0.tag) {
     case "Nil": {
@@ -319,7 +319,7 @@ const $orZero = (v0) => {
       return 0n;
     }
     case "Just": {
-      const v1 = v0.x;
+      const v1 = v0.value;
       return v1;
     }
   }

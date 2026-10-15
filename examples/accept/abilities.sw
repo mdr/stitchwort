@@ -11,10 +11,6 @@ fstOf (MkPair x y) = x
 sndOf : Pair a b -> b
 sndOf (MkPair x y) = y
 
-type Maybe (a : Type) : Type =
-  | Nothing
-  | Just (x : a)
-
 type Empty : Type
 
 fromEmpty : Empty -> a

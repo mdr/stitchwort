@@ -96,6 +96,11 @@ append : List a -> List a -> List a
 append Nil         ys = ys
 append (Cons x xs) ys = Cons x (append xs ys)
 
+-- A value that may be missing.
+type Maybe (a : Type) : Type =
+  | Nothing
+  | Just (value : a)
+
 -- Equality lemmas, all built from `J`.
 
 theorem cong : (f : a -> b) -> [x y : a] -> x = y -> f x = f y
@@ -210,6 +215,71 @@ decLessEq m n = decTrue (leq m n)
 
 decLessThan : (m : Nat) -> (n : Nat) -> Decidable (m < n)
 decLessThan m n = decTrue (leq (Succ m) n)
+
+-- Proofs that two booleans are equal are unique. This is Hedberg's argument,
+-- which works for any type with decidable equality: `canon` turns any proof
+-- of `x = y` into one chosen by `decEqBool`, so it ignores which proof it was
+-- given, and every proof can be recovered from its canonical one.
+canon : [x y : Bool] -> Decidable (x = y) -> x = y -> x = y
+canon (Yes e) p = e
+canon (No r)  p = exfalso (r p)
+
+theorem canonConst : [x y : Bool] -> (d : Decidable (x = y)) -> (p : x = y) -> (q : x = y) ->
+  canon d p = canon d q
+canonConst (Yes e) p q = rfl
+canonConst (No r)  p q = exfalso (r p)
+
+theorem symThenSelf : [x y : Bool] -> (q : x = y) -> rfl = trans (sym q) q
+symThenSelf q = J (\y' q' -> rfl = trans (sym q') q') rfl q
+
+theorem fromCanon : (x : Bool) -> (y : Bool) -> (p : x = y) ->
+  p = trans (sym (canon (decEqBool x x) rfl)) (canon (decEqBool x y) p)
+fromCanon x y p =
+  J (\y' p' -> p' = trans (sym (canon (decEqBool x x) rfl)) (canon (decEqBool x y') p'))
+    (symThenSelf (canon (decEqBool x x) rfl)) p
+
+theorem uniqueBoolEq : (x : Bool) -> (y : Bool) -> (p : x = y) -> (q : x = y) -> p = q
+uniqueBoolEq x y p q =
+  J (\z e -> p = z)
+    (J (\r e -> p = trans (sym (canon (decEqBool x x) rfl)) r)
+      (fromCanon x y p) (canonConst (decEqBool x y) p q))
+    (J (\z e -> z = q) rfl (fromCanon x y q))
+
+-- Characters
+
+-- Whether a number is a Unicode scalar value: at most 0x10FFFF, and not a
+-- surrogate (0xD800 to 0xDFFF).
+isScalar : Nat -> Bool
+isScalar n = if leq 55296 n then (if leq n 57343 then False else leq n 1114111) else True
+
+-- A Unicode scalar value. `'a'` is a `Char`; the compiler proves `valid` for
+-- a literal by computation, and the kernel checks it.
+type Char : Type =
+  | MkChar (code : Nat) (valid : isScalar code = True)
+
+charToNat : Char -> Nat
+charToNat (MkChar n v) = n
+
+charFromNat : Nat -> Maybe Char
+charFromNat n = if h : isScalar n = True then Just (MkChar n h) else Nothing
+
+-- Characters with the same code are equal: their proofs of `valid` are too.
+theorem mkCharExt : (a : Nat) -> (b : Nat) -> (p : isScalar a = True) -> a = b ->
+  (q : isScalar b = True) -> MkChar a p = MkChar b q
+mkCharExt a b p e =
+  J (\b' e' -> (q' : isScalar b' = True) -> MkChar a p = MkChar b' q')
+    (\q' -> J (\r e'' -> MkChar a p = MkChar a r) rfl (uniqueBoolEq (isScalar a) True p q'))
+    e
+
+theorem charExt : (x : Char) -> (y : Char) -> charToNat x = charToNat y -> x = y
+charExt (MkChar a p) (MkChar b q) e = mkCharExt a b p e q
+
+decCharFrom : (x : Char) -> (y : Char) -> Decidable (charToNat x = charToNat y) -> Decidable (x = y)
+decCharFrom x y (Yes e) = Yes (charExt x y e)
+decCharFrom x y (No r)  = No (\p -> r (cong charToNat p))
+
+decEqChar : (x : Char) -> (y : Char) -> Decidable (x = y)
+decEqChar x y = decCharFrom x y (decEqNat (charToNat x) (charToNat y))
 
 -- Division
 

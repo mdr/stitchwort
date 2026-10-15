@@ -15,6 +15,8 @@ pub enum Expr {
     /// A variable, function, data type or constructor name.
     Var(Name),
     Num(BigUint, Span),
+    /// A character literal: `'a'`.
+    Char(char, Span),
     /// `Type` or `Type n`.
     Type(u32, Span),
     Prop(Span),
@@ -105,6 +107,7 @@ impl Expr {
         match self {
             Expr::Var(name) => name.span,
             Expr::Num(_, span)
+            | Expr::Char(_, span)
             | Expr::Type(_, span)
             | Expr::Prop(span)
             | Expr::Lam(_, _, span)

@@ -812,6 +812,7 @@ impl<'t> Parser<'t> {
                 Tok::Lower(_)
                     | Tok::Upper(_)
                     | Tok::Num(_)
+                    | Tok::Char(_)
                     | Tok::TypeU
                     | Tok::Prop
                     | Tok::LParen
@@ -829,6 +830,11 @@ impl<'t> Parser<'t> {
             Some(Tok::Num(n)) => {
                 self.bump();
                 Ok(Expr::Num(n.clone(), span))
+            }
+            Some(Tok::Char(c)) => {
+                let c = *c;
+                self.bump();
+                Ok(Expr::Char(c, span))
             }
             Some(Tok::Underscore) => {
                 self.bump();
@@ -900,6 +906,7 @@ fn describe(tok: &Tok) -> String {
         Tok::Lower(s) | Tok::Upper(s) => format!("`{s}`"),
         Tok::Num(n) => format!("`{n}`"),
         Tok::Str(s) => format!("`\"{s}\"`"),
+        Tok::Char(c) => format!("`'{c}'`"),
         Tok::KwTest => "`test`".into(),
         Tok::KwType => "`type`".into(),
         Tok::KwTheorem => "`theorem`".into(),

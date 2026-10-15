@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: U+D800 isn't a Unicode scalar value, so it can't be a character
+   ╭─[ reject/char-surrogate.sw:4:8 ]
+   │
+ 4 │ bad = '\u{D800}'
+   │        ────┬───  
+   │            ╰───── U+D800 isn't a Unicode scalar value, so it can't be a character
+───╯
