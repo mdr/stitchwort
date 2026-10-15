@@ -24,8 +24,8 @@ Round 2:
 - ~~Stack-safe step 4~~ (lane `depth-guards`): merged as `d166039`.
 - ~~Text step 5~~ (lane `run`): merged as `65f91ce`.
 - ~~Text step 6~~ (lane `playground-run`): merged as `f35f1a7`.
-- **Syntax colouring in the playground** (lane `syntax-colour`, asked for
-  directly): in progress.
+- ~~Syntax colouring in the playground~~ (lane `syntax-colour`): merged as
+  `ccebba3`.
 - **Text step 3** (lane `js-text`): item 1 of **Next**, in progress.
 
 ## Next
@@ -81,6 +81,11 @@ Round 2:
 - **A budget on operations per playground run**, alongside the 15 s limit (a
   program reading past the end of its input many times is caught only by
   the timeout).
+- **Playground editor quirks** (from before syntax colouring): dragging to
+  resize the editor does nothing, and Tab's inserted spaces (via
+  `setRangeText`) can't be undone and break Ctrl+Z for earlier typing.
+  Colouring is checked only in headless Chrome (not Firefox or Safari, not
+  with physical typing, not at phone width).
 - **`Partial`** ([proposal](docs/proposals/partial.md)): until it's settled, an
   infinite `Comp` is unsound.
 - **Lacks constraints on row variables** aren't enforced (only reachable with
@@ -135,6 +140,7 @@ Round 2:
 
 ## Recently done
 
+- `ccebba3` Syntax colouring in the playground's editor (CSS Custom Highlight API, with a fallback); restoring the saved draft on reload fixed.
 - `d166039` Stack-safe step 4 (depth-guards lane, merged): every recursive pass guarded by stack use; deep nesting is `E-RESOURCE` natively and in WebAssembly (`crates/driver/tests/nesting.rs`).
 - `f35f1a7` Text step 6 (playground-run lane, merged): the playground's Run button and its compiler in Web Workers, replaced after a crash. View it locally with `web/serve.sh`.
 - `65f91ce` Text step 5 (run lane, merged): `main` and `stitchwort run`, tested against `simulate` and real standard input and output; `examples/accept/adder.sw`.
