@@ -17,12 +17,7 @@ Work runs in lanes, each in its own git worktree and branch, merged into
 `main` one at a time (with `nix flake check` after each). Only `main` edits
 this file.
 
-- **Lane: IO** (background agent, own worktree): text step 4, the `IO`
-  ability and `simulate`. Owns `prelude.sw`, `examples/`, the text-and-io
-  proposal; doesn't touch `core/src/value.rs`, `term.rs`, `budget.rs`,
-  `reference.rs`.
-- **Lane: core runtime** (main session): step 3 finished; merging the IO
-  lane next.
+Nothing in progress: the next round of lanes is to be chosen from **Next**.
 
 ## Next
 
@@ -78,6 +73,14 @@ this file.
 
 ## Known issues
 
+- **Row order is fixed by declaration order**, so `IO` (declared in the
+  prelude) always comes first in a row: `{State Nat, IO}` and
+  `{IO, State Nat}` are the same type. Harmless, but it means no test can
+  put `IO` on the right of a row.
+- **A misleading follow-on error** (found by the IO lane): after an
+  `E-UNKNOWN-NAME` earlier in a file, a later `rfl` proof over a handled
+  computation failed with "`rfl` proves an equation, but the expected type
+  is `runPure (bind …)`". It checked once the first error was fixed.
 - **In WebAssembly the stack guard measures the wrong stack.** Each call uses
   both the stack in linear memory (which the guard measures) and the
   engine's own call stack (about 1 MiB in V8), and the engine's runs out
@@ -99,8 +102,9 @@ this file.
 
 ## Recently done
 
-- Stack-safe step 3: `conv`, `unify` and `quote` as work lists; iterative freeing of terms.
-- Local WebAssembly test page: `web/stress.html`, served by `web/serve.sh`.
+- `3fb4764` Text step 4 (IO lane, merged): the `IO` ability and `simulate`, `examples/accept/io.sw`, `examples/extract/io.sw`.
+- `fae5cc2` Stack-safe step 3: `conv`, `unify` and `quote` as work lists; iterative freeing of terms.
+- `78a9ddc` Local WebAssembly test page: `web/stress.html`, served by `web/serve.sh`.
 - `5caa024` `unsafe` allowed with a written justification (lint `deny`, was `forbid`).
 - `cdfae0d` Stack-safe step 2: the abstract machine, the reference evaluator, differential tests, iterative freeing of values.
 - `14ac90d` Every sub-term the evaluator runs is behind its own `Rc`.

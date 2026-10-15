@@ -654,7 +654,7 @@ Resuming more than once doesn't by itself cause divergence. Exploring both branc
 | Ability | Purpose |
 |---|---|
 | `Partial` | Might not terminate ([§5](#5-totality-and-partiality)). Handled only by the runtime |
-| `IO` | Console, files, etc. Handled only by the runtime, at `main`. A trusted contract that may block |
+| `IO` | The console (`print`, `readLine`). Performed for real only by the runtime, at `main`; Stitchwort handlers may interpret it as data, as the prelude's `simulate` does ([docs/proposals/text-and-io.md](docs/proposals/text-and-io.md)). A trusted contract that may block |
 | `Abort` | Stop early. Handled into `Optional` or `Either` |
 | `State s` | State, handled purely. `s` must be data-only |
 
@@ -907,7 +907,7 @@ Each rejected example is paired with a nearby example that must be **accepted**,
 
 ## 14. Implementation
 
-**Current state:** milestones 1–4 and 6 are implemented (including decoders that refuse cyclic inputs and read each property once), and milestone 5 in part: tests, declaration hashes and a test-result cache, but not yet caching kernel checks or generated JS, nor resource budgets. Numbers are native (arbitrary precision, with native arithmetic), but there's no `Int` yet. Milestone 7 is implemented apart from `Partial` and `IO`: abilities, rows, direct-style effectful code and handlers, translated into the inductive `Comp` trees chosen in [docs/proposals/abilities.md](docs/proposals/abilities.md). The playground (`web/`, `crates/web`) runs the compiler as WebAssembly; it doesn't cache test results in the browser yet. The elaborator and kernel are separate, as principle 4 requires. [`docs/core.md`](docs/core.md) gives the core rules as implemented, including where the implementation still differs from this document. [`docs/syntax.md`](docs/syntax.md) describes the implemented syntax.
+**Current state:** milestones 1–4 and 6 are implemented (including decoders that refuse cyclic inputs and read each property once), and milestone 5 in part: tests, declaration hashes and a test-result cache, but not yet caching kernel checks or generated JS. Evaluation keeps its pending work on the heap and runs within per-operation resource budgets ([docs/proposals/stack-safe-evaluation.md](docs/proposals/stack-safe-evaluation.md)). Numbers are native (arbitrary precision, with native arithmetic), but there's no `Int` yet. Milestone 7 is implemented apart from `Partial` and running `IO` for real (the `IO` ability and its simulator exist; `main` and `stitchwort run` don't yet): abilities, rows, direct-style effectful code and handlers, translated into the inductive `Comp` trees chosen in [docs/proposals/abilities.md](docs/proposals/abilities.md). The playground (`web/`, `crates/web`) runs the compiler as WebAssembly; it doesn't cache test results in the browser yet. The elaborator and kernel are separate, as principle 4 requires. [`docs/core.md`](docs/core.md) gives the core rules as implemented, including where the implementation still differs from this document. [`docs/syntax.md`](docs/syntax.md) describes the implemented syntax.
 
 Written in **Rust**. The compiler itself compiles to **WASM** for the browser playground.
 
