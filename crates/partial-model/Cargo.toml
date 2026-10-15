@@ -1,0 +1,11 @@
+[package]
+name = "stitchwort-partial-model"
+description = "A standalone executable model of the proposed stage-1 `Partial` runtime (docs/proposals/partial.md, stage 0)"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+
+[lints]
+workspace = true
