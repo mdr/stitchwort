@@ -26,6 +26,7 @@ Round 2:
 - ~~Text step 6~~ (lane `playground-run`): merged as `f35f1a7`.
 - **Syntax colouring in the playground** (lane `syntax-colour`, asked for
   directly): in progress.
+- **Text step 3** (lane `js-text`): item 1 of **Next**, in progress.
 
 ## Next
 
