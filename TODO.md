@@ -43,8 +43,10 @@ Round 2:
   ([compact-text.md](docs/proposals/compact-text.md)), **awaiting review**.
   Recommends JS strings in generated code first, then a compact list
   representation in the evaluator, no primitive kernel type.
-- **Forward references and mutual recursion** (lane `mutual-recursion`):
-  design note with a literature survey, then a pause for review.
+- **Forward references and mutual recursion**: design note written
+  ([mutual-recursion.md](docs/proposals/mutual-recursion.md)), **awaiting
+  review**. Recommends any order within a file, grouped automatically, with
+  size-change termination checked by the kernel.
 - **JS boundary hardening** (lane `js-boundary`): the `tag` field bug, a
   general rule for field names, and iterative codecs for recursive types.
 

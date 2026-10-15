@@ -993,6 +993,13 @@ so nothing written under them breaks if it's adopted later.
 - The 2014 Rocq/propositional-extensionality explanation is quoted from a
   search summary (the mailing-list page refused the fetch).
 - Elm's and PureScript's automatic grouping was not checked.
+- Checked by the orchestrator on 15 October 2026 by opening the pages:
+  Rocq #21682 ("Guard checker soundness bug: cross-calls in nested mutual
+  fixpoints", closed 4 March 2026 by PR #21684, labelled "kind:
+  inconsistency"); CVE-2026-72703 (Mend.io entry for the same bug, fixed in
+  Rocq 9.2.0); Agda #8699 ("Termination checker descends into irrelevant
+  (and Prop-typed) constructor arguments of dot patterns", closed 29 August
+  2026 by PR #8707, proves `⊥` under `--safe`).
 - Claims about Stitchwort's JS emission for group members with only erased
   parameters (§8.6) come from reading the code, not from running it.
 
