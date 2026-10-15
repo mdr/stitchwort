@@ -322,10 +322,48 @@ fn not_allowed(cx: &Ctx, label: &Label) -> Diagnostic {
 
 /// Moves `term : Comp from t` into `to`, solving an unknown tail of `from`.
 fn lift(cx: &mut Ctx, term: Term, from: Row, to: &Row, t: &Value) -> Result<Term> {
-    let mut from = from;
-    if solve_tail(cx, &from, to)? {
-        let ty = cx.eval(&cx.quote(&ops(cx, &from)?));
-        from = decode(cx, &ty).expect("solved from a row");
+    let mut from = refresh(cx, &from)?;
+    let mut to = refresh(cx, to)?;
+    let missing_in = |a: &Row, b: &Row| -> Vec<Label> {
+        b.labels
+            .iter()
+            .filter(|l| a.position(l.ability).is_none())
+            .cloned()
+            .collect()
+    };
+    let from_open = from.tail.as_ref().is_some_and(|t| is_unknown(cx, t));
+    let to_open = to.tail.as_ref().is_some_and(|t| is_unknown(cx, t));
+    // The same unknown on both sides (compared without solving anything).
+    let meta_of = |row: &Row| match row.tail.as_ref().map(|t| force(cx.g(), t.clone())) {
+        Some(Value::Neutral(Head::Meta(m), _)) => Some(m),
+        _ => None,
+    };
+    let same_tail = from_open && to_open && meta_of(&from) == meta_of(&to);
+    if from_open && to_open && !same_tail {
+        // `{A | ?f}` into `{B | ?t}`: with a fresh `?r`, `?f` is `B∖A | ?r`
+        // and `?t` is `A∖B | ?r`.
+        let fresh = cx.fresh_meta();
+        let fresh = cx.eval(&fresh);
+        let (for_from, for_to) = (missing_in(&from, &to), missing_in(&to, &from));
+        extend_with(cx, &from, for_from, fresh.clone())?;
+        extend_with(cx, &to, for_to, fresh)?;
+        from = refresh(cx, &from)?;
+        to = refresh(cx, &to)?;
+    } else if from_open && !same_tail {
+        solve_tail(cx, &from, &to)?;
+        from = refresh(cx, &from)?;
+    } else {
+        // Abilities the context doesn't list yet go into its unknown tail.
+        let missing = missing_in(&to, &from);
+        if let Some(first) = missing.first() {
+            if same_tail {
+                return Err(not_allowed(cx, first));
+            }
+            match extend(cx, &to, missing.clone())? {
+                Some(wider) => to = wider,
+                None => return Err(not_allowed(cx, first)),
+            }
+        }
     }
     for label in &from.labels {
         match to.position(label.ability) {
@@ -333,9 +371,10 @@ fn lift(cx: &mut Ctx, term: Term, from: Row, to: &Row, t: &Value) -> Result<Term
             None => return Err(not_allowed(cx, label)),
         }
     }
-    if same_shape(cx, &from, to) {
+    if same_shape(cx, &from, &to) {
         return Ok(term);
     }
+    let to = &to;
     let m = mapping(cx, &from, to)?;
     call(
         cx,
@@ -349,6 +388,55 @@ fn lift(cx: &mut Ctx, term: Term, from: Row, to: &Row, t: &Value) -> Result<Term
         ],
         vec![m, term],
     )
+}
+
+/// Re-reads a row whose tail may have been solved since it was read.
+fn refresh(cx: &Ctx, row: &Row) -> Result<Row> {
+    if row.tail.is_none() {
+        return Ok(row.clone());
+    }
+    let ty = cx.eval(&cx.quote(&ops(cx, row)?));
+    Ok(decode(cx, &ty).unwrap_or_else(|| row.clone()))
+}
+
+fn is_unknown(cx: &Ctx, value: &Value) -> bool {
+    matches!(
+        force(cx.g(), value.clone()),
+        Value::Neutral(Head::Meta(_), _)
+    )
+}
+
+/// If `row` ends in an unknown, adds `extra` to it, keeping it open for
+/// more (the unknown becomes `extra` and a fresh unknown). Returns the
+/// wider row.
+fn extend(cx: &mut Ctx, row: &Row, extra: Vec<Label>) -> Result<Option<Row>> {
+    match &row.tail {
+        Some(tail) if is_unknown(cx, tail) => {}
+        _ => return Ok(None),
+    }
+    let fresh = cx.fresh_meta();
+    let fresh = cx.eval(&fresh);
+    if !extend_with(cx, row, extra, fresh)? {
+        return Ok(None);
+    }
+    Ok(Some(refresh(cx, row)?))
+}
+
+/// Solves `row`'s unknown tail as `extra` followed by `tail`.
+fn extend_with(cx: &mut Ctx, row: &Row, extra: Vec<Label>, tail: Value) -> Result<bool> {
+    let Some(old) = &row.tail else {
+        return Ok(false);
+    };
+    let added = Row {
+        labels: extra,
+        tail: Some(tail),
+    };
+    let sig = Value::Ctor(
+        data(cx, "Sig")?,
+        0,
+        vec![ops(cx, &added)?, res(cx, &added)?],
+    );
+    Ok(cx.unify(old, &sig))
 }
 
 /// A `SigMap` from row `from` into row `to`, whose abilities include all of
@@ -729,7 +817,14 @@ pub fn comp_check(cx: &mut Ctx, expr: &Expr, row: &Row, t: &Value) -> Result<Ter
             cx.span = saved;
             result
         }
-        _ if may_perform(cx, expr) => Ok(comp_call(cx, expr, row, Some(t))?.0),
+        _ if may_perform(cx, expr) => {
+            let (c, ty) = comp_call(cx, expr, row, Some(t))?;
+            if cx.unify(&ty, t) {
+                Ok(c)
+            } else {
+                Err(cx.mismatch(t, &ty))
+            }
+        }
         _ => {
             let v = check(cx, expr, t)?;
             done(cx, row, t, v)
@@ -808,8 +903,8 @@ pub fn comp_call(
     row: &Row,
     expected: Option<&Value>,
 ) -> Result<(Term, Value)> {
-    if let Expr::Binary(..) = expr {
-        return comp_binary(cx, expr, row);
+    if let Expr::Binary(..) | Expr::List(..) | Expr::Ann(..) = expr {
+        return comp_compound(cx, expr, row);
     }
     let mut args: Vec<&Expr> = Vec::new();
     let mut head = expr;
@@ -826,40 +921,29 @@ pub fn comp_call(
     }
 
     let mut bound: Vec<Bound> = Vec::new();
-    let mut fresh = 0;
-    // Effectful arguments run first, left to right, into variables.
+    // The head, then effectful arguments, run first, left to right, into
+    // variables.
+    let head = match head {
+        Expr::Var(_) => head.clone(),
+        other => run_first(cx, other, row, &mut bound)?,
+    };
     let mut owned: Vec<Expr> = Vec::new();
     for arg in &args {
-        let performs = match arg {
-            Expr::NamedArg(_, v, _) => may_perform(cx, v),
-            other => may_perform(cx, other),
-        };
-        if !performs || matches!(arg, Expr::NamedArg(..)) {
-            owned.push((*arg).clone());
-            continue;
-        }
-        let (c, ty) = comp_infer(cx, arg, row)?;
-        let name = format!("%{}", cx.level() + fresh);
-        fresh += 1;
-        let mark = cx.mark();
-        cx.bind(&name, ty.clone());
-        bound.push(Bound {
-            name: name.clone(),
-            comp: c,
-            ty,
-            mark,
+        owned.push(match arg {
+            Expr::NamedArg(name, value, span) => Expr::NamedArg(
+                name.clone(),
+                Box::new(run_first(cx, value, row, &mut bound)?),
+                *span,
+            ),
+            other => run_first(cx, other, row, &mut bound)?,
         });
-        owned.push(Expr::Var(AstName {
-            text: name,
-            span: arg.span(),
-        }));
     }
 
     // Apply the head one argument at a time: when a partial application is
     // already a computation (`k s s` with `k : s -> {e} (s -> {e} …)`), run
     // it and continue with its result.
-    let (mut term, mut ty) = match head {
-        Expr::Var(_) => infer_head(cx, head)?,
+    let (mut term, mut ty) = match &head {
+        Expr::Var(_) => infer_head(cx, &head)?,
         other => infer(cx, other)?,
     };
     for arg in &owned {
@@ -867,8 +951,7 @@ pub fn comp_call(
             let (t2, ty2) = insert(cx, term, ty);
             let (from, t) = comp_parts(cx, &ty2).expect("reached a computation type");
             let c = lift(cx, t2, from, row, &t)?;
-            let name = format!("%{}", cx.level() + fresh);
-            fresh += 1;
+            let name = format!("%{}", cx.level());
             let mark = cx.mark();
             cx.bind(&name, t.clone());
             bound.push(Bound {
@@ -886,20 +969,55 @@ pub fn comp_call(
         (term, ty) = crate::check::apply_one(cx, (term, ty), arg)?;
     }
     let (term, ty) = insert(cx, term, ty);
-    let (mut result, result_ty) = match comp_parts(cx, &ty) {
+    let (result, result_ty) = match comp_parts(cx, &ty) {
         Some((from, t)) => (lift(cx, term, from, row, &t)?, t),
         None => (done(cx, row, &ty, term)?, ty),
     };
-
-    // The result type can't mention the variables bound here. Unknowns in it
-    // are solved from the expected type first.
+    // Unknowns in the result type are solved from the expected type before
+    // checking it doesn't depend on the variables bound here.
     if let Some(t) = expected
         && !cx.unify(&result_ty, t)
     {
-        return Err(cx.mismatch(t, &result_ty));
+        let error = cx.mismatch(t, &result_ty);
+        if let Some(first) = bound.first() {
+            cx.reset(first.mark);
+        }
+        return Err(error);
     }
-    let quoted = cx.quote(&result_ty);
+    let result = wrap(cx, row, bound, result, &result_ty)?;
+    Ok((result, result_ty))
+}
+
+/// Runs `e` first if it performs operations, binding its result to a fresh
+/// variable, and returns what to use in its place.
+fn run_first(cx: &mut Ctx, e: &Expr, row: &Row, bound: &mut Vec<Bound>) -> Result<Expr> {
+    if !may_perform(cx, e) {
+        return Ok(e.clone());
+    }
+    let (c, ty) = comp_infer(cx, e, row)?;
+    let name = format!("%{}", cx.level());
+    let mark = cx.mark();
+    cx.bind(&name, ty.clone());
+    bound.push(Bound {
+        name: name.clone(),
+        comp: c,
+        ty,
+        mark,
+    });
+    Ok(Expr::Var(AstName {
+        text: name,
+        span: e.span(),
+    }))
+}
+
+/// Wraps `result : Comp row ty` in a `bind` for each of `bound` (run in
+/// order). `ty` can't mention the variables bound.
+fn wrap(cx: &mut Ctx, row: &Row, bound: Vec<Bound>, mut result: Term, ty: &Value) -> Result<Term> {
+    let quoted = cx.quote(ty);
     if (0..bound.len()).any(|i| quoted.mentions(i)) {
+        if let Some(first) = bound.first() {
+            cx.reset(first.mark);
+        }
         return Err(cx
             .error(
                 "E-EFFECT-ESCAPE",
@@ -916,54 +1034,41 @@ pub fn comp_call(
         result = call(
             cx,
             "bind",
-            &[ops(cx, row)?, res(cx, row)?, b.ty, result_ty.clone()],
+            &[ops(cx, row)?, res(cx, row)?, b.ty, ty.clone()],
             vec![b.comp, lam],
         )?;
     }
-    Ok((result, result_ty))
+    Ok(result)
 }
 
-/// `a + b` and the like, when an operand performs operations.
-fn comp_binary(cx: &mut Ctx, expr: &Expr, row: &Row) -> Result<(Term, Value)> {
-    let Expr::Binary(op, a, b) = expr else {
-        unreachable!()
-    };
+/// `a + b`, `[a, b]` or `(e : T)`, when a part performs operations: the
+/// parts run first, left to right.
+fn comp_compound(cx: &mut Ctx, expr: &Expr, row: &Row) -> Result<(Term, Value)> {
     let mut bound = Vec::new();
-    let mut operand = |cx: &mut Ctx, e: &Expr| -> Result<Expr> {
-        if !may_perform(cx, e) {
-            return Ok(e.clone());
+    let pure = match expr {
+        Expr::Binary(op, a, b) => {
+            let a = run_first(cx, a, row, &mut bound)?;
+            let b = run_first(cx, b, row, &mut bound)?;
+            Expr::Binary(*op, Box::new(a), Box::new(b))
         }
-        let (c, ty) = comp_infer(cx, e, row)?;
-        let name = format!("%{}", cx.level());
-        let mark = cx.mark();
-        cx.bind(&name, ty.clone());
-        bound.push(Bound {
-            name: name.clone(),
-            comp: c,
-            ty,
-            mark,
-        });
-        Ok(Expr::Var(AstName {
-            text: name,
-            span: e.span(),
-        }))
+        Expr::List(items, span) => {
+            let mut pure = Vec::new();
+            for item in items {
+                pure.push(run_first(cx, item, row, &mut bound)?);
+            }
+            Expr::List(pure, *span)
+        }
+        Expr::Ann(e, ty, _) => {
+            let (ty, _) = check_type(cx, ty)?;
+            let ty = cx.eval(&ty);
+            return Ok((comp_check(cx, e, row, &ty)?, ty));
+        }
+        _ => unreachable!("only called on compound expressions"),
     };
-    let a = operand(cx, a)?;
-    let b = operand(cx, b)?;
-    let (term, ty) = infer(cx, &Expr::Binary(*op, Box::new(a), Box::new(b)))?;
+    let (term, ty) = infer(cx, &pure)?;
     let (term, ty) = insert(cx, term, ty);
-    let mut result = done(cx, row, &ty, term)?;
-    for bnd in bound.into_iter().rev() {
-        cx.reset(bnd.mark);
-        let lam = Term::Lam(bnd.name.as_str().into(), Icit::Explicit, Rc::new(result));
-        result = call(
-            cx,
-            "bind",
-            &[ops(cx, row)?, res(cx, row)?, bnd.ty, ty.clone()],
-            vec![bnd.comp, lam],
-        )?;
-    }
-    Ok((result, ty))
+    let result = done(cx, row, &ty, term)?;
+    Ok((wrap(cx, row, bound, result, &ty)?, ty))
 }
 
 /// `op arg`: a `Call` of the operation, injected into `row`.
@@ -983,13 +1088,29 @@ fn op_call(
             format!("it's given {}", args.len()),
         ));
     };
-    let Some(pos) = row.position(a) else {
-        let label = Label {
-            ability: a,
-            args: Vec::new(),
-        };
-        return Err(not_allowed(cx, &label));
+    let mut row = refresh(cx, row)?;
+    let pos = match row.position(a) {
+        Some(pos) => pos,
+        None => {
+            // An unknown tail of the row can take the ability.
+            let params = cx.g().data(info.op_data).params.len();
+            let args = (0..params)
+                .map(|_| {
+                    let m = cx.fresh_meta();
+                    cx.eval(&m)
+                })
+                .collect();
+            let label = Label { ability: a, args };
+            match extend(cx, &row, vec![label.clone()])? {
+                Some(wider) => {
+                    row = wider;
+                    row.position(a).expect("just added")
+                }
+                None => return Err(not_allowed(cx, &label)),
+            }
+        }
     };
+    let row = &row;
     let label = row.labels[pos].clone();
     let op_data = info.op_data;
     let field_ty = cx.g().data(op_data).ctors[i].fields[0].1.clone();
@@ -1060,6 +1181,7 @@ pub fn run_pure(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(
 
 /// `handle body with clauses`, as a computation in `out` returning a `t`.
 fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -> Result<Term> {
+    let out = &refresh(cx, out)?;
     // Which ability, and the clauses for its operations.
     let mut ability = None;
     let mut ret = None;
@@ -1225,6 +1347,9 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
 
     // Everything else is forwarded to `out`, with the handler around the rest:
     // `\o k -> Call (sigInject m o) (\y -> k (sigReply m o y))`.
+    // Elaborating the body may have added abilities to an unknown tail.
+    let out = &refresh(cx, out)?;
+    let rest = refresh(cx, &rest)?;
     let m = mapping(cx, &rest, out)?;
     let (rest_ops, rest_res, out_ops, out_res) = (
         ops(cx, &rest)?,

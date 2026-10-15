@@ -260,7 +260,8 @@ impl<'t> Parser<'t> {
     fn signature(&mut self, start: Span, theorem: bool, export: bool) -> Result<Decl> {
         let name = self.def_name()?;
         self.expect(Tok::Colon, "`:`")?;
-        let ty = self.expr()?;
+        // `{State Nat} Nat`: a computation that's not a function.
+        let ty = self.result_type()?;
         Ok(Decl::Signature {
             name,
             span: start.to(ty.span()),
@@ -1092,5 +1093,165 @@ mod tests {
             parse_expression(file, "(x : Nat)"),
             Ok(Expr::Ann(..))
         ));
+    }
+
+    /// The right-hand side of the only equation in `text`.
+    fn rhs(text: &str) -> Expr {
+        match parse(text).decls.into_iter().next() {
+            Some(Decl::Equation { rhs: Some(rhs), .. }) => rhs,
+            other => panic!("expected an equation, got {other:?}"),
+        }
+    }
+
+    /// The block's lines, as `let x` or `_` for an expression, then the result.
+    fn lines(mut e: &Expr) -> Vec<String> {
+        let mut out = Vec::new();
+        loop {
+            match e {
+                Expr::Let { name, body, .. } => {
+                    out.push(format!("let {}", name.text));
+                    e = body;
+                }
+                Expr::Seq(_, rest) => {
+                    out.push("_".into());
+                    e = rest;
+                }
+                _ => {
+                    out.push("result".into());
+                    return out;
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_block_is_lines_at_one_column() {
+        let body = rhs("f u =\n  let n = get ()\n  put (n +\n    1)\n  n\n");
+        assert_eq!(lines(&body), ["let n", "_", "result"]);
+        // On one line, or with one line, it's just the expression.
+        assert!(matches!(rhs("f u = g u\n"), Expr::App(..)));
+        assert!(matches!(rhs("f u =\n  g\n    u\n"), Expr::App(..)));
+    }
+
+    #[test]
+    fn a_line_ending_in_an_operator_continues() {
+        let module = parse("f : Nat ->\n  Nat ->\n  Nat\n");
+        let Decl::Signature { ty, .. } = &module.decls[0] else {
+            panic!()
+        };
+        let Expr::Arrow(_, rest) = ty else {
+            panic!("{ty:?}")
+        };
+        assert!(matches!(rest.as_ref(), Expr::Arrow(..)), "{rest:?}");
+    }
+
+    #[test]
+    fn blocks_nest() {
+        let body = rhs("f u =\n  let g = \\x ->\n    say x\n    x\n  g 1\n");
+        assert_eq!(lines(&body), ["let g", "result"]);
+        let Expr::Let { value, .. } = &body else {
+            panic!()
+        };
+        let Expr::Lam(_, inner, _) = value.as_ref() else {
+            panic!("{value:?}")
+        };
+        assert_eq!(lines(inner), ["_", "result"]);
+    }
+
+    #[test]
+    fn let_takes_a_type() {
+        let body = rhs("f u =\n  let r : s -> {e} a = run\n  r\n");
+        let Expr::Let { ty: Some(ty), .. } = &body else {
+            panic!("{body:?}")
+        };
+        assert!(matches!(ty.as_ref(), Expr::Arrow(..)));
+    }
+
+    #[test]
+    fn rows_list_abilities_then_a_tail() {
+        let row = |text: &str| {
+            let module = parse(&format!("f : Nat -> {text} Nat\n"));
+            let Decl::Signature {
+                ty: Expr::Arrow(_, cod),
+                ..
+            } = &module.decls[0]
+            else {
+                panic!()
+            };
+            let Expr::Effect(row, _) = cod.as_ref() else {
+                panic!("{cod:?}")
+            };
+            (
+                row.abilities.len(),
+                row.tail.as_ref().map(|t| t.text.clone()),
+            )
+        };
+        assert_eq!(row("{State s, Abort | e}"), (2, Some("e".into())));
+        assert_eq!(row("{State s}"), (1, None));
+        assert_eq!(row("{e}"), (0, Some("e".into())));
+        assert_eq!(row("{| e}"), (0, Some("e".into())));
+        assert_eq!(row("{}"), (0, None));
+    }
+
+    #[test]
+    fn parses_abilities_and_handlers() {
+        let module = parse(
+            "ability State (s : Type) where\n  get : () -> {State s} s\n  put : s -> {State s} ()\n",
+        );
+        let Decl::Ability { params, ops, .. } = &module.decls[0] else {
+            panic!()
+        };
+        assert_eq!(params.len(), 1);
+        let names: Vec<_> = ops.iter().map(|(n, _)| n.text.as_str()).collect();
+        assert_eq!(names, ["get", "put"]);
+
+        let body = rhs(
+            "f p =\n  handle p () with\n    | return x -> x\n    | get () => k -> k 1\n    | put s => k ->\n      k ()\n",
+        );
+        let Expr::Handle { clauses, .. } = body else {
+            panic!("{body:?}")
+        };
+        assert!(matches!(clauses[0], Clause::Return { .. }));
+        assert!(matches!(
+            &clauses[1],
+            Clause::Op {
+                arg: Pattern::Absurd(_),
+                ..
+            }
+        ));
+        assert!(matches!(
+            &clauses[2],
+            Clause::Op {
+                arg: Pattern::Var(_),
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn unit_is_a_value_and_a_pattern() {
+        assert!(matches!(rhs("f u = g ()\n"), Expr::App(_, ref a) if matches!(**a, Expr::Unit(_))));
+        let module = parse("f () = 1\n");
+        let Decl::Equation { patterns, .. } = &module.decls[0] else {
+            panic!()
+        };
+        assert!(matches!(patterns[0], Pattern::Absurd(_)));
+    }
+
+    #[test]
+    fn rejects_malformed_blocks_and_handlers() {
+        let fails = |text: &str| {
+            let mut sources = SourceMap::new();
+            let file = sources.add("test.sw", text);
+            parse_module(file, text).is_err()
+        };
+        assert!(fails("f u =\n  let x = 1\n"), "a block ending in `let`");
+        assert!(fails("f p = handle p with\n"), "a handler with no clauses");
+        assert!(
+            fails("f p = handle p with | get x k -> k\n"),
+            "a clause without `=>`"
+        );
+        assert!(fails("ability A where\n"), "an ability without operations");
+        assert!(fails("f : Nat -> {State s Nat\n"), "an unclosed row");
     }
 }
