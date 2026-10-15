@@ -31,8 +31,6 @@ agent, then reviews, merges and updates this file.
 Running:
 
 
-- **Mutual recursion, phase 2, stage 1** (lane `mutual-recursion-p2`):
-  size-change termination for single functions.
 - **Playground polish** (lane `playground-polish`): automated headless
   browser tests, editor quirks (resize, Tab and undo), streaming run output,
   maybe an operations budget per run.
@@ -40,13 +38,13 @@ Running:
   `decEqNat`'s `No` proof, and an audit of every native against the
   whole-result obligation, with natives-on/off tests.
 
-Next after that:
-- **Mutual recursion, phase 2, stages 2–3**
+Ready to start:
+- **Mutual recursion, phase 2, stages 2–3** (stage 1 merged as `9eb1487`)
   ([mutual-recursion.md](docs/proposals/mutual-recursion.md), draft 3;
-  two reviews; implementation approved). Wire `crates/core/src/sct.rs` into
-  the termination checker for single functions (Ackermann accepted), then
-  group admission and forward references, then mutual data types. Needs a
-  rule for whether a number case counts as descent (today it doesn't).
+  two reviews; implementation approved). Stage 2: `define_group` with
+  several members, forward references, cycle hashing, scheduling and `auto`
+  diagnostics, the JS calling convention, the §5.5 partition tests. Stage
+  3: mutual data types. A number case adds no descent (decided in stage 1).
 
 Waiting on a decision:
 - **`Partial`** ([partial.md](docs/proposals/partial.md) draft 2, **with
@@ -222,6 +220,7 @@ Nothing queued: choose from **Later**, or continue the lanes above.
 
 ## Recently done
 
+- `9eb1487` Size-change termination for single definitions: Ackermann, swapped arguments and `merge` accepted; partial recursive calls refused with a suggested lambda; one shared entry arity; compared with the old checker on 20,000 generated programs (the new one accepts all the old one did except 7 partial calls).
 - `4776303` JS boundary follow-ups: decoders read only own properties (blocks prototype pollution), shared input decoded once (a 60-level DAG went from never finishing to instant), the generator refuses a definition without a body, DESIGN's boundary table matches what's built.
 - `813fe74` Number patterns: a number switch in kernel case trees; the 256 cap is gone (`statusText 404` works, 10^30 too); `f 256` checks in 0.01 s instead of 2 s; 3 columns × 5 keys from 85 s to under a millisecond; constructor-expansion oracle over 300 generated definitions.
 - `72d3004` Mutual recursion phase 1: draft 3 of the design and the size-change graph algorithm (`sct.rs`), with an independent reference implementation and mutation evidence.
