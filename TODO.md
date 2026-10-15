@@ -47,8 +47,12 @@ Round 2:
   (supports whole-module scope with size-change termination; requires
   kernel-enforced group completeness, a partial-application policy, and an
   honest account of `auto` and scheduling). Draft 2 merged; implementation
-  waits for a **second review** (sent: §5 admission, §6.4 termination,
-  arity, the data-group call, the deferred parts).
+  second review **approves implementation** of the staged design, with
+  specification clarifications: phase-specific reference permissions, one
+  shared definition-entry arity (leading lambdas before the case tree, used
+  everywhere), induction over semantic call instances in §6.4, and a
+  test for arity-zero cycles. Not a completed soundness proof. Waits for
+  the user's go-ahead and for the kernel admission fix to merge.
 - **Kernel admission fix** (lane `kernel-admission`): explicit declaration
   states and the admission rule for single declarations, closing the
   split-cycle and pending-datatype holes (see Known issues). Recommends any order within a file, grouped automatically, with
