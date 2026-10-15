@@ -1,14 +1,20 @@
-//! Termination checking for recursive definitions, by size change
-//! (docs/proposals/mutual-recursion.md §6).
+//! Termination checking for recursive definitions, and groups of definitions
+//! that call each other, by size change (docs/proposals/mutual-recursion.md
+//! §6).
 //!
-//! Every recursive call is summarised as a size-change graph ([`crate::sct`]):
-//! for each of the callee's parameters (its definition-entry arity, `Def::arity`),
-//! whether the argument passed there is strictly smaller than (`<`), or at most
-//! (`≤`), one of the caller's parameters, or unknown. The definition is
-//! accepted if every way of repeating its calls makes some parameter strictly
-//! smaller ([`crate::sct::Group::check`]). So lexicographic recursion
-//! (Ackermann's function) and swapped arguments are accepted, as well as
-//! recursion that decreases the same parameter in every call.
+//! Every call from a member of the group to a member (itself or another) is
+//! summarised as a size-change graph ([`crate::sct`]): for each of the
+//! callee's parameters (its definition-entry arity, `Def::arity`), whether
+//! the argument passed there is strictly smaller than (`<`), or at most
+//! (`≤`), one of the caller's parameters, or unknown. The group is accepted
+//! if every way of repeating its calls, in any order the calls allow, makes
+//! some parameter strictly smaller ([`crate::sct::Group::check`]). So
+//! lexicographic recursion (Ackermann's function), swapped arguments and a
+//! wrapper that passes its argument on unchanged to a helper that makes it
+//! smaller are accepted, as well as recursion that decreases the same
+//! parameter in every call. Calls between *different* members are part of
+//! the analysis exactly like calls to itself (Rocq's CVE-2026-72703 came from
+//! leaving them out).
 //!
 //! An argument's relation comes only from the terms, never from types:
 //!
@@ -30,14 +36,15 @@
 //! Each argument is related to at most one parameter, the one it was matched
 //! out of, so each graph has at most one arc into each position.
 //!
-//! **Every recursive occurrence is a call**, wherever it is: under lambdas,
+//! **Every occurrence of a member is a call**, wherever it is: under lambdas,
 //! inside types and inside the arguments of other calls. Each application
-//! spine headed by the definition is one call, with its own graph, never
-//! merged with another; all its arguments are then walked for further calls,
-//! including any beyond the arity. **Recursive occurrences must be saturated**:
-//! applied to at least the entry arity's arguments, so that the call's graph
-//! says what every parameter is given. A bare or partial occurrence is
-//! refused, with a suggestion to write `\x -> f a x` (§6.3).
+//! spine headed by a member is one call, with its own graph, never merged
+//! with another (even one with the same caller and callee); all its
+//! arguments are then walked for further calls, including any beyond the
+//! arity. **Occurrences of members must be saturated**: applied to at least
+//! the callee's entry arity's arguments, so that the call's graph says what
+//! every parameter is given. A bare or partial occurrence is refused, with a
+//! suggestion to write `\x -> f a x` (§6.3).
 
 use stitchwort_syntax::{Diagnostic, Span};
 
@@ -48,7 +55,7 @@ use crate::sct::{self, Label, Outcome};
 use crate::term::{DataId, DefId, Icit, Name, Term};
 
 /// Checks that `body`, the checked body of definition `self_id` (which hasn't
-/// got a body yet), terminates.
+/// got a body yet), terminates: a group of one.
 pub fn check(
     g: &Globals,
     body: &Term,
@@ -69,66 +76,117 @@ pub fn check_with_limit(
     span: Span,
     max_graphs: usize,
 ) -> Result<(), Diagnostic> {
-    let arity = g.def(self_id).arity;
-    if body.count_lams() != arity {
-        return Err(Diagnostic::error(
-            "E-MALFORMED",
-            format!(
-                "malformed core term: `{name}`'s body doesn't start with its {arity} parameters"
-            ),
-        )
-        .with_label(span, "in this definition")
-        .with_note("this is a bug in the compiler, not in your program"));
-    }
-    let mut params = Vec::new();
-    let mut tree = body.strip_loc();
-    while let Term::Lam(x, icit, inner) = tree {
-        params.push((x.clone(), *icit));
-        tree = inner.strip_loc();
-    }
-    let mut walker = Walker {
-        g,
-        self_id,
-        name,
-        params: &params,
-        infos: params
-            .iter()
-            .enumerate()
-            .map(|(i, (x, _))| Info {
-                name: x.clone(),
-                param: Some(i),
-                smaller_than: None,
-                recursive_fn: false,
-            })
-            .collect(),
-        calls: Vec::new(),
-        matched: Vec::new(),
-        span,
-    };
-    walker.walk(tree)?;
+    check_members(g, &[(self_id, body, name, span)], max_graphs)
+}
 
-    let mut group = sct::Group::new(vec![arity]);
-    for call in &walker.calls {
+/// A member of a group being checked: a definition (pending, with its arity
+/// set) and its checked body.
+pub struct Member<'a> {
+    pub id: DefId,
+    pub body: &'a Term,
+}
+
+/// Checks that the members of a group terminate together: every call from
+/// any member to any member is in the analysis. Allows at most `max_graphs`
+/// distinct graphs in the closure of the calls.
+pub fn check_group(g: &Globals, members: &[Member], max_graphs: usize) -> Result<(), Diagnostic> {
+    let members: Vec<(DefId, &Term, &str, Span)> = members
+        .iter()
+        .map(|m| {
+            let def = g.def(m.id);
+            (m.id, m.body, &*def.name, def.span)
+        })
+        .collect();
+    check_members(g, &members, max_graphs)
+}
+
+/// The parameters of a member: its entry lambdas' names and implicitness.
+type Params = Vec<(Name, Icit)>;
+
+/// What the error messages need to know about a member.
+struct MemberInfo<'a> {
+    name: &'a str,
+    params: Params,
+    span: Span,
+}
+
+fn check_members(
+    g: &Globals,
+    members: &[(DefId, &Term, &str, Span)],
+    max_graphs: usize,
+) -> Result<(), Diagnostic> {
+    let ids: Vec<DefId> = members.iter().map(|m| m.0).collect();
+    let mut infos = Vec::new();
+    let mut trees = Vec::new();
+    for &(id, body, name, span) in members {
+        let arity = g.def(id).arity;
+        if body.count_lams() != arity {
+            return Err(Diagnostic::error(
+                "E-MALFORMED",
+                format!(
+                    "malformed core term: `{name}`'s body doesn't start with its {arity} \
+                     parameters"
+                ),
+            )
+            .with_label(span, "in this definition")
+            .with_note("this is a bug in the compiler, not in your program"));
+        }
+        let mut params = Vec::new();
+        let mut tree = body.strip_loc();
+        while let Term::Lam(x, icit, inner) = tree {
+            params.push((x.clone(), *icit));
+            tree = inner.strip_loc();
+        }
+        infos.push(MemberInfo { name, params, span });
+        trees.push(tree);
+    }
+    let mut calls = Vec::new();
+    for (from, tree) in trees.into_iter().enumerate() {
+        let params = &infos[from].params;
+        let mut walker = Walker {
+            g,
+            members: &ids,
+            infos: &infos,
+            from,
+            vars: params
+                .iter()
+                .enumerate()
+                .map(|(i, (x, _))| Info {
+                    name: x.clone(),
+                    param: Some(i),
+                    smaller_than: None,
+                    recursive_fn: false,
+                })
+                .collect(),
+            calls: Vec::new(),
+            matched: Vec::new(),
+            span: infos[from].span,
+        };
+        walker.walk(tree)?;
+        calls.extend(walker.calls);
+    }
+
+    let mut group = sct::Group::new(infos.iter().map(|m| m.params.len()).collect());
+    for call in &calls {
         group
-            .call(0, 0, &call.arcs)
-            .expect("internal error: a call's arcs are within the arity");
+            .call(call.from, call.to, &call.arcs)
+            .expect("internal error: a call's arcs are within the arities");
     }
     match group.check(&g.budget, max_graphs) {
         Ok(Outcome::Terminates) => Ok(()),
-        Ok(Outcome::NoDescent { path, graph }) => Err(no_descent(
-            name,
-            &params,
-            &walker.calls,
-            &path,
-            graph.entries(),
-        )),
-        Err(e) => Err(inconclusive(e, name, span)),
+        Ok(Outcome::NoDescent { path, graph }) => {
+            Err(no_descent(&infos, &calls, &path, graph.entries()))
+        }
+        Err(e) => Err(inconclusive(e, &infos)),
     }
 }
 
-/// A recursive call: an arc `(caller position, callee position, label)` for
-/// each argument related to a parameter, and where it is.
+/// A call from one member to another (or itself): an arc `(caller position,
+/// callee position, label)` for each argument related to a parameter, and
+/// where it is.
 struct Call {
+    from: usize,
+    to: usize,
     arcs: Vec<(usize, usize, Label)>,
     span: Span,
 }
@@ -143,14 +201,15 @@ struct Info {
     recursive_fn: bool,
 }
 
+/// Walks the body of member `from`, recording its calls.
 struct Walker<'a> {
     g: &'a Globals,
-    self_id: DefId,
-    name: &'a str,
-    /// The definition's parameters (its entry lambdas): names and implicitness.
-    params: &'a [(Name, Icit)],
-    /// Indexed by de Bruijn level.
-    infos: Vec<Info>,
+    /// The group's members, by position.
+    members: &'a [DefId],
+    infos: &'a [MemberInfo<'a>],
+    from: usize,
+    /// The variables in scope, indexed by de Bruijn level.
+    vars: Vec<Info>,
     calls: Vec<Call>,
     /// The case branches we're inside: the variable matched (a level), and
     /// the constructor and the levels of its fields in this branch.
@@ -189,18 +248,18 @@ impl Walker<'_> {
             }
             Term::Var(_) | Term::Nat(_) | Term::Sort(_) | Term::Refl | Term::Meta(_) => {}
             Term::Def(id) => {
-                if *id == self.self_id {
-                    self.call(&[])?;
+                if let Some(to) = self.member(*id) {
+                    self.call(to, &[])?;
                 }
             }
             Term::App(..) => {
                 let (head, args) = term.spine();
                 if let Term::Def(id) = head
-                    && *id == self.self_id
+                    && let Some(to) = self.member(*id)
                 {
                     // One call for the whole spine; the head isn't walked
                     // again, or it would count as a bare reference too.
-                    self.call(&args)?;
+                    self.call(to, &args)?;
                 } else {
                     self.walk(head)?;
                 }
@@ -223,9 +282,9 @@ impl Walker<'_> {
                 self.walk(t)?;
             }
             Term::Case(ix, d, branches) => {
-                let scrutinee = &self.infos[self.infos.len() - 1 - ix];
+                let scrutinee = &self.vars[self.vars.len() - 1 - ix];
                 let source = scrutinee.param.or(scrutinee.smaller_than);
-                let level = self.infos.len();
+                let level = self.vars.len();
                 let g = self.g;
                 for (c, branch) in branches.iter().enumerate() {
                     self.matched.push(Matched {
@@ -269,13 +328,18 @@ impl Walker<'_> {
         Ok(())
     }
 
-    /// Records a recursive occurrence applied to `args`: a call, if it's
-    /// given all the definition's parameters. Arguments beyond them get no
+    /// The position in the group of definition `id`, if it's a member.
+    fn member(&self, id: DefId) -> Option<usize> {
+        self.members.iter().position(|m| *m == id)
+    }
+
+    /// Records an occurrence of member `to` applied to `args`: a call, if
+    /// it's given all of `to`'s parameters. Arguments beyond them get no
     /// entry in the graph (the caller still walks them).
-    fn call(&mut self, args: &[&Term]) -> Result<(), Diagnostic> {
-        let arity = self.params.len();
+    fn call(&mut self, to: usize, args: &[&Term]) -> Result<(), Diagnostic> {
+        let arity = self.infos[to].params.len();
         if args.len() < arity {
-            return Err(self.unsaturated(args));
+            return Err(self.unsaturated(to, args));
         }
         let arcs = args[..arity]
             .iter()
@@ -283,6 +347,8 @@ impl Walker<'_> {
             .filter_map(|(j, arg)| self.relate(arg).map(|(i, label)| (i, j, label)))
             .collect();
         self.calls.push(Call {
+            from: self.from,
+            to,
             arcs,
             span: self.span,
         });
@@ -293,8 +359,8 @@ impl Walker<'_> {
     /// parameter, a variable matched from one, a recursive function field
     /// applied to arguments, or a constructor rebuilding a matched value.
     fn relate(&self, arg: &Term) -> Option<(usize, Label)> {
-        let level = self.infos.len();
-        let info = |ix: usize| self.infos.get(level.checked_sub(ix + 1)?);
+        let level = self.vars.len();
+        let info = |ix: usize| self.vars.get(level.checked_sub(ix + 1)?);
         let related = |info: &Info| match (info.param, info.smaller_than) {
             (Some(i), _) => Some((i, Label::Le)),
             (None, Some(i)) => Some((i, Label::Lt)),
@@ -325,7 +391,7 @@ impl Walker<'_> {
                 let m = self.matched.iter().rev().find(|m| {
                     m.data == *d && m.ctor == *c && m.fields.clone().eq(fields.iter().copied())
                 })?;
-                related(&self.infos[m.scrutinee])
+                related(&self.vars[m.scrutinee])
             }
             _ => None,
         }
@@ -340,7 +406,7 @@ impl Walker<'_> {
         body: &Term,
     ) -> Result<(), Diagnostic> {
         for (name, recursive_fn) in binders {
-            self.infos.push(Info {
+            self.vars.push(Info {
                 name: name.clone(),
                 param: None,
                 smaller_than,
@@ -348,18 +414,18 @@ impl Walker<'_> {
             });
         }
         let result = self.walk(body);
-        self.infos.truncate(self.infos.len() - binders.len());
+        self.vars.truncate(self.vars.len() - binders.len());
         result
     }
 
-    /// The error for a recursive occurrence given only `args`, suggesting a
-    /// lambda that takes the rest.
-    fn unsaturated(&self, args: &[&Term]) -> Diagnostic {
-        let name = self.name;
+    /// The error for an occurrence of member `to` given only `args`,
+    /// suggesting a lambda that takes the rest.
+    fn unsaturated(&self, to: usize, args: &[&Term]) -> Diagnostic {
+        let MemberInfo { name, params, .. } = &self.infos[to];
         let explicit =
             |params: &[(Name, Icit)]| params.iter().filter(|(_, i)| *i == Icit::Explicit).count();
-        let (given, missing) = self.params.split_at(args.len());
-        let names: Vec<Name> = self.infos.iter().map(|info| info.name.clone()).collect();
+        let (given, missing) = params.split_at(args.len());
+        let names: Vec<Name> = self.vars.iter().map(|info| info.name.clone()).collect();
         let mut fresh = Vec::new();
         for _ in 0..explicit(missing) {
             let taken =
@@ -385,7 +451,7 @@ impl Walker<'_> {
             }
         }
         let suggestion = format!("\\{} -> {call} {}", fresh.join(" "), fresh.join(" "));
-        let (wanted, got) = (explicit(self.params), explicit(given));
+        let (wanted, got) = (explicit(params), explicit(given));
         let plural = |n: usize| if n == 1 { "argument" } else { "arguments" };
         let label = if args.is_empty() {
             format!(
@@ -404,61 +470,114 @@ impl Walker<'_> {
         )
         .with_label(self.span, label)
         .with_note(format!("write `{suggestion}` so the call can be checked"))
-        .with_note(
+        .with_note(if self.members.len() > 1 {
+            "a call between definitions that call each other must be given all the arguments, so \
+             the termination checker can see what each one is"
+        } else {
             "a recursive call must be given all the arguments, so the termination checker can \
-             see what each one is",
-        )
+             see what each one is"
+        })
     }
 }
 
 /// The error for a cycle of calls (`path`, composing to `entries`) in which
 /// no parameter gets smaller.
 fn no_descent(
-    name: &str,
-    params: &[(Name, Icit)],
+    members: &[MemberInfo],
     calls: &[Call],
     path: &[sct::CallId],
     entries: &[Option<sct::Arc>],
 ) -> Diagnostic {
-    let mut diagnostic = Diagnostic::error(
-        "E-TERMINATION",
-        format!("can't show that `{name}` terminates"),
-    );
+    // The members on the cycle, in the order it visits them.
+    let mut on_cycle: Vec<usize> = Vec::new();
+    for &c in path {
+        if !on_cycle.contains(&calls[c].from) {
+            on_cycle.push(calls[c].from);
+        }
+    }
+    let quoted = |m: usize| format!("`{}`", members[m].name);
+    let message = match &on_cycle[..] {
+        [m] => format!("can't show that {} terminates", quoted(*m)),
+        ms => {
+            let (last, rest) = ms.split_last().expect("a cycle has a member");
+            let rest: Vec<String> = rest.iter().map(|m| quoted(*m)).collect();
+            format!(
+                "can't show that {} and {} terminate",
+                rest.join(", "),
+                quoted(*last)
+            )
+        }
+    };
+    let mut diagnostic = Diagnostic::error("E-TERMINATION", message);
+    let single = members.len() == 1;
     let mut labelled: Vec<sct::CallId> = Vec::new();
     for &c in path {
         if labelled.contains(&c) {
             continue;
         }
-        let what = if params.is_empty() {
-            format!("`{name}` has no parameters, so nothing can get smaller")
+        let call = &calls[c];
+        let (from, to) = (&members[call.from], &members[call.to]);
+        let what = if to.params.is_empty() {
+            if single {
+                format!(
+                    "`{}` has no parameters, so nothing can get smaller",
+                    to.name
+                )
+            } else {
+                format!(
+                    "`{}` takes no arguments, so nothing can get smaller",
+                    to.name
+                )
+            }
         } else {
-            describe(params, &calls[c].arcs)
+            describe(from, to, call.from == call.to, &call.arcs)
+        };
+        // In a group, say where each call goes.
+        let call_to = if single {
+            "call".to_string()
+        } else {
+            format!("call to `{}`", to.name)
         };
         let message = if labelled.is_empty() {
-            format!("this recursive call might not terminate: {what}")
+            let call_to = if single {
+                "recursive call".to_string()
+            } else {
+                call_to
+            };
+            format!("this {call_to} might not terminate: {what}")
         } else {
-            format!("then this call: {what}")
+            format!("then this {call_to}: {what}")
         };
-        diagnostic = diagnostic.with_label(calls[c].span, message);
+        diagnostic = diagnostic.with_label(call.span, message);
         labelled.push(c);
     }
     // A single call's label says it all; otherwise say what going round the
     // cycle does overall.
-    if path.len() > 1 && !params.is_empty() {
-        let round = match (labelled.len(), path.len()) {
-            (1, 2) => "making this call twice in a row".to_string(),
-            (1, n) => format!("making this call {n} times in a row"),
-            _ => "making these calls one after the other".to_string(),
+    let start = &members[calls[path[0]].from];
+    if path.len() > 1 && !start.params.is_empty() {
+        let round = if on_cycle.len() > 1 {
+            let names: Vec<String> = path
+                .iter()
+                .map(|c| quoted(calls[*c].from))
+                .chain([quoted(calls[path[0]].from)])
+                .collect();
+            format!("going round {}", names.join(" → "))
+        } else {
+            match (labelled.len(), path.len()) {
+                (1, 2) => "making this call twice in a row".to_string(),
+                (1, n) => format!("making this call {n} times in a row"),
+                _ => "making these calls one after the other".to_string(),
+            }
         };
         let overall: Vec<(usize, usize, Label)> = entries
             .iter()
             .enumerate()
             .filter_map(|(j, e)| e.map(|a| (a.from, j, a.label)))
             .collect();
-        let note = if overall.iter().any(|(i, j, _)| shown(params, *i, *j)) {
+        let note = if overall.iter().any(|(i, j, _)| shown(start, start, *i, *j)) {
             format!(
                 "{round}, over and over: {}, so no argument keeps getting smaller",
-                describe(params, &overall)
+                describe(start, start, true, &overall)
             )
         } else {
             format!("{round}, over and over, no argument is known to get smaller")
@@ -474,10 +593,16 @@ fn no_descent(
         .with_note("non-terminating definitions are rejected; `{Partial}` isn't implemented yet")
 }
 
-/// Says in words what a call (or a cycle of calls) passes: for each
-/// argument position related to a parameter, how.
-fn describe(params: &[(Name, Icit)], arcs: &[(usize, usize, Label)]) -> String {
-    let position = |i: usize| {
+/// Says in words what a call (or a cycle of calls) from member `from` to
+/// member `to` passes: for each argument position related to a parameter,
+/// how. `same` if they're the same member.
+fn describe(
+    from: &MemberInfo,
+    to: &MemberInfo,
+    same: bool,
+    arcs: &[(usize, usize, Label)],
+) -> String {
+    let position = |params: &Params, i: usize| {
         let (x, icit) = &params[i];
         if *icit == Icit::Explicit {
             let n = params[..i]
@@ -492,16 +617,25 @@ fn describe(params: &[(Name, Icit)], arcs: &[(usize, usize, Label)]) -> String {
     };
     let parts: Vec<String> = arcs
         .iter()
-        .filter(|(i, j, label)| *label == Label::Lt || shown(params, *i, *j))
-        .map(|&(i, j, label)| match (label, i == j) {
-            (Label::Lt, true) => format!("the {} gets smaller", position(j)),
-            (Label::Le, true) => format!("the {} stays the same", position(j)),
-            (Label::Lt, false) => format!(
-                "the {} is smaller than the {} was",
-                position(j),
-                position(i)
-            ),
-            (Label::Le, false) => format!("the {} is what the {} was", position(j), position(i)),
+        .filter(|(i, j, label)| *label == Label::Lt || shown(from, to, *i, *j))
+        .map(|&(i, j, label)| {
+            let (theirs, ours) = (position(&to.params, j), position(&from.params, i));
+            if same {
+                match (label, i == j) {
+                    (Label::Lt, true) => format!("the {theirs} gets smaller"),
+                    (Label::Le, true) => format!("the {theirs} stays the same"),
+                    (Label::Lt, false) => format!("the {theirs} is smaller than the {ours} was"),
+                    (Label::Le, false) => format!("the {theirs} is what the {ours} was"),
+                }
+            } else {
+                let (callee, caller) = (to.name, from.name);
+                match label {
+                    Label::Lt => {
+                        format!("`{callee}`'s {theirs} is smaller than `{caller}`'s {ours}")
+                    }
+                    Label::Le => format!("`{callee}`'s {theirs} is `{caller}`'s {ours}"),
+                }
+            }
         })
         .collect();
     if parts.is_empty() {
@@ -511,10 +645,11 @@ fn describe(params: &[(Name, Icit)], arcs: &[(usize, usize, Label)]) -> String {
     }
 }
 
-/// Whether to mention an arc from parameter `i` to `j` that isn't strict:
-/// not if both are implicit (a type passed on unchanged, say).
-fn shown(params: &[(Name, Icit)], i: usize, j: usize) -> bool {
-    params[i].1 == Icit::Explicit || params[j].1 == Icit::Explicit
+/// Whether to mention an arc from parameter `i` of `from` to parameter `j`
+/// of `to` that isn't strict: not if both are implicit (a type passed on
+/// unchanged, say).
+fn shown(from: &MemberInfo, to: &MemberInfo, i: usize, j: usize) -> bool {
+    from.params[i].1 == Icit::Explicit || to.params[j].1 == Icit::Explicit
 }
 
 fn ordinal(n: usize) -> String {
@@ -527,12 +662,26 @@ fn ordinal(n: usize) -> String {
     format!("{n}{suffix}")
 }
 
-/// Running out while deciding the calls: there's no answer, so the
-/// definition isn't accepted.
-fn inconclusive(e: ResourceError, name: &str, span: Span) -> Diagnostic {
+/// Running out while deciding the calls: there's no answer, so no member
+/// is accepted.
+fn inconclusive(e: ResourceError, members: &[MemberInfo]) -> Diagnostic {
+    let names: Vec<String> = members.iter().map(|m| format!("`{}`", m.name)).collect();
+    let (checking, accepted) = match &names[..] {
+        [name] => (
+            format!("while checking that {name} terminates"),
+            format!("{name} isn't accepted"),
+        ),
+        _ => {
+            let all = names.join(", ");
+            (
+                format!("while checking that {all} terminate"),
+                format!("none of {all} is accepted"),
+            )
+        }
+    };
     Diagnostic::from(e)
-        .with_label(span, format!("while checking that `{name}` terminates"))
+        .with_label(members[0].span, checking)
         .with_note(format!(
-            "the termination check is inconclusive, so `{name}` isn't accepted"
+            "the termination check is inconclusive, so {accepted}"
         ))
 }

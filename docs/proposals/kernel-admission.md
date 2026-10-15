@@ -42,7 +42,7 @@ submitted terms. The pending references each part may make:
 | Part being checked | Pending references allowed |
 |---|---|
 | A definition's signature; a data type's parameters | None |
-| A definition's body | The definition itself (opaque while it's checked, as before) |
+| A definition's body | The members of its group, including itself (opaque while they're checked) |
 | A data type's constructor fields | The data type itself, as a type: not its constructors, and no `case` on it |
 | An export's validator | None (and the export must be final) |
 
@@ -73,7 +73,7 @@ In `crates/core/src/check.rs`, by `admissible`:
 | Function | Walks | Requires |
 |---|---|---|
 | `declare_def` | the signature | |
-| `define_def` | the signature again, and the body | the definition is pending |
+| `define_group` (and `define_def`, a group of one) | each signature again, and each body | every member is pending, and listed once |
 | `declare_data` | the parameters | |
 | `define_ctors` | the parameters again, and the fields | the data type is pending |
 | `add_validator` | the decision | the export and `Decidable` are final |
@@ -128,7 +128,7 @@ apply to single declarations:
     never declared: refused, and nothing is added.
 12. A pending data type has no hash (in `crates/core/tests/hash.rs`).
 
-§5.5 tests 8 (adding a member to an existing group) and 9 (incorrect
-partitions of a group) need groups and are left to the mutual-recursion
-work, as are §5.3–§5.4's group admission and the
-mixed-group rule.
+§5.5 test 9 (incorrect partitions of a group), §5.3's group admission and
+the mixed-group rule are built with function groups (mutual-recursion.md
+§10.2, tests in `crates/core/tests/groups.rs`). §5.5 test 8 (adding a member
+to an existing data group) and §5.4 wait for data groups.

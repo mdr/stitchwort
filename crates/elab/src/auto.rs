@@ -8,7 +8,12 @@
 //!    `if h : d != 0 then n / d else 0`);
 //! 2. a decision procedure for `P`: any definition whose result type is
 //!    `Decidable …`, trying the most recently defined first (so a file's own
-//!    procedures take priority over the prelude's). Its arguments are found by unification, and any
+//!    procedures take priority over the prelude's). Only definitions that
+//!    are already checked, and, in the same module, written above the use:
+//!    declarations may be checked out of source order
+//!    (docs/proposals/mutual-recursion.md §8.1), and one waiting for its
+//!    dependencies isn't available yet. That's a deliberate limitation;
+//!    passing a procedure explicitly makes it a dependency, checked first. Its arguments are found by unification, and any
 //!    `Decidable` or auto arguments it needs are found recursively. It's run at
 //!    compile time, and must say `Yes`. The proof is then `fromYes d Trivial`,
 //!    which the kernel re-checks by running `d` itself.
@@ -118,13 +123,18 @@ pub fn decide(cx: &mut Ctx, prop: &Value, depth: usize) -> Result<Term> {
         }
     }
     let shown = cx.show(prop);
-    Err(cx
+    let error = cx
         .error(
             "E-AUTO-NONE",
             format!("no way to decide `{shown}`"),
             "the compiler needs a proof of this",
         )
-        .with_note("supply a proof by name, or write a decision procedure: a function returning `Decidable …`"))
+        .with_note("supply a proof by name, or write a decision procedure: a function returning `Decidable …`");
+    Err(cx
+        .e
+        .auto_hints()
+        .into_iter()
+        .fold(error, Diagnostic::with_note))
 }
 
 /// Runs `f`, undoing any metavariable solutions it made unless it succeeds.
@@ -160,8 +170,8 @@ fn decision_procedures(cx: &Ctx, decidable: DataId) -> Result<Vec<DefId>> {
     let mut found = Vec::new();
     for id in (0..g.defs.len()).rev().map(DefId) {
         let def = g.def(id);
-        if def.body.is_none() {
-            continue; // not finished checking (e.g. the one being defined)
+        if !cx.e.auto_eligible(id) {
+            continue; // not checked yet, or below the use
         }
         let mut ty = def.ty_value.clone();
         let mut level = 0;

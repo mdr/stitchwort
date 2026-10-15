@@ -296,6 +296,7 @@ fn clone_def(def: &stitchwort_core::globals::Def) -> stitchwort_core::globals::D
         body: def.body.clone(),
         state: def.state,
         arity: def.arity,
+        group: def.group.clone(),
         theorem: def.theorem,
         export: false,
         validators: Vec::new(),

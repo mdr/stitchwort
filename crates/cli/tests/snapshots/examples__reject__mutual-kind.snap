@@ -1,0 +1,19 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-MUTUAL-KIND] Error: `Code` and `Decode` refer to each other, but data types and definitions can't be defined together
+   ╭─[ reject/mutual-kind.sw:4:6 ]
+   │
+ 4 │ type Code : Type =
+   │      ──┬─  
+   │        ╰─── `Code` is defined here
+   │ 
+ 8 │ Decode : Code -> Type
+   │ ───┬──  
+   │    ╰──── `Decode` is defined here
+   │ 
+   │ Note 1: `Code` uses `Decode`, which uses `Code`
+   │ 
+   │ Note 2: a data type's constructors can't use a definition that's being defined with it, and a definition can't use a data type before its constructors are finished
+───╯

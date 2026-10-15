@@ -376,7 +376,11 @@ pub fn generate_with(g: &Globals, limits: Limits, options: Options) -> Result<Ou
         js.push_str(&codegen.define(d));
     }
     js.push('\n');
-    // Only what the exports use, in declaration order (which is dependency order).
+    // Only what the exports use, in declaration order. That's dependency
+    // order: the kernel admits each group only once what it uses is final,
+    // so a definition refers only to earlier ones and to members of its own
+    // group. Those are thunks or functions, never values, so they look each
+    // other up only when called, after all of them are defined.
     let used = reachable(g, exports.iter().map(|sig| sig.id), |id| {
         codegen.erased[id.0].0
             || g.builtins.native(id).is_some()
@@ -873,8 +877,32 @@ struct Gen<'g> {
     /// Per definition: whether it's erased, and which of its leading
     /// parameters (up to its arity) are erased.
     erased: Vec<(bool, Vec<bool>)>,
+    /// Per definition: how it's compiled and called, decided once here and
+    /// used at every site.
+    conventions: Vec<Convention>,
     /// The prelude's `ifThenElse`, which `if` becomes.
     if_then_else: Option<DefId>,
+}
+
+/// How a definition is compiled, and so how every site uses it: its
+/// declaration, references to it, applications, first-class uses and export
+/// wrappers (docs/proposals/mutual-recursion.md §8.6).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Convention {
+    /// A proof or a type: nothing is generated, and it's `undefined`.
+    Erased,
+    /// No runtime parameters, not a case tree and not in a group: `const f =
+    /// …;`, computed when the module loads, used as `f`.
+    Value,
+    /// No runtime parameters, and either a case tree (like `absurd`, whose
+    /// case is on an erased proof, so it mustn't run until it's used) or a
+    /// member of a group of definitions that call each other (which mustn't
+    /// call a sibling while the module loads, before the sibling is
+    /// defined): `const f = () => …;`, used as `f()`.
+    Thunk,
+    /// Runtime parameters: `const f = (v0) => …;`, used as `f`, applied as
+    /// `f(a)`.
+    Function,
 }
 
 /// The definition being generated, for turning calls to itself in tail
@@ -901,7 +929,29 @@ impl<'g> Gen<'g> {
                     .collect();
                 Ok((tel.result_erased, mask))
             })
-            .collect::<Result<_, Diagnostic>>()?;
+            .collect::<Result<Vec<(bool, Vec<bool>)>, Diagnostic>>()?;
+        let conventions = g
+            .defs
+            .iter()
+            .zip(&erased)
+            .map(|(def, (erased, mask))| {
+                if *erased {
+                    return Convention::Erased;
+                }
+                if mask.iter().any(|e| !e) {
+                    return Convention::Function;
+                }
+                let case_tree = def.body.as_ref().is_some_and(|b| {
+                    matches!(b.peel_lams(def.arity), Term::Case(..) | Term::NumCase(..))
+                });
+                let in_group = def.group.as_ref().is_some_and(|m| m.len() > 1);
+                if case_tree || in_group {
+                    Convention::Thunk
+                } else {
+                    Convention::Value
+                }
+            })
+            .collect();
         let text = g.find_data("Text").filter(|d| {
             let data = g.data(*d);
             options.native_text
@@ -925,6 +975,7 @@ impl<'g> Gen<'g> {
             text,
             text_natives,
             erased,
+            conventions,
             if_then_else: g
                 .defs
                 .iter()
@@ -935,8 +986,9 @@ impl<'g> Gen<'g> {
 
     fn def(&self, id: DefId) -> Fallible<String> {
         let def = self.g.def(id);
-        let (erased, mask) = &self.erased[id.0];
-        if *erased {
+        let (_, mask) = &self.erased[id.0];
+        let convention = self.conventions[id.0];
+        if convention == Convention::Erased {
             return Ok(String::new());
         }
         let Some(body) = &def.body else {
@@ -974,20 +1026,21 @@ impl<'g> Gen<'g> {
                 ));
             }
             let block = self.tree(tree, &mut env, 1, None)?;
-            if params.is_empty() {
-                // No runtime parameters, but a case on an erased proof (like
-                // `absurd`): a function, so it only runs when it's used.
-                format!("() => {{\n{block}}}")
-            } else {
-                format!("{{\n{block}}}")
+            match convention {
+                Convention::Thunk => format!("() => {{\n{block}}}"),
+                _ => format!("{{\n{block}}}"),
             }
         } else {
             let rhs = self.expr(tree, &mut env)?;
             // An object literal after `=>` needs parentheses.
-            if !params.is_empty() && rhs.starts_with('{') {
+            let rhs = if convention != Convention::Value && rhs.starts_with('{') {
                 format!("({rhs})")
             } else {
                 rhs
+            };
+            match convention {
+                Convention::Thunk => format!("() => {rhs}"),
+                _ => rhs,
             }
         };
         Ok(format!("const {} = {params}{rhs};\n", def_name(&def.name)))
@@ -1280,32 +1333,18 @@ impl<'g> Gen<'g> {
 
     /// A call to a definition, leaving out its erased arguments.
     fn def_ref(&self, id: DefId, args: &[&Term], env: &mut Vec<bool>) -> Fallible<String> {
-        let (erased, mask) = &self.erased[id.0];
-        if *erased {
-            return Ok("undefined".into());
-        }
-        let mut out = def_name(&self.g.def(id).name);
-        if self.is_thunk(id) {
-            out.push_str("()");
-        }
+        let (_, mask) = &self.erased[id.0];
+        let mut out = match self.conventions[id.0] {
+            Convention::Erased => return Ok("undefined".into()),
+            Convention::Thunk => format!("{}()", def_name(&self.g.def(id).name)),
+            Convention::Value | Convention::Function => def_name(&self.g.def(id).name),
+        };
         for (i, arg) in args.iter().enumerate() {
             if !mask.get(i).copied().unwrap_or(false) {
                 let _ = write!(out, "({})", self.expr(arg, env)?);
             }
         }
         Ok(out)
-    }
-
-    /// A definition with a case tree but no runtime parameters is compiled to
-    /// a function of no arguments (see [`Gen::def`]).
-    fn is_thunk(&self, id: DefId) -> bool {
-        let def = self.g.def(id);
-        let (erased, mask) = &self.erased[id.0];
-        !erased
-            && mask.iter().all(|e| *e)
-            && def.body.as_ref().is_some_and(|b| {
-                matches!(b.peel_lams(def.arity), Term::Case(..) | Term::NumCase(..))
-            })
     }
 
     /// `function $$f(…)`, exported as `f`: decode the inputs, run the
@@ -1321,6 +1360,9 @@ impl<'g> Gen<'g> {
             params.join(", ")
         );
         let mut call = def_name(&self.g.def(sig.id).name);
+        if self.conventions[sig.id.0] == Convention::Thunk {
+            call.push_str("()");
+        }
         for ((x, b), position) in sig.params.iter().zip(&sig.param_positions) {
             let _ = writeln!(
                 out,

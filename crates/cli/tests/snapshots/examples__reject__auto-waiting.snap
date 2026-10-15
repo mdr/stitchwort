@@ -1,0 +1,17 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-AUTO-NONE] Error: no way to decide `Token`
+    ╭─[ reject/auto-waiting.sw:15:10 ]
+    │
+ 15 │ client = needsToken
+    │          ─────┬────  
+    │               ╰────── the compiler needs a proof of this
+    │ 
+    │ Note 1: supply a proof by name, or write a decision procedure: a function returning `Decidable …`
+    │ 
+    │ Note 2: `decToken` is above `client`, but isn't checked yet: `decToken` uses `laterHelper`, which is checked after `client`. Pass it explicitly, so it's checked first
+    │ 
+    │ Note 3: `auto` only uses decision procedures defined above where it's used, and `laterHelper` is below: move it above `client`, or pass it explicitly
+────╯

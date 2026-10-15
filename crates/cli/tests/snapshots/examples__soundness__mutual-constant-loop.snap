@@ -1,0 +1,19 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TERMINATION] Error: can't show that `c` and `d` terminate
+   ╭─[ soundness/mutual-constant-loop.sw:5:1 ]
+   │
+ 5 │ c : Nat
+   │ ───┬───  
+   │    ╰───── this call to `d` might not terminate: `d` takes no arguments, so nothing can get smaller
+   │ 
+ 8 │ d : Nat
+   │ ───┬───  
+   │    ╰───── then this call to `c`: `c` takes no arguments, so nothing can get smaller
+   │ 
+   │ Note 1: however the recursive calls are repeated, some argument must get smaller (a part of a pattern-matched constructor); an argument passed on unchanged, or rebuilt from its own pattern, is no smaller
+   │ 
+   │ Note 2: non-terminating definitions are rejected; `{Partial}` isn't implemented yet
+───╯

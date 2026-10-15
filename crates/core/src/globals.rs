@@ -32,12 +32,17 @@ pub struct Def {
     pub body: Option<Rc<Term>>,
     pub state: State,
     /// The definition-entry arity: the number of leading lambdas in the
-    /// submitted body (`Term::count_lams`), set by `define_def` before the
-    /// body is checked. Recursive occurrences must be applied to at least
+    /// submitted body (`Term::count_lams`), set by `define_group` before any
+    /// body of the group is checked. Recursive occurrences must be applied to at least
     /// this many arguments, and termination relates calls to these
     /// parameters; the definition unfolds once it's applied to this many
     /// arguments and its case tree can make progress.
     pub arity: usize,
+    /// The function group this definition was submitted in (`define_group`),
+    /// in submission order, including itself: `None` until then. Set once,
+    /// when the group is submitted, and never changed. Hashing and extraction
+    /// treat members of a group of two or more as one unit.
+    pub group: Option<Rc<[DefId]>>,
     pub theorem: bool,
     pub export: bool,
     /// For an export: how to check each proof parameter at runtime.

@@ -470,6 +470,8 @@ fn infer_app(cx: &mut Ctx, head: &Expr, args: &[Arg]) -> Result<(Term, Value)> {
             let head = (Term::data(*d, terms), Value::Sort(data.sort));
             apply_args(cx, head, &args[n..])
         }
+        Some((Global::Unchecked(item), _)) => Err(cx.e.unchecked(name, *item)),
+        Some((Global::Failed, _)) => Err(crate::module::failed_name(name)),
         Some((Global::Ability(_), _)) => Err(cx.error(
             "E-ABILITY",
             format!("`{}` is an ability, not a type or a value", name.text),

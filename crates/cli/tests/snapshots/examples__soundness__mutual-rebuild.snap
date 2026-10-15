@@ -1,0 +1,21 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TERMINATION] Error: can't show that `a` and `b` terminate
+    ╭─[ soundness/mutual-rebuild.sw:8:14 ]
+    │
+  8 │ a (Succ n) = b (Succ n)
+    │              ────┬────  
+    │                  ╰────── this call to `b` might not terminate: `b`'s 1st argument is `a`'s 1st argument
+    │ 
+ 12 │ b (Succ n) = a (Succ n)
+    │              ────┬────  
+    │                  ╰────── then this call to `a`: `a`'s 1st argument is `b`'s 1st argument
+    │ 
+    │ Note 1: going round `a` → `b` → `a`, over and over: the 1st argument stays the same, so no argument keeps getting smaller
+    │ 
+    │ Note 2: however the recursive calls are repeated, some argument must get smaller (a part of a pattern-matched constructor); an argument passed on unchanged, or rebuilt from its own pattern, is no smaller
+    │ 
+    │ Note 3: non-terminating definitions are rejected; `{Partial}` isn't implemented yet
+────╯

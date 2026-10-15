@@ -41,6 +41,10 @@ pub struct AbilityInfo {
     pub elim: DefId,
     /// Operation names, in constructor order.
     pub ops: Vec<String>,
+    /// Where it's declared: the module (counting from the prelude) and its
+    /// position there. Rows list abilities in this order, which is the
+    /// source's, whatever order the declarations were checked in.
+    pub order: (usize, usize),
 }
 
 /// A row: abilities (each at most once), then a tail.
@@ -596,7 +600,7 @@ pub fn effect_type(
         }
         labels.push(label);
     }
-    labels.sort_by_key(|l| l.ability);
+    labels.sort_by_key(|l| cx.e.abilities[l.ability].order);
     let tail = match &row.tail {
         None => None,
         Some(name) => {
@@ -629,7 +633,14 @@ fn ability_label(cx: &mut Ctx, expr: &Expr) -> Result<Label> {
     let Expr::Var(name) = head else {
         return Err(cx.error("E-ABILITY", "expected an ability", "here"));
     };
-    let Some((Global::Ability(a), _)) = cx.e.names.get(&name.text).copied() else {
+    let found = cx.e.names.get(&name.text).copied();
+    if let Some((Global::Unchecked(item), _)) = found {
+        return Err(cx.e.unchecked(name, item));
+    }
+    if let Some((Global::Failed, _)) = found {
+        return Err(crate::module::failed_name(name));
+    }
+    let Some((Global::Ability(a), _)) = found else {
         return Err(cx.error(
             "E-ABILITY",
             format!("`{}` isn't an ability", name.text),
@@ -1286,7 +1297,14 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
                 ret = Some((var, body));
             }
             Clause::Op { op, .. } => {
-                let Some((Global::Op(a, _), _)) = cx.e.names.get(&op.text).copied() else {
+                let found = cx.e.names.get(&op.text).copied();
+                if let Some((Global::Unchecked(item), _)) = found {
+                    return Err(cx.e.unchecked(op, item));
+                }
+                if let Some((Global::Failed, _)) = found {
+                    return Err(crate::module::failed_name(op));
+                }
+                let Some((Global::Op(a, _), _)) = found else {
                     return Err(Diagnostic::error(
                         "E-ABILITY",
                         format!("`{}` isn't an operation", op.text),
