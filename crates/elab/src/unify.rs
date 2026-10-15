@@ -651,8 +651,15 @@ mod tests {
         assert!(!unify(&g, 3, &applied(vec![1, 2]), &applied(vec![2, 1])).unwrap());
         assert!(!unify(&g, 3, &applied(vec![1]), &applied(vec![1, 2])).unwrap());
         assert!(!unify(&g, 3, &x, &Value::var(1)).unwrap());
-        let stuck =
-            |motive: Value| Value::Neutral(Head::Var(0), vec![Elim::J { motive, base: ty() }]);
+        let stuck = |motive: Value| {
+            Value::Neutral(
+                Head::Var(0),
+                vec![Elim::J {
+                    motive: Box::new(motive),
+                    base: Box::new(ty()),
+                }],
+            )
+        };
         assert!(unify(&g, 1, &stuck(ty()), &stuck(ty())).unwrap());
         assert!(!unify(&g, 1, &stuck(ty()), &stuck(Value::Sort(Sort::Prop))).unwrap());
     }

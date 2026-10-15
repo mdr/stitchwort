@@ -182,7 +182,7 @@ pub fn register_decidable(g: &mut Globals, d: DataId) -> Result<()> {
                     Icit::Explicit,
                     Rc::new(p.clone()),
                     crate::value::Closure {
-                        env: Rc::new([p.clone()]),
+                        env: [p.clone()].into(),
                         body: Rc::new(Term::Data(void, Vec::new())),
                     },
                 );
@@ -333,6 +333,19 @@ pub fn ctor(g: &Globals, d: DataId, c: usize, fields: Vec<Value>) -> Value {
 /// `None` for `Zero` (so it's the number `k`), or a value that isn't built
 /// from numbers (usually stuck on a variable).
 pub fn view(g: &Globals, value: &Value) -> budget::Result<(BigUint, Option<Value>)> {
+    view_with(g, value, force)
+}
+
+/// How an evaluator replaces solved metavariables: each evaluator passes its
+/// own, so the reference evaluator shares no evaluation code with the machine.
+pub type Force = fn(&Globals, Value) -> budget::Result<Value>;
+
+/// [`view`], forcing with `force`.
+pub fn view_with(
+    g: &Globals,
+    value: &Value,
+    force: Force,
+) -> budget::Result<(BigUint, Option<Value>)> {
     let mut k = BigUint::zero();
     let mut value = force(g, value.clone())?;
     loop {
@@ -429,6 +442,16 @@ pub fn split_value(value: &Value) -> Option<(usize, Vec<Value>)> {
     }
 }
 
+/// What a native implementation did.
+pub enum Outcome {
+    /// Computed the result.
+    Done(Value),
+    /// Took some steps of the definition at once, and the definition should
+    /// now be applied to these arguments instead. (The evaluator does that
+    /// itself, so a native never calls back into it.)
+    Again(Vec<Elim>),
+}
+
 /// Shortcuts for numbers with unknowns in them, each a number of steps of
 /// the definition taken at once.
 fn run_partial(
@@ -436,57 +459,57 @@ fn run_partial(
     id: DefId,
     native: Native,
     args: &[&Value],
-) -> budget::Result<Option<Value>> {
-    let call = |a: Value, b: Value| {
-        let f = Value::Neutral(Head::Def(id), Vec::new());
-        crate::value::apply(g, crate::value::apply(g, f, a)?, b)
-    };
+    force: Force,
+) -> budget::Result<Option<Outcome>> {
+    let view = |v: &Value| view_with(g, v, force);
+    let explicit = |v: Value| Elim::App(v, Icit::Explicit);
     match (native, args) {
         // `add (Succ m) n = Succ (add m n)`, so `add (k + m) n = k + add m n`.
         (Native::Add, [m, n]) => {
-            let (k, base) = view(g, m)?;
+            let (k, base) = view(m)?;
             Ok(match base {
                 None => {
-                    let (k2, base2) = view(g, n)?;
-                    Some(from_view(k + k2, base2))
+                    let (k2, base2) = view(n)?;
+                    Some(Outcome::Done(from_view(k + k2, base2)))
                 }
                 Some(_) if k.is_zero() => None,
                 Some(base) => {
-                    let stuck = Value::Neutral(
-                        Head::Def(id),
-                        vec![
-                            Elim::App(base, Icit::Explicit),
-                            Elim::App((*n).clone(), Icit::Explicit),
-                        ],
-                    );
-                    Some(from_view(k, Some(stuck)))
+                    let stuck =
+                        Value::Neutral(Head::Def(id), vec![explicit(base), explicit((*n).clone())]);
+                    Some(Outcome::Done(from_view(k, Some(stuck))))
                 }
             })
         }
         // `op (Succ m) (Succ n) = op m n`: take off the shared `Succ`s.
         (Native::Sub | Native::Leq | Native::EqNat, [m, n]) => {
-            let (k1, b1) = view(g, m)?;
-            let (k2, b2) = view(g, n)?;
+            let (k1, b1) = view(m)?;
+            let (k2, b2) = view(n)?;
             let shared = k1.clone().min(k2.clone());
             if shared.is_zero() {
                 return Ok(None);
             }
-            call(from_view(k1 - &shared, b1), from_view(k2 - &shared, b2)).map(Some)
+            Ok(Some(Outcome::Again(vec![
+                explicit(from_view(k1 - &shared, b1)),
+                explicit(from_view(k2 - &shared, b2)),
+            ])))
         }
         // `eqNatRefl (Succ n) = eqNatRefl n`.
         (Native::EqNatRefl, [n]) => {
-            let (k, base) = view(g, n)?;
-            let Some(base) = base.filter(|_| !k.is_zero()) else {
-                return Ok(None);
-            };
-            crate::value::apply(g, Value::Neutral(Head::Def(id), Vec::new()), base).map(Some)
+            let (k, base) = view(n)?;
+            Ok(base
+                .filter(|_| !k.is_zero())
+                .map(|base| Outcome::Again(vec![explicit(base)])))
         }
         _ => Ok(None),
     }
 }
 
-/// The number `value` is, if it's a number (possibly with `Succ`s around it).
 pub fn as_nat(g: &Globals, value: &Value) -> budget::Result<Option<BigUint>> {
+    as_nat_with(g, value, force)
+}
+
+/// [`as_nat`], forcing with `force`.
+pub fn as_nat_with(g: &Globals, value: &Value, force: Force) -> budget::Result<Option<BigUint>> {
     let mut succs = 0u64;
     let mut value = force(g, value.clone())?;
     loop {
@@ -514,7 +537,7 @@ pub fn split(n: &BigUint) -> (usize, Vec<Value>) {
 }
 
 fn bool_value(g: &Globals, b: bool) -> Option<Value> {
-    Some(Value::Ctor(g.builtins.bool?, b as usize, Rc::new([])))
+    Some(Value::Ctor(g.builtins.bool?, b as usize, [].into()))
 }
 
 /// Runs a native implementation of definition `id`, if all its arguments
@@ -524,7 +547,8 @@ pub fn run(
     id: DefId,
     native: Native,
     spine: &[Elim],
-) -> budget::Result<Option<Value>> {
+    force: Force,
+) -> budget::Result<Option<Outcome>> {
     let Some(values) = spine
         .iter()
         .map(|e| match e {
@@ -537,12 +561,12 @@ pub fn run(
     };
     let mut args = Vec::new();
     for v in &values {
-        match as_nat(g, v)? {
+        match as_nat_with(g, v, force)? {
             Some(n) => args.push(n),
-            None => return run_partial(g, id, native, &values),
+            None => return run_partial(g, id, native, &values, force),
         }
     }
-    Ok(run_numbers(g, native, &args))
+    Ok(run_numbers(g, native, &args).map(Outcome::Done))
 }
 
 /// A native implementation on numbers.
@@ -563,7 +587,7 @@ fn run_numbers(g: &Globals, native: Native, args: &[BigUint]) -> Option<Value> {
         (Native::DecEqNat, [m, n]) => {
             let dec = g.builtins.decidable?;
             if m == n {
-                Some(Value::Ctor(dec, 0, Rc::new([Value::Refl])))
+                Some(Value::Ctor(dec, 0, [Value::Refl].into()))
             } else {
                 // `natNeq m n rfl`, which is stuck until it's given a proof
                 // of `m = n` (and there isn't one).
@@ -576,7 +600,7 @@ fn run_numbers(g: &Globals, native: Native, args: &[BigUint]) -> Option<Value> {
                         arg(Value::Refl),
                     ],
                 );
-                Some(Value::Ctor(dec, 1, Rc::new([refutation])))
+                Some(Value::Ctor(dec, 1, [refutation].into()))
             }
         }
         _ => None,

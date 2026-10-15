@@ -52,6 +52,11 @@ pub struct Limits {
     pub stack: usize,
     /// Nodes in a quoted term.
     pub size: u64,
+    /// Frames of pending work in the evaluator: how deeply a program may
+    /// recurse. A frame keeps its environment alive, so in practice each
+    /// costs a few hundred bytes: `length (replicate 1000000 1)`, a million
+    /// frames deep, peaks at about 750 MB.
+    pub frames: usize,
 }
 
 impl Limits {
@@ -63,6 +68,7 @@ impl Limits {
             work: 10_000_000_000,
             stack: stack_size.saturating_sub(reserve),
             size: 10_000_000,
+            frames: 2_000_000,
         }
     }
 }
@@ -84,6 +90,8 @@ pub struct Budget {
     work_limit: Cell<u64>,
     /// The lowest stack address the operation may reach: 0 outside one.
     stack_floor: Cell<usize>,
+    /// `usize::MAX` outside an operation.
+    frame_limit: Cell<usize>,
     limits: Cell<Option<Limits>>,
     exhausted: Cell<Option<ResourceError>>,
 }
@@ -94,6 +102,7 @@ impl Default for Budget {
             work: Cell::new(0),
             work_limit: Cell::new(u64::MAX),
             stack_floor: Cell::new(0),
+            frame_limit: Cell::new(usize::MAX),
             limits: Cell::new(None),
             exhausted: Cell::new(None),
         }
@@ -131,6 +140,7 @@ pub struct Saved {
     work: u64,
     work_limit: u64,
     stack_floor: usize,
+    frame_limit: usize,
     limits: Option<Limits>,
     exhausted: Option<ResourceError>,
 }
@@ -154,6 +164,7 @@ impl Budget {
             stack_floor: self
                 .stack_floor
                 .replace(stack_position().saturating_sub(limits.stack)),
+            frame_limit: self.frame_limit.replace(limits.frames),
             limits: self.limits.replace(Some(limits)),
             exhausted: self.exhausted.replace(None),
         }
@@ -163,6 +174,7 @@ impl Budget {
         self.work.set(saved.work);
         self.work_limit.set(saved.work_limit);
         self.stack_floor.set(saved.stack_floor);
+        self.frame_limit.set(saved.frame_limit);
         self.limits.set(saved.limits);
         self.exhausted.set(saved.exhausted);
     }
@@ -186,6 +198,18 @@ impl Budget {
         self.work.set(work);
         if work > self.work_limit.get() || stack_position() < self.stack_floor.get() {
             return Err(self.run_out(work));
+        }
+        Ok(())
+    }
+
+    /// The evaluator is about to have `frames` frames of pending work.
+    #[inline]
+    pub fn frames(&self, frames: usize) -> Result<()> {
+        if frames > self.frame_limit.get() {
+            let e = self.exhausted.get().unwrap_or(ResourceError::Depth);
+            self.exhausted.set(Some(e));
+            self.work_limit.set(0);
+            return Err(e);
         }
         Ok(())
     }

@@ -11,5 +11,9 @@ blake3.workspace = true
 num-bigint.workspace = true
 num-traits.workspace = true
 
+[features]
+# The reference evaluator, for differential tests (src/reference.rs).
+reference = []
+
 [lints]
 workspace = true

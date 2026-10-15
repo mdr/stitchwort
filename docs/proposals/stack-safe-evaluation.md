@@ -1,10 +1,29 @@
 # Stitchwort: evaluation that doesn't overflow the stack
 
-**Status:** draft 2, 15 October 2026. Draft 1 was reviewed; this draft adopts the review's changes and is the basis for implementation. Steps 0 and 1 are done; see [Progress](#progress).
+**Status:** draft 2, 15 October 2026. Draft 1 was reviewed; this draft adopts the review's changes and is the basis for implementation. Steps 0, 1 and 2 are done; see [Progress](#progress).
 
 ## Progress
 
 **Step 0**, shared constructor fields: commit `02235d8`.
+
+**Step 2**, the machine: done.
+
+- **Representation.** Every sub-term the machine evaluates is now behind its own `Rc` (constructor and data arguments, case-branch and definition bodies), so it holds the term it's working on without borrowing from a closure it owns. The workspace forbids `unsafe`.
+- **Natives** never call back into the evaluator. One that takes several steps at once (removing shared `Succ`s) returns `Outcome::Again` with new arguments, and the evaluator applies the definition itself. Each evaluator passes in its own `force`. The one place the machine still starts a nested machine is a native forcing an argument that's a solved metavariable, which only happens during elaboration.
+- **Freeing moved into this step.** The first run of the machine evaluated `length (replicate 1000000 1)` and then overflowed the stack freeing the list. Constructor fields and closure environments are now a `Values` type whose `Drop` takes uniquely owned contents apart on a work list (reused between frees, so freeing doesn't allocate). It also detaches nested data arguments, spines, `NatAdd` bases, equations and function domains. `Term` still frees recursively.
+- **The reference evaluator** (`reference.rs`, feature `reference`) is the previous recursive evaluator, with its own `force`, case-tree walk and `quote`. It shares only data types and the natives.
+- **Differential tests** (`crates/driver/tests/differential.rs`):
+  - the prelude and every example: each definition applied to 0…n fresh variables, each definition's type, and each test, through both evaluators, compared through the reference `quote`;
+  - a case stuck on a metavariable that's then solved;
+  - `J` on a variable, on an unsolved metavariable, and on one later solved with `rfl`;
+  - a deep evaluation runs in exactly one machine, and the reference starts none.
+
+  Planting a bug the type checker doesn't notice (swapping a stuck `J`'s motive and base) is caught twice, by the prelude comparison and by the `J` test.
+- **Measured** in a release build, `lengths 400 3000`:
+  - first version 1.29 s, against the recursive evaluator's 0.83 s;
+  - after building closure environments in one allocation, evaluating simple sub-terms (variables, numbers, functions, folded definitions) without frames, choosing case branches directly, and boxing the rare large states (applying through the public wrapper, a stuck `J`'s base, `J` eliminations): 0.98 s, about 18% slower.
+  - Moving the large states was the main cost. Removing the budget check or iterative freeing changed nothing measurable.
+- **Depth:** a million-deep recursion runs in a 2 MiB test thread. `length (replicate 1000000 1)` peaks at about 750 MB, because each frame keeps its environment alive. The default frame limit is 2 million.
 
 **Step 1**, resource errors: done. Where it differs from the plan below, or found something:
 

@@ -10,6 +10,8 @@ pub mod globals;
 pub mod hash;
 pub mod native;
 pub mod pretty;
+#[cfg(any(test, feature = "reference"))]
+pub mod reference;
 pub mod term;
 mod termination;
 pub mod value;

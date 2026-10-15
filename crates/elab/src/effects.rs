@@ -1201,7 +1201,7 @@ fn make_call(
     x: Term,
 ) -> Result<(Term, Value)> {
     let x_value = cx.eval(&x)?;
-    let op_value = Value::Ctor(op_data, i, Rc::new([x_value]));
+    let op_value = Value::Ctor(op_data, i, [x_value].into());
     let result_ty = apply(cx.g(), label_res(cx, label)?, op_value)?;
     let plus = data(cx, "Plus")?;
     let mut injected = Term::ctor(plus, 0, vec![Term::ctor(op_data, i, vec![x])]);
@@ -1408,7 +1408,7 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
         };
         let x_level = cx.level();
         cx.bind(&x_name, dom.clone());
-        let op_value = Value::Ctor(op_data, i, Rc::new([Value::var(x_level)]));
+        let op_value = Value::Ctor(op_data, i, [Value::var(x_level)].into());
         let b = apply(cx.g(), label_res(cx, &handled)?, op_value)?;
         let k_ty = Value::Pi(
             "y".into(),

@@ -29,10 +29,34 @@ fn codes(
     }
 }
 
+/// The evaluator keeps its pending work on the heap, so recursion a million
+/// deep runs in a test thread's 2 MiB of stack.
+#[test]
+fn deep_recursion_runs_without_using_the_stack() {
+    let mut session = Session::new();
+    let source = format!(
+        "{REPLICATE}\ntest \"deep\" = replicateHasLength 1000000\n\n\
+         theorem deep : length (replicate 1000000 1) = 1000000\ndeep = rfl\n"
+    );
+    session.load("deep.sw", &source).expect("checks");
+    let results = session.run_tests(&Cache::disabled());
+    assert_eq!(results[0].outcome, Outcome::Passed);
+}
+
+/// With fewer frames allowed, the same program has no result.
+fn with_few_frames() -> Session {
+    let mut session = Session::new();
+    session.elab.limits = Limits {
+        frames: 10_000,
+        ..Limits::default()
+    };
+    session
+}
+
 #[test]
 fn a_test_that_recurses_too_deeply_has_no_result() {
-    let mut session = Session::new();
-    let source = format!("{REPLICATE}\ntest \"deep\" = replicateHasLength 1000000\n");
+    let mut session = with_few_frames();
+    let source = format!("{REPLICATE}\ntest \"deep\" = replicateHasLength 100000\n");
     session.load("deep.sw", &source).expect("checks");
     let results = session.run_tests(&Cache::disabled());
     assert_eq!(
@@ -43,19 +67,14 @@ fn a_test_that_recurses_too_deeply_has_no_result() {
 
 #[test]
 fn a_proof_that_recurses_too_deeply_is_rejected_for_that_reason() {
-    let mut session = Session::new();
+    let mut session = with_few_frames();
     let source =
-        format!("{REPLICATE}\ntheorem deep : length (replicate 1000000 1) = 1000000\ndeep = rfl\n");
+        format!("{REPLICATE}\ntheorem deep : length (replicate 100000 1) = 100000\ndeep = rfl\n");
     // Not `E-REFL`: the kernel didn't find the sides different.
-    assert_eq!(codes(session.load("deep.sw", &source)), ["E-RESOURCE"]);
-}
-
-#[test]
-fn the_rejection_points_at_the_declaration() {
-    let mut session = Session::new();
-    let source =
-        format!("{REPLICATE}\ntheorem deep : length (replicate 1000000 1) = 1000000\ndeep = rfl\n");
     let diagnostics = session.load("deep.sw", &source).unwrap_err();
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
+    assert_eq!(diagnostics[0].code, "E-RESOURCE");
+    // It points at the declaration.
     assert_eq!(diagnostics[0].labels.len(), 1, "{diagnostics:?}");
 }
 
