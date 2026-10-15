@@ -29,10 +29,7 @@ The main session orchestrates: it chooses lanes, hands each to a background
 agent, then reviews, merges and updates this file.
 
 Running:
-- **Mutual recursion, stage 3** (lane `mutual-recursion-s3`; stage 2
-  merged as `af02abc`): mutual data types (`declare_data_group` with one
-  shared telescope, positivity across the group, no data elimination from
-  `Prop` groups, hashing, the deep `Tree`/`Forest` codec test).
+(none)
 
 Waiting on a decision:
 - **`Partial`, stage 1** ([partial.md](docs/proposals/partial.md) draft 3,
@@ -110,6 +107,10 @@ Nothing queued: choose from **Later**, or continue the lanes above.
 - **Data-type hashes leave out field names**, though they become JS keys:
   a renamed field wouldn't change the hash (matters for caching generated
   JS, which is planned). Found by the records research.
+- **Mutual data limits:** nested (`List Tree`), inductive-recursive and
+  inductive-inductive types are out of scope; members' parameters must be
+  written identically (names included); JS error paths alternating
+  `.kids.first` aren't shortened.
 - **Measure the JS limits in browsers** (only Node so far).
 - **Compact text** (text step 7): in generated JS first, then possibly in the
   checking evaluator, with differential tests against the plain-list version.
@@ -215,6 +216,7 @@ Nothing queued: choose from **Later**, or continue the lanes above.
 
 ## Recently done
 
+- `1c2addc` Mutual recursion stage 3: mutual data types (`Tree`/`Forest`, `Even`/`Odd`, three-member groups) checked as a unit; positivity across the group (`Bad1`/`Bad2` refused; the mutant proved `Void`); no data from `Prop` groups; group hashing; million-deep `Tree`/`Forest` across the JS boundary. Mutual recursion is complete.
 - `358fec5` `Partial` draft 3 (stage 1 only; later stages someday/maybe) and `crates/partial-model`, an executable model of the stage-1 runtime running the reviewer's test table.
 - `af02abc` Mutual recursion stage 2: declarations in any order within a file, function groups checked as a unit by the kernel (`define_group`), witness messages naming each member, group hashing, `auto` diagnostics explaining unavailable candidates, one JS calling convention; mutation evidence including the Rocq-bug shape.
 - `73899f9` Playground polish: 18 headless-Chrome tests (`nix develop -c ./web/test.sh`), streamed run output (Stop keeps what was printed), Tab/undo and resize fixed, `E-INPUT` after 10,000 reads past end of input.
