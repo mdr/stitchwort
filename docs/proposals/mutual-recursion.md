@@ -2,10 +2,12 @@
 
 **Status:** draft 3, 15 October 2026. Draft 2 was revised after an
 external review of draft 1; a second review approved implementing draft 2,
-with the clarifications folded in here. Implementation has started (§10):
-the size-change graph algorithm exists as a standalone, independently
-tested module (`crates/core/src/sct.rs`) that the termination checker
-doesn't call yet.
+with the clarifications folded in here. **Milestone 1 is built** (§10.1):
+kernel admission for single declarations ([kernel-admission.md](kernel-admission.md)),
+the size-change graph algorithm (`crates/core/src/sct.rs`), the
+definition-entry arity contract, the saturation rule, and size-change
+termination for single definitions. Function groups, forward references
+and mutual data types (milestones 2 and 3) are not.
 
 **This note gives a proof outline, not a completed soundness proof** (§6.4).
 The design is ready to implement and test; its full soundness theorem is not
@@ -1805,6 +1807,95 @@ Three milestones, each finished (gated, merged) before the next starts:
    support. Adds `Tree`/`Forest`, `size`/`sizeForest`, example 6, `Bad1`/
    `Bad2`, the pending-datatype test at the surface level, and the deep
    `Tree`/`Forest` codec test.
+
+### 10.1 As built: milestone 1 (size-change termination for single definitions)
+
+Kernel admission is described in [kernel-admission.md](kernel-admission.md).
+The rest of milestone 1, as built:
+
+- **The arity contract (§5.3).** `Term::count_lams` is the one function that
+  counts a body's entry parameters; it and `peel_lams`/`peel_lams_rc` strip
+  exactly `Loc`, and nothing else counts lambdas. `define_def` stores the
+  submitted body's count in `Def.arity` *before* checking (it used to be
+  set from the checked body afterwards). Checking keeps every `Loc` and
+  `Lam` of the prefix, so the checked body has the same count, and the
+  termination checker refuses a body whose count differs from the stored
+  arity (`E-MALFORMED`). The consumers all read `Def.arity`: the case-tree
+  shape check, the saturation rule, the graphs' dimensions and the
+  parameters calls are related to, the evaluator's unfolding (its behaviour
+  is unchanged: the number is the same as before), and JS extraction (whose
+  runtime arity is derived from it by dropping erased parameters).
+- **Call extraction (§6.2)**, in `crates/core/src/termination.rs`. Every
+  occurrence of the definition is visited: under lambdas, inside types, in
+  every argument of every application (including arguments beyond the
+  arity, and the arguments of an occurrence that is itself an argument).
+  One application spine headed by the definition is one call, with its own
+  graph, never merged; its head isn't visited again. The relation of each
+  of the first `arity` arguments to the caller's parameters:
+  - `<` parameter `i`: a variable bound as a field of a match on parameter
+    `i` or on a descendant of it; a recursive function field of such a
+    match, applied; the constructor of a recorded match on a descendant,
+    applied to exactly the variables that match bound, in order.
+  - `≤` parameter `i`: the parameter's own variable; the constructor of a
+    recorded match on the parameter itself, rebuilt exactly as above.
+  - unknown: anything else (lambda-bound variables, other functions'
+    results, `J`, numbers, annotations). A `NumCase` binds nothing and adds
+    nothing.
+
+  Provenance comes from the case tree only: each variable records whether
+  it is a parameter, which parameter it descends from, and whether it is a
+  recursive function field (from the constructor's *declared* field type),
+  and each enclosing branch records its scrutinee, constructor and field
+  variables. A variable descends from at most one parameter, so each graph
+  has at most one arc into each position.
+- **Saturation (§6.3).** An occurrence with fewer than `arity` arguments,
+  including a bare one, is refused with `E-TERMINATION`, "`f` is used here
+  without all its arguments", and a note suggesting the lambda (`write
+  \x -> sumWith n x so the call can be checked`), built from the
+  arguments given, counting explicit ones. An arity-0 occurrence is a call
+  whose graph has no entries.
+- **Deciding (§6.5).** The calls form a `sct::Group` of one member, checked
+  with the operation's budget (one step per composition) and at most
+  `sct::MAX_GRAPHS` graphs. `NoDescent` is an `E-TERMINATION` that labels
+  each call on the witness cycle and says in words what it passes ("the
+  1st argument gets smaller", "the 2nd argument is what the 1st argument
+  was"), plus, for a cycle of more than one call, what the cycle does
+  overall. Running out is `E-RESOURCE`, labelled "while checking that `f`
+  terminates", with a note that the check is inconclusive; the definition
+  ends failed, with no hash.
+
+Changes to programs: every file in `examples/accept` and `examples/extract`
+and the prelude are still accepted, and every file in `examples/reject`
+and `examples/soundness` is still rejected with the same code. The wording
+of all fourteen `E-TERMINATION` snapshots changed;
+`soundness/higher-order-recursion.sw` and `soundness/cell-result.sw` are
+now refused by the saturation rule, as §6.3 predicted. Newly accepted:
+`examples/accept/size-change.sw` (Ackermann, swapped arguments, merging
+two lists, a call passed to a helper as `\x -> f n x`) and
+`examples/extract/size-change.sw` (the same shapes run in JavaScript,
+including tail calls with permuted arguments). New must-reject files:
+`reject/partial-recursive-call.sw`, `reject/swap-without-descent.sw`,
+`soundness/alternating-growth.sw` (§6.8 example 11 for one function),
+`soundness/constant-loop.sw` and `soundness/constant-loop-function.sw`
+(arity zero).
+
+Tests: `crates/core/tests/termination.rs` has kernel tests for each rule
+above (both directions), the arity contract, running out (graph limit and
+step budget), and a comparison with the old checker, which is kept
+verbatim in `crates/core/tests/structural/mod.rs`: on 20 000 generated
+programs over `Nat` (case trees, calls, `add`, lambdas and partial calls
+passed to a helper), everything the old checker accepts the new one
+accepts, except programs with a partial recursive call, and every program
+the new one accepts is run on every combination of small inputs and must
+finish. Mutation checks: turning the parameter's `≤` into `<` fails six of
+these tests (the generated programs include a loop it accepts) and both
+example suites; dropping the saturation check fails three, and
+`reject/partial-recursive-call.sw` is accepted.
+
+Not done in milestone 1: §6.3 tests 1–6 and §6.8 are mostly about groups
+and belong to milestone 2. Their single-function versions are above: a
+callback passed to a helper (`sumWith`), and a closure returned by the
+function and called after it returns (`over_applied_calls_are_walked_in_every_argument`).
 
 **Later, separately:** nested inductives (via translation to mutual groups,
 as Lean does, or a variance analysis); closure-aware partial applications

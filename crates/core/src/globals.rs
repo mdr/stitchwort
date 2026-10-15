@@ -31,8 +31,12 @@ pub struct Def {
     /// checking it failed.
     pub body: Option<Rc<Term>>,
     pub state: State,
-    /// Number of leading lambdas in `body`. The definition unfolds once it's
-    /// applied to this many arguments and its case tree can make progress.
+    /// The definition-entry arity: the number of leading lambdas in the
+    /// submitted body (`Term::count_lams`), set by `define_def` before the
+    /// body is checked. Recursive occurrences must be applied to at least
+    /// this many arguments, and termination relates calls to these
+    /// parameters; the definition unfolds once it's applied to this many
+    /// arguments and its case tree can make progress.
     pub arity: usize,
     pub theorem: bool,
     pub export: bool,

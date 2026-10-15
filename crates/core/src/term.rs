@@ -305,6 +305,12 @@ impl Term {
         term
     }
 
+    /// The number of leading lambdas, looking through locations: for a
+    /// definition's body, its *definition-entry arity* (`Def::arity`,
+    /// docs/proposals/mutual-recursion.md §5.3). Lambdas inside the case tree
+    /// are part of its result, not parameters. Implicit, type and proof
+    /// lambdas count. This, [`Term::peel_lams`] and [`Term::peel_lams_rc`]
+    /// strip exactly the same wrappers, and nothing else counts lambdas.
     pub fn count_lams(&self) -> usize {
         let mut term = self.strip_loc();
         let mut n = 0;

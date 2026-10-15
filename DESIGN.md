@@ -356,7 +356,7 @@ innocent n = spin n + 1
 
 Checking is deliberately conservative. It may reject total functions, but it must never accept a non-terminating one.
 
-- **POC:** structural recursion. A recursive call must be on a direct sub-part of a pattern-matched argument.
+- **POC:** structural recursion, checked by size change ([docs/core.md](docs/core.md#definitions)). Each recursive call must pass, in each position, a sub-part of a pattern-matched argument, the argument itself, or something unknown, and some argument must get smaller however the calls are repeated: so lexicographic recursion (Ackermann's function) and swapped arguments are accepted.
 - **Next:** `decreasing <measure>` clauses for well-founded recursion. The compiler tries to prove the measure decreases with simple arithmetic and asks for a proof if it can't.
 - **Later:** handling recursion through higher-order functions (e.g. `map size children` on a rose tree), probably by automatically attaching "this element is in the list" facts, as recent Lean versions do.
 

@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TERMINATION] Error: can't show that `forever` terminates
+   ╭─[ soundness/constant-loop.sw:5:1 ]
+   │
+ 5 │ forever : Nat
+   │ ──────┬──────  
+   │       ╰──────── this recursive call might not terminate: `forever` has no parameters, so nothing can get smaller
+   │ 
+   │ Note 1: however the recursive calls are repeated, some argument must get smaller (a part of a pattern-matched constructor); an argument passed on unchanged, or rebuilt from its own pattern, is no smaller
+   │ 
+   │ Note 2: non-terminating definitions are rejected; `{Partial}` isn't implemented yet
+───╯

@@ -166,13 +166,13 @@ bind (Call o rest) next = Call o (\y -> bind (rest y) next)
 
 ### The termination rule
 
-A `Comp` is well-founded: it's strictly positive, because `rest`'s domain doesn't mention `Comp`. Every path through it is finite, though there may be infinitely many paths (an operation returning `Nat` branches infinitely). The termination checker needs one parameter position `i` that every recursive call decreases. Each argument passed at position `i` is classified by its relation to parameter `i`:
+A `Comp` is well-founded: it's strictly positive, because `rest`'s domain doesn't mention `Comp`. Every path through it is finite, though there may be infinitely many paths (an operation returning `Nat` branches infinitely). Each argument of a recursive call is classified by its relation to a parameter `i` of the caller. (When this was written, the checker needed one position `i` that every call decreased. It now uses size-change termination over these relations, so different calls may decrease different parameters, as long as some parameter gets smaller however the calls are repeated: see [docs/core.md](../core.md#definitions) and [mutual-recursion.md](mutual-recursion.md) §6.)
 
-| Relation | Examples | Enough for a recursive call? |
+| Relation | Examples | Makes the argument smaller? |
 |---|---|---|
-| **The parameter itself** | the parameter variable; a constructor rebuilding it (`Call o rest` where the parameter was matched as `Call o rest`) | No |
-| **A strict descendant** | a field of a constructor matched from the parameter or from a descendant; a rebuilt descendant (`Succ n` where a descendant `m` was matched as `Succ n`); a recursive function field of such a match, applied (`rest y`) | Yes |
-| **Unrelated or unknown** | anything else, including any other function returning the same type | No |
+| **The parameter itself** (`≤`) | the parameter variable; a constructor rebuilding it (`Call o rest` where the parameter was matched as `Call o rest`) | No, but no larger either |
+| **A strict descendant** (`<`) | a field of a constructor matched from the parameter or from a descendant; a rebuilt descendant (`Succ n` where a descendant `m` was matched as `Succ n`); a recursive function field of such a match, applied (`rest y`) | Yes |
+| **Unrelated or unknown** | anything else, including any other function returning the same type | Unknown |
 
 So the rules are:
 
@@ -182,7 +182,7 @@ So the rules are:
 
 **Every occurrence is checked.**
 - Each recursive call is checked separately, including calls inside the arguments of another call (`hidden (rest (… (hidden (Call Choose rest)) …))` is refused).
-- A reference to the function being defined that isn't applied, such as passing it to a helper, is refused.
+- A reference to the function being defined that isn't applied to all its arguments, such as passing it to a helper, is refused.
 
 **The fresh-wrapper invariant.** The review's example `loop t = match Call Later (\_ -> t) with … Call Later rest -> loop (rest ())` would make `rest ()` equal `t`. It can't arise, because in the core a `case` only appears at the top of a definition's body, on a variable. So every matched value is a parameter or a field of an earlier match, never a freshly built value. The kernel rejects a `case` anywhere else (`rejects_a_case_outside_a_case_tree`). **When `match` or `let` expressions are added, they must preserve this:** matching a value that isn't a parameter or a descendant gives fields of unknown relation.
 
