@@ -1,6 +1,6 @@
 # Proposal: compact text
 
-**Status:** draft 2, 15 October 2026. Revised after external review; see [Changes since draft 1](#changes-since-draft-1). Option A (stage 1) is approved; B1 and B2 (stages 2 and 3) await a further decision. This is step 7 of [the text proposal](text-and-io.md#making-it-fast-in-stages), "compact text in generated JS, then possibly in the checking evaluator".
+**Status:** draft 2, 15 October 2026. Revised after external review; see [Changes since draft 1](#changes-since-draft-1). Option A (stage 1) is approved and built; see [As built (stage 1)](#as-built-stage-1). B1 and B2 (stages 2 and 3) await a further decision. This is step 7 of [the text proposal](text-and-io.md#making-it-fast-in-stages), "compact text in generated JS, then possibly in the checking evaluator".
 
 ## Summary
 
@@ -12,6 +12,62 @@
 A primitive string type in the kernel, as Rocq's `PrimString` does it (option C), is not recommended: it would replace the existing proofs about `MkText` with axioms, and Stitchwort's exports must be free of axioms.
 
 The rest of the note is written for a reviewer who knows dependent types and compilers but not this codebase.
+
+## As built (stage 1)
+
+Option A is implemented in `crates/js/src/lib.rs`, as designed below. The kernel and the checking evaluator are unchanged. Where the build differs from, or adds to, the design:
+
+- **Native** (`TextNative`, `text_native_js`): 14 definitions, checked against the prelude's definitions, which are the specification: `textToList`, `textFromList`, `textAppend`, `textLength`, `textIsEmpty`, `decEqText`, `textCompare`, `textUncons`, `textFold`, `textTrim`, `textSplit`, `textJoin`, `natToText` and `textToNat`. `textFold` walks the string backwards, so it needs no array; `textToNat` checks for ASCII digits with a loop rather than a regular expression; `textSplit` is `t.split(separator)` turned into a list in a loop.
+- **Not native, and why:**
+  - `textLess` is `isLess (textCompare a b)`: not recursive, and its `textCompare` is native, so compiling the definition is as good. `decTextFrom` is `decEqText`'s proof plumbing, unused once `decEqText` is native.
+  - The list helpers behind the natives (`foldChars`, `compareChars`, `isSpaceCode`, `isSpace`, `dropSpaces`, `digitChar`, `natDigits`, `maybeThen`, `digitValue`, `readDigits`, `splitCons`, `splitChars`, `joinChars`, `joinPair`, `textsOf`, `charListsOf`, `splitTexts`) work on lists, not `Text`. They're only emitted when user code calls them directly, and then keep their per-element stack use where they recurse.
+  - `isScalar`, `charToNat` and `charFromNat` are about `Char`, which is unchanged.
+- **Binding.** `TEXT_NATIVES` pins each native to the content hash of the prelude definition it replaces. A definition with a different hash is compiled as written instead, which still works (through the bridges below), only slower; and the test `text_natives_are_bound_to_the_prelude` fails, printing the new hashes, so each changed definition gets re-checked against its native. The hashes don't cover field names (`code`, `head`, `value`, `fst`), which the runtime already relied on.
+- **Bridges.** `charsOfText` and `textOfChars` in the runtime convert between a string and its `List Char`, in loops. Matching `MkText cs` emits `charsOfText` only if the branch's generated code mentions `cs`, so `isText (MkText _) = True` converts nothing. A text literal is a JS string literal, found by walking the literal's characters in a loop.
+- **The boundary.** Decoding a `Text` runs the same strict check (`wellFormed`) and returns the string; encoding returns it. `Char` is unchanged.
+- **Turning it off.** `stitchwort_js::generate_with` with `Options { native_text: false }` generates the list-based code, exactly as before. It's for the differential tests, not exposed in the CLI.
+- **The guarantee**, as stated under option A: the natives and the bridges don't use JS call-stack space proportional to a text's length. No helper spreads arguments.
+
+**Tested** in `crates/cli/tests/extract.rs`:
+
+- **Against the definitions, two ways.** The `-- run:` cases (67 in `text.sw`, up from 55) and 100 random inputs per export are checked against the reference evaluator for the generated code with natives *and* for the list-based code. A property-style test, `text_natives_agree_with_the_list_definitions`, runs every export of `examples/extract/text.sw` both ways on every text of up to four characters over a seven-character alphabet (including U+E000, an emoji and a neighbouring emoji), every pair of texts of up to two, 3,000 random texts and 3,000 random pairs of up to 24 characters built from 27 awkward characters (NUL, the six whitespace characters and their look-alikes U+00A0, U+2028 and U+FEFF, a combining accent, U+D7FF, U+E000, noncharacters, U+10000, two emoji, U+10FFFF, digits), most pairs differing by one edit so they share a prefix, and the cross-runtime counterexamples for `textToNat` (`" 12"`, `"+5"`, `"0x10"`, `"1e3"`, Arabic-Indic digits, `"12\n"`); about 220,000 comparisons in all. Deliberately breaking `textCompare` (comparing code units), `textLength` (an off-by-one in the pair test) or `textTrim` (also trimming U+00A0) each made it fail.
+- **First-class uses and user matches:** `mapList textLength ts`, `mapList MkText ls`, `mapList (textAppend "pre") ts`, a user's match on `textSplit`'s result, a user's `MkText (Cons c cs)` match on `textTrim`'s result, and an unused `MkText` field (whose generated code is checked to convert nothing), in `examples/extract/text.sw`.
+- **The whole export path at a million characters** (`long_inputs_are_loops_or_resource_errors`): every native; one long split field and 500,001 short ones, joined again; a million one-character joins; a long `List Char` returned and passed in; `MkText` matched and built by user code on long texts. A user's function that recurses once per character still throws `StitchwortResourceError`, and the module works afterwards.
+- **Binding:** `text_natives_are_bound_to_the_prelude`. **Representation switch:** `native_text_is_only_used_when_asked_for`.
+
+**Measured**, in Node 22.23.3 on an arm64 Mac, by bisection to within 1% with the default stack, capped at 4,194,304 characters (scratch script, not in the repository):
+
+| Operation (input) | Longest before | Longest after |
+|---|---|---|
+| `textLength` | 8,128 | over 4,194,304 |
+| `textSplit` (no separators; all separators) | 6,112; 5,504 | over 4,194,304 |
+| `textJoin` (that many one-character texts) | 6,112 | over 4,194,304 |
+| `textToNat` (digits) | 2,544 | over 4,194,304 |
+| `==`; `textCompare` (equal texts) | 6,112; 6,112 | over 4,194,304 |
+| `textFold` | 7,872 | over 4,194,304 |
+| `a ++ b` (`a` long) | 9,152 | over 4,194,304 |
+| `textToList`, `textFromList`, `textTrim` | over 4,194,304 | over 4,194,304 |
+
+Median of five runs, on a million characters (`"abcd,😀x "` repeated) unless stated, through the export's decode and encode:
+
+| Operation | Before | After |
+|---|---|---|
+| `textLength` | stack overflow | 3.5 ms |
+| `textSplit` (125,000 fields) | stack overflow | 7.0 ms |
+| split then join | stack overflow | 8.7 ms |
+| `==` | stack overflow | 2.5 ms |
+| `textCompare` | stack overflow | 5.4 ms |
+| `textFold`, counting | stack overflow | 4.5 ms |
+| `textToNat`, a million digits | stack overflow | 45 ms |
+| `textToList` (a million `Char`s out) | 147 ms | 115 ms |
+| construct only: 20,000 right-nested `++` of `"abcd,"`, encoded | 4.8 ms | 0.1 ms |
+| construct then consume: `textLength` of the same | stack overflow | 0.4 ms |
+
+Also after: splitting `"a,"` repeated 500,000 times into 500,001 fields, 25 ms; joining them again, 19 ms; `fromChars` of a million `Char`s, 98 ms; decoding and encoding a million characters alone, 1.9 ms. The numbers vary by tens of percent between runs.
+
+**Found on the way:** a `List (List Char)` parameter was declared as `readonly readonly string[][]`, which isn't TypeScript; it's now `readonly (readonly string[])[]`.
+
+**Left for later:** stages 2 and 3 (B1, B2); a more compact `Char`; the string-backed list variant; making user recursion over text stack-safe.
 
 ## Changes since draft 1
 
@@ -238,7 +294,7 @@ What prevents that today is that the prelude is fixed: it's compiled into the bi
 | `Char` | `{ tag: "MkChar", code: <bigint> }` | unchanged (see [`Char`](#char)) |
 | `List Char` | cons cells | unchanged |
 
-**Native operations.** Each replaces a prelude definition in generated code, as `native_js` already does for numbers (`crates/js/src/lib.rs`), and is bound to that definition's content hash ([Binding](#binding-natives-to-the-definitions-they-replace)). All work on scalar values, never on UTF-16 code units. The prelude's definitions are the specification; this table is the plan, and the as-built notes for stage 1 record what was actually made native:
+**Native operations.** Each replaces a prelude definition in generated code, as `native_js` already does for numbers (`crates/js/src/lib.rs`), and is bound to that definition's content hash ([Binding](#binding-natives-to-the-definitions-they-replace)). All work on scalar values, never on UTF-16 code units. The prelude's definitions are the specification; this table is the plan, and [As built (stage 1)](#as-built-stage-1) records what was actually made native:
 
 | Definition | Native JS, in outline | Note |
 |---|---|---|

@@ -7,6 +7,8 @@
 //! - Every export is also called on random inputs generated from its boundary
 //!   types, from a fixed seed so failures are reproducible. Where the reference
 //!   evaluator's precondition check says no, JS must refuse the input.
+//! - Both are run against the generated JS with native text operations, and
+//!   with every text operation compiled from its list definition instead.
 //!
 //! Requires `node` on the PATH (the Nix dev shell provides it).
 
@@ -18,7 +20,9 @@ use stitchwort_cli::driver::Session;
 use stitchwort_cli::render::render;
 use stitchwort_core::value::{apply, eval, force};
 use stitchwort_core::{BigUint, DataId, DefId, Globals, Limits, Term, Value};
-use stitchwort_js::{Boundary, boundary_literal, exportable, field_boundaries, js_string_literal};
+use stitchwort_js::{
+    Boundary, Options, boundary_literal, exportable, field_boundaries, js_string_literal,
+};
 use stitchwort_syntax::ast::Expr;
 use stitchwort_syntax::parse_expression;
 
@@ -178,9 +182,20 @@ fn examples() -> Vec<(String, String, Session)> {
         .collect()
 }
 
-/// Runs every case against the generated JS under Node, and compares.
+/// Text as a list, every operation compiled from its definition.
+const LIST_TEXT: Options = Options { native_text: false };
+
+/// Runs every case against the generated JS under Node, and compares, with
+/// native text operations and without.
 fn check_in_node(name: &str, g: &Globals, cases: &[Case]) {
-    let output = stitchwort_js::generate(g, Limits::default()).expect("extraction succeeds");
+    for options in [Options::default(), LIST_TEXT] {
+        check_in_node_with(name, g, cases, options);
+    }
+}
+
+fn check_in_node_with(name: &str, g: &Globals, cases: &[Case], options: Options) {
+    let output =
+        stitchwort_js::generate_with(g, Limits::default(), options).expect("extraction succeeds");
     let mut script = String::from(
         "import * as m from \"./module.mjs\";\n\
          const canon = (v) => JSON.stringify(v, (_, x) => typeof x === \"bigint\" ? `${x}n` : x);\n\
@@ -199,10 +214,11 @@ fn check_in_node(name: &str, g: &Globals, cases: &[Case]) {
     script.push_str("console.log(JSON.stringify(results));\n");
 
     let dir = std::env::temp_dir().join(format!(
-        "stitchwort-extract-{}-{}-{}",
+        "stitchwort-extract-{}-{}-{}-{}",
         std::process::id(),
         name.trim_end_matches(".sw"),
-        cases.len()
+        cases.len(),
+        options.native_text
     ));
     std::fs::create_dir_all(&dir).expect("create temp dir");
     std::fs::write(dir.join("module.mjs"), &output.js).expect("write module");
@@ -214,7 +230,7 @@ fn check_in_node(name: &str, g: &Globals, cases: &[Case]) {
         .expect("run `node` (is it on the PATH? `nix develop` provides it)");
     assert!(
         result.status.success(),
-        "node failed for {name}:\n{}\n--- module.mjs ---\n{}",
+        "node failed for {name} ({options:?}):\n{}\n--- module.mjs ---\n{}",
         String::from_utf8_lossy(&result.stderr),
         output.js
     );
@@ -224,7 +240,7 @@ fn check_in_node(name: &str, g: &Globals, cases: &[Case]) {
     for (case, (js, reference)) in cases.iter().zip(results) {
         assert_eq!(
             js, reference,
-            "{name}: `{}` gives {js} in JS but {reference} in the reference evaluator",
+            "{name}: `{}` gives {js} in JS ({options:?}) but {reference} in the reference evaluator",
             case.description
         );
     }
@@ -479,12 +495,23 @@ console.log("ok");
 /// Runs a Node script, next to the generated modules it imports, and
 /// requires it to print `ok`.
 fn run_script(name: &str, modules: &[(&str, &Session)], script: &str) {
+    let modules: Vec<(&str, String)> = modules
+        .iter()
+        .map(|(file, session)| {
+            let output = stitchwort_js::generate(&session.elab.globals, session.elab.limits)
+                .expect("extraction succeeds");
+            (*file, output.js)
+        })
+        .collect();
+    run_script_on(name, &modules, script);
+}
+
+/// [`run_script`], with the modules' code given.
+fn run_script_on(name: &str, modules: &[(&str, String)], script: &str) {
     let dir = std::env::temp_dir().join(format!("stitchwort-{name}-{}", std::process::id()));
     std::fs::create_dir_all(&dir).expect("create temp dir");
-    for (file, session) in modules {
-        let output = stitchwort_js::generate(&session.elab.globals, session.elab.limits)
-            .expect("extraction succeeds");
-        std::fs::write(dir.join(file), output.js).expect("write module");
+    for (file, js) in modules {
+        std::fs::write(dir.join(file), js).expect("write module");
     }
     std::fs::write(dir.join("test.mjs"), script).expect("write script");
     let result = Command::new("node")
@@ -635,12 +662,15 @@ console.log("ok");
     run_script("text", &[("text.mjs", text)], script);
 }
 
-/// Long inputs in generated JS. Tail calls to the same function are loops,
-/// so they handle any length. Other recursion uses a JS stack frame per
-/// character (or element, or level of nesting); running out of stack is a
-/// `StitchwortResourceError`, after which the module still works. The
-/// text-and-IO proposal records the measured limits: a few thousand
-/// characters, so 1,000 must work everywhere.
+/// Long inputs in generated JS. The prelude's text operations are native, and
+/// they and the bridges between a string and its `List Char` don't use JS
+/// stack space proportional to a text's length, so they handle a million
+/// characters through the whole export path: decoding, the operation, the
+/// conversions, and encoding many short results, one long one, or a long
+/// `List Char`. A function's tail calls to itself are loops, so they handle
+/// any length too. Other recursion uses a JS stack frame per character (or
+/// element, or level of nesting); running out of stack is a
+/// `StitchwortResourceError`, after which the module still works.
 #[test]
 fn long_inputs_are_loops_or_resource_errors() {
     let examples = examples();
@@ -654,40 +684,61 @@ assert.equal(loops.sumTo(1000000n), 500000500000n);
 assert.equal(loops.lastChar("ab".repeat(500000)), "b");
 assert.equal(loops.countTail("a", "ab".repeat(500000)), 500000n);
 assert.equal(text.reverse("ab".repeat(500000)), "ba".repeat(500000));
-assert.equal(text.trim(" ".repeat(100000) + "x" + " ".repeat(100000)), "x");
-assert.equal(text.fromNat(10n ** 20000n).length, 20001);
 
+// Each native operation on a million characters.
+const N = 1000000;
+const long = "a".repeat(N);
+const emoji = "\u{1F600}".repeat(N);
+assert.equal(text.len(long), BigInt(N));
+assert.equal(text.len(emoji), BigInt(N));
+assert.equal(text.empty(long), false);
+assert.equal(text.same(long, "a".repeat(N)), true);
+assert.equal(text.same(long, "a".repeat(N - 1) + "b"), false);
+assert.deepEqual(text.order(long, long + "a"), { tag: "Less" });
+assert.deepEqual(text.order(emoji + "\u{E000}", emoji + "\u{10000}"), { tag: "Less" });
+assert.equal(text.less(long, long), false);
+assert.equal(text.join(long, long), long + long);
+assert.equal(text.trim(" ".repeat(N) + "x" + " ".repeat(N)), "x");
+assert.deepEqual(text.toNat("7".repeat(N)), { tag: "Just", value: BigInt("7".repeat(N)) });
+assert.equal(text.fromNat(10n ** 20000n).length, 20001);
+assert.deepEqual(text.uncons(emoji), { tag: "Just", value: { tag: "MkPair", fst: "\u{1F600}", snd: emoji.slice(2) } });
+const codes = text.codes("a\u{1F600}".repeat(N / 2));
+assert.equal(codes.length, N);
+assert.equal(codes[1], 0x1f600n);
+// One long result; many short ones, and joining them again.
+assert.deepEqual(text.split(",", long), [long]);
+const fields = text.split(",", "a,".repeat(N / 2));
+assert.equal(fields.length, N / 2 + 1);
+assert.ok(fields.every((f, i) => f === (i === N / 2 ? "" : "a")));
+assert.equal(text.joinOn(",", fields), "a,".repeat(N / 2));
+assert.equal(text.joinOn(",", Array(N).fill("")), ",".repeat(N - 1));
+assert.equal(text.firstField(",", long + ","), long);
+// Long `List Char`s, both ways, through user code's `MkText` too.
+const cs = text.chars("a\u{1F600}".repeat(N / 2));
+assert.equal(cs.length, N);
+assert.ok(cs.every((c, i) => c === (i % 2 === 0 ? "a" : "\u{1F600}")));
+assert.equal(text.fromChars(cs), "a\u{1F600}".repeat(N / 2));
+assert.deepEqual(text.texts([cs]), ["a\u{1F600}".repeat(N / 2)]);
+assert.deepEqual(text.trimmedHead(" ".repeat(N) + long), { tag: "Just", value: "a" });
+assert.equal(text.isText(long), true);
+
+// User code that recurses once per character still runs out of stack.
 const exhausted = (f, name) =>
   assert.throws(f, (e) =>
     e instanceof text.StitchwortResourceError || e instanceof trees.StitchwortResourceError
       ? new RegExp(`^${name}: ran out of resources`).test(e.message) && e.cause instanceof RangeError
       : false);
-const long = "a".repeat(1000000);
-exhausted(() => text.len(long), "len");
-exhausted(() => text.split(",", long), "split");
 exhausted(() => text.countChar("a", long), "countChar");
 let deep = { tag: "Leaf" };
 for (let i = 0; i < 1000000; i++) deep = { tag: "Node", left: deep, right: { tag: "Leaf" } };
 exhausted(() => trees.leaves(deep), "leaves");
 // Input errors are still input errors.
 assert.throws(() => text.len("\uD800"), text.StitchwortInputError);
+assert.throws(() => text.len(long + "\uD800"), /lone surrogate \(U\+D800\) at index 1000000;/);
 
 // Afterwards, everything still works.
-assert.equal(text.len("abc"), 3n);
+assert.equal(text.countChar("a", "abc"), 1n);
 assert.equal(trees.leaves({ tag: "Node", left: { tag: "Leaf" }, right: { tag: "Leaf" } }), 2n);
-
-const k = "a,\u{1F600} ".repeat(250);
-assert.equal(text.len(k), 1000n);
-assert.equal(text.split(",", k).length, 251);
-assert.equal(text.joinOn(",", text.split(",", k)), k);
-assert.equal(text.join(k, k).length, 2 * k.length);
-assert.equal(text.trim(k), k.slice(0, -1));
-assert.equal(text.same(k, k), true);
-assert.deepEqual(text.order(k, k), { tag: "Equal" });
-assert.equal(text.countChar("a", k), 250n);
-assert.equal(text.fromChars(text.chars(k)), k);
-assert.deepEqual(text.toNat("7".repeat(1000)), { tag: "Just", value: BigInt("7".repeat(1000)) });
-assert.equal(text.fromNat(10n ** 999n).length, 1000);
 console.log("ok");
 "#;
     run_script(
@@ -699,6 +750,149 @@ console.log("ok");
         ],
         script,
     );
+}
+
+/// Property-style differential tests of the text natives: every export of
+/// `examples/extract/text.sw`, generated with native text operations and with
+/// every operation compiled from its list definition, must give the same
+/// result. On every short text over a small alphabet, every pair of shorter
+/// ones, and thousands of random texts and pairs built from characters where
+/// JavaScript's strings and Stitchwort's text disagree (including pairs that
+/// share a long prefix, for comparison). The list-based code is itself
+/// checked against the reference evaluator by the tests above.
+#[test]
+fn text_natives_agree_with_the_list_definitions() {
+    let examples = examples();
+    let g = &example(&examples, "text.sw").elab.globals;
+    let module = |options| {
+        stitchwort_js::generate_with(g, Limits::default(), options)
+            .expect("extraction succeeds")
+            .js
+    };
+    let script = r#"
+import * as native from "./native.mjs";
+import * as list from "./list.mjs";
+import assert from "node:assert/strict";
+
+const canon = (f) => {
+  try {
+    return JSON.stringify(f(), (_, x) => (typeof x === "bigint" ? `${x}n` : x));
+  } catch (e) {
+    return `threw ${e.name}`;
+  }
+};
+let checked = 0;
+const agree = (name, ...args) => {
+  const n = canon(() => native[name](...args));
+  const l = canon(() => list[name](...args));
+  if (n !== l) assert.fail(`${name}(${args.map((a) => JSON.stringify(a)).join(", ")}): ${n} natively, ${l} by definition`);
+  checked++;
+};
+
+// Where JS strings and Stitchwort text disagree, and ordinary characters.
+const awkward = ["a", "Z", "0", "7", "9", " ", ",", "\t", "\n", "\v", "\f", "\r", "\0", "\u{E9}", "\u{301}",
+  "\u{A0}", "\u{2028}", "\u{FEFF}", "\u{D7FF}", "\u{E000}", "\u{FDD0}", "\u{FFFE}", "\u{FFFF}", "\u{10000}",
+  "\u{1F600}", "\u{1F601}", "\u{10FFFF}"];
+// Every text up to four characters over these, and pairs up to two.
+const small = ["a", ",", " ", "7", "\u{E000}", "\u{1F600}", "\u{1F601}"];
+const upTo = (n) => {
+  let all = [""], layer = [""];
+  for (let k = 0; k < n; k++) {
+    layer = layer.flatMap((t) => small.map((c) => t + c));
+    all = all.concat(layer);
+  }
+  return all;
+};
+let seed = 0x7e47;
+const random = () => {
+  seed = (seed + 0x6d2b79f5) | 0;
+  let t = seed;
+  t = Math.imul(t ^ (t >>> 15), t | 1);
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+};
+const pick = (xs) => xs[Math.floor(random() * xs.length)];
+const randomText = (max) => Array.from({ length: Math.floor(random() * max) }, () => pick(awkward)).join("");
+// A copy with one character changed, added or removed, at a random place.
+const mutate = (t) => {
+  const cs = [...t];
+  const i = Math.floor(random() * (cs.length + 1));
+  const r = random();
+  if (r < 0.4 && i < cs.length) cs[i] = pick(awkward);
+  else if (r < 0.7) cs.splice(i, 0, pick(awkward));
+  else cs.splice(i, 1);
+  return cs.join("");
+};
+
+const texts = upTo(4);
+for (let i = 0; i < 3000; i++) texts.push(randomText(24));
+const pairs = upTo(2).flatMap((a) => upTo(2).map((b) => [a, b]));
+for (let i = 0; i < 3000; i++) {
+  const a = randomText(24);
+  pairs.push([a, random() < 0.8 ? mutate(a) : randomText(24)]);
+}
+
+for (const t of texts) {
+  for (const name of ["len", "chars", "echo", "trim", "toNat", "uncons", "reverse", "codes", "empty", "isText", "trimmedHead"]) {
+    agree(name, t);
+  }
+  agree("fromChars", [...t]);
+  for (const c of [",", " ", "\u{1F600}", "7", [...t][0] ?? "a"]) {
+    agree("split", c, t);
+    agree("countChar", c, t);
+    agree("firstField", c, t);
+  }
+}
+for (const [a, b] of pairs) {
+  for (const name of ["same", "order", "less", "join"]) agree(name, a, b);
+  agree("joinOn", ",", [a, b]);
+  agree("joinOn", "\u{1F600}", [a, "", b]);
+  agree("lengths", [a, b]);
+  agree("prefixAll", [a, b]);
+  agree("texts", [[...a], [...b]]);
+  agree("split", [...b][0] ?? ",", a);
+}
+for (let i = 0; i < 300; i++) {
+  agree("joinOn", pick(awkward), Array.from({ length: Math.floor(random() * 6) }, () => randomText(6)));
+  agree("toNat", Array.from({ length: Math.floor(random() * 30) }, () => pick(["0", "1", "7", "9"])).join("") + (random() < 0.2 ? pick(awkward) : ""));
+}
+for (const n of [0n, 1n, 9n, 10n, 99n, 100n, 2n ** 64n, 10n ** 40n - 1n, 10n ** 40n]) agree("fromNat", n);
+for (const s of ["", "0", "007", " 12", "+5", "12abc", "0x10", "1e3", "\u{661}\u{662}", "12\n", "1_000", "18446744073709551616"]) {
+  agree("toNat", s);
+}
+assert.ok(checked > 100000, `${checked} checked`);
+console.log("ok");
+"#;
+    run_script_on(
+        "natives",
+        &[
+            ("native.mjs", module(Options::default())),
+            ("list.mjs", module(LIST_TEXT)),
+        ],
+        script,
+    );
+}
+
+/// The two ways of generating code differ exactly where `Text` is involved.
+/// With native text, a constructor-only match on `MkText` converts nothing,
+/// and the list-based module has no string helpers.
+#[test]
+fn native_text_is_only_used_when_asked_for() {
+    let examples = examples();
+    let g = &example(&examples, "text.sw").elab.globals;
+    let native = stitchwort_js::generate(g, Limits::default()).expect("extraction succeeds");
+    let list =
+        stitchwort_js::generate_with(g, Limits::default(), LIST_TEXT).expect("extraction succeeds");
+    assert!(
+        native
+            .js
+            .contains("const $isText = (v0) => {\n  return { tag: \"True\" };\n};")
+    );
+    assert!(native.js.contains("const $textLength = (t) => {"));
+    assert!(!list.js.contains("charsOfText") && !list.js.contains("textOfChars"));
+    assert!(list.js.contains("tag: \"MkText\""));
+    // The declarations don't depend on the representation.
+    assert_eq!(native.dts, list.dts);
 }
 
 /// Decoding and encoding keep their own stack, so deeply nested values cross
@@ -901,6 +1095,11 @@ fn awkward_names_never_collide() {
         "leaf",
         "param",
         "encodeChar",
+        "wellFormed",
+        "listOf",
+        "scalarEndingAt",
+        "charsOfText",
+        "textOfChars",
         "Set",
         "BigInt",
         "String",
@@ -1050,4 +1249,24 @@ fn awkward_names_never_collide() {
         );
         let _ = std::fs::remove_dir_all(&dir);
     }
+}
+
+/// Each text native is used only for the exact definition it was written for
+/// (by content hash), and every one of them applies to the prelude. If this
+/// fails after a change to the prelude, check each native listed against the
+/// changed definition, then update its hash in `TEXT_NATIVES`.
+#[test]
+fn text_natives_are_bound_to_the_prelude() {
+    let session = Session::new();
+    let bindings = stitchwort_js::bind_text_natives(&session.elab.globals).expect("hashes");
+    let unbound: Vec<String> = bindings
+        .iter()
+        .filter(|b| !b.bound)
+        .map(|b| format!("{}: {:?}", b.name, b.hash))
+        .collect();
+    assert!(
+        unbound.is_empty(),
+        "text natives not bound to the prelude's definitions:\n{}",
+        unbound.join("\n")
+    );
 }
