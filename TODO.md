@@ -5,6 +5,10 @@ The working list for Stitchwort. Reorder, edit or delete freely: the order of
 `docs/proposals/`; this file only tracks what's to do and why.
 
 How it's kept:
+- Significant design decisions (soundness, the kernel, language semantics)
+  get a design note in `docs/proposals/` first, researched against the
+  literature, and wait for the user (and possibly an external reviewer)
+  before implementation.
 - **Now** is what's in progress (ideally one thing).
 - When something is finished, it moves to **Recently done** with its commit,
   and the oldest entries there are dropped (git log has the full history).
@@ -27,8 +31,9 @@ Round 2:
 - ~~Syntax colouring in the playground~~ (lane `syntax-colour`): merged as
   `ccebba3`.
 - ~~Text step 3~~ (lane `js-text`): merged as `017d554`.
-- **Number patterns** (lane `number-patterns`): item 1 of **Next**, design
-  note first, then implementation.
+- **Number patterns** (lane `number-patterns`): item 1 of **Next**. A design
+  note with a literature survey, then a pause for external review before
+  implementation.
 - **Recorded benchmarks** (lane `benchmarks`): moved up from **Later** at
   the user's request.
 - **JS boundary hardening** (lane `js-boundary`): the `tag` field bug, a
