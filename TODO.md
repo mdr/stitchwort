@@ -39,6 +39,10 @@ Round 2:
   ([number-patterns.md](docs/proposals/number-patterns.md)), **awaiting
   review**. Recommends a number-switch node in kernel case trees.
 - ~~Recorded benchmarks~~ (lane `benchmarks`): merged as `07550ff`.
+- **Compact text** (lane `compact-text`): design note with a literature
+  survey, then a pause for review.
+- **Forward references and mutual recursion** (lane `mutual-recursion`):
+  design note with a literature survey, then a pause for review.
 - **JS boundary hardening** (lane `js-boundary`): the `tag` field bug, a
   general rule for field names, and iterative codecs for recursive types.
 
