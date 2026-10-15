@@ -5,6 +5,10 @@ The working list for Stitchwort. Reorder, edit or delete freely: the order of
 `docs/proposals/`; this file only tracks what's to do and why.
 
 How it's kept:
+- Lanes that change performance run the benchmarks before merging
+  (`nix develop -c cargo run --release -p stitchwort-bench`) and record an
+  intended change with `-- --update`, saying why in the commit. The
+  deterministic counts are checked by `nix flake check` (+10% fails).
 - Significant design decisions (soundness, the kernel, language semantics)
   get a design note in `docs/proposals/` first, researched against the
   literature, and wait for the user (and possibly an external reviewer)
@@ -34,8 +38,7 @@ Round 2:
 - **Number patterns** (lane `number-patterns`): design note written
   ([number-patterns.md](docs/proposals/number-patterns.md)), **awaiting
   review**. Recommends a number-switch node in kernel case trees.
-- **Recorded benchmarks** (lane `benchmarks`): moved up from **Later** at
-  the user's request.
+- ~~Recorded benchmarks~~ (lane `benchmarks`): merged as `07550ff`.
 - **JS boundary hardening** (lane `js-boundary`): the `tag` field bug, a
   general rule for field names, and iterative codecs for recursive types.
 
@@ -51,6 +54,10 @@ Round 2:
 
 ## Later
 
+- **Benchmark gaps:** generated rows aren't benchmarked; `stitchwort run`
+  isn't timed as a subprocess; no deterministic count catches loops that
+  neither evaluate, recurse through a guarded pass nor allocate (e.g. the
+  `expr.span()` walk in long chains).
 - **Compact text** (text step 7) is also what lifts the JS limit on text:
   in generated JS, prelude text operations stop at a few thousand
   characters (`length`, `append`, split, join, `==` aren't tail-recursive),
@@ -169,6 +176,7 @@ Round 2:
 
 ## Recently done
 
+- `07550ff` Recorded benchmarks (`crates/bench`, `bench/baseline.toml`): deterministic counts (steps, visits, allocations, peak heap) checked in `nix flake check`; timings reported, not checked.
 - `017d554` Text step 3 (js-text lane, merged): `Text` and `Char` as JS strings with strict decoding, parameterised data types at the boundary, self tail calls as loops, `StitchwortResourceError`.
 - `ccebba3` Syntax colouring in the playground's editor (CSS Custom Highlight API, with a fallback); restoring the saved draft on reload fixed.
 - `d166039` Stack-safe step 4 (depth-guards lane, merged): every recursive pass guarded by stack use; deep nesting is `E-RESOURCE` natively and in WebAssembly (`crates/driver/tests/nesting.rs`).
