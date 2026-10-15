@@ -20,7 +20,11 @@
 //!    of several definitions (or one that calls itself) is a group of
 //!    definitions that call each other: all their signatures are checked,
 //!    then all their bodies, and the kernel admits them together
-//!    (`define_group`). Data types and abilities can't be in a cycle yet.
+//!    (`define_group`). A component of several data types is a group of data
+//!    types whose constructors mention each other: all their headers are
+//!    checked, then all their constructors, and the kernel admits them
+//!    together (`define_data_group`). A cycle mixing data types (or
+//!    abilities) with definitions, or including an ability, is refused.
 //!
 //! Untrusted: the kernel refuses a group that refers to an unfinished
 //! declaration outside it, so a mistake here can't split a cycle.
@@ -515,8 +519,42 @@ impl Elaborator {
             .iter()
             .map(|i| self.module.items[*i].kind)
             .collect();
-        if component.len() > 1 && kinds.iter().any(|k| *k != Kind::Def) {
+        let all_data = kinds.iter().all(|k| *k == Kind::Data);
+        if component.len() > 1 && kinds.iter().any(|k| *k != Kind::Def) && !all_data {
             diagnostics.push((first.position, self.mixed_cycle(component)));
+            return;
+        }
+        if component.len() > 1 && all_data {
+            // A header (parameters or universe) may only mention what's
+            // finished before the group.
+            let mut refused = false;
+            for &i in component {
+                let mut reported = Vec::new();
+                for dep in self.module.items[i].deps.clone() {
+                    if dep.in_header
+                        && self.module.in_current(dep.item)
+                        && !reported.contains(&dep.item)
+                    {
+                        reported.push(dep.item);
+                        diagnostics
+                            .push((items[i].position, self.mutual_header(i, dep.item, dep.span)));
+                        refused = true;
+                    }
+                }
+            }
+            if refused {
+                return;
+            }
+            let members: Vec<(Option<usize>, &Decl)> = component
+                .iter()
+                .map(|i| (Some(*i), items[*i].decl))
+                .collect();
+            let found = self.data_group(&members);
+            diagnostics.extend(
+                found
+                    .into_iter()
+                    .map(|(i, d)| (items[i.unwrap_or(component[0])].position, d)),
+            );
             return;
         }
         if kinds[0] == Kind::Def && recursive {
@@ -613,7 +651,8 @@ impl Elaborator {
         out
     }
 
-    /// The error for a cycle that includes a data type or an ability.
+    /// The error for a cycle that mixes data types and definitions, or
+    /// includes an ability.
     fn mixed_cycle(&self, component: &[usize]) -> Diagnostic {
         let items = &self.module.items;
         let first = component[0];
@@ -624,14 +663,14 @@ impl Elaborator {
             .map_or(first, |d| d.item);
         let mut cycle = vec![first];
         cycle.extend(self.path_within(back, first));
-        let all_types = component.iter().all(|i| items[*i].kind != Kind::Def);
         let names = listed(component.iter().map(|i| &items[*i].name));
-        let mut d = if all_types {
+        let ability = component.iter().any(|i| items[*i].kind == Kind::Ability);
+        let mut d = if ability {
             Diagnostic::error(
-                "E-MUTUAL-DATA",
+                "E-MUTUAL-KIND",
                 format!(
-                    "{names} refer to each other, and data types that refer to each other aren't \
-                     supported yet"
+                    "{names} refer to each other, but an ability can't be defined together with \
+                     what it uses"
                 ),
             )
         } else {
@@ -650,13 +689,48 @@ impl Elaborator {
             );
         }
         d = d.with_note(self.describe_path(&cycle));
-        if !all_types {
-            d = d.with_note(
+        if ability {
+            d.with_note(
+                "an ability's operations can't mention a type or definition that uses the ability: \
+                 a stored computation could then call itself forever (Landin's knot)",
+            )
+        } else {
+            d.with_note(
                 "a data type's constructors can't use a definition that's being defined with \
                  it, and a definition can't use a data type before its constructors are finished",
-            );
+            )
         }
-        d
+    }
+
+    /// The error for a data type's header (of `item`) that mentions
+    /// `other`, in the same group, at `span`.
+    fn mutual_header(&self, item: usize, other: usize, span: Span) -> Diagnostic {
+        let items = &self.module.items;
+        let (name, other_name) = (&items[item].name, &items[other].name);
+        let path = self.path_within(other, item);
+        let mut d = Diagnostic::error(
+            "E-MUTUAL-SIGNATURE",
+            format!(
+                "`{name}`'s parameters or universe mention `{other_name}`, which is defined \
+                 together with it"
+            ),
+        )
+        .with_label(
+            span,
+            format!("`{other_name}` is used here, in `{name}`'s header"),
+        );
+        if item != other {
+            d = d
+                .with_label(items[other].span, format!("`{other_name}` is defined here"))
+                .with_note(format!(
+                    "they're checked together because {}",
+                    self.describe_path(&path)
+                ));
+        }
+        d.with_note(
+            "a data type's parameters can only use declarations that are finished before it, and \
+             data types that refer to each other are finished together",
+        )
     }
 
     /// The error for a signature (of `item`) that mentions `other`, in the
@@ -711,7 +785,7 @@ impl Elaborator {
                 )
                 .with_label(name.span, "used here")
                 .with_note("a data type's parameters can only use declarations that are finished"),
-                Phase::Fields => Diagnostic::error(
+                Phase::Fields if item == current => Diagnostic::error(
                     "E-MUTUAL-CONSTRUCTOR",
                     format!(
                         "`{}` can't be used in the constructors of `{owner}`, which declares it",
@@ -723,6 +797,22 @@ impl Elaborator {
                     "a data type's fields can mention the type itself, but not its constructors: \
                      they don't exist until the fields are finished",
                 ),
+                Phase::Fields => Diagnostic::error(
+                    "E-MUTUAL-CONSTRUCTOR",
+                    format!(
+                        "`{}` can't be used in the constructors of `{owner}`, which is defined \
+                         together with `{}`",
+                        name.text, info.name
+                    ),
+                )
+                .with_label(name.span, "used here")
+                .with_label(info.span, format!("`{}` is defined here", info.name))
+                .with_note(format!(
+                    "the fields of data types defined together can mention the types, like \
+                     `{}`, but not their constructors: those don't exist until all the fields \
+                     are finished",
+                    info.name
+                )),
                 Phase::Body => internal_order(name),
             };
         }

@@ -592,13 +592,104 @@ impl Elaborator {
         Ok(())
     }
 
+    /// A data type on its own (one in a component of its own, or one an
+    /// ability generates).
     fn data(&mut self, decl: &Decl) -> Result<()> {
+        let item = self.module.item;
+        match self.data_group(&[(item, decl)]).into_iter().next() {
+            Some((_, d)) => Err(d),
+            None => Ok(()),
+        }
+    }
+
+    /// A group of data types whose constructors may mention each other (or
+    /// one data type), each with the module item that declares it: every
+    /// header, then every constructor, then the kernel admits them together,
+    /// or none of them (docs/proposals/mutual-recursion.md §5.4). Members
+    /// must have the same parameters and universe, which the kernel checks
+    /// once, for the whole group. The diagnostics, each with the item it's
+    /// about.
+    fn data_group(
+        &mut self,
+        members: &[(Option<usize>, &Decl)],
+    ) -> Vec<(Option<usize>, Diagnostic)> {
+        let mut out = Vec::new();
+        let mut headers = Vec::new();
+        for &(item, decl) in members {
+            if item.is_some() {
+                self.module.item = item;
+            }
+            match self.data_header(decl) {
+                Ok(header) => headers.push(header),
+                Err(d) => out.push((item, d)),
+            }
+        }
+        if !out.is_empty() {
+            return out;
+        }
+        let ((params, sort), first) = (headers[0].clone(), members[0].1);
+        for (&(item, decl), header) in members.iter().zip(&headers).skip(1) {
+            if let Err(d) = self.same_header(first, &headers[0], decl, header) {
+                out.push((item, d));
+            }
+        }
+        if !out.is_empty() {
+            return out;
+        }
+        let names: Vec<(Name, Span)> = members
+            .iter()
+            .map(|(_, decl)| match decl {
+                Decl::Data { name: n, span, .. } => (name(n), *span),
+                _ => unreachable!(),
+            })
+            .collect();
+        let ids = match kernel::declare_data_group(&mut self.globals, params, sort, names) {
+            Ok(ids) => ids,
+            Err(d) => return vec![(members[0].0, d)],
+        };
+        // Every member can be mentioned in fields now, as a type. None has
+        // constructors until the kernel admits them all.
+        for (&(_, decl), d) in members.iter().zip(&ids) {
+            if let Decl::Data { name: n, .. } = decl {
+                self.names
+                    .insert(n.text.clone(), (Global::Data(*d), n.span));
+            }
+        }
+        let mut defined = Vec::new();
+        for (&(item, decl), d) in members.iter().zip(&ids) {
+            if item.is_some() {
+                self.module.item = item;
+            }
+            match self.data_ctors(decl, *d) {
+                Ok(ctors) => defined.push((*d, ctors)),
+                Err(d) => out.push((item, d)),
+            }
+        }
+        if !out.is_empty() {
+            return out;
+        }
+        if members[0].0.is_some() {
+            self.module.item = members[0].0;
+        }
+        if let Err(d) = kernel::define_data_group(&mut self.globals, defined) {
+            return vec![(members[0].0, d)];
+        }
+        for (&(item, decl), d) in members.iter().zip(&ids) {
+            if let Err(e) = self.after_data(decl, *d) {
+                out.push((item, e));
+            }
+        }
+        out
+    }
+
+    /// Elaborates a data type's parameters and universe.
+    fn data_header(&mut self, decl: &Decl) -> Result<(Vec<(Name, Term)>, Sort)> {
         let Decl::Data {
             name: data_name,
             params,
             sort,
-            ctors,
             span,
+            ..
         } = decl
         else {
             unreachable!()
@@ -606,42 +697,122 @@ impl Elaborator {
         self.check_new_name(data_name)?;
         self.clear_metas();
         self.module.phase = Phase::Header;
-
-        let (params, sort) = {
-            let mut cx = Ctx::new(self, *span);
-            let mut checked = Vec::new();
-            for binder in params {
-                let (ty, _) = check_type(&mut cx, &binder.ty)?;
-                for (k, n) in binder.names.iter().enumerate() {
-                    let ty = self.finish(&ty.shift(&self.globals, k, 0)?, cx.level())?;
-                    let value = cx.eval(&ty)?;
-                    checked.push((name(n), ty));
-                    cx.bind(&n.text, value);
-                }
+        let mut cx = Ctx::new(self, *span);
+        let mut checked = Vec::new();
+        for binder in params {
+            let (ty, _) = check_type(&mut cx, &binder.ty)?;
+            for (k, n) in binder.names.iter().enumerate() {
+                let ty = self.finish(&ty.shift(&self.globals, k, 0)?, cx.level())?;
+                let value = cx.eval(&ty)?;
+                checked.push((name(n), ty));
+                cx.bind(&n.text, value);
             }
-            let sort = match sort {
-                None => Sort::Type(0),
-                Some(e) => {
-                    let mut cx = Ctx::new(self, e.span());
-                    match check_type(&mut cx, e)?.0.strip_loc() {
-                        Term::Sort(s) => *s,
-                        _ => {
-                            return Err(error(
-                                "E-NOT-A-SORT",
-                                e.span(),
-                                "expected `Type`, `Type n` or `Prop`",
-                            ));
-                        }
+        }
+        let sort = match sort {
+            None => Sort::Type(0),
+            Some(e) => {
+                let mut cx = Ctx::new(self, e.span());
+                match check_type(&mut cx, e)?.0.strip_loc() {
+                    Term::Sort(s) => *s,
+                    _ => {
+                        return Err(error(
+                            "E-NOT-A-SORT",
+                            e.span(),
+                            "expected `Type`, `Type n` or `Prop`",
+                        ));
                     }
                 }
-            };
-            (checked, sort)
+            }
         };
-        let d = kernel::declare_data(&mut self.globals, name(data_name), params, sort, *span)?;
-        self.names
-            .insert(data_name.text.clone(), (Global::Data(d), data_name.span));
-        self.module.phase = Phase::Fields;
+        Ok((checked, sort))
+    }
 
+    /// Whether data type `decl` has the same parameters (names and types) and
+    /// universe as `first`, which it's defined together with. The kernel
+    /// takes one telescope for the whole group, so this is only for a clear
+    /// error.
+    fn same_header(
+        &self,
+        first: &Decl,
+        (first_params, first_sort): &(Vec<(Name, Term)>, Sort),
+        decl: &Decl,
+        (params, sort): &(Vec<(Name, Term)>, Sort),
+    ) -> Result<()> {
+        let (
+            Decl::Data {
+                name: first_name, ..
+            },
+            Decl::Data { name: n, .. },
+        ) = (first, decl)
+        else {
+            unreachable!()
+        };
+        let g = &self.globals;
+        let show_params = |params: &[(Name, Term)]| {
+            if params.is_empty() {
+                return "no parameters".to_string();
+            }
+            let mut names: Vec<Name> = Vec::new();
+            let mut shown = Vec::new();
+            for (x, ty) in params {
+                shown.push(format!("({x} : {})", pretty::term(g, &names, ty)));
+                names.push(x.clone());
+            }
+            shown.join(" ")
+        };
+        let mut same = params.len() == first_params.len();
+        let mut env = Vec::new();
+        for ((x, ty), (y, first_ty)) in params.iter().zip(first_params) {
+            if !same {
+                break;
+            }
+            let level = env.len();
+            let (a, b) = (eval(g, &env, ty)?, eval(g, &env, first_ty)?);
+            same = x == y && stitchwort_core::value::conv(g, level, &a, &b)?;
+            env.push(Value::var(level));
+        }
+        if !same {
+            return Err(Diagnostic::error(
+                "E-MUTUAL-PARAMETERS",
+                format!(
+                    "`{}` and `{}` are defined together, so they must have the same parameters",
+                    first_name.text, n.text
+                ),
+            )
+            .with_label(n.span, format!("`{}` has {}", n.text, show_params(params)))
+            .with_label(
+                first_name.span,
+                format!("`{}` has {}", first_name.text, show_params(first_params)),
+            )
+            .with_note(
+                "data types that refer to each other share one list of parameters: write the \
+                 same parameters, with the same names, for each",
+            ));
+        }
+        if sort != first_sort {
+            let show = |s: &Sort| pretty::term(g, &[], &Term::Sort(*s));
+            return Err(Diagnostic::error(
+                "E-MUTUAL-PARAMETERS",
+                format!(
+                    "`{}` and `{}` are defined together, so they must be in the same universe",
+                    first_name.text, n.text
+                ),
+            )
+            .with_label(n.span, format!("`{}` is in `{}`", n.text, show(sort)))
+            .with_label(
+                first_name.span,
+                format!("`{}` is in `{}`", first_name.text, show(first_sort)),
+            ));
+        }
+        Ok(())
+    }
+
+    /// Elaborates the constructors of data type `d`, declared from `decl`.
+    fn data_ctors(&mut self, decl: &Decl, d: DataId) -> Result<Vec<kernel::CtorDecl>> {
+        let Decl::Data { ctors, span, .. } = decl else {
+            unreachable!()
+        };
+        self.module.phase = Phase::Fields;
         let mut core_ctors = Vec::new();
         for (c, ctor) in ctors.iter().enumerate() {
             self.check_new_name(&ctor.name)?;
@@ -674,7 +845,24 @@ impl Elaborator {
                 fields,
             });
         }
-        kernel::define_ctors(&mut self.globals, d, core_ctors)?;
+        Ok(core_ctors)
+    }
+
+    /// After a data type is admitted: registering builtins (in the prelude),
+    /// and making its constructors' names refer to them.
+    fn after_data(&mut self, decl: &Decl, d: DataId) -> Result<()> {
+        let Decl::Data {
+            name: data_name,
+            ctors,
+            ..
+        } = decl
+        else {
+            unreachable!()
+        };
+        for (c, ctor) in ctors.iter().enumerate() {
+            self.names
+                .insert(ctor.name.text.clone(), (Global::Ctor(d, c), ctor.name.span));
+        }
         if self.loading_prelude {
             match data_name.text.as_str() {
                 "Nat" => native::register_nat(&mut self.globals, d)?,
@@ -682,10 +870,6 @@ impl Elaborator {
                 "Decidable" => native::register_decidable(&mut self.globals, d)?,
                 _ => {}
             }
-        }
-        for (c, ctor) in ctors.iter().enumerate() {
-            self.names
-                .insert(ctor.name.text.clone(), (Global::Ctor(d, c), ctor.name.span));
         }
         Ok(())
     }

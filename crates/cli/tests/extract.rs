@@ -1211,6 +1211,82 @@ console.log("ok");
     );
 }
 
+/// Data types defined together cross the boundary as deep as plain ones:
+/// a tree a million deep, through its forest, decoded and encoded, and built
+/// by Stitchwort code. Recursion over it is a resource error, not a crash.
+/// Traversing the types (which refer to each other) terminating, and
+/// traversing a deep value without overflowing, are separate properties
+/// (docs/proposals/mutual-recursion.md §8.6).
+#[test]
+fn deep_mutual_values_cross_the_boundary() {
+    let examples = examples();
+    let script = r#"
+import * as m from "./mutual-data.mjs";
+import assert from "node:assert/strict";
+
+const N = 1000000;
+const refused = (f, pattern) =>
+  assert.throws(f, (e) => e instanceof m.StitchwortInputError && pattern.test(e.message));
+
+// A tree a million deep: each node's only child is the next one down.
+let tree = { tag: "Node", label: 0n, kids: { tag: "FNil" } };
+for (let i = 1; i <= N; i++) {
+  tree = { tag: "Node", label: BigInt(i), kids: { tag: "FCons", first: tree, rest: { tag: "FNil" } } };
+}
+// Labels count down to 0 at the bottom (`deep`'s count up, so aren't
+// checked).
+const checkDeep = (t, n, labelled = true) => {
+  let depth = 0;
+  while (t.kids.tag === "FCons") {
+    if (t.kids.rest.tag !== "FNil" || (labelled && t.label !== BigInt(n - depth))) {
+      assert.fail(`depth ${depth}`);
+    }
+    t = t.kids.first;
+    depth++;
+  }
+  assert.equal(depth, n);
+};
+checkDeep(m.echoTree(tree), N);
+checkDeep(m.deep(BigInt(N)), N, false);
+// The forest it's in, too.
+const forest = { tag: "FCons", first: tree, rest: { tag: "FNil" } };
+const back = m.echoForest(forest);
+checkDeep(back.first, N);
+
+// A mistake at the bottom is found, and where it is is summarised.
+let bad = { tag: "Node", label: -1n, kids: { tag: "FNil" } };
+for (let i = 0; i < N; i++) bad = { tag: "Node", label: 0n, kids: { tag: "FCons", first: bad, rest: { tag: "FNil" } } };
+refused(() => m.echoTree(bad),
+  /^t\.kids\.first\.kids\.first\.kids\.first…\(1999989 more steps\)…\.first\.kids\.first\.kids\.first\.label: expected a non-negative bigint$/);
+// A tree that contains itself, through its forest.
+const loop = { tag: "Node", label: 0n, kids: { tag: "FNil" } };
+loop.kids = { tag: "FCons", first: loop, rest: { tag: "FNil" } };
+refused(() => m.size(loop), /contains itself/);
+
+// `size` and `sizeForest` call each other, so a deep tree runs out of
+// stack: a resource error, after which the module still works.
+assert.throws(() => m.size(tree), (e) => e instanceof m.StitchwortResourceError);
+assert.equal(m.size({ tag: "Node", label: 0n, kids: { tag: "FNil" } }), 1n);
+
+// With a parameter: a rose tree of texts, a million deep.
+let rose = { tag: "Bloom", value: "x", kids: { tag: "NoRoses" } };
+for (let i = 0; i < N; i++) {
+  rose = { tag: "Bloom", value: "x", kids: { tag: "MoreRoses", first: rose, rest: { tag: "NoRoses" } } };
+}
+let r = m.echoRose(rose);
+let depth = 0;
+for (; r.kids.tag === "MoreRoses"; r = r.kids.first) depth++;
+assert.equal(depth, N);
+refused(() => m.echoRose({ tag: "Bloom", value: 1n, kids: { tag: "NoRoses" } }), /^r\.value: /);
+console.log("ok");
+"#;
+    run_script(
+        "mutual-data",
+        &[("mutual-data.mjs", example(&examples, "mutual-data.sw"))],
+        script,
+    );
+}
+
 /// A type without constructors has no values: its declaration is `never`,
 /// and the decoder says so.
 #[test]

@@ -2,12 +2,14 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-POSITIVITY] Error: `CellOp` is used in a negative position
+[E-POSITIVITY] Error: `CellOp` is used inside another type
    ╭─[ soundness/cell-operation.sw:8:16 ]
    │
  8 │   | Write (f : Unit1 -> Comp CellOp (\o -> Unit1) Unit1)
    │                ────────────────────┬───────────────────  
-   │                                    ╰───────────────────── field `f` takes a `CellOp` as input
+   │                                    ╰───────────────────── field `f` has `CellOp` inside another type
    │ 
-   │ Note: a data type can't contain functions that take that same type as input; that would make it possible to prove anything
+   │ Note 1: a data type's fields can contain it only directly, or as the result of a function field: whether it's safe inside another type (such as a `List`) would depend on how that type uses it, which isn't checked
+   │ 
+   │ Note 2: for a tree whose children are in a list, write two types defined together instead: a tree, and a forest of trees
 ───╯

@@ -44,9 +44,10 @@ const outOfResources = (name, e) =>
 // (`list` and `data` give back the same object for the same arguments), so
 // two types are the same exactly when they're the same object, and `decode`
 // can remember what it has decoded at each. There are only so many: a data
-// type's fields can only mention it applied to its own parameters (the
-// positivity check), and otherwise only types declared before it, so a
-// boundary type has finitely many types inside it.
+// type's fields can only mention it, and the types defined together with it,
+// applied to their own parameters (the positivity check), and otherwise only
+// types declared before them, so a boundary type has finitely many types
+// inside it.
 const LEAF = 0, LIST = 1, DATA = 2, PARAM = 3;
 let typeCount = 0;
 const leaf = (dec, enc) => ({ kind: LEAF, open: false, id: typeCount++, dec, enc });

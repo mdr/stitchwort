@@ -64,6 +64,30 @@ fn data_types_are_nominal() {
     );
 }
 
+/// Data types defined together are hashed as a unit
+/// (docs/proposals/mutual-recursion.md §8.4): changing one constructor of
+/// one changes the hashes of both, and of what uses either; the order
+/// they're written in doesn't matter.
+#[test]
+fn data_types_defined_together_are_hashed_together() {
+    let tree = "type Tree : Type =\n  | Node (label : Nat) (kids : Forest)\n\n";
+    let forest = "type Forest : Type =\n  | FNil\n  | FCons (first : Tree) (rest : Forest)\n\n";
+    let leaf = "leaf : Tree\nleaf = Node 0 FNil\n";
+    let a = load(&format!("{tree}{forest}{leaf}"));
+    let b = load(&format!("{forest}{tree}{leaf}"));
+    for name in ["Tree", "Forest", "leaf"] {
+        assert_eq!(hash_of(&a, name), hash_of(&b, name), "{name}");
+    }
+    assert_ne!(hash_of(&a, "Tree"), hash_of(&a, "Forest"));
+    // A constructor of `Forest` changes: `Tree`'s hash changes too, and so
+    // does `leaf`'s, which uses only `Node` and `FNil`.
+    let other = "type Forest : Type =\n  | FNil\n  | FCons (rest : Forest) (first : Tree)\n\n";
+    let c = load(&format!("{tree}{other}{leaf}"));
+    for name in ["Tree", "Forest", "leaf"] {
+        assert_ne!(hash_of(&a, name), hash_of(&c, name), "{name}");
+    }
+}
+
 fn outcomes(results: &[TestResult]) -> Vec<(&str, Outcome, bool)> {
     results
         .iter()
