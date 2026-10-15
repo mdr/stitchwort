@@ -723,3 +723,31 @@ handlePlus fl fr (R o) k = fr o k
 runPure : [a : Type] -> Comp NoOp NoRes a -> a
 runPure (Done x)       = x
 runPure (Call () rest)
+
+-- Input and output (docs/proposals/text-and-io.md, Part 2)
+
+-- The console. Only a host interpreter performs these for real; in Stitchwort
+-- code, `simulate` interprets them as data.
+ability IO where
+  print    : Text -> {IO} ()          -- writes the text, then a line ending
+  readLine : () -> {IO} (Maybe Text)  -- Nothing only at end of input
+
+-- The first line of scripted input, if there is one.
+nextLine : List Text -> Maybe Text
+nextLine Nil         = Nothing
+nextLine (Cons l ls) = Just l
+
+-- Runs a program against scripted input lines: each `readLine` takes the
+-- next one, and gives `Nothing` once they're used up. Records each `print`
+-- payload, in order, with the result. A payload is one entry even if it
+-- contains a line feed: a real interpreter writes each payload followed by
+-- a line ending. The payloads are collected in reverse and turned round at
+-- the end, so a long run doesn't build a deep chain of pending pairs.
+simulate : List Text -> (() -> {IO | e} a) -> {e} Pair (List Text) a
+simulate input prog =
+  let run : List Text -> List Text -> {e} Pair (List Text) a =
+    handle prog () with
+      | return x        -> \ins out -> MkPair (reverseOnto out Nil) x
+      | print t => k    -> \ins out -> k () ins (Cons t out)
+      | readLine u => k -> \ins out -> k (nextLine ins) (tailOf ins) out
+  run input Nil

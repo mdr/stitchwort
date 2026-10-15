@@ -1,6 +1,6 @@
 # Surface syntax (implemented subset)
 
-**Status:** describes `crates/syntax` as of 15 October 2026. DESIGN.md §4 shows the intended language. Not yet implemented: records, `Partial`, `IO` and a `case` expression.
+**Status:** describes `crates/syntax` as of 15 October 2026. DESIGN.md §4 shows the intended language. Not yet implemented: records, `Partial`, running `main` with real `IO`, and a `case` expression.
 
 ## Layout
 

@@ -1,6 +1,6 @@
 # Stitchwort: text, `IO` and `main`
 
-**Status:** draft 2, 15 October 2026. Accepted after review. Build steps 1 (`Char`) and 2 (`Text`) are implemented; see [As built](#as-built). [Acceptance criteria](#acceptance-criteria) lists what the first milestone must show.
+**Status:** draft 2, 15 October 2026. Accepted after review. Build steps 1 (`Char`), 2 (`Text`) and 4 (the `IO` ability and `simulate`) are implemented; see [As built](#as-built). [Acceptance criteria](#acceptance-criteria) lists what the first milestone must show.
 
 ## As built
 
@@ -14,6 +14,15 @@ Where steps 1 and 2 differ from, or add to, the design below:
 - **Proved, for every input:** `textToList (textFromList cs) = cs`, `textFromList (textToList t) = t`, `textLength (a ++ b) = textLength a + textLength b`, and `textJoin s (textSplit s t) = t`.
 - **Tested, not proved:** `textToNat (natToText n) = Just n`, for 0 to 100 and some larger numbers up to 2^64. A proof would need lemmas about `/` and `%`.
 - **Long texts overflow the stack.** Every text operation recurses once per character, and the evaluator uses the Rust stack. A 1,000-character text overflows 8 MB in a debug build, and in a release build the limit is between 3,000 and 6,000 characters. Ordinary lists behave the same way. This is the Robustness row of the acceptance criteria, and needs fixing before text is useful for real input.
+
+Where step 4 differs from, or adds to, the design below:
+
+- **`IO` is an ordinary ability, declared in the prelude** exactly as proposed. Nothing in the elaborator or the evaluator treats it, `print` or `readLine` specially; abilities in the prelude needed no change.
+- **`simulate` is an ordinary handler.** Its `handle` builds a function waiting for the remaining input and the payloads printed so far, like `runState` in `examples/accept/abilities.sw`. `readLine` takes the next line, or gives `Nothing` once they're used up (and keeps giving it); `print` adds its payload as one entry, whatever it contains. The payloads are collected in reverse and turned round at the end, so a long run doesn't build a deep chain of pending pairs. A new prelude helper, `nextLine`, gives the first scripted line, if there is one.
+- **`IO` always comes first in a row.** Rows are kept in the order abilities were declared, and the prelude is declared before any file, so `{IO, State Nat}` and `{State Nat, IO}` are the same type. The test cache shows it: in `examples/accept/io.sw`, the tests that differ only in row order have the same hash.
+- **Tested** in `examples/accept/io.sw`: payloads in order, one entry per payload even with a line feed, an empty line versus end of input, end of input repeated, interleaved reading and printing, `IO` with `State` and `Abort` with the handlers nested either way round, a program without `IO`, and 5,000 prints. A small simulated run is also proved by `rfl`. In a debug build, 100,000 prints run in about 14 seconds without overflowing the stack.
+- **Exports can use it.** `examples/extract/io.sw` exports pure functions that run `IO` code through `simulate`, and the generated JavaScript agrees with the reference evaluator.
+- **Not yet:** `main`, `stitchwort run` and the real interpreter (step 5). So the `IO` row of the acceptance criteria is met only for the simulator: CRLF, invalid UTF-8 and write failures are the runner's to test.
 
 ## Changes since draft 1
 

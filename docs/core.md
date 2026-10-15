@@ -11,7 +11,7 @@ The core is the small, explicit language that every Stitchwort definition is tra
 | A separate trusted kernel re-checks the elaborator's output (principle 4) | **Done.** The elaborator (`crates/elab`) has its own type checker, with metavariables and unification. It produces complete core terms, which the checker in `crates/core` (the kernel) re-checks from scratch. |
 | Implicit arguments, `auto` | Implemented ([below](#elaboration)). Decision procedures are found by their result type (any function returning `Decidable …`), not registered explicitly |
 | `if` | Both branches are functions, so only the chosen one runs. Branches must produce data (`Type`), not proofs, until universe polymorphism exists |
-| Abilities, `Partial` | Abilities and handlers are implemented by translation into the prelude's `Comp` trees ([below](#abilities)), so the core has no effect judgment: an effectful function's type *is* a function into `Comp`. `Partial` and `IO` aren't implemented, so non-terminating definitions are still rejected outright. |
+| Abilities, `Partial` | Abilities and handlers are implemented by translation into the prelude's `Comp` trees ([below](#abilities)), so the core has no effect judgment: an effectful function's type *is* a function into `Comp`. `Partial` isn't implemented, so non-terminating definitions are still rejected outright. `IO` is an ordinary ability declared in the prelude, with `simulate` as an ordinary handler for it; nothing performs it for real yet. |
 | Tracked assumptions | There's no `assume` yet, so every checked definition is assumption-free |
 | Evaluation budget, "inconclusive" results | Not yet. Evaluation is guaranteed to terminate, but may be slow |
 | Caching (§11) | Test results are cached by content hash. Kernel checks and generated JS aren't cached yet, and nothing is cached across elaboration |
@@ -219,7 +219,7 @@ Renaming a function or reformatting code changes no hashes. Changing a body chan
 
 ## The prelude
 
-`crates/elab/src/prelude.sw` defines everything above that isn't built in: `Void`, `Unit`, `Not`, `absurd`/`exfalso`; `Nat` with `+ - *`, `pred`, `/`, `%`, `eqNat`; `Bool` with `not`, `ifThenElse`, `leq`, `decEqBool`; `<=` and `<` as propositions computed via `leq`; `List`, `length`, `append`; `cong`, `sym`, `trans`; constructor disjointness and injectivity; and `Comp` (computations as trees of operations, docs/proposals/abilities.md) with `foldComp` and `bind`; `Decidable` with `IsYes`, `fromYes`, `toBool`, `elimDec` and decision procedures for `=` on `Nat`, `<=`, `<`, `Not`, and `b = True`.
+`crates/elab/src/prelude.sw` defines everything above that isn't built in: `Void`, `Unit`, `Not`, `absurd`/`exfalso`; `Nat` with `+ - *`, `pred`, `/`, `%`, `eqNat`; `Bool` with `not`, `ifThenElse`, `leq`, `decEqBool`; `<=` and `<` as propositions computed via `leq`; `List`, `length`, `append`; `cong`, `sym`, `trans`; constructor disjointness and injectivity; and `Comp` (computations as trees of operations, docs/proposals/abilities.md) with `foldComp` and `bind`; the `IO` ability (`print`, `readLine`) and `simulate`, which runs a program against scripted input and records what it prints (docs/proposals/text-and-io.md); `Decidable` with `IsYes`, `fromYes`, `toBool`, `elimDec` and decision procedures for `=` on `Nat`, `<=`, `<`, `Not`, and `b = True`.
 
 Division is defined by structural recursion on fuel (`n` steps is always enough when the divisor isn't zero). Its non-zero precondition is what makes `n / 0` a compile-time error rather than a convention.
 
