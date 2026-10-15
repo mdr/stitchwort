@@ -182,6 +182,14 @@ impl Walker<'_> {
                     self.matched.pop();
                 }
             }
+            // A number case binds nothing and makes nothing smaller, but every
+            // arm and the default are walked, keeping what's already known.
+            Term::NumCase(_, arms, default) => {
+                for arm in arms.iter() {
+                    self.walk(&arm.body)?;
+                }
+                self.walk(default)?;
+            }
             Term::Eq(ty, a, b) => {
                 if let Some(ty) = ty {
                     self.walk(ty)?;

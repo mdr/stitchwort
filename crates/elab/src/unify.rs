@@ -492,6 +492,18 @@ pub fn zonk(g: &Globals, level: usize, term: &Term) -> std::result::Result<Term,
                 })
                 .collect::<std::result::Result<_, ZonkError>>()?,
         ),
+        Term::NumCase(ix, arms, default) => Term::NumCase(
+            *ix,
+            arms.iter()
+                .map(|a| {
+                    Ok(stitchwort_core::term::NumArm {
+                        value: a.value.clone(),
+                        body: go(&a.body, level)?,
+                    })
+                })
+                .collect::<std::result::Result<_, ZonkError>>()?,
+            go(default, level)?,
+        ),
         Term::Eq(t, a, b) => Term::Eq(
             t.as_ref().map(|t| go(t, level)).transpose()?,
             go(a, level)?,

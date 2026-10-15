@@ -513,6 +513,7 @@ dependencies = [
 name = "stitchwort-elab"
 version = "0.1.0"
 dependencies = [
+ "num-bigint",
  "stitchwort-core",
  "stitchwort-syntax",
 ]

@@ -48,7 +48,7 @@ total (Cons x xs) = x + total xs
 
 Definitions may be named in either case: `length`, or `Not` for a function returning a type.
 
-Patterns are variables, `_`, numbers, constructors applied to patterns (nested to any depth, as in `half (Succ (Succ n))`), or `()`. A number pattern `n` means `n` nested `Succ`s around `Zero`, so it's limited to 256. Equations are tried from top to bottom. `()` with a right-hand side matches the unit value; without one, it says the argument's type has no values, and the equation needs no right-hand side:
+Patterns are variables, `_`, numbers, constructors applied to patterns (nested to any depth, as in `half (Succ (Succ n))`), or `()`. A number pattern tests for that number, of any size. In an equation with a variable or `_` where others have numbers, nothing is known about the argument: not even that it's a different number, and not that it's a `Succ` (so with `make : (n : Nat) -> ResultType n`, `make 0 = …; make n = …` checks the second equation knowing nothing about `n`). To use the shape of a number, match on `Zero` and `Succ` instead; a number pattern in a column that also has `Zero` or `Succ` patterns counts down like `Succ`s. Equations are tried from top to bottom. `()` with a right-hand side matches the unit value; without one, it says the argument's type has no values, and the equation needs no right-hand side:
 
 ```
 absurd : Void -> a

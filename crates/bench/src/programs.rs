@@ -66,6 +66,56 @@ pub const ALL: &[Benchmark] = &[
             check(format!("t : Nat -> Nat\n{rows}t _ = 0\n"))
         },
     },
+    // Number patterns compile to number cases, so these measure literal
+    // magnitude, table width and context separately
+    // (docs/proposals/number-patterns.md).
+    Benchmark {
+        name: "check-number-huge",
+        about: "checks `f 10^30 = True; f _ = False`",
+        prepare: || {
+            check(format!(
+                "f : Nat -> Bool\nf {} = True\nf _ = False\n",
+                "1".to_string() + &"0".repeat(30)
+            ))
+        },
+    },
+    Benchmark {
+        name: "check-number-wide",
+        about: "checks a table `t 0 = 0 … t 999 = 999`",
+        prepare: || {
+            let rows: String = (0..1000).map(|i| format!("t {i} = {i}\n")).collect();
+            check(format!("t : Nat -> Nat\n{rows}t _ = 0\n"))
+        },
+    },
+    Benchmark {
+        name: "check-number-dependent",
+        about: "checks 50 number equations whose other arguments' types depend on the number",
+        prepare: || {
+            let rows: String = (0..50)
+                .map(|i| format!("dep {} a b c = a\n", 2 * i + 1))
+                .collect();
+            check(format!(
+                "Shape : Nat -> Type\nShape 0 = Nat\nShape _ = Bool\n\n\
+                 dep : (n : Nat) -> Shape n -> Shape n -> Shape n -> Shape n\n\
+                 {rows}dep n a b c = c\n"
+            ))
+        },
+    },
+    Benchmark {
+        name: "check-number-columns",
+        about: "checks 60 equations on three number columns, each with `_` in the other two",
+        prepare: || {
+            let mut rows = String::new();
+            for c in 0..3 {
+                for i in 0..20 {
+                    let mut pats = ["_".to_string(), "_".to_string(), "_".to_string()];
+                    pats[c] = (10 * i + 7).to_string();
+                    rows += &format!("m {} = {}\n", pats.join(" "), c * 100 + i);
+                }
+            }
+            check(format!("m : Nat -> Nat -> Nat -> Nat\n{rows}m _ _ _ = 0\n"))
+        },
+    },
     Benchmark {
         name: "check-list-rfl",
         about: "checks `theorem a : [1, …, 20000] = [1, …, 20000]` by `rfl`",
