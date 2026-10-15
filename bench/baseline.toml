@@ -5,19 +5,19 @@
 # time_ms is the median wall time on the machine that recorded it.
 
 [examples]
-inputs = "102 files, aa52c65f90febc0d"
-steps = 22543904
-visits = 3146006
-allocations = 24407723
+inputs = "109 files, ee8f41c18f884275"
+steps = 23719398
+visits = 3351750
+allocations = 25904883
 peak_bytes = 28146585
 time_ms = 1707.9
 
 [extract-js]
-inputs = "14 files, be3ffa760a073fd8"
-steps = 162957
-visits = 37041
-allocations = 212068
-peak_bytes = 150540
+inputs = "15 files, cef0044df6c12d37"
+steps = 174279
+visits = 39471
+allocations = 225931
+peak_bytes = 164780
 time_ms = 11.8
 
 [eval-lengths]
@@ -58,76 +58,76 @@ time_ms = 391.6
 [check-number-pattern]
 steps = 59
 visits = 38
-allocations = 172
+allocations = 174
 peak_bytes = 4461
 time_ms = 0.2
 
 [check-number-table]
 steps = 6946
 visits = 3363
-allocations = 17371
+allocations = 17373
 peak_bytes = 345476
 time_ms = 0.7
 
 [check-list-rfl]
 steps = 800058
 visits = 500034
-allocations = 1240244
+allocations = 1240245
 peak_bytes = 44809617
 time_ms = 51.1
 
 [check-list-sym-rfl]
 steps = 1400274
 visits = 700061
-allocations = 2020567
+allocations = 2020568
 peak_bytes = 74251569
 time_ms = 85.5
 
 [check-long-sum]
 steps = 269980
 visits = 162206990
-allocations = 450037
+allocations = 450038
 peak_bytes = 11614912
 time_ms = 1182.8
 
 [check-nested-parens]
 steps = 10
 visits = 15
-allocations = 50
+allocations = 51
 peak_bytes = 1859880
 time_ms = 3.3
 
 [check-nested-apps]
 steps = 12030040
 visits = 4028042
-allocations = 8056153
+allocations = 8056156
 peak_bytes = 1468767
 time_ms = 629.8
 
 [check-number-huge]
 steps = 59
 visits = 38
-allocations = 176
+allocations = 178
 peak_bytes = 4521
 time_ms = 0.2
 
 [check-number-wide]
 steps = 27034
 visits = 13035
-allocations = 67358
+allocations = 67360
 peak_bytes = 1158028
 time_ms = 2.3
 
 [check-number-dependent]
 steps = 5606
 visits = 818
-allocations = 11022
+allocations = 11026
 peak_bytes = 75073
 time_ms = 0.6
 
 [check-number-columns]
 steps = 3148
 visits = 851
-allocations = 7496
+allocations = 7498
 peak_bytes = 86205
 time_ms = 0.5
