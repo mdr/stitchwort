@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TERMINATION] Error: `sumWith` is used here without all its arguments
+    ╭─[ reject/partial-recursive-call.sw:11:33 ]
+    │
+ 11 │ sumWith (Succ n) acc = applyTo (sumWith n) (acc + Succ n)
+    │                                 ────┬────  
+    │                                     ╰────── `sumWith` takes 2 arguments; it's given 1
+    │ 
+    │ Note 1: write `\x -> sumWith n x` so the call can be checked
+    │ 
+    │ Note 2: a recursive call must be given all the arguments, so the termination checker can see what each one is
+────╯

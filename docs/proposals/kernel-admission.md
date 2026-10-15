@@ -5,8 +5,9 @@ today's one-declaration-at-a-time kernel needs. It closes the gap in
 `TODO.md` ("The kernel doesn't track whether a declaration is finished"):
 called directly, the kernel accepted a cycle split across two definitions
 and an empty match on a data type whose constructors hadn't arrived yet.
-Groups, forward references and size-change termination are left to the
-mutual-recursion work, which extends this.
+Groups and forward references are left to the mutual-recursion work, which
+extends this (size-change termination and the saturation rule for single
+definitions are built: mutual-recursion.md §10.1).
 
 ## States
 
@@ -129,5 +130,5 @@ apply to single declarations:
 
 §5.5 tests 8 (adding a member to an existing group) and 9 (incorrect
 partitions of a group) need groups and are left to the mutual-recursion
-work, as are §5.3–§5.4's group admission, the saturation check and the
+work, as are §5.3–§5.4's group admission and the
 mixed-group rule.

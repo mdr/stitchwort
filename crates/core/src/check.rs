@@ -661,10 +661,14 @@ pub fn define_def(g: &mut Globals, id: DefId, body: &Term) -> Result<()> {
             format!("`{}` has already been defined", def.name),
         ));
     }
+    // The definition-entry arity, fixed before anything is checked: every
+    // consumer (the termination checker's saturation rule, graph dimensions
+    // and parameters, the evaluator's unfolding, extraction) reads this one
+    // number.
+    g.defs[id.0].arity = body.count_lams();
     match admit_def(g, id, body) {
         Ok(body) => {
             let def = &mut g.defs[id.0];
-            def.arity = body.count_lams();
             def.body = Some(Rc::new(body));
             def.state = State::Final;
             Ok(())
@@ -681,13 +685,15 @@ fn admit_def(g: &Globals, id: DefId, body: &Term) -> Result<Term> {
     let (name, span, ty_value) = (def.name.clone(), def.span, def.ty_value.clone());
     let mut cx = Ctx::new(g, span);
     let failed = admissible(&cx, [&def.ty, body], Some(Itself::Def(id)))?;
-    if !case_only_in_tree(body.peel_lams(body.count_lams()), true) {
+    if !case_only_in_tree(body.peel_lams(def.arity), true) {
         return Err(malformed(
             &cx,
             "`case` may only appear at the top of a definition",
         ));
     }
     let body = check(&mut cx, body, &ty_value)?;
+    // Checking keeps every location and lambda, so the checked body has the
+    // same parameters; the termination checker refuses it if not.
     termination::check(g, &body, id, &name, span)?;
     match failed {
         Some(dep) => Err(failed_dependency(&cx, &name, &dep)),

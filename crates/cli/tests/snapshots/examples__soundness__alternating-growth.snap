@@ -1,0 +1,20 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TERMINATION] Error: can't show that `bounce` terminates
+    ╭─[ soundness/alternating-growth.sw:10:28 ]
+    │
+  9 │ bounce (Succ x) y        = bounce x (Succ (Succ y))
+    │                            ───────────┬──────────  
+    │                                       ╰──────────── then this call: the 1st argument gets smaller
+ 10 │ bounce Zero     (Succ y) = bounce (Succ (Succ y)) y
+    │                            ────────────┬───────────  
+    │                                        ╰───────────── this recursive call might not terminate: the 2nd argument gets smaller
+    │ 
+    │ Note 1: making these calls one after the other, over and over, no argument is known to get smaller
+    │ 
+    │ Note 2: however the recursive calls are repeated, some argument must get smaller (a part of a pattern-matched constructor); an argument passed on unchanged, or rebuilt from its own pattern, is no smaller
+    │ 
+    │ Note 3: non-terminating definitions are rejected; `{Partial}` isn't implemented yet
+────╯

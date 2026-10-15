@@ -118,9 +118,14 @@ It evaluates by the value of `x`: a number takes its arm, or the default; `k + x
 ## Definitions
 
 1. **Declare:** the signature is checked to be a type. For `theorem`, it must be a proposition (`E-NOT-A-PROP`). The definition is added *without a body*.
-2. **Define:** the body is checked against the signature. While this happens, the definition has no body, so recursive references to it are opaque and never unfold.
-3. **Termination (`E-TERMINATION`).** There must be one parameter position `i` such that every recursive call passes, in position `i`, a variable bound as a field of a constructor matched out of parameter `i` (directly, or through further matches on such fields), or a constructor applied to exactly the fields of such a match (`Succ n` in the branch where `m` is `Succ n` is `m`), or a *recursive function field* applied to arguments (`rest y`, where `rest` is the variable bound for a field whose declared type is a function returning the matched data type; only that variable counts, not other functions of the same type). A bare or under-applied recursive reference fails.
-4. The body's number of leading lambdas becomes the definition's **arity**.
+2. **Arity.** The body's number of leading lambdas (looking through source locations, and counting implicit, type and proof lambdas) is the definition's **entry arity**, fixed before the body is checked. It's the one number used for unfolding (below), for the saturation rule and the graphs of the termination check, and for extraction. Lambdas inside the case tree belong to its result: `f : Nat -> Nat -> Nat; f Zero = \x -> x; …` has arity 1.
+3. **Define:** the body is checked against the signature. While this happens, the definition has no body, so recursive references to it are opaque and never unfold.
+4. **Termination (`E-TERMINATION`)**, by size change ([details](proposals/mutual-recursion.md#6-termination-for-a-group-of-functions)). Every recursive occurrence, wherever it is (under lambdas, in types, inside other calls' arguments), must be applied to at least the arity's arguments; a bare or partial one is refused, with a suggestion to write `\x -> f a x`. Each such call is summarised by a *size-change graph*: for each parameter position of the callee, whether the argument there is
+   - **strictly smaller (`<`)** than parameter `i`: a variable bound as a field of a constructor matched out of parameter `i` (directly, or through further matches on such fields); a constructor applied to exactly the fields of a match on such a field (`Succ n` in the branch where `m` is `Succ n` is `m`); or a *recursive function field* applied to arguments (`rest y`, where `rest` is the variable bound for a field whose declared type is a function returning the matched data type; only that variable counts, not other functions of the same type);
+   - **at most (`≤`)** parameter `i`: the parameter itself, or a constructor applied to exactly the fields of a match on the parameter itself (that *is* the parameter, in that branch);
+   - otherwise **unknown**: lambda-bound variables, other functions' results, `J`, numbers. A `NumCase` binds nothing, so it adds no evidence.
+
+   Arguments beyond the arity get no entry, but are searched for calls too. The definition is accepted if, closing the calls' graphs under composition (every sequence of calls), every graph that composes with itself to give itself has a `<` from some parameter to the same parameter (`crates/core/src/sct.rs`). Calls are never merged: two calls that each shrink a different argument don't make one call that shrinks both. So recursion where one argument gets smaller while the others are passed on unchanged, lexicographic recursion (Ackermann's function) and swapped arguments (`f (Succ x) y = f y x`) are accepted. Running out of resources while deciding is `E-RESOURCE`: inconclusive, so the definition fails. Arity 0 can't recurse: its graphs have no entries.
 
 **Admission** ([details](proposals/kernel-admission.md)). Each definition and data type is *pending* (declared), *final* (its body or constructors admitted) or *failed*. Only final definitions have a body, so only they unfold; only final data types can be matched on, and only final declarations have a hash. Whatever a signature, body, data parameter, constructor field or validator refers to must be final, apart from a definition's own name in its body and a data type's own name (as a type) in its fields. A reference to a pending declaration is refused (`E-MALFORMED`), so a cycle can't be split across two definitions and a data type without its constructors yet is never treated as empty. Defining something twice is refused too. If a body or constructors are refused, the declaration fails, and anything using it is still checked but fails too (`E-FAILED-DEPENDENCY`, which the elaborator doesn't report when the original error is reported). So later declarations can refer to a failed one without cascading "unknown name" errors, but nothing built on it is ever accepted. A file with any errors produces no guarantees and can't be extracted.
 
@@ -173,7 +178,7 @@ What the elaborator *doesn't* check is left to the kernel: `Prop` elimination, p
 
 ## Abilities
 
-Abilities are translated into ordinary data before the kernel sees them, so the kernel's existing checks (positivity and structural recursion) are what show that handlers terminate. The design, and why, is in [docs/proposals/abilities.md](proposals/abilities.md). The translation is in `crates/elab/src/effects.rs`.
+Abilities are translated into ordinary data before the kernel sees them, so the kernel's existing checks (positivity and termination) are what show that handlers terminate. The design, and why, is in [docs/proposals/abilities.md](proposals/abilities.md). The translation is in `crates/elab/src/effects.rs`.
 
 - **`ability A params where op : X -> {A params} Y …`** generates:
   - a data type `A params`, with a constructor `A.op (x : X)` for each operation;
@@ -262,7 +267,7 @@ Only definitions reachable from the exports (and their checks) are emitted. A de
 | `E-NOT-A-PROP` | A `theorem` whose type isn't a proposition |
 | `E-REFL` | `rfl` used for sides that don't compute to the same value |
 | `E-NONEXHAUSTIVE` | Missing pattern-match case |
-| `E-TERMINATION` | Recursion not structurally decreasing |
+| `E-TERMINATION` | Recursion that can't be shown to terminate, or a recursive call not given all its arguments |
 | `E-POSITIVITY` | Data type used in a negative position |
 | `E-PROP-ELIM` | Matching on a proof to produce data, where that's not allowed |
 | `E-EXPORT` | Export can't cross the JS boundary |

@@ -2,14 +2,14 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-TERMINATION] Error: can't show that `CellRes` terminates
+[E-TERMINATION] Error: `CellRes` is used here without all its arguments
     ╭─[ soundness/cell-result.sw:13:38 ]
     │
  13 │ CellRes Read  = Unit1 -> Comp CellOp CellRes Unit1
     │                                      ───┬───  
-    │                                         ╰───── this recursive call might not terminate
+    │                                         ╰───── `CellRes` takes 1 argument; it's given none here
     │ 
-    │ Note 1: every recursive call must pass a structurally smaller argument (a field of a pattern-matched constructor) in the same parameter position
+    │ Note 1: write `\x -> CellRes x` so the call can be checked
     │ 
-    │ Note 2: non-terminating definitions are rejected; `{Partial}` isn't implemented yet
+    │ Note 2: a recursive call must be given all the arguments, so the termination checker can see what each one is
 ────╯
