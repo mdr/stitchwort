@@ -33,14 +33,14 @@ Running:
   merged as `af02abc`): mutual data types (`declare_data_group` with one
   shared telescope, positivity across the group, no data elimination from
   `Prop` groups, hashing, the deep `Tree`/`Forest` codec test).
-- **`Partial`, stage 1** (lane `partial-draft3`;
-  [partial.md](docs/proposals/partial.md)): reviewed; the user chose stage 1
-  only (partial code visible in types, run only by the runtime, proofs only
-  about the total parts). Draft 3 adopting the review, plus a standalone
-  prototype of the runtime semantics running the reviewer's test table.
-  Implementation can follow (mutual recursion stage 2 has merged).
 
 Waiting on a decision:
+- **`Partial`, stage 1** ([partial.md](docs/proposals/partial.md) draft 3,
+  merged as `358fec5` with the runtime model `crates/partial-model`): one
+  tick per recursive call (Collatz 27: 111); erasure for JS, exports
+  mentioning `Partial` refused. Implement now, or a short review of draft
+  3's deviations first? Implementation should follow mutual recursion
+  stage 3 (both change the elaborator's grouping).
 - **Records** ([records.md](docs/proposals/records.md) draft 1): declared
   records as one-constructor data types, then eta, then anonymous records,
   then `Has` constraints for "any record with a `name`". Questions U1–U7
@@ -215,6 +215,7 @@ Nothing queued: choose from **Later**, or continue the lanes above.
 
 ## Recently done
 
+- `358fec5` `Partial` draft 3 (stage 1 only; later stages someday/maybe) and `crates/partial-model`, an executable model of the stage-1 runtime running the reviewer's test table.
 - `af02abc` Mutual recursion stage 2: declarations in any order within a file, function groups checked as a unit by the kernel (`define_group`), witness messages naming each member, group hashing, `auto` diagnostics explaining unavailable candidates, one JS calling convention; mutation evidence including the Rocq-bug shape.
 - `73899f9` Playground polish: 18 headless-Chrome tests (`nix develop -c ./web/test.sh`), streamed run output (Stop keeps what was printed), Tab/undo and resize fixed, `E-INPUT` after 10,000 reads past end of input.
 - `01208f2` Natives match their definitions as whole results, proofs included: `decEqNat` redefined so its `No` proof is small and the native returns exactly it (new native `eqNatSound`); every native audited; natives-on/off whole-result tests including numbers above 2^64.
