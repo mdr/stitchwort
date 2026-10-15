@@ -18,6 +18,15 @@
     --ok: #2f7a47;
     --bad: #a83b34;
     --bad-soft: #f6e4e1;
+    /* Syntax colours for the source: hedgerow flowers on the same paper. */
+    --hl-keyword: #2d6a3e;
+    --hl-name: #1f6470;
+    --hl-defined: #2f4f8f;
+    --hl-number: #7b4b94;
+    --hl-string: #8a5a12;
+    --hl-comment: #627266;
+    --hl-operator: #45604e;
+    --hl-selection: rgb(45 106 62 / 0.2);
     --sans: "Recursive", ui-sans-serif, system-ui, sans-serif;
     --mono: "Recursive", ui-monospace, "SF Mono", Menlo, monospace;
   }
@@ -26,12 +35,18 @@
       --paper: #111814; --petal: #0b100d; --ink: #e3ece4; --muted: #95a699;
       --line: #27332b; --leaf: #82c795; --leaf-soft: #1b2a20; --ok: #7fcb95;
       --bad: #ef8f86; --bad-soft: #2f1a18; color-scheme: dark;
+      --hl-keyword: #82c795; --hl-name: #7cc4c9; --hl-defined: #9db8ec; --hl-number: #c9a3e0;
+      --hl-string: #e0b870; --hl-comment: #7f9184; --hl-operator: #a3b8a8;
+      --hl-selection: rgb(130 199 149 / 0.25);
     }
   }
   :root[data-theme="dark"] {
     --paper: #111814; --petal: #0b100d; --ink: #e3ece4; --muted: #95a699;
     --line: #27332b; --leaf: #82c795; --leaf-soft: #1b2a20; --ok: #7fcb95;
     --bad: #ef8f86; --bad-soft: #2f1a18; color-scheme: dark;
+    --hl-keyword: #82c795; --hl-name: #7cc4c9; --hl-defined: #9db8ec; --hl-number: #c9a3e0;
+    --hl-string: #e0b870; --hl-comment: #7f9184; --hl-operator: #a3b8a8;
+    --hl-selection: rgb(130 199 149 / 0.25);
   }
 
   html, body { height: 100%; }
@@ -119,24 +134,72 @@
     min-height: 36px;
   }
 
-  textarea#source {
+  /* The editor: a coloured copy of the source (#highlight) sits under the
+     textarea, whose own text is transparent, so only its caret and selection
+     show. Everything that places a character must match between the two. */
+  .editor {
     flex: 1;
-    min-height: 420px;
-    width: 100%;
-    resize: vertical;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    background: var(--petal);
+    border-radius: 8px;
+  }
+  textarea#source, pre#highlight {
+    margin: 0;
     font-family: var(--mono);
     font-variation-settings: "MONO" 1, "CASL" 0;
     font-size: 13.5px;
+    font-weight: 400;
+    letter-spacing: normal;
     line-height: 1.55;
     tab-size: 2;
-    color: var(--ink);
-    background: var(--petal);
     border: 1px solid var(--line);
     border-radius: 8px;
     padding: 14px 16px;
     white-space: pre;
+    overflow-wrap: normal;
+  }
+  textarea#source {
+    flex: 1;
+    position: relative;
+    min-height: 420px;
+    width: 100%;
+    resize: vertical;
+    color: transparent;
+    caret-color: var(--ink);
+    background: transparent;
     overflow: auto;
   }
+  textarea#source::selection { color: transparent; background: var(--hl-selection); }
+  /* Sized by script to the textarea's box less its scrollbars, and scrolled
+     with it. */
+  pre#highlight {
+    position: absolute;
+    top: 0;
+    left: 0;
+    border-color: transparent;
+    color: var(--ink);
+    overflow: hidden;
+    pointer-events: none;
+  }
+  /* Each kind of token, as a highlight (see paint()) or, failing that, a
+     span. Separate rules, since a browser drops a whole rule over a selector
+     it doesn't know. */
+  ::highlight(hl-keyword) { color: var(--hl-keyword); }
+  ::highlight(hl-name) { color: var(--hl-name); }
+  ::highlight(hl-defined) { color: var(--hl-defined); }
+  ::highlight(hl-number) { color: var(--hl-number); }
+  ::highlight(hl-string) { color: var(--hl-string); }
+  ::highlight(hl-comment) { color: var(--hl-comment); }
+  ::highlight(hl-operator) { color: var(--hl-operator); }
+  .hl-keyword { color: var(--hl-keyword); }
+  .hl-name { color: var(--hl-name); }
+  .hl-defined { color: var(--hl-defined); }
+  .hl-number { color: var(--hl-number); }
+  .hl-string { color: var(--hl-string); }
+  .hl-comment { color: var(--hl-comment); }
+  .hl-operator { color: var(--hl-operator); }
 
   .status {
     display: inline-flex;
@@ -270,7 +333,10 @@
       <span id="status" class="status idle">Loading the compiler…</span>
       <button id="run" class="primary run" type="button" title="Run main (Ctrl+Enter)">Run ▸</button>
     </div>
-    <textarea id="source" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="Stitchwort source"></textarea>
+    <div class="editor">
+      <pre id="highlight" aria-hidden="true"></pre>
+      <textarea id="source" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="Stitchwort source"></textarea>
+    </div>
   </section>
 
   <section class="pane" aria-label="Results">
@@ -850,8 +916,126 @@ area (Rect w h) = w * h
     }
   }
 
+  // Syntax colouring. This follows the lexer (crates/syntax/src/lexer.rs):
+  // its keywords, `--` line comments (there are no block comments), names
+  // that may contain `'`, and string and character literals that end at the
+  // closing quote or the end of the line, with `\` escaping the next
+  // character. `auto` is only a keyword as the first word in `[…]`, as in
+  // the parser. A name at the start of a line, or after `theorem`, is being
+  // defined. One pass over the text, so a long paste stays quick.
+  const KEYWORDS = new Set(["type", "theorem", "export", "test", "if", "then", "else",
+                            "ability", "where", "handle", "with", "return", "let", "Type", "Prop"]);
+  const KINDS = ["keyword", "name", "defined", "number", "string", "comment", "operator"];
+  const isWordStart = (c) => (c >= "a" && c <= "z") || (c >= "A" && c <= "Z") || c === "_";
+  const isWord = (c) => isWordStart(c) || (c >= "0" && c <= "9") || c === "'";
+  const isDigit = (c) => c >= "0" && c <= "9";
+  const escapeHtml = (s) => s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]);
+
+  /** Calls `mark(kind, start, end)` for each coloured stretch of `text`, in order. */
+  function colour(text, mark) {
+    // Neighbours of the same kind, like the two halves of `) ->`, merge.
+    let kind = "", from = 0, to = 0;
+    const add = (k, start, end) => {
+      if (k === kind && start === to) { to = end; return; }
+      if (kind) mark(kind, from, to);
+      kind = k; from = start; to = end;
+    };
+    let i = 0;
+    let lineStart = 0;
+    let previous = "";
+    while (i < text.length) {
+      const c = text[i];
+      const start = i;
+      if (c === "\n") {
+        lineStart = ++i;
+      } else if (c === " " || c === "\r" || c === "\t") {
+        i++;
+      } else if (c === "-" && text[i + 1] === "-") {
+        i = text.indexOf("\n", i);
+        if (i < 0) i = text.length;
+        add("comment", start, i);
+      } else if (isWordStart(c)) {
+        while (i < text.length && isWord(text[i])) i++;
+        const word = text.slice(start, i);
+        const k = KEYWORDS.has(word) || (word === "auto" && previous === "[") ? "keyword"
+          : c >= "A" && c <= "Z" ? "name"
+          : word !== "_" && (start === lineStart || previous === "theorem") ? "defined"
+          : "";
+        if (k) add(k, start, i);
+        previous = word;
+      } else if (isDigit(c)) {
+        while (i < text.length && isDigit(text[i])) i++;
+        add("number", start, i);
+        previous = "0";
+      } else if (c === '"' || c === "'") {
+        i++;
+        while (i < text.length && text[i] !== "\n" && text[i] !== c) i += text[i] === "\\" && text[i + 1] !== "\n" ? 2 : 1;
+        if (text[i] === c) i++;
+        add("string", start, Math.min(i, text.length));
+        previous = c;
+      } else {
+        i++;
+        add("operator", start, i);
+        previous = c;
+      }
+    }
+    add("", text.length, text.length);
+  }
+
+  const highlighted = document.getElementById("highlight");
+
+  // Where the browser has the CSS Custom Highlight API, the copy stays one
+  // text node and the colours are ranges over it. Spans would be simpler, but
+  // each rounds its width a little, so on a long line the copy drifts away
+  // from the textarea's text. Elsewhere, spans.
+  const marks = typeof Highlight === "function" && CSS.highlights
+    ? Object.fromEntries(KINDS.map((kind) => {
+        const marked = new Highlight();
+        CSS.highlights.set(`hl-${kind}`, marked);
+        return [kind, marked];
+      }))
+    : null;
+
+  function paint() {
+    // A final newline only shows as a line in the textarea, so the copy gets
+    // one more for the same height.
+    const text = source.value;
+    if (marks) {
+      highlighted.textContent = text + "\n";
+      const node = highlighted.firstChild;
+      for (const marked of Object.values(marks)) marked.clear();
+      colour(text, (kind, start, end) => marks[kind].add(new StaticRange(
+        { startContainer: node, startOffset: start, endContainer: node, endOffset: end })));
+    } else {
+      const parts = [];
+      let at = 0;
+      colour(text, (kind, start, end) => {
+        parts.push(escapeHtml(text.slice(at, start)),
+                   `<span class="hl-${kind}">${escapeHtml(text.slice(start, end))}</span>`);
+        at = end;
+      });
+      parts.push(escapeHtml(text.slice(at)), "\n");
+      highlighted.innerHTML = parts.join("");
+    }
+    align();
+  }
+
+  /** Keeps the coloured copy under the textarea the same size and scroll. */
+  function align() {
+    const box = getComputedStyle(source);
+    const borders = (a, b) => parseFloat(box[a]) + parseFloat(box[b]);
+    highlighted.style.width = `${source.clientWidth + borders("borderLeftWidth", "borderRightWidth")}px`;
+    highlighted.style.height = `${source.clientHeight + borders("borderTopWidth", "borderBottomWidth")}px`;
+    highlighted.scrollTop = source.scrollTop;
+    highlighted.scrollLeft = source.scrollLeft;
+  }
+
+  source.addEventListener("scroll", align);
+  new ResizeObserver(align).observe(source);
+
   let timer = null;
   function refresh() {
+    paint();
     store("stitchwort.draft", source.value);
     clearTimeout(timer);
     timer = setTimeout(render, 250);
@@ -885,11 +1069,12 @@ area (Rect w h) = w * h
     });
   }
 
-  loadExample(stored("stitchwort.example") || "ex-lists");
+  // Read the draft and input before loading the example, which overwrites them.
   const draft = stored("stitchwort.draft");
-  if (draft) source.value = draft;
   const input = stored("stitchwort.input");
-  if (input !== null) runInput.value = input;
+  loadExample(stored("stitchwort.example") || "ex-lists");
+  if (draft) { source.value = draft; refresh(); }
+  if (input !== null) { runInput.value = input; store("stitchwort.input", input); }
   const savedView = stored("stitchwort.view");
   if (savedView && tabs.some((t) => t.dataset.view === savedView)) selectView(savedView);
 </script>
