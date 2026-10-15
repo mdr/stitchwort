@@ -11,6 +11,7 @@ mod autobind;
 mod check;
 mod unify;
 
+use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -59,17 +60,33 @@ pub struct Elaborator {
 }
 
 /// A pattern that matches a constructor.
-struct CtorPattern<'p> {
+struct CtorPattern<'a> {
     data: DataId,
     ctor: usize,
-    args: Vec<&'p Pattern>,
+    args: Vec<Pat<'a>>,
     span: Span,
+}
+
+/// A pattern during compilation: one from the source, or one made by the
+/// compiler (a wildcard for a field, or `n - 1` inside a number pattern `n`).
+type Pat<'a> = Cow<'a, Pattern>;
+
+/// Number patterns are compiled to that many nested `Succ`s, so they're
+/// limited to keep case trees small.
+const MAX_NUMBER_PATTERN: u32 = 256;
+
+/// The variable a pattern binds, if it's a variable from the source.
+fn pattern_var<'a>(pattern: &Pat<'a>) -> Option<&'a ast::Name> {
+    match pattern {
+        Cow::Borrowed(Pattern::Var(x)) => Some(x),
+        _ => None,
+    }
 }
 
 /// One equation during pattern-match compilation: the patterns still to be
 /// matched, and the pattern variables already bound (to de Bruijn levels).
 struct Row<'a> {
-    pats: Vec<&'a Pattern>,
+    pats: Vec<Pat<'a>>,
     aliases: Vec<(&'a str, usize)>,
     /// `None` for an equation with an absurd pattern `()`.
     rhs: Option<&'a Expr>,
@@ -555,7 +572,7 @@ impl Elaborator {
             let rows: Vec<Row> = equations
                 .iter()
                 .map(|&(patterns, rhs, span)| Row {
-                    pats: patterns.iter().collect(),
+                    pats: patterns.iter().map(Cow::Borrowed).collect(),
                     aliases: Vec::new(),
                     rhs,
                     span,
@@ -584,7 +601,7 @@ impl Elaborator {
         if let Some(j) = first
             .pats
             .iter()
-            .position(|p| matches!(p, Pattern::Absurd(_)))
+            .position(|p| matches!(**p, Pattern::Absurd(_)))
         {
             return Ok(Tree::Absurd {
                 level: columns[j],
@@ -602,7 +619,7 @@ impl Elaborator {
             // The first row matches whatever is left: it's the result.
             let mut aliases = first.aliases.clone();
             for (pattern, level) in first.pats.iter().zip(columns) {
-                if let Pattern::Var(x) = pattern {
+                if let Some(x) = pattern_var(pattern) {
                     aliases.push((&x.text, *level));
                 }
             }
@@ -615,21 +632,23 @@ impl Elaborator {
 
         let level = columns[j];
         let data = self.globals.data(d);
-        let rest_columns: Vec<usize> = columns
-            .iter()
-            .enumerate()
-            .filter(|(i, _)| *i != j)
-            .map(|(_, c)| *c)
-            .collect();
         let mut branches = Vec::new();
         for (c, ctor) in data.ctors.iter().enumerate() {
             let k = ctor.fields.len();
+            // In this branch, column `j` is replaced by the constructor's
+            // fields, which are bound at levels `depth..depth + k`.
+            let branch_columns: Vec<usize> = columns[..j]
+                .iter()
+                .copied()
+                .chain(depth..depth + k)
+                .chain(columns[j + 1..].iter().copied())
+                .collect();
             let mut names: Vec<Option<Name>> = vec![None; k];
             let mut branch_rows = Vec::new();
             for row in rows {
-                let pattern = row.pats[j];
+                let pattern = &row.pats[j];
                 let mut aliases = row.aliases.clone();
-                match self.pattern_ctor(pattern)? {
+                let fields: Vec<Pat> = match self.pattern_ctor(pattern)? {
                     Some(CtorPattern {
                         data: d2,
                         ctor: c2,
@@ -662,39 +681,28 @@ impl Elaborator {
                             ));
                         }
                         for (f, arg) in args.iter().enumerate() {
-                            match arg {
-                                Pattern::Var(x) => {
-                                    aliases.push((&x.text, depth + f));
-                                    names[f].get_or_insert_with(|| name(x));
-                                }
-                                Pattern::Wildcard(_) => {}
-                                other => {
-                                    return Err(error(
-                                        "E-NESTED-PATTERN",
-                                        other.span(),
-                                        "nested patterns aren't supported yet",
-                                    )
-                                    .with_note(
-                                        "use a variable here, and match on it in a helper function",
-                                    ));
-                                }
+                            if let Some(x) = pattern_var(arg) {
+                                names[f].get_or_insert_with(|| name(x));
                             }
                         }
+                        args
                     }
                     None => {
-                        if let Pattern::Var(x) = pattern {
+                        if let Some(x) = pattern_var(pattern) {
                             aliases.push((&x.text, level));
                         }
+                        let wildcard = Pattern::Wildcard(pattern.span());
+                        vec![Cow::Owned(wildcard); k]
                     }
-                }
+                };
+                let pats = row.pats[..j]
+                    .iter()
+                    .cloned()
+                    .chain(fields)
+                    .chain(row.pats[j + 1..].iter().cloned())
+                    .collect();
                 branch_rows.push(Row {
-                    pats: row
-                        .pats
-                        .iter()
-                        .enumerate()
-                        .filter(|(i, _)| *i != j)
-                        .map(|(_, p)| *p)
-                        .collect(),
+                    pats,
                     aliases,
                     rhs: row.rhs,
                     span: row.span,
@@ -711,7 +719,7 @@ impl Elaborator {
                     format!("missing case: no equation matches `{example}`"),
                 ));
             }
-            let body = self.compile(&branch_rows, depth + k, &rest_columns, span)?;
+            let body = self.compile(&branch_rows, depth + k, &branch_columns, span)?;
             let names = names
                 .into_iter()
                 .zip(&ctor.fields)
@@ -727,31 +735,48 @@ impl Elaborator {
         })
     }
 
-    /// The constructor `pattern` matches, if any.
-    fn pattern_ctor<'p>(&self, pattern: &'p Pattern) -> Result<Option<CtorPattern<'p>>> {
-        match pattern {
+    /// The constructor `pattern` matches, if any, and its argument patterns.
+    /// A number `n` is `Succ` of `n - 1`.
+    fn pattern_ctor<'a>(&self, pattern: &Pat<'a>) -> Result<Option<CtorPattern<'a>>> {
+        match &**pattern {
             Pattern::Var(_) | Pattern::Wildcard(_) | Pattern::Absurd(_) => Ok(None),
-            Pattern::Num(n, span) if n.bits() == 0 => {
-                let (d, c) = self.ctor_named("Zero", *span)?;
+            Pattern::Num(n, span) => {
+                if n.bits() > 0 && *n > MAX_NUMBER_PATTERN.into() {
+                    return Err(error(
+                        "E-UNSUPPORTED",
+                        *span,
+                        format!("number patterns above {MAX_NUMBER_PATTERN} aren't supported"),
+                    )
+                    .with_note(
+                        "match with a variable, and compare it using `==` or `if h : n = …`",
+                    ));
+                }
+                let (ctor, args) = if n.bits() == 0 {
+                    ("Zero", Vec::new())
+                } else {
+                    let pred = Pattern::Num(n - 1u32, *span);
+                    ("Succ", vec![Cow::Owned(pred)])
+                };
+                let (data, ctor) = self.ctor_named(ctor, *span)?;
                 Ok(Some(CtorPattern {
-                    data: d,
-                    ctor: c,
-                    args: Vec::new(),
+                    data,
+                    ctor,
+                    args,
                     span: *span,
                 }))
             }
-            Pattern::Num(_, span) => Err(error(
-                "E-NESTED-PATTERN",
-                *span,
-                "only `0` can be used as a number pattern for now",
-            )
-            .with_note("write `Succ n` instead")),
             Pattern::Ctor(n, args, span) => {
-                let (d, c) = self.ctor_named(&n.text, n.span)?;
+                let (data, ctor) = self.ctor_named(&n.text, n.span)?;
+                let args = match pattern {
+                    Cow::Borrowed(Pattern::Ctor(_, args, _)) => {
+                        args.iter().map(Cow::Borrowed).collect()
+                    }
+                    _ => args.iter().cloned().map(Cow::Owned).collect(),
+                };
                 Ok(Some(CtorPattern {
-                    data: d,
-                    ctor: c,
-                    args: args.iter().collect(),
+                    data,
+                    ctor,
+                    args,
                     span: *span,
                 }))
             }

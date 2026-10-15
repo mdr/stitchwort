@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-AUTO-NONE] Error: no way to decide `inc = (\x -> Succ x)`
+   ╭─[ reject/eqeq-undecidable.sw:8:8 ]
+   │
+ 8 │ same = inc == (\x -> Succ x)
+   │        ──────────┬─────────  
+   │                  ╰─────────── the compiler needs a proof of this
+   │ 
+   │ Note: supply a proof by name, or write a decision procedure: a function returning `Decidable …`
+───╯

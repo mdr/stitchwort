@@ -488,12 +488,13 @@ impl<'t> Parser<'t> {
         false
     }
 
-    /// `a = b`, `a != b`, `a < b`, `a <= b`: not associative.
+    /// `a = b`, `a != b`, `a == b`, `a < b`, `a <= b`: not associative.
     fn cmp_expr(&mut self) -> Result<Expr> {
         let lhs = self.add_expr()?;
         let op = match self.peek() {
             Some(Tok::Equals) => BinOp::Eq,
             Some(Tok::NotEq) => BinOp::Ne,
+            Some(Tok::EqEq) => BinOp::EqEq,
             Some(Tok::Lt) => BinOp::Lt,
             Some(Tok::Le) => BinOp::Le,
             _ => return Ok(lhs),
@@ -654,6 +655,7 @@ fn describe(tok: &Tok) -> String {
         Tok::Slash => "`/`".into(),
         Tok::Percent => "`%`".into(),
         Tok::NotEq => "`!=`".into(),
+        Tok::EqEq => "`==`".into(),
         Tok::Lt => "`<`".into(),
         Tok::Le => "`<=`".into(),
         Tok::KwIf => "`if`".into(),
@@ -737,6 +739,7 @@ mod tests {
         assert!(matches!(expr("a / b % c"), Expr::Binary(BinOp::Mod, ..)));
         assert!(matches!(expr("a <= b + 1"), Expr::Binary(BinOp::Le, ..)));
         assert!(matches!(expr("a != b"), Expr::Binary(BinOp::Ne, ..)));
+        assert!(matches!(expr("a == b + 1"), Expr::Binary(BinOp::EqEq, ..)));
         assert!(matches!(expr("a < b"), Expr::Binary(BinOp::Lt, ..)));
     }
 

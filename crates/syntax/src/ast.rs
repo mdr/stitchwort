@@ -80,6 +80,8 @@ pub enum BinOp {
     Eq,
     /// `!=`: `Not (a = b)`.
     Ne,
+    /// `a == b`: whether `a = b`, as a `Bool`.
+    EqEq,
     /// `<`, `<=`: propositions about `Nat`.
     Lt,
     Le,
@@ -96,6 +98,7 @@ impl BinOp {
         match self {
             BinOp::Eq => "=",
             BinOp::Ne => "!=",
+            BinOp::EqEq => "==",
             BinOp::Lt => "<",
             BinOp::Le => "<=",
             BinOp::Add => "+",
@@ -114,7 +117,7 @@ pub enum Pattern {
     /// `()`: this argument's type has no values, so the equation needs no
     /// right-hand side.
     Absurd(Span),
-    /// Only `0` is supported for now.
+    /// A number: that many `Succ`s around `Zero`.
     Num(BigUint, Span),
     Ctor(Name, Vec<Pattern>, Span),
 }

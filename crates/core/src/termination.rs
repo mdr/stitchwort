@@ -3,10 +3,12 @@
 //! A definition is accepted if there is one parameter position `i` such that
 //! every recursive call passes, at position `i`, a variable bound as a field of
 //! a constructor pattern-matched (directly or transitively) from parameter `i`.
+//! Rebuilding a matched value counts as that value: in the branch where `m` is
+//! `Succ n`, the argument `Succ n` is `m`.
 
 use stitchwort_syntax::{Diagnostic, Span};
 
-use crate::term::{DefId, Term};
+use crate::term::{DataId, DefId, Term};
 
 pub fn check(body: &Term, self_id: DefId, name: &str, span: Span) -> Result<(), Diagnostic> {
     let arity = body.count_lams();
@@ -19,6 +21,7 @@ pub fn check(body: &Term, self_id: DefId, name: &str, span: Span) -> Result<(), 
             })
             .collect(),
         calls: Vec::new(),
+        matched: Vec::new(),
         span,
     };
     walker.walk(body.peel_lams(arity));
@@ -66,7 +69,17 @@ struct Walker {
     /// For each recursive call: the parameter positions where it passes a
     /// smaller argument, and where the call is.
     calls: Vec<(Vec<usize>, Span)>,
+    /// The case branches we're inside: the variable matched (a level), and
+    /// the constructor and the levels of its fields in this branch.
+    matched: Vec<Matched>,
     span: Span,
+}
+
+struct Matched {
+    scrutinee: usize,
+    data: DataId,
+    ctor: usize,
+    fields: std::ops::Range<usize>,
 }
 
 impl Walker {
@@ -89,14 +102,10 @@ impl Walker {
                 if let Term::Def(id) = head
                     && *id == self.self_id
                 {
-                    let level = self.infos.len();
                     let candidates = args
                         .iter()
                         .enumerate()
-                        .filter(|(i, arg)| {
-                            matches!(arg.strip_loc(), Term::Var(ix)
-                                if self.infos[level - 1 - ix].smaller_than == Some(*i))
-                        })
+                        .filter(|(i, arg)| self.smaller_than(arg) == Some(*i))
                         .map(|(i, _)| i)
                         .collect();
                     self.calls.push((candidates, self.span));
@@ -121,11 +130,19 @@ impl Walker {
                 self.walk(e);
                 self.walk(t);
             }
-            Term::Case(ix, _, branches) => {
+            Term::Case(ix, d, branches) => {
                 let scrutinee = &self.infos[self.infos.len() - 1 - ix];
                 let source = scrutinee.param.or(scrutinee.smaller_than);
-                for branch in branches.iter() {
+                let level = self.infos.len();
+                for (c, branch) in branches.iter().enumerate() {
+                    self.matched.push(Matched {
+                        scrutinee: level - 1 - ix,
+                        data: *d,
+                        ctor: c,
+                        fields: level..level + branch.names.len(),
+                    });
                     self.under(branch.names.len(), source, &branch.body);
+                    self.matched.pop();
                 }
             }
             Term::Eq(ty, a, b) => {
@@ -140,6 +157,30 @@ impl Walker {
                 self.walk(b);
                 self.walk(p);
             }
+        }
+    }
+
+    /// The parameter `arg` is structurally smaller than, if any: a variable
+    /// matched from it, or a constructor rebuilding one.
+    fn smaller_than(&self, arg: &Term) -> Option<usize> {
+        let level = self.infos.len();
+        match arg.strip_loc() {
+            Term::Var(ix) => self.infos.get(level.checked_sub(ix + 1)?)?.smaller_than,
+            Term::Ctor(d, c, args) => {
+                let fields: Option<Vec<usize>> = args
+                    .iter()
+                    .map(|a| match a.strip_loc() {
+                        Term::Var(ix) => level.checked_sub(ix + 1),
+                        _ => None,
+                    })
+                    .collect();
+                let fields = fields?;
+                let m = self.matched.iter().rev().find(|m| {
+                    m.data == *d && m.ctor == *c && m.fields.clone().eq(fields.iter().copied())
+                })?;
+                self.infos[m.scrutinee].smaller_than
+            }
+            _ => None,
         }
     }
 

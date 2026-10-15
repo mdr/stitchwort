@@ -284,6 +284,21 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             let eq = equation(cx, a, b)?;
             Ok((Term::app(Term::Def(not), eq), Value::Sort(Sort::Prop)))
         }
+        Expr::Binary(BinOp::EqEq, a, b) => {
+            // `a == b` is `toBool d`, for a decision procedure `d` for
+            // `a = b`, found as for `if h : a = b`.
+            let eq = equation(cx, a, b)?;
+            let decision = crate::auto::decide(cx, &cx.eval(&eq), 0)?;
+            let to_bool = def_named(cx, "toBool")?;
+            let (bool_data, _) = ctor_named(cx, "True")?;
+            Ok((
+                Term::app(
+                    Term::app_icit(Term::Def(to_bool), eq, Icit::Implicit),
+                    decision,
+                ),
+                Value::Data(bool_data, Vec::new()),
+            ))
+        }
         Expr::Binary(op, a, b) => {
             let name = match op {
                 BinOp::Lt => "LessThan",
@@ -293,7 +308,7 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
                 BinOp::Mul => "mul",
                 BinOp::Div => "div",
                 BinOp::Mod => "mod",
-                BinOp::Eq | BinOp::Ne => unreachable!("handled above"),
+                BinOp::Eq | BinOp::Ne | BinOp::EqEq => unreachable!("handled above"),
             };
             let id = def_named(cx, name)?;
             let head = (Term::Def(id), g.def(id).ty_value.clone());

@@ -39,6 +39,7 @@ pub enum Tok {
     Percent,
     /// `!=`
     NotEq,
+    EqEq,
     Lt,
     /// `<=`
     Le,
@@ -171,6 +172,10 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
                     Tok::ColonEq
                 }
                 b':' => Tok::Colon,
+                b'=' if bytes.get(i) == Some(&b'=') => {
+                    i += 1;
+                    Tok::EqEq
+                }
                 b'=' => Tok::Equals,
                 b'\\' => Tok::Backslash,
                 b'|' => Tok::Pipe,

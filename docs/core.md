@@ -16,7 +16,7 @@ The core is the small, explicit language that every Stitchwort definition is tra
 | Evaluation budget, "inconclusive" results | Not yet. Evaluation is guaranteed to terminate, but may be slow |
 | Caching (§11) | Test results are cached by content hash. Kernel checks and generated JS aren't cached yet, and nothing is cached across elaboration |
 | Numbers | `Nat` only; no `Int` yet. Numbers are native and can be any size (see [Numbers](#numbers)) |
-| Pattern matching | One constructor deep, no nested patterns. No forward references or mutual recursion |
+| Pattern matching | Nested patterns, but no overlap warnings. No forward references or mutual recursion |
 | Data types | Parameters but no indices. Equality is the only built-in indexed type |
 | Universes | Numbered, no polymorphism, no cumulativity |
 
@@ -114,7 +114,7 @@ A declaration `type D (params) : s = | C₁ fields | …`:
 
 1. **Declare:** the signature is checked to be a type. For `theorem`, it must be a proposition (`E-NOT-A-PROP`). The definition is added *without a body*.
 2. **Define:** the body is checked against the signature. While this happens, the definition has no body, so recursive references to it are opaque and never unfold.
-3. **Termination (`E-TERMINATION`).** There must be one parameter position `i` such that every recursive call passes, in position `i`, a variable bound as a field of a constructor matched out of parameter `i` (directly, or through further matches on such fields). A bare or under-applied recursive reference fails.
+3. **Termination (`E-TERMINATION`).** There must be one parameter position `i` such that every recursive call passes, in position `i`, a variable bound as a field of a constructor matched out of parameter `i` (directly, or through further matches on such fields), or a constructor applied to exactly the fields of such a match (`Succ n` in the branch where `m` is `Succ n` is `m`). A bare or under-applied recursive reference fails.
 4. The body's number of leading lambdas becomes the definition's **arity**.
 
 If a body fails to check, the definition stays without a body (opaque), so later declarations can still refer to it. A file with any errors produces no guarantees and can't be extracted.
@@ -158,9 +158,9 @@ The elaborator (`crates/elab`) checks surface syntax bidirectionally, following 
 
   Failed attempts are undone, by restoring the metavariables from a snapshot.
 - **`if`.** `if c then a else b` elaborates to `ifThenElse c (\_ -> a) (\_ -> b)`. `if h : P then a else b` finds a decision procedure for `P` (it must exist, but may be stuck: it runs at runtime) and elaborates to `elimDec d (\h -> a) (\h -> b)`, with `h : P` in `a` and `h : Not P` in `b`.
-- **Operators.** `a != b` is `Not (a = b)`. `<`, `<=`, `+`, `-`, `*`, `/`, `%` are the prelude's `LessThan`, `LessEq`, `add`, `sub`, `mul`, `div`, `mod`. `div` and `mod` take `[auto ok : d != 0]`.
+- **Operators.** `a != b` is `Not (a = b)`. `a == b` is `toBool d`, where `d` is a decision procedure for `a = b`, found as for `if h :`. `<`, `<=`, `+`, `-`, `*`, `/`, `%` are the prelude's `LessThan`, `LessEq`, `add`, `sub`, `mul`, `div`, `mod`. `div` and `mod` take `[auto ok : d != 0]`.
 - **Implicitly bound type variables.** An unknown lowercase name in a signature becomes an implicit parameter at the front if *every* use of it is where a type is expected: the domain or result of a function type, a binder's type, or an argument of a data type whose parameter is a type (`List a`, `Or p q`). Its own type is a metavariable, usually solved to `Type`, which is also the default. Any other use (`length xs` with `xs` unbound) stays an unknown name.
-- **Equations.** Parameters are bound from the signature. Implicit ones are in scope by their signature names. Explicit ones are matched by the equation's patterns, so `length (Cons x xs)` has one pattern while `length` has two parameters.
+- **Equations.** Parameters are bound from the signature. Implicit ones are in scope by their signature names. Explicit ones are matched by the equation's patterns, so `length (Cons x xs)` has one pattern while `length` has two parameters. Equations compile to a case tree by the usual matrix method: split on the first constructor pattern in the first remaining equation, and in each branch replace that column by the constructor's fields (rows with a variable there get wildcards). The first equation whose patterns are all variables wins. A number pattern `n` is `Succ` of the pattern `n - 1`.
 
 What the elaborator *doesn't* check is left to the kernel: `Prop` elimination, positivity, universe constraints on fields, and termination. Those errors come from the kernel, with source locations kept from the elaborated term.
 
@@ -181,7 +181,7 @@ Renaming a function or reformatting code changes no hashes. Changing a body chan
 
 ## The prelude
 
-`crates/elab/src/prelude.sw` defines everything above that isn't built in: `Void`, `Unit`, `Not`, `absurd`/`exfalso`; `Nat` with `+ - *`, `pred`, `/`, `%`, `eqNat`; `Bool` with `not`, `ifThenElse`, `leq`; `<=` and `<` as propositions computed via `leq`; `List`, `length`, `append`; `cong`, `sym`, `trans`; constructor disjointness and injectivity; and `Decidable` with `IsYes`, `fromYes`, `elimDec` and decision procedures for `=` on `Nat`, `<=`, `<`, `Not`, and `b = True`.
+`crates/elab/src/prelude.sw` defines everything above that isn't built in: `Void`, `Unit`, `Not`, `absurd`/`exfalso`; `Nat` with `+ - *`, `pred`, `/`, `%`, `eqNat`; `Bool` with `not`, `ifThenElse`, `leq`, `decEqBool`; `<=` and `<` as propositions computed via `leq`; `List`, `length`, `append`; `cong`, `sym`, `trans`; constructor disjointness and injectivity; and `Decidable` with `IsYes`, `fromYes`, `toBool`, `elimDec` and decision procedures for `=` on `Nat`, `<=`, `<`, `Not`, and `b = True`.
 
 Division is defined by structural recursion on fuel (`n` steps is always enough when the divisor isn't zero). Its non-zero precondition is what makes `n / 0` a compile-time error rather than a convention.
 
@@ -211,7 +211,7 @@ Only definitions reachable from the exports (and their checks) are emitted. A de
 | `E-DUPLICATE` | Name defined twice, or a built-in name redefined |
 | `E-MISSING-SIGNATURE` / `E-MISSING-DEFINITION` | Equations without a signature, or the other way round |
 | `E-ARITY` | Wrong number of patterns or arguments |
-| `E-NOT-A-CONSTRUCTOR` / `E-NESTED-PATTERN` | Unsupported or invalid pattern |
+| `E-NOT-A-CONSTRUCTOR` | A pattern that isn't a constructor |
 | `E-TYPE-MISMATCH` | Types don't match |
 | `E-UNIVERSE` | Universe mismatch, or a field too large for its data type |
 | `E-CANNOT-INFER` | Needs a type annotation |

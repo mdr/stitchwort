@@ -165,6 +165,11 @@ fromYes : [p : Prop] -> (d : Decidable p) -> IsYes d -> p
 fromYes (Yes h) u = h
 fromYes (No r)  u = exfalso u
 
+-- `a == b` is `toBool d`, for a decision procedure `d` for `a = b`.
+toBool : [p : Prop] -> Decidable p -> Bool
+toBool (Yes h) = True
+toBool (No r)  = False
+
 -- `if h : p then a else b`
 elimDec : [p : Prop] -> [a : Type] -> Decidable p -> (p -> a) -> (Not p -> a) -> a
 elimDec (Yes h) yes no = yes h
@@ -186,6 +191,15 @@ decEqNat Zero     Zero     = Yes rfl
 decEqNat Zero     (Succ n) = No (zeroNotSucc n)
 decEqNat (Succ m) Zero     = No (succNotZero m)
 decEqNat (Succ m) (Succ n) = decSucc m n (decEqNat m n)
+
+theorem trueNotFalse : Not (True = False)
+trueNotFalse p = falseNotTrue (sym p)
+
+decEqBool : (a : Bool) -> (b : Bool) -> Decidable (a = b)
+decEqBool False False = Yes rfl
+decEqBool False True  = No falseNotTrue
+decEqBool True  False = No trueNotFalse
+decEqBool True  True  = Yes rfl
 
 decNot : [p : Prop] -> Decidable p -> Decidable (Not p)
 decNot (Yes h) = No (\n -> n h)

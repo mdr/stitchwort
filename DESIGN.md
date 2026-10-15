@@ -507,7 +507,7 @@ Possible outcomes, each with its own error message:
 
 ### Dependent pattern matching
 
-Pattern matching in proofs requires the compiler to learn facts about types in each branch. In full generality this is one of the hardest parts of any dependently-typed language. **For the POC, patterns are kept simple:** one constructor deep, with no overlapping or nested patterns, which then get compiled into a series of simple `case` expressions. That's enough for the standard proofs about lists and numbers. Nested patterns can be added later.
+Pattern matching in proofs requires the compiler to learn facts about types in each branch. In full generality this is one of the hardest parts of any dependently-typed language. **For the POC, patterns are kept simple:** constructors (nested), variables, numbers and `()`, compiled into a tree of simple `case` expressions. Equations are tried top to bottom. There's no overlap or redundancy warning yet.
 
 ### Effects and dependent types
 

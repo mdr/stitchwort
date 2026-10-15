@@ -1,6 +1,6 @@
 # Surface syntax (implemented subset)
 
-**Status:** describes `crates/syntax` as of 15 October 2026. DESIGN.md §4 shows the intended language. Not yet implemented: records, abilities, `let`, a `case` expression, and nested patterns.
+**Status:** describes `crates/syntax` as of 15 October 2026. DESIGN.md §4 shows the intended language. Not yet implemented: records, abilities, `let`, and a `case` expression.
 
 ## Layout
 
@@ -47,7 +47,7 @@ total (Cons x xs) = x + total xs
 
 Definitions may be named in either case: `length`, or `Not` for a function returning a type.
 
-Patterns are variables, `_`, `0`, a constructor applied to variables and `_` (one level deep), or `()`. `()` says the argument's type has no values, and an equation using it has no right-hand side:
+Patterns are variables, `_`, numbers, constructors applied to patterns (nested to any depth, as in `half (Succ (Succ n))`), or `()`. A number pattern `n` means `n` nested `Succ`s around `Zero`, so it's limited to 256. Equations are tried from top to bottom. `()` `()` says the argument's type has no values, and an equation using it has no right-hand side:
 
 ```
 absurd : Void -> a
@@ -76,6 +76,7 @@ Loosest-binding first:
 | `if h : P then a else b` | Decides `P` (at runtime if need be). `h : P` in `a`, `h : Not P` in `b` |
 | `A -> B` | Function type |
 | `a = b`, `a != b` | Equality and inequality (propositions). Not associative |
+| `a == b` | Whether `a = b`, as a `Bool`, using the decision procedure for `a = b` (as `if h :` does). Works for `Nat`, `Bool`, and any type with a decision procedure for `=` |
 | `a < b`, `a <= b` | Comparisons on `Nat` (propositions, decided by computation) |
 | `a + b`, `a - b` | Addition, and subtraction stopping at zero. Left-associative |
 | `a * b`, `a / b`, `a % b` | Bind tighter than `+`. `/` and `%` need a proof that `b != 0` |
