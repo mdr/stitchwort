@@ -38,8 +38,9 @@ Running:
   `decEqNat`'s `No` proof, and an audit of every native against the
   whole-result obligation, with natives-on/off tests.
 
-Ready to start:
-- **Mutual recursion, phase 2, stages 2–3** (stage 1 merged as `9eb1487`)
+In progress:
+- **Mutual recursion, phase 2, stage 2** (lane `mutual-recursion-s2`;
+  stage 1 merged as `9eb1487`); stage 3 follows
   ([mutual-recursion.md](docs/proposals/mutual-recursion.md), draft 3;
   two reviews; implementation approved). Stage 2: `define_group` with
   several members, forward references, cycle hashing, scheduling and `auto`
