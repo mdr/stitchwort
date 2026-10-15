@@ -23,8 +23,8 @@ agent, then reviews, merges and updates this file.
 Round 2, in progress:
 - **Stack-safe step 4** (lane `depth-guards`): item 1 of **Next**.
 - ~~Text step 5~~ (lane `run`): merged as `65f91ce`.
-- **Text step 6** (lane `playground-run`): item 3 of **Next**, the Run
-  button and the compiler in a Web Worker. Republished by main after merging.
+- ~~Text step 6~~ (lane `playground-run`): merged as `f35f1a7`, playground
+  republished (version 4).
 
 Text step 3 waits for round 3: it edits `js/lib.rs` alongside step 4.
 
@@ -40,13 +40,6 @@ Text step 3 waits for round 3: it edits `js/lib.rs` alongside step 4.
    noncharacters, both round-trip laws), and differential tests including the
    cross-runtime counterexamples. Decide how generated JS copes with long
    texts, since JS engines don't eliminate tail calls.
-3. **Text, step 6:** the playground's Run button (it can reuse the driver's
-   `Session::main` and `Session::run_main`, with scripted input and an output
-   budget). Also run the playground's
-   compiler in a Web Worker, as `web/stress.html` does: after the engine's
-   stack overflows (`RangeError`), the WebAssembly instance's state isn't
-   restored, so it shouldn't be reused. Republish it
-   (https://claude.ai/artifact/T7p2cjuvWBGWdiEdCQVLcj).
 
 ## Later
 
@@ -71,6 +64,14 @@ Text step 3 waits for round 3: it edits `js/lib.rs` alongside step 4.
   "didn't check" and "failed while running" should differ.
 - **`IO` operations that return `Result`** for recoverable errors (deferred
   by the text-and-IO proposal).
+- **Stream a run's output** to the playground (the worker could post each
+  flush), so a stopped or timed-out run still shows what it printed.
+- **An automated browser test of the playground** (headless Chrome over the
+  DevTools protocol, as done by hand for step 6): the tabs, Run, Stop, crash
+  recovery, and the in-page fallback when workers can't start.
+- **A budget on operations per playground run**, alongside the 15 s limit (a
+  program reading past the end of its input many times is caught only by
+  the timeout).
 - **`Partial`** ([proposal](docs/proposals/partial.md)): until it's settled, an
   infinite `Comp` is unsound.
 - **Lacks constraints on row variables** aren't enforced (only reachable with
@@ -118,6 +119,7 @@ Text step 3 waits for round 3: it edits `js/lib.rs` alongside step 4.
 
 ## Recently done
 
+- `f35f1a7` Text step 6 (playground-run lane, merged): the playground's Run button and its compiler in Web Workers, replaced after a crash; republished.
 - `65f91ce` Text step 5 (run lane, merged): `main` and `stitchwort run`, tested against `simulate` and real standard input and output; `examples/accept/adder.sw`.
 - `3fb4764` Text step 4 (IO lane, merged): the `IO` ability and `simulate`, `examples/accept/io.sw`, `examples/extract/io.sw`.
 - `fae5cc2` Stack-safe step 3: `conv`, `unify` and `quote` as work lists; iterative freeing of terms.
