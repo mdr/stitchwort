@@ -294,6 +294,7 @@ fn clone_def(def: &stitchwort_core::globals::Def) -> stitchwort_core::globals::D
         ty: def.ty.clone(),
         ty_value: def.ty_value.clone(),
         body: def.body.clone(),
+        state: def.state,
         arity: def.arity,
         theorem: def.theorem,
         export: false,

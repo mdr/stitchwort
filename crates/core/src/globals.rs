@@ -9,13 +9,28 @@ use crate::native::Builtins;
 use crate::term::{DataId, DefId, Name, Sort, Term};
 use crate::value::Value;
 
+/// Where a declaration is in its admission (docs/proposals/kernel-admission.md).
+/// Only the kernel's declaration functions change it, and only from
+/// `Pending`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum State {
+    /// Declared, but its body or constructors haven't been admitted.
+    Pending,
+    /// Admitted, together with everything it refers to.
+    Final,
+    /// Refused, or refers to something failed. It never becomes final.
+    Failed,
+}
+
 pub struct Def {
     pub name: Name,
     pub ty: Term,
     pub ty_value: Value,
-    /// `None` while the definition's own body is being checked (so recursive
-    /// references don't unfold), or if checking it failed.
+    /// Set exactly when the definition is final. So it's `None` while its own
+    /// body is being checked (recursive references don't unfold), and if
+    /// checking it failed.
     pub body: Option<Rc<Term>>,
+    pub state: State,
     /// Number of leading lambdas in `body`. The definition unfolds once it's
     /// applied to this many arguments and its case tree can make progress.
     pub arity: usize,
@@ -44,8 +59,9 @@ pub struct Data {
     /// may only use those (and earlier data types), since anything defined
     /// later could mention this type and hide a negative occurrence.
     pub defs_before: usize,
-    /// Whether its constructors have been defined (they can be only once).
-    pub ctors_defined: bool,
+    /// Final once its constructors are defined (they can be only once).
+    /// Until then it isn't empty: it can't be matched on or hashed.
+    pub state: State,
     pub span: Span,
 }
 

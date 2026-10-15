@@ -6,10 +6,11 @@
 //! such as `Maybe Text`), and their proof arguments are checked at runtime.
 
 use std::cell::Cell;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fmt::Write;
 
 use stitchwort_core::check::{is_type_former, telescope};
+use stitchwort_core::hash::def_hash;
 use stitchwort_core::native;
 use stitchwort_core::term::Branch;
 use stitchwort_core::value::{Head, eval};
@@ -311,10 +312,31 @@ pub struct Output {
     pub dts: String,
 }
 
+/// How the generated code represents things.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Options {
+    /// A `Text` is a JS string, and the prelude's text operations are native
+    /// JS (docs/proposals/compact-text.md, option A). Off, a `Text` is
+    /// `MkText` of a cons list and every operation is compiled from its
+    /// definition, as before: that's for differential tests of the natives.
+    pub native_text: bool,
+}
+
+impl Default for Options {
+    fn default() -> Self {
+        Options { native_text: true }
+    }
+}
+
 /// Generates the ES module and its TypeScript declarations for every export.
 /// It's one operation, using at most `limits.stack` bytes of stack: a
 /// definition nested too deeply for that is an `E-RESOURCE` error.
 pub fn generate(g: &Globals, limits: Limits) -> Result<Output, Diagnostic> {
+    generate_with(g, limits, Options::default())
+}
+
+/// [`generate`], with the given representation options.
+pub fn generate_with(g: &Globals, limits: Limits, options: Options) -> Result<Output, Diagnostic> {
     let _op = g.budget.operation(Limits::stack_only(limits.stack));
     let exports = (0..g.defs.len())
         .map(DefId)
@@ -329,8 +351,15 @@ pub fn generate(g: &Globals, limits: Limits) -> Result<Output, Diagnostic> {
         }
     }
 
-    let codegen = Gen::new(g)?;
+    let codegen = Gen::new(g, options)?;
     let mut js = String::from(RUNTIME);
+    js.push('\n');
+    js.push_str(if codegen.text.is_some() {
+        TEXT_AS_STRING
+    } else {
+        TEXT_AS_LIST
+    });
+    js.push_str(RUNTIME_CODECS);
     js.push('\n');
     // Every data type is declared before any is defined, so their fields'
     // types can refer to each other (and themselves).
@@ -349,7 +378,9 @@ pub fn generate(g: &Globals, limits: Limits) -> Result<Output, Diagnostic> {
     js.push('\n');
     // Only what the exports use, in declaration order (which is dependency order).
     let used = reachable(g, exports.iter().map(|sig| sig.id), |id| {
-        codegen.erased[id.0].0 || g.builtins.native(id).is_some()
+        codegen.erased[id.0].0
+            || g.builtins.native(id).is_some()
+            || codegen.text_natives.contains_key(&id)
     });
     let while_generating = |id: DefId| {
         move |e: ResourceError| {
@@ -498,30 +529,77 @@ const BOOL = leaf(
   (v) => v.tag === "True",
 );
 
-// `Text` is a string. Decoding takes its Unicode scalar values in order, and
-// refuses a string with a lone surrogate (which JS allows) rather than
-// repairing it, so encoding gives back exactly the string that was decoded.
-const scalars = (x) => {
+// `Text` is a string. Decoding refuses a string with a lone surrogate (which
+// JS allows) rather than repairing it, so encoding gives back exactly the
+// string that was decoded.
+const wellFormed = (x) => {
   if (typeof x !== "string") refuse("expected a string");
-  const codes = [];
   for (let i = 0; i < x.length; i++) {
     const unit = x.charCodeAt(i);
-    if (unit < 0xd800 || unit > 0xdfff) {
-      codes.push(BigInt(unit));
-      continue;
-    }
+    if (unit < 0xd800 || unit > 0xdfff) continue;
     const low = i + 1 < x.length ? x.charCodeAt(i + 1) : 0;
     if (unit > 0xdbff || low < 0xdc00 || low > 0xdfff) {
       const hex = unit.toString(16).toUpperCase();
       refuse(`a lone surrogate (U+${hex}) at index ${i}; text must be a well-formed string`);
     }
-    codes.push(BigInt(0x10000 + ((unit - 0xd800) << 10) + (low - 0xdc00)));
     i++;
+  }
+  return x;
+};
+// A well-formed string's Unicode scalar values, in order.
+const scalars = (x) => {
+  wellFormed(x);
+  const codes = [];
+  for (let i = 0; i < x.length; i++) {
+    const code = x.codePointAt(i);
+    codes.push(BigInt(code));
+    if (code > 0xffff) i++;
   }
   return codes;
 };
 const encodeChar = (v) => String.fromCodePoint(Number(v.code));
-const TEXT = leaf(
+"#;
+
+/// The runtime's `Text` codec and helpers, with `Text` as a string inside
+/// generated code too (docs/proposals/compact-text.md, option A). Both
+/// bridges between a string and its `List Char` are loops.
+const TEXT_AS_STRING: &str = r#"const TEXT = leaf(wellFormed, (v) => v);
+
+// A list of the array's items.
+const listOf = (items) => {
+  let list = { tag: "Nil" };
+  for (let i = items.length - 1; i >= 0; i--) list = { tag: "Cons", head: items[i], tail: list };
+  return list;
+};
+// The scalar value whose last code unit is at index `i` of a well-formed
+// string: one unit, or the two of a surrogate pair.
+const scalarEndingAt = (t, i) => {
+  const unit = t.charCodeAt(i);
+  return unit >= 0xdc00 && unit <= 0xdfff
+    ? 0x10000 + ((t.charCodeAt(i - 1) - 0xd800) << 10) + (unit - 0xdc00)
+    : unit;
+};
+// `MkText`'s field: the text's characters, as a list.
+const charsOfText = (t) => {
+  let chars = { tag: "Nil" };
+  for (let i = t.length - 1; i >= 0; i--) {
+    const code = scalarEndingAt(t, i);
+    if (code > 0xffff) i--;
+    chars = { tag: "Cons", head: { tag: "MkChar", code: BigInt(code) }, tail: chars };
+  }
+  return chars;
+};
+// `MkText chars`: the string of a list of characters.
+const textOfChars = (chars) => {
+  const parts = [];
+  for (let l = chars; l.tag === "Cons"; l = l.tail) parts.push(encodeChar(l.head));
+  return parts.join("");
+};
+"#;
+
+/// The runtime's `Text` codec when `Text` is `MkText` of a cons list inside
+/// generated code, as it was before option A: for differential tests.
+const TEXT_AS_LIST: &str = r#"const TEXT = leaf(
   (x) => {
     const codes = scalars(x);
     let chars = { tag: "Nil" };
@@ -536,7 +614,10 @@ const TEXT = leaf(
     return parts.join("");
   },
 );
+"#;
 
+/// The rest of the runtime: `Char`, and decoding and encoding any boundary type.
+const RUNTIME_CODECS: &str = r#"
 // `Char` is a string holding exactly one scalar value: one or two UTF-16
 // code units.
 const CHAR = leaf(
@@ -698,6 +779,11 @@ const encode = (t, v) => {
 struct Gen<'g> {
     g: &'g Globals,
     nat: Option<DataId>,
+    /// The prelude's `Text`, if it's a JS string in generated code
+    /// ([`Options::native_text`]).
+    text: Option<DataId>,
+    /// The prelude's text operations with native JS, and which.
+    text_natives: HashMap<DefId, TextNative>,
     /// Per definition: whether it's erased, and which of its leading
     /// parameters (up to its arity) are erased.
     erased: Vec<(bool, Vec<bool>)>,
@@ -715,7 +801,7 @@ struct SelfCall {
 }
 
 impl<'g> Gen<'g> {
-    fn new(g: &'g Globals) -> Result<Self, Diagnostic> {
+    fn new(g: &'g Globals, options: Options) -> Result<Self, Diagnostic> {
         let erased = g
             .defs
             .iter()
@@ -730,9 +816,28 @@ impl<'g> Gen<'g> {
                 Ok((tel.result_erased, mask))
             })
             .collect::<Result<_, Diagnostic>>()?;
+        let text = g.find_data("Text").filter(|d| {
+            let data = g.data(*d);
+            options.native_text
+                && data.params.is_empty()
+                && data.ctors.len() == 1
+                && data.ctors[0].fields.len() == 1
+        });
+        let text_natives = if text.is_some() {
+            bind_text_natives(g)
+                .map_err(Diagnostic::from)?
+                .into_iter()
+                .filter(|b| b.bound)
+                .filter_map(|b| Some((b.id?, b.native)))
+                .collect()
+        } else {
+            HashMap::new()
+        };
         Ok(Gen {
             g,
             nat: g.find_data("Nat"),
+            text,
+            text_natives,
             erased,
             if_then_else: g
                 .defs
@@ -750,6 +855,13 @@ impl<'g> Gen<'g> {
         };
         if *erased {
             return Ok(String::new());
+        }
+        if let Some(op) = self.text_natives.get(&id) {
+            return Ok(format!(
+                "const {} = {};\n",
+                def_name(&def.name),
+                text_native_js(*op)
+            ));
         }
         if let Some(op) = self.g.builtins.native(id) {
             return Ok(format!(
@@ -915,6 +1027,17 @@ impl<'g> Gen<'g> {
             let _ = writeln!(out, "{pad}  const {predecessor} = {scrutinee} - 1n;");
             branch(&mut out, 1, &branches[1], depth + 1)?;
             let _ = writeln!(out, "{pad}}}");
+        } else if Some(*d) == self.text {
+            // A `Text` is a string. Matching `MkText cs` makes the list of
+            // its characters, in a loop, but only if `cs` is used.
+            let level = env.len();
+            env.push(false);
+            let body = self.tree(&branches[0].body, env, depth, self_call)?;
+            env.truncate(level);
+            if mentions(&body, &var(level)) {
+                let _ = writeln!(out, "{pad}const {} = charsOfText({scrutinee});", var(level));
+            }
+            out.push_str(&body);
         } else {
             let _ = writeln!(out, "{pad}switch ({scrutinee}.tag) {{");
             for (c, b) in branches.iter().enumerate() {
@@ -1020,6 +1143,14 @@ impl<'g> Gen<'g> {
                 let data = self.g.data(*d);
                 if data.sort == Sort::Prop {
                     return Ok("undefined".into());
+                }
+                if Some(*d) == self.text {
+                    // A string: a literal if the characters are, otherwise
+                    // made from the list in a loop.
+                    return Ok(match text_literal(&args[0]) {
+                        Some(text) => js_string_literal(&text),
+                        None => format!("textOfChars({})", self.expr(&args[0], env)?),
+                    });
                 }
                 if Some(*d) == self.nat {
                     // Count the `Succ`s: `Succ (Succ x)` is `x + 2n`, and a
@@ -1206,7 +1337,13 @@ impl<'g> Gen<'g> {
             Boundary::Bool => "boolean".into(),
             Boundary::Text | Boundary::Char => "string".into(),
             Boundary::List(elem) if readonly => {
-                format!("readonly {}[]", self.ts_type(elem, true, params))
+                // `readonly readonly T[][]` isn't TypeScript.
+                let elem = self.ts_type(elem, true, params);
+                if elem.starts_with("readonly ") {
+                    format!("readonly ({elem})[]")
+                } else {
+                    format!("readonly {elem}[]")
+                }
             }
             Boundary::List(elem) => format!("{}[]", self.ts_type(elem, false, params)),
             Boundary::Data(d, args) if args.is_empty() => type_name(&self.g.data(*d).name),
@@ -1370,6 +1507,280 @@ fn native_js(op: native::Native) -> &'static str {
         // A proof, so it's erased and never emitted.
         Native::EqNatRefl => "undefined",
     }
+}
+
+/// A prelude text operation with a native JS implementation, in generated
+/// code where a `Text` is a string ([`Options::native_text`]). Like the
+/// number natives, these are trusted, and tested against the definitions
+/// they replace (`crates/cli/tests/extract.rs`). Each works on Unicode scalar
+/// values, never on UTF-16 code units, and none uses JS stack space
+/// proportional to the length of a text.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TextNative {
+    TextToList,
+    TextFromList,
+    TextAppend,
+    TextLength,
+    TextIsEmpty,
+    DecEqText,
+    TextCompare,
+    TextUncons,
+    TextFold,
+    TextTrim,
+    TextSplit,
+    TextJoin,
+    NatToText,
+    TextToNat,
+}
+
+/// Each text native, the prelude definition it replaces, and that
+/// definition's content hash (DESIGN.md §11), which covers everything it
+/// depends on. A native is only used for a definition with exactly that hash,
+/// so if the prelude changes, the definition is compiled as written instead:
+/// slower, but still right. A test fails until each native has been checked
+/// against the changed definition and its hash updated here.
+const TEXT_NATIVES: &[(&str, TextNative, &str)] = &[
+    (
+        "textToList",
+        TextNative::TextToList,
+        "55f4ee982b01cd63f281648877b8052578bd053537d7196b81f2420f93310659",
+    ),
+    (
+        "textFromList",
+        TextNative::TextFromList,
+        "589f496fb7316b3ac6a86d42797c46c97e604331d9db18947fb3534b7320b1b3",
+    ),
+    (
+        "textAppend",
+        TextNative::TextAppend,
+        "d425b5c567fdd4d62acb93ed33a832aec2c1ce901f6cd11e85348a7ea8a47212",
+    ),
+    (
+        "textLength",
+        TextNative::TextLength,
+        "3ac6fd0dd35c31467c1f9125ff994d18f39c6a787dd05b592f63d209e9f8982d",
+    ),
+    (
+        "textIsEmpty",
+        TextNative::TextIsEmpty,
+        "7dd171adb0dda96ccdddfaccfa23a3c583e320f23bcc602fbe0386f40a39504c",
+    ),
+    (
+        "decEqText",
+        TextNative::DecEqText,
+        "3661f137695e49aed7f500f37ae354aad2d7d5570feaf9b1fcceacbd6245df93",
+    ),
+    (
+        "textCompare",
+        TextNative::TextCompare,
+        "64dc08aebec18f26745cd5d5aa0d0018b47fea7d89016c460f79decfe14d9f04",
+    ),
+    (
+        "textUncons",
+        TextNative::TextUncons,
+        "b3193fd564ca9794df7e2dc0c8cbdc5c7e0627c85f44cc840b5bef5f066b661d",
+    ),
+    (
+        "textFold",
+        TextNative::TextFold,
+        "026292808e8eb3b9bd694ffc8fb63f3aed9bf068fa843ffacdc33fec33b849bc",
+    ),
+    (
+        "textTrim",
+        TextNative::TextTrim,
+        "cc4d9039e163a10e59993c7f15ae199e8ca7f195dc4e8c167e6929115761e0e3",
+    ),
+    (
+        "textSplit",
+        TextNative::TextSplit,
+        "b55a5453c14ae439d0e4b19c87dd7d8a7d14ab05c1f86c108c72f54985cada45",
+    ),
+    (
+        "textJoin",
+        TextNative::TextJoin,
+        "82c027ed95f87486254858de74e01df5e7d6977eec73565e6a5f26c400aed543",
+    ),
+    (
+        "natToText",
+        TextNative::NatToText,
+        "cb3e7303afea63730d6516bfcf329f6f200aa7d18f5f9ec6be32ccc0507c8cef",
+    ),
+    (
+        "textToNat",
+        TextNative::TextToNat,
+        "41f9f9d896d28ca11afbc6f5c1fabff76286040a8fdf842a9b15afe57526af0c",
+    ),
+];
+
+/// Whether a text native applies to the program's definition of that name.
+pub struct TextBinding {
+    pub name: &'static str,
+    pub native: TextNative,
+    /// The definition, if there is one.
+    pub id: Option<DefId>,
+    /// Its content hash, in hex.
+    pub hash: Option<String>,
+    /// Whether it's the definition the native was written for.
+    pub bound: bool,
+}
+
+/// Matches each text native with the definition it replaces, by content hash.
+pub fn bind_text_natives(g: &Globals) -> Result<Vec<TextBinding>, ResourceError> {
+    let _op = g
+        .budget
+        .operation(Limits::stack_only(Limits::default().stack));
+    TEXT_NATIVES
+        .iter()
+        .map(|&(name, native, expected)| {
+            // Prelude names can't be redefined, so this is the prelude's.
+            let id = g.defs.iter().position(|def| &*def.name == name).map(DefId);
+            let hash = match id {
+                Some(id) => def_hash(g, id)?.map(|h| h.hex()),
+                None => None,
+            };
+            Ok(TextBinding {
+                name,
+                native,
+                id,
+                bound: hash.as_deref() == Some(expected),
+                hash,
+            })
+        })
+        .collect()
+}
+
+/// JS for a text native. The runtime's helpers (`TEXT_AS_STRING`) are in
+/// scope, and the prelude's types have the representation the runtime uses
+/// (`MkChar`'s `code`, `Cons`'s `head` and `tail`, `Just`'s `value`,
+/// `MkPair`'s `fst` and `snd`).
+fn text_native_js(op: TextNative) -> &'static str {
+    match op {
+        TextNative::TextToList => "charsOfText",
+        TextNative::TextFromList => "textOfChars",
+        TextNative::TextAppend => "(a) => (b) => a + b",
+        // A surrogate pair is one character.
+        TextNative::TextLength => {
+            r#"(t) => {
+  let n = 0;
+  for (let i = 0; i < t.length; i++, n++) {
+    const unit = t.charCodeAt(i);
+    if (unit >= 0xd800 && unit <= 0xdbff) i++;
+  }
+  return BigInt(n);
+}"#
+        }
+        TextNative::TextIsEmpty => r#"(t) => ({ tag: t === "" ? "True" : "False" })"#,
+        // Well-formed UTF-16 is one-to-one with sequences of scalar values.
+        TextNative::DecEqText => r#"(a) => (b) => ({ tag: a === b ? "Yes" : "No" })"#,
+        // By scalar value, not code unit. At the first code unit that
+        // differs, `codePointAt` gives each side's whole scalar value, or, if
+        // the high halves of two pairs were the same, their low halves, which
+        // are in the same order. A string that runs out first is a prefix,
+        // ending between scalar values.
+        TextNative::TextCompare => {
+            r#"(a) => (b) => {
+  const n = Math.min(a.length, b.length);
+  for (let i = 0; i < n; i++) {
+    if (a.charCodeAt(i) !== b.charCodeAt(i)) {
+      return { tag: a.codePointAt(i) < b.codePointAt(i) ? "Less" : "Greater" };
+    }
+  }
+  return { tag: a.length === b.length ? "Equal" : a.length < b.length ? "Less" : "Greater" };
+}"#
+        }
+        TextNative::TextUncons => {
+            r#"(t) => {
+  if (t === "") return { tag: "Nothing" };
+  const code = t.codePointAt(0);
+  const c = { tag: "MkChar", code: BigInt(code) };
+  return { tag: "Just", value: { tag: "MkPair", fst: c, snd: t.slice(code > 0xffff ? 2 : 1) } };
+}"#
+        }
+        // A right fold, as the definition is: `f` gets the last character
+        // first. (The definition is strict and pure, so only the result can
+        // differ, and it doesn't.) `f` itself may still recurse.
+        TextNative::TextFold => {
+            r#"(f) => (z) => (t) => {
+  let acc = z;
+  for (let i = t.length - 1; i >= 0; i--) {
+    const code = scalarEndingAt(t, i);
+    if (code > 0xffff) i--;
+    acc = f({ tag: "MkChar", code: BigInt(code) })(acc);
+  }
+  return acc;
+}"#
+        }
+        // Exactly `isSpaceCode`'s six: space, tab, line feed, vertical tab,
+        // form feed and carriage return. Not JS's `trim`, which also removes
+        // U+00A0, U+2028, U+FEFF and others.
+        TextNative::TextTrim => {
+            r#"(t) => {
+  const space = (unit) => unit === 32 || (unit >= 9 && unit <= 13);
+  let start = 0;
+  let end = t.length;
+  while (start < end && space(t.charCodeAt(start))) start++;
+  while (end > start && space(t.charCodeAt(end - 1))) end--;
+  return t.slice(start, end);
+}"#
+        }
+        // The separator is a whole scalar value, and in a well-formed string
+        // a match can't start inside a pair. Empty fields are kept, and ""
+        // splits into [""], as the definition says.
+        TextNative::TextSplit => "(s) => (t) => listOf(t.split(encodeChar(s)))",
+        TextNative::TextJoin => {
+            r#"(s) => (ts) => {
+  const parts = [];
+  for (let l = ts; l.tag === "Cons"; l = l.tail) parts.push(l.head);
+  return parts.join(encodeChar(s));
+}"#
+        }
+        // Decimal, without leading zeros.
+        TextNative::NatToText => "(n) => n.toString()",
+        // One or more ASCII digits and nothing else; leading zeros are fine.
+        // (`BigInt` alone would also accept "", " 12" and "0x10".)
+        TextNative::TextToNat => {
+            r#"(t) => {
+  if (t === "") return { tag: "Nothing" };
+  for (let i = 0; i < t.length; i++) {
+    const unit = t.charCodeAt(i);
+    if (unit < 48 || unit > 57) return { tag: "Nothing" };
+  }
+  return { tag: "Just", value: BigInt(t) };
+}"#
+        }
+    }
+}
+
+/// The characters of a list of `Char`s written out in full (like a text
+/// literal's), if it is one. A loop, since a long literal nests deeply.
+fn text_literal(chars: &Term) -> Option<String> {
+    let mut text = String::new();
+    let mut list = chars.strip_loc();
+    loop {
+        match list {
+            Term::Ctor(_, 0, args) if args.is_empty() => return Some(text),
+            Term::Ctor(_, 1, args) if args.len() == 2 => {
+                let Term::Ctor(_, 0, fields) = args[0].strip_loc() else {
+                    return None;
+                };
+                let Term::Nat(code) = fields.first()?.strip_loc() else {
+                    return None;
+                };
+                text.push(u32::try_from(&**code).ok().and_then(char::from_u32)?);
+                list = args[1].strip_loc();
+            }
+            _ => return None,
+        }
+    }
+}
+
+/// Whether generated JS mentions the name, as a whole identifier.
+fn mentions(js: &str, name: &str) -> bool {
+    let part = |c: char| c.is_ascii_alphanumeric() || c == '_' || c == '$';
+    js.match_indices(name).any(|(i, _)| {
+        !js[..i].chars().next_back().is_some_and(part)
+            && !js[i + name.len()..].chars().next().is_some_and(part)
+    })
 }
 
 fn var(level: usize) -> String {
@@ -1591,7 +2002,15 @@ pub fn js_string_literal(text: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::is_js_identifier;
+    use super::{is_js_identifier, mentions};
+
+    #[test]
+    fn finds_whole_identifiers() {
+        assert!(mentions("return v1;", "v1"));
+        assert!(mentions("f(v1)(v2)", "v2"));
+        assert!(!mentions("return v10 + $v1 + v1_ + v1$;", "v1"));
+        assert!(!mentions("", "v1"));
+    }
 
     #[test]
     fn recognises_javascript_identifiers() {

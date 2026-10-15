@@ -8,7 +8,7 @@ use std::rc::Rc;
 use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::budget;
-use crate::globals::{Ctor, Data, Def, Globals, Validator};
+use crate::globals::{Ctor, Data, Def, Globals, State, Validator};
 use crate::pretty;
 use crate::term::{Branch, DataId, DefId, Icit, Name, NumArm, Sort, Term};
 use crate::termination;
@@ -420,6 +420,13 @@ fn check_case(
     let Some(data) = g.datas.get(d.0) else {
         return Err(malformed(cx, "reference to an unknown data type"));
     };
+    // A data type whose constructors aren't in yet isn't empty.
+    if data.state != State::Final {
+        return Err(malformed(
+            cx,
+            format!("a match on `{}`, which isn't finished", data.name),
+        ));
+    }
     let params = match &cx.types[x] {
         Value::Data(d2, params) if *d2 == d => params.clone(),
         other => {
@@ -543,6 +550,14 @@ fn check_num_case(
     let Some(nat) = g.builtins.nat else {
         return Err(malformed(cx, "a number case without `Nat`"));
     };
+    // Registering `Nat` requires it to be finished, but as for `case`, the
+    // type matched on must be.
+    if g.data(nat).state != State::Final {
+        return Err(malformed(
+            cx,
+            "a number case on `Nat`, which isn't finished",
+        ));
+    }
     // The elaborator only compiles a column of a `Nat` to a number case, so
     // anything else is a compiler bug.
     match &cx.types[x] {
@@ -629,13 +644,43 @@ pub fn infer_closed(g: &Globals, term: &Term, span: Span) -> Result<(Term, Value
 
 // Declarations
 
-/// Checks the body of a definition added by [`declare_def`]. Until this
-/// succeeds the definition has no body, so it never unfolds: recursive
-/// references inside its own body stay opaque while it's being checked.
+/// Checks the body of a definition added by [`declare_def`], which makes it
+/// final, or failed if it's refused. Until then the definition has no body,
+/// so it never unfolds: recursive references inside its own body stay opaque
+/// while it's being checked.
 pub fn define_def(g: &mut Globals, id: DefId, body: &Term) -> Result<()> {
+    let Some(def) = g.defs.get(id.0) else {
+        return Err(Diagnostic::error(
+            "E-MALFORMED",
+            "malformed core term: reference to an unknown definition",
+        ));
+    };
+    if def.state != State::Pending {
+        return Err(malformed(
+            &Ctx::new(g, def.span),
+            format!("`{}` has already been defined", def.name),
+        ));
+    }
+    match admit_def(g, id, body) {
+        Ok(body) => {
+            let def = &mut g.defs[id.0];
+            def.arity = body.count_lams();
+            def.body = Some(Rc::new(body));
+            def.state = State::Final;
+            Ok(())
+        }
+        Err(e) => {
+            g.defs[id.0].state = State::Failed;
+            Err(e)
+        }
+    }
+}
+
+fn admit_def(g: &Globals, id: DefId, body: &Term) -> Result<Term> {
     let def = g.def(id);
     let (name, span, ty_value) = (def.name.clone(), def.span, def.ty_value.clone());
     let mut cx = Ctx::new(g, span);
+    let failed = admissible(&cx, [&def.ty, body], Some(Itself::Def(id)))?;
     if !case_only_in_tree(body.peel_lams(body.count_lams()), true) {
         return Err(malformed(
             &cx,
@@ -644,10 +689,10 @@ pub fn define_def(g: &mut Globals, id: DefId, body: &Term) -> Result<()> {
     }
     let body = check(&mut cx, body, &ty_value)?;
     termination::check(g, &body, id, &name, span)?;
-    let def = &mut g.defs[id.0];
-    def.arity = body.count_lams();
-    def.body = Some(Rc::new(body));
-    Ok(())
+    match failed {
+        Some(dep) => Err(failed_dependency(&cx, &name, &dep)),
+        None => Ok(body),
+    }
 }
 
 /// Checks a definition's type and adds it without a body.
@@ -666,6 +711,8 @@ pub fn declare_def(
             "`case` may only appear at the top of a definition",
         ));
     }
+    // A failed reference is let through: `define_def` finds it again.
+    admissible(&cx, [ty], None)?;
     let (ty, sort) = check_type(&mut cx, ty)?;
     if theorem && sort != Sort::Prop {
         let ty_value = cx.eval(&ty)?;
@@ -688,6 +735,7 @@ pub fn declare_def(
         ty,
         ty_value,
         body: None,
+        state: State::Pending,
         arity: 0,
         theorem,
         export,
@@ -707,6 +755,8 @@ pub fn declare_data(
     span: Span,
 ) -> Result<DataId> {
     let mut cx = Ctx::new(g, span);
+    // A failed reference is let through: `define_ctors` finds it again.
+    admissible(&cx, params.iter().map(|(_, ty)| ty), None)?;
     let mut checked = Vec::new();
     for (x, ty) in params {
         let (ty, _) = check_type(&mut cx, &ty)?;
@@ -721,7 +771,7 @@ pub fn declare_data(
         sort,
         ctors: Vec::new(),
         defs_before,
-        ctors_defined: false,
+        state: State::Pending,
         span,
     });
     Ok(DataId(g.datas.len() - 1))
@@ -732,6 +782,8 @@ pub struct CtorDecl {
     pub fields: Vec<(Name, Term, Span)>,
 }
 
+/// Checks and adds the constructors of a data type added by
+/// [`declare_data`], which makes it final, or failed if they're refused.
 pub fn define_ctors(g: &mut Globals, d: DataId, ctors: Vec<CtorDecl>) -> Result<()> {
     let Some(data) = g.datas.get(d.0) else {
         return Err(Diagnostic::error(
@@ -739,13 +791,29 @@ pub fn define_ctors(g: &mut Globals, d: DataId, ctors: Vec<CtorDecl>) -> Result<
             "malformed core term: reference to an unknown data type",
         ));
     };
-    let mut cx = Ctx::new(g, data.span);
-    if data.ctors_defined {
+    if data.state != State::Pending {
         return Err(malformed(
-            &cx,
+            &Ctx::new(g, data.span),
             format!("`{}`'s constructors are already defined", data.name),
         ));
     }
+    match admit_ctors(g, d, ctors) {
+        Ok(ctors) => {
+            g.datas[d.0].ctors = ctors;
+            g.datas[d.0].state = State::Final;
+            Ok(())
+        }
+        Err(e) => {
+            g.datas[d.0].state = State::Failed;
+            Err(e)
+        }
+    }
+}
+
+fn admit_ctors(g: &Globals, d: DataId, ctors: Vec<CtorDecl>) -> Result<Vec<Ctor>> {
+    let data = g.data(d);
+    let mut cx = Ctx::new(g, data.span);
+    let mut failed = admissible(&cx, data.params.iter().map(|(_, ty)| ty), None)?;
     for (x, ty) in &data.params {
         let value = cx.eval(ty)?;
         cx.bind(x.clone(), value);
@@ -763,6 +831,9 @@ pub fn define_ctors(g: &mut Globals, d: DataId, ctors: Vec<CtorDecl>) -> Result<
                     "`case` may only appear at the top of a definition",
                 ));
             }
+            // Its own type may appear in a field, but not its constructors.
+            let field_failed = admissible(&cx, [&ty], Some(Itself::Data(d)))?;
+            failed = failed.or(field_failed);
             if let Some(later) = declared_later(g, &ty, d) {
                 return Err(cx
                     .error(
@@ -817,9 +888,100 @@ pub fn define_ctors(g: &mut Globals, d: DataId, ctors: Vec<CtorDecl>) -> Result<
             field_erased,
         });
     }
-    g.datas[d.0].ctors = out;
-    g.datas[d.0].ctors_defined = true;
-    Ok(())
+    match failed {
+        Some(dep) => Err(failed_dependency(&cx, &data.name, &dep)),
+        None => Ok(out),
+    }
+}
+
+/// Marks every pending declaration failed. For an elaborator that gives up
+/// on a declaration before submitting its body or constructors: failing is
+/// always safe, and it stops later declarations tripping over a pending one.
+pub fn abandon_pending(g: &mut Globals) {
+    for def in &mut g.defs {
+        if def.state == State::Pending {
+            def.state = State::Failed;
+        }
+    }
+    for data in &mut g.datas {
+        if data.state == State::Pending {
+            data.state = State::Failed;
+        }
+    }
+}
+
+/// The declaration being admitted, which may refer to itself.
+#[derive(Clone, Copy, PartialEq)]
+enum Itself {
+    /// A definition, in its own body.
+    Def(DefId),
+    /// A data type, as a type (not a constructor or a `case`) in its fields.
+    Data(DataId),
+}
+
+/// The admission rule (docs/proposals/kernel-admission.md): everything
+/// `terms` refer to must be final, apart from `itself`. A pending reference
+/// is refused at once. A failed one is returned, so that the caller can
+/// still check the rest (and report its own errors) before failing.
+///
+/// Every final declaration was admitted under this rule, so everything it
+/// reaches is final too: there's no need to follow references.
+fn admissible<'t>(
+    cx: &Ctx,
+    terms: impl IntoIterator<Item = &'t Term>,
+    itself: Option<Itself>,
+) -> Result<Option<Name>> {
+    let g = cx.g;
+    let mut failed = None;
+    for term in terms {
+        for (t, _) in term.subterms() {
+            let (state, name) = match t {
+                Term::Def(id) if itself != Some(Itself::Def(*id)) => match g.defs.get(id.0) {
+                    Some(def) => (def.state, &def.name),
+                    None => return Err(malformed(cx, "reference to an unknown definition")),
+                },
+                Term::Data(d, _) if itself == Some(Itself::Data(*d)) => continue,
+                Term::Data(d, _) | Term::Ctor(d, _, _) | Term::Case(_, d, _) => {
+                    match g.datas.get(d.0) {
+                        Some(data) => (data.state, &data.name),
+                        None => return Err(malformed(cx, "reference to an unknown data type")),
+                    }
+                }
+                // A number case uses `Nat`. Its arms and default are walked
+                // like any other subterms.
+                Term::NumCase(..) => match g.builtins.nat.and_then(|d| g.datas.get(d.0)) {
+                    Some(data) => (data.state, &data.name),
+                    None => return Err(malformed(cx, "a number case without `Nat`")),
+                },
+                _ => continue,
+            };
+            match state {
+                State::Final => {}
+                State::Pending => {
+                    return Err(malformed(
+                        cx,
+                        format!("this refers to `{name}`, which isn't finished"),
+                    ));
+                }
+                State::Failed => {
+                    failed.get_or_insert_with(|| name.clone());
+                }
+            }
+        }
+    }
+    Ok(failed)
+}
+
+/// `what` checked, but uses `dep`, which failed, so it fails too.
+fn failed_dependency(cx: &Ctx, what: &Name, dep: &Name) -> Diagnostic {
+    cx.error(
+        "E-FAILED-DEPENDENCY",
+        format!("`{what}` uses `{dep}`, which has errors"),
+        format!("`{dep}` has errors"),
+    )
+    .with_note(format!(
+        "`{what}` can't be accepted until the errors in `{dep}` are fixed"
+    ))
 }
 
 /// A definition or data type in `term` declared after data type `d`, if any:
@@ -916,10 +1078,21 @@ pub fn add_validator(
     decidable: DataId,
     decision: &Term,
 ) -> Result<()> {
-    let def = g.def(id);
+    let Some(def) = g.defs.get(id.0) else {
+        return Err(Diagnostic::error(
+            "E-MALFORMED",
+            "malformed core term: reference to an unknown definition",
+        ));
+    };
     let span = def.span;
     let tel = telescope(g, &def.ty_value, span)?;
     let mut cx = Ctx::new(g, span);
+    if def.state != State::Final {
+        return Err(malformed(
+            &cx,
+            "a validator for a definition that isn't final",
+        ));
+    }
     let Some((_, prop, true)) = tel.params.get(param) else {
         return Err(malformed(
             &cx,
@@ -927,7 +1100,8 @@ pub fn add_validator(
         ));
     };
     let shaped_like_decidable = g.datas.get(decidable.0).is_some_and(|d| {
-        d.params.len() == 1
+        d.state == State::Final
+            && d.params.len() == 1
             && matches!(d.params[0].1.strip_loc(), Term::Sort(Sort::Prop))
             && d.ctors.len() == 2
             && d.ctors[0].fields.len() == 1
@@ -936,11 +1110,15 @@ pub fn add_validator(
     if !shaped_like_decidable || !case_only_in_tree(decision, false) {
         return Err(malformed(&cx, "a validator that isn't a decision"));
     }
+    let failed = admissible(&cx, [decision], None)?;
     for (x, ty, _) in &tel.params[..param] {
         cx.bind(x.clone(), ty.clone());
     }
     let expected = Value::Data(decidable, vec![prop.clone()]);
     let decision = check(&mut cx, decision, &expected)?;
+    if let Some(dep) = failed {
+        return Err(failed_dependency(&cx, &def.name, &dep));
+    }
     g.defs[id.0].validators.push(Validator { param, decision });
     Ok(())
 }

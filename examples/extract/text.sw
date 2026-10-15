@@ -66,6 +66,20 @@
 -- run: orEmpty Nothing
 -- run: firstOf (MkPair '\u{1F600}' "rest")
 -- run: located (At "a\u{1F600}" 'x' ['y'])
+-- Native operations used as values, and their results taken apart by user
+-- code:
+-- run: empty ""
+-- run: empty "\u{0}"
+-- run: less "\u{10000}" "\u{E000}"
+-- run: codes "a\u{1F600}\u{10FFFF}"
+-- run: lengths ["", "\u{1F600}", "ab"]
+-- run: texts [['a', '\u{1F600}'], []]
+-- run: prefixAll ["", "\u{1F600}"]
+-- run: firstField ',' "ab,cd"
+-- run: firstField '\u{1F600}' "\u{1F600}x"
+-- run: trimmedHead "  \u{1F600}x "
+-- run: trimmedHead " \t"
+-- run: isText "\u{1F600}"
 
 export
 len : Text -> Nat
@@ -180,3 +194,55 @@ type Located : Type =
 export
 located : Located -> Located
 located (At p c cs) = At (p ++ "/") c (Cons c cs)
+
+-- The prelude's text operations are native JavaScript, and a `Text` is a
+-- string. These use them as values, partly applied, and with their results
+-- taken apart by ordinary pattern matching.
+export
+empty : Text -> Bool
+empty t = textIsEmpty t
+
+export
+less : Text -> Text -> Bool
+less a b = textLess a b
+
+export
+codes : Text -> List Nat
+codes t = textFold (\c ns -> Cons (charToNat c) ns) Nil t
+
+mapList : (a -> b) -> List a -> List b
+mapList f Nil         = Nil
+mapList f (Cons x xs) = Cons (f x) (mapList f xs)
+
+export
+lengths : List Text -> List Nat
+lengths ts = mapList textLength ts
+
+export
+texts : List (List Char) -> List Text
+texts ls = mapList MkText ls
+
+export
+prefixAll : List Text -> List Text
+prefixAll ts = mapList (textAppend "pre") ts
+
+firstOfList : List Text -> Text
+firstOfList Nil         = "none"
+firstOfList (Cons f fs) = f
+
+export
+firstField : Char -> Text -> Text
+firstField c t = firstOfList (textSplit c t)
+
+leadingChar : Text -> Maybe Char
+leadingChar (MkText Nil)         = Nothing
+leadingChar (MkText (Cons c cs)) = Just c
+
+export
+trimmedHead : Text -> Maybe Char
+trimmedHead t = leadingChar (textTrim t)
+
+-- The characters aren't used, so they aren't made into a list.
+export
+isText : Text -> Bool
+isText (MkText _) = True

@@ -29,7 +29,7 @@ use num_traits::Zero;
 use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::budget;
-use crate::globals::Globals;
+use crate::globals::{Globals, State};
 use crate::term::{DataId, DefId, Icit, Sort, Term};
 use crate::value::{Elim, Head, Value, conv, eval, force};
 
@@ -137,7 +137,8 @@ fn data_sig(g: &Globals, d: DataId) -> Vec<Vec<usize>> {
 /// Registers `Nat`, which must be `Zero | Succ Nat` with no parameters.
 pub fn register_nat(g: &mut Globals, d: DataId) -> Result<()> {
     let data = g.data(d);
-    let ok = data.params.is_empty()
+    let ok = data.state == State::Final
+        && data.params.is_empty()
         && data.sort == Sort::Type(0)
         && data_sig(g, d) == [vec![], vec![0]]
         && matches!(&data.ctors[1].fields[0].1.strip_loc(), Term::Data(d2, args) if *d2 == d && args.is_empty());
@@ -151,7 +152,10 @@ pub fn register_nat(g: &mut Globals, d: DataId) -> Result<()> {
 /// Registers `Bool`, which must be two constructors without fields.
 pub fn register_bool(g: &mut Globals, d: DataId) -> Result<()> {
     let data = g.data(d);
-    if !(data.params.is_empty() && data.sort == Sort::Type(0) && data_sig(g, d) == [vec![], vec![]])
+    if !(data.state == State::Final
+        && data.params.is_empty()
+        && data.sort == Sort::Type(0)
+        && data_sig(g, d) == [vec![], vec![]])
     {
         return Err(shape_error(data.span, "Bool"));
     }
@@ -165,8 +169,12 @@ pub fn register_bool(g: &mut Globals, d: DataId) -> Result<()> {
 pub fn register_decidable(g: &mut Globals, d: DataId) -> Result<()> {
     let data = g.data(d);
     let p = Value::var(0);
-    let void = g.find_data("Void");
-    let shaped = data.params.len() == 1
+    // `No`'s field relies on `Void` being empty, so it must be final.
+    let void = g
+        .find_data("Void")
+        .filter(|v| g.data(*v).state == State::Final);
+    let shaped = data.state == State::Final
+        && data.params.len() == 1
         && data.sort == Sort::Type(0)
         && data_sig(g, d) == [vec![0], vec![0]];
     let shaped = shaped
@@ -203,7 +211,7 @@ pub fn register_decidable(g: &mut Globals, d: DataId) -> Result<()> {
 pub fn register_native(g: &mut Globals, id: DefId, native: Native) -> Result<()> {
     let def = g.def(id);
     let span = def.span;
-    let Some(nat) = g.builtins.nat else {
+    let (State::Final, Some(nat)) = (def.state, g.builtins.nat) else {
         return Err(shape_error(span, native.name()));
     };
     let nat_ty = || Term::Data(nat, Vec::new());
@@ -270,11 +278,13 @@ fn native_def(g: &Globals, native: Native) -> Option<DefId> {
 pub fn register_nat_neq(g: &mut Globals, id: DefId) -> Result<()> {
     let def = g.def(id);
     let span = def.span;
-    let (Some(nat), Some(bool), Some(eq_nat), Some(void)) = (
+    let (State::Final, Some(nat), Some(bool), Some(eq_nat), Some(void)) = (
+        def.state,
         g.builtins.nat,
         g.builtins.bool,
         native_def(g, Native::EqNat),
-        g.find_data("Void"),
+        g.find_data("Void")
+            .filter(|v| g.data(*v).state == State::Final),
     ) else {
         return Err(shape_error(span, "natNeq"));
     };

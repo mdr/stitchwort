@@ -100,16 +100,12 @@ fn hashes_distinguish_which_data_type_is_used() {
 }
 
 #[test]
-fn a_data_types_hash_includes_its_constructors_once_they_are_defined() {
+fn a_data_type_has_a_hash_only_once_its_constructors_are_defined() {
     let mut p = Prelude::new();
     let d = data(&mut p.g, "Later", vec![], Sort::Type(0));
-    let before = data_hash(&p.g, d).unwrap();
+    assert_eq!(data_hash(&p.g, d).unwrap(), None, "pending");
     check::define_ctors(&mut p.g, d, vec![ctor("One", vec![])]).unwrap();
-    assert_ne!(
-        before,
-        data_hash(&p.g, d).unwrap(),
-        "not stuck at the hash it had with no constructors"
-    );
+    assert!(data_hash(&p.g, d).unwrap().is_some());
 }
 
 #[test]

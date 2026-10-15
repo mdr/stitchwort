@@ -84,44 +84,68 @@ const BOOL = leaf(
   (v) => v.tag === "True",
 );
 
-// `Text` is a string. Decoding takes its Unicode scalar values in order, and
-// refuses a string with a lone surrogate (which JS allows) rather than
-// repairing it, so encoding gives back exactly the string that was decoded.
-const scalars = (x) => {
+// `Text` is a string. Decoding refuses a string with a lone surrogate (which
+// JS allows) rather than repairing it, so encoding gives back exactly the
+// string that was decoded.
+const wellFormed = (x) => {
   if (typeof x !== "string") refuse("expected a string");
-  const codes = [];
   for (let i = 0; i < x.length; i++) {
     const unit = x.charCodeAt(i);
-    if (unit < 0xd800 || unit > 0xdfff) {
-      codes.push(BigInt(unit));
-      continue;
-    }
+    if (unit < 0xd800 || unit > 0xdfff) continue;
     const low = i + 1 < x.length ? x.charCodeAt(i + 1) : 0;
     if (unit > 0xdbff || low < 0xdc00 || low > 0xdfff) {
       const hex = unit.toString(16).toUpperCase();
       refuse(`a lone surrogate (U+${hex}) at index ${i}; text must be a well-formed string`);
     }
-    codes.push(BigInt(0x10000 + ((unit - 0xd800) << 10) + (low - 0xdc00)));
     i++;
+  }
+  return x;
+};
+// A well-formed string's Unicode scalar values, in order.
+const scalars = (x) => {
+  wellFormed(x);
+  const codes = [];
+  for (let i = 0; i < x.length; i++) {
+    const code = x.codePointAt(i);
+    codes.push(BigInt(code));
+    if (code > 0xffff) i++;
   }
   return codes;
 };
 const encodeChar = (v) => String.fromCodePoint(Number(v.code));
-const TEXT = leaf(
-  (x) => {
-    const codes = scalars(x);
-    let chars = { tag: "Nil" };
-    for (let i = codes.length - 1; i >= 0; i--) {
-      chars = { tag: "Cons", head: { tag: "MkChar", code: codes[i] }, tail: chars };
-    }
-    return { tag: "MkText", chars };
-  },
-  (v) => {
-    const parts = [];
-    for (let l = v.chars; l.tag === "Cons"; l = l.tail) parts.push(encodeChar(l.head));
-    return parts.join("");
-  },
-);
+
+const TEXT = leaf(wellFormed, (v) => v);
+
+// A list of the array's items.
+const listOf = (items) => {
+  let list = { tag: "Nil" };
+  for (let i = items.length - 1; i >= 0; i--) list = { tag: "Cons", head: items[i], tail: list };
+  return list;
+};
+// The scalar value whose last code unit is at index `i` of a well-formed
+// string: one unit, or the two of a surrogate pair.
+const scalarEndingAt = (t, i) => {
+  const unit = t.charCodeAt(i);
+  return unit >= 0xdc00 && unit <= 0xdfff
+    ? 0x10000 + ((t.charCodeAt(i - 1) - 0xd800) << 10) + (unit - 0xdc00)
+    : unit;
+};
+// `MkText`'s field: the text's characters, as a list.
+const charsOfText = (t) => {
+  let chars = { tag: "Nil" };
+  for (let i = t.length - 1; i >= 0; i--) {
+    const code = scalarEndingAt(t, i);
+    if (code > 0xffff) i--;
+    chars = { tag: "Cons", head: { tag: "MkChar", code: BigInt(code) }, tail: chars };
+  }
+  return chars;
+};
+// `MkText chars`: the string of a list of characters.
+const textOfChars = (chars) => {
+  const parts = [];
+  for (let l = chars; l.tag === "Cons"; l = l.tail) parts.push(encodeChar(l.head));
+  return parts.join("");
+};
 
 // `Char` is a string holding exactly one scalar value: one or two UTF-16
 // code units.
@@ -282,8 +306,6 @@ const encode = (t, v) => {
 
 
 const $add = (m) => (n) => m + n;
-const $sub = (m) => (n) => (m >= n ? m - n : 0n);
-const $mul = (m) => (n) => m * n;
 const $ifThenElse = (v1) => (v2) => (v3) => {
   switch (v1.tag) {
     case "False": {
@@ -295,7 +317,6 @@ const $ifThenElse = (v1) => (v2) => (v3) => {
   }
   throw new Error("unreachable");
 };
-const $leq = (m) => (n) => ({ tag: m <= n ? "True" : "False" });
 const $append = (v1) => (v2) => {
   switch (v1.tag) {
     case "Nil": {
@@ -361,70 +382,8 @@ const $decCharFrom = (v0) => (v1) => (v2) => {
   throw new Error("unreachable");
 };
 const $decEqChar = (v0) => (v1) => $decCharFrom(v0)(v1)($decEqNat($charToNat(v0))($charToNat(v1)));
-const $divFuel = (fuel) => (n) => (d) => { if (d === 0n) return fuel; const q = n / d; return q < fuel ? q : fuel; };
-const $div = (v0) => (v1) => $divFuel(v0)(v0)(v1);
-const $mod = (v0) => (v1) => $sub(v0)($mul(v1)($div(v0)(v1)));
-const $textToList = (v0) => {
-  switch (v0.tag) {
-    case "MkText": {
-      const v1 = v0.chars;
-      return v1;
-    }
-  }
-  throw new Error("unreachable");
-};
-const $digitChar = (v0) => {
-  switch (v0) {
-    case 0n: {
-      return { tag: "MkChar", code: 48n };
-    }
-    case 1n: {
-      return { tag: "MkChar", code: 49n };
-    }
-    case 2n: {
-      return { tag: "MkChar", code: 50n };
-    }
-    case 3n: {
-      return { tag: "MkChar", code: 51n };
-    }
-    case 4n: {
-      return { tag: "MkChar", code: 52n };
-    }
-    case 5n: {
-      return { tag: "MkChar", code: 53n };
-    }
-    case 6n: {
-      return { tag: "MkChar", code: 54n };
-    }
-    case 7n: {
-      return { tag: "MkChar", code: 55n };
-    }
-    case 8n: {
-      return { tag: "MkChar", code: 56n };
-    }
-  }
-  return { tag: "MkChar", code: 57n };
-};
-const $natDigits = (v0) => (v1) => (v2) => {
-  let s0 = v0, s1 = v1, s2 = v2;
-  for (;;) {
-    const v0 = s0, v1 = s1, v2 = s2;
-    if (v0 === 0n) {
-      return v2;
-    } else {
-      const v3 = v0 - 1n;
-      if ($leq(v1)(9n).tag === "True") {
-        return { tag: "Cons", head: $digitChar(v1), tail: v2 };
-      } else {
-        s0 = v3;
-        s1 = $div(v1)(10n);
-        s2 = { tag: "Cons", head: $digitChar($mod(v1)(10n)), tail: v2 };
-        continue;
-      }
-    }
-  }
-};
-const $natToText = (v0) => ({ tag: "MkText", chars: $natDigits((v0 + 1n))(v0)({ tag: "Nil" }) });
+const $textToList = charsOfText;
+const $natToText = (n) => n.toString();
 const $sumFrom = (v0) => (v1) => {
   let s0 = v0, s1 = v1;
   for (;;) {

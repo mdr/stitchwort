@@ -201,9 +201,11 @@ impl Elaborator {
                 }
             }
             self.globals.budget.restore(saved);
-            // A declaration that failed leaves nothing behind for the next.
+            // A declaration that failed leaves nothing behind for the next,
+            // and anything it left declared is failed, so later uses fail too.
             if diagnostics.len() > before {
                 self.clear_metas();
+                kernel::abandon_pending(&mut self.globals);
                 // Running out of resources is reported where it happened
                 // only as precisely as the declaration.
                 let span = decls[start].span();
@@ -215,6 +217,11 @@ impl Elaborator {
             }
         }
         self.clear_metas();
+        // Failing because something used failed goes without saying when
+        // that failure is reported too.
+        if diagnostics.iter().any(|d| d.code != "E-FAILED-DEPENDENCY") {
+            diagnostics.retain(|d| d.code != "E-FAILED-DEPENDENCY");
+        }
         diagnostics
     }
 
@@ -779,7 +786,7 @@ impl Elaborator {
             *span,
         )?;
         // Registered before the body is elaborated, so it can refer to itself.
-        // If the body fails, the definition stays without one (opaque), so
+        // If the body fails, the definition stays declared but failed, so
         // later uses don't cascade into "unknown name" errors.
         self.names
             .insert(def_name.text.clone(), (Global::Def(id), def_name.span));

@@ -35,17 +35,29 @@ Round 2:
 - ~~Syntax colouring in the playground~~ (lane `syntax-colour`): merged as
   `ccebba3`.
 - ~~Text step 3~~ (lane `js-text`): merged as `017d554`.
-- **Number patterns** (lane `number-patterns`): design note written
-  ([number-patterns.md](docs/proposals/number-patterns.md)), **awaiting
-  review**. Recommends a number-switch node in kernel case trees.
+- **Number patterns** (lane `number-patterns`): reviewed; the reviewer
+  recommends the number-switch node with corrections. Draft 2 of
+  [number-patterns.md](docs/proposals/number-patterns.md), then
+  implementation (go-ahead given, no second review).
 - ~~Recorded benchmarks~~ (lane `benchmarks`): merged as `07550ff`.
-- **Compact text**: design note written
-  ([compact-text.md](docs/proposals/compact-text.md)), **awaiting review**.
-  Recommends JS strings in generated code first, then a compact list
-  representation in the evaluator, no primitive kernel type.
-- **Forward references and mutual recursion**: design note written
-  ([mutual-recursion.md](docs/proposals/mutual-recursion.md)), **awaiting
-  review**. Recommends any order within a file, grouped automatically, with
+- ~~Compact text stage 1~~ (lane `compact-text-js`): draft 2 and stage 1
+  merged as `f31d1c9`. Stages 2 (B1) and 3 (B2) await a decision.
+- **Forward references and mutual recursion**
+  ([mutual-recursion.md](docs/proposals/mutual-recursion.md)): reviewed
+  (supports whole-module scope with size-change termination; requires
+  kernel-enforced group completeness, a partial-application policy, and an
+  honest account of `auto` and scheduling). Draft 2 merged; implementation
+  second review **approves implementation** of the staged design, with
+  specification clarifications: phase-specific reference permissions, one
+  shared definition-entry arity (leading lambdas before the case tree, used
+  everywhere), induction over semantic call instances in §6.4, and a
+  test for arity-zero cycles. Not a completed soundness proof.
+  Implementation approved by the user; lane `mutual-recursion-impl` phase 1:
+  draft 3 and the size-change graph algorithm as a standalone module with an
+  independent reference implementation. Phase 2 (wiring into the
+  termination checker, then groups, then data types) after number patterns
+  and the admission fix merge.
+- ~~Kernel admission fix~~ (lane `kernel-admission`): merged as `afad1e0`. Recommends any order within a file, grouped automatically, with
   size-change termination checked by the kernel.
 - ~~JS boundary hardening~~ (lane `js-boundary`): merged as `84bc590`.
 
@@ -65,12 +77,34 @@ Round 2:
   isn't timed as a subprocess; no deterministic count catches loops that
   neither evaluate, recurse through a guarded pass nor allocate (e.g. the
   `expr.span()` walk in long chains).
-- **Compact text** (text step 7) is also what lifts the JS limit on text:
+- **Compact text stages 2–3** ([compact-text.md](docs/proposals/compact-text.md)
+  draft 2): B1 (compact `List Char` in the evaluator) and selected B2
+  natives. Prerequisites in draft 2: the expansion invariant, the list of
+  passes to update, binding to declarations, an automatic build fingerprint
+  in the test-cache key.
+- **After merging number patterns:** regenerate JS snapshots and re-check
+  the `TEXT_NATIVES` hashes in `crates/js/src/lib.rs` (`textTrim` and
+  `natToText` depend on helpers that use number patterns).
+- **Faster `textOfChars`** in JS (10⁶ characters: 98 ms) and stack-safe
+  list helpers (`foldChars`, `compareChars`, …) when user code calls them
+  directly.
+- **(Done in stage 1 for JS) The JS limit on text:**
   in generated JS, prelude text operations stop at a few thousand
   characters (`length`, `append`, split, join, `==` aren't tail-recursive),
   with a catchable `StitchwortResourceError`. Measured in Node 22:
   `textLength` about 8,000, `textSplit`/`textJoin` about 5,500, `textToNat`
   about 3,000.
+- **Native `decEqNat`'s `No` proof isn't the definition's** (confirmed by
+  the compact-text lane): with a copy `myDecEqNat` of the prelude
+  definition, `theorem sameNo : myDecEqNat 3 5 = decEqNat 3 5; sameNo = rfl`
+  is rejected (`No (\p -> J …)` vs `No (natNeq 3 5 rfl)`), while `3 3`
+  checks. Not a proof of anything false, but turning natives on changes
+  which `rfl` proofs check. Make the native build the definition's own `No`
+  term, with a whole-result natives-on/off test.
+- **JS generation silently skips a definition with no body** (unreachable
+  today: the driver refuses modules with errors); make it fail explicitly.
+- **`Globals` fields `state` and `body` are `pub`**; make them private
+  behind the admission API (with the mutual-recursion work).
 - **More tail calls as loops in generated JS:** only a function's calls to
   itself (including in either branch of an `if`) are loops today. Not
   through `if h : P`, helpers like `maybeThen`, or between functions.
@@ -166,9 +200,6 @@ Round 2:
   first. So the guard is set to 128 KiB there (`crates/web/build.rs`),
   calibrated in Node and Chrome only; Firefox and Safari are unmeasured.
   Eliminating recursion (steps 3 and 4) is the real fix.
-- **A failed declaration stays declared without a body**, so later
-  declarations in the same module can use it. Safe only because a module with
-  any error is rejected as a whole. Consider removing failed declarations.
 - **The machine starts a nested machine** when a native forces an argument
   that's a solved metavariable (elaboration only). Bounded by the term, not by
   program depth, but it's the one exception to "no re-entry".
@@ -191,6 +222,8 @@ Round 2:
 
 ## Recently done
 
+- `afad1e0` Kernel admission ([kernel-admission.md](docs/proposals/kernel-admission.md)): declarations are pending, final or failed, and may refer only to final ones; closes a split cycle (`f 0` looping) and `impossible MakeD : Void` via the raw kernel API; 11 must-reject tests.
+- `f31d1c9` Compact text stage 1: `Text` is a JS string in generated code with 14 native operations bound to the prelude definitions by hash; prelude text operations handle over 4 million characters in Node (from ~5,000–8,000).
 - `84bc590` JS boundary hardening: names can't collide by construction (field `tag` becomes `$tag`, exports aliased, reserved names refused), iterative codecs (a million-element list in about 0.2 s), clearer boundary errors.
 - `07550ff` Recorded benchmarks (`crates/bench`, `bench/baseline.toml`): deterministic counts (steps, visits, allocations, peak heap) checked in `nix flake check`; timings reported, not checked.
 - `017d554` Text step 3 (js-text lane, merged): `Text` and `Char` as JS strings with strict decoding, parameterised data types at the boundary, self tail calls as loops, `StitchwortResourceError`.

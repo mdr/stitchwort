@@ -15,6 +15,7 @@
 use std::rc::Rc;
 
 use stitchwort_core::check::{declare_def, define_def};
+use stitchwort_core::globals::State;
 use stitchwort_core::hash::def_hash;
 use stitchwort_core::native::{as_nat, nat_value};
 use stitchwort_core::reference;
@@ -217,6 +218,18 @@ fn the_kernel_checks_the_shape_of_a_number_case() {
     for (what, ty, body) in cases {
         assert_eq!(define(g, ty, |_| body), "E-MALFORMED", "{what}");
     }
+    // A number case on a `Nat` that isn't finished (not expressible through
+    // the elaborator, which only registers a finished `Nat`).
+    let nat = nat(g);
+    g.datas[nat.0].state = State::Pending;
+    assert_eq!(
+        define(g, nat_to_nat, |_| lam(num_case(
+            0,
+            vec![(3, num(1))],
+            num(0)
+        ))),
+        "E-MALFORMED"
+    );
 }
 
 #[test]

@@ -17,7 +17,7 @@
 //! recursive passes, and needs an operation to be running.
 
 use crate::budget::Result;
-use crate::globals::{Globals, HashKey};
+use crate::globals::{Globals, HashKey, State};
 use crate::term::{DataId, DefId, Icit, Sort, Term};
 
 /// A 256-bit content hash.
@@ -46,14 +46,14 @@ enum Itself {
 /// The name the hasher's depth guard reports.
 const PASS: &str = "hasher";
 
-/// `None` for a definition without a body (its check failed).
+/// `None` for a definition that isn't final (pending, or failed).
 pub fn def_hash(g: &Globals, id: DefId) -> Result<Option<ContentHash>> {
     if let Some(hash) = g.hashes.borrow().get(&HashKey::Def(id)) {
         return Ok(Some(*hash));
     }
     g.budget.nesting(PASS)?;
     let def = g.def(id);
-    let Some(body) = def.body.as_ref() else {
+    let (State::Final, Some(body)) = (def.state, def.body.as_ref()) else {
         return Ok(None);
     };
     let mut h = Hasher::new(g, Itself::Def(id));
@@ -66,12 +66,17 @@ pub fn def_hash(g: &Globals, id: DefId) -> Result<Option<ContentHash>> {
     Ok(Some(hash))
 }
 
-pub fn data_hash(g: &Globals, id: DataId) -> Result<ContentHash> {
+/// `None` for a data type that isn't final: without its constructors, it
+/// isn't yet the type it will be.
+pub fn data_hash(g: &Globals, id: DataId) -> Result<Option<ContentHash>> {
     if let Some(hash) = g.hashes.borrow().get(&HashKey::Data(id)) {
-        return Ok(*hash);
+        return Ok(Some(*hash));
     }
     g.budget.nesting(PASS)?;
     let data = g.data(id);
+    if data.state != State::Final {
+        return Ok(None);
+    }
     let mut h = Hasher::new(g, Itself::Data(id));
     h.tag("data");
     h.str(&data.name);
@@ -89,12 +94,8 @@ pub fn data_hash(g: &Globals, id: DataId) -> Result<ContentHash> {
         }
     }
     let hash = h.finish();
-    // Only remember it once the constructors are in (a type with none, like
-    // `Void`, is cheap to recompute).
-    if !data.ctors.is_empty() {
-        g.hashes.borrow_mut().insert(HashKey::Data(id), hash);
-    }
-    Ok(hash)
+    g.hashes.borrow_mut().insert(HashKey::Data(id), hash);
+    Ok(Some(hash))
 }
 
 struct Hasher<'g> {
@@ -178,9 +179,10 @@ impl<'g> Hasher<'g> {
         match self.itself {
             Itself::Data(me) if me == id => self.tag("self"),
             _ => {
-                let hash = data_hash(self.g, id)?;
+                // Final declarations only refer to final ones.
+                let hash = data_hash(self.g, id)?.map_or([0; 32], |h| h.0);
                 self.tag("ref");
-                self.bytes(&hash.0);
+                self.bytes(&hash);
             }
         }
         Ok(())

@@ -1,6 +1,6 @@
 # Stitchwort: text, `IO` and `main`
 
-**Status:** draft 2, 15 October 2026. Accepted after review. Build steps 1 to 6 are implemented: `Char`, `Text`, the JavaScript boundary, the `IO` ability and `simulate`, `main` and `stitchwort run`, and the playground's Run button; see [As built](#as-built). Step 7 (compact text) is later. [Acceptance criteria](#acceptance-criteria) lists what the first milestone must show.
+**Status:** draft 2, 15 October 2026. Accepted after review. Build steps 1 to 6 are implemented: `Char`, `Text`, the JavaScript boundary, the `IO` ability and `simulate`, `main` and `stitchwort run`, and the playground's Run button; see [As built](#as-built). Step 7 (compact text) has its first stage built: in generated JavaScript a `Text` is a string and the prelude's text operations are native, so they handle millions of characters ([compact text, as built](compact-text.md#as-built-stage-1)); the checking evaluator's stages are later. [Acceptance criteria](#acceptance-criteria) lists what the first milestone must show.
 
 ## As built
 
@@ -50,7 +50,7 @@ Where step 3 differs from, or adds to, the design below:
   - **A function's tail calls to itself are loops**, as DESIGN.md §12 always said they would be. A call to the function being defined, with all its arguments, in tail position (including either branch of an `if`, which is written out as a JS `if`) becomes another turn of a loop. Each turn has its own `const` copies of the parameters, so closures made in one turn keep its values, and the parameters themselves aren't assigned, so a partial application can be called again; `examples/extract/loops.sw` tests both, and fails if either is broken. This made `textTrim`, `reverseOnto`, `natToText` and a user's accumulator loops unlimited, and halved the stack use of recursion in one branch of an `if`.
   - **Why not more.** `length`, `append`, `textSplit`, `textJoin`, `==`, `textCompare` and `textFold` aren't tail-recursive, and their definitions are what the proofs are about, so rewriting them would mean re-proving their laws. Making all generated code stack-safe (a trampoline, or continuation-passing) would slow every call and enlarge the trusted code generator. Compact text in generated JS (step 7) replaces exactly these operations with native string code.
 - **Left for later:**
-  - compact text in generated JS (step 7), which removes the limit for the prelude's operations;
+  - compact text in generated JS (step 7), which removes the limit for the prelude's operations. Since built: the limits in the table above are gone for every prelude text operation (over 4 million characters each), though a user's own recursion over text still has them ([compact text, as built](compact-text.md#as-built-stage-1));
   - tail calls between different functions, and through helpers (`textToNat`'s `readDigits` recurses through `maybeThen`), aren't loops; nor are the branches of `if h : P`;
   - decoding and encoding a user's recursive data type recurse too, so a deeply nested input is a `StitchwortResourceError` (lists and texts are decoded and encoded with loops). Since fixed: decoding and encoding keep their own stack (DESIGN.md §12);
   - a field called `tag` clashes with the constructor tag in the boundary representation (found during step 3). Since fixed: it's `$tag` ([Names](../../DESIGN.md#names));
@@ -336,7 +336,7 @@ So a genuinely unbounded interactive loop (a REPL, a server) isn't available in 
 5. **`main` and `stitchwort run`**, tested against `simulate` and against real standard input and output.
 6. **The playground's Run button.**
 7. **Later, and separately justified:** compact text in generated JS, then possibly in the checking evaluator.
-   Design: [compact text](compact-text.md).
+   Design: [compact text](compact-text.md). The generated-JS stage (option A there) is built; the checking evaluator's stages await a decision.
 
 ## Acceptance criteria
 

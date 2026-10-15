@@ -84,44 +84,68 @@ const BOOL = leaf(
   (v) => v.tag === "True",
 );
 
-// `Text` is a string. Decoding takes its Unicode scalar values in order, and
-// refuses a string with a lone surrogate (which JS allows) rather than
-// repairing it, so encoding gives back exactly the string that was decoded.
-const scalars = (x) => {
+// `Text` is a string. Decoding refuses a string with a lone surrogate (which
+// JS allows) rather than repairing it, so encoding gives back exactly the
+// string that was decoded.
+const wellFormed = (x) => {
   if (typeof x !== "string") refuse("expected a string");
-  const codes = [];
   for (let i = 0; i < x.length; i++) {
     const unit = x.charCodeAt(i);
-    if (unit < 0xd800 || unit > 0xdfff) {
-      codes.push(BigInt(unit));
-      continue;
-    }
+    if (unit < 0xd800 || unit > 0xdfff) continue;
     const low = i + 1 < x.length ? x.charCodeAt(i + 1) : 0;
     if (unit > 0xdbff || low < 0xdc00 || low > 0xdfff) {
       const hex = unit.toString(16).toUpperCase();
       refuse(`a lone surrogate (U+${hex}) at index ${i}; text must be a well-formed string`);
     }
-    codes.push(BigInt(0x10000 + ((unit - 0xd800) << 10) + (low - 0xdc00)));
     i++;
+  }
+  return x;
+};
+// A well-formed string's Unicode scalar values, in order.
+const scalars = (x) => {
+  wellFormed(x);
+  const codes = [];
+  for (let i = 0; i < x.length; i++) {
+    const code = x.codePointAt(i);
+    codes.push(BigInt(code));
+    if (code > 0xffff) i++;
   }
   return codes;
 };
 const encodeChar = (v) => String.fromCodePoint(Number(v.code));
-const TEXT = leaf(
-  (x) => {
-    const codes = scalars(x);
-    let chars = { tag: "Nil" };
-    for (let i = codes.length - 1; i >= 0; i--) {
-      chars = { tag: "Cons", head: { tag: "MkChar", code: codes[i] }, tail: chars };
-    }
-    return { tag: "MkText", chars };
-  },
-  (v) => {
-    const parts = [];
-    for (let l = v.chars; l.tag === "Cons"; l = l.tail) parts.push(encodeChar(l.head));
-    return parts.join("");
-  },
-);
+
+const TEXT = leaf(wellFormed, (v) => v);
+
+// A list of the array's items.
+const listOf = (items) => {
+  let list = { tag: "Nil" };
+  for (let i = items.length - 1; i >= 0; i--) list = { tag: "Cons", head: items[i], tail: list };
+  return list;
+};
+// The scalar value whose last code unit is at index `i` of a well-formed
+// string: one unit, or the two of a surrogate pair.
+const scalarEndingAt = (t, i) => {
+  const unit = t.charCodeAt(i);
+  return unit >= 0xdc00 && unit <= 0xdfff
+    ? 0x10000 + ((t.charCodeAt(i - 1) - 0xd800) << 10) + (unit - 0xdc00)
+    : unit;
+};
+// `MkText`'s field: the text's characters, as a list.
+const charsOfText = (t) => {
+  let chars = { tag: "Nil" };
+  for (let i = t.length - 1; i >= 0; i--) {
+    const code = scalarEndingAt(t, i);
+    if (code > 0xffff) i--;
+    chars = { tag: "Cons", head: { tag: "MkChar", code: BigInt(code) }, tail: chars };
+  }
+  return chars;
+};
+// `MkText chars`: the string of a list of characters.
+const textOfChars = (chars) => {
+  const parts = [];
+  for (let l = chars; l.tag === "Cons"; l = l.tail) parts.push(encodeChar(l.head));
+  return parts.join("");
+};
 
 // `Char` is a string holding exactly one scalar value: one or two UTF-16
 // code units.
