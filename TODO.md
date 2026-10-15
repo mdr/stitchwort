@@ -33,6 +33,12 @@ Running:
 
 - **Mutual recursion, phase 2, stage 1** (lane `mutual-recursion-p2`):
   size-change termination for single functions.
+- **Playground polish** (lane `playground-polish`): automated headless
+  browser tests, editor quirks (resize, Tab and undo), streaming run output,
+  maybe an operations budget per run.
+- **Native proofs match their definitions** (lane `deceqnat-fix`):
+  `decEqNat`'s `No` proof, and an audit of every native against the
+  whole-result obligation, with natives-on/off tests.
 
 Next after that:
 - **Mutual recursion, phase 2, stages 2–3**
@@ -78,7 +84,7 @@ Nothing queued: choose from **Later**, or continue the lanes above.
   with a catchable `StitchwortResourceError`. Measured in Node 22:
   `textLength` about 8,000, `textSplit`/`textJoin` about 5,500, `textToNat`
   about 3,000.
-- **Native `decEqNat`'s `No` proof isn't the definition's** (confirmed by
+- (in progress) **Native `decEqNat`'s `No` proof isn't the definition's** (confirmed by
   the compact-text lane): with a copy `myDecEqNat` of the prelude
   definition, `theorem sameNo : myDecEqNat 3 5 = decEqNat 3 5; sameNo = rfl`
   is rejected (`No (\p -> J …)` vs `No (natNeq 3 5 rfl)`), while `3 3`
@@ -131,15 +137,15 @@ Nothing queued: choose from **Later**, or continue the lanes above.
   "didn't check" and "failed while running" should differ.
 - **`IO` operations that return `Result`** for recoverable errors (deferred
   by the text-and-IO proposal).
-- **Stream a run's output** to the playground (the worker could post each
+- (in progress) **Stream a run's output** to the playground (the worker could post each
   flush), so a stopped or timed-out run still shows what it printed.
-- **An automated browser test of the playground** (headless Chrome over the
+- (in progress) **An automated browser test of the playground** (headless Chrome over the
   DevTools protocol, as done by hand for step 6): the tabs, Run, Stop, crash
   recovery, and the in-page fallback when workers can't start.
-- **A budget on operations per playground run**, alongside the 15 s limit (a
+- (in progress) **A budget on operations per playground run**, alongside the 15 s limit (a
   program reading past the end of its input many times is caught only by
   the timeout).
-- **Playground editor quirks** (from before syntax colouring): dragging to
+- (in progress) **Playground editor quirks** (from before syntax colouring): dragging to
   resize the editor does nothing, and Tab's inserted spaces (via
   `setRangeText`) can't be undone and break Ctrl+Z for earlier typing.
   Colouring is checked only in headless Chrome (not Firefox or Safari, not
