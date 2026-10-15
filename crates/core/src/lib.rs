@@ -12,6 +12,7 @@ pub mod native;
 pub mod pretty;
 #[cfg(any(test, feature = "reference"))]
 pub mod reference;
+pub mod sct;
 pub mod term;
 pub mod termination;
 pub mod value;
