@@ -57,9 +57,6 @@ Round 2:
   literals without recursion.
 - **The printer prints a function type's domain twice** in some branches,
   which may grow exponentially with nested domains (not measured).
-- **Solving metavariables without recursion:** `solve`, `rename`, `prune`
-  and `zonk` still recurse over a solution (they count against the budget,
-  so a deep one is `E-RESOURCE`).
 - **Mutation testing** (in small sharded runs): the machine (`value.rs`),
   `budget.rs`, `native.rs` (167 mutants, never done).
 - **Recorded benchmarks** with a regression threshold: the example suite,
@@ -98,6 +95,12 @@ Round 2:
 - **Namespaces or modules.** Prelude names can't be redefined, so text
   operations are prefixed (`textLength`, `textSplit`) and every new prelude
   name risks clashing with user code.
+- **Solving metavariables without recursion** (low priority: only large
+  literal values in types hit it): `solve`, `rename`, `prune` and `zonk`
+  still recurse over a solution. They're guarded, so a deep one is
+  `E-RESOURCE`, but they share the stack: in the CLI,
+  `theorem a : [1, …, n] = [1, …, n]` checks up to n = 56,875 with `rfl` but
+  only 26,875 with `sym rfl`, whose hidden arguments are solved to the list.
 - **DESIGN.md §16 open questions** that are still open (universes, handler
   admissibility and semantics, effects and dependency, `withFuel`, `Float`,
   the CLI name).
