@@ -31,6 +31,8 @@ agent, then reviews, merges and updates this file.
 Running:
 - **`Partial`, stage 1** (lane `partial-stage1`): implementing draft 3 of
   [partial.md](docs/proposals/partial.md), approved by the user.
+- **Playground fixes** (lane `playground-fixes`): show warnings, phone
+  layout (viewport), the squeezed JavaScript tab.
 
 Waiting on a decision: nothing.
 
