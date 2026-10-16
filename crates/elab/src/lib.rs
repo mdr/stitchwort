@@ -758,12 +758,14 @@ impl Elaborator {
             }
         }
         if !out.is_empty() {
+            self.fail_data_names(members);
             return out;
         }
         if members[0].0.is_some() {
             self.module.item = members[0].0;
         }
         if let Err(d) = kernel::define_data_group(&mut self.globals, defined) {
+            self.fail_data_names(members);
             return vec![(members[0].0, d)];
         }
         for (&(item, decl), d) in members.iter().zip(&ids) {
@@ -772,6 +774,19 @@ impl Elaborator {
             }
         }
         out
+    }
+
+    /// A data group that was declared but not admitted has no constructors
+    /// (a record, no field list), so its names stop meaning anything: uses
+    /// report that they refer to something that failed.
+    fn fail_data_names(&mut self, members: &[(Option<usize>, &Decl)]) {
+        for (_, decl) in members {
+            if let Decl::Data { name: n, .. } = decl
+                && let Some((global, _)) = self.names.get_mut(&n.text)
+            {
+                *global = Global::Failed;
+            }
+        }
     }
 
     /// Elaborates a data type's parameters and universe.
