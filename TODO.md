@@ -31,9 +31,6 @@ agent, then reviews, merges and updates this file.
 Running:
 - **`Partial`, stage 1** (lane `partial-stage1`): implementing draft 3 of
   [partial.md](docs/proposals/partial.md), approved by the user.
-- **Compact text, stage 2** (lane `compact-text-s2`): B1, the compact
-  `List Char` in the evaluator, from [compact-text.md](docs/proposals/compact-text.md)
-  draft 2, approved by the user. No natives (stage 3).
 - **Records, stage 1** (lane `records-stage1`): reviewed (stage 1 approved;
   stage 2 eta after a same-type conversion contract and an empty-record
   policy). Draft 2 adopting the review, then declared records, field access,
@@ -123,6 +120,11 @@ capability we know we'll need before the work that needs it):
   inductive-inductive types are out of scope; members' parameters must be
   written identically (names included); JS error paths alternating
   `.kids.first` aren't shortened.
+- **`zonk` walks computations inside types recursively**, so a check like
+  `textJoin … == t` on tens of thousands of characters runs out of
+  resources while checking (found by compact text stage 2).
+- **Compact text in the playground's WASM build** isn't measured.
+- **`Term::Nat`'s hash doesn't include `Nat`'s own hash** (pre-existing).
 - **Measure the JS limits in browsers** (only Node so far).
 - **Compact text** (text step 7): in generated JS first, then possibly in the
   checking evaluator, with differential tests against the plain-list version.
@@ -228,6 +230,7 @@ capability we know we'll need before the work that needs it):
 
 ## Recently done
 
+- `1965faf` Compact text stage 2: text literals are one compact term in the kernel (shared character ranges), indistinguishable from the list they stand for; long literals from ~1,800 (2 MiB thread) to over 4 million characters; a build fingerprint and modes in the test-cache key; ~28,000 whole-result comparisons and mutation evidence.
 - `1c2addc` Mutual recursion stage 3: mutual data types (`Tree`/`Forest`, `Even`/`Odd`, three-member groups) checked as a unit; positivity across the group (`Bad1`/`Bad2` refused; the mutant proved `Void`); no data from `Prop` groups; group hashing; million-deep `Tree`/`Forest` across the JS boundary. Mutual recursion is complete.
 - `358fec5` `Partial` draft 3 (stage 1 only; later stages someday/maybe) and `crates/partial-model`, an executable model of the stage-1 runtime running the reviewer's test table.
 - `af02abc` Mutual recursion stage 2: declarations in any order within a file, function groups checked as a unit by the kernel (`define_group`), witness messages naming each member, group hashing, `auto` diagnostics explaining unavailable candidates, one JS calling convention; mutation evidence including the Rocq-bug shape.
