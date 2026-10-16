@@ -44,7 +44,20 @@ Waiting on a decision: nothing.
 
 ## Next
 
-Nothing queued: choose from **Later**, or continue the lanes above.
+In this order, after the in-flight lanes finish (the user: build a
+capability we know we'll need before the work that needs it):
+
+1. **Namespaces** (under discussion with the user): needed before the
+   prelude grows (today prelude names can't be redefined, hence prefixes
+   like `textLength`).
+2. **Standard library for real programs:** list functions (`map`, `filter`,
+   folds, `sum`, `max`, `zip`, `take`/`drop`, indexing), sorting with a
+   correctness proof (sorted permutation), `Int`, a balanced-tree map/set,
+   grid helpers.
+3. **Advent of Code 2025, early days**, as a stress test with proofs where
+   natural (sort correctness, parser round trips, worked examples by `rfl`).
+   Inputs: the user's repo https://github.com/mdr/aoc-2025/tree/main/src/main/resources.
+   Write up the friction found.
 
 ## Later
 
