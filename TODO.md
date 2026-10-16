@@ -50,7 +50,12 @@ capability we know we'll need before the work that needs it):
    ([namespaces.md](docs/proposals/namespaces.md) draft 1, `Std` root,
    stage 0 binds built-in syntax to fixed library definitions first). The
    user answered §11 (implicit opening inside a namespace and extending
-   library namespaces from user code are deferred). **With the reviewer.**
+   library namespaces from user code are deferred; shadowing a type hides
+   its default constructors). Reviewed: approved, with clarifications. Lane
+   `namespaces-impl`: draft 2, then stage 0 (built-ins bound to fixed
+   declaration identities). Stage 1 (namespaces, `import`, the prelude into
+   `Std`, every example rewritten) after `Partial` merges; then stage 2,
+   dot notation.
 2. **Standard library for real programs:** list functions (`map`, `filter`,
    folds, `sum`, `max`, `zip`, `take`/`drop`, indexing), sorting with a
    correctness proof (sorted permutation), `Int`, a balanced-tree map/set,
