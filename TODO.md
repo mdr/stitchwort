@@ -74,9 +74,12 @@ capability we know we'll need before the work that needs it):
    folds, `sum`, `max`, `zip`, `take`/`drop`, indexing), sorting with a
    correctness proof (sorted permutation), `Int`, a balanced-tree map/set,
    grid helpers.
-3. **Syntax conveniences**: lane `syntax-design` (docs only) writing
-   syntax-conveniences.md: `where`/local functions, `case` and pattern
-   `let`/lambda, tuple sugar, optional record-literal inference.
+3. **Syntax conveniences**: design note draft 1 merged
+   ([syntax-conveniences.md](docs/proposals/syntax-conveniences.md)):
+   `where`/local functions and `match` lifted to hidden top-level
+   definitions (no kernel change), pattern `let`/lambda, tuple sugar,
+   result-type-first checking of calls. Waiting on the user's answers to
+   §8 and an optional external review.
 4. **Advent of Code 2025, early days** (decisions in aoc-2025.md: programs
    in `aoc/`, inputs and answers out of git, worked examples as tests), as a stress test with proofs where
    natural (sort correctness, parser round trips, worked examples by `rfl`).
@@ -228,8 +231,6 @@ capability we know we'll need before the work that needs it):
 
 ## Known issues
 
-- **Browser tests: 4 of 21 fail after namespaces stage 1** (syntax-colouring
-  layer 15px narrower and shorter than the textarea). Lane `web-align` (Sonnet).
 
 - **Row order is fixed by declaration order**, so `IO` (declared in the
   prelude) always comes first in a row: `{State Nat, IO}` and
