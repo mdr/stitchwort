@@ -49,9 +49,11 @@ capability we know we'll need before the work that needs it):
    library namespaces from user code are deferred; shadowing a type hides
    its default constructors). Reviewed: approved, with clarifications. Draft 2
    and stage 0 (built-ins bound to fixed declaration identities) merged as
-   `06c78d2`. Lane `namespaces-impl` now on stage 1 (namespaces, `import`,
-   the prelude into `Std`, every example rewritten); then stage 2, dot
-   notation.
+   `06c78d2`. Stage 1 (namespaces, qualified names, `import`, the prelude
+   in `Std`, every example rewritten) merged as `46d6578`. Lane
+   `namespaces-stage2` (fresh agent) now on stage 2, dot notation; handover
+   in namespaces.md §9 "As built". Noticed, not investigated: a signature
+   `Comp NoOp NoRes Nat` behaves like `Nat`.
    Alongside, for Advent of Code: lane `aoc-survey` (Sonnet) surveys days
    1–5 of AoC 2025 from the user's solutions and inputs to rank what the
    library needs (merged: [aoc-2025.md](docs/aoc-2025.md)); the `Int` design
@@ -72,8 +74,9 @@ capability we know we'll need before the work that needs it):
    folds, `sum`, `max`, `zip`, `take`/`drop`, indexing), sorting with a
    correctness proof (sorted permutation), `Int`, a balanced-tree map/set,
    grid helpers.
-3. **Syntax conveniences** (a design lane after namespaces): `where`,
-   pattern-matching `let` or `case`, tuple sugar.
+3. **Syntax conveniences**: lane `syntax-design` (docs only) writing
+   syntax-conveniences.md: `where`/local functions, `case` and pattern
+   `let`/lambda, tuple sugar, optional record-literal inference.
 4. **Advent of Code 2025, early days** (decisions in aoc-2025.md: programs
    in `aoc/`, inputs and answers out of git, worked examples as tests), as a stress test with proofs where
    natural (sort correctness, parser round trips, worked examples by `rfl`).
@@ -143,8 +146,9 @@ capability we know we'll need before the work that needs it):
 - **`Term::Nat`'s hash doesn't include `Nat`'s own hash** (pre-existing).
 - **JS internal-name encoding may collide** (from reading the code, not
   tested): a prime becomes `$` and a dot `$$`, and primes may appear
-  mid-name, so `a''b` and `a.b` both become `$a$$b`. The namespaces note
-  proposes an encoding that can't collide.
+  mid-name, so `a''b` and `a.b` both become `$a$$b`. Namespaces stage 1
+  added a new naming scheme with tests that names up to 4 characters are
+  distinct; check whether this item is now closed.
 - **Records follow-ups:** stage 2 (kernel projections and eta — deferred
   by the user until proofs about records need it; with the
   same-type rule and eta off in unification's `first_order` fallback;
@@ -204,9 +208,6 @@ capability we know we'll need before the work that needs it):
 - **Inferring a bare lambda's type** needs an annotation, e.g.
   `runState ((\n -> n) : Nat -> {Choose} Nat) …`.
 - **Performance of effectful code** (deep handler trees) hasn't been measured.
-- **Namespaces or modules.** Prelude names can't be redefined, so text
-  operations are prefixed (`textLength`, `textSplit`) and every new prelude
-  name risks clashing with user code.
 - **Number patterns follow-ups:** rows after an equation that matches
   everything still add keys, so open terms can stay stuck needlessly (the
   `f6` example in number-patterns.md); prune unreachable rows before
@@ -226,6 +227,9 @@ capability we know we'll need before the work that needs it):
   the CLI name).
 
 ## Known issues
+
+- **Browser tests: 4 of 21 fail after namespaces stage 1** (syntax-colouring
+  layer 15px narrower and shorter than the textarea). Lane `web-align` (Sonnet).
 
 - **Row order is fixed by declaration order**, so `IO` (declared in the
   prelude) always comes first in a row: `{State Nat, IO}` and
