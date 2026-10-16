@@ -47,9 +47,12 @@ Waiting on a decision: nothing.
 In this order, after the in-flight lanes finish (the user: build a
 capability we know we'll need before the work that needs it):
 
-1. **Namespaces** (under discussion with the user): needed before the
-   prelude grows (today prelude names can't be redefined, hence prefixes
-   like `textLength`).
+1. **Namespaces** (lane `namespaces-design`, docs only, in progress): the
+   user decided qualified names (`List.sort`) and dot notation by type
+   (`xs.sort`); `import List (map, filter)` for specific names only at first,
+   meaning the same for namespaces now and files later; a small set of
+   default-visible names (core types, constructors, operators); prefixed
+   names removed. Research and design note, then the reviewer.
 2. **Standard library for real programs:** list functions (`map`, `filter`,
    folds, `sum`, `max`, `zip`, `take`/`drop`, indexing), sorting with a
    correctness proof (sorted permutation), `Int`, a balanced-tree map/set,
