@@ -29,22 +29,17 @@ The main session orchestrates: it chooses lanes, hands each to a background
 agent, then reviews, merges and updates this file.
 
 Running:
-(none)
+- **`Partial`, stage 1** (lane `partial-stage1`): implementing draft 3 of
+  [partial.md](docs/proposals/partial.md), approved by the user.
+- **Compact text, stage 2** (lane `compact-text-s2`): B1, the compact
+  `List Char` in the evaluator, from [compact-text.md](docs/proposals/compact-text.md)
+  draft 2, approved by the user. No natives (stage 3).
 
 Waiting on a decision:
-- **`Partial`, stage 1** ([partial.md](docs/proposals/partial.md) draft 3,
-  merged as `358fec5` with the runtime model `crates/partial-model`): one
-  tick per recursive call (Collatz 27: 111); erasure for JS, exports
-  mentioning `Partial` refused. Implement now, or a short review of draft
-  3's deviations first? Implementation should follow mutual recursion
-  stage 3 (both change the elaborator's grouping).
 - **Records** ([records.md](docs/proposals/records.md) draft 1): declared
   records as one-constructor data types, then eta, then anonymous records,
-  then `Has` constraints for "any record with a `name`". Questions U1–U7
-  for the user, then the reviewer.
-- **Compact text stages 2–3** ([compact-text.md](docs/proposals/compact-text.md)
-  draft 2, reviewed): compact `List Char` in the evaluator, then selected
-  natives; a native `decEqText` waits for a whole-result test.
+  then `Has` constraints for "any record with a `name`". Discussing the
+  user questions (U1–U7) first, then the reviewer.
 
 ## Next
 
