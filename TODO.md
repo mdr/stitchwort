@@ -125,7 +125,8 @@ capability we know we'll need before the work that needs it):
   tested): a prime becomes `$` and a dot `$$`, and primes may appear
   mid-name, so `a''b` and `a.b` both become `$a$$b`. The namespaces note
   proposes an encoding that can't collide.
-- **Records follow-ups:** stage 2 (kernel projections and eta, with the
+- **Records follow-ups:** stage 2 (kernel projections and eta — deferred
+  by the user until proofs about records need it; with the
   same-type rule and eta off in unification's `first_order` fallback;
   records.md draft 2 §7); `==` for records with proof or dependent fields;
   `(.name)` accessor sections; proof-field checks at the JS boundary for
