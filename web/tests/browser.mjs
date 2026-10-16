@@ -332,6 +332,60 @@ test("errors show in the Check tab", async (page) => {
   assert.match(await page.ev(`document.querySelector("pre.errors").textContent`), /E-TYPE-MISMATCH/);
 });
 
+/** Checks, with one warning (W-MODULE-NAME): `a` is the module's `a`. */
+const WARNED = `size : List a -> Nat
+size Nil         = 0
+size (Cons _ xs) = Succ (size xs)
+
+a : Type
+a = Nat
+`;
+
+test("warnings show apart from errors, without stopping anything", async (page) => {
+  const shown = () => page.ev(`(() => {
+    const text = (s) => document.querySelector(s)?.textContent ?? null;
+    const count = document.getElementById("warning-count");
+    return { count: count.checkVisibility() ? count.textContent : null, warnings: text("#output pre.warnings"),
+             errors: text("#output pre.errors"), output: document.getElementById("output").innerText };
+  })()`);
+  await page.open();
+  await page.untilChecked();
+  assert.equal((await shown()).count, null, "no warnings in the example");
+  await page.setSource(WARNED);
+  await page.untilChecked();
+  let s = await shown();
+  assert.equal(s.count, "1 warning");
+  assert.match(s.output, /Every definition type-checks/);
+  assert.match(s.warnings, /^\[W-MODULE-NAME\] Warning:/);
+  assert.equal(s.errors, null);
+  // With an error as well: each in its own box, in its own colour.
+  await page.setSource(WARNED + "\nbad : Nat\nbad = rfl\n");
+  await page.untilStatus("Doesn’t check");
+  s = await shown();
+  assert.equal(s.count, "1 warning");
+  assert.match(s.errors, /E-TYPE-MISMATCH/);
+  assert.doesNotMatch(s.errors, /W-MODULE-NAME/);
+  assert.match(s.warnings, /W-MODULE-NAME/);
+  const colours = await page.ev(`["pre.errors", "pre.warnings"].map((s) => getComputedStyle(document.querySelector(s)).color)`);
+  assert.notEqual(colours[0], colours[1], "errors and warnings look different");
+  // Other tabs show them with the errors, and work as usual once it checks.
+  await page.tab("tests");
+  await page.until(`document.querySelector("#output pre.warnings")`, 30000, "the warnings in the Tests tab");
+  await page.setSource(WARNED + `\ntest "sized" = leq (size [1, 2]) 2\n`);
+  await page.until(`document.querySelector(".summary")?.textContent === "1 test: 1 passed, 0 failed"`);
+  assert.equal((await shown()).count, "1 warning");
+  // The count goes to the Check tab.
+  await page.click("#warning-count");
+  await page.until(`document.querySelector("#output pre.warnings")`, 30000, "the Check tab's warnings");
+  assert.equal(await page.ev(`document.querySelector('[aria-selected="true"]').dataset.view`), "check");
+  // Gone once fixed.
+  await page.setSource(WARNED.replace("List a", "[a : Type] -> List a"));
+  await page.untilChecked();
+  s = await shown();
+  assert.equal(s.count, null);
+  assert.equal(s.warnings, null);
+});
+
 test("the Evaluate tab", async (page) => {
   await page.open();
   await page.untilChecked();
@@ -355,6 +409,30 @@ test("the JavaScript tab", async (page) => {
   assert.match(out, /export declare function applyDiscount/);
   assert.match(out, /export declare function area\(/);
   assert.match(out.slice(out.search(/ES module/i)), /\bapplyDiscount\b/);
+});
+
+test("the JavaScript tab shows the declarations and the module in full, and scrolls", async (page) => {
+  await page.open();
+  await page.pick("ex-js");
+  await page.untilChecked();
+  await page.tab("js");
+  await page.until(`document.getElementById("output").textContent.includes("ES module")`);
+  const boxes = await page.ev(`(() => {
+    const o = document.getElementById("output");
+    const pres = [...o.querySelectorAll("pre")].map((p) => ({ lines: p.textContent.trimEnd().split("\\n").length,
+      height: p.clientHeight, content: p.scrollHeight, lineHeight: parseFloat(getComputedStyle(p).lineHeight) }));
+    return { pres, pane: o.clientHeight, paneContent: o.scrollHeight };
+  })()`);
+  const what = JSON.stringify(boxes);
+  assert.equal(boxes.pres.length, 2, what);
+  for (const p of boxes.pres) {
+    // All of it shows, with no scrolling of its own.
+    assert.ok(p.height >= p.content - 1, `a box scrolls by itself: ${what}`);
+    assert.ok(p.height >= p.lines * p.lineHeight - 1, `a box is too short: ${what}`);
+  }
+  assert.ok(boxes.pres[0].lines >= 5, what);
+  // The two are taller than the pane, which scrolls instead.
+  assert.ok(boxes.paneContent > boxes.pane, what);
 });
 
 test("Run, with scripted input", async (page) => {
@@ -592,6 +670,43 @@ test("the page fills the window, and long results scroll in their pane", async (
   await page.tab("js");
   await page.until(`document.getElementById("output").textContent.includes("ES module")`);
   assert.deepEqual(await geometry(), empty);
+});
+
+test("on a phone, the panes stack and nothing scrolls sideways", async (page) => {
+  // A phone-sized screen. Without a viewport tag, a mobile browser would lay
+  // the page out 980 px wide and shrink it.
+  await page.send("Emulation.setDeviceMetricsOverride", { width: 400, height: 860, deviceScaleFactor: 2, mobile: true });
+  await page.open();
+  await page.untilChecked();
+  const layout = () => page.ev(`(() => {
+    const box = (s) => { const r = document.querySelector(s).getBoundingClientRect();
+                         return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width }; };
+    return { width: innerWidth, scrollWidth: document.documentElement.scrollWidth,
+             source: box("#source"), results: box('[aria-label="Results"]'), output: box("#output"),
+             fontSize: parseFloat(getComputedStyle(document.getElementById("source")).fontSize) };
+  })()`);
+  for (const [example, view] of [["ex-lists", "check"], ["ex-js", "js"], ["ex-tests", "tests"], ["ex-main", "run"]]) {
+    await page.pick(example);
+    await page.untilChecked();
+    await page.tab(view);
+    await sleep(300);
+    const l = await layout();
+    const what = `${example}, ${view}: ${JSON.stringify(l)}`;
+    assert.equal(l.width, 400, what);
+    assert.ok(l.scrollWidth <= l.width, `the page scrolls sideways: ${what}`);
+    // The results are below the source, and both are nearly the full width.
+    assert.ok(l.results.top >= l.source.bottom, what);
+    for (const b of [l.source, l.output]) assert.ok(b.left >= 0 && b.right <= l.width && b.width >= l.width - 50, what);
+    // Big enough that a phone doesn't zoom in when it's focused.
+    assert.ok(l.fontSize >= 16, what);
+  }
+  // Typing still works, and the colouring stays aligned.
+  await page.ev(`(() => { const s = document.getElementById("source"); s.focus(); s.setSelectionRange(s.value.length, s.value.length); })()`);
+  await page.type("\n-- typed on a phone, with a line long enough that the editor has to scroll sideways");
+  await sleep(100);
+  assert.match(await page.ev(`document.getElementById("source").value`), /typed on a phone/);
+  await assertAligned(page, "on a phone");
+  assert.ok((await layout()).scrollWidth <= 400, "the page doesn't scroll sideways after a long line");
 });
 
 test("dragging the editor's corner resizes it", async (page) => {
