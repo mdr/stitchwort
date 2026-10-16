@@ -9,10 +9,12 @@ pub mod check;
 pub mod globals;
 pub mod hash;
 pub mod native;
+pub mod partial;
 pub mod pretty;
 #[cfg(any(test, feature = "reference"))]
 pub mod reference;
 pub mod sct;
+pub mod step;
 pub mod term;
 pub mod termination;
 pub mod value;

@@ -1,33 +1,75 @@
 //! Running a program's `main`, performing its `IO` operations for real
-//! (docs/proposals/text-and-io.md, "`main` and `stitchwort run`").
+//! (docs/proposals/text-and-io.md, "`main` and `stitchwort run`";
+//! docs/proposals/partial.md §7.5).
 //!
-//! `main ()` evaluates to a `Comp` tree. The runner evaluates it only as far
-//! as the next `Done` or `Call`; for a `Call`, it performs the operation,
-//! applies the rest of the tree to the result, and repeats. The loop itself
+//! `main ()` is a partial computation, a `Delay` (a total `main` is lifted
+//! into one). The runner steps it (`stitchwort_core::step`): each step runs
+//! as far as the next operation, tick (a recursive call) or result. For an
+//! operation, it performs it and resumes the step with the reply; at a tick
+//! it goes on with the rest; at the result it stops. The loop itself
 //! doesn't grow the stack.
 //!
-//! This is the only place where `print` and `readLine` happen for real. The
-//! type checker never calls it.
+//! Ticks are part of what a program means; the runner's limits aren't. Each
+//! stretch of evaluation between two operations or ticks is one operation
+//! with its own resource budget, so a long interactive run doesn't run out
+//! just by running long. A tick limit, for tests only, stops a run as
+//! inconclusive.
+//!
+//! This is the only place where `print` and `readLine` happen for real, and
+//! the only place a partial computation runs. The type checker never calls
+//! it.
 
 use std::fmt;
 use std::io::{self, BufRead, Write};
 
-use stitchwort_core::value::{apply, eval, force};
+use stitchwort_core::step::{Machine, Obs};
+use stitchwort_core::value::{eval, force};
 use stitchwort_core::{DataId, ResourceError, Term, Value, native};
 use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::driver::Session;
 
-/// What `main` must be. A pure `main : () -> ()` fits too: it's passed where
-/// a function with more abilities is allowed, like any other argument.
-pub const MAIN_TYPE: &str = "() -> {IO} ()";
+/// What `main` must be. A pure `main : () -> ()` fits too, and so does
+/// `main : () -> {IO} ()`: they're passed where a function with more
+/// abilities is allowed, like any other argument.
+pub const MAIN_TYPE: &str = "() -> {IO, Partial} ()";
 
 /// A program's `main`, ready to run.
 pub struct Main {
-    /// `main ()`, as a computation in the row `{IO}`.
+    /// `main ()`, as a computation in the row `{IO, Partial}`.
     term: Term,
     /// Where `main` is defined.
     pub span: Span,
+    /// Whether `main`'s own type is `Partial`.
+    pub partial: bool,
+}
+
+/// One thing a run did, in order: for tests that compare whole runs.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Event {
+    /// `print` of this payload.
+    Print(String),
+    /// `readLine`, and what it gave.
+    Read(Option<String>),
+    /// A tick: one recursive call.
+    Tick,
+}
+
+/// How a run ended, when nothing went wrong.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Outcome {
+    /// `main` finished.
+    Finished,
+    /// The tick limit was reached: inconclusive, neither success nor failure.
+    OutOfTicks,
+}
+
+/// What a run may do, beyond the session's resource limits. Not part of
+/// what a program means.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Policy {
+    /// Stop (inconclusively) once this many ticks have happened. For tests.
+    pub max_ticks: Option<u64>,
 }
 
 /// Why a run stopped early.
@@ -74,26 +116,36 @@ impl From<ResourceError> for RunError {
     }
 }
 
-/// `main ()`, checked against [`MAIN_TYPE`]. The lambda lets a pure `main`
-/// through: calling a pure function from code in `{IO}` is allowed.
-const MAIN_CALL: &str = "((\\u -> main ()) : () -> {IO} ()) ()";
+/// `main ()`, checked against [`MAIN_TYPE`]. The lambda lets a pure or
+/// total `main` through: calling one from code in `{IO, Partial}` is
+/// allowed.
+const MAIN_CALL: &str = "((\\u -> main ()) : () -> {IO, Partial} ()) ()";
 
 impl Session {
     /// Finds the loaded program's `main`, and checks its type.
     pub fn main(&mut self) -> Result<Main, Diagnostic> {
         let g = &self.elab.globals;
-        let Some(def) = g.defs.iter().rev().find(|d| &*d.name == "main") else {
+        let Some(index) = g.defs.iter().rposition(|d| &*d.name == "main") else {
             return Err(Diagnostic::error("E-NO-MAIN", "there's no `main` to run")
-                .with_note(format!("define `main : {MAIN_TYPE}`")));
+                .with_note("define `main : () -> {IO} ()`, or `main : () -> {IO, Partial} ()`"));
         };
+        let def = &g.defs[index];
         let (span, ty) = (def.span, self.elab.show(&def.ty_value));
+        let partial = self
+            .elab
+            .is_partial(stitchwort_core::DefId(index))
+            .unwrap_or(false);
         let expr = self.parse_expression("<main>", MAIN_CALL)?;
         match self.elab.infer_expr(&expr) {
-            Ok((term, _)) => Ok(Main { term, span }),
+            Ok((term, _)) => Ok(Main {
+                term,
+                span,
+                partial,
+            }),
             Err(d) if d.code == "E-RESOURCE" => Err(d),
             Err(_) => Err(Diagnostic::error(
                 "E-MAIN-TYPE",
-                format!("`main` must have type `{MAIN_TYPE}`"),
+                "`main` must have type `() -> {IO} ()` or `() -> {IO, Partial} ()`",
             )
             .with_label(span, format!("this has type `{ty}`"))
             .with_note(
@@ -105,8 +157,16 @@ impl Session {
     /// What `main` prints when it's run by the prelude's `simulate` with
     /// scripted input lines: the reference that [`Session::run_main`] is
     /// tested against. Its output is these payloads, each followed by LF.
+    ///
+    /// A partial `main` can't be run by `simulate`, which is a handler
+    /// (docs/proposals/partial.md §7.5): it's run by the runner instead,
+    /// with the lines as its input and a limit of [`SIMULATED_TICKS`] ticks.
+    /// Reaching the limit is inconclusive, and reported as `E-RESOURCE`.
     pub fn simulate(&mut self, input: &[&str]) -> Result<Vec<String>, Diagnostic> {
-        self.main()?;
+        let main = self.main()?;
+        if main.partial {
+            return self.simulate_partial(&main, input);
+        }
         let lines: Vec<String> = input
             .iter()
             .map(|line| {
@@ -118,7 +178,7 @@ impl Session {
             })
             .collect();
         let source = format!(
-            "fst (simulate [{}] ((\\u -> main ()) : {MAIN_TYPE}))",
+            "fst (simulate [{}] ((\\u -> main ()) : () -> {{IO}} ()))",
             lines.join(", ")
         );
         let expr = self.parse_expression("<simulate>", &source)?;
@@ -138,9 +198,41 @@ impl Session {
         run().map_err(Diagnostic::from)
     }
 
+    fn simulate_partial(&self, main: &Main, input: &[&str]) -> Result<Vec<String>, Diagnostic> {
+        let text: String = input.iter().map(|l| format!("{l}\n")).collect();
+        let mut printed = Vec::new();
+        let policy = Policy {
+            max_ticks: Some(SIMULATED_TICKS),
+        };
+        let outcome = self
+            .run_loop(
+                main,
+                &mut text.as_bytes(),
+                &mut io::sink(),
+                &policy,
+                &mut |e| {
+                    if let Event::Print(p) = e {
+                        printed.push(p);
+                    }
+                },
+            )
+            .map_err(|e| e.diagnostic(main))?;
+        match outcome {
+            Outcome::Finished => Ok(printed),
+            Outcome::OutOfTicks => Err(Diagnostic::error(
+                "E-RESOURCE",
+                format!(
+                    "ran out of resources: `main` made more than {SIMULATED_TICKS} recursive calls"
+                ),
+            )
+            .with_label(main.span, "while running this program")
+            .with_note("this isn't a failure: there's no answer within the limits")),
+        }
+    }
+
     /// Runs `main`, reading lines from `input` and printing to `output`, and
     /// flushes `output` at the end. Evaluating each step between operations
-    /// is one operation, with its own resource limits.
+    /// and ticks is one operation, with its own resource limits.
     ///
     /// The contract for reading: input is UTF-8; a trailing LF, and a CR just
     /// before it, are removed; an empty line is `Just ""`; `Nothing` comes
@@ -152,9 +244,9 @@ impl Session {
         input: &mut impl BufRead,
         output: &mut impl Write,
     ) -> Result<(), RunError> {
-        let result = self.run_loop(main, input, output);
+        let result = self.run_loop(main, input, output, &Policy::default(), &mut |_| {});
         match result {
-            Ok(()) => output.flush().map_err(RunError::Write),
+            Ok(_) => output.flush().map_err(RunError::Write),
             Err(e) => {
                 // What was printed before the error still appears. The first
                 // error is the one reported.
@@ -164,58 +256,108 @@ impl Session {
         }
     }
 
+    /// Runs `main` as [`Session::run_main`] does, within `policy`, telling
+    /// `trace` each thing it does, in order. Doesn't flush `output`.
+    pub fn run_main_with(
+        &self,
+        main: &Main,
+        input: &mut impl BufRead,
+        output: &mut impl Write,
+        policy: &Policy,
+        trace: &mut dyn FnMut(Event),
+    ) -> Result<Outcome, RunError> {
+        self.run_loop(main, input, output, policy, trace)
+    }
+
     fn run_loop(
         &self,
         main: &Main,
         input: &mut impl BufRead,
         output: &mut impl Write,
-    ) -> Result<(), RunError> {
+        policy: &Policy,
+        trace: &mut dyn FnMut(Event),
+    ) -> Result<Outcome, RunError> {
         let g = &self.elab.globals;
         let s = Shapes::new(self);
         let mut lines = 0;
-        let mut comp = {
+        let mut ticks = 0;
+        let mut machine = {
             let _op = g.budget.operation(self.elab.limits);
-            force(g, eval(g, &[], &main.term)?)?
+            Machine::start(g, force(g, eval(g, &[], &main.term)?)?)
         };
         loop {
-            let (o, rest) = match comp {
-                Value::Ctor(d, c, _) if d == s.comp && c == s.done => return Ok(()),
-                Value::Ctor(d, c, fields) if d == s.comp && c == s.call => {
-                    (fields[0].clone(), fields[1].clone())
-                }
-                _ => unreachable!("`main ()` is a computation"),
-            };
-            let reply = {
+            if policy.max_ticks.is_some_and(|max| ticks >= max) {
+                return Ok(Outcome::OutOfTicks);
+            }
+            let mut obs = {
                 let _op = g.budget.operation(self.elab.limits);
-                // `{IO}` is `Plus IO NoOp`, so every operation is `L` of an
-                // `IO` operation.
-                let Value::Ctor(_, _, fields) = force(g, o)? else {
-                    unreachable!("an operation in `{{IO}}`")
-                };
-                match force(g, fields[0].clone())? {
-                    Value::Ctor(d, c, payload) if d == s.io && c == s.print => {
-                        let text = s.text_to_string(self, &payload[0])?;
-                        output
-                            .write_all(text.as_bytes())
-                            .and_then(|()| output.write_all(b"\n"))
-                            .map_err(RunError::Write)?;
-                        s.unit()
-                    }
-                    Value::Ctor(d, c, _) if d == s.io && c == s.read_line => {
-                        output.flush().map_err(RunError::Write)?;
-                        match read_line(input, &mut lines)? {
-                            Some(line) => s.just(s.text(&line)),
-                            None => s.nothing(),
-                        }
-                    }
-                    _ => unreachable!("an `IO` operation"),
-                }
+                machine.step(g)?
             };
-            let _op = g.budget.operation(self.elab.limits);
-            comp = force(g, apply(g, rest, reply)?)?;
+            // Perform operations until the step ends.
+            loop {
+                match obs {
+                    Obs::Now(_) => return Ok(Outcome::Finished),
+                    Obs::Later(rest) => {
+                        ticks += 1;
+                        trace(Event::Tick);
+                        machine = rest;
+                        break;
+                    }
+                    Obs::Call(o, pending) => {
+                        let reply = {
+                            let _op = g.budget.operation(self.elab.limits);
+                            self.perform(&s, o, input, output, &mut lines, trace)?
+                        };
+                        let _op = g.budget.operation(self.elab.limits);
+                        obs = pending.reply(g, reply)?;
+                    }
+                }
+            }
         }
     }
+
+    /// Performs operation `o` of `{IO}`: its reply.
+    fn perform(
+        &self,
+        s: &Shapes,
+        o: Value,
+        input: &mut impl BufRead,
+        output: &mut impl Write,
+        lines: &mut usize,
+        trace: &mut dyn FnMut(Event),
+    ) -> Result<Value, RunError> {
+        let g = &self.elab.globals;
+        // `{IO}` is `Plus IO NoOp`, so every operation is `L` of an `IO`
+        // operation.
+        let Value::Ctor(_, _, fields) = force(g, o)? else {
+            unreachable!("an operation in `{{IO}}`")
+        };
+        Ok(match force(g, fields[0].clone())? {
+            Value::Ctor(d, c, payload) if d == s.io && c == s.print => {
+                let text = s.text_to_string(self, &payload[0])?;
+                output
+                    .write_all(text.as_bytes())
+                    .and_then(|()| output.write_all(b"\n"))
+                    .map_err(RunError::Write)?;
+                trace(Event::Print(text));
+                s.unit()
+            }
+            Value::Ctor(d, c, _) if d == s.io && c == s.read_line => {
+                output.flush().map_err(RunError::Write)?;
+                let line = read_line(input, lines)?;
+                trace(Event::Read(line.clone()));
+                match line {
+                    Some(line) => s.just(s.text(&line)),
+                    None => s.nothing(),
+                }
+            }
+            _ => unreachable!("an `IO` operation"),
+        })
+    }
 }
+
+/// The tick limit for [`Session::simulate`] of a partial `main`.
+pub const SIMULATED_TICKS: u64 = 1_000_000;
 
 /// The next line of input without its line ending, or `None` at the end.
 /// `lines` counts the lines read so far.
@@ -243,9 +385,6 @@ fn read_line(input: &mut impl BufRead, lines: &mut usize) -> Result<Option<Strin
 /// The prelude's types that `IO` operations and their results are built
 /// from, and their constructors.
 struct Shapes {
-    comp: DataId,
-    done: usize,
-    call: usize,
     io: DataId,
     print: usize,
     read_line: usize,
@@ -267,11 +406,8 @@ impl Shapes {
                 .position(|c| &*c.name == name)
                 .expect("the prelude declares it")
         };
-        let (comp, io) = (data("Comp"), data("IO"));
+        let io = data("IO");
         Shapes {
-            comp,
-            done: ctor(comp, "Done"),
-            call: ctor(comp, "Call"),
             io,
             print: ctor(io, "IO.print"),
             read_line: ctor(io, "IO.readLine"),

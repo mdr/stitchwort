@@ -609,13 +609,68 @@ fn apply_args(cx: &mut Ctx, head: (Term, Value), args: &[Arg]) -> Result<(Term, 
                         ));
                     }
                 };
-                let value = check(cx, value, &dom)?;
+                let value = match check(cx, value, &dom) {
+                    Ok(value) => value,
+                    Err(e) if e.code == "E-PARTIAL-ESCAPE" => {
+                        return Err(partial_callback(cx, &term, value, &dom).unwrap_or(e));
+                    }
+                    Err(e) => return Err(e),
+                };
                 ty = cod.apply_lazy(cx.g(), || eval(cx.g(), &cx.env, &value))?;
                 term = Term::app(term, value);
             }
         }
     }
     Ok((term, ty))
+}
+
+/// A recursive call of the partial group being described, passed as `arg`
+/// to `head`, whose parameter of type `dom` is a function with a fixed row:
+/// nothing in `head` can answer its requests (docs/proposals/partial.md
+/// §7.3.4).
+fn partial_callback(cx: &Ctx, head: &Term, arg: &Expr, dom: &Value) -> Option<Diagnostic> {
+    if !matches!(force(cx.g(), dom.clone()), Ok(Value::Pi(..))) {
+        return None;
+    }
+    let helper = match head.spine().0 {
+        Term::Def(id) => cx.g().def(*id).name.to_string(),
+        Term::Var(ix) => cx.names[cx.level() - 1 - ix].to_string(),
+        _ => return None,
+    };
+    let members = cx.e.recursion.as_ref()?.names.clone();
+    let shown = |n: &String| format!("`{n}`");
+    let what = match arg {
+        Expr::Var(name) => format!("`{}`", name.text),
+        _ => "this".to_string(),
+    };
+    let param = cx.show(dom);
+    // The parameter's type with a row variable added to its last row.
+    let suggested = match param.rfind('}') {
+        Some(i) if !param[..i].contains('|') => format!("{} | e{}", &param[..i], &param[i..]),
+        _ => param.clone(),
+    };
+    Some(
+        Diagnostic::error(
+            "E-PARTIAL-CALLBACK",
+            format!("{what} can't be passed to `{helper}` here"),
+        )
+        .with_label(
+            arg.span(),
+            format!(
+                "{what} calls {}, so as a value it makes requests that only {}'s own \
+                 definition can answer",
+                members.iter().map(shown).collect::<Vec<_>>().join(", "),
+                shown(&members[0]),
+            ),
+        )
+        .with_note(format!(
+            "`{helper}`'s parameter has the type `{param}`, whose row is fixed"
+        ))
+        .with_note(format!(
+            "make `{helper}` polymorphic in the rest of the row: give the parameter the type \
+             `{suggested}`, and add `| e` to `{helper}`'s own row too"
+        )),
+    )
 }
 
 /// Applies `term` to a fresh metavariable for each leading implicit or auto
@@ -942,6 +997,8 @@ fn fallback(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
         // An effectful function whose row lists the same abilities in a
         // different order.
         Ok(term)
+    } else if let Some(d) = effects::partial_mismatch(cx, &found, expected)? {
+        Err(d)
     } else {
         Err(cx.mismatch(expected, &found))
     }

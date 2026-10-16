@@ -13,7 +13,13 @@
 --
 --   The sum is 42. Goodbye, Ada.
 --
--- The tests below run the same `main` with `simulate`, against scripted input.
+-- It reads until an empty line or the end of the input, however long that
+-- is: its loop is `Partial` (docs/proposals/partial.md), so it needs no
+-- bound. Only `stitchwort run` and the playground run partial code, so the
+-- tests below are about its total parts; crates/driver/tests/run.rs and
+-- crates/cli/tests/run.rs run whole sessions. adder-fuel.sw is the same
+-- program with a bound on the number of lines, as it had to be written
+-- before `Partial`.
 
 -- The text, or a default at end of input.
 textOr : Text -> Maybe Text -> Text
@@ -21,7 +27,7 @@ textOr d Nothing  = d
 textOr d (Just t) = t
 
 -- Reports a line that should be a number, and goes on with the new total.
-stepNumber : Nat -> Text -> Maybe Nat -> (Nat -> {IO} Nat) -> {IO} Nat
+stepNumber : Nat -> Text -> Maybe Nat -> (Nat -> {IO, Partial | e} Nat) -> {IO, Partial | e} Nat
 stepNumber total l Nothing  more =
   print ("\"" ++ l ++ "\" isn't a number; skipped")
   more total
@@ -30,59 +36,28 @@ stepNumber total l (Just n) more =
   more (total + n)
 
 -- What to do with a line, given the total so far. An empty line, or the end
--- of input, stops.
-step : Nat -> Maybe Text -> (Nat -> {IO} Nat) -> {IO} Nat
+-- of input, stops. `step` and `stepNumber` aren't recursive: they mention
+-- `Partial` only because `more` may be partial. They're polymorphic in the
+-- rest of the row (`| e`) because `addLines` passes itself as `more`, and a
+-- recursive call is a request only `addLines`'s own definition can answer.
+step : Nat -> Maybe Text -> (Nat -> {IO, Partial | e} Nat) -> {IO, Partial | e} Nat
 step total Nothing  more = total
 step total (Just l) more =
   if textIsEmpty l then total else stepNumber total l (textToNat (textTrim l)) more
 
--- Adds the numbers on at most this many more lines. The bound keeps the
--- recursion structural: every run of `main` performs a bounded number of
--- operations.
-addLines : Nat -> Nat -> {IO} Nat
-addLines 0        total = total
-addLines (Succ n) total = step total (readLine ()) (\t -> addLines n t)
+-- Adds up the numbers on the lines to come, until an empty line or the end
+-- of the input.
+addLines : Nat -> {IO, Partial} Nat
+addLines total = step total (readLine ()) addLines
 
-main : () -> {IO} ()
+main : () -> {IO, Partial} ()
 main u =
   print "What's your name?"
   let name = textOr "stranger" (readLine ())
   print ("Hello, " ++ name ++ "! Type numbers to add, one per line, and an empty line to stop.")
-  let total = addLines 1000 0
+  let total = addLines 0
   print ("The sum is " ++ natToText total ++ ". Goodbye, " ++ name ++ ".")
 
--- Testing `main` with scripted input
+test "a name" = textOr "stranger" (Just "Ada") == "Ada"
 
-eqTexts : List Text -> List Text -> Bool
-eqTexts Nil         Nil         = True
-eqTexts (Cons x xs) (Cons y ys) = if x == y then eqTexts xs ys else False
-eqTexts _           _           = False
-
-printed : List Text -> List Text
-printed input = fst (simulate input main)
-
-test "a session" =
-  eqTexts (printed ["Ada", "1", "2", "x", " 39 ", ""])
-    [ "What's your name?"
-    , "Hello, Ada! Type numbers to add, one per line, and an empty line to stop."
-    , "  total: 1"
-    , "  total: 3"
-    , "\"x\" isn't a number; skipped"
-    , "  total: 42"
-    , "The sum is 42. Goodbye, Ada."
-    ]
-
-test "end of input stops it too" =
-  eqTexts (printed ["Ada", "5"])
-    [ "What's your name?"
-    , "Hello, Ada! Type numbers to add, one per line, and an empty line to stop."
-    , "  total: 5"
-    , "The sum is 5. Goodbye, Ada."
-    ]
-
-test "no input at all" =
-  eqTexts (printed [])
-    [ "What's your name?"
-    , "Hello, stranger! Type numbers to add, one per line, and an empty line to stop."
-    , "The sum is 0. Goodbye, stranger."
-    ]
+test "no name" = textOr "stranger" Nothing == "stranger"

@@ -741,6 +741,43 @@ runPure : [a : Type] -> Comp NoOp NoRes a -> a
 runPure (Done x)       = x
 runPure (Call () rest)
 
+-- Partial computations (docs/proposals/partial.md)
+
+-- A recursion request: run the definition being defined again on `x`. A
+-- partial definition's body makes these instead of calling itself.
+type Rec (req : Type) : Type =
+  | Recur (x : req)
+
+-- What a request is answered with.
+RecRes : [req : Type] -> (req -> Type) -> Rec req -> Type
+RecRes ans (Recur x) = ans x
+
+-- A computation that may not finish: what `{Partial | e} a` stands for.
+-- These have no definitions, and nothing can look inside a `Delay`: only
+-- the runtime runs one, a step at a time. The kernel admits them as
+-- primitives, after checking their types are exactly these.
+Delay : (op : Type) -> (res : op -> Type) -> Type -> Type
+
+-- Finished, with this result.
+now : [op : Type] -> [res : op -> Type] -> [a : Type] -> a -> Delay op res a
+
+-- A computation that finishes, as one that might not.
+lift : [op : Type] -> [res : op -> Type] -> [a : Type] -> Comp op res a -> Delay op res a
+
+-- Sequencing.
+bindD : [op : Type] -> [res : op -> Type] -> [a b : Type] ->
+  Delay op res a -> (a -> Delay op res b) -> Delay op res b
+
+-- Moves a computation along a mapping between signatures.
+mapSig : [op1 : Type] -> [res1 : op1 -> Type] -> [op2 : Type] -> [res2 : op2 -> Type] -> [a : Type] ->
+  SigMap op1 res1 op2 res2 -> Delay op1 res1 a -> Delay op2 res2 a
+
+-- The recursive function a description defines: each `Recur y` its body
+-- requests is answered by running the body on `y`.
+pfix : [op : Type] -> [res : op -> Type] -> [req : Type] -> [ans : req -> Type] ->
+  ((x : req) -> Delay (Plus (Rec req) op) (PlusRes (RecRes ans) res) (ans x)) ->
+  (x : req) -> Delay op res (ans x)
+
 -- Input and output (docs/proposals/text-and-io.md, Part 2)
 
 -- The console. Only a host interpreter performs these for real; in Stitchwort

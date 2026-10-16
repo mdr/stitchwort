@@ -87,6 +87,19 @@ pub fn def_hash(g: &Globals, id: DefId) -> Result<Option<ContentHash>> {
     }
     g.budget.nesting(PASS)?;
     let def = g.def(id);
+    if def.state == State::Final
+        && let Some(prim) = g.builtins.primitive(id)
+    {
+        // `Delay` and its constants have no body: they're their name and
+        // type (docs/proposals/partial.md §7.2).
+        let mut h = Hasher::new(g, Itself::Def(id));
+        h.tag("primitive");
+        h.str(prim.name());
+        h.term(&def.ty)?;
+        let hash = h.finish();
+        g.hashes.borrow_mut().insert(HashKey::Def(id), hash);
+        return Ok(Some(hash));
+    }
     let (State::Final, Some(body)) = (def.state, def.body.as_ref()) else {
         return Ok(None);
     };
