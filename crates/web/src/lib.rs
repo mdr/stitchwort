@@ -447,6 +447,19 @@ mod tests {
         );
     }
 
+    /// Partial programs (docs/proposals/partial.md) run until they finish,
+    /// or until the playground's limits stop them: here the output limit.
+    #[test]
+    fn runs_partial_programs() {
+        let cat = include_str!("../../../examples/accept/cat.sw");
+        assert_eq!(printed(&run(cat, "a\n\nb\n", 1000)), r"a\n\nb\n");
+        let forever = "forever : Nat -> {IO, Partial} ()\nforever n =\n  print \"tick\"\n  \
+                       forever (n + 1)\n\nmain : () -> {IO, Partial} ()\nmain u = forever 0\n";
+        let cut = run(forever, "", 1000);
+        assert!(cut.contains("more than 1000 bytes"), "{cut}");
+        assert!(cut.contains(r"tick\ntick\n"), "{cut}");
+    }
+
     #[test]
     fn reports_why_main_cant_run() {
         let no_main = run("x : Nat\nx = 1\n", "", 1000);

@@ -1,6 +1,6 @@
 # Proposal: `Partial`
 
-**Status:** draft 3, 15 October 2026. **Stage 1 is approved; nothing is implemented yet.** The user approved stage 1 only: partial code is visible in types (`{Partial}`), only the runtime runs it, and proofs are only about the total parts (the "functional core, imperative shell" style). Everything beyond stage 1 is kept as **someday/maybe** (§10), with what each option would need and the external review's specific concerns. Draft 1 was split out of [`abilities.md`](abilities.md) after review found its design unsound (§2). Draft 2 surveyed other systems (§5), compared five designs (§6) and recommended one; an external review checked it. Draft 3 adopts that review's stage-1 fixes, and is backed by an executable model of the runtime rules (`crates/partial-model`, §9.1). Until stage 1 is built there is no `Partial`, and every definition must pass the termination checker.
+**Status:** draft 3, 15 October 2026. **Stage 1 is implemented** (16 October 2026; [§9.4, As built](#94-as-built-stage-1)). The user approved stage 1 only: partial code is visible in types (`{Partial}`), only the runtime runs it, and proofs are only about the total parts (the "functional core, imperative shell" style). Everything beyond stage 1 is kept as **someday/maybe** (§10), with what each option would need and the external review's specific concerns. Draft 1 was split out of [`abilities.md`](abilities.md) after review found its design unsound (§2). Draft 2 surveyed other systems (§5), compared five designs (§6) and recommended one; an external review checked it. Draft 3 adopts that review's stage-1 fixes, and is backed by an executable model of the runtime rules (`crates/partial-model`, §9.1). The sections before §9.4 are the design as approved; §9.4 says what was built and where it differs.
 
 This note is meant to be read without knowing the codebase: §1 describes the parts of Stitchwort it touches, checked against the source at commit `0fbec9d`. Claims about other systems cite their sources ([Sources](#sources)). Anything not verified is marked **unverified**; [What I couldn't verify](#what-i-couldnt-verify) lists the gaps.
 
@@ -1003,6 +1003,185 @@ The motivating programs `serve`/`respond` and `eval`/`apply` are recursive group
 5. **Signatures.** Members' signatures may refer only to final declarations (§5.3 rule 1 there); the same holds for partial members. Their types say `{Partial}`, which translates to `Delay`.
 6. **Failure.** If any generated declaration fails, every member of the source group must be reported failed, matching "failed groups publish nothing" (§5.6 there). Since the wrappers depend on the description, admission already makes them fail; the elaborator must also not publish hashes or cached test results for any of them.
 7. **Hashing and caching.** The generated declarations are hashed like any other. A change to one member's body changes the shared description, and so every member's hash, which is the same granularity as a total group.
+
+### 9.4 As built: stage 1
+
+**Kernel** (`crates/core/src/partial.rs`, about 290 lines without comments,
+nearly all of it the six expected types; plus about 30 lines in `native.rs`
+and `hash.rs`). `Delay`, `now`, `lift`, `bindD`, `mapSig` and `pfix` are
+prelude signatures without equations (`crates/elab/src/prelude.sw`, after
+`Rec` and `RecRes`). `define_primitive` admits each once, `Delay` first,
+after checking by conversion that its declared type is exactly §7.2's
+(`E-BUILTIN` otherwise, and the definition is failed). A primitive is final
+with no body, so it never unfolds, and an application of one is neutral.
+Nothing else changed in the kernel: no `case` (it's not a data type), no
+eliminator, positivity refuses a type nested in a `Delay` as any nested
+occurrence, termination and admission are unchanged. Primitives are hashed
+by name and type.
+
+**Elaborator** (untrusted; `crates/elab/src/effects.rs`, `partial.rs`).
+- `Partial` in a row is a mode (`Row::partial`): a partial computation type
+  is `Delay ops res t`. Sequencing is `bindD`, a result `now`, an
+  operation `lift (Call op Done)`, a partial call from another row `mapSig
+  m`, a total computation in a partial row `lift` (after `translate`),
+  and a total function where a partial one is expected `\x -> lift (f x)`.
+  `Partial` is reserved, and messages print a `Delay` as `{…, Partial} a`.
+- **E-PARTIAL** (a code beyond the three named in §7.3): running partial
+  code in a total context, including a handled computation (§7.3.8) and a
+  partial function for a row variable (§7.3.6).
+- **Classification** (§9.3): in a recursive group (the module's SCCs, which
+  count every reference), a member is partial if its result is a `Delay`
+  once it has the parameters its equations bind. So `mk : Nat -> (Nat ->
+  {Partial} Nat)` with `mk n = …` is total (it returns a partial
+  function). All partial: translated; none: as before; mixed:
+  **E-PARTIAL-MIXED**, with a label per member.
+- **Translation** (§7.3, §9.3), for a group `f, g, …`: `f.Request ps`
+  (data, one constructor per member holding its packed arguments),
+  `f.Response ps` (by cases), `g.recur` for each member (the request, as a
+  definition with the member's parameters), `g.description` (the member's
+  equations, elaborated with every member's name standing for its
+  `.recur`, in the row `{Rec (f.Request ps), ρ}`), `f.body` (by cases on
+  the request) and the members themselves, `g ps xs = pfix (f.body ps)
+  (g.request xs)`, admitted together with one `define_group`. Every
+  reference (saturated, partial, bare, under a lambda, a sibling) is a use
+  of `.recur`, so nothing in the core refers to a member; a partial
+  application of `.recur` evaluates its arguments when it's applied, as
+  §7.3.3's `let` does. While describing, `Rec (f.Request ps)` is a row label
+  (`effects::REC`), so callbacks and `| e` work as in §7.3.4.
+- **E-PARTIAL-CALLBACK**: the group's private row reaching a function
+  parameter with a fixed row; it names the helper and suggests the
+  parameter's type with `| e`. **E-PARTIAL-ESCAPE**: the private row
+  reaching a place nothing answers it (returned, stored in returned data).
+  **E-PARTIAL-NONUNIFORM**: a call changing a type parameter (found when
+  the request rows disagree, and checked again on the descriptions' core
+  terms), a large parameter after an ordinary one, members with different
+  type parameters or rows, or arguments that can't be packed.
+- **Failure**: if any generated declaration fails, the members (still
+  pending) are abandoned as failed by the module, so none is hashed or has
+  cached tests. Changing one member's body changes `f.body`, and so every
+  member's hash.
+
+**Runtime** (`crates/core/src/step.rs`, about 250 lines without comments):
+the model's machine (§7.4.4) on evaluator values, with the same frames
+(`Bind`, `Map`, `Tie`, `Await`), the same tail-call rule and no host
+access: an operation reaching the bottom is returned with a `Pending` step
+that the runner resumes with the reply. **Runner** (`crates/driver/src/run.rs`):
+`main : () -> {IO, Partial} ()` (a total `main` is lifted); each stretch of
+evaluation between two operations or ticks is one budgeted operation; an
+optional tick limit (inconclusive) and a trace of events, for tests.
+`Session::simulate` of a partial `main` is a scripted run with a limit of
+1,000,000 ticks. The playground runs through the same runner, with its
+output cap, reads-past-end limit, timeout and Stop.
+
+**JS** (`crates/js`): a call to a definition whose result is a `Delay`,
+with all its arguments, is the token `$Delay` (a `Symbol`), without
+computing them; with fewer, a function returning it. Such definitions,
+descriptions included, are never generated. An export whose type mentions
+`Delay` is **E-JS-PARTIAL**; extraction is refused the same way if a
+`Delay` constant ever has a body (the pin of §7.6).
+
+**Examples.** `accept/adder.sw` reads until the end of its input
+(`addLines total = step total (readLine ()) addLines`, with `step` and
+`stepNumber` polymorphic in `| e`); the fuelled version is
+`accept/adder-fuel.sw`, whose tests use `simulate`. `accept/cat.sw`,
+`accept/collatz.sw` and `accept/partial.sw` (Collatz, a search, Fibonacci,
+even/odd, Hofstadter's F/M, callbacks through row-polymorphic helpers,
+under lambdas, in a record, a partial application of a member, `mapP` with
+total and partial callbacks, a handler whose clause runs partial code,
+partial functions mentioned and stored by total code), `extract/partial.sw`.
+Rejected: `reject/partial-callback.sw`, `partial-escape.sw`,
+`partial-escape-record.sw`, `partial-nonuniform.sw`, `partial-handled.sw`,
+`partial-row-variable.sw` (`simulate` of a partial program),
+`export-partial.sw`; soundness: `partial-from-total.sw` (`innocent`),
+`partial-empty.sw` (a value of an empty type from a partial function),
+`partial-drain.sw`, `partial-mixed-group.sw`, `partial-knot.sw` (the
+`pfixBad` shape, refused here as E-PARTIAL; the kernel refuses the core
+version by termination), `partial-unfold.sw` (`rfl` across `pfix`,
+E-REFL) and `partial-nested.sw` (E-POSITIVITY).
+
+**Tests.**
+- `crates/driver/tests/partial.rs` compares the runner with the model on
+  the model's own programs (`crates/partial-model/tests/programs`), written
+  again in Stitchwort: complete traces (operations, replies, ticks)
+  identical, and the model's machine identical to its equations on each.
+  Ticks, runner and model alike: `immediate 7` 0, `countdown 1`/`2`/`1000`
+  1/2/1000, `collatzSteps 1` 0, `collatzSteps 27` 111, `fib 10` 176,
+  `sumTo 100` 100, `isEven 10` 10, `isOdd 7` 7, `hofF 10` 178, `hofM 10`
+  170, `hofF 15` 606, `viaHelper 5` 5, `tree 3` 14, `stored 4` 4, a fresh
+  `pfix` in a continuation 6; with input and output, `echo` (two inputs),
+  `nest 3`, `outer 3` and `sumAsks 3` (an ability handled into `IO`
+  between requests); `forever` and `spin` stop at a 50-tick limit, as the
+  model's do. Also: a step returns `readLine` and `print` unperformed;
+  building `spin 0` runs nothing and its loop keeps constant frames;
+  `sumTo 100000` (non-tail, frames on the heap); per-step budgets (20,000
+  ticks within a 20,000-step budget; one long total step out of resources
+  with no tick); `simulate` of a partial `main`; the adder over 5000 lines,
+  agreeing with the fuelled version within its bound.
+- `crates/driver/tests/partial_kernel.rs`: the constants are final, opaque
+  and hashed; a prelude whose `now` extracts from a `Delay`, whose `pfix`
+  keeps the request row, or whose `Delay` is a `Prop`, is E-BUILTIN; each
+  is admitted once; a match on a `Delay` is refused (a match on `Nat`, the
+  neighbour, isn't); a description running its own wrapper is
+  E-TERMINATION (requesting it is accepted); one running an unfinished
+  wrapper is E-MALFORMED; conversion never unfolds `pfix`.
+- `crates/cli/tests/run.rs`: `stitchwort run` of the adder over 5000
+  lines, cat, collatz, and an endless `main` still running after two
+  seconds (then killed). `crates/web`: cat and an endless printer stopped
+  by the output cap; the browser tests pass.
+
+**Mutation evidence** (each applied by hand, run, reverted):
+- *A total context may run partial code* (the `E-PARTIAL` check in
+  `effects::lift` disabled): the examples still don't check, but for the
+  wrong reason: `soundness/partial-drain.sw was rejected, but not with
+  E-PARTIAL: … expected `{} Empty`, but this has type `{Partial} Empty``,
+  and the same for `reject/partial-handled.sw`. The kernel refuses the
+  ill-typed core (a `Delay` where a `Comp` is expected), which is §7.9's
+  "a total type is a `Comp` type".
+- *`step` performs host requests itself* (answering `readLine` with end of
+  input and `print` with `()` inside the step): 7 of 9 tests in
+  `partial.rs` fail, e.g. `echo 0 with input ["a", "", "b c"]: left: [],
+  right: [Read(Some("a")), Print("a"), Tick, …]`, and
+  `a_step_returns_operations_without_performing_them`.
+- *No mixed-group refusal* (mixed groups checked as total):
+  `soundness/partial-mixed-group.sw was rejected, but not with
+  E-PARTIAL-MIXED: … `loop` takes 1 argument; it's given none here` (the
+  termination checker's saturation rule refuses it instead).
+- *Members' names left referring to the members while describing*: every
+  partial recursive example is refused by admission, `E-MALFORMED … this
+  refers to `collatzSteps`, which isn't finished`: a surviving reference
+  can't get past the kernel (§7.3.7).
+
+**Benchmarks.** Counts are unchanged except `run-prints`, whose peak heap
+went from 6 kB to 8 kB (steps +0.1%): every `main` is now stepped as a
+`Delay`.
+
+**Where this differs from the draft.**
+- *Fixed parameters* (§7.3.5) are the leading large parameters (types,
+  type families, rows), which every call must pass on unchanged. An
+  ordinary parameter that every call passes unchanged (`firstFrom`'s `p`)
+  is packed into the request rather than shared: the same results and
+  ticks. A large parameter after an ordinary one is refused, as are group
+  members with different type parameters or rows.
+- *Classification* is at the entry arity, so a function returning partial
+  functions is total, and in a cycle with a partial one is mixed.
+- *Requests* are per-member definitions (`.recur`) rather than lambdas
+  written in place; partial applications behave the same.
+- *Two more codes*: E-PARTIAL and E-PARTIAL-MIXED.
+- *`Next`* isn't in the prelude: `step` is the runtime's, in Rust.
+- *Hand-written descriptions* at the surface (calling `pfix` with a
+  description over `Rec`) are refused with E-PARTIAL: the private row is
+  recognised only while translating. So `pfixBad` (§8.3) can't be written
+  at the surface at all; in core terms, the kernel refuses it.
+- *Budgets*: work per step restarts at every operation as well as every
+  tick (as before `Partial`), and the command line has no total-work
+  limit: an endless partial `main` runs until it's stopped.
+
+**Not done.** No generated-program differential test against the model
+(its 1,200 random programs are compared with its equations, not with the
+runner); the model's mapping *into* the recursion signature (`again`) has
+no surface counterpart. No `mapP` in the prelude (it's in
+`accept/partial.sw`), and E-PARTIAL-CALLBACK doesn't yet point at
+polymorphic variants of library functions.
 
 ## 10. Someday/maybe
 

@@ -327,9 +327,13 @@ def innocent (n : Nat) : Nat := spin n + 1   -- accepted as an ordinary def
 
 This matches the documented behaviour, though this exact snippet hasn't been run. An ordinary Lean function type such as `Nat → Nat` doesn't certify that its compiled implementation terminates. Stitchwort aims for a stronger link between what the types say and what runs.
 
-### Partiality is an ability
+### Partiality is in the type
 
-`Partial` appears in function types and spreads to callers:
+`Partial` appears in function types and spreads to callers. It's written in
+a row, like an ability, but it isn't one: it has no operations, and it
+makes the result a `Delay` (a computation that may not finish) rather than
+a `Comp`. Stage 1 is implemented ([docs/proposals/partial.md](docs/proposals/partial.md),
+"As built"):
 
 ```
 spin : Nat -> {Partial} Nat
@@ -347,8 +351,8 @@ innocent n = spin n + 1
 1. A recursive definition must pass the termination checker, or have `Partial` in its type.
 2. Calling a function whose type has `Partial` adds `Partial` to the caller's abilities.
 3. Pattern matches must be **exhaustive**. A missing case is a compile-time error.
-4. **Only the runtime handles `Partial`**, at program entry (`main`). No user-written handler can remove it. Otherwise a handler that acknowledges every step could turn an infinite computation into a supposedly total one.
-5. Tests may not use `Partial` ([§7](#7-tests)).
+4. **Only the runtime handles `Partial`**, at program entry (`main`). `Partial` has no operations, and no handler may have it in the computation it handles, nor may it stand for a row variable. Otherwise a handler that acknowledges every step could turn an infinite computation into a supposedly total one.
+5. Tests may not use `Partial` ([§7](#7-tests)). Tests of partial programs are runs of `main` with scripted input and a tick limit, where running out is inconclusive.
 6. Foreign functions that might not return must declare `Partial`. Declaring one total is an `assume`, which is tracked.
 7. The type checker never evaluates `Partial` code (principle 2).
 
@@ -653,7 +657,7 @@ Resuming more than once doesn't by itself cause divergence. Exploring both branc
 
 | Ability | Purpose |
 |---|---|
-| `Partial` | Might not terminate ([§5](#5-totality-and-partiality)). Handled only by the runtime |
+| `Partial` | Might not terminate ([§5](#5-totality-and-partiality)). Not an ability with operations but a mode: a partial computation is a `Delay`, which only the runtime runs (`stitchwort run`, the playground), one recursive call (tick) at a time ([docs/proposals/partial.md](docs/proposals/partial.md)) |
 | `IO` | The console (`print`, `readLine`). Performed for real only by the runtime, at `main`; Stitchwort handlers may interpret it as data, as the prelude's `simulate` does ([docs/proposals/text-and-io.md](docs/proposals/text-and-io.md)). A trusted contract that may block |
 | `Abort` | Stop early. Handled into `Optional` or `Either` |
 | `State s` | State, handled purely. `s` must be data-only |
@@ -947,7 +951,7 @@ Each rejected example is paired with a nearby example that must be **accepted**,
 
 ## 14. Implementation
 
-**Current state:** milestones 1–4 and 6 are implemented (including decoders that refuse cyclic inputs and read each property once), and milestone 5 in part: tests, declaration hashes and a test-result cache, but not yet caching kernel checks or generated JS. Evaluation keeps its pending work on the heap and runs within per-operation resource budgets ([docs/proposals/stack-safe-evaluation.md](docs/proposals/stack-safe-evaluation.md)). Numbers are native (arbitrary precision, with native arithmetic), but there's no `Int` yet. Milestone 7 is implemented apart from `Partial`: abilities, rows, direct-style effectful code and handlers, translated into the inductive `Comp` trees chosen in [docs/proposals/abilities.md](docs/proposals/abilities.md). `stitchwort run` performs a program's `IO` for real ([docs/proposals/text-and-io.md](docs/proposals/text-and-io.md)). The playground (`web/`, `crates/web`) runs the compiler as WebAssembly, in a Web Worker, and can run `main` with scripted input; it doesn't cache test results in the browser yet. The elaborator and kernel are separate, as principle 4 requires. [`docs/core.md`](docs/core.md) gives the core rules as implemented, including where the implementation still differs from this document. [`docs/syntax.md`](docs/syntax.md) describes the implemented syntax.
+**Current state:** milestones 1–4 and 6 are implemented (including decoders that refuse cyclic inputs and read each property once), and milestone 5 in part: tests, declaration hashes and a test-result cache, but not yet caching kernel checks or generated JS. Evaluation keeps its pending work on the heap and runs within per-operation resource budgets ([docs/proposals/stack-safe-evaluation.md](docs/proposals/stack-safe-evaluation.md)). Numbers are native (arbitrary precision, with native arithmetic), but there's no `Int` yet. Milestone 7 is implemented, with `Partial` at stage 1 ([docs/proposals/partial.md](docs/proposals/partial.md)): abilities, rows, direct-style effectful code and handlers, translated into the inductive `Comp` trees chosen in [docs/proposals/abilities.md](docs/proposals/abilities.md). `stitchwort run` performs a program's `IO` for real ([docs/proposals/text-and-io.md](docs/proposals/text-and-io.md)). The playground (`web/`, `crates/web`) runs the compiler as WebAssembly, in a Web Worker, and can run `main` with scripted input; it doesn't cache test results in the browser yet. The elaborator and kernel are separate, as principle 4 requires. [`docs/core.md`](docs/core.md) gives the core rules as implemented, including where the implementation still differs from this document. [`docs/syntax.md`](docs/syntax.md) describes the implemented syntax.
 
 Written in **Rust**. The compiler itself compiles to **WASM** for the browser playground.
 
@@ -1040,7 +1044,7 @@ Reviewers' opinions are especially welcome here. The second review recommended s
 7. **Handler operational semantics** (milestone 7). The points listed in [§8](#8-abilities-and-handlers).
 8. **Effects and dependency.** The precise typing rules for sequencing effectful code when its results are used as type indices.
 9. **Runtime "at most once" for continuations.** How to check it, including through closures, for when handlers are extracted to JS.
-10. **Generic `withFuel`.** What representation of partial computation makes it sound ([§5](#5-totality-and-partiality))?
+10. **Generic `withFuel`.** What representation of partial computation makes it sound ([§5](#5-totality-and-partiality))? Stage 1 of `Partial` gives it one, `Delay`, with exact tick counts, but observing a `Delay` from total code (stage 2) needs its own argument: [docs/proposals/partial.md](docs/proposals/partial.md) §10.1 lists what.
 11. **`Float`.** Its semantics, and whether it can ever be exported.
 
 ### Syntax
