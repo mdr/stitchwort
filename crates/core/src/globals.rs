@@ -64,6 +64,13 @@ pub struct Data {
     pub params: Vec<(Name, Term)>,
     pub sort: Sort,
     pub ctors: Vec<Ctor>,
+    /// Whether it was declared as a record (docs/proposals/records.md): one
+    /// constructor, represented in JS without a tag. Fixed when declared, and
+    /// hashed; checking never depends on it.
+    pub record: bool,
+    /// Decision procedures for proof fields, which extracted JS runs to
+    /// establish them for decoded input. Added once the type is final.
+    pub validators: Vec<FieldValidator>,
     /// The data group this type was declared in (`declare_data_group`), in
     /// declaration order, including itself: a group of one for a type on its
     /// own. Every member has the same parameters and universe. Set once, when
@@ -81,6 +88,14 @@ pub struct Data {
     /// Until then it isn't empty: it can't be matched on or hashed.
     pub state: State,
     pub span: Span,
+}
+
+/// A decision procedure for proof field `field` of constructor `ctor`, in the
+/// context of the type's parameters and the constructor's earlier fields.
+pub struct FieldValidator {
+    pub ctor: usize,
+    pub field: usize,
+    pub decision: Term,
 }
 
 pub struct Ctor {

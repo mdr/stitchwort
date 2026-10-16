@@ -1083,6 +1083,9 @@ fn free_names(work: Vec<Work<'_>>) -> Vec<&ast::Name> {
                         out.push(n);
                         then(&mut stack, args.iter().map(Work::Pattern).collect());
                     }
+                    Pattern::Record { fields, .. } => {
+                        then(&mut stack, fields.iter().map(|(_, p)| Work::Pattern(p)).collect());
+                    }
                     Pattern::Wildcard(_) | Pattern::Absurd(_) | Pattern::Num(..) => {}
                 }
                 continue;
@@ -1134,6 +1137,12 @@ fn free_names(work: Vec<Work<'_>>) -> Vec<&ast::Name> {
             }
             Expr::Ann(e, t, _) => then(&mut stack, vec![Work::Expr(e), Work::Expr(t)]),
             Expr::List(items, _) => then(&mut stack, items.iter().map(Work::Expr).collect()),
+            Expr::Record { base, fields, .. } => {
+                let mut steps: Vec<Work> = base.iter().map(|b| Work::Expr(b)).collect();
+                steps.extend(fields.iter().map(|(_, e)| Work::Expr(e)));
+                then(&mut stack, steps);
+            }
+            Expr::Field(e, _) => stack.push(Work::Expr(e)),
             Expr::Effect(row, ty) => {
                 let mut steps: Vec<Work> = row.abilities.iter().map(Work::Expr).collect();
                 steps.extend(row.tail.iter().map(Work::Name));

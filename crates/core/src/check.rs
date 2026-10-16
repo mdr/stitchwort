@@ -8,7 +8,7 @@ use std::rc::Rc;
 use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::budget;
-use crate::globals::{Ctor, Data, Def, Globals, State, Validator};
+use crate::globals::{Ctor, Data, Def, FieldValidator, Globals, State, Validator};
 use crate::pretty;
 use crate::term::{Branch, DataId, DefId, Icit, Name, NumArm, Sort, Term};
 use crate::termination;
@@ -869,7 +869,24 @@ pub fn declare_data_group(
     sort: Sort,
     members: Vec<(Name, Span)>,
 ) -> Result<Vec<DataId>> {
-    let Some(&(_, span)) = members.first() else {
+    let members = members
+        .into_iter()
+        .map(|(name, span)| (name, span, false))
+        .collect();
+    declare_data_group_as(g, params, sort, members)
+}
+
+/// [`declare_data_group`], saying for each member whether it's a record
+/// (docs/proposals/records.md): a type with exactly one constructor, which
+/// `define_data_group` checks, and which extracted JS represents without a
+/// tag. The flag is fixed here and hashed; nothing in checking depends on it.
+pub fn declare_data_group_as(
+    g: &mut Globals,
+    params: Vec<(Name, Term)>,
+    sort: Sort,
+    members: Vec<(Name, Span, bool)>,
+) -> Result<Vec<DataId>> {
+    let Some(&(_, span, _)) = members.first() else {
         return Err(Diagnostic::error(
             "E-MALFORMED",
             "malformed core term: an empty group of data types",
@@ -889,12 +906,14 @@ pub fn declare_data_group(
     let group: Rc<[DataId]> = (0..members.len())
         .map(|i| DataId(datas_before + i))
         .collect();
-    for (name, span) in members {
+    for (name, span, record) in members {
         g.datas.push(Data {
             name,
             params: checked.clone(),
             sort,
             ctors: Vec::new(),
+            record,
+            validators: Vec::new(),
             group: group.clone(),
             defs_before,
             datas_before,
@@ -972,6 +991,11 @@ pub fn define_data_group(g: &mut Globals, members: Vec<(DataId, Vec<CtorDecl>)>)
                 "`{}` wasn't declared in the same group as `{}`",
                 data.name,
                 g.data(listed[0]).name
+            ))
+        } else if data.record && members[k].1.len() != 1 {
+            Some(format!(
+                "`{}` is a record, so it has exactly one constructor",
+                data.name
             ))
         } else {
             None
@@ -1417,15 +1441,7 @@ pub fn add_validator(
             "a validator for a parameter that isn't erased",
         ));
     };
-    let shaped_like_decidable = g.datas.get(decidable.0).is_some_and(|d| {
-        d.state == State::Final
-            && d.params.len() == 1
-            && matches!(d.params[0].1.strip_loc(), Term::Sort(Sort::Prop))
-            && d.ctors.len() == 2
-            && d.ctors[0].fields.len() == 1
-            && matches!(d.ctors[0].fields[0].1.strip_loc(), Term::Var(0))
-    });
-    if !shaped_like_decidable || !case_only_in_tree(decision, false) {
+    if !shaped_like_decidable(g, decidable) || !case_only_in_tree(decision, false) {
         return Err(malformed(&cx, "a validator that isn't a decision"));
     }
     let failed = admissible(&cx, [decision], None)?;
@@ -1439,6 +1455,78 @@ pub fn add_validator(
     }
     g.defs[id.0].validators.push(Validator { param, decision });
     Ok(())
+}
+
+/// Adds a decision procedure for proof field `field` of constructor `ctor`
+/// of data type `d`, which extracted JS runs on a decoded value to establish
+/// the proof the input doesn't carry (docs/proposals/records.md §11.3). It
+/// must have type `Decidable P`, where `P` is the field's type, in the
+/// context of the type's parameters and the constructor's earlier fields.
+pub fn add_field_validator(
+    g: &mut Globals,
+    d: DataId,
+    ctor: usize,
+    field: usize,
+    decidable: DataId,
+    decision: &Term,
+) -> Result<()> {
+    let Some(data) = g.datas.get(d.0) else {
+        return Err(Diagnostic::error(
+            "E-MALFORMED",
+            "malformed core term: reference to an unknown data type",
+        ));
+    };
+    let mut cx = Ctx::new(g, data.span);
+    if data.state != State::Final {
+        return Err(malformed(&cx, "a validator for a data type that isn't final"));
+    }
+    let Some(c) = data.ctors.get(ctor) else {
+        return Err(malformed(&cx, "a validator for a constructor that doesn't exist"));
+    };
+    if c.field_sorts.get(field) != Some(&Sort::Prop) {
+        return Err(malformed(&cx, "a validator for a field that isn't a proof"));
+    }
+    if data
+        .validators
+        .iter()
+        .any(|v| v.ctor == ctor && v.field == field)
+    {
+        return Err(malformed(&cx, "a second validator for one field"));
+    }
+    if !shaped_like_decidable(g, decidable) || !case_only_in_tree(decision, false) {
+        return Err(malformed(&cx, "a validator that isn't a decision"));
+    }
+    let failed = admissible(&cx, [decision], None)?;
+    let telescope = data.params.iter().chain(&c.fields[..field]);
+    for (x, ty) in telescope {
+        let value = cx.eval(ty)?;
+        cx.bind(x.clone(), value);
+    }
+    let prop = cx.eval(&c.fields[field].1)?;
+    let expected = Value::Data(decidable, vec![prop]);
+    let decision = check(&mut cx, decision, &expected)?;
+    if let Some(dep) = failed {
+        return Err(failed_dependency(&cx, &data.name, &dep));
+    }
+    g.datas[d.0].validators.push(FieldValidator {
+        ctor,
+        field,
+        decision,
+    });
+    Ok(())
+}
+
+/// Whether `decidable` is shaped like the prelude's `Decidable`: one `Prop`
+/// parameter, and two constructors, the first holding a proof of it.
+fn shaped_like_decidable(g: &Globals, decidable: DataId) -> bool {
+    g.datas.get(decidable.0).is_some_and(|d| {
+        d.state == State::Final
+            && d.params.len() == 1
+            && matches!(d.params[0].1.strip_loc(), Term::Sort(Sort::Prop))
+            && d.ctors.len() == 2
+            && d.ctors[0].fields.len() == 1
+            && matches!(d.ctors[0].fields[0].1.strip_loc(), Term::Var(0))
+    })
 }
 
 /// Whether `ty` is `Type`, `Prop`, or a function type ending in one: values of
