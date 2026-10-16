@@ -55,7 +55,12 @@ capability we know we'll need before the work that needs it):
    Alongside, for Advent of Code: lane `aoc-survey` (Sonnet) surveys days
    1–5 of AoC 2025 from the user's solutions and inputs to rank what the
    library needs; lane `int-design` (Opus) writes the `Int` design note.
-2. **Standard library for real programs:** list functions (`map`, `filter`,
+2. **Standard library for real programs** (ranked by the AoC survey,
+   [aoc-2025.md](docs/aoc-2025.md): days 1–5 already run with today's
+   compiler using hand-written helpers): a list toolkit, a `readAllLines`
+   helper, `Nat` arithmetic lemmas (the gate to arithmetic proofs), `Nat`
+   helpers (min, max, absDiff, pow, digits), sorting with a proof; later an
+   `Array` type, a balanced map/set. Also: list functions (`map`, `filter`,
    folds, `sum`, `max`, `zip`, `take`/`drop`, indexing), sorting with a
    correctness proof (sorted permutation), `Int`, a balanced-tree map/set,
    grid helpers.
@@ -211,6 +216,13 @@ capability we know we'll need before the work that needs it):
 
 ## Known issues
 
+- **Compiler panic** (reproduced on main, 16 October): a user constructor
+  named like a prelude one (`L`, `R`) used in a record pattern panics at
+  `crates/elab/src/records.rs:430` (index out of bounds) instead of
+  reporting `E-DUPLICATE`. Repro: `type Dir = | L | R`, `type Rot = { dir :
+  Dir, amount : Nat }`, `f { dir = R, amount } = amount`.
+- **`else` on its own line is a parse error** with the message "expected
+  `else`, but found `else`" (`if n == 0 then 1` / newline / `else 2`).
 - **Row order is fixed by declaration order**, so `IO` (declared in the
   prelude) always comes first in a row: `{State Nat, IO}` and
   `{IO, State Nat}` are the same type. Harmless, but it means no test can
