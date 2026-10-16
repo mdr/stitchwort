@@ -34,6 +34,7 @@ use std::rc::Rc;
 
 use stitchwort_core::check as kernel;
 use stitchwort_core::partial::Primitive;
+use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{Elim, Head, Value, eval, force, quote};
 use stitchwort_core::{DataId, DefId, Icit, Name, Sort, Term};
 use stitchwort_syntax::ast::Decl;
@@ -239,20 +240,17 @@ impl Elaborator {
         let g = &self.globals;
         let names = {
             let prim = |p: Primitive| g.builtins.primitive_id(p).expect("partial types exist");
-            let data = |n: &str| g.find_data(n).expect("the prelude declares it");
-            let def = |n: &str| match self.names.get(n) {
-                Some((Global::Def(id), _)) => *id,
-                _ => unreachable!("the prelude declares `{n}`"),
-            };
+            let data = |b: Builtin| g.registry.data(b).expect("the prelude declares it");
+            let def = |b: Builtin| g.registry.def(b).expect("the prelude declares it");
             Names {
                 delay: prim(Primitive::Delay),
                 lift: prim(Primitive::Lift),
                 pfix: prim(Primitive::Pfix),
-                comp: data("Comp"),
-                plus: data("Plus"),
-                rec: data("Rec"),
-                plus_res: def("PlusRes"),
-                rec_res: def("RecRes"),
+                comp: data(Builtin::Comp),
+                plus: data(Builtin::Plus),
+                rec: data(Builtin::Rec),
+                plus_res: def(Builtin::PlusRes),
+                rec_res: def(Builtin::RecRes),
             }
         };
         let infos: Vec<Member> = members

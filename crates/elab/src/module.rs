@@ -133,6 +133,13 @@ impl Elaborator {
     /// Elaborates and checks every declaration, continuing past errors.
     /// Declarations may refer to each other in any order.
     pub fn elaborate_module(&mut self, module: &Module) -> Vec<Diagnostic> {
+        // User code is elaborated only once every built-in is bound
+        // (docs/proposals/namespaces.md §4.7).
+        if !self.loading_prelude
+            && let Err(d) = stitchwort_core::registry::check_complete(&self.globals)
+        {
+            return vec![d];
+        }
         let mut diagnostics: Vec<(usize, Diagnostic)> = Vec::new();
         let first_test = self.tests.len();
         self.module = ModuleState::default();

@@ -10,6 +10,7 @@ use num_bigint::BigUint;
 
 use crate::budget::Result;
 use crate::globals::Globals;
+use crate::registry::Builtin;
 use crate::term::{DataId, Icit, Name, Sort, Term};
 use crate::value::{Value, quote};
 
@@ -88,12 +89,12 @@ impl<'g> Printer<'g> {
         let mut ops = ops.strip_loc();
         let tail = loop {
             match ops {
-                Term::Data(d, args) if data_named(self.g, *d, "Plus") && args.len() == 2 => {
+                Term::Data(d, args) if is(self.g, Builtin::Plus, *d) && args.len() == 2 => {
                     labels.push(self.print(names, &args[0], Prec::Arrow));
                     ops = args[1].strip_loc();
                 }
-                Term::Data(d, _) if data_named(self.g, *d, "NoOp") => break None,
-                Term::App(f, e, _) if matches!(f.strip_loc(), Term::Def(id) if &*self.g.def(*id).name == "sigOp") =>
+                Term::Data(d, _) if is(self.g, Builtin::NoOp, *d) => break None,
+                Term::App(f, e, _) if matches!(f.strip_loc(), Term::Def(id) if self.g.registry.is_def(Builtin::SigOp, *id)) =>
                 {
                     break Some(self.print(names, e, Prec::App));
                 }
@@ -132,9 +133,9 @@ impl<'g> Printer<'g> {
             Term::Nat(n) => (n.to_string(), Prec::Atom),
             // A compact list of characters, as the list literal it stands for.
             Term::Chars(chars) => (show_chars(chars.as_slice()), Prec::Atom),
-            Term::Data(d, _) if data_named(self.g, *d, "UnitType") => ("()".into(), Prec::Atom),
+            Term::Data(d, _) if is(self.g, Builtin::UnitType, *d) => ("()".into(), Prec::Atom),
             // A computation over a row of abilities: `{State Nat | e} a`.
-            Term::Data(d, args) if data_named(self.g, *d, "Comp") && args.len() == 3 => {
+            Term::Data(d, args) if is(self.g, Builtin::Comp, *d) && args.len() == 3 => {
                 match self.row(names, &args[0]) {
                     Some(row) => {
                         let result = self.print(names, &args[2], Prec::App);
@@ -148,7 +149,7 @@ impl<'g> Printer<'g> {
                 self.g.data(*d).name.to_string(),
                 args.iter().map(|a| &**a),
             ),
-            Term::Ctor(d, 0, _) if data_named(self.g, *d, "UnitType") => ("()".into(), Prec::Atom),
+            Term::Ctor(d, 0, _) if is(self.g, Builtin::UnitType, *d) => ("()".into(), Prec::Atom),
             // A record, as a literal: `{ name = "A", age = 3 }`.
             Term::Ctor(d, 0, args) if self.g.data(*d).record => {
                 let fields: Vec<String> = self.g.data(*d).ctors[0]
@@ -188,7 +189,7 @@ impl<'g> Printer<'g> {
             // `p -> Void` is how `Not p` computes; print it the way it's written.
             Term::Pi(_, Icit::Explicit, a, b)
                 if !b.mentions(0)
-                    && matches!(b.strip_loc(), Term::Data(d, _) if data_named(self.g, *d, "Void")) =>
+                    && matches!(b.strip_loc(), Term::Data(d, _) if is(self.g, Builtin::Void, *d)) =>
             {
                 if let Term::Eq(_, lhs, rhs) = a.strip_loc() {
                     let lhs = self.print(names, lhs, Prec::Add);
@@ -226,7 +227,6 @@ impl<'g> Printer<'g> {
                 // aren't shown.
                 let (head, args) = explicit_spine(term);
                 if let Term::Def(id) = head {
-                    let name = &*self.g.def(*id).name;
                     // A partial computation: `{IO, Partial} a`.
                     if self.g.builtins.primitive(*id) == Some(crate::partial::Primitive::Delay)
                         && let [ops, _, result] = &args[..]
@@ -235,11 +235,11 @@ impl<'g> Printer<'g> {
                         let result = self.print(names, result, Prec::App);
                         return (format!("{row} {result}"), Prec::App);
                     }
-                    let infix = match name {
-                        "add" => Some(("+", Prec::Add)),
-                        "sub" => Some(("-", Prec::Add)),
-                        "LessEq" => Some(("<=", Prec::Eq)),
-                        "LessThan" => Some(("<", Prec::Eq)),
+                    let infix = match self.g.registry.def_builtin(*id) {
+                        Some(Builtin::Add) => Some(("+", Prec::Add)),
+                        Some(Builtin::Sub) => Some(("-", Prec::Add)),
+                        Some(Builtin::LessEq) => Some(("<=", Prec::Eq)),
+                        Some(Builtin::LessThan) => Some(("<", Prec::Eq)),
                         _ => None,
                     };
                     if let (Some((op, prec)), [lhs, rhs]) = (infix, &args[..]) {
@@ -253,7 +253,8 @@ impl<'g> Printer<'g> {
                         let rhs = self.print(names, rhs, right);
                         return (format!("{lhs} {op} {rhs}"), prec);
                     }
-                    if let ("Not", [prop]) = (name, &args[..])
+                    if self.g.registry.is_def(Builtin::Not, *id)
+                        && let [prop] = &args[..]
                         && let Term::Eq(_, a, b) = prop.strip_loc()
                     {
                         let a = self.print(names, a, Prec::Add);
@@ -307,8 +308,10 @@ fn explicit_spine(term: &Term) -> (&Term, Vec<&Term>) {
     (head, args)
 }
 
-fn data_named(g: &Globals, d: DataId, name: &str) -> bool {
-    &*g.data(d).name == name
+/// Whether `d` is the prelude's `b`, which the printer shows specially. By
+/// identity, so a user's own `List` prints as written.
+fn is(g: &Globals, b: Builtin, d: DataId) -> bool {
+    g.registry.is_data(b, d)
 }
 
 /// `Succ (Succ Zero)` as `2`.
@@ -318,8 +321,8 @@ fn nat_literal(g: &Globals, term: &Term) -> Option<BigUint> {
     loop {
         match term {
             Term::Nat(k) => return Some(&**k + n),
-            Term::Ctor(d, 0, _) if data_named(g, *d, "Nat") => return Some(n.into()),
-            Term::Ctor(d, 1, args) if data_named(g, *d, "Nat") => {
+            Term::Ctor(d, 0, _) if is(g, Builtin::Nat, *d) => return Some(n.into()),
+            Term::Ctor(d, 1, args) if is(g, Builtin::Nat, *d) => {
                 n += 1;
                 term = args[0].strip_loc();
             }
@@ -331,7 +334,7 @@ fn nat_literal(g: &Globals, term: &Term) -> Option<BigUint> {
 /// `MkChar 97 _` as `'a'`.
 fn char_literal(g: &Globals, term: &Term) -> Option<char> {
     match term.strip_loc() {
-        Term::Ctor(d, 0, args) if data_named(g, *d, "Char") && args.len() == 2 => {
+        Term::Ctor(d, 0, args) if is(g, Builtin::Char, *d) && args.len() == 2 => {
             let code = u32::try_from(nat_literal(g, &args[0])?).ok()?;
             char::from_u32(code)
         }
@@ -342,7 +345,7 @@ fn char_literal(g: &Globals, term: &Term) -> Option<char> {
 /// `MkText ['h', 'i']` as `"hi"`.
 fn text_literal(g: &Globals, term: &Term) -> Option<Vec<char>> {
     match term.strip_loc() {
-        Term::Ctor(d, 0, args) if data_named(g, *d, "Text") && args.len() == 1 => {
+        Term::Ctor(d, 0, args) if is(g, Builtin::Text, *d) && args.len() == 1 => {
             char_list(g, &args[0])
         }
         _ => None,
@@ -360,8 +363,8 @@ fn char_list(g: &Globals, term: &Term) -> Option<Vec<char>> {
                 chars.extend_from_slice(rest.as_slice());
                 return Some(chars);
             }
-            Term::Ctor(d, 0, _) if data_named(g, *d, "List") => return Some(chars),
-            Term::Ctor(d, 1, args) if data_named(g, *d, "List") => {
+            Term::Ctor(d, 0, _) if is(g, Builtin::List, *d) => return Some(chars),
+            Term::Ctor(d, 1, args) if is(g, Builtin::List, *d) => {
                 chars.push(char_literal(g, &args[0])?);
                 term = args[1].strip_loc();
             }
@@ -408,8 +411,8 @@ fn list_literal<'t>(g: &Globals, term: &'t Term) -> Option<Vec<&'t Term>> {
     let mut term = term.strip_loc();
     loop {
         match term {
-            Term::Ctor(d, 0, _) if data_named(g, *d, "List") => return Some(items),
-            Term::Ctor(d, 1, args) if data_named(g, *d, "List") => {
+            Term::Ctor(d, 0, _) if is(g, Builtin::List, *d) => return Some(items),
+            Term::Ctor(d, 1, args) if is(g, Builtin::List, *d) => {
                 items.push(&args[0]);
                 term = args[1].strip_loc();
             }

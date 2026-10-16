@@ -23,6 +23,7 @@ use std::collections::HashSet;
 use std::rc::Rc;
 
 use stitchwort_core::check as kernel;
+use stitchwort_core::registry::Builtin;
 use stitchwort_core::term::Branch;
 use stitchwort_core::value::{eval, force, quote, unused};
 use stitchwort_core::{DataId, DefId, Icit, Name, Sort, Term, Value};
@@ -134,7 +135,7 @@ impl Elaborator {
         let ctor = &data.ctors[0];
         let record = data.name.to_string();
         let span = data.span;
-        if !self.names.contains_key("Decidable") {
+        if self.globals.registry.data(Builtin::Decidable).is_none() {
             return Ok(Some("there's no prelude".into()));
         }
         if !data.params.is_empty() {
@@ -278,7 +279,11 @@ impl Elaborator {
         };
         // Everything it needs was found above, so this doesn't fail; if it
         // somehow did, `==` just isn't derived.
-        Ok(match self.definition(&signature, &[equation]) {
+        // The generated code's `Yes`, `No`, `cong` and `Decidable` are the
+        // prelude's, whatever those names mean in the program.
+        let builtins = [Builtin::Yes, Builtin::No, Builtin::Cong, Builtin::Decidable];
+        let result = self.with_builtin_names(&builtins, |e| e.definition(&signature, &[equation]));
+        Ok(match result {
             Ok(()) => None,
             Err(e) if e.code == "E-RESOURCE" => return Err(e),
             Err(e) => Some(format!("deriving it failed: {}", e.message)),
@@ -352,7 +357,7 @@ impl Elaborator {
         what: &str,
         span: Span,
     ) -> Result<()> {
-        let Some((Global::Data(decidable), _)) = self.names.get("Decidable").copied() else {
+        let Some(decidable) = self.globals.registry.data(Builtin::Decidable) else {
             return Ok(());
         };
         let data = self.globals.data(d);

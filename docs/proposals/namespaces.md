@@ -1749,6 +1749,18 @@ The JS encoding and the generated ability names are separable from the
 registry, and may be done at the start of stage 1 instead, since they only
 matter once users can write dotted names.
 
+**As built** (stage 0): the registry is `crates/core/src/registry.rs`, kept
+in `Globals`, with an entry per built-in (data types, constructors,
+definitions) bound by `bind_data` and `bind_def` as the prelude's
+declarations are admitted, and `check_complete` run by
+`Elaborator::finish_prelude` and again before any user module. Syntax the
+compiler *generates* as source (records' `==`, the runner's call of `main`
+and `simulate`) is elaborated with those names temporarily meaning the
+registry's declarations (`with_builtin_names`). The tests are in
+`crates/driver/tests/builtins.rs`. The JS name encoding, the generated
+ability names, and `module.rs`'s syntactic `ends_in_decidable` (which reads
+the *written* name `Decidable`) move to stage 1.
+
 **Stage 1: namespaces, qualified names and `import`.**
 
 - Dotted declaration names; type namespaces (constructors, record

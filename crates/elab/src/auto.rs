@@ -18,12 +18,13 @@
 //!    compile time, and must say `Yes`. The proof is then `fromYes d Trivial`,
 //!    which the kernel re-checks by running `d` itself.
 
+use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{Head, force};
 use stitchwort_core::{DataId, DefId, Icit, Name, Term, Value};
 use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::Elaborator;
-use crate::check::{Ctx, ctor_named, def_named};
+use crate::check::{Ctx, builtin_ctor, builtin_data, builtin_def};
 
 type Result<T> = std::result::Result<T, Diagnostic>;
 
@@ -86,8 +87,8 @@ pub fn prove(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Term> {
     match force(cx.g(), cx.eval(&decision)?)? {
         Value::Ctor(_, 0, _) => {
             // `fromYes [p := goal] decision Trivial`
-            let from_yes = def_named(cx, "fromYes")?;
-            let (unit, trivial) = ctor_named(cx, "Trivial")?;
+            let from_yes = builtin_def(cx, Builtin::FromYes)?;
+            let (unit, trivial) = builtin_ctor(cx, Builtin::Trivial)?;
             let goal_term = cx.quote(&goal)?;
             Ok(Term::app(
                 Term::app(
@@ -175,7 +176,7 @@ fn give_up_on<T>(e: Diagnostic) -> Result<Option<T>> {
 }
 
 fn decidable(cx: &Ctx) -> Result<DataId> {
-    Ok(ctor_named(cx, "Yes")?.0)
+    builtin_data(cx, Builtin::Decidable)
 }
 
 /// Definitions whose result type is `Decidable …`, most recent first.

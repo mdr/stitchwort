@@ -22,6 +22,7 @@
 use std::fmt;
 use std::io::{self, BufRead, Write};
 
+use stitchwort_core::registry::Builtin;
 use stitchwort_core::step::{Machine, Obs};
 use stitchwort_core::value::{eval, expand_step, force};
 use stitchwort_core::{DataId, ResourceError, Term, Value, native};
@@ -136,7 +137,7 @@ impl Session {
             .is_partial(stitchwort_core::DefId(index))
             .unwrap_or(false);
         let expr = self.parse_expression("<main>", MAIN_CALL)?;
-        match self.elab.infer_expr(&expr) {
+        match self.elab.infer_expr_with_builtins(&expr, &[Builtin::Io]) {
             Ok((term, _)) => Ok(Main {
                 term,
                 span,
@@ -182,7 +183,8 @@ impl Session {
             lines.join(", ")
         );
         let expr = self.parse_expression("<simulate>", &source)?;
-        let (term, _) = self.elab.infer_expr(&expr)?;
+        let builtins = [Builtin::Fst, Builtin::Simulate, Builtin::Io];
+        let (term, _) = self.elab.infer_expr_with_builtins(&expr, &builtins)?;
         let g = &self.elab.globals;
         let s = Shapes::new(self);
         let _op = g.budget.operation(self.elab.limits);
@@ -398,24 +400,18 @@ struct Shapes {
 impl Shapes {
     fn new(session: &Session) -> Shapes {
         let g = &session.elab.globals;
-        let data = |name: &str| g.find_data(name).expect("the prelude declares it");
-        let ctor = |d: DataId, name: &str| {
-            g.data(d)
-                .ctors
-                .iter()
-                .position(|c| &*c.name == name)
-                .expect("the prelude declares it")
-        };
-        let io = data("IO");
+        let r = &g.registry;
+        let data = |b: Builtin| r.data(b).expect("the prelude declares it");
+        let ctor = |b: Builtin| r.ctor(b).expect("the prelude declares it").1;
         Shapes {
-            io,
-            print: ctor(io, "IO.print"),
-            read_line: ctor(io, "IO.readLine"),
-            unit: data("UnitType"),
-            maybe: data("Maybe"),
-            text: data("Text"),
-            list: data("List"),
-            char: data("Char"),
+            io: data(Builtin::Io),
+            print: ctor(Builtin::Print),
+            read_line: ctor(Builtin::ReadLine),
+            unit: data(Builtin::UnitType),
+            maybe: data(Builtin::Maybe),
+            text: data(Builtin::Text),
+            list: data(Builtin::List),
+            char: data(Builtin::Char),
         }
     }
 

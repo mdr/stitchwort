@@ -5,7 +5,7 @@ mod common;
 use std::rc::Rc;
 
 use common::*;
-use stitchwort_core::check;
+use stitchwort_core::registry;
 use stitchwort_core::{Icit, Sort, Term, pretty};
 
 fn show(p: &Prelude, names: &[&str], term: &Term) -> String {
@@ -133,6 +133,7 @@ fn prints_negations_the_way_they_are_written() {
     let mut p = Prelude::new();
     let void = data(&mut p.g, "Void", vec![], Sort::Prop);
     stitchwort_core::check::define_ctors(&mut p.g, void, vec![]).expect("Void");
+    registry::bind_data(&mut p.g, void);
     let not_equal = arrow(eq(None, v(0), p.num(0)), Term::Data(void, vec![]));
     assert_eq!(show(&p, &["d"], &not_equal), "d != 0");
     let not_prop = arrow(prop(), Term::Data(void, vec![]));
@@ -145,7 +146,9 @@ fn prints_the_prelude_operators_infix() {
     let nat = p.nat_ty();
     let binary = |p: &mut Prelude, name: &str| {
         let ty = arrow(nat.clone(), arrow(nat.clone(), nat.clone()));
-        check::declare_def(&mut p.g, &name.into(), &ty, false, false, span()).unwrap()
+        let id = define(&mut p.g, name, ty, lam("x", lam("y", v(1)))).unwrap();
+        registry::bind_def(&mut p.g, id);
+        id
     };
     let sub = binary(&mut p, "sub");
     let less = binary(&mut p, "LessThan");

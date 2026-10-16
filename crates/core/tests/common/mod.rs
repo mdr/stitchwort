@@ -5,6 +5,7 @@
 use std::rc::Rc;
 
 use stitchwort_core::check::{self, CtorDecl};
+use stitchwort_core::registry;
 use stitchwort_core::term::Branch;
 use stitchwort_core::{DataId, DefId, Globals, Icit, Sort, Term};
 use stitchwort_syntax::{SourceMap, Span};
@@ -137,6 +138,11 @@ impl Prelude {
             ],
         )
         .expect("List");
+        // They're the prelude's, as far as the printer and the evaluator
+        // know.
+        registry::bind_data(&mut g, nat);
+        registry::bind_def(&mut g, add);
+        registry::bind_data(&mut g, list);
         Prelude { g, nat, add, list }
     }
 

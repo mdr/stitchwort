@@ -140,8 +140,14 @@ fn apply_spine(g: &Globals, mut value: Value, spine: &[Elim]) -> Result<Value> {
 /// list means (docs/proposals/compact-text.md, "Expansion"), written out
 /// from the prelude's constructors, independently of [`crate::chars`].
 fn expand(g: &Globals, chars: &[char]) -> Value {
-    let list = g.find_data("List").expect("a compact list needs `List`");
-    let char = g.find_data("Char").expect("a compact list needs `Char`");
+    let list = g
+        .registry
+        .data(crate::registry::Builtin::List)
+        .expect("a compact list needs `List`");
+    let char = g
+        .registry
+        .data(crate::registry::Builtin::Char)
+        .expect("a compact list needs `Char`");
     let mut value = Value::Ctor(list, 0, Vec::new().into());
     for c in chars.iter().rev() {
         let code = Value::Nat(Rc::new(u32::from(*c).into()));
@@ -158,8 +164,14 @@ pub fn expand_term(g: &Globals, term: &Term) -> Term {
     let go = |t: &Rc<Term>| Rc::new(expand_term(g, t));
     match term {
         Term::Chars(chars) => {
-            let list = g.find_data("List").expect("a compact list needs `List`");
-            let char = g.find_data("Char").expect("a compact list needs `Char`");
+            let list = g
+                .registry
+                .data(crate::registry::Builtin::List)
+                .expect("a compact list needs `List`");
+            let char = g
+                .registry
+                .data(crate::registry::Builtin::Char)
+                .expect("a compact list needs `Char`");
             let mut out = Term::Ctor(list, 0, Vec::new());
             for c in chars.as_slice().iter().rev() {
                 let code = Term::Nat(Rc::new(u32::from(*c).into()));

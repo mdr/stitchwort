@@ -16,8 +16,9 @@
 //! natives on would change which `rfl` proofs check). The tests compare whole
 //! results with the definitions on many inputs.
 //!
-//! Built-ins are registered by name, only while the prelude is loaded, and the
-//! registration functions check the shapes of the types involved.
+//! Built-ins are registered while the prelude is loaded, for the declarations
+//! the registry ([`crate::registry`]) binds, and the registration functions
+//! check the shapes of the types involved.
 //!
 //! A number with unknowns in it is kept compact too: `1000 + x` is
 //! `Value::NatAdd(1000, x)`, which means `Succ` applied 1000 times to `x`
@@ -35,6 +36,7 @@ use stitchwort_syntax::{Diagnostic, Span};
 use crate::budget;
 use crate::globals::{Globals, State};
 use crate::partial::Primitive;
+use crate::registry::Builtin;
 use crate::term::{DataId, DefId, Icit, Sort, Term};
 use crate::value::{Elim, Head, Value, conv, eval, force};
 
@@ -79,18 +81,23 @@ impl Native {
     ];
 
     /// The prelude definition this implements.
-    pub fn name(self) -> &'static str {
+    pub fn builtin(self) -> Builtin {
         match self {
-            Native::Add => "add",
-            Native::Sub => "sub",
-            Native::Mul => "mul",
-            Native::Leq => "leq",
-            Native::EqNat => "eqNat",
-            Native::DivFuel => "divFuel",
-            Native::DecEqNat => "decEqNat",
-            Native::EqNatRefl => "eqNatRefl",
-            Native::EqNatSound => "eqNatSound",
+            Native::Add => Builtin::Add,
+            Native::Sub => Builtin::Sub,
+            Native::Mul => Builtin::Mul,
+            Native::Leq => Builtin::Leq,
+            Native::EqNat => Builtin::EqNat,
+            Native::DivFuel => Builtin::DivFuel,
+            Native::DecEqNat => Builtin::DecEqNat,
+            Native::EqNatRefl => Builtin::EqNatRefl,
+            Native::EqNatSound => Builtin::EqNatSound,
         }
+    }
+
+    /// The name of the prelude definition this implements.
+    pub fn name(self) -> &'static str {
+        self.builtin().name()
     }
 
     pub fn arity(self) -> usize {
@@ -221,9 +228,7 @@ pub fn register_decidable(g: &mut Globals, d: DataId) -> Result<()> {
     let data = g.data(d);
     let p = Value::var(0);
     // `No`'s field relies on `Void` being empty, so it must be final.
-    let void = g
-        .find_data("Void")
-        .filter(|v| g.data(*v).state == State::Final);
+    let void = g.registry.data(Builtin::Void);
     let shaped = data.state == State::Final
         && data.params.len() == 1
         && data.sort == Sort::Type(0)
@@ -357,8 +362,7 @@ pub fn register_nat_neq(g: &mut Globals, id: DefId) -> Result<()> {
         g.builtins.nat,
         g.builtins.bool,
         native_def(g, Native::EqNat),
-        g.find_data("Void")
-            .filter(|v| g.data(*v).state == State::Final),
+        g.registry.data(Builtin::Void),
     ) else {
         return Err(shape_error(span, "natNeq"));
     };

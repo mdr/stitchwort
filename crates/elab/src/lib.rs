@@ -25,6 +25,7 @@ use stitchwort_core::chars;
 use stitchwort_core::check as kernel;
 use stitchwort_core::native::{self, Native};
 use stitchwort_core::partial::Primitive;
+use stitchwort_core::registry::{self, Builtin, Kind};
 use stitchwort_core::term::{Branch, NumArm};
 use stitchwort_core::value::{eval, force};
 use stitchwort_core::{DataId, DefId, Globals, Icit, Limits, Name, Sort, Term, Value, pretty};
@@ -37,6 +38,10 @@ use module::Phase;
 pub const PRELUDE: &str = include_str!("prelude.sw");
 
 type Result<T> = std::result::Result<T, Diagnostic>;
+
+/// The constructor name of the unit pattern `()` the compiler writes: the
+/// prelude's `UnitValue`, by identity. Source can't spell it.
+const UNIT_PATTERN: &str = "%unit";
 
 /// Names with built-in meanings, which can't be redefined.
 const RESERVED: &[&str] = &["rfl", "J", "Partial"];
@@ -173,6 +178,78 @@ impl Elaborator {
             .map_err(|d| self.locate(d, expr.span()))
     }
 
+    /// [`Elaborator::infer_expr`] for an expression the compiler writes, in
+    /// which the prelude names of `builtins` mean those built-ins, whatever
+    /// they mean in the loaded program (the runner's call of `main`).
+    pub fn infer_expr_with_builtins(
+        &mut self,
+        expr: &Expr,
+        builtins: &[Builtin],
+    ) -> Result<(Term, Value)> {
+        self.with_builtin_names(builtins, |e| e.infer_expr(expr))
+    }
+
+    /// Runs `f` with the prelude names of `builtins` meaning those
+    /// built-ins (docs/proposals/namespaces.md §4.7), for syntax the compiler
+    /// generates. A built-in that isn't bound makes its name unknown rather
+    /// than leaving it to whatever it means in scope. Other names are
+    /// unaffected, and the names are restored afterwards.
+    pub(crate) fn with_builtin_names<T>(
+        &mut self,
+        builtins: &[Builtin],
+        f: impl FnOnce(&mut Self) -> T,
+    ) -> T {
+        let mut saved = Vec::new();
+        for &b in builtins {
+            let r = &self.globals.registry;
+            let bound = match b.kind() {
+                Kind::Data => r.data(b).map(|d| {
+                    let global = match self.abilities.iter().position(|a| a.op_data == d) {
+                        Some(i) => Global::Ability(i),
+                        None => Global::Data(d),
+                    };
+                    (global, self.globals.data(d).span)
+                }),
+                Kind::Def => r
+                    .def(b)
+                    .map(|id| (Global::Def(id), self.globals.def(id).span)),
+                Kind::Ctor(_) => r
+                    .ctor(b)
+                    .map(|(d, c)| (Global::Ctor(d, c), self.globals.data(d).span)),
+            };
+            let old = match bound {
+                Some(entry) => self.names.insert(b.name().to_string(), entry),
+                None => self.names.remove(b.name()),
+            };
+            saved.push((b.name(), old));
+        }
+        let result = f(self);
+        for (name, old) in saved.into_iter().rev() {
+            match old {
+                Some(entry) => self.names.insert(name.to_string(), entry),
+                None => self.names.remove(name),
+            };
+        }
+        result
+    }
+
+    /// For tests of the built-in registry, until a program can hide a
+    /// prelude name (docs/proposals/namespaces.md, stage 1): removes `names`
+    /// from the names a program sees, so the program can declare its own.
+    /// Built-ins are unaffected, since they don't go through names.
+    #[doc(hidden)]
+    pub fn hide_names_for_test(&mut self, names: &[&str]) {
+        for name in names {
+            self.names.remove(*name);
+        }
+    }
+
+    /// Ends loading the prelude: every built-in must be bound by now.
+    pub fn finish_prelude(&mut self) -> Result<()> {
+        self.loading_prelude = false;
+        registry::check_complete(&self.globals)
+    }
+
     /// Elaborates and evaluates a closed expression: its value and its type,
     /// printed. One operation, with its own resource limits, including
     /// printing the value.
@@ -260,7 +337,7 @@ impl Elaborator {
             )
             .with_label(earlier.span, "first defined here"));
         }
-        let Some((Global::Data(bool_data), _)) = self.names.get("Bool").copied() else {
+        let Some(bool_data) = self.globals.registry.data(Builtin::Bool) else {
             return Err(error(
                 "E-UNKNOWN-NAME",
                 span,
@@ -878,12 +955,7 @@ impl Elaborator {
     /// After a data type is admitted: registering builtins (in the prelude),
     /// and making its constructors' names refer to them.
     fn after_data(&mut self, decl: &Decl, d: DataId) -> Result<()> {
-        let Decl::Data {
-            name: data_name,
-            ctors,
-            ..
-        } = decl
-        else {
+        let Decl::Data { ctors, .. } = decl else {
             unreachable!()
         };
         for (c, ctor) in ctors.iter().enumerate() {
@@ -891,15 +963,15 @@ impl Elaborator {
                 .insert(ctor.name.text.clone(), (Global::Ctor(d, c), ctor.name.span));
         }
         if self.loading_prelude {
-            match data_name.text.as_str() {
-                "Nat" => native::register_nat(&mut self.globals, d)?,
-                "Bool" => native::register_bool(&mut self.globals, d)?,
-                "Decidable" => native::register_decidable(&mut self.globals, d)?,
+            match registry::bind_data(&mut self.globals, d) {
+                Some(Builtin::Nat) => native::register_nat(&mut self.globals, d)?,
+                Some(Builtin::Bool) => native::register_bool(&mut self.globals, d)?,
+                Some(Builtin::Decidable) => native::register_decidable(&mut self.globals, d)?,
                 // `Char` comes after `List`. If either isn't the declaration
                 // the compact representation of text was written for, text
                 // literals are constructors instead (and a test fails).
-                "Char" => {
-                    if let Some((Global::Data(list), _)) = self.names.get("List").copied() {
+                Some(Builtin::Char) => {
+                    if let Some(list) = self.globals.registry.data(Builtin::List) {
                         chars::register(&mut self.globals, list, d);
                     }
                 }
@@ -966,10 +1038,11 @@ impl Elaborator {
         {
             self.names
                 .insert(n.text.clone(), (Global::Def(ids[0]), n.span));
-            if let Err(d) =
-                stitchwort_core::partial::define_primitive(&mut self.globals, ids[0], prim)
-            {
-                out.push((*item, d));
+            match stitchwort_core::partial::define_primitive(&mut self.globals, ids[0], prim) {
+                Ok(()) => {
+                    registry::bind_def(&mut self.globals, ids[0]);
+                }
+                Err(d) => out.push((*item, d)),
             }
             return out;
         }
@@ -1118,19 +1191,18 @@ impl Elaborator {
     /// After a definition is admitted: registering natives (in the prelude)
     /// and an export's validators.
     fn after_definition(&mut self, signature: &Decl, id: DefId) -> Result<()> {
-        let Decl::Signature {
-            name: def_name,
-            export,
-            ..
-        } = signature
-        else {
+        let Decl::Signature { export, .. } = signature else {
             unreachable!()
         };
         if self.loading_prelude {
-            if let Some(op) = Native::ALL.into_iter().find(|n| n.name() == def_name.text) {
-                native::register_native(&mut self.globals, id, op)?;
-            } else if def_name.text == "natNeq" {
-                native::register_nat_neq(&mut self.globals, id)?;
+            match registry::bind_def(&mut self.globals, id) {
+                Some(Builtin::NatNeq) => native::register_nat_neq(&mut self.globals, id)?,
+                Some(b) => {
+                    if let Some(op) = Native::ALL.into_iter().find(|n| n.builtin() == b) {
+                        native::register_native(&mut self.globals, id, op)?;
+                    }
+                }
+                None => {}
             }
         }
         if *export {
@@ -1144,7 +1216,7 @@ impl Elaborator {
     /// no decision procedure can't be checked at runtime, so the export is
     /// refused.
     fn add_validators(&mut self, id: DefId) -> Result<()> {
-        let Some((Global::Data(decidable), _)) = self.names.get("Decidable").copied() else {
+        let Some(decidable) = self.globals.registry.data(Builtin::Decidable) else {
             return Ok(()); // no prelude
         };
         let def = self.globals.def(id);
@@ -1299,7 +1371,7 @@ impl Elaborator {
                         .map(|p| match p {
                             Pattern::Absurd(span) if rhs.is_some() => Cow::Owned(Pattern::Ctor(
                                 ast::Name {
-                                    text: "UnitValue".into(),
+                                    text: UNIT_PATTERN.into(),
                                     span: *span,
                                 },
                                 Vec::new(),
@@ -1614,12 +1686,12 @@ impl Elaborator {
             })),
             Pattern::Num(n, span) => {
                 let (ctor, args) = if n.bits() == 0 {
-                    ("Zero", Vec::new())
+                    (Builtin::Zero, Vec::new())
                 } else {
                     let pred = Pattern::Num(n - 1u32, *span);
-                    ("Succ", vec![Cow::Owned(pred)])
+                    (Builtin::Succ, vec![Cow::Owned(pred)])
                 };
-                let (data, ctor) = self.ctor_named(ctor, *span)?;
+                let (data, ctor) = self.builtin_ctor(ctor, *span)?;
                 Ok(Some(CtorPattern {
                     data,
                     ctor,
@@ -1628,7 +1700,11 @@ impl Elaborator {
                 }))
             }
             Pattern::Ctor(n, args, span) => {
-                let (data, ctor) = self.ctor_named(&n.text, n.span)?;
+                let (data, ctor) = if n.text == UNIT_PATTERN {
+                    self.builtin_ctor(Builtin::UnitValue, n.span)?
+                } else {
+                    self.ctor_named(&n.text, n.span)?
+                };
                 let args = match pattern {
                     Cow::Borrowed(Pattern::Ctor(_, args, _)) => {
                         args.iter().map(Cow::Borrowed).collect()
@@ -1643,6 +1719,17 @@ impl Elaborator {
                 }))
             }
         }
+    }
+
+    /// The prelude's constructor `b`, for a pattern the compiler writes.
+    fn builtin_ctor(&self, b: Builtin, span: Span) -> Result<(DataId, usize)> {
+        self.globals.registry.ctor(b).ok_or_else(|| {
+            error(
+                "E-UNKNOWN-NAME",
+                span,
+                format!("this needs the prelude's `{}`", b.name()),
+            )
+        })
     }
 
     fn ctor_named(&self, ctor: &str, span: Span) -> Result<(DataId, usize)> {
