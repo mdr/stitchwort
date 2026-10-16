@@ -49,6 +49,8 @@ enum Prec {
     Arrow,
     Eq,
     Add,
+    /// A prefix minus: tighter than `*`, looser than application.
+    Neg,
     App,
     Atom,
 }
@@ -164,6 +166,13 @@ impl<'g> Printer<'g> {
                 (format!("{{ {} }}", fields.join(", ")), Prec::Atom)
             }
             Term::Ctor(d, c, args) => {
+                if let Some((negative, n)) = int_literal(self.g, term) {
+                    return if negative {
+                        (format!("-{n}"), Prec::Neg)
+                    } else {
+                        (n.to_string(), Prec::Atom)
+                    };
+                }
                 if let Some(n) = nat_literal(self.g, term) {
                     return (n.to_string(), Prec::Atom);
                 }
@@ -328,6 +337,21 @@ fn nat_literal(g: &Globals, term: &Term) -> Option<BigUint> {
             }
             _ => return None,
         }
+    }
+}
+
+/// `OfNat 5` as `5` and `NegSucc 4` as `-5`: whether it's negative, and the
+/// magnitude.
+fn int_literal(g: &Globals, term: &Term) -> Option<(bool, BigUint)> {
+    match term.strip_loc() {
+        Term::Ctor(d, c, args) if is(g, Builtin::Int, *d) && args.len() == 1 => {
+            let n = nat_literal(g, &args[0])?;
+            match c {
+                0 => Some((false, n)),
+                _ => Some((true, n + 1u32)),
+            }
+        }
+        _ => None,
     }
 }
 

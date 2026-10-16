@@ -92,6 +92,18 @@ builtins! {
     NatNeq = "Nat.equalFalse": Def,
     DivFuel = "Nat.divFuel": Def,
     DecEqNat = "Nat.decEq": Def,
+    // Integers
+    Int = "Int": Data,
+    OfNat = "OfNat": Ctor(Builtin::Int),
+    NegSucc = "NegSucc": Ctor(Builtin::Int),
+    IntNeg = "Int.neg": Def,
+    IntAdd = "Int.add": Def,
+    IntSub = "Int.sub": Def,
+    IntMul = "Int.mul": Def,
+    IntDiv = "Int.div": Def,
+    IntMod = "Int.mod": Def,
+    IntLessThan = "Int.LessThan": Def,
+    IntLessEq = "Int.LessEq": Def,
     // Booleans and decisions
     Bool = "Bool": Data,
     False = "False": Ctor(Builtin::Bool),

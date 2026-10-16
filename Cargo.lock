@@ -504,6 +504,8 @@ dependencies = [
  "ariadne",
  "blake3",
  "insta",
+ "num-bigint",
+ "num-traits",
  "stitchwort-core",
  "stitchwort-elab",
  "stitchwort-js",
