@@ -49,7 +49,10 @@ capability we know we'll need before the work that needs it):
    (`xs.sort`); `import List (map, filter)` for specific names only at first,
    meaning the same for namespaces now and files later; a small set of
    default-visible names (core types, constructors, operators); prefixed
-   names removed. Research and design note, then the reviewer.
+   names removed. Design note written
+   ([namespaces.md](docs/proposals/namespaces.md) draft 1, `Std` root,
+   stage 0 binds built-in syntax to fixed library definitions first); five
+   taste questions for the user, then the reviewer.
 2. **Standard library for real programs:** list functions (`map`, `filter`,
    folds, `sum`, `max`, `zip`, `take`/`drop`, indexing), sorting with a
    correctness proof (sorted permutation), `Int`, a balanced-tree map/set,
@@ -125,6 +128,10 @@ capability we know we'll need before the work that needs it):
   resources while checking (found by compact text stage 2).
 - **Compact text in the playground's WASM build** isn't measured.
 - **`Term::Nat`'s hash doesn't include `Nat`'s own hash** (pre-existing).
+- **JS internal-name encoding may collide** (from reading the code, not
+  tested): a prime becomes `$` and a dot `$$`, and primes may appear
+  mid-name, so `a''b` and `a.b` both become `$a$$b`. The namespaces note
+  proposes an encoding that can't collide.
 - **Measure the JS limits in browsers** (only Node so far).
 - **Compact text** (text step 7): in generated JS first, then possibly in the
   checking evaluator, with differential tests against the plain-list version.
