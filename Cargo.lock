@@ -506,6 +506,7 @@ dependencies = [
  "stitchwort-core",
  "stitchwort-elab",
  "stitchwort-js",
+ "stitchwort-partial-model",
  "stitchwort-syntax",
 ]
 

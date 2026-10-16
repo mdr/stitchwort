@@ -15,6 +15,8 @@ ariadne.workspace = true
 [dev-dependencies]
 insta.workspace = true
 stitchwort-core = { workspace = true, features = ["reference"] }
+# The runtime model of `Partial`, which the runner is compared with.
+stitchwort-partial-model = { path = "../partial-model" }
 
 [lints]
 workspace = true
