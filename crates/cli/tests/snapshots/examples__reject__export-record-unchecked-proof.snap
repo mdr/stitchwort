@@ -1,0 +1,14 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-EXPORT] Error: `size` can't be exported
+    ╭─[ reject/export-record-unchecked-proof.sw:12:1 ]
+    │
+ 12 │ ╭─▶ export
+ 13 │ ├─▶ size : SortedList -> Nat
+    │ │                              
+    │ ╰────────────────────────────── `SortedList`'s proof field `sorted` (`Sorted items`) can't be checked at runtime
+    │     
+    │     Note: a record passed in from JavaScript has no proofs: each proof field needs a decision procedure (a function returning `Decidable …`), defined before the export, to establish it
+────╯

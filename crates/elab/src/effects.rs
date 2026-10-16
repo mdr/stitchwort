@@ -717,7 +717,11 @@ pub fn may_perform(cx: &Ctx, expr: &Expr) -> Result<bool> {
             ..
         } => any(&mut [&**cond, &**then, &**otherwise].into_iter())?,
         Expr::List(items, _) => any(&mut items.iter())?,
-        Expr::Ann(e, _, _) | Expr::NamedArg(_, e, _) => may_perform(cx, e)?,
+        Expr::Record { base, fields, .. } => any(&mut base
+            .iter()
+            .map(|b| &**b)
+            .chain(fields.iter().map(|(_, e)| e)))?,
+        Expr::Ann(e, _, _) | Expr::NamedArg(_, e, _) | Expr::Field(e, _) => may_perform(cx, e)?,
         _ => false,
     })
 }
@@ -960,8 +964,13 @@ pub fn comp_call(
     row: &Row,
     expected: Option<&Value>,
 ) -> Result<(Term, Value)> {
-    if let Expr::Binary(..) | Expr::List(..) | Expr::Ann(..) = expr {
-        return comp_compound(cx, expr, row);
+    if let Expr::Binary(..)
+    | Expr::List(..)
+    | Expr::Ann(..)
+    | Expr::Record { .. }
+    | Expr::Field(..) = expr
+    {
+        return comp_compound(cx, expr, row, expected);
     }
     let mut args: Vec<&Expr> = Vec::new();
     let mut head = expr;
@@ -1098,11 +1107,37 @@ fn wrap(cx: &mut Ctx, row: &Row, bound: Vec<Bound>, mut result: Term, ty: &Value
     Ok(result)
 }
 
-/// `a + b`, `[a, b]` or `(e : T)`, when a part performs operations: the
-/// parts run first, left to right.
-fn comp_compound(cx: &mut Ctx, expr: &Expr, row: &Row) -> Result<(Term, Value)> {
+/// `a + b`, `[a, b]`, `(e : T)`, a record literal or update, or `e.field`,
+/// when a part performs operations: the parts run first, left to right. A
+/// record's base runs first, then its field expressions in the order written
+/// (docs/proposals/records.md §6.1); the record is then built from their
+/// results, at `expected` if given.
+fn comp_compound(
+    cx: &mut Ctx,
+    expr: &Expr,
+    row: &Row,
+    expected: Option<&Value>,
+) -> Result<(Term, Value)> {
     let mut bound = Vec::new();
     let pure = match expr {
+        Expr::Record { base, fields, span } => {
+            let base = match base {
+                Some(b) => Some(Box::new(run_first(cx, b, row, &mut bound)?)),
+                None => None,
+            };
+            let mut pure = Vec::new();
+            for (name, value) in fields {
+                pure.push((name.clone(), run_first(cx, value, row, &mut bound)?));
+            }
+            Expr::Record {
+                base,
+                fields: pure,
+                span: *span,
+            }
+        }
+        Expr::Field(e, name) => {
+            Expr::Field(Box::new(run_first(cx, e, row, &mut bound)?), name.clone())
+        }
         Expr::Binary(op, a, b) => {
             let a = run_first(cx, a, row, &mut bound)?;
             let b = run_first(cx, b, row, &mut bound)?;
@@ -1122,8 +1157,13 @@ fn comp_compound(cx: &mut Ctx, expr: &Expr, row: &Row) -> Result<(Term, Value)> 
         }
         _ => unreachable!("only called on compound expressions"),
     };
-    let (term, ty) = infer(cx, &pure)?;
-    let (term, ty) = insert(cx, term, ty)?;
+    let (term, ty) = match (expected, &pure) {
+        (Some(t), Expr::Record { .. }) => (check(cx, &pure, t)?, t.clone()),
+        _ => {
+            let (term, ty) = infer(cx, &pure)?;
+            insert(cx, term, ty)?
+        }
+    };
     let result = done(cx, row, &ty, term)?;
     Ok((wrap(cx, row, bound, result, &ty)?, ty))
 }

@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-RECORD-FIELD] Error: this pattern doesn't match field `age`
+   ╭─[ reject/record-pattern-missing-field.sw:8:8 ]
+   │
+ 8 │ nameOf { name } = name
+   │        ────┬───  
+   │            ╰───── this pattern doesn't match field `age`
+   │ 
+   │ Note: add it, or end the pattern with `..` to ignore the other fields
+───╯

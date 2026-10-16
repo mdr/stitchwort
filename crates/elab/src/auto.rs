@@ -130,6 +130,20 @@ pub fn decide(cx: &mut Ctx, prop: &Value, depth: usize) -> Result<Term> {
             "the compiler needs a proof of this",
         )
         .with_note("supply a proof by name, or write a decision procedure: a function returning `Decidable …`");
+    // `=` on a record whose `==` wasn't derived: say why.
+    let error = match force(cx.g(), prop.clone())? {
+        Value::Eq(ty, _, _) => match force(cx.g(), (*ty).clone())? {
+            Value::Data(d, _) => match cx.e.records.get(&d).and_then(|r| r.no_eq.as_ref()) {
+                Some(why) => error.with_note(format!(
+                    "`==` isn't derived for `{}`: {why}",
+                    cx.g().data(d).name
+                )),
+                None => error,
+            },
+            _ => error,
+        },
+        _ => error,
+    };
     Err(cx
         .e
         .auto_hints()

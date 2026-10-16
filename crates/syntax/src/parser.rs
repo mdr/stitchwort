@@ -323,6 +323,7 @@ impl<'t> Parser<'t> {
             match p {
                 Pattern::Absurd(_) => true,
                 Pattern::Ctor(_, args, _) => args.iter().any(has_absurd),
+                Pattern::Record { fields, .. } => fields.iter().any(|(_, p)| has_absurd(p)),
                 _ => false,
             }
         }
@@ -368,6 +369,7 @@ impl<'t> Parser<'t> {
                 let end = self.bump().span;
                 Ok(Pattern::Absurd(span.to(end)))
             }
+            Some(Tok::LBrace) => self.record_pattern(),
             Some(Tok::LParen) => {
                 self.bump();
                 let pattern = if let Some(Tok::Upper(_)) = self.peek() {
@@ -389,6 +391,49 @@ impl<'t> Parser<'t> {
         }
     }
 
+    /// `{ name = p, age, .. }`: fields in any order, each a pattern or punned
+    /// (a variable of the field's name), optionally ending with `..`.
+    fn record_pattern(&mut self) -> Result<Pattern> {
+        let start = self.expect(Tok::LBrace, "`{`")?.span;
+        let mut fields = Vec::new();
+        let mut rest = false;
+        if self.peek() != Some(&Tok::RBrace) {
+            loop {
+                if self.eat(&Tok::DotDot) {
+                    rest = true;
+                    break;
+                }
+                let name = self.lower("a field name, or `..`")?;
+                let pattern = if self.eat(&Tok::Equals) {
+                    // A constructor's arguments run to the next `,` or `}`.
+                    if let Some(Tok::Upper(_)) = self.peek() {
+                        let start = self.here();
+                        let name = self.upper("a constructor")?;
+                        let mut args = Vec::new();
+                        while !matches!(self.peek(), Some(Tok::Comma | Tok::RBrace) | None) {
+                            args.push(self.pattern()?);
+                        }
+                        Pattern::Ctor(name, args, start.to(self.prev_span()))
+                    } else {
+                        self.pattern()?
+                    }
+                } else {
+                    Pattern::Var(name.clone())
+                };
+                fields.push((name, pattern));
+                if !self.eat(&Tok::Comma) {
+                    break;
+                }
+            }
+        }
+        let end = self.expect(Tok::RBrace, "`,` or `}`")?.span;
+        Ok(Pattern::Record {
+            fields,
+            rest,
+            span: start.to(end),
+        })
+    }
+
     fn data(&mut self) -> Result<Decl> {
         let start = self.bump().span;
         let name = self.upper("a data type name (starting with an uppercase letter)")?;
@@ -402,17 +447,26 @@ impl<'t> Parser<'t> {
             None
         };
         let mut ctors = Vec::new();
+        let mut record = false;
         if self.eat(&Tok::Equals) {
-            while self.eat(&Tok::Pipe) {
-                let name = self.upper("a constructor name (starting with an uppercase letter)")?;
-                let mut fields = Vec::new();
-                while self.peek() == Some(&Tok::LParen) {
-                    fields.push(self.binder()?);
+            if self.peek() == Some(&Tok::LBrace) {
+                record = true;
+                ctors.push(self.record_fields(&name)?);
+            } else {
+                while self.eat(&Tok::Pipe) {
+                    let name =
+                        self.upper("a constructor name (starting with an uppercase letter)")?;
+                    let mut fields = Vec::new();
+                    while self.peek() == Some(&Tok::LParen) {
+                        fields.push(self.binder()?);
+                    }
+                    ctors.push(CtorDecl { name, fields });
                 }
-                ctors.push(CtorDecl { name, fields });
-            }
-            if ctors.is_empty() {
-                return Err(self.unexpected("`|` and a constructor"));
+                if ctors.is_empty() {
+                    return Err(
+                        self.unexpected("`|` and a constructor, or `{` and a record's fields")
+                    );
+                }
             }
         }
         Ok(Decl::Data {
@@ -421,6 +475,36 @@ impl<'t> Parser<'t> {
             params,
             sort,
             ctors,
+            record,
+        })
+    }
+
+    /// A record's fields, `{ name : Text, age : Nat }`, as the one
+    /// constructor of the data type `data`, named `data.mk`.
+    fn record_fields(&mut self, data: &Name) -> Result<CtorDecl> {
+        self.expect(Tok::LBrace, "`{`")?;
+        let mut fields = Vec::new();
+        if self.peek() != Some(&Tok::RBrace) {
+            loop {
+                let field = self.lower("a field name")?;
+                self.expect(Tok::Colon, "`:`")?;
+                let ty = self.expr()?;
+                fields.push(Binder {
+                    names: vec![field],
+                    ty,
+                });
+                if !self.eat(&Tok::Comma) {
+                    break;
+                }
+            }
+        }
+        self.expect(Tok::RBrace, "`,` or `}`")?;
+        Ok(CtorDecl {
+            name: Name {
+                text: format!("{}.mk", data.text),
+                span: data.span,
+            },
+            fields,
         })
     }
 
@@ -875,12 +959,97 @@ impl<'t> Parser<'t> {
                     | Tok::Prop
                     | Tok::LParen
                     | Tok::LBracket
+                    | Tok::LBrace
                     | Tok::Underscore
             )
         )
     }
 
+    /// An atom followed by any field accesses, `p.address.city`. The `.` is
+    /// written with no space on either side.
     fn atom(&mut self) -> Result<Expr> {
+        let mut expr = self.atom_base()?;
+        while self.peek() == Some(&Tok::Dot) {
+            let dot = self.tokens[self.pos].span;
+            let field = match self.tokens.get(self.pos + 1) {
+                Some(Token {
+                    tok: Tok::Lower(text),
+                    span,
+                    ..
+                }) if self.peek_at(1).is_some() => Name {
+                    text: text.clone(),
+                    span: *span,
+                },
+                _ => {
+                    return Err(error(dot, "expected a field name after `.`")
+                        .with_note("`.` is for field access, as in `p.name`"));
+                }
+            };
+            if self.prev_span().end != dot.start || dot.end != field.span.start {
+                return Err(
+                    error(dot, "field access is written without spaces around the `.`")
+                        .with_note(format!("write `….{}`", field.text)),
+                );
+            }
+            self.pos += 2;
+            expr = Expr::Field(Box::new(expr), field);
+        }
+        Ok(expr)
+    }
+
+    /// `{ name = e, age }` (a literal; `age` is punned) or `{ base | age = e }`
+    /// (an update). A literal's fields are in the order written.
+    fn record_expr(&mut self) -> Result<Expr> {
+        let start = self.expect(Tok::LBrace, "`{`")?.span;
+        let saved = std::mem::replace(&mut self.no_equals, false);
+        let result = self.record_body(start);
+        self.no_equals = saved;
+        result
+    }
+
+    fn record_body(&mut self, start: Span) -> Result<Expr> {
+        if self.peek() == Some(&Tok::RBrace) {
+            let end = self.bump().span;
+            return Ok(Expr::Record {
+                base: None,
+                fields: Vec::new(),
+                span: start.to(end),
+            });
+        }
+        let literal = matches!(self.peek(), Some(Tok::Lower(_)))
+            && matches!(
+                self.peek_at(1),
+                Some(Tok::Equals | Tok::Comma | Tok::RBrace)
+            );
+        let base = if literal {
+            None
+        } else {
+            let base = self.expr()?;
+            self.expect(Tok::Pipe, "`|` and the fields to update")?;
+            Some(Box::new(base))
+        };
+        let mut fields = Vec::new();
+        loop {
+            let name = self.lower("a field name")?;
+            let value = if self.eat(&Tok::Equals) {
+                self.expr()?
+            } else {
+                Expr::Var(name.clone())
+            };
+            fields.push((name, value));
+            if !self.eat(&Tok::Comma) {
+                break;
+            }
+        }
+        let end = self.expect(Tok::RBrace, "`,` or `}`")?.span;
+        Ok(Expr::Record {
+            base,
+            fields,
+            span: start.to(end),
+        })
+    }
+
+    fn atom_base(&mut self) -> Result<Expr> {
         let span = self.here();
         match self.peek() {
             Some(Tok::Lower(_)) => Ok(Expr::Var(self.lower("an expression")?)),
@@ -959,6 +1128,7 @@ impl<'t> Parser<'t> {
                 let end = self.expect(Tok::RBracket, "`,` or `]`")?.span;
                 Ok(Expr::List(items, span.to(end)))
             }
+            Some(Tok::LBrace) => self.record_expr(),
             _ => Err(self.unexpected("an expression")),
         }
     }
@@ -1010,6 +1180,8 @@ fn describe(tok: &Tok) -> String {
         Tok::KwIf => "`if`".into(),
         Tok::KwThen => "`then`".into(),
         Tok::KwElse => "`else`".into(),
+        Tok::Dot => "`.`".into(),
+        Tok::DotDot => "`..`".into(),
     }
 }
 
@@ -1027,6 +1199,110 @@ mod tests {
         let mut sources = SourceMap::new();
         let file = sources.add("test.sw", text);
         parse_module(file, text).unwrap_or_else(|errors| panic!("{errors:?}"))
+    }
+
+    fn expression(text: &str) -> Result<Expr> {
+        let mut sources = SourceMap::new();
+        let file = sources.add("test.sw", text);
+        parse_expression(file, text)
+    }
+
+    #[test]
+    fn a_record_declaration_is_one_constructor() {
+        let module =
+            parse("type Person =\n  { name : Text\n  , age : Nat\n  }\n\ntype Empty = {}\n");
+        let Decl::Data {
+            ctors,
+            record: true,
+            ..
+        } = &module.decls[0]
+        else {
+            panic!("expected a record");
+        };
+        assert_eq!(ctors.len(), 1);
+        assert_eq!(ctors[0].name.text, "Person.mk");
+        let names: Vec<&str> = ctors[0]
+            .fields
+            .iter()
+            .map(|b| b.names[0].text.as_str())
+            .collect();
+        assert_eq!(names, ["name", "age"]);
+        assert!(
+            matches!(&module.decls[1], Decl::Data { ctors, record: true, .. } if ctors[0].fields.is_empty())
+        );
+    }
+
+    #[test]
+    fn record_literals_updates_and_puns() {
+        let e = expression("{ b = f x, a }").unwrap();
+        let Expr::Record {
+            base: None, fields, ..
+        } = &e
+        else {
+            panic!("expected a literal");
+        };
+        // In the order written; a pun is a variable.
+        assert_eq!(fields[0].0.text, "b");
+        assert!(matches!(&fields[0].1, Expr::App(..)));
+        assert!(matches!(&fields[1].1, Expr::Var(n) if n.text == "a"));
+        let e = expression("{ f p | age = 1 }").unwrap();
+        let Expr::Record {
+            base: Some(base),
+            fields,
+            ..
+        } = &e
+        else {
+            panic!("expected an update");
+        };
+        assert!(matches!(**base, Expr::App(..)));
+        assert_eq!(fields.len(), 1);
+        let e = expression("{}").unwrap();
+        assert!(matches!(&e, Expr::Record { base: None, fields, .. } if fields.is_empty()));
+        // An update needs a field.
+        assert!(expression("{ p | }").is_err());
+    }
+
+    #[test]
+    fn field_access_binds_tighter_than_application() {
+        // `f p.name q` is `f (p.name) q`.
+        let e = expression("f p.name q").unwrap();
+        let Expr::App(f, q) = &e else {
+            panic!("expected an application");
+        };
+        assert!(matches!(**q, Expr::Var(_)));
+        let Expr::App(_, arg) = &**f else {
+            panic!("expected `f (p.name)`");
+        };
+        assert!(
+            matches!(&**arg, Expr::Field(e, n) if n.text == "name" && matches!(**e, Expr::Var(_)))
+        );
+        // Chains, and parenthesised expressions.
+        let e = expression("t.lead.name").unwrap();
+        assert!(matches!(&e, Expr::Field(inner, _) if matches!(**inner, Expr::Field(..))));
+        assert!(matches!(expression("(f x).age").unwrap(), Expr::Field(..)));
+        // No spaces around the dot, and a field name after it.
+        for bad in ["p .name", "p. name", "p.Name", "p.1"] {
+            assert!(expression(bad).is_err(), "{bad}");
+        }
+    }
+
+    #[test]
+    fn record_patterns() {
+        let module = parse("f { name, age = Succ n, .. } { tag = (Cons x xs) } = 0\n");
+        let Decl::Equation { patterns, .. } = &module.decls[0] else {
+            panic!("expected an equation");
+        };
+        let Pattern::Record {
+            fields, rest: true, ..
+        } = &patterns[0]
+        else {
+            panic!("expected a record pattern with `..`");
+        };
+        assert!(matches!(&fields[0].1, Pattern::Var(n) if n.text == "name"));
+        assert!(
+            matches!(&fields[1].1, Pattern::Ctor(n, args, _) if n.text == "Succ" && args.len() == 1)
+        );
+        assert!(matches!(&patterns[1], Pattern::Record { rest: false, .. }));
     }
 
     #[test]

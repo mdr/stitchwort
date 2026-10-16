@@ -12,7 +12,7 @@ use stitchwort_syntax::ast::{BinOp, Expr, Name as AstName};
 use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::unify::unify;
-use crate::{Elaborator, Global, effects};
+use crate::{Elaborator, Global, effects, records};
 
 pub type Result<T> = std::result::Result<T, Diagnostic>;
 
@@ -396,6 +396,19 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             let e = check(cx, e, &ty_value)?;
             Ok((Term::Ann(Rc::new(e), Rc::new(ty)), ty_value))
         }
+        Expr::Record { base: None, .. } => Err(cx
+            .error(
+                "E-CANNOT-INFER",
+                "can't tell which record type this literal is",
+                "nothing here says what type it should have",
+            )
+            .with_note("add a type annotation, as in `({ x = 0, y = 0 } : Point)`")),
+        Expr::Record {
+            base: Some(base),
+            fields,
+            ..
+        } => records::infer_update(cx, base, fields),
+        Expr::Field(e, field) => records::infer_field(cx, e, field),
         Expr::List(..) => {
             let (list, _) = ctor_named(cx, "Nil")?;
             let elem = cx.fresh_meta();
@@ -820,6 +833,9 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
                 }
                 None => fallback(cx, expr, &expected),
             }
+        }
+        (Expr::Record { base, fields, .. }, _) => {
+            records::check_record(cx, base.as_deref(), fields, &expected)
         }
         _ => fallback(cx, expr, &expected),
     }
