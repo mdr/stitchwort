@@ -170,3 +170,79 @@ fn prints_the_prelude_operators_infix() {
     let nested = app(Term::Def(sub), [app(Term::Def(sub), [v(1), v(0)]), v(0)]);
     assert_eq!(show(&p, &names, &nested), "x - y - y");
 }
+
+/// Declares an `Int` (`OfNat n | NegSucc n`), bound as the prelude's if `bind`.
+fn int_type(p: &mut Prelude, bind: bool) -> stitchwort_core::DataId {
+    let nat = p.nat_ty();
+    let int = data(&mut p.g, "Int", vec![], Sort::Type(0));
+    stitchwort_core::check::define_ctors(
+        &mut p.g,
+        int,
+        vec![
+            ctor("OfNat", vec![("n", nat.clone())]),
+            ctor("NegSucc", vec![("n", nat.clone())]),
+        ],
+    )
+    .expect("Int");
+    if bind {
+        registry::bind_data(&mut p.g, int);
+    }
+    int
+}
+
+#[test]
+fn prints_integers_as_signed_literals() {
+    let mut p = Prelude::new();
+    let int = int_type(&mut p, true);
+    let neg_succ = |n: Term| Term::ctor(int, 1, vec![n]);
+    assert_eq!(show(&p, &[], &Term::ctor(int, 0, vec![p.num(0)])), "0");
+    assert_eq!(show(&p, &[], &Term::ctor(int, 0, vec![p.num(5)])), "5");
+    assert_eq!(show(&p, &[], &neg_succ(p.num(0))), "-1");
+    assert_eq!(show(&p, &[], &neg_succ(p.num(4))), "-5");
+    // -(2^70) is `NegSucc (2^70 - 1)`, with the number as a big literal.
+    let big = (stitchwort_core::BigUint::from(1u8) << 70) - 1u8;
+    assert_eq!(
+        show(&p, &[], &neg_succ(Term::Nat(Rc::new(big)))),
+        "-1180591620717411303424"
+    );
+    // Not a literal when the number isn't closed.
+    assert_eq!(show(&p, &["n"], &neg_succ(v(0))), "NegSucc n");
+}
+
+#[test]
+fn brackets_a_negative_where_an_argument_needs_it() {
+    let mut p = Prelude::new();
+    let int = int_type(&mut p, true);
+    let maybe = data(&mut p.g, "Maybe", vec![("a", ty())], Sort::Type(0));
+    stitchwort_core::check::define_ctors(
+        &mut p.g,
+        maybe,
+        vec![ctor("Nothing", vec![]), ctor("Just", vec![("value", v(0))])],
+    )
+    .expect("Maybe");
+    let neg = Term::ctor(int, 1, vec![p.num(4)]);
+    let pos = Term::ctor(int, 0, vec![p.num(5)]);
+    assert_eq!(
+        show(&p, &[], &Term::ctor(maybe, 1, vec![neg.clone()])),
+        "Just (-5)"
+    );
+    assert_eq!(show(&p, &[], &Term::ctor(maybe, 1, vec![pos])), "Just 5");
+    // Looser than application, tighter than `+`'s right operand.
+    let sum = p.plus(neg.clone(), neg);
+    assert_eq!(show(&p, &[], &sum), "-5 + (-5)");
+}
+
+#[test]
+fn a_users_own_int_prints_as_written() {
+    let mut p = Prelude::new();
+    let _prelude_int = int_type(&mut p, true);
+    let mine = int_type(&mut p, false);
+    assert_eq!(
+        show(&p, &[], &Term::ctor(mine, 0, vec![p.num(5)])),
+        "OfNat 5"
+    );
+    assert_eq!(
+        show(&p, &[], &Term::ctor(mine, 1, vec![p.num(4)])),
+        "NegSucc 4"
+    );
+}

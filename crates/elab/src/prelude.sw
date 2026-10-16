@@ -520,6 +520,10 @@ Maybe.andThen : Maybe a -> (a -> Maybe b) -> Maybe b
 Maybe.andThen Nothing  f = Nothing
 Maybe.andThen (Just x) f = f x
 
+Maybe.map : (a -> b) -> Maybe a -> Maybe b
+Maybe.map f Nothing  = Nothing
+Maybe.map f (Just x) = Just (f x)
+
 Char.digitValue : Char -> Maybe Nat
 Char.digitValue c = if Nat.leq 48 (Char.toNat c) then (if Nat.leq (Char.toNat c) 57 then Just (Char.toNat c - 48) else Nothing) else Nothing
 
@@ -533,6 +537,248 @@ Text.readDigits acc (Cons c cs) = Maybe.andThen (Char.digitValue c) (\d -> Text.
 Text.toNat : Text -> Maybe Nat
 Text.toNat (MkText Nil)         = Nothing
 Text.toNat (MkText (Cons c cs)) = Text.readDigits 0 (Cons c cs)
+
+-- Integers (docs/proposals/integers.md)
+
+-- An integer: `OfNat n` is `n`, and `NegSucc n` is `-(n + 1)`, so each
+-- integer has exactly one form. The definitions compute through `Nat`'s, so
+-- they're as compact as `Nat` is, and the kernel needs nothing new.
+type Int : Type =
+  | OfNat (n : Nat)
+  | NegSucc (n : Nat)
+
+Nat.toInt : Nat -> Int
+Nat.toInt n = OfNat n
+
+-- `-x`
+Int.neg : Int -> Int
+Int.neg (OfNat Zero)     = OfNat Zero
+Int.neg (OfNat (Succ n)) = NegSucc n
+Int.neg (NegSucc n)      = OfNat (Succ n)
+
+-- `m - n` for naturals, as an integer. One subtraction decides which side
+-- is bigger: `n - m` is zero exactly when `n <= m`.
+Int.subNatNatFrom : Nat -> Nat -> Nat -> Int
+Int.subNatNatFrom m n Zero     = OfNat (m - n)
+Int.subNatNatFrom m n (Succ k) = NegSucc k
+
+Int.subNatNat : Nat -> Nat -> Int
+Int.subNatNat m n = Int.subNatNatFrom m n (n - m)
+
+-- `a + b`
+Int.add : Int -> Int -> Int
+Int.add (OfNat m)   (OfNat n)   = OfNat (m + n)
+Int.add (OfNat m)   (NegSucc n) = Int.subNatNat m (Succ n)
+Int.add (NegSucc m) (OfNat n)   = Int.subNatNat n (Succ m)
+Int.add (NegSucc m) (NegSucc n) = NegSucc (Succ (m + n))
+
+-- `a - b`
+Int.sub : Int -> Int -> Int
+Int.sub a b = Int.add a (Int.neg b)
+
+-- `a * b`. By constructors first, so `OfNat m * OfNat n` is `OfNat (m * n)`.
+Int.mul : Int -> Int -> Int
+Int.mul (OfNat m)   (OfNat n)   = OfNat (m * n)
+Int.mul (OfNat m)   (NegSucc n) = Int.neg (OfNat (m * Succ n))
+Int.mul (NegSucc m) (OfNat n)   = Int.neg (OfNat (Succ m * n))
+Int.mul (NegSucc m) (NegSucc n) = OfNat (Succ m * Succ n)
+
+-- `|x|`, as a `Nat`.
+Int.natAbs : Int -> Nat
+Int.natAbs (OfNat n)   = n
+Int.natAbs (NegSucc n) = Succ n
+
+-- `x` if it isn't negative, otherwise `0`.
+Int.toNat : Int -> Nat
+Int.toNat (OfNat n)   = n
+Int.toNat (NegSucc n) = 0
+
+-- The two constructors are different, and each is injective.
+
+Int.IsOfNat : Int -> Prop
+Int.IsOfNat (OfNat n)   = Unit
+Int.IsOfNat (NegSucc n) = Void
+
+theorem Int.ofNatNotNegSucc : (m : Nat) -> (n : Nat) -> Not (OfNat m = NegSucc n)
+Int.ofNatNotNegSucc m n p = J (\y q -> Int.IsOfNat y) Trivial p
+
+theorem Int.negSuccNotOfNat : (m : Nat) -> (n : Nat) -> Not (NegSucc m = OfNat n)
+Int.negSuccNotOfNat m n p = Int.ofNatNotNegSucc n m (Eq.sym p)
+
+theorem Int.ofNatInjective : (m : Nat) -> (n : Nat) -> OfNat m = OfNat n -> m = n
+Int.ofNatInjective m n p = Eq.cong Int.toNat p
+
+theorem Int.negSuccInjective : (m : Nat) -> (n : Nat) -> NegSucc m = NegSucc n -> m = n
+Int.negSuccInjective m n p = Nat.succInjective m n (Eq.cong Int.natAbs p)
+
+Int.decOfNat : (m : Nat) -> (n : Nat) -> Decidable (m = n) -> Decidable (OfNat m = OfNat n)
+Int.decOfNat m n (Yes p) = Yes (Eq.cong OfNat p)
+Int.decOfNat m n (No r)  = No (\p -> r (Int.ofNatInjective m n p))
+
+Int.decNegSucc : (m : Nat) -> (n : Nat) -> Decidable (m = n) -> Decidable (NegSucc m = NegSucc n)
+Int.decNegSucc m n (Yes p) = Yes (Eq.cong NegSucc p)
+Int.decNegSucc m n (No r)  = No (\p -> r (Int.negSuccInjective m n p))
+
+-- For two integers this computes `Yes rfl` or a `No` of constant size,
+-- however big they are, since `Nat.decEq` does.
+Int.decEq : (a : Int) -> (b : Int) -> Decidable (a = b)
+Int.decEq (OfNat m)   (OfNat n)   = Int.decOfNat m n (Nat.decEq m n)
+Int.decEq (OfNat m)   (NegSucc n) = No (Int.ofNatNotNegSucc m n)
+Int.decEq (NegSucc m) (OfNat n)   = No (Int.negSuccNotOfNat m n)
+Int.decEq (NegSucc m) (NegSucc n) = Int.decNegSucc m n (Nat.decEq m n)
+
+-- `a <= b`. Every negative is below every non-negative; among negatives the
+-- order flips, since `NegSucc n` is `-(n+1)`.
+Int.leq : Int -> Int -> Bool
+Int.leq (OfNat m)   (OfNat n)   = Nat.leq m n
+Int.leq (OfNat m)   (NegSucc n) = False
+Int.leq (NegSucc m) (OfNat n)   = True
+Int.leq (NegSucc m) (NegSucc n) = Nat.leq n m
+
+-- `a < b`
+Int.less : Int -> Int -> Bool
+Int.less (OfNat m)   (OfNat n)   = Nat.leq (Succ m) n
+Int.less (OfNat m)   (NegSucc n) = False
+Int.less (NegSucc m) (OfNat n)   = True
+Int.less (NegSucc m) (NegSucc n) = Nat.leq (Succ n) m
+
+Int.LessEq : Int -> Int -> Prop
+Int.LessEq a b = Int.leq a b = True
+
+Int.LessThan : Int -> Int -> Prop
+Int.LessThan a b = Int.less a b = True
+
+Int.decLessEq : (a : Int) -> (b : Int) -> Decidable (Int.LessEq a b)
+Int.decLessEq a b = Bool.decTrue (Int.leq a b)
+
+Int.decLessThan : (a : Int) -> (b : Int) -> Decidable (Int.LessThan a b)
+Int.decLessThan a b = Bool.decTrue (Int.less a b)
+
+Int.compare : Int -> Int -> Ordering
+Int.compare (OfNat m)   (OfNat n)   = Nat.compare m n
+Int.compare (OfNat m)   (NegSucc n) = Greater
+Int.compare (NegSucc m) (OfNat n)   = Less
+Int.compare (NegSucc m) (NegSucc n) = Nat.compare n m
+
+-- `|x|`, as an `Int`.
+Int.abs : Int -> Int
+Int.abs (OfNat n)   = OfNat n
+Int.abs (NegSucc n) = OfNat (Succ n)
+
+-- `Just x` if `x` isn't negative, otherwise `Nothing`.
+Int.toNatChecked : Int -> Maybe Nat
+Int.toNatChecked (OfNat n)   = Just n
+Int.toNatChecked (NegSucc n) = Nothing
+
+-- `-1`, `0` or `1`.
+Int.sign : Int -> Int
+Int.sign (OfNat Zero)     = OfNat Zero
+Int.sign (OfNat (Succ n)) = OfNat 1
+Int.sign (NegSucc n)      = NegSucc 0
+
+-- Decimal, with a `-` in front of a negative: `"-42"`. Never `"-0"`.
+Int.toText : Int -> Text
+Int.toText (OfNat n)   = Nat.toText n
+Int.toText (NegSucc n) = MkText (Cons '-' (Text.toList (Nat.toText (Succ n))))
+
+-- An optional `-`, then one or more ASCII digits, and nothing else. Leading
+-- zeros are fine and `"-0"` is `0`; `"-"`, `""` and `"+5"` are `Nothing`.
+Text.toInt : Text -> Maybe Int
+Text.toInt (MkText Nil)         = Nothing
+Text.toInt (MkText (Cons c cs)) =
+  if Nat.equal (Char.toNat c) 45
+  then Maybe.map (\n -> Int.neg (OfNat n)) (Text.toNat (MkText cs))
+  else Maybe.map OfNat (Text.toNat (MkText (Cons c cs)))
+
+-- Division. `a / d` and `a % d` are Euclidean: `a = d * (a / d) + a % d`
+-- with `0 <= a % d < |d|`, whatever the signs, so `-18 % 100` is `82`.
+-- Each case divides naturals by a `Succ n`, which `auto` sees isn't zero.
+-- The divisor can't be zero, but the case still has to be covered: `ok`
+-- rules it out.
+Int.div : (a : Int) -> (d : Int) -> [auto ok : d != OfNat 0] -> Int
+Int.div a           (OfNat Zero)     = Void.absurd (ok rfl)
+Int.div (OfNat m)   (OfNat (Succ n)) = OfNat (m / Succ n)
+Int.div (NegSucc m) (OfNat (Succ n)) = NegSucc (m / Succ n)
+Int.div (OfNat m)   (NegSucc n)      = Int.neg (OfNat (m / Succ n))
+Int.div (NegSucc m) (NegSucc n)      = OfNat (Succ (m / Succ n))
+
+-- Never negative. For `NegSucc m`, `m % Succ n <= n`, so the subtraction
+-- doesn't stop at zero.
+Int.mod : (a : Int) -> (d : Int) -> [auto ok : d != OfNat 0] -> Int
+Int.mod a           (OfNat Zero)     = Void.absurd (ok rfl)
+Int.mod (OfNat m)   (OfNat (Succ n)) = OfNat (m % Succ n)
+Int.mod (NegSucc m) (OfNat (Succ n)) = OfNat (n - m % Succ n)
+Int.mod (OfNat m)   (NegSucc n)      = OfNat (m % Succ n)
+Int.mod (NegSucc m) (NegSucc n)      = OfNat (n - m % Succ n)
+
+-- `x % d` as a `Nat`, for indexing: `(x.modNat d).toInt = x % d.toInt`.
+Int.modNat : Int -> (d : Nat) -> [auto ok : d != 0] -> Nat
+Int.modNat x           Zero     = Void.absurd (ok rfl)
+Int.modNat (OfNat m)   (Succ n) = m % Succ n
+Int.modNat (NegSucc m) (Succ n) = n - m % Succ n
+
+-- Truncating division, rounding toward zero; the remainder has the
+-- dividend's sign (C, Rust's `/` and `%`, JavaScript's `BigInt`).
+Int.tdiv : (a : Int) -> (d : Int) -> [auto ok : d != OfNat 0] -> Int
+Int.tdiv a           (OfNat Zero)     = Void.absurd (ok rfl)
+Int.tdiv (OfNat m)   (OfNat (Succ n)) = OfNat (m / Succ n)
+Int.tdiv (NegSucc m) (OfNat (Succ n)) = Int.neg (OfNat (Succ m / Succ n))
+Int.tdiv (OfNat m)   (NegSucc n)      = Int.neg (OfNat (m / Succ n))
+Int.tdiv (NegSucc m) (NegSucc n)      = OfNat (Succ m / Succ n)
+
+Int.tmod : (a : Int) -> (d : Int) -> [auto ok : d != OfNat 0] -> Int
+Int.tmod a           (OfNat Zero)     = Void.absurd (ok rfl)
+Int.tmod (OfNat m)   (OfNat (Succ n)) = OfNat (m % Succ n)
+Int.tmod (NegSucc m) (OfNat (Succ n)) = Int.neg (OfNat (Succ m % Succ n))
+Int.tmod (OfNat m)   (NegSucc n)      = OfNat (m % Succ n)
+Int.tmod (NegSucc m) (NegSucc n)      = Int.neg (OfNat (Succ m % Succ n))
+
+-- Flooring division, rounding toward negative infinity; the remainder has
+-- the divisor's sign (Python, Haskell's `div` and `mod`). The same as
+-- Euclidean division when the divisor is positive.
+Int.fdiv : (a : Int) -> (d : Int) -> [auto ok : d != OfNat 0] -> Int
+Int.fdiv a                  (OfNat Zero)     = Void.absurd (ok rfl)
+Int.fdiv (OfNat m)          (OfNat (Succ n)) = OfNat (m / Succ n)
+Int.fdiv (NegSucc m)        (OfNat (Succ n)) = NegSucc (m / Succ n)
+Int.fdiv (OfNat Zero)       (NegSucc n)      = OfNat Zero
+Int.fdiv (OfNat (Succ m))   (NegSucc n)      = NegSucc (m / Succ n)
+Int.fdiv (NegSucc m)        (NegSucc n)      = OfNat (Succ m / Succ n)
+
+Int.fmod : (a : Int) -> (d : Int) -> [auto ok : d != OfNat 0] -> Int
+Int.fmod a                  (OfNat Zero)     = Void.absurd (ok rfl)
+Int.fmod (OfNat m)          (OfNat (Succ n)) = OfNat (m % Succ n)
+Int.fmod (NegSucc m)        (OfNat (Succ n)) = OfNat (n - m % Succ n)
+Int.fmod (OfNat Zero)       (NegSucc n)      = OfNat Zero
+Int.fmod (OfNat (Succ m))   (NegSucc n)      = Int.neg (OfNat (n - m % Succ n))
+Int.fmod (NegSucc m)        (NegSucc n)      = Int.neg (OfNat (Succ m % Succ n))
+
+-- Lemmas (checkpoint 1)
+
+theorem Int.toNatCheckedToInt : (n : Nat) -> Int.toNatChecked (Nat.toInt n) = Just n
+Int.toNatCheckedToInt n = rfl
+
+theorem Int.negNeg : (x : Int) -> Int.neg (Int.neg x) = x
+Int.negNeg (OfNat Zero)     = rfl
+Int.negNeg (OfNat (Succ n)) = rfl
+Int.negNeg (NegSucc n)      = rfl
+
+-- These hold by computation; stating them keeps it that way.
+theorem Int.toIntAdd : (m : Nat) -> (n : Nat) -> Nat.toInt (m + n) = Int.add (Nat.toInt m) (Nat.toInt n)
+Int.toIntAdd m n = rfl
+
+theorem Int.toIntMul : (m : Nat) -> (n : Nat) -> Nat.toInt (m * n) = Int.mul (Nat.toInt m) (Nat.toInt n)
+Int.toIntMul m n = rfl
+
+theorem Int.toNatToInt : (n : Nat) -> Int.toNat (Nat.toInt n) = n
+Int.toNatToInt n = rfl
+
+theorem Int.natAbsToInt : (n : Nat) -> Int.natAbs (Nat.toInt n) = n
+Int.natAbsToInt n = rfl
+
+theorem Int.natAbsNeg : (x : Int) -> Int.natAbs (Int.neg x) = Int.natAbs x
+Int.natAbsNeg (OfNat Zero)     = rfl
+Int.natAbsNeg (OfNat (Succ n)) = rfl
+Int.natAbsNeg (NegSucc n)      = rfl
 
 -- Splitting and joining
 

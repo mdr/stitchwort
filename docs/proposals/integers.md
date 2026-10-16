@@ -1,6 +1,7 @@
 # Proposal: integers (`Int`)
 
-**Status:** draft 2, 16 October 2026. Docs only: nothing here is built yet.
+**Status:** draft 2, 16 October 2026. Stage 1 (the type and its library)
+is built; see [As built](#as-built-stage-1). Stages 2–7 aren't.
 The user has answered the questions for the user ([Decisions](#decisions-16-october-2026)),
 and an external reviewer has answered the questions for the reviewer
 ([Review outcome](#review-outcome)). Draft 2 adopts the review
@@ -1482,6 +1483,49 @@ forms with a "not yet" error until stage 3)
 shows up in profiles; postponed literals; fixed-width types; implicit
 `Nat` → `Int` coercions; operators for user types; a linear-arithmetic
 decision procedure.
+
+### As built (stage 1)
+
+The prelude's `Std.Int` section (`crates/elab/src/prelude.sw`, after
+`Text.toNat`), the registry entries listed in
+[Hashing and binding](#hashing-and-binding), and the printer (`OfNat 5` as
+`5`, `NegSucc 4` as `-5`, bracketed as an argument: `Just (-5)`). Small
+decisions not in the sketch above:
+
+- **Constructors are visible unqualified.** `OfNat` and `NegSucc` come with
+  `Int` into the default set, like every root type's constructors;
+  `Int.OfNat` also works. Hiding them needs a namespaces mechanism that
+  doesn't exist yet, so it's left to that lane.
+- **Euclidean `%` is always `OfNat`**: the negative-dividend case is
+  `OfNat (n - m % Succ n)` (with `d = Succ n`), not Lean's `subNatNat`;
+  the subtraction never clamps, since `m % Succ n <= n`. `Int.fmod` and
+  `Int.modNat` use the same form.
+- **`Int.mul`'s mixed-sign cases** are `Int.neg (OfNat (m * Succ n))`
+  rather than a separate `negOfNat`.
+- **Extra definitions**: `Int.subNatNatFrom` (the case split behind
+  `subNatNat`), `Int.decOfNat`, `Int.decNegSucc`, `Int.IsOfNat` (for the
+  disjointness proof), `Int.less` (behind `Int.LessThan`, so it's
+  `Int.less a b = True` as `Nat.LessThan` is by `Nat.leq`),
+  `Int.decLessEq`, `Int.decLessThan`, and `Maybe.map`.
+- **Zero divisors**: `Int.div a (OfNat Zero) = Void.absurd (ok rfl)` and
+  likewise for every division; `x / 0` is refused with `E-AUTO-FALSE`
+  (`examples/reject/int-div-zero.sw`).
+- **Lemma checkpoint 1**: `Int.negNeg`, the four constructor facts,
+  `Int.toIntAdd`, `Int.toIntMul`, `Int.toNatToInt`,
+  `Int.toNatCheckedToInt`, `Int.natAbsToInt`, `Int.natAbsNeg`.
+- **R2 tests** are `crates/driver/tests/int.rs`: (1) every operation on
+  `-12..12`, (2) the named edge cases and `Int.decEq`'s whole value, (3)
+  open terms with rigid variables and `k + x` numbers, each natives on and
+  off in both evaluators, compared on whole normal forms and against Rust's
+  arithmetic; (4) metavariables (`check4 _ rfl` is `E-REFL`, an `==` with
+  an unknown side `E-UNSOLVED`, an `auto` obligation solved by a later
+  argument accepted, unsolved `E-AUTO-STUCK`), natives on and off; (5)
+  values around `±2^64`, `±2^128`, `±2^256` and seeded random ones against
+  `num_bigint`, with `Int.decEq`'s normal form of constant size. The
+  existing natives-off switch (`Builtins::disable_natives`) was enough.
+- `examples/accept/integers.sw` checks the dial (`-18 % 100 = 82`),
+  Leijen's table for all three conventions, local evidence
+  (`if h : d != OfNat 0`), and `Text.toInt`'s grammar, by `rfl`.
 
 ## Recommendation
 

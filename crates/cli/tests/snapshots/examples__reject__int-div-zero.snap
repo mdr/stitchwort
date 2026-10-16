@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-AUTO-FALSE] Error: `0 != 0` is false
+   ╭─[ reject/int-div-zero.sw:4:8 ]
+   │
+ 4 │ oops = Int.div (Int.OfNat 7) (Int.OfNat 0)
+   │        ─────────────────┬────────────────  
+   │                         ╰────────────────── this needs a proof that can't exist
+───╯

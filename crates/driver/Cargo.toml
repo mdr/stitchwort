@@ -17,6 +17,9 @@ blake3.workspace = true
 
 [dev-dependencies]
 insta.workspace = true
+# An independent implementation of integer division, for `tests/int.rs`.
+num-bigint.workspace = true
+num-traits.workspace = true
 stitchwort-core = { workspace = true, features = ["reference"] }
 # The runtime model of `Partial`, which the runner is compared with.
 stitchwort-partial-model = { path = "../partial-model" }
