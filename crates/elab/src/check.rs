@@ -4,6 +4,7 @@
 
 use std::rc::Rc;
 
+use stitchwort_core::chars::{self as compact, Chars};
 use stitchwort_core::check as kernel;
 use stitchwort_core::value::{Closure, Head, apply, eval, force, quote, unused};
 use stitchwort_core::{DataId, Globals, Icit, Name, Sort, Term, Value, pretty};
@@ -253,15 +254,26 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             let (char_data, _) = ctor_named(cx, "MkChar")?;
             Ok((char_term(cx, *c)?, Value::Data(char_data, Vec::new())))
         }
-        // `"ab"` is `MkText ['a', 'b']`.
+        // `"ab"` is `MkText ['a', 'b']`: its characters are one compact list
+        // when the prelude's `List` and `Char` are registered for it
+        // (`stitchwort_core::chars`), and otherwise cons cells.
         Expr::Str(s, _) => {
             let (text, mk_text) = ctor_named(cx, "MkText")?;
             let (list, nil) = ctor_named(cx, "Nil")?;
             let (_, cons) = ctor_named(cx, "Cons")?;
-            let mut chars = Term::Ctor(list, nil, Vec::new());
-            for c in s.chars().rev() {
-                chars = Term::ctor(list, cons, vec![char_term(cx, c)?, chars]);
-            }
+            let chars = match cx.g().builtins.compact_literals() {
+                Some(text_rep) => {
+                    let buffer: std::rc::Rc<[char]> = s.chars().collect();
+                    compact::term(text_rep, &Chars::whole(buffer))
+                }
+                None => {
+                    let mut chars = Term::Ctor(list, nil, Vec::new());
+                    for c in s.chars().rev() {
+                        chars = Term::ctor(list, cons, vec![char_term(cx, c)?, chars]);
+                    }
+                    chars
+                }
+            };
             Ok((
                 Term::ctor(text, mk_text, vec![chars]),
                 Value::Data(text, Vec::new()),
