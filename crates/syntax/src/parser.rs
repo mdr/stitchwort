@@ -241,8 +241,39 @@ impl<'t> Parser<'t> {
         }
     }
 
+    /// The column of the first token on the line that token `i` is on.
+    fn line_indent(&self, i: usize) -> u32 {
+        let start = (0..=i).rev().find(|&k| self.tokens[k].line_start);
+        start.map_or(0, |k| self.tokens[k].column)
+    }
+
+    /// Like `expect`, for `then` and `else`, which can also start a line at
+    /// or left of the enclosing block's column (where other tokens would
+    /// start a new statement) if it's at least `indent`.
+    fn expect_keyword(&mut self, tok: Tok, what: &str, indent: u32) -> Result<&'t Token> {
+        if self.peek().is_none()
+            && let Some(token) = self.tokens.get(self.pos)
+            && token.tok == tok
+            && token.line_start
+            && token.column >= indent
+        {
+            return Ok(self.bump());
+        }
+        self.expect(tok, what)
+    }
+
     fn unexpected(&self, expected: &str) -> Diagnostic {
         let found = match self.tokens.get(self.pos) {
+            Some(token) if self.is_stop(self.pos) => {
+                return error(
+                    self.here(),
+                    format!(
+                        "expected {expected}, but the line starting with {} is at or left of \
+                         the enclosing block's column, so it starts a new statement",
+                        describe(&token.tok)
+                    ),
+                );
+            }
             Some(token) => format!("found {}", describe(&token.tok)),
             None => "reached the end of the declaration".to_string(),
         };
@@ -860,10 +891,13 @@ impl<'t> Parser<'t> {
             } else {
                 None
             };
+            // `then` and `else` may start a line, as long as it's indented at
+            // least as far as the line `if` is on.
+            let indent = self.line_indent(self.pos - 1);
             let cond = self.expr()?;
-            self.expect(Tok::KwThen, "`then`")?;
+            self.expect_keyword(Tok::KwThen, "`then`", indent)?;
             let then = self.expr()?;
-            self.expect(Tok::KwElse, "`else`")?;
+            self.expect_keyword(Tok::KwElse, "`else`", indent)?;
             let otherwise = self.expr()?;
             let span = start.to(otherwise.span());
             return Ok(Expr::If {
@@ -1702,5 +1736,69 @@ mod tests {
         );
         assert!(fails("ability A where\n"), "an ability without operations");
         assert!(fails("f : Nat -> {State s Nat\n"), "an unclosed row");
+    }
+
+    fn rhs_of(text: &str) -> Result<Expr> {
+        let mut sources = SourceMap::new();
+        let file = sources.add("test.sw", text);
+        let module = parse_module(file, text).map_err(|mut e| e.remove(0))?;
+        match module.decls.into_iter().last() {
+            Some(Decl::Equation { rhs: Some(rhs), .. }) => Ok(rhs),
+            _ => panic!("expected an equation"),
+        }
+    }
+
+    fn else_branch(e: &Expr) -> &Expr {
+        let Expr::If { otherwise, .. } = e else {
+            panic!("expected an `if`, got {e:?}");
+        };
+        otherwise
+    }
+
+    fn is_num(e: &Expr, n: u32) -> bool {
+        matches!(e, Expr::Num(v, _) if *v == n.into())
+    }
+
+    #[test]
+    fn else_on_its_own_line_continues_the_if() {
+        let e = rhs_of("g n =\n  if n == 0 then 1\n  else 2\n").unwrap();
+        assert!(is_num(else_branch(&e), 2));
+    }
+
+    #[test]
+    fn then_and_else_chain_across_lines() {
+        let text = "g n =\n  if a\n  then 1\n  else if b then 2\n  else if c then 3\n  else 4\n";
+        let e = rhs_of(text).unwrap();
+        assert!(is_num(else_branch(else_branch(else_branch(&e))), 4));
+    }
+
+    #[test]
+    fn a_proof_binder_and_a_let_value_can_span_lines() {
+        let e = rhs_of("g n =\n  if h : n != 0 then 1\n  else 2\n").unwrap();
+        assert!(matches!(
+            e,
+            Expr::If {
+                binder: Some(_),
+                ..
+            }
+        ));
+        let e = rhs_of("g n =\n  let x = if n == 0 then 1\n  else 2\n  x\n").unwrap();
+        assert!(matches!(e, Expr::Let { .. }));
+    }
+
+    #[test]
+    fn the_inner_if_takes_the_closest_else() {
+        let e = rhs_of("g a b =\n  if a then\n    if b then 1\n    else 2\n  else 3\n").unwrap();
+        assert!(is_num(else_branch(&e), 3));
+    }
+
+    #[test]
+    fn an_else_left_of_its_if_is_explained() {
+        let e = rhs_of("g a =\n  if a then\n    if a then 1\n  else 2\n").unwrap_err();
+        assert!(
+            e.message.contains("starts a new statement"),
+            "{}",
+            e.message
+        );
     }
 }

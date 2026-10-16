@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-DUPLICATE] Error: `L` is already defined
+   ╭─[ reject/record-pattern-after-failed-type.sw:8:5 ]
+   │
+ 6 │   | L
+   │     ┬  
+   │     ╰── first defined here
+   │ 
+ 8 │   | L
+   │     ┬  
+   │     ╰── `L` is already defined
+───╯

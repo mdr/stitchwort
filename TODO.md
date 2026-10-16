@@ -47,16 +47,35 @@ capability we know we'll need before the work that needs it):
    stage 0 binds built-in syntax to fixed library definitions first). The
    user answered §11 (implicit opening inside a namespace and extending
    library namespaces from user code are deferred; shadowing a type hides
-   its default constructors). Reviewed: approved, with clarifications. Lane
-   `namespaces-impl`: draft 2, then stage 0 (built-ins bound to fixed
-   declaration identities). Stage 1 (namespaces, `import`, the prelude into
-   `Std`, every example rewritten) after `Partial` merges; then stage 2,
-   dot notation.
-2. **Standard library for real programs:** list functions (`map`, `filter`,
+   its default constructors). Reviewed: approved, with clarifications. Draft 2
+   and stage 0 (built-ins bound to fixed declaration identities) merged as
+   `06c78d2`. Lane `namespaces-impl` now on stage 1 (namespaces, `import`,
+   the prelude into `Std`, every example rewritten); then stage 2, dot
+   notation.
+   Alongside, for Advent of Code: lane `aoc-survey` (Sonnet) surveys days
+   1–5 of AoC 2025 from the user's solutions and inputs to rank what the
+   library needs (merged: [aoc-2025.md](docs/aoc-2025.md)); the `Int` design
+   note is written ([integers.md](docs/proposals/integers.md) draft 1: `Int` as
+   a data type over `Nat`, no kernel change, Euclidean `/` and `%`); three
+   questions answered (Euclidean `%`, `-x` on any expression, `%` on `Int`
+   gives `Int`). Reviewed: approved (no kernel change; revise operator and
+   literal typing first). Draft 2 merged (`3d8aa9d`): two-pass group rule
+   for number types, prefix-minus rules, a 7-stage plan split Opus/Sonnet.
+   Implementation starts right after namespaces stage 1 merges, one fresh
+   agent per stage or two (keep contexts small).
+2. **Standard library for real programs** (ranked by the AoC survey,
+   [aoc-2025.md](docs/aoc-2025.md): days 1–5 already run with today's
+   compiler using hand-written helpers): a list toolkit, a `readAllLines`
+   helper, `Nat` arithmetic lemmas (the gate to arithmetic proofs), `Nat`
+   helpers (min, max, absDiff, pow, digits), sorting with a proof; later an
+   `Array` type, a balanced map/set. Also: list functions (`map`, `filter`,
    folds, `sum`, `max`, `zip`, `take`/`drop`, indexing), sorting with a
    correctness proof (sorted permutation), `Int`, a balanced-tree map/set,
    grid helpers.
-3. **Advent of Code 2025, early days**, as a stress test with proofs where
+3. **Syntax conveniences** (a design lane after namespaces): `where`,
+   pattern-matching `let` or `case`, tuple sugar.
+4. **Advent of Code 2025, early days** (decisions in aoc-2025.md: programs
+   in `aoc/`, inputs and answers out of git, worked examples as tests), as a stress test with proofs where
    natural (sort correctness, parser round trips, worked examples by `rfl`).
    Inputs: the user's repo https://github.com/mdr/aoc-2025/tree/main/src/main/resources.
    Write up the friction found.
@@ -244,6 +263,7 @@ capability we know we'll need before the work that needs it):
 
 ## Recently done
 
+- `df63a82` Fixed a compiler panic after a failed record type (failed data groups now resolve as failed), and `else`/`then` on their own lines continue an `if`.
 - `d567dfc` Playground: warnings shown apart from errors, a phone layout (viewport, no sideways scroll), the JavaScript tab shown in full; 21 browser tests.
 - `6a790a1` `Partial` stage 1: `{Partial}` in types; partial groups translated into ordinary checked declarations over an opaque `Delay`; the runtime steps them (one tick per recursive call, matching `crates/partial-model` trace for trace); `main` can loop until end of input; total code can't run partial code; JS erases `Delay`.
 - `22d7b01` Records stage 1: declared records (`type Person = { name : Text, age : Nat }`), `p.name`, `{ p | age = … }`, record patterns, dependent and proof fields, evaluation order as written, derived `==` where provable; JS plain objects with proof fields validated at the boundary; every data type's hash now includes its field names.

@@ -5,10 +5,10 @@
 # time_ms is the median wall time on the machine that recorded it.
 
 [examples]
-inputs = "184 files, 656fee604febc4d1"
-steps = 38644663
-visits = 5937020
-allocations = 48714478
+inputs = "188 files, 7a3e51d9b41355d3"
+steps = 39500875
+visits = 6064170
+allocations = 49769279
 peak_bytes = 26789850
 time_ms = 1707.9
 
