@@ -34,15 +34,13 @@ Running:
 - **Compact text, stage 2** (lane `compact-text-s2`): B1, the compact
   `List Char` in the evaluator, from [compact-text.md](docs/proposals/compact-text.md)
   draft 2, approved by the user. No natives (stage 3).
+- **Records, stage 1** (lane `records-stage1`): reviewed (stage 1 approved;
+  stage 2 eta after a same-type conversion contract and an empty-record
+  policy). Draft 2 adopting the review, then declared records, field access,
+  update, evaluation order, derived `==`, the field-name hash fix, JS as
+  plain objects. Stage 2 (eta, projections in the kernel) later.
 
 Waiting on a decision:
-- **Records** ([records.md](docs/proposals/records.md) draft 1.1): the user
-  answered U1–U7 (declared records are new types; anonymous records and
-  "any record with field x" deferred but kept possible; `tag` keeps its key;
-  `Maybe` stays tagged with `Optional` planned; unannotated literals are an
-  error; read and update only; union extensions planned). Stages 1–2 are
-  **with the reviewer**.
-
 ## Next
 
 Nothing queued: choose from **Later**, or continue the lanes above.
