@@ -268,7 +268,7 @@ class Page {
       const s = document.getElementById("source"), h = document.getElementById("highlight");
       const box = (e) => { const r = e.getBoundingClientRect(); return [r.x, r.y, r.width, r.height].map(Math.round); };
       return { sameText: h.textContent === s.value + "\\n",
-               ta: { box: box(s), scroll: [s.scrollTop, s.scrollLeft] },
+               ta: { box: box(s), bars: [s.offsetWidth - s.clientWidth - 2 * s.clientLeft, s.offsetHeight - s.clientHeight - 2 * s.clientTop], scroll: [s.scrollTop, s.scrollLeft] },
                pre: { box: box(h), scroll: [h.scrollTop, h.scrollLeft] },
                client: [s.clientWidth, s.clientHeight, h.clientWidth, h.clientHeight] };
     })()`);
@@ -290,7 +290,10 @@ const test = (name, body, { ms = 60000, exceptions = false } = {}) => tests.push
 async function assertAligned(page, what) {
   const l = await page.layers();
   assert.ok(l.sameText, `${what}: the coloured copy has the textarea's text`);
-  assert.deepEqual(l.pre.box, l.ta.box, `${what}: the coloured copy covers the textarea`);
+  // The copy covers the textarea less its scrollbars (it has none of its own,
+  // and the textarea's sit over nothing it draws), so its box is that smaller.
+  const [x, y, w, h] = l.ta.box;
+  assert.deepEqual(l.pre.box, [x, y, w - l.ta.bars[0], h - l.ta.bars[1]], `${what}: the coloured copy covers the textarea less its scrollbars`);
   assert.deepEqual(l.pre.scroll, l.ta.scroll, `${what}: the coloured copy scrolls with the textarea`);
   assert.deepEqual(l.client.slice(2), l.client.slice(0, 2), `${what}: the visible areas are the same size`);
 }
