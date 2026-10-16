@@ -1100,7 +1100,8 @@ console.log("ok");
 
 /// The two ways of generating code differ exactly where `Text` is involved.
 /// With native text, a constructor-only match on `MkText` converts nothing,
-/// and the list-based module has no string helpers.
+/// and the list-based module has no string helpers, except for building a
+/// text literal's list of characters (a compact list in the checked term).
 #[test]
 fn native_text_is_only_used_when_asked_for() {
     let examples = examples();
@@ -1114,8 +1115,14 @@ fn native_text_is_only_used_when_asked_for() {
             .contains("const $isText = (v0) => {\n  return { tag: \"True\" };\n};")
     );
     assert!(native.js.contains("const $textLength = (t) => {"));
-    assert!(!list.js.contains("charsOfText") && !list.js.contains("textOfChars"));
-    assert!(list.js.contains("tag: \"MkText\""));
+    assert!(!list.js.contains("textOfChars"));
+    let uses: Vec<&str> = list.js.split("charsOfText(").skip(1).collect();
+    assert!(!uses.is_empty());
+    assert!(
+        uses.iter().all(|rest| rest.starts_with('"')),
+        "the list-based module converts only literals"
+    );
+    assert!(list.js.contains("tag: \"MkText\", chars: charsOfText(\""));
     // The declarations don't depend on the representation.
     assert_eq!(native.dts, list.dts);
 }
@@ -1670,4 +1677,73 @@ assert.equal(useK(1n), 5n);
 console.log("ok");
 "#;
     run_script_on("erased", &[("erased.mjs", output.js)], script);
+}
+
+/// A text literal is one compact list in the checked term, however long, and
+/// extracts to one JS string literal, or (with list-based text) to that
+/// string turned into a cons list in a loop. Both give the same results, and
+/// user code's match on `MkText` sees the characters (compact text, stage 2).
+#[test]
+fn long_literals_extract_as_strings() {
+    let text: String = (0..300_000)
+        .map(|i| match i % 6 {
+            0 => '\u{1F600}',
+            1 => '"',
+            2 => '\\',
+            3 => '\n',
+            _ => 'a',
+        })
+        .collect();
+    let mut literal = String::from("\"");
+    for c in text.chars() {
+        match c {
+            '"' => literal.push_str("\\\""),
+            '\\' => literal.push_str("\\\\"),
+            '\n' => literal.push_str("\\n"),
+            '\u{1F600}' => literal.push_str("\\u{1F600}"),
+            c => literal.push(c),
+        }
+    }
+    literal.push('"');
+    let source = format!(
+        "export\nlongText : Bool -> Text\nlongText b = {literal}\n\n\
+         export\nfirstTwo : Bool -> List Char\nfirstTwo b = firstTwoOf {literal}\n\n\
+         firstTwoOf : Text -> List Char\n\
+         firstTwoOf (MkText (Cons a (Cons b rest))) = [a, b]\n\
+         firstTwoOf t = []\n\n\
+         export\nlongChars : Bool -> List Char\nlongChars b = textToList {literal}\n"
+    );
+    let mut session = Session::new();
+    if let Err(errors) = session.load("long.sw", &source) {
+        panic!("{:?}", errors.iter().map(|d| d.code).collect::<Vec<_>>());
+    }
+    let g = &session.elab.globals;
+    let native = stitchwort_js::generate(g, Limits::default()).expect("extraction succeeds");
+    let list =
+        stitchwort_js::generate_with(g, Limits::default(), LIST_TEXT).expect("extraction succeeds");
+    assert!(native.js.contains("\"\\u{1f600}\\\"\\\\\\u{a}a"));
+    assert!(
+        list.js
+            .contains("chars: charsOfText(\"\\u{1f600}\\\"\\\\\\u{a}a")
+    );
+    let script = r#"
+import * as native from "./native.mjs";
+import * as list from "./list.mjs";
+import assert from "node:assert/strict";
+
+const expected = "\u{1F600}\"\\\naa".repeat(50000);
+for (const m of [native, list]) {
+  assert.equal(m.longText(true), expected);
+  assert.deepEqual(m.firstTwo(true), ["\u{1F600}", "\""]);
+  const cs = m.longChars(true);
+  assert.equal(cs.length, 300000);
+  assert.equal(cs.join(""), expected);
+}
+console.log("ok");
+"#;
+    run_script_on(
+        "long-literals",
+        &[("native.mjs", native.js), ("list.mjs", list.js)],
+        script,
+    );
 }

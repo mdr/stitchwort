@@ -20,6 +20,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
 
 use num_bigint::BigUint;
+use stitchwort_core::chars;
 use stitchwort_core::check as kernel;
 use stitchwort_core::native::{self, Native};
 use stitchwort_core::partial::Primitive;
@@ -873,6 +874,14 @@ impl Elaborator {
                 "Nat" => native::register_nat(&mut self.globals, d)?,
                 "Bool" => native::register_bool(&mut self.globals, d)?,
                 "Decidable" => native::register_decidable(&mut self.globals, d)?,
+                // `Char` comes after `List`. If either isn't the declaration
+                // the compact representation of text was written for, text
+                // literals are constructors instead (and a test fails).
+                "Char" => {
+                    if let Some((Global::Data(list), _)) = self.names.get("List").copied() {
+                        chars::register(&mut self.globals, list, d);
+                    }
+                }
                 _ => {}
             }
         }

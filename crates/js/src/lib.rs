@@ -14,7 +14,7 @@ use stitchwort_core::hash::def_hash;
 use stitchwort_core::native;
 use stitchwort_core::partial::Primitive;
 use stitchwort_core::term::Branch;
-use stitchwort_core::value::{Head, eval, force, quote};
+use stitchwort_core::value::{Head, eval, expand_step, force, quote};
 use stitchwort_core::{DataId, DefId, Globals, Limits, ResourceError, Sort, Term, Value, pretty};
 use stitchwort_syntax::Diagnostic;
 
@@ -371,11 +371,14 @@ pub fn generate_with(g: &Globals, limits: Limits, options: Options) -> Result<Ou
     let codegen = Gen::new(g, options)?;
     let mut js = String::from(RUNTIME);
     js.push('\n');
-    js.push_str(if codegen.text.is_some() {
-        TEXT_AS_STRING
+    if codegen.text.is_some() {
+        js.push_str(TEXT_AS_STRING);
+        js.push_str(CHARS_OF_TEXT);
+        js.push_str(TEXT_OF_CHARS);
     } else {
-        TEXT_AS_LIST
-    });
+        js.push_str(TEXT_AS_LIST);
+        js.push_str(CHARS_OF_TEXT);
+    }
     js.push_str(RUNTIME_CODECS);
     js.push('\n');
     // Every data type is declared before any is defined, so their fields'
@@ -636,7 +639,12 @@ const listOf = (items) => {
   for (let i = items.length - 1; i >= 0; i--) list = { tag: "Cons", head: items[i], tail: list };
   return list;
 };
-// The scalar value whose last code unit is at index `i` of a well-formed
+"#;
+
+/// The bridge from a string to its `List Char`, in a loop: `MkText`'s field
+/// in [`TEXT_AS_STRING`], and a compact list of characters in a checked term
+/// (`Term::Chars`) with either representation of `Text`.
+const CHARS_OF_TEXT: &str = r#"// The scalar value whose last code unit is at index `i` of a well-formed
 // string: one unit, or the two of a surrogate pair.
 const scalarEndingAt = (t, i) => {
   const unit = t.charCodeAt(i);
@@ -654,7 +662,10 @@ const charsOfText = (t) => {
   }
   return chars;
 };
-// `MkText chars`: the string of a list of characters.
+"#;
+
+/// The rest of [`TEXT_AS_STRING`].
+const TEXT_OF_CHARS: &str = r#"// `MkText chars`: the string of a list of characters.
 const textOfChars = (chars) => {
   const parts = [];
   for (let l = chars; l.tag === "Cons"; l = l.tail) parts.push(encodeChar(l.head));
@@ -1301,6 +1312,12 @@ impl<'g> Gen<'g> {
             }
             Term::Def(id) => self.def_ref(*id, &[], env)?,
             Term::Nat(n) => format!("{n}n"),
+            // A compact list of characters (a text literal's): the cons list
+            // it stands for, built from a string in a loop.
+            Term::Chars(chars) => {
+                let text: String = chars.as_slice().iter().collect();
+                format!("charsOfText({})", js_string_literal(&text))
+            }
             Term::App(..) => {
                 let (head, args) = term.spine();
                 if let Term::Def(id) = head {
@@ -1974,12 +1991,17 @@ fn text_native_js(op: TextNative) -> &'static str {
 }
 
 /// The characters of a list of `Char`s written out in full (like a text
-/// literal's), if it is one. A loop, since a long literal nests deeply.
+/// literal's), if it is one: cons cells of literal characters, ending in
+/// `Nil` or a compact list. A loop, since a long literal nests deeply.
 fn text_literal(chars: &Term) -> Option<String> {
     let mut text = String::new();
     let mut list = chars.strip_loc();
     loop {
         match list {
+            Term::Chars(rest) => {
+                text.extend(rest.as_slice());
+                return Some(text);
+            }
             Term::Ctor(_, 0, args) if args.is_empty() => return Some(text),
             Term::Ctor(_, 1, args) if args.len() == 2 => {
                 let Term::Ctor(_, 0, fields) = args[0].strip_loc() else {
@@ -2142,15 +2164,17 @@ pub fn boundary_literal(g: &Globals, b: &Boundary, value: &Value) -> Result<Stri
             Some(n) => Ok(format!("{n}n")),
             None => Err(stuck()),
         },
+        // A list, possibly ending in a compact one, walked one cell at a time
+        // as matching would.
         (Boundary::List(elem), _) => {
             let mut items = Vec::new();
-            let mut v = value;
+            let mut v = value.clone();
             loop {
-                match v {
+                match expand_step(g, v) {
                     Value::Ctor(_, 0, _) => return Ok(format!("[{}]", items.join(", "))),
                     Value::Ctor(_, 1, fields) => {
                         items.push(boundary_literal(g, elem, &fields[0])?);
-                        v = &fields[1];
+                        v = fields[1].clone();
                     }
                     _ => return Err(stuck()),
                 }
@@ -2162,13 +2186,13 @@ pub fn boundary_literal(g: &Globals, b: &Boundary, value: &Value) -> Result<Stri
         }
         (Boundary::Text, Value::Ctor(_, 0, fields)) => {
             let mut text = String::new();
-            let mut v = &fields[0];
+            let mut v = fields[0].clone();
             loop {
-                match v {
+                match expand_step(g, v) {
                     Value::Ctor(_, 0, _) => return Ok(js_string_literal(&text)),
                     Value::Ctor(_, 1, fields) => {
                         text.push(char_value(g, &fields[0])?.ok_or_else(stuck)?);
-                        v = &fields[1];
+                        v = fields[1].clone();
                     }
                     _ => return Err(stuck()),
                 }

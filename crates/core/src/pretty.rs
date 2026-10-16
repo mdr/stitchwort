@@ -130,6 +130,8 @@ impl<'g> Printer<'g> {
             Term::Sort(Sort::Type(i)) => (format!("Type {i}"), Prec::App),
             Term::Refl => ("rfl".into(), Prec::Atom),
             Term::Nat(n) => (n.to_string(), Prec::Atom),
+            // A compact list of characters, as the list literal it stands for.
+            Term::Chars(chars) => (show_chars(chars.as_slice()), Prec::Atom),
             Term::Data(d, _) if data_named(self.g, *d, "UnitType") => ("()".into(), Prec::Atom),
             // A computation over a row of abilities: `{State Nat | e} a`.
             Term::Data(d, args) if data_named(self.g, *d, "Comp") && args.len() == 3 => {
@@ -163,6 +165,9 @@ impl<'g> Printer<'g> {
                         .map(|t| self.print(names, t, Prec::Arrow))
                         .collect();
                     return (format!("[{}]", items.join(", ")), Prec::Atom);
+                }
+                if let Some(chars) = char_list(self.g, term) {
+                    return (show_chars(&chars), Prec::Atom);
                 }
                 let name = self.g.data(*d).ctors[*c].name.to_string();
                 self.applied(names, name, args.iter().map(|a| &**a))
@@ -325,13 +330,40 @@ fn char_literal(g: &Globals, term: &Term) -> Option<char> {
 fn text_literal(g: &Globals, term: &Term) -> Option<Vec<char>> {
     match term.strip_loc() {
         Term::Ctor(d, 0, args) if data_named(g, *d, "Text") && args.len() == 1 => {
-            list_literal(g, &args[0])?
-                .into_iter()
-                .map(|c| char_literal(g, c))
-                .collect()
+            char_list(g, &args[0])
         }
         _ => None,
     }
+}
+
+/// A list of character literals, as cons cells, ending in `Nil` or in a
+/// compact list (whose characters are literals).
+fn char_list(g: &Globals, term: &Term) -> Option<Vec<char>> {
+    let mut chars = Vec::new();
+    let mut term = term.strip_loc();
+    loop {
+        match term {
+            Term::Chars(rest) => {
+                chars.extend_from_slice(rest.as_slice());
+                return Some(chars);
+            }
+            Term::Ctor(d, 0, _) if data_named(g, *d, "List") => return Some(chars),
+            Term::Ctor(d, 1, args) if data_named(g, *d, "List") => {
+                chars.push(char_literal(g, &args[0])?);
+                term = args[1].strip_loc();
+            }
+            _ => return None,
+        }
+    }
+}
+
+/// `['h', 'i']`.
+fn show_chars(chars: &[char]) -> String {
+    let items: Vec<String> = chars
+        .iter()
+        .map(|c| format!("'{}'", escape(&[*c], '\'')))
+        .collect();
+    format!("[{}]", items.join(", "))
 }
 
 /// Characters as they'd be written in a literal quoted by `quote`. Control

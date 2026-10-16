@@ -128,6 +128,12 @@ pub struct Builtins {
     pub disable_natives: bool,
     /// `Delay` and its constants (`partial.rs`), once admitted.
     primitives: HashMap<DefId, Primitive>,
+    /// `List` and `Char`, if they're the declarations the compact
+    /// representation of text was written for (see [`crate::chars`]).
+    pub text: Option<crate::chars::CompactText>,
+    /// Text literals are elaborated as constructors, not compactly: for tests
+    /// that compare the two. The kernel still accepts compact lists.
+    pub disable_compact_text: bool,
 }
 
 impl Builtins {
@@ -153,6 +159,11 @@ impl Builtins {
             return None;
         }
         self.natives.get(&id).copied()
+    }
+
+    /// The compact representation, if text literals should use it.
+    pub fn compact_literals(&self) -> Option<&crate::chars::CompactText> {
+        self.text.as_ref().filter(|_| !self.disable_compact_text)
     }
 }
 

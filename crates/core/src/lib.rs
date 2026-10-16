@@ -5,6 +5,7 @@
 //! definition the elaborator produces (DESIGN.md §11). See `docs/core.md`.
 
 pub mod budget;
+pub mod chars;
 pub mod check;
 pub mod globals;
 pub mod hash;

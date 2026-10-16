@@ -6,18 +6,18 @@
 
 [examples]
 inputs = "155 files, 5d9b351e574252d2"
-steps = 33087662
-visits = 5033302
-allocations = 38571953
-peak_bytes = 28234258
+steps = 32934177
+visits = 5018164
+allocations = 38520718
+peak_bytes = 26753918
 time_ms = 1707.9
 
 [extract-js]
 inputs = "18 files, 89ddd2b6118070b9"
 steps = 460363
-visits = 92046
-allocations = 526703
-peak_bytes = 190378
+visits = 91902
+allocations = 526192
+peak_bytes = 176914
 time_ms = 11.8
 
 [eval-lengths]
@@ -28,17 +28,17 @@ peak_bytes = 1914526
 time_ms = 918.9
 
 [text-append]
-steps = 4760463
-visits = 63
-allocations = 1720485
-peak_bytes = 51843567
+steps = 4760125
+visits = 39
+allocations = 1740180
+peak_bytes = 51839567
 time_ms = 108.5
 
 [text-split-join]
-steps = 2292436
+steps = 2252436
 visits = 70
-allocations = 816391
-peak_bytes = 6560322
+allocations = 776391
+peak_bytes = 5536322
 time_ms = 54.0
 
 [text-nat-to-text]
@@ -131,3 +131,15 @@ visits = 851
 allocations = 7598
 peak_bytes = 64094
 time_ms = 0.5
+
+[check-text-literal]
+steps = 19
+visits = 17
+allocations = 105
+peak_bytes = 429879
+
+[text-literal-walk]
+steps = 1400153
+visits = 36
+allocations = 633495
+peak_bytes = 3291

@@ -23,7 +23,7 @@ use std::fmt;
 use std::io::{self, BufRead, Write};
 
 use stitchwort_core::step::{Machine, Obs};
-use stitchwort_core::value::{eval, force};
+use stitchwort_core::value::{eval, expand_step, force};
 use stitchwort_core::{DataId, ResourceError, Term, Value, native};
 use stitchwort_syntax::{Diagnostic, Span};
 
@@ -453,7 +453,9 @@ impl Shapes {
         };
         debug_assert_eq!(d, self.text);
         let mut out = String::new();
-        let mut list = force(g, fields[0].clone())?;
+        // A compact list (a literal's) is taken a cell at a time, as matching
+        // would.
+        let mut list = expand_step(g, force(g, fields[0].clone())?);
         while let Value::Ctor(_, 1, cell) = list {
             let Value::Ctor(_, 0, c) = force(g, cell[0].clone())? else {
                 unreachable!("a `Char` value")
@@ -463,7 +465,7 @@ impl Shapes {
                 .and_then(char::from_u32)
                 .expect("a `Char` holds a scalar value");
             out.push(code);
-            list = force(g, cell[1].clone())?;
+            list = expand_step(g, force(g, cell[1].clone())?);
         }
         Ok(out)
     }

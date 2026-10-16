@@ -29,26 +29,35 @@ The main session orchestrates: it chooses lanes, hands each to a background
 agent, then reviews, merges and updates this file.
 
 Running:
-(none)
+- **`Partial`, stage 1** (lane `partial-stage1`): implementing draft 3 of
+  [partial.md](docs/proposals/partial.md), approved by the user.
+- **Records, stage 1** (lane `records-stage1`): reviewed (stage 1 approved;
+  stage 2 eta after a same-type conversion contract and an empty-record
+  policy). Draft 2 adopting the review, then declared records, field access,
+  update, evaluation order, derived `==`, the field-name hash fix, JS as
+  plain objects. Stage 2 (eta, projections in the kernel) later.
 
-Waiting on a decision:
-- **`Partial`, stage 1** ([partial.md](docs/proposals/partial.md) draft 3,
-  merged as `358fec5` with the runtime model `crates/partial-model`): one
-  tick per recursive call (Collatz 27: 111); erasure for JS, exports
-  mentioning `Partial` refused. Implement now, or a short review of draft
-  3's deviations first? Implementation should follow mutual recursion
-  stage 3 (both change the elaborator's grouping).
-- **Records** ([records.md](docs/proposals/records.md) draft 1): declared
-  records as one-constructor data types, then eta, then anonymous records,
-  then `Has` constraints for "any record with a `name`". Questions U1–U7
-  for the user, then the reviewer.
-- **Compact text stages 2–3** ([compact-text.md](docs/proposals/compact-text.md)
-  draft 2, reviewed): compact `List Char` in the evaluator, then selected
-  natives; a native `decEqText` waits for a whole-result test.
+Waiting on a decision: nothing.
 
 ## Next
 
-Nothing queued: choose from **Later**, or continue the lanes above.
+In this order, after the in-flight lanes finish (the user: build a
+capability we know we'll need before the work that needs it):
+
+1. **Namespaces** (lane `namespaces-design`, docs only, in progress): the
+   user decided qualified names (`List.sort`) and dot notation by type
+   (`xs.sort`); `import List (map, filter)` for specific names only at first,
+   meaning the same for namespaces now and files later; a small set of
+   default-visible names (core types, constructors, operators); prefixed
+   names removed. Research and design note, then the reviewer.
+2. **Standard library for real programs:** list functions (`map`, `filter`,
+   folds, `sum`, `max`, `zip`, `take`/`drop`, indexing), sorting with a
+   correctness proof (sorted permutation), `Int`, a balanced-tree map/set,
+   grid helpers.
+3. **Advent of Code 2025, early days**, as a stress test with proofs where
+   natural (sort correctness, parser round trips, worked examples by `rfl`).
+   Inputs: the user's repo https://github.com/mdr/aoc-2025/tree/main/src/main/resources.
+   Write up the friction found.
 
 ## Later
 
@@ -111,6 +120,11 @@ Nothing queued: choose from **Later**, or continue the lanes above.
   inductive-inductive types are out of scope; members' parameters must be
   written identically (names included); JS error paths alternating
   `.kids.first` aren't shortened.
+- **`zonk` walks computations inside types recursively**, so a check like
+  `textJoin … == t` on tens of thousands of characters runs out of
+  resources while checking (found by compact text stage 2).
+- **Compact text in the playground's WASM build** isn't measured.
+- **`Term::Nat`'s hash doesn't include `Nat`'s own hash** (pre-existing).
 - **Measure the JS limits in browsers** (only Node so far).
 - **Compact text** (text step 7): in generated JS first, then possibly in the
   checking evaluator, with differential tests against the plain-list version.
@@ -216,6 +230,7 @@ Nothing queued: choose from **Later**, or continue the lanes above.
 
 ## Recently done
 
+- `1965faf` Compact text stage 2: text literals are one compact term in the kernel (shared character ranges), indistinguishable from the list they stand for; long literals from ~1,800 (2 MiB thread) to over 4 million characters; a build fingerprint and modes in the test-cache key; ~28,000 whole-result comparisons and mutation evidence.
 - `1c2addc` Mutual recursion stage 3: mutual data types (`Tree`/`Forest`, `Even`/`Odd`, three-member groups) checked as a unit; positivity across the group (`Bad1`/`Bad2` refused; the mutant proved `Void`); no data from `Prop` groups; group hashing; million-deep `Tree`/`Forest` across the JS boundary. Mutual recursion is complete.
 - `358fec5` `Partial` draft 3 (stage 1 only; later stages someday/maybe) and `crates/partial-model`, an executable model of the stage-1 runtime running the reviewer's test table.
 - `af02abc` Mutual recursion stage 2: declarations in any order within a file, function groups checked as a unit by the kernel (`define_group`), witness messages naming each member, group hashing, `auto` diagnostics explaining unavailable candidates, one JS calling convention; mutation evidence including the Rocq-bug shape.

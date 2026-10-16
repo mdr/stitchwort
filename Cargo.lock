@@ -502,6 +502,7 @@ name = "stitchwort-driver"
 version = "0.1.0"
 dependencies = [
  "ariadne",
+ "blake3",
  "insta",
  "stitchwort-core",
  "stitchwort-elab",

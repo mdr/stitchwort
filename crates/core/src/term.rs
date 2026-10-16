@@ -6,6 +6,7 @@ use num_bigint::BigUint;
 use stitchwort_syntax::Span;
 
 use crate::budget::Result;
+use crate::chars::Chars;
 use crate::globals::Globals;
 
 pub type Name = Rc<str>;
@@ -88,6 +89,12 @@ pub enum Term {
     Ctor(DataId, usize, Vec<Rc<Term>>),
     /// A number: the same as that many `Succ`s around `Zero`, stored compactly.
     Nat(Rc<BigUint>),
+    /// A `List Char`, stored compactly: the same as `Cons (MkChar c rfl) …
+    /// Nil` for its characters `c` (see [`crate::chars`]). Closed, but it
+    /// refers to `List` and `Char` (and through `Char`, to `isScalar`) as its
+    /// expansion would, so passes that collect what a term refers to count
+    /// those.
+    Chars(Chars),
     Sort(Sort),
     Pi(Name, Icit, Rc<Term>, Rc<Term>),
     Lam(Name, Icit, Rc<Term>),
@@ -171,9 +178,13 @@ fn has_unique_child(term: &Term) -> bool {
         Term::NumCase(_, arms, default) => {
             unique(default) || (Rc::strong_count(arms) == 1 && arms.iter().any(|a| unique(&a.body)))
         }
-        Term::Var(_) | Term::Def(_) | Term::Nat(_) | Term::Sort(_) | Term::Refl | Term::Meta(_) => {
-            false
-        }
+        Term::Var(_)
+        | Term::Def(_)
+        | Term::Nat(_)
+        | Term::Chars(_)
+        | Term::Sort(_)
+        | Term::Refl
+        | Term::Meta(_) => false,
     }
 }
 
@@ -214,8 +225,13 @@ fn take_children(term: &mut Term, leaf: &Rc<Term>, pending: &mut Vec<Rc<Term>>) 
             }
             take(default);
         }
-        Term::Var(_) | Term::Def(_) | Term::Nat(_) | Term::Sort(_) | Term::Refl | Term::Meta(_) => {
-        }
+        Term::Var(_)
+        | Term::Def(_)
+        | Term::Nat(_)
+        | Term::Chars(_)
+        | Term::Sort(_)
+        | Term::Refl
+        | Term::Meta(_) => {}
     }
 }
 
@@ -331,6 +347,7 @@ impl Term {
             Term::Var(_)
             | Term::Def(_)
             | Term::Nat(_)
+            | Term::Chars(_)
             | Term::Sort(_)
             | Term::Refl
             | Term::Meta(_) => self.clone(),
@@ -413,6 +430,7 @@ impl Term {
             Term::Var(_)
             | Term::Def(_)
             | Term::Nat(_)
+            | Term::Chars(_)
             | Term::Sort(_)
             | Term::Refl
             | Term::Meta(_) => {}

@@ -129,7 +129,12 @@ impl Walker<'_> {
                 self.walk(inner)?;
                 self.span = saved;
             }
-            Term::Var(_) | Term::Nat(_) | Term::Sort(_) | Term::Refl | Term::Meta(_) => {}
+            Term::Var(_)
+            | Term::Nat(_)
+            | Term::Chars(_)
+            | Term::Sort(_)
+            | Term::Refl
+            | Term::Meta(_) => {}
             Term::Def(id) => {
                 if *id == self.self_id {
                     self.calls.push((Vec::new(), self.span));
