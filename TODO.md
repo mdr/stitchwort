@@ -29,8 +29,6 @@ The main session orchestrates: it chooses lanes, hands each to a background
 agent, then reviews, merges and updates this file.
 
 Running:
-- **`Partial`, stage 1** (lane `partial-stage1`): implementing draft 3 of
-  [partial.md](docs/proposals/partial.md), approved by the user.
 - **Playground fixes** (lane `playground-fixes`): show warnings, phone
   layout (viewport), the squeezed JavaScript tab.
 
@@ -140,6 +138,11 @@ capability we know we'll need before the work that needs it):
   ordinary data types; printing `R.f r` as `r.f` in errors; descent through
   record fields for termination. After `->`, `{` starts an ability row, so
   a record literal in a result type needs parentheses.
+- **`Partial` follow-ups:** a generated-program differential test of the
+  runner against `crates/partial-model`; `mapP` in the library; the
+  `E-PARTIAL-CALLBACK` note could point at polymorphic library variants; an
+  endless partial `main` in the CLI runs until stopped (no total-work
+  limit; decide whether to add one).
 - **Measure the JS limits in browsers** (only Node so far).
 - **Compact text** (text step 7): in generated JS first, then possibly in the
   checking evaluator, with differential tests against the plain-list version.
@@ -245,6 +248,7 @@ capability we know we'll need before the work that needs it):
 
 ## Recently done
 
+- `6a790a1` `Partial` stage 1: `{Partial}` in types; partial groups translated into ordinary checked declarations over an opaque `Delay`; the runtime steps them (one tick per recursive call, matching `crates/partial-model` trace for trace); `main` can loop until end of input; total code can't run partial code; JS erases `Delay`.
 - `22d7b01` Records stage 1: declared records (`type Person = { name : Text, age : Nat }`), `p.name`, `{ p | age = … }`, record patterns, dependent and proof fields, evaluation order as written, derived `==` where provable; JS plain objects with proof fields validated at the boundary; every data type's hash now includes its field names.
 - `1965faf` Compact text stage 2: text literals are one compact term in the kernel (shared character ranges), indistinguishable from the list they stand for; long literals from ~1,800 (2 MiB thread) to over 4 million characters; a build fingerprint and modes in the test-cache key; ~28,000 whole-result comparisons and mutation evidence.
 - `1c2addc` Mutual recursion stage 3: mutual data types (`Tree`/`Forest`, `Even`/`Odd`, three-member groups) checked as a unit; positivity across the group (`Bad1`/`Bad2` refused; the mutant proved `Void`); no data from `Prop` groups; group hashing; million-deep `Tree`/`Forest` across the JS boundary. Mutual recursion is complete.
