@@ -57,7 +57,9 @@ impl Session {
         if let Err(diagnostics) = session.load("<prelude>", PRELUDE) {
             panic!("internal error: the prelude doesn't check: {diagnostics:#?}");
         }
-        session.elab.loading_prelude = false;
+        if let Err(missing) = session.elab.finish_prelude() {
+            panic!("internal error: {}", missing.message);
+        }
         session
     }
 

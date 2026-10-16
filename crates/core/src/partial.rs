@@ -34,6 +34,7 @@ use std::rc::Rc;
 use stitchwort_syntax::Diagnostic;
 
 use crate::globals::{Globals, State};
+use crate::registry::Builtin;
 use crate::term::{DataId, DefId, Icit, Sort, Term};
 use crate::value::{conv, eval};
 
@@ -156,23 +157,14 @@ struct Prelude {
 }
 
 fn prelude(g: &Globals) -> Option<Prelude> {
-    let data = |name: &str| {
-        g.find_data(name)
-            .filter(|d| g.data(*d).state == State::Final)
-    };
-    let def = |name: &str| {
-        g.defs
-            .iter()
-            .position(|d| &*d.name == name && d.state == State::Final)
-            .map(DefId)
-    };
+    let r = &g.registry;
     Some(Prelude {
-        comp: data("Comp")?,
-        plus: data("Plus")?,
-        sig_map: data("SigMap")?,
-        rec: data("Rec")?,
-        plus_res: def("PlusRes")?,
-        rec_res: def("RecRes")?,
+        comp: r.data(Builtin::Comp)?,
+        plus: r.data(Builtin::Plus)?,
+        sig_map: r.data(Builtin::SigMap)?,
+        rec: r.data(Builtin::Rec)?,
+        plus_res: r.def(Builtin::PlusRes)?,
+        rec_res: r.def(Builtin::RecRes)?,
         delay: g.builtins.primitive_id(Primitive::Delay),
     })
 }

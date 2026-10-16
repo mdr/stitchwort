@@ -21,13 +21,16 @@
 use std::rc::Rc;
 
 use stitchwort_core::partial::Primitive;
+use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{Elim, Head, apply, force};
 use stitchwort_core::{DataId, DefId, Icit, Name, Term, Value};
 use stitchwort_syntax::Diagnostic;
 use stitchwort_syntax::ast::{Clause, Expr, Name as AstName, Pattern};
 
 use crate::Global;
-use crate::check::{Ctx, Result, check, check_if, check_type, infer, infer_head, insert};
+use crate::check::{
+    Ctx, Result, builtin_data, builtin_def, check, check_if, check_type, infer, infer_head, insert,
+};
 
 /// An ability declared with `ability`.
 pub struct AbilityInfo {
@@ -114,44 +117,19 @@ impl Row {
     }
 }
 
-// Prelude names
+// The prelude's machinery, by identity (the built-in registry)
 
-fn global(cx: &Ctx, name: &str) -> Result<Global> {
-    match cx.e.names.get(name) {
-        Some((g, _)) => Ok(*g),
-        None => Err(cx.error(
-            "E-UNKNOWN-NAME",
-            format!("abilities need the prelude's `{name}`"),
-            "here",
-        )),
-    }
+fn data(cx: &Ctx, b: Builtin) -> Result<DataId> {
+    builtin_data(cx, b)
 }
 
-fn data(cx: &Ctx, name: &str) -> Result<DataId> {
-    match global(cx, name)? {
-        Global::Data(d) => Ok(d),
-        _ => Err(cx.error(
-            "E-UNKNOWN-NAME",
-            format!("`{name}` isn't a data type"),
-            "here",
-        )),
-    }
+fn def(cx: &Ctx, b: Builtin) -> Result<DefId> {
+    builtin_def(cx, b)
 }
 
-fn def(cx: &Ctx, name: &str) -> Result<DefId> {
-    match global(cx, name)? {
-        Global::Def(id) => Ok(id),
-        _ => Err(cx.error(
-            "E-UNKNOWN-NAME",
-            format!("`{name}` isn't a definition"),
-            "here",
-        )),
-    }
-}
-
-/// `name [implicits…] explicits…`, quoting the implicit arguments.
-fn call(cx: &Ctx, name: &str, implicits: &[Value], explicits: Vec<Term>) -> Result<Term> {
-    let mut term = Term::Def(def(cx, name)?);
+/// `b [implicits…] explicits…`, quoting the implicit arguments.
+fn call(cx: &Ctx, b: Builtin, implicits: &[Value], explicits: Vec<Term>) -> Result<Term> {
+    let mut term = Term::Def(def(cx, b)?);
     for v in implicits {
         term = Term::app_icit(term, cx.quote(v)?, Icit::Implicit);
     }
@@ -166,7 +144,7 @@ fn call(cx: &Ctx, name: &str, implicits: &[Value], explicits: Vec<Term>) -> Resu
 fn label_ops(cx: &Ctx, label: &Label) -> Value {
     if label.ability == REC {
         // `Rec A`, recognised by `decode` only while describing.
-        let rec = cx.g().find_data("Rec").expect("the prelude declares `Rec`");
+        let rec = data(cx, Builtin::Rec).expect("the prelude declares `Rec`");
         return Value::Data(rec, label.args.clone());
     }
     Value::Data(cx.e.abilities[label.ability].op_data, label.args.clone())
@@ -176,7 +154,7 @@ fn label_res(cx: &Ctx, label: &Label) -> Result<Value> {
     if label.ability == REC {
         // `RecRes [A] B`.
         let rec = cx.e.recursion.as_ref().expect("only while describing");
-        let f = Value::Neutral(Head::Def(def(cx, "RecRes")?), Vec::new());
+        let f = Value::Neutral(Head::Def(def(cx, Builtin::RecRes)?), Vec::new());
         let f =
             stitchwort_core::value::apply_icit(cx.g(), f, label.args[0].clone(), Icit::Implicit)?;
         return Ok(apply(cx.g(), f, rec.ans.clone())?);
@@ -195,12 +173,12 @@ pub fn ops(cx: &Ctx, row: &Row) -> Result<Value> {
     let mut value = match &row.tail {
         Some(e) => apply(
             g,
-            Value::Neutral(Head::Def(def(cx, "sigOp")?), Vec::new()),
+            Value::Neutral(Head::Def(def(cx, Builtin::SigOp)?), Vec::new()),
             e.clone(),
         )?,
-        None => Value::Data(data(cx, "NoOp")?, Vec::new()),
+        None => Value::Data(data(cx, Builtin::NoOp)?, Vec::new()),
     };
-    let plus = data(cx, "Plus")?;
+    let plus = data(cx, Builtin::Plus)?;
     for label in row.labels.iter().rev() {
         value = Value::Data(plus, vec![label_ops(cx, label), value]);
     }
@@ -213,12 +191,12 @@ pub fn res(cx: &Ctx, row: &Row) -> Result<Value> {
     let mut value = match &row.tail {
         Some(e) => apply(
             g,
-            Value::Neutral(Head::Def(def(cx, "sigRes")?), Vec::new()),
+            Value::Neutral(Head::Def(def(cx, Builtin::SigRes)?), Vec::new()),
             e.clone(),
         )?,
-        None => Value::Neutral(Head::Def(def(cx, "NoRes")?), Vec::new()),
+        None => Value::Neutral(Head::Def(def(cx, Builtin::NoRes)?), Vec::new()),
     };
-    let plus_res = def(cx, "PlusRes")?;
+    let plus_res = def(cx, Builtin::PlusRes)?;
     for (i, label) in row.labels.iter().enumerate().rev() {
         let rest_ops = ops(cx, &row.suffix(i + 1))?;
         let mut f = Value::Neutral(Head::Def(plus_res), Vec::new());
@@ -242,7 +220,7 @@ pub fn comp_type(cx: &Ctx, row: &Row, t: Value) -> Result<Value> {
         return Ok(ty);
     }
     Ok(Value::Data(
-        data(cx, "Comp")?,
+        data(cx, Builtin::Comp)?,
         vec![ops(cx, row)?, res(cx, row)?, t],
     ))
 }
@@ -264,16 +242,16 @@ pub fn decode(cx: &Ctx, op_type: &Value) -> Result<Option<Row>> {
     let ability_of =
         |d: DataId| -> Option<usize> { cx.e.abilities.iter().position(|a| a.op_data == d) };
     let (Ok(plus), Ok(no_op), Ok(sig), Ok(sig_op)) = (
-        data(cx, "Plus"),
-        data(cx, "NoOp"),
-        data(cx, "Sig"),
-        def(cx, "sigOp"),
+        data(cx, Builtin::Plus),
+        data(cx, Builtin::NoOp),
+        data(cx, Builtin::Sig),
+        def(cx, Builtin::SigOp),
     ) else {
         return Ok(None);
     };
     // A description's private recursion signature, `Rec A`.
     let rec = match cx.e.recursion {
-        Some(_) => g.find_data("Rec"),
+        Some(_) => data(cx, Builtin::Rec).ok(),
         None => None,
     };
     let mut labels = Vec::new();
@@ -327,7 +305,7 @@ pub fn decode(cx: &Ctx, op_type: &Value) -> Result<Option<Row>> {
 /// If `ty` is `Comp` or `Delay` over a row of abilities: the row (partial
 /// for a `Delay`) and the result type.
 pub fn comp_parts(cx: &Ctx, ty: &Value) -> Result<Option<(Row, Value)>> {
-    let Ok(comp) = data(cx, "Comp") else {
+    let Ok(comp) = data(cx, Builtin::Comp) else {
         return Ok(None);
     };
     let delay = cx.g().builtins.primitive_id(Primitive::Delay);
@@ -392,7 +370,7 @@ fn solve_tail(cx: &mut Ctx, open: &Row, other: &Row) -> Result<bool> {
         partial: false,
     };
     let sig = Value::Ctor(
-        data(cx, "Sig")?,
+        data(cx, Builtin::Sig)?,
         0,
         vec![ops(cx, &rest)?, res(cx, &rest)?].into(),
     );
@@ -607,7 +585,11 @@ fn lift(cx: &mut Ctx, term: Term, from: Row, to: &Row, t: &Value) -> Result<Term
         let m = mapping(cx, &from, to)?;
         call(
             cx,
-            if from.partial { "mapSig" } else { "translate" },
+            if from.partial {
+                Builtin::MapSig
+            } else {
+                Builtin::Translate
+            },
             &[
                 ops(cx, &from)?,
                 res(cx, &from)?,
@@ -621,7 +603,7 @@ fn lift(cx: &mut Ctx, term: Term, from: Row, to: &Row, t: &Value) -> Result<Term
     if to.partial && !from.partial {
         return call(
             cx,
-            "lift",
+            Builtin::Lift,
             &[ops(cx, to)?, res(cx, to)?, t.clone()],
             vec![moved],
         );
@@ -630,8 +612,12 @@ fn lift(cx: &mut Ctx, term: Term, from: Row, to: &Row, t: &Value) -> Result<Term
 }
 
 /// `bind`, or `bindD` in a partial row.
-fn bind_name(row: &Row) -> &'static str {
-    if row.partial { "bindD" } else { "bind" }
+fn bind_name(row: &Row) -> Builtin {
+    if row.partial {
+        Builtin::BindD
+    } else {
+        Builtin::Bind
+    }
 }
 
 /// Re-reads a row whose tail may have been solved since it was read.
@@ -683,7 +669,7 @@ fn extend_with(cx: &mut Ctx, row: &Row, extra: Vec<Label>, tail: Value) -> Resul
         partial: false,
     };
     let sig = Value::Ctor(
-        data(cx, "Sig")?,
+        data(cx, Builtin::Sig)?,
         0,
         vec![ops(cx, &added)?, res(cx, &added)?].into(),
     );
@@ -694,7 +680,12 @@ fn extend_with(cx: &mut Ctx, row: &Row, extra: Vec<Label>, tail: Value) -> Resul
 /// `from`'s (with the same tail, if `from` has one).
 fn mapping(cx: &mut Ctx, from: &Row, to: &Row) -> Result<Term> {
     let mut m = match &from.tail {
-        None => call(cx, "sigFromNo", &[ops(cx, to)?, res(cx, to)?], Vec::new())?,
+        None => call(
+            cx,
+            Builtin::SigFromNo,
+            &[ops(cx, to)?, res(cx, to)?],
+            Vec::new(),
+        )?,
         Some(t) => {
             let same = match to.tail.as_ref() {
                 Some(u) => cx.unify(t, u)?,
@@ -716,7 +707,7 @@ fn mapping(cx: &mut Ctx, from: &Row, to: &Row) -> Result<Term> {
         let inj = injection(cx, to, pos)?;
         m = call(
             cx,
-            "sigCase",
+            Builtin::SigCase,
             &[
                 label_ops(cx, label),
                 ops(cx, &rest)?,
@@ -740,7 +731,7 @@ fn injection(cx: &Ctx, to: &Row, pos: usize) -> Result<Term> {
         let rest = to.suffix(j + 1);
         call(
             cx,
-            "sigRight",
+            Builtin::SigRight,
             &[
                 label_ops(cx, x),
                 ops(cx, &rest)?,
@@ -753,7 +744,12 @@ fn injection(cx: &Ctx, to: &Row, pos: usize) -> Result<Term> {
     // `m` maps `(src_ops, src_res)` into `to.suffix(start)`.
     let (mut m, src_ops, src_res, start) = if pos == k {
         if k == 0 {
-            let id = call(cx, "sigId", &[ops(cx, to)?, res(cx, to)?], Vec::new())?;
+            let id = call(
+                cx,
+                Builtin::SigId,
+                &[ops(cx, to)?, res(cx, to)?],
+                Vec::new(),
+            )?;
             return Ok(id);
         }
         let tail = to.suffix(k);
@@ -763,7 +759,7 @@ fn injection(cx: &Ctx, to: &Row, pos: usize) -> Result<Term> {
         let rest = to.suffix(pos + 1);
         let left = call(
             cx,
-            "sigLeft",
+            Builtin::SigLeft,
             &[
                 label_ops(cx, x),
                 ops(cx, &rest)?,
@@ -779,7 +775,7 @@ fn injection(cx: &Ctx, to: &Row, pos: usize) -> Result<Term> {
         let outer = to.suffix(j);
         m = call(
             cx,
-            "sigCompose",
+            Builtin::SigCompose,
             &[
                 src_ops.clone(),
                 src_res.clone(),
@@ -837,7 +833,7 @@ pub fn effect_type(
     let tail = match &row.tail {
         None => None,
         Some(name) => {
-            let sig = Value::Data(data(cx, "Sig")?, Vec::new());
+            let sig = Value::Data(data(cx, Builtin::Sig)?, Vec::new());
             let term = check(cx, &Expr::Var(name.clone()), &sig)?;
             Some(cx.eval(&term)?)
         }
@@ -1011,14 +1007,14 @@ fn done(cx: &Ctx, row: &Row, t: &Value, v: Term) -> Result<Term> {
     if row.partial {
         return call(
             cx,
-            "now",
+            Builtin::Now,
             &[ops(cx, row)?, res(cx, row)?, t.clone()],
             vec![v],
         );
     }
     let ty = comp_type(cx, row, t.clone())?;
     Ok(Term::Ann(
-        Rc::new(Term::ctor(data(cx, "Comp")?, 0, vec![v])),
+        Rc::new(Term::ctor(data(cx, Builtin::Comp)?, 0, vec![v])),
         Rc::new(cx.quote(&ty)?),
     ))
 }
@@ -1090,16 +1086,7 @@ pub fn comp_check(cx: &mut Ctx, expr: &Expr, row: &Row, t: &Value) -> Result<Ter
                 ));
             }
             // Run the condition first, then branch on its result.
-            let bool_ty = match cx.e.names.get("Bool") {
-                Some((Global::Data(d), _)) => Value::Data(*d, Vec::new()),
-                _ => {
-                    return Err(cx.error(
-                        "E-UNKNOWN-NAME",
-                        "`if` needs the prelude's `Bool`",
-                        "here",
-                    ));
-                }
-            };
+            let bool_ty = Value::Data(data(cx, Builtin::Bool)?, Vec::new());
             let c = comp_check(cx, cond, row, &bool_ty)?;
             let var = Expr::Var(AstName {
                 text: "%cond".into(),
@@ -1503,7 +1490,7 @@ fn make_call(
     let x_value = cx.eval(&x)?;
     let op_value = Value::Ctor(op_data, i, [x_value].into());
     let result_ty = apply(cx.g(), label_res(cx, label)?, op_value)?;
-    let plus = data(cx, "Plus")?;
+    let plus = data(cx, Builtin::Plus)?;
     let mut injected = Term::ctor(plus, 0, vec![Term::ctor(op_data, i, vec![x])]);
     for _ in 0..pos {
         injected = Term::ctor(plus, 1, vec![injected]);
@@ -1511,18 +1498,22 @@ fn make_call(
     let comp = comp_type(cx, &row.total(), result_ty.clone())?;
     let comp_inner = stitchwort_core::value::quote(cx.g(), cx.level() + 1, &comp)?;
     let done = Term::Ann(
-        Rc::new(Term::ctor(data(cx, "Comp")?, 0, vec![Term::Var(0)])),
+        Rc::new(Term::ctor(data(cx, Builtin::Comp)?, 0, vec![Term::Var(0)])),
         Rc::new(comp_inner),
     );
     let rest = Term::Lam("r".into(), Icit::Explicit, Rc::new(done));
     let op_call = Term::Ann(
-        Rc::new(Term::ctor(data(cx, "Comp")?, 1, vec![injected, rest])),
+        Rc::new(Term::ctor(
+            data(cx, Builtin::Comp)?,
+            1,
+            vec![injected, rest],
+        )),
         Rc::new(cx.quote(&comp)?),
     );
     if row.partial {
         let lifted = call(
             cx,
-            "lift",
+            Builtin::Lift,
             &[ops(cx, row)?, res(cx, row)?, result_ty.clone()],
             vec![op_call],
         )?;
@@ -1573,7 +1564,10 @@ pub fn run_pure(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(
         Some(t) => (comp_check(cx, expr, &empty, t)?, t.clone()),
         None => comp_infer(cx, expr, &empty)?,
     };
-    Ok((call(cx, "runPure", std::slice::from_ref(&ty), vec![c])?, ty))
+    Ok((
+        call(cx, Builtin::RunPure, std::slice::from_ref(&ty), vec![c])?,
+        ty,
+    ))
 }
 
 // Handlers
@@ -1723,7 +1717,7 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
             Pattern::Var(n) => n.text.clone(),
             Pattern::Wildcard(_) => "_".to_string(),
             Pattern::Absurd(_) => {
-                let unit = Value::Data(data(cx, "UnitType")?, Vec::new());
+                let unit = Value::Data(data(cx, Builtin::UnitType)?, Vec::new());
                 if !cx.unify(&dom, &unit)? {
                     cx.reset(mark);
                     return Err(cx.mismatch(&dom, &unit));
@@ -1780,8 +1774,8 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
     );
     let forward = {
         let level = cx.level();
-        let with_implicits = |name: &str, depth: usize| -> Result<Term> {
-            let mut term = Term::Def(def(cx, name)?);
+        let with_implicits = |b: Builtin, depth: usize| -> Result<Term> {
+            let mut term = Term::Def(def(cx, b)?);
             for v in [&rest_ops, &rest_res, &out_ops, &out_res] {
                 let v = stitchwort_core::value::quote(cx.g(), level + depth, v)?;
                 term = Term::app_icit(term, v, Icit::Implicit);
@@ -1791,12 +1785,18 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
         // Under `o` and `k`: `o` is Var(1). Under `y` as well: `o` is Var(2),
         // `k` is Var(1).
         let inject = Term::app(
-            Term::app(with_implicits("sigInject", 2)?, m.shift(cx.g(), 2, 0)?),
+            Term::app(
+                with_implicits(Builtin::SigInject, 2)?,
+                m.shift(cx.g(), 2, 0)?,
+            ),
             Term::Var(1),
         );
         let reply = Term::app(
             Term::app(
-                Term::app(with_implicits("sigReply", 3)?, m.shift(cx.g(), 3, 0)?),
+                Term::app(
+                    with_implicits(Builtin::SigReply, 3)?,
+                    m.shift(cx.g(), 3, 0)?,
+                ),
                 Term::Var(2),
             ),
             Term::Var(0),
@@ -1815,9 +1815,9 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
             let done = Term::Lam(
                 "y".into(),
                 Icit::Explicit,
-                Rc::new(Term::ctor(data(cx, "Comp")?, 0, vec![Term::Var(0)])),
+                Rc::new(Term::ctor(data(cx, Builtin::Comp)?, 0, vec![Term::Var(0)])),
             );
-            let op = Term::ctor(data(cx, "Comp")?, 1, vec![inject, done]);
+            let op = Term::ctor(data(cx, Builtin::Comp)?, 1, vec![inject, done]);
             let mut lifted = Term::Def(primitive(cx, Primitive::Lift)?);
             let mut bind = Term::Def(primitive(cx, Primitive::BindD)?);
             for v in [quoted(&out_ops)?, quoted(&out_res)?, ans] {
@@ -1827,7 +1827,7 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
             bind = Term::app_icit(bind, quoted(t)?, Icit::Implicit);
             Term::app(Term::app(bind, Term::app(lifted, op)), rest_fn)
         } else {
-            Term::ctor(data(cx, "Comp")?, 1, vec![inject, rest_fn])
+            Term::ctor(data(cx, Builtin::Comp)?, 1, vec![inject, rest_fn])
         };
         Term::Lam(
             "o".into(),
@@ -1837,7 +1837,7 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
     };
     let step = call(
         cx,
-        "handlePlus",
+        Builtin::HandlePlus,
         &[
             label_ops(cx, &handled),
             rest_ops,
@@ -1849,7 +1849,7 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
     )?;
     call(
         cx,
-        "foldComp",
+        Builtin::FoldComp,
         &[ops(cx, &inner)?, res(cx, &inner)?, t_in, r],
         vec![done_fn, step, body_c],
     )

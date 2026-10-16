@@ -123,6 +123,8 @@ pub struct Globals {
     pub datas: Vec<Data>,
     /// `Nat` and the definitions with native implementations.
     pub builtins: Builtins,
+    /// The prelude declarations the compiler refers to, by identity.
+    pub registry: crate::registry::Registry,
     /// The elaborator's metavariables. Empty whenever the kernel runs.
     pub metas: RefCell<Vec<Meta>>,
     /// Content hashes computed so far. Declarations never change once

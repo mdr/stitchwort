@@ -1,0 +1,329 @@
+//! The built-in registry (docs/proposals/namespaces.md §4.7): the prelude
+//! declarations that syntax, natives, the effect machinery, extraction, the
+//! printer and the runner mean, by identity rather than by name.
+//!
+//! `a + b` means the prelude's `add`, whatever `add` means where it's
+//! written; a user's own `List` never gets the list codec. Its invariants:
+//!
+//! 1. Each entry is a final declaration of these [`Globals`], so ids are
+//!    never carried between environments.
+//! 2. Only loading the prelude binds entries ([`bind_data`], [`bind_def`]),
+//!    and an entry is never rebound, so user name resolution can't change
+//!    it.
+//! 3. A missing entry is an error naming the built-in, never a search of the
+//!    names in scope.
+//! 4. Entries are bound as their declarations are admitted, so prelude code
+//!    after them can use the syntax.
+//! 5. The registry is complete ([`check_complete`]) before any user code is
+//!    elaborated.
+//!
+//! Binding a built-in only says which declaration is meant. Whether a native
+//! implementation may replace it is decided separately, by the checks in
+//! [`crate::native`], [`crate::partial`] and [`crate::chars`] (types, and
+//! content hashes), which this doesn't weaken.
+
+use std::collections::HashMap;
+
+use stitchwort_syntax::Diagnostic;
+
+use crate::globals::{Globals, State};
+use crate::term::{DataId, DefId};
+
+/// What kind of declaration a built-in is.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Kind {
+    Data,
+    Def,
+    /// A constructor of the given built-in data type.
+    Ctor(Builtin),
+}
+
+macro_rules! builtins {
+    ($($variant:ident = $name:literal : $kind:expr,)*) => {
+        /// A prelude declaration the compiler refers to.
+        #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+        pub enum Builtin {
+            $($variant,)*
+        }
+
+        impl Builtin {
+            pub const ALL: &'static [Builtin] = &[$(Builtin::$variant,)*];
+
+            /// Its name in the prelude.
+            pub fn name(self) -> &'static str {
+                match self {
+                    $(Builtin::$variant => $name,)*
+                }
+            }
+
+            pub fn kind(self) -> Kind {
+                use Kind::*;
+                match self {
+                    $(Builtin::$variant => $kind,)*
+                }
+            }
+        }
+    };
+}
+
+builtins! {
+    // Logic
+    Void = "Void": Data,
+    Unit = "Unit": Data,
+    Trivial = "Trivial": Ctor(Builtin::Unit),
+    Not = "Not": Def,
+    Cong = "cong": Def,
+    // Numbers: syntax and natives
+    Nat = "Nat": Data,
+    Zero = "Zero": Ctor(Builtin::Nat),
+    Succ = "Succ": Ctor(Builtin::Nat),
+    Add = "add": Def,
+    Sub = "sub": Def,
+    Mul = "mul": Def,
+    Div = "div": Def,
+    Mod = "mod": Def,
+    Leq = "leq": Def,
+    LessEq = "LessEq": Def,
+    LessThan = "LessThan": Def,
+    EqNat = "eqNat": Def,
+    EqNatRefl = "eqNatRefl": Def,
+    EqNatSound = "eqNatSound": Def,
+    NatNeq = "natNeq": Def,
+    DivFuel = "divFuel": Def,
+    DecEqNat = "decEqNat": Def,
+    // Booleans and decisions
+    Bool = "Bool": Data,
+    False = "False": Ctor(Builtin::Bool),
+    True = "True": Ctor(Builtin::Bool),
+    IfThenElse = "ifThenElse": Def,
+    Decidable = "Decidable": Data,
+    Yes = "Yes": Ctor(Builtin::Decidable),
+    No = "No": Ctor(Builtin::Decidable),
+    FromYes = "fromYes": Def,
+    ToBool = "toBool": Def,
+    ElimDec = "elimDec": Def,
+    // Lists, `Maybe`, pairs
+    List = "List": Data,
+    Nil = "Nil": Ctor(Builtin::List),
+    Cons = "Cons": Ctor(Builtin::List),
+    Append = "append": Def,
+    Maybe = "Maybe": Data,
+    Nothing = "Nothing": Ctor(Builtin::Maybe),
+    Just = "Just": Ctor(Builtin::Maybe),
+    Fst = "fst": Def,
+    // Characters and text
+    Char = "Char": Data,
+    MkChar = "MkChar": Ctor(Builtin::Char),
+    Text = "Text": Data,
+    MkText = "MkText": Ctor(Builtin::Text),
+    TextToList = "textToList": Def,
+    TextFromList = "textFromList": Def,
+    TextAppend = "textAppend": Def,
+    TextLength = "textLength": Def,
+    TextIsEmpty = "textIsEmpty": Def,
+    DecEqText = "decEqText": Def,
+    TextCompare = "textCompare": Def,
+    TextUncons = "textUncons": Def,
+    TextFold = "textFold": Def,
+    TextTrim = "textTrim": Def,
+    TextSplit = "textSplit": Def,
+    TextJoin = "textJoin": Def,
+    NatToText = "natToText": Def,
+    TextToNat = "textToNat": Def,
+    // The effect machinery
+    Comp = "Comp": Data,
+    Done = "Done": Ctor(Builtin::Comp),
+    Call = "Call": Ctor(Builtin::Comp),
+    FoldComp = "foldComp": Def,
+    Bind = "bind": Def,
+    Plus = "Plus": Data,
+    PlusRes = "PlusRes": Def,
+    SigMap = "SigMap": Data,
+    SigInject = "sigInject": Def,
+    SigReply = "sigReply": Def,
+    Translate = "translate": Def,
+    SigId = "sigId": Def,
+    SigCompose = "sigCompose": Def,
+    SigLeft = "sigLeft": Def,
+    SigRight = "sigRight": Def,
+    UnitType = "UnitType": Data,
+    UnitValue = "UnitValue": Ctor(Builtin::UnitType),
+    NoOp = "NoOp": Data,
+    NoRes = "NoRes": Def,
+    Sig = "Sig": Data,
+    SigOp = "sigOp": Def,
+    SigRes = "sigRes": Def,
+    SigCase = "sigCase": Def,
+    SigFromNo = "sigFromNo": Def,
+    HandlePlus = "handlePlus": Def,
+    RunPure = "runPure": Def,
+    // Partial computations
+    Rec = "Rec": Data,
+    RecRes = "RecRes": Def,
+    Delay = "Delay": Def,
+    Now = "now": Def,
+    Lift = "lift": Def,
+    BindD = "bindD": Def,
+    MapSig = "mapSig": Def,
+    Pfix = "pfix": Def,
+    // Input and output
+    Io = "IO": Data,
+    Print = "IO.print": Ctor(Builtin::Io),
+    ReadLine = "IO.readLine": Ctor(Builtin::Io),
+    Simulate = "simulate": Def,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Entry {
+    Data(DataId),
+    Def(DefId),
+    Ctor(DataId, usize),
+}
+
+/// The bound built-ins.
+#[derive(Default)]
+pub struct Registry {
+    entries: HashMap<Builtin, Entry>,
+}
+
+impl Registry {
+    pub fn data(&self, b: Builtin) -> Option<DataId> {
+        match self.entries.get(&b) {
+            Some(Entry::Data(d)) => Some(*d),
+            _ => None,
+        }
+    }
+
+    pub fn def(&self, b: Builtin) -> Option<DefId> {
+        match self.entries.get(&b) {
+            Some(Entry::Def(id)) => Some(*id),
+            _ => None,
+        }
+    }
+
+    /// A constructor: its data type and index.
+    pub fn ctor(&self, b: Builtin) -> Option<(DataId, usize)> {
+        match self.entries.get(&b) {
+            Some(Entry::Ctor(d, c)) => Some((*d, *c)),
+            _ => None,
+        }
+    }
+
+    /// Whether `d` is built-in data type `b`.
+    pub fn is_data(&self, b: Builtin, d: DataId) -> bool {
+        self.data(b) == Some(d)
+    }
+
+    /// Whether `id` is built-in definition `b`.
+    pub fn is_def(&self, b: Builtin, id: DefId) -> bool {
+        self.def(b) == Some(id)
+    }
+
+    /// The built-in definition `id` is, if any.
+    pub fn def_builtin(&self, id: DefId) -> Option<Builtin> {
+        self.entries
+            .iter()
+            .find(|(_, e)| **e == Entry::Def(id))
+            .map(|(b, _)| *b)
+    }
+
+    /// The built-ins not bound yet, in declaration order of [`Builtin`].
+    pub fn missing(&self) -> Vec<Builtin> {
+        Builtin::ALL
+            .iter()
+            .copied()
+            .filter(|b| !self.entries.contains_key(b))
+            .collect()
+    }
+
+    /// For a test of what depends on the registry: forgets entry `b`, as
+    /// if the prelude didn't declare it.
+    #[doc(hidden)]
+    pub fn forget_for_test(&mut self, b: Builtin) {
+        self.entries.remove(&b);
+    }
+}
+
+/// Binds the built-in data type the prelude's final data type `d` is, if
+/// any, with its constructors. Only for the prelude, as it loads.
+pub fn bind_data(g: &mut Globals, d: DataId) -> Option<Builtin> {
+    let data = g.data(d);
+    if data.state != State::Final {
+        return None;
+    }
+    let b = unbound(g, &data.name, |k| k == Kind::Data)?;
+    let mut new = vec![(b, Entry::Data(d))];
+    for &ctor in Builtin::ALL {
+        if ctor.kind() == Kind::Ctor(b)
+            && let Some(c) = data.ctors.iter().position(|c| &*c.name == ctor.name())
+        {
+            new.push((ctor, Entry::Ctor(d, c)));
+        }
+    }
+    g.registry.entries.extend(new);
+    Some(b)
+}
+
+/// Binds the built-in definition the prelude's final definition `id` is, if
+/// any. Only for the prelude, as it loads.
+pub fn bind_def(g: &mut Globals, id: DefId) -> Option<Builtin> {
+    let def = g.def(id);
+    if def.state != State::Final {
+        return None;
+    }
+    let b = unbound(g, &def.name, |k| k == Kind::Def)?;
+    g.registry.entries.insert(b, Entry::Def(id));
+    Some(b)
+}
+
+fn unbound(g: &Globals, name: &str, kind: impl Fn(Kind) -> bool) -> Option<Builtin> {
+    Builtin::ALL
+        .iter()
+        .copied()
+        .find(|b| b.name() == name && kind(b.kind()))
+        .filter(|b| !g.registry.entries.contains_key(b))
+}
+
+/// Refuses an incomplete registry: user code can't be elaborated until every
+/// built-in is bound.
+pub fn check_complete(g: &Globals) -> Result<(), Diagnostic> {
+    let missing = g.registry.missing();
+    if missing.is_empty() {
+        return Ok(());
+    }
+    let names: Vec<String> = missing.iter().map(|b| format!("`{}`", b.name())).collect();
+    Err(Diagnostic::error(
+        "E-BUILTIN",
+        format!(
+            "the prelude doesn't declare what the compiler needs: {}",
+            names.join(", ")
+        ),
+    ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn names_are_distinct_per_kind() {
+        for (i, a) in Builtin::ALL.iter().enumerate() {
+            for b in &Builtin::ALL[i + 1..] {
+                let same_kind = matches!(
+                    (a.kind(), b.kind()),
+                    (Kind::Data, Kind::Data) | (Kind::Def, Kind::Def)
+                ) || matches!((a.kind(), b.kind()), (Kind::Ctor(x), Kind::Ctor(y)) if x == y);
+                assert!(!(same_kind && a.name() == b.name()), "{a:?} and {b:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn constructors_belong_to_data_types() {
+        for b in Builtin::ALL {
+            if let Kind::Ctor(parent) = b.kind() {
+                assert_eq!(parent.kind(), Kind::Data, "{b:?}");
+            }
+        }
+    }
+}

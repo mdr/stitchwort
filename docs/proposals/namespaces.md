@@ -1,10 +1,13 @@
 # Proposal: namespaces, imports and dot notation
 
-**Status:** draft 1.1, 16 October 2026. The user has answered §11 (see the
-end of the decisions section). Design only: nothing here is built.
+**Status:** draft 2, 16 October 2026. The user has answered §11 (see the
+end of the decisions section), and an external reviewer has answered §12;
+draft 2 adopts the review ([Changes since draft
+1.1](#changes-since-draft-11)). Stage 0 ([§9](#9-staging)) is being built;
+the rest is design only.
 It records decisions the user has already made, proposes the rest, and
-lists questions for the user ([§11](#11-questions-for-the-user)) and for an
-external reviewer ([§12](#12-open-questions-for-the-reviewer)).
+keeps the questions that were put to the user
+([§11](#11-questions-for-the-user)) and to the external reviewer ([§12](#12-open-questions-for-the-reviewer)).
 
 This note is written to be read without knowing the codebase. §1 describes
 the parts of Stitchwort it touches, checked against the source at commit
@@ -17,6 +20,7 @@ the gaps.
 ## Contents
 
 - [The user's decisions (16 October 2026)](#the-users-decisions-16-october-2026)
+- [Changes since draft 1.1](#changes-since-draft-11)
 0. [Summary](#0-summary)
 1. [Background: names in Stitchwort today](#1-background-names-in-stitchwort-today)
 2. [Goals and non-goals](#2-goals-and-non-goals)
@@ -74,6 +78,83 @@ These are settled. The rest of the note designs around them.
    as proposed. Reviewer question R9 becomes moot for now.
 5. `Std` as the root that always means the standard library: yes.
 
+**After the review (16 October 2026):**
+
+6. **Constructors follow whichever type binding is visible.** A file that
+   declares its own `Maybe` hides the default `Maybe`, and with it the
+   default `Just` and `Nothing`: they're reached as `Std.Maybe.Just` and
+   `Std.Maybe.Nothing` (or the file's own constructors of those names
+   take their place). The constructors are visible *because* their type
+   is, not because the type was once introduced (§4.4).
+
+## Changes since draft 1.1
+
+Draft 2 adopts the external review (§12) and brings the body into line with
+the user's answers. In order of the note:
+
+- **The body follows the decisions.** User files can't add to `Std`'s
+  namespaces (Q4, §4.3). The check is made on the **resolved owner** of the
+  namespace, so `List.sum` is refused exactly like `Std.List.sum` when `List`
+  means the library's (new error `E-STD-NAMESPACE`, §4.12). `not` is in the
+  default set through an **alias binding** to `Std.Bool.not`, not a wrapper
+  definition (§4.6). `IO` is default. Constructors follow the visible type
+  binding (decision 6, §4.4). Stage 1's tests no longer assume extension;
+  they test its refusal instead (§9).
+- **The built-in registry has explicit invariants** (§4.7): each entry is a
+  finalised declaration of the current kernel environment; user name
+  resolution can't change it; a missing entry never falls back to a search
+  of user scope; entries are bound as declarations finish loading;
+  completeness is checked before any user code; raw ids are never carried
+  between environments.
+- **Binding syntax and replacing a definition with a native are separate**
+  (§4.7, §7.3). The first is an elaboration choice. The second also needs
+  the natives' existing validation (exact type shape, and the content hash
+  for compact text and the JS text natives), which stays as it is.
+- **The stage-0 audit includes the effect machinery** (`Comp`, `Done`,
+  `Call`, `bind`, `Sig`, `sigOp`, `sigRes`, `SigMap`, the translations and the
+  operations' metadata) and the `Partial` lane's primitives, in both
+  directions: code that *builds* a reference to a built-in, and code that
+  *recognises* a term or value as one (§9, stage 0).
+- **A stage-0 test alters the user-facing name environment** and checks that
+  syntax, natives, codecs, printing and the runner still pick the original
+  declarations. Writing `add` and writing `+` may mean different things once
+  names can be redefined; that's intended (§4.7).
+- **Dot notation has a deterministic type-head view** (§4.8): alias
+  namespaces are found by rule, not by whether the evaluator happened to
+  unfold the alias; lookup stops and reports when unfolding is blocked, and
+  within the normal budget; a found `T.f` with no eligible receiver stops
+  lookup rather than falling back.
+- **Receiver-first checking is specified for complete calls** (§4.8.2), with
+  a dependent test (`Sized.read`: `s.read 3` checks, `s.read 4` fails).
+  Missing-argument abstractions that would capture a receiver whose type
+  depends on a missing argument are refused with a clear error.
+- **Evaluation order is spelled out** (§4.8.2): the receiver once, then the
+  written arguments left to right, then arranged in parameter order.
+- **Dependency edges are certain or speculative** (§5). Speculative
+  dot-notation edges are narrowed wherever a reliable syntactic type head
+  exists. The review's false mixed-kind cycle (a record type and a function)
+  becomes a test, with a diagnostic that explains the artificial dependency
+  and suggests the qualified form. `E-MUTUAL-SIGNATURE` never authorises a
+  signature to mention a pending sibling.
+- **Collecting declarations and registering full names are separate passes**
+  (§5), so no declaration's full name is needed before the imports that
+  determine it are resolved.
+- **Type hashes include the full logical nominal path** (`Main.Geometry.Shape`,
+  never a file-system path), and the summary's cache promise is qualified:
+  definitions' own hashes leave names out, but many hashes change once
+  through the data types they mention (§0, §7.4).
+- **The elaboration cache must rerun lookups** to revalidate, including the
+  absence of a nearer candidate; recording the chosen target isn't enough
+  (§7.5, still deferred).
+- **JS** (§7.3): the new name encoding, with tests that the whole
+  generator's namespaces are disjoint (definitions, runtime helpers,
+  generated locals, constructor helpers) and that every source character the
+  lexer accepts gives a valid JS identifier. Short export names with
+  collision errors, tested on the same type reached twice (not a collision)
+  and two types with one short name (a collision). Hidden constructors such
+  as a record's `mk` move to a name source can't spell (`Person.%mk`), since
+  the grammar will accept lowercase qualified names.
+
 ## 0. Summary
 
 **In plain words.**
@@ -93,11 +174,13 @@ These are settled. The rest of the note designs around them.
   same spelling. So you can at last define your own `length` or `Maybe`
   (today that's an error).
 - **You put a definition in a namespace by naming it that way:**
-  `List.sum : List Nat -> Nat` at the top level. After that, `xs.sum` works
-  too.
-- **Nothing about a definition's identity changes.** Names were never part
-  of a definition's hash, so moving `textLength` to `Text.length` doesn't
-  re-run any cached test that depended on it.
+  `Shape.area : Shape -> Nat` at the top level, next to your own `type Shape`.
+  After that, `s.area` works too. The library's namespaces are closed to
+  user files for now: `List.sum` in your file is an error.
+- **Names stay out of a definition's own hash.** Moving `textLength` to
+  `Text.length` doesn't by itself change its hash. But a data type's hash
+  gains its full name (`Std.Text`), so the move changes every hash that
+  mentions a library type once, and cached test results are recomputed once.
 
 **For the reviewer.**
 
@@ -114,7 +197,9 @@ These are settled. The rest of the note designs around them.
   (`E-AMBIGUOUS`).
 - **Dot notation follows Lean** ([L4], [L5]):
   - The elaborator infers the receiver's type and reduces it to a head
-    constant `T`, trying the folded head first and then unfolding.
+    constant `T` through a deterministic **type-head view**: the folded head
+    first, then one explicit unfolding step at a time, stopping when
+    unfolding is blocked.
   - It then resolves `T.f` and passes the receiver as the first explicit
     parameter whose declared type is headed by `T`.
   - If the head is an unsolved metavariable, that's `E-CANNOT-INFER`. There
@@ -123,18 +208,24 @@ These are settled. The rest of the note designs around them.
     type is unified with its parameter before the other arguments are
     checked. So `xs.map (\x -> x.length)` infers where
     `List.map (\x -> x.length) xs` can't.
-- **Built-in syntax binds to fixed identities, not to names.** That covers
-  operators, literals, `if`, `()` and the JS text natives. Today these are
-  looked up by name in the user's scope, which is only safe because prelude
-  names can't be redefined (§1.3). This is a prerequisite, and it also fixes
-  a latent problem: the JS boundary picks codecs by type *name*.
+- **Built-in syntax binds to fixed identities, not to names.** A registry
+  of finalised declarations, bound as the library loads and checked complete
+  before user code, serves operators, literals, `if`, `()`, the effect
+  machinery, natives, JS codecs and text natives, the printer and the
+  runner. Today these are looked up by name in the user's scope, which is
+  only safe because prelude names can't be redefined (§1.3). This is a
+  prerequisite (stage 0), and it also fixes a latent problem: the JS
+  boundary picks codecs by type *name*.
 - **The whole-module dependency pre-pass** ([mutual-recursion.md
   §10.2](mutual-recursion.md#102-as-built-milestone-2-function-groups-and-forward-references))
-  can't know where `x.f` points before types are known. It over-approximates:
-  an edge goes to every module declaration named `….f`. This can merge
-  components that don't really depend on each other (§5).
-- **No new kernel rules.** Hashes of definitions are unchanged. A data
-  type's hash gains its full name, which changes every hash once.
+  can't know where `x.f` points before types are known. It over-approximates
+  with **speculative** edges to every module declaration named `….f`,
+  narrowed where a syntactic type head is reliable. This can merge
+  components that don't really depend on each other, and the diagnostics say
+  so (§5).
+- **No new kernel rules.** A definition's own hash still leaves out its
+  name. A data type's hash gains its full logical name, which changes every
+  hash that mentions a data type, once.
 
 ## 1. Background: names in Stitchwort today
 
@@ -210,6 +301,19 @@ Other components identify prelude things by name too:
   `ifThenElse` by name (`lib.rs:983`).
 - **The pretty printer** prints `List`, `Nat`, `Char`, `Text`, `UnitType`
   and others specially by name (`crates/core/src/pretty.rs:275-277`).
+- **The effect machinery** (added in draft 2, from the review) builds and
+  recognises `Comp`, `Done`, `Call`, `Plus`, `NoOp`, `Sig`, `sigOp`, `sigRes`,
+  `bind`, `foldComp`, `translate`, the `sig…` combinators, `runPure`,
+  `handlePlus` and `UnitType` by name (`data(cx, "Comp")`,
+  `call(cx, "bind", …)` in `crates/elab/src/effects.rs`). The `Partial`
+  lane's kernel primitives and step function (`crates/core/src/partial.rs`,
+  `step.rs`) and its translation (`crates/elab/src/partial.rs`) find `Comp`,
+  `Plus`, `SigMap`, `Rec`, `PlusRes` and `RecRes` by name too.
+- **Records** generate a decision procedure as *source syntax* that names
+  `Yes`, `No`, `cong` and `Decidable` (`crates/elab/src/records.rs`), so it
+  is elaborated against whatever those names mean in scope.
+- **Number patterns** are compiled to `Zero` and `Succ` patterns found by
+  name (`crates/elab/src/lib.rs`, `ctor_named`).
 
 So **every one of these depends on prelude names being unredefinable**.
 Letting user code reuse names means binding them some other way first
@@ -467,37 +571,44 @@ type's namespace.
   `State.%get`, `State.%res` and `State.%elim` (the elaborator already uses
   `%` for generated binders such as `%o`). `State.get` then means the
   *operation*, which is what a reader expects. The same applies to records'
-  `Person.mk`, which is already unwritable because it's lowercase.
+  constructor `Person.mk`: draft 1.1 said it was unwritable because it's
+  lowercase, but the grammar of §4.13 accepts `Person.mk`, so it becomes
+  `Person.%mk`.
 
 ### 4.3 Declaring into a namespace
 
 **Proposed: the declaration's own name says where it goes.**
 
 ```
-List.sum : List Nat -> Nat
-List.sum Nil         = 0
-List.sum (Cons x xs) = x + List.sum xs
-
-theorem List.sumAppend : (xs ys : List Nat) -> List.sum (xs ++ ys) = List.sum xs + List.sum ys
-…
-
 type Geometry.Shape =
   | Square (side : Nat)
   | Rect (width : Nat) (height : Nat)
+
+Geometry.Shape.area : Geometry.Shape -> Nat
+Geometry.Shape.area (Square s) = s * s
+Geometry.Shape.area (Rect w h) = w * h
+
+theorem Geometry.Shape.areaSquare : (s : Nat) -> Geometry.Shape.area (Square s) = s * s
+…
 ```
 
-**The qualifier is resolved the way it is in an expression** (§4.4). In a
-file that doesn't define its own `List`, `List` means the library's
-`Std.List`, so `List.sum` above is `Std.List.sum`. That is a user
-definition placed in the library's `List` namespace, and `xs.sum` then works
-everywhere in the file.
+**The qualifier is resolved the way it is in an expression** (§4.4).
 
-- In a file that declares its own `type List`, the same line would extend
-  *that* `List`.
+- A qualifier that resolves to the file's own type or namespace
+  (`Geometry.Shape` above, once declared) adds to it, and `sh.area` then
+  works everywhere in the file.
 - A qualifier that doesn't resolve to anything (`Geometry`) creates a new
   namespace in the file.
-- Adding a name the namespace already has (`List.length`) is `E-DUPLICATE`,
-  with a label on the library's declaration.
+- **A qualifier that resolves into `Std` is refused** (the user's answer to
+  Q4): `E-STD-NAMESPACE`, "the standard library's namespaces can't be
+  extended". The check is on the **resolved owner**, not on the spelling, so
+  in a file without its own `List`, both `List.sum` and `Std.List.sum` are
+  refused. In a file that declares its own `type List`, `List.sum` resolves
+  to *that* `List` and is fine.
+- Adding a name the file's namespace already has is `E-DUPLICATE`.
+
+Allowing extension later (Q4, deferred) turns `E-STD-NAMESPACE` errors into
+programs, so it's compatible (§8).
 
 **Why this form, and not a `namespace List … end` block?**
 
@@ -510,15 +621,17 @@ everywhere in the file.
 - *Lean has both forms* [L1], so adding blocks later is a known path. A block
   would only be a shorthand for writing the prefix (§8).
 
-**The cost:** each equation line repeats the full name (`List.sum Nil = 0`).
+**The cost:** each equation line repeats the full name
+(`Geometry.Shape.area (Square s) = …`).
 A namespace block would remove that; §8 keeps the option open.
 
-**Inside `List.sum`'s equations, other `List` names still need `List.`** (or
-dot notation). Lean opens the declaration's namespace in its body [L1]; this
-proposal doesn't, at first. Opening it with *highest* priority, as Lean
-does, would let `length` silently mean `List.length` inside `List.sum` even
-though the file defines its own `length`, and that's surprising. Opening it
-later at *lowest* priority is a compatible addition (§8, question Q3).
+**Inside `Shape.area`'s equations, other `Shape` names still need `Shape.`**
+(or dot notation). Lean opens the declaration's namespace in its body [L1];
+this proposal doesn't (Q3, deferred). Opening it with *highest* priority, as
+Lean does, would let `perimeter` silently mean `Shape.perimeter` inside
+`Shape.area` even though the file defines its own `perimeter`, and that's
+surprising. Opening it later at *lowest* priority is a compatible addition
+(§8).
 
 ### 4.4 What a short name means
 
@@ -554,11 +667,20 @@ first level where `x` is found:
 - **`Std.…` always means the library**, whatever the file declares. The
   user's own `type List` hides the library's in that file, and `Std.List.map`
   still reaches the library's function.
-- **Constructors and operations follow their type.** Whenever a type or
-  ability is visible by its short name, so are its constructors or
-  operations, whether through level 2, an import, or the default set. So
-  `import Effect (Comp)` brings in `Done` and `Call` too, the way Elm's
-  `Maybe(..)` does. It's one rule instead of two kinds of import item.
+- **Constructors and operations follow their type's visible binding**
+  (decision 6). Whenever a type or ability is visible by its short name, so
+  are its constructors or operations, at the same level, whether through
+  level 2, an import, or the default set. So `import Effect (Comp)` brings
+  in `Done` and `Call` too, the way Elm's `Maybe(..)` does. It's one rule
+  instead of two kinds of import item.
+  - The rule is about the binding that **survives**, not the one that was
+    introduced. A file declaring its own `type Maybe` hides the default
+    `Maybe`, and so hides the default `Just` and `Nothing` with it, even if
+    the file's `Maybe` has differently named constructors. They're still
+    reachable as `Std.Maybe.Just`.
+  - Implementation: the default set and each import contribute a
+    constructor's short name only if their type's short name, looked up
+    through all four levels, resolves to that same type.
 - **Not visible by short name:**
   - names in the file's own namespaces (`Geometry.area` is written so, or
     used by dot notation);
@@ -618,13 +740,21 @@ namespace is default. Constructors and operations follow their type (§4.4).
 | `Void` | (no constructors) |
 | `Unit` | `Trivial` |
 | `Not` | (a definition: `Not p = p -> Void`, used in many types) |
-| `IO` (ability) | `print`, `readLine` (Q2) |
+| `IO` (ability) | `print`, `readLine` (Q2: yes) |
 | `Partial` (ability, from the `Partial` lane) | (its operations, if any) |
+| `not` | an **alias** of `Std.Bool.not` (Q1: yes) |
 
-The table has 13 type and ability names, plus `Not`, and 19 constructors and
-operations. **Possibly also `not`** (Q1): it's a function, so by D4 it
-would be `b.not` or `Bool.not b`, but it's used about as often as an
-operator (51 times in `examples/` today).
+The table has 13 type and ability names, plus `Not`, `not`, and 19
+constructors and operations.
+
+**`not` is an alias, not a definition at the root.** `not` lives in `Bool`
+like every other `Bool` function, and the library's root declares
+`alias not = Bool.not` (spelling for implementation): a second *name* for
+the same declaration, not a wrapper definition. So `not`, `Bool.not` and
+`b.not` are one declaration with one hash, errors print it as the file
+would write it, and a user's own `not` hides the alias like any default
+name. Aliases are internal to the library for now; user-written aliases are
+a compatible later addition (§8).
 
 **Qualifiers are always available.** Every namespace directly under `Std`
 can be written as a qualifier without importing it. These are the types
@@ -658,14 +788,49 @@ user's scope.
 - `++` keeps its two cases: `Std.Text.append` for texts, `Std.List.append`
   for lists.
 
-**The implementation:** a table of built-ins (data and definition ids)
-filled while `Std` loads, replacing `def_named`, `ctor_named` and
-`data_named` for these uses. The same table should replace the name-based
-lookups in the kernel natives, the JS generator (boundary codecs, text
-natives, `ifThenElse`), the pretty printer and the driver's runner (§1.3,
-§7.3). This is the prerequisite step of §9: without it, a user's own `List`
-with different constructors would be **encoded as a JS array** at the
-boundary (`crates/js/src/lib.rs:193`), which is wrong.
+**The implementation: a built-in registry.** A table of built-ins (data,
+constructor and definition ids) replaces `def_named`, `ctor_named` and
+`data_named` for these uses, and the name-based lookups in the kernel
+natives, the effect machinery, the `Partial` primitives, the JS generator
+(boundary codecs, text natives, `ifThenElse`), the pretty printer and the
+driver's runner (§1.3, §7.3). This is the prerequisite step of §9: without
+it, a user's own `List` with different constructors would be **encoded as a
+JS array** at the boundary (`crates/js/src/lib.rs:193`), which is wrong.
+
+**The registry's invariants:**
+
+1. **Each entry is a finalised declaration of the current kernel
+   environment** (`State::Final`). The registry lives inside that
+   environment (`Globals`), so raw ids are never carried from one
+   independently loaded environment to another.
+2. **User name resolution can't change it.** Nothing a user file declares,
+   imports or hides writes to it. It's written only while the library
+   loads.
+3. **A missing entry never falls back to user scope.** If `+` is used where
+   `Std.Nat.add` isn't bound (only possible while the library itself
+   loads), it's an error naming the built-in, not a search for `add`.
+4. **Entries are bound as their declarations finish loading** (when the
+   kernel makes them final), so library code later in load order can use
+   the syntax.
+5. **Completeness is checked before any user code.** After the library
+   loads, every entry must be bound; otherwise loading fails with the list
+   of missing entries.
+
+**Binding syntax and replacing a definition are separate operations.**
+Compiling `+` to the checked `Std.Nat.add` is an ordinary elaboration
+choice, and needs only invariant 1. *Replacing* a definition with a native
+implementation also assumes that the implementation computes what the
+definition does. A same-typed `Std.Nat.add` could compute something else, so
+"the registry's entry, with the expected type" isn't the whole condition for
+a native. The existing validation stays as it is: each native's exact type
+shape (`register_native`), and the content hash of the declarations that
+compact text and the JS text natives were written for (§7.3). The registry
+says *which* declaration is meant; the hash check says whether the native
+may stand for it.
+
+**Ordinary names stay shadowable.** Once a file can define its own `add`,
+writing `add` means the file's and writing `+` means `Std.Nat.add`. That's
+intended: syntax isn't a name.
 
 **When `Int` arrives** (next in `TODO.md`), `+` will need to work on two
 types. One route that fits namespaces: `a + b` means `T.add a b`, where `T`
@@ -679,8 +844,8 @@ part of this proposal.
 first component isn't a namespace that contains `f`):
 
 1. **Infer `e`'s type `A`.**
-2. **Find `A`'s namespace.** Look at `A`'s head, with solved metavariables
-   filled in but definitions not unfolded:
+2. **Find `A`'s namespace**, through the **type-head view** below. Each
+   step gives a head; the first head whose namespace has an `f` is used:
    - **`D args`**, a data type (a record, ability or ordinary type):
      namespace `D`. If `D` is a record with a field `f`, the field
      projection is `D.f` (records stage 1). Otherwise look for a
@@ -688,9 +853,6 @@ first component isn't a namespace that contains `f`):
    - **A folded definition `d args`**, such as a nickname
      `Price = Nat`, or `Not p`: try namespace `d` first. If `d.f` doesn't
      exist, unfold `d` one step and go back to 2. This is Lean's loop [L5].
-     (Whether Stitchwort's inferred types are still folded at this point is
-     **unverified**. If they never are, aliases simply have no namespace of
-     their own.)
    - **`x = y`**, the built-in equality: namespace `Eq`. So `p.sym` and
      `p.trans q` work, as `Eq.symm` does in Lean.
    - **An unsolved metavariable**: `E-CANNOT-INFER`. Nothing is guessed
@@ -700,15 +862,50 @@ first component isn't a namespace that contains `f`):
      namespace". Lean uses a `Function` namespace for functions [L4]; that
      could be added later.
 3. **Find the receiver's place.** In `T.f`'s signature, it's the **first
-   explicit parameter whose declared type has head `T`**. That's Lean's rule
-   [L4], and it's checked against the signature as written, without
-   unfolding. If there's no such parameter, the error is
-   `E-DOT-NO-RECEIVER`.
+   explicit parameter whose declared type has head `T`**, read through the
+   same view, starting from the signature as written. If there's no such
+   parameter, the error is `E-DOT-NO-RECEIVER`, and **lookup stops**: it
+   doesn't go on to unfold `T` and try another namespace. Finding `T.f` is
+   the decision; a wrong `T.f` is an error to fix, not a reason to look
+   elsewhere. (Lean also unfolds parameter types when finding the receiver
+   [L5]; this rule reads them through the view instead, which is the same
+   thing for parameters written with the type's own name and a
+   simplification otherwise.)
+
+**The type-head view** is a deterministic function of the receiver's
+*elaborated type term*, not of whatever `Value` evaluation happened to
+produce. The draft-1.1 question of whether inferred types are still folded
+is settled by rule, so that an alias's namespace is found reliably, and so
+that no cache or evaluator optimisation that unfolds a definition earlier
+can change which namespace is used:
+
+- It starts from the type as elaborated (the term the receiver was checked
+  or inferred at), with solved metavariables substituted. Annotations,
+  locations and β-redexes are removed; definitions are **not** unfolded.
+  For a variable, that's its binder's type as written; for an application
+  `f a`, it's `f`'s result type as written, instantiated.
+- Each further step unfolds the **outermost** definition head once, by
+  its equations (or case tree), and removes β-redexes again.
+- **It stops and reports when unfolding is blocked.** `Family n` with
+  `Family : Nat -> Type` defined by matching, and `n` unknown, can't unfold:
+  after trying `Family.f`, the result is `E-NO-NAMESPACE` ("`x : Family n`
+  has no `f`; `Family n` can't be unfolded further while `n` is unknown").
+  The view never retries the same head, and every step is charged to the
+  ordinary resource budget, so a deep tower of aliases ends in the usual
+  resource error rather than hanging.
+- A stuck application `d args` counts as having `d`'s namespace (R2).
+
+Two definitionally equal types may offer different lookups: with
+`Price = Nat`, `p : Price` tries `Price.show` and then `Nat.show`, while
+`n : Nat` tries only `Nat.show`. That's intended, and it depends only on
+the types as written.
 4. **Build the call.** `e.f a₁ … aₙ` is `T.f` with `e` in the receiver's
    place and `a₁ … aₙ` filling the other explicit parameters in order.
    Implicit and `auto` arguments are inserted as usual.
    - With fewer arguments, the result is a function of the missing ones:
-     `t.split` is `\s -> Text.split s t`, with `t` evaluated once.
+     `t.split` is `\s -> Text.split s t`, with `t` evaluated once. This is
+     allowed only when no missing parameter is one the receiver's parameter
+     type depends on (§4.8.2).
 
 This keeps the library's natural argument orders. `Text.split : Char -> Text
 -> List Text` stays as it is (so `map (Text.split ',') lines` works), and
@@ -760,9 +957,45 @@ patterns still refer only to fields.
   one (R3).
 
 **The receiver is elaborated first, out of the written order of `T.f`'s
-parameters.** It has to be, since its type picks `T`. Its type is then
-unified with the receiver parameter's type **before** the other arguments
-are checked. This makes dot notation infer *better* than the plain call:
+parameters.** It has to be, since its type picks `T`. For a **complete
+call** (every explicit parameter supplied):
+
+1. Make a scoped placeholder (metavariable) for each parameter before the
+   receiver's, in order, each in the context of the ones before it.
+2. Unify the receiver's type with the receiver parameter's type, with the
+   placeholders substituted.
+3. Check each written argument against its parameter type, in parameter
+   order, which solves or confirms the placeholders.
+
+This is compatible with dependent parameter types. The test that shows it
+uses a receiver whose type depends on an *earlier explicit* argument:
+
+```
+type Sized (n : Nat) = { value : Nat }
+
+Sized.read : (n : Nat) -> Sized n -> Nat
+Sized.read n s = s.value
+
+-- with s : Sized 3
+s.read 3   -- checks: the placeholder for n is 3 from s's type, and 3 agrees
+s.read 4   -- E-MISMATCH: 4 isn't 3
+```
+
+**Missing arguments that the receiver depends on are refused.** `s.read`
+alone can't become `\n -> Sized.read n s`: the captured `s` has type
+`Sized 3`, not `Sized n` for every `n`. Rather than silently taking `n = 3`
+(and pretending the argument was given) or making a lambda that ignores its
+argument, that's an error:
+
+```
+error[E-DOT-PARTIAL]: `s.read` leaves out `n`, which the type of `s` depends on
+   = note: give it, `s.read 3`, or write the call, `Sized.read 3 s`
+```
+
+A missing argument that the receiver's type doesn't mention (`t.split`) is
+fine. Its type is then also allowed to depend on the receiver.
+
+This makes dot notation infer *better* than the plain call:
 
 ```
 names = List.map (\p -> p.name) people   -- E-CANNOT-INFER: the lambda is checked first,
@@ -771,9 +1004,17 @@ names = people.map (\p -> p.name)        -- fine: `people : List Person` is elab
                                          -- first, so `p : Person` is known
 ```
 
-**Evaluation order.** In effectful code, the receiver runs first, as written
-on the page, then the other arguments left to right. That matches the
-records lane's rule that fields run in source order ([records.md
+**Evaluation order is not elaboration order.** In effectful code:
+
+1. the receiver runs, **once**;
+2. then the written arguments run, left to right as written;
+3. then their values are arranged in `T.f`'s parameter order for the call.
+
+So `line.split sep`, with both effectful, runs `line` and then `sep`, even
+though the call is `Text.split sep line`. A plain rewrite to
+`Text.split sep line` would run them in the opposite order, so the
+elaborator binds each effectful argument to a fresh variable first, as the
+records lane does for fields, which run in source order ([records.md
 §6.1](records.md#61-surface)).
 
 #### 4.8.3 Chains and qualified names
@@ -937,14 +1178,25 @@ error[E-DOT-NO-RECEIVER]: `Nat.fromDigits` has no parameter of type `Nat` to put
    = note: call it directly, `Nat.fromDigits cs`
 ```
 
-**Extending a namespace with a name it already has:**
+**Adding to a library namespace** (refused on the resolved owner, so the
+same for `Std.List.sum`):
 
 ```
-error[E-DUPLICATE]: `List.length` is already defined
+error[E-STD-NAMESPACE]: `List` is the standard library's, which a program can't add to
    |
- 3 | List.length : List a -> Nat
-   | ^^^^^^^^^^^ the standard library defines `List.length`
-   = note: choose another name, or define it outside `List`
+ 3 | List.sum : List Nat -> Nat
+   | ^^^^^^^^ `List` here means `Std.List`
+   = note: define it in your own namespace, for example `sum` or `Lists.sum`
+```
+
+**A receiver whose type depends on a missing argument:**
+
+```
+error[E-DOT-PARTIAL]: `s.read` leaves out `n`, which the type of `s` depends on
+   |
+ 9 | f = s.read
+   |     ^^^^^^ `Sized.read : (n : Nat) -> Sized n -> Nat`
+   = note: give it, `s.read 3`, or write the call, `Sized.read 3 s`
 ```
 
 Messages print names **as the file would write them**: the shortest form
@@ -984,19 +1236,44 @@ Today the pre-pass finds each declaration's dependencies from its free names
 before anything is type-checked (§1.2). Each new construct is handled
 differently:
 
-**Qualified names are exact.** After step 1 has entered every name of the
-file, `Geometry.area` and `List.sum` (a file declaration extending `List`)
-resolve syntactically: the qualifier is resolved by §4.4 and the rest is
-looked up. So the pre-pass adds an edge to exactly that declaration.
-Imports are resolved between steps 1 and 2.
+**Collection and registration are separate passes.** A declaration's full
+name can depend on the imports (`Shape.area` means `Geometry.Shape.area`
+only if `Shape` resolves there), and imports are resolved against the
+file's declarations. So step 1 of §1.2 splits in three:
+
+1. **Raw collection.** Every declaration is entered under its name *as
+   written* (`Shape.area`), and every type's and ability's constructors and
+   operations under the type's written name. Nothing is resolved yet. The
+   only names whose meaning is fixed here are top-level single-component
+   names, which need no resolution.
+2. **Imports** are resolved, against the library and the raw top-level
+   names.
+3. **Full-name registration.** Each written qualifier is resolved by §4.4
+   (which now has all four levels), giving the declaration's full name.
+   Duplicates, `E-STD-NAMESPACE` and `E-IMPORT-CLASH` are reported here.
+
+A qualifier can refer to a namespace another declaration creates
+(`Geometry.Shape.area` before `type Geometry.Shape`), so registration
+resolves qualifiers against the namespaces collected in pass 1, never
+against the results of pass 3 itself.
+
+**Qualified names are exact.** After registration, `Geometry.area` and
+`Shape.area` resolve syntactically: the qualifier is resolved by §4.4 and
+the rest is looked up. So the pre-pass adds a **certain** edge to exactly
+that declaration.
 
 **Dot notation can't be exact.** In `s.label`, the target is `T.label`,
 where `T` is `s`'s type. That isn't known until elaboration, which is after
 the components have been fixed. The proposal is to **over-approximate**:
 
-- `e.f` adds an edge to **every declaration of this file whose full name
-  ends in `.f`**, and to every record of this file with a field `f`.
+- `e.f` adds a **speculative** edge to **every declaration of this file
+  whose full name ends in `.f`**, and to every record of this file with a
+  field `f`.
 - Library declarations are already checked, so they need no edges.
+- **Every edge records why it exists**: *certain* (a name or qualified name
+  that resolves to that declaration) or *speculative* (a dot-notation
+  candidate, with the `e.f` that caused it). Diagnostics about components
+  use the reasons (below).
 
 **What over-approximation costs.** It can merge declarations that don't
 really depend on each other into one component:
@@ -1029,22 +1306,60 @@ What the user can notice:
   signature that uses dot notation could be refused because of an edge that
   isn't real.
 
+**The cost is larger than that example suggests:** a speculative edge can
+create a false **mixed-kind** cycle, a data type and a function checked as
+one group, which the user would read as an attempted
+induction-recursion. The reviewer's example:
+
+```
+type A = { value : Nat }
+
+make : Nat -> A
+make n = { value = n }
+
+measure : Nat -> Nat
+measure n = (make n).value
+
+type B = { value : Nat, ok : measure 0 = 0 }
+```
+
+Really, `measure` can be checked before `B`. But `(make n).value` draws a
+speculative edge `measure → B` (since `B` has a field `value`), and `B`'s
+proof field draws a certain edge `B → measure`. That's a cycle of a type and
+a function. Narrowing by a parameter's type (mitigation 2) doesn't cover
+`(make n).value`, since the receiver isn't a parameter.
+
 **Mitigations, simplest first:**
 
-1. **Explain it.** When a component exists only because of a dot-notation
-   edge, the "checked together because …" note says so: "`s.label` might
-   mean `Tile.label`; write `Shape.label s` to say which."
-2. **Narrow it using the signature.** When the receiver is a parameter whose
-   declared type has a known head (`s : Shape`), resolve `s.label` exactly
-   in the pre-pass. That covers the common case.
-3. **Report `E-MUTUAL-SIGNATURE` only for real references.** Check that the
-   elaborated signature actually refers to a member, not just that the
-   pre-pass drew an edge to one.
+1. **Explain it.** When a component exists only because of speculative
+   edges, the "checked together because …" note says so, and names the
+   edge: "`(make n).value` might mean `B.value`, so `measure` and `B` are
+   checked together; write `A.value (make n)` to say which." For a
+   mixed-kind component the error says the dependency is artificial and
+   that the program isn't defining a type and a function together.
+   **This example is a stage-2 test**, asserting the diagnostic.
+2. **Narrow it wherever a reliable syntactic type head exists.** When the
+   receiver is a parameter or `let` whose declared type has a known head
+   (`s : Shape`), or an application of a known function whose declared
+   result type has a known head (`make n`, with `make : Nat -> A`), resolve
+   `e.f` exactly in the pre-pass and make the edge certain. This stays
+   syntactic: no unification, no unfolding, no implicit arguments. Anything
+   more is left speculative rather than growing a second type checker inside
+   the pre-pass.
+3. **Report `E-MUTUAL-SIGNATURE` only for references the elaborated
+   signature really contains.** This is a better error message, never a
+   permission: a signature still may not mention a pending sibling, because
+   the kernel's admission rule is unchanged (it refuses a group that refers
+   to an unfinished declaration outside it, R1), and so is the
+   elaborator's rule against a signature using a member of its own group. When the
+   approximation has grouped declarations that really need checking one
+   after another, the choices are to narrow the edge (2) or to reject with
+   the qualified-form hint (1). The approximation can't make the kernel
+   admit anything it wouldn't otherwise.
 
 The qualified form is always exact, so a user who hits this has a one-line
-way out. Whether this is acceptable, or whether components should instead
-be formed lazily (check a dependency the first time elaboration resolves to
-it), is question R1.
+way out. Forming components lazily (R1) isn't needed for the first
+implementation; the approximation is a documented initial limitation.
 
 ## 6. Moving the prelude into namespaces
 
@@ -1097,7 +1412,7 @@ qualified name, or `import`.
 | Today | New full name | Notes |
 |---|---|---|
 | `Bool`, `False`, `True` | `Bool`, `Bool.False`, `Bool.True` | **default** |
-| `not` | `Bool.not` | `b.not`; possibly **default** (Q1) |
+| `not` | `Bool.not` | `b.not`; **default** through the alias `not` (Q1, §4.6) |
 | `ifThenElse` | `Bool.ifThenElse` | behind `if` |
 | `IsFalse`, `falseNotTrue`, `trueNotFalse` | `Bool.IsFalse`, `Bool.falseNotTrue`, `Bool.trueNotFalse` | |
 | `decTrue`, `decEqBool` | `Bool.decTrue`, `Bool.decEq` | |
@@ -1162,8 +1477,10 @@ qualified name, or `import`.
 
 - The `Partial` lane's `Delay`, `now`, `lift`, `bindD`, `mapSig`, `pfix`,
   `Rec` and `RecRes` go into `Effect` (or a `Partial` namespace if `Partial`
-  is an ability with one).
-- The records lane's projections are already `Person.name`.
+  is an ability with one). They're kernel primitives, admitted with exact
+  type checks, so they're registry entries like the natives.
+- The records lane's projections are already `Person.name`; its constructor
+  becomes `Person.%mk` (§4.2).
 
 **What else changes with it.**
 
@@ -1208,20 +1525,23 @@ which namespaces don't affect.
 **Natives.**
 
 - The kernel's natives (`add`, `eqNat`, …) and `Nat`/`Bool` are registered
-  by name while the prelude loads (`lib.rs:868-869`, `1048`). They should
-  be registered **by full name, from `Std` only**. Better still, they go
-  through the built-ins table of §4.7, and the registration step checks that
-  each declaration's type has the expected shape, as `register_nat` already
-  does.
-- The kernel's `find_data("Void")` (`native.rs:194`, `329`) should take the
-  `Void` id from the same table.
+  by name while the prelude loads (`lib.rs:868-869`, `1048`). They go
+  through the registry of §4.7: the registry says which declaration is
+  meant, and the existing registration checks (each declaration's exact
+  type shape, `register_native`; content hashes for compact text) still
+  decide whether the native may replace it. Nothing about those checks is
+  weakened.
+- The kernel's `find_data("Void")` (`native.rs:194`, `329`) takes the
+  `Void` id from the same registry.
 
 **The JS generator.**
 
 - **Boundary codecs** (`lib.rs:188-197`), **text natives** (`lib.rs:1761`)
-  and **`ifThenElse`** (`lib.rs:983`) must use identities from the built-ins
-  table, not names. The comment "Prelude names can't be redefined" stops
-  being true the day §4.4 lands.
+  and **`ifThenElse`** (`lib.rs:983`) must use identities from the
+  registry, not names. The comment "Prelude names can't be redefined" stops
+  being true the day §4.4 lands. The text natives keep their content-hash
+  check: the registry picks the declaration, and the hash says whether the
+  JS implementation was written for it.
 - **Export names.** An export's JS name is its **short** name: an export
   `Geometry.area` is imported in JS as `area`.
   - Two exports in one file with the same short name are `E-EXPORT`: "both
@@ -1232,9 +1552,11 @@ which namespaces don't affect.
     but they're harder to type in TypeScript and to tree-shake; not
     proposed.
 - **`.d.ts` type names** are short too (`Shape`, not `Geometry$Shape`), with
-  `E-EXPORT` if two boundary types in one export set share a short name. The
-  library's types keep their current names (`Maybe`, `Pair`), so existing
-  `.d.ts` output doesn't change.
+  `E-EXPORT` if two **different** boundary types in one export set share a
+  short name. The comparison is by identity: the same type reached twice
+  (two exports both taking a `Shape`) is not a collision, and there's a
+  test for each case. The library's types keep their current names
+  (`Maybe`, `Pair`), so existing `.d.ts` output doesn't change.
 - **Internal JS names must be injective.**
   - `def_name` writes a prime as `$` and a dot as `$$` (`lib.rs:1924-1928`).
   - Primes may appear *inside* names: the lexer accepts `'` after the first
@@ -1251,6 +1573,20 @@ which namespaces don't affect.
     letter, so decoding is unique.
   - Only internal names change. Field keys and `.d.ts` names keep their
     current scheme, which has no dots.
+  - The encoding is applied to **full logical names** (`Std.List.length`,
+    not `length`), so two declarations with one short name stay apart.
+- **Two further properties are tested, not just argued** (from the review):
+  - **Disjointness across the whole generator.** An injective encoding of
+    source names doesn't by itself keep them apart from the generator's
+    *other* names: runtime helpers, generated locals, constructor helpers
+    and codec names. A test generates code for definitions whose names
+    collide with each of those schemes as closely as the source grammar
+    allows, and checks that every top-level JS binding is distinct.
+  - **Validity as a JS identifier.** Escaping `.`, `'` and `%` covers only
+    part of it. Every character the lexer accepts in a name must be valid at
+    its position in a JS identifier, or get an escape of its own. A test
+    enumerates the lexer's accepted name characters and checks each encoded
+    name against ECMAScript's identifier grammar.
 
 **The pretty printer** prints literals and `()` by type name
 (`pretty.rs:275`). It should use identities too, or a user's own `List`
@@ -1265,12 +1601,18 @@ rule of §4.12.
 - **Definitions: no change.** Their names aren't hashed (§1.6). Moving
   `textLength` to `Text.length` changes no definition's hash, so no cached
   test or kernel result is invalidated by the renames themselves.
-- **Data types: hash the full name**, which brings the code in line with
-  DESIGN §11 ("a nominal type's hash includes its logical module name and
-  its own name"). That means `Std.List` for the library's `List`, and for
-  the user's file, the file's root name followed by the type's path, such
-  as `Main.Shape` or `Main.Geometry.Shape`, where `Main` stands for "the
-  program's file" until files have logical names (§8).
+- **Data types: hash the full logical nominal path**, which brings the
+  code in line with DESIGN §11 ("a nominal type's hash includes its logical
+  module name and its own name"). That means `Std.List` for the library's
+  `List`, and for the user's file, the file's root name followed by the
+  type's **whole** namespace path, such as `Main.Shape` or
+  `Main.Geometry.Shape`, where `Main` stands for "the program's file" until
+  files have logical names (§8).
+  - Every intermediate namespace is included (R5): hashing only the module
+    and the last component would merge two same-shaped types
+    `Main.Geometry.Shape` and `Main.UI.Shape`.
+  - Physical paths, checkout directories and session-local ids never enter
+    it. A file's logical name is what's hashed, not where it's stored.
   - **Why now:** once a file can hide a library type (§4.4), a user's own
     `type List (a : Type) = | Nil | Cons (head : a) (tail : List a)` would
     otherwise get the **same hash** as the library's. That breaks DESIGN's
@@ -1298,10 +1640,19 @@ rule of §4.12.
     and on everything visible.
   - Dot notation's targets depend on types.
   So the dependencies can't be read off the syntax before elaborating. The
-  simple sound option is to record each resolution made during elaboration
-  (name → definition id, `x.f` → `T.f`) and to validate the cached entry by
-  re-resolving those, as incremental compilers do (R7). There is nothing to
-  do now, since that cache doesn't exist yet.
+  simple sound option is to record each **lookup query** made during
+  elaboration (a short name at a position, `x.f` with its type-head view)
+  and to validate the cached entry by **rerunning** those queries, as
+  incremental compilers do (R7).
+  - Recording only the *target* isn't enough. If `p.show` with
+    `p : Price` fell back to `Nat.show` because there was no `Price.show`,
+    adding `Price.show` later changes the right answer while `Nat.show` is
+    unchanged. A query's validity includes the **absence** of every nearer
+    candidate.
+  - The same goes for a new import that makes a name ambiguous, and for a
+    lowercase name in a type that was a type variable and now names
+    something (§4.11).
+  There is nothing to do now, since that cache doesn't exist yet.
 
 ### 7.6 The CLI
 
@@ -1330,6 +1681,8 @@ at a level that can't hide an existing resolution.
 | **Constructors by expected type** | `.Square s`, Lean's leading dot [L3] | A leading `.` is a syntax error today. |
 | **Functions' namespace** | `f.comp g` via `Function`, Lean [L4] | `E-NO-NAMESPACE` today. |
 | **Operators by namespace** | `a + b` as `T.add a b` for `a : T …` | `+` on a non-`Nat` is a type error today; it keeps meaning `Nat.add` on `Nat`. That needs care with literals: `0 + n`, with `n : Int`, must not commit to `Nat` from the literal first (R6). |
+| **Adding to library namespaces** | `List.sum` in a user file (Q4) | `E-STD-NAMESPACE` today. |
+| **User-written aliases** | `alias len = List.length` | `alias` is not a declaration form today (§4.6 uses it inside the library only). |
 | **`private` and `protected`** | Lean's modifiers [L2] | New keywords, and they only remove names from views. Adding one to an *existing* declaration can break its users, but that's the author's choice, as anywhere. |
 | **Postponing dot notation** | Lean and Idris [L5, I3] | Turns some `E-CANNOT-INFER` into programs. |
 
@@ -1341,25 +1694,72 @@ at a level that can't hide an existing resolution.
   member. Since library functions aren't default-visible (D4), adding
   `List.sum` to the library can't change the meaning of a user's `sum`.
   Elm's argument [E1] applies here.
-  - The exceptions: a file that defines its own `List.sum` (§4.3) gets
-    `E-DUPLICATE` when the library later adds one, and an import list
-    naming `sum` keeps working.
-  - Lean has the same issue. It's the price of letting users extend library
-    namespaces (Q4).
+  - Since user files can't add to library namespaces (§4.3), a library
+    addition can't collide with a user's `List.sum` either. If extension is
+    allowed later (Q4), that collision becomes possible, as in Lean.
+  - Dot notation through an alias is safe too: with `Price = Nat`, a
+    library that later adds `Nat.show` changes what `p.show` means only if
+    the file has no `Price.show`, in which case `p.show` was an error
+    before. A *nearer* namespace gaining a member can change a resolution,
+    but the nearer namespaces of a user's type are the user's own.
 
 ## 9. Staging
 
 **Stage 0: built-ins by identity** (no visible change).
 
-- A table of built-in data and definition ids, filled while the prelude
-  loads.
-- Operators, literals, `if`, `()` and `auto`'s `fromYes` use it, and so do
-  kernel natives, `Void`, JS codecs, JS text natives, `ifThenElse`, the
-  printer and the runner (§4.7, §7.3).
-- The injective JS name encoding.
+- The registry of §4.7, with its invariants, filled while the prelude loads
+  and checked complete before user code.
+- **The audit covers both directions**: code that *builds* a reference to a
+  built-in (elaborating `+`, a literal, a handler's translation), and code
+  that *recognises* a term or value as one (the printer's `()` and list
+  literals, the JS codecs, the runner's `Done`/`Call`, the step function's
+  `Comp`). Its consumers:
+  - syntax: operators, `==`/`!=`, `++`, `if`/`if h :`, literals, `()`,
+    number patterns' `Zero`/`Succ`, and records' generated decision
+    procedures (`Yes`, `No`, `cong`, `Decidable`);
+  - `auto`'s `fromYes`, `Trivial` and `Yes`, and the test runner's `Bool`;
+  - the effect machinery: `Comp`, `Done`, `Call`, `bind`, `foldComp`,
+    `Plus`, `NoOp`, `NoRes`, `PlusRes`, `Sig`, `sigOp`, `sigRes`, `SigMap`,
+    `translate` and the `sig…` combinators, `handlePlus`, `runPure`, and
+    the operations' metadata;
+  - the `Partial` lane's primitives and their references to `Comp`,
+    `Plus`, `SigMap`, `Rec`, `PlusRes`, `RecRes`, in the kernel, the step
+    function and the elaborator;
+  - kernel natives, `Nat`, `Bool`, `Decidable`, `Void`, `natNeq`, compact
+    text's `List` and `Char`;
+  - JS: codecs, text natives, `ifThenElse`, `Decidable`;
+  - the printer and the runner (with `simulate`'s `IO`).
+- The injective JS name encoding, with its two whole-generator tests
+  (§7.3).
 - Generated ability names move to `State.%elim`.
-- **Tests:** every existing test passes unchanged (snapshots of internal JS
-  names are regenerated). Add a unit test that the table is complete.
+- **Tests:**
+  - every existing test passes unchanged (snapshots of internal JS names
+    are regenerated);
+  - the registry is complete after the prelude loads, every entry is final,
+    and a prelude missing an entry is refused before user code;
+  - **the altered-name-environment test**: load the prelude, then rebind
+    the user-facing names of built-ins (`add`, `Nil`, `List`, `Maybe`, …)
+    to other declarations (through a test-only hook until stage 1 makes it
+    expressible), and check that syntax, natives, codecs, printing and the
+    runner still select the original declarations;
+  - a user type named like a built-in, through the same hook, isn't given
+    the built-in's codec or printing.
+
+The JS encoding and the generated ability names are separable from the
+registry, and may be done at the start of stage 1 instead, since they only
+matter once users can write dotted names.
+
+**As built** (stage 0): the registry is `crates/core/src/registry.rs`, kept
+in `Globals`, with an entry per built-in (data types, constructors,
+definitions) bound by `bind_data` and `bind_def` as the prelude's
+declarations are admitted, and `check_complete` run by
+`Elaborator::finish_prelude` and again before any user module. Syntax the
+compiler *generates* as source (records' `==`, the runner's call of `main`
+and `simulate`) is elaborated with those names temporarily meaning the
+registry's declarations (`with_builtin_names`). The tests are in
+`crates/driver/tests/builtins.rs`. The JS name encoding, the generated
+ability names, and `module.rs`'s syntactic `ends_in_decidable` (which reads
+the *written* name `Decidable`) move to stage 1.
 
 **Stage 1: namespaces, qualified names and `import`.**
 
@@ -1374,27 +1774,46 @@ at a level that can't hide an existing resolution.
 - The prelude moved (§6), and every example, test, snapshot and playground
   example rewritten.
 - `W-MODULE-NAME` extended.
+- `E-STD-NAMESPACE`, checked on the resolved owner; the `not` alias.
+- Raw collection and full-name registration as separate passes (§5).
 - **Tests:**
   - accept examples: a file defining its own `length`, `Maybe` and `Yes`;
-    extending `List`; importing; `Std.` escapes;
-  - reject examples: one per new error code, each asserting its code;
+    adding functions to the file's own types and namespaces; importing;
+    `Std.` escapes; a file that declares its own `List` and then
+    `List.sum`, which extends *its* `List`;
+  - a file declaring its own `Maybe` doesn't see the default `Just` and
+    `Nothing` (decision 6), while `Std.Maybe.Just` still works;
+  - reject examples: one per new error code, each asserting its code,
+    including `List.sum` and `Std.List.sum` both refused with
+    `E-STD-NAMESPACE`;
   - a user `List` with other constructors at the JS boundary, refused or
     encoded by its own codec, never as an array;
-  - the user type `List` identical to the library's gets a different hash.
+  - the user type `List` identical to the library's gets a different hash,
+    and so do `Main.Geometry.Shape` and `Main.UI.Shape`;
+  - short export names: two different types with one short name are
+    `E-EXPORT`; one type reached twice isn't.
 
 **Stage 2: dot notation by type** (needs records stage 1 merged, since it
 shares `Expr::Field`).
 
-- §4.8 in full: receiver-first elaboration, the folded-then-unfolded head,
-  `Eq`.
+- §4.8 in full: receiver-first elaboration for complete calls, the
+  type-head view, `Eq`.
 - Fields and functions in one lookup; projections writable.
-- The pre-pass over-approximation with mitigations 1 and 2 of §5.
+- The pre-pass over-approximation with certain and speculative edges, and
+  mitigations 1, 2 and 3 of §5.
 - **Tests:**
   - receiver in a non-first position (`line.split ','`);
-  - partial application (`t.split`);
+  - partial application (`t.split`), and `E-DOT-PARTIAL` for `s.read`;
+  - the dependent receiver: `s.read 3` checks and `s.read 4` fails;
+  - an alias's namespace (`p.show` with `p : Price` finds `Price.show`,
+    and falls back to `Nat.show` without one), whatever the evaluator does;
+  - a blocked unfolding (`x : Family n`) reports and stops;
+  - a found `T.f` with no receiver parameter stops lookup;
   - inference through `people.map (\p -> p.name)`;
-  - effect order of an effectful receiver;
-  - the spurious-cycle example of §5 and its note;
+  - evaluation order: an effectful receiver and an effectful argument run
+    receiver first, then the arguments as written;
+  - the spurious-cycle example of §5 and its note, and the mixed-kind
+    example with its diagnostic;
   - every error of §4.12.
 
 Stage 1 alone makes code wordier (`Text.length t`) until stage 2 lands. So
@@ -1407,18 +1826,23 @@ the two should be built back to back, in one lane, and merged separately.
    dotted name. Unqualified names resolve by the four levels of §4.4, where
    the file's own names hide defaults and ambiguity is reported at use.
    `import N (a, b)` sits at the top of the file. The default set is `Std`'s
-   root (§4.6). Dot notation follows Lean's rule, with the receiver
-   elaborated first and no postponement.
+   root, plus the `not` alias (§4.6). User files can't add to `Std`'s
+   namespaces. Dot notation follows Lean's rule through a deterministic
+   type-head view, with the receiver elaborated first for complete calls
+   and no postponement.
 2. Do **stage 0 first, as its own merge.** Binding built-ins by identity is
    needed whatever the namespace design, and it removes the reliance on
-   "prelude names can't be redefined" that today sits in three crates.
+   "prelude names can't be redefined" that today sits in four crates (core,
+   elab, js, driver). The reviewer agreed it can proceed independently.
 3. Then **stages 1 and 2 back to back**, after records stage 1 merges.
 4. Keep `auto` blind to imports (§7.1).
 5. Defer everything in §8. Each is compatible as described.
 
 ## 11. Questions for the user
 
-Only real taste choices; my recommendation is given with each.
+Answered on 16 October 2026; the answers are at the top of the note and
+the body follows them. Kept for the record. Only real taste choices; my
+recommendation was given with each.
 
 - **Q1. `not` everywhere?** By D4, `not b` becomes `b.not` or `Bool.not b`.
   It's used about as often as an operator (51 times in the examples). Should
@@ -1441,6 +1865,36 @@ Only real taste choices; my recommendation is given with each.
   You'd rarely type it.
 
 ## 12. Open questions for the reviewer
+
+**Answered by the external review (16 October 2026).** In brief, and adopted
+in draft 2:
+
+- **R1:** over-approximation is acceptable initially, with narrowing and
+  honest diagnostics; it can also make false mixed-kind cycles (§5). Keep
+  certain and speculative edges distinct. Reporting `E-MUTUAL-SIGNATURE`
+  from elaborated references is sound only while it never authorises a
+  pending sibling.
+- **R2:** make the type-head view explicit and deterministic; stop when
+  unfolding is blocked; a stuck application uses its definition's
+  namespace; a found `T.f` without a receiver stops lookup (§4.8).
+- **R3:** no postponement needed at first. Receiver-first works for complete
+  calls; missing arguments the receiver depends on need a separate rule,
+  which draft 2 makes an error (§4.8.2). Keep elaboration order and
+  evaluation order apart.
+- **R4:** no loss of soundness, but binding syntax and replacing a
+  definition with a native are separate; keep the natives' existing
+  validation; audit the effect machinery too, in both directions (§4.7, §9).
+- **R5:** hash the full logical path including intermediate namespaces,
+  never a physical path; qualify the cache promise (§7.4).
+- **R6:** not reviewed in detail; stays a later decision.
+- **R7:** revalidation must rerun lookups, including the absence of nearer
+  candidates (§7.5).
+- **R8:** approve the encoding and short export names, with whole-generator
+  disjointness and identifier-validity tests, and identity-based collision
+  checks (§7.3).
+- **R9:** moot (Q4 deferred).
+
+The original questions follow.
 
 - **R1. Dependencies for dot notation.**
   - Is over-approximating the pre-pass (§5) acceptable, given that it can
@@ -1518,9 +1972,9 @@ research pass on 16 October 2026, except as noted here.
 
 **About Stitchwort.**
 
-- Whether inferred types are still folded (`Head::Def`) when dot notation
-  looks at them (§4.8). If they're always unfolded, aliases simply have no
-  namespace of their own, which is a harmless fallback.
+- (Draft 1.1 asked whether inferred types are still folded when dot
+  notation looks at them. Draft 2 makes it irrelevant: the type-head view of
+  §4.8 reads the elaborated type term by rule.)
 - Whether the JS name clash `a''b` / `a.b` (§7.3) is reachable today through
   generated ability names. The mapping is clearly not injective, but no test
   exercises it.

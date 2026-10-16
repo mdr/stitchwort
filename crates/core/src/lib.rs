@@ -14,6 +14,7 @@ pub mod partial;
 pub mod pretty;
 #[cfg(any(test, feature = "reference"))]
 pub mod reference;
+pub mod registry;
 pub mod sct;
 pub mod step;
 pub mod term;

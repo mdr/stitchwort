@@ -6,6 +6,7 @@ use std::rc::Rc;
 
 use stitchwort_core::chars::{self as compact, Chars};
 use stitchwort_core::check as kernel;
+use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{Closure, Head, apply, eval, force, quote, unused};
 use stitchwort_core::{DataId, Globals, Icit, Name, Sort, Term, Value, pretty};
 use stitchwort_syntax::ast::{BinOp, Expr, Name as AstName};
@@ -215,7 +216,7 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
     }
     match expr {
         Expr::Unit(_) => {
-            let unit = data_named(cx, "UnitType")?;
+            let unit = builtin_data(cx, Builtin::UnitType)?;
             Ok((
                 Term::Ctor(unit, 0, Vec::new()),
                 Value::Data(unit, Vec::new()),
@@ -251,16 +252,16 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             Value::Data(nat(cx)?, Vec::new()),
         )),
         Expr::Char(c, _) => {
-            let (char_data, _) = ctor_named(cx, "MkChar")?;
+            let char_data = builtin_data(cx, Builtin::Char)?;
             Ok((char_term(cx, *c)?, Value::Data(char_data, Vec::new())))
         }
         // `"ab"` is `MkText ['a', 'b']`: its characters are one compact list
         // when the prelude's `List` and `Char` are registered for it
         // (`stitchwort_core::chars`), and otherwise cons cells.
         Expr::Str(s, _) => {
-            let (text, mk_text) = ctor_named(cx, "MkText")?;
-            let (list, nil) = ctor_named(cx, "Nil")?;
-            let (_, cons) = ctor_named(cx, "Cons")?;
+            let (text, mk_text) = builtin_ctor(cx, Builtin::MkText)?;
+            let (list, nil) = builtin_ctor(cx, Builtin::Nil)?;
+            let (_, cons) = builtin_ctor(cx, Builtin::Cons)?;
             let chars = match cx.g().builtins.compact_literals() {
                 Some(text_rep) => {
                     let buffer: std::rc::Rc<[char]> = s.chars().collect();
@@ -340,7 +341,7 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
         Expr::Binary(BinOp::Eq, a, b) => Ok((equation(cx, a, b)?, Value::Sort(Sort::Prop))),
         Expr::Binary(BinOp::Ne, a, b) => {
             // `a != b` means `Not (a = b)`.
-            let not = def_named(cx, "Not")?;
+            let not = builtin_def(cx, Builtin::Not)?;
             let eq = equation(cx, a, b)?;
             Ok((Term::app(Term::Def(not), eq), Value::Sort(Sort::Prop)))
         }
@@ -349,8 +350,8 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             // `a = b`, found as for `if h : a = b`.
             let eq = equation(cx, a, b)?;
             let decision = crate::auto::decide(cx, &cx.eval(&eq)?, 0)?;
-            let to_bool = def_named(cx, "toBool")?;
-            let (bool_data, _) = ctor_named(cx, "True")?;
+            let to_bool = builtin_def(cx, Builtin::ToBool)?;
+            let bool_data = builtin_data(cx, Builtin::Bool)?;
             Ok((
                 Term::app(
                     Term::app_icit(Term::Def(to_bool), eq, Icit::Implicit),
@@ -360,19 +361,19 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             ))
         }
         Expr::Binary(op, a, b) => {
-            let name = match op {
-                BinOp::Lt => "LessThan",
-                BinOp::Le => "LessEq",
-                BinOp::Add => "add",
-                BinOp::Sub => "sub",
-                BinOp::Mul => "mul",
-                BinOp::Div => "div",
-                BinOp::Mod => "mod",
+            let builtin = match op {
+                BinOp::Lt => Builtin::LessThan,
+                BinOp::Le => Builtin::LessEq,
+                BinOp::Add => Builtin::Add,
+                BinOp::Sub => Builtin::Sub,
+                BinOp::Mul => Builtin::Mul,
+                BinOp::Div => Builtin::Div,
+                BinOp::Mod => Builtin::Mod,
                 BinOp::Eq | BinOp::Ne | BinOp::EqEq | BinOp::Append => {
                     unreachable!("handled above")
                 }
             };
-            let id = def_named(cx, name)?;
+            let id = builtin_def(cx, builtin)?;
             let head = (Term::Def(id), g.def(id).ty_value.clone());
             let (term, ty) = apply_args(cx, head, &[Arg::Explicit(a), Arg::Explicit(b)])?;
             // `/` and `%` take an automatic proof that the divisor isn't zero.
@@ -410,7 +411,7 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
         } => records::infer_update(cx, base, fields),
         Expr::Field(e, field) => records::infer_field(cx, e, field),
         Expr::List(..) => {
-            let (list, _) = ctor_named(cx, "Nil")?;
+            let list = builtin_data(cx, Builtin::List)?;
             let elem = cx.fresh_meta();
             let ty = Value::Data(list, vec![cx.eval(&elem)?]);
             let term = check(cx, expr, &ty)?;
@@ -780,7 +781,7 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     }
     match (expr, &expected) {
         (Expr::Unit(_), Value::Sort(_)) => {
-            let unit = data_named(cx, "UnitType")?;
+            let unit = builtin_data(cx, Builtin::UnitType)?;
             let found = Value::Sort(Sort::Type(0));
             if cx.unify(&found, &expected)? {
                 Ok(Term::Data(unit, Vec::new()))
@@ -860,8 +861,8 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
             ),
         )),
         (Expr::List(items, _), Value::Data(d, params)) => {
-            let (list, nil) = ctor_named(cx, "Nil")?;
-            let (_, cons) = ctor_named(cx, "Cons")?;
+            let (list, nil) = builtin_ctor(cx, Builtin::Nil)?;
+            let (_, cons) = builtin_ctor(cx, Builtin::Cons)?;
             if *d != list {
                 return fallback(cx, expr, &expected);
             }
@@ -899,7 +900,7 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
 /// `'a'` is `MkChar 97 rfl`: the kernel checks that 97 is a scalar value by
 /// computing `isScalar 97`.
 fn char_term(cx: &Ctx, c: char) -> Result<Term> {
-    let (char_data, mk_char) = ctor_named(cx, "MkChar")?;
+    let (char_data, mk_char) = builtin_ctor(cx, Builtin::MkChar)?;
     let code = Term::Nat(Rc::new(u32::from(c).into()));
     Ok(Term::ctor(char_data, mk_char, vec![code, Term::Refl]))
 }
@@ -916,13 +917,17 @@ fn append(cx: &mut Ctx, a: &Expr, b: &Expr) -> Result<(Term, Value)> {
         }
         Err(e) => return Err(e),
     };
-    let (text, _) = ctor_named(cx, "MkText")?;
-    let (list, _) = ctor_named(cx, "Nil")?;
+    let text = builtin_data(cx, Builtin::Text)?;
+    let list = builtin_data(cx, Builtin::List)?;
     let head = match force(cx.g(), ty.clone())? {
-        Value::Data(d, _) if d == text => Term::Def(def_named(cx, "textAppend")?),
+        Value::Data(d, _) if d == text => Term::Def(builtin_def(cx, Builtin::TextAppend)?),
         Value::Data(d, params) if d == list => {
             let elem = cx.quote(&params[0])?;
-            Term::app_icit(Term::Def(def_named(cx, "append")?), elem, Icit::Implicit)
+            Term::app_icit(
+                Term::Def(builtin_def(cx, Builtin::Append)?),
+                elem,
+                Icit::Implicit,
+            )
         }
         other => {
             return Err(cx.error(
@@ -971,13 +976,13 @@ pub(crate) fn check_if(
     };
     match binder {
         None => {
-            let (bool_data, _) = ctor_named(cx, "True")?;
-            let (unit_data, _) = ctor_named(cx, "Trivial")?;
+            let bool_data = builtin_data(cx, Builtin::Bool)?;
+            let unit_data = builtin_data(cx, Builtin::Unit)?;
             let cond = check(cx, cond, &Value::Data(bool_data, Vec::new()))?;
             let unit = Value::Data(unit_data, Vec::new());
             let then = branch(cx, "_", unit.clone(), then)?;
             let otherwise = branch(cx, "_", unit, otherwise)?;
-            let ite = def_named(cx, "ifThenElse")?;
+            let ite = builtin_def(cx, Builtin::IfThenElse)?;
             let head = Term::app_icit(Term::Def(ite), result_ty, Icit::Implicit);
             Ok(Term::app(Term::app(Term::app(head, cond), then), otherwise))
         }
@@ -998,11 +1003,11 @@ pub(crate) fn check_if(
             }
             let prop_value = cx.eval(&prop)?;
             let decision = crate::auto::decide(cx, &prop_value, 0)?;
-            let not = def_named(cx, "Not")?;
+            let not = builtin_def(cx, Builtin::Not)?;
             let not_prop = cx.eval(&Term::app(Term::Def(not), prop.clone()))?;
             let then = branch(cx, &h.text, prop_value, then)?;
             let otherwise = branch(cx, &h.text, not_prop, otherwise)?;
-            let elim = def_named(cx, "elimDec")?;
+            let elim = builtin_def(cx, Builtin::ElimDec)?;
             let head = Term::app_icit(
                 Term::app_icit(Term::Def(elim), prop, Icit::Implicit),
                 result_ty,
@@ -1032,15 +1037,37 @@ fn fallback(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     }
 }
 
-fn data_named(cx: &Ctx, name: &str) -> Result<DataId> {
-    match cx.e.names.get(name) {
-        Some((Global::Data(d), _)) => Ok(*d),
-        _ => Err(cx.error(
-            "E-UNKNOWN-NAME",
-            format!("this needs the prelude's `{name}`"),
-            "here",
-        )),
-    }
+/// The prelude's data type `b`, which syntax stands for (the built-in
+/// registry, docs/proposals/namespaces.md §4.7): by identity, never by what
+/// its name means here.
+pub fn builtin_data(cx: &Ctx, b: Builtin) -> Result<DataId> {
+    cx.g()
+        .registry
+        .data(b)
+        .ok_or_else(|| missing_builtin(cx, b))
+}
+
+/// The prelude's constructor `b`: its data type and index.
+pub fn builtin_ctor(cx: &Ctx, b: Builtin) -> Result<(DataId, usize)> {
+    cx.g()
+        .registry
+        .ctor(b)
+        .ok_or_else(|| missing_builtin(cx, b))
+}
+
+/// The prelude's definition `b`.
+pub fn builtin_def(cx: &Ctx, b: Builtin) -> Result<stitchwort_core::DefId> {
+    cx.g().registry.def(b).ok_or_else(|| missing_builtin(cx, b))
+}
+
+/// Only while the prelude loads, before `b`'s declaration is admitted: user
+/// code isn't elaborated until every built-in is bound.
+fn missing_builtin(cx: &Ctx, b: Builtin) -> Diagnostic {
+    cx.error(
+        "E-UNKNOWN-NAME",
+        format!("this needs the prelude's `{}`", b.name()),
+        "here",
+    )
 }
 
 /// If `expr` is a constructor applied to explicit arguments: the constructor
@@ -1184,7 +1211,7 @@ pub fn check_type(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Sort)> {
     let span = expr.span();
     if let Expr::Unit(_) = expr {
         return Ok((
-            Term::Data(data_named(cx, "UnitType")?, Vec::new()),
+            Term::Data(builtin_data(cx, Builtin::UnitType)?, Vec::new()),
             Sort::Type(0),
         ));
     }
@@ -1275,26 +1302,4 @@ fn nat(cx: &Ctx) -> Result<DataId> {
         .builtins
         .nat
         .ok_or_else(|| cx.error("E-UNKNOWN-NAME", "numbers need the prelude's `Nat`", "here"))
-}
-
-pub fn ctor_named(cx: &Ctx, name: &str) -> Result<(DataId, usize)> {
-    match cx.e.names.get(name) {
-        Some((Global::Ctor(d, c), _)) => Ok((*d, *c)),
-        _ => Err(cx.error(
-            "E-UNKNOWN-NAME",
-            format!("this needs the prelude's `{name}`"),
-            "here",
-        )),
-    }
-}
-
-pub fn def_named(cx: &Ctx, name: &str) -> Result<stitchwort_core::DefId> {
-    match cx.e.names.get(name) {
-        Some((Global::Def(id), _)) => Ok(*id),
-        _ => Err(cx.error(
-            "E-UNKNOWN-NAME",
-            format!("this needs the prelude's `{name}`"),
-            "here",
-        )),
-    }
 }

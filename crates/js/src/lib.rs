@@ -13,6 +13,7 @@ use stitchwort_core::check::{is_type_former, telescope};
 use stitchwort_core::hash::def_hash;
 use stitchwort_core::native;
 use stitchwort_core::partial::Primitive;
+use stitchwort_core::registry::Builtin;
 use stitchwort_core::term::Branch;
 use stitchwort_core::value::{Head, eval, expand_step, force, quote};
 use stitchwort_core::{DataId, DefId, Globals, Limits, ResourceError, Sort, Term, Value, pretty};
@@ -203,13 +204,23 @@ fn boundary(
         }
         Value::Data(d, args) => {
             let data = g.data(*d);
-            match (&*data.name, args.as_slice()) {
-                ("Nat", []) => Ok(Boundary::Nat),
-                ("Bool", []) => Ok(Boundary::Bool),
-                // Prelude names can't be redefined, so these are the prelude's.
-                ("Text", []) => Ok(Boundary::Text),
-                ("Char", []) => Ok(Boundary::Char),
-                ("List", [elem]) => Ok(Boundary::List(Box::new(boundary(
+            // The prelude's types have codecs of their own, chosen by identity:
+            // a program's own `List` is encoded as the data type it is.
+            let builtin = [
+                Builtin::Nat,
+                Builtin::Bool,
+                Builtin::Text,
+                Builtin::Char,
+                Builtin::List,
+            ]
+            .into_iter()
+            .find(|b| g.registry.is_data(*b, *d));
+            match (builtin, args.as_slice()) {
+                (Some(Builtin::Nat), []) => Ok(Boundary::Nat),
+                (Some(Builtin::Bool), []) => Ok(Boundary::Bool),
+                (Some(Builtin::Text), []) => Ok(Boundary::Text),
+                (Some(Builtin::Char), []) => Ok(Boundary::Char),
+                (Some(Builtin::List), [elem]) => Ok(Boundary::List(Box::new(boundary(
                     g, elem, params, visiting,
                 )?))),
                 _ if data.sort != Sort::Prop => {
@@ -1059,7 +1070,7 @@ impl<'g> Gen<'g> {
                 }
             })
             .collect();
-        let text = g.find_data("Text").filter(|d| {
+        let text = g.registry.data(Builtin::Text).filter(|d| {
             let data = g.data(*d);
             options.native_text
                 && data.params.is_empty()
@@ -1078,17 +1089,13 @@ impl<'g> Gen<'g> {
         };
         Ok(Gen {
             g,
-            nat: g.find_data("Nat"),
+            nat: g.registry.data(Builtin::Nat),
             text,
             text_natives,
             erased,
             conventions,
             delay,
-            if_then_else: g
-                .defs
-                .iter()
-                .position(|def| &*def.name == "ifThenElse")
-                .map(DefId),
+            if_then_else: g.registry.def(Builtin::IfThenElse),
         })
     }
 
@@ -1536,7 +1543,7 @@ impl<'g> Gen<'g> {
 
     /// The tag of `Decidable`'s first constructor (`Yes`).
     fn decision_yes_tag(&self) -> String {
-        self.g.find_data("Decidable").map_or_else(
+        self.g.registry.data(Builtin::Decidable).map_or_else(
             || "Yes".into(),
             |d| self.g.data(d).ctors[0].name.to_string(),
         )
@@ -1913,74 +1920,74 @@ pub enum TextNative {
 /// so if the prelude changes, the definition is compiled as written instead:
 /// slower, but still right. A test fails until each native has been checked
 /// against the changed definition and its hash updated here.
-const TEXT_NATIVES: &[(&str, TextNative, &str)] = &[
+const TEXT_NATIVES: &[(Builtin, TextNative, &str)] = &[
     (
-        "textToList",
+        Builtin::TextToList,
         TextNative::TextToList,
         "549a42631552690743f06ace8493d5e2e85672173248cc72fa1842711b958066",
     ),
     (
-        "textFromList",
+        Builtin::TextFromList,
         TextNative::TextFromList,
         "0d7126c14af1f18042bdb06fec7030139ab8bb7d57f7e2f5a5215c577479ad6d",
     ),
     (
-        "textAppend",
+        Builtin::TextAppend,
         TextNative::TextAppend,
         "d04570fc5c40f95e7632ad9959589d5b2bdf54c75df57b765a1d72c6e29e4f11",
     ),
     (
-        "textLength",
+        Builtin::TextLength,
         TextNative::TextLength,
         "b49fbcc27f659077cf54460e8b8966f20999ef3d047d57fc11924628867399d5",
     ),
     (
-        "textIsEmpty",
+        Builtin::TextIsEmpty,
         TextNative::TextIsEmpty,
         "a90f3ce9f27a95267e8259192aa7bf7f45ce5c254983deb07be35c0d9eac7b67",
     ),
     (
-        "decEqText",
+        Builtin::DecEqText,
         TextNative::DecEqText,
         "f69a059702df9f43714a8cee2ac83349859539cdf4d3385930f9dc2cfeb973b0",
     ),
     (
-        "textCompare",
+        Builtin::TextCompare,
         TextNative::TextCompare,
         "99922cac2ece4c6fe119244f4e7ebfbe6a73c41c5d7d4bc33ad4cc68621990a1",
     ),
     (
-        "textUncons",
+        Builtin::TextUncons,
         TextNative::TextUncons,
         "05907321fda3c2a8e740ec4a30518f8ab133d4bc43cf954877262bc5f3bb2aed",
     ),
     (
-        "textFold",
+        Builtin::TextFold,
         TextNative::TextFold,
         "5015ca6ea71ac66cf89ef1306af0a813ffa12c9bd93a06ab3e682c3fe802ff75",
     ),
     (
-        "textTrim",
+        Builtin::TextTrim,
         TextNative::TextTrim,
         "e29b4385d236cc6c65a7f039a1a3cceb4f0a5b15956106c5938145cb49331dde",
     ),
     (
-        "textSplit",
+        Builtin::TextSplit,
         TextNative::TextSplit,
         "c16121624ff5d1e29219e5550216bdfb0ec37238bbe86f7551b784b2b93d9bc3",
     ),
     (
-        "textJoin",
+        Builtin::TextJoin,
         TextNative::TextJoin,
         "fc7855026fd1f585079f7687d5d47987f5696670d3e0ea3f69e466e745efb3ba",
     ),
     (
-        "natToText",
+        Builtin::NatToText,
         TextNative::NatToText,
         "fc4ff5aefcb7cc8800239627ebcbd718d6c86658a15c5b8827333c68cec6645a",
     ),
     (
-        "textToNat",
+        Builtin::TextToNat,
         TextNative::TextToNat,
         "8e3282ab2c0d59e2aed04467ea456f529b3ee22ef869862412ea68df3ae05c60",
     ),
@@ -2005,15 +2012,14 @@ pub fn bind_text_natives(g: &Globals) -> Result<Vec<TextBinding>, ResourceError>
         .operation(Limits::stack_only(Limits::default().stack));
     TEXT_NATIVES
         .iter()
-        .map(|&(name, native, expected)| {
-            // Prelude names can't be redefined, so this is the prelude's.
-            let id = g.defs.iter().position(|def| &*def.name == name).map(DefId);
+        .map(|&(builtin, native, expected)| {
+            let id = g.registry.def(builtin);
             let hash = match id {
                 Some(id) => def_hash(g, id)?.map(|h| h.hex()),
                 None => None,
             };
             Ok(TextBinding {
-                name,
+                name: builtin.name(),
                 native,
                 id,
                 bound: hash.as_deref() == Some(expected),

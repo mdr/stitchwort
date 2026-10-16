@@ -43,6 +43,7 @@
 use crate::budget::Result;
 use crate::globals::Globals;
 use crate::partial::Primitive;
+use crate::registry::Builtin;
 use crate::term::{DataId, DefId, Term};
 use crate::value::{Elim, Head, Value, apply, force};
 
@@ -61,16 +62,16 @@ struct Shapes {
 
 impl Shapes {
     fn new(g: &Globals) -> Shapes {
-        let data = |name: &str| g.find_data(name).expect("the prelude declares it");
+        let data = |b: Builtin| g.registry.data(b).expect("the prelude declares it");
         let prim = |p: Primitive| {
             g.builtins
                 .primitive_id(p)
                 .expect("the prelude declares the partial constants")
         };
         Shapes {
-            comp: data("Comp"),
-            plus: data("Plus"),
-            rec: data("Rec"),
+            comp: data(Builtin::Comp),
+            plus: data(Builtin::Plus),
+            rec: data(Builtin::Rec),
             now: prim(Primitive::Now),
             lift: prim(Primitive::Lift),
             bind: prim(Primitive::BindD),
