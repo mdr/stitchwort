@@ -58,7 +58,10 @@ capability we know we'll need before the work that needs it):
    note is written ([integers.md](docs/proposals/integers.md) draft 1: `Int` as
    a data type over `Nat`, no kernel change, Euclidean `/` and `%`); three
    questions answered (Euclidean `%`, `-x` on any expression, `%` on `Int`
-   gives `Int`); **with the reviewer**.
+   gives `Int`). Reviewed: approved (no kernel change; revise operator and
+   literal typing first). Lane `int-draft2`: draft 2 now; implementation
+   right after namespaces stage 1, by an Opus agent delegating mechanical
+   parts to a Sonnet worker.
 2. **Standard library for real programs** (ranked by the AoC survey,
    [aoc-2025.md](docs/aoc-2025.md): days 1–5 already run with today's
    compiler using hand-written helpers): a list toolkit, a `readAllLines`
