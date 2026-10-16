@@ -51,8 +51,9 @@ capability we know we'll need before the work that needs it):
    default-visible names (core types, constructors, operators); prefixed
    names removed. Design note written
    ([namespaces.md](docs/proposals/namespaces.md) draft 1, `Std` root,
-   stage 0 binds built-in syntax to fixed library definitions first); five
-   taste questions for the user, then the reviewer.
+   stage 0 binds built-in syntax to fixed library definitions first). The
+   user answered §11 (implicit opening inside a namespace and extending
+   library namespaces from user code are deferred). **With the reviewer.**
 2. **Standard library for real programs:** list functions (`map`, `filter`,
    folds, `sum`, `max`, `zip`, `take`/`drop`, indexing), sorting with a
    correctness proof (sorted permutation), `Int`, a balanced-tree map/set,

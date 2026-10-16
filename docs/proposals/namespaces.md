@@ -1,6 +1,7 @@
 # Proposal: namespaces, imports and dot notation
 
-**Status:** draft 1, 16 October 2026. Design only: nothing here is built.
+**Status:** draft 1.1, 16 October 2026. The user has answered §11 (see the
+end of the decisions section). Design only: nothing here is built.
 It records decisions the user has already made, proposes the rest, and
 lists questions for the user ([§11](#11-questions-for-the-user)) and for an
 external reviewer ([§12](#12-open-questions-for-the-reviewer)).
@@ -60,6 +61,18 @@ These are settled. The rest of the note designs around them.
   file could also ask for no default names at all.
 - **D5. No backwards compatibility.** Prefixed names (`textLength`,
   `textSplit`, …) are removed and replaced by namespaced ones.
+
+**Answers to §11 (16 October 2026):**
+
+1. `not` is visible everywhere, the one function in the default set: yes.
+2. `IO` (and so `print`, `readLine`) is visible everywhere: yes.
+3. Other `List` names visible without the prefix inside `List.sum`'s body:
+   **deferred (someday/maybe)**. Not in this proposal.
+4. A user's file adding functions to library namespaces (`List.sum` defined
+   in user code, then `xs.sum`): **deferred**. For now a user file can't
+   add to `Std`'s namespaces (an error saying so); its own namespaces work
+   as proposed. Reviewer question R9 becomes moot for now.
+5. `Std` as the root that always means the standard library: yes.
 
 ## 0. Summary
 
