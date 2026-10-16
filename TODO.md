@@ -78,8 +78,8 @@ capability we know we'll need before the work that needs it):
    ([syntax-conveniences.md](docs/proposals/syntax-conveniences.md)):
    `where`/local functions and `match` lifted to hidden top-level
    definitions (no kernel change), pattern `let`/lambda, tuple sugar,
-   result-type-first checking of calls. Waiting on the user's answers to
-   §8 and an optional external review.
+   result-type-first checking of calls. The user agreed with every
+   recommendation in §8. Out for external review; implement after.
 4. **Advent of Code 2025, early days** (decisions in aoc-2025.md: programs
    in `aoc/`, inputs and answers out of git, worked examples as tests), as a stress test with proofs where
    natural (sort correctness, parser round trips, worked examples by `rfl`).

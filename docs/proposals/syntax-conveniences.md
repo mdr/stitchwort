@@ -863,6 +863,14 @@ arrives at step 4.
 
 ## 8. Questions for the user
 
+**Decided (16 October 2026):** the user agreed with every recommendation
+below (1 to 9): `match e with`; local names unique across the definition;
+a `where` value computed once; capture only the variables used;
+`match h : e with` in the first version; a refutable `let`/lambda pattern is
+the compile-time error `E-LET-REFUTABLE`; pairs as flattened JS arrays (a
+separate change); the result-type-first change is built; the order in §7.
+The note goes to the external reviewer before implementation.
+
 1. **`match e with` or `case e of`?** Recommendation: `match … with | …`,
    matching `handle … with | …` and Lean. Either reserves the word.
 2. **Local function names unique per definition** (rather than per
