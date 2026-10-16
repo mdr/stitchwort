@@ -10,7 +10,7 @@
 //! further continue the line above. A line at the block's column right after
 //! one ending in an operator (like `->`) continues it too.
 
-use crate::ast::{BinOp, Binder, Clause, CtorDecl, Decl, Expr, Module, Name, Pattern, Row};
+use crate::ast::{BinOp, Binder, Clause, CtorDecl, Decl, Expr, Import, Module, Name, Pattern, Row};
 use crate::lexer::{Tok, Token, lex};
 use crate::stack::StackLimit;
 use crate::{Diagnostic, FileId, Span};
@@ -39,10 +39,28 @@ pub fn parse_module_within(
 ) -> std::result::Result<Module, Vec<Diagnostic>> {
     let limit = StackLimit::from_here(stack);
     let tokens = lex(file, text).map_err(|d| vec![d])?;
+    let mut imports = Vec::new();
     let mut decls = Vec::new();
     let mut errors = Vec::new();
     for group in split_decls(&tokens).map_err(|d| vec![d])? {
         let mut parser = Parser::new(group, file, text.len(), limit);
+        if parser.peek() == Some(&Tok::KwImport) {
+            if !decls.is_empty() {
+                errors.push(
+                    error(group[0].span, "imports go at the top of the file")
+                        .with_note("move it before the first declaration"),
+                );
+                continue;
+            }
+            match parser
+                .import()
+                .and_then(|import| parser.finish().map(|()| import))
+            {
+                Ok(import) => imports.push(import),
+                Err(diagnostic) => errors.push(diagnostic),
+            }
+            continue;
+        }
         match parser
             .decl()
             .and_then(|decl| parser.finish().map(|()| decl))
@@ -52,7 +70,7 @@ pub fn parse_module_within(
         }
     }
     if errors.is_empty() {
-        Ok(Module { decls })
+        Ok(Module { imports, decls })
     } else {
         Err(errors)
     }
@@ -66,6 +84,22 @@ pub fn parse_expression_within(file: FileId, text: &str, stack: usize) -> Result
     let expr = parser.expr()?;
     parser.finish()?;
     Ok(expr)
+}
+
+/// `name`, unless it's qualified: a binder, a field or a constructor being
+/// declared has a short name.
+fn unqualified(name: Name) -> Result<Name> {
+    if name.text.contains('.') {
+        return Err(error(
+            name.span,
+            format!(
+                "`{}` is a qualified name, which can't be used here",
+                name.text
+            ),
+        )
+        .with_note("only declarations and references can be qualified; write a short name"));
+    }
+    Ok(name)
 }
 
 fn split_decls(tokens: &[Token]) -> Result<Vec<&[Token]>> {
@@ -254,7 +288,14 @@ impl<'t> Parser<'t> {
         }
     }
 
+    /// A lowercase name that's bound here, so it can't be qualified.
     fn lower(&mut self, what: &str) -> Result<Name> {
+        let name = self.lower_q(what)?;
+        unqualified(name)
+    }
+
+    /// A lowercase name, possibly qualified: `length` or `List.length`.
+    fn lower_q(&mut self, what: &str) -> Result<Name> {
         match self.peek() {
             Some(Tok::Lower(text)) => {
                 let span = self.bump().span;
@@ -269,12 +310,19 @@ impl<'t> Parser<'t> {
 
     fn def_name(&mut self) -> Result<Name> {
         match self.peek() {
-            Some(Tok::Upper(_)) => self.upper("a name"),
-            _ => self.lower("a name"),
+            Some(Tok::Upper(_)) => self.upper_q("a name"),
+            _ => self.lower_q("a name"),
         }
     }
 
+    /// An uppercase name that's declared here, so it can't be qualified.
     fn upper(&mut self, what: &str) -> Result<Name> {
+        let name = self.upper_q(what)?;
+        unqualified(name)
+    }
+
+    /// An uppercase name, possibly qualified: `Cons` or `List.Cons`.
+    fn upper_q(&mut self, what: &str) -> Result<Name> {
         match self.peek() {
             Some(Tok::Upper(text)) => {
                 let span = self.bump().span;
@@ -288,6 +336,46 @@ impl<'t> Parser<'t> {
     }
 
     // Declarations
+
+    /// `import List (map, filter)`: a namespace, then the names to use from
+    /// it, at least one.
+    fn import(&mut self) -> Result<Import> {
+        let start = self.expect(Tok::KwImport, "`import`")?.span;
+        let path = match self.peek() {
+            Some(Tok::Upper(text)) => {
+                let name = Name {
+                    text: text.clone(),
+                    span: self.here(),
+                };
+                self.bump();
+                name
+            }
+            _ => return Err(self.unexpected("a namespace, such as `List`")),
+        };
+        self.expect(Tok::LParen, "`(` and the names to import")?;
+        let mut items = Vec::new();
+        loop {
+            match self.peek() {
+                Some(Tok::Lower(text) | Tok::Upper(text)) if !text.contains('.') => {
+                    items.push(Name {
+                        text: text.clone(),
+                        span: self.here(),
+                    });
+                    self.bump();
+                }
+                _ => return Err(self.unexpected("a name to import")),
+            }
+            if !self.eat(&Tok::Comma) {
+                break;
+            }
+        }
+        let end = self.expect(Tok::RParen, "`)`")?.span;
+        Ok(Import {
+            path,
+            items,
+            span: start.to(end),
+        })
+    }
 
     fn decl(&mut self) -> Result<Decl> {
         let start = self.here();
@@ -392,7 +480,7 @@ impl<'t> Parser<'t> {
                 Ok(Pattern::Num(n.clone(), span))
             }
             Some(Tok::Upper(_)) => {
-                let name = self.upper("a constructor")?;
+                let name = self.upper_q("a constructor")?;
                 Ok(Pattern::Ctor(name, Vec::new(), span))
             }
             Some(Tok::LParen) if self.peek_at(1) == Some(&Tok::RParen) => {
@@ -404,7 +492,7 @@ impl<'t> Parser<'t> {
             Some(Tok::LParen) => {
                 self.bump();
                 let pattern = if let Some(Tok::Upper(_)) = self.peek() {
-                    let name = self.upper("a constructor")?;
+                    let name = self.upper_q("a constructor")?;
                     let mut args = Vec::new();
                     while self.peek() != Some(&Tok::RParen) {
                         args.push(self.pattern()?);
@@ -439,7 +527,7 @@ impl<'t> Parser<'t> {
                     // A constructor's arguments run to the next `,` or `}`.
                     if let Some(Tok::Upper(_)) = self.peek() {
                         let start = self.here();
-                        let name = self.upper("a constructor")?;
+                        let name = self.upper_q("a constructor")?;
                         let mut args = Vec::new();
                         while !matches!(self.peek(), Some(Tok::Comma | Tok::RBrace) | None) {
                             args.push(self.pattern()?);
@@ -467,7 +555,7 @@ impl<'t> Parser<'t> {
 
     fn data(&mut self) -> Result<Decl> {
         let start = self.bump().span;
-        let name = self.upper("a data type name (starting with an uppercase letter)")?;
+        let name = self.upper_q("a data type name (starting with an uppercase letter)")?;
         let mut params = Vec::new();
         while self.peek() == Some(&Tok::LParen) {
             params.push(self.binder()?);
@@ -511,7 +599,8 @@ impl<'t> Parser<'t> {
     }
 
     /// A record's fields, `{ name : Text, age : Nat }`, as the one
-    /// constructor of the data type `data`, named `data.mk`.
+    /// constructor of the data type `data`, named `%mk`, which source can't
+    /// write (so `data.mk` is free for a function).
     fn record_fields(&mut self, data: &Name) -> Result<CtorDecl> {
         self.expect(Tok::LBrace, "`{`")?;
         let mut fields = Vec::new();
@@ -532,7 +621,7 @@ impl<'t> Parser<'t> {
         self.expect(Tok::RBrace, "`,` or `}`")?;
         Ok(CtorDecl {
             name: Name {
-                text: format!("{}.mk", data.text),
+                text: "%mk".into(),
                 span: data.span,
             },
             fields,
@@ -542,7 +631,7 @@ impl<'t> Parser<'t> {
     /// `ability Name (params) where`, then one operation per line.
     fn ability(&mut self) -> Result<Decl> {
         let start = self.bump().span;
-        let name = self.upper("an ability name (starting with an uppercase letter)")?;
+        let name = self.upper_q("an ability name (starting with an uppercase letter)")?;
         let mut params = Vec::new();
         while self.peek() == Some(&Tok::LParen) {
             params.push(self.binder()?);
@@ -744,7 +833,7 @@ impl<'t> Parser<'t> {
                 let body = self.expr()?;
                 clauses.push(Clause::Return { var, body });
             } else {
-                let op = self.lower("an operation, or `return`")?;
+                let op = self.lower_q("an operation, or `return`")?;
                 let arg = self.pattern()?;
                 self.expect(Tok::FatArrow, "`=>`")?;
                 let k = self.lower("a name for the continuation")?;
@@ -1086,8 +1175,8 @@ impl<'t> Parser<'t> {
     fn atom_base(&mut self) -> Result<Expr> {
         let span = self.here();
         match self.peek() {
-            Some(Tok::Lower(_)) => Ok(Expr::Var(self.lower("an expression")?)),
-            Some(Tok::Upper(_)) => Ok(Expr::Var(self.upper("an expression")?)),
+            Some(Tok::Lower(_)) => Ok(Expr::Var(self.lower_q("an expression")?)),
+            Some(Tok::Upper(_)) => Ok(Expr::Var(self.upper_q("an expression")?)),
             Some(Tok::Num(n)) => {
                 self.bump();
                 Ok(Expr::Num(n.clone(), span))
@@ -1205,6 +1294,7 @@ fn describe(tok: &Tok) -> String {
         Tok::KwWith => "`with`".into(),
         Tok::KwReturn => "`return`".into(),
         Tok::KwLet => "`let`".into(),
+        Tok::KwImport => "`import`".into(),
         Tok::LBrace => "`{`".into(),
         Tok::RBrace => "`}`".into(),
         Tok::FatArrow => "`=>`".into(),
@@ -1254,7 +1344,7 @@ mod tests {
             panic!("expected a record");
         };
         assert_eq!(ctors.len(), 1);
-        assert_eq!(ctors[0].name.text, "Person.mk");
+        assert_eq!(ctors[0].name.text, "%mk");
         let names: Vec<&str> = ctors[0]
             .fields
             .iter()

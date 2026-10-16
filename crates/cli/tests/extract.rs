@@ -674,7 +674,7 @@ refused(() => r.team({ lead: { name: "Ada" }, size: 1n }), /^t\.lead\.age: missi
 assert.deepEqual(r.smallest({ items: [1n, 4n] }), { tag: "Just", value: 1n });
 refused(() => r.smallest({ items: [4n, 1n] }), /^arg0: proof field `ok` \(`IsSorted items`\) doesn't hold$/);
 assert.equal(r.total({ items: [5n, 6n], size: 2n }), 2n);
-refused(() => r.total({ items: [5n, 6n], size: 3n }), /^s: proof field `ok` \(`length items = size`\) doesn't hold$/);
+refused(() => r.total({ items: [5n, 6n], size: 3n }), /^s: proof field `ok` \(`List.length items = size`\) doesn't hold$/);
 // A proof passed in anyway is ignored, not trusted.
 refused(() => r.total({ items: [], size: 1n, ok: true }), /^s: proof field `ok`/);
 console.log("ok");
@@ -1211,9 +1211,9 @@ fn native_text_is_only_used_when_asked_for() {
     assert!(
         native
             .js
-            .contains("const $isText = (v0) => {\n  return { tag: \"True\" };\n};")
+            .contains("const $Main$disText = (v0) => {\n  return { tag: \"True\" };\n};")
     );
-    assert!(native.js.contains("const $textLength = (t) => {"));
+    assert!(native.js.contains("const $Std$dText$dlength = (t) => {"));
     assert!(!list.js.contains("textOfChars"));
     let uses: Vec<&str> = list.js.split("charsOfText(").skip(1).collect();
     assert!(!uses.is_empty());
@@ -1745,7 +1745,12 @@ fn a_group_member_with_only_erased_parameters_is_a_thunk() {
         .expect("an empty module checks");
     let g = &mut session.elab.globals;
     let nat = g.find_data("Nat").expect("Nat");
-    let add = DefId(g.defs.iter().position(|d| &*d.name == "add").expect("add"));
+    let add = DefId(
+        g.defs
+            .iter()
+            .position(|d| &*d.name == "Nat.add")
+            .expect("Nat.add"),
+    );
     let nat_ty = || Rc::new(Term::Data(nat, Vec::new()));
     let span = g.def(add).span;
     let num = |n: u32| Term::Nat(Rc::new(BigUint::from(n)));
@@ -1788,7 +1793,11 @@ fn a_group_member_with_only_erased_parameters_is_a_thunk() {
 
     let output = stitchwort_js::generate(&session.elab.globals, session.elab.limits)
         .expect("extraction succeeds");
-    assert!(output.js.contains("const $k = () => "), "{}", output.js);
+    assert!(
+        output.js.contains("const $Main$dk = () => "),
+        "{}",
+        output.js
+    );
     let script = r#"
 import { useK } from "./erased.mjs";
 import assert from "node:assert/strict";
@@ -1830,7 +1839,7 @@ fn long_literals_extract_as_strings() {
          firstTwoOf : Text -> List Char\n\
          firstTwoOf (MkText (Cons a (Cons b rest))) = [a, b]\n\
          firstTwoOf t = []\n\n\
-         export\nlongChars : Bool -> List Char\nlongChars b = textToList {literal}\n"
+         export\nlongChars : Bool -> List Char\nlongChars b = Text.toList {literal}\n"
     );
     let mut session = Session::new();
     if let Err(errors) = session.load("long.sw", &source) {

@@ -4,6 +4,8 @@
 -- example 15): both pass the computation on, rebuilt or unchanged, so it
 -- never gets smaller.
 -- Neighbour: `countBumps` in accept/mutual.sw, which only resumes `k`.
+import Effect (Comp)
+
 type PingOp : Type =
   | Ping
 

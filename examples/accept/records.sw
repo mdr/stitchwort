@@ -14,7 +14,7 @@ birthday : Person -> Person
 birthday p = { p | age = p.age + 1 }
 
 describe : Person -> Text
-describe { name, age } = name ++ " is " ++ natToText age
+describe { name, age } = name ++ " is " ++ Nat.toText age
 
 -- `..` ignores the other fields.
 nameOf : Person -> Text
@@ -22,7 +22,7 @@ nameOf { name, .. } = name
 
 -- A field is read with `.`, which binds tighter than application.
 older : Person -> Person -> Bool
-older p q = leq q.age p.age
+older p q = Nat.leq q.age p.age
 
 -- Records nest, and patterns nest inside other patterns.
 type Team = { lead : Person, size : Nat }
@@ -36,13 +36,13 @@ firstLead (Cons { lead = { name, .. }, .. } rest) = name
 
 -- Parameters and dependent fields, as for data types: `ok` mentions the
 -- earlier fields.
-type Sized (a : Type) = { items : List a, size : Nat, ok : length items = size }
+type Sized (a : Type) = { items : List a, size : Nat, ok : List.length items = size }
 
 empty : Sized Nat
 empty = { items = Nil, size = 0, ok = rfl }
 
 push : a -> Sized a -> Sized a
-push x s = { items = Cons x s.items, size = Succ s.size, ok = cong Succ s.ok }
+push x s = { items = Cons x s.items, size = Succ s.size, ok = Eq.cong Succ s.ok }
 
 -- An update must replace every later field whose type mentions a replaced
 -- one: here `ok`, which mentions `items` and `size`.
@@ -50,7 +50,7 @@ grown : Sized Nat
 grown = { push 1 empty | items = [1, 2], size = 2, ok = rfl }
 
 -- A projection's type mentions the earlier fields as projections.
-theorem sizeIsLength : (s : Sized a) -> length s.items = s.size
+theorem sizeIsLength : (s : Sized a) -> List.length s.items = s.size
 sizeIsLength s = s.ok
 
 -- A record of proofs.

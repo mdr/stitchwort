@@ -395,27 +395,27 @@ const encode = (t, v) => {
   }
 };
 
-const info$Tree = datatype("Tree");
-const info$Forest = datatype("Forest");
-const info$Rose = datatype("Rose");
-const info$Roses = datatype("Roses");
-define(info$Tree, [
-  ["Node", [["label", NAT], ["kids", data(info$Forest)]]],
+const info$Main$dTree = datatype("Tree");
+const info$Main$dForest = datatype("Forest");
+const info$Main$dRose = datatype("Rose");
+const info$Main$dRoses = datatype("Roses");
+define(info$Main$dTree, [
+  ["Node", [["label", NAT], ["kids", data(info$Main$dForest)]]],
 ]);
-define(info$Forest, [
+define(info$Main$dForest, [
   ["FNil", []],
-  ["FCons", [["first", data(info$Tree)], ["rest", data(info$Forest)]]],
+  ["FCons", [["first", data(info$Main$dTree)], ["rest", data(info$Main$dForest)]]],
 ]);
-define(info$Rose, [
-  ["Bloom", [["value", param(0)], ["kids", data(info$Roses, [param(0)])]]],
+define(info$Main$dRose, [
+  ["Bloom", [["value", param(0)], ["kids", data(info$Main$dRoses, [param(0)])]]],
 ]);
-define(info$Roses, [
+define(info$Main$dRoses, [
   ["NoRoses", []],
-  ["MoreRoses", [["first", data(info$Rose, [param(0)])], ["rest", data(info$Roses, [param(0)])]]],
+  ["MoreRoses", [["first", data(info$Main$dRose, [param(0)])], ["rest", data(info$Main$dRoses, [param(0)])]]],
 ]);
 
-const $add = (m) => (n) => m + n;
-const $append = (v1) => (v2) => {
+const $Std$dNat$dadd = (m) => (n) => m + n;
+const $Std$dList$dappend = (v1) => (v2) => {
   switch (v1.tag) {
     case "Nil": {
       return v2;
@@ -423,22 +423,22 @@ const $append = (v1) => (v2) => {
     case "Cons": {
       const v3 = v1.head;
       const v4 = v1.tail;
-      return { tag: "Cons", head: v3, tail: $append(v4)(v2) };
+      return { tag: "Cons", head: v3, tail: $Std$dList$dappend(v4)(v2) };
     }
   }
   throw new Error("unreachable");
 };
-const $size = (v0) => {
+const $Main$dsize = (v0) => {
   switch (v0.tag) {
     case "Node": {
       const v1 = v0.label;
       const v2 = v0.kids;
-      return ($sizeForest(v2) + 1n);
+      return ($Main$dsizeForest(v2) + 1n);
     }
   }
   throw new Error("unreachable");
 };
-const $sizeForest = (v0) => {
+const $Main$dsizeForest = (v0) => {
   switch (v0.tag) {
     case "FNil": {
       return 0n;
@@ -446,22 +446,22 @@ const $sizeForest = (v0) => {
     case "FCons": {
       const v1 = v0.first;
       const v2 = v0.rest;
-      return $add($size(v1))($sizeForest(v2));
+      return $Std$dNat$dadd($Main$dsize(v1))($Main$dsizeForest(v2));
     }
   }
   throw new Error("unreachable");
 };
-const $relabel = (v0) => {
+const $Main$drelabel = (v0) => {
   switch (v0.tag) {
     case "Node": {
       const v1 = v0.label;
       const v2 = v0.kids;
-      return { tag: "Node", label: (v1 + 1n), kids: $relabelAll(v2) };
+      return { tag: "Node", label: (v1 + 1n), kids: $Main$drelabelAll(v2) };
     }
   }
   throw new Error("unreachable");
 };
-const $relabelAll = (v0) => {
+const $Main$drelabelAll = (v0) => {
   switch (v0.tag) {
     case "FNil": {
       return { tag: "FNil" };
@@ -469,14 +469,14 @@ const $relabelAll = (v0) => {
     case "FCons": {
       const v1 = v0.first;
       const v2 = v0.rest;
-      return { tag: "FCons", first: $relabel(v1), rest: $relabelAll(v2) };
+      return { tag: "FCons", first: $Main$drelabel(v1), rest: $Main$drelabelAll(v2) };
     }
   }
   throw new Error("unreachable");
 };
-const $echoTree = (v0) => v0;
-const $echoForest = (v0) => v0;
-const $deepOnto = (v0) => (v1) => {
+const $Main$dechoTree = (v0) => v0;
+const $Main$dechoForest = (v0) => v0;
+const $Main$ddeepOnto = (v0) => (v1) => {
   let s0 = v0, s1 = v1;
   for (;;) {
     const v0 = s0, v1 = s1;
@@ -490,18 +490,18 @@ const $deepOnto = (v0) => (v1) => {
     }
   }
 };
-const $deep = (v0) => $deepOnto({ tag: "Node", label: 0n, kids: { tag: "FNil" } })(v0);
-const $flattenRose = (v1) => {
+const $Main$ddeep = (v0) => $Main$ddeepOnto({ tag: "Node", label: 0n, kids: { tag: "FNil" } })(v0);
+const $Main$dflattenRose = (v1) => {
   switch (v1.tag) {
     case "Bloom": {
       const v2 = v1.value;
       const v3 = v1.kids;
-      return { tag: "Cons", head: v2, tail: $flattenRoses(v3) };
+      return { tag: "Cons", head: v2, tail: $Main$dflattenRoses(v3) };
     }
   }
   throw new Error("unreachable");
 };
-const $flattenRoses = (v1) => {
+const $Main$dflattenRoses = (v1) => {
   switch (v1.tag) {
     case "NoRoses": {
       return { tag: "Nil" };
@@ -509,18 +509,18 @@ const $flattenRoses = (v1) => {
     case "MoreRoses": {
       const v2 = v1.first;
       const v3 = v1.rest;
-      return $append($flattenRose(v2))($flattenRoses(v3));
+      return $Std$dList$dappend($Main$dflattenRose(v2))($Main$dflattenRoses(v3));
     }
   }
   throw new Error("unreachable");
 };
-const $flatten = (v0) => $flattenRose(v0);
-const $echoRose = (v0) => v0;
+const $Main$dflatten = (v0) => $Main$dflattenRose(v0);
+const $Main$dechoRose = (v0) => v0;
 
 function $$size(arg0) {
   try {
-    const v0 = decode(data(info$Tree), arg0, "arg0");
-    return encode(NAT, $size(v0));
+    const v0 = decode(data(info$Main$dTree), arg0, "arg0");
+    return encode(NAT, $Main$dsize(v0));
   } catch (e) {
     throw outOfResources("size", e);
   }
@@ -528,8 +528,8 @@ function $$size(arg0) {
 
 function $$sizeForest(arg0) {
   try {
-    const v0 = decode(data(info$Forest), arg0, "arg0");
-    return encode(NAT, $sizeForest(v0));
+    const v0 = decode(data(info$Main$dForest), arg0, "arg0");
+    return encode(NAT, $Main$dsizeForest(v0));
   } catch (e) {
     throw outOfResources("sizeForest", e);
   }
@@ -537,8 +537,8 @@ function $$sizeForest(arg0) {
 
 function $$relabel(arg0) {
   try {
-    const v0 = decode(data(info$Tree), arg0, "arg0");
-    return encode(data(info$Tree), $relabel(v0));
+    const v0 = decode(data(info$Main$dTree), arg0, "arg0");
+    return encode(data(info$Main$dTree), $Main$drelabel(v0));
   } catch (e) {
     throw outOfResources("relabel", e);
   }
@@ -546,8 +546,8 @@ function $$relabel(arg0) {
 
 function $$echoTree(arg0) {
   try {
-    const v0 = decode(data(info$Tree), arg0, "t");
-    return encode(data(info$Tree), $echoTree(v0));
+    const v0 = decode(data(info$Main$dTree), arg0, "t");
+    return encode(data(info$Main$dTree), $Main$dechoTree(v0));
   } catch (e) {
     throw outOfResources("echoTree", e);
   }
@@ -555,8 +555,8 @@ function $$echoTree(arg0) {
 
 function $$echoForest(arg0) {
   try {
-    const v0 = decode(data(info$Forest), arg0, "f");
-    return encode(data(info$Forest), $echoForest(v0));
+    const v0 = decode(data(info$Main$dForest), arg0, "f");
+    return encode(data(info$Main$dForest), $Main$dechoForest(v0));
   } catch (e) {
     throw outOfResources("echoForest", e);
   }
@@ -565,7 +565,7 @@ function $$echoForest(arg0) {
 function $$deep(arg0) {
   try {
     const v0 = decode(NAT, arg0, "n");
-    return encode(data(info$Tree), $deep(v0));
+    return encode(data(info$Main$dTree), $Main$ddeep(v0));
   } catch (e) {
     throw outOfResources("deep", e);
   }
@@ -573,8 +573,8 @@ function $$deep(arg0) {
 
 function $$flatten(arg0) {
   try {
-    const v0 = decode(data(info$Rose, [TEXT]), arg0, "r");
-    return encode(list(TEXT), $flatten(v0));
+    const v0 = decode(data(info$Main$dRose, [TEXT]), arg0, "r");
+    return encode(list(TEXT), $Main$dflatten(v0));
   } catch (e) {
     throw outOfResources("flatten", e);
   }
@@ -582,8 +582,8 @@ function $$flatten(arg0) {
 
 function $$echoRose(arg0) {
   try {
-    const v0 = decode(data(info$Rose, [TEXT]), arg0, "r");
-    return encode(data(info$Rose, [TEXT]), $echoRose(v0));
+    const v0 = decode(data(info$Main$dRose, [TEXT]), arg0, "r");
+    return encode(data(info$Main$dRose, [TEXT]), $Main$dechoRose(v0));
   } catch (e) {
     throw outOfResources("echoRose", e);
   }

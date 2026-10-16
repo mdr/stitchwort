@@ -13,4 +13,4 @@ decToken (Succ n) = if client n == 0 then Yes MkToken else decToken n
 
 client : Nat -> Nat
 client 0        = needsToken
-client (Succ n) = if toBool (decToken n) then 0 else client n
+client (Succ n) = if Decidable.toBool (decToken n) then 0 else client n

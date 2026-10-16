@@ -4,6 +4,8 @@
 -- crates/driver/tests/partial.rs runs them and counts their ticks.
 
 -- Not recursive: an ordinary definition whose result is partial.
+import Effect (Sig)
+
 immediate : Nat -> {Partial} Nat
 immediate n = n + 1
 
@@ -30,7 +32,7 @@ sumTo n = n + sumTo (n - 1)
 
 -- Two recursive calls, one after the other.
 fib : Nat -> {Partial} Nat
-fib n = if leq n 1 then n else fib (n - 1) + fib (n - 2)
+fib n = if Nat.leq n 1 then n else fib (n - 1) + fib (n - 2)
 
 -- Recursion that never finishes.
 spin : Nat -> {Partial} Nat
@@ -123,7 +125,7 @@ countLogged n =
 countdown : Nat -> {IO, Partial} ()
 countdown 0 = print "liftoff"
 countdown n =
-  print (natToText n)
+  print (Nat.toText n)
   countdown (n - 1)
 
 -- Total code can mention partial functions, store them and pass them on:
@@ -137,21 +139,21 @@ kept = MkPair 1 collatzSteps
 later : () -> {Partial} Nat
 later = \u -> spin 0
 
-test "mentioning partial functions is total" = discard collatzSteps + fst kept == 1
+test "mentioning partial functions is total" = discard collatzSteps + Pair.fst kept == 1
 
 main : () -> {IO, Partial} ()
 main u =
-  print (natToText (collatzSteps 27))
-  print (natToText (firstFrom (\n -> leq 100 (n * n)) 0))
-  print (natToText (fib 10))
+  print (Nat.toText (collatzSteps 27))
+  print (Nat.toText (firstFrom (\n -> Nat.leq 100 (n * n)) 0))
+  print (Nat.toText (fib 10))
   print (if isEven 10 then "even" else "odd")
-  print (natToText (hofF 10))
-  print (natToText (viaHelper 5))
-  print (natToText (tree 3))
-  print (natToText (addThen 3 4))
-  print (natToText (stepper 4))
-  print (natToText (retryWith 0 27))
-  print (natToText (length (incrementAll [1, 2, 3])))
-  print (natToText (sumTo 100))
-  print (natToText (countLogged 6))
+  print (Nat.toText (hofF 10))
+  print (Nat.toText (viaHelper 5))
+  print (Nat.toText (tree 3))
+  print (Nat.toText (addThen 3 4))
+  print (Nat.toText (stepper 4))
+  print (Nat.toText (retryWith 0 27))
+  print (Nat.toText (List.length (incrementAll [1, 2, 3])))
+  print (Nat.toText (sumTo 100))
+  print (Nat.toText (countLogged 6))
   countdown 3

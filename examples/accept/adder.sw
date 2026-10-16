@@ -32,7 +32,7 @@ stepNumber total l Nothing  more =
   print ("\"" ++ l ++ "\" isn't a number; skipped")
   more total
 stepNumber total l (Just n) more =
-  print ("  total: " ++ natToText (total + n))
+  print ("  total: " ++ Nat.toText (total + n))
   more (total + n)
 
 -- What to do with a line, given the total so far. An empty line, or the end
@@ -43,7 +43,7 @@ stepNumber total l (Just n) more =
 step : Nat -> Maybe Text -> (Nat -> {IO, Partial | e} Nat) -> {IO, Partial | e} Nat
 step total Nothing  more = total
 step total (Just l) more =
-  if textIsEmpty l then total else stepNumber total l (textToNat (textTrim l)) more
+  if Text.isEmpty l then total else stepNumber total l (Text.toNat (Text.trim l)) more
 
 -- Adds up the numbers on the lines to come, until an empty line or the end
 -- of the input.
@@ -56,7 +56,7 @@ main u =
   let name = textOr "stranger" (readLine ())
   print ("Hello, " ++ name ++ "! Type numbers to add, one per line, and an empty line to stop.")
   let total = addLines 0
-  print ("The sum is " ++ natToText total ++ ". Goodbye, " ++ name ++ ".")
+  print ("The sum is " ++ Nat.toText total ++ ". Goodbye, " ++ name ++ ".")
 
 test "a name" = textOr "stranger" (Just "Ada") == "Ada"
 

@@ -425,13 +425,21 @@ impl Elaborator {
 
         // The descriptions: each member's equations, with every member's
         // name standing for its request function.
-        let saved: Vec<_> = infos
+        let keys = infos
             .iter()
-            .map(|m| (m.name.clone(), self.names.get(&m.name).copied()))
+            .map(|m| {
+                self.declaration_key(&stitchwort_syntax::ast::Name {
+                    text: m.name.clone(),
+                    span: m.span,
+                })
+            })
+            .collect::<Result<Vec<String>>>()?;
+        let saved: Vec<_> = keys
+            .iter()
+            .map(|key| (key.clone(), self.scope.get(key)))
             .collect();
-        for (m, recur) in infos.iter().zip(&recurs) {
-            self.names
-                .insert(m.name.clone(), (Global::Def(*recur), m.span));
+        for ((m, recur), key) in infos.iter().zip(&recurs).zip(&keys) {
+            self.scope.insert(key, Global::Def(*recur), m.span, false);
         }
         self.recursion = Some(effects::Recursion {
             ans: {
@@ -466,7 +474,7 @@ impl Elaborator {
         self.recursion = None;
         for (((name, global), id), m) in saved.into_iter().zip(ids).zip(&infos) {
             let span = global.map_or(m.span, |(_, s)| s);
-            self.names.insert(name, (Global::Def(*id), span));
+            self.scope.insert(&name, Global::Def(*id), span, false);
         }
         if !out.is_empty() {
             return Ok(out);

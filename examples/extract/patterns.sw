@@ -34,7 +34,7 @@ describe n = n
 
 export
 sameLength : List Nat -> List Nat -> Bool
-sameLength xs ys = length xs == length ys
+sameLength xs ys = List.length xs == List.length ys
 
 export
 bigEqual : Nat -> Bool

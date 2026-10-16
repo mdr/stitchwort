@@ -107,10 +107,10 @@ count : () -> {IO, State Nat} ()
 count u =
   let a = readLine ()
   put (get () + 1)
-  print (natToText (get ()))
+  print (Nat.toText (get ()))
   let b = readLine ()
   put (get () + 1)
-  print (natToText (get ()))
+  print (Nat.toText (get ()))
 
 main : () -> {IO} ()
 main u =
@@ -428,7 +428,7 @@ replicate (Succ n) x = Cons x (replicate n x)
 main : () -> {IO} ()
 main u =
   print \"before\"
-  print (natToText (length (replicate 100000 1)))
+  print (Nat.toText (List.length (replicate 100000 1)))
 ";
 
 #[test]

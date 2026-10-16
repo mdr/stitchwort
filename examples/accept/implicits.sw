@@ -7,11 +7,11 @@ mapList f (Cons x xs) = Cons (f x) (mapList f xs)
 
 -- Inferred from the arguments.
 lengths : List Nat
-lengths = mapList (\xs -> length xs) [[1], [2, 3]]
+lengths = mapList (\xs -> List.length xs) [[1], [2, 3]]
 
 -- Supplied by name, or as a hole for the compiler to fill in.
 named : Nat
-named = length [a := Nat] [1, 2]
+named = List.length [a := Nat] [1, 2]
 
 holes : List Nat
 holes = mapList [a := _] Succ [1, 2]
@@ -26,25 +26,25 @@ orComm (Inl h) = Inr h
 orComm (Inr h) = Inl h
 
 -- Implicit parameters are in scope in the equations, by name.
-theorem appendNil : (xs : List a) -> append xs Nil = xs
+theorem appendNil : (xs : List a) -> List.append xs Nil = xs
 appendNil Nil         = rfl
-appendNil (Cons x xs) = cong (\ys -> Cons x ys) (appendNil xs)
+appendNil (Cons x xs) = Eq.cong (\ys -> Cons x ys) (appendNil xs)
 
 theorem plusZeroNat : (n : Nat) -> n + 0 = n
 plusZeroNat Zero     = rfl
-plusZeroNat (Succ m) = cong Succ (plusZeroNat m)
+plusZeroNat (Succ m) = Eq.cong Succ (plusZeroNat m)
 
--- `sym` and `trans` from the prelude, with everything implicit.
+-- `Eq.sym` and `Eq.trans` from the prelude, with everything implicit.
 theorem twoWays : (n : Nat) -> n + 0 = 0 + n
-twoWays n = trans (plusZeroNat n) (sym rfl)
+twoWays n = Eq.trans (plusZeroNat n) (Eq.sym rfl)
 
 -- An implicit parameter between two explicit ones: `b` is in scope by name.
 constant : a -> [b : Type] -> b -> a
 constant x y = x
 
--- A later implicit parameter, supplied by name (`cong` has `a` before `b`).
+-- A later implicit parameter, supplied by name (`Eq.cong` has `a` before `b`).
 theorem succCong : (m : Nat) -> (n : Nat) -> m = n -> Succ m = Succ n
-succCong m n p = cong [b := Nat] Succ p
+succCong m n p = Eq.cong [b := Nat] Succ p
 
 -- A definition without patterns still has its implicit parameters in scope.
 identity : [a : Type] -> a -> a

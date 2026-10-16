@@ -224,7 +224,7 @@ fn agree_after_forcing(g: &Globals, f: DefId, value: &Value) -> String {
 fn a_stuck_case_unblocks_when_its_metavariable_is_solved() {
     let session = Session::new();
     let g = &session.elab.globals;
-    let pred = def(g, "pred");
+    let pred = def(g, "Nat.pred");
     // `?m 3`, with `?m` unsolved: `pred (?m 3)` is stuck.
     let m = g.new_meta(span());
     let stuck = Value::Neutral(
@@ -314,7 +314,7 @@ fn deep_evaluation_runs_in_one_machine_and_the_reference_in_none() {
                 "deep.sw",
                 "replicate : Nat -> a -> List a\nreplicate Zero     x = Nil\n\
                  replicate (Succ n) x = Cons x (replicate n x)\n\n\
-                 total : Nat -> Nat\ntotal n = length (replicate n 1) + length (replicate n 2)\n",
+                 total : Nat -> Nat\ntotal n = List.length (replicate n 1) + List.length (replicate n 2)\n",
             )
             .unwrap();
         let g = &session.elab.globals;

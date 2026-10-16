@@ -2,6 +2,8 @@
 -- tests as handlers.sw, written in the source syntax: the compiler
 -- translates them into `Comp` trees, and the kernel checks the result.
 
+import Effect (Comp)
+
 fstOf : Pair a b -> a
 fstOf (MkPair x y) = x
 
@@ -57,7 +59,7 @@ allResults : (() -> {Choose | e} a) -> {e} List a
 allResults prog =
   handle prog () with
     | return x       -> [x]
-    | choose u => k  -> append (k True) (k False)
+    | choose u => k  -> List.append (k True) (k False)
 
 -- Never resumes.
 toMaybe : (() -> {Abort | e} a) -> {e} Maybe a

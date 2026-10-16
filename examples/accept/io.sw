@@ -1,5 +1,5 @@
--- The `IO` ability and `simulate` (docs/proposals/text-and-io.md, Part 2).
--- `simulate` is an ordinary handler from the prelude: it answers each
+-- The `IO` ability and `IO.simulate` (docs/proposals/text-and-io.md, Part 2).
+-- `IO.simulate` is an ordinary handler from the prelude: it answers each
 -- `readLine` from a list of scripted lines and records each `print`.
 
 eqTexts : List Text -> List Text -> Bool
@@ -9,10 +9,10 @@ eqTexts _           _           = False
 
 -- What a simulated run printed, and its result.
 printed : Pair (List Text) a -> List Text
-printed r = fst r
+printed r = Pair.fst r
 
 result : Pair (List Text) a -> a
-result r = snd r
+result r = Pair.snd r
 
 isJustText : Text -> Maybe Text -> Bool
 isJustText t Nothing  = False
@@ -32,25 +32,25 @@ hello u =
   3
 
 test "prints are recorded in order" =
-  eqTexts (printed (simulate [] hello)) ["one", "two", "three"]
+  eqTexts (printed (IO.simulate [] hello)) ["one", "two", "three"]
 
-test "the result comes back too" = result (simulate [] hello) == 3
+test "the result comes back too" = result (IO.simulate [] hello) == 3
 
 test "a payload with a newline is one entry" =
-  eqTexts (printed (simulate [] (\u -> print "a\nb"))) ["a\nb"]
+  eqTexts (printed (IO.simulate [] (\u -> print "a\nb"))) ["a\nb"]
 
 test "an empty payload is an entry" =
-  eqTexts (printed (simulate [] (\u -> print ""))) [""]
+  eqTexts (printed (IO.simulate [] (\u -> print ""))) [""]
 
 -- Reading
 
 test "an empty line is Just \"\"" =
-  isJustText "" (result (simulate [""] (\u -> readLine ())))
+  isJustText "" (result (IO.simulate [""] (\u -> readLine ())))
 
 test "a line is read whole" =
-  isJustText "  two words  " (result (simulate ["  two words  "] (\u -> readLine ())))
+  isJustText "  two words  " (result (IO.simulate ["  two words  "] (\u -> readLine ())))
 
-test "no input: Nothing" = isNothing (result (simulate [] (\u -> readLine ())))
+test "no input: Nothing" = isNothing (result (IO.simulate [] (\u -> readLine ())))
 
 -- Reads three times from one line of input.
 readThree : () -> {IO} (List (Maybe Text))
@@ -65,11 +65,11 @@ maybesAre (Cons a (Cons b (Cons c Nil))) =
   if isJustText "x" a then (if isNothing b then isNothing c else False) else False
 maybesAre _ = False
 
-test "end of input keeps giving Nothing" = maybesAre (result (simulate ["x"] readThree))
+test "end of input keeps giving Nothing" = maybesAre (result (IO.simulate ["x"] readThree))
 
 -- Only the lines asked for are used.
 test "unread input is ignored" =
-  isJustText "first" (result (simulate ["first", "second"] (\u -> readLine ())))
+  isJustText "first" (result (IO.simulate ["first", "second"] (\u -> readLine ())))
 
 -- Reading and printing interleaved
 
@@ -86,19 +86,19 @@ echo 0        = ()
 echo (Succ n) = echoLine (readLine ()) (\u -> echo n)
 
 test "echo" =
-  eqTexts (printed (simulate ["a", "", "c"] (\u -> echo 10))) ["a", "", "c"]
+  eqTexts (printed (IO.simulate ["a", "", "c"] (\u -> echo 10))) ["a", "", "c"]
 
 test "echo stops at its bound" =
-  eqTexts (printed (simulate ["a", "b", "c"] (\u -> echo 2))) ["a", "b"]
+  eqTexts (printed (IO.simulate ["a", "b", "c"] (\u -> echo 2))) ["a", "b"]
 
 test "echo with no input prints nothing" =
-  eqTexts (printed (simulate [] (\u -> echo 10))) []
+  eqTexts (printed (IO.simulate [] (\u -> echo 10))) []
 
 -- Numbers each line, and returns how many there were.
 numberLine : Nat -> Maybe Text -> (() -> {IO} Nat) -> {IO} Nat
 numberLine i Nothing  more = i - 1
 numberLine i (Just l) more =
-  print (natToText i ++ ": " ++ l)
+  print (Nat.toText i ++ ": " ++ l)
   more ()
 
 numberFrom : Nat -> Nat -> {IO} Nat
@@ -106,7 +106,7 @@ numberFrom i 0        = i - 1
 numberFrom i (Succ n) = numberLine i (readLine ()) (\u -> numberFrom (i + 1) n)
 
 numbered : Pair (List Text) Nat
-numbered = simulate ["apple", "banana", "cherry"] (\u -> numberFrom 1 100)
+numbered = IO.simulate ["apple", "banana", "cherry"] (\u -> numberFrom 1 100)
 
 test "numbering lines" =
   eqTexts (printed numbered) ["1: apple", "2: banana", "3: cherry"]
@@ -125,10 +125,10 @@ greet u =
   print ("Hello, " ++ textOr "stranger" name ++ "!")
 
 test "prompt and reply" =
-  eqTexts (printed (simulate ["Ada"] greet)) ["Name?", "Hello, Ada!"]
+  eqTexts (printed (IO.simulate ["Ada"] greet)) ["Name?", "Hello, Ada!"]
 
 test "prompt and reply at end of input" =
-  eqTexts (printed (simulate [] greet)) ["Name?", "Hello, stranger!"]
+  eqTexts (printed (IO.simulate [] greet)) ["Name?", "Hello, stranger!"]
 
 -- `IO` with other abilities
 
@@ -166,7 +166,7 @@ countIS u =
   put (get () + 1)
   let b = readLine ()
   put (get () + 1)
-  print (natToText (get ()))
+  print (Nat.toText (get ()))
 
 -- The same, with the row the other way round.
 countSI : () -> {State Nat, IO} ()
@@ -175,22 +175,22 @@ countSI u =
   put (get () + 1)
   let b = readLine ()
   put (get () + 1)
-  print (natToText (get ()))
+  print (Nat.toText (get ()))
 
--- `simulate` outside, `runState` inside.
+-- `IO.simulate` outside, `runState` inside.
 stateInside : (() -> {State Nat, IO} ()) -> Pair (List Text) Nat
 stateInside prog =
-  let r = simulate ["x", "y"] (\u -> runState 10 prog)
-  MkPair (printed r) (snd (result r))
+  let r = IO.simulate ["x", "y"] (\u -> runState 10 prog)
+  MkPair (printed r) (Pair.snd (result r))
 
--- `runState` outside, `simulate` inside.
+-- `runState` outside, `IO.simulate` inside.
 stateOutside : (() -> {State Nat, IO} ()) -> Pair (List Text) Nat
 stateOutside prog =
-  let r = runState 10 (\u -> simulate ["x", "y"] prog)
-  MkPair (printed (fst r)) (snd r)
+  let r = runState 10 (\u -> IO.simulate ["x", "y"] prog)
+  MkPair (printed (Pair.fst r)) (Pair.snd r)
 
 checkCount : Pair (List Text) Nat -> Bool
-checkCount r = if eqTexts (fst r) ["12"] then snd r == 12 else False
+checkCount r = if eqTexts (Pair.fst r) ["12"] then Pair.snd r == 12 else False
 
 test "IO then State, State handled inside"    = checkCount (stateInside countIS)
 test "IO then State, State handled outside"   = checkCount (stateOutside countIS)
@@ -214,29 +214,29 @@ abortThenPrint u =
 
 -- With `toMaybe` inside, what was printed before the abort is kept.
 test "abort inside simulate keeps earlier prints" =
-  let r = simulate [] (\u -> toMaybe printThenAbort)
+  let r = IO.simulate [] (\u -> toMaybe printThenAbort)
   if eqTexts (printed r) ["before"] then isNothing (result r) else False
 
 test "abort inside simulate, the other row order" =
-  let r = simulate [] (\u -> toMaybe abortThenPrint)
+  let r = IO.simulate [] (\u -> toMaybe abortThenPrint)
   if eqTexts (printed r) ["before"] then isNothing (result r) else False
 
 -- With `toMaybe` outside, the abort discards the whole simulated run.
 test "abort outside simulate discards the run" =
-  isNothing (toMaybe (\u -> simulate [] printThenAbort))
+  isNothing (toMaybe (\u -> IO.simulate [] printThenAbort))
 
 test "abort outside simulate, the other row order" =
-  isNothing (toMaybe (\u -> simulate [] abortThenPrint))
+  isNothing (toMaybe (\u -> IO.simulate [] abortThenPrint))
 
 -- A program with no `IO` at all
 
 test "a pure program prints nothing" =
-  let r = simulate ["unused"] (\u -> 6 * 7)
+  let r = IO.simulate ["unused"] (\u -> 6 * 7)
   if eqTexts (printed r) [] then result r == 42 else False
 
 test "a program with only State" =
-  let r = runState 1 (\u -> simulate [] (\v -> put (get () + 1)))
-  if eqTexts (printed (fst r)) [] then snd r == 2 else False
+  let r = runState 1 (\u -> IO.simulate [] (\v -> put (get () + 1)))
+  if eqTexts (printed (Pair.fst r)) [] then Pair.snd r == 2 else False
 
 -- A long run
 
@@ -246,9 +246,9 @@ printMany (Succ n) =
   print "x"
   printMany n
 
-test "5,000 prints" = length (printed (simulate [] (\u -> printMany 5000))) == 5000
+test "5,000 prints" = List.length (printed (IO.simulate [] (\u -> printMany 5000))) == 5000
 
 -- By computation
 
-theorem greetOutput : printed (simulate ["Ada"] greet) = ["Name?", "Hello, Ada!"]
+theorem greetOutput : printed (IO.simulate ["Ada"] greet) = ["Name?", "Hello, Ada!"]
 greetOutput = rfl

@@ -3,9 +3,9 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-POSITIVITY] Error: `Bad` is used inside another type
-   ╭─[ soundness/partial-nested.sw:6:16 ]
+   ╭─[ soundness/partial-nested.sw:8:16 ]
    │
- 6 │   | MkBad (d : Delay NoOp NoRes Bad)
+ 8 │   | MkBad (d : Delay NoOp NoRes Bad)
    │                ──────────┬─────────  
    │                          ╰─────────── field `d` has `Bad` inside another type
    │ 

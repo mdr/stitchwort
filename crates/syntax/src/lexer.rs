@@ -60,6 +60,8 @@ pub enum Tok {
     KwReturn,
     /// `let x = e`, binding `x` for the following lines of a block.
     KwLet,
+    /// `import List (map, filter)`, at the top of a file.
+    KwImport,
     LBrace,
     RBrace,
     /// `=>`, in a handler clause: `get () => k -> …`.
@@ -127,26 +129,53 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
             {
                 i += 1;
             }
+            // A qualified name, `List.map` or `Std.List.Cons`: components
+            // after an uppercase one, joined by `.` with no spaces. It's one
+            // token, upper or lower by its last component. After a lowercase
+            // component, `.` is field access (`p.name`).
+            let mut last = start;
+            while text.as_bytes()[last].is_ascii_uppercase()
+                && bytes.get(i) == Some(&b'.')
+                && bytes.get(i + 1).is_some_and(|b| b.is_ascii_alphabetic())
+            {
+                i += 1;
+                last = i;
+                while i < bytes.len()
+                    && (bytes[i].is_ascii_alphanumeric() || bytes[i] == b'_' || bytes[i] == b'\'')
+                {
+                    i += 1;
+                }
+            }
             let word = &text[start..i];
-            match word {
-                "_" => Tok::Underscore,
-                "type" => Tok::KwType,
-                "theorem" => Tok::KwTheorem,
-                "export" => Tok::KwExport,
-                "test" => Tok::KwTest,
-                "if" => Tok::KwIf,
-                "then" => Tok::KwThen,
-                "else" => Tok::KwElse,
-                "ability" => Tok::KwAbility,
-                "where" => Tok::KwWhere,
-                "handle" => Tok::KwHandle,
-                "with" => Tok::KwWith,
-                "return" => Tok::KwReturn,
-                "let" => Tok::KwLet,
-                "Type" => Tok::TypeU,
-                "Prop" => Tok::Prop,
-                _ if c.is_ascii_uppercase() => Tok::Upper(word.to_string()),
-                _ => Tok::Lower(word.to_string()),
+            if last > start {
+                let qualified = word.to_string();
+                if bytes[last].is_ascii_uppercase() {
+                    Tok::Upper(qualified)
+                } else {
+                    Tok::Lower(qualified)
+                }
+            } else {
+                match word {
+                    "_" => Tok::Underscore,
+                    "type" => Tok::KwType,
+                    "theorem" => Tok::KwTheorem,
+                    "export" => Tok::KwExport,
+                    "test" => Tok::KwTest,
+                    "if" => Tok::KwIf,
+                    "then" => Tok::KwThen,
+                    "else" => Tok::KwElse,
+                    "ability" => Tok::KwAbility,
+                    "where" => Tok::KwWhere,
+                    "handle" => Tok::KwHandle,
+                    "with" => Tok::KwWith,
+                    "return" => Tok::KwReturn,
+                    "let" => Tok::KwLet,
+                    "import" => Tok::KwImport,
+                    "Type" => Tok::TypeU,
+                    "Prop" => Tok::Prop,
+                    _ if c.is_ascii_uppercase() => Tok::Upper(word.to_string()),
+                    _ => Tok::Lower(word.to_string()),
+                }
             }
         } else if c.is_ascii_digit() {
             while i < bytes.len() && bytes[i].is_ascii_digit() {

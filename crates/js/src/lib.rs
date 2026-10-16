@@ -107,15 +107,18 @@ pub fn exportable(g: &Globals, id: DefId) -> Result<ExportSig, Diagnostic> {
         .with_note("partial functions can't be exported to JavaScript yet: only the runtime (`stitchwort run`, the playground) runs them")
         .with_note("export the total parts instead: the functions a partial loop calls"));
     }
-    if !is_js_identifier(&def.name) {
+    // An export is imported in JS by its short name: `Geometry.area` as
+    // `area` (docs/proposals/namespaces.md §7.3).
+    let export_name = short_name(&def.name);
+    if !is_js_identifier(export_name) {
         return Err(refuse(
             "its name isn't a valid JavaScript identifier".into(),
         ));
     }
-    if JS_RESERVED.contains(&&*def.name) {
+    if JS_RESERVED.contains(&export_name) {
         return Err(refuse("its name is reserved in JavaScript".into()));
     }
-    if MODULE_NAMES.contains(&&*def.name) {
+    if MODULE_NAMES.contains(&export_name) {
         return Err(refuse(
             "the generated module exports something else with that name".into(),
         ));
@@ -176,7 +179,7 @@ pub fn exportable(g: &Globals, id: DefId) -> Result<ExportSig, Diagnostic> {
         .map_err(|why| refuse(format!("its result: {why}")))?;
     Ok(ExportSig {
         id,
-        name: def.name.to_string(),
+        name: export_name.to_string(),
         params,
         param_positions,
         checks,
@@ -248,7 +251,7 @@ fn check_codec(g: &Globals, d: DataId, visiting: &mut HashSet<DataId>) -> Result
         return Ok(());
     }
     let data = g.data(d);
-    if MODULE_NAMES.contains(&&*data.name) {
+    if MODULE_NAMES.contains(&short_name(&data.name)) {
         return Err(format!(
             "`{}` is the name of something else the generated module exports",
             data.name
@@ -381,6 +384,65 @@ impl Default for Options {
 /// Generates the ES module and its TypeScript declarations for every export.
 /// It's one operation, using at most `limits.stack` bytes of stack: a
 /// definition nested too deeply for that is an `E-RESOURCE` error.
+/// Exports and boundary types are named by their short names
+/// (docs/proposals/namespaces.md §7.3), so two with the same short name
+/// can't both be exported. The same type reached twice is one type. The
+/// data types at the boundary, in the order they're reached.
+fn check_names(g: &Globals, exports: &[ExportSig]) -> Result<Vec<DataId>, Diagnostic> {
+    let mut short_exports: HashMap<&str, DefId> = HashMap::new();
+    for sig in exports {
+        if let Some(other) = short_exports.insert(&sig.name, sig.id) {
+            return Err(Diagnostic::error(
+                "E-EXPORT",
+                format!(
+                    "`{}` and `{}` would both be exported as `{}`",
+                    g.def(other).name,
+                    g.def(sig.id).name,
+                    sig.name
+                ),
+            )
+            .with_label(g.def(sig.id).span, "exported here")
+            .with_label(g.def(other).span, "and here")
+            .with_note("export only one of them, or rename one"));
+        }
+    }
+    let mut boundary_datas = Vec::new();
+    for sig in exports {
+        for b in sig.params.iter().map(|(_, b)| b).chain([&sig.result]) {
+            collect_datas(g, b, &mut boundary_datas);
+        }
+    }
+    let mut short_types: HashMap<String, DataId> = HashMap::new();
+    for &d in &boundary_datas {
+        if let Some(other) = short_types.insert(type_name(&g.data(d).name), d) {
+            return Err(Diagnostic::error(
+                "E-EXPORT",
+                format!(
+                    "`{}` and `{}` would both be called `{}` in the TypeScript declarations",
+                    g.data(other).name,
+                    g.data(d).name,
+                    type_name(&g.data(d).name)
+                ),
+            )
+            .with_label(g.data(d).span, "this type crosses the JS boundary")
+            .with_label(g.data(other).span, "and so does this one")
+            .with_note("rename one of them"));
+        }
+    }
+    Ok(boundary_datas)
+}
+
+/// Checks that the exports loaded so far can be named in JS and TypeScript
+/// together: [`exportable`] checks each on its own.
+pub fn exports_fit_together(g: &Globals) -> Result<(), Diagnostic> {
+    let exports = (0..g.defs.len())
+        .map(DefId)
+        .filter(|id| g.def(*id).export)
+        .map(|id| exportable(g, id))
+        .collect::<Result<Vec<_>, _>>()?;
+    check_names(g, &exports).map(|_| ())
+}
+
 pub fn generate(g: &Globals, limits: Limits) -> Result<Output, Diagnostic> {
     generate_with(g, limits, Options::default())
 }
@@ -394,12 +456,7 @@ pub fn generate_with(g: &Globals, limits: Limits, options: Options) -> Result<Ou
         .map(|id| exportable(g, id))
         .collect::<Result<Vec<_>, _>>()?;
 
-    let mut boundary_datas = Vec::new();
-    for sig in &exports {
-        for b in sig.params.iter().map(|(_, b)| b).chain([&sig.result]) {
-            collect_datas(g, b, &mut boundary_datas);
-        }
-    }
+    let boundary_datas = check_names(g, &exports)?;
 
     erasable(g)?;
     let codegen = Gen::new(g, options)?;
@@ -418,12 +475,12 @@ pub fn generate_with(g: &Globals, limits: Limits, options: Options) -> Result<Ou
     // Every data type is declared before any is defined, so their fields'
     // types can refer to each other (and themselves).
     for &d in &boundary_datas {
-        let name = &g.data(d).name;
+        let data = g.data(d);
         let _ = writeln!(
             js,
             "const {} = datatype({});",
-            info_name(name),
-            js_string_literal(name)
+            info_name(&data.path),
+            js_string_literal(&data.name)
         );
     }
     for &d in &boundary_datas {
@@ -452,7 +509,7 @@ pub fn generate_with(g: &Globals, limits: Limits, options: Options) -> Result<Ou
     });
     // Partial computations are one token (docs/proposals/partial.md §7.6).
     if (0..g.defs.len()).any(|i| used[i] && codegen.delay[i].is_some()) {
-        js.push_str("// A partial computation, which nothing here can run.\nconst $Delay = Symbol(\"Delay\");\n\n");
+        js.push_str("// A partial computation, which nothing here can run.\nconst delayed = Symbol(\"Delay\");\n\n");
     }
     let while_generating = |id: DefId| {
         move |e: ResourceError| {
@@ -981,7 +1038,7 @@ struct Gen<'g> {
     /// Per definition whose result is a `Delay` (a partial function, or one
     /// of `Delay`'s constants): which of its parameters are erased. It's
     /// never generated: a call to it with all its arguments is the token
-    /// `$Delay`, and with fewer, a function returning the token.
+    /// `delayed`, and with fewer, a function returning the token.
     delay: Vec<Option<Vec<bool>>>,
     /// The prelude's `ifThenElse`, which `if` becomes.
     if_then_else: Option<DefId>,
@@ -1112,14 +1169,14 @@ impl<'g> Gen<'g> {
         if let Some(op) = self.text_natives.get(&id) {
             return Ok(format!(
                 "const {} = {};\n",
-                def_name(&def.name),
+                def_name(&def.path),
                 text_native_js(*op)
             ));
         }
         if let Some(op) = self.g.builtins.native(id) {
             return Ok(format!(
                 "const {} = {};\n",
-                def_name(&def.name),
+                def_name(&def.path),
                 native_js(op)
             ));
         }
@@ -1137,7 +1194,7 @@ impl<'g> Gen<'g> {
             {
                 return Ok(format!(
                     "const {} = {params}{block};\n",
-                    def_name(&def.name)
+                    def_name(&def.path)
                 ));
             }
             let block = self.tree(tree, &mut env, 1, None)?;
@@ -1158,7 +1215,7 @@ impl<'g> Gen<'g> {
                 _ => rhs,
             }
         };
-        Ok(format!("const {} = {params}{rhs};\n", def_name(&def.name)))
+        Ok(format!("const {} = {params}{rhs};\n", def_name(&def.path)))
     }
 
     /// If the definition `id`, with case tree `tree`, calls itself in tail
@@ -1469,7 +1526,7 @@ impl<'g> Gen<'g> {
         // only feed a `Delay`, which nothing can run, so they aren't
         // computed.
         if let Some(mask) = &self.delay[id.0] {
-            let mut out = "$Delay".to_string();
+            let mut out = "delayed".to_string();
             for erased in mask.iter().skip(args.len()).rev() {
                 if !erased {
                     out = format!("((_) => {out})");
@@ -1480,8 +1537,8 @@ impl<'g> Gen<'g> {
         let (_, mask) = &self.erased[id.0];
         let mut out = match self.conventions[id.0] {
             Convention::Erased => return Ok("undefined".into()),
-            Convention::Thunk => format!("{}()", def_name(&self.g.def(id).name)),
-            Convention::Value | Convention::Function => def_name(&self.g.def(id).name),
+            Convention::Thunk => format!("{}()", def_name(&self.g.def(id).path)),
+            Convention::Value | Convention::Function => def_name(&self.g.def(id).path),
         };
         for (i, arg) in args.iter().enumerate() {
             if !mask.get(i).copied().unwrap_or(false) {
@@ -1503,7 +1560,7 @@ impl<'g> Gen<'g> {
             wrapper_name(&sig.name),
             params.join(", ")
         );
-        let mut call = def_name(&self.g.def(sig.id).name);
+        let mut call = def_name(&self.g.def(sig.id).path);
         if self.conventions[sig.id.0] == Convention::Thunk {
             call.push_str("()");
         }
@@ -1559,13 +1616,13 @@ impl<'g> Gen<'g> {
             Boundary::Char => "CHAR".into(),
             Boundary::List(elem) => format!("list({})", self.type_expr(elem)),
             Boundary::Data(d, args) if args.is_empty() => {
-                format!("data({})", info_name(&self.g.data(*d).name))
+                format!("data({})", info_name(&self.g.data(*d).path))
             }
             Boundary::Data(d, args) => {
                 let args: Vec<String> = args.iter().map(|a| self.type_expr(a)).collect();
                 format!(
                     "data({}, [{}])",
-                    info_name(&self.g.data(*d).name),
+                    info_name(&self.g.data(*d).path),
                     args.join(", ")
                 )
             }
@@ -1578,7 +1635,7 @@ impl<'g> Gen<'g> {
     /// JS names; tags and keys are strings.
     fn define(&self, d: DataId) -> Fallible<String> {
         let data = self.g.data(d);
-        let mut out = format!("define({}, [\n", info_name(&data.name));
+        let mut out = format!("define({}, [\n", info_name(&data.path));
         for (ctor, fields) in data.ctors.iter().zip(generic_field_boundaries(self.g, d)) {
             let fields: Vec<String> = fields
                 .iter()
@@ -1764,7 +1821,7 @@ impl<'g> Gen<'g> {
             .map(|(i, (x, _))| {
                 let clear = is_js_identifier(x)
                     && !TS_TYPE_WORDS.contains(&&**x)
-                    && self.g.find_data(x).is_none()
+                    && !self.g.datas.iter().any(|d| type_name(&d.name) == **x)
                     && data.params[..i].iter().all(|(y, _)| y != x);
                 if clear {
                     x.to_string()
@@ -1924,72 +1981,72 @@ const TEXT_NATIVES: &[(Builtin, TextNative, &str)] = &[
     (
         Builtin::TextToList,
         TextNative::TextToList,
-        "549a42631552690743f06ace8493d5e2e85672173248cc72fa1842711b958066",
+        "5b7bb97178c88fb32f9dd52228e79092ba01b232b2baec6b3c2bbfc149b7ee25",
     ),
     (
         Builtin::TextFromList,
         TextNative::TextFromList,
-        "0d7126c14af1f18042bdb06fec7030139ab8bb7d57f7e2f5a5215c577479ad6d",
+        "ff6dfd79fb5d30f73789a90465220af1262921f825fc279131ec998d77aff52c",
     ),
     (
         Builtin::TextAppend,
         TextNative::TextAppend,
-        "d04570fc5c40f95e7632ad9959589d5b2bdf54c75df57b765a1d72c6e29e4f11",
+        "2932df6055a76217279c02f1029c686f49a3d3f14b07c0d9d2f8d3ad544d228d",
     ),
     (
         Builtin::TextLength,
         TextNative::TextLength,
-        "b49fbcc27f659077cf54460e8b8966f20999ef3d047d57fc11924628867399d5",
+        "7d849ba83d94eb1c9582a3aed83f96ee47293ad797eb3ab488312f2322338168",
     ),
     (
         Builtin::TextIsEmpty,
         TextNative::TextIsEmpty,
-        "a90f3ce9f27a95267e8259192aa7bf7f45ce5c254983deb07be35c0d9eac7b67",
+        "8cf3888e45e7b7f0ffdf72aad1d480c2f5a98de424c3b521f3e37d8ed8bc75ce",
     ),
     (
         Builtin::DecEqText,
         TextNative::DecEqText,
-        "f69a059702df9f43714a8cee2ac83349859539cdf4d3385930f9dc2cfeb973b0",
+        "f8a116b6a32f76629d63dd09dae98c7d4e573b21a9beac53bf9384f00f23500b",
     ),
     (
         Builtin::TextCompare,
         TextNative::TextCompare,
-        "99922cac2ece4c6fe119244f4e7ebfbe6a73c41c5d7d4bc33ad4cc68621990a1",
+        "760170c44c40d109e8575b4d40883f2667258596d31784411edb92856c49d2af",
     ),
     (
         Builtin::TextUncons,
         TextNative::TextUncons,
-        "05907321fda3c2a8e740ec4a30518f8ab133d4bc43cf954877262bc5f3bb2aed",
+        "51af7280179d3796315c27f86ccef0a3b386a8bfa231a81254d24212148ffbfe",
     ),
     (
         Builtin::TextFold,
         TextNative::TextFold,
-        "5015ca6ea71ac66cf89ef1306af0a813ffa12c9bd93a06ab3e682c3fe802ff75",
+        "097f7308711e9d444266ff6d4cd122a61408939315f34a2f92f7d642ba8a10f7",
     ),
     (
         Builtin::TextTrim,
         TextNative::TextTrim,
-        "e29b4385d236cc6c65a7f039a1a3cceb4f0a5b15956106c5938145cb49331dde",
+        "7cd992f70a7af95942fdee8093070a0c73ce462379478388309a49a7f1d2c70a",
     ),
     (
         Builtin::TextSplit,
         TextNative::TextSplit,
-        "c16121624ff5d1e29219e5550216bdfb0ec37238bbe86f7551b784b2b93d9bc3",
+        "2129a03514372b94ffa763784132d5fc371b9c9fbdeeca6eb577151284807990",
     ),
     (
         Builtin::TextJoin,
         TextNative::TextJoin,
-        "fc7855026fd1f585079f7687d5d47987f5696670d3e0ea3f69e466e745efb3ba",
+        "e47161040f4bdf30256086842bada04d4577359e53f6a428f3adcdb7c87d1242",
     ),
     (
         Builtin::NatToText,
         TextNative::NatToText,
-        "fc4ff5aefcb7cc8800239627ebcbd718d6c86658a15c5b8827333c68cec6645a",
+        "e65243b95395d06a0ae55bae08ed6e8d14293c20d4936344fd9d3de03a618096",
     ),
     (
         Builtin::TextToNat,
         TextNative::TextToNat,
-        "8e3282ab2c0d59e2aed04467ea456f529b3ee22ef869862412ea68df3ae05c60",
+        "6f3e064ab8dbdcf57f149a0c9faa6c8ac0b7955092501093bf001649ab690cd7",
     ),
 ];
 
@@ -2177,10 +2234,43 @@ fn slot(level: usize) -> String {
     format!("s{level}")
 }
 
-fn def_name(name: &str) -> String {
-    // Primes become `$`; the dot in a generated name like `State.elim`
-    // becomes `$$` (source names can't contain dots).
-    format!("${}", name.replace('\'', "$").replace('.', "$$"))
+/// A definition's JS name, from its full logical name (`Std.List.length`):
+/// `$` and the name, [`encode`]d. A name starts with a letter or `_`, so a
+/// definition's JS name is never `$$…`, which is an export's wrapper's.
+fn def_name(path: &str) -> String {
+    if path.starts_with(|c: char| c.is_ascii_alphabetic() || c == '_') {
+        format!("${}", encode(path))
+    } else {
+        format!("$$${}", encode(path))
+    }
+}
+
+/// A name of declarations (`Std.List.%res`, `x'`), as JS identifier
+/// characters, injectively (docs/proposals/namespaces.md §7.3): ASCII letters,
+/// digits and `_` stay; `'` is `$p`, `.` is `$d` and `%` is `$g`; any other
+/// character is `$u` and its code as six hex digits. Source names never
+/// contain `$`, and each `$` starts exactly one escape, so the name can be
+/// read back.
+pub fn encode(name: &str) -> String {
+    let mut out = String::with_capacity(name.len());
+    for c in name.chars() {
+        match c {
+            'a'..='z' | 'A'..='Z' | '0'..='9' | '_' => out.push(c),
+            '\'' => out.push_str("$p"),
+            '.' => out.push_str("$d"),
+            '%' => out.push_str("$g"),
+            other => {
+                let _ = write!(out, "$u{:06x}", u32::from(other));
+            }
+        }
+    }
+    out
+}
+
+/// The last component of a qualified name: what an export or a boundary type
+/// is called in JS and TypeScript.
+fn short_name(name: &str) -> &str {
+    name.rsplit('.').next().unwrap_or(name)
 }
 
 /// The key of a constructor's field in a JS object, at the boundary and in
@@ -2240,15 +2330,17 @@ fn ts_key(key: &str) -> String {
     }
 }
 
-/// A data type's name in the TypeScript declarations, with each prime as `$`.
+/// A data type's name in the TypeScript declarations: its short name, with
+/// each prime as `$`. Two types at the boundary with the same short name are
+/// refused (`E-EXPORT`).
 fn type_name(name: &str) -> String {
-    name.replace('\'', "$")
+    short_name(name).replace('\'', "$")
 }
 
 /// The JS name of the description of a data type (see `datatype` in
-/// [`RUNTIME`]).
-fn info_name(name: &str) -> String {
-    format!("info${}", type_name(name))
+/// [`RUNTIME`]), from its full logical name.
+fn info_name(path: &str) -> String {
+    format!("info${}", encode(path))
 }
 
 /// The JS name of an export's wrapper, which is exported under the export's
@@ -2438,7 +2530,76 @@ pub fn js_string_literal(text: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{is_js_identifier, mentions};
+    use std::collections::HashMap;
+
+    use super::{RUNTIME, def_name, encode, info_name, is_js_identifier, mentions, wrapper_name};
+
+    /// Every name of up to four characters from the characters names can
+    /// contain (docs/proposals/namespaces.md §7.3): those the lexer accepts
+    /// in a name (letters, digits, `_`, `'`), the `.` of a qualified name,
+    /// the `%` of a generated one, and one character beyond ASCII.
+    fn names() -> Vec<String> {
+        const CHARS: &[char] = &['a', 'Z', '0', '_', '\'', '.', '%', 'é'];
+        let mut names = vec![String::new()];
+        let mut all = Vec::new();
+        for _ in 0..4 {
+            names = names
+                .iter()
+                .flat_map(|n| CHARS.iter().map(move |c| format!("{n}{c}")))
+                .collect();
+            all.extend(names.iter().cloned());
+        }
+        all
+    }
+
+    #[test]
+    fn definition_names_are_distinct_valid_identifiers() {
+        let mut seen: HashMap<String, String> = HashMap::new();
+        for name in names() {
+            let js = def_name(&name);
+            assert!(is_js_identifier(&js), "{name:?} is {js:?}");
+            if let Some(other) = seen.insert(js.clone(), name.clone()) {
+                panic!("{name:?} and {other:?} are both {js:?}");
+            }
+            assert!(is_js_identifier(&info_name(&name)), "{name:?}");
+            assert_eq!(
+                encode(&name).contains('$'),
+                name.chars().any(|c| !c.is_ascii_alphanumeric() && c != '_')
+            );
+        }
+    }
+
+    /// The generator's naming schemes never meet: definitions are `$` and a
+    /// letter, `_` or `$$$`; export wrappers `$$` and a letter (an export's
+    /// name is a JS identifier without `$`); descriptions of data types
+    /// `info$…`; the runtime's own names have no `$`.
+    #[test]
+    fn naming_schemes_are_disjoint() {
+        let defs: Vec<String> = names().iter().map(|n| def_name(n)).collect();
+        for export in ["f", "Shape", "_x", "x1"] {
+            let wrapper = wrapper_name(export);
+            assert!(!defs.contains(&wrapper), "{wrapper}");
+        }
+        for name in names() {
+            assert!(!def_name(&name).starts_with("info"));
+            assert!(info_name(&name).starts_with("info$"));
+        }
+        let runtime: Vec<&str> = RUNTIME
+            .lines()
+            .filter_map(|l| {
+                l.strip_prefix("const ")
+                    .or_else(|| l.strip_prefix("function "))
+            })
+            .filter_map(|l| {
+                l.split(|c: char| !c.is_ascii_alphanumeric() && c != '_' && c != '$')
+                    .next()
+            })
+            .collect();
+        assert!(runtime.len() > 5, "{runtime:?}");
+        for helper in runtime {
+            assert!(!helper.contains('$'), "{helper}");
+        }
+    }
 
     #[test]
     fn finds_whole_identifiers() {

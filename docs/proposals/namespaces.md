@@ -3,8 +3,8 @@
 **Status:** draft 2, 16 October 2026. The user has answered §11 (see the
 end of the decisions section), and an external reviewer has answered §12;
 draft 2 adopts the review ([Changes since draft
-1.1](#changes-since-draft-11)). Stage 0 ([§9](#9-staging)) is being built;
-the rest is design only.
+1.1](#changes-since-draft-11)). Stages 0 and 1 ([§9](#9-staging)) are
+built; stage 2 (dot notation) is design only.
 It records decisions the user has already made, proposes the rest, and
 keeps the questions that were put to the user
 ([§11](#11-questions-for-the-user)) and to the external reviewer ([§12](#12-open-questions-for-the-reviewer)).
@@ -1792,6 +1792,45 @@ the *written* name `Decidable`) move to stage 1.
     and so do `Main.Geometry.Shape` and `Main.UI.Shape`;
   - short export names: two different types with one short name are
     `E-EXPORT`; one type reached twice isn't.
+
+**As built** (stage 1), with what differs from the plan above:
+
+- **Names** are resolved in `crates/elab/src/scope.rs`. Every declaration has a
+  *key*, its full name (`Std.List.length`, or `Geometry.area` for a program's
+  own), and the kernel's `Data` and `Def` carry a `path` (`Std.List`,
+  `Main.Geometry.Shape`): data types hash it, and JS names definitions and
+  type descriptions by it. A declaration's own `name` is its key without
+  `Std.`, which is how messages show it. Only `E-AMBIGUOUS` and the
+  suggestions of `E-UNKNOWN-NAME` print names "as the file would write
+  them" (`Std.Maybe.Just` when the file hides `Maybe`); other messages print
+  the key without `Std.`.
+- **Qualified names are one token**: the lexer joins `Upper.name…` with no
+  spaces; after a lowercase component, `.` is field access as before. A
+  binder, field or constructor being declared can't be qualified.
+- **Library namespaces are closed on what the qualifier means.** A
+  declaration's qualifier that names a library namespace is refused even
+  when it isn't a type (`Text.size`, `Effect.size`), since §4.6 makes those
+  namespaces available as qualifiers in every file.
+- **Imports of a program's own namespaces** (`import Console.Log (log)`)
+  are resolved after the qualified declarations are registered, so they
+  can't affect how a qualifier resolves; imports of the library's are
+  resolved before (§5).
+- **Aliases** are a list in the elaborator (`ALIASES`: `not` for
+  `Bool.not`), not syntax.
+- **Code the compiler generates as source** (records' `==`, the runner's
+  call of `main` and `IO.simulate`) names the library from `Std`, which no
+  program can change; stage 0's temporary rebinding of names is gone.
+- **Generated names** are unspellable: an ability's constructors
+  (`State.%get`), `State.%res`, `State.%elim`, and a record's constructor
+  (`Person.%mk`).
+- **JS** (§7.3) is done here rather than in stage 0: the injective encoding,
+  short export and type names with `E-EXPORT` on clashes (checked when a file
+  loads), and the runtime's partial-computation token renamed to `delayed`
+  so it can't meet a definition's name.
+- Two constructors with one name in two types of a file were
+  `E-DUPLICATE`; they're now `E-AMBIGUOUS` where the short name is used.
+- The pre-pass's "returns `Decidable`" (for `auto`'s hints) now asks what the
+  result's head means, not how it's spelt.
 
 **Stage 2: dot notation by type** (needs records stage 1 merged, since it
 shares `Expr::Field`).

@@ -396,24 +396,24 @@ const encode = (t, v) => {
 };
 
 
-const $add = (m) => (n) => m + n;
-const $isEven = (v0) => {
+const $Std$dNat$dadd = (m) => (n) => m + n;
+const $Main$disEven = (v0) => {
   if (v0 === 0n) {
     return { tag: "True" };
   } else {
     const v1 = v0 - 1n;
-    return $isOdd(v1);
+    return $Main$disOdd(v1);
   }
 };
-const $isOdd = (v0) => {
+const $Main$disOdd = (v0) => {
   if (v0 === 0n) {
     return { tag: "False" };
   } else {
     const v1 = v0 - 1n;
-    return $isEven(v1);
+    return $Main$disEven(v1);
   }
 };
-const $mapList = (v2) => (v3) => {
+const $Main$dmapList = (v2) => (v3) => {
   switch (v3.tag) {
     case "Nil": {
       return { tag: "Nil" };
@@ -421,32 +421,32 @@ const $mapList = (v2) => (v3) => {
     case "Cons": {
       const v4 = v3.head;
       const v5 = v3.tail;
-      return { tag: "Cons", head: (v2)(v4), tail: $mapList(v2)(v5) };
+      return { tag: "Cons", head: (v2)(v4), tail: $Main$dmapList(v2)(v5) };
     }
   }
   throw new Error("unreachable");
 };
-const $parities = (v0) => $mapList($isEven)(v0);
-const $evenShift = (v0) => {
+const $Main$dparities = (v0) => $Main$dmapList($Main$disEven)(v0);
+const $Main$devenShift = (v0) => {
   if (v0 === 0n) {
     return ((v1) => v1);
   } else {
     const v1 = v0 - 1n;
-    return $oddShift(v1);
+    return $Main$doddShift(v1);
   }
 };
-const $oddShift = (v0) => {
+const $Main$doddShift = (v0) => {
   if (v0 === 0n) {
     return ((v1) => (v1 + 1n));
   } else {
     const v1 = v0 - 1n;
-    return $evenShift(v1);
+    return $Main$devenShift(v1);
   }
 };
-const $shifted = (v0) => (v1) => $evenShift(v0)(v1);
-const $ten = $isEven(10n);
-const $tenIsEven = (v0) => $ten;
-const $total = (v0) => {
+const $Main$dshifted = (v0) => (v1) => $Main$devenShift(v0)(v1);
+const $Main$dten = $Main$disEven(10n);
+const $Main$dtenIsEven = (v0) => $Main$dten;
+const $Main$dtotal = (v0) => {
   switch (v0.tag) {
     case "Nil": {
       return 0n;
@@ -454,20 +454,20 @@ const $total = (v0) => {
     case "Cons": {
       const v1 = v0.head;
       const v2 = v0.tail;
-      return $inner(v1)(v2);
+      return $Main$dinner(v1)(v2);
     }
   }
   throw new Error("unreachable");
 };
-const $inner = (v0) => (v1) => {
+const $Main$dinner = (v0) => (v1) => {
   switch (v0.tag) {
     case "Nil": {
-      return $total(v1);
+      return $Main$dtotal(v1);
     }
     case "Cons": {
       const v2 = v0.head;
       const v3 = v0.tail;
-      return $add(v2)($inner(v3)(v1));
+      return $Std$dNat$dadd(v2)($Main$dinner(v3)(v1));
     }
   }
   throw new Error("unreachable");
@@ -476,7 +476,7 @@ const $inner = (v0) => (v1) => {
 function $$isEven(arg0) {
   try {
     const v0 = decode(NAT, arg0, "arg0");
-    return encode(BOOL, $isEven(v0));
+    return encode(BOOL, $Main$disEven(v0));
   } catch (e) {
     throw outOfResources("isEven", e);
   }
@@ -485,7 +485,7 @@ function $$isEven(arg0) {
 function $$isOdd(arg0) {
   try {
     const v0 = decode(NAT, arg0, "arg0");
-    return encode(BOOL, $isOdd(v0));
+    return encode(BOOL, $Main$disOdd(v0));
   } catch (e) {
     throw outOfResources("isOdd", e);
   }
@@ -494,7 +494,7 @@ function $$isOdd(arg0) {
 function $$parities(arg0) {
   try {
     const v0 = decode(list(NAT), arg0, "xs");
-    return encode(list(BOOL), $parities(v0));
+    return encode(list(BOOL), $Main$dparities(v0));
   } catch (e) {
     throw outOfResources("parities", e);
   }
@@ -504,7 +504,7 @@ function $$shifted(arg0, arg1) {
   try {
     const v0 = decode(NAT, arg0, "n");
     const v1 = decode(NAT, arg1, "x");
-    return encode(NAT, $shifted(v0)(v1));
+    return encode(NAT, $Main$dshifted(v0)(v1));
   } catch (e) {
     throw outOfResources("shifted", e);
   }
@@ -513,7 +513,7 @@ function $$shifted(arg0, arg1) {
 function $$tenIsEven(arg0) {
   try {
     const v0 = decode(NAT, arg0, "arg0");
-    return encode(BOOL, $tenIsEven(v0));
+    return encode(BOOL, $Main$dtenIsEven(v0));
   } catch (e) {
     throw outOfResources("tenIsEven", e);
   }
@@ -522,7 +522,7 @@ function $$tenIsEven(arg0) {
 function $$total(arg0) {
   try {
     const v0 = decode(list(list(NAT)), arg0, "arg0");
-    return encode(NAT, $total(v0));
+    return encode(NAT, $Main$dtotal(v0));
   } catch (e) {
     throw outOfResources("total", e);
   }

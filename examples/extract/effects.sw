@@ -30,7 +30,7 @@ allResults : (() -> {Choose | e} a) -> {e} List a
 allResults prog =
   handle prog () with
     | return x       -> [x]
-    | choose u => k  -> append (k True) (k False)
+    | choose u => k  -> List.append (k True) (k False)
 
 runState : s -> (() -> {State s | e} a) -> {e} Pair a s
 runState init prog =

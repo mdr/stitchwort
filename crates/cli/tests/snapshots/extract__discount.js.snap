@@ -396,10 +396,10 @@ const encode = (t, v) => {
 };
 
 
-const $sub = (m) => (n) => (m >= n ? m - n : 0n);
-const $mul = (m) => (n) => m * n;
-const $leq = (m) => (n) => ({ tag: m <= n ? "True" : "False" });
-const $decTrue = (v0) => {
+const $Std$dNat$dsub = (m) => (n) => (m >= n ? m - n : 0n);
+const $Std$dNat$dmul = (m) => (n) => m * n;
+const $Std$dNat$dleq = (m) => (n) => ({ tag: m <= n ? "True" : "False" });
+const $Std$dBool$ddecTrue = (v0) => {
   switch (v0.tag) {
     case "False": {
       return { tag: "No" };
@@ -410,8 +410,8 @@ const $decTrue = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $decEqNat = (m) => (n) => ({ tag: m === n ? "Yes" : "No" });
-const $decNot = (v1) => {
+const $Std$dNat$ddecEq = (m) => (n) => ({ tag: m === n ? "Yes" : "No" });
+const $Std$dDecidable$dnot = (v1) => {
   switch (v1.tag) {
     case "Yes": {
       return { tag: "No" };
@@ -422,20 +422,20 @@ const $decNot = (v1) => {
   }
   throw new Error("unreachable");
 };
-const $decLessEq = (v0) => (v1) => $decTrue($leq(v0)(v1));
-const $divFuel = (fuel) => (n) => (d) => { if (d === 0n) return fuel; const q = n / d; return q < fuel ? q : fuel; };
-const $div = (v0) => (v1) => $divFuel(v0)(v0)(v1);
-const $applyDiscount = (v0) => (v1) => $sub(v0)($div($mul(v0)(v1))(100n));
-const $perPerson = (v0) => (v1) => $div(v0)(v1);
+const $Std$dNat$ddecLessEq = (v0) => (v1) => $Std$dBool$ddecTrue($Std$dNat$dleq(v0)(v1));
+const $Std$dNat$ddivFuel = (fuel) => (n) => (d) => { if (d === 0n) return fuel; const q = n / d; return q < fuel ? q : fuel; };
+const $Std$dNat$ddiv = (v0) => (v1) => $Std$dNat$ddivFuel(v0)(v0)(v1);
+const $Main$dapplyDiscount = (v0) => (v1) => $Std$dNat$dsub(v0)($Std$dNat$ddiv($Std$dNat$dmul(v0)(v1))(100n));
+const $Main$dperPerson = (v0) => (v1) => $Std$dNat$ddiv(v0)(v1);
 
 function $$applyDiscount(arg0, arg1) {
   try {
     const v0 = decode(NAT, arg0, "price");
     const v1 = decode(NAT, arg1, "percent");
-    if ($decLessEq(v1)(100n).tag !== "Yes") {
+    if ($Std$dNat$ddecLessEq(v1)(100n).tag !== "Yes") {
       throw new StitchwortInputError("precondition `percent <= 100` doesn't hold");
     }
-    return encode(NAT, $applyDiscount(v0)(v1));
+    return encode(NAT, $Main$dapplyDiscount(v0)(v1));
   } catch (e) {
     throw outOfResources("applyDiscount", e);
   }
@@ -445,10 +445,10 @@ function $$perPerson(arg0, arg1) {
   try {
     const v0 = decode(NAT, arg0, "total");
     const v1 = decode(NAT, arg1, "people");
-    if ($decNot($decEqNat(v1)(0n)).tag !== "Yes") {
+    if ($Std$dDecidable$dnot($Std$dNat$ddecEq(v1)(0n)).tag !== "Yes") {
       throw new StitchwortInputError("precondition `people != 0` doesn't hold");
     }
-    return encode(NAT, $perPerson(v0)(v1));
+    return encode(NAT, $Main$dperPerson(v0)(v1));
   } catch (e) {
     throw outOfResources("perPerson", e);
   }

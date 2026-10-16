@@ -57,7 +57,7 @@ fn with_proof(op: Native, nums: &[Value]) -> Vec<Value> {
     if op == Native::EqNatSound {
         let equal = match nums {
             [Value::Nat(m), Value::Nat(n)] => m == n,
-            _ => panic!("`eqNatSound` takes two numbers"),
+            _ => panic!("`Nat.equalSound` takes two numbers"),
         };
         args.push(if equal { Value::Refl } else { Value::var(0) });
     }
@@ -152,7 +152,7 @@ fn natives_accept_succ_around_a_number() {
     let succ_4 = Value::Ctor(nat_data, 1, vec![nat(4)].into());
     let zero = Value::Ctor(nat_data, 0, Vec::new().into());
     assert_eq!(
-        native::as_nat(g, &call(g, def(g, "add"), &[succ_4, zero])).unwrap(),
+        native::as_nat(g, &call(g, def(g, "Nat.add"), &[succ_4, zero])).unwrap(),
         Some(BigUint::from(5u32))
     );
 }
@@ -162,7 +162,7 @@ fn natives_wait_for_numbers() {
     let session = Session::new();
     let g = &session.elab.globals;
     // `add x 3` with `x` unknown stays as it is, as the definition would.
-    let stuck = call(g, def(g, "add"), &[Value::var(0), nat(3)]);
+    let stuck = call(g, def(g, "Nat.add"), &[Value::var(0), nat(3)]);
     assert!(matches!(stuck, Value::Neutral(..)), "{stuck:?}");
 }
 
@@ -173,7 +173,7 @@ fn big_numbers_compute_without_counting() {
     let big = |s: &str| native::nat_value(s.parse::<BigUint>().unwrap());
     let product = call(
         g,
-        def(g, "mul"),
+        def(g, "Nat.mul"),
         &[
             big("123456789012345678901234567890"),
             big("987654321098765432109876543210"),
@@ -189,7 +189,7 @@ fn big_numbers_compute_without_counting() {
         .unwrap()
     );
     // Matching on a big number takes the `Succ` branch: `pred` subtracts one.
-    let pred = call(g, def(g, "pred"), &[big("1000000000000000000000")]);
+    let pred = call(g, def(g, "Nat.pred"), &[big("1000000000000000000000")]);
     assert!(conv(g, 0, &pred, &big("999999999999999999999")).unwrap());
 }
 
@@ -268,7 +268,7 @@ fn builtins_with_the_wrong_shape_are_refused() {
     let nat = "type Nat : Type =\n  | Zero\n  | Succ (n : Nat)\n";
     // `add` with the wrong type.
     assert_eq!(
-        as_prelude(&format!("{nat}\nadd : Nat -> Nat\nadd n = n\n")),
+        as_prelude(&format!("{nat}\nNat.add : Nat -> Nat\nNat.add n = n\n")),
         ["E-BUILTIN"]
     );
     // `Bool` with a field.
@@ -281,7 +281,7 @@ fn builtins_with_the_wrong_shape_are_refused() {
     // `leq` before `Bool` is registered.
     assert_eq!(
         as_prelude(&format!(
-            "{nat}\ntype B : Type =\n  | F\n  | T\n\nleq : Nat -> Nat -> B\nleq m n = T\n"
+            "{nat}\ntype B : Type =\n  | F\n  | T\n\nNat.leq : Nat -> Nat -> B\nNat.leq m n = T\n"
         )),
         ["E-BUILTIN"]
     );
@@ -346,7 +346,7 @@ fn shortcuts_with_unknowns_agree_with_the_definitions() {
             g.builtins.disable_natives = false;
             assert!(
                 conv(g, 1, &fast, &slow).unwrap(),
-                "eqNatRefl({n:?}): native {fast:?}, definition {slow:?}"
+                "Nat.equalRefl({n:?}): native {fast:?}, definition {slow:?}"
             );
         }
     });
@@ -357,10 +357,10 @@ fn a_big_number_plus_an_unknown_stays_compact() {
     let session = Session::new();
     let g = &session.elab.globals;
     let big = native::nat_value(BigUint::from(10u32).pow(30));
-    let sum = call(g, def(g, "add"), &[big, Value::var(0)]);
+    let sum = call(g, def(g, "Nat.add"), &[big, Value::var(0)]);
     assert!(matches!(sum, Value::NatAdd(..)), "{sum:?}");
     // Matching on it takes the `Succ` branch: `pred` takes one off.
-    let pred = call(g, def(g, "pred"), std::slice::from_ref(&sum));
+    let pred = call(g, def(g, "Nat.pred"), std::slice::from_ref(&sum));
     let expected = native::from_view(BigUint::from(10u32).pow(30) - 1u32, Some(Value::var(0)));
     assert!(conv(g, 1, &pred, &expected).unwrap());
     assert!(!conv(g, 1, &pred, &sum).unwrap());
@@ -383,19 +383,19 @@ fn accepts(source: &str) {
 const COPIES: &str = "\
 myDecEqNat : (m : Nat) -> (n : Nat) -> Decidable (m = n)
 myDecEqNat Zero     Zero     = Yes rfl
-myDecEqNat Zero     (Succ n) = No (natNeq 0 (Succ n) rfl)
-myDecEqNat (Succ m) Zero     = No (natNeq (Succ m) 0 rfl)
-myDecEqNat (Succ m) (Succ n) = decEqNatFrom (Succ m) (Succ n) (eqNat m n) rfl
+myDecEqNat Zero     (Succ n) = No (Nat.equalFalse 0 (Succ n) rfl)
+myDecEqNat (Succ m) Zero     = No (Nat.equalFalse (Succ m) 0 rfl)
+myDecEqNat (Succ m) (Succ n) = Nat.decEqFrom (Succ m) (Succ n) (Nat.equal m n) rfl
 
-theorem myEqNatRefl : (n : Nat) -> eqNat n n = True
+theorem myEqNatRefl : (n : Nat) -> Nat.equal n n = True
 myEqNatRefl Zero     = rfl
 myEqNatRefl (Succ n) = myEqNatRefl n
 
-theorem myEqNatSound : (m : Nat) -> (n : Nat) -> eqNat m n = True -> m = n
+theorem myEqNatSound : (m : Nat) -> (n : Nat) -> Nat.equal m n = True -> m = n
 myEqNatSound Zero     Zero     h = rfl
-myEqNatSound Zero     (Succ n) h = exfalso (falseNotTrue h)
-myEqNatSound (Succ m) Zero     h = exfalso (falseNotTrue h)
-myEqNatSound (Succ m) (Succ n) h = cong Succ (myEqNatSound m n h)
+myEqNatSound Zero     (Succ n) h = Void.exfalso (Bool.falseNotTrue h)
+myEqNatSound (Succ m) Zero     h = Void.exfalso (Bool.falseNotTrue h)
+myEqNatSound (Succ m) (Succ n) h = Eq.cong Succ (myEqNatSound m n h)
 ";
 
 const BIG: &str = "1180591620717411303424"; // 2^70
@@ -420,13 +420,13 @@ fn rfl_proves_proof_natives_equal_to_their_definitions() {
     ];
     for (i, (m, n)) in pairs.iter().enumerate() {
         source += &format!(
-            "\ntheorem sameDec{i} : myDecEqNat {m} {n} = decEqNat {m} {n}\nsameDec{i} = rfl\n"
+            "\ntheorem sameDec{i} : myDecEqNat {m} {n} = Nat.decEq {m} {n}\nsameDec{i} = rfl\n"
         );
     }
     for n in ["0", "1", "7"] {
         source += &format!(
-            "\ntheorem sameRefl{n} : myEqNatRefl {n} = eqNatRefl {n}\nsameRefl{n} = rfl\n\
-             \ntheorem sameSound{n} : myEqNatSound {n} {n} rfl = eqNatSound {n} {n} rfl\n\
+            "\ntheorem sameRefl{n} : myEqNatRefl {n} = Nat.equalRefl {n}\nsameRefl{n} = rfl\n\
+             \ntheorem sameSound{n} : myEqNatSound {n} {n} rfl = Nat.equalSound {n} {n} rfl\n\
              sameSound{n} = rfl\n"
         );
     }

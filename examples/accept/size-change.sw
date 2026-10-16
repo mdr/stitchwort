@@ -26,7 +26,7 @@ merge : List Nat -> List Nat -> List Nat
 merge Nil         ys          = ys
 merge (Cons x xs) Nil         = Cons x xs
 merge (Cons x xs) (Cons y ys) =
-  if leq x y then Cons x (merge xs (Cons y ys)) else Cons y (merge (Cons x xs) ys)
+  if Nat.leq x y then Cons x (merge xs (Cons y ys)) else Cons y (merge (Cons x xs) ys)
 
 -- A recursive call passed to another function must be given all its
 -- arguments: `\x -> sumWith n x`, not `sumWith n` (reject/partial-recursive-call.sw).

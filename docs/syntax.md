@@ -38,7 +38,7 @@ theorem zeroPlus : (n : Nat) -> 0 + n = n
 zeroPlus n = rfl
 
 -- A test: a `Bool` that `stitchwort test` checks is `True`
-test "lengths add up" = leq (length (append [1] [2, 3])) 3
+test "lengths add up" = Nat.leq (length (List.append [1] [2, 3])) 3
 
 -- Exported to JavaScript by `stitchwort build --js`
 export
@@ -59,8 +59,8 @@ absurd ()
 Implicit and auto parameters are in scope by name in every equation, wherever they appear in the signature:
 
 ```
-get : (xs : List a) -> (i : Nat) -> [auto ok : i < length xs] -> a
-get Nil i = absurd (falseNotTrue ok)    -- ok : i < 0, which computes to False = True
+get : (xs : List a) -> (i : Nat) -> [auto ok : i < List.length xs] -> a
+get Nil i = Void.absurd (Bool.falseNotTrue ok)    -- ok : i < 0, which computes to False = True
 …
 ```
 
@@ -93,8 +93,28 @@ isOdd (Succ n) = isEven n
 
   They must have the same parameters, with the same names, and the same universe (`E-MUTUAL-PARAMETERS`), and their parameters can't mention each other (`E-MUTUAL-SIGNATURE`). Their fields can mention any of the types, but not their constructors (`E-MUTUAL-CONSTRUCTOR`): `(ok : kids = FNil)` in `Tree` is refused. None of them may occur to the left of an arrow in any of their fields (`E-POSITIVITY`), or inside another type (`List Tree`). Propositions defined together can only be matched on to produce other proofs (`E-PROP-ELIM`). Functions over them are ordinary definitions that call each other: `size (Node n kids) = Succ (sizeForest kids)` is a smaller call, since `kids` is part of the tree.
 - **A data type can't be in a cycle with a definition, and an ability can't be in a cycle at all** (`E-MUTUAL-KIND`): that would be induction-recursion, or Landin's knot.
-- **A name in the module takes priority over a type variable.** In `length : List a -> Nat`, `a` is a type variable only if nothing in the module is called `a`; otherwise it means that declaration, wherever it is, with a warning (`W-MODULE-NAME`) pointing at both. Write `[a : Type] -> List a -> Nat` to make it a type variable regardless.
+- **A name in the module takes priority over a type variable.** In `length : List a -> Nat`, `a` is a type variable only if nothing in the module (or an import) is called `a`; otherwise it means that declaration, wherever it is, with a warning (`W-MODULE-NAME`) pointing at both. Write `[a : Type] -> List a -> Nat` to make it a type variable regardless.
 - **`auto` only uses decision procedures that are already checked and written above the use.** One written above that's still waiting for something below to be checked isn't available yet; `E-AUTO-NONE` says which case applies. Passing the procedure explicitly makes it an ordinary dependency, checked first.
+
+## Namespaces and imports
+
+Names are grouped into namespaces (docs/proposals/namespaces.md). The library is `Std`, and a program sees only its core types, their constructors, the operators and `not` without asking: `Nat`, `Bool`, `List`, `Maybe`, `Pair`, `Char`, `Text`, `Ordering`, `Decidable`, `Void`, `Unit`, `Not`, `IO` (with `print` and `readLine`), and their constructors. Everything else is written with its namespace, or imported:
+
+```
+import Text (split, join)
+
+words : Text -> List Text
+words line = split ' ' line
+
+count : List Nat -> Nat
+count xs = List.length xs
+```
+
+- **A qualified name** is written without spaces: `List.length`, `Std.List.Cons`. Its first component is found like any name, or as a namespace (the file's own, then the library's); `Std.…` always means the library.
+- **A type owns a namespace** holding its constructors (`Shape.Square`), and so does an ability, holding its operations (`State.get`). Anything declared with a qualified name goes in that namespace: `Shape.area : Shape -> Nat`. A qualifier that names nothing makes a namespace of the file's own (`Geometry.double`). The library's namespaces can't be added to (`E-STD-NAMESPACE`), however they're written: `List.sum` and `Std.List.sum` are both refused.
+- **`import N (a, b)`** goes at the top of the file and makes `a` and `b` from namespace `N` usable without `N.`. Importing a type brings its constructors (or an ability its operations). An unknown namespace or name is `E-IMPORT-UNKNOWN`; importing a name the file also declares is `E-IMPORT-CLASH`.
+- **A short name** means, in order: a local variable, the file's own declaration (or a constructor or operation of the file's own type or ability), an import, or the default. The first that has it decides, so a file can define its own `length` or `Maybe`; hiding `Maybe` hides its `Just` and `Nothing` too (they're still `Std.Maybe.Just`). Two different things at the same level are an error only where the name is used (`E-AMBIGUOUS`): write the full name.
+- **Syntax always means the library's**: `+`, `==`, `++`, `if`, literals and `()` don't depend on what names a file declares.
 
 ## Records
 
@@ -108,7 +128,7 @@ type Person = { name : Text, age : Nat }
 type Sized (a : Type) =
   { items : List a
   , size : Nat
-  , ok : length items = size
+  , ok : List.length items = size
   }
 
 alice : Person
@@ -121,7 +141,7 @@ birthday : Person -> Person
 birthday p = { p | age = p.age + 1 }       -- update: a new record
 
 describe : Person -> Text
-describe { name, age } = name ++ " is " ++ natToText age
+describe { name, age } = name ++ " is " ++ Nat.toText age
 
 nameOf : Person -> Text
 nameOf { name, .. } = name                 -- `..` ignores the other fields
@@ -162,7 +182,7 @@ allResults : (() -> {Choose | e} a) -> {e} List a
 allResults prog =
   handle prog () with
     | return x       -> [x]
-    | choose u => k  -> append (k True) (k False)
+    | choose u => k  -> List.append (k True) (k False)
 ```
 
 Effectful code is written in direct style. Arguments are evaluated left to right, and the lines of a block in order. A handler's clauses on their own lines must line up: a `|` at another column belongs to an enclosing handler. An operation on its own (`choose`) is a function, `\x -> choose x`. A signature can be a computation that isn't a function: `current : {State Nat} Nat`. A pure function can use a handler inside; what it handles doesn't appear in its type. How this is translated into ordinary data is described in `docs/core.md`, under "Abilities".
@@ -180,7 +200,7 @@ collatzSteps 1 = 0
 collatzSteps n = 1 + collatzSteps (next n)     -- no termination check
 
 main : () -> {IO, Partial} ()                    -- run by `stitchwort run`
-main u = print (natToText (collatzSteps 27))
+main u = print (Nat.toText (collatzSteps 27))
 
 -- A helper that's given a recursive function must be polymorphic in the
 -- rest of its row (`| e`): the recursive calls are requests that only the
@@ -229,7 +249,7 @@ Loosest-binding first:
 | `a = b`, `a != b` | Equality and inequality (propositions). Not associative |
 | `a == b` | Whether `a = b`, as a `Bool`, using the decision procedure for `a = b` (as `if h :` does). Works for `Nat`, `Bool`, and any type with a decision procedure for `=` |
 | `a < b`, `a <= b` | Comparisons on `Nat` (propositions, decided by computation) |
-| `a ++ b` | Joins two texts (`textAppend`) or two lists (`append`). Binds more loosely than `+`, and groups to the right |
+| `a ++ b` | Joins two texts (`Text.append`) or two lists (`List.append`). Binds more loosely than `+`, and groups to the right |
 | `a + b`, `a - b` | Addition, and subtraction stopping at zero. Left-associative |
 | `a * b`, `a / b`, `a % b` | Bind tighter than `+`. `/` and `%` need a proof that `b != 0` |
 | `f a b` | Application |

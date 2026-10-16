@@ -8,7 +8,7 @@ needsToken : [auto t : Token] -> Nat
 needsToken = 1
 
 client : Nat
-client = needsToken [t := fromYes decToken Trivial]
+client = needsToken [t := Decidable.fromYes decToken Trivial]
 
 decToken : Decidable Token
 decToken = laterHelper

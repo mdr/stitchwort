@@ -1,5 +1,5 @@
 -- expect-error: E-PARTIAL
--- A row variable never stands for `Partial`: `simulate`'s program must be
+-- A row variable never stands for `Partial`: `IO.simulate`'s program must be
 -- total. A partial `main` is run by `stitchwort run` instead.
 cat : () -> {IO, Partial} ()
 cat u =
@@ -7,4 +7,4 @@ cat u =
   cat ()
 
 printed : List Text
-printed = fst (simulate [] cat)
+printed = Pair.fst (IO.simulate [] cat)

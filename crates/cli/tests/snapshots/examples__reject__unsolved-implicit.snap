@@ -5,9 +5,9 @@ expression: output
 [E-UNSOLVED] Error: can't work out an implicit argument
    ╭─[ reject/unsolved-implicit.sw:4:8 ]
    │
- 4 │ zero = length Nil
-   │        ─────┬────  
-   │             ╰────── the compiler couldn't work out what goes here
+ 4 │ zero = List.length Nil
+   │        ───────┬───────  
+   │               ╰───────── the compiler couldn't work out what goes here
    │ 
    │ Note: supply it explicitly with `f [x := …]`, or add a type annotation
 ───╯

@@ -3,13 +3,13 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-TERMINATION] Error: can't show that `bad` and `again` terminate
-    ╭─[ soundness/mutual-restart-handler.sw:18:21 ]
+    ╭─[ soundness/mutual-restart-handler.sw:20:21 ]
     │
- 18 │ bad (Call o rest) = again (Call o rest)
+ 20 │ bad (Call o rest) = again (Call o rest)
     │                     ─────────┬────────  
     │                              ╰────────── this call to `again` might not terminate: `again`'s 1st argument is `bad`'s 1st argument
     │ 
- 20 │ again : Comp PingOp PingRes a -> a
+ 22 │ again : Comp PingOp PingRes a -> a
     │ ─────────────────┬────────────────  
     │                  ╰────────────────── then this call to `bad`: `bad`'s 1st argument is `again`'s 1st argument
     │ 

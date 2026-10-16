@@ -437,6 +437,10 @@ fn infer_app(cx: &mut Ctx, head: &Expr, args: &[Arg]) -> Result<(Term, Value)> {
         let head = (Term::Var(cx.level() - 1 - level), cx.types[level].clone());
         return apply_args(cx, head, args);
     }
+    if let Some(fields) = as_fields(cx, name) {
+        let head = infer(cx, &fields)?;
+        return apply_args(cx, head, args);
+    }
     match name.text.as_str() {
         "rfl" => {
             return Err(cx.error(
@@ -462,12 +466,8 @@ fn infer_app(cx: &mut Ctx, head: &Expr, args: &[Arg]) -> Result<(Term, Value)> {
         }
         _ => {}
     }
-    match cx.e.names.get(&name.text) {
-        None => Err(cx.error(
-            "E-UNKNOWN-NAME",
-            format!("unknown name `{}`", name.text),
-            "not in scope",
-        )),
+    match cx.e.named(&name.text) {
+        None => Err(cx.e.not_found(name)),
         Some((Global::Def(id), _)) => {
             let head = (Term::Def(*id), g.def(*id).ty_value.clone());
             apply_args(cx, head, args)
@@ -1070,6 +1070,38 @@ fn missing_builtin(cx: &Ctx, b: Builtin) -> Diagnostic {
     )
 }
 
+/// A qualified name that's really field access: its first component is a
+/// local variable (`P.name`), or it names a declaration followed by
+/// components that don't (`Origin.x`).
+fn as_fields(cx: &Ctx, name: &AstName) -> Option<Expr> {
+    let (first, _) = name.text.split_once('.')?;
+    let parts: Vec<&str> = name.text.split('.').collect();
+    let taken = if cx.lookup(first).is_some() {
+        1
+    } else {
+        match cx.e.resolve(&name.text) {
+            crate::scope::Resolved::Found { rest, .. } if !rest.is_empty() => {
+                parts.len() - rest.len()
+            }
+            _ => return None,
+        }
+    };
+    let mut expr = Expr::Var(AstName {
+        text: parts[..taken].join("."),
+        span: name.span,
+    });
+    for field in &parts[taken..] {
+        expr = Expr::Field(
+            Box::new(expr),
+            AstName {
+                text: field.to_string(),
+                span: name.span,
+            },
+        );
+    }
+    Some(expr)
+}
+
 /// If `expr` is a constructor applied to explicit arguments: the constructor
 /// and the arguments.
 fn ctor_head<'a>(cx: &Ctx, expr: &'a Expr) -> Result<Option<(DataId, usize, Vec<&'a Expr>)>> {
@@ -1083,10 +1115,10 @@ fn ctor_head<'a>(cx: &Ctx, expr: &'a Expr) -> Result<Option<(DataId, usize, Vec<
     let Expr::Var(name) = head else {
         return Ok(None);
     };
-    if cx.lookup(&name.text).is_some() {
+    if cx.lookup(&name.text).is_some() || as_fields(cx, name).is_some() {
         return Ok(None);
     }
-    match cx.e.names.get(&name.text) {
+    match cx.e.named(&name.text) {
         Some((Global::Ctor(d, c), _)) => {
             if args.iter().any(|a| matches!(a, Expr::NamedArg(..))) {
                 return Err(cx.error("E-ARITY", "constructors don't take named arguments", "here"));

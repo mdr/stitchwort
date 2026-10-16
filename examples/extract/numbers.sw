@@ -14,19 +14,19 @@ total (Cons x xs) = x + total xs
 
 export
 average : List Nat -> Nat
-average xs = if h : length xs != 0 then total xs / length xs else 0
+average xs = if h : List.length xs != 0 then total xs / List.length xs else 0
 
-get : (xs : List a) -> (i : Nat) -> [auto ok : i < length xs] -> a
+get : (xs : List a) -> (i : Nat) -> [auto ok : i < List.length xs] -> a
 get (Cons x xs) Zero     = x
 get (Cons x xs) (Succ i) = get xs i
-get Nil         i        = absurd (falseNotTrue ok)
+get Nil         i        = Void.absurd (Bool.falseNotTrue ok)
 
 -- The third element, or 0 if there isn't one.
 export
 third : List Nat -> Nat
-third xs = if h : 2 < length xs then get xs 2 else 0
+third xs = if h : 2 < List.length xs then get xs 2 else 0
 
 -- `n % 2 <= 0`, as a `Bool`. `%` by the literal 2 needs no `if`.
 export
 isEven : Nat -> Bool
-isEven n = leq (n % 2) 0
+isEven n = Nat.leq (n % 2) 0

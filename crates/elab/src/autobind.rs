@@ -14,13 +14,15 @@
 //! A name declared anywhere in the module isn't unknown, wherever it's
 //! declared: it means that declaration. Such names that would otherwise have
 //! been bound are reported, so the elaborator can warn
-//! (docs/proposals/mutual-recursion.md §8.1).
+//! (docs/proposals/mutual-recursion.md §8.1), and so are imported names
+//! (docs/proposals/namespaces.md §4.11).
 
 use stitchwort_core::Term;
 use stitchwort_syntax::ast::{Expr, Name};
 
 use stitchwort_core::ResourceError;
 
+use crate::scope::{Level, Resolved};
 use crate::{Elaborator, Global, RESERVED};
 
 type Result<T> = std::result::Result<T, ResourceError>;
@@ -77,8 +79,23 @@ fn walk(
             let candidate = name.text.starts_with(|c: char| c.is_ascii_lowercase())
                 && !bound.contains(&name.text)
                 && !RESERVED.contains(&name.text.as_str());
-            let module = e.module.names.contains(&name.text);
-            if candidate && (module || !e.names.contains_key(&name.text)) {
+            // A name of this module's, or an imported one, means that
+            // declaration, which is worth a warning; a default name just
+            // means it.
+            let (module, unknown) = match e.resolve(&name.text) {
+                Resolved::Found {
+                    level: Level::Import,
+                    ..
+                } => (true, false),
+                Resolved::Found {
+                    level: Level::Module,
+                    key,
+                    ..
+                } => (e.module.names.contains(key), false),
+                Resolved::Missing => (false, true),
+                _ => (false, false),
+            };
+            if candidate && (module || unknown) {
                 uses.push(Use {
                     name: name.clone(),
                     type_position: is_type,
@@ -95,7 +112,7 @@ fn walk(
             }
             args.reverse();
             let data = match head {
-                Expr::Var(name) if !bound.contains(&name.text) => match e.names.get(&name.text) {
+                Expr::Var(name) if !bound.contains(&name.text) => match e.named(&name.text) {
                     Some((Global::Data(d), _)) => Some(e.globals.data(*d)),
                     // An ability's parameters are those of its operations' type.
                     Some((Global::Ability(a), _)) => Some(e.globals.data(e.abilities[*a].op_data)),

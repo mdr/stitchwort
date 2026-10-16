@@ -135,7 +135,7 @@ pub fn data_hash(g: &Globals, id: DataId) -> Result<Option<ContentHash>> {
     }
     let mut h = Hasher::new(g, Itself::Data(id));
     h.tag("data");
-    h.str(&data.name);
+    h.str(&data.path);
     h.sort(data.sort);
     h.usize(data.params.len());
     for (_, ty) in &data.params {
@@ -209,7 +209,7 @@ fn data_group_hashes(g: &Globals, members: &[DataId]) -> Result<()> {
     // The canonical order: by name, and as declared where names are the same.
     let mut order: Vec<usize> = (0..members.len()).collect();
     order.sort_by(|&a, &b| {
-        let name = |m: usize| &g.data(members[m]).name;
+        let name = |m: usize| &g.data(members[m]).path;
         name(a).cmp(name(b)).then(a.cmp(&b))
     });
     let first = g.data(members[0]);
@@ -231,7 +231,7 @@ fn data_group_hashes(g: &Globals, members: &[DataId]) -> Result<()> {
     for &m in &order {
         let data = g.data(members[m]);
         h.tag("data");
-        h.str(&data.name);
+        h.str(&data.path);
         h.ctors(data)?;
     }
     let group = h.finish();

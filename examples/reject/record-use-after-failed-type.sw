@@ -1,8 +1,10 @@
 -- expect-error: E-DUPLICATE
 -- Literals, projections and updates of a record that failed to check.
+-- (`Dir` declares `L` twice, so it fails, and `Rot` with it.)
 type Dir : Type =
   | L
   | R
+  | L
 
 type Rot = { dir : Dir, amount : Nat }
 

@@ -2,6 +2,8 @@
 -- From the review of docs/proposals/abilities.md: if an infinite `Comp`
 -- could be built, the ordinary fold `drain` would turn it into a proof of
 -- anything. Every `Comp` must be a finite tree, so `forever` is refused.
+import Effect (Comp)
+
 type LaterOp : Type =
   | Later
 

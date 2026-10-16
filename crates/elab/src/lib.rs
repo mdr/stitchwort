@@ -13,6 +13,7 @@ mod effects;
 mod module;
 mod partial;
 mod records;
+mod scope;
 mod unify;
 
 use std::borrow::Cow;
@@ -25,7 +26,7 @@ use stitchwort_core::chars;
 use stitchwort_core::check as kernel;
 use stitchwort_core::native::{self, Native};
 use stitchwort_core::partial::Primitive;
-use stitchwort_core::registry::{self, Builtin, Kind};
+use stitchwort_core::registry::{self, Builtin};
 use stitchwort_core::term::{Branch, NumArm};
 use stitchwort_core::value::{eval, force};
 use stitchwort_core::{DataId, DefId, Globals, Icit, Limits, Name, Sort, Term, Value, pretty};
@@ -46,7 +47,7 @@ const UNIT_PATTERN: &str = "%unit";
 /// Names with built-in meanings, which can't be redefined.
 const RESERVED: &[&str] = &["rfl", "J", "Partial"];
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum Global {
     Def(DefId),
     Data(DataId),
@@ -73,7 +74,8 @@ pub struct TestDecl {
 pub struct Elaborator {
     pub globals: Globals,
     pub tests: Vec<TestDecl>,
-    names: HashMap<String, (Global, Span)>,
+    /// Every declaration, by its full name (`scope.rs`).
+    scope: scope::Scope,
     /// Auto arguments still to be proved in the current declaration.
     obligations: RefCell<Vec<auto::Obligation>>,
     /// While the prelude is loaded, its built-in types and natively
@@ -178,75 +180,11 @@ impl Elaborator {
             .map_err(|d| self.locate(d, expr.span()))
     }
 
-    /// [`Elaborator::infer_expr`] for an expression the compiler writes, in
-    /// which the prelude names of `builtins` mean those built-ins, whatever
-    /// they mean in the loaded program (the runner's call of `main`).
-    pub fn infer_expr_with_builtins(
-        &mut self,
-        expr: &Expr,
-        builtins: &[Builtin],
-    ) -> Result<(Term, Value)> {
-        self.with_builtin_names(builtins, |e| e.infer_expr(expr))
-    }
-
-    /// Runs `f` with the prelude names of `builtins` meaning those
-    /// built-ins (docs/proposals/namespaces.md §4.7), for syntax the compiler
-    /// generates. A built-in that isn't bound makes its name unknown rather
-    /// than leaving it to whatever it means in scope. Other names are
-    /// unaffected, and the names are restored afterwards.
-    pub(crate) fn with_builtin_names<T>(
-        &mut self,
-        builtins: &[Builtin],
-        f: impl FnOnce(&mut Self) -> T,
-    ) -> T {
-        let mut saved = Vec::new();
-        for &b in builtins {
-            let r = &self.globals.registry;
-            let bound = match b.kind() {
-                Kind::Data => r.data(b).map(|d| {
-                    let global = match self.abilities.iter().position(|a| a.op_data == d) {
-                        Some(i) => Global::Ability(i),
-                        None => Global::Data(d),
-                    };
-                    (global, self.globals.data(d).span)
-                }),
-                Kind::Def => r
-                    .def(b)
-                    .map(|id| (Global::Def(id), self.globals.def(id).span)),
-                Kind::Ctor(_) => r
-                    .ctor(b)
-                    .map(|(d, c)| (Global::Ctor(d, c), self.globals.data(d).span)),
-            };
-            let old = match bound {
-                Some(entry) => self.names.insert(b.name().to_string(), entry),
-                None => self.names.remove(b.name()),
-            };
-            saved.push((b.name(), old));
-        }
-        let result = f(self);
-        for (name, old) in saved.into_iter().rev() {
-            match old {
-                Some(entry) => self.names.insert(name.to_string(), entry),
-                None => self.names.remove(name),
-            };
-        }
-        result
-    }
-
-    /// For tests of the built-in registry, until a program can hide a
-    /// prelude name (docs/proposals/namespaces.md, stage 1): removes `names`
-    /// from the names a program sees, so the program can declare its own.
-    /// Built-ins are unaffected, since they don't go through names.
-    #[doc(hidden)]
-    pub fn hide_names_for_test(&mut self, names: &[&str]) {
-        for name in names {
-            self.names.remove(*name);
-        }
-    }
-
     /// Ends loading the prelude: every built-in must be bound by now.
     pub fn finish_prelude(&mut self) -> Result<()> {
         self.loading_prelude = false;
+        // The prelude's imports are its own.
+        self.scope.clear_imports();
         registry::check_complete(&self.globals)
     }
 
@@ -377,7 +315,7 @@ impl Elaborator {
         else {
             unreachable!()
         };
-        self.check_new_name(ability)?;
+        let ability_key = self.check_new_name(ability)?;
         let n = |text: String| ast::Name { text, span: *span };
         let var = |text: &str| Expr::Var(n(text.to_string()));
         let apps = |head: Expr, args: Vec<Expr>| {
@@ -393,7 +331,7 @@ impl Elaborator {
         // Each operation is `x : A -> {Ability params} B`.
         let mut sigs = Vec::new();
         for (op, ty) in ops {
-            self.check_new_name(op)?;
+            self.check_new_key(&Self::member_key(&ability_key, &op.text), op)?;
             let bad = || {
                 error(
                     "E-ABILITY",
@@ -465,7 +403,10 @@ impl Elaborator {
             }
             sigs.push((op.clone(), x, dom.clone(), cod.clone()));
         }
-        let ctor_name = |op: &ast::Name| n(format!("{}.{}", ability.text, op.text));
+        // Each operation's constructor has a name source can't write, so the
+        // operation's own name is free for the operation (`State.get`).
+        let ctor_name = |op: &ast::Name| n(format!("%{}", op.text));
+        let ctor_ref = |op: &ast::Name| n(format!("{}.%{}", ability.text, op.text));
         let x_name = |x: &Option<ast::Name>| x.clone().unwrap_or_else(|| n("x".into()));
 
         // type A params : Type = | A.op (x : X) …
@@ -487,12 +428,12 @@ impl Elaborator {
             span: *span,
         };
         self.data(&data_decl)?;
-        let Some((Global::Data(op_data), _)) = self.names.get(&ability.text).copied() else {
+        let Some((Global::Data(op_data), _)) = self.scope.get(&ability_key) else {
             unreachable!("just declared");
         };
 
         // A.res : (params) -> A params -> Type
-        let res_name = n(format!("{}.res", ability.text));
+        let res_name = n(format!("{}.%res", ability.text));
         let mut res_ty = Expr::Arrow(Box::new(applied.clone()), Box::new(Expr::Type(0, *span)));
         for binder in params.iter().rev() {
             res_ty = Expr::Pi {
@@ -519,7 +460,7 @@ impl Elaborator {
                     .map(|p| Pattern::Var(p.clone()))
                     .collect();
                 patterns.push(Pattern::Ctor(
-                    ctor_name(op),
+                    ctor_ref(op),
                     vec![Pattern::Var(x_name(x))],
                     *span,
                 ));
@@ -532,13 +473,14 @@ impl Elaborator {
             })
             .collect();
         self.definition(&res_sig, &res_eqs)?;
-        let Some((Global::Def(res), _)) = self.names.get(&res_name.text).copied() else {
+        let Some((Global::Def(res), _)) = self.scope.get(&Self::member_key(&ability_key, "%res"))
+        else {
             unreachable!("just defined");
         };
 
         // A.elim : [params] -> [r : Type] -> ((x : X) -> (Y -> r) -> r) -> … ->
         //   (o : A params) -> (A.res params o -> r) -> r
-        let elim_name = n(format!("{}.elim", ability.text));
+        let elim_name = n(format!("{}.%elim", ability.text));
         let r = || var("%r");
         let clause = |i: usize| format!("%clause{i}");
         let res_of_o = apps(
@@ -612,7 +554,7 @@ impl Elaborator {
                     .map(|j| Pattern::Var(n(clause(j))))
                     .collect();
                 patterns.push(Pattern::Ctor(
-                    ctor_name(op),
+                    ctor_ref(op),
                     vec![Pattern::Var(x_name(x))],
                     *span,
                 ));
@@ -626,13 +568,14 @@ impl Elaborator {
             })
             .collect();
         self.definition(&elim_sig, &elim_eqs)?;
-        let Some((Global::Def(elim), _)) = self.names.get(&elim_name.text).copied() else {
+        let Some((Global::Def(elim), _)) = self.scope.get(&Self::member_key(&ability_key, "%elim"))
+        else {
             unreachable!("just defined");
         };
 
         let index = self.abilities.len();
         self.abilities.push(effects::AbilityInfo {
-            name: ability.text.clone(),
+            name: scope::display(&ability_key).to_string(),
             op_data,
             res,
             elim,
@@ -644,16 +587,23 @@ impl Elaborator {
                     .map_or(0, |i| self.module.items[i].position),
             ),
         });
-        self.names
-            .insert(ability.text.clone(), (Global::Ability(index), ability.span));
+        self.scope
+            .insert(&ability_key, Global::Ability(index), ability.span, false);
         for (i, (op, ..)) in sigs.iter().enumerate() {
-            self.names
-                .insert(op.text.clone(), (Global::Op(index, i), op.span));
+            let key = Self::member_key(&ability_key, &op.text);
+            self.scope.insert(&key, Global::Op(index, i), op.span, true);
         }
         Ok(())
     }
 
-    fn check_new_name(&self, n: &ast::Name) -> Result<()> {
+    /// The key a declaration named `n` gets, if it's free.
+    fn check_new_name(&self, n: &ast::Name) -> Result<String> {
+        let key = self.declaration_key(n)?;
+        self.check_new_key(&key, n)?;
+        Ok(key)
+    }
+
+    fn check_new_key(&self, key: &str, n: &ast::Name) -> Result<()> {
         if RESERVED.contains(&n.text.as_str()) {
             return Err(error(
                 "E-DUPLICATE",
@@ -663,18 +613,18 @@ impl Elaborator {
         }
         // Claimed for this declaration when the module's names were
         // collected.
-        if let Some((Global::Unchecked(item), _)) = self.names.get(&n.text)
-            && self.module.in_current(*item)
+        if let Some((Global::Unchecked(item), _)) = self.scope.get(key)
+            && self.module.in_current(item)
         {
             return Ok(());
         }
-        if let Some((_, previous)) = self.names.get(&n.text) {
+        if let Some((_, previous)) = self.scope.get(key) {
             return Err(error(
                 "E-DUPLICATE",
                 n.span,
                 format!("`{}` is already defined", n.text),
             )
-            .with_label(*previous, "first defined here"));
+            .with_label(previous, "first defined here"));
         }
         Ok(())
     }
@@ -731,7 +681,12 @@ impl Elaborator {
                     span,
                     record,
                     ..
-                } => (name(n), *span, *record),
+                } => (
+                    self.declaration_key(n)
+                        .map_or_else(|_| name(n), |k| scope::display(&k).into()),
+                    *span,
+                    *record,
+                ),
                 _ => unreachable!(),
             })
             .collect();
@@ -742,9 +697,10 @@ impl Elaborator {
         // Every member can be mentioned in fields now, as a type. None has
         // constructors until the kernel admits them all.
         for (&(_, decl), d) in members.iter().zip(&ids) {
-            if let Decl::Data { name: n, .. } = decl {
-                self.names
-                    .insert(n.text.clone(), (Global::Data(*d), n.span));
+            if let Decl::Data { name: n, .. } = decl
+                && let Ok(key) = self.declaration_key(n)
+            {
+                self.scope.insert(&key, Global::Data(*d), n.span, false);
             }
         }
         let mut defined = Vec::new();
@@ -782,7 +738,8 @@ impl Elaborator {
     fn fail_data_names(&mut self, members: &[(Option<usize>, &Decl)]) {
         for (_, decl) in members {
             if let Decl::Data { name: n, .. } = decl
-                && let Some((global, _)) = self.names.get_mut(&n.text)
+                && let Ok(key) = self.declaration_key(n)
+                && let Some((global, _)) = self.scope.entries.get_mut(&key)
             {
                 *global = Global::Failed;
             }
@@ -916,13 +873,20 @@ impl Elaborator {
 
     /// Elaborates the constructors of data type `d`, declared from `decl`.
     fn data_ctors(&mut self, decl: &Decl, d: DataId) -> Result<Vec<kernel::CtorDecl>> {
-        let Decl::Data { ctors, span, .. } = decl else {
+        let Decl::Data {
+            name: data_name,
+            ctors,
+            span,
+            ..
+        } = decl
+        else {
             unreachable!()
         };
+        let data_key = self.declaration_key(data_name)?;
         self.module.phase = Phase::Fields;
         let mut core_ctors = Vec::new();
         for (c, ctor) in ctors.iter().enumerate() {
-            self.check_new_name(&ctor.name)?;
+            self.check_new_key(&Self::member_key(&data_key, &ctor.name.text), &ctor.name)?;
             if let Some(earlier) = ctors[..c].iter().find(|e| e.name.text == ctor.name.text) {
                 return Err(error(
                     "E-DUPLICATE",
@@ -970,12 +934,19 @@ impl Elaborator {
     /// After a data type is admitted: registering builtins (in the prelude),
     /// and making its constructors' names refer to them.
     fn after_data(&mut self, decl: &Decl, d: DataId) -> Result<()> {
-        let Decl::Data { ctors, .. } = decl else {
+        let Decl::Data {
+            name: data_name,
+            ctors,
+            ..
+        } = decl
+        else {
             unreachable!()
         };
+        let data_key = self.declaration_key(data_name)?;
         for (c, ctor) in ctors.iter().enumerate() {
-            self.names
-                .insert(ctor.name.text.clone(), (Global::Ctor(d, c), ctor.name.span));
+            let key = Self::member_key(&data_key, &ctor.name.text);
+            self.scope
+                .insert(&key, Global::Ctor(d, c), ctor.name.span, true);
         }
         if self.loading_prelude {
             match registry::bind_data(&mut self.globals, d) {
@@ -1009,8 +980,9 @@ impl Elaborator {
         // Registered before the body is elaborated, so it can refer to itself.
         // If the body fails, the definition stays declared but failed, so
         // later uses don't cascade into "unknown name" errors.
-        self.names
-            .insert(def_name.text.clone(), (Global::Def(id), def_name.span));
+        let key = self.declaration_key(def_name)?;
+        self.scope
+            .insert(&key, Global::Def(id), def_name.span, false);
         self.clear_metas();
         self.module.phase = Phase::Body;
         let body = self.body(id, def_name, equations)?;
@@ -1050,9 +1022,9 @@ impl Elaborator {
         if let [(item, Decl::Signature { name: n, .. }, [])] = members
             && self.loading_prelude
             && let Some(prim) = Primitive::named(&n.text)
+            && let Ok(key) = self.declaration_key(n)
         {
-            self.names
-                .insert(n.text.clone(), (Global::Def(ids[0]), n.span));
+            self.scope.insert(&key, Global::Def(ids[0]), n.span, false);
             match stitchwort_core::partial::define_primitive(&mut self.globals, ids[0], prim) {
                 Ok(()) => {
                     registry::bind_def(&mut self.globals, ids[0]);
@@ -1065,9 +1037,10 @@ impl Elaborator {
         // body until the kernel admits them all, so none unfolds while the
         // others are checked.
         for (&(_, signature, _), id) in members.iter().zip(&ids) {
-            if let Decl::Signature { name: n, .. } = signature {
-                self.names
-                    .insert(n.text.clone(), (Global::Def(*id), n.span));
+            if let Decl::Signature { name: n, .. } = signature
+                && let Ok(key) = self.declaration_key(n)
+            {
+                self.scope.insert(&key, Global::Def(*id), n.span, false);
             }
         }
         if recursive {
@@ -1135,7 +1108,7 @@ impl Elaborator {
         else {
             unreachable!()
         };
-        self.check_new_name(def_name)?;
+        let key = self.check_new_name(def_name)?;
         self.clear_metas();
         self.module.phase = Phase::Signature;
 
@@ -1144,7 +1117,7 @@ impl Elaborator {
         // something in this module.
         let mut notes = Vec::new();
         for used in &auto.shadowing {
-            let Some((_, defined)) = self.names.get(&used.text) else {
+            let scope::Resolved::Found { span: defined, .. } = self.resolve(&used.text) else {
                 continue;
             };
             let note = format!(
@@ -1162,7 +1135,7 @@ impl Elaborator {
                     ),
                 )
                 .with_label(used.span, format!("this is the module's `{}`", used.text))
-                .with_label(*defined, format!("`{}` is defined here", used.text))
+                .with_label(defined, format!("`{}` is defined here", used.text))
                 .with_note(note.clone()),
             );
             notes.push(note);
@@ -1190,7 +1163,7 @@ impl Elaborator {
         .map_err(with_notes)?;
         let id = kernel::declare_def(
             &mut self.globals,
-            &name(def_name),
+            &scope::display(&key).into(),
             &ty,
             *theorem,
             *export,
@@ -1748,23 +1721,18 @@ impl Elaborator {
     }
 
     fn ctor_named(&self, ctor: &str, span: Span) -> Result<(DataId, usize)> {
-        let used = || ast::Name {
+        let used = ast::Name {
             text: ctor.to_string(),
             span,
         };
-        match self.names.get(ctor) {
-            Some((Global::Ctor(d, c), _)) => Ok((*d, *c)),
-            Some((Global::Unchecked(item), _)) => Err(self.unchecked(&used(), *item)),
-            Some((Global::Failed, _)) => Err(module::failed_name(&used())),
-            Some(_) => Err(error(
+        match self.resolve_exact(&used)? {
+            (Global::Ctor(d, c), ..) => Ok((d, c)),
+            (Global::Unchecked(item), ..) => Err(self.unchecked(&used, item)),
+            (Global::Failed, ..) => Err(module::failed_name(&used)),
+            _ => Err(error(
                 "E-NOT-A-CONSTRUCTOR",
                 span,
                 format!("`{ctor}` isn't a constructor"),
-            )),
-            None => Err(error(
-                "E-UNKNOWN-NAME",
-                span,
-                format!("unknown name `{ctor}`"),
             )),
         }
     }

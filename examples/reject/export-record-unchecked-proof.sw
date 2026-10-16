@@ -11,4 +11,4 @@ type SortedList = { items : List Nat, sorted : Sorted items }
 
 export
 size : SortedList -> Nat
-size s = length s.items
+size s = List.length s.items

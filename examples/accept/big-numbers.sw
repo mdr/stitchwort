@@ -24,25 +24,25 @@ predOf : (n : Nat) -> Nat
 predOf (Succ k) = k
 predOf Zero     = 0
 
-test "pred" = eqNat (predOf 5000) 4999
-test "division" = eqNat (1000000 / 7) 142857
-test "remainder" = eqNat (1000000 % 7) 1
-test "subtraction stops at zero" = eqNat (3 - 5) 0
-test "comparison" = leq 99999999999 100000000000
+test "pred" = Nat.equal (predOf 5000) 4999
+test "division" = Nat.equal (1000000 / 7) 142857
+test "remainder" = Nat.equal (1000000 % 7) 1
+test "subtraction stops at zero" = Nat.equal (3 - 5) 0
+test "comparison" = Nat.leq 99999999999 100000000000
 
 -- `auto` decides propositions about big numbers natively too.
 under : (n : Nat) -> [auto ok : n < 100000000000] -> Nat
 under n = n
 
-test "auto" = eqNat (under 99999999999) 99999999999
-test "equal" = eqNat (if h : 123456789 = 123456789 then 1 else 0) 1
-test "not equal" = eqNat (if h : 123456789 = 123456788 then 1 else 0) 0
+test "auto" = Nat.equal (under 99999999999) 99999999999
+test "equal" = Nat.equal (if h : 123456789 = 123456789 then 1 else 0) 1
+test "not equal" = Nat.equal (if h : 123456789 = 123456788 then 1 else 0) 0
 
 -- Literals can be any size, not just 64 bits.
 theorem hugeLiteral : 18446744073709551616 * 18446744073709551616 = 340282366920938463463374607431768211456
 hugeLiteral = rfl
 
-test "huge subtraction" = eqNat (340282366920938463463374607431768211456 - 18446744073709551616) 340282366920938463444927863358058659840
+test "huge subtraction" = Nat.equal (340282366920938463463374607431768211456 - 18446744073709551616) 340282366920938463444927863358058659840
 
 -- A big number plus an unknown stays compact (this used to expand into a
 -- million `Succ`s and crash the checker).
@@ -52,11 +52,11 @@ shifted x = [1000000 + x]
 theorem shiftSucc : (x : Nat) -> 1000000 + Succ x = Succ (1000000 + x)
 shiftSucc x = rfl
 
--- `-`, `<=` and `eqNat` take off shared `Succ`s in one step.
+-- `-`, `<=` and `Nat.equal` take off shared `Succ`s in one step.
 theorem subShared : (x : Nat) -> (500000 + x) - 500000 = x
 subShared x = rfl
 
-theorem leqShared : (x : Nat) -> leq (1000000 + x) (1000000 + Succ x) = leq x (Succ x)
+theorem leqShared : (x : Nat) -> Nat.leq (1000000 + x) (1000000 + Succ x) = Nat.leq x (Succ x)
 leqShared x = rfl
 
 headOr0 : List Nat -> Nat

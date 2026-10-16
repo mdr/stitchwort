@@ -1,0 +1,19 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-AMBIGUOUS] Error: `Square` could mean `Shape.Square` or `Tile.Square`
+    ╭─[ reject/ambiguous-constructor.sw:11:8 ]
+    │
+  5 │   | Square (side : Nat)
+    │     ───┬──  
+    │        ╰──── `Shape.Square` is declared here
+    │ 
+  8 │   | Square (colour : Nat)
+    │     ───┬──  
+    │        ╰──── `Tile.Square` is declared here
+    │ 
+ 11 │ unit = Square 1
+    │        ───┬──  
+    │           ╰──── write `Shape.Square` or `Tile.Square` in full
+────╯

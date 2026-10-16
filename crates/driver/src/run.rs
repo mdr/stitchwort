@@ -120,7 +120,9 @@ impl From<ResourceError> for RunError {
 /// `main ()`, checked against [`MAIN_TYPE`]. The lambda lets a pure or
 /// total `main` through: calling one from code in `{IO, Partial}` is
 /// allowed.
-const MAIN_CALL: &str = "((\\u -> main ()) : () -> {IO, Partial} ()) ()";
+/// The library's names are written from `Std`, which always means the
+/// library, whatever the program declares.
+const MAIN_CALL: &str = "((\\u -> main ()) : () -> {Std.IO, Partial} ()) ()";
 
 impl Session {
     /// Finds the loaded program's `main`, and checks its type.
@@ -137,7 +139,7 @@ impl Session {
             .is_partial(stitchwort_core::DefId(index))
             .unwrap_or(false);
         let expr = self.parse_expression("<main>", MAIN_CALL)?;
-        match self.elab.infer_expr_with_builtins(&expr, &[Builtin::Io]) {
+        match self.elab.infer_expr(&expr) {
             Ok((term, _)) => Ok(Main {
                 term,
                 span,
@@ -179,12 +181,11 @@ impl Session {
             })
             .collect();
         let source = format!(
-            "fst (simulate [{}] ((\\u -> main ()) : () -> {{IO}} ()))",
+            "Std.Pair.fst (Std.IO.simulate [{}] ((\\u -> main ()) : () -> {{Std.IO}} ()))",
             lines.join(", ")
         );
         let expr = self.parse_expression("<simulate>", &source)?;
-        let builtins = [Builtin::Fst, Builtin::Simulate, Builtin::Io];
-        let (term, _) = self.elab.infer_expr_with_builtins(&expr, &builtins)?;
+        let (term, _) = self.elab.infer_expr(&expr)?;
         let g = &self.elab.globals;
         let s = Shapes::new(self);
         let _op = g.budget.operation(self.elab.limits);

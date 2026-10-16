@@ -396,8 +396,8 @@ const encode = (t, v) => {
 };
 
 
-const $add = (m) => (n) => m + n;
-const $ifThenElse = (v1) => (v2) => (v3) => {
+const $Std$dNat$dadd = (m) => (n) => m + n;
+const $Std$dBool$difThenElse = (v1) => (v2) => (v3) => {
   switch (v1.tag) {
     case "False": {
       return (v3)(undefined);
@@ -408,7 +408,7 @@ const $ifThenElse = (v1) => (v2) => (v3) => {
   }
   throw new Error("unreachable");
 };
-const $append = (v1) => (v2) => {
+const $Std$dList$dappend = (v1) => (v2) => {
   switch (v1.tag) {
     case "Nil": {
       return v2;
@@ -416,12 +416,12 @@ const $append = (v1) => (v2) => {
     case "Cons": {
       const v3 = v1.head;
       const v4 = v1.tail;
-      return { tag: "Cons", head: v3, tail: $append(v4)(v2) };
+      return { tag: "Cons", head: v3, tail: $Std$dList$dappend(v4)(v2) };
     }
   }
   throw new Error("unreachable");
 };
-const $reverseOnto = (v1) => (v2) => {
+const $Std$dList$dreverseOnto = (v1) => (v2) => {
   let s1 = v1, s2 = v2;
   for (;;) {
     const v1 = s1, v2 = s2;
@@ -440,7 +440,7 @@ const $reverseOnto = (v1) => (v2) => {
     throw new Error("unreachable");
   }
 };
-const $toBool = (v1) => {
+const $Std$dDecidable$dtoBool = (v1) => {
   switch (v1.tag) {
     case "Yes": {
       return { tag: "True" };
@@ -451,8 +451,8 @@ const $toBool = (v1) => {
   }
   throw new Error("unreachable");
 };
-const $decEqNat = (m) => (n) => ({ tag: m === n ? "Yes" : "No" });
-const $charToNat = (v0) => {
+const $Std$dNat$ddecEq = (m) => (n) => ({ tag: m === n ? "Yes" : "No" });
+const $Std$dChar$dtoNat = (v0) => {
   switch (v0.tag) {
     case "MkChar": {
       const v1 = v0.code;
@@ -461,7 +461,7 @@ const $charToNat = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $decCharFrom = (v0) => (v1) => (v2) => {
+const $Std$dChar$ddecEqFrom = (v0) => (v1) => (v2) => {
   switch (v2.tag) {
     case "Yes": {
       return { tag: "Yes" };
@@ -472,10 +472,10 @@ const $decCharFrom = (v0) => (v1) => (v2) => {
   }
   throw new Error("unreachable");
 };
-const $decEqChar = (v0) => (v1) => $decCharFrom(v0)(v1)($decEqNat($charToNat(v0))($charToNat(v1)));
-const $textToList = charsOfText;
-const $natToText = (n) => n.toString();
-const $sumFrom = (v0) => (v1) => {
+const $Std$dChar$ddecEq = (v0) => (v1) => $Std$dChar$ddecEqFrom(v0)(v1)($Std$dNat$ddecEq($Std$dChar$dtoNat(v0))($Std$dChar$dtoNat(v1)));
+const $Std$dText$dtoList = charsOfText;
+const $Std$dNat$dtoText = (n) => n.toString();
+const $Main$dsumFrom = (v0) => (v1) => {
   let s0 = v0, s1 = v1;
   for (;;) {
     const v0 = s0, v1 = s1;
@@ -483,14 +483,14 @@ const $sumFrom = (v0) => (v1) => {
       return v0;
     } else {
       const v2 = v1 - 1n;
-      s0 = $add(v0)((v2 + 1n));
+      s0 = $Std$dNat$dadd(v0)((v2 + 1n));
       s1 = v2;
       continue;
     }
   }
 };
-const $sumTo = (v0) => $sumFrom(0n)(v0);
-const $lastOf = (v0) => (v1) => {
+const $Main$dsumTo = (v0) => $Main$dsumFrom(0n)(v0);
+const $Main$dlastOf = (v0) => (v1) => {
   let s0 = v0, s1 = v1;
   for (;;) {
     const v0 = s0, v1 = s1;
@@ -509,8 +509,8 @@ const $lastOf = (v0) => (v1) => {
     throw new Error("unreachable");
   }
 };
-const $lastChar = (v0) => $lastOf({ tag: "MkChar", code: 63n })($textToList(v0));
-const $countFrom = (v0) => (v1) => (v2) => {
+const $Main$dlastChar = (v0) => $Main$dlastOf({ tag: "MkChar", code: 63n })($Std$dText$dtoList(v0));
+const $Main$dcountFrom = (v0) => (v1) => (v2) => {
   let s0 = v0, s1 = v1, s2 = v2;
   for (;;) {
     const v0 = s0, v1 = s1, v2 = s2;
@@ -522,7 +522,7 @@ const $countFrom = (v0) => (v1) => (v2) => {
         const v3 = v2.head;
         const v4 = v2.tail;
         s0 = v0;
-        s1 = $ifThenElse($toBool($decEqChar(v0)(v3)))(((v5) => $add(v1)(1n)))(((v5) => v1));
+        s1 = $Std$dBool$difThenElse($Std$dDecidable$dtoBool($Std$dChar$ddecEq(v0)(v3)))(((v5) => $Std$dNat$dadd(v1)(1n)))(((v5) => v1));
         s2 = v4;
         continue;
       }
@@ -530,8 +530,8 @@ const $countFrom = (v0) => (v1) => (v2) => {
     throw new Error("unreachable");
   }
 };
-const $countTail = (v0) => (v1) => $countFrom(v0)(0n)($textToList(v1));
-const $adders = (v0) => (v1) => {
+const $Main$dcountTail = (v0) => (v1) => $Main$dcountFrom(v0)(0n)($Std$dText$dtoList(v1));
+const $Main$dadders = (v0) => (v1) => {
   let s0 = v0, s1 = v1;
   for (;;) {
     const v0 = s0, v1 = s1;
@@ -539,13 +539,13 @@ const $adders = (v0) => (v1) => {
       return v0;
     } else {
       const v2 = v1 - 1n;
-      s0 = { tag: "Cons", head: ((v3) => $add(v3)(v2)), tail: v0 };
+      s0 = { tag: "Cons", head: ((v3) => $Std$dNat$dadd(v3)(v2)), tail: v0 };
       s1 = v2;
       continue;
     }
   }
 };
-const $applyAll = (v0) => {
+const $Main$dapplyAll = (v0) => {
   switch (v0.tag) {
     case "Nil": {
       return { tag: "Nil" };
@@ -553,20 +553,20 @@ const $applyAll = (v0) => {
     case "Cons": {
       const v1 = v0.head;
       const v2 = v0.tail;
-      return { tag: "Cons", head: (v1)(100n), tail: $applyAll(v2) };
+      return { tag: "Cons", head: (v1)(100n), tail: $Main$dapplyAll(v2) };
     }
   }
   throw new Error("unreachable");
 };
-const $closures = (v0) => $applyAll($adders({ tag: "Nil" })(v0));
-const $twice = (v0) => $append((v0)({ tag: "Nil" }))((v0)({ tag: "Cons", head: 0n, tail: { tag: "Nil" } }));
-const $reused = (v0) => $twice($reverseOnto(v0));
-const $digits = (v0) => $natToText(v0);
+const $Main$dclosures = (v0) => $Main$dapplyAll($Main$dadders({ tag: "Nil" })(v0));
+const $Main$dtwice = (v0) => $Std$dList$dappend((v0)({ tag: "Nil" }))((v0)({ tag: "Cons", head: 0n, tail: { tag: "Nil" } }));
+const $Main$dreused = (v0) => $Main$dtwice($Std$dList$dreverseOnto(v0));
+const $Main$ddigits = (v0) => $Std$dNat$dtoText(v0);
 
 function $$sumTo(arg0) {
   try {
     const v0 = decode(NAT, arg0, "n");
-    return encode(NAT, $sumTo(v0));
+    return encode(NAT, $Main$dsumTo(v0));
   } catch (e) {
     throw outOfResources("sumTo", e);
   }
@@ -575,7 +575,7 @@ function $$sumTo(arg0) {
 function $$lastChar(arg0) {
   try {
     const v0 = decode(TEXT, arg0, "t");
-    return encode(CHAR, $lastChar(v0));
+    return encode(CHAR, $Main$dlastChar(v0));
   } catch (e) {
     throw outOfResources("lastChar", e);
   }
@@ -585,7 +585,7 @@ function $$countTail(arg0, arg1) {
   try {
     const v0 = decode(CHAR, arg0, "c");
     const v1 = decode(TEXT, arg1, "t");
-    return encode(NAT, $countTail(v0)(v1));
+    return encode(NAT, $Main$dcountTail(v0)(v1));
   } catch (e) {
     throw outOfResources("countTail", e);
   }
@@ -594,7 +594,7 @@ function $$countTail(arg0, arg1) {
 function $$closures(arg0) {
   try {
     const v0 = decode(NAT, arg0, "n");
-    return encode(list(NAT), $closures(v0));
+    return encode(list(NAT), $Main$dclosures(v0));
   } catch (e) {
     throw outOfResources("closures", e);
   }
@@ -603,7 +603,7 @@ function $$closures(arg0) {
 function $$reused(arg0) {
   try {
     const v0 = decode(list(NAT), arg0, "xs");
-    return encode(list(NAT), $reused(v0));
+    return encode(list(NAT), $Main$dreused(v0));
   } catch (e) {
     throw outOfResources("reused", e);
   }
@@ -612,7 +612,7 @@ function $$reused(arg0) {
 function $$digits(arg0) {
   try {
     const v0 = decode(NAT, arg0, "n");
-    return encode(TEXT, $digits(v0));
+    return encode(TEXT, $Main$ddigits(v0));
   } catch (e) {
     throw outOfResources("digits", e);
   }

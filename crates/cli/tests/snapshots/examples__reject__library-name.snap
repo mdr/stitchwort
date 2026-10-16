@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-UNKNOWN-NAME] Error: unknown name `split`
+   ╭─[ reject/library-name.sw:5:14 ]
+   │
+ 5 │ parts line = split ',' line
+   │              ──┬──  
+   │                ╰──── not in scope
+   │ 
+   │ Note: the library has `Text.split`: write it in full, or `import Text (split)`
+───╯
