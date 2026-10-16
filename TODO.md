@@ -52,6 +52,9 @@ capability we know we'll need before the work that needs it):
    `06c78d2`. Lane `namespaces-impl` now on stage 1 (namespaces, `import`,
    the prelude into `Std`, every example rewritten); then stage 2, dot
    notation.
+   Alongside, for Advent of Code: lane `aoc-survey` (Sonnet) surveys days
+   1–5 of AoC 2025 from the user's solutions and inputs to rank what the
+   library needs; lane `int-design` (Opus) writes the `Int` design note.
 2. **Standard library for real programs:** list functions (`map`, `filter`,
    folds, `sum`, `max`, `zip`, `take`/`drop`, indexing), sorting with a
    correctness proof (sorted permutation), `Int`, a balanced-tree map/set,
