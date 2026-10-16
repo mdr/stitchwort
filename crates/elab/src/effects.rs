@@ -939,6 +939,9 @@ pub fn may_perform(cx: &Ctx, expr: &Expr) -> Result<bool> {
                     HeadType::Typed(ty) => performs_after(cx, ty, explicit)?,
                     HeadType::Other => false,
                 },
+                Expr::Field(recv, field) => {
+                    may_perform(cx, recv)? || dot_performs(cx, recv, field, explicit)?
+                }
                 other => may_perform(cx, other)?,
             }
         }
@@ -955,9 +958,19 @@ pub fn may_perform(cx: &Ctx, expr: &Expr) -> Result<bool> {
             .iter()
             .map(|b| &**b)
             .chain(fields.iter().map(|(_, e)| e)))?,
-        Expr::Ann(e, _, _) | Expr::NamedArg(_, e, _) | Expr::Field(e, _) => may_perform(cx, e)?,
+        Expr::Field(e, field) => may_perform(cx, e)? || dot_performs(cx, e, field, 0)?,
+        Expr::Ann(e, _, _) | Expr::NamedArg(_, e, _) => may_perform(cx, e)?,
         _ => false,
     })
+}
+
+/// Whether `recv.field` with `explicit` more arguments reaches a computation
+/// type, when what it calls can be found without elaborating `recv`.
+fn dot_performs(cx: &Ctx, recv: &Expr, field: &AstName, explicit: usize) -> Result<bool> {
+    match crate::dot::target(cx, recv, field)? {
+        Some(f) => performs_after(cx, cx.g().def(f).ty_value.clone(), explicit + 1),
+        None => Ok(false),
+    }
 }
 
 enum HeadType {
@@ -1030,9 +1043,16 @@ pub fn comp_check(cx: &mut Ctx, expr: &Expr, row: &Row, t: &Value) -> Result<Ter
             body,
             ..
         } => {
+            // The variable's type as written, for dot notation: the
+            // annotation, or the value's.
+            let mut written = None;
             let (term, ty, effectful) = match ty {
                 Some(ty) => {
                     let (ty, _) = check_type(cx, ty)?;
+                    written = Some(crate::dot::Written::With(
+                        Rc::new(ty.clone()),
+                        cx.env.clone(),
+                    ));
                     let ty = cx.eval(&ty)?;
                     if may_perform(cx, value)? {
                         (comp_check(cx, value, row, &ty)?, ty, true)
@@ -1047,10 +1067,14 @@ pub fn comp_check(cx: &mut Ctx, expr: &Expr, row: &Row, t: &Value) -> Result<Ter
                 None => {
                     let (term, ty) = infer(cx, value)?;
                     let (term, ty) = insert(cx, term, ty)?;
+                    written = crate::dot::written_of(cx, &term)?;
                     (term, ty, false)
                 }
             };
             sequence(cx, row, t, &name.text, term, ty, effectful, |cx| {
+                if let Some(w) = written {
+                    cx.set_written(w);
+                }
                 comp_check(cx, body, row, t)
             })
         }
@@ -1224,6 +1248,12 @@ pub fn comp_call(
     // variables.
     let head = match head {
         Expr::Var(_) => head.clone(),
+        // Dot notation: the receiver runs first, then the arguments as
+        // written, whatever their places in the call (§4.8.2).
+        Expr::Field(recv, field) => Expr::Field(
+            Box::new(run_first(cx, recv, row, &mut bound)?),
+            field.clone(),
+        ),
         other => run_first(cx, other, row, &mut bound)?,
     };
     let mut owned: Vec<Expr> = Vec::new();
@@ -1243,6 +1273,15 @@ pub fn comp_call(
     // it and continue with its result.
     let (mut term, mut ty) = match &head {
         Expr::Var(_) => infer_head(cx, &head)?,
+        // A call by dot notation is elaborated whole, receiver first.
+        Expr::Field(recv, field) => {
+            let call = {
+                let args = crate::check::args_of(&owned);
+                crate::dot::infer_dot(cx, recv, field, &args)?
+            };
+            owned.clear();
+            call
+        }
         other => infer(cx, other)?,
     };
     for arg in &owned {

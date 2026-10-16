@@ -148,7 +148,7 @@ nameOf { name, .. } = name                 -- `..` ignores the other fields
 ```
 
 - **A literal needs an expected type**: a signature, an argument's type, or an annotation, `({ x = 0, y = 0 } : Point)`. Nothing is guessed from the field names (`E-CANNOT-INFER`).
-- **`e.name`** reads a field. It's written without spaces around the `.`, binds tighter than application (`f p.name` is `f (p.name)`), and chains (`t.lead.name`, `(f x).age`). `e`'s type must be known where it's used: `\p -> p.name` needs `\(p : Person) -> p.name` unless the function's type is known from elsewhere.
+- **`e.name`** reads a field, or calls a function by dot notation: it looks `name` up in the namespace of `e`'s type `T`, finding the field or `T.name`, and puts `e` in the place of `T.name`'s first parameter of type `T`, whatever its position (`line.split ','` is `Text.split ',' line`; `t.split` alone is `\c -> Text.split c t`). A nickname's namespace is tried before what it stands for (`p : Price` tries `Price.show`, then `Nat.show`), and `p.sym` on an equation finds `Eq.sym`. It's written without spaces around the `.`, binds tighter than application (`f p.name` is `f (p.name)`), and chains (`t.lead.name`, `(f x).age`). The receiver runs first, then the arguments as written. `e`'s type must be known where it's used: `\p -> p.name` needs `\(p : Person) -> p.name` unless the function's type is known from elsewhere (`people.map (\p -> p.name)` works, since `people` is checked first). See docs/proposals/namespaces.md §4.8.
 - **An update** `{ e | f = …, … }` replaces some fields. A later field whose type mentions a replaced one must be replaced too (`E-RECORD-UPDATE`): `{ s | items = xs }` isn't allowed for `s : Sized a`, `{ s | items = xs, size = n, ok = proof }` is.
 - **Record patterns** `{ f = p, g, .. }` work wherever patterns do, nested in constructors and other records, when the type of what they match is known (a parameter's from the signature, or a field's from the constructor around it). After `=`, a constructor pattern takes its arguments without parentheses: `{ items = Cons x xs, .. }`.
 - **Order of effects**: in a computation, field expressions run in the order written, then the record is built; an update's base runs once, first.
@@ -263,7 +263,7 @@ Loosest-binding first:
 | `(e : T)` | Type annotation |
 | `[a, b, c]` | `List` literal. In an expression, `[x := e]` supplies an implicit argument and every other `[…]` is a list |
 | `{ name = e, age }`, `{ p \| age = e }` | Record literal (with an expected type) and update ([Records](#records)). After an arrow, `{` starts an ability row instead |
-| `e.name` | A record's field. No spaces around the `.`; binds tighter than application |
+| `e.name` | A field, or dot notation: `T.name e …` for `e : T`. No spaces around the `.`; binds tighter than application |
 | `rfl` | Proof of `a = a` |
 | `J (\y p -> P) base proof` | Transport along an equality |
 

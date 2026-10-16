@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-NO-NAMESPACE] Error: `x`'s type has no `size`, and can't be unfolded any further
+    ╭─[ reject/dot-blocked.sw:10:12 ]
+    │
+ 10 │ size n x = x.size
+    │            ───┬──  
+    │               ╰──── looked in `Family`
+    │ 
+    │ Note: `Family` is stuck: its definition can't take a step while what it's applied to is unknown
+────╯

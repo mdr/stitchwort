@@ -532,57 +532,6 @@ fn record_type(cx: &Ctx, ty: &Value, what: &str) -> Result<(DataId, Vec<Value>)>
     }
 }
 
-/// `e.field`: the field's projection applied to `e`.
-pub(crate) fn infer_field(cx: &mut Ctx, e: &Expr, field: &ast::Name) -> Result<(Term, Value)> {
-    let (term, ty) = infer(cx, e)?;
-    let (term, ty) = insert(cx, term, ty)?;
-    let g = cx.g();
-    let (d, params) = match record_type(cx, &ty, &format!("the value before `.{}`", field.text)) {
-        Ok(found) => found,
-        Err(e) if e.code == "E-CANNOT-INFER" => {
-            return Err(e.with_note(format!(
-                "`.{}` looks the field up in the record's own type, so that type must be known \
-                 where it's used: for a function, `\\(p : Person) -> p.{}`",
-                field.text, field.text
-            )));
-        }
-        Err(e) => return Err(e),
-    };
-    let data = g.data(d);
-    let Some(i) = data.ctors[0]
-        .fields
-        .iter()
-        .position(|(f, _)| **f == *field.text)
-    else {
-        return Err(unknown_field(g, d, field));
-    };
-    let Some(proj) = cx.e.records.get(&d).and_then(|r| r.projections[i]) else {
-        return Err(cx.error(
-            "E-PROP-ELIM",
-            format!("can't take field `{}` out of a proof", field.text),
-            format!(
-                "`{}` is a proposition, and `{}` is data",
-                data.name, field.text
-            ),
-        ));
-    };
-    let mut term_out = Term::Def(proj);
-    let mut proj_ty = g.def(proj).ty_value.clone();
-    for p in &params {
-        term_out = Term::app_icit(term_out, cx.quote(p)?, Icit::Implicit);
-        proj_ty = match proj_ty {
-            Value::Pi(_, _, _, cod) => cod.apply(g, p.clone())?,
-            _ => unreachable!("a projection takes its record's parameters"),
-        };
-    }
-    let value = cx.eval(&term)?;
-    let result = match proj_ty {
-        Value::Pi(_, _, _, cod) => cod.apply(g, value)?,
-        _ => unreachable!("a projection takes a record"),
-    };
-    Ok((Term::app(term_out, term), result))
-}
-
 /// A record literal or update, checked against `expected`.
 pub(crate) fn check_record(
     cx: &mut Ctx,

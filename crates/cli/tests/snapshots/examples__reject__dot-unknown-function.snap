@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-UNKNOWN-FIELD] Error: `Pair` has no field or function `size`
+   ╭─[ reject/dot-unknown-function.sw:7:12 ]
+   │
+ 7 │ size p = p.size
+   │            ──┬─  
+   │              ╰─── looked in `Pair`
+───╯
