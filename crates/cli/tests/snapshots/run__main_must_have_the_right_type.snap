@@ -2,7 +2,7 @@
 source: crates/cli/tests/run.rs
 expression: "stderr(&run(&path, b\"\")).replace(path.to_str().unwrap(), \"main-type.sw\")"
 ---
-[E-MAIN-TYPE] Error: `main` must have type `() -> {IO} ()`
+[E-MAIN-TYPE] Error: `main` must have type `() -> {IO} ()` or `() -> {IO, Partial} ()`
    ╭─[ main-type.sw:4:1 ]
    │
  4 │ main : () -> {IO, Abort} ()

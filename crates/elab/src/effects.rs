@@ -20,7 +20,8 @@
 
 use std::rc::Rc;
 
-use stitchwort_core::value::{Head, apply, force};
+use stitchwort_core::partial::Primitive;
+use stitchwort_core::value::{Elim, Head, apply, force};
 use stitchwort_core::{DataId, DefId, Icit, Name, Term, Value};
 use stitchwort_syntax::Diagnostic;
 use stitchwort_syntax::ast::{Clause, Expr, Name as AstName, Pattern};
@@ -47,12 +48,34 @@ pub struct AbilityInfo {
     pub order: (usize, usize),
 }
 
-/// A row: abilities (each at most once), then a tail.
+/// A row: abilities (each at most once), then a tail, and whether it's
+/// `Partial`, which isn't an ability but a mode: a computation in a partial
+/// row is a `Delay` rather than a `Comp` (docs/proposals/partial.md §7.3.1).
 #[derive(Clone)]
 pub struct Row {
     pub labels: Vec<Label>,
     /// A row variable (a value of type `Sig`), or `None` for a closed row.
     pub tail: Option<Value>,
+    pub partial: bool,
+}
+
+/// The `ability` of a label that's the private recursion signature of the
+/// partial group being described (`Rec A`, answered with `RecRes B`; see
+/// [`Recursion`]). It's always first in a description's row, and never
+/// written in a type.
+pub const REC: usize = usize::MAX;
+
+/// While a partial recursive group's members are described: what their
+/// requests are (docs/proposals/partial.md §7.3).
+#[derive(Clone)]
+pub struct Recursion {
+    /// What each request is answered with, `B : A -> Type`, in terms of the
+    /// group's fixed parameters (the first variables in scope).
+    pub ans: Value,
+    /// The group's request data type, to recognise it in types.
+    pub req_data: DataId,
+    /// The members' names, for messages.
+    pub names: Vec<String>,
 }
 
 #[derive(Clone)]
@@ -66,6 +89,7 @@ impl Row {
         Row {
             labels: Vec::new(),
             tail: None,
+            partial: false,
         }
     }
 
@@ -73,6 +97,15 @@ impl Row {
         Row {
             labels: self.labels[from..].to_vec(),
             tail: self.tail.clone(),
+            partial: self.partial,
+        }
+    }
+
+    /// The same abilities, in total mode.
+    fn total(&self) -> Row {
+        Row {
+            partial: false,
+            ..self.clone()
         }
     }
 
@@ -131,10 +164,23 @@ fn call(cx: &Ctx, name: &str, implicits: &[Value], explicits: Vec<Term>) -> Resu
 // Rows as types
 
 fn label_ops(cx: &Ctx, label: &Label) -> Value {
+    if label.ability == REC {
+        // `Rec A`, recognised by `decode` only while describing.
+        let rec = cx.g().find_data("Rec").expect("the prelude declares `Rec`");
+        return Value::Data(rec, label.args.clone());
+    }
     Value::Data(cx.e.abilities[label.ability].op_data, label.args.clone())
 }
 
 fn label_res(cx: &Ctx, label: &Label) -> Result<Value> {
+    if label.ability == REC {
+        // `RecRes [A] B`.
+        let rec = cx.e.recursion.as_ref().expect("only while describing");
+        let f = Value::Neutral(Head::Def(def(cx, "RecRes")?), Vec::new());
+        let f =
+            stitchwort_core::value::apply_icit(cx.g(), f, label.args[0].clone(), Icit::Implicit)?;
+        return Ok(apply(cx.g(), f, rec.ans.clone())?);
+    }
     let info = &cx.e.abilities[label.ability];
     let mut f = Value::Neutral(Head::Def(info.res), Vec::new());
     for a in &label.args {
@@ -184,12 +230,32 @@ pub fn res(cx: &Ctx, row: &Row) -> Result<Value> {
     Ok(value)
 }
 
-/// `Comp (ops row) (res row) t`.
+/// `Comp (ops row) (res row) t`, or `Delay (ops row) (res row) t` for a
+/// partial row.
 pub fn comp_type(cx: &Ctx, row: &Row, t: Value) -> Result<Value> {
+    if row.partial {
+        let delay = primitive(cx, Primitive::Delay)?;
+        let mut ty = Value::Neutral(Head::Def(delay), Vec::new());
+        for arg in [ops(cx, row)?, res(cx, row)?, t] {
+            ty = apply(cx.g(), ty, arg)?;
+        }
+        return Ok(ty);
+    }
     Ok(Value::Data(
         data(cx, "Comp")?,
         vec![ops(cx, row)?, res(cx, row)?, t],
     ))
+}
+
+/// The definition admitted as primitive `prim`.
+fn primitive(cx: &Ctx, prim: Primitive) -> Result<DefId> {
+    cx.g().builtins.primitive_id(prim).ok_or_else(|| {
+        cx.error(
+            "E-UNKNOWN-NAME",
+            format!("`Partial` needs the prelude's `{}`", prim.name()),
+            "here",
+        )
+    })
 }
 
 /// The row an operation type stands for, if it's built from abilities.
@@ -205,12 +271,21 @@ pub fn decode(cx: &Ctx, op_type: &Value) -> Result<Option<Row>> {
     ) else {
         return Ok(None);
     };
+    // A description's private recursion signature, `Rec A`.
+    let rec = match cx.e.recursion {
+        Some(_) => g.find_data("Rec"),
+        None => None,
+    };
     let mut labels = Vec::new();
     let mut value = force(g, op_type.clone())?;
     loop {
         match value {
             Value::Data(d, args) if d == plus => {
                 match force(g, args[0].clone())? {
+                    Value::Data(od, oargs) if Some(od) == rec => labels.push(Label {
+                        ability: REC,
+                        args: oargs,
+                    }),
                     Value::Data(od, oargs) => match ability_of(od) {
                         Some(ability) => labels.push(Label {
                             ability,
@@ -222,7 +297,13 @@ pub fn decode(cx: &Ctx, op_type: &Value) -> Result<Option<Row>> {
                 }
                 value = force(g, args[1].clone())?;
             }
-            Value::Data(d, _) if d == no_op => return Ok(Some(Row { labels, tail: None })),
+            Value::Data(d, _) if d == no_op => {
+                return Ok(Some(Row {
+                    labels,
+                    tail: None,
+                    partial: false,
+                }));
+            }
             Value::Neutral(Head::Def(id), spine) if id == sig_op && spine.len() == 1 => {
                 let stitchwort_core::value::Elim::App(x, _) = &spine[0] else {
                     return Ok(None);
@@ -233,6 +314,7 @@ pub fn decode(cx: &Ctx, op_type: &Value) -> Result<Option<Row>> {
                         return Ok(Some(Row {
                             labels,
                             tail: Some(x),
+                            partial: false,
                         }));
                     }
                 }
@@ -242,20 +324,43 @@ pub fn decode(cx: &Ctx, op_type: &Value) -> Result<Option<Row>> {
     }
 }
 
-/// If `ty` is `Comp` over a row of abilities: the row and the result type.
+/// If `ty` is `Comp` or `Delay` over a row of abilities: the row (partial
+/// for a `Delay`) and the result type.
 pub fn comp_parts(cx: &Ctx, ty: &Value) -> Result<Option<(Row, Value)>> {
     let Ok(comp) = data(cx, "Comp") else {
         return Ok(None);
     };
+    let delay = cx.g().builtins.primitive_id(Primitive::Delay);
     Ok(match force(cx.g(), ty.clone())? {
         Value::Data(d, args) if d == comp => {
             decode(cx, &args[0])?.map(|row| (row, args[2].clone()))
+        }
+        Value::Neutral(Head::Def(d), spine) if Some(d) == delay && spine.len() == 3 => {
+            let arg = |i: usize| match &spine[i] {
+                Elim::App(v, _) => Some(v.clone()),
+                Elim::J { .. } => None,
+            };
+            match (arg(0), arg(2)) {
+                (Some(op), Some(t)) => decode(cx, &op)?.map(|row| {
+                    (
+                        Row {
+                            partial: true,
+                            ..row
+                        },
+                        t,
+                    )
+                }),
+                _ => None,
+            }
         }
         _ => None,
     })
 }
 
 fn ability_name(cx: &Ctx, label: &Label) -> String {
+    if label.ability == REC {
+        return "Partial".to_string();
+    }
     cx.e.abilities[label.ability].name.clone()
 }
 
@@ -284,6 +389,7 @@ fn solve_tail(cx: &mut Ctx, open: &Row, other: &Row) -> Result<bool> {
             .cloned()
             .collect(),
         tail: other.tail.clone(),
+        partial: false,
     };
     let sig = Value::Ctor(
         data(cx, "Sig")?,
@@ -296,6 +402,30 @@ fn solve_tail(cx: &mut Ctx, open: &Row, other: &Row) -> Result<bool> {
 fn agree(cx: &mut Ctx, a: &Label, b: &Label) -> Result<()> {
     for (x, y) in a.args.iter().zip(&b.args) {
         if !cx.unify(x, y)? {
+            if a.ability == REC {
+                // Requests for a different instance of the group: a call
+                // that changes its type parameters.
+                let names =
+                    cx.e.recursion
+                        .as_ref()
+                        .map(|r| r.names.join("`, `"))
+                        .unwrap_or_default();
+                return Err(cx
+                    .error(
+                        "E-PARTIAL-NONUNIFORM",
+                        format!("this recursive call to `{names}` changes its type parameters"),
+                        format!(
+                            "this calls it at `{}`, but it's being defined at `{}`",
+                            show_request(cx, x),
+                            show_request(cx, y)
+                        ),
+                    )
+                    .with_note(
+                        "a partial recursive function's recursive calls must pass its type \
+                         parameters on unchanged (non-uniform recursion, which changes them, \
+                         isn't supported)",
+                    ));
+            }
             return Err(cx.error(
                 "E-TYPE-MISMATCH",
                 format!(
@@ -309,6 +439,18 @@ fn agree(cx: &mut Ctx, a: &Label, b: &Label) -> Result<()> {
         }
     }
     Ok(())
+}
+
+/// A partial group's request type, `f.Request ps`, as its parameters `ps`.
+fn show_request(cx: &Ctx, req: &Value) -> String {
+    match force(cx.g(), req.clone()) {
+        Ok(Value::Data(_, args)) if !args.is_empty() => args
+            .iter()
+            .map(|a| cx.show(a))
+            .collect::<Vec<_>>()
+            .join(" "),
+        _ => cx.show(req),
+    }
 }
 
 fn same_shape(cx: &Ctx, a: &Row, b: &Row) -> Result<bool> {
@@ -325,6 +467,9 @@ fn same_shape(cx: &Ctx, a: &Row, b: &Row) -> Result<bool> {
 }
 
 fn not_allowed(cx: &Ctx, label: &Label) -> Diagnostic {
+    if label.ability == REC {
+        return escape(cx);
+    }
     let name = ability_name(cx, label);
     cx.error(
         "E-ABILITY",
@@ -336,8 +481,61 @@ fn not_allowed(cx: &Ctx, label: &Label) -> Diagnostic {
     ))
 }
 
-/// Moves `term : Comp from t` into `to`, solving an unknown tail of `from`.
+/// A recursive call of the partial group being described, used where
+/// nothing can answer its requests (docs/proposals/partial.md §7.3.4).
+pub(crate) fn escape(cx: &Ctx) -> Diagnostic {
+    let names = match &cx.e.recursion {
+        Some(rec) => rec.names.clone(),
+        None => Vec::new(),
+    };
+    let shown = names
+        .iter()
+        .map(|n| format!("`{n}`"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let first = names.first().cloned().unwrap_or_default();
+    cx.error(
+        "E-PARTIAL-ESCAPE",
+        format!("a recursive call to {shown} can't escape its definition"),
+        format!("this calls {shown}, but it's returned or stored where nothing can run the call"),
+    )
+    .with_note(format!(
+        "inside `{first}`'s definition, a call to {shown} is a request that only `{first}`'s own \
+         definition can answer, so it can't be part of the result"
+    ))
+    .with_note(
+        "move the loop into a definition of its own and return a function that calls that \
+         definition",
+    )
+}
+
+/// Running a partial computation (`term`) in total code.
+fn partial_in_total(cx: &Ctx, term: &Term) -> Diagnostic {
+    let label = match term.spine().0 {
+        Term::Def(id) => format!(
+            "`{}` is `Partial`: it might not finish",
+            cx.g().def(*id).name
+        ),
+        _ => "this is `Partial`: it might not finish".to_string(),
+    };
+    cx.error(
+        "E-PARTIAL",
+        "a computation that might not finish can't run here",
+        label,
+    )
+    .with_note(
+        "code whose type doesn't say `Partial` must finish, so it can't run anything that might \
+         not; add `Partial` to the enclosing function's type (`-> {Partial} …`)",
+    )
+}
+
+/// Moves `term : Comp from t` (or `Delay from t`) into `to`, solving an
+/// unknown tail of `from`. A total computation moves into a partial row
+/// with `lift`; a partial one can't move into a total row.
 fn lift(cx: &mut Ctx, term: Term, from: Row, to: &Row, t: &Value) -> Result<Term> {
+    if from.partial && !to.partial {
+        return Err(partial_in_total(cx, &term));
+    }
     let mut from = refresh(cx, &from)?;
     let mut to = refresh(cx, to)?;
     let missing_in = |a: &Row, b: &Row| -> Vec<Label> {
@@ -402,23 +600,38 @@ fn lift(cx: &mut Ctx, term: Term, from: Row, to: &Row, t: &Value) -> Result<Term
             None => return Err(not_allowed(cx, label)),
         }
     }
-    if same_shape(cx, &from, &to)? {
-        return Ok(term);
-    }
     let to = &to;
-    let m = mapping(cx, &from, to)?;
-    call(
-        cx,
-        "translate",
-        &[
-            ops(cx, &from)?,
-            res(cx, &from)?,
-            ops(cx, to)?,
-            res(cx, to)?,
-            t.clone(),
-        ],
-        vec![m, term],
-    )
+    let moved = if same_shape(cx, &from, to)? {
+        term
+    } else {
+        let m = mapping(cx, &from, to)?;
+        call(
+            cx,
+            if from.partial { "mapSig" } else { "translate" },
+            &[
+                ops(cx, &from)?,
+                res(cx, &from)?,
+                ops(cx, to)?,
+                res(cx, to)?,
+                t.clone(),
+            ],
+            vec![m, term],
+        )?
+    };
+    if to.partial && !from.partial {
+        return call(
+            cx,
+            "lift",
+            &[ops(cx, to)?, res(cx, to)?, t.clone()],
+            vec![moved],
+        );
+    }
+    Ok(moved)
+}
+
+/// `bind`, or `bindD` in a partial row.
+fn bind_name(row: &Row) -> &'static str {
+    if row.partial { "bindD" } else { "bind" }
 }
 
 /// Re-reads a row whose tail may have been solved since it was read.
@@ -427,7 +640,13 @@ fn refresh(cx: &Ctx, row: &Row) -> Result<Row> {
         return Ok(row.clone());
     }
     let ty = cx.eval(&cx.quote(&ops(cx, row)?)?)?;
-    Ok(decode(cx, &ty)?.unwrap_or_else(|| row.clone()))
+    Ok(match decode(cx, &ty)? {
+        Some(fresh) => Row {
+            partial: row.partial,
+            ..fresh
+        },
+        None => row.clone(),
+    })
 }
 
 fn is_unknown(cx: &Ctx, value: &Value) -> Result<bool> {
@@ -461,6 +680,7 @@ fn extend_with(cx: &mut Ctx, row: &Row, extra: Vec<Label>, tail: Value) -> Resul
     let added = Row {
         labels: extra,
         tail: Some(tail),
+        partial: false,
     };
     let sig = Value::Ctor(
         data(cx, "Sig")?,
@@ -587,7 +807,20 @@ pub fn effect_type(
         return Ok((result, sort));
     }
     let mut labels: Vec<Label> = Vec::new();
+    let mut partial = false;
     for ability in &row.abilities {
+        // `Partial` is a mode, not an ability: it makes the type a `Delay`.
+        if let Expr::Var(name) = ability
+            && name.text == "Partial"
+        {
+            if partial {
+                return Err(cx
+                    .error("E-DUPLICATE", "`Partial` appears twice in this row", "here")
+                    .with_note("a row has each ability at most once"));
+            }
+            partial = true;
+            continue;
+        }
         let label = ability_label(cx, ability)?;
         if labels.iter().any(|l| l.ability == label.ability) {
             return Err(cx
@@ -610,7 +843,12 @@ pub fn effect_type(
         }
     };
     let result_value = cx.eval(&result)?;
-    let ty = comp_type(cx, &Row { labels, tail }, result_value)?;
+    let row = Row {
+        labels,
+        tail,
+        partial,
+    };
+    let ty = comp_type(cx, &row, result_value)?;
     if !matches!(sort, stitchwort_core::Sort::Type(0)) {
         return Err(cx.error(
             "E-UNIVERSE",
@@ -768,8 +1006,16 @@ fn performs_after(cx: &Ctx, mut ty: Value, mut explicit: usize) -> Result<bool> 
     }
 }
 
-/// `Done v`, as a computation in `row` returning a `t`.
+/// `Done v` (or `now v`), as a computation in `row` returning a `t`.
 fn done(cx: &Ctx, row: &Row, t: &Value, v: Term) -> Result<Term> {
+    if row.partial {
+        return call(
+            cx,
+            "now",
+            &[ops(cx, row)?, res(cx, row)?, t.clone()],
+            vec![v],
+        );
+    }
     let ty = comp_type(cx, row, t.clone())?;
     Ok(Term::Ann(
         Rc::new(Term::ctor(data(cx, "Comp")?, 0, vec![v])),
@@ -927,7 +1173,7 @@ fn sequence(
     if effectful {
         return call(
             cx,
-            "bind",
+            bind_name(row),
             &[ops(cx, row)?, res(cx, row)?, ty, t.clone()],
             vec![term, lam],
         );
@@ -1099,7 +1345,7 @@ fn wrap(cx: &mut Ctx, row: &Row, bound: Vec<Bound>, mut result: Term, ty: &Value
         let lam = Term::Lam(b.name.as_str().into(), Icit::Explicit, Rc::new(result));
         result = call(
             cx,
-            "bind",
+            bind_name(row),
             &[ops(cx, row)?, res(cx, row)?, b.ty, ty.clone()],
             vec![b.comp, lam],
         )?;
@@ -1236,7 +1482,7 @@ fn op_call(
     let lam = Term::Lam("%op".into(), Icit::Explicit, Rc::new(inner));
     let bind = call(
         cx,
-        "bind",
+        bind_name(row),
         &[ops(cx, row)?, res(cx, row)?, dom, result_ty.clone()],
         vec![c, lam],
     )?;
@@ -1262,18 +1508,27 @@ fn make_call(
     for _ in 0..pos {
         injected = Term::ctor(plus, 1, vec![injected]);
     }
-    let comp = comp_type(cx, row, result_ty.clone())?;
+    let comp = comp_type(cx, &row.total(), result_ty.clone())?;
     let comp_inner = stitchwort_core::value::quote(cx.g(), cx.level() + 1, &comp)?;
     let done = Term::Ann(
         Rc::new(Term::ctor(data(cx, "Comp")?, 0, vec![Term::Var(0)])),
         Rc::new(comp_inner),
     );
     let rest = Term::Lam("r".into(), Icit::Explicit, Rc::new(done));
-    let call = Term::Ann(
+    let op_call = Term::Ann(
         Rc::new(Term::ctor(data(cx, "Comp")?, 1, vec![injected, rest])),
         Rc::new(cx.quote(&comp)?),
     );
-    Ok((call, result_ty))
+    if row.partial {
+        let lifted = call(
+            cx,
+            "lift",
+            &[ops(cx, row)?, res(cx, row)?, result_ty.clone()],
+            vec![op_call],
+        )?;
+        return Ok((lifted, result_ty));
+    }
+    Ok((op_call, result_ty))
 }
 
 /// An operation used as a value, `op`: the function `\x -> op x`, of type
@@ -1291,6 +1546,7 @@ pub fn op_value(cx: &mut Ctx, a: usize, i: usize) -> Result<(Term, Value)> {
     let row = Row {
         labels: vec![label.clone()],
         tail: None,
+        partial: false,
     };
     let field_ty = cx.g().data(op_data).ctors[i].fields[0].1.clone();
     let dom = stitchwort_core::value::eval(cx.g(), &label.args, &field_ty)?;
@@ -1417,14 +1673,29 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
             .cloned()
             .collect(),
         tail: out.tail.clone(),
+        partial: false,
     };
     let mut inner_labels = vec![handled.clone()];
     inner_labels.extend(rest.labels.iter().cloned());
+    // The handled computation is total even in a partial context: a
+    // handler is a fold over a `Comp`, and there's nothing to fold in a
+    // `Delay` (docs/proposals/partial.md §7.3.8).
     let inner = Row {
         labels: inner_labels,
         tail: rest.tail.clone(),
+        partial: false,
     };
-    let (body_c, t_in) = comp_infer(cx, body, &inner)?;
+    let (body_c, t_in) = comp_infer(cx, body, &inner).map_err(|mut e| {
+        if e.code == "E-PARTIAL" {
+            e.notes.clear();
+            e.with_note(
+                "the computation a handler handles can't be `Partial`: a handler folds over \
+                 every way a computation can go, which needs it to finish",
+            )
+        } else {
+            e
+        }
+    })?;
     let r = comp_type(cx, out, t.clone())?;
 
     // return x -> …
@@ -1535,7 +1806,29 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
             Icit::Explicit,
             Rc::new(Term::app(Term::Var(1), reply)),
         );
-        let call_term = Term::ctor(data(cx, "Comp")?, 1, vec![inject, rest_fn]);
+        let call_term = if out.partial {
+            // `bindD (lift (Call (sigInject m o) Done)) (\y -> k (…))`: the
+            // carrier is a `Delay`, so the operation is performed, and then
+            // the handler goes on.
+            let quoted = |v: &Value| stitchwort_core::value::quote(cx.g(), level + 2, v);
+            let ans = Term::app(quoted(&out_res)?, inject.clone());
+            let done = Term::Lam(
+                "y".into(),
+                Icit::Explicit,
+                Rc::new(Term::ctor(data(cx, "Comp")?, 0, vec![Term::Var(0)])),
+            );
+            let op = Term::ctor(data(cx, "Comp")?, 1, vec![inject, done]);
+            let mut lifted = Term::Def(primitive(cx, Primitive::Lift)?);
+            let mut bind = Term::Def(primitive(cx, Primitive::BindD)?);
+            for v in [quoted(&out_ops)?, quoted(&out_res)?, ans] {
+                lifted = Term::app_icit(lifted, v.clone(), Icit::Implicit);
+                bind = Term::app_icit(bind, v, Icit::Implicit);
+            }
+            bind = Term::app_icit(bind, quoted(t)?, Icit::Implicit);
+            Term::app(Term::app(bind, Term::app(lifted, op)), rest_fn)
+        } else {
+            Term::ctor(data(cx, "Comp")?, 1, vec![inject, rest_fn])
+        };
         Term::Lam(
             "o".into(),
             Icit::Explicit,
@@ -1564,10 +1857,73 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
 
 // Coercions between rows in a different order
 
+/// Why `found` doesn't fit `expected`, when that's because of `Partial`
+/// (docs/proposals/partial.md §7.3.4, §7.3.6): a recursive call of the group
+/// being described where nothing can answer it, or a partial function where
+/// a total one is expected.
+pub fn partial_mismatch(
+    cx: &mut Ctx,
+    found: &Value,
+    expected: &Value,
+) -> Result<Option<Diagnostic>> {
+    // While describing a partial group: a recursive call where nothing can
+    // answer it (its type mentions the group's private request type).
+    if let Some(rec) = &cx.e.recursion {
+        let req = rec.req_data;
+        let mentions = |t: &Term| {
+            t.subterms()
+                .any(|(t, _)| matches!(t, Term::Data(d, _) if *d == req))
+        };
+        if mentions(&cx.quote(found)?) && !mentions(&cx.quote(expected)?) {
+            return Ok(Some(escape(cx)));
+        }
+    }
+    // A partial function where a total one is expected.
+    let g = cx.g();
+    let mark = cx.mark();
+    let (mut found, mut expected) = (found.clone(), expected.clone());
+    let result = (|| -> Result<Option<Diagnostic>> {
+        while let (Value::Pi(x, i1, d1, c1), Value::Pi(_, i2, _, c2)) =
+            (force(g, found.clone())?, force(g, expected.clone())?)
+        {
+            if i1 != i2 {
+                return Ok(None);
+            }
+            let v = Value::var(cx.level());
+            cx.bind_hidden(x, (*d1).clone());
+            found = c1.apply(g, v.clone())?;
+            expected = c2.apply(g, v)?;
+        }
+        Ok(
+            match (comp_parts(cx, &found)?, comp_parts(cx, &expected)?) {
+                (Some((f, _)), Some((e, _))) if f.partial && !e.partial => Some(
+                    cx.error(
+                        "E-PARTIAL",
+                        "a partial function can't be used where a total one is expected",
+                        "this might not finish: its type says `Partial`",
+                    )
+                    .with_note(
+                        "a function whose type doesn't say `Partial` must finish; a row variable \
+                     like `e` never stands for `Partial`, so a function taking `{… | e}` can't \
+                     be given a partial one",
+                    )
+                    .with_note(
+                        "to accept partial functions, write `Partial` in the row: `{Partial | e}`",
+                    ),
+                ),
+                _ => None,
+            },
+        )
+    })();
+    cx.reset(mark);
+    result
+}
+
 /// If `found` and `expected` are both effectful function types, and
 /// `found`'s abilities are among `expected`'s (after solving unknown tails)
 /// though not in the same form, wraps `term` so it has the expected type:
-/// `\x … -> translate m (term x …)`.
+/// `\x … -> translate m (term x …)` (or `mapSig`, or `lift` from a total
+/// function to a partial one).
 pub fn coerce(cx: &mut Ctx, term: &Term, found: &Value, expected: &Value) -> Result<Option<Term>> {
     let g = cx.g();
     let mark = cx.mark();

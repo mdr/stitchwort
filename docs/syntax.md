@@ -1,6 +1,6 @@
 # Surface syntax (implemented subset)
 
-**Status:** describes `crates/syntax` as of 16 October 2026. DESIGN.md §4 shows the intended language. Not yet implemented: anonymous record types and functions over any record with a field (records stages 3 and 4), `Partial` and a `case` expression.
+**Status:** describes `crates/syntax` as of 16 October 2026. DESIGN.md §4 shows the intended language. Not yet implemented: anonymous record types and functions over any record with a field (records stages 3 and 4) and a `case` expression.
 
 ## Layout
 
@@ -165,6 +165,49 @@ allResults prog =
 ```
 
 Effectful code is written in direct style. Arguments are evaluated left to right, and the lines of a block in order. A handler's clauses on their own lines must line up: a `|` at another column belongs to an enclosing handler. An operation on its own (`choose`) is a function, `\x -> choose x`. A signature can be a computation that isn't a function: `current : {State Nat} Nat`. A pure function can use a handler inside; what it handles doesn't appear in its type. How this is translated into ordinary data is described in `docs/core.md`, under "Abilities".
+
+## `Partial`
+
+A function that might not finish says `Partial` in its row, and so does
+everything that runs it (docs/proposals/partial.md, stage 1). It's written
+like an ability, but it has no operations and can't be handled; `Partial`
+is reserved.
+
+```
+collatzSteps : Nat -> {Partial} Nat
+collatzSteps 1 = 0
+collatzSteps n = 1 + collatzSteps (next n)     -- no termination check
+
+main : () -> {IO, Partial} ()                    -- run by `stitchwort run`
+main u = print (natToText (collatzSteps 27))
+
+-- A helper that's given a recursive function must be polymorphic in the
+-- rest of its row (`| e`): the recursive calls are requests that only the
+-- recursive definition can answer.
+useP : (Nat -> {Partial | e} Nat) -> Nat -> {Partial | e} Nat
+useP k n = k n
+
+loop : Nat -> {Partial} Nat
+loop 0 = 0
+loop n = useP loop (n - 1)
+```
+
+- Calling a partial function in code whose type doesn't say `Partial` is
+  `E-PARTIAL`. Mentioning one is fine: `\u -> collatzSteps 3` is a total
+  value, and partial functions can be passed around and stored.
+- A total function fits where a partial one is expected; not the other way
+  round. A row variable never stands for `Partial`, so a handler can't run
+  a partial computation (`E-PARTIAL`), though its clauses may.
+- Definitions that call each other must be all partial or all total
+  (`E-PARTIAL-MIXED`). A partial one is partial once it has the parameters
+  its equations name: `mk : Nat -> (Nat -> {Partial} Nat)` with
+  `mk n = …` is total, returning a partial function.
+- Inside its definition, a partial recursive function as a value can't be
+  passed to a helper with a fixed row (`E-PARTIAL-CALLBACK`) or returned
+  (`E-PARTIAL-ESCAPE`); its type parameters come first and every recursive
+  call passes them on unchanged (`E-PARTIAL-NONUNIFORM`).
+- Only `stitchwort run` and the playground run partial code. Tests can't;
+  the checker never does.
 
 ## Expressions
 

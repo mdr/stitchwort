@@ -12,8 +12,9 @@ use std::fmt::Write;
 use stitchwort_core::check::{is_type_former, telescope};
 use stitchwort_core::hash::def_hash;
 use stitchwort_core::native;
+use stitchwort_core::partial::Primitive;
 use stitchwort_core::term::Branch;
-use stitchwort_core::value::{Head, eval, expand_step};
+use stitchwort_core::value::{Head, eval, expand_step, force, quote};
 use stitchwort_core::{DataId, DefId, Globals, Limits, ResourceError, Sort, Term, Value, pretty};
 use stitchwort_syntax::Diagnostic;
 
@@ -90,6 +91,21 @@ pub fn exportable(g: &Globals, id: DefId) -> Result<ExportSig, Diagnostic> {
         Diagnostic::error("E-EXPORT", format!("`{}` can't be exported", def.name))
             .with_label(def.span, why)
     };
+    // A partial function, or one taking or returning one: generated code
+    // has no way to run a `Delay` (docs/proposals/partial.md §7.6, §10.6).
+    if let Some(delay) = g.builtins.primitive_id(Primitive::Delay)
+        && quote(g, 0, &def.ty_value)?
+            .subterms()
+            .any(|(t, _)| matches!(t, Term::Def(d) if *d == delay))
+    {
+        return Err(Diagnostic::error(
+            "E-JS-PARTIAL",
+            format!("`{}` can't be exported", def.name),
+        )
+        .with_label(def.span, "its type mentions `Partial`")
+        .with_note("partial functions can't be exported to JavaScript yet: only the runtime (`stitchwort run`, the playground) runs them")
+        .with_note("export the total parts instead: the functions a partial loop calls"));
+    }
     if !is_js_identifier(&def.name) {
         return Err(refuse(
             "its name isn't a valid JavaScript identifier".into(),
@@ -374,6 +390,7 @@ pub fn generate_with(g: &Globals, limits: Limits, options: Options) -> Result<Ou
         }
     }
 
+    erasable(g)?;
     let codegen = Gen::new(g, options)?;
     let mut js = String::from(RUNTIME);
     js.push('\n');
@@ -420,13 +437,21 @@ pub fn generate_with(g: &Globals, limits: Limits, options: Options) -> Result<Ou
         codegen.erased[id.0].0
             || g.builtins.native(id).is_some()
             || codegen.text_natives.contains_key(&id)
+            || codegen.delay[id.0].is_some()
     });
+    // Partial computations are one token (docs/proposals/partial.md §7.6).
+    if (0..g.defs.len()).any(|i| used[i] && codegen.delay[i].is_some()) {
+        js.push_str("// A partial computation, which nothing here can run.\nconst $Delay = Symbol(\"Delay\");\n\n");
+    }
     let while_generating = |id: DefId| {
         move |e: ResourceError| {
             Diagnostic::from(e).with_label(g.def(id).span, "while generating JavaScript for this")
         }
     };
-    for id in (0..g.defs.len()).map(DefId).filter(|id| used[id.0]) {
+    for id in (0..g.defs.len())
+        .map(DefId)
+        .filter(|id| used[id.0] && codegen.delay[id.0].is_none())
+    {
         // Only an admitted definition has a body. The driver doesn't extract
         // a module with errors, but if it were asked to, the JS would call a
         // function that isn't there.
@@ -942,6 +967,11 @@ struct Gen<'g> {
     /// Per definition: how it's compiled and called, decided once here and
     /// used at every site.
     conventions: Vec<Convention>,
+    /// Per definition whose result is a `Delay` (a partial function, or one
+    /// of `Delay`'s constants): which of its parameters are erased. It's
+    /// never generated: a call to it with all its arguments is the token
+    /// `$Delay`, and with fewer, a function returning the token.
+    delay: Vec<Option<Vec<bool>>>,
     /// The prelude's `ifThenElse`, which `if` becomes.
     if_then_else: Option<DefId>,
 }
@@ -978,6 +1008,21 @@ struct SelfCall {
 
 impl<'g> Gen<'g> {
     fn new(g: &'g Globals, options: Options) -> Result<Self, Diagnostic> {
+        let delay_type = g.builtins.primitive_id(Primitive::Delay);
+        let delay = g
+            .defs
+            .iter()
+            .map(|def| {
+                let tel = telescope(g, &def.ty_value, def.span)?;
+                let partial = match (force(g, tel.result)?, delay_type) {
+                    (Value::Neutral(Head::Def(d), spine), Some(delay)) => {
+                        d == delay && spine.len() == 3
+                    }
+                    _ => false,
+                };
+                Ok(partial.then(|| tel.params.iter().map(|(_, _, e)| *e).collect()))
+            })
+            .collect::<Result<Vec<_>, Diagnostic>>()?;
         let erased = g
             .defs
             .iter()
@@ -1038,6 +1083,7 @@ impl<'g> Gen<'g> {
             text_natives,
             erased,
             conventions,
+            delay,
             if_then_else: g
                 .defs
                 .iter()
@@ -1412,6 +1458,18 @@ impl<'g> Gen<'g> {
 
     /// A call to a definition, leaving out its erased arguments.
     fn def_ref(&self, id: DefId, args: &[&Term], env: &mut Vec<bool>) -> Fallible<String> {
+        // A partial computation is the token, whatever its arguments: they
+        // only feed a `Delay`, which nothing can run, so they aren't
+        // computed.
+        if let Some(mask) = &self.delay[id.0] {
+            let mut out = "$Delay".to_string();
+            for erased in mask.iter().skip(args.len()).rev() {
+                if !erased {
+                    out = format!("((_) => {out})");
+                }
+            }
+            return Ok(out);
+        }
         let (_, mask) = &self.erased[id.0];
         let mut out = match self.conventions[id.0] {
             Convention::Erased => return Ok("undefined".into()),
@@ -1735,6 +1793,41 @@ fn written_param_type(ty: &Term, i: usize) -> Option<&Term> {
         Term::Pi(_, _, dom, _) => Some(dom),
         _ => None,
     }
+}
+
+/// Erasing `Delay` values to one token is correct only while no code can tell
+/// two of them apart (docs/proposals/partial.md §7.6): `Delay` has no
+/// eliminator and its constants no computation rules. A definition is how
+/// the kernel would give one a rule, so a `Delay` constant with a body means
+/// erasure must be replaced by a real representation.
+fn erasable(g: &Globals) -> Result<(), Diagnostic> {
+    for prim in Primitive::ALL {
+        // Each of these builds a `Delay` (or is the type): none observes one.
+        let builds = match prim {
+            Primitive::Delay
+            | Primitive::Now
+            | Primitive::Lift
+            | Primitive::BindD
+            | Primitive::MapSig
+            | Primitive::Pfix => true,
+        };
+        if let Some(id) = g.builtins.primitive_id(prim)
+            && (!builds || g.def(id).body.is_some())
+        {
+            return Err(Diagnostic::error(
+                "E-JS-PARTIAL",
+                "partial computations can't be extracted to JavaScript",
+            )
+            .with_label(
+                g.def(id).span,
+                format!(
+                    "`{}` computes, so `Delay` values can't all be erased to one token",
+                    prim.name()
+                ),
+            ));
+        }
+    }
+    Ok(())
 }
 
 /// Which definitions the given ones use, directly or indirectly. What an

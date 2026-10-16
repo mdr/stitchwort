@@ -1,6 +1,6 @@
 # Core language rules
 
-**Status:** describes what's implemented in `crates/core` as of 15 October 2026. DESIGN.md describes where the language is going; this document describes where it is.
+**Status:** describes what's implemented in `crates/core` as of 16 October 2026. DESIGN.md describes where the language is going; this document describes where it is.
 
 The core is the small, explicit language that every Stitchwort definition is translated into before it's checked. The surface language (`docs/syntax.md`) is turned into core terms by the elaborator (`crates/elab`).
 
@@ -11,7 +11,7 @@ The core is the small, explicit language that every Stitchwort definition is tra
 | A separate trusted kernel re-checks the elaborator's output (principle 4) | **Done.** The elaborator (`crates/elab`) has its own type checker, with metavariables and unification. It produces complete core terms, which the checker in `crates/core` (the kernel) re-checks from scratch. |
 | Implicit arguments, `auto` | Implemented ([below](#elaboration)). Decision procedures are found by their result type (any function returning `Decidable …`), not registered explicitly |
 | `if` | Both branches are functions, so only the chosen one runs. Branches must produce data (`Type`), not proofs, until universe polymorphism exists |
-| Abilities, `Partial` | Abilities and handlers are implemented by translation into the prelude's `Comp` trees ([below](#abilities)), so the core has no effect judgment: an effectful function's type *is* a function into `Comp`. `Partial` isn't implemented, so non-terminating definitions are still rejected outright. `IO` is an ordinary ability declared in the prelude, with `simulate` as an ordinary handler for it; nothing performs it for real yet. |
+| Abilities, `Partial` | Abilities and handlers are implemented by translation into the prelude's `Comp` trees ([below](#abilities)), so the core has no effect judgment: an effectful function's type *is* a function into `Comp`. `Partial` is implemented at stage 1 ([below](#partial-computations)): a partial computation is a value of the opaque type `Delay`, which only the runtime runs. `IO` is an ordinary ability declared in the prelude, with `simulate` as an ordinary handler for it; nothing performs it for real yet. |
 | Tracked assumptions | There's no `assume` yet, so every checked definition is assumption-free |
 | Evaluation budget, "inconclusive" results | Not yet. Evaluation is guaranteed to terminate, but may be slow |
 | Caching (§11) | Test results are cached by content hash. Kernel checks and generated JS aren't cached yet, and nothing is cached across elaboration |
@@ -247,6 +247,67 @@ Abilities are translated into ordinary data before the kernel sees them, so the 
 
 The termination checker accepts recursion on `rest y` for a recursive function field `rest`, which is what makes folds over `Comp` structural ([Definitions](#definitions)).
 
+## Partial computations
+
+Stage 1 of docs/proposals/partial.md. The kernel's part is small and has no
+computation rules (`crates/core/src/partial.rs`, trusted for consistency):
+
+- `Delay : (op : Type) -> (res : op -> Type) -> Type -> Type`, and the
+  constants `now`, `lift` (a `Comp` as a `Delay`), `bindD`, `mapSig` and
+  `pfix : [op res A] [B : A -> Type] -> ((x : A) -> Delay (Plus (Rec A) op)
+  (PlusRes (RecRes B) res) (B x)) -> (x : A) -> Delay op res (B x)`.
+- They're prelude signatures without equations. `define_primitive` admits
+  each, once, `Delay` first, after checking its type is exactly that one by
+  conversion (`E-BUILTIN` otherwise): final, with no body, so it never
+  unfolds. An application of one is a neutral term, and conversion compares
+  them structurally. `Delay` isn't a data type: there's no `case` on one,
+  and a data type nested in one is refused by positivity. Hashed by name and
+  type. Consistency: reading every `Delay op res a` as a one-element set
+  models them all, and none extracts an `a`.
+
+The elaborator's part (`crates/elab/src/effects.rs`, `partial.rs`;
+untrusted):
+
+- **Mode.** A row with `Partial` is a `Delay` rather than a `Comp`:
+  sequencing is `bindD`, a result `now`, an operation `lift (Call op Done)`,
+  a partial call in another order `mapSig m`, and a total computation in a
+  partial context `lift` (`translate` first if needed). A partial
+  computation in a total context is `E-PARTIAL`; so is a partial function
+  where a total one is expected (row variables never stand for `Partial`)
+  and a handled computation that's partial.
+- **Recursion.** A recursive group (by the module's SCCs) whose members are
+  all partial at their entry arity is translated, so nothing recurses in
+  the core. For a group `f, g, …` with fixed parameters `ps` (its leading
+  large parameters: types, families, rows): `f.Request ps` (one
+  constructor per member, holding its other parameters), `f.Response ps`
+  by cases, `g.recur` (the request `lift (Call (L (Recur (g.request xs)))
+  Done)`) for each member, `g.description` (the member's equations, with
+  every member's name standing for its `.recur`, in the row `{Rec
+  (f.Request ps), ρ}`), `f.body` by cases, and the members `g ps xs = pfix
+  (f.body ps) (g.request xs)`, admitted with one `define_group`. Each is an
+  ordinary declaration the kernel checks as usual. A group mixing partial
+  and total members is `E-PARTIAL-MIXED`; the members must share their
+  fixed parameters and row, and calls must pass the fixed parameters on
+  (`E-PARTIAL-NONUNIFORM`). The private `Rec` is a row label only while
+  describing; a recursive call flowing where its requests can't be answered
+  is `E-PARTIAL-ESCAPE`, or `E-PARTIAL-CALLBACK` as an argument.
+- Messages show a `Delay` as a row with `Partial`: `{IO, Partial} Nat`.
+
+The runtime's part (`crates/core/src/step.rs`; trusted only for "runs what
+was written") is `step`: the stack-safe machine of
+`crates/partial-model/src/machine.rs` on the evaluator's values, running a
+`Delay` to its next observation: `Now v`, `Later rest` (one tick per
+recursive call; entering a `pfix` is free), or an operation, returned
+unperformed with the rest of the step. `crates/driver/src/run.rs` steps
+`main ()`, performs operations, and counts ticks. Nothing it computes is
+given back to the checker.
+
+JS extraction erases every `Delay` to one token: a call to a function whose
+result is a `Delay` with all its arguments is `$Delay`, without computing
+them; with fewer, a function returning it. An export whose type mentions
+`Delay` is `E-JS-PARTIAL`, and so is extraction if a `Delay` constant ever
+had a body.
+
 ## Tests and content hashes
 
 `test "name" = expr` checks `expr` against `Bool` and adds it to the kernel as an unnamed definition. `stitchwort test` evaluates each test; `True` passes.
@@ -315,6 +376,11 @@ Only definitions reachable from the exports (and their checks) are emitted, in t
 | `E-ABILITY` | An operation or effectful call where its ability isn't allowed, or a malformed `ability` |
 | `E-HANDLER` | A handler without a `return` clause or a clause for every operation |
 | `E-EFFECT-ESCAPE` | A result type that depends on the result of an operation |
+| `E-PARTIAL` | Running partial code where the type doesn't say `Partial`: in a total function, a handled computation, or for a row variable |
+| `E-PARTIAL-MIXED` | A recursive group with partial and total members |
+| `E-PARTIAL-CALLBACK` / `E-PARTIAL-ESCAPE` | Inside a partial recursive definition, the definition passed to a helper whose callback has a fixed row, or returned or stored where nothing can answer its requests |
+| `E-PARTIAL-NONUNIFORM` | A partial recursive call that changes its type parameters, type parameters after ordinary ones, members with different type parameters or rows, or arguments that can't be packed into a request |
+| `E-JS-PARTIAL` | An export whose type mentions `Partial` |
 | `E-RESOURCE` | Checking or evaluation ran out of steps, stack depth or printing size before finishing: there's no answer, rather than a wrong one (docs/proposals/stack-safe-evaluation.md) |
-| `E-BUILTIN` | A prelude type or definition the compiler implements natively doesn't have the expected shape |
+| `E-BUILTIN` | A prelude type or definition the compiler implements natively, or `Delay` and its constants, doesn't have the expected shape |
 | `E-FAILED-DEPENDENCY` | A declaration uses one that has errors (reported only when that one's errors aren't) |

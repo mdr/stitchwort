@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARTIAL] Error: a computation that might not finish can't run here
+    ╭─[ reject/partial-handled.sw:18:3 ]
+    │
+ 18 │ ╭─▶   handle loud () with
+    ┆ ┆   
+ 20 │ ├─▶     | say n => k -> k ()
+    │ │                              
+    │ ╰────────────────────────────── `loud` is `Partial`: it might not finish
+    │     
+    │     Note: the computation a handler handles can't be `Partial`: a handler folds over every way a computation can go, which needs it to finish
+────╯

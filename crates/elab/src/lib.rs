@@ -11,6 +11,7 @@ mod autobind;
 mod check;
 mod effects;
 mod module;
+mod partial;
 mod records;
 mod unify;
 
@@ -23,6 +24,7 @@ use num_bigint::BigUint;
 use stitchwort_core::chars;
 use stitchwort_core::check as kernel;
 use stitchwort_core::native::{self, Native};
+use stitchwort_core::partial::Primitive;
 use stitchwort_core::term::{Branch, NumArm};
 use stitchwort_core::value::{eval, force};
 use stitchwort_core::{DataId, DefId, Globals, Icit, Limits, Name, Sort, Term, Value, pretty};
@@ -37,7 +39,7 @@ pub const PRELUDE: &str = include_str!("prelude.sw");
 type Result<T> = std::result::Result<T, Diagnostic>;
 
 /// Names with built-in meanings, which can't be redefined.
-const RESERVED: &[&str] = &["rfl", "J"];
+const RESERVED: &[&str] = &["rfl", "J", "Partial"];
 
 #[derive(Clone, Copy)]
 enum Global {
@@ -85,6 +87,9 @@ pub struct Elaborator {
     warnings: Vec<Diagnostic>,
     /// How many modules have been elaborated (the prelude is the first).
     modules: usize,
+    /// While the members of a partial recursive group are described: their
+    /// private recursion signature (`partial.rs`).
+    recursion: Option<effects::Recursion>,
     /// The record types declared so far (docs/proposals/records.md).
     records: HashMap<DataId, records::RecordInfo>,
 }
@@ -931,7 +936,14 @@ impl Elaborator {
     /// kernel admits them together, or none of them
     /// (docs/proposals/mutual-recursion.md §5.3). The diagnostics, each with
     /// the item it's about.
-    fn group(&mut self, members: &[(usize, &Decl, &[Decl])]) -> Vec<(usize, Diagnostic)> {
+    /// A recursive group whose members are all `Partial` is translated
+    /// instead (`partial.rs`); one mixing partial and total members is
+    /// refused.
+    fn group(
+        &mut self,
+        members: &[(usize, &Decl, &[Decl])],
+        recursive: bool,
+    ) -> Vec<(usize, Diagnostic)> {
         let mut out = Vec::new();
         let mut ids = Vec::new();
         for &(item, signature, _) in members {
@@ -946,6 +958,21 @@ impl Elaborator {
         if ids.len() < members.len() {
             return out;
         }
+        // `Delay` and its constants: signatures without equations in the
+        // prelude, which the kernel admits as primitives.
+        if let [(item, Decl::Signature { name: n, .. }, [])] = members
+            && self.loading_prelude
+            && let Some(prim) = Primitive::named(&n.text)
+        {
+            self.names
+                .insert(n.text.clone(), (Global::Def(ids[0]), n.span));
+            if let Err(d) =
+                stitchwort_core::partial::define_primitive(&mut self.globals, ids[0], prim)
+            {
+                out.push((*item, d));
+            }
+            return out;
+        }
         // Every member can be referred to now, by its signature. None has a
         // body until the kernel admits them all, so none unfolds while the
         // others are checked.
@@ -953,6 +980,28 @@ impl Elaborator {
             if let Decl::Signature { name: n, .. } = signature {
                 self.names
                     .insert(n.text.clone(), (Global::Def(*id), n.span));
+            }
+        }
+        if recursive {
+            let partial = match members
+                .iter()
+                .zip(&ids)
+                .map(|(&(_, _, equations), id)| self.partial_member(*id, equations))
+                .collect::<Result<Vec<bool>>>()
+            {
+                Ok(partial) => partial,
+                Err(d) => {
+                    out.push((members[0].0, d));
+                    return out;
+                }
+            };
+            if partial.iter().all(|p| *p) {
+                out.extend(self.partial_group(members, &ids));
+                return out;
+            }
+            if partial.iter().any(|p| *p) {
+                out.push((members[0].0, self.mixed_partial(members, &ids, &partial)));
+                return out;
             }
         }
         let mut bodies = Vec::new();

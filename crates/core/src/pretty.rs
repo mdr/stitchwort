@@ -78,6 +78,12 @@ impl<'g> Printer<'g> {
     /// `{A args, B | e}`, if `ops` is the operation type of a row: a chain of
     /// `Plus` ending in `NoOp` or `sigOp e`.
     fn row(&self, names: &mut Vec<Name>, ops: &Term) -> Option<String> {
+        self.row_with(names, ops, false)
+    }
+
+    /// [`Printer::row`], with `Partial` last among the abilities if
+    /// `partial` (the row of a `Delay`).
+    fn row_with(&self, names: &mut Vec<Name>, ops: &Term, partial: bool) -> Option<String> {
         let mut labels = Vec::new();
         let mut ops = ops.strip_loc();
         let tail = loop {
@@ -94,6 +100,9 @@ impl<'g> Printer<'g> {
                 _ => return None,
             }
         };
+        if partial {
+            labels.push("Partial".to_string());
+        }
         Some(match (labels.is_empty(), tail) {
             (true, Some(t)) => format!("{{{t}}}"),
             (_, Some(t)) => format!("{{{} | {t}}}", labels.join(", ")),
@@ -218,6 +227,14 @@ impl<'g> Printer<'g> {
                 let (head, args) = explicit_spine(term);
                 if let Term::Def(id) = head {
                     let name = &*self.g.def(*id).name;
+                    // A partial computation: `{IO, Partial} a`.
+                    if self.g.builtins.primitive(*id) == Some(crate::partial::Primitive::Delay)
+                        && let [ops, _, result] = &args[..]
+                        && let Some(row) = self.row_with(names, ops, true)
+                    {
+                        let result = self.print(names, result, Prec::App);
+                        return (format!("{row} {result}"), Prec::App);
+                    }
                     let infix = match name {
                         "add" => Some(("+", Prec::Add)),
                         "sub" => Some(("-", Prec::Add)),
