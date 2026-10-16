@@ -66,8 +66,12 @@ capability we know we'll need before the work that needs it):
    gives `Int`). Reviewed: approved (no kernel change; revise operator and
    literal typing first). Draft 2 merged (`3d8aa9d`): two-pass group rule
    for number types, prefix-minus rules, a 7-stage plan split Opus/Sonnet.
-   Implementation starts right after namespaces stage 1 merges, one fresh
-   agent per stage or two (keep contexts small).
+   Stage 1 (the type `OfNat | NegSucc`, its library, `Int.decEq`, three
+   division conventions, `Text.toInt`, lemma checkpoint 1) merged
+   (`d3753f8`); `OfNat`/`NegSucc` are visible unqualified for now (hiding a
+   default type's constructors needs a namespaces mechanism). Next: stage 2,
+   prefix minus and negative patterns in the parser (small, Sonnet); match
+   the printer's minus precedence.
 2. **Standard library for real programs** (ranked by the AoC survey,
    [aoc-2025.md](docs/aoc-2025.md): days 1–5 already run with today's
    compiler using hand-written helpers): a list toolkit, a `readAllLines`
