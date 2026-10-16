@@ -717,9 +717,10 @@ pub fn may_perform(cx: &Ctx, expr: &Expr) -> Result<bool> {
             ..
         } => any(&mut [&**cond, &**then, &**otherwise].into_iter())?,
         Expr::List(items, _) => any(&mut items.iter())?,
-        Expr::Record { base, fields, .. } => {
-            any(&mut base.iter().map(|b| &**b).chain(fields.iter().map(|(_, e)| e)))?
-        }
+        Expr::Record { base, fields, .. } => any(&mut base
+            .iter()
+            .map(|b| &**b)
+            .chain(fields.iter().map(|(_, e)| e)))?,
         Expr::Ann(e, _, _) | Expr::NamedArg(_, e, _) | Expr::Field(e, _) => may_perform(cx, e)?,
         _ => false,
     })
@@ -963,8 +964,11 @@ pub fn comp_call(
     row: &Row,
     expected: Option<&Value>,
 ) -> Result<(Term, Value)> {
-    if let Expr::Binary(..) | Expr::List(..) | Expr::Ann(..) | Expr::Record { .. } | Expr::Field(..) =
-        expr
+    if let Expr::Binary(..)
+    | Expr::List(..)
+    | Expr::Ann(..)
+    | Expr::Record { .. }
+    | Expr::Field(..) = expr
     {
         return comp_compound(cx, expr, row, expected);
     }
@@ -1131,7 +1135,9 @@ fn comp_compound(
                 span: *span,
             }
         }
-        Expr::Field(e, name) => Expr::Field(Box::new(run_first(cx, e, row, &mut bound)?), name.clone()),
+        Expr::Field(e, name) => {
+            Expr::Field(Box::new(run_first(cx, e, row, &mut bound)?), name.clone())
+        }
         Expr::Binary(op, a, b) => {
             let a = run_first(cx, a, row, &mut bound)?;
             let b = run_first(cx, b, row, &mut bound)?;

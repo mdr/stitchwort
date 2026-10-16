@@ -1518,10 +1518,16 @@ pub fn add_field_validator(
     };
     let mut cx = Ctx::new(g, data.span);
     if data.state != State::Final {
-        return Err(malformed(&cx, "a validator for a data type that isn't final"));
+        return Err(malformed(
+            &cx,
+            "a validator for a data type that isn't final",
+        ));
     }
     let Some(c) = data.ctors.get(ctor) else {
-        return Err(malformed(&cx, "a validator for a constructor that doesn't exist"));
+        return Err(malformed(
+            &cx,
+            "a validator for a constructor that doesn't exist",
+        ));
     };
     if c.field_sorts.get(field) != Some(&Sort::Prop) {
         return Err(malformed(&cx, "a validator for a field that isn't a proof"));

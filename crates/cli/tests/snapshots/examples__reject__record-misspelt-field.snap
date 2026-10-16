@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-UNKNOWN-FIELD] Error: `Person` has no field `nmae`
+   ╭─[ reject/record-misspelt-field.sw:7:14 ]
+   │
+ 7 │ nameOf p = p.nmae
+   │              ──┬─  
+   │                ╰─── `Person` has no field `nmae`
+   │ 
+   │ Note: its fields are `name`, `age`
+───╯

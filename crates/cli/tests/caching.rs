@@ -56,12 +56,31 @@ fn data_types_are_nominal() {
     let a = load("type Celsius : Type =\n  | C (degrees : Nat)\n");
     let b = load("type Fahrenheit : Type =\n  | C (degrees : Nat)\n");
     assert_ne!(hash_of(&a, "Celsius"), hash_of(&b, "Fahrenheit"));
+    // Field names are hashed: they're the keys of the type's JS objects, so
+    // renaming one changes the generated code (docs/proposals/records.md
+    // §12).
     let c = load("type Celsius : Type =\n  | C (value : Nat)\n");
-    assert_eq!(
-        hash_of(&a, "Celsius"),
-        hash_of(&c, "Celsius"),
-        "field names are just binder names"
-    );
+    assert_ne!(hash_of(&a, "Celsius"), hash_of(&c, "Celsius"));
+}
+
+/// A record's hash covers its field names, and that it's a record (which
+/// changes its JS form), but not how its declaration is laid out.
+#[test]
+fn record_hashes_cover_field_names_and_the_record_flag() {
+    let a = load("type Person = { name : Text, age : Nat }\n");
+    let renamed = load("type Person = { name : Text, years : Nat }\n");
+    assert_ne!(hash_of(&a, "Person"), hash_of(&renamed, "Person"));
+    let reordered = load("type Person = { age : Nat, name : Text }\n");
+    assert_ne!(hash_of(&a, "Person"), hash_of(&reordered, "Person"));
+    let laid_out = load("type Person =\n  { name : Text\n  , age : Nat\n  }\n");
+    assert_eq!(hash_of(&a, "Person"), hash_of(&laid_out, "Person"));
+    // What uses a record changes with it.
+    let uses = "\n\nageOf : Person -> Nat\nageOf p = p.age\n";
+    let b = load(&format!("type Person = {{ name : Text, age : Nat }}{uses}"));
+    let c = load(&format!(
+        "type Person = {{ fullName : Text, age : Nat }}{uses}"
+    ));
+    assert_ne!(hash_of(&b, "ageOf"), hash_of(&c, "ageOf"));
 }
 
 /// Data types defined together are hashed as a unit

@@ -248,9 +248,8 @@ fn check_codec(g: &Globals, d: DataId, visiting: &mut HashSet<DataId>) -> Result
             // A record's proof field is established by its decision procedure
             // (docs/proposals/records.md §11.3).
             let proof = ctor.field_sorts[i] == Sort::Prop;
-            let checked = data.record
-                && proof
-                && data.validators.iter().any(|v| v.ctor == c && v.field == i);
+            let checked =
+                data.record && proof && data.validators.iter().any(|v| v.ctor == c && v.field == i);
             if !checked {
                 return Err(if data.record && proof {
                     format!(
@@ -1387,7 +1386,7 @@ impl<'g> Gen<'g> {
                     ctor.fields.iter().zip(&ctor.field_erased).zip(args)
                 {
                     if !erased {
-                        let key = js_string_literal(&key(self.g, *d, field));
+                        let key = ts_key(&key(self.g, *d, field));
                         fields.push(format!("{key}: {}", self.expr(arg, env)?));
                     }
                 }
@@ -1825,72 +1824,72 @@ const TEXT_NATIVES: &[(&str, TextNative, &str)] = &[
     (
         "textToList",
         TextNative::TextToList,
-        "55f4ee982b01cd63f281648877b8052578bd053537d7196b81f2420f93310659",
+        "549a42631552690743f06ace8493d5e2e85672173248cc72fa1842711b958066",
     ),
     (
         "textFromList",
         TextNative::TextFromList,
-        "589f496fb7316b3ac6a86d42797c46c97e604331d9db18947fb3534b7320b1b3",
+        "0d7126c14af1f18042bdb06fec7030139ab8bb7d57f7e2f5a5215c577479ad6d",
     ),
     (
         "textAppend",
         TextNative::TextAppend,
-        "d425b5c567fdd4d62acb93ed33a832aec2c1ce901f6cd11e85348a7ea8a47212",
+        "d04570fc5c40f95e7632ad9959589d5b2bdf54c75df57b765a1d72c6e29e4f11",
     ),
     (
         "textLength",
         TextNative::TextLength,
-        "3ac6fd0dd35c31467c1f9125ff994d18f39c6a787dd05b592f63d209e9f8982d",
+        "b49fbcc27f659077cf54460e8b8966f20999ef3d047d57fc11924628867399d5",
     ),
     (
         "textIsEmpty",
         TextNative::TextIsEmpty,
-        "7dd171adb0dda96ccdddfaccfa23a3c583e320f23bcc602fbe0386f40a39504c",
+        "a90f3ce9f27a95267e8259192aa7bf7f45ce5c254983deb07be35c0d9eac7b67",
     ),
     (
         "decEqText",
         TextNative::DecEqText,
-        "315a9486c26869db111f0cbe299dda583787a3f56421626ba8d1a12648463cac",
+        "f69a059702df9f43714a8cee2ac83349859539cdf4d3385930f9dc2cfeb973b0",
     ),
     (
         "textCompare",
         TextNative::TextCompare,
-        "64dc08aebec18f26745cd5d5aa0d0018b47fea7d89016c460f79decfe14d9f04",
+        "99922cac2ece4c6fe119244f4e7ebfbe6a73c41c5d7d4bc33ad4cc68621990a1",
     ),
     (
         "textUncons",
         TextNative::TextUncons,
-        "b3193fd564ca9794df7e2dc0c8cbdc5c7e0627c85f44cc840b5bef5f066b661d",
+        "05907321fda3c2a8e740ec4a30518f8ab133d4bc43cf954877262bc5f3bb2aed",
     ),
     (
         "textFold",
         TextNative::TextFold,
-        "026292808e8eb3b9bd694ffc8fb63f3aed9bf068fa843ffacdc33fec33b849bc",
+        "5015ca6ea71ac66cf89ef1306af0a813ffa12c9bd93a06ab3e682c3fe802ff75",
     ),
     (
         "textTrim",
         TextNative::TextTrim,
-        "cc4d9039e163a10e59993c7f15ae199e8ca7f195dc4e8c167e6929115761e0e3",
+        "e29b4385d236cc6c65a7f039a1a3cceb4f0a5b15956106c5938145cb49331dde",
     ),
     (
         "textSplit",
         TextNative::TextSplit,
-        "0d1ba51fdc8e3ca0229687d960da99908e33fdc62c9f03c0c06b18c535bd4081",
+        "c16121624ff5d1e29219e5550216bdfb0ec37238bbe86f7551b784b2b93d9bc3",
     ),
     (
         "textJoin",
         TextNative::TextJoin,
-        "82c027ed95f87486254858de74e01df5e7d6977eec73565e6a5f26c400aed543",
+        "fc7855026fd1f585079f7687d5d47987f5696670d3e0ea3f69e466e745efb3ba",
     ),
     (
         "natToText",
         TextNative::NatToText,
-        "cb3e7303afea63730d6516bfcf329f6f200aa7d18f5f9ec6be32ccc0507c8cef",
+        "fc4ff5aefcb7cc8800239627ebcbd718d6c86658a15c5b8827333c68cec6645a",
     ),
     (
         "textToNat",
         TextNative::TextToNat,
-        "41f9f9d896d28ca11afbc6f5c1fabff76286040a8fdf842a9b15afe57526af0c",
+        "8e3282ab2c0d59e2aed04467ea456f529b3ee22ef869862412ea68df3ae05c60",
     ),
 ];
 
@@ -2132,8 +2131,8 @@ fn member(key: &str) -> String {
     }
 }
 
-/// A property name in a TypeScript object type: as it is if it's an
-/// identifier, otherwise quoted.
+/// A property name in an object literal or a TypeScript object type: as it
+/// is if it's an identifier, otherwise quoted.
 fn ts_key(key: &str) -> String {
     if is_js_identifier(key) {
         key.to_string()
@@ -2297,7 +2296,7 @@ pub fn boundary_literal(g: &Globals, b: &Boundary, value: &Value) -> Result<Stri
             for ((name, b), field) in boundaries.iter().zip(runtime) {
                 parts.push(format!(
                     "{}: {}",
-                    js_string_literal(&key(g, *d, name)),
+                    ts_key(&key(g, *d, name)),
                     boundary_literal(g, b, field)?
                 ));
             }

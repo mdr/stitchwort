@@ -77,7 +77,12 @@ fn random_inputs_agree_with_the_reference_evaluator() {
                 // erased, so their value doesn't matter), and whether each
                 // precondition holds according to the reference evaluator.
                 let mut args = Vec::new();
-                let mut accepted = true;
+                // Records' proof fields must hold, as their decision
+                // procedures say (examples/extract/records.sw).
+                let mut accepted = data
+                    .iter()
+                    .zip(&sig.params)
+                    .all(|(v, (_, b))| proofs_hold(g, b, v));
                 for position in 0..arity {
                     if let Some(i) = sig.param_positions.iter().position(|p| *p == position) {
                         args.push(data[i].clone());
@@ -368,13 +373,55 @@ fn random_value(g: &Globals, b: &Boundary, rng: &mut Rng, depth: usize) -> Value
                 candidates
             };
             let c = candidates[rng.below(candidates.len())];
-            let fields = ctors[c]
+            // Erased fields (a record's proofs) are placeholders: they're
+            // checked by the record's decision procedures, not read.
+            let mut runtime = ctors[c].iter();
+            let fields = g.data(*d).ctors[c]
+                .field_erased
                 .iter()
-                .map(|(_, f)| random_value(g, f, rng, depth.saturating_sub(1)))
+                .map(|erased| match erased {
+                    true => Value::Refl,
+                    false => {
+                        let (_, f) = runtime.next().expect("a runtime field");
+                        random_value(g, f, rng, depth.saturating_sub(1))
+                    }
+                })
                 .collect();
             Value::Ctor(*d, c, fields)
         }
         Boundary::Param(_) => panic!("a boundary type of an export has no parameters"),
+    }
+}
+
+/// Whether the proof fields of every record in `value`, of boundary type
+/// `b`, hold according to their decision procedures, run by the reference
+/// evaluator: what the generated decoder checks.
+fn proofs_hold(g: &Globals, b: &Boundary, value: &Value) -> bool {
+    match (b, value) {
+        (Boundary::List(elem), Value::Ctor(_, 1, fields)) => {
+            proofs_hold(g, elem, &fields[0]) && proofs_hold(g, b, &fields[1])
+        }
+        (Boundary::Data(d, args), Value::Ctor(_, c, fields)) => {
+            let data = g.data(*d);
+            // Parameters are types, which nothing at runtime looks at.
+            let params: Vec<Value> = data.params.iter().map(|_| Value::Refl).collect();
+            let checked = data.validators.iter().filter(|v| v.ctor == *c).all(|v| {
+                let mut env = params.clone();
+                env.extend(fields[..v.field].iter().cloned());
+                let decision = force(g, eval(g, &env, &v.decision).unwrap()).unwrap();
+                matches!(decision, Value::Ctor(_, 0, _))
+            });
+            let runtime = fields
+                .iter()
+                .zip(&data.ctors[*c].field_erased)
+                .filter(|(_, erased)| !**erased);
+            checked
+                && field_boundaries(g, *d, args)[*c]
+                    .iter()
+                    .zip(runtime)
+                    .all(|((_, fb), (v, _))| proofs_hold(g, fb, v))
+        }
+        _ => true,
     }
 }
 
@@ -583,6 +630,58 @@ console.log("ok");
             ("trees.mjs", example(&examples, "trees.sw")),
             ("shapes.mjs", example(&examples, "shapes.sw")),
         ],
+        script,
+    );
+}
+
+/// Records at the boundary (docs/proposals/records.md §11): plain objects
+/// without a tag, keys in declared order, decoded as strictly as other data,
+/// and proof fields re-established by their decision procedures.
+#[test]
+fn records_cross_the_boundary_strictly() {
+    let examples = examples();
+    let script = r#"
+import * as r from "./records.mjs";
+import assert from "node:assert/strict";
+
+const refused = (f, pattern) =>
+  assert.throws(f, (e) => e instanceof r.StitchwortInputError && pattern.test(e.message));
+
+// Out: a plain object, keys in declared order, no tag, proofs left out.
+const ada = r.birthday({ name: "Ada", age: 36n });
+assert.deepEqual(ada, { name: "Ada", age: 37n });
+assert.deepEqual(Object.keys(r.birthday({ age: 1n, name: "x" })), ["name", "age"]);
+assert.equal(Object.getPrototypeOf(ada), Object.prototype);
+assert.deepEqual(r.sorted([1n, 2n]), { tag: "Just", value: { items: [1n, 2n] } });
+// Awkward keys: `tag` is an ordinary key; `__proto__` is still escaped.
+const w = r.weird({ tag: "t", $__proto__: 1n, constructor: 2n, x$: 3n });
+assert.deepEqual(Object.keys(w), ["tag", "$__proto__", "constructor", "x$"]);
+assert.equal(w.tag, "t!");
+assert.equal(Object.getPrototypeOf(w), Object.prototype);
+
+// In: own properties only, every field present, extra ones ignored.
+assert.equal(r.greet({ name: "Ada", age: 36n, email: "ada@example.com" }), "Hello, Ada");
+refused(() => r.greet({ name: "Ada" }), /^p\.age: missing$/);
+refused(() => r.greet(Object.create({ name: "Ada", age: 36n })), /^p\.name: inherited, not the object's own property$/);
+refused(() => r.greet(["Ada", 36n]), /^p: expected a Person object, not an array$/);
+refused(() => r.greet({ tag: "Person.mk", name: "Ada", age: -1n }), /^p\.age: /);
+let reads = 0;
+assert.equal(r.greet({ get name() { reads += 1; return "Ada"; }, age: 1n }), "Hello, Ada");
+assert.equal(reads, 1);
+refused(() => r.team({ lead: { name: "Ada" }, size: 1n }), /^t\.lead\.age: missing$/);
+
+// Proof fields: checked after the fields they're about are decoded.
+assert.deepEqual(r.smallest({ items: [1n, 4n] }), { tag: "Just", value: 1n });
+refused(() => r.smallest({ items: [4n, 1n] }), /^arg0: proof field `ok` \(`IsSorted items`\) doesn't hold$/);
+assert.equal(r.total({ items: [5n, 6n], size: 2n }), 2n);
+refused(() => r.total({ items: [5n, 6n], size: 3n }), /^s: proof field `ok` \(`length items = size`\) doesn't hold$/);
+// A proof passed in anyway is ignored, not trusted.
+refused(() => r.total({ items: [], size: 1n, ok: true }), /^s: proof field `ok`/);
+console.log("ok");
+"#;
+    run_script(
+        "records",
+        &[("records.mjs", example(&examples, "records.sw"))],
         script,
     );
 }
@@ -1428,6 +1527,7 @@ fn awkward_names_never_collide() {
     const ROUNDS: usize = 4;
     const TYPES_PER_ROUND: usize = 8;
     const CASES_PER_EXPORT: usize = 10;
+    const RECORDS_PER_ROUND: usize = 3;
 
     let mut rng = Rng(0x5eed_0fa7_4a3e);
     let pick = |rng: &mut Rng, pool: &[&'static str], n: usize| -> Vec<&'static str> {
@@ -1484,6 +1584,25 @@ fn awkward_names_never_collide() {
             }
             source.push('\n');
         }
+        // Records (docs/proposals/records.md §11.2): no tag, so a field `tag`
+        // is the key `tag`. Each is exported through an update that reads a
+        // field with `.`.
+        for k in 0..RECORDS_PER_ROUND {
+            let mut field_types = vec!["Nat", "Text", "Bool", "Char", "List Nat", "Maybe Text"];
+            field_types.extend(&types);
+            let count = 1 + rng.below(6);
+            let fields = pick(&mut rng, FIELDS, count);
+            let declared: Vec<String> = fields
+                .iter()
+                .map(|f| format!("{f} : {}", field_types[rng.below(field_types.len())]))
+                .collect();
+            let _ = writeln!(source, "type Rec{round}{k} = {{ {} }}", declared.join(", "));
+            let f = fields[rng.below(fields.len())];
+            let _ = writeln!(
+                source,
+                "\nexport\nrecord{round}{k} : Rec{round}{k} -> Rec{round}{k}\nrecord{round}{k} r = {{ r | {f} = r.{f} }}\n"
+            );
+        }
 
         let name = format!("awkward-{round}.sw");
         let mut session = Session::new();
@@ -1518,7 +1637,7 @@ fn awkward_names_never_collide() {
                 let literal = boundary_literal(g, b, &value).expect("argument encodes");
                 let _ = writeln!(
                     script,
-                    "{{ const input = {literal}; check(input); const r = m.{}({literal}); check(r); assert.deepEqual(r, input); }}",
+                    "{{ const input = {literal}; check(input); const r = m.{}({literal}); check(r); assert.deepEqual(r, input); assert.deepEqual(Object.keys(r), Object.keys(input)); }}",
                     sig.name
                 );
                 let _ = writeln!(typescript, "m.{}({literal});", sig.name);

@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-CANNOT-INFER] Error: can't tell which record type the value before `.name` is
+    ╭─[ reject/record-field-of-unknown.sw:13:29 ]
+    │
+ 13 │ described = describe (\p -> p.name)
+    │                             ───┬──  
+    │                                ╰──── its type isn't known here
+    │ 
+    │ Note 1: add a type annotation, as in `(p : Person)`
+    │ 
+    │ Note 2: `.name` looks the field up in the record's own type, so that type must be known where it's used: for a function, `\(p : Person) -> p.name`
+────╯

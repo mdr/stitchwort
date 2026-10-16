@@ -137,8 +137,8 @@ impl CompactText {
 /// The content hashes (DESIGN.md §11) of the prelude's `List` and `Char`,
 /// which the compact representation was written for. `Char`'s covers
 /// `MkChar`'s field types, and so `isScalar` and everything it uses.
-const LIST_HASH: &str = "b08f365c5aa6f902b5959c3afc7348782615ca0e5b1de5f530ac88b3d2e914cb";
-const CHAR_HASH: &str = "526dea76064064c49d484e4946cb75bc906b5276d5dc6e44fe18f0cc2191d746";
+const LIST_HASH: &str = "478989f1d859e17f3b556d5d4a33a9ca52e5587e6979f7703753f6462df3c094";
+const CHAR_HASH: &str = "cf82b6a2de144a6218c3efd371dd1513e5b30e458cce6ba7f631b827f038aaac";
 
 /// Whether `List` and `Char` are the declarations the compact representation
 /// was written for, and their hashes: for the test that fails when the

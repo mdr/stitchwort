@@ -1084,7 +1084,10 @@ fn free_names(work: Vec<Work<'_>>) -> Vec<&ast::Name> {
                         then(&mut stack, args.iter().map(Work::Pattern).collect());
                     }
                     Pattern::Record { fields, .. } => {
-                        then(&mut stack, fields.iter().map(|(_, p)| Work::Pattern(p)).collect());
+                        then(
+                            &mut stack,
+                            fields.iter().map(|(_, p)| Work::Pattern(p)).collect(),
+                        );
                     }
                     Pattern::Wildcard(_) | Pattern::Absurd(_) | Pattern::Num(..) => {}
                 }

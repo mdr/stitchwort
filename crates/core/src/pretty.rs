@@ -140,6 +140,19 @@ impl<'g> Printer<'g> {
                 args.iter().map(|a| &**a),
             ),
             Term::Ctor(d, 0, _) if data_named(self.g, *d, "UnitType") => ("()".into(), Prec::Atom),
+            // A record, as a literal: `{ name = "A", age = 3 }`.
+            Term::Ctor(d, 0, args) if self.g.data(*d).record => {
+                let fields: Vec<String> = self.g.data(*d).ctors[0]
+                    .fields
+                    .iter()
+                    .zip(args)
+                    .map(|((f, _), a)| format!("{f} = {}", self.print(names, a, Prec::Arrow)))
+                    .collect();
+                if fields.is_empty() {
+                    return ("{}".into(), Prec::Atom);
+                }
+                (format!("{{ {} }}", fields.join(", ")), Prec::Atom)
+            }
             Term::Ctor(d, c, args) => {
                 if let Some(n) = nat_literal(self.g, term) {
                     return (n.to_string(), Prec::Atom);

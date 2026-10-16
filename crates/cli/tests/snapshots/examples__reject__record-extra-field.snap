@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-UNKNOWN-FIELD] Error: `Person` has no field `email`
+   ╭─[ reject/record-extra-field.sw:7:37 ]
+   │
+ 7 │ alice = { name = "Alice", age = 30, email = "alice@example.com" }
+   │                                     ──┬──  
+   │                                       ╰──── `Person` has no field `email`
+   │ 
+   │ Note: its fields are `name`, `age`
+───╯

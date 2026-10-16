@@ -405,7 +405,18 @@ impl<'t> Parser<'t> {
                 }
                 let name = self.lower("a field name, or `..`")?;
                 let pattern = if self.eat(&Tok::Equals) {
-                    self.pattern()?
+                    // A constructor's arguments run to the next `,` or `}`.
+                    if let Some(Tok::Upper(_)) = self.peek() {
+                        let start = self.here();
+                        let name = self.upper("a constructor")?;
+                        let mut args = Vec::new();
+                        while !matches!(self.peek(), Some(Tok::Comma | Tok::RBrace) | None) {
+                            args.push(self.pattern()?);
+                        }
+                        Pattern::Ctor(name, args, start.to(self.prev_span()))
+                    } else {
+                        self.pattern()?
+                    }
                 } else {
                     Pattern::Var(name.clone())
                 };
@@ -452,7 +463,9 @@ impl<'t> Parser<'t> {
                     ctors.push(CtorDecl { name, fields });
                 }
                 if ctors.is_empty() {
-                    return Err(self.unexpected("`|` and a constructor, or `{` and a record's fields"));
+                    return Err(
+                        self.unexpected("`|` and a constructor, or `{` and a record's fields")
+                    );
                 }
             }
         }
@@ -972,12 +985,11 @@ impl<'t> Parser<'t> {
                         .with_note("`.` is for field access, as in `p.name`"));
                 }
             };
-            if expr.span().end != dot.start || dot.end != field.span.start {
-                return Err(error(
-                    dot,
-                    "field access is written without spaces around the `.`",
-                )
-                .with_note(format!("write `….{}`", field.text)));
+            if self.prev_span().end != dot.start || dot.end != field.span.start {
+                return Err(
+                    error(dot, "field access is written without spaces around the `.`")
+                        .with_note(format!("write `….{}`", field.text)),
+                );
             }
             self.pos += 2;
             expr = Expr::Field(Box::new(expr), field);
@@ -1187,6 +1199,110 @@ mod tests {
         let mut sources = SourceMap::new();
         let file = sources.add("test.sw", text);
         parse_module(file, text).unwrap_or_else(|errors| panic!("{errors:?}"))
+    }
+
+    fn expression(text: &str) -> Result<Expr> {
+        let mut sources = SourceMap::new();
+        let file = sources.add("test.sw", text);
+        parse_expression(file, text)
+    }
+
+    #[test]
+    fn a_record_declaration_is_one_constructor() {
+        let module =
+            parse("type Person =\n  { name : Text\n  , age : Nat\n  }\n\ntype Empty = {}\n");
+        let Decl::Data {
+            ctors,
+            record: true,
+            ..
+        } = &module.decls[0]
+        else {
+            panic!("expected a record");
+        };
+        assert_eq!(ctors.len(), 1);
+        assert_eq!(ctors[0].name.text, "Person.mk");
+        let names: Vec<&str> = ctors[0]
+            .fields
+            .iter()
+            .map(|b| b.names[0].text.as_str())
+            .collect();
+        assert_eq!(names, ["name", "age"]);
+        assert!(
+            matches!(&module.decls[1], Decl::Data { ctors, record: true, .. } if ctors[0].fields.is_empty())
+        );
+    }
+
+    #[test]
+    fn record_literals_updates_and_puns() {
+        let e = expression("{ b = f x, a }").unwrap();
+        let Expr::Record {
+            base: None, fields, ..
+        } = &e
+        else {
+            panic!("expected a literal");
+        };
+        // In the order written; a pun is a variable.
+        assert_eq!(fields[0].0.text, "b");
+        assert!(matches!(&fields[0].1, Expr::App(..)));
+        assert!(matches!(&fields[1].1, Expr::Var(n) if n.text == "a"));
+        let e = expression("{ f p | age = 1 }").unwrap();
+        let Expr::Record {
+            base: Some(base),
+            fields,
+            ..
+        } = &e
+        else {
+            panic!("expected an update");
+        };
+        assert!(matches!(**base, Expr::App(..)));
+        assert_eq!(fields.len(), 1);
+        let e = expression("{}").unwrap();
+        assert!(matches!(&e, Expr::Record { base: None, fields, .. } if fields.is_empty()));
+        // An update needs a field.
+        assert!(expression("{ p | }").is_err());
+    }
+
+    #[test]
+    fn field_access_binds_tighter_than_application() {
+        // `f p.name q` is `f (p.name) q`.
+        let e = expression("f p.name q").unwrap();
+        let Expr::App(f, q) = &e else {
+            panic!("expected an application");
+        };
+        assert!(matches!(**q, Expr::Var(_)));
+        let Expr::App(_, arg) = &**f else {
+            panic!("expected `f (p.name)`");
+        };
+        assert!(
+            matches!(&**arg, Expr::Field(e, n) if n.text == "name" && matches!(**e, Expr::Var(_)))
+        );
+        // Chains, and parenthesised expressions.
+        let e = expression("t.lead.name").unwrap();
+        assert!(matches!(&e, Expr::Field(inner, _) if matches!(**inner, Expr::Field(..))));
+        assert!(matches!(expression("(f x).age").unwrap(), Expr::Field(..)));
+        // No spaces around the dot, and a field name after it.
+        for bad in ["p .name", "p. name", "p.Name", "p.1"] {
+            assert!(expression(bad).is_err(), "{bad}");
+        }
+    }
+
+    #[test]
+    fn record_patterns() {
+        let module = parse("f { name, age = Succ n, .. } { tag = (Cons x xs) } = 0\n");
+        let Decl::Equation { patterns, .. } = &module.decls[0] else {
+            panic!("expected an equation");
+        };
+        let Pattern::Record {
+            fields, rest: true, ..
+        } = &patterns[0]
+        else {
+            panic!("expected a record pattern with `..`");
+        };
+        assert!(matches!(&fields[0].1, Pattern::Var(n) if n.text == "name"));
+        assert!(
+            matches!(&fields[1].1, Pattern::Ctor(n, args, _) if n.text == "Succ" && args.len() == 1)
+        );
+        assert!(matches!(&patterns[1], Pattern::Record { rest: false, .. }));
     }
 
     #[test]

@@ -117,8 +117,7 @@ impl Elaborator {
             let span = data.span;
             let id = kernel::declare_def(&mut self.globals, &name, &ty, false, false, span)?;
             kernel::define_def(&mut self.globals, id, &body)?;
-            self.names
-                .insert(name.to_string(), (Global::Def(id), span));
+            self.names.insert(name.to_string(), (Global::Def(id), span));
             out.push(Some(id));
         }
         Ok(out)
@@ -135,7 +134,7 @@ impl Elaborator {
         let ctor = &data.ctors[0];
         let record = data.name.to_string();
         let span = data.span;
-        if self.names.get("Decidable").is_none() {
+        if !self.names.contains_key("Decidable") {
             return Ok(Some("there's no prelude".into()));
         }
         if !data.params.is_empty() {
@@ -169,7 +168,11 @@ impl Elaborator {
             let ty = cx.eval(ty)?;
             cx.bind_hidden("x".into(), ty.clone());
             cx.bind_hidden("y".into(), ty.clone());
-            let eq = Value::Eq(Rc::new(ty.clone()), Rc::new(Value::var(0)), Rc::new(Value::var(1)));
+            let eq = Value::Eq(
+                Rc::new(ty.clone()),
+                Rc::new(Value::var(0)),
+                Rc::new(Value::var(1)),
+            );
             if auto::decide(&mut cx, &eq, 0).is_err() {
                 self.clear_metas();
                 return Ok(Some(format!(
@@ -261,7 +264,11 @@ impl Elaborator {
             span,
         };
         let pattern = |f: &dyn Fn(usize) -> String| {
-            Pattern::Ctor(n(&mk), (0..count).map(|k| Pattern::Var(n(&f(k)))).collect(), span)
+            Pattern::Ctor(
+                n(&mk),
+                (0..count).map(|k| Pattern::Var(n(&f(k)))).collect(),
+                span,
+            )
         };
         let equation = Decl::Equation {
             name,
@@ -354,9 +361,9 @@ impl Elaborator {
         names.extend(data.ctors[c].fields[..i].iter().map(|(x, _)| x.clone()));
         let field_ty = data.ctors[c].fields[i].1.clone();
         self.clear_metas();
+        let shown = stitchwort_core::pretty::term(&self.globals, &names, &field_ty);
         let mut cx = Ctx::from_parts(self, env.to_vec(), types.to_vec(), names, span);
         let prop = cx.eval(&field_ty)?;
-        let shown = cx.show(&prop);
         let decision = auto::decide(&mut cx, &prop, 0).map_err(|e| {
             if e.code == "E-RESOURCE" {
                 return e;
@@ -522,7 +529,7 @@ pub(crate) fn infer_field(cx: &mut Ctx, e: &Expr, field: &ast::Name) -> Result<(
     let (term, ty) = infer(cx, e)?;
     let (term, ty) = insert(cx, term, ty)?;
     let g = cx.g();
-    let (d, params) = match record_type(cx, &ty, &format!("`.{}`", field.text)) {
+    let (d, params) = match record_type(cx, &ty, &format!("the value before `.{}`", field.text)) {
         Ok(found) => found,
         Err(e) if e.code == "E-CANNOT-INFER" => {
             return Err(e.with_note(format!(
@@ -545,7 +552,10 @@ pub(crate) fn infer_field(cx: &mut Ctx, e: &Expr, field: &ast::Name) -> Result<(
         return Err(cx.error(
             "E-PROP-ELIM",
             format!("can't take field `{}` out of a proof", field.text),
-            format!("`{}` is a proposition, and `{}` is data", data.name, field.text),
+            format!(
+                "`{}` is a proposition, and `{}` is data",
+                data.name, field.text
+            ),
         ));
     };
     let mut term_out = Term::Def(proj);
@@ -618,7 +628,11 @@ fn literal(
     if !missing.is_empty() {
         return Err(cx.error(
             "E-RECORD-FIELD",
-            format!("this `{}` is missing {}", g.data(d).name, missing.join(", ")),
+            format!(
+                "this `{}` is missing {}",
+                g.data(d).name,
+                missing.join(", ")
+            ),
             "every field must be given",
         ));
     }

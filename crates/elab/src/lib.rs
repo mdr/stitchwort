@@ -1423,8 +1423,13 @@ impl Elaborator {
                     format!("missing case: no equation matches `{example}`"),
                 ));
             }
-            let body =
-                self.compile(&branch_rows, depth + k, &branch_columns, &branch_types, span)?;
+            let body = self.compile(
+                &branch_rows,
+                depth + k,
+                &branch_columns,
+                &branch_types,
+                span,
+            )?;
             let names = names
                 .into_iter()
                 .zip(&ctor.fields)

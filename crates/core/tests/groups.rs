@@ -654,8 +654,11 @@ fn a_single_recursive_definition_keeps_its_hash() {
     let p = Prelude::new();
     assert_eq!(
         hash_of(&p.g, p.add).unwrap().hex(),
-        // Computed with the hasher from before groups (commit a4fa333).
-        "296bbb2671e12fa3a59633d65bb52b20f1f4e1c156f56eaa2d93c94cda0e1098"
+        // Computed with the hasher from before groups (commit a4fa333), then
+        // updated when data types' field names were hashed
+        // (docs/proposals/records.md §12), which changed `Nat`'s hash; with
+        // field names left out, the old value still comes out.
+        "1dd1ee02bf1534d9fe5b3bbb7b277bc9fa28032640e6114cc30615d33ae82f00"
     );
 }
 

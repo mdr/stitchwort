@@ -5,7 +5,8 @@ in [§15](#15-questions-for-the-user) (see [Decisions](#decisions-16-october-202
 below), and an external review of draft 1.1 has been adopted (see
 [Changes since draft 1.1](#changes-since-draft-11) and
 [the review's answers](#the-reviews-answers)). Stage 1 is approved; stage 2
-waits on nothing but implementation of §7's contract. This is DESIGN.md milestone 8
+waits on nothing but implementation of §7's contract. **Stage 1 is built**
+([§6.5](#65-as-built-stage-1)). This is DESIGN.md milestone 8
 ([§9](../../DESIGN.md#9-records)), which sketches records but leaves their
 representation, their equality and their JS form open.
 
@@ -727,6 +728,161 @@ still a column, its type mentioning earlier columns); deeper flattening can
 follow. Descent is only ever taken from certified provenance (a field of an
 actual parameter, or of a known descendant), never from a term's type
 happening to be a record, or from eta relating it to another term.
+
+### 6.5 As built (stage 1)
+
+Built on 16 October 2026, as §6.1–§6.4 describe, with these details and
+limits.
+
+**Surface.**
+
+```
+type Person = { name : Text, age : Nat }             -- or one field per line
+type Sized (a : Type) = { items : List a, size : Nat, ok : length items = size }
+
+alice : Person
+alice = { name = "Alice", age = 30 }                  -- any order; `{ name, age }` puns
+birthday : Person -> Person
+birthday p = { p | age = p.age + 1 }
+describe : Person -> Text
+describe { name, age } = name ++ " is " ++ natToText age
+firstLead (Cons { lead = { name, .. }, .. } rest) = name
+```
+
+- **Declaration.** `type R (params) : sort = { field : T, … }` is a data type
+  with one constructor, `R.mk`, whose fields are the record's. `{}` is a
+  record with no fields. A field name given twice is `E-DUPLICATE`.
+- **Literal** `{ f = e, … }`, with punning `{ f }`. Checked against the
+  expected type; with none, `E-CANNOT-INFER` suggesting `(… : Person)`. An
+  unknown field is `E-UNKNOWN-FIELD` (listing the fields), a missing or
+  repeated one `E-RECORD-FIELD`. Against a type that isn't a record,
+  `E-NOT-A-RECORD`.
+- **Access** `e.f`, written with no spaces around the `.` (otherwise
+  `E-PARSE`), binds tighter than application and chains (`t.lead.name`,
+  `(f x).age`). **Resolution:** the elaborator infers `e`'s type and reduces
+  it. A declared record with a field `f` gives the projection `R.f` applied
+  to the record's parameters and `e`; a record without `f` is
+  `E-UNKNOWN-FIELD`; any other known type is `E-NOT-A-RECORD`; an unknown
+  type (a lambda's parameter with nothing to say what it is) is
+  `E-CANNOT-INFER`, suggesting `\(p : Person) -> p.name`. Field names are
+  looked up only in the record's own declaration, never across records.
+  `R.f` can't be written in source: there, `Person.name` is field access on
+  `Person`, which isn't a record.
+- **Update** `{ base | f = e, … }`: checked against the expected type, or
+  its type inferred from `base`. A non-replaced later field whose type
+  mentions a replaced one is `E-RECORD-UPDATE`.
+- **Patterns** `{ f = p, g, .. }`, nested anywhere a pattern can be,
+  resolved by the type of what they match: a parameter's type from the
+  signature, or a field's type from the constructor matched around it (the
+  pattern compiler now carries each column's type where it's known). A
+  constructor pattern after `=` takes its arguments without parentheses
+  (`{ items = Cons x xs, .. }`). A field left out without `..` is
+  `E-RECORD-FIELD`.
+- **In a function type's result**, `{` starts an ability row
+  (`Nat -> {IO} Nat`), so a record literal there needs parentheses:
+  `(p : Person) -> ({ p | age = p.age } = p)`.
+- **`Prop` records** are allowed; their proof fields have projections, their
+  data fields don't, and reading one is `E-PROP-ELIM`.
+
+**What the kernel sees.** As §6.2: the data type, flagged as a record
+(`Data::record`, set by `declare_data_group_as`, fixed at declaration;
+`define_data_group` refuses a record without exactly one constructor), and
+one generated definition per field, `R.f : [params] -> R params -> T`, by a
+one-branch case, in which earlier fields are projections
+(`Sized.ok : (r : Sized) -> length (Sized.items r) = Sized.size r`). The
+kernel uses the flag only for hashing; nothing in checking depends on it.
+
+**Evaluation order** (§6.1). In pure code a literal is the constructor,
+fields in declaration order (the order isn't observable). In a
+computation, the elaborator runs an update's base, then each field
+expression that performs operations, in the order written, binding each
+result to a variable (the mechanism effectful arguments already use), and
+then builds the record from those variables: `{ b = next (), a = next () }`
+reads `b` first (`examples/accept/records-effects.sw`). An update whose
+base isn't a variable binds it to one first (`(\r -> R.mk … (R.f r) …)
+base`), so the base is evaluated once and never copied into each
+projection. One consequence: in `{ e | … }` with `e` not a variable, the
+new fields are checked knowing only that the base is *some* `R`, not that
+it's `e`.
+
+**`==`** (§11.4). For a record `R` with no parameters whose fields are all
+data, none depending on another, and each with a decision procedure for
+`=` when `R` is checked, the elaborator derives `R.decEq : (r s : R) ->
+Decidable (r = s)`, an ordinary definition (generated as source and
+checked like user code): it matches both records, decides each field with
+`if h : a = b`, proves equality by transporting along each field's proof
+in turn, and refutes with `cong R.f`. `==` finds it like any decision
+procedure. Otherwise nothing is derived, and `==` on `R` is `E-AUTO-NONE`
+with a note saying why (a proof or type field, a dependent field,
+parameters, or a field type without a decision procedure). Proof-field
+records via proof-uniqueness lemmas and dependent fields via transport are
+left to the user for now; there's no data-only `sameData`.
+
+**Termination.** No new principle (§6.4): a record pattern binds its fields
+as `<` the record, like any constructor; `p.f` is a call, so unknown for
+size change. The `sum` example is refused; field-path descent is later.
+
+**JavaScript.** A record is a plain object without a tag, keys in declared
+order, the same inside the generated code and at the boundary. Keys follow
+DESIGN §12 except that a field `tag` keeps the key `tag` (`record_key`);
+`__proto__` is still `$__proto__`. A record case reads its fields with no
+`switch`. The `.d.ts` has a named alias, structural like every TS object
+type:
+
+```ts
+export type Person = { readonly name: string; readonly age: bigint };
+export type Box<a> = { readonly value: a };
+export type SortedList = { readonly items: readonly bigint[] };  // `ok` omitted
+```
+
+Decoding is the existing strict decoder without the tag (own properties
+only, each read once, extra ones ignored, arrays refused). **Proof fields
+coming in:** when an export's parameter or result contains a record with
+a proof field, the elaborator finds a decision procedure for the field's
+proposition (in the context of the parameters and earlier fields), which
+the kernel type-checks (`add_field_validator`, stored on the data type),
+and the decoder runs it on each decoded object of that type, refusing the
+input (`s: proof field `ok` (`length items = size`) doesn't hold`) if it
+doesn't say `Yes`. A proof field without one makes the export `E-EXPORT`.
+A record with a type-valued field still can't cross. Ordinary data types
+with proof fields are still refused at the boundary, as before.
+
+**Hashes** (§12). Every data type's hash now covers its fields' names and
+the record flag. This changed the hash of every data type (and everything
+using one); the pinned hashes of `List`, `Char`, the text natives and the
+prelude's `add` were updated after checking that, with field names left
+out, the old values still came out.
+
+**Tests.** Parser tests (declarations, literals, updates, punning, access
+precedence and spacing, patterns); `crates/driver/tests/records.rs` (the
+record flag is hashed, a record has exactly one constructor, the kernel
+checks field validators, generated projection types, derived `==` on every
+field); `crates/cli/tests/caching.rs` (renaming or reordering a field
+changes the hash, layout doesn't); `examples/accept/records.sw` and
+`records-effects.sw`; thirteen rejects (`record-*`,
+`export-record-unchecked-proof`), each with an accepted neighbour;
+`examples/extract/records.sw` with differential runs, random inputs
+(proof fields judged by the reference evaluator), `tsc`, and
+`records_cross_the_boundary_strictly`; records added to
+`awkward_names_never_collide`. Manual mutations, each caught: running a
+literal's effectful fields in reverse (two `records-effects` tests fail);
+dropping the decoder's proof-field checks (`records_cross_the_boundary_strictly`
+and the random differential test fail); disabling `E-RECORD-UPDATE` (the
+reject then fails for the wrong reason, a type mismatch, so the kernel's
+check backs the rule).
+
+**Not done in stage 1.** Proof-uniqueness and transport for `==`;
+`(.name)` sections; anonymous record types (`{ x : Nat }` as a type isn't
+parsed); validators for ordinary data types' proof fields; printing `R.f r`
+as `r.f` in messages (records themselves print as literals); a generated
+`etaR` lemma.
+
+**What stage 2 needs from this.** Replace the generated projections of eta
+records by `Proj` (keeping them for records without eta, §8.6), add the
+eta mode next to the record flag in `declare_data_group_as` and the hash,
+and add §14's stage-2 tests. The elaborator's `RecordInfo` (projections per
+field, and why `==` wasn't derived) is the start of §8.6's field
+description.
 
 ## 7. Stage 2: projections and eta in the kernel
 
