@@ -1,4 +1,5 @@
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Stitchwort Playground</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,6 +19,8 @@
     --ok: #2f7a47;
     --bad: #a83b34;
     --bad-soft: #f6e4e1;
+    --warn: #865800;
+    --warn-soft: #f6ecd5;
     /* Syntax colours for the source: hedgerow flowers on the same paper. */
     --hl-keyword: #2d6a3e;
     --hl-name: #1f6470;
@@ -34,7 +37,7 @@
     :root:not([data-theme="light"]) {
       --paper: #111814; --petal: #0b100d; --ink: #e3ece4; --muted: #95a699;
       --line: #27332b; --leaf: #82c795; --leaf-soft: #1b2a20; --ok: #7fcb95;
-      --bad: #ef8f86; --bad-soft: #2f1a18; color-scheme: dark;
+      --bad: #ef8f86; --bad-soft: #2f1a18; --warn: #e3b55e; --warn-soft: #2c2412; color-scheme: dark;
       --hl-keyword: #82c795; --hl-name: #7cc4c9; --hl-defined: #9db8ec; --hl-number: #c9a3e0;
       --hl-string: #e0b870; --hl-comment: #7f9184; --hl-operator: #a3b8a8;
       --hl-selection: rgb(130 199 149 / 0.25);
@@ -43,7 +46,7 @@
   :root[data-theme="dark"] {
     --paper: #111814; --petal: #0b100d; --ink: #e3ece4; --muted: #95a699;
     --line: #27332b; --leaf: #82c795; --leaf-soft: #1b2a20; --ok: #7fcb95;
-    --bad: #ef8f86; --bad-soft: #2f1a18; color-scheme: dark;
+    --bad: #ef8f86; --bad-soft: #2f1a18; --warn: #e3b55e; --warn-soft: #2c2412; color-scheme: dark;
     --hl-keyword: #82c795; --hl-name: #7cc4c9; --hl-defined: #9db8ec; --hl-number: #c9a3e0;
     --hl-string: #e0b870; --hl-comment: #7f9184; --hl-operator: #a3b8a8;
     --hl-selection: rgb(130 199 149 / 0.25);
@@ -53,6 +56,7 @@
   html { height: 100%; }
   body {
     min-height: 100%;
+    margin: 0;
     background: var(--paper);
     color: var(--ink);
     font-family: var(--sans);
@@ -68,6 +72,7 @@
     gap: 14px;
   }
   *, *::before, *::after { box-sizing: inherit; }
+  [hidden] { display: none !important; }
 
   header {
     display: flex;
@@ -214,6 +219,9 @@
   }
   .status.bad { background: var(--bad-soft); color: var(--bad); }
   .status.idle { color: var(--muted); }
+  /* The warning count: a button that shows them in the Check tab. */
+  button.status.warn { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
+  button.status.warn:hover { border-color: var(--warn); }
   .status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 
   .tabs { display: flex; flex-wrap: wrap; gap: 4px; }
@@ -243,6 +251,9 @@
     flex-direction: column;
     gap: 12px;
   }
+  /* Each result keeps its full height, and the pane scrolls; otherwise a
+     box that scrolls itself, like a <pre>, is squeezed to fit. */
+  .output > * { flex-shrink: 0; }
   .output p { margin: 0; max-width: 62ch; }
   .hint { color: var(--muted); font-size: 0.88rem; }
   pre {
@@ -255,6 +266,7 @@
     overflow-x: auto;
   }
   pre.errors { color: var(--bad); }
+  pre.warnings { color: var(--warn); }
 
   .evalrow, .runrow { display: flex; gap: 8px; }
   button.run { margin-left: auto; }
@@ -299,6 +311,16 @@
     font-weight: 650;
   }
 
+  /* A phone: the panes are stacked (above), so the results get more height.
+     Text boxes get 16px text, as with less a phone zooms in on focusing
+     them, and the editor's padding shrinks to leave room for the code. */
+  @media (max-width: 600px) {
+    textarea#source, pre#highlight { font-size: 16px; padding: 10px 12px; }
+    select, input[type="text"], textarea#run-input { font-size: 16px; }
+    .output { min-height: 70vh; }
+    .tabs button { padding: 5px 7px; }
+  }
+
   @media (prefers-reduced-motion: no-preference) {
     .status { transition: background-color 150ms, color 150ms; }
   }
@@ -333,6 +355,7 @@
   <section class="pane" aria-label="Source">
     <div class="pane-head">
       <span id="status" class="status idle">Loading the compiler…</span>
+      <button id="warning-count" class="status warn" type="button" title="Show the warnings" hidden></button>
       <button id="run" class="primary run" type="button" title="Run main (Ctrl+Enter)">Run ▸</button>
     </div>
     <div class="editor">
@@ -554,6 +577,7 @@ area (Rect w h) = w * h
   const output = document.getElementById("output");
   const picker = document.getElementById("example");
   const runButton = document.getElementById("run");
+  const warningCount = document.getElementById("warning-count");
   const tabs = [...document.querySelectorAll(".tabs button")];
   const examples = [...document.querySelectorAll('script[type="text/plain"]')];
 
@@ -844,8 +868,20 @@ area (Rect w h) = w * h
     status.className = "status " + (kind || "");
   }
 
-  function errorsView(errors) {
-    return [el("h2", {}, "Errors"), el("pre", { className: "errors" }, errors)];
+  /** The errors, then the warnings, if any (from a check's answer). */
+  function errorsView(errors, warnings) {
+    return [el("h2", {}, "Errors"), el("pre", { className: "errors" }, errors), ...warningsView(warnings)];
+  }
+
+  function warningsView(warnings = []) {
+    return warnings.length ? [el("h2", {}, "Warnings"), el("pre", { className: "warnings" }, warnings.join(""))] : [];
+  }
+
+  /** Shows how many warnings there are, next to the status. */
+  function setWarnings(warnings = []) {
+    const n = warnings.length;
+    warningCount.hidden = n === 0;
+    warningCount.textContent = n === 1 ? "1 warning" : `${n} warnings`;
   }
 
   /** Each render has a number; a newer one supersedes it. */
@@ -859,12 +895,14 @@ area (Rect w h) = w * h
       runStale.hidden = ranSource === null || ranSource === src;
     }
     const checked = await ask({ action: "check", source: src });
-    if (current !== rendering || !checked) return;
+    if (current !== rendering) return;
+    setWarnings(checked?.warnings);
+    if (!checked) return;
     setStatus(checked.ok ? "Checked by the kernel" : "Doesn’t check", checked.ok ? "" : "bad");
 
     if (view === "run") {
       runChecked.replaceChildren(...(checked.ok ? [] :
-        [el("p", { className: "hint" }, "This doesn’t check yet."), ...errorsView(checked.errors)]));
+        [el("p", { className: "hint" }, "This doesn’t check yet."), ...errorsView(checked.errors, checked.warnings)]));
       return;
     }
 
@@ -873,15 +911,17 @@ area (Rect w h) = w * h
       if (checked.ok) {
         output.append(
           el("p", {}, "Every definition type-checks, every recursive function terminates, and every proof holds. The kernel re-checked them all."),
-          el("p", { className: "hint" }, "Edit the source to see errors as you type. The Tests, Evaluate, JavaScript and Run tabs use the same program."));
+          el("p", { className: "hint" }, "Edit the source to see errors as you type. The Tests, Evaluate, JavaScript and Run tabs use the same program."),
+          ...warningsView(checked.warnings));
       } else {
-        output.append(...errorsView(checked.errors));
+        output.append(...errorsView(checked.errors, checked.warnings));
       }
       return;
     }
 
     if (!checked.ok) {
-      output.append(el("p", { className: "hint" }, "Fix the errors first; the Check tab shows them."), ...errorsView(checked.errors));
+      output.append(el("p", { className: "hint" }, "Fix the errors first; the Check tab shows them."),
+                    ...errorsView(checked.errors, checked.warnings));
       return;
     }
 
@@ -904,7 +944,7 @@ area (Rect w h) = w * h
       const failed = result.tests.filter((t) => t.outcome === "failed").length;
       const unfinished = result.tests.filter((t) => !t.passed && t.outcome !== "failed").length;
       output.append(list, el("p", { className: "summary" },
-        `${result.tests.length} tests: ${result.tests.length - failed - unfinished} passed, ${failed} failed` +
+        `${result.tests.length} test${result.tests.length === 1 ? "" : "s"}: ${result.tests.length - failed - unfinished} passed, ${failed} failed` +
         (unfinished ? `, ${unfinished} ran out of resources` : "")));
       return;
     }
@@ -1078,6 +1118,7 @@ area (Rect w h) = w * h
   }
 
   for (const tab of tabs) tab.addEventListener("click", () => selectView(tab.dataset.view));
+  warningCount.addEventListener("click", () => selectView("check"));
   picker.addEventListener("change", () => loadExample(picker.value));
   source.addEventListener("input", refresh);
   source.addEventListener("keydown", (e) => {
