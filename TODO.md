@@ -50,9 +50,12 @@ capability we know we'll need before the work that needs it):
    its default constructors). Reviewed: approved, with clarifications. Draft 2
    and stage 0 (built-ins bound to fixed declaration identities) merged as
    `06c78d2`. Stage 1 (namespaces, qualified names, `import`, the prelude
-   in `Std`, every example rewritten) merged as `46d6578`. Lane
-   `namespaces-stage2` (fresh agent) now on stage 2, dot notation; handover
-   in namespaces.md §9 "As built". Noticed, not investigated: a signature
+   in `Std`, every example rewritten) merged as `46d6578`. Stage 2 (dot
+   notation by type, `e.f args`) merged (`dc201e6`); decisions in
+   namespaces.md §9 "As built". Follow-ups: narrowing of speculative
+   dependencies (mitigation 2); rewrite examples to dot notation; §5's
+   mixed-kind example is accepted (records get no speculative edges) —
+   user to confirm; `xs.map` needs list functions in `Std.List`. Noticed, not investigated: a signature
    `Comp NoOp NoRes Nat` behaves like `Nat`.
    Alongside, for Advent of Code: lane `aoc-survey` (Sonnet) surveys days
    1–5 of AoC 2025 from the user's solutions and inputs to rank what the
