@@ -410,6 +410,24 @@ impl<'g> Hasher<'g> {
                     self.tag("nat");
                     self.nat(n);
                 }
+                // The logical contents (never the buffer or the offsets), and
+                // `List` and `Char`, which the expansion refers to: through
+                // `Char`'s fields, they cover `isScalar` too.
+                Term::Chars(chars) => {
+                    let text = self
+                        .g
+                        .builtins
+                        .text
+                        .as_ref()
+                        .expect("internal error: a compact list without `List` and `Char`");
+                    self.tag("chars");
+                    self.data_ref(text.list)?;
+                    self.data_ref(text.char)?;
+                    self.usize(chars.len());
+                    for c in chars.as_slice() {
+                        self.bytes(&u32::from(*c).to_le_bytes());
+                    }
+                }
                 Term::Sort(s) => self.sort(*s),
                 Term::Pi(_, icit, a, b) => {
                     self.tag("pi");

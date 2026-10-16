@@ -43,6 +43,24 @@ pub const ALL: &[Benchmark] = &[
             )
         },
     },
+    // A long literal is one compact list in the checked term (compact text,
+    // stage 2): checking it, and walking it.
+    Benchmark {
+        name: "check-text-literal",
+        about: "checks a definition whose body is a text literal of 50,000 characters",
+        prepare: || check(format!("big : Text\nbig = \"{}\"\n", "abcd,".repeat(10000))),
+    },
+    Benchmark {
+        name: "text-literal-walk",
+        about: "counts the characters of a text literal of 100,000 characters, with an accumulator",
+        prepare: || {
+            let program = format!(
+                "{TEXT}\nbig : Text\nbig = \"{}\"\n",
+                "abcd,\\u{1F600}".repeat(16667)
+            );
+            eval(program, "lengthFrom 0 (textToList big)", "100002")
+        },
+    },
     Benchmark {
         name: "text-nat-to-text",
         about: "`natToText` on 10,000 numbers of up to 11 digits",
@@ -168,6 +186,10 @@ const TEXT: &str = "
 repText : Nat -> Text -> Text
 repText Zero     t = \"\"
 repText (Succ n) t = t ++ repText n t
+
+lengthFrom : Nat -> List Char -> Nat
+lengthFrom k Nil         = k
+lengthFrom k (Cons c cs) = lengthFrom (Succ k) cs
 
 -- The total length of `natToText` of `k` numbers spread over 0 to about 10^10.
 natTexts : Nat -> Nat -> Nat

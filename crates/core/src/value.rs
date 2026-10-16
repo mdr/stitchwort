@@ -11,6 +11,7 @@ use std::rc::Rc;
 use num_bigint::BigUint;
 
 use crate::budget::{ResourceError, Result};
+use crate::chars::{self, Chars};
 use crate::globals::Globals;
 use crate::native;
 use crate::term::{DataId, DefId, Icit, Name, Sort, Term};
@@ -28,6 +29,9 @@ pub enum Value {
     /// `k + x` for a number `k ≥ 1` and an `x` not built from numbers:
     /// `Succ` applied `k` times to `x`. See [`native::view`].
     NatAdd(Rc<BigUint>, Rc<Value>),
+    /// A `List Char`, standing for `Cons (MkChar c rfl) … Nil`. Never empty
+    /// when made by evaluation (that's `Nil`). See [`chars`].
+    Chars(Chars),
     Eq(Rc<Value>, Rc<Value>, Rc<Value>),
     Refl,
     /// A computation stuck on a variable or an unsolved metavariable, or a
@@ -196,7 +200,7 @@ fn detach(value: Value, empty: &Rc<[Value]>, pending: &mut Vec<Value>) {
                 }
             }
         }
-        Value::Sort(_) | Value::Nat(_) | Value::Refl => {}
+        Value::Sort(_) | Value::Nat(_) | Value::Chars(_) | Value::Refl => {}
     }
 }
 
@@ -262,6 +266,7 @@ fn describe(value: &Value) -> &'static str {
         Value::Data(..) => "a data type",
         Value::Ctor(..) => "a constructor",
         Value::Nat(_) | Value::NatAdd(..) => "a number",
+        Value::Chars(_) => "a list of characters",
         Value::Eq(..) => "an equation",
         Value::Refl => "rfl",
         Value::Neutral(..) => "a stuck term",
@@ -458,6 +463,7 @@ fn quick(g: &Globals, term: &Rc<Term>, env: &Env) -> Option<Value> {
     match &**term {
         Term::Var(ix) => Some(env[env.len() - 1 - ix].clone()),
         Term::Nat(n) => Some(Value::Nat(n.clone())),
+        Term::Chars(c) => Some(chars_value(g, c)),
         Term::Sort(s) => Some(Value::Sort(*s)),
         Term::Refl => Some(Value::Refl),
         Term::Lam(x, i, b) => Some(Value::Lam(
@@ -505,6 +511,7 @@ fn eval_step(g: &Globals, term: Rc<Term>, env: Env, stack: &mut Vec<Frame>) -> R
             fields(g, term.clone(), env, done, stack)?
         }
         Term::Nat(n) => Control::Return(Value::Nat(n.clone())),
+        Term::Chars(c) => Control::Return(chars_value(g, c)),
         Term::Sort(s) => Control::Return(Value::Sort(*s)),
         Term::Pi(_, _, a, _) => {
             let a = a.clone();
@@ -771,6 +778,27 @@ fn resume(g: &Globals, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Re
     })
 }
 
+/// The value of a compact list. Only checked terms, and the elaborator's
+/// (which makes them only once the representation is registered), are
+/// evaluated, and the kernel refuses `Term::Chars` without it.
+fn chars_value(g: &Globals, c: &Chars) -> Value {
+    let text = g
+        .builtins
+        .text
+        .as_ref()
+        .expect("internal error: compact text without `List` and `Char`");
+    chars::value(text, c.clone())
+}
+
+/// One step of the expansion of a compact list `value`, as matching sees it
+/// (see [`chars::step`]); anything else as it is.
+pub fn expand_step(g: &Globals, value: Value) -> Value {
+    match (&value, &g.builtins.text) {
+        (Value::Chars(c), Some(text)) => chars::step(text, c),
+        _ => value,
+    }
+}
+
 /// Whether `value` is headed by a solved metavariable.
 fn needs_forcing(g: &Globals, value: &Value) -> bool {
     matches!(value, Value::Neutral(Head::Meta(m), _) if g.meta_solution(*m).is_some())
@@ -813,6 +841,11 @@ fn branch(
                 None => return Ok(stuck_tree(stuck)),
             }
         }
+        // A compact list: what matching its expansion would find.
+        Value::Chars(chars) => match &g.builtins.text {
+            Some(text) if text.list == *d => chars::split(text, &chars),
+            _ => return Ok(stuck_tree(stuck)),
+        },
         _ => return Ok(stuck_tree(stuck)),
     };
     env.extend(fields);
@@ -967,6 +1000,11 @@ fn visit(
     match force(g, value)? {
         Value::Sort(s) => done.push(Term::Sort(s)),
         Value::Nat(n) => done.push(Term::Nat(n)),
+        // The range, as a term; it means what its expansion would.
+        Value::Chars(c) => done.push(match &g.builtins.text {
+            Some(text) => chars::term(text, &c),
+            None => unreachable!("a compact list without `List` and `Char`"),
+        }),
         Value::Refl => done.push(Term::Refl),
         Value::Pi(x, i, a, b) => {
             tasks.push(QuoteTask::Pi(x, i));
@@ -1081,6 +1119,23 @@ fn conv_step(
             },
             |_, _| Ok(false),
         );
+    }
+    // Compact lists: two ranges are equal when their characters are (their
+    // expansions are then the same), and a range against anything else is
+    // expanded one cell, which is then compared as a constructor. So a
+    // compact `"a"` and `Cons (MkChar 97 h) Nil` are equal only if `h` and
+    // `rfl` are.
+    match (&a, &b) {
+        (Value::Chars(x), Value::Chars(y)) => return Ok(x.as_slice() == y.as_slice()),
+        (Value::Chars(_), _) => {
+            work.push(ConvTask::Values(level, expand_step(g, a), b));
+            return Ok(true);
+        }
+        (_, Value::Chars(_)) => {
+            work.push(ConvTask::Values(level, a, expand_step(g, b)));
+            return Ok(true);
+        }
+        _ => {}
     }
     let fresh = Value::var(level);
     // Parts are pushed last-first, so they're compared first-first.

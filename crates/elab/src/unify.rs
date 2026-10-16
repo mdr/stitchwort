@@ -6,7 +6,9 @@ use std::rc::Rc;
 
 use stitchwort_core::budget::{ResourceError, Result};
 use stitchwort_core::native;
-use stitchwort_core::value::{Closure, Elim, Head, apply_icit, eval, force, quote, underapplied};
+use stitchwort_core::value::{
+    Closure, Elim, Head, apply_icit, eval, expand_step, force, quote, underapplied,
+};
 use stitchwort_core::{Globals, Term, Value};
 
 /// Makes `a` and `b` equal by solving metavariables, with `level` variables in
@@ -129,6 +131,8 @@ fn unify_step(
             true
         }
         (Value::Refl, Value::Refl) => true,
+        // Compact lists, as in `conv`: two ranges by their characters.
+        (Value::Chars(x), Value::Chars(y)) => x.as_slice() == y.as_slice(),
         (Value::Neutral(Head::Meta(m1), s1), Value::Neutral(Head::Meta(m2), s2)) if m1 == m2 => {
             match spine_pairs(level, s1, s2) {
                 Some(pairs) => {
@@ -143,6 +147,18 @@ fn unify_step(
         (Value::Neutral(Head::Meta(m), spine), other)
         | (other, Value::Neutral(Head::Meta(m), spine)) => {
             solve(g, level, *m, spine, other)? || first_order(g, level, *m, spine, other)?
+        }
+        // A range against anything else but a metavariable (which is solved
+        // with the range itself, above): its first cell, as a constructor.
+        // So `Cons ?c ?tail ~ "ab"` solves `?c` with `MkChar 97 rfl` and
+        // `?tail` with the range `"b"`.
+        (Value::Chars(_), _) => {
+            work.push(Task::Values(level, expand_step(g, a.clone()), b.clone()));
+            true
+        }
+        (_, Value::Chars(_)) => {
+            work.push(Task::Values(level, a.clone(), expand_step(g, b.clone())));
+            true
         }
         (Value::Neutral(h1, s1), Value::Neutral(h2, s2)) if h1 == h2 => {
             if underapplied(g, &a).is_none() && underapplied(g, &b).is_none() {
@@ -330,6 +346,8 @@ fn rename(
         Value::Data(d, args) => Term::data(d, args.iter().map(go).collect::<Renamed<_>>()?),
         Value::Ctor(d, c, args) => Term::ctor(d, c, args.iter().map(go).collect::<Renamed<_>>()?),
         Value::Nat(n) => Term::Nat(n),
+        // Closed: nothing to rename, and no metavariable to occur.
+        Value::Chars(_) => quote(g, cod, value)?,
         Value::NatAdd(k, base) => native::nat_add_term(g, &k, go(&base)?),
         Value::Eq(t, a, b) => Term::Eq(Some(Rc::new(go(&t)?)), Rc::new(go(&a)?), Rc::new(go(&b)?)),
         Value::Neutral(Head::Meta(m2), spine) if m2 != m => {
@@ -459,9 +477,13 @@ pub fn zonk(g: &Globals, level: usize, term: &Term) -> std::result::Result<Term,
             }
             solved
         }
-        Term::Var(_) | Term::Def(_) | Term::Nat(_) | Term::Sort(_) | Term::Refl | Term::Meta(_) => {
-            term.clone()
-        }
+        Term::Var(_)
+        | Term::Def(_)
+        | Term::Nat(_)
+        | Term::Chars(_)
+        | Term::Sort(_)
+        | Term::Refl
+        | Term::Meta(_) => term.clone(),
         Term::Data(d, args) => Term::Data(
             *d,
             args.iter()
@@ -858,5 +880,147 @@ mod tests {
             }
             other => panic!("expected a case, got {other:?}"),
         }
+    }
+
+    // Compact lists (docs/proposals/compact-text.md): unifying against one
+    // solves metavariables exactly as unifying against its expansion does.
+
+    use stitchwort_core::chars::{self, Chars, CompactText};
+
+    /// Globals with `List` and `Char` registered as data types 0 and 1. (No
+    /// declarations: unification only compares constructors.)
+    fn text_globals() -> (Globals, CompactText) {
+        let mut g = globals();
+        let text = CompactText::new(stitchwort_core::DataId(0), stitchwort_core::DataId(1));
+        g.builtins.text = Some(text.clone());
+        (g, text)
+    }
+
+    fn compact(text: &str) -> Value {
+        Value::Chars(Chars::whole(text.chars().collect()))
+    }
+
+    /// The expansion, built from constructors.
+    fn expanded(t: &CompactText, text: &str) -> Value {
+        let mut list = Value::Ctor(t.list, 0, Vec::new().into());
+        for c in text.chars().rev() {
+            list = Value::Ctor(t.list, 1, [chars::char_value(t, c), list].into());
+        }
+        list
+    }
+
+    fn cons(t: &CompactText, head: Value, tail: Value) -> Value {
+        Value::Ctor(t.list, 1, [head, tail].into())
+    }
+
+    fn mk_char(t: &CompactText, code: Value, proof: Value) -> Value {
+        Value::Ctor(t.char, 0, [code, proof].into())
+    }
+
+    fn quoted(g: &Globals, v: Value) -> String {
+        format!("{:?}", quote(g, 0, &v).unwrap())
+    }
+
+    #[test]
+    fn cons_of_metavariables_against_a_compact_list() {
+        for compact_side in [true, false] {
+            let (g, t) = text_globals();
+            let t = &t;
+            let (c, c_value) = meta(&g, &[]);
+            let (tail, tail_value) = meta(&g, &[]);
+            let lhs = cons(t, c_value, tail_value);
+            let rhs = if compact_side {
+                compact("ab")
+            } else {
+                expanded(t, "ab")
+            };
+            assert!(unify(&g, 0, &lhs, &rhs).unwrap());
+            let c = g.meta_solution(c).unwrap();
+            let tail = g.meta_solution(tail).unwrap();
+            assert_eq!(quoted(&g, c), quoted(&g, chars::char_value(t, 'a')));
+            if compact_side {
+                // The rest of the same range.
+                assert!(matches!(&tail, Value::Chars(r) if r.as_slice() == ['b']));
+            }
+            assert!(stitchwort_core::value::conv(&g, 0, &tail, &expanded(t, "b")).unwrap());
+            // Consistent: the solved left side is the right side.
+            assert!(unify(&g, 0, &lhs, &compact("ab")).unwrap());
+            assert!(!unify(&g, 0, &lhs, &compact("ac")).unwrap());
+        }
+    }
+
+    #[test]
+    fn a_metavariable_is_solved_with_the_compact_list_itself() {
+        let (g, _) = text_globals();
+        let (m, lhs) = meta(&g, &[]);
+        assert!(unify(&g, 0, &lhs, &compact("abc")).unwrap());
+        assert_eq!(
+            format!("{:?}", zonk(&g, 0, &Term::Meta(m)).unwrap()),
+            r#"Chars(Chars("abc"))"#
+        );
+    }
+
+    /// `Cons (MkChar ?n ?p) Nil ~ "a"`, with `?n` solved before, after, or
+    /// differently.
+    #[test]
+    fn character_and_proof_metavariables_before_and_after_solving() {
+        for (first, expect) in [(None, true), (Some(97u32), true), (Some(98), false)] {
+            for compact_side in [true, false] {
+                let (g, t) = text_globals();
+                let t = &t;
+                let (n, n_value) = meta(&g, &[]);
+                let (p, p_value) = meta(&g, &[]);
+                if let Some(code) = first {
+                    let code = stitchwort_core::native::nat_value(code.into());
+                    assert!(unify(&g, 0, &n_value, &code).unwrap());
+                }
+                let nil = Value::Ctor(t.list, 0, Vec::new().into());
+                let lhs = cons(t, mk_char(t, n_value.clone(), p_value), nil);
+                let rhs = if compact_side {
+                    compact("a")
+                } else {
+                    expanded(t, "a")
+                };
+                assert_eq!(unify(&g, 0, &lhs, &rhs).unwrap(), expect, "{first:?}");
+                if expect {
+                    assert_eq!(quoted(&g, g.meta_solution(n).unwrap()), "Nat(97)");
+                    assert_eq!(quoted(&g, g.meta_solution(p).unwrap()), "Refl");
+                    // Afterwards, `?n` can't be anything else.
+                    let other = stitchwort_core::native::nat_value(98u32.into());
+                    assert!(!unify(&g, 0, &n_value, &other).unwrap());
+                }
+            }
+        }
+    }
+
+    /// A rigid proof variable stays distinct from `rfl`, against the compact
+    /// list as against its expansion.
+    #[test]
+    fn a_rigid_proof_is_not_rfl() {
+        let (g, t) = text_globals();
+        let t = &t;
+        let code = stitchwort_core::native::nat_value(97u32.into());
+        let nil = Value::Ctor(t.list, 0, Vec::new().into());
+        let lhs = cons(t, mk_char(t, code, Value::var(0)), nil);
+        assert!(!unify(&g, 1, &lhs, &compact("a")).unwrap());
+        assert!(!unify(&g, 1, &lhs, &expanded(t, "a")).unwrap());
+        assert!(!unify(&g, 1, &compact("a"), &lhs).unwrap());
+    }
+
+    #[test]
+    fn compact_lists_unify_by_their_characters() {
+        let (g, t) = text_globals();
+        let t = &t;
+        let ab: Rc<[char]> = "xaby".chars().collect();
+        let middle = Value::Chars(Chars::new(ab, 1, 3).unwrap());
+        assert!(unify(&g, 0, &middle, &compact("ab")).unwrap());
+        assert!(unify(&g, 0, &middle, &expanded(t, "ab")).unwrap());
+        assert!(!unify(&g, 0, &middle, &compact("abc")).unwrap());
+        assert!(!unify(&g, 0, &middle, &expanded(t, "a")).unwrap());
+        // A cons cell in front of a compact tail.
+        let mixed = cons(t, chars::char_value(t, 'a'), compact("b"));
+        assert!(unify(&g, 0, &mixed, &compact("ab")).unwrap());
+        assert!(unify(&g, 0, &compact("ab"), &mixed).unwrap());
+        assert!(!unify(&g, 0, &mixed, &compact("ba")).unwrap());
     }
 }

@@ -157,6 +157,19 @@ pub fn infer(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
             Some(nat) => Ok((term.clone(), Value::Data(nat, Vec::new()))),
             None => Err(malformed(cx, "a number, but `Nat` isn't defined")),
         },
+        // A compact list of characters is a `List Char`: its expansion's
+        // `rfl`s prove `isScalar c = True` because each `c` is a Rust `char`
+        // (a scalar value) and `isScalar` is the one it was registered with.
+        Term::Chars(_) => match &g.builtins.text {
+            Some(text) => Ok((
+                term.clone(),
+                Value::Data(text.list, vec![Value::Data(text.char, Vec::new())]),
+            )),
+            None => Err(malformed(
+                cx,
+                "a compact list of characters, but `List` and `Char` aren't registered for it",
+            )),
+        },
         Term::Pi(x, icit, dom, cod) => {
             let (dom, s1) = check_type(cx, dom)?;
             let dom_value = cx.eval(&dom)?;
@@ -1182,6 +1195,26 @@ fn admissible<'t>(
                     Some(data) => (data.state, &data.name),
                     None => return Err(malformed(cx, "a number case without `Nat`")),
                 },
+                // A compact list uses `List` and `Char`, as its expansion
+                // would. (Registering them requires both to be final, so
+                // this always passes; it's checked as any reference is.)
+                Term::Chars(_) => match &g.builtins.text {
+                    Some(text) => {
+                        let (list, char) = (g.data(text.list), g.data(text.char));
+                        if list.state != State::Final {
+                            (list.state, &list.name)
+                        } else {
+                            (char.state, &char.name)
+                        }
+                    }
+                    None => {
+                        return Err(malformed(
+                            cx,
+                            "a compact list of characters, but `List` and `Char` aren't \
+                             registered for it",
+                        ));
+                    }
+                },
                 _ => continue,
             };
             match state {
@@ -1230,17 +1263,24 @@ fn failed_dependency(cx: &Ctx, what: &Name, dep: &Name) -> Diagnostic {
 /// (and not in it), if any: the first one, reading left to right.
 fn declared_later(g: &Globals, term: &Term, d: DataId) -> Option<String> {
     let data = g.data(d);
+    let later_data = |d2: DataId| {
+        (d2.0 >= data.datas_before && !data.group.contains(&d2)).then(|| {
+            let name = g.datas.get(d2.0).map_or("?".into(), |x| x.name.to_string());
+            format!("the data type `{name}`")
+        })
+    };
     term.subterms().find_map(|(t, _)| match t {
         Term::Def(id) => (id.0 >= data.defs_before).then(|| {
             let name = g.defs.get(id.0).map_or("?".into(), |x| x.name.to_string());
             format!("`{name}`")
         }),
-        Term::Data(d2, _) | Term::Ctor(d2, _, _) | Term::Case(_, d2, _) => {
-            (d2.0 >= data.datas_before && !data.group.contains(d2)).then(|| {
-                let name = g.datas.get(d2.0).map_or("?".into(), |x| x.name.to_string());
-                format!("the data type `{name}`")
-            })
-        }
+        Term::Data(d2, _) | Term::Ctor(d2, _, _) | Term::Case(_, d2, _) => later_data(*d2),
+        // A compact list refers to `List` and `Char`, as its expansion would.
+        Term::Chars(_) => g
+            .builtins
+            .text
+            .as_ref()
+            .and_then(|text| later_data(text.list).or_else(|| later_data(text.char))),
         _ => None,
     })
 }
