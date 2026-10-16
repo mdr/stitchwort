@@ -178,23 +178,23 @@ variables as necessary") [L1].
 
 ```
 -- written
-index : (xs : List a) -> (target : a) -> [auto d : DecEq a] -> Maybe Nat
-index xs target = go 0 xs
+index : (xs : List a) -> (target : a) -> (eq : a -> a -> Bool) -> Maybe Nat
+index xs target eq = go 0 xs
   where
     go : Nat -> List a -> Maybe Nat
     go i Nil         = Nothing
-    go i (Cons y ys) = if y == target then Just i else go (i + 1) ys
+    go i (Cons y ys) = if eq y target then Just i else go (i + 1) ys
 
 -- what the compiler makes of it
-index.go : [a : Type] -> (target : a) -> [auto d : DecEq a] -> Nat -> List a -> Maybe Nat
-index.go target i Nil         = Nothing
-index.go target i (Cons y ys) = if y == target then Just i else index.go target (i + 1) ys
+index.go : [a : Type] -> (target : a) -> (eq : a -> a -> Bool) -> Nat -> List a -> Maybe Nat
+index.go target eq i Nil         = Nothing
+index.go target eq i (Cons y ys) = if eq y target then Just i else index.go target eq (i + 1) ys
 
-index xs target = index.go target 0 xs
+index xs target eq = index.go target eq 0 xs
 ```
 
-- **Implicit and `auto` parameters are captured too** (`a` and `d` above),
-  as implicit parameters, filled in at each call as usual.
+- **Implicit and `auto` parameters are captured too** (`a` above), as
+  implicit parameters, filled in at each call as usual.
 - **Captured variables whose types depend on earlier ones** keep their
   order, so the lifted type is well formed: capturing `i` and
   `ok : i < length xs` gives `index.go : … (xs : List a) -> (i : Nat) ->
