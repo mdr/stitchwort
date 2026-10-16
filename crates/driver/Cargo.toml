@@ -12,6 +12,9 @@ stitchwort-elab.workspace = true
 stitchwort-js.workspace = true
 ariadne.workspace = true
 
+[build-dependencies]
+blake3.workspace = true
+
 [dev-dependencies]
 insta.workspace = true
 stitchwort-core = { workspace = true, features = ["reference"] }

@@ -1,6 +1,6 @@
 # Proposal: compact text
 
-**Status:** draft 2, 15 October 2026. Revised after external review; see [Changes since draft 1](#changes-since-draft-1). Option A (stage 1) is approved and built; see [As built (stage 1)](#as-built-stage-1). B1 and B2 (stages 2 and 3) await a further decision. This is step 7 of [the text proposal](text-and-io.md#making-it-fast-in-stages), "compact text in generated JS, then possibly in the checking evaluator".
+**Status:** draft 2, 15 October 2026. Revised after external review; see [Changes since draft 1](#changes-since-draft-1). Option A (stage 1) is approved and built; see [As built (stage 1)](#as-built-stage-1). B1 (stage 2) is approved and built; see [As built (stage 2)](#as-built-stage-2). B2 (stage 3) awaits a further decision. This is step 7 of [the text proposal](text-and-io.md#making-it-fast-in-stages), "compact text in generated JS, then possibly in the checking evaluator".
 
 ## Summary
 
@@ -68,6 +68,79 @@ Also after: splitting `"a,"` repeated 500,000 times into 500,001 fields, 25 ms; 
 **Found on the way:** a `List (List Char)` parameter was declared as `readonly readonly string[][]`, which isn't TypeScript; it's now `readonly (readonly string[])[]`.
 
 **Left for later:** stages 2 and 3 (B1, B2); a more compact `Char`; the string-backed list variant; making user recursion over text stack-safe.
+
+## As built (stage 2)
+
+Option B1 is implemented in `crates/core/src/chars.rs` and the passes listed below, as designed under [B1](#b1-a-compact-representation-with-no-native-operations). There are no new natives: every text operation still runs its prelude definition. Where the build differs from, or adds to, the design:
+
+- **Representation:** shared characters with a start and an end, as decided, in both forms: `Term::Chars(Chars)` and `Value::Chars(Chars)`, where `Chars` is an `Rc<[char]>` and two offsets, made only by `Chars::new`, which refuses bounds outside the buffer. A literal's term is the whole buffer; matching gives suffixes; nothing in B1 makes a range that ends early, but every rule handles one (and the tests use them). Evaluation never makes an empty range (that's `Nil`, which keeps no buffer alive), and quotation copies a range shorter than half its buffer into one of its own (the retention rule; there are no natives in B1, so quotation is the only place ranges are kept).
+- **Literals:** `"ab"` elaborates to `MkText (Chars "ab")`, and `""` to `MkText Nil`. A list literal of characters (`['a', 'b']`) stays cons cells, and a `Char` stays `MkChar c rfl`.
+- **Sharing `MkChar`s.** Matching a range hands out `MkChar c rfl`; for the first 256 code points, those values are made once, when the representation is registered, and shared, as a literal's constructors were. Without this, the `text-append` benchmark's results each held their own copies, and its peak heap rose by a third (51.8 MB to 68.6 MB, then back to 51.8 MB). Others are made as they're matched.
+- **Binding:** registered while the prelude loads, after `Char` (`chars::register`), only if `List` and `Char` have exactly the content hashes pinned in `chars.rs` and the expected shapes. `Char`'s hash covers `MkChar`'s field types, so `isScalar` and everything it uses. `Text` and `MkText` aren't pinned: the representation is at the `List Char` level, and `MkText` stays an ordinary constructor in the term. **The policy on a mismatch differs from the design above**, as the lane asked: the representation isn't registered, literals are elaborated as constructors (as before stage 2, which is always sound, only less compact), and the kernel refuses any `Term::Chars` (`E-MALFORMED`). So that a mismatch doesn't go unnoticed, `compact_text_is_bound_to_the_prelude` fails, printing the new hashes, as the JS natives' test does; `a_changed_builtin_isnt_bound` loads a prelude whose `isScalar` accepts 0x110000 and checks all three consequences.
+- **The test cache key** now has an automatic build fingerprint and the effective modes: `<compiler version>-<fingerprint>-<modes>-<test hash>`. `crates/driver/build.rs` hashes (BLAKE3) the `.rs` and `.sw` sources of `crates/syntax`, `crates/core`, `crates/elab` (with the prelude) and `crates/driver`, more than the design asked for; editing a comment in `native.rs` changed it from `8fc9bf83c3120af0642cb21c` to `87d62fd9eed28fc8a9d424a6`, and reverting the edit changed it back. The modes are `n1`/`n0` (natives on or off) and `c1`/`c0` (compact literals on or off), so a run with natives off never reuses a result found with them on (`test_results_are_only_reused_by_the_same_build_and_modes`). The tests below that compare modes don't use the cache at all.
+- **Switches:** `Builtins::disable_compact_text` makes literals constructors again, for the differential tests; the kernel still accepts compact lists while it's set.
+
+**Every consumer, and how it handles the new form:**
+
+| Pass | Handling |
+|---|---|
+| Machine: evaluation (`value.rs`) | `Term::Chars` evaluates in one step to its range (or `Nil`) |
+| Machine: matching (`branch`) | A range in a `case` on `List`: `Nil` for an empty one, otherwise the `Cons` branch with fields `MkChar s[i] rfl` and the range after it (`chars::split`), as matching the expansion would |
+| Conversion (`conv_step`) | Two ranges: equal when their characters are (one slice comparison, one step). A range against anything else: expanded one cell and compared as a constructor, in the same work list, so `"a"` and `Cons (MkChar 97 h) Nil` are equal only if `h` and `rfl` are |
+| Quotation (`visit`) | A range quotes to `Term::Chars` with its offsets (sharing the buffer), copied if short, or `Nil` if empty |
+| Kernel: typing (`infer`) | `Term::Chars` has type `List Char` when the representation is registered; otherwise `E-MALFORMED` |
+| Kernel: admission, positivity (`admissible`, `declared_later`) | `Term::Chars` refers to `List` and `Char`, as its expansion would: they must be final, and declared before a data type whose field uses one |
+| Kernel: termination (`termination.rs`) | Closed, no calls, and never related to a parameter: descent comes only from matching, where a range's tail is a `Cons` field like any other |
+| Substitution, shifting, `subterms`, freeing (`term.rs`) | A closed leaf |
+| Hashing (`hash.rs`) | Tag `chars`, then `List`'s and `Char`'s hashes (the implicit dependencies), the length, and each code point: the logical contents, never the buffer or offsets. Different from the same characters as constructors, as `3` and `Succ 2` are |
+| Printing (`pretty.rs`) | A range as a list of character literals, `['a', 'b']`; `MkText` of character literals ending in a range as a string |
+| Reference evaluator (`reference.rs`) | Expands at its boundary, written from the prelude's constructors by name, independently of `chars.rs`: `Term::Chars` evaluates to its full expansion, and `force` expands a `Value::Chars` (which only a metavariable's solution could hold). `expand_term` expands the machine's quoted terms for comparison |
+| Elaborator: unification (`unify.rs`) | As conversion, but a metavariable against a range is solved with the range itself (before expanding); `rename` (the occurs and scope checks) and `zonk` treat it as closed |
+| Elaborator: literals (`check.rs`) | Compact when registered and not switched off |
+| JS extraction (`crates/js`) | `MkText` of a range (possibly after cons cells of literal characters) is a JS string literal, consistent with stage 1. A range on its own, and `MkText`'s field with list-based text, is `charsOfText("…")`, the stage 1 bridge, now also in the list-based runtime |
+| Driver: printing a program's output (`run.rs`), boundary literals for the differential tests (`js`) | Take a list a cell at a time through `value::expand_step` |
+| Test cache (`driver.rs`) | See above |
+
+Anything else matching on `Term` or `Value` either has no catch-all (so the compiler found it) or doesn't look at lists. The nesting guards needed nothing: a range has no children.
+
+**Measured** (release build, arm64 Mac). The longest literal (`"abcd,"` repeated) for which each program checks and runs, by bisection to within 1%, capped at 4,194,304 characters:
+
+| Program | 2 MiB thread, default limits: before | after | CLI: before | after |
+|---|---|---|---|---|
+| `big : Text; big = "…"` | 1,837 | over 4,194,304 | 59,000 | over 4,194,304 |
+| `theorem : textLength "…" = n` by `rfl`; `test "t" = textLength "…" == n` | 1,837 | 1,996,800 | 59,000 | 1,984,000 |
+
+Before, each stopped while checking the literal, with `E-RESOURCE` ("it recursed more deeply than allowed"); the second row is now limited by `textLength` itself, which recurses once per character into the evaluator's 2,000,000-frame limit. (TODO.md's earlier figure of about 75,000 in the CLI wasn't reproduced for these text literals: 59,000 here.)
+
+Memory, as the review asked, three ways, comparing compact literals with the same build's constructor literals (`disable_compact_text`, which reproduces the old baseline's counts exactly for `text-append` and `text-split-join`):
+
+- **Stored payload:** 4 bytes per character in the buffer, plus 16 bytes, by construction (not measured).
+- **Checking a 50,000-character literal** (new benchmark `check-text-literal`): steps 3,200,017 → 19, recursive-pass visits 450,016 → 17, allocations 2,900,126 → 105, peak heap 58.2 MB → 431 kB.
+- **Walking a 40,002-character literal** with an accumulator (`lengthFrom 0 (textToList big)`, emoji included): steps 720,161 → 560,153, allocations 400,183 → 253,495, peak heap 15.0 MB → 3 kB. The constructor literal's cost is mostly evaluating its term into values; walking a range allocates per character only for code points above 255. The new benchmark `text-literal-walk` does the same on 100,002 characters, which constructor literals couldn't check in the benchmark's 64 MiB thread.
+- **Existing benchmarks:** `text-split-join` (a 10,000-character literal): steps −1.7%, allocations −4.9%, peak heap 6.6 MB → 5.5 MB. `text-append`: allocations +1.1% (1,720,485 → 1,740,180), peak heap unchanged. `examples`: steps −0.5%, peak heap −5.2%.
+
+**Tested**, in the three tiers (`crates/driver/tests/compact_text.rs` unless stated):
+
+- **Small, comprehensive:** every text of up to 3 characters over NUL, space, `,`, `0`, `9`, `a`, and every pair of up to 2, with *every* native off (`small_texts_mean_the_same_compact_with_natives_off`); every text of up to 2 characters over 13 awkward ones (NUL, U+D7FF, U+E000, U+FFFF, U+10000, U+10FFFF, U+0301, U+1F600, U+00A0, U+2028, `,`, `1`, space), every pair of up to 1, 150 random texts and 150 random pairs of up to 24 (mostly one edit apart), with the number natives on, since counting down code points above a million takes too long (`…_on_awkward_characters`). For each: the text itself, `textToList`, `textLength`, `textIsEmpty`, `textUncons`, `textTrim`, `textSplit`, `textJoin` of `textSplit`, `textToNat`, `textFromList` of `textToList`, `decEqText t t`, a user's nested match on `MkText`, a `textFold`, and a copy into cons cells; for each pair `decEqText` (with complete `No` payloads), `textCompare`, `textLess`, `++` and `textJoin`. Results are quoted by the machine, every range expanded by the reference evaluator's `expand_term`, and compared as complete core terms with the result of the same expression elaborated with constructor literals. Conversion is compared too, for each pair in all four combinations of the two representations, with whether the texts are equal. About 28,000 comparisons in all.
+- **Medium:** texts of 5,000 and 20,000 characters, compact against a copy in cons cells, on the machine with the default (2 MiB) limits: `textLength`, `textSplit`, `textJoin` of it, `textCompare` against a text differing in its last character, `textTrim`, `textToNat` of digits, a fold, and `decEqText`'s answer (its complete `Yes` proof grows with the square of the length, so tier 1 compares complete proofs).
+- **Large:** a million-character literal in a 2 MiB thread: it checks, `rfl` proves a count of its commas computed in the test, and tests compare its length and last character with values computed in Rust; split-then-join and lengths-add laws on 50,000 characters; two million-character literals differing in the last character are refused by `rfl` with `E-REFL`, not a resource error. In `crates/cli/tests/extract.rs`, a 300,000-character literal (emoji, quotes, backslashes, newlines) extracts to one JS string, or to `charsOfText` with list-based text, and both modules give the same text, list and user match in Node.
+- **The extra cases:** ranges with nonzero starts, ending before their buffer, and empty (checked by the kernel as `List Char`, convertible both ways with their expansion, `rfl` proves them equal); bounds refused; quoted suffixes sharing their buffer, or copied when short, and a one-character suffix of a million-character literal holding a one-character buffer; a cons cell in front of a range; `Cons (MkChar 97 h) Nil` against `"a"` with `h` a proof variable refused by the kernel directly and through the elaborator, and accepted with `rfl`; termination refusing a recursive call on a literal or a suffix; hashes the same for the same characters from another buffer and different from constructors; printing; DESIGN.md §13's must-reject examples (`"a" = "b"`, `textLess "\u{10000}" "\u{E000}" = True`, `MkChar` of 55296, 57343, 1114112, 2^32 + 97 and 2^64 + 97 next to a literal) with their accepted neighbours; `isScalar` against Rust's `char` on every code point up to 0x1100FF. Unification, in the language (in both representations) and in `unify.rs`'s unit tests: `Cons ?c ?tail ~ "ab"` solves `?c := MkChar 97 rfl` and `?tail` with the range `"b"`, consistently; `Cons (MkChar ?n ?p) Nil ~ "a"` with `?n` unsolved, already 97, or already 98 (which fails), against the range and its expansion alike; a rigid proof variable never unifies with `rfl`; a metavariable alone is solved with the range itself.
+- **Existing tests:** the evaluator differential test now compares the machine's quotation, expanded, with the reference's, on every definition of the prelude and the examples.
+
+**Mutation evidence:** each of these deliberate breakages, applied by hand and then reverted, made the tests fail:
+
+| Breakage | Failing tests (output) |
+|---|---|
+| Conversion compares a range with a cons list's codes, ignoring its proofs | `a_proof_variable_is_not_rfl`: `left: Ok(())`, `right: Err("E-REFL")` (the kernel accepted `"a" = Cons (MkChar 97 h) Nil`) |
+| Termination treats a literal as smaller than the parameter being matched | `a_compact_list_is_never_a_smaller_argument`: `left: Ok(())`, `right: Err("E-TERMINATION")` |
+| Matching skips a character | 10 of the 18 tests, including both tier 1 tests, the medium and the large ones |
+| Quoting a short range copies from the buffer's start | `quoting_a_suffix_shares_or_copies_it` (`left: ['a', 'b']`, `right: ['i', 'j']`), the suffix-retention test, both tier 1 tests and the million-character one |
+| Hashing includes the buffer's length | `hashes_cover_the_characters_not_the_buffer`: `left: #faca4f1e1710`, `right: #9066fd2d99d4` |
+| Two ranges compare by length only | both tier 1 tests (conversion of two different texts gave `true`) |
+
+**Trusted code added** (DESIGN.md §13): `chars.rs` (the range, the expansion step, the registration and binding: about 140 lines without comments), and in the kernel's own files the typing rule, the admission and positivity cases (`check.rs`), the matching, conversion and quotation rules (`value.rs`), and the hash case. The elaborator's unification cases aren't trusted (the kernel re-checks), and the JS cases join the trusted extractor.
+
+**Left for later:** stage 3 (B2's natives); compacting lists as they're built; a range-producing native that would need the retention rule for its results.
 
 ## Changes since draft 1
 

@@ -44,6 +44,9 @@ pub fn eval(g: &Globals, env: &[Value], term: &Term) -> Result<Value> {
         Term::Data(d, args) => Value::Data(*d, eval_all(args)?),
         Term::Ctor(d, c, args) => native::ctor(g, *d, *c, eval_all(args)?),
         Term::Nat(n) => Value::Nat(n.clone()),
+        // A compact list is its expansion, built here in full: this evaluator
+        // doesn't share the machine's rules for ranges.
+        Term::Chars(chars) => expand(g, chars.as_slice()),
         Term::Sort(s) => Value::Sort(*s),
         Term::Pi(x, i, a, b) => Value::Pi(
             x.clone(),
@@ -133,8 +136,81 @@ fn apply_spine(g: &Globals, mut value: Value, spine: &[Elim]) -> Result<Value> {
     Ok(value)
 }
 
-/// Replaces a solved metavariable at the head of `value` by its solution.
+/// `Cons (MkChar c rfl) … Nil`, for the characters `chars`: what a compact
+/// list means (docs/proposals/compact-text.md, "Expansion"), written out
+/// from the prelude's constructors, independently of [`crate::chars`].
+fn expand(g: &Globals, chars: &[char]) -> Value {
+    let list = g.find_data("List").expect("a compact list needs `List`");
+    let char = g.find_data("Char").expect("a compact list needs `Char`");
+    let mut value = Value::Ctor(list, 0, Vec::new().into());
+    for c in chars.iter().rev() {
+        let code = Value::Nat(Rc::new(u32::from(*c).into()));
+        let head = Value::Ctor(char, 0, vec![code, Value::Refl].into());
+        value = Value::Ctor(list, 1, vec![head, value].into());
+    }
+    value
+}
+
+/// `term` with every compact list replaced by its expansion, as constructor
+/// terms: for comparing the machine's quotation, which keeps compact lists,
+/// with this evaluator's, which never makes them.
+pub fn expand_term(g: &Globals, term: &Term) -> Term {
+    let go = |t: &Rc<Term>| Rc::new(expand_term(g, t));
+    match term {
+        Term::Chars(chars) => {
+            let list = g.find_data("List").expect("a compact list needs `List`");
+            let char = g.find_data("Char").expect("a compact list needs `Char`");
+            let mut out = Term::Ctor(list, 0, Vec::new());
+            for c in chars.as_slice().iter().rev() {
+                let code = Term::Nat(Rc::new(u32::from(*c).into()));
+                let head = Term::ctor(char, 0, vec![code, Term::Refl]);
+                out = Term::ctor(list, 1, vec![head, out]);
+            }
+            out
+        }
+        Term::Var(_) | Term::Def(_) | Term::Nat(_) | Term::Sort(_) | Term::Refl | Term::Meta(_) => {
+            term.clone()
+        }
+        Term::Data(d, args) => Term::Data(*d, args.iter().map(go).collect()),
+        Term::Ctor(d, c, args) => Term::Ctor(*d, *c, args.iter().map(go).collect()),
+        Term::Pi(x, i, a, b) => Term::Pi(x.clone(), *i, go(a), go(b)),
+        Term::Lam(x, i, b) => Term::Lam(x.clone(), *i, go(b)),
+        Term::App(f, a, i) => Term::App(go(f), go(a), *i),
+        Term::Ann(e, t) => Term::Ann(go(e), go(t)),
+        Term::Case(ix, d, branches) => Term::Case(
+            *ix,
+            *d,
+            branches
+                .iter()
+                .map(|b| Branch {
+                    names: b.names.clone(),
+                    body: go(&b.body),
+                })
+                .collect(),
+        ),
+        Term::NumCase(ix, arms, default) => Term::NumCase(
+            *ix,
+            arms.iter()
+                .map(|a| crate::term::NumArm {
+                    value: a.value.clone(),
+                    body: go(&a.body),
+                })
+                .collect(),
+            go(default),
+        ),
+        Term::Eq(ty, a, b) => Term::Eq(ty.as_ref().map(go), go(a), go(b)),
+        Term::J(m, b, p) => Term::J(go(m), go(b), go(p)),
+        Term::Loc(span, t) => Term::Loc(*span, go(t)),
+    }
+}
+
+/// Replaces a solved metavariable at the head of `value` by its solution, and
+/// expands a compact list (which only a metavariable's solution, made by the
+/// machine, can hold).
 pub fn force(g: &Globals, value: Value) -> Result<Value> {
+    if let Value::Chars(chars) = &value {
+        return Ok(expand(g, chars.as_slice()));
+    }
     match &value {
         Value::Neutral(Head::Meta(m), spine) => match g.meta_solution(*m) {
             Some(solution) => {
@@ -251,6 +327,7 @@ pub fn quote(g: &Globals, level: usize, value: &Value) -> Result<Term> {
                 .collect::<Result<_>>()?,
         ),
         Value::Nat(n) => Term::Nat(n),
+        Value::Chars(_) => unreachable!("forcing expands compact lists"),
         Value::NatAdd(k, base) => native::nat_add_term(g, &k, q(&base)?),
         Value::Eq(ty, a, b) => Term::Eq(Some(Rc::new(q(&ty)?)), Rc::new(q(&a)?), Rc::new(q(&b)?)),
         Value::Refl => Term::Refl,
@@ -276,6 +353,9 @@ pub fn quote(g: &Globals, level: usize, value: &Value) -> Result<Term> {
 /// Definitional equality (the recursive version `value::conv` was derived
 /// from).
 pub fn conv(g: &Globals, level: usize, a: &Value, b: &Value) -> Result<bool> {
+    if matches!(a, Value::Chars(_)) || matches!(b, Value::Chars(_)) {
+        return conv(g, level, &force(g, a.clone())?, &force(g, b.clone())?);
+    }
     if native::nat_like(g, a) || native::nat_like(g, b) {
         return native::compare_with(
             g,

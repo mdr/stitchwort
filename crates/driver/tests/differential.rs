@@ -70,9 +70,13 @@ fn compare_definitions(g: &Globals, what: &str) -> usize {
                 "{what}: `{}` applied to {n} variable(s)",
                 def.name
             );
-            // The machine's quote (a work list) against the reference's.
+            // The machine's quote (a work list) against the reference's,
+            // which expands compact lists: quotation commutes with expansion.
             assert_eq!(
-                format!("{:?}", value::quote(g, n, &fast).expect("no limits")),
+                format!(
+                    "{:?}",
+                    reference::expand_term(g, &value::quote(g, n, &fast).expect("no limits"))
+                ),
                 normal(g, n, &fast),
                 "{what}: quoting `{}` applied to {n} variable(s)",
                 def.name

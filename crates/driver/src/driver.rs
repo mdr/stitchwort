@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use stitchwort_core::hash::{ContentHash, def_hash};
 use stitchwort_core::value::{eval, force};
-use stitchwort_core::{Limits, ResourceError, Term, Value};
+use stitchwort_core::{Globals, Limits, ResourceError, Term, Value};
 use stitchwort_elab::{Elaborator, PRELUDE};
 use stitchwort_syntax::ast::Expr;
 use stitchwort_syntax::{
@@ -126,13 +126,35 @@ pub struct TestResult {
 /// Test results, stored by the test's content hash (DESIGN.md §11). A test's
 /// hash covers everything it depends on, so a cached result stays valid until
 /// something the test uses changes. The local cache is trusted.
+///
+/// The key also has the compiler that ran it: its version, a fingerprint of
+/// its source ([`FINGERPRINT`]), and the modes that change how programs are
+/// evaluated ([`modes`]). So a result is never reused by a different build,
+/// or by a run with natives or compact text switched off.
 pub struct Cache {
     dir: Option<PathBuf>,
 }
 
 /// Part of every cache key, so results from another version of the compiler
-/// aren't reused. (While developing the compiler itself, use `--no-cache`.)
+/// aren't reused.
 const COMPILER: &str = concat!("stitchwort-", env!("CARGO_PKG_VERSION"));
+
+/// A hash of the source of the syntax, the core, the elaborator (with the
+/// prelude) and this crate, made by `build.rs`: part of every cache key, so
+/// results from another build of the compiler aren't reused, even with the
+/// same version number.
+pub const FINGERPRINT: &str = env!("STITCHWORT_FINGERPRINT");
+
+/// The effective modes of evaluation, for the cache key: whether the native
+/// implementations are used (`n1`) or not (`n0`), and whether text literals
+/// are compact (`c1`) or constructors (`c0`).
+pub fn modes(g: &Globals) -> String {
+    format!(
+        "n{}c{}",
+        u8::from(!g.builtins.disable_natives),
+        u8::from(g.builtins.compact_literals().is_some())
+    )
+}
 
 impl Cache {
     pub fn at(dir: impl Into<PathBuf>) -> Self {
@@ -145,17 +167,22 @@ impl Cache {
         Cache { dir: None }
     }
 
-    fn path(&self, hash: &ContentHash) -> Option<PathBuf> {
+    /// Where the result of the test with `hash` is kept, when run with
+    /// `modes`.
+    pub fn path(&self, hash: &ContentHash, modes: &str) -> Option<PathBuf> {
         Some(
             self.dir
                 .as_ref()?
                 .join("tests")
-                .join(format!("{COMPILER}-{}", hash.hex())),
+                .join(format!("{COMPILER}-{FINGERPRINT}-{modes}-{}", hash.hex())),
         )
     }
 
-    fn get(&self, hash: &ContentHash) -> Option<Outcome> {
-        match std::fs::read_to_string(self.path(hash)?).ok()?.trim() {
+    fn get(&self, hash: &ContentHash, modes: &str) -> Option<Outcome> {
+        match std::fs::read_to_string(self.path(hash, modes)?)
+            .ok()?
+            .trim()
+        {
             "passed" => Some(Outcome::Passed),
             "failed" => Some(Outcome::Failed),
             _ => None,
@@ -163,8 +190,8 @@ impl Cache {
     }
 
     /// Best effort: a cache that can't be written just means re-running later.
-    fn put(&self, hash: &ContentHash, outcome: Outcome) {
-        let Some(path) = self.path(hash) else {
+    fn put(&self, hash: &ContentHash, modes: &str, outcome: Outcome) {
+        let Some(path) = self.path(hash, modes) else {
             return;
         };
         let text = match outcome {
@@ -184,6 +211,7 @@ impl Session {
     /// Runs every test loaded so far, using cached results where possible.
     pub fn run_tests(&self, cache: &Cache) -> Vec<TestResult> {
         let g = &self.elab.globals;
+        let modes = modes(g);
         self.elab
             .tests
             .iter()
@@ -202,7 +230,7 @@ impl Session {
                         };
                     }
                 };
-                if let Some(outcome) = cache.get(&hash) {
+                if let Some(outcome) = cache.get(&hash, &modes) {
                     return TestResult {
                         name: test.name.clone(),
                         outcome,
@@ -216,7 +244,7 @@ impl Session {
                     Ok(_) => Outcome::Failed,
                     Err(e) => Outcome::OutOfResources(e),
                 };
-                cache.put(&hash, outcome);
+                cache.put(&hash, &modes, outcome);
                 TestResult {
                     name: test.name.clone(),
                     outcome,

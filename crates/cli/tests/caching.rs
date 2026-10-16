@@ -144,3 +144,48 @@ fn test_results_are_reused_until_a_dependency_changes() {
     assert!(uncached.iter().all(|r| !r.cached));
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// A result is only reused by the same build of the compiler, evaluating the
+/// same way: the key has the build fingerprint and the effective modes, so a
+/// run with natives switched off doesn't reuse a result found with them on
+/// (docs/proposals/compact-text.md, "Hashing and caches").
+#[test]
+fn test_results_are_only_reused_by_the_same_build_and_modes() {
+    use stitchwort_cli::driver::{FINGERPRINT, modes};
+    let dir = std::env::temp_dir().join(format!("stitchwort-modes-test-{}", std::process::id()));
+    let cache = Cache::at(&dir);
+    let program =
+        "test \"big\" = leq 1000 (1000 * 1000)\ntest \"text\" = textLength \"abc\" == 3\n";
+    let run = |natives: bool, compact: bool| {
+        let mut session = Session::new();
+        session.elab.globals.builtins.disable_natives = !natives;
+        session.elab.globals.builtins.disable_compact_text = !compact;
+        session.load("test.sw", program).expect("checks");
+        let results = session.run_tests(&cache);
+        assert!(results.iter().all(|r| r.outcome == Outcome::Passed));
+        let path = cache
+            .path(&results[0].hash.unwrap(), &modes(&session.elab.globals))
+            .unwrap();
+        let name = path.file_name().unwrap().to_string_lossy().into_owned();
+        (results.iter().map(|r| r.cached).collect::<Vec<_>>(), name)
+    };
+    let (cached, name) = run(true, true);
+    assert_eq!(cached, [false, false]);
+    assert!(
+        name.contains(FINGERPRINT) && name.contains("-n1c1-"),
+        "{name}"
+    );
+    assert!(FINGERPRINT.len() == 24 && FINGERPRINT.chars().all(|c| c.is_ascii_hexdigit()));
+    assert_eq!(run(true, true).0, [true, true]);
+    // Natives off: nothing is reused, though the tests' hashes are the same.
+    let (cached, name) = run(false, true);
+    assert_eq!(cached, [false, false]);
+    assert!(name.contains("-n0c1-"), "{name}");
+    assert_eq!(run(false, true).0, [true, true]);
+    // Compact text off: the literal's test has a new hash anyway, but the
+    // other's result isn't reused either.
+    let (cached, name) = run(true, false);
+    assert_eq!(cached, [false, false]);
+    assert!(name.contains("-n1c0-"), "{name}");
+    let _ = std::fs::remove_dir_all(&dir);
+}

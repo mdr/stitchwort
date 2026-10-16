@@ -250,7 +250,16 @@ impl Walker<'_> {
                 self.span = saved;
                 result?;
             }
-            Term::Var(_) | Term::Nat(_) | Term::Sort(_) | Term::Refl | Term::Meta(_) => {}
+            // A compact list is closed, and makes no calls. It's never related
+            // to a parameter (`relate`): descent comes only from matching,
+            // where a range's tail is a field of the `Cons` its expansion
+            // has, exactly as for an ordinary list.
+            Term::Var(_)
+            | Term::Nat(_)
+            | Term::Chars(_)
+            | Term::Sort(_)
+            | Term::Refl
+            | Term::Meta(_) => {}
             Term::Def(id) => {
                 if let Some(to) = self.member(*id) {
                     self.call(to, &[])?;

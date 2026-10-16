@@ -37,6 +37,7 @@ Variables are de Bruijn indices in terms and de Bruijn levels in values.
 | `App(f, a, i)` | Application, to an explicit or implicit argument |
 | `Ann(e, T)` | `(e : T)` |
 | `Case(x, D, branches)` | Match variable `x : D params`, one branch per constructor. Only appears at the top of a definition, forming a case tree |
+| `Chars(range)` | A `List Char`, stored compactly: the characters of a range of an array, standing for `Cons (MkChar c rfl) … Nil` ([text](#text)) |
 | `NumCase(x, arms, default)` | Compare variable `x : Nat` with numbers: one arm per number, in strictly increasing order (at least one), and a default. Only appears where `Case` may |
 | `Eq(A?, a, b)` | `a = b`. `A` is filled in by the checker |
 | `Refl` | `rfl : a = a` |
@@ -173,6 +174,17 @@ Normalisation by evaluation (`crates/core/src/value.rs`):
 
 Extracted JS uses native `bigint` arithmetic for the same definitions.
 
+## Text
+
+`Text` means `MkText (chars : List Char)`, and a `Char` is `MkChar code valid`. But a text literal's characters are stored as one range of an array (`Term::Chars`, `Value::Chars`; `crates/core/src/chars.rs`), following option B1 of [the proposal](proposals/compact-text.md#as-built-stage-2), whose meaning is its expansion, `Cons (MkChar c rfl) … Nil`:
+
+- `"ab"` elaborates to `MkText` of a range, which has type `List Char`. `""` is `MkText Nil`; `['a', 'b']` and `'a'` are still constructors.
+- Matching on a range takes the `Nil` branch if it's empty, and otherwise the `Cons` branch with fields `MkChar c rfl` and the rest of the range, without building the list. Evaluation never makes a list compact: `Cons` builds cons cells, so `"ab" ++ t` is two cons cells in front of `t`.
+- Conversion compares two ranges by their characters, and a range against anything else by expanding it one cell. So `"a"` and `Cons (MkChar 97 h) Nil` are equal only if `h` and `rfl` are, which for a proof variable `h` they aren't. Unification does the same, but solves a metavariable against a range with the range.
+- Quotation gives back a range (copied into its own array if it's less than half of the one it shares, so a short suffix doesn't keep a long literal alive), and hashing covers the characters and `List`'s and `Char`'s hashes, not the array.
+- A range is never structurally smaller than anything: descent only comes from matching, where its rest is a `Cons` field.
+- **Trust.** These rules are trusted (DESIGN.md §13). The representation is registered while the prelude loads, only if `List` and `Char` (and through `Char`, `isScalar`) have the content hashes it was written for, since the expansion's `rfl : isScalar c = True` relies on `isScalar`'s definition and on each `c` being a Rust `char`. Otherwise literals are constructors, the kernel refuses a range (`E-MALFORMED`), and a test fails until the hashes are updated. `crates/driver/tests/compact_text.rs` compares complete results with the constructor form.
+
 ## Elaboration
 
 The elaborator (`crates/elab`) checks surface syntax bidirectionally, following András Kovács' elaboration-zoo, and produces core terms for the kernel.
@@ -247,7 +259,7 @@ Every checked declaration has a content hash (`crates/core/src/hash.rs`, BLAKE3)
 
 Renaming a function or reformatting code changes no hashes. Changing a body changes its hash and the hash of everything that uses it.
 
-**The test cache** stores each result under `.stitchwort/cache/tests/<compiler version>-<test hash>`. A test runs again only when its hash changes. Failures are cached as well as passes. The local cache is trusted. `--no-cache` ignores it, which is also how to avoid stale results while changing the compiler itself (the key includes the compiler's version number, not its code).
+**The test cache** stores each result under `.stitchwort/cache/tests/<compiler version>-<fingerprint>-<modes>-<test hash>`. A test runs again only when its hash changes. Failures are cached as well as passes. The fingerprint is a hash of the source of the syntax, core, elaborator (with the prelude) and driver crates, made when the compiler is built (`crates/driver/build.rs`), so a changed compiler doesn't reuse results even with the same version number; the modes say whether natives and compact text were on (`n1c1`), so a run with either switched off doesn't reuse results found with them on. The local cache is trusted. `--no-cache` ignores it.
 
 ## The prelude
 

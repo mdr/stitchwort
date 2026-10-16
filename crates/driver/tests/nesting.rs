@@ -161,10 +161,15 @@ fn long_list_literals() {
     });
 }
 
+/// A text literal is one compact list in the term however long it is
+/// (docs/proposals/compact-text.md, stage 2), so it doesn't nest: four
+/// million characters check. (A list literal still nests, above.)
 #[test]
 fn long_text_literals() {
     isolated("long_text_literals", || {
-        just_past_the_limit(|x, n| format!("{x} : Text\n{x} = \"{}\"\n", "a".repeat(n)));
+        let mut session = Session::new();
+        let text = format!("t : Text\nt = \"{}\"\n", "a".repeat(4_000_000));
+        assert_eq!(first_error(&mut session, "t.sw", &text), None);
     });
 }
 

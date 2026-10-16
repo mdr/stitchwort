@@ -741,7 +741,7 @@ Stable identifiers written in the source can come later if needed.
 | Test result | Test hash | Pass / fail | POC |
 | Generated JS | Definition hash + export names + representation options | JS and `.d.ts` | POC |
 
-Every key also includes the compiler version.
+Every key also includes the compiler version. The test-result key also includes a fingerprint of the compiler's source and the evaluation modes (natives, compact text), so a result is never reused by another build, or with natives switched off ([docs/core.md](docs/core.md#tests-and-content-hashes)).
 
 The elaboration key must use dependencies' full hashes, bodies included, not just their signatures. If `bound : Nat` changes from `3` to `4`, its signature is the same, but elaborating something of type `Vec Nat bound`, or deciding an `auto` proof involving `bound`, can give a different result. Tracking exactly which definitions elaboration looked inside would allow finer-grained keys, but whole-declaration hashes are simpler and always correct. Adding or changing a decision procedure can also change what `auto` finds, so that's part of the key too.
 
@@ -897,6 +897,7 @@ Host implementations are **trusted contracts**: JS can't be checked for purity o
 | **Tracked assumptions** | `stitchwort assumptions <name>` lists every `assume`, foreign function, proof hole and conjecture a definition depends on. |
 | **A "must reject" test suite** | Readable example programs that must fail to type-check. |
 | **Native arithmetic is listed and tested** | A few prelude definitions on `Nat` run natively, in the kernel's evaluator and in extracted JS. They're trusted, so each is compared with its own definition by tests, as the whole result: a native returning a proof must give the definition's own proof term, so natives never change which `rfl` proofs check ([`docs/core.md`](docs/core.md#numbers)). |
+| **Compact text in the kernel is listed and tested** | A text literal's characters are one compact range in the checked term and in the evaluator, standing for `Cons (MkChar c rfl) … Nil`. The rules for it (typing, matching, conversion, quotation, hashing) are trusted, and only used with the exact prelude `List` and `Char` they were written for (by content hash); otherwise literals are constructors. Tests compare complete results with the constructor form ([compact text](docs/proposals/compact-text.md#as-built-stage-2)). A wrong rule could prove something false, as a wrong native could. |
 | **Native text in extracted JS is listed and tested** | In extracted JS only (not the kernel), 14 prelude text operations are native JS, each used only for the exact definition it was written for (by content hash) and compared with the list-based code compiled from its definition ([compact text](docs/proposals/compact-text.md#as-built-stage-1)). A wrong one would give a wrong answer in JS, not a false theorem. |
 
 ### The "must reject" suite
