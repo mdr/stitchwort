@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: this argument doesn't agree with the type of `s`
+    ╭─[ reject/dot-dependent-mismatch.sw:11:18 ]
+    │
+ 11 │ wrong s = s.read 4
+    │                  ┬  
+    │                  ╰── `s`'s type needs `3` here, but this is `4`
+────╯

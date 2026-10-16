@@ -77,13 +77,15 @@ pub(crate) enum Phase {
 }
 
 /// A reference from one declaration to another.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct Dep {
     pub item: usize,
     /// Where the name is used.
     pub span: Span,
     /// In a definition's signature, or a data type's parameters or universe.
     pub in_header: bool,
+    /// For dot notation, which may not mean this declaration: why it might.
+    pub speculative: Option<String>,
 }
 
 /// A declaration of the module being elaborated.
@@ -440,18 +442,45 @@ impl Elaborator {
     fn dependencies(&mut self, items: &[Item]) {
         for (index, item) in items.iter().enumerate() {
             let mut deps = Vec::new();
-            let mut add = |names: Vec<&ast::Name>, in_header: bool| {
-                for n in names {
-                    if let crate::scope::Resolved::Found {
-                        global: Global::Unchecked(j),
-                        ..
-                    } = self.resolve(&n.text)
+            let names = &self.module.names;
+            let mut add = |refs: Vec<Ref<'_>>, in_header: bool| {
+                for r in refs {
+                    let (n, mut fields) = match r {
+                        Ref::Name(n) => (n, Vec::new()),
+                        Ref::Dot(n, field) => (n, vec![field]),
+                    };
+                    if fields.is_empty()
+                        && let crate::scope::Resolved::Found { global, rest, .. } =
+                            self.resolve(&n.text)
                     {
-                        deps.push(Dep {
-                            item: j,
-                            span: n.span,
-                            in_header,
-                        });
+                        if let Global::Unchecked(j) = global {
+                            deps.push(Dep {
+                                item: j,
+                                span: n.span,
+                                in_header,
+                                speculative: None,
+                            });
+                        }
+                        fields = rest;
+                    }
+                    // Dot notation: its target isn't known until the receiver's
+                    // type is, so every declaration of this module that it
+                    // could mean (§5).
+                    for field in fields {
+                        let suffix = format!(".{field}");
+                        for key in names.iter().filter(|k| k.ends_with(&suffix)) {
+                            if let Some((Global::Unchecked(j), _)) = self.scope.get(key) {
+                                deps.push(Dep {
+                                    item: j,
+                                    span: n.span,
+                                    in_header,
+                                    speculative: Some(format!(
+                                        "`.{field}` might mean `{}`",
+                                        crate::scope::display(key)
+                                    )),
+                                });
+                            }
+                        }
                     }
                 }
             };
@@ -618,6 +647,7 @@ impl Elaborator {
                 let mut reported = Vec::new();
                 for dep in self.module.items[i].deps.clone() {
                     if dep.in_header
+                        && dep.speculative.is_none()
                         && self.module.in_current(dep.item)
                         && !reported.contains(&dep.item)
                     {
@@ -651,6 +681,7 @@ impl Elaborator {
                 for dep in self.module.items[i].deps.clone() {
                     // Once for each sibling, at its first use.
                     if dep.in_header
+                        && dep.speculative.is_none()
                         && self.module.in_current(dep.item)
                         && !reported.contains(&dep.item)
                     {
@@ -775,6 +806,13 @@ impl Elaborator {
             );
         }
         d = d.with_note(self.describe_path(&cycle));
+        if let Some(note) = self.speculative_note(component) {
+            return d.with_note(note).with_note(
+                "the dependency may be artificial: dot notation can only be resolved once types \
+                 are known, so this program may not really be defining a type and a function \
+                 together",
+            );
+        }
         if ability {
             d.with_note(
                 "an ability's operations can't mention a type or definition that uses the ability: \
@@ -786,6 +824,24 @@ impl Elaborator {
                  it, and a definition can't use a data type before its constructors are finished",
             )
         }
+    }
+
+    /// Why a component may exist only because of dot notation: the first
+    /// speculative reference between its members, as a note.
+    fn speculative_note(&self, component: &[usize]) -> Option<String> {
+        let items = &self.module.items;
+        component.iter().find_map(|&i| {
+            items[i].deps.iter().find_map(|d| {
+                let why = d.speculative.as_ref()?;
+                component.contains(&d.item).then(|| {
+                    format!(
+                        "in `{}`, {why}, so `{}` and `{}` are checked together; write the full \
+                         name, as in `T.f x`, to say which function is meant",
+                        items[i].name, items[i].name, items[d.item].name
+                    )
+                })
+            })
+        })
     }
 
     /// The error for a data type's header (of `item`) that mentions
@@ -1135,10 +1191,17 @@ enum Work<'a> {
     Name(&'a ast::Name),
 }
 
+/// A reference the pre-pass finds: a name, or dot notation's `.field`
+/// (with where it's written).
+enum Ref<'a> {
+    Name(&'a ast::Name),
+    Dot(&'a ast::Name, String),
+}
+
 /// The free names in `work`, in order: names used that aren't bound by a
 /// binder around them. A work list rather than recursion, since expressions
 /// can nest more deeply than recursion could follow.
-fn free_names(work: Vec<Work<'_>>) -> Vec<&ast::Name> {
+fn free_names(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
     let mut stack: Vec<Work> = work;
     stack.reverse();
     let mut bound: HashMap<&str, usize> = HashMap::new();
@@ -1160,8 +1223,16 @@ fn free_names(work: Vec<Work<'_>>) -> Vec<&ast::Name> {
                 continue;
             }
             Work::Name(n) => {
-                if bound.get(n.text.as_str()).copied().unwrap_or(0) == 0 {
-                    out.push(n);
+                let is_bound = |x: &str| bound.get(x).copied().unwrap_or(0) > 0;
+                if is_bound(&n.text) {
+                    continue;
+                }
+                match n.text.split_once('.') {
+                    // `p.name`, with `p` local: dot notation.
+                    Some((first, rest)) if is_bound(first) => {
+                        out.extend(rest.split('.').map(|f| Ref::Dot(n, f.to_string())));
+                    }
+                    _ => out.push(Ref::Name(n)),
                 }
                 continue;
             }
@@ -1169,7 +1240,7 @@ fn free_names(work: Vec<Work<'_>>) -> Vec<&ast::Name> {
                 match p {
                     Pattern::Var(x) => *bound.entry(&x.text).or_default() += 1,
                     Pattern::Ctor(n, args, _) => {
-                        out.push(n);
+                        out.push(Ref::Name(n));
                         then(&mut stack, args.iter().map(Work::Pattern).collect());
                     }
                     Pattern::Record { fields, .. } => {
@@ -1234,7 +1305,10 @@ fn free_names(work: Vec<Work<'_>>) -> Vec<&ast::Name> {
                 steps.extend(fields.iter().map(|(_, e)| Work::Expr(e)));
                 then(&mut stack, steps);
             }
-            Expr::Field(e, _) => stack.push(Work::Expr(e)),
+            Expr::Field(e, field) => {
+                out.push(Ref::Dot(field, field.text.clone()));
+                stack.push(Work::Expr(e));
+            }
             Expr::Effect(row, ty) => {
                 let mut steps: Vec<Work> = row.abilities.iter().map(Work::Expr).collect();
                 steps.extend(row.tail.iter().map(Work::Name));

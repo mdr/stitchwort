@@ -1855,6 +1855,66 @@ shares `Expr::Field`).
     example with its diagnostic;
   - every error of §4.12.
 
+**As built** (stage 2), with what differs from the plan above:
+
+- **Where:** `crates/elab/src/dot.rs`. `e.f`, `e.f args` and leftover
+  components of a qualified name (`P.x`, `Origin.x`) all go through
+  `infer_dot`; the records lane's `infer_field` is gone, since a field is
+  found as its projection `T.f`, already in the type's namespace.
+- **Types as written.** Values unfold nicknames at once, so the elaborator's
+  context now records each variable's type *as written* where it's known:
+  a definition's parameters (from its signature term) and `let`s (the
+  annotation, or the value's written type). An application's is its
+  function's declared result type, instantiated; an annotation's is the
+  annotation. Elsewhere (pattern variables from constructor fields, lambda
+  parameters) the view starts from the type's value, so a nickname there is
+  already unfolded.
+- **The view's unfolding step:** a definition whose body isn't a case tree
+  is unfolded by substituting its arguments into the body term (so a
+  nickname of a nickname is seen step by step); one defined by matching is
+  run, and if it's stuck that's the blocked case (`E-NO-NAMESPACE`). The
+  view never retries a head it has seen, so it always stops. Receiver
+  matching reads each parameter's type through the same view, and matches
+  if any head on the way is `T`.
+- **Errors:** a written argument that disagrees with what the receiver
+  fixed (`s.read 4`) is `E-TYPE-MISMATCH` (there's no `E-MISMATCH`). Named
+  implicit arguments (`e.f [x := …]`) aren't accepted through dot
+  notation (`E-ARITY`, suggesting the full call). Finding a constructor or
+  type rather than a function at `T.f` is `E-DOT-NO-RECEIVER`. The records
+  lane's `E-NOT-A-RECORD` for `.field` is gone (`examples/reject/
+  record-not-a-record.sw` became `dot-unknown-function.sw`, since `p.fst`
+  on a `Pair` is now `Pair.fst p`); record patterns and updates keep it.
+- **Partial application** (`t.split`) is `(\r -> \c -> Text.split c r) t`,
+  annotated, so the receiver is evaluated once. Only parameters before the
+  receiver can be missing; ones after it are ordinary currying.
+- **Effects:** in a computation, `e.f a` runs `e`, then the arguments, then
+  calls; a call is recognised as performing operations when its target can
+  be found without elaborating the receiver (a variable, or a definition
+  without implicit parameters). A dot call on any other receiver whose
+  target performs operations isn't recognised as a computation (left
+  over).
+- **The pre-pass:** `e.f` (and a qualified name's leftover components)
+  adds a speculative edge to every declaration of the module whose key ends
+  in `.f`, carrying "`.f` might mean `X.f`". Records' fields aren't given
+  edges: a record's projections only exist once the record is checked, and
+  a receiver of a record type reaches the record through certain edges (its
+  type is mentioned by whatever produced it), so the mixed-kind example of
+  §5 is accepted rather than refused. Mitigation 1 is the note on
+  `E-MUTUAL-KIND` (a component joined by a speculative edge); mitigation 3
+  is that the pre-emptive `E-MUTUAL-SIGNATURE`/header checks skip
+  speculative edges, leaving a real use to the elaborator, which reports it
+  when it meets the unfinished sibling. **Mitigation 2 (narrowing edges by a
+  syntactic type head) isn't built** (left over): the spurious-cycle example
+  of §5 is accepted, checked as one group.
+- **The library** has no `List.map`, so `xs.map` needs one; the tests use
+  their own `Bag` type. Adding list functions to the prelude is left over.
+- **Tests:** `examples/accept/dot-notation.sw` (non-first receiver, partial
+  application, the dependent receiver, a nickname's namespace and its
+  fallback, `let`s, `p.name.length`, `p.sym`, `Person.name` as a function,
+  inference through `people.map`, forward references by dot, the
+  spurious-cycle example, and evaluation order with effects); and
+  `examples/reject/dot-*.sw`, one per error.
+
 Stage 1 alone makes code wordier (`Text.length t`) until stage 2 lands. So
 the two should be built back to back, in one lane, and merged separately.
 

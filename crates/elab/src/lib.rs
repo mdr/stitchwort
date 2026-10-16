@@ -9,6 +9,7 @@
 mod auto;
 mod autobind;
 mod check;
+mod dot;
 mod effects;
 mod module;
 mod partial;
@@ -1298,6 +1299,15 @@ impl Elaborator {
         let mut columns = Vec::new();
         let mut column_types = Vec::new();
         let mut ty = g.def(id).ty_value.clone();
+        // The signature as written, alongside, for dot notation's namespaces.
+        let mut written = Some(Rc::new(g.def(id).ty.clone()));
+        let mut next_written = |cx: &mut Ctx| {
+            let pi = written.take();
+            if let Some(Term::Pi(_, _, dom, cod)) = pi.as_deref().map(Term::strip_loc) {
+                cx.set_written(crate::dot::Written::Here(dom.clone()));
+                written = Some(cod.clone());
+            }
+        };
         loop {
             match force(g, ty.clone())? {
                 // Implicit and auto parameters are in scope by name, wherever
@@ -1305,6 +1315,7 @@ impl Elaborator {
                 Value::Pi(x, icit, dom, cod) if icit.is_implicit() => {
                     let var = Value::var(cx.level());
                     cx.bind(&x, (*dom).clone());
+                    next_written(&mut cx);
                     lams.push((x, icit));
                     ty = cod.apply(g, var)?;
                 }
@@ -1317,6 +1328,7 @@ impl Elaborator {
                     columns.push(cx.level());
                     column_types.push(Some((*dom).clone()));
                     cx.bind_hidden(param.clone(), (*dom).clone());
+                    next_written(&mut cx);
                     lams.push((param, Icit::Explicit));
                     ty = cod.apply(g, var)?;
                 }

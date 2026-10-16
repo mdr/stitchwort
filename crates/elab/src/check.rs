@@ -31,6 +31,11 @@ pub struct Ctx<'e> {
     pub types: Vec<Value>,
     /// Display names, for error messages.
     pub names: Vec<Name>,
+    /// Each variable's type as written, where known: a term in the context
+    /// of the variables before it. Dot notation finds a namespace from it
+    /// (docs/proposals/namespaces.md §4.8), since `types` may have unfolded
+    /// a nickname like `Price = Nat`.
+    pub written: Vec<Option<crate::dot::Written>>,
     /// Names that can be referred to, and the level each refers to.
     scope: Vec<(String, usize)>,
     pub span: Span,
@@ -50,6 +55,7 @@ impl<'e> Ctx<'e> {
             env: Vec::new(),
             types: Vec::new(),
             names: Vec::new(),
+            written: Vec::new(),
             scope: Vec::new(),
             span,
         }
@@ -63,11 +69,13 @@ impl<'e> Ctx<'e> {
         names: Vec<Name>,
         span: Span,
     ) -> Self {
+        let written = vec![None; env.len()];
         Ctx {
             e,
             env,
             types,
             names,
+            written,
             scope: Vec::new(),
             span,
         }
@@ -92,6 +100,7 @@ impl<'e> Ctx<'e> {
         self.env.truncate(mark.level);
         self.types.truncate(mark.level);
         self.names.truncate(mark.level);
+        self.written.truncate(mark.level);
         self.scope.truncate(mark.scope);
     }
 
@@ -106,6 +115,15 @@ impl<'e> Ctx<'e> {
         self.env.push(Value::var(self.level()));
         self.types.push(ty);
         self.names.push(name);
+        self.written.push(None);
+    }
+
+    /// Records the type the latest variable was declared with, as written: a
+    /// term in the context of the variables before it.
+    pub(crate) fn set_written(&mut self, ty: crate::dot::Written) {
+        if let Some(last) = self.written.last_mut() {
+            *last = Some(ty);
+        }
     }
 
     /// Makes `name` refer to an existing variable.
@@ -193,7 +211,7 @@ fn with_span<T>(cx: &mut Ctx, span: Span, f: impl FnOnce(&mut Ctx) -> Result<T>)
 
 /// An argument in an application.
 #[derive(Clone, Copy)]
-enum Arg<'a> {
+pub(crate) enum Arg<'a> {
     Explicit(&'a Expr),
     Named(&'a AstName, &'a Expr),
 }
@@ -409,7 +427,7 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             fields,
             ..
         } => records::infer_update(cx, base, fields),
-        Expr::Field(e, field) => records::infer_field(cx, e, field),
+        Expr::Field(e, field) => crate::dot::infer_dot(cx, e, field, &[]),
         Expr::List(..) => {
             let list = builtin_data(cx, Builtin::List)?;
             let elem = cx.fresh_meta();
@@ -429,6 +447,9 @@ pub(crate) fn infer_head(cx: &mut Ctx, head: &Expr) -> Result<(Term, Value)> {
 /// Infers an application `head args`.
 fn infer_app(cx: &mut Ctx, head: &Expr, args: &[Arg]) -> Result<(Term, Value)> {
     let g = cx.g();
+    if let Expr::Field(recv, field) = head {
+        return crate::dot::infer_dot(cx, recv, field, args);
+    }
     let Expr::Var(name) = head else {
         let head = infer(cx, head)?;
         return apply_args(cx, head, args);
@@ -438,8 +459,7 @@ fn infer_app(cx: &mut Ctx, head: &Expr, args: &[Arg]) -> Result<(Term, Value)> {
         return apply_args(cx, head, args);
     }
     if let Some(fields) = as_fields(cx, name) {
-        let head = infer(cx, &fields)?;
-        return apply_args(cx, head, args);
+        return infer_app(cx, &fields, args);
     }
     match name.text.as_str() {
         "rfl" => {
@@ -584,7 +604,7 @@ pub(crate) fn apply_one(cx: &mut Ctx, head: (Term, Value), arg: &Expr) -> Result
 }
 
 /// Applies `head` to `args`, inserting implicit arguments where needed.
-fn apply_args(cx: &mut Ctx, head: (Term, Value), args: &[Arg]) -> Result<(Term, Value)> {
+pub(crate) fn apply_args(cx: &mut Ctx, head: (Term, Value), args: &[Arg]) -> Result<(Term, Value)> {
     let (mut term, mut ty) = head;
     for arg in args {
         match arg {
@@ -714,7 +734,7 @@ pub fn insert(cx: &mut Ctx, mut term: Term, mut ty: Value) -> Result<(Term, Valu
     Ok((term, ty))
 }
 
-fn implicit_arg(cx: &mut Ctx, icit: Icit, ty: &Value) -> Term {
+pub(crate) fn implicit_arg(cx: &mut Ctx, icit: Icit, ty: &Value) -> Term {
     let meta = cx.fresh_meta();
     if icit == Icit::Auto {
         cx.e.obligations.borrow_mut().push(crate::auto::Obligation {
@@ -1334,4 +1354,15 @@ fn nat(cx: &Ctx) -> Result<DataId> {
         .builtins
         .nat
         .ok_or_else(|| cx.error("E-UNKNOWN-NAME", "numbers need the prelude's `Nat`", "here"))
+}
+
+/// Arguments as written, for [`apply_args`].
+pub(crate) fn args_of(exprs: &[Expr]) -> Vec<Arg<'_>> {
+    exprs
+        .iter()
+        .map(|a| match a {
+            Expr::NamedArg(name, value, _) => Arg::Named(name, value),
+            other => Arg::Explicit(other),
+        })
+        .collect()
 }
