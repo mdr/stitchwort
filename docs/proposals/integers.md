@@ -11,6 +11,17 @@ prelude into `Std` namespaces) is being built now: `Nat.add`, `Int.add`,
 `Nat.decEq`, and so on. Where a name exists today under an older spelling,
 both are given once.
 
+
+## Decisions (16 October 2026)
+
+The user's answers to the questions for the user:
+
+1. `-18 % 100` is `82`: Euclidean `/` and `%` on `Int`, as recommended.
+2. A minus sign works on any expression (`-x`), not only on literals
+   (arguments still need brackets: `f (-5)`).
+3. `x % d` on `Int` gives an `Int`; a separate `Nat`-returning version
+   exists for indexing.
+
 ## Contents
 
 - [Summary](#summary)

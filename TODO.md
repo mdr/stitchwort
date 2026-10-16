@@ -57,7 +57,8 @@ capability we know we'll need before the work that needs it):
    library needs (merged: [aoc-2025.md](docs/aoc-2025.md)); the `Int` design
    note is written ([integers.md](docs/proposals/integers.md) draft 1: `Int` as
    a data type over `Nat`, no kernel change, Euclidean `/` and `%`); three
-   questions for the user, then the reviewer.
+   questions answered (Euclidean `%`, `-x` on any expression, `%` on `Int`
+   gives `Int`); **with the reviewer**.
 2. **Standard library for real programs** (ranked by the AoC survey,
    [aoc-2025.md](docs/aoc-2025.md): days 1–5 already run with today's
    compiler using hand-written helpers): a list toolkit, a `readAllLines`
@@ -67,7 +68,10 @@ capability we know we'll need before the work that needs it):
    folds, `sum`, `max`, `zip`, `take`/`drop`, indexing), sorting with a
    correctness proof (sorted permutation), `Int`, a balanced-tree map/set,
    grid helpers.
-3. **Advent of Code 2025, early days**, as a stress test with proofs where
+3. **Syntax conveniences** (a design lane after namespaces): `where`,
+   pattern-matching `let` or `case`, tuple sugar, `else` continuing a line.
+4. **Advent of Code 2025, early days** (decisions in aoc-2025.md: programs
+   in `aoc/`, inputs and answers out of git, worked examples as tests), as a stress test with proofs where
    natural (sort correctness, parser round trips, worked examples by `rfl`).
    Inputs: the user's repo https://github.com/mdr/aoc-2025/tree/main/src/main/resources.
    Write up the friction found.
