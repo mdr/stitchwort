@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-NOT-A-RECORD] Error: the value before `.fst` needs a record
+   ╭─[ reject/record-not-a-record.sw:6:11 ]
+   │
+ 6 │ first p = p.fst
+   │           ──┬──  
+   │             ╰──── this has type `Pair Nat Nat`, which isn't a record
+───╯

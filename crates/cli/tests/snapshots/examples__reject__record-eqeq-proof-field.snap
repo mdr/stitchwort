@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-AUTO-NONE] Error: no way to decide `{ items = [1], short = rfl } = { items = [1], short = rfl }`
+    ╭─[ reject/record-eqeq-proof-field.sw:16:32 ]
+    │
+ 16 │ test "a record with a proof" = one == one
+    │                                ─────┬────  
+    │                                     ╰────── the compiler needs a proof of this
+    │ 
+    │ Note 1: supply a proof by name, or write a decision procedure: a function returning `Decidable …`
+    │ 
+    │ Note 2: `==` isn't derived for `Short`: its field `short` is a proof or a type, and two records with equal data can still differ there: a decision for `=` on `Short` would need those proofs to be unique, which isn't derived yet
+────╯

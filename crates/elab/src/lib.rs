@@ -12,6 +12,7 @@ mod check;
 mod effects;
 mod module;
 mod partial;
+mod records;
 mod unify;
 
 use std::borrow::Cow;
@@ -89,6 +90,8 @@ pub struct Elaborator {
     /// While the members of a partial recursive group are described: their
     /// private recursion signature (`partial.rs`).
     recursion: Option<effects::Recursion>,
+    /// The record types declared so far (docs/proposals/records.md).
+    records: HashMap<DataId, records::RecordInfo>,
 }
 
 /// A pattern that matches a constructor.
@@ -403,6 +406,7 @@ impl Elaborator {
                     }],
                 })
                 .collect(),
+            record: false,
             span: *span,
         };
         self.data(&data_decl)?;
@@ -642,14 +646,19 @@ impl Elaborator {
         if !out.is_empty() {
             return out;
         }
-        let names: Vec<(Name, Span)> = members
+        let names: Vec<(Name, Span, bool)> = members
             .iter()
             .map(|(_, decl)| match decl {
-                Decl::Data { name: n, span, .. } => (name(n), *span),
+                Decl::Data {
+                    name: n,
+                    span,
+                    record,
+                    ..
+                } => (name(n), *span, *record),
                 _ => unreachable!(),
             })
             .collect();
-        let ids = match kernel::declare_data_group(&mut self.globals, params, sort, names) {
+        let ids = match kernel::declare_data_group_as(&mut self.globals, params, sort, names) {
             Ok(ids) => ids,
             Err(d) => return vec![(members[0].0, d)],
         };
@@ -837,7 +846,19 @@ impl Elaborator {
                 cx.bind(x, value);
             }
             let mut fields = Vec::new();
-            for binder in &ctor.fields {
+            for (k, binder) in ctor.fields.iter().enumerate() {
+                if let Some(earlier) = ctor.fields[..k]
+                    .iter()
+                    .flat_map(|b| &b.names)
+                    .find(|e| binder.names.iter().any(|n| n.text == e.text))
+                {
+                    return Err(error(
+                        "E-DUPLICATE",
+                        binder.names[0].span,
+                        format!("there's already a field `{}`", earlier.text),
+                    )
+                    .with_label(earlier.span, "first declared here"));
+                }
                 let (ty, _) = check_type(&mut cx, &binder.ty)?;
                 for (k, n) in binder.names.iter().enumerate() {
                     let ty = self.finish(&ty.shift(&self.globals, k, 0)?, cx.level())?;
@@ -884,6 +905,9 @@ impl Elaborator {
                 }
                 _ => {}
             }
+        }
+        if self.globals.data(d).record {
+            self.after_record(d)?;
         }
         Ok(())
     }
@@ -1154,6 +1178,19 @@ impl Elaborator {
         for (i, decision) in found {
             kernel::add_validator(&mut self.globals, id, i, decidable, &decision)?;
         }
+        // Records crossing the boundary with proof fields need decision
+        // procedures for those too (docs/proposals/records.md §11.3).
+        let crossing: Vec<Value> = tel
+            .params
+            .iter()
+            .filter(|(_, _, erased)| !erased)
+            .map(|(_, ty, _)| ty.clone())
+            .chain([tel.result.clone()])
+            .collect();
+        let mut seen = std::collections::HashSet::new();
+        for ty in &crossing {
+            self.record_validators(ty, &name, span, &mut seen)?;
+        }
         Ok(())
     }
 
@@ -1199,6 +1236,7 @@ impl Elaborator {
         let mut cx = Ctx::new(self, span);
         let mut lams: Vec<(Name, Icit)> = Vec::new();
         let mut columns = Vec::new();
+        let mut column_types = Vec::new();
         let mut ty = g.def(id).ty_value.clone();
         loop {
             match force(g, ty.clone())? {
@@ -1217,6 +1255,7 @@ impl Elaborator {
                     };
                     let var = Value::var(cx.level());
                     columns.push(cx.level());
+                    column_types.push(Some((*dom).clone()));
                     cx.bind_hidden(param.clone(), (*dom).clone());
                     lams.push((param, Icit::Explicit));
                     ty = cod.apply(g, var)?;
@@ -1274,7 +1313,7 @@ impl Elaborator {
                     span,
                 })
                 .collect();
-            self.compile(&rows, cx.level(), &columns, span)?
+            self.compile(&rows, cx.level(), &columns, &column_types, span)?
         };
         let mut term = check_tree(&mut cx, &tree, &ty)?;
         for (x, icit) in lams.into_iter().rev() {
@@ -1284,13 +1323,15 @@ impl Elaborator {
     }
 
     /// Compiles equations into a case tree. `columns[j]` is the de Bruijn level
-    /// of the value each row's `j`th pattern matches; `depth` is the number of
+    /// of the value each row's `j`th pattern matches, and `types[j]` its type
+    /// if known (a record pattern needs it); `depth` is the number of
     /// variables in scope.
     fn compile<'a>(
         &self,
         rows: &[Row<'a>],
         depth: usize,
         columns: &[usize],
+        types: &[Option<Value>],
         span: Span,
     ) -> Result<Tree<'a>> {
         self.globals.budget.nesting(check::PASS)?;
@@ -1314,9 +1355,9 @@ impl Elaborator {
                 && !self.numbers_as_succ
                 && !rows.iter().any(|r| matches!(*r.pats[j], Pattern::Ctor(..)))
             {
-                return self.compile_numbers(rows, depth, columns, j, span);
+                return self.compile_numbers(rows, depth, columns, types, j, span);
             }
-            if let Some(ctor) = self.pattern_ctor(pattern)? {
+            if let Some(ctor) = self.pattern_ctor(pattern, types[j].as_ref())? {
                 split = Some((j, ctor.data));
                 break;
             }
@@ -1349,12 +1390,18 @@ impl Elaborator {
                 .chain(depth..depth + k)
                 .chain(columns[j + 1..].iter().copied())
                 .collect();
+            let branch_types: Vec<Option<Value>> = types[..j]
+                .iter()
+                .cloned()
+                .chain(self.field_types(types[j].as_ref(), d, c, depth)?)
+                .chain(types[j + 1..].iter().cloned())
+                .collect();
             let mut names: Vec<Option<Name>> = vec![None; k];
             let mut branch_rows = Vec::new();
             for row in rows {
                 let pattern = &row.pats[j];
                 let mut aliases = row.aliases.clone();
-                let fields: Vec<Pat> = match self.pattern_ctor(pattern)? {
+                let fields: Vec<Pat> = match self.pattern_ctor(pattern, types[j].as_ref())? {
                     Some(CtorPattern {
                         data: d2,
                         ctor: c2,
@@ -1425,7 +1472,13 @@ impl Elaborator {
                     format!("missing case: no equation matches `{example}`"),
                 ));
             }
-            let body = self.compile(&branch_rows, depth + k, &branch_columns, span)?;
+            let body = self.compile(
+                &branch_rows,
+                depth + k,
+                &branch_columns,
+                &branch_types,
+                span,
+            )?;
             let names = names
                 .into_iter()
                 .zip(&ctor.fields)
@@ -1445,11 +1498,13 @@ impl Elaborator {
     /// `_` (and maybe `()`), into a number case: one arm per number, keeping the rows that have
     /// that number or a variable there, in order, and a default keeping the
     /// rows with a variable. The same number in several rows is one arm.
+    #[allow(clippy::too_many_arguments)]
     fn compile_numbers<'a>(
         &self,
         rows: &[Row<'a>],
         depth: usize,
         columns: &[usize],
+        types: &[Option<Value>],
         j: usize,
         span: Span,
     ) -> Result<Tree<'a>> {
@@ -1494,11 +1549,11 @@ impl Elaborator {
                     row
                 })
                 .collect();
-            let tree = self.compile(&arm_rows, depth, columns, span)?;
+            let tree = self.compile(&arm_rows, depth, columns, types, span)?;
             arms.push((key.clone(), tree));
         }
         let default_rows: Vec<Row> = others.iter().map(|&i| rows[i].clone()).collect();
-        let default = self.compile(&default_rows, depth, columns, span)?;
+        let default = self.compile(&default_rows, depth, columns, types, span)?;
         Ok(Tree::NumCase {
             level: columns[j],
             arms,
@@ -1507,11 +1562,56 @@ impl Elaborator {
         })
     }
 
+    /// The types of the fields of constructor `c` of `d`, bound at levels
+    /// from `depth`, when the matched value's type `ty` is known.
+    fn field_types(
+        &self,
+        ty: Option<&Value>,
+        d: DataId,
+        c: usize,
+        depth: usize,
+    ) -> Result<Vec<Option<Value>>> {
+        let g = &self.globals;
+        let fields = &g.data(d).ctors[c].fields;
+        let params = match ty.map(|t| force(g, t.clone())).transpose()? {
+            Some(Value::Data(d2, params)) if d2 == d => params,
+            _ => return Ok(vec![None; fields.len()]),
+        };
+        let mut env = params;
+        let mut out = Vec::new();
+        for (f, (_, field_ty)) in fields.iter().enumerate() {
+            out.push(Some(eval(g, &env, field_ty)?));
+            env.push(Value::var(depth + f));
+        }
+        Ok(out)
+    }
+
     /// The constructor `pattern` matches, if any, and its argument patterns.
-    /// A number `n` is `Succ` of `n - 1`.
-    fn pattern_ctor<'a>(&self, pattern: &Pat<'a>) -> Result<Option<CtorPattern<'a>>> {
+    /// A number `n` is `Succ` of `n - 1`; a record pattern is resolved by
+    /// `ty`, the type of what it matches.
+    fn pattern_ctor<'a>(
+        &self,
+        pattern: &Pat<'a>,
+        ty: Option<&Value>,
+    ) -> Result<Option<CtorPattern<'a>>> {
         match &**pattern {
             Pattern::Var(_) | Pattern::Wildcard(_) | Pattern::Absurd(_) => Ok(None),
+            Pattern::Record { fields, rest, span } => Ok(Some(match pattern {
+                Cow::Borrowed(Pattern::Record { fields, .. }) => {
+                    self.record_pattern(fields, *rest, *span, ty)?
+                }
+                _ => {
+                    let found = self.record_pattern(fields, *rest, *span, ty)?;
+                    CtorPattern {
+                        args: found
+                            .args
+                            .into_iter()
+                            .map(|a| Cow::Owned(a.into_owned()))
+                            .collect(),
+                        ..found
+                    }
+                }
+            })),
             Pattern::Num(n, span) => {
                 let (ctor, args) = if n.bits() == 0 {
                     ("Zero", Vec::new())
@@ -1771,6 +1871,11 @@ fn mentions_ability(expr: &ast::Expr, name: &str) -> bool {
             Expr::Pi { dom, cod, .. } => pending.extend([&**dom, &**cod]),
             Expr::Lam(_, b, _) | Expr::Ann(b, _, _) | Expr::NamedArg(_, b, _) => pending.push(b),
             Expr::List(items, _) => pending.extend(items),
+            Expr::Record { base, fields, .. } => {
+                pending.extend(base.as_deref());
+                pending.extend(fields.iter().map(|(_, e)| e));
+            }
+            Expr::Field(e, _) => pending.push(e),
             _ => {}
         }
     }

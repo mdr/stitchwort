@@ -256,12 +256,34 @@ fn check_codec(g: &Globals, d: DataId, visiting: &mut HashSet<DataId>) -> Result
         }
         env.push(Value::var(env.len()));
     }
-    for (ctor, fields) in data.ctors.iter().zip(data_fields(g, d)) {
-        if ctor.field_erased.iter().any(|e| *e) {
-            return Err(format!(
-                "`{}` has a proof or type field, which can't be checked at the boundary yet",
-                data.name
-            ));
+    for (c, (ctor, fields)) in data.ctors.iter().zip(data_fields(g, d)).enumerate() {
+        for (i, (field, _)) in ctor.fields.iter().enumerate() {
+            if !ctor.field_erased[i] {
+                continue;
+            }
+            // A record's proof field is established by its decision procedure
+            // (docs/proposals/records.md §11.3).
+            let proof = ctor.field_sorts[i] == Sort::Prop;
+            let checked =
+                data.record && proof && data.validators.iter().any(|v| v.ctor == c && v.field == i);
+            if !checked {
+                return Err(if data.record && proof {
+                    format!(
+                        "`{}`'s proof field `{field}` has no runtime check",
+                        data.name
+                    )
+                } else if data.record {
+                    format!(
+                        "`{}`'s field `{field}` is a type, which can't cross the JS boundary",
+                        data.name
+                    )
+                } else {
+                    format!(
+                        "`{}` has a proof or type field, which can't be checked at the boundary yet",
+                        data.name
+                    )
+                });
+            }
         }
         for (field, field_ty) in fields {
             boundary(g, &field_ty, data.params.len(), visiting)
@@ -271,22 +293,23 @@ fn check_codec(g: &Globals, d: DataId, visiting: &mut HashSet<DataId>) -> Result
     Ok(())
 }
 
-/// Field names and types of each constructor of a data type, with its
-/// parameters as the first variables.
+/// Names and types of the runtime fields (those not erased) of each
+/// constructor of a data type, with its parameters as the first variables.
 fn data_fields(g: &Globals, d: DataId) -> Vec<Vec<(String, Value)>> {
     let data = g.data(d);
     data.ctors
         .iter()
         .map(|ctor| {
             let mut env: Vec<Value> = (0..data.params.len()).map(Value::var).collect();
-            ctor.fields
-                .iter()
-                .map(|(name, ty)| {
-                    let value = eval(g, &env, ty).expect(OUTSIDE_LIMITS);
-                    env.push(Value::var(env.len()));
-                    (name.to_string(), value)
-                })
-                .collect()
+            let mut out = Vec::new();
+            for ((name, ty), erased) in ctor.fields.iter().zip(&ctor.field_erased) {
+                let value = eval(g, &env, ty).expect(OUTSIDE_LIMITS);
+                env.push(Value::var(env.len()));
+                if !erased {
+                    out.push((name.to_string(), value));
+                }
+            }
+            out
         })
         .collect()
 }
@@ -393,7 +416,7 @@ pub fn generate_with(g: &Globals, limits: Limits, options: Options) -> Result<Ou
         );
     }
     for &d in &boundary_datas {
-        js.push_str(&codegen.define(d));
+        js.push_str(&codegen.define(d).map_err(Diagnostic::from)?);
     }
     js.push('\n');
     // Only what the exports use, in declaration order. That's dependency
@@ -401,7 +424,16 @@ pub fn generate_with(g: &Globals, limits: Limits, options: Options) -> Result<Ou
     // so a definition refers only to earlier ones and to members of its own
     // group. Those are thunks or functions, never values, so they look each
     // other up only when called, after all of them are defined.
-    let used = reachable(g, exports.iter().map(|sig| sig.id), |id| {
+    // What records' proof-field checks use, too.
+    let checks = boundary_datas
+        .iter()
+        .flat_map(|d| &g.data(*d).validators)
+        .flat_map(|v| v.decision.subterms())
+        .filter_map(|(t, _)| match t {
+            Term::Def(id) => Some(*id),
+            _ => None,
+        });
+    let used = reachable(g, exports.iter().map(|sig| sig.id).chain(checks), |id| {
         codegen.erased[id.0].0
             || g.builtins.native(id).is_some()
             || codegen.text_natives.contains_key(&id)
@@ -529,7 +561,8 @@ const outOfResources = (name, e) =>
 // - a leaf (`NAT`, `BOOL`, `TEXT`, `CHAR`) is decoded and encoded in one step;
 // - `list(t)` is an array;
 // - `data(info, args)` is a data type applied to its arguments: a tagged
-//   object, with the constructors and fields given by `define`;
+//   object, with the constructors and fields given by `define`, or for a
+//   record, an object without a tag;
 // - `param(i)`, in a field's type, is the data type's parameter `i`.
 // `open` says whether a type mentions a parameter. Each type is made once
 // (`list` and `data` give back the same object for the same arguments), so
@@ -554,10 +587,17 @@ const data = (info, args = []) => {
 };
 const paramTypes = [];
 const param = (i) => (paramTypes[i] ??= { kind: PARAM, open: true, id: typeCount++, i });
-const datatype = (name) => ({ name, ctors: new Map(), flat: new Set(), tags: "", instances: new Map() });
+const datatype = (name) => ({
+  name, ctors: new Map(), flat: new Set(), tags: "", instances: new Map(), record: undefined, checks: [],
+});
 // Each constructor's tag, and its fields' keys and types, in order. A
-// constructor is `flat` if all its fields are leaves.
-const define = (info, ctors) => {
+// constructor is `flat` if all its fields are leaves. A record has one
+// constructor, whose fields are `info.record`, and no tag; `checks` are its
+// proof fields' runtime checks, each a message and a function of a decoded
+// object saying whether the proof holds.
+const define = (info, ctors, record = false, checks = []) => {
+  if (record) info.record = ctors[0][1];
+  info.checks = checks;
   for (const [tag, fields] of ctors) {
     info.ctors.set(tag, fields);
     if (fields.every(([, t]) => t.kind === LEAF)) info.flat.add(tag);
@@ -803,6 +843,10 @@ const decode = (t, x, root) => {
         } else if (t.kind === LIST) {
           done.set(x, INSIDE);
           frames.push({ t, x, done, fields: undefined, i: 0, n: x.length, out: [] });
+        } else if (t.info.record !== undefined) {
+          const fields = t.info.record;
+          done.set(x, INSIDE);
+          frames.push({ t, x, done, fields, i: 0, n: fields.length, out: {} });
         } else {
           const tag = own(x, "tag");
           if (tag === MISSING) refuse(`no tag; expected ${t.info.tags}`);
@@ -847,6 +891,7 @@ const decode = (t, x, root) => {
           for (let i = f.n - 1; i >= 0; i--) value = { tag: "Cons", head: f.out[i], tail: value };
         } else {
           value = f.out;
+          for (const [message, holds] of f.t.info.checks) if (!holds(value)) refuse(message);
         }
         f.done?.set(f.x, value);
       }
@@ -873,7 +918,12 @@ const encode = (t, v) => {
     } else if (t.kind === LIST) {
       frames.push({ t, v, fields: undefined, out: [] });
     } else {
-      frames.push({ t, v, fields: t.info.ctors.get(v.tag), i: 0, out: { tag: v.tag } });
+      const record = t.info.record;
+      frames.push(
+        record !== undefined
+          ? { t, v, fields: record, i: 0, out: {} }
+          : { t, v, fields: t.info.ctors.get(v.tag), i: 0, out: { tag: v.tag } },
+      );
     }
     for (;;) {
       const f = frames[frames.length - 1];
@@ -1197,9 +1247,9 @@ impl<'g> Gen<'g> {
                 if !erased && Some(*d) != self.nat {
                     let _ = writeln!(
                         out,
-                        "{pad}const {} = {scrutinee}.{};",
+                        "{pad}const {} = {scrutinee}{};",
                         var(level + f),
-                        field_key(field)
+                        member(&key(self.g, *d, field))
                     );
                 }
                 env.push(*erased);
@@ -1235,6 +1285,9 @@ impl<'g> Gen<'g> {
                 let _ = writeln!(out, "{pad}const {} = charsOfText({scrutinee});", var(level));
             }
             out.push_str(&body);
+        } else if data.record {
+            // A record has one constructor and no tag.
+            branch(&mut out, 0, &branches[0], depth)?;
         } else {
             let _ = writeln!(out, "{pad}switch ({scrutinee}.tag) {{");
             for (c, b) in branches.iter().enumerate() {
@@ -1371,15 +1424,23 @@ impl<'g> Gen<'g> {
                     });
                 }
                 let ctor = &data.ctors[*c];
-                let mut fields = vec![format!("tag: \"{}\"", ctor.name)];
+                let mut fields = Vec::new();
+                if !data.record {
+                    fields.push(format!("tag: \"{}\"", ctor.name));
+                }
                 for (((field, _), erased), arg) in
                     ctor.fields.iter().zip(&ctor.field_erased).zip(args)
                 {
                     if !erased {
-                        fields.push(format!("{}: {}", field_key(field), self.expr(arg, env)?));
+                        let key = ts_key(&key(self.g, *d, field));
+                        fields.push(format!("{key}: {}", self.expr(arg, env)?));
                     }
                 }
-                format!("{{ {} }}", fields.join(", "))
+                if fields.is_empty() {
+                    "{}".into()
+                } else {
+                    format!("{{ {} }}", fields.join(", "))
+                }
             }
             // Proofs are erased, and transport along an equality does nothing.
             Term::J(_, base, _) => self.expr(base, env)?,
@@ -1508,7 +1569,7 @@ impl<'g> Gen<'g> {
     /// A data type's constructors, and the keys and types of their fields.
     /// Only names the runtime chose, and `info$`-prefixed ones, are used as
     /// JS names; tags and keys are strings.
-    fn define(&self, d: DataId) -> String {
+    fn define(&self, d: DataId) -> Fallible<String> {
         let data = self.g.data(d);
         let mut out = format!("define({}, [\n", info_name(&data.name));
         for (ctor, fields) in data.ctors.iter().zip(generic_field_boundaries(self.g, d)) {
@@ -1517,7 +1578,7 @@ impl<'g> Gen<'g> {
                 .map(|(field, b)| {
                     format!(
                         "[{}, {}]",
-                        js_string_literal(&field_key(field)),
+                        js_string_literal(&key(self.g, d, field)),
                         self.type_expr(b)
                     )
                 })
@@ -1529,8 +1590,65 @@ impl<'g> Gen<'g> {
                 fields.join(", ")
             );
         }
-        out.push_str("]);\n");
-        out
+        out.push(']');
+        if data.record {
+            out.push_str(", true, [");
+            for check in self.field_checks(d)? {
+                let _ = write!(out, "\n  {check},");
+            }
+            out.push_str("\n]");
+        }
+        out.push_str(");\n");
+        Ok(out)
+    }
+
+    /// For each proof field of record `d` with a decision procedure: the
+    /// message for when it doesn't hold, and a function of the decoded
+    /// object saying whether it does.
+    fn field_checks(&self, d: DataId) -> Fallible<Vec<String>> {
+        let data = self.g.data(d);
+        let ctor = &data.ctors[0];
+        let np = data.params.len();
+        let yes = self.decision_yes_tag();
+        let mut out = Vec::new();
+        let mut validators: Vec<_> = data.validators.iter().filter(|v| v.ctor == 0).collect();
+        validators.sort_by_key(|v| v.field);
+        for v in validators {
+            // The parameters are types, so erased; the earlier fields are read
+            // from the object.
+            let mut env: Vec<bool> = vec![true; np];
+            let mut reads = String::new();
+            for (j, ((field, _), erased)) in ctor.fields[..v.field]
+                .iter()
+                .zip(&ctor.field_erased)
+                .enumerate()
+            {
+                if !erased {
+                    let _ = write!(
+                        reads,
+                        "const {} = o{}; ",
+                        var(np + j),
+                        member(&key(self.g, d, field))
+                    );
+                }
+                env.push(*erased);
+            }
+            let decision = self.expr(&v.decision, &mut env)?;
+            let mut names: Vec<stitchwort_core::Name> =
+                data.params.iter().map(|(x, _)| x.clone()).collect();
+            names.extend(ctor.fields[..v.field].iter().map(|(x, _)| x.clone()));
+            let field = &ctor.fields[v.field];
+            let message = format!(
+                "proof field `{}` (`{}`) doesn't hold",
+                field.0,
+                pretty::term(self.g, &names, &field.1)
+            );
+            out.push(format!(
+                "[{}, (o) => {{ {reads}return {decision}.tag === \"{yes}\"; }}]",
+                js_string_literal(&message)
+            ));
+        }
+        Ok(out)
     }
 
     /// Inputs are `readonly`; outputs are freshly built, so they're mutable.
@@ -1570,15 +1688,22 @@ impl<'g> Gen<'g> {
             .iter()
             .zip(generic_field_boundaries(self.g, d))
             .map(|(ctor, fields)| {
-                let mut parts = vec![format!("readonly tag: \"{}\"", ctor.name)];
+                let mut parts = Vec::new();
+                if !data.record {
+                    parts.push(format!("readonly tag: \"{}\"", ctor.name));
+                }
                 for (field, b) in &fields {
                     parts.push(format!(
                         "readonly {}: {}",
-                        field_key(field),
+                        ts_key(&key(self.g, d, field)),
                         self.ts_type(b, true, &params)
                     ));
                 }
-                format!("{{ {} }}", parts.join("; "))
+                if parts.is_empty() {
+                    "{}".to_string()
+                } else {
+                    format!("{{ {} }}", parts.join("; "))
+                }
             })
             .collect();
         let generics = if params.is_empty() {
@@ -1586,6 +1711,16 @@ impl<'g> Gen<'g> {
         } else {
             format!("<{}>", params.join(", "))
         };
+        if data.record {
+            // Structural, like every TypeScript object type: another record
+            // with the same fields is accepted too (docs/proposals/records.md
+            // §11.1).
+            return format!(
+                "export type {}{generics} = {};\n",
+                type_name(&data.name),
+                variants[0]
+            );
+        }
         if variants.is_empty() {
             // A type without constructors has no values.
             return format!("export type {}{generics} = never;\n", type_name(&data.name));
@@ -1782,72 +1917,72 @@ const TEXT_NATIVES: &[(&str, TextNative, &str)] = &[
     (
         "textToList",
         TextNative::TextToList,
-        "55f4ee982b01cd63f281648877b8052578bd053537d7196b81f2420f93310659",
+        "549a42631552690743f06ace8493d5e2e85672173248cc72fa1842711b958066",
     ),
     (
         "textFromList",
         TextNative::TextFromList,
-        "589f496fb7316b3ac6a86d42797c46c97e604331d9db18947fb3534b7320b1b3",
+        "0d7126c14af1f18042bdb06fec7030139ab8bb7d57f7e2f5a5215c577479ad6d",
     ),
     (
         "textAppend",
         TextNative::TextAppend,
-        "d425b5c567fdd4d62acb93ed33a832aec2c1ce901f6cd11e85348a7ea8a47212",
+        "d04570fc5c40f95e7632ad9959589d5b2bdf54c75df57b765a1d72c6e29e4f11",
     ),
     (
         "textLength",
         TextNative::TextLength,
-        "3ac6fd0dd35c31467c1f9125ff994d18f39c6a787dd05b592f63d209e9f8982d",
+        "b49fbcc27f659077cf54460e8b8966f20999ef3d047d57fc11924628867399d5",
     ),
     (
         "textIsEmpty",
         TextNative::TextIsEmpty,
-        "7dd171adb0dda96ccdddfaccfa23a3c583e320f23bcc602fbe0386f40a39504c",
+        "a90f3ce9f27a95267e8259192aa7bf7f45ce5c254983deb07be35c0d9eac7b67",
     ),
     (
         "decEqText",
         TextNative::DecEqText,
-        "315a9486c26869db111f0cbe299dda583787a3f56421626ba8d1a12648463cac",
+        "f69a059702df9f43714a8cee2ac83349859539cdf4d3385930f9dc2cfeb973b0",
     ),
     (
         "textCompare",
         TextNative::TextCompare,
-        "64dc08aebec18f26745cd5d5aa0d0018b47fea7d89016c460f79decfe14d9f04",
+        "99922cac2ece4c6fe119244f4e7ebfbe6a73c41c5d7d4bc33ad4cc68621990a1",
     ),
     (
         "textUncons",
         TextNative::TextUncons,
-        "b3193fd564ca9794df7e2dc0c8cbdc5c7e0627c85f44cc840b5bef5f066b661d",
+        "05907321fda3c2a8e740ec4a30518f8ab133d4bc43cf954877262bc5f3bb2aed",
     ),
     (
         "textFold",
         TextNative::TextFold,
-        "026292808e8eb3b9bd694ffc8fb63f3aed9bf068fa843ffacdc33fec33b849bc",
+        "5015ca6ea71ac66cf89ef1306af0a813ffa12c9bd93a06ab3e682c3fe802ff75",
     ),
     (
         "textTrim",
         TextNative::TextTrim,
-        "cc4d9039e163a10e59993c7f15ae199e8ca7f195dc4e8c167e6929115761e0e3",
+        "e29b4385d236cc6c65a7f039a1a3cceb4f0a5b15956106c5938145cb49331dde",
     ),
     (
         "textSplit",
         TextNative::TextSplit,
-        "0d1ba51fdc8e3ca0229687d960da99908e33fdc62c9f03c0c06b18c535bd4081",
+        "c16121624ff5d1e29219e5550216bdfb0ec37238bbe86f7551b784b2b93d9bc3",
     ),
     (
         "textJoin",
         TextNative::TextJoin,
-        "82c027ed95f87486254858de74e01df5e7d6977eec73565e6a5f26c400aed543",
+        "fc7855026fd1f585079f7687d5d47987f5696670d3e0ea3f69e466e745efb3ba",
     ),
     (
         "natToText",
         TextNative::NatToText,
-        "cb3e7303afea63730d6516bfcf329f6f200aa7d18f5f9ec6be32ccc0507c8cef",
+        "fc4ff5aefcb7cc8800239627ebcbd718d6c86658a15c5b8827333c68cec6645a",
     ),
     (
         "textToNat",
         TextNative::TextToNat,
-        "41f9f9d896d28ca11afbc6f5c1fabff76286040a8fdf842a9b15afe57526af0c",
+        "8e3282ab2c0d59e2aed04467ea456f529b3ee22ef869862412ea68df3ae05c60",
     ),
 ];
 
@@ -2059,6 +2194,46 @@ pub fn field_key(name: &str) -> String {
 
 const RESERVED_KEYS: &[&str] = &["tag", "__proto__"];
 
+/// The key of a record's field: as [`field_key`], except that a field `tag`
+/// keeps the key `tag`, since a record has no tag of its own
+/// (docs/proposals/records.md §11.2). `__proto__` is still `$__proto__`.
+pub fn record_key(name: &str) -> String {
+    let key = name.replace('\'', "$");
+    if name == "__proto__" {
+        format!("${key}")
+    } else {
+        key
+    }
+}
+
+/// The key of field `name` of data type `d`.
+fn key(g: &Globals, d: DataId, name: &str) -> String {
+    if g.data(d).record {
+        record_key(name)
+    } else {
+        field_key(name)
+    }
+}
+
+/// Reading property `key`: `.key`, or `["key"]` if it isn't an identifier.
+fn member(key: &str) -> String {
+    if is_js_identifier(key) {
+        format!(".{key}")
+    } else {
+        format!("[{}]", js_string_literal(key))
+    }
+}
+
+/// A property name in an object literal or a TypeScript object type: as it
+/// is if it's an identifier, otherwise quoted.
+fn ts_key(key: &str) -> String {
+    if is_js_identifier(key) {
+        key.to_string()
+    } else {
+        js_string_literal(key)
+    }
+}
+
 /// A data type's name in the TypeScript declarations, with each prime as `$`.
 fn type_name(name: &str) -> String {
     name.replace('\'', "$")
@@ -2199,13 +2374,22 @@ pub fn boundary_literal(g: &Globals, b: &Boundary, value: &Value) -> Result<Stri
             }
         }
         (Boundary::Data(d, args), Value::Ctor(_, c, fields)) => {
-            let ctor = &g.data(*d).ctors[*c];
+            let data = g.data(*d);
+            let ctor = &data.ctors[*c];
             let boundaries = &field_boundaries(g, *d, args)[*c];
-            let mut parts = vec![format!("tag: \"{}\"", ctor.name)];
-            for ((name, b), field) in boundaries.iter().zip(fields.iter()) {
+            let mut parts = Vec::new();
+            if !data.record {
+                parts.push(format!("tag: \"{}\"", ctor.name));
+            }
+            let runtime = fields
+                .iter()
+                .zip(&ctor.field_erased)
+                .filter(|(_, erased)| !**erased)
+                .map(|(field, _)| field);
+            for ((name, b), field) in boundaries.iter().zip(runtime) {
                 parts.push(format!(
                     "{}: {}",
-                    field_key(name),
+                    ts_key(&key(g, *d, name)),
                     boundary_literal(g, b, field)?
                 ));
             }

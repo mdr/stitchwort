@@ -38,7 +38,8 @@ const outOfResources = (name, e) =>
 // - a leaf (`NAT`, `BOOL`, `TEXT`, `CHAR`) is decoded and encoded in one step;
 // - `list(t)` is an array;
 // - `data(info, args)` is a data type applied to its arguments: a tagged
-//   object, with the constructors and fields given by `define`;
+//   object, with the constructors and fields given by `define`, or for a
+//   record, an object without a tag;
 // - `param(i)`, in a field's type, is the data type's parameter `i`.
 // `open` says whether a type mentions a parameter. Each type is made once
 // (`list` and `data` give back the same object for the same arguments), so
@@ -63,10 +64,17 @@ const data = (info, args = []) => {
 };
 const paramTypes = [];
 const param = (i) => (paramTypes[i] ??= { kind: PARAM, open: true, id: typeCount++, i });
-const datatype = (name) => ({ name, ctors: new Map(), flat: new Set(), tags: "", instances: new Map() });
+const datatype = (name) => ({
+  name, ctors: new Map(), flat: new Set(), tags: "", instances: new Map(), record: undefined, checks: [],
+});
 // Each constructor's tag, and its fields' keys and types, in order. A
-// constructor is `flat` if all its fields are leaves.
-const define = (info, ctors) => {
+// constructor is `flat` if all its fields are leaves. A record has one
+// constructor, whose fields are `info.record`, and no tag; `checks` are its
+// proof fields' runtime checks, each a message and a function of a decoded
+// object saying whether the proof holds.
+const define = (info, ctors, record = false, checks = []) => {
+  if (record) info.record = ctors[0][1];
+  info.checks = checks;
   for (const [tag, fields] of ctors) {
     info.ctors.set(tag, fields);
     if (fields.every(([, t]) => t.kind === LEAF)) info.flat.add(tag);
@@ -278,6 +286,10 @@ const decode = (t, x, root) => {
         } else if (t.kind === LIST) {
           done.set(x, INSIDE);
           frames.push({ t, x, done, fields: undefined, i: 0, n: x.length, out: [] });
+        } else if (t.info.record !== undefined) {
+          const fields = t.info.record;
+          done.set(x, INSIDE);
+          frames.push({ t, x, done, fields, i: 0, n: fields.length, out: {} });
         } else {
           const tag = own(x, "tag");
           if (tag === MISSING) refuse(`no tag; expected ${t.info.tags}`);
@@ -322,6 +334,7 @@ const decode = (t, x, root) => {
           for (let i = f.n - 1; i >= 0; i--) value = { tag: "Cons", head: f.out[i], tail: value };
         } else {
           value = f.out;
+          for (const [message, holds] of f.t.info.checks) if (!holds(value)) refuse(message);
         }
         f.done?.set(f.x, value);
       }
@@ -348,7 +361,12 @@ const encode = (t, v) => {
     } else if (t.kind === LIST) {
       frames.push({ t, v, fields: undefined, out: [] });
     } else {
-      frames.push({ t, v, fields: t.info.ctors.get(v.tag), i: 0, out: { tag: v.tag } });
+      const record = t.info.record;
+      frames.push(
+        record !== undefined
+          ? { t, v, fields: record, i: 0, out: {} }
+          : { t, v, fields: t.info.ctors.get(v.tag), i: 0, out: { tag: v.tag } },
+      );
     }
     for (;;) {
       const f = frames[frames.length - 1];

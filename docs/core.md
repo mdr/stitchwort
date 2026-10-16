@@ -96,6 +96,7 @@ A declaration `type D (params) : s = | C₁ fields | …`:
 - **Universe constraint (`E-UNIVERSE`).** A field whose type is in `Type i` is only allowed if `D : Type j` with `i ≤ j`, or `D : Prop`. Prop-valued fields are always allowed.
 - **Strict positivity (`E-POSITIVITY`).** `D` may only appear in a field's type as `D` applied to exactly its own parameters, or as the result of a function type whose inputs don't mention `D`. Nested occurrences, like `List D`, are rejected conservatively. In a [data group](#groups-of-data-types), this holds for every member, in the fields of every member.
 - **Erased fields:** a field is erased if its type is a proposition or a type former (a universe, or a function returning one).
+- **Records** (`declare_data_group_as`, docs/proposals/records.md): a data type may be declared as a record, which must have exactly one constructor (`E-MALFORMED` otherwise). The flag is fixed when the type is declared and hashed; checking never depends on it (it only says how JS represents the type). The elaborator gives a record a projection per field, an ordinary definition by a one-branch case. A record's proof field may get a **validator** (`add_field_validator`): a decision procedure for the field's proposition, in the context of the parameters and earlier fields, which the kernel checks has type `Decidable P` (as for an export's precondition), and which extracted JS runs to establish the field for decoded input.
 
 ## Case trees
 
@@ -255,7 +256,7 @@ Every checked declaration has a content hash (`crates/core/src/hash.rs`, BLAKE3)
 - **references to other declarations are hashed as their hashes**, so a hash covers everything it depends on;
 - **a recursive reference is a fixed marker**;
 - **names aren't hashed**: not the definition's own, not binder names, not local variables (which are de Bruijn indices). Source locations aren't hashed either;
-- **data types are nominal**, so their hash includes their name and their constructors' names, but not field names.
+- **data types are nominal**, so their hash includes their name, their constructors' names, their fields' names (which are the keys of their JS objects), and whether they're records.
 
 Renaming a function or reformatting code changes no hashes. Changing a body changes its hash and the hash of everything that uses it.
 
@@ -276,7 +277,7 @@ What's erased:
 - **Terms:** `Data`, `Sort`, `Pi`, `Eq` and `Refl` compile to `undefined`. `J P d p` compiles to `d`.
 - **Case on a proof:** this is only possible for the subsingleton propositions above, so it compiles to its single branch.
 
-Representations: `Nat` is `bigint` (`Zero` is `0n`, `Succ n` is `n + 1n`, a case on `Nat` tests `=== 0n`, and a `NumCase` is a `switch` whose arms each return, followed by the default). Other data types are `{ tag, …fields }`, omitting erased fields.
+Representations: `Nat` is `bigint` (`Zero` is `0n`, `Succ n` is `n + 1n`, a case on `Nat` tests `=== 0n`, and a `NumCase` is a `switch` whose arms each return, followed by the default). Other data types are `{ tag, …fields }`, omitting erased fields; a record is `{ …fields }`, with no tag (docs/proposals/records.md §11).
 
 The exportability check, the boundary encodings and the decode → compute → encode contract are as described in DESIGN.md §12, restricted to `Nat`, `Bool`, `List` and parameterless data types built from them.
 
@@ -290,6 +291,7 @@ Only definitions reachable from the exports (and their checks) are emitted, in t
 |---|---|
 | `E-PARSE` | Syntax error |
 | `E-UNKNOWN-NAME` | Name not in scope |
+| `E-UNKNOWN-FIELD` / `E-RECORD-FIELD` / `E-NOT-A-RECORD` / `E-RECORD-UPDATE` | A record has no such field; a literal or pattern leaves a field out or gives one twice; a record operation on something that isn't a record; an update that replaces a field without the later fields whose types mention it |
 | `E-DUPLICATE` | Name defined twice, or a built-in name redefined |
 | `E-MISSING-SIGNATURE` / `E-MISSING-DEFINITION` | Equations without a signature, or the other way round |
 | `E-ARITY` | Wrong number of patterns or arguments |

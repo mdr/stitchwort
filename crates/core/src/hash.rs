@@ -29,7 +29,8 @@
 //! Left out, so they don't affect identity: the definition's own name, binder
 //! names, local variable names (variables are de Bruijn indices) and source
 //! locations. Data types are nominal, so their names *are* included, along
-//! with their constructors' names.
+//! with their constructors' names, their fields' names, and whether they're
+//! records.
 //!
 //! A term is walked with a work list, since it can nest more deeply than
 //! recursion could follow. Hashing a reference hashes the declaration it
@@ -38,7 +39,7 @@
 //! recursive passes, and needs an operation to be running.
 
 use crate::budget::Result;
-use crate::globals::{Globals, HashKey, State};
+use crate::globals::{Data, Globals, HashKey, State};
 use crate::term::{DataId, DefId, Icit, Sort, Term};
 
 /// A 256-bit content hash.
@@ -140,14 +141,7 @@ pub fn data_hash(g: &Globals, id: DataId) -> Result<Option<ContentHash>> {
     for (_, ty) in &data.params {
         h.term(ty)?;
     }
-    h.usize(data.ctors.len());
-    for ctor in &data.ctors {
-        h.str(&ctor.name);
-        h.usize(ctor.fields.len());
-        for (_, ty) in &ctor.fields {
-            h.term(ty)?;
-        }
-    }
+    h.ctors(data)?;
     let hash = h.finish();
     g.hashes.borrow_mut().insert(HashKey::Data(id), hash);
     Ok(Some(hash))
@@ -238,14 +232,7 @@ fn data_group_hashes(g: &Globals, members: &[DataId]) -> Result<()> {
         let data = g.data(members[m]);
         h.tag("data");
         h.str(&data.name);
-        h.usize(data.ctors.len());
-        for ctor in &data.ctors {
-            h.str(&ctor.name);
-            h.usize(ctor.fields.len());
-            for (_, ty) in &ctor.fields {
-                h.term(ty)?;
-            }
-        }
+        h.ctors(data)?;
     }
     let group = h.finish();
     for (index, &m) in order.iter().enumerate() {
@@ -301,6 +288,25 @@ impl<'g> Hasher<'g> {
     fn str(&mut self, s: &str) {
         self.usize(s.len());
         self.bytes(s.as_bytes());
+    }
+
+    /// Whether a data type is a record, and its constructors: their names,
+    /// and their fields' names and types. Field names are hashed because they
+    /// change the JS (each field's key) and, for records, which field
+    /// `p.name` means (docs/proposals/records.md §12); the record flag
+    /// because it changes the JS representation.
+    fn ctors(&mut self, data: &Data) -> Result<()> {
+        self.bool(data.record);
+        self.usize(data.ctors.len());
+        for ctor in &data.ctors {
+            self.str(&ctor.name);
+            self.usize(ctor.fields.len());
+            for (name, ty) in &ctor.fields {
+                self.str(name);
+                self.term(ty)?;
+            }
+        }
+        Ok(())
     }
 
     fn tag(&mut self, tag: &str) {

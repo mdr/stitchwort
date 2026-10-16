@@ -65,6 +65,10 @@ pub enum Tok {
     /// `=>`, in a handler clause: `get () => k -> …`.
     FatArrow,
     Underscore,
+    /// `.`, in field access: `p.name`.
+    Dot,
+    /// `..`, the rest of a record pattern: `{ name, .. }`.
+    DotDot,
 }
 
 #[derive(Clone, Debug)]
@@ -219,6 +223,11 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
                 b'}' => Tok::RBrace,
                 b']' => Tok::RBracket,
                 b',' => Tok::Comma,
+                b'.' if bytes.get(i) == Some(&b'.') => {
+                    i += 1;
+                    Tok::DotDot
+                }
+                b'.' => Tok::Dot,
                 b':' if bytes.get(i) == Some(&b'=') => {
                     i += 1;
                     Tok::ColonEq

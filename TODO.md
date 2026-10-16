@@ -31,11 +31,6 @@ agent, then reviews, merges and updates this file.
 Running:
 - **`Partial`, stage 1** (lane `partial-stage1`): implementing draft 3 of
   [partial.md](docs/proposals/partial.md), approved by the user.
-- **Records, stage 1** (lane `records-stage1`): reviewed (stage 1 approved;
-  stage 2 eta after a same-type conversion contract and an empty-record
-  policy). Draft 2 adopting the review, then declared records, field access,
-  update, evaluation order, derived `==`, the field-name hash fix, JS as
-  plain objects. Stage 2 (eta, projections in the kernel) later.
 
 Waiting on a decision: nothing.
 
@@ -49,7 +44,11 @@ capability we know we'll need before the work that needs it):
    (`xs.sort`); `import List (map, filter)` for specific names only at first,
    meaning the same for namespaces now and files later; a small set of
    default-visible names (core types, constructors, operators); prefixed
-   names removed. Research and design note, then the reviewer.
+   names removed. Design note written
+   ([namespaces.md](docs/proposals/namespaces.md) draft 1, `Std` root,
+   stage 0 binds built-in syntax to fixed library definitions first). The
+   user answered §11 (implicit opening inside a namespace and extending
+   library namespaces from user code are deferred). **With the reviewer.**
 2. **Standard library for real programs:** list functions (`map`, `filter`,
    folds, `sum`, `max`, `zip`, `take`/`drop`, indexing), sorting with a
    correctness proof (sorted permutation), `Int`, a balanced-tree map/set,
@@ -113,9 +112,6 @@ capability we know we'll need before the work that needs it):
   no pattern match, termination errors point at the whole definition.
 - **Mutual tail calls aren't loops in generated JS** (`isEven 10000000n`
   is a `StitchwortResourceError`).
-- **Data-type hashes leave out field names**, though they become JS keys:
-  a renamed field wouldn't change the hash (matters for caching generated
-  JS, which is planned). Found by the records research.
 - **Mutual data limits:** nested (`List Tree`), inductive-recursive and
   inductive-inductive types are out of scope; members' parameters must be
   written identically (names included); JS error paths alternating
@@ -125,6 +121,17 @@ capability we know we'll need before the work that needs it):
   resources while checking (found by compact text stage 2).
 - **Compact text in the playground's WASM build** isn't measured.
 - **`Term::Nat`'s hash doesn't include `Nat`'s own hash** (pre-existing).
+- **JS internal-name encoding may collide** (from reading the code, not
+  tested): a prime becomes `$` and a dot `$$`, and primes may appear
+  mid-name, so `a''b` and `a.b` both become `$a$$b`. The namespaces note
+  proposes an encoding that can't collide.
+- **Records follow-ups:** stage 2 (kernel projections and eta, with the
+  same-type rule and eta off in unification's `first_order` fallback;
+  records.md draft 2 §7); `==` for records with proof or dependent fields;
+  `(.name)` accessor sections; proof-field checks at the JS boundary for
+  ordinary data types; printing `R.f r` as `r.f` in errors; descent through
+  record fields for termination. After `->`, `{` starts an ability row, so
+  a record literal in a result type needs parentheses.
 - **Measure the JS limits in browsers** (only Node so far).
 - **Compact text** (text step 7): in generated JS first, then possibly in the
   checking evaluator, with differential tests against the plain-list version.
@@ -230,6 +237,7 @@ capability we know we'll need before the work that needs it):
 
 ## Recently done
 
+- `22d7b01` Records stage 1: declared records (`type Person = { name : Text, age : Nat }`), `p.name`, `{ p | age = … }`, record patterns, dependent and proof fields, evaluation order as written, derived `==` where provable; JS plain objects with proof fields validated at the boundary; every data type's hash now includes its field names.
 - `1965faf` Compact text stage 2: text literals are one compact term in the kernel (shared character ranges), indistinguishable from the list they stand for; long literals from ~1,800 (2 MiB thread) to over 4 million characters; a build fingerprint and modes in the test-cache key; ~28,000 whole-result comparisons and mutation evidence.
 - `1c2addc` Mutual recursion stage 3: mutual data types (`Tree`/`Forest`, `Even`/`Odd`, three-member groups) checked as a unit; positivity across the group (`Bad1`/`Bad2` refused; the mutant proved `Void`); no data from `Prop` groups; group hashing; million-deep `Tree`/`Forest` across the JS boundary. Mutual recursion is complete.
 - `358fec5` `Partial` draft 3 (stage 1 only; later stages someday/maybe) and `crates/partial-model`, an executable model of the stage-1 runtime running the reviewer's test table.

@@ -162,6 +162,15 @@ fn walk(
                 walk(e, item, bound, false, uses)?;
             }
         }
+        Expr::Record { base, fields, .. } => {
+            if let Some(base) = base {
+                walk(e, base, bound, false, uses)?;
+            }
+            for (_, value) in fields {
+                walk(e, value, bound, false, uses)?;
+            }
+        }
+        Expr::Field(x, _) => walk(e, x, bound, false, uses)?,
         Expr::NamedArg(_, value, _) => walk(e, value, bound, false, uses)?,
         Expr::Num(..)
         | Expr::Char(..)

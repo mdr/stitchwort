@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-RECORD-FIELD] Error: this `Person` is missing `age`
+   ╭─[ reject/record-missing-field.sw:7:9 ]
+   │
+ 7 │ alice = { name = "Alice" }
+   │         ─────────┬────────  
+   │                  ╰────────── every field must be given
+───╯

@@ -79,6 +79,16 @@ pub enum Expr {
         clauses: Vec<Clause>,
         span: Span,
     },
+    /// A record literal `{ name = e, age = e }`, or with a base, an update
+    /// `{ p | age = e }`. Fields are in the order written; a punned field
+    /// `{ name }` is `{ name = name }`.
+    Record {
+        base: Option<Box<Expr>>,
+        fields: Vec<(Name, Expr)>,
+        span: Span,
+    },
+    /// Field access `e.name`.
+    Field(Box<Expr>, Name),
 }
 
 /// An ability row, `{State s, Abort | e}`. A row ending in a lowercase name
@@ -151,7 +161,9 @@ impl Expr {
             | Expr::List(_, span)
             | Expr::Unit(span)
             | Expr::Let { span, .. }
+            | Expr::Record { span, .. }
             | Expr::Handle { span, .. } => *span,
+            Expr::Field(e, name) => e.span().to(name.span),
             Expr::Effect(..)
             | Expr::App(..)
             | Expr::Arrow(..)
@@ -200,6 +212,8 @@ fn has_nested(expr: &Expr) -> bool {
         } => ty.as_deref().is_some_and(nested) || nested(value) || nested(body),
         Expr::Handle { body, .. } => nested(body),
         Expr::List(items, _) => !items.is_empty(),
+        Expr::Record { base, fields, .. } => base.is_some() || !fields.is_empty(),
+        Expr::Field(e, _) => nested(e),
         _ => false,
     }
 }
@@ -262,6 +276,15 @@ fn take_children(expr: &mut Expr, pending: &mut Vec<Expr>) {
         }
         Expr::Handle { body, .. } => take(body),
         Expr::List(items, _) => pending.append(items),
+        Expr::Record { base, fields, .. } => {
+            if let Some(base) = base {
+                take(base);
+            }
+            for (_, value) in fields {
+                pending.push(std::mem::replace(value, Expr::Prop(Span::NOWHERE)));
+            }
+        }
+        Expr::Field(e, _) => take(e),
         _ => {}
     }
 }
@@ -315,6 +338,14 @@ pub enum Pattern {
     /// A number: that many `Succ`s around `Zero`.
     Num(BigUint, Span),
     Ctor(Name, Vec<Pattern>, Span),
+    /// A record pattern `{ name = p, age }` (a punned field is a variable of
+    /// its name), with `rest` for a trailing `..` that ignores the other
+    /// fields.
+    Record {
+        fields: Vec<(Name, Pattern)>,
+        rest: bool,
+        span: Span,
+    },
 }
 
 impl Decl {
@@ -336,7 +367,8 @@ impl Pattern {
             Pattern::Wildcard(span)
             | Pattern::Absurd(span)
             | Pattern::Num(_, span)
-            | Pattern::Ctor(_, _, span) => *span,
+            | Pattern::Ctor(_, _, span)
+            | Pattern::Record { span, .. } => *span,
         }
     }
 }
@@ -356,12 +388,16 @@ pub struct CtorDecl {
 
 #[derive(Clone, Debug)]
 pub enum Decl {
-    /// `type List (a : Type) : Type = | Nil | Cons (head : a) (tail : List a)`
+    /// `type List (a : Type) : Type = | Nil | Cons (head : a) (tail : List a)`,
+    /// or with `record`, `type Person = { name : Text, age : Nat }`: one
+    /// constructor, named `Person.mk` (which source can't write), with a
+    /// field for each of the record's, in order.
     Data {
         name: Name,
         params: Vec<Binder>,
         sort: Option<Expr>,
         ctors: Vec<CtorDecl>,
+        record: bool,
         span: Span,
     },
     /// `name : Type`, optionally preceded by `theorem` or `export`.

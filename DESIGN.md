@@ -662,11 +662,18 @@ Resuming more than once doesn't by itself cause divergence. Exploring both branc
 
 ## 9. Records
 
-Records come in two kinds, kept separate at first.
+Records come in two kinds, kept separate at first. The plan, in stages, is [docs/proposals/records.md](docs/proposals/records.md); stage 1, declared records, is built ([as built](docs/proposals/records.md#65-as-built-stage-1), [syntax](docs/syntax.md#records)).
 
-### Row-polymorphic records
+### Declared records (built)
 
-- **Structural.** `{ name : Text, age : Nat }` is a type in its own right. `type Person = …` just gives it a name.
+- **Nominal.** `type Person = { name : Text, age : Nat }` declares a new type, as `type … = | …` does: `Person` and a `Pet` with the same fields are different types. It's a data type with one constructor and a projection per field, so the kernel needs nothing new. A nickname for a record type is an ordinary definition (`Point : Type; Point = …`, once anonymous record types exist).
+- **Literals** `{ name = "A", age = 3 }` need an expected type; **access** `p.name` needs `p`'s type known; **updates** `{ p | age = p.age + 1 }`; **patterns** `{ name, .. }`. In a computation, field expressions run in the order written.
+- **`==`** is derived only when a checked decision for the whole record can be built; otherwise the user writes one.
+- In JS, a plain object without a tag ([§12](#12-javascript-extraction)).
+
+### Row-polymorphic records (planned)
+
+- **Structural.** `{ name : Text, age : Nat }` is a type in its own right, the same type whatever order its fields are written in.
 - **Row polymorphic.** `{ name : Text | r }` accepts any record with at least a `name` field.
 - **Conveniences:** update syntax `{ p | age = p.age + 1 }`, field punning `{ name, age }`, and `.age` as an accessor function.
 - **No dependencies between fields.**
@@ -679,16 +686,17 @@ Records come in two kinds, kept separate at first.
   ```
   { s | items = xs', sorted = proofAbout xs' }
   ```
-- **Proof fields are erased** at runtime.
+- **Proof fields are erased** at runtime. Passed in from JS, each is re-established by a decision procedure.
+- These are declared records: anonymous and row-polymorphic records don't have dependent fields.
 
 ### Nominal types
 
-- **Data types (`type … = | …`) are nominal**: two declarations with the same constructors are still different types.
-- To keep IDs apart, use single-constructor data types instead of nominal records:
+- **Data types (`type … = | …`) and declared records are nominal**: two declarations with the same constructors, or fields, are still different types. (Their TypeScript aliases are structural, as all TS object types are.)
+- To keep IDs apart, use single-constructor data types or records:
 
   ```
   type UserId  = UserId Nat
-  type OrderId = OrderId Nat
+  type OrderId = { order : Nat }
   ```
 
 ---
@@ -813,10 +821,11 @@ The guarantee starts *after* decoding succeeds. It makes no promise that decodin
 | `Text` | `string`, well-formed (decoding refuses lone surrogates) |
 | `Char` | `string` holding exactly one Unicode scalar value |
 | `List a` | `readonly A[]` (copied on decode; `readonly` is only a hint to TS callers) |
-| `{ name : Text, age : Nat }` (planned: records aren't built yet) | `{ readonly name: string; readonly age: bigint }` |
+| a record `type Person = { name : Text, age : Nat }` | `export type Person = { readonly name: string; readonly age: bigint }`: no tag, keys in declared order |
+| an anonymous record `{ name : Text, age : Nat }` (planned) | `{ readonly age: bigint; readonly name: string }`, keys in sorted order |
 | `Optional a` (planned; for now the prelude's `Maybe a` is an ordinary data type) | `{ tag: "None" } \| { tag: "Some"; value: A }` (for now, `Maybe<A>`: `{ tag: "Nothing" } \| { tag: "Just"; value: A }`) |
 | sum type `Square … \| Rect …` | `{ tag: "Square"; side: bigint } \| { tag: "Rect"; … }` (exported constructors must name their fields; a field called `tag` is `$tag`, see [Names](#names)) |
-| proof arguments and fields | omitted |
+| proof arguments and fields | omitted (a record's proof fields are re-established by decision procedures when decoded; other data types with proof fields can't cross yet) |
 | data types with parameters, such as `Maybe Text` or `Pair Char Nat` | `Maybe<string>`, `Pair<string, bigint>`: generic aliases, whose codecs take the arguments' codecs |
 | functions, abilities, `Float`, type parameters of the exported function | not exportable yet |
 
@@ -843,7 +852,7 @@ A decoder takes the data it needs from an input object and nothing else, so that
 
 Stitchwort names (ASCII letters, digits, `_` and primes) don't line up with JavaScript's, and some names mean something to JS objects or to the generated module. These rules make sure nothing a program names can clash with anything else, by construction rather than by a list of names to avoid:
 
-- **Fields.** A field's key, in boundary objects, in the generated code and in the `.d.ts`, is its name with each prime written `$` (`x'` is `x$`). The representation already uses two keys: `tag`, for the constructor, and `__proto__`, which in an object literal sets the prototype instead of a property. A field with one of those names gets a `$` in front, so `MkLabelled (tag : Text) (count : Nat)` is `{ tag: "MkLabelled"; $tag: string; count: bigint }`. Stitchwort names can't contain `$`, and only these keys start with one, so two fields never share a key, and none is `tag`. Other names with a meaning on JS objects (`constructor`, `toString`, `length`) or reserved in JS (`class`, `default`) are fine as keys, so they're kept.
+- **Fields.** A field's key, in boundary objects, in the generated code and in the `.d.ts`, is its name with each prime written `$` (`x'` is `x$`). A record has no tag, so its field `tag` keeps the key `tag`; the rest of this rule applies to records too. The representation already uses two keys: `tag`, for the constructor, and `__proto__`, which in an object literal sets the prototype instead of a property. A field with one of those names gets a `$` in front, so `MkLabelled (tag : Text) (count : Nat)` is `{ tag: "MkLabelled"; $tag: string; count: bigint }`. Stitchwort names can't contain `$`, and only these keys start with one, so two fields never share a key, and none is `tag`. Other names with a meaning on JS objects (`constructor`, `toString`, `length`) or reserved in JS (`class`, `default`) are fine as keys, so they're kept.
 - **Constructors** only appear as tag strings, so any name works (`"MkBox'"`).
 - **Data types** are named with each prime as `$` in the `.d.ts` (`Box'` is `Box$`). A data type at the boundary can't be called `StitchwortInputError` or `StitchwortResourceError`, which the module exports itself.
 - **Exports** must be JS identifiers (so no primes) that aren't reserved in JS (`delete`, `class`, `this`, `eval`, `undefined`, …), or they couldn't be imported by name; nor can they be the module's own two exports. An export isn't a name in the module's own scope: its wrapper is `$$name`, exported with `export { $$name as name }`. So an export can be called anything else, `Set`, `BigInt` or `decode`, without hiding a JS global or one of the runtime's helpers.
