@@ -257,3 +257,76 @@ fn a_missing_file_is_an_error() {
     assert_eq!(output.status.code(), Some(1));
     assert!(stderr(&output).contains("can't read"));
 }
+
+// Partial programs (docs/proposals/partial.md): loops with no bound.
+
+/// The adder reads until the end of its input, however long: five times
+/// the bound its fuelled version (adder-fuel.sw) stops at.
+#[test]
+fn a_partial_main_reads_until_the_end_of_its_input() {
+    let mut input = String::from("Ada\n");
+    for n in 1..=5000 {
+        input.push_str(&format!("{n}\n"));
+    }
+    let printed = succeeds(&example("adder.sw"), input.as_bytes());
+    assert!(
+        printed.ends_with("  total: 12502500\nThe sum is 12502500. Goodbye, Ada.\n"),
+        "{}",
+        &printed[printed.len().saturating_sub(200)..]
+    );
+    // The fuelled version stops counting after 1000 lines.
+    let fuelled = succeeds(&example("adder-fuel.sw"), input.as_bytes());
+    assert!(
+        fuelled.ends_with("The sum is 500500. Goodbye, Ada.\n"),
+        "{fuelled}"
+    );
+}
+
+#[test]
+fn cat_copies_its_input() {
+    let input: String = (0..2000).map(|i| format!("line {i}\n\n")).collect();
+    assert_eq!(succeeds(&example("cat.sw"), input.as_bytes()), input);
+    assert_eq!(succeeds(&example("cat.sw"), b""), "");
+    assert_eq!(
+        succeeds(&example("cat.sw"), b"no line ending"),
+        "no line ending\n"
+    );
+}
+
+#[test]
+fn collatz_counts_its_steps() {
+    assert_eq!(
+        succeeds(&example("collatz.sw"), b""),
+        "27 reaches 1 in 111 steps\n"
+    );
+}
+
+/// A partial `main` that never finishes runs until it's stopped: the
+/// runner has no limit on ticks, and each step between them has its own
+/// budget.
+#[test]
+fn an_endless_partial_main_runs_until_stopped() {
+    // Output is flushed before every read, so `started` shows.
+    let path = source_file(
+        "spin.sw",
+        "spin : Nat -> {Partial} Nat\nspin n = spin (n + 1)\n\n\
+         main : () -> {IO, Partial} ()\nmain u =\n  print \"started\"\n  let l = readLine ()\n  print (natToText (spin 0))\n",
+    );
+    let mut child = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
+        .arg("run")
+        .arg(&path)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("start stitchwort");
+    let mut stdout = BufReader::new(child.stdout.take().unwrap());
+    let mut line = String::new();
+    stdout.read_line(&mut line).expect("read the first line");
+    assert_eq!(line, "started\n");
+    std::thread::sleep(Duration::from_secs(2));
+    let running = child.try_wait().expect("check the child");
+    child.kill().expect("stop it");
+    child.wait().expect("wait for it");
+    assert!(running.is_none(), "it stopped by itself: {running:?}");
+}

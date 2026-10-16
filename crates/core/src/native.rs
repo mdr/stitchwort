@@ -34,6 +34,7 @@ use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::budget;
 use crate::globals::{Globals, State};
+use crate::partial::Primitive;
 use crate::term::{DataId, DefId, Icit, Sort, Term};
 use crate::value::{Elim, Head, Value, conv, eval, force};
 
@@ -125,6 +126,8 @@ pub struct Builtins {
     natives: HashMap<DefId, Native>,
     /// Off in tests that compare natives with their definitions.
     pub disable_natives: bool,
+    /// `Delay` and its constants (`partial.rs`), once admitted.
+    primitives: HashMap<DefId, Primitive>,
     /// `List` and `Char`, if they're the declarations the compact
     /// representation of text was written for (see [`crate::chars`]).
     pub text: Option<crate::chars::CompactText>,
@@ -134,6 +137,23 @@ pub struct Builtins {
 }
 
 impl Builtins {
+    /// The definition admitted as `prim`, if it has been.
+    pub fn primitive_id(&self, prim: Primitive) -> Option<DefId> {
+        self.primitives
+            .iter()
+            .find(|(_, p)| **p == prim)
+            .map(|(id, _)| *id)
+    }
+
+    /// Which primitive `id` is, if it's one.
+    pub fn primitive(&self, id: DefId) -> Option<Primitive> {
+        self.primitives.get(&id).copied()
+    }
+
+    pub(crate) fn register_primitive(&mut self, prim: Primitive, id: DefId) {
+        self.primitives.insert(id, prim);
+    }
+
     pub fn native(&self, id: DefId) -> Option<Native> {
         if self.disable_natives {
             return None;

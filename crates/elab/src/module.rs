@@ -584,7 +584,7 @@ impl Elaborator {
                 .iter()
                 .map(|i| (*i, items[*i].decl, items[*i].equations))
                 .collect();
-            let found = self.group(&members);
+            let found = self.group(&members, true);
             diagnostics.extend(found.into_iter().map(|(i, d)| (items[i].position, d)));
             return;
         }
@@ -596,7 +596,7 @@ impl Elaborator {
             decl @ Decl::Ability { .. } => self.ability(decl),
             Decl::Test { name, expr, span } => self.test(name, expr, *span),
             decl @ Decl::Signature { .. } => {
-                let found = self.group(&[(index, decl, item.equations)]);
+                let found = self.group(&[(index, decl, item.equations)], false);
                 diagnostics.extend(found.into_iter().map(|(i, d)| (items[i].position, d)));
                 return;
             }

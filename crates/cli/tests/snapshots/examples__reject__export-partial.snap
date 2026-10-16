@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-JS-PARTIAL] Error: `steps` can't be exported
+   ╭─[ reject/export-partial.sw:8:1 ]
+   │
+ 8 │ export steps : Nat -> {Partial} Nat
+   │ ─────────────────┬─────────────────  
+   │                  ╰─────────────────── its type mentions `Partial`
+   │ 
+   │ Note 1: partial functions can't be exported to JavaScript yet: only the runtime (`stitchwort run`, the playground) runs them
+   │ 
+   │ Note 2: export the total parts instead: the functions a partial loop calls
+───╯
