@@ -54,7 +54,10 @@ capability we know we'll need before the work that needs it):
    notation.
    Alongside, for Advent of Code: lane `aoc-survey` (Sonnet) surveys days
    1–5 of AoC 2025 from the user's solutions and inputs to rank what the
-   library needs; lane `int-design` (Opus) writes the `Int` design note.
+   library needs (merged: [aoc-2025.md](docs/aoc-2025.md)); the `Int` design
+   note is written ([integers.md](docs/proposals/integers.md) draft 1: `Int` as
+   a data type over `Nat`, no kernel change, Euclidean `/` and `%`); three
+   questions for the user, then the reviewer.
 2. **Standard library for real programs** (ranked by the AoC survey,
    [aoc-2025.md](docs/aoc-2025.md): days 1–5 already run with today's
    compiler using hand-written helpers): a list toolkit, a `readAllLines`
