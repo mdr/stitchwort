@@ -140,9 +140,9 @@ capability we know we'll need before the work that needs it):
   a record literal in a result type needs parentheses.
 - **`Partial` follow-ups:** a generated-program differential test of the
   runner against `crates/partial-model`; `mapP` in the library; the
-  `E-PARTIAL-CALLBACK` note could point at polymorphic library variants; an
-  endless partial `main` in the CLI runs until stopped (no total-work
-  limit; decide whether to add one).
+  `E-PARTIAL-CALLBACK` note could point at polymorphic library variants. (Decided:
+  an endless partial `main` in the CLI runs until stopped, like any
+  program; no total-work limit.)
 - **Measure the JS limits in browsers** (only Node so far).
 - **Compact text** (text step 7): in generated JS first, then possibly in the
   checking evaluator, with differential tests against the plain-list version.
