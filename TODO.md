@@ -40,7 +40,8 @@ Running:
   update, evaluation order, derived `==`, the field-name hash fix, JS as
   plain objects. Stage 2 (eta, projections in the kernel) later.
 
-Waiting on a decision:
+Waiting on a decision: nothing.
+
 ## Next
 
 Nothing queued: choose from **Later**, or continue the lanes above.
