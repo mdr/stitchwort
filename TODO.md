@@ -36,10 +36,12 @@ Running:
   draft 2, approved by the user. No natives (stage 3).
 
 Waiting on a decision:
-- **Records** ([records.md](docs/proposals/records.md) draft 1): declared
-  records as one-constructor data types, then eta, then anonymous records,
-  then `Has` constraints for "any record with a `name`". Discussing the
-  user questions (U1–U7) first, then the reviewer.
+- **Records** ([records.md](docs/proposals/records.md) draft 1.1): the user
+  answered U1–U7 (declared records are new types; anonymous records and
+  "any record with field x" deferred but kept possible; `tag` keeps its key;
+  `Maybe` stays tagged with `Optional` planned; unannotated literals are an
+  error; read and update only; union extensions planned). Stages 1–2 are
+  **with the reviewer**.
 
 ## Next
 
