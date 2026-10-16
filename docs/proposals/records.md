@@ -1,9 +1,10 @@
 # Proposal: records
 
-**Status:** draft 1, 15 October 2026. Open: nothing here is decided or
-implemented. This is DESIGN.md milestone 8 ([§9](../../DESIGN.md#9-records)),
-which sketches records but leaves their representation, their equality and
-their JS form open.
+**Status:** draft 1.1, 16 October 2026. The user has answered the questions
+in [§15](#15-questions-for-the-user) (see [Decisions](#decisions-16-october-2026)
+below); nothing is implemented. This is DESIGN.md milestone 8
+([§9](../../DESIGN.md#9-records)), which sketches records but leaves their
+representation, their equality and their JS form open.
 
 This note is meant to be read without knowing the codebase: §1 describes the
 parts of Stitchwort it touches, checked against the source at commit
@@ -13,6 +14,7 @@ anything not checked against a source is marked **unverified**, and
 
 ## Contents
 
+- [Decisions (16 October 2026)](#decisions-16-october-2026)
 0. [Summary](#0-summary)
 1. [Background: Stitchwort today](#1-background-stitchwort-today)
 2. [Goals and non-goals](#2-goals-and-non-goals)
@@ -32,6 +34,47 @@ anything not checked against a source is marked **unverified**, and
 16. [Open questions for the reviewer](#16-open-questions-for-the-reviewer)
 17. [What I couldn't verify](#what-i-couldnt-verify)
 18. [Sources](#sources)
+
+## Decisions (16 October 2026)
+
+The user's answers to §15, which the rest of this note should be read in
+the light of:
+
+- **U1, declared records are new types.** `type Person = { … }` makes a type
+  of its own: `Person` and `Pet` differ even with identical fields. A
+  nickname would be an ordinary definition, `Point = { … }`. (DESIGN §9's
+  wording "just gives it a name" changes accordingly.)
+- **U2, key order.** Anonymous records, once they exist, produce JS objects
+  with keys in sorted order, so one type always has one shape. Declared
+  records keep their declared order.
+- **U3, stages 3 and 4 deferred.** Anonymous records (§8) and functions over
+  "any record with field `x`" (§9) are deferred. Stages 1 and 2 must be built
+  so that both stay possible: records represented so that two with the same
+  fields could later be recognised as the same anonymous type, and fields
+  looked up by name generically.
+- **U4, a record field called `tag` keeps the key `tag`** in JS (records have
+  no constructor tag). Dangerous keys such as `__proto__` are still escaped.
+- **U5, `Maybe` stays tagged** at the boundary. A separate `Optional` type
+  (already planned in DESIGN §12) is the route to optional JS properties
+  (`age?: bigint`); it can refuse ambiguous cases like `Optional (Optional a)`.
+- **U6, a record literal with no expected type is an error** suggesting an
+  annotation (`({ x = 0, y = 0 } : Point)`). When anonymous records arrive,
+  this case becomes an anonymous record, so no working program changes
+  meaning. No guessing from field names.
+- **U7, reading and updating only.** Adding and removing fields are deferred
+  with the row work; if ever wanted, build the "lacks" machinery once and
+  share it with ability rows.
+- **Unions of records:** multi-constructor data types with named fields
+  already give TypeScript discriminated unions. Planned extensions: a
+  constructor wrapping a declared record, flattened in JS
+  (`| Circle CircleData` → `{ tag: "Circle", radius }`), and a per-type
+  discriminant key and tag strings (`{ kind: "circle", … }`) to match
+  existing JS APIs. Untagged unions are not planned; anonymous unions are
+  deferred with anonymous records.
+
+So the proposal under review is **stages 1 and 2**: declared records by
+translation into one-constructor data types, then projections and eta in the
+kernel, plus the hash fix for field names (§12).
 
 ## 0. Summary
 

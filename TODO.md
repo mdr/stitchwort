@@ -34,16 +34,30 @@ Running:
 - **Compact text, stage 2** (lane `compact-text-s2`): B1, the compact
   `List Char` in the evaluator, from [compact-text.md](docs/proposals/compact-text.md)
   draft 2, approved by the user. No natives (stage 3).
+- **Records, stage 1** (lane `records-stage1`): reviewed (stage 1 approved;
+  stage 2 eta after a same-type conversion contract and an empty-record
+  policy). Draft 2 adopting the review, then declared records, field access,
+  update, evaluation order, derived `==`, the field-name hash fix, JS as
+  plain objects. Stage 2 (eta, projections in the kernel) later.
 
-Waiting on a decision:
-- **Records** ([records.md](docs/proposals/records.md) draft 1): declared
-  records as one-constructor data types, then eta, then anonymous records,
-  then `Has` constraints for "any record with a `name`". Discussing the
-  user questions (U1–U7) first, then the reviewer.
+Waiting on a decision: nothing.
 
 ## Next
 
-Nothing queued: choose from **Later**, or continue the lanes above.
+In this order, after the in-flight lanes finish (the user: build a
+capability we know we'll need before the work that needs it):
+
+1. **Namespaces** (under discussion with the user): needed before the
+   prelude grows (today prelude names can't be redefined, hence prefixes
+   like `textLength`).
+2. **Standard library for real programs:** list functions (`map`, `filter`,
+   folds, `sum`, `max`, `zip`, `take`/`drop`, indexing), sorting with a
+   correctness proof (sorted permutation), `Int`, a balanced-tree map/set,
+   grid helpers.
+3. **Advent of Code 2025, early days**, as a stress test with proofs where
+   natural (sort correctness, parser round trips, worked examples by `rfl`).
+   Inputs: the user's repo https://github.com/mdr/aoc-2025/tree/main/src/main/resources.
+   Write up the friction found.
 
 ## Later
 
