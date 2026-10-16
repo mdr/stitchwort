@@ -3,9 +3,9 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-TERMINATION] Error: `viaHelper` is used here without all its arguments
-    ╭─[ soundness/higher-order-recursion.sw:15:40 ]
+    ╭─[ soundness/higher-order-recursion.sw:17:40 ]
     │
- 15 │ viaHelper (Call Choose rest) = applyTo viaHelper (rest True)
+ 17 │ viaHelper (Call Choose rest) = applyTo viaHelper (rest True)
     │                                        ────┬────  
     │                                            ╰────── `viaHelper` takes 1 argument; it's given none here
     │ 

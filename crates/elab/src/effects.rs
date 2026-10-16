@@ -867,7 +867,7 @@ fn ability_label(cx: &mut Ctx, expr: &Expr) -> Result<Label> {
     let Expr::Var(name) = head else {
         return Err(cx.error("E-ABILITY", "expected an ability", "here"));
     };
-    let found = cx.e.names.get(&name.text).copied();
+    let found = cx.e.named(&name.text).copied();
     if let Some((Global::Unchecked(item), _)) = found {
         return Err(cx.e.unchecked(name, item));
     }
@@ -970,7 +970,7 @@ fn head_type(cx: &Ctx, name: &AstName) -> HeadType {
     if let Some(level) = cx.lookup(&name.text) {
         return HeadType::Typed(cx.types[level].clone());
     }
-    match cx.e.names.get(&name.text) {
+    match cx.e.named(&name.text) {
         Some((Global::Op(..), _)) => HeadType::Op,
         Some((Global::Def(id), _)) => HeadType::Typed(cx.g().def(*id).ty_value.clone()),
         _ => HeadType::Other,
@@ -1214,7 +1214,7 @@ pub fn comp_call(
     args.reverse();
     if let Expr::Var(name) = head
         && cx.lookup(&name.text).is_none()
-        && let Some((Global::Op(a, i), _)) = cx.e.names.get(&name.text).copied()
+        && let Some((Global::Op(a, i), _)) = cx.e.named(&name.text).copied()
     {
         return op_call(cx, name, a, i, &args, row);
     }
@@ -1587,7 +1587,7 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
                 ret = Some((var, body));
             }
             Clause::Op { op, .. } => {
-                let found = cx.e.names.get(&op.text).copied();
+                let found = cx.e.named(&op.text).copied();
                 if let Some((Global::Unchecked(item), _)) = found {
                     return Err(cx.e.unchecked(op, item));
                 }
@@ -1622,11 +1622,16 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
     let info = &cx.e.abilities[a];
     let (op_data, elim, op_names) = (info.op_data, info.elim, info.ops.clone());
     let mut op_clauses = Vec::new();
-    for name in &op_names {
+    for (i, name) in op_names.iter().enumerate() {
+        // A clause names its operation as written: `get`, or `State.get`.
         let matching: Vec<_> = clauses
             .iter()
             .filter_map(|c| match c {
-                Clause::Op { op, arg, k, body } if op.text == *name => Some((op, arg, k, body)),
+                Clause::Op { op, arg, k, body }
+                    if matches!(cx.e.named(&op.text), Some((Global::Op(b, j), _)) if *b == a && *j == i) =>
+                {
+                    Some((op, arg, k, body))
+                }
                 _ => None,
             })
             .collect();

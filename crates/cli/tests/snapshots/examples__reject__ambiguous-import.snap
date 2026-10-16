@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-AMBIGUOUS] Error: `length` could mean `List.length` or `Text.length`
+   ╭─[ reject/ambiguous-import.sw:7:12 ]
+   │
+ 7 │ count xs = length xs
+   │            ───┬──  
+   │               ╰──── write `List.length` or `Text.length` in full
+───╯

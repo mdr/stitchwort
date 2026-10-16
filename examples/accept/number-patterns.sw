@@ -36,7 +36,7 @@ test "not huge" = not (isHuge 999999999999999999999999999999)
 -- types of the result and of other arguments that mention it compute.
 isNotFound : (n : Nat) -> Decidable (n = 404)
 isNotFound 404 = Yes rfl
-isNotFound n   = decEqNat n 404
+isNotFound n   = Nat.decEq n 404
 
 Shape : Nat -> Type
 Shape 404 = Text

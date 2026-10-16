@@ -840,6 +840,7 @@ pub fn declare_def(
     let ty_value = eval(g, &[], &ty)?;
     g.defs.push(Def {
         name: name.clone(),
+        path: g.path(name),
         ty,
         ty_value,
         body: None,
@@ -920,8 +921,10 @@ pub fn declare_data_group_as(
         .map(|i| DataId(datas_before + i))
         .collect();
     for (name, span, record) in members {
+        let path = g.path(&name);
         g.datas.push(Data {
             name,
+            path,
             params: checked.clone(),
             sort,
             ctors: Vec::new(),

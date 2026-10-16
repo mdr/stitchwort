@@ -56,7 +56,7 @@ start (Just l) = 1000000000000
 main : () -> {IO} ()
 main u =
   print "tick"
-  print (natToText (spin (start (readLine ()))))
+  print (Nat.toText (spin (start (readLine ()))))
 `;
 
 /** Prints `line` `n` times. */
@@ -371,7 +371,7 @@ test("warnings show apart from errors, without stopping anything", async (page) 
   // Other tabs show them with the errors, and work as usual once it checks.
   await page.tab("tests");
   await page.until(`document.querySelector("#output pre.warnings")`, 30000, "the warnings in the Tests tab");
-  await page.setSource(WARNED + `\ntest "sized" = leq (size [1, 2]) 2\n`);
+  await page.setSource(WARNED + `\ntest "sized" = Nat.leq (size [1, 2]) 2\n`);
   await page.until(`document.querySelector(".summary")?.textContent === "1 test: 1 passed, 0 failed"`);
   assert.equal((await shown()).count, "1 warning");
   // The count goes to the Check tab.

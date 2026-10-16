@@ -23,7 +23,12 @@ pub enum State {
 }
 
 pub struct Def {
+    /// Its name as written from the root of its module: `List.length`.
     pub name: Name,
+    /// Its full logical name, unique in the environment: `Std.List.length`,
+    /// `Main.List.length` (see [`Data::path`]). Not hashed: a definition's
+    /// identity doesn't include its name. Extraction names it by this.
+    pub path: Name,
     pub ty: Term,
     pub ty_value: Value,
     /// Set exactly when the definition is final. So it's `None` while its own
@@ -59,7 +64,13 @@ pub struct Validator {
 }
 
 pub struct Data {
+    /// Its name as written from the root of its module: `List`,
+    /// `Effect.Comp`, `Geometry.Shape`.
     pub name: Name,
+    /// Its full logical name, which is hashed (types are nominal): `name`
+    /// within its module's root, `Std.List` or `Main.Geometry.Shape`
+    /// (docs/proposals/namespaces.md §7.4). Never a file-system path.
+    pub path: Name,
     /// Parameter types, each in the context of the previous parameters.
     pub params: Vec<(Name, Term)>,
     pub sort: Sort,
@@ -132,6 +143,10 @@ pub struct Globals {
     pub hashes: RefCell<std::collections::HashMap<HashKey, crate::hash::ContentHash>>,
     /// Resource limits for the operation in progress.
     pub budget: crate::budget::Budget,
+    /// The logical name of the module whose data types are being declared
+    /// (`Std` for the prelude, `Main` for a program), which their [`Data::path`]
+    /// starts with. Empty: the path is the name.
+    pub module: Name,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -147,6 +162,16 @@ impl Globals {
 
     pub fn data(&self, id: DataId) -> &Data {
         &self.datas[id.0]
+    }
+
+    /// The full logical name of a declaration named `name` in the module
+    /// being declared.
+    pub fn path(&self, name: &Name) -> Name {
+        if self.module.is_empty() {
+            name.clone()
+        } else {
+            format!("{}.{name}", self.module).into()
+        }
     }
 
     pub fn find_data(&self, name: &str) -> Option<DataId> {

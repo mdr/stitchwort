@@ -397,11 +397,11 @@ const encode = (t, v) => {
 
 
 // A partial computation, which nothing here can run.
-const $Delay = Symbol("Delay");
+const delayed = Symbol("Delay");
 
-const $add = (m) => (n) => m + n;
-const $discard = (v0) => 0n;
-const $firstOf = (v0) => {
+const $Std$dNat$dadd = (m) => (n) => m + n;
+const $Main$ddiscard = (v0) => 0n;
+const $Main$dfirstOf = (v0) => {
   switch (v0.tag) {
     case "MkPair": {
       const v1 = v0.fst;
@@ -411,13 +411,13 @@ const $firstOf = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $answer = (v0) => $add($add($discard(((_) => $Delay)))($discard(((v1) => $Delay))))(v0);
-const $kept = (v0) => $firstOf({ tag: "MkPair", fst: v0, snd: ((_) => $Delay) });
+const $Main$danswer = (v0) => $Std$dNat$dadd($Std$dNat$dadd($Main$ddiscard(((_) => delayed)))($Main$ddiscard(((v1) => delayed))))(v0);
+const $Main$dkept = (v0) => $Main$dfirstOf({ tag: "MkPair", fst: v0, snd: ((_) => delayed) });
 
 function $$answer(arg0) {
   try {
     const v0 = decode(NAT, arg0, "n");
-    return encode(NAT, $answer(v0));
+    return encode(NAT, $Main$danswer(v0));
   } catch (e) {
     throw outOfResources("answer", e);
   }
@@ -426,7 +426,7 @@ function $$answer(arg0) {
 function $$kept(arg0) {
   try {
     const v0 = decode(NAT, arg0, "n");
-    return encode(NAT, $kept(v0));
+    return encode(NAT, $Main$dkept(v0));
   } catch (e) {
     throw outOfResources("kept", e);
   }

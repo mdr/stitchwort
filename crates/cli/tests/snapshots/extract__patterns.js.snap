@@ -396,9 +396,9 @@ const encode = (t, v) => {
 };
 
 
-const $add = (m) => (n) => m + n;
-const $mul = (m) => (n) => m * n;
-const $length = (v1) => {
+const $Std$dNat$dadd = (m) => (n) => m + n;
+const $Std$dNat$dmul = (m) => (n) => m * n;
+const $Std$dList$dlength = (v1) => {
   switch (v1.tag) {
     case "Nil": {
       return 0n;
@@ -406,12 +406,12 @@ const $length = (v1) => {
     case "Cons": {
       const v2 = v1.head;
       const v3 = v1.tail;
-      return ($length(v3) + 1n);
+      return ($Std$dList$dlength(v3) + 1n);
     }
   }
   throw new Error("unreachable");
 };
-const $toBool = (v1) => {
+const $Std$dDecidable$dtoBool = (v1) => {
   switch (v1.tag) {
     case "Yes": {
       return { tag: "True" };
@@ -422,8 +422,8 @@ const $toBool = (v1) => {
   }
   throw new Error("unreachable");
 };
-const $decEqNat = (m) => (n) => ({ tag: m === n ? "Yes" : "No" });
-const $half = (v0) => {
+const $Std$dNat$ddecEq = (m) => (n) => ({ tag: m === n ? "Yes" : "No" });
+const $Main$dhalf = (v0) => {
   if (v0 === 0n) {
     return 0n;
   } else {
@@ -432,11 +432,11 @@ const $half = (v0) => {
       return 0n;
     } else {
       const v2 = v1 - 1n;
-      return ($half(v2) + 1n);
+      return ($Main$dhalf(v2) + 1n);
     }
   }
 };
-const $fib = (v0) => {
+const $Main$dfib = (v0) => {
   if (v0 === 0n) {
     return 0n;
   } else {
@@ -445,11 +445,11 @@ const $fib = (v0) => {
       return 1n;
     } else {
       const v2 = v1 - 1n;
-      return $add($fib(v2))($fib((v2 + 1n)));
+      return $Std$dNat$dadd($Main$dfib(v2))($Main$dfib((v2 + 1n)));
     }
   }
 };
-const $hasTwo = (v0) => {
+const $Main$dhasTwo = (v0) => {
   switch (v0.tag) {
     case "Nil": {
       return { tag: "False" };
@@ -482,7 +482,7 @@ const $hasTwo = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $describe = (v0) => {
+const $Main$ddescribe = (v0) => {
   switch (v0) {
     case 3n: {
       return 30n;
@@ -493,13 +493,13 @@ const $describe = (v0) => {
   }
   return v0;
 };
-const $sameLength = (v0) => (v1) => $toBool($decEqNat($length(v0))($length(v1)));
-const $bigEqual = (v0) => $toBool($decEqNat($mul(v0)(2n))($add(v0)(v0)));
+const $Main$dsameLength = (v0) => (v1) => $Std$dDecidable$dtoBool($Std$dNat$ddecEq($Std$dList$dlength(v0))($Std$dList$dlength(v1)));
+const $Main$dbigEqual = (v0) => $Std$dDecidable$dtoBool($Std$dNat$ddecEq($Std$dNat$dmul(v0)(2n))($Std$dNat$dadd(v0)(v0)));
 
 function $$half(arg0) {
   try {
     const v0 = decode(NAT, arg0, "arg0");
-    return encode(NAT, $half(v0));
+    return encode(NAT, $Main$dhalf(v0));
   } catch (e) {
     throw outOfResources("half", e);
   }
@@ -508,7 +508,7 @@ function $$half(arg0) {
 function $$fib(arg0) {
   try {
     const v0 = decode(NAT, arg0, "arg0");
-    return encode(NAT, $fib(v0));
+    return encode(NAT, $Main$dfib(v0));
   } catch (e) {
     throw outOfResources("fib", e);
   }
@@ -517,7 +517,7 @@ function $$fib(arg0) {
 function $$hasTwo(arg0) {
   try {
     const v0 = decode(list(NAT), arg0, "arg0");
-    return encode(BOOL, $hasTwo(v0));
+    return encode(BOOL, $Main$dhasTwo(v0));
   } catch (e) {
     throw outOfResources("hasTwo", e);
   }
@@ -526,7 +526,7 @@ function $$hasTwo(arg0) {
 function $$describe(arg0) {
   try {
     const v0 = decode(NAT, arg0, "arg0");
-    return encode(NAT, $describe(v0));
+    return encode(NAT, $Main$ddescribe(v0));
   } catch (e) {
     throw outOfResources("describe", e);
   }
@@ -536,7 +536,7 @@ function $$sameLength(arg0, arg1) {
   try {
     const v0 = decode(list(NAT), arg0, "xs");
     const v1 = decode(list(NAT), arg1, "ys");
-    return encode(BOOL, $sameLength(v0)(v1));
+    return encode(BOOL, $Main$dsameLength(v0)(v1));
   } catch (e) {
     throw outOfResources("sameLength", e);
   }
@@ -545,7 +545,7 @@ function $$sameLength(arg0, arg1) {
 function $$bigEqual(arg0) {
   try {
     const v0 = decode(NAT, arg0, "n");
-    return encode(BOOL, $bigEqual(v0));
+    return encode(BOOL, $Main$dbigEqual(v0));
   } catch (e) {
     throw outOfResources("bigEqual", e);
   }

@@ -121,7 +121,7 @@ fn test_results_are_reused_until_a_dependency_changes() {
     let program = |double: &str, triple_name: &str| {
         format!(
             "double : Nat -> Nat\ndouble n = {double}\n\n{t} : Nat -> Nat\n{t} n = n + n + n\n\n\
-             test \"double\" = leq (double 3) 6\ntest \"triple\" = leq ({t} 2) 6\ntest \"wrong\" = leq 2 1\n",
+             test \"double\" = Nat.leq (double 3) 6\ntest \"triple\" = Nat.leq ({t} 2) 6\ntest \"wrong\" = Nat.leq 2 1\n",
             t = triple_name
         )
     };
@@ -174,7 +174,7 @@ fn test_results_are_only_reused_by_the_same_build_and_modes() {
     let dir = std::env::temp_dir().join(format!("stitchwort-modes-test-{}", std::process::id()));
     let cache = Cache::at(&dir);
     let program =
-        "test \"big\" = leq 1000 (1000 * 1000)\ntest \"text\" = textLength \"abc\" == 3\n";
+        "test \"big\" = Nat.leq 1000 (1000 * 1000)\ntest \"text\" = Text.length \"abc\" == 3\n";
     let run = |natives: bool, compact: bool| {
         let mut session = Session::new();
         session.elab.globals.builtins.disable_natives = !natives;

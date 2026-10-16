@@ -4,7 +4,7 @@
 
 reverse : List a -> List a
 reverse Nil         = Nil
-reverse (Cons x xs) = append (reverse xs) [x]
+reverse (Cons x xs) = List.append (reverse xs) [x]
 
 equalLists : List Nat -> List Nat -> Bool
 equalLists Nil         Nil         = True
@@ -14,8 +14,8 @@ equalLists (Cons x xs) Nil         = False
 
 test "reverse reverses" = equalLists (reverse [1, 2, 3]) [3, 2, 1]
 test "reverse twice is the identity" = equalLists (reverse (reverse [1, 2, 3])) [1, 2, 3]
-test "division rounds down" = leq (7 / 2) 3
-test "remainder" = leq (7 % 2) 1
+test "division rounds down" = Nat.leq (7 / 2) 3
+test "remainder" = Nat.leq (7 % 2) 1
 
 -- A test is a proof by computation of one fact; a theorem covers every input.
 theorem reverseOfSingleton : (x : Nat) -> reverse [x] = [x]

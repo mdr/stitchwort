@@ -310,7 +310,7 @@ fn an_endless_partial_main_runs_until_stopped() {
     let path = source_file(
         "spin.sw",
         "spin : Nat -> {Partial} Nat\nspin n = spin (n + 1)\n\n\
-         main : () -> {IO, Partial} ()\nmain u =\n  print \"started\"\n  let l = readLine ()\n  print (natToText (spin 0))\n",
+         main : () -> {IO, Partial} ()\nmain u =\n  print \"started\"\n  let l = readLine ()\n  print (Nat.toText (spin 0))\n",
     );
     let mut child = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
         .arg("run")

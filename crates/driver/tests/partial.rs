@@ -118,7 +118,7 @@ collatzSteps 1 = 0
 collatzSteps n = 1 + collatzSteps (if n % 2 == 0 then n / 2 else 3 * n + 1)
 
 fib : Nat -> {Partial} Nat
-fib n = if leq n 1 then n else fib (n - 1) + fib (n - 2)
+fib n = if Nat.leq n 1 then n else fib (n - 1) + fib (n - 2)
 
 sumTo : Nat -> {Partial} Nat
 sumTo 0 = 0
@@ -154,10 +154,10 @@ tree : Nat -> {Partial} Nat
 tree 0 = 1
 tree n = twiceWith (\x -> tree x) (n - 1)
 
-type Handlers (e : Sig) : Type =
+type Handlers (e : Effect.Sig) : Type =
   | MkHandlers (onStep : Nat -> {Partial | e} Nat) (onDone : Nat -> {Partial | e} Nat)
 
-drive : [e : Sig] -> Handlers e -> Nat -> {Partial | e} Nat
+drive : [e : Effect.Sig] -> Handlers e -> Nat -> {Partial | e} Nat
 drive (MkHandlers onStep onDone) 0 = onDone 0
 drive (MkHandlers onStep onDone) n = onStep (n - 1)
 
@@ -177,7 +177,7 @@ fn printing(expr: &str, boolean: bool) -> String {
     let shown = if boolean {
         format!("if {expr} then \"True\" else \"False\"")
     } else {
-        format!("natToText ({expr})")
+        format!("Nat.toText ({expr})")
     };
     format!("{DEFINITIONS}\nmain : () -> {{IO, Partial}} ()\nmain u = print ({shown})\n")
 }
@@ -241,12 +241,12 @@ echo count = echoLine count (readLine ()) echo
 -- Operations before and after a non-tail request.
 leave : Nat -> Nat -> {IO} Nat
 leave n r =
-  print ("leave " ++ natToText n)
+  print ("leave " ++ Nat.toText n)
   r + n
 
 nest : Nat -> {IO, Partial} Nat
 nest n =
-  print ("enter " ++ natToText n)
+  print ("enter " ++ Nat.toText n)
   if n == 0 then 0 else leave n (nest (n - 1))
 
 -- A recursive function calling another.
@@ -262,7 +262,7 @@ askTwice u = ask () + ask ()
 
 lineLength : Maybe Text -> Nat
 lineLength Nothing  = 0
-lineLength (Just t) = length (textToList t)
+lineLength (Just t) = List.length (Text.toList t)
 
 viaReadLine : (() -> {Ask} Nat) -> {IO} Nat
 viaReadLine prog =
@@ -286,7 +286,7 @@ spin n = spin n
 
 fn io_program(call: &str) -> String {
     format!(
-        "{IO_DEFINITIONS}\nmain : () -> {{IO, Partial}} ()\nmain u = print (natToText ({call}))\n"
+        "{IO_DEFINITIONS}\nmain : () -> {{IO, Partial}} ()\nmain u = print (Nat.toText ({call}))\n"
     )
 }
 
@@ -358,14 +358,14 @@ fn a_step_returns_operations_without_performing_them() {
     let Obs::Call(op, pending) = machine.step(g).unwrap() else {
         panic!("the first thing `echo` does is read a line");
     };
-    // `L (IO.readLine ())`: an operation of `{IO}`, unperformed.
+    // `L (IO.%readLine ())`: an operation of `{IO}`, unperformed.
     let stitchwort_core::Value::Ctor(_, 0, io) = force(g, op).unwrap() else {
         panic!("an operation of `{{IO}}`");
     };
     let stitchwort_core::Value::Ctor(d, c, _) = force(g, io[0].clone()).unwrap() else {
         panic!("an `IO` operation");
     };
-    assert_eq!(&*g.data(d).ctors[c].name, "IO.readLine");
+    assert_eq!(&*g.data(d).ctors[c].name, "%readLine");
     // Reply `Nothing`: `echo` finishes with 0, then `main` prints it, which
     // is again returned rather than performed.
     let nothing = stitchwort_core::Value::Ctor(g.find_data("Maybe").unwrap(), 0, Vec::new().into());
@@ -378,7 +378,7 @@ fn a_step_returns_operations_without_performing_them() {
     let stitchwort_core::Value::Ctor(d, c, _) = force(g, io[0].clone()).unwrap() else {
         panic!("an `IO` operation");
     };
-    assert_eq!(&*g.data(d).ctors[c].name, "IO.print");
+    assert_eq!(&*g.data(d).ctors[c].name, "%print");
 }
 
 /// Building a recursive call runs nothing: `spin 0` evaluates at once, to a
@@ -430,7 +430,7 @@ fn resource_limits_are_per_step_not_per_tick() {
     // One step that does a lot of total work: out of resources, no ticks.
     let mut session = load(&format!(
         "{DEFINITIONS}\nbig : Nat -> Nat\nbig 0 = 0\nbig (Succ n) = Succ (big n)\n\n\
-         main : () -> {{IO, Partial}} ()\nmain u = print (natToText (big 1000000 + immediate 1))\n"
+         main : () -> {{IO, Partial}} ()\nmain u = print (Nat.toText (big 1000000 + immediate 1))\n"
     ));
     session.elab.limits.work = 20_000;
     let main = session.main().unwrap();

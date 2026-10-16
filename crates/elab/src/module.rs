@@ -6,7 +6,10 @@
 //!
 //! 1. **Names.** Every top-level name (definitions, data types and their
 //!    constructors, abilities and their operations) is entered in the name
-//!    table first, as [`Global::Unchecked`], reporting duplicates.
+//!    table first, as [`Global::Unchecked`], reporting duplicates. Names
+//!    without a qualifier first, then the library's imports, then qualified
+//!    names (whose qualifier may need the others), then imports of the
+//!    module's own namespaces (docs/proposals/namespaces.md §5).
 //! 2. **Dependencies.** For each declaration, the module declarations it
 //!    refers to: its *free* names, so a pattern variable, a lambda or `let`
 //!    binder or an implicit parameter called `f` doesn't make a dependency on
@@ -34,6 +37,7 @@ use std::collections::{BinaryHeap, HashMap, HashSet};
 
 use stitchwort_core::DefId;
 use stitchwort_core::check as kernel;
+use stitchwort_core::registry::Builtin;
 use stitchwort_syntax::ast::{self, Clause, Decl, Expr, Module, Pattern};
 use stitchwort_syntax::{Diagnostic, Severity, Span};
 
@@ -111,7 +115,7 @@ pub(crate) struct ModuleState {
     pub phase: Phase,
     /// The item that declared each definition of this module.
     pub def_items: HashMap<DefId, usize>,
-    /// Every name the module declares.
+    /// The key of every name the module declares.
     pub names: HashSet<String>,
 }
 
@@ -144,7 +148,9 @@ impl Elaborator {
         let first_test = self.tests.len();
         self.module = ModuleState::default();
         self.modules += 1;
-        let items = self.collect(&module.decls, &mut diagnostics);
+        self.globals.module = if self.loading_prelude { "Std" } else { "Main" }.into();
+        self.scope.clear_imports();
+        let items = self.collect(module, &mut diagnostics);
         self.dependencies(&items);
         let order = self.components();
 
@@ -189,7 +195,7 @@ impl Elaborator {
         self.module.item = None;
         self.module.phase = Phase::Body;
         // Names that were never checked now just name failures.
-        for (global, _) in self.names.values_mut() {
+        for (global, _) in self.scope.entries.values_mut() {
             if let Global::Unchecked(_) = global {
                 *global = Global::Failed;
             }
@@ -216,9 +222,10 @@ impl Elaborator {
     /// is taken is reported and fails.
     fn collect<'m>(
         &mut self,
-        decls: &'m [Decl],
+        module: &'m Module,
         diagnostics: &mut Vec<(usize, Diagnostic)>,
     ) -> Vec<Item<'m>> {
+        let decls = &module.decls;
         let mut items = Vec::new();
         let mut test_names: HashMap<&str, Span> = HashMap::new();
         let mut i = 0;
@@ -274,42 +281,7 @@ impl Elaborator {
                 }
                 test_names.insert(name, *span);
             }
-            let (main, others) = declared_names(decl);
-            // The declaration's own name.
-            let index = self.module.items.len();
-            if let Some(main) = &main {
-                if let Err(d) = self.new_module_name(main) {
-                    diagnostics.push((position, d));
-                    continue;
-                }
-                self.names
-                    .insert(main.text.clone(), (Global::Unchecked(index), main.span));
-                self.module.names.insert(main.text.clone());
-            }
-            let mut status = Status::Waiting;
-            for (k, other) in others.iter().enumerate() {
-                let within = others[..k].iter().find(|o| o.text == other.text);
-                let result = match within {
-                    Some(earlier) => Err(error(
-                        "E-DUPLICATE",
-                        other.span,
-                        format!("`{}` is already defined", other.text),
-                    )
-                    .with_label(earlier.span, "first defined here")),
-                    None => self.new_module_name(other),
-                };
-                match result {
-                    Ok(()) => {
-                        self.names
-                            .insert(other.text.clone(), (Global::Unchecked(index), other.span));
-                        self.module.names.insert(other.text.clone());
-                    }
-                    Err(d) => {
-                        diagnostics.push((position, d));
-                        status = Status::Failed;
-                    }
-                }
-            }
+            let status = Status::Waiting;
             let (kind, name, span) = match decl {
                 Decl::Data { name, .. } => (Kind::Data, name.text.clone(), name.span),
                 Decl::Ability { name, .. } => (Kind::Ability, name.text.clone(), name.span),
@@ -317,10 +289,8 @@ impl Elaborator {
                 Decl::Test { name, span, .. } => (Kind::Test, format!("test \"{name}\""), *span),
                 Decl::Equation { .. } => unreachable!("equations go with signatures"),
             };
-            let decides = match decl {
-                Decl::Signature { ty, .. } => ends_in_decidable(ty),
-                _ => false,
-            };
+            // Worked out once the names are registered.
+            let decides = false;
             self.module.items.push(ItemInfo {
                 name,
                 span,
@@ -337,12 +307,117 @@ impl Elaborator {
                 position,
             });
         }
+        // Names without a qualifier, then the library's imports, then
+        // qualified names, then imports of the module's own namespaces.
+        let mut import_errors = Vec::new();
+        let mut left_out = HashSet::new();
+        for qualified in [false, true] {
+            if qualified {
+                self.add_imports(&module.imports, false, &mut import_errors);
+            }
+            for (index, item) in items.iter().enumerate() {
+                let main = declared_names(item.decl).0;
+                if main.as_ref().is_some_and(|m| m.text.contains('.')) == qualified
+                    && let Err(d) = self.register(index, item.decl)
+                {
+                    let (d, fatal) = d;
+                    diagnostics.push((item.position, d));
+                    if fatal {
+                        left_out.insert(index);
+                    } else {
+                        self.module.items[index].status = Status::Failed;
+                    }
+                }
+            }
+        }
+        self.add_imports(&module.imports, true, &mut import_errors);
+        // Whether a signature's result is the library's `Decidable`, by what
+        // its head means here, not how it's spelt.
+        let decidable = self.globals.registry.data(Builtin::Decidable);
+        for (index, item) in items.iter().enumerate() {
+            if let Decl::Signature { ty, .. } = item.decl
+                && let Some(head) = result_head(ty)
+            {
+                self.module.items[index].decides = decidable.is_some()
+                    && matches!(self.named(&head.text), Some((Global::Data(d), _)) if Some(*d) == decidable);
+            }
+        }
+        diagnostics.extend(import_errors.into_iter().map(|d| (0, d)));
+        // A declaration whose own name is taken is left out.
+        if !left_out.is_empty() {
+            let mut kept = Vec::new();
+            let mut infos = Vec::new();
+            let old = std::mem::take(&mut self.module.items);
+            let mut renumber = HashMap::new();
+            for (index, (item, info)) in items.into_iter().zip(old).enumerate() {
+                if !left_out.contains(&index) {
+                    renumber.insert(index, kept.len());
+                    kept.push(item);
+                    infos.push(info);
+                }
+            }
+            self.module.items = infos;
+            for (global, _) in self.scope.entries.values_mut() {
+                if let Global::Unchecked(i) = global
+                    && let Some(&new) = renumber.get(i)
+                {
+                    *i = new;
+                }
+            }
+            return kept;
+        }
         items
+    }
+
+    /// Enters the names declaration `index` declares as unchecked. The error
+    /// is fatal (the declaration is left out) when its own name can't be
+    /// registered.
+    fn register(&mut self, index: usize, decl: &Decl) -> Result<(), (Diagnostic, bool)> {
+        let (main, members) = declared_names(decl);
+        let Some(main) = main else {
+            return Ok(());
+        };
+        let key = self.declaration_key(&main).map_err(|d| (d, true))?;
+        self.new_module_name(&key, &main).map_err(|d| (d, true))?;
+        self.scope
+            .insert(&key, Global::Unchecked(index), main.span, false);
+        self.module.names.insert(key.clone());
+        let mut result = Ok(());
+        for (k, (member, follower)) in members.iter().enumerate() {
+            let within = members[..k].iter().find(|(o, _)| o.text == member.text);
+            let member_key = Self::member_key(&key, &member.text);
+            let checked = match within {
+                Some((earlier, _)) => Err(error(
+                    "E-DUPLICATE",
+                    member.span,
+                    format!("`{}` is already defined", member.text),
+                )
+                .with_label(earlier.span, "first defined here")),
+                None => self.new_module_name(&member_key, member),
+            };
+            match checked {
+                Ok(()) => {
+                    self.scope.insert(
+                        &member_key,
+                        Global::Unchecked(index),
+                        member.span,
+                        *follower,
+                    );
+                    self.module.names.insert(member_key);
+                }
+                Err(d) => {
+                    if result.is_ok() {
+                        result = Err((d, false));
+                    }
+                }
+            }
+        }
+        result
     }
 
     /// A name a module declaration claims: not built in, and not already
     /// taken (by an earlier module or earlier in this one).
-    fn new_module_name(&self, n: &ast::Name) -> crate::Result<()> {
+    fn new_module_name(&self, key: &str, n: &ast::Name) -> crate::Result<()> {
         if RESERVED.contains(&n.text.as_str()) {
             return Err(error(
                 "E-DUPLICATE",
@@ -350,13 +425,13 @@ impl Elaborator {
                 format!("`{}` is built in and can't be redefined", n.text),
             ));
         }
-        if let Some((_, previous)) = self.names.get(&n.text) {
+        if let Some((_, previous)) = self.scope.get(key) {
             return Err(error(
                 "E-DUPLICATE",
                 n.span,
                 format!("`{}` is already defined", n.text),
             )
-            .with_label(*previous, "first defined here"));
+            .with_label(previous, "first defined here"));
         }
         Ok(())
     }
@@ -367,9 +442,13 @@ impl Elaborator {
             let mut deps = Vec::new();
             let mut add = |names: Vec<&ast::Name>, in_header: bool| {
                 for n in names {
-                    if let Some((Global::Unchecked(j), _)) = self.names.get(&n.text) {
+                    if let crate::scope::Resolved::Found {
+                        global: Global::Unchecked(j),
+                        ..
+                    } = self.resolve(&n.text)
+                    {
                         deps.push(Dep {
-                            item: *j,
+                            item: j,
                             span: n.span,
                             in_header,
                         });
@@ -967,23 +1046,23 @@ fn internal_order(name: &ast::Name) -> Diagnostic {
 
 /// The names a declaration declares: its own (none for a test), and those
 /// of its constructors or operations (and what an ability generates).
-fn declared_names(decl: &Decl) -> (Option<ast::Name>, Vec<ast::Name>) {
+/// Each other name is in the declaration's namespace, and is a constructor
+/// or operation (visible wherever the type or ability is) or not.
+fn declared_names(decl: &Decl) -> (Option<ast::Name>, Vec<(ast::Name, bool)>) {
     match decl {
         Decl::Data { name, ctors, .. } => (
             Some(name.clone()),
-            ctors.iter().map(|c| c.name.clone()).collect(),
+            ctors.iter().map(|c| (c.name.clone(), true)).collect(),
         ),
         Decl::Ability {
             name, ops, span, ..
         } => {
-            let generated = |text: String| ast::Name { text, span: *span };
-            let mut others: Vec<ast::Name> = ops.iter().map(|(op, _)| op.clone()).collect();
-            others.extend(
-                ops.iter()
-                    .map(|(op, _)| generated(format!("{}.{}", name.text, op.text))),
-            );
-            others.push(generated(format!("{}.res", name.text)));
-            others.push(generated(format!("{}.elim", name.text)));
+            let generated = |text: String| (ast::Name { text, span: *span }, false);
+            let mut others: Vec<(ast::Name, bool)> =
+                ops.iter().map(|(op, _)| (op.clone(), true)).collect();
+            others.extend(ops.iter().map(|(op, _)| generated(format!("%{}", op.text))));
+            others.push(generated("%res".into()));
+            others.push(generated("%elim".into()));
             (Some(name.clone()), others)
         }
         Decl::Signature { name, .. } => (Some(name.clone()), Vec::new()),
@@ -991,8 +1070,8 @@ fn declared_names(decl: &Decl) -> (Option<ast::Name>, Vec<ast::Name>) {
     }
 }
 
-/// Whether a signature's result, after its parameters, is `Decidable …`.
-fn ends_in_decidable(ty: &Expr) -> bool {
+/// The name at the head of a signature's result, after its parameters.
+fn result_head(ty: &Expr) -> Option<&ast::Name> {
     let mut ty = ty;
     while let Expr::Pi { cod, .. } | Expr::Arrow(_, cod) = ty {
         ty = cod;
@@ -1000,7 +1079,10 @@ fn ends_in_decidable(ty: &Expr) -> bool {
     while let Expr::App(f, _) = ty {
         ty = f;
     }
-    matches!(ty, Expr::Var(n) if n.text == "Decidable")
+    match ty {
+        Expr::Var(n) => Some(n),
+        _ => None,
+    }
 }
 
 /// The names a definition's equations can use for its implicit parameters,

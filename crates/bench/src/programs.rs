@@ -29,16 +29,16 @@ pub const ALL: &[Benchmark] = &[
     Benchmark {
         name: "text-append",
         about: "a loop of `++` building a text of 100,000 characters",
-        prepare: || eval(TEXT, "textLength (repText 20000 \"abcd,\")", "100000"),
+        prepare: || eval(TEXT, "Text.length (repText 20000 \"abcd,\")", "100000"),
     },
     Benchmark {
         name: "text-split-join",
-        about: "`textSplit` then `textJoin` on a text of 10,000 characters",
+        about: "`Text.split` then `Text.join` on a text of 10,000 characters",
         prepare: || {
             let program = format!("{TEXT}\nbig : Text\nbig = \"{}\"\n", "abcd,".repeat(2000));
             eval(
                 program,
-                "textLength (textJoin ',' (textSplit ',' big))",
+                "Text.length (Text.join ',' (Text.split ',' big))",
                 "10000",
             )
         },
@@ -58,12 +58,12 @@ pub const ALL: &[Benchmark] = &[
                 "{TEXT}\nbig : Text\nbig = \"{}\"\n",
                 "abcd,\\u{1F600}".repeat(16667)
             );
-            eval(program, "lengthFrom 0 (textToList big)", "100002")
+            eval(program, "lengthFrom 0 (Text.toList big)", "100002")
         },
     },
     Benchmark {
         name: "text-nat-to-text",
-        about: "`natToText` on 10,000 numbers of up to 11 digits",
+        about: "`Nat.toText` on 10,000 numbers of up to 11 digits",
         prepare: || eval(TEXT, "natTexts 10000 0", "98884"),
     },
     Benchmark {
@@ -141,8 +141,8 @@ pub const ALL: &[Benchmark] = &[
     },
     Benchmark {
         name: "check-list-sym-rfl",
-        about: "the same by `sym rfl`, whose hidden arguments are solved to the list",
-        prepare: || check(list_theorem(20_000, "sym rfl")),
+        about: "the same by `Eq.sym rfl`, whose hidden arguments are solved to the list",
+        prepare: || check(list_theorem(20_000, "Eq.sym rfl")),
     },
     // The next three are near the command line's limits, measured on
     // 2026-10-15: a sum of 9,500 ones checks and 10,000 doesn't; 12,740
@@ -179,7 +179,7 @@ replicate (Succ n) x = Cons x (replicate n x)
 
 lengths : Nat -> Nat -> Nat
 lengths Zero     n = 0
-lengths (Succ k) n = length (replicate n 1) + lengths k n
+lengths (Succ k) n = List.length (replicate n 1) + lengths k n
 ";
 
 const TEXT: &str = "
@@ -191,17 +191,17 @@ lengthFrom : Nat -> List Char -> Nat
 lengthFrom k Nil         = k
 lengthFrom k (Cons c cs) = lengthFrom (Succ k) cs
 
--- The total length of `natToText` of `k` numbers spread over 0 to about 10^10.
+-- The total length of `Nat.toText` of `k` numbers spread over 0 to about 10^10.
 natTexts : Nat -> Nat -> Nat
 natTexts Zero     acc = acc
-natTexts (Succ k) acc = natTexts k (acc + textLength (natToText (k * 1000003)))
+natTexts (Succ k) acc = natTexts k (acc + Text.length (Nat.toText (k * 1000003)))
 ";
 
 const PRINTS: &str = "
 printMany : Nat -> {IO} ()
 printMany Zero     = ()
 printMany (Succ n) =
-  print (natToText n)
+  print (Nat.toText n)
   printMany n
 
 main : () -> {IO} ()

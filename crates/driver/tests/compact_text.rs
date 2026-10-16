@@ -138,10 +138,10 @@ fn same_both_ways(session: &mut Session, expr: &str) {
 const HELPERS: &str = r#"
 swapFirst : Text -> List Char
 swapFirst (MkText (Cons a (Cons b rest))) = Cons b (Cons a rest)
-swapFirst t = textToList t
+swapFirst t = Text.toList t
 
 countChars : Text -> Nat
-countChars t = textFold (\c n -> Succ n) 0 t
+countChars t = Text.fold (\c n -> Succ n) 0 t
 
 copy : List Char -> List Char
 copy Nil = Nil
@@ -153,7 +153,7 @@ copyText (MkText cs) = MkText (copy cs)
 -- Counts with an accumulator, so a long list needs no frames.
 countFrom : Nat -> Char -> List Char -> Nat
 countFrom k c Nil = k
-countFrom k c (Cons d ds) = countFrom (if charToNat c == charToNat d then Succ k else k) c ds
+countFrom k c (Cons d ds) = countFrom (if Char.toNat c == Char.toNat d then Succ k else k) c ds
 
 lengthFrom : Nat -> List Char -> Nat
 lengthFrom k Nil = k
@@ -176,16 +176,16 @@ fn one_text(session: &mut Session, t: &str) {
     let t = literal(t);
     for expr in [
         t.clone(),
-        format!("textToList {t}"),
-        format!("textLength {t}"),
-        format!("textIsEmpty {t}"),
-        format!("textUncons {t}"),
-        format!("textTrim {t}"),
-        format!("textSplit ',' {t}"),
-        format!("textJoin ',' (textSplit ',' {t})"),
-        format!("textToNat {t}"),
-        format!("textFromList (textToList {t})"),
-        format!("decEqText {t} {t}"),
+        format!("Text.toList {t}"),
+        format!("Text.length {t}"),
+        format!("Text.isEmpty {t}"),
+        format!("Text.uncons {t}"),
+        format!("Text.trim {t}"),
+        format!("Text.split ',' {t}"),
+        format!("Text.join ',' (Text.split ',' {t})"),
+        format!("Text.toNat {t}"),
+        format!("Text.fromList (Text.toList {t})"),
+        format!("Text.decEq {t} {t}"),
         format!("swapFirst {t}"),
         format!("countChars {t}"),
         format!("copyText {t}"),
@@ -199,11 +199,11 @@ fn one_text(session: &mut Session, t: &str) {
 fn two_texts(session: &mut Session, a: &str, b: &str) {
     let (la, lb) = (literal(a), literal(b));
     for expr in [
-        format!("decEqText {la} {lb}"),
-        format!("textCompare {la} {lb}"),
-        format!("textLess {la} {lb}"),
+        format!("Text.decEq {la} {lb}"),
+        format!("Text.compare {la} {lb}"),
+        format!("Text.less {la} {lb}"),
         format!("{la} ++ {lb}"),
-        format!("textJoin ',' [{la}, {lb}]"),
+        format!("Text.join ',' [{la}, {lb}]"),
     ] {
         same_both_ways(session, &expr);
     }
@@ -394,15 +394,19 @@ fn medium_texts() {
             v
         };
         for (f, compact, copied) in [
-            ("textLength", vec![&t_compact], vec![&t_copy]),
-            ("textSplit", vec![&comma, &t_compact], vec![&comma, &t_copy]),
+            ("Text.length", vec![&t_compact], vec![&t_copy]),
             (
-                "textCompare",
+                "Text.split",
+                vec![&comma, &t_compact],
+                vec![&comma, &t_copy],
+            ),
+            (
+                "Text.compare",
                 vec![&t_compact, &other],
                 vec![&t_copy, &other],
             ),
-            ("textTrim", vec![&t_compact], vec![&t_copy]),
-            ("textToNat", vec![&d_compact], vec![&d_copy]),
+            ("Text.trim", vec![&t_compact], vec![&t_copy]),
+            ("Text.toNat", vec![&d_compact], vec![&d_copy]),
             ("countChars", vec![&t_compact], vec![&t_copy]),
         ] {
             let compact = call(&session, f, &compact);
@@ -416,10 +420,10 @@ fn medium_texts() {
         // Equality, by its answer: its complete proof grows with the square of
         // the length (tier 1 compares complete proofs).
         let answer = |session: &Session, a: &Value, b: &Value| {
-            let decision = call(session, "decEqText", &[a, b]);
+            let decision = call(session, "Text.decEq", &[a, b]);
             let g = &session.elab.globals;
             let _op = g.budget.operation(session.elab.limits);
-            let to_bool = value::eval(g, &[], &Term::Def(def(g, "toBool"))).unwrap();
+            let to_bool = value::eval(g, &[], &Term::Def(def(g, "Decidable.toBool"))).unwrap();
             let to_bool = value::apply_icit(g, to_bool, value::unused(), Icit::Implicit).unwrap();
             normal(session, &value::apply(g, to_bool, decision).unwrap())
         };
@@ -440,10 +444,10 @@ fn medium_texts() {
             answer(&session, &t_compact, &t_compact),
             answer(&session, &t_compact, &other)
         );
-        let split = call(&session, "textSplit", &[&comma, &t_compact]);
-        let split_copy = call(&session, "textSplit", &[&comma, &t_copy]);
-        let joined = call(&session, "textJoin", &[&comma, &split]);
-        let joined_copy = call(&session, "textJoin", &[&comma, &split_copy]);
+        let split = call(&session, "Text.split", &[&comma, &t_compact]);
+        let split_copy = call(&session, "Text.split", &[&comma, &t_copy]);
+        let joined = call(&session, "Text.join", &[&comma, &split]);
+        let joined_copy = call(&session, "Text.join", &[&comma, &split_copy]);
         assert_eq!(normal(&session, &joined), normal(&session, &joined_copy));
         assert_eq!(normal(&session, &joined), normal(&session, &t_copy));
     }
@@ -467,10 +471,10 @@ fn a_million_character_literal_checks_and_runs() {
     let t = literal(&text);
     let source = format!(
         "big : Text\nbig = {t}\n\n\
-         test \"commas\" = countFrom 0 ',' (textToList big) == {commas}\n\
-         test \"length\" = lengthFrom 0 (textToList big) == {n}\n\
-         test \"last\" = textFromList (dropChars {} (textToList big)) == \"{}\"\n\
-         theorem bigIsBig : countFrom 0 ',' (textToList big) = {commas}\nbigIsBig = rfl\n",
+         test \"commas\" = countFrom 0 ',' (Text.toList big) == {commas}\n\
+         test \"length\" = lengthFrom 0 (Text.toList big) == {n}\n\
+         test \"last\" = Text.fromList (dropChars {} (Text.toList big)) == \"{}\"\n\
+         theorem bigIsBig : countFrom 0 ',' (Text.toList big) = {commas}\nbigIsBig = rfl\n",
         n - 1,
         text.chars().last().unwrap()
     );
@@ -498,9 +502,9 @@ fn laws_hold_on_long_texts() {
     load(
         &mut session,
         &format!(
-            "splitJoin : Text -> Bool\nsplitJoin t = textJoin ',' (textSplit ',' t) == t\n\n\
+            "splitJoin : Text -> Bool\nsplitJoin t = Text.join ',' (Text.split ',' t) == t\n\n\
              lengthsAdd : Text -> Text -> Bool\n\
-             lengthsAdd a b = textLength (a ++ b) == textLength a + textLength b\n\n\
+             lengthsAdd a b = Text.length (a ++ b) == Text.length a + Text.length b\n\n\
              differ : Text -> Text -> Bool\ndiffer a b = not (a == b)\n\n\
              test \"split then join\" = splitJoin {t}\n\
              test \"lengths add\" = lengthsAdd {t} {o}\n\
@@ -593,7 +597,7 @@ fn quoting_a_suffix_shares_or_copies_it() {
     let quoted = |session: &mut Session, drop: usize| {
         let (_, v) = value_of(
             session,
-            &format!("dropChars {drop} (textToList {})", literal(text)),
+            &format!("dropChars {drop} (Text.toList {})", literal(text)),
             true,
         );
         let g = &session.elab.globals;
@@ -636,7 +640,7 @@ fn a_short_suffix_of_a_long_literal_is_copied() {
     let text = "ab".repeat(500_000);
     let (_, v) = value_of(
         &mut session,
-        &format!("dropChars 999999 (textToList {})", literal(&text)),
+        &format!("dropChars 999999 (Text.toList {})", literal(&text)),
         true,
     );
     let g = &session.elab.globals;
@@ -662,7 +666,7 @@ fn a_proof_variable_is_not_rfl() {
     let g = &session.elab.globals;
     let _op = g.budget.operation(Limits::default());
     let (list, char, bool) = (data(g, "List"), data(g, "Char"), data(g, "Bool"));
-    let is_scalar = def(g, "isScalar");
+    let is_scalar = def(g, "Char.isScalar");
     let a = Term::Chars(Chars::whole(Rc::from(['a'])));
     let a_expanded = |proof: Term| {
         Term::ctor(
@@ -723,7 +727,7 @@ fn proofs_in_characters_are_compared() {
     assert_eq!(
         codes(
             &mut session,
-            "theorem bad : (h : isScalar 97 = True) -> textToList \"a\" = Cons (MkChar 97 h) Nil\n\
+            "theorem bad : (h : Char.isScalar 97 = True) -> Text.toList \"a\" = Cons (MkChar 97 h) Nil\n\
              bad h = rfl\n"
         ),
         ["E-REFL"]
@@ -731,7 +735,7 @@ fn proofs_in_characters_are_compared() {
     assert_eq!(
         codes(
             &mut session,
-            "theorem good : textToList \"a\" = Cons (MkChar 97 rfl) Nil\ngood = rfl\n"
+            "theorem good : Text.toList \"a\" = Cons (MkChar 97 rfl) Nil\ngood = rfl\n"
         ),
         Vec::<&str>::new()
     );
@@ -756,10 +760,10 @@ fn unification_solves(compact: bool) {
     load(
         &mut session,
         r#"
-headOf : [c : Char] -> [t : List Char] -> Cons c t = textToList "ab" -> Char
+headOf : [c : Char] -> [t : List Char] -> Cons c t = Text.toList "ab" -> Char
 headOf p = c
 
-restOf : [c : Char] -> [t : List Char] -> Cons c t = textToList "ab" -> List Char
+restOf : [c : Char] -> [t : List Char] -> Cons c t = Text.toList "ab" -> List Char
 restOf p = t
 
 theorem heads : headOf rfl = 'a'
@@ -768,16 +772,16 @@ heads = rfl
 theorem tails : restOf rfl = ['b']
 tails = rfl
 
-theorem tailsCompact : restOf rfl = textToList "b"
+theorem tailsCompact : restOf rfl = Text.toList "b"
 tailsCompact = rfl
 
-codeOf : [n : Nat] -> [p : isScalar n = True] -> Cons (MkChar n p) Nil = textToList "a" -> Nat
+codeOf : [n : Nat] -> [p : Char.isScalar n = True] -> Cons (MkChar n p) Nil = Text.toList "a" -> Nat
 codeOf e = n
 
 theorem codes : codeOf rfl = 97
 codes = rfl
 
-codeAt : (n : Nat) -> [p : isScalar n = True] -> Cons (MkChar n p) Nil = textToList "a" -> Nat
+codeAt : (n : Nat) -> [p : Char.isScalar n = True] -> Cons (MkChar n p) Nil = Text.toList "a" -> Nat
 codeAt n e = n
 
 theorem codesKnown : codeAt 97 rfl = 97
@@ -902,9 +906,9 @@ fn compact_lists_print_as_literals() {
         show(&mut session, "\"a\\u{1F600}\\n\""),
         "\"a\\u{1F600}\\n\""
     );
-    assert_eq!(show(&mut session, "textToList \"ab\""), "['a', 'b']");
+    assert_eq!(show(&mut session, "Text.toList \"ab\""), "['a', 'b']");
     assert_eq!(
-        show(&mut session, "Cons 'x' (textToList \"ab\")"),
+        show(&mut session, "Cons 'x' (Text.toList \"ab\")"),
         "['x', 'a', 'b']"
     );
     assert_eq!(show(&mut session, "\"x\" ++ \"ab\""), "\"xab\"");
@@ -919,35 +923,35 @@ fn must_reject_examples_still_are() {
         ("theorem t : \"a\" = \"b\"\nt = rfl\n", vec!["E-REFL"]),
         ("theorem t : \"ab\" = \"a\" ++ \"b\"\nt = rfl\n", vec![]),
         (
-            "theorem t : textLess \"\\u{10000}\" \"\\u{E000}\" = True\nt = rfl\n",
+            "theorem t : Text.less \"\\u{10000}\" \"\\u{E000}\" = True\nt = rfl\n",
             vec!["E-REFL"],
         ),
         (
-            "theorem t : textLess \"\\u{10000}\" \"\\u{E000}\" = False\nt = rfl\n",
+            "theorem t : Text.less \"\\u{10000}\" \"\\u{E000}\" = False\nt = rfl\n",
             vec![],
         ),
         (
-            "bad : List Char\nbad = Cons (MkChar 55296 rfl) (textToList \"ab\")\n",
+            "bad : List Char\nbad = Cons (MkChar 55296 rfl) (Text.toList \"ab\")\n",
             vec!["E-REFL"],
         ),
         (
-            "bad : List Char\nbad = Cons (MkChar 57343 rfl) (textToList \"ab\")\n",
+            "bad : List Char\nbad = Cons (MkChar 57343 rfl) (Text.toList \"ab\")\n",
             vec!["E-REFL"],
         ),
         (
-            "bad : List Char\nbad = Cons (MkChar 1114112 rfl) (textToList \"ab\")\n",
+            "bad : List Char\nbad = Cons (MkChar 1114112 rfl) (Text.toList \"ab\")\n",
             vec!["E-REFL"],
         ),
         (
-            "bad : List Char\nbad = Cons (MkChar 4294967393 rfl) (textToList \"ab\")\n",
+            "bad : List Char\nbad = Cons (MkChar 4294967393 rfl) (Text.toList \"ab\")\n",
             vec!["E-REFL"],
         ),
         (
-            "bad : List Char\nbad = Cons (MkChar 18446744073709551713 rfl) (textToList \"ab\")\n",
+            "bad : List Char\nbad = Cons (MkChar 18446744073709551713 rfl) (Text.toList \"ab\")\n",
             vec!["E-REFL"],
         ),
         (
-            "good : List Char\ngood = Cons (MkChar 1114111 rfl) (textToList \"ab\")\n",
+            "good : List Char\ngood = Cons (MkChar 1114111 rfl) (Text.toList \"ab\")\n",
             vec![],
         ),
     ] {
@@ -962,14 +966,14 @@ fn must_reject_examples_still_are() {
 fn is_scalar_agrees_with_rust_on_every_code_point() {
     let session = Session::new();
     let g = &session.elab.globals;
-    let is_scalar = def(g, "isScalar");
+    let is_scalar = def(g, "Char.isScalar");
     let _op = g
         .budget
         .operation(Limits::stack_only(Limits::default().stack));
     for code in 0..0x11_0100u32 {
         let term = Term::app(Term::Def(is_scalar), Term::Nat(Rc::new(code.into())));
         let Value::Ctor(_, c, _) = value::eval(g, &[], &term).unwrap() else {
-            panic!("`isScalar {code}` is a `Bool`")
+            panic!("`Char.isScalar {code}` is a `Bool`")
         };
         assert_eq!(c == 1, char::from_u32(code).is_some(), "U+{code:X}");
     }
@@ -998,12 +1002,11 @@ fn compact_text_is_bound_to_the_prelude() {
 /// as before compact text, and the kernel refuses a compact list.
 #[test]
 fn a_changed_builtin_isnt_bound() {
-    let original =
-        "isScalar n = if leq 55296 n then (if leq n 57343 then False else leq n 1114111) else True";
+    let original = "Char.isScalar n = if Nat.leq 55296 n then (if Nat.leq n 57343 then False else Nat.leq n 1114111) else True";
     assert!(stitchwort_elab::PRELUDE.contains(original));
     let changed = stitchwort_elab::PRELUDE.replace(
         original,
-        "isScalar n = if leq 55296 n then (if leq n 57343 then False else leq n 1114112) else True",
+        "Char.isScalar n = if Nat.leq 55296 n then (if Nat.leq n 57343 then False else Nat.leq n 1114112) else True",
     );
     let mut session = Session {
         sources: SourceMap::new(),
@@ -1019,7 +1022,7 @@ fn a_changed_builtin_isnt_bound() {
     // Literals still work, as constructors.
     load(
         &mut session,
-        "test \"length\" = textLength \"abc\" == 3\ntheorem t : textToList \"ab\" = ['a', 'b']\nt = rfl\n",
+        "test \"length\" = Text.length \"abc\" == 3\ntheorem t : Text.toList \"ab\" = ['a', 'b']\nt = rfl\n",
     );
     let expr = session.parse_expression("<t>", "\"abc\"").unwrap();
     let (term, _) = session.elab.infer_expr(&expr).unwrap();

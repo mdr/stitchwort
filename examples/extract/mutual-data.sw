@@ -66,7 +66,7 @@ flattenRose (Bloom x kids) = Cons x (flattenRoses kids)
 
 flattenRoses : Roses a -> List a
 flattenRoses NoRoses          = Nil
-flattenRoses (MoreRoses r rs) = append (flattenRose r) (flattenRoses rs)
+flattenRoses (MoreRoses r rs) = List.append (flattenRose r) (flattenRoses rs)
 
 export
 flatten : Rose Text -> List Text

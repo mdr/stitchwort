@@ -3,8 +3,8 @@
 //! generator, the printer and the runner mean are bound by identity while
 //! the prelude loads, and nothing a program's names mean can change them.
 //!
-//! Until a program can hide a prelude name (stage 1), the tests here hide
-//! them with a test-only hook, so the program can declare its own.
+//! The programs here declare their own versions of the library's names, which
+//! hide the library's (docs/proposals/namespaces.md §4.4).
 
 use stitchwort_core::globals::State;
 use stitchwort_core::registry::{Builtin, Kind, check_complete};
@@ -51,8 +51,8 @@ fn the_prelude_binds_every_builtin_to_a_final_declaration() {
 
 #[test]
 fn a_prelude_without_a_builtin_is_refused_before_user_code() {
-    // The prelude loads, but doesn't declare `simulate`.
-    let prelude = PRELUDE.replace("simulate", "simulateRenamed");
+    // The prelude loads, but doesn't declare `IO.simulate`.
+    let prelude = PRELUDE.replace("IO.simulate", "IO.simulateRenamed");
     let mut session = Session {
         sources: SourceMap::new(),
         elab: stitchwort_elab::Elaborator::new(),
@@ -65,7 +65,7 @@ fn a_prelude_without_a_builtin_is_refused_before_user_code() {
     let missing = session.elab.finish_prelude().unwrap_err();
     assert_eq!(missing.code, "E-BUILTIN");
     assert!(
-        missing.message.contains("`simulate`"),
+        missing.message.contains("`IO.simulate`"),
         "{}",
         missing.message
     );
@@ -84,51 +84,12 @@ fn a_forgotten_builtin_is_an_error_not_a_name_lookup() {
     session.elab.globals.registry.forget_for_test(Builtin::Add);
     let errors = session.load("more.sw", "y : Nat\ny = 1\n").unwrap_err();
     assert_eq!(errors[0].code, "E-BUILTIN");
-    assert!(errors[0].message.contains("`add`"));
+    assert!(errors[0].message.contains("`Nat.add`"));
 }
 
-/// The prelude names a program hides and declares its own of.
-const HIDDEN: &[&str] = &[
-    "add",
-    "sub",
-    "LessThan",
-    "Not",
-    "List",
-    "Nil",
-    "Cons",
-    "Maybe",
-    "Nothing",
-    "Just",
-    "append",
-    "textAppend",
-    "ifThenElse",
-    "toBool",
-    "elimDec",
-    "fromYes",
-    "Trivial",
-    "Unit",
-    "Yes",
-    "No",
-    "Decidable",
-    "cong",
-    "Zero",
-    "Succ",
-    "UnitType",
-    "UnitValue",
-    "fst",
-    "simulate",
-    "Comp",
-    "Done",
-    "Call",
-    "bind",
-    "foldComp",
-    "runPure",
-    "Plus",
-    "sigOp",
-];
-
-/// A program that declares its own versions of every name in [`HIDDEN`],
-/// which mean something else, and uses the syntax they stand for.
+/// A program that declares its own versions of the names syntax used to be
+/// looked up by (`add`, `List`, `Nil`, `Comp`, …), which mean something
+/// else, and uses the syntax they stand for.
 const PROGRAM: &str = r#"
 type List (a : Type) : Type =
   | Nil
@@ -230,7 +191,7 @@ twice : () -> {IO} ()
 twice u =
   print "one"
   let n = 2 + 2
-  print (natToText n)
+  print (Nat.toText n)
 
 main : () -> {IO} ()
 main u =
@@ -243,19 +204,18 @@ test "big plus" = 1000000000000 + 1000000000000 == 2000000000000
 test "less" = (if h : 1 < 2 then True else False) == True
 test "not equal" = (if h : 1 != 2 then True else False) == True
 test "if" = (if 1 == 1 then 4 else 5) == 4
-test "text append" = textLength ("ab" ++ "cd") == 4
-test "list append" = length ([1, 2] ++ [3]) == 3
+test "text append" = Text.length ("ab" ++ "cd") == 4
+test "list append" = Std.List.length ([1, 2] ++ [3]) == 3
 test "number patterns" = isTwo 2 == True
 test "unit pattern" = unitOne () == 1
 test "auto" = safeDiv 6 2 == 3
 test "records" = ({ x = 1, y = 2 } : Point) == { x = 1, y = 2 }
 test "records differ" = (({ x = 1, y = 2 } : Point) == { x = 1, y = 3 }) == False
-test "char literal" = charToNat 'a' == 97
+test "char literal" = Char.toNat 'a' == 97
 "#;
 
 fn hidden_session() -> Session {
     let mut session = Session::new();
-    session.elab.hide_names_for_test(HIDDEN);
     if let Err(errors) = session.load("test.sw", PROGRAM) {
         panic!("{errors:#?}");
     }
@@ -315,7 +275,6 @@ fn a_programs_own_list_prints_as_itself() {
 #[test]
 fn a_programs_own_list_crosses_the_js_boundary_as_itself() {
     let mut session = Session::new();
-    session.elab.hide_names_for_test(&["List", "Nil", "Cons"]);
     // Shaped like the prelude's, so only its identity tells them apart.
     let program = "type List (a : Type) : Type =\n  | Nil\n  | Cons (head : a) (tail : List a)\n\n\
                    export size : List Nat -> Nat\nsize Nil = 0\nsize (Cons x xs) = 1 + size xs\n";

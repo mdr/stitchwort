@@ -396,8 +396,8 @@ const encode = (t, v) => {
 };
 
 
-const $add = (m) => (n) => m + n;
-const $append = (v1) => (v2) => {
+const $Std$dNat$dadd = (m) => (n) => m + n;
+const $Std$dList$dappend = (v1) => (v2) => {
   switch (v1.tag) {
     case "Nil": {
       return v2;
@@ -405,13 +405,13 @@ const $append = (v1) => (v2) => {
     case "Cons": {
       const v3 = v1.head;
       const v4 = v1.tail;
-      return { tag: "Cons", head: v3, tail: $append(v4)(v2) };
+      return { tag: "Cons", head: v3, tail: $Std$dList$dappend(v4)(v2) };
     }
   }
   throw new Error("unreachable");
 };
-const $appendNats = (v0) => (v1) => $append(v0)(v1);
-const $total = (v0) => {
+const $Main$dappendNats = (v0) => (v1) => $Std$dList$dappend(v0)(v1);
+const $Main$dtotal = (v0) => {
   switch (v0.tag) {
     case "Nil": {
       return 0n;
@@ -419,7 +419,7 @@ const $total = (v0) => {
     case "Cons": {
       const v1 = v0.head;
       const v2 = v0.tail;
-      return $add(v1)($total(v2));
+      return $Std$dNat$dadd(v1)($Main$dtotal(v2));
     }
   }
   throw new Error("unreachable");
@@ -429,7 +429,7 @@ function $$appendNats(arg0, arg1) {
   try {
     const v0 = decode(list(NAT), arg0, "xs");
     const v1 = decode(list(NAT), arg1, "ys");
-    return encode(list(NAT), $appendNats(v0)(v1));
+    return encode(list(NAT), $Main$dappendNats(v0)(v1));
   } catch (e) {
     throw outOfResources("appendNats", e);
   }
@@ -438,7 +438,7 @@ function $$appendNats(arg0, arg1) {
 function $$total(arg0) {
   try {
     const v0 = decode(list(NAT), arg0, "arg0");
-    return encode(NAT, $total(v0));
+    return encode(NAT, $Main$dtotal(v0));
   } catch (e) {
     throw outOfResources("total", e);
   }

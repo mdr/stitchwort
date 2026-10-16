@@ -62,12 +62,12 @@ impl Primitive {
     /// Its name in the prelude.
     pub fn name(self) -> &'static str {
         match self {
-            Primitive::Delay => "Delay",
-            Primitive::Now => "now",
-            Primitive::Lift => "lift",
-            Primitive::BindD => "bindD",
-            Primitive::MapSig => "mapSig",
-            Primitive::Pfix => "pfix",
+            Primitive::Delay => "Effect.Delay",
+            Primitive::Now => "Effect.now",
+            Primitive::Lift => "Effect.lift",
+            Primitive::BindD => "Effect.bindD",
+            Primitive::MapSig => "Effect.mapSig",
+            Primitive::Pfix => "Effect.pfix",
         }
     }
 

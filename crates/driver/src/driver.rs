@@ -84,6 +84,11 @@ impl Session {
                     diagnostics.push(d);
                 }
             }
+            if !errors(&diagnostics)
+                && let Err(d) = stitchwort_js::exports_fit_together(g)
+            {
+                diagnostics.push(d);
+            }
         }
         if errors(&diagnostics) {
             Err(diagnostics)

@@ -395,14 +395,14 @@ const encode = (t, v) => {
   }
 };
 
-const info$Tree = datatype("Tree");
-define(info$Tree, [
+const info$Main$dTree = datatype("Tree");
+define(info$Main$dTree, [
   ["Leaf", []],
-  ["Node", [["left", data(info$Tree)], ["right", data(info$Tree)]]],
+  ["Node", [["left", data(info$Main$dTree)], ["right", data(info$Main$dTree)]]],
 ]);
 
-const $add = (m) => (n) => m + n;
-const $leaves = (v0) => {
+const $Std$dNat$dadd = (m) => (n) => m + n;
+const $Main$dleaves = (v0) => {
   switch (v0.tag) {
     case "Leaf": {
       return 1n;
@@ -410,12 +410,12 @@ const $leaves = (v0) => {
     case "Node": {
       const v1 = v0.left;
       const v2 = v0.right;
-      return $add($leaves(v1))($leaves(v2));
+      return $Std$dNat$dadd($Main$dleaves(v1))($Main$dleaves(v2));
     }
   }
   throw new Error("unreachable");
 };
-const $mirror = (v0) => {
+const $Main$dmirror = (v0) => {
   switch (v0.tag) {
     case "Leaf": {
       return { tag: "Leaf" };
@@ -423,7 +423,7 @@ const $mirror = (v0) => {
     case "Node": {
       const v1 = v0.left;
       const v2 = v0.right;
-      return { tag: "Node", left: $mirror(v2), right: $mirror(v1) };
+      return { tag: "Node", left: $Main$dmirror(v2), right: $Main$dmirror(v1) };
     }
   }
   throw new Error("unreachable");
@@ -431,8 +431,8 @@ const $mirror = (v0) => {
 
 function $$leaves(arg0) {
   try {
-    const v0 = decode(data(info$Tree), arg0, "arg0");
-    return encode(NAT, $leaves(v0));
+    const v0 = decode(data(info$Main$dTree), arg0, "arg0");
+    return encode(NAT, $Main$dleaves(v0));
   } catch (e) {
     throw outOfResources("leaves", e);
   }
@@ -440,8 +440,8 @@ function $$leaves(arg0) {
 
 function $$mirror(arg0) {
   try {
-    const v0 = decode(data(info$Tree), arg0, "arg0");
-    return encode(data(info$Tree), $mirror(v0));
+    const v0 = decode(data(info$Main$dTree), arg0, "arg0");
+    return encode(data(info$Main$dTree), $Main$dmirror(v0));
   } catch (e) {
     throw outOfResources("mirror", e);
   }

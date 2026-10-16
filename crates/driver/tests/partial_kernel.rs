@@ -79,17 +79,17 @@ struct Rows {
 
 fn rows(g: &Globals) -> Rows {
     let nat = Term::Data(data(g, "Nat"), vec![]);
-    let no_op = Term::Data(data(g, "NoOp"), vec![]);
-    let no_res = Term::Def(def(g, "NoRes"));
-    let rec_nat = Term::data(data(g, "Rec"), vec![nat.clone()]);
-    let ops = Term::data(data(g, "Plus"), vec![rec_nat.clone(), no_op.clone()]);
+    let no_op = Term::Data(data(g, "Effect.NoOp"), vec![]);
+    let no_res = Term::Def(def(g, "Effect.NoRes"));
+    let rec_nat = Term::data(data(g, "Effect.Rec"), vec![nat.clone()]);
+    let ops = Term::data(data(g, "Effect.Plus"), vec![rec_nat.clone(), no_op.clone()]);
     let ans = lam("_", nat.clone());
     let rec_res = app(
-        Term::Def(def(g, "RecRes")),
+        Term::Def(def(g, "Effect.RecRes")),
         [imp(nat.clone()), exp(ans.clone())],
     );
     let res = app(
-        Term::Def(def(g, "PlusRes")),
+        Term::Def(def(g, "Effect.PlusRes")),
         [
             imp(rec_nat.clone()),
             imp(no_op.clone()),
@@ -134,12 +134,12 @@ fn wrapper(g: &Globals, r: &Rows, body: Term) -> Term {
 /// description's row `{Rec Nat}`.
 fn map_right(g: &Globals, r: &Rows, d: Term) -> Term {
     let sig_right = app(
-        Term::Def(def(g, "sigRight")),
+        Term::Def(def(g, "Effect.sigRight")),
         [
             imp(r.rec_nat.clone()),
             imp(r.no_op.clone()),
             imp(app(
-                Term::Def(def(g, "RecRes")),
+                Term::Def(def(g, "Effect.RecRes")),
                 [imp(r.nat.clone()), exp(r.ans.clone())],
             )),
             imp(r.no_res.clone()),
@@ -170,7 +170,10 @@ fn nat_to_delay(g: &Globals, r: &Rows) -> Term {
 fn delay_and_its_constants_are_final_opaque_and_hashed() {
     let session = Session::new();
     let g = &session.elab.globals;
-    assert!(g.find_data("Delay").is_none(), "`Delay` isn't a data type");
+    assert!(
+        g.find_data("Effect.Delay").is_none(),
+        "`Effect.Delay` isn't a data type"
+    );
     for p in Primitive::ALL {
         let id = prim(g, p);
         let d = g.def(id);
@@ -188,16 +191,16 @@ fn delay_and_its_constants_are_final_opaque_and_hashed() {
 fn a_constant_with_another_type_is_refused() {
     let cases = [
         (
-            "now : [op : Type] -> [res : op -> Type] -> [a : Type] -> a -> Delay op res a",
-            "now : [op : Type] -> [res : op -> Type] -> [a : Type] -> Delay op res a -> a",
+            "Effect.now : [op : Type] -> [res : op -> Type] -> [a : Type] -> a -> Delay op res a",
+            "Effect.now : [op : Type] -> [res : op -> Type] -> [a : Type] -> Delay op res a -> a",
         ),
         (
             "  (x : req) -> Delay op res (ans x)",
             "  (x : req) -> Delay (Plus (Rec req) op) (PlusRes (RecRes ans) res) (ans x)",
         ),
         (
-            "Delay : (op : Type) -> (res : op -> Type) -> Type -> Type",
-            "Delay : (op : Type) -> (res : op -> Type) -> Type -> Prop",
+            "Effect.Delay : (op : Type) -> (res : op -> Type) -> Type -> Type",
+            "Effect.Delay : (op : Type) -> (res : op -> Type) -> Type -> Prop",
         ),
     ];
     for (original, changed) in cases {
@@ -303,11 +306,11 @@ fn a_description_calling_its_own_wrapper_is_refused() {
 
     // good x = pfix (\y -> lift (Call (L (Recur y)) (\v -> Done v))) x
     let good = check::declare_def(g, &"good".into(), &ty, false, false, span()).unwrap();
-    let comp = data(g, "Comp");
+    let comp = data(g, "Effect.Comp");
     let request = Term::ctor(
-        data(g, "Plus"),
+        data(g, "Effect.Plus"),
         0,
-        vec![Term::ctor(data(g, "Rec"), 0, vec![Term::Var(0)])],
+        vec![Term::ctor(data(g, "Effect.Rec"), 0, vec![Term::Var(0)])],
     );
     let call = Term::ctor(
         comp,

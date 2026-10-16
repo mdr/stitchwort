@@ -395,28 +395,28 @@ const encode = (t, v) => {
   }
 };
 
-const info$Shape = datatype("Shape");
-define(info$Shape, [
+const info$Main$dShape = datatype("Shape");
+define(info$Main$dShape, [
   ["Square", [["side", NAT]]],
   ["Rect", [["width", NAT], ["height", NAT]]],
 ]);
 
-const $mul = (m) => (n) => m * n;
-const $area = (v0) => {
+const $Std$dNat$dmul = (m) => (n) => m * n;
+const $Main$darea = (v0) => {
   switch (v0.tag) {
     case "Square": {
       const v1 = v0.side;
-      return $mul(v1)(v1);
+      return $Std$dNat$dmul(v1)(v1);
     }
     case "Rect": {
       const v1 = v0.width;
       const v2 = v0.height;
-      return $mul(v1)(v2);
+      return $Std$dNat$dmul(v1)(v2);
     }
   }
   throw new Error("unreachable");
 };
-const $areas = (v0) => {
+const $Main$dareas = (v0) => {
   switch (v0.tag) {
     case "Nil": {
       return { tag: "Nil" };
@@ -424,12 +424,12 @@ const $areas = (v0) => {
     case "Cons": {
       const v1 = v0.head;
       const v2 = v0.tail;
-      return { tag: "Cons", head: $area(v1), tail: $areas(v2) };
+      return { tag: "Cons", head: $Main$darea(v1), tail: $Main$dareas(v2) };
     }
   }
   throw new Error("unreachable");
 };
-const $grow = (v0) => {
+const $Main$dgrow = (v0) => {
   switch (v0.tag) {
     case "Square": {
       const v1 = v0.side;
@@ -446,8 +446,8 @@ const $grow = (v0) => {
 
 function $$area(arg0) {
   try {
-    const v0 = decode(data(info$Shape), arg0, "arg0");
-    return encode(NAT, $area(v0));
+    const v0 = decode(data(info$Main$dShape), arg0, "arg0");
+    return encode(NAT, $Main$darea(v0));
   } catch (e) {
     throw outOfResources("area", e);
   }
@@ -455,8 +455,8 @@ function $$area(arg0) {
 
 function $$areas(arg0) {
   try {
-    const v0 = decode(list(data(info$Shape)), arg0, "arg0");
-    return encode(list(NAT), $areas(v0));
+    const v0 = decode(list(data(info$Main$dShape)), arg0, "arg0");
+    return encode(list(NAT), $Main$dareas(v0));
   } catch (e) {
     throw outOfResources("areas", e);
   }
@@ -464,8 +464,8 @@ function $$areas(arg0) {
 
 function $$grow(arg0) {
   try {
-    const v0 = decode(data(info$Shape), arg0, "arg0");
-    return encode(data(info$Shape), $grow(v0));
+    const v0 = decode(data(info$Main$dShape), arg0, "arg0");
+    return encode(data(info$Main$dShape), $Main$dgrow(v0));
   } catch (e) {
     throw outOfResources("grow", e);
   }

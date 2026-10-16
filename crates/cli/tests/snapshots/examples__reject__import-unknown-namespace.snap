@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-IMPORT-UNKNOWN] Error: there's no namespace `Lists`
+   ╭─[ reject/import-unknown-namespace.sw:3:8 ]
+   │
+ 3 │ import Lists (length)
+   │        ──┬──  
+   │          ╰──── there's no namespace `Lists`
+   │ 
+   │ Note: `import` takes a namespace, such as `List` or `Text`
+───╯

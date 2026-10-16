@@ -23,4 +23,4 @@ collatzSteps 1 = 0
 collatzSteps n = 1 + collatzSteps (next n)
 
 main : () -> {IO, Partial} ()
-main u = print ("27 reaches 1 in " ++ natToText (collatzSteps 27) ++ " steps")
+main u = print ("27 reaches 1 in " ++ Nat.toText (collatzSteps 27) ++ " steps")

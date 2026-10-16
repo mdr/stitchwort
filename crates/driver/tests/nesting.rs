@@ -296,6 +296,7 @@ fn long_chains_of_definitions_to_hash() {
 fn clone_def(def: &stitchwort_core::globals::Def) -> stitchwort_core::globals::Def {
     stitchwort_core::globals::Def {
         name: def.name.clone(),
+        path: def.path.clone(),
         ty: def.ty.clone(),
         ty_value: def.ty_value.clone(),
         body: def.body.clone(),

@@ -568,7 +568,7 @@ mod tests {
         let source = "replicate : Nat -> a -> List a\nreplicate Zero     x = Nil\n\
                       replicate (Succ n) x = Cons x (replicate n x)\n\n\
                       main : () -> {IO} ()\nmain u =\n  print \"before\"\n  \
-                      print (natToText (length (replicate 100000 1)))\n";
+                      print (Nat.toText (List.length (replicate 100000 1)))\n";
         let mut session = load(source).expect("it checks");
         session.elab.limits.work = 100_000;
         let result = run_loaded(session, "", 1000, MAX_READS_PAST_END);

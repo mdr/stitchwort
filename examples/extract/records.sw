@@ -30,7 +30,7 @@ rename : Text -> Person -> Person
 rename n p = { p | name = n }
 
 older : Person -> Person -> Person
-older p q = if leq q.age p.age then p else q
+older p q = if Nat.leq q.age p.age then p else q
 
 export
 oldest : List Person -> Maybe Person
@@ -54,7 +54,7 @@ type Box (a : Type) = { value : a }
 
 export
 unbox : Box (List Nat) -> Box Nat
-unbox b = { value = length b.value }
+unbox b = { value = List.length b.value }
 
 -- A proof field that depends on an earlier field, with a decision procedure.
 IsSorted : List Nat -> Prop
@@ -63,10 +63,10 @@ IsSorted xs = isSorted xs = True
 isSorted : List Nat -> Bool
 isSorted Nil                   = True
 isSorted (Cons x Nil)          = True
-isSorted (Cons x (Cons y rest)) = if leq x y then isSorted (Cons y rest) else False
+isSorted (Cons x (Cons y rest)) = if Nat.leq x y then isSorted (Cons y rest) else False
 
 decIsSorted : (xs : List Nat) -> Decidable (IsSorted xs)
-decIsSorted xs = decTrue (isSorted xs)
+decIsSorted xs = Bool.decTrue (isSorted xs)
 
 type SortedList = { items : List Nat, ok : IsSorted items }
 
@@ -82,8 +82,8 @@ smallest { items = Nil, .. }       = Nothing
 smallest { items = Cons x xs, .. } = Just x
 
 -- A proof field about two earlier fields, checked with the prelude's
--- `decEqNat`.
-type Sized = { items : List Nat, size : Nat, ok : length items = size }
+-- `Nat.decEq`.
+type Sized = { items : List Nat, size : Nat, ok : List.length items = size }
 
 export
 total : Sized -> Nat

@@ -3,6 +3,8 @@
 -- the prelude, and a deep handler is a structurally recursive function over
 -- it, checked like any other.
 
+import Effect (Comp, Plus, PlusRes, bind, foldComp)
+
 type Unit1 : Type =
   | MkUnit
 
@@ -48,7 +50,7 @@ runState s (Call (Put n) rest) = runState n (rest MkUnit)
 -- Resumes twice: every outcome, `True` first.
 allResults : Comp ChooseOp ChooseRes a -> List a
 allResults (Done x)           = [x]
-allResults (Call Choose rest) = append (allResults (rest True)) (allResults (rest False))
+allResults (Call Choose rest) = List.append (allResults (rest True)) (allResults (rest False))
 
 -- Never resumes.
 toMaybe : Comp AbortOp AbortRes a -> Maybe a
@@ -70,7 +72,7 @@ allResultsR : [e : Type] -> [eres : e -> Type] -> [a : Type] ->
 allResultsR (Done x)               = Done [x]
 allResultsR (Call (R Choose) rest) =
   bind (allResultsR (rest True)) (\xs ->
-    bind (allResultsR (rest False)) (\ys -> Done (append xs ys)))
+    bind (allResultsR (rest False)) (\ys -> Done (List.append xs ys)))
 allResultsR (Call (L o) rest)      = Call o (\y -> allResultsR (rest y))
 
 -- Handler order (from the review)
@@ -164,7 +166,7 @@ test "no abort" = fromJust0 (toMaybe (bind (safeDiv 7 2) (\q -> safeDiv 100 q)))
 
 -- The generic fold: `allResults` again, written with `foldComp`.
 both : (o : ChooseOp) -> (ChooseRes o -> List a) -> List a
-both Choose k = append (k True) (k False)
+both Choose k = List.append (k True) (k False)
 
 allResultsFold : Comp ChooseOp ChooseRes a -> List a
 allResultsFold c = foldComp (\x -> [x]) both c

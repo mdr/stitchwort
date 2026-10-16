@@ -1,6 +1,6 @@
 //! Declared records (docs/proposals/records.md, stage 1). A record
 //! `type Person = { name : Text, age : Nat }` is a data type with one
-//! constructor, `Person.mk`, and a field for each of the record's, so the
+//! constructor, `Person.%mk` (which source can't write), and a field for each of the record's, so the
 //! kernel needs nothing new. The elaborator adds:
 //!
 //! - a projection per field, `Person.name : Person -> Text`, generated as an
@@ -118,7 +118,11 @@ impl Elaborator {
             let span = data.span;
             let id = kernel::declare_def(&mut self.globals, &name, &ty, false, false, span)?;
             kernel::define_def(&mut self.globals, id, &body)?;
-            self.names.insert(name.to_string(), (Global::Def(id), span));
+            // In the record's namespace, but not visible by its short name:
+            // fields are reached through a record (`p.name`), or written in
+            // full (`Person.name`).
+            let key = Self::member_key(&self.data_key(d), &field);
+            self.scope.insert(&key, Global::Def(id), span, false);
             out.push(Some(id));
         }
         Ok(out)
@@ -194,12 +198,12 @@ impl Elaborator {
             args.into_iter()
                 .fold(head, |f, a| Expr::App(Box::new(f), Box::new(a)))
         };
-        let mk = format!("{record}.mk");
+        let mk = format!("{record}.%mk");
         let a = |k: usize| format!("a{k}");
         let b = |k: usize| format!("b{k}");
         let h = |k: usize| format!("h{k}");
         let count = fields.len();
-        // `R.mk a0 … an = R.mk b0 … b(k-1) y a(k+1) …`
+        // `R.%mk a0 … an = R.%mk b0 … b(k-1) y a(k+1) …`
         let motive_eq = |k: usize| {
             let left = apps(var(&mk), (0..count).map(|j| var(&a(j))).collect());
             let right = apps(
@@ -219,14 +223,14 @@ impl Elaborator {
             let motive = Expr::Lam(vec![n("y"), n("p")], Box::new(motive_eq(k)), span);
             proof = apps(var("J"), vec![motive, proof, var(&h(k))]);
         }
-        let mut body = apps(var("Yes"), vec![proof]);
+        let mut body = apps(var("Std.Decidable.Yes"), vec![proof]);
         for k in (0..count).rev() {
             let projection = format!("{record}.{}", fields[k].0);
             let refute = Expr::Lam(
                 vec![n("e")],
                 Box::new(apps(
                     var(&h(k)),
-                    vec![apps(var("cong"), vec![var(&projection), var("e")])],
+                    vec![apps(var("Std.Eq.cong"), vec![var(&projection), var("e")])],
                 )),
                 span,
             );
@@ -238,7 +242,7 @@ impl Elaborator {
                     Box::new(var(&b(k))),
                 )),
                 then: Box::new(body),
-                otherwise: Box::new(apps(var("No"), vec![refute])),
+                otherwise: Box::new(apps(var("Std.Decidable.No"), vec![refute])),
                 span,
             };
         }
@@ -251,7 +255,7 @@ impl Elaborator {
                 auto: false,
                 dom: Box::new(var(&record)),
                 cod: Box::new(apps(
-                    var("Decidable"),
+                    var("Std.Decidable"),
                     vec![Expr::Binary(
                         BinOp::Eq,
                         Box::new(var("r")),
@@ -281,8 +285,7 @@ impl Elaborator {
         // somehow did, `==` just isn't derived.
         // The generated code's `Yes`, `No`, `cong` and `Decidable` are the
         // prelude's, whatever those names mean in the program.
-        let builtins = [Builtin::Yes, Builtin::No, Builtin::Cong, Builtin::Decidable];
-        let result = self.with_builtin_names(&builtins, |e| e.definition(&signature, &[equation]));
+        let result = self.definition(&signature, &[equation]);
         Ok(match result {
             Ok(()) => None,
             Err(e) if e.code == "E-RESOURCE" => return Err(e),

@@ -390,7 +390,7 @@ pub struct CtorDecl {
 pub enum Decl {
     /// `type List (a : Type) : Type = | Nil | Cons (head : a) (tail : List a)`,
     /// or with `record`, `type Person = { name : Text, age : Nat }`: one
-    /// constructor, named `Person.mk` (which source can't write), with a
+    /// constructor, named `%mk` (which source can't write), with a
     /// field for each of the record's, in order.
     Data {
         name: Name,
@@ -431,7 +431,21 @@ pub enum Decl {
     },
 }
 
+/// `import List (map, filter)`: makes `map` and `filter` from the namespace
+/// `List` usable without `List.` in this file (docs/proposals/namespaces.md
+/// §4.5).
+#[derive(Clone, Debug)]
+pub struct Import {
+    /// The namespace, as written: `List`, or `Std.List`.
+    pub path: Name,
+    /// At least one.
+    pub items: Vec<Name>,
+    pub span: Span,
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct Module {
+    /// At the top of the file, before any declaration.
+    pub imports: Vec<Import>,
     pub decls: Vec<Decl>,
 }

@@ -3,6 +3,8 @@
 -- conversion doesn't unfold `pfix`, so `collatzSteps 1` isn't `now 0`, even
 -- though both finish with 0. Unfolding it would let checking loop forever
 -- on a partial function that doesn't finish.
+import Effect (now, pfix)
+
 collatzSteps : Nat -> {Partial} Nat
 collatzSteps 1 = 0
 collatzSteps n = 1 + collatzSteps (if n % 2 == 0 then n / 2 else 3 * n + 1)

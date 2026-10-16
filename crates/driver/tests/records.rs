@@ -102,8 +102,8 @@ fn field_validators_are_checked() {
     let mut s = load(
         "IsZero' : Nat -> Prop\nIsZero' n = n = 0\n\n\
          type Small = { n : Nat, zero : IsZero' n }\n\n\
-         decZero : (n : Nat) -> Decidable (IsZero' n)\ndecZero n = decEqNat n 0\n\n\
-         decOne : (n : Nat) -> Decidable (n = 1)\ndecOne n = decEqNat n 1\n",
+         decZero : (n : Nat) -> Decidable (IsZero' n)\ndecZero n = Nat.decEq n 0\n\n\
+         decOne : (n : Nat) -> Decidable (n = 1)\ndecOne n = Nat.decEq n 1\n",
     );
     let g = &mut s.elab.globals;
     let small = data(g, "Small");
@@ -149,7 +149,7 @@ fn field_validators_are_checked() {
 fn projections_and_equality_are_generated() {
     let s = load(
         "type Person = { name : Text, age : Nat }\n\n\
-         type Sized = { items : List Nat, size : Nat, ok : length items = size }\n\n\
+         type Sized = { items : List Nat, size : Nat, ok : List.length items = size }\n\n\
          type Box (a : Type) = { value : a }\n",
     );
     let g = &s.elab.globals;
@@ -164,7 +164,7 @@ fn projections_and_equality_are_generated() {
     assert_eq!(shown("Person.age"), "Person -> Nat");
     assert_eq!(
         shown("Sized.ok"),
-        "(r : Sized) -> length (Sized.items r) = Sized.size r"
+        "(r : Sized) -> List.length (Sized.items r) = Sized.size r"
     );
     assert_eq!(shown("Box.value"), "[a : Type] -> Box a -> a");
     assert_eq!(

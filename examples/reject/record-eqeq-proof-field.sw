@@ -6,7 +6,7 @@
 -- (examples/accept/records.sw).
 
 IsShort : List Nat -> Prop
-IsShort xs = length xs <= 2
+IsShort xs = List.length xs <= 2
 
 type Short = { items : List Nat, short : IsShort items }
 

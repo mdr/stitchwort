@@ -103,7 +103,7 @@ impl Prelude {
         // add m n = case m of Zero -> n; Succ m' -> Succ (add m' n)
         let add = declare(
             &mut g,
-            "add",
+            "Nat.add",
             arrow(nat_ty.clone(), arrow(nat_ty.clone(), nat_ty.clone())),
         );
         let body = lam(

@@ -396,7 +396,7 @@ const encode = (t, v) => {
 };
 
 
-const $ifThenElse = (v1) => (v2) => (v3) => {
+const $Std$dBool$difThenElse = (v1) => (v2) => (v3) => {
   switch (v1.tag) {
     case "False": {
       return (v3)(undefined);
@@ -407,8 +407,8 @@ const $ifThenElse = (v1) => (v2) => (v3) => {
   }
   throw new Error("unreachable");
 };
-const $leq = (m) => (n) => ({ tag: m <= n ? "True" : "False" });
-const $interleave = (v0) => (v1) => {
+const $Std$dNat$dleq = (m) => (n) => ({ tag: m <= n ? "True" : "False" });
+const $Main$dinterleave = (v0) => (v1) => {
   switch (v0.tag) {
     case "Nil": {
       return v1;
@@ -416,12 +416,12 @@ const $interleave = (v0) => (v1) => {
     case "Cons": {
       const v2 = v0.head;
       const v3 = v0.tail;
-      return { tag: "Cons", head: v2, tail: $interleave(v1)(v3) };
+      return { tag: "Cons", head: v2, tail: $Main$dinterleave(v1)(v3) };
     }
   }
   throw new Error("unreachable");
 };
-const $merge = (v0) => (v1) => {
+const $Main$dmerge = (v0) => (v1) => {
   switch (v0.tag) {
     case "Nil": {
       return v1;
@@ -436,7 +436,7 @@ const $merge = (v0) => (v1) => {
         case "Cons": {
           const v4 = v1.head;
           const v5 = v1.tail;
-          return $ifThenElse($leq(v2)(v4))(((v6) => ({ tag: "Cons", head: v2, tail: $merge(v3)({ tag: "Cons", head: v4, tail: v5 }) })))(((v6) => ({ tag: "Cons", head: v4, tail: $merge({ tag: "Cons", head: v2, tail: v3 })(v5) })));
+          return $Std$dBool$difThenElse($Std$dNat$dleq(v2)(v4))(((v6) => ({ tag: "Cons", head: v2, tail: $Main$dmerge(v3)({ tag: "Cons", head: v4, tail: v5 }) })))(((v6) => ({ tag: "Cons", head: v4, tail: $Main$dmerge({ tag: "Cons", head: v2, tail: v3 })(v5) })));
         }
       }
       throw new Error("unreachable");
@@ -444,7 +444,7 @@ const $merge = (v0) => (v1) => {
   }
   throw new Error("unreachable");
 };
-const $gcdSteps = (v0) => (v1) => (v2) => {
+const $Main$dgcdSteps = (v0) => (v1) => (v2) => {
   let s0 = v0, s1 = v1, s2 = v2;
   for (;;) {
     const v0 = s0, v1 = s1, v2 = s2;
@@ -464,7 +464,7 @@ function $$interleave(arg0, arg1) {
   try {
     const v0 = decode(list(NAT), arg0, "arg0");
     const v1 = decode(list(NAT), arg1, "ys");
-    return encode(list(NAT), $interleave(v0)(v1));
+    return encode(list(NAT), $Main$dinterleave(v0)(v1));
   } catch (e) {
     throw outOfResources("interleave", e);
   }
@@ -474,7 +474,7 @@ function $$merge(arg0, arg1) {
   try {
     const v0 = decode(list(NAT), arg0, "arg0");
     const v1 = decode(list(NAT), arg1, "ys");
-    return encode(list(NAT), $merge(v0)(v1));
+    return encode(list(NAT), $Main$dmerge(v0)(v1));
   } catch (e) {
     throw outOfResources("merge", e);
   }
@@ -485,7 +485,7 @@ function $$gcdSteps(arg0, arg1, arg2) {
     const v0 = decode(NAT, arg0, "arg0");
     const v1 = decode(NAT, arg1, "b");
     const v2 = decode(NAT, arg2, "acc");
-    return encode(NAT, $gcdSteps(v0)(v1)(v2));
+    return encode(NAT, $Main$dgcdSteps(v0)(v1)(v2));
   } catch (e) {
     throw outOfResources("gcdSteps", e);
   }

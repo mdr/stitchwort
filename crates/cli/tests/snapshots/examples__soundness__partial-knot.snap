@@ -3,9 +3,9 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-PARTIAL] Error: a computation that might not finish can't run here
-    ╭─[ soundness/partial-knot.sw:11:19 ]
+    ╭─[ soundness/partial-knot.sw:13:19 ]
     │
- 11 │ bad = pfix (\x -> mapSig sigRight (bad x))
+ 13 │ bad = pfix (\x -> mapSig sigRight (bad x))
     │                   ───────────┬──────────  
     │                              ╰──────────── `bad` is `Partial`: it might not finish
     │ 

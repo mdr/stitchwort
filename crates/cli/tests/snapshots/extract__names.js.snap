@@ -395,31 +395,31 @@ const encode = (t, v) => {
   }
 };
 
-const info$Awkward = datatype("Awkward");
-const info$Labelled = datatype("Labelled");
-const info$Box$ = datatype("Box'");
-const info$Tagged$ = datatype("Tagged'");
-const info$Error = datatype("Error");
-define(info$Awkward, [
+const info$Main$dAwkward = datatype("Awkward");
+const info$Main$dLabelled = datatype("Labelled");
+const info$Main$dBox$p = datatype("Box'");
+const info$Main$dTagged$p = datatype("Tagged'");
+const info$Main$dError = datatype("Error");
+define(info$Main$dAwkward, [
   ["Plain", []],
   ["Fields", [["$tag", NAT], ["$__proto__", NAT], ["x", NAT], ["x$", NAT], ["x$$", NAT], ["constructor", NAT], ["undefined", NAT], ["path", NAT], ["inside", NAT], ["v0", NAT], ["arg0", NAT]]],
 ]);
-define(info$Labelled, [
+define(info$Main$dLabelled, [
   ["MkLabelled", [["$tag", TEXT], ["count", NAT]]],
 ]);
-define(info$Box$, [
+define(info$Main$dBox$p, [
   ["MkBox'", [["value", NAT]]],
 ]);
-define(info$Tagged$, [
+define(info$Main$dTagged$p, [
   ["MkTagged'", [["$tag", param(0)], ["tag$", param(0)]]],
 ]);
-define(info$Error, [
+define(info$Main$dError, [
   ["Oops", [["$tag", TEXT]]],
 ]);
 
-const $add = (m) => (n) => m + n;
-const $textAppend = (a) => (b) => a + b;
-const $twiddle = (v0) => {
+const $Std$dNat$dadd = (m) => (n) => m + n;
+const $Std$dText$dappend = (a) => (b) => a + b;
+const $Main$dtwiddle = (v0) => {
   switch (v0.tag) {
     case "Plain": {
       return { tag: "Plain" };
@@ -441,17 +441,17 @@ const $twiddle = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $labelled = (v0) => {
+const $Main$dlabelled = (v0) => {
   switch (v0.tag) {
     case "MkLabelled": {
       const v1 = v0.$tag;
       const v2 = v0.count;
-      return { tag: "MkLabelled", $tag: $textAppend(v1)("!"), count: (v2 + 1n) };
+      return { tag: "MkLabelled", $tag: $Std$dText$dappend(v1)("!"), count: (v2 + 1n) };
     }
   }
   throw new Error("unreachable");
 };
-const $unbox = (v0) => {
+const $Main$dunbox = (v0) => {
   switch (v0.tag) {
     case "MkBox'": {
       const v1 = v0.value;
@@ -460,7 +460,7 @@ const $unbox = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $firstTag = (v0) => {
+const $Main$dfirstTag = (v0) => {
   switch (v0.tag) {
     case "MkTagged'": {
       const v1 = v0.$tag;
@@ -470,7 +470,7 @@ const $firstTag = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $tagged = (v0) => {
+const $Main$dtagged = (v0) => {
   switch (v0.tag) {
     case "MkTagged'": {
       const v1 = v0.$tag;
@@ -480,25 +480,25 @@ const $tagged = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $enter = (v0) => (v1) => v0;
-const $decode = (v0) => (v0 + 1n);
-const $Set = (v0) => $add(v0)(v0);
-const $BigInt = (v0) => v0;
-const $RangeError = (v0) => {
+const $Main$denter = (v0) => (v1) => v0;
+const $Main$ddecode = (v0) => (v0 + 1n);
+const $Main$dSet = (v0) => $Std$dNat$dadd(v0)(v0);
+const $Main$dBigInt = (v0) => v0;
+const $Main$dRangeError = (v0) => {
   switch (v0.tag) {
     case "Oops": {
       const v1 = v0.$tag;
-      return { tag: "Oops", $tag: $textAppend(v1)(v1) };
+      return { tag: "Oops", $tag: $Std$dText$dappend(v1)(v1) };
     }
   }
   throw new Error("unreachable");
 };
-const $args = (v0) => (v1) => (v2) => $add($add(v0)(v1))(v2);
+const $Main$dargs = (v0) => (v1) => (v2) => $Std$dNat$dadd($Std$dNat$dadd(v0)(v1))(v2);
 
 function $$twiddle(arg0) {
   try {
-    const v0 = decode(data(info$Awkward), arg0, "arg0");
-    return encode(data(info$Awkward), $twiddle(v0));
+    const v0 = decode(data(info$Main$dAwkward), arg0, "arg0");
+    return encode(data(info$Main$dAwkward), $Main$dtwiddle(v0));
   } catch (e) {
     throw outOfResources("twiddle", e);
   }
@@ -506,8 +506,8 @@ function $$twiddle(arg0) {
 
 function $$labelled(arg0) {
   try {
-    const v0 = decode(data(info$Labelled), arg0, "arg0");
-    return encode(data(info$Labelled), $labelled(v0));
+    const v0 = decode(data(info$Main$dLabelled), arg0, "arg0");
+    return encode(data(info$Main$dLabelled), $Main$dlabelled(v0));
   } catch (e) {
     throw outOfResources("labelled", e);
   }
@@ -515,8 +515,8 @@ function $$labelled(arg0) {
 
 function $$unbox(arg0) {
   try {
-    const v0 = decode(data(info$Box$), arg0, "arg0");
-    return encode(NAT, $unbox(v0));
+    const v0 = decode(data(info$Main$dBox$p), arg0, "arg0");
+    return encode(NAT, $Main$dunbox(v0));
   } catch (e) {
     throw outOfResources("unbox", e);
   }
@@ -524,8 +524,8 @@ function $$unbox(arg0) {
 
 function $$firstTag(arg0) {
   try {
-    const v0 = decode(data(info$Tagged$, [NAT]), arg0, "arg0");
-    return encode(NAT, $firstTag(v0));
+    const v0 = decode(data(info$Main$dTagged$p, [NAT]), arg0, "arg0");
+    return encode(NAT, $Main$dfirstTag(v0));
   } catch (e) {
     throw outOfResources("firstTag", e);
   }
@@ -533,8 +533,8 @@ function $$firstTag(arg0) {
 
 function $$tagged(arg0) {
   try {
-    const v0 = decode(data(info$Tagged$, [TEXT]), arg0, "arg0");
-    return encode(data(info$Tagged$, [TEXT]), $tagged(v0));
+    const v0 = decode(data(info$Main$dTagged$p, [TEXT]), arg0, "arg0");
+    return encode(data(info$Main$dTagged$p, [TEXT]), $Main$dtagged(v0));
   } catch (e) {
     throw outOfResources("tagged", e);
   }
@@ -544,7 +544,7 @@ function $$enter(arg0, arg1) {
   try {
     const v0 = decode(NAT, arg0, "v1");
     const v1 = decode(NAT, arg1, "v0");
-    return encode(NAT, $enter(v0)(v1));
+    return encode(NAT, $Main$denter(v0)(v1));
   } catch (e) {
     throw outOfResources("enter", e);
   }
@@ -553,7 +553,7 @@ function $$enter(arg0, arg1) {
 function $$decode(arg0) {
   try {
     const v0 = decode(NAT, arg0, "n");
-    return encode(NAT, $decode(v0));
+    return encode(NAT, $Main$ddecode(v0));
   } catch (e) {
     throw outOfResources("decode", e);
   }
@@ -562,7 +562,7 @@ function $$decode(arg0) {
 function $$Set(arg0) {
   try {
     const v0 = decode(NAT, arg0, "n");
-    return encode(NAT, $Set(v0));
+    return encode(NAT, $Main$dSet(v0));
   } catch (e) {
     throw outOfResources("Set", e);
   }
@@ -571,7 +571,7 @@ function $$Set(arg0) {
 function $$BigInt(arg0) {
   try {
     const v0 = decode(NAT, arg0, "n");
-    return encode(NAT, $BigInt(v0));
+    return encode(NAT, $Main$dBigInt(v0));
   } catch (e) {
     throw outOfResources("BigInt", e);
   }
@@ -579,8 +579,8 @@ function $$BigInt(arg0) {
 
 function $$RangeError(arg0) {
   try {
-    const v0 = decode(data(info$Error), arg0, "arg0");
-    return encode(data(info$Error), $RangeError(v0));
+    const v0 = decode(data(info$Main$dError), arg0, "arg0");
+    return encode(data(info$Main$dError), $Main$dRangeError(v0));
   } catch (e) {
     throw outOfResources("RangeError", e);
   }
@@ -591,7 +591,7 @@ function $$args(arg0, arg1, arg2) {
     const v0 = decode(NAT, arg0, "a");
     const v1 = decode(NAT, arg1, "e");
     const v2 = decode(NAT, arg2, "c");
-    return encode(NAT, $args(v0)(v1)(v2));
+    return encode(NAT, $Main$dargs(v0)(v1)(v2));
   } catch (e) {
     throw outOfResources("args", e);
   }

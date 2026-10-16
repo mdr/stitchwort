@@ -1,4 +1,4 @@
--- Pure exports that use `IO` inside, handled by the prelude's `simulate`.
+-- Pure exports that use `IO` inside, handled by the prelude's `IO.simulate`.
 -- The scripted input lines are built from numbers: this example was
 -- written before exports could take `Text`.
 --
@@ -23,18 +23,18 @@ echo (Succ n) = echoLine (readLine ()) (\u -> echo n)
 
 linesOf : List Nat -> List Text
 linesOf Nil         = Nil
-linesOf (Cons n ns) = Cons (natToText n) (linesOf ns)
+linesOf (Cons n ns) = Cons (Nat.toText n) (linesOf ns)
 
 -- How many lines `echo` printed, given those numbers as input lines.
 export
 linesEchoed : List Nat -> Nat -> Nat
-linesEchoed ns bound = length (fst (simulate (linesOf ns) (\u -> echo bound)))
+linesEchoed ns bound = List.length (Pair.fst (IO.simulate (linesOf ns) (\u -> echo bound)))
 
 -- Numbers each line ("1: 7", "2: 42", …).
 numberLine : Nat -> Maybe Text -> (() -> {IO} ()) -> {IO} ()
 numberLine i Nothing  more = ()
 numberLine i (Just l) more =
-  print (natToText i ++ ": " ++ l)
+  print (Nat.toText i ++ ": " ++ l)
   more ()
 
 numberFrom : Nat -> Nat -> {IO} ()
@@ -43,24 +43,24 @@ numberFrom i (Succ n) = numberLine i (readLine ()) (\u -> numberFrom (i + 1) n)
 
 totalLength : List Text -> Nat
 totalLength Nil         = 0
-totalLength (Cons t ts) = textLength t + totalLength ts
+totalLength (Cons t ts) = Text.length t + totalLength ts
 
 -- The number of characters printed when numbering the lines.
 export
 numberedLength : List Nat -> Nat
 numberedLength ns =
-  totalLength (fst (simulate (linesOf ns) (\u -> numberFrom 1 (length ns))))
+  totalLength (Pair.fst (IO.simulate (linesOf ns) (\u -> numberFrom 1 (List.length ns))))
 
 countdown : Nat -> {IO} ()
 countdown 0        = print "liftoff"
 countdown (Succ n) =
-  print (natToText (Succ n))
+  print (Nat.toText (Succ n))
   countdown n
 
 -- How many lines a countdown from `n` prints: `n + 1`.
 export
 countdownLines : Nat -> Nat
-countdownLines n = length (fst (simulate [] (\u -> countdown n)))
+countdownLines n = List.length (Pair.fst (IO.simulate [] (\u -> countdown n)))
 
 printLines : Nat -> {IO} ()
 printLines 0        = ()
@@ -71,4 +71,4 @@ printLines (Succ n) =
 -- A payload containing a line feed is still one entry.
 export
 oneEntryPerPrint : Nat -> Bool
-oneEntryPerPrint n = length (fst (simulate [] (\u -> printLines n))) == n
+oneEntryPerPrint n = List.length (Pair.fst (IO.simulate [] (\u -> printLines n))) == n

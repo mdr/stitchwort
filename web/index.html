@@ -382,13 +382,13 @@
 -- list. The compiler checks it; change a line and see what it says.
 
 theorem appendLength : (xs : List a) -> (ys : List a) ->
-    length (append xs ys) = length xs + length ys
+    List.length (List.append xs ys) = List.length xs + List.length ys
 appendLength Nil         ys = rfl
-appendLength (Cons x xs) ys = cong Succ (appendLength xs ys)
+appendLength (Cons x xs) ys = Eq.cong Succ (appendLength xs ys)
 
 reverse : List a -> List a
 reverse Nil         = Nil
-reverse (Cons x xs) = append (reverse xs) [x]
+reverse (Cons x xs) = List.append (reverse xs) [x]
 
 -- Proofs by computation:
 theorem reverseExample : reverse [1, 2, 3] = [3, 2, 1]
@@ -425,9 +425,9 @@ double : Nat -> Nat
 double n = n + n
 
 isEven : Nat -> Bool
-isEven n = leq (n % 2) 0
+isEven n = Nat.leq (n % 2) 0
 
-test "double 3 is 6" = leq (double 3) 6
+test "double 3 is 6" = Nat.leq (double 3) 6
 test "doubles are even" = isEven (double 7)
 test "7 is odd" = not (isEven 7)
 test "this one fails" = isEven 3
@@ -463,7 +463,7 @@ allResults : (() -> {Choose | e} a) -> {e} List a
 allResults prog =
   handle prog () with
     | return x       -> [x]
-    | choose _ => k  -> append (k True) (k False)
+    | choose _ => k  -> List.append (k True) (k False)
 
 -- Choose, then add 10 to the state if it said yes.
 step : () -> {State Nat, Choose} Nat
@@ -472,7 +472,7 @@ step u =
   get ()
 
 -- Each branch has its own state...
-test "state inside choice" = length (allResults (\u -> runState 1 step)) == 2
+test "state inside choice" = List.length (allResults (\u -> runState 1 step)) == 2
 
 -- ...or one state threads through both branches.
 test "choice inside state" = sndOf (runState 1 (\u -> allResults step)) == 11
@@ -480,7 +480,7 @@ test "choice inside state" = sndOf (runState 1 (\u -> allResults step)) == 11
 <script type="text/plain" id="ex-main" data-title="Input and output: main">-- A program with input and output. `main` prints with `print` and reads
 -- lines with `readLine`, which gives `Nothing` at the end of the input. Press
 -- Run: the Run tab's box holds the input lines. The tests run the same `main`
--- with `simulate`, which takes the input as a list.
+-- with `IO.simulate`, which takes the input as a list.
 
 -- The text, or a default at end of input.
 textOr : Text -> Maybe Text -> Text
@@ -493,7 +493,7 @@ stepNumber total l Nothing  more =
   print ("\"" ++ l ++ "\" isn't a number; skipped")
   more total
 stepNumber total l (Just n) more =
-  print ("  total: " ++ natToText (total + n))
+  print ("  total: " ++ Nat.toText (total + n))
   more (total + n)
 
 -- What to do with a line, given the total so far. An empty line, or the end
@@ -501,7 +501,7 @@ stepNumber total l (Just n) more =
 step : Nat -> Maybe Text -> (Nat -> {IO} Nat) -> {IO} Nat
 step total Nothing  more = total
 step total (Just l) more =
-  if textIsEmpty l then total else stepNumber total l (textToNat (textTrim l)) more
+  if Text.isEmpty l then total else stepNumber total l (Text.toNat (Text.trim l)) more
 
 -- Adds the numbers on at most this many more lines. The bound keeps the
 -- recursion structural: every run of `main` performs a bounded number of
@@ -516,7 +516,7 @@ main u =
   let name = textOr "stranger" (readLine ())
   print ("Hello, " ++ name ++ "! Type numbers to add, one per line, and an empty line to stop.")
   let total = addLines 1000 0
-  print ("The sum is " ++ natToText total ++ ". Goodbye, " ++ name ++ ".")
+  print ("The sum is " ++ Nat.toText total ++ ". Goodbye, " ++ name ++ ".")
 
 -- Testing `main` with scripted input
 
@@ -526,7 +526,7 @@ eqTexts (Cons x xs) (Cons y ys) = if x == y then eqTexts xs ys else False
 eqTexts _           _           = False
 
 printed : List Text -> List Text
-printed input = fst (simulate input main)
+printed input = Pair.fst (IO.simulate input main)
 
 test "a session" =
   eqTexts (printed ["Ada", "1", "2", "x", " 39 ", ""])
@@ -951,7 +951,7 @@ area (Rect w h) = w * h
 
     if (view === "eval") {
       const input = el("input", { type: "text", id: "eval-input", value: evalInput, spellcheck: false,
-                                  placeholder: "an expression, e.g. length [1, 2]" });
+                                  placeholder: "an expression, e.g. List.length [1, 2]" });
       input.setAttribute("aria-label", "Expression to evaluate");
       const go = el("button", { className: "primary", type: "submit" }, "Evaluate");
       const form = el("form", { className: "evalrow" }, input, go);

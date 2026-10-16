@@ -109,7 +109,7 @@ fn prints_addition_and_equations_with_the_right_brackets() {
         "x + 0 = x"
     );
     // A partially applied `add` is an ordinary application.
-    assert_eq!(show(&p, &names, &app(Term::Def(p.add), [x])), "add x");
+    assert_eq!(show(&p, &names, &app(Term::Def(p.add), [x])), "Nat.add x");
 }
 
 #[test]
@@ -124,7 +124,7 @@ fn hides_implicit_arguments() {
         Rc::new(p.num(1)),
         Icit::Explicit,
     );
-    assert_eq!(show(&p, &[], &call), "add 1");
+    assert_eq!(show(&p, &[], &call), "Nat.add 1");
     assert_eq!(show(&p, &[], &Term::Meta(4)), "?4");
 }
 
@@ -150,9 +150,9 @@ fn prints_the_prelude_operators_infix() {
         registry::bind_def(&mut p.g, id);
         id
     };
-    let sub = binary(&mut p, "sub");
-    let less = binary(&mut p, "LessThan");
-    let less_eq = binary(&mut p, "LessEq");
+    let sub = binary(&mut p, "Nat.sub");
+    let less = binary(&mut p, "Nat.LessThan");
+    let less_eq = binary(&mut p, "Nat.LessEq");
     let names = ["x", "y"];
     assert_eq!(
         show(&p, &names, &app(Term::Def(sub), [v(1), v(0)])),

@@ -30,13 +30,13 @@ eqTexts (Cons x xs) (Cons y ys) = if x == y then eqTexts xs ys else False
 eqTexts _           _           = False
 
 test "fields run in the order written" =
-  (snd (simulate ["1", "2"] backwards)).b == "1"
+  (Pair.snd (IO.simulate ["1", "2"] backwards)).b == "1"
 
 test "and are put where they belong" =
-  (snd (simulate ["1", "2"] backwards)).a == "2"
+  (Pair.snd (IO.simulate ["1", "2"] backwards)).a == "2"
 
 test "an update's base runs once" =
-  eqTexts (fst (simulate ["1"] updated)) ["base"]
+  eqTexts (Pair.fst (IO.simulate ["1"] updated)) ["base"]
 
 test "an update keeps the base's other fields" =
-  (snd (simulate ["1"] updated)) == { a = "1", b = "y" }
+  (Pair.snd (IO.simulate ["1"] updated)) == { a = "1", b = "y" }

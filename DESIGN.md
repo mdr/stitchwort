@@ -249,7 +249,7 @@ collatz n = 1 + collatz (if even n then n / 2 else 3 * n + 1)
 theorem appendLength : (xs ys : List a) ->
     length (xs ++ ys) = length xs + length ys
 appendLength []        ys = rfl
-appendLength (x :: xs) ys = cong Succ (appendLength xs ys)
+appendLength (x :: xs) ys = Eq.cong Succ (appendLength xs ys)
 
 -- The proof that the index is in range is found by `auto`
 get : (xs : List a) -> (i : Nat) -> [auto ok : i < length xs] -> a
@@ -331,8 +331,8 @@ This matches the documented behaviour, though this exact snippet hasn't been run
 
 `Partial` appears in function types and spreads to callers. It's written in
 a row, like an ability, but it isn't one: it has no operations, and it
-makes the result a `Delay` (a computation that may not finish) rather than
-a `Comp`. Stage 1 is implemented ([docs/proposals/partial.md](docs/proposals/partial.md),
+makes the result an `Effect.Delay` (a computation that may not finish) rather than
+an `Effect.Comp`. Stage 1 is implemented ([docs/proposals/partial.md](docs/proposals/partial.md),
 "As built"):
 
 ```
@@ -391,8 +391,8 @@ A generic `withFuel : Nat -> (() -> {Partial | e} a) -> {e} Optional a`, which b
 
 - **Propositions are types; proofs are values.** `xs ++ [] = xs` is a type, and a value of that type is a proof.
 - **`theorem`** is a definition whose type is a proposition (in `Prop`). It's always erased at runtime and must be total and pure.
-- **Equality** is a built-in proposition `a = b` with `rfl : a = a`, plus library functions `cong`, `sym`, `trans` and `rewrite`.
-- **Proof by computation.** Types are compared by evaluating them, so `rfl` proves anything that holds by just computing both sides (`2 + 2 = 4`, `length [1, 2] = 2`).
+- **Equality** is a built-in proposition `a = b` with `rfl : a = a`, plus library functions `Eq.cong`, `Eq.sym`, `Eq.trans` and `rewrite`.
+- **Proof by computation.** Types are compared by evaluating them, so `rfl` proves anything that holds by just computing both sides (`2 + 2 = 4`, `List.length [1, 2] = 2`).
 - **No tactics.** Proofs are ordinary terms, written by pattern matching and recursion. A `calc` block for readable chains of equalities is a likely later addition.
 
 Conventions that make proofs go through by computation should be documented. For example, `+` on `Nat` recurses on its *first* argument, so `Succ m + n` reduces to `Succ (m + n)`.
@@ -456,7 +456,7 @@ reveal (HideType a) = a          -- and it doesn't appear in an index
 | Proposition | Can be matched on to produce data? | Why |
 |---|---|---|
 | `a = b` (constructor `rfl : a = a`) | Yes | No fields. The `a` in `rfl` is a parameter or index, not a field. Needed for transport (rewriting a value's type along an equality) |
-| `False` | Yes | No constructors. Needed for ruling out impossible cases (`absurd`) |
+| `False` | Yes | No constructors. Needed for ruling out impossible cases (`Void.absurd`) |
 | `p ∧ q` | Yes | One constructor, whose fields are proofs |
 | `p ∨ q` | **No** | Two constructors: the result could depend on which side was proved |
 | `∃ x, p x` | **No** | The witness `x` is data that doesn't appear in an index |
@@ -657,8 +657,8 @@ Resuming more than once doesn't by itself cause divergence. Exploring both branc
 
 | Ability | Purpose |
 |---|---|
-| `Partial` | Might not terminate ([§5](#5-totality-and-partiality)). Not an ability with operations but a mode: a partial computation is a `Delay`, which only the runtime runs (`stitchwort run`, the playground), one recursive call (tick) at a time ([docs/proposals/partial.md](docs/proposals/partial.md)) |
-| `IO` | The console (`print`, `readLine`). Performed for real only by the runtime, at `main`; Stitchwort handlers may interpret it as data, as the prelude's `simulate` does ([docs/proposals/text-and-io.md](docs/proposals/text-and-io.md)). A trusted contract that may block |
+| `Partial` | Might not terminate ([§5](#5-totality-and-partiality)). Not an ability with operations but a mode: a partial computation is an `Effect.Delay`, which only the runtime runs (`stitchwort run`, the playground), one recursive call (tick) at a time ([docs/proposals/partial.md](docs/proposals/partial.md)) |
+| `IO` | The console (`print`, `readLine`). Performed for real only by the runtime, at `main`; Stitchwort handlers may interpret it as data, as the prelude's `IO.simulate` does ([docs/proposals/text-and-io.md](docs/proposals/text-and-io.md)). A trusted contract that may block |
 | `Abort` | Stop early. Handled into `Optional` or `Either` |
 | `State s` | State, handled purely. `s` must be data-only |
 
@@ -795,7 +795,7 @@ The first extraction milestone supports a deliberately narrow subset. An **expor
 
    export
    bogus : Nat -> Nat
-   bogus n = absurd impossible
+   bogus n = Void.absurd impossible
    ```
 
    An explicit experimental flag (`--allow-assumptions`) could permit assumptions later. It would emit a manifest listing them and make the guarantee explicitly conditional.
@@ -837,7 +837,7 @@ Notes:
 
 - **Integers are `bigint`** for now. With `number`, an input that passes validation could produce an output too large to represent exactly: `addTwo 9007199254740991` would give `9007199254740993`, which a JS `number` can't hold. Plain-`number` options (via bounded types) can come later. `Int` division and remainder are defined to match `BigInt`'s ([§10](#10-numbers)).
 - **`Optional` will be tagged**, as `Maybe` is. Mapping it to `A | null` would make `None` and `Some None` both `null` for `Optional (Optional Nat)`. A `null`-based encoding can be added later as an optimisation where the payload can never itself be `null`.
-- **`Text`** is a sequence of Unicode scalar values, so decoding refuses a JS string containing an unpaired surrogate (which JS allows) with `StitchwortInputError`, rather than repairing it. Encoding then gives back exactly the string that was decoded. See [the text proposal](docs/proposals/text-and-io.md#the-javascript-boundary). Inside the generated code, too, a `Text` is that well-formed string (strings are immutable, so it needs no copy), and the prelude's text operations (`textLength`, `==`, `textCompare`, `textSplit`, `textJoin`, `textFold` and the rest) are native JS working on scalar values, not code units. Code that matches or builds `MkText cs` itself converts between the string and its `List Char` in a loop, only when `cs` is used ([compact text](docs/proposals/compact-text.md#as-built-stage-1)).
+- **`Text`** is a sequence of Unicode scalar values, so decoding refuses a JS string containing an unpaired surrogate (which JS allows) with `StitchwortInputError`, rather than repairing it. Encoding then gives back exactly the string that was decoded. See [the text proposal](docs/proposals/text-and-io.md#the-javascript-boundary). Inside the generated code, too, a `Text` is that well-formed string (strings are immutable, so it needs no copy), and the prelude's text operations (`Text.length`, `==`, `Text.compare`, `Text.split`, `Text.join`, `Text.fold` and the rest) are native JS working on scalar values, not code units. Code that matches or builds `MkText cs` itself converts between the string and its `List Char` in a loop, only when `cs` is used ([compact text](docs/proposals/compact-text.md#as-built-stage-1)).
 - **Decoding and encoding don't recurse.** Each boundary type is described by data (`list(NAT)`, `data(info$Tree)`, `data(info$Maybe, [TEXT])`), and one loop in the generated module's runtime decodes or encodes a value of any of them, keeping its own stack. So a user's list a million long, or a tree a million deep, crosses the boundary both ways; what the exported function then does with it may still run out of stack ([Caveats](#caveats)). Decoding works depth first, reading each property once and in order, each completely before the next, so the first problem found is the same as a recursive decoder's. An error message gives the path to the problem (`order.items[2].price: expected a non-negative bigint`), summarised for deeply nested input: a run of the same step is written once with a count (`c(.tail ×999999).head`), and the middle of a long path that doesn't repeat is left out.
 
 ### Objects at the boundary
@@ -858,9 +858,9 @@ Stitchwort names (ASCII letters, digits, `_` and primes) don't line up with Java
 
 - **Fields.** A field's key, in boundary objects, in the generated code and in the `.d.ts`, is its name with each prime written `$` (`x'` is `x$`). A record has no tag, so its field `tag` keeps the key `tag`; the rest of this rule applies to records too. The representation already uses two keys: `tag`, for the constructor, and `__proto__`, which in an object literal sets the prototype instead of a property. A field with one of those names gets a `$` in front, so `MkLabelled (tag : Text) (count : Nat)` is `{ tag: "MkLabelled"; $tag: string; count: bigint }`. Stitchwort names can't contain `$`, and only these keys start with one, so two fields never share a key, and none is `tag`. Other names with a meaning on JS objects (`constructor`, `toString`, `length`) or reserved in JS (`class`, `default`) are fine as keys, so they're kept.
 - **Constructors** only appear as tag strings, so any name works (`"MkBox'"`).
-- **Data types** are named with each prime as `$` in the `.d.ts` (`Box'` is `Box$`). A data type at the boundary can't be called `StitchwortInputError` or `StitchwortResourceError`, which the module exports itself.
-- **Exports** must be JS identifiers (so no primes) that aren't reserved in JS (`delete`, `class`, `this`, `eval`, `undefined`, …), or they couldn't be imported by name; nor can they be the module's own two exports. An export isn't a name in the module's own scope: its wrapper is `$$name`, exported with `export { $$name as name }`. So an export can be called anything else, `Set`, `BigInt` or `decode`, without hiding a JS global or one of the runtime's helpers.
-- **Everything else in the module** has a namespace of its own. Definitions are `$name` (primes as `$`, and the dot in a generated name like `State.elim` as `$$`), wrappers `$$name`, data type descriptions `info$Name`, and locals generated names (`v0`, `s0`, `arg0`). The runtime's helpers have plain names, which only exports could have reached. A parameter's Stitchwort name appears only in the `.d.ts` and in error messages; a reserved word there is replaced by the name in the equations, or `arg0`.
+- **Data types** are named by their short name with each prime as `$` in the `.d.ts` (`Box'` is `Box$`, `Geometry.Shape` is `Shape`). Two different types at the boundary with the same short name are refused (`E-EXPORT`); the same type reached twice is one type. A data type at the boundary can't be called `StitchwortInputError` or `StitchwortResourceError`, which the module exports itself.
+- **Exports** are imported by their short name (`Geometry.area` is `area`; two exports with the same short name are `E-EXPORT`), which must be a JS identifier (so no primes) that aren't reserved in JS (`delete`, `class`, `this`, `eval`, `undefined`, …), or they couldn't be imported by name; nor can they be the module's own two exports. An export isn't a name in the module's own scope: its wrapper is `$$name`, exported with `export { $$name as name }`. So an export can be called anything else, `Set`, `BigInt` or `decode`, without hiding a JS global or one of the runtime's helpers.
+- **Everything else in the module** has a namespace of its own. Definitions are `$` and their full logical name (`Std.List.length`, `Main.area`) encoded injectively: `'` is `$p`, `.` is `$d`, the `%` of a generated name (`State.%elim`) is `$g`, and any other character `$u` and six hex digits (docs/proposals/namespaces.md §7.3). Wrappers are `$$name`, data type descriptions `info$` and the encoded full name, and locals generated names (`v0`, `s0`, `arg0`). The runtime's helpers have plain names, which only exports could have reached. A parameter's Stitchwort name appears only in the `.d.ts` and in error messages; a reserved word there is replaced by the name in the equations, or `arg0`.
 
 `examples/extract/names.sw` uses each of these, and a property-style test (`awkward_names_never_collide` in `crates/cli/tests/extract.rs`) generates data types and exports from a pool of awkward names and checks that every object has its own key for each field, values round-trip, and the `.d.ts` accepts exactly the objects the module takes.
 
@@ -874,7 +874,7 @@ Stitchwort names (ASCII letters, digits, `_` and primes) don't line up with Java
 
 ### Caveats
 
-- **Stack depth.** JS engines generally don't optimise tail calls. A function's tail calls to itself become loops; other recursion (including definitions that tail-call each other, like `isEven` and `isOdd`), such as `length` or `append` over a long list, or a user's own recursion over a text's characters, uses a stack frame per step and can overflow the stack (in Node, after a few thousand elements; the [text proposal](docs/proposals/text-and-io.md#as-built) has measurements). The prelude's text operations are native, and they and the conversions between a text and its `List Char` don't use stack space proportional to a text's length, so they handle millions of characters. The guarantee doesn't cover that, but it's reported cleanly: the export throws a `StitchwortResourceError`, with the engine's error as its `cause`. Decoding and encoding themselves don't use the JS stack (see above).
+- **Stack depth.** JS engines generally don't optimise tail calls. A function's tail calls to itself become loops; other recursion (including definitions that tail-call each other, like `isEven` and `isOdd`), such as `List.length` or `List.append` over a long list, or a user's own recursion over a text's characters, uses a stack frame per step and can overflow the stack (in Node, after a few thousand elements; the [text proposal](docs/proposals/text-and-io.md#as-built) has measurements). The prelude's text operations are native, and they and the conversions between a text and its `List Char` don't use stack space proportional to a text's length, so they handle millions of characters. The guarantee doesn't cover that, but it's reported cleanly: the export throws a `StitchwortResourceError`, with the engine's error as its `cause`. Decoding and encoding themselves don't use the JS stack (see above).
 - **Encoding doesn't share.** Each output is a tree of fresh objects, so a result with much sharing (such as a shared input passed straight back, or a tree built by a function that uses one subtree twice at each level) is encoded once per path, which can take exponentially long. Similarly, decoding checks a string each place it appears, so the same long string in many places is checked many times.
 - **Erasure must be correct.** The `Prop` elimination rules ([§6](#6-proofs-universes-and-erasure)) ensure nothing that runs depends on an erased value.
 
@@ -1012,7 +1012,7 @@ Each milestone ends with something demonstrable.
 | # | Milestone | Demo |
 |---|---|---|
 | 1 | **Core spec, kernel and REPL.** Written typing rules for the core, including which universe function types live in, the `Prop` elimination rule, the effect judgment and the reduction policies. Dependent functions, numbered universes, `Prop`, evaluation with a step budget, stable error codes | Type an expression, get its type and value. A universe paradox is rejected with the right error code |
-| 2 | **Data types, pattern matching, totality.** `Nat`, `List`, structural recursion, positivity and exhaustiveness checks, `Prop` elimination, `rfl`/`cong` | `appendLength` checks. Non-terminating functions, non-positive types, `∨`-elimination into data and `HiddenType` are rejected, each for the right reason |
+| 2 | **Data types, pattern matching, totality.** `Nat`, `List`, structural recursion, positivity and exhaustiveness checks, `Prop` elimination, `rfl`/`Eq.cong` | `appendLength` checks. Non-terminating functions, non-positive types, `∨`-elimination into data and `HiddenType` are rejected, each for the right reason |
 | 3 | **Implicit arguments and `auto`.** Unification, implicitly bound type variables, `[a := …]`, `Decidable`, local hypotheses, `/` with non-zero proofs | Write `map f xs` instead of `map [a := Nat] [b := Nat] f xs`. `get [10, 20, 30] 5` is a compile-time error. `if h : d != 0 then n / d else 0` checks |
 | 4 | **JS extraction, first-order subset.** Erasure, codegen, `bigint`, tagged encodings, the exportability check, decode/validate wrappers, `.d.ts`, differential tests | Prove a function, extract it, call it from a TS file, and see its results agree with the reference evaluator. Invalid input is rejected at the boundary |
 | 5 | **Hashing and caching.** Declaration hashes, recursive groups, nominal identity, kernel/test/JS caches | `stitchwort test` shows `cached` vs `ran` as you edit |
@@ -1044,7 +1044,7 @@ Reviewers' opinions are especially welcome here. The second review recommended s
 7. **Handler operational semantics** (milestone 7). The points listed in [§8](#8-abilities-and-handlers).
 8. **Effects and dependency.** The precise typing rules for sequencing effectful code when its results are used as type indices.
 9. **Runtime "at most once" for continuations.** How to check it, including through closures, for when handlers are extracted to JS.
-10. **Generic `withFuel`.** What representation of partial computation makes it sound ([§5](#5-totality-and-partiality))? Stage 1 of `Partial` gives it one, `Delay`, with exact tick counts, but observing a `Delay` from total code (stage 2) needs its own argument: [docs/proposals/partial.md](docs/proposals/partial.md) §10.1 lists what.
+10. **Generic `withFuel`.** What representation of partial computation makes it sound ([§5](#5-totality-and-partiality))? Stage 1 of `Partial` gives it one, `Effect.Delay`, with exact tick counts, but observing an `Effect.Delay` from total code (stage 2) needs its own argument: [docs/proposals/partial.md](docs/proposals/partial.md) §10.1 lists what.
 11. **`Float`.** Its semantics, and whether it can ever be exported.
 
 ### Syntax

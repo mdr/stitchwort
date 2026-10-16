@@ -39,12 +39,12 @@ theorem twoBelowThree : 2 < 3
 twoBelowThree = rfl
 
 -- `get` needs a proof that the index is in range.
-get : (xs : List a) -> (i : Nat) -> [auto ok : i < length xs] -> a
+get : (xs : List a) -> (i : Nat) -> [auto ok : i < List.length xs] -> a
 get (Cons x xs) Zero     = x
 get (Cons x xs) (Succ i) = get xs i
--- When the list is empty, `ok : i < length Nil` computes to `False = True`,
+-- When the list is empty, `ok : i < List.length Nil` computes to `False = True`,
 -- which is impossible.
-get Nil         i        = absurd (falseNotTrue ok)
+get Nil         i        = Void.absurd (Bool.falseNotTrue ok)
 
 secondOfThree : Nat
 secondOfThree = get [10, 20, 30] 1

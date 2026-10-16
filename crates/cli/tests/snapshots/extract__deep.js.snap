@@ -395,24 +395,24 @@ const encode = (t, v) => {
   }
 };
 
-const info$Chain = datatype("Chain");
-const info$Tree = datatype("Tree");
-const info$Seq = datatype("Seq");
-define(info$Chain, [
+const info$Main$dChain = datatype("Chain");
+const info$Main$dTree = datatype("Tree");
+const info$Main$dSeq = datatype("Seq");
+define(info$Main$dChain, [
   ["End", []],
-  ["More", [["head", NAT], ["tail", data(info$Chain)]]],
+  ["More", [["head", NAT], ["tail", data(info$Main$dChain)]]],
 ]);
-define(info$Tree, [
+define(info$Main$dTree, [
   ["Leaf", []],
-  ["Node", [["left", data(info$Tree)], ["right", data(info$Tree)]]],
+  ["Node", [["left", data(info$Main$dTree)], ["right", data(info$Main$dTree)]]],
 ]);
-define(info$Seq, [
+define(info$Main$dSeq, [
   ["Stop", []],
-  ["Step", [["item", param(0)], ["rest", data(info$Seq, [param(0)])]]],
+  ["Step", [["item", param(0)], ["rest", data(info$Main$dSeq, [param(0)])]]],
 ]);
 
-const $echo = (v0) => v0;
-const $countOnto = (v0) => (v1) => {
+const $Main$decho = (v0) => v0;
+const $Main$dcountOnto = (v0) => (v1) => {
   let s0 = v0, s1 = v1;
   for (;;) {
     const v0 = s0, v1 = s1;
@@ -431,8 +431,8 @@ const $countOnto = (v0) => (v1) => {
     throw new Error("unreachable");
   }
 };
-const $count = (v0) => $countOnto(0n)(v0);
-const $flipOnto = (v0) => (v1) => {
+const $Main$dcount = (v0) => $Main$dcountOnto(0n)(v0);
+const $Main$dflipOnto = (v0) => (v1) => {
   let s0 = v0, s1 = v1;
   for (;;) {
     const v0 = s0, v1 = s1;
@@ -451,8 +451,8 @@ const $flipOnto = (v0) => (v1) => {
     throw new Error("unreachable");
   }
 };
-const $flip = (v0) => $flipOnto({ tag: "End" })(v0);
-const $buildOnto = (v0) => (v1) => {
+const $Main$dflip = (v0) => $Main$dflipOnto({ tag: "End" })(v0);
+const $Main$dbuildOnto = (v0) => (v1) => {
   let s0 = v0, s1 = v1;
   for (;;) {
     const v0 = s0, v1 = s1;
@@ -466,9 +466,9 @@ const $buildOnto = (v0) => (v1) => {
     }
   }
 };
-const $build = (v0) => $buildOnto({ tag: "End" })(v0);
-const $echoTree = (v0) => v0;
-const $spineOnto = (v0) => (v1) => {
+const $Main$dbuild = (v0) => $Main$dbuildOnto({ tag: "End" })(v0);
+const $Main$dechoTree = (v0) => v0;
+const $Main$dspineOnto = (v0) => (v1) => {
   let s0 = v0, s1 = v1;
   for (;;) {
     const v0 = s0, v1 = s1;
@@ -482,9 +482,9 @@ const $spineOnto = (v0) => (v1) => {
     }
   }
 };
-const $spine = (v0) => $spineOnto({ tag: "Leaf" })(v0);
-const $echoSeq = (v0) => v0;
-const $stepsOnto = (v0) => (v1) => {
+const $Main$dspine = (v0) => $Main$dspineOnto({ tag: "Leaf" })(v0);
+const $Main$dechoSeq = (v0) => v0;
+const $Main$dstepsOnto = (v0) => (v1) => {
   let s0 = v0, s1 = v1;
   for (;;) {
     const v0 = s0, v1 = s1;
@@ -498,12 +498,12 @@ const $stepsOnto = (v0) => (v1) => {
     }
   }
 };
-const $steps = (v0) => $stepsOnto({ tag: "Stop" })(v0);
+const $Main$dsteps = (v0) => $Main$dstepsOnto({ tag: "Stop" })(v0);
 
 function $$echo(arg0) {
   try {
-    const v0 = decode(data(info$Chain), arg0, "c");
-    return encode(data(info$Chain), $echo(v0));
+    const v0 = decode(data(info$Main$dChain), arg0, "c");
+    return encode(data(info$Main$dChain), $Main$decho(v0));
   } catch (e) {
     throw outOfResources("echo", e);
   }
@@ -511,8 +511,8 @@ function $$echo(arg0) {
 
 function $$count(arg0) {
   try {
-    const v0 = decode(data(info$Chain), arg0, "c");
-    return encode(NAT, $count(v0));
+    const v0 = decode(data(info$Main$dChain), arg0, "c");
+    return encode(NAT, $Main$dcount(v0));
   } catch (e) {
     throw outOfResources("count", e);
   }
@@ -520,8 +520,8 @@ function $$count(arg0) {
 
 function $$flip(arg0) {
   try {
-    const v0 = decode(data(info$Chain), arg0, "c");
-    return encode(data(info$Chain), $flip(v0));
+    const v0 = decode(data(info$Main$dChain), arg0, "c");
+    return encode(data(info$Main$dChain), $Main$dflip(v0));
   } catch (e) {
     throw outOfResources("flip", e);
   }
@@ -530,7 +530,7 @@ function $$flip(arg0) {
 function $$build(arg0) {
   try {
     const v0 = decode(NAT, arg0, "n");
-    return encode(data(info$Chain), $build(v0));
+    return encode(data(info$Main$dChain), $Main$dbuild(v0));
   } catch (e) {
     throw outOfResources("build", e);
   }
@@ -538,8 +538,8 @@ function $$build(arg0) {
 
 function $$echoTree(arg0) {
   try {
-    const v0 = decode(data(info$Tree), arg0, "t");
-    return encode(data(info$Tree), $echoTree(v0));
+    const v0 = decode(data(info$Main$dTree), arg0, "t");
+    return encode(data(info$Main$dTree), $Main$dechoTree(v0));
   } catch (e) {
     throw outOfResources("echoTree", e);
   }
@@ -548,7 +548,7 @@ function $$echoTree(arg0) {
 function $$spine(arg0) {
   try {
     const v0 = decode(NAT, arg0, "n");
-    return encode(data(info$Tree), $spine(v0));
+    return encode(data(info$Main$dTree), $Main$dspine(v0));
   } catch (e) {
     throw outOfResources("spine", e);
   }
@@ -556,8 +556,8 @@ function $$spine(arg0) {
 
 function $$echoSeq(arg0) {
   try {
-    const v0 = decode(data(info$Seq, [TEXT]), arg0, "s");
-    return encode(data(info$Seq, [TEXT]), $echoSeq(v0));
+    const v0 = decode(data(info$Main$dSeq, [TEXT]), arg0, "s");
+    return encode(data(info$Main$dSeq, [TEXT]), $Main$dechoSeq(v0));
   } catch (e) {
     throw outOfResources("echoSeq", e);
   }
@@ -566,7 +566,7 @@ function $$echoSeq(arg0) {
 function $$steps(arg0) {
   try {
     const v0 = decode(NAT, arg0, "n");
-    return encode(data(info$Seq, [TEXT]), $steps(v0));
+    return encode(data(info$Main$dSeq, [TEXT]), $Main$dsteps(v0));
   } catch (e) {
     throw outOfResources("steps", e);
   }

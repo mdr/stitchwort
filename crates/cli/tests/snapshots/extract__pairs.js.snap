@@ -395,13 +395,13 @@ const encode = (t, v) => {
   }
 };
 
-const info$NatPair = datatype("NatPair");
-define(info$NatPair, [
+const info$Main$dNatPair = datatype("NatPair");
+define(info$Main$dNatPair, [
   ["MkNatPair", [["left", NAT], ["right", NAT]]],
 ]);
 
-const $add = (m) => (n) => m + n;
-const $pred = (v0) => {
+const $Std$dNat$dadd = (m) => (n) => m + n;
+const $Std$dNat$dpred = (v0) => {
   if (v0 === 0n) {
     return 0n;
   } else {
@@ -409,7 +409,7 @@ const $pred = (v0) => {
     return v1;
   }
 };
-const $first = (v0) => {
+const $Main$dfirst = (v0) => {
   switch (v0.tag) {
     case "MkNatPair": {
       const v1 = v0.left;
@@ -419,7 +419,7 @@ const $first = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $swap = (v0) => {
+const $Main$dswap = (v0) => {
   switch (v0.tag) {
     case "MkNatPair": {
       const v1 = v0.left;
@@ -429,7 +429,7 @@ const $swap = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $zipSum = (v0) => (v1) => {
+const $Main$dzipSum = (v0) => (v1) => {
   switch (v0.tag) {
     case "Nil": {
       return { tag: "Nil" };
@@ -444,7 +444,7 @@ const $zipSum = (v0) => (v1) => {
         case "Cons": {
           const v4 = v1.head;
           const v5 = v1.tail;
-          return { tag: "Cons", head: $add(v2)(v4), tail: $zipSum(v3)(v5) };
+          return { tag: "Cons", head: $Std$dNat$dadd(v2)(v4), tail: $Main$dzipSum(v3)(v5) };
         }
       }
       throw new Error("unreachable");
@@ -452,7 +452,7 @@ const $zipSum = (v0) => (v1) => {
   }
   throw new Error("unreachable");
 };
-const $predecessors = (v0) => {
+const $Main$dpredecessors = (v0) => {
   switch (v0.tag) {
     case "Nil": {
       return { tag: "Nil" };
@@ -460,7 +460,7 @@ const $predecessors = (v0) => {
     case "Cons": {
       const v1 = v0.head;
       const v2 = v0.tail;
-      return { tag: "Cons", head: $pred(v1), tail: $predecessors(v2) };
+      return { tag: "Cons", head: $Std$dNat$dpred(v1), tail: $Main$dpredecessors(v2) };
     }
   }
   throw new Error("unreachable");
@@ -468,8 +468,8 @@ const $predecessors = (v0) => {
 
 function $$first(arg0) {
   try {
-    const v0 = decode(data(info$NatPair), arg0, "arg0");
-    return encode(NAT, $first(v0));
+    const v0 = decode(data(info$Main$dNatPair), arg0, "arg0");
+    return encode(NAT, $Main$dfirst(v0));
   } catch (e) {
     throw outOfResources("first", e);
   }
@@ -477,8 +477,8 @@ function $$first(arg0) {
 
 function $$swap(arg0) {
   try {
-    const v0 = decode(data(info$NatPair), arg0, "arg0");
-    return encode(data(info$NatPair), $swap(v0));
+    const v0 = decode(data(info$Main$dNatPair), arg0, "arg0");
+    return encode(data(info$Main$dNatPair), $Main$dswap(v0));
   } catch (e) {
     throw outOfResources("swap", e);
   }
@@ -488,7 +488,7 @@ function $$zipSum(arg0, arg1) {
   try {
     const v0 = decode(list(NAT), arg0, "arg0");
     const v1 = decode(list(NAT), arg1, "ys");
-    return encode(list(NAT), $zipSum(v0)(v1));
+    return encode(list(NAT), $Main$dzipSum(v0)(v1));
   } catch (e) {
     throw outOfResources("zipSum", e);
   }
@@ -497,7 +497,7 @@ function $$zipSum(arg0, arg1) {
 function $$predecessors(arg0) {
   try {
     const v0 = decode(list(NAT), arg0, "arg0");
-    return encode(list(NAT), $predecessors(v0));
+    return encode(list(NAT), $Main$dpredecessors(v0));
   } catch (e) {
     throw outOfResources("predecessors", e);
   }

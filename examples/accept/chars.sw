@@ -6,24 +6,24 @@ isJust (Just x) = True
 
 codeOr : Maybe Char -> Nat
 codeOr Nothing  = 999
-codeOr (Just c) = charToNat c
+codeOr (Just c) = Char.toNat c
 
-test "0"        = isJust (charFromNat 0)
-test "d7ff"     = isJust (charFromNat 55295)
-test "d800"     = not (isJust (charFromNat 55296))
-test "dfff"     = not (isJust (charFromNat 57343))
-test "e000"     = isJust (charFromNat 57344)
-test "10ffff"   = isJust (charFromNat 1114111)
-test "110000"   = not (isJust (charFromNat 1114112))
-test "roundtrip" = codeOr (charFromNat 65) == 65
+test "0"        = isJust (Char.fromNat 0)
+test "d7ff"     = isJust (Char.fromNat 55295)
+test "d800"     = not (isJust (Char.fromNat 55296))
+test "dfff"     = not (isJust (Char.fromNat 57343))
+test "e000"     = isJust (Char.fromNat 57344)
+test "10ffff"   = isJust (Char.fromNat 1114111)
+test "110000"   = not (isJust (Char.fromNat 1114112))
+test "roundtrip" = codeOr (Char.fromNat 65) == 65
 
-test "code a"    = charToNat 'a' == 97
+test "code a"    = Char.toNat 'a' == 97
 test "eq"        = 'a' == 'a'
 test "neq"       = not ('a' == 'b')
-test "max"       = charToNat '\u{10FFFF}' == 1114111
-test "emoji"     = charToNat '😀' == 128512
+test "max"       = Char.toNat '\u{10FFFF}' == 1114111
+test "emoji"     = Char.toNat '😀' == 128512
 test "escape"    = '\n' == '\u{A}'
-test "from lit"  = codeOr (charFromNat 233) == charToNat 'é'
+test "from lit"  = codeOr (Char.fromNat 233) == Char.toNat 'é'
 
 theorem aIsA : 'a' = 'a'
 aIsA = rfl

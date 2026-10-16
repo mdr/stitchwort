@@ -52,18 +52,18 @@ test "map" = sumTree (mapTree (\n -> n + 1) example) == 14
 
 -- Proofs by mutual induction over the two types: mapping changes no sizes.
 theorem sizeMap : (f : Nat -> Nat) -> (t : Tree) -> size (mapTree f t) = size t
-sizeMap f (Node n kids) = cong Succ (sizeMapForest f kids)
+sizeMap f (Node n kids) = Eq.cong Succ (sizeMapForest f kids)
 
 theorem sizeMapForest : (f : Nat -> Nat) -> (ts : Forest) ->
   sizeForest (mapForest f ts) = sizeForest ts
 sizeMapForest f FNil         = rfl
 sizeMapForest f (FCons t ts) =
-  trans (cong (\a -> a + sizeForest (mapForest f ts)) (sizeMap f t))
-        (cong (\b -> size t + b) (sizeMapForest f ts))
+  Eq.trans (Eq.cong (\a -> a + sizeForest (mapForest f ts)) (sizeMap f t))
+        (Eq.cong (\b -> size t + b) (sizeMapForest f ts))
 
 -- Every tree has at least one node.
 theorem sizeNotZero : (t : Tree) -> Not (size t = 0)
-sizeNotZero (Node n kids) = succNotZero (sizeForest kids)
+sizeNotZero (Node n kids) = Nat.succNotZero (sizeForest kids)
 
 -- Even and odd numbers, as data: each is the successor of the other kind.
 type Even : Type =
@@ -128,9 +128,9 @@ flatten (Bloom x kids) = Cons x (flattenAll kids)
 
 flattenAll : Roses a -> List a
 flattenAll NoRoses          = Nil
-flattenAll (MoreRoses r rs) = append (flatten r) (flattenAll rs)
+flattenAll (MoreRoses r rs) = List.append (flatten r) (flattenAll rs)
 
-test "flatten" = length (flatten (Bloom 1 (MoreRoses (Bloom 2 NoRoses) (MoreRoses (Bloom 3 NoRoses) NoRoses)))) == 3
+test "flatten" = List.length (flatten (Bloom 1 (MoreRoses (Bloom 2 NoRoses) (MoreRoses (Bloom 3 NoRoses) NoRoses)))) == 3
 
 -- A sibling may be the result of a function field. Calling it gives a part
 -- of the matched value, so it's a smaller argument.

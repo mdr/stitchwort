@@ -3,9 +3,9 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-TERMINATION] Error: can't show that `loop` terminates
-    ╭─[ soundness/fake-child.sw:13:22 ]
+    ╭─[ soundness/fake-child.sw:15:22 ]
     │
- 13 │ loop (Call o rest) = loop ((\b -> Call o rest : Bool -> Comp ChooseOp ChooseRes Nat) True)
+ 15 │ loop (Call o rest) = loop ((\b -> Call o rest : Bool -> Comp ChooseOp ChooseRes Nat) True)
     │                      ──────────────────────────────────┬─────────────────────────────────  
     │                                                        ╰─────────────────────────────────── this recursive call might not terminate: no argument is known to be smaller
     │ 

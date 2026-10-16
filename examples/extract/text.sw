@@ -36,11 +36,11 @@
 -- run: split ',' ""
 -- run: joinOn '\u{1F600}' ["a", "", "b"]
 -- run: joinOn ',' []
--- JS's `trim` also removes U+00A0, U+2028 and U+FEFF; `textTrim` doesn't.
+-- JS's `trim` also removes U+00A0, U+2028 and U+FEFF; `Text.trim` doesn't.
 -- run: trim " \t\n\r\u{B}\u{C}x y \r\n"
 -- run: trim "\u{A0}x\u{2028}"
 -- run: trim "\u{FEFF}x"
--- `Number` or `parseInt` accepts each of these; `textToNat` accepts only
+-- `Number` or `parseInt` accepts each of these; `Text.toNat` accepts only
 -- digits.
 -- run: toNat "007"
 -- run: toNat ""
@@ -83,15 +83,15 @@
 
 export
 len : Text -> Nat
-len t = textLength t
+len t = Text.length t
 
 export
 chars : Text -> List Char
-chars t = textToList t
+chars t = Text.toList t
 
 export
 fromChars : List Char -> Text
-fromChars cs = textFromList cs
+fromChars cs = Text.fromList cs
 
 export
 echo : Text -> Text
@@ -103,11 +103,11 @@ echoChar c = c
 
 export
 codeOf : Char -> Nat
-codeOf c = charToNat c
+codeOf c = Char.toNat c
 
 export
 charOf : Nat -> Maybe Char
-charOf n = charFromNat n
+charOf n = Char.fromNat n
 
 export
 same : Text -> Text -> Bool
@@ -115,7 +115,7 @@ same a b = a == b
 
 export
 order : Text -> Text -> Ordering
-order a b = textCompare a b
+order a b = Text.compare a b
 
 export
 join : Text -> Text -> Text
@@ -123,32 +123,32 @@ join a b = a ++ b
 
 export
 split : Char -> Text -> List Text
-split c t = textSplit c t
+split c t = Text.split c t
 
 export
 joinOn : Char -> List Text -> Text
-joinOn c ts = textJoin c ts
+joinOn c ts = Text.join c ts
 
 export
 trim : Text -> Text
-trim t = textTrim t
+trim t = Text.trim t
 
 export
 toNat : Text -> Maybe Nat
-toNat t = textToNat t
+toNat t = Text.toNat t
 
 export
 fromNat : Nat -> Text
-fromNat n = natToText n
+fromNat n = Nat.toText n
 
 export
 uncons : Text -> Maybe (Pair Char Text)
-uncons t = textUncons t
+uncons t = Text.uncons t
 
 -- User code over the characters.
 export
 reverse : Text -> Text
-reverse t = textFromList (reverseOnto (textToList t) Nil)
+reverse t = Text.fromList (List.reverseOnto (Text.toList t) Nil)
 
 countIn : Char -> List Char -> Nat
 countIn c Nil         = 0
@@ -156,7 +156,7 @@ countIn c (Cons d ds) = if c == d then Succ (countIn c ds) else countIn c ds
 
 export
 countChar : Char -> Text -> Nat
-countChar c t = countIn c (textToList t)
+countChar c t = countIn c (Text.toList t)
 
 -- Text inside a user's data type, a list and the prelude's `Maybe` and `Pair`.
 type Person : Type =
@@ -164,7 +164,7 @@ type Person : Type =
 
 export
 greet : Person -> Text
-greet (MkPerson name initial tags) = "Hello, " ++ name ++ " (" ++ textFromList (Cons initial Nil) ++ ")"
+greet (MkPerson name initial tags) = "Hello, " ++ name ++ " (" ++ Text.fromList (Cons initial Nil) ++ ")"
 
 initialsOf : List Person -> List Char
 initialsOf Nil                      = Nil
@@ -185,7 +185,7 @@ orEmpty (Just t) = t
 
 export
 firstOf : Pair Char Text -> Char
-firstOf p = fst p
+firstOf p = Pair.fst p
 
 -- Fields named like the decoder's own variables.
 type Located : Type =
@@ -200,15 +200,15 @@ located (At p c cs) = At (p ++ "/") c (Cons c cs)
 -- taken apart by ordinary pattern matching.
 export
 empty : Text -> Bool
-empty t = textIsEmpty t
+empty t = Text.isEmpty t
 
 export
 less : Text -> Text -> Bool
-less a b = textLess a b
+less a b = Text.less a b
 
 export
 codes : Text -> List Nat
-codes t = textFold (\c ns -> Cons (charToNat c) ns) Nil t
+codes t = Text.fold (\c ns -> Cons (Char.toNat c) ns) Nil t
 
 mapList : (a -> b) -> List a -> List b
 mapList f Nil         = Nil
@@ -216,7 +216,7 @@ mapList f (Cons x xs) = Cons (f x) (mapList f xs)
 
 export
 lengths : List Text -> List Nat
-lengths ts = mapList textLength ts
+lengths ts = mapList Text.length ts
 
 export
 texts : List (List Char) -> List Text
@@ -224,7 +224,7 @@ texts ls = mapList MkText ls
 
 export
 prefixAll : List Text -> List Text
-prefixAll ts = mapList (textAppend "pre") ts
+prefixAll ts = mapList (Text.append "pre") ts
 
 firstOfList : List Text -> Text
 firstOfList Nil         = "none"
@@ -232,7 +232,7 @@ firstOfList (Cons f fs) = f
 
 export
 firstField : Char -> Text -> Text
-firstField c t = firstOfList (textSplit c t)
+firstField c t = firstOfList (Text.split c t)
 
 leadingChar : Text -> Maybe Char
 leadingChar (MkText Nil)         = Nothing
@@ -240,7 +240,7 @@ leadingChar (MkText (Cons c cs)) = Just c
 
 export
 trimmedHead : Text -> Maybe Char
-trimmedHead t = leadingChar (textTrim t)
+trimmedHead t = leadingChar (Text.trim t)
 
 -- The characters aren't used, so they aren't made into a list.
 export

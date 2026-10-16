@@ -21,7 +21,7 @@ merge : List Nat -> List Nat -> List Nat
 merge Nil         ys          = ys
 merge (Cons x xs) Nil         = Cons x xs
 merge (Cons x xs) (Cons y ys) =
-  if leq x y then Cons x (merge xs (Cons y ys)) else Cons y (merge (Cons x xs) ys)
+  if Nat.leq x y then Cons x (merge xs (Cons y ys)) else Cons y (merge (Cons x xs) ys)
 
 -- Each call takes one off the first argument and swaps the first two,
 -- counting the calls: a tail call with its arguments in a different order.

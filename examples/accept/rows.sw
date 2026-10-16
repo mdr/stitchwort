@@ -4,6 +4,8 @@
 -- traces as well as results, since a mapping that dropped, repeated or
 -- reordered an operation could still produce a well-typed result.
 
+import Effect (Comp, Plus, PlusRes, SigMap, bind, sigCompose, sigId, sigLeft, sigRight, sigSwap, translate)
+
 type Unit1 : Type =
   | MkUnit
 
@@ -158,13 +160,13 @@ allResultsL : [e : Type] -> [eres : e -> Type] -> [a : Type] ->
 allResultsL (Done x)               = Done [x]
 allResultsL (Call (L Choose) rest) =
   bind (allResultsL (rest True)) (\xs ->
-    bind (allResultsL (rest False)) (\ys -> Done (append xs ys)))
+    bind (allResultsL (rest False)) (\ys -> Done (List.append xs ys)))
 allResultsL (Call (R o) rest)      = Call o (\y -> allResultsL (rest y))
 
 -- Removing the last ability.
 allResults : Comp ChooseOp ChooseRes a -> List a
 allResults (Done x)           = [x]
-allResults (Call Choose rest) = append (allResults (rest True)) (allResults (rest False))
+allResults (Call Choose rest) = List.append (allResults (rest True)) (allResults (rest False))
 
 runState : Nat -> Comp StateOp StateRes a -> Pair a Nat
 runState s (Done x)            = MkPair x s

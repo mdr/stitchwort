@@ -23,8 +23,8 @@ zipSum Nil         ys          = Nil
 zipSum (Cons x xs) Nil         = Nil
 zipSum (Cons x xs) (Cons y ys) = Cons (x + y) (zipSum xs ys)
 
--- Applies the prelude's `pred` to each element.
+-- Applies the prelude's `Nat.pred` to each element.
 export
 predecessors : List Nat -> List Nat
 predecessors Nil         = Nil
-predecessors (Cons n ns) = Cons (pred n) (predecessors ns)
+predecessors (Cons n ns) = Cons (Nat.pred n) (predecessors ns)

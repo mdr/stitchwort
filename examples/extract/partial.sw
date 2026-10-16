@@ -8,6 +8,8 @@
 -- run: answer 0
 -- run: kept 5
 
+import Effect (Delay)
+
 collatzSteps : Nat -> {Partial} Nat
 collatzSteps 1 = 0
 collatzSteps n = 1 + collatzSteps (if n % 2 == 0 then n / 2 else 3 * n + 1)

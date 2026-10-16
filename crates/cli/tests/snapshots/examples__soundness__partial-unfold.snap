@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-REFL] Error: `rfl` can't prove this
-    ╭─[ soundness/partial-unfold.sw:14:8 ]
+    ╭─[ soundness/partial-unfold.sw:16:8 ]
     │
- 14 │ same = rfl
+ 16 │ same = rfl
     │        ─┬─  
-    │         ╰─── `\u -> pfix collatzSteps.body (collatzSteps.request 1)` and `\u -> now 0` aren't equal
+    │         ╰─── `\u -> Effect.pfix collatzSteps.body (collatzSteps.request 1)` and `\u -> Effect.now 0` aren't equal
     │ 
     │ Note: `rfl` proves `a = b` only when both sides compute to the same value
 ────╯

@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-IMPORT-UNKNOWN] Error: `List` has no `sortt`
+   ╭─[ reject/import-unknown.sw:3:14 ]
+   │
+ 3 │ import List (sortt)
+   │              ──┬──  
+   │                ╰──── `List` has no `sortt`
+───╯

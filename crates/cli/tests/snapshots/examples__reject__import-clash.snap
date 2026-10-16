@@ -1,0 +1,17 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-IMPORT-CLASH] Error: `length` is imported, but this file also defines `length`
+   ╭─[ reject/import-clash.sw:3:14 ]
+   │
+ 3 │ import List (length)
+   │              ───┬──  
+   │                 ╰──── `length` is imported, but this file also defines `length`
+   │ 
+ 5 │ length : Nat
+   │ ───┬──  
+   │    ╰──── defined here, which would hide the import
+   │ 
+   │ Note: remove the import, and write `List.length` where you mean that one
+───╯

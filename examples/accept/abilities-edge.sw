@@ -46,7 +46,7 @@ allResults : (() -> {Choose | e} a) -> {e} List a
 allResults prog =
   handle prog () with
     | return x       -> [x]
-    | choose _ => k  -> append (k True) (k False)
+    | choose _ => k  -> List.append (k True) (k False)
 
 answer : Nat -> (() -> {Ask | e} a) -> {e} a
 answer n prog =
@@ -75,7 +75,7 @@ loud n =
   n
 
 shapes : () -> {Log} (List Nat)
-shapes u = [(loud 1 : Nat), idNat [a := Nat] (loud 2), length [loud 3]]
+shapes u = [(loud 1 : Nat), idNat [a := Nat] (loud 2), List.length [loud 3]]
 
 test "list, annotation, named argument" =
   let r = collect shapes
@@ -119,7 +119,7 @@ test "four abilities, handled in another order" =
 -- state 11. False: says 10 then 0, state 1.
 pairNats : List (Pair (Pair (List Nat) Nat) Nat) -> List Nat
 pairNats Nil                                 = Nil
-pairNats (Cons (MkPair (MkPair said x) s) r) = append said (Cons x (Cons s (pairNats r)))
+pairNats (Cons (MkPair (MkPair said x) s) r) = List.append said (Cons x (Cons s (pairNats r)))
 
 test "four abilities, choice outermost" =
   let r = allResults (\u -> runState 1 (\v -> collect (\w -> answer 10 everything)))
@@ -197,7 +197,7 @@ handledHere : () -> {Log} (List Nat)
 handledHere u =
   handle chooseAndSay () with
     | return x       -> [x]
-    | choose _ => k  -> append (k True) (k False)
+    | choose _ => k  -> List.append (k True) (k False)
 
 test "a handle expression forwards to a concrete row" =
   let r = collect handledHere
@@ -207,5 +207,5 @@ test "a handle expression forwards to a concrete row" =
 countTrue : (() -> {Choose} Bool) -> {Choose} Nat
 countTrue f = if f () then (if f () then 2 else 1) else 0
 
-test "an operation as a value" = length (allResults choose) == 2
+test "an operation as a value" = List.length (allResults choose) == 2
 test "passing an operation" = eqNats (allResults (\u -> countTrue choose)) [2, 1, 0]
