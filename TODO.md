@@ -72,8 +72,11 @@ capability we know we'll need before the work that needs it):
    now; hiding a default type's constructors would need a namespaces
    mechanism). Stage 2 (prefix
    minus `-e` and patterns `(-k)` in the parser; the elaborator says "not
-   yet supported") merged (`220dedc`). Lane `int-stage3` (Opus, Sonnet
-   for snapshot tests) running: elaborating numbers (the group rule).
+   yet supported") merged (`220dedc`). Stage 3 (number literals and the
+   group rule, `numbers.rs`; "old way first" for equations and nested
+   effectful arithmetic keeps every hash unchanged, pinned by
+   `hash_stability.rs`) merged (`db1e2a2`). Next: stage 4, integer
+   patterns (Opus + Sonnet tests); then JS (stage 5).
    After it: one small Sonnet lane for `==` on lists plus
    printing tuples as `(a, b)` (user agreed). Effectful callbacks for
    `map`/`filter`/folds: later, when a program needs them.
