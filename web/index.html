@@ -992,7 +992,7 @@ area (Rect w h) = w * h
   // the parser. A name at the start of a line, or after `theorem`, is being
   // defined. One pass over the text, so a long paste stays quick.
   const KEYWORDS = new Set(["type", "theorem", "export", "test", "if", "then", "else",
-                            "ability", "where", "handle", "with", "return", "let", "Type", "Prop"]);
+                            "ability", "where", "handle", "with", "match", "return", "let", "Type", "Prop"]);
   const KINDS = ["keyword", "name", "defined", "number", "string", "comment", "operator"];
   const isWordStart = (c) => (c >= "a" && c <= "z") || (c >= "A" && c <= "Z") || c === "_";
   const isWord = (c) => isWordStart(c) || (c >= "0" && c <= "9") || c === "'";

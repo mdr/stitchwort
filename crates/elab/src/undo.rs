@@ -7,6 +7,7 @@
 //! The elaborator's inference state, all of it reachable from a [`Ctx`]:
 //! - the metavariables (`Globals::metas`): their solutions are undone from
 //!   `Globals::meta_trail`, and those created since are dropped;
+//! - lifted helpers not yet resolved (`lift.rs`);
 //! - pending auto obligations and defaulted-literal records (`Elaborator`);
 //! - the local context and the current span.
 //!
@@ -29,6 +30,7 @@ pub(crate) struct Snapshot {
     trail: usize,
     obligations: usize,
     defaulted: usize,
+    drafts: usize,
 }
 
 impl Snapshot {
@@ -41,6 +43,7 @@ impl Snapshot {
             trail: g.meta_trail.borrow().len(),
             obligations: cx.e.obligations.borrow().len(),
             defaulted: cx.e.defaulted.borrow().len(),
+            drafts: cx.e.drafts.borrow().len(),
         }
     }
 
@@ -57,9 +60,11 @@ impl Snapshot {
                 }
             }
             metas.truncate(self.metas);
+            g.frozen_metas.borrow_mut().retain(|m| *m < self.metas);
         }
         cx.e.obligations.borrow_mut().truncate(self.obligations);
         cx.e.defaulted.borrow_mut().truncate(self.defaulted);
+        cx.e.drafts.borrow_mut().truncate(self.drafts);
         cx.reset(self.mark);
         cx.span = self.span;
     }

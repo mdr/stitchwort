@@ -144,6 +144,23 @@ fn unify_step(
         }
         // Solving a metavariable is a leaf: it builds a solution from the
         // other side, or tries matching last arguments.
+        // A frozen metavariable is rigid: against a metavariable that isn't,
+        // that one is solved; against anything else, they differ.
+        (Value::Neutral(Head::Meta(m1), s1), Value::Neutral(Head::Meta(m2), s2))
+            if g.meta_frozen(*m1) != g.meta_frozen(*m2) =>
+        {
+            let (m, spine, other) = if g.meta_frozen(*m1) {
+                (*m2, s2, &a)
+            } else {
+                (*m1, s1, &b)
+            };
+            solve(g, level, m, spine, other)? || first_order(g, level, m, spine, other)?
+        }
+        (Value::Neutral(Head::Meta(m), _), _) | (_, Value::Neutral(Head::Meta(m), _))
+            if g.meta_frozen(*m) =>
+        {
+            false
+        }
         (Value::Neutral(Head::Meta(m), spine), other)
         | (other, Value::Neutral(Head::Meta(m), spine)) => {
             solve(g, level, *m, spine, other)? || first_order(g, level, *m, spine, other)?
@@ -410,6 +427,9 @@ fn prune(
     spine: &[Elim],
     renaming: &HashMap<usize, usize>,
 ) -> Result<Option<(usize, Vec<Elim>)>> {
+    if g.meta_frozen(m2) {
+        return Ok(None); // pruning would solve it
+    }
     let mut levels = Vec::new();
     for elim in spine {
         match elim {

@@ -14,6 +14,7 @@ enum Gen {
     Block(Vec<(Option<String>, Gen)>, Box<Gen>),
     Lam(String, Box<Gen>),
     Handle(Box<Gen>, Vec<(String, Gen)>),
+    Match(Box<Gen>, Vec<Gen>),
 }
 
 struct Rng(u64);
@@ -44,7 +45,7 @@ fn generate(rng: &mut Rng, depth: u32) -> Gen {
     if depth == 0 {
         return Gen::Var(name(rng));
     }
-    match rng.below(5) {
+    match rng.below(6) {
         0 => Gen::Var(name(rng)),
         1 => Gen::App(
             Box::new(Gen::Var(name(rng))),
@@ -65,6 +66,12 @@ fn generate(rng: &mut Rng, depth: u32) -> Gen {
             Gen::Block(lines, Box::new(generate_inline(rng, depth - 1)))
         }
         3 => Gen::Lam(name(rng), Box::new(generate(rng, depth - 1))),
+        4 => {
+            let alts = (0..1 + rng.below(2))
+                .map(|_| generate(rng, depth - 1))
+                .collect();
+            Gen::Match(Box::new(Gen::Var(name(rng))), alts)
+        }
         _ => {
             let clauses = (0..1 + rng.below(2))
                 .map(|i| (format!("op{i}"), generate(rng, depth - 1)))
@@ -88,6 +95,18 @@ fn render(g: &Gen, indent: usize) -> String {
             for (op, body) in clauses {
                 out.push_str(&format!(
                     "\n{}| {op} x => k -> {}",
+                    " ".repeat(col),
+                    render(body, col + 2)
+                ));
+            }
+            out
+        }
+        Gen::Match(scrutinee, alts) => {
+            let mut out = format!("match {} with", render(scrutinee, indent));
+            let col = indent + 2;
+            for body in alts {
+                out.push_str(&format!(
+                    "\n{}| Pat x _ -> {}",
                     " ".repeat(col),
                     render(body, col + 2)
                 ));
@@ -138,6 +157,10 @@ fn shape(g: &Gen) -> String {
                 .collect();
             format!("(handle {} [{}])", shape(body), cs.join(" | "))
         }
+        Gen::Match(scrutinee, alts) => {
+            let cs: Vec<String> = alts.iter().map(shape).collect();
+            format!("(match {} [{}])", shape(scrutinee), cs.join(" | "))
+        }
     }
 }
 
@@ -176,6 +199,16 @@ fn parsed_shape(e: &Expr) -> String {
                 })
                 .collect();
             format!("(handle {} [{}])", parsed_shape(body), cs.join(" | "))
+        }
+        Expr::Match {
+            scrutinees, alts, ..
+        } => {
+            let cs: Vec<String> = alts.iter().map(|a| parsed_shape(&a.body)).collect();
+            format!(
+                "(match {} [{}])",
+                parsed_shape(&scrutinees[0].expr),
+                cs.join(" | ")
+            )
         }
         other => format!("<{other:?}>"),
     }

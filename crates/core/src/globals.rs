@@ -142,6 +142,12 @@ pub struct Globals {
     /// how the elaborator undoes a failed attempt (its `undo.rs`). Cleared
     /// with `metas`.
     pub meta_trail: RefCell<Vec<(usize, Option<Value>)>>,
+    /// Metavariables standing for a lifted `match` whose helper isn't made
+    /// yet (docs/proposals/syntax-conveniences.md §4.10): unification never
+    /// solves them, so each is equal only to itself. The elaborator solves
+    /// them directly once the helpers are declared. Few, so a list; cleared
+    /// with `metas`. Never seen by the kernel.
+    pub frozen_metas: RefCell<Vec<usize>>,
     /// Content hashes computed so far. Declarations never change once
     /// checked, so these never go stale.
     pub hashes: RefCell<std::collections::HashMap<HashKey, crate::hash::ContentHash>>,
@@ -195,6 +201,16 @@ impl Globals {
         metas.len() - 1
     }
 
+    /// Whether metavariable `m` is frozen (see [`Globals::frozen_metas`]).
+    pub fn meta_frozen(&self, m: usize) -> bool {
+        self.frozen_metas.borrow().contains(&m)
+    }
+
+    /// Freezes metavariable `m` (see [`Globals::frozen_metas`]).
+    pub fn freeze_meta(&self, m: usize) {
+        self.frozen_metas.borrow_mut().push(m);
+    }
+
     pub fn solve_meta(&self, m: usize, solution: Value) {
         let old = self.metas.borrow_mut()[m].solution.replace(solution);
         self.meta_trail.borrow_mut().push((m, old));
@@ -203,6 +219,7 @@ impl Globals {
     /// Forgets every metavariable (and the record of their solutions).
     pub fn clear_metas(&self) {
         self.metas.borrow_mut().clear();
+        self.frozen_metas.borrow_mut().clear();
         self.meta_trail.borrow_mut().clear();
     }
 }

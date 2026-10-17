@@ -131,6 +131,20 @@ impl<'e> Ctx<'e> {
         self.scope.push((name.to_string(), level));
     }
 
+    /// Makes every name that now refers to the variable at `old` refer to
+    /// the one at `new` instead (a generalised `match`'s copies).
+    pub(crate) fn rebind(&mut self, old: usize, new: usize) {
+        let names: Vec<String> = self
+            .scope
+            .iter()
+            .filter(|(n, level)| *level == old && self.lookup(n) == Some(old))
+            .map(|(n, _)| n.clone())
+            .collect();
+        for n in names {
+            self.scope.push((n, new));
+        }
+    }
+
     pub(crate) fn lookup(&self, name: &str) -> Option<usize> {
         self.scope
             .iter()
@@ -240,6 +254,7 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             ))
         }
         Expr::Tuple(a, b, _) => infer_tuple(cx, a, b),
+        Expr::Match { .. } => crate::matching::infer_match(cx, expr),
         Expr::Effect(row, ty) => {
             let (term, sort) = effects::effect_type(cx, row, ty)?;
             Ok((term, Value::Sort(sort)))
@@ -846,6 +861,7 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
             Ok(crate::numbers::group(cx, expr, Some(&expected))?.0)
         }
         (Expr::Neg(..), _) => Ok(crate::numbers::group(cx, expr, Some(&expected))?.0),
+        (Expr::Match { .. }, _) => crate::matching::check_match(cx, expr, &expected),
         (
             Expr::If {
                 binder,

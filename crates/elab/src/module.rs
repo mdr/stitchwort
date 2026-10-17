@@ -702,7 +702,11 @@ impl Elaborator {
                 .map(|i| (*i, items[*i].decl, items[*i].equations))
                 .collect();
             let found = self.group(&members, true);
-            diagnostics.extend(found.into_iter().map(|(i, d)| (items[i].position, d)));
+            diagnostics.extend(
+                found
+                    .into_iter()
+                    .map(|(i, d)| (items[i].position, self.explain_lifted(d))),
+            );
             return;
         }
         let index = component[0];
@@ -714,14 +718,18 @@ impl Elaborator {
             Decl::Test { name, expr, span } => self.test(name, expr, *span),
             decl @ Decl::Signature { .. } => {
                 let found = self.group(&[(index, decl, item.equations)], false);
-                diagnostics.extend(found.into_iter().map(|(i, d)| (items[i].position, d)));
+                diagnostics.extend(
+                    found
+                        .into_iter()
+                        .map(|(i, d)| (items[i].position, self.explain_lifted(d))),
+                );
                 return;
             }
             Decl::Equation { .. } => unreachable!("equations go with signatures"),
         };
         diagnostics.extend(self.warnings.drain(..).map(|w| (item.position, w)));
         if let Err(d) = result {
-            diagnostics.push((item.position, d));
+            diagnostics.push((item.position, self.explain_lifted(d)));
         }
     }
 
@@ -1198,6 +1206,20 @@ enum Ref<'a> {
     Dot(&'a ast::Name, String),
 }
 
+/// The variables a pattern binds.
+fn pattern_binders<'a>(pattern: &'a Pattern, out: &mut Vec<&'a str>) {
+    match pattern {
+        Pattern::Var(x) => out.push(&x.text),
+        Pattern::Ctor(_, args, _) => args.iter().for_each(|p| pattern_binders(p, out)),
+        Pattern::Tuple(a, b, _) => {
+            pattern_binders(a, out);
+            pattern_binders(b, out);
+        }
+        Pattern::Record { fields, .. } => fields.iter().for_each(|(_, p)| pattern_binders(p, out)),
+        Pattern::Wildcard(_) | Pattern::Absurd(_) | Pattern::Num(..) | Pattern::NegNum(..) => {}
+    }
+}
+
 /// The free names in `work`, in order: names used that aren't bound by a
 /// binder around them. A work list rather than recursion, since expressions
 /// can nest more deeply than recursion could follow.
@@ -1338,6 +1360,23 @@ fn free_names(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
                     Work::Expr(body),
                     Work::Unbind(&name.text),
                 ]);
+                then(&mut stack, steps);
+            }
+            Expr::Match {
+                scrutinees, alts, ..
+            } => {
+                let mut steps: Vec<Work> = scrutinees.iter().map(|s| Work::Expr(&s.expr)).collect();
+                for alt in alts {
+                    // The patterns' constructors are references; their
+                    // variables are bound in the body only.
+                    let mut vars = Vec::new();
+                    for p in &alt.patterns {
+                        pattern_binders(p, &mut vars);
+                        steps.push(Work::Pattern(p));
+                    }
+                    steps.push(Work::Expr(&alt.body));
+                    steps.extend(vars.into_iter().map(Work::Unbind));
+                }
                 then(&mut stack, steps);
             }
             Expr::Handle { body, clauses, .. } => {

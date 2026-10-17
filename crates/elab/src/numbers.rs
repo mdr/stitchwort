@@ -827,6 +827,12 @@ fn has_number(expr: &Expr) -> bool {
                 stack.extend(ty.as_deref());
                 stack.extend([&**value, &**body]);
             }
+            Expr::Match {
+                scrutinees, alts, ..
+            } => {
+                stack.extend(scrutinees.iter().map(|s| &s.expr));
+                stack.extend(alts.iter().map(|a| &a.body));
+            }
             Expr::Handle { body, clauses, .. } => {
                 stack.push(body);
                 for clause in clauses {

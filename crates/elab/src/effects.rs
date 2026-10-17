@@ -946,6 +946,12 @@ pub fn may_perform(cx: &Ctx, expr: &Expr) -> Result<bool> {
             }
         }
         Expr::Binary(_, a, b) => any(&mut [&**a, &**b].into_iter())?,
+        Expr::Match {
+            scrutinees, alts, ..
+        } => any(&mut scrutinees
+            .iter()
+            .map(|s| &s.expr)
+            .chain(alts.iter().map(|a| &a.body)))?,
         Expr::Neg(a, _) => may_perform(cx, a)?,
         Expr::Let { .. } | Expr::Seq(..) | Expr::Handle { .. } => true,
         Expr::If {
@@ -1122,6 +1128,31 @@ pub fn comp_check(cx: &mut Ctx, expr: &Expr, row: &Row, t: &Value) -> Result<Ter
                 check_if(cx, None, &var, then, otherwise, &expected)
             })
         }
+        Expr::Match {
+            scrutinees,
+            alts,
+            span,
+        } => {
+            let expected = comp_type(cx, row, t.clone())?;
+            let mut performs = false;
+            for s in scrutinees {
+                performs |= may_perform(cx, &s.expr)?;
+            }
+            if !performs {
+                return crate::matching::check_match(cx, expr, &expected);
+            }
+            // Every scrutinee runs once, left to right, before anything else,
+            // and the `match` matches the results
+            // (docs/proposals/syntax-conveniences.md §4.7).
+            run_scrutinees(cx, row, t, scrutinees, Vec::new(), &|cx, bound| {
+                let matched = Expr::Match {
+                    scrutinees: bound,
+                    alts: alts.clone(),
+                    span: *span,
+                };
+                crate::matching::check_match(cx, &matched, &expected)
+            })
+        }
         Expr::Handle {
             body,
             clauses,
@@ -1147,12 +1178,54 @@ pub fn comp_check(cx: &mut Ctx, expr: &Expr, row: &Row, t: &Value) -> Result<Ter
     }
 }
 
+/// Runs the scrutinees of a `match` in order, binding each result to a new
+/// variable, then elaborates `rest` with the `match`'s scrutinees replaced
+/// by those variables (keeping their equations' names, so `h : readLine ()`
+/// is about the bound result).
+fn run_scrutinees(
+    cx: &mut Ctx,
+    row: &Row,
+    t: &Value,
+    scrutinees: &[stitchwort_syntax::ast::Scrutinee],
+    mut bound: Vec<stitchwort_syntax::ast::Scrutinee>,
+    rest: &dyn Fn(&mut Ctx, Vec<stitchwort_syntax::ast::Scrutinee>) -> Result<Term>,
+) -> Result<Term> {
+    let Some((first, others)) = scrutinees.split_first() else {
+        return rest(cx, bound);
+    };
+    let (term, ty, effectful) = if may_perform(cx, &first.expr)? {
+        let (c, ty) = comp_infer(cx, &first.expr, row)?;
+        (c, ty, true)
+    } else {
+        let (term, ty) = infer(cx, &first.expr)?;
+        let (term, ty) = insert(cx, term, ty)?;
+        (term, ty, false)
+    };
+    let name = format!("%scrutinee{}", bound.len());
+    bound.push(stitchwort_syntax::ast::Scrutinee {
+        name: first.name.clone(),
+        expr: Expr::Var(AstName {
+            text: name.clone(),
+            span: first.expr.span(),
+        }),
+    });
+    sequence(cx, row, t, &name, term, ty, effectful, |cx| {
+        run_scrutinees(cx, row, t, others, bound, rest)
+    })
+}
+
 /// Elaborates `expr` as a computation in `row`, inferring its result type.
 pub fn comp_infer(cx: &mut Ctx, expr: &Expr, row: &Row) -> Result<(Term, Value)> {
     cx.g().budget.nesting(crate::check::PASS)?;
     match expr {
         Expr::Let { .. } | Expr::Seq(..) | Expr::If { .. } | Expr::Handle { .. } => {
             let t = cx.fresh_meta();
+            let t = cx.eval(&t)?;
+            let c = comp_check(cx, expr, row, &t)?;
+            Ok((c, t))
+        }
+        Expr::Match { .. } => {
+            let t = crate::matching::unknown_type(cx, expr);
             let t = cx.eval(&t)?;
             let c = comp_check(cx, expr, row, &t)?;
             Ok((c, t))

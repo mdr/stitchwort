@@ -11,6 +11,8 @@ mod autobind;
 mod check;
 mod dot;
 mod effects;
+mod lift;
+mod matching;
 mod module;
 mod numbers;
 mod partial;
@@ -111,6 +113,12 @@ pub struct Elaborator {
     recursion: Option<effects::Recursion>,
     /// The record types declared so far (docs/proposals/records.md).
     records: HashMap<DataId, records::RecordInfo>,
+    /// Helpers elaborated in the current declaration and not yet lifted
+    /// (`lift.rs`). Part of the inference state `undo.rs` restores.
+    drafts: RefCell<Vec<lift::Draft>>,
+    /// Every lifted helper so far, with its `match`, for naming the `match`
+    /// in diagnostics instead of the helper (`Elaborator::explain_lifted`).
+    lifted: Vec<(DefId, Span)>,
 }
 
 /// A pattern that matches a constructor.
@@ -288,6 +296,7 @@ impl Elaborator {
 
     fn clear_metas(&self) {
         self.globals.clear_metas();
+        self.drafts.borrow_mut().clear();
         self.obligations.borrow_mut().clear();
         self.defaulted.borrow_mut().clear();
     }
@@ -296,8 +305,26 @@ impl Elaborator {
     /// solutions into `term`, failing if any are unsolved.
     fn finish(&self, term: &Term, level: usize) -> Result<Term> {
         self.solve_obligations()?;
+        self.zonk(term, level)
+    }
+
+    /// Substitutes metavariable solutions into `term`, failing if any are
+    /// unsolved.
+    fn zonk(&self, term: &Term, level: usize) -> Result<Term> {
         unify::zonk(&self.globals, level, term).map_err(|e| match e {
             unify::ZonkError::Resource(e) => e.into(),
+            unify::ZonkError::Unsolved(m) if self.globals.meta_frozen(m) => {
+                let span = self.globals.metas.borrow()[m].span;
+                Diagnostic::error(
+                    "E-MATCH-MOTIVE",
+                    "a `match` can't be used here: it can't be made into a definition",
+                )
+                .with_label(span, "this `match`")
+                .with_note(
+                    "a top-level helper with a written signature can always do what this \
+                     `match` would: define one and call it",
+                )
+            }
             unify::ZonkError::Unsolved(m) => {
                 let span = self.globals.metas.borrow()[m].span;
                 Diagnostic::error("E-UNSOLVED", "can't work out an implicit argument")
@@ -325,13 +352,15 @@ impl Elaborator {
             ));
         };
         self.clear_metas();
-        let body = {
+        let term = {
             let mut cx = Ctx::new(self, span);
-            let term = check(&mut cx, expr, &Value::Data(bool_data, Vec::new()))?;
-            self.finish(&term, 0)?
+            check(&mut cx, expr, &Value::Data(bool_data, Vec::new()))?
         };
-        let ty = Term::Data(bool_data, Vec::new());
         let label: Name = format!("test \"{name}\"").into();
+        // Nothing refers to the test, so its helpers are admitted first.
+        self.lift(&label, false)?;
+        let body = self.finish(&term, 0)?;
+        let ty = Term::Data(bool_data, Vec::new());
         let id = kernel::declare_def(&mut self.globals, &label, &ty, false, false, span)?;
         kernel::define_def(&mut self.globals, id, &body)?;
         self.tests.push(TestDecl {
@@ -1027,9 +1056,25 @@ impl Elaborator {
             .insert(&key, Global::Def(id), def_name.span, false);
         self.clear_metas();
         self.module.phase = Phase::Body;
-        let body = self.body(id, def_name, equations)?;
-        kernel::define_def(&mut self.globals, id, &body)?;
+        let (body, mut members) = self.lifted_body(id, def_name, equations)?;
+        members.insert(0, (id, body));
+        kernel::define_group(&mut self.globals, &members).map_err(|d| self.explain_lifted(d))?;
         self.after_definition(signature, id)
+    }
+
+    /// A definition's body, with the `match`es in it lifted
+    /// (docs/proposals/syntax-conveniences.md §2.2): those that are in a
+    /// cycle with the definition are returned, to be admitted with it.
+    fn lifted_body(
+        &mut self,
+        id: DefId,
+        def_name: &ast::Name,
+        equations: &[Decl],
+    ) -> Result<(Term, Vec<(DefId, Term)>)> {
+        let term = self.body_term(id, def_name, equations)?;
+        let key = self.declaration_key(def_name)?;
+        let joined = self.lift(&key, true)?;
+        Ok((self.finish(&term, 0)?, joined))
     }
 
     /// A group of definitions that may call each other (or one definition),
@@ -1108,6 +1153,7 @@ impl Elaborator {
             }
         }
         let mut bodies = Vec::new();
+        let mut helpers = Vec::new();
         for (&(item, signature, equations), id) in members.iter().zip(&ids) {
             let Decl::Signature { name: def_name, .. } = signature else {
                 unreachable!()
@@ -1115,8 +1161,11 @@ impl Elaborator {
             self.module.item = Some(item);
             self.module.phase = Phase::Body;
             self.clear_metas();
-            match self.body(*id, def_name, equations) {
-                Ok(body) => bodies.push((*id, body)),
+            match self.lifted_body(*id, def_name, equations) {
+                Ok((body, joined)) => {
+                    bodies.push((*id, body));
+                    helpers.extend(joined);
+                }
                 Err(d) => out.push((item, d)),
             }
         }
@@ -1124,7 +1173,9 @@ impl Elaborator {
             return out;
         }
         self.module.item = Some(members[0].0);
+        bodies.extend(helpers);
         if let Err(d) = kernel::define_group(&mut self.globals, &bodies) {
+            let d = self.explain_lifted(d);
             out.push((members[0].0, d));
             return out;
         }
@@ -1200,9 +1251,18 @@ impl Elaborator {
             for (n, dom) in auto.names.iter().zip(domains).rev() {
                 term = Term::Pi(name(n), Icit::Implicit, Rc::new(dom), Rc::new(term));
             }
-            self.finish(&term, 0)
+            Ok(term)
         })()
         .map_err(with_notes)?;
+        // A `match` in the signature is admitted before it (§2.2): it can't
+        // refer to the definition, which isn't declared yet.
+        self.lift(&key, false).map_err(with_notes)?;
+        // (The unfinished term is dropped here, not kept alive while the
+        // kernel checks the finished one.)
+        let ty = {
+            let unfinished = ty;
+            self.finish(&unfinished, 0).map_err(with_notes)?
+        };
         let id = kernel::declare_def(
             &mut self.globals,
             &scope::display(&key).into(),
@@ -1296,7 +1356,15 @@ impl Elaborator {
         Ok(())
     }
 
+    /// A definition's body, finished: a lifted `match` in it is an error
+    /// (`E-MATCH-MOTIVE`).
     fn body(&self, id: DefId, def_name: &ast::Name, equations: &[Decl]) -> Result<Term> {
+        let term = self.body_term(id, def_name, equations)?;
+        self.finish(&term, 0)
+    }
+
+    /// A definition's body, before metavariable solutions are substituted.
+    fn body_term(&self, id: DefId, def_name: &ast::Name, equations: &[Decl]) -> Result<Term> {
         let g = &self.globals;
         let equations: Vec<(&Vec<Pattern>, Option<&Expr>, Span)> = equations
             .iter()
@@ -1432,7 +1500,7 @@ impl Elaborator {
         for (x, icit) in lams.into_iter().rev() {
             term = Term::Lam(x, icit, Rc::new(term));
         }
-        self.finish(&term, 0)
+        Ok(term)
     }
 
     /// Compiles equations into a case tree. `columns[j]` is the de Bruijn level
@@ -1937,7 +2005,14 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
             for (x, level) in aliases {
                 cx.alias(x, *level);
             }
-            let result = check(cx, rhs, goal);
+            // A `match` that's the whole right-hand side, on variables of
+            // the equation, splits them further here
+            // (docs/proposals/syntax-conveniences.md §4.3).
+            let in_tree = match rhs {
+                Expr::Match { .. } => matching::in_tree(cx, rhs, goal),
+                _ => None,
+            };
+            let result = in_tree.unwrap_or_else(|| check(cx, rhs, goal));
             cx.reset(mark);
             result
         }
@@ -2129,6 +2204,12 @@ fn mentions_ability(expr: &ast::Expr, name: &str) -> bool {
                 pending.extend(fields.iter().map(|(_, e)| e));
             }
             Expr::Field(e, _) => pending.push(e),
+            Expr::Match {
+                scrutinees, alts, ..
+            } => {
+                pending.extend(scrutinees.iter().map(|s| &s.expr));
+                pending.extend(alts.iter().map(|a| &a.body));
+            }
             _ => {}
         }
     }

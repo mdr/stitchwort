@@ -1,0 +1,12 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-NONEXHAUSTIVE] Error: missing case: no alternative of this `match` matches `Cons _ _`
+   ╭─[ reject/match-nonexhaustive.sw:4:24 ]
+   │
+ 4 │ ╭─▶ nonExhaustive xs = 1 + match xs with
+ 5 │ ├─▶   | Nil -> 0
+   │ │                  
+   │ ╰────────────────── missing case: no alternative of this `match` matches `Cons _ _`
+───╯
