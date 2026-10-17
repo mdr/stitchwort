@@ -96,9 +96,10 @@ capability we know we'll need before the work that needs it):
    [aoc-2025.md](docs/aoc-2025.md)). Done: the list toolkit (`map`,
    `filter`, folds, `sum`, `zip`, `take`/`drop`, `get`, …) and `Nat`
    min/max/absDiff/pow (`51ce453`; callbacks are pure for now — no
-   effect-row convention yet). To do: a `readAllLines` helper, `Nat`
-   arithmetic lemmas (the gate to arithmetic proofs; `Int` stage 6 needs
-   them), `Nat.digits`, sorting with a correctness proof (sorted
+   effect-row convention yet). `Nat` arithmetic lemmas merged
+   (`9871787`: add/mul laws, order, subtraction, `divMod` and `modLess`
+   with an explicit `d != 0`; not yet min/max/absDiff facts). To do: a
+   `readAllLines` helper, `Nat.digits`, sorting with a correctness proof (sorted
    permutation), `==` on lists (tests can't compare lists today); later an
    `Array` type, a balanced-tree map/set, grid helpers.
 3. **Syntax conveniences**: design note draft 1 merged
@@ -263,6 +264,11 @@ capability we know we'll need before the work that needs it):
   the CLI name).
 
 ## Known issues
+
+- **`extract-js` cost grows with prelude theorems**: adding the `Nat`
+  lemma library raised the benchmark's steps by 39%. Proofs should be
+  erased from JS; check whether extraction walks or emits theorems and
+  skip them if so (small; not yet investigated).
 
 
 
