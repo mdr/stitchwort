@@ -92,8 +92,10 @@ capability we know we'll need before the work that needs it):
    result-type-first checking of calls. The user agreed with every
    recommendation in §8. Reviewed; draft 2 adopts all eleven findings
    (`6c71685`), the user agreed with §9's questions 10–13 too.
-   Implementation: lane `tuples` (Sonnet, step 1) running; then the
-   result-type-first change and the lifting machinery (Opus).
+   Step 1, tuple sugar, merged (`0a7dbc1`; tuples print as
+   `MkPair a b` for now; JS boundary unchanged). Next: step 2, the
+   result-type-first change with an undo (Opus), then the lifting
+   machinery and `match` (Opus).
 4. **Advent of Code 2025, early days** (decisions in aoc-2025.md: programs
    in `aoc/`, inputs and answers out of git, worked examples as tests), as a stress test with proofs where
    natural (sort correctness, parser round trips, worked examples by `rfl`).
