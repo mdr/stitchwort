@@ -33,3 +33,14 @@ sameShape xs ys = xs == ys
 
 test "at run time" = sameShape [Just 1, Nothing] [Just 1, Nothing]
 test "at run time, different" = Bool.not (sameShape [Just 1] [Just 2])
+
+-- A record whose fields are a list, a tuple and a `Maybe` gets `==` too.
+type Entry = { ids : List Nat, pair : (Nat, Text), delta : Maybe Int }
+
+entry : Entry
+entry = { ids = [1, 2], pair = (3, "x"), delta = Just (Int.neg 4) }
+
+test "record with containers" = entry == { ids = [1, 2], pair = (3, "x"), delta = Just (Int.neg 4) }
+test "record, list differs" = Bool.not (entry == { entry | ids = [2, 1] })
+test "record, tuple differs" = Bool.not (entry == { entry | pair = (3, "y") })
+test "record, Maybe differs" = Bool.not (entry == { entry | delta = Nothing })

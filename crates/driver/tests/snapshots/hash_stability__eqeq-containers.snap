@@ -2,6 +2,7 @@
 source: crates/driver/tests/hash_stability.rs
 expression: "lines(&session, d, f)"
 ---
+data Main.Entry 2caa8c4e5983bfe1c37d25d260a07c7cbdb426240b5701294c4fbd361e2bbe65
 Main.test "lists of numbers" 4a5cbfe78a916356ffbd3bd28a04d7c86eeb5f691c8fb203fc4dd936b9e1019f
 Main.test "different lengths" 7e8200dcf3c28985b646d172dec4a94a4296da197b856d738b236d07f2edd99c
 Main.test "different elements" b630529820415496d6da85067221116d7b6ff73efef40ea0e2412633dca4da0d
@@ -26,3 +27,12 @@ Main.test "zip" 7e088be7cb1e29eb440049a05007fe20321cd874081b055ad75986bf78c52f18
 Main.sameShape 9fed268759e274814c66259ebc94e8a839659c4c33dd063a1182066e146d8305
 Main.test "at run time" d4aedac1ef536f459501a8d1feb17f18bcf923e875a13f55bc48ba6b9d08c347
 Main.test "at run time, different" 49be4653cdf112126c8b4c9ccff8d27233999bb0b86db51cf9ad8e96d82295e8
+Main.Entry.ids ccdca2107fbe36ff4ececa12a08a1f22e2c5c4f8ee257f1cc51a065c96da24b6
+Main.Entry.pair 5c22da830c3457ef7be5a9831201fd8d7060a8402afdea910c1f9e0b75dd4290
+Main.Entry.delta c867026609a9d36adb5a495914f36b94ad61a0b87d8b084166af426d13847093
+Main.Entry.decEq 5fe16d4e700a8c5f533262d2b3be39ba701f03d0ad8f8c0ae8583edfe543978a
+Main.entry 5f39865a202ea02d24428db08b11e0719bd89ed3b60839f0c1dba75275a81185
+Main.test "record with containers" c6ab34245bd5186b4ded2421d402cb332254ec3413b129a6697bdd1dc0fb148e
+Main.test "record, list differs" 4de66e08a787ac60ff52d3801d84bad0e6dbaa5e0a8bc0878e502b10dcda973b
+Main.test "record, tuple differs" f9cd9de9e61ad234b033de82c1d1770a356f8f1b7a73fc1e627d51d8590b43e7
+Main.test "record, Maybe differs" cf0471142eab4491291fc159d1c9b28d264318a789ad94831ef944969a547b7e
