@@ -1637,6 +1637,70 @@ change: the result is an ordinary `case` on `Int` with `NumCase`s on the
   evaluators) on closed and open arguments; and `zeroOrOther` on open
   values four ways (`NegSucc k` computes, `OfNat m` is stuck).
 
+### As built (stage 5)
+
+`crates/js/src/lib.rs`, as described in
+[The JavaScript boundary](#the-javascript-boundary-and-generated-code).
+No change to the kernel or the elaborator. Decisions not in the note:
+
+- **The two bindings.** `bind_int` compares the prelude's `Int`'s
+  `data_hash` with `INT_DATA_HASH`, and each native's definition's
+  `def_hash` with its entry in `INT_NATIVES`, as `TEXT_NATIVES` does (the
+  binding code is now shared). A data type's hash covers its constructors'
+  names, order and fields, the fields' names, and `Nat`'s own hash, so it
+  pins everything the representation assumes. Only a bound `Int` becomes
+  `Boundary::Int` (in `boundary`, so exportability, the codec, the `.d.ts`
+  type and `boundary_literal` all follow it), and only then are the
+  constructor and matching special cases and the natives used. An
+  operation's hash depends on `Int`'s anyway, so a changed `Int` also
+  unbinds every native; the data check is still separate and explicit.
+  `int_is_bound_to_the_prelude` prints the new hashes when either changes.
+- **`Options::native_int`**, like `native_text`: off, an `Int` is `OfNat`/
+  `NegSucc` objects inside generated code with the same `bigint` boundary
+  (the `INT` codec converts, using the constructors' real names and keys),
+  and every operation is compiled from its definition. The differential
+  tests run every example three ways: default, text as lists, `Int` as
+  constructors.
+- **Natives** (23): `Nat.toInt`, `neg`, `add`, `sub`, `mul`, the six
+  divisions and `modNat`, `decEq`, `leq`, `less`, `compare`, `natAbs`,
+  `abs`, `toNat`, `toNatChecked`, `sign`, `toText` and `Text.toInt`; the
+  last two only when `Text` is a string too. They have registry entries
+  (identity only) so they can be found. The floored pair is the Euclidean
+  correction with "the remainder's sign differs from the divisor's" as the
+  condition. `Text.toInt` accepts an optional `-` and then exactly what
+  `Text.toNat` accepts.
+- **Zero divisors at an export**: nothing new was needed. The elaborator's
+  existing search for a decision procedure finds
+  `Decidable.not (Int.decEq d 0)` for `[auto ok : d != 0]`, and the
+  wrapper checks it after decoding and before the call, so a native never
+  sees a zero divisor.
+- **JS shapes**: a literal `NegSucc 4` is `-5n`; `NegSucc e` is
+  `(-e - 1n)` (a `Nat`'s JS is always a literal, name, call or bracketed,
+  so `-` applies to all of it); a match is `if (x >= 0n) { const n = x; … }
+  else { const n = -x - 1n; … }`, followed by stage 4's `switch` on `n`.
+- **The `INT` codec is emitted only when an `Int` crosses the boundary**,
+  so modules without one (every existing snapshot) are unchanged.
+- **Not changed here**: `Nat`'s representation isn't hash-checked in JS
+  (its operations are the kernel's natives), and `Text`'s is checked by
+  shape only, as before.
+- **A changed operation can unbind others**: `Int.sub` is defined through
+  `Int.add`, so changing `Int.add` changes `Int.sub`'s hash too, and both
+  are compiled as written (still right, just slower).
+- Tests: `examples/extract/integers.sw` (an export per native, constructors
+  as values, a match on a `%` result, `Int` patterns up to `±10^30`,
+  `Maybe Int`, `List (Maybe Int)`, a record with a `Nat` and an `Int`
+  field, zero divisors refused), run through the reference evaluator
+  differentially three ways, with random `Int`s near `±2^64` and `±2^128`;
+  and in `crates/cli/tests/extract.rs`: `int_natives_agree_with_the_definitions`
+  (natives against the definitions and against independent BigInt
+  definitions of the three conventions with their laws, on `-12..12`,
+  around `±2^64` and `±2^128` and seeded random values, plus
+  `Text.toInt`'s grammar and the `toText` round trip),
+  `int_crosses_the_boundary_strictly`, `int_is_bound_to_the_prelude`,
+  `a_changed_int_operation_loses_only_its_native` and
+  `a_changed_int_type_turns_the_representation_off` (both with a patched
+  prelude through `Session::with_prelude`).
+
 ## Recommendation
 
 - **Representation A** (`OfNat Nat | NegSucc Nat`) and **K1** (no kernel

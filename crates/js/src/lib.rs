@@ -10,13 +10,15 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::Write;
 
 use stitchwort_core::check::{is_type_former, telescope};
-use stitchwort_core::hash::def_hash;
+use stitchwort_core::hash::{data_hash, def_hash};
 use stitchwort_core::native;
 use stitchwort_core::partial::Primitive;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::term::Branch;
 use stitchwort_core::value::{Head, eval, expand_step, force, quote};
-use stitchwort_core::{DataId, DefId, Globals, Limits, ResourceError, Sort, Term, Value, pretty};
+use stitchwort_core::{
+    BigUint, DataId, DefId, Globals, Limits, ResourceError, Sort, Term, Value, pretty,
+};
 use stitchwort_syntax::Diagnostic;
 
 /// Generating code recurses over a definition's body, so each level checks
@@ -29,6 +31,9 @@ const PASS: &str = "JavaScript generator";
 pub enum Boundary {
     /// `bigint`, non-negative.
     Nat,
+    /// `bigint`, of either sign: the prelude's `Int`, when it's the data type
+    /// the representation was written for ([`bind_int`]).
+    Int,
     /// `boolean`.
     Bool,
     /// `string`, well-formed (no lone surrogates).
@@ -57,6 +62,17 @@ impl Boundary {
             }
             other => other.clone(),
         }
+    }
+
+    /// Whether `leaf` is this type or inside it (not counting the fields of
+    /// a data type).
+    fn mentions(&self, leaf: &Boundary) -> bool {
+        self == leaf
+            || match self {
+                Boundary::List(elem) => elem.mentions(leaf),
+                Boundary::Data(_, args) => args.iter().any(|a| a.mentions(leaf)),
+                _ => false,
+            }
     }
 }
 
@@ -207,6 +223,9 @@ fn boundary(
         }
         Value::Data(d, args) => {
             let data = g.data(*d);
+            if args.is_empty() && int_data(g) == Some(*d) {
+                return Ok(Boundary::Int);
+            }
             // The prelude's types have codecs of their own, chosen by identity:
             // a program's own `List` is encoded as the data type it is.
             let builtin = [
@@ -373,11 +392,22 @@ pub struct Options {
     /// `MkText` of a cons list and every operation is compiled from its
     /// definition, as before: that's for differential tests of the natives.
     pub native_text: bool,
+    /// An `Int` is a `bigint` inside generated code too, and the prelude's
+    /// integer operations are native JS (docs/proposals/integers.md, "The
+    /// JavaScript boundary"). Off, an `Int` is `OfNat` or `NegSucc` inside
+    /// generated code, with the same `bigint` boundary, and every operation
+    /// is compiled from its definition: for differential tests of the
+    /// natives. Either way, this applies only to the prelude's `Int` as the
+    /// representation was written for it ([`bind_int`]).
+    pub native_int: bool,
 }
 
 impl Default for Options {
     fn default() -> Self {
-        Options { native_text: true }
+        Options {
+            native_text: true,
+            native_int: true,
+        }
     }
 }
 
@@ -470,6 +500,21 @@ pub fn generate_with(g: &Globals, limits: Limits, options: Options) -> Result<Ou
         js.push_str(TEXT_AS_LIST);
         js.push_str(CHARS_OF_TEXT);
     }
+    // `INT` only where it's used.
+    let at_boundary = |b: &Boundary| b.mentions(&Boundary::Int);
+    let int_crosses = exports
+        .iter()
+        .flat_map(|sig| sig.params.iter().map(|(_, b)| b).chain([&sig.result]))
+        .any(at_boundary)
+        || boundary_datas.iter().any(|d| {
+            generic_field_boundaries(g, *d)
+                .iter()
+                .flatten()
+                .any(|(_, b)| at_boundary(b))
+        });
+    if let Some(int) = int_data(g).filter(|_| int_crosses) {
+        js.push_str(&codegen.int_codec(int));
+    }
     js.push_str(RUNTIME_CODECS);
     js.push('\n');
     // Every data type is declared before any is defined, so their fields'
@@ -505,6 +550,7 @@ pub fn generate_with(g: &Globals, limits: Limits, options: Options) -> Result<Ou
         codegen.erased[id.0].0
             || g.builtins.native(id).is_some()
             || codegen.text_natives.contains_key(&id)
+            || codegen.int_natives.contains_key(&id)
             || codegen.delay[id.0].is_some()
     });
     // Partial computations are one token (docs/proposals/partial.md §7.6).
@@ -574,7 +620,12 @@ pub fn generate_with(g: &Globals, limits: Limits, options: Options) -> Result<Ou
 
 fn collect_datas(g: &Globals, b: &Boundary, out: &mut Vec<DataId>) {
     match b {
-        Boundary::Nat | Boundary::Bool | Boundary::Text | Boundary::Char | Boundary::Param(_) => {}
+        Boundary::Nat
+        | Boundary::Int
+        | Boundary::Bool
+        | Boundary::Text
+        | Boundary::Char
+        | Boundary::Param(_) => {}
         Boundary::List(elem) => collect_datas(g, elem, out),
         Boundary::Data(d, args) => {
             for arg in args {
@@ -1029,6 +1080,11 @@ struct Gen<'g> {
     text: Option<DataId>,
     /// The prelude's text operations with native JS, and which.
     text_natives: HashMap<DefId, TextNative>,
+    /// The prelude's `Int`, if it's a `bigint` in generated code
+    /// ([`Options::native_int`], [`bind_int`]).
+    int: Option<DataId>,
+    /// The prelude's integer operations with native JS, and which.
+    int_natives: HashMap<DefId, IntNative>,
     /// Per definition: whether it's erased, and which of its leading
     /// parameters (up to its arity) are erased.
     erased: Vec<(bool, Vec<bool>)>,
@@ -1144,11 +1200,27 @@ impl<'g> Gen<'g> {
         } else {
             HashMap::new()
         };
+        // The natives assume the `bigint` representation, so they're used
+        // only with it, and it only for the `Int` it was written for.
+        let int = int_data(g).filter(|_| options.native_int);
+        let int_natives = if int.is_some() {
+            bind_int(g)
+                .map_err(Diagnostic::from)?
+                .natives
+                .into_iter()
+                .filter(|b| b.bound && (text.is_some() || !b.native.uses_text()))
+                .filter_map(|b| Some((b.id?, b.native)))
+                .collect()
+        } else {
+            HashMap::new()
+        };
         Ok(Gen {
             g,
             nat: g.registry.data(Builtin::Nat),
             text,
             text_natives,
+            int,
+            int_natives,
             erased,
             conventions,
             delay,
@@ -1171,6 +1243,13 @@ impl<'g> Gen<'g> {
                 "const {} = {};\n",
                 def_name(&def.path),
                 text_native_js(*op)
+            ));
+        }
+        if let Some(op) = self.int_natives.get(&id) {
+            return Ok(format!(
+                "const {} = {};\n",
+                def_name(&def.path),
+                int_native_js(*op)
             ));
         }
         if let Some(op) = self.g.builtins.native(id) {
@@ -1308,7 +1387,7 @@ impl<'g> Gen<'g> {
                 .zip(&data.ctors[c].field_erased)
                 .enumerate()
             {
-                if !erased && Some(*d) != self.nat {
+                if !erased && Some(*d) != self.nat && Some(*d) != self.int {
                     let _ = writeln!(
                         out,
                         "{pad}const {} = {scrutinee}{};",
@@ -1336,6 +1415,18 @@ impl<'g> Gen<'g> {
             branch(&mut out, 0, &branches[0], depth + 1)?;
             let _ = writeln!(out, "{pad}}} else {{");
             let _ = writeln!(out, "{pad}  const {predecessor} = {scrutinee} - 1n;");
+            branch(&mut out, 1, &branches[1], depth + 1)?;
+            let _ = writeln!(out, "{pad}}}");
+        } else if Some(*d) == self.int {
+            // A `bigint`: `OfNat n` is `n` itself, and `NegSucc n` is
+            // `-n - 1n`, so the sign tells them apart, and `-x - 1n` gives
+            // `NegSucc`'s field back.
+            let field = predecessor;
+            let _ = writeln!(out, "{pad}if ({scrutinee} >= 0n) {{");
+            let _ = writeln!(out, "{pad}  const {field} = {scrutinee};");
+            branch(&mut out, 0, &branches[0], depth + 1)?;
+            let _ = writeln!(out, "{pad}}} else {{");
+            let _ = writeln!(out, "{pad}  const {field} = -{scrutinee} - 1n;");
             branch(&mut out, 1, &branches[1], depth + 1)?;
             let _ = writeln!(out, "{pad}}}");
         } else if Some(*d) == self.text {
@@ -1487,6 +1578,16 @@ impl<'g> Gen<'g> {
                         (_, n) => format!("({} + {n}n)", self.expr(inner, env)?),
                     });
                 }
+                if Some(*d) == self.int {
+                    // `OfNat n` is `n`, and `NegSucc n` is `-n - 1n`. A
+                    // `Nat`'s JS is a literal, a name, a call or in brackets,
+                    // so `-` applies to all of it.
+                    return Ok(match (*c, self.nat_literal(&args[0])) {
+                        (0, _) => self.expr(&args[0], env)?,
+                        (_, Some(n)) => format!("-{}n", n + 1u32),
+                        (_, None) => format!("(-{} - 1n)", self.expr(&args[0], env)?),
+                    });
+                }
                 let ctor = &data.ctors[*c];
                 let mut fields = Vec::new();
                 if !data.record {
@@ -1598,6 +1699,61 @@ impl<'g> Gen<'g> {
         Ok(out)
     }
 
+    /// The number a `Nat` term is, if it's written out: `Succ`s around
+    /// `Zero` or a compact number.
+    fn nat_literal(&self, term: &Term) -> Option<BigUint> {
+        let mut count = 0u64;
+        let mut term = term.strip_loc();
+        loop {
+            match term {
+                Term::Nat(k) => return Some(&**k + count),
+                Term::Ctor(d, 0, _) if Some(*d) == self.nat => return Some(BigUint::from(count)),
+                Term::Ctor(d, 1, succ) if Some(*d) == self.nat => {
+                    count += 1;
+                    term = succ[0].strip_loc();
+                }
+                _ => return None,
+            }
+        }
+    }
+
+    /// The runtime's `INT` codec, for the prelude's `Int` `d` (only when
+    /// [`bind_int`] binds it). At the boundary, an `Int` is a `bigint` of
+    /// either sign. Decoding refuses anything else, including a `number`
+    /// and a numeric string; encoding can't fail.
+    fn int_codec(&self, d: DataId) -> String {
+        const DECODE: &str = "(x) => (typeof x === \"bigint\" ? x : refuse(\"expected a bigint\"))";
+        if self.int.is_some() {
+            return format!(
+                "\n// `Int` is a `bigint` of either sign, inside generated code too.\nconst INT = leaf({DECODE}, (v) => v);\n"
+            );
+        }
+        // Inside generated code, `OfNat n` and `NegSucc n` are objects, as
+        // any data type's constructors are (`Options::native_int` off).
+        let data = self.g.data(d);
+        let tag = |c: usize| js_string_literal(&data.ctors[c].name);
+        let field = |c: usize| key(self.g, d, &data.ctors[c].fields[0].0);
+        format!(
+            "\n// `Int` is a `bigint` of either sign at the boundary, and `{of_nat}` or\n\
+             // `{neg_succ}` inside generated code.\n\
+             const INT = leaf(\n  \
+               (x) => {{\n    \
+                 const n = ({DECODE})(x);\n    \
+                 return n >= 0n ? {{ tag: {t0}, {k0}: n }} : {{ tag: {t1}, {k1}: -n - 1n }};\n  \
+               }},\n  \
+               (v) => (v.tag === {t0} ? v{m0} : -v{m1} - 1n),\n\
+             );\n",
+            of_nat = data.ctors[0].name,
+            neg_succ = data.ctors[1].name,
+            t0 = tag(0),
+            t1 = tag(1),
+            k0 = ts_key(&field(0)),
+            k1 = ts_key(&field(1)),
+            m0 = member(&field(0)),
+            m1 = member(&field(1)),
+        )
+    }
+
     /// The tag of `Decidable`'s first constructor (`Yes`).
     fn decision_yes_tag(&self) -> String {
         self.g.registry.data(Builtin::Decidable).map_or_else(
@@ -1611,6 +1767,7 @@ impl<'g> Gen<'g> {
     fn type_expr(&self, b: &Boundary) -> String {
         match b {
             Boundary::Nat => "NAT".into(),
+            Boundary::Int => "INT".into(),
             Boundary::Bool => "BOOL".into(),
             Boundary::Text => "TEXT".into(),
             Boundary::Char => "CHAR".into(),
@@ -1719,7 +1876,7 @@ impl<'g> Gen<'g> {
     /// `params` names a data type's parameters, inside its alias.
     fn ts_type(&self, b: &Boundary, readonly: bool, params: &[String]) -> String {
         match b {
-            Boundary::Nat => "bigint".into(),
+            Boundary::Nat | Boundary::Int => "bigint".into(),
             Boundary::Bool => "boolean".into(),
             Boundary::Text | Boundary::Char => "string".into(),
             Boundary::List(elem) if readonly => {
@@ -2050,10 +2207,10 @@ const TEXT_NATIVES: &[(Builtin, TextNative, &str)] = &[
     ),
 ];
 
-/// Whether a text native applies to the program's definition of that name.
-pub struct TextBinding {
+/// Whether a native applies to the program's definition of that name.
+pub struct NativeBinding<N> {
     pub name: &'static str,
-    pub native: TextNative,
+    pub native: N,
     /// The definition, if there is one.
     pub id: Option<DefId>,
     /// Its content hash, in hex.
@@ -2062,12 +2219,18 @@ pub struct TextBinding {
     pub bound: bool,
 }
 
-/// Matches each text native with the definition it replaces, by content hash.
-pub fn bind_text_natives(g: &Globals) -> Result<Vec<TextBinding>, ResourceError> {
+pub type TextBinding = NativeBinding<TextNative>;
+
+/// Matches each native in `table` with the definition it replaces, by
+/// content hash.
+fn bind_natives<N: Copy>(
+    g: &Globals,
+    table: &[(Builtin, N, &str)],
+) -> Result<Vec<NativeBinding<N>>, ResourceError> {
     let _op = g
         .budget
         .operation(Limits::stack_only(Limits::default().stack));
-    TEXT_NATIVES
+    table
         .iter()
         .map(|&(builtin, native, expected)| {
             let id = g.registry.def(builtin);
@@ -2075,7 +2238,7 @@ pub fn bind_text_natives(g: &Globals) -> Result<Vec<TextBinding>, ResourceError>
                 Some(id) => def_hash(g, id)?.map(|h| h.hex()),
                 None => None,
             };
-            Ok(TextBinding {
+            Ok(NativeBinding {
                 name: builtin.name(),
                 native,
                 id,
@@ -2084,6 +2247,291 @@ pub fn bind_text_natives(g: &Globals) -> Result<Vec<TextBinding>, ResourceError>
             })
         })
         .collect()
+}
+
+/// Matches each text native with the definition it replaces, by content hash.
+pub fn bind_text_natives(g: &Globals) -> Result<Vec<TextBinding>, ResourceError> {
+    bind_natives(g, TEXT_NATIVES)
+}
+
+/// The content hash (DESIGN.md §11) of the prelude's `Int`, which the
+/// `bigint` representation was written for. It covers the constructors,
+/// their order, names and fields, and `Nat`. The representation is one
+/// contract with its constructors' and matching's JS, the boundary codec,
+/// the `.d.ts` type and every integer native, so all of those apply exactly
+/// when this matches; otherwise `Int` is compiled as the ordinary data type
+/// it is, with the ordinary codec (docs/proposals/integers.md, "Two separate
+/// fallbacks"). A test fails until the representation has been checked
+/// against a changed `Int` and this updated.
+const INT_DATA_HASH: &str = "428aec701d06adbd62795fdbc01b7976c1beac83cdcb385d8d4eaebd14ce4b30";
+
+/// Whether the `bigint` representation applies to the program's `Int`, and
+/// which integer natives apply to its definitions.
+pub struct IntBinding {
+    /// The prelude's `Int`, if there is one.
+    pub data: Option<DataId>,
+    /// Its content hash, in hex.
+    pub hash: Option<String>,
+    /// Whether it's the data type the representation was written for.
+    pub bound: bool,
+    /// Each native, whether or not the representation applies: a native is
+    /// used only if both its definition and the representation are bound.
+    pub natives: Vec<NativeBinding<IntNative>>,
+}
+
+/// Matches the `bigint` representation with the prelude's `Int`, and each
+/// integer native with the definition it replaces, by content hash.
+pub fn bind_int(g: &Globals) -> Result<IntBinding, ResourceError> {
+    let _op = g
+        .budget
+        .operation(Limits::stack_only(Limits::default().stack));
+    let data = g.registry.data(Builtin::Int);
+    let hash = match data {
+        Some(d) => data_hash(g, d)?.map(|h| h.hex()),
+        None => None,
+    };
+    Ok(IntBinding {
+        data,
+        bound: hash.as_deref() == Some(INT_DATA_HASH),
+        hash,
+        natives: bind_natives(g, INT_NATIVES)?,
+    })
+}
+
+/// The prelude's `Int`, if the `bigint` representation applies to it
+/// ([`bind_int`]). Hashing a checked data type with two constructors of one
+/// field each takes a few stack frames, and the hash is remembered.
+fn int_data(g: &Globals) -> Option<DataId> {
+    let d = g.registry.data(Builtin::Int)?;
+    let _op = g
+        .budget
+        .operation(Limits::stack_only(Limits::default().stack));
+    let hash = data_hash(g, d).expect("internal error: hashing `Int` ran out of resources")?;
+    (hash.hex() == INT_DATA_HASH).then_some(d)
+}
+
+/// A prelude integer operation with a native JS implementation, in generated
+/// code where an `Int` is a `bigint` ([`Options::native_int`]). Like the
+/// number and text natives, these are trusted, and tested against the
+/// definitions they replace (`crates/cli/tests/extract.rs`). A division's
+/// proof that the divisor isn't zero is erased, but it exists (or an
+/// export's precondition check has just established it), so none of these
+/// divides by zero.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum IntNative {
+    NatToInt,
+    IntNeg,
+    IntAdd,
+    IntSub,
+    IntMul,
+    IntDiv,
+    IntMod,
+    IntTDiv,
+    IntTMod,
+    IntFDiv,
+    IntFMod,
+    IntModNat,
+    DecEqInt,
+    IntLeq,
+    IntLess,
+    IntCompare,
+    IntNatAbs,
+    IntAbs,
+    IntToNat,
+    IntToNatChecked,
+    IntSign,
+    IntToText,
+    TextToInt,
+}
+
+impl IntNative {
+    /// Whether it also assumes that a `Text` is a string
+    /// ([`Options::native_text`]).
+    fn uses_text(self) -> bool {
+        matches!(self, IntNative::IntToText | IntNative::TextToInt)
+    }
+}
+
+/// Each integer native, the prelude definition it replaces, and that
+/// definition's content hash, as for [`TEXT_NATIVES`].
+const INT_NATIVES: &[(Builtin, IntNative, &str)] = &[
+    (
+        Builtin::NatToInt,
+        IntNative::NatToInt,
+        "6e9973e4558cd61d9f97a8a168d3c7c644ee38be27a43c1eb32cc4b60338cb98",
+    ),
+    (
+        Builtin::IntNeg,
+        IntNative::IntNeg,
+        "347cfafd037525c1413df9f8db0642268050cebc4d5f9b45bb402e53f4c828cd",
+    ),
+    (
+        Builtin::IntAdd,
+        IntNative::IntAdd,
+        "8e3611484f01b9db8555c2ad9d374082dabdda2863f293adbf109a7dc248eb7f",
+    ),
+    (
+        Builtin::IntSub,
+        IntNative::IntSub,
+        "5f86c2911011a929b23204a693c68c066b16c39839417876e6e53f96ee9b66f9",
+    ),
+    (
+        Builtin::IntMul,
+        IntNative::IntMul,
+        "be8f0dc36cee51571529c6f3badbbb2a319ad742a71ca6f8185eba4fba0268d8",
+    ),
+    (
+        Builtin::IntDiv,
+        IntNative::IntDiv,
+        "00184364ab716015c02cb9fd21b1a087e7dbf106ae1d4afc176e077e59a71e87",
+    ),
+    (
+        Builtin::IntMod,
+        IntNative::IntMod,
+        "7290ad8fdf81843bc0aedcb400b98108d295a74484d17882e33e2ffea5303438",
+    ),
+    (
+        Builtin::IntTDiv,
+        IntNative::IntTDiv,
+        "7b8beafe3bd733da9cc032f34ceff34722d1a765966d4e9d71837f099bf6cd91",
+    ),
+    (
+        Builtin::IntTMod,
+        IntNative::IntTMod,
+        "4aaa804d1a3902240e9bbaedba84f8025bd10bd4acbfcd28e72606771403660f",
+    ),
+    (
+        Builtin::IntFDiv,
+        IntNative::IntFDiv,
+        "fd93a2b681035e898a6ca0ed09c78124e53bc5875c93f2d30b46896dfca56920",
+    ),
+    (
+        Builtin::IntFMod,
+        IntNative::IntFMod,
+        "580c6866f2cd6e3989c9db1aff2cc1e09aaa1e74a8c617700d43279203e62fc4",
+    ),
+    (
+        Builtin::IntModNat,
+        IntNative::IntModNat,
+        "d4c14c8721e2231580d0a85ab6f29024da74cca7fb759cdff91ab47a3d4220e9",
+    ),
+    (
+        Builtin::DecEqInt,
+        IntNative::DecEqInt,
+        "19a294aa23ae9b96c6960af32f50d921968c5921d779ce6dcb550aacadcf2e3f",
+    ),
+    (
+        Builtin::IntLeq,
+        IntNative::IntLeq,
+        "1076606963454e39dc191da34bbe1321ba54284d5597a50451af3b9c10ebcac6",
+    ),
+    (
+        Builtin::IntLess,
+        IntNative::IntLess,
+        "206176cbbaa05dc2f9486d7e52c86aedf381cbd28945f337f26e73928221763b",
+    ),
+    (
+        Builtin::IntCompare,
+        IntNative::IntCompare,
+        "ef69f80765a9b9cca880a9c260b0c82b3521fde01f4cacdcea76eeca685f7212",
+    ),
+    (
+        Builtin::IntNatAbs,
+        IntNative::IntNatAbs,
+        "ba7abe1722616144bdd8c853b8857234cde73e16cb804dfaa9a0338bbdd6c50a",
+    ),
+    (
+        Builtin::IntAbs,
+        IntNative::IntAbs,
+        "9c9c66ca4fbfca3668de18a91351c4cea27ae57b6ebaa13c4111d33ec857efb0",
+    ),
+    (
+        Builtin::IntToNat,
+        IntNative::IntToNat,
+        "ba03131d46190cbd9ce659db558566c7ae783121cd53b42c7214b107bda06eb1",
+    ),
+    (
+        Builtin::IntToNatChecked,
+        IntNative::IntToNatChecked,
+        "65cfa936910e663a0ae2b245934f35a8a9e1227d68bab815208eac8c0ac18a29",
+    ),
+    (
+        Builtin::IntSign,
+        IntNative::IntSign,
+        "0d3ecb4f6ca1f8fcd622fe27004aa12669b02001eb36f4a8479964458da2edc3",
+    ),
+    (
+        Builtin::IntToText,
+        IntNative::IntToText,
+        "9d9cad248e69fc5784cd1c4eb75cd3f97b4dfeeb13bd7e455e661aae65549128",
+    ),
+    (
+        Builtin::TextToInt,
+        IntNative::TextToInt,
+        "37fa173e81ef699f570b342f7309110a7d91386fb86b7e38b4706414c83f1d79",
+    ),
+];
+
+/// JS for an integer native. The prelude's types have the representation the
+/// runtime uses (`Just`'s `value`, the constructors' names as tags). BigInt's
+/// `/` and `%` truncate towards zero, and `%` takes the dividend's sign
+/// (truncated division); the Euclidean and floored conventions correct that
+/// by one step where the remainder has the wrong sign (Leijen, "Division and
+/// modulus for computer scientists").
+fn int_native_js(op: IntNative) -> &'static str {
+    match op {
+        IntNative::NatToInt => "(n) => n",
+        IntNative::IntNeg => "(a) => -a",
+        IntNative::IntAdd => "(a) => (b) => a + b",
+        IntNative::IntSub => "(a) => (b) => a - b",
+        IntNative::IntMul => "(a) => (b) => a * b",
+        // Euclidean: the remainder is never negative.
+        IntNative::IntDiv => {
+            "(a) => (d) => { const q = a / d, r = a % d; return r < 0n ? (d > 0n ? q - 1n : q + 1n) : q; }"
+        }
+        IntNative::IntMod => {
+            "(a) => (d) => { const r = a % d; return r < 0n ? (d > 0n ? r + d : r - d) : r; }"
+        }
+        IntNative::IntTDiv => "(a) => (d) => a / d",
+        IntNative::IntTMod => "(a) => (d) => a % d",
+        // Floored: the remainder has the divisor's sign.
+        IntNative::IntFDiv => {
+            "(a) => (d) => { const q = a / d, r = a % d; return r !== 0n && (r < 0n) !== (d < 0n) ? q - 1n : q; }"
+        }
+        IntNative::IntFMod => {
+            "(a) => (d) => { const r = a % d; return r !== 0n && (r < 0n) !== (d < 0n) ? r + d : r; }"
+        }
+        // The divisor is a positive `Nat`.
+        IntNative::IntModNat => "(a) => (d) => { const r = a % d; return r < 0n ? r + d : r; }",
+        IntNative::DecEqInt => "(a) => (b) => ({ tag: a === b ? \"Yes\" : \"No\" })",
+        IntNative::IntLeq => "(a) => (b) => ({ tag: a <= b ? \"True\" : \"False\" })",
+        IntNative::IntLess => "(a) => (b) => ({ tag: a < b ? \"True\" : \"False\" })",
+        IntNative::IntCompare => {
+            "(a) => (b) => ({ tag: a < b ? \"Less\" : a === b ? \"Equal\" : \"Greater\" })"
+        }
+        IntNative::IntNatAbs | IntNative::IntAbs => "(a) => (a < 0n ? -a : a)",
+        IntNative::IntToNat => "(a) => (a < 0n ? 0n : a)",
+        IntNative::IntToNatChecked => {
+            "(a) => (a < 0n ? { tag: \"Nothing\" } : { tag: \"Just\", value: a })"
+        }
+        IntNative::IntSign => "(a) => (a > 0n ? 1n : a < 0n ? -1n : 0n)",
+        IntNative::IntToText => "(a) => a.toString()",
+        // An optional `-`, then what `Text.toNat` accepts: one or more ASCII
+        // digits and nothing else. (`BigInt` alone would also accept "",
+        // " 12", "+5" and "0x10".) `-0` is `0`.
+        IntNative::TextToInt => {
+            r#"(t) => {
+  const s = t.charCodeAt(0) === 45 ? t.slice(1) : t;
+  if (s === "") return { tag: "Nothing" };
+  for (let i = 0; i < s.length; i++) {
+    const unit = s.charCodeAt(i);
+    if (unit < 48 || unit > 57) return { tag: "Nothing" };
+  }
+  const n = BigInt(s);
+  return { tag: "Just", value: s === t ? n : -n };
+}"#
+        }
+    }
 }
 
 /// JS for a text native. The runtime's helpers (`TEXT_AS_STRING`) are in
@@ -2437,6 +2885,14 @@ pub fn boundary_literal(g: &Globals, b: &Boundary, value: &Value) -> Result<Stri
             Some(n) => Ok(format!("{n}n")),
             None => Err(stuck()),
         },
+        // `OfNat n` is `n`, and `NegSucc n` is `-n - 1`.
+        (Boundary::Int, Value::Ctor(_, c, fields)) => {
+            match native::as_nat(g, &fields[0]).map_err(|e| e.to_string())? {
+                Some(n) if *c == 0 => Ok(format!("{n}n")),
+                Some(n) => Ok(format!("-{}n", n + 1u32)),
+                None => Err(stuck()),
+            }
+        }
         // A list, possibly ending in a compact one, walked one cell at a time
         // as matching would.
         (Boundary::List(elem), _) => {

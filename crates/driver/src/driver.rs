@@ -48,13 +48,20 @@ impl Session {
     }
 
     pub fn new() -> Self {
+        Session::with_prelude(PRELUDE)
+    }
+
+    /// A session whose prelude is the given text: for tests that change a
+    /// prelude definition.
+    #[doc(hidden)]
+    pub fn with_prelude(prelude: &str) -> Self {
         let mut session = Session {
             sources: SourceMap::new(),
             elab: Elaborator::new(),
             warnings: Vec::new(),
         };
         session.elab.loading_prelude = true;
-        if let Err(diagnostics) = session.load("<prelude>", PRELUDE) {
+        if let Err(diagnostics) = session.load("<prelude>", prelude) {
             panic!("internal error: the prelude doesn't check: {diagnostics:#?}");
         }
         if let Err(missing) = session.elab.finish_prelude() {
