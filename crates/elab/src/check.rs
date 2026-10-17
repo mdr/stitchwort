@@ -265,6 +265,12 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             "a named implicit argument must follow a function",
             "write `f [x := …]`",
         )),
+        Expr::Neg(_, span) => Err(Diagnostic::error(
+            "E-UNSUPPORTED",
+            "negative numbers and prefix `-` aren't supported yet",
+        )
+        .with_label(*span, "not yet supported")
+        .with_note("`Int` literals and negation are still being built")),
         Expr::Num(n, _) => Ok((
             Term::Nat(Rc::new(n.clone())),
             Value::Data(nat(cx)?, Vec::new()),

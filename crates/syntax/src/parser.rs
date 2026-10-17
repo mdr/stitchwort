@@ -489,6 +489,18 @@ impl<'t> Parser<'t> {
                 Ok(Pattern::Absurd(span.to(end)))
             }
             Some(Tok::LBrace) => self.record_pattern(),
+            Some(Tok::LParen) if self.peek_at(1) == Some(&Tok::Minus) => {
+                // `(-k)`: a negative number pattern, only in brackets.
+                self.bump();
+                self.bump();
+                let Some(Tok::Num(n)) = self.peek() else {
+                    return Err(self.unexpected("a number"));
+                };
+                let n = n.clone();
+                self.bump();
+                let end = self.expect(Tok::RParen, "`)`")?.span;
+                Ok(Pattern::NegNum(n, span.to(end)))
+            }
             Some(Tok::LParen) => {
                 self.bump();
                 let pattern = if let Some(Tok::Upper(_)) = self.peek() {
@@ -1046,7 +1058,7 @@ impl<'t> Parser<'t> {
 
     /// `*`, `/`, `%`: left-associative, binding tighter than `+`.
     fn mul_expr(&mut self) -> Result<Expr> {
-        let mut lhs = self.app()?;
+        let mut lhs = self.unary()?;
         loop {
             let op = match self.peek() {
                 Some(Tok::Star) => BinOp::Mul,
@@ -1055,9 +1067,22 @@ impl<'t> Parser<'t> {
                 _ => return Ok(lhs),
             };
             self.bump();
-            let rhs = self.app()?;
+            let rhs = self.unary()?;
             lhs = Expr::Binary(op, Box::new(lhs), Box::new(rhs));
         }
+    }
+
+    /// A prefix minus (which may repeat), tighter than `*` and looser than
+    /// application and dots: `-x.abs` is `-(x.abs)`, `-f x` is `-(f x)`.
+    fn unary(&mut self) -> Result<Expr> {
+        if self.peek() == Some(&Tok::Minus) {
+            self.deeper()?;
+            let start = self.bump().span;
+            let operand = self.unary()?;
+            let span = start.to(operand.span());
+            return Ok(Expr::Neg(Box::new(operand), span));
+        }
+        self.app()
     }
 
     fn app(&mut self) -> Result<Expr> {
@@ -1800,5 +1825,65 @@ mod tests {
             "{}",
             e.message
         );
+    }
+
+    /// An expression's shape, fully bracketed.
+    fn shape(e: &Expr) -> String {
+        match e {
+            Expr::Var(n) => n.text.clone(),
+            Expr::Num(n, _) => n.to_string(),
+            Expr::Neg(x, _) => format!("(- {})", shape(x)),
+            Expr::App(f, a) => format!("({} {})", shape(f), shape(a)),
+            Expr::Field(x, n) => format!("{}.{}", shape(x), n.text),
+            Expr::Binary(op, a, b) => format!("({op:?} {} {})", shape(a), shape(b)),
+            other => panic!("unexpected {other:?}"),
+        }
+    }
+
+    fn shape_of(text: &str) -> String {
+        shape(&rhs_of(&format!("g x y f a b = {text}\n")).unwrap())
+    }
+
+    #[test]
+    fn prefix_minus_precedence() {
+        let cases = [
+            ("-x.abs", "(- x.abs)"),
+            ("(-x).abs", "(- x).abs"),
+            ("-f x", "(- (f x))"),
+            ("f -x", "(Sub f x)"),
+            ("-a * b", "(Mul (- a) b)"),
+            ("a * -b", "(Mul a (- b))"),
+            ("-18 % 100", "(Mod (- 18) 100)"),
+            ("-(18 % 100)", "(- (Mod 18 100))"),
+            ("a - -b", "(Sub a (- b))"),
+            ("- -x", "(- (- x))"),
+            ("a + -b * c", "(Add a (Mul (- b) c))"),
+            ("f (-5)", "(f (- 5))"),
+            ("f -5", "(Sub f 5)"),
+        ];
+        for (text, want) in cases {
+            assert_eq!(shape_of(text), want, "{text}");
+        }
+        // `--` starts a comment.
+        assert_eq!(shape_of("a --b"), "a");
+    }
+
+    #[test]
+    fn negative_number_patterns() {
+        let module = parse("f (-1) 0 (Just (-20)) = 1\n");
+        let Decl::Equation { patterns, .. } = &module.decls[0] else {
+            panic!()
+        };
+        assert!(matches!(&patterns[0], Pattern::NegNum(n, _) if *n == 1u32.into()));
+        assert!(matches!(&patterns[1], Pattern::Num(..)));
+        let Pattern::Ctor(_, args, _) = &patterns[2] else {
+            panic!()
+        };
+        assert!(matches!(&args[0], Pattern::NegNum(n, _) if *n == 20u32.into()));
+        for bad in ["f (-x) = 1\n", "f (- - 1) = 1\n", "f (-1 + 2) = 1\n"] {
+            let mut sources = SourceMap::new();
+            let file = sources.add("test.sw", bad);
+            assert!(parse_module(file, bad).is_err(), "{bad}");
+        }
     }
 }

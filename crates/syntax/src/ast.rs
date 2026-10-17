@@ -44,6 +44,8 @@ pub enum Expr {
     Arrow(Box<Expr>, Box<Expr>),
     /// `a = b`, `a + b`, …
     Binary(BinOp, Box<Expr>, Box<Expr>),
+    /// A prefix minus: `-e`.
+    Neg(Box<Expr>, Span),
     /// `if c then a else b`, or with a binder, `if h : P then a else b`, where
     /// `h` is a proof of `P` in `a` and of `Not P` in `b`.
     If {
@@ -158,6 +160,7 @@ impl Expr {
             | Expr::If { span, .. }
             | Expr::Hole(span)
             | Expr::Ann(_, _, span)
+            | Expr::Neg(_, span)
             | Expr::List(_, span)
             | Expr::Unit(span)
             | Expr::Let { span, .. }
@@ -198,7 +201,9 @@ fn has_nested(expr: &Expr) -> bool {
         Expr::App(a, b) | Expr::Arrow(a, b) | Expr::Binary(_, a, b) | Expr::Seq(a, b) => {
             nested(a) || nested(b)
         }
-        Expr::Lam(_, b, _) | Expr::NamedArg(_, b, _) | Expr::Effect(_, b) => nested(b),
+        Expr::Lam(_, b, _) | Expr::NamedArg(_, b, _) | Expr::Neg(b, _) | Expr::Effect(_, b) => {
+            nested(b)
+        }
         Expr::Pi { dom, cod, .. } => nested(dom) || nested(cod),
         Expr::Ann(e, t, _) => nested(e) || nested(t),
         Expr::If {
@@ -246,7 +251,9 @@ fn take_children(expr: &mut Expr, pending: &mut Vec<Expr>) {
             take(a);
             take(b);
         }
-        Expr::Lam(_, b, _) | Expr::NamedArg(_, b, _) | Expr::Effect(_, b) => take(b),
+        Expr::Lam(_, b, _) | Expr::NamedArg(_, b, _) | Expr::Neg(b, _) | Expr::Effect(_, b) => {
+            take(b)
+        }
         Expr::Pi { dom, cod, .. } => {
             take(dom);
             take(cod);
@@ -337,6 +344,8 @@ pub enum Pattern {
     Absurd(Span),
     /// A number: that many `Succ`s around `Zero`.
     Num(BigUint, Span),
+    /// A negative number `(-k)`, written in brackets.
+    NegNum(BigUint, Span),
     Ctor(Name, Vec<Pattern>, Span),
     /// A record pattern `{ name = p, age }` (a punned field is a variable of
     /// its name), with `rest` for a trailing `..` that ignores the other
@@ -367,6 +376,7 @@ impl Pattern {
             Pattern::Wildcard(span)
             | Pattern::Absurd(span)
             | Pattern::Num(_, span)
+            | Pattern::NegNum(_, span)
             | Pattern::Ctor(_, _, span)
             | Pattern::Record { span, .. } => *span,
         }

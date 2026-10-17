@@ -252,6 +252,8 @@ Loosest-binding first:
 | `a ++ b` | Joins two texts (`Text.append`) or two lists (`List.append`). Binds more loosely than `+`, and groups to the right |
 | `a + b`, `a - b` | Addition, and subtraction stopping at zero. Left-associative |
 | `a * b`, `a / b`, `a % b` | Bind tighter than `+`. `/` and `%` need a proof that `b != 0` |
+| `-e` | Prefix minus (parsed; the elaborator rejects it until `Int` literals land, [integers.md](proposals/integers.md)). Binds tighter than `*` `/` `%` and looser than application and dots: `-x.abs` is `-(x.abs)`, `-18 % 100` is `(-18) % 100`. Not an argument: `f -5` is `f - 5`; write `f (-5)`. May repeat (`- -x`; `--` starts a comment) |
+| `(-k)` | In a pattern: a negative number, in brackets, numerals only |
 | `f a b` | Application |
 | `f [x := e]` | Supplying the implicit parameter `x` by name |
 | `_` | A hole the compiler fills in |
