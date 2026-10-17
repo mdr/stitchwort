@@ -187,13 +187,23 @@ fn examples() -> Vec<(String, String, Session)> {
         .collect()
 }
 
-/// Text as a list, every operation compiled from its definition.
-const LIST_TEXT: Options = Options { native_text: false };
+/// Text as a list, every text operation compiled from its definition.
+const LIST_TEXT: Options = Options {
+    native_text: false,
+    native_int: true,
+};
+
+/// `Int` as its constructors inside generated code, every integer operation
+/// compiled from its definition.
+const DATA_INT: Options = Options {
+    native_text: true,
+    native_int: false,
+};
 
 /// Runs every case against the generated JS under Node, and compares, with
 /// native text operations and without.
 fn check_in_node(name: &str, g: &Globals, cases: &[Case]) {
-    for options in [Options::default(), LIST_TEXT] {
+    for options in [Options::default(), LIST_TEXT, DATA_INT] {
         check_in_node_with(name, g, cases, options);
     }
 }
@@ -219,11 +229,12 @@ fn check_in_node_with(name: &str, g: &Globals, cases: &[Case], options: Options)
     script.push_str("console.log(JSON.stringify(results));\n");
 
     let dir = std::env::temp_dir().join(format!(
-        "stitchwort-extract-{}-{}-{}-{}",
+        "stitchwort-extract-{}-{}-{}-{}-{}",
         std::process::id(),
         name.trim_end_matches(".sw"),
         cases.len(),
-        options.native_text
+        options.native_text,
+        options.native_int
     ));
     std::fs::create_dir_all(&dir).expect("create temp dir");
     std::fs::write(dir.join("module.mjs"), &output.js).expect("write module");
@@ -351,6 +362,20 @@ fn random_value(g: &Globals, b: &Boundary, rng: &mut Rng, depth: usize) -> Value
                 let head = random_value(g, elem, rng, depth.saturating_sub(1));
                 Value::Ctor(named("List"), 1, vec![head, tail].into())
             })
+        }
+        // Mostly small, sometimes around ±2^64 and ±2^128.
+        Boundary::Int => {
+            let magnitude = match rng.below(4) {
+                0 => {
+                    (BigUint::from(1u32) << (64 * (1 + rng.below(2)))) - BigUint::from(rng.below(3))
+                }
+                _ => BigUint::from(rng.below(13)),
+            };
+            Value::Ctor(
+                named("Int"),
+                rng.below(2),
+                vec![Value::Nat(std::rc::Rc::new(magnitude))].into(),
+            )
         }
         Boundary::Char => random_char(g, rng),
         Boundary::Text => {
@@ -1698,6 +1723,30 @@ fn text_natives_are_bound_to_the_prelude() {
     );
 }
 
+/// The `bigint` representation and every integer native apply to the
+/// prelude's `Int` and its definitions. If the prelude changes, this prints
+/// the new hashes: check the representation or the native against the
+/// changed declaration before updating them in `crates/js`.
+#[test]
+fn int_is_bound_to_the_prelude() {
+    let session = Session::new();
+    let binding = stitchwort_js::bind_int(&session.elab.globals).expect("hashes");
+    let mut unbound: Vec<String> = binding
+        .natives
+        .iter()
+        .filter(|b| !b.bound)
+        .map(|b| format!("{}: {:?}", b.name, b.hash))
+        .collect();
+    if !binding.bound {
+        unbound.insert(0, format!("the data type `Int`: {:?}", binding.hash));
+    }
+    assert!(
+        unbound.is_empty(),
+        "integer representation or natives not bound to the prelude's declarations:\n{}",
+        unbound.join("\n")
+    );
+}
+
 /// Definitions that call each other (docs/proposals/mutual-recursion.md
 /// §8.6). Only a definition's tail calls to itself are loops, so `isEven` on
 /// a large number uses a stack frame per step and runs out: a resource
@@ -1874,4 +1923,382 @@ console.log("ok");
         &[("native.mjs", native.js), ("list.mjs", list.js)],
         script,
     );
+}
+
+/// Every native integer operation, and the same operations compiled from
+/// their definitions (`DATA_INT`), must agree with each other and with
+/// `BigInt` arithmetic written out here, on all small pairs, values around
+/// the 64- and 128-bit boundaries, and seeded pseudo-random big values. Each
+/// division convention must satisfy `a == d*q + r` and its range law.
+#[test]
+fn int_natives_agree_with_the_definitions() {
+    let examples = examples();
+    let g = &example(&examples, "integers.sw").elab.globals;
+    let module = |options| {
+        stitchwort_js::generate_with(g, Limits::default(), options)
+            .expect("extraction succeeds")
+            .js
+    };
+    let script = r#"
+import * as native from "./native.mjs";
+import * as data from "./data.mjs";
+import assert from "node:assert/strict";
+
+let checked = 0;
+const same = (actual, expected, what) => {
+  checked += 1;
+  assert.deepEqual(actual, expected, what);
+};
+const abs = (x) => (x < 0n ? -x : x);
+const sgn = (x) => (x > 0n ? 1n : x < 0n ? -1n : 0n);
+
+// Seeded generator (xorshift), so failures reproduce.
+let state = 0x2545f4914f6cdd1dn;
+const next = () => {
+  state ^= (state << 13n) & 0xffffffffffffffffn;
+  state ^= state >> 7n;
+  state ^= (state << 17n) & 0xffffffffffffffffn;
+  return state;
+};
+const randomBig = () => {
+  const bits = Number(next() % 200n) + 1;
+  let v = 0n;
+  for (let i = 0; i < bits; i += 32) v = (v << 32n) | (next() & 0xffffffffn);
+  v &= (1n << BigInt(bits)) - 1n;
+  return next() % 2n === 0n ? v : -v;
+};
+
+const small = [];
+for (let i = -12n; i <= 12n; i++) small.push(i);
+const big = [];
+for (const k of [64n, 128n]) {
+  for (const d of [-1n, 0n, 1n]) {
+    big.push((1n << k) + d, -((1n << k) + d));
+  }
+}
+for (let i = 0; i < 20; i++) big.push(randomBig());
+const all = [...small, ...big];
+// Small by small, then big by small and big, and small by big.
+const pairs = [
+  ...small.flatMap((a) => small.map((b) => [a, b])),
+  ...big.flatMap((a) => all.map((b) => [a, b])),
+  ...small.flatMap((a) => big.map((b) => [a, b])),
+];
+
+// Independent definitions, from the laws rather than from `/` and `%`.
+const euclid = (a, d) => {
+  const r = ((a % abs(d)) + abs(d)) % abs(d);
+  return [(a - r) / d, r];
+};
+const floored = (a, d) => {
+  const r = ((a % d) + d) % d;
+  return [(a - r) / d, r];
+};
+const truncated = (a, d) => [a / d, a % d];
+
+const refusesZero = (m, name, ...args) =>
+  assert.throws(() => m[name](...args), (e) => e instanceof m.StitchwortInputError);
+
+for (const m of [native, data]) {
+  for (const name of ["eucDiv", "eucMod", "tdiv", "tmod", "fdiv", "fmod", "modNat"]) {
+    for (const a of all) {
+      refusesZero(m, name, a, 0n);
+      checked += 1;
+    }
+  }
+}
+
+for (const [a, b] of pairs) {
+  const tag = (op) => `${op} ${a} ${b}`;
+  for (const f of ["add", "sub", "mul", "decEq", "leq", "less", "compare"]) {
+    same(data[f](a, b), native[f](a, b), tag(f) + " (data)");
+  }
+  same(native.add(a, b), a + b, tag("add"));
+  same(native.sub(a, b), a - b, tag("sub"));
+  same(native.mul(a, b), a * b, tag("mul"));
+  same(native.decEq(a, b), a === b, tag("decEq"));
+  same(native.leq(a, b), a <= b, tag("leq"));
+  same(native.less(a, b), a < b, tag("less"));
+  same(native.compare(a, b), { tag: a < b ? "Less" : a === b ? "Equal" : "Greater" }, tag("compare"));
+  if (b === 0n) continue;
+  const d = b;
+  for (const [div, mod, convention, range] of [
+    ["eucDiv", "eucMod", euclid, (r) => r >= 0n && r < abs(d)],
+    ["tdiv", "tmod", truncated, (r) => abs(r) < abs(d) && (r === 0n || sgn(r) === sgn(a))],
+    ["fdiv", "fmod", floored, (r) => abs(r) < abs(d) && (r === 0n || sgn(r) === sgn(d))],
+  ]) {
+    const [q, r] = convention(a, d);
+    same(native[div](a, d), q, tag(div));
+    same(native[mod](a, d), r, tag(mod));
+    same(data[div](a, d), q, tag(div) + " (data)");
+    same(data[mod](a, d), r, tag(mod) + " (data)");
+    same(a, d * q + r, `${a} = ${d}*${q} + ${r}`);
+    same(range(r), true, `${mod} ${a} ${d} = ${r} is in range`);
+  }
+  if (d > 0n) {
+    const [, r] = euclid(a, d);
+    same(native.modNat(a, d), r, tag("modNat"));
+    same(data.modNat(a, d), r, tag("modNat") + " (data)");
+  }
+}
+
+for (const a of all) {
+  const tag = (op) => `${op} ${a}`;
+  for (const [f, expected] of [
+    ["neg", -a],
+    ["natAbs", abs(a)],
+    ["abs", abs(a)],
+    ["toNat", a < 0n ? 0n : a],
+    ["toNatChecked", a < 0n ? { tag: "Nothing" } : { tag: "Just", value: a }],
+    ["sign", sgn(a)],
+    ["toText", a.toString()],
+  ]) {
+    same(native[f](a), expected, tag(f));
+    same(data[f](a), expected, tag(f) + " (data)");
+  }
+  if (a >= 0n) {
+    same(native.ofNat(a), a, tag("ofNat"));
+    same(data.ofNat(a), a, tag("ofNat") + " (data)");
+  }
+  // The round trip.
+  same(native.parse(native.toText(a)), { tag: "Just", value: a }, tag("parse . toText"));
+  same(data.parse(data.toText(a)), { tag: "Just", value: a }, tag("parse . toText") + " (data)");
+}
+
+// The grammar: an optional `-`, then one or more ASCII digits, nothing else.
+const cases = ["", "-", "0", "-0", "007", "-007", "+5", " 5", "5 ", "--5", "0x10", "1e3", "12abc",
+  "-12", "18446744073709551616", "-18446744073709551617", "٥", "5\n", "-+5", "1_000"];
+for (const t of cases) {
+  const expected = /^-?[0-9]+$/.test(t) ? { tag: "Just", value: BigInt(t) } : { tag: "Nothing" };
+  same(native.parse(t), expected, `parse ${JSON.stringify(t)}`);
+  same(data.parse(t), expected, `parse ${JSON.stringify(t)} (data)`);
+}
+same(native.parse("-0"), { tag: "Just", value: 0n }, "-0 is 0");
+
+assert.ok(checked > 20000, `only ${checked} checks ran`);
+console.log("ok");
+"#;
+    run_script_on(
+        "int-natives",
+        &[
+            ("native.mjs", module(Options::default())),
+            ("data.mjs", module(DATA_INT)),
+        ],
+        script,
+    );
+}
+
+/// An `Int` decodes only from a `bigint` of either sign, and a `Nat`
+/// position still refuses a negative one, wherever each appears.
+#[test]
+fn int_crosses_the_boundary_strictly() {
+    let examples = examples();
+    let session = example(&examples, "integers.sw");
+    let dts = stitchwort_js::generate(&session.elab.globals, session.elab.limits)
+        .expect("extraction succeeds")
+        .dts;
+    assert!(dts.contains("export declare function add(a: bigint, b: bigint): bigint;"));
+    assert!(dts.contains("export declare function maybeInt(arg0: Maybe<bigint>): bigint;"));
+    assert!(
+        dts.contains("export type Entry = { readonly count: bigint; readonly delta: bigint };")
+    );
+    assert!(!dts.contains("OfNat") && !dts.contains("NegSucc"), "{dts}");
+    let script = r#"
+import * as m from "./integers.mjs";
+import assert from "node:assert/strict";
+
+const refused = (f, pattern) =>
+  assert.throws(f, (e) => e instanceof m.StitchwortInputError && pattern.test(e.message));
+
+// Either sign round-trips.
+for (const x of [0n, 1n, -1n, 5n, -5n, 2n ** 200n, -(2n ** 200n) - 1n]) {
+  assert.equal(m.add(x, 0n), x);
+  assert.equal(m.neg(m.neg(x)), x);
+  assert.deepEqual(m.maybeInt({ tag: "Just", value: x }), x * 2n);
+  assert.deepEqual(m.negateAll([{ tag: "Just", value: x }]), [{ tag: "Just", value: -x }]);
+}
+assert.equal(m.add(-3n, 10n), 7n);
+assert.deepEqual(m.negatives([0n, 4n]), [-1n, -5n]);
+assert.deepEqual(m.ofNats([1n, 2n]), [1n, 2n]);
+
+// Anything but a bigint is refused, a number and a numeric string included.
+for (const bad of [5, "5", 5.0, null, undefined, {}, [], true, Object(5n)]) {
+  refused(() => m.neg(bad), /^x: expected a bigint$/);
+}
+refused(() => m.add(1n, "1"), /^b: expected a bigint$/);
+
+// Nat and Int share a representation but not a validator.
+assert.deepEqual(m.apply({ count: 3n, delta: -1n }), { count: 3n, delta: 2n });
+assert.deepEqual(m.apply({ count: 0n, delta: -(2n ** 100n) }), { count: 0n, delta: -(2n ** 100n) });
+refused(() => m.apply({ count: -1n, delta: 1n }), /^e\.count: expected a non-negative bigint$/);
+refused(() => m.apply({ count: 1n, delta: 1 }), /^e\.delta: expected a bigint$/);
+refused(() => m.ofNat(-1n), /^n: expected a non-negative bigint$/);
+refused(() => m.ofNats([1n, -1n]), /^ns\[1\]: expected a non-negative bigint$/);
+
+// Inside Maybe and List (Maybe Int), in both directions.
+assert.equal(m.maybeInt({ tag: "Nothing" }), 0n);
+assert.deepEqual(m.toNatChecked(-1n), { tag: "Nothing" });
+assert.deepEqual(m.parse("-5"), { tag: "Just", value: -5n });
+refused(() => m.maybeInt({ tag: "Just", value: 4 }), /^arg0\.value: expected a bigint$/);
+refused(() => m.maybeInt({ tag: "Just", value: "4" }), /^arg0\.value: expected a bigint$/);
+assert.deepEqual(
+  m.negateAll([{ tag: "Nothing" }, { tag: "Just", value: 3n }, { tag: "Just", value: -3n }]),
+  [{ tag: "Nothing" }, { tag: "Just", value: -3n }, { tag: "Just", value: 3n }],
+);
+refused(() => m.negateAll([{ tag: "Nothing" }, { tag: "Just", value: 1.5 }]), /^xs\[1\]\.value: expected a bigint$/);
+refused(() => m.negateAll([{ tag: "Just", value: null }]), /^xs\[0\]\.value: expected a bigint$/);
+assert.deepEqual(m.firstNeg([3n, -4n, -5n]), { tag: "Just", value: -4n });
+console.log("ok");
+"#;
+    run_script("int-boundary", &[("integers.mjs", session)], script);
+}
+
+/// The prelude with `from` replaced by `to`, which must occur.
+fn changed_prelude(from: &str, to: &str) -> String {
+    assert!(
+        stitchwort_elab::PRELUDE.contains(from),
+        "the prelude doesn't contain `{from}`"
+    );
+    stitchwort_elab::PRELUDE.replacen(from, to, 1)
+}
+
+fn load_example(session: &mut Session, name: &str) {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../examples/extract")
+        .join(name);
+    let text = std::fs::read_to_string(&path).expect("readable example");
+    if let Err(diagnostics) = session.load(name, &text) {
+        let rendered: String = diagnostics
+            .iter()
+            .map(|d| render(&session.sources, d, false))
+            .collect();
+        panic!("{name} doesn't check:\n{rendered}");
+    }
+}
+
+/// A changed `Int.add` (same meaning, different definition) turns off that
+/// native only: it is compiled as written, and everything else, including
+/// the representation and the other natives, is as before.
+#[test]
+fn a_changed_int_operation_loses_only_its_native() {
+    let prelude = changed_prelude(
+        "Int.add (NegSucc m) (NegSucc n) = NegSucc (Succ (m + n))",
+        "Int.add (NegSucc m) (NegSucc n) = NegSucc (m + Succ n)",
+    );
+    let mut session = Session::with_prelude(&prelude);
+    load_example(&mut session, "integers.sw");
+    let g = &session.elab.globals;
+    let binding = stitchwort_js::bind_int(g).expect("hashes");
+    assert!(
+        binding.data.is_some() && binding.bound,
+        "the data type is still bound"
+    );
+    let unbound: Vec<&str> = binding
+        .natives
+        .iter()
+        .filter(|b| !b.bound)
+        .map(|b| b.name)
+        .collect();
+    // `Int.sub` is defined with `Int.add`, so its content hash changes too: a
+    // native is bound to the definition and everything it depends on.
+    assert_eq!(
+        unbound,
+        ["Int.add", "Int.sub"],
+        "only Int.add and its dependent Int.sub lose their natives"
+    );
+
+    let js = stitchwort_js::generate(g, session.elab.limits)
+        .expect("extraction succeeds")
+        .js;
+    assert!(
+        !js.contains("const $Std$dInt$dadd = (a) => (b) => a + b;"),
+        "Int.add is still native"
+    );
+    assert!(js.contains("const $Std$dInt$dadd = "), "Int.add is defined");
+    assert!(!js.contains("const $Std$dInt$dsub = (a) => (b) => a - b;"));
+    assert!(js.contains("const $Std$dInt$dmul = (a) => (b) => a * b;"));
+    assert!(js.contains("const INT = leaf("), "the representation is on");
+
+    let script = r#"
+import * as m from "./integers.mjs";
+import assert from "node:assert/strict";
+for (const [a, b] of [[0n, 0n], [3n, 4n], [-3n, 4n], [3n, -4n], [-3n, -4n], [2n ** 70n, -(2n ** 70n) - 1n], [-(2n ** 64n), -1n]]) {
+  assert.equal(m.add(a, b), a + b, `add ${a} ${b}`);
+  assert.equal(m.sub(a, b), a - b, `sub ${a} ${b}`);
+  assert.equal(m.mul(a, b), a * b);
+}
+assert.equal(m.dial(-18n), 82n);
+console.log("ok");
+"#;
+    run_script("int-changed-add", &[("integers.mjs", &session)], script);
+}
+
+/// A changed `Int` data type (here, one field renamed) turns the whole
+/// representation off: `Int` is an ordinary tagged data type, with the
+/// ordinary codec and `.d.ts` type and no integer natives, all consistent.
+#[test]
+fn a_changed_int_type_turns_the_representation_off() {
+    let prelude = changed_prelude("| OfNat (n : Nat)", "| OfNat (k : Nat)");
+    let mut session = Session::with_prelude(&prelude);
+    load_example(&mut session, "integers.sw");
+    let g = &session.elab.globals;
+    let binding = stitchwort_js::bind_int(g).expect("hashes");
+    assert!(!binding.bound, "the data type's hash should differ");
+    let output = stitchwort_js::generate(g, session.elab.limits).expect("extraction succeeds");
+    assert!(output.dts.contains("export type Int ="), "{}", output.dts);
+    assert!(
+        output
+            .dts
+            .contains("export declare function neg(x: Int): Int;"),
+        "{}",
+        output.dts
+    );
+    assert!(
+        output
+            .dts
+            .contains(r#"{ readonly tag: "OfNat"; readonly k: bigint }"#)
+    );
+    for native in ["(a) => (b) => a * b", "(a) => -a", "a.toString()"] {
+        assert!(
+            !output.js.contains(native),
+            "native `{native}` in the generated code"
+        );
+    }
+    assert!(
+        !output.js.contains("const INT = "),
+        "the Int codec is still generated"
+    );
+
+    let script = r#"
+import * as m from "./integers.mjs";
+import assert from "node:assert/strict";
+
+const of = (n) => (n >= 0n ? { tag: "OfNat", k: n } : { tag: "NegSucc", n: -n - 1n });
+const refused = (f) => assert.throws(f, (e) => e instanceof m.StitchwortInputError);
+
+assert.deepEqual(m.add(of(5n), of(-8n)), of(-3n));
+assert.deepEqual(m.add(of(-5n), of(-8n)), of(-13n));
+assert.deepEqual(m.neg(of(0n)), of(0n));
+assert.deepEqual(m.mul(of(-4n), of(5n)), of(-20n));
+assert.deepEqual(m.eucMod(of(-7n), of(2n)), of(1n));
+assert.deepEqual(m.eucDiv(of(-7n), of(2n)), of(-4n));
+assert.deepEqual(m.dial(of(-18n)), of(82n));
+assert.equal(m.classify(of(0n)), "zero");
+assert.equal(m.classify(of(-1n)), "minus one");
+assert.equal(m.classify(of(2n)), "two");
+assert.equal(m.classify(of(77n)), "positive or zero, k = 77");
+assert.equal(m.classify(of(-77n)), "negative, k = 76");
+assert.equal(m.toText(of(-12n)), "-12");
+assert.deepEqual(m.parse("-12"), { tag: "Just", value: of(-12n) });
+assert.deepEqual(m.negatives([0n, 4n]), [of(-1n), of(-5n)]);
+assert.deepEqual(m.apply({ count: 3n, delta: of(-10n) }), { count: 3n, delta: of(-7n) });
+// The divisor's precondition is still checked.
+refused(() => m.eucMod(of(5n), of(0n)));
+// A bare bigint is no longer an Int.
+refused(() => m.neg(5n));
+refused(() => m.add(of(1n), 2n));
+refused(() => m.neg({ tag: "OfNat", n: 5n }));
+console.log("ok");
+"#;
+    run_script("int-changed-type", &[("integers.mjs", &session)], script);
 }
