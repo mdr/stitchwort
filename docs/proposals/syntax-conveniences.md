@@ -1,6 +1,7 @@
 # Proposal: syntax conveniences (`where`, `match`, patterns in `let` and lambdas, tuples)
 
-**Status:** draft 2, 17 October 2026. Design only: nothing here is built.
+**Status:** draft 2, 17 October 2026. Step 2 (§7, result type first) is
+built; see [As built (step 2)](#77-as-built-step-2).
 The user agreed with every recommendation of draft 1 (§8); an external
 reviewer then reviewed draft 1, and draft 2 adopts that review in full
 (the [Review response](#review-response) maps each finding to where it's
@@ -1300,6 +1301,105 @@ Possible later, not proposed: checking lambda arguments after the others
 - Error snapshots of the whole `examples/reject` suite before and after:
   identical.
 - Kernel: none. JS: none.
+
+### 7.7 As built (step 2)
+
+Built as designed, 17 October 2026. Where the code is and the small
+decisions made while building it:
+
+**The transaction** is `crates/elab/src/undo.rs` (`Snapshot`,
+`transaction`, `attempt`, `unify`). Both earlier undos now use it:
+`auto.rs`'s `attempt` and Int stage 3's `numbers::attempt` and
+`speculate`. Decisions:
+
+- **Undoing metavariables from a trail, not a copy.** `Globals::solve_meta`
+  records each solution with what it replaced (`Globals::meta_trail`,
+  cleared with the metavariables). Undoing pops the trail back to the
+  snapshot and drops metavariables created since. A copy of the whole
+  table per checked application would cost time in the number of
+  metavariables of the declaration; the trail costs what the attempt did.
+- **Warnings aren't in the snapshot**, because they can't change during an
+  attempt: only declaration-level code adds them, and it needs
+  `&mut Elaborator`, which a `Ctx` doesn't have. The compiler enforces this.
+- `auto.rs`'s old `attempt` restored only metavariables; it now also
+  restores obligations, defaulted literals and the context (all unchanged
+  by its callers today, so no behaviour changes).
+
+**`fallback`'s pre-existing gap** is fixed (`compare` in `check.rs`): the
+first comparison is a transaction, and so is `effects::coerce`. To keep
+every error message identical, when both fail the comparison is run once
+more outside a transaction before the message is built, so the types are
+shown as the failed comparison leaves them, as before. No existing program
+changed outcome; the unit tests in `undo.rs` show the part-way failure is
+now undone.
+
+**Propagation** is `propagate`, `known_head`, `written_result` and
+`implicits` in `check.rs`, called from `fallback`. Decisions:
+
+- **Which applications:** an application with at least one written
+  argument whose head is a local variable or a definition (as `infer_app`
+  finds them). Not dot notation, constructors (they have `ctor_app`), data
+  types, operations, `rfl`, `J`, or field-access heads.
+- **Not when the expected type is an unsolved metavariable**: there's
+  nothing to learn, and the old path solves it the same way at the end.
+- **The walk's metavariables are the elaboration's**: `written_result`
+  returns the implicit arguments it made, in order (`Supply`), and
+  `apply_args_with`/`insert_with` take them before making new ones. If the
+  elaborated types don't line up with the walk's (a supplied metavariable
+  is left over), that counts as a failure and the application is retried.
+  An auto parameter met anywhere (before, between or after the written
+  arguments, or in a remaining function type) rules propagation out, so
+  supplied arguments are never auto.
+- **The dependency test** quotes the result at the context's level plus
+  the number of written arguments and checks the fresh variables with
+  `Term::mentions`.
+- **The retry flag** is `Elaborator::no_propagation`, a counter (a `Cell`,
+  so lifted helpers with their own `Ctx` see it too).
+
+**The `unbox` example in §7.4 doesn't exist as written.** A named total
+function isn't accepted where a partial one is expected, before or after
+this change (only a lambda is: `examples/accept/partial.sw`). The same
+shape with a coercion that does exist is in
+`examples/accept/expected-types.sw`: `wider = unbox box` with
+`box : Box (() -> {Choose} Nat)` and a wider row expected. Propagation
+makes `a` the wider type, `box` then doesn't fit, and the retry accepts it
+the old way.
+
+**Hash changes (accepted by the user, 17 October 2026).** Twelve pinned
+declaration hashes changed (`crates/driver/tests/hash_stability.rs`), all
+in examples, none in the prelude: `handlers.sw`'s `allResultsFold` and two
+tests using it; `rows.sw`'s `twoSteps` and `pWider`, three tests using
+them, and the tests `"identity"`, `"swap"` and `"swap, then swap back"`;
+and `extract/text.sw`'s `codes`. (The first report to the user said nine:
+it miscounted `rows.sw`.) The elaborated terms are
+definitionally equal; two differences in how they're written change the
+hashes, both direct consequences of comparing the result type first:
+
+- **An annotation is no longer needed.** An inferred list literal or
+  constructor application of a parameterised type is wrapped in an
+  annotation (`annotate` in `check.rs`), and annotations are hashed. With
+  the result type known first, it's checked instead. In
+  `codes t = Text.fold (\c ns -> Cons (Char.toNat c) ns) Nil t`, the old
+  body had `Ann(Cons …, List Nat)` around the lambda's body, the new one
+  the bare `Cons …`; `allResultsFold`'s `[x]` is the same.
+- **An implicit argument is written as the signature writes it.** In
+  `twoSteps = sigCompose sigRight sigLeft`, an implicit argument is now the
+  name from `twoSteps`'s declared type (a definition), where before it was
+  the application computed from the arguments' types; `pWider` likewise.
+  The three `rows.sw` tests that don't use either (`translate sigId p`
+  and so on, passed to `trace`) weren't dumped; they're presumably this
+  case too, `translate`'s implicit arguments now coming from `trace`'s
+  parameter type (**unverified**).
+
+**Programs added:** `examples/reject/int-choose-first.sw` (`chooseFirst 5 i`
+with `i : Int`) now checks and moved to `examples/accept`; `f 5 + i` with
+`f : a -> a` too (the [integers.md](integers.md) table), so
+`examples/reject/int-generic-literal.sw` (`ident 5 + i`) was removed
+(`plusOne` in `examples/accept/expected-types.sw` covers it). Still
+rejected: `let v = chooseFirst 5 i`, where nothing says what `v` is. The rest of the
+reject suite's messages are unchanged, and the new
+`examples/reject/expected-type-retry.sw` shows a retry reporting the old
+path's error.
 
 ## 8. Implementation plan
 

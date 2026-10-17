@@ -568,11 +568,26 @@ pub(crate) fn apply_one(cx: &mut Ctx, head: (Term, Value), arg: &Expr) -> Result
 
 /// Applies `head` to `args`, inserting implicit arguments where needed.
 pub(crate) fn apply_args(cx: &mut Ctx, head: (Term, Value), args: &[Arg]) -> Result<(Term, Value)> {
+    apply_args_with(cx, head, args, &mut Supply::new())
+}
+
+/// Implicit arguments made in advance, used in order before any new ones:
+/// those [`written_result`] made, so the application is elaborated with the
+/// metavariables its expected type has already been compared with.
+pub(crate) type Supply = std::collections::VecDeque<Term>;
+
+/// [`apply_args`], taking implicit arguments from `supply` first.
+fn apply_args_with(
+    cx: &mut Ctx,
+    head: (Term, Value),
+    args: &[Arg],
+    supply: &mut Supply,
+) -> Result<(Term, Value)> {
     let (mut term, mut ty) = head;
     for arg in args {
         match arg {
             Arg::Named(name, value) => {
-                (term, ty) = insert_until(cx, term, ty, name)?;
+                (term, ty) = insert_until(cx, term, ty, name, supply)?;
                 let Value::Pi(_, icit, dom, cod) = force(cx.g(), ty.clone())? else {
                     unreachable!("insert_until stops at the named implicit parameter");
                 };
@@ -581,7 +596,7 @@ pub(crate) fn apply_args(cx: &mut Ctx, head: (Term, Value), args: &[Arg]) -> Res
                 term = Term::app_icit(term, value, icit);
             }
             Arg::Explicit(value) => {
-                (term, ty) = insert(cx, term, ty)?;
+                (term, ty) = insert_with(cx, term, ty, supply)?;
                 let (dom, cod) = match force(cx.g(), ty.clone())? {
                     Value::Pi(_, Icit::Explicit, dom, cod) => ((*dom).clone(), cod),
                     Value::Neutral(Head::Meta(_), _) => {
@@ -685,11 +700,21 @@ fn partial_callback(cx: &Ctx, head: &Term, arg: &Expr, dom: &Value) -> Option<Di
 /// Applies `term` to a fresh metavariable for each leading implicit or auto
 /// parameter. An auto argument is also recorded as an obligation, to be proved
 /// once the declaration has been elaborated (see `auto.rs`).
-pub fn insert(cx: &mut Ctx, mut term: Term, mut ty: Value) -> Result<(Term, Value)> {
+pub fn insert(cx: &mut Ctx, term: Term, ty: Value) -> Result<(Term, Value)> {
+    insert_with(cx, term, ty, &mut Supply::new())
+}
+
+/// [`insert`], taking implicit arguments from `supply` first.
+fn insert_with(
+    cx: &mut Ctx,
+    mut term: Term,
+    mut ty: Value,
+    supply: &mut Supply,
+) -> Result<(Term, Value)> {
     while let Value::Pi(_, icit, dom, cod) = force(cx.g(), ty.clone())?
         && icit.is_implicit()
     {
-        let meta = implicit_arg(cx, icit, &dom);
+        let meta = supplied_arg(cx, icit, &dom, supply);
         let value = cx.eval(&meta)?;
         term = Term::app_icit(term, meta, icit);
         ty = cod.apply(cx.g(), value)?;
@@ -712,12 +737,22 @@ pub(crate) fn implicit_arg(cx: &mut Ctx, icit: Icit, ty: &Value) -> Term {
     meta
 }
 
+/// An implicit argument from `supply`, or a new one. An auto argument is
+/// always new, recorded as an obligation: [`written_result`] makes none.
+fn supplied_arg(cx: &mut Ctx, icit: Icit, ty: &Value, supply: &mut Supply) -> Term {
+    match supply.front() {
+        Some(_) if icit != Icit::Auto => supply.pop_front().expect("just checked"),
+        _ => implicit_arg(cx, icit, ty),
+    }
+}
+
 /// Inserts implicit arguments up to the implicit parameter called `name`.
 fn insert_until(
     cx: &mut Ctx,
     mut term: Term,
     mut ty: Value,
     name: &AstName,
+    supply: &mut Supply,
 ) -> Result<(Term, Value)> {
     loop {
         match force(cx.g(), ty.clone())? {
@@ -725,7 +760,7 @@ fn insert_until(
                 return Ok((term, ty));
             }
             Value::Pi(_, icit, dom, cod) if icit.is_implicit() => {
-                let meta = implicit_arg(cx, icit, &dom);
+                let meta = supplied_arg(cx, icit, &dom, supply);
                 let value = cx.eval(&meta)?;
                 term = Term::app_icit(term, meta, icit);
                 ty = cod.apply(cx.g(), value)?;
@@ -1018,23 +1053,211 @@ pub(crate) fn check_if(
     }
 }
 
+/// Checks `expr` by inferring its type and comparing. An application whose
+/// result type is known before its arguments are checked is compared with
+/// `expected` first, so the arguments are checked knowing more
+/// (docs/proposals/syntax-conveniences.md §7).
 fn fallback(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
+    if cx.e.no_propagation.get() == 0
+        && let Some(found) = propagate(cx, expr, expected)?
+    {
+        return found;
+    }
     let (term, found) = infer(cx, expr)?;
     let (term, found) = insert(cx, term, found)?;
-    if cx.unify(&found, expected)? {
-        Ok(term)
-    } else if let Some(term) = effects::coerce(cx, &term, &found, expected)? {
-        // An effectful function whose row lists the same abilities in a
-        // different order.
-        Ok(term)
-    } else if let Some(d) = effects::partial_mismatch(cx, &found, expected)? {
+    compare(cx, term, &found, expected)
+}
+
+/// `term`, of type `found`, where `expected` is expected.
+fn compare(cx: &mut Ctx, term: Term, found: &Value, expected: &Value) -> Result<Term> {
+    if crate::undo::unify(cx, found, expected)? {
+        return Ok(term);
+    }
+    // An effectful function whose row lists the same abilities in a
+    // different order, or a total one where a partial one is expected.
+    if let Some(term) =
+        crate::undo::transaction(cx, |cx| effects::coerce(cx, &term, found, expected))?
+    {
+        return Ok(term);
+    }
+    // The message shows the types as the failed comparison left them, as it
+    // always has: repeat it, keeping what it solved before failing.
+    cx.unify(found, expected)?;
+    if let Some(d) = effects::partial_mismatch(cx, found, expected)? {
         Err(d)
     } else {
         Err(crate::numbers::explain_default(
             cx,
-            cx.mismatch(expected, &found),
-            &[&found],
+            cx.mismatch(expected, found),
+            &[found],
         ))
+    }
+}
+
+/// Checks the application `expr` against `expected`, comparing its result
+/// type with `expected` first (§7.2); `None` if that doesn't apply: `expr`
+/// isn't an application of a variable or a definition, or its result type
+/// depends on the arguments written or isn't known, or doesn't match
+/// `expected` (and then nothing has changed). If it applies but the
+/// application then fails, everything is undone and the application is
+/// elaborated again the old way, with no propagation inside, and that way's
+/// result is the answer: so a program rejected before keeps its message
+/// (§7.4).
+fn propagate(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Option<Result<Term>>> {
+    if matches!(
+        force(cx.g(), expected.clone())?,
+        Value::Neutral(Head::Meta(_), _)
+    ) {
+        return Ok(None);
+    }
+    let mut args = Vec::new();
+    let mut head = expr;
+    while let Expr::App(f, a) = head {
+        args.push(match a.as_ref() {
+            Expr::NamedArg(name, value, _) => Arg::Named(name, value),
+            other => Arg::Explicit(other),
+        });
+        head = f;
+    }
+    if args.is_empty() {
+        return Ok(None);
+    }
+    args.reverse();
+    let Some(head) = known_head(cx, head) else {
+        return Ok(None);
+    };
+    let snapshot = crate::undo::Snapshot::take(cx);
+    let Some((written, mut supply)) = written_result(cx, &head.1, &args)? else {
+        snapshot.restore(cx);
+        return Ok(None);
+    };
+    if !cx.unify(&written, expected)? {
+        snapshot.restore(cx);
+        return Ok(None);
+    }
+    // As `infer` and then `insert` would, for the application.
+    let span = expr.span();
+    let result = (|| -> Result<Term> {
+        cx.g().budget.nesting(PASS)?;
+        let (term, found) = apply_args_with(cx, head, &args, &mut supply)?;
+        let term = Term::Loc(span, Rc::new(term));
+        let (term, found) = insert_with(cx, term, found, &mut supply)?;
+        if !supply.is_empty() {
+            // The types as elaborated didn't line up with the walk's.
+            return Err(Diagnostic::error(
+                "E-PROPAGATE",
+                "unused implicit arguments",
+            ));
+        }
+        compare(cx, term, &found, expected)
+    })();
+    match result {
+        Ok(term) => Ok(Some(Ok(term))),
+        Err(e) if crate::undo::fatal(&e) => Err(e),
+        Err(_) => {
+            snapshot.restore(cx);
+            let off = &cx.e.no_propagation;
+            off.set(off.get() + 1);
+            let old = (|| {
+                let (term, found) = infer(cx, expr)?;
+                let (term, found) = insert(cx, term, found)?;
+                compare(cx, term, &found, expected)
+            })();
+            let off = &cx.e.no_propagation;
+            off.set(off.get() - 1);
+            Ok(Some(old))
+        }
+    }
+}
+
+/// The function at the head of an application, if it's a variable or a
+/// definition, as `infer_app` finds it (without inserting implicit
+/// arguments).
+fn known_head(cx: &Ctx, head: &Expr) -> Option<(Term, Value)> {
+    let Expr::Var(name) = head else {
+        return None;
+    };
+    if let Some(level) = cx.lookup(&name.text) {
+        return Some((Term::Var(cx.level() - 1 - level), cx.types[level].clone()));
+    }
+    if as_fields(cx, name).is_some() || matches!(name.text.as_str(), "rfl" | "J") {
+        return None;
+    }
+    match cx.e.named(&name.text) {
+        Some((Global::Def(id), _)) => Some((Term::Def(*id), cx.g().def(*id).ty_value.clone())),
+        _ => None,
+    }
+}
+
+/// The type of the application of a function of type `ty` to `args`, before
+/// they're checked (§7.2): implicit parameters get metavariables, as
+/// `apply_args` and then `insert` would give them, returned in order;
+/// parameters given by `args` get fresh variables. `None` if the type
+/// mentions those variables (it depends on the arguments' values), or isn't
+/// known, or an auto parameter is met before or after (solving the result
+/// first could change what proof search finds).
+fn written_result(cx: &mut Ctx, ty: &Value, args: &[Arg]) -> Result<Option<(Value, Supply)>> {
+    let g = cx.g();
+    let base = cx.level();
+    let mut ty = ty.clone();
+    let mut supply = Supply::new();
+    let mut written = 0;
+    for arg in args {
+        let stop = |x: &Name, icit: Icit| match arg {
+            Arg::Named(name, _) => icit.is_implicit() && **x == *name.text,
+            Arg::Explicit(_) => icit == Icit::Explicit,
+        };
+        let Some(Value::Pi(_, icit, _, cod)) = implicits(cx, &mut ty, &mut supply, stop)? else {
+            return Ok(None);
+        };
+        if icit == Icit::Auto {
+            return Ok(None);
+        }
+        ty = cod.apply(g, Value::var(base + written))?;
+        written += 1;
+    }
+    if implicits(cx, &mut ty, &mut supply, |_, _| false)?.is_none() {
+        return Ok(None);
+    }
+    // What's left: an auto parameter anywhere in it rules propagation out.
+    let term = quote(g, base + written, &ty)?;
+    let mut rest = &term;
+    while let Term::Pi(_, icit, _, cod) = rest {
+        if *icit == Icit::Auto {
+            return Ok(None);
+        }
+        rest = cod;
+    }
+    if (0..written).any(|i| term.mentions(i)) {
+        return Ok(None);
+    }
+    Ok(Some((ty, supply)))
+}
+
+/// Gives the implicit parameters at the front of `ty` metavariables, added
+/// to `supply`, until `stop` says to stop at one: that parameter's function
+/// type (or `ty`, forced, if it isn't a function type). `None` at an auto
+/// parameter.
+fn implicits(
+    cx: &mut Ctx,
+    ty: &mut Value,
+    supply: &mut Supply,
+    stop: impl Fn(&Name, Icit) -> bool,
+) -> Result<Option<Value>> {
+    let g = cx.g();
+    loop {
+        let forced = force(g, ty.clone())?;
+        match &forced {
+            Value::Pi(x, icit, _, _) if stop(x, *icit) => return Ok(Some(forced)),
+            Value::Pi(_, Icit::Auto, _, _) => return Ok(None),
+            Value::Pi(_, Icit::Implicit, _, cod) => {
+                let meta = cx.fresh_meta();
+                let value = cx.eval(&meta)?;
+                supply.push_back(meta);
+                *ty = cod.apply(g, value)?;
+            }
+            _ => return Ok(Some(forced)),
+        }
     }
 }
 

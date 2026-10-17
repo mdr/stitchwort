@@ -16,6 +16,7 @@ mod numbers;
 mod partial;
 mod records;
 mod scope;
+mod undo;
 mod unify;
 
 use std::borrow::Cow;
@@ -94,8 +95,15 @@ pub struct Elaborator {
     pub numbers_as_succ: bool,
     /// The module being elaborated, and what's being checked in it.
     module: module::ModuleState,
-    /// Warnings found while elaborating the current declaration.
+    /// Warnings found while elaborating the current declaration. Only
+    /// declaration-level code (`&mut self`) adds them, so an attempt undone
+    /// by `undo.rs` can't have added any.
     warnings: Vec<Diagnostic>,
+    /// Above zero while an application is elaborated again the old way
+    /// after its expected result type was used first and failed: no
+    /// application inside uses its expected type first
+    /// (docs/proposals/syntax-conveniences.md §7.4).
+    no_propagation: std::cell::Cell<usize>,
     /// How many modules have been elaborated (the prelude is the first).
     modules: usize,
     /// While the members of a partial recursive group are described: their
@@ -250,7 +258,7 @@ impl Elaborator {
     }
 
     fn clear_metas(&self) {
-        self.globals.metas.borrow_mut().clear();
+        self.globals.clear_metas();
         self.obligations.borrow_mut().clear();
         self.defaulted.borrow_mut().clear();
     }

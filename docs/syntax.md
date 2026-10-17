@@ -278,4 +278,4 @@ A numeric literal is a `Nat` or an `Int`, depending on what's expected (`Nat` if
 
 There is no implicit conversion between `Nat` and `Int`: use `n.toInt`, `Int.toNat` (negatives become 0) or `Int.toNatChecked`.
 
-Known limit: the literal argument of a generic function is checked before anything else is known, so `chooseFirst 5 i` with `i : Int` takes `5` as a `Nat` and fails. Write `chooseFirst (5 : Int) i`. Design: [integers.md](proposals/integers.md); examples: `examples/accept/int-literals.sw`.
+A literal argument of a generic function takes its type from the expected result when that is known: with `i : Int`, `chooseFirst 5 i` checked against `Int` works, because the result type is used before the arguments are checked ([syntax-conveniences.md](proposals/syntax-conveniences.md) section 7). Known limit: where nothing says what the result is, such as `let v = chooseFirst 5 i`, the `5` is still checked as a `Nat` first and fails; write `chooseFirst (5 : Int) i`. Design: [integers.md](proposals/integers.md); examples: `examples/accept/int-literals.sw`, `examples/accept/int-choose-first.sw`, `examples/accept/expected-types.sw`.

@@ -138,6 +138,10 @@ pub struct Globals {
     pub registry: crate::registry::Registry,
     /// The elaborator's metavariables. Empty whenever the kernel runs.
     pub metas: RefCell<Vec<Meta>>,
+    /// Every metavariable solution made, newest last, with what it replaced:
+    /// how the elaborator undoes a failed attempt (its `undo.rs`). Cleared
+    /// with `metas`.
+    pub meta_trail: RefCell<Vec<(usize, Option<Value>)>>,
     /// Content hashes computed so far. Declarations never change once
     /// checked, so these never go stale.
     pub hashes: RefCell<std::collections::HashMap<HashKey, crate::hash::ContentHash>>,
@@ -192,6 +196,13 @@ impl Globals {
     }
 
     pub fn solve_meta(&self, m: usize, solution: Value) {
-        self.metas.borrow_mut()[m].solution = Some(solution);
+        let old = self.metas.borrow_mut()[m].solution.replace(solution);
+        self.meta_trail.borrow_mut().push((m, old));
+    }
+
+    /// Forgets every metavariable (and the record of their solutions).
+    pub fn clear_metas(&self) {
+        self.metas.borrow_mut().clear();
+        self.meta_trail.borrow_mut().clear();
     }
 }
