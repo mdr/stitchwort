@@ -88,7 +88,9 @@ capability we know we'll need before the work that needs it):
    `where`/local functions and `match` lifted to hidden top-level
    definitions (no kernel change), pattern `let`/lambda, tuple sugar,
    result-type-first checking of calls. The user agreed with every
-   recommendation in §8. Out for external review; implement after.
+   recommendation in §8. Reviewed; draft 2 adopts all eleven findings
+   (`6c71685`), with four new questions (§9, 10–13) for the user. Then
+   implement: tuples first.
 4. **Advent of Code 2025, early days** (decisions in aoc-2025.md: programs
    in `aoc/`, inputs and answers out of git, worked examples as tests), as a stress test with proofs where
    natural (sort correctness, parser round trips, worked examples by `rfl`).
@@ -239,6 +241,11 @@ capability we know we'll need before the work that needs it):
   the CLI name).
 
 ## Known issues
+
+- **`fallback` in check.rs keeps a failed unification's partial solutions**
+  when it then tries `effects::coerce` (`unify.rs` isn't atomic on
+  failure; `auto.rs`'s `attempt` has an undo). Found by the syntax note
+  draft 2; fixed in its step 2.
 
 
 - **Row order is fixed by declaration order**, so `IO` (declared in the
