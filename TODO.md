@@ -54,8 +54,8 @@ capability we know we'll need before the work that needs it):
    notation by type, `e.f args`) merged (`dc201e6`); decisions in
    namespaces.md §9 "As built". Follow-ups: narrowing of speculative
    dependencies (mitigation 2); rewrite examples to dot notation; §5's
-   mixed-kind example is accepted (records get no speculative edges) —
-   user to confirm; `xs.map` needs list functions in `Std.List`. Noticed, not investigated: a signature
+   mixed-kind example is accepted (records get no speculative edges;
+   the user agreed); `xs.map` needs list functions in `Std.List`. Noticed, not investigated: a signature
    `Comp NoOp NoRes Nat` behaves like `Nat`.
    Alongside, for Advent of Code: lane `aoc-survey` (Sonnet) surveys days
    1–5 of AoC 2025 from the user's solutions and inputs to rank what the
@@ -68,8 +68,9 @@ capability we know we'll need before the work that needs it):
    for number types, prefix-minus rules, a 7-stage plan split Opus/Sonnet.
    Stage 1 (the type `OfNat | NegSucc`, its library, `Int.decEq`, three
    division conventions, `Text.toInt`, lemma checkpoint 1) merged
-   (`d3753f8`); `OfNat`/`NegSucc` are visible unqualified for now (hiding a
-   default type's constructors needs a namespaces mechanism). Next: stage 2,
+   (`d3753f8`); `OfNat`/`NegSucc` are visible unqualified (the user: fine for
+   now; hiding a default type's constructors would need a namespaces
+   mechanism). Next: stage 2,
    prefix minus and negative patterns in the parser (small, Sonnet); match
    the printer's minus precedence.
 2. **Standard library for real programs** (ranked by the AoC survey,
