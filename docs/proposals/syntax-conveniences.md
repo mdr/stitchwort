@@ -1398,6 +1398,9 @@ a follow-up. AoC's friction item 5 says `match` and pattern `let` remove
 
 ## 9. Questions for the user
 
+**Decided (17 October 2026):** the user agreed with the recommendations
+for questions 10 to 13 as well. Implementation may start, tuples first.
+
 **Decided (16 October 2026):** the user agreed with every recommendation
 below (1 to 9): `match e with`; local names unique across the definition;
 a `where` value computed once; capture only the variables used;

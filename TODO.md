@@ -72,8 +72,10 @@ capability we know we'll need before the work that needs it):
    now; hiding a default type's constructors would need a namespaces
    mechanism). Stage 2 (prefix
    minus `-e` and patterns `(-k)` in the parser; the elaborator says "not
-   yet supported") merged (`220dedc`). Next: stage 3, elaborating numbers
-   (the group rule; Opus, with Sonnet for snapshot tests).
+   yet supported") merged (`220dedc`). Lane `int-stage3` (Opus, Sonnet
+   for snapshot tests) running: elaborating numbers (the group rule).
+   After it: `==` on lists (user agreed). Effectful callbacks for
+   `map`/`filter`/folds: later, when a program needs them.
 2. **Standard library for real programs** (ranked by the AoC survey,
    [aoc-2025.md](docs/aoc-2025.md)). Done: the list toolkit (`map`,
    `filter`, folds, `sum`, `zip`, `take`/`drop`, `get`, …) and `Nat`
@@ -89,8 +91,9 @@ capability we know we'll need before the work that needs it):
    definitions (no kernel change), pattern `let`/lambda, tuple sugar,
    result-type-first checking of calls. The user agreed with every
    recommendation in §8. Reviewed; draft 2 adopts all eleven findings
-   (`6c71685`), with four new questions (§9, 10–13) for the user. Then
-   implement: tuples first.
+   (`6c71685`), the user agreed with §9's questions 10–13 too.
+   Implementation: lane `tuples` (Sonnet, step 1) running; then the
+   result-type-first change and the lifting machinery (Opus).
 4. **Advent of Code 2025, early days** (decisions in aoc-2025.md: programs
    in `aoc/`, inputs and answers out of git, worked examples as tests), as a stress test with proofs where
    natural (sort correctness, parser round trips, worked examples by `rfl`).
