@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-NOT-A-TYPE] Error: expected a type
+   ╭─[ reject/tuple-value-for-type.sw:3:6 ]
+   │
+ 3 │ f : (1, 2) -> Nat
+   │      ┬  
+   │      ╰── this has type `Nat`, so it isn't a type
+───╯

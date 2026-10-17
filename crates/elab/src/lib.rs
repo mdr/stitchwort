@@ -1690,6 +1690,21 @@ impl Elaborator {
                     }
                 }
             })),
+            Pattern::Tuple(p, q, span) => {
+                let (data, ctor) = self.builtin_ctor(Builtin::MkPair, *span)?;
+                let args = match pattern {
+                    Cow::Borrowed(Pattern::Tuple(p, q, _)) => {
+                        vec![Cow::Borrowed(&**p), Cow::Borrowed(&**q)]
+                    }
+                    _ => vec![Cow::Owned((**p).clone()), Cow::Owned((**q).clone())],
+                };
+                Ok(Some(CtorPattern {
+                    data,
+                    ctor,
+                    args,
+                    span: *span,
+                }))
+            }
             Pattern::Num(n, span) => {
                 let (ctor, args) = if n.bits() == 0 {
                     (Builtin::Zero, Vec::new())
@@ -1958,6 +1973,7 @@ fn mentions_ability(expr: &ast::Expr, name: &str) -> bool {
             }
             Expr::Pi { dom, cod, .. } => pending.extend([&**dom, &**cod]),
             Expr::Lam(_, b, _) | Expr::Ann(b, _, _) | Expr::NamedArg(_, b, _) => pending.push(b),
+            Expr::Tuple(a, b, _) => pending.extend([&**a, &**b]),
             Expr::List(items, _) => pending.extend(items),
             Expr::Record { base, fields, .. } => {
                 pending.extend(base.as_deref());

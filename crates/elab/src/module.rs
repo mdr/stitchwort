@@ -1243,6 +1243,9 @@ fn free_names(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
                         out.push(Ref::Name(n));
                         then(&mut stack, args.iter().map(Work::Pattern).collect());
                     }
+                    Pattern::Tuple(a, b, _) => {
+                        then(&mut stack, vec![Work::Pattern(a), Work::Pattern(b)]);
+                    }
                     Pattern::Record { fields, .. } => {
                         then(
                             &mut stack,
@@ -1302,7 +1305,9 @@ fn free_names(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
                 steps.extend(binder.iter().map(|b| Work::Unbind(&b.text)));
                 then(&mut stack, steps);
             }
-            Expr::Ann(e, t, _) => then(&mut stack, vec![Work::Expr(e), Work::Expr(t)]),
+            Expr::Ann(e, t, _) | Expr::Tuple(e, t, _) => {
+                then(&mut stack, vec![Work::Expr(e), Work::Expr(t)]);
+            }
             Expr::List(items, _) => then(&mut stack, items.iter().map(Work::Expr).collect()),
             Expr::Record { base, fields, .. } => {
                 let mut steps: Vec<Work> = base.iter().map(|b| Work::Expr(b)).collect();

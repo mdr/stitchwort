@@ -960,6 +960,7 @@ pub fn may_perform(cx: &Ctx, expr: &Expr) -> Result<bool> {
             .chain(fields.iter().map(|(_, e)| e)))?,
         Expr::Field(e, field) => may_perform(cx, e)? || dot_performs(cx, e, field, 0)?,
         Expr::Ann(e, _, _) | Expr::NamedArg(_, e, _) => may_perform(cx, e)?,
+        Expr::Tuple(a, b, _) => any(&mut [&**a, &**b].into_iter())?,
         _ => false,
     })
 }
@@ -1223,6 +1224,7 @@ pub fn comp_call(
 ) -> Result<(Term, Value)> {
     if let Expr::Binary(..)
     | Expr::List(..)
+    | Expr::Tuple(..)
     | Expr::Ann(..)
     | Expr::Record { .. }
     | Expr::Field(..) = expr
@@ -1415,6 +1417,11 @@ fn comp_compound(
             let b = run_first(cx, b, row, &mut bound)?;
             Expr::Binary(*op, Box::new(a), Box::new(b))
         }
+        Expr::Tuple(a, b, span) => {
+            let a = run_first(cx, a, row, &mut bound)?;
+            let b = run_first(cx, b, row, &mut bound)?;
+            Expr::Tuple(Box::new(a), Box::new(b), *span)
+        }
         Expr::List(items, span) => {
             let mut pure = Vec::new();
             for item in items {
@@ -1430,7 +1437,7 @@ fn comp_compound(
         _ => unreachable!("only called on compound expressions"),
     };
     let (term, ty) = match (expected, &pure) {
-        (Some(t), Expr::Record { .. }) => (check(cx, &pure, t)?, t.clone()),
+        (Some(t), Expr::Record { .. } | Expr::Tuple(..)) => (check(cx, &pure, t)?, t.clone()),
         _ => {
             let (term, ty) = infer(cx, &pure)?;
             insert(cx, term, ty)?
