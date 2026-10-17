@@ -396,6 +396,156 @@ Ordering.isLess Less    = True
 Ordering.isLess Equal   = False
 Ordering.isLess Greater = False
 
+-- Number helpers.
+Nat.min : Nat -> Nat -> Nat
+Nat.min m n = if Nat.leq m n then m else n
+
+Nat.max : Nat -> Nat -> Nat
+Nat.max m n = if Nat.leq m n then n else m
+
+-- The distance between two numbers; `(a - b) + (b - a)`, as one of them is 0.
+Nat.absDiff : Nat -> Nat -> Nat
+Nat.absDiff m n = (m - n) + (n - m)
+
+-- `Nat.pow b e` is b to the power e.
+Nat.pow : Nat -> Nat -> Nat
+Nat.pow b Zero     = 1
+Nat.pow b (Succ e) = b * Nat.pow b e
+
+-- List toolkit. The callbacks are pure: the library has no convention yet for
+-- callbacks with effects or `Partial`. Every function is structurally recursive.
+
+List.map : (a -> b) -> List a -> List b
+List.map f Nil         = Nil
+List.map f (Cons x xs) = Cons (f x) (List.map f xs)
+
+List.filter : (a -> Bool) -> List a -> List a
+List.filter p Nil         = Nil
+List.filter p (Cons x xs) = if p x then Cons x (List.filter p xs) else List.filter p xs
+
+-- Left fold; tail-recursive. `List.foldl f z [x, y]` is `f (f z x) y`.
+List.foldl : (b -> a -> b) -> b -> List a -> b
+List.foldl f z Nil         = z
+List.foldl f z (Cons x xs) = List.foldl f (f z x) xs
+
+-- Right fold. `List.foldr f z [x, y]` is `f x (f y z)`.
+List.foldr : (a -> b -> b) -> b -> List a -> b
+List.foldr f z Nil         = z
+List.foldr f z (Cons x xs) = f x (List.foldr f z xs)
+
+List.sum : List Nat -> Nat
+List.sum xs = List.foldl Nat.add 0 xs
+
+List.product : List Nat -> Nat
+List.product xs = List.foldl Nat.mul 1 xs
+
+List.maximum : List Nat -> Maybe Nat
+List.maximum Nil         = Nothing
+List.maximum (Cons x xs) = Just (List.foldl Nat.max x xs)
+
+List.minimum : List Nat -> Maybe Nat
+List.minimum Nil         = Nothing
+List.minimum (Cons x xs) = Just (List.foldl Nat.min x xs)
+
+-- Pairs up to the shorter list's length.
+List.zip : List a -> List b -> List (Pair a b)
+List.zip Nil         ys          = Nil
+List.zip (Cons x xs) Nil         = Nil
+List.zip (Cons x xs) (Cons y ys) = Cons (MkPair x y) (List.zip xs ys)
+
+List.zipWith : (a -> b -> c) -> List a -> List b -> List c
+List.zipWith f Nil         ys          = Nil
+List.zipWith f (Cons x xs) Nil         = Nil
+List.zipWith f (Cons x xs) (Cons y ys) = Cons (f x y) (List.zipWith f xs ys)
+
+-- The first n elements (all of them if there are fewer).
+List.take : Nat -> List a -> List a
+List.take Zero     xs          = Nil
+List.take (Succ n) Nil         = Nil
+List.take (Succ n) (Cons x xs) = Cons x (List.take n xs)
+
+-- All but the first n elements.
+List.drop : Nat -> List a -> List a
+List.drop Zero     xs          = xs
+List.drop (Succ n) Nil         = Nil
+List.drop (Succ n) (Cons x xs) = List.drop n xs
+
+-- The element at index i, counting from 0.
+List.get : List a -> Nat -> Maybe a
+List.get Nil         i        = Nothing
+List.get (Cons x xs) Zero     = Just x
+List.get (Cons x xs) (Succ i) = List.get xs i
+
+List.any : (a -> Bool) -> List a -> Bool
+List.any p Nil         = False
+List.any p (Cons x xs) = if p x then True else List.any p xs
+
+List.all : (a -> Bool) -> List a -> Bool
+List.all p Nil         = True
+List.all p (Cons x xs) = if p x then List.all p xs else False
+
+-- How many elements satisfy `p`.
+List.count : (a -> Bool) -> List a -> Nat
+List.count p xs = List.foldl (\n x -> if p x then Succ n else n) 0 xs
+
+-- The first element satisfying `p`.
+List.find : (a -> Bool) -> List a -> Maybe a
+List.find p Nil         = Nothing
+List.find p (Cons x xs) = if p x then Just x else List.find p xs
+
+List.consJust : Maybe b -> List b -> List b
+List.consJust Nothing  rest = rest
+List.consJust (Just y) rest = Cons y rest
+
+-- Keeps the `Just` results, in order.
+List.mapMaybe : (a -> Maybe b) -> List a -> List b
+List.mapMaybe f Nil         = Nil
+List.mapMaybe f (Cons x xs) = List.consJust (f x) (List.mapMaybe f xs)
+
+-- Joins a list of lists.
+List.concat : List (List a) -> List a
+List.concat Nil           = Nil
+List.concat (Cons xs xss) = List.append xs (List.concat xss)
+
+List.concatMap : (a -> List b) -> List a -> List b
+List.concatMap f Nil         = Nil
+List.concatMap f (Cons x xs) = List.append (f x) (List.concatMap f xs)
+
+-- `List.replicate n x` is n copies of x.
+List.replicate : Nat -> a -> List a
+List.replicate Zero     x = Nil
+List.replicate (Succ n) x = Cons x (List.replicate n x)
+
+List.rangeFrom : Nat -> Nat -> List Nat
+List.rangeFrom Zero     i = Nil
+List.rangeFrom (Succ n) i = Cons i (List.rangeFrom n (Succ i))
+
+-- `List.range n` is `[0, 1, ..., n - 1]`.
+List.range : Nat -> List Nat
+List.range n = List.rangeFrom n 0
+
+List.reverse : List a -> List a
+List.reverse xs = List.reverseOnto xs Nil
+
+List.last : List a -> Maybe a
+List.last Nil                  = Nothing
+List.last (Cons x Nil)         = Just x
+List.last (Cons x (Cons y ys)) = List.last (Cons y ys)
+
+-- Membership, given a decision for equality (as `List.decEq` takes).
+List.elem : ((x : a) -> (y : a) -> Decidable (x = y)) -> a -> List a -> Bool
+List.elem d z Nil         = False
+List.elem d z (Cons x xs) = if Decidable.toBool (d z x) then True else List.elem d z xs
+
+-- The elements that satisfy `p`, and those that don't.
+List.partition : (a -> Bool) -> List a -> Pair (List a) (List a)
+List.partition p xs = MkPair (List.filter p xs) (List.filter (\x -> Bool.not (p x)) xs)
+
+-- The value for the first pair whose key is equal, given a decision for equality.
+List.lookup : ((x : k) -> (y : k) -> Decidable (x = y)) -> k -> List (Pair k v) -> Maybe v
+List.lookup d key Nil                      = Nothing
+List.lookup d key (Cons (MkPair k v) rest) = if Decidable.toBool (d key k) then Just v else List.lookup d key rest
+
 -- Text (docs/proposals/text-and-io.md)
 
 -- A sequence of Unicode scalar values. `"héllo"` is a `Text`. Equality and
