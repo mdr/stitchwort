@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+   ╭─[ reject/tuple-printing.sw:4:11 ]
+   │
+ 4 │ bad = (1, True)
+   │           ──┬─  
+   │             ╰─── expected `(Bool, Text)`, but this has type `Bool`
+───╯
