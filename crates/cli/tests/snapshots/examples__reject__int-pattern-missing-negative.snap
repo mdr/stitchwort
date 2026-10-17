@@ -1,0 +1,14 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-NONEXHAUSTIVE] Error: missing case: no equation matches negative numbers other than -1
+   ╭─[ reject/int-pattern-missing-negative.sw:5:1 ]
+   │
+ 5 │ ╭─▶ f (OfNat n) = 1
+ 6 │ ├─▶ f (-1) = 2
+   │ │                
+   │ ╰──────────────── missing case: no equation matches negative numbers other than -1
+   │     
+   │     Note: add an equation with a variable or `_` in that position
+───╯

@@ -314,7 +314,7 @@ impl<'t> Parser<'t> {
     fn tuple_pattern(&mut self, first: Pattern, span: Span) -> Result<Pattern> {
         let mut items = vec![first];
         while self.eat(&Tok::Comma) {
-            items.push(self.pattern()?);
+            items.push(self.tuple_component()?);
         }
         let end = self.expect(Tok::RParen, "`)`")?.span;
         let mut last = items.pop().expect("two components");
@@ -327,6 +327,21 @@ impl<'t> Parser<'t> {
             last = Pattern::Tuple(Box::new(first), Box::new(last), s);
         }
         Ok(last)
+    }
+
+    /// A component of a tuple pattern: a pattern, or `-k`, which the
+    /// tuple's brackets already delimit (`(-1, 0)`, `(0, -1)`).
+    fn tuple_component(&mut self) -> Result<Pattern> {
+        if self.peek() != Some(&Tok::Minus) {
+            return self.pattern();
+        }
+        let start = self.bump().span;
+        let Some(Tok::Num(n)) = self.peek() else {
+            return Err(self.unexpected("a number"));
+        };
+        let n = n.clone();
+        let end = self.bump().span;
+        Ok(Pattern::NegNum(n, start.to(end)))
     }
 
     /// `(a, b : T)`, or `(a : T, b)`: an annotation inside a tuple.
@@ -552,16 +567,18 @@ impl<'t> Parser<'t> {
             }
             Some(Tok::LBrace) => self.record_pattern(),
             Some(Tok::LParen) if self.peek_at(1) == Some(&Tok::Minus) => {
-                // `(-k)`: a negative number pattern, only in brackets.
+                // `(-k)`: a negative number pattern, only in brackets (a
+                // tuple's included: `(-k, p)`).
                 self.bump();
-                self.bump();
-                let Some(Tok::Num(n)) = self.peek() else {
-                    return Err(self.unexpected("a number"));
-                };
-                let n = n.clone();
-                self.bump();
+                let inner = self.tuple_component()?;
+                if self.peek() == Some(&Tok::Comma) {
+                    return self.tuple_pattern(inner, span);
+                }
                 let end = self.expect(Tok::RParen, "`)`")?.span;
-                Ok(Pattern::NegNum(n, span.to(end)))
+                Ok(match inner {
+                    Pattern::NegNum(n, _) => Pattern::NegNum(n, span.to(end)),
+                    other => other,
+                })
             }
             Some(Tok::LParen) => {
                 self.bump();
@@ -1996,6 +2013,30 @@ mod tests {
         );
         assert!(matches!(&patterns[2], Pattern::Ctor(_, args, _)
             if matches!(args[0], Pattern::Tuple(..))));
+    }
+
+    #[test]
+    fn parses_negative_numbers_in_tuple_patterns() {
+        let text = "f (-1, 0) (0, -2) (-3) = a\n";
+        let module = parse(text);
+        let Decl::Equation { patterns, .. } = &module.decls[0] else {
+            panic!()
+        };
+        assert!(matches!(&patterns[0], Pattern::Tuple(l, _, _)
+            if matches!(&**l, Pattern::NegNum(n, _) if *n == 1u32.into())));
+        assert!(matches!(&patterns[1], Pattern::Tuple(_, r, _)
+            if matches!(&**r, Pattern::NegNum(n, _) if *n == 2u32.into())));
+        // `(-3)` still spans the whole bracketed pattern.
+        let Pattern::NegNum(n, span) = &patterns[2] else {
+            panic!()
+        };
+        assert!(*n == 3u32.into());
+        let start = text.find("(-3)").unwrap() as u32;
+        assert_eq!((span.start, span.end), (start, start + 4));
+        let bad = "f (-x, 0) = a\n";
+        let mut sources = SourceMap::new();
+        let file = sources.add("test.sw", bad);
+        assert!(parse_module(file, bad).is_err(), "{bad}");
     }
 
     #[test]

@@ -1592,6 +1592,50 @@ still `E-UNSUPPORTED` (stage 4). Decisions not in the rule above:
   around `-` and in a comparison), and `examples/reject/int-*.sw` (the
   rejections above and the "must reject" list).
 
+### As built (stage 4)
+
+The rule above, in `crates/elab/src/lib.rs`'s pattern compiler. No kernel
+change: the result is an ordinary `case` on `Int` with `NumCase`s on the
+`Nat` fields. Decisions not in the rule:
+
+- **Where the type comes from.** A column is an `Int` column when its type,
+  forced, is the registry's `Int` (so `Price = Int` counts and a user's own
+  `Int` doesn't). Top-level columns have their signature's types and fields
+  get theirs from the constructor, so `Just (-1)` in a `Maybe Int` and
+  `(-2, 0)` in an `(Int, Nat)` work. In an `Int` column, `k` and `-k` become
+  `OfNat`/`NegSucc` patterns around a `Nat` number pattern, wherever they
+  are in the column; elsewhere `k` is a `Nat` pattern as before. `-k` in a
+  `Nat` column is "a `Nat` can't be negative" (also in a row that the
+  number case would never reach, and inside `OfNat`); in a column of
+  another type, or one whose type isn't known, it's an `Int` pattern, so
+  the usual mismatch is reported ("these patterns match a `Int`, but the
+  argument has type `Bool`").
+- **Missing cases are named as integers.** Before an `Int` column with a
+  literal is split, each sign is checked for an equation that matches all
+  of its values (a variable, `_`, or `OfNat`/`NegSucc` around one); if a
+  sign has none, the error lists the literals as integers: "no equation
+  matches numbers other than -1 and 0", "… negative numbers other than -1",
+  or "… negative numbers". Without this the error came from the `Nat`
+  field, where `-1` shows as `0`.
+- **Tuples.** A tuple pattern's brackets delimit a negative literal too:
+  `(-2, 0)` and `(0, -2)` parse (`tuple_component` in the parser); `-` is
+  still not a pattern operator anywhere else.
+- **The default's note.** The "number patterns only test values" note on a
+  failure in a default still suggests `Zero` and `Succ`; for an `Int` the
+  variable it names is the field (`R (OfNat n)`), and matching
+  `OfNat Zero`/`OfNat (Succ k)` works, so it's left as is.
+- Tests: `examples/accept/int-patterns.sw` (the note's cases: `describe`,
+  `pick`'s five results, `zeroOrOther (NegSucc k)` by `rfl`, `0` and `-0`
+  merging, repeated keys, `±10^30`, a mixed column, a catch-all first, two
+  columns, inside `Just` and a pair, an alias), `examples/reject/int-pattern-*.sw`,
+  and `crates/driver/tests/int_patterns.rs`: 150 generated matches over
+  `Int` and `Bool` columns (literals near zero and `±10^30`, `-0`,
+  `OfNat`/`NegSucc` with numbers, variables and `_`), compared with a
+  direct matcher on closed arguments, with the `Succ`-chain compilation
+  where the keys are small, and four ways (natives on and off, both
+  evaluators) on closed and open arguments; and `zeroOrOther` on open
+  values four ways (`NegSucc k` computes, `OfNat m` is stuck).
+
 ## Recommendation
 
 - **Representation A** (`OfNat Nat | NegSucc Nat`) and **K1** (no kernel

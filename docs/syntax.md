@@ -49,7 +49,7 @@ total (Cons x xs) = x + total xs
 
 Definitions may be named in either case: `length`, or `Not` for a function returning a type.
 
-Patterns are variables, `_`, numbers, constructors applied to patterns (nested to any depth, as in `half (Succ (Succ n))`), record patterns ([Records](#records)), or `()`. A number pattern tests for that number, of any size. In an equation with a variable or `_` where others have numbers, nothing is known about the argument: not even that it's a different number, and not that it's a `Succ` (so with `make : (n : Nat) -> ResultType n`, `make 0 = …; make n = …` checks the second equation knowing nothing about `n`). To use the shape of a number, match on `Zero` and `Succ` instead; a number pattern in a column that also has `Zero` or `Succ` patterns counts down like `Succ`s. Equations are tried from top to bottom. `()` with a right-hand side matches the unit value; without one, it says the argument's type has no values, and the equation needs no right-hand side:
+Patterns are variables, `_`, numbers, constructors applied to patterns (nested to any depth, as in `half (Succ (Succ n))`), record patterns ([Records](#records)), or `()`. A number pattern tests for that number, of any size. In an equation with a variable or `_` where others have numbers, nothing is known about the argument: not even that it's a different number, and not that it's a `Succ` (so with `make : (n : Nat) -> ResultType n`, `make 0 = …; make n = …` checks the second equation knowing nothing about `n`). To use the shape of a number, match on `Zero` and `Succ` instead; a number pattern in a column that also has `Zero` or `Succ` patterns counts down like `Succ`s. On an `Int`, number patterns can be negative, `(-1)`: a match on `Int` numbers splits on the sign (`OfNat` or `NegSucc`) first, so an equation with a variable or `_` knows the sign of the argument in the branch where it is all that matches, but still nothing about its size. Equations are tried from top to bottom. `()` with a right-hand side matches the unit value; without one, it says the argument's type has no values, and the equation needs no right-hand side:
 
 ```
 absurd : Void -> a
@@ -254,7 +254,7 @@ Loosest-binding first:
 | `a + b`, `a - b` | Addition, and subtraction (stopping at zero on `Nat`). Left-associative |
 | `a * b`, `a / b`, `a % b` | Bind tighter than `+`. `/` and `%` need a proof that `b != 0` |
 | `-e` | Prefix minus; it makes its arithmetic `Int` ([Numbers](#numbers)). Binds tighter than `*` `/` `%` and looser than application and dots: `-x.abs` is `-(x.abs)`, `-18 % 100` is `(-18) % 100`. Not an argument: `f -5` is `f - 5`; write `f (-5)`. May repeat, and `a - -b` needs the space (`--` starts a comment) |
-| `(-k)` | In a pattern: a negative number, in brackets, numerals only. Not supported yet: `Int` patterns aren't implemented |
+| `(-k)` | In a pattern: a negative `Int` number, in brackets (or as a tuple component, `(-1, 0)`), numerals only |
 | `f a b` | Application |
 | `f [x := e]` | Supplying the implicit parameter `x` by name |
 | `_` | A hole the compiler fills in |
