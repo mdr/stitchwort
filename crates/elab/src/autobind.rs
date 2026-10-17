@@ -174,6 +174,12 @@ fn walk(
             walk(e, x, bound, false, uses)?;
             walk(e, ty, bound, true, uses)?;
         }
+        // The components are types or values, as the tuple is; auto-bound
+        // names are only sought where it is a type.
+        Expr::Tuple(a, b, _) => {
+            walk(e, a, bound, is_type, uses)?;
+            walk(e, b, bound, is_type, uses)?;
+        }
         Expr::List(items, _) => {
             for item in items {
                 walk(e, item, bound, false, uses)?;

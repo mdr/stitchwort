@@ -280,6 +280,67 @@ impl<'t> Parser<'t> {
         error(self.here(), format!("expected {expected}, but {found}"))
     }
 
+    /// The rest of `(a, b, c)` after its first component, as nested pairs.
+    /// Its own function, so the stack frame of the parser's recursive
+    /// functions stays small (the nesting limit is measured in stack).
+    #[inline(never)]
+    fn tuple_expr(&mut self, first: Expr, span: Span) -> Result<Expr> {
+        let mut items = vec![first];
+        while self.eat(&Tok::Comma) {
+            let saved = std::mem::replace(&mut self.no_equals, false);
+            let item = self.expr();
+            self.no_equals = saved;
+            items.push(item?);
+        }
+        if self.peek() == Some(&Tok::Colon) {
+            return Err(self.tuple_annotation());
+        }
+        let end = self.expect(Tok::RParen, "`)`")?.span;
+        let mut last = items.pop().expect("two components");
+        while let Some(first) = items.pop() {
+            // The outermost tuple covers the brackets too.
+            let s = if items.is_empty() {
+                span.to(end)
+            } else {
+                first.span().to(end)
+            };
+            last = Expr::Tuple(Box::new(first), Box::new(last), s);
+        }
+        Ok(last)
+    }
+
+    /// The same for patterns.
+    #[inline(never)]
+    fn tuple_pattern(&mut self, first: Pattern, span: Span) -> Result<Pattern> {
+        let mut items = vec![first];
+        while self.eat(&Tok::Comma) {
+            items.push(self.pattern()?);
+        }
+        let end = self.expect(Tok::RParen, "`)`")?.span;
+        let mut last = items.pop().expect("two components");
+        while let Some(first) = items.pop() {
+            let s = if items.is_empty() {
+                span.to(end)
+            } else {
+                first.span().to(end)
+            };
+            last = Pattern::Tuple(Box::new(first), Box::new(last), s);
+        }
+        Ok(last)
+    }
+
+    /// `(a, b : T)`, or `(a : T, b)`: an annotation inside a tuple.
+    fn tuple_annotation(&self) -> Diagnostic {
+        error(
+            self.here(),
+            "an annotation can't be written inside a tuple without brackets",
+        )
+        .with_note(
+            "to annotate one component, write `(a, (b : T))`; to annotate the pair, write \
+             `((a, b) : T)`",
+        )
+    }
+
     fn finish(&self) -> Result<()> {
         if self.pos < self.tokens.len() {
             Err(self.unexpected("the end of the declaration"))
@@ -442,6 +503,7 @@ impl<'t> Parser<'t> {
             match p {
                 Pattern::Absurd(_) => true,
                 Pattern::Ctor(_, args, _) => args.iter().any(has_absurd),
+                Pattern::Tuple(a, b, _) => has_absurd(a) || has_absurd(b),
                 Pattern::Record { fields, .. } => fields.iter().any(|(_, p)| has_absurd(p)),
                 _ => false,
             }
@@ -513,6 +575,9 @@ impl<'t> Parser<'t> {
                     Pattern::Ctor(name, args, span.to(end))
                 } else {
                     let inner = self.pattern()?;
+                    if self.peek() == Some(&Tok::Comma) {
+                        return self.tuple_pattern(inner, span);
+                    }
                     self.expect(Tok::RParen, "`)`")?;
                     inner
                 };
@@ -1245,8 +1310,14 @@ impl<'t> Parser<'t> {
                 let inner = self.expr();
                 self.no_equals = saved;
                 let inner = inner?;
+                if self.peek() == Some(&Tok::Comma) {
+                    return self.tuple_expr(inner, span);
+                }
                 if self.eat(&Tok::Colon) {
                     let ty = self.expr()?;
+                    if self.peek() == Some(&Tok::Comma) {
+                        return Err(self.tuple_annotation());
+                    }
                     let end = self.expect(Tok::RParen, "`)`")?.span;
                     return Ok(Expr::Ann(Box::new(inner), Box::new(ty), span.to(end)));
                 }
@@ -1881,6 +1952,60 @@ mod tests {
         };
         assert!(matches!(&args[0], Pattern::NegNum(n, _) if *n == 20u32.into()));
         for bad in ["f (-x) = 1\n", "f (- - 1) = 1\n", "f (-1 + 2) = 1\n"] {
+            let mut sources = SourceMap::new();
+            let file = sources.add("test.sw", bad);
+            assert!(parse_module(file, bad).is_err(), "{bad}");
+        }
+    }
+
+    #[test]
+    fn parses_tuples() {
+        // Components nest to the right; `()` and `(e)` are unchanged.
+        let e = rhs("f = (1, 2, 3)\n");
+        let Expr::Tuple(a, rest, _) = &e else {
+            panic!("{e:?}")
+        };
+        assert!(matches!(**a, Expr::Num(..)));
+        assert!(matches!(**rest, Expr::Tuple(..)));
+        let e = rhs("f = ((1, 2), 3)\n");
+        assert!(matches!(&e, Expr::Tuple(a, b, _)
+            if matches!(**a, Expr::Tuple(..)) && matches!(**b, Expr::Num(..))));
+        assert!(matches!(rhs("f = ()\n"), Expr::Unit(_)));
+        assert!(matches!(rhs("f = (1)\n"), Expr::Num(..)));
+        assert!(matches!(rhs("f = (1 : Nat)\n"), Expr::Ann(..)));
+        // A tuple is a function's domain, and `(x : A)` is still a binder.
+        assert!(matches!(&rhs("f = (A, B) -> C\n"),
+            Expr::Arrow(d, _) if matches!(**d, Expr::Tuple(..))));
+        assert!(matches!(rhs("f = (x : A) -> B\n"), Expr::Pi { .. }));
+        // The tuple's span covers its brackets.
+        let e = rhs("f = (1, 2, 3)\n");
+        assert_eq!((e.span().start, e.span().end), (4, 13));
+    }
+
+    #[test]
+    fn parses_tuple_patterns() {
+        let module = parse("f (a, b, c) ((d, e) , _) (Cons (x, y) ys) = a\n");
+        let Decl::Equation { patterns, .. } = &module.decls[0] else {
+            panic!()
+        };
+        assert!(
+            matches!(&patterns[0], Pattern::Tuple(_, r, _) if matches!(**r, Pattern::Tuple(..)))
+        );
+        assert!(
+            matches!(&patterns[1], Pattern::Tuple(l, _, _) if matches!(**l, Pattern::Tuple(..)))
+        );
+        assert!(matches!(&patterns[2], Pattern::Ctor(_, args, _)
+            if matches!(args[0], Pattern::Tuple(..))));
+    }
+
+    #[test]
+    fn rejects_bad_tuples() {
+        for bad in [
+            "f = (1,)\n",
+            "f = (a, b : T)\n",
+            "f = (a : T, b)\n",
+            "f (a,) = a\n",
+        ] {
             let mut sources = SourceMap::new();
             let file = sources.add("test.sw", bad);
             assert!(parse_module(file, bad).is_err(), "{bad}");

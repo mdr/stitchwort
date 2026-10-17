@@ -123,6 +123,8 @@ builtins! {
     Maybe = "Maybe": Data,
     Nothing = "Nothing": Ctor(Builtin::Maybe),
     Just = "Just": Ctor(Builtin::Maybe),
+    Pair = "Pair": Data,
+    MkPair = "MkPair": Ctor(Builtin::Pair),
     Fst = "Pair.fst": Def,
     // Characters and text
     Char = "Char": Data,
