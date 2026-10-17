@@ -5,7 +5,7 @@
 //! (`Nat`, `Bool`, `Text`, `Char`, `List`, and data types built from them,
 //! such as `Maybe Text`), and their proof arguments are checked at runtime.
 
-use std::cell::Cell;
+use std::cell::{Cell, OnceCell};
 use std::collections::{HashMap, HashSet};
 use std::fmt::Write;
 
@@ -490,6 +490,45 @@ pub fn generate_with(g: &Globals, limits: Limits, options: Options) -> Result<Ou
 
     erasable(g)?;
     let codegen = Gen::new(g, options)?;
+    // Only what the exports use, in declaration order. That's dependency
+    // order: the kernel admits each group only once what it uses is final,
+    // so a definition refers only to earlier ones and to members of its own
+    // group. Those are thunks or functions, never values, so they look each
+    // other up only when called, after all of them are defined.
+    // What records' proof-field checks use, too.
+    let checks = boundary_datas
+        .iter()
+        .flat_map(|d| &g.data(*d).validators)
+        .flat_map(|v| v.decision.subterms())
+        .filter_map(|(t, _)| match t {
+            Term::Def(id) => Some(*id),
+            _ => None,
+        });
+    let failure = std::cell::RefCell::new(None);
+    let used = reachable(
+        g,
+        exports.iter().map(|sig| sig.id).chain(checks),
+        |id| match codegen.try_info(id) {
+            Ok(info) => {
+                info.result_erased
+                    || g.builtins.native(id).is_some()
+                    || codegen.text_natives.contains_key(&id)
+                    || codegen.int_natives.contains_key(&id)
+                    || info.delay.is_some()
+            }
+            Err(e) => {
+                failure.borrow_mut().get_or_insert(e);
+                true
+            }
+        },
+    );
+    if let Some(e) = failure.into_inner() {
+        return Err(e);
+    }
+    // `reachable` skips a definition without a body, so make sure of the rest.
+    for id in (0..g.defs.len()).map(DefId).filter(|id| used[id.0]) {
+        codegen.try_info(id)?;
+    }
     let mut js = String::from(RUNTIME);
     js.push('\n');
     if codegen.text.is_some() {
@@ -532,29 +571,8 @@ pub fn generate_with(g: &Globals, limits: Limits, options: Options) -> Result<Ou
         js.push_str(&codegen.define(d).map_err(Diagnostic::from)?);
     }
     js.push('\n');
-    // Only what the exports use, in declaration order. That's dependency
-    // order: the kernel admits each group only once what it uses is final,
-    // so a definition refers only to earlier ones and to members of its own
-    // group. Those are thunks or functions, never values, so they look each
-    // other up only when called, after all of them are defined.
-    // What records' proof-field checks use, too.
-    let checks = boundary_datas
-        .iter()
-        .flat_map(|d| &g.data(*d).validators)
-        .flat_map(|v| v.decision.subterms())
-        .filter_map(|(t, _)| match t {
-            Term::Def(id) => Some(*id),
-            _ => None,
-        });
-    let used = reachable(g, exports.iter().map(|sig| sig.id).chain(checks), |id| {
-        codegen.erased[id.0].0
-            || g.builtins.native(id).is_some()
-            || codegen.text_natives.contains_key(&id)
-            || codegen.int_natives.contains_key(&id)
-            || codegen.delay[id.0].is_some()
-    });
     // Partial computations are one token (docs/proposals/partial.md §7.6).
-    if (0..g.defs.len()).any(|i| used[i] && codegen.delay[i].is_some()) {
+    if (0..g.defs.len()).any(|i| used[i] && codegen.info(DefId(i)).delay.is_some()) {
         js.push_str("// A partial computation, which nothing here can run.\nconst delayed = Symbol(\"Delay\");\n\n");
     }
     let while_generating = |id: DefId| {
@@ -564,13 +582,13 @@ pub fn generate_with(g: &Globals, limits: Limits, options: Options) -> Result<Ou
     };
     for id in (0..g.defs.len())
         .map(DefId)
-        .filter(|id| used[id.0] && codegen.delay[id.0].is_none())
+        .filter(|id| used[id.0] && codegen.info(*id).delay.is_none())
     {
         // Only an admitted definition has a body. The driver doesn't extract
         // a module with errors, but if it were asked to, the JS would call a
         // function that isn't there.
         let def = g.def(id);
-        if def.body.is_none() && !codegen.erased[id.0].0 {
+        if def.body.is_none() && !codegen.info(id).result_erased {
             return Err(Diagnostic::error(
                 "E-EXPORT",
                 format!("can't generate JavaScript for `{}`", def.name),
@@ -1085,19 +1103,25 @@ struct Gen<'g> {
     int: Option<DataId>,
     /// The prelude's integer operations with native JS, and which.
     int_natives: HashMap<DefId, IntNative>,
-    /// Per definition: whether it's erased, and which of its leading
-    /// parameters (up to its arity) are erased.
-    erased: Vec<(bool, Vec<bool>)>,
-    /// Per definition: how it's compiled and called, decided once here and
-    /// used at every site.
-    conventions: Vec<Convention>,
-    /// Per definition whose result is a `Delay` (a partial function, or one
+    /// Per definition, computed on first use ([`Gen::try_info`]).
+    infos: Vec<OnceCell<DefInfo>>,
+    /// The prelude's `ifThenElse`, which `if` becomes.
+    if_then_else: Option<DefId>,
+}
+
+/// What the generator decides about a definition from its type.
+struct DefInfo {
+    /// Whether it's a proof or a type.
+    result_erased: bool,
+    /// Which of its leading parameters (up to its arity) are erased.
+    mask: Vec<bool>,
+    /// How it's compiled and called, decided once and used at every site.
+    convention: Convention,
+    /// For a definition whose result is a `Delay` (a partial function, or one
     /// of `Delay`'s constants): which of its parameters are erased. It's
     /// never generated: a call to it with all its arguments is the token
     /// `delayed`, and with fewer, a function returning the token.
-    delay: Vec<Option<Vec<bool>>>,
-    /// The prelude's `ifThenElse`, which `if` becomes.
-    if_then_else: Option<DefId>,
+    delay: Option<Vec<bool>>,
 }
 
 /// How a definition is compiled, and so how every site uses it: its
@@ -1132,57 +1156,6 @@ struct SelfCall {
 
 impl<'g> Gen<'g> {
     fn new(g: &'g Globals, options: Options) -> Result<Self, Diagnostic> {
-        let delay_type = g.builtins.primitive_id(Primitive::Delay);
-        let delay = g
-            .defs
-            .iter()
-            .map(|def| {
-                let tel = telescope(g, &def.ty_value, def.span)?;
-                let partial = match (force(g, tel.result)?, delay_type) {
-                    (Value::Neutral(Head::Def(d), spine), Some(delay)) => {
-                        d == delay && spine.len() == 3
-                    }
-                    _ => false,
-                };
-                Ok(partial.then(|| tel.params.iter().map(|(_, _, e)| *e).collect()))
-            })
-            .collect::<Result<Vec<_>, Diagnostic>>()?;
-        let erased = g
-            .defs
-            .iter()
-            .map(|def| {
-                let tel = telescope(g, &def.ty_value, def.span)?;
-                let mask = tel
-                    .params
-                    .iter()
-                    .take(def.arity)
-                    .map(|(_, _, erased)| *erased)
-                    .collect();
-                Ok((tel.result_erased, mask))
-            })
-            .collect::<Result<Vec<(bool, Vec<bool>)>, Diagnostic>>()?;
-        let conventions = g
-            .defs
-            .iter()
-            .zip(&erased)
-            .map(|(def, (erased, mask))| {
-                if *erased {
-                    return Convention::Erased;
-                }
-                if mask.iter().any(|e| !e) {
-                    return Convention::Function;
-                }
-                let case_tree = def.body.as_ref().is_some_and(|b| {
-                    matches!(b.peel_lams(def.arity), Term::Case(..) | Term::NumCase(..))
-                });
-                let in_group = def.group.as_ref().is_some_and(|m| m.len() > 1);
-                if case_tree || in_group {
-                    Convention::Thunk
-                } else {
-                    Convention::Value
-                }
-            })
-            .collect();
         let text = g.registry.data(Builtin::Text).filter(|d| {
             let data = g.data(*d);
             options.native_text
@@ -1221,17 +1194,74 @@ impl<'g> Gen<'g> {
             text_natives,
             int,
             int_natives,
-            erased,
-            conventions,
-            delay,
+            infos: g.defs.iter().map(|_| OnceCell::new()).collect(),
             if_then_else: g.registry.def(Builtin::IfThenElse),
         })
     }
 
+    /// What's decided about a definition, from its type: computed on first
+    /// use, so a definition nothing extracted consults (a theorem, say) costs
+    /// nothing.
+    fn try_info(&self, id: DefId) -> Result<&DefInfo, Diagnostic> {
+        let cell = &self.infos[id.0];
+        if let Some(info) = cell.get() {
+            return Ok(info);
+        }
+        let g = self.g;
+        let def = g.def(id);
+        let tel = telescope(g, &def.ty_value, def.span)?;
+        let partial = match (
+            force(g, tel.result)?,
+            g.builtins.primitive_id(Primitive::Delay),
+        ) {
+            (Value::Neutral(Head::Def(d), spine), Some(delay)) => d == delay && spine.len() == 3,
+            _ => false,
+        };
+        let delay = partial.then(|| tel.params.iter().map(|(_, _, e)| *e).collect());
+        let mask: Vec<bool> = tel
+            .params
+            .iter()
+            .take(def.arity)
+            .map(|(_, _, erased)| *erased)
+            .collect();
+        let result_erased = tel.result_erased;
+        let convention = if result_erased {
+            Convention::Erased
+        } else if mask.iter().any(|e| !e) {
+            Convention::Function
+        } else {
+            let case_tree = def.body.as_ref().is_some_and(|b| {
+                matches!(b.peel_lams(def.arity), Term::Case(..) | Term::NumCase(..))
+            });
+            let in_group = def.group.as_ref().is_some_and(|m| m.len() > 1);
+            if case_tree || in_group {
+                Convention::Thunk
+            } else {
+                Convention::Value
+            }
+        };
+        Ok(cell.get_or_init(|| DefInfo {
+            result_erased,
+            mask,
+            convention,
+            delay,
+        }))
+    }
+
+    /// `try_info` for a definition the generator has already consulted:
+    /// `generate_with` computes it for every definition it reaches.
+    fn info(&self, id: DefId) -> &DefInfo {
+        self.infos[id.0]
+            .get()
+            .unwrap_or_else(|| panic!("no info for {}", self.g.def(id).name))
+    }
+
     fn def(&self, id: DefId) -> Fallible<String> {
         let def = self.g.def(id);
-        let (_, mask) = &self.erased[id.0];
-        let convention = self.conventions[id.0];
+        let DefInfo {
+            mask, convention, ..
+        } = self.info(id);
+        let convention = *convention;
         if convention == Convention::Erased {
             return Ok(String::new());
         }
@@ -1626,7 +1656,7 @@ impl<'g> Gen<'g> {
         // A partial computation is the token, whatever its arguments: they
         // only feed a `Delay`, which nothing can run, so they aren't
         // computed.
-        if let Some(mask) = &self.delay[id.0] {
+        if let Some(mask) = &self.info(id).delay {
             let mut out = "delayed".to_string();
             for erased in mask.iter().skip(args.len()).rev() {
                 if !erased {
@@ -1635,8 +1665,9 @@ impl<'g> Gen<'g> {
             }
             return Ok(out);
         }
-        let (_, mask) = &self.erased[id.0];
-        let mut out = match self.conventions[id.0] {
+        let info = self.info(id);
+        let mask = &info.mask;
+        let mut out = match info.convention {
             Convention::Erased => return Ok("undefined".into()),
             Convention::Thunk => format!("{}()", def_name(&self.g.def(id).path)),
             Convention::Value | Convention::Function => def_name(&self.g.def(id).path),
@@ -1662,7 +1693,7 @@ impl<'g> Gen<'g> {
             params.join(", ")
         );
         let mut call = def_name(&self.g.def(sig.id).path);
-        if self.conventions[sig.id.0] == Convention::Thunk {
+        if self.info(sig.id).convention == Convention::Thunk {
             call.push_str("()");
         }
         for ((x, b), position) in sig.params.iter().zip(&sig.param_positions) {

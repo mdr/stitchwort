@@ -14,10 +14,10 @@ time_ms = 1707.9
 
 [extract-js]
 inputs = "21 files, b69f23ba7c1f0d7a"
-steps = 1045890
-visits = 219306
-allocations = 1232372
-peak_bytes = 337404
+steps = 22792
+visits = 13964
+allocations = 136865
+peak_bytes = 325752
 time_ms = 11.8
 
 [eval-lengths]
