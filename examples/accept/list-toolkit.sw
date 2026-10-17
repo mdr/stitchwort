@@ -115,3 +115,10 @@ test "absDiff" = Nat.absDiff 3 10 == 7
 test "absDiff flipped" = Nat.absDiff 10 3 == 7
 test "pow" = Nat.pow 2 10 == 1024
 test "pow zero" = Nat.pow 7 0 == 1
+
+-- Lists compare with `==` too (as the theorems above do with `rfl`).
+test "map" = [1, 2, 3].map (\x -> x + 1) == [2, 3, 4]
+test "filter" = [1, 2, 3, 4].filter (\x -> Nat.leq x 2) == [1, 2]
+test "zip" = [1, 2, 3].zip [4, 5] == [MkPair 1 4, MkPair 2 5]
+test "partition" = [1, 2, 3, 4].partition (\x -> Nat.leq x 2) == MkPair [1, 2] [3, 4]
+test "maximum" = [3, 9, 2].maximum == Just 9

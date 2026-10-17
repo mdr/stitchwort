@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-AUTO-NONE] Error: no way to decide `fs = fs`
+   ╭─[ reject/eqeq-list-undecidable.sw:5:11 ]
+   │
+ 5 │ same fs = fs == fs
+   │           ────┬───  
+   │               ╰───── the compiler needs a proof of this
+   │ 
+   │ Note 1: supply a proof by name, or write a decision procedure: a function returning `Decidable …`
+   │ 
+   │ Note 2: `List.decEq` could decide `=` on `List (Nat -> Nat)`, given a way to decide `=` on `Nat -> Nat`
+───╯

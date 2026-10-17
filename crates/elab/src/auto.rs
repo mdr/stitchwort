@@ -14,9 +14,14 @@
 //!    (docs/proposals/mutual-recursion.md §8.1), and one waiting for its
 //!    dependencies isn't available yet. That's a deliberate limitation;
 //!    passing a procedure explicitly makes it a dependency, checked first. Its arguments are found by unification, and any
-//!    `Decidable` or auto arguments it needs are found recursively. It's run at
+//!    `Decidable` or auto arguments it needs are found recursively, as are
+//!    decision procedures it takes as arguments (`(x y : a) -> Decidable
+//!    (x = y)`, for `List.decEq`): `\x y -> …`, searched for with `x` and `y`
+//!    in scope. Each recursive search is one deeper, up to `MAX_DEPTH`. It's run at
 //!    compile time, and must say `Yes`. The proof is then `fromYes d Trivial`,
 //!    which the kernel re-checks by running `d` itself.
+
+use std::rc::Rc;
 
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{Head, force};
@@ -116,9 +121,14 @@ pub fn prove(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Term> {
 /// A term of type `Decidable prop`, from the decision procedures in scope.
 pub fn decide(cx: &mut Ctx, prop: &Value, depth: usize) -> Result<Term> {
     let decidable = decidable(cx)?;
+    // Why candidates that fit the goal didn't work, for the error.
+    let mut reasons = Vec::new();
     if depth <= MAX_DEPTH {
         for id in decision_procedures(cx, decidable)? {
-            if let Some(term) = attempt(cx, |cx| instantiate(cx, id, decidable, prop, depth))? {
+            let found = attempt(cx, |cx| {
+                instantiate(cx, id, decidable, prop, depth, &mut reasons)
+            })?;
+            if let Some(term) = found {
                 return Ok(term);
             }
         }
@@ -131,6 +141,7 @@ pub fn decide(cx: &mut Ctx, prop: &Value, depth: usize) -> Result<Term> {
             "the compiler needs a proof of this",
         )
         .with_note("supply a proof by name, or write a decision procedure: a function returning `Decidable …`");
+    let error = reasons.into_iter().fold(error, Diagnostic::with_note);
     // `=` on a record whose `==` wasn't derived: say why.
     let error = match force(cx.g(), prop.clone())? {
         Value::Eq(ty, _, _) => match force(cx.g(), (*ty).clone())? {
@@ -196,6 +207,66 @@ fn decision_procedures(cx: &Ctx, decidable: DataId) -> Result<Vec<DefId>> {
     Ok(found)
 }
 
+/// For an argument of type `(x : A) -> (y : B) -> Decidable P` (a decision
+/// procedure passed in, such as the one for elements that `List.decEq`
+/// takes): `\x y -> d`, where `d` decides `P` with `x` and `y` in scope.
+/// `None` if `ty` isn't such a type; if `P` can't be decided, the error and
+/// what `P` is, for saying why.
+///
+/// It's a search one level deeper, like a `Decidable` argument's, so it's
+/// bounded by `MAX_DEPTH` in the same way.
+#[allow(clippy::type_complexity)]
+fn decide_under(
+    cx: &mut Ctx,
+    ty: Value,
+    decidable: DataId,
+    depth: usize,
+) -> Result<Option<std::result::Result<Term, (Diagnostic, String)>>> {
+    let g = cx.g();
+    let mark = cx.mark();
+    let mut binders = Vec::new();
+    let mut ty = ty;
+    let prop = loop {
+        match force(g, ty)? {
+            Value::Pi(x, icit, dom, cod) => {
+                let var = Value::var(cx.level());
+                cx.bind_hidden(x.clone(), (*dom).clone());
+                binders.push((x, icit));
+                ty = cod.apply(g, var)?;
+            }
+            Value::Data(d, params) if d == decidable => break params[0].clone(),
+            _ => {
+                cx.reset(mark);
+                return Ok(None);
+            }
+        }
+    };
+    let body = match decide(cx, &prop, depth) {
+        Ok(body) => Ok(binders
+            .into_iter()
+            .rev()
+            .fold(body, |body, (x, icit)| Term::Lam(x, icit, Rc::new(body)))),
+        Err(e) => match describe(cx, &prop) {
+            Ok(what) => Err((e, what)),
+            Err(fatal) => Err((fatal, String::new())),
+        },
+    };
+    cx.reset(mark);
+    Ok(Some(body))
+}
+
+/// Joins the two parts of a note saying why a candidate didn't work, and
+/// marks such notes, so they can be passed on from a search inside another.
+const GIVEN: &str = ", given a way to decide ";
+
+/// `prop`, for a note: `=` on its type, if it's an equation.
+fn describe(cx: &Ctx, prop: &Value) -> Result<String> {
+    Ok(match force(cx.g(), prop.clone())? {
+        Value::Eq(ty, _, _) => format!("`=` on `{}`", cx.show(&ty)),
+        prop => format!("`{}`", cx.show(&prop)),
+    })
+}
+
 /// Applies decision procedure `id` to fresh unknowns, unifies its result with
 /// `Decidable prop`, and fills in what's left: `Decidable` arguments by
 /// recursive search, auto arguments by proof search.
@@ -205,6 +276,7 @@ fn instantiate(
     decidable: DataId,
     prop: &Value,
     depth: usize,
+    reasons: &mut Vec<String>,
 ) -> Result<Option<Term>> {
     let g = cx.g();
     let mut term = Term::Def(id);
@@ -227,6 +299,19 @@ fn instantiate(
         let found = match force(g, dom)? {
             Value::Data(d, params) if d == decidable => decide(cx, &params[0], depth + 1),
             dom if icit == Icit::Auto => prove(cx, &dom, depth + 1),
+            dom @ Value::Pi(..) => match decide_under(cx, dom, decidable, depth + 1)? {
+                Some(Ok(found)) => Ok(found),
+                Some(Err((e, inner))) => {
+                    if e.code == "E-AUTO-NONE" {
+                        let outer = describe(cx, prop)?;
+                        let name = &g.def(id).name;
+                        reasons.push(format!("`{name}` could decide {outer}{GIVEN}{inner}"));
+                        reasons.extend(e.notes.iter().filter(|n| n.contains(GIVEN)).cloned());
+                    }
+                    Err(e)
+                }
+                None => return Ok(None),
+            },
             _ => return Ok(None),
         };
         let found = match found {

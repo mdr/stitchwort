@@ -375,6 +375,43 @@ List.decEq d Nil         (Cons y ys) = No (List.nilNotCons y ys)
 List.decEq d (Cons x xs) Nil         = No (List.consNotNil x xs)
 List.decEq d (Cons x xs) (Cons y ys) = List.decCons x y xs ys (d x y) (List.decEq d xs ys)
 
+Pair.decMk : (x1 : a) -> (x2 : a) -> (y1 : b) -> (y2 : b) ->
+  Decidable (x1 = x2) -> Decidable (y1 = y2) -> Decidable (MkPair x1 y1 = MkPair x2 y2)
+Pair.decMk x1 x2 y1 y2 (Yes p) (Yes q) = Yes (J (\x' p' -> MkPair x1 y1 = MkPair x' y2) (Eq.cong (MkPair x1) q) p)
+Pair.decMk x1 x2 y1 y2 (No r)  dq      = No (\e -> r (Eq.cong Pair.fst e))
+Pair.decMk x1 x2 y1 y2 (Yes p) (No r)  = No (\e -> r (Eq.cong Pair.snd e))
+
+-- Equality of pairs, from equality of their parts.
+Pair.decEq : ((x : a) -> (y : a) -> Decidable (x = y)) -> ((x : b) -> (y : b) -> Decidable (x = y)) ->
+  (p : Pair a b) -> (q : Pair a b) -> Decidable (p = q)
+Pair.decEq da db (MkPair x1 y1) (MkPair x2 y2) = Pair.decMk x1 x2 y1 y2 (da x1 x2) (db y1 y2)
+
+Maybe.IsNothing : Maybe a -> Prop
+Maybe.IsNothing Nothing  = Unit
+Maybe.IsNothing (Just x) = Void
+
+theorem Maybe.nothingNotJust : (x : a) -> Not (Nothing = Just x)
+Maybe.nothingNotJust x p = J (\y q -> Maybe.IsNothing y) Trivial p
+
+theorem Maybe.justNotNothing : (x : a) -> Not (Just x = Nothing)
+Maybe.justNotNothing x p = Maybe.nothingNotJust x (Eq.sym p)
+
+-- The value, or `d` if there isn't one.
+Maybe.withDefault : a -> Maybe a -> a
+Maybe.withDefault d Nothing  = d
+Maybe.withDefault d (Just x) = x
+
+Maybe.decJust : (x : a) -> (y : a) -> Decidable (x = y) -> Decidable (Just x = Just y)
+Maybe.decJust x y (Yes p) = Yes (Eq.cong Just p)
+Maybe.decJust x y (No r)  = No (\e -> r (Eq.cong (Maybe.withDefault x) e))
+
+-- Equality of optional values, from equality of the values.
+Maybe.decEq : ((x : a) -> (y : a) -> Decidable (x = y)) -> (m : Maybe a) -> (n : Maybe a) -> Decidable (m = n)
+Maybe.decEq d Nothing  Nothing  = Yes rfl
+Maybe.decEq d Nothing  (Just y) = No (Maybe.nothingNotJust y)
+Maybe.decEq d (Just x) Nothing  = No (Maybe.justNotNothing x)
+Maybe.decEq d (Just x) (Just y) = Maybe.decJust x y (d x y)
+
 -- Comparisons
 
 type Ordering : Type =

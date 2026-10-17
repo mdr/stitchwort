@@ -1,0 +1,28 @@
+---
+source: crates/driver/tests/hash_stability.rs
+expression: "lines(&session, d, f)"
+---
+Main.test "lists of numbers" 4a5cbfe78a916356ffbd3bd28a04d7c86eeb5f691c8fb203fc4dd936b9e1019f
+Main.test "different lengths" 7e8200dcf3c28985b646d172dec4a94a4296da197b856d738b236d07f2edd99c
+Main.test "different elements" b630529820415496d6da85067221116d7b6ff73efef40ea0e2412633dca4da0d
+Main.test "empty lists" 572a2a79f09bebfc144366fd37b595e79c154898d8f18dd0846088e5c08a294a
+Main.test "lists of lists" 1f9ab0c0f13b29a8214021151eea74682eadd05d6e377567f899f38455deaaff
+Main.test "lists of lists, different" 2734369afc70eb3a7cad963a09964ef822c75d6b631defd3e88029be54316065
+Main.test "lists of texts" ad7f22f82409af2084405bf6d4ac034ba5c41c6b539d40ddea91376140ec11cb
+Main.test "lists of texts, different" 5c0d3812ef53eff2b7a4014c888b72e4ebc276bbd010628fba83f6f784133fd9
+Main.test "lists of booleans" 23c2b1ea77a59de000c183570af8aacd2882af02d5c8d8e539861abb3c07774e
+Main.test "pairs" 87b869dbc5c685cd7f7c4b067888b24a942dc5c80a3e410e983534dc9733367d
+Main.test "pairs, first differs" 03b6cc716970dcbf4382047340e0cf4387dec479f74fe88f219f7ec957c7027c
+Main.test "pairs, second differs" 45e88fb95709d2a839ef9a2f81f6ef348b5f6224f967bb2b09c8c5fec0998187
+Main.test "triples" 5c1572bb363ae2a46f3f3ed3babf55c732c5e29ada415289257f6212aa8fe321
+Main.test "triples, last differs" 1256caec80c7c3dd23f73d491843a24ec74efae0e46ce56d743022e10d658fbc
+Main.test "Maybe Int" 7fbcd309f93e18c95921c02646c374d9454b786ea5a2b6a71922c242556f2231
+Main.test "Maybe Int, different" 03a3623c673816794adb641e5e87b5ad05e36d2bf081828b7bd8484e3a643f4b
+Main.test "Nothing and Just" 95b6cd24ef6488306bad32d4935a939d4b2fb09bcd8fb02bc86f4a130a6ae2dd
+Main.test "Nothing" 7e9bb7b24b9b11a63f9f6a9c2d8a21e5480adf74593f1dc3551c136717cde5f5
+Main.test "nested" cf7d56a1d5663fd460bdce4eb78d99cac7c3d37c609d1762313d20d8e5ac7d9f
+Main.test "nested, different" f8159291ba0c099c57c8391c8671f3e1eb0af81e918e8f0dc3887d45bdf5a6d3
+Main.test "zip" 7e088be7cb1e29eb440049a05007fe20321cd874081b055ad75986bf78c52f18
+Main.sameShape 9fed268759e274814c66259ebc94e8a839659c4c33dd063a1182066e146d8305
+Main.test "at run time" d4aedac1ef536f459501a8d1feb17f18bcf923e875a13f55bc48ba6b9d08c347
+Main.test "at run time, different" 49be4653cdf112126c8b4c9ccff8d27233999bb0b86db51cf9ad8e96d82295e8
