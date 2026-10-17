@@ -75,14 +75,14 @@ capability we know we'll need before the work that needs it):
    yet supported") merged (`220dedc`). Next: stage 3, elaborating numbers
    (the group rule; Opus, with Sonnet for snapshot tests).
 2. **Standard library for real programs** (ranked by the AoC survey,
-   [aoc-2025.md](docs/aoc-2025.md): days 1–5 already run with today's
-   compiler using hand-written helpers): a list toolkit, a `readAllLines`
-   helper, `Nat` arithmetic lemmas (the gate to arithmetic proofs), `Nat`
-   helpers (min, max, absDiff, pow, digits), sorting with a proof; later an
-   `Array` type, a balanced map/set. Also: list functions (`map`, `filter`,
-   folds, `sum`, `max`, `zip`, `take`/`drop`, indexing), sorting with a
-   correctness proof (sorted permutation), `Int`, a balanced-tree map/set,
-   grid helpers.
+   [aoc-2025.md](docs/aoc-2025.md)). Done: the list toolkit (`map`,
+   `filter`, folds, `sum`, `zip`, `take`/`drop`, `get`, …) and `Nat`
+   min/max/absDiff/pow (`51ce453`; callbacks are pure for now — no
+   effect-row convention yet). To do: a `readAllLines` helper, `Nat`
+   arithmetic lemmas (the gate to arithmetic proofs; `Int` stage 6 needs
+   them), `Nat.digits`, sorting with a correctness proof (sorted
+   permutation), `==` on lists (tests can't compare lists today); later an
+   `Array` type, a balanced-tree map/set, grid helpers.
 3. **Syntax conveniences**: design note draft 1 merged
    ([syntax-conveniences.md](docs/proposals/syntax-conveniences.md)):
    `where`/local functions and `match` lifted to hidden top-level
