@@ -83,7 +83,12 @@ capability we know we'll need before the work that needs it):
    integers) merged (`9cb1d72`). Small polish for later: "a `Int`" →
    "an `Int`"; the default's note should suggest `OfNat Zero`/`OfNat
    (Succ k)` for `Int`; `f Zero = …; f 0 = …` points at the wrong row.
-   Next: stage 5, JS (`bigint`, boundary codec, natives).
+   Stage 5 (JS: `Int` as `bigint` of either sign, strict boundary
+   codec, 23 natives, two hash fallbacks — the type's hash switches the
+   representation, each native is bound by its definition's hash)
+   merged (`3ef9015`). Next: stage 6, the second lemma checkpoint (`Int`
+   division laws, `modNat x 100 < 100`, `%` vs `modNat`; the `Nat` lemmas
+   it needs are in), then stage 7, docs.
    Tuples print as `(a, b)` (`5f11367`). `==` on lists is
    blocked on a design choice: `auto`'s `instantiate` can't fill a
    decider-function argument like `List.decEq`'s
@@ -121,6 +126,12 @@ capability we know we'll need before the work that needs it):
    Write up the friction found.
 
 ## Later
+
+- **Hash-check `Nat`'s and `Text`'s JS representations** like `Int`'s
+  (`Nat`'s isn't checked by hash, its operations being kernel natives;
+  `Text`'s only by shape). Raised by `Int` stage 5.
+- **`a_write_error_is_an_error`** (crates/cli/tests/run.rs) failed once
+  during a gate and passed on rerun: possibly flaky.
 
 - **Benchmark gaps:** generated rows aren't benchmarked; `stitchwort run`
   isn't timed as a subprocess; no deterministic count catches loops that
