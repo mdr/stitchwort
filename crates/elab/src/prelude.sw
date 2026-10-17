@@ -1158,6 +1158,97 @@ Int.natAbsNeg (OfNat Zero)     = rfl
 Int.natAbsNeg (OfNat (Succ n)) = rfl
 Int.natAbsNeg (NegSucc n)      = rfl
 
+-- Lemmas (checkpoint 2): division.
+--
+-- The divisor's proof is an `auto` argument, so at a use such as
+-- `Int.divAddMod x 7` it's found the same way as in `x / 7`, and the two
+-- terms match: a stuck `x % 7` keeps its proof in it.
+
+theorem Nat.toIntNeZero : (d : Nat) -> d != 0 -> Nat.toInt d != 0
+Nat.toIntNeZero d ok p = ok (Int.ofNatInjective d 0 p)
+
+-- `x.modNat d < d`; `Int.modNatLt x 100` is the dial's `x.modNat 100 < 100`.
+theorem Int.modNatLt : (x : Int) -> (d : Nat) -> [auto ok : d != 0] -> Int.modNat x d < d
+Int.modNatLt x           Zero     = Void.exfalso (ok rfl)
+Int.modNatLt (OfNat m)   (Succ n) = Nat.modLess m (Succ n) (Nat.succNotZero n)
+Int.modNatLt (NegSucc m) (Succ n) = Nat.subLe n (m % Succ n)
+
+-- For a variable `d`, pass `[ok2 := Nat.toIntNeZero d ok]`.
+theorem Int.modNatToInt : (x : Int) -> (d : Nat) -> [auto ok : d != 0] -> [auto ok2 : Nat.toInt d != 0] ->
+    Nat.toInt (Int.modNat x d) = x % Nat.toInt d
+Int.modNatToInt x           Zero     = Void.exfalso (ok rfl)
+Int.modNatToInt (OfNat m)   (Succ n) = rfl
+Int.modNatToInt (NegSucc m) (Succ n) = rfl
+
+theorem Int.toIntDiv : (n : Nat) -> (d : Nat) -> [auto ok : d != 0] -> [auto ok2 : Nat.toInt d != 0] ->
+    Nat.toInt (n / d) = Nat.toInt n / Nat.toInt d
+Int.toIntDiv n Zero     = Void.exfalso (ok rfl)
+Int.toIntDiv n (Succ d) = rfl
+
+theorem Int.toIntMod : (n : Nat) -> (d : Nat) -> [auto ok : d != 0] -> [auto ok2 : Nat.toInt d != 0] ->
+    Nat.toInt (n % d) = Nat.toInt n % Nat.toInt d
+Int.toIntMod n Zero     = Void.exfalso (ok rfl)
+Int.toIntMod n (Succ d) = rfl
+
+-- Remainder bounds: `0 <= a % d < |d|`.
+theorem Int.modNonneg : (a : Int) -> (d : Int) -> [auto ok : d != 0] -> 0 <= a % d
+Int.modNonneg a           (OfNat Zero)     = Void.exfalso (ok rfl)
+Int.modNonneg (OfNat m)   (OfNat (Succ n)) = rfl
+Int.modNonneg (NegSucc m) (OfNat (Succ n)) = rfl
+Int.modNonneg (OfNat m)   (NegSucc n)      = rfl
+Int.modNonneg (NegSucc m) (NegSucc n)      = rfl
+
+theorem Int.modLtAbs : (a : Int) -> (d : Int) -> [auto ok : d != 0] -> a % d < Nat.toInt (Int.natAbs d)
+Int.modLtAbs a           (OfNat Zero)     = Void.exfalso (ok rfl)
+Int.modLtAbs (OfNat m)   (OfNat (Succ n)) = Nat.modLess m (Succ n) (Nat.succNotZero n)
+Int.modLtAbs (NegSucc m) (OfNat (Succ n)) = Nat.subLe n (m % Succ n)
+Int.modLtAbs (OfNat m)   (NegSucc n)      = Nat.modLess m (Succ n) (Nat.succNotZero n)
+Int.modLtAbs (NegSucc m) (NegSucc n)      = Nat.subLe n (m % Succ n)
+
+-- The division law's negative-dividend cases. With `q = m / Succ n` and
+-- `r = m % Succ n`, `d * (a / d)` computes to `NegSucc (q + n * Succ q)`,
+-- and adding `n - r` gives `-(m + 1)`: `Succ (q + n * Succ q) - (n - r)`
+-- is `Succ m`, because `q + n * Succ q = m + (n - r)`.
+theorem Int.divAddModNeg : (m : Nat) -> (n : Nat) -> (q : Nat) -> (r : Nat) -> m = q * Succ n + r -> r <= n ->
+    Int.add (NegSucc (q + n * Succ q)) (OfNat (n - r)) = NegSucc m
+Int.divAddModNeg m n q r h hr =
+  Eq.cong (Int.subNatNatFrom (n - r) (Succ (q + n * Succ q)))
+    (Eq.trans
+      (Eq.cong (\t -> Succ t - (n - r))
+        (Eq.sym
+          (Eq.trans (Eq.cong (\t -> t + (n - r)) h)
+          (Eq.trans (Nat.addAssoc (q * Succ n) r (n - r))
+          (Eq.trans (Eq.cong (\t -> q * Succ n + t) (Nat.addSubCancel r n hr))
+          (Eq.trans (Eq.cong (\t -> t + n) (Nat.mulComm q (Succ n)))
+          (Eq.trans (Nat.addAssoc q (n * q) n)
+          (Eq.trans (Eq.cong (\t -> q + t) (Nat.addComm (n * q) n))
+                    (Eq.cong (\t -> q + t) (Eq.sym (Nat.mulSucc n q)))))))))))
+      (Nat.addSub (Succ m) (n - r)))
+
+-- The non-negative dividend, negative divisor case: `Int.neg (OfNat q)`
+-- only computes once `q` is split.
+theorem Int.divAddModPosNeg : (m : Nat) -> (n : Nat) -> (q : Nat) -> (r : Nat) -> m = q * Succ n + r ->
+    Int.add (Int.mul (NegSucc n) (Int.neg (OfNat q))) (OfNat r) = OfNat m
+Int.divAddModPosNeg m n Zero r h =
+  Eq.trans (Eq.cong (\t -> Int.add (Int.neg (OfNat t)) (OfNat r)) (Nat.mulZero n)) (Eq.cong OfNat (Eq.sym h))
+Int.divAddModPosNeg m n (Succ q) r h =
+  Eq.cong OfNat (Eq.trans (Eq.cong (\t -> t + r) (Nat.mulComm (Succ n) (Succ q))) (Eq.sym h))
+
+-- The division law.
+theorem Int.divAddMod : (a : Int) -> (d : Int) -> [auto ok : d != 0] -> d * (a / d) + a % d = a
+Int.divAddMod a           (OfNat Zero)     = Void.exfalso (ok rfl)
+Int.divAddMod (OfNat m)   (OfNat (Succ n)) =
+  Eq.cong OfNat (Eq.trans (Eq.cong (\t -> t + m % Succ n) (Nat.mulComm (Succ n) (m / Succ n)))
+    (Eq.sym (Nat.divMod m (Succ n) (Nat.succNotZero n))))
+Int.divAddMod (NegSucc m) (OfNat (Succ n)) =
+  Int.divAddModNeg m n (m / Succ n) (m % Succ n) (Nat.divMod m (Succ n) (Nat.succNotZero n))
+    (Nat.modLess m (Succ n) (Nat.succNotZero n))
+Int.divAddMod (OfNat m)   (NegSucc n)      =
+  Int.divAddModPosNeg m n (m / Succ n) (m % Succ n) (Nat.divMod m (Succ n) (Nat.succNotZero n))
+Int.divAddMod (NegSucc m) (NegSucc n)      =
+  Int.divAddModNeg m n (m / Succ n) (m % Succ n) (Nat.divMod m (Succ n) (Nat.succNotZero n))
+    (Nat.modLess m (Succ n) (Nat.succNotZero n))
+
 -- Splitting and joining
 
 -- `Text.splitChars s cs` is the first field and the rest: never empty.
