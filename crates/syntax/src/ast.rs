@@ -84,6 +84,13 @@ pub enum Expr {
         clauses: Vec<Clause>,
         span: Span,
     },
+    /// `match e with | p -> body | …`; several scrutinees `match a, b with | p, q -> …`;
+    /// naming the equation `match h : e with …` (docs/proposals/syntax-conveniences.md §4).
+    Match {
+        scrutinees: Vec<Scrutinee>,
+        alts: Vec<Alt>,
+        span: Span,
+    },
     /// A record literal `{ name = e, age = e }`, or with a base, an update
     /// `{ p | age = e }`. Fields are in the order written; a punned field
     /// `{ name }` is `{ name = name }`.
@@ -117,6 +124,22 @@ pub enum Clause {
         k: Name,
         body: Expr,
     },
+}
+
+/// One scrutinee of a `match`: the expression, and the name of its equation if written (`h : e`).
+#[derive(Clone, Debug)]
+pub struct Scrutinee {
+    pub name: Option<Name>,
+    pub expr: Expr,
+}
+
+/// One alternative of a `match`: `| p₁, p₂ -> body`, one pattern per scrutinee.
+#[derive(Clone, Debug)]
+pub struct Alt {
+    pub patterns: Vec<Pattern>,
+    pub body: Expr,
+    /// From the `|` to the end of the body.
+    pub span: Span,
 }
 
 impl Expr {
@@ -169,7 +192,8 @@ impl Expr {
             | Expr::Tuple(_, _, span)
             | Expr::Let { span, .. }
             | Expr::Record { span, .. }
-            | Expr::Handle { span, .. } => *span,
+            | Expr::Handle { span, .. }
+            | Expr::Match { span, .. } => *span,
             Expr::Field(e, name) => e.span().to(name.span),
             Expr::Effect(..)
             | Expr::App(..)
@@ -220,6 +244,7 @@ fn has_nested(expr: &Expr) -> bool {
             ty, value, body, ..
         } => ty.as_deref().is_some_and(nested) || nested(value) || nested(body),
         Expr::Handle { body, .. } => nested(body),
+        Expr::Match { scrutinees, .. } => scrutinees.iter().any(|s| nested(&s.expr)),
         Expr::List(items, _) => !items.is_empty(),
         Expr::Record { base, fields, .. } => base.is_some() || !fields.is_empty(),
         Expr::Field(e, _) => nested(e),
@@ -286,6 +311,13 @@ fn take_children(expr: &mut Expr, pending: &mut Vec<Expr>) {
             take(body);
         }
         Expr::Handle { body, .. } => take(body),
+        Expr::Match { scrutinees, .. } => {
+            for s in scrutinees {
+                if !is_leaf(&s.expr) {
+                    pending.push(std::mem::replace(&mut s.expr, Expr::Prop(Span::NOWHERE)));
+                }
+            }
+        }
         Expr::List(items, _) => pending.append(items),
         Expr::Record { base, fields, .. } => {
             if let Some(base) = base {

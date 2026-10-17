@@ -232,6 +232,21 @@ fn walk(
             walk(e, a, bound, false, uses)?;
             walk(e, b, bound, false, uses)?;
         }
+        Expr::Match {
+            scrutinees, alts, ..
+        } => {
+            for s in scrutinees {
+                walk(e, &s.expr, bound, false, uses)?;
+            }
+            for alt in alts {
+                let before = bound.len();
+                for p in &alt.patterns {
+                    pattern_vars(p, bound);
+                }
+                walk(e, &alt.body, bound, false, uses)?;
+                bound.truncate(before);
+            }
+        }
         Expr::Handle { body, clauses, .. } => {
             walk(e, body, bound, false, uses)?;
             for clause in clauses {
@@ -255,4 +270,19 @@ fn walk(
         }
     }
     Ok(())
+}
+
+/// The variables a pattern binds, pushed onto `out`.
+fn pattern_vars(pattern: &stitchwort_syntax::ast::Pattern, out: &mut Vec<String>) {
+    use stitchwort_syntax::ast::Pattern;
+    match pattern {
+        Pattern::Var(x) => out.push(x.text.clone()),
+        Pattern::Ctor(_, args, _) => args.iter().for_each(|p| pattern_vars(p, out)),
+        Pattern::Tuple(a, b, _) => {
+            pattern_vars(a, out);
+            pattern_vars(b, out);
+        }
+        Pattern::Record { fields, .. } => fields.iter().for_each(|(_, p)| pattern_vars(p, out)),
+        Pattern::Wildcard(_) | Pattern::Absurd(_) | Pattern::Num(..) | Pattern::NegNum(..) => {}
+    }
 }

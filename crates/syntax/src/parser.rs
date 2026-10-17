@@ -10,7 +10,9 @@
 //! further continue the line above. A line at the block's column right after
 //! one ending in an operator (like `->`) continues it too.
 
-use crate::ast::{BinOp, Binder, Clause, CtorDecl, Decl, Expr, Import, Module, Name, Pattern, Row};
+use crate::ast::{
+    Alt, BinOp, Binder, Clause, CtorDecl, Decl, Expr, Import, Module, Name, Pattern, Row, Scrutinee,
+};
 use crate::lexer::{Tok, Token, lex};
 use crate::stack::StackLimit;
 use crate::{Diagnostic, FileId, Span};
@@ -946,10 +948,95 @@ impl<'t> Parser<'t> {
         })
     }
 
+    /// `match e, h : e2 with | p, q -> body | …`
+    fn match_expr(&mut self, start: Span) -> Result<Expr> {
+        let mut scrutinees = Vec::new();
+        loop {
+            let name = if matches!(self.peek(), Some(Tok::Lower(_)))
+                && self.peek_at(1) == Some(&Tok::Colon)
+            {
+                let name = self.lower("a name")?;
+                self.bump();
+                Some(name)
+            } else {
+                None
+            };
+            let expr = self.expr_inline()?;
+            scrutinees.push(Scrutinee { name, expr });
+            if !self.eat(&Tok::Comma) {
+                break;
+            }
+        }
+        self.expect(Tok::KwWith, "`with`")?;
+        let mut alts = Vec::new();
+        // Alternatives on their own lines line up, as a handler's clauses do.
+        let mut column = None;
+        while self.peek() == Some(&Tok::Pipe) {
+            let token = &self.tokens[self.pos];
+            if token.line_start {
+                match column {
+                    None => column = Some(token.column),
+                    Some(c) if c != token.column => break,
+                    Some(_) => {}
+                }
+            }
+            let bar = self.bump().span;
+            let mut patterns = vec![self.alt_pattern()?];
+            while self.eat(&Tok::Comma) {
+                patterns.push(self.alt_pattern()?);
+            }
+            if patterns.len() != scrutinees.len() {
+                let (n, m) = (patterns.len(), scrutinees.len());
+                return Err(error(
+                    bar.to(self.prev_span()),
+                    format!(
+                        "this alternative has {n} pattern{}, but the `match` has {m} scrutinee{}",
+                        if n == 1 { "" } else { "s" },
+                        if m == 1 { "" } else { "s" },
+                    ),
+                ));
+            }
+            self.expect(Tok::Arrow, "`->`")?;
+            let body = self.expr()?;
+            alts.push(Alt {
+                span: bar.to(body.span()),
+                patterns,
+                body,
+            });
+        }
+        if alts.is_empty() {
+            return Err(self.unexpected("`|` and an alternative"));
+        }
+        Ok(Expr::Match {
+            span: start.to(self.prev_span()),
+            scrutinees,
+            alts,
+        })
+    }
+
+    /// A pattern of a `match` alternative: what may stand inside brackets in
+    /// an equation, so a constructor's arguments need no parentheses
+    /// (`Cons x Nil`).
+    fn alt_pattern(&mut self) -> Result<Pattern> {
+        if let Some(Tok::Upper(_)) = self.peek() {
+            let start = self.here();
+            let name = self.upper_q("a constructor")?;
+            let mut args = Vec::new();
+            while !matches!(self.peek(), Some(Tok::Comma | Tok::Arrow) | None) {
+                args.push(self.pattern()?);
+            }
+            return Ok(Pattern::Ctor(name, args, start.to(self.prev_span())));
+        }
+        self.tuple_component()
+    }
+
     fn expr_inline(&mut self) -> Result<Expr> {
         let start = self.here();
         if self.eat(&Tok::KwHandle) {
             return self.handle(start);
+        }
+        if self.eat(&Tok::KwMatch) {
+            return self.match_expr(start);
         }
         if self.eat(&Tok::Backslash) {
             let mut names = Vec::new();
@@ -1157,6 +1244,12 @@ impl<'t> Parser<'t> {
     /// A prefix minus (which may repeat), tighter than `*` and looser than
     /// application and dots: `-x.abs` is `-(x.abs)`, `-f x` is `-(f x)`.
     fn unary(&mut self) -> Result<Expr> {
+        // A `match` as an operand: `1 + match n with | …`. Its last
+        // alternative's body takes whatever follows.
+        if self.peek() == Some(&Tok::KwMatch) {
+            let start = self.bump().span;
+            return self.match_expr(start);
+        }
         if self.peek() == Some(&Tok::Minus) {
             self.deeper()?;
             let start = self.bump().span;
@@ -1405,6 +1498,7 @@ fn describe(tok: &Tok) -> String {
         Tok::KwWhere => "`where`".into(),
         Tok::KwHandle => "`handle`".into(),
         Tok::KwWith => "`with`".into(),
+        Tok::KwMatch => "`match`".into(),
         Tok::KwReturn => "`return`".into(),
         Tok::KwLet => "`let`".into(),
         Tok::KwImport => "`import`".into(),
@@ -1849,6 +1943,94 @@ mod tests {
         );
         assert!(fails("ability A where\n"), "an ability without operations");
         assert!(fails("f : Nat -> {State s Nat\n"), "an unclosed row");
+    }
+
+    fn match_parts(e: &Expr) -> (&[Scrutinee], &[Alt]) {
+        let Expr::Match {
+            scrutinees, alts, ..
+        } = e
+        else {
+            panic!("expected a `match`, got {e:?}");
+        };
+        (scrutinees, alts)
+    }
+
+    #[test]
+    fn parses_match_expressions() {
+        // Alternatives on their own lines.
+        let e =
+            rhs("f xs =\n  match xs with\n    | Nil -> 0\n    | Cons x Nil -> x\n    | _ -> 2\n");
+        let (s, alts) = match_parts(&e);
+        assert_eq!(s.len(), 1);
+        assert!(s[0].name.is_none());
+        assert_eq!(alts.len(), 3);
+        assert!(matches!(&alts[1].patterns[0], Pattern::Ctor(_, args, _) if args.len() == 2));
+        assert!(matches!(alts[2].patterns[0], Pattern::Wildcard(_)));
+
+        // All on one line.
+        let e = rhs("f xs = match xs with | Nil -> 0 | Cons x _ -> x\n");
+        let (_, alts) = match_parts(&e);
+        assert_eq!(alts.len(), 2);
+        assert!(matches!(&alts[1].patterns[0], Pattern::Ctor(_, args, _) if args.len() == 2));
+
+        // Two scrutinees.
+        let e = rhs("f a b = match a, b with | Zero, _ -> 0 | Succ m, Zero -> m | _, _ -> 1\n");
+        let (s, alts) = match_parts(&e);
+        assert_eq!(s.len(), 2);
+        assert!(alts.iter().all(|a| a.patterns.len() == 2));
+
+        // A named equation.
+        let e = rhs("f xs = match h : length xs with | Zero -> 0 | Succ k -> k\n");
+        let (s, _) = match_parts(&e);
+        assert_eq!(s[0].name.as_ref().unwrap().text, "h");
+        assert!(matches!(s[0].expr, Expr::App(..)));
+
+        // Other pattern forms.
+        let e = rhs("f p = match p with | (a, b) -> a | { name = n } -> n | () -> 0 | 0 -> 1\n");
+        let (_, alts) = match_parts(&e);
+        assert!(matches!(alts[0].patterns[0], Pattern::Tuple(..)));
+        assert!(matches!(alts[1].patterns[0], Pattern::Record { .. }));
+        assert!(matches!(alts[2].patterns[0], Pattern::Absurd(_)));
+        assert!(matches!(alts[3].patterns[0], Pattern::Num(..)));
+
+        // As an operand.
+        let e = rhs("f n = 1 + match n with | Zero -> 0 | Succ k -> k\n");
+        let Expr::Binary(_, _, r) = &e else {
+            panic!("{e:?}")
+        };
+        assert_eq!(match_parts(r).1.len(), 2);
+    }
+
+    #[test]
+    fn nested_match_alternatives_line_up_by_column() {
+        let e = rhs(
+            "f a b =\n  match a with\n    | Zero ->\n      match b with\n        | Zero -> 1\n        | Succ _ -> 2\n    | Succ _ -> 3\n",
+        );
+        let (_, outer) = match_parts(&e);
+        assert_eq!(outer.len(), 2);
+        assert_eq!(match_parts(&outer[0].body).1.len(), 2);
+        assert!(is_num(&outer[1].body, 3));
+    }
+
+    #[test]
+    fn rejects_malformed_matches() {
+        let fails = |text: &str| rhs_of(text).is_err();
+        assert!(fails("f xs = match xs with\n"), "no alternatives");
+        assert!(
+            fails("f xs = match xs with | Nil, _ -> 0\n"),
+            "too many patterns"
+        );
+        assert!(
+            fails("f a b = match a, b with | Nil -> 0\n"),
+            "too few patterns"
+        );
+        let message = rhs_of("f xs = match xs with | Nil, _ -> 0\n")
+            .unwrap_err()
+            .message;
+        assert!(
+            message.contains("has 2 patterns, but the `match` has 1 scrutinee"),
+            "{message}"
+        );
     }
 
     fn rhs_of(text: &str) -> Result<Expr> {

@@ -56,6 +56,8 @@ pub enum Tok {
     /// `handle e with | clause …`
     KwHandle,
     KwWith,
+    /// `match e with | p -> …`
+    KwMatch,
     /// `return x -> …`, a handler's clause for the result.
     KwReturn,
     /// `let x = e`, binding `x` for the following lines of a block.
@@ -168,6 +170,7 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
                     "where" => Tok::KwWhere,
                     "handle" => Tok::KwHandle,
                     "with" => Tok::KwWith,
+                    "match" => Tok::KwMatch,
                     "return" => Tok::KwReturn,
                     "let" => Tok::KwLet,
                     "import" => Tok::KwImport,

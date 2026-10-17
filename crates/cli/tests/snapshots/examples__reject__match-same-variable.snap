@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-MATCH-MOTIVE] Error: `n` is matched twice in this `match`
+   ╭─[ reject/match-same-variable.sw:4:15 ]
+   │
+ 4 │ ╭─▶ twice n = 1 + match n, n with
+   ┆ ┆   
+ 6 │ ├─▶   | Succ k, _ -> k
+   │ │                        
+   │ ╰──────────────────────── this `match`
+   │     
+   │     Note: a top-level helper with a written signature can always do what this `match` would: define one and call it
+───╯

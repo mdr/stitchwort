@@ -365,6 +365,8 @@ Only definitions reachable from the exports (and their checks) are emitted, in t
 | `E-NOT-A-PROP` | A `theorem` whose type isn't a proposition |
 | `E-REFL` | `rfl` used for sides that don't compute to the same value |
 | `E-NONEXHAUSTIVE` | Missing pattern-match case |
+| `E-MATCH-MOTIVE` | A `match` whose scrutinees can't be generalised in this version (the same variable twice, one scrutinee part of another, one's type mentioning another) or whose generalised type is ill-formed |
+| `E-MATCH-EQUATION` | The equation of `match h : e with` can't be formed (the types differ); not reported in the first version |
 | `E-TERMINATION` | Recursion that can't be shown to terminate, or a recursive call not given all its arguments |
 | `E-POSITIVITY` | Data type used in a negative position, inside another type, or with other parameters (for any member of its data group) |
 | `E-MUTUAL-SIGNATURE` / `E-MUTUAL-CONSTRUCTOR` / `E-MUTUAL-PARAMETERS` / `E-MUTUAL-KIND` | A type or header mentioning something it's checked together with; a field using a constructor of its own group; data types defined together with different parameters or universes; a cycle mixing data types and definitions, or with an ability |

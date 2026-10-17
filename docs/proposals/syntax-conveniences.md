@@ -1,7 +1,9 @@
 # Proposal: syntax conveniences (`where`, `match`, patterns in `let` and lambdas, tuples)
 
 **Status:** draft 2, 17 October 2026. Step 2 (§7, result type first) is
-built; see [As built (step 2)](#77-as-built-step-2).
+built; see [As built (step 2)](#77-as-built-step-2). Step 3 (§2's lifting
+machinery and `match`) is built; see
+[As built (step 3)](#410-as-built-step-3).
 The user agreed with every recommendation of draft 1 (§8); an external
 reviewer then reviewed draft 1, and draft 2 adopts that review in full
 (the [Review response](#review-response) maps each finding to where it's
@@ -924,6 +926,132 @@ Tests:
   named) at the same depth fails with the boundary's existing
   out-of-resources error (the `RangeError` handling in `crates/js`), not
   a crash, and the test is updated when mutual tail calls become loops.
+
+### 4.10 As built (step 3)
+
+Built 17 October 2026, all three checkpoints of §8's step 3 in one lane.
+No kernel change. The code: `crates/elab/src/matching.rs` (the two
+translations, generalisation, the occurrence test), `crates/elab/src/lift.rs`
+(drafts, captures, admission, diagnostics), and small hooks in `lib.rs`
+(`check_tree`'s leaf, `lifted_body`, `signature`, `test`), `check.rs`,
+`effects.rs` (`comp_check`, `comp_infer`) and `undo.rs`. Decisions:
+
+**Elaborated where it's written, lifted afterwards.** A lifted `match` is
+compiled with the existing pattern compiler and checked with `check_tree`
+*in the owner's context*, as a case tree over variables in scope (its
+scrutinees are variables, or are made variables by generalisation, below).
+That gives §4.4 rule 1's refinement for free. The result is a *draft*
+(`lift::Draft`): the context, the case tree and its type. Where the `match`
+was, the owner's term has a **frozen metavariable** applied to the
+variables in scope. A frozen metavariable is one unification never solves:
+against an ordinary metavariable, that one is solved; against anything
+else, the two differ (`unify.rs`; pruning skips it too). So nothing about
+the `match`'s value is learnt before its helper exists, as if it were
+already a call to a pending definition. The frozen ones are listed beside
+the metavariable table (`Globals::frozen_metas` in
+`crates/core/src/globals.rs`), not flagged in each entry, so entries
+don't grow for the few there are. Like the table, the list is elaborator state that lives in `core`, empty
+whenever the kernel runs; the kernel's code is unchanged.
+
+**When drafts are resolved.** After the owner's body is elaborated and its
+`auto` obligations are proved, before its metavariables are substituted in
+and before the next declaration's `clear_metas` (`Elaborator::lift`), in the
+order the drafts were made, which puts a nested `match` before the one
+containing it. In a signature, before the signature is declared; in a
+`test`, before the test. Drafts are part of the inference state that
+`undo.rs` restores, so a `match` inside an attempt that's undone leaves
+nothing behind. Resolving one: substitute solved metavariables; replace
+variables that a case split has replaced by a constructor with that
+constructor (the helper takes the fields instead); compute the captures
+(§2.1 rules 1 and 2; rule 3 holds because a nested helper's call is
+already in the term, with its captures as arguments); order them; declare
+the helper; solve the frozen metavariable with the call. A frozen
+metavariable left unsolved (a lifted `match` in a partial function, a data
+or ability declaration, or the REPL, which don't resolve drafts yet) is
+`E-MATCH-MOTIVE`, "a `match` can't be used here".
+
+**Admission (§2.2, step 4).** Every helper is reachable from its owner, so
+a helper is in a cycle with the owner exactly when its body refers to
+something pending: an owner member or a helper already joined. Such a
+helper joins the owner's `define_group`; any other is admitted on its own
+at once, so the owner's body is checked with it final. `count` (§4.5) is
+the group `{count, count.%match1}`, and the kernel's termination check
+accepts it and rejects `loop`, in both forms, with no exemption.
+
+**Captures** are passed explicitly, and every one is an explicit parameter:
+a `match` helper can't be named in source, so the implicit/`auto` kinds of
+§2.1 don't matter yet; step 5 (`where`) must keep them for local functions.
+The **telescope order** is a stable topological sort by type dependencies
+(context order where possible), because after a case split a variable's
+type can mention fields bound later than it.
+
+**Numbering** is by source position within the owner (`f.%match1` is the
+first `match` in `f`, nested ones included), so a retried elaboration
+doesn't renumber.
+
+**Generalisation** (§4.4 rule 2, §4.6): a scrutinee that isn't an unnamed,
+unsplit variable of the context gets a new variable `s`. Variables whose
+types contain an occurrence (and variables whose types mention those) get
+*copies* bound after `s` with the occurrences replaced, and their names
+are made to refer to the copies inside the alternatives; the call passes
+the originals. Then each `h : e = s` is bound, about the original
+expression, and passed `rfl`. A variable already split by the equation's
+patterns is generalised this way too (its value is a constructor).
+
+**The occurrence test** compares the scrutinee with the expected type as
+the elaborator holds both: evaluated and read back, since the expected
+type is only available as a value. It's syntactic on those forms (looking
+through source locations and binder names), never unfolds a stuck
+definition further and never solves a metavariable (unit tests in
+`matching.rs`). One consequence: a scrutinee that *evaluates* to a constant
+(`match length [1, 1] with`, which is `2`) generalises every `2` in the
+expected type. That's predictable from the rule, and the motive check
+catches the cases where it breaks typing.
+
+**The motive check** (§4.4 rule 3) runs before the alternatives: the
+helper's type, including every copy, is checked by the kernel's
+`check_type` when nothing in it is still unknown (otherwise when it's
+declared). Either failure is `E-MATCH-MOTIVE`. The instantiated type is
+the expected type by construction (generalising and instantiating are
+inverse replacements), so it isn't compared again.
+
+**`E-MATCH-EQUATION` is never reported in this version.** `h : e = s` is
+formed at `s`'s type, which is `e`'s type: a scrutinee whose type mentions
+a copied variable is refused first (`E-MATCH-MOTIVE`, the cycle of §4.4),
+and dependent expression scrutinees are refused (§4.4's limitations). The
+code is reserved for when either limitation is lifted.
+
+**Where no type is expected** (`let y = match …`), the unknown result type
+isn't applied to the matched variables, so splitting them doesn't change
+it and every alternative is compared with the same type. In an effectful
+block (`comp_infer`), the same.
+
+**Effects (§4.7)**: `comp_check` has a `match` case. If any scrutinee
+performs operations, every scrutinee is run once, in order, and bound
+(`%scrutinee0`, …) with the existing `sequence`; the `match` then matches
+those variables, keeping the equations' names, so `h : readLine ()` is
+`h : r = …` about the bound result. Alternatives are checked against the
+computation type, so a lifted helper returns a computation and its row
+variable is captured like any other variable.
+
+**In the tree (§4.3)** is decided at `check_tree`'s leaf: the right-hand
+side is a `match` whose scrutinees are unnamed variables, none twice, none
+already split. That includes a `match` that's the whole right-hand side of
+an alternative of a lifted `match` (it's in the helper's tree).
+
+**Diagnostics (§2.5)**: a helper's name never appears. In a message, the
+helper on its own (`` `loop.%match1` ``) becomes "this `match`", and inside
+a printed term (`` `t.%match1 n` ``) it becomes `(match …)`, with a label
+at the `match` (`Elaborator::explain_lifted`, applied to every diagnostic
+of a definition, signature or test). A non-exhaustive `match` says "no
+alternative of this `match` matches …".
+
+**Leftovers.** A lifted `match` in a partial function, a data or ability
+declaration, or the REPL is refused (above). Drafts are resolved in the
+order they were made: a draft whose type only mentions a *later* draft's
+value through a metavariable solution would be refused with the same
+error (not seen in practice). The pretty-printing of a lifted call as
+`go a b` (§2.5) isn't needed for `match` and is left to step 5.
 
 ## 5. Patterns in `let` and in lambdas
 

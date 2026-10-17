@@ -245,6 +245,7 @@ Loosest-binding first:
 | `A -> B` | Function type |
 | `A -> {E, F \| e} B` | Function type whose calls may perform abilities `E` and `F`, plus whatever `e` stands for |
 | `handle e with \| return x -> … \| op x => k -> …` | Runs `e`, handling one ability |
+| `match e with \| p -> a \| q -> b` | Takes apart `e` by patterns; `match h : e with` also names an equation ([`match`](#match)) |
 | `()` | The unit value, and its type |
 | `(A, B)`, `(a, b)`, `(p, q)` | Tuples: `Pair A B`, `MkPair a b` and the pattern `MkPair p q`, by identity (a user's own `Pair` doesn't change it). Three or more nest to the right: `(a, b, c)` is `(a, (b, c))`. Where a type is expected (a function's domain, a definition of type `Type`) it's the type; otherwise it's the type if its first component's type is a universe. `(e)` is grouping, there is no one-element tuple, and an annotation inside needs brackets: `(a, (b : T))` or `((a, b) : T)`. Components are in `Type` (not `Prop`), as `Pair`'s are |
 | `a = b`, `a != b` | Equality and inequality (propositions). Not associative |
@@ -271,6 +272,45 @@ Loosest-binding first:
 | `J (\y p -> P) base proof` | Transport along an equality |
 
 A partially applied constructor is a function: `Succ` on its own means `\n -> Succ n`.
+
+### `match`
+
+`match` takes apart one or more values in an expression, with the same patterns as equations:
+
+```
+describe : List Nat -> Text
+describe xs =
+  match xs with
+    | Nil        -> "empty"
+    | Cons x Nil -> "one"
+    | _          -> "many"
+
+zipLen : List Nat -> List Nat -> Nat
+zipLen xs ys = 1 + match xs, ys with
+  | Cons _ a, Cons _ b -> zipLen a b
+  | _, _ -> 0
+```
+
+The alternatives start with `|`, lined up one under another and further right than the line the `match` starts on. A `match` may also be written on one line: `match n with | Zero -> 0 | Succ k -> k`. Several scrutinees are separated by commas, and each alternative has one pattern for each. Branches may be several lines, as in a `handle`. Alternatives are tried from top to bottom, and together they must cover every case (`E-NONEXHAUSTIVE`).
+
+Patterns are those of equations: variables, `_`, numbers, constructors, tuples, record patterns and `()`. A `match` can also be used in a signature (`Pick b = match b with | True -> Nat | False -> Text`), and may be nested in a branch.
+
+There are two translations. If the `match` is the whole right-hand side of an equation, and every scrutinee is an unnamed variable of the equation that its patterns haven't already taken apart, the `match` becomes part of the equation's case tree, as if you had written more equations. Any other `match` becomes a generated definition, named after the definition it is in (shown as `owner.%match1`, though error messages say "this `match`"), which takes the values it needs from the surrounding code and is called where the `match` was. A scrutinee that is a variable is refined in the branches, and so is everything whose type mentions it. A scrutinee that is any other expression is generalised: wherever it appears in the expected type, it's replaced by the pattern of the branch.
+
+`match h : e with` gives each branch an equation `h` about the original expression, such as `h : length xs = Zero` in the `Zero` branch. The expression is also generalised in the expected type, even when `e` is a variable. A `match` with a name is always generated as a definition.
+
+A scrutinee that performs abilities runs once, in order from left to right, before any branch is chosen. Branches may perform abilities too, if the ability row of the definition allows them.
+
+The first version has limits. Each one is `E-MATCH-MOTIVE`, and the message says how to get round it:
+
+- the same variable is matched twice (`match n, n with …`);
+- one scrutinee is part of another (`match n, Succ n with …`);
+- the type of one expression scrutinee mentions another expression scrutinee;
+- generalising a scrutinee makes the type of something else ill-formed.
+
+The way round all of them is a top-level helper with a written signature. `E-MATCH-EQUATION` is for an equation `h` that can't be formed because the scrutinee and the expression have different types. This version doesn't report it.
+
+JavaScript: a `match` that is part of the case tree, with a tail call to its own definition in a branch, becomes a loop like any self tail call. A generated definition doesn't: a `match` that is lifted, in tail position, whose branch calls the owner, is a pair of mutual tail calls, and those aren't loops yet. Deep recursion through it can hit the JS stack limit, which is reported as the boundary's out-of-resources error. A tail `match` on a parameter (the whole right-hand side) isn't affected. Examples: `examples/accept/match.sw`, `examples/extract/match.sw`. Design: [syntax-conveniences.md](proposals/syntax-conveniences.md) section 4.
 
 ### Numbers
 

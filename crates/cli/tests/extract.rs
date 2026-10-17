@@ -1776,6 +1776,42 @@ console.log("ok");
     );
 }
 
+/// Deep recursion through `match` (docs/proposals/syntax-conveniences.md
+/// section 4). A `match` that is a whole right-hand side is part of the case
+/// tree, so its tail call to the owner is a loop (`countTail`). A lifted
+/// `match` (here because the equation is named, `countNamed`) in tail
+/// position is a pair of mutual tail calls, which aren't loops: it runs out
+/// of stack, cleanly, as a resource error.
+///
+/// The second half documents a limitation: update it when mutual tail calls
+/// become loops (TODO.md, "Mutual tail calls aren't loops").
+#[test]
+fn deep_recursion_through_match() {
+    let examples = examples();
+    let script = r#"
+import * as m from "./match.mjs";
+import assert from "node:assert/strict";
+
+assert.equal(m.countTail(1000000n), 0n);
+assert.equal(m.countNamed(1000n), 0n);
+assert.throws(
+  () => m.countNamed(1000000n),
+  (e) =>
+    e instanceof m.StitchwortResourceError &&
+    /^countNamed: ran out of resources/.test(e.message) &&
+    e.cause instanceof RangeError,
+);
+// Afterwards, everything still works.
+assert.equal(m.count(10n), 11n);
+console.log("ok");
+"#;
+    run_script(
+        "match",
+        &[("match.mjs", example(&examples, "match.sw"))],
+        script,
+    );
+}
+
 /// A member of a group with no runtime parameters (only an erased type
 /// parameter) is a thunk, never a value computed when the module loads:
 /// `k` calls `f`, which is defined after it. No source program reaches this
