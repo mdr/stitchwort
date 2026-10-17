@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: a `Nat` can't be negative
+   ╭─[ reject/int-pattern-nat-negative.sw:5:3 ]
+   │
+ 5 │ f (-1) = 1
+   │   ──┬─  
+   │     ╰─── this is negative, but it matches a `Nat`
+   │ 
+   │ Note: use an `Int` for numbers that can be negative
+───╯

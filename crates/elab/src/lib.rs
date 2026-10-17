@@ -20,7 +20,7 @@ mod unify;
 
 use std::borrow::Cow;
 use std::cell::RefCell;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::rc::Rc;
 
 use num_bigint::BigUint;
@@ -160,6 +160,35 @@ enum Tree<'a> {
         default: Box<Tree<'a>>,
         span: Span,
     },
+}
+
+/// What a pattern column's type is, as far as number patterns go.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum NumberKind {
+    Nat,
+    Int,
+    /// Some other type, or not known.
+    Other,
+}
+
+/// The error for a negative number pattern where a `Nat` is matched.
+fn negative_nat(span: Span) -> Diagnostic {
+    Diagnostic::error("E-TYPE-MISMATCH", "a `Nat` can't be negative")
+        .with_label(span, "this is negative, but it matches a `Nat`")
+        .with_note("use an `Int` for numbers that can be negative")
+}
+
+/// Lists numbers for an error: all of up to five, or the first five and `…`.
+/// `count` is how many `keys` yields.
+fn list_numbers(keys: impl Iterator<Item = String>, count: usize) -> String {
+    let mut shown: Vec<String> = keys.take(5).collect();
+    match (count, shown.pop()) {
+        (n, Some(last)) if n <= 5 && !shown.is_empty() => {
+            format!("{} and {last}", shown.join(", "))
+        }
+        (n, Some(last)) if n <= 5 => last,
+        (_, last) => format!("{}, {}, …", shown.join(", "), last.unwrap_or_default()),
+    }
 }
 
 fn error(code: &'static str, span: Span, message: impl Into<String>) -> Diagnostic {
@@ -1427,9 +1456,11 @@ impl Elaborator {
             // A column of numbers (with variables and `_`) is compared with
             // numbers. One with a `Zero` or `Succ` pattern is split into
             // those constructors, and numbers in it count down as it's split.
+            // A column of `Int`s is split by sign first (see `pattern_ctor`).
             if matches!(**pattern, Pattern::Num(..))
                 && !self.numbers_as_succ
                 && !rows.iter().any(|r| matches!(*r.pats[j], Pattern::Ctor(..)))
+                && self.number_kind(types[j].as_ref())? != NumberKind::Int
             {
                 return self.compile_numbers(rows, depth, columns, types, j, span);
             }
@@ -1455,6 +1486,9 @@ impl Elaborator {
 
         let level = columns[j];
         let data = self.globals.data(d);
+        if Some(d) == self.globals.registry.data(Builtin::Int) {
+            self.int_coverage(rows, j, types[j].as_ref(), span)?;
+        }
         let mut branches = Vec::new();
         for (c, ctor) in data.ctors.iter().enumerate() {
             let k = ctor.fields.len();
@@ -1590,18 +1624,12 @@ impl Elaborator {
         for (i, row) in rows.iter().enumerate() {
             match &*row.pats[j] {
                 Pattern::Num(n, _) => by_key.entry(n).or_default().push(i),
+                Pattern::NegNum(_, s) => return Err(negative_nat(*s)),
                 _ => others.push(i),
             }
         }
         if others.is_empty() {
-            let mut shown: Vec<String> = by_key.keys().take(5).map(|k| k.to_string()).collect();
-            let listed = match (by_key.len(), shown.pop()) {
-                (n, Some(last)) if n <= 5 && !shown.is_empty() => {
-                    format!("{} and {last}", shown.join(", "))
-                }
-                (n, Some(last)) if n <= 5 => last,
-                (_, last) => format!("{}, {}, …", shown.join(", "), last.unwrap_or_default()),
-            };
+            let listed = list_numbers(by_key.keys().map(|k| k.to_string()), by_key.len());
             return Err(error(
                 "E-NONEXHAUSTIVE",
                 span,
@@ -1663,8 +1691,8 @@ impl Elaborator {
     }
 
     /// The constructor `pattern` matches, if any, and its argument patterns.
-    /// A number `n` is `Succ` of `n - 1`; a record pattern is resolved by
-    /// `ty`, the type of what it matches.
+    /// A number `n` is `Succ` of `n - 1`, or `OfNat n` where `ty` is `Int`;
+    /// a record pattern is resolved by `ty`, the type of what it matches.
     fn pattern_ctor<'a>(
         &self,
         pattern: &Pat<'a>,
@@ -1672,12 +1700,17 @@ impl Elaborator {
     ) -> Result<Option<CtorPattern<'a>>> {
         match &**pattern {
             Pattern::Var(_) | Pattern::Wildcard(_) | Pattern::Absurd(_) => Ok(None),
-            Pattern::NegNum(_, span) => Err(Diagnostic::error(
-                "E-UNSUPPORTED",
-                "negative number patterns aren't supported yet",
-            )
-            .with_label(*span, "not yet supported")
-            .with_note("`Int` patterns are still being built")),
+            // A number pattern on an `Int` is `OfNat k` or `NegSucc (k - 1)`
+            // around a number pattern on the `Nat` field (`-0` is `OfNat 0`).
+            // A negative one on a type not known to be `Int` is one too, and
+            // the split reports the mismatch.
+            Pattern::NegNum(n, span) => match self.number_kind(ty)? {
+                NumberKind::Nat => Err(negative_nat(*span)),
+                _ => self.int_pattern(n, true, *span).map(Some),
+            },
+            Pattern::Num(n, span) if self.number_kind(ty)? == NumberKind::Int => {
+                self.int_pattern(n, false, *span).map(Some)
+            }
             Pattern::Record { fields, rest, span } => Ok(Some(match pattern {
                 Cow::Borrowed(Pattern::Record { fields, .. }) => {
                     self.record_pattern(fields, *rest, *span, ty)?
@@ -1744,6 +1777,110 @@ impl Elaborator {
                 }))
             }
         }
+    }
+
+    /// Whether `ty`, the type of a column, is the built-in `Nat` or `Int`
+    /// (by registry identity, as `numbers::classify` decides).
+    fn number_kind(&self, ty: Option<&Value>) -> Result<NumberKind> {
+        let g = &self.globals;
+        let Some(ty) = ty else {
+            return Ok(NumberKind::Other);
+        };
+        Ok(match force(g, ty.clone())? {
+            Value::Data(d, params) if params.is_empty() && Some(d) == g.builtins.nat => {
+                NumberKind::Nat
+            }
+            Value::Data(d, params)
+                if params.is_empty() && Some(d) == g.registry.data(Builtin::Int) =>
+            {
+                NumberKind::Int
+            }
+            _ => NumberKind::Other,
+        })
+    }
+
+    /// The constructor pattern for the `Int` literal `k` or `-k`.
+    fn int_pattern<'a>(&self, k: &BigUint, negative: bool, span: Span) -> Result<CtorPattern<'a>> {
+        let (ctor, field) = if negative && k.bits() != 0 {
+            (Builtin::NegSucc, k - 1u32)
+        } else {
+            (Builtin::OfNat, k.clone())
+        };
+        let (data, ctor) = self.builtin_ctor(ctor, span)?;
+        Ok(CtorPattern {
+            data,
+            ctor,
+            args: vec![Cow::Owned(Pattern::Num(field, span))],
+            span,
+        })
+    }
+
+    /// Before column `j` of `rows`, an `Int`, is split by sign: if a sign
+    /// has no equation for the numbers other than those written (no
+    /// variable, `_`, or `OfNat`/`NegSucc` around one), the match is
+    /// incomplete, and the error names the numbers as integers rather than
+    /// as the `Nat` fields the split leaves.
+    fn int_coverage(&self, rows: &[Row], j: usize, ty: Option<&Value>, span: Span) -> Result<()> {
+        if !rows
+            .iter()
+            .any(|r| matches!(*r.pats[j], Pattern::Num(..) | Pattern::NegNum(..)))
+        {
+            return Ok(());
+        }
+        let (Some((_, of_nat)), Some((_, neg_succ))) = (
+            self.globals.registry.ctor(Builtin::OfNat),
+            self.globals.registry.ctor(Builtin::NegSucc),
+        ) else {
+            return Ok(());
+        };
+        // The numbers written, as the `Nat` fields of `OfNat` and `NegSucc`,
+        // and whether each sign has a row matching all its values.
+        let mut keys: [BTreeSet<BigUint>; 2] = Default::default();
+        let mut covered = [false, false];
+        for row in rows {
+            let Some(found) = self.pattern_ctor(&row.pats[j], ty)? else {
+                covered = [true, true];
+                continue;
+            };
+            let sign = if found.ctor == of_nat {
+                0
+            } else if found.ctor == neg_succ {
+                1
+            } else {
+                // Some other type's constructor: the split reports it.
+                return Ok(());
+            };
+            match found.args.first().map(|a| &**a) {
+                Some(Pattern::Num(k, _)) => {
+                    keys[sign].insert(k.clone());
+                }
+                _ => covered[sign] = true,
+            }
+        }
+        let which = match covered {
+            [false, false] => "numbers",
+            [false, true] => "non-negative numbers",
+            [true, false] => "negative numbers",
+            [true, true] => return Ok(()),
+        };
+        let mut listed: Vec<String> = Vec::new();
+        if !covered[1] {
+            listed.extend(keys[1].iter().rev().map(|k| format!("-{}", k + 1u32)));
+        }
+        if !covered[0] {
+            listed.extend(keys[0].iter().map(|k| k.to_string()));
+        }
+        let message = if listed.is_empty() {
+            format!("missing case: no equation matches {which}")
+        } else {
+            let n = listed.len();
+            format!(
+                "missing case: no equation matches {which} other than {}",
+                list_numbers(listed.into_iter(), n)
+            )
+        };
+        Err(error("E-NONEXHAUSTIVE", span, message)
+            .with_note("add an equation with a variable or `_` in that position"))
     }
 
     /// The prelude's constructor `b`, for a pattern the compiler writes.

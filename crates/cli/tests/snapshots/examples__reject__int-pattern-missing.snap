@@ -1,0 +1,14 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-NONEXHAUSTIVE] Error: missing case: no equation matches numbers other than -1 and 0
+   ╭─[ reject/int-pattern-missing.sw:5:1 ]
+   │
+ 5 │ ╭─▶ f 0 = 1
+ 6 │ ├─▶ f (-1) = 2
+   │ │                
+   │ ╰──────────────── missing case: no equation matches numbers other than -1 and 0
+   │     
+   │     Note: add an equation with a variable or `_` in that position
+───╯
