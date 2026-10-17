@@ -86,9 +86,11 @@ capability we know we'll need before the work that needs it):
    Stage 5 (JS: `Int` as `bigint` of either sign, strict boundary
    codec, 23 natives, two hash fallbacks — the type's hash switches the
    representation, each native is bound by its definition's hash)
-   merged (`3ef9015`). Next: stage 6, the second lemma checkpoint (`Int`
-   division laws, `modNat x 100 < 100`, `%` vs `modNat`; the `Nat` lemmas
-   it needs are in), then stage 7, docs.
+   merged (`3ef9015`). Stage 6 (`Int.divAddMod`, remainder bounds,
+   `Int.modNatLt`, the `%`/`modNat` link; examples `int-dial.sw`,
+   `int-grid.sw`) merged (`c49d2bc`). Not done: division laws for the
+   truncating and flooring pairs. Next: stage 7, docs (DESIGN.md,
+   syntax.md, core.md; Sonnet).
    Tuples print as `(a, b)` (`5f11367`). `==` works on lists,
    tuples and `Maybe` (`57392bd`): `auto` builds the element decider
    itself (depth bound `MAX_DEPTH = 8`); records with such fields may now
@@ -124,6 +126,14 @@ capability we know we'll need before the work that needs it):
    Write up the friction found.
 
 ## Later
+
+- **Two proofs of the same fact aren't treated as equal** (no definitional
+  proof irrelevance): `x % 100` with a hand-written divisor proof and
+  with the `auto` one have different types that print identically (Int
+  stage 6 worked around it with `[auto]` arguments). Consider proof
+  irrelevance for `Prop` in conversion (kernel; design note first).
+- **Differential test overflows in debug** at `io.sw`'s "5,000 prints"
+  (see Known issues entry, if present).
 
 - **Hash-check `Nat`'s and `Text`'s JS representations** like `Int`'s
   (`Nat`'s isn't checked by hash, its operations being kernel natives;
@@ -274,13 +284,6 @@ capability we know we'll need before the work that needs it):
 
 ## Known issues
 
-- **`extract-js` cost grows with prelude theorems**: the `Nat` lemma
-  commit alone (`9871787`, same extract inputs) took the benchmark from
-  624,595 to 869,355 steps (+39%). Extraction already emits only
-  reachable definitions and doesn't walk erased bodies, so the likely
-  cause (unmeasured) is `Gen::new` computing telescopes and conventions
-  for every definition, twice. Fix: compute them lazily for reachable
-  definitions only (small).
 
 
 
