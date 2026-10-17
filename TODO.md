@@ -78,8 +78,12 @@ capability we know we'll need before the work that needs it):
    `hash_stability.rs`) merged (`db1e2a2`). The user accepted "old way
    first", the three reworded messages, and polishing two messages
    later (`int-binding-nat` should say `m` is a `let`-bound `Nat`;
-   `rfl` rejections print `Int.mod x 3`, not `x % 3`). Lane `int-stage4`
-   (integer patterns) running; then JS (stage 5).
+   `rfl` rejections print `Int.mod x 3`, not `x % 3`). Stage 4 (integer
+   patterns, `-k` and `k` in `Int` columns, missing-case errors name
+   integers) merged (`9cb1d72`). Small polish for later: "a `Int`" →
+   "an `Int`"; the default's note should suggest `OfNat Zero`/`OfNat
+   (Succ k)` for `Int`; `f Zero = …; f 0 = …` points at the wrong row.
+   Next: stage 5, JS (`bigint`, boundary codec, natives).
    Tuples print as `(a, b)` (`5f11367`). `==` on lists is
    blocked on a design choice: `auto`'s `instantiate` can't fill a
    decider-function argument like `List.decEq`'s
