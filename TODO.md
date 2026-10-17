@@ -117,8 +117,13 @@ capability we know we'll need before the work that needs it):
    Step 1, tuple sugar, merged (`0a7dbc1`; tuples print as
    `MkPair a b` for now; JS boundary unchanged). Step 2 (result type
    first, one shared undo in `undo.rs`, the `fallback` bug fixed; 12
-   example hashes changed, accepted) merged (`f525ae6`). Next: step 3,
-   the lifting machinery and `match` (Opus).
+   example hashes changed, accepted) merged (`f525ae6`). Step 3 (`match`,
+   `match h : e`, the lifting machinery in `lift.rs`/`matching.rs`; a
+   whole-right-hand-side `match` compiles into the case tree; one `core`
+   addition, `Globals::frozen_metas`) merged (`9b9bae8`). Leftovers: a
+   lifted `match` in a partial function, a data/ability declaration or
+   the REPL is refused. Next: step 4, patterns in `let` and lambdas
+   (small–medium), then step 5, `where` (Opus).
 4. **Advent of Code 2025, early days** (decisions in aoc-2025.md: programs
    in `aoc/`, inputs and answers out of git, worked examples as tests), as a stress test with proofs where
    natural (sort correctness, parser round trips, worked examples by `rfl`).
