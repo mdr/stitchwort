@@ -274,10 +274,13 @@ capability we know we'll need before the work that needs it):
 
 ## Known issues
 
-- **`extract-js` cost grows with prelude theorems**: adding the `Nat`
-  lemma library raised the benchmark's steps by 39%. Proofs should be
-  erased from JS; check whether extraction walks or emits theorems and
-  skip them if so (small; not yet investigated).
+- **`extract-js` cost grows with prelude theorems**: the `Nat` lemma
+  commit alone (`9871787`, same extract inputs) took the benchmark from
+  624,595 to 869,355 steps (+39%). Extraction already emits only
+  reachable definitions and doesn't walk erased bodies, so the likely
+  cause (unmeasured) is `Gen::new` computing telescopes and conventions
+  for every definition, twice. Fix: compute them lazily for reachable
+  definitions only (small).
 
 
 
