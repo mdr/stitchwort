@@ -70,9 +70,10 @@ capability we know we'll need before the work that needs it):
    division conventions, `Text.toInt`, lemma checkpoint 1) merged
    (`d3753f8`); `OfNat`/`NegSucc` are visible unqualified (the user: fine for
    now; hiding a default type's constructors would need a namespaces
-   mechanism). Next: stage 2,
-   prefix minus and negative patterns in the parser (small, Sonnet); match
-   the printer's minus precedence.
+   mechanism). Stage 2 (prefix
+   minus `-e` and patterns `(-k)` in the parser; the elaborator says "not
+   yet supported") merged (`220dedc`). Next: stage 3, elaborating numbers
+   (the group rule; Opus, with Sonnet for snapshot tests).
 2. **Standard library for real programs** (ranked by the AoC survey,
    [aoc-2025.md](docs/aoc-2025.md): days 1–5 already run with today's
    compiler using hand-written helpers): a list toolkit, a `readAllLines`
