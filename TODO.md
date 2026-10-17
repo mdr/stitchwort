@@ -75,13 +75,19 @@ capability we know we'll need before the work that needs it):
    yet supported") merged (`220dedc`). Stage 3 (number literals and the
    group rule, `numbers.rs`; "old way first" for equations and nested
    effectful arithmetic keeps every hash unchanged, pinned by
-   `hash_stability.rs`) merged (`db1e2a2`). Next: stage 4, integer
-   patterns (Opus + Sonnet tests); then JS (stage 5).
+   `hash_stability.rs`) merged (`db1e2a2`). The user accepted "old way
+   first", the three reworded messages, and polishing two messages
+   later (`int-binding-nat` should say `m` is a `let`-bound `Nat`;
+   `rfl` rejections print `Int.mod x 3`, not `x % 3`). Lane `int-stage4`
+   (integer patterns) running; then JS (stage 5).
    Tuples print as `(a, b)` (`5f11367`). `==` on lists is
    blocked on a design choice: `auto`'s `instantiate` can't fill a
    decider-function argument like `List.decEq`'s
    `(x : a) -> (y : a) -> Decidable (x = y)`; `Pair`/`Maybe` have no
-   `decEq` yet. Effectful callbacks for
+   `decEq` yet. Decided: `auto` builds the element decider itself
+   (`\x y -> decide (x = y)` by recursive search), plus `decEq` for
+   `Pair`/`Maybe` — small Opus lane, after syntax step 2 merges (both
+   touch auto.rs). Effectful callbacks for
    `map`/`filter`/folds: later, when a program needs them.
 2. **Standard library for real programs** (ranked by the AoC survey,
    [aoc-2025.md](docs/aoc-2025.md)). Done: the list toolkit (`map`,
