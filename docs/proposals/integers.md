@@ -1701,6 +1701,49 @@ No change to the kernel or the elaborator. Decisions not in the note:
   `a_changed_int_type_turns_the_representation_off` (both with a patched
   prelude through `Session::with_prelude`).
 
+### As built (stage 6)
+
+The `Nat` lemmas it needs (the arithmetic facts, `Nat.divMod` and
+`Nat.modLess`) were already in the prelude's `Nat` section, added
+separately; the `Int` ones are the prelude's "Lemmas (checkpoint 2)" after
+checkpoint 1. No `Int` definition changed,
+so every hash in `crates/js` and `hash_stability.rs` is as before. Small
+decisions:
+
+- **The divisor's proof is an `auto` argument in the `Int` lemmas**
+  (`Int.divAddMod : (a : Int) -> (d : Int) -> [auto ok : d != 0] -> …`),
+  unlike `Nat.divMod`'s explicit `(ok : d != 0)`. `x % 7` for an unknown
+  `x` is stuck with the proof it was given inside it, and the kernel has no
+  proof irrelevance, so a lemma instantiated with a hand-written proof
+  (`Nat.succNotZero 99`) doesn't match `x.modNat 100` in the user's
+  statement; `auto` finds the same proof in both places. (`Nat.divMod`
+  is fine either way: `Nat.div` and `Nat.mod` unfold for any `n` and
+  don't use the proof.) So `Int.modNatLt x 100` proves
+  `x.modNat 100 < 100` directly.
+- **`Int.modNatToInt`, `Int.toIntDiv` and `Int.toIntMod` take a second
+  `auto` proof, `Nat.toInt d != 0`**, for the `Int` side, rather than
+  building it from the first with `Nat.toIntNeZero`: at a concrete divisor
+  both are found by `auto` and match the user's `x % 100`; for a variable
+  `d`, pass `[ok2 := Nat.toIntNeZero d ok]`.
+- **The lemmas**: `Nat.toIntNeZero`, `Int.modNatLt`, `Int.modNatToInt`,
+  `Int.toIntDiv`, `Int.toIntMod`, `Int.modNonneg` (`0 <= a % d`),
+  `Int.modLtAbs` (`a % d < (Int.natAbs d).toInt`) and `Int.divAddMod`
+  (`d * (a / d) + a % d = a`). All but the last are a case split and
+  `rfl` or a `Nat` lemma. The division law has two helpers:
+  `Int.divAddModNeg` for both negative-dividend cases, where
+  `d * (a / d)` computes to `NegSucc (q + n * Succ q)` and the sum needs
+  `q + n * Succ q = m + (n - r)` (from `Nat.divMod`, `r <= n` and a chain
+  of commutativity and associativity steps), and `Int.divAddModPosNeg` for
+  `OfNat m` over `NegSucc n`, which splits the quotient because
+  `Int.neg (OfNat q)` only computes once `q` is `Zero` or a `Succ`.
+- **Not proved**: laws for `tdiv`/`tmod` and `fdiv`/`fmod` (the plan
+  only asks for the Euclidean pair).
+- Examples: `examples/accept/int-dial.sw` (the dial, with the position a
+  record `{ at : Nat, ok : at < 100 }` whose proof is
+  `Int.modNatLt x 100`, and the puzzle's sample) and
+  `examples/accept/int-grid.sw` (a walk below zero, Manhattan distance by
+  `Int.natAbs`, and a torus whose cells carry `Int.modNatLt` bounds).
+
 ## Recommendation
 
 - **Representation A** (`OfNat Nat | NegSucc Nat`) and **K1** (no kernel
