@@ -89,13 +89,11 @@ capability we know we'll need before the work that needs it):
    merged (`3ef9015`). Next: stage 6, the second lemma checkpoint (`Int`
    division laws, `modNat x 100 < 100`, `%` vs `modNat`; the `Nat` lemmas
    it needs are in), then stage 7, docs.
-   Tuples print as `(a, b)` (`5f11367`). `==` on lists is
-   blocked on a design choice: `auto`'s `instantiate` can't fill a
-   decider-function argument like `List.decEq`'s
-   `(x : a) -> (y : a) -> Decidable (x = y)`; `Pair`/`Maybe` have no
-   `decEq` yet. Decided: `auto` builds the element decider itself
-   (`\x y -> decide (x = y)` by recursive search), plus `decEq` for
-   `Pair`/`Maybe` — small Opus lane `list-eq` running. Effectful callbacks for
+   Tuples print as `(a, b)` (`5f11367`). `==` works on lists,
+   tuples and `Maybe` (`57392bd`): `auto` builds the element decider
+   itself (depth bound `MAX_DEPTH = 8`); records with such fields may now
+   get `==` too (untested on its own). `Nil == Nil` with an unknown
+   element type is still `E-AUTO-NONE`. Effectful callbacks for
    `map`/`filter`/folds: later, when a program needs them.
 2. **Standard library for real programs** (ranked by the AoC survey,
    [aoc-2025.md](docs/aoc-2025.md)). Done: the list toolkit (`map`,
