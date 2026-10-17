@@ -1,0 +1,6 @@
+---
+source: crates/driver/tests/hash_stability.rs
+expression: "lines(&session, d, f)"
+---
+data Main.Stream 85e6b5d682288ea9d48e2fddc020cecdac461ae57adafde0b22a12e66e26c9bf
+data Main.Tree 9c084fba2f6a921d462794435059351f59847f7cfde31fed65b9cbef7d7c2202

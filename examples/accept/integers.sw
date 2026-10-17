@@ -1,5 +1,6 @@
--- Integers are `Int.OfNat n` (n) and `Int.NegSucc n` (-(n+1)); there is no
--- literal syntax yet. Everything here holds by computation.
+-- Integers are `Int.OfNat n` (n) and `Int.NegSucc n` (-(n+1)). This file spells
+-- values with constructors; literals are shown in int-literals.sw.
+-- Everything here holds by computation.
 
 -- The dial example: -18 % 100 is 82, not -18.
 theorem dial : Int.mod (Int.NegSucc 17) (Int.OfNat 100) = Int.OfNat 82

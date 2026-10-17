@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: `<` works on `Nat` and `Int`
+   ╭─[ reject/int-text-operand.sw:4:7 ]
+   │
+ 4 │ r t = t < 1
+   │       ┬  
+   │       ╰── this is `Text`
+───╯

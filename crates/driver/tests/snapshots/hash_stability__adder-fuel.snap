@@ -1,0 +1,14 @@
+---
+source: crates/driver/tests/hash_stability.rs
+expression: "lines(&session, d, f)"
+---
+Main.textOr 239dc81c366b5aab79315ada83f4cd1cfc9a7e5b671aa95884cff8f0dc8b6eb2
+Main.stepNumber ff7407d9bcc2dba681c57783a3525c615bfaad6d09abc65fe2f6746e3ddf6b5a
+Main.step 0996849ae200a6c1b13ad28b8538afeb5bd919e97f2c309caf3b577ed95b2691
+Main.addLines c4ba4b87e5b1e7d5fd1a2674fadc4f24445dbff29c6e4d4eda607edb65ea6536
+Main.main d1fb267e8235fd3f0c653d85bcc21ceaf68eb87bdd2096a39518b593bbb84302
+Main.eqTexts 3fb7351527dafc1c04d4e4cfd39ab2ae8a036ebda16987598974f0234db0f886
+Main.printed 543ada0129f4e756e3ee10ce10c1ca7aa69a9c3a11c1c3bc606a2256e13b27be
+Main.test "a session" 55d0ff446f8b13f1defec25a9800fb0096e2323fdc5bbe1e7cda48755e386e8a
+Main.test "end of input stops it too" f912190f3475ee983ba2947917407e1ab9a0051d171ef9161af4a1d9d70a997f
+Main.test "no input at all" bd0013fe6ef2a7bf339f94c566a10dcc7d89bc02ccff2d514e19afcb640efe8c

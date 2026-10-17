@@ -1,0 +1,7 @@
+---
+source: crates/driver/tests/hash_stability.rs
+expression: "lines(&session, d, f)"
+---
+data Main.Geometry.Shape 546591db4b7bbad478ee730f4bd375843835a8945de3d9cbef322a27190730b1
+Main.Geometry.Shape.area a2379d7581a65197df91a05344ef773b871151fb8dcfe31ca541a91866147062
+Main.grow 47cf8a6e3d91d55d4e523ba022dd2da803ed8eb5cfcbffc0a657e5aced876c51

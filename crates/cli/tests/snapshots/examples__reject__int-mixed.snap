@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+   ╭─[ reject/int-mixed.sw:4:13 ]
+   │
+ 4 │ r n i = n + i == 0
+   │         ┬   ┬  
+   │         ╰────── this comparison is on `Nat` because of this
+   │             │  
+   │             ╰── this is an `Int`, but this comparison is on `Nat`
+   │ 
+   │ Note: an `Int` becomes a `Nat` with `Int.toNat` (negatives become 0) or `Int.toNatChecked`
+───╯

@@ -2,10 +2,10 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-TYPE-MISMATCH] Error: type mismatch
+[E-TYPE-MISMATCH] Error: `+` gives a `Nat` or an `Int`
    ╭─[ reject/test-not-bool.sw:4:23 ]
    │
  4 │ test "two plus two" = 2 + 2
    │                       ──┬──  
-   │                         ╰──── expected `Bool`, but this has type `Nat`
+   │                         ╰──── but `Bool` is expected here
 ───╯
