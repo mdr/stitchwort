@@ -239,6 +239,7 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
                 Value::Data(unit, Vec::new()),
             ))
         }
+        Expr::Tuple(a, b, _) => infer_tuple(cx, a, b),
         Expr::Effect(row, ty) => {
             let (term, sort) = effects::effect_type(cx, row, ty)?;
             Ok((term, Value::Sort(sort)))
@@ -773,6 +774,24 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
             }
         }
         (Expr::Hole(_), _) => Ok(cx.fresh_meta()),
+        // `(A, B)` where a type is expected is `Pair A B`, and `(a, b)` where
+        // a pair is expected is `MkPair a b`.
+        (Expr::Tuple(a, b, _), Value::Sort(_)) => {
+            let (term, ty) = type_tuple(cx, a, b)?;
+            if cx.unify(&ty, &expected)? {
+                Ok(term)
+            } else {
+                Err(cx.mismatch(&expected, &ty))
+            }
+        }
+        (Expr::Tuple(a, b, _), Value::Data(d, params))
+            if *d == builtin_data(cx, Builtin::Pair)? =>
+        {
+            let (pair, mk) = builtin_ctor(cx, Builtin::MkPair)?;
+            let a = check(cx, a, &params[0])?;
+            let b = check(cx, b, &params[1])?;
+            Ok(Term::ctor(pair, mk, vec![a, b]))
+        }
         // Implicit parameters are introduced automatically.
         (_, Value::Pi(x, icit, dom, cod)) if icit.is_implicit() => {
             let mark = cx.mark();
@@ -1221,6 +1240,36 @@ fn annotate(cx: &Ctx, term: Term, ty: &Value) -> Result<Term> {
     })
 }
 
+/// `Pair A B` for `(A, B)`: each component must be a type in `Type`, as
+/// `Pair`'s parameters are (a proposition can't be a component).
+fn type_tuple(cx: &mut Ctx, a: &Expr, b: &Expr) -> Result<(Term, Value)> {
+    let pair = builtin_data(cx, Builtin::Pair)?;
+    let mut parts = Vec::new();
+    for part in [a, b] {
+        let (term, sort) = check_type(cx, part)?;
+        if sort != Sort::Type(0) {
+            return Err(cx.mismatch(&Value::Sort(Sort::Type(0)), &Value::Sort(sort)));
+        }
+        parts.push(Rc::new(term));
+    }
+    Ok((Term::Data(pair, parts), Value::Sort(Sort::Type(0))))
+}
+
+/// `(a, b)` with no expected type: a type tuple if the first component's
+/// type is a universe, otherwise a value tuple.
+fn infer_tuple(cx: &mut Ctx, a: &Expr, b: &Expr) -> Result<(Term, Value)> {
+    let (ta, tya) = infer(cx, a)?;
+    if let Value::Sort(_) = force(cx.g(), tya.clone())? {
+        return type_tuple(cx, a, b);
+    }
+    let (tb, tyb) = infer(cx, b)?;
+    let (pair, mk) = builtin_ctor(cx, Builtin::MkPair)?;
+    Ok((
+        Term::ctor(pair, mk, vec![ta, tb]),
+        Value::Data(pair, vec![tya, tyb]),
+    ))
+}
+
 pub fn check_type(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Sort)> {
     let span = expr.span();
     if let Expr::Unit(_) = expr {
@@ -1228,6 +1277,12 @@ pub fn check_type(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Sort)> {
             Term::Data(builtin_data(cx, Builtin::UnitType)?, Vec::new()),
             Sort::Type(0),
         ));
+    }
+    // A tuple where a type is wanted is a type tuple, whatever its components
+    // look like (a function's domain, for one).
+    if let Expr::Tuple(a, b, _) = expr {
+        let (term, _) = type_tuple(cx, a, b)?;
+        return Ok((term, Sort::Type(0)));
     }
     let (term, ty) = infer(cx, expr)?;
     match force(cx.g(), ty)? {

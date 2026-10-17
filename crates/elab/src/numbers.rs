@@ -801,7 +801,7 @@ fn apply_def(cx: &mut Ctx, id: DefId, args: Vec<Term>) -> Result<Term> {
         let Value::Pi(_, Icit::Explicit, _, cod) = force(g, ty)? else {
             unreachable!("built-in operators take two explicit arguments");
         };
-        ty = cod.apply_lazy(g, || Ok(eval(g, &cx.env, &arg)?))?;
+        ty = cod.apply_lazy(g, || eval(g, &cx.env, &arg))?;
         term = Term::app(term, arg);
     }
     Ok(insert(cx, term, ty)?.0)
@@ -825,7 +825,11 @@ fn has_number(expr: &Expr) -> bool {
             | Expr::Prop(_)
             | Expr::Hole(_)
             | Expr::Unit(_) => {}
-            Expr::App(a, b) | Expr::Arrow(a, b) | Expr::Binary(_, a, b) | Expr::Seq(a, b) => {
+            Expr::App(a, b)
+            | Expr::Arrow(a, b)
+            | Expr::Binary(_, a, b)
+            | Expr::Seq(a, b)
+            | Expr::Tuple(a, b, _) => {
                 stack.extend([&**a, &**b]);
             }
             Expr::Neg(a, _) | Expr::NamedArg(_, a, _) | Expr::Field(a, _) => stack.push(a),

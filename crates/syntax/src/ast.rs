@@ -61,6 +61,9 @@ pub enum Expr {
     List(Vec<Expr>, Span),
     /// `()`: the unit value, or the unit type.
     Unit(Span),
+    /// `(a, b)`: a pair value or a pair type, decided by elaboration; three
+    /// or more components nest to the right, `(a, (b, c))`.
+    Tuple(Box<Expr>, Box<Expr>, Span),
     /// `{E} B`, the result of a function type that may perform the
     /// abilities in `E`: `Nat -> {State Nat} Nat`.
     Effect(Row, Box<Expr>),
@@ -163,6 +166,7 @@ impl Expr {
             | Expr::Neg(_, span)
             | Expr::List(_, span)
             | Expr::Unit(span)
+            | Expr::Tuple(_, _, span)
             | Expr::Let { span, .. }
             | Expr::Record { span, .. }
             | Expr::Handle { span, .. } => *span,
@@ -205,7 +209,7 @@ fn has_nested(expr: &Expr) -> bool {
             nested(b)
         }
         Expr::Pi { dom, cod, .. } => nested(dom) || nested(cod),
-        Expr::Ann(e, t, _) => nested(e) || nested(t),
+        Expr::Ann(e, t, _) | Expr::Tuple(e, t, _) => nested(e) || nested(t),
         Expr::If {
             cond,
             then,
@@ -258,7 +262,7 @@ fn take_children(expr: &mut Expr, pending: &mut Vec<Expr>) {
             take(dom);
             take(cod);
         }
-        Expr::Ann(e, t, _) => {
+        Expr::Ann(e, t, _) | Expr::Tuple(e, t, _) => {
             take(e);
             take(t);
         }
@@ -347,6 +351,9 @@ pub enum Pattern {
     /// A negative number `(-k)`, written in brackets.
     NegNum(BigUint, Span),
     Ctor(Name, Vec<Pattern>, Span),
+    /// `(p, q)`: the library's pair constructor; three or more nest to the
+    /// right.
+    Tuple(Box<Pattern>, Box<Pattern>, Span),
     /// A record pattern `{ name = p, age }` (a punned field is a variable of
     /// its name), with `rest` for a trailing `..` that ignores the other
     /// fields.
@@ -378,6 +385,7 @@ impl Pattern {
             | Pattern::Num(_, span)
             | Pattern::NegNum(_, span)
             | Pattern::Ctor(_, _, span)
+            | Pattern::Tuple(_, _, span)
             | Pattern::Record { span, .. } => *span,
         }
     }

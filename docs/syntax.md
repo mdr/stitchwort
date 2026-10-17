@@ -246,6 +246,7 @@ Loosest-binding first:
 | `A -> {E, F \| e} B` | Function type whose calls may perform abilities `E` and `F`, plus whatever `e` stands for |
 | `handle e with \| return x -> … \| op x => k -> …` | Runs `e`, handling one ability |
 | `()` | The unit value, and its type |
+| `(A, B)`, `(a, b)`, `(p, q)` | Tuples: `Pair A B`, `MkPair a b` and the pattern `MkPair p q`, by identity (a user's own `Pair` doesn't change it). Three or more nest to the right: `(a, b, c)` is `(a, (b, c))`. Where a type is expected (a function's domain, a definition of type `Type`) it's the type; otherwise it's the type if its first component's type is a universe. `(e)` is grouping, there is no one-element tuple, and an annotation inside needs brackets: `(a, (b : T))` or `((a, b) : T)`. Components are in `Type` (not `Prop`), as `Pair`'s are |
 | `a = b`, `a != b` | Equality and inequality (propositions). Not associative |
 | `a == b` | Whether `a = b`, as a `Bool`, using the decision procedure for `a = b` (as `if h :` does). Works for `Nat`, `Bool`, and any type with a decision procedure for `=` |
 | `a < b`, `a <= b` | Comparisons on `Nat` and `Int` (propositions, decided by computation) |
