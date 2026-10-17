@@ -566,27 +566,9 @@ fn equation_before_groups(cx: &mut Ctx, a: &Expr, b: &Expr) -> Result<(Term, Ter
 }
 
 /// Runs `f`, or if it fails (other than by running out of resources),
-/// undoes what it did to metavariables, auto obligations, defaulted literals
-/// and the context, and gives `None`. Unification isn't atomic, so a failed
-/// attempt may have solved some metavariables.
+/// undoes what it did (`undo.rs`) and gives `None`.
 pub(crate) fn attempt<T>(cx: &mut Ctx, f: impl FnOnce(&mut Ctx) -> Result<T>) -> Result<Option<T>> {
-    let mark = cx.mark();
-    let span = cx.span;
-    let metas = cx.g().metas.borrow().clone();
-    let obligations = cx.e.obligations.borrow().len();
-    let defaulted = cx.e.defaulted.borrow().len();
-    match f(cx) {
-        Ok(found) => Ok(Some(found)),
-        Err(e) if e.code == "E-RESOURCE" => Err(e),
-        Err(_) => {
-            *cx.g().metas.borrow_mut() = metas;
-            cx.e.obligations.borrow_mut().truncate(obligations);
-            cx.e.defaulted.borrow_mut().truncate(defaulted);
-            cx.reset(mark);
-            cx.span = span;
-            Ok(None)
-        }
-    }
+    crate::undo::attempt(cx, f)
 }
 
 /// Infers leaf `i` (steps 3 and 4): the decision it makes, if any. A leaf
@@ -627,23 +609,11 @@ fn infer_leaf(
 /// the attempt did to metavariables and auto obligations: unification isn't
 /// atomic, so a failed attempt may have solved some.
 fn speculate(cx: &mut Ctx, expr: &Expr) -> Result<std::result::Result<(Term, Value), Diagnostic>> {
-    let snapshot = if matches!(expr, Expr::Var(_)) {
-        None
-    } else {
-        Some((
-            cx.g().metas.borrow().clone(),
-            cx.e.obligations.borrow().len(),
-            cx.e.defaulted.borrow().len(),
-        ))
-    };
+    let snapshot = crate::undo::Snapshot::take(cx);
     match infer(cx, expr).and_then(|(term, ty)| insert(cx, term, ty)) {
         Ok(found) => Ok(Ok(found)),
         Err(e) if e.code == "E-CANNOT-INFER" => {
-            if let Some((metas, obligations, defaulted)) = snapshot {
-                *cx.g().metas.borrow_mut() = metas;
-                cx.e.obligations.borrow_mut().truncate(obligations);
-                cx.e.defaulted.borrow_mut().truncate(defaulted);
-            }
+            snapshot.restore(cx);
             Ok(Err(e))
         }
         Err(e) => Err(e),

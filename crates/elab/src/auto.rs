@@ -152,16 +152,11 @@ pub fn decide(cx: &mut Ctx, prop: &Value, depth: usize) -> Result<Term> {
         .fold(error, Diagnostic::with_note))
 }
 
-/// Runs `f`, undoing any metavariable solutions it made unless it succeeds.
+/// Runs `f`, undoing what it did unless it succeeds (`undo.rs`).
 /// `Ok(None)` means this way didn't work, so another may be tried. An error
 /// (running out of resources, say) means stop.
 fn attempt<T>(cx: &mut Ctx, f: impl FnOnce(&mut Ctx) -> Result<Option<T>>) -> Result<Option<T>> {
-    let snapshot = cx.g().metas.borrow().clone();
-    let result = f(cx);
-    if !matches!(result, Ok(Some(_))) {
-        *cx.g().metas.borrow_mut() = snapshot;
-    }
-    result
+    crate::undo::transaction(cx, f)
 }
 
 /// A failed search for an argument means this candidate doesn't work, unless

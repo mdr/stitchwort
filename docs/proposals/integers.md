@@ -44,6 +44,7 @@ short:
 - **R3, literal defaulting:** acceptable, with a documented limitation
   (`chooseFirst 5 i`), and with known expected types propagated before
   anything defaults ([Literals](#literals)).
+  (17 October 2026: fixed where the result type is known, by result-type-first, syntax-conveniences.md section 7; see examples/accept/int-choose-first.sw.)
 - **R4, operators:** revise. "The first non-literal leaf" fails when that
   leaf's type is itself unknown (`List.map (\x -> x + 1) [1, 2]`), and
   equality and comparisons need the same coordinated typing
@@ -70,7 +71,7 @@ after, checked against the type if it's known by then. This makes
 `m : Maybe Int`, where a single left-to-right pass would commit the `1` or
 the `5` to `Nat` first ([The rule](#the-rule)). It doesn't help a
 polymorphic call such as `f 5 + i`, which stays under the review's
-`chooseFirst` limitation. Two clarifications of the review's test list: the
+`chooseFirst` limitation (17 October 2026: fixed where the result type is known, by result-type-first, syntax-conveniences.md section 7; see examples/accept/int-choose-first.sw.) Two clarifications of the review's test list: the
 "metavariable" cases are elaborator tests, since the kernel never sees
 metavariables (`Globals::metas` is "empty whenever the kernel runs",
 `crates/core/src/globals.rs`); and the copied-definition test for
@@ -760,7 +761,7 @@ constructor arguments and list items against the expected type:
 
 They're tests, not new rules.
 
-**The documented limitation.** Defaulting an unsolved metavariable at once
+**The documented limitation.** (17 October 2026: fixed where the result type is known, by result-type-first, syntax-conveniences.md section 7; see examples/accept/int-choose-first.sw.) It remains where nothing says what the result is, such as `let v = chooseFirst 5 i`. Defaulting an unsolved metavariable at once
 means a later argument can't change a literal's type. With
 
 ```
@@ -903,7 +904,7 @@ With `x i : Int`, `n : Nat`, `t : Text`:
 | `n.toInt + i` | `n.toInt` | `Int` |
 | `(if c then 1 else 2) + i` | `i` (pass 1, before the `if`) | `Int`: the `if` is then checked against `Int`, and so are its branches |
 | `Just 5 == m` with `m : Maybe Int` | `m` (pass 1) | `Maybe Int` equality, with `Just 5` checked against it (rejected today) |
-| `f 5 + i` with `f : a -> a` | `i` (pass 1) | rejected: checking `f 5` against `Int` still infers the application first (`fallback`), so the `5` defaults, as in `chooseFirst`; `f (5 : Int) + i` works |
+| `f 5 + i` with `f : a -> a` | `i` (pass 1) | accepted as of 17 October 2026 (result-type-first, syntax-conveniences.md section 7: `f 5` is checked against `Int`, so `a := Int` before the `5`; see examples/accept/expected-types.sw). Originally rejected: checking `f 5` against `Int` inferred the application first (`fallback`), so the `5` defaulted, as in `chooseFirst` |
 | `List.map (\x -> x + 1) [1, 2]` | nothing (`x`'s type is a metavariable): default | `Nat`, as today |
 | `(\(y : Int) -> y + 1)` | `y` | `Int` |
 | `t + 1` | `t` | error: "`+` works on `Nat` and `Int`; `t` is a `Text`" |
