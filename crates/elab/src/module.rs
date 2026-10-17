@@ -1249,7 +1249,10 @@ fn free_names(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
                             fields.iter().map(|(_, p)| Work::Pattern(p)).collect(),
                         );
                     }
-                    Pattern::Wildcard(_) | Pattern::Absurd(_) | Pattern::Num(..) => {}
+                    Pattern::Wildcard(_)
+                    | Pattern::Absurd(_)
+                    | Pattern::Num(..)
+                    | Pattern::NegNum(..) => {}
                 }
                 continue;
             }
@@ -1267,6 +1270,7 @@ fn free_names(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
             Expr::App(a, b) | Expr::Arrow(a, b) | Expr::Binary(_, a, b) | Expr::Seq(a, b) => {
                 then(&mut stack, vec![Work::Expr(a), Work::Expr(b)]);
             }
+            Expr::Neg(a, _) => stack.push(Work::Expr(a)),
             Expr::Lam(names, body, _) => {
                 let (bind, unbind) = binds(names);
                 let mut steps = bind;

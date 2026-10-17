@@ -1668,6 +1668,12 @@ impl Elaborator {
     ) -> Result<Option<CtorPattern<'a>>> {
         match &**pattern {
             Pattern::Var(_) | Pattern::Wildcard(_) | Pattern::Absurd(_) => Ok(None),
+            Pattern::NegNum(_, span) => Err(Diagnostic::error(
+                "E-UNSUPPORTED",
+                "negative number patterns aren't supported yet",
+            )
+            .with_label(*span, "not yet supported")
+            .with_note("`Int` patterns are still being built")),
             Pattern::Record { fields, rest, span } => Ok(Some(match pattern {
                 Cow::Borrowed(Pattern::Record { fields, .. }) => {
                     self.record_pattern(fields, *rest, *span, ty)?
