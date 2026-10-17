@@ -249,17 +249,17 @@ Loosest-binding first:
 | `(A, B)`, `(a, b)`, `(p, q)` | Tuples: `Pair A B`, `MkPair a b` and the pattern `MkPair p q`, by identity (a user's own `Pair` doesn't change it). Three or more nest to the right: `(a, b, c)` is `(a, (b, c))`. Where a type is expected (a function's domain, a definition of type `Type`) it's the type; otherwise it's the type if its first component's type is a universe. `(e)` is grouping, there is no one-element tuple, and an annotation inside needs brackets: `(a, (b : T))` or `((a, b) : T)`. Components are in `Type` (not `Prop`), as `Pair`'s are |
 | `a = b`, `a != b` | Equality and inequality (propositions). Not associative |
 | `a == b` | Whether `a = b`, as a `Bool`, using the decision procedure for `a = b` (as `if h :` does). Works for `Nat`, `Bool`, and any type with a decision procedure for `=` |
-| `a < b`, `a <= b` | Comparisons on `Nat` (propositions, decided by computation) |
+| `a < b`, `a <= b` | Comparisons on `Nat` and `Int` (propositions, decided by computation) |
 | `a ++ b` | Joins two texts (`Text.append`) or two lists (`List.append`). Binds more loosely than `+`, and groups to the right |
-| `a + b`, `a - b` | Addition, and subtraction stopping at zero. Left-associative |
+| `a + b`, `a - b` | Addition, and subtraction (stopping at zero on `Nat`). Left-associative |
 | `a * b`, `a / b`, `a % b` | Bind tighter than `+`. `/` and `%` need a proof that `b != 0` |
-| `-e` | Prefix minus (parsed; the elaborator rejects it until `Int` literals land, [integers.md](proposals/integers.md)). Binds tighter than `*` `/` `%` and looser than application and dots: `-x.abs` is `-(x.abs)`, `-18 % 100` is `(-18) % 100`. Not an argument: `f -5` is `f - 5`; write `f (-5)`. May repeat (`- -x`; `--` starts a comment) |
-| `(-k)` | In a pattern: a negative number, in brackets, numerals only |
+| `-e` | Prefix minus; it makes its arithmetic `Int` ([Numbers](#numbers)). Binds tighter than `*` `/` `%` and looser than application and dots: `-x.abs` is `-(x.abs)`, `-18 % 100` is `(-18) % 100`. Not an argument: `f -5` is `f - 5`; write `f (-5)`. May repeat, and `a - -b` needs the space (`--` starts a comment) |
+| `(-k)` | In a pattern: a negative number, in brackets, numerals only. Not supported yet: `Int` patterns aren't implemented |
 | `f a b` | Application |
 | `f [x := e]` | Supplying the implicit parameter `x` by name |
 | `_` | A hole the compiler fills in |
 | `x`, `Nat`, `Succ` | Names. Constructors and data types start with an uppercase letter |
-| `0`, `42` | `Nat` literals |
+| `0`, `42`, `-5` | Numeric literals: a `Nat`, or an `Int` where one is expected (`Nat` by default); `-5` is always an `Int`. See [Numbers](#numbers) |
 | `'a'`, `'\n'`, `'\u{1F600}'` | `Char` literals: one Unicode scalar value. Escapes are `\n`, `\t`, `\r`, `\\`, `\"`, `\'` and `\u{…}` with 1–6 hex digits; `\u{…}` must name a scalar value, so `'\u{D800}'` is an error. Text literals take the same escapes |
 | `"héllo"` | `Text` literal: a sequence of Unicode scalar values (see [text-and-io.md](proposals/text-and-io.md)) |
 | `Type`, `Type 1`, `Prop` | Universes |
@@ -271,3 +271,11 @@ Loosest-binding first:
 | `J (\y p -> P) base proof` | Transport along an equality |
 
 A partially applied constructor is a function: `Succ` on its own means `\n -> Succ n`.
+
+### Numbers
+
+A numeric literal is a `Nat` or an `Int`, depending on what's expected (`Nat` if nothing says). An arithmetic expression or comparison has one number type for all its operands, chosen by the first of these that applies: the expected type; a prefix minus (which forces `Int`); an operand with no literal in it; any other operand; else `Nat`. So `3 - 5 = -2` is on `Int`, and `x + 1` follows `x`. A `let` binding keeps its own type: `let m = 3 - 5` is a `Nat`, and `m + i` with `i : Int` is an error.
+
+There is no implicit conversion between `Nat` and `Int`: use `n.toInt`, `Int.toNat` (negatives become 0) or `Int.toNatChecked`.
+
+Known limit: the literal argument of a generic function is checked before anything else is known, so `chooseFirst 5 i` with `i : Int` takes `5` as a `Nat` and fails. Write `chooseFirst (5 : Int) i`. Design: [integers.md](proposals/integers.md); examples: `examples/accept/int-literals.sw`.

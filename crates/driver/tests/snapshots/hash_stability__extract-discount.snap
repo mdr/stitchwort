@@ -1,0 +1,6 @@
+---
+source: crates/driver/tests/hash_stability.rs
+expression: "lines(&session, d, f)"
+---
+Main.applyDiscount 4b7681c0ec9be0c70a2e09668112f1800200489a61ce2e80a5328ae399ad322b
+Main.perPerson 99e15f223f113d46254729e5042cc1c3113fdf85cda23ec2ba0e4002816f8065

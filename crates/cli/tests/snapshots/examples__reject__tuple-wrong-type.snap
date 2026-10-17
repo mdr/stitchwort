@@ -8,4 +8,6 @@ expression: output
  4 │ bad = (1, 2)
    │           ┬  
    │           ╰── expected `Bool`, but this has type `Nat`
+   │ 
+   │ Note: a numeral can only be the prelude's `Nat` or `Int`
 ───╯

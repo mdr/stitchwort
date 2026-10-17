@@ -12,6 +12,7 @@ mod check;
 mod dot;
 mod effects;
 mod module;
+mod numbers;
 mod partial;
 mod records;
 mod scope;
@@ -79,6 +80,8 @@ pub struct Elaborator {
     scope: scope::Scope,
     /// Auto arguments still to be proved in the current declaration.
     obligations: RefCell<Vec<auto::Obligation>>,
+    /// Metavariables that literals made `Nat` in the current declaration.
+    defaulted: RefCell<Vec<numbers::Defaulted>>,
     /// While the prelude is loaded, its built-in types and natively
     /// implemented definitions are registered with the kernel by name.
     pub loading_prelude: bool,
@@ -249,6 +252,7 @@ impl Elaborator {
     fn clear_metas(&self) {
         self.globals.metas.borrow_mut().clear();
         self.obligations.borrow_mut().clear();
+        self.defaulted.borrow_mut().clear();
     }
 
     /// Proves outstanding auto arguments, then substitutes metavariable

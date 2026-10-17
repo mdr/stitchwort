@@ -1527,6 +1527,71 @@ decisions not in the sketch above:
   Leijen's table for all three conventions, local evidence
   (`if h : d != OfNat 0`), and `Text.toInt`'s grammar, by `rfl`.
 
+### As built (stage 3)
+
+Literals and groups are `crates/elab/src/numbers.rs`; `check.rs` sends
+literals, `-` and every operator except `++` there, and `effects.rs`'s
+`comp_compound` runs a group's effectful leaves first. Integer patterns are
+still `E-UNSUPPORTED` (stage 4). Decisions not in the rule above:
+
+- **Old way first, where it works.** Inferring a leaf rather than checking
+  it can change the term even when the type is the same: `[]` and
+  constructors are inferred with an annotation (`([] : List ?a)`). With the
+  rule as written, six existing theorems changed hash (five in
+  `list-toolkit.sw`, such as `[1, 2].drop 5 = []`, where pass 1 infers the
+  literal-free `[]` first, and `checkedNeg` in `integers.sw`), and so did
+  the test "arguments run left to right" in `abilities.sw`, whose
+  `loud 1 + loud 2 * loud 3` ran `loud 2 * loud 3` as a computation of its
+  own. So two cases try the old elaboration first and use the group rule
+  only if it fails:
+  - an equation (`=`, `!=`, `==`): the left side inferred (or the right, if
+    the left can't be), the other checked against its type. `0 == x` for an
+    `Int` `x` fails that way (the `0` becomes a `Nat`) and goes to the rule;
+  - in computation mode, `a op b` where `a` or `b` is itself arithmetic that
+    performs operations: each operand run as its own computation. If that
+    fails (the nested part alone is typed differently), the whole group's
+    effectful leaves run first, in source order, and it's typed at once. A
+    prefix `-` at the top always takes the group way (it's new).
+
+  Where the old way succeeds, the rule gives the same types: the old way
+  only differs by committing a side's literals early, and if that commitment
+  were wrong the old way would have failed. Every existing declaration's
+  hash is unchanged: `crates/driver/tests/hash_stability.rs` pins the hash
+  of every declaration in the prelude, `examples/accept` and
+  `examples/extract`, and its snapshots were made before this stage.
+- **Undo.** A failed attempt restores the metavariable store (a copy),
+  truncates the auto obligations and the defaulted-literal records, and
+  resets the context (`numbers::attempt`); running out of resources isn't
+  undone, it's reported. A leaf that pass 1 or 2 can't infer
+  (`E-CANNOT-INFER`) is undone the same way before it's checked at step 6
+  (a bare variable can't half-fail, so it isn't copied for).
+- **Equations with literals.** A bare literal doesn't stop an equation
+  being "on any type" in pass 1: `t == 0` for a `Text` `t` decides `Text`
+  from `t`, and the `0` then fails with the literal's error ("a numeral can
+  be a `Nat` or an `Int`"), as step 3 describes. Only arithmetic and `-`
+  restrict an equation to numbers.
+- **Errors.** What decided `T` is a second label (the deciding leaf, or the
+  `-`) or a note (the expected type, or the default). A local variable
+  checked against a decided `Nat` or `Int` is inferred and compared, so the
+  error says "this is a `Nat`, but this arithmetic is on `Int`" and gives
+  the conversion (`n.toInt`; `Int.toNat` or `Int.toNatChecked`). The
+  defaulted-literal note is added to any type mismatch whose expected or
+  found type is a metavariable a literal made `Nat` in the same
+  declaration, with a label on the literal; so `chooseFirst 5 i` and
+  `ident 5 + i` (the `f 5 + i` limit) both get it. An expected type that
+  isn't a number is "`+` gives a `Nat` or an `Int`, but `Bool` is expected
+  here", which changed two existing reject snapshots
+  (`dependent-fields-mixed-up`, `test-not-bool`) that used to point at an
+  operand.
+- **Spans.** Each arithmetic node's term is wrapped in its location, and the
+  `d != 0` obligation of `/` and `%` is reported at the operation, as
+  before.
+- Tests: `examples/accept/int-literals.sw` (the worked examples, literals in
+  constructors and lists, an alias, precedence, by `rfl` and `test`),
+  `examples/accept/int-effects.sw` (order of effects through nested nodes,
+  around `-` and in a comparison), and `examples/reject/int-*.sw` (the
+  rejections above and the "must reject" list).
+
 ## Recommendation
 
 - **Representation A** (`OfNat Nat | NegSucc Nat`) and **K1** (no kernel

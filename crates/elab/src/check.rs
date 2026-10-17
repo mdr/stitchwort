@@ -226,7 +226,6 @@ pub fn infer(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
 }
 
 fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
-    let g = cx.g();
     // Code that performs operations, in a pure context: it may only perform
     // what it handles itself.
     if effects::may_perform(cx, expr)? {
@@ -266,12 +265,8 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             "a named implicit argument must follow a function",
             "write `f [x := …]`",
         )),
-        Expr::Neg(_, span) => Err(Diagnostic::error(
-            "E-UNSUPPORTED",
-            "negative numbers and prefix `-` aren't supported yet",
-        )
-        .with_label(*span, "not yet supported")
-        .with_note("`Int` literals and negation are still being built")),
+        // `-k` with nothing expected is an `Int`.
+        Expr::Neg(..) => crate::numbers::group(cx, expr, None),
         Expr::Num(n, _) => Ok((
             Term::Nat(Rc::new(n.clone())),
             Value::Data(nat(cx)?, Vec::new()),
@@ -363,47 +358,8 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
                 Value::Sort(Sort::pi(s1, s2)),
             ))
         }
-        Expr::Binary(BinOp::Eq, a, b) => Ok((equation(cx, a, b)?, Value::Sort(Sort::Prop))),
-        Expr::Binary(BinOp::Ne, a, b) => {
-            // `a != b` means `Not (a = b)`.
-            let not = builtin_def(cx, Builtin::Not)?;
-            let eq = equation(cx, a, b)?;
-            Ok((Term::app(Term::Def(not), eq), Value::Sort(Sort::Prop)))
-        }
-        Expr::Binary(BinOp::EqEq, a, b) => {
-            // `a == b` is `toBool d`, for a decision procedure `d` for
-            // `a = b`, found as for `if h : a = b`.
-            let eq = equation(cx, a, b)?;
-            let decision = crate::auto::decide(cx, &cx.eval(&eq)?, 0)?;
-            let to_bool = builtin_def(cx, Builtin::ToBool)?;
-            let bool_data = builtin_data(cx, Builtin::Bool)?;
-            Ok((
-                Term::app(
-                    Term::app_icit(Term::Def(to_bool), eq, Icit::Implicit),
-                    decision,
-                ),
-                Value::Data(bool_data, Vec::new()),
-            ))
-        }
-        Expr::Binary(op, a, b) => {
-            let builtin = match op {
-                BinOp::Lt => Builtin::LessThan,
-                BinOp::Le => Builtin::LessEq,
-                BinOp::Add => Builtin::Add,
-                BinOp::Sub => Builtin::Sub,
-                BinOp::Mul => Builtin::Mul,
-                BinOp::Div => Builtin::Div,
-                BinOp::Mod => Builtin::Mod,
-                BinOp::Eq | BinOp::Ne | BinOp::EqEq | BinOp::Append => {
-                    unreachable!("handled above")
-                }
-            };
-            let id = builtin_def(cx, builtin)?;
-            let head = (Term::Def(id), g.def(id).ty_value.clone());
-            let (term, ty) = apply_args(cx, head, &[Arg::Explicit(a), Arg::Explicit(b)])?;
-            // `/` and `%` take an automatic proof that the divisor isn't zero.
-            Ok(insert(cx, term, ty)?)
-        }
+        // Arithmetic and comparisons: typed a group at a time.
+        Expr::Binary(..) => crate::numbers::group(cx, expr, None),
         Expr::If {
             binder,
             cond,
@@ -789,7 +745,8 @@ pub fn check(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     cx.g().budget.nesting(PASS)?;
     let span = expr.span();
     with_span(cx, span, |cx| {
-        let term = check_inner(cx, expr, expected)?;
+        let term = check_inner(cx, expr, expected)
+            .map_err(|e| crate::numbers::explain_default(cx, e, &[expected]))?;
         Ok(Term::Loc(span, Rc::new(term)))
     })
 }
@@ -844,6 +801,16 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
             cx.reset(mark);
             Ok(Term::Lam(x.clone(), *icit, Rc::new(result?)))
         }
+        // A literal takes its type from what's expected (a `Nat` or an
+        // `Int`), and so does arithmetic.
+        (Expr::Num(..) | Expr::Neg(..), _) if crate::numbers::literal(expr).is_some() => {
+            let (k, negative) = crate::numbers::literal(expr).expect("just checked");
+            crate::numbers::check_literal(cx, k, negative, &expected)
+        }
+        (Expr::Binary(op, ..), _) if crate::numbers::is_arith(*op) => {
+            Ok(crate::numbers::group(cx, expr, Some(&expected))?.0)
+        }
+        (Expr::Neg(..), _) => Ok(crate::numbers::group(cx, expr, Some(&expected))?.0),
         (
             Expr::If {
                 binder,
@@ -985,21 +952,6 @@ fn append(cx: &mut Ctx, a: &Expr, b: &Expr) -> Result<(Term, Value)> {
     Ok((Term::app(Term::app(head, a), b), ty))
 }
 
-/// `a = b`, with the type of both sides inferred from either one.
-fn equation(cx: &mut Ctx, a: &Expr, b: &Expr) -> Result<Term> {
-    let (a, b, ty) = match infer(cx, a).and_then(|(t, ty)| insert(cx, t, ty)) {
-        Ok((a, ty)) => (a, check(cx, b, &ty)?, ty),
-        Err(e) if e.code == "E-CANNOT-INFER" => {
-            let (b, ty) = infer(cx, b)?;
-            let (b, ty) = insert(cx, b, ty)?;
-            (check(cx, a, &ty)?, b, ty)
-        }
-        Err(e) => return Err(e),
-    };
-    let ty = cx.quote(&ty)?;
-    Ok(Term::Eq(Some(Rc::new(ty)), Rc::new(a), Rc::new(b)))
-}
-
 /// `if c then a else b` is `ifThenElse c (\_ -> a) (\_ -> b)`, and
 /// `if h : P then a else b` is `elimDec (decision for P) (\h -> a) (\h -> b)`.
 /// The branches are functions so only the chosen one is evaluated.
@@ -1078,7 +1030,11 @@ fn fallback(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     } else if let Some(d) = effects::partial_mismatch(cx, &found, expected)? {
         Err(d)
     } else {
-        Err(cx.mismatch(expected, &found))
+        Err(crate::numbers::explain_default(
+            cx,
+            cx.mismatch(expected, &found),
+            &[&found],
+        ))
     }
 }
 
@@ -1410,7 +1366,7 @@ fn motive_error(cx: &Ctx) -> Diagnostic {
 }
 
 /// `Nat`, which numbers need.
-fn nat(cx: &Ctx) -> Result<DataId> {
+pub(crate) fn nat(cx: &Ctx) -> Result<DataId> {
     cx.e.globals
         .builtins
         .nat

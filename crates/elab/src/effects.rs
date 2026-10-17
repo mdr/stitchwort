@@ -25,7 +25,7 @@ use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{Elim, Head, apply, force};
 use stitchwort_core::{DataId, DefId, Icit, Name, Term, Value};
 use stitchwort_syntax::Diagnostic;
-use stitchwort_syntax::ast::{Clause, Expr, Name as AstName, Pattern};
+use stitchwort_syntax::ast::{BinOp, Clause, Expr, Name as AstName, Pattern};
 
 use crate::Global;
 use crate::check::{
@@ -946,6 +946,7 @@ pub fn may_perform(cx: &Ctx, expr: &Expr) -> Result<bool> {
             }
         }
         Expr::Binary(_, a, b) => any(&mut [&**a, &**b].into_iter())?,
+        Expr::Neg(a, _) => may_perform(cx, a)?,
         Expr::Let { .. } | Expr::Seq(..) | Expr::Handle { .. } => true,
         Expr::If {
             cond,
@@ -1223,6 +1224,7 @@ pub fn comp_call(
     expected: Option<&Value>,
 ) -> Result<(Term, Value)> {
     if let Expr::Binary(..)
+    | Expr::Neg(..)
     | Expr::List(..)
     | Expr::Tuple(..)
     | Expr::Ann(..)
@@ -1381,8 +1383,11 @@ fn wrap(cx: &mut Ctx, row: &Row, bound: Vec<Bound>, mut result: Term, ty: &Value
     Ok(result)
 }
 
-/// `a + b`, `[a, b]`, `(e : T)`, a record literal or update, or `e.field`,
-/// when a part performs operations: the parts run first, left to right. A
+/// `a + b`, `-a`, `[a, b]`, `(e : T)`, a record literal or update, or
+/// `e.field`, when a part performs operations: the parts run first, left to
+/// right. Arithmetic and comparisons run every effectful leaf of their group
+/// first, however deeply it's nested, and are then typed as a whole
+/// (docs/proposals/integers.md, "Effects and evaluation order"). A
 /// record's base runs first, then its field expressions in the order written
 /// (docs/proposals/records.md §6.1); the record is then built from their
 /// results, at `expected` if given.
@@ -1412,10 +1417,42 @@ fn comp_compound(
         Expr::Field(e, name) => {
             Expr::Field(Box::new(run_first(cx, e, row, &mut bound)?), name.clone())
         }
-        Expr::Binary(op, a, b) => {
+        Expr::Binary(BinOp::Append, a, b) => {
             let a = run_first(cx, a, row, &mut bound)?;
             let b = run_first(cx, b, row, &mut bound)?;
-            Expr::Binary(*op, Box::new(a), Box::new(b))
+            Expr::Binary(BinOp::Append, Box::new(a), Box::new(b))
+        }
+        Expr::Binary(op, a, b) if nested_effects(cx, a, b)? => {
+            // As before groups where that works, so existing programs
+            // elaborate to the same terms: each operand runs as a
+            // computation of its own. Otherwise, as for `(1 + get ()) * i`
+            // with an `Int` `i`, the whole group is typed at once.
+            let before = |cx: &mut Ctx| -> Result<(Term, Value)> {
+                let mut bound = Vec::new();
+                let a = run_first(cx, a, row, &mut bound)?;
+                let b = run_first(cx, b, row, &mut bound)?;
+                let pure = Expr::Binary(*op, Box::new(a), Box::new(b));
+                let (term, ty) = infer(cx, &pure)?;
+                let (term, ty) = insert(cx, term, ty)?;
+                if let Some(t) = expected
+                    && !cx.unify(&ty, t)?
+                {
+                    return Err(cx.mismatch(t, &ty));
+                }
+                let result = done(cx, row, &ty, term)?;
+                Ok((wrap(cx, row, bound, result, &ty)?, ty))
+            };
+            if let Some(found) = crate::numbers::attempt(cx, before)? {
+                return Ok(found);
+            }
+            crate::numbers::map_leaves(cx, expr, &mut |cx, leaf| {
+                run_first(cx, leaf, row, &mut bound)
+            })?
+        }
+        Expr::Binary(..) | Expr::Neg(..) => {
+            crate::numbers::map_leaves(cx, expr, &mut |cx, leaf| {
+                run_first(cx, leaf, row, &mut bound)
+            })?
         }
         Expr::Tuple(a, b, span) => {
             let a = run_first(cx, a, row, &mut bound)?;
@@ -1437,7 +1474,12 @@ fn comp_compound(
         _ => unreachable!("only called on compound expressions"),
     };
     let (term, ty) = match (expected, &pure) {
-        (Some(t), Expr::Record { .. } | Expr::Tuple(..)) => (check(cx, &pure, t)?, t.clone()),
+        (Some(t), Expr::Record { .. } | Expr::Tuple(..) | Expr::Neg(..)) => {
+            (check(cx, &pure, t)?, t.clone())
+        }
+        (Some(t), Expr::Binary(op, ..)) if crate::numbers::is_arith(*op) => {
+            (check(cx, &pure, t)?, t.clone())
+        }
         _ => {
             let (term, ty) = infer(cx, &pure)?;
             insert(cx, term, ty)?
@@ -1445,6 +1487,23 @@ fn comp_compound(
     };
     let result = done(cx, row, &ty, term)?;
     Ok((wrap(cx, row, bound, result, &ty)?, ty))
+}
+
+/// Whether an operand of `a op b` is itself arithmetic (or a prefix `-`)
+/// that performs operations: then running each operand as a computation of
+/// its own, as before groups, differs from running the group's leaves first.
+fn nested_effects(cx: &Ctx, a: &Expr, b: &Expr) -> Result<bool> {
+    for side in [a, b] {
+        let nested = match side {
+            Expr::Binary(op, ..) => crate::numbers::is_arith(*op),
+            Expr::Neg(..) => crate::numbers::literal(side).is_none(),
+            _ => false,
+        };
+        if nested && may_perform(cx, side)? {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 /// `op arg`: a `Call` of the operation, injected into `row`.

@@ -1,0 +1,9 @@
+---
+source: crates/driver/tests/hash_stability.rs
+expression: "lines(&session, d, f)"
+---
+Main.total 6fd319ef39ccb50cfd9ab63399ddbd5b4095f0b5e655a34b004d8e93f6ecf33f
+Main.average c269067a39f5d32fe5646086ab8f3767315ce43bba1f01700959fcb756a5e975
+Main.get 1e6657f7aa297365563c0641c78d80caf2678bfd4f6200b55f82241f07a232de
+Main.third d46c30c1915e183415d8459621ef1c5e6b808a11e5a6b2f468dc7254ce4054a3
+Main.isEven cadc5a039e30463e79fb416851083c95ae9eedfa1a6e656955cbe6e367c08cf7
