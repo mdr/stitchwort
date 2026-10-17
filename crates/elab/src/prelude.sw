@@ -338,6 +338,197 @@ Nat.div n d = Nat.divFuel n n d
 Nat.mod : (n : Nat) -> (d : Nat) -> [auto ok : d != 0] -> Nat
 Nat.mod n d = n - d * (n / d)
 
+-- Arithmetic lemmas: addition, multiplication, order and subtraction facts proved
+-- by induction, then the division law and `n % d < d`.
+
+theorem Nat.addZero : (n : Nat) -> n + 0 = n
+Nat.addZero Zero = rfl
+Nat.addZero (Succ n) = Eq.cong Succ (Nat.addZero n)
+
+theorem Nat.addSucc : (n : Nat) -> (m : Nat) -> n + Succ m = Succ (n + m)
+Nat.addSucc Zero m = rfl
+Nat.addSucc (Succ n) m = Eq.cong Succ (Nat.addSucc n m)
+
+theorem Nat.addComm : (m : Nat) -> (n : Nat) -> m + n = n + m
+Nat.addComm Zero n = Eq.sym (Nat.addZero n)
+Nat.addComm (Succ m) n = Eq.trans (Eq.cong Succ (Nat.addComm m n)) (Eq.sym (Nat.addSucc n m))
+
+theorem Nat.addAssoc : (a : Nat) -> (b : Nat) -> (c : Nat) -> (a + b) + c = a + (b + c)
+Nat.addAssoc Zero b c = rfl
+Nat.addAssoc (Succ a) b c = Eq.cong Succ (Nat.addAssoc a b c)
+
+theorem Nat.addCancelLeft : (a : Nat) -> (b : Nat) -> (c : Nat) -> a + b = a + c -> b = c
+Nat.addCancelLeft Zero b c h = h
+Nat.addCancelLeft (Succ a) b c h = Nat.addCancelLeft a b c (Nat.succInjective (a + b) (a + c) h)
+
+theorem Nat.mulZero : (n : Nat) -> n * 0 = 0
+Nat.mulZero Zero = rfl
+Nat.mulZero (Succ n) = Nat.mulZero n
+
+theorem Nat.mulOne : (n : Nat) -> n * 1 = n
+Nat.mulOne Zero = rfl
+Nat.mulOne (Succ n) = Eq.cong Succ (Nat.mulOne n)
+
+theorem Nat.mulSucc : (n : Nat) -> (m : Nat) -> n * Succ m = n + n * m
+Nat.mulSucc Zero m = rfl
+Nat.mulSucc (Succ n) m = Eq.cong Succ (Eq.trans (Eq.cong (\t -> m + t) (Nat.mulSucc n m)) (Eq.trans (Eq.sym (Nat.addAssoc m n (n * m))) (Eq.trans (Eq.cong (\t -> t + n * m) (Nat.addComm m n)) (Nat.addAssoc n m (n * m)))))
+
+theorem Nat.mulComm : (n : Nat) -> (m : Nat) -> n * m = m * n
+Nat.mulComm Zero m = Eq.sym (Nat.mulZero m)
+Nat.mulComm (Succ n) m = Eq.trans (Eq.cong (\t -> m + t) (Nat.mulComm n m)) (Eq.sym (Nat.mulSucc m n))
+
+theorem Nat.mulDistribRight : (a : Nat) -> (b : Nat) -> (c : Nat) -> (a + b) * c = a * c + b * c
+Nat.mulDistribRight Zero b c = rfl
+Nat.mulDistribRight (Succ a) b c = Eq.trans (Eq.cong (\t -> c + t) (Nat.mulDistribRight a b c)) (Eq.sym (Nat.addAssoc c (a * c) (b * c)))
+
+theorem Nat.mulDistribLeft : (a : Nat) -> (b : Nat) -> (c : Nat) -> a * (b + c) = a * b + a * c
+Nat.mulDistribLeft a b c = Eq.trans (Nat.mulComm a (b + c)) (Eq.trans (Nat.mulDistribRight b c a) (Eq.trans (Eq.cong (\t -> t + c * a) (Nat.mulComm b a)) (Eq.cong (\t -> a * b + t) (Nat.mulComm c a))))
+
+theorem Nat.mulAssoc : (a : Nat) -> (b : Nat) -> (c : Nat) -> (a * b) * c = a * (b * c)
+Nat.mulAssoc Zero b c = rfl
+Nat.mulAssoc (Succ a) b c = Eq.trans (Nat.mulDistribRight b (a * b) c) (Eq.cong (\t -> b * c + t) (Nat.mulAssoc a b c))
+
+theorem Nat.leRefl : (n : Nat) -> n <= n
+Nat.leRefl Zero = rfl
+Nat.leRefl (Succ n) = Nat.leRefl n
+
+theorem Nat.zeroLe : (n : Nat) -> 0 <= n
+Nat.zeroLe n = rfl
+
+theorem Nat.leSucc : (n : Nat) -> n <= Succ n
+Nat.leSucc Zero = rfl
+Nat.leSucc (Succ n) = Nat.leSucc n
+
+theorem Nat.leTrans : (a : Nat) -> (b : Nat) -> (c : Nat) -> a <= b -> b <= c -> a <= c
+Nat.leTrans Zero b c h1 h2 = rfl
+Nat.leTrans (Succ a) Zero c h1 h2 = Void.exfalso (Bool.falseNotTrue h1)
+Nat.leTrans (Succ a) (Succ b) Zero h1 h2 = Void.exfalso (Bool.falseNotTrue h2)
+Nat.leTrans (Succ a) (Succ b) (Succ c) h1 h2 = Nat.leTrans a b c h1 h2
+
+theorem Nat.leAntisym : (a : Nat) -> (b : Nat) -> a <= b -> b <= a -> a = b
+Nat.leAntisym Zero Zero h1 h2 = rfl
+Nat.leAntisym Zero (Succ b) h1 h2 = Void.exfalso (Bool.falseNotTrue h2)
+Nat.leAntisym (Succ a) Zero h1 h2 = Void.exfalso (Bool.falseNotTrue h1)
+Nat.leAntisym (Succ a) (Succ b) h1 h2 = Eq.cong Succ (Nat.leAntisym a b h1 h2)
+
+theorem Nat.leAddRight : (n : Nat) -> (m : Nat) -> n <= n + m
+Nat.leAddRight Zero m = rfl
+Nat.leAddRight (Succ n) m = Nat.leAddRight n m
+
+theorem Nat.leAddLeft : (n : Nat) -> (m : Nat) -> m <= n + m
+Nat.leAddLeft Zero m = Nat.leRefl m
+Nat.leAddLeft (Succ n) m = Nat.leTrans m (n + m) (Succ (n + m)) (Nat.leAddLeft n m) (Nat.leSucc (n + m))
+
+theorem Nat.leqSuccSelf : (n : Nat) -> Nat.leq (Succ n) n = False
+Nat.leqSuccSelf Zero = rfl
+Nat.leqSuccSelf (Succ n) = Nat.leqSuccSelf n
+
+theorem Nat.lessIrrefl : (n : Nat) -> Not (n < n)
+Nat.lessIrrefl n h = Bool.falseNotTrue (Eq.trans (Eq.sym (Nat.leqSuccSelf n)) h)
+
+theorem Nat.lessLe : (m : Nat) -> (n : Nat) -> m < n -> m <= n
+Nat.lessLe m n h = Nat.leTrans m (Succ m) n (Nat.leSucc m) h
+
+theorem Nat.lessTrans : (m : Nat) -> (n : Nat) -> (p : Nat) -> m < n -> n < p -> m < p
+Nat.lessTrans m n p h1 h2 = Nat.leTrans (Succ m) n p h1 (Nat.lessLe n p h2)
+
+theorem Nat.leLessSucc : (m : Nat) -> (n : Nat) -> m <= n -> m < Succ n
+Nat.leLessSucc m n h = h
+
+theorem Nat.subSelf : (n : Nat) -> n - n = 0
+Nat.subSelf Zero = rfl
+Nat.subSelf (Succ n) = Nat.subSelf n
+
+theorem Nat.addSub : (n : Nat) -> (m : Nat) -> (n + m) - m = n
+Nat.addSub n Zero = Nat.addZero n
+Nat.addSub n (Succ m) = Eq.trans (Eq.cong (\t -> t - Succ m) (Nat.addSucc n m)) (Nat.addSub n m)
+
+theorem Nat.subLe : (n : Nat) -> (m : Nat) -> n - m <= n
+Nat.subLe n Zero = Nat.leRefl n
+Nat.subLe Zero (Succ m) = rfl
+Nat.subLe (Succ n) (Succ m) = Nat.leTrans (n - m) n (Succ n) (Nat.subLe n m) (Nat.leSucc n)
+theorem Nat.leCongLeft : (a : Nat) -> (b : Nat) -> (n : Nat) -> a = b -> a <= n -> b <= n
+Nat.leCongLeft a b n p h = J (\y q -> y <= n) h p
+
+theorem Nat.leCongRight : (a : Nat) -> (b : Nat) -> (n : Nat) -> b = n -> a <= b -> a <= n
+Nat.leCongRight a b n p h = J (\y q -> a <= y) h p
+
+theorem Nat.ltCongLeft : (a : Nat) -> (b : Nat) -> (n : Nat) -> a = b -> a < n -> b < n
+Nat.ltCongLeft a b n p h = J (\y q -> y < n) h p
+
+theorem Nat.ltCongRight : (a : Nat) -> (b : Nat) -> (n : Nat) -> b = n -> a < b -> a < n
+Nat.ltCongRight a b n p h = J (\y q -> a < y) h p
+
+theorem Nat.leAddCong : (d : Nat) -> (a : Nat) -> (b : Nat) -> a <= b -> d + a <= d + b
+Nat.leAddCong Zero a b h = h
+Nat.leAddCong (Succ d) a b h = Nat.leAddCong d a b h
+
+theorem Nat.ltAddCong : (d : Nat) -> (a : Nat) -> (b : Nat) -> a < b -> d + a < d + b
+Nat.ltAddCong Zero a b h = h
+Nat.ltAddCong (Succ d) a b h = Nat.ltAddCong d a b h
+
+theorem Nat.addSubCancel : (d : Nat) -> (n : Nat) -> d <= n -> d + (n - d) = n
+Nat.addSubCancel Zero n h = rfl
+Nat.addSubCancel (Succ d) Zero h = Void.exfalso (Bool.falseNotTrue h)
+Nat.addSubCancel (Succ d) (Succ n) h = Eq.cong Succ (Nat.addSubCancel d n h)
+
+theorem Nat.leqFalse : (d : Nat) -> (n : Nat) -> Nat.leq d n = False -> n < d
+Nat.leqFalse Zero n h = Void.exfalso (Bool.trueNotFalse h)
+Nat.leqFalse (Succ d) Zero h = rfl
+Nat.leqFalse (Succ d) (Succ n) h = Nat.leqFalse d n h
+
+theorem Nat.subLtAdd : (n : Nat) -> (x : Nat) -> (d : Nat) -> x <= n -> n < d + x -> n - x < d
+Nat.subLtAdd n Zero d hx h = Nat.ltCongRight n (d + 0) d (Nat.addZero d) h
+Nat.subLtAdd Zero (Succ x) d hx h = Void.exfalso (Bool.falseNotTrue hx)
+Nat.subLtAdd (Succ n) (Succ x) d hx h = Nat.subLtAdd n x d hx (Nat.ltCongRight (Succ n) (d + Succ x) (Succ (d + x)) (Nat.addSucc d x) h)
+
+theorem Nat.divFuelLeStep : (fuel : Nat) -> (n : Nat) -> (d : Nat) -> (b : Bool) -> Nat.leq d n = b ->
+    ((m : Nat) -> d * Nat.divFuel fuel m d <= m) ->
+    d * (if b then Succ (Nat.divFuel fuel (n - d) d) else 0) <= n
+Nat.divFuelLeStep fuel n d True h ih =
+  Nat.leCongLeft (d + d * Nat.divFuel fuel (n - d) d) (d * Succ (Nat.divFuel fuel (n - d) d)) n
+    (Eq.sym (Nat.mulSucc d (Nat.divFuel fuel (n - d) d)))
+    (Nat.leCongRight (d + d * Nat.divFuel fuel (n - d) d) (d + (n - d)) n (Nat.addSubCancel d n h)
+      (Nat.leAddCong d (d * Nat.divFuel fuel (n - d) d) (n - d) (ih (n - d))))
+Nat.divFuelLeStep fuel n d False h ih =
+  Nat.leCongLeft 0 (d * 0) n (Eq.sym (Nat.mulZero d)) rfl
+
+theorem Nat.divFuelLe : (fuel : Nat) -> (n : Nat) -> (d : Nat) -> d * Nat.divFuel fuel n d <= n
+Nat.divFuelLe Zero n d = Nat.leCongLeft 0 (d * 0) n (Eq.sym (Nat.mulZero d)) rfl
+Nat.divFuelLe (Succ fuel) n d = Nat.divFuelLeStep fuel n d (Nat.leq d n) rfl (\m -> Nat.divFuelLe fuel m d)
+
+theorem Nat.fuelSub : (n : Nat) -> (d : Nat) -> (f : Nat) -> Not (d = 0) -> n <= Succ f -> n - d <= f
+Nat.fuelSub n Zero f ok h = Void.exfalso (ok rfl)
+Nat.fuelSub Zero (Succ d) f ok h = rfl
+Nat.fuelSub (Succ n) (Succ d) f ok h = Nat.leTrans (n - d) n f (Nat.subLe n d) h
+
+theorem Nat.divFuelBoundStep : (fuel : Nat) -> (n : Nat) -> (d : Nat) -> Not (d = 0) -> n <= Succ fuel -> (b : Bool) -> Nat.leq d n = b ->
+    ((m : Nat) -> m <= fuel -> m < d * Succ (Nat.divFuel fuel m d)) ->
+    n < d * Succ (if b then Succ (Nat.divFuel fuel (n - d) d) else 0)
+Nat.divFuelBoundStep fuel n d ok hn True h ih =
+  Nat.ltCongRight n (d + d * Succ (Nat.divFuel fuel (n - d) d)) (d * Succ (Succ (Nat.divFuel fuel (n - d) d)))
+    (Eq.sym (Nat.mulSucc d (Succ (Nat.divFuel fuel (n - d) d))))
+    (Nat.ltCongLeft (d + (n - d)) n (d + d * Succ (Nat.divFuel fuel (n - d) d)) (Nat.addSubCancel d n h)
+      (Nat.ltAddCong d (n - d) (d * Succ (Nat.divFuel fuel (n - d) d)) (ih (n - d) (Nat.fuelSub n d fuel ok hn))))
+Nat.divFuelBoundStep fuel n d ok hn False h ih =
+  Nat.ltCongRight n d (d * 1) (Eq.sym (Nat.mulOne d)) (Nat.leqFalse d n h)
+
+theorem Nat.nonzeroPos : (d : Nat) -> Not (d = 0) -> 0 < d
+Nat.nonzeroPos Zero ok = Void.exfalso (ok rfl)
+Nat.nonzeroPos (Succ d) ok = rfl
+
+theorem Nat.divFuelBound : (fuel : Nat) -> (n : Nat) -> (d : Nat) -> Not (d = 0) -> n <= fuel -> n < d * Succ (Nat.divFuel fuel n d)
+Nat.divFuelBound Zero Zero d ok hn = Nat.ltCongRight 0 d (d * 1) (Eq.sym (Nat.mulOne d)) (Nat.nonzeroPos d ok)
+Nat.divFuelBound Zero (Succ n) d ok hn = Void.exfalso (Bool.falseNotTrue hn)
+Nat.divFuelBound (Succ fuel) n d ok hn = Nat.divFuelBoundStep fuel n d ok hn (Nat.leq d n) rfl (\m hm -> Nat.divFuelBound fuel m d ok hm)
+
+
+theorem Nat.divMod : (n : Nat) -> (d : Nat) -> (ok : d != 0) -> n = (n / d) * d + n % d
+Nat.divMod n d ok = Eq.sym (Eq.trans (Eq.cong (\t -> t + (n - d * (n / d))) (Nat.mulComm (n / d) d)) (Nat.addSubCancel (d * (n / d)) n (Nat.divFuelLe n n d)))
+
+theorem Nat.modLess : (n : Nat) -> (d : Nat) -> (ok : d != 0) -> n % d < d
+Nat.modLess n d ok = Nat.subLtAdd n (d * (n / d)) d (Nat.divFuelLe n n d) (Nat.ltCongRight n (d * Succ (n / d)) (d + d * (n / d)) (Nat.mulSucc d (n / d)) (Nat.divFuelBound n n d ok (Nat.leRefl n)))
+
 -- Lists, continued
 
 theorem List.lengthAppend : (xs : List a) -> (ys : List a) -> List.length (List.append xs ys) = List.length xs + List.length ys
