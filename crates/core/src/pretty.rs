@@ -146,6 +146,20 @@ impl<'g> Printer<'g> {
                     None => self.applied(names, "Comp".into(), args.iter().map(|a| &**a)),
                 }
             }
+            // A pair type, as a tuple type: `(Nat, Text)`, nesting to the right.
+            Term::Data(d, args) if is(self.g, Builtin::Pair, *d) && args.len() == 2 => {
+                let mut items = vec![&*args[0]];
+                let mut rest = args[1].strip_loc();
+                while let Term::Data(d, args) = rest {
+                    if !(is(self.g, Builtin::Pair, *d) && args.len() == 2) {
+                        break;
+                    }
+                    items.push(&args[0]);
+                    rest = args[1].strip_loc();
+                }
+                items.push(rest);
+                (self.tuple(names, &items), Prec::Atom)
+            }
             Term::Data(d, args) => self.applied(
                 names,
                 self.g.data(*d).name.to_string(),
@@ -164,6 +178,20 @@ impl<'g> Printer<'g> {
                     return ("{}".into(), Prec::Atom);
                 }
                 (format!("{{ {} }}", fields.join(", ")), Prec::Atom)
+            }
+            // A pair, as a tuple: `(1, 2, 3)` is `MkPair 1 (MkPair 2 3)`.
+            Term::Ctor(d, 0, args) if is(self.g, Builtin::Pair, *d) && args.len() == 2 => {
+                let mut items = vec![&*args[0]];
+                let mut rest = args[1].strip_loc();
+                while let Term::Ctor(d, 0, args) = rest {
+                    if !(is(self.g, Builtin::Pair, *d) && args.len() == 2) {
+                        break;
+                    }
+                    items.push(&args[0]);
+                    rest = args[1].strip_loc();
+                }
+                items.push(rest);
+                (self.tuple(names, &items), Prec::Atom)
             }
             Term::Ctor(d, c, args) => {
                 if let Some((negative, n)) = int_literal(self.g, term) {
@@ -285,6 +313,14 @@ impl<'g> Printer<'g> {
             }
             Term::J(m, b, p) => self.applied(names, "J".into(), [&**m, &**b, &**p].into_iter()),
         }
+    }
+
+    fn tuple(&self, names: &mut Vec<Name>, items: &[&Term]) -> String {
+        let items: Vec<String> = items
+            .iter()
+            .map(|t| self.print(names, t, Prec::Arrow))
+            .collect();
+        format!("({})", items.join(", "))
     }
 
     fn applied<'t>(
