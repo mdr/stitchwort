@@ -47,9 +47,10 @@ type Turn =
 -- "L68" is `Left 68`.
 def Turn.parse (t : Text) : Maybe Turn :=
   def turnOf (c : Char) (n : Nat) : Maybe Turn :=
-    if c == 'L' then Just (Left n)
-    else if c == 'R' then Just (Right n)
-    else Nothing
+    match c with
+      | 'L' => Just (Left n)
+      | 'R' => Just (Right n)
+      | _   => Nothing
   t.uncons.andThen (\(c, rest) => rest.toNat.andThen (turnOf c))
 
 -- A turn, one click at a time: `Left 3` is three `Left 1`s.
@@ -60,12 +61,12 @@ def Turn.clicks : Turn -> List Turn
 -- A dial numbered 0 to `highest`, at `position`.
 type Dial (highest : Nat) = { position : Nat, inRange : position <= highest }
 
--- Where an integer lands on a dial numbered 0 to `highest`.
-def Dial.place (highest : Nat) (x : Int) : Nat := Int.modNat x (Succ highest)
-
 -- Any integer, wrapped onto the dial.
 def Dial.wrap (highest : Nat) (x : Int) : Dial highest :=
-  { position = Dial.place highest x, inRange = Int.modNatLt x (Succ highest) }
+  { position = Int.modNat x (Succ highest), inRange = Int.modNatLt x (Succ highest) }
+
+-- The number of positions on the dial.
+def Dial.size (d : Dial highest) : Nat := Succ highest
 
 -- Where a turn leaves the dial.
 def Dial.move (d : Dial highest) : Turn -> Dial highest
@@ -78,8 +79,8 @@ def Dial.isZero (d : Dial highest) : Bool := d.position == 0
 -- 0 after each click that brings `d + k` to a multiple of the dial's size.
 -- Going left is the mirror image: 0 is `(size - d) % size` clicks away.
 def Dial.zerosDuring (d : Dial highest) : Turn -> Nat
-  | Right n => (d.position + n) / Succ highest
-  | Left n  => ((Succ highest - d.position) % Succ highest + n) / Succ highest
+  | Right n => (d.position + n) / d.size
+  | Left n  => ((d.size - d.position) % d.size + n) / d.size
 
 -- Examples -----------------------------------------------------------------
 
@@ -197,6 +198,11 @@ theorem rightCount [highest : Nat] (d : Dial highest) : (n : Nat) ->
     Eq.trans (Eq.cong (List.occurrences Dial.isZero) (List.scanlCons Dial.move (d.move (Right 1)) (List.replicate n (Right 1))))
       (Eq.trans (Eq.cong (\t => Bool.toNat (d.move (Right 1)).isZero + t) (rightCount (d.move (Right 1)) n))
         (stepRight (Succ highest) d.position d.inRange n))
+
+-- Where an integer lands on a dial numbered 0 to `highest`. Proofs only: it
+-- keeps `Int.modNat` folded, which the checker would otherwise unfold in the
+-- lemmas below.
+def Dial.place (highest : Nat) (x : Int) : Nat := Int.modNat x (Succ highest)
 
 -- Going left from 0 on a dial of size `Succ m` ends at `m - n % Succ m`.
 theorem backFrom (m : Nat) (n : Nat) : Dial.place m (Int.subNatNat m n) = m - n % Succ m :=
