@@ -885,14 +885,14 @@ Nat.digitChar _ = '9'
 
 -- The digits of `n` in front of `acc`. `fuel` keeps it structurally
 -- recursive; `n + 1` is always enough.
-Nat.digits : Nat -> Nat -> List Char -> List Char
-Nat.digits Zero        n acc = acc
-Nat.digits (Succ fuel) n acc =
-  if Nat.leq n 9 then Cons (Nat.digitChar n) acc else Nat.digits fuel (n / 10) (Cons (Nat.digitChar (n % 10)) acc)
+Nat.digitsOnto : Nat -> Nat -> List Char -> List Char
+Nat.digitsOnto Zero        n acc = acc
+Nat.digitsOnto (Succ fuel) n acc =
+  if Nat.leq n 9 then Cons (Nat.digitChar n) acc else Nat.digitsOnto fuel (n / 10) (Cons (Nat.digitChar (n % 10)) acc)
 
 -- Decimal, without leading zeros: `Nat.toText 42` is `"42"`.
 Nat.toText : Nat -> Text
-Nat.toText n = MkText (Nat.digits (Succ n) n Nil)
+Nat.toText n = MkText (Nat.digitsOnto (Succ n) n Nil)
 
 Maybe.andThen : Maybe a -> (a -> Maybe b) -> Maybe b
 Maybe.andThen Nothing  f = Nothing
@@ -1503,6 +1503,44 @@ Effect.pfix : [op : Type] -> [res : op -> Type] -> [req : Type] -> [ans : req ->
   ((x : req) -> Delay (Plus (Rec req) op) (PlusRes (RecRes ans) res) (ans x)) ->
   (x : req) -> Delay op res (ans x)
 
+-- Decimal digits, most significant first: `Nat.digits 1205` is `[1, 2, 0, 5]`
+-- and `Nat.digits 0` is `[0]`. The fuel is `n + 1`, more than the digits need.
+Nat.digitsFuel : Nat -> Nat -> List Nat -> List Nat
+Nat.digitsFuel Zero        n acc = Cons n acc
+Nat.digitsFuel (Succ fuel) n acc =
+  if Nat.leq n 9 then Cons n acc else Nat.digitsFuel fuel (n / 10) (Cons (n % 10) acc)
+
+Nat.digits : Nat -> List Nat
+Nat.digits n = Nat.digitsFuel (Succ n) n Nil
+
+-- The number whose decimal digits these are, most significant first. Digits
+-- above 9 carry into their neighbours: it is `Nat.digits`'s inverse only on
+-- real digit lists.
+Nat.fromDigits : List Nat -> Nat
+Nat.fromDigits ds = List.foldl (\acc d -> acc * 10 + d) 0 ds
+
+
+theorem Nat.digitsZero : Nat.digits 0 = [0]
+Nat.digitsZero = rfl
+
+theorem Nat.digitsExample : Nat.digits 1205 = [1, 2, 0, 5]
+Nat.digitsExample = rfl
+
+theorem Nat.fromDigitsExample : Nat.fromDigits [1, 2, 0, 5] = 1205
+Nat.fromDigitsExample = rfl
+
+theorem Nat.digitsSeven : Nat.digits 7 = [7]
+Nat.digitsSeven = rfl
+
+theorem Nat.digitsTen : Nat.digits 10 = [1, 0]
+Nat.digitsTen = rfl
+
+theorem Nat.fromDigitsNil : Nat.fromDigits Nil = 0
+Nat.fromDigitsNil = rfl
+
+theorem Nat.digitsRoundTrip : Nat.fromDigits (Nat.digits 9876543210) = 9876543210
+Nat.digitsRoundTrip = rfl
+
 -- Input and output (docs/proposals/text-and-io.md, Part 2)
 
 -- The console. Only a host interpreter performs these for real; in Stitchwort
@@ -1530,3 +1568,22 @@ IO.simulate input prog =
       | print t => k    -> \ins out -> k () ins (Cons t out)
       | readLine u => k -> \ins out -> k (IO.nextLine ins) (List.tailOf ins) out
   run input Nil
+
+-- Reading all of the input
+
+-- What to do with the next line, given the lines so far (newest first): keep
+-- going, or stop at the end of the input. `more` is whatever comes next, so
+-- this isn't recursive, and is polymorphic in the rest of the row (see
+-- examples/accept/cat.sw).
+IO.readLinesStep : List Text -> Maybe Text -> (List Text -> {IO, Partial | e} (List Text)) -> {IO, Partial | e} (List Text)
+IO.readLinesStep acc Nothing  more = List.reverse acc
+IO.readLinesStep acc (Just l) more = more (Cons l acc)
+
+IO.readLinesFrom : List Text -> {IO, Partial} (List Text)
+IO.readLinesFrom acc = IO.readLinesStep acc (readLine ()) IO.readLinesFrom
+
+-- Every remaining line of input, in order, up to the end of the input. There
+-- is no bound on how many, so it is `Partial`: only `stitchwort run` and the
+-- playground can run it.
+IO.readAllLines : () -> {IO, Partial} (List Text)
+IO.readAllLines u = IO.readLinesFrom Nil
