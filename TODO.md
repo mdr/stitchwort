@@ -169,10 +169,13 @@ capability we know we'll need before the work that needs it):
    `[x, ..rest]` list pattern. Running (user, 18 Oct): method sections merged (`ff2d6ed`: `.f args`,
    `|> .drop 1` is exactly `xs.drop 1`, `people.map .name`; AoC uses
    them);
-   lane `elab-conveniences` (comparisons usable wherever a `Bool` is
-   expected, an `Int` sum, Idris-style auto-binding of value names used
-   as type arguments such as `Dial highest`) The crash-recovery
-   flake was the test's own stack helper (`e08838e`; the page was fine); then rewrite days 1–3 with `|>` and the user's review
+   comparisons usable wherever a `Bool` is expected,
+   `List.sumInt`/`sumIntBy`, and auto-binding of value names used as type
+   arguments (`Dial highest`) merged (`95f82a2`, `d4d44c0`, `ddc44f0`).
+   The crash-recovery flake was the test's own stack helper (`e08838e`;
+   the page was fine). Next small follow-up: check plain lambdas after
+   the arguments that fix their type (`List.map (\p => p.name) people`),
+   as sections do. (Earlier plan: rewrite days 1–3 with `|>` and the user's review
    changes. Review notes so far: keep `Text.uncons` but write
    `t.uncons` (dot notation) — generally prefer dot notation and
    `rest.toNat`-style calls where they read better; `parseTurn` via
