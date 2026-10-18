@@ -1129,6 +1129,59 @@ impl<'t> Parser<'t> {
         Ok(Expr::Lam(names, Box::new(matched), span))
     }
 
+    /// `if c then a else b`, after the `if`. Its own function, so the stack
+    /// frame of the parser's recursive functions stays small (the nesting
+    /// limit is measured in stack).
+    #[inline(never)]
+    fn if_expr(&mut self, start: Span) -> Result<Expr> {
+        // `if h : P then …` binds a proof; `if c then …` tests a `Bool`.
+        let binder =
+            if matches!(self.peek(), Some(Tok::Lower(_))) && self.peek_at(1) == Some(&Tok::Colon) {
+                let name = self.lower("a name")?;
+                self.bump();
+                Some(name)
+            } else {
+                None
+            };
+        // `then` and `else` may start a line, as long as it's indented at
+        // least as far as the line `if` is on.
+        let indent = self.line_indent(self.pos - 1);
+        let cond = self.expr()?;
+        self.expect_keyword(Tok::KwThen, "`then`", indent)?;
+        let then = self.expr()?;
+        self.expect_keyword(Tok::KwElse, "`else`", indent)?;
+        let otherwise = self.expr()?;
+        let span = start.to(otherwise.span());
+        Ok(Expr::If {
+            binder,
+            cond: Box::new(cond),
+            then: Box::new(then),
+            otherwise: Box::new(otherwise),
+            span,
+        })
+    }
+
+    /// `(x : A) -> B` or `[x : A] -> B`. Out of line, as `if_expr` is.
+    #[inline(never)]
+    fn pi_expr(&mut self, start: Span, implicit: bool) -> Result<Expr> {
+        let (binder, auto) = if implicit {
+            self.implicit_binder()?
+        } else {
+            (self.binder()?, false)
+        };
+        self.expect(Tok::Arrow, "`->`")?;
+        let cod = self.result_type()?;
+        let span = start.to(cod.span());
+        Ok(Expr::Pi {
+            names: binder.names,
+            implicit,
+            auto,
+            dom: Box::new(binder.ty),
+            cod: Box::new(cod),
+            span,
+        })
+    }
+
     fn expr_inline(&mut self) -> Result<Expr> {
         let start = self.here();
         if self.eat(&Tok::KwHandle) {
@@ -1141,53 +1194,16 @@ impl<'t> Parser<'t> {
             return self.lambda(start);
         }
         if self.eat(&Tok::KwIf) {
-            // `if h : P then …` binds a proof; `if c then …` tests a `Bool`.
-            let binder = if matches!(self.peek(), Some(Tok::Lower(_)))
-                && self.peek_at(1) == Some(&Tok::Colon)
-            {
-                let name = self.lower("a name")?;
-                self.bump();
-                Some(name)
-            } else {
-                None
-            };
-            // `then` and `else` may start a line, as long as it's indented at
-            // least as far as the line `if` is on.
-            let indent = self.line_indent(self.pos - 1);
-            let cond = self.expr()?;
-            self.expect_keyword(Tok::KwThen, "`then`", indent)?;
-            let then = self.expr()?;
-            self.expect_keyword(Tok::KwElse, "`else`", indent)?;
-            let otherwise = self.expr()?;
-            let span = start.to(otherwise.span());
-            return Ok(Expr::If {
-                binder,
-                cond: Box::new(cond),
-                then: Box::new(then),
-                otherwise: Box::new(otherwise),
-                span,
-            });
+            return self.if_expr(start);
         }
         let implicit = self.is_implicit_binder();
         if implicit || self.is_pi_binder() {
-            let (binder, auto) = if implicit {
-                self.implicit_binder()?
-            } else {
-                (self.binder()?, false)
-            };
-            self.expect(Tok::Arrow, "`->`")?;
-            let cod = self.result_type()?;
-            let span = start.to(cod.span());
-            return Ok(Expr::Pi {
-                names: binder.names,
-                implicit,
-                auto,
-                dom: Box::new(binder.ty),
-                cod: Box::new(cod),
-                span,
-            });
+            return self.pi_expr(start, implicit);
         }
-        let lhs = self.cmp_expr()?;
+        let mut lhs = self.cmp_expr()?;
+        if matches!(self.peek(), Some(Tok::AndAnd | Tok::OrOr)) {
+            self.logic_chain(&mut lhs)?;
+        }
         if self.eat(&Tok::Arrow) {
             let rhs = self.result_type()?;
             return Ok(Expr::Arrow(Box::new(lhs), Box::new(rhs)));
@@ -1258,6 +1274,45 @@ impl<'t> Parser<'t> {
             }
         }
         false
+    }
+
+    /// `a && b` and `a || b`: binding more loosely than comparisons, `&&`
+    /// tighter than `||`, both grouping to the right. The operands are
+    /// collected in a loop, so a chain costs one stack frame, not one per
+    /// operator. `operand` is the first operand, already parsed, and is
+    /// replaced by the whole chain. Every expression is parsed by the
+    /// caller, and this is only entered at a `&&` or `||`, out of line and
+    /// with nothing moved through the caller's frame, so the frames nested
+    /// expressions pile up (and so how deeply they can nest) stay as they
+    /// were: the `check-nested-parens` benchmark fails otherwise.
+    #[inline(never)]
+    fn logic_chain(&mut self, operand: &mut Expr) -> Result<()> {
+        let first = std::mem::replace(operand, Expr::Prop(Span::NOWHERE));
+        // `a || b && c || d` is gathered as `[[a], [b, c], [d]]`.
+        let mut disjuncts = vec![vec![first]];
+        loop {
+            match self.peek() {
+                Some(Tok::AndAnd) => {}
+                Some(Tok::OrOr) => disjuncts.push(Vec::new()),
+                _ => break,
+            }
+            self.bump();
+            let operand = self.cmp_expr()?;
+            disjuncts.last_mut().expect("never empty").push(operand);
+        }
+        let right = |op: BinOp, items: Vec<Expr>| {
+            items
+                .into_iter()
+                .rev()
+                .reduce(|rhs, lhs| Expr::Binary(op, Box::new(lhs), Box::new(rhs)))
+                .expect("never empty")
+        };
+        let conjunctions = disjuncts
+            .into_iter()
+            .map(|items| right(BinOp::And, items))
+            .collect();
+        *operand = right(BinOp::Or, conjunctions);
+        Ok(())
     }
 
     /// `a = b`, `a != b`, `a == b`, `a < b`, `a <= b`: not associative.
@@ -1568,6 +1623,8 @@ fn describe(tok: &Tok) -> String {
         Tok::Slash => "`/`".into(),
         Tok::Percent => "`%`".into(),
         Tok::NotEq => "`!=`".into(),
+        Tok::AndAnd => "`&&`".into(),
+        Tok::OrOr => "`||`".into(),
         Tok::KwAbility => "`ability`".into(),
         Tok::KwWhere => "`where`".into(),
         Tok::KwHandle => "`handle`".into(),
@@ -1751,6 +1808,50 @@ mod tests {
             panic!("expected an equation, got {lhs:?}");
         };
         assert!(matches!(sum.as_ref(), Expr::Binary(BinOp::Add, ..)));
+    }
+
+    #[test]
+    fn or_binds_looser_than_and() {
+        let Expr::Binary(BinOp::Or, a, rhs) = &expr("a || b && c") else {
+            panic!("expected an or");
+        };
+        assert!(matches!(a.as_ref(), Expr::Var(..)));
+        assert!(matches!(rhs.as_ref(), Expr::Binary(BinOp::And, ..)));
+    }
+
+    #[test]
+    fn and_associates_right() {
+        let Expr::Binary(BinOp::And, a, rhs) = &expr("a && b && c") else {
+            panic!("expected an and");
+        };
+        assert!(matches!(a.as_ref(), Expr::Var(..)));
+        assert!(matches!(rhs.as_ref(), Expr::Binary(BinOp::And, ..)));
+    }
+
+    #[test]
+    fn and_then_or_groups_the_and_first() {
+        let Expr::Binary(BinOp::Or, lhs, c) = &expr("a && b || c") else {
+            panic!("expected an or");
+        };
+        assert!(matches!(lhs.as_ref(), Expr::Binary(BinOp::And, ..)));
+        assert!(matches!(c.as_ref(), Expr::Var(..)));
+    }
+
+    #[test]
+    fn comparisons_bind_tighter_than_and() {
+        let Expr::Binary(BinOp::And, l, r) = &expr("x < y && y < z") else {
+            panic!("expected an and");
+        };
+        assert!(matches!(l.as_ref(), Expr::Binary(BinOp::Lt, ..)));
+        assert!(matches!(r.as_ref(), Expr::Binary(BinOp::Lt, ..)));
+    }
+
+    #[test]
+    fn and_binds_tighter_than_arrow() {
+        let Expr::Arrow(lhs, _) = &expr("a && b -> c") else {
+            panic!("expected an arrow");
+        };
+        assert!(matches!(lhs.as_ref(), Expr::Binary(BinOp::And, ..)));
     }
 
     fn expr(text: &str) -> Expr {

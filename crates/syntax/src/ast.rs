@@ -366,6 +366,10 @@ pub enum BinOp {
     Ne,
     /// `a == b`: whether `a = b`, as a `Bool`.
     EqEq,
+    /// `&&`, `||`: on `Bool`s (short-circuiting), or on propositions
+    /// (`And`, `Or`).
+    And,
+    Or,
     /// `<`, `<=`: propositions about `Nat`.
     Lt,
     Le,
@@ -385,6 +389,8 @@ impl BinOp {
             BinOp::Eq => "=",
             BinOp::Ne => "!=",
             BinOp::EqEq => "==",
+            BinOp::And => "&&",
+            BinOp::Or => "||",
             BinOp::Lt => "<",
             BinOp::Le => "<=",
             BinOp::Append => "++",

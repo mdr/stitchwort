@@ -47,6 +47,9 @@ pub fn value(g: &Globals, names: &[Name], value: &Value) -> String {
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum Prec {
     Arrow,
+    /// `p || q`, then `p && q`: looser than comparisons, grouping to the right.
+    Or,
+    And,
     Eq,
     Add,
     /// A prefix minus: tighter than `*`, looser than application.
@@ -146,6 +149,20 @@ impl<'g> Printer<'g> {
                     None => self.applied(names, "Comp".into(), args.iter().map(|a| &**a)),
                 }
             }
+            // `And p q` and `Or p q` as they're written: `p && q`, `p || q`.
+            Term::Data(d, args)
+                if args.len() == 2
+                    && (is(self.g, Builtin::And, *d) || is(self.g, Builtin::Or, *d)) =>
+            {
+                let (op, prec, left) = if is(self.g, Builtin::And, *d) {
+                    ("&&", Prec::And, Prec::Eq)
+                } else {
+                    ("||", Prec::Or, Prec::And)
+                };
+                let lhs = self.print(names, &args[0], left);
+                let rhs = self.print(names, &args[1], prec);
+                (format!("{lhs} {op} {rhs}"), prec)
+            }
             // A pair type, as a tuple type: `(Nat, Text)`, nesting to the right.
             Term::Data(d, args) if is(self.g, Builtin::Pair, *d) && args.len() == 2 => {
                 let mut items = vec![&*args[0]];
@@ -236,7 +253,7 @@ impl<'g> Printer<'g> {
                 self.applied(names, "Not".into(), [&**a].into_iter())
             }
             Term::Pi(x, icit, a, b) => {
-                let dom = self.print(names, a, Prec::Eq);
+                let dom = self.print(names, a, Prec::Or);
                 let uses = b.mentions(0);
                 names.push(x.clone());
                 let cod = self.print(names, b, Prec::Arrow);

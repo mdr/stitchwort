@@ -13,6 +13,7 @@ mod derive;
 mod dot;
 mod effects;
 mod lift;
+mod logic;
 mod matching;
 mod module;
 mod numbers;
@@ -360,8 +361,9 @@ impl Elaborator {
         };
         self.clear_metas();
         let term = {
+            // A condition, as `if` takes: a `Bool`, or a decided proposition.
             let mut cx = Ctx::new(self, span);
-            check(&mut cx, expr, &Value::Data(bool_data, Vec::new()))?
+            logic::bool_operand(&mut cx, expr, "test")?
         };
         let label: Name = format!("test \"{name}\"").into();
         // Nothing refers to the test, so its helpers are admitted first.

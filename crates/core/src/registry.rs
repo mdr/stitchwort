@@ -73,6 +73,9 @@ builtins! {
     Unit = "Unit": Data,
     Trivial = "Trivial": Ctor(Builtin::Unit),
     Not = "Not": Def,
+    // `p && q`, `p || q` on propositions
+    And = "And": Data,
+    Or = "Or": Data,
     Cong = "Eq.cong": Def,
     // Numbers: syntax and natives
     Nat = "Nat": Data,
@@ -127,6 +130,8 @@ builtins! {
     False = "False": Ctor(Builtin::Bool),
     True = "True": Ctor(Builtin::Bool),
     IfThenElse = "Bool.ifThenElse": Def,
+    // `not`, by identity, so `not p` on a proposition can mean `Not p`
+    BoolNot = "Bool.not": Def,
     Decidable = "Decidable": Data,
     Yes = "Yes": Ctor(Builtin::Decidable),
     No = "No": Ctor(Builtin::Decidable),
