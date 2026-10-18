@@ -62,7 +62,7 @@ def total (w : Nat -> Int) (rs : List (Nat, Nat)) : Nat := Int.toNat ((rs.map (i
 
 def solve (rs : List (Nat, Nat)) : (Nat, Nat) := (total twice rs, total weight rs)
 
-def main () : {IO, Partial} () := report (solve (parseRanges (Text.join ',' (IO.readAllLines ()))))
+def main () : {IO} () := report (solve (parseRanges (Text.join ',' (IO.readAllLines ()))))
 
 def report : (Nat, Nat) -> {IO} ()
   | (a, b) =>

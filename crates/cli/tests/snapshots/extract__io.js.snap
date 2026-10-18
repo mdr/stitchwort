@@ -410,6 +410,19 @@ const $Std$dList$dlength = (v1) => {
   }
   throw new Error("unreachable");
 };
+const $Std$dList$dappend = (v1) => (v2) => {
+  switch (v1.tag) {
+    case "Nil": {
+      return v2;
+    }
+    case "Cons": {
+      const v3 = v1.head;
+      const v4 = v1.tail;
+      return { tag: "Cons", head: v3, tail: $Std$dList$dappend(v4)(v2) };
+    }
+  }
+  throw new Error("unreachable");
+};
 const $Std$dPair$dfst = (v2) => {
   switch (v2.tag) {
     case "MkPair": {
@@ -464,6 +477,20 @@ const $Std$dList$dtailOf = (v1) => {
   }
   throw new Error("unreachable");
 };
+const $Std$dList$dconcatMap = (v2) => (v3) => {
+  switch (v3.tag) {
+    case "Nil": {
+      return { tag: "Nil" };
+    }
+    case "Cons": {
+      const v4 = v3.head;
+      const v5 = v3.tail;
+      return $Std$dList$dappend((v2)(v4))($Std$dList$dconcatMap(v2)(v5));
+    }
+  }
+  throw new Error("unreachable");
+};
+const $Std$dText$dtoList = charsOfText;
 const $Std$dText$dappend = (a) => (b) => a + b;
 const $Std$dText$dlength = (t) => {
   let n = 0;
@@ -605,15 +632,19 @@ const $Std$dEffect$drunPure = (v1) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dIO$d$gelim = (v1) => (v2) => (v3) => (v4) => {
-  switch (v3.tag) {
+const $Std$dIO$d$gelim = (v1) => (v2) => (v3) => (v4) => (v5) => {
+  switch (v4.tag) {
     case "%print": {
-      const v5 = v3.x;
-      return (v1)(v5)(v4);
+      const v6 = v4.x;
+      return (v1)(v6)(v5);
     }
     case "%readLine": {
-      const v5 = v3.x;
-      return (v2)(v5)(v4);
+      const v6 = v4.x;
+      return (v2)(v6)(v5);
+    }
+    case "%readAll": {
+      const v6 = v4.x;
+      return (v3)(v6)(v5);
     }
   }
   throw new Error("unreachable");
@@ -631,7 +662,8 @@ const $Std$dIO$dnextLine = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dIO$dsimulate = (v0) => (v2) => (v3) => $Std$dEffect$dbind($Std$dEffect$dfoldComp(((v4) => ({ tag: "Done", value: ((v5) => ((v6) => ({ tag: "Done", value: { tag: "MkPair", fst: $Std$dList$dreverseOnto(v6)({ tag: "Nil" }), snd: v4 } }))) })))($Std$dEffect$dhandlePlus($Std$dIO$d$gelim(((v4) => ((v5) => ({ tag: "Done", value: ((v6) => ((v7) => $Std$dEffect$dbind((v5)({ tag: "UnitValue" }))(((v8) => (v8)(v6)({ tag: "Cons", head: v4, tail: v7 }))))) }))))(((v4) => ((v5) => ({ tag: "Done", value: ((v6) => ((v7) => $Std$dEffect$dbind((v5)($Std$dIO$dnextLine(v6)))(((v8) => (v8)($Std$dList$dtailOf(v6))(v7))))) })))))(((v4) => ((v5) => ({ tag: "Call", o: $Std$dEffect$dsigInject($Std$dEffect$dsigId)(v4), rest: ((v6) => (v5)($Std$dEffect$dsigReply($Std$dEffect$dsigId)(v4)(v6))) })))))((v3)({ tag: "UnitValue" })))(((v4) => (v4)(v2)({ tag: "Nil" })));
+const $Std$dIO$drestOf = (v0) => textOfChars($Std$dList$dconcatMap(((v1) => $Std$dList$dappend($Std$dText$dtoList(v1))({ tag: "Cons", head: { tag: "MkChar", code: 10n }, tail: { tag: "Nil" } })))(v0));
+const $Std$dIO$dsimulate = (v0) => (v2) => (v3) => $Std$dEffect$dbind($Std$dEffect$dfoldComp(((v4) => ({ tag: "Done", value: ((v5) => ((v6) => ({ tag: "Done", value: { tag: "MkPair", fst: $Std$dList$dreverseOnto(v6)({ tag: "Nil" }), snd: v4 } }))) })))($Std$dEffect$dhandlePlus($Std$dIO$d$gelim(((v4) => ((v5) => ({ tag: "Done", value: ((v6) => ((v7) => $Std$dEffect$dbind((v5)({ tag: "UnitValue" }))(((v8) => (v8)(v6)({ tag: "Cons", head: v4, tail: v7 }))))) }))))(((v4) => ((v5) => ({ tag: "Done", value: ((v6) => ((v7) => $Std$dEffect$dbind((v5)($Std$dIO$dnextLine(v6)))(((v8) => (v8)($Std$dList$dtailOf(v6))(v7))))) }))))(((v4) => ((v5) => ({ tag: "Done", value: ((v6) => ((v7) => $Std$dEffect$dbind((v5)($Std$dIO$drestOf(v6)))(((v8) => (v8)({ tag: "Nil" })(v7))))) })))))(((v4) => ((v5) => ({ tag: "Call", o: $Std$dEffect$dsigInject($Std$dEffect$dsigId)(v4), rest: ((v6) => (v5)($Std$dEffect$dsigReply($Std$dEffect$dsigId)(v4)(v6))) })))))((v3)({ tag: "UnitValue" })))(((v4) => (v4)(v2)({ tag: "Nil" })));
 const $Main$dechoLine = (v0) => (v1) => {
   switch (v0.tag) {
     case "Nothing": {

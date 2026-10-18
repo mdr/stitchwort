@@ -56,6 +56,37 @@ def echo : Nat -> {IO} ()
 def main () : {IO} () := echo 4
 "#;
 
+/// Prints everything `readAll` gives in brackets.
+const SLURP: &str = r#"
+def main () : {IO} () :=
+  let a := readAll ()
+  print ("[" ++ a ++ "]")
+"#;
+
+/// A `readLine`, then `readAll`, then `readLine` and `readAll` again.
+const MIXED: &str = r#"
+def showLine : Maybe Text -> Text
+  | Nothing => "<end>"
+  | Just l  => "[" ++ l ++ "]"
+
+def main () : {IO} () :=
+  print (showLine (readLine ()))
+  print ("all=[" ++ readAll () ++ "]")
+  print (showLine (readLine ()))
+  print ("again=[" ++ readAll () ++ "]")
+"#;
+
+/// Prints each line of `IO.readAllLines ()`.
+const LINES: &str = r#"
+def printAll : List Text -> {IO} ()
+  | Nil       => ()
+  | Cons l ls =>
+    print ("<" ++ l ++ ">")
+    printAll ls
+
+def main () : {IO} () := printAll (IO.readAllLines ())
+"#;
+
 const GREET: &str = r#"
 def textOr (d : Text) : Maybe Text -> Text
   | Nothing => d
@@ -84,6 +115,7 @@ fn programs() -> Vec<(&'static str, String)> {
             "def main () : {IO} () :=\n  print \"a\\nb\"\n  print \"\"\n  print \"\\r\"\n"
                 .to_string(),
         ),
+        ("readAllLines", LINES.to_string()),
         ("pure", "def main () : () := ()\n".to_string()),
         (
             "with State handled inside",
@@ -169,7 +201,90 @@ fn the_runner_prints_what_simulate_records() {
     }
 }
 
+/// Programs that read with `readAll`, which keeps line endings: simulate
+/// agrees with the runner when each line ends in LF.
+#[test]
+fn readall_under_the_runner_matches_simulate() {
+    for source in [SLURP, MIXED] {
+        let mut session = load(source);
+        for lines in INPUTS {
+            let expected: String = session
+                .simulate(lines)
+                .unwrap_or_else(|e| panic!("{e:?}"))
+                .iter()
+                .map(|p| format!("{p}\n"))
+                .collect();
+            let input: String = lines.iter().map(|l| format!("{l}\n")).collect();
+            let (out, result) = run_session(&mut session, input.as_bytes());
+            result.unwrap_or_else(|e| panic!("{e}"));
+            assert_eq!(out, expected, "input {input:?}");
+        }
+    }
+}
+
 // The interpreter's contract
+
+#[test]
+fn readall_gives_the_input_as_it_is() {
+    assert_eq!(output(SLURP, b""), "[]\n");
+    assert_eq!(output(SLURP, b"a\nb\n"), "[a\nb\n]\n");
+    assert_eq!(output(SLURP, b"a\r\nb\r\n"), "[a\r\nb\r\n]\n");
+    // The final line needs no line ending, and a final CR stays.
+    assert_eq!(output(SLURP, b"a\nb"), "[a\nb]\n");
+    assert_eq!(output(SLURP, b"a\r"), "[a\r]\n");
+    assert_eq!(output(SLURP, b"\n\n"), "[\n\n]\n");
+    let input = "h\u{E9}llo\n\u{1F600}\nx\0y";
+    assert_eq!(output(SLURP, input.as_bytes()), format!("[{input}]\n"));
+}
+
+#[test]
+fn readall_after_readline_gives_the_rest() {
+    assert_eq!(
+        output(MIXED, b"a\r\nb\r\nc"),
+        "[a]\nall=[b\r\nc]\n<end>\nagain=[]\n"
+    );
+    assert_eq!(output(MIXED, b"a\n"), "[a]\nall=[]\n<end>\nagain=[]\n");
+    assert_eq!(output(MIXED, b""), "<end>\nall=[]\n<end>\nagain=[]\n");
+}
+
+#[test]
+fn readline_after_readall_is_end_of_input() {
+    let source = r#"
+def main () : {IO} () :=
+  print (readAll ())
+  match readLine () with
+    | Nothing => print "<end>"
+    | Just l  => print l
+"#;
+    assert_eq!(output(source, b"a\nb\n"), "a\nb\n\n<end>\n");
+}
+
+#[test]
+fn readall_lines_split_like_text_lines() {
+    assert_eq!(output(LINES, b"a\r\nb"), "<a>\n<b>\n");
+    assert_eq!(output(LINES, b"a\nb\n"), "<a>\n<b>\n");
+    assert_eq!(output(LINES, b""), "");
+    assert_eq!(output(LINES, b"\n"), "<>\n");
+}
+
+#[test]
+fn invalid_utf8_in_readall_is_an_error_with_a_line_number() {
+    // Lines already read, newlines before the bad byte, and one.
+    for (input, line) in [(&b"\xff"[..], 1), (b"a\n\xff", 2), (b"a\nb\n\xc3\n", 3)] {
+        let (out, result) = run(SLURP, input);
+        assert_eq!(out, "", "{input:?}");
+        assert!(
+            matches!(result, Err(RunError::InvalidUtf8 { line: l }) if l == line),
+            "{input:?}: {result:?}"
+        );
+    }
+    let (out, result) = run(MIXED, b"x\ny\n\xff");
+    assert_eq!(out, "[x]\n");
+    assert!(
+        matches!(result, Err(RunError::InvalidUtf8 { line: 3 })),
+        "{result:?}"
+    );
+}
 
 #[test]
 fn empty_input_is_end_of_input() {

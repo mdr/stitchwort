@@ -453,6 +453,30 @@ test("Run, with scripted input", async (page) => {
   assert.match(await page.printed(), /Hello, Grace!.*\n  total: 1\nThe sum is 1\. Goodbye, Grace\.\n$/s);
 });
 
+test("Run, reading all the input at once", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  // `readAll` after a `readLine` gives the rest, verbatim; `readLine` after
+  // it gives `Nothing`.
+  await page.setSource(`def textOr : Maybe Text -> Text
+  | Nothing => "none"
+  | Just t  => t
+
+def main () : {IO} () :=
+  print (textOr (readLine ()))
+  let rest := readAll ()
+  print (Nat.toText (List.length rest.lines))
+  print rest
+  print (textOr (readLine ()))
+`);
+  await page.untilChecked();
+  await page.tab("run");
+  await page.ev(`document.getElementById("run-input").value = "first\\nsecond\\nthird"`);
+  const result = await page.run();
+  assert.match(result, /Finished in/);
+  assert.equal(await page.printed(), "first\n2\nsecond\nthird\nnone\n");
+});
+
 test("Run's errors", async (page) => {
   await page.open();
   await page.untilChecked();

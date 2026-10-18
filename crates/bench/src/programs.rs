@@ -323,7 +323,7 @@ def walk : List Text -> Pos -> Nat
   | Nil,       p => p.at
   | Cons t ts, p => walk ts (wrap (p.at.toInt + Nat.toInt (Text.length t * 37)))
 
-def main () : {IO, Partial} () := print (Nat.toText (walk (IO.readAllLines ()) (wrap 50)))
+def main () : {IO} () := print (Nat.toText (walk (IO.readAllLines ()) (wrap 50)))
 ";
 
 fn run_proof_fields() -> Result<Prepared, String> {

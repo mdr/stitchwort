@@ -181,6 +181,52 @@ fn reading_real_standard_input() {
     }
 }
 
+const READ_ALL: &str = r#"
+def main () : {IO} () :=
+  print ("<" ++ readAll () ++ ">")
+"#;
+
+const READ_MIXED: &str = r#"
+def showLine : Maybe Text -> Text
+  | Nothing => "<end>"
+  | Just l  => "[" ++ l ++ "]"
+
+def main () : {IO} () :=
+  print (showLine (readLine ()))
+  print ("<" ++ readAll () ++ ">")
+  print (showLine (readLine ()))
+"#;
+
+#[test]
+fn read_all_gives_standard_input_verbatim() {
+    let path = source_file("read-all.sw", READ_ALL);
+    for (input, expected) in [
+        (&b""[..], "<>\n"),
+        (b"a\nb\n", "<a\nb\n>\n"),
+        (b"a\r\nb\r\n", "<a\r\nb\r\n>\n"),
+        (b"a\r\nb", "<a\r\nb>\n"),
+        ("h\u{E9}llo\n".as_bytes(), "<h\u{E9}llo\n>\n"),
+    ] {
+        assert_eq!(succeeds(&path, input), expected, "{input:?}");
+    }
+}
+
+#[test]
+fn read_all_after_read_line_gives_the_rest_and_nothing_remains() {
+    let path = source_file("read-mixed.sw", READ_MIXED);
+    assert_eq!(succeeds(&path, b"a\r\nb\r\nc"), "[a]\n<b\r\nc>\n<end>\n");
+    assert_eq!(succeeds(&path, b""), "<end>\n<>\n<end>\n");
+}
+
+#[test]
+fn invalid_utf8_for_read_all_is_an_error() {
+    let path = source_file("read-all-utf8.sw", READ_ALL);
+    assert_eq!(fails(&path, b"a\nb\n\xff", "E-IO"), "");
+    assert!(
+        stderr(&run(&path, b"a\nb\n\xff")).contains("line 3 of standard input isn't valid UTF-8")
+    );
+}
+
 #[test]
 fn invalid_utf8_input_is_an_error() {
     let echo = source_file("echo-utf8.sw", ECHO);
