@@ -1212,6 +1212,7 @@ fn pattern_binders<'a>(pattern: &'a Pattern, out: &mut Vec<&'a str>) {
         | Pattern::Absurd(_)
         | Pattern::Num(..)
         | Pattern::NegNum(..)
+        | Pattern::Char(..)
         | Pattern::Nil(_) => {}
     }
 }
@@ -1277,7 +1278,8 @@ fn free_names(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
                     | Pattern::Absurd(_)
                     | Pattern::Nil(_)
                     | Pattern::Num(..)
-                    | Pattern::NegNum(..) => {}
+                    | Pattern::NegNum(..)
+                    | Pattern::Char(..) => {}
                 }
                 continue;
             }

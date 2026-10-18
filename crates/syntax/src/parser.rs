@@ -502,6 +502,11 @@ impl<'t> Parser<'t> {
                 self.bump();
                 Ok(Pattern::Num(n.clone(), span))
             }
+            Some(Tok::Char(c)) => {
+                let c = *c;
+                self.bump();
+                Ok(Pattern::Char(c, span))
+            }
             Some(Tok::Upper(_)) => {
                 let name = self.upper_q("a constructor")?;
                 Ok(Pattern::Ctor(name, Vec::new(), span))

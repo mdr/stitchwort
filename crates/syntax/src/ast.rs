@@ -475,6 +475,8 @@ pub enum Pattern {
     Num(BigUint, Span),
     /// A negative number `(-k)`, written in brackets.
     NegNum(BigUint, Span),
+    /// A character `'L'`: `MkChar 76 _`, the code as a number pattern.
+    Char(char, Span),
     Ctor(Name, Vec<Pattern>, Span),
     /// `(p, q)`: the library's pair constructor; three or more nest to the
     /// right.
@@ -514,6 +516,7 @@ impl Pattern {
             | Pattern::Absurd(span)
             | Pattern::Num(_, span)
             | Pattern::NegNum(_, span)
+            | Pattern::Char(_, span)
             | Pattern::Ctor(_, _, span)
             | Pattern::Tuple(_, _, span)
             | Pattern::Nil(span)
