@@ -7,12 +7,12 @@ Syntax colouring for `.sw` files. Grammar only, no runtime code. Tokens follow
 
 ## Install
 
-    ln -s "$PWD/editors/vscode" ~/.vscode/extensions/stitchwort
+    ./editors/vscode/install.sh
 
-Then run "Developer: Reload Window" in VS Code. (Cursor: `~/.cursor/extensions`.)
+It packages this folder as a `.vsix` and runs `code --install-extension`
+(modern VS Code ignores folders symlinked into `~/.vscode/extensions`). Then
+run "Developer: Reload Window". Rerun it after changing the grammar.
 
 ## Uninstall
 
-    rm ~/.vscode/extensions/stitchwort
-
-This removes only the symlink. Reload the window.
+    code --uninstall-extension local.stitchwort
