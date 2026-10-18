@@ -201,6 +201,10 @@ capability we know we'll need before the work that needs it):
 
 ## Later
 
+- **Language server** for `.sw` (live errors, hover types, go to
+  definition): later (user, 18 Oct). Lane `vscode-ext` (Sonnet) is
+  building a local VS Code colouring extension in `editors/vscode/`.
+
 - **Hashes aren't a design constraint yet** (user, 18 Oct: no users).
   Simplify places bent to keep them, e.g. `Int` stage 3's "old way
   first" path for equations and nested effectful arithmetic
