@@ -64,6 +64,8 @@ get Nil i = Void.absurd (Bool.falseNotTrue ok)    -- ok : i < 0, which computes 
 …
 ```
 
+List patterns: `[]` is `Nil`, and `[p, q, r]` is `Cons p (Cons q (Cons r Nil))`, by identity with the library's `List` (a user's own `Cons` doesn't change it), wherever a pattern is allowed (equations, `match`, `let`, lambdas). Each element is a pattern; a constructor element takes its arguments without brackets (`[Just a, Nothing]`), and `(-k)` works as in tuples. There is no `x :: xs` or `[x, ..rest]` form: use `Cons x rest`. A list pattern is refutable like `Cons`, so in `let` the pattern must still cover the type (`let [a, b] = xs` is `E-LET-REFUTABLE`). A missing case is reported as the constructor that lacks it (see `examples/reject/list-pattern-missing-longer.sw`).
+
 ### Declaration order
 
 Declarations can be written in any order: every top-level name (definitions, data types and their constructors, abilities and their operations) is visible throughout its module. So `main` can come first and its helpers below it. The compiler checks each declaration after the ones it refers to, and otherwise in source order; errors are reported, and tests run, in source order. Definitions that refer to each other are checked together, and their termination is decided together (docs/proposals/mutual-recursion.md):
@@ -240,7 +242,7 @@ Loosest-binding first:
 | `(x y : A) -> B` | Dependent function type |
 | `[x y : A] -> B` | Function type with implicit parameters, filled in by the compiler |
 | `[auto x : P] -> B` | An implicit proof of `P`, found from hypotheses in scope or a decision procedure |
-| `if c then a else b` | On a `Bool` |
+| `if c then a else b` | On a `Bool`, or on a proposition with a decision procedure, as `if _ : c then a else b` (Lean's way): `if x < y`, `if n <= hi`, `if d != 0` work on `Nat` and `Int`. `c` is tried as a `Bool` first, exactly as before, so a `Bool` condition (`if xs == ys`) means what it always has; only if that fails is `c` tried as a proposition, with everything the first try did undone. A proposition nothing decides is `E-AUTO-NONE` at the condition (`if f = g` on functions); a condition that's neither is the `Bool` error. There's no `&&` or `\|\|`, and `not` is on `Bool`s, so `if not (x < y)` is a type error: swap the branches or the comparison. A condition that performs operations must be a `Bool` |
 | `if h : P then a else b` | Decides `P` (at runtime if need be). `h : P` in `a`, `h : Not P` in `b` |
 | `A -> B` | Function type |
 | `A -> {E, F \| e} B` | Function type whose calls may perform abilities `E` and `F`, plus whatever `e` stands for |

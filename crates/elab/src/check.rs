@@ -1006,6 +1006,13 @@ fn append(cx: &mut Ctx, a: &Expr, b: &Expr) -> Result<(Term, Value)> {
 /// `if c then a else b` is `ifThenElse c (\_ -> a) (\_ -> b)`, and
 /// `if h : P then a else b` is `elimDec (decision for P) (\h -> a) (\h -> b)`.
 /// The branches are functions so only the chosen one is evaluated.
+///
+/// `if c` with no binder where `c` isn't a `Bool` but a proposition is
+/// `if _ : c` (as in Lean): `if x < y`. The `Bool` reading is tried first,
+/// exactly as before, so a `Bool` condition elaborates as it always has;
+/// only if it fails is everything it did undone and `c` tried as a
+/// proposition. If that fails too, the `Bool` reading's error is reported,
+/// unless `c` is a proposition with no decision procedure.
 pub(crate) fn check_if(
     cx: &mut Ctx,
     binder: Option<&AstName>,
@@ -1026,7 +1033,40 @@ pub(crate) fn check_if(
         None => {
             let bool_data = builtin_data(cx, Builtin::Bool)?;
             let unit_data = builtin_data(cx, Builtin::Unit)?;
-            let cond = check(cx, cond, &Value::Data(bool_data, Vec::new()))?;
+            let snapshot = crate::undo::Snapshot::take(cx);
+            let cond = match check(cx, cond, &Value::Data(bool_data, Vec::new())) {
+                Ok(cond) => cond,
+                Err(e) if crate::undo::fatal(&e) => return Err(e),
+                Err(not_bool) => {
+                    snapshot.restore(cx);
+                    let Some((prop, Sort::Prop)) =
+                        crate::undo::attempt(cx, |cx| check_type(cx, cond))?
+                    else {
+                        return Err(not_bool);
+                    };
+                    // No decision procedure: say so at the condition, keeping
+                    // the search's explanations (its notes after the first).
+                    let decision =
+                        crate::auto::decide(cx, &cx.eval(&prop)?, 0).map_err(|mut e| {
+                            if e.code == "E-AUTO-NONE" && !e.notes.is_empty() {
+                                e.labels.clear();
+                                e.notes[0] = "`if` takes a `Bool`, or a proposition with a \
+                                              decision procedure: a function returning \
+                                              `Decidable …`"
+                                    .into();
+                                e.with_label(
+                                    cond.span(),
+                                    "this is a proposition, and nothing decides it",
+                                )
+                            } else {
+                                e
+                            }
+                        })?;
+                    return decided_if(
+                        cx, "_", prop, decision, result_ty, &branch, then, otherwise,
+                    );
+                }
+            };
             let unit = Value::Data(unit_data, Vec::new());
             let then = branch(cx, "_", unit.clone(), then)?;
             let otherwise = branch(cx, "_", unit, otherwise)?;
@@ -1049,24 +1089,43 @@ pub(crate) fn check_if(
                     "this is a type of data; use `if c then … else …` for a `Bool`",
                 ));
             }
-            let prop_value = cx.eval(&prop)?;
-            let decision = crate::auto::decide(cx, &prop_value, 0)?;
-            let not = builtin_def(cx, Builtin::Not)?;
-            let not_prop = cx.eval(&Term::app(Term::Def(not), prop.clone()))?;
-            let then = branch(cx, &h.text, prop_value, then)?;
-            let otherwise = branch(cx, &h.text, not_prop, otherwise)?;
-            let elim = builtin_def(cx, Builtin::ElimDec)?;
-            let head = Term::app_icit(
-                Term::app_icit(Term::Def(elim), prop, Icit::Implicit),
-                result_ty,
-                Icit::Implicit,
-            );
-            Ok(Term::app(
-                Term::app(Term::app(head, decision), then),
-                otherwise,
-            ))
+            let decision = crate::auto::decide(cx, &cx.eval(&prop)?, 0)?;
+            decided_if(
+                cx, &h.text, prop, decision, result_ty, &branch, then, otherwise,
+            )
         }
     }
+}
+
+/// `elimDec decision (\name -> then) (\name -> otherwise)`, where `decision`
+/// decides `prop`: `name` is a proof of `prop` in `then` and of `Not prop`
+/// in `otherwise`.
+#[allow(clippy::too_many_arguments)]
+fn decided_if(
+    cx: &mut Ctx,
+    name: &str,
+    prop: Term,
+    decision: Term,
+    result_ty: Term,
+    branch: &dyn Fn(&mut Ctx, &str, Value, &Expr) -> Result<Term>,
+    then: &Expr,
+    otherwise: &Expr,
+) -> Result<Term> {
+    let prop_value = cx.eval(&prop)?;
+    let not = builtin_def(cx, Builtin::Not)?;
+    let not_prop = cx.eval(&Term::app(Term::Def(not), prop.clone()))?;
+    let then = branch(cx, name, prop_value, then)?;
+    let otherwise = branch(cx, name, not_prop, otherwise)?;
+    let elim = builtin_def(cx, Builtin::ElimDec)?;
+    let head = Term::app_icit(
+        Term::app_icit(Term::Def(elim), prop, Icit::Implicit),
+        result_ty,
+        Icit::Implicit,
+    );
+    Ok(Term::app(
+        Term::app(Term::app(head, decision), then),
+        otherwise,
+    ))
 }
 
 /// Checks `expr` by inferring its type and comparing. An application whose

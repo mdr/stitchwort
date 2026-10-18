@@ -1818,6 +1818,30 @@ impl Elaborator {
                     span: *span,
                 }))
             }
+            Pattern::Nil(span) => {
+                let (data, ctor) = self.builtin_ctor(Builtin::Nil, *span)?;
+                Ok(Some(CtorPattern {
+                    data,
+                    ctor,
+                    args: Vec::new(),
+                    span: *span,
+                }))
+            }
+            Pattern::Cons(p, q, span) => {
+                let (data, ctor) = self.builtin_ctor(Builtin::Cons, *span)?;
+                let args = match pattern {
+                    Cow::Borrowed(Pattern::Cons(p, q, _)) => {
+                        vec![Cow::Borrowed(&**p), Cow::Borrowed(&**q)]
+                    }
+                    _ => vec![Cow::Owned((**p).clone()), Cow::Owned((**q).clone())],
+                };
+                Ok(Some(CtorPattern {
+                    data,
+                    ctor,
+                    args,
+                    span: *span,
+                }))
+            }
             Pattern::Num(n, span) => {
                 let (ctor, args) = if n.bits() == 0 {
                     (Builtin::Zero, Vec::new())

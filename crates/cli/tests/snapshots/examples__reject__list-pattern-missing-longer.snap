@@ -1,0 +1,12 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-NONEXHAUSTIVE] Error: missing case: no equation matches `Cons _ _`
+   ╭─[ reject/list-pattern-missing-longer.sw:4:1 ]
+   │
+ 4 │ ╭─▶ f [] = 0
+ 5 │ ├─▶ f [x] = x
+   │ │               
+   │ ╰─────────────── missing case: no equation matches `Cons _ _`
+───╯
