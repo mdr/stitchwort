@@ -19,7 +19,7 @@ pick : Nat -> List Nat -> Nat -> List Nat -> (Nat, List Nat)
 pick Zero     ds            d after = (d, after)
 pick (Succ w) Nil           d after = (d, after)
 pick (Succ w) (Cons x rest) d after =
-  if Nat.leq (d + 1) x then pick w rest x rest else pick w rest d after
+  if d < x then pick w rest x rest else pick w rest d after
 
 -- The digits of the largest k-digit number that is a subsequence of ds.
 best : Nat -> List Nat -> List Nat
