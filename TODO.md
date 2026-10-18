@@ -141,9 +141,13 @@ capability we know we'll need before the work that needs it):
    `--syntax new` / `Syntax::New`, `stitchwort_syntax::equivalence`
    harness). Lane B merged (`74f3436`: `crates/convert`,
    276 of 280 inputs convert, each checked by AST equivalence; 7 arms in
-   5 definitions completed for exact arity). Lane `decl-switch` (Opus +
-   Sonnet) running: convert everything, flip the parser, delete the old
-   syntax, verify; then one switch commit (convert everything, flip
+   5 definitions completed for exact arity). Switch merged (`a32a995`): the
+   new syntax is the only one; everything converted; hashes changed only
+   for the 5 exact-arity definitions and partial definitions' generated
+   `Request` field names (and dependents); tests, error codes and AoC
+   answers unchanged. Lane `decl-tidy` (Sonnet) running: docs code
+   blocks, playground colouring and a browser-test race,
+   `E-ARM-PARAMETER`, wording, then delete `crates/convert`; then one switch commit (convert everything, flip
    the parser, delete the old one, hash/AST/test comparison); then a
    tidy-up (docs, playground colouring, awkward converter output); then
    `where`. Header and implicit names must differ. Also queued after the switch: `&&`/`||` and
