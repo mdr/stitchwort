@@ -1246,7 +1246,7 @@ impl<'t> Parser<'t> {
             return self.handle(start);
         }
         if self.eat(&Tok::KwMatch) {
-            return self.match_expr(start);
+            return self.match_piped(start);
         }
         if self.eat(&Tok::Backslash) {
             return self.lambda(start);
@@ -1261,6 +1261,9 @@ impl<'t> Parser<'t> {
         let mut lhs = self.cmp_expr()?;
         if matches!(self.peek(), Some(Tok::AndAnd | Tok::OrOr)) {
             self.logic_chain(&mut lhs)?;
+        }
+        if self.at_pipe() {
+            self.pipe_chain(&mut lhs)?;
         }
         if self.eat(&Tok::Arrow) {
             let rhs = self.result_type()?;
@@ -1371,6 +1374,68 @@ impl<'t> Parser<'t> {
             .collect();
         *operand = right(BinOp::Or, conjunctions);
         Ok(())
+    }
+
+    /// Whether a `|>` comes next: on this line, or starting a line (which a
+    /// block would otherwise end the statement at, as with `then`; how far
+    /// left it may start is checked by `pipe_chain`).
+    #[inline(never)]
+    fn at_pipe(&self) -> bool {
+        self.tokens
+            .get(self.pos)
+            .is_some_and(|t| t.tok == Tok::PipeGt && (!self.is_stop(self.pos) || t.line_start))
+    }
+
+    /// `x |> f a |> g`: the loosest operator, grouping to the left, so a
+    /// pipeline reads top to bottom. A line may start with `|>` to continue
+    /// the expression, if it's indented at least as far as the line the
+    /// expression starts on. The right side is an operand at the level of
+    /// `||` (an application, usually), or a lambda, whose body takes the rest
+    /// of the pipeline: `x |> \y => f y |> g` is `x |> \y => (f y |> g)`,
+    /// which means the same as `(x |> \y => f y) |> g`. Out of line and in a
+    /// loop, as `logic_chain` is.
+    #[inline(never)]
+    fn pipe_chain(&mut self, operand: &mut Expr) -> Result<()> {
+        let mut lhs = std::mem::replace(operand, Expr::Prop(Span::NOWHERE));
+        let first = lhs.span().start;
+        let indent = self.line_indent(self.tokens.partition_point(|t| t.span.start < first));
+        loop {
+            let continues = match self.tokens.get(self.pos) {
+                Some(t) if t.tok == Tok::PipeGt => {
+                    !self.is_stop(self.pos) || (t.line_start && t.column >= indent)
+                }
+                _ => false,
+            };
+            if !continues {
+                break;
+            }
+            self.bump();
+            let rhs = if self.peek() == Some(&Tok::Backslash) {
+                let start = self.bump().span;
+                self.lambda(start)?
+            } else {
+                let mut rhs = self.cmp_expr()?;
+                if matches!(self.peek(), Some(Tok::AndAnd | Tok::OrOr)) {
+                    self.logic_chain(&mut rhs)?;
+                }
+                rhs
+            };
+            lhs = Expr::Pipe(Box::new(lhs), Box::new(rhs));
+        }
+        *operand = lhs;
+        Ok(())
+    }
+
+    /// A `match` starting an expression, then a pipeline it feeds: a `|>`
+    /// line left of the last alternative's line (which would otherwise
+    /// take it), but at least as far right as the `match`'s line.
+    #[inline(never)]
+    fn match_piped(&mut self, start: Span) -> Result<Expr> {
+        let mut matched = self.match_expr(start)?;
+        if self.at_pipe() {
+            self.pipe_chain(&mut matched)?;
+        }
+        Ok(matched)
     }
 
     /// `a = b`, `a != b`, `a == b`, `a < b`, `a <= b`: not associative.
@@ -1683,6 +1748,7 @@ fn describe(tok: &Tok) -> String {
         Tok::NotEq => "`!=`".into(),
         Tok::AndAnd => "`&&`".into(),
         Tok::OrOr => "`||`".into(),
+        Tok::PipeGt => "`|>`".into(),
         Tok::KwAbility => "`ability`".into(),
         Tok::KwWhere => "`where`".into(),
         Tok::KwHandle => "`handle`".into(),
@@ -2670,6 +2736,159 @@ mod tests {
         assert!(message.contains("can't have a type"), "{message}");
         assert!(rhs_of("def f (e : Nat) : Nat :=\n  let (a, b) := e\n").is_err());
         assert!(rhs_of("def f (e : Nat) : Nat :=\n  let (a, b)\n  e\n").is_err());
+    }
+
+    /// Like `shape`, for the expressions pipelines are made of.
+    fn pshape(e: &Expr) -> String {
+        match e {
+            Expr::Var(n) => n.text.clone(),
+            Expr::Num(n, _) => n.to_string(),
+            Expr::App(f, a) => format!("({} {})", pshape(f), pshape(a)),
+            Expr::Field(x, n) => format!("{}.{}", pshape(x), n.text),
+            Expr::Binary(op, a, b) => format!("({op:?} {} {})", pshape(a), pshape(b)),
+            Expr::Pipe(a, b) => format!("(|> {} {})", pshape(a), pshape(b)),
+            Expr::Arrow(a, b) => format!("(-> {} {})", pshape(a), pshape(b)),
+            Expr::Lam(names, body, _) => {
+                let names: Vec<&str> = names.iter().map(|n| n.text.as_str()).collect();
+                format!("(\\{} {})", names.join(" "), pshape(body))
+            }
+            Expr::List(xs, _) => {
+                let xs: Vec<String> = xs.iter().map(pshape).collect();
+                format!("[{}]", xs.join(" "))
+            }
+            Expr::Let {
+                name, value, body, ..
+            } => format!("(let {} {} {})", name.text, pshape(value), pshape(body)),
+            Expr::Match {
+                scrutinees, alts, ..
+            } => {
+                let s: Vec<String> = scrutinees.iter().map(|s| pshape(&s.expr)).collect();
+                let a: Vec<String> = alts.iter().map(|a| pshape(&a.body)).collect();
+                format!("(match {} | {})", s.join(","), a.join(" | "))
+            }
+            other => panic!("unexpected {other:?}"),
+        }
+    }
+
+    fn pipe_shape(text: &str) -> String {
+        pshape(&rhs_of(&format!("def g : Nat := {text}\n")).unwrap())
+    }
+
+    /// A definition's body, written on the lines after `def g (x : Nat) : Nat :=`.
+    fn pipe_body(body: &str) -> String {
+        pshape(&rhs_of(&format!("def g (x : Nat) : Nat :=\n{body}\n")).unwrap())
+    }
+
+    #[test]
+    fn pipe_is_looser_than_every_operator_but_the_arrow() {
+        let cases = [
+            ("x |> f", "(|> x f)"),
+            ("x |> f a b", "(|> x ((f a) b))"),
+            ("a + b |> f", "(|> (Add a b) f)"),
+            ("a ++ b |> f", "(|> (Append a b) f)"),
+            ("a || b |> f", "(|> (Or a b) f)"),
+            ("a && b |> f", "(|> (And a b) f)"),
+            ("a = b |> f", "(|> (Eq a b) f)"),
+            ("x |> f a == y", "(|> x (EqEq (f a) y))"),
+            ("x |> f || y", "(|> x (Or f y))"),
+            ("x |> f |> g", "(|> (|> x f) g)"),
+            ("x |> f |> g |> h", "(|> (|> (|> x f) g) h)"),
+            ("x |> f -> T", "(-> (|> x f) T)"),
+            ("A -> x |> f", "(-> A (|> x f))"),
+            ("(x |> f) = y", "(Eq (|> x f) y)"),
+            ("x |> (f = y)", "(|> x (Eq f y))"),
+            ("[a |> f, b]", "[(|> a f) b]"),
+        ];
+        for (text, want) in cases {
+            assert_eq!(pipe_shape(text), want, "{text}");
+        }
+    }
+
+    #[test]
+    fn a_lambda_on_the_right_takes_the_rest_of_the_pipeline() {
+        let cases = [
+            ("x |> \\y => f y", "(|> x (\\y (f y)))"),
+            ("x |> \\y => f y |> g", "(|> x (\\y (|> (f y) g)))"),
+            ("x |> f |> \\y => y + 1", "(|> (|> x f) (\\y (Add y 1)))"),
+            (
+                "x |> List.map (\\y => y |> f)",
+                "(|> x (List.map (\\y (|> y f))))",
+            ),
+        ];
+        for (text, want) in cases {
+            assert_eq!(pipe_shape(text), want, "{text}");
+        }
+    }
+
+    #[test]
+    fn a_line_starting_with_a_pipe_continues_the_expression() {
+        let want = "(|> (|> x f) g)";
+        // Deeper than the expression, and at the block's own column.
+        assert_eq!(pipe_body("  x\n    |> f\n    |> g"), want);
+        assert_eq!(pipe_body("  x\n  |> f\n  |> g"), want);
+        assert_eq!(pipe_body("  x |> f\n    |> g"), want);
+        assert_eq!(pipe_body("  x |> f\n  |> g"), want);
+        assert_eq!(pipe_body("  x\n    |> f\n  |> g"), want);
+        // Inside a `let` block, the rest of the block is the body.
+        assert_eq!(
+            pipe_body("  let y := x\n  y\n  |> f\n  |> g"),
+            "(let y x (|> (|> y f) g))"
+        );
+        assert_eq!(
+            pipe_body("  let y := x\n    |> f\n  y |> g"),
+            "(let y (|> x f) (|> y g))"
+        );
+        assert_eq!(pipe_body("  x + 1\n  |> f"), "(|> (Add x 1) f)");
+    }
+
+    #[test]
+    fn a_pipe_is_not_a_bar() {
+        // `|` still separates the arms of a definition and a `match`.
+        let module = parse("def f : Nat -> Nat\n  | 0 => 1 |> g\n  | n => n |> h\n");
+        let arms: Vec<String> = module
+            .decls
+            .iter()
+            .filter_map(|d| match d {
+                Decl::Equation { rhs: Some(rhs), .. } => Some(pshape(rhs)),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(arms, ["(|> 1 g)", "(|> n h)"]);
+        assert_eq!(
+            pipe_body("  match x with\n    | 0 => a |> f\n    | n => n |> g"),
+            "(match x | (|> a f) | (|> n g))"
+        );
+        // `||` is still `Or`, and a row's `|` still has its tail after it.
+        assert_eq!(pipe_shape("a || b"), "(Or a b)");
+        let module = parse("def f (h : Nat -> {IO | e} Nat) : Nat := 1\n");
+        assert!(matches!(module.decls.last(), Some(Decl::Equation { .. })));
+        let module = parse("def f (h : Nat -> {IO | e} Nat) : Nat :=\n  1\n  |> g\n");
+        assert!(matches!(module.decls.last(), Some(Decl::Equation { .. })));
+    }
+
+    #[test]
+    fn a_pipe_after_a_match_pipes_the_whole_match_or_the_last_body() {
+        // Left of the last alternative's body, at least at the `match` line:
+        // the whole match.
+        assert_eq!(
+            pipe_body("  match x with\n    | 0 => a\n    | n => n\n  |> f"),
+            "(|> (match x | a | n) f)"
+        );
+        // At the alternatives' own column it already belongs to the last body.
+        assert_eq!(
+            pipe_body("  match x with\n    | 0 => a\n    | n => n\n    |> f"),
+            "(match x | a | (|> n f))"
+        );
+        // Under the last alternative's body: just that body.
+        assert_eq!(
+            pipe_body("  match x with\n    | 0 => a\n    | n => g n\n      |> f"),
+            "(match x | a | (|> (g n) f))"
+        );
+        // The scrutinee can be piped.
+        assert_eq!(
+            pipe_body("  match x |> f with\n    | _ => a"),
+            "(match (|> x f) | a)"
+        );
     }
 
     // Local definitions in blocks
