@@ -6,53 +6,53 @@
 
 [examples]
 inputs = "269 files, a9d6a2ca3851a4ee"
-steps = 606561862
-visits = 30826634
-allocations = 468116313
-peak_bytes = 20320441
+steps = 558686140
+visits = 30213309
+allocations = 450995043
+peak_bytes = 20281216
 time_ms = 1707.9
 
 [extract-js]
 inputs = "22 files, 1a50c88abc229b97"
 steps = 22887
 visits = 14206
-allocations = 139931
-peak_bytes = 342927
+allocations = 139954
+peak_bytes = 342984
 time_ms = 11.8
 
 [eval-lengths]
 steps = 44422054
 visits = 18
-allocations = 15606492
-peak_bytes = 1912606
+allocations = 15606493
+peak_bytes = 1914398
 time_ms = 918.9
 
 [text-append]
 steps = 4760125
 visits = 33
-allocations = 1740195
+allocations = 1740196
 peak_bytes = 51839505
 time_ms = 108.5
 
 [text-split-join]
 steps = 2252429
 visits = 62
-allocations = 776484
-peak_bytes = 5534536
+allocations = 776485
+peak_bytes = 5536328
 time_ms = 54.0
 
 [text-nat-to-text]
-steps = 18001362
+steps = 18268014
 visits = 18
 allocations = 5933118
 peak_bytes = 8799
 time_ms = 426.7
 
 [run-prints]
-steps = 12643209
+steps = 12849879
 visits = 143
 allocations = 4578649
-peak_bytes = 13204
+peak_bytes = 13148
 time_ms = 391.6
 
 [check-number-pattern]
@@ -72,22 +72,22 @@ time_ms = 0.7
 [check-list-rfl]
 steps = 720059
 visits = 380034
-allocations = 1080297
-peak_bytes = 39384537
+allocations = 1080298
+peak_bytes = 39387005
 time_ms = 51.1
 
 [check-list-sym-rfl]
 steps = 1480278
 visits = 580059
-allocations = 1960691
-peak_bytes = 62426122
+allocations = 1960692
+peak_bytes = 62428590
 time_ms = 85.5
 
 [check-long-sum]
 steps = 233984
 visits = 188996
 allocations = 414114
-peak_bytes = 9006731
+peak_bytes = 9009199
 time_ms = 1182.8
 
 [check-nested-parens]
@@ -101,7 +101,7 @@ time_ms = 3.3
 steps = 6037038
 visits = 2025038
 allocations = 4066257
-peak_bytes = 1262556
+peak_bytes = 1265024
 time_ms = 629.8
 
 [check-number-huge]
@@ -136,7 +136,7 @@ time_ms = 0.5
 steps = 19
 visits = 17
 allocations = 115
-peak_bytes = 195880
+peak_bytes = 198348
 time_ms = 0.5
 
 [text-literal-walk]
@@ -147,7 +147,7 @@ peak_bytes = 3101
 time_ms = 34.9
 
 [run-proof-fields]
-steps = 280263
+steps = 280869
 visits = 876
 allocations = 87851
-peak_bytes = 2376243
+peak_bytes = 2376251

@@ -339,8 +339,11 @@ Nat.divFuel (Succ fuel) n d = if Nat.leq d n then Succ (Nat.divFuel fuel (n - d)
 Nat.div : (n : Nat) -> (d : Nat) -> [auto ok : d != 0] -> Nat
 Nat.div n d = Nat.divFuel n n d
 
+-- The quotient goes on the left: `*` recurses on its left argument, so
+-- `(n / d) * 100` stays put while checking, where `100 * (n / d)` would
+-- unfold into a hundred additions.
 Nat.mod : (n : Nat) -> (d : Nat) -> [auto ok : d != 0] -> Nat
-Nat.mod n d = n - d * (n / d)
+Nat.mod n d = n - (n / d) * d
 
 -- Arithmetic lemmas: addition, multiplication, order and subtraction facts proved
 -- by induction, then the division law and `n % d < d`.
@@ -487,18 +490,15 @@ Nat.subLtAdd Zero (Succ x) d hx h = Void.exfalso (Bool.falseNotTrue hx)
 Nat.subLtAdd (Succ n) (Succ x) d hx h = Nat.subLtAdd n x d hx (Nat.ltCongRight (Succ n) (d + Succ x) (Succ (d + x)) (Nat.addSucc d x) h)
 
 theorem Nat.divFuelLeStep : (fuel : Nat) -> (n : Nat) -> (d : Nat) -> (b : Bool) -> Nat.leq d n = b ->
-    ((m : Nat) -> d * Nat.divFuel fuel m d <= m) ->
-    d * (if b then Succ (Nat.divFuel fuel (n - d) d) else 0) <= n
+    ((m : Nat) -> Nat.divFuel fuel m d * d <= m) ->
+    (if b then Succ (Nat.divFuel fuel (n - d) d) else 0) * d <= n
 Nat.divFuelLeStep fuel n d True h ih =
-  Nat.leCongLeft (d + d * Nat.divFuel fuel (n - d) d) (d * Succ (Nat.divFuel fuel (n - d) d)) n
-    (Eq.sym (Nat.mulSucc d (Nat.divFuel fuel (n - d) d)))
-    (Nat.leCongRight (d + d * Nat.divFuel fuel (n - d) d) (d + (n - d)) n (Nat.addSubCancel d n h)
-      (Nat.leAddCong d (d * Nat.divFuel fuel (n - d) d) (n - d) (ih (n - d))))
-Nat.divFuelLeStep fuel n d False h ih =
-  Nat.leCongLeft 0 (d * 0) n (Eq.sym (Nat.mulZero d)) rfl
+  Nat.leCongRight (d + Nat.divFuel fuel (n - d) d * d) (d + (n - d)) n (Nat.addSubCancel d n h)
+    (Nat.leAddCong d (Nat.divFuel fuel (n - d) d * d) (n - d) (ih (n - d)))
+Nat.divFuelLeStep fuel n d False h ih = rfl
 
-theorem Nat.divFuelLe : (fuel : Nat) -> (n : Nat) -> (d : Nat) -> d * Nat.divFuel fuel n d <= n
-Nat.divFuelLe Zero n d = Nat.leCongLeft 0 (d * 0) n (Eq.sym (Nat.mulZero d)) rfl
+theorem Nat.divFuelLe : (fuel : Nat) -> (n : Nat) -> (d : Nat) -> Nat.divFuel fuel n d * d <= n
+Nat.divFuelLe Zero n d = rfl
 Nat.divFuelLe (Succ fuel) n d = Nat.divFuelLeStep fuel n d (Nat.leq d n) rfl (\m -> Nat.divFuelLe fuel m d)
 
 theorem Nat.fuelSub : (n : Nat) -> (d : Nat) -> (f : Nat) -> Not (d = 0) -> n <= Succ f -> n - d <= f
@@ -507,31 +507,33 @@ Nat.fuelSub Zero (Succ d) f ok h = rfl
 Nat.fuelSub (Succ n) (Succ d) f ok h = Nat.leTrans (n - d) n f (Nat.subLe n d) h
 
 theorem Nat.divFuelBoundStep : (fuel : Nat) -> (n : Nat) -> (d : Nat) -> Not (d = 0) -> n <= Succ fuel -> (b : Bool) -> Nat.leq d n = b ->
-    ((m : Nat) -> m <= fuel -> m < d * Succ (Nat.divFuel fuel m d)) ->
-    n < d * Succ (if b then Succ (Nat.divFuel fuel (n - d) d) else 0)
+    ((m : Nat) -> m <= fuel -> m < Succ (Nat.divFuel fuel m d) * d) ->
+    n < Succ (if b then Succ (Nat.divFuel fuel (n - d) d) else 0) * d
 Nat.divFuelBoundStep fuel n d ok hn True h ih =
-  Nat.ltCongRight n (d + d * Succ (Nat.divFuel fuel (n - d) d)) (d * Succ (Succ (Nat.divFuel fuel (n - d) d)))
-    (Eq.sym (Nat.mulSucc d (Succ (Nat.divFuel fuel (n - d) d))))
-    (Nat.ltCongLeft (d + (n - d)) n (d + d * Succ (Nat.divFuel fuel (n - d) d)) (Nat.addSubCancel d n h)
-      (Nat.ltAddCong d (n - d) (d * Succ (Nat.divFuel fuel (n - d) d)) (ih (n - d) (Nat.fuelSub n d fuel ok hn))))
+  Nat.ltCongLeft (d + (n - d)) n (d + Succ (Nat.divFuel fuel (n - d) d) * d) (Nat.addSubCancel d n h)
+    (Nat.ltAddCong d (n - d) (Succ (Nat.divFuel fuel (n - d) d) * d) (ih (n - d) (Nat.fuelSub n d fuel ok hn)))
 Nat.divFuelBoundStep fuel n d ok hn False h ih =
-  Nat.ltCongRight n d (d * 1) (Eq.sym (Nat.mulOne d)) (Nat.leqFalse d n h)
+  Nat.ltCongRight n d (d + 0) (Eq.sym (Nat.addZero d)) (Nat.leqFalse d n h)
 
 theorem Nat.nonzeroPos : (d : Nat) -> Not (d = 0) -> 0 < d
 Nat.nonzeroPos Zero ok = Void.exfalso (ok rfl)
 Nat.nonzeroPos (Succ d) ok = rfl
 
-theorem Nat.divFuelBound : (fuel : Nat) -> (n : Nat) -> (d : Nat) -> Not (d = 0) -> n <= fuel -> n < d * Succ (Nat.divFuel fuel n d)
-Nat.divFuelBound Zero Zero d ok hn = Nat.ltCongRight 0 d (d * 1) (Eq.sym (Nat.mulOne d)) (Nat.nonzeroPos d ok)
+theorem Nat.divFuelBound : (fuel : Nat) -> (n : Nat) -> (d : Nat) -> Not (d = 0) -> n <= fuel -> n < Succ (Nat.divFuel fuel n d) * d
+Nat.divFuelBound Zero Zero d ok hn = Nat.ltCongRight 0 d (d + 0) (Eq.sym (Nat.addZero d)) (Nat.nonzeroPos d ok)
 Nat.divFuelBound Zero (Succ n) d ok hn = Void.exfalso (Bool.falseNotTrue hn)
 Nat.divFuelBound (Succ fuel) n d ok hn = Nat.divFuelBoundStep fuel n d ok hn (Nat.leq d n) rfl (\m hm -> Nat.divFuelBound fuel m d ok hm)
 
 
+-- `(n / d) * d <= n`: the quotient never overshoots.
+theorem Nat.divMulLe : (n : Nat) -> (d : Nat) -> (ok : d != 0) -> (n / d) * d <= n
+Nat.divMulLe n d ok = Nat.divFuelLe n n d
+
 theorem Nat.divMod : (n : Nat) -> (d : Nat) -> (ok : d != 0) -> n = (n / d) * d + n % d
-Nat.divMod n d ok = Eq.sym (Eq.trans (Eq.cong (\t -> t + (n - d * (n / d))) (Nat.mulComm (n / d) d)) (Nat.addSubCancel (d * (n / d)) n (Nat.divFuelLe n n d)))
+Nat.divMod n d ok = Eq.sym (Nat.addSubCancel ((n / d) * d) n (Nat.divMulLe n d ok))
 
 theorem Nat.modLess : (n : Nat) -> (d : Nat) -> (ok : d != 0) -> n % d < d
-Nat.modLess n d ok = Nat.subLtAdd n (d * (n / d)) d (Nat.divFuelLe n n d) (Nat.ltCongRight n (d * Succ (n / d)) (d + d * (n / d)) (Nat.mulSucc d (n / d)) (Nat.divFuelBound n n d ok (Nat.leRefl n)))
+Nat.modLess n d ok = Nat.subLtAdd n ((n / d) * d) d (Nat.divMulLe n d ok) (Nat.divFuelBound n n d ok (Nat.leRefl n))
 
 -- Division with remainder is unique: if `n = q * d + r` and `r < d`, then
 -- `n / d = q` and `n % d = r`. Consequences for small numbers and for adding
