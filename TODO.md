@@ -29,10 +29,11 @@ The main session orchestrates: it chooses lanes, hands each to a background
 agent, then reviews, merges and updates this file.
 
 Running: `day3-proofs` (Opus: `best` is a valid, right-length, optimal
-pick), `char-patterns` (Sonnet: `| 'L' =>` patterns).
+pick), `char-patterns` (Sonnet: `| 'L' =>` patterns), `day2-proofs` (Opus:
+`repeated` and part 1 equal brute force; part 2 cross-checked).
 
 Waiting on a decision: nothing. The user is reviewing day 1; their notes
-are collected and applied in one pass afterwards (so far: inline
+are collected and applied in one pass once `day2-proofs` finishes (user) (so far: inline
 `Dial.place` into `Dial.wrap`, any proof-only abbreviation defined
 beside the proofs, the implementation kept plain; `turnOf` as a
 `match` on chars; `Dial.size` (= `Succ highest`) used in the
