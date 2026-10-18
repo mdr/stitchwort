@@ -651,6 +651,9 @@ the lane stops and reports it.
 
 ## 7. Questions for the user
 
+**Decided (18 October 2026):** the user agreed with every recommendation
+below (1 to 9). The note goes to external review before implementation.
+
 1. **`:=` before a body, instead of `=`** (§2.2)? Recommendation: **yes**.
    With the type on the same line, `theorem zeroPlus (n : Nat) : 0 + n = n
    = rfl` can't be read reliably by people or by the parser. `:=` is Lean's

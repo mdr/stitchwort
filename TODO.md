@@ -133,8 +133,9 @@ capability we know we'll need before the work that needs it):
    ([declaration-syntax.md](docs/proposals/declaration-syntax.md)): the
    parser rewrites new forms into today's, so hashes must stay identical;
    `:=` bodies, `| … =>` cases; a text-editing converter migrates all
-   code. Waiting on the user's answers to its questions and the external
-   review.
+   code. The user agreed with all nine recommendations;
+   out for external review. Also queued after the switch: `&&`/`||` and
+   a Prop-aware `not`.
 4. **Advent of Code 2025, early days** — the medium-term goal. Plan
    (user, 18 Oct): day 1 done (`aoc/day01.sw`, both answers right,
    0.7 s; `IO.readAllLines`, `Nat.digits` added; friction write-up in
