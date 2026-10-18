@@ -29,16 +29,17 @@ The main session orchestrates: it chooses lanes, hands each to a background
 agent, then reviews, merges and updates this file.
 
 Running: `day2-proofs` (Opus: `repeated` and part 1 equal brute force;
-part 2 cross-checked), `list-rest-pattern` (Sonnet), `day05` (Sonnet).
+part 2 cross-checked), `list-rest-pattern` (Sonnet).
 
 Merged overnight (18-19 Oct): day 3 proofs (`best` is a subsequence, has
 length `min k (length ds)`, and is optimal; 9 prelude lemmas incl.
 `List.Subsequence`), char patterns (`| 'L' =>`), days 6-9 capability
 survey (docs/aoc-2025.md sections 8 and 10), day 4 (`aoc/day04.sw`, both
-answers right, 16 s). Inputs for days 4-9 fetched from the user's Scala
+answers right, 16 s), day 5 (`aoc/day05.sw`, both answers right,
+0.9 s; `rfl` checks on the example; merge sorted-and-disjoint not proved). Inputs for days 4-9 fetched from the user's Scala
 repo into `aoc/inputs/` (ignored).
 
-Overnight queue (user, 18 Oct): day 5 (running), `[x, ..rest]`
+Overnight queue (user, 18 Oct): `[x, ..rest]`
 (running), then the day 1 review batch after `day2-proofs`.
 
 Waiting on a decision (for the morning):
