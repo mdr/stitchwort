@@ -549,13 +549,38 @@ const crashing = (worker) => {
   assert.ok(worker.includes(check), "the worker checks with check(data.source)");
   return worker.replace(check, `check: () => data.source.includes(${JSON.stringify(CRASH)})
       ? withoutStack(() => check(data.source)) : check(data.source),`) + `
-// For the browser tests: runs f with only a little of the stack left.
+// For the browser tests: runs f with only a little of the stack left, so
+// that the stack runs out inside the WebAssembly. It recurses until the
+// stack runs out, then calls f a few frames up while unwinding. If only
+// JavaScript ran out there (f's glue, before the WebAssembly was entered),
+// nothing in the instance was interrupted, so it tries again a frame higher,
+// until f either finishes or runs out of stack with WebAssembly on it.
+// (Measuring the depth with one function, then descending most of the way
+// with another, left a varying amount of stack: their frame sizes vary with
+// how the engine has compiled each, so sometimes f had room to finish.)
 function withoutStack(f) {
-  let depth = 0;
-  const measure = () => { depth++; measure(); };
-  try { measure(); } catch {}
-  const at = (n) => n === 0 ? f() : at(n - 1) + 0;
-  return at(depth - 100);
+  f();
+  for (let frames = 1; ; frames++) {
+    let up = 0;
+    const go = () => {
+      try {
+        go();
+      } catch (e) {
+        if (!(e instanceof RangeError) || ++up < frames) throw e;
+        let done;
+        try { done = { value: f() }; } catch (error) { done = { error }; }
+        // Thrown as a plain object, which the frames above pass on.
+        throw done;
+      }
+    };
+    const limit = Error.stackTraceLimit;
+    Error.stackTraceLimit = 1000;
+    let done;
+    try { go(); } catch (thrown) { done = thrown; } finally { Error.stackTraceLimit = limit; }
+    if (done instanceof Error) throw done;
+    if (!("error" in done)) return done.value;
+    if (!(done.error instanceof RangeError) || /wasm:\\/\\//.test(done.error.stack)) throw done.error;
+  }
 }
 `;
 };
