@@ -9,6 +9,7 @@
 mod auto;
 mod autobind;
 mod check;
+mod derive;
 mod dot;
 mod effects;
 mod lift;
@@ -113,6 +114,12 @@ pub struct Elaborator {
     recursion: Option<effects::Recursion>,
     /// The record types declared so far (docs/proposals/records.md).
     records: HashMap<DataId, records::RecordInfo>,
+    /// Why `==` isn't derived for a data type that isn't a record, for the
+    /// note when `==` is used on it (`derive.rs`).
+    no_eq: HashMap<DataId, String>,
+    /// While a derived `==` is elaborated: the decision procedures it takes
+    /// as arguments are found by `==` too (`auto.rs`).
+    local_deciders: std::cell::Cell<bool>,
     /// Helpers elaborated in the current declaration and not yet lifted
     /// (`lift.rs`). Part of the inference state `undo.rs` restores.
     drafts: RefCell<Vec<lift::Draft>>,
@@ -1037,6 +1044,8 @@ impl Elaborator {
         }
         if self.globals.data(d).record {
             self.after_record(d)?;
+        } else {
+            self.derive_data_eq(d)?;
         }
         Ok(())
     }

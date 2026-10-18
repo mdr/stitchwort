@@ -124,6 +124,27 @@ pub fn decide(cx: &mut Ctx, prop: &Value, depth: usize) -> Result<Term> {
     // Why candidates that fit the goal didn't work, for the error.
     let mut reasons = Vec::new();
     if depth <= MAX_DEPTH {
+        // Decision procedures passed in as arguments, for a generated `==`
+        // on a type with parameters (`derive.rs`), and only there, so no
+        // other search changes. They decide `=` on a parameter, which no
+        // definition can, so they're tried first: a search through every
+        // definition that fails is what's slow.
+        if cx.e.local_deciders.get() {
+            for level in (0..cx.level()).rev() {
+                let ty = cx.types[level].clone();
+                if !returns(cx, ty.clone(), decidable)? {
+                    continue;
+                }
+                let head = Term::Var(cx.level() - 1 - level);
+                let name = cx.names[level].to_string();
+                let found = attempt(cx, |cx| {
+                    instantiate_head(cx, head, ty, &name, decidable, prop, depth, &mut reasons)
+                })?;
+                if let Some(term) = found {
+                    return Ok(term);
+                }
+            }
+        }
         for id in decision_procedures(cx, decidable)? {
             let found = attempt(cx, |cx| {
                 instantiate(cx, id, decidable, prop, depth, &mut reasons)
@@ -145,7 +166,13 @@ pub fn decide(cx: &mut Ctx, prop: &Value, depth: usize) -> Result<Term> {
     // `=` on a record whose `==` wasn't derived: say why.
     let error = match force(cx.g(), prop.clone())? {
         Value::Eq(ty, _, _) => match force(cx.g(), (*ty).clone())? {
-            Value::Data(d, _) => match cx.e.records.get(&d).and_then(|r| r.no_eq.as_ref()) {
+            Value::Data(d, _) => match cx
+                .e
+                .records
+                .get(&d)
+                .and_then(|r| r.no_eq.as_ref())
+                .or(cx.e.no_eq.get(&d))
+            {
                 Some(why) => error.with_note(format!(
                     "`==` isn't derived for `{}`: {why}",
                     cx.g().data(d).name
@@ -279,8 +306,52 @@ fn instantiate(
     reasons: &mut Vec<String>,
 ) -> Result<Option<Term>> {
     let g = cx.g();
-    let mut term = Term::Def(id);
-    let mut ty = g.def(id).ty_value.clone();
+    let (ty, name) = (g.def(id).ty_value.clone(), g.def(id).name.to_string());
+    instantiate_head(
+        cx,
+        Term::Def(id),
+        ty,
+        &name,
+        decidable,
+        prop,
+        depth,
+        reasons,
+    )
+}
+
+/// Whether `ty`, after its arguments, is `Decidable …`.
+fn returns(cx: &Ctx, ty: Value, decidable: DataId) -> Result<bool> {
+    let g = cx.g();
+    let mut ty = ty;
+    let mut level = cx.level();
+    loop {
+        match force(g, ty)? {
+            Value::Pi(_, _, _, cod) => {
+                ty = cod.apply(g, Value::var(level))?;
+                level += 1;
+            }
+            Value::Data(d, _) => return Ok(d == decidable),
+            _ => return Ok(false),
+        }
+    }
+}
+
+/// [`instantiate`] for any function `head` of type `ty`, called `name` in
+/// notes.
+#[allow(clippy::too_many_arguments)]
+fn instantiate_head(
+    cx: &mut Ctx,
+    head: Term,
+    ty: Value,
+    name: &str,
+    decidable: DataId,
+    prop: &Value,
+    depth: usize,
+    reasons: &mut Vec<String>,
+) -> Result<Option<Term>> {
+    let g = cx.g();
+    let mut term = head;
+    let mut ty = ty;
     let mut args = Vec::new();
     while let Value::Pi(_, icit, dom, cod) = force(g, ty.clone())? {
         let meta = cx.fresh_meta();
@@ -304,7 +375,6 @@ fn instantiate(
                 Some(Err((e, inner))) => {
                     if e.code == "E-AUTO-NONE" {
                         let outer = describe(cx, prop)?;
-                        let name = &g.def(id).name;
                         reasons.push(format!("`{name}` could decide {outer}{GIVEN}{inner}"));
                         reasons.extend(e.notes.iter().filter(|n| n.contains(GIVEN)).cloned());
                     }

@@ -205,6 +205,8 @@ doubled = map (\x -> x * 2) [1, 2, 3]                 -- a and b inferred
 doubled = map [a := Nat] [b := Nat] (\x -> x * 2) [1, 2, 3]   -- supplied by name
 ```
 
+**`==` on a declared data type is derived automatically**, with no `deriving` clause: when `Shape` is declared, the compiler also generates a proved decision procedure for `=` on it (named so that source can't refer to it), which `==` finds. It's what one expects of `==` on plain data, a user's own `Shape.decEq` still takes priority, and a type that can't have one says why when `==` is used. It's generated when every field is data that can be compared: of the type itself (recursion), or of a type with a decision procedure, including through the type's parameters (`Tree a` takes one for `a`, as `List.decEq` does). Function fields, proof fields, types defined together, and parameters other than types get none (`E-AUTO-NONE`, with a note). It's generated eagerly, at the declaration, rather than on first use: that's simpler, and costs a few milliseconds per type (`crates/elab/src/derive.rs`).
+
 ### Records
 
 ```
