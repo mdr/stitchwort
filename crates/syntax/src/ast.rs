@@ -10,6 +10,11 @@ pub struct Name {
     pub span: Span,
 }
 
+/// The parameter of a method section's lambda: `.f a` is parsed as
+/// `\%section => %section.f a` (docs/syntax.md, Method sections). Users
+/// can't write the name, so it never captures one of theirs.
+pub const SECTION: &str = "%section";
+
 #[derive(Clone, Debug)]
 pub enum Expr {
     /// A variable, function, data type or constructor name.
@@ -177,6 +182,28 @@ pub struct Alt {
 }
 
 impl Expr {
+    /// If this is a method section `.f ….g args`, the first name after the
+    /// `.` (`f`), for messages.
+    pub fn section_name(&self) -> Option<&Name> {
+        let Expr::Lam(names, body, _) = self else {
+            return None;
+        };
+        if names.len() != 1 || names[0].text != SECTION {
+            return None;
+        }
+        let mut e: &Expr = body;
+        loop {
+            match e {
+                Expr::App(f, _) => e = f,
+                Expr::Field(r, name) => match &**r {
+                    Expr::Var(v) if v.text == SECTION => return Some(name),
+                    _ => e = r,
+                },
+                _ => return None,
+            }
+        }
+    }
+
     /// Chains like `f a b c …` and `1 + 2 + 3 + …` are parsed in a loop and
     /// nest as deeply as they're long, so this walks down each side of them
     /// in a loop: the first part's start to the last part's end.
