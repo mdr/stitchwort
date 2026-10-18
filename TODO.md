@@ -122,9 +122,15 @@ capability we know we'll need before the work that needs it):
    whole-right-hand-side `match` compiles into the case tree; one `core`
    addition, `Globals::frozen_metas`) merged (`9b9bae8`). Leftovers: a
    lifted `match` in a partial function, a data/ability declaration or
-   the REPL is refused. Next: step 4, patterns in `let` and lambdas
-   (small–medium), then step 5, `where` (Opus).
-4. **Advent of Code 2025, early days** (decisions in aoc-2025.md: programs
+   the REPL is refused. Lane `syntax-step4` (patterns in `let` and
+   lambdas) running. Step 5, `where`, deferred until the AoC days show
+   how much it's missed.
+4. **Advent of Code 2025, early days** — the medium-term goal. Plan
+   (user, 18 Oct): lanes `aoc-day1` (Sonnet: `IO.readAllLines`,
+   `Nat.digits`, day 1 rewritten as a probe with a friction write-up) and
+   `sort-proof` (Opus) running; then days 1–5 rewritten with proofs (deep
+   ones for 1, 3, 5 by Opus). `Array`/`Map`/`Set` later (days 4, 8, 9).
+   Earlier notes: (decisions in aoc-2025.md: programs
    in `aoc/`, inputs and answers out of git, worked examples as tests), as a stress test with proofs where
    natural (sort correctness, parser round trips, worked examples by `rfl`).
    Inputs: the user's repo https://github.com/mdr/aoc-2025/tree/main/src/main/resources.
