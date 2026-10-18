@@ -164,7 +164,9 @@ capability we know we'll need before the work that needs it):
    `t.uncons` (dot notation) — generally prefer dot notation and
    `rest.toNat`-style calls where they read better; `parseTurn` via
    `andThen` (`t.uncons.andThen (\(c, rest) => rest.toNat.andThen
-   (turnOf c))`). Day 1 renames: `Pos` → `Dial`, `at` →
+   (turnOf c))`). `IO.readAll` (whole input as one `Text`, a
+   total IO operation) + `Text.lines`; `readAllLines` becomes total, so
+   `main` drops `Partial` — lane `io-readall` (Opus) running. Day 1 renames: `Pos` → `Dial`, `at` →
    `position`, `ok` → `inRange`, `top` → `highest` (`Dial 99`);
    functions on a type live in its namespace and are called with dots
    (`Dial.isZero`/`d.isZero`, `Dial.move`/`d.move t`, `Turn.parse`). After
