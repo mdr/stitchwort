@@ -142,7 +142,11 @@ capability we know we'll need before the work that needs it):
    write `Dial : Type`). Lane `derive-eq` (automatic `==` for user data
    types; Opus, no external review) and lane `day1-proofs` (Opus: dial
    stays in 0–99; part 2's fast count equals a click-by-click spec)
-   running. User OK'd default-visible `And`/`Both`; annotated lambda
+   running. Days 2 and 3 done (`99e806d` 0.15 s, `4f23aec`
+   0.45 s; answers right). Friction so far: `<`/`<=` are `Prop`s so `if`
+   needs `Nat.leq`; no list patterns `[a, b]`; division by a variable
+   needs a proof; unreachable `Nil` equations. User OK'd default-visible
+   `And`/`Both`; annotated lambda
    parameters later; then days 1–5 rewritten with proofs (deep
    ones for 1, 3, 5 by Opus). `Array`/`Map`/`Set` later (days 4, 8, 9).
    Earlier notes: (decisions in aoc-2025.md: programs
