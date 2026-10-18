@@ -170,7 +170,8 @@ capability we know we'll need before the work that needs it):
    `method-sections` (`.f args`, e.g. `|> .drop 1`, `people.map .name`);
    lane `elab-conveniences` (comparisons usable wherever a `Bool` is
    expected, an `Int` sum, Idris-style auto-binding of value names used
-   as type arguments such as `Dial highest`); lane `crash-recovery`; then rewrite days 1–3 with `|>` and the user's review
+   as type arguments such as `Dial highest`) The crash-recovery
+   flake was the test's own stack helper (`e08838e`; the page was fine); then rewrite days 1–3 with `|>` and the user's review
    changes. Review notes so far: keep `Text.uncons` but write
    `t.uncons` (dot notation) — generally prefer dot notation and
    `rest.toNat`-style calls where they read better; `parseTurn` via
@@ -393,12 +394,6 @@ capability we know we'll need before the work that needs it):
 
 ## Known issues
 
-- **Playground crash recovery is flaky** (browser test "after a crash,
-  the next request starts a fresh compiler"): fails about half the time
-  after a Run test, on main too; the worker gets `{"ok":true}` followed
-  by a long run of `0`s instead of a stack-overflow error — possibly
-  corrupted wasm memory being reused after the overflow, i.e. a real bug,
-  not just the test. Investigate (Opus, small).
 
 
 
