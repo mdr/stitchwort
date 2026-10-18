@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: a line can't start with a method section
+   ╭─[ reject/section-on-next-line.sw:9:5 ]
+   │
+ 9 │     .map (\x => x)
+   │     ┬  
+   │     ╰── a line can't start with a method section
+   │ 
+   │ Note: `.name` on its own line would be an argument of the line above, not a call on it: continue a pipeline with `|> .name`, or write `(.name)` to pass the section
+───╯

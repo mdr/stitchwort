@@ -221,7 +221,7 @@ def nameOf : Person -> Text
 ```
 
 - **A literal needs an expected type**: a signature, an argument's type, or an annotation, `({ x = 0, y = 0 } : Point)`. Nothing is guessed from the field names (`E-CANNOT-INFER`).
-- **`e.name`** reads a field, or calls a function by dot notation: it looks `name` up in the namespace of `e`'s type `T`, finding the field or `T.name`, and puts `e` in the place of `T.name`'s first parameter of type `T`, whatever its position (`line.split ','` is `Text.split ',' line`; `t.split` alone is `\c => Text.split c t`). A nickname's namespace is tried before what it stands for (`p : Price` tries `Price.show`, then `Nat.show`), and `p.sym` on an equation finds `Eq.sym`. It's written without spaces around the `.`, binds tighter than application (`f p.name` is `f (p.name)`), and chains (`t.lead.name`, `(f x).age`). The receiver runs first, then the arguments as written. `e`'s type must be known where it's used: `\p => p.name` needs `\(p : Person) => p.name` unless the function's type is known from elsewhere (`people.map (\p => p.name)` works, since `people` is checked first). See docs/proposals/namespaces.md §4.8.
+- **`e.name`** reads a field, or calls a function by dot notation: it looks `name` up in the namespace of `e`'s type `T`, finding the field or `T.name`, and puts `e` in the place of `T.name`'s first parameter of type `T`, whatever its position (`line.split ','` is `Text.split ',' line`; `t.split` alone is `\c => Text.split c t`). A nickname's namespace is tried before what it stands for (`p : Price` tries `Price.show`, then `Nat.show`), and `p.sym` on an equation finds `Eq.sym`. It's written without spaces around the `.`, binds tighter than application (`f p.name` is `f (p.name)`), and chains (`t.lead.name`, `(f x).age`). The receiver runs first, then the arguments as written. `e`'s type must be known where it's used: `\p => p.name` needs `\(p : Person) => p.name` unless the function's type is known from elsewhere (`people.map (\p => p.name)` works, since `people` is checked first). `f p .name`, with a space, is a method section instead ([Method sections](#method-sections)). See docs/proposals/namespaces.md §4.8.
 - **An update** `{ e | f = …, … }` replaces some fields. A later field whose type mentions a replaced one must be replaced too (`E-RECORD-UPDATE`): `{ s | items = xs }` isn't allowed for `s : Sized a`, `{ s | items = xs, size = n, ok = proof }` is.
 - **Record patterns** `{ f = p, g, .. }` work wherever patterns do, nested in constructors and other records, when the type of what they match is known (a parameter's from the signature, or a field's from the constructor around it). After `=`, a constructor pattern takes its arguments without parentheses: `{ items = Cons x xs, .. }`.
 - **Order of effects**: in a computation, field expressions run in the order written, then the record is built; an update's base runs once, first.
@@ -351,6 +351,7 @@ Loosest-binding first:
 | `[a, b, c]` | `List` literal. In an expression, `[x := e]` supplies an implicit argument and every other `[…]` is a list |
 | `{ name = e, age }`, `{ p \| age = e }` | Record literal (with an expected type) and update ([Records](#records)). After an arrow, `{` starts an ability row instead |
 | `e.name` | A field, or dot notation: `T.name e …` for `e : T`. No spaces around the `.`; binds tighter than application |
+| `.name`, `.drop 1` | Method section: `\x => x.name`, `\x => x.drop 1`. A space before the `.` (or a bracket or line start). See [Method sections](#method-sections) |
 | `rfl` | Proof of `a = a` |
 | `J (\y p => P) base proof` | Transport along an equality |
 
@@ -389,6 +390,27 @@ It is the loosest operator except `->`, and groups to the left: `x |> f |> g` is
 - **A number literal on the left** is just `f 5`: it takes its type from `f`, as an argument would.
 
 Implicit and `auto` arguments, `[x := e]` and constructors work on the right as in a normal call.
+
+### Method sections
+
+`.f args` is `\x => x.f args`: dot notation with the receiver left out.
+
+```
+people.map .name                    -- people.map (\p => p.name)
+people |> .map .age |> .sum         -- (people.map (\p => p.age)).sum
+ls.map (.split ',')                 -- ls.map (\l => l.split ',')
+```
+
+- **Chains and arguments.** `.name.length` is `\x => x.name.length`. Arguments after the head section belong to it: `.drop 1` is `\x => x.drop 1`. As an argument a section takes none, so bracket it: `List.map .name people`, `people.map (.greet "Hi")`. Like `e.name`, the receiver goes in whatever position of the function it fits (`.split ','` is `\t => Text.split ',' t`).
+- **The space rule.** A section follows a space (or a bracket, or starts the expression): `f p .name` is `f p (.name)`, while `p.name` is still a field access. `p. name` is still an error, and so are `.Name` and `.1`.
+- **Pipe.** `xs |> .drop 1` is rewritten by the parser to exactly `xs.drop 1`, with no lambda, so `xs |> .drop 1 |> .sum` is `(xs.drop 1).sum`.
+- **Layout.** A section can't start a continuation line as an argument: in `foo xs` followed by an indented `.map f`, the `.map f` would read as another argument of `foo`, so it's a parse error ("a line can't start with a method section"), with a note pointing to `|> .map f` or `(.map f)`. A line starting `|> .map f` is fine.
+- **Checking.** A section is a lambda, so it's checked like one: its receiver's type must be known from the expected function type (`people.map .name`, `apply .length "abc"` for `apply (f : Text -> Nat)`), from a pipe's left side, or from an annotation (`(.drop 1 : List Nat -> List Nat)`). In an application, a section whose parameter type isn't known yet is checked after the other arguments, so `List.map .name people` works where `List.map (\p => p.name) people` doesn't.
+- **Unknown receiver.** `let g := .drop 1` or `(.length) "abcd"` is `E-CANNOT-INFER` ("can't tell what `.drop` is applied to"), with a note suggesting a pipe, passing it where a function type is known, or an annotation.
+- **No such function.** The ordinary dot-notation error: `xs |> .dorp 1` is `E-UNKNOWN-FIELD`, "`List` has no field or function `dorp`", with a "did you mean `drop`?" note.
+- **Effects.** It follows lambda rules: `IO.readAllLines () |> .map (.split ',') |> .length` works in a `{IO}` function.
+
+Examples: `examples/accept/method-sections.sw`, `examples/reject/section-unknown-receiver.sw`, `examples/reject/section-no-such-function.sw`, `examples/reject/section-on-next-line.sw`.
 
 ### `match`
 

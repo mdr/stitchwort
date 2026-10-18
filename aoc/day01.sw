@@ -25,9 +25,9 @@ def dial : Dial 99 := { position = 50, inRange = rfl }
 -- Part 1: the positions after each turn that are 0.
 def part1 [highest : Nat] (start : Dial highest) (turns : List Turn) : Nat :=
   turns
-    |> List.scanl Dial.move start
-    |> List.drop 1
-    |> List.count Dial.isZero
+    |> .scanl Dial.move start
+    |> .drop 1
+    |> .count Dial.isZero
 
 -- Part 2: add up the clicks onto 0, turn by turn, carrying the dial along.
 def part2 [highest : Nat] (start : Dial highest) (turns : List Turn) : Nat :=
@@ -38,7 +38,7 @@ def part2 [highest : Nat] (start : Dial highest) (turns : List Turn) : Nat :=
 -- The specification of part 2: turn the dial one click at a time, and count
 -- the positions after each click that are 0.
 def part2Spec [highest : Nat] (start : Dial highest) (turns : List Turn) : Nat :=
-  turns |> List.concatMap Turn.clicks |> part1 start
+  turns |> .concatMap Turn.clicks |> part1 start
 
 type Turn =
   | Left (distance : Nat)

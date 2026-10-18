@@ -17,12 +17,12 @@ def main () : {IO} () :=
 
 def solve (lines : List Text) : (Nat, Nat) := (total 2 lines, total 12 lines)
 
-def total (k : Nat) (lines : List Text) : Nat := lines |> List.sumBy (joltage k)
+def total (k : Nat) (lines : List Text) : Nat := lines |> .sumBy (joltage k)
 
 def joltage (k : Nat) (line : Text) : Nat :=
   line |> parseBank |> best k |> Nat.fromDigits
 
-def parseBank (t : Text) : List Nat := t.toList |> List.mapMaybe Char.digitValue
+def parseBank (t : Text) : List Nat := t.toList |> .mapMaybe Char.digitValue
 
 -- The digits of the largest k-digit number that is a subsequence of ds.
 def best : Nat -> List Nat -> List Nat
