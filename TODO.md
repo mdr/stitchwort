@@ -157,7 +157,9 @@ capability we know we'll need before the work that needs it):
    reviewing the day 1–3 code first. Pipe-forward `|>` (user: value as
    last argument, Elm/F#-style; left checked first) — lane `pipe-op`
    (Opus) running; then rewrite days 1–3 with `|>` and the user's review
-   changes. `>>`/`<<` composition later if wanted; then one switch commit (convert everything, flip
+   changes. Review notes so far: keep `Text.uncons` but write
+   `t.uncons` (dot notation) — generally prefer dot notation and
+   `rest.toNat`-style calls where they read better. `>>`/`<<` composition later if wanted; then one switch commit (convert everything, flip
    the parser, delete the old one, hash/AST/test comparison); then a
    tidy-up (docs, playground colouring, awkward converter output); then
    `where`. Header and implicit names must differ. Also queued after the switch: `&&`/`||` and
