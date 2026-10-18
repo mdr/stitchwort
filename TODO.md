@@ -172,6 +172,12 @@ capability we know we'll need before the work that needs it):
 
 ## Later
 
+- **Hashes aren't a design constraint yet** (user, 18 Oct: no users).
+  Simplify places bent to keep them, e.g. `Int` stage 3's "old way
+  first" path for equations and nested effectful arithmetic
+  (numbers.rs). `hash_stability.rs` stays as a test oracle for
+  refactors.
+
 - **Two proofs of the same fact aren't treated as equal** (no definitional
   proof irrelevance): `x % 100` with a hand-written divisor proof and
   with the `auto` one have different types that print identically (Int
