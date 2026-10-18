@@ -307,6 +307,10 @@ theorem Bool.uniqueEq (x : Bool) (y : Bool) (p : x = y) (q : x = y) : p = q :=
       (Bool.fromCanon x y p) (Bool.canonConst (Bool.decEq x y) p q))
     (J (\z e => z = q) rfl (Bool.fromCanon x y q))
 
+theorem Bool.decTrueToBool : (c : Bool) -> Decidable.toBool (Bool.decTrue c) = c
+  | True  => rfl
+  | False => rfl
+
 -- Characters
 
 -- Whether a number is a Unicode scalar value: at most 0x10FFFF, and not a
@@ -480,6 +484,14 @@ theorem Nat.leMulRight : (a : Nat) -> (b : Nat) -> (c : Nat) -> a <= b -> a * c 
   | Succ a, Zero,   c, h => Void.exfalso (Bool.falseNotTrue h)
   | Succ a, Succ b, c, h => Nat.leAddCong c (a * c) (b * c) (Nat.leMulRight a b c h)
 
+theorem Nat.leMulPos (x : Nat) : (y : Nat) -> 0 < y -> x <= x * y
+  | Zero,   h => Void.exfalso (Bool.falseNotTrue h)
+  | Succ y, h => Nat.leCongRight x (x + x * y) (x * Succ y) (Eq.sym (Nat.mulSucc x y)) (Nat.leAddRight x (x * y))
+
+theorem Nat.leAddCancel : (d : Nat) -> (a : Nat) -> (b : Nat) -> d + a <= d + b -> a <= b
+  | Zero,   a, b, h => h
+  | Succ d, a, b, h => Nat.leAddCancel d a b h
+
 theorem Nat.addSubCancel : (d : Nat) -> (n : Nat) -> d <= n -> d + (n - d) = n
   | Zero, n, h => rfl
   | Succ d, Zero, h => Void.exfalso (Bool.falseNotTrue h)
@@ -597,6 +609,31 @@ theorem Nat.subSuccRight : (j : Nat) -> (t : Nat) -> Succ j <= t -> t - j = Succ
 theorem Nat.succSub : (t : Nat) -> Succ t - t = 1
   | Zero   => rfl
   | Succ t => Nat.succSub t
+
+-- `n / d` is the largest `q` with `q * d <= n`.
+theorem Nat.mulLeOfLeDiv (q : Nat) (n : Nat) (d : Nat) [auto ok : d != 0] (h : q <= n / d) : q * d <= n :=
+  Nat.leTrans (q * d) ((n / d) * d) n (Nat.leMulRight q (n / d) d h) (Nat.divMulLe n d ok)
+
+theorem Nat.leDivOfMulLe (q : Nat) (n : Nat) (d : Nat) [auto ok : d != 0] (h : q * d <= n) : q <= n / d :=
+  Bool.inspect (Nat.leq q (n / d)) (\c => c = True) (\t => rfl)
+    (\f => Void.exfalso (Nat.lessIrrefl n
+      (Nat.leTrans (Succ n) (Succ (n / d) * d) n (Nat.divFuelBound n n d ok (Nat.leRefl n))
+        (Nat.leTrans (Succ (n / d) * d) (q * d) n (Nat.leMulRight (Succ (n / d)) q d (Nat.leqFalse q (n / d) f)) h))))
+
+theorem Nat.divLeOfLtMul (n : Nat) (b : Nat) (d : Nat) [auto ok : d != 0] (h : n < Succ b * d) : n / d <= b :=
+  Bool.inspect (Nat.leq (n / d) b) (\c => c = True) (\t => rfl)
+    (\f => Void.exfalso (Nat.lessIrrefl n
+      (Nat.leTrans (Succ n) (Succ b * d) n h
+        (Nat.leTrans (Succ b * d) ((n / d) * d) n (Nat.leMulRight (Succ b) (n / d) d (Nat.leqFalse (n / d) b f)) (Nat.divMulLe n d ok)))))
+
+-- `(n + n) / 2 = n`
+theorem Nat.halfDouble (n : Nat) : (n + n) / 2 = n :=
+  Nat.divUnique (n + n) 2 n 0 rfl (Eq.sym (Eq.trans (Nat.addZero (n * 2)) (Eq.trans (Nat.mulSucc n 1) (Eq.cong (\t => n + t) (Nat.mulOne n)))))
+
+theorem Nat.leqFalseOfLess (a : Nat) (b : Nat) (h : a < b) : Nat.leq b a = False :=
+  Bool.inspect (Nat.leq b a) (\c => c = False)
+    (\t => Void.exfalso (Nat.lessIrrefl a (Nat.leTrans (Succ a) b a h t)))
+    (\f => rfl)
 
 
 -- Lists, continued
@@ -720,6 +757,28 @@ theorem Nat.minLeft (m : Nat) (n : Nat) (h : m <= n) : Nat.min m n = m :=
 theorem Nat.minRight (m : Nat) (n : Nat) (h : Nat.leq m n = False) : Nat.min m n = n :=
   J (\b q => Bool.ifThenElse b (\u => m) (\u => n) = n) rfl (Eq.sym h)
 
+-- `max` and `min` when the order is known, and their bounds.
+theorem Nat.maxLeft (m : Nat) (n : Nat) (h : n <= m) : Nat.max m n = m :=
+  Bool.inspect (Nat.leq m n) (\c => Bool.ifThenElse c (\u => n) (\u => m) = m) (\t => Nat.leAntisym n m h t) (\f => rfl)
+
+theorem Nat.maxRight (m : Nat) (n : Nat) (h : m <= n) : Nat.max m n = n :=
+  J (\c q => Bool.ifThenElse c (\u => n) (\u => m) = n) rfl (Eq.sym h)
+
+theorem Nat.leMaxLeft (m : Nat) (n : Nat) : m <= Nat.max m n :=
+  Bool.inspect (Nat.leq m n) (\c => m <= Bool.ifThenElse c (\u => n) (\u => m)) (\t => t) (\f => Nat.leRefl m)
+
+theorem Nat.minLeLeft (m : Nat) (n : Nat) : Nat.min m n <= m :=
+  Bool.inspect (Nat.leq m n) (\c => Bool.ifThenElse c (\u => m) (\u => n) <= m) (\t => Nat.leRefl m) (\f => Nat.lessLe n m (Nat.leqFalse m n f))
+
+theorem Nat.minLeRight (m : Nat) (n : Nat) : Nat.min m n <= n :=
+  Bool.inspect (Nat.leq m n) (\c => Bool.ifThenElse c (\u => m) (\u => n) <= n) (\t => t) (\f => Nat.leRefl n)
+
+theorem Nat.leMin (a : Nat) (m : Nat) (n : Nat) (hm : a <= m) (hn : a <= n) : a <= Nat.min m n :=
+  Bool.inspect (Nat.leq m n) (\c => a <= Bool.ifThenElse c (\u => m) (\u => n)) (\t => hm) (\f => hn)
+
+theorem Nat.minSucc (m : Nat) (n : Nat) : Nat.min (Succ m) (Succ n) = Succ (Nat.min m n) :=
+  Bool.inspect (Nat.leq m n) (\c => Bool.ifThenElse c (\u => Succ m) (\u => Succ n) = Succ (Bool.ifThenElse c (\u => m) (\u => n))) (\t => rfl) (\f => rfl)
+
 -- The distance between two numbers; `(a - b) + (b - a)`, as one of them is 0.
 def Nat.absDiff (m : Nat) (n : Nat) : Nat := (m - n) + (n - m)
 
@@ -727,6 +786,21 @@ def Nat.absDiff (m : Nat) (n : Nat) : Nat := (m - n) + (n - m)
 def Nat.pow (b : Nat) : Nat -> Nat
   | Zero   => 1
   | Succ e => b * Nat.pow b e
+
+-- Powers: adding exponents, positive for a positive base, growing with the
+-- exponent.
+theorem Nat.powAdd (b : Nat) : (e1 : Nat) -> (e2 : Nat) -> Nat.pow b (e1 + e2) = Nat.pow b e1 * Nat.pow b e2
+  | Zero,    e2 => Eq.sym (Nat.addZero (Nat.pow b e2))
+  | Succ e1, e2 => Eq.trans (Eq.cong (\t => b * t) (Nat.powAdd b e1 e2)) (Eq.sym (Nat.mulAssoc b (Nat.pow b e1) (Nat.pow b e2)))
+
+theorem Nat.powSuccPos (b : Nat) : (e : Nat) -> 0 < Nat.pow (Succ b) e
+  | Zero   => rfl
+  | Succ e => Nat.leTrans 1 (Nat.pow (Succ b) e) (Nat.pow (Succ b) e + b * Nat.pow (Succ b) e) (Nat.powSuccPos b e) (Nat.leAddRight (Nat.pow (Succ b) e) (b * Nat.pow (Succ b) e))
+
+theorem Nat.powMono (b : Nat) (e : Nat) (f : Nat) (h : e <= f) : Nat.pow (Succ b) e <= Nat.pow (Succ b) f :=
+  Nat.leCongRight (Nat.pow (Succ b) e) (Nat.pow (Succ b) e * Nat.pow (Succ b) (f - e)) (Nat.pow (Succ b) f)
+    (Eq.trans (Eq.sym (Nat.powAdd (Succ b) e (f - e))) (Eq.cong (\t => Nat.pow (Succ b) t) (Nat.addSubCancel e f h)))
+    (Nat.leMulPos (Nat.pow (Succ b) e) (Nat.pow (Succ b) (f - e)) (Nat.powSuccPos b (f - e)))
 
 -- List toolkit. The callbacks are pure: the library has no convention yet for
 -- callbacks with effects or `Partial`. Every function is structurally recursive.
@@ -893,6 +967,78 @@ theorem Nat.addLeftComm (a : Nat) (b : Nat) (c : Nat) : a + (b + c) = b + (a + c
 
 -- `<=` is total: if `m <= n` is false, then `n <= m`.
 theorem Nat.leqTotal (m : Nat) (n : Nat) (h : Nat.leq m n = False) : Nat.leq n m = True := Nat.lessLe n m (Nat.leqFalse m n h)
+
+-- Sums of lists: one element at a time, sums of intervals (Gauss), and
+-- rewriting under `map`, `filter` and `foldl`.
+theorem Nat.addSwap (a : Nat) (b : Nat) (c : Nat) (d : Nat) : (a + b) + (c + d) = (a + c) + (b + d) :=
+  Eq.trans (Nat.addAssoc a b (c + d))
+    (Eq.trans (Eq.cong (\t => a + t) (Nat.addLeftComm b c d)) (Eq.sym (Nat.addAssoc a c (b + d))))
+
+theorem List.sumFrom : (a : Nat) -> (xs : List Nat) -> List.foldl Nat.add a xs = a + List.sum xs
+  | a, Nil       => Eq.sym (Nat.addZero a)
+  | a, Cons x xs =>
+    Eq.trans (List.sumFrom (a + x) xs)
+      (Eq.trans (Nat.addAssoc a x (List.sum xs)) (Eq.cong (\t => a + t) (Eq.sym (List.sumFrom x xs))))
+
+theorem List.sumCons (x : Nat) (xs : List Nat) : List.sum (Cons x xs) = x + List.sum xs := List.sumFrom x xs
+
+theorem List.sumByFrom (f : a -> Nat) : (z : Nat) -> (xs : List a) -> List.foldl (\acc x => acc + f x) z xs = z + List.sumBy f xs
+  | z, Nil       => Eq.sym (Nat.addZero z)
+  | z, Cons x xs =>
+    Eq.trans (List.sumByFrom f (z + f x) xs)
+      (Eq.trans (Nat.addAssoc z (f x) (List.sumBy f xs)) (Eq.cong (\t => z + t) (Eq.sym (List.sumByFrom f (f x) xs))))
+
+theorem List.sumByCons (f : a -> Nat) (x : a) (xs : List a) : List.sumBy f (Cons x xs) = f x + List.sumBy f xs := List.sumByFrom f (f x) xs
+
+theorem List.sumByCongr (f : a -> Nat) (g : a -> Nat) (h : (x : a) -> f x = g x) : (xs : List a) -> List.sumBy f xs = List.sumBy g xs
+  | Nil       => rfl
+  | Cons x xs =>
+    Eq.trans (List.sumByCons f x xs)
+      (Eq.trans (Eq.cong (\t => t + List.sumBy f xs) (h x))
+        (Eq.trans (Eq.cong (\t => g x + t) (List.sumByCongr f g h xs)) (Eq.sym (List.sumByCons g x xs))))
+
+theorem List.sumByMulLeft (c : Nat) (f : a -> Nat) : (xs : List a) -> List.sumBy (\x => c * f x) xs = c * List.sumBy f xs
+  | Nil       => Eq.sym (Nat.mulZero c)
+  | Cons x xs =>
+    Eq.trans (List.sumByCons (\y => c * f y) x xs)
+      (Eq.trans (Eq.cong (\t => c * f x + t) (List.sumByMulLeft c f xs))
+        (Eq.sym (Eq.trans (Eq.cong (\t => c * t) (List.sumByCons f x xs)) (Nat.mulDistribLeft c (f x) (List.sumBy f xs)))))
+
+theorem List.sumByRangeShift (f : Nat -> Nat) : (n : Nat) -> (s : Nat) ->
+    List.sumBy f (List.rangeFrom n (Succ s)) = List.sumBy (\i => f (Succ i)) (List.rangeFrom n s)
+  | Zero,   s => rfl
+  | Succ n, s =>
+    Eq.trans (List.sumByCons f (Succ s) (List.rangeFrom n (Succ (Succ s))))
+      (Eq.trans (Eq.cong (\t => f (Succ s) + t) (List.sumByRangeShift f n (Succ s)))
+        (Eq.sym (List.sumByCons (\i => f (Succ i)) s (List.rangeFrom n (Succ s)))))
+
+-- Gauss: twice the sum of `x, x + 1, ..., x + d` is `(d + 1) * (x + (x + d))`.
+theorem List.gaussSum : (d : Nat) -> (x : Nat) ->
+    List.sum (List.rangeFrom (Succ d) x) + List.sum (List.rangeFrom (Succ d) x) = Succ d * (x + (x + d))
+  | Zero,   x => Eq.sym (Eq.trans (Nat.addZero (x + (x + 0))) (Eq.cong (\t => x + t) (Nat.addZero x)))
+  | Succ d, x =>
+    Eq.trans (Eq.cong (\t => t + t) (List.sumCons x (List.rangeFrom (Succ d) (Succ x))))
+      (Eq.trans (Nat.addSwap x (List.sum (List.rangeFrom (Succ d) (Succ x))) x (List.sum (List.rangeFrom (Succ d) (Succ x))))
+        (Eq.trans (Eq.cong (\t => (x + x) + t) (List.gaussSum d (Succ x)))
+          (Eq.trans (Eq.cong (\t => (x + x) + Succ d * Succ (x + t)) (Eq.sym (Nat.addSucc x d)))
+            (Eq.trans (Eq.cong (\t => (x + x) + t) (Nat.mulSucc (Succ d) (x + (x + Succ d))))
+              (Eq.trans (Eq.sym (Nat.addAssoc (x + x) (Succ d) (Succ d * (x + (x + Succ d)))))
+                (Eq.cong (\t => t + Succ d * (x + (x + Succ d))) (Nat.addAssoc x x (Succ d))))))))
+
+theorem List.mapCongr (f : a -> b) (g : a -> b) (h : (x : a) -> f x = g x) : (xs : List a) -> List.map f xs = List.map g xs
+  | Nil       => rfl
+  | Cons x xs => Eq.trans (Eq.cong (\y => Cons y (List.map f xs)) (h x)) (Eq.cong (\ys => Cons (g x) ys) (List.mapCongr f g h xs))
+
+theorem List.filterKeep (p : a -> Bool) (x : a) (xs : List a) (h : p x = True) : List.filter p (Cons x xs) = Cons x (List.filter p xs) :=
+  J (\c q => Bool.ifThenElse c (\u => Cons x (List.filter p xs)) (\u => List.filter p xs) = Cons x (List.filter p xs)) rfl (Eq.sym h)
+
+theorem List.filterSkip (p : a -> Bool) (x : a) (xs : List a) (h : p x = False) : List.filter p (Cons x xs) = List.filter p xs :=
+  J (\c q => Bool.ifThenElse c (\u => Cons x (List.filter p xs)) (\u => List.filter p xs) = List.filter p xs) rfl (Eq.sym h)
+
+theorem List.foldlAppend (f : b -> a -> b) : (z : b) -> (xs : List a) -> (ys : List a) ->
+    List.foldl f z (List.append xs ys) = List.foldl f (List.foldl f z xs) ys
+  | z, Nil,       ys => rfl
+  | z, Cons x xs, ys => List.foldlAppend f (f z x) xs ys
 
 -- `True` for `Less` and `Equal`.
 def Ordering.isLessEq : Ordering -> Bool

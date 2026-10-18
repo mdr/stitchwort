@@ -225,7 +225,11 @@ capability we know we'll need before the work that needs it):
      are a k-digit block written n times (Gauss sum, digits of
      `base * 10101…`); (b) part 1 equals the brute-force sum of doubled
      ids; part 2's Möbius inclusion–exclusion: no proof, a brute-force
-     cross-check test on many small ranges instead.
+     cross-check test on many small ranges instead. *Done* (a) and (b)
+     (`repeatedCorrect`, `part1Correct`; specs walk k-digit blocks, not
+     ids) and the cross-check (160 ranges, about 2.5 s); 31 prelude
+     lemmas; friction (a `let` before an `if` yields an `Effect.runPure`
+     term source can't write) in aoc-2025.md "Proofs (18 October 2026)".
    Lambda postponing merged (`39665ae`: `List.map (\p => p.name) people`
    infers). Plan
    (user, 18 Oct): day 1 done (`aoc/day01.sw`, both answers right,
