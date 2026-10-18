@@ -801,6 +801,7 @@ fn has_number(expr: &Expr) -> bool {
             | Expr::Arrow(a, b)
             | Expr::Binary(_, a, b)
             | Expr::Seq(a, b)
+            | Expr::Pipe(a, b)
             | Expr::Tuple(a, b, _) => {
                 stack.extend([&**a, &**b]);
             }

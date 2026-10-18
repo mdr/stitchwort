@@ -1292,7 +1292,11 @@ fn free_names(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
             | Expr::Prop(_)
             | Expr::Hole(_)
             | Expr::Unit(_) => {}
-            Expr::App(a, b) | Expr::Arrow(a, b) | Expr::Binary(_, a, b) | Expr::Seq(a, b) => {
+            Expr::App(a, b)
+            | Expr::Arrow(a, b)
+            | Expr::Binary(_, a, b)
+            | Expr::Pipe(a, b)
+            | Expr::Seq(a, b) => {
                 then(&mut stack, vec![Work::Expr(a), Work::Expr(b)]);
             }
             Expr::Neg(a, _) => stack.push(Work::Expr(a)),

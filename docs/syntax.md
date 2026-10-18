@@ -297,6 +297,7 @@ Loosest-binding first:
 | `match e with \| p => a \| q => b` | Takes apart `e` by patterns; `match h : e with` also names an equation ([`match`](#match)) |
 | `()` | The unit value, and its type |
 | `(A, B)`, `(a, b)`, `(p, q)` | Tuples: `Pair A B`, `MkPair a b` and the pattern `MkPair p q`, by identity (a user's own `Pair` doesn't change it). Three or more nest to the right: `(a, b, c)` is `(a, (b, c))`. Where a type is expected (a function's domain, a definition of type `Type`) it's the type; otherwise it's the type if its first component's type is a universe. `(e)` is grouping, there is no one-element tuple, and an annotation inside needs brackets: `(a, (b : T))` or `((a, b) : T)`. Components are in `Type` (not `Prop`), as `Pair`'s are |
+| `x \|> f a b` | Pipe forward: `f a b x`, the value becoming the last argument. The loosest operator except `->`; left-associative. See [Pipe forward](#pipe-forward-) |
 | `a \|\| b` | Or. On `Bool`s it's `if a then True else b`: `b` is evaluated, and its operations performed, only if `a` is `False`. Where a proposition is expected (a type, or `if h : …`) it's `Or a b` (constructors `Inl`, `Inr`), decided by `Decidable.or`. Looser than `&&`; groups to the right. See below |
 | `a && b` | And. On `Bool`s it's `if a then b else False`: `b` is evaluated only if `a` is `True`. Where a proposition is expected it's `And a b` (constructor `Both`), decided by `Decidable.and`. Looser than `=`, `==` and `<`; groups to the right. See below |
 | `a = b`, `a != b` | Equality and inequality (propositions). Not associative |
@@ -332,9 +333,30 @@ Each has two readings, chosen by what's expected, the way `if c` chooses:
 - **Where a proposition is expected** (a type: a signature, `if h : …`, an `auto` argument) they're the propositions `And a b`, `Or a b` and `Not a`, and both operands must be propositions. A `Bool` operand is an error (`E-NOT-A-TYPE`) with a note: for a `Bool` `b`, the proposition is `b = True`. `if h : x < y && y < z` gives `h : x < y && y < z` in the `then` branch and `h : Not (x < y && y < z)` in the `else` branch. The library's `Decidable.and`, `Decidable.or` and `Decidable.not` decide them from decisions of each side; both sides are decided before these run, so `if h : p && q` decides `q` even when `p` is false. `And.left`, `And.right` and `Or.neither` take them apart.
 - **Otherwise** (a `Bool` expected, as in a `def … : Bool`, a test or `if c`, or nothing known, as in `let`) it's a `Bool`, and **each operand is a condition, as `if` takes one**: a `Bool`, or failing that a proposition with a decision procedure, decided. So `x < y && y < z`, `flag && x < 3` and `not (x < y)` are all `Bool`s, and a `Bool` operand means what it always has. `a && b` is `if a then b else False` and `a \|\| b` is `if a then True else b`: `b` isn't evaluated when `a` decides the answer, and when `b` performs operations, they're performed only if `b` is evaluated. Operations in `a` are performed first. With nothing expected, if the `Bool` reading fails, the proposition reading is tried, with everything the first try did undone; if that fails too, the `Bool` reading's error is reported (`E-AUTO-NONE` at an operand nothing decides, as for `if`).
 
-Precedence, loosest first: `->`, then `\|\|`, then `&&`, then `=` `!=` `==` `<` `<=`. So `a \|\| b && c` is `a \|\| (b && c)`, `x < y && y < z` needs no brackets, and `p && q -> r` is `(p && q) -> r`. `not` is a function, so `not x < y` is `(not x) < y`: write `not (x < y)`. The printer shows `And p q` and `Or p q` as `p && q` and `p \|\| q`. A single `&` is still an error.
+Precedence, loosest first: `->`, then `\|>`, then `\|\|`, then `&&`, then `=` `!=` `==` `<` `<=`. So `a \|\| b && c` is `a \|\| (b && c)`, `x < y && y < z` needs no brackets, and `p && q -> r` is `(p && q) -> r`. `not` is a function, so `not x < y` is `(not x) < y`: write `not (x < y)`. The printer shows `And p q` and `Or p q` as `p && q` and `p \|\| q`. A single `&` is still an error.
 
 A test (`test "…" := e`) takes `e` as a condition too: a `Bool`, or a proposition with a decision procedure, so `test "ordered" := 1 < 2 && 2 < 3` and `test "small" := 3 < 5` work.
+
+### Pipe forward `|>`
+
+`x |> f` is `f x`, and `x |> f a b` is `f a b x`: the value on the left becomes the **last** argument. That's why the library puts the main argument last (`List.map f xs`, `List.sum xs`), so a pipeline reads in the order things happen:
+
+```
+def total : Nat :=
+  people
+    |> List.map (\p => p.age)
+    |> List.sum
+```
+
+It is the loosest operator except `->`, and groups to the left: `x |> f |> g` is `(x |> f) |> g`, `a + b |> f` is `(a + b) |> f`, and `x |> f -> T` is `(x |> f) -> T`. Because it's looser than `=`, `xs |> List.sum = 6` is `xs |> (List.sum = 6)`; write `(xs |> List.sum) = 6`.
+
+- **Layout.** A line may start with `|>` to continue the expression, if it's indented at least as far as the line the expression starts on, even at the enclosing block's own column (as `then` and `else` may). `|>` is its own token, so it never clashes with the `|` of arms and alternatives. After a `match`, a `|>` line at or right of the last alternative's `|` continues that alternative's body (the last alternative takes what follows, as with any operator); one further left, but at least at the `match` line's column, pipes the whole `match`.
+- **A lambda on the right** takes the rest of the pipeline: `x |> \y => f y |> g` is `x |> \y => (f y |> g)`, which means the same as `(x |> \y => f y) |> g`.
+- **The left side is checked first**, and its type is unified with the function's last parameter before the other arguments are checked. So `people |> List.map (\p => p.name)` knows `p : Person`, where `List.map (\p => p.name) people` is `E-CANNOT-INFER`. A value of the wrong type is `E-TYPE-MISMATCH`, pointing at the function: "this takes `List Nat` as its last argument, but the value before `|>` has type `Text`".
+- **The left side runs first** when it performs operations, then the right side's arguments, then the call: `say "left" 1 |> add (say "right" 2)` prints `left`, then `right`.
+- **A number literal on the left** is just `f 5`: it takes its type from `f`, as an argument would.
+
+Implicit and `auto` arguments, `[x := e]` and constructors work on the right as in a normal call.
 
 ### `match`
 

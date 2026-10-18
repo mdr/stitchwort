@@ -228,6 +228,17 @@ fn with_span<T>(cx: &mut Ctx, span: Span, f: impl FnOnce(&mut Ctx) -> Result<T>)
 pub(crate) enum Arg<'a> {
     Explicit(&'a Expr),
     Named(&'a AstName, &'a Expr),
+    /// The value piped in by `|>`, already elaborated (`pipe.rs`).
+    Piped(&'a Piped),
+}
+
+/// The left side of `x |> f`, elaborated, as `f`'s last argument.
+pub(crate) struct Piped {
+    pub term: Term,
+    pub ty: Value,
+    /// The right side's span: errors about the value not fitting point at
+    /// the function it's piped into.
+    pub span: Span,
 }
 
 pub fn infer(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
@@ -278,6 +289,7 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             args.reverse();
             infer_app(cx, head, &args)
         }
+        Expr::Pipe(value, f) => crate::pipe::infer_pipe(cx, value, f),
         Expr::NamedArg(..) => Err(cx.error(
             "E-PARSE",
             "a named implicit argument must follow a function",
@@ -426,7 +438,7 @@ pub(crate) fn infer_head(cx: &mut Ctx, head: &Expr) -> Result<(Term, Value)> {
 }
 
 /// Infers an application `head args`.
-fn infer_app(cx: &mut Ctx, head: &Expr, args: &[Arg]) -> Result<(Term, Value)> {
+pub(crate) fn infer_app(cx: &mut Ctx, head: &Expr, args: &[Arg]) -> Result<(Term, Value)> {
     let g = cx.g();
     if let Expr::Field(recv, field) = head {
         return crate::dot::infer_dot(cx, recv, field, args);
@@ -571,6 +583,7 @@ fn explicit_args<'a>(cx: &Ctx, args: &[Arg<'a>]) -> Result<Vec<&'a Expr>> {
             Arg::Named(..) => {
                 Err(cx.error("E-ARITY", "constructors don't take named arguments", "here"))
             }
+            Arg::Piped(_) => unreachable!("`|>` applies a constructor as a function"),
         })
         .collect()
 }
@@ -595,7 +608,7 @@ pub(crate) fn apply_args(cx: &mut Ctx, head: (Term, Value), args: &[Arg]) -> Res
 pub(crate) type Supply = std::collections::VecDeque<Term>;
 
 /// [`apply_args`], taking implicit arguments from `supply` first.
-fn apply_args_with(
+pub(crate) fn apply_args_with(
     cx: &mut Ctx,
     head: (Term, Value),
     args: &[Arg],
@@ -613,44 +626,18 @@ fn apply_args_with(
                 ty = cod.apply_lazy(cx.g(), || eval(cx.g(), &cx.env, &value))?;
                 term = Term::app_icit(term, value, icit);
             }
+            Arg::Piped(piped) => {
+                (term, ty) = insert_with(cx, term, ty, supply)?;
+                let (dom, cod) = function_parts(cx, &ty)?;
+                if !cx.unify(&piped.ty, &dom)? {
+                    return Err(piped_mismatch(cx, piped, &dom));
+                }
+                ty = cod.apply_lazy(cx.g(), || eval(cx.g(), &cx.env, &piped.term))?;
+                term = Term::app(term, piped.term.clone());
+            }
             Arg::Explicit(value) => {
                 (term, ty) = insert_with(cx, term, ty, supply)?;
-                let (dom, cod) = match force(cx.g(), ty.clone())? {
-                    Value::Pi(_, Icit::Explicit, dom, cod) => ((*dom).clone(), cod),
-                    Value::Neutral(Head::Meta(_), _) => {
-                        // Unknown type: it must be a function type.
-                        let dom = cx.fresh_meta();
-                        let dom = cx.eval(&dom)?;
-                        let mark = cx.mark();
-                        cx.bind_hidden("x".into(), dom.clone());
-                        let cod = cx.fresh_meta();
-                        cx.reset(mark);
-                        let cod = Closure {
-                            env: cx.env.as_slice().into(),
-                            body: Rc::new(cod),
-                        };
-                        let pi = Value::Pi(
-                            "x".into(),
-                            Icit::Explicit,
-                            Rc::new(dom.clone()),
-                            cod.clone(),
-                        );
-                        if !cx.unify(&ty, &pi)? {
-                            return Err(cx.mismatch(&pi, &ty));
-                        }
-                        (dom, cod)
-                    }
-                    other => {
-                        return Err(cx.error(
-                            "E-NOT-A-FUNCTION",
-                            "this isn't a function",
-                            format!(
-                                "it's applied to an argument, but its type is `{}`",
-                                cx.show(&other)
-                            ),
-                        ));
-                    }
-                };
+                let (dom, cod) = function_parts(cx, &ty)?;
                 let value = match check(cx, value, &dom) {
                     Ok(value) => value,
                     Err(e) if e.code == "E-PARTIAL-ESCAPE" => {
@@ -664,6 +651,61 @@ fn apply_args_with(
         }
     }
     Ok((term, ty))
+}
+
+/// The domain and codomain of `ty`, a function type with an explicit
+/// parameter (made one, if it's unknown).
+pub(crate) fn function_parts(cx: &mut Ctx, ty: &Value) -> Result<(Value, Closure)> {
+    match force(cx.g(), ty.clone())? {
+        Value::Pi(_, Icit::Explicit, dom, cod) => Ok(((*dom).clone(), cod)),
+        Value::Neutral(Head::Meta(_), _) => {
+            // Unknown type: it must be a function type.
+            let dom = cx.fresh_meta();
+            let dom = cx.eval(&dom)?;
+            let mark = cx.mark();
+            cx.bind_hidden("x".into(), dom.clone());
+            let cod = cx.fresh_meta();
+            cx.reset(mark);
+            let cod = Closure {
+                env: cx.env.as_slice().into(),
+                body: Rc::new(cod),
+            };
+            let pi = Value::Pi(
+                "x".into(),
+                Icit::Explicit,
+                Rc::new(dom.clone()),
+                cod.clone(),
+            );
+            if !cx.unify(ty, &pi)? {
+                return Err(cx.mismatch(&pi, ty));
+            }
+            Ok((dom, cod))
+        }
+        other => Err(cx.error(
+            "E-NOT-A-FUNCTION",
+            "this isn't a function",
+            format!(
+                "it's applied to an argument, but its type is `{}`",
+                cx.show(&other)
+            ),
+        )),
+    }
+}
+
+/// `x |> f`, where `x`'s type isn't what `f` takes.
+pub(crate) fn piped_mismatch(cx: &Ctx, piped: &Piped, dom: &Value) -> Diagnostic {
+    Diagnostic::error(
+        "E-TYPE-MISMATCH",
+        "the value piped in doesn't fit the function",
+    )
+    .with_label(
+        piped.span,
+        format!(
+            "this takes `{}` as its last argument, but the value before `|>` has type `{}`",
+            cx.show(dom),
+            cx.show(&piped.ty)
+        ),
+    )
 }
 
 /// A recursive call of the partial group being described, passed as `arg`
@@ -755,12 +797,13 @@ pub(crate) fn implicit_arg(cx: &mut Ctx, icit: Icit, ty: &Value) -> Term {
     meta
 }
 
-/// An implicit argument from `supply`, or a new one. An auto argument is
-/// always new, recorded as an obligation: [`written_result`] makes none.
+/// An implicit argument from `supply`, or a new one. ([`written_result`]
+/// makes no auto arguments; `pipe.rs` makes them with [`implicit_arg`], so
+/// they're recorded as obligations.)
 fn supplied_arg(cx: &mut Ctx, icit: Icit, ty: &Value, supply: &mut Supply) -> Term {
-    match supply.front() {
-        Some(_) if icit != Icit::Auto => supply.pop_front().expect("just checked"),
-        _ => implicit_arg(cx, icit, ty),
+    match supply.pop_front() {
+        Some(arg) => arg,
+        None => implicit_arg(cx, icit, ty),
     }
 }
 
@@ -1227,7 +1270,7 @@ fn propagate(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Option<Resul
 /// The function at the head of an application, if it's a variable or a
 /// definition, as `infer_app` finds it (without inserting implicit
 /// arguments).
-fn known_head(cx: &Ctx, head: &Expr) -> Option<(Term, Value)> {
+pub(crate) fn known_head(cx: &Ctx, head: &Expr) -> Option<(Term, Value)> {
     let Expr::Var(name) = head else {
         return None;
     };
@@ -1259,7 +1302,7 @@ fn written_result(cx: &mut Ctx, ty: &Value, args: &[Arg]) -> Result<Option<(Valu
     for arg in args {
         let stop = |x: &Name, icit: Icit| match arg {
             Arg::Named(name, _) => icit.is_implicit() && **x == *name.text,
-            Arg::Explicit(_) => icit == Icit::Explicit,
+            Arg::Explicit(_) | Arg::Piped(_) => icit == Icit::Explicit,
         };
         let Some(Value::Pi(_, icit, _, cod)) = implicits(cx, &mut ty, &mut supply, stop)? else {
             return Ok(None);

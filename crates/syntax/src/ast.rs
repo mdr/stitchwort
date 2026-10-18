@@ -44,6 +44,8 @@ pub enum Expr {
     Arrow(Box<Expr>, Box<Expr>),
     /// `a = b`, `a + b`, …
     Binary(BinOp, Box<Expr>, Box<Expr>),
+    /// `x |> f a b`: `f a b x`, with `x` elaborated (and run) first.
+    Pipe(Box<Expr>, Box<Expr>),
     /// A prefix minus: `-e`.
     Neg(Box<Expr>, Span),
     /// `if c then a else b`, or with a binder, `if h : P then a else b`, where
@@ -166,7 +168,11 @@ impl Expr {
         let mut first = self;
         let start = loop {
             match first {
-                Expr::App(a, _) | Expr::Arrow(a, _) | Expr::Binary(_, a, _) | Expr::Seq(a, _) => {
+                Expr::App(a, _)
+                | Expr::Arrow(a, _)
+                | Expr::Binary(_, a, _)
+                | Expr::Pipe(a, _)
+                | Expr::Seq(a, _) => {
                     first = a;
                 }
                 Expr::Effect(row, _) => break row.span,
@@ -179,6 +185,7 @@ impl Expr {
                 Expr::App(_, b)
                 | Expr::Arrow(_, b)
                 | Expr::Binary(_, _, b)
+                | Expr::Pipe(_, b)
                 | Expr::Seq(_, b)
                 | Expr::Effect(_, b) => last = b,
                 _ => break last.own_span(),
@@ -215,6 +222,7 @@ impl Expr {
             | Expr::App(..)
             | Expr::Arrow(..)
             | Expr::Binary(..)
+            | Expr::Pipe(..)
             | Expr::Seq(..) => self.span(),
         }
     }
@@ -242,9 +250,11 @@ impl Drop for Expr {
 fn has_nested(expr: &Expr) -> bool {
     let nested = |e: &Expr| !is_leaf(e);
     match expr {
-        Expr::App(a, b) | Expr::Arrow(a, b) | Expr::Binary(_, a, b) | Expr::Seq(a, b) => {
-            nested(a) || nested(b)
-        }
+        Expr::App(a, b)
+        | Expr::Arrow(a, b)
+        | Expr::Binary(_, a, b)
+        | Expr::Pipe(a, b)
+        | Expr::Seq(a, b) => nested(a) || nested(b),
         Expr::Lam(_, b, _) | Expr::NamedArg(_, b, _) | Expr::Neg(b, _) | Expr::Effect(_, b) => {
             nested(b)
         }
@@ -294,7 +304,11 @@ fn take_children(expr: &mut Expr, pending: &mut Vec<Expr>) {
         }
     };
     match expr {
-        Expr::App(a, b) | Expr::Arrow(a, b) | Expr::Binary(_, a, b) | Expr::Seq(a, b) => {
+        Expr::App(a, b)
+        | Expr::Arrow(a, b)
+        | Expr::Binary(_, a, b)
+        | Expr::Pipe(a, b)
+        | Expr::Seq(a, b) => {
             take(a);
             take(b);
         }

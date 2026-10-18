@@ -481,6 +481,8 @@ fn call(
     for arg in args {
         match arg {
             Arg::Explicit(e) => written.push(*e),
+            // `pipe.rs` applies the call to the value piped in.
+            Arg::Piped(_) => unreachable!("not passed to dot notation"),
             Arg::Named(n, _) => {
                 return Err(Diagnostic::error(
                     "E-ARITY",

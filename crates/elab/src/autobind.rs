@@ -228,7 +228,7 @@ fn walk(
             walk(e, body, bound, false, uses)?;
             bound.pop();
         }
-        Expr::Seq(a, b) => {
+        Expr::Seq(a, b) | Expr::Pipe(a, b) => {
             walk(e, a, bound, false, uses)?;
             walk(e, b, bound, false, uses)?;
         }

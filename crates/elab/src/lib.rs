@@ -18,6 +18,7 @@ mod matching;
 mod module;
 mod numbers;
 mod partial;
+mod pipe;
 mod records;
 mod scope;
 mod undo;
@@ -2324,7 +2325,11 @@ fn mentions_ability(expr: &ast::Expr, name: &str) -> bool {
                 }
                 pending.push(ty);
             }
-            Expr::App(a, b) | Expr::Arrow(a, b) | Expr::Binary(_, a, b) | Expr::Seq(a, b) => {
+            Expr::App(a, b)
+            | Expr::Arrow(a, b)
+            | Expr::Binary(_, a, b)
+            | Expr::Pipe(a, b)
+            | Expr::Seq(a, b) => {
                 pending.extend([&**a, &**b]);
             }
             Expr::Pi { dom, cod, .. } => pending.extend([&**dom, &**cod]),

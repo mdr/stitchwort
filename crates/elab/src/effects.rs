@@ -918,32 +918,14 @@ pub fn may_perform(cx: &Ctx, expr: &Expr) -> Result<bool> {
         Ok(false)
     };
     Ok(match expr {
-        Expr::Var(_) | Expr::App(..) => {
-            let mut args = Vec::new();
-            let mut head = expr;
-            while let Expr::App(f, a) = head {
-                args.push(a.as_ref());
-                head = f;
-            }
-            if any(&mut args.iter().copied())? {
-                return Ok(true);
-            }
-            let explicit = args
-                .iter()
-                .filter(|a| !matches!(a, Expr::NamedArg(..)))
-                .count();
-            match head {
-                Expr::Var(name) => match head_type(cx, name) {
-                    // An operation on its own is a function value.
-                    HeadType::Op => explicit > 0,
-                    HeadType::Typed(ty) => performs_after(cx, ty, explicit)?,
-                    HeadType::Other => false,
-                },
-                Expr::Field(recv, field) => {
-                    may_perform(cx, recv)? || dot_performs(cx, recv, field, explicit)?
+        Expr::Var(_) | Expr::App(..) => call_performs(cx, expr, 0)?,
+        // `x |> \y => body` runs `body`; `x |> \y z => …` is a function.
+        Expr::Pipe(value, f) => {
+            may_perform(cx, value)?
+                || match &**f {
+                    Expr::Lam(names, body, _) => names.len() == 1 && may_perform(cx, body)?,
+                    f => call_performs(cx, f, 1)?,
                 }
-                other => may_perform(cx, other)?,
-            }
         }
         Expr::Binary(_, a, b) => any(&mut [&**a, &**b].into_iter())?,
         Expr::Match {
@@ -969,6 +951,39 @@ pub fn may_perform(cx: &Ctx, expr: &Expr) -> Result<bool> {
         Expr::Ann(e, _, _) | Expr::NamedArg(_, e, _) => may_perform(cx, e)?,
         Expr::Tuple(a, b, _) => any(&mut [&**a, &**b].into_iter())?,
         _ => false,
+    })
+}
+
+/// Whether the call `expr` (a variable, or an application) may perform
+/// operations, given `extra` more arguments (the value piped in by `|>`).
+fn call_performs(cx: &Ctx, expr: &Expr, extra: usize) -> Result<bool> {
+    let mut args = Vec::new();
+    let mut head = expr;
+    while let Expr::App(f, a) = head {
+        args.push(a.as_ref());
+        head = f;
+    }
+    for arg in &args {
+        if may_perform(cx, arg)? {
+            return Ok(true);
+        }
+    }
+    let explicit = extra
+        + args
+            .iter()
+            .filter(|a| !matches!(a, Expr::NamedArg(..)))
+            .count();
+    Ok(match head {
+        Expr::Var(name) => match head_type(cx, name) {
+            // An operation on its own is a function value.
+            HeadType::Op => explicit > 0,
+            HeadType::Typed(ty) => performs_after(cx, ty, explicit)?,
+            HeadType::Other => false,
+        },
+        Expr::Field(recv, field) => {
+            may_perform(cx, recv)? || dot_performs(cx, recv, field, explicit)?
+        }
+        other => may_perform(cx, other)?,
     })
 }
 
@@ -1307,6 +1322,9 @@ pub fn comp_call(
     row: &Row,
     expected: Option<&Value>,
 ) -> Result<(Term, Value)> {
+    if let Expr::Pipe(value, f) = expr {
+        return pipe_call(cx, value, f, row, expected);
+    }
     if let Expr::Binary(..)
     | Expr::Neg(..)
     | Expr::List(..)
@@ -1412,6 +1430,56 @@ pub fn comp_call(
     }
     let result = wrap(cx, row, bound, result, &result_ty)?;
     Ok((result, result_ty))
+}
+
+/// `value |> f` that performs operations: `value` runs first, then the call
+/// (docs/syntax.md). A lambda on the right is a `let`: `x |> \y => body`
+/// runs `x`, then `body` with `y` bound to its result.
+fn pipe_call(
+    cx: &mut Ctx,
+    value: &Expr,
+    f: &Expr,
+    row: &Row,
+    expected: Option<&Value>,
+) -> Result<(Term, Value)> {
+    let mut bound = Vec::new();
+    let value = run_first(cx, value, row, &mut bound)?;
+    let (result, ty) = match f {
+        Expr::Lam(names, body, span) if names.len() == 1 => {
+            let as_let = Expr::Let {
+                name: names[0].clone(),
+                ty: None,
+                value: Box::new(value),
+                body: body.clone(),
+                span: *span,
+            };
+            comp_infer(cx, &as_let, row)?
+        }
+        _ => {
+            let pipe = Expr::Pipe(Box::new(value.clone()), Box::new(f.clone()));
+            if may_perform(cx, &pipe)? {
+                // The call performs operations: `f … value`, with `value`
+                // already run.
+                let call = Expr::App(Box::new(f.clone()), Box::new(value));
+                comp_call(cx, &call, row, None)?
+            } else {
+                let (term, ty) = infer(cx, &pipe)?;
+                let (term, ty) = insert(cx, term, ty)?;
+                (done(cx, row, &ty, term)?, ty)
+            }
+        }
+    };
+    if let Some(t) = expected
+        && !cx.unify(&ty, t)?
+    {
+        let error = cx.mismatch(t, &ty);
+        if let Some(first) = bound.first() {
+            cx.reset(first.mark);
+        }
+        return Err(error);
+    }
+    let result = wrap(cx, row, bound, result, &ty)?;
+    Ok((result, ty))
 }
 
 /// Runs `e` first if it performs operations, binding its result to a fresh
