@@ -7,6 +7,7 @@
 pub mod budget;
 pub mod chars;
 pub mod check;
+pub mod erase;
 pub mod globals;
 pub mod hash;
 pub mod native;

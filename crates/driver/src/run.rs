@@ -189,6 +189,8 @@ impl Session {
         let g = &self.elab.globals;
         let s = Shapes::new(self);
         let _op = g.budget.operation(self.elab.limits);
+        // Proofs and types aren't computed (`erase.rs`).
+        let _erasing = g.erasure.running();
         let run = || -> Result<Vec<String>, ResourceError> {
             let mut printed = Vec::new();
             let mut list = force(g, eval(g, &[], &term)?)?;
@@ -282,6 +284,8 @@ impl Session {
     ) -> Result<Outcome, RunError> {
         let g = &self.elab.globals;
         let s = Shapes::new(self);
+        // Proofs and types aren't computed (`erase.rs`).
+        let _erasing = g.erasure.running();
         let mut lines = 0;
         let mut ticks = 0;
         let mut machine = {

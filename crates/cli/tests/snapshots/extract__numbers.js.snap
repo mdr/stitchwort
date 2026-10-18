@@ -453,7 +453,7 @@ const $Std$dDecidable$dnot = (v1) => {
 const $Std$dNat$ddecLessThan = (v0) => (v1) => $Std$dBool$ddecTrue($Std$dNat$dleq((v0 + 1n))(v1));
 const $Std$dNat$ddivFuel = (fuel) => (n) => (d) => { if (d === 0n) return fuel; const q = n / d; return q < fuel ? q : fuel; };
 const $Std$dNat$ddiv = (v0) => (v1) => $Std$dNat$ddivFuel(v0)(v0)(v1);
-const $Std$dNat$dmod = (v0) => (v1) => $Std$dNat$dsub(v0)($Std$dNat$dmul(v1)($Std$dNat$ddiv(v0)(v1)));
+const $Std$dNat$dmod = (v0) => (v1) => $Std$dNat$dsub(v0)($Std$dNat$dmul($Std$dNat$ddiv(v0)(v1))(v1));
 const $Main$dtotal = (v0) => {
   switch (v0.tag) {
     case "Nil": {

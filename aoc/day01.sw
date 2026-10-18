@@ -34,15 +34,7 @@ place top x = Int.modNat x (Succ top)
 
 -- Any integer, wrapped onto the dial.
 wrap : (top : Nat) -> Int -> Pos top
-wrap top x = { at = place top x, ok = quickLt (place top x) (Succ top) (\u -> Int.modNatLt x (Succ top)) }
-
--- `stitchwort run` computes proofs too, and `Int.modNatLt` takes thousands of
--- steps. Comparing the numbers is one step, and gives the same proposition;
--- the slow proof only rules out the other answer, so it never runs.
-theorem quickLt : (n : Nat) -> (d : Nat) -> (() -> n < d) -> n < d
-quickLt n d slow =
-  Bool.inspect (Nat.leq (Succ n) d) (\b -> b = True) (\h -> rfl)
-    (\h -> Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym h) (slow ()))))
+wrap top x = { at = place top x, ok = Int.modNatLt x (Succ top) }
 
 -- Where a turn leaves the dial.
 move : (top : Nat) -> Pos top -> Turn -> Pos top

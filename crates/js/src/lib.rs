@@ -2229,7 +2229,7 @@ const TEXT_NATIVES: &[(Builtin, TextNative, &str)] = &[
     (
         Builtin::NatToText,
         TextNative::NatToText,
-        "e65243b95395d06a0ae55bae08ed6e8d14293c20d4936344fd9d3de03a618096",
+        "80418de4c24c264a31bef72b6173e2ab3ab8e19c2a8bea7c3355314191e2da0a",
     ),
     (
         Builtin::TextToNat,
@@ -2419,7 +2419,7 @@ const INT_NATIVES: &[(Builtin, IntNative, &str)] = &[
     (
         Builtin::IntMod,
         IntNative::IntMod,
-        "7290ad8fdf81843bc0aedcb400b98108d295a74484d17882e33e2ffea5303438",
+        "59337e39965a2e98bd60485b9bd781d0bc770b72f9a1d33feaa7b28e8911c8db",
     ),
     (
         Builtin::IntTDiv,
@@ -2429,7 +2429,7 @@ const INT_NATIVES: &[(Builtin, IntNative, &str)] = &[
     (
         Builtin::IntTMod,
         IntNative::IntTMod,
-        "4aaa804d1a3902240e9bbaedba84f8025bd10bd4acbfcd28e72606771403660f",
+        "48b63851b1fed3d950ea3ddd134e4d0ab56653c636e33dd7e9ec4b338aa7602c",
     ),
     (
         Builtin::IntFDiv,
@@ -2439,12 +2439,12 @@ const INT_NATIVES: &[(Builtin, IntNative, &str)] = &[
     (
         Builtin::IntFMod,
         IntNative::IntFMod,
-        "580c6866f2cd6e3989c9db1aff2cc1e09aaa1e74a8c617700d43279203e62fc4",
+        "c06a2c8bd4fb9fbe9b77c2499f1669a0b1d0ab5abf17130f110ef7a6f025b084",
     ),
     (
         Builtin::IntModNat,
         IntNative::IntModNat,
-        "d4c14c8721e2231580d0a85ab6f29024da74cca7fb759cdff91ab47a3d4220e9",
+        "8a2aad6298178d66ea6eea919447ce977dc966504e0cf63e6ef5a89d982a24c6",
     ),
     (
         Builtin::DecEqInt,
@@ -2494,7 +2494,7 @@ const INT_NATIVES: &[(Builtin, IntNative, &str)] = &[
     (
         Builtin::IntToText,
         IntNative::IntToText,
-        "9d9cad248e69fc5784cd1c4eb75cd3f97b4dfeeb13bd7e455e661aae65549128",
+        "95601003651a6f560af094a588ce3bac634034f85ca0e574524e32383c6e776d",
     ),
     (
         Builtin::TextToInt,
