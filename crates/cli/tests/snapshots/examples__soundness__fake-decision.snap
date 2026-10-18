@@ -3,9 +3,9 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-TYPE-MISMATCH] Error: type mismatch
-   ╭─[ soundness/fake-decision.sw:6:46 ]
+   ╭─[ soundness/fake-decision.sw:5:63 ]
    │
- 6 │ oneIsTwo = Decidable.fromYes (Nat.decEq 1 2) Trivial
-   │                                              ───┬───  
-   │                                                 ╰───── expected `Void`, but this has type `Unit`
+ 5 │ theorem oneIsTwo : 1 = 2 := Decidable.fromYes (Nat.decEq 1 2) Trivial
+   │                                                               ───┬───  
+   │                                                                  ╰───── expected `Void`, but this has type `Unit`
 ───╯

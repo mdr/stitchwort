@@ -53,7 +53,7 @@ Main.test "record lambda" 38bb975204c002f2c1ffc4b3d5defebe8a7ed509a78b290104cbcd
 Main.test "nested lambda" a69e4f41c548c9cda1bd614a1850d4d099c7c9f6c0282d8cd5adce44edaae68f
 Main.test "tree" b135eb73aab1eb008b06e2c7bc57ed2a52cdf0de0529b24a0761d9a9672db713
 Main.test "tree lifted" deb71617d7c3eb0ace38f6f319987cae109026629c856aa9c19f2066d61d1be0
-Main.test "effects run once, in order" 7dc321f8ac3cfee2d9b58967414b3339d9ac254ed2988174fb81d74de8520b84
-Main.test "effects result" fa2ff27e50657e78916676514d37bb8bd7d3975918611c815425b84f1c5ecf35
+Main.test "effects run once, in order" 3a456fbdd761ba95449efeae1a5a489e22a1511b79f17bfea037c4423f9351ff
+Main.test "effects result" a86d1f0304bcefa015093567068678abc234af09111175451b722e49bcd13900
 Main.test "in a test".%match1 ba1b1a76614dc88ceee1a0da52c8865b58213c4fe40730a7fd182eda788116ee
 Main.test "in a test" c3a7946f5443270183be891acd9f0ec592d64cfeacf3ceb8b8bd3795bf7bf472

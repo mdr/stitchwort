@@ -5,5 +5,4 @@ type Maybe (a : Type) : Type =
   | Absent
   | Present (value : a)
 
-one : Std.Maybe Nat
-one = Just 1
+def one : Std.Maybe Nat := Just 1

@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-TYPE-MISMATCH] Error: type mismatch
-   ╭─[ reject/tuple-wrong-type.sw:4:11 ]
+   ╭─[ reject/tuple-wrong-type.sw:3:30 ]
    │
- 4 │ bad = (1, 2)
-   │           ┬  
-   │           ╰── expected `Bool`, but this has type `Nat`
+ 3 │ def bad : (Nat, Bool) := (1, 2)
+   │                              ┬  
+   │                              ╰── expected `Bool`, but this has type `Nat`
    │ 
    │ Note: a numeral can only be the prelude's `Nat` or `Int`
 ───╯

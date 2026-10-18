@@ -111,15 +111,13 @@ fn erasure_doesnt_change_what_examples_print_or_test() {
 const POS: &str = r#"
 type Pos = { at : Nat, ok : at < 100 }
 
-wrap : Int -> Pos
-wrap x = { at = Int.modNat x 100, ok = Int.modNatLt x 100 }
+def wrap (x : Int) : Pos := { at = Int.modNat x 100, ok = Int.modNatLt x 100 }
 
-walk : List Text -> Pos -> Nat
-walk Nil         p = p.at
-walk (Cons t ts) p = walk ts (wrap (p.at.toInt + Nat.toInt (Text.length t * 37)))
+def walk : List Text -> Pos -> Nat
+  | Nil,       p => p.at
+  | Cons t ts, p => walk ts (wrap (p.at.toInt + Nat.toInt (Text.length t * 37)))
 
-main : () -> {IO, Partial} ()
-main u = print (Nat.toText (walk (IO.readAllLines ()) (wrap 50)))
+def main () : {IO, Partial} () := print (Nat.toText (walk (IO.readAllLines ()) (wrap 50)))
 "#;
 
 #[test]
@@ -177,14 +175,13 @@ fn j_on_an_erased_proof_argument() {
 type Box (n : Nat) =
   | MkBox (v : Nat)
 
-Box.value : [n : Nat] -> Box n -> Nat
-Box.value (MkBox v) = v
+def Box.value : [n : Nat] -> Box n -> Nat
+  | MkBox v => v
 
-castBox : [a b : Nat] -> a = b -> Box a -> Box b
-castBox p x = J (\y q -> Box y) x p
+def castBox [a b : Nat] (p : a = b) (x : Box a) : Box b := J (\y q => Box y) x p
 
-test "transport keeps the payload" = Box.value (castBox (rfl : 2 + 2 = 4) (MkBox 7)) == 7
-test "and through a symmetric proof" =
+test "transport keeps the payload" := Box.value (castBox (rfl : 2 + 2 = 4) (MkBox 7)) == 7
+test "and through a symmetric proof" :=
   Box.value (castBox (Eq.sym (rfl : 2 + 2 = 4)) (MkBox 9)) == 9
 "#,
         2,
@@ -200,14 +197,13 @@ fn subsingleton_elimination_on_an_erased_proof() {
 type Both2 (p : Prop) (q : Prop) : Prop =
   | MkBoth2 (x : p) (y : q)
 
-pick : [p q : Prop] -> Both2 p q -> Nat
-pick (MkBoth2 x y) = 5
+def pick : [p q : Prop] -> Both2 p q -> Nat
+  | MkBoth2 x y => 5
 
-theorem twoProofs : Both2 (1 = 1) (2 = 2)
-twoProofs = MkBoth2 rfl rfl
+theorem twoProofs : Both2 (1 = 1) (2 = 2) := MkBoth2 rfl rfl
 
-test "a literal proof" = pick (MkBoth2 (rfl : 1 = 1) (rfl : 3 = 3)) == 5
-test "a theorem as the proof" = pick twoProofs == 5
+test "a literal proof" := pick (MkBoth2 (rfl : 1 = 1) (rfl : 3 = 3)) == 5
+test "a theorem as the proof" := pick twoProofs == 5
 "#,
         2,
     );
@@ -218,14 +214,12 @@ test "a theorem as the proof" = pick twoProofs == 5
 fn type_and_proof_arguments_are_skipped() {
     tests_pass_both_ways(
         r#"
-const : (a : Type) -> (n : Nat) -> n < 10 -> Nat
-const a n p = n + 1
+def const (a : Type) (n : Nat) (p : n < 10) : Nat := n + 1
 
-theorem small : 3 < 10
-small = rfl
+theorem small : 3 < 10 := rfl
 
-test "type and proof arguments" = const Nat 3 small == 4
-test "a type computed by a function" = const (List Nat) 3 small == 4
+test "type and proof arguments" := const Nat 3 small == 4
+test "a type computed by a function" := const (List Nat) 3 small == 4
 "#,
         2,
     );
@@ -237,15 +231,14 @@ fn an_expensive_proof_in_data_isnt_run() {
     let (with, without) = tests_pass_both_ways(
         r#"
 theorem addZero : (n : Nat) -> n + 0 = n
-addZero Zero     = rfl
-addZero (Succ k) = Eq.cong Succ (addZero k)
+  | Zero   => rfl
+  | Succ k => Eq.cong Succ (addZero k)
 
 type Wit = { n : Nat, ok : n + 0 = n }
 
-mk : Nat -> Wit
-mk k = { n = k, ok = addZero k }
+def mk (k : Nat) : Wit := { n = k, ok = addZero k }
 
-test "the field's value" = (mk 2000).n == 2000
+test "the field's value" := (mk 2000).n == 2000
 "#,
         1,
     );

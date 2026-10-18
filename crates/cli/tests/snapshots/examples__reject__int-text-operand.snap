@@ -3,9 +3,9 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-TYPE-MISMATCH] Error: `<` works on `Nat` and `Int`
-   ╭─[ reject/int-text-operand.sw:4:7 ]
+   ╭─[ reject/int-text-operand.sw:3:28 ]
    │
- 4 │ r t = t < 1
-   │       ┬  
-   │       ╰── this is `Text`
+ 3 │ def r (t : Text) : Prop := t < 1
+   │                            ┬  
+   │                            ╰── this is `Text`
 ───╯

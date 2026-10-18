@@ -492,6 +492,7 @@ name = "stitchwort-convert"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "insta",
  "stitchwort-core",
  "stitchwort-driver",
  "stitchwort-elab",
@@ -549,7 +550,6 @@ version = "0.1.0"
 name = "stitchwort-syntax"
 version = "0.1.0"
 dependencies = [
- "insta",
  "num-bigint",
 ]
 

@@ -45,40 +45,37 @@ const MAIN_OUTPUT = "What's your name?\n" +
  * The number depends on the input, as otherwise checking the program would
  * count down too.
  */
-const SPIN = `spin : Nat -> Nat
-spin 0        = 0
-spin (Succ n) = spin n
+const SPIN = `def spin : Nat -> Nat
+  | 0      => 0
+  | Succ n => spin n
 
-start : Maybe Text -> Nat
-start Nothing  = 1000000000000
-start (Just l) = 1000000000000
+def start : Maybe Text -> Nat
+  | Nothing => 1000000000000
+  | Just l  => 1000000000000
 
-main : () -> {IO} ()
-main u =
+def main () : {IO} () :=
   print "tick"
   print (Nat.toText (spin (start (readLine ()))))
 `;
 
 /** Prints `line` `n` times. */
-const printMany = (n, line) => `printMany : Nat -> {IO} ()
-printMany 0        = ()
-printMany (Succ n) =
-  print "${line}"
-  printMany n
+const printMany = (n, line) => `def printMany : Nat -> {IO} ()
+  | 0      => ()
+  | Succ n =>
+    print "${line}"
+    printMany n
 
-main : () -> {IO} ()
-main u = printMany ${n}
+def main () : {IO} () := printMany ${n}
 `;
 
 /** Reads `n` lines, ignoring what it gets. */
-const readMany = (n) => `readMany : Nat -> {IO} ()
-readMany 0        = ()
-readMany (Succ n) =
-  let l = readLine ()
-  readMany n
+const readMany = (n) => `def readMany : Nat -> {IO} ()
+  | 0      => ()
+  | Succ n =>
+    let l := readLine ()
+    readMany n
 
-main : () -> {IO} ()
-main u = readMany ${n}
+def main () : {IO} () := readMany ${n}
 `;
 
 // Finding Chrome -------------------------------------------------------------
@@ -330,18 +327,17 @@ test("every example checks, and passes its tests but the failing one", async (pa
 test("errors show in the Check tab", async (page) => {
   await page.open();
   await page.untilChecked();
-  await page.setSource("x : Nat\nx = rfl\n");
+  await page.setSource("def x : Nat := rfl\n");
   await page.untilStatus("Doesn’t check");
   assert.match(await page.ev(`document.querySelector("pre.errors").textContent`), /E-TYPE-MISMATCH/);
 });
 
 /** Checks, with one warning (W-MODULE-NAME): `a` is the module's `a`. */
-const WARNED = `size : List a -> Nat
-size Nil         = 0
-size (Cons _ xs) = Succ (size xs)
+const WARNED = `def size : List a -> Nat
+  | Nil       => 0
+  | Cons _ xs => Succ (size xs)
 
-a : Type
-a = Nat
+def a : Type := Nat
 `;
 
 test("warnings show apart from errors, without stopping anything", async (page) => {
@@ -362,7 +358,7 @@ test("warnings show apart from errors, without stopping anything", async (page) 
   assert.match(s.warnings, /^\[W-MODULE-NAME\] Warning:/);
   assert.equal(s.errors, null);
   // With an error as well: each in its own box, in its own colour.
-  await page.setSource(WARNED + "\nbad : Nat\nbad = rfl\n");
+  await page.setSource(WARNED + "\ndef bad : Nat := rfl\n");
   await page.untilStatus("Doesn’t check");
   s = await shown();
   assert.equal(s.count, "1 warning");
@@ -374,7 +370,7 @@ test("warnings show apart from errors, without stopping anything", async (page) 
   // Other tabs show them with the errors, and work as usual once it checks.
   await page.tab("tests");
   await page.until(`document.querySelector("#output pre.warnings")`, 30000, "the warnings in the Tests tab");
-  await page.setSource(WARNED + `\ntest "sized" = Nat.leq (size [1, 2]) 2\n`);
+  await page.setSource(WARNED + `\ntest "sized" := Nat.leq (size [1, 2]) 2\n`);
   await page.until(`document.querySelector(".summary")?.textContent === "1 test: 1 passed, 0 failed"`);
   assert.equal((await shown()).count, "1 warning");
   // The count goes to the Check tab.
@@ -490,7 +486,7 @@ test("a long run streams its output, and Stop cancels it", async (page) => {
   await page.until(`document.querySelector(".run-result pre.program-output")?.textContent === "tick\\n"`, 10000, "tick");
   assert.match(await page.runResult(), /Running…/);
   // Checking goes on meanwhile, in its own worker.
-  await page.setSource(SPIN + "\nbad : Nat\nbad = rfl\n");
+  await page.setSource(SPIN + "\ndef bad : Nat := rfl\n");
   await page.untilStatus("Doesn’t check");
   assert.match(await page.runResult(), /Running…/);
   const result = await page.run(5000, () => page.click(".runrow button:nth-child(2)"));
@@ -540,11 +536,11 @@ test("after a crash, the next request starts a fresh compiler", async (page) => 
   overrides.set("/playground-worker.js", crashing(readFileSync(join(root, "playground-worker.js"), "utf8")));
   await page.open();
   await page.untilChecked();
-  await page.setSource("x : Nat\nx = 1\n" + CRASH + "\n");
+  await page.setSource("def x : Nat := 1\n" + CRASH + "\n");
   await page.untilStatus("The compiler crashed");
   assert.match(await page.output(), /The compiler crashed \(RangeError: Maximum call stack size exceeded\)/);
   assert.match(await page.output(), /It has been restarted/);
-  await page.setSource("x : Nat\nx = 1\n");
+  await page.setSource("def x : Nat := 1\n");
   await page.untilChecked();
   await page.pick("ex-main");
   await page.run();

@@ -5,9 +5,9 @@ expression: output
 [E-TERMINATION] Error: can't show that `grow` terminates
    ╭─[ reject/non-terminating.sw:3:1 ]
    │
- 3 │ grow : Nat -> Nat
-   │ ────────┬────────  
-   │         ╰────────── this recursive call might not terminate: no argument is known to be smaller
+ 3 │ def grow (n : Nat) : Nat := grow (Succ n)
+   │ ────────────┬───────────  
+   │             ╰───────────── this recursive call might not terminate: no argument is known to be smaller
    │ 
    │ Note 1: however the recursive calls are repeated, some argument must get smaller (a part of a pattern-matched constructor); an argument passed on unchanged, or rebuilt from its own pattern, is no smaller
    │ 

@@ -9,15 +9,14 @@ use stitchwort_core::{Limits, ResourceError};
 use stitchwort_driver::driver::{Cache, Outcome, Session};
 
 const REPLICATE: &str = "
-replicate : Nat -> a -> List a
-replicate Zero     x = Nil
-replicate (Succ n) x = Cons x (replicate n x)
+def replicate : Nat -> a -> List a
+  | Zero,   x => Nil
+  | Succ n, x => Cons x (replicate n x)
 
 -- In `List.length (replicate n 1) == n`, the computation appears in a type (the
 -- decision's, `Decidable (List.length … = n)`), so checking a test written that
 -- way would compute it. Inside a function, `n` is a variable when checked.
-replicateHasLength : Nat -> Bool
-replicateHasLength n = List.length (replicate n 1) == n
+def replicateHasLength (n : Nat) : Bool := List.length (replicate n 1) == n
 ";
 
 fn codes(
@@ -35,8 +34,9 @@ fn codes(
 fn deep_recursion_runs_without_using_the_stack() {
     let mut session = Session::new();
     let source = format!(
-        "{REPLICATE}\ntest \"deep\" = replicateHasLength 1000000\n\n\
-         theorem deep : List.length (replicate 1000000 1) = 1000000\ndeep = rfl\n"
+        "{REPLICATE}\n\
+         test \"deep\" := replicateHasLength 1000000\n\n\
+         theorem deep : List.length (replicate 1000000 1) = 1000000 := rfl\n"
     );
     session.load("deep.sw", &source).expect("checks");
     let results = session.run_tests(&Cache::disabled());
@@ -56,7 +56,7 @@ fn with_few_frames() -> Session {
 #[test]
 fn a_test_that_recurses_too_deeply_has_no_result() {
     let mut session = with_few_frames();
-    let source = format!("{REPLICATE}\ntest \"deep\" = replicateHasLength 100000\n");
+    let source = format!("{REPLICATE}\ntest \"deep\" := replicateHasLength 100000\n");
     session.load("deep.sw", &source).expect("checks");
     let results = session.run_tests(&Cache::disabled());
     assert_eq!(
@@ -68,9 +68,8 @@ fn a_test_that_recurses_too_deeply_has_no_result() {
 #[test]
 fn a_proof_that_recurses_too_deeply_is_rejected_for_that_reason() {
     let mut session = with_few_frames();
-    let source = format!(
-        "{REPLICATE}\ntheorem deep : List.length (replicate 100000 1) = 100000\ndeep = rfl\n"
-    );
+    let source =
+        format!("{REPLICATE}\ntheorem deep : List.length (replicate 100000 1) = 100000 := rfl\n");
     // Not `E-REFL`: the kernel didn't find the sides different.
     let diagnostics = session.load("deep.sw", &source).unwrap_err();
     assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
@@ -84,7 +83,7 @@ fn too_much_work_has_no_result() {
     let mut session = Session::new();
     session.load("work.sw", REPLICATE).expect("checks");
     session
-        .load("test.sw", "test \"long\" = replicateHasLength 100\n")
+        .load("test.sw", "test \"long\" := replicateHasLength 100\n")
         .expect("checks");
     session.elab.limits = Limits {
         work: 50,
@@ -115,37 +114,33 @@ fn printing_too_large_a_value_is_an_error() {
 /// arguments, `if h :`, `==` through decision procedures, text, abilities
 /// with handlers, and proofs by computation.
 const PROGRAM: &str = r#"
-half : Nat -> Nat
-half n = n / 2
+def half (n : Nat) : Nat := n / 2
 
-safeDiv : Nat -> Nat -> Nat
-safeDiv n d = if h : d != 0 then n / d else 0
+def safeDiv (n : Nat) (d : Nat) : Nat := if h : d != 0 then n / d else 0
 
-theorem halfTen : half 10 = 5
-halfTen = rfl
+theorem halfTen : half 10 = 5 := rfl
 
 ability Count where
   tick : () -> {Count} ()
 
-ticks : Nat -> {Count} Nat
-ticks Zero     = 0
-ticks (Succ n) =
-  tick ()
-  Succ (ticks n)
+def ticks : Nat -> {Count} Nat
+  | Zero   => 0
+  | Succ n =>
+    tick ()
+    Succ (ticks n)
 
-counted : (() -> {Count | e} a) -> {e} Pair Nat a
-counted prog =
+def counted (prog : () -> {Count | e} a) : {e} Pair Nat a :=
   handle prog () with
-    | return x     -> MkPair 0 x
-    | tick u => k  ->
-      let r = k ()
+    | return x     => MkPair 0 x
+    | tick u, k    =>
+      let r := k ()
       MkPair (Succ (Pair.fst r)) (Pair.snd r)
 
-test "half"     = half 9 == 4
-test "safeDiv"  = safeDiv 7 0 == 0
-test "text"     = Text.join '-' (Text.split ',' "a,,b") == "a--b"
-test "trim"     = Text.trim "  x " == "x"
-test "count"    = Pair.fst (Effect.runPure (counted (\u -> ticks 3))) == 3
+test "half"     := half 9 == 4
+test "safeDiv"  := safeDiv 7 0 == 0
+test "text"     := Text.join '-' (Text.split ',' "a,,b") == "a--b"
+test "trim"     := Text.trim "  x " == "x"
+test "count"    := Pair.fst (Effect.runPure (counted (\u => ticks 3))) == 3
 "#;
 
 /// With every work limit from 1 up to enough for everything: loading either
@@ -202,7 +197,7 @@ fn running_out_leaves_nothing_behind() {
     session
         .load(
             "second.sw",
-            "double : Nat -> Nat\ndouble n = n + n\n\ntest \"double\" = double 21 == 42\n",
+            "def double (n : Nat) : Nat := n + n\n\ntest \"double\" := double 21 == 42\n",
         )
         .expect("checks");
     let results = session.run_tests(&Cache::disabled());
@@ -216,17 +211,13 @@ fn checking_does_not_compute_arguments_the_types_ignore() {
     let mut session = Session::new();
     let source = format!(
         "{REPLICATE}
-constant : a -> b -> a
-constant x y = x
+def constant (x : a) (y : b) : a := x
 
-ignored : Nat
-ignored = constant 0 (List.length (replicate 1000000 1))
+def ignored : Nat := constant 0 (List.length (replicate 1000000 1))
 
-inField : Pair Nat Nat
-inField = MkPair 0 (List.length (replicate 1000000 1))
+def inField : Pair Nat Nat := MkPair 0 (List.length (replicate 1000000 1))
 
-inList : List Nat
-inList = [List.length (replicate 1000000 1)]
+def inList : List Nat := [List.length (replicate 1000000 1)]
 "
     );
     assert_eq!(codes(session.load("lazy.sw", &source)), Vec::<&str>::new());
@@ -239,15 +230,12 @@ fn arguments_the_types_need_are_still_computed() {
     let mut session = Session::new();
     let source = format!(
         "{REPLICATE}
-theorem three : List.length (replicate 3 1) = 3
-three = rfl
+theorem three : List.length (replicate 3 1) = 3 := rfl
 
-ok : Pair Nat Nat
-ok = MkPair (List.length (replicate 3 1)) 0
+def ok : Pair Nat Nat := MkPair (List.length (replicate 3 1)) 0
 
 -- `Eq.cong`'s result type mentions its arguments.
-theorem wrong : List.length (replicate 3 1) = 4
-wrong = Eq.cong (\\x -> x) rfl
+theorem wrong : List.length (replicate 3 1) = 4 := Eq.cong (\\x => x) rfl
 "
     );
     assert_eq!(
@@ -257,16 +245,15 @@ wrong = Eq.cong (\\x -> x) rfl
 }
 
 const LISTS: &str = "
-allOnes : Nat -> List Nat
-allOnes Zero     = [1]
-allOnes (Succ n) = Cons 1 (allOnes n)
+def allOnes : Nat -> List Nat
+  | Zero   => [1]
+  | Succ n => Cons 1 (allOnes n)
 
-endsInTwo : Nat -> List Nat
-endsInTwo Zero     = [2]
-endsInTwo (Succ n) = Cons 1 (endsInTwo n)
+def endsInTwo : Nat -> List Nat
+  | Zero   => [2]
+  | Succ n => Cons 1 (endsInTwo n)
 
-startsWithTwo : Nat -> List Nat
-startsWithTwo n = Cons 2 (allOnes n)
+def startsWithTwo (n : Nat) : List Nat := Cons 2 (allOnes n)
 ";
 
 /// Comparing long values, as checking a proof does, walks them with a work
@@ -313,8 +300,9 @@ fn printing_long_values_runs_without_using_the_stack() {
 fn proofs_about_long_values_check() {
     let mut session = Session::new();
     let source = format!(
-        "{LISTS}\ntheorem same : allOnes 20000 = allOnes 20000\nsame = rfl\n\n\
-         theorem differ : Not (allOnes 20000 = endsInTwo 20000)\ndiffer = \\p -> p\n"
+        "{LISTS}\n\
+         theorem same : allOnes 20000 = allOnes 20000 := rfl\n\n\
+         theorem differ : Not (allOnes 20000 = endsInTwo 20000) := \\p => p\n"
     );
     let codes: Vec<_> = match session.load("proofs.sw", &source) {
         Ok(_) => Vec::new(),

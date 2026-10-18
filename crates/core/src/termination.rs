@@ -463,7 +463,7 @@ impl Walker<'_> {
                 }
             }
         }
-        let suggestion = format!("\\{} -> {call} {}", fresh.join(" "), fresh.join(" "));
+        let suggestion = format!("\\{} => {call} {}", fresh.join(" "), fresh.join(" "));
         let (wanted, got) = (explicit(params), explicit(given));
         let plural = |n: usize| if n == 1 { "argument" } else { "arguments" };
         let label = if args.is_empty() {

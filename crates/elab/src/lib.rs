@@ -1399,7 +1399,11 @@ impl Elaborator {
             return Err(error(
                 "E-MISSING-DEFINITION",
                 def_name.span,
-                format!("`{}` has a type signature but no equations", def_name.text),
+                format!("`{}` has no body", def_name.text),
+            )
+            .with_note(
+                "give it a body after `:=`, or arms under its header; only the prelude's \
+                 primitives are declared without one",
             ));
         };
         let arity = first_patterns.len();

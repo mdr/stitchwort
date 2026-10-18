@@ -14,26 +14,25 @@ use stitchwort_driver::driver::{Cache, Outcome, Session};
 const ABILITIES: usize = 4;
 
 const PRELUDE: &str = "
-fstOf : Pair a b -> a
-fstOf (MkPair x y) = x
+def fstOf : Pair a b -> a
+  | MkPair x y => x
 
-sndOf : Pair a b -> b
-sndOf (MkPair x y) = y
+def sndOf : Pair a b -> b
+  | MkPair x y => y
 
-eqNats : List Nat -> List Nat -> Bool
-eqNats Nil         Nil         = True
-eqNats (Cons x xs) (Cons y ys) = if x == y then eqNats xs ys else False
-eqNats _           _           = False
+def eqNats : List Nat -> List Nat -> Bool
+  | Nil,       Nil       => True
+  | Cons x xs, Cons y ys => if x == y then eqNats xs ys else False
+  | _,         _         => False
 
 ability Log where
   say : Nat -> {Log} ()
 
-collect : (() -> {Log | e} a) -> {e} Pair (List Nat) a
-collect prog =
+def collect (prog : () -> {Log | e} a) : {e} Pair (List Nat) a :=
   handle prog () with
-    | return x     -> MkPair Nil x
-    | say n => k   ->
-      let rest = k ()
+    | return x     => MkPair Nil x
+    | say n, k     =>
+      let rest := k ()
       MkPair (Cons n (fstOf rest)) (sndOf rest)
 ";
 
@@ -61,10 +60,15 @@ fn ability_decls() -> String {
     let mut out = String::new();
     for i in 0..ABILITIES {
         out.push_str(&format!(
-            "\nability A{i} where\n  op{i} : () -> {{A{i}}} ()\n\n\
-             relay{i} : (() -> {{A{i}, Log | e}} a) -> {{Log | e}} a\n\
-             relay{i} prog =\n  handle prog () with\n    | return x -> x\n    \
-             | op{i} () => k ->\n      say {i}\n      k ()\n"
+            "\n\
+             ability A{i} where\n  \
+             op{i} : () -> {{A{i}}} ()\n\n\
+             def relay{i} (prog : () -> {{A{i}, Log | e}} a) : {{Log | e}} a :=\n  \
+             handle prog () with\n    \
+             | return x => x\n    \
+             | op{i} (), k =>\n      \
+             say {i}\n      \
+             k ()\n"
         ));
     }
     out
@@ -96,7 +100,7 @@ fn program(rng: &mut Rng, n: usize) -> String {
             if b != a {
                 let helper = format!("help{n}_{step}");
                 out.push_str(&format!(
-                    "\n{helper} : () -> {{A{b}, A{a}}} ()\n{helper} u =\n  op{a} ()\n  op{b} ()\n"
+                    "\ndef {helper} () : {{A{b}, A{a}}} () :=\n  op{a} ()\n  op{b} ()\n"
                 ));
                 lines.push(format!("{helper} ()"));
                 expected.extend([a, b]);
@@ -106,7 +110,7 @@ fn program(rng: &mut Rng, n: usize) -> String {
         lines.push(format!("op{a} ()"));
         expected.push(a);
     }
-    out.push_str(&format!("\nprog{n} : () -> {{{row}}} Nat\nprog{n} u =\n"));
+    out.push_str(&format!("\ndef prog{n} () : {{{row}}} Nat :=\n"));
     for line in &lines {
         out.push_str(&format!("  {line}\n"));
     }
@@ -117,7 +121,7 @@ fn program(rng: &mut Rng, n: usize) -> String {
     rng.shuffle(&mut order);
     let mut call = format!("prog{n}");
     for i in &order {
-        call = format!("(\\u -> relay{i} {call})");
+        call = format!("(\\u => relay{i} {call})");
     }
     let expected = expected
         .iter()
@@ -125,7 +129,7 @@ fn program(rng: &mut Rng, n: usize) -> String {
         .collect::<Vec<_>>()
         .join(", ");
     out.push_str(&format!(
-        "\ntest \"generated {n}\" = eqNats (fstOf (collect {call})) [{expected}]\n"
+        "\ntest \"generated {n}\" := eqNats (fstOf (collect {call})) [{expected}]\n"
     ));
     out
 }

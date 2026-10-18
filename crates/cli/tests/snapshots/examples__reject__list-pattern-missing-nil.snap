@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-NONEXHAUSTIVE] Error: missing case: no equation matches `Nil`
-   ╭─[ reject/list-pattern-missing-nil.sw:4:1 ]
+   ╭─[ reject/list-pattern-missing-nil.sw:4:3 ]
    │
- 4 │ ╭─▶ f [x] = x
+ 4 │ ╭─▶   | [x] => x
    ┆ ┆   
- 6 │ ├─▶ f (Cons x (Cons y (Cons z rest))) = z
-   │ │                                           
-   │ ╰─────────────────────────────────────────── missing case: no equation matches `Nil`
+ 6 │ ├─▶   | Cons x (Cons y (Cons z rest)) => z
+   │ │                                            
+   │ ╰──────────────────────────────────────────── missing case: no equation matches `Nil`
 ───╯

@@ -103,9 +103,9 @@ fn define(g: &mut Globals, ty: Term, body: impl FnOnce(DefId) -> Term) -> &'stat
 // The kernel
 
 const SHAPE: &str = "
-Shape : Nat -> Type
-Shape 404 = Nat
-Shape _   = Bool
+def Shape : Nat -> Type
+  | 404 => Nat
+  | _   => Bool
 ";
 
 #[test]
@@ -286,21 +286,21 @@ fn a_number_case_is_no_evidence_for_termination_but_keeps_what_came_before() {
 fn keys_and_default_are_part_of_the_hash() {
     let session = session_with(
         "
-hitA : Nat -> Bool
-hitA 404 = True
-hitA _   = False
+def hitA : Nat -> Bool
+  | 404 => True
+  | _   => False
 
-hitB : Nat -> Bool
-hitB 405 = True
-hitB _   = False
+def hitB : Nat -> Bool
+  | 405 => True
+  | _   => False
 
-hitC : Nat -> Bool
-hitC 404 = True
-hitC _   = True
+def hitC : Nat -> Bool
+  | 404 => True
+  | _   => True
 
-hitD : Nat -> Bool
-hitD 404 = True
-hitD _   = False
+def hitD : Nat -> Bool
+  | 404 => True
+  | _   => False
 ",
     );
     let g = &session.elab.globals;
@@ -346,7 +346,7 @@ fn plus(k: u64, base: Value) -> Value {
 #[test]
 fn evaluation_follows_the_table() {
     with_stack(STACK, || {
-        let session = session_with("hit : Nat -> Bool\nhit 404 = True\nhit _   = False\n");
+        let session = session_with("def hit : Nat -> Bool\n  | 404 => True\n  | _   => False\n");
         let g = &session.elab.globals;
         let hit = def(g, "hit");
         let bool_data = g.find_data("Bool").unwrap();
@@ -584,7 +584,7 @@ impl Generated {
             .iter()
             .map(|c| if *c == Col::Nat { "Nat" } else { "Bool" })
             .collect();
-        let mut out = format!("{name} : {} -> Nat\n", tys.join(" -> "));
+        let mut out = format!("def {name} : {} -> Nat\n", tys.join(" -> "));
         for (pats, rhs) in &self.rows {
             let (mut vars, mut bools) = (0, 0);
             let shown: Vec<String> = pats
@@ -595,7 +595,7 @@ impl Generated {
                 Rhs::Number(n) => n.to_string(),
                 Rhs::Var(i) => format!("x{i}"),
             };
-            out.push_str(&format!("{name} {} = {rhs}\n", shown.join(" ")));
+            out.push_str(&format!("  | {} => {rhs}\n", shown.join(", ")));
         }
         out
     }

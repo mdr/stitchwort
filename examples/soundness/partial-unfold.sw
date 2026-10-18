@@ -5,12 +5,10 @@
 -- on a partial function that doesn't finish.
 import Effect (now, pfix)
 
-collatzSteps : Nat -> {Partial} Nat
-collatzSteps 1 = 0
-collatzSteps n = 1 + collatzSteps (if n % 2 == 0 then n / 2 else 3 * n + 1)
+def collatzSteps : Nat -> {Partial} Nat
+  | 1 => 0
+  | n => 1 + collatzSteps (if n % 2 == 0 then n / 2 else 3 * n + 1)
 
-settled : Nat -> {Partial} Nat
-settled n = 0
+def settled (n : Nat) : {Partial} Nat := 0
 
-theorem same : ((\u -> collatzSteps 1) : () -> {Partial} Nat) = (\u -> settled 1)
-same = rfl
+theorem same : ((\u => collatzSteps 1) : () -> {Partial} Nat) = (\u => settled 1) := rfl

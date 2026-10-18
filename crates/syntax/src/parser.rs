@@ -1,18 +1,18 @@
 //! Recursive-descent parser for the surface syntax. See `docs/syntax.md`.
 //!
-//! Layout rule (interim): a declaration starts at column 0, and every following
-//! line that is indented belongs to it. A line containing only `export` attaches
-//! to the declaration after it.
+//! Layout rule: a declaration starts at column 0, and every following line
+//! that is indented belongs to it. Definitions are `def` and `theorem`
+//! headers with a `:=` body or arms (`parser/declarations.rs`).
 //!
 //! Blocks: an expression that starts on a new line is a block, whose lines
-//! start at that line's column. Each line is a statement (`let x = e`, or an
+//! start at that line's column. Each line is a statement (`let x := e`, or an
 //! expression run for its effects) and the last is the result. Lines indented
 //! further continue the line above. A line at the block's column right after
 //! one ending in an operator (like `->`) continues it too.
 
 use crate::ast::{
-    Alt, BinOp, Binder, Clause, CtorDecl, Decl, Expr, Import, MatchKind, Module, Name, Pattern,
-    Row, Scrutinee,
+    Alt, BinOp, Binder, CtorDecl, Decl, Expr, Import, MatchKind, Module, Name, Pattern, Row,
+    Scrutinee,
 };
 use crate::lexer::{Tok, Token, lex};
 use crate::stack::StackLimit;
@@ -26,33 +26,6 @@ type Result<T> = std::result::Result<T, Diagnostic>;
 /// 2 MiB thread (Rust's default for spawned threads and tests), like the
 /// core's default `Limits`.
 pub const DEFAULT_STACK: usize = 1536 * 1024;
-
-/// Which declaration syntax a source is written in
-/// (docs/proposals/declaration-syntax.md). The old one (a signature line,
-/// then equations) is the default until the whole code base is converted;
-/// the switch is a change to [`Syntax::default`]. A file is wholly in one
-/// syntax.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum Syntax {
-    /// `f : Nat -> Nat` then `f n = n`; `->` in lambdas, `match` and
-    /// handlers; `let x = e`; `test "n" = e`.
-    #[default]
-    Old,
-    /// `def f (n : Nat) : Nat := n`, or arms `| p => e` under the header;
-    /// `=>` in lambdas, `match` and handlers; `let x := e`; `test "n" := e`.
-    New,
-}
-
-impl Syntax {
-    /// `"old"` or `"new"`, as a command-line option names them.
-    pub fn from_name(name: &str) -> Option<Syntax> {
-        match name {
-            "old" => Some(Syntax::Old),
-            "new" => Some(Syntax::New),
-            _ => None,
-        }
-    }
-}
 
 pub fn parse_module(file: FileId, text: &str) -> std::result::Result<Module, Vec<Diagnostic>> {
     parse_module_within(file, text, DEFAULT_STACK)
@@ -69,23 +42,13 @@ pub fn parse_module_within(
     text: &str,
     stack: usize,
 ) -> std::result::Result<Module, Vec<Diagnostic>> {
-    parse_module_in(Syntax::default(), file, text, stack)
-}
-
-/// Parses a module written in `syntax`, using at most `stack` bytes of stack.
-pub fn parse_module_in(
-    syntax: Syntax,
-    file: FileId,
-    text: &str,
-    stack: usize,
-) -> std::result::Result<Module, Vec<Diagnostic>> {
     let limit = StackLimit::from_here(stack);
     let tokens = lex(file, text).map_err(|d| vec![d])?;
     let mut imports = Vec::new();
     let mut decls = Vec::new();
     let mut errors = Vec::new();
-    for group in split_decls(&tokens, syntax).map_err(|d| vec![d])? {
-        let mut parser = Parser::new(group, file, text.len(), limit, syntax);
+    for group in split_decls(&tokens).map_err(|d| vec![d])? {
+        let mut parser = Parser::new(group, file, text.len(), limit);
         if parser.peek() == Some(&Tok::KwImport) {
             if !decls.is_empty() {
                 errors.push(
@@ -103,11 +66,10 @@ pub fn parse_module_in(
             }
             continue;
         }
-        let parsed = match syntax {
-            Syntax::Old => parser.decl().map(|decl| vec![decl]),
-            Syntax::New => parser.new_decl(),
-        };
-        match parsed.and_then(|parsed| parser.finish().map(|()| parsed)) {
+        match parser
+            .decl()
+            .and_then(|parsed| parser.finish().map(|()| parsed))
+        {
             Ok(parsed) => decls.extend(parsed),
             Err(diagnostic) => errors.push(diagnostic),
         }
@@ -121,15 +83,9 @@ pub fn parse_module_in(
 
 /// Parses an expression, using at most `stack` bytes of stack.
 pub fn parse_expression_within(file: FileId, text: &str, stack: usize) -> Result<Expr> {
-    parse_expression_in(Syntax::default(), file, text, stack)
-}
-
-/// Parses an expression written in `syntax`, using at most `stack` bytes of
-/// stack.
-pub fn parse_expression_in(syntax: Syntax, file: FileId, text: &str, stack: usize) -> Result<Expr> {
     let limit = StackLimit::from_here(stack);
     let tokens = lex(file, text)?;
-    let mut parser = Parser::new(&tokens, file, text.len(), limit, syntax);
+    let mut parser = Parser::new(&tokens, file, text.len(), limit);
     let expr = parser.expr()?;
     parser.finish()?;
     Ok(expr)
@@ -164,7 +120,7 @@ fn has_absurd(p: &Pattern) -> bool {
     }
 }
 
-fn split_decls(tokens: &[Token], syntax: Syntax) -> Result<Vec<&[Token]>> {
+fn split_decls(tokens: &[Token]) -> Result<Vec<&[Token]>> {
     if let Some(first) = tokens.first()
         && first.column != 0
     {
@@ -173,27 +129,15 @@ fn split_decls(tokens: &[Token], syntax: Syntax) -> Result<Vec<&[Token]>> {
             "declarations must start at the beginning of a line",
         ));
     }
-    let mut starts: Vec<usize> = (0..tokens.len())
+    let starts: Vec<usize> = (0..tokens.len())
         .filter(|&i| tokens[i].column == 0)
         .collect();
-    // A line holding only `export` belongs to the declaration that follows
-    // it. (In the new syntax, `export` is on the same line: `export def`.)
-    if syntax == Syntax::Old {
-        starts.retain(|&i| {
-            i == 0 || !(tokens[i - 1].tok == Tok::KwExport && is_alone(tokens, i - 1))
-        });
-    }
     let mut groups = Vec::new();
     for (n, &start) in starts.iter().enumerate() {
         let end = starts.get(n + 1).copied().unwrap_or(tokens.len());
         groups.push(&tokens[start..end]);
     }
     Ok(groups)
-}
-
-/// Whether the token at `i` starts a group and is the only token in it.
-fn is_alone(tokens: &[Token], i: usize) -> bool {
-    tokens[i].column == 0 && tokens.get(i + 1).is_some_and(|next| next.column == 0)
 }
 
 struct Parser<'t> {
@@ -206,12 +150,8 @@ struct Parser<'t> {
     limit: Option<u32>,
     /// The token starting the current statement, which `limit` doesn't stop.
     allow: Option<usize>,
-    /// Whether `=` ends the expression, as in the type of `let x : T = e`.
-    no_equals: bool,
     /// How deep the recursion may go.
     stack: StackLimit,
-    /// Which declaration syntax this is.
-    syntax: Syntax,
 }
 
 /// One line of a block.
@@ -223,13 +163,7 @@ enum Stmt {
 }
 
 impl<'t> Parser<'t> {
-    fn new(
-        tokens: &'t [Token],
-        file: FileId,
-        text_len: usize,
-        stack: StackLimit,
-        syntax: Syntax,
-    ) -> Self {
+    fn new(tokens: &'t [Token], file: FileId, text_len: usize, stack: StackLimit) -> Self {
         let eof = tokens.last().map_or(text_len as u32, |t| t.span.end);
         Parser {
             tokens,
@@ -238,28 +172,19 @@ impl<'t> Parser<'t> {
             eof,
             limit: None,
             allow: None,
-            no_equals: false,
             stack,
-            syntax,
         }
     }
 
-    /// The arrow after a pattern or a lambda's parameters: `=>` in the new
-    /// syntax, `->` in the old.
-    fn case_arrow(&self) -> (Tok, &'static str) {
-        match self.syntax {
-            Syntax::Old => (Tok::Arrow, "`->`"),
-            Syntax::New => (Tok::FatArrow, "`=>`"),
+    /// `=>` after a lambda's parameters or an alternative's patterns, with a
+    /// hint if it's the old syntax's `->`.
+    fn expect_fat_arrow(&mut self, what: &str) -> Result<&'t Token> {
+        if self.peek() == Some(&Tok::Arrow) {
+            return Err(self
+                .unexpected(what)
+                .with_note("lambdas and arms use `=>`: `\\x => e`, `| p => e`"));
         }
-    }
-
-    /// What gives a name its value in `let` and `test`: `:=` in the new
-    /// syntax, `=` in the old.
-    fn binding_equals(&self) -> (Tok, &'static str) {
-        match self.syntax {
-            Syntax::Old => (Tok::Equals, "`=`"),
-            Syntax::New => (Tok::ColonEq, "`:=`"),
-        }
+        self.expect(Tok::FatArrow, what)
     }
 
     /// Called by each function the parser recurses through (`expr`,
@@ -383,10 +308,7 @@ impl<'t> Parser<'t> {
     fn tuple_expr(&mut self, first: Expr, span: Span) -> Result<Expr> {
         let mut items = vec![first];
         while self.eat(&Tok::Comma) {
-            let saved = std::mem::replace(&mut self.no_equals, false);
-            let item = self.expr();
-            self.no_equals = saved;
-            items.push(item?);
+            items.push(self.expr()?);
         }
         if self.peek() == Some(&Tok::Colon) {
             return Err(self.tuple_annotation());
@@ -561,89 +483,6 @@ impl<'t> Parser<'t> {
             path,
             items,
             span: start.to(end),
-        })
-    }
-
-    fn decl(&mut self) -> Result<Decl> {
-        let start = self.here();
-        match self.peek() {
-            Some(Tok::KwType) => self.data(),
-            Some(Tok::KwAbility) => self.ability(),
-            Some(Tok::KwTest) => {
-                self.bump();
-                let name = match self.peek() {
-                    Some(Tok::Str(text)) => {
-                        self.bump();
-                        text.clone()
-                    }
-                    _ => return Err(self.unexpected("the test's name, in quotes")),
-                };
-                self.expect(Tok::Equals, "`=`")?;
-                let expr = self.expr()?;
-                Ok(Decl::Test {
-                    span: start.to(expr.span()),
-                    name,
-                    expr,
-                })
-            }
-            Some(Tok::KwExport) => {
-                self.bump();
-                let theorem = self.eat(&Tok::KwTheorem);
-                self.signature(start, theorem, true)
-            }
-            Some(Tok::KwTheorem) => {
-                self.bump();
-                self.signature(start, true, false)
-            }
-            // Definitions may be named in either case: `length`, or `Not` for a
-            // function returning a type.
-            Some(Tok::Lower(_) | Tok::Upper(_)) if self.peek_at(1) == Some(&Tok::Colon) => {
-                self.signature(start, false, false)
-            }
-            Some(Tok::Lower(_) | Tok::Upper(_)) => self.equation(),
-            _ => Err(self.unexpected("a declaration")),
-        }
-    }
-
-    fn signature(&mut self, start: Span, theorem: bool, export: bool) -> Result<Decl> {
-        let name = self.def_name()?;
-        self.expect(Tok::Colon, "`:`")?;
-        // `{State Nat} Nat`: a computation that's not a function.
-        let ty = self.result_type()?;
-        Ok(Decl::Signature {
-            name,
-            span: start.to(ty.span()),
-            ty,
-            theorem,
-            export,
-        })
-    }
-
-    fn equation(&mut self) -> Result<Decl> {
-        let name = self.def_name()?;
-        let mut patterns = Vec::new();
-        while self.peek().is_some() && self.peek() != Some(&Tok::Equals) {
-            patterns.push(self.pattern()?);
-        }
-        let absurd = patterns.iter().any(has_absurd);
-        if absurd && self.peek().is_none() {
-            // `f ()` needs no right-hand side.
-            return Ok(Decl::Equation {
-                span: name.span.to(self.prev_span()),
-                name,
-                patterns,
-                rhs: None,
-                arm: None,
-            });
-        }
-        self.expect(Tok::Equals, "`=`")?;
-        let rhs = self.expr()?;
-        Ok(Decl::Equation {
-            span: name.span.to(rhs.span()),
-            name,
-            patterns,
-            rhs: Some(rhs),
-            arm: None,
         })
     }
 
@@ -1014,26 +853,20 @@ impl<'t> Parser<'t> {
         self.let_statement()
     }
 
-    /// `let p = e`, or `let p := e` in the new syntax.
+    /// `let p := e`, or `let p : T := e`; the type may contain `=`.
     #[inline(never)]
     fn let_statement(&mut self) -> Result<Stmt> {
         let start = self.bump().span;
         let pattern = self.let_pattern()?;
         let ty = if self.eat(&Tok::Colon) {
-            // In the old syntax the type stops at `=`; in the new one it
-            // stops at `:=`, so it may contain `=`.
-            let saved = std::mem::replace(&mut self.no_equals, self.syntax == Syntax::Old);
-            let ty = self.expr_inline();
-            self.no_equals = saved;
-            Some(ty?)
+            Some(self.expr_inline()?)
         } else {
             None
         };
-        let (equals, text) = self.binding_equals();
-        if self.syntax == Syntax::New && self.peek() == Some(&Tok::Equals) {
+        if self.peek() == Some(&Tok::Equals) {
             return Err(self.def_equals());
         }
-        self.expect(equals, text)?;
+        self.expect(Tok::ColonEq, "`:=`")?;
         let value = self.expr()?;
         Ok(match pattern {
             Pattern::Var(name) => Stmt::Let(name, ty, value, start),
@@ -1042,7 +875,8 @@ impl<'t> Parser<'t> {
     }
 
     /// The pattern after `let`: a constructor may take arguments without
-    /// brackets (`let MkPair a b = p`), running to the `=` or `:`.
+    /// brackets (`let MkPair a b := p`), running to the `:=` or `:` (or a
+    /// mistaken `=`, reported by `let_statement`).
     fn let_pattern(&mut self) -> Result<Pattern> {
         if let Some(Tok::Upper(_)) = self.peek() {
             let start = self.here();
@@ -1096,7 +930,7 @@ impl<'t> Parser<'t> {
         })
     }
 
-    /// `handle e with | return x -> … | op arg => k -> …`
+    /// `handle e with | return x => … | op arg, k => …`
     fn handle(&mut self, start: Span) -> Result<Expr> {
         let body = self.expr_inline()?;
         self.expect(Tok::KwWith, "`with`")?;
@@ -1114,22 +948,7 @@ impl<'t> Parser<'t> {
                 }
             }
             self.bump();
-            if self.syntax == Syntax::New {
-                clauses.push(self.handler_clause()?);
-            } else if self.eat(&Tok::KwReturn) {
-                let var = self.lower("a name for the result")?;
-                self.expect(Tok::Arrow, "`->`")?;
-                let body = self.expr()?;
-                clauses.push(Clause::Return { var, body });
-            } else {
-                let op = self.lower_q("an operation, or `return`")?;
-                let arg = self.pattern()?;
-                self.expect(Tok::FatArrow, "`=>`")?;
-                let k = self.lower("a name for the continuation")?;
-                self.expect(Tok::Arrow, "`->`")?;
-                let body = self.expr()?;
-                clauses.push(Clause::Op { op, arg, k, body });
-            }
+            clauses.push(self.handler_clause()?);
         }
         if clauses.is_empty() {
             return Err(self.unexpected("`|` and a handler clause"));
@@ -1141,7 +960,7 @@ impl<'t> Parser<'t> {
         })
     }
 
-    /// `match e, h : e2 with | p, q -> body | …`
+    /// `match e, h : e2 with | p, q => body | …`
     fn match_expr(&mut self, start: Span) -> Result<Expr> {
         let mut scrutinees = Vec::new();
         loop {
@@ -1189,8 +1008,7 @@ impl<'t> Parser<'t> {
                     ),
                 ));
             }
-            let (arrow, text) = self.case_arrow();
-            self.expect(arrow, text)?;
+            self.expect_fat_arrow("`=>`")?;
             let body = self.expr()?;
             alts.push(Alt {
                 span: bar.to(body.span()),
@@ -1228,7 +1046,7 @@ impl<'t> Parser<'t> {
         self.tuple_component()
     }
 
-    /// `\x (a, b) -> body`, after the `\`. Out of line, so that
+    /// `\x (a, b) => body`, after the `\`. Out of line, so that
     /// `expr_inline`, which every nested expression recurses through, keeps
     /// a small stack frame.
     #[inline(never)]
@@ -1255,7 +1073,7 @@ impl<'t> Parser<'t> {
                     return Err(error(
                         span,
                         "a lambda's parameter can't have a type here: annotate the lambda \
-                             instead, `((\\x -> …) : A -> B)`",
+                             instead, `((\\x => …) : A -> B)`",
                     ));
                 }
                 Some(Tok::LParen | Tok::LBrace | Tok::Upper(_) | Tok::Num(_)) => {
@@ -1277,8 +1095,7 @@ impl<'t> Parser<'t> {
         if params.is_empty() {
             return Err(self.unexpected("a parameter name"));
         }
-        let (arrow, text) = self.case_arrow();
-        self.expect(arrow, text)?;
+        self.expect_fat_arrow("`=>`")?;
         let body = self.expr()?;
         let span = start.to(body.span());
         if params.iter().all(|(_, p)| p.is_none()) {
@@ -1447,7 +1264,7 @@ impl<'t> Parser<'t> {
     fn cmp_expr(&mut self) -> Result<Expr> {
         let lhs = self.append_expr()?;
         let op = match self.peek() {
-            Some(Tok::Equals) if !self.no_equals => BinOp::Eq,
+            Some(Tok::Equals) => BinOp::Eq,
             Some(Tok::NotEq) => BinOp::Ne,
             Some(Tok::EqEq) => BinOp::EqEq,
             Some(Tok::Lt) => BinOp::Lt,
@@ -1586,10 +1403,7 @@ impl<'t> Parser<'t> {
     /// (an update). A literal's fields are in the order written.
     fn record_expr(&mut self) -> Result<Expr> {
         let start = self.expect(Tok::LBrace, "`{`")?.span;
-        let saved = std::mem::replace(&mut self.no_equals, false);
-        let result = self.record_body(start);
-        self.no_equals = saved;
-        result
+        self.record_body(start)
     }
 
     fn record_body(&mut self, start: Span) -> Result<Expr> {
@@ -1678,10 +1492,7 @@ impl<'t> Parser<'t> {
             }
             Some(Tok::LParen) => {
                 self.bump();
-                let saved = std::mem::replace(&mut self.no_equals, false);
-                let inner = self.expr();
-                self.no_equals = saved;
-                let inner = inner?;
+                let inner = self.expr()?;
                 if self.peek() == Some(&Tok::Comma) {
                     return self.tuple_expr(inner, span);
                 }
@@ -1788,6 +1599,7 @@ fn error(span: Span, message: impl Into<String>) -> Diagnostic {
 mod tests {
     use super::*;
     use crate::SourceMap;
+    use crate::ast::Clause;
 
     fn parse(text: &str) -> Module {
         let mut sources = SourceMap::new();
@@ -1882,8 +1694,10 @@ mod tests {
 
     #[test]
     fn record_patterns() {
-        let module = parse("f { name, age = Succ n, .. } { tag = (Cons x xs) } = 0\n");
-        let Decl::Equation { patterns, .. } = &module.decls[0] else {
+        let module = parse(
+            "def f : R -> R -> Nat\n  | { name, age = Succ n, .. }, { tag = (Cons x xs) } => 0\n",
+        );
+        let Decl::Equation { patterns, .. } = &module.decls[1] else {
             panic!("expected an equation");
         };
         let Pattern::Record {
@@ -1902,7 +1716,7 @@ mod tests {
     #[test]
     fn indented_lines_continue_a_declaration() {
         let module = parse(
-            "type List (a : Type) : Type =\n  | Nil\n  | Cons (head : a) (tail : List a)\n\nlength : (a : Type) -> List a -> Nat\nlength a Nil = 0\n",
+            "type List (a : Type) : Type =\n  | Nil\n  | Cons (head : a) (tail : List a)\n\ndef length (a : Type) : List a -> Nat\n  | Nil => 0\n",
         );
         assert_eq!(module.decls.len(), 3);
         let Decl::Data { ctors, .. } = &module.decls[0] else {
@@ -1912,8 +1726,8 @@ mod tests {
     }
 
     #[test]
-    fn export_on_its_own_line_attaches_to_the_next_declaration() {
-        let module = parse("export\nf : Nat -> Nat\nf n = n\n");
+    fn export_attaches_to_the_definition_it_precedes() {
+        let module = parse("export def f (n : Nat) : Nat := n\n");
         assert_eq!(module.decls.len(), 2);
         assert!(matches!(
             module.decls[0],
@@ -1923,7 +1737,7 @@ mod tests {
 
     #[test]
     fn equality_binds_looser_than_addition_and_tighter_than_arrows() {
-        let module = parse("p : (n : Nat) -> n + 0 = n -> Nat\n");
+        let module = parse("def p : (n : Nat) -> n + 0 = n -> Nat\n");
         let Decl::Signature { ty, .. } = &module.decls[0] else {
             panic!("expected a signature");
         };
@@ -1964,7 +1778,7 @@ mod tests {
 
     #[test]
     fn parses_tests() {
-        let module = parse("test \"two \\\"words\\\"\" =\n  1 + 1 = 2\n");
+        let module = parse("test \"two \\\"words\\\"\" :=\n  1 + 1 = 2\n");
         let Decl::Test { name, expr, .. } = &module.decls[0] else {
             panic!("expected a test");
         };
@@ -1990,7 +1804,7 @@ mod tests {
     #[test]
     fn parses_auto_binders_and_absurd_patterns() {
         let module = parse(
-            "div : (n d : Nat) -> [auto ok : d != 0] -> Nat\nabsurd : Void -> a\nabsurd ()\n",
+            "def div : (n d : Nat) -> [auto ok : d != 0] -> Nat\ndef absurd : Void -> a\n  | ()\n",
         );
         let Decl::Signature { ty, .. } = &module.decls[0] else {
             panic!("expected a signature");
@@ -2007,7 +1821,7 @@ mod tests {
         assert!(matches!(patterns[..], [Pattern::Absurd(_)]));
         assert!(rhs.is_none());
         // `auto` alone is an ordinary name.
-        let module = parse("f : [auto : Type] -> auto\n");
+        let module = parse("def f : [auto : Type] -> auto\n");
         let Decl::Signature { ty, .. } = &module.decls[0] else {
             panic!("expected a signature");
         };
@@ -2016,12 +1830,13 @@ mod tests {
 
     #[test]
     fn square_brackets_are_implicit_binders_named_arguments_or_lists() {
-        let module = parse("f : [a : Type] -> List a -> Nat\nx = g [a := Nat] [1] _\n");
+        let module =
+            parse("def f : [a : Type] -> List a -> Nat\ndef x : Nat := g [a := Nat] [1] _\n");
         let Decl::Signature { ty, .. } = &module.decls[0] else {
             panic!("expected a signature");
         };
         assert!(matches!(ty, Expr::Pi { implicit: true, .. }));
-        let Decl::Equation { rhs, .. } = &module.decls[1] else {
+        let Decl::Equation { rhs, .. } = &module.decls[2] else {
             panic!("expected an equation");
         };
         let Some(Expr::App(f, hole)) = rhs else {
@@ -2050,7 +1865,11 @@ mod tests {
 
     /// The right-hand side of the only equation in `text`.
     fn rhs(text: &str) -> Expr {
-        match parse(text).decls.into_iter().next() {
+        match parse(text)
+            .decls
+            .into_iter()
+            .find(|d| matches!(d, Decl::Equation { .. }))
+        {
             Some(Decl::Equation { rhs: Some(rhs), .. }) => rhs,
             other => panic!("expected an equation, got {other:?}"),
         }
@@ -2079,16 +1898,22 @@ mod tests {
 
     #[test]
     fn a_block_is_lines_at_one_column() {
-        let body = rhs("f u =\n  let n = get ()\n  put (n +\n    1)\n  n\n");
+        let body = rhs("def f (u : Nat) : Nat :=\n  let n := get ()\n  put (n +\n    1)\n  n\n");
         assert_eq!(lines(&body), ["let n", "_", "result"]);
         // On one line, or with one line, it's just the expression.
-        assert!(matches!(rhs("f u = g u\n"), Expr::App(..)));
-        assert!(matches!(rhs("f u =\n  g\n    u\n"), Expr::App(..)));
+        assert!(matches!(
+            rhs("def f (u : Nat) : Nat := g u\n"),
+            Expr::App(..)
+        ));
+        assert!(matches!(
+            rhs("def f (u : Nat) : Nat :=\n  g\n    u\n"),
+            Expr::App(..)
+        ));
     }
 
     #[test]
     fn a_line_ending_in_an_operator_continues() {
-        let module = parse("f : Nat ->\n  Nat ->\n  Nat\n");
+        let module = parse("def f : Nat ->\n  Nat ->\n  Nat\n");
         let Decl::Signature { ty, .. } = &module.decls[0] else {
             panic!()
         };
@@ -2100,7 +1925,7 @@ mod tests {
 
     #[test]
     fn blocks_nest() {
-        let body = rhs("f u =\n  let g = \\x ->\n    say x\n    x\n  g 1\n");
+        let body = rhs("def f (u : Nat) : Nat :=\n  let g := \\x =>\n    say x\n    x\n  g 1\n");
         assert_eq!(lines(&body), ["let g", "result"]);
         let Expr::Let { value, .. } = &body else {
             panic!()
@@ -2113,7 +1938,7 @@ mod tests {
 
     #[test]
     fn let_takes_a_type() {
-        let body = rhs("f u =\n  let r : s -> {e} a = run\n  r\n");
+        let body = rhs("def f (u : Nat) : Nat :=\n  let r : s -> {e} a := run\n  r\n");
         let Expr::Let { ty: Some(ty), .. } = &body else {
             panic!("{body:?}")
         };
@@ -2123,7 +1948,7 @@ mod tests {
     #[test]
     fn rows_list_abilities_then_a_tail() {
         let row = |text: &str| {
-            let module = parse(&format!("f : Nat -> {text} Nat\n"));
+            let module = parse(&format!("def f : Nat -> {text} Nat\n"));
             let Decl::Signature {
                 ty: Expr::Arrow(_, cod),
                 ..
@@ -2159,7 +1984,7 @@ mod tests {
         assert_eq!(names, ["get", "put"]);
 
         let body = rhs(
-            "f p =\n  handle p () with\n    | return x -> x\n    | get () => k -> k 1\n    | put s => k ->\n      k ()\n",
+            "def f (p : Nat) : Nat :=\n  handle p () with\n    | return x => x\n    | get (), k => k 1\n    | put s, k =>\n      k ()\n",
         );
         let Expr::Handle { clauses, .. } = &body else {
             panic!("{body:?}")
@@ -2183,9 +2008,11 @@ mod tests {
 
     #[test]
     fn unit_is_a_value_and_a_pattern() {
-        assert!(matches!(rhs("f u = g ()\n"), Expr::App(_, ref a) if matches!(**a, Expr::Unit(_))));
-        let module = parse("f () = 1\n");
-        let Decl::Equation { patterns, .. } = &module.decls[0] else {
+        assert!(
+            matches!(rhs("def f (u : Nat) : Nat := g ()\n"), Expr::App(_, ref a) if matches!(**a, Expr::Unit(_)))
+        );
+        let module = parse("def f : () -> Nat\n  | () => 1\n");
+        let Decl::Equation { patterns, .. } = &module.decls[1] else {
             panic!()
         };
         assert!(matches!(patterns[0], Pattern::Absurd(_)));
@@ -2198,14 +2025,20 @@ mod tests {
             let file = sources.add("test.sw", text);
             parse_module(file, text).is_err()
         };
-        assert!(fails("f u =\n  let x = 1\n"), "a block ending in `let`");
-        assert!(fails("f p = handle p with\n"), "a handler with no clauses");
         assert!(
-            fails("f p = handle p with | get x k -> k\n"),
+            fails("def f (u : Nat) : Nat :=\n  let x := 1\n"),
+            "a block ending in `let`"
+        );
+        assert!(
+            fails("def f (p : Nat) : Nat := handle p with\n"),
+            "a handler with no clauses"
+        );
+        assert!(
+            fails("def f (p : Nat) : Nat := handle p with | get x, k -> k\n"),
             "a clause without `=>`"
         );
         assert!(fails("ability A where\n"), "an ability without operations");
-        assert!(fails("f : Nat -> {State s Nat\n"), "an unclosed row");
+        assert!(fails("def f : Nat -> {State s Nat\n"), "an unclosed row");
     }
 
     fn match_parts(e: &Expr) -> (&[Scrutinee], &[Alt]) {
@@ -2221,8 +2054,9 @@ mod tests {
     #[test]
     fn parses_match_expressions() {
         // Alternatives on their own lines.
-        let e =
-            rhs("f xs =\n  match xs with\n    | Nil -> 0\n    | Cons x Nil -> x\n    | _ -> 2\n");
+        let e = rhs(
+            "def f (xs : List Nat) : Nat :=\n  match xs with\n    | Nil => 0\n    | Cons x Nil => x\n    | _ => 2\n",
+        );
         let (s, alts) = match_parts(&e);
         assert_eq!(s.len(), 1);
         assert!(s[0].name.is_none());
@@ -2231,25 +2065,31 @@ mod tests {
         assert!(matches!(alts[2].patterns[0], Pattern::Wildcard(_)));
 
         // All on one line.
-        let e = rhs("f xs = match xs with | Nil -> 0 | Cons x _ -> x\n");
+        let e = rhs("def f (xs : List Nat) : Nat := match xs with | Nil => 0 | Cons x _ => x\n");
         let (_, alts) = match_parts(&e);
         assert_eq!(alts.len(), 2);
         assert!(matches!(&alts[1].patterns[0], Pattern::Ctor(_, args, _) if args.len() == 2));
 
         // Two scrutinees.
-        let e = rhs("f a b = match a, b with | Zero, _ -> 0 | Succ m, Zero -> m | _, _ -> 1\n");
+        let e = rhs(
+            "def f (a : Nat) (b : Nat) : Nat := match a, b with | Zero, _ => 0 | Succ m, Zero => m | _, _ => 1\n",
+        );
         let (s, alts) = match_parts(&e);
         assert_eq!(s.len(), 2);
         assert!(alts.iter().all(|a| a.patterns.len() == 2));
 
         // A named equation.
-        let e = rhs("f xs = match h : length xs with | Zero -> 0 | Succ k -> k\n");
+        let e = rhs(
+            "def f (xs : List Nat) : Nat := match h : length xs with | Zero => 0 | Succ k => k\n",
+        );
         let (s, _) = match_parts(&e);
         assert_eq!(s[0].name.as_ref().unwrap().text, "h");
         assert!(matches!(s[0].expr, Expr::App(..)));
 
         // Other pattern forms.
-        let e = rhs("f p = match p with | (a, b) -> a | { name = n } -> n | () -> 0 | 0 -> 1\n");
+        let e = rhs(
+            "def f (p : Nat) : Nat := match p with | (a, b) => a | { name = n } => n | () => 0 | 0 => 1\n",
+        );
         let (_, alts) = match_parts(&e);
         assert!(matches!(alts[0].patterns[0], Pattern::Tuple(..)));
         assert!(matches!(alts[1].patterns[0], Pattern::Record { .. }));
@@ -2257,7 +2097,7 @@ mod tests {
         assert!(matches!(alts[3].patterns[0], Pattern::Num(..)));
 
         // As an operand.
-        let e = rhs("f n = 1 + match n with | Zero -> 0 | Succ k -> k\n");
+        let e = rhs("def f (n : Nat) : Nat := 1 + match n with | Zero => 0 | Succ k => k\n");
         let Expr::Binary(_, _, r) = &e else {
             panic!("{e:?}")
         };
@@ -2267,7 +2107,7 @@ mod tests {
     #[test]
     fn nested_match_alternatives_line_up_by_column() {
         let e = rhs(
-            "f a b =\n  match a with\n    | Zero ->\n      match b with\n        | Zero -> 1\n        | Succ _ -> 2\n    | Succ _ -> 3\n",
+            "def f (a : Nat) (b : Nat) : Nat :=\n  match a with\n    | Zero =>\n      match b with\n        | Zero => 1\n        | Succ _ => 2\n    | Succ _ => 3\n",
         );
         let (_, outer) = match_parts(&e);
         assert_eq!(outer.len(), 2);
@@ -2278,16 +2118,19 @@ mod tests {
     #[test]
     fn rejects_malformed_matches() {
         let fails = |text: &str| rhs_of(text).is_err();
-        assert!(fails("f xs = match xs with\n"), "no alternatives");
         assert!(
-            fails("f xs = match xs with | Nil, _ -> 0\n"),
+            fails("def f (xs : List Nat) : Nat := match xs with\n"),
+            "no alternatives"
+        );
+        assert!(
+            fails("def f (xs : List Nat) : Nat := match xs with | Nil, _ => 0\n"),
             "too many patterns"
         );
         assert!(
-            fails("f a b = match a, b with | Nil -> 0\n"),
+            fails("def f (a : Nat) (b : Nat) : Nat := match a, b with | Nil => 0\n"),
             "too few patterns"
         );
-        let message = rhs_of("f xs = match xs with | Nil, _ -> 0\n")
+        let message = rhs_of("def f (xs : List Nat) : Nat := match xs with | Nil, _ => 0\n")
             .unwrap_err()
             .message;
         assert!(
@@ -2319,20 +2162,20 @@ mod tests {
 
     #[test]
     fn else_on_its_own_line_continues_the_if() {
-        let e = rhs_of("g n =\n  if n == 0 then 1\n  else 2\n").unwrap();
+        let e = rhs_of("def g (n : Nat) : Nat :=\n  if n == 0 then 1\n  else 2\n").unwrap();
         assert!(is_num(else_branch(&e), 2));
     }
 
     #[test]
     fn then_and_else_chain_across_lines() {
-        let text = "g n =\n  if a\n  then 1\n  else if b then 2\n  else if c then 3\n  else 4\n";
+        let text = "def g (n : Nat) : Nat :=\n  if a\n  then 1\n  else if b then 2\n  else if c then 3\n  else 4\n";
         let e = rhs_of(text).unwrap();
         assert!(is_num(else_branch(else_branch(else_branch(&e))), 4));
     }
 
     #[test]
     fn a_proof_binder_and_a_let_value_can_span_lines() {
-        let e = rhs_of("g n =\n  if h : n != 0 then 1\n  else 2\n").unwrap();
+        let e = rhs_of("def g (n : Nat) : Nat :=\n  if h : n != 0 then 1\n  else 2\n").unwrap();
         assert!(matches!(
             e,
             Expr::If {
@@ -2340,19 +2183,23 @@ mod tests {
                 ..
             }
         ));
-        let e = rhs_of("g n =\n  let x = if n == 0 then 1\n  else 2\n  x\n").unwrap();
+        let e = rhs_of("def g (n : Nat) : Nat :=\n  let x := if n == 0 then 1\n  else 2\n  x\n")
+            .unwrap();
         assert!(matches!(e, Expr::Let { .. }));
     }
 
     #[test]
     fn the_inner_if_takes_the_closest_else() {
-        let e = rhs_of("g a b =\n  if a then\n    if b then 1\n    else 2\n  else 3\n").unwrap();
+        let e = rhs_of(
+            "def g (a : Nat) (b : Nat) : Nat :=\n  if a then\n    if b then 1\n    else 2\n  else 3\n",
+        ).unwrap();
         assert!(is_num(else_branch(&e), 3));
     }
 
     #[test]
     fn an_else_left_of_its_if_is_explained() {
-        let e = rhs_of("g a =\n  if a then\n    if a then 1\n  else 2\n").unwrap_err();
+        let e = rhs_of("def g (a : Nat) : Nat :=\n  if a then\n    if a then 1\n  else 2\n")
+            .unwrap_err();
         assert!(
             e.message.contains("starts a new statement"),
             "{}",
@@ -2374,7 +2221,12 @@ mod tests {
     }
 
     fn shape_of(text: &str) -> String {
-        shape(&rhs_of(&format!("g x y f a b = {text}\n")).unwrap())
+        shape(
+            &rhs_of(&format!(
+                "def g (x : Nat) (y : Nat) (f : Nat) (a : Nat) (b : Nat) : Nat := {text}\n"
+            ))
+            .unwrap(),
+        )
     }
 
     #[test]
@@ -2403,8 +2255,9 @@ mod tests {
 
     #[test]
     fn negative_number_patterns() {
-        let module = parse("f (-1) 0 (Just (-20)) = 1\n");
-        let Decl::Equation { patterns, .. } = &module.decls[0] else {
+        let module =
+            parse("def f : Int -> Nat -> Maybe Int -> Nat\n  | (-1), 0, (Just (-20)) => 1\n");
+        let Decl::Equation { patterns, .. } = &module.decls[1] else {
             panic!()
         };
         assert!(matches!(&patterns[0], Pattern::NegNum(n, _) if *n == 1u32.into()));
@@ -2413,7 +2266,11 @@ mod tests {
             panic!()
         };
         assert!(matches!(&args[0], Pattern::NegNum(n, _) if *n == 20u32.into()));
-        for bad in ["f (-x) = 1\n", "f (- - 1) = 1\n", "f (-1 + 2) = 1\n"] {
+        for bad in [
+            "def f : Int -> Nat\n  | (-x) => 1\n",
+            "def f : Int -> Nat\n  | (- - 1) => 1\n",
+            "def f : Int -> Nat\n  | (-1 + 2) => 1\n",
+        ] {
             let mut sources = SourceMap::new();
             let file = sources.add("test.sw", bad);
             assert!(parse_module(file, bad).is_err(), "{bad}");
@@ -2423,31 +2280,36 @@ mod tests {
     #[test]
     fn parses_tuples() {
         // Components nest to the right; `()` and `(e)` are unchanged.
-        let e = rhs("f = (1, 2, 3)\n");
+        let e = rhs("def f : Nat := (1, 2, 3)\n");
         let Expr::Tuple(a, rest, _) = &e else {
             panic!("{e:?}")
         };
         assert!(matches!(**a, Expr::Num(..)));
         assert!(matches!(**rest, Expr::Tuple(..)));
-        let e = rhs("f = ((1, 2), 3)\n");
+        let e = rhs("def f : Nat := ((1, 2), 3)\n");
         assert!(matches!(&e, Expr::Tuple(a, b, _)
             if matches!(**a, Expr::Tuple(..)) && matches!(**b, Expr::Num(..))));
-        assert!(matches!(rhs("f = ()\n"), Expr::Unit(_)));
-        assert!(matches!(rhs("f = (1)\n"), Expr::Num(..)));
-        assert!(matches!(rhs("f = (1 : Nat)\n"), Expr::Ann(..)));
+        assert!(matches!(rhs("def f : Nat := ()\n"), Expr::Unit(_)));
+        assert!(matches!(rhs("def f : Nat := (1)\n"), Expr::Num(..)));
+        assert!(matches!(rhs("def f : Nat := (1 : Nat)\n"), Expr::Ann(..)));
         // A tuple is a function's domain, and `(x : A)` is still a binder.
-        assert!(matches!(&rhs("f = (A, B) -> C\n"),
+        assert!(matches!(&rhs("def f : Nat := (A, B) -> C\n"),
             Expr::Arrow(d, _) if matches!(**d, Expr::Tuple(..))));
-        assert!(matches!(rhs("f = (x : A) -> B\n"), Expr::Pi { .. }));
+        assert!(matches!(
+            rhs("def f : Nat := (x : A) -> B\n"),
+            Expr::Pi { .. }
+        ));
         // The tuple's span covers its brackets.
-        let e = rhs("f = (1, 2, 3)\n");
-        assert_eq!((e.span().start, e.span().end), (4, 13));
+        let e = rhs("def f : Nat := (1, 2, 3)\n");
+        assert_eq!((e.span().start, e.span().end), (15, 24));
     }
 
     #[test]
     fn parses_list_patterns() {
-        let module = parse("f [] [a] [a, b] [Just x, (-1)] (xs, [y]) = a\n");
-        let Decl::Equation { patterns, .. } = &module.decls[0] else {
+        let module = parse(
+            "def f : A -> B -> C -> D -> E -> Nat\n  | [], [a], [a, b], [Just x, (-1)], (xs, [y]) => a\n",
+        );
+        let Decl::Equation { patterns, .. } = &module.decls[1] else {
             panic!()
         };
         assert!(matches!(patterns[0], Pattern::Nil(_)));
@@ -2467,8 +2329,10 @@ mod tests {
 
     #[test]
     fn parses_tuple_patterns() {
-        let module = parse("f (a, b, c) ((d, e) , _) (Cons (x, y) ys) = a\n");
-        let Decl::Equation { patterns, .. } = &module.decls[0] else {
+        let module = parse(
+            "def f : A -> B -> C -> Nat\n  | (a, b, c), ((d, e) , _), (Cons (x, y) ys) => a\n",
+        );
+        let Decl::Equation { patterns, .. } = &module.decls[1] else {
             panic!()
         };
         assert!(
@@ -2483,14 +2347,14 @@ mod tests {
 
     #[test]
     fn parses_a_constructor_as_a_tuples_first_component() {
-        let module = parse("f (Just a, b) = a\n");
-        let Decl::Equation { patterns, .. } = &module.decls[0] else {
+        let module = parse("def f : A -> Nat\n  | (Just a, b) => a\n");
+        let Decl::Equation { patterns, .. } = &module.decls[1] else {
             panic!()
         };
         assert!(matches!(&patterns[0], Pattern::Tuple(l, _, _)
             if matches!(&**l, Pattern::Ctor(_, args, _) if args.len() == 1)));
 
-        let e = rhs("f p =\n  let (Just a, b) = p\n  a\n");
+        let e = rhs("def f (p : Nat) : Nat :=\n  let (Just a, b) := p\n  a\n");
         let (_, p, _) = let_parts(&e);
         assert!(matches!(p, Pattern::Tuple(l, _, _)
             if matches!(&**l, Pattern::Ctor(_, args, _) if args.len() == 1)));
@@ -2498,9 +2362,9 @@ mod tests {
 
     #[test]
     fn parses_negative_numbers_in_tuple_patterns() {
-        let text = "f (-1, 0) (0, -2) (-3) = a\n";
+        let text = "def f : A -> B -> C -> Nat\n  | (-1, 0), (0, -2), (-3) => a\n";
         let module = parse(text);
-        let Decl::Equation { patterns, .. } = &module.decls[0] else {
+        let Decl::Equation { patterns, .. } = &module.decls[1] else {
             panic!()
         };
         assert!(matches!(&patterns[0], Pattern::Tuple(l, _, _)
@@ -2514,7 +2378,7 @@ mod tests {
         assert!(*n == 3u32.into());
         let start = text.find("(-3)").unwrap() as u32;
         assert_eq!((span.start, span.end), (start, start + 4));
-        let bad = "f (-x, 0) = a\n";
+        let bad = "def f : A -> Nat\n  | (-x, 0) => a\n";
         let mut sources = SourceMap::new();
         let file = sources.add("test.sw", bad);
         assert!(parse_module(file, bad).is_err(), "{bad}");
@@ -2523,10 +2387,10 @@ mod tests {
     #[test]
     fn rejects_bad_tuples() {
         for bad in [
-            "f = (1,)\n",
-            "f = (a, b : T)\n",
-            "f = (a : T, b)\n",
-            "f (a,) = a\n",
+            "def f : Nat := (1,)\n",
+            "def f : Nat := (a, b : T)\n",
+            "def f : Nat := (a : T, b)\n",
+            "def f : A -> Nat\n  | (a,) => a\n",
         ] {
             let mut sources = SourceMap::new();
             let file = sources.add("test.sw", bad);
@@ -2552,41 +2416,44 @@ mod tests {
 
     #[test]
     fn parses_let_patterns() {
-        let e = rhs("f e =\n  let (a, b) = e\n  a\n");
+        let e = rhs("def f (e : Nat) : Nat :=\n  let (a, b) := e\n  a\n");
         let (s, p, body) = let_parts(&e);
         assert!(matches!(s, Expr::Var(_)));
         assert!(matches!(p, Pattern::Tuple(..)));
         assert!(matches!(body, Expr::Var(_)));
 
-        let e = rhs("f p =\n  let MkPair a b = p\n  a\n");
+        let e = rhs("def f (p : Nat) : Nat :=\n  let MkPair a b := p\n  a\n");
         let (_, p, _) = let_parts(&e);
         assert!(matches!(p, Pattern::Ctor(_, args, _) if args.len() == 2));
 
-        let e = rhs("f p =\n  let Pair.MkPair a b = p\n  a\n");
+        let e = rhs("def f (p : Nat) : Nat :=\n  let Pair.MkPair a b := p\n  a\n");
         let (_, p, _) = let_parts(&e);
         assert!(
             matches!(p, Pattern::Ctor(n, args, _) if args.len() == 2 && n.text == "Pair.MkPair")
         );
 
-        let e = rhs("f r =\n  let { x, .. } = r\n  x\n");
+        let e = rhs("def f (r : Nat) : Nat :=\n  let { x, .. } := r\n  x\n");
         let (_, p, _) = let_parts(&e);
         assert!(matches!(p, Pattern::Record { rest: true, .. }));
 
-        let e = rhs("f e =\n  let (a, b) : (Nat, Nat) = e\n  a\n");
+        let e = rhs("def f (e : Nat) : Nat :=\n  let (a, b) : (Nat, Nat) := e\n  a\n");
         let (s, _, _) = let_parts(&e);
         assert!(matches!(s, Expr::Ann(..)));
 
-        let e = rhs("f e =\n  let _ = e\n  0\n");
+        let e = rhs("def f (e : Nat) : Nat :=\n  let _ := e\n  0\n");
         let (_, p, _) = let_parts(&e);
         assert!(matches!(p, Pattern::Wildcard(_)));
 
         // Plain lets are unchanged.
-        for text in ["f e =\n  let x = e\n  x\n", "f e =\n  let (x) = e\n  x\n"] {
+        for text in [
+            "def f (e : Nat) : Nat :=\n  let x := e\n  x\n",
+            "def f (e : Nat) : Nat :=\n  let (x) := e\n  x\n",
+        ] {
             assert!(matches!(rhs(text), Expr::Let { .. }), "{text}");
         }
 
         // Later lines nest inside the match.
-        let e = rhs("f e =\n  let (a, b) = e\n  let c = a\n  c\n");
+        let e = rhs("def f (e : Nat) : Nat :=\n  let (a, b) := e\n  let c := a\n  c\n");
         let (_, _, body) = let_parts(&e);
         assert!(matches!(body, Expr::Let { .. }));
     }
@@ -2607,40 +2474,42 @@ mod tests {
             other => panic!("expected a lambda match, got {other:?}"),
         };
 
-        let (names, body) = lam("f = \\(a, b) -> a\n");
+        let (names, body) = lam("def f : Nat := \\(a, b) => a\n");
         assert_eq!(names[0].text, "%arg0");
         assert_eq!(lambda_match(&body), (1, 1));
 
-        let (names, body) = lam("f = \\acc (k, v) -> acc\n");
+        let (names, body) = lam("def f : Nat := \\acc (k, v) => acc\n");
         let texts: Vec<_> = names.iter().map(|n| n.text.as_str()).collect();
         assert_eq!(texts, ["acc", "%arg1"]);
         assert_eq!(lambda_match(&body), (1, 1));
 
-        let (names, body) = lam("f = \\{ name, .. } -> name\n");
+        let (names, body) = lam("def f : Nat := \\{ name, .. } => name\n");
         assert_eq!(names[0].text, "%arg0");
         assert_eq!(lambda_match(&body), (1, 1));
 
-        let (_, body) = lam("f = \\(MkPair a b) -> a\n");
+        let (_, body) = lam("def f : Nat := \\(MkPair a b) => a\n");
         assert_eq!(lambda_match(&body), (1, 1));
 
-        let (names, body) = lam("f = \\(a, b) (c, d) -> a\n");
+        let (names, body) = lam("def f : Nat := \\(a, b) (c, d) => a\n");
         assert_eq!(names.len(), 2);
         assert_eq!(lambda_match(&body), (2, 2));
 
         // Plain parameters are unchanged.
-        let (names, body) = lam("f = \\x y -> x\n");
+        let (names, body) = lam("def f : Nat := \\x y => x\n");
         assert_eq!(names.len(), 2);
         assert!(matches!(body, Expr::Var(_)));
-        let (names, body) = lam("f = \\(x) _ -> x\n");
+        let (names, body) = lam("def f : Nat := \\(x) _ => x\n");
         assert_eq!(names.len(), 2);
         assert!(matches!(body, Expr::Var(_)));
     }
 
     #[test]
     fn rejects_bad_pattern_bindings() {
-        let message = rhs_of("f = \\(x : Nat) -> x\n").unwrap_err().message;
+        let message = rhs_of("def f : Nat := \\(x : Nat) => x\n")
+            .unwrap_err()
+            .message;
         assert!(message.contains("can't have a type"), "{message}");
-        assert!(rhs_of("f e =\n  let (a, b) = e\n").is_err());
-        assert!(rhs_of("f e =\n  let (a, b)\n  e\n").is_err());
+        assert!(rhs_of("def f (e : Nat) : Nat :=\n  let (a, b) := e\n").is_err());
+        assert!(rhs_of("def f (e : Nat) : Nat :=\n  let (a, b)\n  e\n").is_err());
     }
 }

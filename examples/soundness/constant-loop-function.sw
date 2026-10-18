@@ -4,8 +4,6 @@
 -- takes, but none can be smaller than anything, since `loop` has no
 -- parameters to compare them with. Pairs with `sumWith` in
 -- accept/size-change.sw.
-twice : (Nat -> Nat) -> Nat -> Nat
-twice f x = f (f x)
+def twice (f : Nat -> Nat) (x : Nat) : Nat := f (f x)
 
-loop : Nat -> Nat
-loop = twice (\n -> loop n)
+def loop : Nat -> Nat := twice (\n => loop n)

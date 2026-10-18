@@ -8,34 +8,26 @@
 -- run: sameLength [1, 2] [3, 4]
 -- run: bigEqual 123456789012345678901234567890
 
-export
-half : Nat -> Nat
-half 0               = 0
-half 1               = 0
-half (Succ (Succ n)) = Succ (half n)
+export def half : Nat -> Nat
+  | 0             => 0
+  | 1             => 0
+  | Succ (Succ n) => Succ (half n)
 
 -- Exponential, but random inputs are small.
-export
-fib : Nat -> Nat
-fib 0               = 0
-fib 1               = 1
-fib (Succ (Succ n)) = fib n + fib (Succ n)
+export def fib : Nat -> Nat
+  | 0             => 0
+  | 1             => 1
+  | Succ (Succ n) => fib n + fib (Succ n)
 
-export
-hasTwo : List Nat -> Bool
-hasTwo (Cons _ (Cons _ Nil)) = True
-hasTwo _                     = False
+export def hasTwo : List Nat -> Bool
+  | Cons _ (Cons _ Nil) => True
+  | _                   => False
 
-export
-describe : Nat -> Nat
-describe 3 = 30
-describe 7 = 70
-describe n = n
+export def describe : Nat -> Nat
+  | 3 => 30
+  | 7 => 70
+  | n => n
 
-export
-sameLength : List Nat -> List Nat -> Bool
-sameLength xs ys = List.length xs == List.length ys
+export def sameLength (xs : List Nat) (ys : List Nat) : Bool := List.length xs == List.length ys
 
-export
-bigEqual : Nat -> Bool
-bigEqual n = n * 2 == n + n
+export def bigEqual (n : Nat) : Bool := n * 2 == n + n

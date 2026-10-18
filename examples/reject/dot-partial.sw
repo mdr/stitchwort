@@ -4,8 +4,6 @@
 
 type Sized (n : Nat) = { value : Nat }
 
-Sized.read : (n : Nat) -> Sized n -> Nat
-Sized.read n s = s.value
+def Sized.read (n : Nat) (s : Sized n) : Nat := s.value
 
-reader : Sized 3 -> Nat -> Nat
-reader s = s.read
+def reader (s : Sized 3) : Nat -> Nat := s.read

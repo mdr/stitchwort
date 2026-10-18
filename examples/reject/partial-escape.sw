@@ -3,5 +3,4 @@
 -- `retry`'s definition could answer its request. Returning a closure over a
 -- partial function that's already defined is fine (`retryWith` in
 -- accept/partial.sw).
-retry : Nat -> {Partial} (Nat -> {Partial} Nat)
-retry n = \x -> retry (n - 1) x
+def retry (n : Nat) : {Partial} (Nat -> {Partial} Nat) := \x => retry (n - 1) x

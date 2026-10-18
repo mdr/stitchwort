@@ -11,12 +11,8 @@
 -- run: perPerson 10 3
 -- rejects: perPerson 10 0
 
-export
-applyDiscount : (price : Nat) -> (percent : Nat) -> [auto ok : percent <= 100] -> Nat
-applyDiscount price percent = price - price * percent / 100
+export def applyDiscount (price : Nat) (percent : Nat) : [auto ok : percent <= 100] -> Nat := price - price * percent / 100
 
 -- The precondition is what makes `/` acceptable here: `ok` proves the divisor
 -- isn't zero.
-export
-perPerson : (total : Nat) -> (people : Nat) -> [auto ok : people != 0] -> Nat
-perPerson total people = total / people
+export def perPerson (total : Nat) (people : Nat) : [auto ok : people != 0] -> Nat := total / people

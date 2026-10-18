@@ -106,70 +106,64 @@ fn ticks(trace: &[Event]) -> usize {
 
 /// Definitions shared by the programs below, in Stitchwort.
 const DEFINITIONS: &str = r#"
-immediate : Nat -> {Partial} Nat
-immediate n = n
+def immediate (n : Nat) : {Partial} Nat := n
 
-countdown : Nat -> {Partial} Nat
-countdown 0 = 0
-countdown n = countdown (n - 1)
+def countdown : Nat -> {Partial} Nat
+  | 0 => 0
+  | n => countdown (n - 1)
 
-collatzSteps : Nat -> {Partial} Nat
-collatzSteps 1 = 0
-collatzSteps n = 1 + collatzSteps (if n % 2 == 0 then n / 2 else 3 * n + 1)
+def collatzSteps : Nat -> {Partial} Nat
+  | 1 => 0
+  | n => 1 + collatzSteps (if n % 2 == 0 then n / 2 else 3 * n + 1)
 
-fib : Nat -> {Partial} Nat
-fib n = if Nat.leq n 1 then n else fib (n - 1) + fib (n - 2)
+def fib (n : Nat) : {Partial} Nat := if Nat.leq n 1 then n else fib (n - 1) + fib (n - 2)
 
-sumTo : Nat -> {Partial} Nat
-sumTo 0 = 0
-sumTo n = n + sumTo (n - 1)
+def sumTo : Nat -> {Partial} Nat
+  | 0 => 0
+  | n => n + sumTo (n - 1)
 
-isEven : Nat -> {Partial} Bool
-isEven 0 = True
-isEven n = isOdd (n - 1)
+def isEven : Nat -> {Partial} Bool
+  | 0 => True
+  | n => isOdd (n - 1)
 
-isOdd : Nat -> {Partial} Bool
-isOdd 0 = False
-isOdd n = isEven (n - 1)
+def isOdd : Nat -> {Partial} Bool
+  | 0 => False
+  | n => isEven (n - 1)
 
-hofF : Nat -> {Partial} Nat
-hofF 0 = 1
-hofF n = n - hofM (hofF (n - 1))
+def hofF : Nat -> {Partial} Nat
+  | 0 => 1
+  | n => n - hofM (hofF (n - 1))
 
-hofM : Nat -> {Partial} Nat
-hofM 0 = 0
-hofM n = n - hofF (hofM (n - 1))
+def hofM : Nat -> {Partial} Nat
+  | 0 => 0
+  | n => n - hofF (hofM (n - 1))
 
-useP : (Nat -> {Partial | e} Nat) -> Nat -> {Partial | e} Nat
-useP k n = k n
+def useP (k : Nat -> {Partial | e} Nat) (n : Nat) : {Partial | e} Nat := k n
 
-viaHelper : Nat -> {Partial} Nat
-viaHelper 0 = 1
-viaHelper n = useP viaHelper (n - 1)
+def viaHelper : Nat -> {Partial} Nat
+  | 0 => 1
+  | n => useP viaHelper (n - 1)
 
-twiceWith : (Nat -> {Partial | e} Nat) -> Nat -> {Partial | e} Nat
-twiceWith k n = k n + k n
+def twiceWith (k : Nat -> {Partial | e} Nat) (n : Nat) : {Partial | e} Nat := k n + k n
 
-tree : Nat -> {Partial} Nat
-tree 0 = 1
-tree n = twiceWith (\x -> tree x) (n - 1)
+def tree : Nat -> {Partial} Nat
+  | 0 => 1
+  | n => twiceWith (\x => tree x) (n - 1)
 
 type Handlers (e : Effect.Sig) : Type =
   | MkHandlers (onStep : Nat -> {Partial | e} Nat) (onDone : Nat -> {Partial | e} Nat)
 
-drive : [e : Effect.Sig] -> Handlers e -> Nat -> {Partial | e} Nat
-drive (MkHandlers onStep onDone) 0 = onDone 0
-drive (MkHandlers onStep onDone) n = onStep (n - 1)
+def drive : [e : Effect.Sig] -> Handlers e -> Nat -> {Partial | e} Nat
+  | MkHandlers onStep onDone, 0 => onDone 0
+  | MkHandlers onStep onDone, n => onStep (n - 1)
 
-stored : Nat -> {Partial} Nat
-stored n = drive (MkHandlers (\y -> stored y) (\u -> 42)) n
+def stored (n : Nat) : {Partial} Nat := drive (MkHandlers (\y => stored y) (\u => 42)) n
 
-countFrom : Nat -> Nat -> {Partial} Nat
-countFrom x 0 = x * 10
-countFrom x n = countFrom x (n - 1)
+def countFrom (x : Nat) : Nat -> {Partial} Nat
+  | 0 => x * 10
+  | n => countFrom x (n - 1)
 
-spin : Nat -> {Partial} Nat
-spin n = spin n
+def spin (n : Nat) : {Partial} Nat := spin n
 "#;
 
 /// A program printing `expr`, a `Nat` or a `Bool`.
@@ -179,7 +173,7 @@ fn printing(expr: &str, boolean: bool) -> String {
     } else {
         format!("Nat.toText ({expr})")
     };
-    format!("{DEFINITIONS}\nmain : () -> {{IO, Partial}} ()\nmain u = print ({shown})\n")
+    format!("{DEFINITIONS}\ndef main () : {{IO, Partial}} () := print ({shown})\n")
 }
 
 #[test]
@@ -229,65 +223,55 @@ fn ticks_and_results_agree_with_the_model() {
 /// versions of them.
 const IO_DEFINITIONS: &str = r#"
 -- echo count: prints each line until the end of the input.
-echoLine : Nat -> Maybe Text -> (Nat -> {IO, Partial | e} Nat) -> {IO, Partial | e} Nat
-echoLine count Nothing  more = count
-echoLine count (Just l) more =
-  print l
-  more (count + 1)
+def echoLine (count : Nat) : Maybe Text -> (Nat -> {IO, Partial | e} Nat) -> {IO, Partial | e} Nat
+  | Nothing, more => count
+  | Just l,  more =>
+    print l
+    more (count + 1)
 
-echo : Nat -> {IO, Partial} Nat
-echo count = echoLine count (readLine ()) echo
+def echo (count : Nat) : {IO, Partial} Nat := echoLine count (readLine ()) echo
 
 -- Operations before and after a non-tail request.
-leave : Nat -> Nat -> {IO} Nat
-leave n r =
+def leave (n : Nat) (r : Nat) : {IO} Nat :=
   print ("leave " ++ Nat.toText n)
   r + n
 
-nest : Nat -> {IO, Partial} Nat
-nest n =
+def nest (n : Nat) : {IO, Partial} Nat :=
   print ("enter " ++ Nat.toText n)
   if n == 0 then 0 else leave n (nest (n - 1))
 
 -- A recursive function calling another.
-outer : Nat -> {IO, Partial} Nat
-outer n = if n == 0 then 0 else nest 1 + outer (n - 1)
+def outer (n : Nat) : {IO, Partial} Nat := if n == 0 then 0 else nest 1 + outer (n - 1)
 
 -- An ability handled into `IO` between requests: each `ask` reads a line.
 ability Ask where
   ask : () -> {Ask} Nat
 
-askTwice : () -> {Ask} Nat
-askTwice u = ask () + ask ()
+def askTwice () : {Ask} Nat := ask () + ask ()
 
-lineLength : Maybe Text -> Nat
-lineLength Nothing  = 0
-lineLength (Just t) = List.length (Text.toList t)
+def lineLength : Maybe Text -> Nat
+  | Nothing => 0
+  | Just t  => List.length (Text.toList t)
 
-viaReadLine : (() -> {Ask} Nat) -> {IO} Nat
-viaReadLine prog =
+def viaReadLine (prog : () -> {Ask} Nat) : {IO} Nat :=
   handle prog () with
-    | return x    -> x
-    | ask u => k  -> k (lineLength (readLine ()))
+    | return x    => x
+    | ask u, k    => k (lineLength (readLine ()))
 
-sumAsks : Nat -> {IO, Partial} Nat
-sumAsks 0 = 0
-sumAsks n = viaReadLine askTwice + sumAsks (n - 1)
+def sumAsks : Nat -> {IO, Partial} Nat
+  | 0 => 0
+  | n => viaReadLine askTwice + sumAsks (n - 1)
 
 -- Forever.
-forever : Nat -> {IO, Partial} Nat
-forever n =
+def forever (n : Nat) : {IO, Partial} Nat :=
   print "tick"
   forever (n + 1)
 
-spin : Nat -> {Partial} Nat
-spin n = spin n
+def spin (n : Nat) : {Partial} Nat := spin n
 "#;
 
 fn io_program(call: &str) -> String {
-    format!(
-        "{IO_DEFINITIONS}\nmain : () -> {{IO, Partial}} ()\nmain u = print (Nat.toText ({call}))\n"
-    )
+    format!("{IO_DEFINITIONS}\ndef main () : {{IO, Partial}} () := print (Nat.toText ({call}))\n")
 }
 
 #[test]
@@ -339,7 +323,7 @@ fn endless_loops_stop_at_the_tick_limit_like_the_model() {
 /// `main ()` as a `Delay` value, to step by hand.
 fn main_value(session: &mut Session) -> stitchwort_core::Value {
     let expr = session
-        .parse_expression("<main>", "((\\u -> main ()) : () -> {IO, Partial} ()) ()")
+        .parse_expression("<main>", "((\\u => main ()) : () -> {IO, Partial} ()) ()")
         .unwrap();
     let (term, _) = session.elab.infer_expr(&expr).unwrap();
     let g = &session.elab.globals;
@@ -429,8 +413,11 @@ fn resource_limits_are_per_step_not_per_tick() {
 
     // One step that does a lot of total work: out of resources, no ticks.
     let mut session = load(&format!(
-        "{DEFINITIONS}\nbig : Nat -> Nat\nbig 0 = 0\nbig (Succ n) = Succ (big n)\n\n\
-         main : () -> {{IO, Partial}} ()\nmain u = print (Nat.toText (big 1000000 + immediate 1))\n"
+        "{DEFINITIONS}\n\
+         def big : Nat -> Nat\n  \
+         | 0 => 0\n  \
+         | Succ n => Succ (big n)\n\n\
+         def main () : {{IO, Partial}} () := print (Nat.toText (big 1000000 + immediate 1))\n"
     ));
     session.elab.limits.work = 20_000;
     let main = session.main().unwrap();

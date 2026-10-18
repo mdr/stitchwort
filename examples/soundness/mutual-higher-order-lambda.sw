@@ -4,12 +4,10 @@
 -- anything, so going round `walk → walkList → walk` nothing gets smaller.
 -- (`walk Nil` would loop.)
 -- Neighbour: `walk`/`stepBy` in accept/mutual.sw.
-applyTo : (List Nat -> Nat) -> List Nat -> Nat
-applyTo f xs = f xs
+def applyTo (f : List Nat -> Nat) (xs : List Nat) : Nat := f xs
 
-walk : List Nat -> Nat
-walk ts = applyTo (\x -> walkList x) ts
+def walk (ts : List Nat) : Nat := applyTo (\x => walkList x) ts
 
-walkList : List Nat -> Nat
-walkList Nil         = walk Nil
-walkList (Cons _ ts) = walk ts
+def walkList : List Nat -> Nat
+  | Nil       => walk Nil
+  | Cons _ ts => walk ts

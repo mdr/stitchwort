@@ -232,7 +232,7 @@ impl Generated {
             .iter()
             .map(|c| if *c == Col::Int { "Int" } else { "Bool" })
             .collect();
-        let mut out = format!("{name} : {} -> Int\n", tys.join(" -> "));
+        let mut out = format!("def {name} : {} -> Int\n", tys.join(" -> "));
         for (pats, rhs) in &self.rows {
             let (mut vars, mut others) = (0, 0);
             let shown: Vec<String> = pats
@@ -244,7 +244,7 @@ impl Generated {
                 Rhs::Number(n) => n.to_string(),
                 Rhs::Var(i) => format!("x{i}"),
             };
-            out.push_str(&format!("{name} {} = {rhs}\n", shown.join(" ")));
+            out.push_str(&format!("  | {} => {rhs}\n", shown.join(", ")));
         }
         out
     }
@@ -469,7 +469,7 @@ fn the_sign_is_known_and_the_magnitude_is_not() {
         let mut session = Session::new();
         load(
             &mut session,
-            "zeroOrOther : Int -> Bool\nzeroOrOther 0 = True\nzeroOrOther _ = False\n",
+            "def zeroOrOther : Int -> Bool\n  | 0 => True\n  | _ => False\n",
         );
         let g = &mut session.elab.globals;
         let f = def(g, "zeroOrOther");

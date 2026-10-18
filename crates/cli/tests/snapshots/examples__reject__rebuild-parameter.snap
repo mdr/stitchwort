@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-TERMINATION] Error: can't show that `loop` terminates
-   ╭─[ reject/rebuild-parameter.sw:7:17 ]
+   ╭─[ reject/rebuild-parameter.sw:7:15 ]
    │
- 7 │ loop (Succ n) = loop (Succ n)
-   │                 ──────┬─────  
-   │                       ╰─────── this recursive call might not terminate: the 1st argument stays the same
+ 7 │   | Succ n => loop (Succ n)
+   │               ──────┬─────  
+   │                     ╰─────── this recursive call might not terminate: the 1st argument stays the same
    │ 
    │ Note 1: however the recursive calls are repeated, some argument must get smaller (a part of a pattern-matched constructor); an argument passed on unchanged, or rebuilt from its own pattern, is no smaller
    │ 

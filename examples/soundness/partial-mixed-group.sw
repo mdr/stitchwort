@@ -5,8 +5,6 @@
 -- `mkLoop` would still be checked for termination as part of a cycle
 -- through `loop`; allowing that needs its own argument, so stage 1 refuses
 -- the group. Splitting the cycle, or making both partial, is accepted.
-mkLoop : Nat -> (Nat -> {Partial} Nat)
-mkLoop n = loop
+def mkLoop (n : Nat) : (Nat -> {Partial} Nat) := loop
 
-loop : Nat -> {Partial} Nat
-loop n = (mkLoop n) n
+def loop (n : Nat) : {Partial} Nat := (mkLoop n) n

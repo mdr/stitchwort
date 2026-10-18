@@ -268,7 +268,7 @@ fn builtins_with_the_wrong_shape_are_refused() {
     let nat = "type Nat : Type =\n  | Zero\n  | Succ (n : Nat)\n";
     // `add` with the wrong type.
     assert_eq!(
-        as_prelude(&format!("{nat}\nNat.add : Nat -> Nat\nNat.add n = n\n")),
+        as_prelude(&format!("{nat}\ndef Nat.add (n : Nat) : Nat := n\n")),
         ["E-BUILTIN"]
     );
     // `Bool` with a field.
@@ -281,15 +281,18 @@ fn builtins_with_the_wrong_shape_are_refused() {
     // `leq` before `Bool` is registered.
     assert_eq!(
         as_prelude(&format!(
-            "{nat}\ntype B : Type =\n  | F\n  | T\n\nNat.leq : Nat -> Nat -> B\nNat.leq m n = T\n"
+            "{nat}\ntype B : Type =\n  | F\n  | T\n\ndef Nat.leq (m : Nat) (n : Nat) : B := T\n"
         )),
         ["E-BUILTIN"]
     );
     // A `Decidable` whose `Yes` doesn't hold a proof.
     assert_eq!(
         as_prelude(
-            "type Void : Prop\n\nNot : Prop -> Prop\nNot p = p -> Void\n\n\
-             type Decidable (p : Prop) : Type =\n  | Yes (proof : Not p)\n  | No (refutation : Not p)\n"
+            "type Void : Prop\n\n\
+             def Not (p : Prop) : Prop := p -> Void\n\n\
+             type Decidable (p : Prop) : Type =\n  \
+             | Yes (proof : Not p)\n  \
+             | No (refutation : Not p)\n"
         ),
         ["E-BUILTIN"]
     );
@@ -297,7 +300,7 @@ fn builtins_with_the_wrong_shape_are_refused() {
     let mut session = Session::new();
     assert!(
         session
-            .load("user.sw", "eqNat2 : Nat -> Nat -> Nat\neqNat2 m n = m\n")
+            .load("user.sw", "def eqNat2 (m : Nat) (n : Nat) : Nat := m\n")
             .is_ok()
     );
 }
@@ -381,21 +384,21 @@ fn accepts(source: &str) {
 /// Copies of the prelude's definitions that return proofs, which never run
 /// natively (only the calls inside them to other natives do).
 const COPIES: &str = "\
-myDecEqNat : (m : Nat) -> (n : Nat) -> Decidable (m = n)
-myDecEqNat Zero     Zero     = Yes rfl
-myDecEqNat Zero     (Succ n) = No (Nat.equalFalse 0 (Succ n) rfl)
-myDecEqNat (Succ m) Zero     = No (Nat.equalFalse (Succ m) 0 rfl)
-myDecEqNat (Succ m) (Succ n) = Nat.decEqFrom (Succ m) (Succ n) (Nat.equal m n) rfl
+def myDecEqNat : (m : Nat) -> (n : Nat) -> Decidable (m = n)
+  | Zero,   Zero   => Yes rfl
+  | Zero,   Succ n => No (Nat.equalFalse 0 (Succ n) rfl)
+  | Succ m, Zero   => No (Nat.equalFalse (Succ m) 0 rfl)
+  | Succ m, Succ n => Nat.decEqFrom (Succ m) (Succ n) (Nat.equal m n) rfl
 
 theorem myEqNatRefl : (n : Nat) -> Nat.equal n n = True
-myEqNatRefl Zero     = rfl
-myEqNatRefl (Succ n) = myEqNatRefl n
+  | Zero   => rfl
+  | Succ n => myEqNatRefl n
 
 theorem myEqNatSound : (m : Nat) -> (n : Nat) -> Nat.equal m n = True -> m = n
-myEqNatSound Zero     Zero     h = rfl
-myEqNatSound Zero     (Succ n) h = Void.exfalso (Bool.falseNotTrue h)
-myEqNatSound (Succ m) Zero     h = Void.exfalso (Bool.falseNotTrue h)
-myEqNatSound (Succ m) (Succ n) h = Eq.cong Succ (myEqNatSound m n h)
+  | Zero,   Zero,   h => rfl
+  | Zero,   Succ n, h => Void.exfalso (Bool.falseNotTrue h)
+  | Succ m, Zero,   h => Void.exfalso (Bool.falseNotTrue h)
+  | Succ m, Succ n, h => Eq.cong Succ (myEqNatSound m n h)
 ";
 
 const BIG: &str = "1180591620717411303424"; // 2^70
@@ -419,15 +422,14 @@ fn rfl_proves_proof_natives_equal_to_their_definitions() {
         (BIG, "1180591620717411303425"),
     ];
     for (i, (m, n)) in pairs.iter().enumerate() {
-        source += &format!(
-            "\ntheorem sameDec{i} : myDecEqNat {m} {n} = Nat.decEq {m} {n}\nsameDec{i} = rfl\n"
-        );
+        source +=
+            &format!("\ntheorem sameDec{i} : myDecEqNat {m} {n} = Nat.decEq {m} {n} := rfl\n");
     }
     for n in ["0", "1", "7"] {
         source += &format!(
-            "\ntheorem sameRefl{n} : myEqNatRefl {n} = Nat.equalRefl {n}\nsameRefl{n} = rfl\n\
-             \ntheorem sameSound{n} : myEqNatSound {n} {n} rfl = Nat.equalSound {n} {n} rfl\n\
-             sameSound{n} = rfl\n"
+            "\n\
+             theorem sameRefl{n} : myEqNatRefl {n} = Nat.equalRefl {n} := rfl\n\n\
+             theorem sameSound{n} : myEqNatSound {n} {n} rfl = Nat.equalSound {n} {n} rfl := rfl\n"
         );
     }
     accepts(&source);

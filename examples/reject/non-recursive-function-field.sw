@@ -6,10 +6,10 @@
 type Wrap : Type =
   | MkWrap (f : Nat -> Nat)
 
-Pick : Bool -> Type
-Pick True  = Wrap
-Pick False = Nat
+def Pick : Bool -> Type
+  | True  => Wrap
+  | False => Nat
 
-h : (b : Bool) -> Pick b -> Nat
-h True  (MkWrap f) = h False (f 0)
-h False n          = n
+def h : (b : Bool) -> Pick b -> Nat
+  | True,  MkWrap f => h False (f 0)
+  | False, n        => n

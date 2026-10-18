@@ -2,5 +2,4 @@
 -- This file defines its own `length`, which would hide the import completely.
 import List (length)
 
-length : Nat
-length = 0
+def length : Nat := 0

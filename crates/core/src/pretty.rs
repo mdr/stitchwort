@@ -256,7 +256,7 @@ impl<'g> Printer<'g> {
                 names.push(x.clone());
                 let body = self.print(names, b, Prec::Arrow);
                 names.pop();
-                (format!("\\{x} -> {body}"), Prec::Arrow)
+                (format!("\\{x} => {body}"), Prec::Arrow)
             }
             Term::Meta(m) => (format!("?{m}"), Prec::Atom),
             Term::App(..) => {

@@ -11,21 +11,18 @@
 -- run: gcdSteps 12 18 0
 -- run: gcdSteps 0 5 0
 
-export
-interleave : List Nat -> List Nat -> List Nat
-interleave Nil         ys = ys
-interleave (Cons x xs) ys = Cons x (interleave ys xs)
+export def interleave : List Nat -> List Nat -> List Nat
+  | Nil,       ys => ys
+  | Cons x xs, ys => Cons x (interleave ys xs)
 
-export
-merge : List Nat -> List Nat -> List Nat
-merge Nil         ys          = ys
-merge (Cons x xs) Nil         = Cons x xs
-merge (Cons x xs) (Cons y ys) =
-  if Nat.leq x y then Cons x (merge xs (Cons y ys)) else Cons y (merge (Cons x xs) ys)
+export def merge : List Nat -> List Nat -> List Nat
+  | Nil,       ys        => ys
+  | Cons x xs, Nil       => Cons x xs
+  | Cons x xs, Cons y ys =>
+    if Nat.leq x y then Cons x (merge xs (Cons y ys)) else Cons y (merge (Cons x xs) ys)
 
 -- Each call takes one off the first argument and swaps the first two,
 -- counting the calls: a tail call with its arguments in a different order.
-export
-gcdSteps : Nat -> Nat -> Nat -> Nat
-gcdSteps Zero     b acc = acc
-gcdSteps (Succ a) b acc = gcdSteps b a (Succ acc)
+export def gcdSteps : Nat -> Nat -> Nat -> Nat
+  | Zero,   b, acc => acc
+  | Succ a, b, acc => gcdSteps b a (Succ acc)

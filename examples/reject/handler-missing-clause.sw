@@ -4,8 +4,7 @@ ability State where
   get : () -> {State} Nat
   put : Nat -> {State} ()
 
-onlyGet : (() -> {State | e} a) -> {e} a
-onlyGet prog =
+def onlyGet (prog : () -> {State | e} a) : {e} a :=
   handle prog () with
-    | return x   -> x
-    | get u => k -> k 0
+    | return x   => x
+    | get u, k => k 0

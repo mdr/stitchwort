@@ -7,6 +7,4 @@ type Holder : Type =
 type Outer : Type =
   | MkOuter (inner : Maybe Holder)
 
-export
-useOuter : Outer -> Nat
-useOuter o = 0
+export def useOuter (o : Outer) : Nat := 0

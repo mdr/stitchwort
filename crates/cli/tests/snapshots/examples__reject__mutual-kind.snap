@@ -9,9 +9,9 @@ expression: output
    │      ──┬─  
    │        ╰─── `Code` is defined here
    │ 
- 8 │ Decode : Code -> Type
-   │ ───┬──  
-   │    ╰──── `Decode` is defined here
+ 8 │ def Decode : Code -> Type
+   │     ───┬──  
+   │        ╰──── `Decode` is defined here
    │ 
    │ Note 1: `Code` uses `Decode`, which uses `Code`
    │ 

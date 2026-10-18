@@ -7,12 +7,10 @@ type Tree : Type =
   | Leaf
   | Node (left : Tree) (right : Tree)
 
-export
-leaves : Tree -> Nat
-leaves Leaf       = 1
-leaves (Node l r) = leaves l + leaves r
+export def leaves : Tree -> Nat
+  | Leaf     => 1
+  | Node l r => leaves l + leaves r
 
-export
-mirror : Tree -> Tree
-mirror Leaf       = Leaf
-mirror (Node l r) = Node (mirror r) (mirror l)
+export def mirror : Tree -> Tree
+  | Leaf     => Leaf
+  | Node l r => Node (mirror r) (mirror l)

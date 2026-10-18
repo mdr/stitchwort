@@ -9,5 +9,5 @@
 type D : Type =
   | MakeD (same : impossible = impossible)
 
-impossible : D -> Void
-impossible ()
+def impossible : D -> Void
+  | ()

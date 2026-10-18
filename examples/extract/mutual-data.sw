@@ -18,40 +18,31 @@ type Forest : Type =
   | FNil
   | FCons (first : Tree) (rest : Forest)
 
-export
-size : Tree -> Nat
-size (Node n kids) = Succ (sizeForest kids)
+export def size : Tree -> Nat
+  | Node n kids => Succ (sizeForest kids)
 
-export
-sizeForest : Forest -> Nat
-sizeForest FNil         = 0
-sizeForest (FCons t ts) = size t + sizeForest ts
+export def sizeForest : Forest -> Nat
+  | FNil       => 0
+  | FCons t ts => size t + sizeForest ts
 
 -- One more on every label.
-export
-relabel : Tree -> Tree
-relabel (Node n kids) = Node (Succ n) (relabelAll kids)
+export def relabel : Tree -> Tree
+  | Node n kids => Node (Succ n) (relabelAll kids)
 
-relabelAll : Forest -> Forest
-relabelAll FNil         = FNil
-relabelAll (FCons t ts) = FCons (relabel t) (relabelAll ts)
+def relabelAll : Forest -> Forest
+  | FNil       => FNil
+  | FCons t ts => FCons (relabel t) (relabelAll ts)
 
-export
-echoTree : Tree -> Tree
-echoTree t = t
+export def echoTree (t : Tree) : Tree := t
 
-export
-echoForest : Forest -> Forest
-echoForest f = f
+export def echoForest (f : Forest) : Forest := f
 
 -- `n` deep, each node's only child the one below it. A loop.
-deepOnto : Tree -> Nat -> Tree
-deepOnto t Zero     = t
-deepOnto t (Succ n) = deepOnto (Node n (FCons t FNil)) n
+def deepOnto (t : Tree) : Nat -> Tree
+  | Zero   => t
+  | Succ n => deepOnto (Node n (FCons t FNil)) n
 
-export
-deep : Nat -> Tree
-deep n = deepOnto (Node 0 FNil) n
+export def deep (n : Nat) : Tree := deepOnto (Node 0 FNil) n
 
 -- With a parameter.
 type Rose (a : Type) : Type =
@@ -61,17 +52,13 @@ type Roses (a : Type) : Type =
   | NoRoses
   | MoreRoses (first : Rose a) (rest : Roses a)
 
-flattenRose : Rose a -> List a
-flattenRose (Bloom x kids) = Cons x (flattenRoses kids)
+def flattenRose : Rose a -> List a
+  | Bloom x kids => Cons x (flattenRoses kids)
 
-flattenRoses : Roses a -> List a
-flattenRoses NoRoses          = Nil
-flattenRoses (MoreRoses r rs) = List.append (flattenRose r) (flattenRoses rs)
+def flattenRoses : Roses a -> List a
+  | NoRoses        => Nil
+  | MoreRoses r rs => List.append (flattenRose r) (flattenRoses rs)
 
-export
-flatten : Rose Text -> List Text
-flatten r = flattenRose r
+export def flatten (r : Rose Text) : List Text := flattenRose r
 
-export
-echoRose : Rose Text -> Rose Text
-echoRose r = r
+export def echoRose (r : Rose Text) : Rose Text := r

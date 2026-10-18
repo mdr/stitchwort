@@ -3,5 +3,4 @@
 type Exists (p : Nat -> Prop) : Prop =
   | Witness (x : Nat) (proof : p x)
 
-witness : (p : Nat -> Prop) -> Exists p -> Nat
-witness p = \(Witness x h) -> x
+def witness (p : Nat -> Prop) : Exists p -> Nat := \(Witness x h) => x

@@ -3,8 +3,6 @@
 -- `ping 0` loops (§6.8, example 10).
 -- Neighbour: `countdown`/`step` in accept/mutual.sw, where `step` makes it
 -- smaller.
-ping : Nat -> Nat
-ping n = pong n
+def ping (n : Nat) : Nat := pong n
 
-pong : Nat -> Nat
-pong n = ping n
+def pong (n : Nat) : Nat := ping n

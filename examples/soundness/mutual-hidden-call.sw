@@ -3,10 +3,10 @@
 -- the outer call to `b` is on the smaller `n`, but its argument calls `a`
 -- again on the same number.
 -- Neighbour: `isEven`/`isOdd` in accept/mutual.sw.
-a : Nat -> Nat
-a Zero     = Zero
-a (Succ n) = b n (a (Succ n))
+def a : Nat -> Nat
+  | Zero   => Zero
+  | Succ n => b n (a (Succ n))
 
-b : Nat -> Nat -> Nat
-b Zero     m = m
-b (Succ n) m = a n
+def b : Nat -> Nat -> Nat
+  | Zero,   m => m
+  | Succ n, m => a n

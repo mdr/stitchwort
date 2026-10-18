@@ -4,8 +4,6 @@
 
 type Meter = { v : Nat }
 
-Meter.parse : Text -> Meter
-Meter.parse t = { v = Text.length t }
+def Meter.parse (t : Text) : Meter := { v = Text.length t }
 
-again : Meter -> Meter
-again m = m.parse
+def again (m : Meter) : Meter := m.parse

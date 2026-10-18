@@ -4,6 +4,6 @@ type Or (p : Prop) (q : Prop) : Prop =
   | Inl (left : p)
   | Inr (right : q)
 
-which : (p : Prop) -> (q : Prop) -> Or p q -> Nat
-which p q (Inl h) = 0
-which p q (Inr h) = 1
+def which (p : Prop) (q : Prop) : Or p q -> Nat
+  | Inl h => 0
+  | Inr h => 1

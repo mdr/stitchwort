@@ -10,17 +10,14 @@ type Shape : Type =
   | Square (side : Nat)
   | Rect (width : Nat) (height : Nat)
 
-export
-area : Shape -> Nat
-area (Square s) = s * s
-area (Rect w h) = w * h
+export def area : Shape -> Nat
+  | Square s => s * s
+  | Rect w h => w * h
 
-export
-areas : List Shape -> List Nat
-areas Nil           = Nil
-areas (Cons s rest) = Cons (area s) (areas rest)
+export def areas : List Shape -> List Nat
+  | Nil         => Nil
+  | Cons s rest => Cons (area s) (areas rest)
 
-export
-grow : Shape -> Shape
-grow (Square s) = Square (Succ s)
-grow (Rect w h) = Rect (Succ w) (Succ h)
+export def grow : Shape -> Shape
+  | Square s => Square (Succ s)
+  | Rect w h => Rect (Succ w) (Succ h)

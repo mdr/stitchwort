@@ -4,11 +4,8 @@
 type Token : Prop =
   | MkToken
 
-needsToken : [auto t : Token] -> Nat
-needsToken = 1
+def needsToken : [auto t : Token] -> Nat := 1
 
-client : Nat
-client = needsToken
+def client : Nat := needsToken
 
-decToken : Decidable Token
-decToken = Yes MkToken
+def decToken : Decidable Token := Yes MkToken

@@ -7,5 +7,4 @@ type Shape : Type =
 type Tile : Type =
   | Square (colour : Nat)
 
-unit : Shape
-unit = Square 1
+def unit : Shape := Square 1

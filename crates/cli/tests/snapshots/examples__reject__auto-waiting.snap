@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-AUTO-NONE] Error: no way to decide `Token`
-    ╭─[ reject/auto-waiting.sw:15:10 ]
+    ╭─[ reject/auto-waiting.sw:12:21 ]
     │
- 15 │ client = needsToken
-    │          ─────┬────  
-    │               ╰────── the compiler needs a proof of this
+ 12 │ def client : Nat := needsToken
+    │                     ─────┬────  
+    │                          ╰────── the compiler needs a proof of this
     │ 
     │ Note 1: supply a proof by name, or write a decision procedure: a function returning `Decidable …`
     │ 

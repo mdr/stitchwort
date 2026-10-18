@@ -4,12 +4,11 @@
 -- depend on how `g`, unchecked, computes.
 -- Neighbour: `evenNotOdd`/`oddNotEven` in accept/mutual.sw, whose types
 -- mention `isEven` and `isOdd`, finished before them.
-f : (n : Nat) -> g n = g n
-f n = rfl
+def f (n : Nat) : g n = g n := rfl
 
-g : Nat -> Nat
-g 0        = 0
-g (Succ n) = keep (f n) (g n)
+def g : Nat -> Nat
+  | 0      => 0
+  | Succ n => keep (f n) (g n)
 
-keep : [x y : Nat] -> x = y -> Nat -> Nat
-keep _ m = m
+def keep : [x y : Nat] -> x = y -> Nat -> Nat
+  | _, m => m

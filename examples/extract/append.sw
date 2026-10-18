@@ -12,18 +12,14 @@
 -- The length of two appended lists is the sum of their lengths.
 theorem appendLength : (xs : List a) -> (ys : List a) ->
     List.length (List.append xs ys) = List.length xs + List.length ys
-appendLength Nil         ys = rfl
-appendLength (Cons x xs) ys = Eq.cong Succ (appendLength xs ys)
+  | Nil,       ys => rfl
+  | Cons x xs, ys => Eq.cong Succ (appendLength xs ys)
 
-export
-appendNats : List Nat -> List Nat -> List Nat
-appendNats xs ys = List.append xs ys
+export def appendNats (xs : List Nat) (ys : List Nat) : List Nat := List.append xs ys
 
-theorem appendNatsLength : (xs : List Nat) -> (ys : List Nat) ->
-    List.length (appendNats xs ys) = List.length xs + List.length ys
-appendNatsLength xs ys = appendLength xs ys
+theorem appendNatsLength (xs : List Nat) (ys : List Nat) :
+    List.length (appendNats xs ys) = List.length xs + List.length ys := appendLength xs ys
 
-export
-total : List Nat -> Nat
-total Nil         = 0
-total (Cons x xs) = x + total xs
+export def total : List Nat -> Nat
+  | Nil       => 0
+  | Cons x xs => x + total xs

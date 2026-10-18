@@ -24,7 +24,7 @@ fn evaluates_and_prints_expressions() {
         ("List.length [1, 2, 3]", "3 : Nat"),
         ("List.append [1] [2, 3]", "[1, 2, 3] : List Nat"),
         ("[[1], []]", "[[1], []] : List (List Nat)"),
-        ("Succ", "\\n -> Succ n : Nat -> Nat"),
+        ("Succ", "\\n => Succ n : Nat -> Nat"),
         ("7 / 2", "3 : Nat"),
         ("Nat.div 7 2", "3 : Nat"),
     ];
@@ -62,11 +62,11 @@ fn reports_errors_in_expressions() {
 fn files_build_on_the_prelude_and_earlier_files() {
     let mut session = Session::new();
     session
-        .load("a.sw", "double : Nat -> Nat\ndouble n = n + n\n")
+        .load("a.sw", "def double (n : Nat) : Nat := n + n\n")
         .expect("first file checks");
     assert_eq!(eval(&mut session, "double 4").as_deref(), Ok("8 : Nat"));
     let errors = session
-        .load("b.sw", "double : Nat\ndouble = 1\n")
+        .load("b.sw", "def double : Nat := 1\n")
         .expect_err("redefinition");
     assert_eq!(errors[0].code, "E-DUPLICATE");
 }

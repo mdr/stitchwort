@@ -3,9 +3,9 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-LET-REFUTABLE] Error: this pattern doesn't match every `List Nat`: it doesn't match `Nil`
-   ╭─[ reject/list-pattern-let-refutable.sw:5:7 ]
+   ╭─[ reject/list-pattern-let-refutable.sw:4:7 ]
    │
- 5 │   let [a, b] = xs
+ 4 │   let [a, b] := xs
    │       ───┬──  
    │          ╰──── doesn't match `Nil`
    │ 

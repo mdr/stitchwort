@@ -100,10 +100,10 @@ fn a_record_has_exactly_one_constructor() {
 #[test]
 fn field_validators_are_checked() {
     let mut s = load(
-        "IsZero' : Nat -> Prop\nIsZero' n = n = 0\n\n\
+        "def IsZero' (n : Nat) : Prop := n = 0\n\n\
          type Small = { n : Nat, zero : IsZero' n }\n\n\
-         decZero : (n : Nat) -> Decidable (IsZero' n)\ndecZero n = Nat.decEq n 0\n\n\
-         decOne : (n : Nat) -> Decidable (n = 1)\ndecOne n = Nat.decEq n 1\n",
+         def decZero (n : Nat) : Decidable (IsZero' n) := Nat.decEq n 0\n\n\
+         def decOne (n : Nat) : Decidable (n = 1) := Nat.decEq n 1\n",
     );
     let g = &mut s.elab.globals;
     let small = data(g, "Small");
@@ -182,11 +182,11 @@ fn projections_and_equality_are_generated() {
 fn derived_equality_compares_every_field() {
     let s = load(
         "type P = { a : Nat, b : Bool, c : Text }\n\n\
-         base : P\nbase = { a = 1, b = True, c = \"x\" }\n\n\
-         test \"same\" = base == { c = \"x\", b = True, a = 1 }\n\
-         test \"a\" = not (base == { a = 2, b = True, c = \"x\" })\n\
-         test \"b\" = not (base == { a = 1, b = False, c = \"x\" })\n\
-         test \"c\" = not (base == { a = 1, b = True, c = \"y\" })\n",
+         def base : P := { a = 1, b = True, c = \"x\" }\n\n\
+         test \"same\" := base == { c = \"x\", b = True, a = 1 }\n\
+         test \"a\" := not (base == { a = 2, b = True, c = \"x\" })\n\
+         test \"b\" := not (base == { a = 1, b = False, c = \"x\" })\n\
+         test \"c\" := not (base == { a = 1, b = True, c = \"y\" })\n",
     );
     let results = s.run_tests(&Cache::disabled());
     assert_eq!(results.len(), 4);

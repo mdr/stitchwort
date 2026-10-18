@@ -22,62 +22,51 @@ type Awkward : Type =
   | Plain
   | Fields (tag : Nat) (__proto__ : Nat) (x : Nat) (x' : Nat) (x'' : Nat) (constructor : Nat) (undefined : Nat) (path : Nat) (inside : Nat) (v0 : Nat) (arg0 : Nat)
 
-export
-twiddle : Awkward -> Awkward
-twiddle Plain                         = Plain
-twiddle (Fields a b c d e f g h i j k) = Fields k j i h g f e d c b a
+export def twiddle : Awkward -> Awkward
+  | Plain => Plain
+  | Fields a b c d e f g h i j k => Fields k j i h g f e d c b a
 
 -- The bug this example started from: the field `tag` hid the constructor's.
 type Labelled : Type =
   | MkLabelled (tag : Text) (count : Nat)
 
-export
-labelled : Labelled -> Labelled
-labelled (MkLabelled t n) = MkLabelled (t ++ "!") (Succ n)
+export def labelled : Labelled -> Labelled
+  | MkLabelled t n => MkLabelled (t ++ "!") (Succ n)
 
 type Box' : Type =
   | MkBox' (value : Nat)
 
-export
-unbox : Box' -> Nat
-unbox (MkBox' n) = n
+export def unbox : Box' -> Nat
+  | MkBox' n => n
 
 type Tagged' (a : Type) : Type =
   | MkTagged' (tag : a) (tag' : a)
 
-export
-firstTag : Tagged' Nat -> Nat
-firstTag (MkTagged' t u) = t
+export def firstTag : Tagged' Nat -> Nat
+  | MkTagged' t u => t
 
-export
-tagged : Tagged' Text -> Tagged' Text
-tagged (MkTagged' t u) = MkTagged' u t
+export def tagged : Tagged' Text -> Tagged' Text
+  | MkTagged' t u => MkTagged' u t
 
 -- Exports named like the runtime's helpers and like JS globals it uses, and
 -- parameters named like the wrapper's own variables, or reserved in JS.
-export
-enter : (v1 : Nat) -> (v0 : Nat) -> Nat
-enter a b = a
+export def enter : (v1 : Nat) -> (v0 : Nat) -> Nat
+  | a, b => a
 
-export
-decode : (undefined : Nat) -> Nat
-decode n = Succ n
+export def decode : (undefined : Nat) -> Nat
+  | n => Succ n
 
-export
-Set : (class : Nat) -> Nat
-Set n = n + n
+export def Set : (class : Nat) -> Nat
+  | n => n + n
 
-export
-BigInt : (arg1 : Nat) -> Nat
-BigInt n = n
+export def BigInt : (arg1 : Nat) -> Nat
+  | n => n
 
 type Error : Type =
   | Oops (tag : Text)
 
-export
-RangeError : Error -> Error
-RangeError (Oops t) = Oops (t ++ t)
+export def RangeError : Error -> Error
+  | Oops t => Oops (t ++ t)
 
-export
-args : (this : Nat) -> (e : Nat) -> (arguments : Nat) -> Nat
-args a b c = a + b + c
+export def args : (this : Nat) -> (e : Nat) -> (arguments : Nat) -> Nat
+  | a, b, c => a + b + c

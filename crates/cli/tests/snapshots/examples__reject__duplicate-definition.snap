@@ -3,13 +3,13 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-DUPLICATE] Error: `length` is already defined
-   ╭─[ reject/duplicate-definition.sw:6:1 ]
+   ╭─[ reject/duplicate-definition.sw:5:5 ]
    │
- 3 │ length : Nat
-   │ ───┬──  
-   │    ╰──── first defined here
+ 3 │ def length : Nat := 0
+   │     ───┬──  
+   │        ╰──── first defined here
    │ 
- 6 │ length : Nat
-   │ ───┬──  
-   │    ╰──── `length` is already defined
+ 5 │ def length : Nat := 1
+   │     ───┬──  
+   │        ╰──── `length` is already defined
 ───╯

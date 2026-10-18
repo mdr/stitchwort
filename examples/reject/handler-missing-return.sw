@@ -2,7 +2,6 @@
 ability Choose where
   choose : () -> {Choose} Bool
 
-first : (() -> {Choose | e} a) -> {e} a
-first prog =
+def first (prog : () -> {Choose | e} a) : {e} a :=
   handle prog () with
-    | choose u => k -> k True
+    | choose u, k => k True

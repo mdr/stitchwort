@@ -1,7 +1,4 @@
 -- Pairs with reject/export-polymorphic.sw: a version specialised to `Nat`.
-identity : a -> a
-identity x = x
+def identity (x : a) : a := x
 
-export
-identityNat : Nat -> Nat
-identityNat n = identity n
+export def identityNat (n : Nat) : Nat := identity n

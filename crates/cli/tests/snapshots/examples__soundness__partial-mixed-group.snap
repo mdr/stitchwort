@@ -3,15 +3,15 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-PARTIAL-MIXED] Error: `mkLoop` and `loop` call each other, but only `loop` is `Partial`
-    ╭─[ soundness/partial-mixed-group.sw:8:1 ]
+    ╭─[ soundness/partial-mixed-group.sw:8:5 ]
     │
-  8 │ mkLoop : Nat -> (Nat -> {Partial} Nat)
-    │ ───┬──  
-    │    ╰──── `mkLoop` isn't `Partial`: it returns a partial function, but finishes itself
+  8 │ def mkLoop (n : Nat) : (Nat -> {Partial} Nat) := loop
+    │     ───┬──  
+    │        ╰──── `mkLoop` isn't `Partial`: it returns a partial function, but finishes itself
     │ 
- 11 │ loop : Nat -> {Partial} Nat
-    │ ──┬─  
-    │   ╰─── `loop` is `Partial`
+ 10 │ def loop (n : Nat) : {Partial} Nat := (mkLoop n) n
+    │     ──┬─  
+    │       ╰─── `loop` is `Partial`
     │ 
     │ Note: a recursive group must be all `Partial` or all total: split the cycle, so that the total definitions don't refer back to the partial ones, or make them all `Partial`
 ────╯

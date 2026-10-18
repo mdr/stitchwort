@@ -312,9 +312,10 @@ fn deep_evaluation_runs_in_one_machine_and_the_reference_in_none() {
         session
             .load(
                 "deep.sw",
-                "replicate : Nat -> a -> List a\nreplicate Zero     x = Nil\n\
-                 replicate (Succ n) x = Cons x (replicate n x)\n\n\
-                 total : Nat -> Nat\ntotal n = List.length (replicate n 1) + List.length (replicate n 2)\n",
+                "def replicate : Nat -> a -> List a\n  \
+                 | Zero,   x => Nil\n  \
+                 | Succ n, x => Cons x (replicate n x)\n\n\
+                 def total (n : Nat) : Nat := List.length (replicate n 1) + List.length (replicate n 2)\n",
             )
             .unwrap();
         let g = &session.elab.globals;

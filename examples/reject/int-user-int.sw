@@ -3,5 +3,4 @@
 type Int : Type =
   | MkInt
 
-r : Int
-r = 5
+def r : Int := 5

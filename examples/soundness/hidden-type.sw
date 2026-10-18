@@ -4,5 +4,5 @@
 type HiddenType : Prop =
   | HideType (a : Type)
 
-reveal : HiddenType -> Type
-reveal (HideType a) = a
+def reveal : HiddenType -> Type
+  | HideType a => a

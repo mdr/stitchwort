@@ -3,5 +3,4 @@
 ability State where
   get : () -> {State} Nat
 
-bad : Nat -> Nat
-bad n = get () + n
+def bad (n : Nat) : Nat := get () + n

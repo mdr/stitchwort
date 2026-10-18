@@ -98,24 +98,22 @@
 
 <script type="module">
 // Helpers shared by the cases.
-const HELPERS = `replicate : Nat -> a -> List a
-replicate Zero     x = Nil
-replicate (Succ n) x = Cons x (replicate n x)
+const HELPERS = `def replicate : Nat -> a -> List a
+  | Zero,   x => Nil
+  | Succ n, x => Cons x (replicate n x)
 
-replicateHasLength : Nat -> Bool
-replicateHasLength n = length (replicate n 1) == n
+def replicateHasLength (n : Nat) : Bool := length (replicate n 1) == n
 
 -- A loop: the recursive call is the last thing it does.
-countDown : Nat -> Nat
-countDown Zero     = 0
-countDown (Succ n) = countDown n
+def countDown : Nat -> Nat
+  | Zero   => 0
+  | Succ n => countDown n
 
-repeatText : Nat -> Text -> Text
-repeatText Zero     t = ""
-repeatText (Succ n) t = t ++ repeatText n t
+def repeatText : Nat -> Text -> Text
+  | Zero,   t => ""
+  | Succ n, t => t ++ repeatText n t
 
-splitJoinRoundTrips : Nat -> Bool
-splitJoinRoundTrips n = textJoin ',' (textSplit ',' (repeatText n "a,")) == repeatText n "a,"
+def splitJoinRoundTrips (n : Nat) : Bool := textJoin ',' (textSplit ',' (repeatText n "a,")) == repeatText n "a,"
 `;
 
 const list = (n) => "[" + Array(n).fill("1").join(", ") + "]";
@@ -134,18 +132,18 @@ const CASES = [
   { name: "length of a 1,000-element list", action: "evaluate", expr: "length (replicate 1000 1)", expect: { value: "1000" } },
   { name: "length of a 100,000-element list", action: "evaluate", expr: "length (replicate 100000 1)", expect: { value: "100000" } },
   { name: "length of a 1,000,000-element list", action: "evaluate", expr: "length (replicate 1000000 1)", expect: { value: "1000000" }, heavy: true },
-  { name: "a test recursing 1,000,000 deep", action: "test", extra: 'test "deep" = replicateHasLength 1000000', expect: { tests: true }, heavy: true },
+  { name: "a test recursing 1,000,000 deep", action: "test", extra: 'test "deep" := replicateHasLength 1000000', expect: { tests: true }, heavy: true },
   { name: "a loop of 1,000,000 steps (no frames)", action: "evaluate", expr: "countDown 1000000", expect: { value: "0" } },
   { name: "past the frame limit (3,000,000 deep)", action: "evaluate", expr: "length (replicate 3000000 1)", expect: { resource: true }, heavy: true },
   { name: "length of a 200,000-character text", action: "evaluate", expr: "textLength (repeatText 100000 \"ab\")", expect: { value: "200000" } },
   { name: "split and join 20,000 fields", action: "evaluate", expr: "splitJoinRoundTrips 10000", expect: { value: "True" } },
   { name: "printing a 100,000-element list", action: "evaluate", expr: "replicate 100000 1", expect: { printed: 300000 } },
-  { name: "comparing two 20,000-element lists in a proof", action: "check", extra: "theorem same : replicate 20000 1 = replicate 20000 1\nsame = rfl", expect: { checks: true } },
-  { name: "a 20,000-element list literal", action: "check", extra: `big : List Nat\nbig = ${list(20000)}`, expect: { resource: true, until: "compact literals, or checking them without recursing" } },
-  { name: "a 20,000-character text literal", action: "check", extra: `big : Text\nbig = "${"ab".repeat(10000)}"`, expect: { resource: true, until: "compact literals, or checking them without recursing" } },
-  { name: "an expression nested 5,000 deep", action: "check", extra: `f : Nat -> Nat\nf n = n\n\nx : Nat\nx = 0\n\ny : Nat\ny = ${nested(5000)}`, expect: { resource: true } },
-  { name: "a sum of 50,000 numbers", action: "check", extra: `y : Nat\ny = ${Array(50000).fill("1").join(" + ")}`, expect: { resource: true } },
-  { name: "evaluating an expression nested 5,000 deep", action: "evaluate", extra: "f : Nat -> Nat\nf n = n", expr: "f (".repeat(5000) + "0" + ")".repeat(5000), expect: { resource: true } },
+  { name: "comparing two 20,000-element lists in a proof", action: "check", extra: "theorem same : replicate 20000 1 = replicate 20000 1 := rfl", expect: { checks: true } },
+  { name: "a 20,000-element list literal", action: "check", extra: `def big : List Nat := ${list(20000)}`, expect: { resource: true, until: "compact literals, or checking them without recursing" } },
+  { name: "a 20,000-character text literal", action: "check", extra: `def big : Text := "${"ab".repeat(10000)}"`, expect: { resource: true, until: "compact literals, or checking them without recursing" } },
+  { name: "an expression nested 5,000 deep", action: "check", extra: `def f (n : Nat) : Nat := n\n\ndef x : Nat := 0\n\ndef y : Nat := ${nested(5000)}`, expect: { resource: true } },
+  { name: "a sum of 50,000 numbers", action: "check", extra: `def y : Nat := ${Array(50000).fill("1").join(" + ")}`, expect: { resource: true } },
+  { name: "evaluating an expression nested 5,000 deep", action: "evaluate", extra: "def f (n : Nat) : Nat := n", expr: "f (".repeat(5000) + "0" + ")".repeat(5000), expect: { resource: true } },
 ];
 
 const $ = (id) => document.getElementById(id);

@@ -6,12 +6,11 @@ import Effect (Comp)
 type ChooseOp : Type =
   | Choose
 
-ChooseRes : ChooseOp -> Type
-ChooseRes Choose = Bool
+def ChooseRes : ChooseOp -> Type
+  | Choose => Bool
 
-applyTo : (Comp ChooseOp ChooseRes Nat -> Nat) -> Comp ChooseOp ChooseRes Nat -> Nat
-applyTo f c = f c
+def applyTo (f : Comp ChooseOp ChooseRes Nat -> Nat) (c : Comp ChooseOp ChooseRes Nat) : Nat := f c
 
-viaHelper : Comp ChooseOp ChooseRes Nat -> Nat
-viaHelper (Done x)           = x
-viaHelper (Call Choose rest) = applyTo viaHelper (rest True)
+def viaHelper : Comp ChooseOp ChooseRes Nat -> Nat
+  | Done x           => x
+  | Call Choose rest => applyTo viaHelper (rest True)

@@ -3,9 +3,9 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-NONEXHAUSTIVE] Error: missing case: no equation matches `Succ _`
-   ╭─[ reject/missing-case.sw:3:1 ]
+   ╭─[ reject/missing-case.sw:3:3 ]
    │
- 3 │ isZero Zero = 1
-   │ ───────┬───────  
-   │        ╰───────── missing case: no equation matches `Succ _`
+ 3 │   | Zero => 1
+   │   ─────┬─────  
+   │        ╰─────── missing case: no equation matches `Succ _`
 ───╯

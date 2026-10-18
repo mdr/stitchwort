@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-UNKNOWN-NAME] Error: unknown name `Just`
-   ╭─[ reject/hidden-constructor.sw:9:7 ]
+   ╭─[ reject/hidden-constructor.sw:8:28 ]
    │
- 9 │ one = Just 1
-   │       ──┬─  
-   │         ╰─── not in scope
+ 8 │ def one : Std.Maybe Nat := Just 1
+   │                            ──┬─  
+   │                              ╰─── not in scope
    │ 
    │ Note: the library has `Std.Maybe.Just`: write it in full, or `import Std.Maybe (Just)`
 ───╯

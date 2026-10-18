@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-AUTO-NONE] Error: no way to decide `{ items = [1], short = rfl } = { items = [1], short = rfl }`
-    ╭─[ reject/record-eqeq-proof-field.sw:16:32 ]
+    ╭─[ reject/record-eqeq-proof-field.sw:14:33 ]
     │
- 16 │ test "a record with a proof" = one == one
-    │                                ─────┬────  
-    │                                     ╰────── the compiler needs a proof of this
+ 14 │ test "a record with a proof" := one == one
+    │                                 ─────┬────  
+    │                                      ╰────── the compiler needs a proof of this
     │ 
     │ Note 1: supply a proof by name, or write a decision procedure: a function returning `Decidable …`
     │ 

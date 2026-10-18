@@ -721,29 +721,22 @@ type Tree : Type =
   | Leaf
   | Node (left : Tree) (right : Tree)
 
-leftDepthOnto : Nat -> Tree -> Nat
-leftDepthOnto n Leaf       = n
-leftDepthOnto n (Node l r) = leftDepthOnto (Succ n) l
+def leftDepthOnto (n : Nat) : Tree -> Nat
+  | Leaf     => n
+  | Node l r => leftDepthOnto (Succ n) l
 
-export
-leftDepth : Tree -> Nat
-leftDepth t = leftDepthOnto 0 t
+export def leftDepth (t : Tree) : Nat := leftDepthOnto 0 t
 
-export
-leaves : Tree -> Nat
-leaves Leaf       = 1
-leaves (Node l r) = leaves l + leaves r
+export def leaves : Tree -> Nat
+  | Leaf     => 1
+  | Node l r => leaves l + leaves r
 
-export
-echoTree : Tree -> Tree
-echoTree t = t
+export def echoTree (t : Tree) : Tree := t
 
 type Both (a : Type) (b : Type) : Type =
   | MkBoth (first : a) (second : b)
 
-export
-echoBoth : Both (List Nat) (List Text) -> Both (List Nat) (List Text)
-echoBoth p = p
+export def echoBoth (p : Both (List Nat) (List Text)) : Both (List Nat) (List Text) := p
 ";
     let mut session = Session::new();
     session.load("shared.sw", source).expect("checks");
@@ -815,12 +808,9 @@ console.log("ok");
 #[test]
 fn the_generator_refuses_a_definition_without_a_body() {
     let source = "\
-helper : Nat -> Nat
-helper n = True
+def helper (n : Nat) : Nat := True
 
-export
-f : Nat -> Nat
-f n = helper n
+export def f (n : Nat) : Nat := helper n
 ";
     let mut session = Session::new();
     assert!(session.load("broken.sw", source).is_err());
@@ -1422,7 +1412,7 @@ console.log("ok");
 /// and the decoder says so.
 #[test]
 fn a_type_without_values_refuses_everything() {
-    let source = "type Never : Type\n\nexport\nfromNever : Never -> Nat\nfromNever n = 0\n";
+    let source = "type Never : Type\n\nexport def fromNever (n : Never) : Nat := 0\n";
     let mut session = Session::new();
     session.load("never.sw", source).expect("checks");
     let output = stitchwort_js::generate(&session.elab.globals, session.elab.limits)
@@ -1601,11 +1591,11 @@ fn awkward_names_never_collide() {
                 let _ = writeln!(source, "  | {ctor} {}", fields.join(" "));
             }
             let param = FIELDS[rng.below(FIELDS.len())];
-            let _ = writeln!(source, "\nexport\n{export} : ({param} : {ty}) -> {ty}");
+            let _ = writeln!(source, "\nexport def {export} : ({param} : {ty}) -> {ty}");
             for (ctor, fields) in &ctors {
                 let vars: Vec<String> = (0..fields.len()).map(|i| format!("y{i}")).collect();
                 let vars = vars.join(" ");
-                let _ = writeln!(source, "{export} ({ctor} {vars}) = {ctor} {vars}");
+                let _ = writeln!(source, "  | {ctor} {vars} => {ctor} {vars}");
             }
             source.push('\n');
         }
@@ -1625,7 +1615,7 @@ fn awkward_names_never_collide() {
             let f = fields[rng.below(fields.len())];
             let _ = writeln!(
                 source,
-                "\nexport\nrecord{round}{k} : Rec{round}{k} -> Rec{round}{k}\nrecord{round}{k} r = {{ r | {f} = r.{f} }}\n"
+                "\nexport def record{round}{k} (r : Rec{round}{k}) : Rec{round}{k} := {{ r | {f} = r.{f} }}\n"
             );
         }
 
@@ -1919,12 +1909,12 @@ fn long_literals_extract_as_strings() {
     }
     literal.push('"');
     let source = format!(
-        "export\nlongText : Bool -> Text\nlongText b = {literal}\n\n\
-         export\nfirstTwo : Bool -> List Char\nfirstTwo b = firstTwoOf {literal}\n\n\
-         firstTwoOf : Text -> List Char\n\
-         firstTwoOf (MkText (Cons a (Cons b rest))) = [a, b]\n\
-         firstTwoOf t = []\n\n\
-         export\nlongChars : Bool -> List Char\nlongChars b = Text.toList {literal}\n"
+        "export def longText (b : Bool) : Text := {literal}\n\n\
+         export def firstTwo (b : Bool) : List Char := firstTwoOf {literal}\n\n\
+         def firstTwoOf : Text -> List Char\n  \
+         | MkText (Cons a (Cons b rest)) => [a, b]\n  \
+         | t => []\n\n\
+         export def longChars (b : Bool) : List Char := Text.toList {literal}\n"
     );
     let mut session = Session::new();
     if let Err(errors) = session.load("long.sw", &source) {
@@ -2218,8 +2208,8 @@ fn load_example(session: &mut Session, name: &str) {
 #[test]
 fn a_changed_int_operation_loses_only_its_native() {
     let prelude = changed_prelude(
-        "Int.add (NegSucc m) (NegSucc n) = NegSucc (Succ (m + n))",
-        "Int.add (NegSucc m) (NegSucc n) = NegSucc (Succ (0 + (m + n)))",
+        "| NegSucc m, NegSucc n => NegSucc (Succ (m + n))",
+        "| NegSucc m, NegSucc n => NegSucc (Succ (0 + (m + n)))",
     );
     let mut session = Session::with_prelude(&prelude);
     load_example(&mut session, "integers.sw");

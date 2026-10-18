@@ -68,14 +68,11 @@ mod tests {
     #[test]
     fn renders_labels_and_notes() {
         let mut sources = SourceMap::new();
-        let file = sources.add(
-            "example.sw",
-            "innocent : Nat -> Nat\ninnocent n = spin n + 1\n",
-        );
+        let file = sources.add("example.sw", "def innocent (n : Nat) : Nat := spin n + 1\n");
         let diagnostic = Diagnostic::error("E-ABILITY", "`innocent` uses the Partial ability")
-            .with_label(Span::new(file, 35, 39), "`spin` might not terminate")
+            .with_label(Span::new(file, 32, 36), "`spin` might not terminate")
             .with_label(
-                Span::new(file, 18, 21),
+                Span::new(file, 25, 28),
                 "but this type doesn't allow Partial",
             )
             .with_note("write `Nat -> {Partial} Nat` to allow it");

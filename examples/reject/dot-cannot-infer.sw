@@ -8,9 +8,8 @@ type Bag (a : Type) : Type =
   | Empty
   | Put (x : a) (rest : Bag a)
 
-Bag.map : (a -> b) -> Bag a -> Bag b
-Bag.map f Empty = Empty
-Bag.map f (Put x xs) = Put (f x) (Bag.map f xs)
+def Bag.map (f : a -> b) : Bag a -> Bag b
+  | Empty => Empty
+  | Put x xs => Put (f x) (Bag.map f xs)
 
-names : Bag Person -> Bag Text
-names people = Bag.map (\p -> p.name) people
+def names (people : Bag Person) : Bag Text := Bag.map (\p => p.name) people

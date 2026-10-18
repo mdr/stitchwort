@@ -6,10 +6,8 @@ ability Choose where
 ability Log where
   say : Nat -> {Log} ()
 
-logged : () -> {Log, Choose} Bool
-logged u =
+def logged () : {Log, Choose} Bool :=
   say 1
   choose ()
 
-twice : () -> {Choose} Bool
-twice u = logged ()
+def twice () : {Choose} Bool := logged ()

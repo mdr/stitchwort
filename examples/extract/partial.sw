@@ -10,20 +10,17 @@
 
 import Effect (Delay)
 
-collatzSteps : Nat -> {Partial} Nat
-collatzSteps 1 = 0
-collatzSteps n = 1 + collatzSteps (if n % 2 == 0 then n / 2 else 3 * n + 1)
+def collatzSteps : Nat -> {Partial} Nat
+  | 1 => 0
+  | n => 1 + collatzSteps (if n % 2 == 0 then n / 2 else 3 * n + 1)
 
-discard : (Nat -> {Partial} Nat) -> Nat
-discard f = 0
+def discard (f : Nat -> {Partial} Nat) : Nat := 0
 
-firstOf : Pair Nat (Nat -> {Partial} Nat) -> Nat
-firstOf (MkPair n f) = n
+def firstOf : Pair Nat (Nat -> {Partial} Nat) -> Nat
+  | MkPair n f => n
 
 -- `collatzSteps` is passed bare, applied under a lambda, and stored in data;
 -- none of it runs.
-export answer : Nat -> Nat
-answer n = discard collatzSteps + discard (\m -> collatzSteps (m + n)) + n
+export def answer (n : Nat) : Nat := discard collatzSteps + discard (\m => collatzSteps (m + n)) + n
 
-export kept : Nat -> Nat
-kept n = firstOf (MkPair n collatzSteps)
+export def kept (n : Nat) : Nat := firstOf (MkPair n collatzSteps)

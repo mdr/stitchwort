@@ -3,15 +3,15 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-TERMINATION] Error: can't show that `f` and `g` terminate
-    ╭─[ soundness/mutual-alternating-growth.sw:9:16 ]
+    ╭─[ soundness/mutual-alternating-growth.sw:9:18 ]
     │
-  9 │ f (Succ x) y = g x (Succ y)
-    │                ─────┬─────  
-    │                     ╰─────── this call to `g` might not terminate: `g`'s 1st argument is smaller than `f`'s 1st argument
+  9 │   | Succ x, y => g x (Succ y)
+    │                  ─────┬─────  
+    │                       ╰─────── this call to `g` might not terminate: `g`'s 1st argument is smaller than `f`'s 1st argument
     │ 
- 13 │ g x (Succ y) = f (Succ (Succ x)) y
-    │                ─────────┬─────────  
-    │                         ╰─────────── then this call to `f`: `f`'s 2nd argument is smaller than `g`'s 2nd argument
+ 13 │   | Succ y => f (Succ (Succ x)) y
+    │               ─────────┬─────────  
+    │                        ╰─────────── then this call to `f`: `f`'s 2nd argument is smaller than `g`'s 2nd argument
     │ 
     │ Note 1: going round `f` → `g` → `f`, over and over, no argument is known to get smaller
     │ 

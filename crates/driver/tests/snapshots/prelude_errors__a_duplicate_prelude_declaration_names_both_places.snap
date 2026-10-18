@@ -4,6 +4,6 @@ expression: summary
 ---
 [
     "[E-DUPLICATE] Error: `Nat.digits` is already defined",
-    "      │      ╰────── first defined here",
-    "      │      ╰────── `Nat.digits` is already defined",
+    "      │          ╰────── first defined here",
+    "      │          ╰────── `Nat.digits` is already defined",
 ]

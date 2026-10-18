@@ -1,3 +1,2 @@
 -- expect-error: E-TYPE-MISMATCH
-x : Nat
-x = \y -> y
+def x : Nat := \y => y

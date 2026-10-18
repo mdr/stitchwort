@@ -3,17 +3,17 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-MUTUAL-SIGNATURE] Error: `f`'s type mentions `g`, which is defined together with it
-    ╭─[ soundness/mutual-signature.sw:7:18 ]
-    │
-  7 │ f : (n : Nat) -> g n = g n
-    │                  ┬  
-    │                  ╰── `g` is used here, in `f`'s type
-    │ 
- 10 │ g : Nat -> Nat
-    │ ┬  
-    │ ╰── `g` is defined here
-    │ 
-    │ Note 1: they're checked together because `g` uses `f`
-    │ 
-    │ Note 2: a definition's type can only mention definitions that are finished before it, and definitions that call each other are finished together; move what the type needs out of the cycle
-────╯
+   ╭─[ soundness/mutual-signature.sw:7:19 ]
+   │
+ 7 │ def f (n : Nat) : g n = g n := rfl
+   │                   ┬  
+   │                   ╰── `g` is used here, in `f`'s type
+   │ 
+ 9 │ def g : Nat -> Nat
+   │     ┬  
+   │     ╰── `g` is defined here
+   │ 
+   │ Note 1: they're checked together because `g` uses `f`
+   │ 
+   │ Note 2: a definition's type can only mention definitions that are finished before it, and definitions that call each other are finished together; move what the type needs out of the cycle
+───╯

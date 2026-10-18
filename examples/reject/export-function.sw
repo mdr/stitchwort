@@ -1,5 +1,3 @@
 -- expect-error: E-EXPORT
 -- Functions can't cross the JS boundary yet.
-export
-twice : (Nat -> Nat) -> Nat -> Nat
-twice f n = f (f n)
+export def twice (f : Nat -> Nat) (n : Nat) : Nat := f (f n)

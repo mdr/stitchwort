@@ -17,81 +17,60 @@
 
 type Person = { name : Text, age : Nat }
 
-export
-greet : Person -> Text
-greet p = "Hello, " ++ p.name
+export def greet (p : Person) : Text := "Hello, " ++ p.name
 
-export
-birthday : Person -> Person
-birthday p = { p | age = p.age + 1 }
+export def birthday (p : Person) : Person := { p | age = p.age + 1 }
 
-export
-rename : Text -> Person -> Person
-rename n p = { p | name = n }
+export def rename (n : Text) (p : Person) : Person := { p | name = n }
 
-older : Person -> Person -> Person
-older p q = if Nat.leq q.age p.age then p else q
+def older (p : Person) (q : Person) : Person := if Nat.leq q.age p.age then p else q
 
-export
-oldest : List Person -> Maybe Person
-oldest Nil         = Nothing
-oldest (Cons p ps) = Just (oldestFrom p ps)
+export def oldest : List Person -> Maybe Person
+  | Nil       => Nothing
+  | Cons p ps => Just (oldestFrom p ps)
 
-oldestFrom : Person -> List Person -> Person
-oldestFrom p Nil         = p
-oldestFrom p (Cons q qs) = oldestFrom (older p q) qs
+def oldestFrom (p : Person) : List Person -> Person
+  | Nil       => p
+  | Cons q qs => oldestFrom (older p q) qs
 
 -- A record has no tag, so a field called `tag` keeps the key `tag`;
 -- `__proto__` is still `$__proto__`, and a prime is `$`.
 type Weird = { tag : Text, __proto__ : Nat, constructor : Nat, x' : Nat }
 
-export
-weird : Weird -> Weird
-weird w = { w | tag = w.tag ++ "!", x' = w.x' + w.constructor + w.__proto__ }
+export def weird (w : Weird) : Weird := { w | tag = w.tag ++ "!", x' = w.x' + w.constructor + w.__proto__ }
 
 -- A parameterised record is a generic TypeScript type.
 type Box (a : Type) = { value : a }
 
-export
-unbox : Box (List Nat) -> Box Nat
-unbox b = { value = List.length b.value }
+export def unbox (b : Box (List Nat)) : Box Nat := { value = List.length b.value }
 
 -- A proof field that depends on an earlier field, with a decision procedure.
-IsSorted : List Nat -> Prop
-IsSorted xs = isSorted xs = True
+def IsSorted (xs : List Nat) : Prop := isSorted xs = True
 
-isSorted : List Nat -> Bool
-isSorted Nil                   = True
-isSorted (Cons x Nil)          = True
-isSorted (Cons x (Cons y rest)) = if Nat.leq x y then isSorted (Cons y rest) else False
+def isSorted : List Nat -> Bool
+  | Nil => True
+  | Cons x Nil => True
+  | Cons x (Cons y rest) => if Nat.leq x y then isSorted (Cons y rest) else False
 
-decIsSorted : (xs : List Nat) -> Decidable (IsSorted xs)
-decIsSorted xs = Bool.decTrue (isSorted xs)
+def decIsSorted (xs : List Nat) : Decidable (IsSorted xs) := Bool.decTrue (isSorted xs)
 
 type SortedList = { items : List Nat, ok : IsSorted items }
 
 -- Out: the proof is left out.
-export
-sorted : List Nat -> Maybe SortedList
-sorted xs = if h : IsSorted xs then Just { items = xs, ok = h } else Nothing
+export def sorted (xs : List Nat) : Maybe SortedList := if h : IsSorted xs then Just { items = xs, ok = h } else Nothing
 
 -- In: `ok` is checked.
-export
-smallest : SortedList -> Maybe Nat
-smallest { items = Nil, .. }       = Nothing
-smallest { items = Cons x xs, .. } = Just x
+export def smallest : SortedList -> Maybe Nat
+  | { items = Nil, .. }       => Nothing
+  | { items = Cons x xs, .. } => Just x
 
 -- A proof field about two earlier fields, checked with the prelude's
 -- `Nat.decEq`.
 type Sized = { items : List Nat, size : Nat, ok : List.length items = size }
 
-export
-total : Sized -> Nat
-total s = s.size
+export def total (s : Sized) : Nat := s.size
 
 -- Records inside records.
 type Team = { lead : Person, size : Nat }
 
-export
-team : Team -> Team
-team t = { t | lead = birthday t.lead }
+export def team (t : Team) : Team := { t | lead = birthday t.lead }

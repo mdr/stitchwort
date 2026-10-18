@@ -8,9 +8,8 @@ Interim rule, until the full layout specification (DESIGN.md §14):
 
 - A declaration starts at column 0.
 - Every following line that's indented continues it.
-- A line containing only `export` belongs to the declaration after it.
 - Tabs aren't allowed. `--` starts a comment that runs to the end of the line.
-- **Blocks.** An expression that starts on a new line is a block: each line at that line's column is a statement, and lines indented further continue it. A statement is `let x = e` (or `let x : T = e`), binding `x` for the following lines, or an expression run for its effects. The last line is the result. A line at the block's column straight after a line ending in an operator (such as `->`) continues that line.
+- **Blocks.** An expression that starts on a new line is a block: each line at that line's column is a statement, and lines indented further continue it. A statement is `let x := e` (or `let x : T := e`), binding `x` for the following lines, or an expression run for its effects. The last line is the result. A line at the block's column straight after a line ending in an operator (such as `->`) continues that line.
 - **`if` across lines.** `then` and `else` may start a line, even at the block's own column (where any other token would start a new statement), as long as they're indented at least as far as the line the `if` is on. So `if c then a` / `else if d then b` / `else e` on separate lines, all lined up, is one expression. A nested `if` takes the closest `else`. An `else` further left than its `if`'s line is an error that says so.
 
 ## Declarations
@@ -23,28 +22,25 @@ type List (a : Type) : Type =
 
 type False : Prop            -- no constructors
 
--- Definition: a signature, then equations. `a` is only used as a type, so
--- it's bound automatically as an implicit parameter: `[a : Type] -> …`.
-length : List a -> Nat
-length Nil         = 0
-length (Cons x xs) = Succ (length xs)
+-- Definition: a header, then a `:=` body or arms. `a` is only used as a
+-- type, so it's bound automatically as an implicit parameter: `[a : Type] -> …`.
+def length : List a -> Nat
+  | Nil       => 0
+  | Cons x xs => Succ (length xs)
 
 -- Implicit parameters can also be written out, and are in scope by name.
-theorem cong : (f : a -> b) -> [x y : a] -> x = y -> f x = f y
-cong f p = J (\y' p' -> f x = f y') rfl p
+theorem cong (f : a -> b) [x y : a] (p : x = y) : f x = f y := J (\y' p' => f x = f y') rfl p
 
 -- A theorem's type must be a proposition
-theorem zeroPlus : (n : Nat) -> 0 + n = n
-zeroPlus n = rfl
+theorem zeroPlus (n : Nat) : 0 + n = n := rfl
 
 -- A test: a `Bool` that `stitchwort test` checks is `True`
-test "lengths add up" = Nat.leq (length (List.append [1] [2, 3])) 3
+test "lengths add up" := Nat.leq (length (List.append [1] [2, 3])) 3
 
 -- Exported to JavaScript by `stitchwort build --js`
-export
-total : List Nat -> Nat
-total Nil         = 0
-total (Cons x xs) = x + total xs
+export def total : List Nat -> Nat
+  | Nil       => 0
+  | Cons x xs => x + total xs
 ```
 
 Definitions may be named in either case: `length`, or `Not` for a function returning a type.
@@ -52,15 +48,15 @@ Definitions may be named in either case: `length`, or `Not` for a function retur
 Patterns are variables, `_`, numbers, constructors applied to patterns (nested to any depth, as in `half (Succ (Succ n))`), record patterns ([Records](#records)), or `()`. A number pattern tests for that number, of any size. In an equation with a variable or `_` where others have numbers, nothing is known about the argument: not even that it's a different number, and not that it's a `Succ` (so with `make : (n : Nat) -> ResultType n`, `make 0 = …; make n = …` checks the second equation knowing nothing about `n`). To use the shape of a number, match on `Zero` and `Succ` instead; a number pattern in a column that also has `Zero` or `Succ` patterns counts down like `Succ`s. On an `Int`, number patterns can be negative, `(-1)`: a match on `Int` numbers splits on the sign (`OfNat` or `NegSucc`) first, so an equation with a variable or `_` knows the sign of the argument in the branch where it is all that matches, but still nothing about its size. Equations are tried from top to bottom. `()` with a right-hand side matches the unit value; without one, it says the argument's type has no values, and the equation needs no right-hand side:
 
 ```
-absurd : Void -> a
-absurd ()
+def absurd : Void -> a
+  | ()
 ```
 
 Implicit and auto parameters are in scope by name in every equation, wherever they appear in the signature:
 
 ```
-get : (xs : List a) -> (i : Nat) -> [auto ok : i < List.length xs] -> a
-get Nil i = Void.absurd (Bool.falseNotTrue ok)    -- ok : i < 0, which computes to False = True
+def get : (xs : List a) -> (i : Nat) -> [auto ok : i < List.length xs] -> a
+  | Nil, i => Void.absurd (Bool.falseNotTrue ok)    -- ok : i < 0, which computes to False = True
 …
 ```
 
@@ -71,17 +67,17 @@ List patterns: `[]` is `Nil`, and `[p, q, r]` is `Cons p (Cons q (Cons r Nil))`,
 Declarations can be written in any order: every top-level name (definitions, data types and their constructors, abilities and their operations) is visible throughout its module. So `main` can come first and its helpers below it. The compiler checks each declaration after the ones it refers to, and otherwise in source order; errors are reported, and tests run, in source order. Definitions that refer to each other are checked together, and their termination is decided together (docs/proposals/mutual-recursion.md):
 
 ```
-isEven : Nat -> Bool
-isEven 0        = True
-isEven (Succ n) = isOdd n
+def isEven : Nat -> Bool
+  | 0      => True
+  | Succ n => isOdd n
 
-isOdd : Nat -> Bool
-isOdd 0        = False
-isOdd (Succ n) = isEven n
+def isOdd : Nat -> Bool
+  | 0      => False
+  | Succ n => isEven n
 ```
 
 - **A type can't mention a definition it's checked together with** (`E-MUTUAL-SIGNATURE`): the definitions in a cycle are finished all at once, and a type may only use what's finished. A proof about `isEven` belongs outside the cycle, where its type computes.
-- **Inside a cycle, a definition must be given all its arguments** wherever it's used, so the termination checker sees what each call passes: `map isOdd xs` inside `isEven` is refused, `map (\n -> isOdd n) xs` isn't. Outside the cycle, anything goes.
+- **Inside a cycle, a definition must be given all its arguments** wherever it's used, so the termination checker sees what each call passes: `map isOdd xs` inside `isEven` is refused, `map (\n => isOdd n) xs` isn't. Outside the cycle, anything goes.
 - **Data types that refer to each other are checked together**, like a tree whose children are a forest:
 
   ```
@@ -98,9 +94,9 @@ isOdd (Succ n) = isEven n
 - **A name in the module takes priority over a type variable.** In `length : List a -> Nat`, `a` is a type variable only if nothing in the module (or an import) is called `a`; otherwise it means that declaration, wherever it is, with a warning (`W-MODULE-NAME`) pointing at both. Write `[a : Type] -> List a -> Nat` to make it a type variable regardless.
 - **`auto` only uses decision procedures that are already checked and written above the use.** One written above that's still waiting for something below to be checked isn't available yet; `E-AUTO-NONE` says which case applies. Passing the procedure explicitly makes it an ordinary dependency, checked first.
 
-## The new declaration syntax (draft, not yet the default)
+## Definitions in detail
 
-A Lean-style syntax is built but not yet the default. Select it with `--syntax new` or `STITCHWORT_SYNTAX=new`. A file is read wholly in one syntax. At the switch (one commit, after the code base is converted) it becomes the only syntax and the sections above are rewritten. The design and the plan are in [the proposal](proposals/declaration-syntax.md). Everything above this section describes the old syntax.
+The design is in [the proposal](proposals/declaration-syntax.md). Until 18 October 2026 definitions were a signature line followed by equations (`length : List a -> Nat`, then `length Nil = 0` …), with `->` in lambdas and arms and `let x = e`; that syntax is gone, and a declaration starting with a name is `E-OLD-DECLARATION`. Some older documents still use it. A header with no body (`def f : T`) is allowed only for the prelude's primitives; anywhere else it is `E-MISSING-DEFINITION`.
 
 ```
 definition ::= "export"? ("def" | "theorem") name binder* ":" type body

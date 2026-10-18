@@ -5,7 +5,7 @@ expression: output
 [E-TERMINATION] Error: can't show that `loop` terminates
    ╭─[ soundness/number-pattern-recursion.sw:7:12 ]
    │
- 7 │ loop n   = loop n
+ 7 │   | n   => loop n
    │            ───┬──  
    │               ╰──── this recursive call might not terminate: the 1st argument stays the same
    │ 

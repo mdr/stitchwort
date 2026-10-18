@@ -4,10 +4,8 @@
 type Tagged (n : Nat) : Type =
   | MkTagged
 
-tag : (xs : List Nat) -> Tagged (List.length xs)
-tag xs = MkTagged
+def tag (xs : List Nat) : Tagged (List.length xs) := MkTagged
 
-bad : List Nat -> Nat
-bad xs = 1 + match List.length xs, tag xs with
-  | Zero, _ -> 0
-  | Succ k, _ -> k
+def bad (xs : List Nat) : Nat := 1 + match List.length xs, tag xs with
+  | Zero, _ => 0
+  | Succ k, _ => k

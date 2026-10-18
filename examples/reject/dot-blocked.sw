@@ -2,9 +2,8 @@
 -- `Family n` can't be unfolded while `n` is unknown, so there's no namespace
 -- after `Family` to look `size` up in.
 
-Family : Nat -> Type
-Family Zero = Nat
-Family (Succ n) = Text
+def Family : Nat -> Type
+  | Zero => Nat
+  | Succ n => Text
 
-size : (n : Nat) -> Family n -> Nat
-size n x = x.size
+def size (n : Nat) (x : Family n) : Nat := x.size

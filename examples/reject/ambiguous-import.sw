@@ -3,5 +3,4 @@
 import List (length)
 import Text (length)
 
-count : List Nat -> Nat
-count xs = length xs
+def count (xs : List Nat) : Nat := length xs

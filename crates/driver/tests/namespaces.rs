@@ -70,11 +70,12 @@ fn types_are_hashed_with_their_full_names() {
 #[test]
 fn ambiguity_is_reported_only_where_used() {
     passes(&load(
-        "import List (length)\nimport Text (length)\n\n\
-         test \"full names\" = List.length [1] == Text.length \"a\"\n",
+        "import List (length)\n\
+         import Text (length)\n\n\
+         test \"full names\" := List.length [1] == Text.length \"a\"\n",
     ));
     assert_eq!(
-        codes("import List (length)\nimport Text (length)\n\nn : Nat\nn = length [1]\n"),
+        codes("import List (length)\nimport Text (length)\n\ndef n : Nat := length [1]\n"),
         ["E-AMBIGUOUS"]
     );
 }
@@ -84,8 +85,10 @@ fn ambiguity_is_reported_only_where_used() {
 #[test]
 fn the_same_thing_twice_is_not_ambiguous() {
     passes(&load(
-        "import Bool (not)\nimport Std (List)\n\ntest \"not\" = not False\n\
-         test \"list\" = List.length (Cons 1 Nil) == 1\n",
+        "import Bool (not)\n\
+         import Std (List)\n\n\
+         test \"not\" := not False\n\
+         test \"list\" := List.length (Cons 1 Nil) == 1\n",
     ));
 }
 
@@ -93,7 +96,7 @@ fn the_same_thing_twice_is_not_ambiguous() {
 #[test]
 fn importing_twice_is_a_warning() {
     assert_eq!(
-        codes("import List (length, length)\n\nn : Nat\nn = length [1]\n"),
+        codes("import List (length, length)\n\ndef n : Nat := length [1]\n"),
         ["W-IMPORT-TWICE"]
     );
 }
@@ -104,8 +107,8 @@ fn importing_twice_is_a_warning() {
 fn constructors_come_with_an_imported_type() {
     passes(&load(
         "import Effect (Comp)\n\n\
-         one : Comp Builtin.UnitType (\\o -> Builtin.UnitType) Nat\none = Done 1\n\n\
-         test \"done\" = List.length [one, Call () (\\u -> one)] == 2\n",
+         def one : Comp Builtin.UnitType (\\o => Builtin.UnitType) Nat := Done 1\n\n\
+         test \"done\" := List.length [one, Call () (\\u => one)] == 2\n",
     ));
 }
 
@@ -115,10 +118,10 @@ fn constructors_come_with_an_imported_type() {
 #[test]
 fn library_namespaces_are_closed_however_they_are_reached() {
     for source in [
-        "import Effect (Comp)\n\nComp.size : Nat\nComp.size = 0\n",
-        "Text.size : Nat\nText.size = 0\n",
-        "Effect.size : Nat\nEffect.size = 0\n",
-        "Std.size : Nat\nStd.size = 0\n",
+        "import Effect (Comp)\n\ndef Comp.size : Nat := 0\n",
+        "def Text.size : Nat := 0\n",
+        "def Effect.size : Nat := 0\n",
+        "def Std.size : Nat := 0\n",
     ] {
         assert_eq!(codes(source), ["E-STD-NAMESPACE"], "{source}");
     }
@@ -129,14 +132,21 @@ fn library_namespaces_are_closed_however_they_are_reached() {
 #[test]
 fn qualified_names_work_everywhere() {
     passes(&load(
-        "ability Console.Log where\n  log : Text -> {Console.Log} ()\n\n\
-         collect : (() -> {Console.Log} Nat) -> Std.List Text\n\
-         collect f =\n  handle f () with\n    | return x -> []\n    \
-         | Console.Log.log t => k -> Cons t (k ())\n\n\
-         twice : () -> {Console.Log} Nat\ntwice u =\n  Console.Log.log \"a\"\n  Console.Log.log \"b\"\n  2\n\n\
-         isEmpty : Std.List Nat -> Bool\nisEmpty Std.List.Nil = True\nisEmpty (Std.List.Cons x xs) = False\n\n\
-         test \"rows and clauses\" = List.length (collect twice) == 2\n\
-         test \"patterns\" = isEmpty Std.List.Nil\n",
+        "ability Console.Log where\n  \
+         log : Text -> {Console.Log} ()\n\n\
+         def collect (f : () -> {Console.Log} Nat) : Std.List Text :=\n  \
+         handle f () with\n    \
+         | return x => []\n    \
+         | Console.Log.log t, k => Cons t (k ())\n\n\
+         def twice () : {Console.Log} Nat :=\n  \
+         Console.Log.log \"a\"\n  \
+         Console.Log.log \"b\"\n  \
+         2\n\n\
+         def isEmpty : Std.List Nat -> Bool\n  \
+         | Std.List.Nil => True\n  \
+         | Std.List.Cons x xs => False\n\n\
+         test \"rows and clauses\" := List.length (collect twice) == 2\n\
+         test \"patterns\" := isEmpty Std.List.Nil\n",
     ));
 }
 
@@ -147,12 +157,12 @@ fn operations_follow_their_ability() {
     let ability = "ability Console.Log where\n  log : Text -> {Console.Log} ()\n\n";
     assert_eq!(
         codes(&format!(
-            "{ability}f : () -> {{Console.Log}} ()\nf u = log \"a\"\n"
+            "{ability}def f () : {{Console.Log}} () := log \"a\"\n"
         )),
         ["E-UNKNOWN-NAME"]
     );
     load(&format!(
-        "import Console.Log (log)\n\n{ability}f : () -> {{Console.Log}} ()\nf u = log \"a\"\n"
+        "import Console.Log (log)\n\n{ability}def f () : {{Console.Log}} () := log \"a\"\n"
     ));
 }
 
@@ -161,7 +171,7 @@ fn operations_follow_their_ability() {
 #[test]
 fn an_imported_name_in_a_type_is_not_a_type_variable() {
     assert!(
-        codes("import List (length)\n\nf : length -> Nat\nf x = 0\n")
+        codes("import List (length)\n\ndef f (x : length) : Nat := 0\n")
             .iter()
             .any(|c| *c == "W-MODULE-NAME" || c.starts_with("E-"))
     );

@@ -3,10 +3,8 @@
 -- first, so `a := Nat` and `i : Int` didn't fit. Now the expected result type
 -- `Int` is used first (docs/proposals/syntax-conveniences.md, section 7), so
 -- `a := Int` before `5` is checked.
-chooseFirst : [a : Type] -> a -> a -> a
-chooseFirst x y = x
+def chooseFirst [a : Type] (x : a) (y : a) : a := x
 
-r : Int -> Int
-r i = chooseFirst 5 i
+def r (i : Int) : Int := chooseFirst 5 i
 
-test "chooseFirst 5 i" = r (-3) == 5
+test "chooseFirst 5 i" := r (-3) == 5

@@ -4,8 +4,7 @@
 type Handlers : Type =
   | MkHandlers (onStep : Nat -> {Partial} Nat)
 
-handlers : Nat -> {Partial} Handlers
-handlers n = MkHandlers (\m -> callStep (handlers m))
+def handlers (n : Nat) : {Partial} Handlers := MkHandlers (\m => callStep (handlers m))
 
-callStep : Handlers -> {Partial} Nat
-callStep (MkHandlers onStep) = onStep 0
+def callStep : Handlers -> {Partial} Nat
+  | MkHandlers onStep => onStep 0

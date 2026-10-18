@@ -4,4 +4,4 @@
 
 type Person = { name : Text, age : Nat }
 
-test "an unannotated literal" = ({ name = "Alice", age = 30 }).age == 30
+test "an unannotated literal" := ({ name = "Alice", age = 30 }).age == 30

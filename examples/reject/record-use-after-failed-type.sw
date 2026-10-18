@@ -8,14 +8,11 @@ type Dir : Type =
 
 type Rot = { dir : Dir, amount : Nat }
 
-mk : Nat -> Rot
-mk n = { dir = R, amount = n }
+def mk (n : Nat) : Rot := { dir = R, amount = n }
 
-get : Rot -> Nat
-get r = r.amount
+def get (r : Rot) : Nat := r.amount
 
-bump : Rot -> Rot
-bump r = { r | amount = 1 }
+def bump (r : Rot) : Rot := { r | amount = 1 }
 
-g : Rot -> Nat
-g { amount, .. } = amount
+def g : Rot -> Nat
+  | { amount, .. } => amount

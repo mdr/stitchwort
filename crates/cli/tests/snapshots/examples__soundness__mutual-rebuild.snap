@@ -3,15 +3,15 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-TERMINATION] Error: can't show that `a` and `b` terminate
-    ╭─[ soundness/mutual-rebuild.sw:8:14 ]
+    ╭─[ soundness/mutual-rebuild.sw:8:15 ]
     │
-  8 │ a (Succ n) = b (Succ n)
-    │              ────┬────  
-    │                  ╰────── this call to `b` might not terminate: `b`'s 1st argument is `a`'s 1st argument
+  8 │   | Succ n => b (Succ n)
+    │               ────┬────  
+    │                   ╰────── this call to `b` might not terminate: `b`'s 1st argument is `a`'s 1st argument
     │ 
- 12 │ b (Succ n) = a (Succ n)
-    │              ────┬────  
-    │                  ╰────── then this call to `a`: `a`'s 1st argument is `b`'s 1st argument
+ 12 │   | Succ n => a (Succ n)
+    │               ────┬────  
+    │                   ╰────── then this call to `a`: `a`'s 1st argument is `b`'s 1st argument
     │ 
     │ Note 1: going round `a` → `b` → `a`, over and over: the 1st argument stays the same, so no argument keeps getting smaller
     │ 

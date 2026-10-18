@@ -393,7 +393,7 @@ fn rejects_a_partial_recursive_call() {
     assert_eq!(e.code, "E-TERMINATION");
     assert!(e.message.contains("without all its arguments"), "{e:?}");
     assert!(
-        e.notes.iter().any(|n| n.contains("`\\x -> sumWith m' x`")),
+        e.notes.iter().any(|n| n.contains("`\\x => sumWith m' x`")),
         "suggests the lambda: {e:?}"
     );
     // The neighbour: `\x -> f m' x`.

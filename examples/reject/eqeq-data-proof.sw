@@ -3,5 +3,4 @@
 type Small =
   | MkSmall (n : Nat) (small : Nat.leq n 10 = True)
 
-same : Small -> Small -> Bool
-same a b = a == b
+def same (a : Small) (b : Small) : Bool := a == b

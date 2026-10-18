@@ -3,12 +3,12 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-HANDLER] Error: this handler has no `return` clause
-   ╭─[ reject/handler-missing-return.sw:7:3 ]
+   ╭─[ reject/handler-missing-return.sw:6:3 ]
    │
- 7 │ ╭─▶   handle prog () with
- 8 │ ├─▶     | choose u => k -> k True
-   │ │                                   
-   │ ╰─────────────────────────────────── here
+ 6 │ ╭─▶   handle prog () with
+ 7 │ ├─▶     | choose u, k => k True
+   │ │                                 
+   │ ╰───────────────────────────────── here
    │     
    │     Note: add `| return x -> …` saying what to do with the result
 ───╯
