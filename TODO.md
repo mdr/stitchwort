@@ -150,7 +150,10 @@ capability we know we'll need before the work that needs it):
    `E-ARM-PARAMETER`, "arm" wording, `crates/convert` deleted. The
    conversion is complete. Decided (user, 18 Oct): no `where`; values and
    functions are declared in blocks, top-down, Scala-style (`let x := e`,
-   local `def`/`theorem`). Lane `local-defs` (Opus) running. `&&`/`||`/`not`
+   local `def`/`theorem`). Local defs merged (`ddd7b2f`); a merge
+   interaction with `&&`/`||` (a condition's undo deleted local-def
+   drafts) fixed (`6b57079`). `List.sumBy` added. VS Code extension in
+   `editors/vscode` (install with `install.sh`). `&&`/`||`/`not`
    merged (`4b6b29d`: short-circuit on Bool, `And`/`Or`/`Not` on Props,
    `test` accepts a decidable Prop; `if h : p && q` doesn't short-circuit).
    AoC days 4–5 on hold (user, 18 Oct): the user is
