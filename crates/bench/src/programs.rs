@@ -72,6 +72,11 @@ pub const ALL: &[Benchmark] = &[
         prepare: run_prints,
     },
     Benchmark {
+        name: "run-proof-fields",
+        about: "runs a `main` that threads a record with a proof field through 200 lines of input",
+        prepare: run_proof_fields,
+    },
+    Benchmark {
         name: "check-number-pattern",
         about: "checks `f 200 = True; f _ = False`",
         prepare: || check("f : Nat -> Bool\nf 200 = True\nf _ = False\n".into()),
@@ -302,6 +307,42 @@ fn run_prints() -> Result<Prepared, String> {
         match output.0 {
             20_000 => Ok(work(&session) - before),
             n => Err(format!("printed {n} lines, not 20,000")),
+        }
+    }))
+}
+
+/// A record with a proof field, rebuilt for each of 200 input lines: erasure
+/// skips the proof (`erase.rs`).
+const PROOF_FIELDS: &str = "
+type Pos = { at : Nat, ok : at < 100 }
+
+wrap : Int -> Pos
+wrap x = { at = Int.modNat x 100, ok = Int.modNatLt x 100 }
+
+walk : List Text -> Pos -> Nat
+walk Nil         p = p.at
+walk (Cons t ts) p = walk ts (wrap (p.at.toInt + Nat.toInt (Text.length t * 37)))
+
+main : () -> {IO, Partial} ()
+main u = print (Nat.toText (walk (IO.readAllLines ()) (wrap 50)))
+";
+
+fn run_proof_fields() -> Result<Prepared, String> {
+    let mut session = loaded(PROOF_FIELDS)?;
+    let main = session.main().map_err(|d| rendered(&session, &[d]))?;
+    let input = "L68\n".repeat(200);
+    Ok(Prepared::new(move || {
+        let before = work(&session);
+        let mut output = Vec::new();
+        session
+            .run_main(&main, &mut input.as_bytes(), &mut output)
+            .map_err(|e| rendered(&session, &[e.diagnostic(&main)]))?;
+        // Each line moves the dial by 3 * 37 = 111, so 11 mod 100: after 200
+        // lines, 50 + 2,200 lands back on 50.
+        let printed = String::from_utf8_lossy(&output).into_owned();
+        match printed.as_str() {
+            "50\n" => Ok(work(&session) - before),
+            other => Err(format!("printed {other:?}, not \"50\\n\"")),
         }
     }))
 }

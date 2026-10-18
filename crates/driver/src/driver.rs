@@ -264,7 +264,11 @@ impl Session {
                         hash: Some(hash),
                     };
                 }
-                let outcome = match eval(g, &[], &Term::Def(test.def)).and_then(|v| force(g, v)) {
+                // Proofs and types aren't computed (`erase.rs`).
+                let erasing = g.erasure.running();
+                let result = eval(g, &[], &Term::Def(test.def)).and_then(|v| force(g, v));
+                drop(erasing);
+                let outcome = match result {
                     // `Bool` is `False | True`: constructor 1 is `True`.
                     Ok(Value::Ctor(_, 1, _)) => Outcome::Passed,
                     Ok(_) => Outcome::Failed,

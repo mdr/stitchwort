@@ -12,6 +12,7 @@ use num_bigint::BigUint;
 
 use crate::budget::{ResourceError, Result};
 use crate::chars::{self, Chars};
+use crate::erase::{self, erased};
 use crate::globals::Globals;
 use crate::native;
 use crate::term::{DataId, DefId, Icit, Name, Sort, Term};
@@ -315,6 +316,8 @@ enum Frame {
     AppArg(Rc<Term>, Env, Icit),
     /// The argument of `f a`.
     AppFun(Value, Icit),
+    /// The function of `f a`, whose argument is erased (`erase.rs`).
+    AppErased(Icit),
     /// The next argument of a data type or constructor (`term`).
     Args {
         term: Rc<Term>,
@@ -370,6 +373,10 @@ pub fn machine_runs() -> usize {
 
 /// Applying `f` to `arg`: the next state.
 fn apply_step(f: Value, arg: Value, icit: Icit) -> Control {
+    if erase::is_erased(&f) {
+        // An erased function's result is erased too.
+        return Control::Return(f);
+    }
     match f {
         Value::Lam(_, _, closure) => enter(&closure, arg),
         Value::Neutral(Head::Def(id), mut spine) => {
@@ -494,6 +501,7 @@ fn eval_step(g: &Globals, term: Rc<Term>, env: Env, stack: &mut Vec<Frame>) -> R
         Term::Def(id) => {
             let def = g.def(*id);
             match &def.body {
+                Some(_) if def.arity == 0 && erases_result(g, *id) => Control::Return(erased()),
                 Some(body) if def.arity == 0 => Control::Eval(body.clone(), Values::from([])),
                 _ => Control::Return(Value::Neutral(Head::Def(*id), Vec::new())),
             }
@@ -533,6 +541,17 @@ fn eval_step(g: &Globals, term: Rc<Term>, env: Env, stack: &mut Vec<Frame>) -> R
                 body: b.clone(),
             },
         )),
+        Term::App(f, a, i)
+            if g.erasure.active() && quick(g, a, &env).is_none() && erased_arg(g, f) =>
+        {
+            match quick(g, f, &env) {
+                Some(f) => apply_step(f, erased(), *i),
+                None => {
+                    push(g, stack, Frame::AppErased(*i))?;
+                    Control::Eval(f.clone(), env)
+                }
+            }
+        }
         Term::App(f, a, i) => match quick(g, f, &env) {
             Some(f) => match quick(g, a, &env) {
                 Some(a) => apply_step(f, a, *i),
@@ -592,7 +611,15 @@ fn fields(
     let (Term::Data(_, args) | Term::Ctor(_, _, args)) = &*term else {
         unreachable!("fields of a data type or constructor")
     };
+    let field_erased = match &*term {
+        Term::Ctor(d, c, _) if g.erasure.active() => Some(&g.data(*d).ctors[*c].field_erased),
+        _ => None,
+    };
     while let Some(arg) = args.get(done.len()) {
+        if field_erased.is_some_and(|e| e[done.len()]) {
+            done.push(erased());
+            continue;
+        }
         match quick(g, arg, &env) {
             Some(v) => done.push(v),
             None => {
@@ -625,6 +652,7 @@ fn resume(g: &Globals, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Re
             Control::Eval(arg, env)
         }
         Frame::AppFun(f, icit) => apply_step(f, value, icit),
+        Frame::AppErased(icit) => apply_step(value, erased(), icit),
         Frame::Args {
             term,
             env,
@@ -695,6 +723,8 @@ fn resume(g: &Globals, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Re
             };
             match value {
                 Value::Refl => Control::Eval(base.clone(), env),
+                // Every closed proof of an equation is `refl` (`erase.rs`).
+                v if erase::is_erased(&v) => Control::Eval(base.clone(), env),
                 Value::Neutral(head, spine) => {
                     let motive = motive.clone();
                     push(
@@ -846,6 +876,11 @@ fn branch(
             Some(text) if text.list == *d => chars::split(text, &chars),
             _ => return Ok(stuck_tree(stuck)),
         },
+        // An erased proof: matching it into data is allowed only for one
+        // constructor with only proof fields (`E-PROP-ELIM`, `erase.rs`).
+        v if erase::is_erased(&v) && g.data(*d).sort == Sort::Prop && !branches.is_empty() => {
+            (0, vec![erased(); g.data(*d).ctors[0].fields.len()])
+        }
         _ => return Ok(stuck_tree(stuck)),
     };
     env.extend(fields);
@@ -863,6 +898,9 @@ fn stuck_tree(stuck: Option<(DefId, Vec<Elim>)>) -> Control {
 /// A definition applied to `spine`: its native implementation, or its case
 /// tree if it has all its arguments, or else it stays folded.
 fn unfold(g: &Globals, id: DefId, spine: Vec<Elim>) -> Result<Control> {
+    if spine.len() == g.def(id).arity && erases_result(g, id) {
+        return Ok(Control::Return(erased()));
+    }
     if let Some(op) = g.builtins.native(id)
         && op.arity() == spine.len()
     {
@@ -889,6 +927,32 @@ fn unfold(g: &Globals, id: DefId, spine: Vec<Elim>) -> Result<Control> {
         }
     }
     Ok(Control::Return(Value::Neutral(Head::Def(id), spine)))
+}
+
+/// Whether, while erasing, definition `id` (with a body) applied to all its
+/// parameters is erased rather than run (`erase.rs`).
+fn erases_result(g: &Globals, id: DefId) -> bool {
+    g.erasure.active() && g.def(id).body.is_some() && erase::of_def(g, id).is_some_and(|e| e.result)
+}
+
+/// Whether, while erasing, the argument applied to `f` is erased: `f` is a
+/// definition applied to some arguments, and the parameter it's for is.
+fn erased_arg(g: &Globals, f: &Term) -> bool {
+    let mut n = 0;
+    let mut f = f;
+    loop {
+        match f {
+            Term::App(h, _, _) => {
+                n += 1;
+                f = h;
+            }
+            Term::Loc(_, t) | Term::Ann(t, _) => f = t,
+            Term::Def(id) => {
+                return erase::of_def(g, *id).is_some_and(|e| e.params.get(n) == Some(&true));
+            }
+            _ => return false,
+        }
+    }
 }
 
 /// Converts a value back into a term, with `level` variables in scope.

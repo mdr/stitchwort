@@ -5,11 +5,11 @@
 # time_ms is the median wall time on the machine that recorded it.
 
 [examples]
-inputs = "260 files, 92a3445c9a427611"
-steps = 521581071
-visits = 26262318
-allocations = 400725019
-peak_bytes = 28578348
+inputs = "269 files, a9d6a2ca3851a4ee"
+steps = 606561862
+visits = 30826634
+allocations = 468116313
+peak_bytes = 20320441
 time_ms = 1707.9
 
 [extract-js]
@@ -17,28 +17,28 @@ inputs = "22 files, 1a50c88abc229b97"
 steps = 22887
 visits = 14206
 allocations = 139931
-peak_bytes = 341559
+peak_bytes = 342927
 time_ms = 11.8
 
 [eval-lengths]
 steps = 44422054
 visits = 18
-allocations = 15606493
-peak_bytes = 1914398
+allocations = 15606492
+peak_bytes = 1912606
 time_ms = 918.9
 
 [text-append]
 steps = 4760125
 visits = 33
-allocations = 1740196
+allocations = 1740195
 peak_bytes = 51839505
 time_ms = 108.5
 
 [text-split-join]
 steps = 2252429
 visits = 62
-allocations = 776485
-peak_bytes = 5536328
+allocations = 776484
+peak_bytes = 5534536
 time_ms = 54.0
 
 [text-nat-to-text]
@@ -49,10 +49,10 @@ peak_bytes = 8799
 time_ms = 426.7
 
 [run-prints]
-steps = 15389145
-visits = 0
-allocations = 5260080
-peak_bytes = 8160
+steps = 12643209
+visits = 143
+allocations = 4578649
+peak_bytes = 13204
 time_ms = 391.6
 
 [check-number-pattern]
@@ -72,22 +72,22 @@ time_ms = 0.7
 [check-list-rfl]
 steps = 720059
 visits = 380034
-allocations = 1080298
-peak_bytes = 39399885
+allocations = 1080297
+peak_bytes = 39384537
 time_ms = 51.1
 
 [check-list-sym-rfl]
 steps = 1480278
 visits = 580059
-allocations = 1960692
-peak_bytes = 62441470
+allocations = 1960691
+peak_bytes = 62426122
 time_ms = 85.5
 
 [check-long-sum]
 steps = 233984
 visits = 188996
 allocations = 414114
-peak_bytes = 9022079
+peak_bytes = 9006731
 time_ms = 1182.8
 
 [check-nested-parens]
@@ -101,7 +101,7 @@ time_ms = 3.3
 steps = 6037038
 visits = 2025038
 allocations = 4066257
-peak_bytes = 1277904
+peak_bytes = 1262556
 time_ms = 629.8
 
 [check-number-huge]
@@ -136,7 +136,7 @@ time_ms = 0.5
 steps = 19
 visits = 17
 allocations = 115
-peak_bytes = 211228
+peak_bytes = 195880
 time_ms = 0.5
 
 [text-literal-walk]
@@ -145,3 +145,9 @@ visits = 31
 allocations = 633535
 peak_bytes = 3101
 time_ms = 34.9
+
+[run-proof-fields]
+steps = 280263
+visits = 876
+allocations = 87851
+peak_bytes = 2376243

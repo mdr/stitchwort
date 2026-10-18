@@ -36,7 +36,9 @@ place top x = Int.modNat x (Succ top)
 wrap : (top : Nat) -> Int -> Pos top
 wrap top x = { at = place top x, ok = quickLt (place top x) (Succ top) (\u -> Int.modNatLt x (Succ top)) }
 
--- `stitchwort run` computes proofs too, and `Int.modNatLt` takes thousands of
+-- `stitchwort run` erases proofs, but checking still computes one where a type
+-- mentions a concrete position (with `ok = Int.modNatLt x (Succ top)` this
+-- file takes about 16 s to check), and `Int.modNatLt` takes thousands of
 -- steps. Comparing the numbers is one step, and gives the same proposition;
 -- the slow proof only rules out the other answer, so it never runs.
 theorem quickLt : (n : Nat) -> (d : Nat) -> (() -> n < d) -> n < d

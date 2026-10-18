@@ -153,6 +153,9 @@ pub struct Globals {
     pub hashes: RefCell<std::collections::HashMap<HashKey, crate::hash::ContentHash>>,
     /// Resource limits for the operation in progress.
     pub budget: crate::budget::Budget,
+    /// Whether running erases proofs and types, and what each definition
+    /// erases (`erase.rs`). Never in effect while checking.
+    pub erasure: crate::erase::Erasure,
     /// The logical name of the module whose data types are being declared
     /// (`Std` for the prelude, `Main` for a program), which their [`Data::path`]
     /// starts with. Empty: the path is the name.
