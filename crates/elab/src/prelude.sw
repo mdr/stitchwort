@@ -791,10 +791,10 @@ def List.drop : Nat -> List a -> List a
   | Succ n, Cons x xs => List.drop n xs
 
 -- The element at index i, counting from 0.
-def List.get : List a -> Nat -> Maybe a
-  | Nil,       i      => Nothing
-  | Cons x xs, Zero   => Just x
-  | Cons x xs, Succ i => List.get xs i
+def List.get : Nat -> List a -> Maybe a
+  | i,      Nil       => Nothing
+  | Zero,   Cons x xs => Just x
+  | Succ i, Cons x xs => List.get i xs
 
 def List.any (p : a -> Bool) : List a -> Bool
   | Nil       => False
@@ -1229,9 +1229,9 @@ def Nat.digitsOnto : Nat -> Nat -> List Char -> List Char
 -- Decimal, without leading zeros: `Nat.toText 42` is `"42"`.
 def Nat.toText (n : Nat) : Text := MkText (Nat.digitsOnto (Succ n) n Nil)
 
-def Maybe.andThen : Maybe a -> (a -> Maybe b) -> Maybe b
-  | Nothing, f => Nothing
-  | Just x,  f => f x
+def Maybe.andThen (f : a -> Maybe b) : Maybe a -> Maybe b
+  | Nothing => Nothing
+  | Just x  => f x
 
 def Maybe.map (f : a -> b) : Maybe a -> Maybe b
   | Nothing => Nothing
@@ -1241,7 +1241,7 @@ def Char.digitValue (c : Char) : Maybe Nat := if Nat.leq 48 (Char.toNat c) then 
 
 def Text.readDigits (acc : Nat) : List Char -> Maybe Nat
   | Nil       => Just acc
-  | Cons c cs => Maybe.andThen (Char.digitValue c) (\d => Text.readDigits (acc * 10 + d) cs)
+  | Cons c cs => Maybe.andThen (\d => Text.readDigits (acc * 10 + d) cs) (Char.digitValue c)
 
 -- A non-empty sequence of ASCII digits, and nothing else: no sign,
 -- whitespace or separators. Leading zeros are allowed, so
