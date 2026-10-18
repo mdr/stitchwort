@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-AUTO-NONE] Error: no way to decide `a = b`
+   ╭─[ reject/eqeq-data-function.sw:7:12 ]
+   │
+ 7 │ same a b = a == b
+   │            ───┬──  
+   │               ╰──── the compiler needs a proof of this
+   │ 
+   │ Note 1: supply a proof by name, or write a decision procedure: a function returning `Decidable …`
+   │ 
+   │ Note 2: `==` isn't derived for `Handler`: the field `f` of `MkHandler` is a function, and functions can't be compared
+───╯
