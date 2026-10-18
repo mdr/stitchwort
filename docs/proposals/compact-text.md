@@ -178,8 +178,7 @@ The parts that matter here:
 From `crates/elab/src/prelude.sw`:
 
 ```
-isScalar : Nat -> Bool
-isScalar n = if leq 55296 n then (if leq n 57343 then False else leq n 1114111) else True
+def isScalar (n : Nat) : Bool := if leq 55296 n then (if leq n 57343 then False else leq n 1114111) else True
 
 type Char : Type =
   | MkChar (code : Nat) (valid : isScalar code = True)
@@ -187,11 +186,9 @@ type Char : Type =
 type Text : Type =
   | MkText (chars : List Char)
 
-textAppend : Text -> Text -> Text
-textAppend a b = MkText (append (textToList a) (textToList b))
+def textAppend (a : Text) (b : Text) : Text := MkText (append (textToList a) (textToList b))
 
-textLength : Text -> Nat
-textLength t = length (textToList t)
+def textLength (t : Text) : Nat := length (textToList t)
 ```
 
 - The literal `'a'` elaborates to `MkChar 97 rfl`, and the kernel checks `rfl : isScalar 97 = True` by computing. `"ab"` elaborates to `MkText (Cons (MkChar 97 rfl) (Cons (MkChar 98 rfl) Nil))`, a term nested once per character.
@@ -314,8 +311,7 @@ This matters most for natives that return proofs. Draft 1 proposed a native `dec
 The existing native `decEqNat` returns `No (natNeq m n rfl)`, and the definition computes a different refutation. Checked on this branch, with `myDecEqNat` an exact copy of the prelude's definition (so with natives off, both sides would unfold to the same term):
 
 ```
-theorem sameNo : myDecEqNat 3 5 = decEqNat 3 5
-sameNo = rfl
+theorem sameNo : myDecEqNat 3 5 = decEqNat 3 5 := rfl
 -- E-REFL: `No (\p -> J (\y -> \q -> IsZero y) Trivial (J … p))` and `No (natNeq 3 5 rfl)` aren't equal
 ```
 

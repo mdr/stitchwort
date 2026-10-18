@@ -131,8 +131,8 @@ This section defines what the rest of the document promises.
 meaning "evaluating `t` produces a value of type `A`, and may perform the abilities in `ε`". The abilities that *evaluating* an expression may perform are different from the abilities mentioned *inside* its type:
 
 ```
-\() -> spin 0          -- : () -> {Partial} Nat  ! {}         building the closure is pure
-(\() -> spin 0) ()     -- : Nat                  ! {Partial}  calling it is partial
+\() => spin 0          -- : () -> {Partial} Nat  ! {}         building the closure is pure
+(\() => spin 0) ()     -- : Nat                  ! {Partial}  calling it is partial
 ```
 
 **Total.** If `⊢ t : A ! {}` is checked and assumption-free, with `t` closed, then evaluating `t` reaches a value in finitely many steps. `A` may itself contain function types with abilities: those apply when the function is called, not when `t` is evaluated. How this extends to other cases:
@@ -191,18 +191,18 @@ type Shape =
   | Square (side : Nat)
   | Rect (width : Nat) (height : Nat)
 
-area : Shape -> Nat
-area (Square s) = s * s
-area (Rect w h) = w * h
+def area : Shape -> Nat
+  | Square s => s * s
+  | Rect w h => w * h
 
 -- Lowercase type variables in signatures are bound implicitly.
--- Equivalent to: map : [a : Type] -> [b : Type] -> (a -> b) -> List a -> List b
-map : (a -> b) -> List a -> List b
-map f []        = []
-map f (x :: xs) = f x :: map f xs
+-- Equivalent to: def map [a : Type] [b : Type] (f : a -> b) : List a -> List b
+def map (f : a -> b) : List a -> List b
+  | []        => []
+  | x :: xs   => f x :: map f xs
 
-doubled = map (\x -> x * 2) [1, 2, 3]                 -- a and b inferred
-doubled = map [a := Nat] [b := Nat] (\x -> x * 2) [1, 2, 3]   -- supplied by name
+def doubled := map (\x => x * 2) [1, 2, 3]                 -- a and b inferred
+def doubled := map [a := Nat] [b := Nat] (\x => x * 2) [1, 2, 3]   -- supplied by name
 ```
 
 **`==` on a declared data type is derived automatically**, with no `deriving` clause: when `Shape` is declared, the compiler also generates a proved decision procedure for `=` on it (named so that source can't refer to it), which `==` finds. It's what one expects of `==` on plain data, a user's own `Shape.decEq` still takes priority, and a type that can't have one says why when `==` is used. It's generated when every field is data that can be compared: of the type itself (recursion), or of a type with a decision procedure, including through the type's parameters (`Tree a` takes one for `a`, as `List.decEq` does). Function fields, proof fields, types defined together, and parameters other than types get none (`E-AUTO-NONE`, with a note). It's generated eagerly, at the declaration, rather than on first use: that's simpler, and costs a few milliseconds per type (`crates/elab/src/derive.rs`).
@@ -212,64 +212,59 @@ doubled = map [a := Nat] [b := Nat] (\x -> x * 2) [1, 2, 3]   -- supplied by nam
 ```
 type Person = { name : Text, age : Nat }
 
-alice : Person
-alice = { name = "Alice", age = 30 }
+def alice : Person := { name = "Alice", age = 30 }
 
-birthday : Person -> Person
-birthday p = { p | age = p.age + 1 }
+def birthday (p : Person) : Person := { p | age = p.age + 1 }
 
 -- Works on any record that has a `name` field
-greet : { name : Text | r } -> Text
-greet x = "Hello, " ++ x.name
+def greet (x : { name : Text | r }) : Text := "Hello, " ++ x.name
 ```
 
 ### Totality
 
 ```
 -- Structural recursion: accepted automatically
-length : List a -> Nat
-length []        = 0
-length (_ :: xs) = 1 + length xs
+def length : List a -> Nat
+  | []      => 0
+  | _ :: xs => 1 + length xs
 
 -- Not structural: name a measure that decreases.
 -- `b@(Succ _)` names the argument and records that it isn't zero,
 -- which `%` requires.
-gcd : Nat -> Nat -> Nat
-gcd a 0          = a
-gcd a b@(Succ _) = gcd b (a % b)
+def gcd : Nat -> Nat -> Nat
+  | a, 0          => a
+  | a, b@(Succ _) => gcd b (a % b)
   decreasing b
 
 -- Opt out: partiality is an ability, visible in the type
-collatz : Nat -> {Partial} Nat
-collatz 1 = 0
-collatz n = 1 + collatz (if even n then n / 2 else 3 * n + 1)
+def collatz : Nat -> {Partial} Nat
+  | 1 => 0
+  | n => 1 + collatz (if even n then n / 2 else 3 * n + 1)
 ```
 
 ### Proofs
 
 ```
-theorem appendLength : (xs ys : List a) ->
-    length (xs ++ ys) = length xs + length ys
-appendLength []        ys = rfl
-appendLength (x :: xs) ys = Eq.cong Succ (appendLength xs ys)
+theorem appendLength : (xs ys : List a) -> length (xs ++ ys) = length xs + length ys
+  | [],      ys => rfl
+  | x :: xs, ys => Eq.cong Succ (appendLength xs ys)
 
 -- The proof that the index is in range is found by `auto`
-get : (xs : List a) -> (i : Nat) -> [auto ok : i < length xs] -> a
+def get (xs : List a) (i : Nat) [auto ok : i < length xs] : a := ...
 
-third = get [10, 20, 30] 2      -- fine: 2 < 3 is decided at compile time
-oops  = get [10, 20, 30] 5      -- error: 5 < 3 is false
+def third := get [10, 20, 30] 2      -- fine: 2 < 3 is decided at compile time
+def oops  := get [10, 20, 30] 5      -- error: 5 < 3 is false
 ```
 
 ### Data bundled with its guarantees
 
 ```
-IsSorted : List Nat -> Prop
+def IsSorted : List Nat -> Prop := ...
 
 -- `sorted` is a proof, so it's erased: at runtime this is just a List
 type SortedList = { items : List Nat, sorted : IsSorted items }
 
-insert : Nat -> SortedList -> SortedList
-insert n s =
+def insert (n : Nat) (s : SortedList) : SortedList :=
   { items  = insertList n s.items
   , sorted = insertPreservesSorted n s.items s.sorted }
 ```
@@ -281,9 +276,8 @@ ability State s where
   get : () -> {State s} s
   put : s -> {State s} ()
 
-tick : () -> {State Nat} Nat
-tick () =
-  let n = get ()
+def tick () : {State Nat} Nat :=
+  let n := get ()
   put (n + 1)
   n
 ```
@@ -291,7 +285,7 @@ tick () =
 ### Tests
 
 ```
-test "reverse twice" =
+test "reverse twice" :=
   reverse (reverse [1, 2, 3]) == [1, 2, 3]
 ```
 
@@ -305,8 +299,7 @@ $ stitchwort test
 ### JS export
 
 ```
-export
-applyDiscount : (pct : Nat) -> [auto ok : pct <= 100] -> Price -> Price
+export def applyDiscount : (pct : Nat) -> [auto ok : pct <= 100] -> Price -> Price
 ```
 
 ```ts
@@ -338,14 +331,13 @@ an `Effect.Comp`. Stage 1 is implemented ([docs/proposals/partial.md](docs/propo
 "As built"):
 
 ```
-spin : Nat -> {Partial} Nat
-spin n = spin n
+def spin (n : Nat) : {Partial} Nat := spin n
 
-innocent : Nat -> Nat          -- type error: calls spin, which uses Partial
-innocent n = spin n + 1
+-- type error: calls spin, which uses Partial
+def innocent (n : Nat) : Nat := spin n + 1
 
-innocent : Nat -> {Partial} Nat   -- OK: partiality is visible
-innocent n = spin n + 1
+-- OK: partiality is visible
+def innocent (n : Nat) : {Partial} Nat := spin n + 1
 ```
 
 ### Rules
@@ -373,10 +365,10 @@ When termination checking fails, the error should say *which call* failed and *w
 For now, bounded versions of partial algorithms take an explicit fuel argument. They terminate by structural recursion on the fuel, so no special support is needed:
 
 ```
-collatzFuel : Nat -> Nat -> Optional Nat
-collatzFuel 0           _ = None
-collatzFuel (Succ fuel) 1 = Some 0
-collatzFuel (Succ fuel) n = map (+ 1) (collatzFuel fuel (next n))
+def collatzFuel : Nat -> Nat -> Optional Nat
+  | 0,         _ => None
+  | Succ fuel, 1 => Some 0
+  | Succ fuel, n => map (+ 1) (collatzFuel fuel (next n))
 ```
 
 A generic `withFuel : Nat -> (() -> {Partial | e} a) -> {e} Optional a`, which bounds *any* partial computation, is attractive but postponed. It needs:
@@ -425,7 +417,7 @@ Having numbered universes doesn't settle where function types live. The rules:
 The last rule matters once abilities exist. In
 
 ```
-loggedProof : () -> {IO} True
+def loggedProof : () -> {IO} True
 ```
 
 the function is runtime data, not an erasable proof: calling it performs IO, and only the `True` it returns is erased. Treating it as a proposition would erase the IO.
@@ -451,8 +443,8 @@ The check is over the declaration. It must **not** be implemented by asking "wou
 type HiddenType : Prop =
   | HideType (a : Type)
 
-reveal : HiddenType -> Type      -- rejected: `a` is a type, not a proof,
-reveal (HideType a) = a          -- and it doesn't appear in an index
+def reveal : HiddenType -> Type      -- rejected: `a` is a type, not a proof,
+  | HideType a => a          -- and it doesn't appear in an index
 ```
 
 | Proposition | Can be matched on to produce data? | Why |
@@ -543,7 +535,7 @@ The core typing rules will state exactly which terms the comparison is allowed t
 A test is a named, closed expression of type `Bool` that must be checked, total and pure:
 
 ```
-test "tick twice" =
+test "tick twice" :=
   runState 0 (\() -> tick (); tick ()) == (1, 2)
 ```
 
@@ -582,13 +574,12 @@ Abilities follow Unison's design, which comes from Frank.
 Handlers are **deep**: the continuation `k` already includes the handler, so a clause never needs to call the handler again. That makes a handler a *fold* over the tree of operations a computation performs:
 
 ```
-runState : [auto d : IsData s] -> s -> (() -> {State s | e} a) -> {e} (a, s)
-runState init prog =
-  let run =
+def runState [auto d : IsData s] (init : s) (prog : () -> {State s | e} a) : {e} (a, s) :=
+  let run :=
     handle prog () with
-      | return x     -> \s -> (x, s)
-      | get ()  => k -> \s -> k s s
-      | put s'  => k -> \_ -> k () s'
+      | return x     => \s => (x, s)
+      | get (), k => \s => k s s
+      | put s', k => \_ => k () s'
   run init
 ```
 
@@ -606,11 +597,10 @@ Draft 1 proposed trusting any handler that resumes `k` at most once. **That rule
 ability Ping where
   ping : () -> {Ping} ()
 
-bad : (() -> {Ping} a) -> a
-bad prog =
+def bad (prog : () -> {Ping} a) : a :=
   handle prog () with
-    | return x     -> x
-    | ping () => k -> bad prog     -- never resumes k, loops forever
+    | return x    => x
+    | ping (), k  => bad prog     -- never resumes k, loops forever
 
 bad (\() -> ping ())
 ```
@@ -622,11 +612,11 @@ ability Cell where
   read  : () -> {Cell} (() -> {Cell} ())
   write : (() -> {Cell} ()) -> {Cell} ()
 
-knot : () -> {Cell} ()
-knot () =
-  let f = \() -> (read ()) ()
-  write f
-  f ()           -- f reads f and calls it, forever
+def knot : () -> {Cell} ()
+  | () =>
+    let f := \() => (read ()) ()
+    write f
+    f ()           -- f reads f and calls it, forever
 ```
 
 Each continuation here is resumed exactly once. The recursion comes from the stored function, not from the handler. Koka's design makes the same point: higher-order mutable state can cause divergence that a check for syntactic recursion can't see.

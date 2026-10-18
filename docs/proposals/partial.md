@@ -98,21 +98,20 @@ type Comp (op : Type) (res : op -> Type) (a : Type) : Type =
 Draft 1 represented a partial computation as a `Comp` tree that may be infinite, built by guarded recursion:
 
 ```
-spin n = Call later (\_ -> spin n)
+spin n = Call later (\_ => spin n)
 ```
 
 But `Comp` is *inductive*: its fold (any structurally recursive function over it) assumes every path through the tree ends. With an infinite tree available, an ordinary function proves anything:
 
 ```
-drain : Comp LaterOp LaterRes a -> a
-drain (Done x)          = x
-drain (Call Later rest) = drain (rest ())
+def drain : Comp LaterOp LaterRes a -> a
+  | Done x          => x
+  | Call Later rest => drain (rest ())
 
-forever : () -> Comp LaterOp LaterRes Void
-forever () = Call Later (\_ -> forever ())
+def forever : () -> Comp LaterOp LaterRes Void
+  | () => Call Later (\_ => forever ())
 
-contradiction : Void
-contradiction = drain (forever ())
+def contradiction : Void := drain (forever ())
 ```
 
 Two things don't help:
@@ -164,19 +163,17 @@ These are written in Stitchwort syntax as it would be with `Partial`. The surfac
 
 ```
 -- Adds up numbers, one per line, until an empty line or the end of input.
-addLines : Nat -> {IO, Partial} Nat
-addLines total = step total (readLine ()) addLines
+def addLines (total : Nat) : {IO, Partial} Nat := step total (readLine ()) addLines
 
 -- As in adder.sw, but `more` may now be partial. `| e` is needed because
 -- `addLines` passes itself (§7.3.4).
-step : Nat -> Maybe Text -> (Nat -> {IO, Partial | e} Nat) -> {IO, Partial | e} Nat
-step total Nothing  more = total
-step total (Just l) more =
-  if textIsEmpty l then total else stepNumber total l (textToNat (textTrim l)) more
+def step (total : Nat) : Maybe Text -> (Nat -> {IO, Partial | e} Nat) -> {IO, Partial | e} Nat
+  | Nothing, more => total
+  | Just l,  more =>
+    if textIsEmpty l then total else stepNumber total l (textToNat (textTrim l)) more
 
-main : () -> {IO, Partial} ()
-main u =
-  let total = addLines 0
+def main () : {IO, Partial} () :=
+  let total := addLines 0
   print ("The sum is " ++ natToText total)
 ```
 
@@ -188,15 +185,14 @@ main u =
 
 ```
 -- Answers commands until the input ends, keeping a count of each kind.
-serve : Counts -> {IO, Partial} ()
-serve counts = respond counts (readLine ())
+def serve (counts : Counts) : {IO, Partial} () := respond counts (readLine ())
 
-respond : Counts -> Maybe Text -> {IO, Partial} ()
-respond counts Nothing    = print "bye"
-respond counts (Just cmd) =
-  let counts' = record cmd counts      -- total
-  print (report counts')                -- total
-  serve counts'
+def respond (counts : Counts) : Maybe Text -> {IO, Partial} ()
+  | Nothing  => print "bye"
+  | Just cmd =>
+    let counts' := record cmd counts      -- total
+    print (report counts')                -- total
+    serve counts'
 ```
 
 `serve` and `respond` are a recursive group (they call each other), so this needs the mutual-recursion work (§9.3). The state is an explicit argument. With `runState` around a partial computation, it could be an ability instead. That's a handler with `Partial` in its residual row, which stage 1 excludes (§7.3.8, §10.4). `record` and `report` are total, so they're the parts to prove things about.
@@ -210,18 +206,17 @@ type Term : Type =
   | App (fun : Term) (arg : Term)
 
 -- Call-by-value evaluation to weak head normal form, by substitution.
-eval : Term -> {Partial} Term
-eval (Var i)   = Var i
-eval (Lam b)   = Lam b
-eval (App f a) = apply (eval f) (eval a)
+def eval : Term -> {Partial} Term
+  | Var i   => Var i
+  | Lam b   => Lam b
+  | App f a => apply (eval f) (eval a)
 
-apply : Term -> Term -> {Partial} Term
-apply (Lam b) v = eval (subst 0 v b)   -- subst is total, and provable about
-apply f       v = App f v
+def apply : Term -> Term -> {Partial} Term
+  | Lam b, v => eval (subst 0 v b)   -- subst is total, and provable about
+  | f,     v => App f v
 
 -- (\x. x x) (\x. x x) never finishes:
-omega : Term
-omega = App (Lam (App (Var 0) (Var 0))) (Lam (App (Var 0) (Var 0)))
+def omega : Term := App (Lam (App (Var 0) (Var 0))) (Lam (App (Var 0) (Var 0)))
 ```
 
 `eval omega : {Partial} Term` is fine to *write*: building the computation is total, and only running it may not finish. `eval` and `apply` are mutually recursive, which needs the mutual-recursion work.
@@ -230,25 +225,21 @@ omega = App (Lam (App (Var 0) (Var 0))) (Lam (App (Var 0) (Var 0)))
 
 ```
 -- The first n, counting up from start, with p n. Loops if there's none.
-firstFrom : (Nat -> Bool) -> Nat -> {Partial} Nat
-firstFrom p n = if p n then n else firstFrom p (n + 1)
+def firstFrom (p : Nat -> Bool) (n : Nat) : {Partial} Nat := if p n then n else firstFrom p (n + 1)
 
-collatzSteps : Nat -> {Partial} Nat
-collatzSteps 1 = 0
-collatzSteps n = 1 + collatzSteps (if even n then n / 2 else 3 * n + 1)
+def collatzSteps : Nat -> {Partial} Nat
+  | 1 => 0
+  | n => 1 + collatzSteps (if even n then n / 2 else 3 * n + 1)
 ```
 
 **And what must stay impossible:**
 
 ```
-innocent : Nat -> Nat
-innocent n = collatzSteps n + 1          -- error: calls a Partial function
+def innocent (n : Nat) : Nat := collatzSteps n + 1          -- error: calls a Partial function
 
-sneaky : Nat -> Nat
-sneaky n = runSomehow (collatzSteps n)   -- error: there's no such total function
+def sneaky (n : Nat) : Nat := runSomehow (collatzSteps n)   -- error: there's no such total function
 
-theorem : Void
-theorem = spin ()                        -- error: spin () : {Partial} Void isn't Void
+def nonsense : Void := spin ()                        -- error: spin () : {Partial} Void isn't Void
 ```
 
 ## 5. How other systems do it
@@ -439,11 +430,10 @@ Ideas not chosen are worth recording too.
 ```
 -- What the elaborator would make of `firstFrom` (§4):
 type FirstFromRec : Type = | Recur (n : Nat)
-FirstFromRes : FirstFromRec -> Type
-FirstFromRes (Recur n) = Nat
+def FirstFromRes : FirstFromRec -> Type
+  | Recur n => Nat
 
-firstFromBody : (Nat -> Bool) -> Nat -> Comp FirstFromRec FirstFromRes Nat
-firstFromBody p n = if p n then Done n else Call (Recur (n + 1)) Done
+def firstFromBody (p : Nat -> Bool) (n : Nat) : Comp FirstFromRec FirstFromRes Nat := if p n then Done n else Call (Recur (n + 1)) Done
 ```
 
 `firstFromBody` isn't recursive. The runtime ties the knot: on `Call (Recur m) k` it runs `firstFromBody p m` and passes the result to `k`. Fuel interpretations (`petrol`) are ordinary total prelude functions.
@@ -625,11 +615,10 @@ A translated reference's row contains the private signature `Rec A`, which no ty
 The review's example is the smallest case:
 
 ```
-useP : (Nat -> {Partial} Nat) -> Nat -> {Partial} Nat     -- monomorphic: refused below
-useP k n = k n
+-- monomorphic: refused below
+def useP (k : Nat -> {Partial} Nat) (n : Nat) : {Partial} Nat := k n
 
-loop : Nat -> {Partial} Nat
-loop n = useP loop n
+def loop (n : Nat) : {Partial} Nat := useP loop n
 ```
 
 `useP`'s callback type is `Nat -> Delay ∅ Nat`; the translated `loop` is `Nat -> Delay (Plus (Rec Nat) ∅) Nat`. Wrapping `useP`'s *result* in `mapSig sigRight` doesn't help: the problem is its *argument*. The error:
@@ -666,8 +655,7 @@ Using the example from §4:
 
 ```
 -- Source
-firstFrom : (Nat -> Bool) -> Nat -> {Partial} Nat
-firstFrom p n = if p n then n else firstFrom p (n + 1)
+def firstFrom (p : Nat -> Bool) (n : Nat) : {Partial} Nat := if p n then n else firstFrom p (n + 1)
 
 -- Core (sketch): `p` is fixed, `n` is packed (here, it's the whole of A)
 firstFromBody : (Nat -> Bool) -> (n : Nat) -> Delay (Plus (Rec Nat) ∅) … Nat
@@ -825,11 +813,9 @@ A small tick limit doesn't make control return promptly: one step may do a lot o
 Exports stay pure (DESIGN.md §12). But "exports are pure, so no JS needs `Delay`" doesn't follow [RV §8]: a pure function can mention a partial one without running it.
 
 ```
-discard : (Nat -> {Partial} Nat) -> Nat
-discard f = 0
+def discard (f : Nat -> {Partial} Nat) : Nat := 0
 
-answer : Nat -> Nat
-answer n = discard collatzSteps
+def answer (n : Nat) : Nat := discard collatzSteps
 ```
 
 The extractor reaches `collatzSteps` from `answer`. The choices are an inert representation, erasure under a justified abstraction, or rejection. **Recommended: erasure.**
@@ -899,7 +885,7 @@ DESIGN.md §5 rule 4 exists for this case. A handler for `Partial` that answered
 This is the reason for the request form, and why a description never gets its own tied function (§7.3.4). It can't happen in stage 1, where nothing steps a `Delay` except the runner, but it's what any future observer (§10.1) must exclude. Suppose `pfix` gave the description the function being defined:
 
 ```
-pfixBad : ((A -> Delay B) -> A -> Delay B) -> A -> Delay B
+def pfixBad : ((A -> Delay B) -> A -> Delay B) -> A -> Delay B
 ```
 
 If total code could step a `Delay`, a description could step its own recursive call past the `Later`: `f self x = stepTwice (self x)`. Stepping `pfixBad f x` runs `f`, which steps `pfixBad f x`, which runs `f` again, and so on: a single "total" step that never returns. Fuel doesn't help, because every invocation of `f` gets fresh fuel.
@@ -1192,13 +1178,12 @@ None of these is planned. Each records what it would give, what it would need, a
 **What it gives.** Total code could run a partial computation for a bounded number of ticks and get `Maybe` an answer:
 
 ```
-runFor : Nat -> Delay op res a -> Comp op res (Maybe a)
-runFor n d = bind (step d) (afterStep n)
+def runFor (n : Nat) (d : Delay op res a) : Comp op res (Maybe a) := bind (step d) (afterStep n)
 
-afterStep : Nat -> Next a (Delay op res a) -> Comp op res (Maybe a)
-afterStep n        (Now x)    = Done (Just x)
-afterStep Zero     (Later d') = Done Nothing
-afterStep (Succ n) (Later d') = runFor n d'
+def afterStep : Nat -> Next a (Delay op res a) -> Comp op res (Maybe a)
+  | n,      Now x    => Done (Just x)
+  | Zero,   Later d' => Done Nothing
+  | Succ n, Later d' => runFor n d'
 ```
 
 This is structural on `n` (a mutual pair), with seeing `Now` free (§7.4.3). With it come `withFuel` (DESIGN.md §16, question 10), `simulateFor` for testing partial programs in the language, and two proof forms that need no bisimilarity:

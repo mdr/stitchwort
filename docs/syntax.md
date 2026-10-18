@@ -45,14 +45,14 @@ export def total : List Nat -> Nat
 
 Definitions may be named in either case: `length`, or `Not` for a function returning a type.
 
-Patterns are variables, `_`, numbers, constructors applied to patterns (nested to any depth, as in `half (Succ (Succ n))`), record patterns ([Records](#records)), or `()`. A number pattern tests for that number, of any size. In an equation with a variable or `_` where others have numbers, nothing is known about the argument: not even that it's a different number, and not that it's a `Succ` (so with `make : (n : Nat) -> ResultType n`, `make 0 = …; make n = …` checks the second equation knowing nothing about `n`). To use the shape of a number, match on `Zero` and `Succ` instead; a number pattern in a column that also has `Zero` or `Succ` patterns counts down like `Succ`s. On an `Int`, number patterns can be negative, `(-1)`: a match on `Int` numbers splits on the sign (`OfNat` or `NegSucc`) first, so an equation with a variable or `_` knows the sign of the argument in the branch where it is all that matches, but still nothing about its size. Equations are tried from top to bottom. `()` with a right-hand side matches the unit value; without one, it says the argument's type has no values, and the equation needs no right-hand side:
+Patterns are variables, `_`, numbers, constructors applied to patterns (nested to any depth, as in `half (Succ (Succ n))`), record patterns ([Records](#records)), or `()`. A number pattern tests for that number, of any size. In an arm with a variable or `_` where other arms have numbers, nothing is known about the argument: not even that it's a different number, and not that it's a `Succ` (so with `def make : (n : Nat) -> ResultType n`, the arms `| 0 => …` and `| n => …` check the second arm knowing nothing about `n`). To use the shape of a number, match on `Zero` and `Succ` instead; a number pattern in a column that also has `Zero` or `Succ` patterns counts down like `Succ`s. On an `Int`, number patterns can be negative, `(-1)`: a match on `Int` numbers splits on the sign (`OfNat` or `NegSucc`) first, so an arm with a variable or `_` knows the sign of the argument in the branch where it is all that matches, but still nothing about its size. Arms are tried from top to bottom. `()` with a right-hand side matches the unit value; without one, it says the argument's type has no values, and the arm needs no right-hand side:
 
 ```
 def absurd : Void -> a
   | ()
 ```
 
-Implicit and auto parameters are in scope by name in every equation, wherever they appear in the signature:
+Implicit and auto parameters are in scope by name in every arm, wherever they appear in the signature:
 
 ```
 def get : (xs : List a) -> (i : Nat) -> [auto ok : i < List.length xs] -> a
@@ -60,7 +60,7 @@ def get : (xs : List a) -> (i : Nat) -> [auto ok : i < List.length xs] -> a
 …
 ```
 
-List patterns: `[]` is `Nil`, and `[p, q, r]` is `Cons p (Cons q (Cons r Nil))`, by identity with the library's `List` (a user's own `Cons` doesn't change it), wherever a pattern is allowed (equations, `match`, `let`, lambdas). Each element is a pattern; a constructor element takes its arguments without brackets (`[Just a, Nothing]`), and `(-k)` works as in tuples. There is no `x :: xs` or `[x, ..rest]` form: use `Cons x rest`. A list pattern is refutable like `Cons`, so in `let` the pattern must still cover the type (`let [a, b] = xs` is `E-LET-REFUTABLE`). A missing case is reported as the constructor that lacks it (see `examples/reject/list-pattern-missing-longer.sw`).
+List patterns: `[]` is `Nil`, and `[p, q, r]` is `Cons p (Cons q (Cons r Nil))`, by identity with the library's `List` (a user's own `Cons` doesn't change it), wherever a pattern is allowed (arms, `match`, `let`, lambdas). Each element is a pattern; a constructor element takes its arguments without brackets (`[Just a, Nothing]`), and `(-k)` works as in tuples. There is no `x :: xs` or `[x, ..rest]` form: use `Cons x rest`. A list pattern is refutable like `Cons`, so in `let` the pattern must still cover the type (`let [a, b] := xs` is `E-LET-REFUTABLE`). A missing case is reported as the constructor that lacks it (see `examples/reject/list-pattern-missing-longer.sw`).
 
 ### Declaration order
 
@@ -91,7 +91,7 @@ def isOdd : Nat -> Bool
 
   They must have the same parameters, with the same names, and the same universe (`E-MUTUAL-PARAMETERS`), and their parameters can't mention each other (`E-MUTUAL-SIGNATURE`). Their fields can mention any of the types, but not their constructors (`E-MUTUAL-CONSTRUCTOR`): `(ok : kids = FNil)` in `Tree` is refused. None of them may occur to the left of an arrow in any of their fields (`E-POSITIVITY`), or inside another type (`List Tree`). Propositions defined together can only be matched on to produce other proofs (`E-PROP-ELIM`). Functions over them are ordinary definitions that call each other: `size (Node n kids) = Succ (sizeForest kids)` is a smaller call, since `kids` is part of the tree.
 - **A data type can't be in a cycle with a definition, and an ability can't be in a cycle at all** (`E-MUTUAL-KIND`): that would be induction-recursion, or Landin's knot.
-- **A name in the module takes priority over a type variable.** In `length : List a -> Nat`, `a` is a type variable only if nothing in the module (or an import) is called `a`; otherwise it means that declaration, wherever it is, with a warning (`W-MODULE-NAME`) pointing at both. Write `[a : Type] -> List a -> Nat` to make it a type variable regardless.
+- **A name in the module takes priority over a type variable.** In `def length : List a -> Nat`, `a` is a type variable only if nothing in the module (or an import) is called `a`; otherwise it means that declaration, wherever it is, with a warning (`W-MODULE-NAME`) pointing at both. Write `[a : Type] -> List a -> Nat` to make it a type variable regardless.
 - **`auto` only uses decision procedures that are already checked and written above the use.** One written above that's still waiting for something below to be checked isn't available yet; `E-AUTO-NONE` says which case applies. Passing the procedure explicitly makes it an ordinary dependency, checked first.
 
 ## Definitions in detail
@@ -160,11 +160,9 @@ Names are grouped into namespaces (docs/proposals/namespaces.md). The library is
 ```
 import Text (split, join)
 
-words : Text -> List Text
-words line = split ' ' line
+def words (line : Text) : List Text := split ' ' line
 
-count : List Nat -> Nat
-count xs = List.length xs
+def count (xs : List Nat) : Nat := List.length xs
 ```
 
 - **A qualified name** is written without spaces: `List.length`, `Std.List.Cons`. Its first component is found like any name, or as a namespace (the file's own, then the library's); `Std.…` always means the library.
@@ -188,24 +186,21 @@ type Sized (a : Type) =
   , ok : List.length items = size
   }
 
-alice : Person
-alice = { name = "Alice", age = 30 }       -- every field once, in any order
+def alice : Person := { name = "Alice", age = 30 }       -- every field once, in any order
 
-newborn : Text -> Person
-newborn name = { age = 0, name }           -- `name` alone is `name = name`
+def newborn (name : Text) : Person := { age = 0, name }           -- `name` alone is `name = name`
 
-birthday : Person -> Person
-birthday p = { p | age = p.age + 1 }       -- update: a new record
+def birthday (p : Person) : Person := { p | age = p.age + 1 }       -- update: a new record
 
-describe : Person -> Text
-describe { name, age } = name ++ " is " ++ Nat.toText age
+def describe : Person -> Text
+  | { name, age } => name ++ " is " ++ Nat.toText age
 
-nameOf : Person -> Text
-nameOf { name, .. } = name                 -- `..` ignores the other fields
+def nameOf : Person -> Text
+  | { name, .. } => name                 -- `..` ignores the other fields
 ```
 
 - **A literal needs an expected type**: a signature, an argument's type, or an annotation, `({ x = 0, y = 0 } : Point)`. Nothing is guessed from the field names (`E-CANNOT-INFER`).
-- **`e.name`** reads a field, or calls a function by dot notation: it looks `name` up in the namespace of `e`'s type `T`, finding the field or `T.name`, and puts `e` in the place of `T.name`'s first parameter of type `T`, whatever its position (`line.split ','` is `Text.split ',' line`; `t.split` alone is `\c -> Text.split c t`). A nickname's namespace is tried before what it stands for (`p : Price` tries `Price.show`, then `Nat.show`), and `p.sym` on an equation finds `Eq.sym`. It's written without spaces around the `.`, binds tighter than application (`f p.name` is `f (p.name)`), and chains (`t.lead.name`, `(f x).age`). The receiver runs first, then the arguments as written. `e`'s type must be known where it's used: `\p -> p.name` needs `\(p : Person) -> p.name` unless the function's type is known from elsewhere (`people.map (\p -> p.name)` works, since `people` is checked first). See docs/proposals/namespaces.md §4.8.
+- **`e.name`** reads a field, or calls a function by dot notation: it looks `name` up in the namespace of `e`'s type `T`, finding the field or `T.name`, and puts `e` in the place of `T.name`'s first parameter of type `T`, whatever its position (`line.split ','` is `Text.split ',' line`; `t.split` alone is `\c => Text.split c t`). A nickname's namespace is tried before what it stands for (`p : Price` tries `Price.show`, then `Nat.show`), and `p.sym` on an equation finds `Eq.sym`. It's written without spaces around the `.`, binds tighter than application (`f p.name` is `f (p.name)`), and chains (`t.lead.name`, `(f x).age`). The receiver runs first, then the arguments as written. `e`'s type must be known where it's used: `\p => p.name` needs `\(p : Person) => p.name` unless the function's type is known from elsewhere (`people.map (\p => p.name)` works, since `people` is checked first). See docs/proposals/namespaces.md §4.8.
 - **An update** `{ e | f = …, … }` replaces some fields. A later field whose type mentions a replaced one must be replaced too (`E-RECORD-UPDATE`): `{ s | items = xs }` isn't allowed for `s : Sized a`, `{ s | items = xs, size = n, ok = proof }` is.
 - **Record patterns** `{ f = p, g, .. }` work wherever patterns do, nested in constructors and other records, when the type of what they match is known (a parameter's from the signature, or a field's from the constructor around it). After `=`, a constructor pattern takes its arguments without parentheses: `{ items = Cons x xs, .. }`.
 - **Order of effects**: in a computation, field expressions run in the order written, then the record is built; an update's base runs once, first.
@@ -225,9 +220,8 @@ ability State (s : Type) where
 -- A function type may list the abilities calling it performs, and a row
 -- variable `e` (bound automatically, like a type variable) for "whatever
 -- else". `{e}` alone is just the variable. `A -> B` is pure and total.
-tick : () -> {State Nat} Nat
-tick u =
-  let n = get ()
+def tick () : {State Nat} Nat :=
+  let n := get ()
   put (n + 1)
   n
 
@@ -235,14 +229,13 @@ tick u =
 -- resumes the computation (with the handler still in place) and may be
 -- called any number of times. A `return` clause and a clause for every
 -- operation are required.
-allResults : (() -> {Choose | e} a) -> {e} List a
-allResults prog =
+def allResults (prog : () -> {Choose | e} a) : {e} List a :=
   handle prog () with
-    | return x       -> [x]
-    | choose u => k  -> List.append (k True) (k False)
+    | return x       => [x]
+    | choose u, k    => List.append (k True) (k False)
 ```
 
-Effectful code is written in direct style. Arguments are evaluated left to right, and the lines of a block in order. A handler's clauses on their own lines must line up: a `|` at another column belongs to an enclosing handler. An operation on its own (`choose`) is a function, `\x -> choose x`. A signature can be a computation that isn't a function: `current : {State Nat} Nat`. A pure function can use a handler inside; what it handles doesn't appear in its type. How this is translated into ordinary data is described in `docs/core.md`, under "Abilities".
+Effectful code is written in direct style. Arguments are evaluated left to right, and the lines of a block in order. A handler's clauses on their own lines must line up: a `|` at another column belongs to an enclosing handler. An operation on its own (`choose`) is a function, `\x => choose x`. A signature can be a computation that isn't a function: `current : {State Nat} Nat`. A pure function can use a handler inside; what it handles doesn't appear in its type. How this is translated into ordinary data is described in `docs/core.md`, under "Abilities".
 
 ## `Partial`
 
@@ -252,34 +245,33 @@ like an ability, but it has no operations and can't be handled; `Partial`
 is reserved.
 
 ```
-collatzSteps : Nat -> {Partial} Nat
-collatzSteps 1 = 0
-collatzSteps n = 1 + collatzSteps (next n)     -- no termination check
+def collatzSteps : Nat -> {Partial} Nat
+  | 1 => 0
+  | n => 1 + collatzSteps (next n)     -- no termination check
 
-main : () -> {IO, Partial} ()                    -- run by `stitchwort run`
-main u = print (Nat.toText (collatzSteps 27))
+-- run by `stitchwort run`
+def main () : {IO, Partial} () := print (Nat.toText (collatzSteps 27))
 
 -- A helper that's given a recursive function must be polymorphic in the
 -- rest of its row (`| e`): the recursive calls are requests that only the
 -- recursive definition can answer.
-useP : (Nat -> {Partial | e} Nat) -> Nat -> {Partial | e} Nat
-useP k n = k n
+def useP (k : Nat -> {Partial | e} Nat) (n : Nat) : {Partial | e} Nat := k n
 
-loop : Nat -> {Partial} Nat
-loop 0 = 0
-loop n = useP loop (n - 1)
+def loop : Nat -> {Partial} Nat
+  | 0 => 0
+  | n => useP loop (n - 1)
 ```
 
 - Calling a partial function in code whose type doesn't say `Partial` is
-  `E-PARTIAL`. Mentioning one is fine: `\u -> collatzSteps 3` is a total
+  `E-PARTIAL`. Mentioning one is fine: `\u => collatzSteps 3` is a total
   value, and partial functions can be passed around and stored.
 - A total function fits where a partial one is expected; not the other way
   round. A row variable never stands for `Partial`, so a handler can't run
   a partial computation (`E-PARTIAL`), though its clauses may.
 - Definitions that call each other must be all partial or all total
   (`E-PARTIAL-MIXED`). A partial one is partial once it has the parameters
-  its equations name: `mk : Nat -> (Nat -> {Partial} Nat)` with
-  `mk n = …` is total, returning a partial function.
+  its arms or parameters name: `def mk (n : Nat) : Nat -> {Partial} Nat :=
+  …` is total, returning a partial function.
 - Inside its definition, a partial recursive function as a value can't be
   passed to a helper with a fixed row (`E-PARTIAL-CALLBACK`) or returned
   (`E-PARTIAL-ESCAPE`); its type parameters come first and every recursive
@@ -293,7 +285,7 @@ Loosest-binding first:
 
 | Syntax | Meaning |
 |---|---|
-| `\x y -> e` | Function |
+| `\x y => e` | Function |
 | `(x y : A) -> B` | Dependent function type |
 | `[x y : A] -> B` | Function type with implicit parameters, filled in by the compiler |
 | `[auto x : P] -> B` | An implicit proof of `P`, found from hypotheses in scope or a decision procedure |
@@ -301,8 +293,8 @@ Loosest-binding first:
 | `if h : P then a else b` | Decides `P` (at runtime if need be). `h : P` in `a`, `h : Not P` in `b` |
 | `A -> B` | Function type |
 | `A -> {E, F \| e} B` | Function type whose calls may perform abilities `E` and `F`, plus whatever `e` stands for |
-| `handle e with \| return x -> … \| op x => k -> …` | Runs `e`, handling one ability |
-| `match e with \| p -> a \| q -> b` | Takes apart `e` by patterns; `match h : e with` also names an equation ([`match`](#match)) |
+| `handle e with \| return x => … \| op x, k => …` | Runs `e`, handling one ability |
+| `match e with \| p => a \| q => b` | Takes apart `e` by patterns; `match h : e with` also names an equation ([`match`](#match)) |
 | `()` | The unit value, and its type |
 | `(A, B)`, `(a, b)`, `(p, q)` | Tuples: `Pair A B`, `MkPair a b` and the pattern `MkPair p q`, by identity (a user's own `Pair` doesn't change it). Three or more nest to the right: `(a, b, c)` is `(a, (b, c))`. Where a type is expected (a function's domain, a definition of type `Type`) it's the type; otherwise it's the type if its first component's type is a universe. `(e)` is grouping, there is no one-element tuple, and an annotation inside needs brackets: `(a, (b : T))` or `((a, b) : T)`. Components are in `Type` (not `Prop`), as `Pair`'s are |
 | `a = b`, `a != b` | Equality and inequality (propositions). Not associative |
@@ -326,33 +318,31 @@ Loosest-binding first:
 | `{ name = e, age }`, `{ p \| age = e }` | Record literal (with an expected type) and update ([Records](#records)). After an arrow, `{` starts an ability row instead |
 | `e.name` | A field, or dot notation: `T.name e …` for `e : T`. No spaces around the `.`; binds tighter than application |
 | `rfl` | Proof of `a = a` |
-| `J (\y p -> P) base proof` | Transport along an equality |
+| `J (\y p => P) base proof` | Transport along an equality |
 
-A partially applied constructor is a function: `Succ` on its own means `\n -> Succ n`.
+A partially applied constructor is a function: `Succ` on its own means `\n => Succ n`.
 
 ### `match`
 
-`match` takes apart one or more values in an expression, with the same patterns as equations:
+`match` takes apart one or more values in an expression, with the same patterns as arms:
 
 ```
-describe : List Nat -> Text
-describe xs =
+def describe (xs : List Nat) : Text :=
   match xs with
-    | Nil        -> "empty"
-    | Cons x Nil -> "one"
-    | _          -> "many"
+    | Nil        => "empty"
+    | Cons x Nil => "one"
+    | _          => "many"
 
-zipLen : List Nat -> List Nat -> Nat
-zipLen xs ys = 1 + match xs, ys with
-  | Cons _ a, Cons _ b -> zipLen a b
-  | _, _ -> 0
+def zipLen (xs : List Nat) (ys : List Nat) : Nat := 1 + match xs, ys with
+  | Cons _ a, Cons _ b => zipLen a b
+  | _, _ => 0
 ```
 
-The alternatives start with `|`, lined up one under another and further right than the line the `match` starts on. A `match` may also be written on one line: `match n with | Zero -> 0 | Succ k -> k`. Several scrutinees are separated by commas, and each alternative has one pattern for each. Branches may be several lines, as in a `handle`. Alternatives are tried from top to bottom, and together they must cover every case (`E-NONEXHAUSTIVE`).
+The alternatives start with `|`, lined up one under another and further right than the line the `match` starts on. A `match` may also be written on one line: `match n with | Zero => 0 | Succ k => k`. Several scrutinees are separated by commas, and each alternative has one pattern for each. Branches may be several lines, as in a `handle`. Alternatives are tried from top to bottom, and together they must cover every case (`E-NONEXHAUSTIVE`).
 
-Patterns are those of equations: variables, `_`, numbers, constructors, tuples, record patterns and `()`. A `match` can also be used in a signature (`Pick b = match b with | True -> Nat | False -> Text`), and may be nested in a branch.
+Patterns are those of arms: variables, `_`, numbers, constructors, tuples, record patterns and `()`. A `match` can also be used in a signature (`def Pick (b : Bool) : Type := match b with | True => Nat | False => Text`), and may be nested in a branch.
 
-There are two translations. If the `match` is the whole right-hand side of an equation, and every scrutinee is an unnamed variable of the equation that its patterns haven't already taken apart, the `match` becomes part of the equation's case tree, as if you had written more equations. Any other `match` becomes a generated definition, named after the definition it is in (shown as `owner.%match1`, though error messages say "this `match`"), which takes the values it needs from the surrounding code and is called where the `match` was. A scrutinee that is a variable is refined in the branches, and so is everything whose type mentions it. A scrutinee that is any other expression is generalised: wherever it appears in the expected type, it's replaced by the pattern of the branch.
+There are two translations. If the `match` is the whole right-hand side of a definition, and every scrutinee is an unnamed parameter that its patterns haven't already taken apart, the `match` becomes part of the definition's case tree, as if you had written more arms. Any other `match` becomes a generated definition, named after the definition it is in (shown as `owner.%match1`, though error messages say "this `match`"), which takes the values it needs from the surrounding code and is called where the `match` was. A scrutinee that is a variable is refined in the branches, and so is everything whose type mentions it. A scrutinee that is any other expression is generalised: wherever it appears in the expected type, it's replaced by the pattern of the branch.
 
 `match h : e with` gives each branch an equation `h` about the original expression, such as `h : length xs = Zero` in the `Zero` branch. The expression is also generalised in the expected type, even when `e` is a variable. A `match` with a name is always generated as a definition.
 
@@ -365,7 +355,7 @@ The first version has limits. Each one is `E-MATCH-MOTIVE`, and the message says
 - the type of one expression scrutinee mentions another expression scrutinee;
 - generalising a scrutinee makes the type of something else ill-formed.
 
-The way round all of them is a top-level helper with a written signature. `E-MATCH-EQUATION` is for an equation `h` that can't be formed because the scrutinee and the expression have different types. This version doesn't report it.
+The way round all of them is a top-level helper with a written signature. `E-MATCH-EQUATION` is for an equality `h` that can't be formed because the scrutinee and the expression have different types. This version doesn't report it.
 
 JavaScript: a `match` that is part of the case tree, with a tail call to its own definition in a branch, becomes a loop like any self tail call. A generated definition doesn't: a `match` that is lifted, in tail position, whose branch calls the owner, is a pair of mutual tail calls, and those aren't loops yet. Deep recursion through it can hit the JS stack limit, which is reported as the boundary's out-of-resources error. A tail `match` on a parameter (the whole right-hand side) isn't affected. Examples: `examples/accept/match.sw`, `examples/extract/match.sw`. Design: [syntax-conveniences.md](proposals/syntax-conveniences.md) section 4.
 
@@ -374,24 +364,24 @@ JavaScript: a `match` that is part of the case tree, with a tail call to its own
 `let` and a lambda's parameters take patterns too:
 
 ```
-let (q, r) = (n / 7, n % 7)
-let MkPair a b = p                -- a constructor's arguments need no brackets
-let { name, .. } = p
-let (a, b) : (Nat, Nat) = e       -- the right-hand side is checked against the type
-let _ = e
-\(a, b) -> a + b
-\acc (k, v) -> acc + v
-\{ name, .. } -> name
+let (q, r) := (n / 7, n % 7)
+let MkPair a b := p                -- a constructor's arguments need no brackets
+let { name, .. } := p
+let (a, b) : (Nat, Nat) := e       -- the right-hand side is checked against the type
+let _ := e
+\(a, b) => a + b
+\acc (k, v) => acc + v
+\{ name, .. } => name
 ```
 
-`let p = e` followed by the rest of the block means `match e with | p -> rest`, and a lambda's pattern parameters are matched against its arguments in the same way. `let x = e` and `let (x) = e` are the ordinary `let`.
+`let p := e` followed by the rest of the block means `match e with | p => rest`, and a lambda's pattern parameters are matched against its arguments in the same way. `let x := e` and `let (x) := e` are the ordinary `let`.
 
 The one-alternative `match` must cover every value of the type, or the `let` is `E-LET-REFUTABLE`: coverage is by the type, not the value, so `let Just x = Just 3` is rejected by design. Use `match` to say what happens otherwise. Elimination of proofs still applies (`E-PROP-ELIM`). In a block with abilities, the right-hand side runs once, in order, before the rest.
 
 Limits:
 
 - a record pattern in a lambda needs its type known where the lambda is checked, as `p.name` does;
-- a lambda's parameter can't be annotated: `\(x : T) -> …` is an error, so annotate the lambda, `((\x -> …) : A -> B)`;
+- a lambda's parameter can't be annotated: `\(x : T) => …` is an error, so annotate the lambda, `((\x => …) : A -> B)`;
 - a pattern `let` that isn't the whole right-hand side is lifted like a `match`, so it isn't available in `partial` functions, data or ability declarations, or the REPL.
 
 Examples: `examples/accept/let-patterns.sw`. Design: [syntax-conveniences.md](proposals/syntax-conveniences.md) section 5.

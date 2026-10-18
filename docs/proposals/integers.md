@@ -388,9 +388,9 @@ type Turn =
   | Left (clicks : Nat)
   | Right (clicks : Nat)
 
-turn : Int -> Turn -> Int
-turn pos (Left n)  = (pos - n.toInt) % 100
-turn pos (Right n) = (pos + n.toInt) % 100
+def turn (pos : Int) : Turn -> Int
+  | Left n  => (pos - n.toInt) % 100
+  | Right n => (pos + n.toInt) % 100
 ```
 
 `turn 50 (Left 68)` is `-18 % 100`. Euclidean (and floor) division gives
@@ -765,8 +765,7 @@ They're tests, not new rules.
 means a later argument can't change a literal's type. With
 
 ```
-chooseFirst : [a : Type] -> a -> a -> a
-chooseFirst x y = x
+def chooseFirst [a : Type] (x : a) (y : a) : a := x
 ```
 
 and `i : Int`, `chooseFirst 5 i` is rejected: checking `5` solves `a := Nat`,
@@ -1021,11 +1020,11 @@ A `Nat` that comes from a proof-carrying context (a length, an index) stays a
 ## Number patterns on `Int`
 
 ```
-describe : Int -> Text
-describe 0    = "zero"
-describe (-1) = "minus one"
-describe 404  = "not found"
-describe _    = "something else"
+def describe : Int -> Text
+  | 0    => "zero"
+  | (-1) => "minus one"
+  | 404  => "not found"
+  | _    => "something else"
 ```
 
 **No kernel change.** An `Int` number pattern is the corresponding
@@ -1068,9 +1067,9 @@ known to be `NegSucc k`. What the inner `NumCase` default doesn't provide
 is equality to, or exclusion of, particular numbers. So with
 
 ```
-zeroOrOther : Int -> Bool
-zeroOrOther 0 = True
-zeroOrOther _ = False
+def zeroOrOther : Int -> Bool
+  | 0 => True
+  | _ => False
 ```
 
 `zeroOrOther (NegSucc k)` computes to `False` even for unknown `k` (that
@@ -1083,10 +1082,10 @@ information.
 **The mixed-column regression** (the reviewer's):
 
 ```
-pick : Int -> Bool -> Int
-pick (-1) True  = 7
-pick z    False = z
-pick _    _     = 9
+def pick : Int -> Bool -> Int
+  | (-1), True  => 7
+  | z,    False => z
+  | _,    _     => 9
 ```
 
 `pick (-1) False = -1`, `pick (-2) False = -2`, `pick 3 False = 3`,
@@ -1106,9 +1105,9 @@ function that recurses does so on a `Nat` it gets from the `Int`:
 ```
 -- the sum 0 + 1 + … + n, or 0 + -1 + … + n for negative n,
 -- where `Nat.triangle` is the same sum on naturals, recursing on its `Nat`
-Int.triangle : Int -> Int
-Int.triangle (OfNat n)   = (Nat.triangle n).toInt
-Int.triangle (NegSucc k) = Int.neg (Nat.triangle (Succ k)).toInt
+def Int.triangle : Int -> Int
+  | OfNat n   => (Nat.triangle n).toInt
+  | NegSucc k => Int.neg (Nat.triangle (Succ k)).toInt
 ```
 
 or with `Int.natAbs x` as fuel or a measure. The termination checker needs

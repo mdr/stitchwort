@@ -290,9 +290,9 @@ form is introduced.
 Required behaviours, for
 
 ```
-hit : Nat -> Bool
-hit 404 = True
-hit _   = False
+def hit : Nat -> Bool
+  | 404 => True
+  | _   => False
 ```
 
 | scrutinee | required |
@@ -388,13 +388,13 @@ knew more on each path. This affects ordinary dependent programs, not just
 proofs:
 
 ```
-ResultType : Nat -> Type
-ResultType Zero     = Nat
-ResultType (Succ _) = Bool
+def ResultType : Nat -> Type
+  | Zero   => Nat
+  | Succ _ => Bool
 
-make : (n : Nat) -> ResultType n
-make 0 = 0
-make n = False
+def make : (n : Nat) -> ResultType n
+  | 0 => 0
+  | n => False
 ```
 
 Today the second equation is checked knowing `n = Succ m`, so
@@ -403,8 +403,9 @@ checked for an arbitrary `n`: `ResultType n` doesn't compute, and `False` is
 rejected. The repair is to say what's meant:
 
 ```
-make Zero     = 0
-make (Succ _) = False
+def make : (n : Nat) -> ResultType n
+  | Zero   => 0
+  | Succ _ => False
 ```
 
 The policy, uniformly, with no special threshold for small numbers:
@@ -660,12 +661,13 @@ compilations agree (the generated tests check it). For example, a
 generated definition applied to `6 + x`:
 
 ```
-f 4 = 100
-f _ = 101
-f (Succ (Succ y)) = y
-f 6 = 103
-f (Succ 1) = 104
-f Zero = 105
+def f : Nat -> Nat
+  | 4 => 100
+  | _ => 101
+  | Succ (Succ y) => y
+  | 6 => 103
+  | Succ 1 => 104
+  | Zero => 105
 ```
 
 The old chain for `4` peeled `Succ`s, found it isn't `4`, and fell through
