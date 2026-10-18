@@ -154,7 +154,10 @@ capability we know we'll need before the work that needs it):
    merged (`4b6b29d`: short-circuit on Bool, `And`/`Or`/`Not` on Props,
    `test` accepts a decidable Prop; `if h : p && q` doesn't short-circuit).
    AoC days 4–5 on hold (user, 18 Oct): the user is
-   reviewing the day 1–3 code first; then one switch commit (convert everything, flip
+   reviewing the day 1–3 code first. Pipe-forward `|>` (user: value as
+   last argument, Elm/F#-style; left checked first) — lane `pipe-op`
+   (Opus) running; then rewrite days 1–3 with `|>` and the user's review
+   changes. `>>`/`<<` composition later if wanted; then one switch commit (convert everything, flip
    the parser, delete the old one, hash/AST/test comparison); then a
    tidy-up (docs, playground colouring, awkward converter output); then
    `where`. Header and implicit names must differ. Also queued after the switch: `&&`/`||` and
