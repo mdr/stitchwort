@@ -164,7 +164,9 @@ capability we know we'll need before the work that needs it):
    `t.uncons` (dot notation) — generally prefer dot notation and
    `rest.toNat`-style calls where they read better; `parseTurn` via
    `andThen` (`t.uncons.andThen (\(c, rest) => rest.toNat.andThen
-   (turnOf c))`). After `|>` merges: a small Sonnet sweep making the
+   (turnOf c))`). Day 1 renames: `Pos` → `Dial`, `at` →
+   `position`, `ok` → `inRange`, `top` → `highest` (`Dial 99`). After
+   `|>` merges: a small Sonnet sweep making the
    library pipe-friendly — the main value last, Elm-style — starting
    with `Maybe.andThen` (function first, like `Maybe.map`). `>>`/`<<` composition later if wanted; then one switch commit (convert everything, flip
    the parser, delete the old one, hash/AST/test comparison); then a
