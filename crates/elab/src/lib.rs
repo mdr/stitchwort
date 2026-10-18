@@ -1390,7 +1390,7 @@ impl Elaborator {
             Ok(term)
         })();
         self.owner.borrow_mut().clear();
-        let ty = ty.map_err(with_notes)?;
+        let ty = ty.map_err(|d| with_notes(autobind::explain(&auto, d)))?;
         // A `match` in the signature is admitted before it (§2.2): it can't
         // refer to the definition, which isn't declared yet.
         self.lift(&key, false).map_err(with_notes)?;

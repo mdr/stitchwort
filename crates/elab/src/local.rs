@@ -289,7 +289,7 @@ fn local_type(
     })();
     cx.reset(mark);
     cx.span = saved;
-    result
+    result.map_err(|d| crate::autobind::explain(&auto, d))
 }
 
 /// Makes `name` mean the admitted local definition `id`, applied to its
