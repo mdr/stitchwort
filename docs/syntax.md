@@ -98,7 +98,7 @@ isOdd (Succ n) = isEven n
 
 ## Namespaces and imports
 
-Names are grouped into namespaces (docs/proposals/namespaces.md). The library is `Std`, and a program sees only its core types, their constructors, the operators and `not` without asking: `Nat`, `Bool`, `List`, `Maybe`, `Pair`, `Char`, `Text`, `Ordering`, `Decidable`, `Void`, `Unit`, `Not`, `IO` (with `print` and `readLine`), and their constructors. Everything else is written with its namespace, or imported:
+Names are grouped into namespaces (docs/proposals/namespaces.md). The library is `Std`, and a program sees only its core types, their constructors, the operators and `not` without asking: `Nat`, `Bool`, `List`, `Maybe`, `Pair`, `Char`, `Text`, `Ordering`, `Decidable`, `Void`, `Unit`, `Not`, `And`, `IO` (with `print` and `readLine`), and their constructors. Everything else is written with its namespace, or imported:
 
 ```
 import Text (split, join)

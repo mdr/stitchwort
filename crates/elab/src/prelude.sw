@@ -22,6 +22,10 @@ type Unit : Prop =
 Not : Prop -> Prop
 Not p = p -> Void
 
+-- Both propositions hold.
+type And (p : Prop) (q : Prop) : Prop =
+  | Both (left : p) (right : q)
+
 -- From a proof of `Void`, anything follows. `()` means "there's no value to
 -- match here", so no right-hand side is needed.
 Void.absurd : Void -> a
@@ -773,6 +777,252 @@ List.partition p xs = MkPair (List.filter p xs) (List.filter (\x -> Bool.not (p 
 List.lookup : ((x : k) -> (y : k) -> Decidable (x = y)) -> k -> List (Pair k v) -> Maybe v
 List.lookup d key Nil                      = Nothing
 List.lookup d key (Cons (MkPair k v) rest) = if Decidable.toBool (d key k) then Just v else List.lookup d key rest
+
+-- Sorting
+
+-- `Bool.inspect b motive t f` proves `motive b` by cases on `b`, remembering
+-- which case it is. A proof about `if le x y then ... else ...` uses it with
+-- `b = le x y` to get the branch's evidence (`le x y = True` or `= False`).
+theorem Bool.inspect : (b : Bool) -> (motive : Bool -> Prop) -> (b = True -> motive True) -> (b = False -> motive False) -> motive b
+Bool.inspect True  m t f = t rfl
+Bool.inspect False m t f = f rfl
+
+-- 1 for `True`, 0 for `False`.
+Bool.toNat : Bool -> Nat
+Bool.toNat False = 0
+Bool.toNat True  = 1
+
+theorem Nat.addRotate : (a : Nat) -> (b : Nat) -> (c : Nat) -> (a + b) + c = b + (a + c)
+Nat.addRotate a b c = Eq.trans (Eq.cong (\t -> t + c) (Nat.addComm a b)) (Nat.addAssoc b a c)
+
+theorem Nat.addLeftComm : (a : Nat) -> (b : Nat) -> (c : Nat) -> a + (b + c) = b + (a + c)
+Nat.addLeftComm a b c = Eq.trans (Eq.sym (Nat.addAssoc a b c)) (Nat.addRotate a b c)
+
+-- `<=` is total: if `m <= n` is false, then `n <= m`.
+theorem Nat.leqTotal : (m : Nat) -> (n : Nat) -> Nat.leq m n = False -> Nat.leq n m = True
+Nat.leqTotal m n h = Nat.lessLe n m (Nat.leqFalse m n h)
+
+-- `True` for `Less` and `Equal`.
+Ordering.isLessEq : Ordering -> Bool
+Ordering.isLessEq Less    = True
+Ordering.isLessEq Equal   = True
+Ordering.isLessEq Greater = False
+
+theorem Ordering.isLessEqIf : (d : Bool) -> Ordering.isLessEq (if d then Less else Greater) = d
+Ordering.isLessEqIf True  = rfl
+Ordering.isLessEqIf False = rfl
+
+-- `Nat.compare` agrees with `<=`, so `List.sortBy` with it is total.
+theorem Nat.compareLeq : (m : Nat) -> (n : Nat) -> Ordering.isLessEq (Nat.compare m n) = Nat.leq m n
+Nat.compareLeq m n =
+  Bool.inspect (Nat.equal m n)
+    (\c -> Ordering.isLessEq (if c then Equal else (if Nat.leq m n then Less else Greater)) = Nat.leq m n)
+    (\e -> Eq.sym (Nat.leCongRight m m n (Nat.equalSound m n e) (Nat.leRefl m)))
+    (\e -> Ordering.isLessEqIf (Nat.leq m n))
+
+theorem Nat.compareTotal : (m : Nat) -> (n : Nat) ->
+  Ordering.isLessEq (Nat.compare m n) = False -> Ordering.isLessEq (Nat.compare n m) = True
+Nat.compareTotal m n h = Eq.trans (Nat.compareLeq n m) (Nat.leqTotal m n (Eq.trans (Eq.sym (Nat.compareLeq m n)) h))
+
+-- Merges two lists sorted by `le` ("may come before"), taking from the first
+-- list on ties.
+List.merge : (a -> a -> Bool) -> List a -> List a -> List a
+List.merge le Nil         ys          = ys
+List.merge le (Cons x xs) Nil         = Cons x xs
+List.merge le (Cons x xs) (Cons y ys) =
+  if le x y then Cons x (List.merge le xs (Cons y ys)) else Cons y (List.merge le (Cons x xs) ys)
+
+-- Bottom-up merge sort, structurally recursive throughout. The runs are kept
+-- like the digits of a binary counter: slot `i` is empty or holds a sorted run
+-- of 2^i elements, newest first. Adding an element carries: two runs of the
+-- same size merge into the next slot. Each element takes part in about log n
+-- merges, so sorting is O(n log n).
+List.pushRun : (a -> a -> Bool) -> List a -> List (Maybe (List a)) -> List (Maybe (List a))
+List.pushRun le run Nil                  = Cons (Just run) Nil
+List.pushRun le run (Cons Nothing rest)  = Cons (Just run) rest
+List.pushRun le run (Cons (Just r) rest) = Cons Nothing (List.pushRun le (List.merge le r run) rest)
+
+List.buildRuns : (a -> a -> Bool) -> List (Maybe (List a)) -> List a -> List (Maybe (List a))
+List.buildRuns le c Nil         = c
+List.buildRuns le c (Cons x xs) = List.buildRuns le (List.pushRun le (Cons x Nil) c) xs
+
+-- Merges the runs, older (earlier) ones on the left.
+List.mergeRuns : (a -> a -> Bool) -> List a -> List (Maybe (List a)) -> List a
+List.mergeRuns le acc Nil                  = acc
+List.mergeRuns le acc (Cons Nothing rest)  = List.mergeRuns le acc rest
+List.mergeRuns le acc (Cons (Just r) rest) = List.mergeRuns le (List.merge le r acc) rest
+
+-- Sorts by `le`, which says whether its first argument may come before its
+-- second (`Nat.leq` for ascending numbers). Stable: equal elements keep their
+-- order. `List.sortWithSorted` and `List.sortWithPerm` say it's correct.
+List.sortWith : (a -> a -> Bool) -> List a -> List a
+List.sortWith le xs = List.mergeRuns le Nil (List.buildRuns le Nil xs)
+
+-- Sorts by a comparison, such as `Nat.compare` or `Text.compare`.
+List.sortBy : (a -> a -> Ordering) -> List a -> List a
+List.sortBy cmp xs = List.sortWith (\x y -> Ordering.isLessEq (cmp x y)) xs
+
+-- Sorts numbers into ascending order.
+List.sort : List Nat -> List Nat
+List.sort xs = List.sortWith Nat.leq xs
+
+-- `List.LeHead le z xs`: `z` may come before the first element of `xs`, if any.
+List.LeHead : (a -> a -> Bool) -> a -> List a -> Prop
+List.LeHead le z Nil         = Unit
+List.LeHead le z (Cons y ys) = le z y = True
+
+-- Each element may come before the next. For a transitive `le`, such as
+-- `Nat.leq`, that orders every pair.
+List.Sorted : (a -> a -> Bool) -> List a -> Prop
+List.Sorted le Nil         = Unit
+List.Sorted le (Cons x xs) = And (List.LeHead le x xs) (List.Sorted le xs)
+
+-- The correctness proofs need only that `le` is total: `tot` below.
+theorem List.mergeLeHead : (le : a -> a -> Bool) -> (z : a) -> (xs : List a) -> (ys : List a) ->
+  List.LeHead le z xs -> List.LeHead le z ys -> List.LeHead le z (List.merge le xs ys)
+List.mergeLeHead le z Nil         ys          hx hy = hy
+List.mergeLeHead le z (Cons x xs) Nil         hx hy = hx
+List.mergeLeHead le z (Cons x xs) (Cons y ys) hx hy =
+  Bool.inspect (le x y)
+    (\c -> List.LeHead le z (if c then Cons x (List.merge le xs (Cons y ys)) else Cons y (List.merge le (Cons x xs) ys)))
+    (\e -> hx) (\e -> hy)
+
+theorem List.mergeSorted : (le : a -> a -> Bool) -> ((x : a) -> (y : a) -> le x y = False -> le y x = True) ->
+  (xs : List a) -> (ys : List a) -> List.Sorted le xs -> List.Sorted le ys -> List.Sorted le (List.merge le xs ys)
+List.mergeSorted le tot Nil         ys          sx sy = sy
+List.mergeSorted le tot (Cons x xs) Nil         sx sy = sx
+List.mergeSorted le tot (Cons x xs) (Cons y ys) (Both hx sxs) (Both hy sys) =
+  Bool.inspect (le x y)
+    (\c -> List.Sorted le (if c then Cons x (List.merge le xs (Cons y ys)) else Cons y (List.merge le (Cons x xs) ys)))
+    (\e -> Both (List.mergeLeHead le x xs (Cons y ys) hx e) (List.mergeSorted le tot xs (Cons y ys) sxs (Both hy sys)))
+    (\e -> Both (List.mergeLeHead le y (Cons x xs) ys (tot x y e) hy) (List.mergeSorted le tot (Cons x xs) ys (Both hx sxs) sys))
+
+-- Every run in the counter is sorted.
+List.RunsSorted : (a -> a -> Bool) -> List (Maybe (List a)) -> Prop
+List.RunsSorted le Nil                  = Unit
+List.RunsSorted le (Cons Nothing rest)  = List.RunsSorted le rest
+List.RunsSorted le (Cons (Just r) rest) = And (List.Sorted le r) (List.RunsSorted le rest)
+
+theorem List.pushRunSorted : (le : a -> a -> Bool) -> ((x : a) -> (y : a) -> le x y = False -> le y x = True) ->
+  (run : List a) -> (c : List (Maybe (List a))) -> List.Sorted le run -> List.RunsSorted le c -> List.RunsSorted le (List.pushRun le run c)
+List.pushRunSorted le tot run Nil                  s h           = Both s Trivial
+List.pushRunSorted le tot run (Cons Nothing rest)  s h           = Both s h
+List.pushRunSorted le tot run (Cons (Just r) rest) s (Both sr h) =
+  List.pushRunSorted le tot (List.merge le r run) rest (List.mergeSorted le tot r run sr s) h
+
+theorem List.buildRunsSorted : (le : a -> a -> Bool) -> ((x : a) -> (y : a) -> le x y = False -> le y x = True) ->
+  (c : List (Maybe (List a))) -> (xs : List a) -> List.RunsSorted le c -> List.RunsSorted le (List.buildRuns le c xs)
+List.buildRunsSorted le tot c Nil         h = h
+List.buildRunsSorted le tot c (Cons x xs) h =
+  List.buildRunsSorted le tot (List.pushRun le (Cons x Nil) c) xs (List.pushRunSorted le tot (Cons x Nil) c (Both Trivial Trivial) h)
+
+theorem List.mergeRunsSorted : (le : a -> a -> Bool) -> ((x : a) -> (y : a) -> le x y = False -> le y x = True) ->
+  (acc : List a) -> (c : List (Maybe (List a))) -> List.Sorted le acc -> List.RunsSorted le c -> List.Sorted le (List.mergeRuns le acc c)
+List.mergeRunsSorted le tot acc Nil                  s h           = s
+List.mergeRunsSorted le tot acc (Cons Nothing rest)  s h           = List.mergeRunsSorted le tot acc rest s h
+List.mergeRunsSorted le tot acc (Cons (Just r) rest) s (Both sr h) =
+  List.mergeRunsSorted le tot (List.merge le r acc) rest (List.mergeSorted le tot r acc sr s) h
+
+theorem List.sortWithSorted : (le : a -> a -> Bool) -> ((x : a) -> (y : a) -> le x y = False -> le y x = True) ->
+  (xs : List a) -> List.Sorted le (List.sortWith le xs)
+List.sortWithSorted le tot xs =
+  List.mergeRunsSorted le tot Nil (List.buildRuns le Nil xs) Trivial (List.buildRunsSorted le tot Nil xs Trivial)
+
+theorem List.sortBySorted : (cmp : a -> a -> Ordering) ->
+  ((x : a) -> (y : a) -> Ordering.isLessEq (cmp x y) = False -> Ordering.isLessEq (cmp y x) = True) ->
+  (xs : List a) -> List.Sorted (\x y -> Ordering.isLessEq (cmp x y)) (List.sortBy cmp xs)
+List.sortBySorted cmp tot xs = List.sortWithSorted (\x y -> Ordering.isLessEq (cmp x y)) tot xs
+
+theorem List.sortSorted : (xs : List Nat) -> List.Sorted Nat.leq (List.sort xs)
+List.sortSorted xs = List.sortWithSorted Nat.leq Nat.leqTotal xs
+
+-- How many elements satisfy `p` (as `List.count`, but recursing on the list,
+-- which suits proofs).
+List.occurrences : (a -> Bool) -> List a -> Nat
+List.occurrences p Nil         = 0
+List.occurrences p (Cons x xs) = Bool.toNat (p x) + List.occurrences p xs
+
+-- `xs` and `ys` are permutations of each other: every test is passed by as
+-- many elements of one as of the other. For elements with decidable equality
+-- this is the usual meaning (test with `Nat.equal v` for each `v`). Counting
+-- turns the proofs into arithmetic, and needs no equality on the elements.
+List.Perm : List a -> List a -> Prop
+List.Perm xs ys = (p : a -> Bool) -> List.occurrences p xs = List.occurrences p ys
+
+theorem List.permRefl : (xs : List a) -> List.Perm xs xs
+List.permRefl xs = \p -> rfl
+
+theorem List.permSym : (xs : List a) -> (ys : List a) -> List.Perm xs ys -> List.Perm ys xs
+List.permSym xs ys h = \p -> Eq.sym (h p)
+
+theorem List.permTrans : (xs : List a) -> (ys : List a) -> (zs : List a) -> List.Perm xs ys -> List.Perm ys zs -> List.Perm xs zs
+List.permTrans xs ys zs h1 h2 = \p -> Eq.trans (h1 p) (h2 p)
+
+theorem List.occurrencesTrue : (xs : List a) -> List.occurrences (\x -> True) xs = List.length xs
+List.occurrencesTrue Nil         = rfl
+List.occurrencesTrue (Cons x xs) = Eq.cong Succ (List.occurrencesTrue xs)
+
+theorem List.permLength : (xs : List a) -> (ys : List a) -> List.Perm xs ys -> List.length xs = List.length ys
+List.permLength xs ys h = Eq.trans (Eq.sym (List.occurrencesTrue xs)) (Eq.trans (h (\x -> True)) (List.occurrencesTrue ys))
+
+theorem List.mergeCount : (le : a -> a -> Bool) -> (p : a -> Bool) -> (xs : List a) -> (ys : List a) ->
+  List.occurrences p (List.merge le xs ys) = List.occurrences p xs + List.occurrences p ys
+List.mergeCount le p Nil         ys          = rfl
+List.mergeCount le p (Cons x xs) Nil         = Eq.sym (Nat.addZero (List.occurrences p (Cons x xs)))
+List.mergeCount le p (Cons x xs) (Cons y ys) =
+  Bool.inspect (le x y)
+    (\c -> List.occurrences p (if c then Cons x (List.merge le xs (Cons y ys)) else Cons y (List.merge le (Cons x xs) ys))
+      = List.occurrences p (Cons x xs) + List.occurrences p (Cons y ys))
+    (\e -> Eq.trans (Eq.cong (\t -> Bool.toNat (p x) + t) (List.mergeCount le p xs (Cons y ys)))
+      (Eq.sym (Nat.addAssoc (Bool.toNat (p x)) (List.occurrences p xs) (List.occurrences p (Cons y ys)))))
+    (\e -> Eq.trans (Eq.cong (\t -> Bool.toNat (p y) + t) (List.mergeCount le p (Cons x xs) ys))
+      (Nat.addLeftComm (Bool.toNat (p y)) (List.occurrences p (Cons x xs)) (List.occurrences p ys)))
+
+-- How many elements of all the runs satisfy `p`.
+List.runsCount : (a -> Bool) -> List (Maybe (List a)) -> Nat
+List.runsCount p Nil                  = 0
+List.runsCount p (Cons Nothing rest)  = List.runsCount p rest
+List.runsCount p (Cons (Just r) rest) = List.occurrences p r + List.runsCount p rest
+
+theorem List.pushRunCount : (le : a -> a -> Bool) -> (p : a -> Bool) -> (run : List a) -> (c : List (Maybe (List a))) ->
+  List.runsCount p (List.pushRun le run c) = List.occurrences p run + List.runsCount p c
+List.pushRunCount le p run Nil                  = rfl
+List.pushRunCount le p run (Cons Nothing rest)  = rfl
+List.pushRunCount le p run (Cons (Just r) rest) =
+  Eq.trans (List.pushRunCount le p (List.merge le r run) rest)
+    (Eq.trans (Eq.cong (\t -> t + List.runsCount p rest) (List.mergeCount le p r run))
+      (Nat.addRotate (List.occurrences p r) (List.occurrences p run) (List.runsCount p rest)))
+
+theorem List.buildRunsCount : (le : a -> a -> Bool) -> (p : a -> Bool) -> (c : List (Maybe (List a))) -> (xs : List a) ->
+  List.runsCount p (List.buildRuns le c xs) = List.runsCount p c + List.occurrences p xs
+List.buildRunsCount le p c Nil         = Eq.sym (Nat.addZero (List.runsCount p c))
+List.buildRunsCount le p c (Cons x xs) =
+  Eq.trans (List.buildRunsCount le p (List.pushRun le (Cons x Nil) c) xs)
+    (Eq.trans (Eq.cong (\t -> t + List.occurrences p xs) (List.pushRunCount le p (Cons x Nil) c))
+      (Eq.trans (Eq.cong (\t -> (t + List.runsCount p c) + List.occurrences p xs) (Nat.addZero (Bool.toNat (p x))))
+        (Nat.addRotate (Bool.toNat (p x)) (List.runsCount p c) (List.occurrences p xs))))
+
+theorem List.mergeRunsCount : (le : a -> a -> Bool) -> (p : a -> Bool) -> (acc : List a) -> (c : List (Maybe (List a))) ->
+  List.occurrences p (List.mergeRuns le acc c) = List.occurrences p acc + List.runsCount p c
+List.mergeRunsCount le p acc Nil                  = Eq.sym (Nat.addZero (List.occurrences p acc))
+List.mergeRunsCount le p acc (Cons Nothing rest)  = List.mergeRunsCount le p acc rest
+List.mergeRunsCount le p acc (Cons (Just r) rest) =
+  Eq.trans (List.mergeRunsCount le p (List.merge le r acc) rest)
+    (Eq.trans (Eq.cong (\t -> t + List.runsCount p rest) (List.mergeCount le p r acc))
+      (Nat.addRotate (List.occurrences p r) (List.occurrences p acc) (List.runsCount p rest)))
+
+theorem List.sortWithPerm : (le : a -> a -> Bool) -> (xs : List a) -> List.Perm (List.sortWith le xs) xs
+List.sortWithPerm le xs = \p ->
+  Eq.trans (List.mergeRunsCount le p Nil (List.buildRuns le Nil xs)) (List.buildRunsCount le p Nil xs)
+
+theorem List.sortByPerm : (cmp : a -> a -> Ordering) -> (xs : List a) -> List.Perm (List.sortBy cmp xs) xs
+List.sortByPerm cmp xs = List.sortWithPerm (\x y -> Ordering.isLessEq (cmp x y)) xs
+
+theorem List.sortPerm : (xs : List Nat) -> List.Perm (List.sort xs) xs
+List.sortPerm xs = List.sortWithPerm Nat.leq xs
+
+theorem List.sortLength : (xs : List Nat) -> List.length (List.sort xs) = List.length xs
+List.sortLength xs = List.permLength (List.sort xs) xs (List.sortPerm xs)
 
 -- Text (docs/proposals/text-and-io.md)
 
