@@ -138,7 +138,7 @@ impl Session {
             .elab
             .is_partial(stitchwort_core::DefId(index))
             .unwrap_or(false);
-        let expr = self.parse_expression("<main>", MAIN_CALL)?;
+        let expr = self.parse_internal("<main>", MAIN_CALL)?;
         match self.elab.infer_expr(&expr) {
             Ok((term, _)) => Ok(Main {
                 term,
@@ -184,7 +184,7 @@ impl Session {
             "Std.Pair.fst (Std.IO.simulate [{}] ((\\u -> main ()) : () -> {{Std.IO}} ()))",
             lines.join(", ")
         );
-        let expr = self.parse_expression("<simulate>", &source)?;
+        let expr = self.parse_internal("<simulate>", &source)?;
         let (term, _) = self.elab.infer_expr(&expr)?;
         let g = &self.elab.globals;
         let s = Shapes::new(self);

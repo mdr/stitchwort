@@ -546,6 +546,7 @@ impl Elaborator {
                     name: res_name.clone(),
                     patterns,
                     rhs: Some(cod.clone()),
+                    arm: None,
                     span: *span,
                 }
             })
@@ -641,6 +642,7 @@ impl Elaborator {
                     name: elim_name.clone(),
                     patterns,
                     rhs: Some(apps(var(&clause(i)), vec![var(&x_name(x).text), var("%k")])),
+                    arm: None,
                     span: *span,
                 }
             })
@@ -1375,6 +1377,12 @@ impl Elaborator {
     /// A definition's body, before metavariable solutions are substituted.
     fn body_term(&self, id: DefId, def_name: &ast::Name, equations: &[Decl]) -> Result<Term> {
         let g = &self.globals;
+        // Arms under a `def` header: how many patterns are the header's
+        // named parameters (docs/proposals/declaration-syntax.md §2.4).
+        let header = match equations.first() {
+            Some(Decl::Equation { arm, .. }) => *arm,
+            _ => None,
+        };
         let equations: Vec<(&Vec<Pattern>, Option<&Expr>, Span)> = equations
             .iter()
             .map(|eq| match eq {
@@ -1397,12 +1405,17 @@ impl Elaborator {
         let arity = first_patterns.len();
         for &(patterns, _, span) in &equations {
             if patterns.len() != arity {
+                let (form, h) = match header {
+                    Some(h) => ("arm", h),
+                    None => ("equation", 0),
+                };
                 return Err(error(
                     "E-ARITY",
                     span,
                     format!(
-                        "this equation has {} patterns, but the first one has {arity}",
-                        patterns.len()
+                        "this {form} has {} patterns, but the first one has {}",
+                        patterns.len() - h,
+                        arity - h
                     ),
                 ));
             }
@@ -1451,6 +1464,40 @@ impl Elaborator {
                     ty = cod.apply(g, var)?;
                 }
                 _ => break,
+            }
+        }
+        if let Some(h) = header {
+            // Arms have exact arity: a pattern for every explicit argument
+            // after the colon, counted up to the first thing that isn't a
+            // function type (an ability row, say).
+            let fewer = columns.len() == arity
+                && matches!(force(g, ty.clone())?, Value::Pi(_, Icit::Explicit, ..));
+            if columns.len() == h {
+                return Err(error(
+                    "E-ARITY",
+                    first_span,
+                    "arms need an argument after the colon to match; use `:=`",
+                ));
+            }
+            if columns.len() < arity || fewer {
+                let message = if fewer {
+                    format!(
+                        "this arm has {} pattern(s), but `{}` takes more arguments after the colon",
+                        arity - h,
+                        def_name.text
+                    )
+                } else {
+                    format!(
+                        "`{}` takes {} argument(s) after the colon, but this arm has {} patterns",
+                        def_name.text,
+                        columns.len() - h,
+                        arity - h
+                    )
+                };
+                return Err(error("E-ARITY", first_span, message).with_note(
+                    "an arm has a pattern for each explicit argument after the colon; to return \
+                     a function, add the argument as a pattern, or write a lambda",
+                ));
             }
         }
         if columns.len() < arity {

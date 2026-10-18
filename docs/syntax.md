@@ -98,6 +98,65 @@ isOdd (Succ n) = isEven n
 - **A name in the module takes priority over a type variable.** In `length : List a -> Nat`, `a` is a type variable only if nothing in the module (or an import) is called `a`; otherwise it means that declaration, wherever it is, with a warning (`W-MODULE-NAME`) pointing at both. Write `[a : Type] -> List a -> Nat` to make it a type variable regardless.
 - **`auto` only uses decision procedures that are already checked and written above the use.** One written above that's still waiting for something below to be checked isn't available yet; `E-AUTO-NONE` says which case applies. Passing the procedure explicitly makes it an ordinary dependency, checked first.
 
+## The new declaration syntax (draft, not yet the default)
+
+A Lean-style syntax is built but not yet the default. Select it with `--syntax new` or `STITCHWORT_SYNTAX=new`. A file is read wholly in one syntax. At the switch (one commit, after the code base is converted) it becomes the only syntax and the sections above are rewritten. The design and the plan are in [the proposal](proposals/declaration-syntax.md). Everything above this section describes the old syntax.
+
+```
+definition ::= "export"? ("def" | "theorem") name binder* ":" type body
+body       ::= ":=" expr | arm+
+arm        ::= "|" pattern ("," pattern)* ("=>" expr)?
+binder     ::= "(" name+ ":" type ")" | "[" name+ ":" type "]"
+             | "[" "auto" name ":" type "]" | "(" ")"
+test       ::= "test" string ":=" expr
+```
+
+```
+def total (k : Nat) (lines : List Text) : Nat := (lines.map (joltage k)).sum
+
+def length : List a -> Nat          -- arms: one pattern per argument after the colon
+  | Nil       => 0
+  | Cons x xs => Succ (length xs)
+
+def total (k : Nat) : List Text -> Nat    -- named parameters, then arms
+  | Nil       => 0
+  | Cons l ls => joltage k l + total k ls
+
+def main () : {IO, Partial} () := report (solve (IO.readAllLines ()))
+
+test "parse" := parseBank "102" == [1, 0, 2]
+export def identityNat (n : Nat) : Nat := n
+
+let x := 1 + 2                       -- in a block
+\x => x + 1                          -- a lambda
+match xs with
+  | Nil => 0
+  | Cons x _ => x
+handle prog () with
+  | return x    => [x]
+  | choose u, k => List.append (k True) (k False)
+```
+
+- `->` is only the function type. `=>` separates a pattern or parameter from what follows (arms, `match`, handlers, lambdas). `=` is only equality; `:=` gives a body or a `let` its value. Using `=` there is `E-DEF-EQUALS`.
+- Parameters before the colon have the same name in every arm and can't be matched. Parameters after the colon are matched by the arms. `()` before the colon is an unused unit parameter (it becomes `_`).
+- A handler clause is `| op x, k => body`: the operation's argument, then the continuation's name. The argument is one atomic pattern, so bracket a tuple: `| op (a, b), k => …`.
+
+**Layout.** Let *D* be the column of the declaration's `def`, `theorem` or `export`.
+
+1. Comments and blank lines never matter for layout.
+2. The header may continue on later lines, each indented more than *D*.
+3. A `:=` body is on the header's line, or a block on the next line indented more than *D*.
+4. Arms start on their own lines, not on the header's line. Each arm's `|` starts a line, and all of them are at one column *A*, more than *D*. A `|` between *D* and *A* is an error.
+5. An arm's body can continue on lines indented more than *A*. A line at column *A* or less ends the arm. So a `match` or `handle` inside an arm must indent its own `|`s more than *A*; a `|` at column *A* is always the definition's next arm.
+6. The definition ends at the first line at column *D* or less. Any other token at column *A*, or between *D* and *A*, is an error.
+7. Inside `( )`, `[ ]` and `{ }`, layout ends nothing. A `|` in `{State s | e} B` belongs to the row.
+
+`where` is reserved but not supported yet: after a body or the last arm it is `E-PARSE`, "`where` after a definition isn't supported yet".
+
+**Exact arity.** Every arm has exactly one pattern for each explicit argument after the colon. These are counted after unfolding definitions, up to the first thing that isn't a function type (such as an ability row). So `def f : Nat -> Nat -> Nat` needs `| Zero, y => y`, not `| Zero => \y => y`. Fewer patterns is `E-ARITY`, as is a different number in different arms. A `:=` body has no arity rule. Implicit and auto arguments after the colon aren't matched; they're in scope by name.
+
+**`E-DUPLICATE-PARAMETER`.** The names of the header's parameters, and of the implicit and auto parameters after the colon, must all be different.
+
 ## Namespaces and imports
 
 Names are grouped into namespaces (docs/proposals/namespaces.md). The library is `Std`, and a program sees only its core types, their constructors, the operators and `not` without asking: `Nat`, `Bool`, `List`, `Maybe`, `Pair`, `Char`, `Text`, `Ordering`, `Decidable`, `Void`, `Unit`, `Not`, `And`, `IO` (with `print` and `readLine`), and their constructors. Everything else is written with its namespace, or imported:
