@@ -147,7 +147,28 @@ handle prog () with
 6. The definition ends at the first line at column *D* or less. Any other token at column *A*, or between *D* and *A*, is an error.
 7. Inside `( )`, `[ ]` and `{ }`, layout ends nothing. A `|` in `{State s | e} B` belongs to the row.
 
-`where` is reserved but not supported yet: after a body or the last arm it is `E-PARSE`, "`where` after a definition isn't supported yet".
+### Local definitions
+
+A `def` or `theorem` may stand in a block wherever a `let` may (the body of a definition, an arm, a `match` alternative, a lambda body, a `test`). It has the same form as at top level, arms and all:
+
+```
+def sumTo (n : Nat) : Nat :=
+  let start := 0
+  def go : Nat -> Nat -> Nat
+    | Zero, acc => acc
+    | Succ k, acc => go k (acc + Succ k)
+  go n start
+```
+
+- **Scope is top-down.** A local definition sees the parameters, pattern variables and earlier `let`s above it, and is visible to the lines below it. A later local definition or `let` of the same name shadows it, as a `let` does.
+- **Consecutive local definitions form a group**: each may use the others in the group (and itself), so `isEven` and `isOdd` can be written one after the other.
+- **Each is lifted** to a top-level definition `sumTo.go`. It takes as leading parameters the outer variables it uses, and the ones their types mention (a proof `ok : i < 5` is captured together with `i`). A captured implicit or auto parameter stays implicit or auto. A local definition and its owner may call each other, and termination is checked on the lifted program, as for any definitions that call each other.
+- **Naming from outside:** `sumTo.go`, and `f.go.inner` for a definition inside `go`. Names are unique within one top-level definition (`E-DUPLICATE`), even if a later one shadows an earlier one, because the lifted names are all `f.name`.
+- **Lemmas:** a local `theorem goZero (a : Nat) : go 0 a = a := rfl` about a local function works when that function doesn't call its owner (it must be finished for the lemma's type to compute). If the function calls its owner, it isn't finished while the owner is checked: a proof that needs it to compute fails (with a note suggesting a top-level theorem about `f.go`), and a lemma whose type mentions it is `E-MUTUAL-SIGNATURE`.
+- **Limits:** a recursive local definition can't be `{Partial}` (`E-LOCAL-DEFINITION`; define it at top level). A local definition in a cycle with its owner can't be passed unapplied (`E-TERMINATION`): write `\x => go x`. A block must end with an expression (`E-PARSE`).
+- There is no `where` clause: after a body or the last arm it is `E-WHERE`, which points to local definitions.
+
+Examples: `examples/accept/local-defs.sw`, `examples/accept/local-defs-effects.sw`, `examples/extract/local-defs.sw`. Design: [syntax-conveniences.md](proposals/syntax-conveniences.md) section 3.
 
 **Exact arity.** Every arm has exactly one pattern for each explicit argument after the colon. These are counted after unfolding definitions, up to the first thing that isn't a function type (such as an ability row). So `def f : Nat -> Nat -> Nat` needs `| Zero, y => y`, not `| Zero => \y => y`. Fewer patterns is `E-ARITY`, as is a different number in different arms. A `:=` body has no arity rule. Implicit and auto arguments after the colon aren't matched; they're in scope by name.
 

@@ -38,7 +38,26 @@ pub struct Ctx<'e> {
     pub written: Vec<Option<crate::dot::Written>>,
     /// Names that can be referred to, and the level each refers to.
     scope: Vec<(String, usize)>,
+    /// How each variable was bound: an implicit or `auto` parameter keeps
+    /// its kind when a local definition captures it
+    /// (docs/proposals/syntax-conveniences.md §2.1).
+    pub kinds: Vec<Icit>,
+    /// Local definitions in scope (`local.rs`), each shadowing the names
+    /// bound before it and shadowed by those bound after.
+    locals: Vec<LocalName>,
     pub span: Span,
+}
+
+/// A local definition's name in scope: what it means, as a term in the
+/// context of the first `base` variables, and its type.
+#[derive(Clone)]
+pub(crate) struct LocalName {
+    pub name: String,
+    /// `scope.len()` when it was bound.
+    scope: usize,
+    pub term: Term,
+    pub base: usize,
+    pub ty: Value,
 }
 
 /// A position to return to with [`Ctx::reset`].
@@ -46,6 +65,7 @@ pub struct Ctx<'e> {
 pub struct Mark {
     level: usize,
     scope: usize,
+    locals: usize,
 }
 
 impl<'e> Ctx<'e> {
@@ -57,6 +77,8 @@ impl<'e> Ctx<'e> {
             names: Vec::new(),
             written: Vec::new(),
             scope: Vec::new(),
+            kinds: Vec::new(),
+            locals: Vec::new(),
             span,
         }
     }
@@ -70,6 +92,7 @@ impl<'e> Ctx<'e> {
         span: Span,
     ) -> Self {
         let written = vec![None; env.len()];
+        let kinds = vec![Icit::Explicit; env.len()];
         Ctx {
             e,
             env,
@@ -77,6 +100,8 @@ impl<'e> Ctx<'e> {
             names,
             written,
             scope: Vec::new(),
+            kinds,
+            locals: Vec::new(),
             span,
         }
     }
@@ -93,6 +118,7 @@ impl<'e> Ctx<'e> {
         Mark {
             level: self.level(),
             scope: self.scope.len(),
+            locals: self.locals.len(),
         }
     }
 
@@ -101,7 +127,9 @@ impl<'e> Ctx<'e> {
         self.types.truncate(mark.level);
         self.names.truncate(mark.level);
         self.written.truncate(mark.level);
+        self.kinds.truncate(mark.level);
         self.scope.truncate(mark.scope);
+        self.locals.truncate(mark.locals);
     }
 
     /// Binds a variable that can be referred to by `name`.
@@ -116,6 +144,51 @@ impl<'e> Ctx<'e> {
         self.types.push(ty);
         self.names.push(name);
         self.written.push(None);
+        self.kinds.push(Icit::Explicit);
+    }
+
+    /// Records that the latest variable is an implicit or `auto` parameter.
+    pub(crate) fn set_kind(&mut self, icit: Icit) {
+        if let Some(last) = self.kinds.last_mut() {
+            *last = icit;
+        }
+    }
+
+    /// Makes `name` refer to a local definition: `term`, in the context of
+    /// the variables now in scope, of type `ty`.
+    pub(crate) fn bind_local(&mut self, name: &str, term: Term, ty: Value) {
+        self.locals.push(LocalName {
+            name: name.to_string(),
+            scope: self.scope.len(),
+            term,
+            base: self.level(),
+            ty,
+        });
+    }
+
+    /// The local definition `name` refers to, if it does: one bound after
+    /// any variable of that name. Its term (in the current context) and type.
+    pub(crate) fn local(&self, name: &str) -> Result<Option<(Term, Value)>> {
+        let Some(local) = self.local_entry(name) else {
+            return Ok(None);
+        };
+        let term = local.term.shift(self.g(), self.level() - local.base, 0)?;
+        Ok(Some((term, local.ty.clone())))
+    }
+
+    fn local_entry(&self, name: &str) -> Option<&LocalName> {
+        let local = self.locals.iter().rev().find(|l| l.name == name)?;
+        let shadowed = self.scope[local.scope..].iter().any(|(n, _)| n == name);
+        (!shadowed).then_some(local)
+    }
+
+    /// Every name a variable or local definition in scope can be referred to by.
+    pub(crate) fn scope_names(&self) -> Vec<String> {
+        self.scope
+            .iter()
+            .map(|(n, _)| n.clone())
+            .chain(self.locals.iter().map(|l| l.name.clone()))
+            .collect()
     }
 
     /// Records the type the latest variable was declared with, as written: a
@@ -145,12 +218,21 @@ impl<'e> Ctx<'e> {
         }
     }
 
+    /// The variable `name` refers to, unless it's a local definition bound
+    /// after it ([`Ctx::local`]).
     pub(crate) fn lookup(&self, name: &str) -> Option<usize> {
-        self.scope
+        let (position, level) = self
+            .scope
             .iter()
+            .enumerate()
             .rev()
-            .find(|(n, _)| n == name)
-            .map(|(_, level)| *level)
+            .find(|(_, (n, _))| n == name)
+            .map(|(i, (_, level))| (i, *level))?;
+        let shadowed = self
+            .locals
+            .iter()
+            .any(|l| l.name == name && l.scope > position);
+        (!shadowed).then_some(level)
     }
 
     pub fn eval(&self, term: &Term) -> Result<Value> {
@@ -255,6 +337,7 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
         }
         Expr::Tuple(a, b, _) => infer_tuple(cx, a, b),
         Expr::Match { .. } => crate::matching::infer_match(cx, expr),
+        Expr::LocalDefs { defs, body, .. } => crate::local::around(cx, defs, |cx| infer(cx, body)),
         Expr::Effect(row, ty) => {
             let (term, sort) = effects::effect_type(cx, row, ty)?;
             Ok((term, Value::Sort(sort)))
@@ -432,6 +515,9 @@ fn infer_app(cx: &mut Ctx, head: &Expr, args: &[Arg]) -> Result<(Term, Value)> {
         let head = infer(cx, head)?;
         return apply_args(cx, head, args);
     };
+    if let Some(head) = cx.local(&name.text)? {
+        return apply_args(cx, head, args);
+    }
     if let Some(level) = cx.lookup(&name.text) {
         let head = (Term::Var(cx.level() - 1 - level), cx.types[level].clone());
         return apply_args(cx, head, args);
@@ -824,6 +910,9 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
             }
         }
         (Expr::Hole(_), _) => Ok(cx.fresh_meta()),
+        (Expr::LocalDefs { defs, body, .. }, _) => {
+            crate::local::around(cx, defs, |cx| check(cx, body, &expected))
+        }
         // `(A, B)` where a type is expected is `Pair A B`, and `(a, b)` where
         // a pair is expected is `MkPair a b`.
         (Expr::Tuple(a, b, _), Value::Sort(_)) => {
@@ -1252,6 +1341,9 @@ fn known_head(cx: &Ctx, head: &Expr) -> Option<(Term, Value)> {
     let Expr::Var(name) = head else {
         return None;
     };
+    if let Ok(Some(local)) = cx.local(&name.text) {
+        return Some(local);
+    }
     if let Some(level) = cx.lookup(&name.text) {
         return Some((Term::Var(cx.level() - 1 - level), cx.types[level].clone()));
     }

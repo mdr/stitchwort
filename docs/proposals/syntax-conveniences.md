@@ -3,7 +3,10 @@
 **Status:** draft 2, 17 October 2026. Step 2 (§7, result type first) is
 built; see [As built (step 2)](#77-as-built-step-2). Step 3 (§2's lifting
 machinery and `match`) is built; see
-[As built (step 3)](#410-as-built-step-3).
+[As built (step 3)](#410-as-built-step-3). Step 5 is built as local
+definitions in blocks instead of `where` (the user's decision of 18
+October); see [§3](#3-local-definitions-in-blocks-was-where-clauses) and
+[As built (step 5)](#37-as-built-step-5).
 The user agreed with every recommendation of draft 1 (§8); an external
 reviewer then reviewed draft 1, and draft 2 adopts that review in full
 (the [Review response](#review-response) maps each finding to where it's
@@ -33,7 +36,7 @@ them down.
 0. [Summary](#0-summary)
 1. [Background: what the compiler does today](#1-background-what-the-compiler-does-today)
 2. [Lifting: the shared machinery](#2-lifting-the-shared-machinery)
-3. [`where` clauses and local functions](#3-where-clauses-and-local-functions)
+3. [Local definitions in blocks (was: `where` clauses)](#3-local-definitions-in-blocks-was-where-clauses)
 4. [`match` expressions](#4-match-expressions)
 5. [Patterns in `let` and in lambdas](#5-patterns-in-let-and-in-lambdas)
 6. [Tuples](#6-tuples)
@@ -356,7 +359,58 @@ How a user *writes* `f.go` is in §3.6, alongside dot notation.
   could write (review finding 10).
 - Spans point at the original source, which the generated equations keep.
 
-## 3. `where` clauses and local functions
+## 3. Local definitions in blocks (was: `where` clauses)
+
+**Decided (18 October 2026):** there is no `where`. Values and functions
+are both declared in blocks, top-down, before the block's result, as in
+Scala:
+
+```
+def sumTo (n : Nat) : Nat :=
+  let start := 0
+  def go : Nat -> Nat -> Nat
+    | Zero, acc => acc
+    | Succ k, acc => go k (acc + Succ k)
+  go n start
+```
+
+This replaces draft 2's `where` design (§3.1 to §3.6, kept below). What
+changes, and what doesn't:
+
+- **Syntax.** A line of a block may be a `def` or `theorem` in exactly the
+  top-level forms (typed header parameters, then a `:=` body or arms),
+  anywhere a `let` may be: nested blocks, arm bodies, `match`
+  alternatives, effectful blocks. **Consecutive** local definitions form
+  one group and may call each other; a `let` between two of them splits
+  them into two groups. Not allowed: `export`, a header without a body,
+  a qualified name, `type`, `ability`, `test`, `import` (the parser only
+  accepts `let`, `def`, `theorem` and expressions as lines). `where` after
+  a definition is `E-WHERE`, pointing at a local `def`.
+- **Scoping is lexical and top-down.** A local definition sees what's in
+  scope where it's written: the parameters, pattern variables, earlier
+  `let`s and earlier local definitions, and the other members of its
+  group. The lines after the group see it. Inside the block its name
+  shadows outer names (a parameter, a top-level definition); a later
+  `let` of the same name shadows it. In a local signature, a name in
+  scope means that (the outer `a` in `List a`), and an unknown lowercase
+  name is bound automatically, as in a top-level signature (§3.1).
+- **Plain values stay `let`s**, computed once where they're written, opaque
+  in types. §3.4's cycle rule (`E-WHERE-RECURSIVE-VALUE`) isn't needed: a
+  function sees only the `let`s before it, and a `let` only the functions
+  before it, so a value and a function can't form a cycle.
+- **Unchanged from §2**: captures are a fixed point by variable identity;
+  implicit and `auto` captures keep their kind and every generated call
+  passes them explicitly; generated declarations are admitted by
+  dependency, joining the owner's group only when they call it;
+  termination is checked on the lifted program with no exemptions; the
+  key is `f.go`, and `f.go` names it from outside (§3.6's rule, below);
+  names are unique within the whole top-level definition (`E-DUPLICATE`).
+
+§3.1 to §3.6 below are draft 2's `where` design, kept because the rest of
+the note refers to them: read "a `where` block" as "a group of local
+definitions", except where the points above differ (the block's position
+and order, plain values, the cycle rule). §3.7 records what was built.
+
 
 ### 3.1 Syntax
 
@@ -587,6 +641,102 @@ Nat -> Nat` that type has no namespace, so `sumTo.go` is an error today
   `E-DUPLICATE` (checked in `scope.rs` when the owner's local names are
   reserved, before elaboration).
 - `match` helpers (`f.%match1`) are never nameable.
+
+### 3.7 As built (step 5)
+
+Built 18 October 2026. No kernel change. The code:
+`crates/elab/src/local.rs` (elaborating a group, the retry), `lift.rs`
+(resolution, generalised), `dot.rs` (`f.go`), small hooks in `check.rs`,
+`effects.rs` and `lib.rs`, and the parser's `local_def`. Decisions:
+
+**Syntax tree.** `Expr::LocalDefs { defs, body }`: each `LocalDef` is the
+signature and equations the top-level parser makes (the same
+`definition` function), so arms, `:=` bodies, `E-ARM-PARAMETER` and the
+rest behave exactly as at top level.
+
+**Elaborated where it's written.** A group is split into strongly
+connected components by which members mention which (by name, as the
+module pre-pass does); components are elaborated in dependency order,
+source order breaking ties. For each component, every signature is
+elaborated in the block's context; each member's name is bound to a
+*frozen metavariable* applied to the variables in scope (as for a lifted
+`match`, §4.10), with the signature's type; then every body is elaborated
+by the same code as a top-level body (`body_in`), in the block's context.
+Each member is a draft (`lift::Draft` with `local` set), resolved with the
+owner's other drafts.
+
+**Resolution, generalised** (`Elaborator::resolve_batch`). After the
+owner's body, all its drafts (local definitions and lifted `match`es) are
+resolved together, replacing step 3's one-at-a-time order:
+
+1. the captures of every draft at once, as §2.1's fixed point: a call of
+   another draft is that draft's frozen metavariable applied to the
+   variables in scope, and only the arguments at the positions that draft
+   captures count (rule 3);
+2. the drafts are split into components by which call which, and each
+   component, after those it calls, has its members declared (with the
+   captured variables first, keeping their kinds) and their metavariables
+   solved with the calls `owner.go c₁ … cₖ`; a member whose type still
+   mentions a member of its own component is `E-MUTUAL-SIGNATURE`;
+3. the component is admitted on its own unless it refers to something
+   pending (the owner's group, or a component that joined it), in which
+   case it joins the owner's group.
+
+A `match` inside a local definition is numbered within it:
+`sumTo.go.%match1`.
+
+**Lemmas about a local function (§3.3, §3.6).** A local
+`theorem goZero (a : Nat) : go 0 a = a := rfl` needs `go` final, so its
+type computes. The note's plan admitted each independent component at
+once, mid-body; but the elaborator holds the kernel's table only by a
+shared reference while it elaborates a body (declaring and admitting need
+it exclusively), so it can't. Instead, **when an owner's body fails**, the
+local definitions elaborated before the failure that refer only to final
+definitions (with the `match`es inside them) are resolved and admitted,
+and the body is elaborated again with their names bound directly to the
+admitted definitions applied to their captures (`Elaborator::preadmit`,
+`with_local_retries`). Elaboration is deterministic, so the next attempt
+meets each of them in the same context; a captured variable's name is
+checked to be sure. This repeats while some local definition is admitted;
+a body that succeeds the first time is never elaborated twice. Tests use
+the same retry. A lemma about a local function that calls the owner can't
+work (it isn't final until the owner is); the error then has a note
+saying so and suggesting a top-level theorem about `f.go`.
+
+**Kinds.** The context records how each variable was bound (`Ctx::kinds`):
+an implicit or `auto` parameter of the owner, captured, is an implicit or
+`auto` parameter of the lifted definition (`count.go : [a : Type] -> (a ->
+Bool) -> List a -> Nat`), and the generated call passes it explicitly, so
+no search runs again. A `match` helper's captures stay explicit.
+
+**Messages (§2.5).** While the owner is checked, the printer shows a
+local definition's frozen metavariable, and a call of a lifted local
+definition whose capture arguments are exactly the captured variables,
+as `go a b` (`Globals::print_labels`, used only by the printer, cleared
+with the metavariables). Termination messages about the owner's group name
+`` `go` ``, not `` `sumTo.go` ``. From outside, the full name and type are
+shown (`sumTo.go : Nat -> Nat -> Nat`).
+
+**Errors.** `E-DUPLICATE` for two local definitions of one name in one
+top-level definition, and for a local definition whose key is also a
+declaration's (`PairType.go`); `E-LOCAL-DEFINITION` for local
+definitions with no owner (in a data or ability declaration, or the
+REPL), a qualified local name, and a recursive local definition that's
+`Partial`; `E-MUTUAL-SIGNATURE` for a local definition whose type mentions
+one that isn't finished (a member of its own group, or one that calls the
+owner) (the partial translation, `partial.rs`, works on top-level
+groups only); `E-WHERE` for `where`.
+
+**JavaScript.** A lifted local definition is an ordinary top-level
+function, so a self tail call is a loop (`sumTo.go` becomes
+`$Main$dsumTo$dgo` with a `for (;;)`).
+
+**Leftovers.** A recursive `Partial` local definition; a local `test`;
+local definitions outside a definition's, theorem's or test's body. A
+local lemma about a helper elaborated inside a speculative attempt (an
+argument checked twice by §7's transaction) that's undone gets no retry
+benefit. §8's test plan for `where` maps onto the
+tests in `examples/accept/local-defs*.sw` and `examples/reject/local-*.sw`.
 
 ## 4. `match` expressions
 

@@ -483,16 +483,31 @@ impl From<ResourceError> for ZonkError {
     }
 }
 
-/// Replaces solved metavariables in `term` (with `level` variables in scope)
-/// by their solutions. Fails on an unsolved metavariable.
+/// [`zonk_keeping`], keeping none.
+#[cfg(test)]
 pub fn zonk(g: &Globals, level: usize, term: &Term) -> std::result::Result<Term, ZonkError> {
+    zonk_keeping(g, level, term, &|_| false)
+}
+
+/// Replaces solved metavariables in `term` (with `level` variables in scope)
+/// by their solutions. Fails on an unsolved metavariable, except those
+/// `keep` allows, which are left in place.
+pub fn zonk_keeping(
+    g: &Globals,
+    level: usize,
+    term: &Term,
+    keep: &dyn Fn(usize) -> bool,
+) -> std::result::Result<Term, ZonkError> {
     g.budget.step()?;
-    let go = |t: &Term, level| zonk(g, level, t).map(Rc::new);
+    let go = |t: &Term, level| zonk_keeping(g, level, t, keep).map(Rc::new);
     Ok(match term {
         Term::Meta(_) | Term::App(..) if matches!(term.spine().0, Term::Meta(_)) => {
             let env: Vec<Value> = (0..level).map(Value::var).collect();
             let solved = quote(g, level, &eval(g, &env, term)?)?;
-            if let Some(m) = first_meta(&solved) {
+            if let Some(m) = solved.subterms().find_map(|(t, _)| match t {
+                Term::Meta(m) if !keep(*m) => Some(*m),
+                _ => None,
+            }) {
                 return Err(ZonkError::Unsolved(m));
             }
             solved
@@ -507,14 +522,14 @@ pub fn zonk(g: &Globals, level: usize, term: &Term) -> std::result::Result<Term,
         Term::Data(d, args) => Term::Data(
             *d,
             args.iter()
-                .map(|a| zonk(g, level, a).map(Rc::new))
+                .map(|a| zonk_keeping(g, level, a, keep).map(Rc::new))
                 .collect::<std::result::Result<_, _>>()?,
         ),
         Term::Ctor(d, c, args) => Term::Ctor(
             *d,
             *c,
             args.iter()
-                .map(|a| zonk(g, level, a).map(Rc::new))
+                .map(|a| zonk_keeping(g, level, a, keep).map(Rc::new))
                 .collect::<std::result::Result<_, _>>()?,
         ),
         Term::Pi(x, i, a, b) => Term::Pi(x.clone(), *i, go(a, level)?, go(b, level + 1)?),
@@ -529,7 +544,7 @@ pub fn zonk(g: &Globals, level: usize, term: &Term) -> std::result::Result<Term,
                 .map(|b| {
                     Ok(stitchwort_core::term::Branch {
                         names: b.names.clone(),
-                        body: Rc::new(zonk(g, level + b.names.len(), &b.body)?),
+                        body: Rc::new(zonk_keeping(g, level + b.names.len(), &b.body, keep)?),
                     })
                 })
                 .collect::<std::result::Result<_, ZonkError>>()?,
@@ -553,13 +568,6 @@ pub fn zonk(g: &Globals, level: usize, term: &Term) -> std::result::Result<Term,
         ),
         Term::J(m, b, p) => Term::J(go(m, level)?, go(b, level)?, go(p, level)?),
         Term::Loc(span, t) => Term::Loc(*span, go(t, level)?),
-    })
-}
-
-fn first_meta(term: &Term) -> Option<usize> {
-    term.subterms().find_map(|(t, _)| match t {
-        Term::Meta(m) => Some(*m),
-        _ => None,
     })
 }
 
