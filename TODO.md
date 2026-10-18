@@ -28,7 +28,7 @@ this file.
 The main session orchestrates: it chooses lanes, hands each to a background
 agent, then reviews, merges and updates this file.
 
-Running: `list-rest-pattern` (Sonnet), `day1-batch` (Sonnet).
+Running: `list-rest-pattern` (Sonnet).
 
 Merged overnight (18-19 Oct): day 3 proofs (`best` is a subsequence, has
 length `min k (length ds)`, and is optimal; 9 prelude lemmas incl.
@@ -41,11 +41,11 @@ block-enumerating specs; part 2 brute-force cross-check on 160 ranges;
 31 prelude lemmas). Inputs for days 4-9 fetched from the user's Scala
 repo into `aoc/inputs/` (ignored).
 
-Overnight queue (user, 18 Oct): `[x, ..rest]` and the day 1 review
-batch, both running. Day 1 batch: inline `Dial.place` into `Dial.wrap`
-(proof-only abbreviations beside the proofs, implementation plain);
-`turnOf` as a `match` on chars; `Dial.size` (= `Succ highest`) in the
-implementation, proofs may keep `Succ highest`.
+Day 1 review batch merged (`a89c5bd`): `Dial.place` gone from the
+implementation (kept as a proofs-only abbreviation beside the proofs:
+substituting `Int.modNat e (Succ m)` broke four lemmas with "expected" and
+"actual" types that print identically, cause not investigated), `Dial.size`,
+`turnOf` as a char `match`.
 
 Waiting on a decision (for the morning):
 - Proof `let`s (from day 3): a `let` is opaque to the checker (after
@@ -274,7 +274,13 @@ capability we know we'll need before the work that needs it):
 
 ## Later
 
-- **AoC friction (days 3-4):** no type synonyms (`type Grid = List (List
+- **Identical-looking type mismatch** (day 1 batch): with `Dial.place`
+  inlined, `backFrom`, `backFar`, `leftOne`, `leftStep` fail with expected
+  and actual types that print the same. Worth a look (printing hides a
+  difference, or a conversion gap).
+
+- **AoC friction (days 2-4):** uppercase parameter names are a parse
+  error; error messages print fully evaluated terms (one was 10 KB); no type synonyms (`type Grid = List (List
   Nat)` is a parse error; `def Grid : Type := ...` works); no
   `List.zipWith3`; a multi-line list literal can't start a line with `,`;
   char-pattern exhaustiveness error says "numbers other than 97 and 98";
