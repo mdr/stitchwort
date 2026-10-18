@@ -28,22 +28,24 @@ this file.
 The main session orchestrates: it chooses lanes, hands each to a background
 agent, then reviews, merges and updates this file.
 
-Running: `day3-proofs` (Opus: `best` is a valid, right-length, optimal
-pick), `char-patterns` (Sonnet: `| 'L' =>` patterns), `day2-proofs` (Opus:
-`repeated` and part 1 equal brute force; part 2 cross-checked).
+Running: `day2-proofs` (Opus: `repeated` and part 1 equal brute force;
+part 2 cross-checked), `list-rest-pattern` (Sonnet), `day05` (Sonnet).
 
-Overnight queue (user, 18 Oct; at most 3 lanes, start each as a slot
-frees, in this order):
-1. `aoc-survey` (docs only): refresh docs/aoc-2025.md sections 8 and 10
-   for days 6-9 against today's language; a prioritised capability list.
-2. `day04` then `day05`: solutions for the user to review in the
-   morning (plain implementation, `|>`/dot style, proof helpers beside
-   proofs; proofs where cheap). Sonnet writes, Opus checks proofs.
-3. `list-rest-pattern`: `[x, ..rest]` list patterns (Sonnet).
-4. Day 1 review batch, after `day2-proofs` (see below).
-Not overnight: evaluator speed check (wait for days 4-5).
+Merged overnight (18-19 Oct): day 3 proofs (`best` is a subsequence, has
+length `min k (length ds)`, and is optimal; 9 prelude lemmas incl.
+`List.Subsequence`), char patterns (`| 'L' =>`), days 6-9 capability
+survey (docs/aoc-2025.md sections 8 and 10), day 4 (`aoc/day04.sw`, both
+answers right, 16 s). Inputs for days 4-9 fetched from the user's Scala
+repo into `aoc/inputs/` (ignored).
 
-Waiting on a decision: nothing. The user is reviewing day 1; their notes
+Overnight queue (user, 18 Oct): day 5 (running), `[x, ..rest]`
+(running), then the day 1 review batch after `day2-proofs`.
+
+Waiting on a decision (for the morning):
+- Proof `let`s (from day 3): a `let` is opaque to the checker (after
+  `let p := 10 ^ n`, a proof about `p + 1` doesn't see `p`'s value), and
+  a `let` can't bind a proof (`E-UNIVERSE`). Both need compiler work.
+- Day 4 runs in 16 s: worth the evaluator speed check now? The user is reviewing day 1; their notes
 are collected and applied in one pass once `day2-proofs` finishes (user) (so far: inline
 `Dial.place` into `Dial.wrap`, any proof-only abbreviation defined
 beside the proofs, the implementation kept plain; `turnOf` as a
@@ -262,6 +264,14 @@ capability we know we'll need before the work that needs it):
    Write up the friction found.
 
 ## Later
+
+- **AoC friction (days 3-4):** no type synonyms (`type Grid = List (List
+  Nat)` is a parse error; `def Grid : Type := ...` works); no
+  `List.zipWith3`; a multi-line list literal can't start a line with `,`;
+  char-pattern exhaustiveness error says "numbers other than 97 and 98";
+  no pair eta (`p = (p.fst, p.snd)` isn't `rfl`); recursive calls passed
+  as induction hypotheses must be fully applied; reasoning about `if` goes
+  through `Bool.inspect` with a hand-written motive; no `calc`/rewrite.
 
 - **Lambda postponing in effectful calls:** arguments that perform
   operations are applied one at a time, so a lambda there can't wait
