@@ -238,6 +238,14 @@ impl Elaborator {
         ids: &[DefId],
     ) -> Result<Vec<(usize, Diagnostic)>> {
         let g = &self.globals;
+        // A prelude whose partial primitives were refused (E-BUILTIN) has
+        // already reported that; there is nothing to describe against.
+        if [Primitive::Delay, Primitive::Lift, Primitive::Pfix]
+            .into_iter()
+            .any(|p| g.builtins.primitive_id(p).is_none())
+        {
+            return Ok(Vec::new());
+        }
         let names = {
             let prim = |p: Primitive| g.builtins.primitive_id(p).expect("partial types exist");
             let data = |b: Builtin| g.registry.data(b).expect("the prelude declares it");
