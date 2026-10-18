@@ -148,10 +148,14 @@ capability we know we'll need before the work that needs it):
    `And`/`Both`); prelude errors now render with file and
    line, `List.scanl` added (`0ff412a`; user programs can no longer
    clash with prelude names since namespaces); `type Dial = (Nat, Nat, Nat)` stays a parse error (user:
-   write `Dial : Type`). Lane `derive-eq` (automatic `==` for user data
-   types; Opus, no external review) and lane `day1-proofs` (Opus: dial
-   stays in 0–99; part 2's fast count equals a click-by-click spec)
-   running. Days 2 and 3 done (`99e806d` 0.15 s, `4f23aec`
+   write `Dial : Type`). Automatic `==` for user data types merged
+   (`cc94701`, eager, generated `T.%decEq`; skipped for function/proof
+   fields, mutual types). Day 1 proved correct (`23c2778`: positions on
+   the dial by type; part 2 equals a click-by-click spec). Proof friction
+   (aoc-2025.md "Proofs"): `% 100` is very slow to check (`Nat.mod`
+   unfolds `100 * q`); `stitchwort run` evaluates proofs (no erasure in
+   the evaluator: minutes on the full input with a proof field); no
+   rewriting; no `Int` addition laws; `Ordering` has no `==`. Days 2 and 3 done (`99e806d` 0.15 s, `4f23aec`
    0.45 s; answers right). Fixed since: `if x < y` works on decidable Props
    and list patterns `[]`/`[a, b]` exist (`a48e928`, `8754e6d`). Still
    missing: `&&`/`||` (the lexer rejects `&`) and a Prop-aware `not`; division by a variable
