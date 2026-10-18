@@ -139,9 +139,11 @@ capability we know we'll need before the work that needs it):
    declarations refused, multi-layer migration check. Simplified (user, 18 Oct):
    no period accepting both syntaxes. Lane A merged (`db65149`: new parser behind
    `--syntax new` / `Syntax::New`, `stitchwort_syntax::equivalence`
-   harness). Lane
-   `decl-converter` (B, Opus: old→new text converter, dry-run report)
-   running; then one switch commit (convert everything, flip
+   harness). Lane B merged (`74f3436`: `crates/convert`,
+   276 of 280 inputs convert, each checked by AST equivalence; 7 arms in
+   5 definitions completed for exact arity). Lane `decl-switch` (Opus +
+   Sonnet) running: convert everything, flip the parser, delete the old
+   syntax, verify; then one switch commit (convert everything, flip
    the parser, delete the old one, hash/AST/test comparison); then a
    tidy-up (docs, playground colouring, awkward converter output); then
    `where`. Header and implicit names must differ. Also queued after the switch: `&&`/`||` and
