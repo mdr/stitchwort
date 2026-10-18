@@ -157,9 +157,10 @@ capability we know we'll need before the work that needs it):
    merged (`4b6b29d`: short-circuit on Bool, `And`/`Or`/`Not` on Props,
    `test` accepts a decidable Prop; `if h : p && q` doesn't short-circuit).
    AoC days 4–5 on hold (user, 18 Oct): the user is
-   reviewing the day 1–3 code first. Pipe-forward `|>` (user: value as
-   last argument, Elm/F#-style; left checked first) — lane `pipe-op`
-   (Opus) running; then rewrite days 1–3 with `|>` and the user's review
+   reviewing the day 1–3 code first. Pipe-forward `|>` merged (`d97591a`: value as
+   last argument, left checked first so lambdas infer; looser than `=`);
+   lane `pipe-friendly-lib` (Sonnet) making the library's main value come
+   last; then rewrite days 1–3 with `|>` and the user's review
    changes. Review notes so far: keep `Text.uncons` but write
    `t.uncons` (dot notation) — generally prefer dot notation and
    `rest.toNat`-style calls where they read better; `parseTurn` via
