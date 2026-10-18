@@ -3,6 +3,11 @@ source: crates/driver/tests/hash_stability.rs
 expression: "lines(&session, d, f)"
 ---
 data Main.Chain b7beb47f5d5a342553a5d07b434ea82047d24959ffc1091042a61e6528faa450
+Main.Chain.%tag 2c2c8c2beabc61acbf782ba052bd442c8fd29452ce44ef4b1d697a165eb1de87
+Main.Chain.%Cons%0 69da818e19f1ee5c28f521674bcf9f2d680c0d89756cddf8d1e48e39535d57b0
+Main.Chain.%Cons%1 dbb5cbc2f4485999e7ebc2495368eed361b36ad96629296fbb39eb0225c23bf3
+Main.Chain.%differ 1ef2fdefe2237198886bd2a235839fcb61b087022dd014367917f6b194ccc4c1
+Main.Chain.%decEq 7e87f6d12e67c25fbb20fcfb93ae3d4936fd5a3756a4b48e200974221ec3b776
 Main.chainLength 0cad6239ebd15a36c018e433b137b520552444fc89f14085a031ef2bf36ffc8a
 Main.firstOfList ffdd7d05b039ef62fe05e1b7ac82b66c71878a7772c220b95adab286d70de161
 Main.test "own constructors" f46ef353ab64736aa28009d0c1351ac90887a19857eaf52e727bd0b9ec848f48
