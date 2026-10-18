@@ -150,8 +150,10 @@ capability we know we'll need before the work that needs it):
    `E-ARM-PARAMETER`, "arm" wording, `crates/convert` deleted. The
    conversion is complete. Decided (user, 18 Oct): no `where`; values and
    functions are declared in blocks, top-down, Scala-style (`let x := e`,
-   local `def`/`theorem`). Lane `local-defs` (Opus) running. Then
-   `&&`/`||` and a Prop-aware `not`, and AoC days 4–5; then one switch commit (convert everything, flip
+   local `def`/`theorem`). Lane `local-defs` (Opus) running. `&&`/`||`/`not`
+   merged (`4b6b29d`: short-circuit on Bool, `And`/`Or`/`Not` on Props,
+   `test` accepts a decidable Prop; `if h : p && q` doesn't short-circuit).
+   AoC days 4–5 start after local defs merge; then one switch commit (convert everything, flip
    the parser, delete the old one, hash/AST/test comparison); then a
    tidy-up (docs, playground colouring, awkward converter output); then
    `where`. Header and implicit names must differ. Also queued after the switch: `&&`/`||` and
