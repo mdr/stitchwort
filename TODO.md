@@ -32,6 +32,17 @@ Running: `day3-proofs` (Opus: `best` is a valid, right-length, optimal
 pick), `char-patterns` (Sonnet: `| 'L' =>` patterns), `day2-proofs` (Opus:
 `repeated` and part 1 equal brute force; part 2 cross-checked).
 
+Overnight queue (user, 18 Oct; at most 3 lanes, start each as a slot
+frees, in this order):
+1. `aoc-survey` (docs only): refresh docs/aoc-2025.md sections 8 and 10
+   for days 6-9 against today's language; a prioritised capability list.
+2. `day04` then `day05`: solutions for the user to review in the
+   morning (plain implementation, `|>`/dot style, proof helpers beside
+   proofs; proofs where cheap). Sonnet writes, Opus checks proofs.
+3. `list-rest-pattern`: `[x, ..rest]` list patterns (Sonnet).
+4. Day 1 review batch, after `day2-proofs` (see below).
+Not overnight: evaluator speed check (wait for days 4-5).
+
 Waiting on a decision: nothing. The user is reviewing day 1; their notes
 are collected and applied in one pass once `day2-proofs` finishes (user) (so far: inline
 `Dial.place` into `Dial.wrap`, any proof-only abbreviation defined
