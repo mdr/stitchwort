@@ -28,7 +28,8 @@ this file.
 The main session orchestrates: it chooses lanes, hands each to a background
 agent, then reviews, merges and updates this file.
 
-Running: `list-rest-pattern` (Sonnet).
+Running: nothing. `[x, ..rest]` list patterns merged (tail may be any
+pattern; `[..p]` is `p`; not in list expressions).
 
 Merged overnight (18-19 Oct): day 3 proofs (`best` is a subsequence, has
 length `min k (length ds)`, and is optimal; 9 prelude lemmas incl.

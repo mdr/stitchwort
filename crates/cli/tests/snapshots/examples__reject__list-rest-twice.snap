@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: expected `]`: a `..` tail must be the last item, but found `,`
+   ╭─[ reject/list-rest-twice.sw:4:12 ]
+   │
+ 4 │   | [x, ..a, ..b] => x
+   │            ┬  
+   │            ╰── expected `]`: a `..` tail must be the last item, but found `,`
+───╯
