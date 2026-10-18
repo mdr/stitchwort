@@ -166,7 +166,11 @@ capability we know we'll need before the work that needs it):
    `if`/`&&`/tests (`List.filter (\n => k * n <= size)`); no `Int` sum;
    `[highest : Nat]` repeated on every `Dial` function; a field and a
    namespaced function may share a name without a warning; no
-   `[x, ..rest]` list pattern; then rewrite days 1–3 with `|>` and the user's review
+   `[x, ..rest]` list pattern. Running (user, 18 Oct): lane
+   `method-sections` (`.f args`, e.g. `|> .drop 1`, `people.map .name`);
+   lane `elab-conveniences` (comparisons usable wherever a `Bool` is
+   expected, an `Int` sum, Idris-style auto-binding of value names used
+   as type arguments such as `Dial highest`); lane `crash-recovery`; then rewrite days 1–3 with `|>` and the user's review
    changes. Review notes so far: keep `Text.uncons` but write
    `t.uncons` (dot notation) — generally prefer dot notation and
    `rest.toNat`-style calls where they read better; `parseTurn` via
