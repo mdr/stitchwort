@@ -145,9 +145,11 @@ capability we know we'll need before the work that needs it):
    new syntax is the only one; everything converted; hashes changed only
    for the 5 exact-arity definitions and partial definitions' generated
    `Request` field names (and dependents); tests, error codes and AoC
-   answers unchanged. Lane `decl-tidy` (Sonnet) running: docs code
-   blocks, playground colouring and a browser-test race,
-   `E-ARM-PARAMETER`, wording, then delete `crates/convert`; then one switch commit (convert everything, flip
+   answers unchanged. Tidy-up merged (`468a9e4`, `b2a1e14`): docs
+   converted, playground colours `def`, browser-test race fixed (21/21),
+   `E-ARM-PARAMETER`, "arm" wording, `crates/convert` deleted. The
+   conversion is complete. Next: `where` (step 5, Opus), `&&`/`||` and a
+   Prop-aware `not`, then AoC days 4–5; then one switch commit (convert everything, flip
    the parser, delete the old one, hash/AST/test comparison); then a
    tidy-up (docs, playground colouring, awkward converter output); then
    `where`. Header and implicit names must differ. Also queued after the switch: `&&`/`||` and
