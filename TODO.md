@@ -192,7 +192,21 @@ capability we know we'll need before the work that needs it):
    tidy-up (docs, playground colouring, awkward converter output); then
    `where`. Header and implicit names must differ. Also queued after the switch: `&&`/`||` and
    a Prop-aware `not`.
-4. **Advent of Code 2025, early days** — the medium-term goal. Plan
+4. **Advent of Code 2025, early days** — the medium-term goal.
+   **Queued proofs (user agreed, 18 Oct; start after compaction):**
+   - Day 3 (Opus, medium): `best k ds` is a subsequence of `ds`; its
+     length is `min k (length ds)`; optimal — for every length-k
+     subsequence `s`, `fromDigits s <= fromDigits (best k ds)` (with a
+     lemma: equal-length digit lists compare lexicographically as
+     numbers).
+   - Day 2 (Opus, medium; after day 3, both may add library lemmas):
+     (a) `r.repeated k n` equals the brute-force sum of ids in `r` that
+     are a k-digit block written n times (Gauss sum, digits of
+     `base * 10101…`); (b) part 1 equals the brute-force sum of doubled
+     ids; part 2's Möbius inclusion–exclusion: no proof, a brute-force
+     cross-check test on many small ranges instead.
+   Running: lane `lambda-postpone` (plain lambdas checked after the
+   arguments that fix their type). The user is reviewing day 1. Plan
    (user, 18 Oct): day 1 done (`aoc/day01.sw`, both answers right,
    0.7 s; `IO.readAllLines`, `Nat.digits` added; friction write-up in
    aoc-2025.md: no `let` patterns (step 4 running), `type Dial = (Nat,
