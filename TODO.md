@@ -165,9 +165,8 @@ capability we know we'll need before the work that needs it):
    `t.uncons` (dot notation) — generally prefer dot notation and
    `rest.toNat`-style calls where they read better; `parseTurn` via
    `andThen` (`t.uncons.andThen (\(c, rest) => rest.toNat.andThen
-   (turnOf c))`). `IO.readAll` (whole input as one `Text`, a
-   total IO operation) + `Text.lines`; `readAllLines` becomes total, so
-   `main` drops `Partial` — lane `io-readall` (Opus) running. Day 1 renames: `Pos` → `Dial`, `at` →
+   (turnOf c))`). `IO.readAll` and `Text.lines` merged
+   (`255213d`); `readAllLines` is total and the AoC `main`s are `{IO}`. Day 1 renames: `Pos` → `Dial`, `at` →
    `position`, `ok` → `inRange`, `top` → `highest` (`Dial 99`);
    functions on a type live in its namespace and are called with dots
    (`Dial.isZero`/`d.isZero`, `Dial.move`/`d.move t`, `Turn.parse`). After
@@ -383,6 +382,13 @@ capability we know we'll need before the work that needs it):
   the CLI name).
 
 ## Known issues
+
+- **Playground crash recovery is flaky** (browser test "after a crash,
+  the next request starts a fresh compiler"): fails about half the time
+  after a Run test, on main too; the worker gets `{"ok":true}` followed
+  by a long run of `0`s instead of a stack-overflow error — possibly
+  corrupted wasm memory being reused after the overflow, i.e. a real bug,
+  not just the test. Investigate (Opus, small).
 
 
 
