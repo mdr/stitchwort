@@ -156,7 +156,8 @@ capability we know we'll need before the work that needs it):
    (aoc-2025.md "Proofs"): `% 100` is very slow to check (`Nat.mod`
    unfolds `100 * q`); `stitchwort run` evaluates proofs (no erasure in
    the evaluator: minutes on the full input with a proof field); no
-   rewriting; no `Int` addition laws; `Ordering` has no `==`. Days 2 and 3 done (`99e806d` 0.15 s, `4f23aec`
+   rewriting; (fixed since: `Int` addition laws incl.
+   associativity, `Ordering.decEq`, `7f9fc01`). Days 2 and 3 done (`99e806d` 0.15 s, `4f23aec`
    0.45 s; answers right). Fixed since: `if x < y` works on decidable Props
    and list patterns `[]`/`[a, b]` exist (`a48e928`, `8754e6d`). Still
    missing: `&&`/`||` (the lexer rejects `&`) and a Prop-aware `not`; division by a variable
