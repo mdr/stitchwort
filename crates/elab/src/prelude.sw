@@ -1746,6 +1746,42 @@ theorem Text.joinSplit (s : Char) : (t : Text) -> Text.join s (Text.split s t) =
   | MkText cs =>
     Eq.trans (Text.joinSplitTexts s (Text.splitChars s cs)) (Eq.cong MkText (Text.joinSplitChars s cs))
 
+-- Lines
+
+def Char.isLineFeedCode : Nat -> Bool
+  | 10 => True
+  | _  => False
+
+def Char.isCarriageReturnCode : Nat -> Bool
+  | 13 => True
+  | _  => False
+
+-- A line that ended with a line feed, from its characters newest first,
+-- without a carriage return just before the line feed.
+def Text.endLine : List Char -> Text
+  | Nil       => MkText Nil
+  | Cons c cs => MkText (List.reverseOnto (if Char.isCarriageReturnCode (Char.toNat c) then cs else Cons c cs) Nil)
+
+-- The last line, if the text doesn't end with a line feed: kept whole.
+def Text.lastLine : List Char -> List Text -> List Text
+  | Nil,       acc => acc
+  | Cons c cs, acc => Cons (MkText (List.reverseOnto (Cons c cs) Nil)) acc
+
+-- `line` is the current line's characters, newest first, and `acc` the
+-- finished lines, newest first.
+def Text.linesFrom (line : List Char) (acc : List Text) : List Char -> List Text
+  | Nil       => List.reverseOnto (Text.lastLine line acc) Nil
+  | Cons c cs =>
+    if Char.isLineFeedCode (Char.toNat c) then Text.linesFrom Nil (Cons (Text.endLine line) acc) cs
+    else Text.linesFrom (Cons c line) acc cs
+
+-- The lines of a text, without their line endings, as Rust's `str::lines`
+-- gives them. A line ends with a line feed, or a carriage return and a line
+-- feed; the last line's ending is optional, so "a\nb" and "a\nb\n" both
+-- give ["a", "b"], "" gives [], and "\n" gives [""]. A carriage return
+-- anywhere else is kept. These are the lines `readLine` would give.
+def Text.lines (t : Text) : List Text := Text.linesFrom Nil Nil (Text.toList t)
+
 -- Computations (docs/proposals/abilities.md)
 
 -- A computation that returns an `a`, performing operations from a signature:
@@ -1961,39 +1997,35 @@ theorem Nat.digitsRoundTrip : Nat.fromDigits (Nat.digits 9876543210) = 987654321
 ability IO where
   print    : Text -> {IO} ()          -- writes the text, then a line ending
   readLine : () -> {IO} (Maybe Text)  -- Nothing only at end of input
+  readAll  : () -> {IO} Text          -- the rest of the input, all at once
 
 -- The first line of scripted input, if there is one.
 def IO.nextLine : List Text -> Maybe Text
   | Nil       => Nothing
   | Cons l ls => Just l
 
+-- All of the scripted input, as `readAll` gives it: each line followed by a
+-- line feed, as a real interpreter would read it.
+def IO.restOf (ins : List Text) : Text :=
+  MkText (List.concatMap (\l => List.append (Text.toList l) ['\n']) ins)
+
 -- Runs a program against scripted input lines: each `readLine` takes the
--- next one, and gives `Nothing` once they're used up. Records each `print`
--- payload, in order, with the result. A payload is one entry even if it
--- contains a line feed: a real interpreter writes each payload followed by
--- a line ending. The payloads are collected in reverse and turned round at
--- the end, so a long run doesn't build a deep chain of pending pairs.
+-- next one, and gives `Nothing` once they're used up; `readAll` takes all
+-- that are left (see `IO.restOf`), after which `readLine` gives `Nothing`
+-- and `readAll` gives "". Records each `print` payload, in order, with the
+-- result. A payload is one entry even if it contains a line feed: a real
+-- interpreter writes each payload followed by a line ending. The payloads
+-- are collected in reverse and turned round at the end, so a long run
+-- doesn't build a deep chain of pending pairs.
 def IO.simulate (input : List Text) (prog : () -> {IO | e} a) : {e} Pair (List Text) a :=
   let run : List Text -> List Text -> {e} Pair (List Text) a :=
     handle prog () with
-      | return x        => \ins out => MkPair (List.reverseOnto out Nil) x
-      | print t, k      => \ins out => k () ins (Cons t out)
+      | return x      => \ins out => MkPair (List.reverseOnto out Nil) x
+      | print t, k    => \ins out => k () ins (Cons t out)
       | readLine u, k => \ins out => k (IO.nextLine ins) (List.tailOf ins) out
+      | readAll u, k  => \ins out => k (IO.restOf ins) Nil out
   run input Nil
 
--- Reading all of the input
-
--- What to do with the next line, given the lines so far (newest first): keep
--- going, or stop at the end of the input. `more` is whatever comes next, so
--- this isn't recursive, and is polymorphic in the rest of the row (see
--- examples/accept/cat.sw).
-def IO.readLinesStep (acc : List Text) : Maybe Text -> (List Text -> {IO, Partial | e} (List Text)) -> {IO, Partial | e} (List Text)
-  | Nothing, more => List.reverse acc
-  | Just l,  more => more (Cons l acc)
-
-def IO.readLinesFrom (acc : List Text) : {IO, Partial} (List Text) := IO.readLinesStep acc (readLine ()) IO.readLinesFrom
-
--- Every remaining line of input, in order, up to the end of the input. There
--- is no bound on how many, so it is `Partial`: only `stitchwort run` and the
--- playground can run it.
-def IO.readAllLines () : {IO, Partial} (List Text) := IO.readLinesFrom Nil
+-- Every remaining line of input, in order, as `readLine` would give them.
+-- Total: the input is read all at once.
+def IO.readAllLines () : {IO} (List Text) := (readAll ()).lines

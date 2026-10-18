@@ -752,7 +752,7 @@ export def area : Shape -> Nat
   // Running `main`. The controls persist across renders, so the input and the
   // last run's output stay while switching tabs.
   const runInput = el("textarea", { id: "run-input", spellcheck: false, rows: 4,
-                                    placeholder: "Input, one line per readLine ()" });
+                                    placeholder: "Input, a line per readLine (), or the rest at once with readAll ()" });
   runInput.setAttribute("aria-label", "Input lines for the program");
   const runAgain = el("button", { className: "primary", type: "button" }, "Run");
   const stopButton = el("button", { type: "button", disabled: true }, "Stop");
@@ -763,7 +763,8 @@ export def area : Shape -> Nat
 
   const runPanel = [
     el("p", { className: "hint" },
-       "Run calls main (). Its readLine () gets the lines below, one at a time, then Nothing. " +
+       "Run calls main (). Its readLine () gets the lines below, one at a time, then Nothing; " +
+       "readAll () gets all that's left at once. " +
        `A run may print up to ${MAX_OUTPUT / 1024} KB and take up to ${RUN_SECONDS} s.`),
     runInput,
     el("div", { className: "runrow" }, runAgain, stopButton),

@@ -502,6 +502,14 @@ mod tests {
                     print (textOr \"none\" (readLine ()))\n  \
                     print (textOr \"none\" (readLine ()))\n";
         assert_eq!(printed(&run(echo, "\nlast", 1000)), r"\nlast\nnone\n");
+        // `readAll` gives the rest of the input as it is, then "".
+        let rest = "def main () : {IO} () :=\n  \
+                    print (Nat.toText (List.length (IO.readAllLines ())))\n  \
+                    print (readAll ())\n";
+        assert_eq!(printed(&run(rest, "a\r\nb", 1000)), r"2\n\n");
+        let all = "def main () : {IO} () :=\n  print (readAll ())\n";
+        assert_eq!(printed(&run(all, "a\r\nb", 1000)), r"a\r\nb\n");
+        assert_eq!(printed(&run(all, "", 1000)), r"\n");
         // A pure `main` runs too, and prints nothing.
         assert_eq!(
             run("def main () : () := ()\n", "", 1000),

@@ -71,7 +71,7 @@ def solve (lines : List Text) : (Nat, Nat) :=
   let turns := lines.mapMaybe parseTurn
   (part1 99 start turns, part2 99 start turns)
 
-def main () : {IO, Partial} () := report (solve (IO.readAllLines ()))
+def main () : {IO} () := report (solve (IO.readAllLines ()))
 
 def report : (Nat, Nat) -> {IO} ()
   | (a, b) =>

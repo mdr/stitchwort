@@ -118,7 +118,7 @@ def total (k : Nat) : List Text -> Nat    -- named parameters, then arms
   | Nil       => 0
   | Cons l ls => joltage k l + total k ls
 
-def main () : {IO, Partial} () := report (solve (IO.readAllLines ()))
+def main () : {IO} () := report (solve (IO.readAllLines ()))
 
 test "parse" := parseBank "102" == [1, 0, 2]
 export def identityNat (n : Nat) : Nat := n
@@ -176,7 +176,7 @@ Examples: `examples/accept/local-defs.sw`, `examples/accept/local-defs-effects.s
 
 ## Namespaces and imports
 
-Names are grouped into namespaces (docs/proposals/namespaces.md). The library is `Std`, and a program sees only its core types, their constructors, the operators and `not` without asking: `Nat`, `Bool`, `List`, `Maybe`, `Pair`, `Char`, `Text`, `Ordering`, `Decidable`, `Void`, `Unit`, `Not`, `And`, `Or`, `IO` (with `print` and `readLine`), and their constructors. Everything else is written with its namespace, or imported:
+Names are grouped into namespaces (docs/proposals/namespaces.md). The library is `Std`, and a program sees only its core types, their constructors, the operators and `not` without asking: `Nat`, `Bool`, `List`, `Maybe`, `Pair`, `Char`, `Text`, `Ordering`, `Decidable`, `Void`, `Unit`, `Not`, `And`, `Or`, `IO` (with `print`, `readLine` and `readAll`), and their constructors. Everything else is written with its namespace, or imported:
 
 ```
 import Text (split, join)
@@ -257,6 +257,15 @@ def allResults (prog : () -> {Choose | e} a) : {e} List a :=
 ```
 
 Effectful code is written in direct style. Arguments are evaluated left to right, and the lines of a block in order. A handler's clauses on their own lines must line up: a `|` at another column belongs to an enclosing handler. An operation on its own (`choose`) is a function, `\x => choose x`. A signature can be a computation that isn't a function: `current : {State Nat} Nat`. A pure function can use a handler inside; what it handles doesn't appear in its type. How this is translated into ordinary data is described in `docs/core.md`, under "Abilities".
+
+## `IO`
+
+`IO` is an ability with `print : Text -> {IO} ()`, `readLine : () -> {IO} (Maybe Text)` and `readAll : () -> {IO} Text` (also `IO.print`, `IO.readLine`, `IO.readAll`). `IO.simulate lines prog` runs `prog` against scripted input and records what it prints.
+
+- `readLine ()` gives the next line without its LF (and a CR just before it), `Nothing` once nothing remains.
+- `readAll ()` gives everything that remains, verbatim, line endings included; `""` once nothing remains. After it, `readLine ()` is `Nothing`; after some `readLine`s it gives the rest. Under `IO.simulate` it gives the remaining scripted lines, each followed by LF.
+- `Text.lines : Text -> List Text` follows Rust's `str::lines`: split on LF, drop a CR right before an LF, and the last line's ending is optional. `"a\nb"` and `"a\nb\n"` both give `["a", "b"]`; `""` gives `[]`; `"\n"` gives `[""]`; `"a\r\nb"` gives `["a", "b"]`. A CR anywhere else stays, including a final one.
+- `IO.readAllLines () : {IO} (List Text)` is `(readAll ()).lines`. It is total.
 
 ## `Partial`
 

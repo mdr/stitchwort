@@ -15,7 +15,8 @@
 //! just by running long. A tick limit, for tests only, stops a run as
 //! inconclusive.
 //!
-//! This is the only place where `print` and `readLine` happen for real, and
+//! This is the only place where `print`, `readLine` and `readAll` happen
+//! for real, and
 //! the only place a partial computation runs. The type checker never calls
 //! it.
 
@@ -52,6 +53,8 @@ pub enum Event {
     Print(String),
     /// `readLine`, and what it gave.
     Read(Option<String>),
+    /// `readAll`, and what it gave.
+    ReadAll(String),
     /// A tick: one recursive call.
     Tick,
 }
@@ -81,6 +84,7 @@ pub enum RunError {
     /// Reading standard input failed.
     Read(io::Error),
     /// Line `line` (counting from 1) of the input isn't valid UTF-8.
+    /// For `readAll`, the first line that isn't.
     InvalidUtf8 { line: usize },
     /// Writing or flushing standard output failed.
     Write(io::Error),
@@ -242,10 +246,12 @@ impl Session {
     /// flushes `output` at the end. Evaluating each step between operations
     /// and ticks is one operation, with its own resource limits.
     ///
-    /// The contract for reading: input is UTF-8; a trailing LF, and a CR just
-    /// before it, are removed; an empty line is `Just ""`; `Nothing` comes
-    /// only once nothing remains. Output is flushed before every read. Each
-    /// `print` writes its payload, then LF.
+    /// The contract for reading: input is UTF-8; for `readLine`, a trailing
+    /// LF, and a CR just before it, are removed; an empty line is `Just ""`;
+    /// `Nothing` comes only once nothing remains. `readAll` gives everything
+    /// that remains, exactly as it is (`""` once nothing does), so a
+    /// `readLine` after it gives `Nothing`. Output is flushed before every
+    /// read. Each `print` writes its payload, then LF.
     pub fn run_main(
         &self,
         main: &Main,
@@ -361,6 +367,13 @@ impl Session {
                     None => s.nothing(),
                 }
             }
+            Value::Ctor(d, c, _) if d == s.io && c == s.read_all => {
+                output.flush().map_err(RunError::Write)?;
+                let rest = read_all(input, lines)?;
+                let reply = s.text(&rest);
+                trace(Event::ReadAll(rest));
+                reply
+            }
             _ => unreachable!("an `IO` operation"),
         })
     }
@@ -392,12 +405,33 @@ fn read_line(input: &mut impl BufRead, lines: &mut usize) -> Result<Option<Strin
         .map_err(|_| RunError::InvalidUtf8 { line: *lines })
 }
 
+/// Everything that remains of the input. `lines` counts the lines read so
+/// far, a last line without a line ending included.
+fn read_all(input: &mut impl BufRead, lines: &mut usize) -> Result<String, RunError> {
+    let mut bytes = Vec::new();
+    input.read_to_end(&mut bytes).map_err(RunError::Read)?;
+    match String::from_utf8(bytes) {
+        Ok(text) => {
+            *lines += text.lines().count();
+            Ok(text)
+        }
+        Err(e) => {
+            let valid = &e.as_bytes()[..e.utf8_error().valid_up_to()];
+            let before = valid.iter().filter(|&&b| b == b'\n').count();
+            Err(RunError::InvalidUtf8 {
+                line: *lines + before + 1,
+            })
+        }
+    }
+}
+
 /// The prelude's types that `IO` operations and their results are built
 /// from, and their constructors.
 struct Shapes {
     io: DataId,
     print: usize,
     read_line: usize,
+    read_all: usize,
     unit: DataId,
     maybe: DataId,
     text: DataId,
@@ -415,6 +449,7 @@ impl Shapes {
             io: data(Builtin::Io),
             print: ctor(Builtin::Print),
             read_line: ctor(Builtin::ReadLine),
+            read_all: ctor(Builtin::ReadAll),
             unit: data(Builtin::UnitType),
             maybe: data(Builtin::Maybe),
             text: data(Builtin::Text),

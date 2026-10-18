@@ -33,7 +33,7 @@ def total (k : Nat) (lines : List Text) : Nat := (lines.map (joltage k)).sum
 
 def solve (lines : List Text) : (Nat, Nat) := (total 2 lines, total 12 lines)
 
-def main () : {IO, Partial} () := report (solve (IO.readAllLines ()))
+def main () : {IO} () := report (solve (IO.readAllLines ()))
 
 def report : (Nat, Nat) -> {IO} ()
   | (a, b) =>

@@ -208,6 +208,7 @@ builtins! {
     Io = "IO": Data,
     Print = "%print": Ctor(Builtin::Io),
     ReadLine = "%readLine": Ctor(Builtin::Io),
+    ReadAll = "%readAll": Ctor(Builtin::Io),
     Simulate = "IO.simulate": Def,
 }
 

@@ -650,7 +650,7 @@ Resuming more than once doesn't by itself cause divergence. Exploring both branc
 | Ability | Purpose |
 |---|---|
 | `Partial` | Might not terminate ([§5](#5-totality-and-partiality)). Not an ability with operations but a mode: a partial computation is an `Effect.Delay`, which only the runtime runs (`stitchwort run`, the playground), one recursive call (tick) at a time ([docs/proposals/partial.md](docs/proposals/partial.md)) |
-| `IO` | The console (`print`, `readLine`). Performed for real only by the runtime, at `main`; Stitchwort handlers may interpret it as data, as the prelude's `IO.simulate` does ([docs/proposals/text-and-io.md](docs/proposals/text-and-io.md)). A trusted contract that may block |
+| `IO` | The console (`print`, `readLine`, `readAll`). Performed for real only by the runtime, at `main`; Stitchwort handlers may interpret it as data, as the prelude's `IO.simulate` does ([docs/proposals/text-and-io.md](docs/proposals/text-and-io.md)). A trusted contract that may block |
 | `Abort` | Stop early. Handled into `Optional` or `Either` |
 | `State s` | State, handled purely. `s` must be data-only |
 
