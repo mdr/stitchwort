@@ -166,8 +166,9 @@ capability we know we'll need before the work that needs it):
    `if`/`&&`/tests (`List.filter (\n => k * n <= size)`); no `Int` sum;
    `[highest : Nat]` repeated on every `Dial` function; a field and a
    namespaced function may share a name without a warning; no
-   `[x, ..rest]` list pattern. Running (user, 18 Oct): lane
-   `method-sections` (`.f args`, e.g. `|> .drop 1`, `people.map .name`);
+   `[x, ..rest]` list pattern. Running (user, 18 Oct): method sections merged (`ff2d6ed`: `.f args`,
+   `|> .drop 1` is exactly `xs.drop 1`, `people.map .name`; AoC uses
+   them);
    lane `elab-conveniences` (comparisons usable wherever a `Bool` is
    expected, an `Int` sum, Idris-style auto-binding of value names used
    as type arguments such as `Dial highest`) The crash-recovery
