@@ -289,7 +289,7 @@ exactly this reason; Scala can use `=` because its types never contain
 `=`.
 
 **The rule, as users are told it:** definitions and bindings of values
-(`def`, `theorem`, `test`, `let`, helpers in `where`) use `:=`; equality
+(`def`, `theorem`, `test`, `let`, local definitions) use `:=`; equality
 propositions use `=`. The older structural syntaxes keep their `=`:
 `type` declarations and record fields. (Draft 1's slogan "`:=` gives a
 name its value; `=` is equality" invites the question why
@@ -460,8 +460,7 @@ def pick : Nat -> List Nat -> Nat -> List Nat -> (Nat, List Nat)
 - **An absurd arm has no body**: `def absurd : Void -> a` / `| ()`. As
   today.
 - **Termination clauses**, when they come (DESIGN.md §4's planned
-  `decreasing b`), go after the last arm or the body, before `where`, as in
-  Lean [L6].
+  `decreasing b`), go after the last arm or the body, as in Lean [L6].
 
 Why not let arms bind names for header parameters (`def pick (w : Nat) …`
 then `| Zero, … =>` matching `w`)? Then `w` in the body would mean
@@ -595,6 +594,11 @@ No change here (question 4, decided). Switching to Lean's
 benefit, and `type` reads plainly to a non-specialist.
 
 ### 2.9 `where` and namespaces
+
+**Decided 18 October 2026: no `where`; local `def`s in blocks instead, see
+syntax-conveniences.md §3.** The rest of this section, and the `where`
+rows and grammar elsewhere in this note, record the design as it stood
+before that decision; the namespaces paragraph at the end still holds.
 
 `where` (syntax-conveniences step 5, not built; lane G) is written in the
 new style, and attaches to the **whole definition**, as in Lean [L5].

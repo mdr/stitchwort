@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-MUTUAL-SIGNATURE] Error: `b`'s type refers to a definition that isn't finished
+    ╭─[ reject/local-mutual-signature.sw:10:3 ]
+    │
+ 10 │   theorem b (k : Nat) : a k = a k := rfl
+    │   ───────────────┬───────────────  
+    │                  ╰───────────────── here
+    │ 
+    │ Note 1: the kernel's reason: this refers to `f.a`, which isn't finished
+    │ 
+    │ Note 2: a local definition is made into a top-level one, whose type can only mention finished definitions: not the definition it's in, nor a local definition that calls that
+────╯

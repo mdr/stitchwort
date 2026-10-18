@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-WHERE] Error: `where` isn't part of Stitchwort: declare helpers with a local `def`
+   ╭─[ reject/local-where.sw:4:3 ]
+   │
+ 4 │   where
+   │   ──┬──  
+   │     ╰──── no `where` here
+   │ 
+   │ Note: write the helper as a `def` in the body's block, before the result, like `def f (n : Nat) : Nat :=` then `  def go …` then `  go n`
+───╯

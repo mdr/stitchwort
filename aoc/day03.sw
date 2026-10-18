@@ -12,19 +12,18 @@
 
 def parseBank (t : Text) : List Nat := (Text.toList t).mapMaybe Char.digitValue
 
--- The leftmost largest of the next w digits, and what follows it. The
--- candidate so far is d, followed by `after`.
-def pick : Nat -> List Nat -> Nat -> List Nat -> (Nat, List Nat)
-  | Zero,   ds,          d, after => (d, after)
-  | Succ w, Nil,         d, after => (d, after)
-  | Succ w, Cons x rest, d, after =>
-    if d < x then pick w rest x rest else pick w rest d after
-
 -- The digits of the largest k-digit number that is a subsequence of ds.
 def best : Nat -> List Nat -> List Nat
   | Zero,   ds          => Nil
   | Succ k, Nil         => Nil
   | Succ k, Cons d rest =>
+    -- The leftmost largest of the next w digits, and what follows it. The
+    -- candidate so far is c, followed by `after`.
+    def pick : Nat -> List Nat -> Nat -> List Nat -> (Nat, List Nat)
+      | Zero,   ds,          c, after => (c, after)
+      | Succ w, Nil,         c, after => (c, after)
+      | Succ w, Cons x more, c, after =>
+        if c < x then pick w more x more else pick w more c after
     let (top, after) := pick (List.length rest - k) rest d rest
     Cons top (best k after)
 

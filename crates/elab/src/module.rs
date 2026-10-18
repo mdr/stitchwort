@@ -1379,6 +1379,18 @@ fn free_names(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
                 }
                 then(&mut stack, steps);
             }
+            // The definitions' names are bound in all of them and the rest
+            // of the block.
+            Expr::LocalDefs { defs, body, .. } => {
+                let names: Vec<&str> = defs.iter().filter_map(local_name).collect();
+                let mut steps: Vec<Work> = names.iter().map(|x| Work::Bind(x)).collect();
+                for def in defs {
+                    steps.extend(local_def_work(def));
+                }
+                steps.push(Work::Expr(body));
+                steps.extend(names.iter().map(|x| Work::Unbind(x)));
+                then(&mut stack, steps);
+            }
             Expr::Handle { body, clauses, .. } => {
                 let mut steps = vec![Work::Expr(body)];
                 for clause in clauses {
@@ -1414,6 +1426,50 @@ fn free_names(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
     out
 }
 
+/// A local definition's name.
+fn local_name(def: &ast::LocalDef) -> Option<&str> {
+    match &def.signature {
+        Decl::Signature { name, .. } => Some(&name.text),
+        _ => None,
+    }
+}
+
+/// The walk of a local definition: its type, then each equation with its
+/// variables bound.
+fn local_def_work(def: &ast::LocalDef) -> Vec<Work<'_>> {
+    let Decl::Signature { ty, .. } = &def.signature else {
+        return Vec::new();
+    };
+    let mut work = vec![Work::Expr(ty)];
+    let binders = body_binders(ty, &def.equations);
+    for eq in &def.equations {
+        let Decl::Equation { patterns, rhs, .. } = eq else {
+            continue;
+        };
+        let mut vars = Vec::new();
+        for p in patterns {
+            pattern_binders(p, &mut vars);
+        }
+        work.extend(binders.iter().map(|x| Work::Bind(x)));
+        work.extend(patterns.iter().map(Work::Pattern));
+        work.extend(rhs.iter().map(Work::Expr));
+        work.extend(vars.into_iter().map(Work::Unbind));
+        work.extend(binders.iter().map(|x| Work::Unbind(x)));
+    }
+    work
+}
+
+/// The names a local definition refers to (and doesn't bind itself).
+pub(crate) fn local_refs(def: &ast::LocalDef) -> Vec<String> {
+    free_names(local_def_work(def))
+        .into_iter()
+        .filter_map(|r| match r {
+            Ref::Name(n) => Some(n.text.clone()),
+            Ref::Dot(..) => None,
+        })
+        .collect()
+}
+
 /// Binding `names` around a part of an expression: the steps before it and
 /// after it.
 fn binds(names: &[ast::Name]) -> (Vec<Work<'_>>, Vec<Work<'_>>) {
@@ -1426,7 +1482,7 @@ fn binds(names: &[ast::Name]) -> (Vec<Work<'_>>, Vec<Work<'_>>) {
 /// Tarjan's strongly connected components of a graph given by adjacency
 /// lists, without recursion. Each component's members, components in no
 /// particular order.
-fn tarjan(edges: &[Vec<usize>]) -> Vec<Vec<usize>> {
+pub(crate) fn tarjan(edges: &[Vec<usize>]) -> Vec<Vec<usize>> {
     let n = edges.len();
     let mut index = vec![usize::MAX; n];
     let mut low = vec![0; n];

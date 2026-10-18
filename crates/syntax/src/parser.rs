@@ -5,14 +5,15 @@
 //! headers with a `:=` body or arms (`parser/declarations.rs`).
 //!
 //! Blocks: an expression that starts on a new line is a block, whose lines
-//! start at that line's column. Each line is a statement (`let x := e`, or an
+//! start at that line's column. Each line is a statement (`let x := e`, a local
+//! `def` or `theorem`, with its arms indented further, or an
 //! expression run for its effects) and the last is the result. Lines indented
 //! further continue the line above. A line at the block's column right after
 //! one ending in an operator (like `->`) continues it too.
 
 use crate::ast::{
-    Alt, BinOp, Binder, CtorDecl, Decl, Expr, Import, MatchKind, Module, Name, Pattern, Row,
-    Scrutinee,
+    Alt, BinOp, Binder, CtorDecl, Decl, Expr, Import, LocalDef, MatchKind, Module, Name, Pattern,
+    Row, Scrutinee,
 };
 use crate::lexer::{Tok, Token, lex};
 use crate::stack::StackLimit;
@@ -159,6 +160,8 @@ enum Stmt {
     Let(Name, Option<Expr>, Expr, Span),
     /// `let (a, b) = e`: a pattern binding, desugared to a `match` in `block`.
     LetPattern(Pattern, Option<Expr>, Expr, Span),
+    /// A local `def` or `theorem`; the span is where it starts.
+    Def(LocalDef, Span),
     Expr(Expr),
 }
 
@@ -799,10 +802,38 @@ impl<'t> Parser<'t> {
                     "a block must end with an expression, not `let`",
                 ));
             }
+            Some(Stmt::Def(_, span)) => {
+                return Err(error(
+                    span,
+                    "a block must end with an expression, not a local `def` or `theorem`",
+                ));
+            }
             None => return Err(self.unexpected("an expression")),
         };
+        // Whether `rest` is a `LocalDefs` made from the line after this one,
+        // which another local definition joins.
+        let mut grouping = false;
         for stmt in stmts.into_iter().rev() {
+            let was_grouping = std::mem::replace(&mut grouping, false);
             rest = match stmt {
+                Stmt::Def(def, span) => {
+                    grouping = true;
+                    if was_grouping
+                        && let Expr::LocalDefs {
+                            defs, span: end, ..
+                        } = &mut rest
+                    {
+                        defs.insert(0, def);
+                        *end = span.to(*end);
+                        rest
+                    } else {
+                        Expr::LocalDefs {
+                            defs: vec![def],
+                            span: span.to(rest.span()),
+                            body: Box::new(rest),
+                        }
+                    }
+                }
                 Stmt::LetPattern(pattern, ty, value, span) => {
                     let expr = match ty {
                         Some(ty) => {
@@ -847,10 +878,37 @@ impl<'t> Parser<'t> {
     }
 
     fn statement(&mut self) -> Result<Stmt> {
-        if self.peek() != Some(&Tok::KwLet) {
-            return Ok(Stmt::Expr(self.expr_inline()?));
+        match self.peek() {
+            Some(Tok::KwLet) => self.let_statement(),
+            Some(Tok::KwDef | Tok::KwTheorem) => self.local_def(),
+            Some(Tok::KwExport) => Err(error(
+                self.here(),
+                "local definitions can't be exported: only top-level ones are",
+            )),
+            _ => Ok(Stmt::Expr(self.expr_inline()?)),
         }
-        self.let_statement()
+    }
+
+    /// A local `def` or `theorem`, written as at top level, but with a body.
+    #[inline(never)]
+    fn local_def(&mut self) -> Result<Stmt> {
+        let start = self.here();
+        let mut decls = self.definition(start, false)?.into_iter();
+        let signature = decls.next().expect("a definition has a signature");
+        let equations: Vec<Decl> = decls.collect();
+        if equations.is_empty() {
+            return Err(error(
+                signature.span(),
+                "a local definition needs a body: `:=` and an expression, or arms starting with `|`",
+            ));
+        }
+        Ok(Stmt::Def(
+            LocalDef {
+                signature,
+                equations,
+            },
+            start,
+        ))
     }
 
     /// `let p := e`, or `let p : T := e`; the type may contain `=`.
@@ -2612,5 +2670,137 @@ mod tests {
         assert!(message.contains("can't have a type"), "{message}");
         assert!(rhs_of("def f (e : Nat) : Nat :=\n  let (a, b) := e\n").is_err());
         assert!(rhs_of("def f (e : Nat) : Nat :=\n  let (a, b)\n  e\n").is_err());
+    }
+
+    // Local definitions in blocks
+
+    /// The names of a `LocalDefs`' definitions and its body.
+    fn local(e: &Expr) -> (Vec<String>, &Expr) {
+        let Expr::LocalDefs { defs, body, .. } = e else {
+            panic!("expected local definitions, got {e:?}");
+        };
+        let names = defs
+            .iter()
+            .map(|d| match &d.signature {
+                Decl::Signature { name, .. } => name.text.to_string(),
+                other => panic!("{other:?}"),
+            })
+            .collect();
+        (names, body)
+    }
+
+    fn parse_error(text: &str) -> Diagnostic {
+        let mut sources = SourceMap::new();
+        let file = sources.add("test.sw", text);
+        parse_module(file, text).unwrap_err().remove(0)
+    }
+
+    #[test]
+    fn a_local_def_with_arms_then_the_result() {
+        let body = rhs(
+            "def sumTo (n : Nat) : Nat :=\n  let start := 0\n  def go : Nat -> Nat -> Nat\n    | Zero, acc => acc\n    | Succ k, acc => go k (acc + Succ k)\n  go n start\n",
+        );
+        assert_eq!(lines(&body), ["let start", "result"]);
+        let Expr::Let { body, .. } = &body else {
+            panic!()
+        };
+        let (names, rest) = local(body);
+        assert_eq!(names, ["go"]);
+        assert!(matches!(rest, Expr::App(..)), "{rest:?}");
+        let Expr::LocalDefs { defs, .. } = body.as_ref() else {
+            panic!()
+        };
+        assert_eq!(defs[0].equations.len(), 2);
+    }
+
+    #[test]
+    fn a_local_def_with_a_body_and_a_local_theorem() {
+        let body = rhs(
+            "def f (n : Nat) : Nat :=\n  def double (x : Nat) : Nat := x + x\n  theorem t : double 0 = 0 := refl\n  double n\n",
+        );
+        let (names, rest) = local(&body);
+        assert_eq!(names, ["double", "t"]);
+        assert!(matches!(rest, Expr::App(..)), "{rest:?}");
+        let Expr::LocalDefs { defs, .. } = &body else {
+            panic!()
+        };
+        assert!(matches!(
+            defs[1].signature,
+            Decl::Signature { theorem: true, .. }
+        ));
+        // A `:=` body on a further-indented block.
+        let body = rhs(
+            "def f (n : Nat) : Nat :=\n  def g (x : Nat) : Nat :=\n    let y := x\n    y\n  g n\n",
+        );
+        let (names, _) = local(&body);
+        assert_eq!(names, ["g"]);
+    }
+
+    #[test]
+    fn interleaved_lets_and_defs_nest() {
+        let body = rhs(
+            "def f (n : Nat) : Nat :=\n  let a := 1\n  def g (x : Nat) : Nat := x\n  let b := 2\n  def h (x : Nat) : Nat := x\n  h b\n",
+        );
+        let Expr::Let { body, .. } = &body else {
+            panic!("{body:?}")
+        };
+        let (names, rest) = local(body);
+        assert_eq!(names, ["g"]);
+        let Expr::Let { body, .. } = rest else {
+            panic!("{rest:?}")
+        };
+        let (names, rest) = local(body);
+        assert_eq!(names, ["h"]);
+        assert!(matches!(rest, Expr::App(..)));
+    }
+
+    #[test]
+    fn local_defs_nest_in_blocks_arms_and_alternatives() {
+        // In a nested block.
+        let body = rhs(
+            "def f (n : Nat) : Nat :=\n  let r :=\n    def g (x : Nat) : Nat := x\n    g n\n  r\n",
+        );
+        let Expr::Let { value, .. } = &body else {
+            panic!("{body:?}")
+        };
+        assert_eq!(local(value).0, ["g"]);
+        // In an arm body: the outer arms still parse.
+        let module = parse(
+            "def f : Nat -> Nat\n  | Zero =>\n    def g (x : Nat) : Nat := x\n    g 1\n  | Succ k =>\n    def h : Nat -> Nat\n      | Zero => 0\n      | Succ j => j\n    h k\n",
+        );
+        let arms: Vec<_> = module
+            .decls
+            .iter()
+            .filter_map(|d| match d {
+                Decl::Equation { rhs: Some(r), .. } => Some(r),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(arms.len(), 2);
+        assert_eq!(local(arms[0]).0, ["g"]);
+        assert_eq!(local(arms[1]).0, ["h"]);
+        // In a match alternative.
+        let body = rhs(
+            "def f (n : Nat) : Nat :=\n  match n with\n    | Zero =>\n      def g (x : Nat) : Nat := x\n      g 1\n    | Succ k => k\n",
+        );
+        let Expr::Match { alts, .. } = &body else {
+            panic!("{body:?}")
+        };
+        assert_eq!(alts.len(), 2);
+        assert_eq!(local(&alts[0].body).0, ["g"]);
+    }
+
+    #[test]
+    fn local_def_errors() {
+        let e = parse_error("def f (n : Nat) : Nat :=\n  let a := 1\n  def g : Nat := a\n");
+        assert!(e.message.contains("must end with an expression"), "{e:?}");
+        assert!(e.message.contains("def"), "{e:?}");
+        let e = parse_error("def f (n : Nat) : Nat :=\n  export def g : Nat := 1\n  g\n");
+        assert!(e.message.contains("can't be exported"), "{e:?}");
+        let e = parse_error("def f (n : Nat) : Nat :=\n  def g : Nat\n  n\n");
+        assert!(e.message.contains("needs a body"), "{e:?}");
+        let e = parse_error("def f (n : Nat) : Nat := g n\n  where\n    g : Nat\n");
+        assert_eq!(e.code, "E-WHERE");
+        assert!(e.message.contains("local `def`"), "{e:?}");
     }
 }

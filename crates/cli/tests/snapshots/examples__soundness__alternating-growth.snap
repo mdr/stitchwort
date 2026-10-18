@@ -16,5 +16,5 @@ expression: output
     │ 
     │ Note 2: however the recursive calls are repeated, some argument must get smaller (a part of a pattern-matched constructor); an argument passed on unchanged, or rebuilt from its own pattern, is no smaller
     │ 
-    │ Note 3: non-terminating definitions are rejected; `{Partial}` isn't implemented yet
+    │ Note 3: non-terminating definitions are rejected unless they're partial: `{Partial}` in the result type
 ────╯

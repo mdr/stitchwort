@@ -148,6 +148,11 @@ pub struct Globals {
     /// them directly once the helpers are declared. Few, so a list; cleared
     /// with `metas`. Never seen by the kernel.
     pub frozen_metas: RefCell<Vec<usize>>,
+    /// How the printer shows calls of local definitions while their owner
+    /// is checked (docs/proposals/syntax-conveniences.md §2.5): `go a b`,
+    /// not the lifted call with its captures. Cleared with `metas`. Only
+    /// affects messages.
+    pub print_labels: RefCell<Vec<PrintLabel>>,
     /// Content hashes computed so far. Declarations never change once
     /// checked, so these never go stale.
     pub hashes: RefCell<std::collections::HashMap<HashKey, crate::hash::ContentHash>>,
@@ -160,6 +165,17 @@ pub struct Globals {
     /// (`Std` for the prelude, `Main` for a program), which their [`Data::path`]
     /// starts with. Empty: the path is the name.
     pub module: Name,
+}
+
+/// A call the printer shows by a local name (see
+/// [`Globals::print_labels`]): `head` applied first to the variables at
+/// `levels` (by level, outermost first) is shown as `name` applied to the
+/// rest. For a metavariable, those first arguments are hidden whatever
+/// they are.
+pub struct PrintLabel {
+    pub head: Term,
+    pub name: Name,
+    pub levels: Vec<usize>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -224,5 +240,6 @@ impl Globals {
         self.metas.borrow_mut().clear();
         self.frozen_metas.borrow_mut().clear();
         self.meta_trail.borrow_mut().clear();
+        self.print_labels.borrow_mut().clear();
     }
 }
