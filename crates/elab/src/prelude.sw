@@ -656,6 +656,19 @@ List.foldl : (b -> a -> b) -> b -> List a -> b
 List.foldl f z Nil         = z
 List.foldl f z (Cons x xs) = List.foldl f (f z x) xs
 
+-- Running accumulations, the initial value first (Haskell's `scanl`):
+-- `List.scanl f z [x, y]` is `[z, f z x, f (f z x) y]`. Always one longer than
+-- the input.
+List.scanl : (b -> a -> b) -> b -> List a -> List b
+List.scanl f z Nil         = Cons z Nil
+List.scanl f z (Cons x xs) = Cons z (List.scanl f (f z x) xs)
+
+theorem List.scanlNil : List.scanl (\acc x -> acc + x) 5 Nil = [5]
+List.scanlNil = rfl
+
+theorem List.scanlSums : List.scanl (\acc x -> acc + x) 0 [1, 2, 3] = [0, 1, 3, 6]
+List.scanlSums = rfl
+
 -- Right fold. `List.foldr f z [x, y]` is `f x (f y z)`.
 List.foldr : (a -> b -> b) -> b -> List a -> b
 List.foldr f z Nil         = z

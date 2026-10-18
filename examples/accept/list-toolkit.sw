@@ -11,6 +11,9 @@ filtered = rfl
 theorem folded : [1, 2, 3].foldl (\acc x -> acc * 10 + x) 0 = 123
 folded = rfl
 
+theorem scanned : [1, 2, 3].scanl (\acc x -> acc + x) 0 = [0, 1, 3, 6]
+scanned = rfl
+
 theorem foldedRight : [1, 2, 3].foldr (\x acc -> acc * 10 + x) 0 = 321
 foldedRight = rfl
 
