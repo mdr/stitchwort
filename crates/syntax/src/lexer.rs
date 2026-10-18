@@ -39,6 +39,8 @@ pub enum Tok {
     Pipe,
     /// `||`
     OrOr,
+    /// `|>`: pipe forward, `x |> f a` is `f a x`.
+    PipeGt,
     /// `&&`
     AndAnd,
     Plus,
@@ -286,6 +288,10 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
                 b'|' if bytes.get(i) == Some(&b'|') => {
                     i += 1;
                     Tok::OrOr
+                }
+                b'|' if bytes.get(i) == Some(&b'>') => {
+                    i += 1;
+                    Tok::PipeGt
                 }
                 b'|' => Tok::Pipe,
                 b'&' if bytes.get(i) == Some(&b'&') => {

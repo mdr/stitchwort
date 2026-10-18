@@ -597,6 +597,15 @@ for (const [how, patch] of [["highlights", null], ["spans", "delete window.Highl
   });
 }
 
+test("`|>` is coloured as one operator", async (page) => {
+  await page.open({ patch: "delete window.Highlight;" });
+  await page.untilChecked();
+  await page.setSource("def n : Nat := [1, 2]\n  |> List.sum\n");
+  await sleep(100);
+  const operators = await page.ev(`[...document.querySelectorAll("#highlight span.hl-operator")].map((s) => s.textContent)`);
+  assert.ok(operators.includes("|>"), JSON.stringify(operators));
+});
+
 test("the draft, input and tab are kept across a reload", async (page) => {
   await page.open();
   await page.untilChecked();
