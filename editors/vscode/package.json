@@ -1,0 +1,27 @@
+{
+  "name": "stitchwort",
+  "displayName": "Stitchwort",
+  "description": "Syntax colouring for Stitchwort (.sw) files",
+  "version": "0.0.1",
+  "publisher": "local",
+  "private": true,
+  "engines": { "vscode": "^1.60.0" },
+  "categories": ["Programming Languages"],
+  "contributes": {
+    "languages": [
+      {
+        "id": "stitchwort",
+        "aliases": ["Stitchwort", "stitchwort"],
+        "extensions": [".sw"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "stitchwort",
+        "scopeName": "source.stitchwort",
+        "path": "./syntaxes/stitchwort.tmLanguage.json"
+      }
+    ]
+  }
+}

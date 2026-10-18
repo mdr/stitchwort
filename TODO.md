@@ -150,14 +150,29 @@ capability we know we'll need before the work that needs it):
    `E-ARM-PARAMETER`, "arm" wording, `crates/convert` deleted. The
    conversion is complete. Decided (user, 18 Oct): no `where`; values and
    functions are declared in blocks, top-down, Scala-style (`let x := e`,
-   local `def`/`theorem`). Lane `local-defs` (Opus) running. `&&`/`||`/`not`
+   local `def`/`theorem`). Local defs merged (`ddd7b2f`); a merge
+   interaction with `&&`/`||` (a condition's undo deleted local-def
+   drafts) fixed (`6b57079`). `List.sumBy` added. VS Code extension in
+   `editors/vscode` (install with `install.sh`). `&&`/`||`/`not`
    merged (`4b6b29d`: short-circuit on Bool, `And`/`Or`/`Not` on Props,
    `test` accepts a decidable Prop; `if h : p && q` doesn't short-circuit).
    AoC days 4–5 on hold (user, 18 Oct): the user is
    reviewing the day 1–3 code first. Pipe-forward `|>` (user: value as
    last argument, Elm/F#-style; left checked first) — lane `pipe-op`
    (Opus) running; then rewrite days 1–3 with `|>` and the user's review
-   changes. `>>`/`<<` composition later if wanted; then one switch commit (convert everything, flip
+   changes. Review notes so far: keep `Text.uncons` but write
+   `t.uncons` (dot notation) — generally prefer dot notation and
+   `rest.toNat`-style calls where they read better; `parseTurn` via
+   `andThen` (`t.uncons.andThen (\(c, rest) => rest.toNat.andThen
+   (turnOf c))`). `IO.readAll` (whole input as one `Text`, a
+   total IO operation) + `Text.lines`; `readAllLines` becomes total, so
+   `main` drops `Partial` — lane `io-readall` (Opus) running. Day 1 renames: `Pos` → `Dial`, `at` →
+   `position`, `ok` → `inRange`, `top` → `highest` (`Dial 99`);
+   functions on a type live in its namespace and are called with dots
+   (`Dial.isZero`/`d.isZero`, `Dial.move`/`d.move t`, `Turn.parse`). After
+   `|>` merges: a small Sonnet sweep making the
+   library pipe-friendly — the main value last, Elm-style — starting
+   with `Maybe.andThen` (function first, like `Maybe.map`). `>>`/`<<` composition later if wanted; then one switch commit (convert everything, flip
    the parser, delete the old one, hash/AST/test comparison); then a
    tidy-up (docs, playground colouring, awkward converter output); then
    `where`. Header and implicit names must differ. Also queued after the switch: `&&`/`||` and
@@ -200,6 +215,10 @@ capability we know we'll need before the work that needs it):
    Write up the friction found.
 
 ## Later
+
+- **Language server** for `.sw` (live errors, hover types, go to
+  definition): later (user, 18 Oct). Lane `vscode-ext` (Sonnet) is
+  building a local VS Code colouring extension in `editors/vscode/`.
 
 - **Hashes aren't a design constraint yet** (user, 18 Oct: no users).
   Simplify places bent to keep them, e.g. `Int` stage 3's "old way

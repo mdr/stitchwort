@@ -1,0 +1,17 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-DUPLICATE] Error: `go` is already a local definition in `dup`
+   ╭─[ reject/local-duplicate.sw:7:7 ]
+   │
+ 5 │   def go (k : Nat) : Nat := k
+   │       ─┬  
+   │        ╰── first defined here
+   │ 
+ 7 │   def go (k : Nat) : Nat := k + 1
+   │       ─┬  
+   │        ╰── defined again here
+   │ 
+   │ Note: local definitions are named `dup.go` from outside, so their names must be different within the whole definition
+───╯

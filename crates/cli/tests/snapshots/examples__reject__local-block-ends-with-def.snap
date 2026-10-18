@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: a block must end with an expression, not a local `def` or `theorem`
+   ╭─[ reject/local-block-ends-with-def.sw:4:3 ]
+   │
+ 4 │   def g (k : Nat) : Nat := k
+   │   ─┬─  
+   │    ╰─── a block must end with an expression, not a local `def` or `theorem`
+───╯

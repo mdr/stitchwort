@@ -1,28 +1,33 @@
 //! Lifting: turning a piece of a definition into a generated top-level
 //! definition, a *helper* (docs/proposals/syntax-conveniences.md §2).
 //!
-//! A helper is elaborated where it's written, in the owner's context, and
-//! recorded as a [`Draft`]. Where it's used, the owner's term has a frozen
-//! metavariable (`Globals::meta_frozen`) applied to the variables in scope:
-//! unification treats it as rigid, so nothing is learnt from it before the
-//! helper exists. Once the owner's body (or signature) is elaborated, the
-//! drafts are *resolved* in the order they were made, which puts a nested
-//! helper before the one containing it ([`Elaborator::lift`]):
+//! A helper (a lifted `match`, or a local definition) is elaborated where
+//! it's written, in the owner's context, and recorded as a [`Draft`].
+//! Where it's used, the owner's term has a frozen metavariable
+//! (`Globals::meta_frozen`) applied to the variables in scope: unification
+//! treats it as rigid, so nothing is learnt from it before the helper
+//! exists. Once the owner's body (or signature) is elaborated, the drafts
+//! are *resolved* together ([`Elaborator::lift`]):
 //!
 //! 1. solved metavariables are substituted in, and variables a case split
 //!    has replaced by a constructor are replaced by it;
-//! 2. the captures are computed: the variables the helper uses, closed
-//!    under "the variables their types mention" (§2.1, rules 1 and 2; a
-//!    nested helper's captures are seen through its call, rule 3);
+//! 2. the captures are computed, for all the drafts at once: the variables
+//!    each helper uses, closed under "the variables their types mention"
+//!    and "the captures of the helpers it calls" (§2.1, rules 1 to 3). A
+//!    call of another draft is its frozen metavariable applied to the
+//!    variables in scope, of which only those that helper captures count:
+//!    a fixed point, since helpers may call each other;
 //! 3. the captures are ordered by their types' dependencies, keeping
 //!    context order where possible, and the helper's type is the telescope
 //!    of them followed by the result type;
-//! 4. the helper is declared, and the frozen metavariable is solved with the
-//!    call `owner.%matchN c₁ … cₖ`, every capture passed explicitly;
-//! 5. the helper is admitted on its own at once if it refers to nothing
-//!    pending, or else joins the owner's group, admitted with it (§2.2).
+//! 4. the drafts are split into strongly connected components by which
+//!    others they call, and each component, after those it calls, is
+//!    declared (its frozen metavariables solved with the calls
+//!    `owner.go c₁ … cₖ`, every capture passed explicitly), then admitted
+//!    on its own if it refers to nothing pending, or else joins the owner's
+//!    group, admitted with it (§2.2).
 
-use std::collections::{BTreeSet, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::rc::Rc;
 
 use stitchwort_core::check as kernel;
@@ -51,9 +56,41 @@ pub(crate) struct Draft {
     /// For each variable at level `base + i`, what the call passes for it: a
     /// term in the first `base` variables.
     pub extra: Vec<Term>,
-    /// The body (a case tree) and its type, in the whole context.
+    /// The body (a case tree, or for a local definition, its lambdas around
+    /// one) and its type, in the whole context.
     pub body: Term,
     pub goal: Term,
+    /// How each variable of the context was bound (`Ctx::kinds`): a local
+    /// definition's captures keep their kind (§2.1).
+    pub kinds: Vec<Icit>,
+    /// For a local definition, what it is; `None` for a `match`.
+    pub local: Option<LocalDraft>,
+}
+
+/// A local definition being lifted (`local.rs`).
+pub(crate) struct LocalDraft {
+    /// `owner.go`.
+    pub key: String,
+    /// `go`, as written.
+    pub name: String,
+    pub theorem: bool,
+    /// The whole definition, from `def` to its last arm: a `match` inside is
+    /// numbered within it (`owner.go.%match1`).
+    pub whole: Span,
+}
+
+/// What resolving a batch gives: the helpers to admit with the owner, and
+/// what each draft became.
+pub(crate) type Batch = (Vec<(DefId, Term)>, Vec<Resolved>);
+
+/// A helper's type, body, and its call's arguments with their kinds.
+type Parts = (Term, Term, Vec<(Term, Icit)>);
+
+/// A helper once resolved: its definition and captures (levels in the
+/// draft's context, in order, with their kinds).
+pub(crate) struct Resolved {
+    pub id: DefId,
+    pub captures: Vec<(usize, Icit, Name)>,
 }
 
 /// Records a helper whose body `body` of type `goal` was elaborated in `cx`,
@@ -85,13 +122,15 @@ pub(crate) fn draft(
         extra,
         body,
         goal,
+        kinds: cx.kinds.clone(),
+        local: None,
     });
     Ok(call)
 }
 
 /// The variables a metavariable created in `env` is applied to: those a
 /// case split hasn't replaced (as `Ctx::fresh_meta`).
-fn spine(env: &[Value]) -> Vec<usize> {
+pub(crate) fn spine(env: &[Value]) -> Vec<usize> {
     (0..env.len()).filter(|&l| is_var(&env[l], l)).collect()
 }
 
@@ -207,81 +246,255 @@ fn go_replace(
 }
 
 /// The levels of the free variables of `term`, in a context of `depth`
-/// variables (a case split's variable counts).
-fn free_levels(term: &Term, depth: usize, out: &mut BTreeSet<usize>) {
-    for (t, under) in term.subterms() {
-        let ix = match t {
-            Term::Var(ix) | Term::Case(ix, ..) | Term::NumCase(ix, ..) => *ix,
-            _ => continue,
-        };
-        if ix >= under {
+/// variables (a case split's variable counts), except that a call of a
+/// draft (its frozen metavariable applied to the variables in scope, then
+/// its own arguments) only uses the variables at the positions `calls`
+/// gives for that metavariable: `(s, used)`, where `s` is how many
+/// arguments stand for variables in scope and `used` those the draft
+/// captures (§2.1 rule 3).
+fn uses(
+    term: &Term,
+    depth: usize,
+    calls: &dyn Fn(usize) -> Option<(usize, BTreeSet<usize>)>,
+    out: &mut BTreeSet<usize>,
+) {
+    let mut stack = vec![(term, 0usize)];
+    while let Some((t, under)) = stack.pop() {
+        if let Term::App(..) = t.strip_loc() {
+            let (head, args) = t.spine();
+            if let Term::Meta(m) = head
+                && let Some((s, used)) = calls(*m)
+            {
+                for (p, a) in args.into_iter().enumerate() {
+                    if p >= s || used.contains(&p) {
+                        stack.push((a, under));
+                    }
+                }
+                continue;
+            }
+        }
+        if let Term::Var(ix) | Term::Case(ix, ..) | Term::NumCase(ix, ..) = t
+            && *ix >= under
+        {
             out.insert(depth - 1 - (ix - under));
+        }
+        t.for_each_child(|c, u| stack.push((c, under + u)));
+    }
+}
+
+/// The metavariables `term` mentions.
+fn metas(term: &Term, out: &mut BTreeSet<usize>) {
+    for (t, _) in term.subterms() {
+        if let Term::Meta(m) = t {
+            out.insert(*m);
         }
     }
 }
 
 /// The definitions `term` refers to.
-fn defs(term: &Term) -> impl Iterator<Item = DefId> + '_ {
+pub(crate) fn defs(term: &Term) -> impl Iterator<Item = DefId> + '_ {
     term.subterms().filter_map(|(t, _)| match t {
         Term::Def(id) => Some(*id),
         _ => None,
     })
 }
 
+/// How a draft is named in a message: "this `match`", or "`go`".
+fn described(draft: &Draft) -> String {
+    match &draft.local {
+        Some(local) => format!("`{}`", local.name),
+        None => "this `match`".into(),
+    }
+}
+
+/// Whether `inner` is inside `outer`.
+pub(crate) fn within(outer: Span, inner: Span) -> bool {
+    outer.file == inner.file && outer.start <= inner.start && inner.end <= outer.end
+}
+
+/// The keys of a batch of drafts: a local definition's own; a `match`'s
+/// numbered in source order within the innermost local definition it's in,
+/// or else within the owner (§2.4).
+fn keys(owner: &str, drafts: &[Draft]) -> Vec<String> {
+    let prefix = |d: &Draft| -> String {
+        drafts
+            .iter()
+            .filter_map(|o| o.local.as_ref())
+            .filter(|l| within(l.whole, d.span))
+            .min_by_key(|l| l.whole.end - l.whole.start)
+            .map_or_else(|| owner.to_string(), |l| l.key.clone())
+    };
+    let mut out = vec![String::new(); drafts.len()];
+    let mut matches: HashMap<String, Vec<usize>> = HashMap::new();
+    for (i, d) in drafts.iter().enumerate() {
+        match &d.local {
+            Some(l) => out[i] = l.key.clone(),
+            None => matches.entry(prefix(d)).or_default().push(i),
+        }
+    }
+    for (prefix, mut members) in matches {
+        members.sort_by_key(|&i| (drafts[i].span.start, std::cmp::Reverse(drafts[i].span.end)));
+        for (n, i) in members.into_iter().enumerate() {
+            out[i] = format!("{prefix}.%match{}", n + 1);
+        }
+    }
+    out
+}
+
 impl Elaborator {
     /// Resolves the drafts made while elaborating `owner` (a declaration
-    /// key), in the order they were made. Each is declared, and admitted at
-    /// once unless it refers to something pending and `join` allows it to
-    /// join the owner's group: those are returned, with their bodies, for the
-    /// caller to admit with the owner.
+    /// key). Each is declared, and admitted at once unless it refers to
+    /// something pending and `join` allows it to join the owner's group:
+    /// those are returned, with their bodies, for the caller to admit with
+    /// the owner.
     pub(crate) fn lift(&mut self, owner: &str, join: bool) -> Result<Vec<(DefId, Term)>> {
         if self.drafts.borrow().is_empty() {
             return Ok(Vec::new());
         }
         self.solve_obligations()?;
         let drafts = std::mem::take(&mut *self.drafts.borrow_mut());
-        // Numbered in source order within the owner (§2.4).
-        let mut order: Vec<usize> = (0..drafts.len()).collect();
-        order.sort_by_key(|&i| (drafts[i].span.start, std::cmp::Reverse(drafts[i].span.end)));
-        let mut number = vec![0; drafts.len()];
-        for (n, &i) in order.iter().enumerate() {
-            number[i] = n + 1;
+        Ok(self.resolve_batch(owner, drafts, join)?.0)
+    }
+
+    /// Resolves `drafts` together (see the module's documentation): the
+    /// helpers to admit with the owner, and what each draft became.
+    pub(crate) fn resolve_batch(
+        &mut self,
+        owner: &str,
+        drafts: Vec<Draft>,
+        join: bool,
+    ) -> Result<Batch> {
+        let keys = keys(owner, &drafts);
+        let index: HashMap<usize, usize> = drafts
+            .iter()
+            .enumerate()
+            .map(|(i, d)| (d.meta, i))
+            .collect();
+        let in_batch = |m: usize| index.contains_key(&m);
+        let ordered = self.captures(&drafts, &index)?;
+        // Which drafts each one calls (in its body, type or captures' types).
+        let mut calls: Vec<Vec<usize>> = Vec::new();
+        for (d, caps) in drafts.iter().zip(&ordered) {
+            let n = d.env.len();
+            let mut found = BTreeSet::new();
+            metas(&self.unrefine(d, &d.body, n, &in_batch)?, &mut found);
+            metas(&self.unrefine(d, &d.goal, n, &in_batch)?, &mut found);
+            for &l in caps {
+                let ty = quote(&self.globals, n, &d.types[l])?;
+                metas(&self.unrefine(d, &ty, n, &in_batch)?, &mut found);
+            }
+            calls.push(found.iter().filter_map(|m| index.get(m).copied()).collect());
         }
         let mut joined: Vec<(DefId, Term)> = Vec::new();
         let mut joined_ids = HashSet::new();
-        for (draft, n) in drafts.into_iter().zip(number) {
-            let key = format!("{owner}.%match{n}");
-            let (id, body) = self.resolve_draft(&draft, &key)?;
-            let pending = defs(&body)
-                .any(|d| joined_ids.contains(&d) || self.globals.def(d).state == State::Pending);
-            if let Some(item) = self.module.item {
-                self.module.def_items.insert(id, item);
+        let mut resolved: Vec<Option<Resolved>> = (0..drafts.len()).map(|_| None).collect();
+        // Tarjan's components come after the components they call.
+        for mut component in crate::module::tarjan(&calls) {
+            component.sort_unstable();
+            let mut members = Vec::new();
+            for &i in &component {
+                let d = &drafts[i];
+                // A frozen metavariable left in its type is a member of its
+                // own component, not declared yet.
+                let mut unfinished = BTreeSet::new();
+                metas(
+                    &self.parts(d, &ordered[i], &in_batch, false)?.0,
+                    &mut unfinished,
+                );
+                if !unfinished.is_empty() {
+                    return Err(Diagnostic::error(
+                        "E-MUTUAL-SIGNATURE",
+                        format!(
+                            "{}'s type refers to a local definition defined together with it",
+                            described(d)
+                        ),
+                    )
+                    .with_label(d.span, "here")
+                    .with_note(
+                        "a definition's type can only mention finished definitions, and the \
+                         ones it calls and that call it aren't finished until it is",
+                    ));
+                }
+                let (ty, _, args) = self.parts(d, &ordered[i], &|_| false, false)?;
+                let id = self.declare_helper(d, &keys[i], &ty)?;
+                let g = &self.globals;
+                let mut call = Term::Def(id);
+                for (arg, icit) in args {
+                    call = Term::app_icit(call, arg, icit);
+                }
+                for _ in spine(&d.env[..d.base]) {
+                    call = Term::Lam("x".into(), Icit::Explicit, Rc::new(call));
+                }
+                g.solve_meta(d.meta, eval(g, &[], &call)?);
+                if let Some(item) = self.module.item {
+                    self.module.def_items.insert(id, item);
+                }
+                match &d.local {
+                    Some(local) => {
+                        self.local_helpers
+                            .push((local.key.clone(), id, local.whole));
+                        self.globals.print_labels.borrow_mut().push(
+                            stitchwort_core::globals::PrintLabel {
+                                head: Term::Def(id),
+                                name: local.name.as_str().into(),
+                                levels: ordered[i].clone(),
+                            },
+                        );
+                    }
+                    None => self.lifted.push((id, d.span)),
+                }
+                members.push((i, id));
             }
-            self.lifted.push((id, draft.span));
+            let mut bodies = Vec::new();
+            for &(i, id) in &members {
+                let (_, lam, _) = self.parts(&drafts[i], &ordered[i], &|_| false, true)?;
+                bodies.push((id, lam));
+            }
+            let ids: HashSet<DefId> = members.iter().map(|(_, id)| *id).collect();
+            let pending = bodies.iter().any(|(_, body)| {
+                defs(body).any(|d| {
+                    !ids.contains(&d)
+                        && (joined_ids.contains(&d) || self.globals.def(d).state == State::Pending)
+                })
+            });
+            for &(i, id) in &members {
+                let d = &drafts[i];
+                resolved[i] = Some(Resolved {
+                    id,
+                    captures: ordered[i]
+                        .iter()
+                        .map(|&l| (l, d.kinds[l], d.names[l].clone()))
+                        .collect(),
+                });
+            }
             if join && pending {
-                joined_ids.insert(id);
-                joined.push((id, body));
+                joined_ids.extend(ids);
+                joined.extend(bodies);
             } else {
-                kernel::define_group(&mut self.globals, &[(id, body)])
+                kernel::define_group(&mut self.globals, &bodies)
                     .map_err(|d| self.explain_lifted(d))?;
             }
         }
-        Ok(joined)
+        let resolved = resolved
+            .into_iter()
+            .map(|r| r.expect("every component is resolved"))
+            .collect();
+        Ok((joined, resolved))
     }
 
-    /// Declares the helper for `draft`, solves its frozen metavariable with
-    /// the call, and gives its id and body.
-    fn resolve_draft(&mut self, draft: &Draft, key: &str) -> Result<(DefId, Term)> {
-        let (ty, lam, args) = self.lifted_parts(draft)?;
+    /// Declares the helper for `draft`, of type `ty`, as `key`.
+    fn declare_helper(&mut self, draft: &Draft, key: &str, ty: &Term) -> Result<DefId> {
         let name = crate::scope::display(key).to_string();
+        let theorem = draft.local.as_ref().is_some_and(|l| l.theorem);
+        let what = described(draft);
         // Everything in the type was elaborated and checked where it was
         // written, except what generalising a scrutinee changed: if the
         // kernel refuses it, that's why (§4.4).
-        let id = kernel::declare_def(
+        kernel::declare_def(
             &mut self.globals,
             &name.into(),
-            &ty,
-            false,
+            ty,
+            theorem,
             false,
             draft.span,
         )
@@ -289,19 +502,29 @@ impl Elaborator {
             if crate::undo::fatal(&d) {
                 return d;
             }
-            if d.message.contains("which isn't finished") {
+            if let Some(reason) = std::iter::once(&d.message)
+                .chain(d.labels.iter().map(|l| &l.message))
+                .find(|m| m.contains("which isn't finished"))
+            {
                 // Like a signature mentioning a member of its own group.
                 return Diagnostic::error(
                     "E-MUTUAL-SIGNATURE",
-                    "this `match`'s type refers to a definition that isn't finished",
+                    format!("{what}'s type refers to a definition that isn't finished"),
                 )
-                .with_label(draft.span, "this `match`")
-                .with_note(format!("the kernel's reason: {}", d.message))
-                .with_note(
+                .with_label(draft.span, "here")
+                .with_note(format!("the kernel's reason: {reason}"))
+                .with_note(if draft.local.is_some() {
+                    "a local definition is made into a top-level one, whose type can only \
+                     mention finished definitions: not the definition it's in, nor a local \
+                     definition that calls that"
+                } else {
                     "the `match` is made into a definition whose type must only mention \
-                         finished definitions; annotate it with a type that doesn't, or use a \
-                         top-level helper",
-                );
+                     finished definitions; annotate it with a type that doesn't, or use a \
+                     top-level helper"
+                });
+            }
+            if draft.local.is_some() {
+                return d;
             }
             Diagnostic::error(
                 "E-MATCH-MOTIVE",
@@ -314,81 +537,191 @@ impl Elaborator {
                 "a top-level helper with a written signature can always do what this \
                      `match` would: define one and call it",
             )
-        })?;
-        // The call, as a function of the metavariable's spine.
-        let g = &self.globals;
-        let mut call = Term::Def(id);
-        for arg in args {
-            call = Term::app(call, arg);
-        }
-        for _ in spine(&draft.env[..draft.base]) {
-            call = Term::Lam("x".into(), Icit::Explicit, Rc::new(call));
-        }
-        g.solve_meta(draft.meta, eval(g, &[], &call)?);
-        Ok((id, lam))
+        })
     }
 
-    /// The helper's type and body, and the arguments of its call, as terms
-    /// in the frozen metavariable's spine.
-    pub(crate) fn lifted_parts(&self, draft: &Draft) -> Result<(Term, Term, Vec<Term>)> {
+    /// `term` (in `draft`'s context, of `depth` variables) with solved
+    /// metavariables substituted in, and the variables a case split replaced
+    /// by a constructor replaced by it: the helper takes the constructor's
+    /// fields instead. Unsolved metavariables are an error, except those
+    /// `keep` allows.
+    fn unrefine(
+        &self,
+        draft: &Draft,
+        term: &Term,
+        depth: usize,
+        keep: &dyn Fn(usize) -> bool,
+    ) -> Result<Term> {
+        let g = &self.globals;
+        let t = self.zonk_keeping(term, depth, keep)?;
+        replace(g, &t, depth, &|l| {
+            if is_var(&draft.env[l], l) {
+                Ok(Term::Var(depth - 1 - l))
+            } else {
+                Ok(quote(g, depth, &draft.env[l])?)
+            }
+        })
+    }
+
+    /// The captures of each draft, ordered (§2.1): the least sets closed
+    /// under the variables each uses, their types' variables, and the
+    /// captures of the drafts each calls. `index` gives each draft's
+    /// frozen metavariable's draft.
+    fn captures(&self, drafts: &[Draft], index: &HashMap<usize, usize>) -> Result<Vec<Vec<usize>>> {
+        let g = &self.globals;
+        let in_batch = |m: usize| index.contains_key(&m);
+        // Bodies and types, and the types of the variables, as the fixed
+        // point reads them (each variable's computed once, when needed).
+        let mut parts: Vec<(Term, Term)> = Vec::new();
+        let mut types: Vec<Vec<Option<Term>>> = Vec::new();
+        for d in drafts {
+            let n = d.env.len();
+            parts.push((
+                self.unrefine(d, &d.body, n, &in_batch)?,
+                self.unrefine(d, &d.goal, n, &in_batch)?,
+            ));
+            types.push(vec![None; n]);
+        }
+        let spines: Vec<Vec<usize>> = drafts.iter().map(|d| spine(&d.env[..d.base])).collect();
+        let mut caps: Vec<BTreeSet<usize>> = vec![BTreeSet::new(); drafts.len()];
+        let mut used: Vec<BTreeSet<usize>> = vec![BTreeSet::new(); drafts.len()];
+        loop {
+            let mut changed = false;
+            for (i, d) in drafts.iter().enumerate() {
+                let n = d.env.len();
+                let calls = |m: usize| index.get(&m).map(|&j| (spines[j].len(), used[j].clone()));
+                let mut found = BTreeSet::new();
+                uses(&parts[i].0, n, &calls, &mut found);
+                uses(&parts[i].1, n, &calls, &mut found);
+                let mut work: Vec<usize> = found.iter().copied().collect();
+                let mut done = BTreeSet::new();
+                while let Some(l) = work.pop() {
+                    if !done.insert(l) {
+                        continue;
+                    }
+                    if types[i][l].is_none() {
+                        let ty = quote(g, n, &d.types[l])?;
+                        types[i][l] = Some(self.unrefine(d, &ty, n, &in_batch)?);
+                    }
+                    let mut deps = BTreeSet::new();
+                    uses(
+                        types[i][l].as_ref().expect("just computed"),
+                        n,
+                        &calls,
+                        &mut deps,
+                    );
+                    for dep in deps {
+                        if found.insert(dep) {
+                            work.push(dep);
+                        }
+                    }
+                }
+                if found != caps[i] {
+                    caps[i] = found;
+                    changed = true;
+                }
+            }
+            for (i, d) in drafts.iter().enumerate() {
+                used[i] = self.positions(d, &spines[i], &caps[i])?;
+            }
+            if !changed {
+                break;
+            }
+        }
+        // Each one's captures, ordered by their types' dependencies, keeping
+        // context order where the dependencies allow (§4.4).
+        let mut out = Vec::new();
+        for (i, d) in drafts.iter().enumerate() {
+            let n = d.env.len();
+            let calls = |m: usize| index.get(&m).map(|&j| (spines[j].len(), used[j].clone()));
+            let mut deps: HashMap<usize, BTreeSet<usize>> = HashMap::new();
+            for &l in &caps[i] {
+                let mut found = BTreeSet::new();
+                uses(
+                    types[i][l].as_ref().expect("computed above"),
+                    n,
+                    &calls,
+                    &mut found,
+                );
+                deps.insert(l, found);
+            }
+            let mut ordered: Vec<usize> = Vec::new();
+            let mut left: Vec<usize> = caps[i].iter().copied().collect();
+            while !left.is_empty() {
+                let Some(p) = left
+                    .iter()
+                    .position(|l| deps[l].iter().all(|d| ordered.contains(d)))
+                else {
+                    return Err(Diagnostic::error(
+                        "E-MATCH-MOTIVE",
+                        format!(
+                            "{}'s type can't be built: the types of the variables it uses \
+                             depend on each other in a cycle",
+                            described(d)
+                        ),
+                    )
+                    .with_label(d.span, "here")
+                    .with_note(
+                        "write the helper as a top-level definition with its own signature \
+                         instead",
+                    ));
+                };
+                ordered.push(left.remove(p));
+            }
+            out.push(ordered);
+        }
+        Ok(out)
+    }
+
+    /// The positions in `spine` (the frozen metavariable's arguments) of
+    /// the variables a draft with captures `caps` needs passed.
+    fn positions(
+        &self,
+        d: &Draft,
+        spine: &[usize],
+        caps: &BTreeSet<usize>,
+    ) -> Result<BTreeSet<usize>> {
+        let mut levels = BTreeSet::new();
+        for &c in caps {
+            if c < d.base {
+                levels.insert(c);
+            } else {
+                let extra = self.unrefine(d, &d.extra[c - d.base], d.base, &|_| true)?;
+                uses(&extra, d.base, &|_| None, &mut levels);
+            }
+        }
+        levels
+            .into_iter()
+            .map(|l| {
+                spine.iter().position(|v| *v == l).ok_or_else(|| {
+                    Diagnostic::error(
+                        "E-MALFORMED",
+                        "internal error: a lifted call uses a variable outside its context",
+                    )
+                })
+            })
+            .collect()
+    }
+
+    /// The helper's type and body (with `body`; otherwise `Refl` stands for
+    /// it), and the arguments of its call (as terms in the frozen
+    /// metavariable's spine, with their kinds), given its captures in
+    /// order. Unsolved metavariables are an error unless `keep` allows them.
+    fn parts(
+        &self,
+        draft: &Draft,
+        ordered: &[usize],
+        keep: &dyn Fn(usize) -> bool,
+        body: bool,
+    ) -> Result<Parts> {
         let g = &self.globals;
         let n = draft.env.len();
-        // Variables a case split replaced by a constructor are replaced by
-        // it: the helper takes the constructor's fields instead.
-        let unrefine = |t: &Term, depth: usize| -> Result<Term> {
-            let t = self.zonk(t, depth)?;
-            replace(g, &t, depth, &|l| {
-                if is_var(&draft.env[l], l) {
-                    Ok(Term::Var(depth - 1 - l))
-                } else {
-                    Ok(quote(g, depth, &draft.env[l])?)
-                }
-            })
+        let body = if body {
+            self.unrefine(draft, &draft.body, n, keep)?
+        } else {
+            Term::Refl
         };
-        let body = unrefine(&draft.body, n)?;
-        let goal = unrefine(&draft.goal, n)?;
-        // The captures: what the body and type use, and what their types
-        // mention (§2.1).
-        let mut captures = BTreeSet::new();
-        free_levels(&body, n, &mut captures);
-        free_levels(&goal, n, &mut captures);
-        let mut types = vec![None; n];
-        let mut deps: Vec<BTreeSet<usize>> = vec![BTreeSet::new(); n];
-        let mut work: Vec<usize> = captures.iter().copied().collect();
-        while let Some(l) = work.pop() {
-            if types[l].is_some() {
-                continue;
-            }
-            let ty = unrefine(&quote(g, n, &draft.types[l])?, n)?;
-            free_levels(&ty, n, &mut deps[l]);
-            for &d in &deps[l] {
-                if captures.insert(d) {
-                    work.push(d);
-                }
-            }
-            types[l] = Some(ty);
-        }
-        // Ordered by their types' dependencies, keeping context order where
-        // the dependencies allow (§4.4).
-        let mut ordered: Vec<usize> = Vec::new();
-        let mut left: Vec<usize> = captures.iter().copied().collect();
-        while !left.is_empty() {
-            let Some(i) = left
-                .iter()
-                .position(|l| deps[*l].iter().all(|d| ordered.contains(d)))
-            else {
-                return Err(Diagnostic::error(
-                    "E-MATCH-MOTIVE",
-                    "this `match`'s type can't be built: the types of the variables it uses \
-                     depend on each other in a cycle",
-                )
-                .with_label(draft.span, "this `match`")
-                .with_note(
-                    "write the helper as a top-level definition with its own signature instead",
-                ));
-            };
-            ordered.push(left.remove(i));
-        }
+        let goal = self.unrefine(draft, &draft.goal, n, keep)?;
         let position = |l: usize| ordered.iter().position(|c| *c == l);
         let into = |t: &Term, depth: usize, scope: usize| {
             replace(g, t, depth, &|l| match position(l) {
@@ -399,21 +732,28 @@ impl Elaborator {
                 )),
             })
         };
+        // A local definition's captures keep their kinds; a `match` can't be
+        // named in source, so its are all explicit.
+        let kind = |l: usize| match &draft.local {
+            Some(_) => draft.kinds[l],
+            None => Icit::Explicit,
+        };
         let k = ordered.len();
         let mut ty = into(&goal, n, k)?;
         let mut lam = into(&body, n, k)?;
         for (p, &l) in ordered.iter().enumerate().rev() {
-            let dom = into(types[l].as_ref().expect("computed above"), n, p)?;
+            let dom = quote(g, n, &draft.types[l])?;
+            let dom = into(&self.unrefine(draft, &dom, n, keep)?, n, p)?;
             let x = draft.names[l].clone();
-            ty = Term::Pi(x.clone(), Icit::Explicit, Rc::new(dom), Rc::new(ty));
-            lam = Term::Lam(x, Icit::Explicit, Rc::new(lam));
+            ty = Term::Pi(x.clone(), kind(l), Rc::new(dom), Rc::new(ty));
+            lam = Term::Lam(x, kind(l), Rc::new(lam));
         }
         // The call's arguments, as functions of the metavariable's spine.
         let base = draft.base;
         let spine = spine(&draft.env[..base]);
         let s = spine.len();
         let in_spine = |t: &Term| {
-            let t = unrefine(t, base)?;
+            let t = self.unrefine(draft, t, base, keep)?;
             replace(g, &t, base, &|l| match spine.iter().position(|v| *v == l) {
                 Some(p) => Ok(Term::Var(s - 1 - p)),
                 None => Err(Diagnostic::error(
@@ -425,19 +765,50 @@ impl Elaborator {
         let args = ordered
             .iter()
             .map(|&l| {
-                if l < base {
-                    in_spine(&Term::Var(base - 1 - l))
+                let arg = if l < base {
+                    in_spine(&Term::Var(base - 1 - l))?
                 } else {
-                    in_spine(&draft.extra[l - base])
-                }
+                    in_spine(&draft.extra[l - base])?
+                };
+                Ok((arg, kind(l)))
             })
             .collect::<Result<_>>()?;
         Ok((ty, lam, args))
     }
 
+    /// The type a `match`'s helper would have (for the motive check before
+    /// its alternatives are elaborated).
+    pub(crate) fn lifted_type(&self, draft: &Draft) -> Result<Term> {
+        let ordered = self.captures(std::slice::from_ref(draft), &HashMap::new())?;
+        Ok(self.parts(draft, &ordered[0], &|_| false, false)?.0)
+    }
+
     /// Mentions of lifted helpers in a diagnostic name the `match` instead
     /// (§2.5): `f.%match1` is never shown.
+    /// In a termination message, a local definition of the declaration
+    /// being checked is named as written: `go`, not `sumTo.go`.
     pub(crate) fn explain_lifted(&self, mut d: Diagnostic) -> Diagnostic {
+        // Only the kernel's termination messages name one by its key; the
+        // elaborator's own say what they mean.
+        let helpers = match d.code {
+            "E-TERMINATION" => &self.local_helpers[..],
+            _ => &[],
+        };
+        for (_, id, _) in helpers {
+            let def = self.globals.def(*id);
+            let full = format!("`{}`", def.name);
+            let Some((_, short)) = def.name.rsplit_once('.') else {
+                continue;
+            };
+            let short = format!("`{short}`");
+            d.message = d.message.replace(&full, &short);
+            for l in &mut d.labels {
+                l.message = l.message.replace(&full, &short);
+            }
+            for note in &mut d.notes {
+                *note = note.replace(&full, &short);
+            }
+        }
         // Longest first, so `f.%match1` isn't found inside `f.%match10`.
         let mut lifted: Vec<(String, Span)> = self
             .lifted

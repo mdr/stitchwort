@@ -936,6 +936,9 @@ pub fn may_perform(cx: &Ctx, expr: &Expr) -> Result<bool> {
             .chain(alts.iter().map(|a| &a.body)))?,
         Expr::Neg(a, _) => may_perform(cx, a)?,
         Expr::Let { .. } | Expr::Seq(..) | Expr::Handle { .. } => true,
+        // The definitions are elaborated on their own; what's run is the
+        // rest of the block (asked again once the names are in scope).
+        Expr::LocalDefs { body, .. } => may_perform(cx, body)?,
         Expr::If {
             cond,
             then,
@@ -990,6 +993,10 @@ fn call_performs(cx: &Ctx, expr: &Expr, extra: usize) -> Result<bool> {
 /// Whether `recv.field` with `explicit` more arguments reaches a computation
 /// type, when what it calls can be found without elaborating `recv`.
 fn dot_performs(cx: &Ctx, recv: &Expr, field: &AstName, explicit: usize) -> Result<bool> {
+    // A local definition named from outside: the receiver isn't an argument.
+    if let Some(f) = crate::dot::helper(cx, recv, field) {
+        return performs_after(cx, cx.g().def(f).ty_value.clone(), explicit);
+    }
     match crate::dot::target(cx, recv, field)? {
         Some(f) => performs_after(cx, cx.g().def(f).ty_value.clone(), explicit + 1),
         None => Ok(false),
@@ -1003,6 +1010,9 @@ enum HeadType {
 }
 
 fn head_type(cx: &Ctx, name: &AstName) -> HeadType {
+    if let Ok(Some((_, ty))) = cx.local(&name.text) {
+        return HeadType::Typed(ty);
+    }
     if let Some(level) = cx.lookup(&name.text) {
         return HeadType::Typed(cx.types[level].clone());
     }
@@ -1059,6 +1069,9 @@ fn done(cx: &Ctx, row: &Row, t: &Value, v: Term) -> Result<Term> {
 pub fn comp_check(cx: &mut Ctx, expr: &Expr, row: &Row, t: &Value) -> Result<Term> {
     cx.g().budget.nesting(crate::check::PASS)?;
     match expr {
+        Expr::LocalDefs { defs, body, .. } => {
+            crate::local::around(cx, defs, |cx| comp_check(cx, body, row, t))
+        }
         Expr::Let {
             name,
             ty,
@@ -1239,6 +1252,9 @@ fn run_scrutinees(
 pub fn comp_infer(cx: &mut Ctx, expr: &Expr, row: &Row) -> Result<(Term, Value)> {
     cx.g().budget.nesting(crate::check::PASS)?;
     match expr {
+        Expr::LocalDefs { defs, body, .. } => {
+            crate::local::around(cx, defs, |cx| comp_infer(cx, body, row))
+        }
         Expr::Let { .. } | Expr::Seq(..) | Expr::If { .. } | Expr::Handle { .. } => {
             let t = cx.fresh_meta();
             let t = cx.eval(&t)?;
@@ -1344,6 +1360,7 @@ pub fn comp_call(
     args.reverse();
     if let Expr::Var(name) = head
         && cx.lookup(&name.text).is_none()
+        && cx.local(&name.text)?.is_none()
         && let Some((Global::Op(a, i), _)) = cx.e.named(&name.text).copied()
     {
         return op_call(cx, name, a, i, &args, row);

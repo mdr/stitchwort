@@ -26,3 +26,8 @@ cargo test                      # example programs, snapshots, JS differential t
 nix flake check                 # build, tests, clippy, rustfmt
 cargo run --release -p stitchwort-bench   # benchmarks, compared with bench/baseline.toml
 ```
+
+## Editor support
+
+A local VS Code syntax-colouring extension for `.sw` files is in
+[`editors/vscode/`](editors/vscode/README.md).

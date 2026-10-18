@@ -36,8 +36,15 @@ pub struct AutoBound {
 }
 
 pub fn auto_bound(e: &Elaborator, ty: &Expr) -> Result<AutoBound> {
+    auto_bound_in(e, ty, Vec::new())
+}
+
+/// [`auto_bound`] for a signature where the names `bound` are already in
+/// scope (a local definition's): those mean what they already mean
+/// (docs/proposals/syntax-conveniences.md §3.1).
+pub fn auto_bound_in(e: &Elaborator, ty: &Expr, mut bound: Vec<String>) -> Result<AutoBound> {
     let mut uses = Vec::new();
-    walk(e, ty, &mut Vec::new(), true, &mut uses)?;
+    walk(e, ty, &mut bound, true, &mut uses)?;
     let mut names: Vec<Name> = Vec::new();
     let mut shadowing: Vec<Name> = Vec::new();
     for use_ in &uses {
@@ -227,6 +234,16 @@ fn walk(
             bound.push(name.text.clone());
             walk(e, body, bound, false, uses)?;
             bound.pop();
+        }
+        Expr::LocalDefs { defs, body, .. } => {
+            let before = bound.len();
+            for def in defs {
+                if let stitchwort_syntax::ast::Decl::Signature { name, .. } = &def.signature {
+                    bound.push(name.text.clone());
+                }
+            }
+            walk(e, body, bound, false, uses)?;
+            bound.truncate(before);
         }
         Expr::Seq(a, b) | Expr::Pipe(a, b) => {
             walk(e, a, bound, false, uses)?;

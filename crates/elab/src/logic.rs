@@ -83,38 +83,63 @@ pub(crate) enum Condition {
 /// proposition with a decision procedure. If both fail, the `Bool` reading's
 /// error, unless `cond` is a proposition nothing decides. `what` is the
 /// syntax taking the condition, for that error.
+///
+/// When the `Bool` reading's error is the one reported, the state is the
+/// `Bool` reading's too. The local definitions it met (`local.rs`) may be
+/// why it failed: a call of one is a frozen metavariable until it's lifted,
+/// and the declaration is elaborated again once they're admitted, which
+/// needs their drafts. Undoing the reading drops them, so if it made any,
+/// it's done again.
 pub(crate) fn condition(cx: &mut Ctx, cond: &Expr, what: &str) -> Result<Condition> {
-    let bool_data = builtin_data(cx, Builtin::Bool)?;
+    let bool_ty = Value::Data(builtin_data(cx, Builtin::Bool)?, Vec::new());
     let snapshot = crate::undo::Snapshot::take(cx);
-    let not_bool = match check(cx, cond, &Value::Data(bool_data, Vec::new())) {
+    let not_bool = match check(cx, cond, &bool_ty) {
         Ok(cond) => return Ok(Condition::Bool(cond)),
         Err(e) if crate::undo::fatal(&e) => return Err(e),
         Err(not_bool) => not_bool,
     };
+    let drafted = snapshot.drafted_since(cx);
     snapshot.restore(cx);
+    let before = crate::undo::Snapshot::take(cx);
+    match decided(cx, cond, what, &not_bool)? {
+        Some(found) => Ok(found),
+        None if drafted => {
+            before.restore(cx);
+            check(cx, cond, &bool_ty).map(Condition::Bool)
+        }
+        None => Err(not_bool),
+    }
+}
+
+/// `cond` as a decided proposition, for [`condition`]; `None` if the `Bool`
+/// reading's error `not_bool` is the one to report.
+fn decided(
+    cx: &mut Ctx,
+    cond: &Expr,
+    what: &str,
+    not_bool: &Diagnostic,
+) -> Result<Option<Condition>> {
     let Some((prop, Sort::Prop)) = crate::undo::attempt(cx, |cx| check_type(cx, cond))? else {
-        return Err(not_bool);
+        return Ok(None);
     };
     // No decision procedure. If the `Bool` reading already found an operand
     // nothing decides (`x < 3 && g = h`), that's the more precise error.
     // Otherwise say so at the condition, keeping the search's explanations
     // (its notes after the first).
-    let decision = crate::auto::decide(cx, &cx.eval(&prop)?, 0).map_err(|mut e| {
-        if e.code == "E-AUTO-NONE" && not_bool.code == "E-AUTO-NONE" {
-            return not_bool.clone();
-        }
-        if e.code == "E-AUTO-NONE" && !e.notes.is_empty() {
+    let decision = match crate::auto::decide(cx, &cx.eval(&prop)?, 0) {
+        Ok(decision) => decision,
+        Err(e) if e.code == "E-AUTO-NONE" && not_bool.code == "E-AUTO-NONE" => return Ok(None),
+        Err(mut e) if e.code == "E-AUTO-NONE" && !e.notes.is_empty() => {
             e.labels.clear();
             e.notes[0] = format!(
                 "`{what}` takes a `Bool`, or a proposition with a decision procedure: a \
                  function returning `Decidable …`"
             );
-            e.with_label(cond.span(), "this is a proposition, and nothing decides it")
-        } else {
-            e
+            return Err(e.with_label(cond.span(), "this is a proposition, and nothing decides it"));
         }
-    })?;
-    Ok(Condition::Decided { prop, decision })
+        Err(e) => return Err(e),
+    };
+    Ok(Some(Condition::Decided { prop, decision }))
 }
 
 /// `expr` as a `Bool`: a decided proposition is `Decidable.toBool` of its

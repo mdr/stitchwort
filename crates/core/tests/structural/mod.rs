@@ -75,7 +75,7 @@ pub fn check(
         "every recursive call must pass a structurally smaller argument (a field of a \
          pattern-matched constructor) in the same parameter position",
     )
-    .with_note("non-terminating definitions are rejected; `{Partial}` isn't implemented yet"))
+    .with_note("non-terminating definitions are rejected unless they're partial: `{Partial}` in the result type"))
 }
 
 struct Info {

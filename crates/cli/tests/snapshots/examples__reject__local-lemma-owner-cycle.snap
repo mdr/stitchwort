@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REFL] Error: `rfl` can't prove this
+   ╭─[ reject/local-lemma-owner-cycle.sw:8:27 ]
+   │
+ 8 │   theorem fz : f 0 = 0 := rfl
+   │                           ─┬─  
+   │                            ╰─── `f 0` and `0` aren't equal
+   │ 
+   │ Note 1: `rfl` proves `a = b` only when both sides compute to the same value
+   │ 
+   │ Note 2: `f` calls `cycleTy`, so it's defined together with `cycleTy` and doesn't compute while `cycleTy` is checked; a fact about it needs `cycleTy` finished: state it as a top-level theorem about `cycleTy.f`
+───╯

@@ -435,8 +435,10 @@ fn check_motive(
         extra: extra.to_vec(),
         body: uses,
         goal: cx.quote(motive)?,
+        kinds: cx.kinds.clone(),
+        local: None,
     };
-    let Ok((ty, _, _)) = cx.e.lifted_parts(&draft) else {
+    let Ok(ty) = cx.e.lifted_type(&draft) else {
         return Ok(()); // something isn't known yet: checked when it's admitted
     };
     let mut kcx = kernel::Ctx::new(cx.g(), span);

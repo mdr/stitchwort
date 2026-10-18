@@ -236,11 +236,56 @@ pub(crate) fn infer_dot(
     field: &AstName,
     args: &[Arg],
 ) -> Result<(Term, Value)> {
+    if let Some(id) = helper(cx, recv, field) {
+        let head = (Term::Def(id), cx.g().def(id).ty_value.clone());
+        return crate::check::apply_args(cx, head, args);
+    }
     let (rterm, rty) = infer(cx, recv)?;
     let (rterm, rty) = insert(cx, rterm, rty)?;
     let start = written_type(cx, &rterm)?.unwrap_or_else(|| Ty::Value(rty.clone()));
     let (owner, f, key) = find(cx, recv, field, start)?;
     call(cx, recv, field, owner, f, &key, rterm, rty, args)
+}
+
+/// `f.go`, where `f` is a top-level definition (not a local variable) and
+/// `go` one of its local definitions: that local definition, lifted
+/// (docs/proposals/syntax-conveniences.md §3.6). This comes before dot
+/// notation, which never finds a local definition.
+pub(crate) fn helper(cx: &Ctx, recv: &Expr, field: &AstName) -> Option<DefId> {
+    let key = format!("{}.{}", helper_owner(cx, recv)?, field.text);
+    if !cx.e.helper_keys.contains(&key) {
+        return None;
+    }
+    match cx.e.scope.get(&key) {
+        Some((Global::Def(id), _)) => Some(id),
+        _ => None,
+    }
+}
+
+/// The key of the definition `recv` names, if it's a top-level definition or
+/// a local definition named from outside (`f.go`, for `f.go.inner`).
+fn helper_owner(cx: &Ctx, recv: &Expr) -> Option<String> {
+    match recv {
+        Expr::Var(name) => {
+            if cx.lookup(&name.text).is_some() || matches!(cx.local(&name.text), Ok(Some(_))) {
+                return None;
+            }
+            match cx.e.resolve(&name.text) {
+                crate::scope::Resolved::Found {
+                    global: Global::Def(_),
+                    key,
+                    rest,
+                    ..
+                } if rest.is_empty() => Some(key.to_string()),
+                _ => None,
+            }
+        }
+        Expr::Field(inner, field) => {
+            let key = format!("{}.{}", helper_owner(cx, inner)?, field.text);
+            cx.e.helper_keys.contains(&key).then_some(key)
+        }
+        _ => None,
+    }
 }
 
 /// Finds `T.f` for the receiver's type `ty`: the first head in the view
@@ -292,7 +337,12 @@ fn find(cx: &Ctx, recv: &Expr, field: &AstName, mut ty: Ty) -> Result<(TyHead, D
                 let ns = namespace(cx, h);
                 let key = format!("{ns}.{}", field.text);
                 let shown_key = scope::display(&key).to_string();
-                match cx.e.scope.get(&key) {
+                // A local definition is never found by dot notation (§3.6).
+                let found = match cx.e.helper_keys.contains(&key) {
+                    true => None,
+                    false => cx.e.scope.get(&key),
+                };
+                match found {
                     Some((Global::Def(id), _)) => return Ok((h, id, shown_key)),
                     Some((Global::Unchecked(item), _)) => {
                         return Err(cx.e.unchecked(
@@ -707,6 +757,12 @@ pub(crate) fn target(cx: &Ctx, recv: &Expr, field: &AstName) -> Result<Option<De
     let Expr::Var(name) = recv else {
         return Ok(None);
     };
+    if helper(cx, recv, field).is_some() {
+        return Ok(None);
+    }
+    if cx.local(&name.text)?.is_some() {
+        return Ok(None);
+    }
     let ty = if let Some(level) = cx.lookup(&name.text) {
         match &cx.written[level] {
             Some(Written::Here(t)) => Ty::Term(t.clone(), cx.env[..level].to_vec()),

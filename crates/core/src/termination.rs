@@ -603,7 +603,7 @@ fn no_descent(
              a pattern-matched constructor); an argument passed on unchanged, or rebuilt from its \
              own pattern, is no smaller",
         )
-        .with_note("non-terminating definitions are rejected; `{Partial}` isn't implemented yet")
+        .with_note("non-terminating definitions are rejected unless they're partial: `{Partial}` in the result type")
 }
 
 /// Says in words what a call (or a cycle of calls) from member `from` to

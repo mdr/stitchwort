@@ -275,7 +275,9 @@ impl<'g> Printer<'g> {
                 names.pop();
                 (format!("\\{x} => {body}"), Prec::Arrow)
             }
+            Term::Meta(_) if let Some(name) = self.label(names, term) => name,
             Term::Meta(m) => (format!("?{m}"), Prec::Atom),
+            Term::App(..) if let Some(shown) = self.label(names, term) => shown,
             Term::App(..) => {
                 // Implicit arguments are filled in by the compiler, so they
                 // aren't shown.
@@ -330,6 +332,41 @@ impl<'g> Printer<'g> {
             }
             Term::J(m, b, p) => self.applied(names, "J".into(), [&**m, &**b, &**p].into_iter()),
         }
+    }
+
+    /// A call of a local definition, by its name (`Globals::print_labels`).
+    fn label(&self, names: &mut Vec<Name>, term: &Term) -> Option<(String, Prec)> {
+        let labels = self.g.print_labels.borrow();
+        if labels.is_empty() {
+            return None;
+        }
+        let mut args = Vec::new();
+        let mut head = term.strip_loc();
+        while let Term::App(f, a, icit) = head {
+            args.push((a.as_ref(), *icit));
+            head = f.strip_loc();
+        }
+        args.reverse();
+        let label = labels.iter().find(|l| match (&l.head, head) {
+            (Term::Meta(a), Term::Meta(b)) => a == b && args.len() >= l.levels.len(),
+            (Term::Def(a), Term::Def(b)) => {
+                let depth = names.len();
+                args.len() >= l.levels.len()
+                    && l.levels.iter().zip(&args).all(|(level, (arg, _))| {
+                        matches!(arg.strip_loc(), Term::Var(ix) if *ix < depth && depth - 1 - ix == *level)
+                    })
+                    && a == b
+            }
+            _ => false,
+        })?;
+        let name = label.name.to_string();
+        let rest: Vec<&Term> = args[label.levels.len()..]
+            .iter()
+            .filter(|(_, icit)| *icit == Icit::Explicit)
+            .map(|(a, _)| *a)
+            .collect();
+        drop(labels);
+        Some(self.applied(names, name, rest.into_iter()))
     }
 
     fn tuple(&self, names: &mut Vec<Name>, items: &[&Term]) -> String {

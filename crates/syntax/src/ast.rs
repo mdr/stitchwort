@@ -80,6 +80,14 @@ pub enum Expr {
     },
     /// One line of a block followed by the rest: `a` is run for its effects.
     Seq(Box<Expr>, Box<Expr>),
+    /// Local definitions: `def`s and `theorem`s on consecutive lines of a
+    /// block, with the rest of the block as `body`. They may refer to each
+    /// other (docs/proposals/syntax-conveniences.md §3).
+    LocalDefs {
+        defs: Vec<LocalDef>,
+        body: Box<Expr>,
+        span: Span,
+    },
     /// `handle e with | return x -> … | op p => k -> …`
     Handle {
         body: Box<Expr>,
@@ -104,6 +112,14 @@ pub enum Expr {
     },
     /// Field access `e.name`.
     Field(Box<Expr>, Name),
+}
+
+/// A local `def` or `theorem`, lowered as at top level: a
+/// [`Decl::Signature`] and its [`Decl::Equation`]s.
+#[derive(Clone, Debug)]
+pub struct LocalDef {
+    pub signature: Decl,
+    pub equations: Vec<Decl>,
 }
 
 /// An ability row, `{State s, Abort | e}`. A row ending in a lowercase name
@@ -214,6 +230,7 @@ impl Expr {
             | Expr::Unit(span)
             | Expr::Tuple(_, _, span)
             | Expr::Let { span, .. }
+            | Expr::LocalDefs { span, .. }
             | Expr::Record { span, .. }
             | Expr::Handle { span, .. }
             | Expr::Match { span, .. } => *span,
@@ -270,6 +287,7 @@ fn has_nested(expr: &Expr) -> bool {
             ty, value, body, ..
         } => ty.as_deref().is_some_and(nested) || nested(value) || nested(body),
         Expr::Handle { body, .. } => nested(body),
+        Expr::LocalDefs { body, .. } => nested(body),
         Expr::Match {
             scrutinees, alts, ..
         } => scrutinees.iter().any(|s| nested(&s.expr)) || alts.iter().any(|a| nested(&a.body)),
@@ -343,6 +361,8 @@ fn take_children(expr: &mut Expr, pending: &mut Vec<Expr>) {
             take(body);
         }
         Expr::Handle { body, .. } => take(body),
+        // A long block of local definitions nests its rest here.
+        Expr::LocalDefs { body, .. } => take(body),
         // A pattern `let` nests the rest of its block in its alternative,
         // so a long block nests deeply there.
         Expr::Match {

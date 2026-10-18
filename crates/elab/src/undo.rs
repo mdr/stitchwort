@@ -7,7 +7,8 @@
 //! The elaborator's inference state, all of it reachable from a [`Ctx`]:
 //! - the metavariables (`Globals::metas`): their solutions are undone from
 //!   `Globals::meta_trail`, and those created since are dropped;
-//! - lifted helpers not yet resolved (`lift.rs`);
+//! - lifted helpers not yet resolved (`lift.rs`), and the local
+//!   definitions' keys met so far (`local.rs`);
 //! - pending auto obligations and defaulted-literal records (`Elaborator`);
 //! - the local context and the current span.
 //!
@@ -31,6 +32,7 @@ pub(crate) struct Snapshot {
     obligations: usize,
     defaulted: usize,
     drafts: usize,
+    local_keys: usize,
 }
 
 impl Snapshot {
@@ -44,7 +46,14 @@ impl Snapshot {
             obligations: cx.e.obligations.borrow().len(),
             defaulted: cx.e.defaulted.borrow().len(),
             drafts: cx.e.drafts.borrow().len(),
+            local_keys: cx.e.local_keys.borrow().len(),
         }
+    }
+
+    /// Whether local definitions or `match`es have been drafted for lifting
+    /// (`lift.rs`) since the snapshot was taken.
+    pub(crate) fn drafted_since(&self, cx: &Ctx) -> bool {
+        cx.e.drafts.borrow().len() > self.drafts
     }
 
     /// Undoes everything done since the snapshot was taken.
@@ -61,10 +70,15 @@ impl Snapshot {
             }
             metas.truncate(self.metas);
             g.frozen_metas.borrow_mut().retain(|m| *m < self.metas);
+            g.print_labels
+                .borrow_mut()
+                .retain(|l| !matches!(l.head, stitchwort_core::Term::Meta(m) if m >= self.metas));
+            cx.e.local_metas.borrow_mut().retain(|m, _| *m < self.metas);
         }
         cx.e.obligations.borrow_mut().truncate(self.obligations);
         cx.e.defaulted.borrow_mut().truncate(self.defaulted);
         cx.e.drafts.borrow_mut().truncate(self.drafts);
+        cx.e.local_keys.borrow_mut().truncate(self.local_keys);
         cx.reset(self.mark);
         cx.span = self.span;
     }

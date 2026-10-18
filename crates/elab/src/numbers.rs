@@ -830,6 +830,8 @@ fn has_number(expr: &Expr) -> bool {
                 stack.extend(ty.as_deref());
                 stack.extend([&**value, &**body]);
             }
+            // The definitions are elaborated on their own.
+            Expr::LocalDefs { body, .. } => stack.push(body),
             Expr::Match {
                 scrutinees, alts, ..
             } => {

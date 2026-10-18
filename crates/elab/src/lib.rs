@@ -13,6 +13,7 @@ mod derive;
 mod dot;
 mod effects;
 mod lift;
+mod local;
 mod logic;
 mod matching;
 mod module;
@@ -128,6 +129,25 @@ pub struct Elaborator {
     /// Every lifted helper so far, with its `match`, for naming the `match`
     /// in diagnostics instead of the helper (`Elaborator::explain_lifted`).
     lifted: Vec<(DefId, Span)>,
+    /// While a declaration is elaborated: its key, then the names of the
+    /// local definitions being elaborated inside it, for their keys
+    /// (`local.rs`).
+    owner: RefCell<Vec<String>>,
+    /// The keys of the local definitions met in the current declaration,
+    /// for `E-DUPLICATE`. Part of the inference state `undo.rs` restores.
+    local_keys: RefCell<Vec<(String, Span)>>,
+    /// Local definitions admitted after an attempt at their owner's body
+    /// failed, by key, for the next attempt (`local.rs`).
+    preadmitted: RefCell<HashMap<String, lift::Resolved>>,
+    /// The local definitions lifted from the declaration (or group) being
+    /// checked, bound in the module's scope once it's final.
+    local_helpers: Vec<(String, DefId, Span)>,
+    /// Every local definition's key, so dot notation never finds one
+    /// (docs/proposals/syntax-conveniences.md §3.6).
+    pub(crate) helper_keys: std::collections::HashSet<String>,
+    /// The frozen metavariables standing for local definitions, with their
+    /// names, for messages.
+    pub(crate) local_metas: RefCell<HashMap<usize, String>>,
 }
 
 /// A pattern that matches a constructor.
@@ -306,6 +326,7 @@ impl Elaborator {
     fn clear_metas(&self) {
         self.globals.clear_metas();
         self.drafts.borrow_mut().clear();
+        self.local_metas.borrow_mut().clear();
         self.obligations.borrow_mut().clear();
         self.defaulted.borrow_mut().clear();
     }
@@ -320,8 +341,32 @@ impl Elaborator {
     /// Substitutes metavariable solutions into `term`, failing if any are
     /// unsolved.
     fn zonk(&self, term: &Term, level: usize) -> Result<Term> {
-        unify::zonk(&self.globals, level, term).map_err(|e| match e {
+        self.zonk_keeping(term, level, &|_| false)
+    }
+
+    /// [`Elaborator::zonk`], leaving the unsolved metavariables `keep`
+    /// allows in place.
+    pub(crate) fn zonk_keeping(
+        &self,
+        term: &Term,
+        level: usize,
+        keep: &dyn Fn(usize) -> bool,
+    ) -> Result<Term> {
+        unify::zonk_keeping(&self.globals, level, term, keep).map_err(|e| match e {
             unify::ZonkError::Resource(e) => e.into(),
+            unify::ZonkError::Unsolved(m) if self.local_metas.borrow().contains_key(&m) => {
+                let span = self.globals.metas.borrow()[m].span;
+                let name = self.local_metas.borrow()[&m].clone();
+                Diagnostic::error(
+                    "E-LOCAL-DEFINITION",
+                    format!("the local definition `{name}` can't be used here"),
+                )
+                .with_label(span, "defined here")
+                .with_note(
+                    "local definitions can be used in a definition's, theorem's or test's \
+                     body; here, define it at top level instead",
+                )
+            }
             unify::ZonkError::Unsolved(m) if self.globals.meta_frozen(m) => {
                 let span = self.globals.metas.borrow()[m].span;
                 Diagnostic::error(
@@ -360,16 +405,24 @@ impl Elaborator {
                 "tests need the prelude's `Bool`",
             ));
         };
-        self.clear_metas();
-        let term = {
-            // A condition, as `if` takes: a `Bool`, or a decided proposition.
-            let mut cx = Ctx::new(self, span);
-            logic::bool_operand(&mut cx, expr, "test")?
-        };
         let label: Name = format!("test \"{name}\"").into();
-        // Nothing refers to the test, so its helpers are admitted first.
-        self.lift(&label, false)?;
-        let body = self.finish(&term, 0)?;
+        self.local_helpers.clear();
+        self.preadmitted.borrow_mut().clear();
+        let shown = ast::Name {
+            text: label.to_string(),
+            span,
+        };
+        let body = self.with_local_retries(&label, &shown, |e| {
+            let term = {
+                // A condition, as `if` takes: a `Bool`, or a decided proposition.
+                let mut cx = Ctx::new(e, span);
+                logic::bool_operand(&mut cx, expr, "test")?
+            };
+            // Nothing refers to the test, so its helpers are admitted first.
+            e.lift(&label, false)?;
+            e.finish(&term, 0)
+        })?;
+        self.local_helpers.clear();
         let ty = Term::Data(bool_data, Vec::new());
         let id = kernel::declare_def(&mut self.globals, &label, &ty, false, false, span)?;
         kernel::define_def(&mut self.globals, id, &body)?;
@@ -1070,10 +1123,34 @@ impl Elaborator {
             .insert(&key, Global::Def(id), def_name.span, false);
         self.clear_metas();
         self.module.phase = Phase::Body;
+        self.local_helpers.clear();
+        self.preadmitted.borrow_mut().clear();
         let (body, mut members) = self.lifted_body(id, def_name, equations)?;
         members.insert(0, (id, body));
         kernel::define_group(&mut self.globals, &members).map_err(|d| self.explain_lifted(d))?;
+        self.bind_local_helpers()?;
         self.after_definition(signature, id)
+    }
+
+    /// Once their owner is final, its local definitions can be named from
+    /// outside: `sumTo.go` (docs/proposals/syntax-conveniences.md §3.6).
+    fn bind_local_helpers(&mut self) -> Result<()> {
+        for (key, id, span) in std::mem::take(&mut self.local_helpers) {
+            if let Some((_, other)) = self.scope.get(&key) {
+                return Err(error(
+                    "E-DUPLICATE",
+                    span,
+                    format!(
+                        "`{}` is the name of a local definition and of a declaration",
+                        scope::display(&key)
+                    ),
+                )
+                .with_label(other, "the declaration is here"));
+            }
+            self.scope.insert(&key, Global::Def(id), span, false);
+            self.helper_keys.insert(key);
+        }
+        Ok(())
     }
 
     /// A definition's body, with the `match`es in it lifted
@@ -1085,10 +1162,43 @@ impl Elaborator {
         def_name: &ast::Name,
         equations: &[Decl],
     ) -> Result<(Term, Vec<(DefId, Term)>)> {
-        let term = self.body_term(id, def_name, equations)?;
         let key = self.declaration_key(def_name)?;
-        let joined = self.lift(&key, true)?;
-        Ok((self.finish(&term, 0)?, joined))
+        self.with_local_retries(&key, def_name, |e| {
+            let term = e.body_term(id, def_name, equations)?;
+            let joined = e.lift(&key, true)?;
+            Ok((e.finish(&term, 0)?, joined))
+        })
+    }
+
+    /// Runs `attempt`, the elaboration of the body of the declaration `key`
+    /// (named `owner` in messages); if it fails, admits the local
+    /// definitions it elaborated that can be, and tries again with them
+    /// final (`local.rs`), until it succeeds or no more can be.
+    fn with_local_retries<T>(
+        &mut self,
+        key: &str,
+        owner: &ast::Name,
+        mut attempt: impl FnMut(&mut Self) -> Result<T>,
+    ) -> Result<T> {
+        loop {
+            self.clear_metas();
+            *self.owner.borrow_mut() = vec![key.to_string()];
+            self.local_keys.borrow_mut().clear();
+            let result = attempt(self);
+            self.owner.borrow_mut().clear();
+            let d = match result {
+                Ok(found) => return Ok(found),
+                Err(d) if undo::fatal(&d) => return Err(d),
+                Err(d) => d,
+            };
+            let before = self.preadmitted.borrow().len();
+            match self.preadmit(key) {
+                Ok((true, _)) if self.preadmitted.borrow().len() > before => {}
+                Ok((_, waiting)) => return Err(local::unfinished(d, &waiting, owner)),
+                Err(e) if undo::fatal(&e) => return Err(e),
+                Err(_) => return Err(d),
+            }
+        }
     }
 
     /// A group of definitions that may call each other (or one definition),
@@ -1168,6 +1278,8 @@ impl Elaborator {
         }
         let mut bodies = Vec::new();
         let mut helpers = Vec::new();
+        self.local_helpers.clear();
+        self.preadmitted.borrow_mut().clear();
         for (&(item, signature, equations), id) in members.iter().zip(&ids) {
             let Decl::Signature { name: def_name, .. } = signature else {
                 unreachable!()
@@ -1192,6 +1304,9 @@ impl Elaborator {
             let d = self.explain_lifted(d);
             out.push((members[0].0, d));
             return out;
+        }
+        if let Err(d) = self.bind_local_helpers() {
+            out.push((members[0].0, d));
         }
         for (&(item, signature, _), id) in members.iter().zip(&ids) {
             self.module.item = Some(item);
@@ -1248,6 +1363,8 @@ impl Elaborator {
             notes.push(note);
         }
         let with_notes = |d: Diagnostic| notes.iter().fold(d, |d, n| d.with_note(n.clone()));
+        *self.owner.borrow_mut() = vec![key.clone()];
+        self.local_keys.borrow_mut().clear();
         let ty = (|| {
             let mut cx = Ctx::new(self, *span);
             let mut domains = Vec::new();
@@ -1266,8 +1383,9 @@ impl Elaborator {
                 term = Term::Pi(name(n), Icit::Implicit, Rc::new(dom), Rc::new(term));
             }
             Ok(term)
-        })()
-        .map_err(with_notes)?;
+        })();
+        self.owner.borrow_mut().clear();
+        let ty = ty.map_err(with_notes)?;
         // A `match` in the signature is admitted before it (§2.2): it can't
         // refer to the definition, which isn't declared yet.
         self.lift(&key, false).map_err(with_notes)?;
@@ -1380,6 +1498,46 @@ impl Elaborator {
     /// A definition's body, before metavariable solutions are substituted.
     fn body_term(&self, id: DefId, def_name: &ast::Name, equations: &[Decl]) -> Result<Term> {
         let g = &self.globals;
+        let mut cx = Ctx::new(self, def_name.span);
+        let written = Rc::new(g.def(id).ty.clone());
+        self.body_in(
+            &mut cx,
+            g.def(id).ty_value.clone(),
+            Some(written),
+            def_name,
+            equations,
+        )
+    }
+
+    /// The body of a definition of type `ty` (with `written`, its type as
+    /// written, in `cx`'s context), elaborated in `cx`: a top-level
+    /// definition's in an empty context, a local one's where it's written.
+    /// A term in `cx`'s context; `cx` is left as it was.
+    pub(crate) fn body_in(
+        &self,
+        cx: &mut Ctx,
+        ty: Value,
+        written: Option<Rc<Term>>,
+        def_name: &ast::Name,
+        equations: &[Decl],
+    ) -> Result<Term> {
+        let mark = cx.mark();
+        let span = cx.span;
+        let result = self.body_in_parts(cx, ty, written, def_name, equations);
+        cx.reset(mark);
+        cx.span = span;
+        result
+    }
+
+    fn body_in_parts(
+        &self,
+        cx: &mut Ctx,
+        ty: Value,
+        written: Option<Rc<Term>>,
+        def_name: &ast::Name,
+        equations: &[Decl],
+    ) -> Result<Term> {
+        let g = &self.globals;
         // Arms under a `def` header: how many patterns are the header's
         // named parameters (docs/proposals/declaration-syntax.md §2.4).
         let header = match equations.first() {
@@ -1432,13 +1590,13 @@ impl Elaborator {
         // Bind the parameters: implicit ones by their names in the signature,
         // explicit ones to be matched by the patterns. Implicit parameters after
         // the last pattern are bound too, so they can be used by name.
-        let mut cx = Ctx::new(self, span);
+        cx.span = span;
         let mut lams: Vec<(Name, Icit)> = Vec::new();
         let mut columns = Vec::new();
         let mut column_types = Vec::new();
-        let mut ty = g.def(id).ty_value.clone();
+        let mut ty = ty;
         // The signature as written, alongside, for dot notation's namespaces.
-        let mut written = Some(Rc::new(g.def(id).ty.clone()));
+        let mut written = written;
         let mut next_written = |cx: &mut Ctx| {
             let pi = written.take();
             if let Some(Term::Pi(_, _, dom, cod)) = pi.as_deref().map(Term::strip_loc) {
@@ -1453,7 +1611,8 @@ impl Elaborator {
                 Value::Pi(x, icit, dom, cod) if icit.is_implicit() => {
                     let var = Value::var(cx.level());
                     cx.bind(&x, (*dom).clone());
-                    next_written(&mut cx);
+                    cx.set_kind(icit);
+                    next_written(cx);
                     lams.push((x, icit));
                     ty = cod.apply(g, var)?;
                 }
@@ -1466,7 +1625,7 @@ impl Elaborator {
                     columns.push(cx.level());
                     column_types.push(Some((*dom).clone()));
                     cx.bind_hidden(param.clone(), (*dom).clone());
-                    next_written(&mut cx);
+                    next_written(cx);
                     lams.push((param, Icit::Explicit));
                     ty = cod.apply(g, var)?;
                 }
@@ -1590,7 +1749,7 @@ impl Elaborator {
                 .collect();
             self.compile(&rows, cx.level(), &columns, &column_types, span)?
         };
-        let mut term = check_tree(&mut cx, &tree, &ty)?;
+        let mut term = check_tree(cx, &tree, &ty)?;
         for (x, icit) in lams.into_iter().rev() {
             term = Term::Lam(x, icit, Rc::new(term));
         }
@@ -2307,7 +2466,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
 
 /// Whether a row in `expr` mentions ability `name`. Uses a work list: the
 /// expression can nest more deeply than recursion could follow.
-fn mentions_ability(expr: &ast::Expr, name: &str) -> bool {
+pub(crate) fn mentions_ability(expr: &ast::Expr, name: &str) -> bool {
     use ast::Expr;
     let mut pending = vec![expr];
     while let Some(expr) = pending.pop() {

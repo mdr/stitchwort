@@ -115,7 +115,7 @@ impl Parser<'_> {
     /// `export`, if it's there). Once here, it's a header: the parser never
     /// goes back to read the tokens another way (§2.1).
     #[inline(never)]
-    fn definition(&mut self, start: Span, export: bool) -> Result<Vec<Decl>> {
+    pub(super) fn definition(&mut self, start: Span, export: bool) -> Result<Vec<Decl>> {
         let keyword = &self.tokens[self.pos];
         // D (§2.10) is the column of the declaration's first keyword:
         // `export`'s, when it's there.
@@ -191,13 +191,14 @@ impl Parser<'_> {
             }
         }
         if self.tokens.get(self.pos).map(|t| &t.tok) == Some(&Tok::KwWhere) {
-            return Err(error(
-                self.here(),
-                "`where` after a definition isn't supported yet",
+            return Err(Diagnostic::error(
+                "E-WHERE",
+                "`where` isn't part of Stitchwort: declare helpers with a local `def`",
             )
+            .with_label(self.here(), "no `where` here")
             .with_note(
-                "write the helper as a definition of its own (`where` is planned: \
-                 docs/proposals/declaration-syntax.md §2.9)",
+                "write the helper as a `def` in the body's block, before the result, like \
+                 `def f (n : Nat) : Nat :=` then `  def go …` then `  go n`",
             ));
         }
         Ok(decls)
