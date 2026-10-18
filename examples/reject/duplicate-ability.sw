@@ -3,5 +3,4 @@
 ability State (s : Type) where
   get : () -> {State s} s
 
-both : () -> {State Nat, State Bool} Nat
-both u = get ()
+def both () : {State Nat, State Bool} Nat := get ()

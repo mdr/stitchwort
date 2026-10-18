@@ -3,9 +3,9 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-TERMINATION] Error: can't show that `bad` terminates
-    ╭─[ soundness/ping-handler.sw:12:23 ]
+    ╭─[ soundness/ping-handler.sw:11:23 ]
     │
- 12 │     | ping u => k  -> bad prog
+ 11 │     | ping u, k    => bad prog
     │                       ────┬───  
     │                           ╰───── this recursive call might not terminate: the 1st argument stays the same
     │ 

@@ -3,9 +3,9 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-TYPE-MISMATCH] Error: `+` gives a `Nat` or an `Int`
-    ╭─[ reject/dependent-fields-mixed-up.sw:15:48 ]
+    ╭─[ reject/dependent-fields-mixed-up.sw:15:45 ]
     │
- 15 │ depth (Node False b rest) = Succ (depth (rest (b + 1)))
-    │                                                ──┬──  
-    │                                                  ╰──── but `Bool` is expected here
+ 15 │   | Node False b rest => Succ (depth (rest (b + 1)))
+    │                                             ──┬──  
+    │                                               ╰──── but `Bool` is expected here
 ────╯

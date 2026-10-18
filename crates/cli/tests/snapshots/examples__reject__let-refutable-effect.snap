@@ -3,9 +3,9 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-LET-REFUTABLE] Error: this pattern doesn't match every `Maybe Text`: it doesn't match `Nothing`
-   ╭─[ reject/let-refutable-effect.sw:5:7 ]
+   ╭─[ reject/let-refutable-effect.sw:4:7 ]
    │
- 5 │   let Just l = readLine ()
+ 4 │   let Just l := readLine ()
    │       ───┬──  
    │          ╰──── doesn't match `Nothing`
    │ 

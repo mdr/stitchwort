@@ -11,6 +11,6 @@ type CellOp : Type =
 type Unit1 : Type =
   | MkUnit
 
-CellRes : CellOp -> Type
-CellRes Read  = Unit1 -> Comp CellOp CellRes Unit1
-CellRes Write = Unit1
+def CellRes : CellOp -> Type
+  | Read  => Unit1 -> Comp CellOp CellRes Unit1
+  | Write => Unit1

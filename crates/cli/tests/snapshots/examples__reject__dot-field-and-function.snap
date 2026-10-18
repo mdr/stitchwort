@@ -3,13 +3,13 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-DUPLICATE] Error: `Person.name` is already defined
-   ╭─[ reject/dot-field-and-function.sw:7:1 ]
+   ╭─[ reject/dot-field-and-function.sw:7:5 ]
    │
  5 │ type Person = { name : Text }
    │ ──────────────┬──────────────  
    │               ╰──────────────── first defined here
    │ 
- 7 │ Person.name : Person -> Text
-   │ ─────┬─────  
-   │      ╰─────── `Person.name` is already defined
+ 7 │ def Person.name (p : Person) : Text := "x"
+   │     ─────┬─────  
+   │          ╰─────── `Person.name` is already defined
 ───╯

@@ -384,14 +384,11 @@ const CHECK4: &str = "\
 type Tag (n : Nat) : Type =
   | MkTag
 
-check4 : (a : Nat) -> Int.subNatNat a 1 = Int.OfNat 4 -> Unit
-check4 a p = Trivial
+def check4 (a : Nat) (p : Int.subNatNat a 1 = Int.OfNat 4) : Unit := Trivial
 
-checkAuto : (a : Nat) -> [auto ok : Int.subNatNat a 1 = Int.OfNat 4] -> Tag a -> Unit
-checkAuto a t = Trivial
+def checkAuto (a : Nat) [auto ok : Int.subNatNat a 1 = Int.OfNat 4] (t : Tag a) : Unit := Trivial
 
-tag5 : Tag 5
-tag5 = MkTag
+def tag5 : Tag 5 := MkTag
 ";
 
 /// R2 test 4: an `Int` operation on a metavariable, before and after it's
@@ -402,31 +399,31 @@ fn metavariables_under_int_operations() {
         for natives in [true, false] {
             let case = |body: &str| load(&format!("{CHECK4}\n{body}\n"), natives);
             // Solved first: by the argument written before.
-            assert_eq!(case("t : Unit\nt = check4 5 rfl"), Vec::<&str>::new());
+            assert_eq!(case("def t : Unit := check4 5 rfl"), Vec::<&str>::new());
             // Never solved: `rfl` fails rather than solving `_` by inverting `subNatNat`.
             assert_eq!(
-                case("t : Unit\nt = check4 _ rfl"),
+                case("def t : Unit := check4 _ rfl"),
                 ["E-REFL"],
                 "natives {natives}"
             );
             // An `==` with an unknown side.
             assert_eq!(
-                case("t : Bool\nt = Int.subNatNat _ 1 == Int.OfNat 4"),
+                case("def t : Bool := Int.subNatNat _ 1 == Int.OfNat 4"),
                 ["E-UNSOLVED"],
                 "natives {natives}"
             );
             // Solved by a later argument, before the `auto` obligation is
             // proved: the obligation is `subNatNat 5 1 = OfNat 4`.
-            assert_eq!(case("t : Unit\nt = checkAuto _ tag5"), Vec::<&str>::new());
+            assert_eq!(case("def t : Unit := checkAuto _ tag5"), Vec::<&str>::new());
             // The same, with a value that doesn't satisfy it.
             assert_eq!(
-                case("tag6 : Tag 6\ntag6 = MkTag\n\nt : Unit\nt = checkAuto _ tag6"),
+                case("def tag6 : Tag 6 := MkTag\n\ndef t : Unit := checkAuto _ tag6"),
                 ["E-AUTO-FALSE"],
                 "natives {natives}"
             );
             // Never solved, with an `auto` obligation waiting on it.
             assert_eq!(
-                case("t : Unit\nt = checkAuto _ MkTag"),
+                case("def t : Unit := checkAuto _ MkTag"),
                 ["E-AUTO-STUCK"],
                 "natives {natives}"
             );

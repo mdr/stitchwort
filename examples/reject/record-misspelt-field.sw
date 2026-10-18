@@ -3,5 +3,4 @@
 
 type Person = { name : Text, age : Nat }
 
-nameOf : Person -> Text
-nameOf p = p.nmae
+def nameOf (p : Person) : Text := p.nmae

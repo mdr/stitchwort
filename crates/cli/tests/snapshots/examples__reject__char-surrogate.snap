@@ -3,9 +3,9 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-PARSE] Error: U+D800 isn't a Unicode scalar value, so it can't be a character
-   ╭─[ reject/char-surrogate.sw:4:8 ]
+   ╭─[ reject/char-surrogate.sw:3:20 ]
    │
- 4 │ bad = '\u{D800}'
-   │        ────┬───  
-   │            ╰───── U+D800 isn't a Unicode scalar value, so it can't be a character
+ 3 │ def bad : Char := '\u{D800}'
+   │                    ────┬───  
+   │                        ╰───── U+D800 isn't a Unicode scalar value, so it can't be a character
 ───╯

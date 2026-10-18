@@ -4,14 +4,11 @@
 -- would be a value of a type with no values, and so a proof of anything.
 type Empty : Type
 
-spin : Nat -> {Partial} Empty
-spin n = spin (n + 1)
+def spin (n : Nat) : {Partial} Empty := spin (n + 1)
 
-boom : Empty
-boom = spin 0
+def boom : Empty := spin 0
 
-theorem anything : Void
-anything = absurdEmpty boom
+theorem anything : Void := absurdEmpty boom
 
-absurdEmpty : Empty -> Void
-absurdEmpty ()
+def absurdEmpty : Empty -> Void
+  | ()

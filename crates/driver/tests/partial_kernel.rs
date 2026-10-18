@@ -191,16 +191,16 @@ fn delay_and_its_constants_are_final_opaque_and_hashed() {
 fn a_constant_with_another_type_is_refused() {
     let cases = [
         (
-            "Effect.now : [op : Type] -> [res : op -> Type] -> [a : Type] -> a -> Delay op res a",
-            "Effect.now : [op : Type] -> [res : op -> Type] -> [a : Type] -> Delay op res a -> a",
+            "def Effect.now : [op : Type] -> [res : op -> Type] -> [a : Type] -> a -> Delay op res a",
+            "def Effect.now : [op : Type] -> [res : op -> Type] -> [a : Type] -> Delay op res a -> a",
         ),
         (
             "  (x : req) -> Delay op res (ans x)",
             "  (x : req) -> Delay (Plus (Rec req) op) (PlusRes (RecRes ans) res) (ans x)",
         ),
         (
-            "Effect.Delay : (op : Type) -> (res : op -> Type) -> Type -> Type",
-            "Effect.Delay : (op : Type) -> (res : op -> Type) -> Type -> Prop",
+            "def Effect.Delay : (op : Type) -> (res : op -> Type) -> Type -> Type",
+            "def Effect.Delay : (op : Type) -> (res : op -> Type) -> Type -> Prop",
         ),
     ];
     for (original, changed) in cases {
@@ -210,7 +210,6 @@ fn a_constant_with_another_type_is_refused() {
             sources: SourceMap::new(),
             elab: Elaborator::new(),
             warnings: Vec::new(),
-            syntax: Default::default(),
         };
         session.elab.loading_prelude = true;
         let errors = session.load("<prelude>", &prelude).unwrap_err();
@@ -363,9 +362,10 @@ fn conversion_never_unfolds_a_partial_computation() {
     session
         .load(
             "test.sw",
-            "collatzSteps : Nat -> {Partial} Nat\ncollatzSteps 1 = 0\n\
-             collatzSteps n = 1 + collatzSteps (if n % 2 == 0 then n / 2 else 3 * n + 1)\n\
-             spin : Nat -> {Partial} Nat\nspin n = spin n\n",
+            "def collatzSteps : Nat -> {Partial} Nat\n  \
+             | 1 => 0\n  \
+             | n => 1 + collatzSteps (if n % 2 == 0 then n / 2 else 3 * n + 1)\n\
+             def spin (n : Nat) : {Partial} Nat := spin n\n",
         )
         .unwrap();
     let g = &session.elab.globals;

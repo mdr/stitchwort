@@ -6,9 +6,9 @@ import Effect (Comp)
 type ChooseOp : Type =
   | Choose
 
-ChooseRes : ChooseOp -> Type
-ChooseRes Choose = Bool
+def ChooseRes : ChooseOp -> Type
+  | Choose => Bool
 
-hidden : Comp ChooseOp ChooseRes Nat -> Nat
-hidden (Done x)           = x
-hidden (Call Choose rest) = hidden (rest (Nat.leq (hidden (Call Choose rest)) 0))
+def hidden : Comp ChooseOp ChooseRes Nat -> Nat
+  | Done x           => x
+  | Call Choose rest => hidden (rest (Nat.leq (hidden (Call Choose rest)) 0))

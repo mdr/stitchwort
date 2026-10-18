@@ -27,9 +27,9 @@ fn hash_of(session: &Session, name: &str) -> ContentHash {
 
 #[test]
 fn hashes_ignore_names_layout_and_comments() {
-    let a = load("double : Nat -> Nat\ndouble n = n + n\n\nuse : Nat\nuse = double 2\n");
+    let a = load("def double (n : Nat) : Nat := n + n\n\ndef use : Nat := double 2\n");
     let b = load(
-        "-- the same, written differently\ntwice : Nat -> Nat\ntwice   m =   m + m\n\nuse : Nat\nuse = twice 2\n",
+        "-- the same, written differently\ndef twice (m : Nat) : Nat :=   m + m\n\ndef use : Nat := twice 2\n",
     );
     assert_eq!(hash_of(&a, "double"), hash_of(&b, "twice"));
     // `use` refers to its dependency by hash, not by name.
@@ -38,15 +38,15 @@ fn hashes_ignore_names_layout_and_comments() {
 
 #[test]
 fn hashes_change_with_anything_a_definition_depends_on() {
-    let a = load("double : Nat -> Nat\ndouble n = n + n\n\nuse : Nat\nuse = double 2\n");
-    let b = load("double : Nat -> Nat\ndouble n = 2 * n\n\nuse : Nat\nuse = double 2\n");
+    let a = load("def double (n : Nat) : Nat := n + n\n\ndef use : Nat := double 2\n");
+    let b = load("def double (n : Nat) : Nat := 2 * n\n\ndef use : Nat := double 2\n");
     assert_ne!(hash_of(&a, "double"), hash_of(&b, "double"));
     assert_ne!(
         hash_of(&a, "use"),
         hash_of(&b, "use"),
         "a dependency changed"
     );
-    let c = load("double : Nat -> Nat\ndouble n = n + n\n\nuse : Nat\nuse = double 3\n");
+    let c = load("def double (n : Nat) : Nat := n + n\n\ndef use : Nat := double 3\n");
     assert_eq!(hash_of(&a, "double"), hash_of(&c, "double"));
     assert_ne!(hash_of(&a, "use"), hash_of(&c, "use"));
 }
@@ -75,7 +75,7 @@ fn record_hashes_cover_field_names_and_the_record_flag() {
     let laid_out = load("type Person =\n  { name : Text\n  , age : Nat\n  }\n");
     assert_eq!(hash_of(&a, "Person"), hash_of(&laid_out, "Person"));
     // What uses a record changes with it.
-    let uses = "\n\nageOf : Person -> Nat\nageOf p = p.age\n";
+    let uses = "\n\ndef ageOf (p : Person) : Nat := p.age\n";
     let b = load(&format!("type Person = {{ name : Text, age : Nat }}{uses}"));
     let c = load(&format!(
         "type Person = {{ fullName : Text, age : Nat }}{uses}"
@@ -91,7 +91,7 @@ fn record_hashes_cover_field_names_and_the_record_flag() {
 fn data_types_defined_together_are_hashed_together() {
     let tree = "type Tree : Type =\n  | Node (label : Nat) (kids : Forest)\n\n";
     let forest = "type Forest : Type =\n  | FNil\n  | FCons (first : Tree) (rest : Forest)\n\n";
-    let leaf = "leaf : Tree\nleaf = Node 0 FNil\n";
+    let leaf = "def leaf : Tree := Node 0 FNil\n";
     let a = load(&format!("{tree}{forest}{leaf}"));
     let b = load(&format!("{forest}{tree}{leaf}"));
     for name in ["Tree", "Forest", "leaf"] {
@@ -120,8 +120,11 @@ fn test_results_are_reused_until_a_dependency_changes() {
     let cache = Cache::at(&dir);
     let program = |double: &str, triple_name: &str| {
         format!(
-            "double : Nat -> Nat\ndouble n = {double}\n\n{t} : Nat -> Nat\n{t} n = n + n + n\n\n\
-             test \"double\" = Nat.leq (double 3) 6\ntest \"triple\" = Nat.leq ({t} 2) 6\ntest \"wrong\" = Nat.leq 2 1\n",
+            "def double (n : Nat) : Nat := {double}\n\n\
+             def {t} (n : Nat) : Nat := n + n + n\n\n\
+             test \"double\" := Nat.leq (double 3) 6\n\
+             test \"triple\" := Nat.leq ({t} 2) 6\n\
+             test \"wrong\" := Nat.leq 2 1\n",
             t = triple_name
         )
     };
@@ -174,7 +177,7 @@ fn test_results_are_only_reused_by_the_same_build_and_modes() {
     let dir = std::env::temp_dir().join(format!("stitchwort-modes-test-{}", std::process::id()));
     let cache = Cache::at(&dir);
     let program =
-        "test \"big\" = Nat.leq 1000 (1000 * 1000)\ntest \"text\" = Text.length \"abc\" == 3\n";
+        "test \"big\" := Nat.leq 1000 (1000 * 1000)\ntest \"text\" := Text.length \"abc\" == 3\n";
     let run = |natives: bool, compact: bool| {
         let mut session = Session::new();
         session.elab.globals.builtins.disable_natives = !natives;

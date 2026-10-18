@@ -13,26 +13,18 @@
 -- run: describe []
 
 -- Lifted: the `match` is an argument of `+`.
-export
-count : Nat -> Nat
-count n = 1 + match n with
-                | Zero   -> 0
-                | Succ k -> count k
+export def count (n : Nat) : Nat := 1 + match n with
+                | Zero   => 0
+                | Succ k => count k
 
 -- In the tree: a loop.
-export
-countTail : Nat -> Nat
-countTail n = match n with | Zero -> 0 | Succ k -> countTail k
+export def countTail (n : Nat) : Nat := match n with | Zero => 0 | Succ k => countTail k
 
 -- Lifted, because the equation is named: not a loop.
-export
-countNamed : Nat -> Nat
-countNamed n = match h : n with | Zero -> 0 | Succ k -> countNamed k
+export def countNamed (n : Nat) : Nat := match h : n with | Zero => 0 | Succ k => countNamed k
 
-export
-describe : List Nat -> Text
-describe xs =
+export def describe (xs : List Nat) : Text :=
   match xs with
-    | Nil        -> "empty"
-    | Cons x Nil -> "one"
-    | _          -> "many"
+    | Nil        => "empty"
+    | Cons x Nil => "one"
+    | _          => "many"

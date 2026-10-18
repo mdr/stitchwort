@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-UNIVERSE] Error: universe mismatch
-   ╭─[ reject/tuple-prop-component.sw:4:7 ]
+   ╭─[ reject/tuple-prop-component.sw:3:19 ]
    │
- 4 │ Bad = (Nat, 1 = 1)
-   │       ──────┬─────  
-   │             ╰─────── expected something of type `Type`, but this has type `Prop`
+ 3 │ def Bad : Type := (Nat, 1 = 1)
+   │                   ──────┬─────  
+   │                         ╰─────── expected something of type `Type`, but this has type `Prop`
    │ 
    │ Note: `Type n` lives in `Type (n+1)`; allowing `Type : Type` would make the logic inconsistent
 ───╯

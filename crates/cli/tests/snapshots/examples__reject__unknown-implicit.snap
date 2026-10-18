@@ -3,9 +3,9 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-UNKNOWN-NAME] Error: no implicit parameter named `b` here
-   ╭─[ reject/unknown-implicit.sw:4:20 ]
+   ╭─[ reject/unknown-implicit.sw:3:31 ]
    │
- 4 │ two = List.length [b := Nat] [1, 2]
-   │                    ┬  
-   │                    ╰── not an implicit parameter of this function
+ 3 │ def two : Nat := List.length [b := Nat] [1, 2]
+   │                               ┬  
+   │                               ╰── not an implicit parameter of this function
 ───╯

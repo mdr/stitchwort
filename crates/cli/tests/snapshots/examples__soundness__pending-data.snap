@@ -9,9 +9,9 @@ expression: output
     │      ┬  
     │      ╰── `D` is defined here
     │ 
- 12 │ impossible : D -> Void
-    │ ─────┬────  
-    │      ╰────── `impossible` is defined here
+ 12 │ def impossible : D -> Void
+    │     ─────┬────  
+    │          ╰────── `impossible` is defined here
     │ 
     │ Note 1: `D` uses `impossible`, which uses `D`
     │ 

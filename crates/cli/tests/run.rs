@@ -147,18 +147,17 @@ fn the_prompt_appears_before_the_program_reads() {
 
 /// Echoes each line in brackets, and keeps reading after the end of input.
 const ECHO: &str = r#"
-showLine : Maybe Text -> Text
-showLine Nothing  = "<end>"
-showLine (Just l) = "[" ++ l ++ "]"
+def showLine : Maybe Text -> Text
+  | Nothing => "<end>"
+  | Just l  => "[" ++ l ++ "]"
 
-echo : Nat -> {IO} ()
-echo 0        = ()
-echo (Succ n) =
-  print (showLine (readLine ()))
-  echo n
+def echo : Nat -> {IO} ()
+  | 0      => ()
+  | Succ n =>
+    print (showLine (readLine ()))
+    echo n
 
-main : () -> {IO} ()
-main u = echo 3
+def main () : {IO} () := echo 3
 "#;
 
 #[test]
@@ -194,10 +193,7 @@ fn invalid_utf8_input_is_an_error() {
 
 #[test]
 fn a_write_error_is_an_error() {
-    let path = source_file(
-        "print.sw",
-        "main : () -> {IO} ()\nmain u = print \"hello\"\n",
-    );
+    let path = source_file("print.sw", "def main () : {IO} () := print \"hello\"\n");
     // Standard output is a pipe that nobody reads.
     let (reader, writer) = std::io::pipe().expect("a pipe");
     drop(reader);
@@ -219,22 +215,19 @@ fn a_write_error_is_an_error() {
 
 #[test]
 fn a_pure_main_runs() {
-    let path = source_file("pure.sw", "main : () -> ()\nmain u = ()\n");
+    let path = source_file("pure.sw", "def main () : () := ()\n");
     assert_eq!(succeeds(&path, b"unread\n"), "");
 }
 
 #[test]
 fn a_program_that_doesnt_check_isnt_run() {
-    let path = source_file("ill-typed.sw", "main : () -> {IO} ()\nmain u = print 3\n");
+    let path = source_file("ill-typed.sw", "def main () : {IO} () := print 3\n");
     assert_eq!(fails(&path, b"", "E-TYPE-MISMATCH"), "");
 }
 
 #[test]
 fn a_program_needs_a_main() {
-    let path = source_file(
-        "no-main.sw",
-        "start : () -> {IO} ()\nstart u = print \"hi\"\n",
-    );
+    let path = source_file("no-main.sw", "def start () : {IO} () := print \"hi\"\n");
     assert_eq!(fails(&path, b"", "E-NO-MAIN"), "");
 }
 
@@ -242,8 +235,9 @@ fn a_program_needs_a_main() {
 fn main_must_have_the_right_type() {
     let path = source_file(
         "main-type.sw",
-        "ability Abort where\n  abort : () -> {Abort} ()\n\n\
-         main : () -> {IO, Abort} ()\nmain u = abort ()\n",
+        "ability Abort where\n  \
+         abort : () -> {Abort} ()\n\n\
+         def main () : {IO, Abort} () := abort ()\n",
     );
     assert_eq!(fails(&path, b"", "E-MAIN-TYPE"), "");
     insta::assert_snapshot!(
@@ -309,8 +303,11 @@ fn an_endless_partial_main_runs_until_stopped() {
     // Output is flushed before every read, so `started` shows.
     let path = source_file(
         "spin.sw",
-        "spin : Nat -> {Partial} Nat\nspin n = spin (n + 1)\n\n\
-         main : () -> {IO, Partial} ()\nmain u =\n  print \"started\"\n  let l = readLine ()\n  print (Nat.toText (spin 0))\n",
+        "def spin (n : Nat) : {Partial} Nat := spin (n + 1)\n\n\
+         def main () : {IO, Partial} () :=\n  \
+         print \"started\"\n  \
+         let l := readLine ()\n  \
+         print (Nat.toText (spin 0))\n",
     );
     let mut child = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
         .arg("run")

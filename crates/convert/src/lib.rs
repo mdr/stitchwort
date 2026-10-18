@@ -31,7 +31,15 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use stitchwort_syntax::ast::{Clause, Decl, Expr, MatchKind, Pattern};
-use stitchwort_syntax::{Diagnostic, SourceMap, Tok, Token, lex, parse_expression, parse_module};
+use stitchwort_syntax::{Diagnostic, SourceMap, Tok, Token, lex};
+
+use crate::old_parser::{parse_expression, parse_module};
+
+/// The parser of the old declaration syntax, kept here (and only here) so
+/// the converter can still read old sources after the switch: Markdown code
+/// blocks and any other old text that is converted later.
+#[doc(hidden)]
+pub mod old_parser;
 
 /// Explicit-argument counts by definition name, from the elaborator
 /// ([`elaborated_arities`]).
@@ -265,7 +273,9 @@ pub fn elaborated_arities(text: &str) -> Result<Arities, String> {
             0
         } else {
             let first = session.elab.globals.defs.len();
-            session.load("input.sw", &text).map_err(|ds| {
+            // Read with the old parser, then elaborated as `Session::load`
+            // would (the tree is the same in both syntaxes).
+            let first_error = |ds: &[Diagnostic]| {
                 let d = ds
                     .iter()
                     .find(|d| d.severity == stitchwort_syntax::Severity::Error)
@@ -274,7 +284,17 @@ pub fn elaborated_arities(text: &str) -> Result<Arities, String> {
                     Some(d) => format!("{}: {}", d.code, d.message),
                     None => "doesn't check".to_string(),
                 }
-            })?;
+            };
+            let file = session.sources.add("input.sw", text.as_str());
+            let module = crate::old_parser::parse_module_within(file, &text, STACK)
+                .map_err(|ds| first_error(&ds))?;
+            let diagnostics = session.elab.elaborate_module(&module);
+            if diagnostics
+                .iter()
+                .any(|d| d.severity == stitchwort_syntax::Severity::Error)
+            {
+                return Err(first_error(&diagnostics));
+            }
             first
         };
         let g = &session.elab.globals;
@@ -355,6 +375,58 @@ pub struct HtmlBlock {
     pub outcome: Result<Converted, String>,
 }
 
+/// Whether `new` (in the new syntax) and `old` (in the old) parse to the
+/// same tree, spans and arm markers aside
+/// ([`stitchwort_syntax::equivalence::shape`]). The error says which failed
+/// to parse, or where the trees first differ. For the parser's tests of the
+/// new forms against the old.
+pub fn compare(new: &str, old: &str) -> Result<(), String> {
+    use stitchwort_syntax::equivalence::{parse_shape, shape};
+    let new_shape = parse_shape(new).map_err(|e| format!("the new syntax doesn't parse:\n{e}"))?;
+    let mut sources = SourceMap::new();
+    let file = sources.add("equivalence.sw", old);
+    let old_shape = match parse_module(file, old) {
+        Ok(module) => shape(&module),
+        Err(errors) => {
+            let errors: Vec<String> = errors
+                .iter()
+                .map(|d| format!("{}: {}", d.code, d.message))
+                .collect();
+            return Err(format!(
+                "the old syntax doesn't parse:\n{}",
+                errors.join("\n")
+            ));
+        }
+    };
+    if new_shape == old_shape {
+        return Ok(());
+    }
+    let (new_lines, old_lines): (Vec<&str>, Vec<&str>) =
+        (new_shape.lines().collect(), old_shape.lines().collect());
+    let at = new_lines
+        .iter()
+        .zip(&old_lines)
+        .position(|(a, b)| a != b)
+        .unwrap_or(new_lines.len().min(old_lines.len()));
+    let from = at.saturating_sub(12);
+    let excerpt = |lines: &[&str]| lines[from..(at + 3).min(lines.len())].join("\n");
+    Err(format!(
+        "the trees differ at line {} of their shapes\n--- new:\n{}\n--- old:\n{}",
+        at + 1,
+        excerpt(&new_lines),
+        excerpt(&old_lines)
+    ))
+}
+
+/// Panics, showing the difference, unless `new` and `old` parse to the same
+/// tree.
+#[track_caller]
+pub fn assert_equivalent(new: &str, old: &str) {
+    if let Err(difference) = compare(new, old) {
+        panic!("{difference}\n--- new source:\n{new}\n--- old source:\n{old}");
+    }
+}
+
 /// Checks a conversion (§5.4 layer 8): `new`, read by the new-syntax parser,
 /// must lower to the tree the old parser reads from `old`, declaration by
 /// declaration, spans and arm markers aside (lane A's
@@ -363,20 +435,24 @@ pub struct HtmlBlock {
 /// on purpose (their signatures must still agree), and header `()`s for an
 /// unused variable, which lower to `_`.
 pub fn check_ast_equivalence(old: &str, new: &str, report: &Report) -> Result<(), String> {
-    use stitchwort_syntax::Syntax;
+    use crate::old_parser::Syntax;
     use stitchwort_syntax::ast::Module;
     use stitchwort_syntax::equivalence::shape;
 
+    // The old text by the old parser; the new text by the language's parser.
     let parse = |syntax, text: &str| {
         let mut sources = SourceMap::new();
         let file = sources.add("input.sw", text);
-        stitchwort_syntax::parse_module_in(syntax, file, text, stitchwort_syntax::DEFAULT_STACK)
-            .map_err(|ds| {
-                ds.iter()
-                    .map(|d| describe(text, d))
-                    .collect::<Vec<_>>()
-                    .join("; ")
-            })
+        let parsed = match syntax {
+            Syntax::Old => crate::old_parser::parse_module(file, text),
+            Syntax::New => stitchwort_syntax::parse_module(file, text),
+        };
+        parsed.map_err(|ds| {
+            ds.iter()
+                .map(|d| describe(text, d))
+                .collect::<Vec<_>>()
+                .join("; ")
+        })
     };
     let mut old_module = parse(Syntax::Old, old)?;
     // Headers without a body are left out of `new` (see `Src::finish`).

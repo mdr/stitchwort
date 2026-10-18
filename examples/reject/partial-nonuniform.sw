@@ -3,5 +3,4 @@
 -- a call that changes one (non-uniform recursion) would need its type
 -- packed into the request, which doesn't fit (docs/proposals/partial.md
 -- §7.3.5).
-grow : [a : Type] -> a -> {Partial} Nat
-grow x = grow [a := List a] (Cons x Nil)
+def grow [a : Type] (x : a) : {Partial} Nat := grow [a := List a] (Cons x Nil)

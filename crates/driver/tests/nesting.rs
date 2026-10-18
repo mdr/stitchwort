@@ -93,7 +93,7 @@ fn nested_applications() {
     isolated("nested_applications", || {
         just_past_the_limit(|x, n| {
             format!(
-                "{x}f : Nat -> Nat\n{x}f n = n\n\n{x} : Nat\n{x} = {}\n",
+                "def {x}f (n : Nat) : Nat := n\n\ndef {x} : Nat := {}\n",
                 nested(n, &format!("{x}f ("), "0")
             )
         });
@@ -103,7 +103,7 @@ fn nested_applications() {
 #[test]
 fn nested_parentheses() {
     isolated("nested_parentheses", || {
-        just_past_the_limit(|x, n| format!("{x} : Nat\n{x} = {}\n", nested(n, "(", "0")));
+        just_past_the_limit(|x, n| format!("def {x} : Nat := {}\n", nested(n, "(", "0")));
     });
 }
 
@@ -112,9 +112,9 @@ fn nested_functions_and_function_types() {
     isolated("nested_functions_and_function_types", || {
         just_past_the_limit(|x, n| {
             format!(
-                "{x} : {}Nat\n{x} = {}0\n",
+                "def {x} : {}Nat := {}0\n",
                 "Nat -> ".repeat(n),
-                "\\y -> ".repeat(n)
+                "\\y => ".repeat(n)
             )
         });
     });
@@ -125,7 +125,7 @@ fn nested_functions_and_function_types() {
 fn long_appends() {
     isolated("long_appends", || {
         just_past_the_limit(|x, n| {
-            format!("{x} : List Nat\n{x} = {}\n", vec!["[1]"; n].join(" ++ "))
+            format!("def {x} : List Nat := {}\n", vec!["[1]"; n].join(" ++ "))
         });
     });
 }
@@ -135,7 +135,7 @@ fn long_appends() {
 #[test]
 fn long_sums() {
     isolated("long_sums", || {
-        just_past_the_limit(|x, n| format!("{x} : Nat\n{x} = {}\n", vec!["1"; n].join(" + ")));
+        just_past_the_limit(|x, n| format!("def {x} : Nat := {}\n", vec!["1"; n].join(" + ")));
     });
 }
 
@@ -144,8 +144,8 @@ fn long_sums() {
 fn long_blocks() {
     isolated("long_blocks", || {
         just_past_the_limit(|x, n| {
-            let lines: String = (0..n).map(|i| format!("  let v{i} = {i}\n")).collect();
-            format!("{x} : Nat\n{x} =\n{lines}  0\n")
+            let lines: String = (0..n).map(|i| format!("  let v{i} := {i}\n")).collect();
+            format!("def {x} : Nat :=\n{lines}  0\n")
         });
     });
 }
@@ -157,9 +157,9 @@ fn long_pattern_blocks() {
     isolated("long_pattern_blocks", || {
         just_past_the_limit(|x, n| {
             let lines: String = (0..n)
-                .map(|i| format!("  let (v{i}, w{i}) = (1, {i})\n"))
+                .map(|i| format!("  let (v{i}, w{i}) := (1, {i})\n"))
                 .collect();
-            format!("{x} : Nat\n{x} =\n{lines}  0\n")
+            format!("def {x} : Nat :=\n{lines}  0\n")
         });
     });
 }
@@ -170,7 +170,7 @@ fn long_pattern_blocks() {
 fn long_list_literals() {
     isolated("long_list_literals", || {
         just_past_the_limit(|x, n| {
-            format!("{x} : List Nat\n{x} = [{}]\n", vec!["1"; n].join(", "))
+            format!("def {x} : List Nat := [{}]\n", vec!["1"; n].join(", "))
         });
     });
 }
@@ -182,7 +182,7 @@ fn long_list_literals() {
 fn long_text_literals() {
     isolated("long_text_literals", || {
         let mut session = Session::new();
-        let text = format!("t : Text\nt = \"{}\"\n", "a".repeat(4_000_000));
+        let text = format!("def t : Text := \"{}\"\n", "a".repeat(4_000_000));
         assert_eq!(first_error(&mut session, "t.sw", &text), None);
     });
 }
@@ -194,7 +194,10 @@ fn nested_patterns() {
     isolated("nested_patterns", || {
         let mut sources = SourceMap::new();
         for n in [100, 1_000, 10_000, 100_000] {
-            let text = format!("g {} = 0\n", nested(n, "(Cons _ ", "_"));
+            let text = format!(
+                "def g : Nat -> Nat\n  | {} => 0\n",
+                nested(n, "(Cons _ ", "_")
+            );
             let file = sources.add("patterns.sw", &text);
             match parse_module_within(file, &text, DEFAULT_STACK) {
                 Ok(_) => assert!(n < 100_000, "{n} parses"),
@@ -220,7 +223,7 @@ fn with_deep_definition(depth: usize) -> (Session, DefId) {
     session
         .load(
             "deep.sw",
-            "f : Nat -> Nat\nf n = n\n\nexport\ng : Nat -> Nat\ng n = n\n",
+            "def f (n : Nat) : Nat := n\n\nexport def g (n : Nat) : Nat := n\n",
         )
         .expect("checks");
     let g = &mut session.elab.globals;
@@ -337,8 +340,12 @@ fn deep_expressions_to_evaluate() {
         session
             .load(
                 "unary.sw",
-                "type Unary : Type =\n  | Z\n  | S (u : Unary)\n\n\
-                 deep : Nat -> Unary\ndeep Zero = Z\ndeep (Succ n) = S (deep n)\n",
+                "type Unary : Type =\n  \
+                 | Z\n  \
+                 | S (u : Unary)\n\n\
+                 def deep : Nat -> Unary\n  \
+                 | Zero => Z\n  \
+                 | Succ n => S (deep n)\n",
             )
             .expect("checks");
         let expr = session.parse_expression("<input>", "deep 100000").unwrap();

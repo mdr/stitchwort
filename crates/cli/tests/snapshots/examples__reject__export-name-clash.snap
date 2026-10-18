@@ -3,17 +3,15 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-EXPORT] Error: `Squares.area` and `Circles.area` would both be exported as `area`
-   ╭─[ reject/export-name-clash.sw:7:1 ]
+   ╭─[ reject/export-name-clash.sw:5:1 ]
    │
- 3 │ ╭───▶ export
- 4 │ ├───▶ Squares.area : Nat -> Nat
-   │ │                                 
-   │ ╰───────────────────────────────── and here
+ 3 │ export def Squares.area (s : Nat) : Nat := s * s
+   │ ───────────────────┬───────────────────  
+   │                    ╰───────────────────── and here
    │ 
- 7 │   ╭─▶ export
- 8 │   ├─▶ Circles.area : Nat -> Nat
-   │   │                               
-   │   ╰─────────────────────────────── exported here
-   │       
-   │       Note: export only one of them, or rename one
+ 5 │ export def Circles.area (r : Nat) : Nat := 3 * r * r
+   │ ───────────────────┬───────────────────  
+   │                    ╰───────────────────── exported here
+   │ 
+   │ Note: export only one of them, or rename one
 ───╯

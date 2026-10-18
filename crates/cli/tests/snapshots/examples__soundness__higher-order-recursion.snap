@@ -3,13 +3,13 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-TERMINATION] Error: `viaHelper` is used here without all its arguments
-    ╭─[ soundness/higher-order-recursion.sw:17:40 ]
+    ╭─[ soundness/higher-order-recursion.sw:16:33 ]
     │
- 17 │ viaHelper (Call Choose rest) = applyTo viaHelper (rest True)
-    │                                        ────┬────  
-    │                                            ╰────── `viaHelper` takes 1 argument; it's given none here
+ 16 │   | Call Choose rest => applyTo viaHelper (rest True)
+    │                                 ────┬────  
+    │                                     ╰────── `viaHelper` takes 1 argument; it's given none here
     │ 
-    │ Note 1: write `\x -> viaHelper x` so the call can be checked
+    │ Note 1: write `\x => viaHelper x` so the call can be checked
     │ 
     │ Note 2: a recursive call must be given all the arguments, so the termination checker can see what each one is
 ────╯

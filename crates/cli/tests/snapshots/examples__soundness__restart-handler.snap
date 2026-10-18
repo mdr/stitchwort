@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-TERMINATION] Error: can't show that `bad` terminates
-    ╭─[ soundness/restart-handler.sw:18:21 ]
+    ╭─[ soundness/restart-handler.sw:18:20 ]
     │
- 18 │ bad (Call o rest) = bad (Call o rest)
-    │                     ────────┬───────  
-    │                             ╰───────── this recursive call might not terminate: the 1st argument stays the same
+ 18 │   | Call o rest => bad (Call o rest)
+    │                    ────────┬───────  
+    │                            ╰───────── this recursive call might not terminate: the 1st argument stays the same
     │ 
     │ Note 1: however the recursive calls are repeated, some argument must get smaller (a part of a pattern-matched constructor); an argument passed on unchanged, or rebuilt from its own pattern, is no smaller
     │ 

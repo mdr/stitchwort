@@ -5,19 +5,19 @@
 # time_ms is the median wall time on the machine that recorded it.
 
 [examples]
-inputs = "269 files, a9d6a2ca3851a4ee"
-steps = 558686140
-visits = 30213309
-allocations = 450995043
-peak_bytes = 20281216
+inputs = "272 files, 973b68324735babc"
+steps = 596972386
+visits = 34469516
+allocations = 495644240
+peak_bytes = 20696758
 time_ms = 1707.9
 
 [extract-js]
-inputs = "22 files, 1a50c88abc229b97"
-steps = 22887
-visits = 14206
-allocations = 139954
-peak_bytes = 342984
+inputs = "22 files, 02997f7b2da0a4f9"
+steps = 22875
+visits = 14210
+allocations = 139943
+peak_bytes = 344010
 time_ms = 11.8
 
 [eval-lengths]
@@ -52,91 +52,91 @@ time_ms = 426.7
 steps = 12849879
 visits = 143
 allocations = 4578649
-peak_bytes = 13148
+peak_bytes = 13436
 time_ms = 391.6
 
 [check-number-pattern]
 steps = 59
 visits = 38
-allocations = 228
-peak_bytes = 2639
+allocations = 229
+peak_bytes = 3415
 time_ms = 0.2
 
 [check-number-table]
 steps = 6432
 visits = 2335
-allocations = 16652
-peak_bytes = 311115
+allocations = 16384
+peak_bytes = 353041
 time_ms = 0.7
 
 [check-list-rfl]
 steps = 720059
 visits = 380034
-allocations = 1080298
-peak_bytes = 39387005
+allocations = 1080299
+peak_bytes = 39360442
 time_ms = 51.1
 
 [check-list-sym-rfl]
 steps = 1480278
 visits = 580059
-allocations = 1960692
-peak_bytes = 62428590
+allocations = 1960693
+peak_bytes = 62402027
 time_ms = 85.5
 
 [check-long-sum]
 steps = 233984
 visits = 188996
-allocations = 414114
-peak_bytes = 9009199
+allocations = 414115
+peak_bytes = 8982640
 time_ms = 1182.8
 
 [check-nested-parens]
 steps = 8
 visits = 12
-allocations = 93
-peak_bytes = 1859880
+allocations = 94
+peak_bytes = 1860650
 time_ms = 3.3
 
 [check-nested-apps]
 steps = 6037038
-visits = 2025038
-allocations = 4066257
-peak_bytes = 1265024
+visits = 2025042
+allocations = 4066276
+peak_bytes = 1238510
 time_ms = 629.8
 
 [check-number-huge]
 steps = 59
 visits = 38
-allocations = 232
-peak_bytes = 2691
+allocations = 233
+peak_bytes = 3467
 time_ms = 0.2
 
 [check-number-wide]
 steps = 25032
 visits = 9031
-allocations = 64407
-peak_bytes = 792699
+allocations = 63393
+peak_bytes = 970769
 time_ms = 2.3
 
 [check-number-dependent]
 steps = 5606
 visits = 818
-allocations = 11289
-peak_bytes = 62783
+allocations = 11237
+peak_bytes = 101102
 time_ms = 0.6
 
 [check-number-columns]
 steps = 3026
 visits = 607
-allocations = 7367
-peak_bytes = 64094
+allocations = 7301
+peak_bytes = 75286
 time_ms = 0.5
 
 [check-text-literal]
 steps = 19
 visits = 17
-allocations = 115
-peak_bytes = 198348
+allocations = 116
+peak_bytes = 171787
 time_ms = 0.5
 
 [text-literal-walk]
@@ -147,7 +147,7 @@ peak_bytes = 3101
 time_ms = 34.9
 
 [run-proof-fields]
-steps = 280869
+steps = 280866
 visits = 876
-allocations = 87851
-peak_bytes = 2376251
+allocations = 87848
+peak_bytes = 2376395

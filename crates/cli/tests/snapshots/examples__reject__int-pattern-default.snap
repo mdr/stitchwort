@@ -5,7 +5,7 @@ expression: output
 [E-TYPE-MISMATCH] Error: type mismatch
     ╭─[ reject/int-pattern-default.sw:12:10 ]
     │
- 12 │ make x = False
+ 12 │   | x => False
     │          ──┬──  
     │            ╰──── expected `R (OfNat n)`, but this has type `Bool`
     │ 

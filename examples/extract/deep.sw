@@ -18,65 +18,49 @@ type Chain : Type =
   | End
   | More (head : Nat) (tail : Chain)
 
-export
-echo : Chain -> Chain
-echo c = c
+export def echo (c : Chain) : Chain := c
 
-countOnto : Nat -> Chain -> Nat
-countOnto n End        = n
-countOnto n (More h t) = countOnto (Succ n) t
+def countOnto (n : Nat) : Chain -> Nat
+  | End      => n
+  | More h t => countOnto (Succ n) t
 
-export
-count : Chain -> Nat
-count c = countOnto 0 c
+export def count (c : Chain) : Nat := countOnto 0 c
 
-flipOnto : Chain -> Chain -> Chain
-flipOnto acc End        = acc
-flipOnto acc (More h t) = flipOnto (More h acc) t
+def flipOnto (acc : Chain) : Chain -> Chain
+  | End      => acc
+  | More h t => flipOnto (More h acc) t
 
-export
-flip : Chain -> Chain
-flip c = flipOnto End c
+export def flip (c : Chain) : Chain := flipOnto End c
 
 -- `More 0 (More 1 … (More (n - 1) End))`.
-buildOnto : Chain -> Nat -> Chain
-buildOnto acc Zero     = acc
-buildOnto acc (Succ n) = buildOnto (More n acc) n
+def buildOnto (acc : Chain) : Nat -> Chain
+  | Zero   => acc
+  | Succ n => buildOnto (More n acc) n
 
-export
-build : Nat -> Chain
-build n = buildOnto End n
+export def build (n : Nat) : Chain := buildOnto End n
 
 type Tree : Type =
   | Leaf
   | Node (left : Tree) (right : Tree)
 
-export
-echoTree : Tree -> Tree
-echoTree t = t
+export def echoTree (t : Tree) : Tree := t
 
 -- A tree `n` deep, down its left side.
-spineOnto : Tree -> Nat -> Tree
-spineOnto t Zero     = t
-spineOnto t (Succ n) = spineOnto (Node t Leaf) n
+def spineOnto (t : Tree) : Nat -> Tree
+  | Zero   => t
+  | Succ n => spineOnto (Node t Leaf) n
 
-export
-spine : Nat -> Tree
-spine n = spineOnto Leaf n
+export def spine (n : Nat) : Tree := spineOnto Leaf n
 
 -- A list with a parameter.
 type Seq (a : Type) : Type =
   | Stop
   | Step (item : a) (rest : Seq a)
 
-export
-echoSeq : Seq Text -> Seq Text
-echoSeq s = s
+export def echoSeq (s : Seq Text) : Seq Text := s
 
-stepsOnto : Seq Text -> Nat -> Seq Text
-stepsOnto s Zero     = s
-stepsOnto s (Succ n) = stepsOnto (Step "x" s) n
+def stepsOnto (s : Seq Text) : Nat -> Seq Text
+  | Zero   => s
+  | Succ n => stepsOnto (Step "x" s) n
 
-export
-steps : Nat -> Seq Text
-steps n = stepsOnto Stop n
+export def steps (n : Nat) : Seq Text := stepsOnto Stop n

@@ -12,12 +12,11 @@ type Unit1 : Type =
 
 type Empty : Type
 
-LaterRes : LaterOp -> Type
-LaterRes Later = Unit1
+def LaterRes : LaterOp -> Type
+  | Later => Unit1
 
-drain : Comp LaterOp LaterRes a -> a
-drain (Done x)          = x
-drain (Call Later rest) = drain (rest MkUnit)
+def drain : Comp LaterOp LaterRes a -> a
+  | Done x          => x
+  | Call Later rest => drain (rest MkUnit)
 
-forever : Unit1 -> Comp LaterOp LaterRes Empty
-forever u = Call Later (\v -> forever u)
+def forever (u : Unit1) : Comp LaterOp LaterRes Empty := Call Later (\v => forever u)

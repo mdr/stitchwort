@@ -5,8 +5,7 @@
 ability Ping where
   ping : () -> {Ping} ()
 
-bad : (() -> {Ping} a) -> a
-bad prog =
+def bad (prog : () -> {Ping} a) : a :=
   handle prog () with
-    | return x     -> x
-    | ping u => k  -> bad prog
+    | return x     => x
+    | ping u, k    => bad prog

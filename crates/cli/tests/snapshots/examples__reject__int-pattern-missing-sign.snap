@@ -3,12 +3,12 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-NONEXHAUSTIVE] Error: missing case: no equation matches negative numbers
-   ╭─[ reject/int-pattern-missing-sign.sw:5:1 ]
+   ╭─[ reject/int-pattern-missing-sign.sw:5:3 ]
    │
- 5 │ ╭─▶ f (OfNat n) = 1
- 6 │ ├─▶ f 0 = 2
-   │ │             
-   │ ╰───────────── missing case: no equation matches negative numbers
+ 5 │ ╭─▶   | OfNat n => 1
+ 6 │ ├─▶   | 0 => 2
+   │ │                
+   │ ╰──────────────── missing case: no equation matches negative numbers
    │     
    │     Note: add an equation with a variable or `_` in that position
 ───╯

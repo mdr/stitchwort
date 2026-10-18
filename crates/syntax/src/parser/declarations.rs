@@ -1,8 +1,7 @@
-//! Declarations in the new syntax (docs/proposals/declaration-syntax.md):
-//! `def` and `theorem` headers with typed parameters, then a `:=` body or
-//! arms, lowered to the signature and equations the old syntax produces, so
-//! nothing after the parser changes (§2.3); `test "n" := e`; `export def`;
-//! and handler clauses `| op x, k => body` (§2.11).
+//! Declarations (docs/proposals/declaration-syntax.md): `def` and
+//! `theorem` headers with typed parameters, then a `:=` body or arms,
+//! lowered to a signature and its equations (§2.3); `test "n" := e`;
+//! `export def`; and handler clauses `| op x, k => body` (§2.11).
 //!
 //! Each function here is `#[inline(never)]` or only called from one that
 //! is: the expression parser's recursive functions must keep small stack
@@ -30,15 +29,15 @@ enum Param {
 }
 
 impl Parser<'_> {
-    /// A declaration in the new syntax: a definition (a signature and its
-    /// equations), or one declaration of another kind.
+    /// A declaration: a definition (a signature and its equations), or one
+    /// declaration of another kind.
     #[inline(never)]
-    pub(super) fn new_decl(&mut self) -> Result<Vec<Decl>> {
+    pub(super) fn decl(&mut self) -> Result<Vec<Decl>> {
         let start = self.here();
         match self.peek() {
             Some(Tok::KwType) => Ok(vec![self.data()?]),
             Some(Tok::KwAbility) => Ok(vec![self.ability()?]),
-            Some(Tok::KwTest) => Ok(vec![self.new_test()?]),
+            Some(Tok::KwTest) => Ok(vec![self.test()?]),
             Some(Tok::KwExport) => {
                 self.bump();
                 if !matches!(self.peek(), Some(Tok::KwDef | Tok::KwTheorem)) {
@@ -47,17 +46,13 @@ impl Parser<'_> {
                 self.definition(start, true)
             }
             Some(Tok::KwDef | Tok::KwTheorem) => self.definition(start, false),
-            Some(Tok::Lower(_) | Tok::Upper(_)) => Err(error(
-                start,
-                "expected a declaration: definitions start with `def`",
-            )
-            .with_note("write `def f (x : Nat) : Nat := …`, or arms under `def f : Nat -> Nat`")),
+            Some(Tok::Lower(_) | Tok::Upper(_)) => Err(self.old_declaration()),
             _ => Err(self.unexpected("a declaration")),
         }
     }
 
     /// `test "name" := e`
-    fn new_test(&mut self) -> Result<Decl> {
+    fn test(&mut self) -> Result<Decl> {
         let start = self.bump().span;
         let name = match self.peek() {
             Some(Tok::Str(text)) => {
@@ -79,6 +74,31 @@ impl Parser<'_> {
         })
     }
 
+    /// `E-OLD-DECLARATION`: a declaration starting with a name, as the old
+    /// syntax's signatures (`f : T`) and equations (`f x = e`) did.
+    fn old_declaration(&self) -> Diagnostic {
+        let name = match self.peek() {
+            Some(Tok::Lower(text) | Tok::Upper(text)) => text.clone(),
+            _ => "f".to_string(),
+        };
+        let note = if self.peek_at(1) == Some(&Tok::Colon) {
+            format!(
+                "write `def {name} : …` with a `:=` body or arms under it; a signature and \
+                 equations are one definition now"
+            )
+        } else {
+            format!(
+                "write `def {name} (x : A) : B := …`, or arms `| p => …` under `def {name} : A -> B`"
+            )
+        };
+        Diagnostic::error("E-OLD-DECLARATION", "definitions start with `def`")
+            .with_label(
+                self.here(),
+                "expected `def`, `theorem`, `type`, `ability` or `test`",
+            )
+            .with_note(note)
+    }
+
     /// `=` where `:=` gives something its value.
     pub(super) fn def_equals(&self) -> Diagnostic {
         Diagnostic::error(
@@ -89,9 +109,11 @@ impl Parser<'_> {
     }
 
     /// `def name params : type`, then `:= body` or arms; or the same with
-    /// `theorem`. At `def` or `theorem`; `start` is where the declaration
-    /// starts (at `export`, if it's there). Once here, it's a header: the
-    /// parser never goes back to read the tokens another way (§2.1).
+    /// `theorem`. With neither, a signature alone: only the prelude's
+    /// primitives are declared that way, which the elaborator checks. At
+    /// `def` or `theorem`; `start` is where the declaration starts (at
+    /// `export`, if it's there). Once here, it's a header: the parser never
+    /// goes back to read the tokens another way (§2.1).
     #[inline(never)]
     fn definition(&mut self, start: Span, export: bool) -> Result<Vec<Decl>> {
         let keyword = &self.tokens[self.pos];
@@ -159,6 +181,9 @@ impl Parser<'_> {
                      body, write `:=`",
                 ));
             }
+            // A header without a body: a primitive, for the elaborator to
+            // admit or refuse.
+            None => {}
             _ => {
                 return Err(self.unexpected(
                     "`:=` and the body, or arms starting with `|` on their own lines",

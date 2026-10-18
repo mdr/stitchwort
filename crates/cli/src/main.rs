@@ -6,28 +6,18 @@ use clap::{Parser, Subcommand};
 use rustyline::error::ReadlineError;
 use stitchwort_cli::driver::{Cache, Outcome, Session};
 use stitchwort_cli::render::render;
-use stitchwort_syntax::{Diagnostic, SourceMap, Syntax};
+use stitchwort_syntax::{Diagnostic, SourceMap};
 
 #[derive(Parser)]
 #[command(name = "stitchwort", version, about = "The Stitchwort language")]
 struct Cli {
     #[command(subcommand)]
     command: Command,
-    /// The declaration syntax the files are written in: `old` (signature
-    /// lines and equations) or `new` (`def` headers). Also set by the
-    /// `STITCHWORT_SYNTAX` environment variable
-    #[arg(long, global = true, value_parser = ["old", "new"])]
-    syntax: Option<String>,
 }
 
-/// The syntax chosen for this run, by `--syntax` or `STITCHWORT_SYNTAX`.
-static SYNTAX: std::sync::OnceLock<Syntax> = std::sync::OnceLock::new();
-
-/// A session for the compiler thread, reading the chosen syntax.
+/// A session for the compiler thread.
 fn new_session() -> Session {
-    let mut session = Session::for_stack(STACK);
-    session.syntax = SYNTAX.get().copied().unwrap_or_default();
-    session
+    Session::for_stack(STACK)
 }
 
 #[derive(Subcommand)]
@@ -73,19 +63,6 @@ const STACK: usize = 64 * 1024 * 1024;
 
 fn main() -> ExitCode {
     let cli = Cli::parse();
-    let name = cli
-        .syntax
-        .clone()
-        .or_else(|| std::env::var("STITCHWORT_SYNTAX").ok());
-    let syntax = match name.as_deref().map(Syntax::from_name) {
-        None => Syntax::default(),
-        Some(Some(syntax)) => syntax,
-        Some(None) => {
-            eprintln!("error: STITCHWORT_SYNTAX must be `old` or `new`");
-            return ExitCode::FAILURE;
-        }
-    };
-    SYNTAX.set(syntax).expect("set once");
     stitchwort_cli::driver::with_stack(STACK, move || run(cli))
 }
 

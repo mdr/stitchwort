@@ -9,41 +9,40 @@
 -- Ackermann's function: each call either makes the first argument smaller,
 -- or keeps it (`Succ m` is the first argument, rebuilt) and makes the
 -- second smaller.
-ack : Nat -> Nat -> Nat
-ack Zero     n        = Succ n
-ack (Succ m) Zero     = ack m 1
-ack (Succ m) (Succ n) = ack m (ack (Succ m) n)
+def ack : Nat -> Nat -> Nat
+  | Zero,   n      => Succ n
+  | Succ m, Zero   => ack m 1
+  | Succ m, Succ n => ack m (ack (Succ m) n)
 
 -- The arguments swap places, so no one position gets smaller in every call,
 -- but two calls in a row make both smaller.
-interleave : List Nat -> List Nat -> List Nat
-interleave Nil         ys = ys
-interleave (Cons x xs) ys = Cons x (interleave ys xs)
+def interleave : List Nat -> List Nat -> List Nat
+  | Nil,       ys => ys
+  | Cons x xs, ys => Cons x (interleave ys xs)
 
 -- Each call keeps one list (rebuilt from its pattern) and takes from the
 -- other.
-merge : List Nat -> List Nat -> List Nat
-merge Nil         ys          = ys
-merge (Cons x xs) Nil         = Cons x xs
-merge (Cons x xs) (Cons y ys) =
-  if Nat.leq x y then Cons x (merge xs (Cons y ys)) else Cons y (merge (Cons x xs) ys)
+def merge : List Nat -> List Nat -> List Nat
+  | Nil,       ys        => ys
+  | Cons x xs, Nil       => Cons x xs
+  | Cons x xs, Cons y ys =>
+    if Nat.leq x y then Cons x (merge xs (Cons y ys)) else Cons y (merge (Cons x xs) ys)
 
 -- A recursive call passed to another function must be given all its
 -- arguments: `\x -> sumWith n x`, not `sumWith n` (reject/partial-recursive-call.sw).
-applyTo : (Nat -> Nat) -> Nat -> Nat
-applyTo f x = f x
+def applyTo (f : Nat -> Nat) (x : Nat) : Nat := f x
 
-sumWith : Nat -> Nat -> Nat
-sumWith Zero     acc = acc
-sumWith (Succ n) acc = applyTo (\x -> sumWith n x) (acc + Succ n)
+def sumWith : Nat -> Nat -> Nat
+  | Zero,   acc => acc
+  | Succ n, acc => applyTo (\x => sumWith n x) (acc + Succ n)
 
-eqList : List Nat -> List Nat -> Bool
-eqList Nil         Nil         = True
-eqList (Cons x xs) (Cons y ys) = if x == y then eqList xs ys else False
-eqList Nil         (Cons y ys) = False
-eqList (Cons x xs) Nil         = False
+def eqList : List Nat -> List Nat -> Bool
+  | Nil,       Nil       => True
+  | Cons x xs, Cons y ys => if x == y then eqList xs ys else False
+  | Nil,       Cons y ys => False
+  | Cons x xs, Nil       => False
 
-test "ack 2 3" = ack 2 3 == 9
-test "interleave" = eqList (interleave [1, 3, 5] [2, 4]) [1, 2, 3, 4, 5]
-test "sumWith" = sumWith 4 0 == 10
-test "merge" = eqList (merge [1, 4, 6] [2, 3, 7]) [1, 2, 3, 4, 6, 7]
+test "ack 2 3" := ack 2 3 == 9
+test "interleave" := eqList (interleave [1, 3, 5] [2, 4]) [1, 2, 3, 4, 5]
+test "sumWith" := sumWith 4 0 == 10
+test "merge" := eqList (merge [1, 4, 6] [2, 3, 7]) [1, 2, 3, 4, 6, 7]

@@ -3,13 +3,13 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-HANDLER] Error: this handler has no clause for `put`
-    ╭─[ reject/handler-missing-clause.sw:9:3 ]
+    ╭─[ reject/handler-missing-clause.sw:8:3 ]
     │
-  9 │ ╭─▶   handle prog () with
+  8 │ ╭─▶   handle prog () with
     ┆ ┆   
- 11 │ ├─▶     | get u => k -> k 0
-    │ │                             
-    │ ╰───────────────────────────── here
+ 10 │ ├─▶     | get u, k => k 0
+    │ │                           
+    │ ╰─────────────────────────── here
     │     
     │     Note: a handler for an ability needs a clause for each of its operations
 ────╯

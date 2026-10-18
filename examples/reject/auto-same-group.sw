@@ -4,13 +4,12 @@
 type Token : Prop =
   | MkToken
 
-needsToken : [auto t : Token] -> Nat
-needsToken = 1
+def needsToken : [auto t : Token] -> Nat := 1
 
-decToken : Nat -> Decidable Token
-decToken 0        = Yes MkToken
-decToken (Succ n) = if client n == 0 then Yes MkToken else decToken n
+def decToken : Nat -> Decidable Token
+  | 0      => Yes MkToken
+  | Succ n => if client n == 0 then Yes MkToken else decToken n
 
-client : Nat -> Nat
-client 0        = needsToken
-client (Succ n) = if Decidable.toBool (decToken n) then 0 else client n
+def client : Nat -> Nat
+  | 0      => needsToken
+  | Succ n => if Decidable.toBool (decToken n) then 0 else client n

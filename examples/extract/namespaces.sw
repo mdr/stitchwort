@@ -12,12 +12,10 @@ type Geometry.Shape : Type =
   | Square (side : Nat)
   | Rect (width : Nat) (height : Nat)
 
-export
-Geometry.Shape.area : Geometry.Shape -> Nat
-Geometry.Shape.area (Geometry.Shape.Square s) = s * s
-Geometry.Shape.area (Geometry.Shape.Rect w h) = w * h
+export def Geometry.Shape.area : Geometry.Shape -> Nat
+  | Geometry.Shape.Square s => s * s
+  | Geometry.Shape.Rect w h => w * h
 
-export
-grow : Geometry.Shape -> Geometry.Shape
-grow (Geometry.Shape.Square s) = Geometry.Shape.Square (s + 1)
-grow (Geometry.Shape.Rect w h) = Geometry.Shape.Rect (w + 1) (h + 1)
+export def grow : Geometry.Shape -> Geometry.Shape
+  | Geometry.Shape.Square s => Geometry.Shape.Square (s + 1)
+  | Geometry.Shape.Rect w h => Geometry.Shape.Rect (w + 1) (h + 1)

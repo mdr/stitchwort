@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-REFL] Error: `rfl` can't prove this
-   ╭─[ reject/int-neg-neg-rfl.sw:4:12 ]
+   ╭─[ reject/int-neg-neg-rfl.sw:3:37 ]
    │
- 4 │ negNeg x = rfl
-   │            ─┬─  
-   │             ╰─── `Int.neg (Int.neg x)` and `x` aren't equal
+ 3 │ def negNeg (x : Int) : -(-x) = x := rfl
+   │                                     ─┬─  
+   │                                      ╰─── `Int.neg (Int.neg x)` and `x` aren't equal
    │ 
    │ Note: `rfl` proves `a = b` only when both sides compute to the same value
 ───╯

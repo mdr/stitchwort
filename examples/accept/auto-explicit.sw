@@ -4,16 +4,12 @@
 type Token : Prop =
   | MkToken
 
-needsToken : [auto t : Token] -> Nat
-needsToken = 1
+def needsToken : [auto t : Token] -> Nat := 1
 
-client : Nat
-client = needsToken [t := Decidable.fromYes decToken Trivial]
+def client : Nat := needsToken [t := Decidable.fromYes decToken Trivial]
 
-decToken : Decidable Token
-decToken = laterHelper
+def decToken : Decidable Token := laterHelper
 
-laterHelper : Decidable Token
-laterHelper = Yes MkToken
+def laterHelper : Decidable Token := Yes MkToken
 
-test "client" = client == 1
+test "client" := client == 1

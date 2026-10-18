@@ -11,11 +11,10 @@ type Bad2 : Type =
   | MkBad2 (b : Bad1)
 
 -- Neither function is recursive, so both would pass the termination check.
-notBad : Bad1 -> Void
-notBad (MkBad1 f) = f (MkBad2 (MkBad1 f))
+def notBad : Bad1 -> Void
+  | MkBad1 f => f (MkBad2 (MkBad1 f))
 
-unwrap : Bad2 -> Void
-unwrap (MkBad2 b) = notBad b
+def unwrap : Bad2 -> Void
+  | MkBad2 b => notBad b
 
-theorem boom : Void
-boom = notBad (MkBad1 unwrap)
+theorem boom : Void := notBad (MkBad1 unwrap)

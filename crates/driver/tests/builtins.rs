@@ -57,7 +57,6 @@ fn a_prelude_without_a_builtin_is_refused_before_user_code() {
         sources: SourceMap::new(),
         elab: stitchwort_elab::Elaborator::new(),
         warnings: Vec::new(),
-        syntax: Default::default(),
     };
     session.elab.loading_prelude = true;
     session
@@ -71,7 +70,7 @@ fn a_prelude_without_a_builtin_is_refused_before_user_code() {
         missing.message
     );
     // And no user code is elaborated.
-    let errors = session.load("test.sw", "x : Nat\nx = 1\n").unwrap_err();
+    let errors = session.load("test.sw", "def x : Nat := 1\n").unwrap_err();
     assert_eq!(errors.len(), 1);
     assert_eq!(errors[0].code, "E-BUILTIN");
 }
@@ -80,10 +79,10 @@ fn a_prelude_without_a_builtin_is_refused_before_user_code() {
 fn a_forgotten_builtin_is_an_error_not_a_name_lookup() {
     let mut session = Session::new();
     session
-        .load("test.sw", "x : Nat\nx = 1 + 2\n")
+        .load("test.sw", "def x : Nat := 1 + 2\n")
         .expect("loads");
     session.elab.globals.registry.forget_for_test(Builtin::Add);
-    let errors = session.load("more.sw", "y : Nat\ny = 1\n").unwrap_err();
+    let errors = session.load("more.sw", "def y : Nat := 1\n").unwrap_err();
     assert_eq!(errors[0].code, "E-BUILTIN");
     assert!(errors[0].message.contains("`Nat.add`"));
 }
@@ -122,97 +121,76 @@ type Comp : Type =
 type Plus : Type =
   | Plus1
 
-add : Nat -> Nat -> Nat
-add m n = 0
+def add (m : Nat) (n : Nat) : Nat := 0
 
-sub : Nat -> Nat -> Nat
-sub m n = 0
+def sub (m : Nat) (n : Nat) : Nat := 0
 
-LessThan : Nat -> Nat -> Prop
-LessThan m n = m = m
+def LessThan (m : Nat) (n : Nat) : Prop := m = m
 
-Not : Nat
-Not = 1
+def Not : Nat := 1
 
-append : Nat
-append = 2
+def append : Nat := 2
 
-textAppend : Nat
-textAppend = 3
+def textAppend : Nat := 3
 
-ifThenElse : Nat
-ifThenElse = 4
+def ifThenElse : Nat := 4
 
-toBool : Nat
-toBool = 5
+def toBool : Nat := 5
 
-elimDec : Nat
-elimDec = 6
+def elimDec : Nat := 6
 
-fromYes : Nat
-fromYes = 7
+def fromYes : Nat := 7
 
-cong : Nat
-cong = 8
+def cong : Nat := 8
 
-fst : Nat
-fst = 9
+def fst : Nat := 9
 
-simulate : Nat
-simulate = 10
+def simulate : Nat := 10
 
-bind : Nat
-bind = 11
+def bind : Nat := 11
 
-foldComp : Nat
-foldComp = 12
+def foldComp : Nat := 12
 
-runPure : Nat
-runPure = 13
+def runPure : Nat := 13
 
-sigOp : Nat
-sigOp = 14
+def sigOp : Nat := 14
 
 type Point = { x : Nat, y : Nat }
 
-isTwo : Nat -> Bool
-isTwo 2 = True
-isTwo n = False
+def isTwo : Nat -> Bool
+  | 2 => True
+  | n => False
 
-unitOne : () -> Nat
-unitOne () = 1
+def unitOne : () -> Nat
+  | () => 1
 
-safeDiv : (n : Nat) -> (d : Nat) -> [auto ok : d != 0] -> Nat
-safeDiv n d = n / d
+def safeDiv (n : Nat) (d : Nat) : [auto ok : d != 0] -> Nat := n / d
 
-mine : List Nat
-mine = Cons 1 Nil
+def mine : List Nat := Cons 1 Nil
 
-twice : () -> {IO} ()
-twice u =
+def twice () : {IO} () :=
   print "one"
-  let n = 2 + 2
+  let n := 2 + 2
   print (Nat.toText n)
 
-main : () -> {IO} ()
-main u =
+def main () : {IO} () :=
   twice ()
   print ("a" ++ "b")
 
-test "plus" = 2 + 3 == 5
-test "minus" = 5 - 3 == 2
-test "big plus" = 1000000000000 + 1000000000000 == 2000000000000
-test "less" = (if h : 1 < 2 then True else False) == True
-test "not equal" = (if h : 1 != 2 then True else False) == True
-test "if" = (if 1 == 1 then 4 else 5) == 4
-test "text append" = Text.length ("ab" ++ "cd") == 4
-test "list append" = Std.List.length ([1, 2] ++ [3]) == 3
-test "number patterns" = isTwo 2 == True
-test "unit pattern" = unitOne () == 1
-test "auto" = safeDiv 6 2 == 3
-test "records" = ({ x = 1, y = 2 } : Point) == { x = 1, y = 2 }
-test "records differ" = (({ x = 1, y = 2 } : Point) == { x = 1, y = 3 }) == False
-test "char literal" = Char.toNat 'a' == 97
+test "plus" := 2 + 3 == 5
+test "minus" := 5 - 3 == 2
+test "big plus" := 1000000000000 + 1000000000000 == 2000000000000
+test "less" := (if h : 1 < 2 then True else False) == True
+test "not equal" := (if h : 1 != 2 then True else False) == True
+test "if" := (if 1 == 1 then 4 else 5) == 4
+test "text append" := Text.length ("ab" ++ "cd") == 4
+test "list append" := Std.List.length ([1, 2] ++ [3]) == 3
+test "number patterns" := isTwo 2 == True
+test "unit pattern" := unitOne () == 1
+test "auto" := safeDiv 6 2 == 3
+test "records" := ({ x = 1, y = 2 } : Point) == { x = 1, y = 2 }
+test "records differ" := (({ x = 1, y = 2 } : Point) == { x = 1, y = 3 }) == False
+test "char literal" := Char.toNat 'a' == 97
 "#;
 
 fn hidden_session() -> Session {
@@ -277,8 +255,12 @@ fn a_programs_own_list_prints_as_itself() {
 fn a_programs_own_list_crosses_the_js_boundary_as_itself() {
     let mut session = Session::new();
     // Shaped like the prelude's, so only its identity tells them apart.
-    let program = "type List (a : Type) : Type =\n  | Nil\n  | Cons (head : a) (tail : List a)\n\n\
-                   export size : List Nat -> Nat\nsize Nil = 0\nsize (Cons x xs) = 1 + size xs\n";
+    let program = "type List (a : Type) : Type =\n  \
+                   | Nil\n  \
+                   | Cons (head : a) (tail : List a)\n\n\
+                   export def size : List Nat -> Nat\n  \
+                   | Nil => 0\n  \
+                   | Cons x xs => 1 + size xs\n";
     if let Err(errors) = session.load("test.sw", program) {
         panic!("{errors:#?}");
     }

@@ -9,7 +9,7 @@ use stitchwort_syntax::{SourceMap, parse_module};
 enum Gen {
     Var(String),
     App(Box<Gen>, Box<Gen>),
-    /// Lines of a block: `(Some(x), e)` is `let x = e`, `(None, e)` a line
+    /// Lines of a block: `(Some(x), e)` is `let x := e`, `(None, e)` a line
     /// run for its effects. Then the result.
     Block(Vec<(Option<String>, Gen)>, Box<Gen>),
     Lam(String, Box<Gen>),
@@ -30,7 +30,7 @@ impl Rng {
 }
 
 /// Like `generate`, but not a block: for a line of a block or an argument,
-/// where a block can't start (it starts on a new line, after `=` or `->`).
+/// where a block can't start (it starts on a new line, after `:=` or `=>`).
 fn generate_inline(rng: &mut Rng, depth: u32) -> Gen {
     loop {
         let g = generate(rng, depth);
@@ -88,13 +88,13 @@ fn render(g: &Gen, indent: usize) -> String {
         Gen::Var(x) => x.clone(),
         Gen::App(f, a) => format!("{} ({})", render(f, indent), render(a, indent + 2)),
         Gen::Block(..) => block(g, indent + 2),
-        Gen::Lam(x, body) => format!("\\{x} -> {}", render(body, indent)),
+        Gen::Lam(x, body) => format!("\\{x} => {}", render(body, indent)),
         Gen::Handle(body, clauses) => {
             let mut out = format!("handle {} with", render(body, indent));
             let col = indent + 2;
             for (op, body) in clauses {
                 out.push_str(&format!(
-                    "\n{}| {op} x => k -> {}",
+                    "\n{}| {op} x, k => {}",
                     " ".repeat(col),
                     render(body, col + 2)
                 ));
@@ -106,7 +106,7 @@ fn render(g: &Gen, indent: usize) -> String {
             let col = indent + 2;
             for body in alts {
                 out.push_str(&format!(
-                    "\n{}| Pat x _ -> {}",
+                    "\n{}| Pat x _ => {}",
                     " ".repeat(col),
                     render(body, col + 2)
                 ));
@@ -126,7 +126,7 @@ fn block(g: &Gen, col: usize) -> String {
     for (bound, e) in lines {
         let text = render(e, col);
         match bound {
-            Some(x) => out.push_str(&format!("\n{pad}let {x} = {text}")),
+            Some(x) => out.push_str(&format!("\n{pad}let {x} := {text}")),
             None => out.push_str(&format!("\n{pad}{text}")),
         }
     }
@@ -143,7 +143,7 @@ fn shape(g: &Gen) -> String {
             let mut out = String::new();
             for (bound, e) in lines {
                 match bound {
-                    Some(x) => out.push_str(&format!("let {x} = {}; ", shape(e))),
+                    Some(x) => out.push_str(&format!("let {x} := {}; ", shape(e))),
                     None => out.push_str(&format!("{}; ", shape(e))),
                 }
             }
@@ -178,7 +178,7 @@ fn parsed_shape(e: &Expr) -> String {
                     Expr::Let {
                         name, value, body, ..
                     } => {
-                        out.push_str(&format!("let {} = {}; ", name.text, parsed_shape(value)));
+                        out.push_str(&format!("let {} := {}; ", name.text, parsed_shape(value)));
                         e = body;
                     }
                     Expr::Seq(first, rest) => {
@@ -223,12 +223,16 @@ fn generated_layouts_parse_back_to_the_same_structure() {
             Gen::Block(..) => block(&g, 2),
             other => format!(" {}", render(other, 0)),
         };
-        let text = format!("f u ={body}\n");
+        let text = format!("def f (u : Nat) : Nat :={body}\n");
         let mut sources = SourceMap::new();
         let file = sources.add("generated.sw", &text);
         let module = parse_module(file, &text)
             .unwrap_or_else(|e| panic!("program {n} doesn't parse: {e:?}\n\n{text}"));
-        let Some(Decl::Equation { rhs: Some(rhs), .. }) = module.decls.first() else {
+        let Some(Decl::Equation { rhs: Some(rhs), .. }) = module
+            .decls
+            .iter()
+            .find(|d| matches!(d, Decl::Equation { .. }))
+        else {
             panic!("program {n}: expected one equation\n\n{text}");
         };
         // A block of just a result is the result itself.

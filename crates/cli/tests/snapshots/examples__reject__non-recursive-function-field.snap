@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-TERMINATION] Error: can't show that `h` terminates
-    ╭─[ reject/non-recursive-function-field.sw:14:22 ]
+    ╭─[ reject/non-recursive-function-field.sw:14:24 ]
     │
- 14 │ h True  (MkWrap f) = h False (f 0)
-    │                      ──────┬─────  
-    │                            ╰─────── this recursive call might not terminate: no argument is known to be smaller
+ 14 │   | True,  MkWrap f => h False (f 0)
+    │                        ──────┬─────  
+    │                              ╰─────── this recursive call might not terminate: no argument is known to be smaller
     │ 
     │ Note 1: however the recursive calls are repeated, some argument must get smaller (a part of a pattern-matched constructor); an argument passed on unchanged, or rebuilt from its own pattern, is no smaller
     │ 

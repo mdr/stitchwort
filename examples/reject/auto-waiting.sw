@@ -5,14 +5,10 @@
 type Token : Prop =
   | MkToken
 
-needsToken : [auto t : Token] -> Nat
-needsToken = 1
+def needsToken : [auto t : Token] -> Nat := 1
 
-decToken : Decidable Token
-decToken = laterHelper
+def decToken : Decidable Token := laterHelper
 
-client : Nat
-client = needsToken
+def client : Nat := needsToken
 
-laterHelper : Decidable Token
-laterHelper = Yes MkToken
+def laterHelper : Decidable Token := Yes MkToken

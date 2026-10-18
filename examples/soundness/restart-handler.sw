@@ -10,9 +10,9 @@ type PingOp : Type =
 type Unit1 : Type =
   | MkUnit
 
-PingRes : PingOp -> Type
-PingRes Ping = Unit1
+def PingRes : PingOp -> Type
+  | Ping => Unit1
 
-bad : Comp PingOp PingRes a -> a
-bad (Done x)      = x
-bad (Call o rest) = bad (Call o rest)
+def bad : Comp PingOp PingRes a -> a
+  | Done x      => x
+  | Call o rest => bad (Call o rest)

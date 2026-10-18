@@ -10,14 +10,11 @@ import Effect (Delay)
 
 type Empty : Type
 
-forever : () -> {Partial} Empty
-forever u = forever ()
+def forever () : {Partial} Empty := forever ()
 
-drain : (() -> {Partial} Empty) -> Empty
-drain prog = prog ()
+def drain (prog : () -> {Partial} Empty) : Empty := prog ()
 
-theorem contradiction : Void
-contradiction = emptyVoid (drain forever)
+theorem contradiction : Void := emptyVoid (drain forever)
 
-emptyVoid : Empty -> Void
-emptyVoid ()
+def emptyVoid : Empty -> Void
+  | ()

@@ -3,9 +3,9 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-TYPE-MISMATCH] Error: type mismatch
-   ╭─[ reject/tuple-printing.sw:4:11 ]
+   ╭─[ reject/tuple-printing.sw:3:36 ]
    │
- 4 │ bad = (1, True)
-   │           ──┬─  
-   │             ╰─── expected `(Bool, Text)`, but this has type `Bool`
+ 3 │ def bad : (Nat, Bool, Text) := (1, True)
+   │                                    ──┬─  
+   │                                      ╰─── expected `(Bool, Text)`, but this has type `Bool`
 ───╯

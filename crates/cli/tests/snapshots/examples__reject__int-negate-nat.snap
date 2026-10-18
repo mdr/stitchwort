@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-TYPE-MISMATCH] Error: type mismatch
-   ╭─[ reject/int-negate-nat.sw:4:8 ]
+   ╭─[ reject/int-negate-nat.sw:3:27 ]
    │
- 4 │ r n = -n
-   │        ┬  
-   │        ╰── this is a `Nat`, but this arithmetic is on `Int`
+ 3 │ def r (n : Nat) : Int := -n
+   │                           ┬  
+   │                           ╰── this is a `Nat`, but this arithmetic is on `Int`
    │ 
    │ Note 1: a `Nat` becomes an `Int` with `.toInt`, as in `n.toInt`
    │ 

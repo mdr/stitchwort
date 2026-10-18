@@ -542,7 +542,7 @@ const $Std$dEffect$dnoInject = (v1) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dEffect$dnoReply = (v2) => {
+const $Std$dEffect$dnoReply = (v2) => (v3) => {
   switch (v2.tag) {
   }
   throw new Error("unreachable");

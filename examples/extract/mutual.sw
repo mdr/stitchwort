@@ -16,54 +16,45 @@
 -- run: total [[1, 2], [], [3]]
 -- run: total []
 
-export
-isEven : Nat -> Bool
-isEven 0        = True
-isEven (Succ n) = isOdd n
+export def isEven : Nat -> Bool
+  | 0      => True
+  | Succ n => isOdd n
 
-export
-isOdd : Nat -> Bool
-isOdd 0        = False
-isOdd (Succ n) = isEven n
+export def isOdd : Nat -> Bool
+  | 0      => False
+  | Succ n => isEven n
 
 -- `isEven`, bare, passed to a function outside its group.
-export
-parities : List Nat -> List Bool
-parities xs = mapList isEven xs
+export def parities (xs : List Nat) : List Bool := mapList isEven xs
 
-mapList : (a -> b) -> List a -> List b
-mapList f Nil         = Nil
-mapList f (Cons x xs) = Cons (f x) (mapList f xs)
+def mapList (f : a -> b) : List a -> List b
+  | Nil       => Nil
+  | Cons x xs => Cons (f x) (mapList f xs)
 
 -- Members returning functions, applied to one more argument outside the
 -- group.
-export
-shifted : Nat -> Nat -> Nat
-shifted n x = evenShift n x
+export def shifted (n : Nat) (x : Nat) : Nat := evenShift n x
 
-evenShift : Nat -> (Nat -> Nat)
-evenShift 0        = \x -> x
-evenShift (Succ n) = oddShift n
+def evenShift : Nat -> (Nat -> Nat)
+  | 0,      x  => x
+  | Succ n, a1 => oddShift n a1
 
-oddShift : Nat -> (Nat -> Nat)
-oddShift 0        = \x -> Succ x
-oddShift (Succ n) = evenShift n
+def oddShift : Nat -> (Nat -> Nat)
+  | 0,      x  => Succ x
+  | Succ n, a1 => evenShift n a1
 
 -- A value outside the group, computed from a member when the module loads.
-ten : Bool
-ten = isEven 10
+def ten : Bool := isEven 10
 
-export
-tenIsEven : Nat -> Bool
-tenIsEven _ = ten
+export def tenIsEven : Nat -> Bool
+  | _ => ten
 
 -- The sum of a list of lists: `total` and `inner` take turns, `inner`
 -- shrinking the inner list and `total` the outer one.
-export
-total : List (List Nat) -> Nat
-total Nil          = 0
-total (Cons xs xss) = inner xs xss
+export def total : List (List Nat) -> Nat
+  | Nil => 0
+  | Cons xs xss => inner xs xss
 
-inner : List Nat -> List (List Nat) -> Nat
-inner Nil         xss = total xss
-inner (Cons x xs) xss = x + inner xs xss
+def inner : List Nat -> List (List Nat) -> Nat
+  | Nil,       xss => total xss
+  | Cons x xs, xss => x + inner xs xss

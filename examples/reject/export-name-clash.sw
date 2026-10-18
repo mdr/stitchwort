@@ -1,9 +1,5 @@
 -- expect-error: E-EXPORT
 -- Both would be exported to JavaScript as `area`.
-export
-Squares.area : Nat -> Nat
-Squares.area s = s * s
+export def Squares.area (s : Nat) : Nat := s * s
 
-export
-Circles.area : Nat -> Nat
-Circles.area r = 3 * r * r
+export def Circles.area (r : Nat) : Nat := 3 * r * r

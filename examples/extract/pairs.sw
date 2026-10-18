@@ -8,23 +8,19 @@
 type NatPair : Type =
   | MkNatPair (left : Nat) (right : Nat)
 
-export
-first : NatPair -> Nat
-first (MkNatPair a b) = a
+export def first : NatPair -> Nat
+  | MkNatPair a b => a
 
-export
-swap : NatPair -> NatPair
-swap (MkNatPair a b) = MkNatPair b a
+export def swap : NatPair -> NatPair
+  | MkNatPair a b => MkNatPair b a
 
 -- Two columns of constructor patterns.
-export
-zipSum : List Nat -> List Nat -> List Nat
-zipSum Nil         ys          = Nil
-zipSum (Cons x xs) Nil         = Nil
-zipSum (Cons x xs) (Cons y ys) = Cons (x + y) (zipSum xs ys)
+export def zipSum : List Nat -> List Nat -> List Nat
+  | Nil,       ys        => Nil
+  | Cons x xs, Nil       => Nil
+  | Cons x xs, Cons y ys => Cons (x + y) (zipSum xs ys)
 
 -- Applies the prelude's `Nat.pred` to each element.
-export
-predecessors : List Nat -> List Nat
-predecessors Nil         = Nil
-predecessors (Cons n ns) = Cons (Nat.pred n) (predecessors ns)
+export def predecessors : List Nat -> List Nat
+  | Nil       => Nil
+  | Cons n ns => Cons (Nat.pred n) (predecessors ns)

@@ -3,13 +3,13 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-TERMINATION] Error: `CellRes` is used here without all its arguments
-    ╭─[ soundness/cell-result.sw:15:38 ]
+    ╭─[ soundness/cell-result.sw:15:35 ]
     │
- 15 │ CellRes Read  = Unit1 -> Comp CellOp CellRes Unit1
-    │                                      ───┬───  
-    │                                         ╰───── `CellRes` takes 1 argument; it's given none here
+ 15 │   | Read  => Unit1 -> Comp CellOp CellRes Unit1
+    │                                   ───┬───  
+    │                                      ╰───── `CellRes` takes 1 argument; it's given none here
     │ 
-    │ Note 1: write `\x -> CellRes x` so the call can be checked
+    │ Note 1: write `\x => CellRes x` so the call can be checked
     │ 
     │ Note 2: a recursive call must be given all the arguments, so the termination checker can see what each one is
 ────╯

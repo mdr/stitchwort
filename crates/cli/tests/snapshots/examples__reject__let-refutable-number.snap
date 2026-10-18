@@ -3,9 +3,9 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-LET-REFUTABLE] Error: this pattern doesn't match every `Nat`: it doesn't match numbers other than 0
-   ╭─[ reject/let-refutable-number.sw:5:7 ]
+   ╭─[ reject/let-refutable-number.sw:4:7 ]
    │
- 5 │   let 0 = n
+ 4 │   let 0 := n
    │       ┬  
    │       ╰── doesn't match numbers other than 0
    │ 

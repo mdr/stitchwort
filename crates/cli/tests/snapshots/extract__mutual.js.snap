@@ -427,20 +427,20 @@ const $Main$dmapList = (v2) => (v3) => {
   throw new Error("unreachable");
 };
 const $Main$dparities = (v0) => $Main$dmapList($Main$disEven)(v0);
-const $Main$devenShift = (v0) => {
+const $Main$devenShift = (v0) => (v1) => {
   if (v0 === 0n) {
-    return ((v1) => v1);
+    return v1;
   } else {
-    const v1 = v0 - 1n;
-    return $Main$doddShift(v1);
+    const v2 = v0 - 1n;
+    return $Main$doddShift(v2)(v1);
   }
 };
-const $Main$doddShift = (v0) => {
+const $Main$doddShift = (v0) => (v1) => {
   if (v0 === 0n) {
-    return ((v1) => (v1 + 1n));
+    return (v1 + 1n);
   } else {
-    const v1 = v0 - 1n;
-    return $Main$devenShift(v1);
+    const v2 = v0 - 1n;
+    return $Main$devenShift(v2)(v1);
   }
 };
 const $Main$dshifted = (v0) => (v1) => $Main$devenShift(v0)(v1);

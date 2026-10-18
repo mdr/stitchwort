@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-PARTIAL-ESCAPE] Error: a recursive call to `handlers` can't escape its definition
-   ╭─[ reject/partial-escape-record.sw:8:32 ]
+   ╭─[ reject/partial-escape-record.sw:7:66 ]
    │
- 8 │ handlers n = MkHandlers (\m -> callStep (handlers m))
-   │                                ──────────┬─────────  
-   │                                          ╰─────────── this calls `handlers`, but it's returned or stored where nothing can run the call
+ 7 │ def handlers (n : Nat) : {Partial} Handlers := MkHandlers (\m => callStep (handlers m))
+   │                                                                  ──────────┬─────────  
+   │                                                                            ╰─────────── this calls `handlers`, but it's returned or stored where nothing can run the call
    │ 
    │ Note 1: inside `handlers`'s definition, a call to `handlers` is a request that only `handlers`'s own definition can answer, so it can't be part of the result
    │ 

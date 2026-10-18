@@ -8,8 +8,5 @@ publish.workspace = true
 [dependencies]
 num-bigint.workspace = true
 
-[dev-dependencies]
-insta.workspace = true
-
 [lints]
 workspace = true

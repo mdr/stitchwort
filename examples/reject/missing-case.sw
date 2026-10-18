@@ -1,3 +1,3 @@
 -- expect-error: E-NONEXHAUSTIVE
-isZero : Nat -> Nat
-isZero Zero = 1
+def isZero : Nat -> Nat
+  | Zero => 1

@@ -16,61 +16,51 @@ type Point = { x : Nat, y : Nat }
 
 -- The AoC case (docs/aoc-2025.md, section 9, item 4): a record literal in a
 -- lambda passed to `maybeThen`. The result `Maybe Rot` fixes `b`.
-maybeThen : Maybe a -> (a -> Maybe b) -> Maybe b
-maybeThen Nothing f = Nothing
-maybeThen (Just x) f = f x
+def maybeThen : Maybe a -> (a -> Maybe b) -> Maybe b
+  | Nothing, f => Nothing
+  | Just x, f => f x
 
-parse : Nat -> Maybe Nat -> Maybe Rot
-parse n m = maybeThen m (\x -> Just { dir = TL, amount = n + x })
+def parse (n : Nat) (m : Maybe Nat) : Maybe Rot := maybeThen m (\x => Just { dir = TL, amount = n + x })
 
-amountOf : Maybe Rot -> Nat
-amountOf Nothing = 0
-amountOf (Just r) = r.amount
+def amountOf : Maybe Rot -> Nat
+  | Nothing => 0
+  | Just r => r.amount
 
 -- The record literal's type comes from the result `List Point`.
-points : List Nat -> List Point
-points xs = List.map (\x -> { x = x, y = 0 }) xs
+def points (xs : List Nat) : List Point := List.map (\x => { x = x, y = 0 }) xs
 
 -- Likewise for the accumulator of a fold.
-sumPoints : List Nat -> Point
-sumPoints rs = List.foldr (\r acc -> { x = r + acc.x, y = acc.y }) { x = 0, y = 0 } rs
+def sumPoints (rs : List Nat) : Point := List.foldr (\r acc => { x = r + acc.x, y = acc.y }) { x = 0, y = 0 } rs
 
-test "parse" = amountOf (parse 1 (Just 2)) == 3
-test "parse nothing" = amountOf (parse 1 Nothing) == 0
-test "sumPoints" = (sumPoints [1, 2, 3]).x == 6
+test "parse" := amountOf (parse 1 (Just 2)) == 3
+test "parse nothing" := amountOf (parse 1 Nothing) == 0
+test "sumPoints" := (sumPoints [1, 2, 3]).x == 6
 
 -- Literals take their type from the expected result.
-chooseFirst : [a : Type] -> a -> a -> a
-chooseFirst x y = x
+def chooseFirst [a : Type] (x : a) (y : a) : a := x
 
 -- `a := Int` from the result, before `5` is checked.
-r : Int -> Int
-r i = chooseFirst 5 i
+def r (i : Int) : Int := chooseFirst 5 i
 
 -- A partial application: the remaining function type `a -> a` is compared
 -- with `Int -> Int`.
-partly : Int -> Int
-partly = chooseFirst 5
+def partly : Int -> Int := chooseFirst 5
 
 -- A named implicit argument.
-second : [a : Type] -> [b : Type] -> a -> b -> b
-second x y = y
+def second [a : Type] [b : Type] (x : a) (y : b) : b := y
 
-named : Int -> Int
-named i = second [a := Nat] 5 i
+def named (i : Int) : Int := second [a := Nat] 5 i
 
 -- Previously rejected (docs/proposals/integers.md, table of numeric
 -- expressions): `same 5 + i`.
-same : [a : Type] -> a -> a
-same x = x
+def same [a : Type] (x : a) : a := x
 
-plusOne : Int -> Int
-plusOne i = same 5 + i
+def plusOne (i : Int) : Int := same 5 + i
 
-test "r" = r (-3) == 5
-test "partly" = partly 1 == 5
-test "named" = named 7 == 7
-test "plusOne" = plusOne 1 == 6
+test "r" := r (-3) == 5
+test "partly" := partly 1 == 5
+test "named" := named 7 == 7
+test "plusOne" := plusOne 1 == 6
 
 -- Where comparing first doesn't fit, the application is retried the old way.
 ability Choose where
@@ -83,63 +73,49 @@ ability State (s : Type) where
 type Box (a : Type) : Type =
   | MkBox (x : a)
 
-unbox : [a : Type] -> Box a -> a
-unbox (MkBox x) = x
+def unbox : [a : Type] -> Box a -> a
+  | MkBox x => x
 
-chooser : () -> {Choose} Nat
-chooser u = if choose () then 1 else 0
+def chooser () : {Choose} Nat := if choose () then 1 else 0
 
-box : Box (() -> {Choose} Nat)
-box = MkBox chooser
+def box : Box (() -> {Choose} Nat) := MkBox chooser
 
 -- Comparing first makes `a` the wider function type, and then `box` doesn't
 -- fit. The retry takes `a` from `box`, then widens the function to the bigger
 -- row.
-wider : () -> {Choose, State Nat} Nat
-wider = unbox box
+def wider : () -> {Choose, State Nat} Nat := unbox box
 
-p : () -> {State Nat, Choose} Nat
-p u =
-  let b = choose ()
+def p () : {State Nat, Choose} Nat :=
+  let b := choose ()
   if b then put 1 else ()
   get ()
 
-pureBox : Box (() -> {State Nat, Choose} Nat)
-pureBox = MkBox p
+def pureBox : Box (() -> {State Nat, Choose} Nat) := MkBox p
 
 -- The same with a row in a different order.
-reordered : () -> {Choose, State Nat} Nat
-reordered = unbox pureBox
+def reordered : () -> {Choose, State Nat} Nat := unbox pureBox
 
 -- A row-order difference in an argument position.
-q : () -> {Choose, State Nat} Nat
-q = same p
+def q : () -> {Choose, State Nat} Nat := same p
 
-runIt : (() -> {Choose, State Nat} Nat) -> Nat
-runIt f = 0
+def runIt (f : () -> {Choose, State Nat} Nat) : Nat := 0
 
-ran : Nat
-ran = runIt p
+def ran : Nat := runIt p
 
-test "runIt" = ran == 0
+test "runIt" := ran == 0
 
 -- A total lambda where a partial function is expected.
-asPartial : Nat -> {Partial} Nat
-asPartial = same (\n -> n)
+def asPartial : Nat -> {Partial} Nat := same (\n => n)
 
 -- A comparison that fails part-way (the domain is solved before the rows
 -- differ), followed by a coercion.
-poly : [a : Type] -> a -> {Choose} Nat
-poly x = chooser ()
+def poly [a : Type] (x : a) : {Choose} Nat := chooser ()
 
-widened : Nat -> {Choose, State Nat} Nat
-widened = poly
+def widened : Nat -> {Choose, State Nat} Nat := poly
 
 -- A dependent result type is skipped by the comparison, and still accepted.
-idE : (t : Type) -> t -> t
-idE t x = x
+def idE (t : Type) (x : t) : t := x
 
-useE : Int
-useE = idE Int 5
+def useE : Int := idE Int 5
 
-test "useE" = useE == 5
+test "useE" := useE == 5

@@ -3,15 +3,15 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-TERMINATION] Error: can't show that `bad` and `again` terminate
-    ╭─[ soundness/mutual-restart-handler.sw:20:21 ]
+    ╭─[ soundness/mutual-restart-handler.sw:20:20 ]
     │
- 20 │ bad (Call o rest) = again (Call o rest)
-    │                     ─────────┬────────  
-    │                              ╰────────── this call to `again` might not terminate: `again`'s 1st argument is `bad`'s 1st argument
+ 20 │   | Call o rest => again (Call o rest)
+    │                    ─────────┬────────  
+    │                             ╰────────── this call to `again` might not terminate: `again`'s 1st argument is `bad`'s 1st argument
     │ 
- 22 │ again : Comp PingOp PingRes a -> a
-    │ ─────────────────┬────────────────  
-    │                  ╰────────────────── then this call to `bad`: `bad`'s 1st argument is `again`'s 1st argument
+ 22 │ def again (c : Comp PingOp PingRes a) : a := bad c
+    │ ────────────────────┬────────────────────  
+    │                     ╰────────────────────── then this call to `bad`: `bad`'s 1st argument is `again`'s 1st argument
     │ 
     │ Note 1: going round `bad` → `again` → `bad`, over and over: the 1st argument stays the same, so no argument keeps getting smaller
     │ 

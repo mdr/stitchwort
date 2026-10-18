@@ -7,9 +7,9 @@ import Effect (Comp)
 type ChooseOp : Type =
   | Choose
 
-ChooseRes : ChooseOp -> Type
-ChooseRes Choose = Bool
+def ChooseRes : ChooseOp -> Type
+  | Choose => Bool
 
-loop : Comp ChooseOp ChooseRes Nat -> Nat
-loop (Done x)      = x
-loop (Call o rest) = loop ((\b -> Call o rest : Bool -> Comp ChooseOp ChooseRes Nat) True)
+def loop : Comp ChooseOp ChooseRes Nat -> Nat
+  | Done x      => x
+  | Call o rest => loop ((\b => Call o rest : Bool -> Comp ChooseOp ChooseRes Nat) True)

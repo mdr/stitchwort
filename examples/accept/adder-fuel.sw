@@ -9,52 +9,50 @@
 -- checks that adder.sw prints the same, for input within the bound.
 
 -- The text, or a default at end of input.
-textOr : Text -> Maybe Text -> Text
-textOr d Nothing  = d
-textOr d (Just t) = t
+def textOr (d : Text) : Maybe Text -> Text
+  | Nothing => d
+  | Just t  => t
 
 -- Reports a line that should be a number, and goes on with the new total.
-stepNumber : Nat -> Text -> Maybe Nat -> (Nat -> {IO} Nat) -> {IO} Nat
-stepNumber total l Nothing  more =
-  print ("\"" ++ l ++ "\" isn't a number; skipped")
-  more total
-stepNumber total l (Just n) more =
-  print ("  total: " ++ Nat.toText (total + n))
-  more (total + n)
+def stepNumber (total : Nat) (l : Text) : Maybe Nat -> (Nat -> {IO} Nat) -> {IO} Nat
+  | Nothing, more =>
+    print ("\"" ++ l ++ "\" isn't a number; skipped")
+    more total
+  | Just n,  more =>
+    print ("  total: " ++ Nat.toText (total + n))
+    more (total + n)
 
 -- What to do with a line, given the total so far. An empty line, or the end
 -- of input, stops.
-step : Nat -> Maybe Text -> (Nat -> {IO} Nat) -> {IO} Nat
-step total Nothing  more = total
-step total (Just l) more =
-  if Text.isEmpty l then total else stepNumber total l (Text.toNat (Text.trim l)) more
+def step (total : Nat) : Maybe Text -> (Nat -> {IO} Nat) -> {IO} Nat
+  | Nothing, more => total
+  | Just l,  more =>
+    if Text.isEmpty l then total else stepNumber total l (Text.toNat (Text.trim l)) more
 
 -- Adds the numbers on at most this many more lines. The bound keeps the
 -- recursion structural: every run of `main` performs a bounded number of
 -- operations.
-addLines : Nat -> Nat -> {IO} Nat
-addLines 0        total = total
-addLines (Succ n) total = step total (readLine ()) (\t -> addLines n t)
+def addLines : Nat -> Nat -> {IO} Nat
+  | 0,      total => total
+  | Succ n, total => step total (readLine ()) (\t => addLines n t)
 
-main : () -> {IO} ()
-main u =
+def main () : {IO} () :=
   print "What's your name?"
-  let name = textOr "stranger" (readLine ())
+  let name := textOr "stranger" (readLine ())
   print ("Hello, " ++ name ++ "! Type numbers to add, one per line, and an empty line to stop.")
-  let total = addLines 1000 0
+  let total := addLines 1000 0
   print ("The sum is " ++ Nat.toText total ++ ". Goodbye, " ++ name ++ ".")
 
 -- Testing `main` with scripted input
 
-eqTexts : List Text -> List Text -> Bool
-eqTexts Nil         Nil         = True
-eqTexts (Cons x xs) (Cons y ys) = if x == y then eqTexts xs ys else False
-eqTexts _           _           = False
+def eqTexts : List Text -> List Text -> Bool
+  | Nil,       Nil       => True
+  | Cons x xs, Cons y ys => if x == y then eqTexts xs ys else False
+  | _,         _         => False
 
-printed : List Text -> List Text
-printed input = Pair.fst (IO.simulate input main)
+def printed (input : List Text) : List Text := Pair.fst (IO.simulate input main)
 
-test "a session" =
+test "a session" :=
   eqTexts (printed ["Ada", "1", "2", "x", " 39 ", ""])
     [ "What's your name?"
     , "Hello, Ada! Type numbers to add, one per line, and an empty line to stop."
@@ -65,7 +63,7 @@ test "a session" =
     , "The sum is 42. Goodbye, Ada."
     ]
 
-test "end of input stops it too" =
+test "end of input stops it too" :=
   eqTexts (printed ["Ada", "5"])
     [ "What's your name?"
     , "Hello, Ada! Type numbers to add, one per line, and an empty line to stop."
@@ -73,7 +71,7 @@ test "end of input stops it too" =
     , "The sum is 5. Goodbye, Ada."
     ]
 
-test "no input at all" =
+test "no input at all" :=
   eqTexts (printed [])
     [ "What's your name?"
     , "Hello, stranger! Type numbers to add, one per line, and an empty line to stop."

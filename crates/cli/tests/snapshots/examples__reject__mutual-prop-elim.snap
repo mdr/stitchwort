@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-PROP-ELIM] Error: can't match on a proof of `OddP` to produce data
-    ╭─[ reject/mutual-prop-elim.sw:15:1 ]
+    ╭─[ reject/mutual-prop-elim.sw:15:3 ]
     │
- 15 │ oddDepth (OddSucc e) = 1
-    │ ────────────┬───────────  
-    │             ╰───────────── the result type `Nat` isn't a proposition
+ 15 │   | OddSucc e => 1
+    │   ────────┬───────  
+    │           ╰───────── the result type `Nat` isn't a proposition
     │ 
     │ Note: `OddP` is a proposition, so its proofs are erased at runtime. It's defined together with other types, and matching on a proof of one of those can only produce another proof.
 ────╯

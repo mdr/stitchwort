@@ -1,20 +1,17 @@
 -- Implicit arguments: inferred, supplied by name, or left as holes.
 
 -- `a` and `b` are bound automatically, because they're only used as types.
-mapList : (a -> b) -> List a -> List b
-mapList f Nil         = Nil
-mapList f (Cons x xs) = Cons (f x) (mapList f xs)
+def mapList (f : a -> b) : List a -> List b
+  | Nil       => Nil
+  | Cons x xs => Cons (f x) (mapList f xs)
 
 -- Inferred from the arguments.
-lengths : List Nat
-lengths = mapList (\xs -> List.length xs) [[1], [2, 3]]
+def lengths : List Nat := mapList (\xs => List.length xs) [[1], [2, 3]]
 
 -- Supplied by name, or as a hole for the compiler to fill in.
-named : Nat
-named = List.length [a := Nat] [1, 2]
+def named : Nat := List.length [a := Nat] [1, 2]
 
-holes : List Nat
-holes = mapList [a := _] Succ [1, 2]
+def holes : List Nat := mapList [a := _] Succ [1, 2]
 
 -- Propositions can be bound automatically too: here `p q : Prop`.
 type Or (p : Prop) (q : Prop) : Prop =
@@ -22,52 +19,43 @@ type Or (p : Prop) (q : Prop) : Prop =
   | Inr (right : q)
 
 theorem orComm : Or p q -> Or q p
-orComm (Inl h) = Inr h
-orComm (Inr h) = Inl h
+  | Inl h => Inr h
+  | Inr h => Inl h
 
 -- Implicit parameters are in scope in the equations, by name.
 theorem appendNil : (xs : List a) -> List.append xs Nil = xs
-appendNil Nil         = rfl
-appendNil (Cons x xs) = Eq.cong (\ys -> Cons x ys) (appendNil xs)
+  | Nil       => rfl
+  | Cons x xs => Eq.cong (\ys => Cons x ys) (appendNil xs)
 
 theorem plusZeroNat : (n : Nat) -> n + 0 = n
-plusZeroNat Zero     = rfl
-plusZeroNat (Succ m) = Eq.cong Succ (plusZeroNat m)
+  | Zero   => rfl
+  | Succ m => Eq.cong Succ (plusZeroNat m)
 
 -- `Eq.sym` and `Eq.trans` from the prelude, with everything implicit.
-theorem twoWays : (n : Nat) -> n + 0 = 0 + n
-twoWays n = Eq.trans (plusZeroNat n) (Eq.sym rfl)
+theorem twoWays (n : Nat) : n + 0 = 0 + n := Eq.trans (plusZeroNat n) (Eq.sym rfl)
 
 -- An implicit parameter between two explicit ones: `b` is in scope by name.
-constant : a -> [b : Type] -> b -> a
-constant x y = x
+def constant (x : a) [b : Type] (y : b) : a := x
 
 -- A later implicit parameter, supplied by name (`Eq.cong` has `a` before `b`).
-theorem succCong : (m : Nat) -> (n : Nat) -> m = n -> Succ m = Succ n
-succCong m n p = Eq.cong [b := Nat] Succ p
+theorem succCong (m : Nat) (n : Nat) (p : m = n) : Succ m = Succ n := Eq.cong [b := Nat] Succ p
 
 -- A definition without patterns still has its implicit parameters in scope.
-identity : [a : Type] -> a -> a
-identity = \x -> x
+def identity : [a : Type] -> a -> a := \x => x
 
 -- A lambda passed where a polymorphic function is expected.
-applyToThree : ([a : Type] -> a -> a) -> Nat
-applyToThree f = f 3
+def applyToThree (f : [a : Type] -> a -> a) : Nat := f 3
 
-three : Nat
-three = applyToThree (\x -> x)
+def three : Nat := applyToThree (\x => x)
 
 -- A constructor with both fields missing, used as a function.
-foldr : (a -> b -> b) -> b -> List a -> b
-foldr f z Nil         = z
-foldr f z (Cons x xs) = f x (foldr f z xs)
+def foldr (f : a -> b -> b) (z : b) : List a -> b
+  | Nil       => z
+  | Cons x xs => f x (foldr f z xs)
 
-copy : List Nat -> List Nat
-copy xs = foldr Cons Nil xs
+def copy (xs : List Nat) : List Nat := foldr Cons Nil xs
 
-theorem copyWorks : copy [1, 2] = [1, 2]
-copyWorks = rfl
+theorem copyWorks : copy [1, 2] = [1, 2] := rfl
 
 -- The largest number literal allowed (`Nat` is unary for now).
-twoHundred : Nat
-twoHundred = 200
+def twoHundred : Nat := 200

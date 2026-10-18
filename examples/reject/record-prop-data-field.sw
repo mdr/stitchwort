@@ -5,5 +5,4 @@
 
 type Witness : Prop = { n : Nat, small : n <= 3 }
 
-witnessed : Witness -> Nat
-witnessed w = w.n
+def witnessed (w : Witness) : Nat := w.n

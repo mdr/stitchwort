@@ -4,7 +4,6 @@
 type Exists (p : Nat -> Prop) : Prop =
   | Witness (x : Nat) (proof : p x)
 
-witness : (p : Nat -> Prop) -> Exists p -> Nat
-witness p e =
-  let Witness x h = e
+def witness (p : Nat -> Prop) (e : Exists p) : Nat :=
+  let Witness x h := e
   x

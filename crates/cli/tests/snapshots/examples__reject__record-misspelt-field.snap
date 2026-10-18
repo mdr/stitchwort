@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-UNKNOWN-FIELD] Error: `Person` has no field or function `nmae`
-   ╭─[ reject/record-misspelt-field.sw:7:14 ]
+   ╭─[ reject/record-misspelt-field.sw:6:37 ]
    │
- 7 │ nameOf p = p.nmae
-   │              ──┬─  
-   │                ╰─── looked in `Person`
+ 6 │ def nameOf (p : Person) : Text := p.nmae
+   │                                     ──┬─  
+   │                                       ╰─── looked in `Person`
    │ 
    │ Note 1: did you mean `name`?
    │ 

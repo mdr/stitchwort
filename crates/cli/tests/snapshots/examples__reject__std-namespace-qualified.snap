@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-STD-NAMESPACE] Error: `Std.List` is a namespace of the standard library, which a program can't add to
-   ╭─[ reject/std-namespace-qualified.sw:4:1 ]
+   ╭─[ reject/std-namespace-qualified.sw:4:5 ]
    │
- 4 │ Std.List.sum : List Nat -> Nat
-   │ ──────┬─────  
-   │       ╰─────── `Std` always means the standard library
+ 4 │ def Std.List.sum (xs : List Nat) : Nat := 0
+   │     ──────┬─────  
+   │           ╰─────── `Std` always means the standard library
    │ 
    │ Note: define it in your own namespace, or without one: `sum`
 ───╯

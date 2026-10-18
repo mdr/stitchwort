@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-AUTO-NONE] Error: no way to decide `fs = fs`
-   ╭─[ reject/eqeq-list-undecidable.sw:5:11 ]
+   ╭─[ reject/eqeq-list-undecidable.sw:4:45 ]
    │
- 5 │ same fs = fs == fs
-   │           ────┬───  
-   │               ╰───── the compiler needs a proof of this
+ 4 │ def same (fs : List (Nat -> Nat)) : Bool := fs == fs
+   │                                             ────┬───  
+   │                                                 ╰───── the compiler needs a proof of this
    │ 
    │ Note 1: supply a proof by name, or write a decision procedure: a function returning `Decidable …`
    │ 

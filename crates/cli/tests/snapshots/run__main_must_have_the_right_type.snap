@@ -5,9 +5,9 @@ expression: "stderr(&run(&path, b\"\")).replace(path.to_str().unwrap(), \"main-t
 [E-MAIN-TYPE] Error: `main` must have type `() -> {IO} ()` or `() -> {IO, Partial} ()`
    ╭─[ main-type.sw:4:1 ]
    │
- 4 │ main : () -> {IO, Abort} ()
-   │ ─────────────┬─────────────  
-   │              ╰─────────────── this has type `() -> {IO, Abort} ()`
+ 4 │ def main () : {IO, Abort} () := abort ()
+   │ ──────────────┬─────────────  
+   │               ╰─────────────── this has type `() -> {IO, Abort} ()`
    │ 
    │ Note: a pure `main : () -> ()` is allowed too; other abilities must be handled inside `main`
 ───╯

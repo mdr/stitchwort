@@ -6,77 +6,64 @@
 import List (map, foldl, zip)
 
 -- A tuple.
-divMod7 : Nat -> (Nat, Nat)
-divMod7 n = (n / 7, n % 7)
+def divMod7 (n : Nat) : (Nat, Nat) := (n / 7, n % 7)
 
-digitsSum : Nat -> Nat
-digitsSum n =
-  let (q, r) = divMod7 n
+def digitsSum (n : Nat) : Nat :=
+  let (q, r) := divMod7 n
   q + r
 
 -- Nested tuples, and `_`.
-flatten : ((Nat, Nat), Nat) -> Nat
-flatten t =
-  let ((a, b), c) = t
-  let (_, d) = (a, b + c)
+def flatten (t : ((Nat, Nat), Nat)) : Nat :=
+  let ((a, b), c) := t
+  let (_, d) := (a, b + c)
   a + d
 
 -- A constructor applied to its fields, without brackets.
-swap : Pair Nat Text -> Pair Text Nat
-swap p =
-  let MkPair a b = p
+def swap (p : Pair Nat Text) : Pair Text Nat :=
+  let MkPair a b := p
   MkPair b a
 
 -- A record.
 type Person = { name : Text, age : Nat }
 
-greeting : Person -> Text
-greeting p =
-  let { name, .. } = p
+def greeting (p : Person) : Text :=
+  let { name, .. } := p
   "hello " ++ name
 
 -- With a type: the right-hand side is checked against it.
-annotated : Nat
-annotated =
-  let (a, b) : (Nat, Nat) = (1, 2)
+def annotated : Nat :=
+  let (a, b) : (Nat, Nat) := (1, 2)
   a + b
 
 -- Not the whole right-hand side, so the `match` is lifted.
-lifted : (Nat, Nat) -> Nat
-lifted p =
-  let k = 1
-  let (a, b) = p
+def lifted (p : (Nat, Nat)) : Nat :=
+  let k := 1
+  let (a, b) := p
   a + b + k
 
 -- `()`: the one value of `()`.
-unit : () -> Nat
-unit u =
-  let () = u
+def unit (u : ()) : Nat :=
+  let () := u
   3
 
 -- Lambdas: a pattern parameter, one among others, and a record.
-sums : List (Nat, Nat) -> List Nat
-sums ps = map (\(a, b) -> a + b) ps
+def sums (ps : List (Nat, Nat)) : List Nat := map (\(a, b) => a + b) ps
 
-total : List (Text, Nat) -> Nat
-total entries = foldl (\acc (k, v) -> acc + v) 0 entries
+def total (entries : List (Text, Nat)) : Nat := foldl (\acc (k, v) => acc + v) 0 entries
 
 -- A record pattern needs its type known where the lambda is checked, as
 -- `p.name` does: here, from the signature.
-nameOf : Person -> Text
-nameOf = \{ name, .. } -> name
+def nameOf : Person -> Text := \{ name, .. } => name
 
-nestedLambda : List ((Nat, Nat), Nat) -> List Nat
-nestedLambda xs = map (\((a, b), c) -> a * b + c) xs
+def nestedLambda (xs : List ((Nat, Nat), Nat)) : List Nat := map (\((a, b), c) => a * b + c) xs
 
 -- A proof: `let (a, b) = p` on a variable refines `p` to `(a, b)`, so the
 -- goal computes.
-swapPair : (a, b) -> (b, a)
-swapPair (x, y) = (y, x)
+def swapPair : (a, b) -> (b, a)
+  | (x, y) => (y, x)
 
-theorem swapTwice : (p : (Nat, Nat)) -> swapPair (swapPair p) = p
-swapTwice p =
-  let (a, b) = p
+theorem swapTwice (p : (Nat, Nat)) : swapPair (swapPair p) = p :=
+  let (a, b) := p
   rfl
 
 -- Termination: `kids` is part of the tree `let` matched, so the recursive
@@ -88,63 +75,59 @@ type Forest : Type =
   | FNil
   | FCons (t : Tree) (ts : Forest)
 
-sumTree : Tree -> Nat
-sumTree t =
-  let Node x kids = t
+def sumTree (t : Tree) : Nat :=
+  let Node x kids := t
   x + sumForest kids
 
-sumForest : Forest -> Nat
-sumForest FNil         = 0
-sumForest (FCons t ts) = sumTree t + sumForest ts
+def sumForest : Forest -> Nat
+  | FNil       => 0
+  | FCons t ts => sumTree t + sumForest ts
 
 -- The same, lifted into a helper (the `let` isn't the whole right-hand side).
-sumTreeLifted : Tree -> Nat
-sumTreeLifted t =
-  let one = 1
-  let Node x kids = t
+def sumTreeLifted (t : Tree) : Nat :=
+  let one := 1
+  let Node x kids := t
   x * one + sumForestLifted kids
 
-sumForestLifted : Forest -> Nat
-sumForestLifted FNil         = 0
-sumForestLifted (FCons t ts) = sumTreeLifted t + sumForestLifted ts
+def sumForestLifted : Forest -> Nat
+  | FNil       => 0
+  | FCons t ts => sumTreeLifted t + sumForestLifted ts
 
 -- Effects: the right-hand side runs once, before the rest of the block.
-readTwo : () -> {IO} (Maybe Text, Maybe Text)
-readTwo u =
-  let a = readLine ()
-  let b = readLine ()
+def readTwo () : {IO} (Maybe Text, Maybe Text) :=
+  let a := readLine ()
+  let b := readLine ()
   (a, b)
 
-swapLines : () -> {IO} Nat
-swapLines u =
-  let (a, b) = readTwo ()
+def swapLines () : {IO} Nat :=
+  let (a, b) := readTwo ()
   print (Maybe.withDefault "" b)
   print (Maybe.withDefault "" a)
-  let (n, m) = (1, 2)
+  let (n, m) := (1, 2)
   print "done"
   n + m
 
-eqTexts : List Text -> List Text -> Bool
-eqTexts Nil         Nil         = True
-eqTexts (Cons x xs) (Cons y ys) = if x == y then eqTexts xs ys else False
-eqTexts _           _           = False
+def eqTexts : List Text -> List Text -> Bool
+  | Nil,       Nil       => True
+  | Cons x xs, Cons y ys => if x == y then eqTexts xs ys else False
+  | _,         _         => False
 
-test "tuple" = digitsSum 23 == 5
-test "nested" = flatten ((1, 2), 3) == 6
-test "constructor" = (swap (MkPair 1 "x")).snd == 1
-test "record" = greeting { name = "Ann", age = 3 } == "hello Ann"
-test "annotated" = annotated == 3
-test "lifted" = lifted (2, 3) == 6
-test "unit" = unit () == 3
-test "lambda" = sums [(1, 2), (3, 4)] == [3, 7]
-test "foldl" = total [("a", 1), ("b", 2)] == 3
-test "record lambda" = nameOf { name = "Ann", age = 3 } == "Ann"
-test "nested lambda" = nestedLambda [((2, 3), 1)] == [7]
-test "tree" = sumTree (Node 1 (FCons (Node 2 FNil) FNil)) == 3
-test "tree lifted" = sumTreeLifted (Node 1 (FCons (Node 2 FNil) FNil)) == 3
-test "effects run once, in order" =
+test "tuple" := digitsSum 23 == 5
+test "nested" := flatten ((1, 2), 3) == 6
+test "constructor" := (swap (MkPair 1 "x")).snd == 1
+test "record" := greeting { name = "Ann", age = 3 } == "hello Ann"
+test "annotated" := annotated == 3
+test "lifted" := lifted (2, 3) == 6
+test "unit" := unit () == 3
+test "lambda" := sums [(1, 2), (3, 4)] == [3, 7]
+test "foldl" := total [("a", 1), ("b", 2)] == 3
+test "record lambda" := nameOf { name = "Ann", age = 3 } == "Ann"
+test "nested lambda" := nestedLambda [((2, 3), 1)] == [7]
+test "tree" := sumTree (Node 1 (FCons (Node 2 FNil) FNil)) == 3
+test "tree lifted" := sumTreeLifted (Node 1 (FCons (Node 2 FNil) FNil)) == 3
+test "effects run once, in order" :=
   eqTexts (IO.simulate ["x", "y", "z", "w"] swapLines).fst ["y", "x", "done"]
-test "effects result" = (IO.simulate ["x", "y"] swapLines).snd == 3
-test "in a test" =
-  let (a, b) = (1, 2)
+test "effects result" := (IO.simulate ["x", "y"] swapLines).snd == 3
+test "in a test" :=
+  let (a, b) := (1, 2)
   a + b == 3

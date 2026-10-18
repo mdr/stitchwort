@@ -4,5 +4,4 @@
 
 type Person = { name : Text }
 
-Person.name : Person -> Text
-Person.name p = "x"
+def Person.name (p : Person) : Text := "x"

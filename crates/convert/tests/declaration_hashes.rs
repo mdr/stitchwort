@@ -1,23 +1,36 @@
-//! The new declaration syntax through the elaborator
+//! The declaration syntax through the elaborator
 //! (docs/proposals/declaration-syntax.md): definitions written in it have
-//! the hashes of their old-syntax equivalents, and the exact-arity rule and
-//! the duplicate-parameter check surface from `Session::load`.
+//! the hashes of their old-syntax equivalents (read by the converter's copy
+//! of the old parser), and the exact-arity rule and the duplicate-parameter
+//! check surface from `Session::load`.
 
 use std::collections::BTreeMap;
 
 use stitchwort_core::DefId;
 use stitchwort_core::hash::def_hash;
 use stitchwort_driver::driver::Session;
-use stitchwort_syntax::{Diagnostic, Syntax};
+use stitchwort_syntax::{Diagnostic, Severity};
 
 /// Loads `src` into a fresh session, in the new syntax or the old.
 fn load(src: &str, new: bool) -> (Session, Result<(), Vec<Diagnostic>>, usize) {
     let mut session = Session::new();
-    if new {
-        session.syntax = Syntax::New;
-    }
     let first = session.elab.globals.defs.len();
-    let result = session.load("t.sw", src).map(|_| ());
+    let result = if new {
+        session.load("t.sw", src).map(|_| ())
+    } else {
+        let file = session.sources.add("t.sw", src);
+        match stitchwort_convert::old_parser::parse_module(file, src) {
+            Err(ds) => Err(ds),
+            Ok(module) => {
+                let ds = session.elab.elaborate_module(&module);
+                if ds.iter().any(|d| d.severity == Severity::Error) {
+                    Err(ds)
+                } else {
+                    Ok(())
+                }
+            }
+        }
+    };
     (session, result, first)
 }
 

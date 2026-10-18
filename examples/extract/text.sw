@@ -81,168 +81,107 @@
 -- run: trimmedHead " \t"
 -- run: isText "\u{1F600}"
 
-export
-len : Text -> Nat
-len t = Text.length t
+export def len (t : Text) : Nat := Text.length t
 
-export
-chars : Text -> List Char
-chars t = Text.toList t
+export def chars (t : Text) : List Char := Text.toList t
 
-export
-fromChars : List Char -> Text
-fromChars cs = Text.fromList cs
+export def fromChars (cs : List Char) : Text := Text.fromList cs
 
-export
-echo : Text -> Text
-echo t = t
+export def echo (t : Text) : Text := t
 
-export
-echoChar : Char -> Char
-echoChar c = c
+export def echoChar (c : Char) : Char := c
 
-export
-codeOf : Char -> Nat
-codeOf c = Char.toNat c
+export def codeOf (c : Char) : Nat := Char.toNat c
 
-export
-charOf : Nat -> Maybe Char
-charOf n = Char.fromNat n
+export def charOf (n : Nat) : Maybe Char := Char.fromNat n
 
-export
-same : Text -> Text -> Bool
-same a b = a == b
+export def same (a : Text) (b : Text) : Bool := a == b
 
-export
-order : Text -> Text -> Ordering
-order a b = Text.compare a b
+export def order (a : Text) (b : Text) : Ordering := Text.compare a b
 
-export
-join : Text -> Text -> Text
-join a b = a ++ b
+export def join (a : Text) (b : Text) : Text := a ++ b
 
-export
-split : Char -> Text -> List Text
-split c t = Text.split c t
+export def split (c : Char) (t : Text) : List Text := Text.split c t
 
-export
-joinOn : Char -> List Text -> Text
-joinOn c ts = Text.join c ts
+export def joinOn (c : Char) (ts : List Text) : Text := Text.join c ts
 
-export
-trim : Text -> Text
-trim t = Text.trim t
+export def trim (t : Text) : Text := Text.trim t
 
-export
-toNat : Text -> Maybe Nat
-toNat t = Text.toNat t
+export def toNat (t : Text) : Maybe Nat := Text.toNat t
 
-export
-fromNat : Nat -> Text
-fromNat n = Nat.toText n
+export def fromNat (n : Nat) : Text := Nat.toText n
 
-export
-uncons : Text -> Maybe (Pair Char Text)
-uncons t = Text.uncons t
+export def uncons (t : Text) : Maybe (Pair Char Text) := Text.uncons t
 
 -- User code over the characters.
-export
-reverse : Text -> Text
-reverse t = Text.fromList (List.reverseOnto (Text.toList t) Nil)
+export def reverse (t : Text) : Text := Text.fromList (List.reverseOnto (Text.toList t) Nil)
 
-countIn : Char -> List Char -> Nat
-countIn c Nil         = 0
-countIn c (Cons d ds) = if c == d then Succ (countIn c ds) else countIn c ds
+def countIn (c : Char) : List Char -> Nat
+  | Nil       => 0
+  | Cons d ds => if c == d then Succ (countIn c ds) else countIn c ds
 
-export
-countChar : Char -> Text -> Nat
-countChar c t = countIn c (Text.toList t)
+export def countChar (c : Char) (t : Text) : Nat := countIn c (Text.toList t)
 
 -- Text inside a user's data type, a list and the prelude's `Maybe` and `Pair`.
 type Person : Type =
   | MkPerson (name : Text) (initial : Char) (tags : List Text)
 
-export
-greet : Person -> Text
-greet (MkPerson name initial tags) = "Hello, " ++ name ++ " (" ++ Text.fromList (Cons initial Nil) ++ ")"
+export def greet : Person -> Text
+  | MkPerson name initial tags => "Hello, " ++ name ++ " (" ++ Text.fromList (Cons initial Nil) ++ ")"
 
-initialsOf : List Person -> List Char
-initialsOf Nil                      = Nil
-initialsOf (Cons (MkPerson n i t) ps) = Cons i (initialsOf ps)
+def initialsOf : List Person -> List Char
+  | Nil => Nil
+  | Cons (MkPerson n i t) ps => Cons i (initialsOf ps)
 
-export
-initials : List Person -> List Char
-initials ps = initialsOf ps
+export def initials (ps : List Person) : List Char := initialsOf ps
 
-export
-rename : Text -> Person -> Person
-rename n (MkPerson m i t) = MkPerson n i (Cons m t)
+export def rename (n : Text) : Person -> Person
+  | MkPerson m i t => MkPerson n i (Cons m t)
 
-export
-orEmpty : Maybe Text -> Text
-orEmpty Nothing  = ""
-orEmpty (Just t) = t
+export def orEmpty : Maybe Text -> Text
+  | Nothing => ""
+  | Just t  => t
 
-export
-firstOf : Pair Char Text -> Char
-firstOf p = Pair.fst p
+export def firstOf (p : Pair Char Text) : Char := Pair.fst p
 
 -- Fields named like the decoder's own variables.
 type Located : Type =
   | At (path : Text) (x : Char) (inside : List Char)
 
-export
-located : Located -> Located
-located (At p c cs) = At (p ++ "/") c (Cons c cs)
+export def located : Located -> Located
+  | At p c cs => At (p ++ "/") c (Cons c cs)
 
 -- The prelude's text operations are native JavaScript, and a `Text` is a
 -- string. These use them as values, partly applied, and with their results
 -- taken apart by ordinary pattern matching.
-export
-empty : Text -> Bool
-empty t = Text.isEmpty t
+export def empty (t : Text) : Bool := Text.isEmpty t
 
-export
-less : Text -> Text -> Bool
-less a b = Text.less a b
+export def less (a : Text) (b : Text) : Bool := Text.less a b
 
-export
-codes : Text -> List Nat
-codes t = Text.fold (\c ns -> Cons (Char.toNat c) ns) Nil t
+export def codes (t : Text) : List Nat := Text.fold (\c ns => Cons (Char.toNat c) ns) Nil t
 
-mapList : (a -> b) -> List a -> List b
-mapList f Nil         = Nil
-mapList f (Cons x xs) = Cons (f x) (mapList f xs)
+def mapList (f : a -> b) : List a -> List b
+  | Nil       => Nil
+  | Cons x xs => Cons (f x) (mapList f xs)
 
-export
-lengths : List Text -> List Nat
-lengths ts = mapList Text.length ts
+export def lengths (ts : List Text) : List Nat := mapList Text.length ts
 
-export
-texts : List (List Char) -> List Text
-texts ls = mapList MkText ls
+export def texts (ls : List (List Char)) : List Text := mapList MkText ls
 
-export
-prefixAll : List Text -> List Text
-prefixAll ts = mapList (Text.append "pre") ts
+export def prefixAll (ts : List Text) : List Text := mapList (Text.append "pre") ts
 
-firstOfList : List Text -> Text
-firstOfList Nil         = "none"
-firstOfList (Cons f fs) = f
+def firstOfList : List Text -> Text
+  | Nil       => "none"
+  | Cons f fs => f
 
-export
-firstField : Char -> Text -> Text
-firstField c t = firstOfList (Text.split c t)
+export def firstField (c : Char) (t : Text) : Text := firstOfList (Text.split c t)
 
-leadingChar : Text -> Maybe Char
-leadingChar (MkText Nil)         = Nothing
-leadingChar (MkText (Cons c cs)) = Just c
+def leadingChar : Text -> Maybe Char
+  | MkText Nil         => Nothing
+  | MkText (Cons c cs) => Just c
 
-export
-trimmedHead : Text -> Maybe Char
-trimmedHead t = leadingChar (Text.trim t)
+export def trimmedHead (t : Text) : Maybe Char := leadingChar (Text.trim t)
 
 -- The characters aren't used, so they aren't made into a list.
-export
-isText : Text -> Bool
-isText (MkText _) = True
+export def isText : Text -> Bool
+  | MkText _ => True

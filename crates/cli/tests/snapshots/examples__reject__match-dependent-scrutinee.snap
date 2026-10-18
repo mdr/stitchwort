@@ -3,21 +3,21 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-MATCH-MOTIVE] Error: the type of one scrutinee of this `match` mentions another, which this version can't generalise
-    ╭─[ reject/match-dependent-scrutinee.sw:11:14 ]
+    ╭─[ reject/match-dependent-scrutinee.sw:9:38 ]
     │
- 11 │ ╭─▶ bad xs = 1 + match List.length xs, tag xs with
+  9 │ ╭─▶ def bad (xs : List Nat) : Nat := 1 + match List.length xs, tag xs with
     ┆ ┆   
- 13 │ ├─▶   | Succ k, _ -> k
+ 11 │ ├─▶   | Succ k, _ => k
     │ │                        
     │ ╰──────────────────────── this `match`
     │
-    ├─[ reject/match-dependent-scrutinee.sw:11:14 ]
+    ├─[ reject/match-dependent-scrutinee.sw:9:38 ]
     │
- 11 │ bad xs = 1 + match List.length xs, tag xs with
-    │                    ───────┬──────  ───┬──  
-    │                           ╰──────────────── this one
-    │                                       │    
-    │                                       ╰──── this one's type mentions
+  9 │ def bad (xs : List Nat) : Nat := 1 + match List.length xs, tag xs with
+    │                                            ───────┬──────  ───┬──  
+    │                                                   ╰──────────────── this one
+    │                                                               │    
+    │                                                               ╰──── this one's type mentions
     │ 
     │ Note: a top-level helper with a written signature can always do what this `match` would: define one and call it
 ────╯

@@ -35,7 +35,7 @@ pub const ALL: &[Benchmark] = &[
         name: "text-split-join",
         about: "`Text.split` then `Text.join` on a text of 10,000 characters",
         prepare: || {
-            let program = format!("{TEXT}\nbig : Text\nbig = \"{}\"\n", "abcd,".repeat(2000));
+            let program = format!("{TEXT}\ndef big : Text := \"{}\"\n", "abcd,".repeat(2000));
             eval(
                 program,
                 "Text.length (Text.join ',' (Text.split ',' big))",
@@ -48,14 +48,14 @@ pub const ALL: &[Benchmark] = &[
     Benchmark {
         name: "check-text-literal",
         about: "checks a definition whose body is a text literal of 50,000 characters",
-        prepare: || check(format!("big : Text\nbig = \"{}\"\n", "abcd,".repeat(10000))),
+        prepare: || check(format!("def big : Text := \"{}\"\n", "abcd,".repeat(10000))),
     },
     Benchmark {
         name: "text-literal-walk",
         about: "counts the characters of a text literal of 100,000 characters, with an accumulator",
         prepare: || {
             let program = format!(
-                "{TEXT}\nbig : Text\nbig = \"{}\"\n",
+                "{TEXT}\ndef big : Text := \"{}\"\n",
                 "abcd,\\u{1F600}".repeat(16667)
             );
             eval(program, "lengthFrom 0 (Text.toList big)", "100002")
@@ -79,14 +79,14 @@ pub const ALL: &[Benchmark] = &[
     Benchmark {
         name: "check-number-pattern",
         about: "checks `f 200 = True; f _ = False`",
-        prepare: || check("f : Nat -> Bool\nf 200 = True\nf _ = False\n".into()),
+        prepare: || check("def f : Nat -> Bool\n  | 200 => True\n  | _ => False\n".into()),
     },
     Benchmark {
         name: "check-number-table",
         about: "checks a table `t 0 = 0 … t 255 = 255`",
         prepare: || {
-            let rows: String = (0..256).map(|i| format!("t {i} = {i}\n")).collect();
-            check(format!("t : Nat -> Nat\n{rows}t _ = 0\n"))
+            let rows: String = (0..256).map(|i| format!("  | {i} => {i}\n")).collect();
+            check(format!("def t : Nat -> Nat\n{rows}  | _ => 0\n"))
         },
     },
     // Number patterns compile to number cases, so these measure literal
@@ -97,7 +97,7 @@ pub const ALL: &[Benchmark] = &[
         about: "checks `f 10^30 = True; f _ = False`",
         prepare: || {
             check(format!(
-                "f : Nat -> Bool\nf {} = True\nf _ = False\n",
+                "def f : Nat -> Bool\n  | {} => True\n  | _ => False\n",
                 "1".to_string() + &"0".repeat(30)
             ))
         },
@@ -106,8 +106,8 @@ pub const ALL: &[Benchmark] = &[
         name: "check-number-wide",
         about: "checks a table `t 0 = 0 … t 999 = 999`",
         prepare: || {
-            let rows: String = (0..1000).map(|i| format!("t {i} = {i}\n")).collect();
-            check(format!("t : Nat -> Nat\n{rows}t _ = 0\n"))
+            let rows: String = (0..1000).map(|i| format!("  | {i} => {i}\n")).collect();
+            check(format!("def t : Nat -> Nat\n{rows}  | _ => 0\n"))
         },
     },
     Benchmark {
@@ -115,12 +115,12 @@ pub const ALL: &[Benchmark] = &[
         about: "checks 50 number equations whose other arguments' types depend on the number",
         prepare: || {
             let rows: String = (0..50)
-                .map(|i| format!("dep {} a b c = a\n", 2 * i + 1))
+                .map(|i| format!("  | {}, a, b, c => a\n", 2 * i + 1))
                 .collect();
             check(format!(
-                "Shape : Nat -> Type\nShape 0 = Nat\nShape _ = Bool\n\n\
-                 dep : (n : Nat) -> Shape n -> Shape n -> Shape n -> Shape n\n\
-                 {rows}dep n a b c = c\n"
+                "def Shape : Nat -> Type\n  | 0 => Nat\n  | _ => Bool\n\n\
+                 def dep : (n : Nat) -> Shape n -> Shape n -> Shape n -> Shape n\n\
+                 {rows}  | n, a, b, c => c\n"
             ))
         },
     },
@@ -133,10 +133,12 @@ pub const ALL: &[Benchmark] = &[
                 for i in 0..20 {
                     let mut pats = ["_".to_string(), "_".to_string(), "_".to_string()];
                     pats[c] = (10 * i + 7).to_string();
-                    rows += &format!("m {} = {}\n", pats.join(" "), c * 100 + i);
+                    rows += &format!("  | {} => {}\n", pats.join(", "), c * 100 + i);
                 }
             }
-            check(format!("m : Nat -> Nat -> Nat -> Nat\n{rows}m _ _ _ = 0\n"))
+            check(format!(
+                "def m : Nat -> Nat -> Nat -> Nat\n{rows}  | _, _, _ => 0\n"
+            ))
         },
     },
     Benchmark {
@@ -157,19 +159,19 @@ pub const ALL: &[Benchmark] = &[
     Benchmark {
         name: "check-long-sum",
         about: "checks `1 + 1 + … + 1` with 9,000 ones",
-        prepare: || check(format!("x : Nat\nx = {}\n", vec!["1"; 9000].join(" + "))),
+        prepare: || check(format!("def x : Nat := {}\n", vec!["1"; 9000].join(" + "))),
     },
     Benchmark {
         name: "check-nested-parens",
         about: "checks `((…(0)…))`, 12,000 deep",
-        prepare: || check(format!("x : Nat\nx = {}\n", nested(12_000, "(", "0"))),
+        prepare: || check(format!("def x : Nat := {}\n", nested(12_000, "(", "0"))),
     },
     Benchmark {
         name: "check-nested-apps",
         about: "checks `f (f (… 0))`, 2,000 deep",
         prepare: || {
             check(format!(
-                "f : Nat -> Nat\nf n = n\n\nx : Nat\nx = {}\n",
+                "def f (n : Nat) : Nat := n\n\ndef x : Nat := {}\n",
                 nested(2000, "f (", "0")
             ))
         },
@@ -178,39 +180,38 @@ pub const ALL: &[Benchmark] = &[
 
 /// From TODO.md's measurements: `length (replicate n 1)`, `k` times.
 const LENGTHS: &str = "
-replicate : Nat -> a -> List a
-replicate Zero     x = Nil
-replicate (Succ n) x = Cons x (replicate n x)
+def replicate : Nat -> a -> List a
+  | Zero,   x => Nil
+  | Succ n, x => Cons x (replicate n x)
 
-lengths : Nat -> Nat -> Nat
-lengths Zero     n = 0
-lengths (Succ k) n = List.length (replicate n 1) + lengths k n
+def lengths : Nat -> Nat -> Nat
+  | Zero,   n => 0
+  | Succ k, n => List.length (replicate n 1) + lengths k n
 ";
 
 const TEXT: &str = "
-repText : Nat -> Text -> Text
-repText Zero     t = \"\"
-repText (Succ n) t = t ++ repText n t
+def repText : Nat -> Text -> Text
+  | Zero,   t => \"\"
+  | Succ n, t => t ++ repText n t
 
-lengthFrom : Nat -> List Char -> Nat
-lengthFrom k Nil         = k
-lengthFrom k (Cons c cs) = lengthFrom (Succ k) cs
+def lengthFrom (k : Nat) : List Char -> Nat
+  | Nil       => k
+  | Cons c cs => lengthFrom (Succ k) cs
 
 -- The total length of `Nat.toText` of `k` numbers spread over 0 to about 10^10.
-natTexts : Nat -> Nat -> Nat
-natTexts Zero     acc = acc
-natTexts (Succ k) acc = natTexts k (acc + Text.length (Nat.toText (k * 1000003)))
+def natTexts : Nat -> Nat -> Nat
+  | Zero,   acc => acc
+  | Succ k, acc => natTexts k (acc + Text.length (Nat.toText (k * 1000003)))
 ";
 
 const PRINTS: &str = "
-printMany : Nat -> {IO} ()
-printMany Zero     = ()
-printMany (Succ n) =
-  print (Nat.toText n)
-  printMany n
+def printMany : Nat -> {IO} ()
+  | Zero   => ()
+  | Succ n =>
+    print (Nat.toText n)
+    printMany n
 
-main : () -> {IO} ()
-main u = printMany 20000
+def main () : {IO} () := printMany 20000
 ";
 
 fn nested(n: usize, around: &str, inner: &str) -> String {
@@ -222,7 +223,7 @@ fn list_theorem(n: usize, proof: &str) -> String {
         .map(|i| i.to_string())
         .collect::<Vec<_>>()
         .join(", ");
-    format!("theorem a : [{list}] = [{list}]\na = {proof}\n")
+    format!("theorem a : [{list}] = [{list}] := {proof}\n")
 }
 
 /// What `session`'s budget has counted so far.
@@ -316,15 +317,13 @@ fn run_prints() -> Result<Prepared, String> {
 const PROOF_FIELDS: &str = "
 type Pos = { at : Nat, ok : at < 100 }
 
-wrap : Int -> Pos
-wrap x = { at = Int.modNat x 100, ok = Int.modNatLt x 100 }
+def wrap (x : Int) : Pos := { at = Int.modNat x 100, ok = Int.modNatLt x 100 }
 
-walk : List Text -> Pos -> Nat
-walk Nil         p = p.at
-walk (Cons t ts) p = walk ts (wrap (p.at.toInt + Nat.toInt (Text.length t * 37)))
+def walk : List Text -> Pos -> Nat
+  | Nil,       p => p.at
+  | Cons t ts, p => walk ts (wrap (p.at.toInt + Nat.toInt (Text.length t * 37)))
 
-main : () -> {IO, Partial} ()
-main u = print (Nat.toText (walk (IO.readAllLines ()) (wrap 50)))
+def main () : {IO, Partial} () := print (Nat.toText (walk (IO.readAllLines ()) (wrap 50)))
 ";
 
 fn run_proof_fields() -> Result<Prepared, String> {

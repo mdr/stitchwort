@@ -3,5 +3,4 @@
 
 type Person = { name : Text, age : Nat }
 
-alice : Person
-alice = { name = "Alice", age = 30, name = "Alicia" }
+def alice : Person := { name = "Alice", age = 30, name = "Alicia" }

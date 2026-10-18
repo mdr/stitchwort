@@ -136,33 +136,32 @@ fn same_both_ways(session: &mut Session, expr: &str) {
 /// (with nested patterns), a fold, and a copy of a text made of ordinary cons
 /// cells.
 const HELPERS: &str = r#"
-swapFirst : Text -> List Char
-swapFirst (MkText (Cons a (Cons b rest))) = Cons b (Cons a rest)
-swapFirst t = Text.toList t
+def swapFirst : Text -> List Char
+  | MkText (Cons a (Cons b rest)) => Cons b (Cons a rest)
+  | t => Text.toList t
 
-countChars : Text -> Nat
-countChars t = Text.fold (\c n -> Succ n) 0 t
+def countChars (t : Text) : Nat := Text.fold (\c n => Succ n) 0 t
 
-copy : List Char -> List Char
-copy Nil = Nil
-copy (Cons c cs) = Cons c (copy cs)
+def copy : List Char -> List Char
+  | Nil => Nil
+  | Cons c cs => Cons c (copy cs)
 
-copyText : Text -> Text
-copyText (MkText cs) = MkText (copy cs)
+def copyText : Text -> Text
+  | MkText cs => MkText (copy cs)
 
 -- Counts with an accumulator, so a long list needs no frames.
-countFrom : Nat -> Char -> List Char -> Nat
-countFrom k c Nil = k
-countFrom k c (Cons d ds) = countFrom (if Char.toNat c == Char.toNat d then Succ k else k) c ds
+def countFrom (k : Nat) (c : Char) : List Char -> Nat
+  | Nil => k
+  | Cons d ds => countFrom (if Char.toNat c == Char.toNat d then Succ k else k) c ds
 
-lengthFrom : Nat -> List Char -> Nat
-lengthFrom k Nil = k
-lengthFrom k (Cons c cs) = lengthFrom (Succ k) cs
+def lengthFrom (k : Nat) : List Char -> Nat
+  | Nil => k
+  | Cons c cs => lengthFrom (Succ k) cs
 
-dropChars : Nat -> List Char -> List Char
-dropChars Zero cs = cs
-dropChars (Succ n) Nil = Nil
-dropChars (Succ n) (Cons c cs) = dropChars n cs
+def dropChars : Nat -> List Char -> List Char
+  | Zero, cs => cs
+  | Succ n, Nil => Nil
+  | Succ n, Cons c cs => dropChars n cs
 "#;
 
 fn session_with_helpers() -> Session {
@@ -470,11 +469,11 @@ fn a_million_character_literal_checks_and_runs() {
     let mut session = session_with_helpers();
     let t = literal(&text);
     let source = format!(
-        "big : Text\nbig = {t}\n\n\
-         test \"commas\" = countFrom 0 ',' (Text.toList big) == {commas}\n\
-         test \"length\" = lengthFrom 0 (Text.toList big) == {n}\n\
-         test \"last\" = Text.fromList (dropChars {} (Text.toList big)) == \"{}\"\n\
-         theorem bigIsBig : countFrom 0 ',' (Text.toList big) = {commas}\nbigIsBig = rfl\n",
+        "def big : Text := {t}\n\n\
+         test \"commas\" := countFrom 0 ',' (Text.toList big) == {commas}\n\
+         test \"length\" := lengthFrom 0 (Text.toList big) == {n}\n\
+         test \"last\" := Text.fromList (dropChars {} (Text.toList big)) == \"{}\"\n\
+         theorem bigIsBig : countFrom 0 ',' (Text.toList big) = {commas} := rfl\n",
         n - 1,
         text.chars().last().unwrap()
     );
@@ -502,13 +501,12 @@ fn laws_hold_on_long_texts() {
     load(
         &mut session,
         &format!(
-            "splitJoin : Text -> Bool\nsplitJoin t = Text.join ',' (Text.split ',' t) == t\n\n\
-             lengthsAdd : Text -> Text -> Bool\n\
-             lengthsAdd a b = Text.length (a ++ b) == Text.length a + Text.length b\n\n\
-             differ : Text -> Text -> Bool\ndiffer a b = not (a == b)\n\n\
-             test \"split then join\" = splitJoin {t}\n\
-             test \"lengths add\" = lengthsAdd {t} {o}\n\
-             test \"differ\" = differ {t} {o}\n"
+            "def splitJoin (t : Text) : Bool := Text.join ',' (Text.split ',' t) == t\n\n\
+             def lengthsAdd (a : Text) (b : Text) : Bool := Text.length (a ++ b) == Text.length a + Text.length b\n\n\
+             def differ (a : Text) (b : Text) : Bool := not (a == b)\n\n\
+             test \"split then join\" := splitJoin {t}\n\
+             test \"lengths add\" := lengthsAdd {t} {o}\n\
+             test \"differ\" := differ {t} {o}\n"
         ),
     );
     let results = session.run_tests(&Cache::disabled());
@@ -518,17 +516,11 @@ fn laws_hold_on_long_texts() {
     let differs = long[..999_999].to_string() + "c";
     let (t, o) = (literal(&long), literal(&differs));
     assert_eq!(
-        codes(
-            &mut session,
-            &format!("theorem same : {t} = {o}\nsame = rfl\n")
-        ),
+        codes(&mut session, &format!("theorem same : {t} = {o} := rfl\n")),
         ["E-REFL"]
     );
     assert_eq!(
-        codes(
-            &mut session,
-            &format!("theorem same2 : {t} = {t}\nsame2 = rfl\n")
-        ),
+        codes(&mut session, &format!("theorem same2 : {t} = {t} := rfl\n")),
         Vec::<&str>::new()
     );
 }
@@ -727,15 +719,14 @@ fn proofs_in_characters_are_compared() {
     assert_eq!(
         codes(
             &mut session,
-            "theorem bad : (h : Char.isScalar 97 = True) -> Text.toList \"a\" = Cons (MkChar 97 h) Nil\n\
-             bad h = rfl\n"
+            "theorem bad (h : Char.isScalar 97 = True) : Text.toList \"a\" = Cons (MkChar 97 h) Nil := rfl\n"
         ),
         ["E-REFL"]
     );
     assert_eq!(
         codes(
             &mut session,
-            "theorem good : Text.toList \"a\" = Cons (MkChar 97 rfl) Nil\ngood = rfl\n"
+            "theorem good : Text.toList \"a\" = Cons (MkChar 97 rfl) Nil := rfl\n"
         ),
         Vec::<&str>::new()
     );
@@ -760,32 +751,23 @@ fn unification_solves(compact: bool) {
     load(
         &mut session,
         r#"
-headOf : [c : Char] -> [t : List Char] -> Cons c t = Text.toList "ab" -> Char
-headOf p = c
+def headOf [c : Char] [t : List Char] (p : Cons c t = Text.toList "ab") : Char := c
 
-restOf : [c : Char] -> [t : List Char] -> Cons c t = Text.toList "ab" -> List Char
-restOf p = t
+def restOf [c : Char] [t : List Char] (p : Cons c t = Text.toList "ab") : List Char := t
 
-theorem heads : headOf rfl = 'a'
-heads = rfl
+theorem heads : headOf rfl = 'a' := rfl
 
-theorem tails : restOf rfl = ['b']
-tails = rfl
+theorem tails : restOf rfl = ['b'] := rfl
 
-theorem tailsCompact : restOf rfl = Text.toList "b"
-tailsCompact = rfl
+theorem tailsCompact : restOf rfl = Text.toList "b" := rfl
 
-codeOf : [n : Nat] -> [p : Char.isScalar n = True] -> Cons (MkChar n p) Nil = Text.toList "a" -> Nat
-codeOf e = n
+def codeOf [n : Nat] [p : Char.isScalar n = True] (e : Cons (MkChar n p) Nil = Text.toList "a") : Nat := n
 
-theorem codes : codeOf rfl = 97
-codes = rfl
+theorem codes : codeOf rfl = 97 := rfl
 
-codeAt : (n : Nat) -> [p : Char.isScalar n = True] -> Cons (MkChar n p) Nil = Text.toList "a" -> Nat
-codeAt n e = n
+def codeAt (n : Nat) [p : Char.isScalar n = True] (e : Cons (MkChar n p) Nil = Text.toList "a") : Nat := n
 
-theorem codesKnown : codeAt 97 rfl = 97
-codesKnown = rfl
+theorem codesKnown : codeAt 97 rfl = 97 := rfl
 "#,
     );
     // The solution for `?t` is the range after `a`.
@@ -799,11 +781,11 @@ codesKnown = rfl
     );
     // With a different code known first, there's no solution.
     assert_eq!(
-        codes(&mut session, "theorem no : codeAt 98 rfl = 98\nno = rfl\n"),
+        codes(&mut session, "theorem no : codeAt 98 rfl = 98 := rfl\n"),
         ["E-REFL"]
     );
     assert_eq!(
-        codes(&mut session, "theorem no2 : headOf rfl = 'b'\nno2 = rfl\n"),
+        codes(&mut session, "theorem no2 : headOf rfl = 'b' := rfl\n"),
         ["E-REFL"]
     );
 }
@@ -863,7 +845,7 @@ fn a_compact_list_is_never_a_smaller_argument() {
 #[test]
 fn hashes_cover_the_characters_not_the_buffer() {
     let mut session = Session::new();
-    load(&mut session, "plain : Text\nplain = \"abc\"\n");
+    load(&mut session, "def plain : Text := \"abc\"\n");
     let g = &mut session.elab.globals;
     let text = data(g, "Text");
     let declare = |g: &mut Globals, name: &str, chars: Term| {
@@ -888,7 +870,7 @@ fn hashes_cover_the_characters_not_the_buffer() {
     assert_ne!(plain, other);
     let mut cons = Session::new();
     cons.elab.globals.builtins.disable_compact_text = true;
-    load(&mut cons, "plain : Text\nplain = \"abc\"\n");
+    load(&mut cons, "def plain : Text := \"abc\"\n");
     let g = &cons.elab.globals;
     let _op = g.budget.operation(Limits::default());
     assert_ne!(plain, def_hash(g, def(g, "plain")).unwrap().unwrap());
@@ -920,38 +902,38 @@ fn compact_lists_print_as_literals() {
 #[test]
 fn must_reject_examples_still_are() {
     for (source, expected) in [
-        ("theorem t : \"a\" = \"b\"\nt = rfl\n", vec!["E-REFL"]),
-        ("theorem t : \"ab\" = \"a\" ++ \"b\"\nt = rfl\n", vec![]),
+        ("theorem t : \"a\" = \"b\" := rfl\n", vec!["E-REFL"]),
+        ("theorem t : \"ab\" = \"a\" ++ \"b\" := rfl\n", vec![]),
         (
-            "theorem t : Text.less \"\\u{10000}\" \"\\u{E000}\" = True\nt = rfl\n",
+            "theorem t : Text.less \"\\u{10000}\" \"\\u{E000}\" = True := rfl\n",
             vec!["E-REFL"],
         ),
         (
-            "theorem t : Text.less \"\\u{10000}\" \"\\u{E000}\" = False\nt = rfl\n",
+            "theorem t : Text.less \"\\u{10000}\" \"\\u{E000}\" = False := rfl\n",
             vec![],
         ),
         (
-            "bad : List Char\nbad = Cons (MkChar 55296 rfl) (Text.toList \"ab\")\n",
+            "def bad : List Char := Cons (MkChar 55296 rfl) (Text.toList \"ab\")\n",
             vec!["E-REFL"],
         ),
         (
-            "bad : List Char\nbad = Cons (MkChar 57343 rfl) (Text.toList \"ab\")\n",
+            "def bad : List Char := Cons (MkChar 57343 rfl) (Text.toList \"ab\")\n",
             vec!["E-REFL"],
         ),
         (
-            "bad : List Char\nbad = Cons (MkChar 1114112 rfl) (Text.toList \"ab\")\n",
+            "def bad : List Char := Cons (MkChar 1114112 rfl) (Text.toList \"ab\")\n",
             vec!["E-REFL"],
         ),
         (
-            "bad : List Char\nbad = Cons (MkChar 4294967393 rfl) (Text.toList \"ab\")\n",
+            "def bad : List Char := Cons (MkChar 4294967393 rfl) (Text.toList \"ab\")\n",
             vec!["E-REFL"],
         ),
         (
-            "bad : List Char\nbad = Cons (MkChar 18446744073709551713 rfl) (Text.toList \"ab\")\n",
+            "def bad : List Char := Cons (MkChar 18446744073709551713 rfl) (Text.toList \"ab\")\n",
             vec!["E-REFL"],
         ),
         (
-            "good : List Char\ngood = Cons (MkChar 1114111 rfl) (Text.toList \"ab\")\n",
+            "def good : List Char := Cons (MkChar 1114111 rfl) (Text.toList \"ab\")\n",
             vec![],
         ),
     ] {
@@ -1002,17 +984,16 @@ fn compact_text_is_bound_to_the_prelude() {
 /// as before compact text, and the kernel refuses a compact list.
 #[test]
 fn a_changed_builtin_isnt_bound() {
-    let original = "Char.isScalar n = if Nat.leq 55296 n then (if Nat.leq n 57343 then False else Nat.leq n 1114111) else True";
+    let original = "def Char.isScalar (n : Nat) : Bool := if Nat.leq 55296 n then (if Nat.leq n 57343 then False else Nat.leq n 1114111) else True";
     assert!(stitchwort_elab::PRELUDE.contains(original));
     let changed = stitchwort_elab::PRELUDE.replace(
         original,
-        "Char.isScalar n = if Nat.leq 55296 n then (if Nat.leq n 57343 then False else Nat.leq n 1114112) else True",
+        "def Char.isScalar (n : Nat) : Bool := if Nat.leq 55296 n then (if Nat.leq n 57343 then False else Nat.leq n 1114112) else True",
     );
     let mut session = Session {
         sources: SourceMap::new(),
         elab: stitchwort_elab::Elaborator::new(),
         warnings: Vec::new(),
-        syntax: Default::default(),
     };
     session.elab.loading_prelude = true;
     load(&mut session, &changed);
@@ -1023,7 +1004,7 @@ fn a_changed_builtin_isnt_bound() {
     // Literals still work, as constructors.
     load(
         &mut session,
-        "test \"length\" = Text.length \"abc\" == 3\ntheorem t : Text.toList \"ab\" = ['a', 'b']\nt = rfl\n",
+        "test \"length\" := Text.length \"abc\" == 3\ntheorem t : Text.toList \"ab\" = ['a', 'b'] := rfl\n",
     );
     let expr = session.parse_expression("<t>", "\"abc\"").unwrap();
     let (term, _) = session.elab.infer_expr(&expr).unwrap();

@@ -3,14 +3,13 @@ source: crates/driver/src/render.rs
 expression: "render(&sources, &diagnostic, false)"
 ---
 [E-ABILITY] Error: `innocent` uses the Partial ability
-   ╭─[ example.sw:2:14 ]
+   ╭─[ example.sw:1:33 ]
    │
- 1 │ innocent : Nat -> Nat
-   │                   ─┬─  
-   │                    ╰─── but this type doesn't allow Partial
- 2 │ innocent n = spin n + 1
-   │              ──┬─  
-   │                ╰─── `spin` might not terminate
+ 1 │ def innocent (n : Nat) : Nat := spin n + 1
+   │                          ─┬─    ──┬─  
+   │                           ╰─────────── but this type doesn't allow Partial
+   │                                   │   
+   │                                   ╰─── `spin` might not terminate
    │ 
    │ Note: write `Nat -> {Partial} Nat` to allow it
 ───╯

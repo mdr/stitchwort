@@ -1,7 +1,5 @@
 -- Pairs with reject/wrong-proof.sw: a true statement is proved by computation.
-theorem fourIsFour : 2 + 2 = 4
-fourIsFour = rfl
+theorem fourIsFour : 2 + 2 = 4 := rfl
 
 -- `0 + n = n` holds by computation, because `+` recurses on its first argument.
-theorem zeroPlus : (n : Nat) -> 0 + n = n
-zeroPlus n = rfl
+theorem zeroPlus (n : Nat) : 0 + n = n := rfl

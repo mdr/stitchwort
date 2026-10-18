@@ -3,6 +3,4 @@
 type StitchwortInputError : Type =
   | Oops
 
-export
-oops : Nat -> StitchwortInputError
-oops n = Oops
+export def oops (n : Nat) : StitchwortInputError := Oops

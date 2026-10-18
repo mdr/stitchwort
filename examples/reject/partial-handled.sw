@@ -5,16 +5,13 @@
 ability Log where
   say : Nat -> {Log} ()
 
-spin : Nat -> {Partial} Nat
-spin n = spin (n + 1)
+def spin (n : Nat) : {Partial} Nat := spin (n + 1)
 
-loud : () -> {Log, Partial} Nat
-loud u =
+def loud () : {Log, Partial} Nat :=
   say 1
   spin 0
 
-quiet : () -> {Partial} Nat
-quiet u =
+def quiet () : {Partial} Nat :=
   handle loud () with
-    | return x   -> x
-    | say n => k -> k ()
+    | return x   => x
+    | say n, k => k ()

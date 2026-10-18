@@ -1,15 +1,18 @@
-//! The new declaration syntax (docs/proposals/declaration-syntax.md): each
-//! form must parse to the tree its old-syntax equivalent parses to, the
-//! layout rules of section 2.10 must hold, and mistakes must be reported as
-//! the spec says.
+//! The declaration syntax (docs/proposals/declaration-syntax.md): each form
+//! must parse to the tree its old-syntax equivalent parsed to (read by the
+//! converter's copy of the old parser), the layout rules of section 2.10
+//! must hold, and mistakes must be reported as the spec says. (Here rather
+//! than in `crates/syntax`, because only the converter still reads the old
+//! syntax.)
 
-use stitchwort_syntax::equivalence::{assert_equivalent, parse_shape};
-use stitchwort_syntax::{DEFAULT_STACK, SourceMap, Syntax, parse_module, parse_module_in};
+use stitchwort_convert::assert_equivalent;
+use stitchwort_syntax::equivalence::parse_shape;
+use stitchwort_syntax::{SourceMap, parse_module};
 
 /// The error text of `src` in the new syntax; panics if it parses.
 #[track_caller]
 fn new_err(src: &str) -> String {
-    match parse_shape(Syntax::New, src) {
+    match parse_shape(src) {
         Ok(_) => panic!("expected a parse error, but this parsed:\n{src}"),
         Err(e) => e,
     }
@@ -419,7 +422,7 @@ fn equation_type_with_no_body() {
     let text = "def p : a = b\n";
     let mut sources = SourceMap::new();
     let file = sources.add("t.sw", text);
-    let errors = parse_module_in(Syntax::New, file, text, DEFAULT_STACK).unwrap_err();
+    let errors = parse_module(file, text).unwrap_err();
     let shown = format!("{errors:?}");
     assert!(shown.contains("`:=`"), "{shown}");
 }
@@ -502,21 +505,49 @@ fn duplicate_with_auto_after_colon() {
 // An explicit binder after the colon may repeat a header name (section 2.5).
 #[test]
 fn explicit_after_colon_may_repeat() {
-    parse_shape(
-        Syntax::New,
-        "def f (x : Nat) : (x : Nat) -> P x\n  | y => w\n",
-    )
-    .unwrap();
+    parse_shape("def f (x : Nat) : (x : Nat) -> P x\n  | y => w\n").unwrap();
 }
 
-// An old-style signature line is an error in the new syntax.
+// An old-style signature line is an error.
 #[test]
 fn old_signature_is_error() {
     assert_err(
         "f : Nat -> Nat\n",
-        "E-PARSE",
+        "E-OLD-DECLARATION",
         "definitions start with `def`",
     );
+}
+
+// So is an old-style equation.
+#[test]
+fn old_equation_is_error() {
+    assert_err(
+        "f x = x\n",
+        "E-OLD-DECLARATION",
+        "definitions start with `def`",
+    );
+}
+
+// An old-style lambda gets a hint.
+#[test]
+fn old_lambda_arrow_is_explained() {
+    let e = new_err("def f : Nat -> Nat := \\x -> x\n");
+    assert!(e.contains("expected `=>`"), "{e}");
+}
+
+// A header without a body parses as a signature alone (the elaborator
+// admits it only for the prelude's primitives).
+#[test]
+fn bodiless_header_is_a_signature() {
+    let text = "def Delay : Type -> Type\n";
+    let mut sources = SourceMap::new();
+    let file = sources.add("t.sw", text);
+    let module = parse_module(file, text).unwrap();
+    assert_eq!(module.decls.len(), 1);
+    assert!(matches!(
+        module.decls[0],
+        stitchwort_syntax::ast::Decl::Signature { .. }
+    ));
 }
 
 // `export f : …` is an error in the new syntax.
@@ -599,23 +630,4 @@ fn clause_no_continuation() {
         "E-PARSE",
         "name the continuation",
     );
-}
-
-// ---------------------------------------------------------------------
-// f. The old syntax is still the default
-
-// The old syntax parses unchanged with `parse_module`.
-#[test]
-fn old_syntax_still_parses() {
-    let text = "f : Nat -> Nat\nf Zero = 0\nf (Succ n) = f n\n\ntest \"t\" = f 1 == 0\n";
-    let mut sources = SourceMap::new();
-    let file = sources.add("t.sw", text);
-    let module = parse_module(file, text).expect("old syntax parses");
-    assert_eq!(module.decls.len(), 4);
-}
-
-// The default syntax is the old one.
-#[test]
-fn default_is_old() {
-    assert_eq!(Syntax::default(), Syntax::Old);
 }

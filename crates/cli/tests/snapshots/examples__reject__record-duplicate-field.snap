@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-RECORD-FIELD] Error: field `name` is given twice
-   ╭─[ reject/record-duplicate-field.sw:7:37 ]
+   ╭─[ reject/record-duplicate-field.sw:6:51 ]
    │
- 7 │ alice = { name = "Alice", age = 30, name = "Alicia" }
-   │           ──┬─                      ──┬─  
-   │             ╰───────────────────────────── first given here
-   │                                       │   
-   │                                       ╰─── field `name` is given twice
+ 6 │ def alice : Person := { name = "Alice", age = 30, name = "Alicia" }
+   │                         ──┬─                      ──┬─  
+   │                           ╰───────────────────────────── first given here
+   │                                                     │   
+   │                                                     ╰─── field `name` is given twice
 ───╯

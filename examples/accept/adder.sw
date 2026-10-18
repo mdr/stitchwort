@@ -22,42 +22,40 @@
 -- before `Partial`.
 
 -- The text, or a default at end of input.
-textOr : Text -> Maybe Text -> Text
-textOr d Nothing  = d
-textOr d (Just t) = t
+def textOr (d : Text) : Maybe Text -> Text
+  | Nothing => d
+  | Just t  => t
 
 -- Reports a line that should be a number, and goes on with the new total.
-stepNumber : Nat -> Text -> Maybe Nat -> (Nat -> {IO, Partial | e} Nat) -> {IO, Partial | e} Nat
-stepNumber total l Nothing  more =
-  print ("\"" ++ l ++ "\" isn't a number; skipped")
-  more total
-stepNumber total l (Just n) more =
-  print ("  total: " ++ Nat.toText (total + n))
-  more (total + n)
+def stepNumber (total : Nat) (l : Text) : Maybe Nat -> (Nat -> {IO, Partial | e} Nat) -> {IO, Partial | e} Nat
+  | Nothing, more =>
+    print ("\"" ++ l ++ "\" isn't a number; skipped")
+    more total
+  | Just n,  more =>
+    print ("  total: " ++ Nat.toText (total + n))
+    more (total + n)
 
 -- What to do with a line, given the total so far. An empty line, or the end
 -- of input, stops. `step` and `stepNumber` aren't recursive: they mention
 -- `Partial` only because `more` may be partial. They're polymorphic in the
 -- rest of the row (`| e`) because `addLines` passes itself as `more`, and a
 -- recursive call is a request only `addLines`'s own definition can answer.
-step : Nat -> Maybe Text -> (Nat -> {IO, Partial | e} Nat) -> {IO, Partial | e} Nat
-step total Nothing  more = total
-step total (Just l) more =
-  if Text.isEmpty l then total else stepNumber total l (Text.toNat (Text.trim l)) more
+def step (total : Nat) : Maybe Text -> (Nat -> {IO, Partial | e} Nat) -> {IO, Partial | e} Nat
+  | Nothing, more => total
+  | Just l,  more =>
+    if Text.isEmpty l then total else stepNumber total l (Text.toNat (Text.trim l)) more
 
 -- Adds up the numbers on the lines to come, until an empty line or the end
 -- of the input.
-addLines : Nat -> {IO, Partial} Nat
-addLines total = step total (readLine ()) addLines
+def addLines (total : Nat) : {IO, Partial} Nat := step total (readLine ()) addLines
 
-main : () -> {IO, Partial} ()
-main u =
+def main () : {IO, Partial} () :=
   print "What's your name?"
-  let name = textOr "stranger" (readLine ())
+  let name := textOr "stranger" (readLine ())
   print ("Hello, " ++ name ++ "! Type numbers to add, one per line, and an empty line to stop.")
-  let total = addLines 0
+  let total := addLines 0
   print ("The sum is " ++ Nat.toText total ++ ". Goodbye, " ++ name ++ ".")
 
-test "a name" = textOr "stranger" (Just "Ada") == "Ada"
+test "a name" := textOr "stranger" (Just "Ada") == "Ada"
 
-test "no name" = textOr "stranger" Nothing == "stranger"
+test "no name" := textOr "stranger" Nothing == "stranger"

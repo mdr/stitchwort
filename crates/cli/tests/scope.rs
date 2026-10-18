@@ -42,12 +42,13 @@ fn group_size(session: &Session, name: &str) -> usize {
 fn declarations_are_checked_after_what_they_use() {
     // `a` uses `c`, below it; `b` uses nothing. Of those ready, the earliest
     // in the source goes first: `b`, then `c`, then `a`.
-    let (session, result) =
-        load("a : Nat\na = c + 1\n\nb : Nat\nb = 2\n\nc : Nat\nc = 3\n\ntest \"a\" = a == 4\n");
+    let (session, result) = load(
+        "def a : Nat := c + 1\n\ndef b : Nat := 2\n\ndef c : Nat := 3\n\ntest \"a\" := a == 4\n",
+    );
     result.unwrap();
     assert_eq!(new_defs(&session), ["b", "c", "a", "test \"a\""]);
     // With no forward references, that's source order.
-    let (session, result) = load("x : Nat\nx = 1\n\ny : Nat\ny = x\n\nz : Nat\nz = 0\n");
+    let (session, result) = load("def x : Nat := 1\n\ndef y : Nat := x\n\ndef z : Nat := 0\n");
     result.unwrap();
     assert_eq!(new_defs(&session), ["x", "y", "z"]);
 }
@@ -55,7 +56,7 @@ fn declarations_are_checked_after_what_they_use() {
 #[test]
 fn errors_and_tests_are_reported_in_source_order() {
     // `x` is checked after `y`, but its error comes first.
-    let (_, result) = load("x : Nat\nx = y + True\n\ny : Nat\ny = Zero Zero\n");
+    let (_, result) = load("def x : Nat := y + True\n\ndef y : Nat := Zero Zero\n");
     let errors = result.unwrap_err();
     assert_eq!(errors.len(), 2, "{errors:#?}");
     assert!(
@@ -63,8 +64,9 @@ fn errors_and_tests_are_reported_in_source_order() {
         "{errors:#?}"
     );
     // The first test is checked last (it waits for `f`), but runs first.
-    let (session, result) =
-        load("test \"uses f\" = f 1 == 2\ntest \"plain\" = True\n\nf : Nat -> Nat\nf n = n + 1\n");
+    let (session, result) = load(
+        "test \"uses f\" := f 1 == 2\ntest \"plain\" := True\n\ndef f (n : Nat) : Nat := n + 1\n",
+    );
     result.unwrap();
     let names: Vec<String> = session
         .run_tests(&Cache::disabled())
@@ -82,14 +84,17 @@ fn local_names_make_no_dependencies() {
     // Each of `f`'s local variables has the name of a definition that calls
     // `f`. If they counted as references, `f` would be in a group with them.
     let (session, result) = load(
-        "f : [g : Type] -> Nat -> Nat\n\
-         f n =\n  let k = n\n  applyTo (\\h -> h) k\n\n\
-         applyTo : (Nat -> Nat) -> Nat -> Nat\napplyTo f x = f x\n\n\
-         g : Nat -> Nat\ng n = f [g := Nat] n\n\n\
-         h : Nat -> Nat\nh n = f [g := Nat] n\n\n\
-         k : Nat -> Nat\nk n = f [g := Nat] n\n\n\
-         m : Nat -> Nat\nm g = g\n\n\
-         p : Nat -> Nat\np 0 = m 0\np (Succ m) = f [g := Nat] m\n",
+        "def f [g : Type] (n : Nat) : Nat :=\n  \
+         let k := n\n  \
+         applyTo (\\h => h) k\n\n\
+         def applyTo (f : Nat -> Nat) (x : Nat) : Nat := f x\n\n\
+         def g (n : Nat) : Nat := f [g := Nat] n\n\n\
+         def h (n : Nat) : Nat := f [g := Nat] n\n\n\
+         def k (n : Nat) : Nat := f [g := Nat] n\n\n\
+         def m (g : Nat) : Nat := g\n\n\
+         def p : Nat -> Nat\n  \
+         | 0 => m 0\n  \
+         | Succ m => f [g := Nat] m\n",
     );
     result.unwrap();
     for name in ["f", "g", "h", "k", "m", "p"] {
@@ -97,8 +102,12 @@ fn local_names_make_no_dependencies() {
     }
     // But a real cycle is one group.
     let (session, result) = load(
-        "isEven : Nat -> Bool\nisEven 0 = True\nisEven (Succ n) = isOdd n\n\n\
-         isOdd : Nat -> Bool\nisOdd 0 = False\nisOdd (Succ n) = isEven n\n",
+        "def isEven : Nat -> Bool\n  \
+         | 0 => True\n  \
+         | Succ n => isOdd n\n\n\
+         def isOdd : Nat -> Bool\n  \
+         | 0 => False\n  \
+         | Succ n => isEven n\n",
     );
     result.unwrap();
     assert_eq!(group_size(&session, "isEven"), 2);
@@ -108,14 +117,14 @@ fn local_names_make_no_dependencies() {
 fn a_failed_signature_doesnt_cascade() {
     // `g` uses `f`, whose signature fails: only `f`'s error is reported, not
     // an "unknown name" for `f`.
-    let (_, result) = load("g : Nat\ng = f 1\n\nf : Nat -> Nonsense\nf n = n\n");
+    let (_, result) = load("def g : Nat := f 1\n\ndef f (n : Nat) : Nonsense := n\n");
     assert_eq!(codes(&result.unwrap_err()), ["E-UNKNOWN-NAME"]);
 }
 
 #[test]
 fn a_duplicate_is_reported_and_the_first_definition_kept() {
     let (session, result) =
-        load("use : Nat\nuse = twice\n\ntwice : Nat\ntwice = 2\n\ntwice : Nat\ntwice = 3\n");
+        load("def use : Nat := twice\n\ndef twice : Nat := 2\n\ndef twice : Nat := 3\n");
     let errors = result.unwrap_err();
     assert_eq!(codes(&errors), ["E-DUPLICATE"]);
     let g = &session.elab.globals;
@@ -127,8 +136,8 @@ fn a_duplicate_is_reported_and_the_first_definition_kept() {
 
 #[test]
 fn a_module_name_takes_priority_over_a_type_variable_with_a_warning() {
-    let size = "size : List a -> Nat\nsize Nil = 0\nsize (Cons _ xs) = Succ (size xs)\n\n";
-    let (session, result) = load(&format!("{size}a : Type\na = Nat\n"));
+    let size = "def size : List a -> Nat\n  | Nil => 0\n  | Cons _ xs => Succ (size xs)\n\n";
+    let (session, result) = load(&format!("{size}def a : Type := Nat\n"));
     result.unwrap();
     let [warning] = &session.warnings[..] else {
         panic!("{:#?}", session.warnings);
@@ -139,13 +148,15 @@ fn a_module_name_takes_priority_over_a_type_variable_with_a_warning() {
     assert_eq!(warning.labels.len(), 2);
     assert!(warning.notes[0].contains("[a : Type] ->"), "{warning:?}");
     // With an explicit binder, it's a type variable, and there's no warning.
-    let explicit = "size : [a : Type] -> List a -> Nat\nsize Nil = 0\n\
-                    size (Cons _ xs) = Succ (size xs)\n\na : Type\na = Nat\n";
+    let explicit = "def size : [a : Type] -> List a -> Nat\n  \
+                    | Nil => 0\n  \
+                    | Cons _ xs => Succ (size xs)\n\n\
+                    def a : Type := Nat\n";
     let (session, result) = load(explicit);
     result.unwrap();
     assert!(session.warnings.is_empty(), "{:#?}", session.warnings);
     // If the signature then fails, its error says the same.
-    let (_, result) = load(&format!("{size}a : Nat\na = 0\n"));
+    let (_, result) = load(&format!("{size}def a : Nat := 0\n"));
     let errors = result.unwrap_err();
     let error = errors
         .iter()
@@ -164,9 +175,11 @@ fn abilities_are_ordered_by_where_they_are_written() {
     // same as in a module where nothing is checked out of order.
     let module = |bar_first: bool| {
         let bar = "type Bar : Type =\n  | MkBar\n\n";
-        let rest = "ability Foo where\n  foo : Bar -> {Foo} ()\n\n\
-                    ability Baz where\n  baz : () -> {Baz} ()\n\n\
-                    f : () -> {Baz, Foo} ()\nf u = foo MkBar\n";
+        let rest = "ability Foo where\n  \
+                    foo : Bar -> {Foo} ()\n\n\
+                    ability Baz where\n  \
+                    baz : () -> {Baz} ()\n\n\
+                    def f () : {Baz, Foo} () := foo MkBar\n";
         let text = if bar_first {
             format!("{bar}{rest}")
         } else {
@@ -216,9 +229,12 @@ fn a_failed_data_group_fails_every_member_without_cascading() {
     // `Forest`'s field has a mistake; `Tree` is fine on its own, but fails
     // with it, and `size`, which uses `Tree`, isn't reported again.
     let (session, result) = load(
-        "type Tree : Type =\n  | Node (kids : Forest)\n\n\
-         type Forest : Type =\n  | FNil\n  | FCons (first : Tree) (rest : Forst)\n\n\
-         size : Tree -> Nat\nsize t = 0\n",
+        "type Tree : Type =\n  \
+         | Node (kids : Forest)\n\n\
+         type Forest : Type =\n  \
+         | FNil\n  \
+         | FCons (first : Tree) (rest : Forst)\n\n\
+         def size (t : Tree) : Nat := 0\n",
     );
     let errors = result.unwrap_err();
     assert_eq!(codes(&errors), ["E-UNKNOWN-NAME"], "{errors:#?}");

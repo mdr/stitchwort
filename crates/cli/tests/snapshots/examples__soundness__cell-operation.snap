@@ -5,7 +5,7 @@ expression: output
 [E-POSITIVITY] Error: `CellOp` is used inside another type
     ╭─[ soundness/cell-operation.sw:10:16 ]
     │
- 10 │   | Write (f : Unit1 -> Comp CellOp (\o -> Unit1) Unit1)
+ 10 │   | Write (f : Unit1 -> Comp CellOp (\o => Unit1) Unit1)
     │                ────────────────────┬───────────────────  
     │                                    ╰───────────────────── field `f` has `CellOp` inside another type
     │ 

@@ -43,29 +43,27 @@ fn output(source: &str, input: &[u8]) -> String {
 
 /// Echoes each line in brackets, and keeps reading after the end of input.
 const ECHO: &str = r#"
-showLine : Maybe Text -> Text
-showLine Nothing  = "<end>"
-showLine (Just l) = "[" ++ l ++ "]"
+def showLine : Maybe Text -> Text
+  | Nothing => "<end>"
+  | Just l  => "[" ++ l ++ "]"
 
-echo : Nat -> {IO} ()
-echo 0        = ()
-echo (Succ n) =
-  print (showLine (readLine ()))
-  echo n
+def echo : Nat -> {IO} ()
+  | 0      => ()
+  | Succ n =>
+    print (showLine (readLine ()))
+    echo n
 
-main : () -> {IO} ()
-main u = echo 4
+def main () : {IO} () := echo 4
 "#;
 
 const GREET: &str = r#"
-textOr : Text -> Maybe Text -> Text
-textOr d Nothing  = d
-textOr d (Just t) = t
+def textOr (d : Text) : Maybe Text -> Text
+  | Nothing => d
+  | Just t  => t
 
-main : () -> {IO} ()
-main u =
+def main () : {IO} () :=
   print "Name?"
-  let name = readLine ()
+  let name := readLine ()
   print ("Hello, " ++ textOr "stranger" name ++ "!")
 "#;
 
@@ -83,10 +81,10 @@ fn programs() -> Vec<(&'static str, String)> {
         ("adder", adder),
         (
             "a payload with line feeds",
-            "main : () -> {IO} ()\nmain u =\n  print \"a\\nb\"\n  print \"\"\n  print \"\\r\"\n"
+            "def main () : {IO} () :=\n  print \"a\\nb\"\n  print \"\"\n  print \"\\r\"\n"
                 .to_string(),
         ),
-        ("pure", "main : () -> ()\nmain u = ()\n".to_string()),
+        ("pure", "def main () : () := ()\n".to_string()),
         (
             "with State handled inside",
             r#"
@@ -94,27 +92,24 @@ ability State (s : Type) where
   get : () -> {State s} s
   put : s -> {State s} ()
 
-runState : s -> (() -> {State s | e} a) -> {e} Pair a s
-runState init prog =
-  let run : s -> {e} Pair a s =
+def runState (init : s) (prog : () -> {State s | e} a) : {e} Pair a s :=
+  let run : s -> {e} Pair a s :=
     handle prog () with
-      | return x       -> \st -> MkPair x st
-      | get u => k     -> \st -> k st st
-      | put st2 => k   -> \st -> k () st2
+      | return x       => \st => MkPair x st
+      | get u, k       => \st => k st st
+      | put st2, k     => \st => k () st2
   run init
 
-count : () -> {IO, State Nat} ()
-count u =
-  let a = readLine ()
+def count () : {IO, State Nat} () :=
+  let a := readLine ()
   put (get () + 1)
   print (Nat.toText (get ()))
-  let b = readLine ()
+  let b := readLine ()
   put (get () + 1)
   print (Nat.toText (get ()))
 
-main : () -> {IO} ()
-main u =
-  let r = runState 10 count
+def main () : {IO} () :=
+  let r := runState 10 count
   print "done"
 "#
             .to_string(),
@@ -390,43 +385,40 @@ fn a_flush_error_stops_the_program() {
     assert_eq!(log, ["write Name?", "write \n"]);
     assert!(matches!(result, Err(RunError::Write(_))), "{result:?}");
     // The flush at the end counts too.
-    let (_, result) = run_logged(
-        "main : () -> {IO} ()\nmain u = print \"x\"\n",
-        b"",
-        false,
-        true,
-    );
+    let (_, result) = run_logged("def main () : {IO} () := print \"x\"\n", b"", false, true);
     assert!(matches!(result, Err(RunError::Write(_))), "{result:?}");
 }
 
 #[test]
 fn a_payload_with_a_line_feed_is_written_as_it_is() {
-    let source = "main : () -> {IO} ()\nmain u =\n  print \"a\\nb\"\n  print \"\"\n";
+    let source = "def main () : {IO} () :=\n  print \"a\\nb\"\n  print \"\"\n";
     assert_eq!(output(source, b""), "a\nb\n\n");
 }
 
 #[test]
 fn a_pure_main_runs_and_prints_nothing() {
-    assert_eq!(output("main : () -> ()\nmain u = ()\n", b"unread\n"), "");
+    assert_eq!(output("def main () : () := ()\n", b"unread\n"), "");
 }
 
 #[test]
 fn many_operations_run_without_growing_the_stack() {
-    let source = "printMany : Nat -> {IO} ()\nprintMany 0        = ()\n\
-                  printMany (Succ n) =\n  print \"x\"\n  printMany n\n\n\
-                  main : () -> {IO} ()\nmain u = printMany 20000\n";
+    let source = "def printMany : Nat -> {IO} ()\n  \
+                  | 0      => ()\n  \
+                  | Succ n =>\n    \
+                  print \"x\"\n    \
+                  printMany n\n\n\
+                  def main () : {IO} () := printMany 20000\n";
     assert_eq!(output(source, b""), "x\n".repeat(20000));
 }
 
 // Resources
 
 const SLOW: &str = "
-replicate : Nat -> a -> List a
-replicate Zero     x = Nil
-replicate (Succ n) x = Cons x (replicate n x)
+def replicate : Nat -> a -> List a
+  | Zero,   x => Nil
+  | Succ n, x => Cons x (replicate n x)
 
-main : () -> {IO} ()
-main u =
+def main () : {IO} () :=
   print \"before\"
   print (Nat.toText (List.length (replicate 100000 1)))
 ";
@@ -456,9 +448,12 @@ fn running_out_of_resources_stops_the_program() {
 #[test]
 fn each_step_between_operations_has_its_own_limits() {
     // 2,000 prints take more than 100,000 steps in all, but few each.
-    let source = "printMany : Nat -> {IO} ()\nprintMany 0        = ()\n\
-                  printMany (Succ n) =\n  print \"x\"\n  printMany n\n\n\
-                  main : () -> {IO} ()\nmain u = printMany 2000\n";
+    let source = "def printMany : Nat -> {IO} ()\n  \
+                  | 0      => ()\n  \
+                  | Succ n =>\n    \
+                  print \"x\"\n    \
+                  printMany n\n\n\
+                  def main () : {IO} () := printMany 2000\n";
     let mut session = load(source);
     session.elab.limits = Limits {
         work: 100_000,
@@ -483,21 +478,19 @@ fn main_error(source: &str) -> &'static str {
 
 #[test]
 fn main_must_exist() {
-    assert_eq!(
-        main_error("notMain : () -> {IO} ()\nnotMain u = ()\n"),
-        "E-NO-MAIN"
-    );
+    assert_eq!(main_error("def notMain () : {IO} () := ()\n"), "E-NO-MAIN");
 }
 
 #[test]
 fn main_must_have_the_right_type() {
     for source in [
-        "main : Nat\nmain = 3\n",
-        "main : () -> {IO} Nat\nmain u = 3\n",
-        "main : Nat -> {IO} ()\nmain n = ()\n",
-        "main : () -> Nat\nmain u = 3\n",
-        "ability Abort where\n  abort : () -> {Abort} ()\n\n\
-         main : () -> {IO, Abort} ()\nmain u = abort ()\n",
+        "def main : Nat := 3\n",
+        "def main () : {IO} Nat := 3\n",
+        "def main (n : Nat) : {IO} () := ()\n",
+        "def main () : Nat := 3\n",
+        "ability Abort where\n  \
+         abort : () -> {Abort} ()\n\n\
+         def main () : {IO, Abort} () := abort ()\n",
     ] {
         assert_eq!(main_error(source), "E-MAIN-TYPE", "{source}");
     }

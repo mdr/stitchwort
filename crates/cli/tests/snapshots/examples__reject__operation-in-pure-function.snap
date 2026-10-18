@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-ABILITY] Error: this may perform `State`, which isn't allowed here
-   ╭─[ reject/operation-in-pure-function.sw:7:9 ]
+   ╭─[ reject/operation-in-pure-function.sw:6:28 ]
    │
- 7 │ bad n = get () + n
-   │         ─────┬────  
-   │              ╰────── `State` isn't in the abilities of the enclosing function or handler
+ 6 │ def bad (n : Nat) : Nat := get () + n
+   │                            ─────┬────  
+   │                                 ╰────── `State` isn't in the abilities of the enclosing function or handler
    │ 
    │ Note: add `State` to the function's type (`-> {State …} …`), or handle it
 ───╯

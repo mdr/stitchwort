@@ -122,15 +122,18 @@ impl From<ResourceError> for RunError {
 /// allowed.
 /// The library's names are written from `Std`, which always means the
 /// library, whatever the program declares.
-const MAIN_CALL: &str = "((\\u -> main ()) : () -> {Std.IO, Partial} ()) ()";
+const MAIN_CALL: &str = "((\\u => main ()) : () -> {Std.IO, Partial} ()) ()";
 
 impl Session {
     /// Finds the loaded program's `main`, and checks its type.
     pub fn main(&mut self) -> Result<Main, Diagnostic> {
         let g = &self.elab.globals;
         let Some(index) = g.defs.iter().rposition(|d| &*d.name == "main") else {
-            return Err(Diagnostic::error("E-NO-MAIN", "there's no `main` to run")
-                .with_note("define `main : () -> {IO} ()`, or `main : () -> {IO, Partial} ()`"));
+            return Err(
+                Diagnostic::error("E-NO-MAIN", "there's no `main` to run").with_note(
+                    "define `def main () : {IO} () := …`, or `def main () : {IO, Partial} () := …`",
+                ),
+            );
         };
         let def = &g.defs[index];
         let (span, ty) = (def.span, self.elab.show(&def.ty_value));
@@ -181,7 +184,7 @@ impl Session {
             })
             .collect();
         let source = format!(
-            "Std.Pair.fst (Std.IO.simulate [{}] ((\\u -> main ()) : () -> {{Std.IO}} ()))",
+            "Std.Pair.fst (Std.IO.simulate [{}] ((\\u => main ()) : () -> {{Std.IO}} ()))",
             lines.join(", ")
         );
         let expr = self.parse_internal("<simulate>", &source)?;

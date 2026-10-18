@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-TERMINATION] Error: can't show that `half` terminates
-    ╭─[ reject/non-structural.sw:10:23 ]
+    ╭─[ reject/non-structural.sw:10:21 ]
     │
- 10 │ half (Succ n) = Succ (half (predecessor n))
-    │                       ─────────┬─────────  
-    │                                ╰─────────── this recursive call might not terminate: no argument is known to be smaller
+ 10 │   | Succ n => Succ (half (predecessor n))
+    │                     ─────────┬─────────  
+    │                              ╰─────────── this recursive call might not terminate: no argument is known to be smaller
     │ 
     │ Note 1: however the recursive calls are repeated, some argument must get smaller (a part of a pattern-matched constructor); an argument passed on unchanged, or rebuilt from its own pattern, is no smaller
     │ 

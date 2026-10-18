@@ -383,16 +383,15 @@
 
 theorem appendLength : (xs : List a) -> (ys : List a) ->
     List.length (List.append xs ys) = List.length xs + List.length ys
-appendLength Nil         ys = rfl
-appendLength (Cons x xs) ys = Eq.cong Succ (appendLength xs ys)
+  | Nil,       ys => rfl
+  | Cons x xs, ys => Eq.cong Succ (appendLength xs ys)
 
-reverse : List a -> List a
-reverse Nil         = Nil
-reverse (Cons x xs) = List.append (reverse xs) [x]
+def reverse : List a -> List a
+  | Nil       => Nil
+  | Cons x xs => List.append (reverse xs) [x]
 
 -- Proofs by computation:
-theorem reverseExample : reverse [1, 2, 3] = [3, 2, 1]
-reverseExample = rfl
+theorem reverseExample : reverse [1, 2, 3] = [3, 2, 1] := rfl
 
 -- Try: `appendLength (Cons x xs) ys = appendLength xs ys` (a wrong step), or a
 -- recursive call that doesn't get smaller, like `reverse (Cons x xs)`.
@@ -401,18 +400,14 @@ reverseExample = rfl
 <script type="text/plain" id="ex-division" data-title="Safe division">-- `/` needs a proof that the divisor isn't zero. For a literal, the compiler
 -- decides it; for a runtime value, establish it with `if h : … then … else`.
 
-half : Nat -> Nat
-half n = n / 2
+def half (n : Nat) : Nat := n / 2
 
-safeDiv : Nat -> Nat -> Nat
-safeDiv n d = if h : d != 0 then n / d else 0
+def safeDiv (n : Nat) (d : Nat) : Nat := if h : d != 0 then n / d else 0
 
 -- A function can ask for the proof itself; callers' `auto` finds it.
-average : (total : Nat) -> (count : Nat) -> [auto ok : count != 0] -> Nat
-average total count = total / count
+def average (total : Nat) (count : Nat) : [auto ok : count != 0] -> Nat := total / count
 
-averageOfThree : Nat
-averageOfThree = average 12 3
+def averageOfThree : Nat := average 12 3
 
 -- Try: `ratio n d = n / d` (can't be decided before the program runs), or
 -- `oops = 7 / 0` (false). Evaluate `safeDiv 9 0` in the Evaluate tab.
@@ -421,16 +416,14 @@ averageOfThree = average 12 3
 <script type="text/plain" id="ex-tests" data-title="Tests">-- Tests are `Bool` expressions that must be `True`. The command-line tool
 -- caches each result by a hash of everything the test depends on.
 
-double : Nat -> Nat
-double n = n + n
+def double (n : Nat) : Nat := n + n
 
-isEven : Nat -> Bool
-isEven n = Nat.leq (n % 2) 0
+def isEven (n : Nat) : Bool := Nat.leq (n % 2) 0
 
-test "double 3 is 6" = Nat.leq (double 3) 6
-test "doubles are even" = isEven (double 7)
-test "7 is odd" = not (isEven 7)
-test "this one fails" = isEven 3
+test "double 3 is 6" := Nat.leq (double 3) 6
+test "doubles are even" := isEven (double 7)
+test "7 is odd" := not (isEven 7)
+test "this one fails" := isEven 3
 </script>
 
 <script type="text/plain" id="ex-abilities" data-title="Abilities and handlers">-- Effectful code is written directly; the abilities it may perform are in
@@ -444,38 +437,35 @@ ability State (s : Type) where
 ability Choose where
   choose : () -> {Choose} Bool
 
-fstOf : Pair a b -> a
-fstOf (MkPair x y) = x
+def fstOf : Pair a b -> a
+  | MkPair x y => x
 
-sndOf : Pair a b -> b
-sndOf (MkPair x y) = y
+def sndOf : Pair a b -> b
+  | MkPair x y => y
 
-runState : s -> (() -> {State s | e} a) -> {e} Pair a s
-runState init prog =
-  let run : s -> {e} Pair a s =
+def runState (init : s) (prog : () -> {State s | e} a) : {e} Pair a s :=
+  let run : s -> {e} Pair a s :=
     handle prog () with
-      | return x       -> \st -> MkPair x st
-      | get () => k    -> \st -> k st st
-      | put st2 => k   -> \st -> k () st2
+      | return x       => \st => MkPair x st
+      | get (), k      => \st => k st st
+      | put st2, k     => \st => k () st2
   run init
 
-allResults : (() -> {Choose | e} a) -> {e} List a
-allResults prog =
+def allResults (prog : () -> {Choose | e} a) : {e} List a :=
   handle prog () with
-    | return x       -> [x]
-    | choose _ => k  -> List.append (k True) (k False)
+    | return x       => [x]
+    | choose _, k    => List.append (k True) (k False)
 
 -- Choose, then add 10 to the state if it said yes.
-step : () -> {State Nat, Choose} Nat
-step u =
+def step () : {State Nat, Choose} Nat :=
   if choose () then put (get () + 10) else ()
   get ()
 
 -- Each branch has its own state...
-test "state inside choice" = List.length (allResults (\u -> runState 1 step)) == 2
+test "state inside choice" := List.length (allResults (\u => runState 1 step)) == 2
 
 -- ...or one state threads through both branches.
-test "choice inside state" = sndOf (runState 1 (\u -> allResults step)) == 11
+test "choice inside state" := sndOf (runState 1 (\u => allResults step)) == 11
 </script>
 <script type="text/plain" id="ex-main" data-title="Input and output: main">-- A program with input and output. `main` prints with `print` and reads
 -- lines with `readLine`, which gives `Nothing` at the end of the input. Press
@@ -483,52 +473,50 @@ test "choice inside state" = sndOf (runState 1 (\u -> allResults step)) == 11
 -- with `IO.simulate`, which takes the input as a list.
 
 -- The text, or a default at end of input.
-textOr : Text -> Maybe Text -> Text
-textOr d Nothing  = d
-textOr d (Just t) = t
+def textOr (d : Text) : Maybe Text -> Text
+  | Nothing => d
+  | Just t  => t
 
 -- Reports a line that should be a number, and goes on with the new total.
-stepNumber : Nat -> Text -> Maybe Nat -> (Nat -> {IO} Nat) -> {IO} Nat
-stepNumber total l Nothing  more =
-  print ("\"" ++ l ++ "\" isn't a number; skipped")
-  more total
-stepNumber total l (Just n) more =
-  print ("  total: " ++ Nat.toText (total + n))
-  more (total + n)
+def stepNumber (total : Nat) (l : Text) : Maybe Nat -> (Nat -> {IO} Nat) -> {IO} Nat
+  | Nothing, more =>
+    print ("\"" ++ l ++ "\" isn't a number; skipped")
+    more total
+  | Just n,  more =>
+    print ("  total: " ++ Nat.toText (total + n))
+    more (total + n)
 
 -- What to do with a line, given the total so far. An empty line, or the end
 -- of input, stops.
-step : Nat -> Maybe Text -> (Nat -> {IO} Nat) -> {IO} Nat
-step total Nothing  more = total
-step total (Just l) more =
-  if Text.isEmpty l then total else stepNumber total l (Text.toNat (Text.trim l)) more
+def step (total : Nat) : Maybe Text -> (Nat -> {IO} Nat) -> {IO} Nat
+  | Nothing, more => total
+  | Just l,  more =>
+    if Text.isEmpty l then total else stepNumber total l (Text.toNat (Text.trim l)) more
 
 -- Adds the numbers on at most this many more lines. The bound keeps the
 -- recursion structural: every run of `main` performs a bounded number of
 -- operations.
-addLines : Nat -> Nat -> {IO} Nat
-addLines 0        total = total
-addLines (Succ n) total = step total (readLine ()) (\t -> addLines n t)
+def addLines : Nat -> Nat -> {IO} Nat
+  | 0,      total => total
+  | Succ n, total => step total (readLine ()) (\t => addLines n t)
 
-main : () -> {IO} ()
-main u =
+def main () : {IO} () :=
   print "What's your name?"
-  let name = textOr "stranger" (readLine ())
+  let name := textOr "stranger" (readLine ())
   print ("Hello, " ++ name ++ "! Type numbers to add, one per line, and an empty line to stop.")
-  let total = addLines 1000 0
+  let total := addLines 1000 0
   print ("The sum is " ++ Nat.toText total ++ ". Goodbye, " ++ name ++ ".")
 
 -- Testing `main` with scripted input
 
-eqTexts : List Text -> List Text -> Bool
-eqTexts Nil         Nil         = True
-eqTexts (Cons x xs) (Cons y ys) = if x == y then eqTexts xs ys else False
-eqTexts _           _           = False
+def eqTexts : List Text -> List Text -> Bool
+  | Nil,       Nil       => True
+  | Cons x xs, Cons y ys => if x == y then eqTexts xs ys else False
+  | _,         _         => False
 
-printed : List Text -> List Text
-printed input = Pair.fst (IO.simulate input main)
+def printed (input : List Text) : List Text := Pair.fst (IO.simulate input main)
 
-test "a session" =
+test "a session" :=
   eqTexts (printed ["Ada", "1", "2", "x", " 39 ", ""])
     [ "What's your name?"
     , "Hello, Ada! Type numbers to add, one per line, and an empty line to stop."
@@ -539,7 +527,7 @@ test "a session" =
     , "The sum is 42. Goodbye, Ada."
     ]
 
-test "end of input stops it too" =
+test "end of input stops it too" :=
   eqTexts (printed ["Ada", "5"])
     [ "What's your name?"
     , "Hello, Ada! Type numbers to add, one per line, and an empty line to stop."
@@ -547,7 +535,7 @@ test "end of input stops it too" =
     , "The sum is 5. Goodbye, Ada."
     ]
 
-test "no input at all" =
+test "no input at all" :=
   eqTexts (printed [])
     [ "What's your name?"
     , "Hello, stranger! Type numbers to add, one per line, and an empty line to stop."
@@ -557,18 +545,15 @@ test "no input at all" =
 <script type="text/plain" id="ex-js" data-title="Extract to JavaScript">-- Exports become an ES module with TypeScript types. Preconditions that JS
 -- can't prove are checked at runtime instead. See the JavaScript tab.
 
-export
-applyDiscount : (price : Nat) -> (percent : Nat) -> [auto ok : percent <= 100] -> Nat
-applyDiscount price percent = price - price * percent / 100
+export def applyDiscount (price : Nat) (percent : Nat) : [auto ok : percent <= 100] -> Nat := price - price * percent / 100
 
 type Shape : Type =
   | Square (side : Nat)
   | Rect (width : Nat) (height : Nat)
 
-export
-area : Shape -> Nat
-area (Square s) = s * s
-area (Rect w h) = w * h
+export def area : Shape -> Nat
+  | Square s => s * s
+  | Rect w h => w * h
 </script>
 
 <script type="module">

@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-PROP-ELIM] Error: can't match on a proof of `HiddenType` to produce data
-   ╭─[ soundness/hidden-type.sw:8:1 ]
+   ╭─[ soundness/hidden-type.sw:8:3 ]
    │
- 8 │ reveal (HideType a) = a
-   │ ───────────┬───────────  
-   │            ╰───────────── the result type `Type` isn't a proposition
+ 8 │   | HideType a => a
+   │   ────────┬────────  
+   │           ╰────────── the result type `Type` isn't a proposition
    │ 
    │ Note: `HiddenType` is a proposition, so its proofs are erased at runtime. Matching on one can only produce data when the proposition has at most one constructor and every field is itself a proof.
 ───╯

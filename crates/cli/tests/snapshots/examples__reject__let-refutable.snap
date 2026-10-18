@@ -3,9 +3,9 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-LET-REFUTABLE] Error: this pattern doesn't match every `Maybe Nat`: it doesn't match `Nothing`
-   ╭─[ reject/let-refutable.sw:6:7 ]
+   ╭─[ reject/let-refutable.sw:5:7 ]
    │
- 6 │   let Just x = Just 3
+ 5 │   let Just x := Just 3
    │       ───┬──  
    │          ╰──── doesn't match `Nothing`
    │ 

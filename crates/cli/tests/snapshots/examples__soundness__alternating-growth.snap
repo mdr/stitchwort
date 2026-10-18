@@ -3,14 +3,14 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-TERMINATION] Error: can't show that `bounce` terminates
-    ╭─[ soundness/alternating-growth.sw:10:28 ]
+    ╭─[ soundness/alternating-growth.sw:10:23 ]
     │
-  9 │ bounce (Succ x) y        = bounce x (Succ (Succ y))
-    │                            ───────────┬──────────  
-    │                                       ╰──────────── then this call: the 1st argument gets smaller
- 10 │ bounce Zero     (Succ y) = bounce (Succ (Succ y)) y
-    │                            ────────────┬───────────  
-    │                                        ╰───────────── this recursive call might not terminate: the 2nd argument gets smaller
+  9 │   | Succ x, y      => bounce x (Succ (Succ y))
+    │                       ───────────┬──────────  
+    │                                  ╰──────────── then this call: the 1st argument gets smaller
+ 10 │   | Zero,   Succ y => bounce (Succ (Succ y)) y
+    │                       ────────────┬───────────  
+    │                                   ╰───────────── this recursive call might not terminate: the 2nd argument gets smaller
     │ 
     │ Note 1: making these calls one after the other, over and over, no argument is known to get smaller
     │ 

@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-DOT-PARTIAL] Error: `.read` leaves out `n`, which the type of `s` depends on
-    ╭─[ reject/dot-partial.sw:11:12 ]
-    │
- 11 │ reader s = s.read
-    │            ───┬──  
-    │               ╰──── `Sized.read : (n : Nat) -> Sized n -> Nat`
-    │ 
-    │ Note: give `n` after `.read`, or write the call in full, `Sized.read …`: the function `.read` would make can't take `n` as an argument, since `s` has one particular type
-────╯
+   ╭─[ reject/dot-partial.sw:9:42 ]
+   │
+ 9 │ def reader (s : Sized 3) : Nat -> Nat := s.read
+   │                                          ───┬──  
+   │                                             ╰──── `Sized.read : (n : Nat) -> Sized n -> Nat`
+   │ 
+   │ Note: give `n` after `.read`, or write the call in full, `Sized.read …`: the function `.read` would make can't take `n` as an argument, since `s` has one particular type
+───╯

@@ -3,9 +3,9 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-TYPE-MISMATCH] Error: type mismatch
-   ╭─[ reject/if-not-bool.sw:5:13 ]
+   ╭─[ reject/if-not-bool.sw:4:33 ]
    │
- 5 │ pick t = if t then 1 else 2
-   │             ┬  
-   │             ╰── expected `Bool`, but this has type `Text`
+ 4 │ def pick (t : Text) : Nat := if t then 1 else 2
+   │                                 ┬  
+   │                                 ╰── expected `Bool`, but this has type `Text`
 ───╯

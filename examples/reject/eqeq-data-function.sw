@@ -3,5 +3,4 @@
 type Handler =
   | MkHandler (name : Text) (f : Nat -> Nat)
 
-same : Handler -> Handler -> Bool
-same a b = a == b
+def same (a : Handler) (b : Handler) : Bool := a == b

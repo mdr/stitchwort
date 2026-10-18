@@ -5,7 +5,7 @@ expression: output
 [E-NOT-A-PROP] Error: `three` is declared as a theorem, but its type isn't a proposition
    ╭─[ reject/theorem-not-prop.sw:2:1 ]
    │
- 2 │ theorem three : Nat
+ 2 │ theorem three : Nat := 3
    │ ─────────┬─────────  
    │          ╰─────────── `Nat` is a type of data, not a proposition
    │ 

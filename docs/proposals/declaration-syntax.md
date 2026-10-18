@@ -1220,6 +1220,36 @@ stops and reports it.
 - Playground colouring (lane F).
 - `where` (lane G).
 
+### The switch: what was done
+
+- **Converted** with `stitchwort-convert --write`: the prelude, `examples/`,
+  `aoc/` and the playground's examples (276 inputs); by hand: the four
+  malformed reject examples (same errors) and the snippets in Rust sources
+  and the web tests. In `examples/extract/names.sw`, five exports keep the
+  all-arms form by hand, so their signatures keep the binder names (`this`,
+  `undefined`, …) whose JS spelling the example tests: rule 2 had taken the
+  header names from the equations, which changes the exported parameter
+  names in the generated `.d.ts`.
+- **The parser** reads only the new syntax; `Syntax`, `--syntax`,
+  `STITCHWORT_SYNTAX`, `parse_*_in` and `Session.syntax` are gone. A
+  declaration starting with a name is `E-OLD-DECLARATION`; `->` where `=>`
+  belongs gets a note. A header with neither `:=` nor arms parses as a
+  signature alone: the elaborator admits it only as a prelude primitive and
+  otherwise reports `E-MISSING-DEFINITION` ("`f` has no body").
+- **The old parser** lives on in `crates/convert/src/old_parser*` (a copy,
+  used by the converter only), with the old-vs-new equivalence tests
+  (`crates/convert/tests/declarations.rs`, `declaration_hashes.rs`).
+- **The printer** prints lambdas as `\x => body`.
+- **Hashes.** Besides E1 (the five definitions of §5.5a and their
+  dependents), one more kind of change: a partial definition that calls
+  itself gets a generated `….Request` data type whose constructor's field
+  names are the parameter names in its type, and data types' field names
+  are hashed. Where the converter named a header parameter (`def fib (n :
+  Nat) : {Partial} Nat`, was `fib : Nat -> {Partial} Nat`), the field gets
+  that name, so `Request` and its dependents change: `IO.readLinesFrom` in
+  the prelude, `addLines` (adder.sw), and `fib`, `firstFrom`, `spin`,
+  `stepper` (partial.sw). Every other hash is unchanged.
+
 ## 7. Questions for the user
 
 **Decided (18 October 2026):** the user agreed with every recommendation
