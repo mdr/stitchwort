@@ -64,6 +64,8 @@ get Nil i = Void.absurd (Bool.falseNotTrue ok)    -- ok : i < 0, which computes 
 …
 ```
 
+List patterns: `[]` is `Nil`, and `[p, q, r]` is `Cons p (Cons q (Cons r Nil))`, by identity with the library's `List` (a user's own `Cons` doesn't change it), wherever a pattern is allowed (equations, `match`, `let`, lambdas). Each element is a pattern; a constructor element takes its arguments without brackets (`[Just a, Nothing]`), and `(-k)` works as in tuples. There is no `x :: xs` or `[x, ..rest]` form: use `Cons x rest`. A list pattern is refutable like `Cons`, so in `let` the pattern must still cover the type (`let [a, b] = xs` is `E-LET-REFUTABLE`). A missing case is reported as the constructor that lacks it (see `examples/reject/list-pattern-missing-longer.sw`).
+
 ### Declaration order
 
 Declarations can be written in any order: every top-level name (definitions, data types and their constructors, abilities and their operations) is visible throughout its module. So `main` can come first and its helpers below it. The compiler checks each declaration after the ones it refers to, and otherwise in source order; errors are reported, and tests run, in source order. Definitions that refer to each other are checked together, and their termination is decided together (docs/proposals/mutual-recursion.md):

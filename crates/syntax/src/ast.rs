@@ -412,6 +412,11 @@ pub enum Pattern {
     /// `(p, q)`: the library's pair constructor; three or more nest to the
     /// right.
     Tuple(Box<Pattern>, Box<Pattern>, Span),
+    /// `[]`: the library's `Nil`.
+    Nil(Span),
+    /// `[p, q]` is `Cons p (Cons q Nil)`: the library's `Cons`, by identity.
+    /// A list pattern is parsed to these, nested to the right.
+    Cons(Box<Pattern>, Box<Pattern>, Span),
     /// A record pattern `{ name = p, age }` (a punned field is a variable of
     /// its name), with `rest` for a trailing `..` that ignores the other
     /// fields.
@@ -444,6 +449,8 @@ impl Pattern {
             | Pattern::NegNum(_, span)
             | Pattern::Ctor(_, _, span)
             | Pattern::Tuple(_, _, span)
+            | Pattern::Nil(span)
+            | Pattern::Cons(_, _, span)
             | Pattern::Record { span, .. } => *span,
         }
     }

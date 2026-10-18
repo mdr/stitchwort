@@ -334,6 +334,21 @@ impl<'t> Parser<'t> {
         Ok(last)
     }
 
+    /// A component of a list pattern: a constructor's arguments run to the
+    /// next `,` or `]`; `-k` is allowed, as in a tuple.
+    fn list_component(&mut self) -> Result<Pattern> {
+        if let Some(Tok::Upper(_)) = self.peek() {
+            let start = self.here();
+            let name = self.upper_q("a constructor")?;
+            let mut args = Vec::new();
+            while !matches!(self.peek(), Some(Tok::Comma | Tok::RBracket) | None) {
+                args.push(self.pattern()?);
+            }
+            return Ok(Pattern::Ctor(name, args, start.to(self.prev_span())));
+        }
+        self.tuple_component()
+    }
+
     /// A component of a tuple pattern: a pattern, or `-k`, which the
     /// tuple's brackets already delimit (`(-1, 0)`, `(0, -1)`).
     fn tuple_component(&mut self) -> Result<Pattern> {
@@ -524,6 +539,7 @@ impl<'t> Parser<'t> {
                 Pattern::Absurd(_) => true,
                 Pattern::Ctor(_, args, _) => args.iter().any(has_absurd),
                 Pattern::Tuple(a, b, _) => has_absurd(a) || has_absurd(b),
+                Pattern::Cons(a, b, _) => has_absurd(a) || has_absurd(b),
                 Pattern::Record { fields, .. } => fields.iter().any(|(_, p)| has_absurd(p)),
                 _ => false,
             }
@@ -571,6 +587,27 @@ impl<'t> Parser<'t> {
                 Ok(Pattern::Absurd(span.to(end)))
             }
             Some(Tok::LBrace) => self.record_pattern(),
+            Some(Tok::LBracket) => {
+                self.bump();
+                let mut items = Vec::new();
+                if self.peek() != Some(&Tok::RBracket) {
+                    items.push(self.list_component()?);
+                    while self.eat(&Tok::Comma) {
+                        items.push(self.list_component()?);
+                    }
+                }
+                let end = self.expect(Tok::RBracket, "`,` or `]`")?.span;
+                let mut list = Pattern::Nil(end);
+                while let Some(item) = items.pop() {
+                    let s = if items.is_empty() {
+                        span.to(end)
+                    } else {
+                        item.span().to(end)
+                    };
+                    list = Pattern::Cons(Box::new(item), Box::new(list), s);
+                }
+                Ok(list)
+            }
             Some(Tok::LParen) if self.peek_at(1) == Some(&Tok::Minus) => {
                 // `(-k)`: a negative number pattern, only in brackets (a
                 // tuple's included: `(-k, p)`).
@@ -2290,6 +2327,27 @@ mod tests {
         // The tuple's span covers its brackets.
         let e = rhs("f = (1, 2, 3)\n");
         assert_eq!((e.span().start, e.span().end), (4, 13));
+    }
+
+    #[test]
+    fn parses_list_patterns() {
+        let module = parse("f [] [a] [a, b] [Just x, (-1)] (xs, [y]) = a\n");
+        let Decl::Equation { patterns, .. } = &module.decls[0] else {
+            panic!()
+        };
+        assert!(matches!(patterns[0], Pattern::Nil(_)));
+        assert!(matches!(&patterns[1], Pattern::Cons(_, t, _) if matches!(**t, Pattern::Nil(_))));
+        let Pattern::Cons(_, rest, _) = &patterns[2] else {
+            panic!()
+        };
+        assert!(matches!(&**rest, Pattern::Cons(_, t, _) if matches!(**t, Pattern::Nil(_))));
+        let Pattern::Cons(head, _, _) = &patterns[3] else {
+            panic!()
+        };
+        assert!(matches!(&**head, Pattern::Ctor(_, args, _) if args.len() == 1));
+        assert!(
+            matches!(&patterns[4], Pattern::Tuple(_, r, _) if matches!(**r, Pattern::Cons(..)))
+        );
     }
 
     #[test]

@@ -282,7 +282,15 @@ fn pattern_vars(pattern: &stitchwort_syntax::ast::Pattern, out: &mut Vec<String>
             pattern_vars(a, out);
             pattern_vars(b, out);
         }
+        Pattern::Cons(a, b, _) => {
+            pattern_vars(a, out);
+            pattern_vars(b, out);
+        }
         Pattern::Record { fields, .. } => fields.iter().for_each(|(_, p)| pattern_vars(p, out)),
-        Pattern::Wildcard(_) | Pattern::Absurd(_) | Pattern::Num(..) | Pattern::NegNum(..) => {}
+        Pattern::Wildcard(_)
+        | Pattern::Absurd(_)
+        | Pattern::Num(..)
+        | Pattern::NegNum(..)
+        | Pattern::Nil(_) => {}
     }
 }
