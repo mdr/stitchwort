@@ -160,8 +160,13 @@ capability we know we'll need before the work that needs it):
    reviewing the day 1–3 code first. Pipe-forward `|>` merged (`d97591a`: value as
    last argument, left checked first so lambdas infer; looser than `=`);
    library main-value-last (`1434622`:
-   `Maybe.andThen`, `List.get` reordered; the rest already were). Lane
-   `aoc-rewrite` (Opus + Sonnet) rewriting days 1–3 with all review notes; then rewrite days 1–3 with `|>` and the user's review
+   `Maybe.andThen`, `List.get` reordered; the rest already were). Days 1–3
+   rewritten (`0541253`) with the review notes; ready for the user's
+   review. Friction from it: a comparison isn't a `Bool` outside
+   `if`/`&&`/tests (`List.filter (\n => k * n <= size)`); no `Int` sum;
+   `[highest : Nat]` repeated on every `Dial` function; a field and a
+   namespaced function may share a name without a warning; no
+   `[x, ..rest]` list pattern; then rewrite days 1–3 with `|>` and the user's review
    changes. Review notes so far: keep `Text.uncons` but write
    `t.uncons` (dot notation) — generally prefer dot notation and
    `rest.toNat`-style calls where they read better; `parseTurn` via
