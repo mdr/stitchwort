@@ -34,7 +34,7 @@ def round (grid : Grid) : Grid :=
   let above := Cons gap sums
   let below := sums.drop 1 |> .append [gap]
   let windows := zipGrid Nat.add (zipGrid Nat.add above sums) below
-  zipGrid (\roll window => if roll == 1 then (if 5 <= window then 1 else 0) else 0) grid windows
+  zipGrid (\roll window => if roll == 1 && 5 <= window then 1 else 0) grid windows
 
 -- Remove accessible rolls until there are none. Every round that changes
 -- something removes a roll, so as many rounds as there are rolls is enough.
