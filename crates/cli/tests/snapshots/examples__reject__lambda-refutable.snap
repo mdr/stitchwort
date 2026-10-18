@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-LET-REFUTABLE] Error: this pattern doesn't match every case: it doesn't match `Nothing`
+   ╭─[ reject/lambda-refutable.sw:4:22 ]
+   │
+ 4 │ nums ms = List.map (\(Just x) -> x) ms
+   │                      ────┬───  
+   │                          ╰───── doesn't match `Nothing`
+   │ 
+   │ Note: use `match` to say what happens otherwise
+───╯

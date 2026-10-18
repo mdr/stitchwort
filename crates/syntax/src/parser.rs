@@ -11,7 +11,8 @@
 //! one ending in an operator (like `->`) continues it too.
 
 use crate::ast::{
-    Alt, BinOp, Binder, Clause, CtorDecl, Decl, Expr, Import, Module, Name, Pattern, Row, Scrutinee,
+    Alt, BinOp, Binder, Clause, CtorDecl, Decl, Expr, Import, MatchKind, Module, Name, Pattern,
+    Row, Scrutinee,
 };
 use crate::lexer::{Tok, Token, lex};
 use crate::stack::StackLimit;
@@ -150,6 +151,8 @@ struct Parser<'t> {
 /// One line of a block.
 enum Stmt {
     Let(Name, Option<Expr>, Expr, Span),
+    /// `let (a, b) = e`: a pattern binding, desugared to a `match` in `block`.
+    LetPattern(Pattern, Option<Expr>, Expr, Span),
     Expr(Expr),
 }
 
@@ -587,8 +590,13 @@ impl<'t> Parser<'t> {
                 let pattern = if let Some(Tok::Upper(_)) = self.peek() {
                     let name = self.upper_q("a constructor")?;
                     let mut args = Vec::new();
-                    while self.peek() != Some(&Tok::RParen) {
+                    while !matches!(self.peek(), Some(Tok::RParen | Tok::Comma) | None) {
                         args.push(self.pattern()?);
+                    }
+                    if self.peek() == Some(&Tok::Comma) {
+                        // `(Just a, b)`: a constructor as a tuple's first component.
+                        let first = Pattern::Ctor(name, args, span.to(self.prev_span()));
+                        return self.tuple_pattern(first, span);
                     }
                     let end = self.expect(Tok::RParen, "`)`")?.span;
                     Pattern::Ctor(name, args, span.to(end))
@@ -826,7 +834,7 @@ impl<'t> Parser<'t> {
         result?;
         let mut rest = match stmts.pop() {
             Some(Stmt::Expr(e)) => e,
-            Some(Stmt::Let(_, _, _, span)) => {
+            Some(Stmt::Let(_, _, _, span) | Stmt::LetPattern(_, _, _, span)) => {
                 return Err(error(
                     span,
                     "a block must end with an expression, not `let`",
@@ -836,6 +844,27 @@ impl<'t> Parser<'t> {
         };
         for stmt in stmts.into_iter().rev() {
             rest = match stmt {
+                Stmt::LetPattern(pattern, ty, value, span) => {
+                    let expr = match ty {
+                        Some(ty) => {
+                            let ann_span = value.span().to(ty.span());
+                            Expr::Ann(Box::new(value), Box::new(ty), ann_span)
+                        }
+                        None => value,
+                    };
+                    let alt_span = pattern.span().to(rest.span());
+                    let span = span.to(rest.span());
+                    Expr::Match {
+                        scrutinees: vec![Scrutinee { name: None, expr }],
+                        alts: vec![Alt {
+                            patterns: vec![pattern],
+                            body: rest,
+                            span: alt_span,
+                        }],
+                        span,
+                        kind: MatchKind::Let,
+                    }
+                }
                 Stmt::Let(name, ty, value, span) => Expr::Let {
                     span: span.to(rest.span()),
                     name,
@@ -854,7 +883,7 @@ impl<'t> Parser<'t> {
             return Ok(Stmt::Expr(self.expr_inline()?));
         }
         let start = self.bump().span;
-        let name = self.lower("a name")?;
+        let pattern = self.let_pattern()?;
         let ty = if self.eat(&Tok::Colon) {
             let saved = std::mem::replace(&mut self.no_equals, true);
             let ty = self.expr_inline();
@@ -865,7 +894,25 @@ impl<'t> Parser<'t> {
         };
         self.expect(Tok::Equals, "`=`")?;
         let value = self.expr()?;
-        Ok(Stmt::Let(name, ty, value, start))
+        Ok(match pattern {
+            Pattern::Var(name) => Stmt::Let(name, ty, value, start),
+            pattern => Stmt::LetPattern(pattern, ty, value, start),
+        })
+    }
+
+    /// The pattern after `let`: a constructor may take arguments without
+    /// brackets (`let MkPair a b = p`), running to the `=` or `:`.
+    fn let_pattern(&mut self) -> Result<Pattern> {
+        if let Some(Tok::Upper(_)) = self.peek() {
+            let start = self.here();
+            let name = self.upper_q("a constructor")?;
+            let mut args = Vec::new();
+            while !matches!(self.peek(), Some(Tok::Equals | Tok::Colon) | None) {
+                args.push(self.pattern()?);
+            }
+            return Ok(Pattern::Ctor(name, args, start.to(self.prev_span())));
+        }
+        self.tuple_component()
     }
 
     /// A function's result type, possibly with abilities: `{State s} Nat`.
@@ -1011,6 +1058,7 @@ impl<'t> Parser<'t> {
             span: start.to(self.prev_span()),
             scrutinees,
             alts,
+            kind: MatchKind::Match,
         })
     }
 
@@ -1030,6 +1078,89 @@ impl<'t> Parser<'t> {
         self.tuple_component()
     }
 
+    /// `\x (a, b) -> body`, after the `\`. Out of line, so that
+    /// `expr_inline`, which every nested expression recurses through, keeps
+    /// a small stack frame.
+    #[inline(never)]
+    fn lambda(&mut self, start: Span) -> Result<Expr> {
+        // Each parameter is a name, with the pattern it stands for if it
+        // was written as one.
+        let mut params: Vec<(Name, Option<Pattern>)> = Vec::new();
+        loop {
+            match self.peek() {
+                Some(Tok::Lower(_)) => params.push((self.lower("a name")?, None)),
+                Some(Tok::Underscore) => {
+                    let span = self.bump().span;
+                    let name = Name {
+                        text: "_".to_string(),
+                        span,
+                    };
+                    params.push((name, None));
+                }
+                Some(Tok::LParen)
+                    if matches!(self.peek_at(1), Some(Tok::Lower(_)))
+                        && self.peek_at(2) == Some(&Tok::Colon) =>
+                {
+                    let span = self.here().to(self.tokens[self.pos + 2].span);
+                    return Err(error(
+                        span,
+                        "a lambda's parameter can't have a type here: annotate the lambda \
+                             instead, `((\\x -> …) : A -> B)`",
+                    ));
+                }
+                Some(Tok::LParen | Tok::LBrace | Tok::Upper(_) | Tok::Num(_)) => {
+                    match self.pattern()? {
+                        Pattern::Var(name) => params.push((name, None)),
+                        pattern => {
+                            let i = params.len();
+                            let name = Name {
+                                text: format!("%arg{i}"),
+                                span: pattern.span(),
+                            };
+                            params.push((name, Some(pattern)));
+                        }
+                    }
+                }
+                _ => break,
+            }
+        }
+        if params.is_empty() {
+            return Err(self.unexpected("a parameter name"));
+        }
+        self.expect(Tok::Arrow, "`->`")?;
+        let body = self.expr()?;
+        let span = start.to(body.span());
+        if params.iter().all(|(_, p)| p.is_none()) {
+            let names = params.into_iter().map(|(n, _)| n).collect();
+            return Ok(Expr::Lam(names, Box::new(body), span));
+        }
+        let mut names = Vec::new();
+        let mut scrutinees = Vec::new();
+        let mut patterns = Vec::new();
+        for (name, pattern) in params {
+            if let Some(pattern) = pattern {
+                scrutinees.push(Scrutinee {
+                    name: None,
+                    expr: Expr::Var(name.clone()),
+                });
+                patterns.push(pattern);
+            }
+            names.push(name);
+        }
+        let alt_span = patterns[0].span().to(body.span());
+        let matched = Expr::Match {
+            scrutinees,
+            alts: vec![Alt {
+                patterns,
+                body,
+                span: alt_span,
+            }],
+            span,
+            kind: MatchKind::Lambda,
+        };
+        Ok(Expr::Lam(names, Box::new(matched), span))
+    }
+
     fn expr_inline(&mut self) -> Result<Expr> {
         let start = self.here();
         if self.eat(&Tok::KwHandle) {
@@ -1039,27 +1170,7 @@ impl<'t> Parser<'t> {
             return self.match_expr(start);
         }
         if self.eat(&Tok::Backslash) {
-            let mut names = Vec::new();
-            loop {
-                match self.peek() {
-                    Some(Tok::Lower(_)) => names.push(self.lower("a name")?),
-                    Some(Tok::Underscore) => {
-                        let span = self.bump().span;
-                        names.push(Name {
-                            text: "_".to_string(),
-                            span,
-                        });
-                    }
-                    _ => break,
-                }
-            }
-            if names.is_empty() {
-                return Err(self.unexpected("a parameter name"));
-            }
-            self.expect(Tok::Arrow, "`->`")?;
-            let body = self.expr()?;
-            let span = start.to(body.span());
-            return Ok(Expr::Lam(names, Box::new(body), span));
+            return self.lambda(start);
         }
         if self.eat(&Tok::KwIf) {
             // `if h : P then …` binds a proof; `if c then …` tests a `Bool`.
@@ -2198,6 +2309,21 @@ mod tests {
     }
 
     #[test]
+    fn parses_a_constructor_as_a_tuples_first_component() {
+        let module = parse("f (Just a, b) = a\n");
+        let Decl::Equation { patterns, .. } = &module.decls[0] else {
+            panic!()
+        };
+        assert!(matches!(&patterns[0], Pattern::Tuple(l, _, _)
+            if matches!(&**l, Pattern::Ctor(_, args, _) if args.len() == 1)));
+
+        let e = rhs("f p =\n  let (Just a, b) = p\n  a\n");
+        let (_, p, _) = let_parts(&e);
+        assert!(matches!(p, Pattern::Tuple(l, _, _)
+            if matches!(&**l, Pattern::Ctor(_, args, _) if args.len() == 1)));
+    }
+
+    #[test]
     fn parses_negative_numbers_in_tuple_patterns() {
         let text = "f (-1, 0) (0, -2) (-3) = a\n";
         let module = parse(text);
@@ -2233,5 +2359,115 @@ mod tests {
             let file = sources.add("test.sw", bad);
             assert!(parse_module(file, bad).is_err(), "{bad}");
         }
+    }
+
+    /// A `let`-pattern's match: its scrutinee, pattern and body.
+    fn let_parts(e: &Expr) -> (&Expr, &Pattern, &Expr) {
+        let Expr::Match {
+            scrutinees,
+            alts,
+            kind: MatchKind::Let,
+            ..
+        } = e
+        else {
+            panic!("expected a `let` match, got {e:?}");
+        };
+        assert_eq!(scrutinees.len(), 1);
+        assert_eq!(alts.len(), 1);
+        (&scrutinees[0].expr, &alts[0].patterns[0], &alts[0].body)
+    }
+
+    #[test]
+    fn parses_let_patterns() {
+        let e = rhs("f e =\n  let (a, b) = e\n  a\n");
+        let (s, p, body) = let_parts(&e);
+        assert!(matches!(s, Expr::Var(_)));
+        assert!(matches!(p, Pattern::Tuple(..)));
+        assert!(matches!(body, Expr::Var(_)));
+
+        let e = rhs("f p =\n  let MkPair a b = p\n  a\n");
+        let (_, p, _) = let_parts(&e);
+        assert!(matches!(p, Pattern::Ctor(_, args, _) if args.len() == 2));
+
+        let e = rhs("f p =\n  let Pair.MkPair a b = p\n  a\n");
+        let (_, p, _) = let_parts(&e);
+        assert!(
+            matches!(p, Pattern::Ctor(n, args, _) if args.len() == 2 && n.text == "Pair.MkPair")
+        );
+
+        let e = rhs("f r =\n  let { x, .. } = r\n  x\n");
+        let (_, p, _) = let_parts(&e);
+        assert!(matches!(p, Pattern::Record { rest: true, .. }));
+
+        let e = rhs("f e =\n  let (a, b) : (Nat, Nat) = e\n  a\n");
+        let (s, _, _) = let_parts(&e);
+        assert!(matches!(s, Expr::Ann(..)));
+
+        let e = rhs("f e =\n  let _ = e\n  0\n");
+        let (_, p, _) = let_parts(&e);
+        assert!(matches!(p, Pattern::Wildcard(_)));
+
+        // Plain lets are unchanged.
+        for text in ["f e =\n  let x = e\n  x\n", "f e =\n  let (x) = e\n  x\n"] {
+            assert!(matches!(rhs(text), Expr::Let { .. }), "{text}");
+        }
+
+        // Later lines nest inside the match.
+        let e = rhs("f e =\n  let (a, b) = e\n  let c = a\n  c\n");
+        let (_, _, body) = let_parts(&e);
+        assert!(matches!(body, Expr::Let { .. }));
+    }
+
+    #[test]
+    fn parses_lambda_patterns() {
+        let lam = |text: &str| match &rhs(text) {
+            Expr::Lam(names, body, _) => (names.clone(), body.as_ref().clone()),
+            other => panic!("expected a lambda, got {other:?}"),
+        };
+        let lambda_match = |body: &Expr| match body {
+            Expr::Match {
+                scrutinees,
+                alts,
+                kind: MatchKind::Lambda,
+                ..
+            } => (scrutinees.len(), alts[0].patterns.len()),
+            other => panic!("expected a lambda match, got {other:?}"),
+        };
+
+        let (names, body) = lam("f = \\(a, b) -> a\n");
+        assert_eq!(names[0].text, "%arg0");
+        assert_eq!(lambda_match(&body), (1, 1));
+
+        let (names, body) = lam("f = \\acc (k, v) -> acc\n");
+        let texts: Vec<_> = names.iter().map(|n| n.text.as_str()).collect();
+        assert_eq!(texts, ["acc", "%arg1"]);
+        assert_eq!(lambda_match(&body), (1, 1));
+
+        let (names, body) = lam("f = \\{ name, .. } -> name\n");
+        assert_eq!(names[0].text, "%arg0");
+        assert_eq!(lambda_match(&body), (1, 1));
+
+        let (_, body) = lam("f = \\(MkPair a b) -> a\n");
+        assert_eq!(lambda_match(&body), (1, 1));
+
+        let (names, body) = lam("f = \\(a, b) (c, d) -> a\n");
+        assert_eq!(names.len(), 2);
+        assert_eq!(lambda_match(&body), (2, 2));
+
+        // Plain parameters are unchanged.
+        let (names, body) = lam("f = \\x y -> x\n");
+        assert_eq!(names.len(), 2);
+        assert!(matches!(body, Expr::Var(_)));
+        let (names, body) = lam("f = \\(x) _ -> x\n");
+        assert_eq!(names.len(), 2);
+        assert!(matches!(body, Expr::Var(_)));
+    }
+
+    #[test]
+    fn rejects_bad_pattern_bindings() {
+        let message = rhs_of("f = \\(x : Nat) -> x\n").unwrap_err().message;
+        assert!(message.contains("can't have a type"), "{message}");
+        assert!(rhs_of("f e =\n  let (a, b) = e\n").is_err());
+        assert!(rhs_of("f e =\n  let (a, b)\n  e\n").is_err());
     }
 }

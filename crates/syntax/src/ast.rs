@@ -90,6 +90,7 @@ pub enum Expr {
         scrutinees: Vec<Scrutinee>,
         alts: Vec<Alt>,
         span: Span,
+        kind: MatchKind,
     },
     /// A record literal `{ name = e, age = e }`, or with a base, an update
     /// `{ p | age = e }`. Fields are in the order written; a punned field
@@ -124,6 +125,21 @@ pub enum Clause {
         k: Name,
         body: Expr,
     },
+}
+
+/// What a `match` was written as. A pattern in `let` or in a lambda is a
+/// one-alternative `match` (docs/proposals/syntax-conveniences.md §5), whose
+/// failure to cover every case is `E-LET-REFUTABLE` rather than
+/// `E-NONEXHAUSTIVE`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MatchKind {
+    /// `match … with`.
+    Match,
+    /// `let p = e`, followed by the rest of the block.
+    Let,
+    /// `\p -> body`: the lambda's parameters are generated variables
+    /// matched against its patterns.
+    Lambda,
 }
 
 /// One scrutinee of a `match`: the expression, and the name of its equation if written (`h : e`).
@@ -244,7 +260,9 @@ fn has_nested(expr: &Expr) -> bool {
             ty, value, body, ..
         } => ty.as_deref().is_some_and(nested) || nested(value) || nested(body),
         Expr::Handle { body, .. } => nested(body),
-        Expr::Match { scrutinees, .. } => scrutinees.iter().any(|s| nested(&s.expr)),
+        Expr::Match {
+            scrutinees, alts, ..
+        } => scrutinees.iter().any(|s| nested(&s.expr)) || alts.iter().any(|a| nested(&a.body)),
         Expr::List(items, _) => !items.is_empty(),
         Expr::Record { base, fields, .. } => base.is_some() || !fields.is_empty(),
         Expr::Field(e, _) => nested(e),
@@ -311,10 +329,18 @@ fn take_children(expr: &mut Expr, pending: &mut Vec<Expr>) {
             take(body);
         }
         Expr::Handle { body, .. } => take(body),
-        Expr::Match { scrutinees, .. } => {
-            for s in scrutinees {
-                if !is_leaf(&s.expr) {
-                    pending.push(std::mem::replace(&mut s.expr, Expr::Prop(Span::NOWHERE)));
+        // A pattern `let` nests the rest of its block in its alternative,
+        // so a long block nests deeply there.
+        Expr::Match {
+            scrutinees, alts, ..
+        } => {
+            for e in scrutinees
+                .iter_mut()
+                .map(|s| &mut s.expr)
+                .chain(alts.iter_mut().map(|a| &mut a.body))
+            {
+                if !is_leaf(e) {
+                    pending.push(std::mem::replace(e, Expr::Prop(Span::NOWHERE)));
                 }
             }
         }

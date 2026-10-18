@@ -25,22 +25,23 @@ use stitchwort_core::check as kernel;
 use stitchwort_core::value::{Head, quote};
 use stitchwort_core::{Globals, Name, Term, Value};
 use stitchwort_syntax::Diagnostic;
-use stitchwort_syntax::ast::{self, Alt, Expr, Pattern, Scrutinee};
+use stitchwort_syntax::ast::{self, Alt, Expr, MatchKind, Pattern, Scrutinee};
 
 use crate::check::{Ctx, Result, infer, insert};
 use crate::lift::{self, Draft};
 use crate::{Row, UNIT_PATTERN, check_tree};
 
-fn parts(expr: &Expr) -> (&[Scrutinee], &[Alt], stitchwort_syntax::Span) {
+fn parts(expr: &Expr) -> (&[Scrutinee], &[Alt], stitchwort_syntax::Span, MatchKind) {
     let Expr::Match {
         scrutinees,
         alts,
         span,
+        kind,
     } = expr
     else {
         unreachable!("only called on a `match`")
     };
-    (scrutinees, alts, *span)
+    (scrutinees, alts, *span, *kind)
 }
 
 /// A `match` where no type is expected: its type is a new unknown, which the
@@ -56,7 +57,7 @@ pub(crate) fn infer_match(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
 /// alternative's type is compared with the same one (§4.4, "when the
 /// `match` isn't checked against a type").
 pub(crate) fn unknown_type(cx: &Ctx, expr: &Expr) -> Term {
-    let (scrutinees, _, _) = parts(expr);
+    let (scrutinees, _, _, _) = parts(expr);
     let matched: Vec<usize> = scrutinees.iter().filter_map(|s| variable(cx, s)).collect();
     let mut ty = Term::Meta(cx.g().new_meta(cx.span));
     for (level, value) in cx.env.iter().enumerate() {
@@ -99,6 +100,7 @@ fn compile<'a>(
     alts: &'a [Alt],
     columns: &[usize],
     span: stitchwort_syntax::Span,
+    kind: MatchKind,
 ) -> Result<crate::Tree<'a>> {
     let rows: Vec<Row> = alts
         .iter()
@@ -125,28 +127,58 @@ fn compile<'a>(
         .collect();
     let types: Vec<Option<Value>> = columns.iter().map(|l| Some(cx.types[*l].clone())).collect();
     cx.e.compile(&rows, cx.level(), columns, &types, span)
-        .map_err(|mut d| {
-            if d.code == "E-NONEXHAUSTIVE" {
+        .map_err(|d| match kind {
+            _ if d.code != "E-NONEXHAUSTIVE" => d,
+            MatchKind::Match => {
                 let reword = |s: &str| {
                     s.replace(
                         "no equation matches",
                         "no alternative of this `match` matches",
                     )
                 };
+                let mut d = d;
                 d.message = reword(&d.message);
                 for label in &mut d.labels {
                     label.message = reword(&label.message);
                 }
+                d
             }
-            d
+            MatchKind::Let | MatchKind::Lambda => refutable(cx, &d, alts, columns),
         })
+}
+
+/// `E-LET-REFUTABLE` (§5.1): a pattern in `let` or in a lambda must match
+/// every value of its type, which is decided by the ordinary coverage check
+/// of its one-alternative `match`; `missing` is what that check reported.
+fn refutable(cx: &Ctx, missing: &Diagnostic, alts: &[Alt], columns: &[usize]) -> Diagnostic {
+    let what = missing
+        .message
+        .split_once("no equation matches ")
+        .map_or("every case", |(_, what)| what);
+    let patterns = &alts[0].patterns;
+    let span = patterns[0].span().to(patterns[patterns.len() - 1].span());
+    let message = match columns {
+        [column] => match stitchwort_core::value::force(cx.g(), cx.types[*column].clone()) {
+            Ok(Value::Neutral(Head::Meta(_), _)) | Err(_) => {
+                format!("this pattern doesn't match every case: it doesn't match {what}")
+            }
+            Ok(ty) => format!(
+                "this pattern doesn't match every `{}`: it doesn't match {what}",
+                cx.show(&ty)
+            ),
+        },
+        _ => format!("these patterns don't match every argument: they don't match {what}"),
+    };
+    Diagnostic::error("E-LET-REFUTABLE", message)
+        .with_label(span, format!("doesn't match {what}"))
+        .with_note("use `match` to say what happens otherwise")
 }
 
 /// A `match` that is the whole right-hand side of an equation, in its case
 /// tree (§4.3): if every scrutinee is an unnamed variable of the equation,
 /// none twice, the alternatives split them further. `None` otherwise.
 pub(crate) fn in_tree(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Option<Result<Term>> {
-    let (scrutinees, alts, span) = parts(expr);
+    let (scrutinees, alts, span, kind) = parts(expr);
     let mut columns = Vec::new();
     for s in scrutinees {
         let level = variable(cx, s)?;
@@ -155,15 +187,15 @@ pub(crate) fn in_tree(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Option<Result<
         }
         columns.push(level);
     }
-    Some(compile(cx, alts, &columns, span).and_then(|tree| check_tree(cx, &tree, goal)))
+    Some(compile(cx, alts, &columns, span, kind).and_then(|tree| check_tree(cx, &tree, goal)))
 }
 
 /// A `match`, lifted (§4.4).
 pub(crate) fn check_match(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Term> {
-    let (scrutinees, alts, span) = parts(expr);
+    let (scrutinees, alts, span, kind) = parts(expr);
     let base = cx.level();
     let mark = cx.mark();
-    let result = lifted(cx, scrutinees, alts, span, goal, base);
+    let result = lifted(cx, scrutinees, alts, span, kind, goal, base);
     cx.reset(mark);
     result
 }
@@ -181,6 +213,7 @@ fn lifted(
     scrutinees: &[Scrutinee],
     alts: &[Alt],
     span: stitchwort_syntax::Span,
+    kind: MatchKind,
     goal: &Value,
     base: usize,
 ) -> Result<Term> {
@@ -228,11 +261,11 @@ fn lifted(
                 _ => unreachable!(),
             })
             .collect();
-        let tree = compile(cx, alts, &levels, span)?;
+        let tree = compile(cx, alts, &levels, span, kind)?;
         let body = check_tree(cx, &tree, goal)?;
         return lift::draft(cx, base, Vec::new(), body, goal, span);
     }
-    generalised(cx, columns, exprs, alts, span, goal, base)
+    generalised(cx, columns, exprs, alts, span, kind, goal, base)
 }
 
 /// An expression scrutinee, elaborated in the `match`'s context.
@@ -253,6 +286,7 @@ fn generalised(
     exprs: Vec<Scrut>,
     alts: &[Alt],
     span: stitchwort_syntax::Span,
+    kind: MatchKind,
     goal: &Value,
     base: usize,
 ) -> Result<Term> {
@@ -370,7 +404,7 @@ fn generalised(
             Column::Expr(i) => base + i,
         })
         .collect();
-    let tree = compile(cx, alts, &levels, span)?;
+    let tree = compile(cx, alts, &levels, span, kind)?;
     let body = check_tree(cx, &tree, &motive)?;
     lift::draft(cx, base, extra, body, &motive, span)
 }

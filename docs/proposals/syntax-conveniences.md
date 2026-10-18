@@ -1142,6 +1142,70 @@ a different translation; multi-alternative pattern lambdas (Haskell's
   `let Node x kids = t`; golden parser tests next to records' `\{` and
   ability rows.
 
+### 5.5 As built (step 4)
+
+Built 18 October 2026. No kernel change; no existing pinned hash changed.
+Decisions:
+
+**Desugared in the parser.** `let p = e` (when `p` isn't a plain
+variable) and the rest of the block become an `Expr::Match` with one
+scrutinee and one alternative; `let p : T = e` matches `(e : T)`. A lambda
+with pattern parameters names each one `%argI` (`I` its position; `%`
+can't be written, so it can't clash) and its body is one `match` on those
+variables, one column per pattern parameter (several pattern parameters
+are one multi-column `match` rather than nested `let`s: the same coverage,
+one helper). The `match` carries `MatchKind::Let` or `MatchKind::Lambda`;
+that's the only difference from a written `match`, so every step-3 path
+(in the tree, lifted, generalised, effectful scrutinees run once) is
+shared and the two can't drift apart. `let x = e` and `let (x) = e` are the
+old `Expr::Let`, unchanged; `let _ = e` is a pattern `let`.
+
+**`E-LET-REFUTABLE`** is the ordinary coverage check's `E-NONEXHAUSTIVE`
+for a `match` of those kinds, reworded: "this pattern doesn't match every
+`Maybe Nat`: it doesn't match `Nothing`", labelled at the pattern, noting
+"use `match` to say what happens otherwise". Number patterns go through
+the same check (`let 0 = n`: "numbers other than 0"). When the matched
+type isn't known yet (a lambda's parameter, below) it says "every case".
+
+**Lambda parameters of an unknown type.** In `List.map (\(a, b) -> a + b)
+ps` the lambda is checked before `ps`, so its parameter's type is still a
+metavariable when the pattern splits it. `check_tree` now solves such a
+type, when a constructor of `D` splits it, with `D` applied to new
+metavariables for its parameters (ordinary inference; the kernel checks
+the result). Before, that case was a type mismatch. A *record* pattern
+there still needs the type known (`E-CANNOT-INFER`), as `p.name` does:
+the fields don't say which record type is meant.
+
+**Parsing.** After `let`, a constructor takes arguments without brackets
+up to `=` or `:`. Lambda parameters are names, `_`, or patterns starting
+with `(`, `{`, a constructor or a number. `\(x : T) -> …` is a parse error
+pointing at annotating the lambda instead: there are no annotated lambda
+parameters yet, so §5.3's distinction is only used to report that. Also
+fixed: `(Just a, b)`, a constructor with arguments as a tuple's first
+component, parses (everywhere patterns do). Lambda parsing moved out of
+`expr_inline` into its own non-inlined function: inline, its larger frame
+cut the nesting depth the `check-nested-parens` benchmark relies on. A
+long block of pattern `let`s nests like plain ones and is freed without
+recursion (`ast.rs` now also takes a `match`'s alternatives); tested in
+`crates/driver/tests/nesting.rs`.
+
+**"One constructor plus impossible ones" (§5.4)** isn't expressible yet:
+there are no indexed families, and the coverage checker discharges no
+constructor without a row, so no type has impossible constructors that a
+one-alternative `match` could omit. The test is `let () = u` instead.
+
+**Leftovers.** A pattern `let` that isn't the whole right-hand side is
+lifted, so (like `match`) it's refused in `partial` functions, data and
+ability declarations and the REPL (`E-MATCH-MOTIVE`), and its diagnostics
+say "this `match`". A plain `let` before a pattern `let` in a theorem
+fails, but so does any plain `let` in a proof (a pure block is elaborated
+as a computation, whose type isn't a proposition); that predates this step.
+In an effectful block, each pattern `let` copies the rest of the block's
+syntax once (step 3's `alts.clone()`), quadratic in the block's length.
+Annotated lambda parameters (and so `\({ name, .. } : Person) -> …`) are
+for later; the existing `E-CANNOT-INFER` note for `p.name` suggests
+`\(p : Person) -> p.name`, which doesn't parse.
+
 ## 6. Tuples
 
 ### 6.1 Syntax and meaning
