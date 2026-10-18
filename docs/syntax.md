@@ -367,6 +367,8 @@ Precedence, loosest first: `->`, then `\|>`, then `\|\|`, then `&&`, then `=` `!
 
 A test (`test "…" := e`) takes `e` as a condition too: a `Bool`, or a proposition with a decision procedure, so `test "ordered" := 1 < 2 && 2 < 3` and `test "small" := 3 < 5` work.
 
+**Anywhere a `Bool` is expected**, a proposition with a decision procedure is decided, as Lean's `decide` coercion does: `List.filter (\n => k * n <= size) xs`, `List.all (\x => x < 10) xs`, `def le (a b : Nat) : Bool := a <= b`. The expression is elaborated as usual; only if it turns out to be a proposition (its type is `Prop`) and the expected type is the library's `Bool` is it replaced by `Decidable.toBool` of its decision. A proposition nothing decides is `E-AUTO-NONE` at the expression, saying a `Bool` is expected (`List.filter (\g => g = f) gs` on functions). Where a proposition is expected nothing changes, and conditions (`if c`, `&&`, `||`, `not`, `test`) still try the `Bool` reading first and then the proposition, as above.
+
 ### Pipe forward `|>`
 
 `x |> f` is `f x`, and `x |> f a b` is `f a b x`: the value on the left becomes the **last** argument. That's why the library puts the main argument last (`List.map f xs`, `List.sum xs`), so a pipeline reads in the order things happen:

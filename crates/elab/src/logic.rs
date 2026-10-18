@@ -93,7 +93,10 @@ pub(crate) enum Condition {
 pub(crate) fn condition(cx: &mut Ctx, cond: &Expr, what: &str) -> Result<Condition> {
     let bool_ty = Value::Data(builtin_data(cx, Builtin::Bool)?, Vec::new());
     let snapshot = crate::undo::Snapshot::take(cx);
-    let not_bool = match check(cx, cond, &bool_ty) {
+    let outer = cx.e.condition.replace(std::ptr::from_ref(cond) as usize);
+    let as_bool = check(cx, cond, &bool_ty);
+    cx.e.condition.set(outer);
+    let not_bool = match as_bool {
         Ok(cond) => return Ok(Condition::Bool(cond)),
         Err(e) if crate::undo::fatal(&e) => return Err(e),
         Err(not_bool) => not_bool,
