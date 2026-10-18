@@ -1,0 +1,5 @@
+---
+source: crates/syntax/tests/declarations.rs
+expression: e
+---
+E-PARSE: expected `|` and an alternative, but the line starting with `|` is at or left of the enclosing block's column, so it starts a new statement

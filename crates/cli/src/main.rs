@@ -6,13 +6,28 @@ use clap::{Parser, Subcommand};
 use rustyline::error::ReadlineError;
 use stitchwort_cli::driver::{Cache, Outcome, Session};
 use stitchwort_cli::render::render;
-use stitchwort_syntax::{Diagnostic, SourceMap};
+use stitchwort_syntax::{Diagnostic, SourceMap, Syntax};
 
 #[derive(Parser)]
 #[command(name = "stitchwort", version, about = "The Stitchwort language")]
 struct Cli {
     #[command(subcommand)]
     command: Command,
+    /// The declaration syntax the files are written in: `old` (signature
+    /// lines and equations) or `new` (`def` headers). Also set by the
+    /// `STITCHWORT_SYNTAX` environment variable
+    #[arg(long, global = true, value_parser = ["old", "new"])]
+    syntax: Option<String>,
+}
+
+/// The syntax chosen for this run, by `--syntax` or `STITCHWORT_SYNTAX`.
+static SYNTAX: std::sync::OnceLock<Syntax> = std::sync::OnceLock::new();
+
+/// A session for the compiler thread, reading the chosen syntax.
+fn new_session() -> Session {
+    let mut session = Session::for_stack(STACK);
+    session.syntax = SYNTAX.get().copied().unwrap_or_default();
+    session
 }
 
 #[derive(Subcommand)]
@@ -58,6 +73,19 @@ const STACK: usize = 64 * 1024 * 1024;
 
 fn main() -> ExitCode {
     let cli = Cli::parse();
+    let name = cli
+        .syntax
+        .clone()
+        .or_else(|| std::env::var("STITCHWORT_SYNTAX").ok());
+    let syntax = match name.as_deref().map(Syntax::from_name) {
+        None => Syntax::default(),
+        Some(Some(syntax)) => syntax,
+        Some(None) => {
+            eprintln!("error: STITCHWORT_SYNTAX must be `old` or `new`");
+            return ExitCode::FAILURE;
+        }
+    };
+    SYNTAX.set(syntax).expect("set once");
     stitchwort_cli::driver::with_stack(STACK, move || run(cli))
 }
 
@@ -107,7 +135,7 @@ fn check(paths: &[PathBuf]) -> ExitCode {
     let mut ok = true;
     for path in paths {
         // Files can't refer to each other yet, so each gets its own session.
-        ok &= load(&mut Session::for_stack(STACK), path);
+        ok &= load(&mut new_session(), path);
     }
     if ok {
         ExitCode::SUCCESS
@@ -117,7 +145,7 @@ fn check(paths: &[PathBuf]) -> ExitCode {
 }
 
 fn test(path: &Path, cache: Cache) -> ExitCode {
-    let mut session = Session::for_stack(STACK);
+    let mut session = new_session();
     if !load(&mut session, path) {
         return ExitCode::FAILURE;
     }
@@ -154,7 +182,7 @@ fn test(path: &Path, cache: Cache) -> ExitCode {
 }
 
 fn run_main(path: &Path) -> ExitCode {
-    let mut session = Session::for_stack(STACK);
+    let mut session = new_session();
     if !load(&mut session, path) {
         return ExitCode::FAILURE;
     }
@@ -177,7 +205,7 @@ fn run_main(path: &Path) -> ExitCode {
 }
 
 fn eval(path: &Path, expr: &str) -> ExitCode {
-    let mut session = Session::for_stack(STACK);
+    let mut session = new_session();
     if !load(&mut session, path) {
         return ExitCode::FAILURE;
     }
@@ -205,7 +233,7 @@ fn evaluate(session: &mut Session, expr: &str, type_only: bool) -> Result<String
 }
 
 fn repl(path: Option<&Path>) -> ExitCode {
-    let mut session = Session::for_stack(STACK);
+    let mut session = new_session();
     if let Some(path) = path
         && !load(&mut session, path)
     {
@@ -252,7 +280,7 @@ fn repl(path: Option<&Path>) -> ExitCode {
 }
 
 fn build(path: &Path, out: &Path) -> ExitCode {
-    let mut session = Session::for_stack(STACK);
+    let mut session = new_session();
     if !load(&mut session, path) {
         return ExitCode::FAILURE;
     }

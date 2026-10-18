@@ -57,6 +57,7 @@ fn a_prelude_without_a_builtin_is_refused_before_user_code() {
         sources: SourceMap::new(),
         elab: stitchwort_elab::Elaborator::new(),
         warnings: Vec::new(),
+        syntax: Default::default(),
     };
     session.elab.loading_prelude = true;
     session

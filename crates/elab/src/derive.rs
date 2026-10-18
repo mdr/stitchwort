@@ -547,6 +547,7 @@ impl Elaborator {
                 name: name.clone(),
                 patterns,
                 rhs: Some(body),
+                arm: None,
                 span,
             });
         }
@@ -599,6 +600,7 @@ impl Elaborator {
                         .map(|x| Pattern::Var(n(x)))
                         .collect(),
                     rhs: Some(rhs),
+                    arm: None,
                     span,
                 },
             ));
@@ -613,6 +615,7 @@ impl Elaborator {
                 name,
                 patterns,
                 rhs: Some(apps(var("Std.Decidable.No"), vec![refute])),
+                arm: None,
                 span,
             });
         }

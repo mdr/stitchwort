@@ -18,12 +18,41 @@ use crate::lexer::{Tok, Token, lex};
 use crate::stack::StackLimit;
 use crate::{Diagnostic, FileId, Span};
 
+mod declarations;
+
 type Result<T> = std::result::Result<T, Diagnostic>;
 
 /// Bytes of stack the parser may use when the caller doesn't say: safe on a
 /// 2 MiB thread (Rust's default for spawned threads and tests), like the
 /// core's default `Limits`.
 pub const DEFAULT_STACK: usize = 1536 * 1024;
+
+/// Which declaration syntax a source is written in
+/// (docs/proposals/declaration-syntax.md). The old one (a signature line,
+/// then equations) is the default until the whole code base is converted;
+/// the switch is a change to [`Syntax::default`]. A file is wholly in one
+/// syntax.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Syntax {
+    /// `f : Nat -> Nat` then `f n = n`; `->` in lambdas, `match` and
+    /// handlers; `let x = e`; `test "n" = e`.
+    #[default]
+    Old,
+    /// `def f (n : Nat) : Nat := n`, or arms `| p => e` under the header;
+    /// `=>` in lambdas, `match` and handlers; `let x := e`; `test "n" := e`.
+    New,
+}
+
+impl Syntax {
+    /// `"old"` or `"new"`, as a command-line option names them.
+    pub fn from_name(name: &str) -> Option<Syntax> {
+        match name {
+            "old" => Some(Syntax::Old),
+            "new" => Some(Syntax::New),
+            _ => None,
+        }
+    }
+}
 
 pub fn parse_module(file: FileId, text: &str) -> std::result::Result<Module, Vec<Diagnostic>> {
     parse_module_within(file, text, DEFAULT_STACK)
@@ -40,13 +69,23 @@ pub fn parse_module_within(
     text: &str,
     stack: usize,
 ) -> std::result::Result<Module, Vec<Diagnostic>> {
+    parse_module_in(Syntax::default(), file, text, stack)
+}
+
+/// Parses a module written in `syntax`, using at most `stack` bytes of stack.
+pub fn parse_module_in(
+    syntax: Syntax,
+    file: FileId,
+    text: &str,
+    stack: usize,
+) -> std::result::Result<Module, Vec<Diagnostic>> {
     let limit = StackLimit::from_here(stack);
     let tokens = lex(file, text).map_err(|d| vec![d])?;
     let mut imports = Vec::new();
     let mut decls = Vec::new();
     let mut errors = Vec::new();
-    for group in split_decls(&tokens).map_err(|d| vec![d])? {
-        let mut parser = Parser::new(group, file, text.len(), limit);
+    for group in split_decls(&tokens, syntax).map_err(|d| vec![d])? {
+        let mut parser = Parser::new(group, file, text.len(), limit, syntax);
         if parser.peek() == Some(&Tok::KwImport) {
             if !decls.is_empty() {
                 errors.push(
@@ -64,11 +103,12 @@ pub fn parse_module_within(
             }
             continue;
         }
-        match parser
-            .decl()
-            .and_then(|decl| parser.finish().map(|()| decl))
-        {
-            Ok(decl) => decls.push(decl),
+        let parsed = match syntax {
+            Syntax::Old => parser.decl().map(|decl| vec![decl]),
+            Syntax::New => parser.new_decl(),
+        };
+        match parsed.and_then(|parsed| parser.finish().map(|()| parsed)) {
+            Ok(parsed) => decls.extend(parsed),
             Err(diagnostic) => errors.push(diagnostic),
         }
     }
@@ -81,9 +121,15 @@ pub fn parse_module_within(
 
 /// Parses an expression, using at most `stack` bytes of stack.
 pub fn parse_expression_within(file: FileId, text: &str, stack: usize) -> Result<Expr> {
+    parse_expression_in(Syntax::default(), file, text, stack)
+}
+
+/// Parses an expression written in `syntax`, using at most `stack` bytes of
+/// stack.
+pub fn parse_expression_in(syntax: Syntax, file: FileId, text: &str, stack: usize) -> Result<Expr> {
     let limit = StackLimit::from_here(stack);
     let tokens = lex(file, text)?;
-    let mut parser = Parser::new(&tokens, file, text.len(), limit);
+    let mut parser = Parser::new(&tokens, file, text.len(), limit, syntax);
     let expr = parser.expr()?;
     parser.finish()?;
     Ok(expr)
@@ -105,7 +151,20 @@ fn unqualified(name: Name) -> Result<Name> {
     Ok(name)
 }
 
-fn split_decls(tokens: &[Token]) -> Result<Vec<&[Token]>> {
+/// Whether a pattern contains the absurd pattern `()`, so its equation or
+/// arm needs no right-hand side.
+fn has_absurd(p: &Pattern) -> bool {
+    match p {
+        Pattern::Absurd(_) => true,
+        Pattern::Ctor(_, args, _) => args.iter().any(has_absurd),
+        Pattern::Tuple(a, b, _) => has_absurd(a) || has_absurd(b),
+        Pattern::Cons(a, b, _) => has_absurd(a) || has_absurd(b),
+        Pattern::Record { fields, .. } => fields.iter().any(|(_, p)| has_absurd(p)),
+        _ => false,
+    }
+}
+
+fn split_decls(tokens: &[Token], syntax: Syntax) -> Result<Vec<&[Token]>> {
     if let Some(first) = tokens.first()
         && first.column != 0
     {
@@ -117,8 +176,13 @@ fn split_decls(tokens: &[Token]) -> Result<Vec<&[Token]>> {
     let mut starts: Vec<usize> = (0..tokens.len())
         .filter(|&i| tokens[i].column == 0)
         .collect();
-    // A line holding only `export` belongs to the declaration that follows it.
-    starts.retain(|&i| i == 0 || !(tokens[i - 1].tok == Tok::KwExport && is_alone(tokens, i - 1)));
+    // A line holding only `export` belongs to the declaration that follows
+    // it. (In the new syntax, `export` is on the same line: `export def`.)
+    if syntax == Syntax::Old {
+        starts.retain(|&i| {
+            i == 0 || !(tokens[i - 1].tok == Tok::KwExport && is_alone(tokens, i - 1))
+        });
+    }
     let mut groups = Vec::new();
     for (n, &start) in starts.iter().enumerate() {
         let end = starts.get(n + 1).copied().unwrap_or(tokens.len());
@@ -146,6 +210,8 @@ struct Parser<'t> {
     no_equals: bool,
     /// How deep the recursion may go.
     stack: StackLimit,
+    /// Which declaration syntax this is.
+    syntax: Syntax,
 }
 
 /// One line of a block.
@@ -157,7 +223,13 @@ enum Stmt {
 }
 
 impl<'t> Parser<'t> {
-    fn new(tokens: &'t [Token], file: FileId, text_len: usize, stack: StackLimit) -> Self {
+    fn new(
+        tokens: &'t [Token],
+        file: FileId,
+        text_len: usize,
+        stack: StackLimit,
+        syntax: Syntax,
+    ) -> Self {
         let eof = tokens.last().map_or(text_len as u32, |t| t.span.end);
         Parser {
             tokens,
@@ -168,6 +240,25 @@ impl<'t> Parser<'t> {
             allow: None,
             no_equals: false,
             stack,
+            syntax,
+        }
+    }
+
+    /// The arrow after a pattern or a lambda's parameters: `=>` in the new
+    /// syntax, `->` in the old.
+    fn case_arrow(&self) -> (Tok, &'static str) {
+        match self.syntax {
+            Syntax::Old => (Tok::Arrow, "`->`"),
+            Syntax::New => (Tok::FatArrow, "`=>`"),
+        }
+    }
+
+    /// What gives a name its value in `let` and `test`: `:=` in the new
+    /// syntax, `=` in the old.
+    fn binding_equals(&self) -> (Tok, &'static str) {
+        match self.syntax {
+            Syntax::Old => (Tok::Equals, "`=`"),
+            Syntax::New => (Tok::ColonEq, "`:=`"),
         }
     }
 
@@ -534,16 +625,6 @@ impl<'t> Parser<'t> {
         while self.peek().is_some() && self.peek() != Some(&Tok::Equals) {
             patterns.push(self.pattern()?);
         }
-        fn has_absurd(p: &Pattern) -> bool {
-            match p {
-                Pattern::Absurd(_) => true,
-                Pattern::Ctor(_, args, _) => args.iter().any(has_absurd),
-                Pattern::Tuple(a, b, _) => has_absurd(a) || has_absurd(b),
-                Pattern::Cons(a, b, _) => has_absurd(a) || has_absurd(b),
-                Pattern::Record { fields, .. } => fields.iter().any(|(_, p)| has_absurd(p)),
-                _ => false,
-            }
-        }
         let absurd = patterns.iter().any(has_absurd);
         if absurd && self.peek().is_none() {
             // `f ()` needs no right-hand side.
@@ -552,6 +633,7 @@ impl<'t> Parser<'t> {
                 name,
                 patterns,
                 rhs: None,
+                arm: None,
             });
         }
         self.expect(Tok::Equals, "`=`")?;
@@ -561,6 +643,7 @@ impl<'t> Parser<'t> {
             name,
             patterns,
             rhs: Some(rhs),
+            arm: None,
         })
     }
 
@@ -863,7 +946,7 @@ impl<'t> Parser<'t> {
                 Ok(stmt) => stmts.push(stmt),
                 Err(e) => break Err(e),
             }
-            if !(many && self.starts_line_at(column)) {
+            if !(many && self.starts_line_at(column)) || self.ends_blocks() {
                 break Ok(());
             }
         };
@@ -915,21 +998,42 @@ impl<'t> Parser<'t> {
         Ok(rest)
     }
 
+    /// Whether the next token can't start a line of a block, but ends it, and
+    /// the blocks around it, for an enclosing construct: a `|` (the next arm
+    /// of a definition), `where` or `:=` (after a type that's a block).
+    fn ends_blocks(&self) -> bool {
+        self.tokens
+            .get(self.pos)
+            .is_some_and(|t| matches!(t.tok, Tok::Pipe | Tok::KwWhere | Tok::ColonEq))
+    }
+
     fn statement(&mut self) -> Result<Stmt> {
         if self.peek() != Some(&Tok::KwLet) {
             return Ok(Stmt::Expr(self.expr_inline()?));
         }
+        self.let_statement()
+    }
+
+    /// `let p = e`, or `let p := e` in the new syntax.
+    #[inline(never)]
+    fn let_statement(&mut self) -> Result<Stmt> {
         let start = self.bump().span;
         let pattern = self.let_pattern()?;
         let ty = if self.eat(&Tok::Colon) {
-            let saved = std::mem::replace(&mut self.no_equals, true);
+            // In the old syntax the type stops at `=`; in the new one it
+            // stops at `:=`, so it may contain `=`.
+            let saved = std::mem::replace(&mut self.no_equals, self.syntax == Syntax::Old);
             let ty = self.expr_inline();
             self.no_equals = saved;
             Some(ty?)
         } else {
             None
         };
-        self.expect(Tok::Equals, "`=`")?;
+        let (equals, text) = self.binding_equals();
+        if self.syntax == Syntax::New && self.peek() == Some(&Tok::Equals) {
+            return Err(self.def_equals());
+        }
+        self.expect(equals, text)?;
         let value = self.expr()?;
         Ok(match pattern {
             Pattern::Var(name) => Stmt::Let(name, ty, value, start),
@@ -944,7 +1048,10 @@ impl<'t> Parser<'t> {
             let start = self.here();
             let name = self.upper_q("a constructor")?;
             let mut args = Vec::new();
-            while !matches!(self.peek(), Some(Tok::Equals | Tok::Colon) | None) {
+            while !matches!(
+                self.peek(),
+                Some(Tok::Equals | Tok::ColonEq | Tok::Colon) | None
+            ) {
                 args.push(self.pattern()?);
             }
             return Ok(Pattern::Ctor(name, args, start.to(self.prev_span())));
@@ -1007,7 +1114,9 @@ impl<'t> Parser<'t> {
                 }
             }
             self.bump();
-            if self.eat(&Tok::KwReturn) {
+            if self.syntax == Syntax::New {
+                clauses.push(self.handler_clause()?);
+            } else if self.eat(&Tok::KwReturn) {
                 let var = self.lower("a name for the result")?;
                 self.expect(Tok::Arrow, "`->`")?;
                 let body = self.expr()?;
@@ -1080,7 +1189,8 @@ impl<'t> Parser<'t> {
                     ),
                 ));
             }
-            self.expect(Tok::Arrow, "`->`")?;
+            let (arrow, text) = self.case_arrow();
+            self.expect(arrow, text)?;
             let body = self.expr()?;
             alts.push(Alt {
                 span: bar.to(body.span()),
@@ -1107,7 +1217,10 @@ impl<'t> Parser<'t> {
             let start = self.here();
             let name = self.upper_q("a constructor")?;
             let mut args = Vec::new();
-            while !matches!(self.peek(), Some(Tok::Comma | Tok::Arrow) | None) {
+            while !matches!(
+                self.peek(),
+                Some(Tok::Comma | Tok::Arrow | Tok::FatArrow) | None
+            ) {
                 args.push(self.pattern()?);
             }
             return Ok(Pattern::Ctor(name, args, start.to(self.prev_span())));
@@ -1164,7 +1277,8 @@ impl<'t> Parser<'t> {
         if params.is_empty() {
             return Err(self.unexpected("a parameter name"));
         }
-        self.expect(Tok::Arrow, "`->`")?;
+        let (arrow, text) = self.case_arrow();
+        self.expect(arrow, text)?;
         let body = self.expr()?;
         let span = start.to(body.span());
         if params.iter().all(|(_, p)| p.is_none()) {
@@ -1620,6 +1734,7 @@ fn describe(tok: &Tok) -> String {
         Tok::KwTest => "`test`".into(),
         Tok::KwType => "`type`".into(),
         Tok::KwTheorem => "`theorem`".into(),
+        Tok::KwDef => "`def`".into(),
         Tok::KwExport => "`export`".into(),
         Tok::TypeU => "`Type`".into(),
         Tok::Prop => "`Prop`".into(),
