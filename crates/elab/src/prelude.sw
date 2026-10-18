@@ -25,6 +25,21 @@ def Not (p : Prop) : Prop := p -> Void
 type And (p : Prop) (q : Prop) : Prop =
   | Both (left : p) (right : q)
 
+-- At least one of the propositions holds: `p || q`.
+type Or (p : Prop) (q : Prop) : Prop =
+  | Inl (left : p)
+  | Inr (right : q)
+
+theorem And.left : [p q : Prop] -> And p q -> p
+  | Both a b => a
+
+theorem And.right : [p q : Prop] -> And p q -> q
+  | Both a b => b
+
+theorem Or.neither : [p q : Prop] -> Not p -> Not q -> Not (Or p q)
+  | r, s, Inl a => r a
+  | r, s, Inr b => s b
+
 -- From a proof of `Void`, anything follows. `()` means "there's no value to
 -- match here", so no right-hand side is needed.
 def Void.absurd : Void -> a
@@ -248,6 +263,19 @@ def Bool.decEq : (a : Bool) -> (b : Bool) -> Decidable (a = b)
 def Decidable.not : [p : Prop] -> Decidable p -> Decidable (Not p)
   | Yes h => No (\n => n h)
   | No r  => Yes r
+
+-- `p && q` and `p || q` are decided from decisions of each side. Both are
+-- worked out before these are called, so `if h : p && q` decides `q` even when
+-- `p` is false (`if p && q`, without a name, doesn't).
+def Decidable.and : [p q : Prop] -> Decidable p -> Decidable q -> Decidable (And p q)
+  | Yes a, Yes b => Yes (Both a b)
+  | Yes a, No r  => No (\h => r (And.right h))
+  | No r,  d     => No (\h => r (And.left h))
+
+def Decidable.or : [p q : Prop] -> Decidable p -> Decidable q -> Decidable (Or p q)
+  | Yes a, d     => Yes (Inl a)
+  | No r,  Yes b => Yes (Inr b)
+  | No r,  No s  => No (Or.neither r s)
 
 def Nat.decLessEq (m : Nat) (n : Nat) : Decidable (m <= n) := Bool.decTrue (Nat.leq m n)
 

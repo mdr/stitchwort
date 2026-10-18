@@ -37,6 +37,10 @@ pub enum Tok {
     Arrow,
     Backslash,
     Pipe,
+    /// `||`
+    OrOr,
+    /// `&&`
+    AndAnd,
     Plus,
     /// `++`
     PlusPlus,
@@ -279,7 +283,15 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
                 }
                 b'=' => Tok::Equals,
                 b'\\' => Tok::Backslash,
+                b'|' if bytes.get(i) == Some(&b'|') => {
+                    i += 1;
+                    Tok::OrOr
+                }
                 b'|' => Tok::Pipe,
+                b'&' if bytes.get(i) == Some(&b'&') => {
+                    i += 1;
+                    Tok::AndAnd
+                }
                 b'+' if bytes.get(i) == Some(&b'+') => {
                     i += 1;
                     Tok::PlusPlus

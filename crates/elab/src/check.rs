@@ -245,6 +245,9 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
     if effects::may_perform(cx, expr)? {
         return effects::run_pure(cx, expr, None);
     }
+    if let Some(logic) = crate::logic::classify(cx, expr) {
+        return crate::logic::infer(cx, logic);
+    }
     match expr {
         Expr::Unit(_) => {
             let unit = builtin_data(cx, Builtin::UnitType)?;
@@ -813,6 +816,9 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     if effects::may_perform(cx, expr)? {
         return Ok(effects::run_pure(cx, expr, Some(&expected))?.0);
     }
+    if let Some(logic) = crate::logic::classify(cx, expr) {
+        return crate::logic::check_against(cx, logic, &expected);
+    }
     match (expr, &expected) {
         (Expr::Unit(_), Value::Sort(_)) => {
             let unit = builtin_data(cx, Builtin::UnitType)?;
@@ -1031,37 +1037,10 @@ pub(crate) fn check_if(
     };
     match binder {
         None => {
-            let bool_data = builtin_data(cx, Builtin::Bool)?;
             let unit_data = builtin_data(cx, Builtin::Unit)?;
-            let snapshot = crate::undo::Snapshot::take(cx);
-            let cond = match check(cx, cond, &Value::Data(bool_data, Vec::new())) {
-                Ok(cond) => cond,
-                Err(e) if crate::undo::fatal(&e) => return Err(e),
-                Err(not_bool) => {
-                    snapshot.restore(cx);
-                    let Some((prop, Sort::Prop)) =
-                        crate::undo::attempt(cx, |cx| check_type(cx, cond))?
-                    else {
-                        return Err(not_bool);
-                    };
-                    // No decision procedure: say so at the condition, keeping
-                    // the search's explanations (its notes after the first).
-                    let decision =
-                        crate::auto::decide(cx, &cx.eval(&prop)?, 0).map_err(|mut e| {
-                            if e.code == "E-AUTO-NONE" && !e.notes.is_empty() {
-                                e.labels.clear();
-                                e.notes[0] = "`if` takes a `Bool`, or a proposition with a \
-                                              decision procedure: a function returning \
-                                              `Decidable …`"
-                                    .into();
-                                e.with_label(
-                                    cond.span(),
-                                    "this is a proposition, and nothing decides it",
-                                )
-                            } else {
-                                e
-                            }
-                        })?;
+            let cond = match crate::logic::condition(cx, cond, "if")? {
+                crate::logic::Condition::Bool(cond) => cond,
+                crate::logic::Condition::Decided { prop, decision } => {
                     return decided_if(
                         cx, "_", prop, decision, result_ty, &branch, then, otherwise,
                     );
@@ -1144,7 +1123,7 @@ fn fallback(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
 }
 
 /// `term`, of type `found`, where `expected` is expected.
-fn compare(cx: &mut Ctx, term: Term, found: &Value, expected: &Value) -> Result<Term> {
+pub(crate) fn compare(cx: &mut Ctx, term: Term, found: &Value, expected: &Value) -> Result<Term> {
     if crate::undo::unify(cx, found, expected)? {
         return Ok(term);
     }
@@ -1581,6 +1560,12 @@ pub fn check_type(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Sort)> {
     if let Expr::Tuple(a, b, _) = expr {
         let (term, _) = type_tuple(cx, a, b)?;
         return Ok((term, Sort::Type(0)));
+    }
+    // `p && q`, `p || q` and `not p` where a type is wanted are propositions.
+    if let Some(logic) = crate::logic::classify(cx, expr) {
+        let span = expr.span();
+        let term = with_span(cx, span, |cx| crate::logic::as_prop(cx, logic))?;
+        return Ok((Term::Loc(span, Rc::new(term)), Sort::Prop));
     }
     let (term, ty) = infer(cx, expr)?;
     match force(cx.g(), ty)? {

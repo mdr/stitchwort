@@ -34,7 +34,7 @@ theorem cong (f : a -> b) [x y : a] (p : x = y) : f x = f y := J (\y' p' => f x 
 -- A theorem's type must be a proposition
 theorem zeroPlus (n : Nat) : 0 + n = n := rfl
 
--- A test: a `Bool` that `stitchwort test` checks is `True`
+-- A test: a `Bool` (or a decidable proposition, as `if` takes) that `stitchwort test` checks is `True`
 test "lengths add up" := Nat.leq (length (List.append [1] [2, 3])) 3
 
 -- Exported to JavaScript by `stitchwort build --js`
@@ -155,7 +155,7 @@ handle prog () with
 
 ## Namespaces and imports
 
-Names are grouped into namespaces (docs/proposals/namespaces.md). The library is `Std`, and a program sees only its core types, their constructors, the operators and `not` without asking: `Nat`, `Bool`, `List`, `Maybe`, `Pair`, `Char`, `Text`, `Ordering`, `Decidable`, `Void`, `Unit`, `Not`, `And`, `IO` (with `print` and `readLine`), and their constructors. Everything else is written with its namespace, or imported:
+Names are grouped into namespaces (docs/proposals/namespaces.md). The library is `Std`, and a program sees only its core types, their constructors, the operators and `not` without asking: `Nat`, `Bool`, `List`, `Maybe`, `Pair`, `Char`, `Text`, `Ordering`, `Decidable`, `Void`, `Unit`, `Not`, `And`, `Or`, `IO` (with `print` and `readLine`), and their constructors. Everything else is written with its namespace, or imported:
 
 ```
 import Text (split, join)
@@ -289,7 +289,7 @@ Loosest-binding first:
 | `(x y : A) -> B` | Dependent function type |
 | `[x y : A] -> B` | Function type with implicit parameters, filled in by the compiler |
 | `[auto x : P] -> B` | An implicit proof of `P`, found from hypotheses in scope or a decision procedure |
-| `if c then a else b` | On a `Bool`, or on a proposition with a decision procedure, as `if _ : c then a else b` (Lean's way): `if x < y`, `if n <= hi`, `if d != 0` work on `Nat` and `Int`. `c` is tried as a `Bool` first, exactly as before, so a `Bool` condition (`if xs == ys`) means what it always has; only if that fails is `c` tried as a proposition, with everything the first try did undone. A proposition nothing decides is `E-AUTO-NONE` at the condition (`if f = g` on functions); a condition that's neither is the `Bool` error. There's no `&&` or `\|\|`, and `not` is on `Bool`s, so `if not (x < y)` is a type error: swap the branches or the comparison. A condition that performs operations must be a `Bool` |
+| `if c then a else b` | On a `Bool`, or on a proposition with a decision procedure, as `if _ : c then a else b` (Lean's way): `if x < y`, `if n <= hi`, `if d != 0` work on `Nat` and `Int`. `c` is tried as a `Bool` first, exactly as before, so a `Bool` condition (`if xs == ys`) means what it always has; only if that fails is `c` tried as a proposition, with everything the first try did undone. A proposition nothing decides is `E-AUTO-NONE` at the condition (`if f = g` on functions); a condition that's neither is the `Bool` error. So do `&&`, `\|\|` and `not` on comparisons: `if x < y && y < z`, `if not (x < y)`. A condition that performs operations must be a `Bool` |
 | `if h : P then a else b` | Decides `P` (at runtime if need be). `h : P` in `a`, `h : Not P` in `b` |
 | `A -> B` | Function type |
 | `A -> {E, F \| e} B` | Function type whose calls may perform abilities `E` and `F`, plus whatever `e` stands for |
@@ -297,6 +297,8 @@ Loosest-binding first:
 | `match e with \| p => a \| q => b` | Takes apart `e` by patterns; `match h : e with` also names an equation ([`match`](#match)) |
 | `()` | The unit value, and its type |
 | `(A, B)`, `(a, b)`, `(p, q)` | Tuples: `Pair A B`, `MkPair a b` and the pattern `MkPair p q`, by identity (a user's own `Pair` doesn't change it). Three or more nest to the right: `(a, b, c)` is `(a, (b, c))`. Where a type is expected (a function's domain, a definition of type `Type`) it's the type; otherwise it's the type if its first component's type is a universe. `(e)` is grouping, there is no one-element tuple, and an annotation inside needs brackets: `(a, (b : T))` or `((a, b) : T)`. Components are in `Type` (not `Prop`), as `Pair`'s are |
+| `a \|\| b` | Or. On `Bool`s it's `if a then True else b`: `b` is evaluated, and its operations performed, only if `a` is `False`. Where a proposition is expected (a type, or `if h : …`) it's `Or a b` (constructors `Inl`, `Inr`), decided by `Decidable.or`. Looser than `&&`; groups to the right. See below |
+| `a && b` | And. On `Bool`s it's `if a then b else False`: `b` is evaluated only if `a` is `True`. Where a proposition is expected it's `And a b` (constructor `Both`), decided by `Decidable.and`. Looser than `=`, `==` and `<`; groups to the right. See below |
 | `a = b`, `a != b` | Equality and inequality (propositions). Not associative |
 | `a == b` | Whether `a = b`, as a `Bool`, using the decision procedure for `a = b` (as `if h :` does). Works for `Nat`, `Int`, `Bool`, `Char`, `Text`, any type with a decision procedure for `=`, and lists, tuples and `Maybe` of those (`[(1, "a")] == [(1, "a")]`): a decision procedure taking one for the elements (`List.decEq`, `Pair.decEq`, `Maybe.decEq`) is given one found the same way. So does a record with such fields (`{ ids : List Nat, delta : Maybe Int }`), and a declared data type whose fields can all be compared, derived automatically when it's declared (`type Dir = | L | R`, recursive types, `Tree Nat` for `type Tree (a : Type) : Type = …`: parameters must be `Type`). `List (Nat -> Nat)` is `E-AUTO-NONE`, with a note naming the element type that has none; so is a type with a function field, a proof or type field, or defined together with others (mutual), with a note saying why |
 | `a < b`, `a <= b` | Comparisons on `Nat` and `Int` (propositions, decided by computation) |
@@ -306,6 +308,7 @@ Loosest-binding first:
 | `-e` | Prefix minus; it makes its arithmetic `Int` ([Numbers](#numbers)). Binds tighter than `*` `/` `%` and looser than application and dots: `-x.abs` is `-(x.abs)`, `-18 % 100` is `(-18) % 100`. Not an argument: `f -5` is `f - 5`; write `f (-5)`. May repeat, and `a - -b` needs the space (`--` starts a comment) |
 | `(-k)` | In a pattern: a negative `Int` number, in brackets (or as a tuple component, `(-1, 0)`), numerals only |
 | `f a b` | Application |
+| `not a` | `Bool.not a`; where a proposition is expected, `Not a`. Only when `not` is the library's (a local `not` is an ordinary function) and has one argument: `List.map not bs` is `Bool.not` as a function. See below |
 | `f [x := e]` | Supplying the implicit parameter `x` by name |
 | `_` | A hole the compiler fills in |
 | `x`, `Nat`, `Succ` | Names. Constructors and data types start with an uppercase letter |
@@ -321,6 +324,17 @@ Loosest-binding first:
 | `J (\y p => P) base proof` | Transport along an equality |
 
 A partially applied constructor is a function: `Succ` on its own means `\n => Succ n`.
+
+### `&&`, `||` and `not`
+
+Each has two readings, chosen by what's expected, the way `if c` chooses:
+
+- **Where a proposition is expected** (a type: a signature, `if h : …`, an `auto` argument) they're the propositions `And a b`, `Or a b` and `Not a`, and both operands must be propositions. A `Bool` operand is an error (`E-NOT-A-TYPE`) with a note: for a `Bool` `b`, the proposition is `b = True`. `if h : x < y && y < z` gives `h : x < y && y < z` in the `then` branch and `h : Not (x < y && y < z)` in the `else` branch. The library's `Decidable.and`, `Decidable.or` and `Decidable.not` decide them from decisions of each side; both sides are decided before these run, so `if h : p && q` decides `q` even when `p` is false. `And.left`, `And.right` and `Or.neither` take them apart.
+- **Otherwise** (a `Bool` expected, as in a `def … : Bool`, a test or `if c`, or nothing known, as in `let`) it's a `Bool`, and **each operand is a condition, as `if` takes one**: a `Bool`, or failing that a proposition with a decision procedure, decided. So `x < y && y < z`, `flag && x < 3` and `not (x < y)` are all `Bool`s, and a `Bool` operand means what it always has. `a && b` is `if a then b else False` and `a \|\| b` is `if a then True else b`: `b` isn't evaluated when `a` decides the answer, and when `b` performs operations, they're performed only if `b` is evaluated. Operations in `a` are performed first. With nothing expected, if the `Bool` reading fails, the proposition reading is tried, with everything the first try did undone; if that fails too, the `Bool` reading's error is reported (`E-AUTO-NONE` at an operand nothing decides, as for `if`).
+
+Precedence, loosest first: `->`, then `\|\|`, then `&&`, then `=` `!=` `==` `<` `<=`. So `a \|\| b && c` is `a \|\| (b && c)`, `x < y && y < z` needs no brackets, and `p && q -> r` is `(p && q) -> r`. `not` is a function, so `not x < y` is `(not x) < y`: write `not (x < y)`. The printer shows `And p q` and `Or p q` as `p && q` and `p \|\| q`. A single `&` is still an error.
+
+A test (`test "…" := e`) takes `e` as a condition too: a `Bool`, or a proposition with a decision procedure, so `test "ordered" := 1 < 2 && 2 < 3` and `test "small" := 3 < 5` work.
 
 ### `match`
 

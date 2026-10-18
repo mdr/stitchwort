@@ -254,6 +254,8 @@ fn op_text(op: BinOp) -> &'static str {
         BinOp::Lt => "<",
         BinOp::Le => "<=",
         BinOp::Append => "++",
+        BinOp::And => "&&",
+        BinOp::Or => "||",
     }
 }
 

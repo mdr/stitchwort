@@ -1165,6 +1165,10 @@ pub fn comp_check(cx: &mut Ctx, expr: &Expr, row: &Row, t: &Value) -> Result<Ter
             cx.span = saved;
             result
         }
+        // `a && b`, `a || b`: as an `if`, so `b` runs only if it's needed.
+        Expr::Binary(op @ (BinOp::And | BinOp::Or), a, b) if may_perform(cx, expr)? => {
+            comp_check(cx, &crate::logic::as_if(*op, a, b), row, t)
+        }
         _ if may_perform(cx, expr)? => {
             let (c, ty) = comp_call(cx, expr, row, Some(t))?;
             if cx.unify(&ty, t)? {
@@ -1229,6 +1233,11 @@ pub fn comp_infer(cx: &mut Ctx, expr: &Expr, row: &Row) -> Result<(Term, Value)>
         Expr::Match { .. } => {
             let t = crate::matching::unknown_type(cx, expr);
             let t = cx.eval(&t)?;
+            let c = comp_check(cx, expr, row, &t)?;
+            Ok((c, t))
+        }
+        Expr::Binary(BinOp::And | BinOp::Or, ..) if may_perform(cx, expr)? => {
+            let t = Value::Data(data(cx, Builtin::Bool)?, Vec::new());
             let c = comp_check(cx, expr, row, &t)?;
             Ok((c, t))
         }
