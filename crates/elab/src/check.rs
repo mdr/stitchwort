@@ -697,30 +697,71 @@ pub(crate) fn apply_args(cx: &mut Ctx, head: (Term, Value), args: &[Arg]) -> Res
 pub(crate) type Supply = std::collections::VecDeque<Term>;
 
 /// [`apply_args`], taking implicit arguments from `supply` first.
+///
+/// An argument that is a lambda (or a method section) whose parameter type
+/// isn't known yet when it's reached is checked after the later arguments,
+/// which may fix that type: `List.map (\p => p.name) people`. Only the
+/// checking order changes; the term's arguments stay in place. Not when a
+/// later argument's type depends on it (it would see only a placeholder). A
+/// section is always postponed then; a plain lambda only if checking it in
+/// place fails, so what already worked is elaborated as before. If the
+/// application fails anyway, the error is the one checking it in place gave.
 pub(crate) fn apply_args_with(
     cx: &mut Ctx,
     head: (Term, Value),
     args: &[Arg],
     supply: &mut Supply,
 ) -> Result<(Term, Value)> {
+    let mut first_error = None;
+    match apply_args_postponing(cx, head, args, supply, &mut first_error) {
+        Err(e) if !crate::undo::fatal(&e) => Err(first_error.unwrap_or(e)),
+        result => result,
+    }
+}
+
+/// [`apply_args_with`], keeping the error of the first lambda postponed
+/// after failing in place.
+fn apply_args_postponing(
+    cx: &mut Ctx,
+    head: (Term, Value),
+    args: &[Arg],
+    supply: &mut Supply,
+    first_error: &mut Option<Diagnostic>,
+) -> Result<(Term, Value)> {
     let (mut term, mut ty) = head;
     let mut postponed = Vec::new();
     for (i, arg) in args.iter().enumerate() {
         match arg {
-            Arg::Explicit(value) if value.section_name().is_some() => {
+            Arg::Explicit(value @ Expr::Lam(..)) => {
                 (term, ty) = insert_with(cx, term, ty, supply)?;
                 let (dom, cod) = function_parts(cx, &ty)?;
                 let later = args[i + 1..]
                     .iter()
                     .any(|a| matches!(a, Arg::Explicit(_) | Arg::Piped(_)));
-                if !later || !unknown_domain(cx, &dom)? {
-                    let value = check(cx, value, &dom)?;
+                let postponable = later && !cod.body.mentions(0) && unknown_domain(cx, &dom)?;
+                let checked = if !postponable {
+                    Some(check_arg(cx, &term, value, &dom)?)
+                } else if value.section_name().is_some() {
+                    None
+                } else {
+                    let snapshot = crate::undo::Snapshot::take(cx);
+                    match check_arg(cx, &term, value, &dom) {
+                        Ok(value) => Some(value),
+                        Err(e) if crate::undo::fatal(&e) => return Err(e),
+                        Err(e) => {
+                            snapshot.restore(cx);
+                            first_error.get_or_insert(e);
+                            None
+                        }
+                    }
+                };
+                if let Some(value) = checked {
                     ty = cod.apply_lazy(cx.g(), || eval(cx.g(), &cx.env, &value))?;
                     term = Term::app(term, value);
                     continue;
                 }
                 // `List.map .position ds`: what `.position` takes is
-                // known once `ds` is, so the section is checked last.
+                // known once `ds` is, so the lambda is checked last.
                 let meta = cx.fresh_meta();
                 let placeholder = cx.eval(&meta)?;
                 ty = cod.apply(cx.g(), placeholder.clone())?;
@@ -748,13 +789,7 @@ pub(crate) fn apply_args_with(
             Arg::Explicit(value) => {
                 (term, ty) = insert_with(cx, term, ty, supply)?;
                 let (dom, cod) = function_parts(cx, &ty)?;
-                let value = match check(cx, value, &dom) {
-                    Ok(value) => value,
-                    Err(e) if e.code == "E-PARTIAL-ESCAPE" => {
-                        return Err(partial_callback(cx, &term, value, &dom).unwrap_or(e));
-                    }
-                    Err(e) => return Err(e),
-                };
+                let value = check_arg(cx, &term, value, &dom)?;
                 ty = cod.apply_lazy(cx.g(), || eval(cx.g(), &cx.env, &value))?;
                 term = Term::app(term, value);
             }
@@ -770,8 +805,18 @@ pub(crate) fn apply_args_with(
     Ok((term, ty))
 }
 
+/// Checks an explicit argument of `head` against its parameter type `dom`.
+fn check_arg(cx: &mut Ctx, head: &Term, value: &Expr, dom: &Value) -> Result<Term> {
+    match check(cx, value, dom) {
+        Err(e) if e.code == "E-PARTIAL-ESCAPE" => {
+            Err(partial_callback(cx, head, value, dom).unwrap_or(e))
+        }
+        result => result,
+    }
+}
+
 /// Whether `ty` is a function type whose parameter's type isn't known yet:
-/// a method section checked against it couldn't look its name up.
+/// a lambda checked against it couldn't use its parameter.
 fn unknown_domain(cx: &Ctx, ty: &Value) -> Result<bool> {
     let g = cx.g();
     Ok(match force(g, ty.clone())? {

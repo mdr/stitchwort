@@ -1,6 +1,7 @@
 -- expect-error: E-CANNOT-INFER
--- In the plain call the lambda is checked before `people`, when `p`'s type
--- isn't known yet. `people.map (\p => p.name)` checks `people` first.
+-- The lambda is checked after `Empty` (it comes first, but its parameter
+-- type isn't known yet), and `Empty` doesn't fix `p`'s type either.
+-- `Bag.map (\(p : Person) => p.name) Empty` works.
 
 type Person = { name : Text }
 
@@ -12,4 +13,4 @@ def Bag.map (f : a -> b) : Bag a -> Bag b
   | Empty => Empty
   | Put x xs => Put (f x) (Bag.map f xs)
 
-def names (people : Bag Person) : Bag Text := Bag.map (\p => p.name) people
+def names : Bag Text := Bag.map (\p => p.name) Empty
