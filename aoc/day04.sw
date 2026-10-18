@@ -1,0 +1,69 @@
+-- Advent of Code 2025, day 4: a grid of paper rolls (@) and empty floor (.).
+-- A roll is accessible when fewer than four of its eight neighbours are
+-- rolls. Part 1 counts the accessible rolls. Part 2 removes them, repeats
+-- until none are accessible, and counts every roll removed.
+--
+--   $ stitchwort run aoc/day04.sw < aoc/inputs/day04.txt
+--
+-- The puzzle input is not in git (aoc/inputs/ is ignored).
+--
+-- The grid is a list of rows of 0 (floor) and 1 (roll). A roll's "window" is
+-- the 3 by 3 block around it, itself included, so it is accessible when its
+-- window holds fewer than 5 rolls. Sum each row horizontally in threes once,
+-- then add the sums of the rows above, at, and below to get every window.
+
+def Grid : Type := List (List Nat)
+
+def main () : {IO} () :=
+  let (one, two) := solve (parse (IO.readAllLines ()))
+  print ("Part 1: " ++ one.toText)
+  print ("Part 2: " ++ two.toText)
+
+def solve (grid : Grid) : (Nat, Nat) :=
+  (rolls grid - rolls (round grid), rolls grid - rolls (settle (rolls grid) grid))
+
+def parse (lines : List Text) : Grid :=
+  lines |> .map (\line => line.toList |> .map (\c => if c == '@' then 1 else 0))
+
+def rolls (grid : Grid) : Nat := grid |> .sumBy List.sum
+
+-- Remove every accessible roll, all at once.
+def round (grid : Grid) : Grid :=
+  let sums := grid.map rowSums
+  let gap := List.replicate ((grid.headOr []).length) 0
+  let above := Cons gap sums
+  let below := sums.drop 1 |> .append [gap]
+  let windows := zipGrid Nat.add (zipGrid Nat.add above sums) below
+  zipGrid (\roll window => if roll == 1 then (if 5 <= window then 1 else 0) else 0) grid windows
+
+-- Remove accessible rolls until there are none. Every round that changes
+-- something removes a roll, so as many rounds as there are rolls is enough.
+def settle : Nat -> Grid -> Grid
+  | Zero,   grid => grid
+  | Succ n, grid =>
+    let next := round grid
+    if rolls next == rolls grid then grid else settle n next
+
+-- Each cell becomes the sum of itself and its left and right neighbours.
+def rowSums (row : List Nat) : List Nat :=
+  let left := Cons 0 row
+  let right := row.drop 1 |> .append [0]
+  List.zipWith Nat.add (List.zipWith Nat.add left row) right
+
+-- Combine two grids of the same shape cell by cell.
+def zipGrid (f : Nat -> Nat -> Nat) (a b : Grid) : Grid := List.zipWith (List.zipWith f) a b
+
+-- Examples -----------------------------------------------------------------
+
+def example : List Text :=
+  [ "..@@.@@@@.", "@@@.@.@.@@", "@@@@@.@.@@", "@.@@@@..@.", "@@.@@@@.@@",
+    ".@@@@@@@.@", ".@.@.@.@@@", "@.@@@.@@@@", ".@@@@@@@@.", "@.@.@@@.@." ]
+
+test "example" := solve (parse example) == (13, 43)
+test "rolls" := rolls (parse example) == 71
+test "row sums" := rowSums [1, 0, 1, 1] == [1, 2, 2, 2]
+test "lone roll" := solve [[1]] == (1, 1)
+test "full square" := solve [[1, 1], [1, 1]] == (4, 4)
+test "plus shape keeps its centre" := solve [[0, 1, 0], [1, 1, 1], [0, 1, 0]] == (4, 5)
+
+theorem exampleAnswer : solve (parse example) = (13, 43) := rfl
