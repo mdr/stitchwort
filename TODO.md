@@ -124,8 +124,16 @@ capability we know we'll need before the work that needs it):
    lifted `match` in a partial function, a data/ability declaration or
    the REPL is refused. Step 4 (patterns in `let` and lambdas,
    `E-LET-REFUTABLE`) merged (`ec2a784`). Later: annotated lambda
-   parameters `\(x : T) -> …` (would also fix the `p.name` hint). Step 5, `where`, deferred until the AoC days show
-   how much it's missed.
+   parameters `\(x : T) -> …` (would also fix the `p.name` hint). Step 5, `where`, waits for the declaration-syntax
+   decision below.
+   **Declaration syntax (user, 18 Oct): switch to the Lean/Scala style**
+   (typed parameters inline, e.g. `def add (x : Nat) (y : Nat) : Nat =
+   …`, cases under a signature) instead of Haskell-style separate
+   signatures and equations. Next: a researched design note (Lean, Scala
+   3, Idris, Agda, Unison, Roc; implicits, multiple equations, `where`,
+   theorems, effects, migration of all existing code) for external
+   review, then implementation. Lanes `if-prop-listpat`, `derive-eq` and
+   `day1-proofs` are running; the note starts when one frees up.
 4. **Advent of Code 2025, early days** — the medium-term goal. Plan
    (user, 18 Oct): day 1 done (`aoc/day01.sw`, both answers right,
    0.7 s; `IO.readAllLines`, `Nat.digits` added; friction write-up in
