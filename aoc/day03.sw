@@ -10,35 +10,36 @@
 -- still leaves k - 1 digits after it, taking the leftmost such digit so the
 -- most is left over; then repeat on what follows it.
 
-def parseBank (t : Text) : List Nat := (Text.toList t).mapMaybe Char.digitValue
+def main () : {IO} () :=
+  let (one, two) := solve (IO.readAllLines ())
+  print ("Part 1: " ++ one.toText)
+  print ("Part 2: " ++ two.toText)
+
+def solve (lines : List Text) : (Nat, Nat) := (total 2 lines, total 12 lines)
+
+def total (k : Nat) (lines : List Text) : Nat := lines |> List.sumBy (joltage k)
+
+def joltage (k : Nat) (line : Text) : Nat :=
+  line |> parseBank |> best k |> Nat.fromDigits
+
+def parseBank (t : Text) : List Nat := t.toList |> List.mapMaybe Char.digitValue
 
 -- The digits of the largest k-digit number that is a subsequence of ds.
 def best : Nat -> List Nat -> List Nat
-  | Zero,   ds          => Nil
-  | Succ k, Nil         => Nil
+  | Zero,   _           => []
+  | Succ _, []          => []
   | Succ k, Cons d rest =>
     -- The leftmost largest of the next w digits, and what follows it. The
     -- candidate so far is c, followed by `after`.
     def pick : Nat -> List Nat -> Nat -> List Nat -> (Nat, List Nat)
-      | Zero,   ds,          c, after => (c, after)
-      | Succ w, Nil,         c, after => (c, after)
+      | Zero,   _,           c, after => (c, after)
+      | Succ _, [],          c, after => (c, after)
       | Succ w, Cons x more, c, after =>
         if c < x then pick w more x more else pick w more c after
-    let (top, after) := pick (List.length rest - k) rest d rest
+    let (top, after) := pick (rest.length - k) rest d rest
     Cons top (best k after)
 
-def joltage (k : Nat) (line : Text) : Nat := Nat.fromDigits (best k (parseBank line))
-
-def total (k : Nat) (lines : List Text) : Nat := (lines.map (joltage k)).sum
-
-def solve (lines : List Text) : (Nat, Nat) := (total 2 lines, total 12 lines)
-
-def main () : {IO} () := report (solve (IO.readAllLines ()))
-
-def report : (Nat, Nat) -> {IO} ()
-  | (a, b) =>
-    print ("Part 1: " ++ Nat.toText a)
-    print ("Part 2: " ++ Nat.toText b)
+-- Examples -----------------------------------------------------------------
 
 def example : List Text := ["987654321111111", "811111111111119", "234234234234278", "818181911112111"]
 
