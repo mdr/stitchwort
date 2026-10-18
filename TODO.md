@@ -137,10 +137,11 @@ capability we know we'll need before the work that needs it):
    Reviewed (proceed); draft 2 adopts it (`7f13ce7`): exact-arity arms,
    `()` header → `_`, distinct header/implicit names, mixed-style
    declarations refused, multi-layer migration check. Simplified (user, 18 Oct):
-   no period accepting both syntaxes. Plan: lane `decl-parser` (A, Opus:
-   new parser behind an option, AST-equivalence harness) and lane
+   no period accepting both syntaxes. Lane A merged (`db65149`: new parser behind
+   `--syntax new` / `Syntax::New`, `stitchwort_syntax::equivalence`
+   harness). Lane
    `decl-converter` (B, Opus: old→new text converter, dry-run report)
-   running in parallel; then one switch commit (convert everything, flip
+   running; then one switch commit (convert everything, flip
    the parser, delete the old one, hash/AST/test comparison); then a
    tidy-up (docs, playground colouring, awkward converter output); then
    `where`. Header and implicit names must differ. Also queued after the switch: `&&`/`||` and
