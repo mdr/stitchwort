@@ -28,30 +28,34 @@ this file.
 The main session orchestrates: it chooses lanes, hands each to a background
 agent, then reviews, merges and updates this file.
 
-Running: `day2-proofs` (Opus: `repeated` and part 1 equal brute force;
-part 2 cross-checked), `list-rest-pattern` (Sonnet).
+Running: `list-rest-pattern` (Sonnet), `day1-batch` (Sonnet).
 
 Merged overnight (18-19 Oct): day 3 proofs (`best` is a subsequence, has
 length `min k (length ds)`, and is optimal; 9 prelude lemmas incl.
 `List.Subsequence`), char patterns (`| 'L' =>`), days 6-9 capability
 survey (docs/aoc-2025.md sections 8 and 10), day 4 (`aoc/day04.sw`, both
 answers right, 16 s), day 5 (`aoc/day05.sw`, both answers right,
-0.9 s; `rfl` checks on the example; merge sorted-and-disjoint not proved). Inputs for days 4-9 fetched from the user's Scala
+0.9 s; `rfl` checks on the example; merge sorted-and-disjoint not proved),
+day 2 proofs (`62938b2`: `repeatedCorrect`, `part1Correct` against
+block-enumerating specs; part 2 brute-force cross-check on 160 ranges;
+31 prelude lemmas). Inputs for days 4-9 fetched from the user's Scala
 repo into `aoc/inputs/` (ignored).
 
-Overnight queue (user, 18 Oct): `[x, ..rest]`
-(running), then the day 1 review batch after `day2-proofs`.
+Overnight queue (user, 18 Oct): `[x, ..rest]` and the day 1 review
+batch, both running. Day 1 batch: inline `Dial.place` into `Dial.wrap`
+(proof-only abbreviations beside the proofs, implementation plain);
+`turnOf` as a `match` on chars; `Dial.size` (= `Succ highest`) in the
+implementation, proofs may keep `Succ highest`.
 
 Waiting on a decision (for the morning):
 - Proof `let`s (from day 3): a `let` is opaque to the checker (after
   `let p := 10 ^ n`, a proof about `p + 1` doesn't see `p`'s value), and
   a `let` can't bind a proof (`E-UNIVERSE`). Both need compiler work.
-- Day 4 runs in 16 s: worth the evaluator speed check now? The user is reviewing day 1; their notes
-are collected and applied in one pass once `day2-proofs` finishes (user) (so far: inline
-`Dial.place` into `Dial.wrap`, any proof-only abbreviation defined
-beside the proofs, the implementation kept plain; `turnOf` as a
-`match` on chars; `Dial.size` (= `Succ highest`) used in the
-implementation, proofs may keep `Succ highest`).
+- Day 4 runs in 16 s: worth the evaluator speed check now?
+- Day 2 specs enumerate blocks rather than walking ids (a proof over ids
+  needs a long counting argument; the cross-check test covers it).
+- Day 5: prove merged ranges sorted and disjoint, or leave the `rfl`
+  checks?
 
 ## Next
 
