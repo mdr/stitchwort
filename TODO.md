@@ -126,9 +126,12 @@ capability we know we'll need before the work that needs it):
    lambdas) running. Step 5, `where`, deferred until the AoC days show
    how much it's missed.
 4. **Advent of Code 2025, early days** — the medium-term goal. Plan
-   (user, 18 Oct): lanes `aoc-day1` (Sonnet: `IO.readAllLines`,
-   `Nat.digits`, day 1 rewritten as a probe with a friction write-up) and
-   `sort-proof` (Opus) running; then days 1–5 rewritten with proofs (deep
+   (user, 18 Oct): day 1 done (`aoc/day01.sw`, both answers right,
+   0.7 s; `IO.readAllLines`, `Nat.digits` added; friction write-up in
+   aoc-2025.md: no `let` patterns (step 4 running), `type Dial = (Nat,
+   Nat, Nat)` is a parse error, no `==` for user data types (deriving),
+   a duplicate prelude name gives a debug dump without file/line, no
+   `List.scanl`). Lane `sort-proof` (Opus) running; then days 1–5 rewritten with proofs (deep
    ones for 1, 3, 5 by Opus). `Array`/`Map`/`Set` later (days 4, 8, 9).
    Earlier notes: (decisions in aoc-2025.md: programs
    in `aoc/`, inputs and answers out of git, worked examples as tests), as a stress test with proofs where
