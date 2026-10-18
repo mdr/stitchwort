@@ -131,7 +131,11 @@ capability we know we'll need before the work that needs it):
    aoc-2025.md: no `let` patterns (step 4 running), `type Dial = (Nat,
    Nat, Nat)` is a parse error, no `==` for user data types (deriving),
    a duplicate prelude name gives a debug dump without file/line, no
-   `List.scanl`). Lane `sort-proof` (Opus) running; lane `clash-scanl` (Sonnet: the
+   `List.scanl`). Sorting merged (`8ef0c31`: `List.sort`, `sortBy`,
+   `sortWith`, stable bottom-up merge sort, O(n log n), no fuel;
+   `Sorted` and counting-based `Perm` proved; 20,000 numbers in 0.7 s;
+   not proved: stability, totality of `Text.compare`; new default-visible
+   `And`/`Both`); lane `clash-scanl` (Sonnet: the
    prelude-clash debug dump becomes a proper error; `List.scanl`)
    running; `type Dial = (Nat, Nat, Nat)` stays a parse error (user:
    write `Dial : Type`). Queued after syntax step 4: automatic `==` for
