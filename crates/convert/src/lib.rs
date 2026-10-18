@@ -1498,8 +1498,11 @@ impl<'a> Src<'a> {
         let applied: Vec<String> = fresh[..still].to_vec();
         if still > 0 {
             let last = eq.group.1 - 1;
-            let wrap =
-                partial.is_some() || !matches!(cur, Expr::Var(_) | Expr::App(..) | Expr::Field(..));
+            // Already in brackets, `(\y -> …)`, it needs no more.
+            let bracketed =
+                self.toks[cur_tok].tok == Tok::LParen && self.close_of(cur_tok) == Some(last);
+            let wrap = partial.is_some()
+                || !(bracketed || matches!(cur, Expr::Var(_) | Expr::App(..) | Expr::Field(..)));
             let args = applied.join(" ");
             if wrap {
                 if self.toks[cur_tok].line_start {

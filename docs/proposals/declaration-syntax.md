@@ -1044,6 +1044,81 @@ Anything else that moves stops the lane, which reports it.
 - Parser unit tests that test the old forms are replaced by tests of the
   new ones.
 
+### 5.5a The converter as built (lane B)
+
+`crates/convert` (library and binary `stitchwort-convert`; deleted after
+the switch). It reads a file with today's parser and lexer
+(`stitchwort_syntax::lex` is now public for it) and edits the text at
+token spans, following §5.3; every edit is located by the parsed tree and
+checked against the token it replaces, and anything unexpected fails the
+whole file with a reason.
+
+```
+stitchwort-convert                  # dry run: prelude, examples/, aoc/, web/index.html
+stitchwort-convert PATH…            # dry run over files / directories
+stitchwort-convert --write [PATH…]  # convert in place (the switch commit)
+stitchwort-convert --print FILE     # one file, converted, to stdout
+stitchwort-convert --stdin          # a snippet (Rust test source, Markdown block): stdin → stdout
+```
+
+`--stdin` reads the snippet as a module, or, failing that, as an
+expression; on failure it prints nothing and exits 1 with the reason.
+
+Choices the note left open, as implemented:
+
+- **Arity** (§5.3 rule 1) comes from the elaborator when the file checks:
+  the definition's explicit `Pi`s after `force`, up to the first non-`Pi`.
+  For files that don't check (reject and soundness examples) it's the
+  arrows written in the signature.
+- **Arm patterns** are the equations' patterns as written, except that a
+  constructor pattern with arguments loses its outer brackets
+  (`| Cons x xs, ys =>`). So arms must read patterns as `match`
+  alternatives do (`alt_pattern`). Columns the equations lined up are
+  lined up again; `,` follows each pattern.
+- **Layout**: arms start at column 2 (`  | `). If any later line of an
+  equation starts at column 2 or less, every later line of the
+  definition's equations moves right by 2 (rule L5). A type continued on
+  lines at column 2 or less is indented 2 more in the arm form. A header
+  binder whose type started a line in the signature starts a line in the
+  header.
+- **Handler clauses** keep their `=>` where the `->` was, so lined-up
+  clauses stay lined up: `| print t, k    => …`.
+- **Fresh names** for exact arity are `a1`, `a2`, …, skipping any lower-case
+  name in the file. The body is bracketed unless it's a name, an
+  application or already bracketed; a body starting on its own line is
+  written `=> (`, the block, `) a1` (no file in the repository needs it).
+- **Comments** between a signature and its single equation move above the
+  `def` in the `:=` form. A comment inside a moved part of a signature
+  gives the all-arms form; one inside an equation's left-hand side fails
+  the file.
+
+Dry run on `db26c01` (all inputs; web/index.html counts its 6 examples):
+276 of 280 convert; 1689 definitions (1002 `:=`, 687 with arms, 842 of
+all with named header parameters) and 519 tests.
+
+**For lane A and the switch lane:**
+
+1. **Signatures without equations.** The prelude's six primitives
+   (`Effect.Delay`, `now`, `lift`, `bindD`, `mapSig`, `pfix`, near the end
+   of `prelude.sw`) have no equations; the converter writes them as a
+   header with no body, `def Effect.Delay : (op : Type) -> … -> Type`. The
+   grammar (§2.1) has no such form: the new parser must accept a
+   bodiless `def` (in the prelude at least), or the switch lane picks
+   another form.
+2. **Expected hash changes (E1)**: 7 arms in 5 definitions, before
+   dependents: `Effect.sigRes` (applied to `a1`), `Effect.noReply`
+   (absurd, `_` added) in the prelude; `sizeNotZero`
+   (`examples/accept/mutual-data.sw`, applied to `a1`); `evenShift` and
+   `oddShift` (`examples/extract/mutual.sw`, one arm each moving a
+   lambda's `x`, one applied to `a1`).
+3. **Files the converter can't read** (deliberately malformed; convert by
+   hand): `examples/reject/char-surrogate.sw`,
+   `else-left-of-its-if.sw`, `tuple-annotation.sw`,
+   `tuple-one-element.sw`.
+4. **AST equivalence**: `stitchwort_convert::check_ast_equivalence` is a
+   stub (returns `None`) where lane A's harness plugs in; the golden test
+   (`crates/convert/tests/golden.rs`) already calls it on every output.
+
 ### 5.6 The transition: no hybrids
 
 Both syntaxes are read only from lane A until lane E, and the window is
