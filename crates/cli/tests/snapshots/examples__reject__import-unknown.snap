@@ -8,4 +8,6 @@ expression: output
  3 │ import List (sortt)
    │              ──┬──  
    │                ╰──── `List` has no `sortt`
+   │ 
+   │ Note: did you mean `sort`?
 ───╯
