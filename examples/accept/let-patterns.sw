@@ -1,6 +1,6 @@
 -- Patterns in `let` and in lambdas (docs/proposals/syntax-conveniences.md
--- section 5). `let p = e` followed by the rest of the block is
--- `match e with | p -> rest`; `\p -> body` matches its parameter. The
+-- section 5). `let p := e` followed by the rest of the block is
+-- `match e with | p => rest`; `\p => body` matches its parameter. The
 -- pattern must cover every value of its type.
 
 import List (map, foldl, zip)

@@ -182,7 +182,7 @@ test "a handle expression forwards to a concrete row" :=
   let r := collect handledHere
   if eqNats (fstOf r) [5] then eqNats (sndOf r) [1, 2] else False
 
--- An operation on its own is a function: `choose` is `\x -> choose x`.
+-- An operation on its own is a function: `choose` is `\x => choose x`.
 def countTrue (f : () -> {Choose} Bool) : {Choose} Nat := if f () then (if f () then 2 else 1) else 0
 
 test "an operation as a value" := List.length (allResults choose) == 2

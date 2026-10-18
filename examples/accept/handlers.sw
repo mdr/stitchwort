@@ -78,7 +78,7 @@ def allResultsR : [e : Type] -> [eres : e -> Type] -> [a : Type] ->
 -- Handler order (from the review)
 
 -- p () =
---   let b = choose ()
+--   let b := choose ()
 --   if b then put 1 else ()
 --   get ()
 -- Computations with the row `{State Nat, Choose}`, and its operations.

@@ -67,7 +67,7 @@ def countBumps (prog : () -> {Counter} ()) : Nat :=
   run 0
 
 -- A callback passed to a helper as a lambda that calls a member with all
--- its arguments: `\x -> stepBy k x` relates `k` to `walk`'s parameter.
+-- its arguments: `\x => stepBy k x` relates `k` to `walk`'s parameter.
 def walk : Nat -> Nat
   | 0      => 0
   | Succ k => applyTo (\x => stepBy k x) 1

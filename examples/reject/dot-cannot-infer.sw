@@ -1,6 +1,6 @@
 -- expect-error: E-CANNOT-INFER
 -- In the plain call the lambda is checked before `people`, when `p`'s type
--- isn't known yet. `people.map (\p -> p.name)` checks `people` first.
+-- isn't known yet. `people.map (\p => p.name)` checks `people` first.
 
 type Person = { name : Text }
 
