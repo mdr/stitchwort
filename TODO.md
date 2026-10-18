@@ -133,8 +133,13 @@ capability we know we'll need before the work that needs it):
    ([declaration-syntax.md](docs/proposals/declaration-syntax.md)): the
    parser rewrites new forms into today's, so hashes must stay identical;
    `:=` bodies, `| … =>` cases; a text-editing converter migrates all
-   code. The user agreed with all nine recommendations;
-   out for external review. Also queued after the switch: `&&`/`||` and
+   code. The user agreed with all nine recommendations.
+   Reviewed (proceed); draft 2 adopts it (`7f13ce7`): exact-arity arms,
+   `()` header → `_`, distinct header/implicit names, mixed-style
+   declarations refused, multi-layer migration check. Lanes A (parser,
+   Opus), B1 (converter, Opus), B2 (checker, Sonnet), C (convert files),
+   D (Rust tests, docs), E (remove old syntax), F (playground), G
+   (`where`). Also queued after the switch: `&&`/`||` and
    a Prop-aware `not`.
 4. **Advent of Code 2025, early days** — the medium-term goal. Plan
    (user, 18 Oct): day 1 done (`aoc/day01.sw`, both answers right,
