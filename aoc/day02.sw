@@ -24,9 +24,9 @@ def solve (ranges : List Range) : (Nat, Nat) := (total twice ranges, total weigh
 
 def total (w : Nat -> Int) (ranges : List Range) : Nat :=
   ranges
-    |> List.map (Range.invalid w)
-    |> List.sumInt
-    |> Int.toNat
+    |> .map (.invalid w)
+    |> .sumInt
+    |> .toNat
 
 -- A range of ids, both ends included.
 type Range = { lo : Nat, hi : Nat }
@@ -37,13 +37,13 @@ def Range.parse (t : Text) : Maybe Range :=
     | _                  => Nothing
 
 def parseRanges (t : Text) : List Range :=
-  t.trim.split ',' |> List.mapMaybe Range.parse
+  t.trim.split ',' |> .mapMaybe Range.parse
 
 -- The sum of the ids in the range that are a k-digit block written n times.
 -- m is the multiplier: 12 written 3 times is 12 * 10101, and 10101 is
 -- 1 + 10^2 + 10^4.
 def Range.repeated (r : Range) (k : Nat) (n : Nat) : Nat :=
-  let m := List.range n |> List.sumBy (\i => Nat.pow 10 (k * i))
+  let m := List.range n |> .sumBy (\i => Nat.pow 10 (k * i))
   if m != 0 then
     let lo := Nat.max (Nat.pow 10 (k - 1)) ((r.lo + m - 1) / m)
     let hi := Nat.min (Nat.pow 10 k - 1) (r.hi / m)
@@ -70,11 +70,11 @@ def Range.invalid (w : Nat -> Int) (r : Range) : Int :=
   let size := (Nat.digits r.hi).length
   def terms (k : Nat) : List Int :=
     List.rangeFrom 9 2
-      |> List.filter (\n => k * n <= size)
-      |> List.map (\n => w n * (r.repeated k n).toInt)
+      |> .filter (\n => k * n <= size)
+      |> .map (\n => w n * (r.repeated k n).toInt)
   List.rangeFrom size 1
-    |> List.concatMap terms
-    |> List.sumInt
+    |> .concatMap terms
+    |> .sumInt
 
 -- Examples -----------------------------------------------------------------
 

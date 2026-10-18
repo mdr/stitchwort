@@ -13,7 +13,7 @@
 
 use crate::ast::{
     Alt, BinOp, Binder, CtorDecl, Decl, Expr, Import, LocalDef, MatchKind, Module, Name, Pattern,
-    Row, Scrutinee,
+    Row, SECTION, Scrutinee,
 };
 use crate::lexer::{Tok, Token, lex};
 use crate::stack::StackLimit;
@@ -1420,7 +1420,7 @@ impl<'t> Parser<'t> {
                 }
                 rhs
             };
-            lhs = Expr::Pipe(Box::new(lhs), Box::new(rhs));
+            lhs = piped(lhs, rhs);
         }
         *operand = lhs;
         Ok(())
@@ -1518,12 +1518,49 @@ impl<'t> Parser<'t> {
     }
 
     fn app(&mut self) -> Result<Expr> {
+        // A section's arguments are its own: `.drop 1` is `\x => x.drop 1`.
+        let section = self.peek() == Some(&Tok::Dot);
         let mut expr = self.atom()?;
         while self.starts_atom() {
+            if self.peek() == Some(&Tok::Dot) && self.tokens[self.pos].line_start {
+                return Err(self.section_line());
+            }
             let arg = self.atom()?;
+            if section && let Expr::Lam(_, body, span) = &mut expr {
+                *span = span.to(arg.span());
+                let f = std::mem::replace(&mut **body, Expr::Hole(Span::NOWHERE));
+                **body = Expr::App(Box::new(f), Box::new(arg));
+                continue;
+            }
             expr = Expr::App(Box::new(expr), Box::new(arg));
         }
         Ok(expr)
+    }
+
+    /// A line starting with `.name`, as an argument of the line before.
+    #[inline(never)]
+    fn section_line(&self) -> Diagnostic {
+        error(
+            self.tokens[self.pos].span,
+            "a line can't start with a method section",
+        )
+        .with_note(
+            "`.name` on its own line would be an argument of the line above, not a call on \
+             it: continue a pipeline with `|> .name`, or write `(.name)` to pass the section",
+        )
+    }
+
+    /// Whether a method section `.name` starts at token `i`: a `.` right
+    /// before a name, not right after the atom before it (that's a field,
+    /// `p.name`).
+    fn section_at(&self, i: usize) -> bool {
+        let (Some(dot), Some(next)) = (self.tokens.get(i), self.tokens.get(i + 1)) else {
+            return false;
+        };
+        dot.tok == Tok::Dot
+            && matches!(next.tok, Tok::Lower(_))
+            && dot.span.end == next.span.start
+            && (i == 0 || self.tokens[i - 1].span.end != dot.span.start)
     }
 
     fn starts_atom(&self) -> bool {
@@ -1542,14 +1579,16 @@ impl<'t> Parser<'t> {
                     | Tok::LBrace
                     | Tok::Underscore
             )
-        )
+        ) || (self.peek() == Some(&Tok::Dot) && self.section_at(self.pos))
     }
 
     /// An atom followed by any field accesses, `p.address.city`. The `.` is
     /// written with no space on either side.
     fn atom(&mut self) -> Result<Expr> {
+        let section = self.peek() == Some(&Tok::Dot);
+        let start = self.here();
         let mut expr = self.atom_base()?;
-        while self.peek() == Some(&Tok::Dot) {
+        while self.peek() == Some(&Tok::Dot) && !self.section_at(self.pos) {
             let dot = self.tokens[self.pos].span;
             let field = match self.tokens.get(self.pos + 1) {
                 Some(Token {
@@ -1574,7 +1613,42 @@ impl<'t> Parser<'t> {
             self.pos += 2;
             expr = Expr::Field(Box::new(expr), field);
         }
+        if section {
+            let span = start.to(expr.span());
+            let param = Name {
+                text: SECTION.into(),
+                span: start,
+            };
+            expr = Expr::Lam(vec![param], Box::new(expr), span);
+        }
         Ok(expr)
+    }
+
+    /// `.name`, starting a method section: its body's start, `%section.name`.
+    #[inline(never)]
+    fn section_start(&mut self) -> Result<Expr> {
+        let dot = self.bump().span;
+        let field = match self.tokens.get(self.pos) {
+            Some(Token {
+                tok: Tok::Lower(text),
+                span,
+                ..
+            }) if span.start == dot.end && !text.contains('.') && self.peek().is_some() => Name {
+                text: text.clone(),
+                span: *span,
+            },
+            _ => {
+                return Err(error(dot, "expected a name right after `.`").with_note(
+                    "`.name args` is a method section, the function `\\x => x.name args`",
+                ));
+            }
+        };
+        self.pos += 1;
+        let recv = Expr::Var(Name {
+            text: SECTION.into(),
+            span: dot,
+        });
+        Ok(Expr::Field(Box::new(recv), field))
     }
 
     /// `{ name = e, age }` (a literal; `age` is punned) or `{ base | age = e }`
@@ -1709,9 +1783,34 @@ impl<'t> Parser<'t> {
                 Ok(Expr::List(items, span.to(end)))
             }
             Some(Tok::LBrace) => self.record_expr(),
+            Some(Tok::Dot) => self.section_start(),
             _ => Err(self.unexpected("an expression")),
         }
     }
+}
+
+/// `lhs |> rhs`; when `rhs` is a method section, the call it stands for on
+/// `lhs`: `xs |> .drop 1` is `xs.drop 1`, with no function in between.
+#[inline(never)]
+fn piped(lhs: Expr, mut rhs: Expr) -> Expr {
+    if rhs.section_name().is_none() {
+        return Expr::Pipe(Box::new(lhs), Box::new(rhs));
+    }
+    let Expr::Lam(_, body, _) = &mut rhs else {
+        unreachable!("a section is a lambda");
+    };
+    let mut body = std::mem::replace(&mut **body, Expr::Hole(Span::NOWHERE));
+    let mut slot: &mut Expr = &mut body;
+    while !matches!(slot, Expr::Field(r, _) if matches!(&**r, Expr::Var(v) if v.text == SECTION)) {
+        match slot {
+            Expr::App(f, _) | Expr::Field(f, _) => slot = f,
+            _ => unreachable!("a section's body is a call on its parameter"),
+        }
+    }
+    if let Expr::Field(r, _) = slot {
+        **r = lhs;
+    }
+    body
 }
 
 fn describe(tok: &Tok) -> String {
@@ -1868,7 +1967,7 @@ mod tests {
         assert!(matches!(&e, Expr::Field(inner, _) if matches!(**inner, Expr::Field(..))));
         assert!(matches!(expression("(f x).age").unwrap(), Expr::Field(..)));
         // No spaces around the dot, and a field name after it.
-        for bad in ["p .name", "p. name", "p.Name", "p.1"] {
+        for bad in ["p. name", "p.Name", "p.1"] {
             assert!(expression(bad).is_err(), "{bad}");
         }
     }
@@ -2817,6 +2916,84 @@ mod tests {
         ];
         for (text, want) in cases {
             assert_eq!(pipe_shape(text), want, "{text}");
+        }
+    }
+
+    fn section_shape(text: &str) -> String {
+        pshape(&expression(text).unwrap())
+    }
+
+    #[test]
+    fn a_method_section_is_a_lambda_over_a_dot_call() {
+        let cases = [
+            (".name", "(\\%section %section.name)"),
+            // The head section takes its arguments.
+            (".drop 1", "(\\%section (%section.drop 1))"),
+            (".fold a b", "(\\%section ((%section.fold a) b))"),
+            // Chains.
+            (".name.length", "(\\%section %section.name.length)"),
+            // As an argument it takes none, unless it's in brackets.
+            (
+                "List.map .name ps",
+                "((List.map (\\%section %section.name)) ps)",
+            ),
+            (
+                "ps.map (.greet h)",
+                "(ps.map (\\%section (%section.greet h)))",
+            ),
+            ("(.split c)", "(\\%section (%section.split c))"),
+            // A space before the dot makes it a section; none, a field.
+            ("f p .name", "((f p) (\\%section %section.name))"),
+            ("f p.name", "(f p.name)"),
+        ];
+        for (text, want) in cases {
+            assert_eq!(section_shape(text), want, "{text}");
+        }
+    }
+
+    #[test]
+    fn a_section_in_a_pipe_is_a_plain_dot_call() {
+        // No lambda and no `Pipe`: the same tree as writing the calls out.
+        let cases = [
+            ("xs |> .drop 1", "(xs.drop 1)"),
+            ("xs |> .name", "xs.name"),
+            ("xs |> .drop 1 |> .sum", "(xs.drop 1).sum"),
+            ("xs |> .name.length", "xs.name.length"),
+            ("xs |> .drop 1 |> f", "(|> (xs.drop 1) f)"),
+        ];
+        for (text, want) in cases {
+            assert_eq!(section_shape(text), want, "{text}");
+        }
+        assert_eq!(section_shape("xs |> .drop 1"), section_shape("xs.drop 1"));
+        assert_eq!(
+            section_shape("xs |> .drop 1 |> .sum"),
+            section_shape("(xs.drop 1).sum")
+        );
+    }
+
+    #[test]
+    fn a_pipe_line_may_start_with_a_section() {
+        let want = "(x.map f).sum";
+        assert_eq!(pipe_body("  x\n    |> .map f\n    |> .sum"), want);
+        assert_eq!(pipe_body("  x\n  |> .map f\n  |> .sum"), want);
+        assert_eq!(pipe_body("  x |> .map f\n    |> .sum"), want);
+    }
+
+    #[test]
+    fn a_line_cant_start_with_a_section_as_an_argument() {
+        let err = parse_error("def g (x : Nat) : Nat :=\n  foo x\n    .map f\n");
+        assert!(
+            err.message
+                .contains("a line can't start with a method section"),
+            "{}",
+            err.message
+        );
+    }
+
+    #[test]
+    fn a_section_needs_a_lowercase_name_right_after_the_dot() {
+        for bad in [". name", ".Name", ".1", "(. name)", "f .Name"] {
+            assert!(expression(bad).is_err(), "{bad}");
         }
     }
 

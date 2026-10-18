@@ -421,6 +421,9 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             let ty = cx.eval(&ty)?;
             Ok((cx.fresh_meta(), ty))
         }
+        Expr::Lam(..) if expr.section_name().is_some() => {
+            Err(crate::dot::section_unknown(cx, expr))
+        }
         Expr::Lam(..) => Err(cx.error(
             "E-CANNOT-INFER",
             "can't work out the type of this function",
@@ -701,8 +704,29 @@ pub(crate) fn apply_args_with(
     supply: &mut Supply,
 ) -> Result<(Term, Value)> {
     let (mut term, mut ty) = head;
-    for arg in args {
+    let mut postponed = Vec::new();
+    for (i, arg) in args.iter().enumerate() {
         match arg {
+            Arg::Explicit(value) if value.section_name().is_some() => {
+                (term, ty) = insert_with(cx, term, ty, supply)?;
+                let (dom, cod) = function_parts(cx, &ty)?;
+                let later = args[i + 1..]
+                    .iter()
+                    .any(|a| matches!(a, Arg::Explicit(_) | Arg::Piped(_)));
+                if !later || !unknown_domain(cx, &dom)? {
+                    let value = check(cx, value, &dom)?;
+                    ty = cod.apply_lazy(cx.g(), || eval(cx.g(), &cx.env, &value))?;
+                    term = Term::app(term, value);
+                    continue;
+                }
+                // `List.map .position ds`: what `.position` takes is
+                // known once `ds` is, so the section is checked last.
+                let meta = cx.fresh_meta();
+                let placeholder = cx.eval(&meta)?;
+                ty = cod.apply(cx.g(), placeholder.clone())?;
+                term = Term::app(term, meta);
+                postponed.push((*value, dom, placeholder));
+            }
             Arg::Named(name, value) => {
                 (term, ty) = insert_until(cx, term, ty, name, supply)?;
                 let Value::Pi(_, icit, dom, cod) = force(cx.g(), ty.clone())? else {
@@ -736,7 +760,27 @@ pub(crate) fn apply_args_with(
             }
         }
     }
+    for (value, dom, placeholder) in postponed {
+        let checked = check(cx, value, &dom)?;
+        let checked = cx.eval(&checked)?;
+        if !cx.unify(&checked, &placeholder)? {
+            return Err(cx.mismatch(&placeholder, &checked));
+        }
+    }
     Ok((term, ty))
+}
+
+/// Whether `ty` is a function type whose parameter's type isn't known yet:
+/// a method section checked against it couldn't look its name up.
+fn unknown_domain(cx: &Ctx, ty: &Value) -> Result<bool> {
+    let g = cx.g();
+    Ok(match force(g, ty.clone())? {
+        Value::Pi(_, _, dom, _) => {
+            matches!(force(g, (*dom).clone())?, Value::Neutral(Head::Meta(_), _))
+        }
+        Value::Neutral(Head::Meta(_), _) => true,
+        _ => false,
+    })
 }
 
 /// The domain and codomain of `ty`, a function type with an explicit

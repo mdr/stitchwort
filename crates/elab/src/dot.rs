@@ -13,7 +13,7 @@ use std::rc::Rc;
 use stitchwort_core::value::{Head, eval, force};
 use stitchwort_core::{DataId, DefId, Globals, Icit, Term, Value};
 use stitchwort_syntax::Diagnostic;
-use stitchwort_syntax::ast::{Expr, Name as AstName};
+use stitchwort_syntax::ast::{Expr, Name as AstName, SECTION};
 
 use crate::check::{Arg, Ctx, Result, apply_args, check, implicit_arg, infer, insert};
 use crate::{Global, scope};
@@ -220,6 +220,10 @@ fn namespace(cx: &Ctx, h: TyHead) -> String {
 /// How to show the receiver in messages.
 fn shown(recv: &Expr) -> String {
     match recv {
+        Expr::Var(n) if n.text == SECTION => "the section's argument".to_string(),
+        Expr::Field(e, f) if matches!(&**e, Expr::Var(n) if n.text == SECTION) => {
+            format!("`.{}`", f.text)
+        }
         Expr::Var(n) => format!("`{}`", n.text),
         Expr::Field(e, f) => match &**e {
             Expr::Var(n) => format!("`{}.{}`", n.text, f.text),
@@ -295,6 +299,9 @@ fn find(cx: &Ctx, recv: &Expr, field: &AstName, mut ty: Ty) -> Result<(TyHead, D
     let mut tried: Vec<TyHead> = Vec::new();
     loop {
         match step(g, ty)? {
+            Step::Unknown if matches!(recv, Expr::Var(n) if n.text == SECTION) => {
+                return Err(section_unknown_name(cx, field));
+            }
             Step::Unknown => {
                 return Err(cx
                     .error(
@@ -397,6 +404,27 @@ fn find(cx: &Ctx, recv: &Expr, field: &AstName, mut ty: Ty) -> Result<(TyHead, D
             }
         }
     }
+}
+
+/// A method section whose argument's type isn't known: `let f := .drop 1`.
+pub(crate) fn section_unknown(cx: &Ctx, section: &Expr) -> Diagnostic {
+    let name = section.section_name().expect("a section");
+    section_unknown_name(cx, name)
+}
+
+fn section_unknown_name(cx: &Ctx, field: &AstName) -> Diagnostic {
+    cx.error(
+        "E-CANNOT-INFER",
+        format!("can't tell what `.{}` is applied to", field.text),
+        "the type of the value this section takes isn't known here",
+    )
+    .with_note(format!(
+        "`.{f} …` is `\\x => x.{f} …`, and `{f}` is looked up in the namespace of `x`'s \
+         type, so that type must be known: pipe a value into it (`xs |> .{f} …`), pass it \
+         where a function of a known type is expected, or annotate it, as in \
+         `(.{f} … : List Nat -> List Nat)`",
+        f = field.text
+    ))
 }
 
 /// The namespaces tried, for messages: "`Price` or `Nat`".
