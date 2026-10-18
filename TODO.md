@@ -159,8 +159,9 @@ capability we know we'll need before the work that needs it):
    AoC days 4–5 on hold (user, 18 Oct): the user is
    reviewing the day 1–3 code first. Pipe-forward `|>` merged (`d97591a`: value as
    last argument, left checked first so lambdas infer; looser than `=`);
-   lane `pipe-friendly-lib` (Sonnet) making the library's main value come
-   last; then rewrite days 1–3 with `|>` and the user's review
+   library main-value-last (`1434622`:
+   `Maybe.andThen`, `List.get` reordered; the rest already were). Lane
+   `aoc-rewrite` (Opus + Sonnet) rewriting days 1–3 with all review notes; then rewrite days 1–3 with `|>` and the user's review
    changes. Review notes so far: keep `Text.uncons` but write
    `t.uncons` (dot notation) — generally prefer dot notation and
    `rest.toNat`-style calls where they read better; `parseTurn` via
