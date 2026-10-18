@@ -2234,7 +2234,7 @@ const TEXT_NATIVES: &[(Builtin, TextNative, &str)] = &[
     (
         Builtin::TextToNat,
         TextNative::TextToNat,
-        "6f3e064ab8dbdcf57f149a0c9faa6c8ac0b7955092501093bf001649ab690cd7",
+        "f65fa1b41e24317fcc47ace2d99792acb90d4fb6c2c20fcce87456f52866606a",
     ),
 ];
 
@@ -2499,7 +2499,7 @@ const INT_NATIVES: &[(Builtin, IntNative, &str)] = &[
     (
         Builtin::TextToInt,
         IntNative::TextToInt,
-        "37fa173e81ef699f570b342f7309110a7d91386fb86b7e38b4706414c83f1d79",
+        "781b23a7fb6081b6151cdf5d2b9ab5d2e14ad6c6f690cc86d1cb7b426bfca3fc",
     ),
 ];
 

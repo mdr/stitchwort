@@ -18,7 +18,7 @@
 -- A range of ids, both ends included.
 def parseRange (t : Text) : Maybe (Nat, Nat) :=
   match Text.split '-' t with
-    | Cons a (Cons b Nil) => Maybe.andThen (Text.toNat a) (\x => Maybe.map (\y => (x, y)) (Text.toNat b))
+    | Cons a (Cons b Nil) => Maybe.andThen (\x => Maybe.map (\y => (x, y)) (Text.toNat b)) (Text.toNat a)
     | _                   => Nothing
 
 def parseRanges (t : Text) : List (Nat, Nat) := (Text.split ',' (Text.trim t)).mapMaybe parseRange
