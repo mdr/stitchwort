@@ -475,6 +475,11 @@ theorem Nat.ltAddCong : (d : Nat) -> (a : Nat) -> (b : Nat) -> a < b -> d + a < 
   | Zero, a, b, h => h
   | Succ d, a, b, h => Nat.ltAddCong d a b h
 
+theorem Nat.leMulRight : (a : Nat) -> (b : Nat) -> (c : Nat) -> a <= b -> a * c <= b * c
+  | Zero,   b,      c, h => rfl
+  | Succ a, Zero,   c, h => Void.exfalso (Bool.falseNotTrue h)
+  | Succ a, Succ b, c, h => Nat.leAddCong c (a * c) (b * c) (Nat.leMulRight a b c h)
+
 theorem Nat.addSubCancel : (d : Nat) -> (n : Nat) -> d <= n -> d + (n - d) = n
   | Zero, n, h => rfl
   | Succ d, Zero, h => Void.exfalso (Bool.falseNotTrue h)
@@ -708,6 +713,12 @@ def Ordering.isLess : Ordering -> Bool
 def Nat.min (m : Nat) (n : Nat) : Nat := if Nat.leq m n then m else n
 
 def Nat.max (m : Nat) (n : Nat) : Nat := if Nat.leq m n then n else m
+
+theorem Nat.minLeft (m : Nat) (n : Nat) (h : m <= n) : Nat.min m n = m :=
+  J (\b q => Bool.ifThenElse b (\u => m) (\u => n) = m) rfl (Eq.sym h)
+
+theorem Nat.minRight (m : Nat) (n : Nat) (h : Nat.leq m n = False) : Nat.min m n = n :=
+  J (\b q => Bool.ifThenElse b (\u => m) (\u => n) = n) rfl (Eq.sym h)
 
 -- The distance between two numbers; `(a - b) + (b - a)`, as one of them is 0.
 def Nat.absDiff (m : Nat) (n : Nat) : Nat := (m - n) + (n - m)
@@ -1065,6 +1076,30 @@ theorem List.occurrencesTrue : (xs : List a) -> List.occurrences (\x => True) xs
   | Cons x xs => Eq.cong Succ (List.occurrencesTrue xs)
 
 theorem List.permLength (xs : List a) (ys : List a) (h : List.Perm xs ys) : List.length xs = List.length ys := Eq.trans (Eq.sym (List.occurrencesTrue xs)) (Eq.trans (h (\x => True)) (List.occurrencesTrue ys))
+
+-- `s` is `xs` with some elements left out, the rest kept in order: each
+-- element of `s` is matched with an element of `xs`, or `xs`'s first element
+-- is skipped.
+def List.Subsequence : List a -> List a -> Prop
+  | Nil,       ys        => Unit
+  | Cons x xs, Nil       => Void
+  | Cons x xs, Cons y ys => Or (And (x = y) (List.Subsequence xs ys)) (List.Subsequence (Cons x xs) ys)
+
+-- Adding an element in front keeps every subsequence.
+theorem List.subsequenceCons (x : a) : (s : List a) -> (ys : List a) -> List.Subsequence s ys -> List.Subsequence s (Cons x ys)
+  | Nil,      ys, h => Trivial
+  | Cons y s, ys, h => Inr h
+
+theorem List.subsequenceRefl : (xs : List a) -> List.Subsequence xs xs
+  | Nil       => Trivial
+  | Cons x xs => Inl (Both rfl (List.subsequenceRefl xs))
+
+theorem List.subsequenceLength : (s : List a) -> (ys : List a) -> List.Subsequence s ys -> List.length s <= List.length ys
+  | Nil,       ys,        h              => rfl
+  | Cons x xs, Nil,       h              => Void.exfalso h
+  | Cons x xs, Cons y ys, Inl (Both e h) => List.subsequenceLength xs ys h
+  | Cons x xs, Cons y ys, Inr h          =>
+    Nat.leTrans (List.length (Cons x xs)) (List.length ys) (Succ (List.length ys)) (List.subsequenceLength (Cons x xs) ys h) (Nat.leSucc (List.length ys))
 
 theorem List.mergeCount (le : a -> a -> Bool) (p : a -> Bool) : (xs : List a) -> (ys : List a) ->
     List.occurrences p (List.merge le xs ys) = List.occurrences p xs + List.occurrences p ys
@@ -1985,6 +2020,22 @@ def Nat.digits (n : Nat) : List Nat := Nat.digitsFuel (Succ n) n Nil
 -- above 9 carry into their neighbours: it is `Nat.digits`'s inverse only on
 -- real digit lists.
 def Nat.fromDigits (ds : List Nat) : Nat := List.foldl (\acc d => acc * 10 + d) 0 ds
+
+-- `Nat.fromDigits` starting from `a` instead of 0: `a` is shifted left past
+-- every digit.
+theorem Nat.fromDigitsFrom : (a : Nat) -> (ds : List Nat) ->
+    List.foldl (\acc d => acc * 10 + d) a ds = a * Nat.pow 10 (List.length ds) + Nat.fromDigits ds
+  | a, Nil       => Eq.sym (Eq.trans (Nat.addZero (a * 1)) (Nat.mulOne a))
+  | a, Cons d ds =>
+    Eq.trans (Nat.fromDigitsFrom (a * 10 + d) ds)
+      (Eq.trans (Eq.cong (\t => t + Nat.fromDigits ds) (Nat.mulDistribRight (a * 10) d (Nat.pow 10 (List.length ds))))
+        (Eq.trans (Nat.addAssoc ((a * 10) * Nat.pow 10 (List.length ds)) (d * Nat.pow 10 (List.length ds)) (Nat.fromDigits ds))
+          (Eq.trans (Eq.cong (\t => t + (d * Nat.pow 10 (List.length ds) + Nat.fromDigits ds)) (Nat.mulAssoc a 10 (Nat.pow 10 (List.length ds))))
+            (Eq.cong (\t => a * (10 * Nat.pow 10 (List.length ds)) + t) (Eq.sym (Nat.fromDigitsFrom d ds))))))
+
+-- The first digit counts 10^n, for the n digits after it.
+theorem Nat.fromDigitsCons (d : Nat) (ds : List Nat) :
+  Nat.fromDigits (Cons d ds) = d * Nat.pow 10 (List.length ds) + Nat.fromDigits ds := Nat.fromDigitsFrom d ds
 
 
 theorem Nat.digitsZero : Nat.digits 0 = [0] := rfl
