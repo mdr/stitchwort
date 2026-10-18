@@ -28,9 +28,12 @@ this file.
 The main session orchestrates: it chooses lanes, hands each to a background
 agent, then reviews, merges and updates this file.
 
-Running:
+Running: `day3-proofs` (Opus: `best` is a valid, right-length, optimal
+pick), `char-patterns` (Sonnet: `| 'L' =>` patterns).
 
-Waiting on a decision: nothing.
+Waiting on a decision: nothing. The user is reviewing day 1; their notes
+are collected and applied in one pass afterwards (so far: inline
+`Dial.place` into `Dial.wrap`; `turnOf` as a `match` on chars).
 
 ## Next
 
@@ -205,8 +208,8 @@ capability we know we'll need before the work that needs it):
      `base * 10101…`); (b) part 1 equals the brute-force sum of doubled
      ids; part 2's Möbius inclusion–exclusion: no proof, a brute-force
      cross-check test on many small ranges instead.
-   Running: lane `lambda-postpone` (plain lambdas checked after the
-   arguments that fix their type). The user is reviewing day 1. Plan
+   Lambda postponing merged (`39665ae`: `List.map (\p => p.name) people`
+   infers). Plan
    (user, 18 Oct): day 1 done (`aoc/day01.sw`, both answers right,
    0.7 s; `IO.readAllLines`, `Nat.digits` added; friction write-up in
    aoc-2025.md: no `let` patterns (step 4 running), `type Dial = (Nat,
@@ -244,6 +247,10 @@ capability we know we'll need before the work that needs it):
    Write up the friction found.
 
 ## Later
+
+- **Lambda postponing in effectful calls:** arguments that perform
+  operations are applied one at a time, so a lambda there can't wait
+  for a later argument. Leave unless it bites.
 
 - **Language server** for `.sw` (live errors, hover types, go to
   definition): later (user, 18 Oct). Lane `vscode-ext` (Sonnet) is
