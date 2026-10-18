@@ -11,5 +11,5 @@ expression: output
    │ 
    │ Note 1: `rfl` proves `a = b` only when both sides compute to the same value
    │ 
-   │ Note 2: number patterns only test values: an equation with a variable or `_` where the others have numbers knows nothing about `n`, not even that it's a different number. To use the shape of `n`, match on `Zero` and `Succ` instead
+   │ Note 2: number patterns only test values: an arm with a variable or `_` where the others have numbers knows nothing about `n`, not even that it's a different number. To use the shape of `n`, match on `Zero` and `Succ` instead
 ───╯

@@ -189,14 +189,11 @@ fixed.
 The review's example:
 
 ```
-outer : Nat -> Nat
-outer offset = first 0
+def outer (offset : Nat) : Nat := first 0
   where
-    first : Nat -> Nat
-    first x = second x
+    def first (x : Nat) : Nat := second x
 
-    second : Nat -> Nat
-    second x = offset + x
+    def second (x : Nat) : Nat := offset + x
 ```
 
 `C(second) = {offset}` by rule 1; `first` calls `second`, so by rule 3
@@ -204,11 +201,9 @@ outer offset = first 0
 result:
 
 ```
-outer.first : Nat -> Nat -> Nat
-outer.first offset x = outer.second offset x
-outer.second : Nat -> Nat -> Nat
-outer.second offset x = offset + x
-outer offset = outer.first offset 0
+def outer.first (offset : Nat) (x : Nat) : Nat := outer.second offset x
+def outer.second (offset : Nat) (x : Nat) : Nat := offset + x
+def outer (offset : Nat) : Nat := outer.first offset 0
 ```
 
 **Order of the captured parameters:** by context position (the order the
@@ -369,17 +364,15 @@ A `where` block follows an equation, indented, and holds local
 declarations, indented further:
 
 ```
-solve : List Text -> Nat
-solve ls = go 0 ls
+def solve (ls : List Text) : Nat := go 0 ls
   where
-    go : Nat -> List Text -> Nat
-    go acc Nil         = acc
-    go acc (Cons l ls) = go (acc + score l) ls
+    def go (acc : Nat) : List Text -> Nat
+      | Nil       => acc
+      | Cons l ls => go (acc + score l) ls
 
-    score : Text -> Nat
-    score l = textLength l * weight
+    def score (l : Text) : Nat := textLength l * weight
 
-    weight = 3
+    def weight := 3
 ```
 
 **Allowed in a `where` block** (review finding 7: an explicit list, not
@@ -425,19 +418,18 @@ captures computed by §2.1 and admitted by §2.2.
 
 ```
 -- written
-index : (xs : List a) -> (target : a) -> (eq : a -> a -> Bool) -> Maybe Nat
-index xs target eq = go 0 xs
+def index (xs : List a) (target : a) (eq : a -> a -> Bool) : Maybe Nat := go 0 xs
   where
-    go : Nat -> List a -> Maybe Nat
-    go i Nil         = Nothing
-    go i (Cons y ys) = if eq y target then Just i else go (i + 1) ys
+    def go (i : Nat) : List a -> Maybe Nat
+      | Nil       => Nothing
+      | Cons y ys => if eq y target then Just i else go (i + 1) ys
 
 -- what the compiler makes of it
-index.go : [a : Type] -> (target : a) -> (eq : a -> a -> Bool) -> Nat -> List a -> Maybe Nat
-index.go target eq i Nil         = Nothing
-index.go target eq i (Cons y ys) = if eq y target then Just i else index.go target eq (i + 1) ys
+def index.go [a : Type] (target : a) (eq : a -> a -> Bool) (i : Nat) : List a -> Maybe Nat
+  | Nil       => Nothing
+  | Cons y ys => if eq y target then Just i else index.go target eq (i + 1) ys
 
-index xs target eq = index.go [a := a] target eq 0 xs
+def index (xs : List a) (target : a) (eq : a -> a -> Bool) : Maybe Nat := index.go [a := a] target eq 0 xs
 ```
 
 Captures are computed after the equation's patterns are known: in
@@ -471,12 +463,11 @@ of `()` or move to top level.
 that leads back to it, including a cycle through a local function:
 
 ```
-outer n = cached
+def outer (n : Nat) : Nat := cached
   where
-    cached = helper n
+    def cached := helper n
 
-    helper : Nat -> Nat
-    helper x = cached
+    def helper (x : Nat) : Nat := cached
 ```
 
 Lifting `helper` would make `cached` one of its arguments, so computing
@@ -532,15 +523,13 @@ owner's abilities, and does so in that order, before the right-hand side.
 and be used by the owner's right-hand side:
 
 ```
-sumTo : Nat -> Nat
-sumTo n = go n 0
+def sumTo (n : Nat) : Nat := go n 0
   where
-    go : Nat -> Nat -> Nat
-    go 0        acc = acc
-    go (Succ k) acc = go k (acc + Succ k)
+    def go : Nat -> Nat -> Nat
+      | 0,        acc => acc
+      | Succ k,   acc => go k (acc + Succ k)
 
-    theorem goAcc : (k a : Nat) -> go k a = go k 0 + a
-    goAcc … = …
+    theorem goAcc (k a : Nat) : go k a = go k 0 + a := …
 ```
 
 `go` doesn't call the owner, so it's admitted first (§3.3) and the lemma's
@@ -551,7 +540,7 @@ cycle: `E-MUTUAL-SIGNATURE`).
 **Outside**, a top-level theorem can name the lifted function:
 
 ```
-theorem sumToGo : (k a : Nat) -> sumTo.go k a = sumTo.go k 0 + a
+theorem sumToGo (k a : Nat) : sumTo.go k a = sumTo.go k 0 + a := …
 ```
 
 `go` captures nothing here, so `sumTo.go` has just `go`'s own parameters.
@@ -604,12 +593,11 @@ Nat -> Nat` that type has no namespace, so `sumTo.go` is an error today
 ### 4.1 Syntax
 
 ```
-describe : List Nat -> Text
-describe xs =
+def describe (xs : List Nat) : Text :=
   match xs with
-    | Nil        -> "empty"
-    | Cons x Nil -> "one"
-    | _          -> "many"
+    | Nil        => "empty"
+    | Cons x Nil => "one"
+    | _          => "many"
 ```
 
 - `match e with` followed by alternatives `| pattern -> expression`, lined
@@ -653,11 +641,10 @@ generated, so there's no motive to infer: refinement is the existing
 substitution (§1).
 
 ```
-theorem appendNil : (xs : List a) -> append xs Nil = xs
-appendNil xs =
+theorem appendNil (xs : List a) : append xs Nil = xs :=
   match xs with
-    | Nil       -> rfl
-    | Cons y ys -> cong (Cons y) (appendNil ys)
+    | Nil       => rfl
+    | Cons y ys => cong (Cons y) (appendNil ys)
 ```
 
 compiles to the same tree as the two equations `appendNil Nil = rfl` and
@@ -672,17 +659,17 @@ definition calling itself in tail position, which the JS generator's
 ### 4.4 Lifted into a helper
 
 ```
--- written, inside  f : (n : Nat) -> List Nat -> Nat
-f n xs = 1 + match xs with
-               | Nil      -> n
-               | Cons x _ -> x + n
+-- written, inside  def f (n : Nat) (xs : List Nat) : Nat
+def f (n : Nat) (xs : List Nat) : Nat := 1 + match xs with
+               | Nil      => n
+               | Cons x _ => x + n
 
 -- made
-f.%match1 : Nat -> List Nat -> Nat
-f.%match1 n Nil        = n
-f.%match1 n (Cons x _) = x + n
+def f.%match1 (n : Nat) : List Nat -> Nat
+  | Nil       => n
+  | Cons x _  => x + n
 
-f n xs = 1 + f.%match1 n xs
+def f (n : Nat) (xs : List Nat) : Nat := 1 + f.%match1 n xs
 ```
 
 The helper takes its captures (§2.1) and its scrutinees, and has one
@@ -785,10 +772,9 @@ Review finding 1's pair, both lifted (the `1 +` keeps them out of tail
 position, so §4.3 doesn't apply):
 
 ```
-count : Nat -> Nat
-count n = 1 + match n with
-                | Zero   -> 0
-                | Succ k -> count k
+def count (n : Nat) : Nat := 1 + match n with
+                | Zero   => 0
+                | Succ k => count k
 ```
 
 `count` passes its parameter `n` unchanged to `count.%match1`, which calls
@@ -796,10 +782,9 @@ count n = 1 + match n with
 count` decreases, so it's **accepted**.
 
 ```
-loop : Nat -> Nat
-loop n = 1 + match Succ n with
-               | Zero   -> 0
-               | Succ k -> loop k
+def loop (n : Nat) : Nat := 1 + match Succ n with
+               | Zero   => 0
+               | Succ k => loop k
 ```
 
 `loop` passes the new value `Succ n` to `loop.%match1`. Its field `k` is
@@ -1058,11 +1043,11 @@ error (not seen in practice). The pretty-printing of a lifted call as
 ### 5.1 Syntax and the rule
 
 ```
-let (q, r) = divMod n 7
-let { pos, atZero, .. } = acc
-let MkPair a b = p
-foldl (\acc (k, v) -> acc + v) 0 entries
-map (\{ name, .. } -> name) people
+let (q, r) := divMod n 7
+let { pos, atZero, .. } := acc
+let MkPair a b := p
+foldl (\acc (k, v) => acc + v) 0 entries
+map (\{ name, .. } => name) people
 ```
 
 **The one authoritative rule** (review finding 9): a pattern binding is
@@ -1343,8 +1328,7 @@ for valid input; `decode(encode(v))` gives back `v`):
 ```
 type Rot = { dir : Dir, amount : Nat }
 
-parse : Nat -> Maybe Nat -> Maybe Rot
-parse n m = maybeThen m (\x -> Just { dir = TL, amount = n + x })   -- E-CANNOT-INFER
+def parse (n : Nat) (m : Maybe Nat) : Maybe Rot := maybeThen m (\x => Just { dir = TL, amount = n + x })   -- E-CANNOT-INFER
 ```
 
 A record literal with no known type is an error

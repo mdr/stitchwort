@@ -1,1 +1,0 @@
--- not converted: line 3: equations for `double` without a signature before them

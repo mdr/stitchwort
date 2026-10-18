@@ -249,8 +249,7 @@ can't define `length`, `append`, `not`, `fst`, … The test
 ```
 -- expect-error: E-DUPLICATE
 -- `length` is already defined by the prelude.
-length : Nat
-length = 0
+def length : Nat := 0
 ```
 
 To leave room for user names, the text operations got prefixes
@@ -584,12 +583,11 @@ type Geometry.Shape =
   | Square (side : Nat)
   | Rect (width : Nat) (height : Nat)
 
-Geometry.Shape.area : Geometry.Shape -> Nat
-Geometry.Shape.area (Square s) = s * s
-Geometry.Shape.area (Rect w h) = w * h
+def Geometry.Shape.area : Geometry.Shape -> Nat
+  | Square s => s * s
+  | Rect w h => w * h
 
-theorem Geometry.Shape.areaSquare : (s : Nat) -> Geometry.Shape.area (Square s) = s * s
-…
+theorem Geometry.Shape.areaSquare (s : Nat) : Geometry.Shape.area (Square s) = s * s := …
 ```
 
 **The qualifier is resolved the way it is in an expression** (§4.4).
@@ -917,7 +915,7 @@ position.
 t.length              -- Text.length t
 xs.length             -- List.length xs
 line.split ','        -- Text.split ',' line
-xs.map (\x -> x * 2)  -- List.map (\x -> x * 2) xs
+xs.map (\x => x * 2)  -- List.map (\x -> x * 2) xs
 n.toText              -- Nat.toText n
 p.name                -- the field (Person.name p)
 p.name.length         -- Text.length (Person.name p)
@@ -998,9 +996,9 @@ fine. Its type is then also allowed to depend on the receiver.
 This makes dot notation infer *better* than the plain call:
 
 ```
-names = List.map (\p -> p.name) people   -- E-CANNOT-INFER: the lambda is checked first,
+def names := List.map (\p => p.name) people   -- E-CANNOT-INFER: the lambda is checked first,
                                          -- when `p`'s type is still unknown
-names = people.map (\p -> p.name)        -- fine: `people : List Person` is elaborated
+def names := people.map (\p => p.name)        -- fine: `people : List Person` is elaborated
                                          -- first, so `p : Person` is known
 ```
 
@@ -1104,8 +1102,7 @@ message; the exact wording is for implementation.
 import List (length)
 import Text (length)
 
-count : List Nat -> Nat
-count xs = length xs
+def count (xs : List Nat) : Nat := length xs
 ```
 ```
 error[E-AMBIGUOUS]: `length` could mean `List.length` or `Text.length`
@@ -1154,8 +1151,8 @@ error[E-IMPORT-CLASH]: `map` is imported, but this file also defines `map`
 ```
 error[E-CANNOT-INFER]: can't tell what `p` is, so can't look up `.name`
    |
- 3 | names = List.map (\p -> p.name) people
-   |                         ^^^^^^ `p`'s type isn't known yet here
+ 3 | def names := List.map (\p => p.name) people
+   |                              ^^^^^^ `p`'s type isn't known yet here
    = note: annotate it, `\(p : Person) -> p.name`, or write `people.map (\p -> p.name)`
 ```
 
@@ -1282,14 +1279,11 @@ really depend on each other into one component:
 type Shape = { name : Text }
 type Tile  = { shape : Shape }
 
-Shape.label : Shape -> Text
-Shape.label s = s.name
+def Shape.label (s : Shape) : Text := s.name
 
-Tile.label : Tile -> Text
-Tile.label t = t.shape.describe
+def Tile.label (t : Tile) : Text := t.shape.describe
 
-Shape.describe : Shape -> Text
-Shape.describe s = s.label         -- means Shape.label, but `.label` also
+def Shape.describe (s : Shape) : Text := s.label         -- means Shape.label, but `.label` also
                                    -- adds an edge to Tile.label
 ```
 
@@ -1314,11 +1308,9 @@ induction-recursion. The reviewer's example:
 ```
 type A = { value : Nat }
 
-make : Nat -> A
-make n = { value = n }
+def make (n : Nat) : A := { value = n }
 
-measure : Nat -> Nat
-measure n = (make n).value
+def measure (n : Nat) : Nat := (make n).value
 
 type B = { value : Nat, ok : measure 0 = 0 }
 ```

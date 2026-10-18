@@ -1046,8 +1046,8 @@ Anything else that moves stops the lane, which reports it.
 
 ### 5.5a The converter as built (lane B)
 
-`crates/convert` (library and binary `stitchwort-convert`; deleted after
-the switch). It reads a file with today's parser and lexer
+`crates/convert` (library and binary `stitchwort-convert`; **deleted** after
+the docs were converted, see git history, commit before the one that removes it). It reads a file with today's parser and lexer
 (`stitchwort_syntax::lex` is now public for it) and edits the text at
 token spans, following §5.3; every edit is located by the parsed tree and
 checked against the token it replaces, and anything unexpected fails the
@@ -1208,7 +1208,13 @@ stops and reports it.
 - **Tests.** `crates/syntax/tests/declarations.rs` (60) and
   `crates/driver/tests/declaration_syntax.rs` (16).
 
-**Left for later lanes:**
+**Done afterwards (lane E, with the tidy-up):** `E-ARM-PARAMETER` for an arm
+with more patterns than arguments after the colon when the header names
+parameters (reject example `arm-matches-parameter.sw`; the `:=`-plus-arms
+parse error keeps its `E-PARSE` code and its note); `E-MISSING-SIGNATURE`
+removed; "equation" messages reworded to "arm"; playground colouring.
+
+**Left for later lanes (as of lane A):**
 
 - `E-ARM-PARAMETER`. Today `:=` followed by arms is a parse error ("a
   definition has a `:=` body or arms, not both"), and more patterns than

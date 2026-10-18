@@ -175,8 +175,7 @@ Normalisation, if it's ever added, is a separately named operation, never part o
 A Unicode scalar value: a code point from 0 to 0x10FFFF, excluding the surrogates 0xD800–0xDFFF. Reserved, private-use and noncharacter code points, and NUL, are all included, as in Rust's `char`.
 
 ```
-IsScalar : Nat -> Bool
-IsScalar n = leq n 1114111 && not (leq 55296 n && leq n 57343)
+def IsScalar (n : Nat) : Bool := leq n 1114111 && not (leq 55296 n && leq n 57343)
 
 type Char : Type =
   | MkChar (code : Nat) (valid : IsScalar code = True)
@@ -277,7 +276,7 @@ ability IO where
 ```
 -- Runs a program against scripted input lines. Records each `print`
 -- payload, in order, and the result.
-simulate : List Text -> (() -> {IO | e} a) -> {e} Pair (List Text) a
+def simulate : List Text -> (() -> {IO | e} a) -> {e} Pair (List Text) a
 ```
 
 - **It records operation payloads.** `print "a\nb"` is one entry containing a newline, not two display lines.

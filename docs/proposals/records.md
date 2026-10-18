@@ -580,19 +580,17 @@ their order is a matter of taste (question U3).
 ```
 type Person = { name : Text, age : Nat }
 
-alice : Person
-alice = { name = "Alice", age = 30 }
+def alice : Person := { name = "Alice", age = 30 }
 
-birthday : Person -> Person
-birthday p = { p | age = p.age + 1 }
+def birthday (p : Person) : Person := { p | age = p.age + 1 }
 
-describe : Person -> Text
-describe { name, age } = name ++ " is " ++ natToText age
+def describe : Person -> Text
+  | { name, age } => name ++ " is " ++ natToText age
 
 -- Parameters and dependent fields, as for data types.
 type Sized (a : Type) = { items : List a, size : Nat, ok : length items = size }
 
-IsSorted : List Nat -> Prop
+def IsSorted : List Nat -> Prop
 type SortedList = { items : List Nat, sorted : IsSorted items }
 ```
 
@@ -1087,14 +1085,13 @@ their generated projections.
 ### 8.1 Surface
 
 ```
-divMod : (n d : Nat) -> [auto ok : d != 0] -> { quotient : Nat, remainder : Nat }
-divMod n d = { quotient = n / d, remainder = n % d }
+def divMod (n d : Nat) [auto ok : d != 0] : { quotient : Nat, remainder : Nat } :=
+  { quotient = n / d, remainder = n % d }
 
 -- The same type, written in another order:
-check : { remainder : Nat, quotient : Nat } -> Bool
-check r = r.remainder < 10
+def check (r : { remainder : Nat, quotient : Nat }) : Bool := r.remainder < 10
 
-test "order doesn't matter" = check (divMod 7 3)
+test "order doesn't matter" := check (divMod 7 3)
 
 -- An alias is a definition:
 Point : Type
@@ -1196,15 +1193,13 @@ derived `HasField` evidence reads them.
 ### 9.1 Surface
 
 ```
-greet : { name : Text | r } -> Text
-greet x = "Hello, " ++ x.name
+def greet (x : { name : Text | r }) : Text := "Hello, " ++ x.name
 
-birthday : { age : Nat | r } -> { age : Nat | r }
-birthday p = { p | age = p.age + 1 }
+def birthday (p : { age : Nat | r }) : { age : Nat | r } := { p | age = p.age + 1 }
 
 -- Works on declared and anonymous records alike:
-test "greet" = greet alice == "Hello, Alice"
-test "greet anon" = greet { name = "Bob", shoeSize = 9 } == "Hello, Bob"
+test "greet" := greet alice == "Hello, Alice"
+test "greet anon" := greet { name = "Bob", shoeSize = 9 } == "Hello, Bob"
 ```
 
 The type variable `r` stands for **the whole record type**, constrained to
@@ -1231,12 +1226,10 @@ updates `name` (`{ x | name = … }` with `x : r`) asks for `CanSetField` as
 well. So
 
 ```
-greet : [r : Type] -> [auto has : HasField.name r Text] -> r -> Text
-greet x = "Hello, " ++ HasField.name.get has x
+def greet [r : Type] [auto has : HasField.name r Text] (x : r) : Text := "Hello, " ++ HasField.name.get has x
 
-birthday : [r : Type] -> [auto has : HasField.age r Nat] ->
-  [auto set : CanSetField.age r Nat] -> r -> r
-birthday p = CanSetField.age.set set (HasField.age.get has p + 1) p
+def birthday [r : Type] [auto has : HasField.age r Nat]
+  [auto set : CanSetField.age r Nat] (p : r) : r := CanSetField.age.set set (HasField.age.get has p + 1) p
 ```
 
 This matters for records with invariants: a function that only reads `items`

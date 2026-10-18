@@ -305,13 +305,13 @@ None of these can be written today:
 
 ```
 -- Functions that call each other
-even : Nat -> Bool
-even 0        = True
-even (Succ n) = odd n
+def even : Nat -> Bool
+  | 0      => True
+  | Succ n => odd n
 
-odd : Nat -> Bool            -- `odd` isn't in scope in `even`
-odd 0        = False
-odd (Succ n) = even n
+def odd : Nat -> Bool            -- `odd` isn't in scope in `even`
+  | 0      => False
+  | Succ n => even n
 ```
 
 ```
@@ -325,12 +325,12 @@ type Forest : Type =
   | FCons (first : Tree) (rest : Forest)
 
 -- …and functions over them
-size : Tree -> Nat
-size (Node _ ks) = 1 + sizeForest ks
+def size : Tree -> Nat
+  | Node _ ks => 1 + sizeForest ks
 
-sizeForest : Forest -> Nat
-sizeForest FNil          = 0
-sizeForest (FCons t ts)  = size t + sizeForest ts
+def sizeForest : Forest -> Nat
+  | FNil       => 0
+  | FCons t ts => size t + sizeForest ts
 ```
 
 The natural single type `type Rose = Node (label : Nat) (kids : List Rose)`
@@ -428,13 +428,13 @@ Stitchwort's core (§6.4).
 
 ```
 mutual
-  even : Nat -> Bool
-  even 0        = True
-  even (Succ n) = odd n
+  def even : Nat -> Bool
+    | 0      => True
+    | Succ n => odd n
 
-  odd : Nat -> Bool
-  odd 0        = False
-  odd (Succ n) = even n
+  def odd : Nat -> Bool
+    | 0      => False
+    | Succ n => even n
 ```
 
 This is Lean, Idris and (in old style) Agda. It fits the current layout rule
@@ -912,9 +912,9 @@ says what to write:
 
 ```
 [E-TERMINATION] `g` is used here without all its arguments
-  f (Node l k) = mapForest (g k) xs
+  | Node l k => mapForest (g k) xs
                             ^^^^^ `g` takes 2 arguments; it's given 1
-  = write `\x -> g k x` so the call can be checked
+  = write `\x => g k x` so the call can be checked
 ```
 
 There is **no automatic eta-expansion pass**, as the review advised: an
@@ -1089,7 +1089,7 @@ each unfolding along a cycle peels a real constructor off a value". That is
 false for the wrapper example the proposal itself accepts:
 
 ```
-countdown n = step n
+def countdown (n : Nat) : Nat := step n
 ```
 
 Unfolding `countdown x` (no `case`, so it unfolds even on an unknown `x`)

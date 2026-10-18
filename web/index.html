@@ -409,8 +409,8 @@ def average (total : Nat) (count : Nat) : [auto ok : count != 0] -> Nat := total
 
 def averageOfThree : Nat := average 12 3
 
--- Try: `ratio n d = n / d` (can't be decided before the program runs), or
--- `oops = 7 / 0` (false). Evaluate `safeDiv 9 0` in the Evaluate tab.
+-- Try: `def ratio (n d : Nat) : Nat := n / d` (can't be decided before the
+-- program runs), or `def oops : Nat := 7 / 0` (false). Evaluate `safeDiv 9 0` in the Evaluate tab.
 </script>
 
 <script type="text/plain" id="ex-tests" data-title="Tests">-- Tests are `Bool` expressions that must be `True`. The command-line tool
@@ -875,6 +875,7 @@ export def area : Shape -> Nat
   async function render() {
     const current = ++rendering;
     const src = source.value;
+    delete output.dataset.for;
     if (view === "run") {
       output.replaceChildren(...runPanel);
       runStale.hidden = ranSource === null || ranSource === src;
@@ -915,8 +916,9 @@ export def area : Shape -> Nat
       const result = await ask({ action: "test", source: src });
       if (current !== rendering || !result) return;
       output.replaceChildren();
+      output.dataset.for = src; // which source these results are for (the browser tests wait on it)
       if (result.tests.length === 0) {
-        output.append(el("p", { className: "hint" }, 'No tests yet. Add one: test "name" = leq (1 + 1) 2'));
+        output.append(el("p", { className: "hint" }, 'No tests yet. Add one: test "name" := leq (1 + 1) 2'));
         return;
       }
       const list = el("ul", { className: "tests" });
@@ -974,9 +976,9 @@ export def area : Shape -> Nat
   // that may contain `'`, and string and character literals that end at the
   // closing quote or the end of the line, with `\` escaping the next
   // character. `auto` is only a keyword as the first word in `[…]`, as in
-  // the parser. A name at the start of a line, or after `theorem`, is being
-  // defined. One pass over the text, so a long paste stays quick.
-  const KEYWORDS = new Set(["type", "theorem", "export", "test", "if", "then", "else",
+  // the parser. A name after `def` or `theorem` is being defined; `:=` and
+  // `=>` are coloured as operators, like the rest of the punctuation. One pass over the text, so a long paste stays quick.
+  const KEYWORDS = new Set(["type", "def", "theorem", "export", "test", "if", "then", "else",
                             "ability", "where", "handle", "with", "match", "return", "let", "Type", "Prop"]);
   const KINDS = ["keyword", "name", "defined", "number", "string", "comment", "operator"];
   const isWordStart = (c) => (c >= "a" && c <= "z") || (c >= "A" && c <= "Z") || c === "_";
@@ -994,13 +996,12 @@ export def area : Shape -> Nat
       kind = k; from = start; to = end;
     };
     let i = 0;
-    let lineStart = 0;
     let previous = "";
     while (i < text.length) {
       const c = text[i];
       const start = i;
       if (c === "\n") {
-        lineStart = ++i;
+        i++;
       } else if (c === " " || c === "\r" || c === "\t") {
         i++;
       } else if (c === "-" && text[i + 1] === "-") {
@@ -1011,8 +1012,8 @@ export def area : Shape -> Nat
         while (i < text.length && isWord(text[i])) i++;
         const word = text.slice(start, i);
         const k = KEYWORDS.has(word) || (word === "auto" && previous === "[") ? "keyword"
+          : word !== "_" && (previous === "def" || previous === "theorem") ? "defined"
           : c >= "A" && c <= "Z" ? "name"
-          : word !== "_" && (start === lineStart || previous === "theorem") ? "defined"
           : "";
         if (k) add(k, start, i);
         previous = word;

@@ -61,11 +61,10 @@ Two counterexamples show that "handlers that resume at most once" doesn't guaran
 ability Ping where
   ping : () -> {Ping} ()
 
-bad : (() -> {Ping} a) -> a
-bad prog =
+def bad (prog : () -> {Ping} a) : a :=
   handle prog () with
-    | return x     -> x
-    | ping () => k -> bad prog
+    | return x     => x
+    | ping (), k => bad prog
 
 -- Landin's knot: a stored function that reads itself back.
 ability Cell where
@@ -118,8 +117,8 @@ Kernel acceptance can't show that a program does the right thing, so these tests
 The test program:
 
 ```
-p () =
-  let b = choose ()
+def p () :=
+  let b := choose ()
   if b then put 1 else ()
   get ()
 ```
@@ -152,13 +151,13 @@ type Comp (op : Type) (res : op -> Type) (a : Type) : Type =
   | Done (value : a)
   | Call (o : op) (rest : res o -> Comp op res a)
 
-foldComp : (a -> r) -> ((o : op) -> (res o -> r) -> r) -> Comp op res a -> r
-foldComp done call (Done x)      = done x
-foldComp done call (Call o rest) = call o (\y -> foldComp done call (rest y))
+def foldComp (done : a -> r) (call : (o : op) -> (res o -> r) -> r) : Comp op res a -> r
+  | Done x      => done x
+  | Call o rest => call o (\y => foldComp done call (rest y))
 
-bind : Comp op res a -> (a -> Comp op res b) -> Comp op res b
-bind (Done x)      next = next x
-bind (Call o rest) next = Call o (\y -> bind (rest y) next)
+def bind : Comp op res a -> (a -> Comp op res b) -> Comp op res b
+  | Done x,      next => next x
+  | Call o rest, next => Call o (\y => bind (rest y) next)
 ```
 
 - **`foldComp` is the eliminator handlers are justified by.** `call` receives the operation together with the results of folding every way it could continue, packaged as a function. It may use that function any number of times.

@@ -54,14 +54,15 @@ A native replaces a definition, so it must compute exactly what the definition d
 The first native `decEqNat` didn't meet it. The definition recursed with `decSucc`, so `decEqNat 3 5` computed a `No` holding a refutation three `succInjective` steps deep, while the native gave `No (natNeq 3 5 rfl)`; `rfl` couldn't prove a copy of the definition equal to the native on `3 5`. Building the definition's own refutation natively would make it as deep as the smaller number, which defeats a native. So the definition changed instead, to one whose result is small:
 
 ```
-decEqNatFrom : (m : Nat) -> (n : Nat) -> (b : Bool) -> eqNat m n = b -> Decidable (m = n)
-decEqNatFrom m n True  h = Yes (eqNatSound m n h)
-decEqNatFrom m n False h = No (natNeq m n h)
+def decEqNatFrom (m : Nat) (n : Nat) : (b : Bool) -> eqNat m n = b -> Decidable (m = n)
+  | True,  h => Yes (eqNatSound m n h)
+  | False, h => No (natNeq m n h)
 
-decEqNat Zero     Zero     = Yes rfl
-decEqNat Zero     (Succ n) = No (natNeq 0 (Succ n) rfl)
-decEqNat (Succ m) Zero     = No (natNeq (Succ m) 0 rfl)
-decEqNat (Succ m) (Succ n) = decEqNatFrom (Succ m) (Succ n) (eqNat m n) rfl
+def decEqNat : (m : Nat) -> (n : Nat) -> Decidable (m = n)
+  | Zero,   Zero   => Yes rfl
+  | Zero,   Succ n => No (natNeq 0 (Succ n) rfl)
+  | Succ m, Zero   => No (natNeq (Succ m) 0 rfl)
+  | Succ m, Succ n => decEqNatFrom (Succ m) (Succ n) (eqNat m n) rfl
 ```
 
 For two numbers this computes `Yes rfl` (`eqNatSound m m rfl` unfolds to `rfl`) or `No (natNeq m n rfl)` (`natNeq` needs a fourth argument, so it stays as it is), which is what the native returns. `eqNatSound` is native too, giving `rfl` when its two numbers are equal, whatever its proof argument; otherwise the `Yes` would count down. It matches on both numbers only so that it waits for them, as before: unfolding `decEqNat x 0` around an unknown `x` would copy `x` into two places in elaborated decisions and so in generated JS.

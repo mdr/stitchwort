@@ -488,18 +488,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "stitchwort-convert"
-version = "0.1.0"
-dependencies = [
- "clap",
- "insta",
- "stitchwort-core",
- "stitchwort-driver",
- "stitchwort-elab",
- "stitchwort-syntax",
-]
-
-[[package]]
 name = "stitchwort-core"
 version = "0.1.0"
 dependencies = [
