@@ -52,6 +52,10 @@ pub struct Report {
     /// Signatures without equations (line, name), written as a header with
     /// no body: the prelude's primitives, and reject examples.
     pub bodiless: Vec<(usize, String)>,
+    /// Header `()`s written for a column whose equations bound an unused
+    /// variable (definition, column): `()` lowers to `_`, so the tree has
+    /// `_` where the old one had the variable.
+    pub unit_wildcards: Vec<(String, usize)>,
 }
 
 impl Report {
@@ -62,6 +66,8 @@ impl Report {
         self.tests += other.tests;
         self.completions.extend(other.completions.iter().cloned());
         self.bodiless.extend(other.bodiless.iter().cloned());
+        self.unit_wildcards
+            .extend(other.unit_wildcards.iter().cloned());
     }
 
     pub fn declarations(&self) -> usize {
@@ -188,8 +194,12 @@ pub fn convert_module(text: &str, arities: Option<&Arities>) -> Result<Converted
             Decl::Data { .. } | Decl::Ability { .. } => i += 1,
         }
     }
-    let text = lexes(src.finish()?)?;
-    Ok(Converted { text, report })
+    let converted = lexes(src.finish(false)?)?;
+    check_ast_equivalence(text, &src.finish(true)?, &report)?;
+    Ok(Converted {
+        text: converted,
+        report,
+    })
 }
 
 /// Converts an expression on its own (a snippet that isn't a module):
@@ -201,7 +211,7 @@ pub fn convert_expression(text: &str) -> Result<String, String> {
     let expr = parse_expression(file, text).map_err(|d| describe(text, &d))?;
     let mut src = Src::new(text, toks);
     src.expr(&expr)?;
-    lexes(src.finish()?)
+    lexes(src.finish(false)?)
 }
 
 /// A check on the output: it must still lex (the edits only add tokens the
@@ -345,14 +355,144 @@ pub struct HtmlBlock {
     pub outcome: Result<Converted, String>,
 }
 
-/// TODO(switch lane): once the new-syntax parser (lane A) is on main, check
-/// each conversion by parsing the output with it and comparing the lowered
-/// tree with the old parser's tree of the input (spans and form markers
-/// aside), via lane A's AST-equivalence harness. Expected differences: arms
-/// completed for exact arity (`Report::completions`) and header `()`, which
-/// lowers to `_`. Until then the tests compare text with golden files.
-pub fn check_ast_equivalence(_old: &str, _new: &str) -> Option<Result<(), String>> {
-    None
+/// Checks a conversion (§5.4 layer 8): `new`, read by the new-syntax parser,
+/// must lower to the tree the old parser reads from `old`, declaration by
+/// declaration, spans and arm markers aside (lane A's
+/// `stitchwort_syntax::equivalence`). The expected differences, from
+/// `report`: definitions completed for exact arity, whose equations differ
+/// on purpose (their signatures must still agree), and header `()`s for an
+/// unused variable, which lower to `_`.
+pub fn check_ast_equivalence(old: &str, new: &str, report: &Report) -> Result<(), String> {
+    use stitchwort_syntax::Syntax;
+    use stitchwort_syntax::ast::Module;
+    use stitchwort_syntax::equivalence::shape;
+
+    let parse = |syntax, text: &str| {
+        let mut sources = SourceMap::new();
+        let file = sources.add("input.sw", text);
+        stitchwort_syntax::parse_module_in(syntax, file, text, stitchwort_syntax::DEFAULT_STACK)
+            .map_err(|ds| {
+                ds.iter()
+                    .map(|d| describe(text, d))
+                    .collect::<Vec<_>>()
+                    .join("; ")
+            })
+    };
+    let mut old_module = parse(Syntax::Old, old)?;
+    // Headers without a body are left out of `new` (see `Src::finish`).
+    old_module.decls.retain(|d| match d {
+        Decl::Signature { name, .. } => !report.bodiless.iter().any(|(_, n)| *n == name.text),
+        _ => true,
+    });
+    let new_module =
+        parse(Syntax::New, new).map_err(|e| format!("the output doesn't parse: {e}"))?;
+    let completed: HashSet<&str> = report.completions.iter().map(|c| c.name.as_str()).collect();
+    let one = |decl: &Decl| {
+        shape(&Module {
+            imports: Vec::new(),
+            decls: vec![decl.clone()],
+        })
+    };
+    let imports = |m: &Module| {
+        shape(&Module {
+            imports: m.imports.clone(),
+            decls: Vec::new(),
+        })
+    };
+    if imports(&old_module) != imports(&new_module) {
+        return Err("the imports differ".into());
+    }
+    if old_module.decls.len() != new_module.decls.len() {
+        return Err(format!(
+            "{} declarations before, {} after",
+            old_module.decls.len(),
+            new_module.decls.len()
+        ));
+    }
+    for (old_decl, new_decl) in old_module.decls.iter().zip(&new_module.decls) {
+        let mut old_decl = unname_spine(old_decl);
+        let new_decl = &unname_spine(new_decl);
+        if let Decl::Equation { name, patterns, .. } = &mut old_decl {
+            if completed.contains(name.text.as_str()) {
+                continue;
+            }
+            for (def, col) in &report.unit_wildcards {
+                if *def == name.text
+                    && let Some(p @ Pattern::Var(_)) = patterns.get_mut(*col)
+                {
+                    *p = Pattern::Wildcard(p.span());
+                }
+            }
+        }
+        let (a, b) = (one(&old_decl), one(new_decl));
+        if a != b {
+            let line = old[..old_decl.span().start as usize].matches('\n').count() + 1;
+            let at = a
+                .lines()
+                .zip(b.lines())
+                .position(|(x, y)| x != y)
+                .unwrap_or(0);
+            let excerpt = |s: &str| {
+                s.lines()
+                    .skip(at.saturating_sub(3))
+                    .take(6)
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            };
+            return Err(format!(
+                "the declaration at line {line} parses differently after conversion\n--- old:\n{}\n--- new:\n{}",
+                excerpt(&a),
+                excerpt(&b)
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// `decl` with its signature's explicit binders whose names aren't used in
+/// the rest of the type written as plain arrows: a header parameter
+/// `(x : A)` lowers to `(x : A) -> …` where the old signature said `A -> …`,
+/// which means the same (binder names aren't hashed).
+fn unname_spine(decl: &Decl) -> Decl {
+    let mut decl = decl.clone();
+    if let Decl::Signature { ty, .. } = &mut decl {
+        *ty = unname(ty);
+    }
+    decl
+}
+
+fn unname(ty: &Expr) -> Expr {
+    match ty {
+        Expr::Pi {
+            names,
+            implicit,
+            auto,
+            dom,
+            cod,
+            span,
+        } => {
+            let rest = unname(cod);
+            let shown = format!("{cod:?}");
+            let used = names
+                .iter()
+                .any(|n| shown.contains(&format!("text: {:?}", n.text)));
+            if *implicit || used {
+                return Expr::Pi {
+                    names: names.clone(),
+                    implicit: *implicit,
+                    auto: *auto,
+                    dom: dom.clone(),
+                    cod: Box::new(rest),
+                    span: *span,
+                };
+            }
+            names.iter().fold(rest, |acc, _| {
+                Expr::Arrow(Box::new((**dom).clone()), Box::new(acc))
+            })
+        }
+        Expr::Arrow(a, b) => Expr::Arrow(a.clone(), Box::new(unname(b))),
+        other => other.clone(),
+    }
 }
 
 fn describe(text: &str, d: &Diagnostic) -> String {
@@ -384,6 +524,8 @@ struct Src<'a> {
     comments: Vec<(usize, usize)>,
     fine: BTreeMap<usize, Edit>,
     coarse: Vec<Edit>,
+    /// Indices in `coarse` of headers without a body.
+    bodiless: Vec<usize>,
     /// Lambdas by start: the `\` token and the `->` token.
     lambdas: HashMap<u32, (usize, usize)>,
     /// Every lowercase name in the text, for choosing fresh ones.
@@ -460,6 +602,7 @@ impl<'a> Src<'a> {
             comments,
             fine: BTreeMap::new(),
             coarse: Vec::new(),
+            bodiless: Vec::new(),
             lambdas: HashMap::new(),
             names,
         }
@@ -592,8 +735,28 @@ impl<'a> Src<'a> {
         out
     }
 
-    fn finish(self) -> Result<String, String> {
-        let mut edits: Vec<&Edit> = self.coarse.iter().collect();
+    /// The edited text. With `blank_bodiless`, headers without a body are
+    /// left out, for the equivalence check (the new parser has no form for
+    /// them yet).
+    fn finish(&self, blank_bodiless: bool) -> Result<String, String> {
+        let blanks: Vec<Edit> = self
+            .bodiless
+            .iter()
+            .map(|&i| Edit {
+                text: String::new(),
+                ..self.coarse[i].clone()
+            })
+            .collect();
+        let mut edits: Vec<&Edit> = self
+            .coarse
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| !(blank_bodiless && self.bodiless.contains(i)))
+            .map(|(_, e)| e)
+            .collect();
+        if blank_bodiless {
+            edits.extend(&blanks);
+        }
         for f in self.fine.values() {
             let covered = self
                 .coarse
@@ -783,10 +946,16 @@ impl<'a> Src<'a> {
                                     self.line(i)
                                 ));
                             }
-                            // `=>` lands where `->` was, keeping clauses lined up.
+                            // `=>` lands where `->` was when the clauses were lined
+                            // up (spaces before the `->`); otherwise one space.
                             let head = format!(", {}", k.text);
                             let room = self.text[from..self.start(i + 1)].chars().count();
-                            let pad = room.saturating_sub(head.chars().count()).max(1);
+                            let lined_up = self.start(i + 1) - self.end(i) > 1;
+                            let pad = if lined_up {
+                                room.saturating_sub(head.chars().count()).max(1)
+                            } else {
+                                1
+                            };
                             self.fine_edit(
                                 from,
                                 self.start(i + 1),
@@ -1049,6 +1218,8 @@ impl<'a> Src<'a> {
             Pattern::Ctor(_, args, _) if !args.is_empty() && text.starts_with('(') => {
                 text[1..text.len() - 1].trim().to_string()
             }
+            // `[]`'s span is its `]` only.
+            Pattern::Nil(_) => "[]".to_string(),
             _ => text.to_string(),
         }
     }
@@ -1146,6 +1317,7 @@ impl<'a> Src<'a> {
                 end: self.end(sig_last),
                 text: header,
             });
+            self.bodiless.push(self.coarse.len() - 1);
             report.bodiless.push((line, name.text.clone()));
             return Ok(());
         }
@@ -1177,7 +1349,14 @@ impl<'a> Src<'a> {
             if col + width > max_named {
                 break;
             }
-            if self.comment_in(self.start(elems[taken].start), self.end(elem.arrow)) {
+            // From the end of what has moved so far (a comment between two
+            // arrows sits before the next binder's first token).
+            let from = if taken > 0 {
+                self.end(elems[taken - 1].arrow)
+            } else {
+                self.start(type_start)
+            };
+            if self.comment_in(from, self.end(elem.arrow)) {
                 break;
             }
             let Some(binder) = self.header_binder(elem, col, &eqs, tyr) else {
@@ -1188,6 +1367,9 @@ impl<'a> Src<'a> {
                     self.render(self.start(implicit.start), self.end(implicit.close)),
                     self.starts_line(implicit.start),
                 ));
+            }
+            if binder == "()" {
+                report.unit_wildcards.push((name.text.clone(), col));
             }
             binders.push((binder, self.starts_line(elem.start)));
             col += width;

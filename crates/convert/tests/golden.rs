@@ -5,21 +5,19 @@
 //! converted. `UPDATE_GOLDEN=1 cargo test -p stitchwort-convert` rewrites the
 //! outputs; review them before committing.
 //!
-//! TODO(switch lane): with the new-syntax parser on main, also parse each
-//! output and compare its lowered tree with the input's
-//! (`check_ast_equivalence`, wired to lane A's harness).
+//! `convert_module` itself checks that every output, read by the new-syntax
+//! parser, lowers to the input's tree (`check_ast_equivalence`), apart from
+//! the listed exact-arity completions; a failure there shows up here as a
+//! `-- not converted` output.
 
 use std::path::Path;
 
-use stitchwort_convert::{check_ast_equivalence, convert_module, elaborated_arities};
+use stitchwort_convert::{convert_module, elaborated_arities};
 
 fn expected_output(input: &str) -> String {
     let arities = elaborated_arities(input).ok();
     match convert_module(input, arities.as_ref()) {
         Ok(converted) => {
-            if let Some(Err(why)) = check_ast_equivalence(input, &converted.text) {
-                panic!("the conversion changes the syntax tree: {why}");
-            }
             let mut out = converted.text;
             let report = &converted.report;
             if !report.completions.is_empty() || !report.bodiless.is_empty() {
@@ -40,6 +38,14 @@ fn expected_output(input: &str) -> String {
     }
 }
 
+/// The inputs the converter must refuse.
+const MUST_FAIL: [&str; 4] = [
+    "no-signature",
+    "differing-patterns",
+    "comment-in-lhs",
+    "parse-error",
+];
+
 #[test]
 fn golden_files() {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/golden");
@@ -55,6 +61,15 @@ fn golden_files() {
     for input in &inputs {
         let text = std::fs::read_to_string(input).expect("readable input");
         let actual = expected_output(&text);
+        let stem = input
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .replace(".in.sw", "");
+        if actual.starts_with("-- not converted") != MUST_FAIL.contains(&stem.as_str()) {
+            failures.push(format!("{}: unexpectedly {actual}", input.display()));
+            continue;
+        }
         let out = input.to_string_lossy().replace(".in.sw", ".out.sw");
         if update {
             std::fs::write(&out, &actual).expect("writable output");

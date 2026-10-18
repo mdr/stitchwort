@@ -19,4 +19,4 @@ def runState (init : s) (prog : () -> {State s | e} a) : {e} Pair a s :=
 def runSwap (prog : () -> {Swap | e} Nat) : {e} Nat :=
   handle prog () with
     | return x => x
-    | swap p, k   => k (Pair.fst p + Pair.snd p)
+    | swap p, k => k (Pair.fst p + Pair.snd p)

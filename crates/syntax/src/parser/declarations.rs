@@ -95,7 +95,13 @@ impl Parser<'_> {
     #[inline(never)]
     fn definition(&mut self, start: Span, export: bool) -> Result<Vec<Decl>> {
         let keyword = &self.tokens[self.pos];
-        let column = keyword.column;
+        // D (§2.10) is the column of the declaration's first keyword:
+        // `export`'s, when it's there.
+        let column = if export {
+            self.tokens[self.pos - 1].column
+        } else {
+            keyword.column
+        };
         let theorem = keyword.tok == Tok::KwTheorem;
         self.bump();
         let name = self.def_name()?;

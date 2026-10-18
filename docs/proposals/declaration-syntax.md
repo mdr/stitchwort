@@ -1092,7 +1092,7 @@ Choices the note left open, as implemented:
   gives the all-arms form; one inside an equation's left-hand side fails
   the file.
 
-Dry run on `db26c01` (all inputs; web/index.html counts its 6 examples):
+Dry run after merging lane A (all inputs; web/index.html counts its 6 examples):
 276 of 280 convert; 1689 definitions (1002 `:=`, 687 with arms, 842 of
 all with named header parameters) and 519 tests.
 
@@ -1115,9 +1115,23 @@ all with named header parameters) and 519 tests.
    hand): `examples/reject/char-surrogate.sw`,
    `else-left-of-its-if.sw`, `tuple-annotation.sw`,
    `tuple-one-element.sw`.
-4. **AST equivalence**: `stitchwort_convert::check_ast_equivalence` is a
-   stub (returns `None`) where lane A's harness plugs in; the golden test
-   (`crates/convert/tests/golden.rs`) already calls it on every output.
+4. **AST equivalence** is checked on every conversion
+   (`stitchwort_convert::check_ast_equivalence`, using lane A's
+   `stitchwort_syntax::equivalence::shape` per declaration): the output,
+   read with `Syntax::New`, must lower to the input's tree. Allowed
+   differences: the equations of the definitions in item 2; a header
+   `()` where the equations bound an unused variable (`_` vs the
+   variable); headers without a body (item 1, left out of the check);
+   and an explicit binder whose name the rest of the type doesn't use,
+   compared as a plain arrow (`(n : Nat) -> B` vs `Nat -> B`; binder
+   names aren't hashed). A file that fails it isn't converted. All 276
+   inputs above pass, so the dry run is also the repository-wide
+   equivalence test.
+5. **Parser fix** (lane A's code, found by item 4): with `export`, D
+   (§2.10) is `export`'s column, not `def`'s; arms under `export def` at
+   column 2 were refused.
+6. `crates/driver/src/run.rs`'s two source strings (`MAIN_CALL` and the
+   one in `simulate`) are expressions; `--stdin` converts them.
 
 ### 5.6 The transition: no transition window, no hybrids
 
