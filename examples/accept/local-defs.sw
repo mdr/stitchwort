@@ -149,6 +149,20 @@ test "local in test" :=
   def three : Nat := 3
   three == 3
 
+-- In a condition: `if`, `&&`, `||` and `not` with local definitions, which
+-- are lifted after the body, so the condition is elaborated again once they
+-- are.
+def classify (x : Nat) : Nat :=
+  def double (y : Nat) : Nat := y + y
+  def small : Nat := 3
+  if double 2 == 4 && (double x < small && not (double x == 0) || x == 10) then 1 else 0
+
+test "classify" := classify 1 == 1 && classify 0 == 0 && classify 2 == 0 && classify 10 == 1
+
+test "local in test with &&" :=
+  def double (y : Nat) : Nat := y + y
+  double 2 == 4 && not (double 1 == 3)
+
 -- A `count`-style accumulator: termination is checked on the lifted helper.
 -- (The long run, as a JS loop, is in examples/extract/local-defs.sw: the
 -- differential test evaluates every example test with the recursive
