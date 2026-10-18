@@ -533,6 +533,79 @@ Nat.divMod n d ok = Eq.sym (Eq.trans (Eq.cong (\t -> t + (n - d * (n / d))) (Nat
 theorem Nat.modLess : (n : Nat) -> (d : Nat) -> (ok : d != 0) -> n % d < d
 Nat.modLess n d ok = Nat.subLtAdd n (d * (n / d)) d (Nat.divFuelLe n n d) (Nat.ltCongRight n (d * Succ (n / d)) (d + d * (n / d)) (Nat.mulSucc d (n / d)) (Nat.divFuelBound n n d ok (Nat.leRefl n)))
 
+-- Division with remainder is unique: if `n = q * d + r` and `r < d`, then
+-- `n / d = q` and `n % d = r`. Consequences for small numbers and for adding
+-- `d`, and a few facts about subtraction.
+theorem Nat.notBelowAdd : (d : Nat) -> (r : Nat) -> (m : Nat) -> r < d -> r = d + m -> Void
+Nat.notBelowAdd d r m h e = Nat.lessIrrefl r (Nat.leTrans (Succ r) d r h (Nat.leCongRight d (d + m) r (Eq.sym e) (Nat.leAddRight d m)))
+
+theorem Nat.quotUnique : (d : Nat) -> (q : Nat) -> (r : Nat) -> (q2 : Nat) -> (r2 : Nat) -> r < d -> r2 < d ->
+    q * d + r = q2 * d + r2 -> q = q2
+Nat.quotUnique d Zero     r Zero     r2 h1 h2 e = rfl
+Nat.quotUnique d Zero     r (Succ k) r2 h1 h2 e = Void.exfalso (Nat.notBelowAdd d r (k * d + r2) h1 (Eq.trans e (Nat.addAssoc d (k * d) r2)))
+Nat.quotUnique d (Succ a) r Zero     r2 h1 h2 e = Void.exfalso (Nat.notBelowAdd d r2 (a * d + r) h2 (Eq.trans (Eq.sym e) (Nat.addAssoc d (a * d) r)))
+Nat.quotUnique d (Succ a) r (Succ b) r2 h1 h2 e =
+  Eq.cong Succ (Nat.quotUnique d a r b r2 h1 h2
+    (Nat.addCancelLeft d (a * d + r) (b * d + r2) (Eq.trans (Eq.sym (Nat.addAssoc d (a * d) r)) (Eq.trans e (Nat.addAssoc d (b * d) r2)))))
+
+theorem Nat.divUnique : (n : Nat) -> (d : Nat) -> [auto ok : d != 0] -> (q : Nat) -> (r : Nat) -> r < d -> n = q * d + r -> n / d = q
+Nat.divUnique n d q r h e = Nat.quotUnique d (n / d) (n % d) q r (Nat.modLess n d ok) h (Eq.trans (Eq.sym (Nat.divMod n d ok)) e)
+
+theorem Nat.modUnique : (n : Nat) -> (d : Nat) -> [auto ok : d != 0] -> (q : Nat) -> (r : Nat) -> r < d -> n = q * d + r -> n % d = r
+Nat.modUnique n d q r h e =
+  Nat.addCancelLeft (q * d) (n % d) r
+    (J (\y p -> y * d + n % d = q * d + r) (Eq.trans (Eq.sym (Nat.divMod n d ok)) e) (Nat.divUnique n d q r h e))
+
+theorem Nat.modSmall : (n : Nat) -> (d : Nat) -> [auto ok : d != 0] -> n < d -> n % d = n
+Nat.modSmall n d h = Nat.modUnique n d 0 n h rfl
+
+theorem Nat.divSmall : (n : Nat) -> (d : Nat) -> [auto ok : d != 0] -> n < d -> n / d = 0
+Nat.divSmall n d h = Nat.divUnique n d 0 n h rfl
+
+theorem Nat.addDivModSelf : (d : Nat) -> (n : Nat) -> [auto ok : d != 0] -> d + n = Succ (n / d) * d + n % d
+Nat.addDivModSelf d n = Eq.trans (Eq.cong (\t -> d + t) (Nat.divMod n d ok)) (Eq.sym (Nat.addAssoc d ((n / d) * d) (n % d)))
+
+theorem Nat.addDivSelf : (d : Nat) -> (n : Nat) -> [auto ok : d != 0] -> (d + n) / d = Succ (n / d)
+Nat.addDivSelf d n = Nat.divUnique (d + n) d (Succ (n / d)) (n % d) (Nat.modLess n d ok) (Nat.addDivModSelf d n)
+
+theorem Nat.addModSelf : (d : Nat) -> (n : Nat) -> [auto ok : d != 0] -> (d + n) % d = n % d
+Nat.addModSelf d n = Nat.modUnique (d + n) d (Succ (n / d)) (n % d) (Nat.modLess n d ok) (Nat.addDivModSelf d n)
+
+theorem Nat.zeroSub : (n : Nat) -> 0 - n = 0
+Nat.zeroSub Zero     = rfl
+Nat.zeroSub (Succ n) = rfl
+
+theorem Nat.subEqZero : (n : Nat) -> (m : Nat) -> n <= m -> n - m = 0
+Nat.subEqZero Zero     m        h = Nat.zeroSub m
+Nat.subEqZero (Succ n) Zero     h = Void.exfalso (Bool.falseNotTrue h)
+Nat.subEqZero (Succ n) (Succ m) h = Nat.subEqZero n m h
+
+theorem Nat.addOne : (a : Nat) -> a + 1 = Succ a
+Nat.addOne a = Eq.trans (Nat.addSucc a 0) (Eq.cong Succ (Nat.addZero a))
+
+theorem Nat.modLt : (n : Nat) -> (d : Nat) -> [auto ok : d != 0] -> n % d < d
+Nat.modLt n d = Nat.modLess n d ok
+
+theorem Nat.modSelf : (d : Nat) -> [auto ok : d != 0] -> d % d = 0
+Nat.modSelf d = Nat.modUnique d d 1 0 (Nat.nonzeroPos d ok) (Eq.sym (Eq.trans (Nat.addZero (d + 0)) (Nat.addZero d)))
+
+theorem Nat.divOne : (n : Nat) -> n / 1 = n
+Nat.divOne n = Nat.divUnique n 1 n 0 rfl (Eq.sym (Eq.trans (Nat.addZero (n * 1)) (Nat.mulOne n)))
+
+theorem Nat.succAddSub : (m : Nat) -> (r : Nat) -> Succ (m + r) - m = Succ r
+Nat.succAddSub Zero     r = rfl
+Nat.succAddSub (Succ m) r = Nat.succAddSub m r
+
+theorem Nat.subSuccRight : (j : Nat) -> (t : Nat) -> Succ j <= t -> t - j = Succ (t - Succ j)
+Nat.subSuccRight j        Zero     h = Void.exfalso (Bool.falseNotTrue h)
+Nat.subSuccRight Zero     (Succ t) h = rfl
+Nat.subSuccRight (Succ j) (Succ t) h = Nat.subSuccRight j t h
+
+theorem Nat.succSub : (t : Nat) -> Succ t - t = 1
+Nat.succSub Zero     = rfl
+Nat.succSub (Succ t) = Nat.succSub t
+
+
 -- Lists, continued
 
 theorem List.lengthAppend : (xs : List a) -> (ys : List a) -> List.length (List.append xs ys) = List.length xs + List.length ys
@@ -954,6 +1027,40 @@ List.sortSorted xs = List.sortWithSorted Nat.leq Nat.leqTotal xs
 List.occurrences : (a -> Bool) -> List a -> Nat
 List.occurrences p Nil         = 0
 List.occurrences p (Cons x xs) = Bool.toNat (p x) + List.occurrences p xs
+
+-- `List.count` is `List.occurrences`, which suits proofs; counting and
+-- `List.scanl` over `++`. (`List.drop 1` drops the starting value.)
+theorem List.countStep : (b : Bool) -> (k : Nat) -> (o : Nat) -> (if b then Succ k else k) + o = k + (Bool.toNat b + o)
+List.countStep True  k o = Eq.sym (Nat.addSucc k o)
+List.countStep False k o = rfl
+
+theorem List.countFold : (p : a -> Bool) -> (k : Nat) -> (xs : List a) ->
+    List.foldl (\n x -> if p x then Succ n else n) k xs = k + List.occurrences p xs
+List.countFold p k Nil         = Eq.sym (Nat.addZero k)
+List.countFold p k (Cons x xs) = Eq.trans (List.countFold p (if p x then Succ k else k) xs) (List.countStep (p x) k (List.occurrences p xs))
+
+theorem List.countOccurrences : (p : a -> Bool) -> (xs : List a) -> List.count p xs = List.occurrences p xs
+List.countOccurrences p xs = List.countFold p 0 xs
+
+theorem List.occurrencesAppend : (p : a -> Bool) -> (xs : List a) -> (ys : List a) ->
+    List.occurrences p (List.append xs ys) = List.occurrences p xs + List.occurrences p ys
+List.occurrencesAppend p Nil         ys = rfl
+List.occurrencesAppend p (Cons x xs) ys =
+  Eq.trans (Eq.cong (\t -> Bool.toNat (p x) + t) (List.occurrencesAppend p xs ys))
+    (Eq.sym (Nat.addAssoc (Bool.toNat (p x)) (List.occurrences p xs) (List.occurrences p ys)))
+
+theorem List.scanlCons : (f : b -> a -> b) -> (z : b) -> (xs : List a) -> List.scanl f z xs = Cons z (List.drop 1 (List.scanl f z xs))
+List.scanlCons f z Nil         = rfl
+List.scanlCons f z (Cons x xs) = rfl
+
+theorem List.scanlAppend : (f : b -> a -> b) -> (z : b) -> (xs : List a) -> (ys : List a) ->
+    List.drop 1 (List.scanl f z (List.append xs ys)) = List.append (List.drop 1 (List.scanl f z xs)) (List.drop 1 (List.scanl f (List.foldl f z xs) ys))
+List.scanlAppend f z Nil         ys = rfl
+List.scanlAppend f z (Cons x xs) ys =
+  Eq.trans (List.scanlCons f (f z x) (List.append xs ys))
+    (Eq.trans (Eq.cong (Cons (f z x)) (List.scanlAppend f (f z x) xs ys))
+      (Eq.cong (\l -> List.append l (List.drop 1 (List.scanl f (List.foldl f (f z x) xs) ys))) (Eq.sym (List.scanlCons f (f z x) xs))))
+
 
 -- `xs` and `ys` are permutations of each other: every test is passed by as
 -- many elements of one as of the other. For elements with decidable equality
