@@ -2100,6 +2100,19 @@ impl Elaborator {
                     span: *span,
                 }))
             }
+            // `'L'` is `MkChar 76 _`.
+            Pattern::Char(c, span) => {
+                let (data, ctor) = self.builtin_ctor(Builtin::MkChar, *span)?;
+                Ok(Some(CtorPattern {
+                    data,
+                    ctor,
+                    args: vec![
+                        Cow::Owned(Pattern::Num(BigUint::from(u32::from(*c)), *span)),
+                        Cow::Owned(Pattern::Wildcard(*span)),
+                    ],
+                    span: *span,
+                }))
+            }
             Pattern::Num(n, span) => {
                 let (ctor, args) = if n.bits() == 0 {
                     (Builtin::Zero, Vec::new())
