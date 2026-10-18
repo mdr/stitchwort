@@ -136,10 +136,14 @@ capability we know we'll need before the work that needs it):
    code. The user agreed with all nine recommendations.
    Reviewed (proceed); draft 2 adopts it (`7f13ce7`): exact-arity arms,
    `()` header → `_`, distinct header/implicit names, mixed-style
-   declarations refused, multi-layer migration check. Lanes A (parser,
-   Opus), B1 (converter, Opus), B2 (checker, Sonnet), C (convert files),
-   D (Rust tests, docs), E (remove old syntax), F (playground), G
-   (`where`). Also queued after the switch: `&&`/`||` and
+   declarations refused, multi-layer migration check. Simplified (user, 18 Oct):
+   no period accepting both syntaxes. Plan: lane `decl-parser` (A, Opus:
+   new parser behind an option, AST-equivalence harness) and lane
+   `decl-converter` (B, Opus: old→new text converter, dry-run report)
+   running in parallel; then one switch commit (convert everything, flip
+   the parser, delete the old one, hash/AST/test comparison); then a
+   tidy-up (docs, playground colouring, awkward converter output); then
+   `where`. Header and implicit names must differ. Also queued after the switch: `&&`/`||` and
    a Prop-aware `not`.
 4. **Advent of Code 2025, early days** — the medium-term goal. Plan
    (user, 18 Oct): day 1 done (`aoc/day01.sw`, both answers right,
