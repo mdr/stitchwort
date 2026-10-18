@@ -55,6 +55,14 @@ impl Session {
     /// prelude definition.
     #[doc(hidden)]
     pub fn with_prelude(prelude: &str) -> Self {
+        Self::try_with_prelude(prelude).unwrap_or_else(|report| panic!("{report}"))
+    }
+
+    /// Like [`Session::with_prelude`], but a prelude that doesn't check gives
+    /// its diagnostics rendered with file, line and labels (what an author of
+    /// the prelude needs), not a panic.
+    #[doc(hidden)]
+    pub fn try_with_prelude(prelude: &str) -> Result<Self, String> {
         let mut session = Session {
             sources: SourceMap::new(),
             elab: Elaborator::new(),
@@ -62,12 +70,16 @@ impl Session {
         };
         session.elab.loading_prelude = true;
         if let Err(diagnostics) = session.load("<prelude>", prelude) {
-            panic!("internal error: the prelude doesn't check: {diagnostics:#?}");
+            let mut report = String::from("internal error: the prelude doesn't check:\n");
+            for d in &diagnostics {
+                report.push_str(&crate::render::render(&session.sources, d, false));
+            }
+            return Err(report);
         }
         if let Err(missing) = session.elab.finish_prelude() {
-            panic!("internal error: {}", missing.message);
+            return Err(format!("internal error: {}", missing.message));
         }
-        session
+        Ok(session)
     }
 
     /// Parses, elaborates and checks a file, and checks that its exports can
