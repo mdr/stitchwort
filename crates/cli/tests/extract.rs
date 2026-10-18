@@ -2212,14 +2212,14 @@ fn load_example(session: &mut Session, name: &str) {
     }
 }
 
-/// A changed `Int.add` (same meaning, different definition) turns off that
+/// A changed `Int.add` (same meaning and reduction, different definition, so the prelude laws still check) turns off that
 /// native only: it is compiled as written, and everything else, including
 /// the representation and the other natives, is as before.
 #[test]
 fn a_changed_int_operation_loses_only_its_native() {
     let prelude = changed_prelude(
         "Int.add (NegSucc m) (NegSucc n) = NegSucc (Succ (m + n))",
-        "Int.add (NegSucc m) (NegSucc n) = NegSucc (m + Succ n)",
+        "Int.add (NegSucc m) (NegSucc n) = NegSucc (Succ (0 + (m + n)))",
     );
     let mut session = Session::with_prelude(&prelude);
     load_example(&mut session, "integers.sw");

@@ -696,6 +696,22 @@ Ordering.andThen Less    o = Less
 Ordering.andThen Equal   o = o
 Ordering.andThen Greater o = Greater
 
+Ordering.index : Ordering -> Nat
+Ordering.index Less    = 0
+Ordering.index Equal   = 1
+Ordering.index Greater = 2
+
+Ordering.decEq : (a : Ordering) -> (b : Ordering) -> Decidable (a = b)
+Ordering.decEq Less    Less    = Yes rfl
+Ordering.decEq Less    Equal   = No (\p -> Nat.zeroNotSucc 0 (Eq.cong Ordering.index p))
+Ordering.decEq Less    Greater = No (\p -> Nat.zeroNotSucc 1 (Eq.cong Ordering.index p))
+Ordering.decEq Equal   Less    = No (\p -> Nat.zeroNotSucc 0 (Eq.sym (Eq.cong Ordering.index p)))
+Ordering.decEq Equal   Equal   = Yes rfl
+Ordering.decEq Equal   Greater = No (\p -> Nat.zeroNotSucc 0 (Nat.succInjective 0 1 (Eq.cong Ordering.index p)))
+Ordering.decEq Greater Less    = No (\p -> Nat.zeroNotSucc 1 (Eq.sym (Eq.cong Ordering.index p)))
+Ordering.decEq Greater Equal   = No (\p -> Nat.zeroNotSucc 0 (Nat.succInjective 0 1 (Eq.sym (Eq.cong Ordering.index p))))
+Ordering.decEq Greater Greater = Yes rfl
+
 Ordering.isLess : Ordering -> Bool
 Ordering.isLess Less    = True
 Ordering.isLess Equal   = False
@@ -1618,6 +1634,121 @@ Int.divAddMod (OfNat m)   (NegSucc n)      =
 Int.divAddMod (NegSucc m) (NegSucc n)      =
   Int.divAddModNeg m n (m / Succ n) (m % Succ n) (Nat.divMod m (Succ n) (Nat.succNotZero n))
     (Nat.modLess m (Succ n) (Nat.succNotZero n))
+
+-- Addition laws, after Lean's core: case analysis on the constructors plus
+-- lemmas about `Int.subNatNat`.
+theorem Int.subNatNatZeroRight : (m : Nat) -> Int.subNatNat m 0 = OfNat m
+Int.subNatNatZeroRight Zero     = rfl
+Int.subNatNatZeroRight (Succ m) = rfl
+
+theorem Int.subNatNatSelf : (n : Nat) -> Int.subNatNat n n = OfNat 0
+Int.subNatNatSelf n =
+  Eq.trans (Eq.cong (Int.subNatNatFrom n n) (Nat.subSelf n)) (Eq.cong OfNat (Nat.subSelf n))
+
+theorem Int.subNatNatFromSucc : (m : Nat) -> (n : Nat) -> (t : Nat) ->
+    Int.subNatNatFrom (Succ m) (Succ n) t = Int.subNatNatFrom m n t
+Int.subNatNatFromSucc m n Zero     = rfl
+Int.subNatNatFromSucc m n (Succ t) = rfl
+
+theorem Int.subNatNatSucc : (m : Nat) -> (n : Nat) -> Int.subNatNat (Succ m) (Succ n) = Int.subNatNat m n
+Int.subNatNatSucc m n = Int.subNatNatFromSucc m n (n - m)
+
+theorem Int.negSubNatNat : (m : Nat) -> (n : Nat) -> Int.neg (Int.subNatNat m n) = Int.subNatNat n m
+Int.negSubNatNat Zero     Zero     = rfl
+Int.negSubNatNat Zero     (Succ n) = rfl
+Int.negSubNatNat (Succ m) Zero     = rfl
+Int.negSubNatNat (Succ m) (Succ n) =
+  Eq.trans (Eq.cong Int.neg (Int.subNatNatSucc m n))
+    (Eq.trans (Int.negSubNatNat m n) (Eq.sym (Int.subNatNatSucc n m)))
+
+theorem Int.addZero : (a : Int) -> Int.add a (OfNat 0) = a
+Int.addZero (OfNat m)   = Eq.cong OfNat (Nat.addZero m)
+Int.addZero (NegSucc m) = rfl
+
+theorem Int.zeroAdd : (a : Int) -> Int.add (OfNat 0) a = a
+Int.zeroAdd (OfNat m)   = rfl
+Int.zeroAdd (NegSucc m) = rfl
+
+theorem Int.addComm : (a : Int) -> (b : Int) -> Int.add a b = Int.add b a
+Int.addComm (OfNat m)   (OfNat n)   = Eq.cong OfNat (Nat.addComm m n)
+Int.addComm (OfNat m)   (NegSucc n) = rfl
+Int.addComm (NegSucc m) (OfNat n)   = rfl
+Int.addComm (NegSucc m) (NegSucc n) = Eq.cong (\t -> NegSucc (Succ t)) (Nat.addComm m n)
+
+theorem Int.addNeg : (a : Int) -> Int.add a (Int.neg a) = OfNat 0
+Int.addNeg (OfNat Zero)     = rfl
+Int.addNeg (OfNat (Succ n)) = Int.subNatNatSelf (Succ n)
+Int.addNeg (NegSucc n)      = Int.subNatNatSelf (Succ n)
+
+theorem Int.subSelf : (a : Int) -> Int.sub a a = OfNat 0
+Int.subSelf a = Int.addNeg a
+
+theorem Int.negAdd : (a : Int) -> (b : Int) -> Int.neg (Int.add a b) = Int.add (Int.neg a) (Int.neg b)
+Int.negAdd (OfNat Zero)     (OfNat Zero)     = rfl
+Int.negAdd (OfNat Zero)     (OfNat (Succ n)) = rfl
+Int.negAdd (OfNat (Succ m)) (OfNat Zero)     = Eq.cong NegSucc (Nat.addZero m)
+Int.negAdd (OfNat (Succ m)) (OfNat (Succ n)) = Eq.cong NegSucc (Nat.addSucc m n)
+Int.negAdd (OfNat Zero)     (NegSucc n)      = rfl
+Int.negAdd (OfNat (Succ m)) (NegSucc n)      = Int.negSubNatNat (Succ m) (Succ n)
+Int.negAdd (NegSucc m)      (OfNat Zero)     = Eq.cong OfNat (Eq.sym (Nat.addZero (Succ m)))
+Int.negAdd (NegSucc m)      (OfNat (Succ n)) = Int.negSubNatNat (Succ n) (Succ m)
+Int.negAdd (NegSucc m)      (NegSucc n)      = Eq.cong (\t -> OfNat (Succ t)) (Eq.sym (Nat.addSucc m n))
+
+-- Adding a natural number to a difference.
+theorem Int.ofNatAddSubNatNat : (k : Nat) -> (m : Nat) -> (n : Nat) ->
+    Int.add (OfNat k) (Int.subNatNat m n) = Int.subNatNat (m + k) n
+Int.ofNatAddSubNatNat k Zero     Zero     =
+  Eq.trans (Eq.cong OfNat (Nat.addZero k)) (Eq.sym (Int.subNatNatZeroRight k))
+Int.ofNatAddSubNatNat k Zero     (Succ n) = rfl
+Int.ofNatAddSubNatNat k (Succ m) Zero     =
+  Eq.trans (Eq.cong OfNat (Eq.trans (Nat.addSucc k m) (Eq.cong Succ (Nat.addComm k m))))
+           (Eq.sym (Int.subNatNatZeroRight (Succ (m + k))))
+Int.ofNatAddSubNatNat k (Succ m) (Succ n) =
+  Eq.trans (Eq.cong (Int.add (OfNat k)) (Int.subNatNatSucc m n))
+    (Eq.trans (Int.ofNatAddSubNatNat k m n) (Eq.sym (Int.subNatNatSucc (m + k) n)))
+
+theorem Int.subNatNatAddOfNat : (k : Nat) -> (m : Nat) -> (n : Nat) ->
+    Int.add (Int.subNatNat m n) (OfNat k) = Int.subNatNat (m + k) n
+Int.subNatNatAddOfNat k m n =
+  Eq.trans (Int.addComm (Int.subNatNat m n) (OfNat k)) (Int.ofNatAddSubNatNat k m n)
+
+-- Adding a negative number to a difference.
+theorem Int.negSuccAddSubNatNat : (k : Nat) -> (m : Nat) -> (n : Nat) ->
+    Int.add (NegSucc k) (Int.subNatNat m n) = Int.subNatNat m (Succ (n + k))
+Int.negSuccAddSubNatNat k Zero     Zero     = rfl
+Int.negSuccAddSubNatNat k Zero     (Succ n) = Eq.cong (\t -> NegSucc (Succ t)) (Nat.addComm k n)
+Int.negSuccAddSubNatNat k (Succ m) Zero     = rfl
+Int.negSuccAddSubNatNat k (Succ m) (Succ n) =
+  Eq.trans (Eq.cong (Int.add (NegSucc k)) (Int.subNatNatSucc m n))
+    (Eq.trans (Int.negSuccAddSubNatNat k m n) (Eq.sym (Int.subNatNatSucc m (Succ (n + k)))))
+
+theorem Int.subNatNatAddNegSucc : (k : Nat) -> (m : Nat) -> (n : Nat) ->
+    Int.add (Int.subNatNat m n) (NegSucc k) = Int.subNatNat m (Succ (n + k))
+Int.subNatNatAddNegSucc k m n =
+  Eq.trans (Int.addComm (Int.subNatNat m n) (NegSucc k)) (Int.negSuccAddSubNatNat k m n)
+
+theorem Int.addAssoc : (a : Int) -> (b : Int) -> (c : Int) ->
+    Int.add (Int.add a b) c = Int.add a (Int.add b c)
+Int.addAssoc (OfNat a)   (OfNat b)   (OfNat c)   = Eq.cong OfNat (Nat.addAssoc a b c)
+Int.addAssoc (OfNat a)   (OfNat b)   (NegSucc c) =
+  Eq.trans (Eq.cong (\t -> Int.subNatNat t (Succ c)) (Nat.addComm a b))
+           (Eq.sym (Int.ofNatAddSubNatNat a b (Succ c)))
+Int.addAssoc (OfNat a)   (NegSucc b) (OfNat c)   =
+  Eq.trans (Int.subNatNatAddOfNat c a (Succ b))
+    (Eq.trans (Eq.cong (\t -> Int.subNatNat t (Succ b)) (Nat.addComm a c))
+              (Eq.sym (Int.ofNatAddSubNatNat a c (Succ b))))
+Int.addAssoc (NegSucc a) (OfNat b)   (OfNat c)   = Int.subNatNatAddOfNat c b (Succ a)
+Int.addAssoc (OfNat a)   (NegSucc b) (NegSucc c) = Int.subNatNatAddNegSucc c a (Succ b)
+Int.addAssoc (NegSucc a) (OfNat b)   (NegSucc c) =
+  Eq.trans (Int.subNatNatAddNegSucc c b (Succ a))
+    (Eq.trans (Eq.cong (\t -> Int.subNatNat b (Succ (Succ t))) (Nat.addComm a c))
+              (Eq.sym (Int.negSuccAddSubNatNat a b (Succ c))))
+Int.addAssoc (NegSucc a) (NegSucc b) (OfNat c)   =
+  Eq.trans (Eq.cong (\t -> Int.subNatNat c (Succ (Succ t))) (Nat.addComm a b))
+           (Eq.sym (Int.negSuccAddSubNatNat a c (Succ b)))
+Int.addAssoc (NegSucc a) (NegSucc b) (NegSucc c) =
+  Eq.trans (Eq.cong (\t -> NegSucc (Succ (Succ t))) (Nat.addAssoc a b c))
+           (Eq.cong (\t -> NegSucc (Succ t)) (Eq.sym (Nat.addSucc a (b + c))))
 
 -- Splitting and joining
 
