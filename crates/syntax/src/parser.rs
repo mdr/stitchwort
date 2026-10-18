@@ -520,14 +520,31 @@ impl<'t> Parser<'t> {
             Some(Tok::LBracket) => {
                 self.bump();
                 let mut items = Vec::new();
+                let mut tail = None;
                 if self.peek() != Some(&Tok::RBracket) {
-                    items.push(self.list_component()?);
-                    while self.eat(&Tok::Comma) {
+                    loop {
+                        if self.eat(&Tok::DotDot) {
+                            // `..rest`: the tail pattern, which must be last.
+                            tail = Some(self.pattern()?);
+                            break;
+                        }
                         items.push(self.list_component()?);
+                        if !self.eat(&Tok::Comma) {
+                            break;
+                        }
                     }
                 }
-                let end = self.expect(Tok::RBracket, "`,` or `]`")?.span;
-                let mut list = Pattern::Nil(end);
+                let end = self
+                    .expect(
+                        Tok::RBracket,
+                        if tail.is_some() {
+                            "`]`: a `..` tail must be the last item"
+                        } else {
+                            "`,` or `]`"
+                        },
+                    )?
+                    .span;
+                let mut list = tail.unwrap_or(Pattern::Nil(end));
                 while let Some(item) = items.pop() {
                     let s = if items.is_empty() {
                         span.to(end)

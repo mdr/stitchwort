@@ -39,7 +39,7 @@ frees, in this order):
 2. `day04` then `day05`: solutions for the user to review in the
    morning (plain implementation, `|>`/dot style, proof helpers beside
    proofs; proofs where cheap). Sonnet writes, Opus checks proofs.
-3. `list-rest-pattern`: `[x, ..rest]` list patterns (Sonnet).
+3. DONE `list-rest-pattern`: `[x, ..rest]` list patterns.
 4. Day 1 review batch, after `day2-proofs` (see below).
 Not overnight: evaluator speed check (wait for days 4-5).
 
