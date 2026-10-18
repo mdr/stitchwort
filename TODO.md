@@ -159,7 +159,11 @@ capability we know we'll need before the work that needs it):
    (Opus) running; then rewrite days 1–3 with `|>` and the user's review
    changes. Review notes so far: keep `Text.uncons` but write
    `t.uncons` (dot notation) — generally prefer dot notation and
-   `rest.toNat`-style calls where they read better. `>>`/`<<` composition later if wanted; then one switch commit (convert everything, flip
+   `rest.toNat`-style calls where they read better; `parseTurn` via
+   `andThen` (`t.uncons.andThen (\(c, rest) => rest.toNat.andThen
+   (turnOf c))`). After `|>` merges: a small Sonnet sweep making the
+   library pipe-friendly — the main value last, Elm-style — starting
+   with `Maybe.andThen` (function first, like `Maybe.map`). `>>`/`<<` composition later if wanted; then one switch commit (convert everything, flip
    the parser, delete the old one, hash/AST/test comparison); then a
    tidy-up (docs, playground colouring, awkward converter output); then
    `where`. Header and implicit names must differ. Also queued after the switch: `&&`/`||` and
