@@ -140,7 +140,10 @@ capability we know we'll need before the work that needs it):
    line, `List.scanl` added (`0ff412a`; user programs can no longer
    clash with prelude names since namespaces); `type Dial = (Nat, Nat, Nat)` stays a parse error (user:
    write `Dial : Type`). Lane `derive-eq` (automatic `==` for user data
-   types; Opus, no external review) running; then days 1–5 rewritten with proofs (deep
+   types; Opus, no external review) and lane `day1-proofs` (Opus: dial
+   stays in 0–99; part 2's fast count equals a click-by-click spec)
+   running. User OK'd default-visible `And`/`Both`; annotated lambda
+   parameters later; then days 1–5 rewritten with proofs (deep
    ones for 1, 3, 5 by Opus). `Array`/`Map`/`Set` later (days 4, 8, 9).
    Earlier notes: (decisions in aoc-2025.md: programs
    in `aoc/`, inputs and answers out of git, worked examples as tests), as a stress test with proofs where
