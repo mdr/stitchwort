@@ -1,0 +1,20 @@
+[package]
+name = "stitchwort-convert"
+description = "One-off converter from the Haskell-style declaration syntax to the Lean/Scala style (docs/proposals/declaration-syntax.md §5); deleted after the migration"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "stitchwort-convert"
+path = "src/main.rs"
+
+[dependencies]
+stitchwort-syntax.workspace = true
+stitchwort-core.workspace = true
+stitchwort-elab.workspace = true
+stitchwort-driver.workspace = true
+clap.workspace = true
+
+[lints]
+workspace = true
