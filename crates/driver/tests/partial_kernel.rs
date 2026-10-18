@@ -210,6 +210,7 @@ fn a_constant_with_another_type_is_refused() {
             sources: SourceMap::new(),
             elab: Elaborator::new(),
             warnings: Vec::new(),
+            syntax: Default::default(),
         };
         session.elab.loading_prelude = true;
         let errors = session.load("<prelude>", &prelude).unwrap_err();

@@ -8,7 +8,7 @@ use stitchwort_core::{Globals, Limits, ResourceError, Term, Value};
 use stitchwort_elab::{Elaborator, PRELUDE};
 use stitchwort_syntax::ast::Expr;
 use stitchwort_syntax::{
-    Diagnostic, FileId, Severity, SourceMap, parse_expression_within, parse_module_within,
+    Diagnostic, FileId, Severity, SourceMap, Syntax, parse_expression_in, parse_module_in,
 };
 
 /// A compiler session: the prelude plus whatever has been loaded since.
@@ -18,6 +18,10 @@ pub struct Session {
     /// Warnings from files loaded without errors. (A file with errors
     /// returns its warnings with them.)
     pub warnings: Vec<Diagnostic>,
+    /// The declaration syntax of the files and expressions given to this
+    /// session (docs/proposals/declaration-syntax.md). The prelude, and the
+    /// expressions the driver writes itself, are in [`Syntax::default`].
+    pub syntax: Syntax,
 }
 
 impl Default for Session {
@@ -67,6 +71,7 @@ impl Session {
             sources: SourceMap::new(),
             elab: Elaborator::new(),
             warnings: Vec::new(),
+            syntax: Syntax::default(),
         };
         session.elab.loading_prelude = true;
         if let Err(diagnostics) = session.load("<prelude>", prelude) {
@@ -86,7 +91,7 @@ impl Session {
     /// cross the JS boundary.
     pub fn load(&mut self, name: &str, text: &str) -> Result<FileId, Vec<Diagnostic>> {
         let file = self.sources.add(name, text);
-        let module = parse_module_within(file, text, self.elab.limits.stack)?;
+        let module = parse_module_in(self.syntax, file, text, self.elab.limits.stack)?;
         let first_new_def = self.elab.globals.defs.len();
         let mut diagnostics = self.elab.elaborate_module(&module);
         let errors = |ds: &[Diagnostic]| ds.iter().any(|d| d.severity == Severity::Error);
@@ -121,7 +126,14 @@ impl Session {
     /// session's stack limit.
     pub fn parse_expression(&mut self, name: &str, text: &str) -> Result<Expr, Diagnostic> {
         let file = self.sources.add(name, text);
-        parse_expression_within(file, text, self.elab.limits.stack)
+        parse_expression_in(self.syntax, file, text, self.elab.limits.stack)
+    }
+
+    /// Parses an expression the driver wrote itself, in the syntax the prelude
+    /// is written in.
+    pub(crate) fn parse_internal(&mut self, name: &str, text: &str) -> Result<Expr, Diagnostic> {
+        let file = self.sources.add(name, text);
+        parse_expression_in(Syntax::default(), file, text, self.elab.limits.stack)
     }
 
     /// Generates JavaScript for the exports loaded so far.

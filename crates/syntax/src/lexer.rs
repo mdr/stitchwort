@@ -17,6 +17,9 @@ pub enum Tok {
     /// `type`, which starts a data type declaration.
     KwType,
     KwTheorem,
+    /// `def`, which starts a definition in the new declaration syntax
+    /// (docs/proposals/declaration-syntax.md).
+    KwDef,
     KwExport,
     KwTest,
     /// `Type`, the universe.
@@ -161,6 +164,7 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
                     "_" => Tok::Underscore,
                     "type" => Tok::KwType,
                     "theorem" => Tok::KwTheorem,
+                    "def" => Tok::KwDef,
                     "export" => Tok::KwExport,
                     "test" => Tok::KwTest,
                     "if" => Tok::KwIf,

@@ -506,10 +506,17 @@ pub enum Decl {
         span: Span,
     },
     /// `name pattern* = expr`, or without `= expr` when a pattern is `()`.
+    /// In the new declaration syntax, a `def` lowers to a signature and
+    /// equations (docs/proposals/declaration-syntax.md §2.3).
     Equation {
         name: Name,
         patterns: Vec<Pattern>,
         rhs: Option<Expr>,
+        /// For an arm under a `def` or `theorem` header: how many of
+        /// `patterns` are the header's named parameters (the rest are the
+        /// arm's own). Arms have exact arity (§2.4). `None` for an old-style
+        /// equation, or a `:=` body.
+        arm: Option<usize>,
         span: Span,
     },
 }

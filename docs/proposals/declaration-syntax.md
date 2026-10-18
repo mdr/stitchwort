@@ -3,8 +3,10 @@
 **Status:** draft 2, 18 October 2026. Draft 1 went to external review
 (verdict: proceed); this draft adopts every must-fix and should-fix as
 specification, and records the user's decisions taken after the review
-([Review response](#review-response) maps each finding to its section).
-Nothing is built.
+(items 10 to 15 in §7; [Review response](#review-response) maps each
+finding to its section). **Lane A (the parser) is built**
+([what was built](#lane-a-what-was-built)); the converter, the checker, the
+conversion of the code base, and the removal of the old syntax are not.
 Answers `TODO.md`'s "Declaration syntax" item: the user decided (18 Oct)
 to **replace** Haskell-style declarations (a signature line `f : A -> B`,
 then equations `f x = …`) with the Lean/Scala style (typed parameters
@@ -24,7 +26,13 @@ the few deliberate changes listed in advance (§5.4).
 with no users yet, the design isn't bent to keep hashes stable. Where the
 new syntax deliberately lowers differently (only exact-arity arms, §2.4),
 the expected hash changes are listed and those declarations are compared
-structurally instead (§5.4).
+structurally instead (§5.4). Hash comparison is only a test oracle for the
+migration, not something to preserve.
+
+**No transition period.** The user decided (18 Oct) that a file is read
+wholly in one syntax. The parser has a syntax option (`Syntax::Old`, the
+default for now, or `Syntax::New`); there are no mixed declarations and no
+mixed files. The switch happens in one commit later (§5.6).
 
 ## Contents
 
@@ -255,22 +263,9 @@ test       ::= "test" string ":=" expr
 backtracks and retries the tokens as an expression or an old-style
 equation. A malformed binder is reported as a malformed binder ("expected
 `)` to close the parameter `(x : Nat`"), not as "unexpected `(`" further
-on. During the transition (lane A until lane E), old-style declarations
-are still read, and the decision is made from the first tokens, without
-backtracking:
-
-| Starts with | Read as |
-|---|---|
-| `def` | new style |
-| `theorem name` followed by a binder, or a header followed by `:=` or arms | new style |
-| `theorem name : type` with nothing after it in the declaration | old-style theorem signature (transition only) |
-| `export def`, `export theorem` | as `def` / `theorem` above |
-| `export name :`, a line holding only `export` | old style (transition only) |
-| `name :` or `name pattern… =` at column 0 | old style (transition only) |
-
-The `theorem` case looks one step further than the others, but only at
-what follows a complete header (the end of the declaration, `:=` or a
-line-starting `|`), so it is still a single forward pass.
+on. A file is read wholly in one syntax, chosen by the parser's option
+(§5.6), so the parser never has to decide between old and new
+declarations.
 
 ### 2.2 `:=` for definitions; `=` only for equality
 
@@ -369,8 +364,10 @@ A binder is one of the forms types already use, written without the arrow:
    are the header's explicit parameters as variables (`_` for `()`),
    followed by the arm's patterns.
 
-The two get a small marker (§6, lane A) saying which form they came from,
-for the arity rule (§2.4) and for spotting mixed declarations (§5.6).
+An equation made from an arm carries a small marker, `Decl::Equation`'s
+`arm: Option<usize>` (how many of its patterns are the header's
+parameters). Only the exact-arity rule (§2.4) uses it. `Signature` has no
+marker.
 
 **Auto-bound implicits run over the whole reconstructed type.** Today,
 `Elaborator::signature` (`crates/elab/src/lib.rs`) calls
@@ -739,7 +736,11 @@ form where one exists:
    (error), inside an arm (error), and at column 0 (it's a new,
    malformed declaration).
 
-Test 8's `where` cases land with lane G; the rest with lane A.
+Tests 1 to 7 are done, in `crates/syntax/tests/declarations.rs`. Test 8
+changed: `where` is a reserved word. After a body or the last arm it is
+`E-PARSE` "`where` after a definition isn't supported yet"; anywhere else
+it is a plain parse error. `E-WHERE-PLACEMENT` and the real `where` stay
+with lane G.
 
 ### 2.11 Lambdas, `let`, `match`, handlers: `=>` for "then do this"
 
@@ -818,8 +819,7 @@ New or changed messages (wording is a draft):
 
 | Code | When | Message |
 |---|---|---|
-| `E-OLD-DECLARATION` | after lane E: `f : T` or `f x = e` at column 0 | "declarations start with `def`: `def f : T`" (with the arms the equations would become, if they're next to it) |
-| `E-MIXED-DECLARATION` | lanes A–D only: a declaration combining both syntaxes, or one name defined once in each (§5.6) | "`f` is declared with `def` here, so its cases must be arms under it, not old-style equations" |
+| `E-OLD-DECLARATION` | after the switch (lane E): `f : T` or `f x = e` at column 0 | "declarations start with `def`: `def f : T`" (with the arms the equations would become, if they're next to it) |
 | `E-DEF-EQUALS` | `=` where `:=` is expected after a header, `test` or `let` | "a definition's body follows `:=`; `=` is equality" |
 | `E-ARITY` (reworded) | arms with different numbers of patterns | "this arm has 2 patterns, but the first one has 3" |
 | `E-ARITY` (reworded, and now for fewer too) | an arm without a pattern for each argument | "`f` takes 2 arguments after the colon, but this arm has 1 pattern"; note "to return a function, add the argument as a pattern, or write a lambda" |
@@ -829,7 +829,7 @@ New or changed messages (wording is a draft):
 | `E-DUPLICATE-PARAMETER` (new) | two header binders, or a header binder and an implicit/auto binder after the colon, with one name (§2.5) | "`x` is already a parameter of `f`" |
 | `E-WHERE-PLACEMENT` (new, lane G) | `where` inside an arm or nested expression, or before an arm (L7) | "a `where` belongs to the whole definition: put it after the last arm, lined up with the arms" |
 | `E-PARSE` (new wordings) | layout errors L4–L7, malformed binders, handler clauses (§2.11) | as quoted in those sections |
-| `E-MISSING-SIGNATURE`, `E-MISSING-DEFINITION` | | can't happen in the new syntax (a header always has a type, and `def f : T` with neither `:=` nor arms is a parse error); removed in lane E |
+| `E-MISSING-SIGNATURE`, `E-MISSING-DEFINITION` | | can't happen in the new syntax (a header always has a type, and `def f : T` with neither `:=` nor arms is a parse error); removed in the switch commit |
 
 Today's messages that say "equation" (`crates/elab/src/lib.rs`:
 `E-ARITY`, `E-NONEXHAUSTIVE`, "this equation needs `= …`";
@@ -881,8 +881,8 @@ spans**, not by printing the AST, because:
 - span edits leave bodies exactly as written, and only touch headers,
   equation left-hand sides and a few tokens.
 
-It runs before the old syntax is removed, using the parser that reads
-both (lane A), and is deleted after the migration. Its guiding policy,
+It runs before the old syntax is removed, reading old files with
+`Syntax::Old` (lane A), and is deleted after the migration. Its guiding policy,
 from the review: **the goal is a conversion that means the same, not the
 prettiest headers on day one. Whenever a nicer form needs any judgement
 about names, it writes the all-arms form**, which is always a direct copy
@@ -1007,7 +1007,7 @@ sessions:
    signature) are listed and rewritten or retired by hand in lane E.
 8. **Parser-level equivalence** (lane A, in unit tests): for each new
    form, the lowered AST equals the old form's AST, spans and the new
-   form markers aside. This is the direct check, before elaboration,
+   arm markers aside. This is the direct check, before elaboration,
    that the lowering is what §2.3 says.
 
 `crates/driver/tests/hash_stability.rs` pins the hash of every
@@ -1119,62 +1119,98 @@ all with named header parameters) and 519 tests.
    stub (returns `None`) where lane A's harness plugs in; the golden test
    (`crates/convert/tests/golden.rs`) already calls it on every output.
 
-### 5.6 The transition: no hybrids
+### 5.6 The transition: no transition window, no hybrids
 
-Both syntaxes are read only from lane A until lane E, and the window is
-kept short: parser, converter, convert everything, delete the old
-parser. In that window **each declaration is wholly old-style or wholly
-new-style**; the parser never combines pieces of both, so it has no
-states that the final language lacks, and the converter can't come to
-rely on one. Specifically:
+The user decided (18 Oct) that there is no period in which a file may
+mix the two syntaxes, and no mixed declarations. Both parsers coexist
+only in the code. The parser takes a syntax option, `Syntax::Old` (the
+default until the switch) or `Syntax::New`, and reads a whole file in
+that one syntax. So there are no states that the final language lacks,
+and nothing like `E-MIXED-DECLARATION` is needed.
 
-| Written | Result |
-|---|---|
-| `def f : Nat -> Nat` then, at column 0, `f Zero = 0` | `E-MIXED-DECLARATION` |
-| `f : Nat -> Nat` then indented `\| Zero => 0` | `E-MIXED-DECLARATION` (an old signature can't take arms) |
-| `f : Nat -> Nat` with equations, and elsewhere `def f …` | `E-MIXED-DECLARATION` ("`f` is defined twice, once in each syntax") |
-| `f : T` with no equations, then `def f …` | `E-MIXED-DECLARATION` |
-| two `def f` | `E-DUPLICATE`, as today |
-
-How: `collect` (`crates/elab/src/module.rs`) groups a signature with the
-equations that follow it by name, so without a marker an old-style
-`f Zero = 0` after a `def f` would silently join it. The form marker on
-`Decl::Signature` and `Decl::Equation` (§2.3) lets `collect` refuse an
-old equation after a new signature, and vice versa, and lets the name
-check report a name defined in both syntaxes with the migration-specific
-message instead of `E-DUPLICATE` or `E-MISSING-DEFINITION`. Lane E
-removes the old syntax, the marker's old value, and this error.
+The switch is one commit, later: the converter (lane B1) rewrites every
+file, the parser's default flips to the new syntax (`Syntax::default` in
+`crates/syntax/src/parser.rs`, one line), and the old parser is deleted.
+Until then, `--syntax new` (or `STITCHWORT_SYNTAX=new`) reads a file in the
+new syntax, and the converter, checker and conversion lanes work against
+that option.
 
 ## 6. Implementation plan
 
 The parser changes in one crate (`crates/syntax`, 3814 lines). The
-elaborator changes in messages, the exact-arity check, the form marker
-(`collect`, `E-MIXED-DECLARATION`), and `E-DUPLICATE-PARAMETER`; also
-in `crates/elab/src/lib.rs` where it builds `Decl::Signature`/
-`Decl::Equation` values itself for abilities, which only need the
-marker. Each lane stays well under 500k tokens.
+elaborator changes in messages and the exact-arity check; also in
+`crates/elab/src/lib.rs` where it builds `Decl::Equation` values itself
+for abilities, which only need the arm marker. Each lane stays well under
+500k tokens.
 
 | Lane | Model | What | Size |
 |---|---|---|---|
-| A. Parser | Opus | the grammar of §2.1 with early commitment; binders and `()` → `_`; `:=`; arms with the layout rules L1–L6 and L8 (§2.10); `=>` in lambdas, `match`, `handle`; the handler clause and its tests (§2.11); `alt_pattern` stopping at `=>`; the form marker on `Signature`/`Equation`; `collect`'s mixed-declaration check (§5.6); exact arity for arms and `E-DUPLICATE-PARAMETER` (§2.4, §2.5); auto-binding tests (§2.3); golden layout tests 1–7 (§2.10); parser-level old/new AST equality (gate layer 8). **Both** syntaxes read. Layout rules written into `docs/syntax.md` as a draft section | ~300k |
-| B1. Converter | Opus | the span-based converter as a temporary binary, with §5.3's rules (no renaming; fall back to all arms); prints the exact-arity list; run on 5 sample files with diffs shown | ~250k |
-| B2. Checker | Sonnet, Opus review | the multi-layer check of §5.4 (layers 1–7) as a temporary binary over all files and playground examples; computes the dependents of the expected-change list | ~150k |
-| C. Convert `.sw` | Sonnet | prelude, `examples/*`, `aoc/`, playground examples. Gate: the checker clean; `hash_stability` changes exactly the expected set; `nix flake check` passes | ~150k |
-| D. Convert Rust and docs | Sonnet (two lanes if needed) | inline test sources; `docs/syntax.md`, DESIGN.md §4, core.md, testing.md, aoc-2025.md; historical-note banners | ~200k each |
-| E. Remove the old syntax | Opus | delete old-form parsing, the transition table of §2.1 and `E-MIXED-DECLARATION`; `E-OLD-DECLARATION`, `E-DEF-EQUALS`, `E-ARM-PARAMETER`; reword "equation" messages; reject examples for each new error; retire reject examples for forms that no longer exist (§5.4 layer 7) | ~150k |
+| A. Parser | Opus | **Built** (see [Lane A: what was built](#lane-a-what-was-built)): the grammar of §2.1 with early commitment; binders and `()` → `_`; `:=`; arms with layout rules L1–L6 and L8; `=>` in lambdas, `match`, `handle`; the arm marker; exact arity for arms; `E-DUPLICATE-PARAMETER`; `E-DEF-EQUALS`; golden layout tests 1–7; parser-level old/new AST equality. A syntax option selects the syntax per file. Layout rules into `docs/syntax.md` as a draft section | done |
+| B1. Converter | Opus | the span-based converter as a temporary binary, with §5.3's rules (no renaming; fall back to all arms); prints the exact-arity list; run on 5 sample files with diffs shown. Reuses the AST-equivalence harness | ~250k |
+| B2. Checker | Sonnet, Opus review | the multi-layer check of §5.4 (layers 1–7) as a temporary binary over all files and playground examples, reading the new text with `Syntax::New`; computes the dependents of the expected-change list | ~150k |
+| C. Convert `.sw` | Sonnet | prelude, `examples/*`, `aoc/`, playground examples, converted and checked against the option. Gate: the checker clean; `hash_stability` changes exactly the expected set; `nix flake check` passes | ~150k |
+| D. Convert Rust and docs | Sonnet (two lanes if needed) | inline test sources (including the driver's own strings, see lane A notes); `docs/syntax.md`, DESIGN.md §4, core.md, testing.md, aoc-2025.md; historical-note banners | ~200k each |
+| E. Reject examples and messages | Opus | `E-OLD-DECLARATION`, `E-ARM-PARAMETER`; reword "equation" messages; reject examples for each new error; retire reject examples for forms that no longer exist (§5.4 layer 7). The old parser's deletion is part of the switch commit, not this lane | ~100k |
 | F. Playground | Sonnet | keywords, defined-name rule, browser test | ~80k |
 | G. `where` (step 5) | Opus | as syntax-conveniences §3, with §2.9's changes; layout rule L7 and golden test 8; `E-WHERE-PLACEMENT`; its own test plan there | separate |
 
-Order: A, then B1 and B2 in parallel, then C and D in parallel, then E
-and F, then G. C is the point where we learn whether the translation is
+**The switch is one commit:** the converter run on everything, the
+parser's default flipped to `Syntax::New`, and the old parser deleted
+(this folds in the deletion that lane E had in draft 1). Lanes B1 to D
+prepare it; they don't change the default.
+
+Order: A, then B1 and B2 in parallel, then C and D in parallel, then the
+switch commit, then E and F, then G. C is the point where we learn whether the translation is
 exact; if anything outside the expected-change list moves, the lane
 stops and reports it.
+
+### Lane A: what was built
+
+- **The option.** `Syntax::{Old, New}`, with `parse_module_in` and
+  `parse_expression_in`, in `crates/syntax`. `Syntax::default()` is `Old`.
+- **The driver.** `Session.syntax`. The prelude and the driver's own
+  expressions (such as `MAIN_CALL` and `simulate`'s source) are parsed in
+  `Syntax::default()`, so the switch commit must convert those strings too.
+- **The CLI.** A global `--syntax old|new` flag and the `STITCHWORT_SYNTAX`
+  environment variable.
+- **The equivalence harness.** `stitchwort_syntax::equivalence` has
+  `shape`, `parse_shape`, `compare` and `assert_equivalent`. Spans and the
+  arm marker are ignored. The converter lane reuses it.
+- **Exact arity** is checked in the elaborator (`body_term` in
+  `crates/elab/src/lib.rs`), for arms only. It counts explicit arrows after
+  unfolding, and stops at an ability row.
+- **`E-DUPLICATE-PARAMETER`** is checked in the parser, over the header
+  binders and the implicit and auto binders on the result type's spine. Only
+  the spine as written is checked, not through definitions.
+- **`E-DEF-EQUALS`** is built in the parser for `test`, `let`, and a header
+  whose type swallowed an `=` body.
+- **`def` is now a keyword** in both syntaxes.
+- **Blocks** now end at a line-starting `|`, `where` or `:=`. This is
+  harmless in the old syntax, where none of them can start a statement.
+- **Stack use.** The new forms are in `#[inline(never)]` functions in
+  `crates/syntax/src/parser/declarations.rs`, to keep the expression
+  parser's stack frames small. The `check-nested-parens` benchmark is
+  unchanged.
+- **Tests.** `crates/syntax/tests/declarations.rs` (60) and
+  `crates/driver/tests/declaration_syntax.rs` (16).
+
+**Left for later lanes:**
+
+- `E-ARM-PARAMETER`. Today `:=` followed by arms is a parse error ("a
+  definition has a `:=` body or arms, not both"), and more patterns than
+  arguments still gives the old `E-ARITY` wording.
+- `E-OLD-DECLARATION`. Today an old-style declaration is a plain `E-PARSE`,
+  "definitions start with `def`".
+- Rewording the remaining "equation" messages.
+- `W-MODULE-NAME`'s note for headers (§2.3).
+- Playground colouring (lane F).
+- `where` (lane G).
 
 ## 7. Questions for the user
 
 **Decided (18 October 2026):** the user agreed with every recommendation
 below (1 to 9) before the review, and after it decided three more
-(10 to 12).
+(10 to 12). **Decided (18 Oct), after lane A:** three more (13 to 15).
 
 1. **`:=` before a body, instead of `=`** (§2.2)? **Yes.**
 2. **`=>` for arms, lambdas and handlers, `->` only for function types**
@@ -1188,15 +1224,24 @@ below (1 to 9) before the review, and after it decided three more
 7. **`def` and `theorem` keywords inside `where`** (§2.9)? **Keep them.**
 8. **A `where` belongs to the whole definition and sees the header's
    parameters, not arms' pattern variables** (§2.9)? **Yes.**
-9. **Migration by a span-based converter, checked by hashes, with both
-   syntaxes accepted only during the migration** (§5, §6)? **Yes**, with
-   the multi-layer gate of §5.4.
+9. **Migration by a span-based converter, checked by hashes** (§5, §6)?
+   **Yes**, with the multi-layer gate of §5.4. (Item 13 replaces "both
+   syntaxes accepted during the migration".)
 10. **Stable hashes** are not a design constraint (no users yet); hash
     comparison stays the migration's test, with expected changes listed.
 11. **Exact arity**: arms match every explicit argument after the colon
     (§2.4).
 12. **Header `()`**: the implementer's choice; this draft picks `_`
     (§2.3).
+13. **No transition period.** No file mixes both syntaxes and there are
+    no mixed declarations, so `E-MIXED-DECLARATION` and the both-syntaxes
+    decision table are dropped. The parser has a syntax option
+    (`Syntax::Old`, the default, or `Syntax::New`) and reads a file wholly
+    in one. The switch is one later commit: the converter rewrites every
+    file, `Syntax::default` flips, the old parser is deleted (§5.6).
+14. **`E-DUPLICATE-PARAMETER`** as proposed in §2.5. Built.
+15. **Hashes are not a design constraint** (no users). Hash comparison is
+    only a migration test oracle (§5.4).
 
 No questions remain open in this draft.
 
@@ -1215,8 +1260,8 @@ blocker) and where each finding is answered:
 | 6 | `where` attachment in both body forms | should-fix | Both forms shown; after the whole body only; nested `where` is an error; the helper-parameter consequence documented | §2.9, §2.10 L7 |
 | 7 | Hashes are not the whole gate | must-fix | Eight-layer gate; hashes "the strongest evidence", not proof; expected changes listed and compared structurally | §5.4 |
 | 8 | No renaming by text substitution | must-fix | The converter never renames; all-arms fallback whenever names disagree or could capture | §5.2, §5.3 |
-| 9 | No hybrid old/new declarations | should-fix | Each declaration wholly one style; `E-MIXED-DECLARATION`; short window | §5.6 |
-| 10 | `def`/`theorem`/`export def` commit early; written grammar | should-fix | Grammar written; transition decision table | §2.1 |
+| 9 | No hybrid old/new declarations | should-fix | Guaranteed because a file is read in one syntax only (the parser's option); `E-MIXED-DECLARATION` dropped (item 13) | §5.6 |
+| 10 | `def`/`theorem`/`export def` commit early; written grammar | should-fix | Grammar written; the transition decision table was later dropped (item 13) | §2.1 |
 | 11 | The before/after-colon split is sound | note | Kept; untyped binders still not added | §2.3, §2.4 |
 | 12 | Phrase `:=` vs `=` less categorically | note | Rule reworded | §2.2 |
 | 13 | Handler clause tests; return arm distinct in the AST | note | Test table; `Clause::Return` already separate (verified) | §2.11 |

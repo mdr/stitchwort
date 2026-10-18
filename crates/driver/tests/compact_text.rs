@@ -1012,6 +1012,7 @@ fn a_changed_builtin_isnt_bound() {
         sources: SourceMap::new(),
         elab: stitchwort_elab::Elaborator::new(),
         warnings: Vec::new(),
+        syntax: Default::default(),
     };
     session.elab.loading_prelude = true;
     load(&mut session, &changed);

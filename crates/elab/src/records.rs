@@ -279,6 +279,7 @@ impl Elaborator {
             name,
             patterns: vec![pattern(&a), pattern(&b)],
             rhs: Some(body),
+            arm: None,
             span,
         };
         // Everything it needs was found above, so this doesn't fail; if it

@@ -5,11 +5,30 @@ use std::ops::Range;
 pub struct FileId(u32);
 
 /// A byte range within one source file.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Span {
     pub file: FileId,
     pub start: u32,
     pub end: u32,
+}
+
+thread_local! {
+    /// Whether spans print as `_` in debug output, for comparing syntax
+    /// trees without their positions ([`crate::equivalence`]).
+    pub(crate) static HIDE_SPANS: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+impl std::fmt::Debug for Span {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if HIDE_SPANS.with(std::cell::Cell::get) {
+            return f.write_str("_");
+        }
+        f.debug_struct("Span")
+            .field("file", &self.file)
+            .field("start", &self.start)
+            .field("end", &self.end)
+            .finish()
+    }
 }
 
 impl Span {

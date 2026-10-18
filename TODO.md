@@ -137,10 +137,11 @@ capability we know we'll need before the work that needs it):
    Reviewed (proceed); draft 2 adopts it (`7f13ce7`): exact-arity arms,
    `()` header → `_`, distinct header/implicit names, mixed-style
    declarations refused, multi-layer migration check. Simplified (user, 18 Oct):
-   no period accepting both syntaxes. Plan: lane `decl-parser` (A, Opus:
-   new parser behind an option, AST-equivalence harness) and lane
+   no period accepting both syntaxes. Lane A merged (`db65149`: new parser behind
+   `--syntax new` / `Syntax::New`, `stitchwort_syntax::equivalence`
+   harness). Lane
    `decl-converter` (B, Opus: old→new text converter, dry-run report)
-   running in parallel; then one switch commit (convert everything, flip
+   running; then one switch commit (convert everything, flip
    the parser, delete the old one, hash/AST/test comparison); then a
    tidy-up (docs, playground colouring, awkward converter output); then
    `where`. Header and implicit names must differ. Also queued after the switch: `&&`/`||` and
@@ -162,9 +163,11 @@ capability we know we'll need before the work that needs it):
    (`cc94701`, eager, generated `T.%decEq`; skipped for function/proof
    fields, mutual types). Day 1 proved correct (`23c2778`: positions on
    the dial by type; part 2 equals a click-by-click spec). Proof friction
-   (aoc-2025.md "Proofs"): `% 100` is very slow to check (`Nat.mod`
-   unfolds `100 * q`); `stitchwort run` evaluates proofs (no erasure in
-   the evaluator: minutes on the full input with a proof field); no
+   (aoc-2025.md "Proofs"): fixed since (`30e183a`, `a129404`): proofs and
+   types are erased when running (`erase.rs`; tests 10× fewer steps) and
+   `Nat.mod` is `n - (n / d) * d` (`% 100` in proofs 20–70× faster);
+   still: the checker evaluates proofs inside concrete types, and
+   checking evaluates an input-independent `main` print twice; no
    rewriting; (fixed since: `Int` addition laws incl.
    associativity, `Ordering.decEq`, `7f9fc01`). Days 2 and 3 done (`99e806d` 0.15 s, `4f23aec`
    0.45 s; answers right). Fixed since: `if x < y` works on decidable Props
