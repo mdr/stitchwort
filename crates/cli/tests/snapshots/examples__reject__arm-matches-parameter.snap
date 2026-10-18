@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-ARM-PARAMETER] Error: named parameters can't be matched in arms: move `w` after the colon, or use `match w with`
+   ╭─[ reject/arm-matches-parameter.sw:5:3 ]
+   │
+ 5 │   | Zero, y => y
+   │   ───────┬──────  
+   │          ╰──────── named parameters can't be matched in arms: move `w` after the colon, or use `match w with`
+   │ 
+   │ Note: `pick` takes 1 argument(s) after the colon, but this arm has 2 patterns
+───╯

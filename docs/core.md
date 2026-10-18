@@ -360,7 +360,7 @@ Only definitions reachable from the exports (and their checks) are emitted, in t
 | `E-UNKNOWN-NAME` | Name not in scope |
 | `E-UNKNOWN-FIELD` / `E-RECORD-FIELD` / `E-NOT-A-RECORD` / `E-RECORD-UPDATE` | A record has no such field; a literal or pattern leaves a field out or gives one twice; a record operation on something that isn't a record; an update that replaces a field without the later fields whose types mention it |
 | `E-DUPLICATE` | Name defined twice, or a built-in name redefined |
-| `E-MISSING-SIGNATURE` / `E-MISSING-DEFINITION` | Equations without a signature, or the other way round |
+| `E-MISSING-DEFINITION` | A `def` header with no body (only the prelude's primitives may) |
 | `E-ARITY` | Wrong number of patterns or arguments |
 | `E-NOT-A-CONSTRUCTOR` | A pattern that isn't a constructor |
 | `E-TYPE-MISMATCH` | Types don't match |

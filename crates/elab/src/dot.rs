@@ -281,7 +281,7 @@ fn find(cx: &Ctx, recv: &Expr, field: &AstName, mut ty: Ty) -> Result<(TyHead, D
                     )
                     .with_note(
                         "dot notation finds a function by the type of the value before the \
-                         `.`: a data type, a record, a definition of a type, or an equation",
+                         `.`: a data type, a record, a definition of a type, or an equality",
                     ));
             }
             Step::Head(h, at) => {

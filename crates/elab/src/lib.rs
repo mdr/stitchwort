@@ -1411,7 +1411,7 @@ impl Elaborator {
             if patterns.len() != arity {
                 let (form, h) = match header {
                     Some(h) => ("arm", h),
-                    None => ("equation", 0),
+                    None => ("arm", 0),
                 };
                 return Err(error(
                     "E-ARITY",
@@ -1490,6 +1490,37 @@ impl Elaborator {
                         arity - h,
                         def_name.text
                     )
+                } else if h > 0 {
+                    // More patterns than arguments after the colon, and the
+                    // header names parameters: the likely mistake is trying
+                    // to match one of those (E-ARM-PARAMETER).
+                    let named: Vec<&str> = first_patterns[..h]
+                        .iter()
+                        .filter_map(|p| match p {
+                            Pattern::Var(n) => Some(n.text.as_str()),
+                            _ => None,
+                        })
+                        .collect();
+                    let first = named.first().copied().unwrap_or("x");
+                    let list = named
+                        .iter()
+                        .map(|n| format!("`{n}`"))
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    return Err(error(
+                        "E-ARM-PARAMETER",
+                        first_span,
+                        format!(
+                            "named parameters can't be matched in arms: move {list} after the colon, \
+                             or use `match {first} with`"
+                        ),
+                    )
+                    .with_note(format!(
+                        "`{}` takes {} argument(s) after the colon, but this arm has {} patterns",
+                        def_name.text,
+                        columns.len() - h,
+                        arity - h
+                    )));
                 } else {
                     format!(
                         "`{}` takes {} argument(s) after the colon, but this arm has {} patterns",
@@ -1509,7 +1540,7 @@ impl Elaborator {
                 "E-ARITY",
                 first_span,
                 format!(
-                    "`{}` takes {} explicit argument(s), but this equation has {arity} patterns",
+                    "`{}` takes {} explicit argument(s), but this arm has {arity} patterns",
                     def_name.text,
                     columns.len()
                 ),
@@ -1715,7 +1746,7 @@ impl Elaborator {
                 return Err(error(
                     "E-NONEXHAUSTIVE",
                     span,
-                    format!("missing case: no equation matches `{example}`"),
+                    format!("missing case: no arm matches `{example}`"),
                 ));
             }
             let body = self.compile(
@@ -1769,9 +1800,9 @@ impl Elaborator {
             return Err(error(
                 "E-NONEXHAUSTIVE",
                 span,
-                format!("missing case: no equation matches numbers other than {listed}"),
+                format!("missing case: no arm matches numbers other than {listed}"),
             )
-            .with_note("add an equation with a variable or `_` in that position"));
+            .with_note("add an arm with a variable or `_` in that position"));
         }
         let mut arms = Vec::new();
         for (key, matching) in by_key {
@@ -2031,16 +2062,16 @@ impl Elaborator {
             listed.extend(keys[0].iter().map(|k| k.to_string()));
         }
         let message = if listed.is_empty() {
-            format!("missing case: no equation matches {which}")
+            format!("missing case: no arm matches {which}")
         } else {
             let n = listed.len();
             format!(
-                "missing case: no equation matches {which} other than {}",
+                "missing case: no arm matches {which} other than {}",
                 list_numbers(listed.into_iter(), n)
             )
         };
         Err(error("E-NONEXHAUSTIVE", span, message)
-            .with_note("add an equation with a variable or `_` in that position"))
+            .with_note("add an arm with a variable or `_` in that position"))
     }
 
     /// The prelude's constructor `b`, for a pattern the compiler writes.
@@ -2082,7 +2113,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                 return Err(error(
                     "E-ARITY",
                     *span,
-                    "this equation needs `= …`: only an equation with a `()` pattern can leave it out",
+                    "this arm needs `=> …`: only an arm with a `()` pattern can leave it out",
                 ));
             };
             let mark = cx.mark();
@@ -2250,7 +2281,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                 if depends && ["E-TYPE-MISMATCH", "E-NOT-EMPTY", "E-REFL"].contains(&d.code) {
                     let n = cx.show(&Value::var(*x));
                     d.with_note(format!(
-                        "number patterns only test values: an equation with a variable or `_` \
+                        "number patterns only test values: an arm with a variable or `_` \
                          where the others have numbers knows nothing about `{n}`, not even that \
                          it's a different number. To use the shape of `{n}`, match on `Zero` and \
                          `Succ` instead"

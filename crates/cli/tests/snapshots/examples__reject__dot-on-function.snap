@@ -9,5 +9,5 @@ expression: output
    │                                     ───┬──  
    │                                        ╰──── `.size` needs a value of a named type
    │ 
-   │ Note: dot notation finds a function by the type of the value before the `.`: a data type, a record, a definition of a type, or an equation
+   │ Note: dot notation finds a function by the type of the value before the `.`: a data type, a record, a definition of a type, or an equality
 ───╯

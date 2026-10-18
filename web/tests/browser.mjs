@@ -312,10 +312,14 @@ test("every example checks, and passes its tests but the failing one", async (pa
   for (const id of ids) {
     await page.pick(id);
     await page.untilChecked();
-    const summary = await page.until(`document.querySelector(".summary")?.textContent ||
-      document.getElementById("output").textContent.match(/No tests yet/)?.[0]`, 30000, `${id}'s tests`);
+    // A render of the previous example can still finish after the pick and
+    // leave its own "No tests yet" or summary, so wait for results that say
+    // they are for this source (`data-for`, set by the page).
+    const summary = await page.until(`document.getElementById("output").dataset.for === document.getElementById("source").value &&
+      (document.querySelector(".summary")?.textContent ||
+       document.getElementById("output").textContent.match(/No tests yet/)?.[0])`, 30000, `${id}'s tests`);
     if (id === "ex-tests") {
-      assert.match(summary, /^4 tests: 3 passed, 1 failed$/, id);
+      assert.match(summary, /^4 tests: 3 passed, 1 failed$/, `${id}: ${summary} / ${await page.output()} / ${await page.ev("document.getElementById(\"source\").value.slice(0,80)")} / ${ids}`);
       assert.match(await page.output(), /✗\s*this one fails \(evaluated to False\)/);
     } else if (summary !== "No tests yet") {
       assert.match(summary, /^(\d+) tests: \1 passed, 0 failed$/, id);

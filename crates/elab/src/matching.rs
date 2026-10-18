@@ -130,12 +130,8 @@ fn compile<'a>(
         .map_err(|d| match kind {
             _ if d.code != "E-NONEXHAUSTIVE" => d,
             MatchKind::Match => {
-                let reword = |s: &str| {
-                    s.replace(
-                        "no equation matches",
-                        "no alternative of this `match` matches",
-                    )
-                };
+                let reword =
+                    |s: &str| s.replace("no arm matches", "no alternative of this `match` matches");
                 let mut d = d;
                 d.message = reword(&d.message);
                 for label in &mut d.labels {
@@ -153,7 +149,7 @@ fn compile<'a>(
 fn refutable(cx: &Ctx, missing: &Diagnostic, alts: &[Alt], columns: &[usize]) -> Diagnostic {
     let what = missing
         .message
-        .split_once("no equation matches ")
+        .split_once("no arm matches ")
         .map_or("every case", |(_, what)| what);
     let patterns = &alts[0].patterns;
     let span = patterns[0].span().to(patterns[patterns.len() - 1].span());

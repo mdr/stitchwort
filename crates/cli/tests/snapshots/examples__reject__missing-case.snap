@@ -2,10 +2,10 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-NONEXHAUSTIVE] Error: missing case: no equation matches `Succ _`
+[E-NONEXHAUSTIVE] Error: missing case: no arm matches `Succ _`
    ╭─[ reject/missing-case.sw:3:3 ]
    │
  3 │   | Zero => 1
    │   ─────┬─────  
-   │        ╰─────── missing case: no equation matches `Succ _`
+   │        ╰─────── missing case: no arm matches `Succ _`
 ───╯

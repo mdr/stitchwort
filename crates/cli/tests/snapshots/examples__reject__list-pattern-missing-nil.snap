@@ -2,12 +2,12 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-NONEXHAUSTIVE] Error: missing case: no equation matches `Nil`
+[E-NONEXHAUSTIVE] Error: missing case: no arm matches `Nil`
    ╭─[ reject/list-pattern-missing-nil.sw:4:3 ]
    │
  4 │ ╭─▶   | [x] => x
    ┆ ┆   
  6 │ ├─▶   | Cons x (Cons y (Cons z rest)) => z
    │ │                                            
-   │ ╰──────────────────────────────────────────── missing case: no equation matches `Nil`
+   │ ╰──────────────────────────────────────────── missing case: no arm matches `Nil`
 ───╯

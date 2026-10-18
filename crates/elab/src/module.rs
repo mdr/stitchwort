@@ -248,21 +248,9 @@ impl Elaborator {
                     i = end;
                     (&decls[position], &decls[position + 1..end])
                 }
-                Decl::Equation { name, .. } => {
-                    diagnostics.push((
-                        position,
-                        error(
-                            "E-MISSING-SIGNATURE",
-                            name.span,
-                            format!(
-                                "`{}` needs a type signature before its equations",
-                                name.text
-                            ),
-                        ),
-                    ));
-                    i = equations_for(&name.text, i);
-                    continue;
-                }
+                // A `def` header always carries its type, so the parser never
+                // produces an arm without its signature in front.
+                Decl::Equation { .. } => unreachable!("an equation without a signature"),
                 decl => {
                     i += 1;
                     (decl, &decls[..0])
