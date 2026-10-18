@@ -110,6 +110,11 @@ pub struct Elaborator {
     /// application inside uses its expected type first
     /// (docs/proposals/syntax-conveniences.md §7.4).
     no_propagation: std::cell::Cell<usize>,
+    /// The address of the condition whose `Bool` reading `logic::condition`
+    /// is trying, or 0: a proposition there isn't decided into a `Bool` by
+    /// `check::decide_to_bool`, as the condition's proposition reading does
+    /// that its own way.
+    condition: std::cell::Cell<usize>,
     /// How many modules have been elaborated (the prelude is the first).
     modules: usize,
     /// While the members of a partial recursive group are described: their
@@ -1385,7 +1390,7 @@ impl Elaborator {
             Ok(term)
         })();
         self.owner.borrow_mut().clear();
-        let ty = ty.map_err(with_notes)?;
+        let ty = ty.map_err(|d| with_notes(autobind::explain(&auto, d)))?;
         // A `match` in the signature is admitted before it (§2.2): it can't
         // refer to the definition, which isn't declared yet.
         self.lift(&key, false).map_err(with_notes)?;

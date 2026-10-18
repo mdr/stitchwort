@@ -1292,6 +1292,17 @@ def Int.mul : Int -> Int -> Int
   | NegSucc m, OfNat n   => Int.neg (OfNat (Succ m * n))
   | NegSucc m, NegSucc n => OfNat (Succ m * Succ n)
 
+-- The sum of a list of `Int`s, as `List.sum` is of `Nat`s.
+def List.sumInt (xs : List Int) : Int := List.foldl Int.add 0 xs
+
+theorem List.sumIntExample : List.sumInt [3, -5, 1] = -1 := rfl
+
+-- The sum of `f` over the elements, as an `Int`: `List.sumIntBy f xs` is
+-- `List.sumInt (List.map f xs)` without building the intermediate list.
+def List.sumIntBy (f : a -> Int) (xs : List a) : Int := List.foldl (\acc x => Int.add acc (f x)) 0 xs
+
+theorem List.sumIntByExample : List.sumIntBy (\x => Int.sub 1 x) [1, 2, 3] = -3 := rfl
+
 -- `|x|`, as a `Nat`.
 def Int.natAbs : Int -> Nat
   | OfNat n   => n

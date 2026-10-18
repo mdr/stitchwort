@@ -25,7 +25,7 @@ def solve (ranges : List Range) : (Nat, Nat) := (total twice ranges, total weigh
 def total (w : Nat -> Int) (ranges : List Range) : Nat :=
   ranges
     |> .map (.invalid w)
-    |> .foldl Int.add 0
+    |> .sumInt
     |> .toNat
 
 -- A range of ids, both ends included.
@@ -70,11 +70,11 @@ def Range.invalid (w : Nat -> Int) (r : Range) : Int :=
   let size := (Nat.digits r.hi).length
   def terms (k : Nat) : List Int :=
     List.rangeFrom 9 2
-      |> .filter (\n => Nat.leq (k * n) size)
+      |> .filter (\n => k * n <= size)
       |> .map (\n => w n * (r.repeated k n).toInt)
   List.rangeFrom size 1
     |> .concatMap terms
-    |> .foldl Int.add 0
+    |> .sumInt
 
 -- Examples -----------------------------------------------------------------
 

@@ -1295,7 +1295,52 @@ fn fallback(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     }
     let (term, found) = infer(cx, expr)?;
     let (term, found) = insert(cx, term, found)?;
+    if let Some(term) = decide_to_bool(cx, expr, &term, &found, expected)? {
+        return Ok(term);
+    }
     compare(cx, term, &found, expected)
+}
+
+/// Where a `Bool` is expected, a proposition with a decision procedure is
+/// decided, as Lean's `decide` coercion does: `term : Prop` becomes
+/// `Decidable.toBool {term} decision`, so `List.filter (\n => n <= k) xs`
+/// works. `None` (nothing done) unless `expected` is the library's `Bool`
+/// and `found` is `Prop`, so other comparisons don't pay for it. A
+/// condition (`if c`, `&&` …) whose `Bool` reading is being tried isn't
+/// decided here: its proposition reading decides it (`logic::condition`).
+fn decide_to_bool(
+    cx: &mut Ctx,
+    expr: &Expr,
+    term: &Term,
+    found: &Value,
+    expected: &Value,
+) -> Result<Option<Term>> {
+    if cx.e.condition.get() == std::ptr::from_ref(expr) as usize
+        || !matches!(force(cx.g(), found.clone())?, Value::Sort(Sort::Prop))
+    {
+        return Ok(None);
+    }
+    if !matches!(force(cx.g(), expected.clone())?,
+        Value::Data(d, _) if cx.g().registry.is_data(Builtin::Bool, d))
+    {
+        return Ok(None);
+    }
+    let decision = match crate::auto::decide(cx, &cx.eval(term)?, 0) {
+        Ok(decision) => decision,
+        Err(mut e) if e.code == "E-AUTO-NONE" && !e.notes.is_empty() => {
+            e.labels.clear();
+            e.notes[0] = "a `Bool` is expected here, and a proposition is turned into one only \
+                          if it has a decision procedure: a function returning `Decidable …`"
+                .into();
+            return Err(e.with_label(expr.span(), "this is a proposition, and nothing decides it"));
+        }
+        Err(e) => return Err(e),
+    };
+    let to_bool = builtin_def(cx, Builtin::ToBool)?;
+    Ok(Some(Term::app(
+        Term::app_icit(Term::Def(to_bool), term.clone(), Icit::Implicit),
+        decision,
+    )))
 }
 
 /// `term`, of type `found`, where `expected` is expected.

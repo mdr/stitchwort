@@ -1,4 +1,4 @@
-//! Implicitly bound type variables (DESIGN.md §4, §16).
+//! Implicitly bound variables (DESIGN.md §4, §16).
 //!
 //! An unknown lowercase name in a signature is bound automatically, as an
 //! implicit parameter at the front, if *every* use of it is in a position where
@@ -6,10 +6,22 @@
 //!
 //! - the domain or result of a function type (`a -> b`, `(x : a) -> …`);
 //! - a binder's type, `[x : a]`;
-//! - an argument of a data type whose parameter is a type (`List a`, `Or p q`).
+//! - an argument of a data type (or a definition whose result is a type)
+//!   whose parameter is a type (`List a`, `Or p q`);
 //!
-//! Anywhere else (e.g. `length xs` with `xs` unbound) it stays an unknown name,
-//! so a misspelt value doesn't silently become a new parameter.
+//! or is the whole argument of a data type, or of a definition whose result
+//! is a type, for a parameter that's a value (Idris's way): `Dial highest`,
+//! for `type Dial (highest : Nat) = …`, binds `[highest : Nat]`.
+//!
+//! The variables are bound in the order of their first uses, each with an
+//! unknown type worked out from its uses: usually `Type`, and for a value
+//! argument the parameter's type. Uses that disagree are a type mismatch at
+//! the later one, with a note saying the name was bound automatically
+//! ([`explain`]).
+//!
+//! Anywhere else (e.g. `length xs` with `xs` unbound, or `Dial (highest + 1)`)
+//! it stays an unknown name, so a misspelt value doesn't silently become a
+//! new parameter.
 //!
 //! A name declared anywhere in the module isn't unknown, wherever it's
 //! declared: it means that declaration. Such names that would otherwise have
@@ -17,7 +29,8 @@
 //! (docs/proposals/mutual-recursion.md §8.1), and so are imported names
 //! (docs/proposals/namespaces.md §4.11).
 
-use stitchwort_core::Term;
+use stitchwort_core::{Icit, Term};
+use stitchwort_syntax::Diagnostic;
 use stitchwort_syntax::ast::{Expr, Name};
 
 use stitchwort_core::ResourceError;
@@ -33,6 +46,26 @@ pub struct AutoBound {
     pub names: Vec<Name>,
     /// The first use of each.
     pub shadowing: Vec<Name>,
+    /// The uses of bound names as a value argument of a type.
+    values: Vec<Name>,
+}
+
+/// `d`, a failure elaborating the signature, with a note if it's a type
+/// mismatch at a bound name used as a value argument of a type: the uses'
+/// types disagree.
+pub fn explain(auto: &AutoBound, d: Diagnostic) -> Diagnostic {
+    let Some(at) = d.labels.first().map(|l| l.span) else {
+        return d;
+    };
+    match auto.values.iter().find(|n| n.span == at) {
+        Some(name) if d.code == "E-TYPE-MISMATCH" => d.with_note(format!(
+            "`{0}` isn't declared, so it's bound automatically, its type taken from its first \
+             use; its uses here need different types. Bind it yourself (`[{0} : …]`), or use \
+             different names",
+            name.text
+        )),
+        _ => d,
+    }
 }
 
 pub fn auto_bound(e: &Elaborator, ty: &Expr) -> Result<AutoBound> {
@@ -52,7 +85,7 @@ pub fn auto_bound_in(e: &Elaborator, ty: &Expr, mut bound: Vec<String>) -> Resul
         let all_types = uses
             .iter()
             .filter(|u| u.name.text == name.text)
-            .all(|u| u.type_position);
+            .all(|u| u.position != Position::Value);
         let found = if use_.module {
             &mut shadowing
         } else {
@@ -62,15 +95,66 @@ pub fn auto_bound_in(e: &Elaborator, ty: &Expr, mut bound: Vec<String>) -> Resul
             found.push(name.clone());
         }
     }
-    Ok(AutoBound { names, shadowing })
+    let values = uses
+        .into_iter()
+        .filter(|u| u.position == Position::ValueArg && names.iter().any(|n| n.text == u.name.text))
+        .map(|u| u.name)
+        .collect();
+    Ok(AutoBound {
+        names,
+        shadowing,
+        values,
+    })
 }
 
 /// A use of a name that's a candidate for binding.
 struct Use {
     name: Name,
-    type_position: bool,
+    position: Position,
     /// The name is declared by the module being elaborated.
     module: bool,
+}
+
+/// Where a name is used.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Position {
+    /// Where a type is expected.
+    Type,
+    /// The whole argument of a type for a parameter that's a value.
+    ValueArg,
+    /// Anywhere else.
+    Value,
+}
+
+/// The explicit parameters of the type-former `head` (a data type, an
+/// ability, or a definition whose result is a type): for each, whether it's
+/// a type. `None` if `head` isn't one.
+fn type_former(e: &Elaborator, head: &Expr, bound: &[String]) -> Option<Vec<bool>> {
+    let Expr::Var(name) = head else {
+        return None;
+    };
+    if bound.contains(&name.text) {
+        return None;
+    }
+    let is_sort = |ty: &Term| matches!(ty.strip_loc(), Term::Sort(_));
+    let data = match e.named(&name.text)? {
+        (Global::Data(d), _) => e.globals.data(*d),
+        // An ability's parameters are those of its operations' type.
+        (Global::Ability(a), _) => e.globals.data(e.abilities[*a].op_data),
+        (Global::Def(id), _) => {
+            let mut params = Vec::new();
+            let mut ty = &e.globals.def(*id).ty;
+            while let Term::Pi(_, icit, dom, cod) = ty.strip_loc() {
+                if *icit == Icit::Explicit {
+                    params.push(is_sort(dom));
+                }
+                ty = cod;
+            }
+            return is_sort(ty).then_some(params);
+        }
+        _ => return None,
+    };
+    Some(data.params.iter().map(|(_, ty)| is_sort(ty)).collect())
 }
 
 fn walk(
@@ -80,7 +164,28 @@ fn walk(
     is_type: bool,
     uses: &mut Vec<Use>,
 ) -> Result<()> {
+    walk_at(
+        e,
+        expr,
+        bound,
+        if is_type {
+            Position::Type
+        } else {
+            Position::Value
+        },
+        uses,
+    )
+}
+
+fn walk_at(
+    e: &Elaborator,
+    expr: &Expr,
+    bound: &mut Vec<String>,
+    position: Position,
+    uses: &mut Vec<Use>,
+) -> Result<()> {
     e.globals.budget.nesting(crate::check::PASS)?;
+    let is_type = position == Position::Type;
     match expr {
         Expr::Var(name) => {
             let candidate = name.text.starts_with(|c: char| c.is_ascii_lowercase())
@@ -105,7 +210,7 @@ fn walk(
             if candidate && (module || unknown) {
                 uses.push(Use {
                     name: name.clone(),
-                    type_position: is_type,
+                    position,
                     module,
                 });
             }
@@ -118,25 +223,26 @@ fn walk(
                 head = f;
             }
             args.reverse();
-            let data = match head {
-                Expr::Var(name) if !bound.contains(&name.text) => match e.named(&name.text) {
-                    Some((Global::Data(d), _)) => Some(e.globals.data(*d)),
-                    // An ability's parameters are those of its operations' type.
-                    Some((Global::Ability(a), _)) => Some(e.globals.data(e.abilities[*a].op_data)),
-                    _ => None,
-                },
-                _ => None,
-            };
-            if data.is_none() {
+            let params = type_former(e, head, bound);
+            if params.is_none() {
                 walk(e, head, bound, false, uses)?;
             }
-            for (i, arg) in args.iter().enumerate() {
-                let type_param = data.is_some_and(|d| {
-                    d.params
-                        .get(i)
-                        .is_some_and(|(_, ty)| matches!(ty.strip_loc(), Term::Sort(_)))
-                });
-                walk(e, arg, bound, type_param, uses)?;
+            // Named arguments are implicit ones, not among `params`.
+            let mut explicit = 0;
+            for arg in args {
+                let param = match arg {
+                    Expr::NamedArg(..) => None,
+                    _ => {
+                        explicit += 1;
+                        params.as_ref().and_then(|p| p.get(explicit - 1))
+                    }
+                };
+                let position = match param {
+                    Some(true) => Position::Type,
+                    Some(false) if matches!(arg, Expr::Var(_)) => Position::ValueArg,
+                    _ => Position::Value,
+                };
+                walk_at(e, arg, bound, position, uses)?;
             }
         }
         Expr::Pi {
