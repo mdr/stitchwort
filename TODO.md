@@ -35,7 +35,8 @@ Waiting on a decision: nothing. The user is reviewing day 1; their notes
 are collected and applied in one pass afterwards (so far: inline
 `Dial.place` into `Dial.wrap`, any proof-only abbreviation defined
 beside the proofs, the implementation kept plain; `turnOf` as a
-`match` on chars).
+`match` on chars; `Dial.size` (= `Succ highest`) used in the
+implementation, proofs may keep `Succ highest`).
 
 ## Next
 
