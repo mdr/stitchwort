@@ -33,7 +33,7 @@ use stitchwort_core::native::{self, Native};
 use stitchwort_core::partial::Primitive;
 use stitchwort_core::registry::{self, Builtin};
 use stitchwort_core::term::{Branch, NumArm};
-use stitchwort_core::value::{eval, force};
+use stitchwort_core::value::{Head, eval, force};
 use stitchwort_core::{DataId, DefId, Globals, Icit, Limits, Name, Sort, Term, Value, pretty};
 use stitchwort_syntax::ast::{Decl, Expr, Pattern};
 use stitchwort_syntax::{Diagnostic, Span, ast};
@@ -2038,7 +2038,22 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
         } => {
             let g = cx.g();
             let data = g.data(*d);
-            let params = match force(g, cx.types[*x].clone())? {
+            let mut ty = force(g, cx.types[*x].clone())?;
+            if let Value::Neutral(Head::Meta(_), _) = ty {
+                // A variable of a type not yet known, matched by a
+                // constructor: a pattern lambda's parameter checked before
+                // the argument that fixes its type, as in `List.map (\(a, b)
+                // -> …) ps` (docs/proposals/syntax-conveniences.md §5.5). Its
+                // type is the constructor's, with parameters still unknown.
+                let params = (0..data.params.len())
+                    .map(|_| cx.eval(&cx.fresh_meta()))
+                    .collect::<Result<Vec<_>>>()?;
+                let known = Value::Data(*d, params);
+                if cx.unify(&ty, &known)? {
+                    ty = known;
+                }
+            }
+            let params = match ty {
                 Value::Data(d2, params) if d2 == *d => params,
                 other => {
                     return Err(error(

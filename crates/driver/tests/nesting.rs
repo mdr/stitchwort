@@ -150,6 +150,20 @@ fn long_blocks() {
     });
 }
 
+/// A pattern `let` is a `match` whose alternative holds the rest of the
+/// block (docs/proposals/syntax-conveniences.md §5.5), so those nest too.
+#[test]
+fn long_pattern_blocks() {
+    isolated("long_pattern_blocks", || {
+        just_past_the_limit(|x, n| {
+            let lines: String = (0..n)
+                .map(|i| format!("  let (v{i}, w{i}) = (1, {i})\n"))
+                .collect();
+            format!("{x} : Nat\n{x} =\n{lines}  0\n")
+        });
+    });
+}
+
 /// Literals are flat to parse, but are long chains of constructors once
 /// elaborated.
 #[test]

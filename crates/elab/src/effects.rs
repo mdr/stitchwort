@@ -1132,6 +1132,7 @@ pub fn comp_check(cx: &mut Ctx, expr: &Expr, row: &Row, t: &Value) -> Result<Ter
             scrutinees,
             alts,
             span,
+            kind,
         } => {
             let expected = comp_type(cx, row, t.clone())?;
             let mut performs = false;
@@ -1149,6 +1150,7 @@ pub fn comp_check(cx: &mut Ctx, expr: &Expr, row: &Row, t: &Value) -> Result<Ter
                     scrutinees: bound,
                     alts: alts.clone(),
                     span: *span,
+                    kind: *kind,
                 };
                 crate::matching::check_match(cx, &matched, &expected)
             })

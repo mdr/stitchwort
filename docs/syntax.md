@@ -312,6 +312,33 @@ The way round all of them is a top-level helper with a written signature. `E-MAT
 
 JavaScript: a `match` that is part of the case tree, with a tail call to its own definition in a branch, becomes a loop like any self tail call. A generated definition doesn't: a `match` that is lifted, in tail position, whose branch calls the owner, is a pair of mutual tail calls, and those aren't loops yet. Deep recursion through it can hit the JS stack limit, which is reported as the boundary's out-of-resources error. A tail `match` on a parameter (the whole right-hand side) isn't affected. Examples: `examples/accept/match.sw`, `examples/extract/match.sw`. Design: [syntax-conveniences.md](proposals/syntax-conveniences.md) section 4.
 
+#### Patterns in `let` and lambdas
+
+`let` and a lambda's parameters take patterns too:
+
+```
+let (q, r) = (n / 7, n % 7)
+let MkPair a b = p                -- a constructor's arguments need no brackets
+let { name, .. } = p
+let (a, b) : (Nat, Nat) = e       -- the right-hand side is checked against the type
+let _ = e
+\(a, b) -> a + b
+\acc (k, v) -> acc + v
+\{ name, .. } -> name
+```
+
+`let p = e` followed by the rest of the block means `match e with | p -> rest`, and a lambda's pattern parameters are matched against its arguments in the same way. `let x = e` and `let (x) = e` are the ordinary `let`.
+
+The one-alternative `match` must cover every value of the type, or the `let` is `E-LET-REFUTABLE`: coverage is by the type, not the value, so `let Just x = Just 3` is rejected by design. Use `match` to say what happens otherwise. Elimination of proofs still applies (`E-PROP-ELIM`). In a block with abilities, the right-hand side runs once, in order, before the rest.
+
+Limits:
+
+- a record pattern in a lambda needs its type known where the lambda is checked, as `p.name` does;
+- a lambda's parameter can't be annotated: `\(x : T) -> …` is an error, so annotate the lambda, `((\x -> …) : A -> B)`;
+- a pattern `let` that isn't the whole right-hand side is lifted like a `match`, so it isn't available in `partial` functions, data or ability declarations, or the REPL.
+
+Examples: `examples/accept/let-patterns.sw`. Design: [syntax-conveniences.md](proposals/syntax-conveniences.md) section 5.
+
 ### Numbers
 
 A numeric literal is a `Nat` or an `Int`, depending on what's expected (`Nat` if nothing says). An arithmetic expression or comparison has one number type for all its operands, chosen by the first of these that applies: the expected type; a prefix minus (which forces `Int`); an operand with no literal in it; any other operand; else `Nat`. So `3 - 5 = -2` is on `Int`, and `x + 1` follows `x`. A `let` binding keeps its own type: `let m = 3 - 5` is a `Nat`, and `m + i` with `i : Int` is an error.
