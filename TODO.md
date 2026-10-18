@@ -129,11 +129,12 @@ capability we know we'll need before the work that needs it):
    **Declaration syntax (user, 18 Oct): switch to the Lean/Scala style**
    (typed parameters inline, e.g. `def add (x : Nat) (y : Nat) : Nat =
    …`, cases under a signature) instead of Haskell-style separate
-   signatures and equations. Next: a researched design note (Lean, Scala
-   3, Idris, Agda, Unison, Roc; implicits, multiple equations, `where`,
-   theorems, effects, migration of all existing code) for external
-   review, then implementation. Lanes `if-prop-listpat`, `derive-eq` and
-   `day1-proofs` are running; the note starts when one frees up.
+   signatures and equations. Draft 1 merged
+   ([declaration-syntax.md](docs/proposals/declaration-syntax.md)): the
+   parser rewrites new forms into today's, so hashes must stay identical;
+   `:=` bodies, `| … =>` cases; a text-editing converter migrates all
+   code. Waiting on the user's answers to its questions and the external
+   review.
 4. **Advent of Code 2025, early days** — the medium-term goal. Plan
    (user, 18 Oct): day 1 done (`aoc/day01.sw`, both answers right,
    0.7 s; `IO.readAllLines`, `Nat.digits` added; friction write-up in
@@ -151,8 +152,9 @@ capability we know we'll need before the work that needs it):
    types; Opus, no external review) and lane `day1-proofs` (Opus: dial
    stays in 0–99; part 2's fast count equals a click-by-click spec)
    running. Days 2 and 3 done (`99e806d` 0.15 s, `4f23aec`
-   0.45 s; answers right). Friction so far: `<`/`<=` are `Prop`s so `if`
-   needs `Nat.leq`; no list patterns `[a, b]`; division by a variable
+   0.45 s; answers right). Fixed since: `if x < y` works on decidable Props
+   and list patterns `[]`/`[a, b]` exist (`a48e928`, `8754e6d`). Still
+   missing: `&&`/`||` (the lexer rejects `&`) and a Prop-aware `not`; division by a variable
    needs a proof; unreachable `Nil` equations. User OK'd default-visible
    `And`/`Both`; annotated lambda
    parameters later; then days 1–5 rewritten with proofs (deep
