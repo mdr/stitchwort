@@ -751,6 +751,12 @@ def List.foldr (f : a -> b -> b) (z : b) : List a -> b
 
 def List.sum (xs : List Nat) : Nat := List.foldl Nat.add 0 xs
 
+-- The sum of `f` over the elements: `List.sumBy f xs` is `List.sum (List.map f xs)`
+-- without building the intermediate list.
+def List.sumBy (f : a -> Nat) (xs : List a) : Nat := List.foldl (\acc x => acc + f x) 0 xs
+
+theorem List.sumByDoubles : List.sumBy (\x => x * 2) [1, 2, 3] = 12 := rfl
+
 def List.product (xs : List Nat) : Nat := List.foldl Nat.mul 1 xs
 
 def List.maximum : List Nat -> Maybe Nat
