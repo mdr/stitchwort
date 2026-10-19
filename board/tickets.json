@@ -1559,7 +1559,7 @@
     {
       "id": 104,
       "title": "Examples test: select example files by name (e.g. EXAMPLES=synonym)",
-      "status": "doing",
+      "status": "review",
       "agent": "DeepSeek",
       "where": "/Users/matt/scratch/opencode/funlang-20261019-214231",
       "labels": [
@@ -1568,7 +1568,9 @@
       "body": "Found by DeepSeek writing dev/t (19 Oct): crates/cli/tests/examples.rs has three test functions that loop over every example file, so cargo's filter can't pick one example. An env var filter (EXAMPLES=substring) read by the harness would let `dev/t examples synonym` run just those files. Small.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
-      "commits": []
+      "commits": [
+        "c86a565"
+      ]
     },
     {
       "id": 105,
