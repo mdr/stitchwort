@@ -27,14 +27,14 @@ def dial : Dial 99 := { position = 50, inRange = rfl }
 -- Part 1: the positions after each turn that are 0.
 def zerosLandedOn (start : Dial highest) (turns : List Turn) : Nat :=
   turns
-    |> .scanl Dial.move start
+    |> .scanLeft Dial.move start
     |> .drop 1
     |> .count Dial.isZero
 
 -- Part 2: for each turn, the clicks onto 0 from where the dial was before it.
 def zerosPassed (start : Dial highest) (turns : List Turn) : Nat :=
   turns
-    |> .scanl Dial.move start
+    |> .scanLeft Dial.move start
     |> .zipWith Dial.zerosDuring turns
     |> .sum
 
@@ -123,7 +123,7 @@ theorem alwaysOnDial [highest : Nat] (d : Dial highest) (t : Turn) : (d.move t).
 -- start and turns.
 theorem zerosPassedCorrect (start : Dial highest) (turns : List Turn) : zerosPassed start turns = zerosPassedSpec start turns :=
   Eq.trans (zerosPassedFrom start turns)
-    (Eq.sym (List.countOccurrences Dial.isZero (List.drop 1 (List.scanl Dial.move start (List.concatMap Turn.clicks turns)))))
+    (Eq.sym (List.countOccurrences Dial.isZero (List.drop 1 (List.scanLeft Dial.move start (List.concatMap Turn.clicks turns)))))
 
 -- And so for the puzzle's answer.
 theorem part2Puzzle (turns : List Turn) : solvePart2 turns = zerosPassedSpec dial turns :=
@@ -131,12 +131,12 @@ theorem part2Puzzle (turns : List Turn) : solvePart2 turns = zerosPassedSpec dia
 
 -- Theorem 3: part 1 is the count of the positions after each turn that are 0.
 theorem part1Puzzle (turns : List Turn) :
-    solvePart1 turns = ((List.scanl Dial.move dial turns).drop 1).count Dial.isZero := rfl
+    solvePart1 turns = ((List.scanLeft Dial.move dial turns).drop 1).count Dial.isZero := rfl
 
 -- The zeros after each turn from `d`, counted by `List.occurrences`, which
 -- suits proofs (it recurses on the list).
 def zerosAfter (d : Dial highest) (turns : List Turn) : Nat :=
-  List.occurrences Dial.isZero (List.drop 1 (List.scanl Dial.move d turns))
+  List.occurrences Dial.isZero (List.drop 1 (List.scanLeft Dial.move d turns))
 
 -- Integers.
 theorem subNatNatFromSucc (m : Nat) (n : Nat) : (k : Nat) -> Int.subNatNatFrom (Succ m) (Succ n) k = Int.subNatNatFrom m n k
@@ -188,7 +188,7 @@ theorem stepRight (d : Nat) [auto ok : d != 0] (a : Nat) (h : a < d) (n : Nat) :
       (Eq.cong (\x => x / d) (Eq.sym (Nat.addSucc a n))))
 
 theorem rightAt [highest : Nat] (d : Dial highest) : (n : Nat) ->
-    (List.foldl Dial.move d (List.replicate n (Right 1))).position = (d.position + n) % Succ highest
+    (List.foldLeft Dial.move d (List.replicate n (Right 1))).position = (d.position + n) % Succ highest
   | Zero   => Eq.sym (Eq.trans (Eq.cong (\x => x % Succ highest) (Nat.addZero d.position)) (Nat.modSmall d.position (Succ highest) d.inRange))
   | Succ n => Eq.trans (rightAt (d.move (Right 1)) n) (stepRightAt (Succ highest) d.position d.inRange n)
 
@@ -196,7 +196,7 @@ theorem rightCount [highest : Nat] (d : Dial highest) : (n : Nat) ->
     zerosAfter d (List.replicate n (Right 1)) = (d.position + n) / Succ highest
   | Zero   => Eq.sym (Eq.trans (Eq.cong (\x => x / Succ highest) (Nat.addZero d.position)) (Nat.divSmall d.position (Succ highest) d.inRange))
   | Succ n =>
-    Eq.trans (Eq.cong (List.occurrences Dial.isZero) (List.scanlCons Dial.move (d.move (Right 1)) (List.replicate n (Right 1))))
+    Eq.trans (Eq.cong (List.occurrences Dial.isZero) (List.scanLeftCons Dial.move (d.move (Right 1)) (List.replicate n (Right 1))))
       (Eq.trans (Eq.cong (\t => Bool.toNat (d.move (Right 1)).isZero + t) (rightCount (d.move (Right 1)) n))
         (stepRight (Succ highest) d.position d.inRange n))
 
@@ -273,7 +273,7 @@ theorem stepLeft (highest : Nat) : (a : Nat) -> a <= highest -> (n : Nat) ->
       (stepLeftFrom highest m h n)
 
 theorem leftAt [highest : Nat] (d : Dial highest) : (n : Nat) ->
-    (List.foldl Dial.move d (List.replicate n (Left 1))).position = Dial.place highest (Nat.toInt d.position - Nat.toInt n)
+    (List.foldLeft Dial.move d (List.replicate n (Left 1))).position = Dial.place highest (Nat.toInt d.position - Nat.toInt n)
   | Zero   => Eq.sym (Eq.trans (Eq.cong (\x => x % Succ highest) (Nat.addZero d.position)) (Nat.modSmall d.position (Succ highest) d.inRange))
   | Succ n => Eq.trans (leftAt (d.move (Left 1)) n) (stepLeftAt highest d.position d.inRange n)
 
@@ -283,15 +283,15 @@ theorem leftCount [highest : Nat] (d : Dial highest) : (n : Nat) ->
     Eq.sym (Eq.trans (Eq.cong (\x => x / Succ highest) (Nat.addZero ((Succ highest - d.position) % Succ highest)))
       (Nat.divSmall ((Succ highest - d.position) % Succ highest) (Succ highest) (Nat.modLt (Succ highest - d.position) (Succ highest))))
   | Succ n =>
-    Eq.trans (Eq.cong (List.occurrences Dial.isZero) (List.scanlCons Dial.move (d.move (Left 1)) (List.replicate n (Left 1))))
+    Eq.trans (Eq.cong (List.occurrences Dial.isZero) (List.scanLeftCons Dial.move (d.move (Left 1)) (List.replicate n (Left 1))))
       (Eq.trans (Eq.cong (\t => Bool.toNat (d.move (Left 1)).isZero + t) (leftCount (d.move (Left 1)) n))
         (stepLeft highest d.position d.inRange n))
 
 -- A turn is its clicks, one at a time: it ends in the same place, and
 -- `zerosDuring` counts the clicks that land on 0.
-theorem turnAt (d : Dial highest) : (t : Turn) -> List.foldl Dial.move d t.clicks = d.move t
-  | Left n  => dialExt (List.foldl Dial.move d (Left n).clicks) (d.move (Left n)) (leftAt d n)
-  | Right n => dialExt (List.foldl Dial.move d (Right n).clicks) (d.move (Right n)) (rightAt d n)
+theorem turnAt (d : Dial highest) : (t : Turn) -> List.foldLeft Dial.move d t.clicks = d.move t
+  | Left n  => dialExt (List.foldLeft Dial.move d (Left n).clicks) (d.move (Left n)) (leftAt d n)
+  | Right n => dialExt (List.foldLeft Dial.move d (Right n).clicks) (d.move (Right n)) (rightAt d n)
 
 theorem turnCount (d : Dial highest) : (t : Turn) -> zerosAfter d t.clicks = d.zerosDuring t
   | Left n  => leftCount d n
@@ -301,10 +301,10 @@ theorem turnCount (d : Dial highest) : (t : Turn) -> zerosAfter d t.clicks = d.z
 theorem zerosPassedSplit (d : Dial highest) (t : Turn) (ts : List Turn) :
     zerosAfter d (t.clicks ++ List.concatMap Turn.clicks ts)
       = d.zerosDuring t + zerosAfter (d.move t) (List.concatMap Turn.clicks ts) :=
-  Eq.trans (Eq.cong (List.occurrences Dial.isZero) (List.scanlAppend Dial.move d t.clicks (List.concatMap Turn.clicks ts)))
-    (Eq.trans (List.occurrencesAppend Dial.isZero (List.drop 1 (List.scanl Dial.move d t.clicks))
-        (List.drop 1 (List.scanl Dial.move (List.foldl Dial.move d t.clicks) (List.concatMap Turn.clicks ts))))
-      (Eq.trans (Eq.cong (\x => x + zerosAfter (List.foldl Dial.move d t.clicks) (List.concatMap Turn.clicks ts))
+  Eq.trans (Eq.cong (List.occurrences Dial.isZero) (List.scanLeftAppend Dial.move d t.clicks (List.concatMap Turn.clicks ts)))
+    (Eq.trans (List.occurrencesAppend Dial.isZero (List.drop 1 (List.scanLeft Dial.move d t.clicks))
+        (List.drop 1 (List.scanLeft Dial.move (List.foldLeft Dial.move d t.clicks) (List.concatMap Turn.clicks ts))))
+      (Eq.trans (Eq.cong (\x => x + zerosAfter (List.foldLeft Dial.move d t.clicks) (List.concatMap Turn.clicks ts))
           (turnCount d t))
         (Eq.cong (\e => d.zerosDuring t + zerosAfter e (List.concatMap Turn.clicks ts)) (turnAt d t))))
 
@@ -312,6 +312,6 @@ theorem zerosPassedFrom (d : Dial highest) : (ts : List Turn) ->
     zerosPassed d ts = zerosAfter d (List.concatMap Turn.clicks ts)
   | Nil       => rfl
   | Cons t ts =>
-    Eq.trans (List.sumCons (d.zerosDuring t) (List.zipWith Dial.zerosDuring (List.scanl Dial.move (d.move t) ts) ts))
+    Eq.trans (List.sumCons (d.zerosDuring t) (List.zipWith Dial.zerosDuring (List.scanLeft Dial.move (d.move t) ts) ts))
       (Eq.trans (Eq.cong (\x => d.zerosDuring t + x) (zerosPassedFrom (d.move t) ts))
         (Eq.sym (zerosPassedSplit d t ts)))

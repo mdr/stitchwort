@@ -53,7 +53,7 @@ one "step" (`Budget::step`).
 pointer, not a chain of `Succ`. `Nat.add`, `Nat.sub`, `Nat.mul`, `Nat.leq`, `Nat.equal`,
 `Nat.divFuel`, `Nat.decEq` and two proof helpers are **native** (`crates/core/src/native.rs`):
 when a definition has all its arguments, the machine looks its id up in a hash map of natives.
-Everything else, including `List.zipWith`, `List.foldl`, `List.sum`, `List.sumBy` and the sort,
+Everything else, including `List.zipWith`, `List.foldLeft`, `List.sum`, `List.sumBy` and the sort,
 is ordinary prelude code (`crates/elab/src/prelude.sw`) run by the machine.
 
 ## 2. What was measured
@@ -79,7 +79,7 @@ Calls per definition while running (scratch counters):
 |---|---:|---:|---:|
 | `List.zipWith` (6) | 7,953,535 | | 39,629,975 |
 | `Nat.add` (2) | | 9,511,976 | 9,511,976 |
-| `List.foldl` (5) | 3,247,037 | | 12,988,148 |
+| `List.foldLeft` (5) | 3,247,037 | | 12,988,148 |
 | `Bool.ifThenElse` (4) | 3,163,178 | | 9,489,534 |
 | `List.append` (3) | 1,583,738 | | 3,167,476 |
 | `Decidable.toBool` (2) | 1,939,907 | | 1,939,907 |
@@ -125,7 +125,7 @@ compute it ahead of time (see section 6). `n = 100,000`; times are after subtrac
 | `countDown n 0` (a tail-recursive loop on `Nat`) | 0.3 µs | 10 |
 | `List.length (List.range n)` | 0.8 µs | 29 |
 | `List.sum (List.range n)` | 1.2 µs | 52 |
-| `List.foldl (\acc x => acc + x) 0 (List.range n)` | 1.5 µs | 62 |
+| `List.foldLeft (\acc x => acc + x) 0 (List.range n)` | 1.5 µs | 62 |
 | `List.sum (List.map (\x => x + 1) (List.range n))` | 2.2 µs | 93 |
 | `List.count (\x => x == 50000) (List.range n)` | 2.5 µs | 96 |
 | `List.sum (List.zipWith Nat.add (List.range n) (List.range n))` | 2.8 µs | 118 |

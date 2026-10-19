@@ -3,7 +3,7 @@
 -- `match e with | p => rest`; `\p => body` matches its parameter. The
 -- pattern must cover every value of its type.
 
-import List (map, foldl, zip)
+import List (map, foldLeft, zip)
 
 -- A tuple.
 def divMod7 (n : Nat) : (Nat, Nat) := (n / 7, n % 7)
@@ -49,7 +49,7 @@ def unit (u : ()) : Nat :=
 -- Lambdas: a pattern parameter, one among others, and a record.
 def sums (ps : List (Nat, Nat)) : List Nat := map (\(a, b) => a + b) ps
 
-def total (entries : List (Text, Nat)) : Nat := foldl (\acc (k, v) => acc + v) 0 entries
+def total (entries : List (Text, Nat)) : Nat := foldLeft (\acc (k, v) => acc + v) 0 entries
 
 -- A record pattern needs its type known where the lambda is checked, as
 -- `p.name` does: here, from the signature.
@@ -120,7 +120,7 @@ test "annotated" := annotated == 3
 test "lifted" := lifted (2, 3) == 6
 test "unit" := unit () == 3
 test "lambda" := sums [(1, 2), (3, 4)] == [3, 7]
-test "foldl" := total [("a", 1), ("b", 2)] == 3
+test "foldLeft" := total [("a", 1), ("b", 2)] == 3
 test "record lambda" := nameOf { name = "Ann", age = 3 } == "Ann"
 test "nested lambda" := nestedLambda [((2, 3), 1)] == [7]
 test "tree" := sumTree (Node 1 (FCons (Node 2 FNil) FNil)) == 3

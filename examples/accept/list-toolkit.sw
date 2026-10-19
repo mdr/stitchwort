@@ -6,11 +6,11 @@ theorem mapped : [1, 2, 3].map (\x => x + 1) = [2, 3, 4] := rfl
 
 theorem filtered : [1, 2, 3, 4].filter (\x => Nat.leq x 2) = [1, 2] := rfl
 
-theorem folded : [1, 2, 3].foldl (\acc x => acc * 10 + x) 0 = 123 := rfl
+theorem folded : [1, 2, 3].foldLeft (\acc x => acc * 10 + x) 0 = 123 := rfl
 
-theorem scanned : [1, 2, 3].scanl (\acc x => acc + x) 0 = [0, 1, 3, 6] := rfl
+theorem scanned : [1, 2, 3].scanLeft (\acc x => acc + x) 0 = [0, 1, 3, 6] := rfl
 
-theorem foldedRight : [1, 2, 3].foldr (\x acc => acc * 10 + x) 0 = 321 := rfl
+theorem foldedRight : [1, 2, 3].foldRight (\x acc => acc * 10 + x) 0 = 321 := rfl
 
 theorem summed : [1, 2, 3, 4].sum = 10 := rfl
 

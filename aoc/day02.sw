@@ -441,40 +441,40 @@ theorem tooLong (r : Range) : (k : Nat) -> Nat.leq (k * 2) (List.length (Nat.dig
 
 -- Repeat counts other than 2 count for nothing in part 1.
 theorem laterCounts (r : Range) (k : Nat) (size : Nat) : (a : Int) -> (c : Nat) -> (s : Nat) ->
-    List.foldl Int.add a (List.map (\n => twice n * (r.repeated k n).toInt) (List.filter (\n => k * n <= size) (List.rangeFrom c (Succ (Succ (Succ s)))))) = a
+    List.foldLeft Int.add a (List.map (\n => twice n * (r.repeated k n).toInt) (List.filter (\n => k * n <= size) (List.rangeFrom c (Succ (Succ (Succ s)))))) = a
   | a, Zero,   s => rfl
   | a, Succ c, s =>
     Bool.inspect (k * Succ (Succ (Succ s)) <= size)
-      (\u => List.foldl Int.add a (List.map (\n => twice n * (r.repeated k n).toInt) (List.filter (\n => k * n <= size) (List.rangeFrom (Succ c) (Succ (Succ (Succ s)))))) = a)
-      (\h => Eq.trans (Eq.cong (\xs => List.foldl Int.add a (List.map (\n => twice n * (r.repeated k n).toInt) xs))
+      (\u => List.foldLeft Int.add a (List.map (\n => twice n * (r.repeated k n).toInt) (List.filter (\n => k * n <= size) (List.rangeFrom (Succ c) (Succ (Succ (Succ s)))))) = a)
+      (\h => Eq.trans (Eq.cong (\xs => List.foldLeft Int.add a (List.map (\n => twice n * (r.repeated k n).toInt) xs))
           (List.filterKeep (\n => k * n <= size) (Succ (Succ (Succ s))) (List.rangeFrom c (Succ (Succ (Succ (Succ s))))) h))
         (Eq.trans (laterCounts r k size (Int.add a (Nat.toInt 0)) c (Succ s)) (Int.addZero a)))
-      (\h => Eq.trans (Eq.cong (\xs => List.foldl Int.add a (List.map (\n => twice n * (r.repeated k n).toInt) xs))
+      (\h => Eq.trans (Eq.cong (\xs => List.foldLeft Int.add a (List.map (\n => twice n * (r.repeated k n).toInt) xs))
           (List.filterSkip (\n => k * n <= size) (Succ (Succ (Succ s))) (List.rangeFrom c (Succ (Succ (Succ (Succ s))))) h))
         (laterCounts r k size a c (Succ s)))
 
 -- One block length's terms: the block written twice, if it fits.
 theorem termsSum (r : Range) (k : Nat) (size : Nat) (a : Nat) (fits : Nat.leq (k * 2) size = False -> r.repeatedSpec k 2 = 0) :
-    List.foldl Int.add (Nat.toInt a) (Range.invalid.terms twice r size k) = Nat.toInt (a + r.repeatedSpec k 2) :=
+    List.foldLeft Int.add (Nat.toInt a) (Range.invalid.terms twice r size k) = Nat.toInt (a + r.repeatedSpec k 2) :=
   Bool.inspect (k * 2 <= size)
-    (\u => List.foldl Int.add (Nat.toInt a) (Range.invalid.terms twice r size k) = Nat.toInt (a + r.repeatedSpec k 2))
-    (\h => Eq.trans (Eq.cong (\xs => List.foldl Int.add (Nat.toInt a) (List.map (\n => twice n * (r.repeated k n).toInt) xs))
+    (\u => List.foldLeft Int.add (Nat.toInt a) (Range.invalid.terms twice r size k) = Nat.toInt (a + r.repeatedSpec k 2))
+    (\h => Eq.trans (Eq.cong (\xs => List.foldLeft Int.add (Nat.toInt a) (List.map (\n => twice n * (r.repeated k n).toInt) xs))
         (List.filterKeep (\n => k * n <= size) 2 (List.rangeFrom 8 3) h))
       (Eq.trans (laterCounts r k size (Int.add (Nat.toInt a) (twice 2 * (r.repeated k 2).toInt)) 8 0)
         (Eq.cong (\t => Nat.toInt (a + t)) (Eq.trans (Nat.addZero (r.repeated k 2)) (repeatedCorrect r k 2)))))
-    (\h => Eq.trans (Eq.cong (\xs => List.foldl Int.add (Nat.toInt a) (List.map (\n => twice n * (r.repeated k n).toInt) xs))
+    (\h => Eq.trans (Eq.cong (\xs => List.foldLeft Int.add (Nat.toInt a) (List.map (\n => twice n * (r.repeated k n).toInt) xs))
         (List.filterSkip (\n => k * n <= size) 2 (List.rangeFrom 8 3) h))
       (Eq.trans (laterCounts r k size (Nat.toInt a) 8 0)
         (Eq.cong (\t => Nat.toInt t) (Eq.sym (Eq.trans (Eq.cong (\t => a + t) (fits (Eq.trans (Eq.sym (Bool.decTrueToBool (Nat.leq (k * 2) size))) h))) (Nat.addZero a))))))
 
 theorem rangeTerms (r : Range) (size : Nat) (fits : (k : Nat) -> Nat.leq (k * 2) size = False -> r.repeatedSpec k 2 = 0) :
     (ks : List Nat) -> (a : Nat) ->
-    List.foldl Int.add (Nat.toInt a) (List.concatMap (Range.invalid.terms twice r size) ks)
-      = Nat.toInt (List.foldl (\acc k => acc + r.repeatedSpec k 2) a ks)
+    List.foldLeft Int.add (Nat.toInt a) (List.concatMap (Range.invalid.terms twice r size) ks)
+      = Nat.toInt (List.foldLeft (\acc k => acc + r.repeatedSpec k 2) a ks)
   | Nil,       a => rfl
   | Cons k ks, a =>
-    Eq.trans (List.foldlAppend Int.add (Nat.toInt a) (Range.invalid.terms twice r size k) (List.concatMap (Range.invalid.terms twice r size) ks))
-      (Eq.trans (Eq.cong (\z => List.foldl Int.add z (List.concatMap (Range.invalid.terms twice r size) ks)) (termsSum r k size a (fits k)))
+    Eq.trans (List.foldLeftAppend Int.add (Nat.toInt a) (Range.invalid.terms twice r size k) (List.concatMap (Range.invalid.terms twice r size) ks))
+      (Eq.trans (Eq.cong (\z => List.foldLeft Int.add z (List.concatMap (Range.invalid.terms twice r size) ks)) (termsSum r k size a (fits k)))
         (rangeTerms r size fits ks (a + r.repeatedSpec k 2)))
 
 theorem invalidTwice (r : Range) :
@@ -482,11 +482,11 @@ theorem invalidTwice (r : Range) :
   rangeTerms r (List.length (Nat.digits r.hi)) (tooLong r) (List.rangeFrom (List.length (Nat.digits r.hi)) 1) 0
 
 theorem totalTwice : (ranges : List Range) -> (a : Nat) ->
-    List.foldl Int.add (Nat.toInt a) (List.map (Range.invalid twice) ranges)
-      = Nat.toInt (List.foldl (\acc r => acc + (List.rangeFrom (Nat.digits r.hi).length 1 |> .sumBy (\k => r.repeatedSpec k 2))) a ranges)
+    List.foldLeft Int.add (Nat.toInt a) (List.map (Range.invalid twice) ranges)
+      = Nat.toInt (List.foldLeft (\acc r => acc + (List.rangeFrom (Nat.digits r.hi).length 1 |> .sumBy (\k => r.repeatedSpec k 2))) a ranges)
   | Nil,       a => rfl
   | Cons r rs, a =>
-    Eq.trans (Eq.cong (\t => List.foldl Int.add (Int.add (Nat.toInt a) t) (List.map (Range.invalid twice) rs)) (invalidTwice r))
+    Eq.trans (Eq.cong (\t => List.foldLeft Int.add (Int.add (Nat.toInt a) t) (List.map (Range.invalid twice) rs)) (invalidTwice r))
       (totalTwice rs (a + (List.rangeFrom (Nat.digits r.hi).length 1 |> .sumBy (\k => r.repeatedSpec k 2))))
 
 -- (b) Part 1 is the brute-force sum.

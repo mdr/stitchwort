@@ -19,7 +19,7 @@ def early : List Entry := List.filter (\x => x.position < 3) entries
 
 test "filter with a lambda before the list" := List.map (\e => e.label) early == ["a"]
 
-def total : Nat := List.foldl (\acc p => acc + p.age) 0 people
+def total : Nat := List.foldLeft (\acc p => acc + p.age) 0 people
 
 test "a fold whose lambda comes before the start and the list" := total == 34
 

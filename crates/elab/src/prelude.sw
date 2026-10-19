@@ -821,44 +821,44 @@ def List.filter (p : a -> Bool) : List a -> List a
   | Nil       => Nil
   | Cons x xs => List.filterStep x (List.filter p xs) (p x)
 
--- Left fold; tail-recursive. `List.foldl f z [x, y]` is `f (f z x) y`.
-def List.foldl (f : b -> a -> b) (z : b) : List a -> b
+-- Left fold; tail-recursive. `List.foldLeft f z [x, y]` is `f (f z x) y`.
+def List.foldLeft (f : b -> a -> b) (z : b) : List a -> b
   | Nil       => z
-  | Cons x xs => List.foldl f (f z x) xs
+  | Cons x xs => List.foldLeft f (f z x) xs
 
--- Running accumulations, the initial value first (Haskell's `scanl`):
--- `List.scanl f z [x, y]` is `[z, f z x, f (f z x) y]`. Always one longer than
+-- Running accumulations, the initial value first (Haskell's `scanLeft`):
+-- `List.scanLeft f z [x, y]` is `[z, f z x, f (f z x) y]`. Always one longer than
 -- the input.
-def List.scanl (f : b -> a -> b) (z : b) : List a -> List b
+def List.scanLeft (f : b -> a -> b) (z : b) : List a -> List b
   | Nil       => Cons z Nil
-  | Cons x xs => Cons z (List.scanl f (f z x) xs)
+  | Cons x xs => Cons z (List.scanLeft f (f z x) xs)
 
-theorem List.scanlNil : List.scanl (\acc x => acc + x) 5 Nil = [5] := rfl
+theorem List.scanLeftNil : List.scanLeft (\acc x => acc + x) 5 Nil = [5] := rfl
 
-theorem List.scanlSums : List.scanl (\acc x => acc + x) 0 [1, 2, 3] = [0, 1, 3, 6] := rfl
+theorem List.scanLeftSums : List.scanLeft (\acc x => acc + x) 0 [1, 2, 3] = [0, 1, 3, 6] := rfl
 
--- Right fold. `List.foldr f z [x, y]` is `f x (f y z)`.
-def List.foldr (f : a -> b -> b) (z : b) : List a -> b
+-- Right fold. `List.foldRight f z [x, y]` is `f x (f y z)`.
+def List.foldRight (f : a -> b -> b) (z : b) : List a -> b
   | Nil       => z
-  | Cons x xs => f x (List.foldr f z xs)
+  | Cons x xs => f x (List.foldRight f z xs)
 
-def List.sum (xs : List Nat) : Nat := List.foldl Nat.add 0 xs
+def List.sum (xs : List Nat) : Nat := List.foldLeft Nat.add 0 xs
 
 -- The sum of `f` over the elements: `List.sumBy f xs` is `List.sum (List.map f xs)`
 -- without building the intermediate list.
-def List.sumBy (f : a -> Nat) (xs : List a) : Nat := List.foldl (\acc x => acc + f x) 0 xs
+def List.sumBy (f : a -> Nat) (xs : List a) : Nat := List.foldLeft (\acc x => acc + f x) 0 xs
 
 theorem List.sumByDoubles : List.sumBy (\x => x * 2) [1, 2, 3] = 12 := rfl
 
-def List.product (xs : List Nat) : Nat := List.foldl Nat.mul 1 xs
+def List.product (xs : List Nat) : Nat := List.foldLeft Nat.mul 1 xs
 
 def List.maximum : List Nat -> Maybe Nat
   | Nil       => Nothing
-  | Cons x xs => Just (List.foldl Nat.max x xs)
+  | Cons x xs => Just (List.foldLeft Nat.max x xs)
 
 def List.minimum : List Nat -> Maybe Nat
   | Nil       => Nothing
-  | Cons x xs => Just (List.foldl Nat.min x xs)
+  | Cons x xs => Just (List.foldLeft Nat.min x xs)
 
 -- Pairs up to the shorter list's length.
 def List.zip : List a -> List b -> List (Pair a b)
@@ -906,7 +906,7 @@ def Nat.succIf (n : Nat) : Bool -> Nat
   | False => n
 
 -- How many elements satisfy `p`.
-def List.count (p : a -> Bool) (xs : List a) : Nat := List.foldl (\n x => Nat.succIf n (p x)) 0 xs
+def List.count (p : a -> Bool) (xs : List a) : Nat := List.foldLeft (\n x => Nat.succIf n (p x)) 0 xs
 
 -- The first element satisfying `p`.
 def List.find (p : a -> Bool) : List a -> Maybe a
@@ -985,12 +985,12 @@ theorem Nat.addLeftComm (a : Nat) (b : Nat) (c : Nat) : a + (b + c) = b + (a + c
 theorem Nat.leqTotal (m : Nat) (n : Nat) (h : Nat.leq m n = False) : Nat.leq n m = True := Nat.lessLe n m (Nat.leqFalse m n h)
 
 -- Sums of lists: one element at a time, sums of intervals (Gauss), and
--- rewriting under `map`, `filter` and `foldl`.
+-- rewriting under `map`, `filter` and `foldLeft`.
 theorem Nat.addSwap (a : Nat) (b : Nat) (c : Nat) (d : Nat) : (a + b) + (c + d) = (a + c) + (b + d) :=
   Eq.trans (Nat.addAssoc a b (c + d))
     (Eq.trans (Eq.cong (\t => a + t) (Nat.addLeftComm b c d)) (Eq.sym (Nat.addAssoc a c (b + d))))
 
-theorem List.sumFrom : (a : Nat) -> (xs : List Nat) -> List.foldl Nat.add a xs = a + List.sum xs
+theorem List.sumFrom : (a : Nat) -> (xs : List Nat) -> List.foldLeft Nat.add a xs = a + List.sum xs
   | a, Nil       => Eq.sym (Nat.addZero a)
   | a, Cons x xs =>
     Eq.trans (List.sumFrom (a + x) xs)
@@ -998,7 +998,7 @@ theorem List.sumFrom : (a : Nat) -> (xs : List Nat) -> List.foldl Nat.add a xs =
 
 theorem List.sumCons (x : Nat) (xs : List Nat) : List.sum (Cons x xs) = x + List.sum xs := List.sumFrom x xs
 
-theorem List.sumByFrom (f : a -> Nat) : (z : Nat) -> (xs : List a) -> List.foldl (\acc x => acc + f x) z xs = z + List.sumBy f xs
+theorem List.sumByFrom (f : a -> Nat) : (z : Nat) -> (xs : List a) -> List.foldLeft (\acc x => acc + f x) z xs = z + List.sumBy f xs
   | z, Nil       => Eq.sym (Nat.addZero z)
   | z, Cons x xs =>
     Eq.trans (List.sumByFrom f (z + f x) xs)
@@ -1051,10 +1051,10 @@ theorem List.filterKeep (p : a -> Bool) (x : a) (xs : List a) (h : p x = True) :
 theorem List.filterSkip (p : a -> Bool) (x : a) (xs : List a) (h : p x = False) : List.filter p (Cons x xs) = List.filter p xs :=
   J (\c q => List.filterStep x (List.filter p xs) c = List.filter p xs) rfl (Eq.sym h)
 
-theorem List.foldlAppend (f : b -> a -> b) : (z : b) -> (xs : List a) -> (ys : List a) ->
-    List.foldl f z (List.append xs ys) = List.foldl f (List.foldl f z xs) ys
+theorem List.foldLeftAppend (f : b -> a -> b) : (z : b) -> (xs : List a) -> (ys : List a) ->
+    List.foldLeft f z (List.append xs ys) = List.foldLeft f (List.foldLeft f z xs) ys
   | z, Nil,       ys => rfl
-  | z, Cons x xs, ys => List.foldlAppend f (f z x) xs ys
+  | z, Cons x xs, ys => List.foldLeftAppend f (f z x) xs ys
 
 -- `True` for `Less` and `Equal`.
 def Ordering.isLessEq : Ordering -> Bool
@@ -1189,13 +1189,13 @@ def List.occurrences (p : a -> Bool) : List a -> Nat
   | Cons x xs => Bool.toNat (p x) + List.occurrences p xs
 
 -- `List.count` is `List.occurrences`, which suits proofs; counting and
--- `List.scanl` over `++`. (`List.drop 1` drops the starting value.)
+-- `List.scanLeft` over `++`. (`List.drop 1` drops the starting value.)
 theorem List.countStep : (b : Bool) -> (k : Nat) -> (o : Nat) -> Nat.succIf k b + o = k + (Bool.toNat b + o)
   | True,  k, o => Eq.sym (Nat.addSucc k o)
   | False, k, o => rfl
 
 theorem List.countFold (p : a -> Bool) (k : Nat) : (xs : List a) ->
-    List.foldl (\n x => Nat.succIf n (p x)) k xs = k + List.occurrences p xs
+    List.foldLeft (\n x => Nat.succIf n (p x)) k xs = k + List.occurrences p xs
   | Nil       => Eq.sym (Nat.addZero k)
   | Cons x xs => Eq.trans (List.countFold p (Nat.succIf k (p x)) xs) (List.countStep (p x) k (List.occurrences p xs))
 
@@ -1208,17 +1208,17 @@ theorem List.occurrencesAppend (p : a -> Bool) : (xs : List a) -> (ys : List a) 
     Eq.trans (Eq.cong (\t => Bool.toNat (p x) + t) (List.occurrencesAppend p xs ys))
       (Eq.sym (Nat.addAssoc (Bool.toNat (p x)) (List.occurrences p xs) (List.occurrences p ys)))
 
-theorem List.scanlCons (f : b -> a -> b) (z : b) : (xs : List a) -> List.scanl f z xs = Cons z (List.drop 1 (List.scanl f z xs))
+theorem List.scanLeftCons (f : b -> a -> b) (z : b) : (xs : List a) -> List.scanLeft f z xs = Cons z (List.drop 1 (List.scanLeft f z xs))
   | Nil       => rfl
   | Cons x xs => rfl
 
-theorem List.scanlAppend (f : b -> a -> b) (z : b) : (xs : List a) -> (ys : List a) ->
-    List.drop 1 (List.scanl f z (List.append xs ys)) = List.append (List.drop 1 (List.scanl f z xs)) (List.drop 1 (List.scanl f (List.foldl f z xs) ys))
+theorem List.scanLeftAppend (f : b -> a -> b) (z : b) : (xs : List a) -> (ys : List a) ->
+    List.drop 1 (List.scanLeft f z (List.append xs ys)) = List.append (List.drop 1 (List.scanLeft f z xs)) (List.drop 1 (List.scanLeft f (List.foldLeft f z xs) ys))
   | Nil,       ys => rfl
   | Cons x xs, ys =>
-    Eq.trans (List.scanlCons f (f z x) (List.append xs ys))
-      (Eq.trans (Eq.cong (Cons (f z x)) (List.scanlAppend f (f z x) xs ys))
-        (Eq.cong (\l => List.append l (List.drop 1 (List.scanl f (List.foldl f (f z x) xs) ys))) (Eq.sym (List.scanlCons f (f z x) xs))))
+    Eq.trans (List.scanLeftCons f (f z x) (List.append xs ys))
+      (Eq.trans (Eq.cong (Cons (f z x)) (List.scanLeftAppend f (f z x) xs ys))
+        (Eq.cong (\l => List.append l (List.drop 1 (List.scanLeft f (List.foldLeft f (f z x) xs) ys))) (Eq.sym (List.scanLeftCons f (f z x) xs))))
 
 
 -- `xs` and `ys` are permutations of each other: every test is passed by as
@@ -1490,13 +1490,13 @@ def Int.mul : Int -> Int -> Int
   | NegSucc m, NegSucc n => OfNat (Succ m * Succ n)
 
 -- The sum of a list of `Int`s, as `List.sum` is of `Nat`s.
-def List.sumInt (xs : List Int) : Int := List.foldl Int.add 0 xs
+def List.sumInt (xs : List Int) : Int := List.foldLeft Int.add 0 xs
 
 theorem List.sumIntExample : List.sumInt [3, -5, 1] = -1 := rfl
 
 -- The sum of `f` over the elements, as an `Int`: `List.sumIntBy f xs` is
 -- `List.sumInt (List.map f xs)` without building the intermediate list.
-def List.sumIntBy (f : a -> Int) (xs : List a) : Int := List.foldl (\acc x => Int.add acc (f x)) 0 xs
+def List.sumIntBy (f : a -> Int) (xs : List a) : Int := List.foldLeft (\acc x => Int.add acc (f x)) 0 xs
 
 theorem List.sumIntByExample : List.sumIntBy (\x => Int.sub 1 x) [1, 2, 3] = -3 := rfl
 
@@ -2181,12 +2181,12 @@ def Nat.digits (n : Nat) : List Nat := Nat.digitsFuel (Succ n) n Nil
 -- The number whose decimal digits these are, most significant first. Digits
 -- above 9 carry into their neighbours: it is `Nat.digits`'s inverse only on
 -- real digit lists.
-def Nat.fromDigits (ds : List Nat) : Nat := List.foldl (\acc d => acc * 10 + d) 0 ds
+def Nat.fromDigits (ds : List Nat) : Nat := List.foldLeft (\acc d => acc * 10 + d) 0 ds
 
 -- `Nat.fromDigits` starting from `a` instead of 0: `a` is shifted left past
 -- every digit.
 theorem Nat.fromDigitsFrom : (a : Nat) -> (ds : List Nat) ->
-    List.foldl (\acc d => acc * 10 + d) a ds = a * Nat.pow 10 (List.length ds) + Nat.fromDigits ds
+    List.foldLeft (\acc d => acc * 10 + d) a ds = a * Nat.pow 10 (List.length ds) + Nat.fromDigits ds
   | a, Nil       => Eq.sym (Eq.trans (Nat.addZero (a * 1)) (Nat.mulOne a))
   | a, Cons d ds =>
     Eq.trans (Nat.fromDigitsFrom (a * 10 + d) ds)

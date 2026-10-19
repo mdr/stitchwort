@@ -41,7 +41,7 @@ def pick (b : Bool) : Nat := if b then 1 else 2
 test "pick" := pick True == 1
 
 -- In a lambda.
-def largest (xs : List Nat) : Nat := xs.foldl (\best x => if best < x then x else best) 0
+def largest (xs : List Nat) : Nat := xs.foldLeft (\best x => if best < x then x else best) 0
 
 test "largest" := largest [3, 9, 2] == 9
 

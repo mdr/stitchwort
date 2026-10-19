@@ -49,11 +49,11 @@ def applyToThree (f : [a : Type] -> a -> a) : Nat := f 3
 def three : Nat := applyToThree (\x => x)
 
 -- A constructor with both fields missing, used as a function.
-def foldr (f : a -> b -> b) (z : b) : List a -> b
+def foldRight (f : a -> b -> b) (z : b) : List a -> b
   | Nil       => z
-  | Cons x xs => f x (foldr f z xs)
+  | Cons x xs => f x (foldRight f z xs)
 
-def copy (xs : List Nat) : List Nat := foldr Cons Nil xs
+def copy (xs : List Nat) : List Nat := foldRight Cons Nil xs
 
 theorem copyWorks : copy [1, 2] = [1, 2] := rfl
 
