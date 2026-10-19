@@ -1504,9 +1504,9 @@
     {
       "id": 100,
       "title": "Prelude: modulo identities (`(a % s + b) % s`, `a % s % s`) and the `Int.modNat` shifts",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
-      "where": "merged; gate running on main (started 23:23)",
+      "where": "-",
       "labels": [
         "stdlib",
         "proof"
@@ -2025,9 +2025,9 @@
     {
       "id": 134,
       "title": "IO operations need the IO. prefix (no longer default names)",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
-      "where": "merged; gate running on main (started 23:23)",
+      "where": "-",
       "labels": [
         "std",
         "namespaces"
