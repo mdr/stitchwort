@@ -1970,9 +1970,9 @@
     {
       "id": 131,
       "title": "Move general lemmas out of AoC into the prelude",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree-agent-a852a3e4d9cdca104",
       "labels": [
         "aoc",
         "std"
@@ -1985,9 +1985,9 @@
     {
       "id": 132,
       "title": "Turn aoc/ into a project: Aoc.DayNN + Aoc.Common, proofs beside definitions",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree-agent-a852a3e4d9cdca104",
       "labels": [
         "aoc",
         "multi-file"
