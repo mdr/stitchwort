@@ -1259,7 +1259,7 @@
     {
       "id": 86,
       "title": "`long n == long n` gives `E-RESOURCE` at 100,000 characters",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -1269,7 +1269,9 @@
       "body": "**`long n == long n` gives `E-RESOURCE` at 100,000 characters** in the\nreference evaluator (fine at 10,000); probably the \"`==` operands are\ncomputed at check time\" issue, unconfirmed.\n\nD16 (Matt, 19 Oct): close after a one-line regression test (DeepSeek): a 100,000-character long n == long n test.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
-      "commits": []
+      "commits": [
+        "28b6254"
+      ]
     },
     {
       "id": 87,
