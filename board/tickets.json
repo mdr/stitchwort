@@ -1,5 +1,5 @@
 {
-  "next": 102,
+  "next": 104,
   "tickets": [
     {
       "id": 1,
@@ -1510,6 +1510,34 @@
         "design"
       ],
       "body": "From the day 1 comparison (SW-96): recommendation 4, large effort; `calc`/`rewrite` give much of the benefit sooner. Note Lean's omega can't do / or % by a variable either.",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 102,
+      "title": "dev/t: run the tests for one area (selective test script)",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "/Users/matt/scratch/opencode/funlang-20261019-195223",
+      "labels": [
+        "tooling"
+      ],
+      "body": "Matt (19 Oct): lanes run fast targeted checks while working, full gate once at the end. dev/t AREA [FILTER] maps areas to cargo test targets; dev/t snap; docs/testing.md section.",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 103,
+      "title": "Shared compile cache across clones and worktrees: try kache (and/or sccache)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tooling"
+      ],
+      "body": "Matt (19 Oct): after multi-file lands. A friend recommends https://github.com/kunobi-ninja/kache over sccache: 'does the whole worktree story better by using hardlinks'. Not yet evaluated (unverified): check it's packaged in nixpkgs or buildable via the flake, how it wires into cargo (RUSTC_WRAPPER?), disk use, and measure a cold clone build before/after (today: every new clone/worktree compiles from scratch, ~20 per day).",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
