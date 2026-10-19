@@ -14,9 +14,9 @@
 -- sizes add up.
 
 def main () : {IO} () :=
-  let (ranges, ids) := parse (IO.readAllLines ())
-  print ("Part 1: " ++ (part1 ranges ids).toText)
-  print ("Part 2: " ++ (part2 ranges).toText)
+  let database := parseDatabase (IO.readAllLines ())
+  print ("Part 1: " ++ (solvePart1 database).toText)
+  print ("Part 2: " ++ (solvePart2 database).toText)
 
 -- A range of ids, both ends included.
 type Range = { lo : Nat, hi : Nat }
@@ -30,15 +30,20 @@ def Range.contains (r : Range) (id : Nat) : Bool := r.lo <= id && id <= r.hi
 
 def Range.size (r : Range) : Nat := r.hi + 1 - r.lo
 
+-- The fresh ranges, and the available ids.
+type Database = { fresh : List Range, available : List Nat }
+
 -- A line is a range if it reads as one, an id if it reads as a number, and
 -- is skipped otherwise (the blank line).
-def parse (lines : List Text) : (List Range, List Nat) :=
-  (lines.mapMaybe Range.parse, lines.mapMaybe Text.toNat)
+def parseDatabase (lines : List Text) : Database :=
+  { fresh = lines.mapMaybe Range.parse, available = lines.mapMaybe Text.toNat }
 
-def part1 (ranges : List Range) (ids : List Nat) : Nat :=
-  ids.count (\id => ranges.any (\r => r.contains id))
+-- Part 1: the available ids that are fresh.
+def solvePart1 (db : Database) : Nat :=
+  db.available.count (\id => db.fresh.any (\r => r.contains id))
 
-def part2 (ranges : List Range) : Nat := merge ranges |> .sumBy Range.size
+-- Part 2: every id the fresh ranges cover.
+def solvePart2 (db : Database) : Nat := merge db.fresh |> .sumBy Range.size
 
 -- Merge ranges that overlap or touch. The list is sorted by start, then
 -- folded into a list of merged ranges with the latest first.
@@ -62,20 +67,20 @@ def absorb (merged : List Range) (r : Range) : List Range :=
 def example : List Text :=
   [ "3-5", "10-14", "16-20", "12-18", "", "1", "5", "8", "11", "17", "32" ]
 
-test "example parse" := (parse example).snd == [1, 5, 8, 11, 17, 32]
-test "example part 1" := part1 (parse example).fst (parse example).snd == 3
-test "example part 2" := part2 (parse example).fst == 14
-test "example merged" := merge (parse example).fst == [{ lo = 3, hi = 5 }, { lo = 10, hi = 20 }]
+test "example parse" := (parseDatabase example).available == [1, 5, 8, 11, 17, 32]
+test "example part 1" := solvePart1 (parseDatabase example) == 3
+test "example part 2" := solvePart2 (parseDatabase example) == 14
+test "example merged" := merge (parseDatabase example).fresh == [{ lo = 3, hi = 5 }, { lo = 10, hi = 20 }]
 test "touching ranges merge" := merge [{ lo = 4, hi = 6 }, { lo = 1, hi = 3 }] == [{ lo = 1, hi = 6 }]
 test "nested range" := merge [{ lo = 1, hi = 9 }, { lo = 2, hi = 3 }] == [{ lo = 1, hi = 9 }]
 test "gap stays" := merge [{ lo = 1, hi = 2 }, { lo = 4, hi = 5 }] == [{ lo = 1, hi = 2 }, { lo = 4, hi = 5 }]
-test "no ranges" := part2 [] == 0
+test "no ranges" := solvePart2 { fresh = [], available = [] } == 0
 
-theorem exampleAnswer : (part1 (parse example).fst (parse example).snd, part2 (parse example).fst) = (3, 14) := rfl
+theorem exampleAnswer : (solvePart1 (parseDatabase example), solvePart2 (parseDatabase example)) = (3, 14) := rfl
 
 -- Proofs -------------------------------------------------------------------
 
 -- Merging keeps exactly the covered ids, on the example (every id up to 21).
 theorem exampleKeepsCoverage :
-    (List.range 22).map (\id => (merge (parse example).fst).any (\r => r.contains id))
-      = (List.range 22).map (\id => (parse example).fst.any (\r => r.contains id)) := rfl
+    (List.range 22).map (\id => (merge (parseDatabase example).fresh).any (\r => r.contains id))
+      = (List.range 22).map (\id => (parseDatabase example).fresh.any (\r => r.contains id)) := rfl
