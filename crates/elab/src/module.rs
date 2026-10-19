@@ -570,108 +570,47 @@ impl Elaborator {
             self.module.file = Some(self.module.items[index].file);
             let mut deps = Vec::new();
             let names = &self.module.names;
-            let mut add = |refs: Vec<Ref<'_>>, in_header: bool| {
-                for r in refs {
-                    let (n, mut fields) = match r {
-                        Ref::Name(n) => (n, Vec::new()),
-                        Ref::Dot(n, field) => (n, vec![field]),
-                    };
-                    if fields.is_empty()
-                        && let crate::scope::Resolved::Found { global, rest, .. } =
-                            self.resolve(&n.text)
-                    {
-                        if let Global::Unchecked(j) = global {
+            let mut add = |r: Ref<'_>, in_header: bool| {
+                let (n, mut fields) = match r {
+                    Ref::Name(n) => (n, Vec::new()),
+                    Ref::Dot(n, field) => (n, vec![field]),
+                };
+                if fields.is_empty()
+                    && let crate::scope::Resolved::Found { global, rest, .. } =
+                        self.resolve(&n.text)
+                {
+                    if let Global::Unchecked(j) = global {
+                        deps.push(Dep {
+                            item: j,
+                            span: n.span,
+                            in_header,
+                            speculative: None,
+                        });
+                    }
+                    fields = rest;
+                }
+                // Dot notation: its target isn't known until the receiver's
+                // type is, so every declaration of this module that it
+                // could mean (§5).
+                for field in fields {
+                    let suffix = format!(".{field}");
+                    for key in names.iter().filter(|k| k.ends_with(&suffix)) {
+                        if let Some((Global::Unchecked(j), _)) = self.scope.get(key) {
                             deps.push(Dep {
                                 item: j,
                                 span: n.span,
                                 in_header,
-                                speculative: None,
+                                speculative: Some(format!(
+                                    "`.{field}` might mean `{}`",
+                                    crate::scope::display(key)
+                                )),
                             });
-                        }
-                        fields = rest;
-                    }
-                    // Dot notation: its target isn't known until the receiver's
-                    // type is, so every declaration of this module that it
-                    // could mean (§5).
-                    for field in fields {
-                        let suffix = format!(".{field}");
-                        for key in names.iter().filter(|k| k.ends_with(&suffix)) {
-                            if let Some((Global::Unchecked(j), _)) = self.scope.get(key) {
-                                deps.push(Dep {
-                                    item: j,
-                                    span: n.span,
-                                    in_header,
-                                    speculative: Some(format!(
-                                        "`.{field}` might mean `{}`",
-                                        crate::scope::display(key)
-                                    )),
-                                });
-                            }
                         }
                     }
                 }
             };
-            match item.decl {
-                Decl::Signature { ty, .. } => {
-                    add(free_names(vec![Work::Expr(ty)]), true);
-                    let binders = body_binders(ty, item.equations);
-                    for eq in item.equations {
-                        let Decl::Equation { patterns, rhs, .. } = eq else {
-                            continue;
-                        };
-                        let mut work: Vec<Work> = binders.iter().map(|x| Work::Bind(x)).collect();
-                        work.extend(patterns.iter().map(Work::Pattern));
-                        work.extend(rhs.iter().map(Work::Expr));
-                        add(free_names(work), false);
-                    }
-                }
-                Decl::Data {
-                    params,
-                    sort,
-                    ctors,
-                    ..
-                } => {
-                    let mut header = Vec::new();
-                    let mut bind_params = Vec::new();
-                    for binder in params {
-                        header.push(Work::Expr(&binder.ty));
-                        for n in &binder.names {
-                            header.push(Work::Bind(&n.text));
-                            bind_params.push(Work::Bind(&n.text));
-                        }
-                    }
-                    add(free_names(header), true);
-                    if let Some(sort) = sort {
-                        add(free_names(vec![Work::Expr(sort)]), true);
-                    }
-                    for ctor in ctors {
-                        let mut work = bind_params.clone();
-                        for binder in &ctor.fields {
-                            work.push(Work::Expr(&binder.ty));
-                            work.extend(binder.names.iter().map(|n| Work::Bind(&n.text)));
-                        }
-                        add(free_names(work), false);
-                    }
-                }
-                Decl::Ability { params, ops, .. } => {
-                    let mut bind_params = Vec::new();
-                    let mut header = Vec::new();
-                    for binder in params {
-                        header.push(Work::Expr(&binder.ty));
-                        for n in &binder.names {
-                            header.push(Work::Bind(&n.text));
-                            bind_params.push(Work::Bind(&n.text));
-                        }
-                    }
-                    add(free_names(header), true);
-                    for (_, ty) in ops {
-                        let mut work = bind_params.clone();
-                        work.push(Work::Expr(ty));
-                        add(free_names(work), false);
-                    }
-                }
-                Decl::Test { expr, .. } => add(free_names(vec![Work::Expr(expr)]), false),
-                Decl::Equation { .. } => {}
+            for (r, in_header) in decl_refs(item.decl, item.equations) {
+                add(r, in_header);
             }
             self.module.items[index].deps = deps;
         }
@@ -1386,9 +1325,83 @@ enum Work<'a> {
     Name(&'a ast::Name),
 }
 
+/// The free names of a declaration, in order, each with whether it's in the
+/// declaration's header (a signature, or a data type's parameters and
+/// universe). The dependency pre-pass and project analysis both read a
+/// declaration through this, so they see the names checking resolves.
+pub(crate) fn decl_refs<'a>(decl: &'a Decl, equations: &'a [Decl]) -> Vec<(Ref<'a>, bool)> {
+    let mut out: Vec<(Ref<'a>, bool)> = Vec::new();
+    let mut add = |refs: Vec<Ref<'a>>, in_header: bool| {
+        out.extend(refs.into_iter().map(|r| (r, in_header)));
+    };
+    match decl {
+        Decl::Signature { ty, .. } => {
+            add(free_names(vec![Work::Expr(ty)]), true);
+            let binders = body_binders(ty, equations);
+            for eq in equations {
+                let Decl::Equation { patterns, rhs, .. } = eq else {
+                    continue;
+                };
+                let mut work: Vec<Work> = binders.iter().map(|x| Work::Bind(x)).collect();
+                work.extend(patterns.iter().map(Work::Pattern));
+                work.extend(rhs.iter().map(Work::Expr));
+                add(free_names(work), false);
+            }
+        }
+        Decl::Data {
+            params,
+            sort,
+            ctors,
+            ..
+        } => {
+            let mut header = Vec::new();
+            let mut bind_params = Vec::new();
+            for binder in params {
+                header.push(Work::Expr(&binder.ty));
+                for n in &binder.names {
+                    header.push(Work::Bind(&n.text));
+                    bind_params.push(Work::Bind(&n.text));
+                }
+            }
+            add(free_names(header), true);
+            if let Some(sort) = sort {
+                add(free_names(vec![Work::Expr(sort)]), true);
+            }
+            for ctor in ctors {
+                let mut work = bind_params.clone();
+                for binder in &ctor.fields {
+                    work.push(Work::Expr(&binder.ty));
+                    work.extend(binder.names.iter().map(|n| Work::Bind(&n.text)));
+                }
+                add(free_names(work), false);
+            }
+        }
+        Decl::Ability { params, ops, .. } => {
+            let mut bind_params = Vec::new();
+            let mut header = Vec::new();
+            for binder in params {
+                header.push(Work::Expr(&binder.ty));
+                for n in &binder.names {
+                    header.push(Work::Bind(&n.text));
+                    bind_params.push(Work::Bind(&n.text));
+                }
+            }
+            add(free_names(header), true);
+            for (_, ty) in ops {
+                let mut work = bind_params.clone();
+                work.push(Work::Expr(ty));
+                add(free_names(work), false);
+            }
+        }
+        Decl::Test { expr, .. } => add(free_names(vec![Work::Expr(expr)]), false),
+        Decl::Equation { .. } => {}
+    }
+    out
+}
+
 /// A reference the pre-pass finds: a name, or dot notation's `.field`
 /// (with where it's written).
-enum Ref<'a> {
+pub(crate) enum Ref<'a> {
     Name(&'a ast::Name),
     Dot(&'a ast::Name, String),
 }

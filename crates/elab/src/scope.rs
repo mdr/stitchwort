@@ -77,6 +77,80 @@ pub struct Scope {
     std_root: HashMap<String, String>,
 }
 
+/// What the first component of a qualified name means, in order
+/// (docs/proposals/multi-file.md §4.5, §4.6): `Std`; a short name (a local
+/// variable is the caller's business); a namespace of the module's own; a
+/// project namespace; a library namespace.
+pub(crate) enum Qualifier<S> {
+    Std,
+    Short(S),
+    Own,
+    Project,
+    Library,
+    Missing,
+}
+
+/// The tests [`qualifier`] makes, so that checking and the project
+/// analysis decide with one routine.
+pub(crate) trait QualifierLevels {
+    type Short;
+    /// Levels 2-4 (own declarations, this file's imports, the defaults),
+    /// without constructors or operations.
+    fn short(&self, first: &str) -> Option<Self::Short>;
+    fn own_namespace(&self, first: &str) -> bool;
+    fn project_namespace(&self, first: &str) -> bool;
+    fn library_namespace(&self, first: &str) -> bool;
+}
+
+pub(crate) fn qualifier<L: QualifierLevels>(levels: &L, first: &str) -> Qualifier<L::Short> {
+    if first == STD {
+        return Qualifier::Std;
+    }
+    if let Some(s) = levels.short(first) {
+        return Qualifier::Short(s);
+    }
+    if levels.own_namespace(first) {
+        return Qualifier::Own;
+    }
+    if levels.project_namespace(first) {
+        return Qualifier::Project;
+    }
+    if levels.library_namespace(first) {
+        return Qualifier::Library;
+    }
+    Qualifier::Missing
+}
+
+/// Checking's meaning of each test. The flag says whether an ambiguous short
+/// name counts as one (a name being resolved), or not (an import's path).
+struct CheckingLevels<'e>(&'e Elaborator, bool);
+
+impl<'e> QualifierLevels for CheckingLevels<'e> {
+    type Short = Resolved<'e>;
+
+    fn short(&self, first: &str) -> Option<Resolved<'e>> {
+        match self.0.resolve_short(first, false) {
+            Resolved::Missing => None,
+            Resolved::Ambiguous(_) if !self.1 => None,
+            found => Some(found),
+        }
+    }
+
+    fn own_namespace(&self, first: &str) -> bool {
+        self.0
+            .scope
+            .is_namespace(&format!("{}{first}", self.0.root()))
+    }
+
+    fn project_namespace(&self, first: &str) -> bool {
+        !self.0.loading_prelude && !self.0.root().is_empty() && self.0.scope.is_namespace(first)
+    }
+
+    fn library_namespace(&self, first: &str) -> bool {
+        self.0.scope.is_namespace(&format!("Std.{first}"))
+    }
+}
+
 /// `key`'s last component.
 pub fn short(key: &str) -> &str {
     key.rsplit('.').next().unwrap_or(key)
@@ -135,6 +209,11 @@ impl Scope {
 
     pub fn is_namespace(&self, key: &str) -> bool {
         self.namespaces.contains(key)
+    }
+
+    /// Whether `x` is a name at the library's root (or an alias of one).
+    pub(crate) fn is_std_root(&self, x: &str) -> bool {
+        self.std_root.contains_key(x)
     }
 
     pub fn clear_imports(&mut self) {
@@ -208,29 +287,14 @@ impl Elaborator {
             return self.resolve_short(written, true);
         };
         let rest: Vec<&str> = after.split('.').collect();
-        let base: String = if first == STD {
-            STD.to_string()
-        } else {
-            match self.resolve_short(first, false) {
-                Resolved::Found { key, .. } => key.to_string(),
-                Resolved::Ambiguous(keys) => return Resolved::Ambiguous(keys),
-                Resolved::Missing => {
-                    let own = format!("{}{first}", self.root());
-                    let std = format!("Std.{first}");
-                    if self.scope.is_namespace(&own) {
-                        own
-                    } else if !self.loading_prelude
-                        && !self.root().is_empty()
-                        && self.scope.is_namespace(first)
-                    {
-                        first.to_string()
-                    } else if self.scope.is_namespace(&std) {
-                        std
-                    } else {
-                        return Resolved::Missing;
-                    }
-                }
-            }
+        let base: String = match qualifier(&CheckingLevels(self, true), first) {
+            Qualifier::Std => STD.to_string(),
+            Qualifier::Short(Resolved::Found { key, .. }) => key.to_string(),
+            Qualifier::Short(Resolved::Ambiguous(keys)) => return Resolved::Ambiguous(keys),
+            Qualifier::Short(Resolved::Missing) | Qualifier::Missing => return Resolved::Missing,
+            Qualifier::Own => format!("{}{first}", self.root()),
+            Qualifier::Project => first.to_string(),
+            Qualifier::Library => format!("Std.{first}"),
         };
         // The longest prefix that names a declaration.
         for k in (0..rest.len()).rev() {
@@ -655,28 +719,15 @@ impl Elaborator {
             Some((f, r)) => (f, Some(r)),
             None => (path.text.as_str(), None),
         };
-        let base = if first == STD {
-            STD.to_string()
-        } else {
-            match self.resolve_short(first, false) {
-                Resolved::Found { key, .. } => key.to_string(),
-                _ => {
-                    let own = format!("{}{first}", self.root());
-                    let std = format!("Std.{first}");
-                    if self.scope.is_namespace(&own) {
-                        own
-                    } else if !self.loading_prelude
-                        && !self.root().is_empty()
-                        && self.scope.is_namespace(first)
-                    {
-                        first.to_string()
-                    } else if self.scope.is_namespace(&std) {
-                        std
-                    } else {
-                        return None;
-                    }
-                }
-            }
+        // An ambiguous first component doesn't stop an import path from
+        // being a namespace.
+        let base = match qualifier(&CheckingLevels(self, false), first) {
+            Qualifier::Std => STD.to_string(),
+            Qualifier::Short(Resolved::Found { key, .. }) => key.to_string(),
+            Qualifier::Short(_) | Qualifier::Missing => return None,
+            Qualifier::Own => format!("{}{first}", self.root()),
+            Qualifier::Project => first.to_string(),
+            Qualifier::Library => format!("Std.{first}"),
         };
         let namespace = match rest {
             Some(rest) => format!("{base}.{rest}"),

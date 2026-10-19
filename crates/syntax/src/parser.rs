@@ -115,6 +115,25 @@ pub fn parse_module_within(
     }
 }
 
+/// Reads only a file's namespace line: `Some` if the file's first
+/// declaration group is one, `None` if it starts with anything else. For
+/// finding a file's namespace when the rest of it doesn't parse.
+pub fn parse_namespace_line(file: FileId, text: &str) -> Result<Option<NamespaceDecl>> {
+    let limit = StackLimit::from_here(DEFAULT_STACK);
+    let tokens = lex(file, text)?;
+    let groups = split_decls(&tokens)?;
+    let Some(group) = groups.first() else {
+        return Ok(None);
+    };
+    let mut parser = Parser::new(group, file, text.len(), limit);
+    if parser.peek() != Some(&Tok::KwNamespace) {
+        return Ok(None);
+    }
+    let decl = parser.namespace()?;
+    parser.finish()?;
+    Ok(Some(decl))
+}
+
 /// Parses an expression, using at most `stack` bytes of stack.
 pub fn parse_expression_within(file: FileId, text: &str, stack: usize) -> Result<Expr> {
     let limit = StackLimit::from_here(stack);

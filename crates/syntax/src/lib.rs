@@ -14,5 +14,6 @@ pub use diagnostic::{Diagnostic, Label, Severity};
 pub use lexer::{Tok, Token, lex};
 pub use parser::{
     DEFAULT_STACK, parse_expression, parse_expression_within, parse_module, parse_module_within,
+    parse_namespace_line,
 };
 pub use source::{FileId, SourceFile, SourceMap, Span};

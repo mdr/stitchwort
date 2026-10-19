@@ -96,6 +96,10 @@ pub struct Elaborator {
     /// elaborated, so names typed in afterwards (`eval`, the REPL, `main`)
     /// are read as in the file.
     namespace_root: String,
+    /// The project's namespaces (`project::set_project_namespaces`).
+    project_namespaces: BTreeSet<String>,
+    /// Every prefix of a project namespace's name, the namespace included.
+    project_prefixes: BTreeSet<String>,
     /// Auto arguments still to be proved in the current declaration.
     obligations: RefCell<Vec<auto::Obligation>>,
     /// Metavariables that literals made `Nat` in the current declaration.
