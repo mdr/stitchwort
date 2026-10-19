@@ -59,6 +59,14 @@ Queued after the current lanes (user, 19 Oct):
   then re-measure AoC check times and decide on option (b) of
   checker-evaluation.md. `if` on a proposition stays partly fixed (3
   computations, was 4) until then (user, 19 Oct).
+- String interpolation `"Part 1: ${e}"`: `${e}` is `e` if `Text`, else
+  `e.toText` by dot notation; desugars to `++` (Sonnet, after `let`
+  stage 3; user, 19 Oct).
+- Interfaces design note (Opus, with independent review), Agda/Lean style:
+  an interface is a record (laws as proof fields), instances found by
+  generalising the `Decidable` auto search; coherence, predictability,
+  hashes, namespaces §8. After the current work, before days 6-9 (sort,
+  maps, sets; would remove `sum`/`sumInt` duplication). User, 19 Oct.
 - Compile-time `include "file" : Text` (contents part of the definition's
   hash, so the existing test cache covers input files; precedents Rust
   `include_str!`, Zig `@embedFile`, Lean `include_str`, Dhall integrity
