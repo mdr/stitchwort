@@ -1,5 +1,5 @@
 {
-  "next": 140,
+  "next": 147,
   "tickets": [
     {
       "id": 1,
@@ -423,7 +423,7 @@
         "bug",
         "kernel"
       ],
-      "body": "Found in the AoC day 1 batch: with `Dial.place` inlined, `backFrom`, `backFar`, `leftOne`, `leftStep` failed with 'expected' and 'actual' types that print the same. Either the printer hides a difference (an implicit argument, a universe, a erased proof) or conversion has a gap. Not reproduced since; aoc/day01.sw has been rewritten. Investigate: recover the failing version from git history (git log -S'Dial.place' -- aoc/day01.sw), reproduce, then fix the printer or conversion. Done: a failing example turned into a test, or closed as not reproducible.",
+      "body": "Found in the AoC day 1 batch: with `Dial.place` inlined, `backFrom`, `backFar`, `leftOne`, `leftStep` failed with 'expected' and 'actual' types that print the same. Either the printer hides a difference (an implicit argument, a universe, a erased proof) or conversion has a gap. Not reproduced since; aoc/day01.sw has been rewritten. Investigate: recover the failing version from git history (git log -S'Dial.place' -- aoc/day01.sw), reproduce, then fix the printer or conversion. Done: a failing example turned into a test, or closed as not reproducible.\n\n20 Oct: hit again on day 6 (SW-137, docs/aoc-2025.md Day 6 pain points).",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -1642,7 +1642,7 @@
         "elab",
         "bug"
       ],
-      "body": "Split from SW-17 (19 Oct). `==` on lists builds the element decider with auto (depth bound MAX_DEPTH = 8, 57392bd); when the element type is unknown (`Nil == Nil`, `[] == []`) auto has nothing to search for and reports E-AUTO-NONE. Decide: ask for a type annotation with a better message, default the element type, or decide empty lists equal without an element decider. Small design question first.",
+      "body": "Split from SW-17 (19 Oct). `==` on lists builds the element decider with auto (depth bound MAX_DEPTH = 8, 57392bd); when the element type is unknown (`Nil == Nil`, `[] == []`) auto has nothing to search for and reports E-AUTO-NONE. Decide: ask for a type annotation with a better message, default the element type, or decide empty lists equal without an element decider. Small design question first.\n\n20 Oct: hit again on day 6 (SW-137, docs/aoc-2025.md Day 6 pain points).",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -2078,8 +2078,8 @@
       "id": 137,
       "title": "AoC day 6: solution with proofs, and pain-point notes",
       "status": "doing",
-      "agent": "Sonnet",
-      "where": "worktree-agent-a4a4ab96c9057ab9f (day6 lane, started 23:28, ~2h box)",
+      "agent": "Claude",
+      "where": "merged as c5385d9; gate running on main (started 00:04)",
       "labels": [
         "aoc",
         "proof"
@@ -2087,7 +2087,9 @@
       "body": "Matt (19 Oct): solve day 6 in the aoc/ project (Aoc.Day06), with proofs of correctness as appropriate, and record pain points to drive language/stdlib evolution. Plan in docs/aoc-2025.md §Day 6 (needs List.transpose, padRight, split-at-blank helper).",
       "created": "2026-10-19",
       "updated": "2026-10-19",
-      "commits": []
+      "commits": [
+        "c5385d9"
+      ]
     },
     {
       "id": 138,
@@ -2115,6 +2117,109 @@
         "proof"
       ],
       "body": "SW-7: `+` recurses on its left argument, so `hi + 1` isn't definitionally `Succ hi`; day 5's proof needed `Nat.addOne` five times between `Range.size`'s `hi + 1 - lo` and `<`. Consider: define `+` by recursion on the right (Lean's choice, so `n + 1 = Succ n` by computation), or add simp-style lemmas. Check hash/perf impact; design note first.",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 140,
+      "title": "Parser: hint 'write not x' for !x",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "syntax",
+        "errors"
+      ],
+      "body": "Day 6 pain point 1: `!x` gives 'unexpected character !' with no hint. Add a hint to write `not x`.",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 141,
+      "title": "W-MODULE-NAME fires on a module function passed as an argument in a theorem signature",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug",
+        "elab"
+      ],
+      "body": "Day 6 pain point 3: `List.Groups isBlank …` in a theorem signature warns; had to write `Aoc.Day06.isBlank`.",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 142,
+      "title": "Prelude: List.All predicate (and List.Any) with lemmas",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "stdlib",
+        "proof"
+      ],
+      "body": "Day 6 pain point 4: three near-identical recursive propositions (AllLength, Groups, Fits) because there's no List.All p xs. Add List.All/List.Any as Props with map/append/forall lemmas.",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 143,
+      "title": "Prelude: small missing functions (List.init, List.head, Text.padRight) and Nat.max fold lemmas",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "stdlib"
+      ],
+      "body": "Day 6 pain point 7.",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 144,
+      "title": "Prelude: Nat.fromDigits (Nat.digits n) = n and List.get lemmas",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "stdlib",
+        "proof"
+      ],
+      "body": "Day 6: couldn't prove a column's number reads back as itself (needs fromDigits∘digits) or cell-level transpose (needs List.get lemmas). Related: SW-65 (textToNat (natToText n)).",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 145,
+      "title": "Faster prelude iteration: load a prelude file without rebuilding the CLI",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tooling"
+      ],
+      "body": "Day 5 and day 6 both hit it: each prelude edit costs a ~9 s CLI rebuild, and a project can't add to List./Nat., so lanes draft lemmas under a scratch namespace (PList, PT) and move them. Options: a --prelude PATH flag, or namespace extension.",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 146,
+      "title": "Prelude tests leak into every project's stitchwort test",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug",
+        "driver"
+      ],
+      "body": "Day 6 pain point 9: prelude `test`s run in every project's `stitchwort test` and change its totals (broke two driver unit tests). Projects should run only their own tests (and their dependencies' per the multi-file design).",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
