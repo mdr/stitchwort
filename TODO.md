@@ -24,11 +24,11 @@ How it's kept:
 **In flight (19 Oct, late afternoon) — for whoever picks this up after a context compaction:**
 - DeepSeek (OpenCode Go, `opencode run --agent worker --model opencode-go/deepseek-v4.1-flash`) tasks, each in a remote-free scratch clone; specs and logs in the session scratchpad `tasks/` dir (`<name>.txt`, `<name>.log`, `<name>.dir`):
   1. `fuzz`, `cycle`, `hash`, `zip3`: merged and gated (see Recently done).
-  2. `hlweb`, `hlvscode`: string-interpolation colouring in the playground and the VS Code grammar. Clones `…-171137`, `…-171139`.
+  2. `hlweb`, `hlvscode`: merged and gated (interpolation colouring; VS Code extension 0.0.2 installed locally).
   3. `reuse` — crates/web keeps the last checked Session for check/test/extract of the same source (first Tests visit checks once). Clone `…-165906`.
   For each: review the diff (DeepSeek has introduced real bugs before), check author email, commit in the clone with a "Done by OpenCode with DeepSeek…" trailer, fetch into main, regenerate snapshots/bench, gate (in the background), browser tests for web changes (`web/test.sh`, background), update this file.
 - Opus char-pattern fix merged and gated.
-- Multi-file Draft 3 written (`6ee0888`; user's decisions folded in, new `auto`/instance-search section §4.9); awaiting independent review (prompt in the session scratchpad, needs the note on GitHub) and the user's answers to §13.1.
+- Multi-file Draft 3 written (`6ee0888`; user's decisions folded in, new `auto`/instance-search section §4.9); awaiting independent review (prompt in the session scratchpad, with the note inline, on the user's clipboard 19 Oct). User (19 Oct): `check FILE` and `test FILE` use file mode like `run FILE`; `stitchwort` writes `.stitchwort/.gitignore` itself. `auto` ignores sibling files for now (sibling search deferred, revisit with interfaces); interfaces design not started yet (user: not now).
 - Playground: stale-worker fix (`9c024a9`) and tab-switch reuse (`5f08d1b`) committed and verified; local server `web/serve.sh --no-build` on port 8000 (no-store headers).
 
 Work runs in lanes (up to three at once), each in its own git worktree and
