@@ -11,12 +11,17 @@
 // any time, and the worker can't send anything later, being busy until the
 // run ends.
 
-import init, { check, evaluate, extract, run_streaming, test } from "./pkg/stitchwort_web.js";
-
+// The bindings are imported with the worker's own `?load=…`, so they always
+// come from the same page load as the worker (see index.html). They're
+// imported in the handler: `onmessage` must be set before the first message
+// arrives, which a top-level `await` would delay.
+let bindings = null;
 let ready = null;
 
 self.onmessage = async ({ data }) => {
   try {
+    bindings ??= import(`./pkg/stitchwort_web.js${self.location.search}`);
+    const { default: init, check, evaluate, extract, run_streaming, test } = await bindings;
     ready ??= init({ module_or_path: data.module });
     await ready;
     const sink = { write: (output) => self.postMessage({ id: data.id, output }) };
