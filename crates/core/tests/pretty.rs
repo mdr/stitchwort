@@ -61,6 +61,40 @@ fn prints_other_data_types_by_constructor_name() {
     );
 }
 
+fn nested_dependent_pis(depth: usize, implicit: bool) -> Term {
+    let last = depth - 1;
+    let mut term = if implicit {
+        ipi(&format!("x{last}"), ty(), v(0))
+    } else {
+        pi(&format!("x{last}"), ty(), v(0))
+    };
+    for i in (0..last).rev() {
+        term = if implicit {
+            ipi(&format!("x{i}"), term, v(0))
+        } else {
+            pi(&format!("x{i}"), term, v(0))
+        };
+    }
+    term
+}
+
+fn nested_dependent_pis_text(depth: usize, implicit: bool) -> String {
+    let last = depth - 1;
+    let mut text = if implicit {
+        format!("[x{last} : Type] -> x{last}")
+    } else {
+        format!("(x{last} : Type) -> x{last}")
+    };
+    for i in (0..last).rev() {
+        text = if implicit {
+            format!("[x{i} : {text}] -> x{i}")
+        } else {
+            format!("(x{i} : {text}) -> x{i}")
+        };
+    }
+    text
+}
+
 #[test]
 fn prints_function_types_with_the_right_binders_and_brackets() {
     let p = Prelude::new();
@@ -244,5 +278,41 @@ fn a_users_own_int_prints_as_written() {
     assert_eq!(
         show(&p, &[], &Term::ctor(mine, 1, vec![p.num(4)])),
         "NegSucc 4"
+    );
+}
+
+#[test]
+fn prints_deeply_nested_dependent_domains_without_exponential_work() {
+    let p = Prelude::new();
+    assert_eq!(
+        show(&p, &[], &nested_dependent_pis(3, false)),
+        nested_dependent_pis_text(3, false)
+    );
+    assert_eq!(
+        show(&p, &[], &nested_dependent_pis(40, false)),
+        nested_dependent_pis_text(40, false)
+    );
+}
+
+#[test]
+fn prints_deeply_nested_implicit_domains_without_exponential_work() {
+    let p = Prelude::new();
+    assert_eq!(
+        show(&p, &[], &nested_dependent_pis(3, true)),
+        nested_dependent_pis_text(3, true)
+    );
+    assert_eq!(
+        show(&p, &[], &nested_dependent_pis(40, true)),
+        nested_dependent_pis_text(40, true)
+    );
+}
+
+#[test]
+fn brackets_a_function_domain_of_a_nondependent_arrow() {
+    let p = Prelude::new();
+    let nat = p.nat_ty();
+    assert_eq!(
+        show(&p, &[], &arrow(arrow(nat.clone(), nat.clone()), nat)),
+        "(Nat -> Nat) -> Nat"
     );
 }

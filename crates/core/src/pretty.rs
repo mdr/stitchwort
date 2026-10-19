@@ -253,17 +253,19 @@ impl<'g> Printer<'g> {
                 self.applied(names, "Not".into(), [&**a].into_iter())
             }
             Term::Pi(x, icit, a, b) => {
-                let dom = self.print(names, a, Prec::Or);
                 let uses = b.mentions(0);
+                let dom = if icit.is_implicit() || uses {
+                    self.print(names, a, Prec::Arrow)
+                } else {
+                    self.print(names, a, Prec::Or)
+                };
                 names.push(x.clone());
                 let cod = self.print(names, b, Prec::Arrow);
                 names.pop();
                 if icit.is_implicit() {
-                    let dom = self.print(names, a, Prec::Arrow);
                     let auto = if *icit == Icit::Auto { "auto " } else { "" };
                     (format!("[{auto}{x} : {dom}] -> {cod}"), Prec::Arrow)
                 } else if uses {
-                    let dom = self.print(names, a, Prec::Arrow);
                     (format!("({x} : {dom}) -> {cod}"), Prec::Arrow)
                 } else {
                     (format!("{dom} -> {cod}"), Prec::Arrow)
