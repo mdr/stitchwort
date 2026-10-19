@@ -2064,9 +2064,9 @@
     {
       "id": 136,
       "title": "calc chains (stage 1 of SW-99)",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
-      "where": "merged; gate running on main (started 00:09)",
+      "where": "-",
       "labels": [
         "proof",
         "syntax"
