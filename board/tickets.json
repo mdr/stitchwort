@@ -1,5 +1,5 @@
 {
-  "next": 147,
+  "next": 148,
   "tickets": [
     {
       "id": 1,
@@ -87,8 +87,8 @@
       "id": 6,
       "title": "AoC day 2: prove the block-walking spec equals ID-walking",
       "status": "doing",
-      "agent": "Opus",
-      "where": "worktree-agent-a2bc24294eb0bd201: proof written, final gate running (23:57)",
+      "agent": "Claude",
+      "where": "merged (08ecfb9); gate running on main (started 00:12)",
       "labels": [
         "aoc",
         "proof"
@@ -96,7 +96,9 @@
       "body": "Prove that day 2's block-walking spec (walk k-digit blocks) equals the puzzle's ID-walking wording (walk ids, test each) for all ranges, in aoc/day02.sw (the user's Scala is the ID-walking form). Partly to find what makes such proofs hard and improve Stitchwort for it. `let` has merged, so intermediate names are available in proofs. Done: a theorem relating the two specs and `part1Correct`/`repeatedCorrect` restated against the ID-walking one.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
-      "commits": []
+      "commits": [
+        "478b9e4"
+      ]
     },
     {
       "id": 7,
@@ -2222,6 +2224,21 @@
         "driver"
       ],
       "body": "Day 6 pain point 9: prelude `test`s run in every project's `stitchwort test` and change its totals (broke two driver unit tests). Projects should run only their own tests (and their dependencies' per the multi-file design).",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 147,
+      "title": "AoC day 2 part 2: prove against the id-walking spec (block repeated 2+ times)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc",
+        "proof"
+      ],
+      "body": "SW-6 proved part 1 for all inputs (part1Correct against part1Spec). Part 2 remains: its inclusion-exclusion (Möbius weights) isn't proved even against the block walk; repeatedTwice would need generalising to n copies. Only cross-checked by the brute-force test.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
