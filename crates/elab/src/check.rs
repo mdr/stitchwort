@@ -49,6 +49,10 @@ pub struct Ctx<'e> {
     /// type and value as written in the core term, so a lifted helper can
     /// re-create the `let` (docs/proposals/let.md §A.4).
     pub lets: Vec<Option<Rc<LetDef>>>,
+    /// The type of the definition body being checked, as written, with the
+    /// number of variables in scope where it makes sense. A failed `rfl`
+    /// shows the sides of an `=` as they were written, if this is the type.
+    pub goal: Option<(usize, Rc<Term>)>,
     pub span: Span,
 }
 
@@ -91,6 +95,7 @@ impl<'e> Ctx<'e> {
             kinds: Vec::new(),
             locals: Vec::new(),
             lets: Vec::new(),
+            goal: None,
             span,
         }
     }
@@ -116,6 +121,7 @@ impl<'e> Ctx<'e> {
             kinds,
             locals: Vec::new(),
             lets,
+            goal: None,
             span,
         }
     }
@@ -331,7 +337,7 @@ impl<'e> Ctx<'e> {
     }
 
     pub fn show(&self, value: &Value) -> String {
-        pretty::value(self.g(), &self.names, value)
+        pretty::value_for_message(self.g(), &self.names, value)
     }
 
     pub fn error(
@@ -1229,15 +1235,7 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
             if cx.unify(a, b)? {
                 Ok(Term::Refl)
             } else {
-                Err(cx
-                    .error(
-                        "E-REFL",
-                        "`rfl` can't prove this",
-                        format!("`{}` and `{}` aren't equal", cx.show(a), cx.show(b)),
-                    )
-                    .with_note(
-                        "`rfl` proves `a = b` only when both sides compute to the same value",
-                    ))
+                Err(refl_error(cx, a, b))
             }
         }
         (Expr::Var(name), _) if name.text == "rfl" && cx.lookup("rfl").is_none() => Err(cx.error(
@@ -2033,4 +2031,53 @@ pub(crate) fn args_of(exprs: &[Expr]) -> Vec<Arg<'_>> {
             other => Arg::Explicit(other),
         })
         .collect()
+}
+
+/// The two sides of the goal's `=` as they were written, if the type being
+/// checked is the definition's declared type (or what remains of it after
+/// its parameters) and its sides evaluate to `a` and `b`.
+fn written_sides(cx: &Ctx, a: &Value, b: &Value) -> Option<(String, String)> {
+    let (level, goal) = cx.goal.as_ref()?;
+    if *level != cx.level() {
+        return None;
+    }
+    let Term::Eq(_, ga, gb) = goal.strip_loc() else {
+        return None;
+    };
+    let same = |t: &Term, v: &Value| -> Option<bool> {
+        let value = cx.eval(t).ok()?;
+        cx.unify(&value, v).ok()
+    };
+    if !same(ga, a)? || !same(gb, b)? {
+        return None;
+    }
+    let show = |t: &Term| pretty::term_for_message(cx.g(), &cx.names, t);
+    Some((show(ga), show(gb)))
+}
+
+/// The `E-REFL` error for sides `a` and `b` that aren't equal (kept out of
+/// `check`, whose stack frame is on every recursion).
+#[inline(never)]
+fn refl_error(cx: &Ctx, a: &Value, b: &Value) -> Diagnostic {
+    let (shown_a, shown_b) = (cx.show(a), cx.show(b));
+    let written = written_sides(cx, a, b);
+    let (label, computed) = match written {
+        Some((wa, wb)) => {
+            let computed = match (wa != shown_a, wb != shown_b) {
+                (true, true) => Some(format!(
+                    "computing both sides gives `{shown_a}` and `{shown_b}`"
+                )),
+                (true, false) => Some(format!("computing the left side gives `{shown_a}`")),
+                (false, true) => Some(format!("computing the right side gives `{shown_b}`")),
+                (false, false) => None,
+            };
+            (format!("`{wa}` and `{wb}` aren't equal"), computed)
+        }
+        None => (format!("`{shown_a}` and `{shown_b}` aren't equal"), None),
+    };
+    let mut error = cx.error("E-REFL", "`rfl` can't prove this", label);
+    if let Some(computed) = computed {
+        error = error.with_note(computed);
+    }
+    error.with_note("`rfl` proves `a = b` only when both sides compute to the same value")
 }

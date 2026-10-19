@@ -7,7 +7,9 @@ expression: output
    │
  3 │ theorem wrong: 2 + 2 = 5 := rfl
    │                             ─┬─  
-   │                              ╰─── `4` and `5` aren't equal
+   │                              ╰─── `2 + 2` and `5` aren't equal
    │ 
-   │ Note: `rfl` proves `a = b` only when both sides compute to the same value
+   │ Note 1: computing the left side gives `4`
+   │ 
+   │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
 ───╯
