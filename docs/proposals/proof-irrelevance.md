@@ -1,17 +1,58 @@
 # Proposal: treating two proofs of the same fact as equal (proof irrelevance)
 
-**Status:** Draft 1, 19 October 2026. Design only: nothing is built. Awaiting
-Matt's answers (§10) and an independent review (§11).
+**Status:** Draft 2, 19 October 2026. Design only: nothing is built. Draft 1
+had an independent review; the response is in [Appendix A](#appendix-a-response-to-the-draft-1-review).
+Awaiting Matt's answers (§10) and a second review (§11).
 
 This note can be read without knowing type theory. §1 explains the words it
 needs, with Stitchwort examples. Claims about Stitchwort were checked against
-the source at commit `80c87a8`; the programs in §2 were run with a release
-build of that commit. Claims about other systems are labelled:
+the source at commit `80c87a8` (draft 1) and again at `69dd68a` (draft 2;
+`crates/core/src` and `crates/elab/src` are unchanged between the two, so the
+line numbers hold for both). Programs marked **[run]** were run with a release
+build of the CLI from 19 October 2026. Labels:
 
-- **[checked: S]**: read in source S (listed in [Sources](#sources));
-- **[run]**: a Stitchwort program run at `80c87a8`;
+- **[checked: S]**: read in source S (listed in [Sources](#sources)), or in
+  the Stitchwort source at the `file:line` given;
+- **[run]**: a Stitchwort program run as described;
 - **[inferred]**: my reasoning from checked facts, not stated in a source;
 - **[unverified]**: believed, but not confirmed.
+
+## Changes since draft 1
+
+1. **Dropped the special `rfl` rule** (draft 1 §7.4: "`rfl : p = q` checks for
+   any two proofs"). It made the checker accept an equation that its own
+   comparison didn't believe, which is two notions of "equal" in one
+   checker. The recommendation is now **D1′: proof-position masks only**
+   (§6, §7). `rfl` is again checked by comparison alone.
+2. **Corrected a claim the reviewer's fix relied on.** Dropping the `rfl` rule
+   does *not* remove the reviewer's computational-K / subject-reduction
+   example: masks alone let `rfl` prove `MkBox p = MkBox q`, and transporting
+   along that and taking the box apart rebuilds the same example. New §5.7
+   explains it, with a program that checks today **[run]**. The conclusion is
+   that D1′ is a sound but *incomplete* approximation of full proof
+   irrelevance, like Lean's checker, and that its failures are always
+   rejections (§5.7, §7.9).
+3. **Added the "same type" (homogeneous input) obligation** for comparing
+   constructor values, which don't record their data type's parameters, and
+   **audited every comparison call site** (§7.4, new). The invariant holds
+   today; the design keeps comparison untyped and writes the invariant down,
+   rather than adding parameters to constructor values or types to `conv`.
+4. **Narrowed the unifier rule** (§7.5): only a metavariable that *is* the
+   whole proof argument may be solved; never look inside a skipped proof.
+   Also corrected the account of Agda #8699 (its fix was in the termination
+   checker, not the unifier).
+5. **Reworded the transitivity claim** (§6) to apply only to the masked
+   relation on well-typed values of one type.
+6. **Fixed two paired tests that depended on the dropped rule**, and added
+   the reviewer's tests (a `Prop` *parameter* stays relevant; a metavariable
+   seen only inside a proof stays unsolved) plus tests for §5.7 and §7.4
+   (§8).
+7. Labelled Agda's decidability/normalisation entries as properties of the
+   published calculus, not of every Agda release (§4.3, §4.5).
+8. Checked that both motivating cases are still fixed by masks alone,
+   including every arm of `examples/accept/char-pattern-proofs.sw` (§2.4).
+9. New words in §1: *Axiom K*, *subject reduction*, *homogeneous comparison*.
+   Questions for Matt (§10) and the reviewer (§11) revised.
 
 ## Contents
 
@@ -29,6 +70,7 @@ build of that commit. Claims about other systems are labelled:
 11. [Questions for the reviewer](#11-questions-for-the-reviewer)
 12. [What I couldn't verify](#12-what-i-couldnt-verify)
 13. [Sources](#sources)
+- [Appendix A: response to the draft 1 review](#appendix-a-response-to-the-draft-1-review)
 
 ## 0. Summary
 
@@ -40,26 +82,39 @@ different types that print the same, and a hand-built character
 worked around both: `[auto]` arguments in the `Int` lemmas, and an
 elaborator pass (`canonical`, commit `55c48eb`) for character patterns.
 
-**Recommendation: option D1, "ignore proofs when comparing".** When the
-kernel compares two values and reaches an argument or constructor field that
-the declaration says is a proof (its type is in `Prop`), it skips it. Nothing
-new is *computed*: the evaluator is untouched, `J` still only computes on
-`rfl`, and a `case` on a proof still needs a constructor. This is a narrow
-form of what Lean does for all of `Prop`, using the "relevance marks" idea
-from Rocq's `SProp` (read the binder's sort, don't infer types during
-comparison). It fixes all three programs in §2, needs no change to JS
-extraction, erasure or hashing, and keeps type checking terminating, because
-comparison only does less work than before.
+**Recommendation: option D1′, "skip proof positions when comparing".** When
+the kernel compares two values with the same head and reaches an argument or
+constructor field that the declaration says is a proof (its declared type is
+in `Prop`), it skips it. That is the whole rule. Nothing new is *computed*:
+the evaluator is untouched, `J` still only computes on `rfl`, a `case` on a
+proof still needs a constructor, and `rfl` is still checked only by
+comparison. It uses the "relevance marks" idea from Rocq's `SProp` (read the
+binder's declared sort, don't infer types during comparison). It fixes all
+three programs in §2, needs no change to JS extraction, erasure or hashing,
+and comparison only does less work than before.
 
-It deliberately doesn't add Lean's "K-like" rule (transport computes along
-*any* proof of `a = a`), because with an impredicative `Prop` that rule is
-known to give terms whose checking never finishes (Abel and Coquand 2020,
-§5.2). It also doesn't try to be complete: Lean's full rule is known to make
-type checking undecidable (Carneiro 2019, §5.1), and Stitchwort's `Prop`
-admits the same counterexample (§5.1, a program accepted today).
+What it is, honestly: a *sound but incomplete* version of the proof
+irrelevance Lean has. The rules it implies say every two proofs of a
+proposition are equal; the checker sees that only at proof positions of
+definitions, constructors and data types, not for two bare proof variables
+`p` and `q`. Because of the gap, a well-typed term can compute to one the
+checker would reject at the same type (§5.7). That only ever causes a
+rejection, never acceptance of something false; the same gap exists in Lean
+for other reasons (§5.1).
 
-Stage 1 is a small kernel change plus the matching change in
-the elaborator's unifier and the reference evaluator; stage 2 removes the
+Two prerequisites, both met today: comparison is only ever asked about two
+values of the same type (audited call by call, §7.4), and the unifier never
+looks inside a skipped proof (§7.5).
+
+It deliberately doesn't add Lean's "K-like" rule (`J` computes along *any*
+proof of `a = a`), because with an impredicative `Prop` that rule is known to
+give terms whose checking never finishes (Abel and Coquand 2020, §5.2). And
+it doesn't try to be complete: Lean's full rule is known to make type
+checking undecidable (Carneiro 2019, §5.1), and Stitchwort's `Prop` admits
+the same counterexample (§5.1, a program accepted today).
+
+Stage 1 is a small kernel change plus the matching change in the
+elaborator's unifier and the reference evaluator; stage 2 removes the
 elaborator workarounds.
 
 ## 1. The words, in plain terms
@@ -130,6 +185,12 @@ Stitchwort's checker already has a budget, so "runs forever" would show as
 `E-RESOURCE` (inconclusive), never as a wrong answer; but a rule that makes
 the budget the *normal* way to fail is a bad rule.
 
+**Sound versus complete.** A checker is *sound* if everything it accepts is
+really true (no proof of `Void`). It is *complete* for a rule if it accepts
+everything the rule allows. D1′ is sound and deliberately incomplete: it
+never says two different things are equal, but sometimes says "not equal"
+for two proofs the rules consider equal.
+
 **Normalisation.** Every term computes to a final form (a *normal form*) in
 finitely many steps. Stitchwort's checker compares types by computing both
 to normal form and comparing the results (DESIGN §6 "Running vs comparing"),
@@ -138,6 +199,22 @@ so if some terms have no normal form, comparison can loop.
 **Transitivity.** If `a ≡ b` and `b ≡ c` then `a ≡ c`. A checker whose
 equality isn't transitive surprises users: two steps that each check can
 fail when combined.
+
+**Subject reduction.** "Computing doesn't change a term's type": if the
+checker accepts `t : T` and `t` computes to `t'`, the checker also accepts
+`t' : T`. Example: it accepts `(\x => x) 3 : Nat`, and also `3 : Nat`. When
+it fails, replacing an expression by its value (inlining, or the elaborator
+writing in a computed solution) can turn an accepted program into a
+rejected one. In a checker that is sound, failure of subject reduction shows
+up as rejections, not as false proofs **[inferred]**.
+
+**Homogeneous comparison.** Comparing two values *of the same type*. The
+kernel's comparison (`conv`) is untyped: it's handed two values and never
+told their types. D1′ skips a constructor's proof field by looking only at
+the constructor, which is safe only if both values have the same type:
+`MkBox p : Box P` and `MkBox q : Box Q` have the same constructor, but `p`
+and `q` prove different things, and skipping them would be wrong. So
+D1′ requires every caller to compare values of one type (§7.4).
 
 **Erasure versus irrelevance.** These are different questions:
 
@@ -150,14 +227,22 @@ fail when combined.
 
 Types are erased in Stitchwort but must stay *relevant*: `Vec Nat 3` and
 `Vec Bool 3` differ only in a type argument. So whatever is built here must
-key on "is a proof", never on "is erased".
+key on "is a proof", never on "is erased". Note that a *proposition* is not
+a proof either: in `type R (p : Prop) : Type`, the parameter `p` has type
+`Prop`, and `Prop : Type 0`, so `p` is relevant and `R Unit` and `R Void`
+must stay different (test 9, §8).
 
 **Axiom K, UIP.** *UIP* ("uniqueness of identity proofs") is propositional
 proof irrelevance for equations: any two proofs of `a = b` are equal. *Axiom
-K* is an equivalent eliminator. Both are incompatible with homotopy type
-theory's univalence, which is why Agda and Rocq care about avoiding them.
-Stitchwort has no univalence and no plans for it, and definitional proof
-irrelevance for `Prop` implies UIP, so this is no cost here **[inferred]**.
+K* says the same thing as an eliminator: to prove something about every
+`h : a = a`, it's enough to prove it for `rfl`. Its *computation rule* says
+that using K on any `h` computes as if `h` were `rfl`. Example: with K
+computing, transporting `x : F rfl` to `F h` for a variable `h : a = a`
+gives back `x`. Both K and UIP are incompatible with homotopy type theory's
+univalence, which is why Agda and Rocq care about avoiding them. Stitchwort
+has no univalence and no plans for it, and definitional proof irrelevance for
+`Prop` implies UIP, so UIP itself is no cost here **[inferred]**. What *is*
+a cost is K's computation rule as a built-in reduction, because of §5.2.
 
 ## 2. The problem: three programs
 
@@ -198,11 +283,48 @@ compiles to `MkChar 97 _`, so in its arm the matched character was
 `MkChar 97 p` for a fresh proof `p`, not the literal. Commit `55c48eb`
 fixed `| 'a', h => rfl` with an elaborator pass, `canonical`
 (`crates/elab/src/lib.rs:2370`), which checks the arm with `rfl` in place of
-`p` and transports back along `Bool.uniqueEq`. That commit added about 190 lines to the
-elaborator, and it only works because `Bool`'s equality proofs are
-provably unique. Examples: `examples/accept/char-pattern-proofs.sw`.
+`p` and transports back along `Bool.uniqueEq`. That commit added about 190
+lines to the elaborator, and it only works because `Bool`'s equality proofs
+are provably unique. Examples: `examples/accept/char-pattern-proofs.sw`.
 
-With proof irrelevance, all three are `rfl` and `canonical` can go.
+### 2.4 Are these fixed by masks alone? (new in draft 2)
+
+Yes, by this reasoning **[inferred from the code cited]**:
+
+- **2.1.** A stuck definition stays *folded*: its value is
+  `Neutral(Def(Int.modNat), [x, 100, ok])`, the original spine
+  (`value.rs:920-924`, `stuck_tree`; `value.rs:5-7`). `Int.modNat`'s type is
+  `Int -> (d : Nat) -> [auto ok : d != 0] -> Nat` (prelude:1644), and
+  `d != 0` is a function into `Void : Prop` (prelude:16, 22), so it's in
+  `Prop` and position 2 is a proof position. Comparing the two sides reaches
+  the `Neutral`/`Neutral` arm with the same `Def` head (`value.rs:1291`), and
+  the mask skips position 2. The `E-REFL` may come from the elaborator first
+  (`elab/src/check.rs:1229` unifies the two sides of an `rfl` goal), which is
+  why §7.5 gives the unifier the same masks.
+- **2.2.** Both sides are `Ctor(Char, 0, [97, …])` (a single character is a
+  constructor value, not a compact `Chars` range); field 1, `valid`, has
+  sort `Prop`, so it's skipped (`value.rs:1275`).
+- **2.3.** Each arm of `examples/accept/char-pattern-proofs.sw`, with the
+  matched character `MkChar n p` and no `canonical`:
+  `firstIsA`, `isItself`, `hypothesisRefined` and `pairOfChars` need
+  `MkChar n p ≡ MkChar n rfl` (directly, or inside `Pair`/`Or`): the mask.
+  `nextOfA`, `bitIsBit` and `bitRoundTrip` compute `next`, `isBit`,
+  `bitValue` and `bitChar` on `MkChar n p`. Those functions match
+  `MkChar n _` and never look at the proof field, so they compute today; the
+  remaining comparisons (`bitChar (bitValue c) = c`) are again the mask.
+  `firstIsAComputes` and `nextOfAComputes` get simpler: without `canonical`
+  there's no `J` in the arm to compute away.
+
+  **Does the char case need anything beyond masks?** `canonical` does one
+  more thing: by putting `rfl` in for `p`, it lets a `J` or a `match` *on
+  the proof `p`* compute inside the arm. Masks don't (that would be new
+  computation). No program in the repository needs it: the only prelude
+  functions that take `MkChar n v` apart either ignore `v` (`Char.code`,
+  prelude:326) or are theorems (`Char.mkExt`, prelude:330-338)
+  **[checked: grep of the prelude, `aoc/`, `examples/`]**. So stage 2 can
+  remove `canonical`, gated on the example file and the AoC solutions still
+  checking. If a later program does compute on a char's proof, it can
+  transport along `Bool.uniqueEq` by hand, as `canonical` does.
 
 ## 3. How Stitchwort handles proofs today
 
@@ -213,7 +335,8 @@ The relevant parts of the kernel (`crates/core/src`), checked by reading:
   index and fields (`value.rs:1275`), data types by parameters (`:1268`),
   stuck computations (`Neutral`) by head and arguments (`:1291`, with
   `spine_pairs` at `:1331`). A value doesn't record its type: a lambda has
-  no domain, a constructor value no parameters (`value.rs:20-40`).
+  no domain, a constructor value no parameters (`value.rs:20-40`:
+  `Ctor(DataId, usize, Values)`).
 - **Universes are exact.** `Prop : Type 0`, with no cumulativity: sorts
   compare with `==` (`value.rs`, `(Value::Sort(s), Value::Sort(t)) => s ==
   t`), and `check` uses `conv` with no subsumption. A function type whose
@@ -239,21 +362,25 @@ The relevant parts of the kernel (`crates/core/src`), checked by reading:
   different parameters" **[run]**). So Lean's `Acc` can't be written as is.
 - **Termination checking never calls `conv` or `unify`**
   (`grep` of `sct.rs`, `termination.rs`): descent is read from the terms.
-- **The elaborator's unifier** (`crates/elab/src/unify.rs`) mirrors `conv`'s
-  structure, and solves metavariables.
-- **A reference evaluator** (`reference.rs`, test only) has its own `conv`,
-  kept in step for differential tests.
+- **The elaborator's unifier** (`crates/elab/src/unify.rs:23`) mirrors
+  `conv`'s structure, and solves metavariables.
+- **A reference evaluator** (`reference.rs`, test only) has its own `conv`
+  (`reference.rs:373`), kept in step for differential tests.
 
 ## 4. How other systems do it
 
 ### 4.1 Lean 4: all of `Prop`, checked by type
 
-- Definitional equality has proof irrelevance for every `Prop`, and "is
-  reflexive and symmetric, but not transitive" **[checked: L3]**.
+- Definitional equality has proof irrelevance for every `Prop` ("any two
+  proofs of the same proposition are definitionally equal"), and "is
+  reflexive and symmetric, but not transitive" **[checked: L3, re-read 19
+  October 2026]**.
 - The kernel's check (`is_def_eq_proof_irrel`): infer the type of `t`; if it
   is a proposition, infer the type of `s` and compare the two types
-  **[checked: L1, type_checker.cpp:895-903]**. It runs after cheap checks
-  and *before* unfolding definitions (`:1159`, before
+  **[checked: L1, type_checker.cpp:895-903]**. So Lean's comparison is
+  typed at exactly this point: it never equates proofs of different
+  propositions, which is the issue §7.4 handles differently. It runs after
+  cheap checks and *before* unfolding definitions (`:1159`, before
   `lazy_delta_reduction`), so proofs are never unfolded to compare them
   **[checked: L1]**.
 - **K-like reduction.** For an inductive proposition with one constructor
@@ -262,7 +389,11 @@ The relevant parts of the kernel (`crates/core/src`), checked by reading:
   `to_cnstr_when_K` infers the major premise's type and, if its indices match
   the constructor's, replaces the proof by the constructor (for `e : a = a`,
   by `Eq.refl a`) **[checked: L2, inductive.h:27-50; L5]**. So in Lean,
-  transport along any proof of `a = a` computes.
+  transport along any proof of `a = a` computes. With definitional proof
+  irrelevance this is not really separate machinery: any `e : a = a` *is*
+  definitionally `Eq.refl a`, so K's computation rule is a consequence; the
+  rule just makes the checker see it **[inferred; the reviewer says Lean's
+  documentation states this, but I couldn't find the sentence in L3, §12]**.
 - **Structure eta in the recursor**, which turns a stuck `p` into
   `mk p.1 … p.n` so a match can compute, is explicitly *not* done for
   propositions: `if (is_prop(e_type)) return e;` **[checked: L2,
@@ -288,8 +419,9 @@ The relevant parts of the kernel (`crates/core/src`), checked by reading:
   **[checked: R1]**. So no transport along an `SProp` equality, no `Acc`
   recursion.
 - An opt-in flag, *Definitional UIP*, allows eliminating `SProp` equality
-  into anything; combined with impredicative `Prop` it "breaks termination
-  of reduction" **[checked: R1]**.
+  into anything, through a special reduction that doesn't look at the proof;
+  combined with impredicative `Prop` it "breaks termination of reduction"
+  **[checked: R1]**.
 - **No cumulativity** from `SProp` into `Type`, "to keep conversion
   tractable" **[checked: R1; G §6.1]**.
 - **Relevance marks.** Rocq's conversion is untyped, like Stitchwort's.
@@ -301,7 +433,9 @@ The relevant parts of the kernel (`crates/core/src`), checked by reading:
   conversion incomplete **[checked: R1; G §6.1.1]**. Relevance of an
   application is the relevance of its head; this is correct because typing
   is unique, so relevance is stable under substitution **[checked: G §4.5,
-  Prop. 4.4]**. This is the trick option D1 borrows.
+  Prop. 4.4]**. This is the trick option D1′ borrows, for definition,
+  constructor and data-type binders only (stage 3, §9, would add context
+  variables).
 - Theory: the paper proves consistency and decidability of type checking
   for its calculus, and shows why the old "singleton elimination" criterion
   is wrong in the presence of definitional irrelevance: `Acc` makes
@@ -323,10 +457,13 @@ The relevant parts of the kernel (`crates/core/src`), checked by reading:
   never evaluated or compared for equality"; an irrelevant variable may only
   be used in irrelevant positions; you can't pattern match on one, except
   with `()` **[checked: A2]**. Irrelevance here is attached to the *binder*,
-  not inferred from a type, which is close to option D1.
-- Known soundness bugs: irrelevant record fields gave a proof of `⊥` in
-  Agda 2.5.3 (issue #2170), by matching on an irrelevant field
-  **[checked: G §1, appendix B]**; and #8699 (§5.4).
+  not inferred from a type, which is close to option D1′.
+- Known soundness bugs *in the implementation*: irrelevant record fields
+  gave a proof of `⊥` in Agda 2.5.3 (issue #2170), by matching on an
+  irrelevant field **[checked: G §1, appendix B]**; and #8699, a `--safe`
+  proof of `⊥` through `Prop` and irrelevant arguments, fixed 29 August 2026
+  (§5.4) **[checked: A3]**. So the "decidable / normalising" entries for
+  Agda below describe the published calculus, not every Agda release.
 
 ### 4.4 Idris 2
 
@@ -339,12 +476,12 @@ i.e. Idris 2 has erasure without irrelevance.
 
 | | Which proofs are equal | Large elimination | Transport on non-`rfl` proofs | Checking decidable | Normalising |
 |---|---|---|---|---|---|
-| Lean 4 | All of `Prop` | Subsingletons, incl. `Acc` | Yes (K-like) | No (in theory); kernel is a decidable approximation | No (§5.2) |
+| Lean 4 | All of `Prop` | Subsingletons, incl. `Acc` | Yes (K-like rule) | No (in theory); kernel is a decidable approximation | No (§5.2) |
 | Rocq `SProp` | All of `SProp` | Only empty types | No (unless Definitional UIP) | Yes (proved) | Yes, without Definitional UIP |
-| Agda `--prop` | All of `Prop` | Only `()` | No | Yes **[inferred from G]** | Yes **[inferred]** |
+| Agda `--prop` (calculus of G) | All of `Prop` | Only `()` | No | Yes **[inferred from G]** | Yes **[inferred]** |
 | Agda `.x` | Arguments marked `.` | No matching | n/a | Yes | Yes |
 | Stitchwort today | None | Subsingletons (Lean's rule) | No | Budgeted | Assumed |
-| **Option D1** | **Proof positions of definitions, constructors, data types** | **Unchanged** | **No** | **As today** | **As today** |
+| **Option D1′** | **Implied: all of `Prop`. Seen by the checker: proof positions of definitions, constructors, data types** | **Unchanged** | **No rule; a user can write K by hand (§5.7)** | **As today** | **Assumed, as today (§5.7)** |
 
 ## 5. What can go wrong: the known pitfalls
 
@@ -378,7 +515,8 @@ Under a *full* proof-irrelevance rule, `steps l 0 ≡ steps (MkLoop
 through: any rule that says "all proofs of `Loop` are equal, everywhere"
 makes Stitchwort's definitional equality undecidable **[inferred]**. The
 design must therefore not *promise* full irrelevance; it must specify the
-decidable part it implements.
+decidable part it implements. (D1′'s rules *imply* full irrelevance, §5.7;
+what it promises is only the masked comparison of §7.1.)
 
 ### 5.2 Non-termination through impredicativity and K-like transport (Abel and Coquand)
 
@@ -410,66 +548,168 @@ With Lean's K-like rule, `J … (h Top Top)` would compute, and the
 comparison would loop under the binder (ending in `E-RESOURCE`)
 **[inferred]**. **So: no K-like rule.** This is a must-keep test (§8).
 
+The narrow claim is: ordinary `J`, which computes only on a literal `rfl`,
+doesn't perform the reduction this counterexample uses; the paper stresses
+that the bad cast computes *without inspecting the proof* **[checked: AC]**.
+Draft 1 overstated what follows from it. Not changing `J` is not by itself
+enough: anything that lets users *manufacture* a literal `rfl` between
+different proofs gives them K-like computation by hand. Draft 1's `rfl`
+rule did that, and so, less directly, do masks (§5.7). Whether such
+hand-written K can rebuild `Ω` is §5.7's open question.
+
 ### 5.3 Singleton types and extensionality (Gilbert et al.)
 
 If a proposition that carries data (like `{ b : A | a = b }`) could be
 eliminated into data, irrelevance would turn every propositional equality
 into a definitional one, which is undecidable **[checked: G §2.2]**.
 Stitchwort's `E-PROP-ELIM` already refuses this (`∃` can't produce data,
-DESIGN §6), and option D1 doesn't touch it. But it's the reason the
+DESIGN §6), and option D1′ doesn't touch it. But it's the reason the
 elimination rule and the irrelevance rule must be designed together: **every
 proposition that can be eliminated into data must really have at most one
 proof in the model** **[inferred]**.
 
 ### 5.4 Termination through irrelevant parts (Agda #8699)
 
-Agda's termination checker treated a dot pattern's irrelevant argument as
-structurally smaller, while conversion never looked at it, so `f` reduced to
-itself and proved `⊥` under `--safe`; the `Prop` variant failed the same way;
-fixed in PR #8707, 29 August 2026 **[checked: A3]**. The lesson recorded in
-docs/proposals/mutual-recursion.md §6.7: descent must only use parts that
-really exist in the values the evaluator computes with.
+The mechanism, as the issue records it **[checked: A3, re-read 19 October
+2026]**: a family `T : Sq -> Set` is indexed by a record `Sq` whose only
+field is irrelevant. Matching on `T s` makes the unifier instantiate `s`
+with a *dot pattern* `.(sq (suc m))` (a pattern the checker fills in
+itself). The termination checker turned that dot pattern into a constructor
+pattern and descended into the irrelevant field, taking `sq m` in the
+recursive call as smaller than `sq (suc m)`. But nothing ever inspects that
+field, so `f` reduced to itself and proved `⊥` under `--safe`; a `Prop`
+variant failed the same way. In the discussion Abel suggested stopping the
+unifier from refining irrelevant subterms; Cockx argued the unifier should
+stay as it was, and the fix (PR #8707, 29 August 2026) was in the
+termination checker: don't count descent under irrelevant or `Prop`
+arguments of dot patterns.
 
-For Stitchwort with D1: descent evidence is still read from real matches on
+The lesson recorded in docs/proposals/mutual-recursion.md §6.7: descent
+must only use parts that really exist in the values the evaluator computes
+with.
+
+For Stitchwort with D1′: descent evidence is still read from real matches on
 variables (no dot patterns, no indices, no forced patterns); the evaluator
 still computes with proof terms, and only *comparison* skips them; the
-termination checker never calls `conv` (§3). So the #8699 mechanism has
-nothing to act on **[inferred]**. That's an argument, not a proof, so §8 has
-tests for it, and the note in mutual-recursion.md §6.7 should be updated to
-point here.
+termination checker never calls `conv` or `unify` (§3). So the #8699
+mechanism has nothing to act on **[inferred]**. The elaborator's unifier is
+narrowed anyway (§7.5), because a solution taken from inside a skipped proof
+is information the kernel's comparison doesn't vouch for. §8 has tests for
+both.
 
 ### 5.5 Irrelevant data (Agda #2170)
 
 Agda's bug came from making a *data* field irrelevant and then matching on
-it **[checked: G appendix B]**. D1 only ignores proofs, never data, and
+it **[checked: G appendix B]**. D1′ only ignores proofs, never data, and
 matching on proofs is still governed by `E-PROP-ELIM`. Must keep: never use
 `field_erased` (which includes types) where `field_sorts == Prop` is meant.
 
 ### 5.6 What "sound" requires here
 
-Two things **[inferred]**:
+Three things **[inferred]**:
 
 1. **A model where proofs are all equal.** Interpret each proposition as a
    set with at most one element (as in Carneiro's model of Lean). Every
-   equation D1 adds then holds in the model, so D1 can't prove anything
+   equation D1′ adds then holds in the model, so D1′ can't prove anything
    false *provided* Stitchwort's existing rules hold in such a model. They
    are a subset of Lean's (impredicative `Prop`, subsingleton elimination,
    `J`), plus things checked against their definitions (natives, compact
    text) and things justified separately (size-change termination, handler
    termination: DESIGN §13 "Known gaps"). Nothing in Stitchwort today
    distinguishes two proofs of one proposition except computation, which is
-   exactly what the model forgets.
-2. **Each skip compares two proofs of the same proposition.** The two
-   values being compared have the same head (definition, constructor or data
-   type), so the position's declared type is the same telescope entry,
-   instantiated with the earlier arguments. If the comparison as a whole
-   succeeds, those earlier arguments are equal (or are themselves proofs),
-   so the two propositions are equal in the model. And because every type
-   has exactly one sort (no cumulativity, no universe polymorphism, §3), "the
-   declared type is in `Prop`" means the argument really is a proof whatever
-   the instantiation. If Stitchwort ever adds cumulativity or universe
-   polymorphism, this must be revisited (Rocq forbids `SProp` cumulativity
-   for the same reason, §4.2).
+   exactly what the model forgets. (The draft 1 reviewer saw no model-breaker
+   among `NumCase`, `Comp`, `Partial`, compact text or natives.)
+2. **Each skip compares two proofs of the same proposition.** This needs
+   both values to have the same type (§7.4). Then: for a definition or data
+   type, the two values have the same head, the relevant earlier arguments
+   are in the spine, and if the comparison as a whole succeeds those are
+   equal, so the skipped position's declared type is the same proposition on
+   both sides. For a constructor, the field types also depend on the data
+   type's *parameters*, which the value doesn't carry; they are equal only
+   because the two values have the same type, which is what §7.4 audits.
+   "Equal" here means equal in the model: a later position's type may
+   mention an earlier, skipped proof.
+3. **Every type has exactly one sort** (no cumulativity, no universe
+   polymorphism, §3), so "the declared type is in `Prop`" means the argument
+   really is a proof whatever the instantiation. If Stitchwort ever adds
+   cumulativity or universe polymorphism, this must be revisited (Rocq
+   forbids `SProp` cumulativity for the same reason, §4.2).
+
+Soundness does *not* need subject reduction or completeness (§5.7): the
+checker only has to never call two things equal that differ in the model.
+
+### 5.7 What masks imply: full irrelevance, hand-written K, and a subject-reduction gap (new)
+
+Masks let `rfl` prove `MkBox p = MkBox q` for any two proofs `p q : a`
+(the field is skipped). From that, propositional proof irrelevance and K's
+computation follow by ordinary means. This file checks today **[run]**:
+
+```
+type Box (p : Prop) : Type =
+  | MkBox (h : p)
+
+def Box.unbox [p : Prop] : Box p -> p
+  | MkBox h => h
+
+def castViaBox (a : Prop) (p : a) (q : a) (f : a -> Type) (x : f p)
+    (e : MkBox p = MkBox q) : f q :=
+  J (\y e2 => f (Box.unbox y)) x e
+
+theorem piViaBox (a : Prop) (p : a) (q : a) (e : MkBox p = MkBox q) : p = q :=
+  J (\y e2 => p = Box.unbox y) rfl e
+```
+
+Today `rfl : MkBox p = MkBox q` is rejected (`E-REFL` **[run]**), so `e`
+must be a hypothesis. Under D1′, `rfl` is accepted there, so:
+
+- **Propositional proof irrelevance is a theorem**: `piViaBox a p q rfl :
+  p = q`. Option A's trusted `proofIrrel` constant isn't needed; a prelude
+  theorem would do.
+- **K's computation rule can be written by hand.** With `a` an equation
+  `t = t` and `p := rfl`, `castViaBox (t = t) rfl h f x rfl : f h`, and it
+  computes to `x`, for any `h : t = t`. The kernel's `J` is unchanged: it
+  computes because its proof argument is a literal `rfl`.
+- **Algorithmic subject reduction fails.** `castViaBox a p q f x rfl` is
+  accepted at type `f q` and computes to `x`, but the checker rejects
+  `x : f q`, because `f` is a local variable (no masks) and `p`, `q` are two
+  different proof variables. This is the reviewer's `castProofIndex`
+  example; it doesn't need draft 1's `rfl` rule, only masks.
+
+So D1′'s *rules* say what Lean's say, all proofs of a proposition are
+equal; its *checker* sees it only at masked positions. That is the same kind
+of gap as Lean's (§5.1), from a different cause: Lean's comparison is typed
+and sees `p ≡ q` here, but misses Carneiro's creative unfoldings.
+
+**What the gap costs.**
+
+- *Soundness*: nothing. The checker still only equates values equal in the
+  model (§5.6), and the evaluator's rules (β, `case` on a constructor, `J` on
+  `rfl`) all hold in the model **[inferred]**.
+- *Rejections*: a term accepted at one type can compute to a term rejected at
+  that type. Users meet this only if they inline such a value by hand. The
+  elaborator meets it if it writes a computed normal form back into a term
+  (metavariable solutions are quoted values, `unify.rs:342`, `rename`; and `let`
+  values can be folded back, `lift.rs:605-620`): the kernel then rejects the
+  elaborated term. That's an elaborator error, not a false acceptance, and
+  needs a program that transports along a hand-made `rfl` between proofs.
+- *Termination*: comparison does strictly less work, and evaluation has the
+  same rules as today, so checking any *given* term does no more work than
+  before. But the set of accepted terms grows, and Stitchwort has no
+  normalisation proof today ("Assumed", §4.5). Can hand-written K rebuild
+  Abel and Coquand's `Ω`? I believe not: their loop needs `J … (h Top a)`,
+  with `h` a hypothesis and `a` a variable, to compute once `a` becomes
+  `Top`, and hand-written K only computes where the user wrote it at a type
+  `t = t`, which `h Top a` doesn't have for a variable `a`
+  **[inferred, unverified; asked in §11]**. If it can, the budget turns the
+  loop into `E-RESOURCE`, as today.
+
+**Could the gap be closed?** Partly, by stage 3 (§9): give `conv` Rocq-style
+marks for the *context's* variables, so two neutral values whose heads are
+proof variables (or theorems), with only applications in their spines, are
+equal. That makes `p ≡ q` and `f p ≡ f q` above, and
+`theorem pi (p q : a) : p = q := rfl`, check. Variables bound *during* a
+comparison (under a lambda) have no mark, so it stays incomplete
+**[inferred]**. Not proposed for stage 1; question 3, §10.
 
 ## 6. Options
 
@@ -500,10 +740,10 @@ by Hedberg's argument), so the rule adds nothing new to the logic
 - *Gains:* §2.2 and §2.3. **Not §2.1**: a proof of `d != 0` is a *function*
   `d = 0 -> Void`, and two such functions are provably equal only with
   function extensionality, which Stitchwort doesn't have.
-- *Kernel:* the same position machinery as D1, plus a check of the
-  proposition's shape. So it's no simpler than D1.
-- *Verdict:* the safety is real but D1's argument (§5.6) is not much weaker,
-  and B leaves the motivating example unsolved.
+- *Kernel:* the same position machinery as D1′, plus a check of the
+  proposition's shape. So it's no simpler than D1′.
+- *Verdict:* the safety is real but D1′'s argument (§5.6) is not much
+  weaker, and B leaves the motivating example unsolved.
 
 ### Option C: a separate sort of strict propositions (Rocq `SProp` style)
 
@@ -519,64 +759,82 @@ can only be eliminated into another `SProp`, except empty types.
   statements without boxing. Transport along an `SProp` equality is
   impossible, so `rewrite` can't use them.
 - *Kernel:* a new sort; elimination rules for it; erasure must treat it like
-  `Prop`; positions still need marks (as D1).
-- *Verdict:* the most principled, but it splits the logic, which goes
-  against "propositions are types" being one simple story (DESIGN §6), and
-  the effort lands on users.
+  `Prop`; positions still need marks (as D1′).
+- *Verdict:* the most principled, and the only option here without §5.7's
+  gap (an `SProp` box can't be taken apart into data). But it splits the
+  logic, which goes against "propositions are types" being one simple story
+  (DESIGN §6), and the effort lands on users.
 
 ### Option D: Lean-style, for all of `Prop`
 
-Two levels:
+Three levels:
 
-**D1 (recommended): ignore proofs at known proof positions, compute nothing
-new.** When `conv` compares two values with the same head, it skips the
-arguments whose declared type is in `Prop`: a definition's parameters, a
-constructor's fields, a data type's parameters. Plus: `rfl` proves `p = q`
-whenever `p` and `q` are proofs. Nothing else changes.
+**D1′ (recommended): skip proof positions when comparing; nothing else.**
+When `conv` compares two values with the same head, it skips the arguments
+whose declared type is in `Prop`: a definition's parameters, a
+constructor's fields, a data type's parameters. `rfl`, `J`, `case` and
+evaluation are unchanged.
 
-- *Gains:* §2.1, §2.2 and §2.3 all become `rfl`; `canonical` and the second
-  `[auto]` proofs in the `Int` lemmas become unnecessary; equal records with
-  different proof fields are equal (`MkSortedList xs p ≡ MkSortedList xs q`,
-  docs/proposals/records.md R7).
-- *Not gained:* proofs inside a *local variable's* arguments (`f x p` where
-  `f` is a hypothesis: `conv` doesn't know `f`'s type), and anything needing
-  computation on a non-canonical proof (`J … h` with `h : a = a` still
-  stuck; `steps l 0` still stuck). Stage 3 (§9) can add the first.
+- *Gains:* §2.1, §2.2 and §2.3 all become `rfl` (§2.4); `canonical` and the
+  second `[auto]` proofs in the `Int` lemmas become unnecessary; equal
+  records with different proof fields are equal (`MkSortedList xs p ≡
+  MkSortedList xs q`, docs/proposals/records.md R7); propositional proof
+  irrelevance becomes a provable theorem (§5.7).
+- *Not gained:* two bare proofs (`rfl : p = q` for variables `p q : a`, or
+  `f p ≡ f q` with `f` a hypothesis: `conv` doesn't know their types), and
+  anything needing computation on a non-canonical proof (`J … h` with
+  `h : a = a` a variable still stuck; `steps l 0` still stuck). Stage 3 (§9)
+  can add the first.
+- *Known gap:* algorithmic subject reduction (§5.7); rejections only.
 - *Kernel:* §7.
-- *Soundness:* §5.6. *Decidability:* the evaluator is unchanged, and `conv`
-  only compares less, so checking terminates whenever it does today. The
-  relation the kernel decides, "normal forms are equal except at proof
-  positions", is an equivalence relation on normal forms **[inferred]**, so
-  it's *more* predictable than Lean's in one respect: it doesn't fail
-  transitivity the way §5.1 describes, because it never equates an
-  unreduced term with a reduced one (the price is the same incompleteness:
-  `steps l 0` and `steps (MkLoop (Loop.inv l)) 0` stay different).
-- *Hashing, JS, erasure:* unchanged (§7.6).
+- *Soundness:* §5.6, given the same-type invariant (§7.4).
+  *Decidability:* the evaluator is unchanged, and `conv` only compares less,
+  so checking a given term terminates whenever it does today.
+  *Predictability:* on well-typed values of a common type, the masked
+  relation is structural equality of normal forms with the masked parts
+  ignored, plus the existing eta rules, and is intended to remain an
+  equivalence relation (reflexive, symmetric, transitive)
+  **[inferred; to be tested, §8]**. It doesn't fail transitivity the way
+  §5.1 describes, because it never equates an unreduced term with a reduced
+  one (the price is the same incompleteness: `steps l 0` and
+  `steps (MkLoop (Loop.inv l)) 0` stay different). It is *not* a congruence
+  for computation: `MkBox p ≡ MkBox q`, yet `Box.unbox (MkBox p)` computes
+  to `p`, `Box.unbox (MkBox q)` to `q`, and those differ (§5.7). The claim is
+  not made for values of different types: that's what §7.4 excludes.
+- *Hashing, JS, erasure:* unchanged (§7.7).
+
+**D1 (draft 1, withdrawn): D1′ plus "`rfl : p = q` whenever the equation is
+between proofs".** The extra rule adds nothing to what the rules imply
+(§5.7 derives `p = q` anyway), but makes the checker accept `rfl : p = q`
+while its comparison still says `p ≢ q` everywhere else, for example in
+`f p` against `f q`. Two notions of "equal" in one checker; dropped.
 
 **D2 (not recommended): full Lean.** Typed comparison (infer the type of any
 two values being compared, and if it's a proposition, stop), plus K-like
 computation for `J`.
 
-- *Gains over D1:* local-variable positions, top-level proofs anywhere, and
-  transport along any proof of `a = a` computes.
+- *Gains over D1′:* local-variable positions, top-level proofs anywhere,
+  subject reduction for §5.7's example, and transport along any proof of
+  `a = a` computes.
 - *Kernel:* `conv` would need the type of every value it compares, but
   values don't carry types (lambdas have no domain, constructors no
   parameters), so this is a rewrite of `conv` and the unifier, or a parallel
   type-inference for values.
-- *Soundness:* as D1 (Lean's model). *Decidability:* the Abel–Coquand term
+- *Soundness:* as D1′ (Lean's model). *Decidability:* the Abel–Coquand term
   (§5.2) loops; Carneiro's argument (§5.1) applies.
 - *Verdict:* the gains are rare in Stitchwort's programs so far, and the
   costs are exactly the known pitfalls.
 
 ### Comparison
 
-| | A | B | C | **D1** | D2 |
+| | A | B | C | **D1′** | D2 |
 |---|---|---|---|---|---|
 | §2.1 divisor | by hand | no | with new types | **yes** | yes |
 | §2.2, §2.3 chars | elaborator | yes | with new types | **yes** | yes |
-| New kernel code | 1 constant | ~D1 | new sort + rules | **masks + skips** | typed `conv` + K |
-| Termination of checking | as today | as today | as today | **as today** | lost (§5.2) |
-| Users' mental model | "use `proofIrrel`" | "Bool equations only" | two logics | **"proofs never matter for equality, but still compute"** | "proofs never matter" (mostly) |
+| New kernel code | 1 constant | ~D1′ | new sort + rules | **masks + skips** | typed `conv` + K |
+| Termination of checking | as today | as today | as today | **as today (per term; §5.7)** | lost (§5.2) |
+| Subject reduction gap | no | no | no | **yes, rejections only (§5.7)** | Carneiro's only |
+| Users' mental model | "use `proofIrrel`" | "Bool equations only" | two logics | **"proofs in arguments and fields never matter for equality, but still compute"** | "proofs never matter" (mostly) |
 | JS / erasure | unchanged | unchanged | `SProp` erased too | **unchanged** | unchanged |
 
 ## 7. The recommended design in detail
@@ -586,18 +844,17 @@ computation for `J`.
 > **Proof positions.** A *proof position* is: parameter `i` of a definition
 > whose type's `i`-th domain is in `Prop`; field `i` of a constructor whose
 > `field_sorts[i]` is `Prop`; parameter `i` of a data type whose declared
-> type is in `Prop`. When comparing two values with the same head, arguments
-> at proof positions are equal without being compared.
+> type is in `Prop`. When comparing two values of the same type with the
+> same head, arguments at proof positions are equal without being compared.
 >
-> **Proofs of equations between proofs.** `rfl : p = q` checks whenever the
-> equation's type is in `Prop`.
->
-> Nothing else: evaluation, `J` and `case` are unchanged.
+> Nothing else: evaluation, `rfl`, `J` and `case` are unchanged.
 
 In docs/core.md, "There's no definitional proof irrelevance" (line 121)
-becomes this rule, with the sentence: "Proofs are ignored when comparing, but
-still used when computing: `J` needs `rfl`, and a `case` on a proof needs a
-constructor."
+becomes this rule, with the sentences: "Proofs in arguments and fields are
+ignored when comparing, but still used when computing: `J` needs `rfl`, and
+a `case` on a proof needs a constructor. Two proof *variables* are still
+compared, so `rfl : p = q` needs `p` and `q` to be the same." And the
+precondition of §7.4 goes in `conv`'s doc comment.
 
 ### 7.2 Where `conv` changes (`crates/core/src/value.rs`)
 
@@ -612,13 +869,14 @@ constructor."
   relevant; the proof is the head, which is compared already). Both branches
   of that arm (fully applied, and the partially applied/eta one) use the
   same pairs, so both get the skip.
-- **`Var` heads**: unchanged in stage 1 (no type information).
+- **`Var` and `Meta` heads**: unchanged in stage 1 (no type information).
 - **Compact text** (`Chars`): nothing to do. A range against a constructor
   is expanded one cell to `MkChar c rfl`, whose `valid` field is then
   skipped; the comment at `:1220` ("equal only if `h` and `rfl` are")
   changes.
-- **`reference.rs` `conv`**: the same change, independently written, so the
-  differential tests still mean something.
+- **`Eq` against `Eq`, `Refl`**: unchanged.
+- **`reference.rs` `conv`** (`:373`): the same change, independently
+  written, so the differential tests still mean something.
 
 ### 7.3 Deciding "is this a proof position?" cheaply
 
@@ -636,61 +894,155 @@ elaborator can get wrong:
   telescope (a definition whose result is a function computed by its case
   tree) count as relevant.
 - **Data types**: `proof_params` from the checked parameter telescope, at
-  `declare_data`.
+  `declare_data`. A parameter `p : Prop` is *not* a proof position
+  (`sort_of(Prop)` is `Type 0`); test 9 pins this.
 
 Cost: one pass over each signature at declaration; then a bit lookup per
 argument compared. Comparison does strictly less work than today
 **[inferred]**; worth confirming with `bench` (§9).
 
-### 7.4 `rfl` on equations between proofs (`check.rs:411`)
+### 7.4 The same-type invariant, and the audit of every caller (new)
 
-In `(Term::Refl, Value::Eq(ty, a, b))`, accept without `conv(a, b)` when
-`sort_of(cx, ty) == Sort::Prop`. `sort_of` is already there (`check.rs:489`).
-This makes `theorem pi (p q : P) : p = q := rfl` check, which gives users
-propositional irrelevance for free (so option A's `proofIrrel` isn't needed).
+**The invariant.** Every call `conv(v, w)` and `unify(v, w)` that can reach a
+masked comparison is made on two values of the same type (equal in the
+model). Inside the comparison it then holds for every pair reached, by
+construction: parts at the same position under a common head have the same
+declared type, instantiated with the earlier parts, which either compared
+equal or were skipped proofs (equal in the model); `Eq` against `Eq`
+compares the type first, and the result is "equal" only if the types are;
+lambda bodies are compared under the same fresh variable. A pair visited in
+a comparison that fails doesn't matter, since the answer is "not equal"
+anyway. The only places where a value's type isn't fixed by its
+surroundings are the top-level call and a constructor's missing parameters,
+so the audit is of the top-level calls **[inferred]**.
+
+Types at the top level are easy: a type's own type is a sort, so it's never
+a constructor value (constructors build values of data types); skips below it
+happen under a common head, which fixes the types. Two types of *different*
+sorts can be compared (`Nat` against `Prop`); that's harmless for the same
+reason.
+
+**Audit of `conv` callers** (all of them outside tests; `grep` for `conv(`
+in `crates/core/src` and `crates/elab/src`; other crates call it only from
+tests) **[checked]**:
+
+| Call site | Compares | Same type? |
+|---|---|---|
+| `core/check.rs:412` | the two sides `a`, `b` of an expected `Eq(ty, a, b)`, for `rfl` | yes: both `: ty` |
+| `core/check.rs:446` | a term's inferred type against the expected type | types |
+| `core/native.rs:253-255` | `Decidable`'s parameter type against `Prop`; its constructors' field types against `p`, `Not p` | types |
+| `core/native.rs:340`, `:393` | a native's declared type against the expected shape | types |
+| `core/partial.rs:350` | a primitive's declared type against the expected shape | types |
+| `core/value.rs:1313` | recursive, inside `conv` (partially applied definitions) | inherited |
+| `elab/lib.rs:1021` | parameter types of mutually defined data types | types |
+| `elab/lib.rs:2391` (`canonical`) | the two sides of `p : a = b` at `Bool` | yes: both `: Bool` |
+| `elab/partial.rs:700` | parameter types of partial-recursive members | types |
+| `elab/partial.rs:750-751` | the members' rows: `ops` and `res`, arguments 0 and 1 of the same `Comp`/`Delay` type (`partial.rs:629-630`) | yes: same telescope positions **[inferred]** |
+
+**Audit of `unify` callers** (the unifier has the same structure,
+`unify.rs:23`): most compare types (`elab/check.rs:942, 1132, 1156, 1272,
+1504, 1553, 1845, 1860, 1943`, `numbers.rs:120, 472, 498, 641`,
+`pipe.rs:110`, `dot.rs:675`, `lib.rs:2575`, `patlet.rs:153`,
+`auto.rs:86, 383`). The ones that compare non-type values **[checked]**:
+
+| Call site | Compares | Same type? |
+|---|---|---|
+| `elab/check.rs:1229` | the two sides of an `rfl` goal | yes |
+| `elab/check.rs:889` | a postponed argument, checked against `dom`, against its placeholder metavariable of type `dom` | yes |
+| `elab/dot.rs:724` | a written argument checked against `dom`, against its placeholder of type `dom` | yes |
+| `elab/auto.rs:69` | an obligation's placeholder against a proof found for its goal | yes |
+| `elab/auto.rs:411` | an argument metavariable of type `dom` against a value found for `dom` | yes |
+| `elab/effects.rs:377` | a row tail against `MkSig ops res` (a constructor value) | yes: `Sig` has no parameters (prelude:2108-2109), and the tail has type `Sig` **[inferred]** |
+| `elab/effects.rs:382`, `:442` | the arguments of two labels for the same ability; two row tails | yes: same telescope positions / both `Sig` |
+| `unify.rs:75, 201, 277` | recursive | inherited |
+
+**Result: the invariant holds today.** No caller compares two values whose
+types could differ.
+
+**Choice: write the invariant down, rather than pass types or keep
+parameters.** The alternatives the reviewer named:
+
+- *Keep parameters in constructor values* (`Ctor(d, c, params, fields)`):
+  every list cell and character would carry its type arguments, costing
+  memory and time in the evaluator for everything, not just the checker, and
+  changing quotation, erasure and the unifier.
+- *Pass the common type into `conv`*: a typed comparison, which is D2's
+  rewrite (§6).
+
+Both buy safety against a future caller breaking a rule that every current
+caller keeps for free (the elaborator always checks both sides against one
+type before comparing). So: state the precondition in the doc comments of
+`value::conv`, `reference::conv` and `unify::unify`, and in docs/core.md;
+add test 10 (`MkBox p = MkBox q` at different propositions is rejected, by
+`E-TYPE-MISMATCH`, before any comparison of the boxes); and make "every new
+`conv`/`unify` caller compares values of one type" a review item for kernel
+changes. If a heterogeneous caller is ever needed, it must compare the types
+first and only then the values.
 
 ### 7.5 The unifier (`crates/elab/src/unify.rs`)
 
-The elaborator must agree, or it rejects §2.1 before the kernel sees it (the
-`E-REFL` in §2.1 may come from either). At a proof position:
+The elaborator must agree, or it rejects §2.1 before the kernel sees it
+(`elab/check.rs:1229`). At a proof position (the same masks, from
+`Globals`), in the `Data`, `Ctor` and `Def`-headed `Neutral` arms
+(`unify.rs:111`, `:118`, spines at `:219`):
 
-- if one side is an unsolved metavariable applied to variables, solve it as
-  now (any proof will do, and this keeps implicit proof arguments working);
-- otherwise succeed without comparing.
+- **If the complete argument on one side is an unsolved metavariable** (a
+  `Neutral(Meta, spine)` with the spine allowed by the existing pattern
+  rules), solve it with the other side, as now: the existing occurs and
+  scope checks apply, and its type is already known (that's what keeps
+  implicit proof arguments, `[auto]` placeholders and `_` proofs working).
+  The two arguments have the same type by §7.4 and the left-to-right order
+  (earlier arguments are unified first), so the solution is well-typed.
+- **Otherwise the position is opaque**: succeed without looking inside
+  either side. Don't recurse into it, and don't solve any metavariable,
+  nested or enclosing, from what's inside it.
 
-The positions are the same masks (they're in `Globals`). The unifier
-already mirrors `conv` (`unify.rs:118` for constructors, `:137`, `:183`,
-`:194` for spines). Unsolved proof metavariables are still reported as they
-are today, and the kernel re-checks the result anyway.
+So a metavariable that occurs *only* inside a proof argument, and not in any
+type, stays unsolved and is reported as unsolved, as it is today when nothing
+determines it (test 11). In practice proofs' metavariables are usually
+pinned by types (the proposition is a relevant parameter, e.g. `Box`'s `p`),
+which still works.
+
+Why not "unify as usual and ignore failure"? Because then a solution can come
+from inside a proof that the kernel's comparison never looks at. The kernel
+re-checks everything, so that can't make a false proof check, but it is the
+pattern behind #8699 (information read out of an irrelevant part, §5.4), and
+it would make elaboration depend on which proof was written.
+
+Unsolved proof metavariables are still reported as they are today, and the
+kernel re-checks the result anyway.
 
 ### 7.6 What doesn't change
 
 - **Evaluation**: no new reduction, so programs, tests and natives behave
   exactly as before. The erasure rules (`erase.rs`) and JS extraction
   already ignore proofs at runtime; irrelevance is about checking only.
+- **`rfl`** (`check.rs:411`): still checks only by `conv`.
 - **Termination checking**: untouched (§5.4).
 - **`E-PROP-ELIM`**: untouched. It's what keeps §5.3 away.
-- **Hashes**: no elaborated term changes in stage 1, so no hash changes. In
-  stage 2, removing `canonical` changes the elaborated terms (and hashes) of
-  definitions with char-pattern arms that mention the character; that's
-  allowed (hashes aren't a constraint yet, TODO.md).
 - **Caches**: the kernel only accepts more than before; every cache key
   includes the compiler version or source fingerprint (DESIGN §11), so no
   old rejection is reused.
 
-### 7.7 Hashing: should a proof's body affect a hash?
+### 7.7 Hashing and JS
 
-**Yes, still** (no change proposed). A theorem's hash covers its body
-(DESIGN §11), and so do the hashes of everything that uses it. One could
-argue that with irrelevance a dependent can't observe the body, so its hash
-needn't change when a proof is rewritten. That's false under D1: a proof can
-still *compute* inside a dependent's check (`J` on `myLemma x` computes if
-`myLemma x` evaluates to `rfl`; a `case` on a `Loop`-like proof computes on
-its constructor), so changing a proof's body can change whether a dependent
-checks **[inferred]**. What *is* true: a proof's body can never change a
-test's result, because proofs are erased when running (`erase.rs`). So a
-later optimisation could leave theorem bodies out of the *test-result* cache
-key. Not proposed here.
+**Hashes**: no elaborated term changes in stage 1, so no hash changes. In
+stage 2, removing `canonical` changes the elaborated terms (and hashes) of
+definitions with char-pattern arms that mention the character; that's
+allowed (hashes aren't a constraint yet, TODO.md).
+
+**Should a proof's body affect a hash? Yes, still** (no change proposed). A
+theorem's hash covers its body (DESIGN §11), and so do the hashes of
+everything that uses it. One could argue that with irrelevance a dependent
+can't observe the body, so its hash needn't change when a proof is
+rewritten. That's false under D1′: a proof can still *compute* inside a
+dependent's check (`J` on `myLemma x` computes if `myLemma x` evaluates to
+`rfl`; a `case` on a `Loop`-like proof computes on its constructor), so
+changing a proof's body can change whether a dependent checks
+**[inferred]**. What *is* true: a proof's body can never change a test's
+result, because proofs are erased when running (`erase.rs`). So a later
+optimisation could leave theorem bodies out of the *test-result* cache key.
+Not proposed here.
 
 Separately, two definitionally equal terms can have different hashes (they
 already can: `2 + 2` and `4`). Hashes identify terms, not meanings, so that's
@@ -700,7 +1052,7 @@ fine.
 
 Multi-file §4.9.4 says the decision procedure `auto` picks is visible to
 proofs, citing `aoc/day02.sw:337-344` (`decIsTrue` exists so that `if IsTrue
-c` uses the same procedure as `if lo <= hi`). **D1 doesn't change that
+c` uses the same procedure as `if lo <= hi`). **D1′ doesn't change that
 case**: a `Decidable p` is data (it lives in `Type`, DESIGN §6), so
 `Bool.decTrue c` and `Bool.decEq c True` stay different, and an `if` that
 computes with one doesn't match the other **[inferred]**.
@@ -712,14 +1064,19 @@ run as data (`if`, `==`)", and the order rules there stay as they are.
 
 ### 7.9 What users will still hit
 
-"Proofs are ignored when comparing, but still used when computing." So these
-remain:
+"Proofs in arguments and fields are ignored when comparing, but still used
+when computing." So these remain:
 
+- `rfl : p = q` for two different proof variables: rejected. Use
+  `Prop.irrel p q` (a prelude theorem proved as in §5.7, if Matt agrees,
+  §10 question 2) or wait for stage 3.
 - `J P d h` with `h : a = a` a variable or a lemma call: stuck (no K-like
   rule, deliberately: §5.2).
 - A function that matches a proof to produce data (`steps`, or `pick` on
   `And`) is stuck on a non-constructor proof.
 - Proof arguments of local function variables are compared (until stage 3).
+- Rarely, a value that computed from a transport along a hand-made `rfl` is
+  rejected at the type of the expression it came from (§5.7).
 
 The `E-REFL`/`E-TYPE-MISMATCH` message could add a note when the two sides
 print the same, saying they differ in a part the printer hides; that's a
@@ -728,18 +1085,24 @@ small independent improvement.
 ## 8. Tests
 
 Per the soundness policy (DESIGN §13), each must-reject test has a nearby
-accepted one, and declares its error code.
+accepted one, and declares its error code. Tests 9-13 and the changed
+pairings of 4 and 6 are new in draft 2.
 
 | # | Must be rejected | Code | Why it matters | Paired accepted example |
 |---|---|---|---|---|
 | 1 | `rfl : MkTBox Nat = MkTBox Bool` for `type TBox : Type 1 = MkTBox (t : Type)` | `E-REFL` | A type field is erased but relevant: catches `field_erased` used for `field_sorts` | `rfl : MkChar 97 p = 'a'` (§2.2) |
 | 2 | `rfl : choose Nat n = choose Bool n`, for `choose : Type -> Nat -> Nat` stuck on `n` | `E-REFL` | The same for definition parameters (`erase::of_def` marks types) | `sameMod` (§2.1) |
 | 3 | `rfl : Sorted [1, 2] = Sorted [2, 1]`, for a test-defined `type Sorted (xs : List Nat) : Prop` | `E-REFL` | Data parameters that are data stay relevant | A data type with a proof parameter, two different proofs, `rfl` |
-| 4 | With a test-defined `type Exists (p : Nat -> Prop) : Prop = MkEx (x : Nat) (h : p x)`: `def leak (e : Exists (\n => n = n)) : Nat` matching out the witness | `E-PROP-ELIM` | Irrelevance must not leak a proof's data (§5.3) | `rfl : MkEx 1 rfl = MkEx 2 rfl` (two proofs of one `Exists` are now equal) |
+| 4 | With a test-defined `type Exists (p : Nat -> Prop) : Prop = MkEx (x : Nat) (h : p x)`: `def leak (e : Exists (\n => n = n)) : Nat` matching out the witness; and `rfl : MkEx 1 rfl = MkEx 2 rfl` | `E-PROP-ELIM`; `E-REFL` | Irrelevance must not leak a proof's data (§5.3); a data field inside a proof is still compared | `rfl : MkEx 1 h1 = MkEx 1 h2` for two proofs `h1 h2 : 1 = 1` (the witness agrees, the proof field is skipped) |
 | 5 | `J (\y e => P y) d h = d` for a variable `h : n = n` | `E-REFL` | No K-like rule (§5.2) | `J (\y e => P y) d rfl = d`; and `omegaUnfolds` (§5.2) checks within the default budget |
-| 6 | `rfl : f = g` for two different `f g : Unit -> {IO} Unit` | `E-REFL` | Effectful functions are data, never proofs | `rfl : p = q` for `p q : Unit` (the `Prop`) |
+| 6 | `rfl : f = g` for two different `f g : Unit -> {IO} Unit` | `E-REFL` | Effectful functions are data, never proofs | `rfl : MkBox p = MkBox q` for `p q : Unit` (the `Prop`) |
 | 7 | Agda #8699's shape adapted: a recursive call whose argument is smaller only inside a proof field that comparison ignores | `E-TERMINATION` | §5.4 | Structural recursion on a real proof field (`Loop -> Void`, `f (MkLoop n) = f n`) |
 | 8 | `rfl : x = y` for two different variables `x y : Nat` inside a record with a proof field | `E-REFL` | Skipping the proof must not skip its neighbours | `rfl : MkSortedList xs p = MkSortedList xs q` for a test-defined record with a proof field |
+| 9 | `rfl : R Unit = R Void` for `type R (p : Prop) : Type = MkR` | `E-REFL` | A *proposition* parameter is relevant: guards `sort_of(dom) == Prop` against classifying `p : Prop` as a proof | `rfl : R Unit = R Unit`; and test 3's paired proof parameter |
+| 10 | `rfl : MkBox p = MkBox q` for `p : a`, `q : b`, `a b : Prop` | `E-TYPE-MISMATCH` | The same-type invariant (§7.4): the boxes have different types, so comparison is never asked | `rfl : MkBox p = MkBox q` for `p q : a` |
+| 11 | Unifier unit test (`unify.rs` tests): `unify(MkBox (f ?m), MkBox (f 3))` with `f`'s argument data but `MkBox`'s field a proof: `?m` stays unsolved | unit test; at the language level, the unsolved-metavariable error | §7.5: never solve from inside a skipped proof | `unify(MkBox ?p, MkBox q)` solves `?p := q` (whole proof argument) |
+| 12 | `theorem pi (p q : a) : p = q := rfl` for variables `p q : a` | `E-REFL` | Documents the incompleteness: bare proof variables are compared (until stage 3) | `piViaBox a p q rfl : p = q` (§5.7) |
+| 13 | `def bad (a : Prop) (p q : a) (f : a -> Type) (x : f p) : f q := x` | `E-TYPE-MISMATCH` | Documents the subject-reduction gap (§5.7): `castViaBox a p q f x rfl` computes to `x`, but `x` itself is rejected at `f q` | `def ok … : f q := castViaBox a p q f x rfl` |
 
 Must not hang: `steps l 0 = steps (MkLoop (Loop.inv l)) 0` is rejected
 promptly (`E-REFL`), documenting the incompleteness of §5.1.
@@ -747,82 +1110,95 @@ promptly (`E-REFL`), documenting the incompleteness of §5.1.
 Also:
 
 - **Mutation tests**: skipping nothing must fail the accepted tests;
-  skipping erased positions (types too) must fail tests 1–2; skipping every
-  argument must fail tests 3, 6 and 8.
+  skipping erased positions (types too) must fail tests 1, 2 and 9; skipping
+  every argument must fail tests 3, 4 (second part), 6 and 8; unifying
+  inside skipped proofs must fail test 11.
 - **Differential**: `value::conv` against `reference::conv` on the kernel
   test programs, as for the evaluator.
+- **Equivalence (property test)**: on generated well-typed values of one
+  type, the masked `conv` is reflexive, symmetric and transitive, including
+  pairs that need the existing eta rules (`push_eta`, lambda against
+  neutral, partially applied definitions).
 - **Unifier**: an implicit proof argument solved only by unification still
   gets solved.
 - **Regression**: `examples/accept/char-pattern-proofs.sw` checks with and
-  without `canonical` (stage 2 removes it).
+  without `canonical` (stage 2 removes it); `aoc/` still checks.
 
 ## 9. Stages
 
 1. **Kernel and unifier** (Sonnet, from this note): the masks (§7.3), the
-   `conv` skips (§7.2), the `rfl` rule (§7.4), the reference `conv`, the
-   unifier (§7.5), the tests in §8, docs/core.md and DESIGN §6 line 459
-   ("isn't needed for the POC" becomes the rule), the pointer in
+   `conv` skips (§7.2), the reference `conv`, the unifier rule (§7.5), the
+   precondition comments (§7.4), the tests in §8, docs/core.md and DESIGN §6
+   line 459 ("isn't needed for the POC" becomes the rule), the pointer in
    mutual-recursion.md §6.7. Bench comparison before and after.
 2. **Remove workarounds** (Sonnet or DeepSeek): delete `canonical`
-   (`elab/src/lib.rs:2370` and its caller) and check char-pattern proofs
-   still pass; optionally simplify `Char.mkExt` and the second `[auto]`
-   proofs of `Int.modNatToInt`, `Int.toIntDiv`, `Int.toIntMod`; update
-   hash snapshots.
-3. **Later, if a program needs it**: local variables' proof positions.
-   `conv` would take the context's types (the checker has them) and read the
-   variable's type as a telescope; variables bound inside the comparison
-   (under a lambda) have no known type and stay relevant. Equations at
-   proof types inside `conv` (`Eq(T, …)` with `T` visibly a proposition).
+   (`elab/src/lib.rs:2370` and its callers at `:2479`, `:2528`) and check
+   char-pattern proofs and `aoc/` still pass; optionally simplify
+   `Char.mkExt` and the second `[auto]` proofs of `Int.modNatToInt`,
+   `Int.toIntDiv`, `Int.toIntMod`; optionally add `Prop.irrel` to the
+   prelude (§5.7, question 2); update hash snapshots.
+3. **Later, if a program needs it**: proofs that are *context variables*.
+   `conv` would take one mark per context variable ("its type is a
+   proposition"; the checker has the types), so two neutral values whose
+   heads are marked variables or theorem definitions, with only
+   applications in their spines, are equal; and a local function variable's
+   type read as a telescope gives its proof positions. Variables bound inside
+   the comparison (under a lambda) have no mark and stay relevant. Narrows,
+   doesn't close, the §5.7 gap.
 4. **Not planned**: K-like `J`, eta for proofs of single-constructor
-   propositions in `case` (Lean doesn't do it either, §4.1), `SProp`.
+   propositions in `case` (Lean doesn't do it either, §4.1), `SProp`, the
+   draft 1 `rfl` rule.
 
 ## 10. Questions for Matt
 
-1. **Adopt D1** ("proofs are ignored when comparing, but still used when
-   computing")? *Recommendation: yes.*
-2. **No K-like rule**: transport along a proof that isn't literally `rfl`
-   stays stuck, accepting that this is less than Lean gives, to keep
-   checking terminating (§5.2). *Recommendation: yes.*
-3. **Remove `canonical`** once D1 is in (stage 2), changing hashes of
-   definitions with char-pattern arms. *Recommendation: yes.*
-4. **Local variables' proof arguments** (stage 3): build only when a
-   program needs it? *Recommendation: yes, wait.*
-5. **Hashes keep proof bodies** (§7.7), with theorem bodies possibly left
-   out of the test-result key later. *Recommendation: keep as is for now.*
+1. **Adopt D1′** ("proofs in arguments and fields are ignored when
+   comparing, but still used when computing"), accepting that it's
+   incomplete in a way that can occasionally reject a term that computed
+   from an accepted one (§5.7)? *Recommendation: yes.* It fixes the real
+   problems at small cost; the gap only rejects, and needs a deliberate
+   transport along a hand-made `rfl`.
+2. **Add `Prop.irrel : (p q : a) -> p = q` to the prelude** in stage 2,
+   proved through a box as in §5.7 (no trusted constant)? *Recommendation:
+   yes, but let it compute.* It's a theorem, so nothing new is trusted;
+   making it opaque wouldn't stop anyone writing §5.7's version.
+3. **Context-variable marks (stage 3)**: build only when a program needs
+   it? *Recommendation: yes, wait.* Nothing in `aoc/` or the examples needs
+   two bare proof variables to be equal.
+4. **Remove `canonical`** once D1′ is in (stage 2), changing hashes of
+   definitions with char-pattern arms? *Recommendation: yes.* §2.4 found no
+   program that computes on a char's proof.
+5. **Keep comparison untyped and document the same-type rule** (§7.4),
+   instead of carrying parameters in constructor values? *Recommendation:
+   yes.* Every caller already keeps the rule.
+
+(Draft 1's questions on the K-like rule and on hashing are settled: no
+K-like rule; hashes keep proof bodies. Neither is disputed.)
 
 ## 11. Questions for the reviewer
 
-1. **The model (§5.6).** Is there anything in Stitchwort that distinguishes
-   two proofs of one proposition, other than computation, which would break
-   the "every proposition has at most one element" model? Candidates:
-   natives returning proofs, compact text's `rfl`s, `NumCase`, record
-   validators, `Effect.Comp` translations, `Partial`.
-2. **Sort uniqueness (§3, §5.6).** The argument needs every type to have one
-   sort. Is there cumulativity hidden anywhere (`fits_in`, `let`, the
-   elaborator's universe handling) that would let a position typed `a :
-   Type` hold a proof, or a position typed in `Prop` hold data?
-3. **Same-type precondition.** `conv` is untyped. Are there call sites where
-   the two values could have different types, so that skipping a position
-   compares proofs of *different* propositions (`native.rs:253`,
-   `partial.rs:350`, `canonical`, the unifier)? Same head is the guard; is it
-   enough when a constructor value doesn't record its data type's
-   parameters?
-4. **Transitivity claim (§6, D1).** Is "normal forms equal except at proof
-   positions" really an equivalence relation alongside the existing eta
-   rules (`push_eta`, lambda against neutral)?
-5. **Termination (§5.4).** Is the argument that #8699 can't arise
-   convincing, and is test 7 a faithful adaptation?
-6. **Literature.** Are the summaries in §4 and §5 accurate, especially the
-   Lean kernel reading (K-like reduction, no structure eta for `Prop`) and
-   the claim that Abel–Coquand needs the K-like rule?
-7. **Unifier rule (§7.5).** Is "solve if one side is a metavariable,
-   otherwise skip" safe against solving a metavariable with a proof that
-   mentions out-of-scope variables (the existing scope check applies, I
-   believe)?
+1. **Draft 1 findings.** Does draft 2 resolve each (Appendix A)?
+2. **§5.7.** Is the box construction right, i.e. does masking alone give
+   hand-written K and the same subject-reduction failure as draft 1's `rfl`
+   rule? Is "rejections only" right for Stitchwort, given that the
+   elaborator writes quoted normal forms back into terms? Can hand-written K
+   rebuild Abel and Coquand's `Ω`, or anything else that loops?
+3. **§7.4.** Is the argument that the invariant only needs checking at
+   top-level calls sound, including `Eq` against `Eq` (whose element types
+   are compared in the same comparison) and lambda bodies? Did the audit miss
+   a caller?
+4. **§7.5.** Is "solve a whole proof metavariable, otherwise opaque" right,
+   given the left-to-right order? Is test 11 the right shape?
+5. **Option C.** Given §5.7, is the `SProp` route's lack of a gap worth its
+   cost to users, in your view?
 
 ## 12. What I couldn't verify
 
 - Whether Idris 2's checker skips quantity-0 arguments when comparing (§4.4).
+- The reviewer's statement that Lean's documentation presents K and its
+  computation rule as consequences of definitional proof irrelevance. I
+  re-read L3, its "Propositions" page and the "Inductive types" page
+  (19 October 2026) and found no such sentence; the point stands on its own
+  (§4.1, §5.7).
 - Lean 4's current treatment of `Acc` in the kernel; Carneiro's thesis
   describes Lean 3 (2019), and the Lean 4 kernel source I read
   (`inductive.h`, `type_checker.cpp`, master, 19 October 2026) was only the
@@ -832,7 +1208,14 @@ Also:
 - That Rocq offers propositional proof irrelevance as an axiom (option A).
 - Werner (2008), cited by Abel and Coquand, was not read.
 - No proof of §5.6: it's an argument by analogy with Lean's model.
-- Experiments in §2 and §5 used the release build of `80c87a8`; the
+- Whether hand-written K (§5.7) can make an accepted term loop.
+- The rows of §7.4 marked **[inferred]** (`partial.rs:750-751`,
+  `effects.rs:377`) were read for what the values are, not traced to every
+  way they're built.
+- §2.4 is reasoning about code, not a run: masks aren't built. The
+  §5.7 program and tests 10 (as `E-TYPE-MISMATCH`) and the box `E-REFL`
+  were run on today's build.
+- Experiments in §2 and §5.1–5.2 used the release build of `80c87a8`; the
   `E-REFL` in §2.1 wasn't traced to the elaborator or the kernel.
 
 ## Sources
@@ -868,7 +1251,29 @@ Also:
 - **[A2]** Agda documentation, "Irrelevance".
   <https://agda.readthedocs.io/en/latest/language/irrelevance.html>
 - **[A3]** Agda issue #8699, "Termination checker descends into irrelevant
-  constructor arguments of dot patterns", closed 29 August 2026 by PR #8707.
+  constructor arguments of dot patterns", closed 29 August 2026 by PR #8707;
+  discussion re-read 19 October 2026.
   <https://github.com/agda/agda/issues/8699>
 - **[I1]** Idris 2 documentation, "Multiplicities".
   <https://idris2.readthedocs.io/en/latest/tutorial/multiplicities.html>
+
+## Appendix A: response to the draft 1 review
+
+| # | Finding (severity) | Verdict | What changed |
+|---|---|---|---|
+| 1 | §7.4's `rfl` rule gives computational K and breaks algorithmic subject reduction (`castProofIndex`); fix: drop §7.4 (Critical) | **Accept in part.** The diagnosis is right and §7.4 is dropped. But the fix doesn't remove the problem: masks alone accept `rfl : MkBox p = MkBox q`, and transport plus `Box.unbox` rebuilds the example (`castViaBox`, checked today with `e` as a hypothesis **[run]**). What dropping §7.4 does fix is the "two notions of equal" mismatch: `rfl` is again decided by `conv` alone. The remaining gap is documented as an incompleteness that only rejects. | Changes 1-2; §0, §1 (K, subject reduction), §5.2 last paragraph, new §5.7, §6 (D1 withdrawn, D1′ recommended), §7.1, §7.6, §7.9, tests 12-13, §10 Q1-2 |
+| 1a | Optional later opaque `proofIrrel` constant | **Reject (as unnecessary).** Under D1′ it's a provable theorem (`piViaBox`, §5.7); opacity wouldn't stop users writing the computing version. | §5.7, §10 Q2 |
+| 2 | "Same head" isn't enough for constructor values, which lack parameters; establish a homogeneous-input invariant or carry types/parameters (Major) | **Accept.** Audited every `conv` and `unify` caller in `crates/core` and `crates/elab`: the invariant holds today. Chose to document it as a precondition (plus test 10 and a review rule) rather than pass types (D2's rewrite) or store parameters (cost to every value). | Change 3; §1 (homogeneous comparison), §5.6 point 2, new §7.4, test 10, §10 Q5 |
+| 3 | Unifier rule must be narrowed per Agda #8699: only a whole proof metavariable may be solved; never recurse into ignored proofs; add a test (Major) | **Accept**, with a correction to the background: #8699's fix (PR #8707) was in the termination checker (descent under irrelevant arguments of dot patterns); Abel floated restricting the unifier, Cockx argued against, and the unifier was left alone **[checked: A3]**. The narrowed rule is still right for Stitchwort, as defence in depth. | Change 4; §5.4, §7.5, test 11 |
+| 4 | Transitivity/equivalence claim should apply only to the mask-only relation on well-typed values of one type (Major) | **Accept.** Reworded; added a property test; also noted it isn't a congruence for computation (§5.7). | Change 5; §6 D1′, §8 "Equivalence" |
+| 5 | Abel–Coquand reading OK, but §7.4 undermines "we didn't alter `J`" (Minor) | **Accept.** Narrow claim kept; added that manufacturing `rfl` between proofs gives hand-written K, by §7.4 or by masks. | §5.2, §5.7 |
+| 6 | Lean's docs present K as a consequence of definitional proof irrelevance (Minor) | **Accept the point, unverified source.** The logical point is right and now in §4.1 and §5.7; I couldn't find the cited sentence in the Lean reference. | §4.1, §12 |
+| 7 | Label Agda's properties as of the calculus, not the implementation; #8699 fixed Aug 2026 (Minor) | **Accept.** | Change 7; §4.3, §4.5 |
+| 8 | Add a must-reject test that `P : Prop` parameters stay relevant (`R True ≢ R False`) (Minor) | **Accept.** Written with `Unit` and `Void`, Stitchwort's true and false propositions (`True` is a `Bool`). | §1, §7.3, test 9, mutation tests |
+| 9 | Masks alone fix the motivating programs (in passing) | **Accept, checked.** Including every arm of the char-pattern example; `canonical`'s extra power (computing on the proof) isn't used anywhere. | §2.4 |
+| 10 | D1′ fixes Int/Char without "granting general computational proof equality" (verdict) | **Reject that part.** It still grants it, by hand (§5.7); the recommendation stands on rejections-only, not on avoiding it. | §5.7, §6 |
+| — | Kept, as the reviewer suggested: `field_sorts` not `field_erased`; evaluation, `J`, `case`, erasure, JS unchanged; proof bodies in hashes; B, C, D2 rejected | No change | — |
+
+Also fixed, found while revising: draft 1's test 4 paired example
+`rfl : MkEx 1 rfl = MkEx 2 rfl` and test 6's `rfl : p = q` depended on the
+dropped rule (the first is now a must-reject: the witness is data).
