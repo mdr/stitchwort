@@ -580,9 +580,9 @@
     {
       "id": 39,
       "title": "Make `Def.body`/`Def.state` and `Data.state` private behind the admission API",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "/Users/matt/scratch/opencode/funlang-20261019-213623",
       "labels": [
         "kernel"
       ],
