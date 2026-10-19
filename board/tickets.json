@@ -1,5 +1,5 @@
 {
-  "next": 105,
+  "next": 106,
   "tickets": [
     {
       "id": 1,
@@ -1554,6 +1554,20 @@
         "tooling"
       ],
       "body": "Found by DeepSeek writing dev/t (19 Oct): crates/cli/tests/examples.rs has three test functions that loop over every example file, so cargo's filter can't pick one example. An env var filter (EXAMPLES=substring) read by the harness would let `dev/t examples synonym` run just those files. Small.",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 105,
+      "title": "docs/compared.md: how Stitchwort differs from Lean and Unison",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "body": "Matt (19 Oct): document the termination difference (Lean's partial def is invisible in types; Stitchwort's {Partial} propagates), check whether Lean/Unison can run in the browser or export TypeScript, plus proofs, content hashing, abilities, and what Lean/Unison do better. Playground link: not yet (Matt).",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
