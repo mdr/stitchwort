@@ -59,13 +59,15 @@ Queued after the current lanes (user, 19 Oct):
   Qwen3.8 27B needs Ollama 0.32.12+ (system has 0.30.7: the user is
   investigating why the system nixpkgs is older than the flake's pin).
 - Rename sweep (OpenCode `worker`, local qwen3-coder, Claude reviews;
-  after `checker-fixes` merges): `foldl`/`scanl`/`foldr` (and lemma names) to
+  next): `foldl`/`scanl`/`foldr` (and lemma names) to
   `foldLeft`/`scanLeft`/`foldRight`. `count` stays. `fst`/`snd` stay; no
   aliases; prefer destructuring in AoC code.
-- After `let` stage 3: profile day 2's ~0.6 s check time (report only),
-  then re-measure AoC check times and decide on option (b) of
-  checker-evaluation.md. `if` on a proposition stays partly fixed (3
-  computations, was 4) until then (user, 19 Oct).
+- Option (b) of checker-evaluation.md stays shelved: after the checker
+  fixes, AoC days check in 0.11-0.28 s. `if` on a proposition stays partly
+  fixed (3 computations, was 4).
+- Later (pending user): `List.merge` still doubles on fixed lists with an
+  undecidable comparison (0.42 s at 7+7); fixing needs mutual recursion and
+  restated sorting proofs. `Text.linesFrom` and min/max folds similar, rare.
 - String interpolation `"Part 1: ${e}"`: `${e}` is `e` if `Text`, else
   `e.toText` by dot notation; desugars to `++` (Sonnet, after `let`
   stage 3; user, 19 Oct).
@@ -96,8 +98,9 @@ values recomputed per force.
 AoC rewrites merged (`ed41604`): day 1 part 2 is scan-and-zip (proof
 simpler: no accumulator), day 3 uses `let (top, after) := pick ...` (no
 proof change).
-Running: `checker-fixes` (Opus: cache Decidable lookups; one-call
-`List.filter`). Day 2 profile merged (checker-evaluation.md §9: option
+Checker fixes merged (`abc53d0`: result types cached for the Decidable
+search; `List.filter`/`count` write their rest once; day 2 checks in 0.28 s,
+was 0.71 s; §9.5). Day 2 profile merged (checker-evaluation.md §9: option
 (b) shelved). Local model set up (ollama + qwen3-coder:30b + OpenCode
 with safeguards, ~/.config/nix-darwin/opencode.nix); Claude orchestrates
 it. (Syntax polish merged: `type Grid = List (List Nat)`, lines may start
