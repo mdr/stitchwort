@@ -1,5 +1,7 @@
 //! Runs source files through the compiler pipeline.
 
+use std::cell::RefCell;
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 use stitchwort_core::hash::{ContentHash, def_hash};
@@ -165,7 +167,8 @@ pub struct TestResult {
 
 /// Test results, stored by the test's content hash (DESIGN.md §11). A test's
 /// hash covers everything it depends on, so a cached result stays valid until
-/// something the test uses changes. The local cache is trusted.
+/// something the test uses changes. The local cache is trusted. Results live
+/// in a directory, or in memory for hosts without a file system.
 ///
 /// The key also has the compiler that ran it: its version, a fingerprint of
 /// its source ([`FINGERPRINT`]), and the modes that change how programs are
@@ -173,6 +176,14 @@ pub struct TestResult {
 /// or by a run with natives or compact text switched off.
 pub struct Cache {
     dir: Option<PathBuf>,
+    memory: Option<RefCell<Memory>>,
+}
+
+/// A cache's results when it has no directory to keep them in: the ones it
+/// started with, and the ones added since (which the host can save).
+struct Memory {
+    known: HashMap<String, Outcome>,
+    added: Vec<(String, Outcome)>,
 }
 
 /// Part of every cache key, so results from another version of the compiler
@@ -200,11 +211,33 @@ impl Cache {
     pub fn at(dir: impl Into<PathBuf>) -> Self {
         Cache {
             dir: Some(dir.into()),
+            memory: None,
+        }
+    }
+
+    /// A cache kept in memory, for hosts without a file system: it starts
+    /// with `known`, and [`Cache::added`] gives the results added since.
+    pub fn memory(known: impl IntoIterator<Item = (String, Outcome)>) -> Self {
+        Cache {
+            dir: None,
+            memory: Some(RefCell::new(Memory {
+                known: known.into_iter().collect(),
+                added: Vec::new(),
+            })),
         }
     }
 
     pub fn disabled() -> Self {
-        Cache { dir: None }
+        Cache {
+            dir: None,
+            memory: None,
+        }
+    }
+
+    /// The key of the result of the test with `hash`, when run with `modes`:
+    /// the file name in a directory cache.
+    pub fn key(hash: &ContentHash, modes: &str) -> String {
+        format!("{COMPILER}-{FINGERPRINT}-{modes}-{}", hash.hex())
     }
 
     /// Where the result of the test with `hash` is kept, when run with
@@ -214,11 +247,22 @@ impl Cache {
             self.dir
                 .as_ref()?
                 .join("tests")
-                .join(format!("{COMPILER}-{FINGERPRINT}-{modes}-{}", hash.hex())),
+                .join(Self::key(hash, modes)),
         )
     }
 
+    /// The results added by [`Cache::put`] during this run: only `Passed` and
+    /// `Failed`, like the ones on disk. Empty for a cache without memory.
+    pub fn added(&self) -> Vec<(String, Outcome)> {
+        self.memory
+            .as_ref()
+            .map_or_else(Vec::new, |memory| memory.borrow().added.clone())
+    }
+
     fn get(&self, hash: &ContentHash, modes: &str) -> Option<Outcome> {
+        if let Some(memory) = &self.memory {
+            return memory.borrow().known.get(&Self::key(hash, modes)).copied();
+        }
         match std::fs::read_to_string(self.path(hash, modes)?)
             .ok()?
             .trim()
@@ -231,14 +275,24 @@ impl Cache {
 
     /// Best effort: a cache that can't be written just means re-running later.
     fn put(&self, hash: &ContentHash, modes: &str, outcome: Outcome) {
+        // Not a result: running it again with other limits may finish.
+        if matches!(outcome, Outcome::OutOfResources(_)) {
+            return;
+        }
+        let key = Self::key(hash, modes);
+        if let Some(memory) = &self.memory {
+            let mut memory = memory.borrow_mut();
+            memory.known.insert(key.clone(), outcome);
+            memory.added.push((key, outcome));
+            return;
+        }
         let Some(path) = self.path(hash, modes) else {
             return;
         };
         let text = match outcome {
             Outcome::Passed => "passed",
             Outcome::Failed => "failed",
-            // Not a result: running it again with other limits may finish.
-            Outcome::OutOfResources(_) => return,
+            Outcome::OutOfResources(_) => unreachable!(),
         };
         if let Some(parent) = path.parent() {
             let _ = std::fs::create_dir_all(parent);
@@ -297,5 +351,71 @@ impl Session {
                 }
             })
             .collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn session() -> Session {
+        let mut session = Session::new();
+        session
+            .load(
+                "cache-test.sw",
+                "test \"passes\" := True\ntest \"fails\" := False\n",
+            )
+            .expect("the tests check");
+        session
+    }
+
+    #[test]
+    fn a_memory_cache_starts_empty_and_records_what_it_adds() {
+        let session = session();
+        let cache = Cache::memory([]);
+        let results = session.run_tests(&cache);
+        assert_eq!(results.len(), 2);
+        assert!(!results.iter().any(|r| r.cached));
+        let added = cache.added();
+        assert_eq!(added.len(), 2);
+        let modes = modes(&session.elab.globals);
+        for (result, (key, outcome)) in results.iter().zip(&added) {
+            assert_eq!(key, &Cache::key(&result.hash.expect("a hash"), &modes));
+            assert_eq!(*outcome, result.outcome);
+        }
+        assert_eq!(added[0].1, Outcome::Passed);
+        assert_eq!(added[1].1, Outcome::Failed);
+    }
+
+    #[test]
+    fn a_memory_cache_reuses_known_results() {
+        let session = session();
+        let first = Cache::memory([]);
+        let ran = session.run_tests(&first);
+        let second = Cache::memory(first.added());
+        let cached = session.run_tests(&second);
+        assert!(cached.iter().all(|r| r.cached));
+        assert_eq!(cached[0].outcome, ran[0].outcome);
+        assert_eq!(cached[1].outcome, ran[1].outcome);
+        assert!(second.added().is_empty());
+    }
+
+    #[test]
+    fn a_key_for_another_modes_string_is_not_used() {
+        let session = session();
+        let results = session.run_tests(&Cache::disabled());
+        let other: Vec<_> = results
+            .iter()
+            .map(|r| {
+                (
+                    Cache::key(&r.hash.expect("a hash"), "n0c0-other"),
+                    r.outcome,
+                )
+            })
+            .collect();
+        let cache = Cache::memory(other);
+        let results = session.run_tests(&cache);
+        assert!(!results.iter().any(|r| r.cached));
+        assert_eq!(cache.added().len(), 2);
     }
 }

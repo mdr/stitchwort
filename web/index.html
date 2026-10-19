@@ -300,7 +300,9 @@
   ul.tests .mark { font-weight: 700; width: 1.2em; text-align: center; }
   ul.tests .pass .mark { color: var(--ok); }
   ul.tests .fail .mark { color: var(--bad); }
+  ul.tests .how { color: var(--muted); font-size: 0.8rem; }
   .summary { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 0.88rem; }
+  button.hint { font-size: 0.8rem; font-weight: 500; padding: 4px 8px; }
 
   h2 {
     margin: 0;
@@ -588,6 +590,18 @@ export def area : Shape -> Nat
 
   const stored = (key) => { try { return localStorage.getItem(key); } catch { return null; } };
   const store = (key, value) => { try { localStorage.setItem(key, value); } catch {} };
+  const forget = (key) => { try { localStorage.removeItem(key); } catch {} };
+
+  /** Where the tests' cached results are kept, one `KEY passed` per line. */
+  const TEST_CACHE = "stitchwort.testCache";
+
+  /** Adds new test results to the cache, keeping it from growing without end. */
+  function rememberTests(added) {
+    if (!added) return;
+    let text = (stored(TEST_CACHE) ?? "") + added;
+    if (text.length > 200_000) text = text.split("\n").slice(-2_000).join("\n");
+    store(TEST_CACHE, text);
+  }
 
   function el(tag, attrs = {}, ...children) {
     const node = document.createElement(tag);
@@ -715,7 +729,7 @@ export def area : Shape -> Nat
         const sink = { write: (text) => onOutput?.(text) };
         const answer = {
           check: () => compiler.check(request.source),
-          test: () => compiler.test(request.source),
+          test: () => compiler.test(request.source, request.known ?? ""),
           evaluate: () => compiler.evaluate(request.source, request.expr),
           extract: () => compiler.extract(request.source),
           run: () => compiler.run_streaming(request.source, request.input, request.maxOutput, sink),
@@ -965,7 +979,8 @@ export def area : Shape -> Nat
 
     if (view === "tests") {
       output.append(el("p", { className: "hint" }, "Running the tests…"));
-      const result = await ask({ action: "test", source: src });
+      const result = await ask({ action: "test", source: src, known: stored(TEST_CACHE) ?? "" });
+      if (result) rememberTests(result.added);
       if (current !== rendering || !result) return;
       output.replaceChildren();
       output.dataset.for = src; // which source these results are for (the browser tests wait on it)
@@ -978,13 +993,18 @@ export def area : Shape -> Nat
         const unfinished = t.outcome !== "passed" && t.outcome !== "failed";
         list.append(el("li", { className: t.passed ? "pass" : "fail" },
           el("span", { className: "mark" }, t.passed ? "✓" : unfinished ? "!" : "✗"),
-          el("span", {}, t.name + (t.passed ? "" : unfinished ? ` (${t.outcome})` : " (evaluated to False)"))));
+          el("span", {}, t.name + (t.passed ? "" : unfinished ? ` (${t.outcome})` : " (evaluated to False)")),
+          el("span", { className: "how" }, t.cached ? "cached" : "ran")));
       }
       const failed = result.tests.filter((t) => t.outcome === "failed").length;
       const unfinished = result.tests.filter((t) => !t.passed && t.outcome !== "failed").length;
+      const cached = result.tests.filter((t) => t.cached).length;
+      const forgetButton = el("button", { id: "forget-cache", className: "hint", type: "button" }, "Forget cached results");
+      forgetButton.addEventListener("click", () => { forget(TEST_CACHE); render(); });
       output.append(list, el("p", { className: "summary" },
         `${result.tests.length} test${result.tests.length === 1 ? "" : "s"}: ${result.tests.length - failed - unfinished} passed, ${failed} failed` +
-        (unfinished ? `, ${unfinished} ran out of resources` : "")));
+        (unfinished ? `, ${unfinished} ran out of resources` : "") +
+        (cached ? ` (${cached} from the cache)` : "")), forgetButton);
       return;
     }
 

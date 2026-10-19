@@ -22,7 +22,7 @@ self.onmessage = async ({ data }) => {
     const sink = { write: (output) => self.postMessage({ id: data.id, output }) };
     const answer = {
       check: () => check(data.source),
-      test: () => test(data.source),
+      test: () => test(data.source, data.known ?? ""),
       evaluate: () => evaluate(data.source, data.expr),
       extract: () => extract(data.source),
       run: () => run_streaming(data.source, data.input, data.maxOutput, sink),
