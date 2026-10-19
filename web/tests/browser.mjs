@@ -695,6 +695,28 @@ for (const [how, patch] of [["highlights", null], ["spans", "delete window.Highl
   });
 }
 
+test("interpolation is coloured as code inside a string", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  const source = 'def world : Text := "w"\n' +
+    'test "t" := "a ${ 1 + 2 } b ${"x ${world} y"} \\${z}" == "x"';
+  await page.setSource(source);
+  await sleep(100);
+  const marked = await page.ev(`(() => {
+    const text = document.getElementById("source").value;
+    const pieces = (kind) => Array.from(CSS.highlights.get("hl-" + kind) ?? [],
+      (r) => text.slice(r.startOffset, r.endOffset));
+    return { string: pieces("string"), interp: pieces("interp"), number: pieces("number") };
+  })()`);
+  assert.deepEqual(marked.number, ["1", "2"], JSON.stringify(marked.number));
+  assert.deepEqual(marked.interp, ["${", "}", "${", "${", "}", "}"], JSON.stringify(marked.interp));
+  for (const piece of ['"w"', '"t"', '"a ', " b ", '"x ', ' y"']) {
+    assert.ok(marked.string.includes(piece), `${JSON.stringify(piece)} is a string piece: ${JSON.stringify(marked.string)}`);
+  }
+  assert.ok(marked.string.includes(' \\${z}"'), `the escaped dollar stays a string: ${JSON.stringify(marked.string)}`);
+  assert.ok(!marked.string.some((s) => s.includes("world")), `world in the interpolation isn't string-coloured: ${JSON.stringify(marked.string)}`);
+});
+
 test("`|>` is coloured as one operator", async (page) => {
   await page.open({ patch: "delete window.Highlight;" });
   await page.untilChecked();
