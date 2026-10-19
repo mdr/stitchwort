@@ -14,7 +14,7 @@
 -- sizes add up.
 
 namespace Aoc.Day05
-import Aoc.Common (..)
+import Aoc.Common (Range)
 
 def main(): {IO} () :=
   let database := parseDatabase (IO.readAllLines())
@@ -36,19 +36,15 @@ test "example parse" := (parseDatabase example).available == [1, 5, 8, 11, 17, 3
 
 -- Part 1: the available ids that are fresh.
 def solvePart1 (db: Database): Nat :=
-  db.available.count (\id => db.fresh.any (\r => rangeContains r id))
+  db.available.count (\id => db.fresh.any (\r => r.contains id))
 
 test "example part 1" := solvePart1 (parseDatabase example) == 3
 
 -- Part 2: every id the fresh ranges cover.
-def solvePart2 (db: Database): Nat := merge db.fresh |> .sumBy rangeSize
+def solvePart2 (db: Database): Nat := merge db.fresh |> .sumBy Range.size
 
 test "example part 2" := solvePart2 (parseDatabase example) == 14
 test "no ranges" := solvePart2 { fresh = [], available = [] } == 0
-
-def rangeContains (r: Range) (id: Nat): Bool := r.lo <= id && id <= r.hi
-
-def rangeSize (r: Range): Nat := r.hi + 1 - r.lo
 
 -- Merge ranges that overlap or touch. The list is sorted by start, then
 -- folded into a list of merged ranges with the latest first.
@@ -65,8 +61,8 @@ test "gap stays" := merge [{ lo = 1, hi = 2 }, { lo = 4, hi = 5 }] == [{ lo = 1,
 
 -- Merging keeps exactly the covered ids, on the example (every id up to 21).
 test "merging keeps coverage" :=
-  (List.range 22).map (\id => (merge (parseDatabase example).fresh).any (\r => rangeContains r id))
-    == (List.range 22).map (\id => (parseDatabase example).fresh.any (\r => rangeContains r id))
+  (List.range 22).map (\id => (merge (parseDatabase example).fresh).any (\r => r.contains id))
+    == (List.range 22).map (\id => (parseDatabase example).fresh.any (\r => r.contains id))
 
 -- Add a range, starting no earlier than the ones already merged, to them.
 def absorb (merged: List Range) (r: Range): List Range :=
