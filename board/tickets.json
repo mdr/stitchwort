@@ -1485,8 +1485,8 @@
     {
       "id": 99,
       "title": "`calc` notation and a `rewrite` term for equational proofs",
-      "status": "doing",
-      "agent": "Opus",
+      "status": "review",
+      "agent": "Matt",
       "where": "",
       "labels": [
         "proof",
@@ -1496,7 +1496,9 @@
       "body": "From the day 1 comparison (SW-96, docs/comparisons/aoc-day01.md): the top recommendation. `calc` desugars to Eq.trans chains (small); `rewrite` infers the `\\x => …` motive from the expected goal (medium). Removes most hand-written motives, like Agda's `rewrite` and `≡⟨ … ⟩`. Design note first. Related: SW-26 proof ergonomics.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
-      "commits": []
+      "commits": [
+        "a522d9c"
+      ]
     },
     {
       "id": 100,
