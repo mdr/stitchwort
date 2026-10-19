@@ -1,0 +1,206 @@
+#!/usr/bin/env node
+'use strict';
+// Command-line interface to the kanban board. Non-interactive; see board/README.md.
+const fs = require('fs');
+const lib = require('./lib');
+
+const USAGE = `usage: board <command> [args]
+  list [--status S] [--agent A] [--label L] [--json]
+  show N [--json]
+  add "title" [--status S] [--agent A] [--where W] [--label L]... [--body TEXT | --body-file F]
+  move N STATUS
+  assign N AGENT [--where W]        (also moves a backlog/next ticket to doing)
+  unassign N
+  edit N [--title T] [--status S] [--agent A] [--where W] [--body TEXT | --body-file F]
+         [--label L]... | [--add-label L]... [--rm-label L]...
+  commit N HASH...
+  rm N
+statuses: ${lib.STATUSES.join(', ')}
+agents:   ${lib.AGENTS.filter(Boolean).join(', ')}
+N is a ticket number, with or without the SW- prefix. BOARD_FILE overrides the data file.`;
+
+const REPEATABLE = new Set(['label', 'add-label', 'rm-label']);
+const WITH_VALUE = new Set(['status', 'agent', 'where', 'body', 'body-file', 'title', ...REPEATABLE]);
+
+function parseArgs(argv) {
+  const pos = [];
+  const opt = {};
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === '--') { pos.push(...argv.slice(i + 1)); break; }
+    if (!a.startsWith('--')) { pos.push(a); continue; }
+    let [name, value] = a.slice(2).split(/=(.*)/s, 2);
+    if (name === 'json') { opt.json = true; continue; }
+    if (!WITH_VALUE.has(name)) throw new lib.BoardError(`unknown option --${name}`);
+    if (value === undefined) {
+      if (i + 1 >= argv.length) throw new lib.BoardError(`--${name} needs a value`);
+      value = argv[++i];
+    }
+    if (REPEATABLE.has(name)) (opt[name] ||= []).push(value);
+    else opt[name] = value;
+  }
+  return { pos, opt };
+}
+
+function bodyOf(opt) {
+  if (opt.body !== undefined && opt['body-file'] !== undefined) throw new lib.BoardError('use --body or --body-file, not both');
+  if (opt['body-file'] !== undefined) {
+    try {
+      return fs.readFileSync(opt['body-file'] === '-' ? 0 : opt['body-file'], 'utf8');
+    } catch (e) {
+      throw new lib.BoardError(`cannot read ${opt['body-file']}: ${e.message}`);
+    }
+  }
+  return opt.body;
+}
+
+const sid = (t) => `SW-${t.id}`;
+
+function row(t) {
+  const who = t.agent ? ` [${t.agent}]` : '';
+  const labels = t.labels.length ? `  (${t.labels.join(', ')})` : '';
+  return `${sid(t).padEnd(7)} ${t.status.padEnd(7)}${who} ${t.title}${labels}`;
+}
+
+function show(t) {
+  const lines = [
+    `${sid(t)}  ${t.title}`,
+    `status:  ${t.status}`,
+    `agent:   ${t.agent || '-'}`,
+    `where:   ${t.where || '-'}`,
+    `labels:  ${t.labels.join(', ') || '-'}`,
+    `created: ${t.created}   updated: ${t.updated}`,
+    `commits: ${t.commits.join(', ') || '-'}`,
+    '',
+    t.body,
+  ];
+  return lines.join('\n');
+}
+
+function needId(pos, n = 1) {
+  if (pos.length < n) throw new lib.BoardError('missing ticket number');
+  return lib.parseId(pos[0]);
+}
+
+function noExtra(pos, n) {
+  if (pos.length > n) throw new lib.BoardError(`unexpected argument: ${pos[n]}`);
+}
+
+function main(argv) {
+  const [cmd, ...rest] = argv;
+  if (!cmd || cmd === '-h' || cmd === '--help' || cmd === 'help') {
+    console.log(USAGE);
+    return cmd ? 0 : 2;
+  }
+  const { pos, opt } = parseArgs(rest);
+  switch (cmd) {
+    case 'list': {
+      noExtra(pos, 0);
+      if (opt.status && !lib.STATUSES.includes(opt.status)) throw new lib.BoardError(`unknown status "${opt.status}"`);
+      let ts = lib.load().tickets;
+      if (opt.status) ts = ts.filter((t) => t.status === opt.status);
+      if (opt.agent) ts = ts.filter((t) => t.agent.toLowerCase() === opt.agent.toLowerCase());
+      if (opt.label) ts = ts.filter((t) => t.labels.includes(opt.label[0]));
+      if (opt.json) console.log(JSON.stringify(ts, null, 2));
+      else ts.forEach((t) => console.log(row(t)));
+      return 0;
+    }
+    case 'show': {
+      const id = needId(pos);
+      noExtra(pos, 1);
+      const t = lib.find(lib.load(), id);
+      console.log(opt.json ? JSON.stringify(t, null, 2) : show(t));
+      return 0;
+    }
+    case 'add': {
+      if (pos.length < 1) throw new lib.BoardError('missing title');
+      noExtra(pos, 1);
+      const fields = { title: pos[0] };
+      if (opt.status) fields.status = opt.status;
+      if (opt.agent !== undefined) fields.agent = opt.agent;
+      if (opt.where !== undefined) fields.where = opt.where;
+      if (opt.label) fields.labels = opt.label;
+      const body = bodyOf(opt);
+      if (body !== undefined) fields.body = body;
+      const t = lib.update((d) => lib.addTicket(d, fields));
+      console.log(sid(t));
+      return 0;
+    }
+    case 'move': {
+      const id = needId(pos, 2);
+      if (pos.length < 2) throw new lib.BoardError('missing status');
+      noExtra(pos, 2);
+      const t = lib.update((d) => lib.editTicket(d, id, { status: pos[1] }));
+      console.log(`${sid(t)} -> ${t.status}`);
+      return 0;
+    }
+    case 'assign': {
+      const id = needId(pos, 2);
+      if (pos.length < 2) throw new lib.BoardError('missing agent');
+      noExtra(pos, 2);
+      const t = lib.update((d) => {
+        const cur = lib.find(d, id);
+        const f = { agent: pos[1] };
+        if (opt.where !== undefined) f.where = opt.where;
+        if (cur.status === 'backlog' || cur.status === 'next') f.status = 'doing';
+        return lib.editTicket(d, id, f);
+      });
+      console.log(`${sid(t)} assigned to ${t.agent} (${t.status})`);
+      return 0;
+    }
+    case 'unassign': {
+      const id = needId(pos);
+      noExtra(pos, 1);
+      const t = lib.update((d) => lib.editTicket(d, id, { agent: '', where: '' }));
+      console.log(`${sid(t)} unassigned`);
+      return 0;
+    }
+    case 'edit': {
+      const id = needId(pos);
+      noExtra(pos, 1);
+      const body = bodyOf(opt);
+      const t = lib.update((d) => {
+        const cur = lib.find(d, id);
+        const f = {};
+        for (const k of ['title', 'status', 'agent', 'where']) if (opt[k] !== undefined) f[k] = opt[k];
+        if (body !== undefined) f.body = body;
+        if (opt.label) f.labels = opt.label;
+        if (opt['add-label'] || opt['rm-label']) {
+          const base = f.labels || cur.labels;
+          f.labels = base.filter((l) => !(opt['rm-label'] || []).includes(l)).concat(opt['add-label'] || []);
+        }
+        if (Object.keys(f).length === 0) throw new lib.BoardError('nothing to edit (give --title, --status, --agent, --where, --body, --label, ...)');
+        return lib.editTicket(d, id, f);
+      });
+      console.log(`${sid(t)} updated`);
+      return 0;
+    }
+    case 'commit': {
+      const id = needId(pos, 2);
+      if (pos.length < 2) throw new lib.BoardError('missing commit hash');
+      const t = lib.update((d) => lib.editTicket(d, id, { commits: lib.find(d, id).commits.concat(pos.slice(1)) }));
+      console.log(`${sid(t)} commits: ${t.commits.join(', ')}`);
+      return 0;
+    }
+    case 'rm': {
+      const id = needId(pos);
+      noExtra(pos, 1);
+      const t = lib.update((d) => lib.removeTicket(d, id));
+      console.log(`removed ${sid(t)}: ${t.title}`);
+      return 0;
+    }
+    default:
+      throw new lib.BoardError(`unknown command "${cmd}"\n${USAGE}`);
+  }
+}
+
+try {
+  process.exitCode = main(process.argv.slice(2));
+} catch (e) {
+  if (e instanceof lib.BoardError) {
+    console.error(`board: ${e.message}`);
+    process.exitCode = 1;
+  } else {
+    throw e;
+  }
+}

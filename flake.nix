@@ -150,6 +150,23 @@
         in
         {
           inherit (builds) stitchwort clippy fmt;
+
+          # The kanban board's tests (board/): Node's standard library only.
+          board =
+            pkgs.runCommand "board-tests"
+              {
+                nativeBuildInputs = [ pkgs.nodejs_22 ];
+                src = pkgs.lib.fileset.toSource {
+                  root = ./board;
+                  fileset = ./board;
+                };
+              }
+              ''
+                cp -r $src board
+                cd board
+                node --test board.test.js
+                touch $out
+              '';
         }
       );
 

@@ -2,7 +2,7 @@
 
 Stitchwort is built by Matt with AI models doing most of the writing. This
 note records who does what, so the split stays consistent between sessions
-and any model working on the repo can read it. `TODO.md` is the task list.
+and any model working on the repo can read it. The kanban board in `board/` is the task list (see [board/README.md](../board/README.md)).
 
 ## Who does what
 
@@ -39,7 +39,7 @@ implementation start, usually in stages.
 5. Regenerate snapshots and the benchmark baseline, stage them, and run the
    gate (below). For playground changes also run `web/build.sh` and
    `web/test.sh`.
-6. Update `TODO.md`.
+6. Update the ticket: move it to done and record the commits (`board/board commit N HASH`, `board/board move N done`).
 
 Claude's own lanes work the same way, in git worktrees instead of scratch
 clones.
@@ -53,3 +53,25 @@ sees tracked files. Long runs (the gate, browser tests, builds) go in the
 background.
 
 Pushing to GitHub happens only when Matt asks.
+
+## Lanes and the task list
+
+Work runs in lanes (up to three at once), each in its own git worktree and
+branch, merged into `main` one at a time (with `nix flake check` after each).
+The main session orchestrates: it chooses lanes, hands each to a background
+agent, then reviews, merges and keeps the board up to date. Agents move their
+own tickets as described in [board/README.md](../board/README.md).
+
+- Lanes that change performance run the benchmarks before merging
+  (`nix develop -c cargo run --release -p stitchwort-bench`) and record an
+  intended change with `-- --update`, saying why in the commit. The
+  deterministic counts are checked by `nix flake check` (+10% fails).
+- Significant design decisions (soundness, the kernel, language semantics)
+  get a design note in `docs/proposals/` first, researched against the
+  literature, and wait for the user (and possibly an external reviewer)
+  before implementation.
+- New findings become tickets in `backlog` (label `bug` for known issues),
+  not straight into `next`, unless they block what's in progress.
+- Design detail lives in `DESIGN.md` and `docs/proposals/`; tickets only
+  track what is to do and why. Finished work is in git log;
+  [history.md](history.md) keeps what the old `TODO.md` recorded as done.
