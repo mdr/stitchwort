@@ -1505,8 +1505,8 @@
       "id": 100,
       "title": "Prelude: modulo identities (`(a % s + b) % s`, `a % s % s`) and the `Int.modNat` shifts",
       "status": "doing",
-      "agent": "Sonnet",
-      "where": "worktree-agent-aefa2194e2ab644b1: final gate running (nix flake check, started ~23:30)",
+      "agent": "Claude",
+      "where": "merged; gate running on main (started 23:23)",
       "labels": [
         "stdlib",
         "proof"
@@ -1514,7 +1514,9 @@
       "body": "From docs/comparisons/aoc-day01.md recommendation 2. Uniqueness of `/` and `%` exists (`Nat.divUnique`/`modUnique`). Still missing: `(a % s + b) % s = (a + b) % s`, `a % s % s = a % s`, `Int.modNat (x + k * s) s = Int.modNat x s`, and `Int.modNat (x - 1)` for a position. With these, day 1's `backFrom`/`backFar` and the four `subNatNat` lemmas should go. Done: lemmas added; aoc/day01.sw simplified using them.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
-      "commits": []
+      "commits": [
+        "8032775"
+      ]
     },
     {
       "id": 101,
@@ -2024,8 +2026,8 @@
       "id": 134,
       "title": "IO operations need the IO. prefix (no longer default names)",
       "status": "doing",
-      "agent": "Sonnet",
-      "where": "worktree-agent-a4ed98feff489c0f6: final gate running (nix flake check, started ~23:28)",
+      "agent": "Claude",
+      "where": "merged; gate running on main (started 23:23)",
       "labels": [
         "std",
         "namespaces"
@@ -2033,7 +2035,10 @@
       "body": "D29 (Matt, 19 Oct): print, readLine, readAll stop being default names; write IO.print etc. (IO itself stays default, so no import is needed). Update all examples, aoc, tests, docs, playground samples.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
-      "commits": []
+      "commits": [
+        "876f45a",
+        "3ecfd34"
+      ]
     },
     {
       "id": 135,
