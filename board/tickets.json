@@ -1,5 +1,5 @@
 {
-  "next": 138,
+  "next": 140,
   "tickets": [
     {
       "id": 1,
@@ -102,8 +102,8 @@
       "id": 7,
       "title": "AoC day 5 part 2: prove it equals the brute-force count of covered ids",
       "status": "doing",
-      "agent": "Opus",
-      "where": "worktree-agent-a41589a3d867f071c (day5-proof lane, started 23:26, ~2h box)",
+      "agent": "Claude",
+      "where": "merged; gate running on main (started 23:56)",
       "labels": [
         "aoc",
         "proof"
@@ -111,7 +111,9 @@
       "body": "Prove day 5 part 2 (`solvePart2` in aoc/day05.sw) equals the brute-force count of covered ids for every database, not just the example: merged ranges are sorted and disjoint, and merging keeps coverage. `rfl` checks on the example are unit tests, not proofs. Done: a theorem against a puzzle-literal spec (count of ids in some range).",
       "created": "2026-10-19",
       "updated": "2026-10-19",
-      "commits": []
+      "commits": [
+        "d03a247"
+      ]
     },
     {
       "id": 8,
@@ -2083,6 +2085,36 @@
         "proof"
       ],
       "body": "Matt (19 Oct): solve day 6 in the aoc/ project (Aoc.Day06), with proofs of correctness as appropriate, and record pain points to drive language/stdlib evolution. Plan in docs/aoc-2025.md §Day 6 (needs List.transpose, padRight, split-at-blank helper).",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 138,
+      "title": "Lambda argument fails to infer (E-CANNOT-INFER) when a later argument's type depends on it",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug",
+        "elab"
+      ],
+      "body": "SW-7 (day 5 proof, 19 Oct): `List.sortBySorted (\\a b => Nat.compare a.lo b.lo) tot xs` and `List.anyPerm (\\r => r.contains id) xs ys h` fail with E-CANNOT-INFER (\"can't tell what `a` is\"); writing `Range.lo a` / `Range.contains r id` works. The lambda's parameter type should come from the list argument's type. Investigate elaboration order (postponing lambdas until later arguments fix the type, as Lean/Agda do), or at least a better message.",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 139,
+      "title": "Prelude: lemmas relating n + 1 and Succ n where specs use + 1",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "stdlib",
+        "proof"
+      ],
+      "body": "SW-7: `+` recurses on its left argument, so `hi + 1` isn't definitionally `Succ hi`; day 5's proof needed `Nat.addOne` five times between `Range.size`'s `hi + 1 - lo` and `<`. Consider: define `+` by recursion on the right (Lean's choice, so `n + 1 = Succ n` by computation), or add simp-style lemmas. Check hash/perf impact; design note first.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
