@@ -1234,6 +1234,8 @@ A partial export would return a *stepper*: `{ run(maxSteps): { done: true, value
 - `maxSteps` bounds ticks, not work: a single step can still be long, so the stepper also needs a work budget (§7.5);
 - replacing the erasure of §7.6 with a real representation, and top-level partial values emitted as unevaluated `Delay` objects, so nothing partial runs when a module loads.
 
+(Since then, `stitchwort run --js` has the runtime half of this, for whole programs only: there, `Delay`'s five constants build `StitchwortDelay` objects, building one runs nothing, and the runner steps `main ()` with a JS copy of `stitchwort_core::step`'s machine (`crates/js/src/run.rs`). `build --js` is unchanged: exports still can't mention `Partial`, and it still erases `Delay` to one token.)
+
 ### 10.7 Partiality polymorphism
 
 A function polymorphic in partiality itself, rather than a separate `mapP`: a type-level `Bool` selecting `Comp` or `Delay`, with `bind`/`lift` defined by cases. Koka gets this for free because `div` is just a row label [K2]. The review considered excluding it at first acceptable [RV §8].

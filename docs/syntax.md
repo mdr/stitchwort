@@ -308,7 +308,8 @@ def loop : Nat -> {Partial} Nat
   passed to a helper with a fixed row (`E-PARTIAL-CALLBACK`) or returned
   (`E-PARTIAL-ESCAPE`); its type parameters come first and every recursive
   call passes them on unchanged (`E-PARTIAL-NONUNIFORM`).
-- Only `stitchwort run` and the playground run partial code. Tests can't;
+- Only `stitchwort run` (with or without `--js`) and the playground run
+  partial code. Tests can't;
   the checker never does.
 
 ## Expressions

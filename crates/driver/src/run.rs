@@ -121,6 +121,13 @@ impl From<ResourceError> for RunError {
     }
 }
 
+impl Main {
+    /// `main ()`, as a computation in the row `{IO, Partial}`.
+    pub fn term(&self) -> &Term {
+        &self.term
+    }
+}
+
 /// `main ()`, checked against [`MAIN_TYPE`]. The lambda lets a pure or
 /// total `main` through: calling one from code in `{IO, Partial}` is
 /// allowed.

@@ -204,6 +204,24 @@ short of what the JS route gives today, which is why the recommendation is JS fi
 
 ## 5. The JS route
 
+**Built:** `stitchwort run --js file.sw` (19 October 2026). It checks the file as `run` does,
+compiles `main ()` and everything it uses to JavaScript, and runs it with Node in a worker
+thread with a 2 GB stack, with a JS copy of the runner's loop and of the `Partial` stepping
+machine (`crates/js/src/run.rs`; contract and differences in
+[text-and-io.md, As built](proposals/text-and-io.md#as-built)). All five AoC days, wall time
+including the check (Apple M4 Pro, release build, Node 22):
+
+| Day | `check` alone | `run` | `run --js` |
+|---|---:|---:|---:|
+| 1 | 0.90 s | 1.04 s | 1.00 s |
+| 2 | 0.80 s | 0.83 s | 0.93 s |
+| 3 | 0.20 s | 0.58 s | 0.32 s |
+| 4 | 0.22 s | 17.09 s | 0.96 s |
+| 5 | 0.20 s | 0.92 s | 0.33 s |
+
+Days 1 and 2 are almost all checking, so `--js` (which adds about 0.1 s for Node to start)
+doesn't help them. The rest of this section is the measurement that motivated it.
+
 Measured, with the existing `stitchwort build --js` and Node 22 from the dev shell:
 
 | Program | `stitchwort run` | Extracted JS under Node | Ratio |
@@ -232,7 +250,8 @@ and `zipWith` threw `StitchwortResourceError`. With `ulimit -s 65520` and
 crashes Node outright, exit 139.) Day 8's 500,000-element lists would need the same, or a
 Worker thread with `resourceLimits.stackSizeMb`.
 
-**What running `main` itself through JS would take** (item 1 above):
+**What running `main` itself through JS would take** (item 1 above; all done as described,
+except that the stack comes from a worker thread rather than `--stack-size`):
 
 1. **Partial:** an export can't mention `Partial` (`E-JS-PARTIAL`), and AoC `main`s are
    `{IO, Partial}`. JS needs no tick limit; a `Partial` loop can simply loop, but the
