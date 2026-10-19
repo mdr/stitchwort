@@ -173,8 +173,9 @@ def Dial.place (highest: Nat) (x: Int): Nat := Int.modNat x (Succ highest)
 theorem leftZero (highest: Nat): Dial.place highest (Int.subNatNat 0 1) = highest := Int.modNatNegOne highest
 
 theorem leftOne (highest: Nat) (m: Nat) (h: Succ m <= highest): Dial.place highest (Int.subNatNat (Succ m) 1) = m :=
-  Eq.trans (Eq.cong (\x => Dial.place highest x) (Eq.trans (Int.subNatNatSucc m 0) (Int.subNatNatZeroRight m)))
-    (Nat.modSmall m (Succ highest) (Nat.leTrans m (Succ m) highest (Nat.leSucc m) h))
+  calc Dial.place highest (Int.subNatNat (Succ m) 1)
+    _ = Dial.place highest (OfNat m) := Eq.cong (\x => Dial.place highest x) (Eq.trans (Int.subNatNatSucc m 0) (Int.subNatNatZeroRight m))
+    _ = m := Nat.modSmall m (Succ highest) (Nat.leTrans m (Succ m) highest (Nat.leSucc m) h)
 
 theorem stepLeftAt (highest: Nat): (a: Nat) -> a <= highest -> (n: Nat) ->
     Dial.place highest (Nat.toInt (Dial.place highest (Int.subNatNat a 1)) - Nat.toInt n)

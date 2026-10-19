@@ -162,7 +162,9 @@ def PickBeats (k: Nat) (w: Nat) (xs: List Nat) (c: Nat) (after: List Nat): Prop 
 -- `best k` of what follows the pick has k digits.
 theorem pickRestLength (k: Nat) (w: Nat) (more: List Nat) (c: Nat) (after: List Nat) (h1: k + w <= List.length more) (h2: k <= List.length after):
   List.length (Bank.best k (Pair.snd (Bank.best.pick w more c after))) = k :=
-  Eq.trans (bestLength k (Pair.snd (Bank.best.pick w more c after))) (Nat.minLeft k (List.length (Pair.snd (Bank.best.pick w more c after))) (pickLen k w more c after h1 h2))
+  calc List.length (Bank.best k (Pair.snd (Bank.best.pick w more c after)))
+    _ = Nat.min k (List.length (Pair.snd (Bank.best.pick w more c after))) := bestLength k (Pair.snd (Bank.best.pick w more c after))
+    _ = k := Nat.minLeft k (List.length (Pair.snd (Bank.best.pick w more c after))) (pickLen k w more c after h1 h2)
 
 -- A choice starting below pick's choice loses.
 theorem pickBeatsSmaller (k: Nat) (w: Nat) (more: List Nat) (c: Nat) (after: List Nat) (h1: k + w <= List.length more) (h2: k <= List.length after)
@@ -174,9 +176,9 @@ theorem pickBeatsSmaller (k: Nat) (w: Nat) (more: List Nat) (c: Nat) (after: Lis
 theorem pickBase (k: Nat) (ih: BestBelow k) (c: Nat) (after: List Nat) (h2: k <= List.length after)
   (y: Nat) (s: List Nat) (hd: Nat.Digits s) (hk: List.length s = k) (e: y = c) (hs: List.Subsequence s after):
   Nat.fromDigits (Cons y s) <= Nat.fromDigits (Cons c (Bank.best k after)) :=
-  J (\z q => Nat.fromDigits (Cons z s) <= Nat.fromDigits (Cons c (Bank.best k after)))
-    (Nat.fromDigitsConsLe c s (Bank.best k after) (Eq.trans hk (Eq.sym (Eq.trans (bestLength k after) (Nat.minLeft k (List.length after) h2)))) (ih after s hs hd hk))
-    (Eq.sym e)
+  calc Nat.fromDigits (Cons y s)
+    _ = Nat.fromDigits (Cons c s) := Eq.cong (\z => Nat.fromDigits (Cons z s)) e
+    _ <= Nat.fromDigits (Cons c (Bank.best k after)) := Nat.fromDigitsConsLe c s (Bank.best k after) (Eq.trans hk (Eq.sym (Eq.trans (bestLength k after) (Nat.minLeft k (List.length after) h2)))) (ih after s hs hd hk)
 
 -- When `x` ties with `c`, starting from `x` is no better than from `c`, which
 -- comes earlier.

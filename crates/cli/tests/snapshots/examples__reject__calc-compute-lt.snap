@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-CALC-STEP] Error: this step has no proof, and `rfl` doesn't prove it
+   ╭─[ reject/calc-compute-lt.sw:6:5 ]
+   │
+ 6 │     _ < n
+   │     ──┬──  
+   │       ╰──── `n < n` doesn't hold by computation
+   │ 
+   │ Note 1: the line says `n < n`, which computes to `Nat.leq (Succ n) n = True`
+   │ 
+   │ Note 2: a step without `:=` must hold by computation alone
+───╯

@@ -81,6 +81,8 @@ pub enum Tok {
     KwImport,
     /// `namespace Day05`, the first line of a file.
     KwNamespace,
+    /// `calc e` followed by steps `_ = e := proof`, one per line.
+    KwCalc,
     LBrace,
     RBrace,
     /// `=>`, in a handler clause: `get () => k -> …`.
@@ -202,6 +204,7 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
                     "let" => Tok::KwLet,
                     "import" => Tok::KwImport,
                     "namespace" => Tok::KwNamespace,
+                    "calc" => Tok::KwCalc,
                     "Type" => Tok::TypeU,
                     "Prop" => Tok::Prop,
                     _ if c.is_ascii_uppercase() => Tok::Upper(word.to_string()),

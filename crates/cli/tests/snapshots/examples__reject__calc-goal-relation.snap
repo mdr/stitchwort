@@ -1,0 +1,17 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-CALC-GOAL] Error: the chain proves `a < c`, but `a <= c` is expected
+   ╭─[ reject/calc-goal-relation.sw:4:3 ]
+   │
+ 4 │ ╭─▶   calc a
+   ┆ ┆   
+ 6 │ ├─▶     _ < c := h2
+   │ │                     
+   │ ╰───────────────────── the chain's relation is `<`, but the goal's is `<=`
+   │     
+   │     Note 1: a chain's relation is the fold of its steps' relations, left to right (`<=` then `<` is `<`), and is never weakened
+   │     
+   │     Note 2: `Nat.lessLe` turns `a < b` into `a <= b`
+───╯

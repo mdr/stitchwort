@@ -77,6 +77,11 @@ builtins! {
     And = "And": Data,
     Or = "Or": Data,
     Cong = "Eq.cong": Def,
+    // `calc` chains combine their steps with these (`crates/elab/src/calc.rs`)
+    EqSym = "Eq.sym": Def,
+    EqTrans = "Eq.trans": Def,
+    LeTrans = "Nat.leTrans": Def,
+    LessTrans = "Nat.lessTrans": Def,
     // Numbers: syntax and natives
     Nat = "Nat": Data,
     Zero = "Zero": Ctor(Builtin::Nat),

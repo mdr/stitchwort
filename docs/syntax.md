@@ -469,6 +469,38 @@ The way round all of them is a top-level helper with a written signature. `E-MAT
 
 JavaScript: a `match` that is part of the case tree, with a tail call to its own definition in a branch, becomes a loop like any self tail call. A generated definition doesn't: a `match` that is lifted, in tail position, whose branch calls the owner, is a pair of mutual tail calls, and those aren't loops yet. Deep recursion through it can hit the JS stack limit, which is reported as the boundary's out-of-resources error. A tail `match` on a parameter (the whole right-hand side) isn't affected. Examples: `examples/accept/match.sw`, `examples/extract/match.sw`. Design: [syntax-conveniences.md](proposals/syntax-conveniences.md) section 4.
 
+### `calc`
+
+`calc` writes a proof as a chain of steps, one per line. Each step is `_ R e`, where `R` is `=`, `<=` or `<`, followed by `:= proof`:
+
+```
+theorem mixed (a: Nat) (b: Nat) (h1: a = b) (h2: b <= 3): a < 5 :=
+  calc a
+    _ = b := h1
+    _ <= 3 := h2
+    _ < 5
+```
+
+The steps line up, one column further right than the line `calc` is on, and each starts with `_` (so inside a `calc`, a line starting with `_` is the next step, not an argument of the line before). `calc` is a keyword; the relation always goes on a step line, so `calc a = b := p` is a syntax error. `calc` is an expression, usable wherever a proof is.
+
+- **Steps.** `e0` is inferred, and each later expression is checked at its type. Step `i` is the proposition `e(i-1) R e(i)`, and its proof is checked against that. A proof that proves something else is `E-CALC-STEP`, pointing at the proof and saying what the line says.
+- **A step with no proof** is closed by `rfl`, checked against the step's proposition: the step holds if that proposition computes to true. For `=` that means the two sides compute to the same value. For `<=` and `<` it is about the order proposition, not the ends: `_ <= n` after `0` needs no proof (`Nat.leq 0 n` computes to `True`), but `calc n` then `_ < n` is rejected even though both ends are `n`. Otherwise it is `E-CALC-STEP` ("this step has no proof, and `rfl` doesn't prove it").
+- **Relations.** `=` works at any type. `<=` and `<` are on `Nat` only for now (`E-CALC-RELATION`), and `=`, `<=`, `<` can be mixed freely. Other relations (`!=`, `>`, …) aren't chained; `!=` is a syntax error.
+- **The conclusion.** The chain proves `e0 R e(n)`, where `R` comes from folding the steps' relations left to right: `=` with `R` is `R`, `<=` with `<=` is `<=`, and any `<` makes it `<`. The steps are joined with the proofs people write by hand: `Eq.trans`, `J` with `Eq.sym` for `=` next to an order, `Nat.leTrans` and `Nat.lessTrans`, and the kernel re-checks the result as usual.
+- **With a goal.** Where the type is known, the chain is checked against it by computation: its first and last expressions only have to compute to the goal's sides, and its relation must be the goal's (`<` is not weakened to `<=`; `Nat.lessLe` does that). Otherwise it is `E-CALC-GOAL`, naming the end that differs. With no goal (`let h := calc …`), the chain has the type `e0 R e(n)`.
+
+| steps so far, next step | result | term |
+|---|---|---|
+| `=`, `=` | `=` | `Eq.trans p q` |
+| `=`, `R` | `R` | `J (\w _ => w R c) q (Eq.sym p)` |
+| `R`, `=` | `R` | `J (\w _ => a R w) p q` |
+| `<=`, `<=` | `<=` | `Nat.leTrans a b c p q` |
+| `<`, `<=` | `<` | `Nat.leTrans (Succ a) b c p q` |
+| `<=`, `<` | `<` | `Nat.leTrans (Succ a) (Succ b) c p q` |
+| `<`, `<` | `<` | `Nat.lessTrans a b c p q` |
+
+(`p` proves `a R1 b` and `q` proves `b R2 c`.) Examples: `examples/accept/calc.sw`, `examples/reject/calc-*.sw`. Design: [calc-rewrite.md](proposals/calc-rewrite.md) section 5.
+
 #### Patterns in `let` and lambdas
 
 `let` and a lambda's parameters take patterns too:

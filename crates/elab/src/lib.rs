@@ -9,6 +9,7 @@
 mod auto;
 mod autobind;
 mod bind;
+mod calc;
 mod check;
 mod derive;
 mod dot;

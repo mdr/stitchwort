@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: `calc` starts with one expression; each relation goes on a line of its own
+   ╭─[ reject/calc-one-line.sw:4:10 ]
+   │
+ 4 │   calc a = b := h
+   │          ┬  
+   │          ╰── `calc` starts with one expression; each relation goes on a line of its own
+   │ 
+   │ Note: write `calc a` and then, indented below it, `_ = b := proof`
+───╯

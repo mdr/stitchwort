@@ -438,6 +438,7 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
         }
         Expr::Tuple(a, b, _) => infer_tuple(cx, a, b),
         Expr::Match { .. } => crate::matching::infer_match(cx, expr),
+        Expr::Calc { .. } => crate::calc::infer_calc(cx, expr),
         Expr::LocalDefs { defs, body, .. } => crate::local::around(cx, defs, |cx| infer(cx, body)),
         Expr::Effect(row, ty) => {
             let (term, sort) = effects::effect_type(cx, row, ty)?;
@@ -1193,6 +1194,7 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
         }
         (Expr::Neg(..), _) => Ok(crate::numbers::group(cx, expr, Some(&expected))?.0),
         (Expr::Match { .. }, _) => crate::matching::check_match(cx, expr, &expected),
+        (Expr::Calc { .. }, _) => crate::calc::check_calc(cx, expr, &expected),
         (
             Expr::If {
                 binder,

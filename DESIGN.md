@@ -387,7 +387,7 @@ A generic `withFuel: Nat -> (() -> {Partial | e} a) -> {e} Optional a`, which bo
 - **`theorem`** is a definition whose type is a proposition (in `Prop`). It's always erased at runtime and must be total and pure.
 - **Equality** is a built-in proposition `a = b` with `rfl: a = a`, plus library functions `Eq.cong`, `Eq.sym`, `Eq.trans` and `rewrite`.
 - **Proof by computation.** Types are compared by evaluating them, so `rfl` proves anything that holds by just computing both sides (`2 + 2 = 4`, `List.length [1, 2] = 2`).
-- **No tactics.** Proofs are ordinary terms, written by pattern matching and recursion. A `calc` block for readable chains of equalities is a likely later addition.
+- **No tactics.** Proofs are ordinary terms, written by pattern matching and recursion. `calc` writes a chain of `=`, `<=` and `<` steps one per line (docs/syntax.md); it elaborates to `Eq.trans`, `J` and `Nat.leTrans` terms.
 
 Conventions that make proofs go through by computation should be documented. For example, `+` on `Nat` recurses on its *first* argument, so `Succ m + n` reduces to `Succ (m + n)`.
 

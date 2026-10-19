@@ -307,6 +307,15 @@ fn walk_at(
             }
         }
         Expr::Field(x, _) => walk(e, x, bound, false, uses)?,
+        Expr::Calc { first, steps, .. } => {
+            walk(e, first, bound, false, uses)?;
+            for step in steps {
+                walk(e, &step.rhs, bound, false, uses)?;
+                if let Some(proof) = &step.proof {
+                    walk(e, proof, bound, false, uses)?;
+                }
+            }
+        }
         Expr::NamedArg(_, value, _) => walk(e, value, bound, false, uses)?,
         Expr::Neg(x, _) => walk(e, x, bound, false, uses)?,
         Expr::Num(..)

@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-CALC-STEP] Error: this step doesn't prove what its line says
+   ╭─[ reject/calc-step-proof.sw:6:14 ]
+   │
+ 6 │     _ < c := h2
+   │              ─┬  
+   │               ╰── this proves `b <= c`
+   │ 
+   │ Note: the line says `b < c`
+───╯

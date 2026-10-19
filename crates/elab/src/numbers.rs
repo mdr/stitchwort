@@ -830,6 +830,13 @@ fn has_number(expr: &Expr) -> bool {
             }
             // The definitions are elaborated on their own.
             Expr::LocalDefs { body, .. } => stack.push(body),
+            Expr::Calc { first, steps, .. } => {
+                stack.push(first);
+                for step in steps {
+                    stack.push(&step.rhs);
+                    stack.extend(step.proof.as_ref());
+                }
+            }
             Expr::Match {
                 scrutinees, alts, ..
             } => {

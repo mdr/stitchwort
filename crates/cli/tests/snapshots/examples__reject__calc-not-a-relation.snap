@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: a `calc` step is `=`, `<=` or `<`: other relations can't be chained
+   ╭─[ reject/calc-not-a-relation.sw:5:7 ]
+   │
+ 5 │     _ != b := h
+   │       ─┬  
+   │        ╰── a `calc` step is `=`, `<=` or `<`: other relations can't be chained
+───╯

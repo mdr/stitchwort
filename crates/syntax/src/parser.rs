@@ -12,7 +12,7 @@
 //! one ending in an operator (like `->`) continues it too.
 
 use crate::ast::{
-    Alt, BinOp, Binder, CtorDecl, Decl, Expr, Import, LocalDef, MatchKind, Module, Name,
+    Alt, BinOp, Binder, CalcStep, CtorDecl, Decl, Expr, Import, LocalDef, MatchKind, Module, Name,
     NamespaceDecl, Pattern, Row, SECTION, Scrutinee,
 };
 use crate::lexer::{Tok, Token, lex};
@@ -203,6 +203,9 @@ struct Parser<'t> {
     limit: Option<u32>,
     /// The token starting the current statement, which `limit` doesn't stop.
     allow: Option<usize>,
+    /// How many `calc`s the parser is inside. In one, a line starting with
+    /// `_` is the next step, not an argument of the line before.
+    calc_depth: u32,
     /// How deep the recursion may go.
     stack: StackLimit,
 }
@@ -227,6 +230,7 @@ impl<'t> Parser<'t> {
             eof,
             limit: None,
             allow: None,
+            calc_depth: 0,
             stack,
         }
     }
@@ -258,8 +262,20 @@ impl<'t> Parser<'t> {
         Ok(())
     }
 
+    /// Whether the token at `i` is a `_` starting a line, which inside a
+    /// `calc` is the next step.
+    #[inline(never)]
+    fn starts_calc_step(&self, i: usize) -> bool {
+        self.tokens
+            .get(i)
+            .is_some_and(|t| t.line_start && t.tok == Tok::Underscore)
+    }
+
     /// Whether the token at `i` ends the current statement of a block.
     fn is_stop(&self, i: usize) -> bool {
+        if self.calc_depth > 0 && self.starts_calc_step(i) {
+            return true;
+        }
         let Some(limit) = self.limit else {
             return false;
         };
@@ -1374,6 +1390,88 @@ impl<'t> Parser<'t> {
         })
     }
 
+    /// `calc e0` and its steps, one per line: `_ = e1 := proof`, `_ <= e2`
+    /// (no proof: closed by computation). The steps line up, and are
+    /// indented past the line `calc` is on.
+    #[inline(never)]
+    fn calc_expr(&mut self, start: Span) -> Result<Expr> {
+        let indent = self.line_indent(self.pos - 1);
+        self.calc_depth += 1;
+        let result = self.calc_body(start, indent);
+        self.calc_depth -= 1;
+        result
+    }
+
+    #[inline(never)]
+    fn calc_body(&mut self, start: Span, indent: u32) -> Result<Expr> {
+        let first = self.append_expr()?;
+        if matches!(
+            self.peek(),
+            Some(Tok::Equals | Tok::Le | Tok::Lt | Tok::NotEq | Tok::EqEq)
+        ) {
+            return Err(error(
+                self.here(),
+                "`calc` starts with one expression; each relation goes on a line of its own",
+            )
+            .with_note("write `calc a` and then, indented below it, `_ = b := proof`"));
+        }
+        let mut steps: Vec<CalcStep> = Vec::new();
+        let mut column = None;
+        while let Some(token) = self.tokens.get(self.pos)
+            && token.tok == Tok::Underscore
+            && token.line_start
+            && token.column > indent
+            && self.limit.is_none_or(|limit| token.column > limit)
+        {
+            match column {
+                None => column = Some(token.column),
+                Some(c) if c != token.column => {
+                    return Err(error(
+                        token.span,
+                        "this step isn't lined up with the steps above it",
+                    ));
+                }
+                Some(_) => {}
+            }
+            let underscore = self.bump().span;
+            let (rel, rel_span) = match self.peek() {
+                Some(Tok::Equals) => (BinOp::Eq, self.bump().span),
+                Some(Tok::Le) => (BinOp::Le, self.bump().span),
+                Some(Tok::Lt) => (BinOp::Lt, self.bump().span),
+                Some(Tok::NotEq | Tok::EqEq) => {
+                    return Err(error(
+                        self.here(),
+                        "a `calc` step is `=`, `<=` or `<`: other relations can't be chained",
+                    ));
+                }
+                _ => return Err(self.unexpected("`=`, `<=` or `<` after `_`")),
+            };
+            let rhs = self.append_expr()?;
+            let proof = if self.eat(&Tok::ColonEq) {
+                Some(self.expr()?)
+            } else {
+                None
+            };
+            steps.push(CalcStep {
+                rel,
+                rel_span,
+                rhs,
+                proof,
+                span: underscore.to(self.prev_span()),
+            });
+        }
+        let Some(last) = steps.last() else {
+            return Err(self
+                .unexpected("a step `_ = e` on the next line, indented past `calc`")
+                .with_note("a `calc` needs at least one step"));
+        };
+        Ok(Expr::Calc {
+            span: start.to(last.span),
+            first: Box::new(first),
+            steps,
+        })
+    }
+
     /// `(x : A) -> B` or `[x : A] -> B`. Out of line, as `if_expr` is.
     #[inline(never)]
     fn pi_expr(&mut self, start: Span, implicit: bool) -> Result<Expr> {
@@ -1402,6 +1500,9 @@ impl<'t> Parser<'t> {
         }
         if self.eat(&Tok::KwMatch) {
             return self.match_piped(start);
+        }
+        if self.eat(&Tok::KwCalc) {
+            return self.calc_expr(start);
         }
         if self.eat(&Tok::Backslash) {
             return self.lambda(start);
@@ -2074,6 +2175,7 @@ fn describe(tok: &Tok) -> String {
         Tok::KwLet => "`let`".into(),
         Tok::KwImport => "`import`".into(),
         Tok::KwNamespace => "`namespace`".into(),
+        Tok::KwCalc => "`calc`".into(),
         Tok::LBrace => "`{`".into(),
         Tok::RBrace => "`}`".into(),
         Tok::FatArrow => "`=>`".into(),
@@ -3491,6 +3593,31 @@ mod tests {
     #[test]
     fn namespace_is_a_keyword() {
         assert!(parse_module_text("def namespace: Nat := 1\n").is_err());
+    }
+
+    #[test]
+    fn calc_steps_are_lines_starting_with_an_underscore() {
+        let text = "def f (a: Nat): a = a :=\n  calc a\n    _ = a := rfl\n    _ <= a\n    _ < a := Nat.f _\n";
+        let expr = rhs(text);
+        let Expr::Calc { steps, .. } = &expr else {
+            panic!("expected a calc");
+        };
+        let shape: Vec<(BinOp, bool)> = steps.iter().map(|s| (s.rel, s.proof.is_some())).collect();
+        assert_eq!(
+            shape,
+            vec![(BinOp::Eq, true), (BinOp::Le, false), (BinOp::Lt, true)]
+        );
+        // The `_` argument stays an argument when it isn't at the start of a line.
+        assert!(matches!(&steps[2].proof, Some(Expr::App(..))));
+    }
+
+    #[test]
+    fn calc_needs_steps_on_their_own_lines() {
+        assert!(parse_module_text("def f (a: Nat): a = a := calc a = a := rfl\n").is_err());
+        assert!(parse_module_text("def f (a: Nat): a = a :=\n  calc a\n").is_err());
+        assert!(
+            parse_module_text("def f (a: Nat): a = a :=\n  calc a\n    _ = a\n   _ = a\n").is_err()
+        );
     }
 
     fn parse_module_text(text: &str) -> std::result::Result<Module, Vec<Diagnostic>> {
