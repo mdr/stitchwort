@@ -251,7 +251,7 @@ fn two_namespaced_files_in_one_session_have_separate_tests() {
 
 fn error_of(source: &str) -> Vec<stitchwort_syntax::Diagnostic> {
     let mut session = Session::new();
-    session.load("test.sw", source).err().expect("refused")
+    session.load("test.sw", source).expect_err("refused")
 }
 
 #[test]

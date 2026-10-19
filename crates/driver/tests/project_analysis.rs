@@ -260,3 +260,117 @@ fn an_import_path_isnt_read_through_an_import() {
     );
     assert_eq!(edges(&analysis, "Day"), ["A", "Cat"]);
 }
+
+#[test]
+fn a_wildcard_import_makes_an_edge() {
+    let analysis = read(&[
+        ("lib.sw", "namespace Lib\n\ndef f(): Nat := 1\n"),
+        (
+            "day.sw",
+            "namespace Day\n\nimport Lib (..)\n\ndef x(): Nat := 1\n",
+        ),
+    ]);
+    assert!(
+        analysis.diagnostics.is_empty(),
+        "{:#?}",
+        analysis.diagnostics
+    );
+    assert_eq!(edges(&analysis, "Day"), ["Lib"]);
+}
+
+const LIB_WITH_OTHER: &str = "namespace Lib\n\ntype Other = | MkO\n\ndef Other.v: Nat := 1\n";
+const OTHER: &str = "namespace Other\n\ndef v: Nat := 2\n";
+
+/// A name `import Lib (..)` brings is a short name, so as a qualifier it's
+/// that, not the project namespace of the same name: no edge to it.
+#[test]
+fn a_wildcard_name_used_as_a_qualifier_makes_no_edge() {
+    let day = "namespace Day\n\nimport Lib (..)\n\ndef x: Nat := Other.v\n";
+    let analysis = read(&[
+        ("lib.sw", LIB_WITH_OTHER),
+        ("other.sw", OTHER),
+        ("day.sw", day),
+    ]);
+    assert!(
+        analysis.diagnostics.is_empty(),
+        "{:#?}",
+        analysis.diagnostics
+    );
+    assert_eq!(edges(&analysis, "Day"), ["Lib"]);
+    // Mirror: if `Lib` doesn't declare `Other`, it is the namespace.
+    let analysis = read(&[
+        ("lib.sw", "namespace Lib\n\ndef f(): Nat := 1\n"),
+        ("other.sw", OTHER),
+        ("day.sw", day),
+    ]);
+    assert_eq!(edges(&analysis, "Day"), ["Lib", "Other"]);
+}
+
+#[test]
+fn a_wildcard_in_one_file_doesnt_change_a_siblings_edges() {
+    let analysis = read(&[
+        ("lib.sw", LIB_WITH_OTHER),
+        ("other.sw", OTHER),
+        (
+            "day1.sw",
+            "namespace Day\n\nimport Lib (..)\n\ndef x(): Nat := 1\n",
+        ),
+        ("day2.sw", "namespace Day\n\ndef y: Nat := Other.v\n"),
+    ]);
+    assert_eq!(edges(&analysis, "Day"), ["Lib", "Other"]);
+}
+
+#[test]
+fn wildcard_read_order_doesnt_matter() {
+    let files = [
+        ("a.sw", "namespace A\n\nimport C (..)\n\ndef x: Nat := y\n"),
+        (
+            "b.sw",
+            "namespace B\n\nimport A (..)\nimport C (..)\n\ndef z: Nat := x + y\n",
+        ),
+        ("c.sw", "namespace C\n\ndef y: Nat := 1\n"),
+    ];
+    let forward = read(&files);
+    let mut reversed_files = files;
+    reversed_files.reverse();
+    let reversed = read(&reversed_files);
+    for name in ["A", "B", "C"] {
+        assert_eq!(edges(&forward, name), edges(&reversed, name));
+    }
+    assert_eq!(edges(&forward, "B"), ["A", "C"]);
+    assert_eq!(
+        canonical_order(&forward, &all(&forward)),
+        canonical_order(&reversed, &all(&reversed))
+    );
+}
+
+/// `Lib` doesn't parse, so what its wildcard brings is unknown: `Day` makes
+/// its import edge but no qualified-name edges, and no cycle appears.
+#[test]
+fn a_wildcard_of_a_broken_namespace_invents_no_cycle() {
+    let analysis = read(&[
+        ("lib.sw", "namespace Lib\n\ndef := \n"),
+        (
+            "day.sw",
+            "namespace Day\n\nimport Lib (..)\n\ndef x: Nat := Other.v\n",
+        ),
+        (
+            "other.sw",
+            "namespace Other\n\nimport Day (..)\n\ndef v: Nat := 2\n",
+        ),
+    ]);
+    assert_eq!(edges(&analysis, "Day"), ["Lib"]);
+    assert_eq!(edges(&analysis, "Other"), ["Day"]);
+    assert!(canonical_order(&analysis, &all(&analysis)).is_ok());
+}
+
+/// A refused wildcard adds no names: the file's qualifiers are read as if
+/// the import weren't there. Its edges are those of an explicit import.
+#[test]
+fn refused_wildcards_add_no_names() {
+    let aoc =
+        "namespace Aoc\n\ntype Range = | MkR\n\ntype Other = | MkO\n\ndef Other.v: Nat := 1\n";
+    let day = "namespace Day\n\nimport Aoc.Range (..)\nimport Day (..)\n\ndef x: Nat := Other.v\n";
+    let analysis = read(&[("aoc.sw", aoc), ("other.sw", OTHER), ("day.sw", day)]);
+    assert_eq!(edges(&analysis, "Day"), ["Aoc", "Other"]);
+}

@@ -213,6 +213,8 @@ pub(crate) fn import_target<L: QualifierLevels>(
 pub(crate) enum WildcardSource {
     /// The short names, sorted, deduplicated.
     Names(Vec<String>),
+    /// A project namespace whose files didn't parse: names unknown.
+    Unknown,
     Refused(Refusal),
 }
 
@@ -228,8 +230,6 @@ pub(crate) enum Refusal {
     PartOf(String),
     /// Only the start of project namespace names.
     Prefix,
-    /// A project namespace: not available yet.
-    NotYet,
 }
 
 /// `key`'s last component.
@@ -1016,6 +1016,8 @@ impl Elaborator {
                 diagnostics.push(self.refused_wildcard(&refusal, k, &import.path));
                 self.scope.wildcard_failed.insert(file);
             }
+            // The namespace didn't parse: it isn't checked either.
+            Some(WildcardSource::Unknown) => {}
             None => {
                 diagnostics.push(
                     error(
@@ -1053,13 +1055,14 @@ impl Elaborator {
             return Some(WildcardSource::Refused(Refusal::Own));
         }
         if self.project_namespaces.contains(k) {
-            return Some(WildcardSource::Refused(Refusal::NotYet));
+            return Some(match self.project_names.get(k) {
+                Some(names) => WildcardSource::Names(names.iter().cloned().collect()),
+                None => WildcardSource::Unknown,
+            });
         }
-        let root = self.root();
-        let in_own = if root.is_empty() {
-            !k.starts_with("Std.")
-        } else {
-            k.starts_with(root)
+        let in_own = match own {
+            None => !k.starts_with("Std."),
+            Some(own) => k.starts_with(&format!("{own}.")),
         };
         if in_own {
             return Some(WildcardSource::Refused(Refusal::PartOfOwn));
@@ -1133,10 +1136,6 @@ impl Elaborator {
                     format!("`{shown}` is declared in {q}"),
                     note,
                 )
-            }
-            Refusal::NotYet => {
-                let message = "importing a project namespace with `(..)` isn't available yet";
-                return error("E-IMPORT-WILDCARD", path.span, message);
             }
             Refusal::Prefix => {
                 let prefix = format!("{k}.");

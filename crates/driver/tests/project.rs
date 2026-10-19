@@ -629,3 +629,197 @@ fn import_order_doesnt_matter() {
         assert_eq!(targets, ["A", "Cat"]);
     }
 }
+
+#[test]
+fn auto_uses_a_namespace_only_wildcard_imported() {
+    let zed = "namespace Zed
+
+type Token: Prop =
+  | MkToken
+
+def needsToken: [auto t: Token] -> Nat := 1
+
+def decZ: Decidable Token := Yes MkToken
+";
+    let alpha = "namespace Alpha
+
+import Zed (..)
+
+def client: Nat := needsToken
+
+test \"client\" := client == 1
+";
+    passes(&load(&[("zed.sw", zed), ("alpha.sw", alpha)]));
+    let (session, loaded) = load_target(
+        &[("zed.sw", zed), ("alpha.sw", alpha)],
+        &Target::Namespaces(vec!["Alpha".to_string()]),
+    );
+    let loaded = loaded.unwrap_or_else(|e| panic!("{e:#?}"));
+    assert_eq!(loaded.checked, ["Zed", "Alpha"]);
+    passes(&session);
+}
+
+const LIB_WITH_IMPORT: &str = "namespace Lib
+
+import Base (helper)
+
+type Range = { lo: Nat, hi: Nat }
+
+def Range.size (r: Range): Nat := r.hi + r.lo
+
+def libThing: Nat := helper
+";
+const BASE_HELPER: &str = "namespace Base\n\ndef helper: Nat := 1\n";
+
+#[test]
+fn a_wildcard_doesnt_bring_the_namespaces_imports() {
+    let day = |body: &str| format!("namespace Day\n\nimport Lib (..)\n\n{body}\n");
+    let files = |body: &str| {
+        [
+            ("base.sw", BASE_HELPER.to_string()),
+            ("lib.sw", LIB_WITH_IMPORT.to_string()),
+            ("day.sw", day(body)),
+        ]
+    };
+    let run = |body: &str| {
+        let owned = files(body);
+        let refs: Vec<(&str, &str)> = owned.iter().map(|(p, t)| (*p, t.as_str())).collect();
+        errors(&refs)
+    };
+    // `helper` is `Lib`'s own import, not `Lib`'s.
+    assert_eq!(codes(&run("def a: Nat := helper")), ["E-UNKNOWN-NAME"]);
+    // `Range.size` is inside `Range`.
+    assert_eq!(
+        codes(&run("def b (r: Range): Nat := size r")),
+        ["E-UNKNOWN-NAME"]
+    );
+    // `Range` and `libThing` are.
+    let owned =
+        files("def c (r: Range): Nat := Range.size r + libThing\n\ntest \"c\" := libThing == 1");
+    let refs: Vec<(&str, &str)> = owned.iter().map(|(p, t)| (*p, t.as_str())).collect();
+    passes(&load(&refs));
+}
+
+#[test]
+fn a_wildcard_isnt_shared_with_sibling_files() {
+    let found = errors(&[
+        ("lib.sw", "namespace Lib\n\ndef f: Nat := 1\n"),
+        (
+            "day1.sw",
+            "namespace Day\n\nimport Lib (..)\n\ndef a: Nat := f\n",
+        ),
+        ("day2.sw", "namespace Day\n\ndef b: Nat := f\n"),
+    ]);
+    assert_eq!(codes(&found), ["E-UNKNOWN-NAME"]);
+    assert!(found[0].message.contains("`f`"));
+}
+
+#[test]
+fn a_wildcard_brings_every_file_of_the_namespace() {
+    let session = load(&[
+        ("lib1.sw", "namespace Lib\n\ndef one: Nat := 1\n"),
+        ("lib2.sw", "namespace Lib\n\ndef two: Nat := 2\n"),
+        (
+            "day.sw",
+            "namespace Day\n\nimport Lib (..)\n\ntest \"both\" := one + two == 3\n",
+        ),
+    ]);
+    passes(&session);
+}
+
+#[test]
+fn adding_through_a_wildcard_is_foreign() {
+    let found = errors(&[
+        ("lib.sw", LIB),
+        (
+            "day.sw",
+            "namespace Day\n\nimport Lib (..)\n\ndef Range.extra (r: Range): Nat := 1\n",
+        ),
+    ]);
+    assert_eq!(codes(&found), ["E-FOREIGN-NAMESPACE"]);
+    assert!(
+        found[0].message.contains("belongs to namespace Lib"),
+        "{found:#?}"
+    );
+}
+
+#[test]
+fn wildcard_refusals_in_a_project() {
+    let day = |import: &str| format!("namespace Day\n\n{import}\n\ndef x: Nat := 1\n");
+    // Part of a namespace.
+    let found = errors(&[("lib.sw", LIB), ("day.sw", &day("import Lib.Range (..)"))]);
+    assert_eq!(codes(&found), ["E-IMPORT-WILDCARD"]);
+    assert!(found[0].message.contains("is part of namespace Lib"));
+    // Only the start of namespace names.
+    let found = errors(&[
+        ("d5.sw", "namespace Aoc.Day05\n\ndef y: Nat := 1\n"),
+        ("day.sw", &day("import Aoc (..)")),
+    ]);
+    assert!(
+        ["E-IMPORT-WILDCARD", "E-IMPORT-UNKNOWN"].contains(&found[0].code),
+        "{found:#?}"
+    );
+    // Its own namespace.
+    let found = errors(&[("day.sw", &day("import Day (..)"))]);
+    assert_eq!(codes(&found), ["E-IMPORT-WILDCARD"]);
+    assert!(found[0].message.contains("is this file's own namespace"));
+}
+
+#[test]
+fn wildcard_project_file_order_doesnt_change_hashes() {
+    let project = [
+        ("stitchwort.yaml", ""),
+        ("src/a.sw", "namespace A\n\ndef f: Nat := 1\n"),
+        (
+            "src/b.sw",
+            "namespace B\n\nimport A (..)\n\ndef g: Nat := f + 1\n\ntest \"g\" := g == 2\n",
+        ),
+        ("src/c.sw", "namespace A\n\ndef h: Nat := 5\n"),
+    ];
+    let run = |reversed: bool| {
+        let mut session = Session::new();
+        let loaded = session
+            .load_project(&memory(&project, reversed), "proj", &Target::Everything)
+            .unwrap_or_else(|e| panic!("{e:#?}"));
+        (
+            loaded.checked,
+            def_hash_of(&session, "A.f"),
+            def_hash_of(&session, "B.g"),
+        )
+    };
+    assert_eq!(run(false), run(true));
+}
+
+/// The pre-pass's table of a namespace's direct names is the set of
+/// single-component keys of the checked scope, for every accepted project
+/// (generated `%` names aside).
+#[test]
+fn the_names_table_matches_the_scope() {
+    let root =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/projects/accept");
+    let mut dirs: Vec<_> = std::fs::read_dir(&root)
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .filter(|p| p.is_dir())
+        .collect();
+    dirs.sort();
+    for dir in dirs {
+        let name = dir.file_name().unwrap().to_string_lossy().to_string();
+        let mut session = Session::new();
+        let files = stitchwort_driver::project::DiskFiles { root: dir };
+        let loaded = session
+            .load_project(&files, &name, &Target::Everything)
+            .unwrap_or_else(|e| panic!("{name}: {e:#?}"));
+        for namespace in &loaded.checked {
+            let table = session
+                .elab
+                .project_names(namespace)
+                .unwrap_or_else(|| panic!("{name}: no names for {namespace}"));
+            assert_eq!(
+                table,
+                &session.elab.direct_keys(namespace),
+                "{name}: {namespace}"
+            );
+        }
+    }
+}
