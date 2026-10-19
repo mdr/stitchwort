@@ -1429,6 +1429,14 @@ def Nat.toText (n : Nat) : Text := MkText (Nat.digitsOnto (Succ n) n Nil)
 -- Itself: so `"${t}"` works when `t` is already text.
 def Text.toText (t : Text) : Text := t
 
+-- The character on its own: `'a'.toText` is `"a"`.
+def Char.toText (c : Char) : Text := MkText [c]
+
+-- `"True"` or `"False"`, as the constructors are written.
+def Bool.toText : Bool -> Text
+  | True  => "True"
+  | False => "False"
+
 def Maybe.andThen (f : a -> Maybe b) : Maybe a -> Maybe b
   | Nothing => Nothing
   | Just x  => f x
