@@ -2,6 +2,29 @@
 
 Stitchwort's guarantees are only as good as the compiler's correctness, so the tests have several layers. Each layer catches mistakes the others can't.
 
+## Running a subset
+
+`dev/t` runs just the tests for the area you changed, instead of the full gate. Use these lanes while working; run the full gate (`dev/t gate`) once before merging.
+
+| Area | Runs |
+|---|---|
+| `dev/t syntax` | `stitchwort-syntax`: layout fuzzing and unit tests |
+| `dev/t core` | `stitchwort-core`: all integration tests |
+| `dev/t elab` | `stitchwort-elab`: unit tests |
+| `dev/t driver` | `stitchwort-driver`: all integration tests |
+| `dev/t js` | `stitchwort-js`, plus the CLI `extract` and `run_js` tests |
+| `dev/t cli` | `stitchwort-cli`: all integration tests |
+| `dev/t examples` | `stitchwort-cli --test examples` (every example, with snapshots; FILTER picks one of its three test functions, e.g. `reject`, not individual example files) |
+| `dev/t hashes` | `stitchwort-driver --test hash_stability` |
+| `dev/t bench` | `stitchwort-bench`: the benchmark baseline check |
+| `dev/t web` | `stitchwort-web`: unit tests only (browser tests are `dev/t browser`) |
+| `dev/t browser` | Build and run the playground tests in headless Chrome |
+| `dev/t lint` | `cargo fmt --check` and clippy |
+| `dev/t all` | Every test in the workspace |
+| `dev/t gate` | `nix flake check`, the full gate (6-7 minutes) |
+
+`dev/t AREA FILTER` passes `FILTER` as the test-name filter, for example `dev/t examples reject`. `dev/t snap AREA` sets `INSTA_UPDATE=always` and then prints the changed snapshots for review. Outside `nix develop` the script runs commands through `nix develop -c`; inside the dev shell it calls `cargo` directly.
+
 | Layer | Where | What it catches |
 |---|---|---|
 | **Example programs** | `examples/`, run by `crates/cli/tests/examples.rs` | Whether the language behaves as designed, end to end. Rejections must have the expected error code, and error messages are snapshot-tested. This is the main suite, and it's readable without knowing the implementation. |

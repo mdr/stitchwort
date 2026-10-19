@@ -1,0 +1,146 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+export CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-3}"
+
+usage() {
+  cat <<'EOF'
+Usage: dev/t AREA [FILTER]
+       dev/t snap AREA [FILTER]
+       dev/t help
+
+Run just the tests for one area instead of the full gate.
+
+Areas:
+  syntax     stitchwort-syntax (fuzz layout and unit tests)
+  core       stitchwort-core (all integration tests)
+  elab       stitchwort-elab (unit tests)
+  driver     stitchwort-driver (all integration tests)
+  js         stitchwort-js plus the CLI extract and run_js tests
+  cli        stitchwort-cli (all integration tests)
+  examples   stitchwort-cli --test examples
+  hashes     stitchwort-driver --test hash_stability
+  bench      stitchwort-bench
+  web        stitchwort-web (unit tests; browser tests are `dev/t browser`)
+  browser    web/build.sh then web/test.sh
+  lint       cargo fmt --check and clippy
+  all        cargo test --release --workspace
+  gate       nix flake check (the full gate, 6-7 minutes)
+
+FILTER is passed as the test-name filter after `--`.
+
+`dev/t snap AREA` is the same, but with INSTA_UPDATE=always. It prints the
+changed snapshot files afterwards so they can be reviewed.
+
+Commands run under `nix develop -c` unless already inside the dev shell.
+CARGO_BUILD_JOBS is respected; it defaults to 3.
+EOF
+}
+
+run_cargo() {
+  if [[ -n "${IN_NIX_SHELL:-}" ]]; then
+    cargo "$@"
+  else
+    nix develop -c cargo "$@"
+  fi
+}
+
+snap=0
+if [[ "${1:-}" == "snap" ]]; then
+  snap=1
+  shift
+fi
+
+if [[ $# -eq 0 ]]; then
+  usage >&2
+  exit 2
+fi
+
+area="$1"
+shift
+
+if [[ $# -gt 1 ]]; then
+  usage >&2
+  exit 2
+fi
+filter="${1:-}"
+
+if [[ "$area" == "help" ]]; then
+  usage
+  exit 0
+fi
+
+if [[ "$snap" -eq 1 ]]; then
+  export INSTA_UPDATE=always
+fi
+
+args=()
+case "$area" in
+  syntax)
+    args=(-p stitchwort-syntax)
+    ;;
+  core)
+    args=(-p stitchwort-core)
+    ;;
+  elab)
+    args=(-p stitchwort-elab)
+    ;;
+  driver)
+    args=(-p stitchwort-driver)
+    ;;
+  js)
+    # Two runs: `--test` would also narrow stitchwort-js to those targets
+    # and skip its own unit tests.
+    if [[ -n "$filter" ]]; then run_cargo test --release -p stitchwort-js -- "$filter"
+    else run_cargo test --release -p stitchwort-js; fi
+    args=(-p stitchwort-cli --test extract --test run_js)
+    ;;
+  cli)
+    args=(-p stitchwort-cli)
+    ;;
+  examples)
+    args=(-p stitchwort-cli --test examples)
+    ;;
+  hashes)
+    args=(-p stitchwort-driver --test hash_stability)
+    ;;
+  bench)
+    args=(-p stitchwort-bench)
+    ;;
+  web)
+    echo "note: browser tests are not run here; use \`dev/t browser\`" >&2
+    args=(-p stitchwort-web)
+    ;;
+  browser)
+    nix develop -c ./web/build.sh
+    nix develop -c ./web/test.sh
+    exit 0
+    ;;
+  lint)
+    nix develop -c cargo fmt --check
+    nix develop -c cargo clippy --release --all-targets -- --deny warnings
+    exit 0
+    ;;
+  all)
+    args=(--workspace)
+    ;;
+  gate)
+    echo "the full gate, 6-7 minutes"
+    CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-3}" nix flake check
+    exit 0
+    ;;
+  *)
+    usage >&2
+    exit 2
+    ;;
+esac
+
+if [[ -n "$filter" ]]; then
+  args+=(-- "$filter")
+fi
+
+run_cargo test --release "${args[@]}"
+
+if [[ "$snap" -eq 1 ]]; then
+  git status --short | grep snap || true
+fi
