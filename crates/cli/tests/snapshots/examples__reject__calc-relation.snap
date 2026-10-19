@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-CALC-RELATION] Error: `<=` can't be chained on this type
+   ╭─[ reject/calc-relation.sw:6:7 ]
+   │
+ 6 │     _ <= ys
+   │       ─┬  
+   │        ╰── `<=` steps are on `Nat`, but this chain is on `List Nat`
+   │ 
+   │ Note: a chain of `=` steps works at any type; `<=` and `<` only on `Nat` for now
+───╯

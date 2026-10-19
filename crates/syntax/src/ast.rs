@@ -115,8 +115,28 @@ pub enum Expr {
         fields: Vec<(Name, Expr)>,
         span: Span,
     },
+    /// `calc e0` followed by steps `_ = e1 := proof`, one per line
+    /// (docs/syntax.md, calc): a chain of relations from `e0` to the last
+    /// step's expression.
+    Calc {
+        first: Box<Expr>,
+        steps: Vec<CalcStep>,
+        span: Span,
+    },
     /// Field access `e.name`.
     Field(Box<Expr>, Name),
+}
+
+/// One line of a `calc`: `_ R rhs := proof`. `R` is `=`, `<=` or `<` (as a
+/// [`BinOp`]); without a proof the step is closed by computation.
+#[derive(Clone, Debug)]
+pub struct CalcStep {
+    pub rel: BinOp,
+    pub rel_span: Span,
+    pub rhs: Expr,
+    pub proof: Option<Expr>,
+    /// From the `_` to the end of the line's proof or expression.
+    pub span: Span,
 }
 
 /// A local `def` or `theorem`, lowered as at top level: a
@@ -260,6 +280,7 @@ impl Expr {
             | Expr::LocalDefs { span, .. }
             | Expr::Record { span, .. }
             | Expr::Handle { span, .. }
+            | Expr::Calc { span, .. }
             | Expr::Match { span, .. } => *span,
             Expr::Field(e, name) => e.span().to(name.span),
             Expr::Effect(..)
@@ -314,6 +335,12 @@ fn has_nested(expr: &Expr) -> bool {
             ty, value, body, ..
         } => ty.as_deref().is_some_and(nested) || nested(value) || nested(body),
         Expr::Handle { body, .. } => nested(body),
+        Expr::Calc { first, steps, .. } => {
+            nested(first)
+                || steps
+                    .iter()
+                    .any(|s| nested(&s.rhs) || s.proof.as_ref().is_some_and(nested))
+        }
         Expr::LocalDefs { body, .. } => nested(body),
         Expr::Match {
             scrutinees, alts, ..
@@ -388,6 +415,15 @@ fn take_children(expr: &mut Expr, pending: &mut Vec<Expr>) {
             take(body);
         }
         Expr::Handle { body, .. } => take(body),
+        Expr::Calc { first, steps, .. } => {
+            take(first);
+            for step in steps {
+                pending.push(std::mem::replace(&mut step.rhs, Expr::Prop(Span::NOWHERE)));
+                if let Some(proof) = &mut step.proof {
+                    pending.push(std::mem::replace(proof, Expr::Prop(Span::NOWHERE)));
+                }
+            }
+        }
         // A long block of local definitions nests its rest here.
         Expr::LocalDefs { body, .. } => take(body),
         // A pattern `let` nests the rest of its block in its alternative,

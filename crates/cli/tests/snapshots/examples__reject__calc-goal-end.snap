@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-CALC-GOAL] Error: the chain proves `a = c`, but `a = d` is expected
+   ╭─[ reject/calc-goal-end.sw:6:9 ]
+   │
+ 6 │     _ = c := h2
+   │         ┬  
+   │         ╰── the last line, `c`, differs from the goal's right side `d`
+───╯

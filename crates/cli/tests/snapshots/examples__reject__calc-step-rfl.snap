@@ -1,0 +1,17 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-CALC-STEP] Error: this step doesn't prove what its line says
+   ╭─[ reject/calc-step-rfl.sw:5:18 ]
+   │
+ 5 │     _ = 1 + n := rfl
+   │                  ─┬─  
+   │                   ╰─── `n + 1` and `1 + n` aren't equal
+   │ 
+   │ Note 1: the line says `n + 1 = 1 + n`
+   │ 
+   │ Note 2: computing the right side gives `Succ n`
+   │ 
+   │ Note 3: `rfl` proves `a = b` only when both sides compute to the same value
+───╯

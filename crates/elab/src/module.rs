@@ -1644,6 +1644,14 @@ fn free_names(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
                 out.push(Ref::Dot(field, field.text.clone()));
                 stack.push(Work::Expr(e));
             }
+            Expr::Calc { first, steps, .. } => {
+                let mut steps_work = vec![Work::Expr(first)];
+                for step in steps {
+                    steps_work.push(Work::Expr(&step.rhs));
+                    steps_work.extend(step.proof.iter().map(Work::Expr));
+                }
+                then(&mut stack, steps_work);
+            }
             Expr::Effect(row, ty) => {
                 let mut steps: Vec<Work> = row.abilities.iter().map(Work::Expr).collect();
                 steps.extend(row.tail.iter().map(Work::Name));
