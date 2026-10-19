@@ -90,6 +90,9 @@ pub struct Elaborator {
     obligations: RefCell<Vec<auto::Obligation>>,
     /// Metavariables that literals made `Nat` in the current declaration.
     defaulted: RefCell<Vec<numbers::Defaulted>>,
+    /// The characters whose patterns became number patterns (by span), so
+    /// a missing case can be reported as characters.
+    char_patterns: RefCell<HashMap<Span, char>>,
     /// While the prelude is loaded, its built-in types and natively
     /// implemented definitions are registered with the kernel by name.
     pub loading_prelude: bool,
@@ -231,6 +234,19 @@ fn negative_nat(span: Span) -> Diagnostic {
 
 /// Lists numbers for an error: all of up to five, or the first five and `…`.
 /// `count` is how many `keys` yields.
+/// A character as written inside single quotes in source.
+fn escape_char(c: char) -> String {
+    match c {
+        '\n' => "\\n".into(),
+        '\t' => "\\t".into(),
+        '\r' => "\\r".into(),
+        '\\' => "\\\\".into(),
+        '\'' => "\\'".into(),
+        c if c.is_ascii_graphic() || c == ' ' || c.is_alphanumeric() => c.to_string(),
+        c => format!("\\u{{{:X}}}", u32::from(c)),
+    }
+}
+
 fn list_numbers(keys: impl Iterator<Item = String>, count: usize) -> String {
     let mut shown: Vec<String> = keys.take(5).collect();
     match (count, shown.pop()) {
@@ -1964,11 +1980,28 @@ impl Elaborator {
             }
         }
         if others.is_empty() {
-            let listed = list_numbers(by_key.keys().map(|k| k.to_string()), by_key.len());
+            let chars = self.char_patterns.borrow();
+            let as_chars: Option<Vec<String>> = by_key
+                .values()
+                .map(|rs| match &*rows[rs[0]].pats[j] {
+                    Pattern::Num(_, s) => chars.get(s).map(|c| format!("'{}'", escape_char(*c))),
+                    _ => None,
+                })
+                .collect();
+            let (what, listed) = match as_chars {
+                Some(items) => {
+                    let n = items.len();
+                    ("characters", list_numbers(items.into_iter(), n))
+                }
+                None => (
+                    "numbers",
+                    list_numbers(by_key.keys().map(|k| k.to_string()), by_key.len()),
+                ),
+            };
             return Err(error(
                 "E-NONEXHAUSTIVE",
                 span,
-                format!("missing case: no arm matches numbers other than {listed}"),
+                format!("missing case: no arm matches {what} other than {listed}"),
             )
             .with_note("add an arm with a variable or `_` in that position"));
         }
@@ -2104,6 +2137,7 @@ impl Elaborator {
             // `'L'` is `MkChar 76 _`.
             Pattern::Char(c, span) => {
                 let (data, ctor) = self.builtin_ctor(Builtin::MkChar, *span)?;
+                self.char_patterns.borrow_mut().insert(*span, *c);
                 Ok(Some(CtorPattern {
                     data,
                     ctor,

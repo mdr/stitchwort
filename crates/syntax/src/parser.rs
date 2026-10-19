@@ -216,6 +216,26 @@ impl<'t> Parser<'t> {
                 .tokens
                 .get(i)
                 .is_some_and(|t| t.line_start && t.column <= limit)
+            && !self.continues_bracket(i)
+    }
+
+    /// Whether the token at `i`, a `,` or a closing bracket, is inside an
+    /// open bracket: such a line continues it however far left it starts
+    /// (`, "c"` or `]` on a line of its own below a list's `[`).
+    #[inline(never)]
+    fn continues_bracket(&self, i: usize) -> bool {
+        if !matches!(
+            self.tokens[i].tok,
+            Tok::Comma | Tok::RBracket | Tok::RParen | Tok::RBrace
+        ) {
+            return false;
+        }
+        let depth = self.tokens[..i].iter().fold(0i64, |d, t| match t.tok {
+            Tok::LBracket | Tok::LParen | Tok::LBrace => d + 1,
+            Tok::RBracket | Tok::RParen | Tok::RBrace => d - 1,
+            _ => d,
+        });
+        depth > 0
     }
 
     fn peek(&self) -> Option<&'t Tok> {
@@ -311,6 +331,9 @@ impl<'t> Parser<'t> {
     fn tuple_expr(&mut self, first: Expr, span: Span) -> Result<Expr> {
         let mut items = vec![first];
         while self.eat(&Tok::Comma) {
+            if self.peek() == Some(&Tok::RParen) && items.len() >= 2 {
+                break;
+            }
             items.push(self.expr()?);
         }
         if self.peek() == Some(&Tok::Colon) {
@@ -335,6 +358,9 @@ impl<'t> Parser<'t> {
     fn tuple_pattern(&mut self, first: Pattern, span: Span) -> Result<Pattern> {
         let mut items = vec![first];
         while self.eat(&Tok::Comma) {
+            if self.peek() == Some(&Tok::RParen) && items.len() >= 2 {
+                break;
+            }
             items.push(self.tuple_component()?);
         }
         let end = self.expect(Tok::RParen, "`)`")?.span;
@@ -523,6 +549,9 @@ impl<'t> Parser<'t> {
                 let mut tail = None;
                 if self.peek() != Some(&Tok::RBracket) {
                     loop {
+                        if self.peek() == Some(&Tok::RBracket) {
+                            break;
+                        }
                         if self.eat(&Tok::DotDot) {
                             // `..rest`: the tail pattern, which must be last.
                             tail = Some(self.pattern()?);
@@ -610,6 +639,9 @@ impl<'t> Parser<'t> {
                     rest = true;
                     break;
                 }
+                if self.peek() == Some(&Tok::RBrace) {
+                    break;
+                }
                 let name = self.lower("a field name, or `..`")?;
                 let pattern = if self.eat(&Tok::Equals) {
                     // A constructor's arguments run to the next `,` or `}`.
@@ -641,7 +673,7 @@ impl<'t> Parser<'t> {
         })
     }
 
-    fn data(&mut self) -> Result<Decl> {
+    fn data(&mut self) -> Result<Vec<Decl>> {
         let start = self.bump().span;
         let name = self.upper_q("a data type name (starting with an uppercase letter)")?;
         let mut params = Vec::new();
@@ -656,6 +688,9 @@ impl<'t> Parser<'t> {
         let mut ctors = Vec::new();
         let mut record = false;
         if self.eat(&Tok::Equals) {
+            if !matches!(self.peek(), Some(Tok::LBrace | Tok::Pipe)) {
+                return self.type_synonym(start, name, params, sort);
+            }
             if self.peek() == Some(&Tok::LBrace) {
                 record = true;
                 ctors.push(self.record_fields(&name)?);
@@ -676,14 +711,14 @@ impl<'t> Parser<'t> {
                 }
             }
         }
-        Ok(Decl::Data {
+        Ok(vec![Decl::Data {
             span: start.to(self.prev_span()),
             name,
             params,
             sort,
             ctors,
             record,
-        })
+        }])
     }
 
     /// A record's fields, `{ name : Text, age : Nat }`, as the one
@@ -694,6 +729,9 @@ impl<'t> Parser<'t> {
         let mut fields = Vec::new();
         if self.peek() != Some(&Tok::RBrace) {
             loop {
+                if self.peek() == Some(&Tok::RBrace) {
+                    break;
+                }
                 let field = self.lower("a field name")?;
                 self.expect(Tok::Colon, "`:`")?;
                 let ty = self.expr()?;
@@ -1703,6 +1741,9 @@ impl<'t> Parser<'t> {
         };
         let mut fields = Vec::new();
         loop {
+            if self.peek() == Some(&Tok::RBrace) && !fields.is_empty() {
+                break;
+            }
             let name = self.lower("a field name")?;
             let value = if self.eat(&Tok::Equals) {
                 self.expr()?
@@ -1720,6 +1761,23 @@ impl<'t> Parser<'t> {
             fields,
             span: start.to(end),
         })
+    }
+
+    #[inline(never)]
+    fn list_expr(&mut self, span: Span) -> Result<Expr> {
+        self.bump();
+        let mut items = Vec::new();
+        if self.peek() != Some(&Tok::RBracket) {
+            items.push(self.expr()?);
+            while self.eat(&Tok::Comma) {
+                if self.peek() == Some(&Tok::RBracket) {
+                    break;
+                }
+                items.push(self.expr()?);
+            }
+        }
+        let end = self.expect(Tok::RBracket, "`,` or `]`")?.span;
+        Ok(Expr::List(items, span.to(end)))
     }
 
     fn atom_base(&mut self) -> Result<Expr> {
@@ -1792,18 +1850,7 @@ impl<'t> Parser<'t> {
                 let end = self.expect(Tok::RBracket, "`]`")?.span;
                 Ok(Expr::NamedArg(name, Box::new(value), span.to(end)))
             }
-            Some(Tok::LBracket) => {
-                self.bump();
-                let mut items = Vec::new();
-                if self.peek() != Some(&Tok::RBracket) {
-                    items.push(self.expr()?);
-                    while self.eat(&Tok::Comma) {
-                        items.push(self.expr()?);
-                    }
-                }
-                let end = self.expect(Tok::RBracket, "`,` or `]`")?.span;
-                Ok(Expr::List(items, span.to(end)))
-            }
+            Some(Tok::LBracket) => self.list_expr(span),
             Some(Tok::LBrace) => self.record_expr(),
             Some(Tok::Dot) => self.section_start(),
             _ => Err(self.unexpected("an expression")),

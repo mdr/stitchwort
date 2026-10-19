@@ -194,9 +194,15 @@ def count (xs : List Nat) : Nat := List.length xs
 - **A short name** means, in order: a local variable, the file's own declaration (or a constructor or operation of the file's own type or ability), an import, or the default. The first that has it decides, so a file can define its own `length` or `Maybe`; hiding `Maybe` hides its `Just` and `Nothing` too (they're still `Std.Maybe.Just`). Two different things at the same level are an error only where the name is used (`E-AMBIGUOUS`): write the full name.
 - **Syntax always means the library's**: `+`, `==`, `++`, `if`, literals and `()` don't depend on what names a file declares.
 
+## Type synonyms and bracket layout
+
+**Type synonyms.** `type Grid = List (List Nat)` is `def Grid : Type := List (List Nat)`: a transparent name, interchangeable with what it stands for, with its own namespace (`def Grid.rolls (g : Grid) …`, then `g.rolls`). Parameters are written as binders, `type Matrix (a : Type) = List (List a)`, and the type can be a tuple, `type Point = (Nat, Nat)`. After `=`, `{` starts a record and `|` a sum type's constructors (each constructor starts with its own `|`, even a single one: `type T = | Foo (x : Nat)`); anything else is the type. `type T = A | B` and `type T = Foo (x : Nat)` look like sums without their `|`, so they're `E-PARSE` with a note saying so (`examples/accept/type-synonyms.sw`, `examples/reject/type-synonym-*.sw`).
+
+**Brackets continue lines.** Inside `[ ]`, `( )` and `{ }`, a line starting with `,` or a closing bracket continues the bracket however far left it starts, so a list can be laid out with leading commas (`examples/accept/list-literal-layout.sw`). A trailing comma is allowed in list, tuple and record expressions and patterns, and in a record declaration's fields.
+
 ## Records
 
-A record declaration makes a new type with named fields (docs/proposals/records.md, stage 1). Two record types with the same fields are different types. An alias is an ordinary definition instead.
+A record declaration makes a new type with named fields (docs/proposals/records.md, stage 1). Two record types with the same fields are different types. An alias is a type synonym instead (above).
 
 ```
 type Person = { name : Text, age : Nat }

@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-NONEXHAUSTIVE] Error: missing case: no arm matches characters other than '\n', '\'' and 'x'
+   ╭─[ reject/char-patterns-escapes.sw:4:3 ]
+   │
+ 4 │ ╭─▶   | '\n' => True
+   ┆ ┆   
+ 6 │ ├─▶   | 'x' => True
+   │ │                     
+   │ ╰───────────────────── missing case: no arm matches characters other than '\n', '\'' and 'x'
+   │     
+   │     Note: add an arm with a variable or `_` in that position
+───╯

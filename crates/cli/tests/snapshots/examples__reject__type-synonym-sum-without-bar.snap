@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: `type T = …` names a type, but this looks like a constructor with named fields, without its leading `|`
+   ╭─[ reject/type-synonym-sum-without-bar.sw:4:10 ]
+   │
+ 4 │ type T = Foo (x : Nat)
+   │          ──────┬──────  
+   │                ╰──────── `type T = …` names a type, but this looks like a constructor with named fields, without its leading `|`
+   │ 
+   │ Note: a sum type's constructors each start with `|`: `type T = | A | B`, and `type T = | Foo (x : Nat)` for one constructor; a record is `type T = { … }`
+───╯

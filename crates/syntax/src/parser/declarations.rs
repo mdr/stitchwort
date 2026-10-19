@@ -35,7 +35,7 @@ impl Parser<'_> {
     pub(super) fn decl(&mut self) -> Result<Vec<Decl>> {
         let start = self.here();
         match self.peek() {
-            Some(Tok::KwType) => Ok(vec![self.data()?]),
+            Some(Tok::KwType) => self.data(),
             Some(Tok::KwAbility) => Ok(vec![self.ability()?]),
             Some(Tok::KwTest) => Ok(vec![self.test()?]),
             Some(Tok::KwExport) => {
@@ -202,6 +202,74 @@ impl Parser<'_> {
             ));
         }
         Ok(decls)
+    }
+
+    /// `type Grid = List (List Nat)`: a transparent name for a type, exactly
+    /// `def Grid : Type := List (List Nat)`. After `=`, `{` starts a record's
+    /// fields and `|` a sum's constructors; anything else is the type.
+    #[inline(never)]
+    pub(super) fn type_synonym(
+        &mut self,
+        start: Span,
+        name: Name,
+        params: Vec<crate::ast::Binder>,
+        sort: Option<Expr>,
+    ) -> Result<Vec<Decl>> {
+        let body = self.expr()?;
+        let ambiguous = |what: &str| {
+            error(
+                body.span(),
+                format!(
+                    "`type {} = …` names a type, but this looks like {what}",
+                    name.text
+                ),
+            )
+            .with_note(
+                "a sum type's constructors each start with `|`: `type T = | A | B`, and \
+                 `type T = | Foo (x : Nat)` for one constructor; a record is `type T = { … }`",
+            )
+        };
+        if self.peek() == Some(&Tok::Pipe) {
+            return Err(ambiguous("a sum type without its leading `|`"));
+        }
+        let mut spine = &body;
+        while let Expr::App(f, arg) = spine {
+            if matches!(**arg, Expr::Ann(..)) {
+                return Err(ambiguous(
+                    "a constructor with named fields, without its leading `|`",
+                ));
+            }
+            spine = f;
+        }
+        let params: Vec<Param> = params
+            .into_iter()
+            .map(|b| Param::Named {
+                span: b.names[0].span.to(b.ty.span()),
+                names: b.names,
+                ty: b.ty,
+                implicit: false,
+                auto: false,
+            })
+            .collect();
+        let result = sort.unwrap_or(Expr::Type(0, name.span));
+        check_duplicates(&name, &params, &result)?;
+        let (ty, header) = lower_header(params, result);
+        Ok(vec![
+            Decl::Signature {
+                name: name.clone(),
+                ty,
+                theorem: false,
+                export: false,
+                span: start.to(name.span),
+            },
+            Decl::Equation {
+                span: name.span.to(body.span()),
+                name,
+                patterns: header,
+                rhs: Some(body),
+                arm: None,
+            },
+        ])
     }
 
     /// One parameter in a header: `(x y : A)`, `[x y : A]`, `[auto h : P]`

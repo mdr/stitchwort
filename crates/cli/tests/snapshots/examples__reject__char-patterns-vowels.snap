@@ -1,0 +1,14 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-NONEXHAUSTIVE] Error: missing case: no arm matches characters other than 'a' and 'e'
+   ╭─[ reject/char-patterns-vowels.sw:3:3 ]
+   │
+ 3 │ ╭─▶   | 'a' => True
+ 4 │ ├─▶   | 'e' => True
+   │ │                     
+   │ ╰───────────────────── missing case: no arm matches characters other than 'a' and 'e'
+   │     
+   │     Note: add an arm with a variable or `_` in that position
+───╯

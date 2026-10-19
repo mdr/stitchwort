@@ -2,13 +2,13 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-NONEXHAUSTIVE] Error: missing case: no arm matches numbers other than 97 and 98
+[E-NONEXHAUSTIVE] Error: missing case: no arm matches characters other than 'a' and 'b'
    ╭─[ reject/char-patterns-missing-case.sw:4:3 ]
    │
  4 │ ╭─▶   | 'a' => True
  5 │ ├─▶   | 'b' => True
    │ │                     
-   │ ╰───────────────────── missing case: no arm matches numbers other than 97 and 98
+   │ ╰───────────────────── missing case: no arm matches characters other than 'a' and 'b'
    │     
    │     Note: add an arm with a variable or `_` in that position
 ───╯
