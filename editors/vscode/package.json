@@ -2,7 +2,7 @@
   "name": "stitchwort",
   "displayName": "Stitchwort",
   "description": "Syntax colouring for Stitchwort (.sw) files",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "publisher": "local",
   "private": true,
   "engines": { "vscode": "^1.60.0" },

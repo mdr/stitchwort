@@ -2,7 +2,8 @@
 
 Syntax colouring for `.sw` files. Grammar only, no runtime code. Tokens follow
 `crates/syntax/src/lexer.rs` (keywords, `--` line comments, no block comments,
-`"` strings and `'` chars with escapes) and the playground highlighter in
+`"` strings with `${…}` interpolation and escapes, and `'` chars with escapes)
+and the playground highlighter in
 `web/index.html`. If the lexer changes, update `syntaxes/stitchwort.tmLanguage.json`.
 
 ## Install
