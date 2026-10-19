@@ -1743,6 +1743,38 @@ decisions:
   `examples/accept/int-grid.sw` (a walk below zero, Manhattan distance by
   `Int.natAbs`, and a torus whose cells carry `Int.modNatLt` bounds).
 
+### As built (stage 7)
+
+Documents updated:
+
+- **DESIGN.md §10:** `Int` division is Euclidean (`Int.div`/`Int.mod`); the
+  truncating (`Int.tdiv`/`Int.tmod`) and flooring (`Int.fdiv`/`Int.fmod`)
+  variants are named; the claim that division matches JS `BigInt` and can use
+  its operators directly is gone; literals are typed by context; the
+  `3 - 5` trap is described (`let d := 3 - 5` is a `Nat`, `0`).
+- **DESIGN.md §12:** `Int` is supported in the boundary table as a `bigint`
+  (and in the supported-codec list); the division note is Euclidean, with a
+  one-step correction to `BigInt`'s truncating `/` and `%`, while
+  `Int.tdiv`/`Int.tmod` use them directly.
+- **DESIGN.md §13:** the native-arithmetic row records that `Int` has no
+  kernel natives (K1); the extracted-JS natives row gains the 23 `Int`
+  natives and the two fallbacks (one operation, or the whole `Int`
+  representation).
+- **docs/syntax.md:** the numeric rules (literals, negative literals, unary
+  minus and its precedence, groups) and `Int` patterns are stated; the
+  literal rule now says a non-negative literal defaults to `Nat`, a negative
+  one is always `Int`, and `-0` is `0`.
+- **docs/core.md:** "Numbers" describes `Int` as `OfNat Nat | NegSucc Nat`,
+  lists the main operations, and records that it has no kernel natives.
+
+The DESIGN.md summary tables that still said `Int` division truncates, or that
+there was no `Int` yet, are corrected too.
+
+**Not updated:** `namespaces.md` §4.7 and §8. The "Documents to update" list
+names them, but neither it nor "The reviewer's questions, answered" gives the
+per-type operator entries or the answer to namespaces R6 (this note's R6 is
+about number patterns), so there was nothing to copy that this note backs.
+
 ## Recommendation
 
 - **Representation A** (`OfNat Nat | NegSucc Nat`) and **K1** (no kernel

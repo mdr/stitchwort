@@ -15,7 +15,7 @@ The core is the small, explicit language that every Stitchwort definition is tra
 | Tracked assumptions | There's no `assume` yet, so every checked definition is assumption-free |
 | Evaluation budget, "inconclusive" results | Not yet. Evaluation is guaranteed to terminate, but may be slow |
 | Caching (§11) | Test results are cached by content hash. Kernel checks and generated JS aren't cached yet, and nothing is cached across elaboration |
-| Numbers | `Nat` only; no `Int` yet. Numbers are native and can be any size (see [Numbers](#numbers)) |
+| Numbers | `Nat`, plus `Int` as a data type over `Nat`. `Nat` numbers are native and can be any size (see [Numbers](#numbers)) |
 | Pattern matching | Nested patterns, but no overlap warnings |
 | Declaration order | Free: every name is visible throughout its module, definitions may call each other ([groups](#groups-of-definitions)), and data types may refer to each other ([data groups](#groups-of-data-types)) |
 | Data types | Parameters but no indices. Equality is the only built-in indexed type |
@@ -179,7 +179,9 @@ Normalisation by evaluation (`crates/core/src/value.rs`):
 - **Arithmetic lemmas.** The prelude proves, in `Std.Nat`, by induction and `Eq.cong`/`Eq.trans`: `addZero`, `addSucc`, `addComm`, `addAssoc`, `addCancelLeft`; `mulZero`, `mulOne`, `mulSucc`, `mulComm`, `mulAssoc`, `mulDistribLeft`, `mulDistribRight`; `leRefl`, `leTrans`, `leAntisym`, `zeroLe`, `leSucc`, `leAddRight`, `leAddLeft`, `lessIrrefl`, `lessTrans`, `lessLe`; `subSelf`, `addSub`, `subLe`; and `divMod` (`n = (n / d) * d + n % d`) and `modLess` (`n % d < d`), each taking a proof that `d != 0`. Division with remainder is unique (`divUnique`, `modUnique`: `n = q * d + r` with `r < d` gives `n / d = q` and `n % d = r`), with `modSmall`, `divSmall`, `addDivSelf`, `addModSelf`, `modSelf` and `divOne`, which take an `auto` proof. Their helpers (`divMulLe`, `divFuelLe`, `divFuelBound`, `subLtAdd`, and others) are in the prelude too. `n % d` is defined as `n - (n / d) * d`, with the quotient on the left: multiplication recurses on its left argument, so with a literal divisor and an unknown quotient it stays put, where `d * (n / d)` would unfold into `d` additions while checking. `LessEq` and `LessThan` are the `Bool` `Nat.leq` made into propositions, so a `Nat.leq m n = True` proof is already an `m <= n` proof.
 - **Trust.** The native implementations are trusted (DESIGN.md §13). They're registered by name only while the prelude loads, and registration checks each definition's type and arity, and that `Nat`, `Bool` and `Decidable` have the expected shapes (`E-BUILTIN`). `crates/driver/tests/natives.rs` compares the whole result of each (not just its constructor) with its own definition on every small input and on random larger ones, and with one step of its definition on numbers above 2^64.
 
-Extracted JS uses native `bigint` arithmetic for the same definitions.
+**`Int`** is a data type, not a new kernel value: `type Int = OfNat (n: Nat) | NegSucc (n: Nat)`, where `OfNat n` is `n` and `NegSucc n` is `-(n + 1)`. Its operations are ordinary prelude definitions over those constructors: `Nat.toInt`; `Int.neg`, `add`, `sub` and `mul`; `Int.div`/`mod` (Euclidean), `tdiv`/`tmod` (truncating), `fdiv`/`fmod` (flooring) and `modNat`; `decEq`, `leq`, `less`, `compare`, `LessThan` and `LessEq`; and `natAbs`, `abs`, `toNat`, `toNatChecked`, `sign`, `toText` and `Text.toInt`. The kernel evaluates them by unfolding, through the `Nat` natives, so a closed `Int` normalizes to a constructor around a `Nat` number. **There are no kernel natives for `Int`** (decision K1): the trusted kernel arithmetic is still only `Nat`'s. The division laws (`Int.divAddMod`, `Int.modNonneg`, `Int.modLtAbs`) are ordinary theorems. See [integers.md](proposals/integers.md).
+
+Extracted JS uses native `bigint` arithmetic for these `Nat` definitions, and has separate natives for `Int` (DESIGN.md §12).
 
 ## Text
 
