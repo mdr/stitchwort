@@ -1,0 +1,3 @@
+# expect-error: E-PROJECT-CONFIG
+sources: [src]
+sources: [lib]

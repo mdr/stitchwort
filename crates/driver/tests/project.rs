@@ -7,7 +7,7 @@ use std::collections::BTreeMap;
 use stitchwort_core::hash::{ContentHash, data_hash, def_hash};
 use stitchwort_core::{DataId, DefId};
 use stitchwort_driver::driver::{Cache, Outcome, Session};
-use stitchwort_driver::project::{Loaded, Target};
+use stitchwort_driver::project::{Loaded, MemoryFiles, Target, parse_config, project_sources};
 use stitchwort_syntax::{Diagnostic, Severity};
 
 fn owned(files: &[(&str, &str)]) -> Vec<(String, String)> {
@@ -430,6 +430,169 @@ fn eval_after_a_project_load_needs_full_names() {
         session.elab.infer_expr(&short).unwrap_err().code,
         "E-UNKNOWN-NAME"
     );
+}
+
+fn config(text: &str) -> Result<Vec<String>, Diagnostic> {
+    let mut sources = stitchwort_syntax::SourceMap::new();
+    let id = sources.add("proj/stitchwort.yaml", text);
+    parse_config(id, "proj/stitchwort.yaml", text).map(|c| c.sources)
+}
+
+#[test]
+fn config_defaults_and_folders() {
+    assert_eq!(config("").unwrap(), ["src"]);
+    assert_eq!(config("# nothing here\n\n").unwrap(), ["src"]);
+    assert_eq!(config("sources: null\n").unwrap(), ["src"]);
+    assert_eq!(config("sources: [lib, src]\n").unwrap(), ["lib", "src"]);
+    assert_eq!(
+        config("sources:\n  - ./lib/\n  - .\n  - lib\n").unwrap(),
+        ["lib", ""]
+    );
+}
+
+/// `no` isn't read as `false`: it's a folder's name.
+#[test]
+fn config_booleans_and_numbers_are_text() {
+    assert_eq!(config("sources: [no]\n").unwrap(), ["no"]);
+    let d = config("sources: [2025]\n").unwrap_err();
+    assert_eq!(d.code, "E-PROJECT-CONFIG");
+    assert!(d.message.contains("must be quoted"), "{}", d.message);
+    assert_eq!(d.labels.len(), 1);
+}
+
+#[test]
+fn config_errors_say_what_is_wrong() {
+    let d = config("sources: [a]\nsources: [b]\n").unwrap_err();
+    assert!(
+        d.message.ends_with("`sources` is written twice"),
+        "{}",
+        d.message
+    );
+    let d = config("source: [a]\n").unwrap_err();
+    assert!(d.message.ends_with("unknown key `source`"), "{}", d.message);
+    assert_eq!(d.notes, ["the known key is `sources`"]);
+    let d = config("sources: 5\n").unwrap_err();
+    assert!(d.message.ends_with("expected a list"), "{}", d.message);
+    let d = config("sources: []\n").unwrap_err();
+    assert!(d.message.ends_with("`sources` lists no folders"));
+    for outside in ["sources: [..]\n", "sources: [a/../..]\n", "sources: [/x]\n"] {
+        let d = config(outside).unwrap_err();
+        assert!(
+            d.message.contains("outside the project folder"),
+            "{}",
+            d.message
+        );
+    }
+}
+
+fn memory(files: &[(&str, &str)], reversed: bool) -> MemoryFiles {
+    MemoryFiles {
+        files: files
+            .iter()
+            .map(|(p, t)| (p.to_string(), t.to_string()))
+            .collect(),
+        reversed,
+    }
+}
+
+#[test]
+fn reading_a_project_finds_every_sw_file_once() {
+    let files = memory(
+        &[
+            ("stitchwort.yaml", "sources: [., src]\n"),
+            ("a.sw", "namespace A\n"),
+            ("src/b.sw", "namespace B\n"),
+            ("src/deep/c.sw", "namespace C\n"),
+            (".hidden/d.sw", "namespace D\n"),
+            ("notes.txt", "not a source"),
+        ],
+        false,
+    );
+    let mut sources = stitchwort_syntax::SourceMap::new();
+    let found = project_sources(&files, "proj", &mut sources).unwrap();
+    let paths: Vec<&str> = found.iter().map(|(p, _)| p.as_str()).collect();
+    assert_eq!(paths, ["a.sw", "src/b.sw", "src/deep/c.sw"]);
+}
+
+#[test]
+fn reading_a_project_reports_missing_and_nested_folders() {
+    let mut sources = stitchwort_syntax::SourceMap::new();
+    let files = memory(&[("stitchwort.yaml", "sources: [lib]\n")], false);
+    let d = project_sources(&files, "proj", &mut sources).unwrap_err();
+    assert!(
+        d[0].message
+            .contains("the source folder `lib` doesn't exist")
+    );
+    let files = memory(
+        &[
+            ("stitchwort.yaml", ""),
+            ("src/a.sw", "namespace A\n"),
+            ("src/inner/stitchwort.yaml", ""),
+            ("src/inner/b.sw", "namespace B\n"),
+        ],
+        false,
+    );
+    let d = project_sources(&files, "proj", &mut sources).unwrap_err();
+    assert!(
+        d[0].message
+            .contains("`src/inner/` is a project inside the project proj/"),
+        "{}",
+        d[0].message
+    );
+}
+
+/// The order a directory is listed in never reaches hashes or test order.
+#[test]
+fn directory_order_doesnt_matter() {
+    let project = [
+        ("stitchwort.yaml", ""),
+        ("src/a.sw", "namespace A\n\ntest \"a\" := True\n"),
+        ("src/b.sw", "namespace B\n\ntest \"b\" := A.f == 1\n"),
+        ("src/c.sw", "namespace A\n\ndef f: Nat := 1\n"),
+    ];
+    let run = |reversed: bool| {
+        let mut session = Session::new();
+        let loaded = session
+            .load_project(&memory(&project, reversed), "proj", &Target::Everything)
+            .unwrap_or_else(|e| panic!("{e:#?}"));
+        let tests: Vec<String> = session.elab.tests.iter().map(|t| t.name.clone()).collect();
+        (loaded.checked, tests, def_hash_of(&session, "A.f"))
+    };
+    assert_eq!(run(false), run(true));
+}
+
+/// Renaming and moving files, with the same text, changes nothing: every
+/// test result is a cache hit (docs/proposals/multi-file.md §8).
+#[test]
+fn moving_files_keeps_every_cache_hit() {
+    let a = "namespace A\n\ndef f: Nat := 1\n\ntest \"f\" := f == 1\n";
+    let b = "namespace B\n\ntest \"g\" := A.f + 1 == 2\n";
+    let first = memory(
+        &[("stitchwort.yaml", ""), ("src/a.sw", a), ("src/b.sw", b)],
+        false,
+    );
+    let mut session = Session::new();
+    session
+        .load_project(&first, "proj", &Target::Everything)
+        .unwrap();
+    let cache = Cache::memory([]);
+    let results = session.run_tests(&cache);
+    assert!(results.iter().all(|r| !r.cached));
+    let moved = memory(
+        &[
+            ("stitchwort.yaml", ""),
+            ("src/alpha.sw", a),
+            ("src/deeper/b-file.sw", b),
+        ],
+        false,
+    );
+    let mut again = Session::new();
+    again
+        .load_project(&moved, "proj", &Target::Everything)
+        .unwrap();
+    let results = again.run_tests(&Cache::memory(cache.added()));
+    assert_eq!(results.len(), 2);
+    assert!(results.iter().all(|r| r.cached));
 }
 
 #[test]

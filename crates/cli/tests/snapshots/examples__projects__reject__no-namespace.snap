@@ -1,0 +1,6 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-NO-NAMESPACE] Error: `no-namespace/src/day05-merge.sw` is in the project no-namespace/ but doesn't say its namespace
+  note: start the file with `namespace Name`, such as `namespace Day05`

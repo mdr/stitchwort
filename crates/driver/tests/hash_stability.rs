@@ -13,6 +13,7 @@ use std::path::Path;
 use stitchwort_core::hash::{ContentHash, data_hash, def_hash};
 use stitchwort_core::{DataId, DefId};
 use stitchwort_driver::driver::Session;
+use stitchwort_driver::project::{DiskFiles, Target};
 
 fn show(h: stitchwort_core::budget::Result<Option<ContentHash>>) -> String {
     match h {
@@ -74,4 +75,31 @@ fn examples() {
         }
     }
     assert!(checked > 0);
+}
+
+/// The accepted example projects: their declarations' hashes, as for the
+/// files.
+#[test]
+fn projects() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/projects/accept");
+    let mut dirs: Vec<_> = std::fs::read_dir(&root)
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .filter(|p| p.is_dir())
+        .collect();
+    dirs.sort();
+    assert!(!dirs.is_empty());
+    for dir in dirs {
+        let name = dir.file_name().unwrap().to_string_lossy().to_string();
+        let mut session = Session::new();
+        let (d, f) = (
+            session.elab.globals.datas.len(),
+            session.elab.globals.defs.len(),
+        );
+        let files = DiskFiles { root: dir.clone() };
+        if let Err(errors) = session.load_project(&files, &name, &Target::Everything) {
+            panic!("{name} doesn't load: {errors:#?}");
+        }
+        insta::assert_snapshot!(format!("project-{name}"), lines(&session, d, f));
+    }
 }

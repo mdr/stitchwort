@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PROJECT-CONFIG] Error: `config-duplicate-key/stitchwort.yaml`: `sources` is written twice
+   ╭─[ config-duplicate-key/stitchwort.yaml:3:1 ]
+   │
+ 3 │ sources: [lib]
+   │ ┬  
+   │ ╰── here
+───╯

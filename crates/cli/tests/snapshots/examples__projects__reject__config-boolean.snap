@@ -1,0 +1,6 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PROJECT-CONFIG] Error: `config-boolean/stitchwort.yaml`: the source folder `no` doesn't exist
+  note: create it, or list your folders under `sources` in `stitchwort.yaml`

@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-UNKNOWN-NAME] Error: unknown name `map`
+   ╭─[ import-not-shared/src/b.sw:4:20 ]
+   │
+ 4 │ def g: List Nat := map (\x => x) [1]
+   │                    ─┬─  
+   │                     ╰─── not in scope
+   │ 
+   │ Note: the library has `List.map` or `Maybe.map`: write it in full, or `import List (map)`
+───╯

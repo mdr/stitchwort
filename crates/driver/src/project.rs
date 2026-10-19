@@ -4,11 +4,12 @@
 
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, BTreeSet, BinaryHeap, VecDeque};
+use std::path::{Path, PathBuf};
 
 use stitchwort_elab::project::{Edge, NamespaceSyntax, SourceUnit};
 use stitchwort_syntax::ast::{Decl, Module};
 use stitchwort_syntax::{
-    Diagnostic, FileId, Severity, Span, parse_module_within, parse_namespace_line,
+    Diagnostic, FileId, Severity, SourceMap, Span, parse_module_within, parse_namespace_line,
 };
 
 use crate::driver::Session;
@@ -502,4 +503,372 @@ pub fn cycle_diagnostic(analysis: &Analysis, chain: &[String]) -> Diagnostic {
         }
     }
     d.with_note("put what both need into one namespace, or into a third that both use")
+}
+
+// ---- stitchwort.yaml --------------------------------------------------
+
+#[derive(serde::Deserialize, Default)]
+#[serde(deny_unknown_fields)]
+struct RawConfig {
+    sources: Option<Vec<String>>,
+}
+
+/// What `stitchwort.yaml` says (docs/proposals/multi-file.md §5).
+#[derive(Debug, PartialEq, Eq)]
+pub struct Config {
+    /// Normalised, relative to the project folder; "" is the project folder.
+    pub sources: Vec<String>,
+}
+
+fn config_error(display: &str, what: impl std::fmt::Display) -> Diagnostic {
+    Diagnostic::error("E-PROJECT-CONFIG", format!("`{display}`: {what}"))
+}
+
+/// Reads `stitchwort.yaml`. `display` is its name for messages
+/// (`aoc/stitchwort.yaml`). An empty file, or one with only comments, means
+/// the defaults.
+pub fn parse_config(file: FileId, display: &str, text: &str) -> Result<Config, Diagnostic> {
+    // `Options` is `#[non_exhaustive]`, so its fields are set one by one.
+    let mut options = serde_saphyr::Options::default();
+    options.strict_booleans = true;
+    options.no_schema = true;
+    options.duplicate_keys = serde_saphyr::DuplicateKeyPolicy::Error;
+    let only_comments = text
+        .lines()
+        .all(|l| l.trim().is_empty() || l.trim_start().starts_with('#'));
+    let raw: RawConfig = if only_comments {
+        RawConfig::default()
+    } else {
+        serde_saphyr::from_str_with_options::<Option<RawConfig>>(text, options)
+            .map_err(|e| yaml_error(file, display, text, &e))?
+            .unwrap_or_default()
+    };
+    let sources = match raw.sources {
+        None => vec!["src".to_string()],
+        Some(list) if list.is_empty() => {
+            return Err(config_error(display, "`sources` lists no folders"));
+        }
+        Some(list) => list,
+    };
+    let mut normalised = Vec::new();
+    for source in sources {
+        let outside = source.starts_with('/') || source.split('/').any(|c| c == "..");
+        if outside {
+            return Err(config_error(
+                display,
+                format!("the source folder `{source}` is outside the project folder"),
+            )
+            .with_note("source folders are relative to the folder holding `stitchwort.yaml`"));
+        }
+        let parts: Vec<&str> = source
+            .split('/')
+            .filter(|c| !c.is_empty() && *c != ".")
+            .collect();
+        let path = parts.join("/");
+        if !normalised.contains(&path) {
+            normalised.push(path);
+        }
+    }
+    Ok(Config {
+        sources: normalised,
+    })
+}
+
+/// A YAML error as an `E-PROJECT-CONFIG`, with one line of what's wrong.
+fn yaml_error(file: FileId, display: &str, text: &str, e: &serde_saphyr::Error) -> Diagnostic {
+    let full = e.to_string();
+    let first = full.lines().next().unwrap_or("").trim().to_string();
+    let mut note = None;
+    let what = if first.contains("unknown field")
+        && let Some(key) = first.split('`').nth(1)
+    {
+        note = Some("the known key is `sources`");
+        format!("unknown key `{key}`")
+    } else {
+        // The library's message starts with where the error is, which the
+        // label says, and a few mention its own types.
+        let mut msg = first.strip_prefix("error: ").unwrap_or(&first);
+        if msg.starts_with("line ")
+            && let Some(i) = msg.find(": ")
+        {
+            msg = &msg[i + 2..];
+        }
+        if let Some(rest) = msg.strip_prefix("duplicate mapping key: ") {
+            format!(
+                "`{}` is written twice",
+                rest.split(',').next().unwrap_or(rest)
+            )
+        } else if msg == "expected sequence start" {
+            "expected a list".to_string()
+        } else if msg == "expected mapping start" {
+            "expected `sources: …`".to_string()
+        } else {
+            msg.to_string()
+        }
+    };
+    let mut d = config_error(display, what);
+    if let Some(location) = e.location() {
+        let offset = location
+            .span()
+            .byte_offset()
+            .map(|o| o as usize)
+            .or_else(|| {
+                let (line, column) = (location.line() as usize, location.column() as usize);
+                let start: usize = text
+                    .split_inclusive('\n')
+                    .take(line.saturating_sub(1))
+                    .map(str::len)
+                    .sum();
+                Some(start + column.saturating_sub(1))
+            });
+        if let Some(start) = offset.filter(|o| *o <= text.len()) {
+            let mut end = (start + 1).min(text.len());
+            while !text.is_char_boundary(end) {
+                end += 1;
+            }
+            let start = (0..=start)
+                .rev()
+                .find(|i| text.is_char_boundary(*i))
+                .unwrap_or(0);
+            d = d.with_label(
+                Span {
+                    file,
+                    start: start as u32,
+                    end: end as u32,
+                },
+                "here",
+            );
+        }
+    }
+    match note {
+        Some(note) => d.with_note(note),
+        None => d,
+    }
+}
+
+// ---- files ------------------------------------------------------------
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum EntryKind {
+    File,
+    Dir,
+    Other,
+}
+
+pub struct Entry {
+    pub name: String,
+    pub kind: EntryKind,
+}
+
+/// A project's files, by path within the project ("" is the project folder;
+/// components joined by `/`).
+pub trait Files {
+    fn entries(&self, dir: &str) -> std::io::Result<Vec<Entry>>;
+    fn read(&self, path: &str) -> std::io::Result<String>;
+}
+
+/// A project on disk.
+pub struct DiskFiles {
+    pub root: PathBuf,
+}
+
+impl DiskFiles {
+    fn path(&self, path: &str) -> PathBuf {
+        let mut full = self.root.clone();
+        full.extend(path.split('/').filter(|c| !c.is_empty()));
+        full
+    }
+}
+
+impl Files for DiskFiles {
+    fn entries(&self, dir: &str) -> std::io::Result<Vec<Entry>> {
+        let mut out = Vec::new();
+        for entry in std::fs::read_dir(self.path(dir))? {
+            let entry = entry?;
+            let Some(name) = entry.file_name().to_str().map(str::to_string) else {
+                continue;
+            };
+            // Symlinks are skipped (docs/proposals/multi-file.md §5).
+            let kind = match std::fs::symlink_metadata(entry.path()) {
+                Ok(m) if m.is_dir() => EntryKind::Dir,
+                Ok(m) if m.is_file() => EntryKind::File,
+                _ => EntryKind::Other,
+            };
+            out.push(Entry { name, kind });
+        }
+        Ok(out)
+    }
+
+    fn read(&self, path: &str) -> std::io::Result<String> {
+        std::fs::read_to_string(self.path(path))
+    }
+}
+
+/// A project in memory: for tests. `reversed` lists directories in the
+/// opposite order, to show that order never matters.
+pub struct MemoryFiles {
+    pub files: BTreeMap<String, String>,
+    pub reversed: bool,
+}
+
+impl Files for MemoryFiles {
+    fn entries(&self, dir: &str) -> std::io::Result<Vec<Entry>> {
+        let prefix = if dir.is_empty() {
+            String::new()
+        } else {
+            format!("{dir}/")
+        };
+        let mut found: BTreeMap<String, EntryKind> = BTreeMap::new();
+        for path in self.files.keys() {
+            let Some(rest) = path.strip_prefix(&prefix) else {
+                continue;
+            };
+            match rest.split_once('/') {
+                Some((name, _)) => {
+                    found.insert(name.to_string(), EntryKind::Dir);
+                }
+                None => {
+                    found.insert(rest.to_string(), EntryKind::File);
+                }
+            }
+        }
+        if found.is_empty() && !dir.is_empty() {
+            return Err(std::io::ErrorKind::NotFound.into());
+        }
+        let mut entries: Vec<Entry> = found
+            .into_iter()
+            .map(|(name, kind)| Entry { name, kind })
+            .collect();
+        if self.reversed {
+            entries.reverse();
+        }
+        Ok(entries)
+    }
+
+    fn read(&self, path: &str) -> std::io::Result<String> {
+        self.files
+            .get(path)
+            .cloned()
+            .ok_or_else(|| std::io::ErrorKind::NotFound.into())
+    }
+}
+
+const CONFIG: &str = "stitchwort.yaml";
+
+/// The project folder that holds `start`: `start` or the nearest folder
+/// above it that contains a file `stitchwort.yaml`.
+pub fn find_project(start: &Path) -> Option<PathBuf> {
+    start
+        .ancestors()
+        .find(|dir| dir.join(CONFIG).is_file())
+        .map(Path::to_path_buf)
+}
+
+/// Reads a project's configuration and every `.sw` file under its source
+/// folders: (path within the project, text), sorted by path. The config is
+/// added to `sources` as `{project}/stitchwort.yaml`, so its errors show
+/// their line.
+pub fn project_sources(
+    files: &dyn Files,
+    project: &str,
+    sources: &mut SourceMap,
+) -> Result<Vec<(String, String)>, Vec<Diagnostic>> {
+    let display = format!("{project}/{CONFIG}");
+    let text = files.read(CONFIG).map_err(|e| {
+        vec![Diagnostic::error(
+            "E-IO",
+            format!("can't read `{display}`: {e}"),
+        )]
+    })?;
+    let id = sources.add(display.clone(), text.clone());
+    let config = parse_config(id, &display, &text).map_err(|d| vec![d])?;
+    let mut found: BTreeMap<String, String> = BTreeMap::new();
+    let mut errors = Vec::new();
+    for root in &config.sources {
+        if files.entries(root).is_err() {
+            let shown = if root.is_empty() { "." } else { root };
+            errors.push(
+                config_error(
+                    &display,
+                    format!("the source folder `{shown}` doesn't exist"),
+                )
+                .with_note("create it, or list your folders under `sources` in `stitchwort.yaml`"),
+            );
+            continue;
+        }
+        walk(files, project, root, &mut found, &mut errors);
+    }
+    if errors.is_empty() {
+        Ok(found.into_iter().collect())
+    } else {
+        Err(errors)
+    }
+}
+
+fn walk(
+    files: &dyn Files,
+    project: &str,
+    dir: &str,
+    found: &mut BTreeMap<String, String>,
+    errors: &mut Vec<Diagnostic>,
+) {
+    let Ok(entries) = files.entries(dir) else {
+        return;
+    };
+    if !dir.is_empty()
+        && entries
+            .iter()
+            .any(|e| e.name == CONFIG && e.kind == EntryKind::File)
+    {
+        errors.push(
+            Diagnostic::error(
+                "E-PROJECT-CONFIG",
+                format!("`{dir}/` is a project inside the project {project}/"),
+            )
+            .with_note("move it out of the source folders, or delete its `stitchwort.yaml`"),
+        );
+        return;
+    }
+    let join = |name: &str| {
+        if dir.is_empty() {
+            name.to_string()
+        } else {
+            format!("{dir}/{name}")
+        }
+    };
+    for entry in entries {
+        if entry.name.starts_with('.') {
+            continue;
+        }
+        match entry.kind {
+            EntryKind::Dir => walk(files, project, &join(&entry.name), found, errors),
+            EntryKind::File if entry.name.ends_with(".sw") => {
+                let path = join(&entry.name);
+                match files.read(&path) {
+                    Ok(text) => {
+                        found.insert(path, text);
+                    }
+                    Err(e) => errors.push(Diagnostic::error(
+                        "E-IO",
+                        format!("can't read `{project}/{path}`: {e}"),
+                    )),
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+impl Session {
+    /// Reads and checks the project in `files` (`project` is its name for
+    /// display): the namespaces `target` needs.
+    pub fn load_project(
+        &mut self,
+        files: &dyn Files,
+        project: &str,
+        target: &Target,
+    ) -> Result<Loaded, Vec<Diagnostic>> {
+        let sources = project_sources(files, project, &mut self.sources)?;
+        self.load_project_sources(project, sources, target)
+    }
 }

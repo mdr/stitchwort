@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PROJECT-CONFIG] Error: `config-unknown-key/stitchwort.yaml`: unknown key `source`
+   ╭─[ config-unknown-key/stitchwort.yaml:2:1 ]
+   │
+ 2 │ source: [src]
+   │ ┬  
+   │ ╰── here
+   │ 
+   │ Note: the known key is `sources`
+───╯
