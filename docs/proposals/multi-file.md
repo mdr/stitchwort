@@ -1,46 +1,47 @@
 # Proposal: programs in several files
 
-**Status:** draft 3, 19 October 2026. Design only, nothing is built. It
-folds in Matt's decisions on draft 2 and waits for an independent review
-and then Matt ([§13](#13-questions-for-matt),
-[§14](#14-questions-for-the-reviewer)).
+**Status:** draft 4, 19 October 2026. Design only, nothing is built. It
+answers the independent review of draft 3
+([Appendix A](#appendix-a-response-to-the-draft-3-review)) and folds in
+Matt's latest decisions. Two questions remain for Matt
+([§13.1](#131-open)); neither blocks starting stage 1.
 
-## Changes since draft 2
+## Changes since draft 3
 
-1. **Matt's decisions are folded in as decided** (19 October 2026), and
-   removed from the open questions: every project file declares a namespace
-   (`E-NO-NAMESPACE`, no default); cycles between namespaces are refused for
-   now; imports are per file and name namespaces; the test cache lives in
-   the project folder, gitignored (§8.2).
-2. **Adding definitions to another namespace is deferred** to its own design
-   (§4.7). Draft 2's "stage 3" rule for it is dropped; only the stage-1
-   refusal (`E-FOREIGN-NAMESPACE`) remains.
-3. **`run` has two modes** (§4.3, §9.1). `stitchwort run Ns.fn` is *project
-   mode*: any function whose type a `main` could have. `stitchwort run
-   path/file.sw` is always *file mode*, inside a project or not: the file
-   may import only the standard library and must have a suitable `main`.
-   This replaces draft 2's `E-RUN-FILE` (which refused a project file) and
-   both options its Q4 offered.
-4. **New §4.9: how `auto` finds candidates across files and namespaces**,
-   compared with instance search in Lean 4, Haskell, Agda and Idris 2, and
-   designed so the same rule can serve type-class-style interfaces later.
-   It keeps draft 2's rule (own file above the use, then the namespaces this
-   one depends on, then `Std`), explains why, makes the ordering exact, and
-   records something draft 2 missed: which procedure `auto` picks is
-   visible to proofs, not only to speed (§4.9.4).
-5. **AoC-specific questions are parked** (draft 2's Q1 shared namespace
-   name, Q6 playground AoC loading, Q7 `aoc/` layout): listed in §13.2,
-   not decided here. The examples in §6 still use them as illustrations.
-6. **Reviewer questions re-checked** (§14): R1 (imports per file) and R6
-   (the extension rule) are settled by the decisions and dropped; R2-R5 are
-   updated; R7-R11 are new.
+1. **Matt's decisions folded in** (19 October 2026): `check FILE` and
+   `test FILE` are file mode, like `run FILE` (§9.1); `stitchwort` writes
+   `.stitchwort/.gitignore` itself (§8.2); `auto` uses the same file above
+   the use, the namespaces this one depends on, and `Std`, not sibling
+   files (§4.9.5); interfaces are not being designed now, so §4.9.6 is cut
+   to a short direction.
+2. **Dependencies between namespaces are found by real name resolution**
+   (§4.6): a qualified name `M.x` makes a dependency on `M` only if `M`
+   resolves, by the same rules as checking, to a project namespace. A raw
+   "starts with `M`" scan could invent cycles.
+3. **Imports are kept per file inside one module** (§4.4, §11 row 2):
+   today's elaborator has one import table per module, so this is real
+   work, now called out.
+4. **File mode is a standalone reading of the file, not a promise of the
+   same meaning** (§4.3, §8.1): a sibling file of the same namespace can
+   change what a name means in project mode.
+5. **Hashes of mutually recursive groups break shape ties by full name**
+   (§8.1): today they break ties by submission order, which would let
+   file read order reach hashes.
+6. **`auto`'s rule is described as it is** (§4.9.5): any dependency,
+   including one made only by a qualified name, makes the namespace's
+   decision procedures candidates. That's not the same as Lean's or
+   Haskell's imports, and is put to Matt (Q1).
+7. Smaller: "answer agreement" for `Decidable` (§4.9.4); paths do matter
+   for `include` (§10); a function called `sw` can't be run by name
+   (§9.1); files are displayed by project-relative path (§5); a glossary
+   (§0); §3.1, §4.9.3 and the YAML survey are shortened; §14 (reviewer
+   questions) is answered and replaced by Appendix A.
 
 This note can be read without knowing the codebase. Code references were
-checked against the source at commit `c65023e` for draft 2, and those in
-§4.9 and §9.1 again at `d3fb97a`. Claims about other languages cite a
-source ([Sources](#sources)); in §4.9 each one is labelled **checked**
-(with its source), **inferred** (reasoned from checked facts), or
-**unverified**.
+checked at commit `80c87a8` for the parts changed in this draft (earlier
+parts at `c65023e` and `d3fb97a`). Claims are labelled **checked** (with a
+source or `file:line`), **inferred** (reasoned from checked facts), or
+**unverified** where it matters.
 
 ## Contents
 
@@ -58,7 +59,7 @@ source ([Sources](#sources)); in §4.9 each one is labelled **checked**
 11. [The obstacles in the code, re-assessed](#11-the-obstacles-in-the-code-re-assessed)
 12. [Stages](#12-stages)
 13. [Questions for Matt](#13-questions-for-matt)
-14. [Questions for the reviewer](#14-questions-for-the-reviewer)
+- [Appendix A. Response to the draft 3 review](#appendix-a-response-to-the-draft-3-review)
 - [Sources](#sources)
 
 ## 0. Summary
@@ -67,7 +68,7 @@ source ([Sources](#sources)); in §4.9 each one is labelled **checked**
 `.sw` file in it starts by saying which namespace it adds to:
 
 ```
--- aoc/lib/range.sw                  -- the file's name and folder are only for people
+-- aoc/lib/range.sw                  -- the file's name and folder don't name anything
 namespace Aoc
 
 type Range = { lo : Nat, hi : Nat }
@@ -101,26 +102,34 @@ that uses only the standard library.
 (The name `Aoc` and the layout are illustrations; the AoC choices are
 parked, §13.2.)
 
+**Three words, kept apart.** A **file** is a `.sw` file on disk. A
+**namespace** is a name like `Day05`; every file that starts `namespace
+Day05` adds to it. A **module** is what the elaborator checks in one go
+(one call of `elaborate_module`); here, one namespace is one module, made
+from all its files. **"`N` depends on `M`"** means some file of `N`
+imports from `M` or writes a name that resolves into `M` (like
+`Aoc.Range.parse`), directly or through other namespaces (§4.6).
+
 **The decisions.** "Matt" means decided by Matt; "Rec." means recommended
-here and open until reviewed.
+here and reviewed.
 
 | | Decision | Design | Status |
 |---|---|---|---|
 | D1 | The namespace line | `namespace Day05` or `namespace Aoc.Day05` (capitalised components). **Exactly one, at the top** (after comments, before imports). §4.2 | Matt (the line); Rec. (placement details) |
 | D2 | A project file without one | **Error**, `E-NO-NAMESPACE`. No default namespace. §4.2 | Matt |
-| D3 | File mode | `run path/file.sw` loads that file and `Std` only, inside a project or not. A namespace line is optional there; imports of anything but `Std` are `E-FILE-MODE`; it needs a runnable `main`. §4.3 | Matt (for `run`); Rec. for `check`/`test` (Q1) |
+| D3 | File mode | `run`, `check` or `test` of `path/file.sw` loads that file and `Std` only, inside a project or not. A namespace line is optional there; imports of anything but `Std` are `E-FILE-MODE`; `run` needs a runnable `main`. A standalone reading: it can differ from the project's (§4.3). | Matt |
 | D4 | `stitchwort.yaml` | One key for now, `sources` (default `[src]`); unknown keys are errors. Parsed with **`serde-saphyr`**, strictly. §4.1 | Matt |
-| D5 | Names within a namespace | Every file of a namespace sees all its declarations, in any order, as one module. A name declared twice is `E-DUPLICATE`, naming both files. File names mean nothing. §4.4 | Matt |
+| D5 | Names within a namespace | Every file of a namespace sees all its declarations, in any order, as one module; each file keeps its own imports. A name declared twice is `E-DUPLICATE`, naming both files. File names name nothing. §4.4 | Matt |
 | D6 | Other namespaces | `import N (a, b)` **per file**; qualified names `N.a` need no import. No `import N` without a list. `import N (..)` in stage 2. Imports aren't passed on. §4.5 | Matt (per file, by namespace); Rec. (the rest) |
-| D7 | Cycles between namespaces | **Refused for now** (`E-NAMESPACE-CYCLE`). Namespaces are checked one at a time in dependency order. §4.6 | Matt |
+| D7 | Cycles between namespaces | **Refused for now** (`E-NAMESPACE-CYCLE`). Namespaces are checked one at a time in dependency order, found by real name resolution. §4.6 | Matt (refusal); Rec. (how found) |
 | D8 | Adding to another namespace | **Deferred**: needs its own design. Until then `E-FOREIGN-NAMESPACE`; `Std` stays closed. §4.7 | Matt |
-| D9 | `auto` | Candidates: same file above the use, every namespace this one depends on, and `Std`; **not** sibling files at first. A fixed order that never depends on file paths or read order. The same rule is meant to serve interfaces later. §4.9 | Rec. |
-| D10 | Hashes | A type hashes its **namespace's full name** plus its own path (`Day05.Database`, `Aoc.Range`). File paths never enter. §8 | Rec. |
-| D11 | CLI | `run Day05.main` (project mode): any function `() -> {IO, Partial} ()` or less. `check` and `test` with no target cover the whole project; `test Day05` covers `Day05` and what it depends on. §9.1 | Matt (`run`); Rec. (the rest) |
+| D9 | `auto` | Candidates: same file above the use, every namespace this one depends on, and `Std`; **not** sibling files (deferred, revisit with interfaces). A fixed order that never depends on file paths or read order. §4.9 | Matt (candidates; Q1 asks about qualified-only dependencies); Rec. (order) |
+| D10 | Hashes | A type hashes its **namespace's full name** plus its own path (`Day05.Database`, `Aoc.Range`). File paths never enter. Recursive groups break shape ties by full name. §8 | Rec. (Q2 for the tie-break) |
+| D11 | CLI | `run Day05.main` (project mode): any function `() -> {IO, Partial} ()` or less. `check` and `test` with no target cover the whole project; `test Day05` covers `Day05` and what it depends on. §9.1 | Matt (`run`, `test`); Rec. (the rest) |
 | D12 | Playground | The user's own code stays one file, unchanged. How the shipped AoC examples load is parked. §9.2 | Rec.; AoC part parked |
 | D13 | JavaScript | `build --js Day05` exports `Day05`'s `export`s only. §9.3 | Rec. |
 | D14 | `include "file"` | Path relative to the including file, inside the project folder; contents hashed, path not. §10 | Rec. |
-| D15 | Test cache | `.stitchwort/cache` in the **project folder**, with a `.gitignore` written inside it. File mode keeps today's location. §8.2 | Matt (location); Rec. (the `.gitignore`) |
+| D15 | Test cache | `.stitchwort/cache` in the **project folder**, with a `.gitignore` written inside it. File mode keeps today's location. §8.2 | Matt |
 
 **Smallest useful stage** (§12): `stitchwort.yaml`, the namespace line,
 loading a whole project, qualified names and `import N (names)` across
@@ -154,15 +163,20 @@ From Matt (19 October 2026), for Advent of Code (`aoc/day01.sw` …
 - **Cycles between namespaces are refused** for now.
 - **Adding definitions to another namespace is deferred**: it needs its own
   design, and stays a later stage only.
-- **The test cache lives in the project folder**, gitignored.
+- **The test cache lives in the project folder**, and `stitchwort` writes
+  `.stitchwort/.gitignore` itself.
 - **`stitchwort run Ns.fn`** (project mode) runs any function with a
   main-compatible type. **`stitchwort run path/file.sw`** is always file
   mode: the file may import only the standard library and must have a
-  suitable `main`, else it's an error.
+  suitable `main`, else it's an error. **`check FILE` and `test FILE`** are
+  file mode too.
 - **`stitchwort test X` also runs the tests of everything `X` depends on.**
+- **`auto`** searches the same file (above the use), the namespaces this
+  one depends on, and `Std`; not sibling files of the same namespace
+  (deferred, to revisit with interfaces).
 - **Staged delivery is fine.**
-- **Long term, type-class-style interfaces are planned** (TODO, "Interfaces
-  design note"), so `auto`'s search across files should extend to them.
+- **Type-class-style interfaces are planned but not being designed now**;
+  §4.9.6 only sketches a direction.
 
 **Not goals for now:** packages, versions and dependencies between projects,
 downloading code, separate compilation into stored files, privacy
@@ -182,7 +196,7 @@ for `b.sw`.
 a module, loaded first with `loading_prelude` set
 (`crates/driver/src/driver.rs:65-83`), then the user's file
 (`driver.rs:87-118`). One call of `elaborate_module`
-(`crates/elab/src/module.rs:141`) takes a list of declarations, enters all
+(`crates/elab/src/module.rs:143`) takes a list of declarations, enters all
 their names, works out who refers to whom, and checks them in dependency
 order, so declarations may refer to each other in any order and groups that
 call each other are checked together (module.rs:1-32,
@@ -192,14 +206,8 @@ call each other are checked together (module.rs:1-32,
 (`crates/syntax/src/source.rs:9-13`), so declarations from several files
 can sit in one list and errors still point at the right file.
 
-The places that assume "one program module" are listed, and re-assessed
-under the new model, in §11. Briefly: every program module is called `Main`
-(`module.rs:153`), the program's names have the empty prefix
-(`crates/elab/src/scope.rs:151-155`), `main` is found as the last definition
-named `main` (`crates/driver/src/run.rs:142`), JavaScript exports every
-`export` in the session (`crates/js/src/lib.rs:478-498`), and abilities in
-rows are ordered by load order (`crates/elab/src/lib.rs:761-766`, sorted at
-`crates/elab/src/effects.rs:832`).
+The places that assume "one program module" or "one file" are listed in
+§11.
 
 **`import` exists for library namespaces**: `import N (a, b)` at the top of
 a file, with at least one item (`crates/syntax/src/parser.rs:478-516`).
@@ -245,30 +253,21 @@ Exception abilities" [U2]. Both precedents for D11.
 
 Instance search (for `auto`) is compared in §4.9.3.
 
-### 3.1 Why files declare their namespace (the record of draft 1's choice)
+### 3.1 Why files declare their namespace
 
-Draft 1 weighed "a file is a module, its path is its name" (Agda, Haskell,
-Idris, OCaml, Gleam) against "files and namespaces are independent" (Lean,
-Kotlin, Scala) and chose the former. Its reasons, and what happened to them:
+Draft 1 chose "a file is a module, its path is its name" (Agda, Haskell,
+Idris, OCaml, Gleam). Matt chose "files and namespaces are independent"
+(Lean, Kotlin, Scala), because paths got in the way of the real use cases:
+moving a definition between files renamed it, a proofs file couldn't sit
+beside its subject in the same namespace, and splitting a day needed
+`Day05/` folders and capitalised file names. Draft 1's main argument for
+paths, that a file's own names outrank a library's, still holds as long as
+each day and library has its own namespace.
 
-- *For paths:* no project file needed to find a file. **Now moot**: a
-  project is a folder with a `stitchwort.yaml`, and all its files are loaded.
-- *For paths:* each file's own names outrank imports, so a helper called
-  `parseLine` in a library can't clash with a day's own. **Still true under
-  the new model**, as long as each day and each library uses its own
-  namespace, which the namespace line makes explicit.
-- *Against paths:* moving a definition between files renamed it; a proofs
-  file couldn't add `Range.mergeDisjoint` next to `Range.merge`; splitting a
-  day meant capitalised file names and `Day05/` directories next to
-  `Day05.sw`. **These were the user's real use cases**, and declaring the
-  namespace in the file removes all three: moving a definition between two
-  files of `Day05` changes nothing, not even its full name.
-
-What the new model costs: you can't tell from a file's name what namespace
-it's in (convention: name files after their namespace, like Kotlin's
-recommended layout [K1]), and the compiler must read every file of the
-project to know what each namespace contains. For projects the size of
-`aoc/` that's a few milliseconds of parsing.
+The cost: a file's name doesn't tell you its namespace (convention: name
+files after it, like Kotlin's layout [K1]), and every file of the project
+must be parsed to know what each namespace contains: a few milliseconds
+for `aoc/`.
 
 ## 4. The design
 
@@ -299,21 +298,14 @@ sources: [.]
   (so `.stitchwort/` and `.git/`). Files other than `.sw` are ignored, so
   `aoc/inputs/` and `aoc/examples/` can stay where they are.
 
-**Which YAML library.** `serde_yaml` is deprecated: its latest version is
-`0.9.34+deprecated` and its repository was archived in March 2024 [Y1].
-The candidates, checked on crates.io and GitHub on 19 October 2026:
-
-| Crate | Latest | Status | Notes |
-|---|---|---|---|
-| `serde_yaml` | 0.9.34+deprecated (Mar 2024) | Archived | [Y1] |
-| `serde_yml` | 0.0.13 (May 2026) | **Deprecated**, its description says so; RustSec advisory RUSTSEC-2025-0068 (unsound, unmaintained) | [Y2, Y3] |
-| `serde_norway` | 0.9.42 (Dec 2024) | Fork of `serde_yaml` over a C-derived `unsafe-libyaml-norway`; no release in 22 months | [Y3, Y4] |
-| `noyalib` | 0.0.58 (Oct 2026) | New (first release May 2026), pre-1.0; `serde_yml` now forwards to it | [Y5] |
-| **`serde-saphyr`** | **2.0.0 (13 Oct 2026)** | Active (repository pushed 14 Oct 2026, not archived), pure Rust, MIT/Apache-2.0, ~8.5 million downloads in 90 days | [Y6, Y7] |
-| `saphyr`, `yaml-rust2` | 0.2.2, 0.13.0 | Active YAML 1.2 parsers, but no serde layer | [Y8] |
-
-**Matt chose `serde-saphyr`.** It's maintained, pure Rust, built for
-Serde, and has exactly the strictness switches this needs:
+**Which YAML library: `serde-saphyr` (Matt's choice).** Draft 3 compared
+the candidates (checked 19 October 2026): `serde_yaml` is archived [Y1];
+`serde_yml` is deprecated, with a RustSec advisory [Y2, Y3];
+`serde_norway` hasn't released in 22 months and wraps C-derived code [Y4];
+`noyalib` is new and pre-1.0 [Y5]; `saphyr` and `yaml-rust2` have no Serde
+layer [Y8]. `serde-saphyr` 2.0.0 (13 October 2026) is maintained, pure
+Rust, built for Serde [Y6], and has exactly the strictness switches this
+needs:
 
 - **The Rust types are the schema**: "the target Rust types serve as an
   explicit schema", so a field typed `String` keeps `no` as the text `"no"`
@@ -390,17 +382,26 @@ There are two ways to load code, and the command line says which:
   loaded **on its own, with `Std`**, whether or not it lies inside a
   project. No `stitchwort.yaml` is read.
 
-For `run`, Matt decided this (19 October 2026). For `check` and `test` it's
-recommended here (Q1, §9.1).
+Matt decided this for `run`, `check` and `test` (19 October 2026).
 
 **In file mode:**
 
 - **A namespace line is optional.** Without one the file's names have the
-  empty prefix and its types hash as `Main.…` (`module.rs:153`), exactly as
+  empty prefix and its types hash as `Main.…` (`module.rs:155`), exactly as
   today; `examples/accept/*.sw` (74 programs) and the playground's editor
   are unchanged. With one, the names go in that namespace and its types
-  hash with it, so a project file that uses only `Std` means the same in
-  both modes and gets the same hashes (and cached results).
+  hash with it.
+- **It's a standalone reading of the file, which can differ from the
+  project's.** In project mode the file also sees its sibling files'
+  declarations, and those outrank the library's defaults. Example: `a.sw`
+  (`namespace N`) has `def f (b : Bool) : Bool := not b`, and its sibling
+  `b.sw` (also `namespace N`) declares its own `not`. In project mode `f`
+  calls `N.not`; in file mode `b.sw` isn't loaded, so `f` calls the
+  library's `not`. Both check, with different meanings and hashes. The
+  promise is narrower: **where every name in the file resolves to the same
+  declaration in both modes, the file has the same meaning and hashes in
+  both** (so the same cached results). That covers a file with no sibling
+  files, like today's `aoc/day01.sw` given a namespace line.
 - **Only `Std` can be imported or named.** `import Aoc (Range)`, or a
   qualified name whose first component isn't a library namespace, is
   `E-FILE-MODE` ("`aoc/day05.sw` is run as a single file, which can use
@@ -416,8 +417,9 @@ recommended here (Q1, §9.1).
   aoc/day01.sw` and `stitchwort run Day01.main`.
 
 **Why this split is easy to explain:** the argument alone decides what's
-loaded. A path means "this file"; a name means "the project". Nothing
-depends on whether a `stitchwort.yaml` happens to sit above the file.
+loaded. A path means "this file, on its own"; a name means "the project".
+Nothing depends on whether a `stitchwort.yaml` happens to sit above the
+file.
 
 The repository root must not get a `stitchwort.yaml`, or `examples/` would
 become one project for project-mode commands run from the root. A test pins
@@ -426,8 +428,10 @@ that.
 ### 4.4 Names within a namespace (D5)
 
 **All files of a namespace are one module.** Their declarations are put
-into one list (each keeps its file in its span) and elaborated together by
-the existing `elaborate_module`. So:
+into one list (each keeps its file in its span; files in order of their
+path within the project, so reports are stable) and elaborated together by
+`elaborate_module`. Nothing a program means may depend on that file order
+(§8.1, §12 tests). So:
 
 - Every declaration of `Day05`, in any of its files, is visible by its
   short name in all of them, in any order: level 2 of namespaces.md §4.4
@@ -443,6 +447,18 @@ each file writes its own imports. So a file's meaning can be read from the
 file plus its namespace, and adding an import to one file can't change a
 name in a sibling. (A sibling's *declarations* can, by design: that's what
 sharing a namespace means.)
+
+**This needs a change to the elaborator** (**checked**): today a module has
+one import list (`Module.imports`, `crates/syntax/src/ast.rs:611-615`) and
+the scope one import table (`Scope.imports`, `scope.rs:74-75`), cleared
+once per module (`module.rs:156`). So merging three files' declarations
+into one list and calling `elaborate_module` would let `day05.sw`'s
+imports leak into `day05-merge.sw`. Instead the module's shared part (its
+own declarations, level 2) stays one table, and imports (level 3) are kept
+**per file**: name lookup uses the imports of the file the declaration
+being checked comes from (its span says which). The dependency pre-pass
+(§4.6) and `auto`'s "same file" (§4.9.5) use the same per-file
+information.
 
 **Duplicates.** Two declarations of the same name in one namespace are
 `E-DUPLICATE` (the existing code, `module.rs:410-427`), now pointing at both
@@ -487,10 +503,37 @@ same file does; there is no Idris-style `export` that hides a body [I1].
 ### 4.6 Order and cycles between namespaces (D7)
 
 Namespaces are checked **one at a time, each completely**, in dependency
-order. `N` depends on `M` if any file of `N` imports from `M` or writes a
-qualified name starting with `M`. Both are visible in the syntax, so the
-order is known before anything is checked (the namespace lines say which
-names are namespaces).
+order. `N` **depends directly on** `M` if some file of `N`:
+
+- has an `import M (…)` (always an edge), or
+- writes a qualified name `M.x…` whose first component `M` **resolves to
+  the project namespace `M`** under the same rules name lookup uses when
+  checking, for that file at that point.
+
+The second needs care. Today a qualifier's first component is first
+looked up as an ordinary short name (a local variable, the namespace's own
+declarations, the file's imports, the library's defaults) and only then as
+a namespace (**checked**, `scope.rs:158-180`). So in
+
+```
+namespace N
+type Aoc = …
+def f := Aoc.x        -- means N.Aoc.x, not the project namespace Aoc
+```
+
+`Aoc.x` doesn't make `N` depend on a project namespace `Aoc`; a scan for
+names "starting with `Aoc`" would wrongly add that edge, and could report a
+cycle that isn't there. The edge must be exact, not merely safe, because
+it also decides `auto`'s candidates (§4.9.5).
+
+All of this is known before anything is type-checked: the namespace lines
+say which project namespaces exist, each namespace's declared names and
+each file's import lists are syntax, local variables are visible from the
+binders around the name, and the library's defaults are loaded first. The
+pre-pass calls **one shared routine** with checking ("what does this
+qualifier's first component mean here?"), so the two can't drift apart.
+Dot notation (`r.size`) is the one type-directed case, and needs no edge
+(below).
 
 **A cycle between namespaces is refused** (decided): `E-NAMESPACE-CYCLE`,
 listing the chain and one place where each link is made. Within a
@@ -515,13 +558,17 @@ namespace, any order and any cycle among its declarations is fine.
 Aoc.Range` looks in `Aoc`. A file can only get a value of type `Aoc.Range`
 through something it names, and everything it names is in a namespace it
 depends on, directly or through others; so `Aoc` is in its dependency
-closure and already checked. (This is the reasoning behind R2.)
+closure and already checked. Type synonyms and record field types don't
+break this: they only move the explicit mention of `Aoc` into an earlier
+namespace of the closure (**inferred**; agreed by the reviewer; §12 tests
+both).
 
 **Canonical order.** Several orders can respect the dependencies. The one
 used is fixed: repeatedly take, among the namespaces whose dependencies are
 all done, the one whose full name sorts first. It's used for checking,
 reporting and `auto` (§4.9.5), and never depends on file paths or the order
-files are read.
+files are read. It is only a tie-breaker: two namespaces that don't depend
+on each other aren't "closer" or "further" in any sense that matters.
 
 **Failures.** If `Aoc` has errors, they're reported once, and the
 namespaces that depend on it aren't checked (`E-NAMESPACE-FAILED`, pointing
@@ -556,7 +603,7 @@ visible only in `Day02`, with the type's own namespace winning, like
 Kotlin's extension functions [K1]); whether it can be imported elsewhere;
 how it interacts with namespaces.md §4.8's alias rules for dot notation;
 and, with interfaces, whether an instance for another namespace's type is
-the same question (§4.9.6, "orphans"). Refusing now keeps every answer
+the same question (an "orphan", §4.9.2). Refusing now keeps every answer
 open: all of them only turn errors into programs.
 
 ### 4.8 Dot notation across files
@@ -587,7 +634,11 @@ search (`crates/elab/src/auto.rs:1-22`, `prove` at `auto.rs:82-118`,
    d != 0 then n / d else 0`.
 2. **A decision procedure**: any definition whose result type is
    `Decidable …`. There's no marker: every such definition is a candidate
-   (`decision_procedures`, `auto.rs:215-229`). They're tried **most
+   (`decision_procedures`, `auto.rs:216-228`). "Result type" means after
+   the ordinary arguments only: a `partial` or effectful definition returns
+   a computation (`Delay …` or `Comp …`), not `Decidable`, so it's never a
+   candidate (**checked**, `result_head` at `auto.rs:233-255`, `comp_type`
+   at `effects.rs:211-216`). They're tried **most
    recently defined first**, so a file's own come before the prelude's.
    **The first one whose type fits** the goal (by unification, with its own
    `Decidable` arguments found recursively, up to depth 8) is chosen.
@@ -602,13 +653,13 @@ The same search decides propositions used as `Bool`s: `x == y`, `if x <
 `logic.rs:125-148`, `bind.rs:187-192`). There the chosen procedure isn't
 run at compile time; it becomes part of the program.
 
-**Which candidates are allowed** (`auto_eligible`, `module.rs:1111-1124`):
+**Which candidates are allowed** (`auto_eligible`, `module.rs:1113-1123`):
 a definition that has finished checking, and, if it's in the module being
 checked, one declared above the use. The "above" rule exists because
 declarations are checked in dependency order, not source order, so a
 procedure below the use may or may not be finished in time; "above" makes
 the answer independent of that. When nothing is found, `auto_hints`
-(`module.rs:1018-1058`) explains why each procedure of the module couldn't
+(`module.rs:1020-1056`) explains why each procedure of the module couldn't
 be used ("below the use", "has errors", "in the same cycle", "not checked
 yet").
 
@@ -625,13 +676,8 @@ choose.
   decision procedures. In this section, a decision procedure plays the role
   of an instance, and `Decidable` the role of the interface.
 - **Candidate**: a definition the search may consider for a goal.
-- **Coherence**: every way the compiler could solve a goal gives the same
-  program behaviour. Global uniqueness is a stronger form: at most one
-  instance for each interface and type in the whole program [E1].
 - **Orphan**: an instance declared in a module that declares neither the
   interface nor the type it's for (Haskell's term [H4]).
-- **Scoped / local instance**: one that counts only where its namespace is
-  opened, or only in one section of code (Lean's terms [L6]).
 
 #### 4.9.3 How the four languages do it
 
@@ -641,16 +687,16 @@ choose.
 | From where | Global instances are "in effect whenever the module in which they're established is transitively imported" (**checked** [L6]) | An instance is in scope "if and only if a chain of import declarations leads to the module"; import and export lists can't name or hide instances (**checked** [H3]) | Every instance in scope, even if only under a qualified name; modules imported but not opened count (**checked** [A2]). Instances in modules not imported at all aren't in scope, so don't count (**inferred**) | Not stated on the pages read (**unverified**) |
 | Order | Higher priority first (default 1000); then "more recent instances taking precedence over earlier ones with the same priority" (**checked** [L7]); local instances win over global ones in the reference's example (**checked** [L7]) | No order: "exactly one instance must match" (**checked** [H5]) | No order by default (**checked** [A2]) | Fixed by the list in the first row (**checked** [I2]); among several `%hint`s, **unverified** |
 | Several fit | The first success is used; the reference describes instances as "morally canonical" ("any discovered instance should be considered as good as any other") (**checked** [L7]) | Error, reported lazily, when a goal is solved, not when instances are declared (**checked** [H5]); `OVERLAPPING`/`INCOHERENT` pragmas relax this | Error by default: "if there are multiple candidates that could be used to solve an instance goal, a type error is raised"; `OVERLAPPABLE`/`OVERLAPPING`/`INCOHERENT` pragmas relax it (**checked** [A2]) | "Only one implementation of an interface can be given for a type"; others must be *named* and passed explicitly (**checked** [I3]) |
-| Scoped / local | `scoped` (counts where the namespace is opened) and `local` (counts in the current section) (**checked** [L6]) | None (**inferred** from [H3]: imports can't control instances) | Instance arguments in a signature are local candidates (**checked** [A2]); `--no-qualified-instances` limits candidates to unqualified names (**checked** [A2]) | Local variables come first (**checked** [I2]) |
-| Depth limit | (not checked) | (not checked) | Limited; `--instance-search-depth` (**checked** [A2]) | 100 (**checked** [I2]) |
 
 **What the comparison shows:**
 
 1. **Where candidates come from: "what this module imports, transitively"**
    in Lean and Haskell, and nearly so in Agda. None of them uses "every
-   module that happens to be loaded". Draft 2's rule, "the namespaces this
-   one depends on", is the same idea, with "depends on" (imports or
-   qualified names, §4.6) in place of "imports".
+   module that happens to be loaded". Stitchwort's rule, "the namespaces
+   this one depends on", is close but not the same: in Lean and Haskell a
+   module's names can't be written at all without importing it, while
+   here `Aoc.x` needs no import, so one qualified name is enough to bring
+   in `Aoc`'s procedures (**inferred**; see §4.9.5 and Q1).
 2. **Several candidates fitting is handled two ways.** Lean takes the first
    by priority and recency and treats instances as interchangeable;
    Haskell, Agda and Idris refuse ambiguity by default. Which is right
@@ -659,24 +705,22 @@ choose.
    `%hint`). Stitchwort doesn't: any `Decidable`-returning definition is
    one. That's convenient for `Decidable`, and §4.9.6 recommends markers
    for interfaces.
-4. **Haskell's orphan problem** is about modules that never meet: two
-   orphan instances for the same type in different modules, each locally
-   coherent, can produce a program where a `Data.Set` built with one
-   ordering is used with another, giving `fromList [X,Y,X]` (**checked**
-   [E1]). GHC warns about orphans (`-Worphans`) partly because it "must
-   pro-actively read the interface files for all orphan modules" (**checked**
-   [H4]).
 
 #### 4.9.4 Why `Decidable` is the easy case, and where it isn't
 
-**The answer can't differ.** If `p` is true, no procedure can say `No`,
-because `No` carries a refutation of `p`, which would be a proof of
-something false. If `p` is false, none can say `Yes`. So any two
-procedures that answer agree on the answer. (**Inferred**, from the type
-`Decidable p = Yes p | No (Not p)` in DESIGN §6; it assumes the logic is
-consistent, which the kernel exists to ensure.) That's Lean's "morally
-canonical" situation, so taking the first candidate that fits, without an
-ambiguity check, is safe for *answers*.
+**The answer can't differ ("answer agreement").** If `p` is true, no
+procedure can say `No`, because `No` carries a refutation of `p`, which
+would be a proof of something false. If `p` is false, none can say `Yes`.
+So any two procedures that answer agree on `Yes` versus `No`, though not
+on the proof inside it. (**Inferred**, from the type `Decidable p = Yes p |
+No (Not p)` in DESIGN §6; it assumes the logic is consistent, which the
+kernel exists to ensure; the reviewer agreed.) Only total, pure
+definitions can be candidates (§4.9.1), so a candidate that finishes
+computing gives a real answer. A
+natively implemented procedure (`Nat.decEq`) needs nothing extra: that it
+answers correctly is already part of what native code is trusted for.
+That's Lean's "morally canonical" situation, so taking the first candidate
+that fits, without an ambiguity check, is safe for *answers*.
 
 **But the choice is still visible**, in three ways:
 
@@ -712,8 +756,8 @@ can't change its choice). It doesn't have to be clever.
 | A hypothesis in scope, or a procedure passed in as an argument | Yes, first (unchanged) |
 | Same file `F`, above the use | Yes (unchanged) |
 | Same file `F`, below the use | No, as now; the hint says to move it or pass it |
-| **Another file of `N`** | **No, at first.** The hint says "`decX` is in another file of `Day05` (`day05-merge.sw`): pass it explicitly" |
-| A namespace `N` depends on, directly or through others | Yes, all its procedures |
+| **Another file of `N`** | **No** (decided; revisit with interfaces). The hint says "`decX` is in another file of `Day05` (`day05-merge.sw`): pass it explicitly" |
+| A namespace `N` depends on, directly or through others (§4.6: by an import *or* a qualified name) | Yes, all its procedures |
 | `Std` | Yes |
 | A namespace `N` doesn't depend on | **No**, even if it was checked earlier |
 
@@ -721,46 +765,63 @@ can't change its choice). It doesn't have to be clever.
 
 1. hypotheses and procedures passed as arguments (unchanged);
 2. same file, most recent first (unchanged);
-3. the depended-on namespaces, **latest in the canonical order (§4.6)
-   first**, so a namespace's procedures come before those of the
-   namespaces it builds on; within one namespace, by full name;
+3. the depended-on namespaces in **reverse canonical order** (§4.6), so a
+   namespace's procedures come before those of the namespaces it builds
+   on; within one namespace, sorted by full name. This is purely a fixed
+   tie-break, not a judgement of which is "closer";
 4. `Std`, most recent first (unchanged; the prelude is one module, loaded
    the same way every time).
 
-Never by file path, file read order or load order.
+Never by file path, file read order or load order. The candidate list must
+be **sorted explicitly** by these keys: today's scan walks definitions by
+their internal number, newest first (**checked**, `auto.rs:219`), and in a
+project those numbers follow load order.
 
 **Several fit: first wins, no ambiguity error**, as today and as Lean
-does. §4.9.4 says why that's safe for answers; passing a procedure
-explicitly (`[ok := …]`, or `if x == y` via an explicitly named procedure)
-pins the choice where a proof depends on it.
+does; no warning either, since it would fire constantly. §4.9.4 says why
+that's safe for answers; passing a procedure explicitly (`[ok := …]`, or
+`if x == y` via an explicitly named procedure) pins the choice where a
+proof depends on it. *Later, optional:* a flag that reports which
+procedure each `auto` chose, for when a proof breaks mysteriously.
 
-**Why not sibling files.** "Above the use" has no meaning across files,
-and the order sibling files are checked in comes from the dependency
-pre-pass, not anything the user wrote. Using them would make the answer
-depend on details the user can't see. Passing a procedure explicitly makes
-it a dependency, checked first, as today. *Later, compatible:* order
-sibling files by their *file-level* dependencies (if nothing in file `G`
-depends on file `F`, `G`'s procedures are usable in `F` and `G` is checked
-first). That only turns `E-AUTO-NONE` into programs.
+**Why not sibling files** (decided). "Above the use" has no meaning across
+files, and the order sibling files are checked in comes from the
+dependency pre-pass, not anything the user wrote. **The visible cost:
+moving a decision procedure to another file of the same namespace can
+break an `auto` that used it** (`E-AUTO-NONE`, whose hint names the
+file). Passing a procedure explicitly makes it a dependency, checked
+first, as today. *Later, compatible:* order sibling files by their
+*file-level* dependencies; that only turns `E-AUTO-NONE` into programs.
 
 **Why not every loaded namespace** (today's rule, and namespaces.md §7.1's
 "imports never change which proofs are found")? Inside one project,
 namespaces that don't depend on each other are checked in an order that
 only breaks ties, and `run Day05.main` checks only what `Day05` needs
 (§9.1). A procedure in `Day02` would be found by `Day05` in one command and
-not in another. The dependency rule is Lean's and Haskell's "transitively
-imported" (§4.9.3). It also means a namespace's elaborated terms depend
-only on itself and what it depends on, which a per-namespace cache needs
-(§8.3).
+not in another. The dependency rule also means a namespace's elaborated
+terms depend only on itself and what it depends on, which a per-namespace
+cache needs (§8.3).
+
+**Said plainly: one qualified name brings in a whole namespace's
+procedures.** If `Day05` writes `Aoc.Range.parse` once, with no import,
+every decision procedure in `Aoc` becomes a candidate everywhere in
+`Day05`. This is like Lean's and Haskell's "transitively imported"
+(§4.9.3) only loosely, because there a module can't be named without an
+import. The reviewer recommends that only imports should bring in
+candidates. This draft keeps Matt's rule, because the stricter one would
+make `r1 == r2` fail on values of type `Aoc.Range` in a file that writes
+the type qualified, unless it also imports something from `Aoc`
+(**inferred**: `==` finds its `Decidable` by this search, §4.9.1). Q1 puts
+the choice to Matt; it matters most once interfaces reuse the rule.
 
 **What changes from namespaces.md §7.1.** That note said imports decide
 which names you can write and never which proofs are found. That still
 holds for *which names* an import lists: `import Aoc (Range)` and `import
 Aoc (Range, merge)` give the same candidates. What now matters is
-*whether* `N` depends on `Aoc` at all. Adding the first import from (or
-qualified use of) a namespace adds its procedures; since they come after
-`N`'s own file and only answer as any other would (§4.9.4), this can change
-the term chosen only where no earlier candidate fitted.
+*whether* `N` depends on `Aoc` at all. The first import from, or qualified
+use of, a namespace adds its procedures; they come after `N`'s own file
+and answer as any other would (§4.9.4), so this can change the term chosen
+only where no earlier candidate fitted.
 
 **Cost.** Today the search scans every definition per goal
 (`auto.rs:219`). The filter adds one check per definition (is its
@@ -768,48 +829,32 @@ namespace in the closure?). An index by the goal's head, built per
 namespace, can come later if `auto` shows up in timings
 (namespaces.md §7.1 flagged this; not measured, **unverified**).
 
-#### 4.9.6 Extending the rule to interfaces
+#### 4.9.6 Interfaces: a direction, to be designed later
 
-Interfaces (TODO: "an interface is a record (laws as proof fields),
-instances found by generalising the `Decidable` auto search") are the case
-§4.9.4 doesn't cover: two instances of `Ord Range` can order differently,
-and two of `Show Range` print differently. A `Set Range` built with one
-and searched with the other is Haskell's `Data.Set` bug [E1]. So:
+Interfaces (type-class-style; not being designed now) are the case §4.9.4
+doesn't cover: two instances of `Ord Range` can order differently, so a
+`Set Range` built with one and searched with the other goes wrong
+(Haskell's `Data.Set` bug [E1]). The direction this note leaves for that
+design:
 
-- **Where candidates come from: the same rule** as §4.9.5 (own file above
-  the use, depended-on namespaces, `Std`). Recommended so that one piece of
-  code answers both questions.
-- **Explicit markers** for instances (`instance def …` or similar), as all
-  four languages have, rather than "anything returning the interface's
-  type". The interfaces note decides the syntax.
-- **Several fit: an error for interfaces that carry data**, as Haskell,
-  Agda and Idris do by default (§4.9.3), rather than Lean's first-wins.
-  Interfaces made only of propositions (like `Decidable`'s answers) can
-  keep first-wins.
-- **Checked when instances are declared, not only when used.** Haskell
-  reports overlap only when a goal is solved (**checked** [H5]), which is
-  why two modules that never meet can disagree. A Stitchwort project is
-  loaded whole, so overlapping instances anywhere in the project (and
-  `Std`) can be refused when the second is checked, giving global
-  uniqueness within a project. (**Inferred**; cost not estimated.)
-- **Named alternatives passed explicitly**, Idris's answer to "I want a
-  different ordering here" [I3]: a second `Ord Range` is an ordinary
-  definition, not an instance, passed by name.
-- **Local instances**: an interface argument in a signature (`[ord : Ord
-  a]`) is a candidate inside the body, as hypotheses are today, and as in
-  Lean, Agda and Idris (§4.9.3).
-- **Orphans**: within a project, the declaration-time check above makes
-  them harmless, so they needn't be refused. Instances for `Std` types and
-  interfaces declared in a project namespace are orphans in Haskell's
-  sense, and are needed, since `Std` is closed. Whether an instance counts
-  as "adding to another namespace" (§4.7) is for that design.
-- **Scoped instances** (Lean's `scoped`) are not proposed: they make an
-  `open` or import change which instance is found, which goes against the
-  rule above. If ever added, they'd be a separate, explicitly marked kind.
+- the **same candidate rule** as §4.9.5, so one piece of code answers both;
+- **explicit instance markers**, as all four languages have (§4.9.3);
+- **ambiguity is an error** for interface instances, as in Haskell, Agda
+  and Idris; first-wins stays special to `Decidable`;
+- **named alternatives passed explicitly** (Idris [I3]) and **local
+  instances** from arguments in a signature.
 
-Nothing in §4.9.5 needs changing for this: interfaces add a marker, an
-ambiguity check and a declaration-time overlap check on top of the same
-candidate set.
+**Input for that note, from the draft 3 review** (recorded, not resolved
+here): (1) draft 3's "refuse overlapping instances project-wide when
+declared" clashes with `run` checking only what the target needs (§9.1),
+and deciding whether two instance heads with dependent types overlap may
+need unification the elaborator doesn't have; start with ambiguity found at
+use sites, or restrict instance heads (Idris allows only constructors and
+variables). (2) Make ambiguity an error for *every* interface, not only
+data-carrying ones: Stitchwort doesn't treat two proofs of the same
+proposition as equal, so even a proof-only instance can change what a
+proof reduces to. (3) Revisit whether a bare qualified name should bring
+in instances (Q1), and `auto` across sibling files.
 
 ## 5. Tests and proofs next to what they're about
 
@@ -825,11 +870,15 @@ The rules make every split work:
   below it.
 - **Moving a test or theorem between files of a namespace changes nothing**:
   same full name, same hash, same cached result. Moving it to another
-  namespace changes its name but not its hash (§8). (One exception: an
-  `auto` in it may pick a different procedure, §4.9.4, if the move changes
-  which procedures are above it or depended on.)
+  namespace changes its name but not its hash (§8). (Exceptions: the new
+  file's imports may differ, and an `auto` in it may pick a different
+  procedure, §4.9.4, if the move changes which procedures are above it or
+  depended on.)
 - **`stitchwort test Day05` runs the tests of `Day05` and of every namespace
-  it depends on** (decided), grouped by namespace and then file. Library
+  it depends on** (decided), grouped by namespace (canonical order), then
+  file (by path within the project: display only, it means nothing), then
+  source order. Today's sort is by position alone (**checked**,
+  `module.rs:208`), so this is new. Library
   (`Std`) tests are excluded, as now. Results come from the cache when
   nothing they depend on changed, so `Aoc`'s tests cost nothing the second
   time.
@@ -842,17 +891,9 @@ name, the folder layout, and how the playground loads the days. This
 section shows one way it could look, to check the design works for the
 real use cases; it decides none of them.
 
-**Two layouts** for the project file; both work, since paths mean nothing:
-
-```yaml
-# aoc/stitchwort.yaml, keeping today's layout
-sources: [.]
-```
-
-```yaml
-# aoc/stitchwort.yaml, files under aoc/src/ (or omit `sources`: src is the default)
-sources: [src]
-```
+**Layout**: `aoc/stitchwort.yaml` holding `sources: [.]` keeps today's
+files where they are; files moved under `aoc/src/` need no `sources` key.
+Both work, since paths name nothing.
 
 **A shared namespace.** A namespace per topic (`namespace Range`) makes the
 type `Range.Range`; one namespace for all shared code (`Aoc` below) avoids
@@ -1045,14 +1086,16 @@ a file by path is always file mode.
   `Aoc.Range`, `Day05.Database`, `Aoc.Grid.Cell` (DESIGN §11: "a nominal
   type's hash includes its logical module name and its own name"; the
   namespace *is* the logical module name now). Today every program type is
-  `Main.…` (`module.rs:153`, read by `crates/core/src/globals.rs:196-203`,
-  hashed at `crates/core/src/hash.rs:138`).
-- **Moving a file changes nothing**: the namespace comes from the file's
-  first line, not its path. Moving a type between two files of `Aoc` keeps
-  its hash; moving it to another namespace makes a new type, as DESIGN §11
-  accepts.
-- **The same in both modes**: a project file with a namespace line that
-  uses only `Std` hashes the same whether run as a file or by name (§4.3).
+  `Main.…` (`module.rs:155`, read by `crates/core/src/globals.rs:196-203`,
+  hashed at `crates/core/src/hash.rs:137`).
+- **Moving a file changes no names or hashes**: the namespace comes from
+  the file's first line, not its path. (The one way a path matters: an
+  `include` in the file is resolved relative to it, §10, so moving the file
+  can change *which* text is included.) Moving a type between two files of
+  `Aoc` keeps its hash; moving it to another namespace makes a new type, as
+  DESIGN §11 accepts.
+- **File mode and project mode**: the same hashes only where every name in
+  the file resolves the same way in both (§4.3); not promised in general.
 - **Two projects with identically named types** (`Aoc.Range` in two
   checkouts, or two people's projects) get **the same hash** if the
   declarations are identical. That doesn't matter today: only one project
@@ -1066,14 +1109,30 @@ a file by path is always file mode.
 - **AoC programs' types change hash once** (`Main.Range` becomes
   `Aoc.Range`), so their cached test results are recomputed once.
 - **Ability order in rows** must not depend on load order (§11, item 7):
-  sort by the ability's full name instead. Std's rows may then change hash
-  once. *Whether row order reaches hashes is from reading the code
-  (labels are sorted at `effects.rs:832` before the row is built); not
-  confirmed by a test.*
-- **Groups are already order-independent.** Mutually recursive definition
-  groups are hashed in a canonical order by shape, and data groups by name
-  (`hash.rs:8-23`), so which file a group's members come from, or the order
-  files are read in, doesn't reach those hashes.
+  sort by the ability's full name instead. Row order does reach hashes
+  (**checked** by reading, agreed by the reviewer): `AbilityInfo.order` is
+  (module counter, position) (`lib.rs:769-774`), and the row is sorted by
+  it (`effects.rs:832`) before the computation type is built. Nothing else
+  uses that order. Std's rows may change hash once.
+- **Data groups are already order-independent**: ordered by name
+  (**checked**, `hash.rs:208-214`), and names in one namespace are unique.
+- **Mutually recursive definition groups are not, yet.** Members are put
+  in order by their *shape* (each member's hash with references to other
+  members blanked out), and **members with the same shape are ordered as
+  they were submitted** (**checked**, `hash.rs:179-180`, and the module
+  comment at `hash.rs:14-17`). Submission order comes from the module's
+  item order (**inferred**, from `components` at `module.rs:548-551`),
+  which across files would be file order. Each member's hash is the
+  group's hash plus its index, so two same-shaped members (say `f`
+  calling `g` and `g` calling `f`, with identical bodies otherwise) would
+  swap hashes if their files were read the other way round. **Fix: break
+  shape ties by full name** (`Day05.f` before `Day05.g`). That puts names
+  into hashes, but only to order members that are otherwise identical;
+  moving a member between files of its namespace keeps its name, so file
+  order and paths still can't reach hashes. (The purist alternative, an
+  order that doesn't depend on names at all, needs graph canonicalisation:
+  much more machinery for a rare case. Q2.) A §12 test splits a symmetric
+  pair across two files and loads them both ways.
 
 ### 8.2 The test cache (D15)
 
@@ -1088,15 +1147,10 @@ changed.
 mode, as today: `.stitchwort/cache` under the working directory
 (`main.rs:37-38`; `--cache-dir` still overrides both).
 
-**Gitignored (recommended how):** when it creates `.stitchwort/`,
-`stitchwort` writes `.stitchwort/.gitignore` containing `*`, so the folder
-ignores itself in any repository without the user editing their own
-`.gitignore`. pytest does the same for `.pytest_cache` (**checked**, via a
-mirror of the commit and the follow-up issue [P1]); that issue records one
-objection (a tool writing VCS files), which seems minor here. The
-alternative is a line in each project's `.gitignore` by hand; the
-repository's root `.gitignore` covers only `/.stitchwort` at the root
-today.
+**Gitignored (decided):** when it creates `.stitchwort/`, `stitchwort`
+writes `.stitchwort/.gitignore` containing `*`, so the folder ignores
+itself in any repository without the user editing their own `.gitignore`,
+as pytest does for `.pytest_cache` [P1].
 
 ### 8.3 Elaboration is still redone
 
@@ -1114,7 +1168,9 @@ results of the namespaces it depends on; the acyclic order (§4.6) and
 is a file (file mode, §4.3); anything else is a name (project mode). In
 project mode the project is found by walking up from the current
 directory; `--project DIR` overrides that. No `stitchwort.yaml` found is
-an error naming the folder searched from.
+an error naming the folder searched from. One consequence: a function
+named `sw` (`Day05.sw`) can't be run by name, since the argument looks like
+a file; rename it. (If that ever matters, a `--name` flag is the escape.)
 
 **`stitchwort run NAME`** (decided): `NAME` is a fully qualified function
 name, `Day05.main` or `Aoc.Tools.demo`. Any function may be run if
@@ -1145,24 +1201,19 @@ not (§4.3). Runs the file's `main`; `E-FILE-MODE` if it uses anything but
 
 - No target, inside a project: every test of every namespace.
 - `test Day05`: the tests of `Day05` and every namespace it depends on,
-  grouped by namespace (canonical order, §4.6), then by file, then source
-  order (decided).
-- `test FILE.sw`: **recommended: file mode**, like `run` (Q1). The file's
-  own tests, with `Std` only.
+  grouped by namespace (canonical order, §4.6), then by file (path within
+  the project), then source order (decided).
+- `test FILE.sw`: **file mode** (decided), like `run`. The file's own
+  tests, with `Std` only.
 
 **`stitchwort check [TARGET…]`:** no target means the whole project; a
-namespace name means it and what it depends on; a file means **file mode
-(recommended, Q1)**. `check a.sw b.sw` keeps one session per file.
+namespace name means it and what it depends on; a file means **file mode**
+(decided). `check a.sw b.sw` keeps one session per file.
 
-*Why recommend file mode for `check FILE` and `test FILE` too:* the same
-argument should mean the same thing in every command, and the rule "a path
-means just this file" is the easiest to remember. The cost: in a project,
-`check aoc/day05.sw` fails with `E-FILE-MODE`, and the user types `check
-Day05` instead. The alternative (draft 2's): a file inside a project means
-"its namespace and dependencies" for `check`/`test`, which is handier from
-an editor but makes `run` the odd one out. The VS Code extension
-(`editors/vscode`) is syntax colouring only and calls no command, so
-neither choice affects it today.
+So a path means the same in every command. The cost: in a project, `check
+aoc/day05.sw` fails with `E-FILE-MODE` (its note gives `check Day05`), and
+a file that passes `check FILE` can still fail, or mean something else, in
+the project (§4.3).
 
 **`eval` and `repl`** inside a project load it and resolve names as a file
 with no namespace and no imports would: qualified project names
@@ -1176,16 +1227,12 @@ with no namespace and no imports would: qualified project names
 Aoc (…)` there is `E-FILE-MODE` with the note "the playground has only this
 file". `include` is `E-INCLUDE-UNAVAILABLE`.
 
-**The AoC examples are parked** (§13.2). Since `c65023e` the web build
-copies `aoc/day*.sw` into the playground (`web/build.sh:14-27`,
-`flake.nix:119-133`). Days that use only `Std` keep working as they are
-(file mode). Once a day imports a shared namespace it can't compile alone.
-Draft 2's suggestion, kept for when this is decided: the driver reads
-source through a small interface ("the files of this project"), backed by
-the disk in the CLI and by an in-memory list in tests and the browser, and
-the web build passes each day with what it depends on as an in-memory
-project. The in-memory interface is worth building in stage 1 anyway, for
-the driver's own multi-file tests.
+**The AoC examples are parked** (§13.2). Days that use only `Std` keep
+working (file mode); a day that imports a shared namespace can't compile
+alone. Kept for when this is decided: the driver reads source through a
+small "files of this project" interface, backed by the disk in the CLI and
+by an in-memory list in tests and the browser. Stage 1 builds it anyway,
+for the driver's own multi-file tests.
 
 ### 9.3 JavaScript (D13)
 
@@ -1209,7 +1256,8 @@ the driver's own multi-file tests.
 
 Unchanged from draft 1 except for "inside the project":
 
-- **Paths are relative to the file that contains the `include`**, as Rust's
+- **Paths are relative to the file that contains the `include`**: the one
+  place a file's location matters (it never names anything), as Rust's
   `include_str!` ("The file is located relative to the current file") [R2]
   and Dhall's relative imports [D1]. Whatever directory the command runs
   from.
@@ -1232,24 +1280,25 @@ model:
 
 | # | Today | Draft 1 needed | Now | Easier or harder? |
 |---|---|---|---|---|
-| 1 | Every program module is called `Main` (`module.rs:153`) | The file's path-based name | The namespace from the file's header; `Main` stays for file-mode files without one | **Easier**: the name is written in the source, no path rules, no capitalised file names |
-| 2 | The program's key prefix is empty (`scope.rs:151-155`, `root()`; level 2 at `scope.rs:279-295`) | A prefix per file | A prefix per **namespace**, i.e. per `elaborate_module` call, which is what `root()` already is (per module) | **Easier**: one module per namespace, not per file. Level 2 needs the namespace's prefix in place of the `root.is_empty()` branch |
+| 1 | Every program module is called `Main` (`module.rs:155`) | The file's path-based name | The namespace from the file's header; `Main` stays for file-mode files without one | **Easier**: the name is written in the source, no path rules, no capitalised file names |
+| 2 | The program's key prefix is empty (`scope.rs:151-155`, `root()`; level 2 at `scope.rs:279-295`) | A prefix per file | A prefix per **namespace**, i.e. per `elaborate_module` call, which is what `root()` already is (per module) | **Easier** for level 2: the namespace's prefix in place of the `root.is_empty()` branch. **Harder** for level 3: imports become per file within the module (§4.4), where today there is one table (`scope.rs:74-75`, cleared at `module.rs:156`) |
 | 3 | A qualified name may reach any namespace in scope (`scope.rs:169-178`) | Must be restricted to imported files | **Mostly wanted now**: qualified names need no import. Restrict to project namespaces already checked plus `Std`, which the dependency order guarantees | **Easier** |
-| 4 | `auto` uses any finished definition outside the module (`module.rs:1111-1124`) | Filter by the import closure | Filter by the namespaces this one depends on and order them (§4.9.5); within a module, "above" becomes "same file and above" | Similar. Items need their file next to their position; definitions need their namespace |
+| 4 | `auto` uses any finished definition outside the module, newest first (`module.rs:1113-1123`, `auto.rs:219`) | Filter by the import closure | Filter by the namespaces this one depends on and sort explicitly (§4.9.5); within a module, "above" becomes "same file and above" | Similar. Items need their file next to their position; definitions need their namespace |
 | 5 | `main` is the last definition named `main` (`run.rs:142`) | The root file's `main` | Lookup by full name (project mode); the file's `main` (file mode) | **Easier** |
 | 6 | JS exports every `export` (`js/src/lib.rs:478-498`) | The root file's exports | The target namespace's exports | Same |
-| 7 | Ability order by `(module counter, position)` (`lib.rs:761-766`, `effects.rs:832`) | By (logical file name, position) | By full name | Same; simpler key |
-| 8 | Tests sorted by `span.start` (`module.rs:206`) | n/a | Spans from several files: sort by (file, start) | **New**, small |
+| 7 | Ability order by `(module counter, position)` (`lib.rs:769-774`, `effects.rs:832`) | By (logical file name, position) | By full name | Same; simpler key |
+| 8 | Tests sorted by `span.start` (`module.rs:208`) | n/a | Spans from several files: sort by (file, start) | **New**, small |
 | 9 | `check` gives each file its own session (`main.rs:118-129`) | Load imports on demand | Read `stitchwort.yaml`, parse every file, group by namespace, order namespaces | Same size; no import-path search, but a YAML dependency |
+| 10 | Recursive groups break shape ties by submission order (`hash.rs:179-180`) | n/a | Break ties by full name (§8.1) | **New**, small |
 
 What makes the new model **easier** overall: `elaborate_module` already
 handles "a set of declarations, in any order, possibly mutually recursive",
 and a namespace is exactly that set; spans already carry their file
-(`source.rs:9-13`); and def/data group hashes already ignore source order
-(`hash.rs:8-23`). What makes it **harder**: every project file must be
-parsed for every project-mode command (to read namespace lines); the
-namespace order must be computed from the syntax (imports and qualified
-names) before checking.
+(`source.rs:9-13`). What makes it **harder**: every project file must be
+parsed for every project-mode command (to read namespace lines); imports
+must be kept per file inside a module (row 2); and the namespace order
+must be computed before checking, by a resolver shared with checking
+(§4.6).
 
 ## 12. Stages
 
@@ -1261,15 +1310,19 @@ Each stage is one lane, merged on its own, with `nix flake check`.
   finding the project (§4.1, §9.1).
 - The namespace line, `E-NO-NAMESPACE`, `E-NAMESPACE-RESERVED`,
   `E-NAMESPACE-CLASH`; file mode with or without a line, `E-FILE-MODE`.
-- Load every file; group by namespace; canonical order by imports and
-  qualified names; `E-NAMESPACE-CYCLE`, `E-NAMESPACE-FAILED`. One
-  `elaborate_module` per namespace with its prefix (§11 rows 1-3).
+- Load every file; group by namespace; dependencies by the shared
+  resolver (§4.6); canonical order; `E-NAMESPACE-CYCLE`,
+  `E-NAMESPACE-FAILED`. One `elaborate_module` per namespace with its
+  prefix and per-file imports (§11 rows 1-3).
 - Qualified names and `import N (names)` across namespaces; per-file
   imports; `E-DUPLICATE` and `E-IMPORT-CLASH` across files.
-- `E-FOREIGN-NAMESPACE`; `auto` by §4.9.5, with the new hints.
-- Type hashes from the namespace; ability order by full name.
-- CLI: `run NAME` with `E-RUN-TYPE`, `E-RUN-UNKNOWN`; `run FILE` in file
-  mode; `test`/`check` of a project or a namespace with its dependencies;
+- `E-FOREIGN-NAMESPACE`; `auto` by §4.9.5, explicitly sorted, with the new
+  hints.
+- Type hashes from the namespace; ability order by full name; recursive
+  groups' ties by full name.
+- CLI: `run NAME` with `E-RUN-TYPE`, `E-RUN-UNKNOWN`; `run`/`check`/`test`
+  of a file in file mode; `test`/`check` of a project or a namespace with
+  its dependencies;
   `build --js NAMESPACE`. The source interface (disk and in-memory). The
   cache in the project folder with its `.gitignore`.
 - AoC (pending the parked questions): a `stitchwort.yaml`, a shared
@@ -1283,12 +1336,16 @@ Each stage is one lane, merged on its own, with `nix flake check`.
   - reject, one per new code, each asserting its code; a three-namespace
     cycle; an import in one file not visible in a sibling; `E-DUPLICATE`
     across two files naming both;
+  - dependencies: `N` declaring `type Aoc` and writing `Aoc.x` gets no edge
+    to a project namespace `Aoc` (no false cycle); dot notation reaching
+    `Aoc` through a type synonym and through a record field's type;
   - `stitchwort.yaml`: empty file; unknown key; `sources: [no]` (refused,
     not `false`); duplicate key; missing folder; nested project;
   - file mode: every `examples/accept` program unchanged (the existing
-    suite); a file with a namespace line; a project file using only `Std`
-    runs both ways with the same hashes; a project file importing a project
-    namespace is `E-FILE-MODE`;
+    suite); a file with a namespace line; a project file with no siblings
+    that uses only `Std` runs both ways with the same hashes; the `not`
+    example of §4.3 gives different hashes in the two modes, as specified;
+    a project file importing a project namespace is `E-FILE-MODE`;
   - `auto`: doesn't use a procedure from a sibling file or an unrelated
     namespace, and does use one from a dependency; with two fitting
     procedures in two depended-on namespaces, the same one is chosen
@@ -1304,8 +1361,9 @@ Each stage is one lane, merged on its own, with `nix flake check`.
     project folder from a subdirectory, with its `.gitignore`;
     `build --js` exports only the target namespace's; `run --js` across
     namespaces;
-  - abilities from two namespaces get the same row order whatever order
-    the files are read in.
+  - **file order**: loading the files in both orders gives the same
+    hashes for abilities from two namespaces and for a symmetric two-member
+    recursive group split across two files.
 
 **Stage 2: splitting a day.** `import N (..)` (wildcard level, below
 explicit imports). AoC: day 5 split both ways of §6 as a trial (no new
@@ -1326,21 +1384,36 @@ name in type hashes); a per-namespace elaboration cache.
 
 ### 13.1 Open
 
-Short; each has a recommendation.
+Draft 3's Q1 (`check`/`test FILE`), Q2 (`auto` and sibling files), Q3
+(interfaces) and Q4 (the `.gitignore`) are decided or deferred, above.
+Neither question left blocks stage 1: each has a default stage 1 can
+build, and changing it later is small.
 
-- **Q1. `check FILE` and `test FILE` inside a project**: file mode, like
-  `run` (recommended: one meaning for a path everywhere), or the file's
-  namespace and its dependencies (handier, but unlike `run`)? §9.1.
-- **Q2. `auto` and sibling files**: not used at first, pass explicitly
-  (recommended), or used once file-level ordering exists (later, more
-  work)? §4.9.5.
-- **Q3. Direction for interfaces** (§4.9.6): same candidate rule as
-  `auto`, explicit instance markers, an error when two data-carrying
-  instances fit, and a project-wide overlap check when instances are
-  declared. Agree as the starting point for the interfaces note?
-- **Q4. The cache's `.gitignore`**: `stitchwort` writes
-  `.stitchwort/.gitignore` itself (recommended, as pytest does), or each
-  project lists `.stitchwort` in its own `.gitignore`? §8.2.
+- **Q1. Should a qualified name on its own bring in `auto`'s candidates?**
+  (§4.9.5.) Your rule: `auto` looks in every namespace this one *depends
+  on*, and writing `Aoc.Range.parse` once, with no import, counts as
+  depending on `Aoc`. So that single mention makes every decision
+  procedure in `Aoc` available to `auto` throughout the namespace. The
+  reviewer finds that too invisible and would count only `import`s. What
+  the stricter rule costs, for example: a file that writes `Aoc.Range`
+  qualified and compares two ranges with `r1 == r2` would no longer find
+  `Aoc`'s equality test, and would need some `import Aoc (…)` first.
+  **Recommendation: keep your rule for now.** For `Decidable` the choice
+  can't change an answer (§4.9.4), and the stricter rule breaks `==` on
+  qualified types. Decide again in the interfaces note, where choosing a
+  different instance can change what a program does.
+- **Q2. Breaking ties in the hashes of functions that call each other.**
+  (§8.1.) A hash is a fingerprint of a definition's content; the test
+  cache uses it. Names are kept out, so renaming `merge` keeps its
+  fingerprint. A group of functions that call each other is fingerprinted
+  together, members in a fixed order; when two members look identical
+  apart from calling each other (`ping` calls `pong`, `pong` calls `ping`),
+  today the tie goes to whichever appears first, which with several files
+  would mean file order. **Recommendation: break the tie by full name**
+  (`Day05.ping` before `Day05.pong`). The cost: renaming one of such a pair
+  can swap the two hashes, so their cached tests rerun once. The
+  alternative keeps names out completely but needs a graph algorithm, for
+  a case that hardly ever happens.
 
 ### 13.2 Parked (AoC-specific, not decided here)
 
@@ -1353,50 +1426,103 @@ Short; each has a recommendation.
 - **P3. `aoc/` layout**: `sources: [.]` keeping files where they are, or
   move them under `aoc/src/`? (Draft 2's Q7.)
 
-## 14. Questions for the reviewer
+## Appendix A. Response to the draft 3 review
 
-Draft 2's R1 (is "imports per file, declarations per namespace"
-confusing?) is dropped: Matt decided imports are per file. R6 (stage 3's
-extension rule) is dropped: adding to another namespace is deferred.
+The reviewer found no critical (soundness) problem, six major and four
+minor ones, and answered draft 3's reviewer questions R2-R11. Each finding
+was checked against the note and the code at `80c87a8` before acting.
 
-- **R2. Namespace order from syntax (§4.6).** Is "imports plus qualified
-  names whose first component is a project namespace not hidden by a local
-  or own declaration" exact enough, given that a qualifier's first
-  component can be the namespace's own type? Over-approximating gives false
-  cycles; under-approximating checks a namespace before one it uses. Is the
-  claim that dot notation only ever reaches namespaces in the dependency
-  closure (§4.6) right, including through type synonyms and records'
-  fields?
-- **R3. `auto` (§4.9).** Is excluding sibling files too restrictive for
-  split days? Is the order of §4.9.5 deterministic in every case (ties in
-  the canonical order; procedures within one depended-on namespace by full
-  name)? Is "first that fits wins" acceptable given §4.9.4's point that
-  proofs see which procedure was chosen, or should a namespace's own
-  procedures and a dependency's both fitting be a warning?
-- **R4. Ability row order by full name (§8.1).** Does row order reach
-  hashes, and is any code relying on the current (module, position) order
-  for something other than determinism?
-- **R5. Same-named types in two projects hashing alike (§8.1).** Acceptable
-  until projects can depend on each other?
-- **R7. File mode (§4.3).** Is "a path always means just this file" clear,
-  given that `run aoc/day01.sw` works and `run aoc/day05.sw` doesn't, in
-  the same folder? Any case where a file's meaning differs between file
-  mode and project mode (it shouldn't: same names, same hashes)?
-- **R8. The agreement argument (§4.9.4).** Is "any two decision procedures
-  that answer agree" sound here? In particular: can a `partial` definition
-  be a candidate (its type would end in `{Partial} Decidable …`; whether
-  `decision_procedures` skips it is **unverified**), and do natively
-  implemented procedures (`Nat.decEq`) need anything extra?
-- **R9. Dependencies decide candidates (§4.9.5).** A single qualified name
-  `Aoc.x` makes all of `Aoc`'s procedures candidates. Is that surprising
-  enough to need a hint, or a stricter rule (only namespaces actually
-  imported from)?
-- **R10. Interfaces (§4.9.6).** Is the declaration-time overlap check over
-  a whole project practical (what counts as "overlap" for dependent types,
-  where instance heads can mention values)? Is refusing ambiguity for data
-  but not for propositions a coherent line?
-- **R11. Anything a newcomer would find confusing**, in this note or in
-  the error messages of §7.
+| # | Severity | Section | Finding | Verdict | Changed |
+|---|---|---|---|---|---|
+| 1 | Major | §4.6 | Dependencies from "names starting with `M`" give false edges | Accept | §4.6, §12 tests |
+| 2 | Major | §4.4 | One module per namespace needs per-file imports | Accept | §4.4, §11 rows 2 and summary, §12 |
+| 3 | Major | §4.3, R7 | File and project mode can mean different things | Accept | §4.3, §8.1, §9.1, §12 tests |
+| 4 | Major | §8.1 | Recursive-group hashes depend on submission order | Accept | §8.1, §11 row 10, §12, Q2 |
+| 5 | Major | §4.9.5, R9 | A qualified name isn't an import; don't let it bring in candidates | Accept in part | §4.9.3, §4.9.5, Q1 |
+| 6 | Major | §4.9.6, R10 | Project-wide overlap check for interfaces doesn't hold together | Accept in part (recorded for the interfaces note) | §4.9.6 |
+| 7 | Minor | §4.9.4, R8 | The agreement argument is right; name it and settle R8 | Accept | §4.9.1, §4.9.4 |
+| 8 | Minor | §10 | "Paths mean nothing" is too broad, given `include` | Accept | §0, §8.1, §10 |
+| 9 | Minor | §9.1 | The `.sw` rule reserves a function name | Accept | §9.1 |
+| 10 | Minor | §5 | Say what "grouped by file" orders by | Accept | §5, §9.1 |
+
+1. **Accept.** **Checked**: a qualifier's first component is resolved as
+   a short name before it's tried as a namespace (`scope.rs:158-180`), so
+   `Aoc.x` in a namespace that declares `type Aoc` means its own `Aoc`.
+   Draft 3 had the qualification only in reviewer question R2. §4.6 now
+   defines the edge by the same resolver checking uses, and requires it to
+   be exact, since it also decides `auto`'s candidates.
+2. **Accept.** **Checked**: `Module` has one import list
+   (`ast.rs:611-615`), `Scope` one import table (`scope.rs:74-75`),
+   cleared once per module (`module.rs:156`). Concatenating files would
+   leak imports between them, contradicting the decided per-file rule.
+   §4.4 specifies per-file import tables within a module; §11 marks it as
+   real work.
+3. **Accept.** **Checked** that a namespace's own declarations outrank the
+   library's defaults (`scope.rs:10-16`), so a sibling's `not` changes
+   what `not` means in project mode only. Draft 3's "same meaning and
+   hashes in both modes" was wrong. D3 stays as Matt decided; the promise
+   is narrowed to files whose names resolve the same way in both, and
+   §12 tests both sides.
+4. **Accept.** **Checked**: `order.sort_by_key(|&m| (shapes[m], m))`
+   (`hash.rs:179-180`) ties equal shapes by submission index; member
+   hashes are group hash plus index, so a symmetric pair swaps hashes if
+   submitted the other way round. Submission order following file order is
+   **inferred** (`components`, `module.rs:548-551`, orders by source
+   position). Draft 3's §8.1 was wrong. Ties are now broken by full name,
+   the reviewer's pragmatic fix; Q2 asks Matt to confirm, since it lets
+   names into hashes in this one case.
+5. **Accept in part.** Accepted: draft 3 overstated the likeness to Lean
+   and Haskell (there, naming a module needs an import; here it doesn't),
+   and the effect deserved saying plainly. §4.9.3 and §4.9.5 now say it,
+   and an optional "which procedure did `auto` choose" report is noted.
+   Not changed: the rule itself, which Matt decided (candidates from the
+   namespaces this one depends on). Imports-only would make `==` on a
+   qualified `Aoc.Range` fail without an import (**inferred**, §4.9.1),
+   and for `Decidable` the choice can't change answers. Put to Matt as
+   Q1, with the reviewer's view.
+6. **Accept in part.** The conflict with `run` checking only what it needs
+   (§9.1) is real, from the note itself; that overlap of dependent
+   instance heads is hard is plausible but **unverified** here, as is the
+   reviewer's Idris citation. Interfaces aren't being designed now (Matt),
+   so §4.9.6 drops the commitment and records the points as input for that
+   note, unresolved. Its sketch takes "ambiguity is an error for every
+   interface" as the cautious default.
+7. **Accept.** R8 is settled: `result_head` looks through ordinary
+   arguments only (`auto.rs:233-255`) and a `partial` or effectful result
+   is a `Delay`/`Comp` type (`effects.rs:211-216`), so neither can be a
+   candidate (**checked**). Native procedures need nothing beyond the
+   existing trust in native code. The argument is called "answer
+   agreement": `Yes`/`No` agree, proof terms needn't.
+8. **Accept.** `include` is resolved relative to the including file
+   (§10), so moving a file can change what it includes. Wording now says
+   paths name nothing but do locate `include`s.
+9. **Accept.** Documented in §9.1; a `--name` flag only if it matters.
+10. **Accept.** **Checked**: tests are sorted by `span.start` alone
+    (`module.rs:208`). "By file" now means by path within the project,
+    for display only.
+
+**The reviewer's answers to draft 3's questions**, and where they went:
+
+- **R2** (namespace order): finding 1. Dot notation reaching only the
+  dependency closure, through synonyms and record fields too, was agreed;
+  tests added (§12).
+- **R3** (`auto`): excluding sibling files is reasonable (now Matt's
+  decision); the cost, that moving a procedure to a sibling file can
+  break an `auto`, is stated in §4.9.5. The order is deterministic only if
+  sorted explicitly, not taken from internal numbering (**checked**:
+  `auto.rs:219` scans newest first); now required. No ambiguity warnings:
+  agreed.
+- **R4** (ability row order): it does reach hashes, and nothing else uses
+  the order (**checked**: the only read of `AbilityInfo.order` is the sort
+  at `effects.rs:832`). §8.1's caveat removed.
+- **R5** (same-named types in two projects): acceptable until projects
+  can depend on each other; that change will move nominal hashes once.
+  Unchanged.
+- **R7, R8, R9, R10**: findings 3, 7, 5 (and Q1), and 6.
+- **R11** (newcomer confusion): "depends on" is now defined where first
+  used, with a three-word glossary (file, namespace, module) in §0;
+  "latest in canonical order" became "reverse canonical order", described
+  as a tie-break only (§4.6, §4.9.5).
 
 ## Sources
 
