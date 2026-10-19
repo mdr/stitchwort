@@ -580,9 +580,9 @@
     {
       "id": 39,
       "title": "Make `Def.body`/`Def.state` and `Data.state` private behind the admission API",
-      "status": "review",
-      "agent": "DeepSeek",
-      "where": "/Users/matt/scratch/opencode/funlang-20261019-213623",
+      "status": "done",
+      "agent": "",
+      "where": "",
       "labels": [
         "kernel"
       ],
@@ -1188,9 +1188,9 @@
     {
       "id": 81,
       "title": "A misleading follow-on error",
-      "status": "doing",
-      "agent": "Sonnet",
-      "where": "/Users/matt/repos/misc/funlang/.claude/worktrees/agent-aefc993d3e4c8d2b9",
+      "status": "done",
+      "agent": "",
+      "where": "",
       "labels": [
         "bug",
         "elab"
@@ -1198,7 +1198,9 @@
       "body": "**A misleading follow-on error** (found by the IO lane): after an\n`E-UNKNOWN-NAME` earlier in a file, a later `rfl` proof over a handled\ncomputation failed with \"`rfl` proves an equation, but the expected type\nis `runPure (bind …)`\". It checked once the first error was fixed.\n\nReproduced 19 Oct: examples/accept/io.sw with `let unused := notDefinedAnywhere` added as the first line of `greet` (scratchpad/sw81-repro.sw). Errors: E-UNKNOWN-NAME (right), then on `theorem greetOutput … := rfl` an E-TYPE-MISMATCH 'rfl proves an equation, but the expected type is Effect.runPure (Effect.bind …)' printing ~900 chars of internal handler machinery. Cause (inferred): greet failed, so the theorem's goal is stuck; the follow-on suppression near module.rs:328 misses this case. D18 (Matt): fix now, Sonnet lane.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
-      "commits": []
+      "commits": [
+        "4bd8cb7"
+      ]
     },
     {
       "id": 82,
@@ -1559,9 +1561,9 @@
     {
       "id": 104,
       "title": "Examples test: select example files by name (e.g. EXAMPLES=synonym)",
-      "status": "review",
-      "agent": "DeepSeek",
-      "where": "/Users/matt/scratch/opencode/funlang-20261019-214231",
+      "status": "done",
+      "agent": "",
+      "where": "",
       "labels": [
         "tooling"
       ],
@@ -1591,9 +1593,9 @@
     {
       "id": 106,
       "title": "Multi-file stage 2: `import N (..)` (wildcard imports)",
-      "status": "doing",
-      "agent": "Sonnet",
-      "where": "/Users/matt/repos/misc/funlang/.claude/worktrees/agent-a8a8bcbb45c3ff3ee (implementing; D1 pending)",
+      "status": "done",
+      "agent": "",
+      "where": "",
       "labels": [
         "multi-file",
         "elab"
@@ -1601,7 +1603,9 @@
       "body": "Design §12 stage 2, compiler part only; the AoC day 5 split trial waits for Matt's parked AoC questions. Opus spec, then Sonnet.\n\nSpec: scratchpad/tasks/mf-stage2-spec.md (Opus, 19 Oct). Matt's answers: (1) import paths ignore the file's other imports — yes (fixes a stage 1 order bug; `import A.Cat (f)` to reach a type's functions); (2) `(..)` may name a whole project namespace or any library namespace; refused: own namespace, Std itself, a type/sub-namespace of a project namespace — yes; `import Aoc (..)` brings only Aoc's own declarations, not Aoc.Grid — yes, keep it simple; (3) `import List (..)` in single files — yes; (4) new code E-IMPORT-WILDCARD — yes; (5) = D1, the test-only 'planner agrees with checker' hook (P-8): being assessed for code complexity and test runtime.\n\nD1 (Matt, 19 Oct): instead of P-8's resolution hook, a test-only term scan: every namespace a checked definition refers to must be in the plan (its dependency closure). ~40 lines, ~1 s, no resolution edits; covers auto and generated names. Sent to the stage 2 lane.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
-      "commits": []
+      "commits": [
+        "51c9bb7"
+      ]
     },
     {
       "id": 107,
@@ -1726,9 +1730,9 @@
     {
       "id": 115,
       "title": "Error messages print fully evaluated terms",
-      "status": "doing",
-      "agent": "Sonnet",
-      "where": "/Users/matt/repos/misc/funlang/.claude/worktrees/agent-a8097286c99ce0bba",
+      "status": "done",
+      "agent": "",
+      "where": "",
       "labels": [
         "elab",
         "kernel"
@@ -1736,7 +1740,9 @@
       "body": "A wrong theorem about `Range.repeated` printed ~10 KB: the term unfolded through `Nat.divFuel` and every `Bool.ifThenElse` (docs/aoc-2025.md:1032). Investigate first: reproduce, then see whether the pretty printer can fold a definition back to its call (`pretty.rs`) or print the unevaluated types where it has them. Done: a measured before/after on the reproduction.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
-      "commits": []
+      "commits": [
+        "24634f9"
+      ]
     },
     {
       "id": 116,
@@ -1842,9 +1848,9 @@
     {
       "id": 123,
       "title": "Rewrite the examples to dot notation",
-      "status": "review",
-      "agent": "DeepSeek",
-      "where": "/Users/matt/scratch/opencode/funlang-20261019-214123",
+      "status": "done",
+      "agent": "",
+      "where": "",
       "labels": [
         "syntax",
         "tooling"
