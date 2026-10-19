@@ -1420,9 +1420,9 @@
     {
       "id": 97,
       "title": "Highlight `namespace` and `import` as keywords (playground, VS Code)",
-      "status": "doing",
-      "agent": "DeepSeek",
-      "where": "/Users/matt/scratch/opencode/funlang-20261019-184205",
+      "status": "done",
+      "agent": "",
+      "where": "",
       "labels": [
         "web",
         "tooling"
@@ -1430,22 +1430,26 @@
       "body": "",
       "created": "2026-10-19",
       "updated": "2026-10-19",
-      "commits": []
+      "commits": [
+        "4803613"
+      ]
     },
     {
       "id": 98,
       "title": "User guide: docs/projects.md (multi-file projects), first draft",
-      "status": "doing",
-      "agent": "DeepSeek",
-      "where": "/Users/matt/scratch/opencode/funlang-20261019-184207",
+      "status": "review",
+      "agent": "",
+      "where": "",
       "labels": [
         "docs",
         "multi-file"
       ],
-      "body": "",
+      "body": "\n\nDraft merged (02a882f). To finish when stage 1 lands: check every example and CLI line against the implementation. Open points from DeepSeek: does `test` take several targets; may `sources` be a bare string; dotted namespace targets (`test Aoc.Day05`).",
       "created": "2026-10-19",
       "updated": "2026-10-19",
-      "commits": []
+      "commits": [
+        "02a882f"
+      ]
     }
   ]
 }
