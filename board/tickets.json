@@ -1,5 +1,5 @@
 {
-  "next": 135,
+  "next": 136,
   "tickets": [
     {
       "id": 1,
@@ -2034,6 +2034,22 @@
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
+    },
+    {
+      "id": 135,
+      "title": "Aoc.Common: range functions back under Range (D43/D44)",
+      "status": "doing",
+      "agent": "Claude",
+      "where": "merged; batch gate pending",
+      "labels": [
+        "aoc"
+      ],
+      "body": "D43/D44 (Matt, 19 Oct): Range.contains/size/repeated/repeatedSpec/invalid and the repeated proof chain live in aoc/src/common/range.sw; day 2 keeps its weightings and part-1 proof. Merged 105b399; batch gate pending.",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": [
+        "105b399"
+      ]
     }
   ]
 }
