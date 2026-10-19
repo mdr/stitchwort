@@ -152,7 +152,7 @@ impl<'g> Ctx<'g> {
     }
 
     fn show(&self, value: &Value) -> String {
-        pretty::value(self.g, &self.names, value)
+        pretty::value_for_message(self.g, &self.names, value)
     }
 
     fn error(

@@ -44,6 +44,44 @@ pub fn value(g: &Globals, names: &[Name], value: &Value) -> String {
     }
 }
 
+/// The longest a term may be in a message before its inner parts are
+/// shown as `…`.
+const MESSAGE_LIMIT: usize = 240;
+
+/// Prints `value` for an error message: like [`value`], but a result longer
+/// than [`MESSAGE_LIMIT`] characters has its inner parts replaced by `…`,
+/// keeping the outermost layers. Setting `STITCHWORT_FULL_TERMS` shows
+/// everything.
+pub fn value_for_message(g: &Globals, names: &[Name], value: &Value) -> String {
+    let Ok(t) = quote(g, names.len(), value) else {
+        return "…".into();
+    };
+    term_for_message(g, names, &t)
+}
+
+/// [`value_for_message`], for a term.
+pub fn term_for_message(g: &Globals, names: &[Name], term_: &Term) -> String {
+    let full = term(g, names, term_);
+    if full.chars().count() <= MESSAGE_LIMIT || std::env::var_os("STITCHWORT_FULL_TERMS").is_some()
+    {
+        return full;
+    }
+    // Reprint with less and less depth until it fits.
+    for depth in (1..=10).rev() {
+        let mut ns = names.to_vec();
+        let printer = Printer::new(g);
+        printer.max_depth.set(Some(depth));
+        let text = printer.print(&mut ns, term_, Prec::Arrow);
+        if text.chars().count() <= MESSAGE_LIMIT {
+            return text;
+        }
+    }
+    // Still too wide (a long list, say): cut it off.
+    let mut text: String = full.chars().take(MESSAGE_LIMIT).collect();
+    text.push('…');
+    text
+}
+
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum Prec {
     Arrow,
@@ -62,6 +100,9 @@ struct Printer<'g> {
     g: &'g Globals,
     /// Whether something was too deeply nested to print, and shown as `…`.
     elided: Cell<bool>,
+    /// For messages: parts nested deeper than this are shown as `…`.
+    max_depth: Cell<Option<usize>>,
+    depth: Cell<usize>,
 }
 
 impl<'g> Printer<'g> {
@@ -69,6 +110,8 @@ impl<'g> Printer<'g> {
         Printer {
             g,
             elided: Cell::new(false),
+            max_depth: Cell::new(None),
+            depth: Cell::new(0),
         }
     }
 
@@ -117,6 +160,21 @@ impl<'g> Printer<'g> {
     }
 
     fn go(&self, names: &mut Vec<Name>, term: &Term) -> (String, Prec) {
+        if matches!(term, Term::Loc(..) | Term::Ann(..)) {
+            return self.go_node(names, term);
+        }
+        let depth = self.depth.get();
+        if self.max_depth.get().is_some_and(|m| depth >= m) && !is_atomic(term) {
+            return ("…".into(), Prec::Atom);
+        }
+        self.depth.set(depth + 1);
+        let result = self.go_node(names, term);
+        self.depth.set(depth);
+        result
+    }
+
+    #[inline(always)]
+    fn go_node(&self, names: &mut Vec<Name>, term: &Term) -> (String, Prec) {
         if self.g.budget.stack_exhausted() {
             self.elided.set(true);
             return ("…".into(), Prec::Atom);
@@ -402,6 +460,13 @@ impl<'g> Printer<'g> {
         }
         (text, if any { Prec::App } else { Prec::Atom })
     }
+}
+
+fn is_atomic(term: &Term) -> bool {
+    matches!(
+        term,
+        Term::Var(_) | Term::Def(_) | Term::Sort(_) | Term::Refl | Term::Nat(_)
+    )
 }
 
 fn explicit_spine(term: &Term) -> (&Term, Vec<&Term>) {

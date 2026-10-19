@@ -1649,7 +1649,9 @@ impl Elaborator {
     ) -> Result<Term> {
         let mark = cx.mark();
         let span = cx.span;
+        let goal = cx.goal.take();
         let result = self.body_in_parts(cx, ty, written, def_name, equations);
+        cx.goal = goal;
         cx.reset(mark);
         cx.span = span;
         result
@@ -1758,6 +1760,7 @@ impl Elaborator {
                 _ => break,
             }
         }
+        cx.goal = written.map(|w| (cx.level(), w));
         if let Some(h) = header {
             // Arms have exact arity: a pattern for every explicit argument
             // after the colon, counted up to the first thing that isn't a

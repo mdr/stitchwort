@@ -7,7 +7,9 @@ expression: output
     │
  14 │ theorem same: ((\u => collatzSteps 1): () -> {Partial} Nat) = (\u => settled 1) := rfl
     │                                                                                    ─┬─  
-    │                                                                                     ╰─── `\u => Effect.pfix collatzSteps.body (collatzSteps.request 1)` and `\u => Effect.now 0` aren't equal
+    │                                                                                     ╰─── `\u => collatzSteps 1` and `\u => settled 1` aren't equal
     │ 
-    │ Note: `rfl` proves `a = b` only when both sides compute to the same value
+    │ Note 1: computing both sides gives `\u => Effect.pfix collatzSteps.body (collatzSteps.request 1)` and `\u => Effect.now 0`
+    │ 
+    │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
 ────╯
