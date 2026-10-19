@@ -1,11 +1,16 @@
 # Proposal: `let` that holds proofs and data, and whose value the checker can see
 
-**Status:** draft 1, for review (19 October 2026). Nothing is implemented.
+**Status:** Draft 2 (after review), 19 October 2026. Decided: option A,
+staged (§6, §8). Nothing is implemented.
+
+Draft 2 folds in an independent review. Its points are now part of the
+design itself (the rules in §6.1 and the stages in §6.2), not a list of
+comments; §A.6 records how each point was handled.
 
 This note can be read without knowing the codebase. The main part takes about
 15 minutes; the [appendix](#appendix-details-for-the-reviewer) has the
 details a reviewer needs (file and line references, the typing rule, the
-pieces of the compiler each option touches).
+pieces of the compiler each stage touches).
 
 ## 1. The problem
 
@@ -277,19 +282,28 @@ A proof, a number, a type: all the same. That's why problem 2 disappears.
 
 - **Cost in types.** If types mention many nested `let`s, unfolding them can
   make normal forms large (in the worst case each `let` doubles the size).
-  Lean added `have` partly for this. For Stitchwort's sizes this is unlikely
-  to matter; `have` can be added later if it does.
+  Running the program shares each value, but the *checker* can still
+  duplicate large terms when it writes a value back out as a term (for an
+  error message, a metavariable's solution, or a lifted helper). Lean added
+  `have` partly for this. We don't add `have` now; instead one deliberately
+  nasty test (deeply nested `let`s, each using the previous one twice) must
+  finish, or stop cleanly, under the existing work budget (§6.2, stage 3).
 - **Error messages.** After unfolding, messages may show `n` where the user
   wrote `p`. Rocq and Lean both have this; it's cosmetic.
-- **Unknowns (metavariables).** An unknown's solution may only mention
-  variables it's allowed to depend on. A `let`-bound variable is best left
-  out of that list (its value already says what it depends on). Stitchwort's
-  elaborator already does this for variables a pattern match has replaced by
-  a constructor, so the machinery exists.
+- **Unknowns (metavariables).** The elaborator fills in unknowns (implicit
+  arguments, `_`) by solving equations. A solution is a term that will be
+  used elsewhere, possibly outside the `let`, so it must never mention the
+  `let`'s variable `x` after `x` has gone out of scope: it must mention `v`
+  instead. This is a rule the implementation has to keep (§6.1, rule 2), and
+  stage 2 includes checking the solver against it.
 - **Effects.** A value produced by an *operation* (`let x := get ()`) can't
-  be transparent: the value isn't known until a handler runs. Every language
-  in §3 keeps that case as an opaque bind. Only pure `let`s become
-  transparent.
+  be transparent: the value isn't known until a handler runs, so it can't
+  be known while checking. Every language in §3 keeps that case as an
+  opaque bind; for Stitchwort this is necessary, not just convenient. Only
+  pure `let`s become transparent. Note that "pure" is about what *computing
+  the value* does now: `let f := \u => get ()` binds a function, and making
+  a function performs nothing, so it's a pure (transparent) `let` even
+  though *calling* `f` later performs `get`.
 
 ## 5. Options for Stitchwort
 
@@ -297,13 +311,33 @@ Common to all three options, **step 0: a `let` isn't effectful unless its
 value or the rest of the block is.** `may_perform` should look inside a
 `let` (as it already does for `if` and `match`) instead of answering *yes*.
 Then a pure function's block never goes through `Comp`/`runPure`. This alone,
-an elaborator-only change of a few dozen lines, fixes problems 2 (proof
-`let`s) and 3 (the `runPure`/`Done` trace in proofs and in the generated
-JavaScript), because the remaining `(\h => body) proof` has no `Type`
-restriction. It doesn't fix problem 1 or termination. *I haven't prototyped
-step 0; the claim rests on the error coming from `Comp`/`runPure`'s
-`[a : Type]` (§2.2) and on the `if` without a `let` elaborating as wanted
-(example 3, `g`).*
+an elaborator-only change, fixes problems 2 (proof `let`s) and 3 (the
+`runPure`/`Done` trace in proofs and in the generated JavaScript), because
+the remaining `(\h => body) proof` has no `Type` restriction and computes
+away like any other function application. It doesn't fix problem 1 or
+termination. *I haven't prototyped step 0; the claim rests on the error
+coming from `Comp`/`runPure`'s `[a : Type]` (§2.2) and on the `if` without
+a `let` elaborating as wanted (example 3).*
+
+Step 0 involves **two separate decisions**, and they look at different
+things:
+
+1. **Does the whole block go through the effects machinery?** That depends on
+   the whole thing: `let x := v; rest` may perform if `v` may, *or* `rest`
+   may.
+2. **How is `x` bound?** That depends on `v` alone:
+
+   | `v` | `rest` | `x` is bound by |
+   |---|---|---|
+   | pure | pure | an ordinary pure binding (no effects machinery) |
+   | pure | effectful | a pure binding (transparent once `Let` exists) around the rest of the computation |
+   | effectful | either | `Effect.bind`: `x` is opaque, whatever `rest` does |
+
+   So "the block is effectful" must never be read as "so use bind": a pure
+   value stays a pure binding even in an effectful block.
+
+Step 0 also fixes the separate dot-notation bug after an effectful `let`
+(`grid.rolls`, §1 and §7), since that code is being changed anyway.
 
 ### Option A: a transparent `let` in the kernel (Rocq/Lean style). **Recommended.**
 
@@ -312,8 +346,12 @@ step 0; the claim rests on the error coming from `Comp`/`runPure`'s
   (inside a case branch, the matched variable already evaluates to the
   constructor value: `crates/core/src/check.rs:21-24`, `:520-531`), so a
   `let` just pushes `v` instead of a fresh variable. Evaluation computes `v`
-  once and shares it. No new reduction machinery: values never contain a
-  `Let`, so conversion is unchanged.
+  once and shares it. Because evaluated values never contain a `Let`, **the
+  comparison of two values (the conversion check) needs no new case**. That
+  is narrower than "nothing changes": evaluation, extending the context,
+  turning values back into terms (quoting), and any shortcuts in the
+  comparison all meet the new term, and must keep the bookkeeping rule in
+  §6.1 (rule 1).
 - **Elaborator:** step 0, then a pure `let` becomes `Let` instead of the
   annotated application, with the elaborator's context also recording the
   value (the same mechanism as case-branch refinement). An effectful
@@ -321,22 +359,23 @@ step 0; the claim rests on the error coming from `Comp`/`runPure`'s
   Lean's `←`). A pure `let` inside an effectful block becomes a `Let` whose
   body is the rest of the computation, so it's transparent there too.
 - **Fixes:** all of problems 1-3, and termination through `let r := rest`
-  (the termination checker can treat `r` as `rest`; one more case to
-  handle, not automatic).
+  (the termination checker treats `r` exactly as it treats `rest`; one more
+  case to handle, not automatic).
 - **Soundness:** §4.2. Kernel risk is small: one new term with the textbook
-  rule, and the kernel already handles variables-with-values.
-- **Erasure and JavaScript:** a `let` whose type is a proposition or a type
-  is dropped at run time (one more rule in `erase.rs`; the JS backend
-  already skips proofs). A data `let` becomes `const x = v;` (or the current
-  arrow-function form) without `Done`/`runPure`: faster and smaller output.
+  rule, and the kernel already handles variables-with-values. The risks are
+  in the bookkeeping around it, which §6.1 turns into rules and tests.
+- **Erasure and JavaScript:** a `let` is erased exactly when a function
+  parameter of the same type would be (a proof, or a type): the existing
+  rule, applied to one more kind of binder. A data `let` becomes
+  `const x = v;` (or the current arrow-function form) without
+  `Done`/`runPure`: faster and smaller output.
 - **Hashes:** every definition containing a `let` gets a new hash (a new term
   tag). Not a concern now.
 - **Size:** medium. A new `Term` variant touches every pass over terms: term
   utilities, kernel check, evaluator (and the stack-safe stepper), quoting,
   pretty-printing, hashing, references, termination, erasure, JS, and in the
   elaborator the lifting/capture code and unification's term walks. Rough
-  guess: 500-900 lines with tests, two or three lanes (step 0; kernel `Let`;
-  elaborator + backends).
+  guess: 800-1200 lines with tests, in three stages (§6.2).
 
 ### Option B: no kernel change; make proof `let`s local theorems
 
@@ -375,14 +414,120 @@ step 0; the claim rests on the error coming from `Comp`/`runPure`'s
 | kernel change | no | one term | no | no |
 | size | small | medium | small | small |
 
-## 6. Recommendation
+## 6. Decision and plan
 
-**Option A, staged:** first step 0 on its own (small, elaborator only,
-immediately removes problems 2 and 3 and the run-time `Done` wrapping), then
-the kernel `Let` with the elaborator and backends. It's what Rocq and Lean
-do, it matches the user's position (proofs and data alike, value visible),
-it keeps sharing, and its kernel rule is the textbook one. An opaque `have`
-can wait until a proof is slow because of a `let` (Lean's reason for it).
+**Option A, staged** (decided, §8): first step 0 on its own (small,
+elaborator only, immediately removes problems 2 and 3 and the run-time
+`Done` wrapping), then the kernel `Let`, then the elaborator and backends.
+It's what Rocq and Lean do, it matches the user's position (proofs and data
+alike, value visible), it keeps sharing, and its kernel rule is the
+textbook one. An opaque `have` waits until a proof is slow because of a
+`let` (Lean's reason for it).
+
+### 6.1 Rules the implementation must keep
+
+The typing rule is standard and adds no new logic (§4.2). What can go wrong
+is bookkeeping: keeping straight a `let`'s *name*, its *value*, and the
+unknowns that are allowed to appear in types. These rules are part of the
+design; each has tests in §6.2.
+
+1. **A `let` takes a slot, but adds no unknown.** In the context, `x`
+   occupies a position like any variable (so variable numbering in terms
+   counts it). But when the checker evaluates, `x` *is* `v`: no "unknown
+   `x`" ever appears in a computed type, so nothing that mentions `x` can
+   leak out of the `let`'s scope. (Details: §A.2.)
+2. **No unknown's solution mentions a `let` variable that has gone out of
+   scope.** Where `x` would appear, the solution has `v` (as `f v`, never as
+   `f x`). This covers both an unknown created *before* the `let` and solved
+   inside it, and one created *inside* the `let` whose solution is used after
+   it. Stage 2 checks the solver against this rather than assuming it.
+   (Details and what the code does today: §A.3.)
+3. **Termination: `let x := v` is exactly as small as `v`.** Whatever the
+   termination checker knows about `v` (strictly smaller than a parameter,
+   equal to one, or unknown) it knows about `x`, no more. It looks for
+   recursive calls in both `v` and the rest of the block, so a recursive
+   call can't hide in a `let`'s value. It decides this from the terms, not
+   by asking whether `x` and `v` compute to the same thing.
+4. **Lifted helpers keep what a `let` holds.** A `match` or local `def`
+   after a `let` is moved into a separate generated function (§A.4). That
+   function must still know `x := v`: it receives the variables `v` needs
+   and re-creates `let x := v` inside, rather than receiving `x` as a plain
+   argument. This is in the first implementation, not a later improvement,
+   since otherwise "later lines know what a `let` holds" would be false
+   inside every `match`.
+5. **Erasure follows the existing rule.** A `let` is dropped at run time
+   exactly when a function parameter of its type would be (its type is a
+   proposition, or it's a type), using the same test the compiler already
+   uses for parameters; otherwise it's computed once, before the rest.
+6. **Effects: the value decides the binding.** As in the step-0 table (§5):
+   only an effectful value makes `x` opaque. Making a function that performs
+   something when called is pure.
+
+### 6.2 Implementation stages
+
+Each stage is a separate lane, merged and checked before the next starts.
+Sizes are rough guesses, including tests.
+
+**Stage 1: step 0, and dot notation after an effectful `let`.**
+*Scope:* `may_perform` looks inside `let` (the whole block may perform if the
+value or the rest may); binding follows the value (§5 table); a pure block
+no longer goes through `Comp`/`runPure`. The pure binding stays the
+annotated `(\x => rest) v` for now. Fix `grid.rolls`: an effectful `let`
+records the written type of the pure call that produces its result.
+*Files:* `crates/elab/src/effects.rs` (`may_perform`, `comp_check`,
+`sequence`, `comp_call`), `crates/elab/src/check.rs` (`infer`/`check` gain a
+pure-block case instead of handing it to `run_pure`).
+*Tests:* problem 2 (proof `let`) and problem 3 (`f (n + 5)` unfolds to
+`Decidable.elim … (\_ => 0) …`) accepted; generated JS for `twice` has no
+`Done`/`runPure`; `let f := \u => get (); …` in a pure function is pure;
+an effectful value still binds with `Effect.bind`, and a pure value inside
+an effectful block doesn't; `grid.rolls` after an effectful `let`.
+*Size:* small, about 150-250 lines.
+
+**Stage 2: the kernel `Let`.**
+*Scope:* the new core term and its rule (§A.2) in every pass over terms in
+`crates/core`: checking, evaluation (and the stack-safe stepper), quoting,
+printing, hashing, references; the audit of the solver against rule 2.
+*Files:* `crates/core/src/term.rs`, `check.rs`, `value.rs`, `step.rs`,
+hashing and printing; `crates/elab/src/unify.rs` (audit; §A.3).
+*Tests:* a hand-built `Let` checks; one whose value doesn't match its
+annotation is rejected; a mutated hash-pinned `Let` is rejected by the
+kernel. For rule 1: a `let` followed by a dependent function or `Pi` whose
+type is shown or used outside the `let`; nested `let`s under binders
+(`\a => let x := … a …; \b => let y := … x … b …; …`); the type-level
+`let n := 3; (zeros n : Vec Nat n)`. For rule 2: an unknown created before
+a `let` and solved inside it; one created inside and used after it; both
+must end up mentioning `v`, not `x`. Differential tests
+(`crates/driver/tests/differential.rs`) get `let` cases.
+*Size:* medium, about 300-450 lines.
+
+**Stage 3: the elaborator and backends use `Let`.**
+*Scope:* pure `let`s elaborate to `Let`, so values are visible (problem 1);
+lifted `match`/local `def` helpers re-create `let`s (rule 4, §A.4);
+termination (rule 3); erasure and JavaScript (rule 5); tuple and record
+pattern `let`s become projections (§7).
+*Files:* `crates/elab/src/effects.rs`, `check.rs`, `lift.rs`,
+`matching.rs`, `local.rs`; `crates/core/src/termination.rs`,
+`crates/core/src/erase.rs`; `crates/js/src/lib.rs`; the parser's pattern
+`let` translation.
+*Tests:* problem 1 (`one`); `len` accepted; a recursive call inside a `let`'s
+value still checked (a non-terminating one rejected); the dependent `match`
+test below; a proof `let` used twice; a `let` inside an effectful block used
+in a type; using an effectful `let`'s value in a type is rejected; a proof
+`let` emits nothing in JS; `let (a, b) := p` on an unknown `p` computes;
+`let (a, b) := expensive` evaluates `expensive` once; the nested-`let` cost
+test (§4.3). The dependent `match` test:
+
+```
+theorem t (xs : List Nat) : … :=
+  let ys := xs
+  match ys with
+  | Nil       => … (a goal that mentions xs) …
+  | Cons y zs => …
+```
+
+where the branches only check if the helper still knows `ys` is `xs`.
+*Size:* medium, about 350-500 lines.
 
 ## 7. What happens to pattern `let` and the `if`-after-`let` case
 
@@ -393,13 +538,25 @@ can wait until a proof is slow because of a `let` (Lean's reason for it).
 - **Pattern `let` on a tuple or record**: a transparent `let` alone doesn't
   help, because the `match` is still stuck on an unknown `p`. Agda's answer
   fits well with option A: for a type with one constructor and no recursion
-  (tuples, records), translate `let (a, b) := p` into `let a := p.fst; let
-  b := p.snd` (Agda's manual: `let (c x y z) = t in u` binds "`x = f t`,
-  `y = g t`, `z = h t`"). Then the block computes even when `p` is unknown,
-  and the day 3 rewrite to `chosen.fst`/`chosen.snd` would have been
-  unnecessary. Pattern `let`s on types with several constructors are
-  already refused (`E-LET-REFUTABLE`); nested patterns and other
-  one-constructor data types without field functions stay `match`es.
+  (tuples, records), bind each name to a field (Agda's manual:
+  `let (c x y z) = t in u` binds "`x = f t`, `y = g t`, `z = h t`"). To
+  compute the right-hand side only once, it goes into a hidden temporary
+  first:
+
+  ```
+  let (a, b) := e     becomes     let tmp := e
+                                  let a := tmp.fst
+                                  let b := tmp.snd
+  ```
+
+  (When `e` is already a variable, `tmp` is unnecessary.) `tmp` can't be
+  referred to and doesn't appear in error messages. Nested tuple and record
+  patterns repeat this: `let ((a, b), c) := e` binds `tmp := e`, then
+  `tmp2 := tmp.fst`, `a := tmp2.fst`, `b := tmp2.snd`, `c := tmp.snd`. Then
+  the block computes even when `e` is unknown, and the day 3 rewrite to
+  `chosen.fst`/`chosen.snd` would have been unnecessary. Pattern `let`s on
+  types with several constructors are already refused (`E-LET-REFUTABLE`);
+  other one-constructor data types without field functions stay `match`es.
 - **Dot notation and the declared type (`Grid` vs `List`).** The checker
   works with types *after* unfolding nicknames, so `grid`'s type is
   `List (List Nat)`. To find `Grid.rolls`, the elaborator separately
@@ -417,13 +574,13 @@ can wait until a proof is slow because of a `let` (Lean's reason for it).
   kinds of `let`: for an effectful value, the call that produces the bound
   result (`Grid.parse …` after its effectful arguments have been run) is a
   pure call, so `written_of` can be applied to it. With option A the pure
-  `let` keeps doing what it does now (`written_of` on the value). I suggest
-  fixing this in step 0, with a test that `grid.rolls` works after an
-  effectful `let`.
+  `let` keeps doing what it does now (`written_of` on the value). Fixed in
+  stage 1, with a test that `grid.rolls` works after an effectful `let`.
 - **Pair eta** (`p ≡ (p.fst, p.snd)`) is a separate kernel feature (a
   conversion rule, as in Agda's records "η-equality by default" and Lean's
   structure eta). It's needed for `sw (sw p) = p` by `rfl`, with or without
-  this proposal. I suggest a separate note.
+  this proposal: a transparent `let` tells the checker `x` is `v`, but says
+  nothing about an arbitrary unknown pair. It gets its own note (§8).
 
 ### 7.1 What this buys for the day 2 proof (block-walking spec = ID-walking spec)
 
@@ -448,7 +605,7 @@ term no lemma could mention. Under option A:
   the implementation is needed.
 - **Walking functions can use `let` for the next position** (`let next :=
   rest`) and still pass the termination check (one extra case in the
-  checker, §A.3).
+  checker, §6.1 rule 3).
 - **Tuple state** (`let (lo, hi) := r` on an unknown `r`) computes after the
   projection translation of §7, so a lemma about a walk over an arbitrary
   range doesn't get stuck on the `match`.
@@ -459,18 +616,18 @@ chain, or rewriting by an equation without writing the motive for `J` /
 `Bool.inspect` by hand). Those are separate items; I'd look at the proof
 after option A lands before designing them.
 
-## 8. Open questions for the user
+## 8. Decisions (19 October 2026)
 
-1. Go with option A, staged as step 0 first, then the kernel `Let`?
-   [Yes.]
-2. Add an opaque `have x := proof` now, as Lean has? [No; add it only if a
-   proof gets slow because of a `let`.]
-3. Translate tuple/record pattern `let`s into projections (§7) as part of
-   this work? [Yes, in the elaborator lane after the kernel `Let`.]
-4. Pair/record eta: a separate design note? [Yes, separate; it's a
-   conversion-rule change with its own soundness questions.]
-5. Fix dot notation after an effectful `let` (`grid.rolls`, §7) in step 0?
-   [Yes; it's small and independent of the kernel change.]
+1. **Option A, with step 0 first**, then the kernel `Let`, then the
+   elaborator and backends (§6.2).
+2. **No `have` now.** An opaque `have x := proof` is added only if a proof
+   gets slow because of a `let`.
+3. **Tuple and record pattern `let`s become projections** (§7), through a
+   hidden temporary so the value is computed once; in stage 3.
+4. **Pair/record eta gets a separate note.** It's a change to the
+   conversion rule with its own soundness questions.
+5. **Dot notation after an effectful `let` (`grid.rolls`) is fixed in step
+   0** (stage 1).
 
 ## Sources
 
@@ -548,9 +705,107 @@ construction. `eval(Let(x, A, v, b), env) = eval(b, env ++ [eval(v, env)])`
 
 Checking mode: `check(Let(x, A, v, b), T)` = the same, then `check(b, T)`.
 The annotation `A` can be required in core terms (the elaborator always
-knows it), which keeps the kernel's `Let` inferable.
+knows it), which keeps the kernel's `Let` inferable. The premise is
+`A : Sort s` for any `s`: a proof (`A : Prop`), data (`A : Type u`) and a
+type (`A` a universe) all go through the same rule.
 
-### A.3 Points to settle during implementation
+**The NbE invariant (rule 1 of §6.1).** Two numberings must not be
+confused:
+
+- *syntactic* positions: de Bruijn indices in terms, and the context depth.
+  `x` occupies a slot, so terms under the `let` count it, and `Var` indices
+  in `b` are shifted by one;
+- *semantic* neutral levels: the `Value::Neutral(Head::Var(l), _)` that
+  stand for unknown variables. A transparent `let` creates **none**: its
+  slot's environment entry is `eval v`, so no value can contain a neutral
+  for `x`'s level.
+
+The "doesn't escape" argument above depends on exactly this. A fresh
+neutral is created at level `cx.level()` = the context length, so after a
+`let` the levels in use have a gap at `x`'s slot. That gap already occurs
+for case-branch refinement (`crates/core/src/check.rs:20-27`; the
+elaborator's `Ctx::fresh_meta`, `crates/elab/src/check.rs:265-276`, skips
+any slot whose value isn't its own neutral), so quoting at a depth that
+counts the slot is the existing convention. Tests in stage 2 (§6.2):
+a dependent `Pi`/lambda after a `let` whose type is quoted outside the `let`;
+nested `let`s under binders. Strict evaluation means an unused data `let`'s
+value is still computed; that's a cost, not a change of meaning, since the
+value is pure and total.
+
+### A.3 Metavariables: the invariant and the audit
+
+**Invariant (rule 2 of §6.1):** no metavariable solution may contain a
+reference to an out-of-scope transparent local definition; occurrences of
+that local are replaced by (evaluated to) its value first.
+
+What the code does today (read for this draft, *not run*):
+
+- `crates/elab/src/unify.rs:311` (`solve`) takes the spine's arguments,
+  which must force to distinct bare neutrals `Head::Var(l)`, and builds the
+  solution with `rename` (`:342`), which works on *forced semantic values*:
+  the only way it emits `Term::Var` is for a neutral `Head::Var(l)` found in
+  the renaming, and any other variable fails (`Fail::No`). Since a
+  transparent `let` slot evaluates to `v`, never to a neutral (A.2), a
+  solution can only ever contain `v`'s value. *So the invariant probably
+  holds without change; this is a reading of the code, not a test.*
+- `Ctx::fresh_meta` (`crates/elab/src/check.rs:265-276`) and
+  `lift::spine` (`crates/elab/src/lift.rs:133`) leave a slot out of a new
+  metavariable's spine when its value isn't its own neutral. A `let` slot
+  qualifies automatically, so "exclude `let` variables from the spine"
+  needs no new code.
+- The places to audit are those that work on *terms* rather than values,
+  where a syntactic `Var` for `x` could be carried across the `let`'s
+  scope: `zonk`/`zonk_keeping` (`unify.rs:488`, `:495`), lifting's
+  `unrefine`/`replace` (`lift.rs:548`, `:140-200`), matching's
+  generalisation (`matching.rs`), and any code that quotes a value at a
+  depth computed differently from `cx.level()`. The audit is a step of
+  stage 2: list each such site and say why it's safe, or fix it.
+
+Tests (both directions): a metavariable created outside the `let` and solved
+inside it (e.g. an implicit argument whose solution is `f x` must be
+recorded as `f v`); a metavariable created inside the `let` whose solution
+is used after it.
+
+### A.4 Lifting with re-created `let`s
+
+How capture works today (from `crates/elab/src/lift.rs`, read, not run): a
+lifted `match` or local `def` is elaborated in place and recorded as a
+`Draft` holding a copy of the context's `env` (`lift.rs:99-129`). When it's
+resolved, `unrefine` (`lift.rs:548-564`) rewrites the helper's body and type:
+each slot whose `env` entry is a plain variable stays a variable (and may
+become a capture); every other slot (today, only a variable a case branch
+replaced by a constructor) is replaced by `quote` of its value. Captures are
+then computed from the rewritten terms (`captures`, `:570`).
+
+*Consequence (speculative, not tested):* with a transparent `let` slot and
+no other change, `unrefine` would already paste the **normal form** of `v`
+wherever `x` occurs in the helper. That keeps the value visible, but loses
+sharing (`v` recomputed at each use in the helper) and can blow up the
+helper's size. So the original concern (the helper sees `x` as an opaque
+argument) wouldn't quite happen, but the default behaviour is still wrong.
+
+Plan for stage 3:
+
+- The context records, for each `let` slot, its elaborated value term and
+  type (beside `env`), and `Draft` copies it.
+- In the helper's **body**, `unrefine` doesn't paste `v`: it keeps `x` and
+  re-creates `Let(x, A, v', …)` inside the helper, where `v'` is `v` after
+  the same `unrefine` (so `v`'s free variables become captures by the
+  existing rules, and a `let` whose value uses an earlier `let` re-creates
+  that one first). Because a `Let` is only a leaf for now (A.5, case trees),
+  it's re-created at the top of each leaf of the helper's case tree that
+  uses `x`; only one leaf runs, so `v` is still computed at most once per
+  call.
+- In the helper's **type** (its result type and its captures' types), `x`
+  is replaced by `v'` (types are erased, so this costs nothing at run time).
+- A `match` on `x` itself: the scrutinee isn't a plain variable, so today's
+  generalisation applies (`matching.rs:10-19`): a new variable stands for
+  the scrutinee, and occurrences of its value in the goal are replaced by
+  it. For `let ys := xs; match ys with …` that abstracts `xs` in the goal,
+  which is what the dependent test in §6.2 needs. *Unverified; the test
+  decides.*
+
+### A.5 Other points to settle during implementation
 
 - **Case trees.** A `Case` may only appear at the top of a body, on a
   parameter or a field (the fresh-wrapper invariant, [abilities.md
@@ -559,39 +814,91 @@ knows it), which keeps the kernel's `Let` inferable.
   variable stays forbidden (a `match` on one is lifted as today). Allowing
   `Let` *above* a `Case` on a parameter (useful for `where` values at the
   start of an equation) is a possible later relaxation.
-- **Lifting.** A `match` (or local `def`) after a `let` is lifted to a
-  helper that receives the `let` variable as an argument, so inside the
-  helper the value is opaque again. The helper's call site still computes, so
-  proofs about the outer function unfold fine; only proofs *inside* the
-  helper body that need the value would notice. Option: capture the value
-  (pass `v`'s free variables and re-`let` it inside), later if needed.
-- **Metavariables.** Exclude `let`-bound variables from the spine of new
-  metavariables, as variables refined by a case branch are excluded today
-  (`docs/core.md`, "Metavariables").
-- **Termination.** In `termination.rs`, a `let`-bound variable whose value
-  is a field of a parameter should count as that field. Without this,
-  `len` above still fails (but the user can inline).
-- **Erasure.** `erase.rs`: a `Let` whose `A` is a proposition or a type
-  former isn't evaluated when running (placeholder), like rule 1 for
-  arguments. JS: emit nothing for it.
+- **Lifting.** §A.4.
+- **Metavariables.** §A.3.
+- **Termination.** `crates/core/src/termination.rs` computes, for each
+  argument of a recursive call, its relation to the caller's parameters
+  (`<`, `≤`, unknown) from the terms alone (module comment, lines 19-35).
+  A `Let` slot gets *exactly the relation computed for `v`*: a strict
+  descendant stays `<`, the parameter (or its rebuilt constructor) stays
+  `≤`, anything else is unknown. This accepts `len` without creating any new
+  evidence of descent. The traversal walks both `v` and `b` for calls (the
+  module's "every occurrence of a member is a call" rule extends to `Let`'s
+  value). Never use conversion (`x ≡ v`) to derive descent.
+- **Erasure.** `crates/core/src/erase.rs` erases a definition's parameter
+  when the kernel's relevance test `is_erased` holds for its type
+  (`crates/core/src/check.rs:1627`: a type former, or a type in `Prop`),
+  via `telescope`. A `Let` uses the *same* test on `A`: if the binder would
+  be erased as a parameter, its value isn't evaluated when running (the
+  placeholder takes the slot, as for an erased argument) and JS emits
+  nothing for it; otherwise it's evaluated once, strictly, before the body.
+  No second "is this a proof?" test; elimination of a proof into data stays
+  governed by the existing `E-PROP-ELIM` rule. The JS backend
+  (`crates/js/src/lib.rs`) already uses the kernel's erasure information.
 - **Stack safety.** `step.rs` (stack-safe evaluation) needs a `Let` frame;
   the differential test (`crates/driver/tests/differential.rs`) should get
   `let` cases.
-- **Effects.** `may_perform(Let)` = `may_perform(value) ||
-  may_perform(body)`; `infer_inner`/`check` gain a pure `Let` case;
-  `sequence`'s pure branch emits `Let` instead of the annotated redex. A
-  `let` in a `partial` function (a `Delay` computation) behaves the same.
-  `Expr::Seq` (a statement run only for effects) can stay as it is: in a
-  pure block it does nothing useful, and it could become a warning.
+- **Effects.** `may_perform(let x := v; rest)` = `may_perform(v) ||
+  may_perform(rest)` classifies the block; the binding follows `v` alone
+  (§5 table). `may_perform` tracks what *evaluating* the expression
+  performs now, not effects latent in a returned function, so `let f := \u
+  => get ()` is pure (lambda bodies already don't count,
+  `effects.rs:909`). `may_perform(rest)` must be asked with `x` bound
+  and its type known, as `Expr::LocalDefs` already does ("asked again once
+  the names are in scope", `effects.rs:938-941`), so that a call of `x`
+  is judged by `x`'s type. *How `call_performs` treats a local variable of
+  effectful function type is unverified.* `infer_inner`/`check` gain a pure
+  `Let` case; `sequence`'s pure branch emits `Let` (stage 3) instead of the
+  annotated redex (stage 1). A `let` in a `partial` function (a `Delay`
+  computation) behaves the same. `Expr::Seq` (a statement run only for
+  effects) can stay as it is: in a pure block it does nothing useful, and it
+  could become a warning.
+- **Pattern `let`s.** The projection translation (§7) is done where pattern
+  `let` is turned into a one-alternative `match` today
+  (`crates/syntax/src/parser.rs:877`, `MatchKind::Let`) or in the
+  elaborator, whichever knows the type is a tuple or record; the temporary
+  gets a name the user can't write and is hidden from diagnostics.
+- **Compile-time cost.** One adversarial test: about 20 nested `let`s, each
+  defined from the previous one used twice, used in a type that must be
+  compared and printed. It must pass, or fail with the existing
+  resource-limit error, under the existing work budget (`g.budget`); it
+  must not hang or exhaust memory.
 - **Dot notation.** A pure `let` already records the variable's type "as
   written" for dot notation (`cx.set_written`); keep that for the kernel
   `Let`. Add it for effectful `let`s: in `comp_call`, the final pure call
   (after effectful arguments are bound) is a term `written_of` accepts; return
   its written type alongside the computation. Accept test: the `grid.rolls`
   example in §1.
-- **Tests.** Accept: the four examples; a type-level `let` (`let n := 3;
-  (zeros n : Vec Nat n)`); a proof `let` used twice; a `let` inside an
-  effectful block used in a type; `len`. Reject: using an effectful `let`'s
-  value in a type (must stay opaque); a kernel `Let` whose value doesn't
-  match its annotation; a mutated hash-pinned term (to show the kernel, not
-  just the elaborator, checks `Let`).
+- **Tests.** Listed per stage in §6.2.
+
+### A.6 How the review was handled
+
+The independent review (19 October 2026) agreed with option A staged after
+step 0, and with the five decisions. Each point and where it now lives:
+
+| Review point | Where |
+|---|---|
+| 1. "conversion is unchanged" too strong; NbE level invariant; tests | §5 option A wording; §6.1 rule 1; §A.2; stage 2 tests |
+| 2. Metavariable invariant, audit, tests both ways | §4.3; §6.1 rule 2; §A.3; stage 2 |
+| 3. Termination provenance = provenance of `v`; walk value and body | §6.1 rule 3; §A.5 |
+| 4. Lifting must preserve `x := v` in the first implementation | §6.1 rule 4; §A.4; stage 3 dependent `match` test |
+| 5. Step 0: classify the block vs choose the binding | §5 table; §A.5 effects |
+| 6. Erasure as the existing relevance judgement | §5 option A; §6.1 rule 5; §A.5 |
+| 7. Pattern `let`: single evaluation via a temporary | §7; §A.5 |
+| 8. Compile-time cost: adversarial test under the budget | §4.3; §A.5; stage 3 |
+| 9. Effectful-`let` opacity necessary; latent effects are pure | §4.3; §6.1 rule 6 |
+| 10. Comparison to Rocq/Lean | no change needed |
+
+Two refinements of the review, from reading the code (not disagreements
+with its conclusions):
+
+- **Lifting.** Draft 1 said a helper would receive `x` as an opaque
+  argument; the review took that at face value. Reading `lift.rs`, the
+  existing `unrefine` would more likely paste `v`'s normal form into the
+  helper (§A.4), so the value stays visible but unshared. Re-creating the
+  `let`, as the review prefers, is still the right fix; the reason is
+  sharing and size as much as transparency.
+- **Metavariables.** The review asked for an audit rather than an
+  assumption. The solver (`unify.rs`) works over semantic values, so the
+  invariant probably holds there already; the audit's real targets are the
+  term-level passes (`zonk`, lifting, generalisation), listed in §A.3.
