@@ -2064,7 +2064,7 @@
       "title": "calc chains (stage 1 of SW-99)",
       "status": "doing",
       "agent": "Sonnet",
-      "where": "worktree-agent-aa66afbb5571ba950 (calc-impl lane, started 23:25)",
+      "where": "worktree-agent-aa66afbb5571ba950: gate passed 00:01; lane was stuck in a wait loop (killed 00:12), now committing",
       "labels": [
         "proof",
         "syntax"
