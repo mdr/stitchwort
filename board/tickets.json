@@ -1,5 +1,5 @@
 {
-  "next": 95,
+  "next": 96,
   "tickets": [
     {
       "id": 1,
@@ -1366,7 +1366,7 @@
         "kernel",
         "proof"
       ],
-      "body": "Implement stage 1 of docs/proposals/proof-irrelevance.md (draft 3, decided): conv skips arguments/fields whose declared type is in Prop; homogeneous-input precondition documented; unifier rule (whole proof metas only); tests 1-16 incl. the Loop/bad termination test. Kernel work: Opus (spec + implementation or careful review). Stage 2 (remove canonical) follows.\n\nMatt (19 Oct): on hold; multi-file first.",
+      "body": "Implement stage 1 of docs/proposals/proof-irrelevance.md (draft 3, decided): conv skips arguments/fields whose declared type is in Prop; homogeneous-input precondition documented; unifier rule (whole proof metas only); tests 1-16 incl. the Loop/bad termination test. Kernel work: Opus (spec + implementation or careful review). Stage 2 (remove canonical) follows.\n\nMatt (19 Oct): on hold; multi-file first.\n\nThird motivating example (Matt, 19 Oct): aoc/day01.sw `dialExt`/`dialExtAt` — two `Dial`s at the same position are equal only after a second `J` with `Bool.uniqueEq` on the `inRange` proofs. Under D1′ the proof field is masked, so that step becomes `rfl` (inferred). Matt: still on hold until multi-file is done.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -1382,6 +1382,21 @@
         "proof"
       ],
       "body": "Matt (19 Oct): `alwaysOnDial` only read `Dial`'s `inRange` field; `part1Puzzle` was `rfl` against the definition. Removed; Proofs header reworded; zerosPassedCorrect is the theorem. Day 1 still checks, 10 tests pass, answers 1076 / 6379.",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 95,
+      "title": "Auto-generated `ext` lemmas for records whose other fields are proofs",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "design",
+        "proof"
+      ],
+      "body": "Idea from aoc/day01.sw `dialExt` (19 Oct): like Lean's `@[ext]`, generate `T.ext : a.f = b.f -> a = b` for a record whose remaining fields are proofs. Easy once proof irrelevance (SW-93, D1′) lands: the proof fields compare equal by masks. Not before SW-93.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
