@@ -86,8 +86,10 @@ re-created in lifted helpers, proof lets erased, pattern lets are
 projections outside proofs. Leftovers: pattern lets in proofs stay
 `match`; projections give termination no smaller-than evidence; deferred
 values recomputed per force.
-Running: `aoc-rewrites` (Opus: day 3 destructuring, day 1 scan-and-zip
-with proof rework), `day2-check-profile` (Opus, report: re-measure,
+AoC rewrites merged (`ed41604`): day 1 part 2 is scan-and-zip (proof
+simpler: no accumulator), day 3 uses `let (top, after) := pick ...` (no
+proof change).
+Running: `day2-check-profile` (Opus, report: re-measure,
 decide option (b)). (syntax polish merged: `type Grid = List (List Nat)`, lines may start
 with `,` or a closing bracket, trailing commas, char-match errors name
 characters). Checker fix (a) merged (`1fc7824`: print/dot/==/if no
@@ -346,6 +348,12 @@ capability we know we'll need before the work that needs it):
    Write up the friction found.
 
 ## Later
+
+- **Proof ergonomics** (from the AoC rewrites, 19 Oct): proofs can't refer
+  to a let's names, so they restate long terms; an `if` inside a helper
+  appears in goals as `Decidable.elim (Bool.decTrue b) ...`; `List.sum` is a
+  `foldl`, so every proof needs `List.sumCons`; no rewrite/`calc`, so most
+  proof text restates terms. Candidates for a proof-ergonomics design.
 
 - **User-level persistent cache** (`cached f x` keyed by definition hash,
   argument hash, compiler fingerprint; safe in pure code): parked until a
