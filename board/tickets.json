@@ -1,5 +1,5 @@
 {
-  "next": 94,
+  "next": 95,
   "tickets": [
     {
       "id": 1,
@@ -1367,6 +1367,21 @@
         "proof"
       ],
       "body": "Implement stage 1 of docs/proposals/proof-irrelevance.md (draft 3, decided): conv skips arguments/fields whose declared type is in Prop; homogeneous-input precondition documented; unifier rule (whole proof metas only); tests 1-16 incl. the Loop/bad termination test. Kernel work: Opus (spec + implementation or careful review). Stage 2 (remove canonical) follows.\n\nMatt (19 Oct): on hold; multi-file first.",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 94,
+      "title": "AoC day 1: remove the two theorems that restate the type and the definition",
+      "status": "done",
+      "agent": "Claude",
+      "where": "",
+      "labels": [
+        "aoc",
+        "proof"
+      ],
+      "body": "Matt (19 Oct): `alwaysOnDial` only read `Dial`'s `inRange` field; `part1Puzzle` was `rfl` against the definition. Removed; Proofs header reworded; zerosPassedCorrect is the theorem. Day 1 still checks, 10 tests pass, answers 1076 / 6379.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []

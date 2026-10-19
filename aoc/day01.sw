@@ -106,20 +106,18 @@ test "left a full turn from zero" := zerosFrom 0 (Left 200) == 2
 
 -- Proofs ------------------------------------------------------------------
 --
--- Theorem 1 (positions stay on the dial) holds by the type `Dial`, and part
--- 1 is its own specification (theorem 3, `part1Puzzle`). Theorem 2,
--- `zerosPassedCorrect`, says the arithmetic count `zerosDuring` agrees with
--- turning the dial one click at a time, for any dial, start and turns.
+-- Positions stay on the dial by the type `Dial` (its `inRange` field), and
+-- part 1's code reads as the puzzle's own statement, so neither needs a
+-- theorem. The theorem, `zerosPassedCorrect`, says the arithmetic count
+-- `zerosDuring` agrees with turning the dial one click at a time, for any
+-- dial, start and turns.
 --
 -- The lemmas are about a dial of any size, `Succ highest`: with the literal
 -- 100, `x % 100` unfolds to `x - 100 * (x / 100)`, and `100 * q` to a
 -- hundred additions, so every comparison of such types took seconds. With a
 -- variable size the multiplication stays as it is.
 
--- Theorem 1: every position is on the dial, by its type.
-theorem alwaysOnDial [highest : Nat] (d : Dial highest) (t : Turn) : (d.move t).position <= highest := (d.move t).inRange
-
--- Theorem 2: the arithmetic count is the click-by-click count, for any dial,
+-- The arithmetic count is the click-by-click count, for any dial,
 -- start and turns.
 theorem zerosPassedCorrect (start : Dial highest) (turns : List Turn) : zerosPassed start turns = zerosPassedSpec start turns :=
   Eq.trans (zerosPassedFrom start turns)
@@ -128,10 +126,6 @@ theorem zerosPassedCorrect (start : Dial highest) (turns : List Turn) : zerosPas
 -- And so for the puzzle's answer.
 theorem part2Puzzle (turns : List Turn) : solvePart2 turns = zerosPassedSpec dial turns :=
   zerosPassedCorrect dial turns
-
--- Theorem 3: part 1 is the count of the positions after each turn that are 0.
-theorem part1Puzzle (turns : List Turn) :
-    solvePart1 turns = ((List.scanLeft Dial.move dial turns).drop 1).count Dial.isZero := rfl
 
 -- The zeros after each turn from `d`, counted by `List.occurrences`, which
 -- suits proofs (it recurses on the list).
