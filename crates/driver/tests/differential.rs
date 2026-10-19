@@ -359,6 +359,7 @@ fn the_evaluators_agree_on_let() {
                 std::rc::Rc::new(nat_ty()),
                 std::rc::Rc::new(value),
                 std::rc::Rc::new(body),
+                false,
             )
         };
         let lam = |x: &str, body: Term| Term::Lam(x.into(), Icit::Explicit, std::rc::Rc::new(body));

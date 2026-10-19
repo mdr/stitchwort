@@ -570,7 +570,12 @@ fn eval_step(g: &Globals, term: Rc<Term>, env: Env, stack: &mut Vec<Frame>) -> R
         Term::Ann(e, _) => Control::Eval(e.clone(), env),
         // Strict and shared: the value is computed once, before the body,
         // which sees it in its environment (docs/proposals/let.md §A.2).
-        Term::Let(_, _, value, body) => match quick(g, value, &env) {
+        // While running, a skipped `let` (a proof, a type, or unused; see
+        // `Term::Let`) isn't computed: the placeholder takes its slot.
+        Term::Let(_, _, _, body, true) if g.erasure.active() => {
+            Control::Eval(body.clone(), extend(&env, erased()))
+        }
+        Term::Let(_, _, value, body, _) => match quick(g, value, &env) {
             Some(value) => Control::Eval(body.clone(), extend(&env, value)),
             None => {
                 let value = value.clone();
@@ -681,7 +686,7 @@ fn resume(g: &Globals, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Re
             fields(g, term, env, done, stack)?
         }
         Frame::LetBody { term, env } => {
-            let Term::Let(_, _, _, body) = &*term else {
+            let Term::Let(_, _, _, body, _) = &*term else {
                 unreachable!("a `LetBody` frame is for a `let`")
             };
             Control::Eval(body.clone(), extend(&env, value))

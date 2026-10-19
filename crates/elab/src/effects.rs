@@ -1306,32 +1306,25 @@ fn sequence(
     body: impl FnOnce(&mut Ctx) -> Result<Term>,
 ) -> Result<Term> {
     let mark = cx.mark();
+    if !effectful {
+        // A pure `let` is a transparent one around the rest of the
+        // computation (docs/proposals/let.md §5, option A).
+        let ty_term = cx.quote(&ty)?;
+        cx.define(Some(name), name.into(), ty, ty_term.clone(), term.clone())?;
+        let result = body(cx);
+        cx.reset(mark);
+        return Ok(Term::let_(name.into(), ty_term, term, result?));
+    }
     cx.bind(name, ty.clone());
     let result = body(cx);
     cx.reset(mark);
     let lam = Term::Lam(name.into(), Icit::Explicit, Rc::new(result?));
-    if effectful {
-        return call(
-            cx,
-            bind_name(row),
-            &[ops(cx, row)?, res(cx, row)?, ty, t.clone()],
-            vec![term, lam],
-        );
-    }
-    // A pure `let` is `(\name -> body) term`, annotated so the kernel can
-    // check it.
-    let comp = comp_type(cx, row, t.clone())?;
-    let pi = Term::Pi(
-        name.into(),
-        Icit::Explicit,
-        Rc::new(cx.quote(&ty)?),
-        Rc::new(stitchwort_core::value::quote(
-            cx.g(),
-            cx.level() + 1,
-            &comp,
-        )?),
-    );
-    Ok(Term::app(Term::Ann(Rc::new(lam), Rc::new(pi)), term))
+    call(
+        cx,
+        bind_name(row),
+        &[ops(cx, row)?, res(cx, row)?, ty, t.clone()],
+        vec![term, lam],
+    )
 }
 
 /// A variable holding the result of an earlier computation.
@@ -1896,9 +1889,9 @@ pub fn op_value(cx: &mut Ctx, a: usize, i: usize) -> Result<(Term, Value)> {
 }
 
 /// A `let` that performs nothing, in a pure context, checked against
-/// `expected` or inferred: `(\name => body) value`, annotated so the kernel
-/// can check it (docs/proposals/let.md, stage 1; `name` is opaque in
-/// `body`). The rest of the block may still perform what it handles itself,
+/// `expected` or inferred: the kernel's transparent `Let(name, A, value,
+/// body)`, so `body` knows `name` is `value` (docs/proposals/let.md, stage
+/// 3). The rest of the block may still perform what it handles itself,
 /// such as a call of an effectful function bound here; `check`/`infer` ask
 /// again once `name` is in scope.
 pub fn pure_let(
@@ -1911,47 +1904,45 @@ pub fn pure_let(
 ) -> Result<(Term, Value)> {
     // The variable's type as written, for dot notation: the annotation, or
     // the value's.
-    let (term, ty, written) = match ann {
+    let (term, ty, ty_term, written) = match ann {
         Some(ann) => {
-            let (ty, _) = check_type(cx, ann)?;
-            let written = crate::dot::Written::With(Rc::new(ty.clone()), cx.env.clone());
-            let ty = cx.eval(&ty)?;
-            (check(cx, value, &ty)?, ty, Some(written))
+            let (ty_term, _) = check_type(cx, ann)?;
+            let written = crate::dot::Written::With(Rc::new(ty_term.clone()), cx.env.clone());
+            let ty = cx.eval(&ty_term)?;
+            (check(cx, value, &ty)?, ty, ty_term, Some(written))
         }
         None => {
             let (term, ty) = infer(cx, value)?;
             let (term, ty) = insert(cx, term, ty)?;
             let written = crate::dot::written_of(cx, &term)?;
-            (term, ty, written)
+            let ty_term = cx.quote(&ty)?;
+            (term, ty, ty_term, written)
         }
     };
     let mark = cx.mark();
-    cx.bind(&name.text, ty.clone());
-    if let Some(w) = written {
-        cx.set_written(w);
-    }
-    let result = match expected {
-        Some(t) => check(cx, body, t).map(|b| (b, t.clone())),
-        None => infer(cx, body),
-    }
-    .and_then(|(b, body_ty)| Ok((b, cx.quote(&body_ty)?)));
+    let x: stitchwort_core::Name = name.text.as_str().into();
+    let result = cx
+        .define(
+            Some(&name.text),
+            x.clone(),
+            ty,
+            ty_term.clone(),
+            term.clone(),
+        )
+        .and_then(|()| {
+            if let Some(w) = written {
+                cx.set_written(w);
+            }
+            // The body's type is computed with the name standing for the
+            // value, so it never mentions the name: it's the block's type.
+            match expected {
+                Some(t) => check(cx, body, t).map(|b| (b, t.clone())),
+                None => infer(cx, body),
+            }
+        });
     cx.reset(mark);
-    let (result, cod) = result?;
-    let lam = Term::Lam(name.text.as_str().into(), Icit::Explicit, Rc::new(result));
-    let pi = Term::Pi(
-        name.text.as_str().into(),
-        Icit::Explicit,
-        Rc::new(cx.quote(&ty)?),
-        Rc::new(cod.clone()),
-    );
-    // The block's type: the body's, with the value for the name.
-    let mut env = cx.env.clone();
-    env.push(cx.eval(&term)?);
-    let block_ty = stitchwort_core::value::eval(cx.g(), &env, &cod)?;
-    Ok((
-        Term::app(Term::Ann(Rc::new(lam), Rc::new(pi)), term),
-        block_ty,
-    ))
+    let (body, block_ty) = result?;
+    Ok((Term::let_(x, ty_term, term, body), block_ty))
 }
 
 /// Runs a computation that performs nothing, in a pure context.

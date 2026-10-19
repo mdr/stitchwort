@@ -313,6 +313,63 @@ fn proofs_about_long_values_check() {
     assert_eq!(codes, ["E-TYPE-MISMATCH"]);
 }
 
+/// The adversarial `let` (docs/proposals/let.md §A.5, "Compile-time cost"),
+/// through the elaborator: 20 nested `let`s on an unknown, each the previous
+/// one used twice, in a type that is compared (and, for the false claim,
+/// printed). Each must finish, or stop with `E-RESOURCE`, under the default
+/// limits. A neutral value's spine isn't shared, so `x20`'s value is a tree
+/// of 2^20 nodes: about 6 s in a release build, so it's skipped in debug
+/// builds (the gate runs release).
+#[test]
+#[cfg_attr(debug_assertions, ignore = "slow in a debug build")]
+fn nested_lets_finish_under_the_budget() {
+    use std::time::{Duration, Instant};
+    let mut lets = String::from("def nested (a : Nat) : Nat :=\n  let x0 := a\n");
+    for i in 1..=20 {
+        lets += &format!("  let x{i} := x{} + x{}\n", i - 1, i - 1);
+    }
+    for (claim, allowed) in [
+        ("x20 = x20", ["ok", "E-RESOURCE"]),
+        ("x20 = 0", ["E-REFL", "E-RESOURCE"]),
+    ] {
+        let source = format!("{lets}  let p : {claim} := rfl\n  x20\n");
+        let mut session = Session::new();
+        let started = Instant::now();
+        let codes = codes(session.load("nested.sw", &source));
+        let elapsed = started.elapsed();
+        let code = codes.first().copied().unwrap_or("ok");
+        assert!(allowed.contains(&code), "{claim}: unexpected {codes:?}");
+        assert!(
+            elapsed < Duration::from_secs(60),
+            "{claim}: took {elapsed:?}"
+        );
+        eprintln!("nested lets, {claim}: {code} in {elapsed:?}");
+    }
+}
+
+/// The elaborator defers a `let` whose value isn't quick to compute: it's
+/// computed while checking only if a type needs it (docs/proposals/let.md
+/// §A.7), and then correctly.
+#[test]
+fn a_large_let_is_computed_only_when_a_type_needs_it() {
+    let work = |body: &str| {
+        let mut session = Session::new();
+        let before = session.elab.globals.budget.total_work();
+        let source =
+            format!("def f : Nat :=\n  let xs := List.range 200000\n{body}  List.length xs\n");
+        let result = codes(session.load("big.sw", &source));
+        assert!(result.is_empty(), "{result:?}");
+        session.elab.globals.budget.total_work() - before
+    };
+    let unused = work("");
+    let used = work("  let p : List.length xs = 200000 := rfl\n");
+    eprintln!("a large let: {unused} steps unused, {used} used");
+    assert!(
+        unused * 4 < used,
+        "{unused} steps when no type needs it, {used} when one does"
+    );
+}
+
 /// Freeing a deeply nested term doesn't recurse.
 #[test]
 fn freeing_deep_terms_runs_without_using_the_stack() {

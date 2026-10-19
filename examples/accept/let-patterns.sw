@@ -131,3 +131,24 @@ test "effects result" := (IO.simulate ["x", "y"] swapLines).snd == 3
 test "in a test" :=
   let (a, b) := (1, 2)
   a + b == 3
+
+-- Outside a proof, a tuple or record pattern binds projections of the
+-- value (docs/proposals/let.md §7), so a function using one computes even on
+-- an unknown pair.
+def swapped (p : (Nat, Text)) : (Text, Nat) :=
+  let (a, b) := p
+  (b, a)
+
+theorem swappedUnfolds (p : (Nat, Text)) : swapped p = (Pair.snd p, Pair.fst p) := rfl
+
+def sumOf (n : Nat) : Nat :=
+  let ((a, b), c) := ((n, n + 1), n + 2)
+  a + b + c
+
+theorem sumOfIs (n : Nat) : sumOf n = n + (n + 1) + (n + 2) := rfl
+
+def nameLength (p : Person) : Nat :=
+  let { name, age } := p
+  name.length + age
+
+theorem nameLengthIs (p : Person) : nameLength p = p.name.length + p.age := rfl

@@ -103,8 +103,15 @@ pub enum Term {
     /// `let x : A := v; b`: a transparent local definition
     /// (docs/proposals/let.md §A.2). `b` is under one binder, `x`, which
     /// stands for `v` itself, not an unknown of type `A`: checking `b` may
-    /// compute with it. Fields: the name, `A`, `v`, `b`.
-    Let(Name, Rc<Term>, Rc<Term>, Rc<Term>),
+    /// compute with it. Fields: the name, `A`, `v`, `b`, and whether running
+    /// skips `v` (the slot gets the erased placeholder): when `x` is erased,
+    /// `A` being a proposition or a type former by the test a parameter's
+    /// erasure uses (docs/proposals/let.md §6.1 rule 5), or when `b` doesn't
+    /// use `x` (a pure value nothing uses needn't be computed). The kernel
+    /// decides it when it checks the `let` and records it in the term it
+    /// returns, whatever it was given; it's determined by the rest, so
+    /// hashing ignores it. Use [`Term::let_`] to build one.
+    Let(Name, Rc<Term>, Rc<Term>, Rc<Term>, bool),
     /// Pattern match on a variable of data type `DataId`, with one branch per
     /// constructor, in declaration order. Only appears at the top of a
     /// definition's body (after its parameters), forming a case tree.
@@ -174,7 +181,7 @@ fn has_unique_child(term: &Term) -> bool {
     match term {
         Term::Pi(_, _, a, b) | Term::App(a, b, _) | Term::Ann(a, b) => unique(a) || unique(b),
         Term::Lam(_, _, b) | Term::Loc(_, b) => unique(b),
-        Term::Let(_, a, v, b) => unique(a) || unique(v) || unique(b),
+        Term::Let(_, a, v, b, _) => unique(a) || unique(v) || unique(b),
         Term::Data(_, args) | Term::Ctor(_, _, args) => args.iter().any(unique),
         Term::Eq(ty, a, b) => ty.as_ref().is_some_and(unique) || unique(a) || unique(b),
         Term::J(m, b, p) => unique(m) || unique(b) || unique(p),
@@ -203,7 +210,7 @@ fn take_children(term: &mut Term, leaf: &Rc<Term>, pending: &mut Vec<Rc<Term>>) 
             take(b);
         }
         Term::Lam(_, _, b) | Term::Loc(_, b) => take(b),
-        Term::Let(_, a, v, b) => {
+        Term::Let(_, a, v, b, _) => {
             take(a);
             take(v);
             take(b);
@@ -277,6 +284,12 @@ impl Term {
 
     pub fn ctor(d: DataId, c: usize, fields: Vec<Term>) -> Term {
         Term::Ctor(d, c, fields.into_iter().map(Rc::new).collect())
+    }
+
+    /// `let x : ty := value; body`, not marked erased: the kernel marks it
+    /// when it checks it.
+    pub fn let_(x: Name, ty: Term, value: Term, body: Term) -> Term {
+        Term::Let(x, Rc::new(ty), Rc::new(value), Rc::new(body), false)
     }
 
     pub fn app(f: Term, a: Term) -> Term {
@@ -375,11 +388,12 @@ impl Term {
             Term::Lam(x, i, b) => Term::Lam(x.clone(), *i, go(b, cutoff + 1)?),
             Term::App(f, a, i) => Term::App(go(f, cutoff)?, go(a, cutoff)?, *i),
             Term::Ann(e, t) => Term::Ann(go(e, cutoff)?, go(t, cutoff)?),
-            Term::Let(x, a, v, b) => Term::Let(
+            Term::Let(x, a, v, b, e) => Term::Let(
                 x.clone(),
                 go(a, cutoff)?,
                 go(v, cutoff)?,
                 go(b, cutoff + 1)?,
+                *e,
             ),
             Term::Case(ix, d, branches) => Term::Case(
                 if *ix >= cutoff { ix + by } else { *ix },
@@ -461,7 +475,7 @@ impl Term {
                 f(b, 1);
             }
             Term::Lam(_, _, b) => f(b, 1),
-            Term::Let(_, a, v, b) => {
+            Term::Let(_, a, v, b, _) => {
                 f(a, 0);
                 f(v, 0);
                 f(b, 1);

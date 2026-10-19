@@ -45,7 +45,18 @@ pub struct Ctx<'e> {
     /// Local definitions in scope (`local.rs`), each shadowing the names
     /// bound before it and shadowed by those bound after.
     locals: Vec<LocalName>,
+    /// For each variable bound by a transparent `let` ([`Ctx::define`]), its
+    /// type and value as written in the core term, so a lifted helper can
+    /// re-create the `let` (docs/proposals/let.md §A.4).
+    pub lets: Vec<Option<Rc<LetDef>>>,
     pub span: Span,
+}
+
+/// A `let`'s type and value, as terms in the context of the variables
+/// before it.
+pub(crate) struct LetDef {
+    pub ty: Term,
+    pub value: Term,
 }
 
 /// A local definition's name in scope: what it means, as a term in the
@@ -79,6 +90,7 @@ impl<'e> Ctx<'e> {
             scope: Vec::new(),
             kinds: Vec::new(),
             locals: Vec::new(),
+            lets: Vec::new(),
             span,
         }
     }
@@ -93,6 +105,7 @@ impl<'e> Ctx<'e> {
     ) -> Self {
         let written = vec![None; env.len()];
         let kinds = vec![Icit::Explicit; env.len()];
+        let lets = vec![None; env.len()];
         Ctx {
             e,
             env,
@@ -102,6 +115,7 @@ impl<'e> Ctx<'e> {
             scope: Vec::new(),
             kinds,
             locals: Vec::new(),
+            lets,
             span,
         }
     }
@@ -128,6 +142,7 @@ impl<'e> Ctx<'e> {
         self.names.truncate(mark.level);
         self.written.truncate(mark.level);
         self.kinds.truncate(mark.level);
+        self.lets.truncate(mark.level);
         self.scope.truncate(mark.scope);
         self.locals.truncate(mark.locals);
     }
@@ -145,6 +160,72 @@ impl<'e> Ctx<'e> {
         self.names.push(name);
         self.written.push(None);
         self.kinds.push(Icit::Explicit);
+        self.lets.push(None);
+    }
+
+    /// Binds `name` (or, with `None`, a variable that can't be referred to,
+    /// shown as `shown`) as a transparent local definition `value : ty`,
+    /// where `ty_term` and `value` are terms in the current context. The
+    /// variable takes a slot, but what it evaluates to there is `value`'s
+    /// value, never a variable of its own (docs/proposals/let.md §6.1 rule
+    /// 1). So nothing computed under it mentions it, and `fresh_meta`,
+    /// lifting and matching, which look for slots that are their own
+    /// variable, leave it out of metavariable spines and captures.
+    ///
+    /// A value that's cheap to compute (`unify::cheaply`: most are, being
+    /// stuck on the context's variables) is computed now, once. Otherwise,
+    /// as in the kernel, it's computed only when something needs it (a type
+    /// that mentions the variable is compared, printed or read back), so a
+    /// `let` of a large value that no type needs, like a long list in
+    /// `main`, costs nothing to check (docs/proposals/let.md §A.3, "Cost at
+    /// check time"). Such a *deferred* slot holds a solved metavariable
+    /// applied to the context, `?d _ x₀ … xₙ`, whose solution is
+    /// `\_ x₀ … xₙ => value`: forcing it, as everything that looks at a value
+    /// does, computes the value, again each time. It's not the slot's own
+    /// variable, so the placeholder can't be taken for one (a pending slot
+    /// has its own marker, stage 2's warning), and since the context is in
+    /// its spine, a case split's refinement of a variable reaches the value.
+    pub(crate) fn define(
+        &mut self,
+        name: Option<&str>,
+        shown: Name,
+        ty: Value,
+        ty_term: Term,
+        value: Term,
+    ) -> Result<()> {
+        let g = self.g();
+        let v = match crate::unify::cheaply(g, || eval(g, &self.env, &value)) {
+            Some(v) => v,
+            None => self.deferred(&value)?,
+        };
+        if let Some(name) = name {
+            self.scope.push((name.to_string(), self.level()));
+        }
+        self.env.push(v);
+        self.types.push(ty);
+        self.names.push(shown);
+        self.written.push(None);
+        self.kinds.push(Icit::Explicit);
+        self.lets.push(Some(Rc::new(LetDef { ty: ty_term, value })));
+        Ok(())
+    }
+
+    /// `value`, a term in the context, computed when it's forced: see
+    /// [`Ctx::define`].
+    fn deferred(&self, value: &Term) -> Result<Value> {
+        let g = self.g();
+        let mut solution = value.clone();
+        for x in self.names.iter().rev() {
+            solution = Term::Lam(x.clone(), Icit::Explicit, Rc::new(solution));
+        }
+        let solution = Term::Lam("_".into(), Icit::Explicit, Rc::new(solution));
+        let m = g.new_meta(self.span);
+        g.solve_meta(m, eval(g, &[], &solution)?);
+        let spine = std::iter::once(Value::Sort(Sort::Prop))
+            .chain(self.env.iter().cloned())
+            .map(|v| stitchwort_core::value::Elim::App(v, Icit::Explicit))
+            .collect();
+        Ok(Value::Neutral(Head::Meta(m), spine))
     }
 
     /// Records that the latest variable is an implicit or `auto` parameter.

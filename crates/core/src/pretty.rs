@@ -276,7 +276,7 @@ impl<'g> Printer<'g> {
                 (format!("\\{x} => {body}"), Prec::Arrow)
             }
             // The annotation isn't shown, as for `Ann`.
-            Term::Let(x, _, v, b) => {
+            Term::Let(x, _, v, b, _) => {
                 let value = self.print(names, v, Prec::Arrow);
                 names.push(x.clone());
                 let body = self.print(names, b, Prec::Arrow);

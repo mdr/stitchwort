@@ -149,6 +149,7 @@ builtins! {
     Pair = "Pair": Data,
     MkPair = "MkPair": Ctor(Builtin::Pair),
     Fst = "Pair.fst": Def,
+    Snd = "Pair.snd": Def,
     // Characters and text
     Char = "Char": Data,
     MkChar = "MkChar": Ctor(Builtin::Char),

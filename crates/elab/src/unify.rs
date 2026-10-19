@@ -483,22 +483,104 @@ impl From<ResourceError> for ZonkError {
     }
 }
 
-/// [`zonk_keeping`], keeping none.
+/// [`zonk_in`], keeping none, outside any `let`.
 #[cfg(test)]
 pub fn zonk(g: &Globals, level: usize, term: &Term) -> std::result::Result<Term, ZonkError> {
-    zonk_keeping(g, level, term, &|_| false)
+    zonk_in(g, level, term, &|_| false, &[])
 }
 
-/// Replaces solved metavariables in `term` (with `level` variables in scope)
-/// by their solutions. Fails on an unsolved metavariable, except those
-/// `keep` allows, which are left in place.
-pub fn zonk_keeping(
+/// `term` (with `level` variables in scope, inside `lets`) with each
+/// occurrence of a `let`'s value folded back to its variable.
+pub(crate) fn refold(
+    g: &Globals,
+    term: Term,
+    level: usize,
+    lets: &[Around],
+) -> std::result::Result<Term, ZonkError> {
+    let mut term = term;
+    for (slot, normal) in lets {
+        // The value moved under `under` more binders, made when needed.
+        let shifted: std::cell::RefCell<Vec<Option<Term>>> = Default::default();
+        let failed = std::cell::Cell::new(false);
+        let hook = |t: &Term, under: usize| {
+            let mut shifted = shifted.borrow_mut();
+            if shifted.len() <= under {
+                shifted.resize(under + 1, None);
+            }
+            if shifted[under].is_none() {
+                match normal.shift(g, level - slot + under, 0) {
+                    Ok(n) => shifted[under] = Some(n),
+                    Err(_) => {
+                        failed.set(true);
+                        return None;
+                    }
+                }
+            }
+            let needle = shifted[under].as_ref().expect("just made");
+            crate::matching::same(needle, t).then(|| Term::Var(level + under - 1 - slot))
+        };
+        let folded =
+            crate::lift::replace_with(g, &term, level, &|l| Ok(Term::Var(level - 1 - l)), &hook);
+        match folded {
+            Ok(t) if !failed.get() => term = t,
+            _ => {
+                return Err(ZonkError::Resource(ResourceError::Nesting(
+                    crate::check::PASS,
+                )));
+            }
+        }
+    }
+    Ok(term)
+}
+
+/// `f`'s result, if it's cheap to compute: a `let`'s value's normal form,
+/// for [`refold`], which is only an optimisation. A value too large to
+/// compute and compare quickly (a long list, say) isn't folded back; that's
+/// also where folding would cost more than it saves.
+pub(crate) fn cheaply<T>(g: &Globals, f: impl FnOnce() -> Result<T>) -> Option<T> {
+    let _op = g.budget.operation(stitchwort_core::Limits {
+        work: 100_000,
+        stack: 128 * 1024,
+        size: 10_000,
+        frames: 10_000,
+    });
+    f().ok()
+}
+
+/// Whether a `let`'s value, as a normal form, is worth folding back: an
+/// alias of a variable, or a constant, costs nothing to compute again.
+pub(crate) fn worth_folding(normal: &Term) -> bool {
+    !matches!(normal.strip_loc(), Term::Var(_) | Term::Nat(_))
+}
+
+/// A `let` that `term` is inside, in [`zonk_in`]: its level, and its value
+/// as a normal form in the context before it.
+pub(crate) type Around = (usize, Rc<Term>);
+
+/// Replaces solved metavariables in `term` (with `level` variables in scope,
+/// inside the `let`s `lets`) by their solutions. Fails on an unsolved
+/// metavariable, except those `keep` allows, which are left in place.
+///
+/// A metavariable's solution never mentions a `let`'s variable: it was
+/// solved where the variable's value is its value (docs/proposals/let.md
+/// §6.1 rule 2). So a solution that a program runs, such as a decision
+/// procedure found for `if m < 3` after `let m := n + 1`, would compute the
+/// value again (`n + 1 < 3`). Where the solution is put back inside the
+/// `let`, occurrences of the value's normal form are folded back to the
+/// variable, outermost `let` first (so a later one's value, which mentions
+/// an earlier one, is recognised). That's the same term to the checker, and
+/// the program shares the value.
+pub(crate) fn zonk_in(
     g: &Globals,
     level: usize,
     term: &Term,
     keep: &dyn Fn(usize) -> bool,
+    lets: &[Around],
 ) -> std::result::Result<Term, ZonkError> {
     g.budget.step()?;
+    let zonk_keeping = |g: &Globals, level: usize, t: &Term, keep: &dyn Fn(usize) -> bool| {
+        zonk_in(g, level, t, keep, lets)
+    };
     let go = |t: &Term, level| zonk_keeping(g, level, t, keep).map(Rc::new);
     Ok(match term {
         Term::Meta(_) | Term::App(..) if matches!(term.spine().0, Term::Meta(_)) => {
@@ -510,7 +592,22 @@ pub fn zonk_keeping(
             }) {
                 return Err(ZonkError::Unsolved(m));
             }
-            solved
+            refold(g, solved, level, lets)?
+        }
+        Term::Let(x, a, v, b, e) => {
+            let a = go(a, level)?;
+            let v = go(v, level)?;
+            let env: Vec<Value> = (0..level).map(Value::var).collect();
+            let normal = cheaply(g, || quote(g, level, &eval(g, &env, &v)?));
+            let b = match normal {
+                Some(normal) if worth_folding(&normal) => {
+                    let mut inner = lets.to_vec();
+                    inner.push((level, Rc::new(normal)));
+                    Rc::new(zonk_in(g, level + 1, b, keep, &inner)?)
+                }
+                _ => go(b, level + 1)?,
+            };
+            Term::Let(x.clone(), a, v, b, *e)
         }
         Term::Var(_)
         | Term::Def(_)
@@ -536,12 +633,6 @@ pub fn zonk_keeping(
         Term::Lam(x, i, b) => Term::Lam(x.clone(), *i, go(b, level + 1)?),
         Term::App(f, a, i) => Term::App(go(f, level)?, go(a, level)?, *i),
         Term::Ann(e, t) => Term::Ann(go(e, level)?, go(t, level)?),
-        // The body counts the `let`'s slot. A metavariable applied there is
-        // evaluated with the slot as a variable, so what's quoted back
-        // mentions `x` only where `x` is in scope.
-        Term::Let(x, a, v, b) => {
-            Term::Let(x.clone(), go(a, level)?, go(v, level)?, go(b, level + 1)?)
-        }
         Term::Case(ix, d, branches) => Term::Case(
             *ix,
             *d,

@@ -38,7 +38,7 @@ use stitchwort_core::{DefId, Globals, Icit, Name, Term, Value};
 use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::Elaborator;
-use crate::check::{Ctx, Result};
+use crate::check::{Ctx, LetDef, Result};
 
 /// A helper elaborated in its owner's context, not yet a definition.
 pub(crate) struct Draft {
@@ -63,6 +63,9 @@ pub(crate) struct Draft {
     /// How each variable of the context was bound (`Ctx::kinds`): a local
     /// definition's captures keep their kind (§2.1).
     pub kinds: Vec<Icit>,
+    /// Which variables of the context are `let`s, with their types and
+    /// values (`Ctx::lets`): the helper re-creates those it uses.
+    pub lets: Vec<Option<Rc<LetDef>>>,
     /// For a local definition, what it is; `None` for a `match`.
     pub local: Option<LocalDraft>,
 }
@@ -109,7 +112,7 @@ pub(crate) fn draft(
     let meta = g.new_meta(span);
     g.freeze_meta(meta);
     let mut call = Term::Meta(meta);
-    for level in spine(&cx.env[..base]) {
+    for level in spine(&cx.env[..base], &cx.lets) {
         call = Term::app(call, Term::Var(base - 1 - level));
     }
     cx.e.drafts.borrow_mut().push(Draft {
@@ -123,15 +126,23 @@ pub(crate) fn draft(
         body,
         goal,
         kinds: cx.kinds.clone(),
+        lets: cx.lets.clone(),
         local: None,
     });
     Ok(call)
 }
 
-/// The variables a metavariable created in `env` is applied to: those a
-/// case split hasn't replaced (as `Ctx::fresh_meta`).
-pub(crate) fn spine(env: &[Value]) -> Vec<usize> {
-    (0..env.len()).filter(|&l| is_var(&env[l], l)).collect()
+/// The variables a helper's frozen metavariable, created in `env`, is
+/// applied to: those a case split hasn't replaced (as `Ctx::fresh_meta`),
+/// and, unlike `fresh_meta`, the `let`s in scope (`lets`), so the call can
+/// pass a `let`'s variable, sharing its value, where it passes something
+/// that uses it (a generalised scrutinee). The frozen metavariable is never
+/// solved by unification, which needs a spine of plain variables; its
+/// solution is the call, made in [`Elaborator::resolve_batch`].
+pub(crate) fn spine(env: &[Value], lets: &[Option<Rc<LetDef>>]) -> Vec<usize> {
+    (0..env.len())
+        .filter(|&l| is_var(&env[l], l) || lets.get(l).is_some_and(Option::is_some))
+        .collect()
 }
 
 fn is_var(value: &Value, level: usize) -> bool {
@@ -210,9 +221,13 @@ fn go_replace(
         Term::Lam(x, i, b) => Term::Lam(x.clone(), *i, go(b, under + 1)?),
         Term::App(h, a, i) => Term::App(go(h, under)?, go(a, under)?, *i),
         Term::Ann(e, t) => Term::Ann(go(e, under)?, go(t, under)?),
-        Term::Let(x, a, v, b) => {
-            Term::Let(x.clone(), go(a, under)?, go(v, under)?, go(b, under + 1)?)
-        }
+        Term::Let(x, a, v, b, e) => Term::Let(
+            x.clone(),
+            go(a, under)?,
+            go(v, under)?,
+            go(b, under + 1)?,
+            *e,
+        ),
         Term::Case(ix, d, branches) => Term::Case(
             split(*ix)?,
             *d,
@@ -380,7 +395,7 @@ impl Elaborator {
         for (d, caps) in drafts.iter().zip(&ordered) {
             let n = d.env.len();
             let mut found = BTreeSet::new();
-            metas(&self.unrefine(d, &d.body, n, &in_batch)?, &mut found);
+            metas(&self.unrefine_body(d, &d.body, &in_batch)?, &mut found);
             metas(&self.unrefine(d, &d.goal, n, &in_batch)?, &mut found);
             for &l in caps {
                 let ty = quote(&self.globals, n, &d.types[l])?;
@@ -425,7 +440,7 @@ impl Elaborator {
                 for (arg, icit) in args {
                     call = Term::app_icit(call, arg, icit);
                 }
-                for _ in spine(&d.env[..d.base]) {
+                for _ in spine(&d.env[..d.base], &d.lets) {
                     call = Term::Lam("x".into(), Icit::Explicit, Rc::new(call));
                 }
                 g.solve_meta(d.meta, eval(g, &[], &call)?);
@@ -548,6 +563,10 @@ impl Elaborator {
     /// by a constructor replaced by it: the helper takes the constructor's
     /// fields instead. Unsolved metavariables are an error, except those
     /// `keep` allows.
+    ///
+    /// For a type: a `let`'s variable, whose slot holds its value, is
+    /// replaced by that value too (types are erased, so this costs nothing
+    /// when running; a type quoted from a value never mentions one anyway).
     fn unrefine(
         &self,
         draft: &Draft,
@@ -555,15 +574,199 @@ impl Elaborator {
         depth: usize,
         keep: &dyn Fn(usize) -> bool,
     ) -> Result<Term> {
+        self.unrefine_as(draft, term, depth, keep, false)
+    }
+
+    /// [`Elaborator::unrefine`] for what the call passes: a `let`'s variable
+    /// stays a variable, since the frozen metavariable's spine includes the
+    /// `let`s in scope ([`spine`]), so the call shares the value the owner
+    /// computed instead of computing it again.
+    fn unrefine_call(
+        &self,
+        draft: &Draft,
+        term: &Term,
+        depth: usize,
+        keep: &dyn Fn(usize) -> bool,
+    ) -> Result<Term> {
+        self.unrefine_as(draft, term, depth, keep, true)
+    }
+
+    fn unrefine_as(
+        &self,
+        draft: &Draft,
+        term: &Term,
+        depth: usize,
+        keep: &dyn Fn(usize) -> bool,
+        lets: bool,
+    ) -> Result<Term> {
         let g = &self.globals;
-        let t = self.zonk_keeping(term, depth, keep)?;
+        let t = if lets {
+            // Solutions folded back to the `let`s they'll be inside.
+            let mut around: Vec<crate::unify::Around> = Vec::new();
+            for l in 0..depth.min(draft.lets.len()) {
+                if draft.lets[l].is_some()
+                    && let Some(normal) = crate::unify::cheaply(g, || {
+                        let normal = quote(g, l, &draft.env[l])?;
+                        crate::unify::refold(g, normal, l, &around).map_err(|e| match e {
+                            crate::unify::ZonkError::Resource(e) => e,
+                            crate::unify::ZonkError::Unsolved(_) => {
+                                unreachable!("refolding solves nothing")
+                            }
+                        })
+                    })
+                    && crate::unify::worth_folding(&normal)
+                {
+                    around.push((l, Rc::new(normal)));
+                }
+            }
+            self.zonk_around(term, depth, keep, &around)?
+        } else {
+            self.zonk_keeping(term, depth, keep)?
+        };
         replace(g, &t, depth, &|l| {
-            if is_var(&draft.env[l], l) {
+            if is_var(&draft.env[l], l) || (lets && draft.lets[l].is_some()) {
                 Ok(Term::Var(depth - 1 - l))
             } else {
                 Ok(quote(g, depth, &draft.env[l])?)
             }
         })
+    }
+
+    /// The helper's body, unrefined, with the `let`s of the owner's context
+    /// it uses re-created inside it (docs/proposals/let.md §6.1 rule 4,
+    /// §A.4): the helper takes the variables their values use, and knows
+    /// `x := v` as the owner did, instead of taking `x` as an opaque
+    /// argument or having `v`'s normal form pasted in. A `let` is never a
+    /// case-tree node, so each is re-created at the top of each leaf of the
+    /// case tree that uses it (with the `let`s its type and value use, in
+    /// order); only one leaf runs, so a value is computed at most once per
+    /// call.
+    fn unrefine_body(
+        &self,
+        draft: &Draft,
+        term: &Term,
+        keep: &dyn Fn(usize) -> bool,
+    ) -> Result<Term> {
+        let n = draft.env.len();
+        let t = self.unrefine_as(draft, term, n, keep, true)?;
+        if draft.lets.iter().all(Option::is_none) {
+            return Ok(t);
+        }
+        // A local definition's parameters are its leading lambdas; a
+        // `match`'s helper takes none of its own.
+        self.recreate(draft, &t, 0, draft.local.is_some(), keep)
+    }
+
+    /// [`Elaborator::unrefine_body`]'s walk down the case tree of `term`
+    /// (under `under` binders of its own), through leading lambdas if
+    /// `params`.
+    fn recreate(
+        &self,
+        draft: &Draft,
+        term: &Term,
+        under: usize,
+        params: bool,
+        keep: &dyn Fn(usize) -> bool,
+    ) -> Result<Term> {
+        self.globals.budget.nesting(crate::check::PASS)?;
+        let go =
+            |t: &Term, under, params| self.recreate(draft, t, under, params, keep).map(Rc::new);
+        Ok(match term {
+            Term::Loc(span, t) => Term::Loc(*span, go(t, under, params)?),
+            Term::Lam(x, i, b) if params => Term::Lam(x.clone(), *i, go(b, under + 1, true)?),
+            Term::Case(ix, d, branches) => Term::Case(
+                *ix,
+                *d,
+                branches
+                    .iter()
+                    .map(|b| {
+                        Ok(Branch {
+                            names: b.names.clone(),
+                            body: go(&b.body, under + b.names.len(), false)?,
+                        })
+                    })
+                    .collect::<Result<_>>()?,
+            ),
+            Term::NumCase(ix, arms, default) => Term::NumCase(
+                *ix,
+                arms.iter()
+                    .map(|a| {
+                        Ok(NumArm {
+                            value: a.value.clone(),
+                            body: go(&a.body, under, false)?,
+                        })
+                    })
+                    .collect::<Result<_>>()?,
+                go(default, under, false)?,
+            ),
+            leaf => self.with_lets(draft, leaf, under, keep)?,
+        })
+    }
+
+    /// `leaf` (in the draft's context and `under` binders of the helper's
+    /// own) inside the `let`s of the draft's context it uses.
+    fn with_lets(
+        &self,
+        draft: &Draft,
+        leaf: &Term,
+        under: usize,
+        keep: &dyn Fn(usize) -> bool,
+    ) -> Result<Term> {
+        let g = &self.globals;
+        let n = draft.env.len();
+        let c = n + under;
+        let lets_in = |t: &Term, depth: usize, out: &mut Vec<usize>| {
+            for (t, binders) in t.subterms() {
+                if let Term::Var(ix) = t
+                    && let Some(ix) = ix.checked_sub(binders)
+                    && let Some(level) = depth.checked_sub(ix + 1)
+                    && draft.lets.get(level).is_some_and(Option::is_some)
+                {
+                    out.push(level);
+                }
+            }
+        };
+        // The `let`s it uses, and those their types and values use.
+        let mut defs: std::collections::BTreeMap<usize, (Term, Term)> = Default::default();
+        let mut work = Vec::new();
+        lets_in(leaf, c, &mut work);
+        while let Some(l) = work.pop() {
+            if defs.contains_key(&l) {
+                continue;
+            }
+            let def = draft.lets[l].as_ref().expect("a `let`'s slot");
+            let ty = self.unrefine_as(draft, &def.ty, l, keep, true)?;
+            let value = self.unrefine_as(draft, &def.value, l, keep, true)?;
+            lets_in(&ty, l, &mut work);
+            lets_in(&value, l, &mut work);
+            defs.insert(l, (ty, value));
+        }
+        if defs.is_empty() {
+            return Ok(leaf.clone());
+        }
+        let levels: Vec<usize> = defs.keys().copied().collect();
+        // A term in the first `from` variables of the context, moved under
+        // the first `i` re-created `let`s, which stand for their slots.
+        let moved = |t: &Term, from: usize, i: usize| {
+            replace(g, t, from, &|l| {
+                Ok(match levels[..i].iter().position(|m| *m == l) {
+                    Some(j) => Term::Var(i - 1 - j),
+                    None => Term::Var(c + i - 1 - l),
+                })
+            })
+        };
+        let k = levels.len();
+        let mut body = moved(leaf, c, k)?;
+        for (i, l) in levels.iter().enumerate().rev() {
+            let (ty, value) = &defs[l];
+            body = Term::let_(
+                draft.names[*l].clone(),
+                moved(ty, *l, i)?,
+                moved(value, *l, i)?,
+                body,
+            );
+        }
+        Ok(body)
     }
 
     /// The captures of each draft, ordered (§2.1): the least sets closed
@@ -580,12 +783,15 @@ impl Elaborator {
         for d in drafts {
             let n = d.env.len();
             parts.push((
-                self.unrefine(d, &d.body, n, &in_batch)?,
+                self.unrefine_body(d, &d.body, &in_batch)?,
                 self.unrefine(d, &d.goal, n, &in_batch)?,
             ));
             types.push(vec![None; n]);
         }
-        let spines: Vec<Vec<usize>> = drafts.iter().map(|d| spine(&d.env[..d.base])).collect();
+        let spines: Vec<Vec<usize>> = drafts
+            .iter()
+            .map(|d| spine(&d.env[..d.base], &d.lets))
+            .collect();
         let mut caps: Vec<BTreeSet<usize>> = vec![BTreeSet::new(); drafts.len()];
         let mut used: Vec<BTreeSet<usize>> = vec![BTreeSet::new(); drafts.len()];
         loop {
@@ -689,7 +895,7 @@ impl Elaborator {
             if c < d.base {
                 levels.insert(c);
             } else {
-                let extra = self.unrefine(d, &d.extra[c - d.base], d.base, &|_| true)?;
+                let extra = self.unrefine_call(d, &d.extra[c - d.base], d.base, &|_| true)?;
                 uses(&extra, d.base, &|_| None, &mut levels);
             }
         }
@@ -720,7 +926,7 @@ impl Elaborator {
         let g = &self.globals;
         let n = draft.env.len();
         let body = if body {
-            self.unrefine(draft, &draft.body, n, keep)?
+            self.unrefine_body(draft, &draft.body, keep)?
         } else {
             Term::Refl
         };
@@ -753,10 +959,10 @@ impl Elaborator {
         }
         // The call's arguments, as functions of the metavariable's spine.
         let base = draft.base;
-        let spine = spine(&draft.env[..base]);
+        let spine = spine(&draft.env[..base], &draft.lets);
         let s = spine.len();
         let in_spine = |t: &Term| {
-            let t = self.unrefine(draft, t, base, keep)?;
+            let t = self.unrefine_call(draft, t, base, keep)?;
             replace(g, &t, base, &|l| match spine.iter().position(|v| *v == l) {
                 Some(p) => Ok(Term::Var(s - 1 - p)),
                 None => Err(Diagnostic::error(

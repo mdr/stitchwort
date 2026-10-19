@@ -20,6 +20,7 @@ mod matching;
 mod module;
 mod numbers;
 mod partial;
+mod patlet;
 mod pipe;
 mod records;
 mod scope;
@@ -374,7 +375,19 @@ impl Elaborator {
         level: usize,
         keep: &dyn Fn(usize) -> bool,
     ) -> Result<Term> {
-        unify::zonk_keeping(&self.globals, level, term, keep).map_err(|e| match e {
+        self.zonk_around(term, level, keep, &[])
+    }
+
+    /// [`Elaborator::zonk_keeping`] for a term inside the `let`s `lets` of
+    /// its context (`unify::zonk_in`).
+    pub(crate) fn zonk_around(
+        &self,
+        term: &Term,
+        level: usize,
+        keep: &dyn Fn(usize) -> bool,
+        lets: &[unify::Around],
+    ) -> Result<Term> {
+        unify::zonk_in(&self.globals, level, term, keep, lets).map_err(|e| match e {
             unify::ZonkError::Resource(e) => e.into(),
             unify::ZonkError::Unsolved(m) if self.local_metas.borrow().contains_key(&m) => {
                 let span = self.globals.metas.borrow()[m].span;

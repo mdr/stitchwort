@@ -247,3 +247,31 @@ test "the field's value" := (mk 2000).n == 2000
         "{with} steps with erasure, {without} without"
     );
 }
+
+/// A `let` whose type is a proposition isn't computed when running, as a
+/// proof parameter isn't (docs/proposals/let.md §6.1 rule 5); a data `let`
+/// is computed once.
+#[test]
+fn a_proof_let_isnt_run() {
+    let (with, without) = tests_pass_both_ways(
+        r#"
+def slow : Nat -> Nat
+  | Zero   => 0
+  | Succ n => slow n
+
+-- The proof's value runs `slow k` (a lambda's argument isn't erased), unless
+-- the `let` is.
+def withProof (k : Nat) : Nat :=
+  let h : k = k := ((\u => rfl) : Nat -> k = k) (slow k)
+  let m := k + 1
+  m
+
+test "the data let's value" := withProof 2000 == 2001
+"#,
+        1,
+    );
+    assert!(
+        with * 10 < without,
+        "{with} steps with erasure is not under a tenth of {without}"
+    );
+}

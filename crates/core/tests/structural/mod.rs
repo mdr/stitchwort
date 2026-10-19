@@ -175,7 +175,7 @@ impl Walker<'_> {
             }
             // Added with `Let` (after `cc353ee`): its variable is unknown
             // here, which accepts no more than the original could.
-            Term::Let(_, a, v, body) => {
+            Term::Let(_, a, v, body, _) => {
                 self.walk(a)?;
                 self.walk(v)?;
                 self.under(&[false], None, body)?;

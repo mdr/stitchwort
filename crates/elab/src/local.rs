@@ -209,7 +209,7 @@ fn component(cx: &mut Ctx, defs: &[LocalDef], keys: &[String], members: &[usize]
         let meta = g.new_meta(name.span);
         g.freeze_meta(meta);
         e.local_metas.borrow_mut().insert(meta, name.text.clone());
-        let levels = spine(&cx.env);
+        let levels = spine(&cx.env, &cx.lets);
         let mut call = Term::Meta(meta);
         for &level in &levels {
             call = Term::app(call, Term::Var(base - 1 - level));
@@ -243,6 +243,7 @@ fn component(cx: &mut Ctx, defs: &[LocalDef], keys: &[String], members: &[usize]
             body,
             goal: ty,
             kinds: cx.kinds.clone(),
+            lets: cx.lets.clone(),
             local: Some(LocalDraft {
                 key: keys[i].clone(),
                 name: name.text.clone(),

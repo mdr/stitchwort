@@ -21,7 +21,7 @@ fn rc(t: Term) -> Rc<Term> {
 
 /// `let x : ty := value; body`.
 fn let_(x: &str, ty: Term, value: Term, body: Term) -> Term {
-    Term::Let(x.into(), rc(ty), rc(value), rc(body))
+    Term::Let(x.into(), rc(ty), rc(value), rc(body), false)
 }
 
 fn ann(e: Term, ty: Term) -> Term {

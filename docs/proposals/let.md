@@ -1,7 +1,8 @@
 # Proposal: `let` that holds proofs and data, and whose value the checker can see
 
 **Status:** Draft 2 (after review), 19 October 2026. Decided: option A,
-staged (§6, §8). Stage 1 is implemented; stages 2 and 3 aren't.
+staged (§6, §8). All three stages are implemented; §A.7 records how stage 3
+was done and what it left.
 
 Draft 2 folds in an independent review. Its points are now part of the
 design itself (the rules in §6.1 and the stages in §6.2), not a list of
@@ -960,3 +961,73 @@ with its conclusions):
   assumption. The solver (`unify.rs`) works over semantic values, so the
   invariant probably holds there already; the audit's real targets are the
   term-level passes (`zonk`, lifting, generalisation), listed in §A.3.
+
+### A.7 Stage 3 as implemented
+
+What the elaborator and backends do now, and where it departs from the plan
+above.
+
+- **The context.** `Ctx::define` (`crates/elab/src/check.rs`) binds a pure
+  `let`; `effects::pure_let` and the pure branch of `sequence` emit
+  `Let(x, A, v, rest)`. `Ctx::lets` records each slot's type and value
+  terms, for lifting. A value that is quick to compute (under a small work
+  budget, `unify::cheaply`; most are, being stuck on variables) is computed
+  when bound. Otherwise the slot is *deferred*: it holds a solved
+  metavariable applied to a dummy and the context, `?d _ x₀ … xₙ`, whose
+  solution is `\_ x₀ … xₙ => v`, so anything that forces the value computes
+  it, and a `let` of a long list in `main` costs nothing to check. This is
+  the marker the stage 2 audit asked for: a deferred slot is never its own
+  variable, so `fresh_meta`, matching and `lift::spine`'s variable test
+  leave it alone, and with the context in its spine a case split's
+  refinement reaches it. A forced deferred value isn't cached.
+- **Lifting (rule 4).** A helper re-creates the `let`s it uses at the top
+  of each leaf of its case tree (and inside a local definition's
+  parameters), with the `let`s their types and values use, in order
+  (`Elaborator::unrefine_body`, `with_lets` in `lift.rs`). The value's free
+  variables become captures by the existing rules. A helper's *frozen*
+  metavariable (never solved by unification) has the `let`s in scope in
+  its spine (`lift::spine`), so a call that passes something using a `let`
+  (a generalised scrutinee) passes the variable and shares the value.
+  `match` on a `let`'s name generalises it as before, and in the
+  alternatives the name is the matched value (`matching.rs`, `alias`): so
+  `let ys := xs; match ys with | Cons y zs => … ys …` sees `ys` as
+  `Cons y zs`. The kernel's `Let` records that a value the body doesn't use
+  is skipped when running, so the owner's copy of a `let` only the helper
+  uses costs nothing.
+- **Folding solutions back (rule 2's other side).** A metavariable's
+  solution mentions a `let`'s value, never its variable, so a solution the
+  program runs would compute the value again: a decision procedure for
+  `if m < 3` after `let m := n + 1` was `decLessEq (n + 1) 2`. Zonking
+  (`unify::zonk_in`) folds occurrences of each enclosing `let`'s value
+  (its normal form, when that's cheap to compute) back to the variable,
+  outermost first, and lifting does the same for the `let`s it re-creates.
+- **Termination (rule 3).** Nothing further was needed in the elaborator:
+  `len` with `let r := rest` is checked by the kernel's rule from stage 2.
+- **Erasure (rule 5).** `Term::Let` has a fifth field, set by the kernel
+  when it checks the `let`: running skips the value (the placeholder takes
+  the slot) when `A` is a proposition or a type former, by the parameter
+  test, or when the body doesn't use `x`. Hashing ignores it (it's
+  determined by the rest). JS emits nothing for a skipped `let`, a
+  `const` for one in a case tree's leaf (so a self-tail-call loop keeps its
+  `let`s per turn), and an applied arrow function inside an expression.
+- **Pattern `let`s (§7).** `crates/elab/src/patlet.rs`: a `let` whose
+  pattern is made of tuples, records, variables and `_` binds projections
+  (`Pair.fst`, `Pair.snd`, the records' generated projections) through a
+  hidden `%p` (none when the right-hand side is a variable). *Departure:*
+  where the expected type is evidently a proposition, the `match` is kept,
+  since there splitting a variable refines the goal, which a proof by
+  `let (a, b) := p` relies on (`examples/accept/let-patterns.sw`,
+  `swapTwice`). Projections give no evidence of descent to the termination
+  checker, unlike the `match` did.
+- **AoC.** Answers unchanged; `stitchwort check` times unchanged within
+  noise. Day 2's local `terms` now takes `size` as a parameter: its proofs
+  state lemmas for any `size`, and a re-created `let` would have made
+  `terms` know the digit count instead.
+
+Leftovers: a forced deferred value is recomputed at each forcing; the
+adversarial nested `let`s (20 deep, each the previous one twice) check in
+about 5 s in a release build, mostly comparing two copies of a 2^20-node
+value (no sharing in neutral spines), and the false claim's error message is
+about 5 MB; a lifted local definition recomputes a re-created `let`'s value
+at each call; pattern `let`s in proofs and on other single-constructor types
+stay `match`es.

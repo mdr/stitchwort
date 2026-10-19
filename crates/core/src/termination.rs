@@ -298,7 +298,7 @@ impl Walker<'_> {
             // `v` has, from the terms alone, and nothing more
             // (docs/proposals/let.md §6.1 rule 3). Calls are looked for in
             // the annotation, the value and the body.
-            Term::Let(x, ty, value, body) => {
+            Term::Let(x, ty, value, body, _) => {
                 self.walk(ty)?;
                 self.walk(value)?;
                 let (param, smaller_than) = match self.relate(value) {

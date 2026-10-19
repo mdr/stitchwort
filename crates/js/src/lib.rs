@@ -1446,6 +1446,12 @@ impl<'g> Gen<'g> {
             out.push_str(&self.tree(default, env, depth, self_call)?);
             return Ok(out);
         }
+        if let Term::Let(_, _, value, body, erased) = term.strip_loc() {
+            let mut out = self.let_statement(value, *erased, env, &pad)?;
+            out.push_str(&self.tree(body, env, depth, self_call)?);
+            env.pop();
+            return Ok(out);
+        }
         let Term::Case(ix, d, branches) = term.strip_loc() else {
             return match self_call {
                 Some(call) => self.tail(term, env, depth, call),
@@ -1534,6 +1540,30 @@ impl<'g> Gen<'g> {
         Ok(out)
     }
 
+    /// A `let` in statement position: `const v = value;`, or nothing for
+    /// one the kernel marked skipped (a proof, a type, or unused;
+    /// docs/proposals/let.md §6.1 rule 5). Adds its variable to `env`,
+    /// which the caller removes after the body.
+    fn let_statement(
+        &self,
+        value: &Term,
+        erased: bool,
+        env: &mut Vec<bool>,
+        pad: &str,
+    ) -> Fallible<String> {
+        if erased {
+            env.push(true);
+            return Ok(String::new());
+        }
+        let line = format!(
+            "{pad}const {} = {};\n",
+            var(env.len()),
+            self.expr(value, env)?
+        );
+        env.push(false);
+        Ok(line)
+    }
+
     /// A leaf of the case tree of a definition that's being made a loop
     /// ([`Gen::self_tail_loop`]). A call to itself with all its arguments is
     /// another turn. `if` is written out as a JS `if`, so that calls in its
@@ -1547,6 +1577,12 @@ impl<'g> Gen<'g> {
     ) -> Fallible<String> {
         self.g.budget.nesting(PASS)?;
         let pad = "  ".repeat(depth);
+        if let Term::Let(_, _, value, body, erased) = term.strip_loc() {
+            let mut out = self.let_statement(value, *erased, env, &pad)?;
+            out.push_str(&self.tail(body, env, depth, call)?);
+            env.pop();
+            return Ok(out);
+        }
         let (head, args) = term.spine();
         let Term::Def(id) = head else {
             return Ok(format!("{pad}return {};\n", self.expr(term, env)?));
@@ -1631,10 +1667,17 @@ impl<'g> Gen<'g> {
                     format!("(({}) => {body})", var(level))
                 }
             }
-            // Computed once, before the body. Not erased yet, even for a
-            // proof or a type (whose JS is `undefined` anyway): that's
-            // docs/proposals/let.md stage 3.
-            Term::Let(_, _, value, body) => {
+            // A skipped `let` (a proof, a type, or unused) emits nothing: its
+            // variable is `undefined`, as an erased parameter's is.
+            Term::Let(_, _, _, body, true) => {
+                env.push(true);
+                let body = self.expr(body, env);
+                env.pop();
+                body?
+            }
+            // In an expression, computed once, before the body. (In a case
+            // tree's leaf, it's a `const`: `Gen::let_statement`.)
+            Term::Let(_, _, value, body, false) => {
                 let value = self.expr(value, env)?;
                 let level = env.len();
                 env.push(false);

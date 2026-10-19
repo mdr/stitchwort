@@ -462,7 +462,7 @@ impl<'g> Hasher<'g> {
                     pending.extend([Item::Term(e), Item::Term(t)]);
                 }
                 // The name isn't hashed, as for other binders.
-                Term::Let(_, a, v, b) => {
+                Term::Let(_, a, v, b, _) => {
                     self.tag("let");
                     pending.extend([Item::Term(a), Item::Term(v), Item::Term(b)]);
                 }

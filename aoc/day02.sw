@@ -70,12 +70,14 @@ def twice (n : Nat) : Int := if n == 2 then 1 else 0
 -- most 10, the most the weights cover).
 def Range.invalid (w : Nat -> Int) (r : Range) : Int :=
   let size := (Nat.digits r.hi).length
-  def terms (k : Nat) : List Int :=
+  -- `size` is a parameter (not the `let`'s, which `terms` would know is
+  -- the digit count) so the proofs below state their lemmas for any size.
+  def terms (size : Nat) (k : Nat) : List Int :=
     List.rangeFrom 9 2
       |> .filter (\n => k * n <= size)
       |> .map (\n => w n * (r.repeated k n).toInt)
   List.rangeFrom size 1
-    |> .concatMap terms
+    |> .concatMap (terms size)
     |> .sumInt
 
 -- Examples -----------------------------------------------------------------

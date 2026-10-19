@@ -5,18 +5,18 @@
 # time_ms is the median wall time on the machine that recorded it.
 
 [examples]
-inputs = "320 files, 745dae5575886c6d"
-steps = 888052351
-visits = 51084955
-allocations = 737077200
-peak_bytes = 21760527
+inputs = "315 files, c0a3b30b45780687"
+steps = 884295106
+visits = 50295877
+allocations = 729717068
+peak_bytes = 21758239
 time_ms = 1707.9
 
 [extract-js]
-inputs = "24 files, e00575338fcd74f6"
-steps = 23727
-visits = 15105
-allocations = 147936
+inputs = "24 files, 30bc746db4a38b49"
+steps = 23862
+visits = 15149
+allocations = 148672
 peak_bytes = 370494
 time_ms = 11.8
 
@@ -49,23 +49,23 @@ peak_bytes = 8799
 time_ms = 426.7
 
 [run-prints]
-steps = 12929879
+steps = 12849879
 visits = 143
-allocations = 4598654
-peak_bytes = 14412
+allocations = 4578664
+peak_bytes = 14316
 time_ms = 391.6
 
 [check-number-pattern]
 steps = 59
 visits = 38
-allocations = 237
+allocations = 239
 peak_bytes = 3415
 time_ms = 0.2
 
 [check-number-table]
 steps = 6432
 visits = 2335
-allocations = 16391
+allocations = 16393
 peak_bytes = 353041
 time_ms = 0.7
 
@@ -100,35 +100,35 @@ time_ms = 3.3
 [check-nested-apps]
 steps = 6037038
 visits = 2025042
-allocations = 4066287
+allocations = 4066289
 peak_bytes = 1177972
 time_ms = 629.8
 
 [check-number-huge]
 steps = 59
 visits = 38
-allocations = 241
+allocations = 243
 peak_bytes = 3467
 time_ms = 0.2
 
 [check-number-wide]
 steps = 25032
 visits = 9031
-allocations = 63400
+allocations = 63402
 peak_bytes = 970769
 time_ms = 2.3
 
 [check-number-dependent]
 steps = 5606
 visits = 814
-allocations = 11257
+allocations = 11261
 peak_bytes = 101102
 time_ms = 0.6
 
 [check-number-columns]
 steps = 3026
 visits = 607
-allocations = 7308
+allocations = 7310
 peak_bytes = 75286
 time_ms = 0.5
 
@@ -151,45 +151,3 @@ steps = 115567
 visits = 227
 allocations = 50791
 peak_bytes = 375291
-
-[check-closed-print]
-steps = 961
-visits = 248
-allocations = 1386
-peak_bytes = 5261
-
-[check-closed-dot]
-steps = 145
-visits = 68
-allocations = 450
-peak_bytes = 4017
-
-[check-closed-eqeq]
-steps = 23225
-visits = 114
-allocations = 11896
-peak_bytes = 4099
-
-[check-closed-list-eqeq]
-steps = 47753
-visits = 149
-allocations = 23936
-peak_bytes = 3710
-
-[check-closed-if-less]
-steps = 17423402
-visits = 179
-allocations = 9012013
-peak_bytes = 125972860
-
-[check-closed-indexed]
-steps = 29000517
-visits = 179
-allocations = 15001296
-peak_bytes = 125979156
-
-[check-closed-rfl]
-steps = 23200289
-visits = 82
-allocations = 12000594
-peak_bytes = 125968836

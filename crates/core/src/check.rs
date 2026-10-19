@@ -299,12 +299,13 @@ pub fn infer(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
         }
         // The body's type is a value computed with `x` evaluating to `v`, so
         // it doesn't mention `x`: it's `B[v/x]` already, usable outside.
-        Term::Let(x, ty, value, body) => {
-            let (x, ty, value) = check_let_value(cx, x, ty, value)?;
+        Term::Let(x, ty, value, body, _) => {
+            let (x, ty, value, erased) = check_let_value(cx, x, ty, value)?;
             let result = infer(cx, body);
             cx.unbind(1);
             let (body, body_ty) = result?;
-            Ok((Term::Let(x, ty, value, Rc::new(body)), body_ty))
+            let skip = erased || !body.mentions(0);
+            Ok((Term::Let(x, ty, value, Rc::new(body), skip), body_ty))
         }
         Term::Eq(Some(ty), a, b) => {
             let (ty, _) = check_type(cx, ty)?;
@@ -430,11 +431,13 @@ pub fn check(cx: &mut Ctx, term: &Term, expected: &Value) -> Result<Term> {
                 cx.show(expected)
             ),
         )),
-        (Term::Let(x, ty, value, body), _) => {
-            let (x, ty, value) = check_let_value(cx, x, ty, value)?;
+        (Term::Let(x, ty, value, body, _), _) => {
+            let (x, ty, value, erased) = check_let_value(cx, x, ty, value)?;
             let result = check(cx, body, expected);
             cx.unbind(1);
-            Ok(Term::Let(x, ty, value, Rc::new(result?)))
+            let body = result?;
+            let skip = erased || !body.mentions(0);
+            Ok(Term::Let(x, ty, value, Rc::new(body), skip))
         }
         (Term::Case(ix, d, branches), _) => check_case(cx, *ix, *d, branches, expected),
         (Term::NumCase(ix, arms, default), _) => check_num_case(cx, *ix, arms, default, expected),
@@ -464,19 +467,22 @@ pub fn check_type(cx: &mut Ctx, term: &Term) -> Result<(Term, Sort)> {
 /// The premises of `Let(x, A, v, b)` before its body: `A` is a type (in
 /// any universe: a proof, data and a type are all defined the same way), and
 /// `v : A`. Leaves `x := v` defined in the context, for the body; the caller
-/// removes it.
+/// removes it. Also whether `x` is erased when running: exactly when a
+/// parameter of type `A` would be (a proposition, or a type former;
+/// docs/proposals/let.md §6.1 rule 5), whatever the term said.
 fn check_let_value(
     cx: &mut Ctx,
     x: &Name,
     ty: &Term,
     value: &Term,
-) -> Result<(Name, Rc<Term>, Rc<Term>)> {
-    let (ty, _) = check_type(cx, ty)?;
+) -> Result<(Name, Rc<Term>, Rc<Term>, bool)> {
+    let (ty, sort) = check_type(cx, ty)?;
     let ty_value = cx.eval(&ty)?;
+    let erased = sort == Sort::Prop || is_type_former(cx.g, cx.level(), &ty_value)?;
     let value = Rc::new(check(cx, value, &ty_value)?);
     // Computed only when checking the body needs it (`Ctx::define`).
     cx.define(x.clone(), ty_value, value.clone());
-    Ok((x.clone(), Rc::new(ty), value))
+    Ok((x.clone(), Rc::new(ty), value, erased))
 }
 
 /// The universe that `ty` lives in.

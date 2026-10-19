@@ -174,6 +174,13 @@ fn refutable(cx: &Ctx, missing: &Diagnostic, alts: &[Alt], columns: &[usize]) ->
 /// tree (§4.3): if every scrutinee is an unnamed variable of the equation,
 /// none twice, the alternatives split them further. `None` otherwise.
 pub(crate) fn in_tree(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Option<Result<Term>> {
+    // A tuple or record `let` outside a proof binds projections instead
+    // (`patlet.rs`), via `check_match`.
+    match crate::patlet::applies(cx, expr, goal) {
+        Ok(false) => {}
+        Ok(true) => return None,
+        Err(e) => return Some(Err(e)),
+    }
     let (scrutinees, alts, span, kind) = parts(expr);
     let mut columns = Vec::new();
     for s in scrutinees {
@@ -188,6 +195,9 @@ pub(crate) fn in_tree(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Option<Result<
 
 /// A `match`, lifted (§4.4).
 pub(crate) fn check_match(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Term> {
+    if crate::patlet::applies(cx, expr, goal)? {
+        return crate::patlet::check_let(cx, expr, goal);
+    }
     let (scrutinees, alts, span, kind) = parts(expr);
     let base = cx.level();
     let mark = cx.mark();
@@ -239,6 +249,14 @@ fn lifted(
         let (term, ty) = insert(cx, term, ty)?;
         let normal = quote(g, base, &cx.eval(&term)?)?;
         let ty_term = cx.quote(&ty)?;
+        // A `let`'s variable, matched by name: in the alternatives, the
+        // name is the matched value, as a variable's name would be.
+        let alias = match &s.expr {
+            Expr::Var(x) if s.name.is_none() => cx
+                .lookup(&x.text)
+                .filter(|&l| cx.lets[l].is_some() && cx.local(&x.text).ok().flatten().is_none()),
+            _ => None,
+        };
         columns.push(Column::Expr(exprs.len()));
         exprs.push(Scrut {
             term,
@@ -247,6 +265,7 @@ fn lifted(
             ty_term,
             name: s.name.clone(),
             span: s.expr.span(),
+            alias,
         });
     }
     if exprs.is_empty() {
@@ -273,6 +292,8 @@ struct Scrut {
     ty_term: Term,
     name: Option<ast::Name>,
     span: stitchwort_syntax::Span,
+    /// The `let` it names, if it's one by name.
+    alias: Option<usize>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -349,6 +370,9 @@ fn generalised(
     let mut extra = Vec::new();
     for s in &exprs {
         cx.bind_hidden(scrutinee_name(s), s.ty.clone());
+        if let Some(l) = s.alias {
+            cx.rebind(l, cx.level() - 1);
+        }
         extra.push(s.term.clone());
     }
     let mut copies = HashMap::new();
@@ -436,6 +460,7 @@ fn check_motive(
         body: uses,
         goal: cx.quote(motive)?,
         kinds: cx.kinds.clone(),
+        lets: cx.lets.clone(),
         local: None,
     };
     let Ok(ty) = cx.e.lifted_type(&draft) else {

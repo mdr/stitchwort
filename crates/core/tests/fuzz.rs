@@ -91,7 +91,7 @@ impl Gen<'_> {
                 Term::Eq(ty, sub(self, 0), sub(self, 0))
             }
             14 => Term::J(sub(self, 0), sub(self, 0), sub(self, 0)),
-            15 => Term::Let("x".into(), sub(self, 0), sub(self, 0), sub(self, 1)),
+            15 => Term::Let("x".into(), sub(self, 0), sub(self, 0), sub(self, 1), false),
             _ => {
                 let (ix, d) = (self.rng.below(scope + 1), self.data());
                 let branches: Vec<Branch> = (0..self.rng.below(3))
