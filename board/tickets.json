@@ -1973,9 +1973,9 @@
     {
       "id": 131,
       "title": "Move general lemmas out of AoC into the prelude",
-      "status": "review",
+      "status": "doing",
       "agent": "Claude",
-      "where": "merged to main; nothing running: waits for the batch gate after SW-100/SW-134 merge",
+      "where": "gate running on main (started 23:21)",
       "labels": [
         "aoc",
         "std"
@@ -1990,9 +1990,9 @@
     {
       "id": 132,
       "title": "Turn aoc/ into a project: Aoc.DayNN + Aoc.Common, proofs beside definitions",
-      "status": "review",
+      "status": "doing",
       "agent": "Claude",
-      "where": "merged to main; nothing running: waits for the batch gate after SW-100/SW-134 merge",
+      "where": "gate running on main (started 23:21)",
       "labels": [
         "aoc",
         "multi-file"
@@ -2038,9 +2038,9 @@
     {
       "id": 135,
       "title": "Aoc.Common: range functions back under Range (D43/D44)",
-      "status": "review",
+      "status": "doing",
       "agent": "Claude",
-      "where": "merged to main; nothing running: waits for the batch gate after SW-100/SW-134 merge",
+      "where": "gate running on main (started 23:21)",
       "labels": [
         "aoc"
       ],
