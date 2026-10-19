@@ -17,10 +17,10 @@ ability Log where
   say: Nat -> {Log} ()
 
 def collect (prog: () -> {Log | e} a): {e} Pair (List Nat) a :=
-  handle prog () with
+  handle prog() with
     | return x     => MkPair Nil x
     | say n, k     =>
-      let rest := k ()
+      let rest := k()
       MkPair (Cons n (fstOf rest)) (sndOf rest)
 
 def loudInt (n: Nat): {Log} Int :=
@@ -32,16 +32,16 @@ def loudNat (n: Nat): {Log} Nat :=
   n
 
 -- Effectful leaves on both sides of a nested node, typed as one group.
-def nested (): {Log} Int := (loudInt 1 * 0 + 5) - loudInt 2 * (loudInt 3 + 1)
+def nested(): {Log} Int := (loudInt 1 * 0 + 5) - loudInt 2 * (loudInt 3 + 1)
 
 -- `-` around an effectful call.
-def negated (): {Log} Int := -(loudInt 4) + -(loudInt 5)
+def negated(): {Log} Int := -(loudInt 4) + -(loudInt 5)
 
 -- A nested node whose own leaves decide nothing: only the whole group
 -- says `Int`.
-def whole (): {Log} Int := (1 + loudInt 6) * (2 - loudInt 7)
+def whole(): {Log} Int := (1 + loudInt 6) * (2 - loudInt 7)
 
-def cmp (): {Log} Bool := loudInt 8 + 1 == loudInt 12 - 3
+def cmp(): {Log} Bool := loudInt 8 + 1 == loudInt 12 - 3
 
 test "nested order" :=
   let r := collect nested

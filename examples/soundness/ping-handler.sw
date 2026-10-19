@@ -6,6 +6,6 @@ ability Ping where
   ping: () -> {Ping} ()
 
 def bad (prog: () -> {Ping} a): a :=
-  handle prog () with
+  handle prog() with
     | return x     => x
     | ping u, k    => bad prog

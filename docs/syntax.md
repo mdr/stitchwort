@@ -9,7 +9,7 @@ Interim rule, until the full layout specification (DESIGN.md §14):
 - A declaration starts at column 0.
 - Every following line that's indented continues it.
 - Tabs aren't allowed. `--` starts a comment that runs to the end of the line.
-- **Blocks.** An expression that starts on a new line is a block: each line at that line's column is a statement, and lines indented further continue it. A statement is `let x := e` (or `let x: T := e`), binding `x` for the following lines, or an expression run for its effects. The last line is the result. A `let` may hold a proof as well as data, and later lines know its value: after `let p := n`, `p` *is* `n` to the checker, so `Nat.leAddRight p 1` proves `n <= n + 1` ([proposals/let.md](proposals/let.md)). A `match` or local definition after a `let` knows it too, and a recursive call on `let r := rest` is as small as `rest`. The value is computed once when the program runs, before the lines after it; a proof or a type isn't computed at all (as for a proof parameter). Messages may show the value where you wrote the name. A `let` performs only what its right-hand side does: binding an effectful function performs nothing until it's called. A `let` whose right-hand side performs an operation (`let k := ask ()`) is opaque: its value isn't known until the program runs. A line at the block's column straight after a line ending in an operator (such as `->`) continues that line.
+- **Blocks.** An expression that starts on a new line is a block: each line at that line's column is a statement, and lines indented further continue it. A statement is `let x := e` (or `let x: T := e`), binding `x` for the following lines, or an expression run for its effects. The last line is the result. A `let` may hold a proof as well as data, and later lines know its value: after `let p := n`, `p` *is* `n` to the checker, so `Nat.leAddRight p 1` proves `n <= n + 1` ([proposals/let.md](proposals/let.md)). A `match` or local definition after a `let` knows it too, and a recursive call on `let r := rest` is as small as `rest`. The value is computed once when the program runs, before the lines after it; a proof or a type isn't computed at all (as for a proof parameter). Messages may show the value where you wrote the name. A `let` performs only what its right-hand side does: binding an effectful function performs nothing until it's called. A `let` whose right-hand side performs an operation (`let k := ask()`) is opaque: its value isn't known until the program runs. A line at the block's column straight after a line ending in an operator (such as `->`) continues that line.
 - **`if` across lines.** `then` and `else` may start a line, even at the block's own column (where any other token would start a new statement), as long as they're indented at least as far as the line the `if` is on. So `if c then a` / `else if d then b` / `else e` on separate lines, all lined up, is one expression. A nested `if` takes the closest `else`. An `else` further left than its `if`'s line is an error that says so.
 
 ## Style
@@ -124,7 +124,7 @@ def total (k: Nat): List Text -> Nat    -- named parameters, then arms
   | Nil       => 0
   | Cons l ls => joltage k l + total k ls
 
-def main (): {IO} () := report (solve (IO.readAllLines ()))
+def main(): {IO} () := report (solve (IO.readAllLines()))
 
 test "parse" := parseBank "102" == [1, 0, 2]
 export def identityNat (n: Nat): Nat := n
@@ -134,7 +134,7 @@ let x := 1 + 2                       -- in a block
 match xs with
   | Nil => 0
   | Cons x _ => x
-handle prog () with
+handle prog() with
   | return x    => [x]
   | choose u, k => List.append (k True) (k False)
 ```
@@ -253,8 +253,8 @@ ability State (s: Type) where
 -- A function type may list the abilities calling it performs, and a row
 -- variable `e` (bound automatically, like a type variable) for "whatever
 -- else". `{e}` alone is just the variable. `A -> B` is pure and total.
-def tick (): {State Nat} Nat :=
-  let n := get ()
+def tick(): {State Nat} Nat :=
+  let n := get()
   put (n + 1)
   n
 
@@ -263,7 +263,7 @@ def tick (): {State Nat} Nat :=
 -- called any number of times. A `return` clause and a clause for every
 -- operation are required.
 def allResults (prog: () -> {Choose | e} a): {e} List a :=
-  handle prog () with
+  handle prog() with
     | return x       => [x]
     | choose u, k    => List.append (k True) (k False)
 ```
@@ -274,10 +274,10 @@ Effectful code is written in direct style. Arguments are evaluated left to right
 
 `IO` is an ability with `print: Text -> {IO} ()`, `readLine: () -> {IO} (Maybe Text)` and `readAll: () -> {IO} Text` (also `IO.print`, `IO.readLine`, `IO.readAll`). `IO.simulate lines prog` runs `prog` against scripted input and records what it prints.
 
-- `readLine ()` gives the next line without its LF (and a CR just before it), `Nothing` once nothing remains.
-- `readAll ()` gives everything that remains, verbatim, line endings included; `""` once nothing remains. After it, `readLine ()` is `Nothing`; after some `readLine`s it gives the rest. Under `IO.simulate` it gives the remaining scripted lines, each followed by LF.
+- `readLine()` gives the next line without its LF (and a CR just before it), `Nothing` once nothing remains.
+- `readAll()` gives everything that remains, verbatim, line endings included; `""` once nothing remains. After it, `readLine()` is `Nothing`; after some `readLine`s it gives the rest. Under `IO.simulate` it gives the remaining scripted lines, each followed by LF.
 - `Text.lines: Text -> List Text` follows Rust's `str::lines`: split on LF, drop a CR right before an LF, and the last line's ending is optional. `"a\nb"` and `"a\nb\n"` both give `["a", "b"]`; `""` gives `[]`; `"\n"` gives `[""]`; `"a\r\nb"` gives `["a", "b"]`. A CR anywhere else stays, including a final one.
-- `IO.readAllLines (): {IO} (List Text)` is `(readAll ()).lines`. It is total.
+- `IO.readAllLines(): {IO} (List Text)` is `(readAll()).lines`. It is total.
 
 ## `Partial`
 
@@ -292,7 +292,7 @@ def collatzSteps: Nat -> {Partial} Nat
   | n => 1 + collatzSteps (next n)     -- no termination check
 
 -- run by `stitchwort run`
-def main (): {IO, Partial} () := print (Nat.toText (collatzSteps 27))
+def main(): {IO, Partial} () := print (Nat.toText (collatzSteps 27))
 
 -- A helper that's given a recursive function must be polymorphic in the
 -- rest of its row (`| e`): the recursive calls are requests that only the
@@ -425,7 +425,7 @@ ls.map (.split ',')                 -- ls.map (\l => l.split ',')
 - **Checking.** A section is a lambda, so it's checked like one: its receiver's type must be known from the expected function type (`people.map .name`, `apply .length "abc"` for `apply (f: Text -> Nat)`), from a pipe's left side, or from an annotation (`(.drop 1: List Nat -> List Nat)`). In an application, a section whose parameter type isn't known yet is checked after the other arguments, so `List.map .name people` works (as `List.map (\p => p.name) people` does; a plain lambda is checked in place first and waits only if that fails).
 - **Unknown receiver.** `let g := .drop 1` or `(.length) "abcd"` is `E-CANNOT-INFER` ("can't tell what `.drop` is applied to"), with a note suggesting a pipe, passing it where a function type is known, or an annotation.
 - **No such function.** The ordinary dot-notation error: `xs |> .dorp 1` is `E-UNKNOWN-FIELD`, "`List` has no field or function `dorp`", with a "did you mean `drop`?" note.
-- **Effects.** It follows lambda rules: `IO.readAllLines () |> .map (.split ',') |> .length` works in a `{IO}` function.
+- **Effects.** It follows lambda rules: `IO.readAllLines() |> .map (.split ',') |> .length` works in a `{IO}` function.
 
 Examples: `examples/accept/method-sections.sw`, `examples/reject/section-unknown-receiver.sw`, `examples/reject/section-no-such-function.sw`, `examples/reject/section-on-next-line.sw`.
 

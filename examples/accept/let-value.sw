@@ -76,7 +76,7 @@ ability Ask where
 
 def inBlock (n: Nat): {Ask} Nat :=
   let m := n + 1
-  let k := ask ()
+  let k := ask()
   let p: m = n + 1 := rfl
   k + m
 

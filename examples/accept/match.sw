@@ -136,10 +136,10 @@ ability Log where
   say: Nat -> {Log} ()
 
 def collect (prog: () -> {Log | e} a): {e} Pair (List Nat) a :=
-  handle prog () with
+  handle prog() with
     | return x     => MkPair Nil x
     | say n, k     =>
-      let rest := k ()
+      let rest := k()
       MkPair (Cons n (fstOf rest)) (sndOf rest)
 
 def loud (n: Nat): {Log} Nat :=
@@ -148,7 +148,7 @@ def loud (n: Nat): {Log} Nat :=
 
 -- Two effectful scrutinees: each runs once, left to right, before the
 -- branches.
-def twoScrutinees (): {Log} Nat :=
+def twoScrutinees(): {Log} Nat :=
   say 0
   let r := match loud 1, loud 2 with
     | Zero, _ => 10
@@ -177,7 +177,7 @@ def tailEff (n: Nat): {Log} Nat := match n with
     tailEff m
 
 -- A named effectful scrutinee: `h` is about the bound result.
-def named (): {Log} Nat := match h: loud 3 with
+def named(): {Log} Nat := match h: loud 3 with
   | Zero => 0
   | Succ m => m
 

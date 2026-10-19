@@ -450,21 +450,21 @@ def sndOf: Pair a b -> b
 
 def runState (init: s) (prog: () -> {State s | e} a): {e} Pair a s :=
   let run: s -> {e} Pair a s :=
-    handle prog () with
+    handle prog() with
       | return x       => \st => MkPair x st
-      | get (), k      => \st => k st st
-      | put st2, k     => \st => k () st2
+      | get(), k      => \st => k st st
+      | put st2, k     => \st => k() st2
   run init
 
 def allResults (prog: () -> {Choose | e} a): {e} List a :=
-  handle prog () with
+  handle prog() with
     | return x       => [x]
     | choose _, k    => List.append (k True) (k False)
 
 -- Choose, then add 10 to the state if it said yes.
-def step (): {State Nat, Choose} Nat :=
-  if choose () then put (get () + 10) else ()
-  get ()
+def step(): {State Nat, Choose} Nat :=
+  if choose() then put (get() + 10) else ()
+  get()
 
 -- Each branch has its own state...
 test "state inside choice" := List.length (allResults (\u => runState 1 step)) == 2
@@ -503,11 +503,11 @@ def step (total: Nat): Maybe Text -> (Nat -> {IO} Nat) -> {IO} Nat
 -- operations.
 def addLines: Nat -> Nat -> {IO} Nat
   | 0,      total => total
-  | Succ n, total => step total (readLine ()) (\t => addLines n t)
+  | Succ n, total => step total (readLine()) (\t => addLines n t)
 
-def main (): {IO} () :=
+def main(): {IO} () :=
   print "What's your name?"
-  let name := textOr "stranger" (readLine ())
+  let name := textOr "stranger" (readLine())
   print ("Hello, " ++ name ++ "! Type numbers to add, one per line, and an empty line to stop.")
   let total := addLines 1000 0
   print ("The sum is " ++ Nat.toText total ++ ". Goodbye, " ++ name ++ ".")
@@ -1034,7 +1034,7 @@ export def area: Shape -> Nat
       const go = el("button", { className: "primary", type: "submit" }, "Evaluate");
       const form = el("form", { className: "evalrow" }, input, go);
       const answer = el("div");
-      const evaluate = async () => {
+      const evaluate = async() => {
         evalInput = input.value;
         answer.replaceChildren(el("p", { className: "hint" }, "Evaluating…"));
         const result = await ask({ action: "evaluate", source: src, expr: input.value });

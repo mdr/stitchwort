@@ -34,11 +34,11 @@ def step (total: Nat): Maybe Text -> (Nat -> {IO} Nat) -> {IO} Nat
 -- operations.
 def addLines: Nat -> Nat -> {IO} Nat
   | 0,      total => total
-  | Succ n, total => step total (readLine ()) (\t => addLines n t)
+  | Succ n, total => step total (readLine()) (\t => addLines n t)
 
-def main (): {IO} () :=
+def main(): {IO} () :=
   print "What's your name?"
-  let name := textOr "stranger" (readLine ())
+  let name := textOr "stranger" (readLine())
   print ("Hello, " ++ name ++ "! Type numbers to add, one per line, and an empty line to stop.")
   let total := addLines 1000 0
   print ("The sum is " ++ Nat.toText total ++ ". Goodbye, " ++ name ++ ".")

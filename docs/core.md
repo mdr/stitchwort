@@ -305,7 +305,7 @@ was written") is `step`: the stack-safe machine of
 `Effect.Delay` to its next observation: `Now v`, `Later rest` (one tick per
 recursive call; entering an `Effect.pfix` is free), or an operation, returned
 unperformed with the rest of the step. `crates/driver/src/run.rs` steps
-`main ()`, performs operations, and counts ticks. Nothing it computes is
+`main()`, performs operations, and counts ticks. Nothing it computes is
 given back to the checker.
 
 JS extraction erases every `Effect.Delay` to one token: a call to a function whose

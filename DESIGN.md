@@ -276,8 +276,8 @@ ability State s where
   get: () -> {State s} s
   put: s -> {State s} ()
 
-def tick (): {State Nat} Nat :=
-  let n := get ()
+def tick(): {State Nat} Nat :=
+  let n := get()
   put (n + 1)
   n
 ```
@@ -512,8 +512,8 @@ Pattern matching in proofs requires the compiler to learn facts about types in e
 The rule (principle 2) is about **executing** effects, not mentioning them:
 
 - `f: (n: Nat) -> {IO} Vec Nat n` is fine. The result type `Vec Nat n` is pure, even though calling `f` performs IO.
-- A type expression that would itself *perform* an operation (e.g. `Vec Nat (readNat ())`) is rejected. During type checking, effectful applications never reduce.
-- When an effect's result is later used as an index (`let n = readNat ()` and then `Vec Nat n`), `n` is just a variable as far as the type is concerned. The precise rules for sequencing effectful code with dependent types are an open question ([§16](#16-open-questions)).
+- A type expression that would itself *perform* an operation (e.g. `Vec Nat (readNat())`) is rejected. During type checking, effectful applications never reduce.
+- When an effect's result is later used as an index (`let n = readNat()` and then `Vec Nat n`), `n` is just a variable as far as the type is concerned. The precise rules for sequencing effectful code with dependent types are an open question ([§16](#16-open-questions)).
 
 ### Running vs comparing
 
@@ -536,7 +536,7 @@ A test is a named, closed expression of type `Bool` that must be checked, total 
 
 ```
 test "tick twice" :=
-  runState 0 (\() -> tick (); tick ()) == (1, 2)
+  runState 0 (\() -> tick(); tick()) == (1, 2)
 ```
 
 Running it to `true` checks `expr = true` by computation, so a passing test is a proof of one specific fact. Tests and theorems are cached in the same way ([§11](#11-content-hashing-and-caching)).
@@ -565,7 +565,7 @@ Running it to `true` checks `expr = true` by computation, so a passing test is a
 
 Abilities follow Unison's design, which comes from Frank.
 
-- **Direct style.** Effectful code reads like ordinary code (`let n = get ()`), with no `do`-notation or monads.
+- **Direct style.** Effectful code reads like ordinary code (`let n = get()`), with no `do`-notation or monads.
 - **Ability rows on arrows.** `a -> {State s, IO} b`. A plain arrow `a -> b` means pure *and* total.
 - **Ability polymorphism with row variables.** `{State s | e}` means "State, plus whatever else `e` is".
 
@@ -576,10 +576,10 @@ Handlers are **deep**: the continuation `k` already includes the handler, so a c
 ```
 def runState [auto d: IsData s] (init: s) (prog: () -> {State s | e} a): {e} (a, s) :=
   let run :=
-    handle prog () with
+    handle prog() with
       | return x     => \s => (x, s)
-      | get (), k => \s => k s s
-      | put s', k => \_ => k () s'
+      | get(), k => \s => k s s
+      | put s', k => \_ => k() s'
   run init
 ```
 
@@ -598,11 +598,11 @@ ability Ping where
   ping: () -> {Ping} ()
 
 def bad (prog: () -> {Ping} a): a :=
-  handle prog () with
+  handle prog() with
     | return x    => x
-    | ping (), k  => bad prog     -- never resumes k, loops forever
+    | ping(), k  => bad prog     -- never resumes k, loops forever
 
-bad (\() -> ping ())
+bad (\() -> ping())
 ```
 
 *Landin's knot: storing a function that reads itself back:*
@@ -614,9 +614,9 @@ ability Cell where
 
 def knot: () -> {Cell} ()
   | () =>
-    let f := \() => (read ()) ()
+    let f := \() => (read()) ()
     write f
-    f ()           -- f reads f and calls it, forever
+    f()           -- f reads f and calls it, forever
 ```
 
 Each continuation here is resumed exactly once. The recursion comes from the stored function, not from the handler. Koka's design makes the same point: higher-order mutable state can cause divergence that a check for syntactic recursion can't see.

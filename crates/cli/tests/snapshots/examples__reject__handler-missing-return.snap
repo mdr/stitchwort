@@ -5,7 +5,7 @@ expression: output
 [E-HANDLER] Error: this handler has no `return` clause
    ╭─[ reject/handler-missing-return.sw:6:3 ]
    │
- 6 │ ╭─▶   handle prog () with
+ 6 │ ╭─▶   handle prog() with
  7 │ ├─▶     | choose u, k => k True
    │ │                                 
    │ ╰───────────────────────────────── here

@@ -76,7 +76,7 @@ type Box (a: Type): Type =
 def unbox: [a: Type] -> Box a -> a
   | MkBox x => x
 
-def chooser (): {Choose} Nat := if choose () then 1 else 0
+def chooser(): {Choose} Nat := if choose() then 1 else 0
 
 def box: Box (() -> {Choose} Nat) := MkBox chooser
 
@@ -85,10 +85,10 @@ def box: Box (() -> {Choose} Nat) := MkBox chooser
 -- row.
 def wider: () -> {Choose, State Nat} Nat := unbox box
 
-def p (): {State Nat, Choose} Nat :=
-  let b := choose ()
+def p(): {State Nat, Choose} Nat :=
+  let b := choose()
   if b then put 1 else ()
-  get ()
+  get()
 
 def pureBox: Box (() -> {State Nat, Choose} Nat) := MkBox p
 
@@ -109,7 +109,7 @@ def asPartial: Nat -> {Partial} Nat := same (\n => n)
 
 -- A comparison that fails part-way (the domain is solved before the rows
 -- differ), followed by a coercion.
-def poly [a: Type] (x: a): {Choose} Nat := chooser ()
+def poly [a: Type] (x: a): {Choose} Nat := chooser()
 
 def widened: Nat -> {Choose, State Nat} Nat := poly
 

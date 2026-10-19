@@ -106,7 +106,7 @@ def logged (n: Nat): {Log} Nat :=
 def countLogged (n: Nat): {Partial} Nat :=
   handle logged n with
     | return x   => x
-    | say m, k => collatzSteps m + k ()
+    | say m, k => collatzSteps m + k()
 
 -- Partial code with IO.
 def countdown: Nat -> {IO, Partial} ()
@@ -125,7 +125,7 @@ def later: () -> {Partial} Nat := \u => spin 0
 
 test "mentioning partial functions is total" := discard collatzSteps + Pair.fst kept == 1
 
-def main (): {IO, Partial} () :=
+def main(): {IO, Partial} () :=
   print (Nat.toText (collatzSteps 27))
   print (Nat.toText (firstFrom (\n => Nat.leq 100 (n * n)) 0))
   print (Nat.toText (fib 10))

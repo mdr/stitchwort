@@ -84,7 +84,7 @@ fn examples_print_the_same_both_ways() {
     entries.sort();
     for path in entries {
         let source = std::fs::read_to_string(&path).expect("read example");
-        if !source.contains("def main ()") {
+        if !(source.contains("def main()") || source.contains("def main ()")) {
             continue;
         }
         for input in [&b""[..], b"Ada\n3\n4\n\n", b"one\ntwo\r\nthree"] {

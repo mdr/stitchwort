@@ -5,7 +5,7 @@
 ability Ask where
   ask: () -> {Ask} Nat
 
-def opaque (): {Ask} Nat :=
-  let k := ask ()
+def opaque(): {Ask} Nat :=
+  let k := ask()
   let p: k = 3 := rfl
   k

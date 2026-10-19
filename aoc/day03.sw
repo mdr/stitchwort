@@ -10,8 +10,8 @@
 -- still leaves k - 1 digits after it, taking the leftmost such digit so the
 -- most is left over; then repeat on what follows it.
 
-def main (): {IO} () :=
-  let banks := parseBanks (IO.readAllLines ())
+def main(): {IO} () :=
+  let banks := parseBanks (IO.readAllLines())
   print "Part 1: ${solvePart1 banks}"
   print "Part 2: ${solvePart2 banks}"
 

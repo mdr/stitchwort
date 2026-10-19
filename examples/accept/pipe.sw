@@ -88,9 +88,9 @@ def addSay (a: Nat) (b: Nat): {IO} Nat :=
   print "call"
   a + b
 
-def order (): {IO} Nat := say "left" 1 |> addSay (say "right" 2)
+def order(): {IO} Nat := say "left" 1 |> addSay (say "right" 2)
 
-def chain (): {IO} Nat :=
+def chain(): {IO} Nat :=
   say "a" 1
     |> addSay 10
     |> \x => say "end" x

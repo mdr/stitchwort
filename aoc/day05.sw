@@ -13,8 +13,8 @@
 -- extends it) or starts a new one. The merged ranges are disjoint, so their
 -- sizes add up.
 
-def main (): {IO} () :=
-  let database := parseDatabase (IO.readAllLines ())
+def main(): {IO} () :=
+  let database := parseDatabase (IO.readAllLines())
   print "Part 1: ${solvePart1 database}"
   print "Part 2: ${solvePart2 database}"
 

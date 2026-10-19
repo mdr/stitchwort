@@ -10,8 +10,8 @@
 -- the puzzle). The proofs below are about any dial; besides being more
 -- general, that keeps them fast to check (see "Proofs" below).
 
-def main (): {IO} () :=
-  let turns := parseTurns (IO.readAllLines ())
+def main(): {IO} () :=
+  let turns := parseTurns (IO.readAllLines())
   print "Part 1: ${solvePart1 turns}"
   print "Part 2: ${solvePart2 turns}"
 

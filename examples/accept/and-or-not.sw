@@ -80,23 +80,23 @@ ability Log where
   say: Nat -> {Log} ()
 
 def collect (prog: () -> {Log | e} a): {e} Pair (List Nat) a :=
-  handle prog () with
+  handle prog() with
     | return x     => MkPair Nil x
     | say n, k     =>
-      let rest := k ()
+      let rest := k()
       MkPair (Cons n (rest.fst)) (rest.snd)
 
 def noisy (n: Nat) (b: Bool): {Log} Bool :=
   say n
   b
 
-def andSkips (): {Log} Bool := noisy 1 False && noisy 2 True
-def andRuns (): {Log} Bool := noisy 1 True && noisy 2 True
-def orSkips (): {Log} Bool := noisy 1 True || noisy 2 False
-def orRuns (): {Log} Bool := noisy 1 False || noisy 2 True
+def andSkips(): {Log} Bool := noisy 1 False && noisy 2 True
+def andRuns(): {Log} Bool := noisy 1 True && noisy 2 True
+def orSkips(): {Log} Bool := noisy 1 True || noisy 2 False
+def orRuns(): {Log} Bool := noisy 1 False || noisy 2 True
 def pureLeft (x: Nat): {Log} Bool := x < 3 && noisy 2 True
-def notEff (): {Log} Bool := not (noisy 7 False)
-def inIf (): {Log} Nat := if noisy 1 False && noisy 2 True then 1 else 0
+def notEff(): {Log} Bool := not (noisy 7 False)
+def inIf(): {Log} Nat := if noisy 1 False && noisy 2 True then 1 else 0
 
 test "and skips the right" := (collect andSkips) == ([1], False)
 test "and runs the right" := (collect andRuns) == ([1, 2], True)

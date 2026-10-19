@@ -38,16 +38,16 @@ ability Ask where
   ask: () -> {Ask} Nat
 
 def bindsEffectful (n: Nat): Nat :=
-  let f: () -> {Ask} Nat := \u => ask () + n
+  let f: () -> {Ask} Nat := \u => ask() + n
   n + 1
 
 theorem bindsEffectfulPure (n: Nat): bindsEffectful n = n + 1 := rfl
 
 -- Calling a function bound by a `let` performs what its type says.
 def callsBound (n: Nat): {Ask} Nat :=
-  let f: () -> {Ask} Nat := \u => ask () + n
+  let f: () -> {Ask} Nat := \u => ask() + n
   let k := n * 2
-  f () + k
+  f() + k
 
 def answer (n: Nat): Nat :=
   handle callsBound n with
@@ -59,8 +59,8 @@ test "callsBound" := answer 3 == 19
 -- Handling inside a pure block: the `let` is pure, the rest handles what
 -- it performs.
 def handled (n: Nat): Nat :=
-  let f: () -> {Ask} Nat := \u => ask () + n
-  handle f () with
+  let f: () -> {Ask} Nat := \u => ask() + n
+  handle f() with
     | return x => x
     | ask u, k => k 1
 
@@ -75,6 +75,6 @@ def Grid.parse (lines: List Text): Grid := lines.map (\l => [l.length])
 
 def Grid.rolls (grid: Grid): Nat := grid.length
 
-def countRolls (): {IO} () :=
-  let grid := Grid.parse (IO.readAllLines ())
+def countRolls(): {IO} () :=
+  let grid := Grid.parse (IO.readAllLines())
   print grid.rolls.toText

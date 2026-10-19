@@ -5,6 +5,6 @@ ability State where
   put: Nat -> {State} ()
 
 def onlyGet (prog: () -> {State | e} a): {e} a :=
-  handle prog () with
+  handle prog() with
     | return x   => x
     | get u, k => k 0

@@ -47,11 +47,11 @@ def step (total: Nat): Maybe Text -> (Nat -> {IO, Partial | e} Nat) -> {IO, Part
 
 -- Adds up the numbers on the lines to come, until an empty line or the end
 -- of the input.
-def addLines (total: Nat): {IO, Partial} Nat := step total (readLine ()) addLines
+def addLines (total: Nat): {IO, Partial} Nat := step total (readLine()) addLines
 
-def main (): {IO, Partial} () :=
+def main(): {IO, Partial} () :=
   print "What's your name?"
-  let name := textOr "stranger" (readLine ())
+  let name := textOr "stranger" (readLine())
   print ("Hello, " ++ name ++ "! Type numbers to add, one per line, and an empty line to stop.")
   let total := addLines 0
   print ("The sum is " ++ Nat.toText total ++ ". Goodbye, " ++ name ++ ".")

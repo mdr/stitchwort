@@ -14,8 +14,8 @@
 
 type Grid = List (List Nat)
 
-def main (): {IO} () :=
-  let grid := parseGrid (IO.readAllLines ())
+def main(): {IO} () :=
+  let grid := parseGrid (IO.readAllLines())
   print "Part 1: ${solvePart1 grid}"
   print "Part 2: ${solvePart2 grid}"
 

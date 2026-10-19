@@ -13,9 +13,9 @@ ability Fetch where
 
 def width (xs: List Nat): Nat := List.length xs
 
-def fetchText (): {Fetch} Text := fetch (width [1, 2, 3])
+def fetchText(): {Fetch} Text := fetch (width [1, 2, 3])
 
-def fetchNat (): {Fetch} Nat := fetch (width [])
+def fetchNat(): {Fetch} Nat := fetch (width [])
 
 -- A decision procedure that only applies to particular values: it decides
 -- `f = f`, so with the two sides as separate variables it doesn't fit, and

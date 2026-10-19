@@ -142,7 +142,7 @@ impl Session {
         let Some(index) = g.defs.iter().rposition(|d| &*d.name == "main") else {
             return Err(
                 Diagnostic::error("E-NO-MAIN", "there's no `main` to run").with_note(
-                    "define `def main (): {IO} () := …`, or `def main (): {IO, Partial} () := …`",
+                    "define `def main(): {IO} () := …`, or `def main(): {IO, Partial} () := …`",
                 ),
             );
         };

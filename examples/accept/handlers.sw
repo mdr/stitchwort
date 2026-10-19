@@ -77,10 +77,10 @@ def allResultsR: [e: Type] -> [eres: e -> Type] -> [a: Type] ->
 
 -- Handler order (from the review)
 
--- p () =
---   let b := choose ()
+-- p() =
+--   let b := choose()
 --   if b then put 1 else ()
---   get ()
+--   get()
 -- Computations with the row `{State Nat, Choose}`, and its operations.
 def SC (a: Type): Type := Comp (Plus StateOp ChooseOp) (PlusRes StateRes ChooseRes) a
 
@@ -131,7 +131,7 @@ def scaleGets: Comp StateOp StateRes a -> Comp StateOp StateRes a
   | Call Get rest     => Call Get (\m => scaleGets (rest (m * 10)))
   | Call (Put n) rest => Call (Put n) (\u => scaleGets (rest u))
 
--- get () + 1
+-- get() + 1
 def getPlusOne: Comp StateOp StateRes Nat := Call Get (\n => Done (n + 1))
 
 test "a clause's own get goes to the outer handler" :=

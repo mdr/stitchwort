@@ -15,8 +15,8 @@
 -- period are the sum over n of -mu(n) times the ids with n blocks, where mu
 -- is the Moebius function.
 
-def main (): {IO} () :=
-  let ranges := parseRanges (IO.readAll ())
+def main(): {IO} () :=
+  let ranges := parseRanges (IO.readAll())
   print "Part 1: ${solvePart1 ranges}"
   print "Part 2: ${solvePart2 ranges}"
 

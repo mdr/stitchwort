@@ -15,11 +15,11 @@ def echoLine: Maybe Text -> (() -> {IO} ()) -> {IO} ()
   | Nothing, more => ()
   | Just l,  more =>
     print l
-    more ()
+    more()
 
 def echo: Nat -> {IO} ()
   | 0      => ()
-  | Succ n => echoLine (readLine ()) (\u => echo n)
+  | Succ n => echoLine (readLine()) (\u => echo n)
 
 def linesOf: List Nat -> List Text
   | Nil       => Nil
@@ -33,11 +33,11 @@ def numberLine (i: Nat): Maybe Text -> (() -> {IO} ()) -> {IO} ()
   | Nothing, more => ()
   | Just l,  more =>
     print (Nat.toText i ++ ": " ++ l)
-    more ()
+    more()
 
 def numberFrom (i: Nat): Nat -> {IO} ()
   | 0      => ()
-  | Succ n => numberLine i (readLine ()) (\u => numberFrom (i + 1) n)
+  | Succ n => numberLine i (readLine()) (\u => numberFrom (i + 1) n)
 
 def totalLength: List Text -> Nat
   | Nil       => 0

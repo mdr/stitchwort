@@ -15,28 +15,28 @@ def showLine: Maybe Text -> Text
 
 -- readAll
 
-def slurp (): {IO} Text := readAll ()
+def slurp(): {IO} Text := readAll()
 
-def afterOne (): {IO} Pair Text Text :=
-  let first := showLine (readLine ())
-  let rest := readAll ()
+def afterOne(): {IO} Pair Text Text :=
+  let first := showLine (readLine())
+  let rest := readAll()
   MkPair first rest
 
-def afterAll (): {IO} Pair Text Text :=
-  let all := readAll ()
-  let next := showLine (readLine ())
+def afterAll(): {IO} Pair Text Text :=
+  let all := readAll()
+  let next := showLine (readLine())
   MkPair all next
 
-def twice (): {IO} Pair Text Text :=
-  let a := readAll ()
-  let b := readAll ()
+def twice(): {IO} Pair Text Text :=
+  let a := readAll()
+  let b := readAll()
   MkPair a b
 
 test "readAll gives every line, each followed by LF" :=
   result (IO.simulate ["a", "b"] slurp) == "a\nb\n"
 
 test "IO.readAll is the same operation" :=
-  result (IO.simulate ["a"] (\u => IO.readAll ())) == "a\n"
+  result (IO.simulate ["a"] (\u => IO.readAll())) == "a\n"
 
 test "readAll of empty input is empty" := result (IO.simulate [] slurp) == ""
 
@@ -82,7 +82,7 @@ test "lines method style" := ("x\ny".lines).length == 2
 
 -- IO.readAllLines
 
-def allLines (): {IO} List Text := IO.readAllLines ()
+def allLines(): {IO} List Text := IO.readAllLines()
 
 test "readAllLines is total under simulate" :=
   eqTexts (result (IO.simulate ["a", "b"] allLines)) ["a", "b"]

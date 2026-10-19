@@ -94,13 +94,13 @@ def sumForestLifted: Forest -> Nat
   | FCons t ts => sumTreeLifted t + sumForestLifted ts
 
 -- Effects: the right-hand side runs once, before the rest of the block.
-def readTwo (): {IO} (Maybe Text, Maybe Text) :=
-  let a := readLine ()
-  let b := readLine ()
+def readTwo(): {IO} (Maybe Text, Maybe Text) :=
+  let a := readLine()
+  let b := readLine()
   (a, b)
 
-def swapLines (): {IO} Nat :=
-  let (a, b) := readTwo ()
+def swapLines(): {IO} Nat :=
+  let (a, b) := readTwo()
   print (Maybe.withDefault "" b)
   print (Maybe.withDefault "" a)
   let (n, m) := (1, 2)
@@ -118,7 +118,7 @@ test "constructor" := (swap (MkPair 1 "x")).snd == 1
 test "record" := greeting { name = "Ann", age = 3 } == "hello Ann"
 test "annotated" := annotated == 3
 test "lifted" := lifted (2, 3) == 6
-test "unit" := unit () == 3
+test "unit" := unit() == 3
 test "lambda" := sums [(1, 2), (3, 4)] == [3, 7]
 test "foldLeft" := total [("a", 1), ("b", 2)] == 3
 test "record lambda" := nameOf { name = "Ann", age = 3 } == "Ann"

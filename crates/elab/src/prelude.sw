@@ -2257,13 +2257,13 @@ def IO.restOf (ins: List Text): Text :=
 -- doesn't build a deep chain of pending pairs.
 def IO.simulate (input: List Text) (prog: () -> {IO | e} a): {e} Pair (List Text) a :=
   let run: List Text -> List Text -> {e} Pair (List Text) a :=
-    handle prog () with
+    handle prog() with
       | return x      => \ins out => MkPair (List.reverseOnto out Nil) x
-      | print t, k    => \ins out => k () ins (Cons t out)
+      | print t, k    => \ins out => k() ins (Cons t out)
       | readLine u, k => \ins out => k (IO.nextLine ins) (List.tailOf ins) out
       | readAll u, k  => \ins out => k (IO.restOf ins) Nil out
   run input Nil
 
 -- Every remaining line of input, in order, as `readLine` would give them.
 -- Total: the input is read all at once.
-def IO.readAllLines (): {IO} (List Text) := (readAll ()).lines
+def IO.readAllLines(): {IO} (List Text) := (readAll()).lines

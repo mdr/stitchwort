@@ -52,7 +52,7 @@ ability Counter where
 def ping: Nat -> {Counter} ()
   | 0      => ()
   | Succ n =>
-    bump ()
+    bump()
     pong n
 
 def pong: Nat -> {Counter} ()
@@ -61,9 +61,9 @@ def pong: Nat -> {Counter} ()
 
 def countBumps (prog: () -> {Counter} ()): Nat :=
   let run: Nat -> Nat :=
-    handle prog () with
+    handle prog() with
       | return x      => \n => n
-      | bump u, k     => \n => k () (Succ n)
+      | bump u, k     => \n => k() (Succ n)
   run 0
 
 -- A callback passed to a helper as a lambda that calls a member with all
