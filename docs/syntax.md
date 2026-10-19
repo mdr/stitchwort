@@ -499,7 +499,7 @@ Examples: `examples/accept/let-patterns.sw`. Design: [syntax-conveniences.md](pr
 
 ### Numbers
 
-A numeric literal is a `Nat` or an `Int`, depending on what's expected (`Nat` if nothing says). An arithmetic expression or comparison has one number type for all its operands, chosen by the first of these that applies: the expected type; a prefix minus (which forces `Int`); an operand with no literal in it; any other operand; else `Nat`. So `3 - 5 = -2` is on `Int`, and `x + 1` follows `x`. A `let` binding keeps its own type: `let m = 3 - 5` is a `Nat`, and `m + i` with `i: Int` is an error.
+A non-negative numeric literal is a `Nat` or an `Int`, depending on what's expected (`Nat` if nothing says); a negative literal such as `-5` is always an `Int`, and `-0` is `0`. An arithmetic expression or comparison has one number type for all its operands, chosen by the first of these that applies: the expected type; a prefix minus (which forces `Int`); an operand with no literal in it; any other operand; else `Nat`. So `3 - 5 = -2` is on `Int`, and `x + 1` follows `x`. A `let` binding keeps its own type: `let m := 3 - 5` is a `Nat`, and `m + i` with `i: Int` is an error.
 
 There is no implicit conversion between `Nat` and `Int`: use `n.toInt`, `Int.toNat` (negatives become 0) or `Int.toNatChecked`.
 
