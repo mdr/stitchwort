@@ -18,16 +18,19 @@
 
 use std::rc::Rc;
 
-use stitchwort_core::value::{eval, unused};
-use stitchwort_core::{Icit, Term, Value};
+use stitchwort_core::registry::Builtin;
+use stitchwort_core::value::{eval, force, unused};
+use stitchwort_core::{Icit, Name, Term, Value};
 
-use crate::check::{Ctx, Result};
+use crate::check::{Ctx, Result, builtin_data, builtin_def};
 
-/// Whether computing `term` costs nothing worth avoiding: it's built from
-/// variables, literals and constructors only (a text literal, `Just 3`).
-/// Binding those would only make the program longer.
+/// Whether computing `term` costs nothing worth avoiding: it's small and
+/// built from variables, literals and constructors only (a text literal,
+/// `Just 3`). Binding those would only make the program longer.
 pub(crate) fn cheap(term: &Term) -> bool {
-    term.subterms().all(|(t, _)| {
+    const SMALL: usize = 64;
+    let mut nodes = term.subterms();
+    nodes.by_ref().take(SMALL).all(|(t, _)| {
         matches!(
             t,
             Term::Loc(..)
@@ -38,7 +41,7 @@ pub(crate) fn cheap(term: &Term) -> bool {
                 | Term::Refl
                 | Term::Ctor(..)
         )
-    })
+    }) && nodes.next().is_none()
 }
 
 /// `use arg`, for `arg : dom` (already checked), elaborated without
@@ -95,4 +98,219 @@ pub(crate) fn bind_argument(
             ty,
         )))
     })
+}
+
+/// A decision procedure for a proposition: a term of type `Decidable prop`.
+pub(crate) enum Decision {
+    /// Found for the proposition as it is.
+    Plain(Term),
+    /// Found for the proposition with its operands bound as variables
+    /// (`bound_decision`).
+    Bound(Bound),
+}
+
+/// A decision found with the proposition's operands bound as variables:
+/// inside `binders`, `decision : Decidable prop`.
+pub(crate) struct Bound {
+    /// Each binder's name and type, the type in the scope of the binders
+    /// before it.
+    binders: Vec<(Name, Term)>,
+    /// The operands, in the outer scope, in source order.
+    operands: Vec<Term>,
+    /// The proposition, with the operands replaced by the binders.
+    prop: Term,
+    decision: Term,
+}
+
+impl Bound {
+    /// `(\x… => body) operands…`, where `body : ty` inside the binders.
+    fn apply(self, body: Term, ty: Term) -> Term {
+        let (lam, pi) = self
+            .binders
+            .iter()
+            .rev()
+            .fold((body, ty), |(lam, pi), (x, dom)| {
+                (
+                    Term::Lam(x.clone(), Icit::Explicit, Rc::new(lam)),
+                    Term::Pi(x.clone(), Icit::Explicit, Rc::new(dom.clone()), Rc::new(pi)),
+                )
+            });
+        self.operands
+            .into_iter()
+            .fold(Term::Ann(Rc::new(lam), Rc::new(pi)), Term::app)
+    }
+}
+
+impl Decision {
+    /// A term of type `Decidable prop`, in the outer scope:
+    /// `(\x… => d) operands…`.
+    pub(crate) fn term(self, cx: &Ctx) -> Result<Term> {
+        match self {
+            Decision::Plain(d) => Ok(d),
+            Decision::Bound(b) => {
+                let decidable = builtin_data(cx, Builtin::Decidable)?;
+                let ty = Term::data(decidable, vec![b.prop.clone()]);
+                let d = b.decision.clone();
+                Ok(b.apply(d, ty))
+            }
+        }
+    }
+
+    /// `Decidable.toBool {prop} d`, in the outer scope. With the operands
+    /// bound, the whole of it goes under the binders,
+    /// `(\x… => toBool {prop'} d) operands…`, so that its type, `Bool`,
+    /// doesn't mention them and the kernel doesn't compute them either.
+    pub(crate) fn into_bool(self, cx: &Ctx, prop: Term) -> Result<Term> {
+        let to_bool = Term::Def(builtin_def(cx, Builtin::ToBool)?);
+        let bool_ty = Term::data(builtin_data(cx, Builtin::Bool)?, Vec::new());
+        let of = |prop: Term, d: Term| {
+            Term::app(Term::app_icit(to_bool.clone(), prop, Icit::Implicit), d)
+        };
+        Ok(match self {
+            Decision::Plain(d) => of(prop, d),
+            Decision::Bound(b) => {
+                let body = of(b.prop.clone(), b.decision.clone());
+                b.apply(body, bool_ty)
+            }
+        })
+    }
+}
+
+/// A decision procedure for `prop` (a term in the current scope). The
+/// search is first made with the proposition's operands bound as variables
+/// (`200000 = 5` is searched as `x = y`), so it doesn't compute them and its
+/// solutions mention the variables, not the computed values. Some
+/// procedures apply only to particular values (one deciding `n = 0`), so if
+/// that search finds nothing, everything it did is undone and the search is
+/// made on the computed proposition, as before; its error, if any, is the
+/// one reported.
+pub(crate) fn decide(cx: &mut Ctx, prop: &Term) -> Result<Decision> {
+    if let Some(bound) = crate::undo::transaction(cx, |cx| bound_decision(cx, prop))? {
+        return Ok(Decision::Bound(bound));
+    }
+    let value = cx.eval(prop)?;
+    Ok(Decision::Plain(crate::auto::decide(cx, &value, 0)?))
+}
+
+/// A proposition's structure down to its operands: the operands are data
+/// (not types or propositions) and not cheap.
+enum Shape {
+    /// A part kept as it is, in the outer scope.
+    Kept(Term),
+    /// The `i`th operand.
+    Operand(usize),
+    Eq(Rc<Term>, Box<Shape>, Box<Shape>),
+    App(Box<Shape>, Box<Shape>, Icit),
+}
+
+impl Shape {
+    /// The proposition inside `n` binders, one per operand.
+    fn build(&self, cx: &Ctx, n: usize) -> Result<Term> {
+        Ok(match self {
+            Shape::Kept(t) => t.shift(cx.g(), n, 0)?,
+            Shape::Operand(i) => Term::Var(n - 1 - i),
+            Shape::Eq(ty, a, b) => Term::Eq(
+                Some(Rc::new(ty.shift(cx.g(), n, 0)?)),
+                Rc::new(a.build(cx, n)?),
+                Rc::new(b.build(cx, n)?),
+            ),
+            Shape::App(f, a, icit) => Term::app_icit(f.build(cx, n)?, a.build(cx, n)?, *icit),
+        })
+    }
+}
+
+/// The search of [`decide`] with the operands bound, for
+/// [`crate::undo::transaction`]: `None` if `prop` has no operand worth
+/// binding, or the search finds nothing.
+fn bound_decision(cx: &mut Ctx, prop: &Term) -> Result<Option<Bound>> {
+    let mark = cx.mark();
+    let outer = cx.env.clone();
+    let mut binders = Vec::new();
+    let mut operands = Vec::new();
+    let shape = shape(cx, &outer, prop, &mut binders, &mut operands)?;
+    if operands.is_empty() {
+        return Ok(None);
+    }
+    let prop = shape.build(cx, operands.len())?;
+    let value = cx.eval(&prop)?;
+    let decision = match crate::auto::decide(cx, &value, 0) {
+        Ok(decision) => decision,
+        Err(e) if crate::undo::fatal(&e) => return Err(e),
+        Err(_) => return Ok(None),
+    };
+    cx.reset(mark);
+    Ok(Some(Bound {
+        binders,
+        operands,
+        prop,
+        decision,
+    }))
+}
+
+/// `prop`'s [`Shape`], binding each operand found (in `cx`, and in
+/// `binders` and `operands`) as it goes. `outer` is the environment `prop`
+/// is in. Only equations and applications of definitions are looked into;
+/// anything else is kept.
+fn shape(
+    cx: &mut Ctx,
+    outer: &[Value],
+    prop: &Term,
+    binders: &mut Vec<(Name, Term)>,
+    operands: &mut Vec<Term>,
+) -> Result<Shape> {
+    let g = cx.g();
+    match prop.strip_loc() {
+        Term::Eq(Some(ty), a, b) => {
+            let dom = eval(g, outer, ty)?;
+            let a = operand(cx, &dom, a, binders, operands)?;
+            let b = operand(cx, &dom, b, binders, operands)?;
+            Ok(Shape::Eq(ty.clone(), Box::new(a), Box::new(b)))
+        }
+        term @ Term::App(..) => {
+            let (head, args) = term.spine();
+            let Term::Def(id) = head.strip_loc() else {
+                return Ok(Shape::Kept(term.clone()));
+            };
+            let mut ty = g.def(*id).ty_value.clone();
+            let mut built = Shape::Kept(head.clone());
+            for arg in args {
+                let Value::Pi(_, icit, dom, cod) = force(g, ty)? else {
+                    return Ok(Shape::Kept(term.clone()));
+                };
+                let level = cx.level();
+                let part = match force(g, (*dom).clone())? {
+                    // A proposition or type: looked into.
+                    Value::Sort(_) => shape(cx, outer, arg, binders, operands)?,
+                    _ if icit == Icit::Explicit => operand(cx, &dom, arg, binders, operands)?,
+                    _ => Shape::Kept(arg.clone()),
+                };
+                ty = match part {
+                    Shape::Operand(_) => cod.apply(g, Value::var(level))?,
+                    _ => cod.apply_lazy(g, || eval(g, outer, arg))?,
+                };
+                built = Shape::App(Box::new(built), Box::new(part), icit);
+            }
+            Ok(built)
+        }
+        _ => Ok(Shape::Kept(prop.clone())),
+    }
+}
+
+/// An operand `arg : dom` of a proposition: bound as the next variable,
+/// unless it's cheap.
+fn operand(
+    cx: &mut Ctx,
+    dom: &Value,
+    arg: &Term,
+    binders: &mut Vec<(Name, Term)>,
+    operands: &mut Vec<Term>,
+) -> Result<Shape> {
+    if cheap(arg) {
+        return Ok(Shape::Kept(arg.clone()));
+    }
+    let name: Name = format!("%{}", operands.len()).as_str().into();
+    binders.push((name.clone(), cx.quote(dom)?));
+    cx.bind_hidden(name, dom.clone());
+    operands.push(arg.clone());
+    Ok(Shape::Operand(operands.len() - 1))
 }

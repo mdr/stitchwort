@@ -2,8 +2,8 @@
 
 **Status:** Draft 2, 19 October 2026. Draft 1 (analysis and options,
 measured at `8e3d71c`) was reviewed independently; this draft folds the
-review in (§5, §6, §8) and records the user's decisions (§7). Stage 1A is
-implemented (`crates/elab/src/bind.rs`); stage 1B follows.
+review in (§5, §6, §8) and records the user's decisions (§7). Stages 1A
+and 1B are implemented (`crates/elab/src/bind.rs`, §6).
 
 **Decisions (user, 19 October 2026):** do option (a) now, as stages 1A and
 1B; the kernel `Let` (let stage 2) holds its value lazily while checking;
@@ -401,19 +401,45 @@ Measured with the step counter (`check_work.rs`; `cost` over 2,000 and
 case. The run-time cost is one extra application per call: `run-prints`
 (20,000 prints) takes 0.6% more steps.
 
-**Stage 1B: decisions.** `==`, `if`, a proposition used as a `Bool`
-(`check::decide_to_bool`, `logic::condition` for `&&`, `||`, `not`): the
-decision search runs on the proposition with its non-cheap operands bound
-as variables, in a transaction; if it finds nothing, everything is undone
-and the old search on the computed proposition runs. Where the proposition
-is only turned into a `Bool`, the whole `toBool {x = y} d` goes under the
-binders, `(\x y => toBool {x = y} d) a b`, so neither checker computes
-`a` or `b` (rows 7, 12, 13). An `if` whose branches receive a proof of the
-proposition (`if h : P`, and `if c` on a proposition, which is
-`if _ : c`) keeps the proposition itself in the branches, since a proof
-about `%x < %y` can't stand for one about `cost < 5`; only the search uses
-variables there, so with a strict evaluator the branch types still compute
-the operands (row 8) until (b).
+**Stage 1B (done): decisions.** `==`, `!=` and comparisons used as a
+`Bool`, `if`, and `&&`, `||`, `not` on propositions (`bind::decide`, used by
+`numbers::equation`, `check::decide_to_bool`, `check::check_if` and
+`logic::condition`): the decision search runs on the proposition with its
+non-cheap operands bound as variables (`cost < 5` is searched as
+`%0 < 5`), inside a transaction; if it finds nothing, everything it did is
+undone and the old search on the computed proposition runs, and its error
+is the one reported. The operands are found by looking into equations and
+applications of definitions, down through arguments that are themselves
+propositions (`Not (a = b)`); only data operands are bound, not types.
+
+- Where the proposition is only turned into a `Bool`, the whole of
+  `toBool {a = b} d` goes under the binders,
+  `(\%0 %1 => toBool {%0 = %1} d) a b`, whose type `Bool` mentions neither,
+  so neither checker computes `a` or `b` (rows 7, 12, 13, and `if a == b`,
+  which is an `if` on a `Bool`).
+- An `if` whose branches receive a proof of the proposition (`if h : P`,
+  and `if c` on a proposition, which is `if _ : c` and whose proof `auto`
+  can use) keeps the real proposition in the branches, since a proof about
+  `%0 < 5` can't stand for one about `cost < 5`. Only the search uses
+  variables there; the decision is `(\%0 => d) cost`. With a strict
+  evaluator the branch's assumption and the kernel's check of
+  `Decidable.elim` still compute the operands: row 8 goes from 4
+  computations to 3 (the elaborator's `Not prop` now reuses `prop`'s value)
+  and needs (b) for the rest.
+
+Measured (steps, `cost` over 2,000 and 20,000 elements, before → after):
+`cost == 5` 138,949 and 1,182,949 → 23,225 for both; `if cost == 5`
+1,183,002 → 23,278; `test "…" := cost == 200000` 1,182,946 → 23,222;
+`cost < 5 && 3 < 4`, `not (cost <= 5)`, `cost != 5` and
+`List.any (\n => n < cost)` constant too. The remaining ~23,000 steps are
+the search through the decision procedures, independent of the input. Row
+13, `List.range 100000 == List.range 100000`, now checks: 47,753 steps and
+an elaborated program of 54 nodes, the same at 20,000 and at 100,000
+elements (before, `E-RESOURCE`). The fallback was never taken in
+`examples/accept/` or `aoc/` (counted with a temporary trace);
+`examples/accept/bind-fallback.sw` exercises it on purpose, with a
+decision procedure for `f = f` only, which fits the values but not two
+separate variables.
 
 **Let stage 2 (another lane): a lazy kernel `Let`.** Today a pure
 `let x := v` costs nothing at check time (row 3) because it's elaborated as

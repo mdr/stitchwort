@@ -5,18 +5,18 @@
 # time_ms is the median wall time on the machine that recorded it.
 
 [examples]
-inputs = "313 files, 0fc1cbdf035a4dea"
-steps = 877141374
-visits = 49976960
-allocations = 723742073
-peak_bytes = 21761663
+inputs = "314 files, 32ee1aef1dc00d10"
+steps = 871748926
+visits = 50134743
+allocations = 723064002
+peak_bytes = 21760527
 time_ms = 1707.9
 
 [extract-js]
 inputs = "24 files, e00575338fcd74f6"
 steps = 23727
-visits = 15072
-allocations = 147276
+visits = 15105
+allocations = 147266
 peak_bytes = 370494
 time_ms = 11.8
 
@@ -163,3 +163,33 @@ steps = 145
 visits = 68
 allocations = 450
 peak_bytes = 4017
+
+[check-closed-eqeq]
+steps = 23225
+visits = 114
+allocations = 11895
+peak_bytes = 4099
+
+[check-closed-list-eqeq]
+steps = 47753
+visits = 149
+allocations = 23933
+peak_bytes = 3710
+
+[check-closed-if-less]
+steps = 17423402
+visits = 179
+allocations = 9012012
+peak_bytes = 125972828
+
+[check-closed-indexed]
+steps = 29000517
+visits = 179
+allocations = 15001288
+peak_bytes = 125979156
+
+[check-closed-rfl]
+steps = 23200289
+visits = 82
+allocations = 12000592
+peak_bytes = 125968836

@@ -520,7 +520,7 @@ const $Std$dChar$dtoNat = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dChar$dfromNat = (v0) => $Std$dDecidable$delim($Std$dBool$ddecEq($Std$dBool$difThenElse($Std$dNat$dleq(55296n)(v0))(((v1) => $Std$dBool$difThenElse($Std$dNat$dleq(v0)(57343n))(((v2) => ({ tag: "False" })))(((v2) => $Std$dNat$dleq(v0)(1114111n)))))(((v1) => ({ tag: "True" }))))({ tag: "True" }))(((v1) => ({ tag: "Just", value: { tag: "MkChar", code: v0 } })))(((v1) => ({ tag: "Nothing" })));
+const $Std$dChar$dfromNat = (v0) => $Std$dDecidable$delim((((v1) => $Std$dBool$ddecEq(v1)({ tag: "True" })))($Std$dChar$disScalar(v0)))(((v1) => ({ tag: "Just", value: { tag: "MkChar", code: v0 } })))(((v1) => ({ tag: "Nothing" })));
 const $Std$dChar$ddecEqFrom = (v0) => (v1) => (v2) => {
   switch (v2.tag) {
     case "Yes": {

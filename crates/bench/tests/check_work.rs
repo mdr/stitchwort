@@ -74,7 +74,7 @@ fn with_cost(n: usize, body: &str) -> String {
 }
 
 /// Programs whose checking must not compute `cost`: the note's table, rows
-/// 4–6 (operation calls and dot notation).
+/// 4–7 and 12 (operation calls, dot notation, decisions).
 const CONSTANT: &[(&str, &str)] = &[
     ("print", "def main () : {IO} () := print (Nat.toText cost)"),
     (
@@ -83,6 +83,30 @@ const CONSTANT: &[(&str, &str)] = &[
     ),
     ("dot", "def x : Text := cost.toText"),
     ("dot, then an argument", "def x : Nat := cost.max 3"),
+    ("==", "def b : Bool := cost == 5"),
+    ("!=", "def b : Bool := cost != 5"),
+    ("if ==", "def y : Nat := if cost == 5 then 1 else 2"),
+    ("&& on comparisons", "def b : Bool := cost < 5 && 3 < 4"),
+    ("not", "def b : Bool := not (cost <= 5)"),
+    (
+        "a comparison as a Bool",
+        "def b : Bool := List.any (\\n => n < cost) [1, 2]",
+    ),
+    ("test", "test \"length\" := cost == 200000"),
+];
+
+/// Programs that still compute `cost` while checking, because a type needs
+/// its value while the evaluator is strict (option (b) would change that):
+/// printed, to compare against.
+const STILL_COMPUTED: &[(&str, &str)] = &[
+    // The branches assume a proof of `cost < 5`.
+    ("if <", "def y : Nat := if cost < 5 then 1 else 2"),
+    (
+        "V cost",
+        "type V (n : Nat) = { xs : List Nat }\n\ndef mk (n : Nat) : V n := { xs = [] }\n\n\
+         def big (u : ()) : V cost := mk cost",
+    ),
+    ("rfl", "def big (u : ()) : cost = cost := rfl"),
 ];
 
 /// The same shapes where the type depends on the value: they must still
@@ -131,10 +155,23 @@ fn checking_does_not_compute_unneeded_values() {
 /// Where the type needs the value, it's computed as before.
 #[test]
 fn checking_computes_needed_values() {
-    for (name, small, large) in measured(NEEDED) {
+    for (name, small, large) in measured(NEEDED).into_iter().chain(measured(STILL_COMPUTED)) {
         assert!(
             large.steps > small.steps,
             "{name}: expected checking to compute `cost`"
         );
     }
+}
+
+/// The note's row 13: the decision search used to solve the hidden list
+/// arguments of `List.decEq` to the computed lists, which became 100,000-deep
+/// literals in the program, too deep for the kernel.
+#[test]
+fn comparing_closed_lists_keeps_the_program_small() {
+    let program =
+        |n: usize| format!("def big (u : ()) : Bool := List.range {n} == List.range {n}\n");
+    let small = measure(program(20_000));
+    let large = measure(program(100_000));
+    println!("List.range == List.range: {small:?} / {large:?}");
+    assert_eq!(small, large);
 }
