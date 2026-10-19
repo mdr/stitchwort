@@ -333,22 +333,18 @@ theorem gaussSpan (d : Nat) (lo : Nat) (hi : Nat) (h : lo <= hi) : d * ((lo + hi
     (Eq.trans (Eq.cong (\t => d * t) (Nat.halfDouble (List.sum (List.rangeFrom (Succ (hi - lo)) lo))))
       (Eq.sym (Eq.cong (\t => d * List.sum (List.rangeFrom t lo)) (Nat.subSuccRight lo (Succ hi) h))))
 
--- After a `let`, `if lo <= hi then x else 0` is a small computation, which
--- the checker runs with `Effect.runPure`; source code can't write that form.
--- `pickIf (Nat.leq lo hi) x` is the same term, and its condition can be
--- replaced by a variable, which a proof by cases needs.
+-- The `if` at the end of `blocksAt`, after its `let`s. A proof by cases
+-- replaces its condition `Nat.leq lo hi` by a variable `c`; `if IsTrue c`
+-- decides with `Bool.decTrue c`, as `if lo <= hi` does (`if c = True` would
+-- use `Bool.decEq`, a different term).
 def IsTrue (c : Bool) : Prop := c = True
 
 def decIsTrue (c : Bool) : Decidable (IsTrue c) := Bool.decTrue c
 
-def pickIf (c : Bool) (x : Nat) : Nat :=
-  let y := x
-  if IsTrue c then y else 0
-
 theorem gaussPick (d : Nat) (lo : Nat) (hi : Nat) :
-    pickIf (Nat.leq lo hi) (d * ((lo + hi) * (hi - lo + 1) / 2)) = d * span lo (Succ hi) :=
+    (if lo <= hi then d * ((lo + hi) * (hi - lo + 1) / 2) else 0) = d * span lo (Succ hi) :=
   Bool.inspect (Nat.leq lo hi)
-    (\c => pickIf c (d * ((lo + hi) * (hi - lo + 1) / 2)) = d * span lo (Succ hi))
+    (\c => (if IsTrue c then d * ((lo + hi) * (hi - lo + 1) / 2) else 0) = d * span lo (Succ hi))
     (\h => gaussSpan d lo hi h)
     (\h => Eq.sym (Eq.trans (Eq.cong (\t => d * t) (spanEmpty lo (Succ hi) (Nat.leqFalse lo hi h))) (Nat.mulZero d)))
 

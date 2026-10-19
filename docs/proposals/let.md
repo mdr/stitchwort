@@ -1,7 +1,7 @@
 # Proposal: `let` that holds proofs and data, and whose value the checker can see
 
 **Status:** Draft 2 (after review), 19 October 2026. Decided: option A,
-staged (§6, §8). Nothing is implemented.
+staged (§6, §8). Stage 1 is implemented; stages 2 and 3 aren't.
 
 Draft 2 folds in an independent review. Its points are now part of the
 design itself (the rules in §6.1 and the stages in §6.2), not a list of
@@ -846,8 +846,15 @@ Plan for stage 3:
   `effects.rs:909`). `may_perform(rest)` must be asked with `x` bound
   and its type known, as `Expr::LocalDefs` already does ("asked again once
   the names are in scope", `effects.rs:938-941`), so that a call of `x`
-  is judged by `x`'s type. *How `call_performs` treats a local variable of
-  effectful function type is unverified.* `infer_inner`/`check` gain a pure
+  is judged by `x`'s type. *Checked in stage 1:* `call_performs` finds a
+  bound variable's type through `head_type` (`cx.lookup`), so with `x` in
+  scope a call of an effectful `x` is judged effectful. Before `x` is bound
+  (the first question, on the whole `let`) the name isn't in scope and the
+  call is judged by whatever else the name means, usually nothing (pure);
+  the rest is asked again once `x` is bound, so the call is then run with
+  `runPure` (in a pure function: `E-ABILITY` unless handled), as for local
+  definitions. Tests: `examples/accept/let-pure.sw`,
+  `examples/reject/let-bound-effectful-call.sw`. `infer_inner`/`check` gain a pure
   `Let` case; `sequence`'s pure branch emits `Let` (stage 3) instead of the
   annotated redex (stage 1). A `let` in a `partial` function (a `Delay`
   computation) behaves the same. `Expr::Seq` (a statement run only for

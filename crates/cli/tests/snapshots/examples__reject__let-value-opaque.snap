@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+   ╭─[ reject/let-value-opaque.sw:8:3 ]
+   │
+ 8 │   Nat.leAddRight p 1
+   │   ─────────┬────────  
+   │            ╰────────── expected `Nat.leq n (n + 1) = True`, but this has type `Nat.leq p (p + 1) = True`
+───╯

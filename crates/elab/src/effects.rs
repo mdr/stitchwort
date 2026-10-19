@@ -905,8 +905,8 @@ fn ability_label(cx: &mut Ctx, expr: &Expr) -> Result<Label> {
 // Computation mode
 
 /// Whether elaborating `expr` may perform operations: it calls an operation,
-/// an effectful function (with enough arguments), or contains `let`,
-/// sequencing or `handle`. Lambda bodies don't count.
+/// an effectful function (with enough arguments), or contains sequencing,
+/// `handle`, or a `let` whose value or rest may. Lambda bodies don't count.
 pub fn may_perform(cx: &Ctx, expr: &Expr) -> Result<bool> {
     cx.g().budget.nesting(crate::check::PASS)?;
     let any = |items: &mut dyn Iterator<Item = &Expr>| -> Result<bool> {
@@ -935,7 +935,12 @@ pub fn may_perform(cx: &Ctx, expr: &Expr) -> Result<bool> {
             .map(|s| &s.expr)
             .chain(alts.iter().map(|a| &a.body)))?,
         Expr::Neg(a, _) => may_perform(cx, a)?,
-        Expr::Let { .. } | Expr::Seq(..) | Expr::Handle { .. } => true,
+        // A `let` performs what its value or the rest of the block does
+        // (docs/proposals/let.md §5). The rest is judged here without the
+        // name in scope, and asked again once it is (so a call of a bound
+        // effectful function is judged by its type then).
+        Expr::Let { value, body, .. } => may_perform(cx, value)? || may_perform(cx, body)?,
+        Expr::Seq(..) | Expr::Handle { .. } => true,
         // The definitions are elaborated on their own; what's run is the
         // rest of the block (asked again once the names are in scope).
         Expr::LocalDefs { body, .. } => may_perform(cx, body)?,
@@ -1095,6 +1100,13 @@ pub fn comp_check(cx: &mut Ctx, expr: &Expr, row: &Row, t: &Value) -> Result<Ter
                     } else {
                         (check(cx, value, &ty)?, ty, false)
                     }
+                }
+                // A call whose effectful arguments run first: the final
+                // call is pure, and its written result type is recorded.
+                None if matches!(&**value, Expr::App(..)) && may_perform(cx, value)? => {
+                    let (c, ty, w) = comp_app(cx, value, row, None)?;
+                    written = w;
+                    (c, ty, true)
                 }
                 None if may_perform(cx, value)? => {
                     let (c, ty) = comp_infer(cx, value, row)?;
@@ -1351,6 +1363,21 @@ pub fn comp_call(
     {
         return comp_compound(cx, expr, row, expected);
     }
+    let (term, ty, _) = comp_app(cx, expr, row, expected)?;
+    Ok((term, ty))
+}
+
+/// An application or variable that performs operations (not a pipe or a
+/// compound), as a computation in `row`, with its result type, and that
+/// type as written when the final call is a pure one whose written result
+/// type is known (for a `let`'s dot notation, docs/proposals/let.md §7).
+fn comp_app(
+    cx: &mut Ctx,
+    expr: &Expr,
+    row: &Row,
+    expected: Option<&Value>,
+) -> Result<(Term, Value, Option<crate::dot::Written>)> {
+    let base = cx.level();
     let mut args: Vec<&Expr> = Vec::new();
     let mut head = expr;
     while let Expr::App(f, a) = head {
@@ -1363,7 +1390,8 @@ pub fn comp_call(
         && cx.local(&name.text)?.is_none()
         && let Some((Global::Op(a, i), _)) = cx.e.named(&name.text).copied()
     {
-        return op_call(cx, name, a, i, &args, row);
+        let (term, ty) = op_call(cx, name, a, i, &args, row)?;
+        return Ok((term, ty, None));
     }
 
     let mut bound: Vec<Bound> = Vec::new();
@@ -1430,9 +1458,13 @@ pub fn comp_call(
         (term, ty) = crate::check::apply_one(cx, (term, ty), arg)?;
     }
     let (term, ty) = insert(cx, term, ty)?;
+    let mut written = None;
     let (result, result_ty) = match comp_parts(cx, &ty)? {
         Some((from, t)) => (lift(cx, term, from, row, &t)?, t),
-        None => (done(cx, row, &ty, term)?, ty),
+        None => {
+            written = written_outside(cx, &term, base)?;
+            (done(cx, row, &ty, term)?, ty)
+        }
     };
     // Unknowns in the result type are solved from the expected type before
     // checking it doesn't depend on the variables bound here.
@@ -1446,7 +1478,31 @@ pub fn comp_call(
         return Err(error);
     }
     let result = wrap(cx, row, bound, result, &result_ty)?;
-    Ok((result, result_ty))
+    Ok((result, result_ty, written))
+}
+
+/// `term`'s type as written (`dot::written_of`), unless it depends on a
+/// variable bound at `base` or later (the results of operations run first,
+/// which are gone once the call is wrapped).
+fn written_outside(cx: &Ctx, term: &Term, base: usize) -> Result<Option<crate::dot::Written>> {
+    let Some(written) = crate::dot::written_of(cx, term)? else {
+        return Ok(None);
+    };
+    let crate::dot::Written::With(ty, env) = &written else {
+        return Ok(None);
+    };
+    let inner = cx.level() - base;
+    // Only the values the written type refers to matter.
+    for (ix, v) in env.iter().rev().enumerate() {
+        if !ty.mentions(ix) {
+            continue;
+        }
+        let quoted = cx.quote(v)?;
+        if (0..inner).any(|i| quoted.mentions(i)) {
+            return Ok(None);
+        }
+    }
+    Ok(Some(written))
 }
 
 /// `value |> f` that performs operations: `value` runs first, then the call
@@ -1829,6 +1885,65 @@ pub fn op_value(cx: &mut Ctx, a: usize, i: usize) -> Result<(Term, Value)> {
     );
     let ty = cx.eval(&ty)?;
     Ok((Term::Lam("x".into(), Icit::Explicit, Rc::new(call)), ty))
+}
+
+/// A `let` that performs nothing, in a pure context, checked against
+/// `expected` or inferred: `(\name => body) value`, annotated so the kernel
+/// can check it (docs/proposals/let.md, stage 1; `name` is opaque in
+/// `body`). The rest of the block may still perform what it handles itself,
+/// such as a call of an effectful function bound here; `check`/`infer` ask
+/// again once `name` is in scope.
+pub fn pure_let(
+    cx: &mut Ctx,
+    name: &AstName,
+    ann: Option<&Expr>,
+    value: &Expr,
+    body: &Expr,
+    expected: Option<&Value>,
+) -> Result<(Term, Value)> {
+    // The variable's type as written, for dot notation: the annotation, or
+    // the value's.
+    let (term, ty, written) = match ann {
+        Some(ann) => {
+            let (ty, _) = check_type(cx, ann)?;
+            let written = crate::dot::Written::With(Rc::new(ty.clone()), cx.env.clone());
+            let ty = cx.eval(&ty)?;
+            (check(cx, value, &ty)?, ty, Some(written))
+        }
+        None => {
+            let (term, ty) = infer(cx, value)?;
+            let (term, ty) = insert(cx, term, ty)?;
+            let written = crate::dot::written_of(cx, &term)?;
+            (term, ty, written)
+        }
+    };
+    let mark = cx.mark();
+    cx.bind(&name.text, ty.clone());
+    if let Some(w) = written {
+        cx.set_written(w);
+    }
+    let result = match expected {
+        Some(t) => check(cx, body, t).map(|b| (b, t.clone())),
+        None => infer(cx, body),
+    }
+    .and_then(|(b, body_ty)| Ok((b, cx.quote(&body_ty)?)));
+    cx.reset(mark);
+    let (result, cod) = result?;
+    let lam = Term::Lam(name.text.as_str().into(), Icit::Explicit, Rc::new(result));
+    let pi = Term::Pi(
+        name.text.as_str().into(),
+        Icit::Explicit,
+        Rc::new(cx.quote(&ty)?),
+        Rc::new(cod.clone()),
+    );
+    // The block's type: the body's, with the value for the name.
+    let mut env = cx.env.clone();
+    env.push(cx.eval(&term)?);
+    let block_ty = stitchwort_core::value::eval(cx.g(), &env, &cod)?;
+    Ok((
+        Term::app(Term::Ann(Rc::new(lam), Rc::new(pi)), term),
+        block_ty,
+    ))
 }
 
 /// Runs a computation that performs nothing, in a pure context.
