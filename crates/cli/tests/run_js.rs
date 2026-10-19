@@ -125,12 +125,12 @@ def show : Maybe Text -> Text
   | Just t  => "[" ++ t ++ "]"
 
 def main () : {IO} () :=
-  print (show (readLine ()))
-  print (show (readLine ()))
-  let rest := readAll ()
-  print ("rest " ++ Nat.toText (Text.length rest) ++ ": [" ++ rest ++ "]")
-  print (show (readLine ()))
-  print ("again [" ++ readAll () ++ "]")
+  IO.print (show (IO.readLine ()))
+  IO.print (show (IO.readLine ()))
+  let rest := IO.readAll ()
+  IO.print ("rest " ++ Nat.toText (Text.length rest) ++ ": [" ++ rest ++ "]")
+  IO.print (show (IO.readLine ()))
+  IO.print ("again [" ++ IO.readAll () ++ "]")
 "#,
     );
     let inputs: &[&[u8]] = &[
@@ -176,8 +176,8 @@ def total : List Nat -> Nat
 
 def main () : {IO} () :=
   let xs := List.map (\i => (i * 7919) % 500000) (List.range 500000)
-  print (Nat.toText (total xs))
-  print (Nat.toText (total (List.take 3 (List.sort xs))))
+  IO.print (Nat.toText (total xs))
+  IO.print (Nat.toText (total (List.take 3 (List.sort xs))))
 "#,
     );
     let js = run(&path, true, b"");
@@ -199,9 +199,9 @@ def grow : Nat -> Text -> Text
   | Succ n, t => grow n (t ++ t)
 
 def main () : {IO} () :=
-  print "before"
-  let n := Text.length (readAll ())
-  print (Nat.toText (Text.length (grow n "x")))
+  IO.print "before"
+  let n := Text.length (IO.readAll ())
+  IO.print (Nat.toText (Text.length (grow n "x")))
 "#,
     );
     let js = run(&path, true, &[b'.'; 40]);
@@ -233,7 +233,7 @@ fn a_missing_node_is_reported() {
 /// A program that doesn't check isn't run.
 #[test]
 fn type_errors_stop_it_before_node() {
-    let path = source_file("bad.sw", "def main () : {IO} () := print 3\n");
+    let path = source_file("bad.sw", "def main () : {IO} () := IO.print 3\n");
     let js = same_both_ways(&path, b"", true);
     assert_eq!(js.status.code(), Some(1));
 }

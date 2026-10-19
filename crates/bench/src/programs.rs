@@ -181,8 +181,12 @@ pub const ALL: &[Benchmark] = &[
     // steps to compute, and none of these next few needs it.
     Benchmark {
         name: "check-closed-print",
-        about: "checks `print (Nat.toText cost)`, for a closed `cost` over 200,000 elements",
-        prepare: || check(closed("def main () : {IO} () := print (Nat.toText cost)")),
+        about: "checks `IO.print (Nat.toText cost)`, for a closed `cost` over 200,000 elements",
+        prepare: || {
+            check(closed(
+                "def main () : {IO} () := IO.print (Nat.toText cost)",
+            ))
+        },
     },
     Benchmark {
         name: "check-closed-dot",
@@ -261,7 +265,7 @@ const PRINTS: &str = "
 def printMany : Nat -> {IO} ()
   | Zero   => ()
   | Succ n =>
-    print (Nat.toText n)
+    IO.print (Nat.toText n)
     printMany n
 
 def main () : {IO} () := printMany 20000
@@ -376,7 +380,7 @@ def walk : List Text -> Pos -> Nat
   | Nil,       p => p.at
   | Cons t ts, p => walk ts (wrap (p.at.toInt + Nat.toInt (Text.length t * 37)))
 
-def main () : {IO} () := print (Nat.toText (walk (IO.readAllLines ()) (wrap 50)))
+def main () : {IO} () := IO.print (Nat.toText (walk (IO.readAllLines ()) (wrap 50)))
 ";
 
 fn run_proof_fields() -> Result<Prepared, String> {

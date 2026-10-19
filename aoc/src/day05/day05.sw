@@ -18,8 +18,8 @@ import Aoc.Common (Range)
 
 def main(): {IO} () :=
   let database := parseDatabase (IO.readAllLines())
-  print "Part 1: ${solvePart1 database}"
-  print "Part 2: ${solvePart2 database}"
+  IO.print "Part 1: ${solvePart1 database}"
+  IO.print "Part 2: ${solvePart2 database}"
 
 -- The fresh ranges, and the available ids.
 type Database = { fresh: List Range, available: List Nat }

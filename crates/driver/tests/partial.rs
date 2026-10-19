@@ -173,7 +173,7 @@ fn printing(expr: &str, boolean: bool) -> String {
     } else {
         format!("Nat.toText ({expr})")
     };
-    format!("{DEFINITIONS}\ndef main () : {{IO, Partial}} () := print ({shown})\n")
+    format!("{DEFINITIONS}\ndef main () : {{IO, Partial}} () := IO.print ({shown})\n")
 }
 
 #[test]
@@ -226,18 +226,18 @@ const IO_DEFINITIONS: &str = r#"
 def echoLine (count : Nat) : Maybe Text -> (Nat -> {IO, Partial | e} Nat) -> {IO, Partial | e} Nat
   | Nothing, more => count
   | Just l,  more =>
-    print l
+    IO.print l
     more (count + 1)
 
-def echo (count : Nat) : {IO, Partial} Nat := echoLine count (readLine ()) echo
+def echo (count : Nat) : {IO, Partial} Nat := echoLine count (IO.readLine ()) echo
 
 -- Operations before and after a non-tail request.
 def leave (n : Nat) (r : Nat) : {IO} Nat :=
-  print ("leave " ++ Nat.toText n)
+  IO.print ("leave " ++ Nat.toText n)
   r + n
 
 def nest (n : Nat) : {IO, Partial} Nat :=
-  print ("enter " ++ Nat.toText n)
+  IO.print ("enter " ++ Nat.toText n)
   if n == 0 then 0 else leave n (nest (n - 1))
 
 -- A recursive function calling another.
@@ -256,7 +256,7 @@ def lineLength : Maybe Text -> Nat
 def viaReadLine (prog : () -> {Ask} Nat) : {IO} Nat :=
   handle prog () with
     | return x    => x
-    | ask u, k    => k (lineLength (readLine ()))
+    | ask u, k    => k (lineLength (IO.readLine ()))
 
 def sumAsks : Nat -> {IO, Partial} Nat
   | 0 => 0
@@ -264,14 +264,16 @@ def sumAsks : Nat -> {IO, Partial} Nat
 
 -- Forever.
 def forever (n : Nat) : {IO, Partial} Nat :=
-  print "tick"
+  IO.print "tick"
   forever (n + 1)
 
 def spin (n : Nat) : {Partial} Nat := spin n
 "#;
 
 fn io_program(call: &str) -> String {
-    format!("{IO_DEFINITIONS}\ndef main () : {{IO, Partial}} () := print (Nat.toText ({call}))\n")
+    format!(
+        "{IO_DEFINITIONS}\ndef main () : {{IO, Partial}} () := IO.print (Nat.toText ({call}))\n"
+    )
 }
 
 #[test]
@@ -417,7 +419,7 @@ fn resource_limits_are_per_step_not_per_tick() {
          def big : Nat -> Nat\n  \
          | 0 => 0\n  \
          | Succ n => Succ (big n)\n\n\
-         def main () : {{IO, Partial}} () := print (Nat.toText (big 1000000 + immediate 1))\n"
+         def main () : {{IO, Partial}} () := IO.print (Nat.toText (big 1000000 + immediate 1))\n"
     ));
     session.elab.limits.work = 20_000;
     let main = session.main().unwrap();

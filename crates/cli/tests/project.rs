@@ -65,7 +65,7 @@ fn fails(cwd: &Path, args: &[&str], code: &str) -> String {
 
 const LIB: &str = "namespace Lib
 
-def greet(): {IO} () := print \"lib\"
+def greet(): {IO} () := IO.print \"lib\"
 
 def answer: Nat := 2
 
@@ -77,7 +77,7 @@ const DAY: &str = "namespace Day
 import Lib (greet)
 
 def main(): {IO} () :=
-  print \"day\"
+  IO.print \"day\"
   greet()
 
 def quiet(): () := ()
@@ -92,7 +92,7 @@ test \"day\" := Lib.answer == 2
 const OTHER: &str = "namespace Other\n\ndef x: Nat := 1\n\ntest \"x\" := x == 1\n";
 const BROKEN: &str = "namespace Other\n\ndef x: Nat := True\n";
 const SOLO: &str =
-    "namespace Solo\n\ndef main(): {IO} () := print \"solo\"\n\ntest \"solo\" := True\n";
+    "namespace Solo\n\ndef main(): {IO} () := IO.print \"solo\"\n\ntest \"solo\" := True\n";
 
 fn files<'a>(day: &'a str, other: &'a str) -> Vec<(&'a str, &'a str)> {
     vec![
@@ -270,7 +270,7 @@ const EXPORTS_LIB: &str = "namespace Lib
 
 export def solve (n: Nat): Nat := n + 2
 
-def greet(): {IO} () := print \"lib\"
+def greet(): {IO} () := IO.print \"lib\"
 ";
 
 const EXPORTS_DAY: &str = "namespace Day
@@ -280,7 +280,7 @@ import Lib (greet)
 export def solve (n: Nat): Nat := n + 1
 
 def main(): {IO} () :=
-  print \"day\"
+  IO.print \"day\"
   greet()
 ";
 

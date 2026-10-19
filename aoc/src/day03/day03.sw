@@ -14,8 +14,8 @@ namespace Aoc.Day03
 
 def main(): {IO} () :=
   let banks := parseBanks (IO.readAllLines())
-  print "Part 1: ${solvePart1 banks}"
-  print "Part 2: ${solvePart2 banks}"
+  IO.print "Part 1: ${solvePart1 banks}"
+  IO.print "Part 2: ${solvePart2 banks}"
 
 def parseBanks (lines: List Text): List Bank := lines.map Bank.parse
 

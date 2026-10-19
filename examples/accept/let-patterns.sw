@@ -95,16 +95,16 @@ def sumForestLifted: Forest -> Nat
 
 -- Effects: the right-hand side runs once, before the rest of the block.
 def readTwo(): {IO} (Maybe Text, Maybe Text) :=
-  let a := readLine()
-  let b := readLine()
+  let a := IO.readLine()
+  let b := IO.readLine()
   (a, b)
 
 def swapLines(): {IO} Nat :=
   let (a, b) := readTwo()
-  print (Maybe.withDefault "" b)
-  print (Maybe.withDefault "" a)
+  IO.print (Maybe.withDefault "" b)
+  IO.print (Maybe.withDefault "" a)
   let (n, m) := (1, 2)
-  print "done"
+  IO.print "done"
   n + m
 
 def eqTexts: List Text -> List Text -> Bool

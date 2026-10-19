@@ -5,7 +5,7 @@ expression: output
 [E-LET-REFUTABLE] Error: this pattern doesn't match every `Maybe Text`: it doesn't match `Nothing`
    ╭─[ reject/let-refutable-effect.sw:4:7 ]
    │
- 4 │   let Just l := readLine()
+ 4 │   let Just l := IO.readLine()
    │       ───┬──  
    │          ╰──── doesn't match `Nothing`
    │ 

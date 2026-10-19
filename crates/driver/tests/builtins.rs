@@ -169,13 +169,13 @@ def safeDiv (n : Nat) (d : Nat) : [auto ok : d != 0] -> Nat := n / d
 def mine : List Nat := Cons 1 Nil
 
 def twice () : {IO} () :=
-  print "one"
+  IO.print "one"
   let n := 2 + 2
-  print (Nat.toText n)
+  IO.print (Nat.toText n)
 
 def main () : {IO} () :=
   twice ()
-  print ("a" ++ "b")
+  IO.print ("a" ++ "b")
 
 test "plus" := 2 + 3 == 5
 test "minus" := 5 - 3 == 2

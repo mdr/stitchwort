@@ -154,7 +154,7 @@ def showLine : Maybe Text -> Text
 def echo : Nat -> {IO} ()
   | 0      => ()
   | Succ n =>
-    print (showLine (readLine ()))
+    IO.print (showLine (IO.readLine ()))
     echo n
 
 def main () : {IO} () := echo 3
@@ -183,7 +183,7 @@ fn reading_real_standard_input() {
 
 const READ_ALL: &str = r#"
 def main () : {IO} () :=
-  print ("<" ++ readAll () ++ ">")
+  IO.print ("<" ++ IO.readAll () ++ ">")
 "#;
 
 const READ_MIXED: &str = r#"
@@ -192,9 +192,9 @@ def showLine : Maybe Text -> Text
   | Just l  => "[" ++ l ++ "]"
 
 def main () : {IO} () :=
-  print (showLine (readLine ()))
-  print ("<" ++ readAll () ++ ">")
-  print (showLine (readLine ()))
+  IO.print (showLine (IO.readLine ()))
+  IO.print ("<" ++ IO.readAll () ++ ">")
+  IO.print (showLine (IO.readLine ()))
 "#;
 
 #[test]
@@ -239,7 +239,7 @@ fn invalid_utf8_input_is_an_error() {
 
 #[test]
 fn a_write_error_is_an_error() {
-    let path = source_file("print.sw", "def main () : {IO} () := print \"hello\"\n");
+    let path = source_file("print.sw", "def main () : {IO} () := IO.print \"hello\"\n");
     // Standard output is a pipe that nobody reads.
     let (reader, writer) = std::io::pipe().expect("a pipe");
     drop(reader);
@@ -267,13 +267,13 @@ fn a_pure_main_runs() {
 
 #[test]
 fn a_program_that_doesnt_check_isnt_run() {
-    let path = source_file("ill-typed.sw", "def main () : {IO} () := print 3\n");
+    let path = source_file("ill-typed.sw", "def main () : {IO} () := IO.print 3\n");
     assert_eq!(fails(&path, b"", "E-TYPE-MISMATCH"), "");
 }
 
 #[test]
 fn a_program_needs_a_main() {
-    let path = source_file("no-main.sw", "def start () : {IO} () := print \"hi\"\n");
+    let path = source_file("no-main.sw", "def start () : {IO} () := IO.print \"hi\"\n");
     assert_eq!(fails(&path, b"", "E-NO-MAIN"), "");
 }
 
@@ -351,9 +351,9 @@ fn an_endless_partial_main_runs_until_stopped() {
         "spin.sw",
         "def spin (n : Nat) : {Partial} Nat := spin (n + 1)\n\n\
          def main () : {IO, Partial} () :=\n  \
-         print \"started\"\n  \
-         let l := readLine ()\n  \
-         print (Nat.toText (spin 0))\n",
+         IO.print \"started\"\n  \
+         let l := IO.readLine ()\n  \
+         IO.print (Nat.toText (spin 0))\n",
     );
     let mut child = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
         .arg("run")

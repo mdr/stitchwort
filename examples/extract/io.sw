@@ -14,12 +14,12 @@
 def echoLine: Maybe Text -> (() -> {IO} ()) -> {IO} ()
   | Nothing, more => ()
   | Just l,  more =>
-    print l
+    IO.print l
     more()
 
 def echo: Nat -> {IO} ()
   | 0      => ()
-  | Succ n => echoLine (readLine()) (\u => echo n)
+  | Succ n => echoLine (IO.readLine()) (\u => echo n)
 
 def linesOf: List Nat -> List Text
   | Nil       => Nil
@@ -32,12 +32,12 @@ export def linesEchoed (ns: List Nat) (bound: Nat): Nat := List.length (Pair.fst
 def numberLine (i: Nat): Maybe Text -> (() -> {IO} ()) -> {IO} ()
   | Nothing, more => ()
   | Just l,  more =>
-    print (Nat.toText i ++ ": " ++ l)
+    IO.print (Nat.toText i ++ ": " ++ l)
     more()
 
 def numberFrom (i: Nat): Nat -> {IO} ()
   | 0      => ()
-  | Succ n => numberLine i (readLine()) (\u => numberFrom (i + 1) n)
+  | Succ n => numberLine i (IO.readLine()) (\u => numberFrom (i + 1) n)
 
 def totalLength: List Text -> Nat
   | Nil       => 0
@@ -48,9 +48,9 @@ export def numberedLength (ns: List Nat): Nat :=
   totalLength (Pair.fst (IO.simulate (linesOf ns) (\u => numberFrom 1 (List.length ns))))
 
 def countdown: Nat -> {IO} ()
-  | 0      => print "liftoff"
+  | 0      => IO.print "liftoff"
   | Succ n =>
-    print (Nat.toText (Succ n))
+    IO.print (Nat.toText (Succ n))
     countdown n
 
 -- How many lines a countdown from `n` prints: `n + 1`.
@@ -59,7 +59,7 @@ export def countdownLines (n: Nat): Nat := List.length (Pair.fst (IO.simulate []
 def printLines: Nat -> {IO} ()
   | 0      => ()
   | Succ n =>
-    print "a\nb"
+    IO.print "a\nb"
     printLines n
 
 -- A payload containing a line feed is still one entry.

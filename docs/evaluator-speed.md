@@ -38,7 +38,7 @@ then thrown away.
 type checker uses** (`crates/core/src/value.rs`, function `run`). Effects are data: `main`
 evaluates to a `Comp` value, and the driver loop performs each `IO` operation and feeds the
 reply back (`crates/core/src/step.rs`). That machinery is cheap here: day 4 does one
-`readAll` and two `print`s, and the whole computation happens inside one reply.
+`IO.readAll` and two `IO.print`s, and the whole computation happens inside one reply.
 
 While running, **erasure** is on (`crates/core/src/erase.rs`): proofs and types are replaced
 by a placeholder and not computed. They are still *passed*, though: an erased type argument is
@@ -257,8 +257,8 @@ except that the stack comes from a worker thread rather than `--stack-size`):
    `{IO, Partial}`. JS needs no tick limit; a `Partial` loop can simply loop, but the
    extractor's rule and its reasons (docs/proposals/partial.md) need revisiting.
 2. **IO bindings:** `main` evaluates to a `Comp` value (`Done x`, or `Call op k`). A small JS
-   driver does what `run_loop` does in Rust: on `Call`, perform the operation (`print` writes a
-   line, `readLine` and `readAll` read standard input synchronously), apply `k` to the reply,
+   driver does what `run_loop` does in Rust: on `Call`, perform the operation (`IO.print` writes a
+   line, `IO.readLine` and `IO.readAll` read standard input synchronously), apply `k` to the reply,
    repeat. This mirrors `IO.simulate` in the prelude, so the data shapes are already known.
 3. **CLI:** `stitchwort run --js file.sw` writes the module to a temporary directory and starts
    `node` with a large stack (Node is in the dev shell, not necessarily on users' machines).
@@ -268,10 +268,10 @@ except that the stack comes from a worker thread rather than `--stack-size`):
 Until then, Q3 (an exported solver and a driver script) works today for any day whose solver
 isn't `Partial`.
 
-## 6. A side finding: `print`'s argument is computed while checking
+## 6. A side finding: `IO.print`'s argument is computed while checking
 
-Checking a `main` whose `print` argument doesn't depend on input computes it at check time:
-`stitchwort check` of `print (Nat.toText (List.length (List.range 200000)))` takes 0.43 s
+Checking a `main` whose `IO.print` argument doesn't depend on input computes it at check time:
+`stitchwort check` of `IO.print (Nat.toText (List.length (List.range 200000)))` takes 0.43 s
 against 0.11 s for an empty program, and the counters show the list built and measured twice
 by the checker plus once by `run`. The profile of `check` puts **84% of its time under
 `effects::make_call`**, which evaluates the operation's argument (`cx.eval(&x)`, in
@@ -291,7 +291,7 @@ gives `E-RESOURCE` at 100,000 characters".
   `branch`, printed by `run_main` when an environment variable is set. Not committed; easy to
   redo from the descriptions above.
 - Micro-benchmarks: a program `def bench (n : Nat) : Nat := …` with
-  `def main () : {IO} () := print (Nat.toText (bench (Maybe.withDefault 0 (Text.toNat
-  (Text.trim (readAll ()))))))`, run as `echo 100000 | stitchwort run bench.sw`.
+  `def main () : {IO} () := IO.print (Nat.toText (bench (Maybe.withDefault 0 (Text.toNat
+  (Text.trim (IO.readAll ()))))))`, run as `echo 100000 | stitchwort run bench.sw`.
 - `bench/baseline.toml` (`stitchwort-bench`) remains the regression check for any change made
   from this list.

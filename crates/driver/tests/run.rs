@@ -50,7 +50,7 @@ def showLine : Maybe Text -> Text
 def echo : Nat -> {IO} ()
   | 0      => ()
   | Succ n =>
-    print (showLine (readLine ()))
+    IO.print (showLine (IO.readLine ()))
     echo n
 
 def main () : {IO} () := echo 4
@@ -59,8 +59,8 @@ def main () : {IO} () := echo 4
 /// Prints everything `readAll` gives in brackets.
 const SLURP: &str = r#"
 def main () : {IO} () :=
-  let a := readAll ()
-  print ("[" ++ a ++ "]")
+  let a := IO.readAll ()
+  IO.print ("[" ++ a ++ "]")
 "#;
 
 /// A `readLine`, then `readAll`, then `readLine` and `readAll` again.
@@ -70,10 +70,10 @@ def showLine : Maybe Text -> Text
   | Just l  => "[" ++ l ++ "]"
 
 def main () : {IO} () :=
-  print (showLine (readLine ()))
-  print ("all=[" ++ readAll () ++ "]")
-  print (showLine (readLine ()))
-  print ("again=[" ++ readAll () ++ "]")
+  IO.print (showLine (IO.readLine ()))
+  IO.print ("all=[" ++ IO.readAll () ++ "]")
+  IO.print (showLine (IO.readLine ()))
+  IO.print ("again=[" ++ IO.readAll () ++ "]")
 "#;
 
 /// Prints each line of `IO.readAllLines ()`.
@@ -81,7 +81,7 @@ const LINES: &str = r#"
 def printAll : List Text -> {IO} ()
   | Nil       => ()
   | Cons l ls =>
-    print ("<" ++ l ++ ">")
+    IO.print ("<" ++ l ++ ">")
     printAll ls
 
 def main () : {IO} () := printAll (IO.readAllLines ())
@@ -93,9 +93,9 @@ def textOr (d : Text) : Maybe Text -> Text
   | Just t  => t
 
 def main () : {IO} () :=
-  print "Name?"
-  let name := readLine ()
-  print ("Hello, " ++ textOr "stranger" name ++ "!")
+  IO.print "Name?"
+  let name := IO.readLine ()
+  IO.print ("Hello, " ++ textOr "stranger" name ++ "!")
 "#;
 
 // The simulator and the runner agree
@@ -112,7 +112,7 @@ fn programs() -> Vec<(&'static str, String)> {
         ("adder", adder),
         (
             "a payload with line feeds",
-            "def main () : {IO} () :=\n  print \"a\\nb\"\n  print \"\"\n  print \"\\r\"\n"
+            "def main () : {IO} () :=\n  IO.print \"a\\nb\"\n  IO.print \"\"\n  IO.print \"\\r\"\n"
                 .to_string(),
         ),
         ("readAllLines", LINES.to_string()),
@@ -133,16 +133,16 @@ def runState (init : s) (prog : () -> {State s | e} a) : {e} Pair a s :=
   run init
 
 def count () : {IO, State Nat} () :=
-  let a := readLine ()
+  let a := IO.readLine ()
   put (get () + 1)
-  print (Nat.toText (get ()))
-  let b := readLine ()
+  IO.print (Nat.toText (get ()))
+  let b := IO.readLine ()
   put (get () + 1)
-  print (Nat.toText (get ()))
+  IO.print (Nat.toText (get ()))
 
 def main () : {IO} () :=
   let r := runState 10 count
-  print "done"
+  IO.print "done"
 "#
             .to_string(),
         ),
@@ -251,10 +251,10 @@ fn readall_after_readline_gives_the_rest() {
 fn readline_after_readall_is_end_of_input() {
     let source = r#"
 def main () : {IO} () :=
-  print (readAll ())
-  match readLine () with
-    | Nothing => print "<end>"
-    | Just l  => print l
+  IO.print (IO.readAll ())
+  match IO.readLine () with
+    | Nothing => IO.print "<end>"
+    | Just l  => IO.print l
 "#;
     assert_eq!(output(source, b"a\nb\n"), "a\nb\n\n<end>\n");
 }
@@ -500,13 +500,18 @@ fn a_flush_error_stops_the_program() {
     assert_eq!(log, ["write Name?", "write \n"]);
     assert!(matches!(result, Err(RunError::Write(_))), "{result:?}");
     // The flush at the end counts too.
-    let (_, result) = run_logged("def main () : {IO} () := print \"x\"\n", b"", false, true);
+    let (_, result) = run_logged(
+        "def main () : {IO} () := IO.print \"x\"\n",
+        b"",
+        false,
+        true,
+    );
     assert!(matches!(result, Err(RunError::Write(_))), "{result:?}");
 }
 
 #[test]
 fn a_payload_with_a_line_feed_is_written_as_it_is() {
-    let source = "def main () : {IO} () :=\n  print \"a\\nb\"\n  print \"\"\n";
+    let source = "def main () : {IO} () :=\n  IO.print \"a\\nb\"\n  IO.print \"\"\n";
     assert_eq!(output(source, b""), "a\nb\n\n");
 }
 
@@ -520,7 +525,7 @@ fn many_operations_run_without_growing_the_stack() {
     let source = "def printMany : Nat -> {IO} ()\n  \
                   | 0      => ()\n  \
                   | Succ n =>\n    \
-                  print \"x\"\n    \
+                  IO.print \"x\"\n    \
                   printMany n\n\n\
                   def main () : {IO} () := printMany 20000\n";
     assert_eq!(output(source, b""), "x\n".repeat(20000));
@@ -534,8 +539,8 @@ def replicate : Nat -> a -> List a
   | Succ n, x => Cons x (replicate n x)
 
 def main () : {IO} () :=
-  print \"before\"
-  print (Nat.toText (List.length (replicate 100000 1)))
+  IO.print \"before\"
+  IO.print (Nat.toText (List.length (replicate 100000 1)))
 ";
 
 #[test]
@@ -566,7 +571,7 @@ fn each_step_between_operations_has_its_own_limits() {
     let source = "def printMany : Nat -> {IO} ()\n  \
                   | 0      => ()\n  \
                   | Succ n =>\n    \
-                  print \"x\"\n    \
+                  IO.print \"x\"\n    \
                   printMany n\n\n\
                   def main () : {IO} () := printMany 2000\n";
     let mut session = load(source);

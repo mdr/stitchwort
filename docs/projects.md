@@ -74,7 +74,7 @@ def solvePart1 (db: Database): Nat :=
 
 def main(): {IO} () :=
   let lines := IO.readAllLines()
-  print (Nat.toText (solvePart1 (parseDatabase lines)))
+  IO.print (Nat.toText (solvePart1 (parseDatabase lines)))
 ```
 
 The rules:

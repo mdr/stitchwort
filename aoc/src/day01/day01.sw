@@ -15,8 +15,8 @@ namespace Aoc.Day01
 
 def main(): {IO} () :=
   let turns := parseTurns (IO.readAllLines())
-  print "Part 1: ${solvePart1 turns}"
-  print "Part 2: ${solvePart2 turns}"
+  IO.print "Part 1: ${solvePart1 turns}"
+  IO.print "Part 2: ${solvePart2 turns}"
 
 def parseTurns (lines: List Text): List Turn := lines.mapMaybe Turn.parse
 

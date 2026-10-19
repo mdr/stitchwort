@@ -573,7 +573,10 @@ impl Elaborator {
                 for key in followed() {
                     let owner = parent(key).unwrap_or("");
                     let at_root = owner.strip_prefix("Std.").is_some_and(|p| !p.contains('.'));
-                    if at_root && self.visible_as(owner) {
+                    // A library ability's operations aren't default: they
+                    // are written `IO.print`, or imported (SW-134).
+                    let is_op = matches!(self.scope.get(key), Some((Global::Op(..), _)));
+                    if at_root && !is_op && self.visible_as(owner) {
                         found(key);
                     }
                 }

@@ -21,4 +21,4 @@ def collatzSteps: Nat -> {Partial} Nat
   | 1 => 0
   | n => 1 + collatzSteps (next n)
 
-def main(): {IO, Partial} () := print ("27 reaches 1 in " ++ Nat.toText (collatzSteps 27) ++ " steps")
+def main(): {IO, Partial} () := IO.print ("27 reaches 1 in " ++ Nat.toText (collatzSteps 27) ++ " steps")

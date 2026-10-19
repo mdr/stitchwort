@@ -2089,7 +2089,7 @@ def Text.linesFrom (line: List Char) (acc: List Text): List Char -> List Text
 -- gives them. A line ends with a line feed, or a carriage return and a line
 -- feed; the last line's ending is optional, so "a\nb" and "a\nb\n" both
 -- give ["a", "b"], "" gives [], and "\n" gives [""]. A carriage return
--- anywhere else is kept. These are the lines `readLine` would give.
+-- anywhere else is kept. These are the lines `IO.readLine` would give.
 def Text.lines (t: Text): List Text := Text.linesFrom Nil Nil (Text.toList t)
 
 -- Computations (docs/proposals/abilities.md)
@@ -2431,15 +2431,15 @@ def IO.nextLine: List Text -> Maybe Text
   | Nil       => Nothing
   | Cons l ls => Just l
 
--- All of the scripted input, as `readAll` gives it: each line followed by a
+-- All of the scripted input, as `IO.readAll` gives it: each line followed by a
 -- line feed, as a real interpreter would read it.
 def IO.restOf (ins: List Text): Text :=
   MkText (List.concatMap (\l => List.append (Text.toList l) ['\n']) ins)
 
--- Runs a program against scripted input lines: each `readLine` takes the
--- next one, and gives `Nothing` once they're used up; `readAll` takes all
--- that are left (see `IO.restOf`), after which `readLine` gives `Nothing`
--- and `readAll` gives "". Records each `print` payload, in order, with the
+-- Runs a program against scripted input lines: each `IO.readLine` takes the
+-- next one, and gives `Nothing` once they're used up; `IO.readAll` takes all
+-- that are left (see `IO.restOf`), after which `IO.readLine` gives `Nothing`
+-- and `IO.readAll` gives "". Records each `IO.print` payload, in order, with the
 -- result. A payload is one entry even if it contains a line feed: a real
 -- interpreter writes each payload followed by a line ending. The payloads
 -- are collected in reverse and turned round at the end, so a long run
@@ -2448,11 +2448,11 @@ def IO.simulate (input: List Text) (prog: () -> {IO | e} a): {e} Pair (List Text
   let run: List Text -> List Text -> {e} Pair (List Text) a :=
     handle prog() with
       | return x      => \ins out => MkPair (List.reverseOnto out Nil) x
-      | print t, k    => \ins out => k() ins (Cons t out)
-      | readLine u, k => \ins out => k (IO.nextLine ins) (List.tailOf ins) out
-      | readAll u, k  => \ins out => k (IO.restOf ins) Nil out
+      | IO.print t, k    => \ins out => k() ins (Cons t out)
+      | IO.readLine u, k => \ins out => k (IO.nextLine ins) (List.tailOf ins) out
+      | IO.readAll u, k  => \ins out => k (IO.restOf ins) Nil out
   run input Nil
 
--- Every remaining line of input, in order, as `readLine` would give them.
+-- Every remaining line of input, in order, as `IO.readLine` would give them.
 -- Total: the input is read all at once.
-def IO.readAllLines(): {IO} (List Text) := (readAll()).lines
+def IO.readAllLines(): {IO} (List Text) := (IO.readAll()).lines
