@@ -1,5 +1,5 @@
 {
-  "next": 129,
+  "next": 130,
   "tickets": [
     {
       "id": 1,
@@ -1842,7 +1842,7 @@
     {
       "id": 123,
       "title": "Rewrite the examples to dot notation",
-      "status": "doing",
+      "status": "review",
       "agent": "DeepSeek",
       "where": "/Users/matt/scratch/opencode/funlang-20261019-214123",
       "labels": [
@@ -1852,7 +1852,9 @@
       "body": "namespaces.md §9 follow-up: most of examples/accept still write `List.map f xs`/`Bag.map f xs` where dot notation reads better. Convert the examples that are about ordinary use (not the ones testing the prefix form); regenerate snapshots; hashes may change (that's fine). Mechanical: DeepSeek. (Investigate how many first; if few, drop.)",
       "created": "2026-10-19",
       "updated": "2026-10-19",
-      "commits": []
+      "commits": [
+        "12cbe9d"
+      ]
     },
     {
       "id": 124,
@@ -1924,6 +1926,21 @@
         "design"
       ],
       "body": "D5 (Matt, 19 Oct). The binary is `stitchwort` (long). DESIGN.md §16 item 13 floats `sw`, `wort`; `stitch` clashes with a program-synthesis tool. Decide, then rename the binary, docs, VS Code and playground mentions in one sweep.\n\nClosed 19 Oct (Matt): `stitchwort` is fine as is.",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 129,
+      "title": "Dot notation sometimes elaborates differently from the prefix call",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab",
+        "design"
+      ],
+      "body": "Found converting examples to dot notation (SW-123, 19 Oct): 14 conversions changed the elaborated term (hash moved), e.g. `[True, False].map not` vs `List.map not [True, False]`, `[1, 2].map …`, `[1, 2].zip …`, several `.sort`/`.sortBy`/`.sortWith` calls in sort.sw, `.elem`/`.lookup` in list-toolkit.sw (DeepSeek log: scratchpad/tasks/dots.log). docs/syntax.md:239 presents them as the same call. Likely cause (inferred): the receiver is checked first without the function's expected type, so a literal list's element type or an implicit is settled differently (Nat vs Int), and evaluation order differs (receiver first). Investigate one case with the printer; then either make them agree or document the difference.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
