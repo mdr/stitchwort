@@ -55,6 +55,11 @@ Queued after the current lanes (user, 19 Oct):
 - Rename sweep (Sonnet): `foldl`/`scanl`/`foldr` (and lemma names) to
   `foldLeft`/`scanLeft`/`foldRight`. `count` stays. `fst`/`snd` stay; no
   aliases; prefer destructuring in AoC code.
+- Compile-time `include "file" : Text` (contents part of the definition's
+  hash, so the existing test cache covers input files; precedents Rust
+  `include_str!`, Zig `@embedFile`, Lean `include_str`, Dhall integrity
+  imports). Real-input AoC tests in a separate per-day file (e.g.
+  `aoc/day04.input.sw`, inputs stay gitignored). User, 19 Oct.
 - After `let` stage 3: day 3 back to `let (top, after) := pick ...`; day 1
   `zerosPassed` as `turns |> .scanLeft Dial.move start |> .zipWith
   Dial.zerosDuring turns |> .sum` (check `zipWith` argument order), with
@@ -318,6 +323,11 @@ capability we know we'll need before the work that needs it):
    Write up the friction found.
 
 ## Later
+
+- **User-level persistent cache** (`cached f x` keyed by definition hash,
+  argument hash, compiler fingerprint; safe in pure code): parked until a
+  real need (user, 19 Oct). Likewise caching `run` output by `main` +
+  stdin hash.
 
 - **Identical-looking type mismatch** (day 1 batch): with `Dial.place`
   inlined, `backFrom`, `backFar`, `leftOne`, `leftStep` fail with expected
