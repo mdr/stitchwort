@@ -1631,6 +1631,21 @@ impl<'g> Gen<'g> {
                     format!("(({}) => {body})", var(level))
                 }
             }
+            // Computed once, before the body. Not erased yet, even for a
+            // proof or a type (whose JS is `undefined` anyway): that's
+            // docs/proposals/let.md stage 3.
+            Term::Let(_, _, value, body) => {
+                let value = self.expr(value, env)?;
+                let level = env.len();
+                env.push(false);
+                let body = self.expr(body, env)?;
+                env.pop();
+                if body.starts_with('{') {
+                    format!("(({}) => ({body}))({value})", var(level))
+                } else {
+                    format!("(({}) => {body})({value})", var(level))
+                }
+            }
             Term::Ctor(d, c, args) => {
                 let data = self.g.data(*d);
                 if data.sort == Sort::Prop {

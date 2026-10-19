@@ -21,9 +21,19 @@ pub struct Ctx<'g> {
     g: &'g Globals,
     /// What each variable evaluates to. Normally the variable itself, but
     /// inside a case branch the matched variable is the constructor value.
+    /// For a `let` whose value hasn't been needed yet, its slot holds a
+    /// placeholder (the slot's own variable) and `pending` holds the value
+    /// term; see [`Ctx::define`].
     env: Vec<Value>,
     types: Vec<Value>,
     names: Vec<Name>,
+    /// For each slot, the value term of a `let` not computed yet, in the
+    /// context of the slots before it. Kernel-local: nothing computed here
+    /// is kept in a term or shared with the elaborator.
+    pending: Vec<Option<Rc<Term>>>,
+    /// How many entries of `pending` are `Some`: when none are, evaluation
+    /// needs no look at its term first.
+    unforced: usize,
     span: Span,
 }
 
@@ -34,6 +44,8 @@ impl<'g> Ctx<'g> {
             env: Vec::new(),
             types: Vec::new(),
             names: Vec::new(),
+            pending: Vec::new(),
+            unforced: 0,
             span,
         }
     }
@@ -46,6 +58,26 @@ impl<'g> Ctx<'g> {
         self.env.push(Value::var(self.level()));
         self.types.push(ty);
         self.names.push(name);
+        self.pending.push(None);
+    }
+
+    /// A transparent local definition `x : ty := value`: it takes a slot
+    /// (terms under it count it), but no neutral variable stands for it,
+    /// since it evaluates to `value` (docs/proposals/let.md §A.2). So no
+    /// value computed under it can mention it, and none can escape its scope.
+    ///
+    /// `value` is computed only when checking first evaluates a term that
+    /// mentions `x`, and then once ([`Ctx::eval`]): a `let` whose value no
+    /// type needs costs nothing to check, as the function form `(\x => b) v`
+    /// didn't (docs/proposals/let.md §A.2, "Cost at check time"). Until then
+    /// the slot holds its own variable as a placeholder, which nothing reads:
+    /// every evaluation in the checker goes through `Ctx::eval`.
+    fn define(&mut self, name: Name, ty: Value, value: Rc<Term>) {
+        self.env.push(Value::var(self.level()));
+        self.types.push(ty);
+        self.names.push(name);
+        self.pending.push(Some(value));
+        self.unforced += 1;
     }
 
     fn unbind(&mut self, n: usize) {
@@ -53,10 +85,62 @@ impl<'g> Ctx<'g> {
         self.env.truncate(keep);
         self.types.truncate(keep);
         self.names.truncate(keep);
+        self.unforced -= self.pending[keep..].iter().filter(|p| p.is_some()).count();
+        self.pending.truncate(keep);
     }
 
-    fn eval(&self, term: &Term) -> Result<Value> {
+    /// Evaluates `term` in the context, first computing the value of each
+    /// `let` it mentions whose value hasn't been needed yet.
+    fn eval(&mut self, term: &Term) -> Result<Value> {
+        self.force_mentioned(term, self.level())?;
         Ok(eval(self.g, &self.env, term)?)
+    }
+
+    /// Computes the pending `let`s that `term`, in the context of the first
+    /// `depth` slots, mentions (and, through their values, the ones those
+    /// mention).
+    fn force_mentioned(&mut self, term: &Term, depth: usize) -> Result<()> {
+        if self.unforced == 0 {
+            return Ok(());
+        }
+        let mut wanted = Vec::new();
+        for (t, binders) in term.subterms() {
+            if let Term::Var(ix) | Term::Case(ix, ..) | Term::NumCase(ix, ..) = t
+                && let Some(ix) = ix.checked_sub(binders)
+                && let Some(level) = depth.checked_sub(ix + 1)
+                && self.pending.get(level).is_some_and(Option::is_some)
+            {
+                wanted.push(level);
+            }
+        }
+        for level in wanted {
+            self.force(level)?;
+        }
+        Ok(())
+    }
+
+    /// Computes the value of the pending `let` in slot `level`, if it's still
+    /// pending. On an error (out of resources) it stays pending.
+    fn force(&mut self, level: usize) -> Result<()> {
+        let Some(value) = self.pending[level].clone() else {
+            return Ok(());
+        };
+        self.g.budget.nesting(PASS)?;
+        self.force_mentioned(&value, level)?;
+        let computed = eval(self.g, &self.env[..level], &value)?;
+        self.env[level] = computed;
+        self.pending[level] = None;
+        self.unforced -= 1;
+        Ok(())
+    }
+
+    /// Computes every pending `let`, for code that reads the whole
+    /// environment.
+    fn force_all(&mut self) -> Result<()> {
+        for level in 0..self.level() {
+            self.force(level)?;
+        }
+        Ok(())
     }
 
     fn quote(&self, value: &Value) -> Result<Term> {
@@ -187,7 +271,14 @@ pub fn infer(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
             match f_ty {
                 Value::Pi(_, pi_icit, dom, cod) if pi_icit == *icit => {
                     let a = check(cx, a, &dom)?;
-                    let ty = cod.apply_lazy(g, || eval(g, &cx.env, &a))?;
+                    // As `Closure::apply_lazy`: `a` is computed only if the
+                    // result type depends on it.
+                    let arg = if cod.body.mentions(0) {
+                        cx.eval(&a)?
+                    } else {
+                        unused()
+                    };
+                    let ty = cod.apply(g, arg)?;
                     Ok((Term::app_icit(f, a, *icit), ty))
                 }
                 other => Err(cx.error(
@@ -205,6 +296,15 @@ pub fn infer(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
             let ty_value = cx.eval(&ty)?;
             let e = check(cx, e, &ty_value)?;
             Ok((Term::Ann(Rc::new(e), Rc::new(ty)), ty_value))
+        }
+        // The body's type is a value computed with `x` evaluating to `v`, so
+        // it doesn't mention `x`: it's `B[v/x]` already, usable outside.
+        Term::Let(x, ty, value, body) => {
+            let (x, ty, value) = check_let_value(cx, x, ty, value)?;
+            let result = infer(cx, body);
+            cx.unbind(1);
+            let (body, body_ty) = result?;
+            Ok((Term::Let(x, ty, value, Rc::new(body)), body_ty))
         }
         Term::Eq(Some(ty), a, b) => {
             let (ty, _) = check_type(cx, ty)?;
@@ -330,6 +430,12 @@ pub fn check(cx: &mut Ctx, term: &Term, expected: &Value) -> Result<Term> {
                 cx.show(expected)
             ),
         )),
+        (Term::Let(x, ty, value, body), _) => {
+            let (x, ty, value) = check_let_value(cx, x, ty, value)?;
+            let result = check(cx, body, expected);
+            cx.unbind(1);
+            Ok(Term::Let(x, ty, value, Rc::new(result?)))
+        }
         (Term::Case(ix, d, branches), _) => check_case(cx, *ix, *d, branches, expected),
         (Term::NumCase(ix, arms, default), _) => check_num_case(cx, *ix, arms, default, expected),
         _ => {
@@ -353,6 +459,24 @@ pub fn check_type(cx: &mut Ctx, term: &Term) -> Result<(Term, Sort)> {
             format!("this has type `{}`, so it isn't a type", cx.show(&other)),
         )),
     }
+}
+
+/// The premises of `Let(x, A, v, b)` before its body: `A` is a type (in
+/// any universe: a proof, data and a type are all defined the same way), and
+/// `v : A`. Leaves `x := v` defined in the context, for the body; the caller
+/// removes it.
+fn check_let_value(
+    cx: &mut Ctx,
+    x: &Name,
+    ty: &Term,
+    value: &Term,
+) -> Result<(Name, Rc<Term>, Rc<Term>)> {
+    let (ty, _) = check_type(cx, ty)?;
+    let ty_value = cx.eval(&ty)?;
+    let value = Rc::new(check(cx, value, &ty_value)?);
+    // Computed only when checking the body needs it (`Ctx::define`).
+    cx.define(x.clone(), ty_value, value.clone());
+    Ok((x.clone(), Rc::new(ty), value))
 }
 
 /// The universe that `ty` lives in.
@@ -429,6 +553,9 @@ fn check_case(
     if ix >= cx.level() {
         return Err(malformed(cx, format!("variable {ix} is out of scope")));
     }
+    // Refinement rewrites the whole environment. (A case is never under a
+    // `let`, so nothing's pending here; this keeps it so.)
+    cx.force_all()?;
     let x = cx.level() - 1 - ix;
     let Some(data) = g.datas.get(d.0) else {
         return Err(malformed(cx, "reference to an unknown data type"));
@@ -573,6 +700,9 @@ fn check_num_case(
     if ix >= cx.level() {
         return Err(malformed(cx, format!("variable {ix} is out of scope")));
     }
+    // Refinement rewrites the whole environment. (A case is never under a
+    // `let`, so nothing's pending here; this keeps it so.)
+    cx.force_all()?;
     let x = cx.level() - 1 - ix;
     let Some(nat) = g.builtins.nat else {
         return Err(malformed(cx, "a number case without `Nat`"));

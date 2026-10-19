@@ -332,3 +332,119 @@ fn deep_evaluation_runs_in_one_machine_and_the_reference_in_none() {
         assert_eq!(normal(g, 0, &fast), normal(g, 0, &slow));
     });
 }
+
+/// `let` (docs/proposals/let.md stage 2): both evaluators put the value in
+/// the environment, once, before the body, on closed and open terms, with the
+/// value or the body a function, nested, and under binders. The elaborator
+/// doesn't produce `Let` yet, so the terms are built here.
+#[test]
+fn the_evaluators_agree_on_let() {
+    with_stack(STACK, || {
+        let session = Session::for_stack(STACK);
+        let g = &session.elab.globals;
+        let nat = g.builtins.nat.unwrap();
+        let nat_ty = || Term::data(nat, vec![]);
+        let num = |n: u32| Term::Nat(std::rc::Rc::new(n.into()));
+        let add = |a: Term, b: Term| Term::app(Term::app(Term::Def(def(g, "Nat.add")), a), b);
+        let range = |n: Term| Term::app(Term::Def(def(g, "List.range")), n);
+        let length = |xs: Term| {
+            Term::app(
+                Term::app_icit(Term::Def(def(g, "List.length")), nat_ty(), Icit::Implicit),
+                xs,
+            )
+        };
+        let let_ = |x: &str, value: Term, body: Term| {
+            Term::Let(
+                x.into(),
+                std::rc::Rc::new(nat_ty()),
+                std::rc::Rc::new(value),
+                std::rc::Rc::new(body),
+            )
+        };
+        let lam = |x: &str, body: Term| Term::Lam(x.into(), Icit::Explicit, std::rc::Rc::new(body));
+        let v = Term::Var;
+        let cases: Vec<(&str, usize, Term)> = vec![
+            ("a quick value", 0, let_("x", num(3), add(v(0), v(0)))),
+            (
+                "a value that needs a frame",
+                0,
+                let_("x", add(num(2), num(3)), add(v(0), num(1))),
+            ),
+            (
+                "a list used twice",
+                0,
+                let_("n", length(range(num(50))), add(v(0), v(0))),
+            ),
+            (
+                "nested, each using the last",
+                0,
+                let_(
+                    "a",
+                    num(1),
+                    let_(
+                        "b",
+                        add(v(0), v(0)),
+                        let_("c", add(v(0), v(1)), add(v(0), v(2))),
+                    ),
+                ),
+            ),
+            (
+                "a function in the body, applied",
+                0,
+                Term::app(let_("x", num(5), lam("y", add(v(1), v(0)))), num(1)),
+            ),
+            (
+                "a function in the body, unapplied",
+                0,
+                let_("x", num(5), lam("y", add(v(0), v(1)))),
+            ),
+            (
+                "under a binder",
+                0,
+                lam(
+                    "z",
+                    let_(
+                        "x",
+                        add(v(0), num(1)),
+                        lam("w", let_("y", add(v(1), v(0)), add(v(0), v(3)))),
+                    ),
+                ),
+            ),
+            (
+                "open: stuck on a variable",
+                1,
+                let_("x", add(v(0), num(1)), add(v(0), v(0))),
+            ),
+            (
+                "open: the value unused",
+                1,
+                let_("x", add(v(0), v(0)), v(1)),
+            ),
+            (
+                "in an argument",
+                1,
+                add(let_("x", num(4), add(v(0), v(1))), v(0)),
+            ),
+        ];
+        for (what, level, term) in cases {
+            let env: Vec<Value> = (0..level).map(Value::var).collect();
+            let fast = value::eval(g, &env, &term).expect("no limits");
+            let slow = reference::eval(g, &env, &term).expect("no limits");
+            assert_eq!(normal(g, level, &fast), normal(g, level, &slow), "{what}");
+            assert!(
+                value::conv(g, level, &fast, &slow).expect("no limits"),
+                "{what}"
+            );
+        }
+        // The machine evaluates a long chain of `let`s in one run.
+        let mut chain = v(0);
+        for _ in 0..10_000 {
+            chain = let_("x", add(v(0), num(1)), chain);
+        }
+        let chain = let_("x", num(0), chain);
+        let before = machine_runs();
+        let fast = value::eval(g, &[], &chain).expect("no limits");
+        assert_eq!(machine_runs() - before, 1);
+        assert_eq!(normal(g, 0, &fast), "Nat(10000)");
+    });
+}

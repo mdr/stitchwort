@@ -52,7 +52,7 @@ impl Gen<'_> {
         let choice = if leaf {
             self.rng.below(6)
         } else {
-            6 + self.rng.below(10)
+            6 + self.rng.below(11)
         };
         let sub =
             |g: &mut Self, extra: usize| Rc::new(g.term(depth.saturating_sub(1), scope + extra));
@@ -91,6 +91,7 @@ impl Gen<'_> {
                 Term::Eq(ty, sub(self, 0), sub(self, 0))
             }
             14 => Term::J(sub(self, 0), sub(self, 0), sub(self, 0)),
+            15 => Term::Let("x".into(), sub(self, 0), sub(self, 0), sub(self, 1)),
             _ => {
                 let (ix, d) = (self.rng.below(scope + 1), self.data());
                 let branches: Vec<Branch> = (0..self.rng.below(3))

@@ -294,6 +294,28 @@ impl Walker<'_> {
                 self.walk(e)?;
                 self.walk(t)?;
             }
+            // `let x := v` is exactly as small as `v`: `x` gets the relation
+            // `v` has, from the terms alone, and nothing more
+            // (docs/proposals/let.md §6.1 rule 3). Calls are looked for in
+            // the annotation, the value and the body.
+            Term::Let(x, ty, value, body) => {
+                self.walk(ty)?;
+                self.walk(value)?;
+                let (param, smaller_than) = match self.relate(value) {
+                    Some((i, Label::Le)) => (Some(i), None),
+                    Some((i, Label::Lt)) => (None, Some(i)),
+                    None => (None, None),
+                };
+                self.vars.push(Info {
+                    name: x.clone(),
+                    param,
+                    smaller_than,
+                    recursive_fn: false,
+                });
+                let result = self.walk(body);
+                self.vars.pop();
+                result?;
+            }
             Term::Case(ix, d, branches) => {
                 let scrutinee = &self.vars[self.vars.len() - 1 - ix];
                 let source = scrutinee.param.or(scrutinee.smaller_than);

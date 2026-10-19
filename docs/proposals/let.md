@@ -729,8 +729,9 @@ any slot whose value isn't its own neutral), so quoting at a depth that
 counts the slot is the existing convention. Tests in stage 2 (§6.2):
 a dependent `Pi`/lambda after a `let` whose type is quoted outside the `let`;
 nested `let`s under binders. Strict evaluation means an unused data `let`'s
-value is still computed; that's a cost, not a change of meaning, since the
-value is pure and total.
+value is still computed when the program runs; that's a cost, not a change
+of meaning, since the value is pure and total. While *checking*, the value is
+computed only when needed (§A.3, "Cost at check time").
 
 ### A.3 Metavariables: the invariant and the audit
 
@@ -765,6 +766,54 @@ Tests (both directions): a metavariable created outside the `let` and solved
 inside it (e.g. an implicit argument whose solution is `f x` must be
 recorded as `f v`); a metavariable created inside the `let` whose solution
 is used after it.
+
+**Audit result (stage 2, at the commit that adds the kernel `Let`).** The
+invariant holds at every site below, by reading the code; the elaborator
+doesn't yet put a `let` in its context (stage 3), so the two tests above
+can't run end to end yet and move to stage 3. What makes each site safe,
+and what stage 3 must keep true:
+
+| Site | Works on | Why no out-of-scope `x` can appear |
+|---|---|---|
+| `solve`, `rename` (`crates/elab/src/unify.rs:311`, `:342`) | values | A solution emits `Term::Var` only for a spine variable, which must force to a bare `Head::Var(l)` with an empty spine. A `let` slot never evaluates to a neutral of its own level, so it can't be in a spine, and an occurrence of `x` in the right-hand side has already become `v`'s value. Holds as long as the elaborator puts `v`'s value (or a deferred value that isn't a bare neutral of the slot's level) in the slot. |
+| `Ctx::fresh_meta` (`crates/elab/src/check.rs:268`), `lift::spine` (`crates/elab/src/lift.rs:133`), the matching copies (`crates/elab/src/matching.rs:325`) | environment | All test `is_var(env[l], l)`: a slot whose value is its own neutral is a plain variable. A `let` slot holding `v`'s value fails the test, so it's left out of a new metavariable's spine and never copied. **Stage 3 caveat:** if the elaborator defers a `let`'s value the way the kernel does (below), its placeholder must not be the slot's own neutral, or these three sites would take the `let` for a plain variable and put it in spines; give pending slots a test of their own. |
+| `zonk_keeping` (`crates/elab/src/unify.rs:495`, `Let` case `:542`) | terms | It rewrites a term in place; under a `Let` it counts the slot (`level + 1`). A metavariable application is evaluated in an environment of plain variables, so its result may mention `x` syntactically, but only at a position inside `x`'s scope, where the term was. Its output isn't a metavariable solution. |
+| `go_replace`/`unrefine` (`crates/elab/src/lift.rs:164`, `Let` case `:213`; `:551`) | terms | A `Let` inside the lifted term binds its own slot (`under + 1`), so its variable stays a variable. A `let` slot in the *context* (stage 3) isn't `is_var`, so `unrefine` replaces it by `quote` of its value: no `x` escapes, though the value is pasted unshared (§A.4, rule 4, stage 3). |
+| Quoting (`crates/core/src/value.rs` `quote`) | values | Values contain no neutral for a `let` slot (A.2), and quoting never produces `Let`. |
+| Kernel context (`crates/core/src/check.rs:75` `define`, `:94` `eval`) | both | Every evaluation goes through `Ctx::eval`, which computes the pending `let`s a term mentions before evaluating it, so no value the checker builds sees the placeholder; case refinement, which rewrites the whole environment, computes every pending `let` first (`:558`, `:705`). |
+
+**Cost at check time (added in stage 2, decided by the user on 19 October
+2026).** The function form `(\x => b) v` cost nothing to check unless a type
+needed `v` (`Closure::apply_lazy`), and a kernel `Let` that evaluated `v` on
+entry would have made every closed `let` cost its value at check time. So the
+kernel computes a `let`'s value only when checking first evaluates a term
+that mentions it, and then once: the context holds the value term
+(`Ctx::define`), and `Ctx::eval` computes the pending `let`s a term mentions,
+in their own scope (each value's own pending `let`s first). This is a local
+definition held in the checker's context, not a new kind of value: values
+never contain a deferred computation, so quoting, conversion and the
+evaluator are unchanged, and nothing deferred reaches a term or the
+elaborator. The kernel has no metavariables, so a computed value can't go
+stale; exhaustion while computing one is an `E-RESOURCE` error and leaves it
+pending. Running a program stays strict (`value.rs`, `Frame::LetBody`). An
+application's argument whose result type mentions it is computed through the
+same path (`check.rs:276`).
+
+Measured (release build, the prelude, `List.length xs` as the body):
+checking `let xs := List.range 200000; …` takes about 3 µs, the same as the
+function form (about 4 µs); evaluating the value, which a strict rule would
+add, takes about 83 ms. Tests: `crates/core/tests/let_term.rs`
+(`a_value_no_type_needs_is_not_computed_while_checking`, which also shows a
+value used twice in types is computed once, and
+`a_pending_let_computes_the_ones_its_value_mentions`).
+
+**Nested-`let` cost.** The adversarial test (20 `let`s on an unknown `a`,
+each the previous one used twice, compared and printed) passes under the
+default limits without reaching them, but takes about 8 s per check in a
+debug build: a neutral value's spine isn't shared, so `x20`'s value is a tree
+of 2^20 nodes once built. That's the evaluator's value representation, not
+the `let` rule (the function form would build the same value once a type
+needed it).
 
 ### A.4 Lifting with re-created `let`s
 
@@ -835,7 +884,9 @@ Plan for stage 3:
   No second "is this a proof?" test; elimination of a proof into data stays
   governed by the existing `E-PROP-ELIM` rule. The JS backend
   (`crates/js/src/lib.rs`) already uses the kernel's erasure information.
-- **Stack safety.** `step.rs` (stack-safe evaluation) needs a `Let` frame;
+- **Stack safety.** The stack-safe evaluator needs a `Let` frame (it's in
+  `value.rs`, `Frame::LetBody`; `step.rs` runs `Delay` values and needed no
+  change);
   the differential test (`crates/driver/tests/differential.rs`) should get
   `let` cases.
 - **Effects.** `may_perform(let x := v; rest)` = `may_perform(v) ||
