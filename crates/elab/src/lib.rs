@@ -22,6 +22,7 @@ mod numbers;
 mod partial;
 mod patlet;
 mod pipe;
+pub mod project;
 mod records;
 mod scope;
 mod undo;
@@ -77,6 +78,9 @@ enum Global {
 /// A `test "name" = expr` declaration, checked as a definition of type `Bool`.
 pub struct TestDecl {
     pub name: String,
+    /// The namespace of the module that declares it; empty if the module
+    /// has none.
+    pub namespace: String,
     pub def: DefId,
     pub span: Span,
 }
@@ -484,6 +488,7 @@ impl Elaborator {
         kernel::define_def(&mut self.globals, id, &body)?;
         self.tests.push(TestDecl {
             name: name.to_string(),
+            namespace: self.module.namespace.clone().unwrap_or_default(),
             def: id,
             span,
         });

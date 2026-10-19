@@ -7,6 +7,7 @@ use std::path::PathBuf;
 use stitchwort_core::hash::{ContentHash, def_hash};
 use stitchwort_core::value::{eval, force};
 use stitchwort_core::{Globals, Limits, ResourceError, Term, Value};
+use stitchwort_elab::project::SourceUnit;
 use stitchwort_elab::{Elaborator, PRELUDE};
 use stitchwort_syntax::ast::Expr;
 use stitchwort_syntax::{
@@ -90,7 +91,72 @@ impl Session {
         let file = self.sources.add(name, text);
         let module = parse_module_within(file, text, self.elab.limits.stack)?;
         let first_new_def = self.elab.globals.defs.len();
-        let mut diagnostics = self.elab.elaborate_module(&module);
+        let diagnostics = self.elab.elaborate_module(&module);
+        self.finish_load(first_new_def, diagnostics)?;
+        Ok(file)
+    }
+
+    /// Loads several files of one namespace as one module: for tests, until
+    /// projects load (`docs/proposals/multi-file.md` §4.4). Each file is
+    /// `(name, text)`, and all must start with the same namespace line.
+    #[doc(hidden)]
+    pub fn load_namespace(&mut self, files: &[(&str, &str)]) -> Result<(), Vec<Diagnostic>> {
+        let mut sorted: Vec<(&str, &str)> = files.to_vec();
+        sorted.sort_by_key(|(name, _)| *name);
+        let ids: Vec<FileId> = sorted
+            .iter()
+            .map(|&(name, text)| self.sources.add(name, text))
+            .collect();
+        let mut modules = Vec::new();
+        let mut errors = Vec::new();
+        for (id, (_, text)) in ids.iter().zip(&sorted) {
+            match parse_module_within(*id, text, self.elab.limits.stack) {
+                Ok(module) => modules.push(module),
+                Err(parse_errors) => errors.extend(parse_errors),
+            }
+        }
+        if !errors.is_empty() {
+            return Err(errors);
+        }
+        let internal = |message: &str| vec![Diagnostic::error("E-INTERNAL", message)];
+        let Some(first) = modules.first().and_then(|m| m.namespace.as_ref()) else {
+            return Err(internal("every file of a namespace needs a namespace line"));
+        };
+        let namespace = first.path.text.clone();
+        if modules
+            .iter()
+            .any(|m| m.namespace.as_ref().map(|n| &n.path.text) != Some(&namespace))
+        {
+            return Err(internal("the files must all be in the same namespace"));
+        }
+        if let Err(d) = self.elab.check_namespace_name(first) {
+            return Err(vec![d]);
+        }
+        let units: Vec<SourceUnit> = sorted
+            .iter()
+            .zip(&ids)
+            .zip(&modules)
+            .map(|(((name, _), id), module)| SourceUnit {
+                file: Some(*id),
+                name,
+                module,
+            })
+            .collect();
+        let first_new_def = self.elab.globals.defs.len();
+        let diagnostics = self
+            .elab
+            .elaborate_namespace(Some(&namespace), &units, None);
+        self.finish_load(first_new_def, diagnostics)
+    }
+
+    /// What `load` does once the elaborator is done: checks that the new
+    /// definitions' exports can cross the JS boundary, keeps the warnings,
+    /// and returns the errors if there are any.
+    fn finish_load(
+        &mut self,
+        first_new_def: usize,
+        mut diagnostics: Vec<Diagnostic>,
+    ) -> Result<(), Vec<Diagnostic>> {
         let errors = |ds: &[Diagnostic]| ds.iter().any(|d| d.severity == Severity::Error);
         if !errors(&diagnostics) {
             let g = &self.elab.globals;
@@ -115,7 +181,7 @@ impl Session {
             Err(diagnostics)
         } else {
             self.warnings.extend(diagnostics);
-            Ok(file)
+            Ok(())
         }
     }
 
@@ -158,6 +224,8 @@ pub enum Outcome {
 
 pub struct TestResult {
     pub name: String,
+    /// The namespace its module is in; empty if it has none.
+    pub namespace: String,
     pub outcome: Outcome,
     /// Whether the outcome came from the cache, rather than running the test.
     pub cached: bool,
@@ -318,6 +386,7 @@ impl Session {
                     Err(e) => {
                         return TestResult {
                             name: test.name.clone(),
+                            namespace: test.namespace.clone(),
                             outcome: Outcome::OutOfResources(e),
                             cached: false,
                             hash: None,
@@ -327,6 +396,7 @@ impl Session {
                 if let Some(outcome) = cache.get(&hash, &modes) {
                     return TestResult {
                         name: test.name.clone(),
+                        namespace: test.namespace.clone(),
                         outcome,
                         cached: true,
                         hash: Some(hash),
@@ -345,6 +415,7 @@ impl Session {
                 cache.put(&hash, &modes, outcome);
                 TestResult {
                     name: test.name.clone(),
+                    namespace: test.namespace.clone(),
                     outcome,
                     cached: false,
                     hash: Some(hash),

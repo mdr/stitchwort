@@ -71,8 +71,8 @@ pub struct Scope {
     followers: HashMap<String, Vec<String>>,
     /// Every proper prefix of a key: the namespaces.
     namespaces: HashSet<String>,
-    /// The current module's imports: short name to keys.
-    imports: HashMap<String, Vec<(String, Span)>>,
+    /// Each file of the current module's imports: short name to keys.
+    imports: Vec<HashMap<String, Vec<(String, Span)>>>,
     /// What `Std` declares at its root, and its aliases: short name to key.
     std_root: HashMap<String, String>,
 }
@@ -353,15 +353,14 @@ impl Elaborator {
                 }
             }
             Level::Import => {
-                for (key, _) in self.scope.imports.get(x).into_iter().flatten() {
+                let imports = self.scope.imports.get(self.current_file());
+                for (key, _) in imports.and_then(|t| t.get(x)).into_iter().flatten() {
                     found(key);
                 }
                 for key in followed() {
                     let owner = parent(key).unwrap_or("");
-                    let imported = self
-                        .scope
-                        .imports
-                        .get(short(owner))
+                    let imported = imports
+                        .and_then(|t| t.get(short(owner)))
                         .is_some_and(|v| v.iter().any(|(k, _)| k == owner));
                     if imported && self.visible_as(owner) {
                         found(key);
@@ -605,24 +604,33 @@ impl Elaborator {
                     ..
                 } = self.resolve_short(&item.text, true)
                 {
+                    let message = match self.current_namespace() {
+                        Some(namespace) if span.file != item.span.file => format!(
+                            "`{}` is imported, but `{}` is also defined in another file of namespace {namespace}",
+                            item.text, item.text
+                        ),
+                        _ => format!(
+                            "`{}` is imported, but this file also defines `{}`",
+                            item.text, item.text
+                        ),
+                    };
                     diagnostics.push(
-                        error(
-                            "E-IMPORT-CLASH",
-                            item.span,
-                            format!(
-                                "`{}` is imported, but this file also defines `{}`",
-                                item.text, item.text
-                            ),
-                        )
-                        .with_label(span, "defined here, which would hide the import")
-                        .with_note(format!(
-                            "remove the import, and write `{}` where you mean that one",
-                            display(&key)
-                        )),
+                        error("E-IMPORT-CLASH", item.span, message)
+                            .with_label(span, "defined here, which would hide the import")
+                            .with_note(format!(
+                                "remove the import, and write `{}` where you mean that one",
+                                display(&key)
+                            )),
                     );
                     continue;
                 }
-                let entry = self.scope.imports.entry(item.text.clone()).or_default();
+                let file = self.current_file();
+                if self.scope.imports.len() <= file {
+                    self.scope.imports.resize_with(file + 1, HashMap::new);
+                }
+                let entry = self.scope.imports[file]
+                    .entry(item.text.clone())
+                    .or_default();
                 if entry.iter().any(|(k, _)| *k == key) {
                     diagnostics.push(
                         Diagnostic::warning(
