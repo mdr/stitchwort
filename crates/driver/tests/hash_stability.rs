@@ -151,9 +151,16 @@ fn a_namespace_checked_alone_has_the_same_hashes() {
             let expected = all
                 .iter()
                 .filter(|l| !base.contains(*l))
-                .filter(|l| l.strip_prefix("data ").unwrap_or(l).starts_with(&format!("{namespace}.")))
+                .filter(|l| {
+                    l.strip_prefix("data ")
+                        .unwrap_or(l)
+                        .starts_with(&format!("{namespace}."))
+                })
                 .count();
-            assert_eq!(own, expected, "{name}: {namespace} alone lacks declarations");
+            assert_eq!(
+                own, expected,
+                "{name}: {namespace} alone lacks declarations"
+            );
         }
     }
 }

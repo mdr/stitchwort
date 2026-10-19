@@ -349,7 +349,11 @@ fn a_typo_in_the_files_own_namespace_is_not_file_mode() {
     let typo = "namespace Day\n\ndef x: Nat := 1\n\ndef y: Nat := Day.xx\n";
     let dir = project(
         "own_namespace_typo",
-        &[("stitchwort.yaml", ""), ("src/lib.sw", LIB), ("src/day.sw", typo)],
+        &[
+            ("stitchwort.yaml", ""),
+            ("src/lib.sw", LIB),
+            ("src/day.sw", typo),
+        ],
     );
     let message = fails(&dir, &["check", "src/day.sw"], "E-UNKNOWN-NAME");
     assert!(!message.contains("E-FILE-MODE"), "{message}");
@@ -368,7 +372,10 @@ fn a_qualified_declaration_in_the_files_own_namespace_is_refused_in_a_single_fil
 fn main_is_not_a_namespace_name() {
     let dir = project(
         "main_reserved",
-        &[("stitchwort.yaml", ""), ("src/m.sw", "namespace Main\n\ndef x: Nat := 1\n")],
+        &[
+            ("stitchwort.yaml", ""),
+            ("src/m.sw", "namespace Main\n\ndef x: Nat := 1\n"),
+        ],
     );
     fails(&dir, &["check"], "E-NAMESPACE-RESERVED");
 }
