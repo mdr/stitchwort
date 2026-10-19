@@ -29,25 +29,25 @@ test "len" := len [1, 2, 3] == 3
 def three: Nat :=
   let k := 3
   let ys: List Nat := List.replicate k 0
-  List.length ys
+  ys.length
 
 theorem threeIs: three = 3 := rfl
 
 -- A `match` after a `let` is lifted into a helper, which re-creates the
 -- `let`, so the alternatives still know `ys` is `xs`.
-theorem helperKnows (xs: List Nat) (b: Bool): List.length xs = List.length xs :=
+theorem helperKnows (xs: List Nat) (b: Bool): xs.length = xs.length :=
   let ys := xs
   match b with
-    | True => (rfl: List.length ys = List.length xs)
-    | False => (rfl: List.length xs = List.length ys)
+    | True => (rfl: ys.length = xs.length)
+    | False => (rfl: xs.length = ys.length)
 
 -- Matching a `let`'s name: the goal's `xs` is generalised, and in each
 -- alternative `ys` is the matched value.
-theorem matchAlias (xs: List Nat): List.length xs + 0 = List.length xs :=
+theorem matchAlias (xs: List Nat): xs.length + 0 = xs.length :=
   let ys := xs
   match ys with
     | Nil => rfl
-    | Cons y zs => Nat.addZero (List.length ys)
+    | Cons y zs => Nat.addZero ys.length
 
 -- A local definition after a `let` knows its value too.
 def afterLet (n: Nat): Nat :=

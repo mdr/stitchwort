@@ -26,7 +26,7 @@ def step: (Pos, Nat) -> Turn -> (Pos, Nat)
 
 def tally (q: Pos) (count: Nat): (Pos, Nat) := (q, if q.at == 0 then count + 1 else count)
 
-def zeros (ts: List Turn): Nat := Pair.snd (List.foldLeft step (start, 0) ts)
+def zeros (ts: List Turn): Nat := (ts.foldLeft step (start, 0)).snd
 
 -- The sample from the puzzle: L68 L30 R48 L5 R60 L55 L1 L99 R14 L82.
 def sample: List Turn := [Left 68, Left 30, Right 48, Left 5, Right 60, Left 55, Left 1, Left 99, Right 14, Left 82]

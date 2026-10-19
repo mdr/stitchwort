@@ -29,7 +29,7 @@ def averageOrZero (total: Nat) (count: Nat): Nat :=
 theorem twoBelowThree: 2 < 3 := rfl
 
 -- `get` needs a proof that the index is in range.
-def get: (xs: List a) -> (i: Nat) -> [auto ok: i < List.length xs] -> a
+def get: (xs: List a) -> (i: Nat) -> [auto ok: i < xs.length] -> a
   | Cons x xs, Zero   => x
   | Cons x xs, Succ i => get xs i
 -- When the list is empty, `ok: i < List.length Nil` computes to `False = True`,

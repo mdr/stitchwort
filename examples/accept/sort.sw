@@ -12,7 +12,7 @@ theorem sortsDot: [2, 1].sort = [1, 2] := rfl
 theorem sortsDescending: List.sortWith (\x y => Nat.leq y x) [1, 3, 2] = [3, 2, 1] := rfl
 
 -- By a key. The sort is stable: pairs with equal keys keep their order.
-def byKey (p: Pair Nat Text) (q: Pair Nat Text): Ordering := Nat.compare (Pair.fst p) (Pair.fst q)
+def byKey (p: Pair Nat Text) (q: Pair Nat Text): Ordering := Nat.compare p.fst q.fst
 
 test "sorts by key, stably" :=
   List.map Pair.snd (List.sortBy byKey [(2, "b"), (1, "x"), (2, "a"), (0, "z"), (1, "y")])
@@ -21,8 +21,8 @@ test "sorts by key, stably" :=
 test "sorts texts" := List.sortBy Text.compare ["pear", "apple", "fig"] == ["apple", "fig", "pear"]
 
 test "sorts many numbers" :=
-  List.sort (List.map (\i => (i * 7919 + 13) % 1009) (List.range 300))
-    == List.sortWith Nat.leq (List.reverse (List.map (\i => (i * 7919 + 13) % 1009) (List.range 300)))
+  ((List.range 300).map (\i => (i * 7919 + 13) % 1009)).sort
+    == ((List.range 300).map (\i => (i * 7919 + 13) % 1009)).reverse.sortWith Nat.leq
 
 -- Using the theorems.
 
@@ -32,9 +32,9 @@ theorem firstLeSecond (x: Nat) (y: Nat) (rest: List Nat):
   | Both h s => h
 
 -- Sorting keeps every element, so it keeps the number of 3s, and the length.
-theorem keepsThrees (xs: List Nat): List.occurrences (Nat.equal 3) (List.sort xs) = List.occurrences (Nat.equal 3) xs := List.sortPerm xs (Nat.equal 3)
+theorem keepsThrees (xs: List Nat): (xs.sort).occurrences (Nat.equal 3) = xs.occurrences (Nat.equal 3) := List.sortPerm xs (Nat.equal 3)
 
-theorem keepsLength (xs: List Nat): List.length (List.sort xs) = List.length xs := List.permLength (List.sort xs) xs (List.sortPerm xs)
+theorem keepsLength (xs: List Nat): (xs.sort).length = xs.length := (xs.sort).permLength xs (xs.sortPerm)
 
 -- `List.sortBy` is sorted given a total comparison; `Nat.compare` on keys is.
-theorem byKeySorted (ps: List (Pair Nat Text)): List.Sorted (\p q => Ordering.isLessEq (byKey p q)) (List.sortBy byKey ps) := List.sortBySorted byKey (\p q => Nat.compareTotal (Pair.fst p) (Pair.fst q)) ps
+theorem byKeySorted (ps: List (Pair Nat Text)): List.Sorted (\p q => Ordering.isLessEq (byKey p q)) (ps.sortBy byKey) := ps.sortBySorted byKey (\p q => Nat.compareTotal p.fst q.fst)

@@ -31,7 +31,7 @@ def firstLead: List Team -> Text
 
 -- Parameters and dependent fields, as for data types: `ok` mentions the
 -- earlier fields.
-type Sized (a: Type) = { items: List a, size: Nat, ok: List.length items = size }
+type Sized (a: Type) = { items: List a, size: Nat, ok: items.length = size }
 
 def empty: Sized Nat := { items = Nil, size = 0, ok = rfl }
 
@@ -42,7 +42,7 @@ def push (x: a) (s: Sized a): Sized a := { items = Cons x s.items, size = Succ s
 def grown: Sized Nat := { push 1 empty | items = [1, 2], size = 2, ok = rfl }
 
 -- A projection's type mentions the earlier fields as projections.
-theorem sizeIsLength (s: Sized a): List.length s.items = s.size := s.ok
+theorem sizeIsLength (s: Sized a): s.items.length = s.size := s.ok
 
 -- A record of proofs.
 type Between (lo: Nat) (hi: Nat) (n: Nat): Prop = { above: lo <= n, below: n <= hi }

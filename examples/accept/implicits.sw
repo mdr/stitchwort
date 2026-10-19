@@ -23,7 +23,7 @@ theorem orComm: Or p q -> Or q p
   | Inr h => Inl h
 
 -- Implicit parameters are in scope in the equations, by name.
-theorem appendNil: (xs: List a) -> List.append xs Nil = xs
+theorem appendNil: (xs: List a) -> xs.append Nil = xs
   | Nil       => rfl
   | Cons x xs => Eq.cong (\ys => Cons x ys) (appendNil xs)
 

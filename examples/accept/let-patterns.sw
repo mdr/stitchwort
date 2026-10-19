@@ -47,15 +47,15 @@ def unit (u: ()): Nat :=
   3
 
 -- Lambdas: a pattern parameter, one among others, and a record.
-def sums (ps: List (Nat, Nat)): List Nat := map (\(a, b) => a + b) ps
+def sums (ps: List (Nat, Nat)): List Nat := ps.map (\(a, b) => a + b)
 
-def total (entries: List (Text, Nat)): Nat := foldLeft (\acc (k, v) => acc + v) 0 entries
+def total (entries: List (Text, Nat)): Nat := entries.foldLeft (\acc (k, v) => acc + v) 0
 
 -- A record pattern needs its type known where the lambda is checked, as
 -- `p.name` does: here, from the signature.
 def nameOf: Person -> Text := \{ name, .. } => name
 
-def nestedLambda (xs: List ((Nat, Nat), Nat)): List Nat := map (\((a, b), c) => a * b + c) xs
+def nestedLambda (xs: List ((Nat, Nat), Nat)): List Nat := xs.map (\((a, b), c) => a * b + c)
 
 -- A proof: `let (a, b) = p` on a variable refines `p` to `(a, b)`, so the
 -- goal computes.
@@ -139,7 +139,7 @@ def swapped (p: (Nat, Text)): (Text, Nat) :=
   let (a, b) := p
   (b, a)
 
-theorem swappedUnfolds (p: (Nat, Text)): swapped p = (Pair.snd p, Pair.fst p) := rfl
+theorem swappedUnfolds (p: (Nat, Text)): swapped p = (p.snd, p.fst) := rfl
 
 def sumOf (n: Nat): Nat :=
   let ((a, b), c) := ((n, n + 1), n + 2)

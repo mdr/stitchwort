@@ -26,7 +26,7 @@ def f (n: Nat) (xs: List Nat): Nat := 1 + match xs with
                | Cons x _ => x + n
 
 -- A proof by `match`, in the tree.
-theorem appendNil (xs: List a): List.append xs Nil = xs :=
+theorem appendNil (xs: List a): xs.append Nil = xs :=
   match xs with
     | Nil       => rfl
     | Cons y ys => Eq.cong (Cons y) (appendNil ys)
@@ -40,21 +40,21 @@ test "f nil" := f 2 Nil == 3
 test "lifted in test" := (match 3 with | Zero => False | Succ _ => True)
 
 -- Expression scrutinee, named: `h` is an equation about the expression.
-def isEmpty (xs: List Nat): Bool := match h: length xs with
+def isEmpty (xs: List Nat): Bool := match h: xs.length with
   | Zero => True
   | Succ _ => False
 
 -- The equation used in a branch.
-def lenZero (xs: List Nat): Decidable (length xs = 0) := match h: length xs with
+def lenZero (xs: List Nat): Decidable (xs.length = 0) := match h: xs.length with
   | Zero => Yes rfl
   | Succ k => No (\e => Nat.equalFalse (Succ k) 0 rfl e)
 
 def keep (p: Prop): p -> Bool
   | _ => True
 
-def usesH (xs: List Nat): Bool := match h: length xs with
-  | Zero => keep (List.length xs = 0) h
-  | Succ k => keep (List.length xs = Succ k) h
+def usesH (xs: List Nat): Bool := match h: xs.length with
+  | Zero => keep (xs.length = 0) h
+  | Succ k => keep (xs.length = Succ k) h
 
 -- Expression scrutinee generalised in the goal.
 theorem same (n: Nat): (n + 0) = (n + 0) := match n + 0 with

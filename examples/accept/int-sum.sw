@@ -13,6 +13,6 @@ def balance (deltas: List (Text, Int)): Int := deltas |> List.sumIntBy Pair.snd
 theorem balanceExample: balance [("a", 5), ("b", -7)] = -2 := rfl
 
 def signedLengths (xs: List (List Nat)): Int :=
-  List.sumIntBy (\ys => Int.sub (Nat.toInt (List.length ys)) 1) xs
+  xs.sumIntBy (\ys => Int.sub (Nat.toInt (ys.length)) 1)
 
 theorem signedLengthsExample: signedLengths [[1, 2], [], [3]] = 0 := rfl
