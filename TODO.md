@@ -60,8 +60,13 @@ Queued after the current lanes (user, 19 Oct):
   Dial.zerosDuring turns |> .sum` (check `zipWith` argument order), with
   its proof reworked (Opus).
 
-Running: `let-stage2` (Opus: lazy kernel `Let`, metavariable audit),
-`checker-bind` (Opus: option (a) 1A+1B, note draft 2), `run-js` (Opus).
+Merged 19 Oct: `run --js` (`9f905c9`; day 4 17 s -> 1 s; Partial works;
+2 GB worker stack, user: keep as default), `let` stage 2 (`48bac44`: kernel
+`Let`, value computed on demand while checking, strict when running).
+AoC example answers are now tests; `theorem` only for all-input facts.
+Running: `let-stage3` (Opus: elaborator emits `Let`, lifting re-creates
+lets, erasure, pattern lets via projections), `checker-bind` (Opus:
+option (a) 1A+1B, note draft 2).
 `run --js` (user, 19 Oct): compile `main` to JS, run under Node with an
 IO driver and a big stack. Quick wins Q1/Q2
 (native lookup by index, mimalloc) skipped (user).
