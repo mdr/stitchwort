@@ -3,15 +3,15 @@
 -- it handles must finish: it can't be partial. (Its clauses may run
 -- partial code: `countLogged` in accept/partial.sw.)
 ability Log where
-  say : Nat -> {Log} ()
+  say: Nat -> {Log} ()
 
-def spin (n : Nat) : {Partial} Nat := spin (n + 1)
+def spin (n: Nat): {Partial} Nat := spin (n + 1)
 
-def loud () : {Log, Partial} Nat :=
+def loud(): {Log, Partial} Nat :=
   say 1
   spin 0
 
-def quiet () : {Partial} Nat :=
-  handle loud () with
+def quiet(): {Partial} Nat :=
+  handle loud() with
     | return x   => x
-    | say n, k => k ()
+    | say n, k => k()

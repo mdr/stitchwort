@@ -4,12 +4,12 @@
 -- proof): a deliberately conservative rule, as in Lean
 -- (docs/proposals/mutual-recursion.md §7.3). Matching to produce another
 -- proof is fine (accept/mutual-data.sw).
-type EvenP : Prop =
+type EvenP: Prop =
   | EvenZero
-  | EvenSucc (pred : OddP)
+  | EvenSucc (pred: OddP)
 
-type OddP : Prop =
-  | OddSucc (pred : EvenP)
+type OddP: Prop =
+  | OddSucc (pred: EvenP)
 
-def oddDepth : OddP -> Nat
+def oddDepth: OddP -> Nat
   | OddSucc e => 1

@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-PARTIAL-NONUNIFORM] Error: this recursive call to `grow` changes its type parameters
-   ╭─[ reject/partial-nonuniform.sw:6:48 ]
+   ╭─[ reject/partial-nonuniform.sw:6:45 ]
    │
- 6 │ def grow [a : Type] (x : a) : {Partial} Nat := grow [a := List a] (Cons x Nil)
-   │                                                ───────────────┬──────────────  
-   │                                                               ╰──────────────── this calls it at `List a`, but it's being defined at `a`
+ 6 │ def grow [a: Type] (x: a): {Partial} Nat := grow [a := List a] (Cons x Nil)
+   │                                             ───────────────┬──────────────  
+   │                                                            ╰──────────────── this calls it at `List a`, but it's being defined at `a`
    │ 
    │ Note: a partial recursive function's recursive calls must pass its type parameters on unchanged (non-uniform recursion, which changes them, isn't supported)
 ───╯

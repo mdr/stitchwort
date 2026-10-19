@@ -5,7 +5,7 @@ expression: output
 [E-EXPORT] Error: `useOuter` can't be exported
     ╭─[ reject/export-function-field.sw:10:1 ]
     │
- 10 │ export def useOuter (o : Outer) : Nat := 0
-    │ ──────────────────┬──────────────────  
-    │                   ╰──────────────────── parameter `o`: `Outer`'s field `inner`: `Holder`'s field `f`: functions can't cross the JS boundary yet
+ 10 │ export def useOuter (o: Outer): Nat := 0
+    │ ─────────────────┬─────────────────  
+    │                  ╰─────────────────── parameter `o`: `Outer`'s field `inner`: `Holder`'s field `f`: functions can't cross the JS boundary yet
 ────╯

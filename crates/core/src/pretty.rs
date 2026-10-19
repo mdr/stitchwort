@@ -264,9 +264,9 @@ impl<'g> Printer<'g> {
                 names.pop();
                 if icit.is_implicit() {
                     let auto = if *icit == Icit::Auto { "auto " } else { "" };
-                    (format!("[{auto}{x} : {dom}] -> {cod}"), Prec::Arrow)
+                    (format!("[{auto}{x}: {dom}] -> {cod}"), Prec::Arrow)
                 } else if uses {
-                    (format!("({x} : {dom}) -> {cod}"), Prec::Arrow)
+                    (format!("({x}: {dom}) -> {cod}"), Prec::Arrow)
                 } else {
                     (format!("{dom} -> {cod}"), Prec::Arrow)
                 }

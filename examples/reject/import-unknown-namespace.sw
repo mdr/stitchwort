@@ -2,4 +2,4 @@
 -- There's no namespace `Lists`.
 import Lists (length)
 
-def x : Nat := 0
+def x: Nat := 0

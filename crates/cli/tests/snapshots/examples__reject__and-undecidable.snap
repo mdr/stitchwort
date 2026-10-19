@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-AUTO-NONE] Error: no way to decide `g = h`
-   ╭─[ reject/and-undecidable.sw:4:72 ]
+   ╭─[ reject/and-undecidable.sw:4:68 ]
    │
- 4 │ def f (g : Nat -> Nat) (h : Nat -> Nat) (x : Nat) : Nat := if x < 3 && g = h then 1 else 0
-   │                                                                        ──┬──  
-   │                                                                          ╰──── this is a proposition, and nothing decides it
+ 4 │ def f (g: Nat -> Nat) (h: Nat -> Nat) (x: Nat): Nat := if x < 3 && g = h then 1 else 0
+   │                                                                    ──┬──  
+   │                                                                      ╰──── this is a proposition, and nothing decides it
    │ 
    │ Note: `&&` takes a `Bool`, or a proposition with a decision procedure: a function returning `Decidable …`
 ───╯

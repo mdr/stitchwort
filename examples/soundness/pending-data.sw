@@ -6,8 +6,8 @@
 -- can't be defined together, and the kernel refuses a match on an unfinished
 -- type (docs/proposals/mutual-recursion.md §5.4). Pairs with `Empty` in
 -- accept/abilities.sw: a finished type with no constructors.
-type D : Type =
-  | MakeD (same : impossible = impossible)
+type D: Type =
+  | MakeD (same: impossible = impossible)
 
-def impossible : D -> Void
+def impossible: D -> Void
   | ()

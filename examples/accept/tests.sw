@@ -2,13 +2,13 @@
 -- them, and caches each result by a hash of everything the test depends on,
 -- so a test only runs again after something it uses has changed.
 
-def reverse : List a -> List a
+def reverse: List a -> List a
   | Nil       => Nil
   | Cons x xs => List.append (reverse xs) [x]
 
-def equalLists : List Nat -> List Nat -> Bool
+def equalLists: List Nat -> List Nat -> Bool
   | Nil,       Nil       => True
-  | Cons x xs, Cons y ys => if h : x = y then equalLists xs ys else False
+  | Cons x xs, Cons y ys => if h: x = y then equalLists xs ys else False
   | Nil,       Cons y ys => False
   | Cons x xs, Nil       => False
 
@@ -18,4 +18,4 @@ test "division rounds down" := Nat.leq (7 / 2) 3
 test "remainder" := Nat.leq (7 % 2) 1
 
 -- A test is a proof by computation of one fact; a theorem covers every input.
-theorem reverseOfSingleton (x : Nat) : reverse [x] = [x] := rfl
+theorem reverseOfSingleton (x: Nat): reverse [x] = [x] := rfl

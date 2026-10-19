@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-UNSOLVED] Error: can't work out an implicit argument
-   ╭─[ reject/unsolved-implicit.sw:3:19 ]
+   ╭─[ reject/unsolved-implicit.sw:3:18 ]
    │
- 3 │ def zero : Nat := List.length Nil
-   │                   ───────┬───────  
-   │                          ╰───────── the compiler couldn't work out what goes here
+ 3 │ def zero: Nat := List.length Nil
+   │                  ───────┬───────  
+   │                         ╰───────── the compiler couldn't work out what goes here
    │ 
    │ Note: supply it explicitly with `f [x := …]`, or add a type annotation
 ───╯

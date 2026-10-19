@@ -1080,7 +1080,7 @@ impl Elaborator {
             let mut names: Vec<Name> = Vec::new();
             let mut shown = Vec::new();
             for (x, ty) in params {
-                shown.push(format!("({x} : {})", pretty::term(g, &names, ty)));
+                shown.push(format!("({x}: {})", pretty::term(g, &names, ty)));
                 names.push(x.clone());
             }
             shown.join(" ")
@@ -1470,7 +1470,7 @@ impl Elaborator {
             };
             let note = format!(
                 "to make `{0}` a type variable instead, bind it explicitly: start the type with \
-                 `[{0} : Type] ->`",
+                 `[{0}: Type] ->`",
                 used.text
             );
             self.warnings.push(

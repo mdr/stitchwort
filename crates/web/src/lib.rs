@@ -318,7 +318,7 @@ fn run_in(
                 ),
             )
             .with_label(main.span, "while running this program")
-            .with_note("`readLine ()` gives `Nothing` at the end of the input"),
+            .with_note("`readLine()` gives `Nothing` at the end of the input"),
             error => error.diagnostic(&main),
         };
         rendered(&session, &[error])

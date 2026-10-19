@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-POSITIVITY] Error: `Rose` is used inside another type
-   ╭─[ reject/nested-data.sw:6:33 ]
+   ╭─[ reject/nested-data.sw:6:31 ]
    │
- 6 │   | Bloom (value : Nat) (kids : List Rose)
-   │                                 ────┬────  
-   │                                     ╰────── field `kids` has `Rose` inside another type
+ 6 │   | Bloom (value: Nat) (kids: List Rose)
+   │                               ────┬────  
+   │                                   ╰────── field `kids` has `Rose` inside another type
    │ 
    │ Note 1: a data type's fields can contain it only directly, or as the result of a function field: whether it's safe inside another type (such as a `List`) would depend on how that type uses it, which isn't checked
    │ 

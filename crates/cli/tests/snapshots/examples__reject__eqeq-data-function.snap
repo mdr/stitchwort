@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-AUTO-NONE] Error: no way to decide `a = b`
-   ╭─[ reject/eqeq-data-function.sw:6:48 ]
+   ╭─[ reject/eqeq-data-function.sw:6:45 ]
    │
- 6 │ def same (a : Handler) (b : Handler) : Bool := a == b
-   │                                                ───┬──  
-   │                                                   ╰──── the compiler needs a proof of this
+ 6 │ def same (a: Handler) (b: Handler): Bool := a == b
+   │                                             ───┬──  
+   │                                                ╰──── the compiler needs a proof of this
    │ 
    │ Note 1: supply a proof by name, or write a decision procedure: a function returning `Decidable …`
    │ 

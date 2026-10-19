@@ -2,4 +2,4 @@
 -- `List` has no `sortt`.
 import List (sortt)
 
-def x : Nat := 0
+def x: Nat := 0

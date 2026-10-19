@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-TYPE-MISMATCH] Error: type mismatch
-   ╭─[ reject/autobind-value-conflict.sw:7:33 ]
+   ╭─[ reject/autobind-value-conflict.sw:7:31 ]
    │
- 7 │ def mixed (b : Box k) (f : Flag k) : Nat := 0
-   │                                 ┬  
-   │                                 ╰── expected `Bool`, but this has type `Nat`
+ 7 │ def mixed (b: Box k) (f: Flag k): Nat := 0
+   │                               ┬  
+   │                               ╰── expected `Bool`, but this has type `Nat`
    │ 
-   │ Note: `k` isn't declared, so it's bound automatically, its type taken from its first use; its uses here need different types. Bind it yourself (`[k : …]`), or use different names
+   │ Note: `k` isn't declared, so it's bound automatically, its type taken from its first use; its uses here need different types. Bind it yourself (`[k: …]`), or use different names
 ───╯

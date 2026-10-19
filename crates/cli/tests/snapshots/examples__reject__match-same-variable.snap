@@ -3,9 +3,9 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-MATCH-MOTIVE] Error: `n` is matched twice in this `match`
-   ╭─[ reject/match-same-variable.sw:3:34 ]
+   ╭─[ reject/match-same-variable.sw:3:32 ]
    │
- 3 │ ╭─▶ def twice (n : Nat) : Nat := 1 + match n, n with
+ 3 │ ╭─▶ def twice (n: Nat): Nat := 1 + match n, n with
    ┆ ┆   
  5 │ ├─▶   | Succ k, _ => k
    │ │                        

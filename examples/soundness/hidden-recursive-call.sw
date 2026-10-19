@@ -3,12 +3,12 @@
 -- call on the original one. Every recursive call is checked.
 import Effect (Comp)
 
-type ChooseOp : Type =
+type ChooseOp: Type =
   | Choose
 
-def ChooseRes : ChooseOp -> Type
+def ChooseRes: ChooseOp -> Type
   | Choose => Bool
 
-def hidden : Comp ChooseOp ChooseRes Nat -> Nat
+def hidden: Comp ChooseOp ChooseRes Nat -> Nat
   | Done x           => x
   | Call Choose rest => hidden (rest (Nat.leq (hidden (Call Choose rest)) 0))

@@ -9,5 +9,5 @@ expression: output
    │   ──┬──  
    │     ╰──── no `where` here
    │ 
-   │ Note: write the helper as a `def` in the body's block, before the result, like `def f (n : Nat) : Nat :=` then `  def go …` then `  go n`
+   │ Note: write the helper as a `def` in the body's block, before the result, like `def f (n: Nat): Nat :=` then `  def go …` then `  go n`
 ───╯

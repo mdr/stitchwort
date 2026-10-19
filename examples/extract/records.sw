@@ -15,27 +15,27 @@
 -- run: total { items = [1, 2, 3], size = 3, ok = rfl }
 -- run: team { lead = { name = "Ada", age = 36 }, size = 4 }
 
-type Person = { name : Text, age : Nat }
+type Person = { name: Text, age: Nat }
 
-export def greet (p : Person) : Text := "Hello, " ++ p.name
+export def greet (p: Person): Text := "Hello, " ++ p.name
 
-export def birthday (p : Person) : Person := { p | age = p.age + 1 }
+export def birthday (p: Person): Person := { p | age = p.age + 1 }
 
-export def rename (n : Text) (p : Person) : Person := { p | name = n }
+export def rename (n: Text) (p: Person): Person := { p | name = n }
 
-def older (p : Person) (q : Person) : Person := if Nat.leq q.age p.age then p else q
+def older (p: Person) (q: Person): Person := if Nat.leq q.age p.age then p else q
 
-export def oldest : List Person -> Maybe Person
+export def oldest: List Person -> Maybe Person
   | Nil       => Nothing
   | Cons p ps => Just (oldestFrom p ps)
 
-def oldestFrom (p : Person) : List Person -> Person
+def oldestFrom (p: Person): List Person -> Person
   | Nil       => p
   | Cons q qs => oldestFrom (older p q) qs
 
 -- A record has no tag, so a field called `tag` keeps the key `tag`;
 -- `__proto__` is still `$__proto__`, and a prime is `$`.
-type Weird = { tag : Text, __proto__ : Nat, constructor : Nat, x' : Nat }
+type Weird = { tag: Text, __proto__: Nat, constructor: Nat, x' : Nat }
 
 export def weird (w : Weird) : Weird := { w | tag = w.tag ++ "!", x' = w.x' + w.constructor + w.__proto__ }
 
@@ -66,11 +66,11 @@ export def smallest : SortedList -> Maybe Nat
 
 -- A proof field about two earlier fields, checked with the prelude's
 -- `Nat.decEq`.
-type Sized = { items : List Nat, size : Nat, ok : List.length items = size }
+type Sized = { items: List Nat, size: Nat, ok: List.length items = size }
 
-export def total (s : Sized) : Nat := s.size
+export def total (s: Sized): Nat := s.size
 
 -- Records inside records.
-type Team = { lead : Person, size : Nat }
+type Team = { lead: Person, size: Nat }
 
-export def team (t : Team) : Team := { t | lead = birthday t.lead }
+export def team (t: Team): Team := { t | lead = birthday t.lead }

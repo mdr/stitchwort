@@ -81,15 +81,15 @@ fn nested_dependent_pis(depth: usize, implicit: bool) -> Term {
 fn nested_dependent_pis_text(depth: usize, implicit: bool) -> String {
     let last = depth - 1;
     let mut text = if implicit {
-        format!("[x{last} : Type] -> x{last}")
+        format!("[x{last}: Type] -> x{last}")
     } else {
-        format!("(x{last} : Type) -> x{last}")
+        format!("(x{last}: Type) -> x{last}")
     };
     for i in (0..last).rev() {
         text = if implicit {
-            format!("[x{i} : {text}] -> x{i}")
+            format!("[x{i}: {text}] -> x{i}")
         } else {
-            format!("(x{i} : {text}) -> x{i}")
+            format!("(x{i}: {text}) -> x{i}")
         };
     }
     text
@@ -111,10 +111,10 @@ fn prints_function_types_with_the_right_binders_and_brackets() {
         ),
         "(Nat -> Nat) -> Nat"
     );
-    assert_eq!(show(&p, &[], &pi("a", ty(), v(0))), "(a : Type) -> a");
+    assert_eq!(show(&p, &[], &pi("a", ty(), v(0))), "(a: Type) -> a");
     assert_eq!(
         show(&p, &[], &ipi("a", ty(), arrow(v(0), v(0)))),
-        "[a : Type] -> a -> a"
+        "[a: Type] -> a -> a"
     );
     assert_eq!(show(&p, &[], &ty_n(1)), "Type 1");
     assert_eq!(show(&p, &[], &prop()), "Prop");

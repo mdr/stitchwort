@@ -4,19 +4,19 @@
 -- anything. Every `Comp` must be a finite tree, so `forever` is refused.
 import Effect (Comp)
 
-type LaterOp : Type =
+type LaterOp: Type =
   | Later
 
-type Unit1 : Type =
+type Unit1: Type =
   | MkUnit
 
-type Empty : Type
+type Empty: Type
 
-def LaterRes : LaterOp -> Type
+def LaterRes: LaterOp -> Type
   | Later => Unit1
 
-def drain : Comp LaterOp LaterRes a -> a
+def drain: Comp LaterOp LaterRes a -> a
   | Done x          => x
   | Call Later rest => drain (rest MkUnit)
 
-def forever (u : Unit1) : Comp LaterOp LaterRes Empty := Call Later (\v => forever u)
+def forever (u: Unit1): Comp LaterOp LaterRes Empty := Call Later (\v => forever u)

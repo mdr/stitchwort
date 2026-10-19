@@ -114,7 +114,7 @@ pub fn prove(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Term> {
                 format!("can't decide `{shown}` here"),
                 "it depends on values that aren't known until the program runs",
             )
-            .with_note("establish it first, with `if h : … then … else …`")),
+            .with_note("establish it first, with `if h: … then … else …`")),
     }
 }
 

@@ -5,11 +5,11 @@ expression: output
 [E-DUPLICATE] Error: `go` is already a local definition in `dup`
    ╭─[ reject/local-duplicate.sw:7:7 ]
    │
- 5 │   def go (k : Nat) : Nat := k
+ 5 │   def go (k: Nat): Nat := k
    │       ─┬  
    │        ╰── first defined here
    │ 
- 7 │   def go (k : Nat) : Nat := k + 1
+ 7 │   def go (k: Nat): Nat := k + 1
    │       ─┬  
    │        ╰── defined again here
    │ 

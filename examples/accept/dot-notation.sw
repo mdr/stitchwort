@@ -2,59 +2,59 @@
 -- with `e` in the place of `T.f`'s first parameter of type `T`, where `T` is
 -- `e`'s type. A record's field is the case where `T.f` is its projection.
 
-type Bag (a : Type) : Type =
+type Bag (a: Type): Type =
   | Empty
-  | Put (x : a) (rest : Bag a)
+  | Put (x: a) (rest: Bag a)
 
-def Bag.length : Bag a -> Nat
+def Bag.length: Bag a -> Nat
   | Empty => 0
   | Put _ b => 1 + b.length
 
-type Person = { name : Text, age : Nat }
+type Person = { name: Text, age: Nat }
 
-def Bag.map (f : a -> b) : Bag a -> Bag b
+def Bag.map (f: a -> b): Bag a -> Bag b
   | Empty => Empty
   | Put x xs => Put (f x) (Bag.map f xs)
 
-def Price : Type := Nat
+def Price: Type := Nat
 
-def Price.show (p : Price) : Text := "$" ++ p.toText
+def Price.show (p: Price): Text := "$" ++ p.toText
 
-type Sized (n : Nat) = { value : Nat }
+type Sized (n: Nat) = { value: Nat }
 
-def Sized.read (n : Nat) (s : Sized n) : Nat := s.value
+def Sized.read (n: Nat) (s: Sized n): Nat := s.value
 
-def names (people : Bag Person) : Bag Text := people.map (\p => p.name)
+def names (people: Bag Person): Bag Text := people.map (\p => p.name)
 
-def lengths (ts : Bag Text) : Bag Nat := ts.map (\t => t.length)
+def lengths (ts: Bag Text): Bag Nat := ts.map (\t => t.length)
 
-def splitLine (line : Text) : List Text := line.split ','
+def splitLine (line: Text): List Text := line.split ','
 
-def splitter (t : Text) : Char -> List Text := t.split
+def splitter (t: Text): Char -> List Text := t.split
 
-def showPrice (p : Price) : Text := p.show
+def showPrice (p: Price): Text := p.show
 
-def showNat (n : Nat) : Text := n.toText
+def showNat (n: Nat): Text := n.toText
 
-def readIt (s : Sized 3) : Nat := s.read 3
+def readIt (s: Sized 3): Nat := s.read 3
 
-def nameLength (p : Person) : Nat := p.name.length
+def nameLength (p: Person): Nat := p.name.length
 
-def symm (x : Nat) (y : Nat) (p : x = y) : y = x := p.sym
+def symm (x: Nat) (y: Nat) (p: x = y): y = x := p.sym
 
-def projected (ps : Bag Person) : Bag Text := Bag.map Person.name ps
+def projected (ps: Bag Person): Bag Text := Bag.map Person.name ps
 
-def letp (n : Nat) : Text :=
-  let q : Price := n
+def letp (n: Nat): Text :=
+  let q: Price := n
   q.show
 
-def mkPrice (n : Nat) : Price := n
+def mkPrice (n: Nat): Price := n
 
-def lets (n : Nat) : Text :=
+def lets (n: Nat): Text :=
   let q := mkPrice n
   q.show
 
-def applied (n : Nat) : Text := (mkPrice n).show
+def applied (n: Nat): Text := (mkPrice n).show
 
 test "split" := (splitLine "a,b").length == 2
 test "partial split" := (splitter "a,b,c" ',').length == 3
@@ -69,14 +69,14 @@ test "nat" := showNat 4 == "4"
 
 -- The pre-pass can't know which `label` `s.label` means, so it groups
 -- `Shape.describe` with every `….label` (§5): here with `Tile.label` too.
-type Shape = { name : Text }
-type Tile  = { shape : Shape }
+type Shape = { name: Text }
+type Tile  = { shape: Shape }
 
-def Shape.label (s : Shape) : Text := s.name
+def Shape.label (s: Shape): Text := s.name
 
-def Tile.label (t : Tile) : Text := t.shape.describe
+def Tile.label (t: Tile): Text := t.shape.describe
 
-def Shape.describe (s : Shape) : Text := s.label
+def Shape.describe (s: Shape): Text := s.label
 
 
 test "cycle" := Tile.label { shape = { name = "a" } } == "a"
@@ -84,27 +84,27 @@ test "cycle" := Tile.label { shape = { name = "a" } } == "a"
 -- The receiver runs first, then the arguments as written, though the call
 -- is `Shape.shout suffix s` (§4.8.2).
 ability Log where
-  log : Text -> {Log} ()
+  log: Text -> {Log} ()
 
-def Shape.shout (suffix : Text) (s : Shape) : {Log} Text :=
+def Shape.shout (suffix: Text) (s: Shape): {Log} Text :=
   log ("shout " ++ s.name)
   s.name ++ suffix
 
-def pick (t : Text) : {Log} Shape :=
+def pick (t: Text): {Log} Shape :=
   log ("pick " ++ t)
   { name = t }
 
-def sfx (t : Text) : {Log} Text :=
+def sfx (t: Text): {Log} Text :=
   log ("sfx " ++ t)
   t
 
-def both () : {Log} Text := (pick "a").shout (sfx "!")
+def both(): {Log} Text := (pick "a").shout (sfx "!")
 
-def collect (f : () -> {Log | e} a) : {e} Pair (List Text) a :=
-  handle f () with
+def collect (f: () -> {Log | e} a): {e} Pair (List Text) a :=
+  handle f() with
     | return x => MkPair Nil x
     | log t, k =>
-      let r := k ()
+      let r := k()
       MkPair (Cons t (Pair.fst r)) (Pair.snd r)
 
 test "order" := Text.join (',') (Pair.fst (collect both)) == "pick a,sfx !,shout a"

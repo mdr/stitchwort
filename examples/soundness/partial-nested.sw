@@ -4,5 +4,5 @@
 -- occurrence, refused like `List Rose` (docs/proposals/partial.md §8.7).
 import Effect (Delay, NoOp, NoRes)
 
-type Bad : Type =
-  | MkBad (d : Delay NoOp NoRes Bad)
+type Bad: Type =
+  | MkBad (d: Delay NoOp NoRes Bad)

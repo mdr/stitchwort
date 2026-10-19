@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-RECORD-UPDATE] Error: updating `items` needs `short` updated too
-    ╭─[ reject/record-update-dependent.sw:13:20 ]
+    ╭─[ reject/record-update-dependent.sw:13:19 ]
     │
- 13 │ def two : Short := { one | items = [1, 2, 3] }
-    │                    ─────────────┬─────────────  
-    │                                 ╰─────────────── the type of `short` mentions `items`
+ 13 │ def two: Short := { one | items = [1, 2, 3] }
+    │                   ─────────────┬─────────────  
+    │                                ╰─────────────── the type of `short` mentions `items`
     │ 
     │ Note: give a new `short` for the new `items`: `{ … | items = …, short = … }`
 ────╯

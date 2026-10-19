@@ -4,10 +4,10 @@
 -- accepted neighbour, which replaces `ok` too, is `grown` in
 -- examples/accept/records.sw.
 
-def IsShort (xs : List Nat) : Prop := List.length xs <= 2
+def IsShort (xs: List Nat): Prop := List.length xs <= 2
 
-type Short = { items : List Nat, short : IsShort items }
+type Short = { items: List Nat, short: IsShort items }
 
-def one : Short := { items = [1], short = rfl }
+def one: Short := { items = [1], short = rfl }
 
-def two : Short := { one | items = [1, 2, 3] }
+def two: Short := { one | items = [1, 2, 3] }

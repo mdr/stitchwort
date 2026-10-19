@@ -170,7 +170,7 @@ pub fn generate_program(g: &Globals, limits: Limits, main: &Term) -> Result<Prog
     let main_js = codegen.expr(main, &mut env).map_err(Diagnostic::from)?;
     let _ = writeln!(
         js,
-        "\n// `main ()`, as `stitchwort run` runs it.\nconst MAIN = () => {main_js};"
+        "\n// `main()`, as `stitchwort run` runs it.\nconst MAIN = () => {main_js};"
     );
     js.push_str(
         &RUNNER

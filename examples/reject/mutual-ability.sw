@@ -3,7 +3,7 @@
 -- the ability: Landin's knot (DESIGN.md §8). Data types can be defined
 -- together, but not with an ability.
 ability Ask where
-  ask : () -> {Ask} Box
+  ask: () -> {Ask} Box
 
-type Box : Type =
-  | MkBox (run : Nat -> {Ask} Nat)
+type Box: Type =
+  | MkBox (run: Nat -> {Ask} Nat)

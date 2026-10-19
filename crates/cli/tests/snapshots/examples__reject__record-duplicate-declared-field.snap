@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-DUPLICATE] Error: there's already a field `name`
-   ╭─[ reject/record-duplicate-declared-field.sw:4:30 ]
+   ╭─[ reject/record-duplicate-declared-field.sw:4:29 ]
    │
- 4 │ type Person = { name : Text, name : Nat }
-   │                 ──┬─         ──┬─  
-   │                   ╰──────────────── first declared here
-   │                                │   
-   │                                ╰─── there's already a field `name`
+ 4 │ type Person = { name: Text, name: Nat }
+   │                 ──┬─        ──┬─  
+   │                   ╰─────────────── first declared here
+   │                               │   
+   │                               ╰─── there's already a field `name`
 ───╯

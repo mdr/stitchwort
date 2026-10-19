@@ -25,11 +25,11 @@ test "not empty"         := not (Text.isEmpty " ")
 test "escapes"           := Text.length "\n\t\\\"\'" == 5
 test "fold"              := Text.fold (\c n => Char.toNat c + n) 0 "ab" == 195
 
-def unconsCode : Maybe (Pair Char Text) -> Nat
+def unconsCode: Maybe (Pair Char Text) -> Nat
   | Nothing            => 0
   | Just (MkPair c cs) => Char.toNat c
 
-def firstChar (t : Text) : Nat := unconsCode (Text.uncons t)
+def firstChar (t: Text): Nat := unconsCode (Text.uncons t)
 
 test "uncons"            := firstChar "xyz" == 120
 test "uncons empty"      := firstChar "" == 0
@@ -43,11 +43,11 @@ test "no-break space stays" := Text.trim "\u{A0}x" == "\u{A0}x"
 test "ideographic space stays" := Text.trim "\u{3000}" == "\u{3000}"
 
 -- Numbers.
-def justIs (n : Nat) : Maybe Nat -> Bool
+def justIs (n: Nat): Maybe Nat -> Bool
   | Nothing => False
   | Just m  => n == m
 
-def isNothing : Maybe a -> Bool
+def isNothing: Maybe a -> Bool
   | Nothing => True
   | Just x  => False
 
@@ -70,11 +70,11 @@ test "ASCII digits only" := isNothing (Text.toNat "\u{663}")
 -- The law `Text.toNat (Nat.toText n) = Just n`, for every n up to 100 and
 -- some larger ones. (Not much further: the evaluator recurses once per
 -- number, and isn't stack-safe yet.)
-def roundTrips : Nat -> Bool
+def roundTrips: Nat -> Bool
   | Zero   => justIs 0 (Text.toNat (Nat.toText 0))
   | Succ n => if justIs (Succ n) (Text.toNat (Nat.toText (Succ n))) then roundTrips n else False
 
-def allRoundTrip : List Nat -> Bool
+def allRoundTrip: List Nat -> Bool
   | Nil       => True
   | Cons n ns => if justIs n (Text.toNat (Nat.toText n)) then allRoundTrip ns else False
 
@@ -83,7 +83,7 @@ test "natToText round trip, larger" :=
   allRoundTrip [999, 1000, 1001, 9999, 10000, 65535, 1114111, 4294967296, 18446744073709551616]
 
 -- Splitting keeps empty fields.
-def eqTexts : List Text -> List Text -> Bool
+def eqTexts: List Text -> List Text -> Bool
   | Nil,       Nil       => True
   | Cons x xs, Cons y ys => if x == y then eqTexts xs ys else False
   | _,         _         => False
@@ -98,9 +98,9 @@ test "join"              := Text.join '-' ["a", "", "b"] == "a--b"
 test "join nothing"      := Text.join '-' [] == ""
 
 -- Proved for every text, in the prelude.
-theorem joinSplit : Text.join ',' (Text.split ',' "a,,b") = "a,,b" := Text.joinSplit ',' "a,,b"
+theorem joinSplit: Text.join ',' (Text.split ',' "a,,b") = "a,,b" := Text.joinSplit ',' "a,,b"
 
-theorem roundTrip (t : Text) : Text.fromList (Text.toList t) = t := Text.fromToList t
+theorem roundTrip (t: Text): Text.fromList (Text.toList t) = t := Text.fromToList t
 
 -- By computation.
-theorem helloLength : Text.length "hello" = 5 := rfl
+theorem helloLength: Text.length "hello" = 5 := rfl

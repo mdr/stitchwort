@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-TERMINATION] Error: `walkList` is used here without all its arguments
-   ╭─[ soundness/mutual-higher-order.sw:9:43 ]
+   ╭─[ soundness/mutual-higher-order.sw:9:41 ]
    │
- 9 │ def walk (ts : List Nat) : Nat := applyTo walkList ts
-   │                                           ────┬───  
-   │                                               ╰───── `walkList` takes 1 argument; it's given none here
+ 9 │ def walk (ts: List Nat): Nat := applyTo walkList ts
+   │                                         ────┬───  
+   │                                             ╰───── `walkList` takes 1 argument; it's given none here
    │ 
    │ Note 1: write `\x => walkList x` so the call can be checked
    │ 

@@ -5,13 +5,13 @@ expression: output
 [E-TERMINATION] Error: can't show that `ping` and `pong` terminate
    ╭─[ soundness/mutual-ping-pong.sw:6:1 ]
    │
- 6 │ def ping (n : Nat) : Nat := pong n
-   │ ────────────┬───────────  
-   │             ╰───────────── this call to `pong` might not terminate: `pong`'s 1st argument is `ping`'s 1st argument
+ 6 │ def ping (n: Nat): Nat := pong n
+   │ ───────────┬──────────  
+   │            ╰──────────── this call to `pong` might not terminate: `pong`'s 1st argument is `ping`'s 1st argument
    │ 
- 8 │ def pong (n : Nat) : Nat := ping n
-   │ ────────────┬───────────  
-   │             ╰───────────── then this call to `ping`: `ping`'s 1st argument is `pong`'s 1st argument
+ 8 │ def pong (n: Nat): Nat := ping n
+   │ ───────────┬──────────  
+   │            ╰──────────── then this call to `ping`: `ping`'s 1st argument is `pong`'s 1st argument
    │ 
    │ Note 1: going round `ping` → `pong` → `ping`, over and over: the 1st argument stays the same, so no argument keeps getting smaller
    │ 

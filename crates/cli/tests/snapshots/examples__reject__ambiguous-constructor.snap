@@ -3,17 +3,17 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-AMBIGUOUS] Error: `Square` could mean `Shape.Square` or `Tile.Square`
-    ╭─[ reject/ambiguous-constructor.sw:10:21 ]
+    ╭─[ reject/ambiguous-constructor.sw:10:20 ]
     │
-  5 │   | Square (side : Nat)
+  5 │   | Square (side: Nat)
     │     ───┬──  
     │        ╰──── `Shape.Square` is declared here
     │ 
-  8 │   | Square (colour : Nat)
+  8 │   | Square (colour: Nat)
     │     ───┬──  
     │        ╰──── `Tile.Square` is declared here
     │ 
- 10 │ def unit : Shape := Square 1
-    │                     ───┬──  
-    │                        ╰──── write `Shape.Square` or `Tile.Square` in full
+ 10 │ def unit: Shape := Square 1
+    │                    ───┬──  
+    │                       ╰──── write `Shape.Square` or `Tile.Square` in full
 ────╯

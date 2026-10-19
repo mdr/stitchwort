@@ -81,107 +81,107 @@
 -- run: trimmedHead " \t"
 -- run: isText "\u{1F600}"
 
-export def len (t : Text) : Nat := Text.length t
+export def len (t: Text): Nat := Text.length t
 
-export def chars (t : Text) : List Char := Text.toList t
+export def chars (t: Text): List Char := Text.toList t
 
-export def fromChars (cs : List Char) : Text := Text.fromList cs
+export def fromChars (cs: List Char): Text := Text.fromList cs
 
-export def echo (t : Text) : Text := t
+export def echo (t: Text): Text := t
 
-export def echoChar (c : Char) : Char := c
+export def echoChar (c: Char): Char := c
 
-export def codeOf (c : Char) : Nat := Char.toNat c
+export def codeOf (c: Char): Nat := Char.toNat c
 
-export def charOf (n : Nat) : Maybe Char := Char.fromNat n
+export def charOf (n: Nat): Maybe Char := Char.fromNat n
 
-export def same (a : Text) (b : Text) : Bool := a == b
+export def same (a: Text) (b: Text): Bool := a == b
 
-export def order (a : Text) (b : Text) : Ordering := Text.compare a b
+export def order (a: Text) (b: Text): Ordering := Text.compare a b
 
-export def join (a : Text) (b : Text) : Text := a ++ b
+export def join (a: Text) (b: Text): Text := a ++ b
 
-export def split (c : Char) (t : Text) : List Text := Text.split c t
+export def split (c: Char) (t: Text): List Text := Text.split c t
 
-export def joinOn (c : Char) (ts : List Text) : Text := Text.join c ts
+export def joinOn (c: Char) (ts: List Text): Text := Text.join c ts
 
-export def trim (t : Text) : Text := Text.trim t
+export def trim (t: Text): Text := Text.trim t
 
-export def toNat (t : Text) : Maybe Nat := Text.toNat t
+export def toNat (t: Text): Maybe Nat := Text.toNat t
 
-export def fromNat (n : Nat) : Text := Nat.toText n
+export def fromNat (n: Nat): Text := Nat.toText n
 
-export def uncons (t : Text) : Maybe (Pair Char Text) := Text.uncons t
+export def uncons (t: Text): Maybe (Pair Char Text) := Text.uncons t
 
 -- User code over the characters.
-export def reverse (t : Text) : Text := Text.fromList (List.reverseOnto (Text.toList t) Nil)
+export def reverse (t: Text): Text := Text.fromList (List.reverseOnto (Text.toList t) Nil)
 
-def countIn (c : Char) : List Char -> Nat
+def countIn (c: Char): List Char -> Nat
   | Nil       => 0
   | Cons d ds => if c == d then Succ (countIn c ds) else countIn c ds
 
-export def countChar (c : Char) (t : Text) : Nat := countIn c (Text.toList t)
+export def countChar (c: Char) (t: Text): Nat := countIn c (Text.toList t)
 
 -- Text inside a user's data type, a list and the prelude's `Maybe` and `Pair`.
-type Person : Type =
-  | MkPerson (name : Text) (initial : Char) (tags : List Text)
+type Person: Type =
+  | MkPerson (name: Text) (initial: Char) (tags: List Text)
 
-export def greet : Person -> Text
+export def greet: Person -> Text
   | MkPerson name initial tags => "Hello, " ++ name ++ " (" ++ Text.fromList (Cons initial Nil) ++ ")"
 
-def initialsOf : List Person -> List Char
+def initialsOf: List Person -> List Char
   | Nil => Nil
   | Cons (MkPerson n i t) ps => Cons i (initialsOf ps)
 
-export def initials (ps : List Person) : List Char := initialsOf ps
+export def initials (ps: List Person): List Char := initialsOf ps
 
-export def rename (n : Text) : Person -> Person
+export def rename (n: Text): Person -> Person
   | MkPerson m i t => MkPerson n i (Cons m t)
 
-export def orEmpty : Maybe Text -> Text
+export def orEmpty: Maybe Text -> Text
   | Nothing => ""
   | Just t  => t
 
-export def firstOf (p : Pair Char Text) : Char := Pair.fst p
+export def firstOf (p: Pair Char Text): Char := Pair.fst p
 
 -- Fields named like the decoder's own variables.
-type Located : Type =
-  | At (path : Text) (x : Char) (inside : List Char)
+type Located: Type =
+  | At (path: Text) (x: Char) (inside: List Char)
 
-export def located : Located -> Located
+export def located: Located -> Located
   | At p c cs => At (p ++ "/") c (Cons c cs)
 
 -- The prelude's text operations are native JavaScript, and a `Text` is a
 -- string. These use them as values, partly applied, and with their results
 -- taken apart by ordinary pattern matching.
-export def empty (t : Text) : Bool := Text.isEmpty t
+export def empty (t: Text): Bool := Text.isEmpty t
 
-export def less (a : Text) (b : Text) : Bool := Text.less a b
+export def less (a: Text) (b: Text): Bool := Text.less a b
 
-export def codes (t : Text) : List Nat := Text.fold (\c ns => Cons (Char.toNat c) ns) Nil t
+export def codes (t: Text): List Nat := Text.fold (\c ns => Cons (Char.toNat c) ns) Nil t
 
-def mapList (f : a -> b) : List a -> List b
+def mapList (f: a -> b): List a -> List b
   | Nil       => Nil
   | Cons x xs => Cons (f x) (mapList f xs)
 
-export def lengths (ts : List Text) : List Nat := mapList Text.length ts
+export def lengths (ts: List Text): List Nat := mapList Text.length ts
 
-export def texts (ls : List (List Char)) : List Text := mapList MkText ls
+export def texts (ls: List (List Char)): List Text := mapList MkText ls
 
-export def prefixAll (ts : List Text) : List Text := mapList (Text.append "pre") ts
+export def prefixAll (ts: List Text): List Text := mapList (Text.append "pre") ts
 
-def firstOfList : List Text -> Text
+def firstOfList: List Text -> Text
   | Nil       => "none"
   | Cons f fs => f
 
-export def firstField (c : Char) (t : Text) : Text := firstOfList (Text.split c t)
+export def firstField (c: Char) (t: Text): Text := firstOfList (Text.split c t)
 
-def leadingChar : Text -> Maybe Char
+def leadingChar: Text -> Maybe Char
   | MkText Nil         => Nothing
   | MkText (Cons c cs) => Just c
 
-export def trimmedHead (t : Text) : Maybe Char := leadingChar (Text.trim t)
+export def trimmedHead (t: Text): Maybe Char := leadingChar (Text.trim t)
 
 -- The characters aren't used, so they aren't made into a list.
-export def isText : Text -> Bool
+export def isText: Text -> Bool
   | MkText _ => True

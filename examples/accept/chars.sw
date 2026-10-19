@@ -1,10 +1,10 @@
 -- Characters: Unicode scalar values (docs/proposals/text-and-io.md).
 
-def isJust : Maybe a -> Bool
+def isJust: Maybe a -> Bool
   | Nothing => False
   | Just x  => True
 
-def codeOr : Maybe Char -> Nat
+def codeOr: Maybe Char -> Nat
   | Nothing => 999
   | Just c  => Char.toNat c
 
@@ -25,8 +25,8 @@ test "emoji"     := Char.toNat '😀' == 128512
 test "escape"    := '\n' == '\u{A}'
 test "from lit"  := codeOr (Char.fromNat 233) == Char.toNat 'é'
 
-theorem aIsA : 'a' = 'a' := rfl
+theorem aIsA: 'a' = 'a' := rfl
 
-def sameChar (x : Char) (y : Char) : Bool := if h : x = y then True else False
+def sameChar (x: Char) (y: Char): Bool := if h: x = y then True else False
 
 test "if h" := sameChar 'x' 'x'

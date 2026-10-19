@@ -7,12 +7,12 @@
 
 -- What to do with the next line: print it and carry on, or stop. Total:
 -- `more` is whatever comes next.
-def echoLine : Maybe Text -> (() -> {IO, Partial | e} ()) -> {IO, Partial | e} ()
+def echoLine: Maybe Text -> (() -> {IO, Partial | e} ()) -> {IO, Partial | e} ()
   | Nothing, more => ()
   | Just l,  more =>
     print l
-    more ()
+    more()
 
-def cat () : {IO, Partial} () := echoLine (readLine ()) cat
+def cat(): {IO, Partial} () := echoLine (readLine()) cat
 
-def main () : {IO, Partial} () := cat ()
+def main(): {IO, Partial} () := cat()

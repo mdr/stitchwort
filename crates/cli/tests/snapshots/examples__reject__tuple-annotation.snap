@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-PARSE] Error: an annotation can't be written inside a tuple without brackets
-   ╭─[ reject/tuple-annotation.sw:3:31 ]
+   ╭─[ reject/tuple-annotation.sw:3:29 ]
    │
- 3 │ def bad : (Nat, Nat) := (1, 2 : Nat)
-   │                               ┬  
-   │                               ╰── an annotation can't be written inside a tuple without brackets
+ 3 │ def bad: (Nat, Nat) := (1, 2: Nat)
+   │                             ┬  
+   │                             ╰── an annotation can't be written inside a tuple without brackets
    │ 
-   │ Note: to annotate one component, write `(a, (b : T))`; to annotate the pair, write `((a, b) : T)`
+   │ Note: to annotate one component, write `(a, (b: T))`; to annotate the pair, write `((a, b): T)`
 ───╯

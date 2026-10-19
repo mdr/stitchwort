@@ -1,5 +1,5 @@
 {
-  "next": 93,
+  "next": 102,
   "tickets": [
     {
       "id": 1,
@@ -353,9 +353,9 @@
     {
       "id": 24,
       "title": "Style: no space before `:` (`(x: Nat)`, like Scala/TS)",
-      "status": "doing",
-      "agent": "DeepSeek",
-      "where": "/Users/matt/scratch/opencode/funlang-20261019-180312",
+      "status": "done",
+      "agent": "",
+      "where": "",
       "labels": [
         "design",
         "syntax"
@@ -363,7 +363,10 @@
       "body": "**Style: no space before `:` in type annotations?** Consider making `(x: Nat)` / `def f (n: Nat): Nat` the default style instead of `(x : Nat)` (user, 19 Oct).\n\n19 Oct analysis (Sonnet): recommends keeping spaces (option a). Evidence: all 335 .sw files use ` : ` (~2,665 lines); the lexer ignores whitespace around `:` (lexer.rs:344-348, `:=` is one token), so `x: T` already parses; Lean/Mathlib style guide requires spaces, Agda/Idris docs use them; Rust/Kotlin/TS use `x: T`. Switching would touch ~180 of 280 CLI snapshots and the printer (pretty.rs:264,267), with no formatter to hold the line. Options: (a) keep; (b) switch everywhere after a `stitchwort fmt` exists; (c) mixed (rejected); (d) accept both, document house style.\n\nMatt (19 Oct): switch to `x: T` everywhere (closer to Scala/TS); record the style in docs/syntax.md. DeepSeek restyles .sw files, printer/messages, docs (not proposals/history), playground; hash_stability snapshots must not change.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
-      "commits": []
+      "commits": [
+        "8378bbb",
+        "07e926b"
+      ]
     },
     {
       "id": 25,
@@ -483,20 +486,21 @@
     },
     {
       "id": 33,
-      "title": "Two proofs of the same fact aren't treated as equal",
-      "status": "doing",
-      "agent": "Opus",
-      "where": "worktree: draft 3 from the second review (scratchpad/clip-review-3.md)",
+      "title": "Proof irrelevance (D1′): design decided",
+      "status": "done",
+      "agent": "",
+      "where": "",
       "labels": [
         "design",
         "kernel"
       ],
-      "body": "**Two proofs of the same fact aren't treated as equal** (no definitional\nproof irrelevance): `x % 100` with a hand-written divisor proof and\nwith the `auto` one have different types that print identically (Int\nstage 6 worked around it with `[auto]` arguments). Consider proof\nirrelevance for `Prop` in conversion (kernel; design note first).\nSecond example (19 Oct): char-pattern branches couldn't prove `c = 'a'`\nbecause the matched char's validity proof differed from the literal's;\nfixed in the elaborator with `Bool.uniqueEq` (`55c48eb`), which proof\nirrelevance would make unnecessary. User (19 Oct): wants this considered, with the\nliterature and trade-offs properly understood: Opus design note after\nmulti-file Draft 3, with web research comparing at least Lean (definitional\nirrelevance for `Prop`), Agda (opt-in `Prop`) and Coq/Rocq (`SProp`), and\nthe known metatheory (decidability, interaction with recursion on proofs,\nlarge elimination, hashing).",
+      "body": "**Two proofs of the same fact aren't treated as equal** (no definitional\nproof irrelevance): `x % 100` with a hand-written divisor proof and\nwith the `auto` one have different types that print identically (Int\nstage 6 worked around it with `[auto]` arguments). Consider proof\nirrelevance for `Prop` in conversion (kernel; design note first).\nSecond example (19 Oct): char-pattern branches couldn't prove `c = 'a'`\nbecause the matched char's validity proof differed from the literal's;\nfixed in the elaborator with `Bool.uniqueEq` (`55c48eb`), which proof\nirrelevance would make unnecessary. User (19 Oct): wants this considered, with the\nliterature and trade-offs properly understood: Opus design note after\nmulti-file Draft 3, with web research comparing at least Lean (definitional\nirrelevance for `Prop`), Agda (opt-in `Prop`) and Coq/Rocq (`SProp`), and\nthe known metatheory (decidability, interaction with recursion on proofs,\nlarge elimination, hashing).\n\nMatt (19 Oct): adopt D1′; no Prop.irrel yet; remove canonical in stage 2; stage 3 on demand. Design done (draft 3, bf74b30).",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": [
         "4c6d693",
-        "ff79a07"
+        "ff79a07",
+        "bf74b30"
       ]
     },
     {
@@ -567,7 +571,7 @@
         "js",
         "stdlib"
       ],
-      "body": "**Faster `textOfChars`** in JS (10⁶ characters: 98 ms) and stack-safe\nlist helpers (`foldChars`, `compareChars`, …) when user code calls them\ndirectly.",
+      "body": "**Faster `textOfChars`** in JS (10⁶ characters: 98 ms) and stack-safe\nlist helpers (`foldChars`, `compareChars`, …) when user code calls them\ndirectly.\n\n19 Oct: partly out of date — textOfChars is already a loop (crates/js/src/lib.rs:861-865; the 98 ms is per-char encodeChar cost), and foldChars/compareChars no longer exist. Needs a measurement before any work.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -935,13 +939,13 @@
     {
       "id": 64,
       "title": "Mutation testing",
-      "status": "doing",
-      "agent": "Claude",
-      "where": "~/scratch/mutants-20261019 (clone); runner scratchpad/mutrun.sh; pilot budget.rs (56 mutants, 6 shards), then value.rs (219), native.rs (194) after stage 1 settles",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
       "labels": [
         "tooling"
       ],
-      "body": "**Mutation testing** (in small sharded runs): the machine (`value.rs`),\n`budget.rs`, `native.rs` (167 mutants, never done).",
+      "body": "**Mutation testing** (in small sharded runs): the machine (`value.rs`),\n`budget.rs`, `native.rs` (167 mutants, never done).\n\n19 Oct: runs are cargo-mutants (a tool, no model) driven by scratchpad/mutrun.sh in ~/scratch/mutants-20261019. Pilot budget.rs: 56 mutants, ~12 min, 23 caught / 26 missed (core tests only) / 1 timeout / 6 unviable. Next: re-check survivors against driver+cli tests; then DeepSeek writes tests to kill real survivors (direct-edit spec), Opus judges equivalent mutants.\n\nMatt (19 Oct): paused after the budget.rs pilot; no further mutation runs for now. Survivor results in scratchpad/mut/budget-*.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -1301,7 +1305,7 @@
       "title": "Multi-file stage 1: implementation (projects, namespace lines, per-file imports)",
       "status": "doing",
       "agent": "Sonnet",
-      "where": "waiting for SW-24 to merge; then a worktree lane",
+      "where": "worktree lane, 9 gated steps from scratchpad/tasks/mf-stage1-spec.md",
       "labels": [
         "multi-file",
         "elab"
@@ -1329,7 +1333,7 @@
     {
       "id": 91,
       "title": "Zero-argument effectful calls: `IO.readAllLines ()`",
-      "status": "next",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -1339,7 +1343,9 @@
       "body": "Matt (19 Oct): how do Unison and other effect-tracking languages invoke 0-arity effectful actions, vs Stitchwort's `IO.readAllLines ()`? Research subagent (Sonnet, read-only): Stitchwort today, Unison/Koka/Effekt/Frank/Flix/Roc/OCaml 5/Scala/Haskell/Lean, options and a recommendation.\n\nResearch (Sonnet, 19 Oct): Stitchwort's 0-arity ops are `() -> {IO} T` thunks (prelude.sw:2236-2238), needed because evaluation is strict and effects happen at application (DESIGN.md:131-135). Strict effect languages call them with `f()` (Koka, Unison since UCM 0.5.23 alongside `!f`, Effekt, Flix, Scala's convention that `()` signals side effects); monadic languages (Haskell, Lean, Idris) make actions values, which in Stitchwort would expose `Comp` (abilities.md:259). Checked by Claude: `f()` and `def main(): {IO} ()` already parse and run. Recommendation: keep the unit-argument model; adopt `f()` / `def main()` (no space) as house style; `do e` sugar later; no `!` operator.\n\nMatt (19 Oct): yes, adopt `f()` and `def main()` (no space) as house style via a DeepSeek restyle after the colon restyle (SW-24) lands; keep zero-argument actions as `() -> {IO} T` functions. `do e` sugar and a `!f` operator: not now.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
-      "commits": []
+      "commits": [
+        "50399dd"
+      ]
     },
     {
       "id": 92,
@@ -1351,6 +1357,149 @@
         "syntax"
       ],
       "body": "From SW-91 research (19 Oct): Unison's `do` delays a block; Stitchwort could make `do e` sugar for `\\() => e`, handy for passing programs to handlers (`IO.simulate lines (do main())`). Pure sugar, no soundness risk. Not now (Matt).",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 93,
+      "title": "Proof irrelevance stage 1: proof-position masks in conversion (D1′)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "kernel",
+        "proof"
+      ],
+      "body": "Implement stage 1 of docs/proposals/proof-irrelevance.md (draft 3, decided): conv skips arguments/fields whose declared type is in Prop; homogeneous-input precondition documented; unifier rule (whole proof metas only); tests 1-16 incl. the Loop/bad termination test. Kernel work: Opus (spec + implementation or careful review). Stage 2 (remove canonical) follows.\n\nMatt (19 Oct): on hold; multi-file first.\n\nThird motivating example (Matt, 19 Oct): aoc/day01.sw `dialExt`/`dialExtAt` — two `Dial`s at the same position are equal only after a second `J` with `Bool.uniqueEq` on the `inRange` proofs. Under D1′ the proof field is masked, so that step becomes `rfl` (inferred). Matt: still on hold until multi-file is done.",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 94,
+      "title": "AoC day 1: remove the two theorems that restate the type and the definition",
+      "status": "done",
+      "agent": "Claude",
+      "where": "",
+      "labels": [
+        "aoc",
+        "proof"
+      ],
+      "body": "Matt (19 Oct): `alwaysOnDial` only read `Dial`'s `inRange` field; `part1Puzzle` was `rfl` against the definition. Removed; Proofs header reworded; zerosPassedCorrect is the theorem. Day 1 still checks, 10 tests pass, answers 1076 / 6379.",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 95,
+      "title": "Auto-generated `ext` lemmas for records whose other fields are proofs",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "design",
+        "proof"
+      ],
+      "body": "Idea from aoc/day01.sw `dialExt` (19 Oct): like Lean's `@[ext]`, generate `T.ext : a.f = b.f -> a = b` for a record whose remaining fields are proofs. Easy once proof irrelevance (SW-93, D1′) lands: the proof fields compare equal by masks. Not before SW-93.",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 96,
+      "title": "Compare AoC day 1 proofs in Lean, Agda and Idris vs Stitchwort",
+      "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc",
+        "proof",
+        "design"
+      ],
+      "body": "Matt (19 Oct): formalise day 1 (zerosPassedCorrect, any dial size, all inputs) in Lean 4 (core, no Mathlib), Agda (stdlib), Idris 2; compare ease of proof (tactics, omega, library, proof irrelevance, ...) and rank what Stitchwort should add.\n\nDone (ea7e7cc): all three check fully. Proof size: Stitchwort 11.5k chars / 27 helpers; Lean 5.0k / 14 (omega/simp/grind do bookkeeping but not / or % by a variable); Agda 8.1k / 24 (rewrite + equational chains + ~60 division lemmas); Idris 10.3k / 32 (no provable integers; had to hide mod). Write-up: docs/comparisons/aoc-day01.md.",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": [
+        "ea7e7cc"
+      ]
+    },
+    {
+      "id": 97,
+      "title": "Highlight `namespace` and `import` as keywords (playground, VS Code)",
+      "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "web",
+        "tooling"
+      ],
+      "body": "",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": [
+        "4803613"
+      ]
+    },
+    {
+      "id": 98,
+      "title": "User guide: docs/projects.md (multi-file projects), first draft",
+      "status": "review",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "docs",
+        "multi-file"
+      ],
+      "body": "\n\nDraft merged (02a882f). To finish when stage 1 lands: check every example and CLI line against the implementation. Open points from DeepSeek: does `test` take several targets; may `sources` be a bare string; dotted namespace targets (`test Aoc.Day05`).",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": [
+        "02a882f"
+      ]
+    },
+    {
+      "id": 99,
+      "title": "`calc` notation and a `rewrite` term for equational proofs",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "proof",
+        "syntax",
+        "design"
+      ],
+      "body": "From the day 1 comparison (SW-96, docs/comparisons/aoc-day01.md): the top recommendation. `calc` desugars to Eq.trans chains (small); `rewrite` infers the `\\x => …` motive from the expected goal (medium). Removes most hand-written motives, like Agda's `rewrite` and `≡⟨ … ⟩`. Design note first. Related: SW-26 proof ergonomics.",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 100,
+      "title": "Prelude: division/modulo lemmas (`x = q * s + r`, `r < s` ⇒ `x / s = q`, `x % s = r`) and Int.modNat facts",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "stdlib",
+        "proof"
+      ],
+      "body": "From the day 1 comparison (SW-96): recommendation 2. Idris derived almost every other division fact from the uniqueness lemma; Agda's stdlib has ~60. Small effort; helps later AoC days. Check what Nat.divUnique/modUnique already give.",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 101,
+      "title": "Proof by reflection: an arithmetic normaliser as an ordinary proof term (term-level `omega`)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "proof",
+        "design"
+      ],
+      "body": "From the day 1 comparison (SW-96): recommendation 4, large effort; `calc`/`rewrite` give much of the benefit sooner. Note Lean's omega can't do / or % by a variable either.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []

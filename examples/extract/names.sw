@@ -18,29 +18,29 @@
 -- run: RangeError (Oops "x")
 -- run: args 1 2 3
 
-type Awkward : Type =
+type Awkward: Type =
   | Plain
-  | Fields (tag : Nat) (__proto__ : Nat) (x : Nat) (x' : Nat) (x'' : Nat) (constructor : Nat) (undefined : Nat) (path : Nat) (inside : Nat) (v0 : Nat) (arg0 : Nat)
+  | Fields (tag: Nat) (__proto__: Nat) (x: Nat) (x' : Nat) (x'' : Nat) (constructor : Nat) (undefined : Nat) (path : Nat) (inside : Nat) (v0 : Nat) (arg0 : Nat)
 
 export def twiddle : Awkward -> Awkward
   | Plain => Plain
   | Fields a b c d e f g h i j k => Fields k j i h g f e d c b a
 
 -- The bug this example started from: the field `tag` hid the constructor's.
-type Labelled : Type =
-  | MkLabelled (tag : Text) (count : Nat)
+type Labelled: Type =
+  | MkLabelled (tag: Text) (count: Nat)
 
-export def labelled : Labelled -> Labelled
+export def labelled: Labelled -> Labelled
   | MkLabelled t n => MkLabelled (t ++ "!") (Succ n)
 
 type Box' : Type =
-  | MkBox' (value : Nat)
+  | MkBox' (value: Nat)
 
-export def unbox : Box' -> Nat
+export def unbox: Box' -> Nat
   | MkBox' n => n
 
 type Tagged' (a : Type) : Type =
-  | MkTagged' (tag : a) (tag' : a)
+  | MkTagged' (tag: a) (tag' : a)
 
 export def firstTag : Tagged' Nat -> Nat
   | MkTagged' t u => t
@@ -50,23 +50,23 @@ export def tagged : Tagged' Text -> Tagged' Text
 
 -- Exports named like the runtime's helpers and like JS globals it uses, and
 -- parameters named like the wrapper's own variables, or reserved in JS.
-export def enter : (v1 : Nat) -> (v0 : Nat) -> Nat
+export def enter: (v1: Nat) -> (v0: Nat) -> Nat
   | a, b => a
 
-export def decode : (undefined : Nat) -> Nat
+export def decode: (undefined: Nat) -> Nat
   | n => Succ n
 
-export def Set : (class : Nat) -> Nat
+export def Set: (class: Nat) -> Nat
   | n => n + n
 
-export def BigInt : (arg1 : Nat) -> Nat
+export def BigInt: (arg1: Nat) -> Nat
   | n => n
 
-type Error : Type =
-  | Oops (tag : Text)
+type Error: Type =
+  | Oops (tag: Text)
 
-export def RangeError : Error -> Error
+export def RangeError: Error -> Error
   | Oops t => Oops (t ++ t)
 
-export def args : (this : Nat) -> (e : Nat) -> (arguments : Nat) -> Nat
+export def args: (this: Nat) -> (e: Nat) -> (arguments: Nat) -> Nat
   | a, b, c => a + b + c

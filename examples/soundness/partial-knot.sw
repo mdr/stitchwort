@@ -9,4 +9,4 @@
 -- termination (`crates/core/tests/partial.rs`).
 import Effect (Delay, NoOp, NoRes, mapSig, pfix, sigRight)
 
-def bad : Nat -> Delay NoOp NoRes Nat := pfix (\x => mapSig sigRight (bad x))
+def bad: Nat -> Delay NoOp NoRes Nat := pfix (\x => mapSig sigRight (bad x))

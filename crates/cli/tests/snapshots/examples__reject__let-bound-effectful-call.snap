@@ -5,9 +5,9 @@ expression: output
 [E-ABILITY] Error: this may perform `Ask`, which isn't allowed here
     ╭─[ reject/let-bound-effectful-call.sw:11:3 ]
     │
- 11 │   f () + 1
-    │   ────┬───  
-    │       ╰───── `Ask` isn't in the abilities of the enclosing function or handler
+ 11 │   f() + 1
+    │   ───┬───  
+    │      ╰───── `Ask` isn't in the abilities of the enclosing function or handler
     │ 
     │ Note: add `Ask` to the function's type (`-> {Ask …} …`), or handle it
 ────╯
