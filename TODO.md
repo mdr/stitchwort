@@ -81,8 +81,14 @@ Merged 19 Oct: `run --js` (`9f905c9`; day 4 17 s -> 1 s; Partial works;
 2 GB worker stack, user: keep as default), `let` stage 2 (`48bac44`: kernel
 `Let`, value computed on demand while checking, strict when running).
 AoC example answers are now tests; `theorem` only for all-input facts.
-Running: `let-stage3` (Opus: elaborator emits `Let`, lifting re-creates
-lets, erasure, pattern lets via projections), (syntax polish merged: `type Grid = List (List Nat)`, lines may start
+`let` stage 3 merged (`0c5e2fb`): lets are transparent to the checker,
+re-created in lifted helpers, proof lets erased, pattern lets are
+projections outside proofs. Leftovers: pattern lets in proofs stay
+`match`; projections give termination no smaller-than evidence; deferred
+values recomputed per force.
+Running: `aoc-rewrites` (Opus: day 3 destructuring, day 1 scan-and-zip
+with proof rework), `day2-check-profile` (Opus, report: re-measure,
+decide option (b)). (syntax polish merged: `type Grid = List (List Nat)`, lines may start
 with `,` or a closing bracket, trailing commas, char-match errors name
 characters). Checker fix (a) merged (`1fc7824`: print/dot/==/if no
 longer compute closed values at check time; day 1 check 1.11 s -> 0.58 s).
