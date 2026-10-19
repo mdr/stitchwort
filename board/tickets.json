@@ -2063,8 +2063,8 @@
       "id": 136,
       "title": "calc chains (stage 1 of SW-99)",
       "status": "doing",
-      "agent": "Sonnet",
-      "where": "worktree-agent-aa66afbb5571ba950: gate passed 00:01; lane was stuck in a wait loop (killed 00:12), now committing",
+      "agent": "Claude",
+      "where": "merged; gate running on main (started 00:09)",
       "labels": [
         "proof",
         "syntax"
@@ -2072,7 +2072,9 @@
       "body": "D46 (Matt, 19 Oct): build calc now per docs/proposals/calc-rewrite.md §5 with the external review's fixes: D32 aligned form only; D33 proofless step = check rfl against the step proposition (not endpoint conversion); D34 Nat =/<=/< mixed, final relation by folding the composition table; elaborates to Eq.trans/J/Nat.leTrans etc. No rewrite yet; reserve only what calc needs.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
-      "commits": []
+      "commits": [
+        "8104b39"
+      ]
     },
     {
       "id": 137,
