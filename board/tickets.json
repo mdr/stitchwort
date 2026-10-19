@@ -1,5 +1,5 @@
 {
-  "next": 108,
+  "next": 111,
   "tickets": [
     {
       "id": 1,
@@ -249,14 +249,14 @@
     {
       "id": 17,
       "title": "`==` follow-ups: `Nil == Nil` with an unknown element type; records with proof fields; effectful callbacks",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "elab",
         "stdlib"
       ],
-      "body": "Tuples print as `(a, b)` (`5f11367`). `==` works on lists,\ntuples and `Maybe` (`57392bd`): `auto` builds the element decider\nitself (depth bound `MAX_DEPTH = 8`); records with such fields may now\nget `==` too (untested on its own). `Nil == Nil` with an unknown\nelement type is still `E-AUTO-NONE`. Effectful callbacks for\n`map`/`filter`/folds: later, when a program needs them.",
+      "body": "Tuples print as `(a, b)` (`5f11367`). `==` works on lists,\ntuples and `Maybe` (`57392bd`): `auto` builds the element decider\nitself (depth bound `MAX_DEPTH = 8`); records with such fields may now\nget `==` too (untested on its own). `Nil == Nil` with an unknown\nelement type is still `E-AUTO-NONE`. Effectful callbacks for\n`map`/`filter`/folds: later, when a program needs them.\n\n19 Oct: split into SW-108 (Nil == Nil), SW-109 (record == test), SW-110 (effectful callbacks). The finished parts (tuple printing 5f11367, == on containers 57392bd) are done.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -1606,6 +1606,51 @@
         "bug"
       ],
       "body": "Found checking docs/projects.md (19 Oct): `import A (x)` then `namespace N` reports E-NO-NAMESPACE (as if the file had none). Better: E-PARSE or a note 'the namespace line must come before imports and declarations', pointing at the misplaced line. Small.",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 108,
+      "title": "`Nil == Nil` with an unknown element type gives E-AUTO-NONE",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab",
+        "bug"
+      ],
+      "body": "Split from SW-17 (19 Oct). `==` on lists builds the element decider with auto (depth bound MAX_DEPTH = 8, 57392bd); when the element type is unknown (`Nil == Nil`, `[] == []`) auto has nothing to search for and reports E-AUTO-NONE. Decide: ask for a type annotation with a better message, default the element type, or decide empty lists equal without an element decider. Small design question first.",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 109,
+      "title": "Test: records whose fields are lists, tuples or Maybe get `==`",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab",
+        "tooling"
+      ],
+      "body": "Split from SW-17 (19 Oct): since 57392bd, `==` works on lists, tuples and Maybe via auto-built element deciders, so records with such fields can derive `==` too, but it's untested on its own. Add an accept example (e.g. examples/accept/eqeq-record-containers.sw) with tests comparing records whose fields are List Nat, (Nat, Text), Maybe Nat, and a nested record; plus one reject example if a field type has no decider. Mechanical: DeepSeek.",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 110,
+      "title": "Effectful callbacks for List.map / filter / folds",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "stdlib",
+        "design"
+      ],
+      "body": "Split from SW-17 (19 Oct): `map`, `filter` and the folds take pure functions; a callback that uses an ability (IO, a handler's state) can't be passed. Later, when a program needs it: needs effect-polymorphic signatures (`(a -> {e} b) -> List a -> {e} List b`) and checking they don't break existing hashes/inference.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
