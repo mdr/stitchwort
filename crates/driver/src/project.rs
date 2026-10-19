@@ -39,6 +39,17 @@ impl Session {
         target: &Target,
     ) -> Result<Loaded, Vec<Diagnostic>> {
         let analysis = analyse(self, project, files);
+        self.load_analysis(project, analysis, target)
+    }
+
+    /// [`Session::load_project_sources`], from the files already read
+    /// (`analyse`).
+    pub fn load_analysis(
+        &mut self,
+        project: &str,
+        analysis: Analysis,
+        target: &Target,
+    ) -> Result<Loaded, Vec<Diagnostic>> {
         if !analysis.diagnostics.is_empty() {
             return Err(analysis.diagnostics);
         }
@@ -137,6 +148,47 @@ impl Session {
             checked: order,
         })
     }
+}
+
+/// The namespace that a name of a project's `run` is in: the longest
+/// namespace `P` with the name starting with `P.`.
+pub fn namespace_of<'a>(analysis: &'a Analysis, name: &str) -> Option<&'a str> {
+    analysis
+        .namespaces
+        .iter()
+        .filter(|ns| name.starts_with(&format!("{}.", ns.name)))
+        .max_by_key(|ns| ns.name.len())
+        .map(|ns| ns.name.as_str())
+}
+
+/// `E-RUN-UNKNOWN` for a name that's in no namespace of the project.
+pub fn run_unknown_namespace(project: &str, name: &str, analysis: &Analysis) -> Diagnostic {
+    let mut d = Diagnostic::error(
+        "E-RUN-UNKNOWN",
+        format!("there's no `{name}` in project {project}/"),
+    );
+    if analysis.namespace(name).is_some() {
+        return d.with_note(format!(
+            "write the function's full name, as in `{name}.main`"
+        ));
+    }
+    let parts: Vec<&str> = name.split('.').collect();
+    let nearest = analysis
+        .namespaces
+        .iter()
+        .filter_map(|ns| {
+            let width = ns.name.split('.').count();
+            if width >= parts.len() {
+                return None;
+            }
+            let distance = stitchwort_elab::edit_distance(&parts[..width].join("."), &ns.name);
+            (distance <= 2).then(|| (distance, &ns.name, parts[width..].join(".")))
+        })
+        .min();
+    if let Some((_, namespace, rest)) = nearest {
+        d = d.with_note(format!("did you mean `{namespace}.{rest}`?"));
+    }
+    d
 }
 
 /// `E-NAMESPACE-UNKNOWN`: a command named a namespace the project doesn't

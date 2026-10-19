@@ -105,6 +105,9 @@ pub struct Elaborator {
     namespace_defs: BTreeMap<String, std::ops::Range<usize>>,
     /// How many definitions the prelude made.
     prelude_defs: usize,
+    /// While a single file from inside a project is loaded: what to say
+    /// when it uses the project (`E-FILE-MODE`).
+    pub file_mode: Option<project::FileModeContext>,
     /// Auto arguments still to be proved in the current declaration.
     obligations: RefCell<Vec<auto::Obligation>>,
     /// Metavariables that literals made `Nat` in the current declaration.
@@ -308,6 +311,32 @@ impl Elaborator {
         let _op = self.globals.budget.operation(self.limits);
         self.infer_expr_in_operation(expr)
             .map_err(|d| self.locate(d, expr.span()))
+    }
+
+    /// The definition with key `key` (its full name), if there is one.
+    pub fn lookup_def(&self, key: &str) -> Option<DefId> {
+        match self.scope.get(key) {
+            Some((Global::Def(id), _)) => Some(id),
+            _ => None,
+        }
+    }
+
+    /// Whether anything at all has key `key`.
+    pub fn has_key(&self, key: &str) -> bool {
+        self.scope.get(key).is_some()
+    }
+
+    /// The keys of the definitions whose keys start with `prefix`, sorted.
+    pub fn def_keys_under(&self, prefix: &str) -> Vec<String> {
+        let mut keys: Vec<String> = self
+            .scope
+            .keys()
+            .filter(|k| k.starts_with(prefix))
+            .filter(|k| matches!(self.scope.get(k), Some((Global::Def(_), _))))
+            .cloned()
+            .collect();
+        keys.sort();
+        keys
     }
 
     /// Forgets the module's namespace and imports, so names typed in

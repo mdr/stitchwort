@@ -15,6 +15,13 @@ cargo run -- run --js examples/accept/adder.sw  # the same, compiled to JS and r
 cargo run -- repl examples/extract/append.sw
 cargo run -- build --js examples/extract/append.sw -o out/
 
+# a project: a folder with a stitchwort.yaml, its files in namespaces
+# (docs/proposals/multi-file.md); run these inside it
+cd myproject
+stitchwort run Day05.main       # run a function by its full name
+stitchwort test                 # every namespace's tests (results cached in .stitchwort/)
+stitchwort check Day05          # one namespace, and the ones it uses
+
 nix build .#playground          # the browser playground: open result/index.html via a web server
                                 #   (it needs result/playground-worker.js and result/pkg/ beside it)
 ./web/build.sh                  # or build it into web/pkg/ during development

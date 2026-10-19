@@ -641,6 +641,12 @@ impl Elaborator {
     /// `E-UNKNOWN-NAME`, with the library's declarations of that short name
     /// as suggestions.
     pub(crate) fn unknown(&self, name: &ast::Name) -> Diagnostic {
+        if let Some(context) = &self.file_mode
+            && name.text.contains('.')
+            && let Some(d) = context.diagnostic(&name.text, name.span)
+        {
+            return d;
+        }
         let mut d = Diagnostic::error("E-UNKNOWN-NAME", format!("unknown name `{}`", name.text))
             .with_label(name.span, "not in scope");
         if !name.text.contains('.') {
@@ -681,6 +687,12 @@ impl Elaborator {
             let namespace = match self.import_namespace(&import.path) {
                 Some(namespace) => namespace,
                 None if own => {
+                    if let Some(context) = &self.file_mode
+                        && let Some(d) = context.diagnostic(&import.path.text, import.path.span)
+                    {
+                        diagnostics.push(d);
+                        continue;
+                    }
                     diagnostics.push(
                         error(
                             "E-IMPORT-UNKNOWN",

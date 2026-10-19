@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use stitchwort_core::hash::{ContentHash, def_hash};
 use stitchwort_core::value::{eval, force};
 use stitchwort_core::{Globals, Limits, ResourceError, Term, Value};
-use stitchwort_elab::project::SourceUnit;
+use stitchwort_elab::project::{FileModeContext, SourceUnit};
 use stitchwort_elab::{Elaborator, PRELUDE};
 use stitchwort_syntax::ast::Expr;
 use stitchwort_syntax::{
@@ -88,10 +88,24 @@ impl Session {
     /// Parses, elaborates and checks a file, and checks that its exports can
     /// cross the JS boundary.
     pub fn load(&mut self, name: &str, text: &str) -> Result<FileId, Vec<Diagnostic>> {
+        self.load_file(name, text, None)
+    }
+
+    /// [`Session::load`] for a file named on its own that lives inside a
+    /// project: with `context`, a use of one of the project's namespaces is
+    /// `E-FILE-MODE`, which says what to do instead.
+    pub fn load_file(
+        &mut self,
+        name: &str,
+        text: &str,
+        context: Option<FileModeContext>,
+    ) -> Result<FileId, Vec<Diagnostic>> {
         let file = self.sources.add(name, text);
         let module = parse_module_within(file, text, self.elab.limits.stack)?;
         let first_new_def = self.elab.globals.defs.len();
+        self.elab.file_mode = context;
         let diagnostics = self.elab.elaborate_module(&module);
+        self.elab.file_mode = None;
         self.finish_load(first_new_def, diagnostics)?;
         Ok(file)
     }

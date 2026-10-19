@@ -1,12 +1,18 @@
+use std::collections::BTreeSet;
 use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
 use rustyline::error::ReadlineError;
-use stitchwort_cli::driver::{Cache, Outcome, Session};
+use stitchwort_cli::driver::{Cache, Outcome, Session, TestResult};
+use stitchwort_cli::project::{
+    DiskFiles, Target, analyse, find_project, namespace_of, project_sources, run_unknown_namespace,
+};
 use stitchwort_cli::render::render;
-use stitchwort_syntax::{Diagnostic, SourceMap};
+use stitchwort_cli::run::Main;
+use stitchwort_elab::project::FileModeContext;
+use stitchwort_syntax::{Diagnostic, SourceMap, parse_namespace_line};
 
 #[derive(Parser)]
 #[command(name = "stitchwort", version, about = "The Stitchwort language")]
@@ -22,44 +28,68 @@ fn new_session() -> Session {
 
 #[derive(Subcommand)]
 enum Command {
-    /// Type-check source files
+    /// Type-check source files, or namespaces of the project (all of them
+    /// if none are named)
     Check {
-        #[arg(required = true)]
-        files: Vec<PathBuf>,
+        /// Files (a name ending in `.sw`, or with a `/`), or namespaces of
+        /// the project; not both
+        targets: Vec<String>,
+        /// The project folder (the one with `stitchwort.yaml`), if not the
+        /// folder you're in or the nearest one above it
+        #[arg(long)]
+        project: Option<PathBuf>,
     },
-    /// Run a file's tests, reusing cached results where nothing they depend on
-    /// has changed
+    /// Run tests, reusing cached results where nothing they depend on has
+    /// changed: a file's, or a namespace's (and those of the namespaces it
+    /// uses), or the whole project's
     Test {
-        file: PathBuf,
+        /// A file, or a namespace of the project
+        target: Option<String>,
         /// Run every test, ignoring (and not writing) cached results
         #[arg(long)]
         no_cache: bool,
-        /// Where to keep cached results
-        #[arg(long, default_value = ".stitchwort/cache")]
-        cache_dir: PathBuf,
+        /// Where to keep cached results (default: `.stitchwort/cache` in the
+        /// project folder, or in this folder for a file)
+        #[arg(long)]
+        cache_dir: Option<PathBuf>,
+        /// The project folder, if not the folder you're in or the nearest
+        /// one above it
+        #[arg(long)]
+        project: Option<PathBuf>,
     },
-    /// Type-check a file, then run its `main`, reading standard input and
-    /// writing standard output
+    /// Type-check a file, then run its `main`; or run a function of the
+    /// project by its full name (`Day05.main`). Reads standard input and
+    /// writes standard output
     Run {
-        file: PathBuf,
-        /// Compile `main` to JavaScript and run it with Node.js (`node` on
-        /// the PATH), which is much faster
+        /// A file, or the full name of a function in the project
+        target: String,
+        /// Compile the program to JavaScript and run it with Node.js (`node`
+        /// on the PATH), which is much faster
         #[arg(long)]
         js: bool,
+        /// The project folder, if not the folder you're in or the nearest
+        /// one above it
+        #[arg(long)]
+        project: Option<PathBuf>,
     },
     /// Evaluate an expression in the context of a file
     Eval { file: PathBuf, expr: String },
     /// Start an interactive session, optionally with a file loaded
     Repl { file: Option<PathBuf> },
-    /// Extract a file's exports to JavaScript
+    /// Extract a file's exports, or a namespace's, to JavaScript
     Build {
-        file: PathBuf,
+        /// A file, or a namespace of the project
+        target: String,
         /// Generate an ES module and TypeScript declarations
         #[arg(long, required = true)]
         js: bool,
         /// Output directory
         #[arg(short, long, default_value = ".")]
         out: PathBuf,
+        /// The project folder, if not the folder you're in or the nearest
+        /// one above it
+        #[arg(long)]
+        project: Option<PathBuf>,
     },
 }
 
@@ -74,36 +104,100 @@ fn main() -> ExitCode {
 
 fn run(cli: Cli) -> ExitCode {
     match cli.command {
-        Command::Check { files } => check(&files),
+        Command::Check { targets, project } => check(&targets, project.as_deref()),
         Command::Test {
-            file,
+            target,
             no_cache,
             cache_dir,
-        } => test(
-            &file,
-            if no_cache {
-                Cache::disabled()
-            } else {
-                Cache::at(cache_dir)
-            },
-        ),
-        Command::Run { file, js: false } => run_main(&file),
-        Command::Run { file, js: true } => run_main_js(&file),
+            project,
+        } => test(target.as_deref(), no_cache, cache_dir, project.as_deref()),
+        Command::Run {
+            target,
+            js,
+            project,
+        } => run_target(&target, js, project.as_deref()),
         Command::Eval { file, expr } => eval(&file, &expr),
         Command::Repl { file } => repl(file.as_deref()),
-        Command::Build { file, out, .. } => build(&file, &out),
+        Command::Build {
+            target,
+            out,
+            project,
+            ..
+        } => build(&target, &out, project.as_deref()),
     }
 }
 
-fn load(session: &mut Session, path: &Path) -> bool {
-    let text = match std::fs::read_to_string(path) {
-        Ok(text) => text,
-        Err(err) => {
-            eprintln!("error: can't read {}: {err}", path.display());
-            return false;
+/// A target is a file if it ends in `.sw` or has a `/`; otherwise it's a
+/// name in the project.
+fn is_file_target(target: &str) -> bool {
+    target.ends_with(".sw") || target.contains('/')
+}
+
+fn exit(ok: bool) -> ExitCode {
+    if ok {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::FAILURE
+    }
+}
+
+// ---- Projects ----------------------------------------------------------
+
+struct Project {
+    dir: PathBuf,
+    /// The project folder's name, for messages.
+    name: String,
+    files: DiskFiles,
+}
+
+/// The project folder's name: its last component, as the filesystem has it.
+fn project_name(dir: &Path) -> String {
+    dir.canonicalize()
+        .ok()
+        .as_deref()
+        .and_then(Path::file_name)
+        .or_else(|| dir.file_name())
+        .map_or("project".to_string(), |n| n.to_string_lossy().to_string())
+}
+
+/// The project for a command: the `--project` folder, or the nearest one
+/// at or above the current folder. `command` is what the note suggests for
+/// a single file (`check a single file`, `stitchwort check hello.sw`).
+fn locate_project(flag: Option<&Path>, what: &str, example: &str) -> Option<Project> {
+    let dir = match flag {
+        Some(dir) => {
+            if !dir.join("stitchwort.yaml").is_file() {
+                eprintln!("error: there's no stitchwort.yaml in {}", dir.display());
+                return None;
+            }
+            dir.to_path_buf()
+        }
+        None => {
+            let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+            let Some(dir) = find_project(&cwd) else {
+                eprintln!(
+                    "error: there's no stitchwort.yaml in {} or any folder above it",
+                    cwd.display()
+                );
+                eprintln!(
+                    "  note: to {what} a single file, pass its path, as in `stitchwort {example}`"
+                );
+                return None;
+            };
+            dir
         }
     };
-    match session.load(&path.display().to_string(), &text) {
+    Some(Project {
+        name: project_name(&dir),
+        files: DiskFiles { root: dir.clone() },
+        dir,
+    })
+}
+
+/// Loads the namespaces `target` needs; reports what's wrong, or the
+/// warnings.
+fn load_project(session: &mut Session, project: &Project, target: &Target) -> bool {
+    match session.load_project(&project.files, &project.name, target) {
         Ok(_) => {
             report(&session.sources, &std::mem::take(&mut session.warnings));
             true
@@ -115,27 +209,169 @@ fn load(session: &mut Session, path: &Path) -> bool {
     }
 }
 
-fn check(paths: &[PathBuf]) -> ExitCode {
-    let mut ok = true;
-    for path in paths {
-        // Files can't refer to each other yet, so each gets its own session.
-        ok &= load(&mut new_session(), path);
+// ---- Files -------------------------------------------------------------
+
+/// If `path` is in a project, what `E-FILE-MODE` needs to say why the file
+/// can't use it: the project's namespaces, found by reading only its
+/// configuration and the namespace line of each file (anything that can't
+/// be read is ignored). `verb` is "run", "checked", "tested" or "built".
+fn file_mode_context(path: &Path, text: &str, verb: &'static str) -> Option<FileModeContext> {
+    let absolute = std::path::absolute(path).ok()?;
+    let dir = find_project(absolute.parent()?)?;
+    let name = project_name(&dir);
+    let mut sources = SourceMap::new();
+    let found = project_sources(&DiskFiles { root: dir }, &name, &mut sources).ok()?;
+    let mut namespaces = BTreeSet::new();
+    for (file, text) in &found {
+        let id = sources.add(file.clone(), text.clone());
+        if let Ok(Some(line)) = parse_namespace_line(id, text) {
+            namespaces.insert(line.path.text);
+        }
     }
-    if ok {
-        ExitCode::SUCCESS
-    } else {
-        ExitCode::FAILURE
+    if namespaces.is_empty() {
+        return None;
+    }
+    let id = sources.add("<file>", text);
+    let own = parse_namespace_line(id, text).ok().flatten();
+    let note = match (&own, verb) {
+        (Some(n), "run") => format!(
+            "to use the project, run a function by name: `stitchwort run {}.main`",
+            n.path.text
+        ),
+        (Some(n), "checked") => format!(
+            "to use the project, check the namespace: `stitchwort check {}`",
+            n.path.text
+        ),
+        (Some(n), "tested") => format!(
+            "to use the project, test the namespace: `stitchwort test {}`",
+            n.path.text
+        ),
+        (Some(n), _) => format!(
+            "to use the project, build the namespace: `stitchwort build --js {}`",
+            n.path.text
+        ),
+        (None, _) => "to use the project, start the file with `namespace Name` and use the name, as in `stitchwort run Name.main`".to_string(),
+    };
+    Some(FileModeContext {
+        file: path.display().to_string(),
+        verb,
+        project: name,
+        namespaces,
+        note,
+    })
+}
+
+fn load(session: &mut Session, path: &Path) -> bool {
+    load_file(session, path, None)
+}
+
+/// Loads a file on its own. With a `verb`, a file inside a project that
+/// uses the project is told why it can't.
+fn load_file(session: &mut Session, path: &Path, verb: Option<&'static str>) -> bool {
+    let text = match std::fs::read_to_string(path) {
+        Ok(text) => text,
+        Err(err) => {
+            eprintln!("error: can't read {}: {err}", path.display());
+            return false;
+        }
+    };
+    let context = verb.and_then(|verb| file_mode_context(path, &text, verb));
+    match session.load_file(&path.display().to_string(), &text, context) {
+        Ok(_) => {
+            report(&session.sources, &std::mem::take(&mut session.warnings));
+            true
+        }
+        Err(diagnostics) => {
+            report(&session.sources, &diagnostics);
+            false
+        }
     }
 }
 
-fn test(path: &Path, cache: Cache) -> ExitCode {
-    let mut session = new_session();
-    if !load(&mut session, path) {
+fn check(targets: &[String], project: Option<&Path>) -> ExitCode {
+    let files = targets.iter().filter(|t| is_file_target(t)).count();
+    if files > 0 && files < targets.len() {
+        eprintln!("error: give either files or names in the project, not both");
         return ExitCode::FAILURE;
     }
-    let results = session.run_tests(&cache);
+    if files > 0 {
+        let mut ok = true;
+        for path in targets {
+            // Each file gets its own session.
+            ok &= load_file(&mut new_session(), Path::new(path), Some("checked"));
+        }
+        return exit(ok);
+    }
+    let Some(project) = locate_project(project, "check", "check hello.sw") else {
+        return ExitCode::FAILURE;
+    };
+    let target = if targets.is_empty() {
+        Target::Everything
+    } else {
+        Target::Namespaces(targets.to_vec())
+    };
+    exit(load_project(&mut new_session(), &project, &target))
+}
+
+/// The cache to use: `--cache-dir` as given, or `.stitchwort/cache` in
+/// `base`, making `.stitchwort/` (with a `.gitignore` that ignores it all)
+/// if there isn't one yet.
+fn cache(no_cache: bool, cache_dir: Option<PathBuf>, base: &Path) -> Cache {
+    if no_cache {
+        return Cache::disabled();
+    }
+    if let Some(dir) = cache_dir {
+        return Cache::at(dir);
+    }
+    let stitchwort = base.join(".stitchwort");
+    if !stitchwort.exists() && std::fs::create_dir_all(&stitchwort).is_ok() {
+        let _ = std::fs::write(stitchwort.join(".gitignore"), "*\n");
+    }
+    Cache::at(stitchwort.join("cache"))
+}
+
+fn test(
+    target: Option<&str>,
+    no_cache: bool,
+    cache_dir: Option<PathBuf>,
+    project: Option<&Path>,
+) -> ExitCode {
+    let mut session = new_session();
+    match target {
+        Some(file) if is_file_target(file) => {
+            if !load_file(&mut session, Path::new(file), Some("tested")) {
+                return ExitCode::FAILURE;
+            }
+            let cache = cache(no_cache, cache_dir, Path::new("."));
+            print_tests(&session.run_tests(&cache), false)
+        }
+        _ => {
+            let Some(project) = locate_project(project, "test", "test hello.sw") else {
+                return ExitCode::FAILURE;
+            };
+            let target = match target {
+                Some(name) => Target::Namespaces(vec![name.to_string()]),
+                None => Target::Everything,
+            };
+            if !load_project(&mut session, &project, &target) {
+                return ExitCode::FAILURE;
+            }
+            let cache = cache(no_cache, cache_dir, &project.dir);
+            print_tests(&session.run_tests(&cache), true)
+        }
+    }
+}
+
+/// Prints the results, with each namespace's name above its tests if
+/// `grouped`.
+fn print_tests(results: &[TestResult], grouped: bool) -> ExitCode {
     let width = results.iter().map(|r| r.name.len()).max().unwrap_or(0);
-    for result in &results {
+    let mut namespace: Option<&str> = None;
+    for result in results {
+        if grouped && namespace != Some(result.namespace.as_str()) {
+            namespace = Some(result.namespace.as_str());
+            println!("{}", result.namespace);
+        }
         let (mark, why) = match result.outcome {
             Outcome::Passed => ("✓", String::new()),
             Outcome::Failed => ("✗", "  (evaluated to False)".to_string()),
@@ -158,52 +394,82 @@ fn test(path: &Path, cache: Cache) -> ExitCode {
         "{} test(s): {passed} passed, {failed} failed{unfinished_note} ({cached} from the cache)",
         results.len(),
     );
-    if passed == results.len() {
-        ExitCode::SUCCESS
-    } else {
-        ExitCode::FAILURE
-    }
+    exit(passed == results.len())
 }
 
-fn run_main(path: &Path) -> ExitCode {
+/// `run`: a file's `main`, or a function of the project by its full name.
+fn run_target(target: &str, js: bool, project: Option<&Path>) -> ExitCode {
     let mut session = new_session();
-    if !load(&mut session, path) {
-        return ExitCode::FAILURE;
-    }
-    let main = match session.main() {
+    let main = if is_file_target(target) {
+        if !load_file(&mut session, Path::new(target), Some("run")) {
+            return ExitCode::FAILURE;
+        }
+        session.main()
+    } else {
+        let Some(project) = locate_project(project, "run", "run hello.sw") else {
+            return ExitCode::FAILURE;
+        };
+        let sources = match project_sources(&project.files, &project.name, &mut session.sources) {
+            Ok(sources) => sources,
+            Err(diagnostics) => {
+                report(&session.sources, &diagnostics);
+                return ExitCode::FAILURE;
+            }
+        };
+        let analysis = analyse(&mut session, &project.name, sources);
+        if !analysis.diagnostics.is_empty() {
+            report(&session.sources, &analysis.diagnostics);
+            return ExitCode::FAILURE;
+        }
+        let Some(namespace) = namespace_of(&analysis, target).map(str::to_string) else {
+            let d = run_unknown_namespace(&project.name, target, &analysis);
+            report(&session.sources, &[d]);
+            return ExitCode::FAILURE;
+        };
+        match session.load_analysis(
+            &project.name,
+            analysis,
+            &Target::Namespaces(vec![namespace]),
+        ) {
+            Ok(_) => report(&session.sources, &std::mem::take(&mut session.warnings)),
+            Err(diagnostics) => {
+                report(&session.sources, &diagnostics);
+                return ExitCode::FAILURE;
+            }
+        }
+        session.main_named(target, &project.name)
+    };
+    let main = match main {
         Ok(main) => main,
         Err(diagnostic) => {
             report(&session.sources, &[diagnostic]);
             return ExitCode::FAILURE;
         }
     };
+    if js {
+        run_main_js(&mut session, main)
+    } else {
+        run_main(&mut session, &main)
+    }
+}
+
+fn run_main(session: &mut Session, main: &Main) -> ExitCode {
     let mut input = std::io::stdin().lock();
     let mut output = std::io::BufWriter::new(std::io::stdout().lock());
-    match session.run_main(&main, &mut input, &mut output) {
+    match session.run_main(main, &mut input, &mut output) {
         Ok(()) => ExitCode::SUCCESS,
         Err(err) => {
-            report(&session.sources, &[err.diagnostic(&main)]);
+            report(&session.sources, &[err.diagnostic(main)]);
             ExitCode::FAILURE
         }
     }
 }
 
-/// `run --js`: checks the file as `run` does, then writes `main` and a
-/// runner as JavaScript to a temporary directory and runs it with Node,
-/// which inherits standard input, output and error.
-fn run_main_js(path: &Path) -> ExitCode {
+/// `run --js`: writes `main` and a runner as JavaScript to a temporary
+/// directory and runs it with Node, which inherits standard input, output
+/// and error.
+fn run_main_js(session: &mut Session, main: Main) -> ExitCode {
     use stitchwort_js::run::{EXIT_IO, EXIT_RESOURCE};
-    let mut session = new_session();
-    if !load(&mut session, path) {
-        return ExitCode::FAILURE;
-    }
-    let main = match session.main() {
-        Ok(main) => main,
-        Err(diagnostic) => {
-            report(&session.sources, &[diagnostic]);
-            return ExitCode::FAILURE;
-        }
-    };
     let program = match session.extract_program(&main) {
         Ok(program) => program,
         Err(diagnostic) => {
@@ -381,9 +647,15 @@ fn repl(path: Option<&Path>) -> ExitCode {
     }
 }
 
-fn build(path: &Path, out: &Path) -> ExitCode {
+fn build(target: &str, out: &Path, project: Option<&Path>) -> ExitCode {
+    if !is_file_target(target) {
+        let _ = (out, project);
+        eprintln!("error: building a namespace isn't supported yet");
+        return ExitCode::FAILURE;
+    }
+    let path = Path::new(target);
     let mut session = new_session();
-    if !load(&mut session, path) {
+    if !load_file(&mut session, path, Some("built")) {
         return ExitCode::FAILURE;
     }
     let output = match session.extract() {
@@ -396,6 +668,11 @@ fn build(path: &Path, out: &Path) -> ExitCode {
     let stem = path
         .file_stem()
         .map_or("out".into(), |s| s.to_string_lossy());
+    write_output(out, &stem, output)
+}
+
+/// Writes `{stem}.js` and `{stem}.d.ts` in `out`.
+fn write_output(out: &Path, stem: &str, output: stitchwort_js::Output) -> ExitCode {
     let js = out.join(format!("{stem}.js"));
     let dts = out.join(format!("{stem}.d.ts"));
     let written = std::fs::create_dir_all(out)

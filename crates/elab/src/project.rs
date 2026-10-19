@@ -21,6 +21,62 @@ pub struct SourceUnit<'a> {
     pub module: &'a Module,
 }
 
+/// What a single file loaded from inside a project needs to know to say
+/// why it can't use the project (`E-FILE-MODE`,
+/// docs/proposals/multi-file.md §4.3, §7).
+#[derive(Clone, Debug)]
+pub struct FileModeContext {
+    /// The file's display name.
+    pub file: String,
+    /// What's being done to it: "run", "checked", "tested" or "built".
+    pub verb: &'static str,
+    /// The project's name.
+    pub project: String,
+    /// The project's namespaces.
+    pub namespaces: std::collections::BTreeSet<String>,
+    /// What to do instead.
+    pub note: String,
+}
+
+impl FileModeContext {
+    /// The namespace of the project that `path` is, or starts with (by
+    /// components), if any: the longest.
+    fn namespace_of(&self, path: &str) -> Option<&str> {
+        self.namespaces
+            .iter()
+            .filter(|ns| path == ns.as_str() || path.starts_with(&format!("{ns}.")))
+            .max_by_key(|ns| ns.len())
+            .map(String::as_str)
+    }
+
+    /// `E-FILE-MODE` for the name or path `written` at `span`, if it is of
+    /// the project.
+    pub(crate) fn diagnostic(
+        &self,
+        written: &str,
+        span: Span,
+    ) -> Option<stitchwort_syntax::Diagnostic> {
+        let namespace = self.namespace_of(written)?;
+        Some(
+            stitchwort_syntax::Diagnostic::error(
+                "E-FILE-MODE",
+                format!(
+                    "`{}` is {} as a single file, so it can use only the standard library",
+                    self.file, self.verb
+                ),
+            )
+            .with_label(
+                span,
+                format!(
+                    "`{namespace}` is a namespace of the project {}/",
+                    self.project
+                ),
+            )
+            .with_note(self.note.clone()),
+        )
+    }
+}
+
 /// A namespace's files, as syntax.
 pub struct NamespaceSyntax<'a> {
     pub name: String,

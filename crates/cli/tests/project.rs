@@ -1,6 +1,9 @@
-//! Projects on the command line (docs/proposals/multi-file.md §7, §12).
+//! Projects on the command line, end to end with the built command
+//! (docs/proposals/multi-file.md §7, §12). Each test writes its own project
+//! to a temporary folder.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::process::{Command, Output, Stdio};
 
 /// The repository's own folder isn't a project, so running `stitchwort`
 /// anywhere in it, an example included, never finds an accidental one
@@ -9,4 +12,256 @@ use std::path::Path;
 fn the_repository_root_is_not_a_project() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stitchwort.yaml");
     assert!(!root.exists(), "{} must not exist", root.display());
+}
+
+/// A project folder named `proj` in a fresh temporary folder for `test`.
+fn project(test: &str, files: &[(&str, &str)]) -> PathBuf {
+    let base =
+        std::env::temp_dir().join(format!("stitchwort-project-{}-{test}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&base);
+    let dir = base.join("proj");
+    for (path, text) in files {
+        let full = dir.join(path);
+        std::fs::create_dir_all(full.parent().unwrap()).unwrap();
+        std::fs::write(full, text).unwrap();
+    }
+    dir
+}
+
+/// Runs `stitchwort args` in `cwd`.
+fn stitchwort(cwd: &Path, args: &[&str]) -> Output {
+    Command::new(env!("CARGO_BIN_EXE_stitchwort"))
+        .args(args)
+        .current_dir(cwd)
+        .stdin(Stdio::null())
+        .output()
+        .expect("run stitchwort")
+}
+
+fn out(output: &Output) -> &str {
+    std::str::from_utf8(&output.stdout).unwrap()
+}
+
+fn err(output: &Output) -> &str {
+    std::str::from_utf8(&output.stderr).unwrap()
+}
+
+fn succeeds(cwd: &Path, args: &[&str]) -> String {
+    let output = stitchwort(cwd, args);
+    assert!(output.status.success(), "{args:?}:\n{}", err(&output));
+    out(&output).to_string()
+}
+
+fn fails(cwd: &Path, args: &[&str], code: &str) -> String {
+    let output = stitchwort(cwd, args);
+    assert_eq!(output.status.code(), Some(1), "{args:?}:\n{}", err(&output));
+    assert!(
+        err(&output).contains(&format!("[{code}]")),
+        "{args:?}: expected {code}:\n{}",
+        err(&output)
+    );
+    err(&output).to_string()
+}
+
+const LIB: &str = "namespace Lib
+
+def greet(): {IO} () := print \"lib\"
+
+def answer: Nat := 2
+
+test \"lib\" := 1 + 1 == 2
+";
+
+const DAY: &str = "namespace Day
+
+import Lib (greet)
+
+def main(): {IO} () :=
+  print \"day\"
+  greet()
+
+def quiet(): () := ()
+
+def maybe(): {Partial} () := ()
+
+def bad(n: Nat): Nat := n
+
+test \"day\" := Lib.answer == 2
+";
+
+const OTHER: &str = "namespace Other\n\ndef x: Nat := 1\n\ntest \"x\" := x == 1\n";
+const BROKEN: &str = "namespace Other\n\ndef x: Nat := True\n";
+const SOLO: &str =
+    "namespace Solo\n\ndef main(): {IO} () := print \"solo\"\n\ntest \"solo\" := True\n";
+
+fn files<'a>(day: &'a str, other: &'a str) -> Vec<(&'a str, &'a str)> {
+    vec![
+        ("stitchwort.yaml", ""),
+        ("src/lib.sw", LIB),
+        ("src/day.sw", day),
+        ("src/other.sw", other),
+        ("src/solo.sw", SOLO),
+    ]
+}
+
+fn standard(test: &str) -> PathBuf {
+    project(test, &files(DAY, OTHER))
+}
+
+#[test]
+fn run_by_name() {
+    let dir = standard("run_by_name");
+    assert_eq!(succeeds(&dir, &["run", "Day.main"]), "day\nlib\n");
+    // From a folder inside the project, and with the flag from outside.
+    let sub = dir.join("src");
+    assert_eq!(succeeds(&sub, &["run", "Day.main"]), "day\nlib\n");
+    let outside = dir.parent().unwrap();
+    assert_eq!(
+        succeeds(outside, &["run", "Day.main", "--project", "proj"]),
+        "day\nlib\n"
+    );
+}
+
+#[test]
+fn run_a_pure_function() {
+    assert_eq!(succeeds(&standard("run_pure"), &["run", "Day.quiet"]), "");
+}
+
+#[test]
+fn run_a_partial_function() {
+    assert_eq!(
+        succeeds(&standard("run_partial"), &["run", "Day.maybe"]),
+        ""
+    );
+}
+
+#[test]
+fn run_the_wrong_type() {
+    let message = fails(&standard("run_wrong"), &["run", "Day.bad"], "E-RUN-TYPE");
+    assert!(message.contains("`Day.bad` can't be run"), "{message}");
+}
+
+#[test]
+fn run_an_unknown_name() {
+    let dir = standard("run_unknown");
+    let message = fails(&dir, &["run", "Day.mian"], "E-RUN-UNKNOWN");
+    assert!(message.contains("did you mean `Day.main`?"), "{message}");
+    let message = fails(&dir, &["run", "Dya.main"], "E-RUN-UNKNOWN");
+    assert!(message.contains("did you mean `Day.main`?"), "{message}");
+    let message = fails(&dir, &["run", "Day"], "E-RUN-UNKNOWN");
+    assert!(message.contains("`Day.main`"), "{message}");
+}
+
+#[test]
+fn an_unrelated_broken_namespace_doesnt_stop_run() {
+    let dir = project("unrelated_broken", &files(DAY, BROKEN));
+    assert_eq!(succeeds(&dir, &["run", "Day.main"]), "day\nlib\n");
+    fails(&dir, &["check"], "E-TYPE-MISMATCH");
+}
+
+#[test]
+fn run_a_project_file_by_path() {
+    let dir = standard("run_file");
+    assert_eq!(succeeds(&dir, &["run", "src/solo.sw"]), "solo\n");
+    assert_eq!(succeeds(&dir, &["run", "Solo.main"]), "solo\n");
+}
+
+#[test]
+fn a_project_file_importing_the_project_is_file_mode() {
+    let dir = standard("file_mode");
+    let message = fails(&dir, &["run", "src/day.sw"], "E-FILE-MODE");
+    assert!(message.contains("is run as a single file"), "{message}");
+    assert!(message.contains("`stitchwort run Day.main`"), "{message}");
+    let message = fails(&dir, &["check", "src/day.sw"], "E-FILE-MODE");
+    assert!(message.contains("is checked as a single file"), "{message}");
+    assert!(message.contains("`stitchwort check Day`"), "{message}");
+}
+
+#[test]
+fn check_the_whole_project() {
+    let good = standard("check_all");
+    succeeds(&good, &["check"]);
+    let broken = project("check_all_broken", &files(DAY, BROKEN));
+    fails(&broken, &["check"], "E-TYPE-MISMATCH");
+}
+
+#[test]
+fn check_one_namespace() {
+    let dir = project("check_one", &files(DAY, BROKEN));
+    succeeds(&dir, &["check", "Day"]);
+}
+
+#[test]
+fn check_an_unknown_namespace() {
+    let message = fails(
+        &standard("check_unknown"),
+        &["check", "Dya"],
+        "E-NAMESPACE-UNKNOWN",
+    );
+    assert!(message.contains("did you mean `Day`?"), "{message}");
+}
+
+#[test]
+fn check_mixed_targets() {
+    let output = stitchwort(&standard("check_mixed"), &["check", "Day", "src/lib.sw"]);
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(
+        err(&output),
+        "error: give either files or names in the project, not both\n"
+    );
+}
+
+#[test]
+fn no_project_found() {
+    let empty = std::env::temp_dir().join(format!("stitchwort-noproject-{}", std::process::id()));
+    std::fs::create_dir_all(&empty).unwrap();
+    let output = stitchwort(&empty, &["check"]);
+    assert_eq!(output.status.code(), Some(1));
+    let message = err(&output);
+    assert!(
+        message.contains("error: there's no stitchwort.yaml in")
+            && message.contains("or any folder above it"),
+        "{message}"
+    );
+    assert!(
+        message.contains(
+            "note: to check a single file, pass its path, as in `stitchwort check hello.sw`"
+        ),
+        "{message}"
+    );
+    let output = stitchwort(&empty, &["run", "Day.main", "--project", "nowhere"]);
+    assert!(err(&output).contains("error: there's no stitchwort.yaml in nowhere"));
+}
+
+#[test]
+fn the_project_flag() {
+    let dir = standard("flag");
+    let outside = dir.parent().unwrap();
+    succeeds(outside, &["check", "--project", "proj"]);
+    let output = stitchwort(outside, &["check"]);
+    assert!(!output.status.success());
+}
+
+#[test]
+fn test_a_namespace_runs_its_dependencies_tests_grouped() {
+    let dir = standard("test_grouped");
+    let stdout = succeeds(&dir, &["test", "Day", "--no-cache"]);
+    insta::assert_snapshot!("test_a_namespace_grouped", stdout);
+}
+
+#[test]
+fn the_cache_is_in_the_project_folder() {
+    let dir = standard("cache");
+    let sub = dir.join("src");
+    succeeds(&sub, &["test"]);
+    let cache = dir.join(".stitchwort/cache/tests");
+    assert!(std::fs::read_dir(&cache).unwrap().count() > 0);
+    assert_eq!(
+        std::fs::read_to_string(dir.join(".stitchwort/.gitignore")).unwrap(),
+        "*\n"
+    );
+    assert!(!sub.join(".stitchwort").exists());
+    let again = succeeds(&sub, &["test"]);
+    assert!(again.contains("(4 from the cache)"), "{again}");
+    assert!(!again.contains(" ran"), "{again}");
 }
