@@ -1,5 +1,5 @@
 {
-  "next": 107,
+  "next": 108,
   "tickets": [
     {
       "id": 1,
@@ -1459,9 +1459,9 @@
     {
       "id": 98,
       "title": "User guide: docs/projects.md (multi-file projects), first draft",
-      "status": "doing",
-      "agent": "DeepSeek",
-      "where": "/Users/matt/scratch/opencode/funlang-20261019-202338",
+      "status": "done",
+      "agent": "",
+      "where": "",
       "labels": [
         "docs",
         "multi-file"
@@ -1470,7 +1470,8 @@
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": [
-        "02a882f"
+        "02a882f",
+        "b7ee223"
       ]
     },
     {
@@ -1590,6 +1591,21 @@
         "elab"
       ],
       "body": "Design §12 stage 2, compiler part only; the AoC day 5 split trial waits for Matt's parked AoC questions. Opus spec, then Sonnet.",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 107,
+      "title": "A namespace line after an import should say 'must come first', not E-NO-NAMESPACE",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "multi-file",
+        "bug"
+      ],
+      "body": "Found checking docs/projects.md (19 Oct): `import A (x)` then `namespace N` reports E-NO-NAMESPACE (as if the file had none). Better: E-PARSE or a note 'the namespace line must come before imports and declarations', pointing at the misplaced line. Small.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
