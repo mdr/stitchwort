@@ -1584,8 +1584,8 @@
       "id": 106,
       "title": "Multi-file stage 2: `import N (..)` (wildcard imports)",
       "status": "doing",
-      "agent": "Opus",
-      "where": "spec: scratchpad/tasks/mf-stage2-spec.md",
+      "agent": "Sonnet",
+      "where": "/Users/matt/repos/misc/funlang/.claude/worktrees/agent-a8a8bcbb45c3ff3ee (implementing; D1 pending)",
       "labels": [
         "multi-file",
         "elab"
