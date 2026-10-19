@@ -484,9 +484,9 @@
     {
       "id": 33,
       "title": "Two proofs of the same fact aren't treated as equal",
-      "status": "doing",
-      "agent": "Opus",
-      "where": "worktree: draft 3 from the second review (scratchpad/clip-review-3.md)",
+      "status": "review",
+      "agent": "Matt",
+      "where": "draft 3 ready to implement: answer §10 Q1 (adopt D1′)",
       "labels": [
         "design",
         "kernel"
@@ -496,7 +496,8 @@
       "updated": "2026-10-19",
       "commits": [
         "4c6d693",
-        "ff79a07"
+        "ff79a07",
+        "bf74b30"
       ]
     },
     {
