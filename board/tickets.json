@@ -86,9 +86,9 @@
     {
       "id": 6,
       "title": "AoC day 2: prove the block-walking spec equals ID-walking",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
-      "where": "merged (08ecfb9); gate running on main (started 00:12)",
+      "where": "-",
       "labels": [
         "aoc",
         "proof"
