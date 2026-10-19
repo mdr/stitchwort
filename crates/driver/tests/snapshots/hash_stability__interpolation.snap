@@ -1,0 +1,16 @@
+---
+source: crates/driver/tests/hash_stability.rs
+expression: "lines(&session, d, f)"
+---
+data Main.Box aaa0084446f3d7f00926cedff6aec85980bfa1a9cd0cbd2598304a44b7a74d5b
+Main.Box.value bf15d890a4e5ee1635fbd66c699896423c9b8ea620fef5bee7269a7a17ed0d13
+Main.Box.decEq 85b1fecfd6c482203cc6d6914ec9973ad570d8ba93bfcf49af29a7e8ff64128f
+Main.world 99dcee847affe959af0172632be32958564709f0e5140a9d07b2b1292b0d62f7
+Main.test "nat" a7f4d125eb39dc6d1ab0f08625b62c572122b139eb1d927cc5d25be49b73d4fb
+Main.test "int" 358ccca4eaa9cc96eb4b5c88ed50bbda79684633965099baa1e23e7b14fc30af
+Main.test "text" 41ad3927e29b2886df6ade59d449ef354bfaa4899fe96834bf87722d8499e799
+Main.test "two" 611ec0ef0054cbd94131c793f5895b5991f0aa1e7ea1d055b92f6b7366ced8f3
+Main.test "empty pieces" 29408bd9dd063a8cbd1081c7583dbee9769b1fa160fde04b61a85ee38ece8f39
+Main.test "braces" 896dd01b79fb6fbef306b78aadd7cf5bcb17d6f29cfc885a9be4ea2f9f34f75d
+Main.test "nested text" cec6851de478197a98721c28e3759e5114c98ad91587d986d200d04d9da7d480
+Main.test "dollar escape" b5523234d057e279e8e10f925f197af405b1406f5aea98b9387af716cc4d7e28

@@ -248,7 +248,7 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
                             "this character isn't closed with `'`",
                         ));
                     }
-                    Some(&b) if b == b'\'' => {
+                    Some(b'\'') => {
                         i += 1;
                         break;
                     }

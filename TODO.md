@@ -60,7 +60,11 @@ Queued after the current lanes (user, 19 Oct):
   correct diffs): DeepSeek V4.1 Flash 1m28s (Go "Global" region on; likely
   China-hosted, ZDR renewed monthly), GLM-5.3-Flash 2m11s, local Qwen3.8
   27B 34m40s (too slow; local is fallback only), qwen3-coder:30b stalled.
-  Next: DeepSeek tries string interpolation from a precise spec. Later:
+  String interpolation (`ede6e54`): DeepSeek, from an Opus spec, 13m20s,
+  correct first time apart from one clippy lint (spec now asks for clippy).
+  `${e}` is `e.toText` (Text.toText is the identity). Running: fuzz pilot
+  (DeepSeek writes crash / native-vs-JS / prove-Void programs; harness in
+  the session scratchpad). Later:
   OpenCode 2.0 (`opencode upgrade --major`)
   vs nixpkgs 1.19.
 - Option (b) of checker-evaluation.md stays shelved: after the checker
@@ -69,9 +73,6 @@ Queued after the current lanes (user, 19 Oct):
 - Later (pending user): `List.merge` still doubles on fixed lists with an
   undecidable comparison (0.42 s at 7+7); fixing needs mutual recursion and
   restated sorting proofs. `Text.linesFrom` and min/max folds similar, rare.
-- String interpolation `"Part 1: ${e}"`: `${e}` is `e` if `Text`, else
-  `e.toText` by dot notation; desugars to `++` (Sonnet, after `let`
-  stage 3; user, 19 Oct).
 - Interfaces design note (Opus, with independent review), Agda/Lean style:
   an interface is a record (laws as proof fields), instances found by
   generalising the `Decidable` auto search; coherence, predictability,
