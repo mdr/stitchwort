@@ -231,3 +231,112 @@ test "contains" := (Range.contains { lo = 3, hi = 5 } 3, Range.contains { lo = 3
 def Range.size (r: Range): Nat := r.hi + 1 - r.lo
 
 test "size" := Range.size { lo = 3, hi = 5 } == 3
+
+-- Counting the ids that ranges hold, for day 5's proof that merged ranges
+-- add up (`Aoc.Day05.solvePart2Correct`).
+
+theorem Range.containsLo (r: Range) (id: Nat) (h: r.contains id = True): r.lo <= id := Nat.betweenLo r.lo r.hi id h
+
+theorem Range.containsHi (r: Range) (id: Nat) (h: r.contains id = True): id <= r.hi := Nat.betweenHi r.lo r.hi id h
+
+-- How many of the `c` ids from `s` the range holds.
+theorem Range.countFrom (r: Range): (c: Nat) -> (s: Nat) -> r.hi < s + c ->
+    List.occurrences (\id => r.contains id) (List.rangeFrom c s) = Succ r.hi - Nat.max r.lo s
+  | Zero,   s, h =>
+    Eq.sym (Nat.subEqZero (Succ r.hi) (Nat.max r.lo s)
+      (Nat.leTrans (Succ r.hi) s (Nat.max r.lo s) (Nat.leCongRight (Succ r.hi) (s + 0) s (Nat.addZero s) h) (Nat.leMaxRight r.lo s)))
+  | Succ c, s, h =>
+    Bool.inspect (Nat.leq r.lo s) (\u => List.occurrences (\id => r.contains id) (List.rangeFrom (Succ c) s) = Succ r.hi - Nat.max r.lo s)
+      (\t => Bool.inspect (Nat.leq s r.hi) (\u => List.occurrences (\id => r.contains id) (List.rangeFrom (Succ c) s) = Succ r.hi - Nat.max r.lo s)
+        (\i =>
+          Eq.trans (Eq.cong (\b => Bool.toNat b + List.occurrences (\id => r.contains id) (List.rangeFrom c (Succ s))) (Nat.betweenYes r.lo r.hi s t i))
+            (Eq.trans (Eq.cong (\n => 1 + n) (Range.countFrom r c (Succ s) (Nat.ltCongRight r.hi (s + Succ c) (Succ s + c) (Nat.addSucc s c) h)))
+              (Eq.trans (Eq.cong (\m => 1 + (Succ r.hi - m)) (Nat.maxRight r.lo (Succ s) (Nat.leTrans r.lo s (Succ s) t (Nat.leSucc s))))
+                (Eq.trans (Eq.sym (Nat.subSuccRight s (Succ r.hi) i))
+                  (Eq.sym (Eq.cong (\m => Succ r.hi - m) (Nat.maxRight r.lo s t)))))))
+        (\o =>
+          Eq.trans (Eq.cong (\b => Bool.toNat b + List.occurrences (\id => r.contains id) (List.rangeFrom c (Succ s))) (Nat.betweenAbove r.lo r.hi s t o))
+            (Eq.trans (Range.countFrom r c (Succ s) (Nat.ltCongRight r.hi (s + Succ c) (Succ s + c) (Nat.addSucc s c) h))
+              (Eq.trans
+                (Nat.subEqZero (Succ r.hi) (Nat.max r.lo (Succ s))
+                  (Nat.leTrans (Succ r.hi) (Succ s) (Nat.max r.lo (Succ s)) (Nat.lessLe r.hi s (Nat.leqFalse s r.hi o)) (Nat.leMaxRight r.lo (Succ s))))
+                (Eq.sym (Nat.subEqZero (Succ r.hi) (Nat.max r.lo s)
+                  (Nat.leTrans (Succ r.hi) s (Nat.max r.lo s) (Nat.leqFalse s r.hi o) (Nat.leMaxRight r.lo s))))))))
+      (\f =>
+        Eq.trans (Eq.cong (\b => Bool.toNat b + List.occurrences (\id => r.contains id) (List.rangeFrom c (Succ s))) (Nat.betweenBelow r.lo r.hi s f))
+          (Eq.trans (Range.countFrom r c (Succ s) (Nat.ltCongRight r.hi (s + Succ c) (Succ s + c) (Nat.addSucc s c) h))
+            (Eq.trans (Eq.cong (\m => Succ r.hi - m) (Nat.maxLeft r.lo (Succ s) (Nat.leqFalse r.lo s f)))
+              (Eq.sym (Eq.cong (\m => Succ r.hi - m) (Nat.maxLeft r.lo s (Nat.lessLe s r.lo (Nat.leqFalse r.lo s f))))))))
+
+-- A range ending below `n` holds `size` of the ids below `n`.
+theorem Range.countBelow (r: Range) (n: Nat) (h: r.hi < n): List.occurrences (\id => r.contains id) (List.range n) = r.size :=
+  Eq.trans (Range.countFrom r n 0 h)
+    (Eq.trans (Eq.cong (\m => Succ r.hi - m) (Nat.maxLeft r.lo 0 (Nat.zeroLe r.lo)))
+      (Eq.cong (\t => t - r.lo) (Eq.sym (Nat.addOne r.hi))))
+
+-- An empty range (it ends before it starts) holds no ids, and has size 0.
+theorem Range.countEmpty (r: Range) (e: Nat.leq r.lo r.hi = False) (ids: List Nat): List.occurrences (\id => r.contains id) ids = r.size :=
+  Eq.trans
+    (List.occurrencesNone (\id => r.contains id)
+      (\id => Bool.inspect (Nat.leq r.lo id) (\u => r.contains id = False)
+        (\t => Nat.betweenAbove r.lo r.hi id t (Nat.leqFalseOfLess r.hi id (Nat.leTrans (Succ r.hi) r.lo id (Nat.leqFalse r.lo r.hi e) t)))
+        (\f => Nat.betweenBelow r.lo r.hi id f))
+      ids)
+    (Eq.sym (Eq.trans (Eq.cong (\t => t - r.lo) (Nat.addOne r.hi)) (Nat.subEqZero (Succ r.hi) r.lo (Nat.leqFalse r.lo r.hi e))))
+
+-- Whether some range holds the id.
+def covered (rs: List Range) (id: Nat): Bool := rs.any (\r => r.contains id)
+
+theorem coveredFirst (m: Range) (rest: List Range) (id: Nat) (h: m.contains id = True): covered (Cons m rest) id = True :=
+  Eq.cong (\c => c || covered rest id) h
+
+theorem coveredRest (m: Range) (rest: List Range) (id: Nat) (h: covered rest id = True): covered (Cons m rest) id = True :=
+  Eq.trans (Eq.cong (\c => m.contains id || c) h) (Bool.orTrue (m.contains id))
+
+theorem coveredSkip (m: Range) (rest: List Range) (id: Nat) (f: m.contains id = False) (h: covered (Cons m rest) id = True): covered rest id = True :=
+  Eq.trans (Eq.sym (Eq.cong (\c => c || covered rest id) f)) h
+
+-- Every id the ranges hold is below `b`.
+def Below (b: Nat) (rs: List Range): Prop := (id: Nat) -> covered rs id = True -> id < b
+
+-- Every id the ranges hold is at most the largest end.
+theorem topGe: (z: Nat) -> (rs: List Range) -> z <= rs.foldLeft (\m r => Nat.max m r.hi) z
+  | z, Nil       => Nat.leRefl z
+  | z, Cons r rs =>
+    Nat.leTrans z (Nat.max z r.hi) (rs.foldLeft (\m r => Nat.max m r.hi) (Nat.max z r.hi)) (Nat.leMaxLeft z r.hi) (topGe (Nat.max z r.hi) rs)
+
+theorem coveredTop: (z: Nat) -> (rs: List Range) -> (id: Nat) -> covered rs id = True -> id <= rs.foldLeft (\m r => Nat.max m r.hi) z
+  | z, Nil,       id, h => Void.exfalso (Bool.falseNotTrue h)
+  | z, Cons r rs, id, h =>
+    Bool.inspect (r.contains id) (\u => id <= rs.foldLeft (\m r => Nat.max m r.hi) (Nat.max z r.hi))
+      (\t => Nat.leTrans id r.hi (rs.foldLeft (\m r => Nat.max m r.hi) (Nat.max z r.hi)) (Range.containsHi r id t)
+        (Nat.leTrans r.hi (Nat.max z r.hi) (rs.foldLeft (\m r => Nat.max m r.hi) (Nat.max z r.hi)) (Nat.leMaxRight z r.hi) (topGe (Nat.max z r.hi) rs)))
+      (\f => coveredTop (Nat.max z r.hi) rs id (coveredSkip r rs id f h))
+
+-- Ranges, latest first, each starting after every id the ones after it hold.
+def Stacked: List Range -> Prop
+  | Nil         => Unit
+  | Cons m rest => And (Below m.lo rest) (Stacked rest)
+
+-- The first range of a list whose ids are below `n` holds `size` of them.
+theorem headCount (m: Range) (rest: List Range) (n: Nat) (b: Below n (Cons m rest)):
+    List.occurrences (\id => m.contains id) (List.range n) = m.size :=
+  Bool.inspect (Nat.leq m.lo m.hi) (\u => List.occurrences (\id => m.contains id) (List.range n) = m.size)
+    (\t => Range.countBelow m n (b m.hi (coveredFirst m rest m.hi (Nat.betweenYes m.lo m.hi m.hi t (Nat.leRefl m.hi)))))
+    (\f => Range.countEmpty m f (List.range n))
+
+-- Stacked ranges hold different ids, so the ids below `n` they hold number
+-- the sum of their sizes.
+theorem stackedCount (n: Nat): (ms: List Range) -> Stacked ms -> Below n ms ->
+    List.occurrences (\id => covered ms id) (List.range n) = ms.sumBy Range.size
+  | Nil,         s,             b => List.occurrencesNone (\id => covered Nil id) (\id => rfl) (List.range n)
+  | Cons m rest, Both bm srest, b =>
+    Eq.trans
+      (List.occurrencesOr (\id => m.contains id) (\id => covered rest id)
+        (\id h => Bool.inspect (covered rest id) (\c => c = False)
+          (\t => Void.exfalso (Nat.lessIrrefl id (Nat.leTrans (Succ id) m.lo id (bm id t) (Range.containsLo m id h))))
+          (\f => rfl))
+        (List.range n))
+      (Eq.trans (Eq.cong (\t => t + List.occurrences (\id => covered rest id) (List.range n)) (headCount m rest n b))
+        (Eq.trans (Eq.cong (\t => m.size + t) (stackedCount n rest srest (\id h => b id (coveredRest m rest id h))))
+          (Eq.sym (List.sumByCons Range.size m rest))))

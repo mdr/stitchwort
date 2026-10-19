@@ -680,6 +680,20 @@ theorem Nat.betweenAbove (lo: Nat) (hi: Nat) (x: Nat) (h1: lo <= x) (h2: Nat.leq
 theorem Nat.betweenOver (lo: Nat) (hi: Nat) (x: Nat) (h: Nat.leq x hi = False): (lo <= x && x <= hi) = False :=
   Bool.inspect (Nat.leq lo x) (\c => (lo <= x && x <= hi) = False) (\t => Nat.betweenAbove lo hi x t h) (\f => Nat.betweenBelow lo hi x f)
 
+-- `lo <= x && x <= hi` once `lo <= x` is known.
+theorem Nat.betweenFrom (lo: Nat) (hi: Nat) (x: Nat) (h: lo <= x): (lo <= x && x <= hi) = Nat.leq x hi :=
+  J (\c q => Bool.ifThenElse (Decidable.toBool (Bool.decTrue c)) (\u => Decidable.toBool (Bool.decTrue (Nat.leq x hi))) (\u => False) = Nat.leq x hi)
+    (Bool.decTrueToBool (Nat.leq x hi)) (Eq.sym h)
+
+-- Each end, from the whole test.
+theorem Nat.betweenLo (lo: Nat) (hi: Nat) (x: Nat) (h: (lo <= x && x <= hi) = True): lo <= x :=
+  Bool.inspect (Nat.leq lo x) (\c => c = True) (\t => rfl)
+    (\f => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym (Nat.betweenBelow lo hi x f)) h)))
+
+theorem Nat.betweenHi (lo: Nat) (hi: Nat) (x: Nat) (h: (lo <= x && x <= hi) = True): x <= hi :=
+  Bool.inspect (Nat.leq x hi) (\c => c = True) (\t => rfl)
+    (\f => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym (Nat.betweenOver lo hi x f)) h)))
+
 -- Rounding up and down: with `d = Succ m`, `lo <= b * d` exactly when
 -- `(lo + d - 1) / d <= b`, and `b * d <= hi` exactly when `b <= hi / d`.
 theorem Nat.roundUpArg (lo: Nat) (m: Nat): lo + Succ m - 1 = lo + m := Eq.cong (\t => t - 1) (Nat.addSucc lo m)
@@ -861,6 +875,15 @@ theorem Nat.maxRight (m: Nat) (n: Nat) (h: m <= n): Nat.max m n = n :=
 
 theorem Nat.leMaxLeft (m: Nat) (n: Nat): m <= Nat.max m n :=
   Bool.inspect (Nat.leq m n) (\c => m <= Bool.ifThenElse c (\u => n) (\u => m)) (\t => t) (\f => Nat.leRefl m)
+
+-- `max` from the right, and `x <= max a b` when `x` is above `a`.
+theorem Nat.leMaxRight (m: Nat) (n: Nat): n <= Nat.max m n :=
+  Bool.inspect (Nat.leq m n) (\c => n <= Bool.ifThenElse c (\u => n) (\u => m)) (\t => Nat.leRefl n) (\f => Nat.lessLe n m (Nat.leqFalse m n f))
+
+theorem Nat.leqMaxAbove (x: Nat) (a: Nat) (b: Nat) (h: Nat.leq x a = False): Nat.leq x (Nat.max a b) = Nat.leq x b :=
+  Bool.inspect (Nat.leq a b) (\c => Nat.leq x (Bool.ifThenElse c (\u => b) (\u => a)) = Nat.leq x b)
+    (\t => rfl)
+    (\f => Eq.trans h (Eq.sym (Nat.leqFalseOfLess b x (Nat.lessTrans b a x (Nat.leqFalse a b f) (Nat.leqFalse x a h)))))
 
 theorem Nat.minLeLeft (m: Nat) (n: Nat): Nat.min m n <= m :=
   Bool.inspect (Nat.leq m n) (\c => Bool.ifThenElse c (\u => m) (\u => n) <= m) (\t => Nat.leRefl m) (\f => Nat.lessLe n m (Nat.leqFalse m n f))
@@ -1078,6 +1101,26 @@ theorem Bool.inspect: (b: Bool) -> (motive: Bool -> Prop) -> (b = True -> motive
 def Bool.toNat: Bool -> Nat
   | False => 0
   | True  => 1
+
+-- `||` on `Bool`s: `False` is its unit, `True` absorbs, and it groups and
+-- commutes.
+theorem Bool.orFalse: (b: Bool) -> (b || False) = b
+  | True  => rfl
+  | False => rfl
+
+theorem Bool.orTrue: (b: Bool) -> (b || True) = True
+  | True  => rfl
+  | False => rfl
+
+theorem Bool.orAssoc: (a: Bool) -> (b: Bool) -> (c: Bool) -> ((a || b) || c) = (a || (b || c))
+  | True,  b, c => rfl
+  | False, b, c => rfl
+
+theorem Bool.orComm: (a: Bool) -> (b: Bool) -> (a || b) = (b || a)
+  | True,  True  => rfl
+  | True,  False => rfl
+  | False, True  => rfl
+  | False, False => rfl
 
 theorem Nat.addRotate (a: Nat) (b: Nat) (c: Nat): (a + b) + c = b + (a + c) := Eq.trans (Eq.cong (\t => t + c) (Nat.addComm a b)) (Nat.addAssoc b a c)
 
@@ -1358,6 +1401,69 @@ theorem List.occurrencesTrue: (xs: List a) -> List.occurrences (\x => True) xs =
   | Cons x xs => Eq.cong Succ (List.occurrencesTrue xs)
 
 theorem List.permLength (xs: List a) (ys: List a) (h: List.Perm xs ys): List.length xs = List.length ys := Eq.trans (Eq.sym (List.occurrencesTrue xs)) (Eq.trans (h (\x => True)) (List.occurrencesTrue ys))
+
+-- Some element passes `p` exactly when at least one does, so permutations
+-- agree on `any`.
+theorem List.anyOccurrences (p: a -> Bool): (xs: List a) -> List.any p xs = Nat.leq 1 (List.occurrences p xs)
+  | Nil       => rfl
+  | Cons x xs =>
+    Bool.inspect (p x) (\c => Bool.ifThenElse c (\u => True) (\u => List.any p xs) = Nat.leq 1 (Bool.toNat c + List.occurrences p xs))
+      (\t => rfl) (\f => List.anyOccurrences p xs)
+
+theorem List.anyPerm (p: a -> Bool) (xs: List a) (ys: List a) (h: List.Perm xs ys): List.any p xs = List.any p ys :=
+  Eq.trans (List.anyOccurrences p xs) (Eq.trans (Eq.cong (\n => Nat.leq 1 n) (h p)) (Eq.sym (List.anyOccurrences p ys)))
+
+-- Reversing is a permutation, and keeps sums.
+theorem List.occurrencesReverseOnto (p: a -> Bool): (xs: List a) -> (acc: List a) ->
+    List.occurrences p (List.reverseOnto xs acc) = List.occurrences p xs + List.occurrences p acc
+  | Nil,       acc => rfl
+  | Cons x xs, acc =>
+    Eq.trans (List.occurrencesReverseOnto p xs (Cons x acc))
+      (Eq.trans (Nat.addLeftComm (List.occurrences p xs) (Bool.toNat (p x)) (List.occurrences p acc))
+        (Eq.sym (Nat.addAssoc (Bool.toNat (p x)) (List.occurrences p xs) (List.occurrences p acc))))
+
+theorem List.reversePerm (xs: List a): List.Perm (List.reverse xs) xs := \p =>
+  Eq.trans (List.occurrencesReverseOnto p xs Nil) (Nat.addZero (List.occurrences p xs))
+
+theorem List.sumByReverseOnto (f: a -> Nat): (xs: List a) -> (acc: List a) ->
+    List.sumBy f (List.reverseOnto xs acc) = List.sumBy f xs + List.sumBy f acc
+  | Nil,       acc => rfl
+  | Cons x xs, acc =>
+    Eq.trans (List.sumByReverseOnto f xs (Cons x acc))
+      (Eq.trans (Eq.cong (\t => List.sumBy f xs + t) (List.sumByCons f x acc))
+        (Eq.trans (Nat.addLeftComm (List.sumBy f xs) (f x) (List.sumBy f acc))
+          (Eq.trans (Eq.sym (Nat.addAssoc (f x) (List.sumBy f xs) (List.sumBy f acc)))
+            (Eq.cong (\t => t + List.sumBy f acc) (Eq.sym (List.sumByCons f x xs))))))
+
+theorem List.sumByReverse (f: a -> Nat) (xs: List a): List.sumBy f (List.reverse xs) = List.sumBy f xs :=
+  Eq.trans (List.sumByReverseOnto f xs Nil) (Nat.addZero (List.sumBy f xs))
+
+-- Counting with tests that agree, with a test nothing passes, and with
+-- either of two tests.
+theorem List.occurrencesCongr (p: a -> Bool) (q: a -> Bool) (h: (x: a) -> p x = q x): (xs: List a) ->
+    List.occurrences p xs = List.occurrences q xs
+  | Nil       => rfl
+  | Cons x xs =>
+    Eq.trans (Eq.cong (\b => Bool.toNat b + List.occurrences p xs) (h x))
+      (Eq.cong (\n => Bool.toNat (q x) + n) (List.occurrencesCongr p q h xs))
+
+theorem List.occurrencesNone (p: a -> Bool) (h: (x: a) -> p x = False): (xs: List a) -> List.occurrences p xs = 0
+  | Nil       => rfl
+  | Cons x xs => Eq.trans (Eq.cong (\b => Bool.toNat b + List.occurrences p xs) (h x)) (List.occurrencesNone p h xs)
+
+-- When nothing passes both `p` and `q`, the elements passing either are those
+-- passing `p` plus those passing `q`.
+theorem List.occurrencesOr (p: a -> Bool) (q: a -> Bool) (h: (x: a) -> p x = True -> q x = False): (xs: List a) ->
+    List.occurrences (\x => p x || q x) xs = List.occurrences p xs + List.occurrences q xs
+  | Nil       => rfl
+  | Cons x xs =>
+    Bool.inspect (p x)
+      (\c => Bool.toNat (c || q x) + List.occurrences (\x => p x || q x) xs
+        = (Bool.toNat c + List.occurrences p xs) + (Bool.toNat (q x) + List.occurrences q xs))
+      (\t => Eq.trans (Eq.cong (\n => 1 + n) (List.occurrencesOr p q h xs))
+        (Eq.cong (\b => (1 + List.occurrences p xs) + (Bool.toNat b + List.occurrences q xs)) (Eq.sym (h x t))))
+      (\f => Eq.trans (Eq.cong (\n => Bool.toNat (q x) + n) (List.occurrencesOr p q h xs))
+        (Nat.addLeftComm (Bool.toNat (q x)) (List.occurrences p xs) (List.occurrences q xs)))
 
 -- `s` is `xs` with some elements left out, the rest kept in order: each
 -- element of `s` is matched with an element of `xs`, or `xs`'s first element
