@@ -51,6 +51,15 @@ values while checking; (d) glued values). Reviewed; the user accepted
 (19 Oct): do (a) now (1A operation calls and dot notation, 1B `==`/`if`
 with fallback); the kernel `Let` value is lazy at check time (contained
 thunk, `run` stays strict); decide (b) after re-measuring.
+Queued after the current lanes (user, 19 Oct):
+- Rename sweep (Sonnet): `foldl`/`scanl`/`foldr` (and lemma names) to
+  `foldLeft`/`scanLeft`/`foldRight`. `count` stays. `fst`/`snd` stay; no
+  aliases; prefer destructuring in AoC code.
+- After `let` stage 3: day 3 back to `let (top, after) := pick ...`; day 1
+  `zerosPassed` as `turns |> .scanLeft Dial.move start |> .zipWith
+  Dial.zerosDuring turns |> .sum` (check `zipWith` argument order), with
+  its proof reworked (Opus).
+
 Running: `let-stage2` (Opus: lazy kernel `Let`, metavariable audit),
 `checker-bind` (Opus: option (a) 1A+1B, note draft 2), `run-js` (Opus).
 `run --js` (user, 19 Oct): compile `main` to JS, run under Node with an
