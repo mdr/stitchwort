@@ -52,7 +52,8 @@ values while checking; (d) glued values). Reviewed; the user accepted
 with fallback); the kernel `Let` value is lazy at check time (contained
 thunk, `run` stays strict); decide (b) after re-measuring.
 Queued after the current lanes (user, 19 Oct):
-- Rename sweep (Sonnet): `foldl`/`scanl`/`foldr` (and lemma names) to
+- Rename sweep (OpenCode `worker`, local qwen3-coder, Claude reviews;
+  after `checker-fixes` merges): `foldl`/`scanl`/`foldr` (and lemma names) to
   `foldLeft`/`scanLeft`/`foldRight`. `count` stays. `fst`/`snd` stay; no
   aliases; prefer destructuring in AoC code.
 - After `let` stage 3: profile day 2's ~0.6 s check time (report only),
@@ -89,7 +90,11 @@ values recomputed per force.
 AoC rewrites merged (`ed41604`): day 1 part 2 is scan-and-zip (proof
 simpler: no accumulator), day 3 uses `let (top, after) := pick ...` (no
 proof change).
-Running: `day2-check-profile` (Opus, report: re-measure,
+Running: `checker-fixes` (Opus: cache Decidable lookups; one-call
+`List.filter`). Day 2 profile merged (checker-evaluation.md §9: option
+(b) shelved). Local model set up (ollama + qwen3-coder:30b + OpenCode
+with safeguards, ~/.config/nix-darwin/opencode.nix); Claude orchestrates
+it. Was: `day2-check-profile` (Opus, report: re-measure,
 decide option (b)). (syntax polish merged: `type Grid = List (List Nat)`, lines may start
 with `,` or a closing bracket, trailing commas, char-match errors name
 characters). Checker fix (a) merged (`1fc7824`: print/dot/==/if no
