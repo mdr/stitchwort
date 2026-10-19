@@ -101,9 +101,9 @@
     {
       "id": 7,
       "title": "AoC day 5 part 2: prove it equals the brute-force count of covered ids",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
-      "where": "merged; gate running on main (started 23:56)",
+      "where": "-",
       "labels": [
         "aoc",
         "proof"
