@@ -378,6 +378,7 @@ Only definitions reachable from the exports (and their checks) are emitted, in t
 | `E-MATCH-MOTIVE` | A `match` whose scrutinees can't be generalised in this version (the same variable twice, one scrutinee part of another, one's type mentioning another) or whose generalised type is ill-formed |
 | `E-MATCH-EQUATION` | The equation of `match h : e with` can't be formed (the types differ); not reported in the first version |
 | `E-TERMINATION` | Recursion that can't be shown to terminate, or a recursive call not given all its arguments |
+| `E-SYNONYM-CYCLE` | Type synonyms defined in terms of each other, so none of them has a meaning |
 | `E-POSITIVITY` | Data type used in a negative position, inside another type, or with other parameters (for any member of its data group) |
 | `E-MUTUAL-SIGNATURE` / `E-MUTUAL-CONSTRUCTOR` / `E-MUTUAL-PARAMETERS` / `E-MUTUAL-KIND` | A type or header mentioning something it's checked together with; a field using a constructor of its own group; data types defined together with different parameters or universes; a cycle mixing data types and definitions, or with an ability |
 | `E-PROP-ELIM` | Matching on a proof to produce data, where that's not allowed |

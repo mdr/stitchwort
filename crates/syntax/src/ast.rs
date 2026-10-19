@@ -559,6 +559,10 @@ pub enum Decl {
         ty: Expr,
         theorem: bool,
         export: bool,
+        /// `type Name = …`: a transparent name for a type, checked as a
+        /// definition but never recursive, so a cycle among synonyms is its
+        /// own error (`E-SYNONYM-CYCLE`).
+        synonym: bool,
         span: Span,
     },
     /// `test "name" = expr`: a `Bool` that `stitchwort test` checks is `True`.

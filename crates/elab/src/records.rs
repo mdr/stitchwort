@@ -266,6 +266,7 @@ impl Elaborator {
             },
             theorem: false,
             export: false,
+            synonym: false,
             span,
         };
         let pattern = |f: &dyn Fn(usize) -> String| {
