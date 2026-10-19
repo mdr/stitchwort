@@ -351,9 +351,9 @@
     {
       "id": 24,
       "title": "Style: no space before `:` in type annotations?",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "read-only analysis (subagent), report to Matt",
       "labels": [
         "design",
         "syntax"
