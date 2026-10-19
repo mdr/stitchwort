@@ -30,7 +30,12 @@ agent, then reviews, merges and updates this file.
 
 Design note `docs/proposals/let.md` written (recommends a kernel `let`
 that keeps its value, Rocq/Lean style, after a step 0 that stops treating
-every `let` as effectful); awaiting independent review and the user.
+every `let` as effectful). Reviewed; the user accepted (19 Oct): option
+A, step 0 first, no `have`, pattern lets via projections, pair eta as its
+own note, `grid.rolls` fix in step 0. Lane `let-note-rev` folds the review
+in; then build in three Opus stages, one at a time: (1) step 0; (2) kernel
+`Let` + metavariable audit; (3) lifting with re-created lets, termination,
+erasure, JS, pattern lets.
 Running: `eval-speed` (Opus, report: where `run`
 spends time; day 4 is 84 rounds x 0.17 s).
 
