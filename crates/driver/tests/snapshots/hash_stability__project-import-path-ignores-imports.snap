@@ -1,0 +1,11 @@
+---
+source: crates/driver/tests/hash_stability.rs
+expression: "lines(&session, d, f)"
+---
+data A.Cat c43d1cb2f1d552c54e84b22bb85eb6adf5c976349c71ba4feeaeb65c640792a7
+data B.Cat ce4961af53d53a51ab7eb7c6e5d3159e485996457e7d469d2986aa501f89a371
+A.Cat.%decEq b3a5489dd93efd040b3670f1a1c4f5823db6ec79eb9145bb1eae7fb900f35624
+B.Cat.%decEq 9826dee7d8dc214a7b843b79522aca602fc6594c55058aa1ce89599d19b548c5
+Cat.f 6f6ff7506d13f94c1d564de206e757ae17425fa7d27bcd13f28456b8aea4353b
+Day.g c733d8e8bffa43272a434ef5f95ec3553845beb4f8feb867e74b1ee48ef91102
+Day.test "the project namespace" 8e59f0f125c9910290d56a90cf8c634eee31d525d381db70dcb71c7d9cc6906e

@@ -1,0 +1,22 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-IMPORT-UNKNOWN] Error: there's no namespace `Cat`
+   ╭─[ import-path-through-import/src/day.sw:4:8 ]
+   │
+ 4 │ import Cat (f)
+   │        ─┬─  
+   │         ╰─── there's no namespace `Cat`
+   │ 
+   │ Note 1: `import` takes a namespace, such as `List` or `Text`
+   │ 
+   │ Note 2: `Cat` is imported in this file, but an import's namespace is never found through another import: write it in full, e.g. `import Lib.Cat (f)`
+───╯
+[E-UNKNOWN-NAME] Error: unknown name `f`
+   ╭─[ import-path-through-import/src/day.sw:6:15 ]
+   │
+ 6 │ def g: Nat := f
+   │               ┬  
+   │               ╰── not in scope
+───╯

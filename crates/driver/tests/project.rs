@@ -602,3 +602,30 @@ fn an_unknown_target_is_named() {
     assert_eq!(found[0].code, "E-NAMESPACE-UNKNOWN");
     assert_eq!(found[0].notes, ["did you mean `Lib`?"]);
 }
+
+/// An import's path is found without the file's other imports, so the order
+/// of two import lines never changes what they mean, and the pre-pass sees
+/// the same project namespace that checking does.
+#[test]
+fn import_order_doesnt_matter() {
+    let a = "namespace A\n\ntype Cat = | MkA\n\ndef Cat.f: Nat := 7\n";
+    let cat = "namespace Cat\n\ndef f: Nat := 1\n";
+    for bay in [
+        "namespace Bay\n\nimport A (Cat)\nimport Cat (f)\n\ndef g: Nat := f\n\ntest \"which\" := g == 1\n",
+        "namespace Bay\n\nimport Cat (f)\nimport A (Cat)\n\ndef g: Nat := f\n\ntest \"which\" := g == 1\n",
+    ] {
+        let files = [("a.sw", a), ("cat.sw", cat), ("bay.sw", bay)];
+        let session = load(&files);
+        passes(&session);
+        let mut analysing = Session::new();
+        let analysis = stitchwort_driver::project::analyse(&mut analysing, "proj", owned(&files));
+        let targets: Vec<&str> = analysis
+            .namespace("Bay")
+            .expect("Bay")
+            .edges
+            .iter()
+            .map(|e| e.target.as_str())
+            .collect();
+        assert_eq!(targets, ["A", "Cat"]);
+    }
+}

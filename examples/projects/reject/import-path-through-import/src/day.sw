@@ -1,7 +1,6 @@
 namespace Day
 
-import A (Cat)
-import B (Cat)
+import Lib (Cat)
 import Cat (f)
 
 def g: Nat := f

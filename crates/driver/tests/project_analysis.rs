@@ -237,3 +237,26 @@ fn read_order_doesnt_matter() {
         canonical_order(&reversed, &all(&reversed))
     );
 }
+
+/// An import's namespace is never found through another import: `Cat` in
+/// `import Cat (f)` is the project namespace, not the type `A.Cat`.
+#[test]
+fn an_import_path_isnt_read_through_an_import() {
+    let analysis = read(&[
+        (
+            "a.sw",
+            "namespace A\n\ntype Cat = | MkA\n\ndef Cat.f: Nat := 7\n",
+        ),
+        ("cat.sw", "namespace Cat\n\ndef f: Nat := 1\n"),
+        (
+            "day.sw",
+            "namespace Day\n\nimport A (Cat)\nimport Cat (f)\n\ndef g: Nat := f\n",
+        ),
+    ]);
+    assert!(
+        analysis.diagnostics.is_empty(),
+        "{:#?}",
+        analysis.diagnostics
+    );
+    assert_eq!(edges(&analysis, "Day"), ["A", "Cat"]);
+}

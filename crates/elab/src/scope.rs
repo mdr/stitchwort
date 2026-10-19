@@ -124,17 +124,17 @@ pub(crate) fn qualifier<L: QualifierLevels>(levels: &L, first: &str) -> Qualifie
     Qualifier::Missing
 }
 
-/// Checking's meaning of each test. The flag says whether an ambiguous short
-/// name counts as one (a name being resolved), or not (an import's path).
+/// Checking's meaning of each test. The flag says whether this file's imports
+/// count (a name being resolved), or not (an import's path, which is never
+/// read through another import).
 struct CheckingLevels<'e>(&'e Elaborator, bool);
 
 impl<'e> QualifierLevels for CheckingLevels<'e> {
     type Short = Resolved<'e>;
 
     fn short(&self, first: &str) -> Option<Resolved<'e>> {
-        match self.0.resolve_short(first, false) {
+        match self.0.resolve_short_in(first, false, self.1) {
             Resolved::Missing => None,
-            Resolved::Ambiguous(_) if !self.1 => None,
             found => Some(found),
         }
     }
@@ -339,10 +339,19 @@ impl Elaborator {
     /// A short name, at the first level that has it. Constructors and
     /// operations are found only with `followers`.
     fn resolve_short(&self, x: &str, followers: bool) -> Resolved<'_> {
+        self.resolve_short_in(x, followers, true)
+    }
+
+    /// [`resolve_short`](Self::resolve_short), with or without this file's
+    /// imports: an import's own path is read without them.
+    fn resolve_short_in(&self, x: &str, followers: bool, imports: bool) -> Resolved<'_> {
         if x.starts_with('%') {
             return Resolved::Missing;
         }
         for level in [Level::Module, Level::Import, Level::Default] {
+            if !imports && level == Level::Import {
+                continue;
+            }
             // The first candidate, and any others that are different things
             // (the same thing reached twice isn't ambiguous).
             let mut first: Option<(&str, Global, Span)> = None;
@@ -707,40 +716,6 @@ impl Elaborator {
         diagnostics: &mut Vec<Diagnostic>,
     ) {
         for import in imports {
-            // In a project, an ambiguous first component is an error: the
-            // pre-pass, which can't tell, counts every imported name as short.
-            if !self.project_namespaces.is_empty()
-                && !self.loading_prelude
-                && import.path.text != STD
-            {
-                let first = import.path.text.split('.').next().unwrap_or_default();
-                if let Resolved::Ambiguous(keys) = self.resolve_short(first, false) {
-                    if own {
-                        let shown: Vec<String> = keys
-                            .iter()
-                            .map(|k| format!("`{}`", self.written(k)))
-                            .collect();
-                        diagnostics.push(
-                            error(
-                                "E-AMBIGUOUS",
-                                import.path.span,
-                                format!(
-                                    "`{first}` is ambiguous here: it could mean {}",
-                                    or_list(&shown)
-                                ),
-                            )
-                            .with_note(format!(
-                                "write {} in full, or drop one of the imports of `{first}`",
-                                or_list(&shown)
-                            )),
-                        );
-                    }
-                    self.scope
-                        .import_failed
-                        .extend(import.items.iter().map(|i| i.text.clone()));
-                    continue;
-                }
-            }
             let namespace = match self.import_namespace(&import.path) {
                 Some(namespace) => namespace,
                 None if own => {
@@ -753,14 +728,27 @@ impl Elaborator {
                             .extend(import.items.iter().map(|i| i.text.clone()));
                         continue;
                     }
-                    diagnostics.push(
-                        error(
-                            "E-IMPORT-UNKNOWN",
-                            import.path.span,
-                            format!("there's no namespace `{}`", import.path.text),
-                        )
-                        .with_note("`import` takes a namespace, such as `List` or `Text`"),
-                    );
+                    let mut d = error(
+                        "E-IMPORT-UNKNOWN",
+                        import.path.span,
+                        format!("there's no namespace `{}`", import.path.text),
+                    )
+                    .with_note("`import` takes a namespace, such as `List` or `Text`");
+                    // The first component may be a name this file imports:
+                    // an import's path isn't read through another import.
+                    let first = import.path.text.split('.').next().unwrap_or_default();
+                    if let Some(source) = imports
+                        .iter()
+                        .find(|i| i.items.iter().any(|n| n.text == first))
+                    {
+                        let example = import.items.first().map_or("..", |i| i.text.as_str());
+                        d = d.with_note(format!(
+                            "`{first}` is imported in this file, but an import's namespace is never found through another import: write it in full, e.g. `import {}.{} ({example})`",
+                            source.path.text,
+                            import.path.text
+                        ));
+                    }
+                    diagnostics.push(d);
                     continue;
                 }
                 None => continue,
@@ -836,8 +824,8 @@ impl Elaborator {
             Some((f, r)) => (f, Some(r)),
             None => (path.text.as_str(), None),
         };
-        // An ambiguous first component doesn't stop an import path from
-        // being a namespace.
+        // Read without this file's imports, so import order never matters
+        // (docs/proposals/multi-file.md §4.5).
         let base = match qualifier(&CheckingLevels(self, false), first) {
             Qualifier::Std => STD.to_string(),
             Qualifier::Short(Resolved::Found { key, .. }) => key.to_string(),

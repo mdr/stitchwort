@@ -156,13 +156,19 @@ impl Elaborator {
                 qualified: &qualified,
                 imported: &imported,
                 file: f,
+                imports: true,
+            };
+            // An import's path is read without the file's imports.
+            let path_levels = PrePass {
+                imports: false,
+                ..levels
             };
             let mut found = |target: String, span: Span| {
                 edges.entry(target).or_insert(span);
             };
             for import in &unit.module.imports {
                 let first = import.path.text.split('.').next().unwrap_or("");
-                if matches!(qualifier(&levels, first), Qualifier::Project)
+                if matches!(qualifier(&path_levels, first), Qualifier::Project)
                     && let Some(q) = self.longest_namespace(&import.path.text, true)
                     && q != ns.name
                 {
@@ -249,12 +255,14 @@ struct PrePass<'e, 'a> {
     /// The names each file imports.
     imported: &'e [HashSet<&'a str>],
     file: usize,
+    /// Whether the file's imports count: not for an import's own path.
+    imports: bool,
 }
 
 impl PrePass<'_, '_> {
     fn short_in(&self, first: &str, file: usize) -> bool {
         self.declared.contains(first)
-            || self.imported[file].contains(first)
+            || (self.imports && self.imported[file].contains(first))
             || self.e.scope.is_std_root(first)
     }
 }
