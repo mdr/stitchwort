@@ -11,34 +11,36 @@
 -- general, that keeps them fast to check (see "Proofs" below).
 
 def main () : {IO} () :=
-  let (one, two) := solve (IO.readAllLines ())
-  print ("Part 1: " ++ one.toText)
-  print ("Part 2: " ++ two.toText)
+  let turns := parseTurns (IO.readAllLines ())
+  print ("Part 1: " ++ (solvePart1 turns).toText)
+  print ("Part 2: " ++ (solvePart2 turns).toText)
 
-def solve (lines : List Text) : (Nat, Nat) :=
-  let turns := lines.mapMaybe Turn.parse
-  (part1 dial turns, part2 dial turns)
+def parseTurns (lines : List Text) : List Turn := lines.mapMaybe Turn.parse
+
+def solvePart1 (turns : List Turn) : Nat := zerosLandedOn dial turns
+
+def solvePart2 (turns : List Turn) : Nat := zerosPassed dial turns
 
 -- The puzzle's dial, at 50.
 def dial : Dial 99 := { position = 50, inRange = rfl }
 
 -- Part 1: the positions after each turn that are 0.
-def part1 (start : Dial highest) (turns : List Turn) : Nat :=
+def zerosLandedOn (start : Dial highest) (turns : List Turn) : Nat :=
   turns
     |> .scanl Dial.move start
     |> .drop 1
     |> .count Dial.isZero
 
 -- Part 2: add up the clicks onto 0, turn by turn, carrying the dial along.
-def part2 (start : Dial highest) (turns : List Turn) : Nat :=
+def zerosPassed (start : Dial highest) (turns : List Turn) : Nat :=
   def step : (Dial highest, Nat) -> Turn -> (Dial highest, Nat)
     | (d, count), t => (d.move t, count + d.zerosDuring t)
   (List.foldl step (start, 0) turns).snd
 
 -- The specification of part 2: turn the dial one click at a time, and count
 -- the positions after each click that are 0.
-def part2Spec (start : Dial highest) (turns : List Turn) : Nat :=
-  turns |> .concatMap Turn.clicks |> part1 start
+def zerosPassedSpec (start : Dial highest) (turns : List Turn) : Nat :=
+  turns |> .concatMap Turn.clicks |> zerosLandedOn start
 
 type Turn =
   | Left (distance : Nat)
@@ -90,8 +92,8 @@ def after (t : Text) : Maybe Nat := (Turn.parse t).map (\turn => (dial.move turn
 
 def zerosFrom (x : Int) (t : Turn) : Nat := (Dial.wrap 99 x).zerosDuring t
 
-test "example" := solve example == (3, 6)
-test "example, click by click" := part2Spec dial (example.mapMaybe Turn.parse) == 6
+test "example" := (solvePart1 (parseTurns example), solvePart2 (parseTurns example)) == (3, 6)
+test "example, click by click" := zerosPassedSpec dial (parseTurns example) == 6
 test "parse" := after "L68" == Just 82
 test "parse right" := after "R5" == Just 55
 test "parse junk" := after "X5" == Nothing
@@ -101,13 +103,13 @@ test "right onto zero" := zerosFrom 0 (Right 100) == 1
 test "left from zero" := zerosFrom 0 (Left 42) == 0
 test "left a full turn from zero" := zerosFrom 0 (Left 200) == 2
 
-theorem exampleAnswer : solve example = (3, 6) := rfl
+theorem exampleAnswer : (solvePart1 (parseTurns example), solvePart2 (parseTurns example)) = (3, 6) := rfl
 
 -- Proofs ------------------------------------------------------------------
 --
 -- Theorem 1 (positions stay on the dial) holds by the type `Dial`, and part
 -- 1 is its own specification (theorem 3, `part1Puzzle`). Theorem 2,
--- `part2Correct`, says the arithmetic count `zerosDuring` agrees with
+-- `zerosPassedCorrect`, says the arithmetic count `zerosDuring` agrees with
 -- turning the dial one click at a time, for any dial, start and turns.
 --
 -- The lemmas are about a dial of any size, `Succ highest`: with the literal
@@ -120,17 +122,17 @@ theorem alwaysOnDial [highest : Nat] (d : Dial highest) (t : Turn) : (d.move t).
 
 -- Theorem 2: the arithmetic count is the click-by-click count, for any dial,
 -- start and turns.
-theorem part2Correct (start : Dial highest) (turns : List Turn) : part2 start turns = part2Spec start turns :=
-  Eq.trans (part2From start 0 turns)
+theorem zerosPassedCorrect (start : Dial highest) (turns : List Turn) : zerosPassed start turns = zerosPassedSpec start turns :=
+  Eq.trans (zerosPassedFrom start 0 turns)
     (Eq.sym (List.countOccurrences Dial.isZero (List.drop 1 (List.scanl Dial.move start (List.concatMap Turn.clicks turns)))))
 
 -- And so for the puzzle's answer.
-theorem part2Puzzle (lines : List Text) : (solve lines).snd = part2Spec dial (lines.mapMaybe Turn.parse) :=
-  part2Correct dial (lines.mapMaybe Turn.parse)
+theorem part2Puzzle (turns : List Turn) : solvePart2 turns = zerosPassedSpec dial turns :=
+  zerosPassedCorrect dial turns
 
 -- Theorem 3: part 1 is the count of the positions after each turn that are 0.
-theorem part1Puzzle (lines : List Text) :
-    (solve lines).fst = ((List.scanl Dial.move dial (lines.mapMaybe Turn.parse)).drop 1).count Dial.isZero := rfl
+theorem part1Puzzle (turns : List Turn) :
+    solvePart1 turns = ((List.scanl Dial.move dial turns).drop 1).count Dial.isZero := rfl
 
 -- The zeros after each turn from `d`, counted by `List.occurrences`, which
 -- suits proofs (it recurses on the list).
@@ -297,7 +299,7 @@ theorem turnCount (d : Dial highest) : (t : Turn) -> zerosAfter d t.clicks = d.z
   | Right n => rightCount d n
 
 -- The clicks of one turn, then the rest.
-theorem part2Split (d : Dial highest) (t : Turn) (ts : List Turn) :
+theorem zerosPassedSplit (d : Dial highest) (t : Turn) (ts : List Turn) :
     zerosAfter d (t.clicks ++ List.concatMap Turn.clicks ts)
       = d.zerosDuring t + zerosAfter (d.move t) (List.concatMap Turn.clicks ts) :=
   Eq.trans (Eq.cong (List.occurrences Dial.isZero) (List.scanlAppend Dial.move d t.clicks (List.concatMap Turn.clicks ts)))
@@ -307,10 +309,10 @@ theorem part2Split (d : Dial highest) (t : Turn) (ts : List Turn) :
           (turnCount d t))
         (Eq.cong (\e => d.zerosDuring t + zerosAfter e (List.concatMap Turn.clicks ts)) (turnAt d t))))
 
-theorem part2From (d : Dial highest) (acc : Nat) : (ts : List Turn) ->
-    (List.foldl part2.step (d, acc) ts).snd = acc + zerosAfter d (List.concatMap Turn.clicks ts)
+theorem zerosPassedFrom (d : Dial highest) (acc : Nat) : (ts : List Turn) ->
+    (List.foldl zerosPassed.step (d, acc) ts).snd = acc + zerosAfter d (List.concatMap Turn.clicks ts)
   | Nil       => Eq.sym (Nat.addZero acc)
   | Cons t ts =>
-    Eq.trans (part2From (d.move t) (acc + d.zerosDuring t) ts)
+    Eq.trans (zerosPassedFrom (d.move t) (acc + d.zerosDuring t) ts)
       (Eq.trans (Nat.addAssoc acc (d.zerosDuring t) (zerosAfter (d.move t) (List.concatMap Turn.clicks ts)))
-        (Eq.cong (\x => acc + x) (Eq.sym (part2Split d t ts))))
+        (Eq.cong (\x => acc + x) (Eq.sym (zerosPassedSplit d t ts))))
