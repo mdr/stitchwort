@@ -1,5 +1,5 @@
 {
-  "next": 127,
+  "next": 129,
   "tickets": [
     {
       "id": 1,
@@ -131,13 +131,13 @@
     {
       "id": 9,
       "title": "OpenCode 2.0 (`opencode upgrade --major`) vs nixpkgs 1.19",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "tooling"
       ],
-      "body": "Later: OpenCode 2.0 (`opencode upgrade --major`) vs nixpkgs 1.19. Context (model tiers, bake-off, from TODO.md; archived in docs/history.md):\n\nQueued after the current lanes (user, 19 Oct):\n- Model tiers (user, 19 Oct; written up in [docs/workflow.md](docs/workflow.md)): Opus (design/analysis/review), Sonnet\n  (implementation needing judgement), DeepSeek V4.1 Flash (mechanical\n  coding; GLM-5.3-Flash fallback; Haiku mostly retired), via OpenCode Go ($10/mo, `opencode run\n  --agent worker --model opencode-go/<id>` in an `opencode-scratch` clone;\n  login with `opencode console login`). Rename sweep bake-off (identical,\n  correct diffs): DeepSeek V4.1 Flash 1m28s (Go \"Global\" region on; likely\n  China-hosted, ZDR renewed monthly), GLM-5.3-Flash 2m11s, local Qwen3.8\n  27B 34m40s (too slow; local is fallback only), qwen3-coder:30b stalled.\n  String interpolation (`ede6e54`): DeepSeek, from an Opus spec, 13m20s,\n  correct first time apart from one clippy lint (spec now asks for clippy).\n  `${e}` is `e.toText` (Text.toText is the identity). Running: fuzz pilot\n  (DeepSeek writes crash / native-vs-JS / prove-Void programs; harness in\n  the session scratchpad). Later:\n  OpenCode 2.0 (`opencode upgrade --major`)\n  vs nixpkgs 1.19.",
+      "body": "Later: OpenCode 2.0 (`opencode upgrade --major`) vs nixpkgs 1.19. Context (model tiers, bake-off, from TODO.md; archived in docs/history.md):\n\nQueued after the current lanes (user, 19 Oct):\n- Model tiers (user, 19 Oct; written up in [docs/workflow.md](docs/workflow.md)): Opus (design/analysis/review), Sonnet\n  (implementation needing judgement), DeepSeek V4.1 Flash (mechanical\n  coding; GLM-5.3-Flash fallback; Haiku mostly retired), via OpenCode Go ($10/mo, `opencode run\n  --agent worker --model opencode-go/<id>` in an `opencode-scratch` clone;\n  login with `opencode console login`). Rename sweep bake-off (identical,\n  correct diffs): DeepSeek V4.1 Flash 1m28s (Go \"Global\" region on; likely\n  China-hosted, ZDR renewed monthly), GLM-5.3-Flash 2m11s, local Qwen3.8\n  27B 34m40s (too slow; local is fallback only), qwen3-coder:30b stalled.\n  String interpolation (`ede6e54`): DeepSeek, from an Opus spec, 13m20s,\n  correct first time apart from one clippy lint (spec now asks for clippy).\n  `${e}` is `e.toText` (Text.toText is the identity). Running: fuzz pilot\n  (DeepSeek writes crash / native-vs-JS / prove-Void programs; harness in\n  the session scratchpad). Later:\n  OpenCode 2.0 (`opencode upgrade --major`)\n  vs nixpkgs 1.19.\n\nClosed 19 Oct (D14): not worth the effort while 1.19 works; revisit if it causes problems.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -174,22 +174,22 @@
     },
     {
       "id": 12,
-      "title": "Triage the fuzz pilot findings (non-ASCII identifiers, bare \"unknown name\" for a missing parameter)",
-      "status": "backlog",
+      "title": "Identifiers are ASCII-only (fuzz pilot finding)",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
-        "elab",
-        "bug"
+        "syntax",
+        "docs"
       ],
-      "body": "Fuzz pilot findings to triage (DeepSeek's reports, not yet reproduced): type-synonym cycle reported as E-TERMINATION; non-ASCII identifiers refused (check intent); bare \"unknown name\" when a parameter is missing.\n\nNote: the first finding, type-synonym cycle reported as E-TERMINATION, is fixed (`E-SYNONYM-CYCLE`, see docs/history.md).\n\nNEEDS MATT (backlog review 19 Oct): finding 1 (synonym cycle -> E-TERMINATION) is fixed (673b676, E-SYNONYM-CYCLE); a missing parameter already reports the unknown name clearly (suggest dropping). What remains: non-ASCII identifiers (`def café ...` gives E-PARSE 'unexpected character é', crates/syntax/src/lexer.rs). Proposed rewrite: title \"Non-ASCII identifiers are refused: allow them or say so\" [syntax, design]; decide: accept Unicode letters (affects the JS name encoding `encode`, which already escapes non-ASCII as `$uXXXXXX`) or keep ASCII-only and say so in the message and docs/syntax.md. Done: decision implemented, documented, tested. Not applied pending Matt.",
+      "body": "Fuzz pilot findings to triage (DeepSeek's reports, not yet reproduced): type-synonym cycle reported as E-TERMINATION; non-ASCII identifiers refused (check intent); bare \"unknown name\" when a parameter is missing.\n\nNote: the first finding, type-synonym cycle reported as E-TERMINATION, is fixed (`E-SYNONYM-CYCLE`, see docs/history.md).\n\nNEEDS MATT (backlog review 19 Oct): finding 1 (synonym cycle -> E-TERMINATION) is fixed (673b676, E-SYNONYM-CYCLE); a missing parameter already reports the unknown name clearly (suggest dropping). What remains: non-ASCII identifiers (`def café ...` gives E-PARSE 'unexpected character é', crates/syntax/src/lexer.rs). Proposed rewrite: title \"Non-ASCII identifiers are refused: allow them or say so\" [syntax, design]; decide: accept Unicode letters (affects the JS name encoding `encode`, which already escapes non-ASCII as `$uXXXXXX`) or keep ASCII-only and say so in the message and docs/syntax.md. Done: decision implemented, documented, tested. Not applied pending Matt.\n\nD7 (Matt, 19 Oct): not now. Identifiers stay ASCII-only; documented in docs/syntax.md. Other findings: synonym cycle fixed (673b676); missing parameter already reports the unknown name clearly. Closed.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
     },
     {
       "id": 13,
-      "title": "AoC: list helpers and days 6-9, deferred until Matt is happy with the days 1-5 learnings",
+      "title": "Decide: start AoC days 6-9 (and their list helpers)?",
       "status": "backlog",
       "agent": "",
       "where": "",
@@ -197,7 +197,7 @@
         "aoc",
         "stdlib"
       ],
-      "body": "Deferred (user, 19 Oct): list helpers and days 6-9 until the user is\nhappy with the learnings from days 1-5. `[x, ..rest]` list patterns merged (tail may be any\npattern; `[..p]` is `p`; not in list expressions).",
+      "body": "Open decision (D15, Matt's call; keep open). Days 6-9 and the list helpers they'd need were deferred until Matt is happy with the learnings from days 1-5 (docs/aoc-2025.md, docs/comparisons/aoc-day01.md). Related prerequisites: multi-file (SW-89 done, SW-106 stage 2), the parked AoC layout questions (shared Aoc namespace, playground loading, aoc/ layout), SW-100 (division lemmas), SW-99 (calc/rewrite). Already merged: [x, ..rest] list patterns.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -330,7 +330,7 @@
       "labels": [
         "syntax"
       ],
-      "body": "\"`>>`/`<<` composition later if wanted\" (TODO.md, Next 3). Surrounding text:\n\n`|>` merges: a small Sonnet sweep making the\nlibrary pipe-friendly — the main value last, Elm-style — starting\nwith `Maybe.andThen` (function first, like `Maybe.map`). `>>`/`<<` composition later if wanted; then one switch commit (convert everything, flip\nthe parser, delete the old one, hash/AST/test comparison); then a\ntidy-up (docs, playground colouring, awkward converter output); then\n`where`. Header and implicit names must differ. Also queued after the switch: `&&`/`||` and\na Prop-aware `not`.",
+      "body": "\"`>>`/`<<` composition later if wanted\" (TODO.md, Next 3). Surrounding text:\n\n`|>` merges: a small Sonnet sweep making the\nlibrary pipe-friendly — the main value last, Elm-style — starting\nwith `Maybe.andThen` (function first, like `Maybe.map`). `>>`/`<<` composition later if wanted; then one switch commit (convert everything, flip\nthe parser, delete the old one, hash/AST/test comparison); then a\ntidy-up (docs, playground colouring, awkward converter output); then\n`where`. Header and implicit names must differ. Also queued after the switch: `&&`/`||` and\na Prop-aware `not`.\n\nD10 (Matt, 19 Oct): not now (|> exists).",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -370,14 +370,14 @@
     },
     {
       "id": 25,
-      "title": "Rename `Maybe` to `Option`?",
+      "title": "Decide: rename Maybe to Option?",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [
         "design"
       ],
-      "body": "**Rename `Maybe` to `Option`?** Consider it (user, 19 Oct); hashes aren't a constraint yet.",
+      "body": "Open decision (D11, Matt's call; keep open). Matt prefers Scala/TypeScript-familiar surface syntax (Scala and Rust say Option; Haskell, Elm and Lean's Option/Haskell's Maybe differ). Hashes aren't a constraint yet. To decide with a short design note: names (Option/Some/None vs Maybe/Just/Nothing), every use in prelude, examples, AoC, docs and the JS boundary codec (.d.ts shape), and whether to rename the constructors too. If yes, it's a mechanical sweep (DeepSeek) after the note.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -472,14 +472,15 @@
     },
     {
       "id": 32,
-      "title": "Hashes aren't a design constraint yet",
+      "title": "Simplify the 'old way first' paths kept only to preserve hashes",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [
+        "elab",
         "design"
       ],
-      "body": "**Hashes aren't a design constraint yet** (user, 18 Oct: no users).\nSimplify places bent to keep them, e.g. `Int` stage 3's \"old way\nfirst\" path for equations and nested effectful arithmetic\n(numbers.rs). `hash_stability.rs` stays as a test oracle for\nrefactors.",
+      "body": "D12 (Matt, 19 Oct). No users yet, so hashes aren't a constraint (hash_stability.rs stays as a migration test oracle). Remove code bent to keep them: crates/elab/src/numbers.rs:338-345 (group tries an equation 'the old way' before groups, only so [] isn't inferred as ([] : List ?a) and hashes don't change), and the 'elaborated again the old way' re-elaboration (crates/elab/src/check.rs:1522; lib.rs:128/138). Done: the old-way paths are deleted, hash snapshots regenerated, all tests green, and the code is no longer than before.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -534,14 +535,15 @@
     },
     {
       "id": 36,
-      "title": "Compact text stages 2–3",
+      "title": "Compact text stage 3 (B2): native text operations in the checking evaluator",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [
-        "js"
+        "kernel",
+        "elab"
       ],
-      "body": "**Compact text stages 2–3** ([compact-text.md](docs/proposals/compact-text.md)\ndraft 2): B1 (compact `List Char` in the evaluator) and selected B2\nnatives. Prerequisites in draft 2: the expansion invariant, the list of\npasses to update, binding to declarations, an automatic build fingerprint\nin the test-cache key.\n\nMerged from SW-70:\n**For a kernel `decEqText` native** (compact text stage 3), follow the\n`decEqNat` pattern: make the definition ask a Boolean test so its `No` is\n`No (textNeq a b rfl)`, which the native can return, with whole-result\ntests.",
+      "body": "docs/proposals/compact-text.md: stage 1 (JS, f2276c0) and stage 2 (B1, compact List Char literals in the kernel, d4d3626) are built. D13 (Matt, 19 Oct): parked until a program needs it. Prerequisites (draft 2): the expansion invariant, the list of passes to update, binding natives to declarations, an automatic build fingerprint in the test-cache key. First native: decEqText, following decEqNat. Decide first whether measurements justify it (compact-text.md 'Expected performance'). Opus, design review. Merged from SW-70 (kernel decEqText native).",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -815,7 +817,7 @@
         "kernel",
         "syntax"
       ],
-      "body": "**Records follow-ups:** stage 2 (kernel projections and eta — deferred\nby the user until proofs about records need it; with the\nsame-type rule and eta off in unification's `first_order` fallback;\nrecords.md draft 2 §7); `==` for records with proof or dependent fields;\n`(.name)` accessor sections; proof-field checks at the JS boundary for\nordinary data types; printing `R.f r` as `r.f` in errors; descent through\nrecord fields for termination. After `->`, `{` starts an ability row, so\na record literal in a result type needs parentheses.\n\nSplit 19 Oct into SW-119, SW-120, SW-121. Done already: `(.name)` accessor sections (74db93a).\nNEEDS MATT (backlog review): proposed rewrite of this ticket as \"Record projections and eta in the kernel (records stage 2)\": docs/proposals/records.md draft 2 §7, deferred by Matt until proofs about records need it; makes `p = (p.fst, p.snd)` provable by `rfl` for pairs and records (docs/aoc-2025.md:1115), with the same-type rule and eta off in unification's `first_order` fallback; do after SW-93 (proof irrelevance) is decided. Is it time? Also unmade tickets, if wanted: `==` for records with proof or dependent fields (examples/reject/record-eqeq-proof-field.sw; likely follows from SW-93/SW-95) and proof-field checks at the JS boundary for ordinary data types.",
+      "body": "**Records follow-ups:** stage 2 (kernel projections and eta — deferred\nby the user until proofs about records need it; with the\nsame-type rule and eta off in unification's `first_order` fallback;\nrecords.md draft 2 §7); `==` for records with proof or dependent fields;\n`(.name)` accessor sections; proof-field checks at the JS boundary for\nordinary data types; printing `R.f r` as `r.f` in errors; descent through\nrecord fields for termination. After `->`, `{` starts an ability row, so\na record literal in a result type needs parentheses.\n\nSplit 19 Oct into SW-119, SW-120, SW-121. Done already: `(.name)` accessor sections (74db93a).\nNEEDS MATT (backlog review): proposed rewrite of this ticket as \"Record projections and eta in the kernel (records stage 2)\": docs/proposals/records.md draft 2 §7, deferred by Matt until proofs about records need it; makes `p = (p.fst, p.snd)` provable by `rfl` for pairs and records (docs/aoc-2025.md:1115), with the same-type rule and eta off in unification's `first_order` fallback; do after SW-93 (proof irrelevance) is decided. Is it time? Also unmade tickets, if wanted: `==` for records with proof or dependent fields (examples/reject/record-eqeq-proof-field.sw; likely follows from SW-93/SW-95) and proof-field checks at the JS boundary for ordinary data types.\n\nD8 (Matt, 19 Oct): records stage 2 (kernel projections and eta) not now; stays in backlog.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -1041,7 +1043,7 @@
     {
       "id": 71,
       "title": "`Partial`, someday/maybe",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -1049,7 +1051,7 @@
         "design",
         "kernel"
       ],
-      "body": "**`Partial`, someday/maybe** (see partial.md): stage 2, fuel-bounded runs\ninside total code and partial-correctness proofs (\"if it finishes, it's\nright\"), which needs a productive-observer argument and foreign calls kept\nout of steps; promoting partial code to total once termination is proven;\nequivalence of partial programs (research-level); handlers over `Delay`;\nJS exports of partial functions (a stepper).",
+      "body": "**`Partial`, someday/maybe** (see partial.md): stage 2, fuel-bounded runs\ninside total code and partial-correctness proofs (\"if it finishes, it's\nright\"), which needs a productive-observer argument and foreign calls kept\nout of steps; promoting partial code to total once termination is proven;\nequivalence of partial programs (research-level); handlers over `Delay`;\nJS exports of partial functions (a stepper).\n\nClosed 19 Oct (D6): the list lives in docs/proposals/partial.md §10.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -1105,7 +1107,7 @@
       "labels": [
         "elab"
       ],
-      "body": "docs/proposals/number-patterns.md (the `f6` example, ~line 676): rows after an equation that matches everything still contribute keys, so open terms can stay stuck needlessly. Drop unreachable rows before choosing keys. Done: `f6` computes on open terms; snapshots/hashes updated.\n\nDone already: Char literal patterns `'a' =>` (e5b3eed).\nNEEDS MATT (backlog review): a new ticket \"Number patterns: default inequalities (`n != k`)\" [syntax, elab] was proposed (number-patterns.md open question 2, ~line 543: give the catch-all row the inequalities from earlier rows so the checker knows `n != 0` in a default; decide the surface, design note first). Not created: nobody has asked for it; say if wanted.",
+      "body": "docs/proposals/number-patterns.md (the `f6` example, ~line 676): rows after an equation that matches everything still contribute keys, so open terms can stay stuck needlessly. Drop unreachable rows before choosing keys. Done: `f6` computes on open terms; snapshots/hashes updated.\n\nDone already: Char literal patterns `'a' =>` (e5b3eed).\nNEEDS MATT (backlog review): a new ticket \"Number patterns: default inequalities (`n != k`)\" [syntax, elab] was proposed (number-patterns.md open question 2, ~line 543: give the catch-all row the inequalities from earlier rows so the checker knows `n != 0` in a default; decide the surface, design note first). Not created: nobody has asked for it; say if wanted.\n\nD9 (Matt, 19 Oct): default inequalities (n != k) in number patterns: not now.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -1141,14 +1143,14 @@
     {
       "id": 78,
       "title": "DESIGN.md §16 open questions",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "docs",
         "kernel"
       ],
-      "body": "**DESIGN.md §16 open questions** that are still open (universes, handler\nadmissibility and semantics, effects and dependency, `withFuel`, `Float`,\nthe CLI name).",
+      "body": "**DESIGN.md §16 open questions** that are still open (universes, handler\nadmissibility and semantics, effects and dependency, `withFuel`, `Float`,\nthe CLI name).\n\nClosed 19 Oct (D5): a pointer to DESIGN.md §16's list, which is its own tracker; the CLI name question is now SW-128.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -1264,7 +1266,7 @@
         "bug",
         "elab"
       ],
-      "body": "**`long n == long n` gives `E-RESOURCE` at 100,000 characters** in the\nreference evaluator (fine at 10,000); probably the \"`==` operands are\ncomputed at check time\" issue, unconfirmed.",
+      "body": "**`long n == long n` gives `E-RESOURCE` at 100,000 characters** in the\nreference evaluator (fine at 10,000); probably the \"`==` operands are\ncomputed at check time\" issue, unconfirmed.\n\nD16 (Matt, 19 Oct): close after a one-line regression test (DeepSeek): a 100,000-character long n == long n test.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -1886,6 +1888,36 @@
         "playground"
       ],
       "body": "e.g. box the `Diagnostic` in the parser's `Result` so frames are smaller (from SW-61). Measure frame size before/after with web/stress.html and the nesting tests (crates/driver/tests/nesting.rs). Done: nesting depth in a 2 MiB thread improves measurably.",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 127,
+      "title": "AoC day 4: prove the grid result for all grids",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc",
+        "proof"
+      ],
+      "body": "D4 (Matt, 19 Oct). aoc/day04.sw has no theorems (days 1-3 have about 30 each). Decide what to prove against a puzzle-literal spec (e.g. one round removes exactly the rolls with fewer than 4 neighbours; settling repeats rounds until nothing changes) and prove it for all grids. Report what made it hard, as findings.",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 128,
+      "title": "Decide the CLI's name",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "docs",
+        "design"
+      ],
+      "body": "D5 (Matt, 19 Oct). The binary is `stitchwort` (long). DESIGN.md §16 item 13 floats `sw`, `wort`; `stitch` clashes with a program-synthesis tool. Decide, then rename the binary, docs, VS Code and playground mentions in one sweep.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
