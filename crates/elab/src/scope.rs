@@ -585,10 +585,13 @@ impl Elaborator {
     /// Whether the type or ability `owner` is what its short name means
     /// here, so its constructors or operations are visible (decision 6).
     fn visible_as(&self, owner: &str) -> bool {
-        matches!(
-            self.resolve_short(short(owner), false),
-            Resolved::Found { key, .. } if key == owner
-        )
+        match self.resolve_short(short(owner), false) {
+            Resolved::Found { key, .. } => key == owner,
+            // Constructors of each of two types that share a name are
+            // ambiguous too, not unknown.
+            Resolved::Ambiguous(keys, _) => keys.iter().any(|k| k == owner),
+            Resolved::Missing => false,
+        }
     }
 
     /// The key a declaration written `written` gets in the current module.
@@ -778,11 +781,26 @@ impl Elaborator {
             }
         }
         if level == Level::Wildcard {
-            let owner = keys.first().and_then(|k| parent(k)).unwrap_or("");
+            // What to import by name: the name's first component (a type
+            // used as a qualifier), or the type a constructor belongs to.
+            let key = keys.first().map_or("", String::as_str);
+            let follower = self
+                .scope
+                .followers
+                .get(short(key))
+                .is_some_and(|f| f.iter().any(|k| k == key));
+            let (namespace, item) = if follower {
+                let owner = parent(key).unwrap_or("");
+                (parent(owner).unwrap_or(""), short(owner))
+            } else {
+                (
+                    parent(key).unwrap_or(""),
+                    name.text.split('.').next().unwrap_or(&name.text),
+                )
+            };
             d = d.with_note(format!(
-                "both come in through `(..)` imports; to choose one, import it by name, e.g. `import {} ({})`",
-                display(owner),
-                short(&name.text)
+                "both come in through `(..)` imports; to choose one, import it by name, e.g. `import {} ({item})`",
+                display(namespace),
             ));
         }
         d

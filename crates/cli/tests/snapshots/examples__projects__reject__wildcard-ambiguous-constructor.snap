@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-AMBIGUOUS] Error: `R` could mean `Lib.Range.R` or `Twin.Range.R`
+   ╭─[ wildcard-ambiguous-constructor/src/day.sw:7:13 ]
+   │
+ 7 │ test "r" := R == R
+   │             ┬  
+   │             ╰── write `Lib.Range.R` or `Twin.Range.R` in full
+   │ 
+   │ Note: both come in through `(..)` imports; to choose one, import it by name, e.g. `import Lib (Range)`
+───╯

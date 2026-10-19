@@ -939,6 +939,7 @@ fn checked_terms_only_reach_planned_namespaces() {
             .unwrap_or_else(|e| panic!("{name}: {e:#?}"));
         assert_reaches_only_planned(&name, found);
     }
+    assert_reaches_only_planned("shadowing", owned(&SHADOWING));
     // In memory: wildcards of several namespaces over several files.
     assert_reaches_only_planned(
         "in memory",
@@ -951,4 +952,49 @@ fn checked_terms_only_reach_planned_namespaces() {
             ),
         ]),
     );
+}
+
+/// `Lib`'s type `Range` comes in through `(..)`, so `Range.make` in `Zday` is
+/// `Lib.Range.make` (7), not the project namespace `Range`'s (99), which
+/// sorts, and is checked, first.
+const SHADOWING: [(&str, &str); 3] = [
+    (
+        "lib.sw",
+        "namespace Lib\n\ntype Range =\n  | R (n: Nat)\n\ndef Range.make: Nat := 7\n",
+    ),
+    ("range.sw", "namespace Range\n\ndef make: Nat := 99\n"),
+    (
+        "zday.sw",
+        "namespace Zday\n\nimport Lib (..)\n\ntest \"t\" := Range.make == 7\n",
+    ),
+];
+
+#[test]
+fn a_wildcard_name_shadows_a_project_namespace() {
+    passes(&load(&SHADOWING));
+}
+
+/// Two types with the same name make their constructors ambiguous, not
+/// unknown, whether they come in by name or with `(..)`.
+#[test]
+fn constructors_of_two_same_named_types_are_ambiguous() {
+    let lib = "namespace Lib\n\ntype Range =\n  | R\n";
+    let twin = "namespace Twin\n\ntype Range =\n  | R\n";
+    for imports in [
+        "import Lib (Range)\nimport Twin (Range)",
+        "import Lib (..)\nimport Twin (..)",
+    ] {
+        let day = format!("namespace Day\n\n{imports}\n\ntest \"u\" := R == R\n");
+        let found = errors(&[("lib.sw", lib), ("twin.sw", twin), ("day.sw", &day)]);
+        assert_eq!(codes(&found), ["E-AMBIGUOUS"], "{imports}");
+        assert!(
+            found[0].message.contains("`Lib.Range.R`")
+                && found[0].message.contains("`Twin.Range.R`"),
+            "{found:#?}"
+        );
+        assert!(
+            found[0].notes.iter().all(|n| !n.contains("library has")),
+            "{found:#?}"
+        );
+    }
 }
