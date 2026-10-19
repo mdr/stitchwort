@@ -440,7 +440,7 @@ fn rfl_proves_proof_natives_equal_to_their_definitions() {
 fn unfolded_once(g: &mut Globals, op: Native) -> DefId {
     let id = def(g, op.name());
     let d = g.def(id);
-    let (ty, body, span) = (d.ty.clone(), d.body.clone().unwrap(), d.span);
+    let (ty, body, span) = (d.ty.clone(), d.body().cloned().unwrap(), d.span);
     let name = format!("{}Once", op.name());
     let copy = declare_def(g, &name.as_str().into(), &ty, d.theorem, false, span).unwrap();
     define_def(g, copy, &body).unwrap();

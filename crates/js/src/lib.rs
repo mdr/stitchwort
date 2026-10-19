@@ -151,7 +151,7 @@ pub fn exportable(g: &Globals, id: DefId) -> Result<ExportSig, Diagnostic> {
         ));
     }
     // Prefer the names from the signature, then from the equations.
-    let equation_names = lam_names(def.body.as_deref());
+    let equation_names = lam_names(def.body().map(|b| &**b));
     let mut params = Vec::new();
     let mut param_positions = Vec::new();
     let mut checks = Vec::new();
@@ -624,7 +624,7 @@ pub fn generate_exports(
         // a module with errors, but if it were asked to, the JS would call a
         // function that isn't there.
         let def = g.def(id);
-        if def.body.is_none() && !codegen.info(id).result_erased {
+        if def.body().is_none() && !codegen.info(id).result_erased {
             return Err(Diagnostic::error(
                 "E-EXPORT",
                 format!("can't generate JavaScript for `{}`", def.name),
@@ -1283,7 +1283,7 @@ impl<'g> Gen<'g> {
         } else if mask.iter().any(|e| !e) {
             Convention::Function
         } else {
-            let case_tree = def.body.as_ref().is_some_and(|b| {
+            let case_tree = def.body().is_some_and(|b| {
                 matches!(b.peel_lams(def.arity), Term::Case(..) | Term::NumCase(..))
             });
             let in_group = def.group.as_ref().is_some_and(|m| m.len() > 1);
@@ -1341,7 +1341,7 @@ impl<'g> Gen<'g> {
                 run::primitive_js(prim)
             ));
         }
-        let Some(body) = &def.body else {
+        let Some(body) = def.body() else {
             unreachable!("`generate_with` refuses a definition without a body");
         };
         if let Some(op) = self.text_natives.get(&id) {
@@ -2218,7 +2218,7 @@ fn erasable(g: &Globals) -> Result<(), Diagnostic> {
             | Primitive::Pfix => true,
         };
         if let Some(id) = g.builtins.primitive_id(prim)
-            && (!builds || g.def(id).body.is_some())
+            && (!builds || g.def(id).body().is_some())
         {
             return Err(Diagnostic::error(
                 "E-JS-PARTIAL",
@@ -2257,7 +2257,7 @@ fn reachable(
             continue;
         }
         let def = g.def(id);
-        if let Some(body) = &def.body
+        if let Some(body) = def.body()
             && !opaque(id)
         {
             visit(body, &mut stack);

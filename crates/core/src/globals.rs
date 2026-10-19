@@ -22,6 +22,7 @@ pub enum State {
     Failed,
 }
 
+#[derive(Clone)]
 pub struct Def {
     /// Its name as written from the root of its module: `List.length`.
     pub name: Name,
@@ -34,8 +35,8 @@ pub struct Def {
     /// Set exactly when the definition is final. So it's `None` while its own
     /// body is being checked (recursive references don't unfold), and if
     /// checking it failed.
-    pub body: Option<Rc<Term>>,
-    pub state: State,
+    pub(crate) body: Option<Rc<Term>>,
+    pub(crate) state: State,
     /// The definition-entry arity: the number of leading lambdas in the
     /// submitted body (`Term::count_lams`), set by `define_group` before any
     /// body of the group is checked. Recursive occurrences must be applied to at least
@@ -55,9 +56,34 @@ pub struct Def {
     pub span: Span,
 }
 
+impl Def {
+    /// The definition's body, once it has been admitted.
+    pub fn body(&self) -> Option<&Rc<Term>> {
+        self.body.as_ref()
+    }
+
+    /// Where the definition is in its admission.
+    pub fn state(&self) -> State {
+        self.state
+    }
+
+    /// Bypasses admission: for tests that build deliberately broken states only.
+    #[doc(hidden)]
+    pub fn set_body_unchecked_for_tests(&mut self, body: Option<Rc<Term>>) {
+        self.body = body;
+    }
+
+    /// Bypasses admission: for tests that build deliberately broken states only.
+    #[doc(hidden)]
+    pub fn set_state_unchecked_for_tests(&mut self, state: State) {
+        self.state = state;
+    }
+}
+
 /// A decision procedure for an exported function's proof parameter `param`,
 /// in the context of the parameters before it. Extracted JS runs it on the
 /// decoded inputs, and rejects them unless it says `Yes`.
+#[derive(Clone)]
 pub struct Validator {
     pub param: usize,
     pub decision: Term,
@@ -97,8 +123,21 @@ pub struct Data {
     pub datas_before: usize,
     /// Final once its constructors are defined (they can be only once).
     /// Until then it isn't empty: it can't be matched on or hashed.
-    pub state: State,
+    pub(crate) state: State,
     pub span: Span,
+}
+
+impl Data {
+    /// Where the type is in its admission.
+    pub fn state(&self) -> State {
+        self.state
+    }
+
+    /// Bypasses admission: for tests that build deliberately broken states only.
+    #[doc(hidden)]
+    pub fn set_state_unchecked_for_tests(&mut self, state: State) {
+        self.state = state;
+    }
 }
 
 /// A decision procedure for proof field `field` of constructor `ctor`, in the

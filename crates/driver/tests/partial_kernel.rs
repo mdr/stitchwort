@@ -178,8 +178,8 @@ fn delay_and_its_constants_are_final_opaque_and_hashed() {
         let id = prim(g, p);
         let d = g.def(id);
         assert_eq!(&*d.name, p.name());
-        assert_eq!(d.state, State::Final, "{}", p.name());
-        assert!(d.body.is_none(), "{} has no computation rule", p.name());
+        assert_eq!(d.state(), State::Final, "{}", p.name());
+        assert!(d.body().is_none(), "{} has no computation rule", p.name());
         assert!(def_hash(g, id).unwrap().is_some(), "{} is hashed", p.name());
     }
 }
@@ -232,7 +232,7 @@ fn a_constant_is_admitted_once() {
         code(partial::define_primitive(g, again, Primitive::Now)),
         "E-BUILTIN"
     );
-    assert_eq!(g.def(again).state, State::Failed);
+    assert_eq!(g.def(again).state(), State::Failed);
     // Admitting a final definition again is malformed.
     let now = prim(g, Primitive::Now);
     assert_eq!(
@@ -302,7 +302,7 @@ fn a_description_calling_its_own_wrapper_is_refused() {
         code(check::define_def(g, bad, &calls_itself)),
         "E-TERMINATION"
     );
-    assert_eq!(g.def(bad).state, State::Failed);
+    assert_eq!(g.def(bad).state(), State::Failed);
 
     // good x = pfix (\y -> lift (Call (L (Recur y)) (\v -> Done v))) x
     let good = check::declare_def(g, &"good".into(), &ty, false, false, span()).unwrap();

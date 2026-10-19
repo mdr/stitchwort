@@ -406,7 +406,7 @@ fn generated_int_matches_agree_with_the_rows_in_every_evaluator() {
             let text = generated.source(name);
             let g = &mut new.elab.globals;
             let f = def(g, name);
-            let body = g.def(f).body.clone().unwrap();
+            let body = g.def(f).body().unwrap();
             if body.subterms().any(|(t, _)| matches!(t, Term::NumCase(..))) {
                 num_cases += 1;
             }

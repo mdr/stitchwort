@@ -96,7 +96,7 @@ fn even_and_odd_are_accepted_together() {
     let bodies = even_odd_bodies(&p, ids[0], ids[1]);
     define_group(&mut p.g, &bodies).unwrap();
     for id in &ids {
-        assert_eq!(p.g.def(*id).state, State::Final);
+        assert_eq!(p.g.def(*id).state(), State::Final);
         assert_eq!(p.g.def(*id).group.as_deref(), Some(&ids[..]));
     }
     assert_eq!(run(&p.g, ids[0], &[4], 10_000), Some(1));
@@ -125,8 +125,8 @@ fn a_cycle_split_into_two_groups_is_refused() {
         code(define_group(&mut p.g, &[(g, g_body.clone())])),
         "E-FAILED-DEPENDENCY"
     );
-    assert_eq!(p.g.def(f).state, State::Failed);
-    assert_eq!(p.g.def(g).state, State::Failed);
+    assert_eq!(p.g.def(f).state(), State::Failed);
+    assert_eq!(p.g.def(g).state(), State::Failed);
     // Neighbour: the same two as one group, accepted (`g` makes it smaller).
     let ids = declare_all(&mut p, &["f2", "g2"]);
     let f_body = lam("n", app(Term::Def(ids[1]), [v(0)]));
@@ -161,7 +161,7 @@ fn incorrect_partitions_of_a_cycle_are_refused() {
     assert!(
         members
             .iter()
-            .all(|(id, _)| p.g.def(*id).state == State::Failed)
+            .all(|(id, _)| p.g.def(*id).state() == State::Failed)
     );
     // [f] then [g, h].
     let mut p = Prelude::new();
@@ -188,24 +188,24 @@ fn every_member_must_be_pending_and_listed_once() {
     define_group(&mut p.g, &[(done, lam("n", v(0)))]).unwrap();
     let e = define_group(&mut p.g, &[bodies[0].clone(), (done, lam("n", v(0)))]).unwrap_err();
     assert_eq!(e.code, "E-MALFORMED");
-    assert_eq!(p.g.def(ids[0]).state, State::Failed);
-    assert_eq!(p.g.def(done).state, State::Final);
+    assert_eq!(p.g.def(ids[0]).state(), State::Failed);
+    assert_eq!(p.g.def(done).state(), State::Final);
     // Listed twice.
     let ids = declare_all(&mut p, &["even2", "odd2"]);
     let bodies = even_odd_bodies(&p, ids[0], ids[1]);
     let twice = [bodies[0].clone(), bodies[1].clone(), bodies[0].clone()];
     assert_eq!(code(define_group(&mut p.g, &twice)), "E-MALFORMED");
-    assert!(ids.iter().all(|id| p.g.def(*id).state == State::Failed));
+    assert!(ids.iter().all(|id| p.g.def(*id).state() == State::Failed));
     // Empty, or naming a definition that doesn't exist: refused, and
     // nothing changes.
-    let before: Vec<State> = p.g.defs.iter().map(|d| d.state).collect();
+    let before: Vec<State> = p.g.defs.iter().map(|d| d.state()).collect();
     assert_eq!(code(define_group(&mut p.g, &[])), "E-MALFORMED");
     let missing = DefId(p.g.defs.len() + 3);
     assert_eq!(
         code(define_group(&mut p.g, &[(missing, lam("n", v(0)))])),
         "E-MALFORMED"
     );
-    let after: Vec<State> = p.g.defs.iter().map(|d| d.state).collect();
+    let after: Vec<State> = p.g.defs.iter().map(|d| d.state()).collect();
     assert_eq!(before, after);
     // A member of a failed group can't be submitted again.
     assert_eq!(code(define_group(&mut p.g, &bodies)), "E-MALFORMED");
@@ -247,7 +247,7 @@ fn a_group_can_refer_only_to_its_members_and_final_declarations() {
             .any(|l| l.message.contains("isn't finished and isn't in this group")),
         "{e:?}"
     );
-    assert!(ids.iter().all(|id| p.g.def(*id).state == State::Failed));
+    assert!(ids.iter().all(|id| p.g.def(*id).state() == State::Failed));
 }
 
 #[test]
@@ -281,8 +281,8 @@ fn members_are_opaque_while_their_group_is_checked() {
     let members = [(z, p.num(0)), (f, body_using(&p, z))];
     let e = define_group(&mut p.g, &members).unwrap_err();
     assert_eq!(e.code, "E-REFL", "{e:?}");
-    assert_eq!(p.g.def(z).state, State::Failed);
-    assert_eq!(p.g.def(f).state, State::Failed);
+    assert_eq!(p.g.def(z).state(), State::Failed);
+    assert_eq!(p.g.def(f).state(), State::Failed);
     assert_eq!(hash_of(&p.g, z), None);
     // Neighbour: `z` finished first, in its own group.
     let z = constant(&mut p, "z2");
@@ -378,7 +378,7 @@ fn growth_that_alternates_between_members_is_refused() {
     assert!(
         members
             .iter()
-            .all(|(id, _)| p.g.def(*id).state == State::Failed)
+            .all(|(id, _)| p.g.def(*id).state() == State::Failed)
     );
 }
 
@@ -438,8 +438,8 @@ fn a_failed_group_publishes_nothing() {
     let members = alternating(&mut p);
     let _ = define_group(&mut p.g, &members);
     for (id, _) in &members {
-        assert_eq!(p.g.def(*id).state, State::Failed);
-        assert!(p.g.def(*id).body.is_none());
+        assert_eq!(p.g.def(*id).state(), State::Failed);
+        assert!(p.g.def(*id).body().is_none());
         assert_eq!(hash_of(&p.g, *id), None);
     }
     // Using a member afterwards fails too.
@@ -552,7 +552,7 @@ fn running_out_while_deciding_a_groups_termination_fails_every_member() {
         "it ran out in the termination check: {e:?}"
     );
     for (id, _) in &members {
-        assert_eq!(p.g.def(*id).state, State::Failed);
+        assert_eq!(p.g.def(*id).state(), State::Failed);
         assert_eq!(hash_of(&p.g, *id), None);
     }
 }

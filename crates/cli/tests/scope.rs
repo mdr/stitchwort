@@ -242,7 +242,7 @@ fn a_failed_data_group_fails_every_member_without_cascading() {
     let prelude = Session::new().elab.globals.datas.len();
     for data in &g.datas[prelude..] {
         assert_eq!(
-            data.state,
+            data.state(),
             stitchwort_core::globals::State::Failed,
             "{}",
             data.name

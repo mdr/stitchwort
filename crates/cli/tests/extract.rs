@@ -821,7 +821,7 @@ export def f (n : Nat) : Nat := helper n
         .map(DefId)
         .find(|id| &*g.def(*id).name == "helper")
         .expect("`helper` is declared");
-    assert!(g.def(helper).body.is_none());
+    assert!(g.def(helper).body().is_none());
     let e = stitchwort_js::generate(g, session.elab.limits)
         .err()
         .expect("generation is refused");
