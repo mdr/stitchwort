@@ -1,5 +1,5 @@
 {
-  "next": 130,
+  "next": 131,
   "tickets": [
     {
       "id": 1,
@@ -1947,6 +1947,20 @@
         "design"
       ],
       "body": "Found converting examples to dot notation (SW-123, 19 Oct): 14 conversions changed the elaborated term (hash moved), e.g. `[True, False].map not` vs `List.map not [True, False]`, `[1, 2].map …`, `[1, 2].zip …`, several `.sort`/`.sortBy`/`.sortWith` calls in sort.sw, `.elem`/`.lookup` in list-toolkit.sw (DeepSeek log: scratchpad/tasks/dots.log). docs/syntax.md:239 presents them as the same call. Likely cause (inferred): the receiver is checked first without the function's expected type, so a literal list's element type or an implicit is settled differently (Nat vs Int), and evaluation order differs (receiver first). Investigate one case with the printer; then either make them agree or document the difference.",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 130,
+      "title": "Apply the OpenCode worker's new permission rules (run sw)",
+      "status": "next",
+      "agent": "Matt",
+      "where": "",
+      "labels": [
+        "tooling"
+      ],
+      "body": "19 Oct: ~/.config/nix-darwin/opencode.nix now gives the `worker` agent freedom to run commands (\"*\" = allow) with a deny list (git push/remote/commit/reset/rebase, gh, ssh, scp, curl, wget, sudo, rm -rf / and ~, darwin-rebuild, opencode) and external_directory = allow (Matt asked for freedom by default). Written by Claude, not yet applied: Matt runs `sw`. Until then DeepSeek keeps hitting refusals (sed, node, rm, chmod, env-prefixed commands). Also uncommitted in the nix-darwin repo (flake.nix, home.nix, opencode.nix).",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
