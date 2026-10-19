@@ -15,14 +15,17 @@
 def Grid : Type := List (List Nat)
 
 def main () : {IO} () :=
-  let (one, two) := solve (Grid.parse (IO.readAllLines ()))
-  print ("Part 1: " ++ one.toText)
-  print ("Part 2: " ++ two.toText)
+  let grid := parseGrid (IO.readAllLines ())
+  print ("Part 1: " ++ (solvePart1 grid).toText)
+  print ("Part 2: " ++ (solvePart2 grid).toText)
 
-def solve (grid : Grid) : (Nat, Nat) :=
-  (grid.rolls - grid.round.rolls, grid.rolls - (grid.settle grid.rolls).rolls)
+-- Part 1: the rolls one round removes.
+def solvePart1 (grid : Grid) : Nat := grid.rolls - grid.round.rolls
 
-def Grid.parse (lines : List Text) : Grid := lines.map parseLine
+-- Part 2: the rolls removed by rounds until none is accessible.
+def solvePart2 (grid : Grid) : Nat := grid.rolls - (grid.settle grid.rolls).rolls
+
+def parseGrid (lines : List Text) : Grid := lines.map parseLine
 
 def parseLine (line : Text) : List Nat := line.toList.map parseChar
 
@@ -65,11 +68,13 @@ def example : List Text :=
   [ "..@@.@@@@.", "@@@.@.@.@@", "@@@@@.@.@@", "@.@@@@..@.", "@@.@@@@.@@",
     ".@@@@@@@.@", ".@.@.@.@@@", "@.@@@.@@@@", ".@@@@@@@@.", "@.@.@@@.@." ]
 
-test "example" := solve (Grid.parse example) == (13, 43)
-test "rolls" := (Grid.parse example).rolls == 71
+test "example" := (solvePart1 (parseGrid example), solvePart2 (parseGrid example)) == (13, 43)
+test "rolls" := (parseGrid example).rolls == 71
 test "row sums" := rowSums [1, 0, 1, 1] == [1, 2, 2, 2]
-test "lone roll" := solve [[1]] == (1, 1)
-test "full square" := solve [[1, 1], [1, 1]] == (4, 4)
-test "plus shape keeps its centre" := solve [[0, 1, 0], [1, 1, 1], [0, 1, 0]] == (4, 5)
+test "lone roll" := (solvePart1 [[1]], solvePart2 [[1]]) == (1, 1)
+test "full square" := (solvePart1 [[1, 1], [1, 1]], solvePart2 [[1, 1], [1, 1]]) == (4, 4)
+def plus : Grid := [[0, 1, 0], [1, 1, 1], [0, 1, 0]]
 
-theorem exampleAnswer : solve (Grid.parse example) = (13, 43) := rfl
+test "plus shape keeps its centre" := (solvePart1 plus, solvePart2 plus) == (4, 5)
+
+theorem exampleAnswer : (solvePart1 (parseGrid example), solvePart2 (parseGrid example)) = (13, 43) := rfl
