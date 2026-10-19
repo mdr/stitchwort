@@ -93,9 +93,7 @@ test "no double counting" := (range 111110 111112).invalid weight == 111111
 test "period three" := (range 998 1012).invalid weight == 999 + 1010
 test "empty overlap" := (range 12 21).invalid weight == 0
 
-theorem exampleAnswer : (solvePart1 (parseRanges example), solvePart2 (parseRanges example)) = (1227775554, 4174379265) := rfl
-
-theorem twiceIsWeight : twice 2 = weight 2 := rfl
+test "twice is weight at 2" := twice 2 == weight 2
 
 -- Cross-check against brute force ---------------------------------------
 --

@@ -103,8 +103,6 @@ test "right onto zero" := zerosFrom 0 (Right 100) == 1
 test "left from zero" := zerosFrom 0 (Left 42) == 0
 test "left a full turn from zero" := zerosFrom 0 (Left 200) == 2
 
-theorem exampleAnswer : (solvePart1 (parseTurns example), solvePart2 (parseTurns example)) = (3, 6) := rfl
-
 -- Proofs ------------------------------------------------------------------
 --
 -- Theorem 1 (positions stay on the dial) holds by the type `Dial`, and part

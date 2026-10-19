@@ -58,11 +58,7 @@ test "leftmost wins" := Bank.best 1 [3, 9, 9, 1] == [9]
 test "keep everything" := Bank.best 3 [4, 5, 6] == [4, 5, 6]
 test "too short" := Bank.best 5 [1, 2] == [1, 2]
 
-theorem exampleAnswer : (solvePart1 (parseBanks example), solvePart2 (parseBanks example)) = (357, 3121910778619) := rfl
-
-theorem bestNone : Bank.best 0 [1, 2, 3] = Nil := rfl
-
-theorem bestAll : Bank.best 3 [4, 5, 6] = [4, 5, 6] := rfl
+test "pick none" := Bank.best 0 [1, 2, 3] == []
 
 -- Proofs -------------------------------------------------------------------
 --

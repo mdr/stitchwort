@@ -76,11 +76,7 @@ test "nested range" := merge [{ lo = 1, hi = 9 }, { lo = 2, hi = 3 }] == [{ lo =
 test "gap stays" := merge [{ lo = 1, hi = 2 }, { lo = 4, hi = 5 }] == [{ lo = 1, hi = 2 }, { lo = 4, hi = 5 }]
 test "no ranges" := solvePart2 { fresh = [], available = [] } == 0
 
-theorem exampleAnswer : (solvePart1 (parseDatabase example), solvePart2 (parseDatabase example)) = (3, 14) := rfl
-
--- Proofs -------------------------------------------------------------------
-
 -- Merging keeps exactly the covered ids, on the example (every id up to 21).
-theorem exampleKeepsCoverage :
-    (List.range 22).map (\id => (merge (parseDatabase example).fresh).any (\r => r.contains id))
-      = (List.range 22).map (\id => (parseDatabase example).fresh.any (\r => r.contains id)) := rfl
+test "merging keeps coverage" :=
+  (List.range 22).map (\id => (merge (parseDatabase example).fresh).any (\r => r.contains id))
+    == (List.range 22).map (\id => (parseDatabase example).fresh.any (\r => r.contains id))

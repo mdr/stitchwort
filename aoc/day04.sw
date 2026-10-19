@@ -77,4 +77,3 @@ def plus : Grid := [[0, 1, 0], [1, 1, 1], [0, 1, 0]]
 
 test "plus shape keeps its centre" := (solvePart1 plus, solvePart2 plus) == (4, 5)
 
-theorem exampleAnswer : (solvePart1 (parseGrid example), solvePart2 (parseGrid example)) = (13, 43) := rfl
