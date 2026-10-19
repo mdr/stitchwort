@@ -82,8 +82,9 @@ Merged 19 Oct: `run --js` (`9f905c9`; day 4 17 s -> 1 s; Partial works;
 `Let`, value computed on demand while checking, strict when running).
 AoC example answers are now tests; `theorem` only for all-input facts.
 Running: `let-stage3` (Opus: elaborator emits `Let`, lifting re-creates
-lets, erasure, pattern lets via projections), `checker-bind` (Opus:
-option (a) 1A+1B, note draft 2).
+lets, erasure, pattern lets via projections), `syntax-polish` (Sonnet: `type` synonyms, leading commas,
+char-match errors). Checker fix (a) merged (`1fc7824`: print/dot/==/if no
+longer compute closed values at check time; day 1 check 1.11 s -> 0.58 s).
 `run --js` (user, 19 Oct): compile `main` to JS, run under Node with an
 IO driver and a big stack. Quick wins Q1/Q2
 (native lookup by index, mimalloc) skipped (user).
