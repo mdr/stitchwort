@@ -1,5 +1,5 @@
 {
-  "next": 131,
+  "next": 134,
   "tickets": [
     {
       "id": 1,
@@ -1963,6 +1963,51 @@
         "tooling"
       ],
       "body": "19 Oct: ~/.config/nix-darwin/opencode.nix now gives the `worker` agent freedom to run commands (\"*\" = allow) with a deny list (git push/remote/commit/reset/rebase, gh, ssh, scp, curl, wget, sudo, rm -rf / and ~, darwin-rebuild, opencode) and external_directory = allow (Matt asked for freedom by default). Written by Claude, not yet applied: Matt runs `sw`. Until then DeepSeek keeps hitting refusals (sed, node, rm, chmod, env-prefixed commands). Also uncommitted in the nix-darwin repo (flake.nix, home.nix, opencode.nix).",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 131,
+      "title": "Move general lemmas out of AoC into the prelude",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc",
+        "std"
+      ],
+      "body": "D25 (Matt, 19 Oct): AoC files keep only AoC-specific facts. Candidates: the Int.subNatNat lemmas at aoc/day01.sw:136-144 (subNatNatFromSucc, subNatNatSucc, subNatNatZero, subIsSubNatNat) and any other theorem in aoc/ that mentions no AoC type. Do before the project restructure.",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 132,
+      "title": "Turn aoc/ into a project: Aoc.DayNN + Aoc.Common, proofs beside definitions",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc",
+        "multi-file"
+      ],
+      "body": "D23: namespaces Aoc.Day01..Aoc.Day05 plus Aoc.Common (shared Range from day02/day05). D24: tests and proofs sit immediately after the definition they are about (not a separate proofs file/section); proof-only helpers go just before the theorem that uses them. Run as stitchwort run Aoc.Day01.main. AoC answers must stay the same. Playground: drop AoC days from web/build.sh and flake.nix until playground project loading (D26).",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 133,
+      "title": "Playground: load projects (bring the AoC days back)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "web",
+        "multi-file"
+      ],
+      "body": "D26: after the aoc/ restructure the playground can't load AoC days (it fetches single files via pkg/aoc/index.json). Design how the playground loads a multi-file project. Later.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
