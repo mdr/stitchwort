@@ -6,7 +6,7 @@
       "title": "DeepSeek `reuse`: crates/web keeps the last checked Session",
       "status": "doing",
       "agent": "DeepSeek",
-      "where": "OpenCode scratch clone …-165906 (spec and log in the session scratchpad tasks/ dir: reuse.txt, reuse.log, reuse.dir)",
+      "where": "/Users/matt/scratch/opencode/funlang-20261019-175024 (restarted 19 Oct ~17:55; the first run never started)",
       "labels": [
         "web",
         "playground",
