@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-UNKNOWN-FIELD] Error: `List` has no field or function `dorp`
-   ╭─[ reject/section-no-such-function.sw:5:44 ]
+   ╭─[ reject/section-no-such-function.sw:5:42 ]
    │
- 5 │ def f (xs : List Nat) : List Nat := xs |> .dorp 1
-   │                                            ──┬─  
-   │                                              ╰─── looked in `List`
+ 5 │ def f (xs: List Nat): List Nat := xs |> .dorp 1
+   │                                          ──┬─  
+   │                                            ╰─── looked in `List`
    │ 
    │ Note: did you mean `drop`?
 ───╯

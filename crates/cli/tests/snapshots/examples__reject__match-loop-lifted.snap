@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-TERMINATION] Error: can't show that `loop` and this `match` terminate
-   ╭─[ reject/match-loop-lifted.sw:3:33 ]
+   ╭─[ reject/match-loop-lifted.sw:3:31 ]
    │
- 3 │ ╭───▶ def loop (n : Nat) : Nat := 1 + match Succ n with
-   │ │                                     ▲                   
-   │ │ ╭───────────────────────────────────╯                   
+ 3 │ ╭───▶ def loop (n: Nat): Nat := 1 + match Succ n with
+   │ │                                   ▲                   
+   │ │ ╭─────────────────────────────────╯                   
    ┆ ┆ ┆   
  5 │ ├─│ ▶                | Succ k => loop k
    │ │ │                              ───┬─┬   

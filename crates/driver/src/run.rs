@@ -142,7 +142,7 @@ impl Session {
         let Some(index) = g.defs.iter().rposition(|d| &*d.name == "main") else {
             return Err(
                 Diagnostic::error("E-NO-MAIN", "there's no `main` to run").with_note(
-                    "define `def main () : {IO} () := …`, or `def main () : {IO, Partial} () := …`",
+                    "define `def main (): {IO} () := …`, or `def main (): {IO, Partial} () := …`",
                 ),
             );
         };
@@ -166,7 +166,7 @@ impl Session {
             )
             .with_label(span, format!("this has type `{ty}`"))
             .with_note(
-                "a pure `main : () -> ()` is allowed too; other abilities must be handled inside `main`",
+                "a pure `main: () -> ()` is allowed too; other abilities must be handled inside `main`",
             )),
         }
     }

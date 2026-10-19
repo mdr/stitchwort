@@ -2,32 +2,32 @@
 -- `IO.simulate` answers `readAll` with the remaining scripted lines, each
 -- followed by LF: what `stitchwort run` reads from the same input.
 
-def eqTexts : List Text -> List Text -> Bool
+def eqTexts: List Text -> List Text -> Bool
   | Nil,       Nil       => True
   | Cons x xs, Cons y ys => if x == y then eqTexts xs ys else False
   | _,         _         => False
 
-def result (r : Pair (List Text) a) : a := Pair.snd r
+def result (r: Pair (List Text) a): a := Pair.snd r
 
-def showLine : Maybe Text -> Text
+def showLine: Maybe Text -> Text
   | Nothing => "<end>"
   | Just l  => "[" ++ l ++ "]"
 
 -- readAll
 
-def slurp () : {IO} Text := readAll ()
+def slurp (): {IO} Text := readAll ()
 
-def afterOne () : {IO} Pair Text Text :=
+def afterOne (): {IO} Pair Text Text :=
   let first := showLine (readLine ())
   let rest := readAll ()
   MkPair first rest
 
-def afterAll () : {IO} Pair Text Text :=
+def afterAll (): {IO} Pair Text Text :=
   let all := readAll ()
   let next := showLine (readLine ())
   MkPair all next
 
-def twice () : {IO} Pair Text Text :=
+def twice (): {IO} Pair Text Text :=
   let a := readAll ()
   let b := readAll ()
   MkPair a b
@@ -82,7 +82,7 @@ test "lines method style" := ("x\ny".lines).length == 2
 
 -- IO.readAllLines
 
-def allLines () : {IO} List Text := IO.readAllLines ()
+def allLines (): {IO} List Text := IO.readAllLines ()
 
 test "readAllLines is total under simulate" :=
   eqTexts (result (IO.simulate ["a", "b"] allLines)) ["a", "b"]

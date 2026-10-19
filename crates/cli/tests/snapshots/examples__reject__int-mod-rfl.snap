@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-REFL] Error: `rfl` can't prove this
-   ╭─[ reject/int-mod-rfl.sw:4:34 ]
+   ╭─[ reject/int-mod-rfl.sw:4:32 ]
    │
- 4 │ def bad (x : Int) : x % 3 = 1 := rfl
-   │                                  ─┬─  
-   │                                   ╰─── `Int.mod x 3` and `1` aren't equal
+ 4 │ def bad (x: Int): x % 3 = 1 := rfl
+   │                                ─┬─  
+   │                                 ╰─── `Int.mod x 3` and `1` aren't equal
    │ 
    │ Note: `rfl` proves `a = b` only when both sides compute to the same value
 ───╯

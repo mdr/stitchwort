@@ -14,30 +14,30 @@
 
 type Grid = List (List Nat)
 
-def main () : {IO} () :=
+def main (): {IO} () :=
   let grid := parseGrid (IO.readAllLines ())
   print "Part 1: ${solvePart1 grid}"
   print "Part 2: ${solvePart2 grid}"
 
 -- Part 1: the rolls one round removes.
-def solvePart1 (grid : Grid) : Nat := grid.rolls - grid.round.rolls
+def solvePart1 (grid: Grid): Nat := grid.rolls - grid.round.rolls
 
 -- Part 2: the rolls removed by rounds until none is accessible.
-def solvePart2 (grid : Grid) : Nat := grid.rolls - (grid.settle grid.rolls).rolls
+def solvePart2 (grid: Grid): Nat := grid.rolls - (grid.settle grid.rolls).rolls
 
-def parseGrid (lines : List Text) : Grid := lines.map parseLine
+def parseGrid (lines: List Text): Grid := lines.map parseLine
 
-def parseLine (line : Text) : List Nat := line.toList.map parseChar
+def parseLine (line: Text): List Nat := line.toList.map parseChar
 
 -- A roll is 1, floor is 0.
-def parseChar : Char -> Nat
+def parseChar: Char -> Nat
   | '@' => 1
   | _   => 0
 
-def Grid.rolls (grid : Grid) : Nat := grid |> .sumBy List.sum
+def Grid.rolls (grid: Grid): Nat := grid |> .sumBy List.sum
 
 -- Remove every accessible roll, all at once.
-def Grid.round (grid : Grid) : Grid :=
+def Grid.round (grid: Grid): Grid :=
   let sums := grid.map rowSums
   let gap := List.replicate ((grid.headOr []).length) 0
   let above := Cons gap sums
@@ -47,24 +47,24 @@ def Grid.round (grid : Grid) : Grid :=
 
 -- Remove accessible rolls until there are none. Every round that changes
 -- something removes a roll, so as many rounds as there are rolls is enough.
-def Grid.settle (grid : Grid) : Nat -> Grid
+def Grid.settle (grid: Grid): Nat -> Grid
   | Zero   => grid
   | Succ n =>
     let next := grid.round
     if next.rolls == grid.rolls then grid else next.settle n
 
 -- Each cell becomes the sum of itself and its left and right neighbours.
-def rowSums (row : List Nat) : List Nat :=
+def rowSums (row: List Nat): List Nat :=
   let left := Cons 0 row
   let right := row.drop 1 |> .append [0]
   List.zipWith Nat.add (List.zipWith Nat.add left row) right
 
 -- Combine two grids of the same shape cell by cell.
-def Grid.zipWith (f : Nat -> Nat -> Nat) (a b : Grid) : Grid := List.zipWith (List.zipWith f) a b
+def Grid.zipWith (f: Nat -> Nat -> Nat) (a b: Grid): Grid := List.zipWith (List.zipWith f) a b
 
 -- Examples -----------------------------------------------------------------
 
-def example : List Text :=
+def example: List Text :=
   [ "..@@.@@@@.", "@@@.@.@.@@", "@@@@@.@.@@", "@.@@@@..@.", "@@.@@@@.@@",
     ".@@@@@@@.@", ".@.@.@.@@@", "@.@@@.@@@@", ".@@@@@@@@.", "@.@.@@@.@." ]
 
@@ -73,7 +73,7 @@ test "rolls" := (parseGrid example).rolls == 71
 test "row sums" := rowSums [1, 0, 1, 1] == [1, 2, 2, 2]
 test "lone roll" := (solvePart1 [[1]], solvePart2 [[1]]) == (1, 1)
 test "full square" := (solvePart1 [[1, 1], [1, 1]], solvePart2 [[1, 1], [1, 1]]) == (4, 4)
-def plus : Grid := [[0, 1, 0], [1, 1, 1], [0, 1, 0]]
+def plus: Grid := [[0, 1, 0], [1, 1, 1], [0, 1, 0]]
 
 test "plus shape keeps its centre" := (solvePart1 plus, solvePart2 plus) == (4, 5)
 

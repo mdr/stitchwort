@@ -9,7 +9,7 @@ expression: output
    │              ───┬──  
    │                 ╰──── `length` is imported, but this file also defines `length`
    │ 
- 5 │ def length : Nat := 0
+ 5 │ def length: Nat := 0
    │     ───┬──  
    │        ╰──── defined here, which would hide the import
    │ 

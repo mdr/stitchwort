@@ -5,9 +5,9 @@ expression: output
 [E-EXPORT] Error: `size` can't be exported
     ╭─[ reject/export-record-unchecked-proof.sw:11:1 ]
     │
- 11 │ export def size (s : SortedList) : Nat := List.length s.items
-    │ ───────────────────┬──────────────────  
-    │                    ╰──────────────────── `SortedList`'s proof field `sorted` (`Sorted items`) can't be checked at runtime
+ 11 │ export def size (s: SortedList): Nat := List.length s.items
+    │ ──────────────────┬─────────────────  
+    │                   ╰─────────────────── `SortedList`'s proof field `sorted` (`Sorted items`) can't be checked at runtime
     │ 
     │ Note: a record passed in from JavaScript has no proofs: each proof field needs a decision procedure (a function returning `Decidable …`), defined before the export, to establish it
 ────╯

@@ -413,8 +413,8 @@ impl<'t> Parser<'t> {
             "an annotation can't be written inside a tuple without brackets",
         )
         .with_note(
-            "to annotate one component, write `(a, (b : T))`; to annotate the pair, write \
-             `((a, b) : T)`",
+            "to annotate one component, write `(a, (b: T))`; to annotate the pair, write \
+             `((a, b): T)`",
         )
     }
 
@@ -1191,7 +1191,7 @@ impl<'t> Parser<'t> {
                     return Err(error(
                         span,
                         "a lambda's parameter can't have a type here: annotate the lambda \
-                             instead, `((\\x => …) : A -> B)`",
+                             instead, `((\\x => …): A -> B)`",
                     ));
                 }
                 Some(Tok::LParen | Tok::LBrace | Tok::Upper(_) | Tok::Num(_)) => {
@@ -2297,6 +2297,19 @@ mod tests {
             panic!("expected an application, got {f:?}");
         };
         assert!(matches!(named.as_ref(), Expr::NamedArg(..)));
+    }
+
+    #[test]
+    fn colon_spacing_does_not_change_the_parse() {
+        let shape = |text| crate::equivalence::parse_shape(text).expect(text);
+        assert_eq!(
+            shape("def f (n : Nat) : Nat := n\n"),
+            shape("def f (n: Nat): Nat := n\n")
+        );
+        assert_eq!(
+            shape("def f (n : Nat) : Nat := n\n"),
+            shape("def f (n:Nat):Nat := n\n")
+        );
     }
 
     #[test]

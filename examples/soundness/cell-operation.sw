@@ -3,8 +3,8 @@
 -- the operation type would contain computations over itself.
 import Effect (Comp)
 
-type Unit1 : Type =
+type Unit1: Type =
   | MkUnit
 
-type CellOp : Type =
-  | Write (f : Unit1 -> Comp CellOp (\o => Unit1) Unit1)
+type CellOp: Type =
+  | Write (f: Unit1 -> Comp CellOp (\o => Unit1) Unit1)

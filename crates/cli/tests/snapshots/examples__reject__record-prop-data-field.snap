@@ -3,9 +3,9 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-PROP-ELIM] Error: can't take field `n` out of a proof
-   ╭─[ reject/record-prop-data-field.sw:8:38 ]
+   ╭─[ reject/record-prop-data-field.sw:8:36 ]
    │
- 8 │ def witnessed (w : Witness) : Nat := w.n
-   │                                      ─┬─  
-   │                                       ╰─── `Witness` is a proposition, and `n` is data
+ 8 │ def witnessed (w: Witness): Nat := w.n
+   │                                    ─┬─  
+   │                                     ╰─── `Witness` is a proposition, and `n` is data
 ───╯

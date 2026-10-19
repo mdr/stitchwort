@@ -60,7 +60,7 @@ pub fn explain(auto: &AutoBound, d: Diagnostic) -> Diagnostic {
     match auto.values.iter().find(|n| n.span == at) {
         Some(name) if d.code == "E-TYPE-MISMATCH" => d.with_note(format!(
             "`{0}` isn't declared, so it's bound automatically, its type taken from its first \
-             use; its uses here need different types. Bind it yourself (`[{0} : …]`), or use \
+             use; its uses here need different types. Bind it yourself (`[{0}: …]`), or use \
              different names",
             name.text
         )),

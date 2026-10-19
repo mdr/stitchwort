@@ -3,4 +3,4 @@
 -- §4.8); `Pair` is an ordinary data type with no `size`. (`p.fst` would be
 -- `Pair.fst p`.)
 
-def size (p : Pair Nat Nat) : Nat := p.size
+def size (p: Pair Nat Nat): Nat := p.size

@@ -174,7 +174,7 @@ pub(crate) fn explain_default(cx: &Ctx, d: Diagnostic, types: &[&Value]) -> Diag
                 .with_label(found.span, "this literal made it a `Nat`")
                 .with_note(format!(
                     "this type became `Nat` because of the literal `{k}`, checked before \
-                     anything said otherwise; write `({k} : Int)` if an `Int` was meant"
+                     anything said otherwise; write `({k}: Int)` if an `Int` was meant"
                 ));
         }
     }

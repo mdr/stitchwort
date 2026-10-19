@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-POSITIVITY] Error: `Bad` is used in a negative position
-   ╭─[ soundness/non-positive.sw:4:16 ]
+   ╭─[ soundness/non-positive.sw:4:15 ]
    │
- 4 │   | MkBad (f : Bad -> Nat)
-   │                ─────┬────  
-   │                     ╰────── field `f` takes a `Bad` as input
+ 4 │   | MkBad (f: Bad -> Nat)
+   │               ─────┬────  
+   │                    ╰────── field `f` takes a `Bad` as input
    │ 
    │ Note: a data type can't contain functions that take that same type as input; that would make it possible to prove anything
 ───╯

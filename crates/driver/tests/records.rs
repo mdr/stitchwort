@@ -164,12 +164,12 @@ fn projections_and_equality_are_generated() {
     assert_eq!(shown("Person.age"), "Person -> Nat");
     assert_eq!(
         shown("Sized.ok"),
-        "(r : Sized) -> List.length (Sized.items r) = Sized.size r"
+        "(r: Sized) -> List.length (Sized.items r) = Sized.size r"
     );
-    assert_eq!(shown("Box.value"), "[a : Type] -> Box a -> a");
+    assert_eq!(shown("Box.value"), "[a: Type] -> Box a -> a");
     assert_eq!(
         shown("Person.decEq"),
-        "(r : Person) -> (s : Person) -> Decidable (r = s)"
+        "(r: Person) -> (s: Person) -> Decidable (r = s)"
     );
     // Not for a record with a proof field, or with parameters.
     assert!(!g.defs.iter().any(|d| &*d.name == "Sized.decEq"));

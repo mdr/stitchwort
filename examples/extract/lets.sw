@@ -10,29 +10,29 @@
 -- run: countUp 5 0
 -- run: swapSum 3 4
 
-export def twice (n : Nat) : Nat :=
+export def twice (n: Nat): Nat :=
   let m := n + 1
   m + m
 
-export def clamp (n : Nat) : Nat :=
+export def clamp (n: Nat): Nat :=
   let m := n + 1
   if m < 3 then 0 else m
 
-def lessOf (a b : Nat) (h : a <= b) : Nat := b - a
+def lessOf (a b: Nat) (h: a <= b): Nat := b - a
 
-export def below (a b : Nat) : Nat :=
+export def below (a b: Nat): Nat :=
   let h := Nat.leAddRight a b
   lessOf a (a + b) h
 
 -- A `let` in a loop: a `const` in each turn.
-export def countUp : Nat -> Nat -> Nat
+export def countUp: Nat -> Nat -> Nat
   | Zero,   acc => acc
   | Succ k, acc =>
     let next := acc + 2
-    let h : next = acc + 2 := rfl
+    let h: next = acc + 2 := rfl
     countUp k next
 
 -- A tuple pattern: projections of the value, computed once.
-export def swapSum (x y : Nat) : Nat :=
+export def swapSum (x y: Nat): Nat :=
   let (a, b) := (x, y + 1)
   b * 10 + a

@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-UNIVERSE] Error: universe mismatch
-   ╭─[ soundness/type-in-type.sw:4:26 ]
+   ╭─[ soundness/type-in-type.sw:4:25 ]
    │
- 4 │ def typeInType : Type := Type
-   │                          ──┬─  
-   │                            ╰─── expected something of type `Type`, but this has type `Type 1`
+ 4 │ def typeInType: Type := Type
+   │                         ──┬─  
+   │                           ╰─── expected something of type `Type`, but this has type `Type 1`
    │ 
-   │ Note: `Type n` lives in `Type (n+1)`; allowing `Type : Type` would make the logic inconsistent
+   │ Note: `Type n` lives in `Type (n+1)`; allowing `Type: Type` would make the logic inconsistent
 ───╯

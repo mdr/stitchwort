@@ -9,5 +9,5 @@ expression: output
    │          ┬  
    │          ╰── `type T = …` names a type, but this looks like a sum type without its leading `|`
    │ 
-   │ Note: a sum type's constructors each start with `|`: `type T = | A | B`, and `type T = | Foo (x : Nat)` for one constructor; a record is `type T = { … }`
+   │ Note: a sum type's constructors each start with `|`: `type T = | A | B`, and `type T = | Foo (x: Nat)` for one constructor; a record is `type T = { … }`
 ───╯

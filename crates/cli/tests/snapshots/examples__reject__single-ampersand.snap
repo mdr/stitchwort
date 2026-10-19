@@ -3,9 +3,9 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-PARSE] Error: unexpected character `&`
-   ╭─[ reject/single-ampersand.sw:3:41 ]
+   ╭─[ reject/single-ampersand.sw:3:38 ]
    │
- 3 │ def f (a : Bool) (b : Bool) : Bool := a & b
-   │                                         ┬  
-   │                                         ╰── unexpected character `&`
+ 3 │ def f (a: Bool) (b: Bool): Bool := a & b
+   │                                      ┬  
+   │                                      ╰── unexpected character `&`
 ───╯

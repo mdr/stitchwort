@@ -3,20 +3,20 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-MATCH-MOTIVE] Error: one scrutinee of this `match` is part of another, which this version can't generalise
-   ╭─[ reject/match-overlapping.sw:3:36 ]
+   ╭─[ reject/match-overlapping.sw:3:34 ]
    │
- 3 │ ╭─▶ def overlap (n : Nat) : Nat := 1 + match Succ n, Succ (Succ n) with
+ 3 │ ╭─▶ def overlap (n: Nat): Nat := 1 + match Succ n, Succ (Succ n) with
  4 │ ├─▶   | _, _ => 0
    │ │                   
    │ ╰─────────────────── this `match`
    │
-   ├─[ reject/match-overlapping.sw:3:36 ]
+   ├─[ reject/match-overlapping.sw:3:34 ]
    │
- 3 │ def overlap (n : Nat) : Nat := 1 + match Succ n, Succ (Succ n) with
-   │                                          ───┬──  ──────┬─────  
-   │                                             ╰────────────────── this is part of
-   │                                                        │       
-   │                                                        ╰─────── this
+ 3 │ def overlap (n: Nat): Nat := 1 + match Succ n, Succ (Succ n) with
+   │                                        ───┬──  ──────┬─────  
+   │                                           ╰────────────────── this is part of
+   │                                                      │       
+   │                                                      ╰─────── this
    │ 
    │ Note: a top-level helper with a written signature can always do what this `match` would: define one and call it
 ───╯

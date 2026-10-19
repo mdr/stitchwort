@@ -3,9 +3,9 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-MATCH-MOTIVE] Error: generalising this `match`'s scrutinee makes its type ill-formed
-   ╭─[ reject/match-bad-motive.sw:7:70 ]
+   ╭─[ reject/match-bad-motive.sw:7:67 ]
    │
- 7 │ ╭─▶ def bad (b : Bool) (q : two (List.length [1, 1]) rfl b = 2) : Nat := match List.length [1, 1] with
+ 7 │ ╭─▶ def bad (b: Bool) (q: two (List.length [1, 1]) rfl b = 2): Nat := match List.length [1, 1] with
    ┆ ┆   
  9 │ ├─▶   | Succ k => k
    │ │                     

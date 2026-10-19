@@ -83,12 +83,12 @@ impl Parser<'_> {
         };
         let note = if self.peek_at(1) == Some(&Tok::Colon) {
             format!(
-                "write `def {name} : …` with a `:=` body or arms under it; a signature and \
+                "write `def {name}: …` with a `:=` body or arms under it; a signature and \
                  equations are one definition now"
             )
         } else {
             format!(
-                "write `def {name} (x : A) : B := …`, or arms `| p => …` under `def {name} : A -> B`"
+                "write `def {name} (x: A): B := …`, or arms `| p => …` under `def {name}: A -> B`"
             )
         };
         Diagnostic::error("E-OLD-DECLARATION", "definitions start with `def`")
@@ -199,7 +199,7 @@ impl Parser<'_> {
             .with_label(self.here(), "no `where` here")
             .with_note(
                 "write the helper as a `def` in the body's block, before the result, like \
-                 `def f (n : Nat) : Nat :=` then `  def go …` then `  go n`",
+                 `def f (n: Nat): Nat :=` then `  def go …` then `  go n`",
             ));
         }
         Ok(decls)
@@ -227,7 +227,7 @@ impl Parser<'_> {
             )
             .with_note(
                 "a sum type's constructors each start with `|`: `type T = | A | B`, and \
-                 `type T = | Foo (x : Nat)` for one constructor; a record is `type T = { … }`",
+                 `type T = | Foo (x: Nat)` for one constructor; a record is `type T = { … }`",
             )
         };
         if self.peek() == Some(&Tok::Pipe) {
@@ -288,7 +288,7 @@ impl Parser<'_> {
             Some(Tok::LBracket) => true,
             _ => {
                 return Err(self.unexpected(
-                    "a parameter such as `(x : Nat)`, or `:` and the definition's type",
+                    "a parameter such as `(x: Nat)`, or `:` and the definition's type",
                 ));
             }
         };
@@ -309,7 +309,7 @@ impl Parser<'_> {
             ("(", ")", Tok::RParen)
         };
         let written = format!(
-            "{open}{}{} : …",
+            "{open}{}{}: …",
             if auto { "auto " } else { "" },
             names
                 .iter()

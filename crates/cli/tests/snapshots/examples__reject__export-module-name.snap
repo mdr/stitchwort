@@ -5,7 +5,7 @@ expression: output
 [E-EXPORT] Error: `oops` can't be exported
    ╭─[ reject/export-module-name.sw:6:1 ]
    │
- 6 │ export def oops (n : Nat) : StitchwortInputError := Oops
-   │ ────────────────────────┬───────────────────────  
-   │                         ╰───────────────────────── its result: `StitchwortInputError` is the name of something else the generated module exports
+ 6 │ export def oops (n: Nat): StitchwortInputError := Oops
+   │ ───────────────────────┬──────────────────────  
+   │                        ╰──────────────────────── its result: `StitchwortInputError` is the name of something else the generated module exports
 ───╯

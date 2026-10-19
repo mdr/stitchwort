@@ -3,9 +3,9 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-UNKNOWN-NAME] Error: unknown name `highest`
-   ╭─[ reject/autobind-value-misspelt.sw:7:23 ]
+   ╭─[ reject/autobind-value-misspelt.sw:7:22 ]
    │
- 7 │ def bigger (d : Dial (highest + 1)) : Nat := d.position
-   │                       ───┬───  
-   │                          ╰───── not in scope
+ 7 │ def bigger (d: Dial (highest + 1)): Nat := d.position
+   │                      ───┬───  
+   │                         ╰───── not in scope
 ───╯

@@ -9,7 +9,7 @@ expression: output
    │         ─┬─  
    │          ╰─── `Ask` is defined here
    │ 
- 8 │ type Box : Type =
+ 8 │ type Box: Type =
    │      ─┬─  
    │       ╰─── `Box` is defined here
    │ 

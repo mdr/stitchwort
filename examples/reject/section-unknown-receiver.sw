@@ -3,6 +3,6 @@
 -- must be known where it's checked. A `let` gives it nothing to go on; piping
 -- into it, passing it where a function type is known, or an annotation does.
 
-def f (xs : List Nat) : List Nat :=
+def f (xs: List Nat): List Nat :=
   let g := .drop 1
   g xs

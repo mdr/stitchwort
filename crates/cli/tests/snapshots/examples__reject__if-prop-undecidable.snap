@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-AUTO-NONE] Error: no way to decide `f = g`
-   ╭─[ reject/if-prop-undecidable.sw:4:56 ]
+   ╭─[ reject/if-prop-undecidable.sw:4:53 ]
    │
- 4 │ def same (f : Nat -> Nat) (g : Nat -> Nat) : Nat := if f = g then 1 else 0
-   │                                                        ──┬──  
-   │                                                          ╰──── this is a proposition, and nothing decides it
+ 4 │ def same (f: Nat -> Nat) (g: Nat -> Nat): Nat := if f = g then 1 else 0
+   │                                                     ──┬──  
+   │                                                       ╰──── this is a proposition, and nothing decides it
    │ 
    │ Note: `if` takes a `Bool`, or a proposition with a decision procedure: a function returning `Decidable …`
 ───╯

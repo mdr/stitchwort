@@ -5,9 +5,9 @@ expression: output
 [E-TERMINATION] Error: can't show that `loop` and this `match` terminate
    ╭─[ reject/match-loop-tree.sw:3:1 ]
    │
- 3 │ ╭─▶ def loop (n : Nat) : Nat := match Succ n with
-   │ │   ────────────┬───────────  
-   │ │               ╰───────────── this call to this `match` might not terminate: no argument is known to be smaller
+ 3 │ ╭─▶ def loop (n: Nat): Nat := match Succ n with
+   │ │   ───────────┬──────────  
+   │ │              ╰──────────── this call to this `match` might not terminate: no argument is known to be smaller
    ┆ ┆   
  5 │ ├─▶   | Succ k => loop k
    │ │                 ───┬──   

@@ -176,7 +176,7 @@ impl<'g> Ctx<'g> {
                         self.show(found)
                     ),
                 )
-                .with_note("`Type n` lives in `Type (n+1)`; allowing `Type : Type` would make the logic inconsistent");
+                .with_note("`Type n` lives in `Type (n+1)`; allowing `Type: Type` would make the logic inconsistent");
         }
         self.error(
             "E-TYPE-MISMATCH",
@@ -343,7 +343,7 @@ pub fn infer(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
             .error(
                 "E-CANNOT-INFER",
                 "can't work out the type of this",
-                "add a type annotation: `(… : T)`",
+                "add a type annotation: `(…: T)`",
             )),
     }
 }

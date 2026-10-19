@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-REFL] Error: `rfl` can't prove this
-   ╭─[ soundness/char-surrogate-constructor.sw:4:32 ]
+   ╭─[ soundness/char-surrogate-constructor.sw:4:31 ]
    │
- 4 │ def bad : Char := MkChar 55296 rfl
-   │                                ─┬─  
-   │                                 ╰─── `False` and `True` aren't equal
+ 4 │ def bad: Char := MkChar 55296 rfl
+   │                               ─┬─  
+   │                                ╰─── `False` and `True` aren't equal
    │ 
    │ Note: `rfl` proves `a = b` only when both sides compute to the same value
 ───╯

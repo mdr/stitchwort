@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-UNKNOWN-FIELD] Error: `Person` has no field or function `nmae`
-   ╭─[ reject/pipe-unknown-field.sw:8:54 ]
+   ╭─[ reject/pipe-unknown-field.sw:8:53 ]
    │
- 8 │ def names : List Text := people |> List.map (\p => p.nmae)
-   │                                                      ──┬─  
-   │                                                        ╰─── looked in `Person`
+ 8 │ def names: List Text := people |> List.map (\p => p.nmae)
+   │                                                     ──┬─  
+   │                                                       ╰─── looked in `Person`
    │ 
    │ Note 1: did you mean `name`?
    │ 

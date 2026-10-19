@@ -3,13 +3,13 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-MUTUAL-SIGNATURE] Error: `f`'s type mentions `g`, which is defined together with it
-   ╭─[ soundness/mutual-signature.sw:7:19 ]
+   ╭─[ soundness/mutual-signature.sw:7:17 ]
    │
- 7 │ def f (n : Nat) : g n = g n := rfl
-   │                   ┬  
-   │                   ╰── `g` is used here, in `f`'s type
+ 7 │ def f (n: Nat): g n = g n := rfl
+   │                 ┬  
+   │                 ╰── `g` is used here, in `f`'s type
    │ 
- 9 │ def g : Nat -> Nat
+ 9 │ def g: Nat -> Nat
    │     ┬  
    │     ╰── `g` is defined here
    │ 

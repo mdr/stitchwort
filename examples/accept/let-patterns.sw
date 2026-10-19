@@ -6,100 +6,100 @@
 import List (map, foldLeft, zip)
 
 -- A tuple.
-def divMod7 (n : Nat) : (Nat, Nat) := (n / 7, n % 7)
+def divMod7 (n: Nat): (Nat, Nat) := (n / 7, n % 7)
 
-def digitsSum (n : Nat) : Nat :=
+def digitsSum (n: Nat): Nat :=
   let (q, r) := divMod7 n
   q + r
 
 -- Nested tuples, and `_`.
-def flatten (t : ((Nat, Nat), Nat)) : Nat :=
+def flatten (t: ((Nat, Nat), Nat)): Nat :=
   let ((a, b), c) := t
   let (_, d) := (a, b + c)
   a + d
 
 -- A constructor applied to its fields, without brackets.
-def swap (p : Pair Nat Text) : Pair Text Nat :=
+def swap (p: Pair Nat Text): Pair Text Nat :=
   let MkPair a b := p
   MkPair b a
 
 -- A record.
-type Person = { name : Text, age : Nat }
+type Person = { name: Text, age: Nat }
 
-def greeting (p : Person) : Text :=
+def greeting (p: Person): Text :=
   let { name, .. } := p
   "hello " ++ name
 
 -- With a type: the right-hand side is checked against it.
-def annotated : Nat :=
-  let (a, b) : (Nat, Nat) := (1, 2)
+def annotated: Nat :=
+  let (a, b): (Nat, Nat) := (1, 2)
   a + b
 
 -- Not the whole right-hand side, so the `match` is lifted.
-def lifted (p : (Nat, Nat)) : Nat :=
+def lifted (p: (Nat, Nat)): Nat :=
   let k := 1
   let (a, b) := p
   a + b + k
 
 -- `()`: the one value of `()`.
-def unit (u : ()) : Nat :=
+def unit (u: ()): Nat :=
   let () := u
   3
 
 -- Lambdas: a pattern parameter, one among others, and a record.
-def sums (ps : List (Nat, Nat)) : List Nat := map (\(a, b) => a + b) ps
+def sums (ps: List (Nat, Nat)): List Nat := map (\(a, b) => a + b) ps
 
-def total (entries : List (Text, Nat)) : Nat := foldLeft (\acc (k, v) => acc + v) 0 entries
+def total (entries: List (Text, Nat)): Nat := foldLeft (\acc (k, v) => acc + v) 0 entries
 
 -- A record pattern needs its type known where the lambda is checked, as
 -- `p.name` does: here, from the signature.
-def nameOf : Person -> Text := \{ name, .. } => name
+def nameOf: Person -> Text := \{ name, .. } => name
 
-def nestedLambda (xs : List ((Nat, Nat), Nat)) : List Nat := map (\((a, b), c) => a * b + c) xs
+def nestedLambda (xs: List ((Nat, Nat), Nat)): List Nat := map (\((a, b), c) => a * b + c) xs
 
 -- A proof: `let (a, b) = p` on a variable refines `p` to `(a, b)`, so the
 -- goal computes.
-def swapPair : (a, b) -> (b, a)
+def swapPair: (a, b) -> (b, a)
   | (x, y) => (y, x)
 
-theorem swapTwice (p : (Nat, Nat)) : swapPair (swapPair p) = p :=
+theorem swapTwice (p: (Nat, Nat)): swapPair (swapPair p) = p :=
   let (a, b) := p
   rfl
 
 -- Termination: `kids` is part of the tree `let` matched, so the recursive
 -- call is smaller, as for a pattern in the equation.
-type Tree : Type =
-  | Node (label : Nat) (kids : Forest)
+type Tree: Type =
+  | Node (label: Nat) (kids: Forest)
 
-type Forest : Type =
+type Forest: Type =
   | FNil
-  | FCons (t : Tree) (ts : Forest)
+  | FCons (t: Tree) (ts: Forest)
 
-def sumTree (t : Tree) : Nat :=
+def sumTree (t: Tree): Nat :=
   let Node x kids := t
   x + sumForest kids
 
-def sumForest : Forest -> Nat
+def sumForest: Forest -> Nat
   | FNil       => 0
   | FCons t ts => sumTree t + sumForest ts
 
 -- The same, lifted into a helper (the `let` isn't the whole right-hand side).
-def sumTreeLifted (t : Tree) : Nat :=
+def sumTreeLifted (t: Tree): Nat :=
   let one := 1
   let Node x kids := t
   x * one + sumForestLifted kids
 
-def sumForestLifted : Forest -> Nat
+def sumForestLifted: Forest -> Nat
   | FNil       => 0
   | FCons t ts => sumTreeLifted t + sumForestLifted ts
 
 -- Effects: the right-hand side runs once, before the rest of the block.
-def readTwo () : {IO} (Maybe Text, Maybe Text) :=
+def readTwo (): {IO} (Maybe Text, Maybe Text) :=
   let a := readLine ()
   let b := readLine ()
   (a, b)
 
-def swapLines () : {IO} Nat :=
+def swapLines (): {IO} Nat :=
   let (a, b) := readTwo ()
   print (Maybe.withDefault "" b)
   print (Maybe.withDefault "" a)
@@ -107,7 +107,7 @@ def swapLines () : {IO} Nat :=
   print "done"
   n + m
 
-def eqTexts : List Text -> List Text -> Bool
+def eqTexts: List Text -> List Text -> Bool
   | Nil,       Nil       => True
   | Cons x xs, Cons y ys => if x == y then eqTexts xs ys else False
   | _,         _         => False
@@ -135,20 +135,20 @@ test "in a test" :=
 -- Outside a proof, a tuple or record pattern binds projections of the
 -- value (docs/proposals/let.md §7), so a function using one computes even on
 -- an unknown pair.
-def swapped (p : (Nat, Text)) : (Text, Nat) :=
+def swapped (p: (Nat, Text)): (Text, Nat) :=
   let (a, b) := p
   (b, a)
 
-theorem swappedUnfolds (p : (Nat, Text)) : swapped p = (Pair.snd p, Pair.fst p) := rfl
+theorem swappedUnfolds (p: (Nat, Text)): swapped p = (Pair.snd p, Pair.fst p) := rfl
 
-def sumOf (n : Nat) : Nat :=
+def sumOf (n: Nat): Nat :=
   let ((a, b), c) := ((n, n + 1), n + 2)
   a + b + c
 
-theorem sumOfIs (n : Nat) : sumOf n = n + (n + 1) + (n + 2) := rfl
+theorem sumOfIs (n: Nat): sumOf n = n + (n + 1) + (n + 2) := rfl
 
-def nameLength (p : Person) : Nat :=
+def nameLength (p: Person): Nat :=
   let { name, age } := p
   name.length + age
 
-theorem nameLengthIs (p : Person) : nameLength p = p.name.length + p.age := rfl
+theorem nameLengthIs (p: Person): nameLength p = p.name.length + p.age := rfl

@@ -6,17 +6,17 @@
 -- Neighbour: `countBumps` in accept/mutual.sw, which only resumes `k`.
 import Effect (Comp)
 
-type PingOp : Type =
+type PingOp: Type =
   | Ping
 
-type Unit1 : Type =
+type Unit1: Type =
   | MkUnit
 
-def PingRes : PingOp -> Type
+def PingRes: PingOp -> Type
   | Ping => Unit1
 
-def bad : Comp PingOp PingRes a -> a
+def bad: Comp PingOp PingRes a -> a
   | Done x      => x
   | Call o rest => again (Call o rest)
 
-def again (c : Comp PingOp PingRes a) : a := bad c
+def again (c: Comp PingOp PingRes a): a := bad c

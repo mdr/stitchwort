@@ -5,7 +5,7 @@ expression: output
 [E-STD-NAMESPACE] Error: `List` is a namespace of the standard library, which a program can't add to
    ╭─[ reject/std-namespace.sw:4:5 ]
    │
- 4 │ def List.sum : List Nat -> Nat
+ 4 │ def List.sum: List Nat -> Nat
    │     ────┬───  
    │         ╰───── `List` here means `Std.List`
    │ 

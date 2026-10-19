@@ -3,15 +3,15 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-MUTUAL-SIGNATURE] Error: `Forest`'s parameters or universe mention `Tree`, which is defined together with it
-   ╭─[ reject/mutual-data-header.sw:7:18 ]
+   ╭─[ reject/mutual-data-header.sw:7:17 ]
    │
- 4 │ type Tree : Type =
+ 4 │ type Tree: Type =
    │      ──┬─  
    │        ╰─── `Tree` is defined here
    │ 
- 7 │ type Forest (t : Tree) : Type =
-   │                  ──┬─  
-   │                    ╰─── `Tree` is used here, in `Forest`'s header
+ 7 │ type Forest (t: Tree): Type =
+   │                 ──┬─  
+   │                   ╰─── `Tree` is used here, in `Forest`'s header
    │ 
    │ Note 1: they're checked together because `Tree` uses `Forest`
    │ 

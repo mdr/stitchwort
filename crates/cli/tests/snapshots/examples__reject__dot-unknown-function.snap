@@ -3,9 +3,9 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-UNKNOWN-FIELD] Error: `Pair` has no field or function `size`
-   ╭─[ reject/dot-unknown-function.sw:6:40 ]
+   ╭─[ reject/dot-unknown-function.sw:6:38 ]
    │
- 6 │ def size (p : Pair Nat Nat) : Nat := p.size
-   │                                        ──┬─  
-   │                                          ╰─── looked in `Pair`
+ 6 │ def size (p: Pair Nat Nat): Nat := p.size
+   │                                      ──┬─  
+   │                                        ╰─── looked in `Pair`
 ───╯

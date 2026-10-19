@@ -45,7 +45,7 @@ fn shows_polymorphic_types_with_their_implicit_parameters() {
     let (_, ty) = session.elab.infer_expr(&expr).unwrap();
     assert_eq!(
         session.elab.show(&ty),
-        "[a : Type] -> List a -> List a -> List a"
+        "[a: Type] -> List a -> List a -> List a"
     );
 }
 

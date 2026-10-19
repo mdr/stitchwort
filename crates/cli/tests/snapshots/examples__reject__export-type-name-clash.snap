@@ -5,15 +5,15 @@ expression: output
 [E-EXPORT] Error: `Solid.Shape` and `Flat.Shape` would both be called `Shape` in the TypeScript declarations
    ╭─[ reject/export-type-name-clash.sw:4:1 ]
    │
- 4 │ ╭───▶ type Flat.Shape : Type =
- 5 │ ├───▶   | Square (side : Nat)
-   │ │                               
-   │ ╰─────────────────────────────── this type crosses the JS boundary
+ 4 │ ╭───▶ type Flat.Shape: Type =
+ 5 │ ├───▶   | Square (side: Nat)
+   │ │                              
+   │ ╰────────────────────────────── this type crosses the JS boundary
    │ 
- 7 │   ╭─▶ type Solid.Shape : Type =
- 8 │   ├─▶   | Cube (side : Nat)
-   │   │                           
-   │   ╰─────────────────────────── and so does this one
+ 7 │   ╭─▶ type Solid.Shape: Type =
+ 8 │   ├─▶   | Cube (side: Nat)
+   │   │                          
+   │   ╰────────────────────────── and so does this one
    │       
    │       Note: rename one of them
 ───╯

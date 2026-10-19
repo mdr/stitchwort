@@ -2,4 +2,4 @@
 -- A definition with no parameters that refers to itself has nothing that
 -- could get smaller. Pairs with every accepted definition that has a
 -- parameter to recurse on.
-def forever : Nat := forever
+def forever: Nat := forever

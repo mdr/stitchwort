@@ -4,13 +4,13 @@
 -- itself. That self-reference isn't a terminating definition.
 import Effect (Comp)
 
-type CellOp : Type =
+type CellOp: Type =
   | Read
   | Write
 
-type Unit1 : Type =
+type Unit1: Type =
   | MkUnit
 
-def CellRes : CellOp -> Type
+def CellRes: CellOp -> Type
   | Read  => Unit1 -> Comp CellOp CellRes Unit1
   | Write => Unit1

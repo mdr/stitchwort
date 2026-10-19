@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-NO-NAMESPACE] Error: `f` is a function, which has no namespace to look `.size` up in
-   ╭─[ reject/dot-on-function.sw:4:37 ]
+   ╭─[ reject/dot-on-function.sw:4:35 ]
    │
- 4 │ def twice (f : Nat -> Nat) : Nat := f.size
-   │                                     ───┬──  
-   │                                        ╰──── `.size` needs a value of a named type
+ 4 │ def twice (f: Nat -> Nat): Nat := f.size
+   │                                   ───┬──  
+   │                                      ╰──── `.size` needs a value of a named type
    │ 
    │ Note: dot notation finds a function by the type of the value before the `.`: a data type, a record, a definition of a type, or an equality
 ───╯

@@ -17,7 +17,7 @@
 -- run: isHuge 1000000000000000000000000000001
 -- run: countDown 3 403
 
-export def statusText : Nat -> Text
+export def statusText: Nat -> Text
   | 200 => "OK"
   | 201 => "Created"
   | 204 => "No Content"
@@ -32,23 +32,23 @@ export def statusText : Nat -> Text
   | _   => "Unknown"
 
 -- The `404` case falls through to the later equations.
-export def g : Nat -> Bool -> Nat
+export def g: Nat -> Bool -> Nat
   | 404, True  => 1
   | n,   False => n
   | _,   _     => 3
 
 -- Numbers mixed with `Succ` patterns.
-export def h : Nat -> Nat
+export def h: Nat -> Nat
   | 404           => 0
   | Succ (Succ k) => k
   | n             => n
 
-export def isHuge : Nat -> Bool
+export def isHuge: Nat -> Bool
   | 1000000000000000000000000000000 => True
   | _                               => False
 
 -- A number case inside a loop (the recursive call is in tail position).
-export def countDown : Nat -> Nat -> Nat
+export def countDown: Nat -> Nat -> Nat
   | Zero,   m   => m
   | Succ n, 404 => countDown n 0
   | Succ n, m   => countDown n (m + 1)

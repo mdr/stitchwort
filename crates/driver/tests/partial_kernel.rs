@@ -191,16 +191,16 @@ fn delay_and_its_constants_are_final_opaque_and_hashed() {
 fn a_constant_with_another_type_is_refused() {
     let cases = [
         (
-            "def Effect.now : [op : Type] -> [res : op -> Type] -> [a : Type] -> a -> Delay op res a",
-            "def Effect.now : [op : Type] -> [res : op -> Type] -> [a : Type] -> Delay op res a -> a",
+            "def Effect.now: [op: Type] -> [res: op -> Type] -> [a: Type] -> a -> Delay op res a",
+            "def Effect.now: [op: Type] -> [res: op -> Type] -> [a: Type] -> Delay op res a -> a",
         ),
         (
-            "  (x : req) -> Delay op res (ans x)",
-            "  (x : req) -> Delay (Plus (Rec req) op) (PlusRes (RecRes ans) res) (ans x)",
+            "  (x: req) -> Delay op res (ans x)",
+            "  (x: req) -> Delay (Plus (Rec req) op) (PlusRes (RecRes ans) res) (ans x)",
         ),
         (
-            "def Effect.Delay : (op : Type) -> (res : op -> Type) -> Type -> Type",
-            "def Effect.Delay : (op : Type) -> (res : op -> Type) -> Type -> Prop",
+            "def Effect.Delay: (op: Type) -> (res: op -> Type) -> Type -> Type",
+            "def Effect.Delay: (op: Type) -> (res: op -> Type) -> Type -> Prop",
         ),
     ];
     for (original, changed) in cases {

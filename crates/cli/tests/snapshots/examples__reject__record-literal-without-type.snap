@@ -9,5 +9,5 @@ expression: output
    │                                   ──────────────┬─────────────  
    │                                                 ╰─────────────── nothing here says what type it should have
    │ 
-   │ Note: add a type annotation, as in `({ x = 0, y = 0 } : Point)`
+   │ Note: add a type annotation, as in `({ x = 0, y = 0 }: Point)`
 ───╯

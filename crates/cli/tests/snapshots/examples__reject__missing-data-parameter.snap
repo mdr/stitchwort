@@ -3,9 +3,9 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-ARITY] Error: `List` needs 1 argument(s)
-   ╭─[ reject/missing-data-parameter.sw:3:16 ]
+   ╭─[ reject/missing-data-parameter.sw:3:15 ]
    │
- 3 │ def size (xs : List) : Nat := 0
-   │                ──┬─  
-   │                  ╰─── here
+ 3 │ def size (xs: List): Nat := 0
+   │               ──┬─  
+   │                 ╰─── here
 ───╯

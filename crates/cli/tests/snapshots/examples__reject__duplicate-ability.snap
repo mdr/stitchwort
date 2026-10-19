@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-DUPLICATE] Error: `State` appears twice in this row
-   ╭─[ reject/duplicate-ability.sw:6:15 ]
+   ╭─[ reject/duplicate-ability.sw:6:14 ]
    │
- 6 │ def both () : {State Nat, State Bool} Nat := get ()
-   │               ─────────────┬─────────────  
-   │                            ╰─────────────── here
+ 6 │ def both (): {State Nat, State Bool} Nat := get ()
+   │              ─────────────┬─────────────  
+   │                           ╰─────────────── here
    │ 
    │ Note: a row has each ability at most once
 ───╯
