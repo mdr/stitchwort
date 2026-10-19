@@ -1303,9 +1303,9 @@
     {
       "id": 89,
       "title": "Multi-file stage 1: implementation (projects, namespace lines, per-file imports)",
-      "status": "review",
-      "agent": "Claude",
-      "where": "merged into main (714de04); batch gate running",
+      "status": "done",
+      "agent": "",
+      "where": "",
       "labels": [
         "multi-file",
         "elab"
