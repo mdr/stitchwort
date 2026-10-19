@@ -12,8 +12,8 @@
 //! one ending in an operator (like `->`) continues it too.
 
 use crate::ast::{
-    Alt, BinOp, Binder, CtorDecl, Decl, Expr, Import, LocalDef, MatchKind, Module, Name, Pattern,
-    Row, SECTION, Scrutinee,
+    Alt, BinOp, Binder, CtorDecl, Decl, Expr, Import, LocalDef, MatchKind, Module, Name,
+    NamespaceDecl, Pattern, Row, SECTION, Scrutinee,
 };
 use crate::lexer::{Tok, Token, lex};
 use crate::stack::StackLimit;
@@ -45,11 +45,40 @@ pub fn parse_module_within(
 ) -> std::result::Result<Module, Vec<Diagnostic>> {
     let limit = StackLimit::from_here(stack);
     let tokens = lex(file, text).map_err(|d| vec![d])?;
+    let mut namespace = None;
     let mut imports = Vec::new();
     let mut decls = Vec::new();
     let mut errors = Vec::new();
     for group in split_decls(&tokens).map_err(|d| vec![d])? {
         let mut parser = Parser::new(group, file, text.len(), limit);
+        if parser.peek() == Some(&Tok::KwNamespace) {
+            if namespace.is_some() {
+                errors.push(
+                    error(group[0].span, "a file has only one namespace line").with_note(
+                        "everything in a file goes in the namespace on its first line; to use another namespace, import from it or write its name in full",
+                    ),
+                );
+                continue;
+            }
+            if !imports.is_empty() || !decls.is_empty() {
+                errors.push(
+                    error(
+                        group[0].span,
+                        "the namespace line goes at the top of the file",
+                    )
+                    .with_note("move it before the imports and declarations"),
+                );
+                continue;
+            }
+            match parser
+                .namespace()
+                .and_then(|decl| parser.finish().map(|()| decl))
+            {
+                Ok(decl) => namespace = Some(decl),
+                Err(diagnostic) => errors.push(diagnostic),
+            }
+            continue;
+        }
         if parser.peek() == Some(&Tok::KwImport) {
             if !decls.is_empty() {
                 errors.push(
@@ -76,7 +105,11 @@ pub fn parse_module_within(
         }
     }
     if errors.is_empty() {
-        Ok(Module { imports, decls })
+        Ok(Module {
+            namespace,
+            imports,
+            decls,
+        })
     } else {
         Err(errors)
     }
@@ -474,6 +507,29 @@ impl<'t> Parser<'t> {
     }
 
     // Declarations
+
+    /// `namespace Day05`: the namespace a file's declarations go in.
+    fn namespace(&mut self) -> Result<NamespaceDecl> {
+        let start = self.expect(Tok::KwNamespace, "`namespace`")?.span;
+        match self.peek() {
+            Some(Tok::Upper(text)) => {
+                let path = Name {
+                    text: text.clone(),
+                    span: self.here(),
+                };
+                self.bump();
+                Ok(NamespaceDecl {
+                    span: start.to(path.span),
+                    path,
+                })
+            }
+            Some(Tok::Lower(_)) => Err(error(
+                self.here(),
+                "each part of a namespace's name starts with a capital letter",
+            )),
+            _ => Err(self.unexpected("a namespace, such as `Day05`")),
+        }
+    }
 
     /// `import List (map, filter)`: a namespace, then the names to use from
     /// it, at least one.
@@ -1978,6 +2034,7 @@ fn describe(tok: &Tok) -> String {
         Tok::KwReturn => "`return`".into(),
         Tok::KwLet => "`let`".into(),
         Tok::KwImport => "`import`".into(),
+        Tok::KwNamespace => "`namespace`".into(),
         Tok::LBrace => "`{`".into(),
         Tok::RBrace => "`}`".into(),
         Tok::FatArrow => "`=>`".into(),
@@ -3320,5 +3377,46 @@ mod tests {
         let e = parse_error("def f (n : Nat) : Nat := g n\n  where\n    g : Nat\n");
         assert_eq!(e.code, "E-WHERE");
         assert!(e.message.contains("local `def`"), "{e:?}");
+    }
+
+    #[test]
+    fn a_namespace_line_is_read_with_its_path() {
+        let module = parse("-- a file\nnamespace Day05\n\nimport List (map)\n\ndef x: Nat := 1\n");
+        assert_eq!(module.namespace.unwrap().path.text, "Day05");
+        assert_eq!(module.imports.len(), 1);
+        assert!(!module.decls.is_empty());
+        let module = parse("namespace Aoc.Day05\ndef x: Nat := 1\n");
+        assert_eq!(module.namespace.unwrap().path.text, "Aoc.Day05");
+        assert!(parse("def x: Nat := 1\n").namespace.is_none());
+    }
+
+    #[test]
+    fn a_namespace_line_has_to_be_well_formed_and_first() {
+        let e = parse_error("namespace Demo.day\n");
+        assert!(e.message.contains("starts with a capital letter"), "{e:?}");
+        let e = parse_error("namespace demo.Day\n");
+        assert!(e.message.contains("starts with a capital letter"), "{e:?}");
+        let e = parse_error("namespace\n");
+        assert!(e.message.contains("a namespace, such as `Day05`"), "{e:?}");
+        let e = parse_error("namespace 5\n");
+        assert!(e.message.contains("a namespace, such as `Day05`"), "{e:?}");
+        let e = parse_error("namespace A\nnamespace B\n");
+        assert!(e.message.contains("only one namespace line"), "{e:?}");
+        assert!(e.notes[0].contains("import from it"), "{e:?}");
+        let e = parse_error("import List (map)\nnamespace A\n");
+        assert!(e.message.contains("goes at the top of the file"), "{e:?}");
+        let e = parse_error("def x: Nat := 1\nnamespace A\n");
+        assert!(e.message.contains("goes at the top of the file"), "{e:?}");
+    }
+
+    #[test]
+    fn namespace_is_a_keyword() {
+        assert!(parse_module_text("def namespace: Nat := 1\n").is_err());
+    }
+
+    fn parse_module_text(text: &str) -> std::result::Result<Module, Vec<Diagnostic>> {
+        let mut sources = SourceMap::new();
+        let file = sources.add("test.sw", text);
+        parse_module(file, text)
     }
 }

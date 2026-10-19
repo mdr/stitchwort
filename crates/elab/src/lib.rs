@@ -87,6 +87,11 @@ pub struct Elaborator {
     pub tests: Vec<TestDecl>,
     /// Every declaration, by its full name (`scope.rs`).
     scope: scope::Scope,
+    /// The current module's key prefix: `Day05.` in namespace `Day05`, empty
+    /// for a file without a namespace line. Kept after the module is
+    /// elaborated, so names typed in afterwards (`eval`, the REPL, `main`)
+    /// are read as in the file.
+    namespace_root: String,
     /// Auto arguments still to be proved in the current declaration.
     obligations: RefCell<Vec<auto::Obligation>>,
     /// Metavariables that literals made `Nat` in the current declaration.
@@ -451,7 +456,12 @@ impl Elaborator {
                 "tests need the prelude's `Bool`",
             ));
         };
-        let label: Name = format!("test \"{name}\"").into();
+        let label: Name = if self.loading_prelude {
+            format!("test \"{name}\"")
+        } else {
+            format!("{}test \"{name}\"", self.root())
+        }
+        .into();
         self.local_helpers.clear();
         self.preadmitted.borrow_mut().clear();
         let shown = ast::Name {

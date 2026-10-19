@@ -607,8 +607,19 @@ pub struct Import {
     pub span: Span,
 }
 
+/// `namespace Day05`: the first line of a file, saying which namespace its
+/// declarations go in (docs/proposals/multi-file.md §4.2).
+#[derive(Clone, Debug)]
+pub struct NamespaceDecl {
+    /// The namespace, as written: `Day05` or `Aoc.Day05`.
+    pub path: Name,
+    pub span: Span,
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct Module {
+    /// The file's namespace line, if it has one.
+    pub namespace: Option<NamespaceDecl>,
     /// At the top of the file, before any declaration.
     pub imports: Vec<Import>,
     pub decls: Vec<Decl>,

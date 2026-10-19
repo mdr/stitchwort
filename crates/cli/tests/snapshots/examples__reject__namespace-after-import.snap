@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: the namespace line goes at the top of the file
+   ╭─[ reject/namespace-after-import.sw:4:1 ]
+   │
+ 4 │ namespace Demo
+   │ ────┬────  
+   │     ╰────── the namespace line goes at the top of the file
+   │ 
+   │ Note: move it before the imports and declarations
+───╯

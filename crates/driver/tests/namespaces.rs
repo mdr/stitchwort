@@ -176,3 +176,75 @@ fn an_imported_name_in_a_type_is_not_a_type_variable() {
             .any(|c| *c == "W-MODULE-NAME" || c.starts_with("E-"))
     );
 }
+
+fn path_hash(session: &Session, path: &str) -> stitchwort_core::hash::ContentHash {
+    let g = &session.elab.globals;
+    let id = g
+        .defs
+        .iter()
+        .position(|d| &*d.path == path)
+        .unwrap_or_else(|| panic!("no definition `{path}`"));
+    stitchwort_core::hash::def_hash(g, stitchwort_core::DefId(id))
+        .unwrap()
+        .expect("checked")
+}
+
+fn data_path_hash(session: &Session, path: &str) -> stitchwort_core::hash::ContentHash {
+    let g = &session.elab.globals;
+    let id = (0..g.datas.len())
+        .map(stitchwort_core::DataId)
+        .find(|d| &*g.data(*d).path == path)
+        .unwrap_or_else(|| panic!("no type `{path}`"));
+    data_hash(g, id).unwrap().unwrap()
+}
+
+/// A namespace line puts a file's types in the namespace, and their hashes
+/// with it (docs/proposals/multi-file.md §4.3, §8.1).
+#[test]
+fn a_namespace_line_puts_types_in_it() {
+    let ty = "type T: Type =\n  | MkT (n: Nat)\n";
+    let none = load(ty);
+    let demo = load(&format!("namespace Demo\n\n{ty}"));
+    let other = load(&format!("namespace Other\n\n{ty}"));
+    let none_hash = data_path_hash(&none, "Main.T");
+    let demo_hash = data_path_hash(&demo, "Demo.T");
+    let other_hash = data_path_hash(&other, "Other.T");
+    assert_ne!(none_hash, demo_hash);
+    assert_ne!(demo_hash, other_hash);
+}
+
+/// A definition that mentions no type of the file doesn't know whether the
+/// file has a namespace line.
+#[test]
+fn definitions_hash_the_same_with_or_without_a_namespace_line() {
+    let def = "def double (n: Nat): Nat := n + n\n";
+    let none = load(def);
+    let demo = load(&format!("namespace Demo\n\n{def}"));
+    assert_eq!(
+        path_hash(&none, "Main.double"),
+        path_hash(&demo, "Demo.double")
+    );
+}
+
+/// `main` is the namespace's own.
+#[test]
+fn a_namespaced_file_runs_its_main() {
+    let mut session = load("namespace Demo\n\ndef main(): {IO} () := print \"hello\"\n");
+    assert_eq!(session.simulate(&[]).unwrap(), ["hello"]);
+}
+
+/// Tests' internal names carry the namespace, so two files' tests, and the
+/// helpers lifted out of them, don't collide.
+#[test]
+fn two_namespaced_files_in_one_session_have_separate_tests() {
+    let file = |ns: &str, name: &str| {
+        format!(
+            "namespace {ns}\n\n\
+             test \"{name}\" := match 1 with\n  | 0 => False\n  | Succ k => True\n"
+        )
+    };
+    let mut session = Session::new();
+    session.load("a.sw", &file("A", "first")).unwrap();
+    session.load("b.sw", &file("B", "second")).unwrap();
+    passes(&session);
+}

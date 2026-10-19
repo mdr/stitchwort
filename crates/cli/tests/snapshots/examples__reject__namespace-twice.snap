@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: a file has only one namespace line
+   ╭─[ reject/namespace-twice.sw:4:1 ]
+   │
+ 4 │ namespace Two
+   │ ────┬────  
+   │     ╰────── a file has only one namespace line
+   │ 
+   │ Note: everything in a file goes in the namespace on its first line; to use another namespace, import from it or write its name in full
+───╯

@@ -148,10 +148,22 @@ impl Elaborator {
         {
             return vec![d];
         }
+        match &module.namespace {
+            Some(decl) if !self.loading_prelude => {
+                if let Err(d) = self.check_namespace_name(decl) {
+                    return vec![d];
+                }
+                self.namespace_root = format!("{}.", decl.path.text);
+                self.globals.module = "".into();
+            }
+            _ => {
+                self.namespace_root = String::new();
+                self.globals.module = if self.loading_prelude { "Std" } else { "Main" }.into();
+            }
+        }
         let mut diagnostics: Vec<(usize, Diagnostic)> = Vec::new();
         let first_test = self.tests.len();
         self.module = ModuleState::default();
-        self.globals.module = if self.loading_prelude { "Std" } else { "Main" }.into();
         self.scope.clear_imports();
         let items = self.collect(module, &mut diagnostics);
         self.dependencies(&items);

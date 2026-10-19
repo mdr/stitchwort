@@ -79,6 +79,8 @@ pub enum Tok {
     KwLet,
     /// `import List (map, filter)`, at the top of a file.
     KwImport,
+    /// `namespace Day05`, the first line of a file.
+    KwNamespace,
     LBrace,
     RBrace,
     /// `=>`, in a handler clause: `get () => k -> …`.
@@ -199,6 +201,7 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
                     "return" => Tok::KwReturn,
                     "let" => Tok::KwLet,
                     "import" => Tok::KwImport,
+                    "namespace" => Tok::KwNamespace,
                     "Type" => Tok::TypeU,
                     "Prop" => Tok::Prop,
                     _ if c.is_ascii_uppercase() => Tok::Upper(word.to_string()),

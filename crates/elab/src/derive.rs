@@ -392,7 +392,7 @@ impl Elaborator {
     #[allow(clippy::type_complexity)]
     fn eq_source(&self, d: DataId, plan: &Plan) -> (Option<(Decl, Decl)>, Decl, Vec<Decl>) {
         let data = self.globals.data(d);
-        let ty_name = data.name.to_string();
+        let ty_name = self.relative_to_root(&data.name);
         let span = data.span;
         let n = |text: &str| ast::Name {
             text: text.to_string(),

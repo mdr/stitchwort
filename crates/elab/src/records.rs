@@ -137,7 +137,7 @@ impl Elaborator {
         let g = &self.globals;
         let data = g.data(d);
         let ctor = &data.ctors[0];
-        let record = data.name.to_string();
+        let record = self.relative_to_root(&data.name);
         let span = data.span;
         if self.globals.registry.data(Builtin::Decidable).is_none() {
             return Ok(Some("there's no prelude".into()));

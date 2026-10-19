@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-NAMESPACE-RESERVED] Error: `List` is a namespace of the standard library
+   ╭─[ reject/namespace-reserved.sw:3:11 ]
+   │
+ 3 │ namespace List
+   │           ──┬─  
+   │             ╰─── `List.…` always means the library's
+   │ 
+   │ Note: choose another name: a program's namespace can't start with the name of one of the library's
+───╯

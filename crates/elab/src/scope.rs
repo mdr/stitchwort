@@ -149,9 +149,57 @@ impl Scope {
 
 impl Elaborator {
     /// The current module's root, as a key prefix: `Std.` for the prelude,
-    /// nothing for a program.
-    pub(crate) fn root(&self) -> &'static str {
-        if self.loading_prelude { "Std." } else { "" }
+    /// `Day05.` for a program in namespace `Day05`, nothing for a program
+    /// without a namespace line.
+    pub(crate) fn root(&self) -> &str {
+        if self.loading_prelude {
+            "Std."
+        } else {
+            &self.namespace_root
+        }
+    }
+
+    /// A data type's or definition's kernel name (its key, without `Std.`)
+    /// as it's written in this module: without the module's root. For source
+    /// the elaborator generates itself, which is read like the program's.
+    pub(crate) fn relative_to_root(&self, name: &str) -> String {
+        if self.loading_prelude {
+            name.to_string()
+        } else {
+            name.strip_prefix(self.root()).unwrap_or(name).to_string()
+        }
+    }
+
+    /// The namespace of the module last elaborated (its root without the
+    /// trailing `.`), if it has one.
+    pub fn current_namespace(&self) -> Option<&str> {
+        self.root().strip_suffix('.')
+    }
+
+    /// Whether a file's namespace line may be used: not the library's, and
+    /// not starting with the name of one of the library's namespaces.
+    pub fn check_namespace_name(&self, decl: &ast::NamespaceDecl) -> Result<()> {
+        let first = decl.path.text.split('.').next().unwrap_or("");
+        if first == STD {
+            return Err(Diagnostic::error(
+                "E-STD-NAMESPACE",
+                "`Std` is the standard library's namespace, which a program can't add to",
+            )
+            .with_label(decl.path.span, "`Std` always means the standard library")
+            .with_note("choose another name for this file's namespace"));
+        }
+        let std = format!("Std.{first}");
+        if self.scope.get(&std).is_some() || self.scope.is_namespace(&std) {
+            return Err(Diagnostic::error(
+                "E-NAMESPACE-RESERVED",
+                format!("`{first}` is a namespace of the standard library"),
+            )
+            .with_label(decl.path.span, format!("`{first}.…` always means the library's"))
+            .with_note(
+                "choose another name: a program's namespace can't start with the name of one of the library's",
+            ));
+        }
+        Ok(())
     }
 
     /// What a written name means, apart from local variables (the caller's).
@@ -171,6 +219,11 @@ impl Elaborator {
                     let std = format!("Std.{first}");
                     if self.scope.is_namespace(&own) {
                         own
+                    } else if !self.loading_prelude
+                        && !self.root().is_empty()
+                        && self.scope.is_namespace(first)
+                    {
+                        first.to_string()
                     } else if self.scope.is_namespace(&std) {
                         std
                     } else {
@@ -282,8 +335,13 @@ impl Elaborator {
                     if let Some((key, ..)) = self.scope.entry(x) {
                         found(key);
                     }
-                } else if let Some(key) = self.scope.std_root.get(x)
+                } else if self.loading_prelude
+                    && let Some(key) = self.scope.std_root.get(x)
                     && key.strip_prefix("Std.") == Some(x)
+                {
+                    found(key);
+                } else if !self.loading_prelude
+                    && let Some((key, ..)) = self.scope.entry(&format!("{root}{x}"))
                 {
                     found(key);
                 }
@@ -599,6 +657,11 @@ impl Elaborator {
                     let std = format!("Std.{first}");
                     if self.scope.is_namespace(&own) {
                         own
+                    } else if !self.loading_prelude
+                        && !self.root().is_empty()
+                        && self.scope.is_namespace(first)
+                    {
+                        first.to_string()
                     } else if self.scope.is_namespace(&std) {
                         std
                     } else {

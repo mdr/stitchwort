@@ -139,7 +139,11 @@ impl Session {
     /// Finds the loaded program's `main`, and checks its type.
     pub fn main(&mut self) -> Result<Main, Diagnostic> {
         let g = &self.elab.globals;
-        let Some(index) = g.defs.iter().rposition(|d| &*d.name == "main") else {
+        let main_name = self
+            .elab
+            .current_namespace()
+            .map_or("main".to_string(), |n| format!("{n}.main"));
+        let Some(index) = g.defs.iter().rposition(|d| *d.name == *main_name) else {
             return Err(
                 Diagnostic::error("E-NO-MAIN", "there's no `main` to run").with_note(
                     "define `def main () : {IO} () := …`, or `def main () : {IO, Partial} () := …`",
