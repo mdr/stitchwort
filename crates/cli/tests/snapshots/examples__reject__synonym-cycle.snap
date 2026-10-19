@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-SYNONYM-CYCLE] Error: the type synonyms `A` and `B` are defined in terms of each other, so neither has a meaning
+   ╭─[ reject/synonym-cycle.sw:3:6 ]
+   │
+ 3 │ type A = B
+   │      ┬  
+   │      ╰── `A` is defined here
+   │ 
+   │ Note 1: the cycle is `A -> B -> A`
+   │ 
+   │ Note 2: a type synonym stands for its definition, so a cycle never reaches a type; break the cycle by defining at least one of them as a data type with constructors
+───╯

@@ -64,7 +64,7 @@ values while checking; (d) glued values). Reviewed; the user accepted
 with fallback); the kernel `Let` value is lazy at check time (contained
 thunk, `run` stays strict); decide (b) after re-measuring.
 Queued after the current lanes (user, 19 Oct):
-- Model tiers (user, 19 Oct): Opus (design/analysis/review), Sonnet
+- Model tiers (user, 19 Oct; written up in [docs/workflow.md](docs/workflow.md)): Opus (design/analysis/review), Sonnet
   (implementation needing judgement), DeepSeek V4.1 Flash (mechanical
   coding; GLM-5.3-Flash fallback; Haiku mostly retired), via OpenCode Go ($10/mo, `opencode run
   --agent worker --model opencode-go/<id>` in an `opencode-scratch` clone;
@@ -428,6 +428,15 @@ capability we know we'll need before the work that needs it):
   with the `auto` one have different types that print identically (Int
   stage 6 worked around it with `[auto]` arguments). Consider proof
   irrelevance for `Prop` in conversion (kernel; design note first).
+  Second example (19 Oct): char-pattern branches couldn't prove `c = 'a'`
+  because the matched char's validity proof differed from the literal's;
+  fixed in the elaborator with `Bool.uniqueEq` (`55c48eb`), which proof
+  irrelevance would make unnecessary. User (19 Oct): wants this considered, with the
+  literature and trade-offs properly understood: Opus design note after
+  multi-file Draft 3, with web research comparing at least Lean (definitional
+  irrelevance for `Prop`), Agda (opt-in `Prop`) and Coq/Rocq (`SProp`), and
+  the known metatheory (decidability, interaction with recursion on proofs,
+  large elimination, hashing).
 - **Differential test overflows in debug** at `io.sw`'s "5,000 prints"
   (see Known issues entry, if present).
 
