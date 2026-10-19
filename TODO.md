@@ -28,7 +28,13 @@ this file.
 The main session orchestrates: it chooses lanes, hands each to a background
 agent, then reviews, merges and updates this file.
 
-Running: nothing. `[x, ..rest]` list patterns merged (tail may be any
+Running: `let-design` (Opus, docs: transparent `let` that can hold proofs;
+Lean/Agda/Idris/Rocq survey), `eval-speed` (Opus, report: where `run`
+spends time; day 4 is 84 rounds x 0.17 s).
+
+Queued after the `let` fix (user, 19 Oct): prove day 2's block-walking
+spec equals ID-walking (the puzzle's wording, the user's Scala). Partly
+to find out what makes such proofs hard and improve Stitchwort for it. `[x, ..rest]` list patterns merged (tail may be any
 pattern; `[..p]` is `p`; not in list expressions).
 
 Merged overnight (18-19 Oct): day 3 proofs (`best` is a subsequence, has
@@ -52,9 +58,6 @@ Waiting on a decision (for the morning):
 - Proof `let`s (from day 3): a `let` is opaque to the checker (after
   `let p := 10 ^ n`, a proof about `p + 1` doesn't see `p`'s value), and
   a `let` can't bind a proof (`E-UNIVERSE`). Both need compiler work.
-- Day 4 runs in 16 s: worth the evaluator speed check now?
-- Day 2 specs enumerate blocks rather than walking ids (a proof over ids
-  needs a long counting argument; the cross-check test covers it).
 - Day 5: prove merged ranges sorted and disjoint, or leave the `rfl`
   checks?
 
