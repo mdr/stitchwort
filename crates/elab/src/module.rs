@@ -132,12 +132,9 @@ pub(crate) struct ModuleState {
     pub namespace: Option<String>,
     /// In a project: the namespaces this one depends on, in canonical order.
     /// `None` in file mode.
-    #[allow(dead_code)] // read by project checking (step 5)
     pub closure: Option<Vec<String>>,
     /// The first definition and test the module declares.
-    #[allow(dead_code)] // read by project checking (step 5)
     pub first_def: usize,
-    #[allow(dead_code)] // read by project checking (step 5)
     pub first_test: usize,
     /// The items of the component being checked.
     pub current: Vec<usize>,
@@ -274,6 +271,12 @@ impl Elaborator {
         self.module.current.clear();
         self.module.item = None;
         self.module.phase = Phase::Body;
+        if let (Some(ns), Some(_)) = (namespace, closure) {
+            self.namespace_defs.insert(
+                ns.to_string(),
+                self.module.first_def..self.globals.defs.len(),
+            );
+        }
         // Names that were never checked now just name failures.
         for (global, _) in self.scope.entries.values_mut() {
             if let Global::Unchecked(_) = global {

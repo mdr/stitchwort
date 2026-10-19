@@ -8,7 +8,7 @@
 inputs = "335 files, 573c2921d3daedde"
 steps = 447130177
 visits = 53471556
-allocations = 559444739
+allocations = 559474494
 peak_bytes = 21784287
 time_ms = 1707.9
 
@@ -167,19 +167,19 @@ peak_bytes = 4017
 [check-closed-eqeq]
 steps = 2116
 visits = 114
-allocations = 2576
+allocations = 2577
 peak_bytes = 4099
 
 [check-closed-list-eqeq]
 steps = 5064
 visits = 149
-allocations = 5106
+allocations = 5108
 peak_bytes = 3710
 
 [check-closed-if-less]
 steps = 17402293
 visits = 179
-allocations = 9002693
+allocations = 9002694
 peak_bytes = 125966926
 
 [check-closed-indexed]

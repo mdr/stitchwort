@@ -480,8 +480,16 @@ fn check_names(g: &Globals, exports: &[ExportSig]) -> Result<Vec<DataId>, Diagno
 /// Checks that the exports loaded so far can be named in JS and TypeScript
 /// together: [`exportable`] checks each on its own.
 pub fn exports_fit_together(g: &Globals) -> Result<(), Diagnostic> {
-    let exports = (0..g.defs.len())
-        .map(DefId)
+    exports_fit_together_among(g, (0..g.defs.len()).map(DefId))
+}
+
+/// [`exports_fit_together`] for the exports among `ids` only: one
+/// namespace's.
+pub fn exports_fit_together_among(
+    g: &Globals,
+    ids: impl Iterator<Item = DefId>,
+) -> Result<(), Diagnostic> {
+    let exports = ids
         .filter(|id| g.def(*id).export)
         .map(|id| exportable(g, id))
         .collect::<Result<Vec<_>, _>>()?;

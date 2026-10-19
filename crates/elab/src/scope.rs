@@ -493,6 +493,51 @@ impl Elaborator {
             }
             return Err(refuse(STD));
         }
+        // In a namespace, a declaration can't go in another's
+        // (docs/proposals/multi-file.md §4.8, §11 P8), nor use its own
+        // namespace's name as a qualifier.
+        if !self.loading_prelude && !root.is_empty() {
+            let ns = self.current_namespace().unwrap_or("");
+            match self.resolve_short(first, false) {
+                Resolved::Found { key, .. }
+                    if !key.starts_with(root) && !key.starts_with("Std.") =>
+                {
+                    let owner = self
+                        .project_namespaces
+                        .iter()
+                        .filter(|q| key.starts_with(&format!("{q}.")))
+                        .max_by_key(|q| q.len())
+                        .map(String::as_str)
+                        .or_else(|| parent(key))
+                        .unwrap_or(key);
+                    return Err(Diagnostic::error(
+                        "E-FOREIGN-NAMESPACE",
+                        format!("`{first}` belongs to namespace {owner}, and {ns} can't add to it"),
+                    )
+                    .with_label(name.span, format!("`{first}` here means `{key}`"))
+                    .with_note(format!(
+                        "name it in {ns} without the `{first}.` prefix, e.g. `{}`",
+                        short(written)
+                    )));
+                }
+                Resolved::Missing if self.project_prefixes.contains(first) => {
+                    return Err(Diagnostic::error(
+                        "E-FOREIGN-NAMESPACE",
+                        format!(
+                            "`{first}` is a namespace of the project, and {ns} can't add to it"
+                        ),
+                    )
+                    .with_label(
+                        name.span,
+                        format!("`{first}` here means the namespace `{first}`"),
+                    )
+                    .with_note(format!(
+                        "declarations go in the file's own namespace: write `{rest}`"
+                    )));
+                }
+                _ => {}
+            }
+        }
         // A library namespace is always available as a qualifier (§4.6), so
         // `Text.foo` means the library's `Text`, even without a type `Text`.
         let base = match self.resolve_short(first, false) {
@@ -775,7 +820,7 @@ fn or_list(items: &[String]) -> String {
     }
 }
 
-pub(crate) fn edit_distance(a: &str, b: &str) -> usize {
+pub fn edit_distance(a: &str, b: &str) -> usize {
     let b: Vec<char> = b.chars().collect();
     let mut row: Vec<usize> = (0..=b.len()).collect();
     for (i, ca) in a.chars().enumerate() {

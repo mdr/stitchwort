@@ -7,9 +7,154 @@ use std::collections::{BTreeMap, BTreeSet, BinaryHeap, VecDeque};
 
 use stitchwort_elab::project::{Edge, NamespaceSyntax, SourceUnit};
 use stitchwort_syntax::ast::{Decl, Module};
-use stitchwort_syntax::{Diagnostic, FileId, Span, parse_module_within, parse_namespace_line};
+use stitchwort_syntax::{
+    Diagnostic, FileId, Severity, Span, parse_module_within, parse_namespace_line,
+};
 
 use crate::driver::Session;
+
+/// Which namespaces a command needs.
+pub enum Target {
+    Everything,
+    Namespaces(Vec<String>),
+}
+
+/// What loading a project checked.
+pub struct Loaded {
+    pub project: String,
+    /// The namespaces checked, in canonical order.
+    pub checked: Vec<String>,
+}
+
+impl Session {
+    /// Checks the namespaces `target` needs (and the namespaces they use),
+    /// one at a time in canonical order, each with its dependencies in scope
+    /// (docs/proposals/multi-file.md §4.7, §9.1). `files` are (path within
+    /// the project, text).
+    pub fn load_project_sources(
+        &mut self,
+        project: &str,
+        files: Vec<(String, String)>,
+        target: &Target,
+    ) -> Result<Loaded, Vec<Diagnostic>> {
+        let analysis = analyse(self, project, files);
+        if !analysis.diagnostics.is_empty() {
+            return Err(analysis.diagnostics);
+        }
+        let known: BTreeSet<String> = analysis.namespaces.iter().map(|n| n.name.clone()).collect();
+        let needed: BTreeSet<String> = match target {
+            Target::Everything => known.clone(),
+            Target::Namespaces(names) => {
+                let unknown: Vec<Diagnostic> = names
+                    .iter()
+                    .filter(|n| !known.contains(*n))
+                    .map(|n| unknown_namespace(project, n, &known))
+                    .collect();
+                if !unknown.is_empty() {
+                    return Err(unknown);
+                }
+                closure(&analysis, names).into_iter().collect()
+            }
+        };
+        let order = match canonical_order(&analysis, &needed) {
+            Ok(order) => order,
+            Err(cycles) => {
+                return Err(cycles
+                    .iter()
+                    .map(|c| cycle_diagnostic(&analysis, c))
+                    .collect());
+            }
+        };
+        let mut diagnostics: Vec<Diagnostic> = Vec::new();
+        let mut failed: BTreeSet<&str> = BTreeSet::new();
+        let mut skipped: BTreeSet<&str> = BTreeSet::new();
+        for name in &order {
+            let ns = analysis.namespace(name).expect("a namespace");
+            // The first dependency, in canonical order, that has errors or
+            // wasn't checked.
+            let blocker = order
+                .iter()
+                .filter(|m| failed.contains(m.as_str()) || skipped.contains(m.as_str()))
+                .find_map(|m| ns.edges.iter().find(|e| &e.target == m));
+            if let Some(edge) = blocker {
+                let m = &edge.target;
+                let why = if failed.contains(m.as_str()) {
+                    format!("namespace {m} has errors, so {name} isn't checked")
+                } else {
+                    format!("namespace {m} isn't checked, so neither is {name}")
+                };
+                diagnostics.push(
+                    Diagnostic::error("E-NAMESPACE-FAILED", why)
+                        .with_label(edge.span, format!("`{name}` uses `{m}` here")),
+                );
+                skipped.insert(name);
+                continue;
+            }
+            if !ns.parse_errors.is_empty() {
+                diagnostics.extend(ns.parse_errors.iter().cloned());
+                failed.insert(name);
+                continue;
+            }
+            let deps: BTreeSet<String> = closure(&analysis, std::slice::from_ref(name))
+                .into_iter()
+                .filter(|n| n != name)
+                .collect();
+            let dependencies =
+                canonical_order(&analysis, &deps).expect("a part of an acyclic closure is acyclic");
+            let names: Vec<String> = ns
+                .files
+                .iter()
+                .map(|id| self.sources.get(*id).name.clone())
+                .collect();
+            let units: Vec<SourceUnit> = names
+                .iter()
+                .zip(&ns.files)
+                .zip(&ns.modules)
+                .map(|((name, id), module)| SourceUnit {
+                    file: Some(*id),
+                    name,
+                    module,
+                })
+                .collect();
+            let first_new_def = self.elab.globals.defs.len();
+            let mut found = self
+                .elab
+                .elaborate_namespace(Some(name), &units, Some(&dependencies));
+            self.check_exports(first_new_def, true, &mut found);
+            if found.iter().any(|d| d.severity == Severity::Error) {
+                failed.insert(name);
+            }
+            diagnostics.extend(found);
+        }
+        self.elab.leave_namespace();
+        if diagnostics.iter().any(|d| d.severity == Severity::Error) {
+            return Err(diagnostics);
+        }
+        self.warnings.extend(diagnostics);
+        Ok(Loaded {
+            project: project.to_string(),
+            checked: order,
+        })
+    }
+}
+
+/// `E-NAMESPACE-UNKNOWN`: a command named a namespace the project doesn't
+/// have.
+pub fn unknown_namespace(project: &str, name: &str, known: &BTreeSet<String>) -> Diagnostic {
+    let mut d = Diagnostic::error(
+        "E-NAMESPACE-UNKNOWN",
+        format!("there's no namespace `{name}` in project {project}/"),
+    );
+    let nearest = known
+        .iter()
+        .map(|k| (stitchwort_elab::edit_distance(name, k), k))
+        .filter(|(distance, _)| *distance <= 2)
+        .min();
+    if let Some((_, near)) = nearest {
+        d = d.with_note(format!("did you mean `{near}`?"));
+    }
+    d
+}
 
 /// What reading a project's files finds.
 pub struct Analysis {

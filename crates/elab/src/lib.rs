@@ -25,6 +25,7 @@ mod pipe;
 pub mod project;
 mod records;
 mod scope;
+pub use scope::edit_distance;
 mod undo;
 mod unify;
 
@@ -100,6 +101,10 @@ pub struct Elaborator {
     project_namespaces: BTreeSet<String>,
     /// Every prefix of a project namespace's name, the namespace included.
     project_prefixes: BTreeSet<String>,
+    /// In a project: the definitions each namespace checked so far made.
+    namespace_defs: BTreeMap<String, std::ops::Range<usize>>,
+    /// How many definitions the prelude made.
+    prelude_defs: usize,
     /// Auto arguments still to be proved in the current declaration.
     obligations: RefCell<Vec<auto::Obligation>>,
     /// Metavariables that literals made `Nat` in the current declaration.
@@ -305,11 +310,22 @@ impl Elaborator {
             .map_err(|d| self.locate(d, expr.span()))
     }
 
+    /// Forgets the module's namespace and imports, so names typed in
+    /// afterwards (the `run` call, `eval`) see no namespace and no imports,
+    /// and reach a project's names only qualified
+    /// (docs/proposals/multi-file.md §9.1).
+    pub fn leave_namespace(&mut self) {
+        self.namespace_root = String::new();
+        self.scope.clear_imports();
+        self.module = module::ModuleState::default();
+    }
+
     /// Ends loading the prelude: every built-in must be bound by now.
     pub fn finish_prelude(&mut self) -> Result<()> {
         self.loading_prelude = false;
         // The prelude's imports are its own.
         self.scope.clear_imports();
+        self.prelude_defs = self.globals.defs.len();
         registry::check_complete(&self.globals)
     }
 
@@ -449,7 +465,14 @@ impl Elaborator {
 
     fn test(&mut self, name: &str, expr: &Expr, span: Span) -> Result<()> {
         self.module.phase = Phase::Body;
-        if let Some(earlier) = self.tests.iter().find(|t| t.name == name) {
+        // A test's name is unique in its namespace in a project, and in the
+        // session for a file.
+        let from = if self.module.closure.is_some() {
+            self.module.first_test
+        } else {
+            0
+        };
+        if let Some(earlier) = self.tests[from..].iter().find(|t| t.name == name) {
             return Err(error(
                 "E-DUPLICATE",
                 span,

@@ -157,31 +157,54 @@ impl Session {
         first_new_def: usize,
         mut diagnostics: Vec<Diagnostic>,
     ) -> Result<(), Vec<Diagnostic>> {
-        let errors = |ds: &[Diagnostic]| ds.iter().any(|d| d.severity == Severity::Error);
-        if !errors(&diagnostics) {
-            let g = &self.elab.globals;
-            let _op = g
-                .budget
-                .operation(Limits::stack_only(self.elab.limits.stack));
-            for id in first_new_def..g.defs.len() {
-                let id = stitchwort_core::DefId(id);
-                if g.def(id).export
-                    && let Err(d) = stitchwort_js::exportable(g, id)
-                {
-                    diagnostics.push(d);
-                }
-            }
-            if !errors(&diagnostics)
-                && let Err(d) = stitchwort_js::exports_fit_together(g)
-            {
-                diagnostics.push(d);
-            }
-        }
-        if errors(&diagnostics) {
+        self.check_exports(first_new_def, false, &mut diagnostics);
+        if diagnostics.iter().any(|d| d.severity == Severity::Error) {
             Err(diagnostics)
         } else {
             self.warnings.extend(diagnostics);
             Ok(())
+        }
+    }
+
+    /// If `diagnostics` has no errors, checks that the exports of the
+    /// definitions from `first_new_def` on can cross the JS boundary, and
+    /// can be named together: with every export of the session (a file), or
+    /// with only these (`among`: one namespace of a project).
+    pub(crate) fn check_exports(
+        &self,
+        first_new_def: usize,
+        among: bool,
+        diagnostics: &mut Vec<Diagnostic>,
+    ) {
+        let errors = |ds: &[Diagnostic]| ds.iter().any(|d| d.severity == Severity::Error);
+        if errors(diagnostics) {
+            return;
+        }
+        let g = &self.elab.globals;
+        let _op = g
+            .budget
+            .operation(Limits::stack_only(self.elab.limits.stack));
+        for id in first_new_def..g.defs.len() {
+            let id = stitchwort_core::DefId(id);
+            if g.def(id).export
+                && let Err(d) = stitchwort_js::exportable(g, id)
+            {
+                diagnostics.push(d);
+            }
+        }
+        if errors(diagnostics) {
+            return;
+        }
+        let fit = if among {
+            stitchwort_js::exports_fit_together_among(
+                g,
+                (first_new_def..g.defs.len()).map(stitchwort_core::DefId),
+            )
+        } else {
+            stitchwort_js::exports_fit_together(g)
+        };
+        if let Err(d) = fit {
+            diagnostics.push(d);
         }
     }
 
