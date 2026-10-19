@@ -630,6 +630,7 @@ capability we know we'll need before the work that needs it):
 
 ## Recently done
 
+- (this commit) Char-pattern arms keep the equation: in an arm for `'a'` the matched character is the literal (the proof field is transported to `rfl` with `J` and `Bool.uniqueEq` where the goal or a hypothesis mentions it), so `| 'a', h => rfl` proves `c = 'a'`; `examples/accept/char-pattern-proofs.sw`.
 - `df63a82` Fixed a compiler panic after a failed record type (failed data groups now resolve as failed), and `else`/`then` on their own lines continue an `if`.
 - `d567dfc` Playground: warnings shown apart from errors, a phone layout (viewport, no sideways scroll), the JavaScript tab shown in full; 21 browser tests.
 - `6a790a1` `Partial` stage 1: `{Partial}` in types; partial groups translated into ordinary checked declarations over an opaque `Delay`; the runtime steps them (one tick per recursive call, matching `crates/partial-model` trace for trace); `main` can loop until end of input; total code can't run partial code; JS erases `Delay`.

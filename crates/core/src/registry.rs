@@ -153,6 +153,10 @@ builtins! {
     // Characters and text
     Char = "Char": Data,
     MkChar = "MkChar": Ctor(Builtin::Char),
+    // Any two proofs of `x = y` in `Bool` are equal: a char pattern's arm
+    // uses it to make the matched character its literal (crates/elab,
+    // `canonical`)
+    BoolUniqueEq = "Bool.uniqueEq": Def,
     Text = "Text": Data,
     MkText = "MkText": Ctor(Builtin::Text),
     TextToList = "Text.toList": Def,
