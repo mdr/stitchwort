@@ -69,8 +69,12 @@ substituting `Int.modNat e (Succ m)` broke four lemmas with "expected" and
 Waiting on a decision (for the morning):
 - Proof `let`s (from day 3): a `let` is opaque to the checker (after
   `let p := 10 ^ n`, a proof about `p + 1` doesn't see `p`'s value), and
-  a `let` can't bind a proof (`E-UNIVERSE`). Both need compiler work.
-
+  a `let` can't bind a proof (`E-UNIVERSE`). Being fixed (let stages).
+- Evaluator speed (`docs/evaluator-speed.md`): day 4 is 16 s in
+  `stitchwort run` but 0.55 s as extracted JS. Take the quick wins
+  (native lookup by index, `mimalloc`: about 10% together), drive AoC
+  solvers through JS now, and design `run --js`? Deeper evaluator work
+  (saturated calls, `if` without closures) later?
 
 ## Next
 
@@ -478,6 +482,11 @@ capability we know we'll need before the work that needs it):
 
 
 
+- **An operation's argument is computed while checking**
+  (`effects::make_call` evaluates it for the result type): a closed
+  `print (expensive)` runs twice in the checker before `run` runs it
+  (`docs/evaluator-speed.md` section 6). Only needed when the result type
+  depends on the argument.
 - **Row order is fixed by declaration order**, so `IO` (declared in the
   prelude) always comes first in a row: `{State Nat, IO}` and
   `{IO, State Nat}` are the same type. Harmless, but it means no test can
