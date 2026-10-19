@@ -778,10 +778,23 @@ export def area : Shape -> Nat
    * Asks the checker; resolves to the compiler's answer, or to null after
    * showing what went wrong (or nothing, if the request was superseded).
    */
+  /**
+   * The compiler's last answer to each of these, with the source it was for:
+   * switching tabs reuses them instead of checking the same source again.
+   */
+  const answers = new Map();
+  const REMEMBERED = new Set(["check", "test", "extract"]);
+
   async function ask(request) {
+    const remember = REMEMBERED.has(request.action);
+    const hit = remember && answers.get(request.action);
+    if (hit && hit.source === request.source) return hit.out;
     let result = await checker.call(request, CHECK_SECONDS);
     if (fallBack(result)) result = await checker.call(request, CHECK_SECONDS);
-    if (result.out) return result.out;
+    if (result.out) {
+      if (remember) answers.set(request.action, { source: request.source, out: result.out });
+      return result.out;
+    }
     if (!result.cancelled) {
       setStatus(result.noCompiler ? "The compiler didn’t load" : result.timedOut ? "Took too long" : "The compiler crashed", "bad");
       output.replaceChildren(el("p", {}, trouble(result)));
@@ -1003,7 +1016,7 @@ export def area : Shape -> Nat
       const unfinished = result.tests.filter((t) => !t.passed && t.outcome !== "failed").length;
       const cached = result.tests.filter((t) => t.cached).length;
       const forgetButton = el("button", { id: "forget-cache", className: "hint", type: "button" }, "Forget cached results");
-      forgetButton.addEventListener("click", () => { forget(TEST_CACHE); render(); });
+      forgetButton.addEventListener("click", () => { forget(TEST_CACHE); answers.delete("test"); render(); });
       output.append(list, el("p", { className: "summary" },
         `${result.tests.length} test${result.tests.length === 1 ? "" : "s"}: ${result.tests.length - failed - unfinished} passed, ${failed} failed` +
         (unfinished ? `, ${unfinished} ran out of resources` : "") +
