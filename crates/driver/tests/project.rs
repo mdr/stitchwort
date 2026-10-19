@@ -845,3 +845,110 @@ fn wildcard_precedence_across_namespaces() {
     ]);
     passes(&session);
 }
+
+/// Checks `files` as a project, then walks the checked types and bodies of
+/// every namespace and asserts that each reaches only itself, the namespaces
+/// of its closure in the pre-pass, or the library: what name resolution found
+/// agrees with what the pre-pass planned (docs/proposals/multi-file.md §4.6).
+fn assert_reaches_only_planned(label: &str, files: Vec<(String, String)>) {
+    use stitchwort_core::Term;
+    use stitchwort_driver::project::{analyse, closure};
+    let analysis = analyse(&mut Session::new(), "proj", files.clone());
+    let mut session = Session::new();
+    let loaded = session
+        .load_project_sources("proj", files, &Target::Everything)
+        .unwrap_or_else(|e| panic!("{label}: {e:#?}"));
+    let g = &session.elab.globals;
+    let ranges: Vec<(String, std::ops::Range<usize>)> = loaded
+        .checked
+        .iter()
+        .map(|n| (n.clone(), session.elab.namespace_def_range(n)))
+        .collect();
+    // Definitions before every namespace's are the library's.
+    let library_end = ranges.iter().map(|(_, r)| r.start).min().unwrap_or(0);
+    let def_namespace = |id: DefId| {
+        if id.0 < library_end {
+            return Some(None);
+        }
+        ranges
+            .iter()
+            .find(|(_, r)| r.contains(&id.0))
+            .map(|(n, _)| Some(n.as_str()))
+    };
+    let data_namespace = |d: DataId| {
+        let path = &*g.data(d).path;
+        loaded
+            .checked
+            .iter()
+            .filter(|n| path.starts_with(&format!("{n}.")))
+            .max_by_key(|n| n.len())
+            .map(String::as_str)
+    };
+    for (namespace, range) in &ranges {
+        let mut terms: Vec<&Term> = Vec::new();
+        for def in &g.defs[range.clone()] {
+            terms.push(&def.ty);
+            terms.extend(def.body.as_deref());
+        }
+        for d in (0..g.datas.len()).map(DataId) {
+            if data_namespace(d) == Some(namespace.as_str()) {
+                let data = g.data(d);
+                terms.extend(data.params.iter().map(|(_, t)| t));
+                terms.extend(
+                    data.ctors
+                        .iter()
+                        .flat_map(|c| c.fields.iter().map(|(_, t)| t)),
+                );
+            }
+        }
+        let allowed = closure(&analysis, std::slice::from_ref(namespace));
+        for term in terms {
+            for (t, _) in term.subterms() {
+                let reached = match t {
+                    Term::Def(id) => def_namespace(*id)
+                        .unwrap_or_else(|| panic!("{label}: {namespace} reaches stray def {id:?}")),
+                    Term::Data(d, _) | Term::Ctor(d, ..) => data_namespace(*d),
+                    _ => continue,
+                };
+                if let Some(reached) = reached {
+                    assert!(
+                        allowed.iter().any(|a| a == reached),
+                        "{label}: {namespace} reaches {reached}, which the pre-pass didn't plan (closure: {allowed:?})"
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn checked_terms_only_reach_planned_namespaces() {
+    let root =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/projects/accept");
+    let mut dirs: Vec<_> = std::fs::read_dir(&root)
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .filter(|p| p.is_dir())
+        .collect();
+    dirs.sort();
+    for dir in dirs {
+        let name = dir.file_name().unwrap().to_string_lossy().to_string();
+        let files = stitchwort_driver::project::DiskFiles { root: dir };
+        let mut sources = stitchwort_syntax::SourceMap::new();
+        let found = project_sources(&files, &name, &mut sources)
+            .unwrap_or_else(|e| panic!("{name}: {e:#?}"));
+        assert_reaches_only_planned(&name, found);
+    }
+    // In memory: wildcards of several namespaces over several files.
+    assert_reaches_only_planned(
+        "in memory",
+        owned(&[
+            ("lib1.sw", "namespace Lib\n\ndef one: Nat := 1\n"),
+            ("lib2.sw", "namespace Lib\n\ndef two: Nat := 2\n"),
+            (
+                "day.sw",
+                "namespace Day\n\nimport Lib (..)\n\ntest \"both\" := one + two == 3\n",
+            ),
+        ]),
+    );
+}
