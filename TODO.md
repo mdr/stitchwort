@@ -47,12 +47,14 @@ has a `Database` record.
 Design note `docs/proposals/checker-evaluation.md` merged (the checker
 recomputes values it doesn't need: `print` args, dot notation, `==`/`if`,
 proof fields; (a) bind instead of evaluate, in the elaborator; (b) lazy
-values while checking; (d) glued values). Awaiting independent review and
-the user; open: should the kernel `Let` value be lazy at check time
-(`let-stage2` told to keep it swappable and measure).
-Running: `let-stage2` (Opus: kernel `Let`, metavariable audit).
-`run-js` (Opus: `stitchwort run --js`: compile `main` to JS, run under
-Node with an IO driver and a big stack; user, 19 Oct). Quick wins Q1/Q2
+values while checking; (d) glued values). Reviewed; the user accepted
+(19 Oct): do (a) now (1A operation calls and dot notation, 1B `==`/`if`
+with fallback); the kernel `Let` value is lazy at check time (contained
+thunk, `run` stays strict); decide (b) after re-measuring.
+Running: `let-stage2` (Opus: lazy kernel `Let`, metavariable audit),
+`checker-bind` (Opus: option (a) 1A+1B, note draft 2), `run-js` (Opus).
+`run --js` (user, 19 Oct): compile `main` to JS, run under Node with an
+IO driver and a big stack. Quick wins Q1/Q2
 (native lookup by index, mimalloc) skipped (user).
 
 Queued after the `let` fix (user, 19 Oct): prove day 2's block-walking
