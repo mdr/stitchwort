@@ -1,6 +1,6 @@
 # Projects: several files and namespaces
 
-**Status:** describes multi-file stage 1, being implemented (19 October 2026); details may change.
+**Status:** describes multi-file stage 1 (implemented 19 October 2026). `import N (..)` is planned for stage 2.
 
 A **project** is a folder with a `stitchwort.yaml`. It says where the `.sw`
 files are. Every file says which namespace it belongs to. Several files can
@@ -28,11 +28,13 @@ sources: [src]
 ```
 
 `sources` is a list of folders relative to the project folder. Every `.sw`
-file under them, at any depth, belongs to the project. Folders whose names
-start with `.` are skipped, so `.stitchwort/` and `.git/` are ignored. Files
-that aren't `.sw` are ignored. A folder that doesn't exist, or lies outside
-the project folder, is an error. So is a `stitchwort.yaml` inside another
-project. `sources` is the only key for now; an unknown key is an error.
+file under them, at any depth, belongs to the project; symlinks are skipped.
+Folders whose names start with `.` are skipped, so `.stitchwort/` and `.git/`
+are ignored. Files that aren't `.sw` are ignored. A folder that doesn't
+exist, or a source path that is absolute or contains `..`, is an error. So is
+a `stitchwort.yaml` inside another project. `sources` must be a list:
+`sources: src` (a bare string) is `E-PROJECT-CONFIG`. `sources` is the only
+key for now; an unknown key is an error.
 
 A flat layout uses `sources: [.]`.
 
@@ -77,8 +79,10 @@ def main(): {IO} () :=
 
 The rules:
 
-- **Exactly one namespace line per file**, at the top. A second one, or one
-  after an import or a declaration, is `E-PARSE` with a note.
+- **Exactly one namespace line per file**, and it must come first; only
+  comments and blank lines may come before it. A namespace line after an
+  import or a declaration means the file has none: `E-NO-NAMESPACE`. A
+  second namespace line is `E-PARSE` with a note.
 - **Several files may share a namespace.** All files that say
   `namespace Day05` together make one namespace.
 - **File names and folders mean nothing.** `range.sw` could be called
@@ -95,6 +99,10 @@ The rules:
 - **Library names are reserved.** `namespace Std` is `E-STD-NAMESPACE`. A
   namespace whose first component is a library namespace, such as
   `namespace List` or `namespace Text.Extra`, is `E-NAMESPACE-RESERVED`.
+  `Main` is also reserved: a namespace whose first component is `Main`, such
+  as `namespace Main` or `namespace Main.Extra`, is `E-NAMESPACE-RESERVED`,
+  because `Main` is the implicit namespace of a file without a namespace
+  line.
 - **You can't add to another namespace.** In namespace `Day02`, writing
   `def Range.invalid …` for an `Aoc.Range` is `E-FOREIGN-NAMESPACE`. Give
   the function a name in `Day02` instead.
@@ -188,8 +196,11 @@ it has a main-like type: `() -> {IO, Partial} ()` or less, meaning one of
 () -> {IO, Partial} ()
 ```
 
-Only the function's namespace and what it depends on are checked. A broken
-unrelated namespace doesn't stop the run.
+Only the function's namespace and what it depends on are type-checked. A
+namespace with type errors that the function doesn't use doesn't stop the
+run. Problems found for the project as a whole before checking (a file with no
+namespace line, a reserved namespace, a namespace/type clash, or a bad
+`stitchwort.yaml`) stop every command, `run` included.
 
 A path argument is always **file mode**:
 
@@ -215,6 +226,9 @@ stitchwort test Day05             -- Day05's tests and its dependencies'
 stitchwort test path/file.sw      -- file mode
 ```
 
+`check` accepts several names at once. `test` and `run` take a single target.
+A namespace target may be dotted, as in `check Aoc.Day05`.
+
 `stitchwort test Day05` runs the tests of `Day05` and of every namespace it
 depends on, grouped by namespace; `Std`'s own tests aren't run. A test moved
 between files of one namespace keeps its result.
@@ -233,10 +247,11 @@ the working directory. `--cache-dir` overrides both.
 | `E-NO-NAMESPACE` | A file in a project has no namespace line. |
 | `E-FILE-MODE` | A file run, checked or tested on its own uses something outside `Std`. |
 | `E-NAMESPACE-CYCLE` | Namespaces depend on each other in a cycle. |
-| `E-NAMESPACE-RESERVED` | A namespace's first component is a library namespace. |
+| `E-NAMESPACE-RESERVED` | A namespace's first component is a library namespace or `Main`. |
 | `E-NAMESPACE-CLASH` | A dotted namespace name is also a type declared in its parent namespace. |
 | `E-FOREIGN-NAMESPACE` | A file adds a declaration to another namespace. |
 | `E-NAMESPACE-FAILED` | A namespace wasn't checked because a namespace it depends on has errors. |
+| `E-NAMESPACE-UNKNOWN` | A command named a namespace the project doesn't have. |
 | `E-RUN-TYPE` | The named function doesn't have a main-like type. |
 | `E-RUN-UNKNOWN` | There's no function with that full name. |
 
@@ -247,4 +262,4 @@ Older codes also now cover projects: `E-DUPLICATE` names both files,
 
 ## Not in stage 1
 
-Adding definitions to another namespace waits for its own design; `import N (..)` is stage 2, and interfaces are planned but not designed yet.
+Adding definitions to another namespace waits for its own design; `import N (..)` is planned for stage 2, and interfaces are planned but not designed yet.
