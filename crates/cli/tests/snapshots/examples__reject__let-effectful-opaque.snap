@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-REFL] Error: `rfl` can't prove this
-    ╭─[ reject/let-effectful-opaque.sw:10:20 ]
+    ╭─[ reject/let-effectful-opaque.sw:10:19 ]
     │
- 10 │   let p : k = 3 := rfl
-    │                    ─┬─  
-    │                     ╰─── `k` and `3` aren't equal
+ 10 │   let p: k = 3 := rfl
+    │                   ─┬─  
+    │                    ╰─── `k` and `3` aren't equal
     │ 
     │ Note: `rfl` proves `a = b` only when both sides compute to the same value
 ────╯

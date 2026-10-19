@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-REFL] Error: `rfl` can't prove this
-   ╭─[ reject/local-lemma-owner-cycle.sw:8:27 ]
+   ╭─[ reject/local-lemma-owner-cycle.sw:8:26 ]
    │
- 8 │   theorem fz : f 0 = 0 := rfl
-   │                           ─┬─  
-   │                            ╰─── `f 0` and `0` aren't equal
+ 8 │   theorem fz: f 0 = 0 := rfl
+   │                          ─┬─  
+   │                           ╰─── `f 0` and `0` aren't equal
    │ 
    │ Note 1: `rfl` proves `a = b` only when both sides compute to the same value
    │ 

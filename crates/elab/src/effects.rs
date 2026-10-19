@@ -1153,7 +1153,7 @@ pub fn comp_check(cx: &mut Ctx, expr: &Expr, row: &Row, t: &Value) -> Result<Ter
             if binder.is_some() {
                 return Err(cx.error(
                     "E-ABILITY",
-                    "`if h : P` needs a proposition, which can't perform operations",
+                    "`if h: P` needs a proposition, which can't perform operations",
                     "here",
                 ));
             }

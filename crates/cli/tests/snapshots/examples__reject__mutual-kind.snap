@@ -5,11 +5,11 @@ expression: output
 [E-MUTUAL-KIND] Error: `Code` and `Decode` refer to each other, but data types and definitions can't be defined together
    ╭─[ reject/mutual-kind.sw:4:6 ]
    │
- 4 │ type Code : Type =
+ 4 │ type Code: Type =
    │      ──┬─  
    │        ╰─── `Code` is defined here
    │ 
- 8 │ def Decode : Code -> Type
+ 8 │ def Decode: Code -> Type
    │     ───┬──  
    │        ╰──── `Decode` is defined here
    │ 

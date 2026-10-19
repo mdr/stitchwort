@@ -4,7 +4,7 @@
 -- `bounce 2 3`, … forever. Combining what each call shrinks, as if one call
 -- did both, would wrongly accept it (docs/proposals/mutual-recursion.md
 -- §6.5: calls are never merged). Pairs with `ack` in accept/size-change.sw.
-def bounce : Nat -> Nat -> Nat
+def bounce: Nat -> Nat -> Nat
   | Zero,   Zero   => 0
   | Succ x, y      => bounce x (Succ (Succ y))
   | Zero,   Succ y => bounce (Succ (Succ y)) y

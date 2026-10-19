@@ -1,8 +1,8 @@
 -- String interpolation: `${e}` inside a text literal inserts `e.toText`.
 
-type Box = { value : Nat }
+type Box = { value: Nat }
 
-def world : Text := "world"
+def world: Text := "world"
 
 test "nat" := "n = ${2 + 3}" == "n = 5"
 test "int" := "i = ${-5}" == "i = -5"

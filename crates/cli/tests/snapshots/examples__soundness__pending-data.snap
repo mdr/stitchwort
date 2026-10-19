@@ -5,11 +5,11 @@ expression: output
 [E-MUTUAL-KIND] Error: `D` and `impossible` refer to each other, but data types and definitions can't be defined together
     ╭─[ soundness/pending-data.sw:9:6 ]
     │
-  9 │ type D : Type =
+  9 │ type D: Type =
     │      ┬  
     │      ╰── `D` is defined here
     │ 
- 12 │ def impossible : D -> Void
+ 12 │ def impossible: D -> Void
     │     ─────┬────  
     │          ╰────── `impossible` is defined here
     │ 

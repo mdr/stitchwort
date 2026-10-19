@@ -19,7 +19,7 @@ The second review recommended a targeted revision followed by implementation. Th
 
 | Area | Draft 2 | Draft 3 |
 |---|---|---|
-| Totality statement | "A closed term whose type has no abilities" | Stated with an effect judgment `t : A ! ε`: building a partial closure is pure, calling it isn't |
+| Totality statement | "A closed term whose type has no abilities" | Stated with an effect judgment `t: A ! ε`: building a partial closure is pure, calling it isn't |
 | `Prop` elimination | "Fields are all erased" (which wrongly allowed hiding a type) | Lean's rule, stated over the constructor declaration: each field is a proof or appears in the result type's indices |
 | Product rules | Unstated | `Prop` is impredicative. Effectful arrows are never in `Prop` |
 | Explicit implicit arguments | `map [Nat] [Nat] f xs`, which clashes with list literals | `map [a := Nat] [b := Nat] f xs` |
@@ -38,13 +38,13 @@ Draft 1 stated several guarantees more strongly than its rules justified. This d
 
 | Area | Draft 1 | Draft 2 |
 |---|---|---|
-| Universes | `Type : Type`, fix later | Numbered universes in the kernel from day one. `Type : Type` breaks termination, not just logic |
+| Universes | `Type: Type`, fix later | Numbered universes in the kernel from day one. `Type: Type` breaks termination, not just logic |
 | Handler termination | Trusted if each clause resumes at most once | That rule has counterexamples. Now: deep handlers, first-order operations, non-recursive clauses, recorded as a tracked conjecture |
 | `withFuel` | Generic handler for `Partial` | Postponed. Explicit fuel arguments for now. `Partial` can't be handled by user code |
 | Erasure | Open question | `Prop`-based, with restricted elimination |
 | `auto` | "By computation" | Via a `Decidable` mechanism, which also produces the JS boundary checks |
 | Division | `n / 0 = 0` or a proof, undecided | `/` needs a non-zero proof. `divideChecked` returns `Optional` |
-| Implicit arguments | `{a : Type}` | `[a : Type]`. `{a : Type}` was ambiguous with a one-field record type |
+| Implicit arguments | `{a: Type}` | `[a: Type]`. `{a: Type}` was ambiguous with a one-field record type |
 | JS integers | `number`, checked | `bigint`. Inputs that pass validation could produce outputs a `number` can't represent |
 | JS `Optional` | `a \| null` | Tagged. `null` merged `None` and `Some None` |
 | JS inputs | Validated in place | Decoded into an owned copy first, then validated |
@@ -139,9 +139,9 @@ meaning "evaluating `t` produces a value of type `A`, and may perform the abilit
 
 | Case | What's guaranteed |
 |---|---|
-| Pure function `f : A -> B` | Applying it to any value of `A` terminates. |
-| Function returning a partial closure, `mk : Nat -> (() -> {Partial} Nat)` | Calling `mk` terminates (`mk 3 : … ! {}`). Calling the closure it returns is not covered. |
-| Open ability row, `g : A -> {e} B` | Terminates once every ability in `e` is handled by an admissible handler ([§8](#8-abilities-and-handlers)). The handled computation is then covered. |
+| Pure function `f: A -> B` | Applying it to any value of `A` terminates. |
+| Function returning a partial closure, `mk: Nat -> (() -> {Partial} Nat)` | Calling `mk` terminates (`mk 3: … ! {}`). Calling the closure it returns is not covered. |
+| Open ability row, `g: A -> {e} B` | Terminates once every ability in `e` is handled by an admissible handler ([§8](#8-abilities-and-handlers)). The handled computation is then covered. |
 | `Abort` | May stop without producing a `B`. Once handled (into `Optional B`), covered. |
 | `IO` and host-provided operations | Trusted contracts. They may block (waiting for input or the network). The guarantee covers the computation between them, not the operations themselves. |
 | Depends on assumptions | The guarantee holds only if the listed assumptions are true. |
@@ -150,7 +150,7 @@ meaning "evaluating `t` produces a value of type `A`, and may perform the abilit
 
 **Conditional results are labelled automatically.** Anything that reports success (a test, a theorem, an export) shows the assumptions it depends on, without the user having to run a separate command. Exports are refused outright if they depend on assumptions ([§12](#12-javascript-extraction)).
 
-**Proved.** If a checked, assumption-free theorem `p : P` exists, then `P` holds, assuming the kernel is correct.
+**Proved.** If a checked, assumption-free theorem `p: P` exists, then `P` holds, assuming the kernel is correct.
 
 **Erased.** A value is erased if it's a type or a proof (its type is in `Prop`, [§6](#6-proofs-universes-and-erasure)). Erased values don't exist at runtime, and the kernel's elimination rules ensure runtime results never depend on them.
 
@@ -166,20 +166,20 @@ The syntax is whitespace-sensitive and ML/Lean-like. Everything here is a sketch
 
 | Brackets | Meaning | Example |
 |---|---|---|
-| `( )` | grouping, explicit arguments | `(xs : List a) -> …` |
-| `[x : A]` in a type | implicit argument binder: the compiler fills it in | `[a : Type] -> List a -> Nat` |
-| `[auto x : P]` in a type | implicit proof the compiler finds ([§6](#6-proofs-universes-and-erasure)) | `[auto ok : i < length xs]` |
+| `( )` | grouping, explicit arguments | `(xs: List a) -> …` |
+| `[x: A]` in a type | implicit argument binder: the compiler fills it in | `[a: Type] -> List a -> Nat` |
+| `[auto x: P]` in a type | implicit proof the compiler finds ([§6](#6-proofs-universes-and-erasure)) | `[auto ok: i < length xs]` |
 | `[x := e]` in an expression | supplying an implicit argument explicitly, by name | `map [a := Nat] [b := Nat] f xs` |
 | `[e, …]` in an expression | list literal | `[1, 2, 3]`, `[x]`, `[]` |
-| `{ }` with `name : Type` fields | record types | `{ name : Text, age : Nat }` |
+| `{ }` with `name: Type` fields | record types | `{ name: Text, age: Nat }` |
 | `{ }` right after an arrow | ability rows | `Nat -> {State Nat} Nat` |
 
 **Square brackets.** In a type, `[` always starts an implicit binder. In an expression, `[x := e]` supplies an implicit argument and every other `[…]` is a list literal, so `length [1]` and `get [10] 0` mean what they look like. The `:=` also keeps `[a := b]` distinct from `[a = b]`, a one-element list containing an equality.
 
 **Curly braces.** Record types and ability rows are told apart by the *top level* of the braces, not by whether a colon appears anywhere inside:
 
-- If the top-level entries have the form `name : Type`, it's a record type.
-- Otherwise it's an ability row, whose entries are abilities applied to arguments. Those arguments may themselves contain record types: `Nat -> {State { count : Nat }} Nat` is an ability row containing `State` applied to a record type.
+- If the top-level entries have the form `name: Type`, it's a record type.
+- Otherwise it's an ability row, whose entries are abilities applied to arguments. Those arguments may themselves contain record types: `Nat -> {State { count: Nat }} Nat` is an ability row containing `State` applied to a record type.
 - `{}` is always the empty record type. An empty ability row is never written: a pure arrow has no braces.
 
 These rules get golden parser tests before anything is built on them, including nested and empty cases.
@@ -188,16 +188,16 @@ These rules get golden parser tests before anything is built on them, including 
 
 ```
 type Shape =
-  | Square (side : Nat)
-  | Rect (width : Nat) (height : Nat)
+  | Square (side: Nat)
+  | Rect (width: Nat) (height: Nat)
 
-def area : Shape -> Nat
+def area: Shape -> Nat
   | Square s => s * s
   | Rect w h => w * h
 
 -- Lowercase type variables in signatures are bound implicitly.
--- Equivalent to: def map [a : Type] [b : Type] (f : a -> b) : List a -> List b
-def map (f : a -> b) : List a -> List b
+-- Equivalent to: def map [a: Type] [b: Type] (f: a -> b): List a -> List b
+def map (f: a -> b): List a -> List b
   | []        => []
   | x :: xs   => f x :: map f xs
 
@@ -210,34 +210,34 @@ def doubled := map [a := Nat] [b := Nat] (\x => x * 2) [1, 2, 3]   -- supplied b
 ### Records
 
 ```
-type Person = { name : Text, age : Nat }
+type Person = { name: Text, age: Nat }
 
-def alice : Person := { name = "Alice", age = 30 }
+def alice: Person := { name = "Alice", age = 30 }
 
-def birthday (p : Person) : Person := { p | age = p.age + 1 }
+def birthday (p: Person): Person := { p | age = p.age + 1 }
 
 -- Works on any record that has a `name` field
-def greet (x : { name : Text | r }) : Text := "Hello, " ++ x.name
+def greet (x: { name: Text | r }): Text := "Hello, " ++ x.name
 ```
 
 ### Totality
 
 ```
 -- Structural recursion: accepted automatically
-def length : List a -> Nat
+def length: List a -> Nat
   | []      => 0
   | _ :: xs => 1 + length xs
 
 -- Not structural: name a measure that decreases.
 -- `b@(Succ _)` names the argument and records that it isn't zero,
 -- which `%` requires.
-def gcd : Nat -> Nat -> Nat
+def gcd: Nat -> Nat -> Nat
   | a, 0          => a
   | a, b@(Succ _) => gcd b (a % b)
   decreasing b
 
 -- Opt out: partiality is an ability, visible in the type
-def collatz : Nat -> {Partial} Nat
+def collatz: Nat -> {Partial} Nat
   | 1 => 0
   | n => 1 + collatz (if even n then n / 2 else 3 * n + 1)
 ```
@@ -245,12 +245,12 @@ def collatz : Nat -> {Partial} Nat
 ### Proofs
 
 ```
-theorem appendLength : (xs ys : List a) -> length (xs ++ ys) = length xs + length ys
+theorem appendLength: (xs ys: List a) -> length (xs ++ ys) = length xs + length ys
   | [],      ys => rfl
   | x :: xs, ys => Eq.cong Succ (appendLength xs ys)
 
 -- The proof that the index is in range is found by `auto`
-def get (xs : List a) (i : Nat) [auto ok : i < length xs] : a := ...
+def get (xs: List a) (i: Nat) [auto ok: i < length xs]: a := ...
 
 def third := get [10, 20, 30] 2      -- fine: 2 < 3 is decided at compile time
 def oops  := get [10, 20, 30] 5      -- error: 5 < 3 is false
@@ -259,12 +259,12 @@ def oops  := get [10, 20, 30] 5      -- error: 5 < 3 is false
 ### Data bundled with its guarantees
 
 ```
-def IsSorted : List Nat -> Prop := ...
+def IsSorted: List Nat -> Prop := ...
 
 -- `sorted` is a proof, so it's erased: at runtime this is just a List
-type SortedList = { items : List Nat, sorted : IsSorted items }
+type SortedList = { items: List Nat, sorted: IsSorted items }
 
-def insert (n : Nat) (s : SortedList) : SortedList :=
+def insert (n: Nat) (s: SortedList): SortedList :=
   { items  = insertList n s.items
   , sorted = insertPreservesSorted n s.items s.sorted }
 ```
@@ -273,10 +273,10 @@ def insert (n : Nat) (s : SortedList) : SortedList :=
 
 ```
 ability State s where
-  get : () -> {State s} s
-  put : s -> {State s} ()
+  get: () -> {State s} s
+  put: s -> {State s} ()
 
-def tick () : {State Nat} Nat :=
+def tick (): {State Nat} Nat :=
   let n := get ()
   put (n + 1)
   n
@@ -299,7 +299,7 @@ $ stitchwort test
 ### JS export
 
 ```
-export def applyDiscount : (pct : Nat) -> [auto ok : pct <= 100] -> Price -> Price
+export def applyDiscount: (pct: Nat) -> [auto ok: pct <= 100] -> Price -> Price
 ```
 
 ```ts
@@ -316,8 +316,8 @@ export function applyDiscount(pct: bigint, price: Price): Price;
 Lean 4 checks termination to keep its *logic* consistent, and deliberately separates that from execution. A `partial def` is an opaque constant to the kernel: "Functions marked `partial` are treated as opaque constants by the kernel and are neither unfolded nor reduced" ([Lean reference: recursive definitions](https://lean-lang.org/doc/reference/latest/Definitions/Recursive-Definitions/)). Calls to partial definitions don't propagate any divergence effect, so ordinary definitions can call them:
 
 ```lean
-partial def spin (n : Nat) : Nat := spin n
-def innocent (n : Nat) : Nat := spin n + 1   -- accepted as an ordinary def
+partial def spin (n: Nat): Nat := spin n
+def innocent (n: Nat): Nat := spin n + 1   -- accepted as an ordinary def
 ```
 
 This matches the documented behaviour, though this exact snippet hasn't been run. An ordinary Lean function type such as `Nat → Nat` doesn't certify that its compiled implementation terminates. Stitchwort aims for a stronger link between what the types say and what runs.
@@ -331,13 +331,13 @@ an `Effect.Comp`. Stage 1 is implemented ([docs/proposals/partial.md](docs/propo
 "As built"):
 
 ```
-def spin (n : Nat) : {Partial} Nat := spin n
+def spin (n: Nat): {Partial} Nat := spin n
 
 -- type error: calls spin, which uses Partial
-def innocent (n : Nat) : Nat := spin n + 1
+def innocent (n: Nat): Nat := spin n + 1
 
 -- OK: partiality is visible
-def innocent (n : Nat) : {Partial} Nat := spin n + 1
+def innocent (n: Nat): {Partial} Nat := spin n + 1
 ```
 
 ### Rules
@@ -365,13 +365,13 @@ When termination checking fails, the error should say *which call* failed and *w
 For now, bounded versions of partial algorithms take an explicit fuel argument. They terminate by structural recursion on the fuel, so no special support is needed:
 
 ```
-def collatzFuel : Nat -> Nat -> Optional Nat
+def collatzFuel: Nat -> Nat -> Optional Nat
   | 0,         _ => None
   | Succ fuel, 1 => Some 0
   | Succ fuel, n => map (+ 1) (collatzFuel fuel (next n))
 ```
 
-A generic `withFuel : Nat -> (() -> {Partial | e} a) -> {e} Optional a`, which bounds *any* partial computation, is attractive but postponed. It needs:
+A generic `withFuel: Nat -> (() -> {Partial | e} a) -> {e} Optional a`, which bounds *any* partial computation, is attractive but postponed. It needs:
 
 - **Ticks in the core semantics.** Every unbounded recursion must pass through a "tick", and the kernel must check this. It can't be optional instrumentation added by the front-end.
 - **No opaque divergence.** A foreign function that loops internally can't be interrupted between ticks, so foreign `Partial` must be excluded or treated differently.
@@ -385,7 +385,7 @@ A generic `withFuel : Nat -> (() -> {Partial | e} a) -> {e} Optional a`, which b
 
 - **Propositions are types; proofs are values.** `xs ++ [] = xs` is a type, and a value of that type is a proof.
 - **`theorem`** is a definition whose type is a proposition (in `Prop`). It's always erased at runtime and must be total and pure.
-- **Equality** is a built-in proposition `a = b` with `rfl : a = a`, plus library functions `Eq.cong`, `Eq.sym`, `Eq.trans` and `rewrite`.
+- **Equality** is a built-in proposition `a = b` with `rfl: a = a`, plus library functions `Eq.cong`, `Eq.sym`, `Eq.trans` and `rewrite`.
 - **Proof by computation.** Types are compared by evaluating them, so `rfl` proves anything that holds by just computing both sides (`2 + 2 = 4`, `List.length [1, 2] = 2`).
 - **No tactics.** Proofs are ordinary terms, written by pattern matching and recursion. A `calc` block for readable chains of equalities is a likely later addition.
 
@@ -394,14 +394,14 @@ Conventions that make proofs go through by computation should be documented. For
 ### Universes
 
 ```
-Prop   : Type 0
-Type 0 : Type 1
-Type 1 : Type 2
+Prop:   Type 0
+Type 0: Type 1
+Type 1: Type 2
 …
 ```
 
 - `Type` on its own means `Type 0`, where ordinary data lives.
-- The kernel checks universe levels **from the first milestone**. `Type : Type` was rejected because it allows paradoxes (Girard's) that produce non-terminating terms without any recursion, which would break principle 1, not just the logic.
+- The kernel checks universe levels **from the first milestone**. `Type: Type` was rejected because it allows paradoxes (Girard's) that produce non-terminating terms without any recursion, which would break principle 1, not just the logic.
 - **No universe polymorphism at first.** Each data type is declared at a fixed level, so `List` holds `Type 0` values. Universe polymorphism and inference come later, and are mostly an elaboration feature.
 
 ### Which universe a function type lives in
@@ -410,21 +410,21 @@ Having numbered universes doesn't settle where function types live. The rules:
 
 | Function type | Lives in | Note |
 |---|---|---|
-| `(x : A) -> B`, pure, `B : Prop` | `Prop` | Whatever `A`'s universe. This is **impredicativity**, as in Lean and Rocq: "for every `x : A`, `B x` holds" is itself a proposition |
-| `(x : A) -> B`, pure, `A : Type i`, `B : Type j` | `Type (max i j)` | `Prop` counts as level 0 here |
-| `(x : A) -> {ε} B`, with a non-empty ability row | `Type (max i j)`, **never** `Prop` | Even when `B` is a proposition |
+| `(x: A) -> B`, pure, `B: Prop` | `Prop` | Whatever `A`'s universe. This is **impredicativity**, as in Lean and Rocq: "for every `x: A`, `B x` holds" is itself a proposition |
+| `(x: A) -> B`, pure, `A: Type i`, `B: Type j` | `Type (max i j)` | `Prop` counts as level 0 here |
+| `(x: A) -> {ε} B`, with a non-empty ability row | `Type (max i j)`, **never** `Prop` | Even when `B` is a proposition |
 
 The last rule matters once abilities exist. In
 
 ```
-def loggedProof : () -> {IO} True
+def loggedProof: () -> {IO} True
 ```
 
 the function is runtime data, not an erasable proof: calling it performs IO, and only the `True` it returns is erased. Treating it as a proposition would erase the IO.
 
 ### Erasure via `Prop`
 
-A value is erased if its type is in `Prop`. `sorted : IsSorted items` is erased because `IsSorted items : Prop`, not because of its name or where it came from. Types are erased too.
+A value is erased if its type is in `Prop`. `sorted: IsSorted items` is erased because `IsSorted items: Prop`, not because of its name or where it came from. Types are erased too.
 
 **The restriction that makes this safe:** runtime results must never depend on *which* proof was given, or on data hidden inside a proof. So pattern matching on a proof may only produce something outside `Prop` when the proposition passes this check, which is Lean's rule ("subsingleton elimination"; Rocq's is similar).
 
@@ -440,21 +440,21 @@ Otherwise, matching on it can only produce another proof.
 The check is over the declaration. It must **not** be implemented by asking "would the compiler erase this field?", because types are erased but can still carry information:
 
 ```
-type HiddenType : Prop =
-  | HideType (a : Type)
+type HiddenType: Prop =
+  | HideType (a: Type)
 
-def reveal : HiddenType -> Type      -- rejected: `a` is a type, not a proof,
+def reveal: HiddenType -> Type      -- rejected: `a` is a type, not a proof,
   | HideType a => a          -- and it doesn't appear in an index
 ```
 
 | Proposition | Can be matched on to produce data? | Why |
 |---|---|---|
-| `a = b` (constructor `rfl : a = a`) | Yes | No fields. The `a` in `rfl` is a parameter or index, not a field. Needed for transport (rewriting a value's type along an equality) |
+| `a = b` (constructor `rfl: a = a`) | Yes | No fields. The `a` in `rfl` is a parameter or index, not a field. Needed for transport (rewriting a value's type along an equality) |
 | `False` | Yes | No constructors. Needed for ruling out impossible cases (`Void.absurd`) |
 | `p ∧ q` | Yes | One constructor, whose fields are proofs |
 | `p ∨ q` | **No** | Two constructors: the result could depend on which side was proved |
 | `∃ x, p x` | **No** | The witness `x` is data that doesn't appear in an index |
-| `HiddenType` | **No** | The field `a : Type` is neither a proof nor an index |
+| `HiddenType` | **No** | The field `a: Type` is neither a proof nor an index |
 
 The kernel implements this rule and nothing looser. Each "No" row is a "must reject" test, paired with an accepted test for a nearby "Yes" row ([§13](#13-soundness-policy)). Definitional proof irrelevance (treating any two proofs of the same proposition as equal during type checking) isn't needed for the POC.
 
@@ -467,28 +467,28 @@ These are independent, and the design keeps them so:
 | Question | Controlled by |
 |---|---|
 | Does the caller write it? | Explicit `( )` vs implicit `[ ]` |
-| How is it found? | Unification for `[x : A]`. A decision procedure for `[auto x : P]` |
+| How is it found? | Unification for `[x: A]`. A decision procedure for `[auto x: P]` |
 | Does it exist at runtime? | Erased if and only if its type is in `Prop`, or it's a type |
 | How often may it be used at runtime? | Unrestricted. (Continuations may later need "at most once" for JS; see [§8](#8-abilities-and-handlers)) |
 
-In particular, an implicit argument isn't automatically erased (`[n : Nat]` exists at runtime), and `auto` doesn't mean erased either.
+In particular, an implicit argument isn't automatically erased (`[n: Nat]` exists at runtime), and `auto` doesn't mean erased either.
 
 ### `auto` and `Decidable`
 
-`[auto ok : p]` asks the compiler to find a proof of `p`. Evaluating `2 < 3` to `true` doesn't by itself produce a proof, so `auto` uses decision procedures, values of this type:
+`[auto ok: p]` asks the compiler to find a proof of `p`. Evaluating `2 < 3` to `true` doesn't by itself produce a proof, so `auto` uses decision procedures, values of this type:
 
 ```
-type Decidable (p : Prop) : Type =
-  | Yes (proof : p)
-  | No  (refutation : Not p)
+type Decidable (p: Prop): Type =
+  | Yes (proof: p)
+  | No  (refutation: Not p)
 ```
 
 `Decidable p` lives in `Type`, not `Prop`: whether the answer is `Yes` or `No` is runtime data. Only the proof inside each branch is erased.
 
-To fill in `[auto ok : p]`, the compiler tries, in order:
+To fill in `[auto ok: p]`, the compiler tries, in order:
 
 1. **Evidence supplied explicitly**: `[ok := myProof]`.
-2. **A hypothesis already in scope** whose type matches `p`, e.g. the `h` from `if h : d != 0 then …`. This is simple matching against the local context, not general proof search.
+2. **A hypothesis already in scope** whose type matches `p`, e.g. the `h` from `if h: d != 0 then …`. This is simple matching against the local context, not general proof search.
 3. **A registered decision procedure** for `p`, evaluated at compile time.
 
 Possible outcomes, each with its own error message:
@@ -497,7 +497,7 @@ Possible outcomes, each with its own error message:
 |---|---|
 | Evidence found, or the decision procedure says `Yes proof` | Uses that proof |
 | The decision procedure says `No` | Error: `p` is false |
-| The decision procedure is stuck, because its inputs aren't known at compile time | Error: supply a proof, or establish it with a branch (`if h : i < length xs then … else …`) |
+| The decision procedure is stuck, because its inputs aren't known at compile time | Error: supply a proof, or establish it with a branch (`if h: i < length xs then … else …`) |
 | No decision procedure is registered for `p` | Error: no way to decide `p` |
 | The budget ran out | Inconclusive: try a larger budget |
 
@@ -511,7 +511,7 @@ Pattern matching in proofs requires the compiler to learn facts about types in e
 
 The rule (principle 2) is about **executing** effects, not mentioning them:
 
-- `f : (n : Nat) -> {IO} Vec Nat n` is fine. The result type `Vec Nat n` is pure, even though calling `f` performs IO.
+- `f: (n: Nat) -> {IO} Vec Nat n` is fine. The result type `Vec Nat n` is pure, even though calling `f` performs IO.
 - A type expression that would itself *perform* an operation (e.g. `Vec Nat (readNat ())`) is rejected. During type checking, effectful applications never reduce.
 - When an effect's result is later used as an index (`let n = readNat ()` and then `Vec Nat n`), `n` is just a variable as far as the type is concerned. The precise rules for sequencing effectful code with dependent types are an open question ([§16](#16-open-questions)).
 
@@ -574,7 +574,7 @@ Abilities follow Unison's design, which comes from Frank.
 Handlers are **deep**: the continuation `k` already includes the handler, so a clause never needs to call the handler again. That makes a handler a *fold* over the tree of operations a computation performs:
 
 ```
-def runState [auto d : IsData s] (init : s) (prog : () -> {State s | e} a) : {e} (a, s) :=
+def runState [auto d: IsData s] (init: s) (prog: () -> {State s | e} a): {e} (a, s) :=
   let run :=
     handle prog () with
       | return x     => \s => (x, s)
@@ -595,9 +595,9 @@ Draft 1 proposed trusting any handler that resumes `k` at most once. **That rule
 
 ```
 ability Ping where
-  ping : () -> {Ping} ()
+  ping: () -> {Ping} ()
 
-def bad (prog : () -> {Ping} a) : a :=
+def bad (prog: () -> {Ping} a): a :=
   handle prog () with
     | return x    => x
     | ping (), k  => bad prog     -- never resumes k, loops forever
@@ -609,10 +609,10 @@ bad (\() -> ping ())
 
 ```
 ability Cell where
-  read  : () -> {Cell} (() -> {Cell} ())
-  write : (() -> {Cell} ()) -> {Cell} ()
+  read : () -> {Cell} (() -> {Cell} ())
+  write: (() -> {Cell} ()) -> {Cell} ()
 
-def knot : () -> {Cell} ()
+def knot: () -> {Cell} ()
   | () =>
     let f := \() => (read ()) ()
     write f
@@ -624,7 +624,7 @@ Each continuation here is resumed exactly once. The recursion comes from the sto
 **POC rule.** A handler is admissible when:
 
 1. **It's deep, and its clauses aren't recursive.** A clause can't call the handler or any function that leads back to it. The only way to continue is `k`. This rejects `Ping`.
-2. **Its ability's operations are data-only.** Operation arguments and results can't contain functions, anywhere. This rejects `Cell`. It's checked **transitively, after type parameters are filled in**, not just by looking for `->` in the operation's signature, because a function can hide inside a constructor or record. So `State Nat` is fine, but `State (List (Nat -> Nat))` and `State { f : Nat -> Nat }` are rejected. For parameterised abilities like `State s`, the handler must require `IsData s`, a property of types that the compiler decides by looking through their definitions. Without that, `runState` could be used with function-valued state and reintroduce Landin's knot.
+2. **Its ability's operations are data-only.** Operation arguments and results can't contain functions, anywhere. This rejects `Cell`. It's checked **transitively, after type parameters are filled in**, not just by looking for `->` in the operation's signature, because a function can hide inside a constructor or record. So `State Nat` is fine, but `State (List (Nat -> Nat))` and `State { f: Nat -> Nat }` are rejected. For parameterised abilities like `State s`, the handler must require `IsData s`, a property of types that the compiler decides by looking through their definitions. Without that, `runState` could be used with function-valued state and reintroduce Landin's knot.
 3. **Its clauses are total and pure** apart from the outer row `e`.
 4. **It isn't for `Partial`** ([§5](#5-totality-and-partiality)).
 
@@ -662,22 +662,22 @@ Records come in two kinds, kept separate at first. The plan, in stages, is [docs
 
 ### Declared records (built)
 
-- **Nominal.** `type Person = { name : Text, age : Nat }` declares a new type, as `type … = | …` does: `Person` and a `Pet` with the same fields are different types. It's a data type with one constructor and a projection per field, so the kernel needs nothing new. A nickname for a record type is an ordinary definition (`Point : Type; Point = …`, once anonymous record types exist).
+- **Nominal.** `type Person = { name: Text, age: Nat }` declares a new type, as `type … = | …` does: `Person` and a `Pet` with the same fields are different types. It's a data type with one constructor and a projection per field, so the kernel needs nothing new. A nickname for a record type is an ordinary definition (`Point: Type; Point = …`, once anonymous record types exist).
 - **Literals** `{ name = "A", age = 3 }` need an expected type; **access** `p.name` needs `p`'s type known; **updates** `{ p | age = p.age + 1 }`; **patterns** `{ name, .. }`. In a computation, field expressions run in the order written.
 - **`==`** is derived only when a checked decision for the whole record can be built; otherwise the user writes one.
 - In JS, a plain object without a tag ([§12](#12-javascript-extraction)).
 
 ### Row-polymorphic records (planned)
 
-- **Structural.** `{ name : Text, age : Nat }` is a type in its own right, the same type whatever order its fields are written in.
-- **Row polymorphic.** `{ name : Text | r }` accepts any record with at least a `name` field.
+- **Structural.** `{ name: Text, age: Nat }` is a type in its own right, the same type whatever order its fields are written in.
+- **Row polymorphic.** `{ name: Text | r }` accepts any record with at least a `name` field.
 - **Conveniences:** update syntax `{ p | age = p.age + 1 }`, field punning `{ name, age }`, and `.age` as an accessor function.
 - **No dependencies between fields.**
 
 ### Dependent records
 
-- **Closed and ordered.** Later fields may refer to earlier ones: `{ items : List Nat, sorted : IsSorted items }`. Field order matters, and there's no row variable.
-- **Updates must re-establish dependent fields.** For `s : SortedList`, `{ s | items = [2, 1] }` is a type error, because `s.sorted` proves something about the *old* `items`. An update that changes a field must also supply every later field whose type depends on it:
+- **Closed and ordered.** Later fields may refer to earlier ones: `{ items: List Nat, sorted: IsSorted items }`. Field order matters, and there's no row variable.
+- **Updates must re-establish dependent fields.** For `s: SortedList`, `{ s | items = [2, 1] }` is a type error, because `s.sorted` proves something about the *old* `items`. An update that changes a field must also supply every later field whose type depends on it:
 
   ```
   { s | items = xs', sorted = proofAbout xs' }
@@ -692,7 +692,7 @@ Records come in two kinds, kept separate at first. The plan, in stages, is [docs
 
   ```
   type UserId  = UserId Nat
-  type OrderId = { order : Nat }
+  type OrderId = { order: Nat }
   ```
 
 ---
@@ -700,12 +700,12 @@ Records come in two kinds, kept separate at first. The plan, in stages, is [docs
 ## 10. Numbers
 
 - `Nat` and `Int` are arbitrary-precision integers.
-- **Division and remainder need a non-zero divisor.** `/` and `%` take an implicit proof `[auto ok : d != 0]`. For literal divisors (`n / 2`) or divisors matched as `Succ _`, the compiler finds it automatically. For unknown divisors there are two routes:
-  - establish the fact with a branch (`if h : d != 0 then n / d else …`), or
-  - use `divideChecked : Nat -> Nat -> Optional Nat` (and `remainderChecked`).
+- **Division and remainder need a non-zero divisor.** `/` and `%` take an implicit proof `[auto ok: d != 0]`. For literal divisors (`n / 2`) or divisors matched as `Succ _`, the compiler finds it automatically. For unknown divisors there are two routes:
+  - establish the fact with a branch (`if h: d != 0 then n / d else …`), or
+  - use `divideChecked: Nat -> Nat -> Optional Nat` (and `remainderChecked`).
 
   The laws of `/` and `%` (e.g. `a % b < b` when `b != 0`) are part of the standard library, since proofs like `gcd`'s termination depend on them.
-- **`Nat` subtraction stops at zero** (`3 - 5 = 0`), documented prominently, with `subtractChecked : Nat -> Nat -> Optional Nat` as the alternative. Code that needs negative results should use `Int`.
+- **`Nat` subtraction stops at zero** (`3 - 5 = 0`), documented prominently, with `subtractChecked: Nat -> Nat -> Optional Nat` as the alternative. Code that needs negative results should use `Int`.
 - **`Int` division truncates toward zero**, and the remainder has the sign of the dividend: `(-7) / 3 = -2` and `(-7) % 3 = -1`. This matches JS `BigInt` (and Rust, C and Java), so extracted code can use the native operators directly. The defining law, `(a / b) * b + a % b = a` with `|a % b| < |b|`, is in the standard library. Floor or Euclidean division can be added later as separately named functions.
 - **`Float` is unspecified for now**, and stays out of the first extraction milestone. Defining its semantics (IEEE 754 doubles, and what that means for equality and proofs) is a separate piece of work.
 - **Fixed-size numbers** (`U32` etc.) come later. Their mathematical meaning comes first, e.g. `U32` as a `Nat` below 2³² with explicitly wrapping operations, so their laws can be proved. Efficient machine representations come after that.
@@ -747,7 +747,7 @@ Stable identifiers written in the source can come later if needed.
 
 Every key also includes the compiler version. The test-result key also includes a fingerprint of the compiler's source and the evaluation modes (natives, compact text), so a result is never reused by another build, or with natives switched off ([docs/core.md](docs/core.md#tests-and-content-hashes)).
 
-The elaboration key must use dependencies' full hashes, bodies included, not just their signatures. If `bound : Nat` changes from `3` to `4`, its signature is the same, but elaborating something of type `Vec Nat bound`, or deciding an `auto` proof involving `bound`, can give a different result. Tracking exactly which definitions elaboration looked inside would allow finer-grained keys, but whole-declaration hashes are simpler and always correct. Adding or changing a decision procedure can also change what `auto` finds, so that's part of the key too.
+The elaboration key must use dependencies' full hashes, bodies included, not just their signatures. If `bound: Nat` changes from `3` to `4`, its signature is the same, but elaborating something of type `Vec Nat bound`, or deciding an `auto` proof involving `bound`, can give a different result. Tracking exactly which definitions elaboration looked inside would allow finer-grained keys, but whole-declaration hashes are simpler and always correct. Adding or changing a decision procedure can also change what `auto` finds, so that's part of the key too.
 
 In the POC only the core-hash layers exist, so **elaboration always re-runs**. What's skipped is kernel re-checking, test runs and code generation. That's still the expensive part for proofs and tests.
 
@@ -778,15 +778,15 @@ $ stitchwort build --js src/pricing.sw -o dist/
 The first extraction milestone supports a deliberately narrow subset. An **exportability check** refuses an `export` unless all of these hold:
 
 1. **Pure.** The exported function performs no abilities.
-2. **Concrete boundary types with codecs.** Every input and output type is fully concrete (no type parameters such as `identity : [a : Type] -> a -> a`), and has a supported encoder and decoder: `Nat`, `Bool`, `Text`, `Char`, `List`, and data types built from these (such as the prelude's `Maybe` and `Pair`). `Int`, `Optional` and records will join them once they're built. No functions, no `Float`. Polymorphic helpers are fine *inside* the library, just not at the boundary.
+2. **Concrete boundary types with codecs.** Every input and output type is fully concrete (no type parameters such as `identity: [a: Type] -> a -> a`), and has a supported encoder and decoder: `Nat`, `Bool`, `Text`, `Char`, `List`, and data types built from these (such as the prelude's `Maybe` and `Pair`). `Int`, `Optional` and records will join them once they're built. No functions, no `Float`. Polymorphic helpers are fine *inside* the library, just not at the boundary.
 3. **Decidable preconditions.** Every erased proof argument of the exported function has a registered decision procedure ([§6](#6-proofs-universes-and-erasure)), which becomes a runtime check.
 4. **Assumption-free.** The exported function, everything it depends on, *and the decision procedures used by its validators* are assumption-free ([§3](#3-precise-guarantees)). Otherwise an assumed proof hidden inside a decision procedure could let invalid input through as validated, and an assumed falsehood can make extracted code wrong or non-terminating even though the assumption itself is erased. (Rocq's extraction documentation warns about exactly this.) For example, this is refused:
 
    ```
-   assume impossible : False
+   assume impossible: False
 
    export
-   bogus : Nat -> Nat
+   bogus: Nat -> Nat
    bogus n = Void.absurd impossible
    ```
 
@@ -817,8 +817,8 @@ The guarantee starts *after* decoding succeeds. It makes no promise that decodin
 | `Text` | `string`, well-formed (decoding refuses lone surrogates) |
 | `Char` | `string` holding exactly one Unicode scalar value |
 | `List a` | `readonly A[]` (copied on decode; `readonly` is only a hint to TS callers) |
-| a record `type Person = { name : Text, age : Nat }` | `export type Person = { readonly name: string; readonly age: bigint }`: no tag, keys in declared order |
-| an anonymous record `{ name : Text, age : Nat }` (planned) | `{ readonly age: bigint; readonly name: string }`, keys in sorted order |
+| a record `type Person = { name: Text, age: Nat }` | `export type Person = { readonly name: string; readonly age: bigint }`: no tag, keys in declared order |
+| an anonymous record `{ name: Text, age: Nat }` (planned) | `{ readonly age: bigint; readonly name: string }`, keys in sorted order |
 | `Optional a` (planned; for now the prelude's `Maybe a` is an ordinary data type) | `{ tag: "None" } \| { tag: "Some"; value: A }` (for now, `Maybe<A>`: `{ tag: "Nothing" } \| { tag: "Just"; value: A }`) |
 | sum type `Square … \| Rect …` | `{ tag: "Square"; side: bigint } \| { tag: "Rect"; … }` (exported constructors must name their fields; a field called `tag` is `$tag`, see [Names](#names)) |
 | proof arguments and fields | omitted (a record's proof fields are re-established by decision procedures when decoded; other data types with proof fields can't cross yet) |
@@ -848,7 +848,7 @@ A decoder takes the data it needs from an input object and nothing else, so that
 
 Stitchwort names (ASCII letters, digits, `_` and primes) don't line up with JavaScript's, and some names mean something to JS objects or to the generated module. These rules make sure nothing a program names can clash with anything else, by construction rather than by a list of names to avoid:
 
-- **Fields.** A field's key, in boundary objects, in the generated code and in the `.d.ts`, is its name with each prime written `$` (`x'` is `x$`). A record has no tag, so its field `tag` keeps the key `tag`; the rest of this rule applies to records too. The representation already uses two keys: `tag`, for the constructor, and `__proto__`, which in an object literal sets the prototype instead of a property. A field with one of those names gets a `$` in front, so `MkLabelled (tag : Text) (count : Nat)` is `{ tag: "MkLabelled"; $tag: string; count: bigint }`. Stitchwort names can't contain `$`, and only these keys start with one, so two fields never share a key, and none is `tag`. Other names with a meaning on JS objects (`constructor`, `toString`, `length`) or reserved in JS (`class`, `default`) are fine as keys, so they're kept.
+- **Fields.** A field's key, in boundary objects, in the generated code and in the `.d.ts`, is its name with each prime written `$` (`x'` is `x$`). A record has no tag, so its field `tag` keeps the key `tag`; the rest of this rule applies to records too. The representation already uses two keys: `tag`, for the constructor, and `__proto__`, which in an object literal sets the prototype instead of a property. A field with one of those names gets a `$` in front, so `MkLabelled (tag: Text) (count: Nat)` is `{ tag: "MkLabelled"; $tag: string; count: bigint }`. Stitchwort names can't contain `$`, and only these keys start with one, so two fields never share a key, and none is `tag`. Other names with a meaning on JS objects (`constructor`, `toString`, `length`) or reserved in JS (`class`, `default`) are fine as keys, so they're kept.
 - **Constructors** only appear as tag strings, so any name works (`"MkBox'"`).
 - **Data types** are named by their short name with each prime as `$` in the `.d.ts` (`Box'` is `Box$`, `Geometry.Shape` is `Shape`). Two different types at the boundary with the same short name are refused (`E-EXPORT`); the same type reached twice is one type. A data type at the boundary can't be called `StitchwortInputError` or `StitchwortResourceError`, which the module exports itself.
 - **Exports** are imported by their short name (`Geometry.area` is `area`; two exports with the same short name are `E-EXPORT`), which must be a JS identifier (so no primes) that aren't reserved in JS (`delete`, `class`, `this`, `eval`, `undefined`, …), or they couldn't be imported by name; nor can they be the module's own two exports. An export isn't a name in the module's own scope: its wrapper is `$$name`, exported with `export { $$name as name }`. So an export can be called anything else, `Set`, `BigInt` or `decode`, without hiding a JS global or one of the runtime's helpers.
@@ -893,7 +893,7 @@ Host implementations are **trusted contracts**: JS can't be checked for purity o
 | Measure | Why |
 |---|---|
 | **Small trusted kernel** that re-checks all elaborated declarations | Bugs in the large front-end can't produce false proofs. Later fixes stay in one place. |
-| **Numbered universes** in the kernel | `Type : Type` allows paradoxes that break both proofs and termination. |
+| **Numbered universes** in the kernel | `Type: Type` allows paradoxes that break both proofs and termination. |
 | **`Prop` elimination rules** | Runtime results can't depend on erased proofs. |
 | **Strict positivity check** on data types | Without it, `type Bad = MkBad (Bad -> Void)` lets you prove anything. |
 | **Exhaustiveness checking** of pattern matches | A missing case is a hidden crash. |
@@ -918,16 +918,16 @@ Each rejected example is paired with a nearby example that must be **accepted**,
 | A missing pattern-match case | Exhaustiveness | The complete match |
 | Matching on `p ∨ q` to produce data | `Prop` elimination | Matching on `p ∧ q` to produce data |
 | Extracting the witness of `∃ x, p x` as data | `Prop` elimination | Using the witness inside another proof |
-| `reveal : HiddenType -> Type` ([§6](#6-proofs-universes-and-erasure)) | `Prop` elimination: a type field isn't a proof | Transport along `a = b` |
-| `loggedProof : () -> {IO} True` treated as erasable | Effectful arrows are never in `Prop` | Erasing the `True` it returns |
-| `n / d` with nothing known about `d` | No evidence for `d != 0` | `if h : d != 0 then n / d else 0` |
+| `reveal: HiddenType -> Type` ([§6](#6-proofs-universes-and-erasure)) | `Prop` elimination: a type field isn't a proof | Transport along `a = b` |
+| `loggedProof: () -> {IO} True` treated as erasable | Effectful arrows are never in `Prop` | Erasing the `True` it returns |
+| `n / d` with nothing known about `d` | No evidence for `d != 0` | `if h: d != 0 then n / d else 0` |
 | `Ping`: a handler restarting its computation ([§8](#8-abilities-and-handlers)) | Handler clauses can't recurse | A handler that only resumes `k` |
 | Landin's knot through `Cell` ([§8](#8-abilities-and-handlers)) | Operations must be data-only | `State Nat` |
 | `runState` with `State (List (Nat -> Nat))` | `IsData` checked transitively | `runState` with `State (List Nat)` |
 | A user handler for `Partial` | Only the runtime handles `Partial` | Running `Partial` code from `main` |
 | Updating `items` of a `SortedList` without a new proof | Dependent record updates | Supplying `items` and a new `sorted` proof |
-| Exporting `bogus` (depends on `assume impossible : False`) | Exports must be assumption-free | Exporting an assumption-free function |
-| Exporting `identity : [a : Type] -> a -> a` | No codec for an unknown type | Exporting `identity` specialised to `Nat` |
+| Exporting `bogus` (depends on `assume impossible: False`) | Exports must be assumption-free | Exporting an assumption-free function |
+| Exporting `identity: [a: Type] -> a -> a` | No codec for an unknown type | Exporting `identity` specialised to `Nat` |
 
 **A rejection only counts if it's for the right reason.** Every diagnostic has a stable error code (e.g. `E-POSITIVITY`), and each "must reject" example declares the code it expects. A crash, a timeout, a syntax error in the example, or an unrelated error (like an unknown name) is a test failure, not a pass.
 
@@ -1005,7 +1005,7 @@ Each milestone ends with something demonstrable.
 |---|---|---|
 | 1 | **Core spec, kernel and REPL.** Written typing rules for the core, including which universe function types live in, the `Prop` elimination rule, the effect judgment and the reduction policies. Dependent functions, numbered universes, `Prop`, evaluation with a step budget, stable error codes | Type an expression, get its type and value. A universe paradox is rejected with the right error code |
 | 2 | **Data types, pattern matching, totality.** `Nat`, `List`, structural recursion, positivity and exhaustiveness checks, `Prop` elimination, `rfl`/`Eq.cong` | `appendLength` checks. Non-terminating functions, non-positive types, `∨`-elimination into data and `HiddenType` are rejected, each for the right reason |
-| 3 | **Implicit arguments and `auto`.** Unification, implicitly bound type variables, `[a := …]`, `Decidable`, local hypotheses, `/` with non-zero proofs | Write `map f xs` instead of `map [a := Nat] [b := Nat] f xs`. `get [10, 20, 30] 5` is a compile-time error. `if h : d != 0 then n / d else 0` checks |
+| 3 | **Implicit arguments and `auto`.** Unification, implicitly bound type variables, `[a := …]`, `Decidable`, local hypotheses, `/` with non-zero proofs | Write `map f xs` instead of `map [a := Nat] [b := Nat] f xs`. `get [10, 20, 30] 5` is a compile-time error. `if h: d != 0 then n / d else 0` checks |
 | 4 | **JS extraction, first-order subset.** Erasure, codegen, `bigint`, tagged encodings, the exportability check, decode/validate wrappers, `.d.ts`, differential tests | Prove a function, extract it, call it from a TS file, and see its results agree with the reference evaluator. Invalid input is rejected at the boundary |
 | 5 | **Hashing and caching.** Declaration hashes, recursive groups, nominal identity, kernel/test/JS caches | `stitchwort test` shows `cached` vs `ran` as you edit |
 | 6 | **Browser playground.** Compiler as WASM, editor, run/test/extract buttons, resource budgets | A link you can send to people |
@@ -1079,9 +1079,9 @@ No existing language combines all four pillars. These overlap most:
 - **Subsingleton elimination:** the rule that you may only pattern match on a proof to produce data when the proposition can't have two observably different proofs (e.g. equality, but not "or").
 - **`Decidable p`:** a computation that produces either a proof of `p` or a proof that `p` is false.
 - **Impredicativity (of `Prop`):** a statement that quantifies over anything, even over all types, is still a proposition.
-- **Effect judgment (`t : A ! ε`):** "evaluating `t` produces an `A` and may perform the abilities in `ε`". Separate from any abilities mentioned inside `A`.
+- **Effect judgment (`t: A ! ε`):** "evaluating `t` produces an `A` and may perform the abilities in `ε`". Separate from any abilities mentioned inside `A`.
 - **`IsData`:** a property of types meaning "contains no functions, however deeply nested". Required for state handlers.
-- **Parameter / index / field:** in a declaration like `type Vec (a : Type) : Nat -> Type`, `a` is a parameter (fixed across all constructors), the `Nat` is an index (can differ between constructors), and constructor arguments are fields.
+- **Parameter / index / field:** in a declaration like `type Vec (a: Type): Nat -> Type`, `a` is a parameter (fixed across all constructors), the `Nat` is an index (can differ between constructors), and constructor arguments are fields.
 - **Ability / handler:** an ability declares operations (`get`, `put`). A handler decides what they do. The same code can be run with different handlers, e.g. real IO vs a pure test double.
 - **Continuation:** "the rest of the computation", which a handler can resume with a value.
 - **Deep vs shallow handler:** a deep handler stays installed when the computation is resumed, so it acts like a fold over all the operations. A shallow handler handles one operation and must re-install itself.
@@ -1093,6 +1093,6 @@ No existing language combines all four pillars. These overlap most:
 - **Unification:** working out unknown implicit arguments from how things are used.
 - **Erasure:** removing compile-time-only parts (types, proofs) before running or generating JS.
 - **Strict positivity:** a rule on data type definitions that prevents a type from being defined in terms of functions that consume itself, which would make the logic inconsistent.
-- **Universe:** the "type of types". `Type 0 : Type 1 : …`. Allowing `Type : Type` permits paradoxes (Girard's).
+- **Universe:** the "type of types". `Type 0: Type 1: …`. Allowing `Type: Type` permits paradoxes (Girard's).
 - **Row polymorphism:** functions that work on any record (or ability set) containing *at least* certain fields.
 - **De Bruijn indices:** naming variables by position rather than by name, so renaming doesn't change a term's hash.

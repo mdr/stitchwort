@@ -4,10 +4,10 @@
 -- arguments wherever it's used in the group.
 -- Neighbour: `walk`/`stepBy` in accept/mutual.sw, which passes
 -- `\x => stepBy k x` with `k` smaller.
-def applyTo (f : List Nat -> Nat) (xs : List Nat) : Nat := f xs
+def applyTo (f: List Nat -> Nat) (xs: List Nat): Nat := f xs
 
-def walk (ts : List Nat) : Nat := applyTo walkList ts
+def walk (ts: List Nat): Nat := applyTo walkList ts
 
-def walkList : List Nat -> Nat
+def walkList: List Nat -> Nat
   | Nil       => 0
   | Cons _ ts => walk ts

@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-POSITIVITY] Error: `Bad` is used inside another type
-   ╭─[ soundness/partial-nested.sw:8:16 ]
+   ╭─[ soundness/partial-nested.sw:8:15 ]
    │
- 8 │   | MkBad (d : Delay NoOp NoRes Bad)
-   │                ──────────┬─────────  
-   │                          ╰─────────── field `d` has `Bad` inside another type
+ 8 │   | MkBad (d: Delay NoOp NoRes Bad)
+   │               ──────────┬─────────  
+   │                         ╰─────────── field `d` has `Bad` inside another type
    │ 
    │ Note 1: a data type's fields can contain it only directly, or as the result of a function field: whether it's safe inside another type (such as a `List`) would depend on how that type uses it, which isn't checked
    │ 

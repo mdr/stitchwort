@@ -4,8 +4,8 @@
 -- for `Sorted`. examples/extract/records.sw exports a record whose proof
 -- field has one.
 
-def Sorted (xs : List Nat) : Prop := Unit
+def Sorted (xs: List Nat): Prop := Unit
 
-type SortedList = { items : List Nat, sorted : Sorted items }
+type SortedList = { items: List Nat, sorted: Sorted items }
 
-export def size (s : SortedList) : Nat := List.length s.items
+export def size (s: SortedList): Nat := List.length s.items

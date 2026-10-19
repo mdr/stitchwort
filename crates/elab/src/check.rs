@@ -369,7 +369,7 @@ impl<'e> Ctx<'e> {
                     "universe mismatch",
                     format!("expected something of type `{expected_shown}`, but this has type `{found_shown}`"),
                 )
-                .with_note("`Type n` lives in `Type (n+1)`; allowing `Type : Type` would make the logic inconsistent");
+                .with_note("`Type n` lives in `Type (n+1)`; allowing `Type: Type` would make the logic inconsistent");
         }
         self.error(
             "E-TYPE-MISMATCH",
@@ -515,7 +515,7 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
         Expr::Lam(..) => Err(cx.error(
             "E-CANNOT-INFER",
             "can't work out the type of this function",
-            "add a type annotation: `(… : T)`",
+            "add a type annotation: `(…: T)`",
         )),
         Expr::Pi {
             names,
@@ -588,7 +588,7 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
                 "can't tell which record type this literal is",
                 "nothing here says what type it should have",
             )
-            .with_note("add a type annotation, as in `({ x = 0, y = 0 } : Point)`")),
+            .with_note("add a type annotation, as in `({ x = 0, y = 0 }: Point)`")),
         Expr::Record {
             base: Some(base),
             fields,
@@ -636,7 +636,7 @@ pub(crate) fn infer_app(cx: &mut Ctx, head: &Expr, args: &[Arg]) -> Result<(Term
             return Err(cx.error(
                 "E-CANNOT-INFER",
                 "can't work out what `rfl` proves here",
-                "add a type annotation: `(rfl : a = b)`",
+                "add a type annotation: `(rfl: a = b)`",
             ));
         }
         "J" => {
@@ -1376,7 +1376,7 @@ pub(crate) fn check_if(
         Some(h) => {
             let (prop, sort) = check_type(cx, cond).map_err(|e| {
                 if e.code == "E-NOT-A-TYPE" {
-                    e.with_note("`if h : P` needs a proposition `P`; for a `Bool`, write `if c then … else …`")
+                    e.with_note("`if h: P` needs a proposition `P`; for a `Bool`, write `if c then … else …`")
                 } else {
                     e
                 }
@@ -1384,7 +1384,7 @@ pub(crate) fn check_if(
             if sort != Sort::Prop {
                 return Err(cx.error(
                     "E-TYPE-MISMATCH",
-                    "`if h : …` needs a proposition",
+                    "`if h: …` needs a proposition",
                     "this is a type of data; use `if c then … else …` for a `Bool`",
                 ));
             }

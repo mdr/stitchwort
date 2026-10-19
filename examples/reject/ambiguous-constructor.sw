@@ -1,10 +1,10 @@
 -- expect-error: E-AMBIGUOUS
 -- Two types of this file have a constructor `Square`. `Shape.Square` and
 -- `Tile.Square` always work; `Square` on its own is ambiguous.
-type Shape : Type =
-  | Square (side : Nat)
+type Shape: Type =
+  | Square (side: Nat)
 
-type Tile : Type =
-  | Square (colour : Nat)
+type Tile: Type =
+  | Square (colour: Nat)
 
-def unit : Shape := Square 1
+def unit: Shape := Square 1

@@ -5,11 +5,11 @@ expression: output
 [E-OLD-DECLARATION] Error: definitions start with `def`
    ╭─[ reject/old-declaration.sw:4:1 ]
    │
- 4 │ double : Nat -> Nat
+ 4 │ double: Nat -> Nat
    │ ───┬──  
    │    ╰──── expected `def`, `theorem`, `type`, `ability` or `test`
    │ 
-   │ Note: write `def double : …` with a `:=` body or arms under it; a signature and equations are one definition now
+   │ Note: write `def double: …` with a `:=` body or arms under it; a signature and equations are one definition now
 ───╯
 [E-OLD-DECLARATION] Error: definitions start with `def`
    ╭─[ reject/old-declaration.sw:5:1 ]
@@ -18,5 +18,5 @@ expression: output
    │ ───┬──  
    │    ╰──── expected `def`, `theorem`, `type`, `ability` or `test`
    │ 
-   │ Note: write `def double (x : A) : B := …`, or arms `| p => …` under `def double : A -> B`
+   │ Note: write `def double (x: A): B := …`, or arms `| p => …` under `def double: A -> B`
 ───╯

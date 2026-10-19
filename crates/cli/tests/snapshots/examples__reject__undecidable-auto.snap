@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-AUTO-NONE] Error: no way to decide `Void`
-   ╭─[ reject/undecidable-auto.sw:5:18 ]
+   ╭─[ reject/undecidable-auto.sw:5:17 ]
    │
- 5 │ def use : Nat := impossible
-   │                  ─────┬────  
-   │                       ╰────── the compiler needs a proof of this
+ 5 │ def use: Nat := impossible
+   │                 ─────┬────  
+   │                      ╰────── the compiler needs a proof of this
    │ 
    │ Note: supply a proof by name, or write a decision procedure: a function returning `Decidable …`
 ───╯

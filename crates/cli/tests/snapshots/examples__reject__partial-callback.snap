@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-PARTIAL-CALLBACK] Error: `loop` can't be passed to `useP` here
-   ╭─[ reject/partial-callback.sw:9:44 ]
+   ╭─[ reject/partial-callback.sw:9:42 ]
    │
- 9 │ def loop (n : Nat) : {Partial} Nat := useP loop n
-   │                                            ──┬─  
-   │                                              ╰─── `loop` calls `loop`, so as a value it makes requests that only `loop`'s own definition can answer
+ 9 │ def loop (n: Nat): {Partial} Nat := useP loop n
+   │                                          ──┬─  
+   │                                            ╰─── `loop` calls `loop`, so as a value it makes requests that only `loop`'s own definition can answer
    │ 
    │ Note 1: `useP`'s parameter has the type `Nat -> {Partial} Nat`, whose row is fixed
    │ 

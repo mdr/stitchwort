@@ -11,14 +11,14 @@
 
 -- The next number in the sequence: total, so it can be tested and proved
 -- about.
-def next (n : Nat) : Nat := if n % 2 == 0 then n / 2 else 3 * n + 1
+def next (n: Nat): Nat := if n % 2 == 0 then n / 2 else 3 * n + 1
 
 test "after 27" := next 27 == 82
 
 test "after 82" := next 82 == 41
 
-def collatzSteps : Nat -> {Partial} Nat
+def collatzSteps: Nat -> {Partial} Nat
   | 1 => 0
   | n => 1 + collatzSteps (next n)
 
-def main () : {IO, Partial} () := print ("27 reaches 1 in " ++ Nat.toText (collatzSteps 27) ++ " steps")
+def main (): {IO, Partial} () := print ("27 reaches 1 in " ++ Nat.toText (collatzSteps 27) ++ " steps")

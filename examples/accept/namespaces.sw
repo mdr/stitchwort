@@ -10,26 +10,26 @@ import Std.List (reverseOnto)
 
 -- A program's own names hide the library's: this file has its own `length`,
 -- `Maybe` and `Yes`.
-def length : Nat := 3
+def length: Nat := 3
 
-type Answer : Type =
+type Answer: Type =
   | Yes
   | No
 
-type Maybe (a : Type) : Type =
+type Maybe (a: Type): Type =
   | Absent
-  | Present (value : a)
+  | Present (value: a)
 
 -- The library's `Maybe` is still there, written in full. Its constructors
 -- went with the default `Maybe`, so they're written in full too.
-def libraryJust : Std.Maybe Nat := Std.Maybe.Just 1
+def libraryJust: Std.Maybe Nat := Std.Maybe.Just 1
 
 -- The program's own `Maybe` and `Yes`.
-def lookup : Nat -> Maybe Nat
+def lookup: Nat -> Maybe Nat
   | 0 => Absent
   | n => Present n
 
-def decide : Nat -> Answer
+def decide: Nat -> Answer
   | 0 => No
   | n => Yes
 
@@ -39,27 +39,27 @@ test "own Maybe" := Std.List.length [lookup 0, lookup 2] == 2
 
 -- A type owns a namespace: its constructors are in it, and so is anything
 -- declared with its name in front.
-type Shape : Type =
-  | Square (side : Nat)
-  | Rect (width : Nat) (height : Nat)
+type Shape: Type =
+  | Square (side: Nat)
+  | Rect (width: Nat) (height: Nat)
 
-def Shape.area : Shape -> Nat
+def Shape.area: Shape -> Nat
   | Square s => s * s
   | Shape.Rect w h => w * h
 
 test "area" := Shape.area (Rect 2 3) == 6
 
 -- A namespace of the program's own, which no type owns.
-def Geometry.double (n : Nat) : Nat := n + n
+def Geometry.double (n: Nat): Nat := n + n
 
 test "own namespace" := Geometry.double (Shape.area (Shape.Square 2)) == 8
 
 -- A file with its own `List` can add to it: `List` means this file's.
-type List : Type =
+type List: Type =
   | Empty
-  | More (rest : List)
+  | More (rest: List)
 
-def List.size : List -> Nat
+def List.size: List -> Nat
   | Empty => 0
   | More rest => 1 + List.size rest
 

@@ -428,7 +428,7 @@ test("the Evaluate tab", async (page) => {
   await page.untilChecked();
   await page.tab("eval");
   const result = await page.until(`document.querySelector(".result")?.textContent`);
-  assert.equal(result, "[3, 2, 1] : List Nat");
+  assert.equal(result, "[3, 2, 1]: List Nat");
   await page.ev(`(() => { const i = document.getElementById("eval-input"); i.value = "nope 1";
     i.form.requestSubmit(); })()`);
   assert.match(await page.until(`document.querySelector("#output pre.errors")?.textContent`), /E-UNKNOWN-NAME/);

@@ -146,7 +146,7 @@ fn a_module_name_takes_priority_over_a_type_variable_with_a_warning() {
     assert_eq!(warning.code, "W-MODULE-NAME");
     // Both sites: the use in the signature, and the definition.
     assert_eq!(warning.labels.len(), 2);
-    assert!(warning.notes[0].contains("[a : Type] ->"), "{warning:?}");
+    assert!(warning.notes[0].contains("[a: Type] ->"), "{warning:?}");
     // With an explicit binder, it's a type variable, and there's no warning.
     let explicit = "def size : [a : Type] -> List a -> Nat\n  \
                     | Nil => 0\n  \
@@ -163,7 +163,7 @@ fn a_module_name_takes_priority_over_a_type_variable_with_a_warning() {
         .find(|d| d.severity == Severity::Error)
         .expect("an error");
     assert!(
-        error.notes.iter().any(|n| n.contains("[a : Type] ->")),
+        error.notes.iter().any(|n| n.contains("[a: Type] ->")),
         "{errors:#?}"
     );
 }

@@ -11,56 +11,56 @@
 -- run: oneEntryPerPrint 3
 
 -- Echoes each line until the input runs out, reading at most `n` lines.
-def echoLine : Maybe Text -> (() -> {IO} ()) -> {IO} ()
+def echoLine: Maybe Text -> (() -> {IO} ()) -> {IO} ()
   | Nothing, more => ()
   | Just l,  more =>
     print l
     more ()
 
-def echo : Nat -> {IO} ()
+def echo: Nat -> {IO} ()
   | 0      => ()
   | Succ n => echoLine (readLine ()) (\u => echo n)
 
-def linesOf : List Nat -> List Text
+def linesOf: List Nat -> List Text
   | Nil       => Nil
   | Cons n ns => Cons (Nat.toText n) (linesOf ns)
 
 -- How many lines `echo` printed, given those numbers as input lines.
-export def linesEchoed (ns : List Nat) (bound : Nat) : Nat := List.length (Pair.fst (IO.simulate (linesOf ns) (\u => echo bound)))
+export def linesEchoed (ns: List Nat) (bound: Nat): Nat := List.length (Pair.fst (IO.simulate (linesOf ns) (\u => echo bound)))
 
 -- Numbers each line ("1: 7", "2: 42", …).
-def numberLine (i : Nat) : Maybe Text -> (() -> {IO} ()) -> {IO} ()
+def numberLine (i: Nat): Maybe Text -> (() -> {IO} ()) -> {IO} ()
   | Nothing, more => ()
   | Just l,  more =>
     print (Nat.toText i ++ ": " ++ l)
     more ()
 
-def numberFrom (i : Nat) : Nat -> {IO} ()
+def numberFrom (i: Nat): Nat -> {IO} ()
   | 0      => ()
   | Succ n => numberLine i (readLine ()) (\u => numberFrom (i + 1) n)
 
-def totalLength : List Text -> Nat
+def totalLength: List Text -> Nat
   | Nil       => 0
   | Cons t ts => Text.length t + totalLength ts
 
 -- The number of characters printed when numbering the lines.
-export def numberedLength (ns : List Nat) : Nat :=
+export def numberedLength (ns: List Nat): Nat :=
   totalLength (Pair.fst (IO.simulate (linesOf ns) (\u => numberFrom 1 (List.length ns))))
 
-def countdown : Nat -> {IO} ()
+def countdown: Nat -> {IO} ()
   | 0      => print "liftoff"
   | Succ n =>
     print (Nat.toText (Succ n))
     countdown n
 
 -- How many lines a countdown from `n` prints: `n + 1`.
-export def countdownLines (n : Nat) : Nat := List.length (Pair.fst (IO.simulate [] (\u => countdown n)))
+export def countdownLines (n: Nat): Nat := List.length (Pair.fst (IO.simulate [] (\u => countdown n)))
 
-def printLines : Nat -> {IO} ()
+def printLines: Nat -> {IO} ()
   | 0      => ()
   | Succ n =>
     print "a\nb"
     printLines n
 
 -- A payload containing a line feed is still one entry.
-export def oneEntryPerPrint (n : Nat) : Bool := List.length (Pair.fst (IO.simulate [] (\u => printLines n))) == n
+export def oneEntryPerPrint (n: Nat): Bool := List.length (Pair.fst (IO.simulate [] (\u => printLines n))) == n

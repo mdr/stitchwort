@@ -9,5 +9,5 @@ expression: output
    │            ───┬───  
    │               ╰───── the type of the value this section takes isn't known here
    │ 
-   │ Note: `.drop …` is `\x => x.drop …`, and `drop` is looked up in the namespace of `x`'s type, so that type must be known: pipe a value into it (`xs |> .drop …`), pass it where a function of a known type is expected, or annotate it, as in `(.drop … : List Nat -> List Nat)`
+   │ Note: `.drop …` is `\x => x.drop …`, and `drop` is looked up in the namespace of `x`'s type, so that type must be known: pipe a value into it (`xs |> .drop …`), pass it where a function of a known type is expected, or annotate it, as in `(.drop …: List Nat -> List Nat)`
 ───╯

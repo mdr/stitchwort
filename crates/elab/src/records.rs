@@ -525,7 +525,7 @@ fn record_type(cx: &Ctx, ty: &Value, what: &str) -> Result<(DataId, Vec<Value>)>
                 format!("can't tell which record type {what} is"),
                 "its type isn't known here",
             )
-            .with_note("add a type annotation, as in `(p : Person)`")),
+            .with_note("add a type annotation, as in `(p: Person)`")),
         other => Err(cx.error(
             "E-NOT-A-RECORD",
             format!("{what} needs a record"),

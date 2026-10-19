@@ -316,7 +316,7 @@ fn find(cx: &Ctx, recv: &Expr, field: &AstName, mut ty: Ty) -> Result<(TyHead, D
                     .with_note(format!(
                         "`.{}` is looked up in the namespace of the value's type, so that type \
                          must be known where it's used: annotate it, as in \
-                         `\\(p : Person) -> p.{}`, or write the function's full name",
+                         `\\(p: Person) -> p.{}`, or write the function's full name",
                         field.text, field.text
                     )));
             }
@@ -422,7 +422,7 @@ fn section_unknown_name(cx: &Ctx, field: &AstName) -> Diagnostic {
         "`.{f} …` is `\\x => x.{f} …`, and `{f}` is looked up in the namespace of `x`'s \
          type, so that type must be known: pipe a value into it (`xs |> .{f} …`), pass it \
          where a function of a known type is expected, or annotate it, as in \
-         `(.{f} … : List Nat -> List Nat)`",
+         `(.{f} …: List Nat -> List Nat)`",
         f = field.text
     ))
 }
@@ -601,7 +601,7 @@ fn call(
                     scope::display(&namespace(cx, owner)),
                     shown(recv)
                 ),
-                format!("`{key} : {shown_ty}`"),
+                format!("`{key}: {shown_ty}`"),
             )
             .with_note(format!("call it directly, `{key} …`")));
     };
@@ -624,7 +624,7 @@ fn call(
                             p.name,
                             shown(recv)
                         ),
-                        format!("`{key} : {shown_ty}`"),
+                        format!("`{key}: {shown_ty}`"),
                     )
                     .with_note(format!(
                         "give `{}` after `.{}`, or write the call in full, `{key} …`: the function \

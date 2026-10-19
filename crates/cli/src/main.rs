@@ -331,7 +331,7 @@ fn evaluate(session: &mut Session, expr: &str, type_only: bool) -> Result<String
         return Ok(session.elab.show(&ty));
     }
     let (value, ty) = session.elab.eval_expr(&expr)?;
-    Ok(format!("{value} : {ty}"))
+    Ok(format!("{value}: {ty}"))
 }
 
 fn repl(path: Option<&Path>) -> ExitCode {

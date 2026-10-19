@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-TYPE-MISMATCH] Error: a `Nat` can't be negative
-   ╭─[ reject/int-nat-minus-literal.sw:3:30 ]
+   ╭─[ reject/int-nat-minus-literal.sw:3:28 ]
    │
- 3 │ def r (n : Nat) : Nat := n - -1
-   │                              ─┬  
-   │                               ╰── this `-` needs an `Int`, but a `Nat` is expected here
+ 3 │ def r (n: Nat): Nat := n - -1
+   │                            ─┬  
+   │                             ╰── this `-` needs an `Int`, but a `Nat` is expected here
    │ 
    │ Note: use an `Int` for numbers that can be negative
 ───╯

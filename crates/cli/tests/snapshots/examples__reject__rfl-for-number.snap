@@ -3,9 +3,9 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-TYPE-MISMATCH] Error: type mismatch
-   ╭─[ reject/rfl-for-number.sw:3:16 ]
+   ╭─[ reject/rfl-for-number.sw:3:15 ]
    │
- 3 │ def x : Nat := rfl
-   │                ─┬─  
-   │                 ╰─── `rfl` proves an equation, but the expected type is `Nat`
+ 3 │ def x: Nat := rfl
+   │               ─┬─  
+   │                ╰─── `rfl` proves an equation, but the expected type is `Nat`
 ───╯

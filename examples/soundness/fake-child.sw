@@ -4,12 +4,12 @@
 -- child of it.
 import Effect (Comp)
 
-type ChooseOp : Type =
+type ChooseOp: Type =
   | Choose
 
-def ChooseRes : ChooseOp -> Type
+def ChooseRes: ChooseOp -> Type
   | Choose => Bool
 
-def loop : Comp ChooseOp ChooseRes Nat -> Nat
+def loop: Comp ChooseOp ChooseRes Nat -> Nat
   | Done x      => x
-  | Call o rest => loop ((\b => Call o rest : Bool -> Comp ChooseOp ChooseRes Nat) True)
+  | Call o rest => loop ((\b => Call o rest: Bool -> Comp ChooseOp ChooseRes Nat) True)

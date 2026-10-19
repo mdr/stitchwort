@@ -5,11 +5,11 @@ expression: output
 [E-DUPLICATE] Error: `length` is already defined
    ╭─[ reject/duplicate-definition.sw:5:5 ]
    │
- 3 │ def length : Nat := 0
+ 3 │ def length: Nat := 0
    │     ───┬──  
    │        ╰──── first defined here
    │ 
- 5 │ def length : Nat := 1
+ 5 │ def length: Nat := 1
    │     ───┬──  
    │        ╰──── `length` is already defined
 ───╯

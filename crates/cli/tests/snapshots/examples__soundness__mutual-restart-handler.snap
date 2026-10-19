@@ -9,9 +9,9 @@ expression: output
     │                    ─────────┬────────  
     │                             ╰────────── this call to `again` might not terminate: `again`'s 1st argument is `bad`'s 1st argument
     │ 
- 22 │ def again (c : Comp PingOp PingRes a) : a := bad c
-    │ ────────────────────┬────────────────────  
-    │                     ╰────────────────────── then this call to `bad`: `bad`'s 1st argument is `again`'s 1st argument
+ 22 │ def again (c: Comp PingOp PingRes a): a := bad c
+    │ ───────────────────┬───────────────────  
+    │                    ╰───────────────────── then this call to `bad`: `bad`'s 1st argument is `again`'s 1st argument
     │ 
     │ Note 1: going round `bad` → `again` → `bad`, over and over: the 1st argument stays the same, so no argument keeps getting smaller
     │ 

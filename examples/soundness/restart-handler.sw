@@ -4,15 +4,15 @@
 -- smaller than it.
 import Effect (Comp)
 
-type PingOp : Type =
+type PingOp: Type =
   | Ping
 
-type Unit1 : Type =
+type Unit1: Type =
   | MkUnit
 
-def PingRes : PingOp -> Type
+def PingRes: PingOp -> Type
   | Ping => Unit1
 
-def bad : Comp PingOp PingRes a -> a
+def bad: Comp PingOp PingRes a -> a
   | Done x      => x
   | Call o rest => bad (Call o rest)

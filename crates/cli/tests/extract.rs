@@ -2297,7 +2297,7 @@ console.log("ok");
 /// ordinary codec and `.d.ts` type and no integer natives, all consistent.
 #[test]
 fn a_changed_int_type_turns_the_representation_off() {
-    let prelude = changed_prelude("| OfNat (n : Nat)", "| OfNat (k : Nat)");
+    let prelude = changed_prelude("| OfNat (n: Nat)", "| OfNat (k: Nat)");
     let mut session = Session::with_prelude(&prelude);
     load_example(&mut session, "integers.sw");
     let g = &session.elab.globals;
@@ -2368,7 +2368,7 @@ console.log("ok");
 /// their definitions rather than the natives that assume bigints.
 #[test]
 fn a_changed_nat_type_turns_the_representation_off() {
-    let prelude = changed_prelude("| Succ (n : Nat)", "| Succ (k : Nat)");
+    let prelude = changed_prelude("| Succ (n: Nat)", "| Succ (k: Nat)");
     let mut session = Session::with_prelude(&prelude);
     session
         .load(
@@ -2415,7 +2415,7 @@ console.log("ok");
 /// their definitions rather than the text natives.
 #[test]
 fn a_changed_text_type_turns_the_representation_off() {
-    let prelude = changed_prelude("| MkText (chars : List Char)", "| MkText (cs : List Char)");
+    let prelude = changed_prelude("| MkText (chars: List Char)", "| MkText (cs: List Char)");
     let mut session = Session::with_prelude(&prelude);
     session
         .load(

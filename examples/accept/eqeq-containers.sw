@@ -28,15 +28,15 @@ test "nested, different" := Bool.not ([Just (1, ["a"]), Nothing] == [Just (1, ["
 test "zip" := [1, 2].zip ["a", "b"] == [(1, "a"), (2, "b")]
 
 -- In a definition, too, not just at compile time.
-def sameShape (xs : List (Maybe Nat)) (ys : List (Maybe Nat)) : Bool := xs == ys
+def sameShape (xs: List (Maybe Nat)) (ys: List (Maybe Nat)): Bool := xs == ys
 
 test "at run time" := sameShape [Just 1, Nothing] [Just 1, Nothing]
 test "at run time, different" := Bool.not (sameShape [Just 1] [Just 2])
 
 -- A record whose fields are a list, a tuple and a `Maybe` gets `==` too.
-type Entry = { ids : List Nat, pair : (Nat, Text), delta : Maybe Int }
+type Entry = { ids: List Nat, pair: (Nat, Text), delta: Maybe Int }
 
-def entry : Entry := { ids = [1, 2], pair = (3, "x"), delta = Just (Int.neg 4) }
+def entry: Entry := { ids = [1, 2], pair = (3, "x"), delta = Just (Int.neg 4) }
 
 test "record with containers" := entry == { ids = [1, 2], pair = (3, "x"), delta = Just (Int.neg 4) }
 test "record, list differs" := Bool.not (entry == { entry | ids = [2, 1] })

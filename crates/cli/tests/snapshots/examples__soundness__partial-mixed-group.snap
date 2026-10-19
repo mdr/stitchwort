@@ -5,11 +5,11 @@ expression: output
 [E-PARTIAL-MIXED] Error: `mkLoop` and `loop` call each other, but only `loop` is `Partial`
     ╭─[ soundness/partial-mixed-group.sw:8:5 ]
     │
-  8 │ def mkLoop (n : Nat) : (Nat -> {Partial} Nat) := loop
+  8 │ def mkLoop (n: Nat): (Nat -> {Partial} Nat) := loop
     │     ───┬──  
     │        ╰──── `mkLoop` isn't `Partial`: it returns a partial function, but finishes itself
     │ 
- 10 │ def loop (n : Nat) : {Partial} Nat := (mkLoop n) n
+ 10 │ def loop (n: Nat): {Partial} Nat := (mkLoop n) n
     │     ──┬─  
     │       ╰─── `loop` is `Partial`
     │ 

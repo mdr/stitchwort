@@ -3,9 +3,9 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-RECORD-FIELD] Error: this `Person` is missing `age`
-   ╭─[ reject/record-missing-field.sw:6:23 ]
+   ╭─[ reject/record-missing-field.sw:6:22 ]
    │
- 6 │ def alice : Person := { name = "Alice" }
-   │                       ─────────┬────────  
-   │                                ╰────────── every field must be given
+ 6 │ def alice: Person := { name = "Alice" }
+   │                      ─────────┬────────  
+   │                               ╰────────── every field must be given
 ───╯

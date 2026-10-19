@@ -13,64 +13,64 @@
 -- run: negatives [0, 4]
 
 -- Where a dial at 0 ends up after `x` clicks, on a dial of 100.
-export def dial (x : Int) : Int := x % 100
+export def dial (x: Int): Int := x % 100
 
 -- Each of the three conventions, and the precondition checked in JS.
-export def divide (a : Int) (d : Int) : [auto ok : d != 0] -> List Int := [a / d, a % d, Int.tdiv a d, Int.tmod a d, Int.fdiv a d, Int.fmod a d]
+export def divide (a: Int) (d: Int): [auto ok: d != 0] -> List Int := [a / d, a % d, Int.tdiv a d, Int.tmod a d, Int.fdiv a d, Int.fmod a d]
 
-export def describe : Int -> Text
+export def describe: Int -> Text
   | 0    => "zero"
   | (-1) => "minus one"
   | x    => if Int.less x 0 then "negative" else "positive"
 
-export def negatives (ns : List Nat) : List Int := List.map NegSucc ns
+export def negatives (ns: List Nat): List Int := List.map NegSucc ns
 
 -- Every natively implemented operation, one export each.
-export def neg (x : Int) : Int := -x
+export def neg (x: Int): Int := -x
 
-export def add (a : Int) (b : Int) : Int := a + b
+export def add (a: Int) (b: Int): Int := a + b
 
-export def sub (a : Int) (b : Int) : Int := a - b
+export def sub (a: Int) (b: Int): Int := a - b
 
-export def mul (a : Int) (b : Int) : Int := a * b
+export def mul (a: Int) (b: Int): Int := a * b
 
-export def eucDiv (a : Int) (d : Int) : [auto ok : d != 0] -> Int := a / d
+export def eucDiv (a: Int) (d: Int): [auto ok: d != 0] -> Int := a / d
 
-export def eucMod (a : Int) (d : Int) : [auto ok : d != 0] -> Int := a % d
+export def eucMod (a: Int) (d: Int): [auto ok: d != 0] -> Int := a % d
 
-export def tdiv (a : Int) (d : Int) : [auto ok : d != 0] -> Int := Int.tdiv a d
+export def tdiv (a: Int) (d: Int): [auto ok: d != 0] -> Int := Int.tdiv a d
 
-export def tmod (a : Int) (d : Int) : [auto ok : d != 0] -> Int := Int.tmod a d
+export def tmod (a: Int) (d: Int): [auto ok: d != 0] -> Int := Int.tmod a d
 
-export def fdiv (a : Int) (d : Int) : [auto ok : d != 0] -> Int := Int.fdiv a d
+export def fdiv (a: Int) (d: Int): [auto ok: d != 0] -> Int := Int.fdiv a d
 
-export def fmod (a : Int) (d : Int) : [auto ok : d != 0] -> Int := Int.fmod a d
+export def fmod (a: Int) (d: Int): [auto ok: d != 0] -> Int := Int.fmod a d
 
-export def modNat (a : Int) (d : Nat) : [auto ok : d != 0] -> Nat := Int.modNat a d
+export def modNat (a: Int) (d: Nat): [auto ok: d != 0] -> Nat := Int.modNat a d
 
-export def decEq (a : Int) (b : Int) : Bool := Decidable.toBool (Int.decEq a b)
+export def decEq (a: Int) (b: Int): Bool := Decidable.toBool (Int.decEq a b)
 
-export def leq (a : Int) (b : Int) : Bool := Int.leq a b
+export def leq (a: Int) (b: Int): Bool := Int.leq a b
 
-export def less (a : Int) (b : Int) : Bool := Int.less a b
+export def less (a: Int) (b: Int): Bool := Int.less a b
 
-export def compare (a : Int) (b : Int) : Ordering := Int.compare a b
+export def compare (a: Int) (b: Int): Ordering := Int.compare a b
 
-export def natAbs (x : Int) : Nat := Int.natAbs x
+export def natAbs (x: Int): Nat := Int.natAbs x
 
-export def abs (x : Int) : Int := Int.abs x
+export def abs (x: Int): Int := Int.abs x
 
-export def toNat (x : Int) : Nat := Int.toNat x
+export def toNat (x: Int): Nat := Int.toNat x
 
-export def toNatChecked (x : Int) : Maybe Nat := Int.toNatChecked x
+export def toNatChecked (x: Int): Maybe Nat := Int.toNatChecked x
 
-export def sign (x : Int) : Int := Int.sign x
+export def sign (x: Int): Int := Int.sign x
 
-export def ofNat (n : Nat) : Int := Nat.toInt n
+export def ofNat (n: Nat): Int := Nat.toInt n
 
-export def toText (x : Int) : Text := Int.toText x
+export def toText (x: Int): Text := Int.toText x
 
-export def parse (t : Text) : Maybe Int := Text.toInt t
+export def parse (t: Text): Maybe Int := Text.toInt t
 
 -- run: neg 5
 -- run: neg (-5)
@@ -119,17 +119,17 @@ export def parse (t : Text) : Maybe Int := Text.toInt t
 
 -- User code through the representation: constructors as values, patterns on
 -- native results, and an `Int` pattern of each shape.
-export def ofNats (ns : List Nat) : List Int := List.map OfNat ns
+export def ofNats (ns: List Nat): List Int := List.map OfNat ns
 
-export def residue (a : Int) (d : Int) : [auto ok : d != 0] -> Text := residueName (a % d)
+export def residue (a: Int) (d: Int): [auto ok: d != 0] -> Text := residueName (a % d)
 
-def residueName : Int -> Text
+def residueName: Int -> Text
   | 0    => "zero"
   | 1    => "one"
   | (-1) => "minus one"
   | r    => if Int.less r 0 then "negative" else "other"
 
-export def classify : Int -> Text
+export def classify: Int -> Text
   | 0 => "zero"
   | 1 => "one"
   | (-1) => "minus one"
@@ -141,25 +141,25 @@ export def classify : Int -> Text
   | NegSucc k => "negative, k = " ++ Nat.toText k
 
 -- Both constructor patterns, with the field used.
-export def fields : Int -> Nat
+export def fields: Int -> Nat
   | OfNat k => k
   | NegSucc k => k + 100
 
-export def maybeInt : Maybe Int -> Int
+export def maybeInt: Maybe Int -> Int
   | Nothing => 0
   | Just x => x * 2
 
-export def negateAll (xs : List (Maybe Int)) : List (Maybe Int) := List.map (\m => Maybe.map Int.neg m) xs
+export def negateAll (xs: List (Maybe Int)): List (Maybe Int) := List.map (\m => Maybe.map Int.neg m) xs
 
-export def firstNeg : List Int -> Maybe Int
+export def firstNeg: List Int -> Maybe Int
   | Nil => Nothing
   | Cons x xs => if Int.less x 0 then Just x else firstNeg xs
 
-type Entry = { count : Nat, delta : Int }
+type Entry = { count: Nat, delta: Int }
 
-export def apply (e : Entry) : Entry := { e | delta = e.delta + OfNat e.count }
+export def apply (e: Entry): Entry := { e | delta = e.delta + OfNat e.count }
 
-export def entries : List Entry -> Int
+export def entries: List Entry -> Int
   | Nil => 0
   | Cons e es => e.delta + entries es
 
