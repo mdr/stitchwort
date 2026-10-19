@@ -40,9 +40,17 @@ erasure, JS, pattern lets.
 code, `grid.rolls` after an IO `let`; day 2's `pickIf` gone). Stage 3
 also: written type when the value is itself an effectful call
 (`let g := Grid.read ()`).
-Running: `let-stage2` (Opus: kernel `Let`, metavariable audit), `checker-eval-design`
-(Opus, docs: where the checker computes values it doesn't need; compare
-Lean/Agda/Rocq/Idris lazy/glued evaluation; staged plan; user, 19 Oct).
+AoC days 1-5 reshaped (user, 19 Oct): `parseX`, `solvePart1`,
+`solvePart2` on the parsed input, combined in `main`; day 1 `part1`/`part2`
+are `zerosLandedOn`/`zerosPassed`, `Dial.wrap` is `Dial.fromInt`; day 5
+has a `Database` record.
+Design note `docs/proposals/checker-evaluation.md` merged (the checker
+recomputes values it doesn't need: `print` args, dot notation, `==`/`if`,
+proof fields; (a) bind instead of evaluate, in the elaborator; (b) lazy
+values while checking; (d) glued values). Awaiting independent review and
+the user; open: should the kernel `Let` value be lazy at check time
+(`let-stage2` told to keep it swappable and measure).
+Running: `let-stage2` (Opus: kernel `Let`, metavariable audit).
 `run-js` (Opus: `stitchwort run --js`: compile `main` to JS, run under
 Node with an IO driver and a big stack; user, 19 Oct). Quick wins Q1/Q2
 (native lookup by index, mimalloc) skipped (user).
