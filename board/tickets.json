@@ -1982,7 +1982,9 @@
       "body": "D25 (Matt, 19 Oct): AoC files keep only AoC-specific facts. Candidates: the Int.subNatNat lemmas at aoc/day01.sw:136-144 (subNatNatFromSucc, subNatNatSucc, subNatNatZero, subIsSubNatNat) and any other theorem in aoc/ that mentions no AoC type. Do before the project restructure.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
-      "commits": []
+      "commits": [
+        "15de4aa"
+      ]
     },
     {
       "id": 132,
@@ -1997,7 +1999,9 @@
       "body": "D23: namespaces Aoc.Day01..Aoc.Day05 plus Aoc.Common (shared Range from day02/day05). D24: tests and proofs sit immediately after the definition they are about (not a separate proofs file/section); proof-only helpers go just before the theorem that uses them. Run as stitchwort run Aoc.Day01.main. AoC answers must stay the same. Playground: drop AoC days from web/build.sh and flake.nix until playground project loading (D26).",
       "created": "2026-10-19",
       "updated": "2026-10-19",
-      "commits": []
+      "commits": [
+        "32cb955"
+      ]
     },
     {
       "id": 133,
