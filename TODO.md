@@ -436,6 +436,7 @@ capability we know we'll need before the work that needs it):
   irrelevance for `Prop`), Agda (opt-in `Prop`) and Coq/Rocq (`SProp`), and
   the known metatheory (decidability, interaction with recursion on proofs,
   large elimination, hashing).
+  Draft 1 written ([proof-irrelevance.md](docs/proposals/proof-irrelevance.md)); awaiting Matt's answers and independent review.
 - **Differential test overflows in debug** at `io.sw`'s "5,000 prints"
   (see Known issues entry, if present).
 
