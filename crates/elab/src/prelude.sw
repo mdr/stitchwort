@@ -626,6 +626,39 @@ theorem Nat.divLeOfLtMul (n: Nat) (b: Nat) (d: Nat) [auto ok: d != 0] (h: n < Su
 theorem Nat.halfDouble (n: Nat): (n + n) / 2 = n :=
   Nat.divUnique (n + n) 2 n 0 rfl (Eq.sym (Eq.trans (Nat.addZero (n * 2)) (Eq.trans (Nat.mulSucc n 1) (Eq.cong (\t => n + t) (Nat.mulOne n)))))
 
+-- Remainders and shifts. A multiple of `d` can be added or dropped without
+-- changing the remainder, and a sum can be reduced early.
+theorem Nat.addMulDivMod (a: Nat) (b: Nat) (d: Nat) [auto ok: d != 0]: a + b * d = (a / d + b) * d + a % d :=
+  Eq.trans (Eq.cong (\t => t + b * d) (Nat.divMod a d ok))
+    (Eq.trans (Nat.addAssoc ((a / d) * d) (a % d) (b * d))
+      (Eq.trans (Eq.cong (\t => (a / d) * d + t) (Nat.addComm (a % d) (b * d)))
+        (Eq.trans (Eq.sym (Nat.addAssoc ((a / d) * d) (b * d) (a % d)))
+          (Eq.cong (\t => t + a % d) (Eq.sym (Nat.mulDistribRight (a / d) b d))))))
+
+-- `(a + b * d) % d = a % d`
+theorem Nat.modAddMul (a: Nat) (b: Nat) (d: Nat) [auto ok: d != 0]: (a + b * d) % d = a % d :=
+  Nat.modUnique (a + b * d) d (a / d + b) (a % d) (Nat.modLess a d ok) (Nat.addMulDivMod a b d)
+
+-- `(a + b * d) / d = a / d + b`
+theorem Nat.divAddMul (a: Nat) (b: Nat) (d: Nat) [auto ok: d != 0]: (a + b * d) / d = a / d + b :=
+  Nat.divUnique (a + b * d) d (a / d + b) (a % d) (Nat.modLess a d ok) (Nat.addMulDivMod a b d)
+
+-- `a % d % d = a % d`
+theorem Nat.modMod (a: Nat) (d: Nat) [auto ok: d != 0]: a % d % d = a % d := Nat.modSmall (a % d) d (Nat.modLess a d ok)
+
+-- `(a % d + b) % d = (a + b) % d`: reducing the first summand early.
+theorem Nat.modAddMod (a: Nat) (b: Nat) (d: Nat) [auto ok: d != 0]: (a % d + b) % d = (a + b) % d :=
+  Eq.sym (Eq.trans
+    (Eq.cong (\t => t % d)
+      (Eq.trans (Eq.cong (\t => t + b) (Nat.divMod a d ok))
+        (Eq.trans (Nat.addAssoc ((a / d) * d) (a % d) b) (Nat.addComm ((a / d) * d) (a % d + b)))))
+    (Nat.modAddMul (a % d + b) (a / d) d))
+
+-- `(a + b % d) % d = (a + b) % d`: the second.
+theorem Nat.addModMod (a: Nat) (b: Nat) (d: Nat) [auto ok: d != 0]: (a + b % d) % d = (a + b) % d :=
+  Eq.trans (Eq.cong (\t => t % d) (Nat.addComm a (b % d)))
+    (Eq.trans (Nat.modAddMod b a d) (Eq.cong (\t => t % d) (Nat.addComm b a)))
+
 theorem Nat.leqFalseOfLess (a: Nat) (b: Nat) (h: a < b): Nat.leq b a = False :=
   Bool.inspect (Nat.leq b a) (\c => c = False)
     (\t => Void.exfalso (Nat.lessIrrefl a (Nat.leTrans (Succ a) b a h t)))
@@ -1987,6 +2020,47 @@ theorem Int.addAssoc: (a: Int) -> (b: Int) -> (c: Int) ->
   | NegSucc a, NegSucc b, NegSucc c =>
     Eq.trans (Eq.cong (\t => NegSucc (Succ (Succ t))) (Nat.addAssoc a b c))
              (Eq.cong (\t => NegSucc (Succ t)) (Eq.sym (Nat.addSucc a (b + c))))
+
+-- Integers modulo a size. The remainder `Int.modNat x d` doesn't change when
+-- `d` is added to `x`, hence not for any multiple of `d`.
+-- A negative remainder: `m - n` for `m <= n` is as far below 0 as `n - m` is
+-- above, so `-(m+1)` is `n - m` on the dial of size `n + 1`.
+theorem Int.modNatSubNatNatLe (m: Nat) (n: Nat) (ok: Succ n != 0) (h: Nat.leq m n = True) :
+    Int.modNat (Int.subNatNat n m) (Succ n) [ok := ok] = n - m % Succ n :=
+  Eq.trans (Eq.cong (\k => Int.modNat (Int.subNatNatFrom n m k) (Succ n) [ok := ok]) (Nat.subEqZero m n h))
+    (Eq.trans (Nat.modSmall (n - m) (Succ n) (Nat.subLe n m))
+      (Eq.sym (Eq.cong (\x => n - x) (Nat.modSmall m (Succ n) h))))
+
+theorem Int.modNatSubNatNatGt (n: Nat) (r: Nat) (ok: Succ n != 0) :
+    Int.modNat (Int.subNatNat n (Succ n + r)) (Succ n) [ok := ok] = n - (Succ n + r) % Succ n :=
+  Eq.trans (Eq.cong (\k => Int.modNat (Int.subNatNatFrom n (Succ n + r) k) (Succ n) [ok := ok]) (Nat.succAddSub n r))
+    (Eq.sym (Eq.cong (\x => n - x) (Nat.addModSelf (Succ n) r)))
+
+theorem Int.modNatAddSize: (x: Int) -> (d: Nat) -> [auto ok: d != 0] -> Int.modNat (x + Nat.toInt d) d = Int.modNat x d
+  | x,         Zero   => Void.exfalso (ok rfl)
+  | OfNat m,   Succ n =>
+    Eq.trans (Eq.cong (\t => t % Succ n) (Nat.addComm m (Succ n))) (Nat.addModSelf (Succ n) m)
+  | NegSucc m, Succ n =>
+    Bool.inspect (Nat.leq m n) (\b => Int.modNat (NegSucc m + Nat.toInt (Succ n)) (Succ n) [ok := ok] = Int.modNat (NegSucc m) (Succ n) [ok := ok])
+      (\h => Eq.trans (Eq.cong (\x => Int.modNat x (Succ n) [ok := ok]) (Int.subNatNatSucc n m))
+        (Int.modNatSubNatNatLe m n ok h))
+      (\f => J (\y e => Int.modNat (NegSucc y + Nat.toInt (Succ n)) (Succ n) [ok := ok] = Int.modNat (NegSucc y) (Succ n) [ok := ok])
+        (Eq.trans (Eq.cong (\x => Int.modNat x (Succ n) [ok := ok]) (Int.subNatNatSucc n (Succ n + (m - Succ n))))
+          (Int.modNatSubNatNatGt n (m - Succ n) ok))
+        (Nat.addSubCancel (Succ n) m (Nat.leqFalse m n f)))
+
+-- `Int.modNat (x + k * d) d = Int.modNat x d`
+theorem Int.modNatAddMul (x: Int) (d: Nat) [auto ok: d != 0]: (k: Nat) -> Int.modNat (x + Nat.toInt (k * d)) d = Int.modNat x d
+  | Zero   => Eq.cong (\t => Int.modNat t d [ok := ok]) (Int.addZero x)
+  | Succ k =>
+    Eq.trans (Eq.cong (\t => Int.modNat t d [ok := ok]) (Eq.sym (Int.addAssoc x (Nat.toInt d) (Nat.toInt (k * d)))))
+      (Eq.trans (Int.modNatAddMul (x + Nat.toInt d) d k) (Int.modNatAddSize x d))
+
+-- One click left of 0 is the top of the dial: `Int.modNat (0 - 1) (Succ h) = h`.
+theorem Int.modNatNegOne (h: Nat): Int.modNat (Int.subNatNat 0 1) (Succ h) = h :=
+  Eq.trans (Eq.sym (Int.modNatAddSize (Int.subNatNat 0 1) (Succ h)))
+    (Eq.trans (Eq.cong (\x => Int.modNat x (Succ h) [ok := Nat.succNotZero h]) (Eq.trans (Int.subNatNatSucc h 0) (Int.subNatNatZeroRight h)))
+      (Nat.modSmall h (Succ h) (Nat.leRefl h)))
 
 -- Splitting and joining
 

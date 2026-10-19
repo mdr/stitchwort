@@ -155,40 +155,22 @@ theorem rightCases (n: Nat) [auto ok: n != 0] (a: Nat) (h: a < n) (goal: Prop)
     (\t => wraps (Eq.trans (Nat.addOne a) (Nat.leAntisym (Succ a) n h t)))
     (\f => below (Nat.leqFalse n (Succ a) f))
 
-theorem stepRightAt (d: Nat) [auto ok: d != 0] (a: Nat) (h: a < d) (n: Nat):
+theorem stepRightAt (d: Nat) [auto ok: d != 0] (a: Nat) (n: Nat):
     ((a + 1) % d + n) % d = (a + Succ n) % d :=
-  rightCases d a h (((a + 1) % d + n) % d = (a + Succ n) % d)
-    (\e => Eq.trans (Eq.cong (\x => (x + n) % d) (Eq.trans (Eq.cong (\x => x % d) e) (Nat.modSelf d)))
-      (Eq.sym (Eq.trans (Eq.cong (\x => x % d) (Eq.trans (Nat.addSucc a n) (Eq.cong (\x => x + n) (Eq.trans (Eq.sym (Nat.addOne a)) e))))
-        (Nat.addModSelf d n))))
-    (\lt => Eq.trans (Eq.cong (\x => (x + n) % d) (Eq.trans (Eq.cong (\x => x % d) (Nat.addOne a)) (Nat.modSmall (Succ a) d lt)))
-      (Eq.cong (\x => x % d) (Eq.sym (Nat.addSucc a n))))
+  Eq.trans (Nat.modAddMod (a + 1) n d) (Eq.cong (\x => x % d) (Nat.addAssoc a 1 n))
 
 theorem rightAt [highest: Nat] (d: Dial highest): (n: Nat) ->
     (List.foldLeft Dial.move d (List.replicate n (Right 1))).position = (d.position + n) % Succ highest
   | Zero   => Eq.sym (Eq.trans (Eq.cong (\x => x % Succ highest) (Nat.addZero d.position)) (Nat.modSmall d.position (Succ highest) d.inRange))
-  | Succ n => Eq.trans (rightAt (d.move (Right 1)) n) (stepRightAt (Succ highest) d.position d.inRange n)
+  | Succ n => Eq.trans (rightAt (d.move (Right 1)) n) (stepRightAt (Succ highest) d.position n)
 
 -- Where an integer lands on a dial numbered 0 to `highest`. Proofs only: it
 -- keeps `Int.modNat` folded, which the checker would otherwise unfold in the
 -- lemmas below.
 def Dial.place (highest: Nat) (x: Int): Nat := Int.modNat x (Succ highest)
 
--- Going left from 0 on a dial of size `Succ m` ends at `m - n % Succ m`.
-theorem backFrom (m: Nat) (n: Nat): Dial.place m (Int.subNatNat m n) = m - n % Succ m :=
-  Bool.inspect (Nat.leq n m) (\b => Dial.place m (Int.subNatNat m n) = m - n % Succ m)
-    (\h => Eq.trans (Eq.cong (\k => Dial.place m (Int.subNatNatFrom m n k)) (Nat.subEqZero n m h))
-      (Eq.trans (Nat.modSmall (m - n) (Succ m) (Nat.subLe m n)) (Eq.sym (Eq.cong (\x => m - x) (Nat.modSmall n (Succ m) h)))))
-    (\f => J (\y e => Dial.place m (Int.subNatNat m y) = m - y % Succ m)
-      (backFar m (n - Succ m)) (Nat.addSubCancel (Succ m) n (Nat.leqFalse n m f)))
-
-theorem backFar (m: Nat) (r: Nat): Dial.place m (Int.subNatNat m (Succ m + r)) = m - (Succ m + r) % Succ m :=
-  Eq.trans (Eq.cong (\k => Dial.place m (Int.subNatNatFrom m (Succ m + r) k)) (Nat.succAddSub m r))
-    (Eq.sym (Eq.cong (\x => m - x) (Nat.addModSelf (Succ m) r)))
-
 -- One click left: from 0 to `highest`, otherwise down by one.
-theorem leftZero (highest: Nat): Dial.place highest (Int.subNatNat 0 1) = highest :=
-  Eq.cong (\x => highest - x) (Nat.modSmall 0 (Succ highest) rfl)
+theorem leftZero (highest: Nat): Dial.place highest (Int.subNatNat 0 1) = highest := Int.modNatNegOne highest
 
 theorem leftOne (highest: Nat) (m: Nat) (h: Succ m <= highest): Dial.place highest (Int.subNatNat (Succ m) 1) = m :=
   Eq.trans (Eq.cong (\x => Dial.place highest x) (Eq.trans (Int.subNatNatSucc m 0) (Int.subNatNatZeroRight m)))
@@ -199,7 +181,10 @@ theorem stepLeftAt (highest: Nat): (a: Nat) -> a <= highest -> (n: Nat) ->
       = Dial.place highest (Int.subNatNat a (Succ n))
   | Zero,   h, n =>
     Eq.trans (Eq.cong (\x => Dial.place highest (Nat.toInt x - Nat.toInt n)) (leftZero highest))
-      (Eq.trans (Eq.cong (\x => Dial.place highest x) (Int.subOfNats highest n)) (backFrom highest n))
+      (Eq.trans (Eq.cong (\x => Dial.place highest x) (Int.subOfNats highest n))
+        (Eq.trans (Eq.cong (\x => Dial.place highest x)
+            (Eq.sym (Eq.trans (Int.subNatNatAddOfNat (Succ highest) 0 (Succ n)) (Int.subNatNatSucc highest n))))
+          (Int.modNatAddSize (Int.subNatNat 0 (Succ n)) (Succ highest))))
   | Succ m, h, n =>
     Eq.trans (Eq.cong (\x => Dial.place highest (Nat.toInt x - Nat.toInt n)) (leftOne highest m h))
       (Eq.trans (Eq.cong (\x => Dial.place highest x) (Int.subOfNats m n))
