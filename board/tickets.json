@@ -39,9 +39,9 @@
     {
       "id": 3,
       "title": "Int stage 7: docs (DESIGN.md, syntax.md, core.md)",
-      "status": "doing",
-      "agent": "DeepSeek",
-      "where": "/Users/matt/scratch/opencode/funlang-20261019-210918",
+      "status": "done",
+      "agent": "",
+      "where": "",
       "labels": [
         "docs",
         "kernel"
@@ -49,7 +49,9 @@
       "body": "Sonnet job. Stage 7 of docs/proposals/integers.md: docs (DESIGN.md, syntax.md, core.md).\n\nFrom TODO.md (Next 1, Int stages 1-6 are merged):\n\n`int-grid.sw`) merged (`c49d2bc`). Not done: division laws for the\ntruncating and flooring pairs. Next: stage 7, docs (DESIGN.md,\nsyntax.md, core.md; Sonnet).",
       "created": "2026-10-19",
       "updated": "2026-10-19",
-      "commits": []
+      "commits": [
+        "38e774e"
+      ]
     },
     {
       "id": 4,
