@@ -217,21 +217,41 @@ fn decision_procedures(cx: &Ctx, decidable: DataId) -> Result<Vec<DefId>> {
     let g = cx.g();
     let mut found = Vec::new();
     for id in (0..g.defs.len()).rev().map(DefId) {
-        let def = g.def(id);
         if !cx.e.auto_eligible(id) {
             continue; // not checked yet, or below the use
         }
-        let mut ty = def.ty_value.clone();
-        let mut level = 0;
-        while let Value::Pi(_, _, _, cod) = &ty {
-            ty = cod.apply(g, Value::var(level))?;
-            level += 1;
-        }
-        if matches!(ty, Value::Data(d, _) if d == decidable) {
+        if result_head(cx, id)? == Some(decidable) {
             found.push(id);
         }
     }
     Ok(found)
+}
+
+/// The data type that definition `id`'s result type is, after all its
+/// parameters, if it is one; remembered (`Elaborator::result_heads`). `id`
+/// must be final (`auto_eligible`), so the answer never changes.
+fn result_head(cx: &Ctx, id: DefId) -> Result<Option<DataId>> {
+    let e = cx.e;
+    if let Some(Some(head)) = e.result_heads.borrow().get(id.0) {
+        return Ok(*head);
+    }
+    let g = cx.g();
+    let mut ty = g.def(id).ty_value.clone();
+    let mut level = 0;
+    while let Value::Pi(_, _, _, cod) = &ty {
+        ty = cod.apply(g, Value::var(level))?;
+        level += 1;
+    }
+    let head = match ty {
+        Value::Data(d, _) => Some(d),
+        _ => None,
+    };
+    let mut heads = e.result_heads.borrow_mut();
+    if heads.len() <= id.0 {
+        heads.resize(g.defs.len(), None);
+    }
+    heads[id.0] = Some(head);
+    Ok(head)
 }
 
 /// For an argument of type `(x : A) -> (y : B) -> Decidable P` (a decision

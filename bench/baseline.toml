@@ -6,10 +6,10 @@
 
 [examples]
 inputs = "322 files, 06a16b173ef5ca93"
-steps = 893449703
+steps = 430173287
 visits = 51405072
-allocations = 742040323
-peak_bytes = 21760527
+allocations = 536767023
+peak_bytes = 21768591
 time_ms = 1707.9
 
 [extract-js]
@@ -165,21 +165,21 @@ allocations = 450
 peak_bytes = 4017
 
 [check-closed-eqeq]
-steps = 23225
+steps = 2116
 visits = 114
-allocations = 11897
+allocations = 2571
 peak_bytes = 4099
 
 [check-closed-list-eqeq]
-steps = 47753
+steps = 5064
 visits = 149
-allocations = 23939
+allocations = 5102
 peak_bytes = 3710
 
 [check-closed-if-less]
-steps = 17423402
+steps = 17402293
 visits = 179
-allocations = 9012014
+allocations = 9002688
 peak_bytes = 125972860
 
 [check-closed-indexed]
