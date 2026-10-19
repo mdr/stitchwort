@@ -56,6 +56,14 @@
               ./bench # benchmark counts are checked against the baseline
             ];
           };
+          # The AoC programs and their examples, never the private inputs.
+          aocSrc = lib.fileset.toSource {
+            root = ./aoc;
+            fileset = lib.fileset.unions [
+              (lib.fileset.fileFilter (file: file.hasExt "sw") ./aoc)
+              ./aoc/examples
+            ];
+          };
           commonArgs = {
             inherit src;
             pname = "stitchwort";
@@ -108,6 +116,21 @@
                   $out/pkg/stitchwort_web_bg.wasm -o $out/pkg/stitchwort_web_bg.wasm
                 cp ${./web/index.html} $out/index.html
                 cp ${./web/playground-worker.js} $out/playground-worker.js
+                mkdir -p $out/pkg/aoc
+                cp ${aocSrc}/day*.sw ${aocSrc}/examples/day*.txt $out/pkg/aoc/
+                {
+                  printf '['
+                  sep=
+                  for file in $out/pkg/aoc/day*.sw; do
+                    day=$(basename "$file" .sw)
+                    number=''${day#day}
+                    number=''${number#0}
+                    printf '%s{"id":"aoc-%s","title":"AoC 2025 day %s","source":"%s.sw","input":"%s.txt"}' \
+                      "$sep" "$day" "$number" "$day" "$day"
+                    sep=,
+                  done
+                  printf ']\n'
+                } > $out/pkg/aoc/index.json
               '';
             }
           );
