@@ -1,16 +1,14 @@
 # How Stitchwort differs from Lean and Unison
 
-Stitchwort is a toy dependently-typed language written in Rust. If you know Scala or
+Stitchwort is a dependently-typed language written in Rust. If you know Scala or
 TypeScript, you may have met two languages it borrows from: **Lean 4** (a proof assistant
 that is also a programming language) and **Unison** (code identified by hash, with
 "abilities" for effects). This page says where Stitchwort does something different, and
-where Lean and Unison are simply better.
+what each language offers that the others don't.
 
 Labels: claims about Lean and Unison carry a source link, or say "(unverified)". Claims
 about Stitchwort cite a file in this repo. Facts about the web were checked on
 19 October 2026 and move fast.
-
-Stitchwort is a hobby project with no users. Read every "Stitchwort does X" as "tries to".
 
 ## 1. Termination is a guarantee about programs
 
@@ -56,8 +54,8 @@ override, and tests may not use it (rules 1-7 in
 
 The price: the termination checker is conservative and structural for now
 ([DESIGN.md §5, "Termination checking"](../DESIGN.md#5-totality-and-partiality)), so
-some total functions need fuel or `{Partial}`. Lean's checker is more capable
-(unverified; the repo's survey only covers how Lean treats `partial`).
+some total functions need fuel or `{Partial}`. Lean also accepts well-founded
+recursion (unverified; the repo's survey only covers how Lean treats `partial`).
 
 ## 2. Browser and TypeScript
 
@@ -210,9 +208,9 @@ terminate only under rules the checker enforces, and `Partial` is a marker no ha
 can remove. The checker never runs effectful code
 ([DESIGN.md §6](../DESIGN.md#effects-and-dependent-types)).
 
-## 6. What Lean and Unison do better
+## 6. What Lean and Unison offer that Stitchwort doesn't yet
 
-- **Maturity and ecosystem.** Lean has Mathlib and a large community. Unison has a code
+- **Ecosystem.** Lean has Mathlib and a large community. Unison has a code
   host (Unison Share; [docs](https://www.unison-lang.org/docs/)) and a 1.0 release
   ([HN thread](https://news.ycombinator.com/item?id=46049722)). Stitchwort has a small
   prelude and the Advent of Code files in [aoc/](../aoc/).
@@ -227,8 +225,8 @@ can remove. The checker never runs effectful code
 - **Distributed computing.** Unison can be used "in conjunction with" Unison Cloud "for
   building distributed systems" ([README](https://github.com/unisonweb/unison)).
   Stitchwort has nothing like it.
-- **Termination power.** Lean's termination checking is more capable than Stitchwort's
-  structural check (unverified).
+- **Termination checking.** Lean accepts well-founded recursion as well as structural
+  recursion (unverified).
 
 ## Summary
 
@@ -240,10 +238,8 @@ can remove. The checker never runs effectful code
 | Effects | Monads and `do` | Abilities and handlers | Abilities and handlers, effects as data |
 | In a browser | Official editor is server-side; WASM only via community forks | Community experiments only | Whole compiler in WASM (playground) |
 | Export to JS/TS | None official found | None official found | `build --js` with `.d.ts` and checked codecs |
-| Maturity | High | Medium to high | Toy |
 
 In one paragraph: Stitchwort takes Lean's idea that proofs are programs, plus Unison's
-abilities and hashing, and tries to make a function's type an honest promise that it
-returns, can be proved about, and can be called from TypeScript, while running anywhere a
-browser does. Lean is the better prover and Unison the better home for distributed code.
-Stitchwort is a small testbed for whether one language can hold all of these promises at once.
+abilities and hashing, and makes a function's type an honest promise that it returns,
+can be proved about, and can be called from TypeScript, while running anywhere a browser
+does.
