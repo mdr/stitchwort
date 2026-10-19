@@ -864,9 +864,11 @@ fn walk(
     found: &mut BTreeMap<String, String>,
     errors: &mut Vec<Diagnostic>,
 ) {
-    let Ok(entries) = files.entries(dir) else {
+    let Ok(mut entries) = files.entries(dir) else {
         return;
     };
+    // Errors are found in name order, not the directory's.
+    entries.sort_by(|a, b| a.name.cmp(&b.name));
     if !dir.is_empty()
         && entries
             .iter()

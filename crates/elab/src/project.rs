@@ -34,6 +34,9 @@ pub struct FileModeContext {
     pub project: String,
     /// The project's namespaces.
     pub namespaces: std::collections::BTreeSet<String>,
+    /// The file's own namespace, if it has a namespace line: a name in it
+    /// is the file's, not the project's.
+    pub own: Option<String>,
     /// What to do instead.
     pub note: String,
 }
@@ -57,6 +60,9 @@ impl FileModeContext {
         span: Span,
     ) -> Option<stitchwort_syntax::Diagnostic> {
         let namespace = self.namespace_of(written)?;
+        if self.own.as_deref() == Some(namespace) {
+            return None;
+        }
         Some(
             stitchwort_syntax::Diagnostic::error(
                 "E-FILE-MODE",

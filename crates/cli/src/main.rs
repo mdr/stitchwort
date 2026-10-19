@@ -254,6 +254,7 @@ fn file_mode_context(path: &Path, text: &str, verb: &'static str) -> Option<File
     };
     Some(FileModeContext {
         file: path.display().to_string(),
+        own: own.as_ref().map(|n| n.path.text.clone()),
         verb,
         project: name,
         namespaces,

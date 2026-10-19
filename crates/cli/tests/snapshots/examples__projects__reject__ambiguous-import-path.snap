@@ -11,10 +11,3 @@ expression: output
    │ 
    │ Note: write `A.Cat` or `B.Cat` in full, or drop one of the imports of `Cat`
 ───╯
-[E-UNKNOWN-NAME] Error: unknown name `f`
-   ╭─[ ambiguous-import-path/src/day.sw:7:15 ]
-   │
- 7 │ def g: Nat := f
-   │               ┬  
-   │               ╰── not in scope
-───╯

@@ -297,6 +297,17 @@ impl Elaborator {
         // Reported in source order, whatever order things were checked in.
         diagnostics.sort_by_key(|(position, _)| *position);
         let mut diagnostics: Vec<Diagnostic> = diagnostics.into_iter().map(|(_, d)| d).collect();
+        // The names of an import that failed (and was reported) aren't
+        // reported again where they're used.
+        if !self.scope.import_failed.is_empty() {
+            let failed = &self.scope.import_failed;
+            diagnostics.retain(|d| {
+                d.code != "E-UNKNOWN-NAME"
+                    || !failed
+                        .iter()
+                        .any(|n| d.message == format!("unknown name `{n}`"))
+            });
+        }
         // Failing because something used failed goes without saying when
         // that failure is reported too.
         if diagnostics

@@ -73,6 +73,9 @@ pub struct Scope {
     namespaces: HashSet<String>,
     /// Each file of the current module's imports: short name to keys.
     imports: Vec<HashMap<String, Vec<(String, Span)>>>,
+    /// The names of imports that failed with an error of their own, so the
+    /// uses of them aren't reported again as unknown.
+    pub(crate) import_failed: HashSet<String>,
     /// What `Std` declares at its root, and its aliases: short name to key.
     std_root: HashMap<String, String>,
 }
@@ -220,6 +223,7 @@ impl Scope {
 
     pub fn clear_imports(&mut self) {
         self.imports.clear();
+        self.import_failed.clear();
     }
 
     /// Every key, for suggestions.
@@ -267,6 +271,14 @@ impl Elaborator {
                 "`Std` is the standard library's namespace, which a program can't add to",
             )
             .with_label(decl.path.span, "`Std` always means the standard library")
+            .with_note("choose another name for this file's namespace"));
+        }
+        if first == "Main" {
+            return Err(Diagnostic::error(
+                "E-NAMESPACE-RESERVED",
+                "`Main` is the name of a file without a namespace line",
+            )
+            .with_label(decl.path.span, "`Main` is reserved")
             .with_note("choose another name for this file's namespace"));
         }
         let std = format!("Std.{first}");
@@ -522,11 +534,20 @@ impl Elaborator {
                         short(written)
                     )));
                 }
-                Resolved::Missing if self.project_prefixes.contains(first) => {
+                Resolved::Missing
+                    if self.project_prefixes.contains(first)
+                        || ns == first
+                        || ns.starts_with(&format!("{first}.")) =>
+                {
                     return Err(Diagnostic::error(
                         "E-FOREIGN-NAMESPACE",
                         format!(
-                            "`{first}` is a namespace of the project, and {ns} can't add to it"
+                            "`{first}` is a namespace {}, and {ns} can't add to it",
+                            if self.project_prefixes.contains(first) {
+                                "of the project"
+                            } else {
+                                "of this file"
+                            }
                         ),
                     )
                     .with_label(
@@ -714,6 +735,9 @@ impl Elaborator {
                             )),
                         );
                     }
+                    self.scope
+                        .import_failed
+                        .extend(import.items.iter().map(|i| i.text.clone()));
                     continue;
                 }
             }
@@ -724,6 +748,9 @@ impl Elaborator {
                         && let Some(d) = context.diagnostic(&import.path.text, import.path.span)
                     {
                         diagnostics.push(d);
+                        self.scope
+                            .import_failed
+                            .extend(import.items.iter().map(|i| i.text.clone()));
                         continue;
                     }
                     diagnostics.push(
