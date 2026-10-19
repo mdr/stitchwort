@@ -2,13 +2,15 @@
 -- on each. Pick k batteries, in order, to make the largest k-digit number
 -- (2 digits in part 1, 12 in part 2). Sum the best number over the banks.
 --
---   $ stitchwort run aoc/day03.sw < aoc/inputs/day03.txt
+--   $ cd aoc && stitchwort run Aoc.Day03.main < inputs/day03.txt
 --
 -- The puzzle input is not in git (aoc/inputs/ is ignored).
 --
 -- Greedy: the first digit is the largest one in the part of the bank that
 -- still leaves k - 1 digits after it, taking the leftmost such digit so the
 -- most is left over; then repeat on what follows it.
+
+namespace Aoc.Day03
 
 def main(): {IO} () :=
   let banks := parseBanks (IO.readAllLines())
@@ -25,10 +27,24 @@ def total (k: Nat) (banks: List Bank): Nat := banks |> .sumBy (joltage k)
 
 def joltage (k: Nat) (bank: Bank): Nat := bank |> .best k |> Nat.fromDigits
 
+def example: List Text := ["987654321111111", "811111111111119", "234234234234278", "818181911112111"]
+
+test "example" := (solvePart1 (parseBanks example), solvePart2 (parseBanks example)) == (357, 3121910778619)
+test "banks part 1" := (parseBanks example).map (joltage 2) == [98, 89, 78, 92]
+test "banks part 2" := (parseBanks example).map (joltage 12) == [987654321111, 811111111119, 434234234278, 888911112111]
+
+-- Parsing gives digits, so this holds for every line of the input: no k
+-- batteries beat the joltage computed.
+
+theorem joltageIsLargest (k: Nat) (line: Text) (s: List Nat) (h: List.Subsequence s (Bank.parse line)) (hk: List.length s = k):
+  Nat.fromDigits s <= joltage k (Bank.parse line) := bestIsLargest k (Bank.parse line) s (Char.mapDigitValueDigits (Text.toList line)) h hk
+
 -- A bank of batteries: one digit per battery.
 def Bank: Type := List Nat
 
 def Bank.parse (t: Text): Bank := t.toList |> .mapMaybe Char.digitValue
+
+test "parse" := Bank.parse "102" == [1, 0, 2]
 
 -- The digits of the largest k-digit number that is a subsequence of ds.
 def Bank.best: Nat -> Bank -> Bank
@@ -45,34 +61,24 @@ def Bank.best: Nat -> Bank -> Bank
     let (top, after) := pick (rest.length - k) rest d rest
     Cons top (Bank.best k after)
 
--- Examples -----------------------------------------------------------------
-
-def example: List Text := ["987654321111111", "811111111111119", "234234234234278", "818181911112111"]
-
-test "example" := (solvePart1 (parseBanks example), solvePart2 (parseBanks example)) == (357, 3121910778619)
-test "banks part 1" := (parseBanks example).map (joltage 2) == [98, 89, 78, 92]
-test "banks part 2" := (parseBanks example).map (joltage 12) == [987654321111, 811111111119, 434234234278, 888911112111]
-test "parse" := Bank.parse "102" == [1, 0, 2]
 test "zeros" := Bank.best 2 [0, 0, 5, 0] == [5, 0]
 test "leftmost wins" := Bank.best 1 [3, 9, 9, 1] == [9]
 test "keep everything" := Bank.best 3 [4, 5, 6] == [4, 5, 6]
 test "too short" := Bank.best 5 [1, 2] == [1, 2]
-
 test "pick none" := Bank.best 0 [1, 2, 3] == []
 
--- Proofs -------------------------------------------------------------------
---
 -- Three facts about `best k ds` (plain-words summary in docs/aoc-2025.md):
 --   1. `bestSub`: it is a subsequence of `ds` (digits taken in order).
 --   2. `bestLength`: it has `min k (length ds)` digits.
---   3. `bestOptimal` / `joltageIsLargest`: no k digits of `ds`, taken in
+--   3. `bestOptimal` / `bestIsLargest`: no k digits of `ds`, taken in
 --      order, make a larger number.
 -- The optimality argument: every choice starts with some digit y inside the
 -- window that `pick` scans (it must leave k - 1 digits after it). If y is
--- below pick's digit, the choice loses on its first digit (`Nat.fromDigitsHeadLess`). If
--- y equals it, y is at pick's position or later, since pick takes the
--- leftmost largest, so the rest of the choice comes from what follows
--- pick's digit, where `best` (by induction on k) does at least as well.
+-- below pick's digit, the choice loses on its first digit
+-- (`Nat.fromDigitsHeadLess`). If y equals it, y is at pick's position or
+-- later, since pick takes the leftmost largest, so the rest of the choice
+-- comes from what follows pick's digit, where `best` (by induction on k)
+-- does at least as well.
 
 -- What `pick` returns.
 theorem pickGe: (w: Nat) -> (xs: List Nat) -> (c: Nat) -> (after: List Nat) -> c <= Pair.fst (Bank.best.pick w xs c after)
@@ -237,9 +243,3 @@ theorem bestOptimalStep (k: Nat) (d: Nat) (rest: List Nat) (y: Nat) (s: List Nat
 -- For a bank of digits: the greedy pick beats every choice of k digits.
 theorem bestIsLargest (k: Nat) (ds: List Nat) (s: List Nat) (digits: Nat.Digits ds) (h: List.Subsequence s ds) (hk: List.length s = k):
   Nat.fromDigits s <= Nat.fromDigits (Bank.best k ds) := bestOptimal k ds s h (Nat.digitsOfSubsequence s ds h digits) hk
-
--- Parsing gives digits, so this holds for every line of the input: no k
--- batteries beat the joltage computed.
-
-theorem joltageIsLargest (k: Nat) (line: Text) (s: List Nat) (h: List.Subsequence s (Bank.parse line)) (hk: List.length s = k):
-  Nat.fromDigits s <= joltage k (Bank.parse line) := bestIsLargest k (Bank.parse line) s (Char.mapDigitValueDigits (Text.toList line)) h hk

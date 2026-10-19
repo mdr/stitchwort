@@ -2,7 +2,7 @@
 -- digits are some block written twice (part 1) or two or more times (part 2).
 -- Sum the invalid ids that lie in any of the given ranges.
 --
---   $ stitchwort run aoc/day02.sw < aoc/inputs/day02.txt
+--   $ cd aoc && stitchwort run Aoc.Day02.main < inputs/day02.txt
 --
 -- The puzzle input is not in git (aoc/inputs/ is ignored).
 --
@@ -15,6 +15,9 @@
 -- period are the sum over n of -mu(n) times the ids with n blocks, where mu
 -- is the Moebius function.
 
+namespace Aoc.Day02
+import Aoc.Common (..)
+
 def main(): {IO} () :=
   let ranges := parseRanges (IO.readAll())
   print "Part 1: ${solvePart1 ranges}"
@@ -26,25 +29,24 @@ def solvePart2 (ranges: List Range): Nat := total weight ranges
 
 def total (w: Nat -> Int) (ranges: List Range): Nat :=
   ranges
-    |> .map (.invalid w)
+    |> .map (invalidSum w)
     |> .sumInt
     |> .toNat
-
--- A range of ids, both ends included.
-type Range = { lo: Nat, hi: Nat }
-
-def Range.parse (t: Text): Maybe Range :=
-  match (t.split '-').map Text.toNat with
-    | [Just lo, Just hi] => Just { lo, hi }
-    | _                  => Nothing
 
 def parseRanges (t: Text): List Range :=
   t.trim.split ',' |> .mapMaybe Range.parse
 
+def example: Text := "11-22,95-115,998-1012,1188511880-1188511890,222220-222224,1698522-1698528,446443-446449,38593856-38593862,565653-565659,824824821-824824827,2121212118-2121212124"
+
+def range (lo hi: Nat): Range := { lo, hi }
+
+test "example" := (solvePart1 (parseRanges example), solvePart2 (parseRanges example)) == (1227775554, 4174379265)
+test "parse" := parseRanges "4-14,1490-3407\n" == [range 4 14, range 1490 3407]
+
 -- The sum of the ids in the range that are a k-digit block written n times.
 -- m is the multiplier: 12 written 3 times is 12 * 10101, and 10101 is
 -- 1 + 10^2 + 10^4.
-def Range.repeated (r: Range) (k: Nat) (n: Nat): Nat :=
+def repeatedSum (r: Range) (k: Nat) (n: Nat): Nat :=
   let m := List.range n |> .sumBy (\i => Nat.pow 10 (k * i))
   if m != 0 then
     let lo := Nat.max (Nat.pow 10 (k - 1)) ((r.lo + m - 1) / m)
@@ -52,91 +54,13 @@ def Range.repeated (r: Range) (k: Nat) (n: Nat): Nat :=
     if lo <= hi then m * ((lo + hi) * (hi - lo + 1) / 2) else 0
   else 0
 
--- Minus the Moebius function, for the repeat counts 2 to 10.
-def weight: Nat -> Int
-  | 2  => 1
-  | 3  => 1
-  | 5  => 1
-  | 6  => -1
-  | 7  => 1
-  | 10 => -1
-  | _  => 0
+test "12 written 3 times" := repeatedSum (range 0 1000000) 2 3 == 10101 * ((10 + 99) * 90 / 2)
 
--- Part 1 only wants a block written exactly twice.
-def twice (n: Nat): Int := if n == 2 then 1 else 0
-
--- The invalid ids in the range under a weighting of the repeat counts: every
--- block size k and repeat count n that fit in the digits of `hi` (n is at
--- most 10, the most the weights cover).
-def Range.invalid (w: Nat -> Int) (r: Range): Int :=
-  let size := (Nat.digits r.hi).length
-  -- `size` is a parameter (not the `let`'s, which `terms` would know is
-  -- the digit count) so the proofs below state their lemmas for any size.
-  def terms (size: Nat) (k: Nat): List Int :=
-    List.rangeFrom 9 2
-      |> .filter (\n => k * n <= size)
-      |> .map (\n => w n * (r.repeated k n).toInt)
-  List.rangeFrom size 1
-    |> .concatMap (terms size)
-    |> .sumInt
-
--- Examples -----------------------------------------------------------------
-
-def range (lo hi: Nat): Range := { lo, hi }
-
-def example: Text := "11-22,95-115,998-1012,1188511880-1188511890,222220-222224,1698522-1698528,446443-446449,38593856-38593862,565653-565659,824824821-824824827,2121212118-2121212124"
-
-test "example" := (solvePart1 (parseRanges example), solvePart2 (parseRanges example)) == (1227775554, 4174379265)
-test "parse" := parseRanges "4-14,1490-3407\n" == [range 4 14, range 1490 3407]
-test "parse junk" := Range.parse "4-x" == Nothing
-test "12 written 3 times" := (range 0 1000000).repeated 2 3 == 10101 * ((10 + 99) * 90 / 2)
-test "single range" := (range 11 22).invalid twice == 33
-test "no double counting" := (range 111110 111112).invalid weight == 111111
-test "period three" := (range 998 1012).invalid weight == 999 + 1010
-test "empty overlap" := (range 12 21).invalid weight == 0
-
-test "twice is weight at 2" := twice 2 == weight 2
-
--- Cross-check against brute force ---------------------------------------
+-- Why `repeatedSum` is right (a): `repeatedSum r k n` equals
+-- `repeatedSumSpec r k n`, the brute-force sum below, for every range, block
+-- length and repeat count.
 --
--- Part 2's inclusion-exclusion isn't proved; instead it's compared with the
--- obvious method on many small ranges: look at every id's digits.
-
--- The digits are some block of k digits written n times.
-def writtenAs (ds: List Nat) (k: Nat) (n: Nat): Bool := List.concat (List.replicate n (List.take k ds)) == ds
-
--- Part 1: written twice; part 2: written two or more times.
-def doubled (x: Nat): Bool :=
-  let ds := Nat.digits x
-  List.rangeFrom ds.length 1 |> .any (\k => writtenAs ds k 2)
-
-def repeats (x: Nat): Bool :=
-  let ds := Nat.digits x
-  List.rangeFrom ds.length 1 |> .any (\k => List.rangeFrom ds.length 2 |> .any (\n => writtenAs ds k n))
-
-def bruteSum (invalid: Nat -> Bool) (r: Range): Nat :=
-  List.rangeFrom (r.hi + 1 - r.lo) r.lo |> .filter invalid |> .sum
-
-def agrees (r: Range): Bool :=
-  r.invalid twice == (bruteSum doubled r).toInt && r.invalid weight == (bruteSum repeats r).toInt
-
--- Ranges of 40 ids starting every 13 up to 2000, and some that cross into
--- more digits.
-def checkRanges: List Range :=
-  (List.rangeFrom 154 0 |> .map (\i => range (13 * i) (13 * i + 39)))
-    ++ [range 95 115, range 990 1010, range 9990 10010, range 99990 100010, range 111100 111200, range 999990 1000010]
-
-test "brute force agrees" := checkRanges.all agrees
-
--- Proofs -------------------------------------------------------------------
---
--- (a) `repeatedCorrect`: `r.repeated k n` equals `r.repeatedSpec k n`, the
---     brute-force sum below, for every range, block length and repeat count.
--- (b) `part1Correct`: the printed part 1 is `part1Spec`, the brute-force sum
---     over every range and block length of the blocks written twice.
--- Part 2's inclusion-exclusion isn't proved (see the cross-check above).
---
--- The outline of (a): writing a block `b` n times gives `b * m`
+-- The outline: writing a block `b` n times gives `b * m`
 -- (`writeTimesMul`); `lo <= b * m <= hi` exactly when `b` is between
 -- `lo / m` rounded up and `hi / m` rounded down (`Nat.roundUpLe` and friends);
 -- so the ids in the range are `m` times an interval of blocks (`window`),
@@ -152,13 +76,13 @@ def writeTimes (k: Nat) (b: Nat): Nat -> Nat
 -- range, and add them up. It walks the blocks rather than the ids, but it
 -- counts the same ids: each id that is a block written n times is so for just
 -- one block (its first k digits).
-def Range.repeatedSpec (r: Range) (k: Nat) (n: Nat): Nat :=
+def repeatedSumSpec (r: Range) (k: Nat) (n: Nat): Nat :=
   List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1))
     |> .map (\b => writeTimes k b n)
     |> .filter (\x => r.lo <= x && x <= r.hi)
     |> .sum
 
--- `Range.repeated` with its parts as parameters: the multiplier `m`, the
+-- `repeatedSum` with its parts as parameters: the multiplier `m`, the
 -- smallest block `low` and the first number too long to be a block `p`.
 def multiplier (k: Nat) (n: Nat): Nat := List.range n |> .sumBy (\i => Nat.pow 10 (k * i))
 
@@ -169,7 +93,7 @@ def blocksAt (r: Range) (low: Nat) (p: Nat) (m: Nat): Nat :=
     if lo <= hi then m * ((lo + hi) * (hi - lo + 1) / 2) else 0
   else 0
 
-theorem repeatedAt (r: Range) (k: Nat) (n: Nat): r.repeated k n = blocksAt r (Nat.pow 10 (k - 1)) (Nat.pow 10 k) (multiplier k n) := rfl
+theorem repeatedAt (r: Range) (k: Nat) (n: Nat): repeatedSum r k n = blocksAt r (Nat.pow 10 (k - 1)) (Nat.pow 10 k) (multiplier k n) := rfl
 
 -- The multiplier: writing `b` n times is `b * multiplier k n`.
 theorem multiplierSucc (k: Nat) (n: Nat): multiplier k (Succ n) = 1 + Nat.pow 10 k * multiplier k n :=
@@ -197,7 +121,7 @@ def windowSum (lo: Nat) (hi: Nat) (d: Nat) (c: Nat) (s: Nat): Nat :=
   List.sum (List.filter (\x => lo <= x && x <= hi) (List.map (\b => b * d) (List.rangeFrom c s)))
 
 theorem specWindow (r: Range) (k: Nat) (n: Nat):
-    r.repeatedSpec k n = windowSum r.lo r.hi (multiplier k n) (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1)) :=
+    repeatedSumSpec r k n = windowSum r.lo r.hi (multiplier k n) (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1)) :=
   Eq.cong (\xs => List.sum (List.filter (\x => r.lo <= x && x <= r.hi) xs))
     (List.mapCongr (\b => writeTimes k b n) (\b => b * multiplier k n) (\b => writeTimesMul k b n)
       (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1))))
@@ -311,17 +235,86 @@ theorem blocksWindow (r: Range) (low: Nat): (p: Nat) -> 0 < p -> low <= p -> (m:
             (Eq.cong (\t => Succ m * Nat.span (Nat.max low ((r.lo + Succ m - 1) / Succ m)) t) (Nat.minSucc p (r.hi / Succ m))))))
 
 -- (a) The arithmetic sum is the brute-force one.
-theorem repeatedCorrect (r: Range) (k: Nat) (n: Nat): r.repeated k n = r.repeatedSpec k n :=
+theorem repeatedCorrect (r: Range) (k: Nat) (n: Nat): repeatedSum r k n = repeatedSumSpec r k n :=
   Eq.trans (blocksWindow r (Nat.pow 10 (k - 1)) (Nat.pow 10 k) (Nat.powSuccPos 9 k) (Nat.powTenPredLe k) (multiplier k n))
     (Eq.sym (specWindow r k n))
 
--- Part 1 -------------------------------------------------------------------
+-- Minus the Moebius function, for the repeat counts 2 to 10.
+def weight: Nat -> Int
+  | 2  => 1
+  | 3  => 1
+  | 5  => 1
+  | 6  => -1
+  | 7  => 1
+  | 10 => -1
+  | _  => 0
+
+-- Part 1 only wants a block written exactly twice.
+def twice (n: Nat): Int := if n == 2 then 1 else 0
+
+test "twice is weight at 2" := twice 2 == weight 2
+
+-- The invalid ids in the range under a weighting of the repeat counts: every
+-- block size k and repeat count n that fit in the digits of `hi` (n is at
+-- most 10, the most the weights cover).
+def invalidSum (w: Nat -> Int) (r: Range): Int :=
+  let size := (Nat.digits r.hi).length
+  -- `size` is a parameter (not the `let`'s, which `terms` would know is
+  -- the digit count) so the lemmas about `terms` state them for any size.
+  def terms (size: Nat) (k: Nat): List Int :=
+    List.rangeFrom 9 2
+      |> .filter (\n => k * n <= size)
+      |> .map (\n => w n * (repeatedSum r k n).toInt)
+  List.rangeFrom size 1
+    |> .concatMap (terms size)
+    |> .sumInt
+
+test "single range" := invalidSum twice (range 11 22) == 33
+test "no double counting" := invalidSum weight (range 111110 111112) == 111111
+test "period three" := invalidSum weight (range 998 1012) == 999 + 1010
+test "empty overlap" := invalidSum weight (range 12 21) == 0
+
+-- Cross-check against brute force ---------------------------------------
+--
+-- Part 2's inclusion-exclusion isn't proved; instead it's compared with the
+-- obvious method on many small ranges: look at every id's digits.
+
+-- The digits are some block of k digits written n times.
+def writtenAs (ds: List Nat) (k: Nat) (n: Nat): Bool := List.concat (List.replicate n (List.take k ds)) == ds
+
+-- Part 1: written twice; part 2: written two or more times.
+def doubled (x: Nat): Bool :=
+  let ds := Nat.digits x
+  List.rangeFrom ds.length 1 |> .any (\k => writtenAs ds k 2)
+
+def repeats (x: Nat): Bool :=
+  let ds := Nat.digits x
+  List.rangeFrom ds.length 1 |> .any (\k => List.rangeFrom ds.length 2 |> .any (\n => writtenAs ds k n))
+
+def bruteSum (invalid: Nat -> Bool) (r: Range): Nat :=
+  List.rangeFrom (r.hi + 1 - r.lo) r.lo |> .filter invalid |> .sum
+
+def agrees (r: Range): Bool :=
+  invalidSum twice r == (bruteSum doubled r).toInt && invalidSum weight r == (bruteSum repeats r).toInt
+
+-- Ranges of 40 ids starting every 13 up to 2000, and some that cross into
+-- more digits.
+def checkRanges: List Range :=
+  (List.rangeFrom 154 0 |> .map (\i => range (13 * i) (13 * i + 39)))
+    ++ [range 95 115, range 990 1010, range 9990 10010, range 99990 100010, range 111100 111200, range 999990 1000010]
+
+test "brute force agrees" := checkRanges.all agrees
+
+-- Why part 1 is right (b): `part1Correct` says the printed part 1 is
+-- `part1Spec`, the brute-force sum over every range and block length of the
+-- blocks written twice. Part 2's inclusion-exclusion isn't proved (see the
+-- cross-check above).
 
 -- Brute force for part 1: in each range, every block length up to the
 -- number of digits of `hi` (a longer block makes a longer id), every block of
 -- that length written twice.
 def part1Spec (ranges: List Range): Nat :=
-  ranges |> .sumBy (\r => List.rangeFrom (Nat.digits r.hi).length 1 |> .sumBy (\k => r.repeatedSpec k 2))
+  ranges |> .sumBy (\r => List.rangeFrom (Nat.digits r.hi).length 1 |> .sumBy (\k => repeatedSumSpec r k 2))
 
 -- If every block from `low` on makes an id above `hi`, none is in the range.
 theorem noneInRange (lo: Nat) (hi: Nat) (w: Nat -> Nat) (low: Nat) (big: (b: Nat) -> low <= b -> Nat.leq (w b) hi = False):
@@ -332,7 +325,7 @@ theorem noneInRange (lo: Nat) (hi: Nat) (w: Nat -> Nat) (low: Nat) (big: (b: Nat
       (noneInRange lo hi w low big c (Succ s) (Nat.leTrans low s (Succ s) h (Nat.leSucc s)))
 
 -- A block of k digits written twice has 2k digits, too many when `hi` has fewer.
-theorem tooLong (r: Range): (k: Nat) -> Nat.leq (k * 2) (List.length (Nat.digits r.hi)) = False -> r.repeatedSpec k 2 = 0
+theorem tooLong (r: Range): (k: Nat) -> Nat.leq (k * 2) (List.length (Nat.digits r.hi)) = False -> repeatedSumSpec r k 2 = 0
   | Zero,   h => Void.exfalso (Bool.trueNotFalse h)
   | Succ k, h =>
     noneInRange r.lo r.hi (\b => writeTimes (Succ k) b 2) (Nat.pow 10 k)
@@ -351,53 +344,53 @@ theorem tooLong (r: Range): (k: Nat) -> Nat.leq (k * 2) (List.length (Nat.digits
 
 -- Repeat counts other than 2 count for nothing in part 1.
 theorem laterCounts (r: Range) (k: Nat) (size: Nat): (a: Int) -> (c: Nat) -> (s: Nat) ->
-    List.foldLeft Int.add a (List.map (\n => twice n * (r.repeated k n).toInt) (List.filter (\n => k * n <= size) (List.rangeFrom c (Succ (Succ (Succ s)))))) = a
+    List.foldLeft Int.add a (List.map (\n => twice n * (repeatedSum r k n).toInt) (List.filter (\n => k * n <= size) (List.rangeFrom c (Succ (Succ (Succ s)))))) = a
   | a, Zero,   s => rfl
   | a, Succ c, s =>
     Bool.inspect (k * Succ (Succ (Succ s)) <= size)
-      (\u => List.foldLeft Int.add a (List.map (\n => twice n * (r.repeated k n).toInt) (List.filter (\n => k * n <= size) (List.rangeFrom (Succ c) (Succ (Succ (Succ s)))))) = a)
-      (\h => Eq.trans (Eq.cong (\xs => List.foldLeft Int.add a (List.map (\n => twice n * (r.repeated k n).toInt) xs))
+      (\u => List.foldLeft Int.add a (List.map (\n => twice n * (repeatedSum r k n).toInt) (List.filter (\n => k * n <= size) (List.rangeFrom (Succ c) (Succ (Succ (Succ s)))))) = a)
+      (\h => Eq.trans (Eq.cong (\xs => List.foldLeft Int.add a (List.map (\n => twice n * (repeatedSum r k n).toInt) xs))
           (List.filterKeep (\n => k * n <= size) (Succ (Succ (Succ s))) (List.rangeFrom c (Succ (Succ (Succ (Succ s))))) h))
         (Eq.trans (laterCounts r k size (Int.add a (Nat.toInt 0)) c (Succ s)) (Int.addZero a)))
-      (\h => Eq.trans (Eq.cong (\xs => List.foldLeft Int.add a (List.map (\n => twice n * (r.repeated k n).toInt) xs))
+      (\h => Eq.trans (Eq.cong (\xs => List.foldLeft Int.add a (List.map (\n => twice n * (repeatedSum r k n).toInt) xs))
           (List.filterSkip (\n => k * n <= size) (Succ (Succ (Succ s))) (List.rangeFrom c (Succ (Succ (Succ (Succ s))))) h))
         (laterCounts r k size a c (Succ s)))
 
 -- One block length's terms: the block written twice, if it fits.
-theorem termsSum (r: Range) (k: Nat) (size: Nat) (a: Nat) (fits: Nat.leq (k * 2) size = False -> r.repeatedSpec k 2 = 0):
-    List.foldLeft Int.add (Nat.toInt a) (Range.invalid.terms twice r size k) = Nat.toInt (a + r.repeatedSpec k 2) :=
+theorem termsSum (r: Range) (k: Nat) (size: Nat) (a: Nat) (fits: Nat.leq (k * 2) size = False -> repeatedSumSpec r k 2 = 0):
+    List.foldLeft Int.add (Nat.toInt a) (invalidSum.terms twice r size k) = Nat.toInt (a + repeatedSumSpec r k 2) :=
   Bool.inspect (k * 2 <= size)
-    (\u => List.foldLeft Int.add (Nat.toInt a) (Range.invalid.terms twice r size k) = Nat.toInt (a + r.repeatedSpec k 2))
-    (\h => Eq.trans (Eq.cong (\xs => List.foldLeft Int.add (Nat.toInt a) (List.map (\n => twice n * (r.repeated k n).toInt) xs))
+    (\u => List.foldLeft Int.add (Nat.toInt a) (invalidSum.terms twice r size k) = Nat.toInt (a + repeatedSumSpec r k 2))
+    (\h => Eq.trans (Eq.cong (\xs => List.foldLeft Int.add (Nat.toInt a) (List.map (\n => twice n * (repeatedSum r k n).toInt) xs))
         (List.filterKeep (\n => k * n <= size) 2 (List.rangeFrom 8 3) h))
-      (Eq.trans (laterCounts r k size (Int.add (Nat.toInt a) (twice 2 * (r.repeated k 2).toInt)) 8 0)
-        (Eq.cong (\t => Nat.toInt (a + t)) (Eq.trans (Nat.addZero (r.repeated k 2)) (repeatedCorrect r k 2)))))
-    (\h => Eq.trans (Eq.cong (\xs => List.foldLeft Int.add (Nat.toInt a) (List.map (\n => twice n * (r.repeated k n).toInt) xs))
+      (Eq.trans (laterCounts r k size (Int.add (Nat.toInt a) (twice 2 * (repeatedSum r k 2).toInt)) 8 0)
+        (Eq.cong (\t => Nat.toInt (a + t)) (Eq.trans (Nat.addZero (repeatedSum r k 2)) (repeatedCorrect r k 2)))))
+    (\h => Eq.trans (Eq.cong (\xs => List.foldLeft Int.add (Nat.toInt a) (List.map (\n => twice n * (repeatedSum r k n).toInt) xs))
         (List.filterSkip (\n => k * n <= size) 2 (List.rangeFrom 8 3) h))
       (Eq.trans (laterCounts r k size (Nat.toInt a) 8 0)
         (Eq.cong (\t => Nat.toInt t) (Eq.sym (Eq.trans (Eq.cong (\t => a + t) (fits (Eq.trans (Eq.sym (Bool.decTrueToBool (Nat.leq (k * 2) size))) h))) (Nat.addZero a))))))
 
-theorem rangeTerms (r: Range) (size: Nat) (fits: (k: Nat) -> Nat.leq (k * 2) size = False -> r.repeatedSpec k 2 = 0):
+theorem rangeTerms (r: Range) (size: Nat) (fits: (k: Nat) -> Nat.leq (k * 2) size = False -> repeatedSumSpec r k 2 = 0):
     (ks: List Nat) -> (a: Nat) ->
-    List.foldLeft Int.add (Nat.toInt a) (List.concatMap (Range.invalid.terms twice r size) ks)
-      = Nat.toInt (List.foldLeft (\acc k => acc + r.repeatedSpec k 2) a ks)
+    List.foldLeft Int.add (Nat.toInt a) (List.concatMap (invalidSum.terms twice r size) ks)
+      = Nat.toInt (List.foldLeft (\acc k => acc + repeatedSumSpec r k 2) a ks)
   | Nil,       a => rfl
   | Cons k ks, a =>
-    Eq.trans (List.foldLeftAppend Int.add (Nat.toInt a) (Range.invalid.terms twice r size k) (List.concatMap (Range.invalid.terms twice r size) ks))
-      (Eq.trans (Eq.cong (\z => List.foldLeft Int.add z (List.concatMap (Range.invalid.terms twice r size) ks)) (termsSum r k size a (fits k)))
-        (rangeTerms r size fits ks (a + r.repeatedSpec k 2)))
+    Eq.trans (List.foldLeftAppend Int.add (Nat.toInt a) (invalidSum.terms twice r size k) (List.concatMap (invalidSum.terms twice r size) ks))
+      (Eq.trans (Eq.cong (\z => List.foldLeft Int.add z (List.concatMap (invalidSum.terms twice r size) ks)) (termsSum r k size a (fits k)))
+        (rangeTerms r size fits ks (a + repeatedSumSpec r k 2)))
 
 theorem invalidTwice (r: Range):
-    r.invalid twice = Nat.toInt (List.rangeFrom (Nat.digits r.hi).length 1 |> .sumBy (\k => r.repeatedSpec k 2)) :=
+    invalidSum twice r = Nat.toInt (List.rangeFrom (Nat.digits r.hi).length 1 |> .sumBy (\k => repeatedSumSpec r k 2)) :=
   rangeTerms r (List.length (Nat.digits r.hi)) (tooLong r) (List.rangeFrom (List.length (Nat.digits r.hi)) 1) 0
 
 theorem totalTwice: (ranges: List Range) -> (a: Nat) ->
-    List.foldLeft Int.add (Nat.toInt a) (List.map (Range.invalid twice) ranges)
-      = Nat.toInt (List.foldLeft (\acc r => acc + (List.rangeFrom (Nat.digits r.hi).length 1 |> .sumBy (\k => r.repeatedSpec k 2))) a ranges)
+    List.foldLeft Int.add (Nat.toInt a) (List.map (invalidSum twice) ranges)
+      = Nat.toInt (List.foldLeft (\acc r => acc + (List.rangeFrom (Nat.digits r.hi).length 1 |> .sumBy (\k => repeatedSumSpec r k 2))) a ranges)
   | Nil,       a => rfl
   | Cons r rs, a =>
-    Eq.trans (Eq.cong (\t => List.foldLeft Int.add (Int.add (Nat.toInt a) t) (List.map (Range.invalid twice) rs)) (invalidTwice r))
-      (totalTwice rs (a + (List.rangeFrom (Nat.digits r.hi).length 1 |> .sumBy (\k => r.repeatedSpec k 2))))
+    Eq.trans (Eq.cong (\t => List.foldLeft Int.add (Int.add (Nat.toInt a) t) (List.map (invalidSum twice) rs)) (invalidTwice r))
+      (totalTwice rs (a + (List.rangeFrom (Nat.digits r.hi).length 1 |> .sumBy (\k => repeatedSumSpec r k 2))))
 
 -- (b) Part 1 is the brute-force sum.
 theorem part1Correct (ranges: List Range): solvePart1 ranges = part1Spec ranges :=

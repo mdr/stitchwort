@@ -45,7 +45,8 @@ A local VS Code syntax-colouring extension for `.sw` files is in
 Solutions with proofs are in [`aoc/`](aoc/), with notes in
 [docs/aoc-2025.md](docs/aoc-2025.md). Puzzle inputs aren't included; put
 yours in `aoc/inputs/dayNN.txt` and run
-`cargo run --release -- run --js aoc/day01.sw < aoc/inputs/day01.txt`.
+`cd aoc && cargo run --release -- run --js Aoc.Day01.main < inputs/day01.txt`
+(`aoc/` is a project with one namespace per day, `Aoc.Day01` to `Aoc.Day05`).
 
 ## Licence
 

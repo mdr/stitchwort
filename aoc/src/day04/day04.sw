@@ -3,7 +3,7 @@
 -- rolls. Part 1 counts the accessible rolls. Part 2 removes them, repeats
 -- until none are accessible, and counts every roll removed.
 --
---   $ stitchwort run aoc/day04.sw < aoc/inputs/day04.txt
+--   $ cd aoc && stitchwort run Aoc.Day04.main < inputs/day04.txt
 --
 -- The puzzle input is not in git (aoc/inputs/ is ignored).
 --
@@ -11,6 +11,8 @@
 -- the 3 by 3 block around it, itself included, so it is accessible when its
 -- window holds fewer than 5 rolls. Sum each row horizontally in threes once,
 -- then add the sums of the rows above, at, and below to get every window.
+
+namespace Aoc.Day04
 
 type Grid = List (List Nat)
 
@@ -25,6 +27,18 @@ def solvePart1 (grid: Grid): Nat := grid.rolls - grid.round.rolls
 -- Part 2: the rolls removed by rounds until none is accessible.
 def solvePart2 (grid: Grid): Nat := grid.rolls - (grid.settle grid.rolls).rolls
 
+def example: List Text :=
+  [ "..@@.@@@@.", "@@@.@.@.@@", "@@@@@.@.@@", "@.@@@@..@.", "@@.@@@@.@@",
+    ".@@@@@@@.@", ".@.@.@.@@@", "@.@@@.@@@@", ".@@@@@@@@.", "@.@.@@@.@." ]
+
+test "example" := (solvePart1 (parseGrid example), solvePart2 (parseGrid example)) == (13, 43)
+test "lone roll" := (solvePart1 [[1]], solvePart2 [[1]]) == (1, 1)
+test "full square" := (solvePart1 [[1, 1], [1, 1]], solvePart2 [[1, 1], [1, 1]]) == (4, 4)
+
+def plus: Grid := [[0, 1, 0], [1, 1, 1], [0, 1, 0]]
+
+test "plus shape keeps its centre" := (solvePart1 plus, solvePart2 plus) == (4, 5)
+
 def parseGrid (lines: List Text): Grid := lines.map parseLine
 
 def parseLine (line: Text): List Nat := line.toList.map parseChar
@@ -35,6 +49,8 @@ def parseChar: Char -> Nat
   | _   => 0
 
 def Grid.rolls (grid: Grid): Nat := grid |> .sumBy List.sum
+
+test "rolls" := (parseGrid example).rolls == 71
 
 -- Remove every accessible roll, all at once.
 def Grid.round (grid: Grid): Grid :=
@@ -59,21 +75,7 @@ def rowSums (row: List Nat): List Nat :=
   let right := row.drop 1 |> .append [0]
   List.zipWith Nat.add (List.zipWith Nat.add left row) right
 
+test "row sums" := rowSums [1, 0, 1, 1] == [1, 2, 2, 2]
+
 -- Combine two grids of the same shape cell by cell.
 def Grid.zipWith (f: Nat -> Nat -> Nat) (a b: Grid): Grid := List.zipWith (List.zipWith f) a b
-
--- Examples -----------------------------------------------------------------
-
-def example: List Text :=
-  [ "..@@.@@@@.", "@@@.@.@.@@", "@@@@@.@.@@", "@.@@@@..@.", "@@.@@@@.@@",
-    ".@@@@@@@.@", ".@.@.@.@@@", "@.@@@.@@@@", ".@@@@@@@@.", "@.@.@@@.@." ]
-
-test "example" := (solvePart1 (parseGrid example), solvePart2 (parseGrid example)) == (13, 43)
-test "rolls" := (parseGrid example).rolls == 71
-test "row sums" := rowSums [1, 0, 1, 1] == [1, 2, 2, 2]
-test "lone roll" := (solvePart1 [[1]], solvePart2 [[1]]) == (1, 1)
-test "full square" := (solvePart1 [[1, 1], [1, 1]], solvePart2 [[1, 1], [1, 1]]) == (4, 4)
-def plus: Grid := [[0, 1, 0], [1, 1, 1], [0, 1, 0]]
-
-test "plus shape keeps its centre" := (solvePart1 plus, solvePart2 plus) == (4, 5)
-

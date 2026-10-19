@@ -487,21 +487,6 @@ test("Run, with scripted input", async (page) => {
   assert.match(await page.printed(), /Hello, Grace!.*\n  total: 1\nThe sum is 1\. Goodbye, Grace\.\n$/s);
 });
 
-test("Run an Advent of Code example", async (page) => {
-  await page.open();
-  await page.until(`[...document.getElementById("example").options].some((o) => o.value === "aoc-day04")`,
-    30000, "the Advent of Code examples");
-  await page.pick("aoc-day04");
-  // The day's files are fetched, so wait for its source before the check.
-  await page.until(`document.getElementById("source").value.includes("def parseGrid")`, 30000, "day 4's source");
-  await page.untilChecked();
-  await page.run();
-  assert.equal(await page.ev(`document.getElementById("run-input").value`),
-    "..@@.@@@@.\n@@@.@.@.@@\n@@@@@.@.@@\n@.@@@@..@.\n@@.@@@@.@@\n" +
-    ".@@@@@@@.@\n.@.@.@.@@@\n@.@@@.@@@@\n.@@@@@@@@.\n@.@.@@@.@.\n");
-  assert.equal(await page.printed(), "Part 1: 13\nPart 2: 43\n");
-});
-
 test("Run, reading all the input at once", async (page) => {
   await page.open();
   await page.untilChecked();

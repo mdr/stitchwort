@@ -6,7 +6,7 @@ then thrown away.
 
 ## The short version
 
-- `aoc/day04.sw` on the real input takes **16.4 s** (Apple M4 Pro, release build). That is
+- `aoc/src/day04/day04.sw` on the real input takes **16.4 s** (Apple M4 Pro, release build). That is
   **687 million machine steps** at about **42 million steps a second**, and about **410 CPU
   instructions per step** (282 billion instructions retired, from `/usr/bin/time -l`).
 - The cost per step is the main problem, more than the number of steps. Most of a step goes on
@@ -285,7 +285,7 @@ gives `E-RESOURCE` at 100,000 characters".
 
 - Profile: build with `CARGO_PROFILE_RELEASE_DEBUG=line-tables-only`, then
   `nix shell nixpkgs#samply -c samply record --save-only --unstable-presymbolicate -o p.json.gz
-  -- target/release/stitchwort run aoc/day04.sw < aoc/inputs/day04.txt`, and open it with
+  -- ../target/release/stitchwort run Aoc.Day04.main < inputs/day04.txt` from `aoc/`, and open it with
   `samply load p.json.gz`.
 - Counters: a scratch patch adding thread-local counts to `value::run`, `enter`, `unfold` and
   `branch`, printed by `run_main` when an environment variable is set. Not committed; easy to
