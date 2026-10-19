@@ -11,6 +11,7 @@ cargo run -- check examples/extract/append.sw
 cargo run -- eval examples/extract/append.sw "appendNats [1, 2] [3]"
 cargo run -- test examples/accept/tests.sw      # run it twice: results are cached
 cargo run -- run examples/accept/adder.sw       # run `main`, reading and printing lines
+cargo run -- run --js examples/accept/adder.sw  # the same, compiled to JS and run under Node (much faster)
 cargo run -- repl examples/extract/append.sw
 cargo run -- build --js examples/extract/append.sw -o out/
 
@@ -31,3 +32,10 @@ cargo run --release -p stitchwort-bench   # benchmarks, compared with bench/base
 
 A local VS Code syntax-colouring extension for `.sw` files is in
 [`editors/vscode/`](editors/vscode/README.md).
+
+## Advent of Code 2025
+
+Solutions with proofs are in [`aoc/`](aoc/), with notes in
+[docs/aoc-2025.md](docs/aoc-2025.md). Puzzle inputs aren't included; put
+yours in `aoc/inputs/dayNN.txt` and run
+`cargo run --release -- run --js aoc/day01.sw < aoc/inputs/day01.txt`.
