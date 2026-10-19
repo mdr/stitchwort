@@ -484,9 +484,9 @@
     {
       "id": 33,
       "title": "Two proofs of the same fact aren't treated as equal",
-      "status": "doing",
-      "agent": "Opus",
-      "where": "worktree: draft 2 from the review (scratchpad/proof-irrelevance-review-1.md)",
+      "status": "review",
+      "agent": "Matt",
+      "where": "draft 2: second independent review (prompt on clipboard), then §10 Q1-Q5",
       "labels": [
         "design",
         "kernel"
@@ -495,7 +495,8 @@
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": [
-        "4c6d693"
+        "4c6d693",
+        "ff79a07"
       ]
     },
     {
