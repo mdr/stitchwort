@@ -1,5 +1,5 @@
 {
-  "next": 106,
+  "next": 107,
   "tickets": [
     {
       "id": 1,
@@ -1304,8 +1304,8 @@
       "id": 89,
       "title": "Multi-file stage 1: implementation (projects, namespace lines, per-file imports)",
       "status": "review",
-      "agent": "Sonnet",
-      "where": "fix lane in ~/scratch/mf-merge (branch mf-merge = stage 1 + main): 3 review blockers + 3 should-fix",
+      "agent": "Claude",
+      "where": "merged into main (714de04); batch gate running",
       "labels": [
         "multi-file",
         "elab"
@@ -1322,7 +1322,12 @@
         "08c0c12",
         "cc22433",
         "273819d",
-        "4e2e143"
+        "4e2e143",
+        "d78ac35",
+        "aa4821e",
+        "0d22e86",
+        "2b38fc2",
+        "714de04"
       ]
     },
     {
@@ -1454,9 +1459,9 @@
     {
       "id": 98,
       "title": "User guide: docs/projects.md (multi-file projects), first draft",
-      "status": "review",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "/Users/matt/scratch/opencode/funlang-20261019-202338",
       "labels": [
         "docs",
         "multi-file"
@@ -1561,13 +1566,30 @@
     {
       "id": 105,
       "title": "docs/compared.md: how Stitchwort differs from Lean and Unison",
-      "status": "doing",
-      "agent": "Sonnet",
+      "status": "review",
+      "agent": "Matt",
       "where": "",
       "labels": [
         "docs"
       ],
       "body": "Matt (19 Oct): document the termination difference (Lean's partial def is invisible in types; Stitchwort's {Partial} propagates), check whether Lean/Unison can run in the browser or export TypeScript, plus proofs, content hashing, abilities, and what Lean/Unison do better. Playground link: not yet (Matt).",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": [
+        "1b27697"
+      ]
+    },
+    {
+      "id": 106,
+      "title": "Multi-file stage 2: `import N (..)` (wildcard imports)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "spec: scratchpad/tasks/mf-stage2-spec.md",
+      "labels": [
+        "multi-file",
+        "elab"
+      ],
+      "body": "Design §12 stage 2, compiler part only; the AoC day 5 split trial waits for Matt's parked AoC questions. Opus spec, then Sonnet.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
