@@ -1333,9 +1333,9 @@
     {
       "id": 91,
       "title": "Zero-argument effectful calls: `IO.readAllLines ()`",
-      "status": "doing",
-      "agent": "Claude",
-      "where": "main: one regex, then hash/AoC/gate checks",
+      "status": "done",
+      "agent": "",
+      "where": "",
       "labels": [
         "design",
         "syntax"
@@ -1343,7 +1343,9 @@
       "body": "Matt (19 Oct): how do Unison and other effect-tracking languages invoke 0-arity effectful actions, vs Stitchwort's `IO.readAllLines ()`? Research subagent (Sonnet, read-only): Stitchwort today, Unison/Koka/Effekt/Frank/Flix/Roc/OCaml 5/Scala/Haskell/Lean, options and a recommendation.\n\nResearch (Sonnet, 19 Oct): Stitchwort's 0-arity ops are `() -> {IO} T` thunks (prelude.sw:2236-2238), needed because evaluation is strict and effects happen at application (DESIGN.md:131-135). Strict effect languages call them with `f()` (Koka, Unison since UCM 0.5.23 alongside `!f`, Effekt, Flix, Scala's convention that `()` signals side effects); monadic languages (Haskell, Lean, Idris) make actions values, which in Stitchwort would expose `Comp` (abilities.md:259). Checked by Claude: `f()` and `def main(): {IO} ()` already parse and run. Recommendation: keep the unit-argument model; adopt `f()` / `def main()` (no space) as house style; `do e` sugar later; no `!` operator.\n\nMatt (19 Oct): yes, adopt `f()` and `def main()` (no space) as house style via a DeepSeek restyle after the colon restyle (SW-24) lands; keep zero-argument actions as `() -> {IO} T` functions. `do e` sugar and a `!f` operator: not now.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
-      "commits": []
+      "commits": [
+        "50399dd"
+      ]
     },
     {
       "id": 92,
