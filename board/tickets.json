@@ -1,5 +1,5 @@
 {
-  "next": 97,
+  "next": 99,
   "tickets": [
     {
       "id": 1,
@@ -568,7 +568,7 @@
         "js",
         "stdlib"
       ],
-      "body": "**Faster `textOfChars`** in JS (10⁶ characters: 98 ms) and stack-safe\nlist helpers (`foldChars`, `compareChars`, …) when user code calls them\ndirectly.",
+      "body": "**Faster `textOfChars`** in JS (10⁶ characters: 98 ms) and stack-safe\nlist helpers (`foldChars`, `compareChars`, …) when user code calls them\ndirectly.\n\n19 Oct: partly out of date — textOfChars is already a loop (crates/js/src/lib.rs:861-865; the 98 ms is per-char encodeChar cost), and foldChars/compareChars no longer exist. Needs a measurement before any work.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -1413,6 +1413,36 @@
         "design"
       ],
       "body": "Matt (19 Oct): formalise day 1 (zerosPassedCorrect, any dial size, all inputs) in Lean 4 (core, no Mathlib), Agda (stdlib), Idris 2; compare ease of proof (tactics, omega, library, proof irrelevance, ...) and rank what Stitchwort should add.",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 97,
+      "title": "Highlight `namespace` and `import` as keywords (playground, VS Code)",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "/Users/matt/scratch/opencode/funlang-20261019-184205",
+      "labels": [
+        "web",
+        "tooling"
+      ],
+      "body": "",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 98,
+      "title": "User guide: docs/projects.md (multi-file projects), first draft",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "/Users/matt/scratch/opencode/funlang-20261019-184207",
+      "labels": [
+        "docs",
+        "multi-file"
+      ],
+      "body": "",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
