@@ -1,15 +1,78 @@
-# `calc` chains and a `rewrite` term (SW-99), draft 2
+# `calc` chains and a `rewrite` term (SW-99), draft 3
 
 **Date:** 19 October 2026. **Ticket:** SW-99 (related: SW-26). **Decisions:** D32 to D42.
-**Status:** proposed, awaiting external review. Nothing is implemented.
+**Status:** reviewed once externally ("adopt with changes"; no critical findings). All
+decisions await Matt. Nothing is implemented.
 
-**Changes from draft 1:**
+## Changes since draft 2
 
-- §1 is new: background for a reader without the repository.
-- The decisions now carry stable IDs (D32 to D42).
-- §10 is new: questions for the reviewer.
-- The SW-26 experiment was re-run on the restructured AoC project, and extended to two more
-  proofs (§7).
+Draft 2 had one external review. Its verdict was "adopt with changes", with no critical
+findings, four major and three minor. Every finding is addressed below. The review's answers
+to the nine questions are summarised in [Review answers](#12-review-answers).
+
+1. **Proofless `calc` steps** (major; D33; §5.1, §5.2, §9).
+   - A step with no proof is now defined as "check `rfl` against the step's proposition
+     `e(i-1) R ei`".
+   - Draft 2's "the endpoints are convertible" was right only for `=`. Under the new rule,
+     `calc 0` / `_ <= n` is accepted, because `Nat.leq 0 n` computes to `True`, and
+     `calc n` / `_ < n` is rejected **[checked: the same propositions proved by `rfl`]**.
+2. **Running out of budget is inconclusive, not "no match"** (major; D36; §6.2, §6.3).
+   - One rewrite-search budget is shared by every comparison in a `rewrite`.
+   - If a plausible candidate exhausts it, the result is `E-REWRITE-BUDGET`, never a silent
+     skip.
+3. **Metavariables in a rule** (major; D36; §6.1, §6.2).
+   - Matching is transactional: each candidate attempt saves the metavariable state and
+     restores it on failure.
+   - It is one-way: only the rule's own metavariables may be solved, never ones already in
+     the goal.
+   - A rule whose left side has a metavariable at its head is rejected. Lean checks exactly
+     this, `lhs.getAppFn.isMVar`; draft 2 described Lean's check as "the left side is a
+     metavariable".
+4. **Typed matching** (major; D36; §6.2).
+   - Before comparing a candidate with the rule's left side by conversion, its type is
+     checked against the equation's type.
+   - The kernel's comparison is untyped, and the proof-irrelevance proposal's option D1′
+     requires every comparison to be between values of one type (§6.2).
+5. **The chain's relation is the fold of the composition table** (minor; D34; §5.3), not a
+   separate "strongest wins" rule. For today's three relations they agree.
+6. **`rewrite p` without `in`** (minor; D35; §6.1). It is `rewrite p in rfl` against the whole
+   current proposition. That is any relation, and both sides.
+7. **Rocq's occurrence behaviour** (minor; §4.5). The review said current Rocq replaces only
+   the first occurrence by default.
+   - The current Rocq documentation does say "If not specified, only the first occurrence in
+     the conclusion is replaced". The same page also says "Only subterms identical to that
+     first matched subterm are rewritten".
+   - I ran Rocq 9.1.1 to settle it. `rewrite H` with `H: a = b` turned `a + a = b + b` into
+     `b + b = b + b`: every copy of the first-matched instance was replaced. With a
+     quantified `H: forall n, n + 0 = n`, it rewrote `a + 0` but left `c + 0`
+     **[checked]**.
+   - So draft 2's description stands, now marked checked, with both documentation sentences
+     quoted.
+8. **Syntax** (D35, D39; §6.1, §9).
+   - `in` becomes a *contextual* keyword, as `auto` already is.
+   - Comma lists apply left to right, stated explicitly.
+   - Only `calc` is reserved in stage 1; `rewrite` is reserved in stage 2.
+9. **Stage 2 records metrics** (§9): candidates tried, conversion calls, evaluation steps,
+   cache hits.
+10. **New §7, "What will surprise users"**: the review's list, plus the `windowZero` case.
+11. **Decisions** (§13) now show the reviewer's verdict next to each recommendation.
+
+## Contents
+
+- [0. The short version](#0-the-short-version)
+- [1. Background: Stitchwort in brief](#1-background-stitchwort-in-brief)
+- [2. The problem, with real examples](#2-the-problem-with-real-examples)
+- [3. Terms used](#3-terms-used)
+- [4. How other languages do it](#4-how-other-languages-do-it)
+- [5. `calc` for Stitchwort](#5-calc-for-stitchwort)
+- [6. `rewrite` for Stitchwort](#6-rewrite-for-stitchwort)
+- [7. What will surprise users](#7-what-will-surprise-users)
+- [8. SW-26: the existing `match h: e with` already solves it](#8-sw-26-if-case-splits-the-existing-match-h-e-with-already-solves-it-d40)
+- [9. Implementation sketch, staging and risks](#9-implementation-sketch-staging-and-risks)
+- [10. Effect on proof size](#10-effect-on-proof-size)
+- [11. Questions for the reviewer (draft 2)](#11-questions-for-the-reviewer-draft-2)
+- [12. Review answers](#12-review-answers)
+- [13. Decisions](#13-decisions)
 
 Labels used below:
 
@@ -32,12 +95,12 @@ This note proposes two additions. Both elaborate to the terms written today (`Eq
    and a proof that it follows. This is the same idea as Lean's `calc`, Agda's
    `begin … ≡⟨ p ⟩ … ∎` and Dafny's `calc`. It allows `=`, `<=` and `<` on `Nat` in one
    chain, and it fills in the arguments of `Nat.leTrans` itself.
-2. **`rewrite p in t`** (and `rewrite p` alone, which closes the step by computation). The
-   motive is found by looking for the left side of `p` in the goal and replacing it. This is
-   the mechanism of Lean's `rw`/`▸`, Agda's `rewrite`, Idris's `rewrite … in` and Arend's
-   `rewrite`.
+2. **`rewrite p in t`** (and `rewrite p` alone, which closes the goal with `rfl`). The motive
+   is found by looking for the left side of `p` in the goal and replacing it. This is the
+   mechanism of Lean's `rw`/`▸`, Agda's `rewrite`, Idris's `rewrite … in` and Arend's
+   `rewrite`. Occurrences are found by typed, keyed matching (§6.2).
 
-Measured on five real lemmas (§8):
+Measured on five real lemmas (§10):
 
 - `rewrite` alone makes them 31 to 45% shorter.
 - `calc` makes them about as long as now, and sometimes longer. Every intermediate
@@ -51,11 +114,10 @@ check **[checked]**:
 - day 3: `pickGe`, `pickLen`, `pickSub`;
 - day 2: `gaussPick`, `windowZero`, and the nested split in `window`.
 
-Day 2's `IsTrue`/`decIsTrue` helpers become unused and are deleted (§7).
+Day 2's `IsTrue`/`decIsTrue` helpers become unused and are deleted (§8).
 
 Recommendation: build `calc` first (stage 1, small), then `rewrite` (stage 2, medium). Close
-SW-26 by moving the AoC proofs to `match h: e with`. The questions for the reviewer are in
-§10, and the decisions in §11.
+SW-26 by moving the AoC proofs to `match h: e with`. The decisions are in §13.
 
 ## 1. Background: Stitchwort in brief
 
@@ -70,6 +132,8 @@ A small kernel re-checks everything the elaborator produces.
 
 - It decides definitional equality ("conversion") by evaluating both sides to values and
   comparing them (normalisation by evaluation).
+- The comparison is *untyped*: "it's handed two values and never told their types"
+  (`docs/proposals/proof-irrelevance.md`).
 - Definitions are unfolded lazily: "a definition stays folded (a neutral `Def` head) until it
   has all its parameters *and* its case tree can take a step" (`crates/core/src/value.rs`,
   module comment).
@@ -110,6 +174,10 @@ def Nat.mod (n: Nat) (d: Nat): [auto ok: d != 0] -> Nat := n - (n / d) * d
 ```
 
 So every `x % d` in a goal carries a proof term about `d`.
+
+`auto` is a *contextual keyword*: it is an ordinary identifier, recognised by the parser only
+as the first word inside `[ ]` binders (`crates/syntax/src/parser.rs`, "`names[0].text ==
+"auto"`") **[checked]**.
 
 **`match h: e with`** (`docs/syntax.md`, "match"):
 
@@ -235,9 +303,7 @@ theorem Bool.inspect: (b: Bool) -> (motive: Bool -> Prop) -> (b = True -> motive
 
 ## 2. The problem, with real examples
 
-Counts in the AoC proofs at commit `8305858`, from `grep -o` **[checked]**. (Draft 1 counted
-94 motives and 17 `Bool.inspect`s. Since then, ticket SW-131 moved general lemmas into the
-prelude.)
+Counts in the AoC proofs at commit `8305858`, from `grep -o` **[checked]**:
 
 | | `Eq.trans` | `Eq.cong` | `Eq.cong (\…` (hand-written motive) | `Eq.sym` | `J (` | `Bool.inspect` | `Nat.leTrans` | `Nat.le/ltCong…` |
 |---|---|---|---|---|---|---|---|---|
@@ -312,7 +378,7 @@ with the `if` spelled out as it elaborates (§1.3):
       (\e => pickGe w more c after)
 ```
 
-Sections 5 to 8 show each example rewritten.
+Sections 5, 6, 8 and 10 show each example rewritten.
 
 ## 3. Terms used
 
@@ -329,8 +395,10 @@ Sections 5 to 8 show each example rewritten.
   goal as long as it computes to the same thing.
 - **Keyed matching** (Lean's term, §4.2) compares a subterm with the pattern only when they
   have the same head symbol and number of arguments, and then compares them by conversion.
-- **Preorder chain.** A chain mixing `=` with an order such as `<=` or `<`. It concludes the
-  strongest relation that follows: `a = b <= c < d` gives `a < d`.
+- **Carrier type.** The type `A` that an equation `a = b` is about. `p: x = y` "at type
+  `A`" means `x: A` and `y: A`.
+- **Preorder chain.** A chain mixing `=` with an order such as `<=` or `<`, concluding the
+  relation its steps compose to (§5.3).
 
 ## 4. How other languages do it
 
@@ -340,8 +408,8 @@ Sections 5 to 8 show each example rewritten.
 |---|---|---|---|---|---|---|
 | **Lean 4** | `calc a` / `_ = b := p` | any, through `Trans` instances; mixes `=`, `<`, `≤` | `rw [p]` (tactic), `h ▸ e` (term) | `kabstract`: keyed matching, compared by conversion | `▸` rewrites the type of `e` instead | `rw` skips subterms that mention a bound variable; `conv`'s `ext` or `simp` goes under binders |
 | **Agda** | `begin a ≡⟨ p ⟩ b ∎` (library) | `≡`; `≤-Reasoning` mixes `≡`, `≤`, `<` | `rewrite p` (in a clause) | with-abstraction of the left side in the goal and argument types | n/a (always in a clause) | only occurrences visible after normalising |
-| **Idris 2** | `Calc $ \|~ a ~~ b ...(p)` (library) | `=`; `Generic` adds one preorder plus `=` steps | `rewrite p in e` | normalises the goal, then replaces the left side | error: "Can't infer a type for rewrite" | n/a |
-| **Rocq** | `transitivity b` (tactic) | relations registered as transitive | `rewrite p` (tactic) | the first match in depth-first order, then every identical subterm | n/a | not inside `forall` (needs `setoid_rewrite`) |
+| **Idris 2** | `Calc $ \|~ a ~~ b ...(p)` (library) | `=`; `Generic` adds one preorder plus `=` steps | `rewrite p in e` | normalises the goal, then replaces all occurrences of the left side | error: "Can't infer a type for rewrite" | n/a |
+| **Rocq** | `transitivity b` (tactic) | relations registered as transitive | `rewrite p` (tactic) | the first match in depth-first order fixes the instance; copies of that instance are rewritten | n/a | not inside `forall` (needs `setoid_rewrite`) |
 | **F\*** | `calc (rel) { a; == { p } b; … }` | any; the SMT solver checks that they combine | n/a (SMT) | n/a | n/a | n/a |
 | **Dafny** | `calc { a; == { hint } b; … }` | chain-compatible operators; one `!=` with `==` | n/a (verifier) | n/a | n/a | n/a |
 | **Arend** | `a ==< p >== b `qed`` (library) | `=` | `rewrite p t`, `rewriteI p t` (term) | replaces occurrences of the left side in the expected type | rewrites the type of `t` instead | not checked |
@@ -376,15 +444,17 @@ Sections 5 to 8 show each example rewritten.
   The source's own error text explains it: "First, it looks for all 'a' in 'e'. Second, it
   tries to abstract these occurrences of 'a' to create a function 'm := fun _a => ...', called
   the *motive* … if 'e' depends on specific properties of 'a', then the motive 'm' might not
-  typecheck". It also rejects an equation whose left side is a metavariable ("The pattern to
-  be substituted is a metavariable") **[cited:
+  typecheck". Before abstracting, it rejects an equation whose left side has a metavariable
+  at its head (`if lhs.getAppFn.isMVar then throwError "… The pattern to be substituted is a
+  metavariable …"`) **[cited:
   [Lean/Meta/Tactic/Rewrite.lean](https://github.com/leanprover/lean4/blob/master/src/Lean/Meta/Tactic/Rewrite.lean)]**.
 - **`kabstract` uses keyed matching.** It compares a subterm with the pattern only when they
   have the same head symbol and number of arguments, and then compares them by `isDefEq`.
   - It skips any subterm that mentions a variable bound inside the goal
     (`if e.hasLooseBVars then visitChildren ()`).
-  - Metavariables in the pattern may be instantiated by a match. For matches that are not
-    selected, "the metavariable context is rolled back".
+  - Metavariables "may become instantiated" by a match. For matches that are not selected,
+    "the metavariable context is rolled back to prevent blocking subsequent matches which
+    require different instantiations". This is the transactional matching adopted in §6.2.
 
   **[cited:
   [Lean/Meta/KAbstract.lean](https://github.com/leanprover/lean4/blob/master/src/Lean/Meta/KAbstract.lean)]**
@@ -439,7 +509,7 @@ Sections 5 to 8 show each example rewritten.
   - it fails when the goal has already reduced past the term.
 - **`with … in eq`** names the equation between the scrutinee and the new variable **[cited:
   same page, "With-abstraction equality"]**. Stitchwort's `match h: e with` is the same idea
-  (§1.2, §7).
+  (§1.2, §8).
 
 ### 4.4 Idris 2
 
@@ -464,13 +534,35 @@ Sections 5 to 8 show each example rewritten.
 
 ### 4.5 Rocq (Coq)
 
-- `rewrite H` rewrites left to right, and `<-` reverses it. With a quantified equation, it
-  "finds the first matching subterm in depth-first search order. Only subterms identical to
-  that first matched subterm are rewritten". It "won't find occurrences inside forall that
-  refer to variables bound by the forall", for which there is `setoid_rewrite` **[cited:
-  [Rocq reference, equality](https://rocq-prover.org/doc/master/refman/proofs/writing-proofs/equality.html)]**.
+**What the documentation says.** The current reference manual says two things that are hard
+to read together **[cited:
+[Rocq reference, equality](https://rocq-prover.org/doc/master/refman/proofs/writing-proofs/equality.html);
+source
+[equality.rst](https://github.com/rocq-prover/rocq/blob/master/doc/sphinx/proofs/writing-proofs/equality.rst)]**:
+
+- under the occurrences clause: "If not specified, only the first occurrence in the
+  conclusion is replaced";
+- in a note: "rewrite finds the first matching subterm in depth-first search order. Only
+  subterms identical to that first matched subterm are rewritten".
+
+**What it does.** Rocq 9.1.1 (from nixpkgs) behaves as the note says **[checked]**:
+
+- `Lemma t (a b : nat) (H : a = b) : a + a = b + b.` followed by `rewrite H.` gives the goal
+  `b + b = b + b`. Both copies of `a` were replaced.
+- With `H : forall n, n + 0 = n`, the goal `(a + 0) + (c + 0) = a + c` becomes
+  `a + (c + 0) = a + c`. The first match fixed `n := a`; the other instance, `c + 0`, was
+  left alone.
+
+So "first occurrence" means the first matched *instance*, and every identical copy of it is
+rewritten.
+
+The page also says:
+
+- `rewrite` "won't find occurrences inside `forall` that refer to variables bound by the
+  `forall`", for which there is `setoid_rewrite`;
+- comma-separated rewriters "are applied sequentially";
 - `transitivity b` splits a goal `t = u` (or any relation registered as transitive) into
-  `t = b` and `b = u` (same page).
+  `t = b` and `b = u`.
 
 ### 4.6 F\*
 
@@ -548,11 +640,24 @@ Recommended form: Lean's aligned form, one step per line.
 - `calc e0` starts the chain. Each following line, indented more than `calc`'s line, is a
   step `_ R e := proof`.
 - `R` is `=`, `<=` or `<`.
-- A step with no `:= proof` holds by computation, like Agda's `≡⟨⟩` and Idris's `~=`
-  (D33). It elaborates to `rfl`, and it is useful for unfolding a definition so that a later
-  `rewrite` can see inside it.
 - `calc` is an expression, usable anywhere a proof is: as an argument, in a `let`, or as
   an arm's body.
+
+**A step with no `:= proof`** (D33) means "check `rfl` against this step's proposition".
+That proposition is `e(i-1) R ei`, built exactly as for a step with a proof.
+
+- For `=`, this accepts the step when the two expressions compute to the same thing, like
+  Agda's `≡⟨⟩` and Idris's `~=`. It is useful for unfolding a definition so that a later
+  `rewrite` can see inside it.
+- For `<=` and `<`, it accepts the step when the order proposition itself computes to
+  `True = True`. That does **not** mean the endpoints are equal:
+  - `calc 0` / `_ <= n` is accepted, because `Nat.leq 0 n` computes to `True` for any `n`;
+  - `calc n` / `_ < n` is rejected, because `Nat.leq (Succ n) n` is stuck;
+  - `calc a` / `_ <= a + n` is rejected, because `Nat.leq a (a + n)` is stuck on the
+    variable `a`.
+
+  **[checked: `0 <= n := rfl` is accepted; `n < n := rfl` and `a <= a + n := rfl` are
+  rejected with `E-REFL`]**
 
 Alternatives (D32):
 
@@ -567,16 +672,16 @@ Alternatives (D32):
 ### 5.2 What is checked
 
 1. `e0` is inferred. Each `ei` is checked against the type of `e0`.
-2. Each step's proof is checked against `e(i-1) R ei`. The terms used are the ones elaborated
-   from what the user wrote, not their computed forms. A step without a proof is accepted
-   when `e(i-1)` and `ei` are equal by conversion.
-3. The steps are combined (§5.3) into a proof of `e0 R* en`. `R*` is `<` if any step is `<`,
-   else `<=` if any step is `<=`, else `=`.
+2. For each step, the proposition `e(i-1) R ei` is built from the elaborated expressions as
+   written, not their computed forms. The step's proof, or `rfl` if there is none (§5.1), is
+   checked against it.
+3. The steps are combined by folding the composition table (§5.3) from left to right. The
+   relation the fold ends with is the chain's conclusion `e0 R* en`.
 4. Where a type is expected, `e0 R* en` is unified with it, so `e0` and `en` only need to
    *compute* to the goal's sides. Where no type is expected, the `calc` has type `e0 R* en`.
    So `calc` works in both checking and inferring positions, unlike `rewrite` (§6.4).
 
-I checked that this conversion is enough for the examples in §8. I gave the existing proofs
+I checked that this conversion is enough for the examples in §10. I gave the existing proofs
 type ascriptions `(p: e0 = e1)` with exactly the intermediate expressions used there, and the
 checker accepted them. Two examples **[checked]**:
 
@@ -599,6 +704,10 @@ proved so far, from `a` to `b` (proof `p`); `R2` is the new step, from `b` to `c
 | `<=`, `<` | `<` | `Nat.leTrans (Succ a) (Succ b) c p q` |
 | `<`, `<` | `<` | `Nat.lessTrans a b c p q` |
 
+- The chain's relation is whatever this fold produces. For today's three relations, that
+  happens to be "`<` if any step is `<`, else `<=` if any is `<=`, else `=`". The table, not
+  that rule, is the definition, so an extended table needs no notion of "strength".
+- A pair missing from the table (once there are more relations) is `E-CALC-MIX`.
 - The `=` rows are Lean's `Trans Eq r r` and `Trans r Eq r` instances, written with `J`.
 - The `Nat` rows rely on two facts from §1.3:
   - `a < b` is by definition `Nat.leq (Succ a) b = True`, the same as `Succ a <= b`;
@@ -618,7 +727,7 @@ theorem leEq (a: Nat) (b: Nat) (c: Nat) (h: a <= b) (p: b = c): a <= c := J (\w 
 
 - Every produced term is re-checked by the kernel, so a wrong table entry would be rejected,
   not accepted. It would show up as a confusing error at an innocent-looking `calc`
-  **[inferred from §1.2]**.
+  **[inferred from §1.2; the reviewer agreed, §12]**.
 - `Int` chains need `Int.leTrans`-style lemmas first. The prelude has none: its
   `^theorem .*Trans` lines are only `Eq.trans`, `Nat.leTrans`, `Nat.lessTrans` and
   `List.permTrans` **[checked]**.
@@ -634,6 +743,10 @@ theorem leEq (a: Nat) (b: Nat) (c: Nat) (h: a <= b) (p: b = c): a <= c := J (\w 
   the line says    `(highest - j + n) / Succ highest = (Succ (highest - Succ j) + n) / Succ highest`
   the proof proves `highest - j = Succ (highest - Succ j)`
   Note: to replace part of the expression, write `rewrite Nat.subSuccRight …`
+
+[E-CALC-STEP] Error: this step has no proof, and `rfl` doesn't prove it
+  the line says `n < n`, which computes to `Nat.leq (Succ n) n = True`
+  Note: a step without `:=` must hold by computation alone
 
 [E-CALC-GOAL] Error: the chain proves `writeTimes k b n * Nat.pow 10 k + b = b * multiplier k (Succ n)`,
   but `writeTimes k b (Succ n) = b * multiplier k n` is expected
@@ -652,14 +765,14 @@ broken step.
 ```
 rewrite p in t              -- t proves the goal with p's left side replaced by its right side
 rewrite p                   -- the same as `rewrite p in rfl`
-rewrite p, q in t           -- `rewrite p in (rewrite q in t)`
+rewrite p, q in t           -- p first, then q: `rewrite p in (rewrite q in t)`
 rewrite <- p in t           -- right to left: `rewrite (Eq.sym p) in t`
 ```
 
-Given `p: a = b` and an expected goal `G`:
+Given `p: a = b` at carrier type `A`, and an expected goal `G`:
 
-1. Abstract `a` in `G`, giving `G[x]` with `x` where `a` was.
-2. Check that `\x _ => G[x]` is a well-typed motive (`x: A`, where `p` is at type `A`).
+1. Abstract `a` in `G` (§6.2), giving `G[x]` with `x` where `a` was.
+2. Check that `\x _ => G[x]` is a well-typed motive, with `x: A`.
 3. Check `t` against `G[b]`.
 4. Produce `J (\x _ => G[x]) t (Eq.sym p)`. With `Eq.sym p: b = a`, `J` needs a base of type
    `G[b]` and gives `G[a]`, which is `G` up to conversion.
@@ -667,50 +780,110 @@ Given `p: a = b` and an expected goal `G`:
 This is Lean's `rw`, Agda's `rewrite`, Idris's `rewrite … in` and Arend's `rewrite`, in the
 same direction for all four.
 
-`rewrite p` with no `in` is what a `calc` step usually needs. The step's goal is
-`e(i-1) = ei`, both sides as written. Abstracting `a` there and closing with `rfl` works
-whether `a` occurs on the left (it becomes `b`) or the right (it becomes `b`, which must then
-compute to the left). So `<-` is rarely needed in a `calc`.
+**Comma lists apply left to right.** `rewrite p, q in t` rewrites the goal with `p` first,
+then rewrites the result with `q`, then checks `t`, as Rocq's comma-separated rewriters "are
+applied sequentially" (§4.5). The nesting `rewrite p in (rewrite q in t)` says the same.
 
-For example, in §8 the step from `(Succ highest + n) / Succ highest` to
+**`rewrite p` with no `in`** is `rewrite p in rfl`, against whatever proposition is expected:
+
+- the whole of it, both sides, in any relation;
+- in a `calc` step, that is the step's proposition `e(i-1) R ei`, which may be `=`, `<=` or
+  `<`.
+
+Every matching occurrence on either side is rewritten, and then `rfl` must prove the result.
+In an equality step, `a` may occur on the left (it becomes `b`) or on the right (it becomes
+`b`, which must then compute to the left), so `<-` is needed less often in a `calc`. It is
+not unnecessary: it is the only way to replace occurrences of `b` by `a`.
+
+For example, in §10 the step from `(Succ highest + n) / Succ highest` to
 `(highest + Succ n) / Succ highest` uses `rewrite Nat.addSucc highest n`. That turns the right
 side's `highest + Succ n` into `Succ (highest + n)`, which computes to the left side's
 `Succ highest + n` (`Nat.add` recurses on its first argument) **[inferred; the step's
 equation was checked by ascription, §5.2]**.
 
-Keywords: `calc`, `rewrite` and `in` become reserved. No identifier in the repository's `.sw`
-files uses them; they appear only inside strings and comments **[checked: grep]**.
+**Keywords** (D35, D39).
 
-**Implicit arguments in the rule.** If `p`'s left side still contains unsolved implicit
-arguments, the first occurrence that matches solves them, as in Lean (§4.2) and Rocq
-(§4.5). Later occurrences must then match that instance. A left side that is only a
-metavariable is an error, as in Lean (§10, Q5).
+- `calc` is a reserved keyword from stage 1.
+- `rewrite` is reserved in stage 2. It starts an expression, so treating it as an ordinary
+  name would make `rewrite p in t` ambiguous with a call of a function named `rewrite`.
+- `in` is a *contextual* keyword, recognised only where a rewrite rule list can end, as
+  `auto` is recognised only at the start of a binder (§1.2). Elsewhere `in` stays an ordinary
+  identifier. The cost is that a rule can't pass a variable named `in` as an argument without
+  brackets **[inferred from the parser's `auto` precedent; not yet prototyped]**.
+- No identifier in the repository's `.sw` files is named `calc`, `rewrite` or `in`; they
+  appear only inside strings and comments **[checked: grep]**.
+
+**Metavariables in the rule.** Implicit arguments of `p` that elaboration couldn't solve are
+left as metavariables belonging to the rule. They are solved by the first occurrence that
+matches, and later occurrences must match that same instance (§6.2). If the left side's
+*head* is a metavariable (for example `?f x`), the rule is rejected: there is no key to
+search by. Lean has the same check (`lhs.getAppFn.isMVar`, §4.2).
 
 ### 6.2 Finding occurrences (D36)
 
-Recommended: Lean's keyed matching.
+The search walks the goal term. At each subterm `c` that doesn't mention a variable bound
+inside the goal (§6.3), it applies these tests in order:
 
-- A subterm of the goal is compared with `a` only if it has the same head (the same
-  definition, constructor or variable) and the same number of arguments.
-- It is then compared by `matching::same` (syntactic, cheap). If that fails, it is compared
-  by conversion under a small budget.
-- All matching occurrences are replaced (Lean, Idris and Arend do the same).
+1. **Key.** `c` must have the same head as `a` (the same definition, constructor or
+   variable) and the same number of arguments. Otherwise, skip it and look inside.
+2. **Syntax.** If `c` is the same term as `a` (`matching::same`), it is a match. This is the
+   cheap common case.
+3. **Carrier type.** Infer `c`'s type and compare it with `A`, the type of the equation `p`.
+   If they differ, it is not a match.
+4. **Conversion.** Compare `c` with `a` by conversion. This may solve the rule's own
+   metavariables.
 
-Why not purely syntactic matching:
+Three properties of the search:
+
+- **Transactional, one-way matching.** Before each candidate, save the metavariable state;
+  restore it if the candidate fails. Only metavariables created for the rule may be solved;
+  a comparison that would need to solve a metavariable already present in the goal is a
+  failure for that candidate. Lean rolls back unselected matches the same way (§4.2).
+
+  Without the rollback, a pattern `F ?x ?x` tried against `F 1 2` could leave `?x := 1`
+  behind and miss a later `F 3 3`. Once a candidate succeeds, its solutions are kept, and
+  later candidates are compared with the solved pattern.
+- **Why check the carrier type before conversion** (step 3).
+  - The kernel's comparison is untyped (§1.1), and same head and arity don't guarantee the
+    same type.
+  - Comparing values of different types can solve the rule's metavariables wrongly, which
+    damages implicit-argument inference before the kernel ever sees the result.
+  - The proof-irrelevance proposal's option D1′ will *require* it. D1′ skips proof fields
+    when comparing, which "is safe only if both values have the same type". It requires
+    "every call `conv(v, w)` and `unify(v, w)` that can reach a masked comparison" to be made
+    on values of the same type (`docs/proposals/proof-irrelevance.md` §1 and §7.4).
+  - The rewrite matcher is a new caller that compares arbitrary subterms, so it must
+    establish that invariant itself.
+- **One budget, and running out is inconclusive.**
+  - All comparisons in one `rewrite`, across all candidates, draw on a single search budget.
+  - If a candidate that passed steps 1 to 3 exhausts it, the search stops with
+    `E-REWRITE-BUDGET` (§6.3). It must not treat that candidate as "no match": that would
+    make "rewrite every occurrence" depend on performance.
+  - Skipping it would still be sound (rewriting fewer occurrences is a valid transport),
+    but the result would be unpredictable.
+  - `E-REWRITE-NOTHING` is reported only when every plausible candidate was decided and none
+    matched.
+
+All matching occurrences are replaced, as in Lean, Idris and Arend. Rocq rewrites every copy
+of the first-matched instance (§4.5), which is the same rule once the first match has fixed
+the rule's metavariables.
+
+**Why not purely syntactic matching:**
 
 - In `stepLeftFrom` (Example 1), the equation `Nat.modSelf (Succ highest)` is about
   `Succ highest % Succ highest`. The goal says `(Succ highest - 0) % Succ highest`. The two
   are equal by computation, not syntactically.
 - The existing occurrence test for `match` is purely syntactic (§1.2). That suits `match`,
-  but would make `rewrite` fail on goals like this one.
+  but would make `rewrite` fail on goals like this one. The reviewer agreed and advised
+  against a syntactic-only fallback (§12).
 
-Which form of the goal is searched:
+**Which form of the goal is searched:**
 
 - In a `calc` step, the step's own elaborated sides.
 - Otherwise, the expected type as the elaborator holds it (a value), read back to a term.
   Because definitions unfold lazily (§1.1), this keeps most of the user's structure. It is
   not exactly what was written: `<=` already appears as `Nat.leq a b = True` in messages
-  **[checked: the `E-TYPE-MISMATCH` text in §7]**.
+  **[checked: the `E-TYPE-MISMATCH` text in §8]**.
 - The compiler can already show the type as written in one case only: "when the `rfl` is the
   whole body of a `def` or `theorem` … whose type is the `=`" (`docs/core.md`, error
   messages). It isn't available inside arms or nested terms, so `rewrite` can't rely on it.
@@ -719,13 +892,29 @@ Which form of the goal is searched:
 
 ### 6.3 What can go wrong, and the messages
 
-- **Nothing found** (Idris's `RewriteNoChange`, Lean's "Did not find an occurrence"):
+- **Nothing found** (Idris's `RewriteNoChange`, Lean's "Did not find an occurrence"). Every
+  candidate was decided and none matched.
 
   ```
   [E-REWRITE-NOTHING] Error: `rewrite` found no `Succ highest % Succ highest` in the goal
     goal: `((highest - j) % Succ highest + n) / Succ highest = (highest - j + n) / Succ highest`
     Note: occurrences are looked for by their outer function (`%`) and compared by computing
     Note: to replace the right side by the left, write `rewrite <- …`
+  ```
+
+- **Out of budget.** A plausible candidate couldn't be decided in the budget.
+
+  ```
+  [E-REWRITE-BUDGET] Error: `rewrite` couldn't decide whether `(x * 100) % 100` is `Succ highest % Succ highest`
+    comparing them by computing ran out of budget, so the rewrite can't tell which occurrences to replace
+    Note: state the step with `calc`, or rewrite with a more specific equation
+  ```
+
+- **Metavariable at the head of the rule** (§6.1):
+
+  ```
+  [E-REWRITE-RULE] Error: this equation's left side, `?f x`, starts with an unknown function
+    Note: give the implicit arguments explicitly, such as `[f := …]`
   ```
 
 - **The motive is ill typed** (Lean's "motive is not type correct", Agda's ill-typed
@@ -739,6 +928,10 @@ Which form of the goal is searched:
 
   The day 1 notes already show that `auto` proofs found in different places are different
   terms (`docs/aoc-2025.md`, "auto proofs differ by context") **[checked]**.
+
+  The policy is to report the error and suggest rewriting a larger term; `auto` is not re-run
+  inside the motive. The reviewer agreed: replacing `d` by an arbitrary `x` gives no evidence
+  that `x != 0`, so re-running the search would change the problem (§12, Q2).
 
   ```
   [E-REWRITE-MOTIVE] Error: replacing `d` everywhere in the goal doesn't give a valid proposition
@@ -754,7 +947,11 @@ Which form of the goal is searched:
   use for this. One is `List.mapCongr (f) (g) (h: (x: a) -> f x = g x)`, with type
   `List.map f xs = List.map g xs`; there is also `List.sumByCongr`.
 
-  Occurrences under a binder that don't mention the bound variable are rewritten normally.
+  Occurrences under a binder that don't mention the bound variable are rewritten normally:
+  in `(x: A) -> P a x`, the free `a` can be abstracted.
+- **Messages use the user's rule.** Dot notation and implicit arguments are resolved before
+  the search, so internally `d.move t` is `Dial.move d t`. Messages should show the rule as
+  the user wrote it, using its source span, where they can.
 
 ### 6.4 When the goal isn't known (D38)
 
@@ -764,7 +961,7 @@ Which form of the goal is searched:
 - Arend's and Lean's `▸` fallback, rewriting in the type of `t` instead, is a possible later
   stage.
 - In practice the goal is almost always known, because proof arguments are usually checked
-  against a known parameter type. In §8, `headLess` uses `(rewrite <- hl in fromDigitsBound s hd)`
+  against a known parameter type. In §10, `headLess` uses `(rewrite <- hl in fromDigitsBound s hd)`
   as an argument whose type is already fixed by the earlier explicit arguments.
 
 ### 6.5 Not included
@@ -776,7 +973,36 @@ Which form of the goal is searched:
 - Matching up to algebra (Arend's `rewriteEq`): that belongs with a reflective arithmetic
   normaliser (`docs/comparisons/aoc-day01.md` §5 item 4).
 
-## 7. SW-26 (`if` case splits): the existing `match h: e with` already solves it (D40)
+## 7. What will surprise users
+
+All of these are sound; they belong in the user documentation when the features land. The
+list is the reviewer's, plus the `windowZero` case found in the SW-26 experiment.
+
+1. **`rewrite p` in a `calc` step may rewrite the right side, or both sides,** not
+   necessarily the expression on the line before. It rewrites the whole step proposition
+   (§6.1).
+2. **`rewrite` replaces every matching occurrence.** There is no occurrence selector in the
+   first version (§6.5); use `calc` to say exactly which form you want.
+3. **A rewrite can match something that isn't there textually,** because a candidate that
+   *computes* to the equation's left side matches (§6.2).
+4. **The first match fixes the rule's implicit arguments.** Later occurrences must be the
+   same instance, as in Rocq (§4.5). Occurrences of a different instance are left alone.
+5. **An obvious-looking rewrite can fail with `E-REWRITE-MOTIVE`** because an `auto` proof
+   (such as the `d != 0` inside `x % d`) depends on the term being replaced (§6.3).
+6. **Rewriting under binders is deliberately incomplete** (§6.3, D37).
+7. **The goal searched isn't exactly the notation written.** It is the elaborated, lightly
+   evaluated goal (§6.2), and messages may show `Nat.leq a b = True` for `a <= b`.
+8. **`match h: e with` can change more of a branch's goal than expected.** It generalises
+   every occurrence of `e`, including ones that only appear after definitions in the goal
+   unfold. So branch goals may compute further than the original goal (`windowZero`, §8).
+   The reviewer called this expected with-abstraction behaviour; showing the branch goal in
+   messages is the remedy (§12, Q8).
+9. **A proofless `_ <= e` step doesn't mean the endpoints are equal.** It means the order
+   proposition computes to something `rfl` proves: `calc 0` / `_ <= n` is accepted (§5.1).
+10. **`E-REWRITE-BUDGET` is about cost, not truth.** A rewrite can fail because a comparison
+    was too expensive to decide, not because the occurrence was absent (§6.2).
+
+## 8. SW-26 (`if` case splits): the existing `match h: e with` already solves it (D40)
 
 `match h: e with` generalises `e` in the goal and binds `h: e = pattern` (§1.2). That is
 exactly the motive `Bool.inspect` asks for. Its syntactic occurrence test suits this case,
@@ -823,8 +1049,7 @@ Two things the experiment showed:
     terms no longer fitted.
   - The fix was to delete the now-redundant steps: the `False` branch became just
     `windowZero lo hi c (Succ s)`.
-  - This is simpler, but surprising: the branches' goals depend on where the scrutinee
-    happens to occur (§10, Q8).
+  - This is simpler, but surprising (§7, item 8).
 
 So SW-26 needs no new elaborator feature. The work left is to:
 
@@ -841,7 +1066,87 @@ The ticket's other idea, printing `if` in goals as `if`, is separate and still w
 - I don't recommend it now: `match` already covers the cases.
 - If `rewrite` lands, its keyed matcher could later replace `match`'s syntactic test.
 
-## 8. Effect on proof size
+## 9. Implementation sketch, staging and risks
+
+### Stage 1: `calc` (small; rough guess, two to three days)
+
+- **Lexer.** Add the keyword `calc`. Nothing else is reserved yet.
+- **Parser.** Add `Expr::Calc { first, steps, span }`, where each step is
+  `{ rel, rhs, proof: Option<Expr>, span }`. Layout follows `docs/syntax.md`: steps are the
+  lines indented past the `calc` line, and a proof may continue on further-indented lines.
+- **Elaborator** (`check.rs`, plus a new module):
+  - infer `e0`, and check each `ei` at its type;
+  - build each step's proposition `e(i-1) R ei` with the existing comparison code
+    (`numbers.rs`);
+  - check each step's proof against it, or check `rfl` against it when there is no proof;
+  - fold the steps with the §5.3 table;
+  - unify the result with the expected type, if there is one.
+- **Kernel.** No change. The output is ordinary `Eq.trans`/`J`/`Nat.leTrans` terms, which the
+  kernel re-checks.
+- **Tests.**
+  - Accept: the §10 `calc` texts, a `<`/`<=` mix, a chain in an inferring position, and
+    `calc 0` / `_ <= n` without a proof.
+  - Reject: `calc n` / `_ < n` without a proof, and each `E-CALC-*` message, as snapshots.
+
+### Stage 2: `rewrite` (medium; rough guess, four to six days)
+
+- **Lexer and parser.**
+  - Add the keyword `rewrite`, the `<-` token, and the contextual `in` (§6.1).
+  - Add `Expr::Rewrite { rules: Vec<(reverse, Expr)>, body: Option<Expr>, span }`.
+- **Elaborator, check mode only.**
+  - Infer each rule, keep its unsolved implicit arguments as rule metavariables, and require
+    an `Eq` type.
+  - Reject a left side with a metavariable at its head.
+  - Pick the term to search (§6.2), and run the search: key, syntax, carrier type, then
+    budgeted conversion, transactional per candidate.
+  - Abstract the matches, check the motive, check the body against the rewritten goal, and
+    produce `J`.
+  - Rules in a comma list are applied left to right.
+- **Reuse.** `lift::replace_with` with a hook is already the "replace matching subterms by a
+  variable" walk that `let` refolding and `match` generalisation use. The new parts are the
+  typed, keyed, transactional comparison and the shared budget.
+- **Metrics.** Record, per `rewrite` and in total for a file:
+  - candidate subterms visited, and how many passed the key test;
+  - conversion calls;
+  - evaluation steps used;
+  - conversion-cache hits.
+
+  These show whether keyed conversion is expensive on real programs. Report them under a
+  debug flag, or in the benchmark harness (`crates/bench`).
+- **Tests.**
+  - The §10 rewrite-only texts.
+  - Each failure in §6.3: nothing found; budget exhausted (an expensive `% 100` candidate);
+    a metavariable-headed rule; the `x % d` `auto` case; an occurrence under a binder.
+  - The `F ?x ?x` rollback case from §6.2.
+  - A candidate of the wrong carrier type that would otherwise convert.
+
+### Stage 3 (later, if wanted)
+
+- Rewrite in the body's own type when no goal is known (Arend's and `▸`'s behaviour).
+- Choosing occurrences.
+- Keyed matching for `match` generalisation.
+- `Int` order lemmas, so `calc` works on `Int`.
+
+### Risks
+
+- **Which form of the goal is searched.** If it is too evaluated, the term isn't found (the
+  Agda and Idris failures). If it is too literal, an equal-by-computation term isn't found.
+  Keyed matching is the mitigation, and the stage 2 tests are the check.
+- **`auto` arguments.** These are the most likely cause of ill-typed motives (§6.3). Two
+  occurrences of `x % d` with different `ok` proofs may also fail to match, since proofs
+  aren't irrelevant (§1.1). The [proof-irrelevance proposal](proof-irrelevance.md) would
+  remove that, provided the matcher keeps its same-type invariant (§6.2).
+- **Cost.** Keyed conversion runs a comparison at each plausible candidate. The shared budget
+  bounds it, `E-REWRITE-BUDGET` makes exhaustion visible, and the stage 2 metrics show
+  whether it matters.
+- **Messages.** The motive is invisible to the user, so errors must show the goal and what
+  was looked for (§6.3), not the motive's raw term.
+- **Over-use.** As with Agda, a proof that is a long `rewrite a, b, c, d in rfl` is short but
+  hides why it works. The house rule in D41 is the counterweight.
+- **DESIGN.md is out of date.** §6 lists `rewrite` among the existing "library functions";
+  there is no `rewrite` in the prelude today **[checked: grep]** (D42).
+
+## 10. Effect on proof size
 
 I rewrote five real lemmas by hand. Sizes are characters with runs of spaces and newlines
 squeezed to one, comments and blank lines removed, as in aoc-day01.md.
@@ -960,134 +1265,79 @@ What this shows **[inferred]**:
 - **Used together**, `calc` with `rewrite` steps makes long chains readable and short chains
   short (D41).
 
-## 9. Implementation sketch, staging and risks
+## 11. Questions for the reviewer (draft 2)
 
-### Stage 1: `calc` (small; rough guess, two to three days)
+These were the open questions in draft 2. The reviewer's answers are in §12.
 
-- **Lexer.** Add the keywords `calc`, `rewrite` and `in` (reserve all three now).
-- **Parser.** Add `Expr::Calc { first, steps, span }`, where each step is
-  `{ rel, rhs, proof: Option<Expr>, span }`. Layout follows `docs/syntax.md`: steps are the
-  lines indented past the `calc` line, and a proof may continue on further-indented lines.
-- **Elaborator** (`check.rs`, plus a new module):
-  - infer `e0`, and check each `ei` at its type;
-  - build each step's proposition with the existing comparison code (`numbers.rs`);
-  - check each proof, or check conversion for a step without one;
-  - fold the steps with the §5.3 table;
-  - unify the result with the expected type, if there is one.
-- **Kernel.** No change. The output is ordinary `Eq.trans`/`J`/`Nat.leTrans` terms, which the
-  kernel re-checks.
-- **Tests.** Accept: the §8 `calc` texts, plus a `<`/`<=` mix and a chain in an inferring
-  position. Reject: each `E-CALC-*` message, as snapshots.
+1. Keyed matching versus conversion cost: is it affordable, what should running out of budget
+   mean, and would syntactic matching be enough?
+2. `auto` proofs inside motives: report an error, or re-run `auto` in the motive?
+3. Under binders: is skipping occurrences that mention a bound variable right without
+   function extensionality?
+4. Is the mixed-relation table sound, and is "strongest relation wins" the right conclusion?
+5. Implicit arguments and dot notation in rules.
+6. Should `rewrite p` in a `calc` step search only the left side?
+7. Syntax: the `calc` layout, reserving `in`, the order of `rewrite p, q`.
+8. Is the `windowZero` generalisation surprise expected?
+9. Anything unsound, or anything that will surprise users?
 
-### Stage 2: `rewrite` (medium; rough guess, four to six days)
+## 12. Review answers
 
-- **Parser.** Add `Expr::Rewrite { rules: Vec<(reverse, Expr)>, body: Option<Expr>, span }`,
-  and the `<-` token.
-- **Elaborator, check mode only.**
-  - Infer each rule, and insert implicit arguments.
-  - Require an `Eq` type. Its left side must not be an unsolved metavariable.
-  - Pick the term to search (§6.2).
-  - Abstract the rule's left side.
-  - Check that the motive is well typed.
-  - Check the body against the rewritten goal.
-  - Produce `J`.
-- **Reuse.** `lift::replace_with` with a hook is already the "replace matching subterms by a
-  variable" walk that `let` refolding and `match` generalisation use. The new part is the
-  keyed comparison.
-- **Tests.**
-  - The §8 rewrite-only texts.
-  - Each failure mode in §6.3, including the `x % d` `auto` case and an occurrence under a
-    binder.
-  - A performance test: a rewrite in a goal containing `% 100`, which once took seconds to
-    compare (`docs/aoc-2025.md`, day 1). It must stay within budget.
+The external review of draft 2 answered as follows. The changes they led to are listed in
+"Changes since draft 2".
 
-### Stage 3 (later, if wanted)
+1. **Cost of keyed matching.** Keep keyed conversion matching, with no syntactic-only
+   fallback: the motivating examples need conversion. Compare syntactically first, convert
+   only same-key, same-arity, same-type candidates, and charge everything to one budget.
+   Running out is inconclusive and must be reported. Collect metrics in stage 2. (Adopted:
+   §6.2, §6.3, §9.)
+2. **`auto` proofs in motives.** Fail clearly and suggest rewriting a larger term; don't
+   re-run `auto` in the motive. A proof of `d != 0` really depends on `d`, and finding
+   another would change the problem. (Adopted: §6.3.)
+3. **Under binders.** Skip occurrences that depend on bound variables. There is no cheap
+   general improvement without congruence or extensionality reasoning; `List.mapCongr`-style
+   lemmas are the right escape hatch. Free occurrences under a binder can still be
+   rewritten. (Adopted: §6.3.)
+4. **Mixed-relation table.** Sound: a wrong term is rejected by the kernel, and the
+   combinations are logically correct. Define the conclusion by folding the table rather
+   than by "strongest wins". (Adopted: §5.2, §5.3.)
+5. **Implicit arguments and dot notation.** "The first match fixes the rule's implicit
+   arguments" is right, provided matching is transactional, only rule-side metavariables are
+   solved, the carrier type is checked first, and metavariable-headed left sides are
+   rejected. Dot notation resolved before matching is right; messages should keep the
+   user's syntax. (Adopted: §6.1, §6.2, §6.3.)
+6. **`rewrite p` in a `calc` step.** Don't restrict it to the left side. That would make the
+   same syntax mean different things in different places. Define it as `rewrite p in rfl`
+   against the whole step proposition, and document that `<-` is less common but not
+   unnecessary. (Adopted: §6.1, §7.)
+7. **Syntax.** The aligned `calc` form is the best of the options. Make `in` contextual if the
+   parser allows. Document that comma lists apply left to right. (Adopted: §6.1.)
+8. **`windowZero`.** Expected with-abstraction behaviour, not a sign that the search is
+   wrong. Restricting it arbitrarily could make branch contexts inconsistent. Document it,
+   and show branch goals well. (Adopted: §7, item 8.)
+9. **Soundness and surprises.** No kernel-unsound feature found. The surprises are listed in
+   §7.
 
-- Rewrite in the body's own type when no goal is known (Arend's and `▸`'s behaviour).
-- Choosing occurrences.
-- Keyed matching for `match` generalisation.
-- `Int` order lemmas, so `calc` works on `Int`.
+The review also said current Rocq replaces only the first occurrence by default. Running
+Rocq 9.1.1 showed otherwise (§4.5); the survey keeps draft 2's description, now checked.
 
-### Risks
+## 13. Decisions
 
-- **Which form of the goal is searched.** If it is too evaluated, the term isn't found (the
-  Agda and Idris failures). If it is too literal, an equal-by-computation term isn't found.
-  Keyed matching is the mitigation, and the stage 2 tests are the check.
-- **`auto` arguments.** These are the most likely cause of ill-typed motives (§6.3). Two
-  occurrences of `x % d` with different `ok` proofs may also fail to match, since proofs
-  aren't irrelevant (§1.1). The [proof-irrelevance proposal](proof-irrelevance.md) would
-  remove that.
-- **Cost.** Keyed matching runs a conversion check at each candidate subterm. It needs a
-  budget, and a comparison that runs out of budget must count as "no match", not as an error.
-- **Messages.** The motive is invisible to the user, so errors must show the goal and what
-  was looked for (§6.3), not the motive's raw term.
-- **Over-use.** As with Agda, a proof that is a long `rewrite a, b, c, d in rfl` is short but
-  hides why it works. The house rule in D41 is the counterweight.
-- **DESIGN.md is out of date.** §6 lists `rewrite` among the existing "library functions";
-  there is no `rewrite` in the prelude today **[checked: grep]** (D42).
+Each decision has a stable ID. All await Matt.
 
-## 10. Questions for the reviewer
-
-These are the points I am least sure of.
-
-1. **Keyed matching versus conversion cost.**
-   - Is a conversion check at every same-head subterm affordable in a checker whose
-     conversion can unfold arithmetic (`% 100` once took seconds)?
-   - Should a candidate that runs out of budget count as "no match" (silent), or be
-     reported?
-   - Would syntactic matching on the read-back goal, plus `calc` for everything else, be
-     enough in practice?
-2. **`auto` proofs inside motives.**
-   - Is "report an ill-typed motive and suggest rewriting a larger term" the right policy?
-   - Or should abstraction treat `auto` arguments specially, for example by re-running the
-     search for the abstracted variable in the motive? Lean's error message says `simp` can
-     handle "proofs and `Decidable` instances whose types depend on the rewritten term".
-   - Is there a sound, simple version of that for Stitchwort?
-3. **Under binders.** Is "skip occurrences that mention a bound variable" (Lean, Rocq) right
-   for a language with no function extensionality? Or is there a cheap, sound way to do
-   better for common cases such as `List.map (\x => …)`?
-4. **Soundness of the mixed-relation table (§5.3).** All produced terms are re-checked by
-   the kernel, so I believe a mistake can only cause a rejection. Is that right? And is
-   "strongest relation wins" (`R*`) the right rule for the conclusion?
-5. **Implicit arguments and dot notation in rules.**
-   - Rules are elaborated before the goal is searched. For a rule with implicit arguments,
-     such as `Eq.sym q` or a lemma with `[x y: a]`, is "solve them at the first match, then
-     require the others to match that instance" right? Lean and Rocq do this.
-   - Dot notation (`d.move t`) is resolved during elaboration to `Dial.move d t`, so I expect
-     matching to see only the resolved form. Are there cases where the user-visible form and
-     the matched form differ enough to surprise?
-6. **Direction and the `rewrite p` (no `in`) shortcut.** Abstracting in *both* sides of a
-   `calc` step's goal and closing by `rfl` makes `<-` rarely needed. Can it rewrite the wrong
-   side, or both, in a way that still checks but confuses the reader? Should `rewrite p` in a
-   `calc` step search only the left side?
-7. **Syntax.**
-   - Is Lean's `calc e0` / `_ R e := p` layout the best fit for a language whose other
-     syntax is Scala/TypeScript-like?
-   - Is reserving `in` acceptable?
-   - Is `rewrite p, q in t` clear about its order? It applies `p` first, to the goal.
-8. **`match` generalisation surprises.** In `windowZero` (§7), generalising the condition
-   also changed what each branch had to prove, because the condition occurred inside the
-   goal's definitions after evaluation. Is that expected with-abstraction behaviour, or a
-   sign that the occurrence search should be restricted?
-9. **Anything unsound, or anything that will surprise users,** anywhere in the note.
-
-## 11. Decisions
-
-Each decision has a stable ID. All are **proposed, awaiting external review**.
-
-| ID | Decision | Recommendation |
-|---|---|---|
-| D32 | `calc` syntax (§5.1) | Only the aligned form, `calc e0` then `_ R e := proof` lines. Not Lean's `calc e0 = e1 := p` first line, not lines without `_`, not Dafny's alternating lines. |
-| D33 | Steps without a proof (§5.1) | Yes: `_ = e` alone means "by computation", like Agda's `≡⟨⟩`. |
-| D34 | Relations in a chain (§5.3) | `=`, `<=` and `<` on `Nat`, mixed freely, from a fixed table. `Int` once its transitivity lemmas exist. A user-extensible table later, if ever. |
-| D35 | `rewrite` surface (§6.1) | `rewrite p in t`, `rewrite p` (meaning `in rfl`), `rewrite p, q in t`, ASCII `<-` for right to left. Reserve `calc`, `rewrite` and `in` now. |
-| D36 | Matching occurrences (§6.2) | Keyed matching from the start: same head and argument count, then syntactic, then conversion under a budget. Search the read-back goal, or a `calc` step's own sides. Rewrite all occurrences. |
-| D37 | Under binders (§6.3) | Skip occurrences that mention a bound variable, and point to `List.mapCongr`-style lemmas. No function extensionality. |
-| D38 | Goal not known (§6.4) | An error with a type-ascription hint for now. Arend's "rewrite the argument's type instead" possibly in stage 3. |
-| D39 | Staging (§9) | `calc` first (small, no new inference, useful at once for `<=` chains), then `rewrite`. |
-| D40 | SW-26 (§7) | Close it without new machinery: move the AoC `Bool.inspect` proofs to `match h: e with` (done for six in the experiment), delete `IsTrue`/`decIsTrue`, document the idiom. "Print `if` in goals as `if`" becomes its own ticket. |
-| D41 | House style once both exist (§8) | `rewrite` for one to three replacements; `calc` when the intermediate forms help the reader or the chain mixes relations. Then convert the AoC proofs. |
-| D42 | DESIGN.md §6 (§9) | Correct the claim that `rewrite` is a library function, and link this note. |
+| ID | Decision | Recommendation | Review of draft 2 |
+|---|---|---|---|
+| D32 | `calc` syntax (§5.1) | Only the aligned form, `calc e0` then `_ R e := proof` lines. | Agree |
+| D33 | Steps without a proof (§5.1) | Allowed; a step with no proof means "check `rfl` against `e(i-1) R ei`". | Agree with changes (made: was "the endpoints are convertible") |
+| D34 | Relations in a chain (§5.3) | `=`, `<=` and `<` on `Nat`, mixed freely, from a fixed composition table. The chain's relation is the fold of the table. `Int` once its transitivity lemmas exist. A user-extensible table later, if ever. | Agree with changes (made: fold, not "strongest wins") |
+| D35 | `rewrite` surface (§6.1) | `rewrite p in t`, `rewrite p` (meaning `in rfl` against the whole proposition), `rewrite p, q in t` applied left to right, ASCII `<-` for right to left. `in` contextual. | Agree with changes (made: contextual `in`, left-to-right stated) |
+| D36 | Matching occurrences (§6.2) | Keyed matching: key, syntax, carrier type, then conversion. Transactional, one-way matching of rule metavariables; reject a metavariable-headed left side. One shared budget, with exhaustion reported as `E-REWRITE-BUDGET`. Rewrite all occurrences. | Agree with changes (made: all four) |
+| D37 | Under binders (§6.3) | Skip occurrences that mention a bound variable, and point to `List.mapCongr`-style lemmas. No function extensionality. | Agree |
+| D38 | Goal not known (§6.4) | An error with a type-ascription hint for now. Arend's "rewrite the argument's type instead" possibly in stage 3. | Agree |
+| D39 | Staging (§9) | `calc` first (small, no new inference, useful at once for `<=` chains), then `rewrite`. Reserve only `calc` in stage 1. | Agree (keyword timing adopted) |
+| D40 | SW-26 (§8) | Close it without new machinery: move the AoC `Bool.inspect` proofs to `match h: e with` (done for six in the experiment), delete `IsTrue`/`decIsTrue`, document the idiom. "Print `if` in goals as `if`" becomes its own ticket. | Agree |
+| D41 | House style once both exist (§10) | `rewrite` for one to three replacements; `calc` when the intermediate forms help the reader or the chain mixes relations. Then convert the AoC proofs. | Agree |
+| D42 | DESIGN.md §6 (§9) | Correct the claim that `rewrite` is a library function, and link this note. | Agree |
 
 ## Sources
 
@@ -1109,14 +1359,17 @@ Each decision has a stable ID. All are **proposed, awaiting external review**.
   - [Propositional equality](https://idris2.readthedocs.io/en/latest/proofs/propositional.html)
   - [Syntax/PreorderReasoning.idr](https://github.com/idris-lang/Idris2/blob/main/libs/base/Syntax/PreorderReasoning.idr), [Syntax/PreorderReasoning/Generic.idr](https://github.com/idris-lang/Idris2/blob/main/libs/base/Syntax/PreorderReasoning/Generic.idr)
   - [src/TTImp/Elab/Rewrite.idr](https://github.com/idris-lang/Idris2/blob/main/src/TTImp/Elab/Rewrite.idr)
-- Rocq: [Reasoning with equalities](https://rocq-prover.org/doc/master/refman/proofs/writing-proofs/equality.html) (`rewrite`, `transitivity`)
+- Rocq:
+  - [Reasoning with equalities](https://rocq-prover.org/doc/master/refman/proofs/writing-proofs/equality.html) (`rewrite`, `transitivity`) and its source [equality.rst](https://github.com/rocq-prover/rocq/blob/master/doc/sphinx/proofs/writing-proofs/equality.rst)
+  - Rocq 9.1.1 from nixpkgs, for the occurrence behaviour in §4.5
 - F\*: [wiki, Calculational proofs](https://github.com/FStarLang/FStar/wiki/Calculational-proofs); [ulib/FStar.Calc.fsti](https://github.com/FStarLang/FStar/blob/master/ulib/FStar.Calc.fsti)
 - Dafny: [Reference manual §8.23, Calc Statement](https://dafny.org/latest/DafnyRef/DafnyRef#sec-calc-statement) ([source](https://github.com/dafny-lang/dafny/blob/master/docs/DafnyRef/Statements.md))
 - Arend: [arend-lib StdExtension.java](https://github.com/JetBrains/arend-lib/blob/master/meta/src/main/java/org/arend/lib/StdExtension.java) (`rewrite`, `rewriteI`, `rewriteEq`); [src/Paths.ard](https://github.com/JetBrains/arend-lib/blob/master/src/Paths.ard)
 - Stitchwort (repository paths, for the owner; the reviewer doesn't need them):
   - `aoc/src/day01/day01.sw`, `aoc/src/day02/day02.sw`, `aoc/src/day03/day03.sw`
   - `docs/comparisons/aoc-day01.md`, `docs/aoc-2025.md`
-  - `docs/core.md`, `docs/syntax.md`, `DESIGN.md` §6
-  - `crates/core/src/value.rs`, `crates/elab/src/{check.rs, matching.rs, numbers.rs, prelude.sw}`
+  - `docs/core.md`, `docs/syntax.md`, `DESIGN.md` §6, `docs/proposals/proof-irrelevance.md`
+  - `crates/core/src/value.rs`, `crates/elab/src/{check.rs, matching.rs, numbers.rs, prelude.sw}`,
+    `crates/syntax/src/parser.rs`
   - experiments in a scratch directory, not committed: the `match` versions of six proofs,
-    and the ascription checks of every `calc` line in §8
+    the ascription checks of every `calc` line in §10, and the proofless-step probes in §5.1
