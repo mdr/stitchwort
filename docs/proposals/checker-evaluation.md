@@ -3,7 +3,8 @@
 **Status:** Draft 2, 19 October 2026. Draft 1 (analysis and options,
 measured at `8e3d71c`) was reviewed independently; this draft folds the
 review in (§5, §6, §8) and records the user's decisions (§7). Stages 1A
-and 1B are implemented (`crates/elab/src/bind.rs`, §6).
+and 1B are implemented (`crates/elab/src/bind.rs`, §6). §9 re-measures
+AoC after `let` and stage 1, as input to the decision on option (b).
 
 **Decisions (user, 19 October 2026):** do option (a) now, as stages 1A and
 1B; the kernel `Let` (let stage 2) holds its value lazily while checking;
@@ -512,6 +513,163 @@ differential suite covering:
 - the lazy checker against the eager, erasure-off checker on bounded random
   well-typed terms;
 - run time: no checker thunk is ever constructed while running.
+
+## 9. Re-measure after `let` and option (a)
+
+*19 October 2026, at `3be0218` (let stages 1–3 and stages 1A/1B merged).*
+
+**In short:** AoC check times are no longer driven by values the types
+don't need, so option (b) has little to win on real programs. Two other
+costs dominate, and both have small fixes that together take day 2 from
+0.71 s to 0.27 s and day 1 from 0.31 s to 0.16 s (prototyped, not
+committed). **Recommendation: don't do (b) now; fix these two first.**
+
+### 9.1 Check times
+
+Release build, `stitchwort check`, best of 3, wall time. The empty program is
+`def main () : {IO} () := print "hi"`. The last three columns are scratch
+prototypes of the fixes in §9.3, each measured the same way.
+
+| Program | today | fix 1 (cache) | fix 2 (`filter`) | both |
+|---|---:|---:|---:|---:|
+| empty | 0.14 s | 0.10 s | 0.14 s | 0.11 s |
+| day 1 | 0.31 s | 0.15 s | 0.30 s | 0.16 s |
+| day 2 | 0.71 s | 0.54 s | 0.44 s | 0.27 s |
+| day 3 | 0.18 s | 0.13 s | 0.18 s | 0.14 s |
+| day 4 | 0.16 s | 0.11 s | 0.16 s | 0.11 s |
+| day 5 | 0.17 s | 0.11 s | 0.16 s | 0.11 s |
+
+Only days 1 and 2 are well above the baseline today: day 2 by 0.57 s,
+day 1 by 0.16 s. No AoC program comes near the "more than about a second"
+threshold of §6.
+
+### 9.2 Where day 2's time goes
+
+Method: a scratch change (not committed) printed, for each declaration of
+the user's file, the time, the evaluation steps (`Budget::total_work`), the
+visits, and the size of its elaborated type and body; it also split the
+steps by what was running (evaluation, conversion, unification, quotation,
+the kernel), counted unfoldings per definition, and attributed each
+top-level evaluation to its caller in the elaborator (from a backtrace).
+Steps are deterministic; times are corroboration.
+
+Day 2 takes 12.7 million steps over 74 declarations. Two things account
+for most of them.
+
+**Hot spot 1: hidden arguments solved to exponentially large terms (about
+45% of day 2's steps).** Two theorems take 6.5 million steps between them:
+
+| Declaration | time | steps | elaborated size (nodes) |
+|---|---:|---:|---:|
+| `termsSum` (14 lines of source) | 0.22 s | 4,265,967 | 163,887 |
+| `rangeTerms` (8 lines) | 0.11 s | 2,285,629 | 88,473 |
+| the next largest, `digitsBound` | 0.03 s | 931,218 | 1,353 |
+
+A 14-line proof elaborates to 164,000 nodes. The cause is the prelude's
+`List.filter` meeting a condition that can't be decided:
+
+```
+def List.filter (p : a -> Bool) : List a -> List a
+  | Cons x xs => if p x then Cons x (List.filter p xs) else List.filter p xs
+```
+
+`Range.invalid.terms` filters the list `[2..10]` with `\n => k * n <= size`,
+where `k` and `size` are variables in the proof. Each `if` is stuck, so the
+value of the filter is an `if` whose *both* branches contain the filter of
+the rest: a tree with 2⁹ = 512 leaves for 9 elements. When the elaborator
+fills in a hidden argument (the middle term of an `Eq.trans`, say), it
+writes that tree into the program (cause 3 of §3), and every later step
+(unification, the kernel's re-check, conversion) walks it again.
+
+Evidence: the program
+`theorem t (k : Nat) (size : Nat) : List.filter (\n => k * n <= size) (List.rangeFrom N 2) = … := Eq.trans rfl rfl`
+(the same filter on both sides) gives
+
+| `N` | steps | elaborated size |
+|---:|---:|---:|
+| 5 | 134,092 | 3,659 |
+| 7 | 399,452 | 14,603 |
+| 9 | 1,460,556 | 58,379 |
+| 11 | 5,704,636 | 233,483 |
+
+four times as much for every two more elements. With `:= rfl` instead
+(no hidden argument), the work still doubles per element (52,767 steps at
+3 up to 1,313,935 at 11), because comparing the two sides walks both
+trees. In `termsSum`, unfoldings of `Bool.ifThenElse`, `List.filter`,
+`Nat.leq` and `Nat.mul` (the `k * n` in the condition) split almost
+evenly between the elaborator's unification and the kernel's conversion,
+about 11,000 `if`s each.
+
+**Hot spot 2: the search for decision procedures re-reads every
+definition's type (about 37% of day 2's steps, 80% of day 1's).** Each time
+`auto` looks for a way to decide a proposition (`decide`, `==`, `if`, a
+`<=` proof argument), `auto::decision_procedures` walks *every* definition
+in scope, prelude included, and computes its result type by applying its
+type to fresh variables, to find the ones that return `Decidable …`
+(`crates/elab/src/auto.rs`, the loop over `g.defs`). The answer for a
+definition never changes once it's checked. Attributed by caller, this
+loop took 4.7 million of day 2's steps (112,000 small evaluations) and most
+of the 3.8 million of day 1's steps that the fix removes; it also costs
+about 0.04 s in loading the prelude itself, which is why the empty program
+gets faster.
+
+**What's left after both fixes** (day 2: 2.6 million steps, 0.27 s, about
+0.17 s above the baseline): the kernel's re-check of the elaborated
+proofs (1.2 million steps, about 45%), the elaborator's unification
+(0.55 million), its evaluation of types as it checks applications
+(0.4 million), the kernel's conversion (0.4 million), and the effects
+elaborator's check of whether a function's type performs effects
+(`effects::performs_after`, 0.2 million, again a walk over a type that
+could be remembered per definition). The largest remaining declarations,
+`termsSum` (31,000 nodes) and `laterCounts` (13,000), still elaborate to
+big terms: hidden arguments solved to the unfolded bodies of `Range.repeated`
+and friends, whose stuck `if`s and `let`s are copied rather than kept as
+calls. *That this is the source of the remaining size is a guess from the
+unfolding counts; I didn't trace it.*
+
+**What option (b)'s target costs today.** (b) avoids computing argument
+values that go into types but are never looked at. The elaborator's
+evaluation of arguments for dependent types (`Closure::apply_lazy` in
+`check::apply_args_postponing`) took about 0.1 million of the remaining
+2.6 million steps (4%). The big costs above are comparisons and
+unifications that *do* look at the values, and the copying of values into
+the program, which (b) doesn't change (§5: "(b) avoids work; only (d) …
+keeps solutions small").
+
+### 9.3 What would fix each hot spot
+
+| Hot spot | Fix | Expected gain | Size and risk |
+|---|---|---|---|
+| 2: decision-procedure scan | **Remember, per definition, whether it returns `Decidable`**, computed once when it's admitted (the module code already works out a similar flag, `decides`, per signature) | Measured with a scratch cache keyed by definition: day 2 0.71 → 0.54 s (with fix 2 already in, it removes 4.5 million steps: 7.1 → 2.6 million); day 1 0.31 → 0.15 s; empty program 0.14 → 0.10 s; days 3–5 about 0.05 s each | Small (one field or side table). No kernel change; same candidates in the same order |
+| 1: exponential `filter` values | **Library: write `List.filter` so the recursive call isn't duplicated**: `Cons x xs => List.filterStep x (List.filter p xs) (p x)`, with `filterStep x rest : Bool -> List a` matching `True`/`False`. A stuck condition then leaves one `filterStep c x rest` per element, a value linear in the list. `List.filterKeep`/`filterSkip` change their motive only | Measured: day 2 12.7 → 7.1 million steps, 0.71 → 0.44 s; `termsSum` 164,000 → 31,000 nodes; with fix 1 as well, 2.6 million steps and 0.27 s. With both fixes, `check` accepts and rejects the same 244 programs in `examples/accept/` and `examples/reject/` (exit codes compared, not messages), and the AoC tests pass | Small. Run time unchanged in kind (the rest is computed before the step, as both branches needed it anyway). Other prelude functions with an `if` around a recursive call in both branches have the same trap and are worth auditing |
+| 1, generally | **Glued values (d)**: hidden arguments keep the call `List.filter p xs` instead of its unfolding | Would fix the cause for any definition, including the remaining big terms (`Range.repeated`); the gain beyond the library fix is a guess, at most the 0.17 s left on day 2 | Large (§5) |
+| 1, generally, cheaper | **Keep a call folded when its body is stuck on an `if`**, as a case tree stuck on a pattern already does (`unfold` keeps `Def(id) spine` then). Compiling an `if` at the end of a definition's branch into the case tree itself would give this for free | A guess: the same effect as the library fix for every such definition, without rewriting them | Medium; changes what normal forms look like, so error messages and hashes change |
+| 1, comparison only | Compare two closures with the same body by their environments before going under them | Measured as a scratch change: the `rfl` program above stops growing (50,000 steps at both 9 and 11 elements), but day 2 only gains 3%, because its sides come from different source terms | Small, but little gain here |
+| remaining | Option (b) | At most the 4% above, by the counters | Medium–large, in the trusted core |
+| remaining | Remember `performs_after` per definition | Up to 0.2 million steps (8% of what's left); a guess at the time | Small |
+
+### 9.4 Recommendation on (b)
+
+**Not now, and probably not for AoC-style programs at all.** After option
+(a) and the lazy `let`, the remaining check time isn't spent computing
+values nobody needs. It's spent re-reading the same definitions' types in
+the decision search, and walking and copying terms that unification and
+the kernel genuinely compare. (b) addresses neither, and the counters put
+its target at about 4% of what remains on day 2.
+
+Instead, in order:
+
+1. **Cache "returns `Decidable`" per definition** (fix 1). Small, safe, and
+   it speeds up every program, including the empty one.
+2. **Rewrite `List.filter`** without the duplicated recursive call (fix 2),
+   and audit the prelude for the same pattern.
+3. Re-measure. If a real program is then still slow because hidden
+   arguments are solved to big unfolded terms, that's the case for **glued
+   values (d)** (or the cheaper "keep a call folded when it's stuck on an
+   `if`"), not (b).
+4. Keep (b) on the shelf for programs like §3's rows 9–11 and 14 (a closed,
+   expensive value inside a type, compared with itself), if a real program
+   ever shows them.
 
 ---
 
