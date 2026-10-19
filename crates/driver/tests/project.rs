@@ -888,7 +888,7 @@ fn assert_reaches_only_planned(label: &str, files: Vec<(String, String)>) {
         let mut terms: Vec<&Term> = Vec::new();
         for def in &g.defs[range.clone()] {
             terms.push(&def.ty);
-            terms.extend(def.body.as_deref());
+            terms.extend(def.body().map(|b| &**b));
         }
         for d in (0..g.datas.len()).map(DataId) {
             if data_namespace(d) == Some(namespace.as_str()) {

@@ -5,11 +5,11 @@
 # time_ms is the median wall time on the machine that recorded it.
 
 [examples]
-inputs = "339 files, ae6ff829e3b7466a"
-steps = 452387480
-visits = 54104357
-allocations = 566221624
-peak_bytes = 21782827
+inputs = "340 files, 6401a8b3784a88cf"
+steps = 505571776
+visits = 54262755
+allocations = 587697665
+peak_bytes = 104900203
 time_ms = 1707.9
 
 [extract-js]
