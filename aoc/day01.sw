@@ -64,7 +64,7 @@ def Turn.clicks : Turn -> List Turn
 type Dial (highest : Nat) = { position : Nat, inRange : position <= highest }
 
 -- Any integer, wrapped onto the dial.
-def Dial.wrap (highest : Nat) (x : Int) : Dial highest :=
+def Dial.fromInt (highest : Nat) (x : Int) : Dial highest :=
   { position = Int.modNat x (Succ highest), inRange = Int.modNatLt x (Succ highest) }
 
 -- The number of positions on the dial.
@@ -72,8 +72,8 @@ def Dial.size (d : Dial highest) : Nat := Succ highest
 
 -- Where a turn leaves the dial.
 def Dial.move (d : Dial highest) : Turn -> Dial highest
-  | Left n  => Dial.wrap highest (d.position.toInt - n.toInt)
-  | Right n => Dial.wrap highest (d.position.toInt + n.toInt)
+  | Left n  => Dial.fromInt highest (d.position.toInt - n.toInt)
+  | Right n => Dial.fromInt highest (d.position.toInt + n.toInt)
 
 def Dial.isZero (d : Dial highest) : Bool := d.position == 0
 
@@ -90,7 +90,7 @@ def example : List Text := ["L68", "L30", "R48", "L5", "R60", "L55", "L1", "L99"
 
 def after (t : Text) : Maybe Nat := (Turn.parse t).map (\turn => (dial.move turn).position)
 
-def zerosFrom (x : Int) (t : Turn) : Nat := (Dial.wrap 99 x).zerosDuring t
+def zerosFrom (x : Int) (t : Turn) : Nat := (Dial.fromInt 99 x).zerosDuring t
 
 test "example" := (solvePart1 (parseTurns example), solvePart2 (parseTurns example)) == (3, 6)
 test "example, click by click" := zerosPassedSpec dial (parseTurns example) == 6

@@ -16,11 +16,13 @@
 -- is the Moebius function.
 
 def main () : {IO} () :=
-  let (one, two) := solve (parseRanges (IO.readAll ()))
-  print ("Part 1: " ++ one.toText)
-  print ("Part 2: " ++ two.toText)
+  let ranges := parseRanges (IO.readAll ())
+  print ("Part 1: " ++ (solvePart1 ranges).toText)
+  print ("Part 2: " ++ (solvePart2 ranges).toText)
 
-def solve (ranges : List Range) : (Nat, Nat) := (total twice ranges, total weight ranges)
+def solvePart1 (ranges : List Range) : Nat := total twice ranges
+
+def solvePart2 (ranges : List Range) : Nat := total weight ranges
 
 def total (w : Nat -> Int) (ranges : List Range) : Nat :=
   ranges
@@ -82,7 +84,7 @@ def range (lo hi : Nat) : Range := { lo, hi }
 
 def example : Text := "11-22,95-115,998-1012,1188511880-1188511890,222220-222224,1698522-1698528,446443-446449,38593856-38593862,565653-565659,824824821-824824827,2121212118-2121212124"
 
-test "example" := solve (parseRanges example) == (1227775554, 4174379265)
+test "example" := (solvePart1 (parseRanges example), solvePart2 (parseRanges example)) == (1227775554, 4174379265)
 test "parse" := parseRanges "4-14,1490-3407\n" == [range 4 14, range 1490 3407]
 test "parse junk" := Range.parse "4-x" == Nothing
 test "12 written 3 times" := (range 0 1000000).repeated 2 3 == 10101 * ((10 + 99) * 90 / 2)
@@ -91,7 +93,7 @@ test "no double counting" := (range 111110 111112).invalid weight == 111111
 test "period three" := (range 998 1012).invalid weight == 999 + 1010
 test "empty overlap" := (range 12 21).invalid weight == 0
 
-theorem exampleAnswer : solve (parseRanges example) = (1227775554, 4174379265) := rfl
+theorem exampleAnswer : (solvePart1 (parseRanges example), solvePart2 (parseRanges example)) = (1227775554, 4174379265) := rfl
 
 theorem twiceIsWeight : twice 2 = weight 2 := rfl
 
@@ -488,5 +490,5 @@ theorem totalTwice : (ranges : List Range) -> (a : Nat) ->
       (totalTwice rs (a + (List.rangeFrom (Nat.digits r.hi).length 1 |> .sumBy (\k => r.repeatedSpec k 2))))
 
 -- (b) Part 1 is the brute-force sum.
-theorem part1Correct (ranges : List Range) : (solve ranges).fst = part1Spec ranges :=
+theorem part1Correct (ranges : List Range) : solvePart1 ranges = part1Spec ranges :=
   Eq.cong Int.toNat (totalTwice ranges 0)
