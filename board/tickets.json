@@ -20,9 +20,9 @@
     {
       "id": 2,
       "title": "Multi-file design: Draft 4 from the independent review of Draft 3",
-      "status": "doing",
-      "agent": "Opus",
-      "where": "worktree (Claude Code agent), docs/proposals/multi-file.md",
+      "status": "review",
+      "agent": "Matt",
+      "where": "docs/proposals/multi-file.md §13.1 (Q1, Q2)",
       "labels": [
         "multi-file",
         "design"
@@ -30,7 +30,9 @@
       "body": "Draft 3 awaiting independent review (the review prompt, with the note inline, was on the user's clipboard on 19 Oct). Note: `docs/proposals/multi-file.md`.\n\nMulti-file Draft 3 written (`6ee0888`; user's decisions folded in, new `auto`/instance-search section §4.9); awaiting independent review (prompt in the session scratchpad, with the note inline, on the user's clipboard 19 Oct). User (19 Oct): `check FILE` and `test FILE` use file mode like `run FILE`; `stitchwort` writes `.stitchwort/.gitignore` itself. `auto` ignores sibling files for now (sibling search deferred, revisit with interfaces); interfaces design not started yet (user: not now).\n\nMulti-file design Draft 3 written ([multi-file.md](docs/proposals/multi-file.md); files declare namespaces; stitchwort.yaml with source roots); awaiting independent review. User decided: `namespace X` lines, shared namespaces across files, file names meaningless, `stitchwort.yaml` source roots (default `src/`), `run Ns.fn` for any main-compatible function. Also decided (19 Oct): every project file must declare a namespace (E-NO-NAMESPACE, no default); imports per file; cycles between namespaces refused for now; adding to another namespace deferred (needs its own design); test cache in the project folder, gitignored; `run path/file.sw` is always file mode (Std only, needs `main`), `run Ns.fn` is project mode. Draft 3 (19 Oct): decisions folded in, AoC questions parked (§13.2), new §4.9 on `auto` candidates across files and namespaces (compared with Lean, Haskell, Agda, Idris instance search; designed to extend to interfaces); open questions for the user in §13.1.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
-      "commits": []
+      "commits": [
+        "926b623"
+      ]
     },
     {
       "id": 3,
