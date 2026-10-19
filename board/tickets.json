@@ -1838,9 +1838,9 @@
     {
       "id": 123,
       "title": "Rewrite the examples to dot notation",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "/Users/matt/scratch/opencode/funlang-20261019-214123",
       "labels": [
         "syntax",
         "tooling"
@@ -1912,14 +1912,14 @@
     {
       "id": 128,
       "title": "Decide the CLI's name",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "docs",
         "design"
       ],
-      "body": "D5 (Matt, 19 Oct). The binary is `stitchwort` (long). DESIGN.md §16 item 13 floats `sw`, `wort`; `stitch` clashes with a program-synthesis tool. Decide, then rename the binary, docs, VS Code and playground mentions in one sweep.",
+      "body": "D5 (Matt, 19 Oct). The binary is `stitchwort` (long). DESIGN.md §16 item 13 floats `sw`, `wort`; `stitch` clashes with a program-synthesis tool. Decide, then rename the binary, docs, VS Code and playground mentions in one sweep.\n\nClosed 19 Oct (Matt): `stitchwort` is fine as is.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
