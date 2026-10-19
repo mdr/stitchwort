@@ -99,14 +99,16 @@ fn examples_print_the_same_both_ways() {
         ran.push(path.file_name().unwrap().to_string_lossy().into_owned());
     }
     // The examples this covers, so that losing one is noticed.
-    for name in [
-        "adder.sw",
-        "adder-fuel.sw",
-        "cat.sw",
-        "collatz.sw",
-        "partial.sw",
-    ] {
-        assert!(ran.iter().any(|r| r == name), "{name} wasn't run: {ran:?}");
+    if std::env::var("EXAMPLES").map_or(true, |v| v.is_empty()) {
+        for name in [
+            "adder.sw",
+            "adder-fuel.sw",
+            "cat.sw",
+            "collatz.sw",
+            "partial.sw",
+        ] {
+            assert!(ran.iter().any(|r| r == name), "{name} wasn't run: {ran:?}");
+        }
     }
 }
 

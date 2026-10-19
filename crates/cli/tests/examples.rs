@@ -37,6 +37,12 @@ impl Example {
     }
 }
 
+/// Whether the example called `name` should run: `EXAMPLES` unset or empty
+/// means every example, otherwise only those whose name contains it.
+fn wanted(name: &str) -> bool {
+    std::env::var("EXAMPLES").map_or(true, |filter| filter.is_empty() || name.contains(&filter))
+}
+
 fn examples(dir: &str) -> Vec<Example> {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples");
     let Ok(entries) = std::fs::read_dir(root.join(dir)) else {
@@ -45,6 +51,7 @@ fn examples(dir: &str) -> Vec<Example> {
     let mut paths: Vec<PathBuf> = entries
         .map(|entry| entry.expect("readable directory entry").path())
         .filter(|path| path.extension().is_some_and(|ext| ext == "sw"))
+        .filter(|path| wanted(&path.file_name().unwrap().to_string_lossy()))
         .collect();
     paths.sort();
 
@@ -145,6 +152,7 @@ fn projects(dir: &str) -> Vec<(String, PathBuf)> {
     let mut found: Vec<(String, PathBuf)> = entries
         .map(|entry| entry.expect("readable directory entry").path())
         .filter(|path| path.is_dir())
+        .filter(|path| wanted(&path.file_name().unwrap().to_string_lossy()))
         .map(|path| {
             (
                 path.file_name().unwrap().to_string_lossy().to_string(),
@@ -170,7 +178,9 @@ fn accepted_projects_check() {
     with_stack(STACK, || {
         let mut failures = Vec::new();
         let all = projects("accept");
-        assert!(!all.is_empty());
+        if std::env::var("EXAMPLES").map_or(true, |v| v.is_empty()) {
+            assert!(!all.is_empty());
+        }
         for (name, path) in all {
             let mut session = Session::for_stack(STACK);
             if let Err(diagnostics) = load_project(&name, &path, &mut session) {
@@ -201,7 +211,9 @@ fn accepted_projects_check() {
 fn rejected_projects_fail_for_the_expected_reason() {
     with_stack(STACK, || {
         let all = projects("reject");
-        assert!(!all.is_empty());
+        if std::env::var("EXAMPLES").map_or(true, |v| v.is_empty()) {
+            assert!(!all.is_empty());
+        }
         for (name, path) in all {
             let config = std::fs::read_to_string(path.join("stitchwort.yaml"))
                 .expect("a project has a stitchwort.yaml");
