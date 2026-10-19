@@ -1533,9 +1533,9 @@
     {
       "id": 103,
       "title": "Shared compile cache across clones and worktrees: try kache (and/or sccache)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "investigation subagent; experiments in ~/scratch/kache-test",
       "labels": [
         "tooling"
       ],
