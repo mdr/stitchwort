@@ -766,6 +766,15 @@ similarly [R3].
 **Leaving out the default set** (D4's "possibly") isn't proposed for the
 first stage; §8 shows a compatible form.
 
+**A tension to keep watching** (Matt, 19 Oct 2026). Every name in the default
+set is one a program gets without asking for it, which is convenient but
+implicit, and crowds out a file that wants a different set of basics. The
+set stays small for now: types, their constructors and operations, and
+`not`. Nothing joins it without a reason as strong as these have, and an
+opt-out like Haskell's `NoImplicitPrelude` isn't planned. Built-in syntax
+(operators, literals, `if`) is the deeper version of the same tension: it
+always means `Std`'s declarations (§4.7), whatever a file imports.
+
 ### 4.7 Operators and other built-in syntax
 
 **Each piece of built-in syntax is bound to one fixed library declaration,
