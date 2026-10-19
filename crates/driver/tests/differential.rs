@@ -148,7 +148,14 @@ fn examples() -> Vec<(String, String)> {
         paths.sort();
         for path in paths {
             let name = format!("{dir}/{}", path.file_name().unwrap().to_string_lossy());
-            found.push((name, std::fs::read_to_string(&path).expect("readable")));
+            let source = std::fs::read_to_string(&path).expect("readable");
+            // An example can opt out with a `-- differential: skip (reason)`
+            // line, e.g. when it is too deep for the recursive reference
+            // evaluator.
+            if source.lines().any(|l| l.starts_with("-- differential: skip")) {
+                continue;
+            }
+            found.push((name, source));
         }
     }
     found
