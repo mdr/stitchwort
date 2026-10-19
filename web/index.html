@@ -27,6 +27,7 @@
     --hl-defined: #2f4f8f;
     --hl-number: #7b4b94;
     --hl-string: #8a5a12;
+    --hl-interp: #2d6a3e;
     --hl-comment: #627266;
     --hl-operator: #45604e;
     --hl-selection: rgb(45 106 62 / 0.2);
@@ -39,7 +40,7 @@
       --line: #27332b; --leaf: #82c795; --leaf-soft: #1b2a20; --ok: #7fcb95;
       --bad: #ef8f86; --bad-soft: #2f1a18; --warn: #e3b55e; --warn-soft: #2c2412; color-scheme: dark;
       --hl-keyword: #82c795; --hl-name: #7cc4c9; --hl-defined: #9db8ec; --hl-number: #c9a3e0;
-      --hl-string: #e0b870; --hl-comment: #7f9184; --hl-operator: #a3b8a8;
+      --hl-string: #e0b870; --hl-interp: #82c795; --hl-comment: #7f9184; --hl-operator: #a3b8a8;
       --hl-selection: rgb(130 199 149 / 0.25);
     }
   }
@@ -48,7 +49,7 @@
     --line: #27332b; --leaf: #82c795; --leaf-soft: #1b2a20; --ok: #7fcb95;
     --bad: #ef8f86; --bad-soft: #2f1a18; --warn: #e3b55e; --warn-soft: #2c2412; color-scheme: dark;
     --hl-keyword: #82c795; --hl-name: #7cc4c9; --hl-defined: #9db8ec; --hl-number: #c9a3e0;
-    --hl-string: #e0b870; --hl-comment: #7f9184; --hl-operator: #a3b8a8;
+    --hl-string: #e0b870; --hl-interp: #82c795; --hl-comment: #7f9184; --hl-operator: #a3b8a8;
     --hl-selection: rgb(130 199 149 / 0.25);
   }
 
@@ -196,6 +197,7 @@
   ::highlight(hl-defined) { color: var(--hl-defined); }
   ::highlight(hl-number) { color: var(--hl-number); }
   ::highlight(hl-string) { color: var(--hl-string); }
+  ::highlight(hl-interp) { color: var(--hl-interp); }
   ::highlight(hl-comment) { color: var(--hl-comment); }
   ::highlight(hl-operator) { color: var(--hl-operator); }
   .hl-keyword { color: var(--hl-keyword); }
@@ -203,6 +205,7 @@
   .hl-defined { color: var(--hl-defined); }
   .hl-number { color: var(--hl-number); }
   .hl-string { color: var(--hl-string); }
+  .hl-interp { color: var(--hl-interp); }
   .hl-comment { color: var(--hl-comment); }
   .hl-operator { color: var(--hl-operator); }
 
@@ -1063,12 +1066,14 @@ export def area : Shape -> Nat
   // its keywords, `--` line comments (there are no block comments), names
   // that may contain `'`, and string and character literals that end at the
   // closing quote or the end of the line, with `\` escaping the next
-  // character. `auto` is only a keyword as the first word in `[…]`, as in
-  // the parser. A name after `def` or `theorem` is being defined; `:=` and
-  // `=>` are coloured as operators, like the rest of the punctuation. One pass over the text, so a long paste stays quick.
+  // character. A string's `${…}` interpolation holds ordinary code, braces
+  // and all, delimited in its own colour. `auto` is only a keyword as the
+  // first word in `[…]`, as in the parser. A name after `def` or `theorem`
+  // is being defined; `:=` and `=>` are coloured as operators, like the rest
+  // of the punctuation. One pass over the text, so a long paste stays quick.
   const KEYWORDS = new Set(["type", "def", "theorem", "export", "test", "if", "then", "else",
                             "ability", "where", "handle", "with", "match", "return", "let", "Type", "Prop"]);
-  const KINDS = ["keyword", "name", "defined", "number", "string", "comment", "operator"];
+  const KINDS = ["keyword", "name", "defined", "number", "string", "interp", "comment", "operator"];
   const isWordStart = (c) => (c >= "a" && c <= "z") || (c >= "A" && c <= "Z") || c === "_";
   const isWord = (c) => isWordStart(c) || (c >= "0" && c <= "9") || c === "'";
   const isDigit = (c) => c >= "0" && c <= "9";
@@ -1083,11 +1088,45 @@ export def area : Shape -> Nat
       if (kind) mark(kind, from, to);
       kind = k; from = start; to = end;
     };
+    // The modes we're inside, outermost first: code (with its brace depth,
+    // when it is an interpolation) or a string. Code inside `${…}` goes
+    // through the same tokenizer as the top level, so nested strings, braces
+    // and comments behave as they do in the lexer.
+    const modes = [{ code: true, depth: 0, interp: false }];
     let i = 0;
     let previous = "";
     while (i < text.length) {
-      const c = text[i];
+      const mode = modes[modes.length - 1];
       const start = i;
+      if (!mode.code) {
+        // A string, from its opening quote or from just after an
+        // interpolation, up to its closing quote, the next `${`, or the end
+        // of the line. Escapes, including `\$`, stay inside the string.
+        while (i < text.length && text[i] !== "\n" && text[i] !== '"'
+               && !(text[i] === "$" && text[i + 1] === "{")) {
+          i += text[i] === "\\" && text[i + 1] !== "\n" ? 2 : 1;
+        }
+        const stop = Math.min(i, text.length);
+        if (stop < text.length && text[stop] === '"') {
+          i = stop + 1;
+          add("string", mode.start, i);
+          modes.pop();
+          previous = '"';
+        } else if (stop < text.length && text[stop] === "$") {
+          if (stop > mode.start) add("string", mode.start, stop);
+          add("interp", stop, stop + 2);
+          i = stop + 2;
+          modes.push({ code: true, depth: 0, interp: true });
+          previous = "$";
+        } else {
+          if (stop > mode.start) add("string", mode.start, stop);
+          i = stop;
+          modes.pop();
+          previous = '"';
+        }
+        continue;
+      }
+      const c = text[i];
       if (c === "\n") {
         i++;
       } else if (c === " " || c === "\r" || c === "\t") {
@@ -1109,11 +1148,32 @@ export def area : Shape -> Nat
         while (i < text.length && isDigit(text[i])) i++;
         add("number", start, i);
         previous = "0";
-      } else if (c === '"' || c === "'") {
+      } else if (c === '"') {
+        modes.push({ code: false, start });
         i++;
-        while (i < text.length && text[i] !== "\n" && text[i] !== c) i += text[i] === "\\" && text[i + 1] !== "\n" ? 2 : 1;
-        if (text[i] === c) i++;
+      } else if (c === "'") {
+        i++;
+        while (i < text.length && text[i] !== "\n" && text[i] !== "'") {
+          i += text[i] === "\\" && text[i + 1] !== "\n" ? 2 : 1;
+        }
+        if (text[i] === "'") i++;
         add("string", start, Math.min(i, text.length));
+        previous = c;
+      } else if (c === "{" && mode.interp) {
+        mode.depth++;
+        i++;
+        add("operator", start, i);
+        previous = c;
+      } else if (c === "}" && mode.interp && mode.depth === 0) {
+        i++;
+        add("interp", start, i);
+        modes.pop();
+        modes[modes.length - 1].start = i;
+        previous = c;
+      } else if (c === "}" && mode.interp) {
+        mode.depth--;
+        i++;
+        add("operator", start, i);
         previous = c;
       } else {
         i++;
