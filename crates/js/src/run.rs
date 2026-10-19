@@ -111,7 +111,7 @@ pub fn generate_program(g: &Globals, limits: Limits, main: &Term) -> Result<Prog
     let used = reachable(g, roots, |id| match codegen.try_info(id) {
         Ok(info) => {
             info.result_erased
-                || g.builtins.native(id).is_some()
+                || codegen.kernel_native(id).is_some()
                 || codegen.text_natives.contains_key(&id)
                 || codegen.int_natives.contains_key(&id)
         }

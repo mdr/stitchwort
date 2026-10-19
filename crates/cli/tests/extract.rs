@@ -18,6 +18,8 @@ use std::process::Command;
 
 use stitchwort_cli::driver::Session;
 use stitchwort_cli::render::render;
+use stitchwort_core::hash::data_hash;
+use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{apply, eval, force};
 use stitchwort_core::{BigUint, DataId, DefId, Globals, Limits, Term, Value};
 use stitchwort_js::{
@@ -1737,6 +1739,37 @@ fn int_is_bound_to_the_prelude() {
     );
 }
 
+/// The `bigint` representation of `Nat` and the string representation of
+/// `Text` apply to the prelude's declarations. If the prelude changes, this
+/// prints the new hashes: re-check the JS representation against the changed
+/// declarations before updating `NAT_DATA_HASH` or `TEXT_DATA_HASH` in
+/// `crates/js`.
+#[test]
+fn nat_and_text_are_bound_to_the_prelude() {
+    let session = Session::new();
+    let g = &session.elab.globals;
+    let mut unbound = Vec::new();
+    for (name, builtin, expected) in [
+        ("Nat", Builtin::Nat, stitchwort_js::NAT_DATA_HASH),
+        ("Text", Builtin::Text, stitchwort_js::TEXT_DATA_HASH),
+    ] {
+        let d = g
+            .registry
+            .data(builtin)
+            .unwrap_or_else(|| panic!("the prelude declares {name}"));
+        let hash = data_hash(g, d).expect("hashes").expect("checked").hex();
+        if hash != expected {
+            unbound.push(format!("the data type `{name}`: {hash:?}"));
+        }
+    }
+    assert!(
+        unbound.is_empty(),
+        "`Nat` or `Text` representation not bound to the prelude's declarations; \
+         re-check the JS representation and update its hash in `crates/js`:\n{}",
+        unbound.join("\n")
+    );
+}
+
 /// Definitions that call each other (docs/proposals/mutual-recursion.md
 /// §8.6). Only a definition's tail calls to itself are loops, so `isEven` on
 /// a large number uses a stack frame per step and runs out: a resource
@@ -2327,4 +2360,94 @@ refused(() => m.neg({ tag: "OfNat", n: 5n }));
 console.log("ok");
 "#;
     run_script("int-changed-type", &[("integers.mjs", &session)], script);
+}
+
+/// A changed `Nat` data type (here, one field renamed) turns the number
+/// representation off: `Nat` is an ordinary tagged data type, at the
+/// boundary and inside generated code, and its operations are compiled from
+/// their definitions rather than the natives that assume bigints.
+#[test]
+fn a_changed_nat_type_turns_the_representation_off() {
+    let prelude = changed_prelude("| Succ (n : Nat)", "| Succ (k : Nat)");
+    let mut session = Session::with_prelude(&prelude);
+    session
+        .load(
+            "changed-nat.sw",
+            "export def twice (n : Nat) : Nat := n + n\n\n\
+             export def plusThree (n : Nat) : Nat := n + 3\n",
+        )
+        .expect("checks");
+    let output = stitchwort_js::generate(&session.elab.globals, session.elab.limits)
+        .expect("extraction succeeds");
+    assert!(output.dts.contains("export type Nat ="), "{}", output.dts);
+    assert!(
+        output
+            .dts
+            .contains(r#"readonly tag: "Succ"; readonly k: Nat"#),
+        "{}",
+        output.dts
+    );
+    assert!(
+        output
+            .dts
+            .contains("export declare function twice(n: Nat): Nat;"),
+        "{}",
+        output.dts
+    );
+    let script = r#"
+import * as m from "./changed-nat.mjs";
+import assert from "node:assert/strict";
+
+const zero = { tag: "Zero" };
+const succ = (n) => ({ tag: "Succ", k: n });
+
+assert.deepEqual(m.twice(zero), zero);
+assert.deepEqual(m.twice(succ(zero)), succ(succ(zero)));
+assert.deepEqual(m.plusThree(zero), succ(succ(succ(zero))));
+console.log("ok");
+"#;
+    run_script("changed-nat", &[("changed-nat.mjs", &session)], script);
+}
+
+/// A changed `Text` data type (here, its field renamed) turns the string
+/// representation off: `Text` is an ordinary tagged data type, at the
+/// boundary and inside generated code, and its operations are compiled from
+/// their definitions rather than the text natives.
+#[test]
+fn a_changed_text_type_turns_the_representation_off() {
+    let prelude = changed_prelude("| MkText (chars : List Char)", "| MkText (cs : List Char)");
+    let mut session = Session::with_prelude(&prelude);
+    session
+        .load(
+            "changed-text.sw",
+            "export def echo (t : Text) : Text := t\n\n\
+             export def greet (t : Text) : Text := \"hi\" ++ t\n",
+        )
+        .expect("checks");
+    let output = stitchwort_js::generate(&session.elab.globals, session.elab.limits)
+        .expect("extraction succeeds");
+    assert!(output.dts.contains("export type Text ="), "{}", output.dts);
+    assert!(
+        output.dts.contains(r#"readonly tag: "MkText""#),
+        "{}",
+        output.dts
+    );
+    assert!(
+        output
+            .dts
+            .contains("export declare function echo(t: Text): Text;"),
+        "{}",
+        output.dts
+    );
+    let script = r#"
+import * as m from "./changed-text.mjs";
+import assert from "node:assert/strict";
+
+const text = (s) => ({ tag: "MkText", cs: [...s] });
+
+assert.deepEqual(m.echo(text("a😀")), text("a😀"));
+assert.deepEqual(m.greet(text("!")), text("hi!"));
+console.log("ok");
+"#;
+    run_script("changed-text", &[("changed-text.mjs", &session)], script);
 }

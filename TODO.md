@@ -431,9 +431,6 @@ capability we know we'll need before the work that needs it):
 - **Differential test overflows in debug** at `io.sw`'s "5,000 prints"
   (see Known issues entry, if present).
 
-- **Hash-check `Nat`'s and `Text`'s JS representations** like `Int`'s
-  (`Nat`'s isn't checked by hash, its operations being kernel natives;
-  `Text`'s only by shape). Raised by `Int` stage 5.
 - **`a_write_error_is_an_error`** (crates/cli/tests/run.rs) failed once
   during a gate and passed on rerun: possibly flaky.
 

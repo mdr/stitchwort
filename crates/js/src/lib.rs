@@ -31,14 +31,17 @@ const PASS: &str = "JavaScript generator";
 /// How a type crosses the JS boundary.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Boundary {
-    /// `bigint`, non-negative.
+    /// `bigint`, non-negative: the prelude's `Nat`, when it's the data type
+    /// the representation was written for ([`NAT_DATA_HASH`]).
     Nat,
     /// `bigint`, of either sign: the prelude's `Int`, when it's the data type
     /// the representation was written for ([`bind_int`]).
     Int,
     /// `boolean`.
     Bool,
-    /// `string`, well-formed (no lone surrogates).
+    /// `string`, well-formed (no lone surrogates): the prelude's `Text`, when
+    /// it's the data type the representation was written for
+    /// ([`TEXT_DATA_HASH`]).
     Text,
     /// `string`, holding exactly one Unicode scalar value.
     Char,
@@ -228,21 +231,20 @@ fn boundary(
             if args.is_empty() && int_data(g) == Some(*d) {
                 return Ok(Boundary::Int);
             }
-            // The prelude's types have codecs of their own, chosen by identity:
-            // a program's own `List` is encoded as the data type it is.
-            let builtin = [
-                Builtin::Nat,
-                Builtin::Bool,
-                Builtin::Text,
-                Builtin::Char,
-                Builtin::List,
-            ]
-            .into_iter()
-            .find(|b| g.registry.is_data(*b, *d));
+            if args.is_empty() && nat_data(g) == Some(*d) {
+                return Ok(Boundary::Nat);
+            }
+            if args.is_empty() && text_data(g) == Some(*d) {
+                return Ok(Boundary::Text);
+            }
+            // The prelude's other types have codecs of their own, chosen by
+            // identity: a program's own `List` is encoded as the data type it
+            // is.
+            let builtin = [Builtin::Bool, Builtin::Char, Builtin::List]
+                .into_iter()
+                .find(|b| g.registry.is_data(*b, *d));
             match (builtin, args.as_slice()) {
-                (Some(Builtin::Nat), []) => Ok(Boundary::Nat),
                 (Some(Builtin::Bool), []) => Ok(Boundary::Bool),
-                (Some(Builtin::Text), []) => Ok(Boundary::Text),
                 (Some(Builtin::Char), []) => Ok(Boundary::Char),
                 (Some(Builtin::List), [elem]) => Ok(Boundary::List(Box::new(boundary(
                     g, elem, params, visiting,
@@ -402,6 +404,8 @@ pub struct Options {
     /// JS (docs/proposals/compact-text.md, option A). Off, a `Text` is
     /// `MkText` of a cons list and every operation is compiled from its
     /// definition, as before: that's for differential tests of the natives.
+    /// This applies only to the prelude's `Text` as the representation was
+    /// written for it ([`TEXT_DATA_HASH`]).
     pub native_text: bool,
     /// An `Int` is a `bigint` inside generated code too, and the prelude's
     /// integer operations are native JS (docs/proposals/integers.md, "The
@@ -522,7 +526,7 @@ pub fn generate_with(g: &Globals, limits: Limits, options: Options) -> Result<Ou
         |id| match codegen.try_info(id) {
             Ok(info) => {
                 info.result_erased
-                    || g.builtins.native(id).is_some()
+                    || codegen.kernel_native(id).is_some()
                     || codegen.text_natives.contains_key(&id)
                     || codegen.int_natives.contains_key(&id)
                     || info.delay.is_some()
@@ -1103,9 +1107,11 @@ const encode = (t, v) => {
 
 struct Gen<'g> {
     g: &'g Globals,
+    /// The prelude's `Nat`, if the `bigint` representation applies
+    /// ([`nat_data`]).
     nat: Option<DataId>,
     /// The prelude's `Text`, if it's a JS string in generated code
-    /// ([`Options::native_text`]).
+    /// ([`Options::native_text`], [`text_data`]).
     text: Option<DataId>,
     /// The prelude's text operations with native JS, and which.
     text_natives: HashMap<DefId, TextNative>,
@@ -1172,13 +1178,7 @@ struct SelfCall {
 
 impl<'g> Gen<'g> {
     fn new(g: &'g Globals, options: Options) -> Result<Self, Diagnostic> {
-        let text = g.registry.data(Builtin::Text).filter(|d| {
-            let data = g.data(*d);
-            options.native_text
-                && data.params.is_empty()
-                && data.ctors.len() == 1
-                && data.ctors[0].fields.len() == 1
-        });
+        let text = text_data(g).filter(|_| options.native_text);
         let text_natives = if text.is_some() {
             bind_text_natives(g)
                 .map_err(Diagnostic::from)?
@@ -1205,7 +1205,7 @@ impl<'g> Gen<'g> {
         };
         Ok(Gen {
             g,
-            nat: g.registry.data(Builtin::Nat),
+            nat: nat_data(g),
             text,
             text_natives,
             int,
@@ -1214,6 +1214,13 @@ impl<'g> Gen<'g> {
             if_then_else: g.registry.def(Builtin::IfThenElse),
             run_delay: false,
         })
+    }
+
+    /// Which kernel-native implementation applies to `id`, if any: the
+    /// number natives assume the `bigint` representation, so they apply only
+    /// with it ([`nat_data`]).
+    fn kernel_native(&self, id: DefId) -> Option<native::Native> {
+        self.nat.and(self.g.builtins.native(id))
     }
 
     /// What's decided about a definition, from its type: computed on first
@@ -1330,7 +1337,7 @@ impl<'g> Gen<'g> {
                 int_native_js(*op)
             ));
         }
-        if let Some(op) = self.g.builtins.native(id) {
+        if let Some(op) = self.kernel_native(id) {
             return Ok(format!(
                 "const {} = {};\n",
                 def_name(&def.path),
@@ -1633,7 +1640,8 @@ impl<'g> Gen<'g> {
                 }
             }
             Term::Def(id) => self.def_ref(*id, &[], env)?,
-            Term::Nat(n) => format!("{n}n"),
+            Term::Nat(n) if self.nat.is_some() => format!("{n}n"),
+            Term::Nat(n) => self.nat_from_number(n),
             // A compact list of characters (a text literal's): the cons list
             // it stands for, built from a string in a loop.
             Term::Chars(chars) => {
@@ -1835,6 +1843,24 @@ impl<'g> Gen<'g> {
             sig.name
         );
         Ok(out)
+    }
+
+    /// A `Nat` written as a compact number, in the ordinary data-type
+    /// representation (when [`nat_data`] doesn't apply): a loop building the
+    /// type's constructors. The number representation would just be `{n}n`.
+    fn nat_from_number(&self, n: &BigUint) -> String {
+        let d = self
+            .g
+            .registry
+            .data(Builtin::Nat)
+            .expect("a checked `Nat` term has a declared `Nat`");
+        let data = self.g.data(d);
+        let zero = js_string_literal(&data.ctors[0].name);
+        let succ = js_string_literal(&data.ctors[1].name);
+        let key = ts_key(&field_key_at(self.g, d, 1, 0));
+        format!(
+            "((k) => {{ let v = {{ tag: {zero} }}; for (let i = 0n; i < k; i++) v = {{ tag: {succ}, {key}: v }}; return v; }})({n}n)"
+        )
     }
 
     /// The number a `Nat` term is, if it's written out: `Succ`s around
@@ -2403,6 +2429,29 @@ pub fn bind_text_natives(g: &Globals) -> Result<Vec<TextBinding>, ResourceError>
 /// against a changed `Int` and this updated.
 const INT_DATA_HASH: &str = "428aec701d06adbd62795fdbc01b7976c1beac83cdcb385d8d4eaebd14ce4b30";
 
+/// The content hash (DESIGN.md §11) of the prelude's `Nat`, which the
+/// `bigint` representation was written for. It covers the constructors,
+/// their order, names and fields. The representation is one contract with
+/// its constructors' and matching's JS, the boundary codec and the native
+/// number operations, so all of those apply exactly when this matches;
+/// otherwise `Nat` is compiled as the ordinary data type it is, with the
+/// ordinary codec and its operations from their definitions. A test fails
+/// until the representation has been checked against a changed `Nat` and
+/// this updated.
+pub const NAT_DATA_HASH: &str = "281ae0d5e9e49941a6eddd8b4d6b3f3f38a80ea3f95f9692e66096aae10040f5";
+
+/// The content hash (DESIGN.md §11) of the prelude's `Text`, which the JS
+/// string representation was written for. It covers its constructor, its
+/// name and field, and `List` and `Char`. The representation is one contract
+/// with its constructors' and matching's JS, the boundary codec, the `.d.ts`
+/// type and every text native, so all of those apply exactly when this
+/// matches; otherwise `Text` is compiled as the ordinary data type it is,
+/// with the ordinary codec (docs/proposals/compact-text.md, option A), and
+/// `run --js`, which requires it, refuses. A test fails until the
+/// representation has been checked against a changed `Text` and this
+/// updated.
+pub const TEXT_DATA_HASH: &str = "ee08e0a61923998097b784cb6b883ed71dbc2781c5af31f823eb6706aae44ee8";
+
 /// Whether the `bigint` representation applies to the program's `Int`, and
 /// which integer natives apply to its definitions.
 pub struct IntBinding {
@@ -2446,6 +2495,30 @@ fn int_data(g: &Globals) -> Option<DataId> {
         .operation(Limits::stack_only(Limits::default().stack));
     let hash = data_hash(g, d).expect("internal error: hashing `Int` ran out of resources")?;
     (hash.hex() == INT_DATA_HASH).then_some(d)
+}
+
+/// The prelude's `Nat`, if the `bigint` representation applies to it
+/// ([`NAT_DATA_HASH`]). Hashing a checked data type takes a few stack frames,
+/// and the hash is remembered.
+fn nat_data(g: &Globals) -> Option<DataId> {
+    let d = g.registry.data(Builtin::Nat)?;
+    let _op = g
+        .budget
+        .operation(Limits::stack_only(Limits::default().stack));
+    let hash = data_hash(g, d).expect("internal error: hashing `Nat` ran out of resources")?;
+    (hash.hex() == NAT_DATA_HASH).then_some(d)
+}
+
+/// The prelude's `Text`, if the JS string representation applies to it
+/// ([`TEXT_DATA_HASH`]). Hashing a checked data type takes a few stack
+/// frames, and the hash is remembered.
+fn text_data(g: &Globals) -> Option<DataId> {
+    let d = g.registry.data(Builtin::Text)?;
+    let _op = g
+        .budget
+        .operation(Limits::stack_only(Limits::default().stack));
+    let hash = data_hash(g, d).expect("internal error: hashing `Text` ran out of resources")?;
+    (hash.hex() == TEXT_DATA_HASH).then_some(d)
 }
 
 /// A prelude integer operation with a native JS implementation, in generated
