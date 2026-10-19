@@ -27,7 +27,7 @@ def stepNumber (total: Nat) (l: Text): Maybe Nat -> (Nat -> {IO} Nat) -> {IO} Na
 def step (total: Nat): Maybe Text -> (Nat -> {IO} Nat) -> {IO} Nat
   | Nothing, more => total
   | Just l,  more =>
-    if Text.isEmpty l then total else stepNumber total l (Text.toNat (Text.trim l)) more
+    if l.isEmpty then total else stepNumber total l ((l.trim).toNat) more
 
 -- Adds the numbers on at most this many more lines. The bound keeps the
 -- recursion structural: every run of `main` performs a bounded number of

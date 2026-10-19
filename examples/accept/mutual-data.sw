@@ -126,9 +126,9 @@ def flatten: Rose a -> List a
 
 def flattenAll: Roses a -> List a
   | NoRoses        => Nil
-  | MoreRoses r rs => List.append (flatten r) (flattenAll rs)
+  | MoreRoses r rs => (flatten r).append (flattenAll rs)
 
-test "flatten" := List.length (flatten (Bloom 1 (MoreRoses (Bloom 2 NoRoses) (MoreRoses (Bloom 3 NoRoses) NoRoses)))) == 3
+test "flatten" := (flatten (Bloom 1 (MoreRoses (Bloom 2 NoRoses) (MoreRoses (Bloom 3 NoRoses) NoRoses)))).length == 3
 
 -- A sibling may be the result of a function field. Calling it gives a part
 -- of the matched value, so it's a smaller argument.

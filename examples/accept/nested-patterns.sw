@@ -29,7 +29,7 @@ def describe: Nat -> Nat
 -- `a == b` asks the decision procedure for `a = b`, giving a `Bool`.
 test "half" := half 101 == 50
 test "fib" := fib 20 == 6765
-test "zip" := List.length (zipSum [1, 2, 3] [4, 5]) == 2
+test "zip" := (zipSum [1, 2, 3] [4, 5]).length == 2
 test "two" := hasTwo [1, 2]
 test "not three" := not (hasTwo [1, 2, 3])
 test "special" := describe 7 == 70

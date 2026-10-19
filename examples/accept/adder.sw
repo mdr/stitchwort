@@ -43,7 +43,7 @@ def stepNumber (total: Nat) (l: Text): Maybe Nat -> (Nat -> {IO, Partial | e} Na
 def step (total: Nat): Maybe Text -> (Nat -> {IO, Partial | e} Nat) -> {IO, Partial | e} Nat
   | Nothing, more => total
   | Just l,  more =>
-    if Text.isEmpty l then total else stepNumber total l (Text.toNat (Text.trim l)) more
+    if l.isEmpty then total else stepNumber total l ((l.trim).toNat) more
 
 -- Adds up the numbers on the lines to come, until an empty line or the end
 -- of the input.

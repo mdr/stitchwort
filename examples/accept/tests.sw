@@ -4,7 +4,7 @@
 
 def reverse: List a -> List a
   | Nil       => Nil
-  | Cons x xs => List.append (reverse xs) [x]
+  | Cons x xs => (reverse xs).append [x]
 
 def equalLists: List Nat -> List Nat -> Bool
   | Nil,       Nil       => True

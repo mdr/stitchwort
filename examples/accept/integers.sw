@@ -88,29 +88,29 @@ theorem showNeg: Int.toText (Int.NegSucc 41) = "-42" := rfl
 
 theorem showZero: Int.toText (Int.OfNat 0) = "0" := rfl
 
-theorem readLeadingZeros: Text.toInt "-007" = Just (Int.NegSucc 6) := rfl
+theorem readLeadingZeros: "-007".toInt = Just (Int.NegSucc 6) := rfl
 
-theorem readMinusZero: Text.toInt "-0" = Just (Int.OfNat 0) := rfl
+theorem readMinusZero: "-0".toInt = Just (Int.OfNat 0) := rfl
 
-theorem readPlain: Text.toInt "42" = Just (Int.OfNat 42) := rfl
+theorem readPlain: "42".toInt = Just (Int.OfNat 42) := rfl
 
-theorem readLoneMinus: Text.toInt "-" = Nothing := rfl
+theorem readLoneMinus: "-".toInt = Nothing := rfl
 
-theorem readEmpty: Text.toInt "" = Nothing := rfl
+theorem readEmpty: "".toInt = Nothing := rfl
 
-theorem readPlus: Text.toInt "+5" = Nothing := rfl
+theorem readPlus: "+5".toInt = Nothing := rfl
 
-theorem readTwoMinuses: Text.toInt "--5" = Nothing := rfl
+theorem readTwoMinuses: "--5".toInt = Nothing := rfl
 
-theorem readLeadingSpace: Text.toInt " 5" = Nothing := rfl
+theorem readLeadingSpace: " 5".toInt = Nothing := rfl
 
-theorem readTrailingSpace: Text.toInt "5 " = Nothing := rfl
+theorem readTrailingSpace: "5 ".toInt = Nothing := rfl
 
-theorem readHex: Text.toInt "0x10" = Nothing := rfl
+theorem readHex: "0x10".toInt = Nothing := rfl
 
-theorem readDecimalPoint: Text.toInt "5.0" = Nothing := rfl
+theorem readDecimalPoint: "5.0".toInt = Nothing := rfl
 
-theorem readFullwidth: Text.toInt "５" = Nothing := rfl
+theorem readFullwidth: "５".toInt = Nothing := rfl
 
 -- Sign, absolute value, conversions.
 theorem signNeg: Int.sign (Int.NegSucc 9) = Int.NegSucc 0 := rfl
