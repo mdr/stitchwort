@@ -1072,7 +1072,8 @@ export def area : Shape -> Nat
   // is being defined; `:=` and `=>` are coloured as operators, like the rest
   // of the punctuation. One pass over the text, so a long paste stays quick.
   const KEYWORDS = new Set(["type", "def", "theorem", "export", "test", "if", "then", "else",
-                            "ability", "where", "handle", "with", "match", "return", "let", "Type", "Prop"]);
+                            "ability", "where", "handle", "with", "match", "return", "let", "Type", "Prop",
+                            "namespace", "import"]);
   const KINDS = ["keyword", "name", "defined", "number", "string", "interp", "comment", "operator"];
   const isWordStart = (c) => (c >= "a" && c <= "z") || (c >= "A" && c <= "Z") || c === "_";
   const isWord = (c) => isWordStart(c) || (c >= "0" && c <= "9") || c === "'";
