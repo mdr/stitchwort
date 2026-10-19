@@ -43,13 +43,38 @@
     },
     "escape": {
       "name": "constant.character.escape.stitchwort",
-      "match": "\\\\(?:[ntr\\\\\"']|u\\{[0-9A-Fa-f]+\\})"
+      "match": "\\\\(?:[ntr\\\\\"'$]|u\\{[0-9A-Fa-f]+\\})"
+    },
+    "interpolation": {
+      "name": "meta.interpolation.stitchwort",
+      "begin": "\\$\\{",
+      "end": "\\}|$",
+      "beginCaptures": {
+        "0": { "name": "punctuation.section.interpolation.begin.stitchwort" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.section.interpolation.end.stitchwort" }
+      },
+      "contentName": "meta.embedded.line.stitchwort",
+      "patterns": [
+        { "include": "#braces" },
+        { "include": "$self" }
+      ]
+    },
+    "braces": {
+      "begin": "\\{",
+      "end": "\\}",
+      "patterns": [
+        { "include": "#braces" },
+        { "include": "$self" }
+      ]
     },
     "string": {
       "name": "string.quoted.double.stitchwort",
       "begin": "\"",
       "end": "\"|$",
       "patterns": [
+        { "include": "#interpolation" },
         { "include": "#escape" },
         { "name": "invalid.illegal.escape.stitchwort", "match": "\\\\." }
       ]
