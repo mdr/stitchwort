@@ -152,7 +152,10 @@ fn examples() -> Vec<(String, String)> {
             // An example can opt out with a `-- differential: skip (reason)`
             // line, e.g. when it is too deep for the recursive reference
             // evaluator.
-            if source.lines().any(|l| l.starts_with("-- differential: skip")) {
+            if source
+                .lines()
+                .any(|l| l.starts_with("-- differential: skip"))
+            {
                 continue;
             }
             found.push((name, source));
