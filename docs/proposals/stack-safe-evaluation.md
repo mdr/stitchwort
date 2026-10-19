@@ -108,7 +108,7 @@ Generated JavaScript has the same problem but needs different fixes, so it's out
 
 ## Background: the language and its evaluator
 
-Stitchwort is a small, strict, pure, total, dependently-typed language, written in Rust. It's a hobby project.
+Stitchwort is a small, strict, pure, total, dependently-typed language, written in Rust.
 - Programs are type-checked by a kernel.
 - Proved code can be extracted to JavaScript.
 - There's a browser playground, which runs the compiler as WebAssembly.

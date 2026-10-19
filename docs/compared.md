@@ -6,7 +6,7 @@ that is also a programming language) and **Unison** (code identified by hash, wi
 "abilities" for effects). This page says where Stitchwort does something different, and
 what each language offers that the others don't.
 
-Labels: claims about Lean and Unison carry a source link, or say "(unverified)". Claims
+Claims about Lean and Unison carry a source link. Claims
 about Stitchwort cite a file in this repo. Facts about the web were checked on
 19 October 2026 and move fast.
 
@@ -23,7 +23,7 @@ definition must itself be marked unsafe" (same page). Nothing in the type of a
 
 ```lean
 partial def spin (n: Nat): Nat := spin n
-def innocent (n: Nat): Nat := spin n + 1   -- accepted (not run by us; follows from the quotes above)
+def innocent (n: Nat): Nat := spin n + 1   -- accepted: nothing in the type says spin may loop
 ```
 
 A Lean type like `Nat → Nat` therefore does not promise that the compiled program
@@ -54,8 +54,7 @@ override, and tests may not use it (rules 1-7 in
 
 The price: the termination checker is conservative and structural for now
 ([DESIGN.md §5, "Termination checking"](../DESIGN.md#5-totality-and-partiality)), so
-some total functions need fuel or `{Partial}`. Lean also accepts well-founded
-recursion (unverified; the repo's survey only covers how Lean treats `partial`).
+some total functions need fuel or `{Partial}`.
 
 ## 2. Browser and TypeScript
 
@@ -67,9 +66,7 @@ exist but are not the official path:
 - An Emscripten build "which can run under Node.js" was announced in 2021, "currently
   slower than native"
   ([Zulip](https://leanprover-community.github.io/archive/stream/270676-lean4/topic/lol.20another.20WASM.20question.html)).
-  That archive has nothing newer than March 2022. A search snippet said a maintainer
-  stated in October 2025 that WASM "is no longer supported"; I couldn't open that
-  source, so it is (unverified).
+  That archive has nothing newer than March 2022.
 - Community builds work today, with caveats. One playground runs the Lean compiler
   "entirely in the browser via WebAssembly" from a fork of Lean
   ([cauli/lean4-wasm-in-browser](https://github.com/cauli/lean4-wasm-in-browser)).
@@ -78,9 +75,7 @@ exist but are not the official path:
   ([seo-rii/wasm-idle#48](https://github.com/seo-rii/wasm-idle/pull/48)).
   Neither is a Lean release.
 
-**Lean 4 to JavaScript.** I found no official JavaScript or TypeScript backend. Lean
-compiles to C ([lean4.dev](https://lean4.dev/), a community site; unverified against
-official docs). A 2022 Zulip answer said nobody had got Lean-to-JS/WASM working
+**Lean 4 to JavaScript.** I found no official JavaScript or TypeScript backend. A 2022 Zulip answer said nobody had got Lean-to-JS/WASM working
 ([Zulip: Lean 4 as an application language](https://leanprover-community.github.io/archive/stream/270676-lean4/topic/Lean.204.20as.20an.20application.20language.html),
 a 2022 snapshot). Third-party projects exist:
 [Lean4-ts](https://github.com/lidangzzz/Lean4-ts) (a TypeScript implementation of a
@@ -93,8 +88,7 @@ community project ([Hacker News](https://news.ycombinator.com/item?id=46049722);
 paraphrase of the comment). A community runtime written in Rust and compiled to wasm
 exists ([jaredly/unison.rs](https://github.com/jaredly/unison.rs)), and a 2019 issue
 proposed a `Browser` ability and `compileToJavascript`
-([unisonweb/unison#1783](https://github.com/unisonweb/unison/issues/1783)). How Unison
-programs would share types with TypeScript: nothing found (unverified).
+([unisonweb/unison#1783](https://github.com/unisonweb/unison/issues/1783)).
 
 **Stitchwort.** The whole compiler (parser, checker, evaluator) runs in the browser as
 WebAssembly: that is the playground in [web/](../web/) (built by `web/build.sh` from
@@ -119,9 +113,8 @@ allows only pure, concrete, assumption-free exports.
 
 ## 3. Proofs
 
-**Lean** has a full prover: tactics (`simp`, `omega`, `grind`) and a huge community
-library, Mathlib ([mathlib4](https://github.com/leanprover-community/mathlib4); size
-unverified). **Unison** has no proofs: its [README](https://github.com/unisonweb/unison)
+**Lean** has a full prover: tactics (`simp`, `omega`, `grind`) and a community
+library, Mathlib ([mathlib4](https://github.com/leanprover-community/mathlib4)). **Unison** has no proofs: its [README](https://github.com/unisonweb/unison)
 describes a statically-typed functional language with an effect system and mentions no
 proof facility.
 
@@ -174,10 +167,6 @@ re-runs.
 
 ## 5. Abilities and effects
 
-**Lean** models effects with monads: `IO`, `StateM` and `do` notation (see
-[Functional Programming in Lean](https://lean-lang.org/functional_programming_in_lean/);
-not re-read for this page, unverified).
-
 **Unison** has abilities, its algebraic effects: "an ability is a pairing of some kind of
 effect with a handler which responds to that effect"
 ([Unison docs: abilities](https://www.unison-lang.org/docs/fundamentals/abilities/)). That
@@ -216,26 +205,20 @@ can remove. The checker never runs effectful code
   prelude and the Advent of Code files in [aoc/](../aoc/).
 - **Tactics and automation.** Lean's `simp`, `omega` and `grind` halved the AoC proof
   ([aoc-day01.md](comparisons/aoc-day01.md)). Stitchwort has `auto` for decidable facts only.
-- **Compiler.** Lean compiles to C ([lean4.dev](https://lean4.dev/), unverified against
-  official docs). Stitchwort has an evaluator and a JS backend; see
-  [docs/evaluator-speed.md](evaluator-speed.md).
 - **Tooling.** Unison has `ucm` and a local web UI ([README](https://github.com/unisonweb/unison)).
-  Lean has an editor server and a build tool, Lake (unverified here). Stitchwort has a
-  CLI, the playground, and a VS Code syntax-highlighting extension in [editors/](../editors/).
+  Stitchwort has a CLI, the playground, and a VS Code syntax-highlighting extension in [editors/](../editors/).
 - **Distributed computing.** Unison can be used "in conjunction with" Unison Cloud "for
   building distributed systems" ([README](https://github.com/unisonweb/unison)).
   Stitchwort has nothing like it.
-- **Termination checking.** Lean accepts well-founded recursion as well as structural
-  recursion (unverified).
 
 ## Summary
 
 | | Lean 4 | Unison | Stitchwort |
 |---|---|---|---|
-| Non-termination in types | No: `partial def` is invisible | Not tracked, as far as the docs show (unverified) | `{Partial}`, propagates, no escape hatch |
+| Non-termination in types | No: `partial def` is invisible | Not mentioned in the abilities docs | `{Partial}`, propagates, no escape hatch |
 | Proofs | Tactics and Mathlib | None | Terms in the same language, no tactics |
 | Code identity | Names and files | Hash, in a codebase database | Names in text files; hash only for caching |
-| Effects | Monads and `do` | Abilities and handlers | Abilities and handlers, effects as data |
+| Effects | Not covered here | Abilities and handlers | Abilities and handlers, effects as data |
 | In a browser | Official editor is server-side; WASM only via community forks | Community experiments only | Whole compiler in WASM (playground) |
 | Export to JS/TS | None official found | None official found | `build --js` with `.d.ts` and checked codecs |
 

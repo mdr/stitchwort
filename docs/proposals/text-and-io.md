@@ -222,7 +222,7 @@ type Text : Type =
 
 ### Making it fast, in stages
 
-1. **Plain lists.** Everything above, with nothing new trusted. Text is slow for long strings, which a toy language can live with for a while.
+1. **Plain lists.** Everything above, with nothing new trusted. Text is slow for long strings, which is acceptable for now.
 2. **Compact text in generated JavaScript.** Extracted code represents `Text` as a JS string and implements selected operations natively. This adds to the *extraction* correctness obligation, which is already trusted, but not to proof checking. The JS implementations must use scalar semantics, not code units. In particular:
    - `length` counts code points of well-formed strings, not `.length`;
    - ordering compares scalars, not UTF-16 units;
@@ -231,7 +231,7 @@ type Text : Type =
    - a mode that switches text natives off, with differential tests against that independent path, never against expected results computed by the same natives;
    - compact values must still behave as `MkText` and its list in pattern matching, conversion and quoting.
 
-A later move to Lean-style bytes with a validity proof would preserve the API through the list view, but not necessarily proofs that relied on the `MkText` constructor or its reductions. For a toy project that's acceptable; the round-trip lemmas give a more representation-independent route meanwhile.
+A later move to Lean-style bytes with a validity proof would preserve the API through the list view, but not necessarily proofs that relied on the `MkText` constructor or its reductions. That's acceptable for now; the round-trip lemmas give a more representation-independent route meanwhile.
 
 ### The JavaScript boundary
 

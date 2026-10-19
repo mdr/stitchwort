@@ -164,7 +164,7 @@ The review's answers to draft 1's seven open questions are summarised in [Review
 
 ### Stitchwort in brief
 
-Stitchwort is a toy language: strict, pure, total and dependently typed, written in Rust. Its main use is writing library functions, proving things about them, and calling them from a JavaScript or TypeScript application. The compiler also runs in the browser as WebAssembly (the "playground").
+Stitchwort is a strict, pure, total and dependently typed, written in Rust. Its main use is writing library functions, proving things about them, and calling them from a JavaScript or TypeScript application. The compiler also runs in the browser as WebAssembly (the "playground").
 
 The parts that matter here:
 
