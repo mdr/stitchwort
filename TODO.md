@@ -52,6 +52,9 @@ Waiting on a decision (for the morning):
 - Proof `let`s (from day 3): a `let` is opaque to the checker (after
   `let p := 10 ^ n`, a proof about `p + 1` doesn't see `p`'s value), and
   a `let` can't bind a proof (`E-UNIVERSE`). Both need compiler work.
+  Design note: `docs/proposals/let.md` (recommends a kernel `Let`, staged
+  after an elaborator-only step 0; also covers `grid.rolls` after an
+  effectful `let`). Waiting for the user's review.
 - Day 4 runs in 16 s: worth the evaluator speed check now?
 - Day 2 specs enumerate blocks rather than walking ids (a proof over ids
   needs a long counting argument; the cross-check test covers it).
