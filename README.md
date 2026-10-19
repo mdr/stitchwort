@@ -39,3 +39,7 @@ Solutions with proofs are in [`aoc/`](aoc/), with notes in
 [docs/aoc-2025.md](docs/aoc-2025.md). Puzzle inputs aren't included; put
 yours in `aoc/inputs/dayNN.txt` and run
 `cargo run --release -- run --js aoc/day01.sw < aoc/inputs/day01.txt`.
+
+## Licence
+
+MIT; see [LICENSE](LICENSE).
