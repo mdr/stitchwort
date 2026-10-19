@@ -1290,9 +1290,9 @@
     {
       "id": 89,
       "title": "Multi-file stage 1: implementation (projects, namespace lines, per-file imports)",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "spec: scratchpad/tasks/mf-stage1-spec.md; then Sonnet in a worktree",
       "labels": [
         "multi-file",
         "elab"
