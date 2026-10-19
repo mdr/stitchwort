@@ -1780,6 +1780,14 @@ fn op_call(
 
     if !may_perform(cx, arg)? {
         let x = check(cx, arg, &dom)?;
+        // The result type comes from the operation's `res`, which usually
+        // looks only at which operation it is: `(\%arg => op %arg) x`, so
+        // that neither this nor the kernel's check of `Call`'s fields
+        // computes `x` (docs/proposals/checker-evaluation.md, option (a)).
+        let whole = |cx: &Ctx, ty: &Value| comp_type(cx, row, ty.clone());
+        if let Some(found) = crate::bind::bind_argument(cx, "%arg", &dom, &x, make, whole)? {
+            return Ok(found);
+        }
         return make(cx, x);
     }
     // An effectful argument runs first.

@@ -537,15 +537,13 @@ fn equation(cx: &mut Ctx, op: BinOp, a: Term, b: Term, t: &Value) -> Result<(Ter
         }
         // `a == b` is `toBool d`, for a decision procedure `d` for `a = b`,
         // found as for `if h : a = b`.
+        // The search sees the operands as variables where it can
+        // (`bind.rs`), so they aren't computed here or by the kernel.
         _ => {
-            let decision = crate::auto::decide(cx, &cx.eval(&eq)?, 0)?;
-            let to_bool = builtin_def(cx, Builtin::ToBool)?;
+            let decision = crate::bind::decide(cx, &eq)?;
             let bool_data = builtin_data(cx, Builtin::Bool)?;
             Ok((
-                Term::app(
-                    Term::app_icit(Term::Def(to_bool), eq, Icit::Implicit),
-                    decision,
-                ),
+                decision.into_bool(cx, eq)?,
                 Value::Data(bool_data, Vec::new()),
             ))
         }

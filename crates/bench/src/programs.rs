@@ -176,7 +176,60 @@ pub const ALL: &[Benchmark] = &[
             ))
         },
     },
+    // The checker computes only what types need
+    // (docs/proposals/checker-evaluation.md): `cost` takes about 5.8 million
+    // steps to compute, and none of these next few needs it.
+    Benchmark {
+        name: "check-closed-print",
+        about: "checks `print (Nat.toText cost)`, for a closed `cost` over 200,000 elements",
+        prepare: || check(closed("def main () : {IO} () := print (Nat.toText cost)")),
+    },
+    Benchmark {
+        name: "check-closed-dot",
+        about: "checks `cost.toText`, for a closed `cost` over 200,000 elements",
+        prepare: || check(closed("def x : Text := cost.toText")),
+    },
+    Benchmark {
+        name: "check-closed-eqeq",
+        about: "checks `cost == 5`, for a closed `cost` over 200,000 elements",
+        prepare: || check(closed("def b : Bool := cost == 5")),
+    },
+    Benchmark {
+        name: "check-closed-list-eqeq",
+        about: "checks `List.range 100000 == List.range 100000`",
+        prepare: || {
+            check("def big (u : ()) : Bool := List.range 100000 == List.range 100000\n".into())
+        },
+    },
+    // These still compute `cost` while checking, since a type needs its
+    // value and the evaluator is strict: recorded to measure option (b)
+    // against.
+    Benchmark {
+        name: "check-closed-if-less",
+        about: "checks `if cost < 5 then 1 else 2` (the branches assume `cost < 5`)",
+        prepare: || check(closed("def y : Nat := if cost < 5 then 1 else 2")),
+    },
+    Benchmark {
+        name: "check-closed-indexed",
+        about: "checks `mk cost : V cost`, for a type `V` indexed by a `Nat`",
+        prepare: || {
+            check(closed(
+                "type V (n : Nat) = { xs : List Nat }\n\ndef mk (n : Nat) : V n := { xs = [] }\n\n\
+                 def big (u : ()) : V cost := mk cost",
+            ))
+        },
+    },
+    Benchmark {
+        name: "check-closed-rfl",
+        about: "checks `rfl : cost = cost`",
+        prepare: || check(closed("def big (u : ()) : cost = cost := rfl")),
+    },
 ];
+
+/// `body`, after a closed definition `cost` that's expensive to compute.
+fn closed(body: &str) -> String {
+    format!("def cost : Nat := List.length (List.range 200000)\n{body}\n")
+}
 
 /// From TODO.md's measurements: `length (replicate n 1)`, `k` times.
 const LENGTHS: &str = "

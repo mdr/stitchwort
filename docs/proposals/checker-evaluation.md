@@ -1,8 +1,14 @@
 # Proposal: the type checker should compute only what it needs
 
-**Status:** Draft 1, 19 October 2026. Analysis and options; nothing is
-implemented. Measured at `8e3d71c`. One scratch prototype (stage 1 below) was
-built, measured and thrown away.
+**Status:** Draft 2, 19 October 2026. Draft 1 (analysis and options,
+measured at `8e3d71c`) was reviewed independently; this draft folds the
+review in (§5, §6, §8) and records the user's decisions (§7). Stages 1A
+and 1B are implemented (`crates/elab/src/bind.rs`, §6).
+
+**Decisions (user, 19 October 2026):** do option (a) now, as stages 1A and
+1B; the kernel `Let` (let stage 2) holds its value lazily while checking;
+decide on option (b) after re-measuring once stage 1 and the lazy `Let` are
+in.
 
 The main part takes about 15 minutes to read. The
 [appendix](#appendix-details-for-the-reviewer) has the file and line
@@ -63,6 +69,18 @@ which takes about **0.155 s** to compute once (`stitchwort run` adds exactly
 that). So "extra time ÷ 0.155" counts how many times the checker computed
 `cost`. Times are the best of 3, release build, Apple M-series laptop; the
 empty-program baseline is 0.14 s.
+
+The counts in the table were inferred from time, which is good evidence but
+not proof. From Draft 2 on, the acceptance measure is deterministic: the
+resource budget's evaluation-step counter (`Budget::total_work`, one step
+per evaluator transition, conversion and quotation step) and its visit
+counter (`Budget::total_visits`, levels of the recursive passes), plus the
+size and depth of the elaborated program. They're the same on every run.
+Computing `cost` over *n* elements takes about 29·*n* steps, so "how many
+times was `cost` computed" is the step count's growth divided by that, and
+"not at all" means the counts are **equal** for two sizes of input
+(`crates/bench/tests/check_work.rs`). Wall-clock time is corroboration only.
+The step counts confirm rows 4–7 (2, 4, 1 and 2 computations).
 
 | # | Program (body) | `check` time | times `cost` computed | Needed? |
 |---|---|---:|---:|---|
@@ -225,6 +243,40 @@ gets one extra immediately applied function per site (cheap, removable later),
 and term hashes change (not a goal to keep). *Run time:* one extra
 function application per call site; negligible.
 
+Rules for (a):
+
+- **When it applies: the result type doesn't depend on the value.** The use
+  is elaborated with a variable `x` for the argument; if the resulting type
+  mentions `x` *at all*, including inside a stuck call such as `F x` or an
+  unsolved hidden argument applied to `x`, everything the attempt did is
+  undone and today's code runs. The test is deliberately conservative: a
+  dependency that's only apparent costs a missed saving, never a wrong
+  answer. The argument is still *checked* against its type; only computing
+  its value for the type is skipped.
+- **Run-time evaluation order is kept.** `(\x => use x) arg` is a strict
+  application, so `arg` is computed once, before the use, exactly when it
+  was computed before. Several bound operands are applied in source order.
+  Nothing may be reordered, duplicated or removed at run time; effectful
+  arguments keep the effects elaborator's sequencing (they are bound by
+  `bind`, not by this rule).
+- **Cheap arguments aren't bound.** A variable, a literal or a constructor
+  of those costs nothing to compute, and binding it would only lengthen the
+  program.
+- **Decision search can be less capable with variables.** For `==`, `if`
+  and `decide`, the search for a decision procedure sees `x = y` instead of
+  `200000 = 5`. A procedure that only applies to particular values (one
+  deciding `n = 0`, say) is found with the values but not with variables.
+  So stage 1B searches with variables inside a transaction (`undo.rs`:
+  metavariable solutions, obligations and drafts are restored) and, if that
+  search fails, falls back to the old search on the computed proposition.
+  The generated term is kernel-checked either way, so this is about not
+  rejecting programs, not about soundness.
+- **The elaborated program's size is part of the contract.** Row 13 shows
+  computed values leaking into the program as giant literals; the
+  regression tests measure the elaborated program's size and depth, which
+  must stay constant as a closed input grows, so a change that stays fast
+  but starts embedding normal forms again is caught.
+
 **(b) Lazy argument values (thunks) while checking.** A new kind of value,
 "this term in this environment, not computed yet", created where the checker
 puts an argument into a type (`apply_lazy`, constructor fields, a kernel
@@ -233,8 +285,9 @@ native operation, comparison, printing). Two lazy values for the same term and
 environment are equal without computing either. Only the checker makes them;
 `run` (erasure on) never does, so the run-time evaluator stays strict.
 *Gain:* rows 9–11 and 14 (`V cost` against `V cost` is equal without
-computing; the proof field in row 14 is never looked at); fewer, smaller
-hidden-argument solutions. *Size:* medium–large. There is a useful
+computing; the proof field in row 14 is never looked at). Hidden-argument
+solutions are smaller only where nothing quotes the thunk (see below); this
+option does not promise small solutions in general. *Size:* medium–large. There is a useful
 foothold: solved metavariables already are "values that may need forcing",
 with a `force` function called before looking inside a value (about 90 call
 sites, `value.rs:251`, `needs_forcing` at `value.rs:833`), and a thunk could
@@ -246,6 +299,47 @@ same answers (no effect can be skipped, nothing can fail to finish, and
 compare a thunk wrongly; the existing recursive reference evaluator
 (`crates/core/src/reference.rs`) and differential tests are the guard. Resource
 limits change shape (work moves to where it's needed).
+
+What (b) must establish, beyond "pure and total":
+
+- **The soundness obligation.** For every well-typed core term, in checking
+  mode, forcing the lazy representation gives the same value, the same
+  conversion result and the same quoted normal form as today's eager
+  evaluator, modulo resource exhaustion. Purity and totality make this
+  plausible; what's needed is that the lazy machine implements the same
+  reduction rules (including the native operations), and that's tested
+  directly against the strict, erasure-off checking evaluator on bounded
+  terms, not against `stitchwort run` (erasure changes proof and type
+  values there). Running out while forcing must stay an error that stops
+  checking, never be read as "not equal" or as a stuck value. The other
+  direction is welcome: laziness may turn an eager `E-RESOURCE` into
+  success, because the expensive part wasn't needed.
+- **Thunks and metavariables.** A thunk forced while it contains an unsolved
+  metavariable stops at `?m …`. If that result were remembered and `?m` is
+  solved later, forcing again must make the newly possible progress, not
+  return the old stuck value. Likewise no cached comparison may turn
+  "blocked on `?m`" into a permanent answer. The "same term, same
+  environment" shortcut means the same term under the *identical*
+  environment object, and establishes equality only for that one suspended
+  computation; every other comparison of thunks forces as needed.
+- **"Don't compute yet" and "keep a small representation" are separate.**
+  A thunk is a term plus an environment. When unification or quotation
+  asks for a term, forcing the thunk gives back the full computed value
+  (`List.range 100000` becomes 100,000 `Cons`es), so hidden-argument
+  solutions are as big as before. Quoting the suspended expression instead
+  needs a scope-correct read-back of the environment without computing it,
+  which is most of the way to glued values (d). So (b) avoids work; only
+  (d), or (a) at particular sites, keeps solutions small.
+- **The kernel and the elaborator stay independent.** Each may use the same
+  lazy machinery, but neither may see the other's thunks or remembered
+  results: the elaborator produces an ordinary core term, and the kernel
+  checks it from a fresh state. No thunk may appear in a core term.
+- **Lazy constructor fields are the general form of the proof-field fix.**
+  Rather than a checking-only rule "don't compute proof fields", a
+  constructor's fields stay suspended until a later field's type, a `case`,
+  a projection, a native operation, quotation or comparison needs them.
+  Proof fields (row 14) then cost nothing unless looked at, and so does an
+  expensive data field nothing reads.
 
 **(c) Weak-head evaluation and lazy unfolding in comparison.** Compare
 "definition `d` applied to `x`" with "`d` applied to `y`" by comparing `x` and
@@ -281,55 +375,143 @@ Lean and Rocq do cache; here it is a low priority.
 - No user-visible strategy annotations (Lean's `@[irreducible]`, Rocq's
   `Strategy`) unless a real program needs them.
 
-## 6. Recommendation: a staged plan
+## 6. The staged plan
 
-**Stage 1 (small, elaborator only, now).** Option (a) at the three sites:
-operation calls (`make_call`), dot receivers, and `==`/`if`/`decide` (run the
-decision search on the proposition with its operands bound as variables, then
-apply the result to the real operands). Note: `effects.rs` is being changed by
-the `let` stage-1 lane, so this lands after it.
-*Tests:* add check-time cases to the benchmark suite (`bench/`, which already
-records deterministic step counts and has `check-*` entries), each a program
-whose check work must **not grow** with the size of a closed input: rows 4, 5,
-6, 7, 8 and 13 above at two sizes (e.g. 20,000 and 200,000), asserting equal
-step counts. Row 13 becomes an accept example. Plus `run` output unchanged for
-`examples/` and the differential tests.
+**Stage 1A (done): operation calls and dot notation.** Option (a), in the
+elaborator only (`crates/elab/src/bind.rs`, used by `effects::op_call` and
+`dot.rs`).
 
-**Coordinate with the `let` design (stage 2, the kernel `Let`).** Today a pure
-`let x := v` costs nothing at check time (row 3) because it's emitted as
-`(\x => …) v`. A transparent kernel `Let` that *evaluates* `v` into the
-context, with today's strict evaluator, would compute every closed `let` value
-while checking (twice: elaborator and kernel). Either the kernel `Let` holds
-its value lazily (a first, contained use of option (b)), or that cost is
-accepted knowingly. This should be settled before let stage 2 starts. (This
-note does not change the `let` design otherwise; see
-`docs/proposals/let.md`.)
+- An operation call `op arg` whose argument performs nothing, where `arg`
+  isn't cheap, is elaborated as `(\%arg => Call (op %arg) rest) arg` when the
+  operation's result type doesn't mention `%arg`, and as before otherwise.
+  This removes both computations of row 4: the elaborator's, and the
+  kernel's re-check of `Call`, whose second field's type mentions the first
+  (the kernel part can only be avoided by the term's shape, since the kernel
+  isn't changed). `Partial` rows work the same way, with the `lift` inside
+  the lambda.
+- Dot notation computes the receiver only if the function's result type
+  mentions it (`Closure::apply_lazy`, as plain application already does).
+  The elaborated term is unchanged: the kernel's application rule was
+  already lazy in this way, so only the elaborator computed it.
 
-**Stage 2 (medium–large, core, after stage 1 and let stage 2).** Option (b),
-lazy argument values while checking, starting at the narrowest places
-(`apply_lazy` and constructor fields that later field types mention, and the
-`let` slot), with a "same term, same environment" shortcut in comparison.
-Gate: the differential tests against the reference evaluator, and the new
-benchmarks for rows 9–11 and 14. Opus, with a design review first.
+Measured with the step counter (`check_work.rs`; `cost` over 2,000 and
+20,000 elements): `print` 118,003 → 961 and 1,162,353 → 961 steps; two
+`print`s 2,324,583 → 1,799; `cost.toText` 580,177 → 145. Benchmarks
+`check-closed-print` and `check-closed-dot` record the 200,000-element
+case. The run-time cost is one extra application per call: `run-prints`
+(20,000 prints) takes 0.6% more steps.
 
-**Stage 3 (only if needed).** Glued values, option (d), if real programs
-(AoC proofs, large literals in types) still show check-time blow-ups or giant
-hidden-argument solutions after stage 2. Memoisation (e) only if a program
-shows repeated computation of named constants.
+**Stage 1B (done): decisions.** `==`, `!=` and comparisons used as a
+`Bool`, `if`, and `&&`, `||`, `not` on propositions (`bind::decide`, used by
+`numbers::equation`, `check::decide_to_bool`, `check::check_if` and
+`logic::condition`): the decision search runs on the proposition with its
+non-cheap operands bound as variables (`cost < 5` is searched as
+`%0 < 5`), inside a transaction; if it finds nothing, everything it did is
+undone and the old search on the computed proposition runs, and its error
+is the one reported. The operands are found by looking into equations and
+applications of definitions, down through arguments that are themselves
+propositions (`Not (a = b)`); only data operands are bound, not types.
 
-## 7. Open questions for the user
+- Where the proposition is only turned into a `Bool`, the whole of
+  `toBool {a = b} d` goes under the binders,
+  `(\%0 %1 => toBool {%0 = %1} d) a b`, whose type `Bool` mentions neither,
+  so neither checker computes `a` or `b` (rows 7, 12, 13, and `if a == b`,
+  which is an `if` on a `Bool`).
+- An `if` whose branches receive a proof of the proposition (`if h : P`,
+  and `if c` on a proposition, which is `if _ : c` and whose proof `auto`
+  can use) keeps the real proposition in the branches, since a proof about
+  `%0 < 5` can't stand for one about `cost < 5`. Only the search uses
+  variables there; the decision is `(\%0 => d) cost`. With a strict
+  evaluator the branch's assumption and the kernel's check of
+  `Decidable.elim` still compute the operands: row 8 goes from 4
+  computations to 3 (the elaborator's `Not prop` now reuses `prop`'s value)
+  and needs (b) for the rest.
 
-1. **Stage 1 now, as a small lane?** It's elaborator-only, prototyped for
-   `print`, and turns the known "`print` computed twice" and the `==`
-   `E-RESOURCE` into zero cost. [Yes; after the `let` stage-1 lane merges,
-   since both touch `effects.rs`.]
-2. **The kernel `Let` (let stage 2): lazy value, or accept computing every
-   closed `let` value at check time?** [Lazy: a contained thunk for the `let`
-   slot only, designed as part of let stage 2, so stage 2 here can reuse it.]
-3. **Is option (b) worth the risk to the trusted core, given that stage 1
-   removes the cases seen so far in real programs?** [Decide after stage 1:
-   measure AoC check times again; do (b) if any program spends more than a
-   second checking on values its types don't need.]
+Measured (steps, `cost` over 2,000 and 20,000 elements, before → after):
+`cost == 5` 138,949 and 1,182,949 → 23,225 for both; `if cost == 5`
+1,183,002 → 23,278; `test "…" := cost == 200000` 1,182,946 → 23,222;
+`cost < 5 && 3 < 4`, `not (cost <= 5)`, `cost != 5` and
+`List.any (\n => n < cost)` constant too. The remaining ~23,000 steps are
+the search through the decision procedures, independent of the input. Row
+13, `List.range 100000 == List.range 100000`, now checks: 47,753 steps and
+an elaborated program of 54 nodes, the same at 20,000 and at 100,000
+elements (before, `E-RESOURCE`). The fallback was never taken in
+`examples/accept/` or `aoc/` (counted with a temporary trace);
+`examples/accept/bind-fallback.sw` exercises it on purpose, with a
+decision procedure for `f = f` only, which fits the values but not two
+separate variables.
+
+**Let stage 2 (another lane): a lazy kernel `Let`.** Today a pure
+`let x := v` costs nothing at check time (row 3) because it's elaborated as
+`(\x => …) v`. A transparent kernel `Let` that *evaluated* `v` into the
+context would compute every closed `let` value while checking, twice. So
+the kernel `Let` holds its value as a contained thunk while checking: one
+suspended, shared computation, designed as part of the `let` semantics
+rather than as an accidental first use of general thunks. It carries one
+extra obligation from the `let` design: when the body's type leaves the
+`let`'s scope, no reference to the local may escape; quoting must produce
+the defining expression in the outer scope, or force it. Tests: nested
+`let`s under dependent binders, metavariables, quotation, forcing once and
+many times, and resource accounting (§8).
+
+**Then re-measure** AoC and the examples' check times. The threshold for
+going further: a real program spending more than about a second checking on
+values its types don't need.
+
+**Then, only if justified, option (b)**, by extending the tested `let`
+thunk to dependent application arguments (`apply_lazy`) and constructor
+fields (lazy fields, §5), with the "same term, same environment" shortcut.
+It doesn't promise small hidden-argument solutions (§5). Gate: the
+obligation in §5 tested directly, the §8 checklist, and benchmarks for rows
+9–11 and 14. Opus, with a design review first.
+
+**Then, only if quotation or unification is still the bottleneck, option
+(d)**, glued values. Memoisation (e) only if a program shows repeated
+computation of named constants.
+
+## 7. Decisions
+
+Recorded 19 October 2026:
+
+1. **Option (a) now**, as stage 1A (operation calls, dot notation) then 1B
+   (decisions, with a transactional fallback), in the elaborator only.
+2. **The kernel `Let` is lazy at check time** (let stage 2 designs the
+   contained thunk).
+3. **Option (b) is decided after re-measuring** with stage 1 and the lazy
+   `Let` in place.
+
+## 8. Tests every stage needs
+
+For (a), each site has:
+
+- a program whose check work (steps, visits) and elaborated size and depth
+  are **equal** for two sizes of a closed input (`check_work.rs`), plus a
+  recorded benchmark at the larger size;
+- the same shape where the type *does* depend on the value, which must still
+  check, computing it (the fallback);
+- for decisions, a value-indexed decision procedure, found only with the
+  values, so the fallback is exercised;
+- `stitchwort test` on `examples/accept/` and `aoc/` unchanged, and the
+  AoC answers unchanged.
+
+For any lazy stage (the `let` thunk, then (b)), a small exhaustive and
+differential suite covering:
+
+- the same suspended term with the same environment, and with different
+  environments;
+- forcing once and many times;
+- a thunk blocked on a metavariable, then the metavariable solved, then
+  forced again (it must make the new progress);
+- forcing through `case`, a native operation, comparison, projection and
+  quotation;
+- running out of resources while forcing (an error, never "not equal");
+- an irrelevant proof field and an irrelevant data field (not computed);
+- a dependent constructor field that does need the previous field;
+- effect trees and `Delay` (checking performs no operation and runs no
+  partial code);
+- the lazy checker against the eager, erasure-off checker on bounded random
+  well-typed terms;
+- run time: no checker thunk is ever constructed while running.
 
 ---
 

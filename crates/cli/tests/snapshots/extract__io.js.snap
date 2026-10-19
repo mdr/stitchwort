@@ -705,7 +705,7 @@ const $Main$dnumberLine = (v0) => (v1) => (v2) => {
     }
     case "Just": {
       const v3 = v1.value;
-      return $Std$dEffect$dbind({ tag: "Call", o: { tag: "L", o: { tag: "%print", x: $Std$dText$dappend($Std$dNat$dtoText(v0))($Std$dText$dappend(": ")(v3)) } }, rest: ((v4) => ({ tag: "Done", value: v4 })) })(((v4) => (v2)({ tag: "UnitValue" })));
+      return $Std$dEffect$dbind((((v4) => ({ tag: "Call", o: { tag: "L", o: { tag: "%print", x: v4 } }, rest: ((v5) => ({ tag: "Done", value: v5 })) })))($Std$dText$dappend($Std$dNat$dtoText(v0))($Std$dText$dappend(": ")(v3))))(((v4) => (v2)({ tag: "UnitValue" })));
     }
   }
   throw new Error("unreachable");
@@ -737,7 +737,7 @@ const $Main$dcountdown = (v0) => {
     return { tag: "Call", o: { tag: "L", o: { tag: "%print", x: "liftoff" } }, rest: ((v1) => ({ tag: "Done", value: v1 })) };
   } else {
     const v1 = v0 - 1n;
-    return $Std$dEffect$dbind({ tag: "Call", o: { tag: "L", o: { tag: "%print", x: $Std$dNat$dtoText((v1 + 1n)) } }, rest: ((v2) => ({ tag: "Done", value: v2 })) })(((v2) => $Main$dcountdown(v1)));
+    return $Std$dEffect$dbind((((v2) => ({ tag: "Call", o: { tag: "L", o: { tag: "%print", x: v2 } }, rest: ((v3) => ({ tag: "Done", value: v3 })) })))($Std$dNat$dtoText((v1 + 1n))))(((v2) => $Main$dcountdown(v1)));
   }
 };
 const $Main$dcountdownLines = (v0) => $Std$dEffect$drunPure($Std$dEffect$dbind($Std$dEffect$dbind($Std$dIO$dsimulate({ tag: "MkSig" })({ tag: "Nil" })(((v1) => $Std$dEffect$dtranslate($Std$dEffect$dsigCase($Std$dEffect$dsigLeft)($Std$dEffect$dsigFromNo))($Main$dcountdown(v0)))))(((v1) => ({ tag: "Done", value: $Std$dPair$dfst(v1) }))))(((v1) => ({ tag: "Done", value: $Std$dList$dlength(v1) }))));

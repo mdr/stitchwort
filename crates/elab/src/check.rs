@@ -1279,6 +1279,7 @@ pub(crate) fn check_if(
             let cond = match crate::logic::condition(cx, cond, "if")? {
                 crate::logic::Condition::Bool(cond) => cond,
                 crate::logic::Condition::Decided { prop, decision } => {
+                    let decision = decision.term(cx)?;
                     return decided_if(
                         cx, "_", prop, decision, result_ty, &branch, then, otherwise,
                     );
@@ -1306,7 +1307,7 @@ pub(crate) fn check_if(
                     "this is a type of data; use `if c then … else …` for a `Bool`",
                 ));
             }
-            let decision = crate::auto::decide(cx, &cx.eval(&prop)?, 0)?;
+            let decision = crate::bind::decide(cx, &prop)?.term(cx)?;
             decided_if(
                 cx, &h.text, prop, decision, result_ty, &branch, then, otherwise,
             )
@@ -1328,9 +1329,13 @@ fn decided_if(
     then: &Expr,
     otherwise: &Expr,
 ) -> Result<Term> {
+    // The branches' assumptions need the proposition's value (that's what
+    // a proof in them is about); `Not prop` reuses it rather than
+    // computing it again.
     let prop_value = cx.eval(&prop)?;
     let not = builtin_def(cx, Builtin::Not)?;
-    let not_prop = cx.eval(&Term::app(Term::Def(not), prop.clone()))?;
+    let not_prop =
+        stitchwort_core::value::apply(cx.g(), cx.eval(&Term::Def(not))?, prop_value.clone())?;
     let then = branch(cx, name, prop_value, then)?;
     let otherwise = branch(cx, name, not_prop, otherwise)?;
     let elim = builtin_def(cx, Builtin::ElimDec)?;
@@ -1387,7 +1392,7 @@ fn decide_to_bool(
     {
         return Ok(None);
     }
-    let decision = match crate::auto::decide(cx, &cx.eval(term)?, 0) {
+    let decision = match crate::bind::decide(cx, term) {
         Ok(decision) => decision,
         Err(mut e) if e.code == "E-AUTO-NONE" && !e.notes.is_empty() => {
             e.labels.clear();
@@ -1398,11 +1403,7 @@ fn decide_to_bool(
         }
         Err(e) => return Err(e),
     };
-    let to_bool = builtin_def(cx, Builtin::ToBool)?;
-    Ok(Some(Term::app(
-        Term::app_icit(Term::Def(to_bool), term.clone(), Icit::Implicit),
-        decision,
-    )))
+    Ok(Some(decision.into_bool(cx, term.clone())?))
 }
 
 /// `term`, of type `found`, where `expected` is expected.

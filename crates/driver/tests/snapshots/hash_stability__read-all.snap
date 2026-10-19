@@ -28,7 +28,7 @@ Main.test "empty lines are kept" 118b68950816553cc77cfe6240e4678c7f334efb100e5e7
 Main.test "a CR elsewhere stays" a0f0500dbe69e9d2808b37acc212795ee68ae8aa7eece0e950b5702f3dc0bb42
 Main.test "a final CR without LF stays" b870f479f4e28bb321dd1b6d5bd469bad8b578ccf4ba53de9e87537278b71295
 Main.test "only one CR goes before an LF" 03af32d42bf946dd32cfa56833f8a5a3a13396abf3ec81224557d5b42e9e3856
-Main.test "lines method style" 66fe81f2ace12ad3afd3408ea81ab0c015030ba56672b54c0b5f32f1f57c9a0c
+Main.test "lines method style" a97ce540dea5f5bd9aa33c430f0a4cc99a84756d6cf2a0ec373cd10e1681e526
 Main.allLines d72c4b86fa3072c518d31d759189a7a2692475162b5f67735c04c9fe0ab78cb7
 Main.test "readAllLines is total under simulate" d48b78ea816782368025e4b71a9125db810c093dcbcd0c0ed515339fe5b36a41
 Main.test "readAllLines of empty input is empty" 96804bfcfa65e0bd6039697f3482cc38d155e8849264549e59575063e4c9b1b2

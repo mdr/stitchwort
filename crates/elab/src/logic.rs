@@ -75,8 +75,11 @@ pub(crate) fn classify<'a>(cx: &Ctx, expr: &'a Expr) -> Option<Logic<'a>> {
 pub(crate) enum Condition {
     /// A `Bool`.
     Bool(Term),
-    /// A proposition, and a term of type `Decidable prop`.
-    Decided { prop: Term, decision: Term },
+    /// A proposition, and a decision procedure for it.
+    Decided {
+        prop: Term,
+        decision: crate::bind::Decision,
+    },
 }
 
 /// `cond` as a `Bool`; or if that fails, with everything it did undone, as a
@@ -129,7 +132,7 @@ fn decided(
     // nothing decides (`x < 3 && g = h`), that's the more precise error.
     // Otherwise say so at the condition, keeping the search's explanations
     // (its notes after the first).
-    let decision = match crate::auto::decide(cx, &cx.eval(&prop)?, 0) {
+    let decision = match crate::bind::decide(cx, &prop) {
         Ok(decision) => decision,
         Err(e) if e.code == "E-AUTO-NONE" && not_bool.code == "E-AUTO-NONE" => return Ok(None),
         Err(mut e) if e.code == "E-AUTO-NONE" && !e.notes.is_empty() => {
@@ -150,13 +153,7 @@ fn decided(
 pub(crate) fn bool_operand(cx: &mut Ctx, expr: &Expr, what: &str) -> Result<Term> {
     Ok(match condition(cx, expr, what)? {
         Condition::Bool(term) => term,
-        Condition::Decided { prop, decision } => {
-            let to_bool = builtin_def(cx, Builtin::ToBool)?;
-            Term::app(
-                Term::app_icit(Term::Def(to_bool), prop, Icit::Implicit),
-                decision,
-            )
-        }
+        Condition::Decided { prop, decision } => decision.into_bool(cx, prop)?,
     })
 }
 

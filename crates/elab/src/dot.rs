@@ -647,11 +647,13 @@ fn call(
     // the receiver is bound first so it's evaluated once:
     // `(\r -> \x -> T.f x r) e`.
     let recv_level = cx.level();
+    // Otherwise the receiver's value is computed only if the result type
+    // needs it (docs/proposals/checker-evaluation.md).
     let recv_value = if missing > 0 {
         cx.bind_hidden("%recv".into(), rty.clone());
-        Value::var(recv_level)
+        Some(Value::var(recv_level))
     } else {
-        cx.eval(&rterm)?
+        None
     };
     let mut pieces: Vec<Piece> = Vec::new();
     let mut placeholders: Vec<(Value, Value)> = Vec::new();
@@ -686,7 +688,10 @@ fn call(
                 ));
             }
             pieces.push(Piece::Receiver);
-            ty = cod.apply(g, recv_value.clone())?;
+            ty = match &recv_value {
+                Some(var) => cod.apply(g, var.clone())?,
+                None => cod.apply_lazy(g, || eval(g, &cx.env, &rterm))?,
+            };
             break;
         }
         seen += 1;
@@ -769,7 +774,11 @@ fn call(
         Rc::new(fun_ty.clone()),
     );
     let mut env = cx.env.clone();
-    env.push(cx.eval(&rterm)?);
+    env.push(if fun_ty.mentions(0) {
+        cx.eval(&rterm)?
+    } else {
+        stitchwort_core::value::unused()
+    });
     let result_ty = eval(g, &env, &fun_ty)?;
     Ok((
         Term::app(Term::Ann(Rc::new(lam), Rc::new(lam_ty)), rterm),
