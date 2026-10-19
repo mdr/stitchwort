@@ -20,12 +20,15 @@ def solve (lines : List Text) : (Nat, Nat) := (total 2 lines, total 12 lines)
 def total (k : Nat) (lines : List Text) : Nat := lines |> .sumBy (joltage k)
 
 def joltage (k : Nat) (line : Text) : Nat :=
-  line |> parseBank |> best k |> Nat.fromDigits
+  line |> Bank.parse |> .best k |> Nat.fromDigits
 
-def parseBank (t : Text) : List Nat := t.toList |> .mapMaybe Char.digitValue
+-- A bank of batteries: one digit per battery.
+def Bank : Type := List Nat
+
+def Bank.parse (t : Text) : Bank := t.toList |> .mapMaybe Char.digitValue
 
 -- The digits of the largest k-digit number that is a subsequence of ds.
-def best : Nat -> List Nat -> List Nat
+def Bank.best : Nat -> Bank -> Bank
   | Zero,   _           => []
   | Succ _, []          => []
   | Succ k, Cons d rest =>
@@ -37,7 +40,7 @@ def best : Nat -> List Nat -> List Nat
       | Succ w, Cons x more, c, after =>
         if c < x then pick w more x more else pick w more c after
     let chosen := pick (rest.length - k) rest d rest
-    Cons chosen.fst (best k chosen.snd)
+    Cons chosen.fst (Bank.best k chosen.snd)
 
 -- Examples -----------------------------------------------------------------
 
@@ -46,17 +49,17 @@ def example : List Text := ["987654321111111", "811111111111119", "2342342342342
 test "example" := solve example == (357, 3121910778619)
 test "banks part 1" := example.map (joltage 2) == [98, 89, 78, 92]
 test "banks part 2" := example.map (joltage 12) == [987654321111, 811111111119, 434234234278, 888911112111]
-test "parse" := parseBank "102" == [1, 0, 2]
-test "zeros" := best 2 [0, 0, 5, 0] == [5, 0]
-test "leftmost wins" := best 1 [3, 9, 9, 1] == [9]
-test "keep everything" := best 3 [4, 5, 6] == [4, 5, 6]
-test "too short" := best 5 [1, 2] == [1, 2]
+test "parse" := Bank.parse "102" == [1, 0, 2]
+test "zeros" := Bank.best 2 [0, 0, 5, 0] == [5, 0]
+test "leftmost wins" := Bank.best 1 [3, 9, 9, 1] == [9]
+test "keep everything" := Bank.best 3 [4, 5, 6] == [4, 5, 6]
+test "too short" := Bank.best 5 [1, 2] == [1, 2]
 
 theorem exampleAnswer : solve example = (357, 3121910778619) := rfl
 
-theorem bestNone : best 0 [1, 2, 3] = Nil := rfl
+theorem bestNone : Bank.best 0 [1, 2, 3] = Nil := rfl
 
-theorem bestAll : best 3 [4, 5, 6] = [4, 5, 6] := rfl
+theorem bestAll : Bank.best 3 [4, 5, 6] = [4, 5, 6] := rfl
 
 -- Proofs -------------------------------------------------------------------
 --
@@ -149,62 +152,62 @@ theorem windowRoom (k : Nat) (w : Nat) (n : Nat) (h : k + w <= n) : k <= n := Na
 
 -- What `pick` returns.
 
-theorem pickGe : (w : Nat) -> (xs : List Nat) -> (c : Nat) -> (after : List Nat) -> c <= Pair.fst (best.pick w xs c after)
+theorem pickGe : (w : Nat) -> (xs : List Nat) -> (c : Nat) -> (after : List Nat) -> c <= Pair.fst (Bank.best.pick w xs c after)
   | Zero,   xs,          c, after => Nat.leRefl c
   | Succ w, Nil,         c, after => Nat.leRefl c
   | Succ w, Cons x more, c, after =>
     Bool.inspect (Nat.leq (Succ c) x)
-      (\b => c <= Pair.fst (Decidable.elim (Bool.decTrue b) (\u => best.pick w more x more) (\u => best.pick w more c after)))
-      (\e => Nat.leTrans c x (Pair.fst (best.pick w more x more)) (Nat.lessLe c x e) (pickGe w more x more))
+      (\b => c <= Pair.fst (Decidable.elim (Bool.decTrue b) (\u => Bank.best.pick w more x more) (\u => Bank.best.pick w more c after)))
+      (\e => Nat.leTrans c x (Pair.fst (Bank.best.pick w more x more)) (Nat.lessLe c x e) (pickGe w more x more))
       (\e => pickGe w more c after)
 
 theorem pickLen (k : Nat) : (w : Nat) -> (xs : List Nat) -> (c : Nat) -> (after : List Nat) ->
-    k + w <= List.length xs -> k <= List.length after -> k <= List.length (Pair.snd (best.pick w xs c after))
+    k + w <= List.length xs -> k <= List.length after -> k <= List.length (Pair.snd (Bank.best.pick w xs c after))
   | Zero,   xs,          c, after, h1, h2 => h2
   | Succ w, Nil,         c, after, h1, h2 => h2
   | Succ w, Cons x more, c, after, h1, h2 =>
     Bool.inspect (Nat.leq (Succ c) x)
-      (\b => k <= List.length (Pair.snd (Decidable.elim (Bool.decTrue b) (\u => best.pick w more x more) (\u => best.pick w more c after))))
+      (\b => k <= List.length (Pair.snd (Decidable.elim (Bool.decTrue b) (\u => Bank.best.pick w more x more) (\u => Bank.best.pick w more c after))))
       (\e => pickLen k w more x more (windowStep k w (List.length more) h1) (windowRoom k w (List.length more) (windowStep k w (List.length more) h1)))
       (\e => pickLen k w more c after (windowStep k w (List.length more) h1) h2)
 
 theorem pickSub (t : List Nat) : (w : Nat) -> (xs : List Nat) -> (c : Nat) -> (after : List Nat) ->
     ((s : List Nat) -> List.Subsequence s xs -> List.Subsequence s t) ->
     ((s : List Nat) -> List.Subsequence s after -> List.Subsequence (Cons c s) t) ->
-    (s : List Nat) -> List.Subsequence s (Pair.snd (best.pick w xs c after)) -> List.Subsequence (Cons (Pair.fst (best.pick w xs c after)) s) t
+    (s : List Nat) -> List.Subsequence s (Pair.snd (Bank.best.pick w xs c after)) -> List.Subsequence (Cons (Pair.fst (Bank.best.pick w xs c after)) s) t
   | Zero,   xs,          c, after, hx, hc, s, h => hc s h
   | Succ w, Nil,         c, after, hx, hc, s, h => hc s h
   | Succ w, Cons x more, c, after, hx, hc, s, h =>
     Bool.inspect (Nat.leq (Succ c) x)
-      (\b => List.Subsequence s (Pair.snd (Decidable.elim (Bool.decTrue b) (\u => best.pick w more x more) (\u => best.pick w more c after)))
-        -> List.Subsequence (Cons (Pair.fst (Decidable.elim (Bool.decTrue b) (\u => best.pick w more x more) (\u => best.pick w more c after))) s) t)
+      (\b => List.Subsequence s (Pair.snd (Decidable.elim (Bool.decTrue b) (\u => Bank.best.pick w more x more) (\u => Bank.best.pick w more c after)))
+        -> List.Subsequence (Cons (Pair.fst (Decidable.elim (Bool.decTrue b) (\u => Bank.best.pick w more x more) (\u => Bank.best.pick w more c after))) s) t)
       (\e g => pickSub t w more x more (\s2 g2 => hx s2 (List.subsequenceCons x s2 more g2)) (\s2 g2 => hx (Cons x s2) (Inl (Both rfl g2))) s g)
       (\e g => pickSub t w more c after (\s2 g2 => hx s2 (List.subsequenceCons x s2 more g2)) hc s g)
       h
 
 -- 1. `best k ds` is a subsequence of `ds`.
-theorem bestSub : (k : Nat) -> (ds : List Nat) -> List.Subsequence (best k ds) ds
+theorem bestSub : (k : Nat) -> (ds : List Nat) -> List.Subsequence (Bank.best k ds) ds
   | Zero,   ds          => Trivial
   | Succ k, Nil         => Trivial
   | Succ k, Cons d rest =>
     pickSub (Cons d rest) (List.length rest - k) rest d rest (\s h => List.subsequenceCons d s rest h) (\s h => Inl (Both rfl h))
-      (best k (Pair.snd (best.pick (List.length rest - k) rest d rest))) (bestSub k (Pair.snd (best.pick (List.length rest - k) rest d rest)))
+      (Bank.best k (Pair.snd (Bank.best.pick (List.length rest - k) rest d rest))) (bestSub k (Pair.snd (Bank.best.pick (List.length rest - k) rest d rest)))
 
 theorem bestLengthStep (k : Nat) (d : Nat) (rest : List Nat)
-  (ih : (a : List Nat) -> List.length (best k a) = Nat.min k (List.length a)) : (b : Bool) -> Nat.leq k (List.length rest) = b ->
-    Succ (List.length (best k (Pair.snd (best.pick (List.length rest - k) rest d rest)))) = Bool.ifThenElse b (\u => Succ k) (\u => Succ (List.length rest))
+  (ih : (a : List Nat) -> List.length (Bank.best k a) = Nat.min k (List.length a)) : (b : Bool) -> Nat.leq k (List.length rest) = b ->
+    Succ (List.length (Bank.best k (Pair.snd (Bank.best.pick (List.length rest - k) rest d rest)))) = Bool.ifThenElse b (\u => Succ k) (\u => Succ (List.length rest))
   | True, e =>
-    Eq.cong Succ (Eq.trans (ih (Pair.snd (best.pick (List.length rest - k) rest d rest)))
-      (Nat.minLeft k (List.length (Pair.snd (best.pick (List.length rest - k) rest d rest)))
+    Eq.cong Succ (Eq.trans (ih (Pair.snd (Bank.best.pick (List.length rest - k) rest d rest)))
+      (Nat.minLeft k (List.length (Pair.snd (Bank.best.pick (List.length rest - k) rest d rest)))
         (pickLen k (List.length rest - k) rest d rest (windowFits k (List.length rest) e) e)))
   | False, e =>
-    Eq.cong Succ (Eq.trans (ih (Pair.snd (best.pick (List.length rest - k) rest d rest)))
-      (Eq.trans (Eq.cong (\w => Nat.min k (List.length (Pair.snd (best.pick w rest d rest))))
+    Eq.cong Succ (Eq.trans (ih (Pair.snd (Bank.best.pick (List.length rest - k) rest d rest)))
+      (Eq.trans (Eq.cong (\w => Nat.min k (List.length (Pair.snd (Bank.best.pick w rest d rest))))
           (Nat.subEqZero (List.length rest) k (Nat.lessLe (List.length rest) k (Nat.leqFalse k (List.length rest) e))))
         (Nat.minRight k (List.length rest) e)))
 
 -- 2. `best k ds` has k digits, or all of them if there are fewer.
-theorem bestLength : (k : Nat) -> (ds : List Nat) -> List.length (best k ds) = Nat.min k (List.length ds)
+theorem bestLength : (k : Nat) -> (ds : List Nat) -> List.length (Bank.best k ds) = Nat.min k (List.length ds)
   | Zero,   ds          => rfl
   | Succ k, Nil         => rfl
   | Succ k, Cons d rest => bestLengthStep k d rest (\a => bestLength k a) (Nat.leq k (List.length rest)) rfl
@@ -213,7 +216,7 @@ theorem bestLength : (k : Nat) -> (ds : List Nat) -> List.length (best k ds) = N
 
 -- What `best k` is claimed to do: beat every k digits taken from `l`.
 def BestBelow (k : Nat) : Prop :=
-  (l : List Nat) -> (s : List Nat) -> List.Subsequence s l -> Digits s -> List.length s = k -> Nat.fromDigits s <= Nat.fromDigits (best k l)
+  (l : List Nat) -> (s : List Nat) -> List.Subsequence s l -> Digits s -> List.length s = k -> Nat.fromDigits s <= Nat.fromDigits (Bank.best k l)
 
 -- The choices `pick` has seen so far: `y` followed by `s` is either the
 -- current candidate `c` followed by digits from `after`, or a digit within
@@ -225,25 +228,25 @@ def Candidate (k : Nat) (w : Nat) (xs : List Nat) (c : Nat) (after : List Nat) (
 def PickBeats (k : Nat) (w : Nat) (xs : List Nat) (c : Nat) (after : List Nat) : Prop :=
   k + w <= List.length xs -> k <= List.length after -> ((s : List Nat) -> List.Subsequence s xs -> List.Subsequence s after) ->
   (y : Nat) -> (s : List Nat) -> Digits s -> List.length s = k -> Candidate k w xs c after y s ->
-  Nat.fromDigits (Cons y s) <= Nat.fromDigits (Cons (Pair.fst (best.pick w xs c after)) (best k (Pair.snd (best.pick w xs c after))))
+  Nat.fromDigits (Cons y s) <= Nat.fromDigits (Cons (Pair.fst (Bank.best.pick w xs c after)) (Bank.best k (Pair.snd (Bank.best.pick w xs c after))))
 
 -- `best k` of what follows the pick has k digits.
 theorem pickRestLength (k : Nat) (w : Nat) (more : List Nat) (c : Nat) (after : List Nat) (h1 : k + w <= List.length more) (h2 : k <= List.length after) :
-  List.length (best k (Pair.snd (best.pick w more c after))) = k :=
-  Eq.trans (bestLength k (Pair.snd (best.pick w more c after))) (Nat.minLeft k (List.length (Pair.snd (best.pick w more c after))) (pickLen k w more c after h1 h2))
+  List.length (Bank.best k (Pair.snd (Bank.best.pick w more c after))) = k :=
+  Eq.trans (bestLength k (Pair.snd (Bank.best.pick w more c after))) (Nat.minLeft k (List.length (Pair.snd (Bank.best.pick w more c after))) (pickLen k w more c after h1 h2))
 
 -- A choice starting below pick's choice loses.
 theorem pickBeatsSmaller (k : Nat) (w : Nat) (more : List Nat) (c : Nat) (after : List Nat) (h1 : k + w <= List.length more) (h2 : k <= List.length after)
-  (y : Nat) (s : List Nat) (hd : Digits s) (hk : List.length s = k) (lt : y < Pair.fst (best.pick w more c after)) :
-  Nat.fromDigits (Cons y s) <= Nat.fromDigits (Cons (Pair.fst (best.pick w more c after)) (best k (Pair.snd (best.pick w more c after)))) :=
-  headLess y (Pair.fst (best.pick w more c after)) s (best k (Pair.snd (best.pick w more c after))) (Eq.trans hk (Eq.sym (pickRestLength k w more c after h1 h2))) hd lt
+  (y : Nat) (s : List Nat) (hd : Digits s) (hk : List.length s = k) (lt : y < Pair.fst (Bank.best.pick w more c after)) :
+  Nat.fromDigits (Cons y s) <= Nat.fromDigits (Cons (Pair.fst (Bank.best.pick w more c after)) (Bank.best k (Pair.snd (Bank.best.pick w more c after)))) :=
+  headLess y (Pair.fst (Bank.best.pick w more c after)) s (Bank.best k (Pair.snd (Bank.best.pick w more c after))) (Eq.trans hk (Eq.sym (pickRestLength k w more c after h1 h2))) hd lt
 
 -- With nothing left to scan, `pick` keeps `c`.
 theorem pickBase (k : Nat) (ih : BestBelow k) (c : Nat) (after : List Nat) (h2 : k <= List.length after)
   (y : Nat) (s : List Nat) (hd : Digits s) (hk : List.length s = k) (e : y = c) (hs : List.Subsequence s after) :
-  Nat.fromDigits (Cons y s) <= Nat.fromDigits (Cons c (best k after)) :=
-  J (\z q => Nat.fromDigits (Cons z s) <= Nat.fromDigits (Cons c (best k after)))
-    (consLe c s (best k after) (Eq.trans hk (Eq.sym (Eq.trans (bestLength k after) (Nat.minLeft k (List.length after) h2)))) (ih after s hs hd hk))
+  Nat.fromDigits (Cons y s) <= Nat.fromDigits (Cons c (Bank.best k after)) :=
+  J (\z q => Nat.fromDigits (Cons z s) <= Nat.fromDigits (Cons c (Bank.best k after)))
+    (consLe c s (Bank.best k after) (Eq.trans hk (Eq.sym (Eq.trans (bestLength k after) (Nat.minLeft k (List.length after) h2)))) (ih after s hs hd hk))
     (Eq.sym e)
 
 -- When `x` ties with `c`, starting from `x` is no better than from `c`, which
@@ -253,10 +256,10 @@ theorem pickTie (k : Nat) (w : Nat) (x : Nat) (more : List Nat) (c : Nat) (after
   (h1 : k + w <= List.length more) (h2 : k <= List.length after) (hsa : (s : List Nat) -> List.Subsequence s (Cons x more) -> List.Subsequence s after)
   (y : Nat) (s : List Nat) (hd : Digits s) (hk : List.length s = k) (le : x <= c) (eyx : y = x) (hs : List.Subsequence s more) :
   (b : Bool) -> Nat.leq (Succ x) c = b ->
-  Nat.fromDigits (Cons y s) <= Nat.fromDigits (Cons (Pair.fst (best.pick w more c after)) (best k (Pair.snd (best.pick w more c after))))
+  Nat.fromDigits (Cons y s) <= Nat.fromDigits (Cons (Pair.fst (Bank.best.pick w more c after)) (Bank.best k (Pair.snd (Bank.best.pick w more c after))))
   | True, e2 =>
     pickBeatsSmaller k w more c after h1 h2 y s hd hk
-      (Nat.ltCongLeft x y (Pair.fst (best.pick w more c after)) (Eq.sym eyx) (Nat.leTrans (Succ x) c (Pair.fst (best.pick w more c after)) e2 (pickGe w more c after)))
+      (Nat.ltCongLeft x y (Pair.fst (Bank.best.pick w more c after)) (Eq.sym eyx) (Nat.leTrans (Succ x) c (Pair.fst (Bank.best.pick w more c after)) e2 (pickGe w more c after)))
   | False, e2 =>
     rec c after h1 h2 (\t h => hsa t (List.subsequenceCons x t more h)) y s hd hk
       (Inl (Both (Eq.trans eyx (Nat.leAntisym x c le (Nat.leqFalse (Succ x) c e2))) (hsa s (List.subsequenceCons x s more hs))))
@@ -266,11 +269,11 @@ theorem pickBestStep (k : Nat) (w : Nat) (x : Nat) (more : List Nat) (c : Nat) (
   (h1 : k + w <= List.length more) (h2 : k <= List.length after) (hsa : (s : List Nat) -> List.Subsequence s (Cons x more) -> List.Subsequence s after)
   (y : Nat) (s : List Nat) (hd : Digits s) (hk : List.length s = k) : (b : Bool) -> Nat.leq (Succ c) x = b ->
     Candidate k (Succ w) (Cons x more) c after y s ->
-    Nat.fromDigits (Cons y s) <= Nat.fromDigits (Cons (Pair.fst (Decidable.elim (Bool.decTrue b) (\u => best.pick w more x more) (\u => best.pick w more c after)))
-      (best k (Pair.snd (Decidable.elim (Bool.decTrue b) (\u => best.pick w more x more) (\u => best.pick w more c after)))))
+    Nat.fromDigits (Cons y s) <= Nat.fromDigits (Cons (Pair.fst (Decidable.elim (Bool.decTrue b) (\u => Bank.best.pick w more x more) (\u => Bank.best.pick w more c after)))
+      (Bank.best k (Pair.snd (Decidable.elim (Bool.decTrue b) (\u => Bank.best.pick w more x more) (\u => Bank.best.pick w more c after)))))
   | True, e, Inl (Both ey hs) =>
     pickBeatsSmaller k w more x more h1 (windowRoom k w (List.length more) h1) y s hd hk
-      (Nat.ltCongLeft c y (Pair.fst (best.pick w more x more)) (Eq.sym ey) (Nat.leTrans (Succ c) x (Pair.fst (best.pick w more x more)) e (pickGe w more x more)))
+      (Nat.ltCongLeft c y (Pair.fst (Bank.best.pick w more x more)) (Eq.sym ey) (Nat.leTrans (Succ c) x (Pair.fst (Bank.best.pick w more x more)) e (pickGe w more x more)))
   | True, e, Inr (Both g hlen) =>
     rec x more h1 (windowRoom k w (List.length more) h1) (\t h => h) y s hd hk (orWith hlen g)
   | False, e, Inl a => rec c after h1 h2 (\t h => hsa t (List.subsequenceCons x t more h)) y s hd hk (Inl a)
@@ -301,7 +304,7 @@ theorem bestOptimal : (k : Nat) -> BestBelow k
 
 theorem bestOptimalStep (k : Nat) (d : Nat) (rest : List Nat) (y : Nat) (s : List Nat) (ih : BestBelow k)
   (h : List.Subsequence (Cons y s) (Cons d rest)) (hs : Digits s) (hk : List.length s = k) :
-  Nat.fromDigits (Cons y s) <= Nat.fromDigits (best (Succ k) (Cons d rest)) :=
+  Nat.fromDigits (Cons y s) <= Nat.fromDigits (Bank.best (Succ k) (Cons d rest)) :=
   pickBest k ih (List.length rest - k) rest d rest
     (windowFits k (List.length rest) (Nat.leCongLeft (List.length s) k (List.length rest) hk (List.subsequenceLength (Cons y s) (Cons d rest) h)))
     (Nat.leCongLeft (List.length s) k (List.length rest) hk (List.subsequenceLength (Cons y s) (Cons d rest) h))
@@ -310,7 +313,7 @@ theorem bestOptimalStep (k : Nat) (d : Nat) (rest : List Nat) (y : Nat) (s : Lis
 
 -- For a bank of digits: the greedy pick beats every choice of k digits.
 theorem bestIsLargest (k : Nat) (ds : List Nat) (s : List Nat) (digits : Digits ds) (h : List.Subsequence s ds) (hk : List.length s = k) :
-  Nat.fromDigits s <= Nat.fromDigits (best k ds) := bestOptimal k ds s h (subDigits s ds h digits) hk
+  Nat.fromDigits s <= Nat.fromDigits (Bank.best k ds) := bestOptimal k ds s h (subDigits s ds h digits) hk
 
 -- Parsing gives digits, so this holds for every line of the input: no k
 -- batteries beat the joltage computed.
@@ -336,5 +339,5 @@ theorem parseDigits : (cs : List Char) -> Digits (List.mapMaybe Char.digitValue 
   | Nil       => Trivial
   | Cons c cs => consJustDigits (Char.digitValue c) (List.mapMaybe Char.digitValue cs) (digitValueDigit c) (parseDigits cs)
 
-theorem joltageIsLargest (k : Nat) (line : Text) (s : List Nat) (h : List.Subsequence s (parseBank line)) (hk : List.length s = k) :
-  Nat.fromDigits s <= joltage k line := bestIsLargest k (parseBank line) s (parseDigits (Text.toList line)) h hk
+theorem joltageIsLargest (k : Nat) (line : Text) (s : List Nat) (h : List.Subsequence s (Bank.parse line)) (hk : List.length s = k) :
+  Nat.fromDigits s <= joltage k line := bestIsLargest k (Bank.parse line) s (parseDigits (Text.toList line)) h hk
