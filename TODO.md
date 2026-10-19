@@ -39,6 +39,9 @@ erasure, JS, pattern lets.
 Running: `let-stage1` (Opus: step 0 + `grid.rolls`), `checker-eval-design`
 (Opus, docs: where the checker computes values it doesn't need; compare
 Lean/Agda/Rocq/Idris lazy/glued evaluation; staged plan; user, 19 Oct).
+`run-js` (Opus: `stitchwort run --js`: compile `main` to JS, run under
+Node with an IO driver and a big stack; user, 19 Oct). Quick wins Q1/Q2
+(native lookup by index, mimalloc) skipped (user).
 
 Queued after the `let` fix (user, 19 Oct): prove day 2's block-walking
 spec equals ID-walking (the puzzle's wording, the user's Scala). Partly
@@ -71,12 +74,6 @@ Waiting on a decision (for the morning):
 - Proof `let`s (from day 3): a `let` is opaque to the checker (after
   `let p := 10 ^ n`, a proof about `p + 1` doesn't see `p`'s value), and
   a `let` can't bind a proof (`E-UNIVERSE`). Being fixed (let stages).
-- Evaluator speed (`docs/evaluator-speed.md`): day 4 is 16 s in
-  `stitchwort run` but 0.55 s as extracted JS. Take the quick wins
-  (native lookup by index, `mimalloc`: about 10% together), drive AoC
-  solvers through JS now, and design `run --js`? Deeper evaluator work
-  (saturated calls, `if` without closures) later?
-
 ## Next
 
 In this order, after the in-flight lanes finish (the user: build a
