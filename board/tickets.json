@@ -935,9 +935,9 @@
     {
       "id": 64,
       "title": "Mutation testing",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Claude",
+      "where": "~/scratch/mutants-20261019 (clone); runner scratchpad/mutrun.sh; pilot budget.rs (56 mutants, 6 shards), then value.rs (219), native.rs (194) after stage 1 settles",
       "labels": [
         "tooling"
       ],
