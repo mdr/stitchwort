@@ -11,16 +11,19 @@
 -- most is left over; then repeat on what follows it.
 
 def main () : {IO} () :=
-  let (one, two) := solve (IO.readAllLines ())
-  print ("Part 1: " ++ one.toText)
-  print ("Part 2: " ++ two.toText)
+  let banks := parseBanks (IO.readAllLines ())
+  print ("Part 1: " ++ (solvePart1 banks).toText)
+  print ("Part 2: " ++ (solvePart2 banks).toText)
 
-def solve (lines : List Text) : (Nat, Nat) := (total 2 lines, total 12 lines)
+def parseBanks (lines : List Text) : List Bank := lines.map Bank.parse
 
-def total (k : Nat) (lines : List Text) : Nat := lines |> .sumBy (joltage k)
+def solvePart1 (banks : List Bank) : Nat := total 2 banks
 
-def joltage (k : Nat) (line : Text) : Nat :=
-  line |> Bank.parse |> .best k |> Nat.fromDigits
+def solvePart2 (banks : List Bank) : Nat := total 12 banks
+
+def total (k : Nat) (banks : List Bank) : Nat := banks |> .sumBy (joltage k)
+
+def joltage (k : Nat) (bank : Bank) : Nat := bank |> .best k |> Nat.fromDigits
 
 -- A bank of batteries: one digit per battery.
 def Bank : Type := List Nat
@@ -46,16 +49,16 @@ def Bank.best : Nat -> Bank -> Bank
 
 def example : List Text := ["987654321111111", "811111111111119", "234234234234278", "818181911112111"]
 
-test "example" := solve example == (357, 3121910778619)
-test "banks part 1" := example.map (joltage 2) == [98, 89, 78, 92]
-test "banks part 2" := example.map (joltage 12) == [987654321111, 811111111119, 434234234278, 888911112111]
+test "example" := (solvePart1 (parseBanks example), solvePart2 (parseBanks example)) == (357, 3121910778619)
+test "banks part 1" := (parseBanks example).map (joltage 2) == [98, 89, 78, 92]
+test "banks part 2" := (parseBanks example).map (joltage 12) == [987654321111, 811111111119, 434234234278, 888911112111]
 test "parse" := Bank.parse "102" == [1, 0, 2]
 test "zeros" := Bank.best 2 [0, 0, 5, 0] == [5, 0]
 test "leftmost wins" := Bank.best 1 [3, 9, 9, 1] == [9]
 test "keep everything" := Bank.best 3 [4, 5, 6] == [4, 5, 6]
 test "too short" := Bank.best 5 [1, 2] == [1, 2]
 
-theorem exampleAnswer : solve example = (357, 3121910778619) := rfl
+theorem exampleAnswer : (solvePart1 (parseBanks example), solvePart2 (parseBanks example)) = (357, 3121910778619) := rfl
 
 theorem bestNone : Bank.best 0 [1, 2, 3] = Nil := rfl
 
@@ -340,4 +343,4 @@ theorem parseDigits : (cs : List Char) -> Digits (List.mapMaybe Char.digitValue 
   | Cons c cs => consJustDigits (Char.digitValue c) (List.mapMaybe Char.digitValue cs) (digitValueDigit c) (parseDigits cs)
 
 theorem joltageIsLargest (k : Nat) (line : Text) (s : List Nat) (h : List.Subsequence s (Bank.parse line)) (hk : List.length s = k) :
-  Nat.fromDigits s <= joltage k line := bestIsLargest k (Bank.parse line) s (parseDigits (Text.toList line)) h hk
+  Nat.fromDigits s <= joltage k (Bank.parse line) := bestIsLargest k (Bank.parse line) s (parseDigits (Text.toList line)) h hk
