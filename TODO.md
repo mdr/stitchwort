@@ -55,6 +55,10 @@ Queued after the current lanes (user, 19 Oct):
 - Rename sweep (Sonnet): `foldl`/`scanl`/`foldr` (and lemma names) to
   `foldLeft`/`scanLeft`/`foldRight`. `count` stays. `fst`/`snd` stay; no
   aliases; prefer destructuring in AoC code.
+- After `let` stage 3: profile day 2's ~0.6 s check time (report only),
+  then re-measure AoC check times and decide on option (b) of
+  checker-evaluation.md. `if` on a proposition stays partly fixed (3
+  computations, was 4) until then (user, 19 Oct).
 - Compile-time `include "file" : Text` (contents part of the definition's
   hash, so the existing test cache covers input files; precedents Rust
   `include_str!`, Zig `@embedFile`, Lean `include_str`, Dhall integrity
