@@ -377,7 +377,7 @@
       "labels": [
         "design"
       ],
-      "body": "Open decision (D11, Matt's call; keep open). Matt prefers Scala/TypeScript-familiar surface syntax (Scala and Rust say Option; Haskell, Elm and Lean's Option/Haskell's Maybe differ). Hashes aren't a constraint yet. To decide with a short design note: names (Option/Some/None vs Maybe/Just/Nothing), every use in prelude, examples, AoC, docs and the JS boundary codec (.d.ts shape), and whether to rename the constructors too. If yes, it's a mechanical sweep (DeepSeek) after the note.",
+      "body": "Open decision (D11, Matt's call; keep open). Matt prefers Scala/TypeScript-familiar surface syntax: Scala, Rust and Lean call it Option (Some/None); Haskell and Elm call it Maybe (Just/Nothing). Hashes aren't a constraint yet. To decide with a short design note: the names, every use in prelude, examples, AoC, docs and the JS boundary codec (.d.ts shape), and whether to rename the constructors too. If yes, it's a mechanical sweep (DeepSeek) after the note.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
