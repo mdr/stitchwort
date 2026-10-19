@@ -94,8 +94,7 @@ Running: `checker-fixes` (Opus: cache Decidable lookups; one-call
 `List.filter`). Day 2 profile merged (checker-evaluation.md §9: option
 (b) shelved). Local model set up (ollama + qwen3-coder:30b + OpenCode
 with safeguards, ~/.config/nix-darwin/opencode.nix); Claude orchestrates
-it. Was: `day2-check-profile` (Opus, report: re-measure,
-decide option (b)). (syntax polish merged: `type Grid = List (List Nat)`, lines may start
+it. (Syntax polish merged: `type Grid = List (List Nat)`, lines may start
 with `,` or a closing bracket, trailing commas, char-match errors name
 characters). Checker fix (a) merged (`1fc7824`: print/dot/==/if no
 longer compute closed values at check time; day 1 check 1.11 s -> 0.58 s).
