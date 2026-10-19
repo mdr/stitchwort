@@ -27,7 +27,9 @@ Areas:
   all        cargo test --release --workspace
   gate       nix flake check (the full gate, 6-7 minutes)
 
-FILTER is passed as the test-name filter after `--`.
+FILTER selects what to run. For `examples` and `hashes` it is passed as
+EXAMPLES, so only example files or project folders whose names contain it
+run; for other areas it is passed as the test-name filter after `--`.
 
 `dev/t snap AREA` is the same, but with INSTA_UPDATE=always. It prints the
 changed snapshot files afterwards so they can be reviewed.
@@ -75,6 +77,7 @@ if [[ "$snap" -eq 1 ]]; then
 fi
 
 args=()
+examples_filter=0
 case "$area" in
   syntax)
     args=(-p stitchwort-syntax)
@@ -100,9 +103,11 @@ case "$area" in
     ;;
   examples)
     args=(-p stitchwort-cli --test examples)
+    examples_filter=1
     ;;
   hashes)
     args=(-p stitchwort-driver --test hash_stability)
+    examples_filter=1
     ;;
   bench)
     args=(-p stitchwort-bench)
@@ -136,7 +141,11 @@ case "$area" in
 esac
 
 if [[ -n "$filter" ]]; then
-  args+=(-- "$filter")
+  if [[ "$examples_filter" -eq 1 ]]; then
+    export EXAMPLES="$filter"
+  else
+    args+=(-- "$filter")
+  fi
 fi
 
 run_cargo test --release "${args[@]}"

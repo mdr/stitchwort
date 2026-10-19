@@ -22,6 +22,17 @@ fn show(h: stitchwort_core::budget::Result<Option<ContentHash>>) -> String {
     }
 }
 
+/// Whether the example called `name` should run: `EXAMPLES` unset or empty
+/// means every example, otherwise only those whose name contains it.
+fn wanted(name: &str) -> bool {
+    std::env::var("EXAMPLES").map_or(true, |filter| filter.is_empty() || name.contains(&filter))
+}
+
+/// Whether `EXAMPLES` is filtering the examples.
+fn filtering() -> bool {
+    std::env::var("EXAMPLES").is_ok_and(|filter| !filter.is_empty())
+}
+
 fn lines(session: &Session, first_data: usize, first_def: usize) -> String {
     let g = &session.elab.globals;
     let mut out = String::new();
@@ -51,6 +62,7 @@ fn examples() {
             .unwrap()
             .map(|e| e.unwrap().path())
             .filter(|p| p.extension().is_some_and(|e| e == "sw"))
+            .filter(|p| wanted(&p.file_name().unwrap().to_string_lossy()))
             .collect();
         files.sort();
         for path in files {
@@ -74,7 +86,9 @@ fn examples() {
             checked += 1;
         }
     }
-    assert!(checked > 0);
+    if !filtering() {
+        assert!(checked > 0);
+    }
 }
 
 /// The accepted example projects: their declarations' hashes, as for the
@@ -86,9 +100,12 @@ fn projects() {
         .unwrap()
         .map(|e| e.unwrap().path())
         .filter(|p| p.is_dir())
+        .filter(|p| wanted(&p.file_name().unwrap().to_string_lossy()))
         .collect();
     dirs.sort();
-    assert!(!dirs.is_empty());
+    if !filtering() {
+        assert!(!dirs.is_empty());
+    }
     for dir in dirs {
         let name = dir.file_name().unwrap().to_string_lossy().to_string();
         let mut session = Session::new();
@@ -115,9 +132,12 @@ fn a_namespace_checked_alone_has_the_same_hashes() {
         .unwrap()
         .map(|e| e.unwrap().path())
         .filter(|p| p.is_dir())
+        .filter(|p| wanted(&p.file_name().unwrap().to_string_lossy()))
         .collect();
     dirs.sort();
-    assert!(!dirs.is_empty());
+    if !filtering() {
+        assert!(!dirs.is_empty());
+    }
     for dir in dirs {
         let name = dir.file_name().unwrap().to_string_lossy().to_string();
         let files = DiskFiles { root: dir.clone() };

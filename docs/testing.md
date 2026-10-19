@@ -14,8 +14,8 @@ Stitchwort's guarantees are only as good as the compiler's correctness, so the t
 | `dev/t driver` | `stitchwort-driver`: all integration tests |
 | `dev/t js` | `stitchwort-js`, plus the CLI `extract` and `run_js` tests |
 | `dev/t cli` | `stitchwort-cli`: all integration tests |
-| `dev/t examples` | `stitchwort-cli --test examples` (every example, with snapshots; FILTER picks one of its three test functions, e.g. `reject`, not individual example files) |
-| `dev/t hashes` | `stitchwort-driver --test hash_stability` |
+| `dev/t examples` | `stitchwort-cli --test examples` (every example, with snapshots; FILTER keeps only files or project folders whose names contain it, e.g. `synonym`) |
+| `dev/t hashes` | `stitchwort-driver --test hash_stability` (FILTER keeps only examples whose names contain it) |
 | `dev/t bench` | `stitchwort-bench`: the benchmark baseline check |
 | `dev/t web` | `stitchwort-web`: unit tests only (browser tests are `dev/t browser`) |
 | `dev/t browser` | Build and run the playground tests in headless Chrome |
@@ -23,7 +23,7 @@ Stitchwort's guarantees are only as good as the compiler's correctness, so the t
 | `dev/t all` | Every test in the workspace |
 | `dev/t gate` | `nix flake check`, the full gate (6-7 minutes) |
 
-`dev/t AREA FILTER` passes `FILTER` as the test-name filter, for example `dev/t examples reject`. `dev/t snap AREA` sets `INSTA_UPDATE=always` and then prints the changed snapshots for review. Outside `nix develop` the script runs commands through `nix develop -c`; inside the dev shell it calls `cargo` directly.
+For `dev/t examples` and `dev/t hashes`, `dev/t AREA FILTER` sets `EXAMPLES=FILTER`, so only example files or project folders whose names contain `FILTER` run, for example `dev/t examples synonym`. For the other areas, `FILTER` is passed as the test-name filter after `--`. `dev/t snap AREA` sets `INSTA_UPDATE=always` and then prints the changed snapshots for review; unfiltered snapshots are left alone. Outside `nix develop` the script runs commands through `nix develop -c`; inside the dev shell it calls `cargo` directly.
 
 | Layer | Where | What it catches |
 |---|---|---|
