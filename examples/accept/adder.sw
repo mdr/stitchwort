@@ -29,10 +29,10 @@ def textOr (d: Text): Maybe Text -> Text
 -- Reports a line that should be a number, and goes on with the new total.
 def stepNumber (total: Nat) (l: Text): Maybe Nat -> (Nat -> {IO, Partial | e} Nat) -> {IO, Partial | e} Nat
   | Nothing, more =>
-    print ("\"" ++ l ++ "\" isn't a number; skipped")
+    IO.print ("\"" ++ l ++ "\" isn't a number; skipped")
     more total
   | Just n,  more =>
-    print ("  total: " ++ Nat.toText (total + n))
+    IO.print ("  total: " ++ Nat.toText (total + n))
     more (total + n)
 
 -- What to do with a line, given the total so far. An empty line, or the end
@@ -47,14 +47,14 @@ def step (total: Nat): Maybe Text -> (Nat -> {IO, Partial | e} Nat) -> {IO, Part
 
 -- Adds up the numbers on the lines to come, until an empty line or the end
 -- of the input.
-def addLines (total: Nat): {IO, Partial} Nat := step total (readLine()) addLines
+def addLines (total: Nat): {IO, Partial} Nat := step total (IO.readLine()) addLines
 
 def main(): {IO, Partial} () :=
-  print "What's your name?"
-  let name := textOr "stranger" (readLine())
-  print ("Hello, " ++ name ++ "! Type numbers to add, one per line, and an empty line to stop.")
+  IO.print "What's your name?"
+  let name := textOr "stranger" (IO.readLine())
+  IO.print ("Hello, " ++ name ++ "! Type numbers to add, one per line, and an empty line to stop.")
   let total := addLines 0
-  print ("The sum is " ++ Nat.toText total ++ ". Goodbye, " ++ name ++ ".")
+  IO.print ("The sum is " ++ Nat.toText total ++ ". Goodbye, " ++ name ++ ".")
 
 test "a name" := textOr "stranger" (Just "Ada") == "Ada"
 

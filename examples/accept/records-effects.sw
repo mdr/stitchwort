@@ -8,14 +8,14 @@ def orNone: Maybe Text -> Text
   | Nothing => "none"
   | Just t  => t
 
-def next(): {IO} Text := orNone (readLine())
+def next(): {IO} Text := orNone (IO.readLine())
 
 -- `b` is written first, so it reads the first line.
 def backwards(): {IO} Pair2 := { b = next(), a = next() }
 
 -- The base prints once, before the new field is read.
 def base(): {IO} Pair2 :=
-  print "base"
+  IO.print "base"
   { a = "x", b = "y" }
 
 def updated(): {IO} Pair2 := { base() | a = next() }

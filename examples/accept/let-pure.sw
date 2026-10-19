@@ -77,4 +77,4 @@ def Grid.rolls (grid: Grid): Nat := grid.length
 
 def countRolls(): {IO} () :=
   let grid := Grid.parse (IO.readAllLines())
-  print grid.rolls.toText
+  IO.print grid.rolls.toText

@@ -69,7 +69,10 @@ These are settled. The rest of the note designs around them.
 **Answers to §11 (16 October 2026):**
 
 1. `not` is visible everywhere, the one function in the default set: yes.
-2. `IO` (and so `print`, `readLine`) is visible everywhere: yes.
+2. `IO` (and so `print`, `readLine`) is visible everywhere: yes. **Changed on
+   19 October 2026 (D29):** `IO` stays a default name, but its operations
+   don't: they are written `IO.print`, `IO.readLine`, `IO.readAll`, or
+   imported (`import IO (print)`).
 3. Other `List` names visible without the prefix inside `List.sum`'s body:
    **deferred (someday/maybe)**. Not in this proposal.
 4. A user's file adding functions to library namespaces (`List.sum` defined
@@ -722,7 +725,12 @@ import Effect (Comp)
 
 **Proposed: the default set is exactly what `Std` declares at its root.** In
 the library source that's a visible, checkable rule: anything not in a
-namespace is default. Constructors and operations follow their type (§4.4).
+namespace is default. Constructors follow their type (§4.4), and so do the
+operations of a user's own abilities. The library's abilities are the
+exception: since 19 October 2026 (D29, ticket SW-134) `IO`'s operations are
+not default. A program writes `IO.print "hi"`, or `import IO (print)` for
+the short name. The qualifier needs no import, because `IO` is default.
+The operations are still visible unqualified inside the library itself.
 
 | Default | With |
 |---|---|
@@ -738,12 +746,12 @@ namespace is default. Constructors and operations follow their type (§4.4).
 | `Void` | (no constructors) |
 | `Unit` | `Trivial` |
 | `Not` | (a definition: `Not p = p -> Void`, used in many types) |
-| `IO` (ability) | `print`, `readLine` (Q2: yes) |
+| `IO` (ability) | (nothing: its operations are written `IO.print`, `IO.readLine`, `IO.readAll`, or imported; changed 19 Oct 2026, D29) |
 | `Partial` (ability, from the `Partial` lane) | (its operations, if any) |
 | `not` | an **alias** of `Std.Bool.not` (Q1: yes) |
 
-The table has 13 type and ability names, plus `Not`, `not`, and 19
-constructors and operations.
+The table has 13 type and ability names, plus `Not`, `not`, and 17
+constructors.
 
 **`not` is an alias, not a definition at the root.** `not` lives in `Bool`
 like every other `Bool` function, and the library's root declares
@@ -1080,8 +1088,9 @@ ability State (s : Type) where
   (`crates/elab/src/effects.rs:1300`), and that still works once each name
   is resolved. Resolving clause names against the handled computation's row,
   as records resolve field patterns by type, would be a later convenience.
-- **Library abilities.** `IO` (with `print` and `readLine`) and `Partial`
-  are in the default set (§4.6, Q2). `simulate` becomes `IO.simulate`.
+- **Library abilities.** `IO` and `Partial`
+  are in the default set (§4.6, Q2), but `IO`'s operations are not (D29,
+  19 October 2026): `IO.print`, `IO.readLine`, `IO.readAll`. `simulate` becomes `IO.simulate`.
 
 ### 4.11 Type variables
 
@@ -1465,7 +1474,7 @@ qualified name, or `import`.
 
 | Today | New full name | Notes |
 |---|---|---|
-| `IO`, `print`, `readLine` | `IO`, `IO.print`, `IO.readLine` | **default** (Q2) |
+| `IO`, `print`, `readLine` | `IO`, `IO.print`, `IO.readLine` | `IO` **default** (Q2); the operations are not (D29) |
 | `nextLine`, `simulate` | `IO.nextLine`, `IO.simulate` | |
 | `Comp`, `Done`, `Call`, `foldComp`, `bind` | `Effect.Comp`, `Effect.Comp.Done`, `Effect.Comp.Call`, `Effect.foldComp`, `Effect.bind` | frees `Done`, `Call` for users |
 | `Plus`, `L`, `R`, `PlusRes` | `Effect.Plus`, `Effect.Plus.L`, `Effect.Plus.R`, `Effect.PlusRes` | frees `L`, `R` |

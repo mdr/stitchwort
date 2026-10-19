@@ -318,7 +318,7 @@ fn run_in(
                 ),
             )
             .with_label(main.span, "while running this program")
-            .with_note("`readLine()` gives `Nothing` at the end of the input"),
+            .with_note("`IO.readLine()` gives `Nothing` at the end of the input"),
             error => error.diagnostic(&main),
         };
         rendered(&session, &[error])
@@ -659,16 +659,16 @@ mod tests {
                     | Nothing => d\n  \
                     | Just t  => t\n\n\
                     def main () : {IO} () :=\n  \
-                    print (textOr \"none\" (readLine ()))\n  \
-                    print (textOr \"none\" (readLine ()))\n  \
-                    print (textOr \"none\" (readLine ()))\n";
+                    IO.print (textOr \"none\" (IO.readLine ()))\n  \
+                    IO.print (textOr \"none\" (IO.readLine ()))\n  \
+                    IO.print (textOr \"none\" (IO.readLine ()))\n";
         assert_eq!(printed(&run(echo, "\nlast", 1000)), r"\nlast\nnone\n");
         // `readAll` gives the rest of the input as it is, then "".
         let rest = "def main () : {IO} () :=\n  \
-                    print (Nat.toText (List.length (IO.readAllLines ())))\n  \
-                    print (readAll ())\n";
+                    IO.print (Nat.toText (List.length (IO.readAllLines ())))\n  \
+                    IO.print (IO.readAll ())\n";
         assert_eq!(printed(&run(rest, "a\r\nb", 1000)), r"2\n\n");
-        let all = "def main () : {IO} () :=\n  print (readAll ())\n";
+        let all = "def main () : {IO} () :=\n  IO.print (IO.readAll ())\n";
         assert_eq!(printed(&run(all, "a\r\nb", 1000)), r"a\r\nb\n");
         assert_eq!(printed(&run(all, "", 1000)), r"\n");
         // A pure `main` runs too, and prints nothing.
@@ -685,7 +685,7 @@ mod tests {
         let cat = include_str!("../../../examples/accept/cat.sw");
         assert_eq!(printed(&run(cat, "a\n\nb\n", 1000)), r"a\n\nb\n");
         let forever = "def forever (n : Nat) : {IO, Partial} () :=\n  \
-                       print \"tick\"\n  \
+                       IO.print \"tick\"\n  \
                        forever (n + 1)\n\n\
                        def main () : {IO, Partial} () := forever 0\n";
         let cut = run(forever, "", 1000);
@@ -717,7 +717,7 @@ mod tests {
     const PRINT_MANY: &str = "def printMany : Nat -> {IO} ()\n  \
                               | 0      => ()\n  \
                               | Succ n =>\n    \
-                              print \"ab\"\n    \
+                              IO.print \"ab\"\n    \
                               printMany n\n\n\
                               def main () : {IO} () := printMany 1000\n";
 
@@ -736,7 +736,7 @@ mod tests {
         assert!(cut.contains("while running this program"), "{cut}");
         assert_eq!(printed(&cut), r"ab\n".repeat(999) + "ab");
         // A cut through a character keeps what's before it.
-        let wide = "def main () : {IO} () := print \"aé\"\n";
+        let wide = "def main () : {IO} () := IO.print \"aé\"\n";
         let cut = run(wide, "", 2);
         assert!(cut.contains("[E-OUTPUT]"), "{cut}");
         assert_eq!(printed(&cut), "a\u{FFFD}");
@@ -748,8 +748,8 @@ mod tests {
                       | Zero,   x => Nil\n  \
                       | Succ n, x => Cons x (replicate n x)\n\n\
                       def main () : {IO} () :=\n  \
-                      print \"before\"\n  \
-                      print (Nat.toText (List.length (replicate 100000 1)))\n";
+                      IO.print \"before\"\n  \
+                      IO.print (Nat.toText (List.length (replicate 100000 1)))\n";
         let mut session = load(source).expect("it checks");
         session.elab.limits.work = 100_000;
         let result = run_loaded(session, "", 1000, MAX_READS_PAST_END);
@@ -769,7 +769,7 @@ mod tests {
              def readN : Nat -> {{IO}} ()\n  \
              | 0      => ()\n  \
              | Succ n =>\n    \
-             print (textOr (readLine ()))\n    \
+             IO.print (textOr (IO.readLine ()))\n    \
              readN n\n\n\
              def main () : {{IO}} () := readN {n}\n"
         )
@@ -815,7 +815,7 @@ mod tests {
         assert_eq!(pieces.len(), 1000);
         assert_eq!(pieces[999], "ab");
         assert!(matches!(ran, Ok(Err(e)) if e.starts_with("[E-OUTPUT]")));
-        let (pieces, _) = lines("def main () : {IO} () := print \"aé\"\n", 2);
+        let (pieces, _) = lines("def main () : {IO} () := IO.print \"aé\"\n", 2);
         assert_eq!(pieces, vec!["a\u{FFFD}"]);
         // Errors stop it after what was printed, and before `main` there's
         // nothing.

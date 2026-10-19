@@ -472,8 +472,8 @@ test "state inside choice" := List.length (allResults (\u => runState 1 step)) =
 -- ...or one state threads through both branches.
 test "choice inside state" := sndOf (runState 1 (\u => allResults step)) == 11
 </script>
-<script type="text/plain" id="ex-main" data-title="Input and output: main">-- A program with input and output. `main` prints with `print` and reads
--- lines with `readLine`, which gives `Nothing` at the end of the input. Press
+<script type="text/plain" id="ex-main" data-title="Input and output: main">-- A program with input and output. `main` prints with `IO.print` and reads
+-- lines with `IO.readLine`, which gives `Nothing` at the end of the input. Press
 -- Run: the Run tab's box holds the input lines. The tests run the same `main`
 -- with `IO.simulate`, which takes the input as a list.
 
@@ -485,10 +485,10 @@ def textOr (d: Text): Maybe Text -> Text
 -- Reports a line that should be a number, and goes on with the new total.
 def stepNumber (total: Nat) (l: Text): Maybe Nat -> (Nat -> {IO} Nat) -> {IO} Nat
   | Nothing, more =>
-    print ("\"" ++ l ++ "\" isn't a number; skipped")
+    IO.print ("\"" ++ l ++ "\" isn't a number; skipped")
     more total
   | Just n,  more =>
-    print ("  total: " ++ Nat.toText (total + n))
+    IO.print ("  total: " ++ Nat.toText (total + n))
     more (total + n)
 
 -- What to do with a line, given the total so far. An empty line, or the end
@@ -503,14 +503,14 @@ def step (total: Nat): Maybe Text -> (Nat -> {IO} Nat) -> {IO} Nat
 -- operations.
 def addLines: Nat -> Nat -> {IO} Nat
   | 0,      total => total
-  | Succ n, total => step total (readLine()) (\t => addLines n t)
+  | Succ n, total => step total (IO.readLine()) (\t => addLines n t)
 
 def main(): {IO} () :=
-  print "What's your name?"
-  let name := textOr "stranger" (readLine())
-  print ("Hello, " ++ name ++ "! Type numbers to add, one per line, and an empty line to stop.")
+  IO.print "What's your name?"
+  let name := textOr "stranger" (IO.readLine())
+  IO.print ("Hello, " ++ name ++ "! Type numbers to add, one per line, and an empty line to stop.")
   let total := addLines 1000 0
-  print ("The sum is " ++ Nat.toText total ++ ". Goodbye, " ++ name ++ ".")
+  IO.print ("The sum is " ++ Nat.toText total ++ ". Goodbye, " ++ name ++ ".")
 
 -- Testing `main` with scripted input
 
@@ -785,7 +785,7 @@ export def area: Shape -> Nat
   // Running `main`. The controls persist across renders, so the input and the
   // last run's output stay while switching tabs.
   const runInput = el("textarea", { id: "run-input", spellcheck: false, rows: 4,
-                                    placeholder: "Input, a line per readLine (), or the rest at once with readAll ()" });
+                                    placeholder: "Input, a line per IO.readLine (), or the rest at once with IO.readAll ()" });
   runInput.setAttribute("aria-label", "Input lines for the program");
   const runAgain = el("button", { className: "primary", type: "button" }, "Run");
   const stopButton = el("button", { type: "button", disabled: true }, "Stop");
@@ -796,8 +796,8 @@ export def area: Shape -> Nat
 
   const runPanel = [
     el("p", { className: "hint" },
-       "Run calls main (). Its readLine () gets the lines below, one at a time, then Nothing; " +
-       "readAll () gets all that's left at once. " +
+       "Run calls main (). Its IO.readLine () gets the lines below, one at a time, then Nothing; " +
+       "IO.readAll () gets all that's left at once. " +
        `A run may print up to ${MAX_OUTPUT / 1024} KB and take up to ${RUN_SECONDS} s.`),
     runInput,
     el("div", { className: "runrow" }, runAgain, stopButton),

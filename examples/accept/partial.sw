@@ -110,9 +110,9 @@ def countLogged (n: Nat): {Partial} Nat :=
 
 -- Partial code with IO.
 def countdown: Nat -> {IO, Partial} ()
-  | 0 => print "liftoff"
+  | 0 => IO.print "liftoff"
   | n =>
-    print (Nat.toText n)
+    IO.print (Nat.toText n)
     countdown (n - 1)
 
 -- Total code can mention partial functions, store them and pass them on:
@@ -126,17 +126,17 @@ def later: () -> {Partial} Nat := \u => spin 0
 test "mentioning partial functions is total" := discard collatzSteps + Pair.fst kept == 1
 
 def main(): {IO, Partial} () :=
-  print (Nat.toText (collatzSteps 27))
-  print (Nat.toText (firstFrom (\n => Nat.leq 100 (n * n)) 0))
-  print (Nat.toText (fib 10))
-  print (if isEven 10 then "even" else "odd")
-  print (Nat.toText (hofF 10))
-  print (Nat.toText (viaHelper 5))
-  print (Nat.toText (tree 3))
-  print (Nat.toText (addThen 3 4))
-  print (Nat.toText (stepper 4))
-  print (Nat.toText (retryWith 0 27))
-  print (Nat.toText (List.length (incrementAll [1, 2, 3])))
-  print (Nat.toText (sumTo 100))
-  print (Nat.toText (countLogged 6))
+  IO.print (Nat.toText (collatzSteps 27))
+  IO.print (Nat.toText (firstFrom (\n => Nat.leq 100 (n * n)) 0))
+  IO.print (Nat.toText (fib 10))
+  IO.print (if isEven 10 then "even" else "odd")
+  IO.print (Nat.toText (hofF 10))
+  IO.print (Nat.toText (viaHelper 5))
+  IO.print (Nat.toText (tree 3))
+  IO.print (Nat.toText (addThen 3 4))
+  IO.print (Nat.toText (stepper 4))
+  IO.print (Nat.toText (retryWith 0 27))
+  IO.print (Nat.toText (List.length (incrementAll [1, 2, 3])))
+  IO.print (Nat.toText (sumTo 100))
+  IO.print (Nat.toText (countLogged 6))
   countdown 3

@@ -54,15 +54,15 @@ def start : Maybe Text -> Nat
   | Just l  => 1000000000000
 
 def main () : {IO} () :=
-  print "tick"
-  print (Nat.toText (spin (start (readLine ()))))
+  IO.print "tick"
+  IO.print (Nat.toText (spin (start (IO.readLine ()))))
 `;
 
 /** Prints `line` `n` times. */
 const printMany = (n, line) => `def printMany : Nat -> {IO} ()
   | 0      => ()
   | Succ n =>
-    print "${line}"
+    IO.print "${line}"
     printMany n
 
 def main () : {IO} () := printMany ${n}
@@ -72,7 +72,7 @@ def main () : {IO} () := printMany ${n}
 const readMany = (n) => `def readMany : Nat -> {IO} ()
   | 0      => ()
   | Succ n =>
-    let l := readLine ()
+    let l := IO.readLine ()
     readMany n
 
 def main () : {IO} () := readMany ${n}
@@ -490,18 +490,18 @@ test("Run, with scripted input", async (page) => {
 test("Run, reading all the input at once", async (page) => {
   await page.open();
   await page.untilChecked();
-  // `readAll` after a `readLine` gives the rest, verbatim; `readLine` after
+  // `IO.readAll` after a `IO.readLine` gives the rest, verbatim; `IO.readLine` after
   // it gives `Nothing`.
   await page.setSource(`def textOr : Maybe Text -> Text
   | Nothing => "none"
   | Just t  => t
 
 def main () : {IO} () :=
-  print (textOr (readLine ()))
-  let rest := readAll ()
-  print (Nat.toText (List.length rest.lines))
-  print rest
-  print (textOr (readLine ()))
+  IO.print (textOr (IO.readLine ()))
+  let rest := IO.readAll ()
+  IO.print (Nat.toText (List.length rest.lines))
+  IO.print rest
+  IO.print (textOr (IO.readLine ()))
 `);
   await page.untilChecked();
   await page.tab("run");

@@ -10,9 +10,9 @@
 def echoLine: Maybe Text -> (() -> {IO, Partial | e} ()) -> {IO, Partial | e} ()
   | Nothing, more => ()
   | Just l,  more =>
-    print l
+    IO.print l
     more()
 
-def cat(): {IO, Partial} () := echoLine (readLine()) cat
+def cat(): {IO, Partial} () := echoLine (IO.readLine()) cat
 
 def main(): {IO, Partial} () := cat()

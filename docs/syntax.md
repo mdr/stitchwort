@@ -183,7 +183,7 @@ Examples: `examples/accept/local-defs.sw`, `examples/accept/local-defs-effects.s
 
 ## Namespaces and imports
 
-Names are grouped into namespaces (docs/proposals/namespaces.md). The library is `Std`, and a program sees only its core types, their constructors, the operators and `not` without asking: `Nat`, `Bool`, `List`, `Maybe`, `Pair`, `Char`, `Text`, `Ordering`, `Decidable`, `Void`, `Unit`, `Not`, `And`, `Or`, `IO` (with `print`, `readLine` and `readAll`), and their constructors. Everything else is written with its namespace, or imported:
+Names are grouped into namespaces (docs/proposals/namespaces.md). The library is `Std`, and a program sees only its core types, their constructors, the operators and `not` without asking: `Nat`, `Bool`, `List`, `Maybe`, `Pair`, `Char`, `Text`, `Ordering`, `Decidable`, `Void`, `Unit`, `Not`, `And`, `Or`, `IO` (its operations are written `IO.print`, `IO.readLine` and `IO.readAll`, or imported), and their constructors. Everything else is written with its namespace, or imported:
 
 ```
 import Text (split, join)
@@ -277,8 +277,8 @@ Effectful code is written in direct style. Arguments are evaluated left to right
 
 `IO` is an ability with `print: Text -> {IO} ()`, `readLine: () -> {IO} (Maybe Text)` and `readAll: () -> {IO} Text` (also `IO.print`, `IO.readLine`, `IO.readAll`). `IO.simulate lines prog` runs `prog` against scripted input and records what it prints.
 
-- `readLine()` gives the next line without its LF (and a CR just before it), `Nothing` once nothing remains.
-- `readAll()` gives everything that remains, verbatim, line endings included; `""` once nothing remains. After it, `readLine()` is `Nothing`; after some `readLine`s it gives the rest. Under `IO.simulate` it gives the remaining scripted lines, each followed by LF.
+- `IO.readLine()` gives the next line without its LF (and a CR just before it), `Nothing` once nothing remains.
+- `IO.readAll()` gives everything that remains, verbatim, line endings included; `""` once nothing remains. After it, `IO.readLine()` is `Nothing`; after some `IO.readLine`s it gives the rest. Under `IO.simulate` it gives the remaining scripted lines, each followed by LF.
 - `Text.lines: Text -> List Text` follows Rust's `str::lines`: split on LF, drop a CR right before an LF, and the last line's ending is optional. `"a\nb"` and `"a\nb\n"` both give `["a", "b"]`; `""` gives `[]`; `"\n"` gives `[""]`; `"a\r\nb"` gives `["a", "b"]`. A CR anywhere else stays, including a final one.
 - `IO.readAllLines(): {IO} (List Text)` is `(readAll()).lines`. It is total.
 
@@ -295,7 +295,7 @@ def collatzSteps: Nat -> {Partial} Nat
   | n => 1 + collatzSteps (next n)     -- no termination check
 
 -- run by `stitchwort run`
-def main(): {IO, Partial} () := print (Nat.toText (collatzSteps 27))
+def main(): {IO, Partial} () := IO.print (Nat.toText (collatzSteps 27))
 
 -- A helper that's given a recursive function must be polymorphic in the
 -- rest of its row (`| e`): the recursive calls are requests that only the

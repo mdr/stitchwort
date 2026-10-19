@@ -20,8 +20,8 @@ import Aoc.Common (Range, writeTimes)
 
 def main(): {IO} () :=
   let ranges := parseRanges (IO.readAll())
-  print "Part 1: ${solvePart1 ranges}"
-  print "Part 2: ${solvePart2 ranges}"
+  IO.print "Part 1: ${solvePart1 ranges}"
+  IO.print "Part 2: ${solvePart2 ranges}"
 
 def solvePart1 (ranges: List Range): Nat := total twice ranges
 

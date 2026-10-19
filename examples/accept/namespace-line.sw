@@ -31,7 +31,7 @@ def decToken: Decidable Token := Yes MkToken
 
 def needsToken: [auto t: Token] -> Nat := 1
 
-def main(): {IO} () := print "demo"
+def main(): {IO} () := IO.print "demo"
 
 test "area" := (Rect 2 3).area == 6 && Shape.area (Square 2) == 4
 test "own namespace" := Geometry.double 2 == 4 && quadruple 1 == 4

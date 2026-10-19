@@ -1,6 +1,6 @@
 -- The `IO` ability and `IO.simulate` (docs/proposals/text-and-io.md, Part 2).
 -- `IO.simulate` is an ordinary handler from the prelude: it answers each
--- `readLine` from a list of scripted lines and records each `print`.
+-- `IO.readLine` from a list of scripted lines and records each `IO.print`.
 
 def eqTexts: List Text -> List Text -> Bool
   | Nil,       Nil       => True
@@ -23,9 +23,9 @@ def isNothing: Maybe a -> Bool
 -- Printing
 
 def hello(): {IO} Nat :=
-  print "one"
-  print "two"
-  print "three"
+  IO.print "one"
+  IO.print "two"
+  IO.print "three"
   3
 
 test "prints are recorded in order" :=
@@ -34,26 +34,26 @@ test "prints are recorded in order" :=
 test "the result comes back too" := result (IO.simulate [] hello) == 3
 
 test "a payload with a newline is one entry" :=
-  eqTexts (printed (IO.simulate [] (\u => print "a\nb"))) ["a\nb"]
+  eqTexts (printed (IO.simulate [] (\u => IO.print "a\nb"))) ["a\nb"]
 
 test "an empty payload is an entry" :=
-  eqTexts (printed (IO.simulate [] (\u => print ""))) [""]
+  eqTexts (printed (IO.simulate [] (\u => IO.print ""))) [""]
 
 -- Reading
 
 test "an empty line is Just \"\"" :=
-  isJustText "" (result (IO.simulate [""] (\u => readLine())))
+  isJustText "" (result (IO.simulate [""] (\u => IO.readLine())))
 
 test "a line is read whole" :=
-  isJustText "  two words  " (result (IO.simulate ["  two words  "] (\u => readLine())))
+  isJustText "  two words  " (result (IO.simulate ["  two words  "] (\u => IO.readLine())))
 
-test "no input: Nothing" := isNothing (result (IO.simulate [] (\u => readLine())))
+test "no input: Nothing" := isNothing (result (IO.simulate [] (\u => IO.readLine())))
 
 -- Reads three times from one line of input.
 def readThree(): {IO} (List (Maybe Text)) :=
-  let a := readLine()
-  let b := readLine()
-  let c := readLine()
+  let a := IO.readLine()
+  let b := IO.readLine()
+  let c := IO.readLine()
   [a, b, c]
 
 def maybesAre: List (Maybe Text) -> Bool
@@ -65,7 +65,7 @@ test "end of input keeps giving Nothing" := maybesAre (result (IO.simulate ["x"]
 
 -- Only the lines asked for are used.
 test "unread input is ignored" :=
-  isJustText "first" (result (IO.simulate ["first", "second"] (\u => readLine())))
+  isJustText "first" (result (IO.simulate ["first", "second"] (\u => IO.readLine())))
 
 -- Reading and printing interleaved
 
@@ -74,12 +74,12 @@ test "unread input is ignored" :=
 def echoLine: Maybe Text -> (() -> {IO} ()) -> {IO} ()
   | Nothing, more => ()
   | Just l,  more =>
-    print l
+    IO.print l
     more()
 
 def echo: Nat -> {IO} ()
   | 0      => ()
-  | Succ n => echoLine (readLine()) (\u => echo n)
+  | Succ n => echoLine (IO.readLine()) (\u => echo n)
 
 test "echo" :=
   eqTexts (printed (IO.simulate ["a", "", "c"] (\u => echo 10))) ["a", "", "c"]
@@ -94,12 +94,12 @@ test "echo with no input prints nothing" :=
 def numberLine (i: Nat): Maybe Text -> (() -> {IO} Nat) -> {IO} Nat
   | Nothing, more => i - 1
   | Just l,  more =>
-    print (Nat.toText i ++ ": " ++ l)
+    IO.print (Nat.toText i ++ ": " ++ l)
     more()
 
 def numberFrom (i: Nat): Nat -> {IO} Nat
   | 0      => i - 1
-  | Succ n => numberLine i (readLine()) (\u => numberFrom (i + 1) n)
+  | Succ n => numberLine i (IO.readLine()) (\u => numberFrom (i + 1) n)
 
 def numbered: Pair (List Text) Nat := IO.simulate ["apple", "banana", "cherry"] (\u => numberFrom 1 100)
 
@@ -114,9 +114,9 @@ def textOr (d: Text): Maybe Text -> Text
   | Just t  => t
 
 def greet(): {IO} () :=
-  print "Name?"
-  let name := readLine()
-  print ("Hello, " ++ textOr "stranger" name ++ "!")
+  IO.print "Name?"
+  let name := IO.readLine()
+  IO.print ("Hello, " ++ textOr "stranger" name ++ "!")
 
 test "prompt and reply" :=
   eqTexts (printed (IO.simulate ["Ada"] greet)) ["Name?", "Hello, Ada!"]
@@ -153,19 +153,19 @@ def toMaybe (prog: () -> {Abort | e} a): {e} Maybe a :=
 
 -- Reads two lines, counting them in the state, and prints the count.
 def countIS(): {IO, State Nat} () :=
-  let a := readLine()
+  let a := IO.readLine()
   put (get() + 1)
-  let b := readLine()
+  let b := IO.readLine()
   put (get() + 1)
-  print (Nat.toText (get()))
+  IO.print (Nat.toText (get()))
 
 -- The same, with the row the other way round.
 def countSI(): {State Nat, IO} () :=
-  let a := readLine()
+  let a := IO.readLine()
   put (get() + 1)
-  let b := readLine()
+  let b := IO.readLine()
   put (get() + 1)
-  print (Nat.toText (get()))
+  IO.print (Nat.toText (get()))
 
 -- `IO.simulate` outside, `runState` inside.
 def stateInside (prog: () -> {State Nat, IO} ()): Pair (List Text) Nat :=
@@ -186,15 +186,15 @@ test "State then IO, State handled outside"   := checkCount (stateOutside countS
 
 -- Prints, then stops.
 def printThenAbort(): {IO, Abort} Nat :=
-  print "before"
+  IO.print "before"
   let e := abort()
-  print "after"
+  IO.print "after"
   fromEmpty e
 
 def abortThenPrint(): {Abort, IO} Nat :=
-  print "before"
+  IO.print "before"
   let e := abort()
-  print "after"
+  IO.print "after"
   fromEmpty e
 
 -- With `toMaybe` inside, what was printed before the abort is kept.
@@ -228,7 +228,7 @@ test "a program with only State" :=
 def printMany: Nat -> {IO} ()
   | 0      => ()
   | Succ n =>
-    print "x"
+    IO.print "x"
     printMany n
 
 test "5,000 prints" := List.length (printed (IO.simulate [] (\u => printMany 5000))) == 5000

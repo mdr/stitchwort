@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-UNKNOWN-NAME] Error: unknown name `print`
+   ╭─[ reject/io-bare-print.sw:3:24 ]
+   │
+ 3 │ def main(): {IO} () := print "hi"
+   │                        ──┬──  
+   │                          ╰──── not in scope
+   │ 
+   │ Note: the library has `IO.print`: write it in full, or `import IO (print)`
+───╯

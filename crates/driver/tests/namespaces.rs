@@ -229,7 +229,7 @@ fn definitions_hash_the_same_with_or_without_a_namespace_line() {
 /// `main` is the namespace's own.
 #[test]
 fn a_namespaced_file_runs_its_main() {
-    let mut session = load("namespace Demo\n\ndef main(): {IO} () := print \"hello\"\n");
+    let mut session = load("namespace Demo\n\ndef main(): {IO} () := IO.print \"hello\"\n");
     assert_eq!(session.simulate(&[]).unwrap(), ["hello"]);
 }
 

@@ -1,5 +1,5 @@
--- `readAll`, `Text.lines` and `IO.readAllLines`, checked with `IO.simulate`.
--- `IO.simulate` answers `readAll` with the remaining scripted lines, each
+-- `IO.readAll`, `Text.lines` and `IO.readAllLines`, checked with `IO.simulate`.
+-- `IO.simulate` answers `IO.readAll` with the remaining scripted lines, each
 -- followed by LF: what `stitchwort run` reads from the same input.
 
 def eqTexts: List Text -> List Text -> Bool
@@ -15,21 +15,21 @@ def showLine: Maybe Text -> Text
 
 -- readAll
 
-def slurp(): {IO} Text := readAll()
+def slurp(): {IO} Text := IO.readAll()
 
 def afterOne(): {IO} Pair Text Text :=
-  let first := showLine (readLine())
-  let rest := readAll()
+  let first := showLine (IO.readLine())
+  let rest := IO.readAll()
   MkPair first rest
 
 def afterAll(): {IO} Pair Text Text :=
-  let all := readAll()
-  let next := showLine (readLine())
+  let all := IO.readAll()
+  let next := showLine (IO.readLine())
   MkPair all next
 
 def twice(): {IO} Pair Text Text :=
-  let a := readAll()
-  let b := readAll()
+  let a := IO.readAll()
+  let b := IO.readAll()
   MkPair a b
 
 test "readAll gives every line, each followed by LF" :=

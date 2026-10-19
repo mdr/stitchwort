@@ -76,10 +76,13 @@ fn with_cost(n: usize, body: &str) -> String {
 /// Programs whose checking must not compute `cost`: the note's table, rows
 /// 4–7 and 12 (operation calls, dot notation, decisions).
 const CONSTANT: &[(&str, &str)] = &[
-    ("print", "def main () : {IO} () := print (Nat.toText cost)"),
+    (
+        "print",
+        "def main () : {IO} () := IO.print (Nat.toText cost)",
+    ),
     (
         "two prints",
-        "def main () : {IO} () :=\n  print (Nat.toText cost)\n  print (Nat.toText cost)",
+        "def main () : {IO} () :=\n  IO.print (Nat.toText cost)\n  IO.print (Nat.toText cost)",
     ),
     ("dot", "def x : Text := cost.toText"),
     ("dot, then an argument", "def x : Nat := cost.max 3"),
