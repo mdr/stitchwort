@@ -6,10 +6,10 @@
 
 [examples]
 inputs = "355 files, 04d88a7289dd223c"
-steps = 847377658
-visits = 87509148
-allocations = 1006078321
-peak_bytes = 107058553
+steps = 1211291167
+visits = 114438738
+allocations = 1412128804
+peak_bytes = 108820470
 time_ms = 1707.9
 
 [extract-js]
@@ -17,7 +17,7 @@ inputs = "24 files, 67dcbbc4bbfe4760"
 steps = 23862
 visits = 15180
 allocations = 192031
-peak_bytes = 377903
+peak_bytes = 380867
 time_ms = 11.8
 
 [eval-lengths]
@@ -52,7 +52,7 @@ time_ms = 426.7
 steps = 12929879
 visits = 143
 allocations = 4598654
-peak_bytes = 16124
+peak_bytes = 16636
 time_ms = 391.6
 
 [check-number-pattern]
@@ -73,21 +73,21 @@ time_ms = 0.7
 steps = 720059
 visits = 380034
 allocations = 1080307
-peak_bytes = 39115508
+peak_bytes = 39039872
 time_ms = 51.1
 
 [check-list-sym-rfl]
 steps = 1480278
 visits = 580059
 allocations = 1960712
-peak_bytes = 62157093
+peak_bytes = 62081457
 time_ms = 85.5
 
 [check-long-sum]
 steps = 233984
 visits = 188996
 allocations = 414124
-peak_bytes = 8737898
+peak_bytes = 8662262
 time_ms = 1182.8
 
 [check-nested-parens]
@@ -101,7 +101,7 @@ time_ms = 3.3
 steps = 6037038
 visits = 2025042
 allocations = 4066298
-peak_bytes = 993768
+peak_bytes = 918132
 time_ms = 629.8
 
 [check-number-huge]
@@ -150,7 +150,7 @@ time_ms = 34.9
 steps = 115567
 visits = 227
 allocations = 50791
-peak_bytes = 377003
+peak_bytes = 377515
 
 [check-closed-print]
 steps = 961
@@ -165,31 +165,31 @@ allocations = 458
 peak_bytes = 4017
 
 [check-closed-eqeq]
-steps = 3294
+steps = 3313
 visits = 114
-allocations = 3146
+allocations = 3528
 peak_bytes = 4099
 
 [check-closed-list-eqeq]
-steps = 6242
+steps = 6261
 visits = 149
-allocations = 5676
+allocations = 6058
 peak_bytes = 3710
 
 [check-closed-if-less]
-steps = 17403471
+steps = 17403490
 visits = 179
-allocations = 9003263
-peak_bytes = 125788656
+allocations = 9003645
+peak_bytes = 125713020
 
 [check-closed-indexed]
 steps = 29000517
 visits = 179
 allocations = 15001314
-peak_bytes = 125795019
+peak_bytes = 125719383
 
 [check-closed-rfl]
 steps = 23200289
 visits = 82
 allocations = 12000604
-peak_bytes = 125784664
+peak_bytes = 125709028
