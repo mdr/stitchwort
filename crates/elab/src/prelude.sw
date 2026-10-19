@@ -1426,6 +1426,9 @@ def Nat.digitsOnto : Nat -> Nat -> List Char -> List Char
 -- Decimal, without leading zeros: `Nat.toText 42` is `"42"`.
 def Nat.toText (n : Nat) : Text := MkText (Nat.digitsOnto (Succ n) n Nil)
 
+-- Itself: so `"${t}"` works when `t` is already text.
+def Text.toText (t : Text) : Text := t
+
 def Maybe.andThen (f : a -> Maybe b) : Maybe a -> Maybe b
   | Nothing => Nothing
   | Just x  => f x

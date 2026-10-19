@@ -12,6 +12,12 @@ pub enum Tok {
     Num(BigUint),
     /// A string literal, used for test names: `"reverse twice"`.
     Str(String),
+    /// The text before `${` in an interpolated string: `"a${x}"`.
+    StrStart(String),
+    /// The text between a `}` and the next `${` in an interpolated string.
+    StrMid(String),
+    /// The text after the last `}` in an interpolated string.
+    StrEnd(String),
     /// A character literal: `'a'`.
     Char(char),
     /// `type`, which starts a data type declaration.
@@ -101,11 +107,20 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
     let mut i = 0;
     let mut line_start = 0;
     let mut fresh_line = true;
+    let mut interps: Vec<(usize, usize)> = Vec::new();
 
     while i < bytes.len() {
         let c = bytes[i];
         match c {
             b'\n' => {
+                if let Some(&(_, string_start)) = interps.last() {
+                    return Err(error(
+                        file,
+                        string_start,
+                        i,
+                        "this string isn't closed with `\"`",
+                    ));
+                }
                 i += 1;
                 line_start = i;
                 fresh_line = true;
@@ -198,23 +213,42 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
                 .parse()
                 .expect("a run of ASCII digits is a valid number");
             Tok::Num(n)
-        } else if c == b'"' || c == b'\'' {
-            let quote = c;
+        } else if c == b'"' {
+            let (chars, stop, interpolation) = scan_string(file, text, i + 1, i)?;
+            if interpolation {
+                tokens.push(Token {
+                    tok: Tok::StrStart(chars),
+                    span: Span::new(file, start as u32, stop as u32),
+                    column,
+                    line_start: fresh_line,
+                });
+                interps.push((0, start));
+                i = stop + 2;
+            } else {
+                tokens.push(Token {
+                    tok: Tok::Str(chars),
+                    span: Span::new(file, start as u32, (stop + 1) as u32),
+                    column,
+                    line_start: fresh_line,
+                });
+                i = stop + 1;
+            }
+            fresh_line = false;
+            continue;
+        } else if c == b'\'' {
             i += 1;
             let mut chars = String::new();
             loop {
                 match bytes.get(i) {
                     None | Some(b'\n') => {
-                        let what = if quote == b'"' { "string" } else { "character" };
-                        let q = quote as char;
                         return Err(error(
                             file,
                             start,
                             i,
-                            format!("this {what} isn't closed with `{q}`"),
+                            "this character isn't closed with `'`",
                         ));
                     }
-                    Some(&b) if b == quote => {
+                    Some(&b) if b == b'\'' => {
                         i += 1;
                         break;
                     }
@@ -230,22 +264,26 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
                     }
                 }
             }
-            if quote == b'"' {
-                Tok::Str(chars)
-            } else {
-                let mut it = chars.chars();
-                match (it.next(), it.next()) {
-                    (Some(ch), None) => Tok::Char(ch),
-                    _ => {
-                        return Err(error(
-                            file,
-                            start,
-                            i,
-                            "a character literal holds exactly one character",
-                        ));
-                    }
+            let mut it = chars.chars();
+            let tok = match (it.next(), it.next()) {
+                (Some(ch), None) => Tok::Char(ch),
+                _ => {
+                    return Err(error(
+                        file,
+                        start,
+                        i,
+                        "a character literal holds exactly one character",
+                    ));
                 }
-            }
+            };
+            tokens.push(Token {
+                tok,
+                span: Span::new(file, start as u32, i as u32),
+                column,
+                line_start: fresh_line,
+            });
+            fresh_line = false;
+            continue;
         } else if !c.is_ascii() {
             let ch = text[start..].chars().next().expect("non-empty");
             let end = start + ch.len_utf8();
@@ -257,6 +295,39 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
             ));
         } else {
             i += 1;
+            if c == b'{'
+                && let Some((depth, _)) = interps.last_mut()
+            {
+                *depth += 1;
+            }
+            if c == b'}' && matches!(interps.last(), Some(&(0, _))) {
+                let (_, string_start) = interps.pop().expect("checked");
+                let text_start = i;
+                let (chars, stop, interpolation) = scan_string(file, text, i, string_start)?;
+                let tok = if interpolation {
+                    i = stop + 2;
+                    Tok::StrMid(chars)
+                } else {
+                    i = stop + 1;
+                    Tok::StrEnd(chars)
+                };
+                tokens.push(Token {
+                    tok,
+                    span: Span::new(file, text_start as u32, i as u32),
+                    column,
+                    line_start: fresh_line,
+                });
+                if interpolation {
+                    interps.push((0, string_start));
+                }
+                fresh_line = false;
+                continue;
+            }
+            if c == b'}'
+                && let Some((depth, _)) = interps.last_mut()
+            {
+                *depth -= 1;
+            }
             match c {
                 b'(' => Tok::LParen,
                 b')' => Tok::RParen,
@@ -338,7 +409,48 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
         });
         fresh_line = false;
     }
+    if let Some(&(_, string_start)) = interps.last() {
+        return Err(error(
+            file,
+            string_start,
+            bytes.len(),
+            "this string isn't closed with `\"`",
+        ));
+    }
     Ok(tokens)
+}
+
+/// The text of a string from `i` up to its closing `"` or a `${`. Returns
+/// the text, the position of that `"` or `$`, and whether it was a `${`.
+fn scan_string(
+    file: FileId,
+    text: &str,
+    mut i: usize,
+    start: usize,
+) -> Result<(String, usize, bool), Diagnostic> {
+    let bytes = text.as_bytes();
+    let mut chars = String::new();
+    loop {
+        match bytes.get(i) {
+            None | Some(b'\n') => {
+                return Err(error(file, start, i, "this string isn't closed with `\"`"));
+            }
+            Some(b'$') if bytes.get(i + 1) == Some(&b'{') => {
+                return Ok((chars, i, true));
+            }
+            Some(b'"') => return Ok((chars, i, false)),
+            Some(b'\\') => {
+                let (ch, len) = escape(file, text, i)?;
+                chars.push(ch);
+                i += len;
+            }
+            Some(_) => {
+                let ch = text[i..].chars().next().expect("non-empty");
+                chars.push(ch);
+                i += ch.len_utf8();
+            }
+        }
+    }
 }
 
 /// The escape sequence starting with the `\\` at `i`: the character it
@@ -353,6 +465,7 @@ fn escape(file: FileId, text: &str, i: usize) -> Result<(char, usize), Diagnosti
         Some(b'\\') => Some('\\'),
         Some(b'"') => Some('"'),
         Some(b'\'') => Some('\''),
+        Some(b'$') => Some('$'),
         _ => None,
     };
     if let Some(ch) = simple {
@@ -367,7 +480,7 @@ fn escape(file: FileId, text: &str, i: usize) -> Result<(char, usize), Diagnosti
             file,
             i,
             end,
-            "unknown escape: use `\\n`, `\\t`, `\\r`, `\\\\`, `\\\"`, `\\'` or `\\u{…}`",
+            "unknown escape: use `\\n`, `\\t`, `\\r`, `\\\\`, `\\\"`, `\\'`, `\\$` or `\\u{…}`",
         ));
     }
     let bad = |end: usize| {
@@ -520,6 +633,52 @@ mod tests {
             tokens("x' 'y'"),
             Ok(vec![Tok::Lower("x'".into()), Tok::Char('y')])
         );
+    }
+
+    #[test]
+    fn string_interpolation() {
+        assert_eq!(
+            tokens("\"a${x}b\""),
+            Ok(vec![
+                Tok::StrStart("a".into()),
+                Tok::Lower("x".into()),
+                Tok::StrEnd("b".into()),
+            ])
+        );
+        assert_eq!(
+            tokens("\"a${x}b${y}c\""),
+            Ok(vec![
+                Tok::StrStart("a".into()),
+                Tok::Lower("x".into()),
+                Tok::StrMid("b".into()),
+                Tok::Lower("y".into()),
+                Tok::StrEnd("c".into()),
+            ])
+        );
+        assert_eq!(
+            tokens("\"${ {value = 1} }\""),
+            Ok(vec![
+                Tok::StrStart(String::new()),
+                Tok::LBrace,
+                Tok::Lower("value".into()),
+                Tok::Equals,
+                Tok::Num(1u32.into()),
+                Tok::RBrace,
+                Tok::StrEnd(String::new()),
+            ])
+        );
+        assert_eq!(
+            tokens("\"${f \"x\"}\""),
+            Ok(vec![
+                Tok::StrStart(String::new()),
+                Tok::Lower("f".into()),
+                Tok::Str("x".into()),
+                Tok::StrEnd(String::new()),
+            ])
+        );
+        assert_eq!(tokens("\"\\${x}\""), Ok(vec![Tok::Str("${x}".into())]));
+        assert_eq!(tokens("\"${x\""), Err("E-PARSE"));
+        assert_eq!(tokens("\"${x\ny}\""), Err("E-PARSE"));
     }
 
     #[test]

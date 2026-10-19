@@ -15,8 +15,8 @@
 
 def main () : {IO} () :=
   let database := parseDatabase (IO.readAllLines ())
-  print ("Part 1: " ++ (solvePart1 database).toText)
-  print ("Part 2: " ++ (solvePart2 database).toText)
+  print "Part 1: ${solvePart1 database}"
+  print "Part 2: ${solvePart2 database}"
 
 -- A range of ids, both ends included.
 type Range = { lo : Nat, hi : Nat }

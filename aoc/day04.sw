@@ -16,8 +16,8 @@ type Grid = List (List Nat)
 
 def main () : {IO} () :=
   let grid := parseGrid (IO.readAllLines ())
-  print ("Part 1: " ++ (solvePart1 grid).toText)
-  print ("Part 2: " ++ (solvePart2 grid).toText)
+  print "Part 1: ${solvePart1 grid}"
+  print "Part 2: ${solvePart2 grid}"
 
 -- Part 1: the rolls one round removes.
 def solvePart1 (grid : Grid) : Nat := grid.rolls - grid.round.rolls

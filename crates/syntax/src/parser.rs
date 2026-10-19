@@ -1632,6 +1632,7 @@ impl<'t> Parser<'t> {
                     | Tok::Num(_)
                     | Tok::Char(_)
                     | Tok::Str(_)
+                    | Tok::StrStart(_)
                     | Tok::TypeU
                     | Tok::Prop
                     | Tok::LParen
@@ -1780,6 +1781,56 @@ impl<'t> Parser<'t> {
         Ok(Expr::List(items, span.to(end)))
     }
 
+    /// `"a${x}b${y}c"`: text pieces joined with `++`, each interpolation
+    /// becoming `(e).toText`. Empty pieces are left out.
+    fn interpolated_str(&mut self) -> Result<Expr> {
+        let token = self.bump();
+        let (mut text, mut text_span) = match &token.tok {
+            Tok::StrStart(text) => (text.clone(), token.span),
+            _ => unreachable!("called at a StrStart"),
+        };
+        let mut items = Vec::new();
+        loop {
+            if !text.is_empty() {
+                items.push(Expr::Str(text, text_span));
+            }
+            let value = self.expr()?;
+            let next = self
+                .tokens
+                .get(self.pos)
+                .cloned()
+                .ok_or_else(|| self.unexpected("`}`"))?;
+            let span = Span::new(self.file, text_span.end, next.span.start);
+            items.push(Expr::Field(
+                Box::new(value),
+                Name {
+                    text: "toText".into(),
+                    span,
+                },
+            ));
+            let (end, piece) = match &next.tok {
+                Tok::StrMid(piece) => (false, piece.clone()),
+                Tok::StrEnd(piece) => (true, piece.clone()),
+                _ => return Err(self.unexpected("`}`")),
+            };
+            text_span = next.span;
+            text = piece;
+            self.bump();
+            if end {
+                if !text.is_empty() {
+                    items.push(Expr::Str(text, text_span));
+                }
+                break;
+            }
+        }
+        let mut items = items.into_iter().rev();
+        let mut expr = items.next().expect("a string has at least one piece");
+        for lhs in items {
+            expr = Expr::Binary(BinOp::Append, Box::new(lhs), Box::new(expr));
+        }
+        Ok(expr)
+    }
+
     fn atom_base(&mut self) -> Result<Expr> {
         let span = self.here();
         match self.peek() {
@@ -1794,6 +1845,7 @@ impl<'t> Parser<'t> {
                 self.bump();
                 Ok(Expr::Str(s, span))
             }
+            Some(Tok::StrStart(_)) => self.interpolated_str(),
             Some(Tok::Char(c)) => {
                 let c = *c;
                 self.bump();
@@ -1887,6 +1939,7 @@ fn describe(tok: &Tok) -> String {
         Tok::Lower(s) | Tok::Upper(s) => format!("`{s}`"),
         Tok::Num(n) => format!("`{n}`"),
         Tok::Str(s) => format!("`\"{s}\"`"),
+        Tok::StrStart(_) | Tok::StrMid(_) | Tok::StrEnd(_) => "a text literal".into(),
         Tok::Char(c) => format!("`'{c}'`"),
         Tok::KwTest => "`test`".into(),
         Tok::KwType => "`type`".into(),

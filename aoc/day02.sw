@@ -17,8 +17,8 @@
 
 def main () : {IO} () :=
   let ranges := parseRanges (IO.readAll ())
-  print ("Part 1: " ++ (solvePart1 ranges).toText)
-  print ("Part 2: " ++ (solvePart2 ranges).toText)
+  print "Part 1: ${solvePart1 ranges}"
+  print "Part 2: ${solvePart2 ranges}"
 
 def solvePart1 (ranges : List Range) : Nat := total twice ranges
 

@@ -353,7 +353,7 @@ Loosest-binding first:
 | `_` | A hole the compiler fills in |
 | `x`, `Nat`, `Succ` | Names. Constructors and data types start with an uppercase letter |
 | `0`, `42`, `-5` | Numeric literals: a `Nat`, or an `Int` where one is expected (`Nat` by default); `-5` is always an `Int`. See [Numbers](#numbers) |
-| `'a'`, `'\n'`, `'\u{1F600}'` | `Char` literals: one Unicode scalar value. Escapes are `\n`, `\t`, `\r`, `\\`, `\"`, `\'` and `\u{…}` with 1–6 hex digits; `\u{…}` must name a scalar value, so `'\u{D800}'` is an error. Text literals take the same escapes |
+| `'a'`, `'\n'`, `'\u{1F600}'` | `Char` literals: one Unicode scalar value. Escapes are `\n`, `\t`, `\r`, `\\`, `\"`, `\'`, `\$` and `\u{…}` with 1–6 hex digits; `\u{…}` must name a scalar value, so `'\u{D800}'` is an error. Text literals take the same escapes |
 | `"héllo"` | `Text` literal: a sequence of Unicode scalar values (see [text-and-io.md](proposals/text-and-io.md)) |
 | `Type`, `Type 1`, `Prop` | Universes |
 | `(e : T)` | Type annotation |
@@ -363,6 +363,8 @@ Loosest-binding first:
 | `.name`, `.drop 1` | Method section: `\x => x.name`, `\x => x.drop 1`. A space before the `.` (or a bracket or line start). See [Method sections](#method-sections) |
 | `rfl` | Proof of `a = a` |
 | `J (\y p => P) base proof` | Transport along an equality |
+
+**Interpolation.** Inside a text literal, `${e}` inserts `e` converted with `.toText`: `"Part 1: ${solvePart1 turns}"` is `"Part 1: " ++ (solvePart1 turns).toText`, and `"n = ${2 + 3}"` is `"n = 5"`. The expression may contain braces and nested text literals, as in `"${f "x"}"`. A `$` not followed by `{` is an ordinary character; write `\$` for a literal dollar sign: `"cost: \$5"`.
 
 A partially applied constructor is a function: `Succ` on its own means `\n => Succ n`.
 
