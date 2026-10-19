@@ -2015,8 +2015,8 @@
     {
       "id": 134,
       "title": "IO operations need the IO. prefix (no longer default names)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [
         "std",
