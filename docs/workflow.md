@@ -52,6 +52,12 @@ benchmark baseline. New files must be `git add`ed first, since the flake only
 sees tracked files. Long runs (the gate, browser tests, builds) go in the
 background.
 
+The gate takes 6-7 minutes (two cold compiles in the Nix sandbox, then
+every test). So lanes run fast, targeted checks while they work (the tests
+of the crates they changed, `dev/t AREA`) and the full gate once, at the
+end, before merging. On `main`, when several merges land close together,
+one gate covers them all.
+
 Pushing to GitHub happens only when Matt asks.
 
 ## Lanes and the task list
