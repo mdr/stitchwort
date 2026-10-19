@@ -1301,7 +1301,7 @@
       "title": "Multi-file stage 1: implementation (projects, namespace lines, per-file imports)",
       "status": "doing",
       "agent": "Sonnet",
-      "where": "waiting for SW-24 to merge; then a worktree lane",
+      "where": "worktree lane, 9 gated steps from scratchpad/tasks/mf-stage1-spec.md",
       "labels": [
         "multi-file",
         "elab"
