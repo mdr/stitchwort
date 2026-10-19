@@ -6,17 +6,17 @@
 
 [examples]
 inputs = "313 files, 0fc1cbdf035a4dea"
-steps = 878897637
-visits = 49975591
-allocations = 724386548
-peak_bytes = 21758239
+steps = 877141374
+visits = 49976960
+allocations = 723742073
+peak_bytes = 21761663
 time_ms = 1707.9
 
 [extract-js]
 inputs = "24 files, e00575338fcd74f6"
 steps = 23727
-visits = 15056
-allocations = 147244
+visits = 15072
+allocations = 147276
 peak_bytes = 370494
 time_ms = 11.8
 
@@ -49,10 +49,10 @@ peak_bytes = 8799
 time_ms = 426.7
 
 [run-prints]
-steps = 12849879
+steps = 12929879
 visits = 143
-allocations = 4578649
-peak_bytes = 14316
+allocations = 4598639
+peak_bytes = 14412
 time_ms = 391.6
 
 [check-number-pattern]
@@ -151,3 +151,15 @@ steps = 115567
 visits = 227
 allocations = 50758
 peak_bytes = 375259
+
+[check-closed-print]
+steps = 961
+visits = 248
+allocations = 1384
+peak_bytes = 5261
+
+[check-closed-dot]
+steps = 145
+visits = 68
+allocations = 450
+peak_bytes = 4017

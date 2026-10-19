@@ -469,6 +469,7 @@ version = "0.1.0"
 dependencies = [
  "blake3",
  "clap",
+ "stitchwort-core",
  "stitchwort-driver",
  "stitchwort-syntax",
 ]

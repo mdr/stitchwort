@@ -176,7 +176,25 @@ pub const ALL: &[Benchmark] = &[
             ))
         },
     },
+    // The checker computes only what types need
+    // (docs/proposals/checker-evaluation.md): `cost` takes about 5.8 million
+    // steps to compute, and none of these needs it.
+    Benchmark {
+        name: "check-closed-print",
+        about: "checks `print (Nat.toText cost)`, for a closed `cost` over 200,000 elements",
+        prepare: || check(closed("def main () : {IO} () := print (Nat.toText cost)")),
+    },
+    Benchmark {
+        name: "check-closed-dot",
+        about: "checks `cost.toText`, for a closed `cost` over 200,000 elements",
+        prepare: || check(closed("def x : Text := cost.toText")),
+    },
 ];
+
+/// `body`, after a closed definition `cost` that's expensive to compute.
+fn closed(body: &str) -> String {
+    format!("def cost : Nat := List.length (List.range 200000)\n{body}\n")
+}
 
 /// From TODO.md's measurements: `length (replicate n 1)`, `k` times.
 const LENGTHS: &str = "
