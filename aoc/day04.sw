@@ -12,7 +12,7 @@
 -- window holds fewer than 5 rolls. Sum each row horizontally in threes once,
 -- then add the sums of the rows above, at, and below to get every window.
 
-def Grid : Type := List (List Nat)
+type Grid = List (List Nat)
 
 def main () : {IO} () :=
   let grid := parseGrid (IO.readAllLines ())
