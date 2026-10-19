@@ -230,11 +230,11 @@ fn with_deep_definition(depth: usize) -> (Session, DefId) {
     let f = DefId(g.defs.iter().position(|d| &*d.name == "f").unwrap());
     let id = DefId(g.defs.len() - 1);
     let body = deep_term(Term::Def(f), Term::Var(0), depth);
-    g.defs[id.0].body = Some(Rc::new(Term::Lam(
+    g.defs[id.0].set_body_unchecked_for_tests(Some(Rc::new(Term::Lam(
         "n".into(),
         stitchwort_core::Icit::Explicit,
         Rc::new(body),
-    )));
+    ))));
     (session, id)
 }
 
@@ -245,31 +245,31 @@ fn deep_terms_in_later_passes() {
     isolated("deep_terms_in_later_passes", || {
         let (session, id) = with_deep_definition(1_000_000);
         let g = &session.elab.globals;
-        let body = g.def(id).body.clone().unwrap();
+        let body = g.def(id).body().unwrap();
         {
             let _op = g.budget.operation(Limits::default());
             let def = g.def(id);
             let mut cx = kernel::Ctx::new(g, def.span);
-            let e = kernel::check(&mut cx, &body, &def.ty_value).unwrap_err();
+            let e = kernel::check(&mut cx, body, &def.ty_value).unwrap_err();
             assert_eq!(e.code, "E-RESOURCE");
             assert!(e.message.contains("type checker"), "{}", e.message);
         }
         {
             let _op = g.budget.operation(Limits::default());
             assert_eq!(
-                pretty::term_in_full(g, &[], &body),
+                pretty::term_in_full(g, &[], body),
                 Err(ResourceError::Nesting("printer"))
             );
         }
         {
             // For an error message, the part it can't reach is `…`.
             let _op = g.budget.operation(Limits::default());
-            assert!(pretty::term(g, &[], &body).contains('…'));
+            assert!(pretty::term(g, &[], body).contains('…'));
         }
         {
             let _op = g.budget.operation(Limits::default());
             let span = g.def(id).span;
-            let e = stitchwort_core::termination::check(g, &body, id, "g", span).unwrap_err();
+            let e = stitchwort_core::termination::check(g, body, id, "g", span).unwrap_err();
             assert_eq!(e.code, "E-RESOURCE");
             assert!(e.message.contains("termination"), "{}", e.message);
         }
@@ -294,11 +294,9 @@ fn long_chains_of_definitions_to_hash() {
         let g = &mut session.elab.globals;
         let first = g.defs.len() - 1;
         for i in 0..1_000_000 {
-            let mut def = stitchwort_core::globals::Def {
-                name: format!("chain{i}").into(),
-                ..clone_def(g.def(DefId(first)))
-            };
-            def.body = Some(Rc::new(Term::Def(DefId(g.defs.len() - 1))));
+            let mut def = clone_def(g.def(DefId(first)));
+            def.name = format!("chain{i}").into();
+            def.set_body_unchecked_for_tests(Some(Rc::new(Term::Def(DefId(g.defs.len() - 1)))));
             g.defs.push(def);
         }
         let g = &session.elab.globals;
@@ -311,20 +309,10 @@ fn long_chains_of_definitions_to_hash() {
 }
 
 fn clone_def(def: &stitchwort_core::globals::Def) -> stitchwort_core::globals::Def {
-    stitchwort_core::globals::Def {
-        name: def.name.clone(),
-        path: def.path.clone(),
-        ty: def.ty.clone(),
-        ty_value: def.ty_value.clone(),
-        body: def.body.clone(),
-        state: def.state,
-        arity: def.arity,
-        group: def.group.clone(),
-        theorem: def.theorem,
-        export: false,
-        validators: Vec::new(),
-        span: def.span,
-    }
+    let mut def = def.clone();
+    def.export = false;
+    def.validators = Vec::new();
+    def
 }
 
 /// An expression typed in, too deep to parse or to print.

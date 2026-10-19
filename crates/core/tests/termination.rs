@@ -672,7 +672,7 @@ fn running_out_of_steps_while_deciding_termination_leaves_the_definition_failed(
         e.labels.iter().any(|l| l.message.contains("terminates")),
         "it ran out in the termination check: {e:?}"
     );
-    assert_eq!(p.g.def(id).state, stitchwort_core::globals::State::Failed);
+    assert_eq!(p.g.def(id).state(), stitchwort_core::globals::State::Failed);
     assert_eq!(def_hash(&p.g, id).unwrap(), None);
 }
 

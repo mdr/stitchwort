@@ -221,7 +221,7 @@ fn the_kernel_checks_the_shape_of_a_number_case() {
     // A number case on a `Nat` that isn't finished (not expressible through
     // the elaborator, which only registers a finished `Nat`).
     let nat = nat(g);
-    g.datas[nat.0].state = State::Pending;
+    g.datas[nat.0].set_state_unchecked_for_tests(State::Pending);
     assert_eq!(
         define(g, nat_to_nat, |_| lam(num_case(
             0,
@@ -457,7 +457,7 @@ fn has_num_case(term: &Term) -> bool {
 /// Defines the expansion of `f` alongside it, which the kernel must accept.
 fn define_expansion(g: &mut Globals, f: DefId) -> DefId {
     let def = g.def(f);
-    let (ty, body) = (def.ty.clone(), expand(g, def.body.as_ref().unwrap()));
+    let (ty, body) = (def.ty.clone(), expand(g, def.body().unwrap()));
     let id = declare_def(g, &"expanded".into(), &ty, false, false, span()).unwrap();
     if let Err(d) = define_def(g, id, &body) {
         panic!("the expansion of `{}` doesn't check: {d:#?}", g.def(f).name);
@@ -729,12 +729,10 @@ fn generated_matches_agree_with_the_rows_the_old_compilation_and_the_expansion()
             load(&mut old, &text);
             let f = def(&new.elab.globals, &name);
             let f_old = def(&old.elab.globals, &name);
-            if has_num_case(new.elab.globals.def(f).body.as_ref().unwrap()) {
+            if has_num_case(new.elab.globals.def(f).body().unwrap()) {
                 num_cases += 1;
             }
-            assert!(!has_num_case(
-                old.elab.globals.def(f_old).body.as_ref().unwrap()
-            ));
+            assert!(!has_num_case(old.elab.globals.def(f_old).body().unwrap()));
             let g = &mut new.elab.globals;
             let expanded = define_expansion(g, f);
             for args in product(&generated.cols, closed) {
@@ -779,7 +777,7 @@ fn every_number_case_in_the_examples_has_an_expansion_that_checks() {
             let g = &mut session.elab.globals;
             for i in 0..g.defs.len() {
                 let id = DefId(i);
-                let small = g.def(id).body.as_ref().is_some_and(|b| {
+                let small = g.def(id).body().is_some_and(|b| {
                     has_num_case(b)
                         && b.subterms().all(|(t, _)| match t {
                             Term::NumCase(_, arms, _) => {

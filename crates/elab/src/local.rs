@@ -378,7 +378,7 @@ impl Elaborator {
                                     None => ok = false,
                                 },
                                 Term::Def(id)
-                                    if self.globals.def(*id).state
+                                    if self.globals.def(*id).state()
                                         != stitchwort_core::globals::State::Final =>
                                 {
                                     ok = false;

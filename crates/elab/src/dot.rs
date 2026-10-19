@@ -103,7 +103,7 @@ fn unfold(g: &Globals, id: DefId, ty: Option<Ty>) -> Result<Option<Ty>> {
     let stripped = strip(&term);
     let (_, args) = stripped.spine();
     let def = g.def(id);
-    if let Some(body) = &def.body
+    if let Some(body) = def.body()
         && def.arity == args.len()
     {
         let inner = Term::peel_lams_rc(body, def.arity);

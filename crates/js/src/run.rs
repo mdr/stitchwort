@@ -139,7 +139,7 @@ pub fn generate_program(g: &Globals, limits: Limits, main: &Term) -> Result<Prog
                     runtime_arity(prim)
                 )));
             }
-        } else if def.body.is_none() && !info.result_erased {
+        } else if def.body().is_none() && !info.result_erased {
             return Err(Diagnostic::error(
                 "E-EXPORT",
                 format!("can't generate JavaScript for `{}`", def.name),

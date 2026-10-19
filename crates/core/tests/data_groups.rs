@@ -42,7 +42,7 @@ fn try_group(
 }
 
 fn state(g: &Globals, d: DataId) -> State {
-    g.data(d).state
+    g.data(d).state()
 }
 
 /// `Tree = Node (label : Nat) (kids : Forest)`,

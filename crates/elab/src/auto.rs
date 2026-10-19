@@ -280,7 +280,7 @@ fn unrelated_hints(
             if hints == 3 {
                 return Ok(error);
             }
-            if cx.g().def(id).body.is_none() || result_head(cx, id)? != Some(decidable) {
+            if cx.g().def(id).body().is_none() || result_head(cx, id)? != Some(decidable) {
                 continue;
             }
             let mut fits = false;

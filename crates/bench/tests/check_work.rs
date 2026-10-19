@@ -52,7 +52,7 @@ fn measure(program: String) -> Measured {
         let g = &session.elab.globals;
         let (mut size, mut depth) = (0, 0);
         for def in &g.defs[defs..] {
-            for term in std::iter::once(&def.ty).chain(def.body.as_deref()) {
+            for term in std::iter::once(&def.ty).chain(def.body().map(|b| &**b)) {
                 let (s, d) = size_and_depth(term);
                 size += s;
                 depth = depth.max(d);

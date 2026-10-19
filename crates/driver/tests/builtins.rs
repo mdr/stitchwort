@@ -23,12 +23,12 @@ fn the_prelude_binds_every_builtin_to_a_final_declaration() {
         match b.kind() {
             Kind::Data => {
                 let data = g.data(r.data(b).unwrap());
-                assert_eq!(data.state, State::Final, "{b:?}");
+                assert_eq!(data.state(), State::Final, "{b:?}");
                 assert_eq!(&*data.name, b.name(), "{b:?}");
             }
             Kind::Def => {
                 let def = g.def(r.def(b).unwrap());
-                assert_eq!(def.state, State::Final, "{b:?}");
+                assert_eq!(def.state(), State::Final, "{b:?}");
                 assert_eq!(&*def.name, b.name(), "{b:?}");
             }
             Kind::Ctor(parent) => {

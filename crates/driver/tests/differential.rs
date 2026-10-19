@@ -30,7 +30,7 @@ fn normal(g: &Globals, level: usize, value: &Value) -> String {
 fn param_icits(g: &Globals, id: DefId) -> Vec<Icit> {
     let def = g.def(id);
     let mut icits = Vec::new();
-    let Some(mut term) = def.body.as_deref() else {
+    let Some(mut term) = def.body().map(|b| &**b) else {
         return icits;
     };
     for _ in 0..def.arity {
@@ -51,7 +51,7 @@ fn compare_definitions(g: &Globals, what: &str) -> usize {
     for i in 0..g.defs.len() {
         let id = DefId(i);
         let def = g.def(id);
-        if def.body.is_none() {
+        if def.body().is_none() {
             continue;
         }
         let icits = param_icits(g, id);
@@ -107,7 +107,7 @@ fn compare_definitions(g: &Globals, what: &str) -> usize {
 /// with its own, and each definition's type with the next few types.
 fn compare_conversion(g: &Globals, what: &str) -> usize {
     let defs: Vec<(String, Value, Value)> = (0..g.defs.len())
-        .filter(|&i| g.defs[i].body.is_some())
+        .filter(|&i| g.defs[i].body().is_some())
         .map(|i| {
             let def = &g.defs[i];
             let value = value::eval(g, &[], &Term::Def(DefId(i))).expect("no limits");

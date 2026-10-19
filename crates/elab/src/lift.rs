@@ -472,7 +472,8 @@ impl Elaborator {
             let pending = bodies.iter().any(|(_, body)| {
                 defs(body).any(|d| {
                     !ids.contains(&d)
-                        && (joined_ids.contains(&d) || self.globals.def(d).state == State::Pending)
+                        && (joined_ids.contains(&d)
+                            || self.globals.def(d).state() == State::Pending)
                 })
             });
             for &(i, id) in &members {
