@@ -1304,13 +1304,13 @@
       "id": 89,
       "title": "Multi-file stage 1: implementation (projects, namespace lines, per-file imports)",
       "status": "review",
-      "agent": "Opus",
-      "where": "review subagent (read-only) + merge rehearsal in ~/scratch/mf-merge (branch mf-merge)",
+      "agent": "Sonnet",
+      "where": "fix lane in ~/scratch/mf-merge (branch mf-merge = stage 1 + main): 3 review blockers + 3 should-fix",
       "labels": [
         "multi-file",
         "elab"
       ],
-      "body": "Implement stage 1 of docs/proposals/multi-file.md (draft 4, §12 Stages). Needs a spec from Opus first; likely Sonnet implementation (judgement-heavy: scope.rs per-file imports, module.rs dependency discovery, hash tie-break by name with a both-orders test).\n\n19 Oct: Opus spec written (scratchpad/tasks/mf-stage1-spec.md, 9 steps: 1 hash ties by name; 2 ability row order; 3 namespace line; 4 one namespace over files, per-file imports; 5a project pre-pass; 5b checking in order; 6 stitchwort.yaml + serde-saphyr; 7 CLI; 8 JS). AoC conversion excluded. Matt accepted the spec's §11 proposals (test names unique per namespace; `def Aoc.f` in another namespace is E-FOREIGN-NAMESPACE; std abilities first then by name; E-FILE-MODE only inside a project; the smaller choices). Sonnet starts after the colon restyle (SW-24) merges.",
+      "body": "Implement stage 1 of docs/proposals/multi-file.md (draft 4, §12 Stages). Needs a spec from Opus first; likely Sonnet implementation (judgement-heavy: scope.rs per-file imports, module.rs dependency discovery, hash tie-break by name with a both-orders test).\n\n19 Oct: Opus spec written (scratchpad/tasks/mf-stage1-spec.md, 9 steps: 1 hash ties by name; 2 ability row order; 3 namespace line; 4 one namespace over files, per-file imports; 5a project pre-pass; 5b checking in order; 6 stitchwort.yaml + serde-saphyr; 7 CLI; 8 JS). AoC conversion excluded. Matt accepted the spec's §11 proposals (test names unique per namespace; `def Aoc.f` in another namespace is E-FOREIGN-NAMESPACE; std abilities first then by name; E-FILE-MODE only inside a project; the smaller choices). Sonnet starts after the colon restyle (SW-24) merges.\n\n19 Oct ~20:05: Opus review (read-only): 3 blockers, all reproduced — (1) nested namespace reachable by short name depending on check order (scope.rs CheckingLevels::own_namespace vs pre-pass); (2) ambiguous import first component falls through, no pre-pass edge; (3) auto depends on a sibling file's name via item check order (module.rs components). Should fix: target-independence test, def Day.f in file mode, E-FILE-MODE cascades. Merge rehearsal with main (020c59e on mf-merge): all tests, wasm build, browser tests green; wasm +28 KB. Sonnet fixing on mf-merge.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": [
