@@ -1,5 +1,5 @@
 {
-  "next": 134,
+  "next": 135,
   "tickets": [
     {
       "id": 1,
@@ -1485,8 +1485,8 @@
     {
       "id": 99,
       "title": "`calc` notation and a `rewrite` term for equational proofs",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Opus",
       "where": "",
       "labels": [
         "proof",
@@ -1501,8 +1501,8 @@
     {
       "id": 100,
       "title": "Prelude: modulo identities (`(a % s + b) % s`, `a % s % s`) and the `Int.modNat` shifts",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [
         "stdlib",
@@ -2008,6 +2008,21 @@
         "multi-file"
       ],
       "body": "D26: after the aoc/ restructure the playground can't load AoC days (it fetches single files via pkg/aoc/index.json). Design how the playground loads a multi-file project. Later.",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 134,
+      "title": "IO operations need the IO. prefix (no longer default names)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std",
+        "namespaces"
+      ],
+      "body": "D29 (Matt, 19 Oct): print, readLine, readAll stop being default names; write IO.print etc. (IO itself stays default, so no import is needed). Update all examples, aoc, tests, docs, playground samples.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
