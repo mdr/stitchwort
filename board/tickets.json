@@ -1,5 +1,5 @@
 {
-  "next": 111,
+  "next": 127,
   "tickets": [
     {
       "id": 1,
@@ -70,16 +70,15 @@
     },
     {
       "id": 5,
-      "title": "Compile-time `include \"file\" : Text`; real-input AoC tests in per-day files",
+      "title": "Implement `include \"file\"`: compile-time text from a file, hashed by content",
       "status": "next",
       "agent": "",
       "where": "",
       "labels": [
         "design",
-        "aoc",
         "elab"
       ],
-      "body": "Compile-time `include \"file\" : Text` (contents part of the definition's\nhash, so the existing test cache covers input files; precedents Rust\n`include_str!`, Zig `@embedFile`, Lean `include_str`, Dhall integrity\nimports). Real-input AoC tests in a separate per-day file (e.g.\n`aoc/day04.input.sw`, inputs stay gitignored). User, 19 Oct.",
+      "body": "Design is docs/proposals/multi-file.md §10 and D14 (path relative to the including file, inside the project; the contents, not the path, are hashed so the test cache covers input files; precedents: Rust include_str!, Zig @embedFile, Lean include_str). multi-file stage 2 is in progress (see SW-3's successor), and the doc says `include` can land any time (line 1374). Today it is E-INCLUDE-UNAVAILABLE (multi-file.md:1228). Done: `(include \"inputs/day04.txt\").lines` checks, edits to the file invalidate cached tests, and a missing/out-of-project path has a clear error.\n\nSplit 19 Oct into SW-125 (real-input AoC tests via `include`).",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -94,7 +93,7 @@
         "aoc",
         "proof"
       ],
-      "body": "Prove day 2's block-walking spec equals ID-walking (the puzzle's wording, the user's Scala). Partly to find out what makes such proofs hard and improve Stitchwort for it. Queued after the `let` fix (user, 19 Oct; `let` is now merged).\n\nOriginal text:\n\nQueued after the `let` fix (user, 19 Oct): prove day 2's block-walking\nspec equals ID-walking (the puzzle's wording, the user's Scala). Partly\nto find out what makes such proofs hard and improve Stitchwort for it.",
+      "body": "Prove that day 2's block-walking spec (walk k-digit blocks) equals the puzzle's ID-walking wording (walk ids, test each) for all ranges, in aoc/day02.sw (the user's Scala is the ID-walking form). Partly to find what makes such proofs hard and improve Stitchwort for it. `let` has merged, so intermediate names are available in proofs. Done: a theorem relating the two specs and `part1Correct`/`repeatedCorrect` restated against the ID-walking one.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -109,7 +108,7 @@
         "aoc",
         "proof"
       ],
-      "body": "Prove day 5 part 2 equals the brute-force count of covered ids for every input (merged ranges sorted and disjoint, merging keeps coverage). Example `rfl` checks are unit tests, not proofs (user). Queued after the `let` fix (user, 19 Oct; `let` is now merged).\n\nOriginal text:\n\nAlso after the `let` fix: prove day 5 part 2 equals the brute-force count\nof covered ids for every input (merged ranges sorted and disjoint, merging\nkeeps coverage). Example `rfl` checks are unit tests, not proofs (user).",
+      "body": "Prove day 5 part 2 (`solvePart2` in aoc/day05.sw) equals the brute-force count of covered ids for every database, not just the example: merged ranges are sorted and disjoint, and merging keeps coverage. `rfl` checks on the example are unit tests, not proofs. Done: a theorem against a puzzle-literal spec (count of ids in some range).",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -124,7 +123,7 @@
         "elab",
         "design"
       ],
-      "body": "Design note `docs/proposals/checker-evaluation.md` merged (the checker\nrecomputes values it doesn't need: `print` args, dot notation, `==`/`if`,\nproof fields; (a) bind instead of evaluate, in the elaborator; (b) lazy\nvalues while checking; (d) glued values). Reviewed; the user accepted\n(19 Oct): do (a) now (1A operation calls and dot notation, 1B `==`/`if`\nwith fallback); the kernel `Let` value is lazy at check time (contained\nthunk, `run` stays strict); decide (b) after re-measuring.\n\nOption (b) of checker-evaluation.md stays shelved: after the checker\nfixes, AoC days check in 0.11-0.28 s. `if` on a proposition stays partly\nfixed (3 computations, was 4).",
+      "body": "docs/proposals/checker-evaluation.md §6/§9. Options (a) (stages 1A/1B, bind instead of evaluate) and the lazy kernel `Let` are done (f7699c9, 65415c5, fe543b0). Option (b) (lazy values / thunks for dependent application arguments and constructor fields) is shelved: after the checker fixes AoC days check in 0.11-0.28 s. Residual that only (b) fixes: `if h : P` branches still compute the operands about 3 times (was 4). Revisit only if a real program spends more than ~1 s checking values its types don't need. Opus, design review first.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -150,10 +149,10 @@
       "agent": "",
       "where": "",
       "labels": [
-        "elab",
+        "stdlib",
         "proof"
       ],
-      "body": "Later (pending user): `List.merge` still doubles on fixed lists with an\nundecidable comparison (0.42 s at 7+7); fixing needs mutual recursion and\nrestated sorting proofs. `Text.linesFrom` and min/max folds similar, rare.",
+      "body": "On a fixed list with a comparison the checker can't decide (a stuck `if le x y`), `List.merge` (prelude.sw:1084) computes both branches, so work doubles per element (0.42 s at 7+7). The fix needed mutual recursion (now complete, 3d73325) and restating the sorting proofs (`List.mergeLeHead`, `Sorted`, `Perm` in prelude.sw ~1133+). `Text.linesFrom` and the min/max folds are similar but rare. Done: merge written as a mutually recursive pair, proofs restated, the 7+7 case measured again.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -183,7 +182,7 @@
         "elab",
         "bug"
       ],
-      "body": "Fuzz pilot findings to triage (DeepSeek's reports, not yet reproduced): type-synonym cycle reported as E-TERMINATION; non-ASCII identifiers refused (check intent); bare \"unknown name\" when a parameter is missing.\n\nNote: the first finding, type-synonym cycle reported as E-TERMINATION, is fixed (`E-SYNONYM-CYCLE`, see docs/history.md).",
+      "body": "Fuzz pilot findings to triage (DeepSeek's reports, not yet reproduced): type-synonym cycle reported as E-TERMINATION; non-ASCII identifiers refused (check intent); bare \"unknown name\" when a parameter is missing.\n\nNote: the first finding, type-synonym cycle reported as E-TERMINATION, is fixed (`E-SYNONYM-CYCLE`, see docs/history.md).\n\nNEEDS MATT (backlog review 19 Oct): finding 1 (synonym cycle -> E-TERMINATION) is fixed (673b676, E-SYNONYM-CYCLE); a missing parameter already reports the unknown name clearly (suggest dropping). What remains: non-ASCII identifiers (`def café ...` gives E-PARSE 'unexpected character é', crates/syntax/src/lexer.rs). Proposed rewrite: title \"Non-ASCII identifiers are refused: allow them or say so\" [syntax, design]; decide: accept Unicode letters (affects the JS name encoding `encode`, which already escapes non-ASCII as `$uXXXXXX`) or keep ASCII-only and say so in the message and docs/syntax.md. Done: decision implemented, documented, tested. Not applied pending Matt.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -205,15 +204,14 @@
     },
     {
       "id": 14,
-      "title": "Namespaces follow-ups (speculative-dependency narrowing, dot-notation examples, `Std.List` functions)",
+      "title": "Narrow speculative dependency edges by the receiver's syntactic type head",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [
-        "elab",
-        "syntax"
+        "elab"
       ],
-      "body": "namespaces.md §9 \"As built\". Follow-ups: narrowing of speculative\ndependencies (mitigation 2); rewrite examples to dot notation; §5's\nmixed-kind example is accepted (records get no speculative edges;\nthe user agreed); `xs.map` needs list functions in `Std.List`. Noticed, not investigated: a signature\n`Comp NoOp NoRes Nat` behaves like `Nat`.\n\nFull item (history) is archived in docs/history.md.",
+      "body": "docs/proposals/namespaces.md §5 mitigation 2 (As built, stage 2, ~line 1889): `e.f` adds a speculative edge to every declaration with a field/function `.f`, which can join unrelated declarations into one checking group. Make the edge certain when the receiver is a parameter/`let` with a declared type head, or an application of a known function with a declared result head (`make n` with `make : Nat -> A`). Syntactic only, no unification. Done: a test where the speculative edge used to cause E-MUTUAL-KIND/E-MUTUAL-SIGNATURE now checks.\n\nSplit 19 Oct into SW-123, SW-124. Done already: `xs.map` on a list works (List.map in the prelude).",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -228,7 +226,7 @@
         "elab",
         "syntax"
       ],
-      "body": "`hash_stability.rs`) merged (`db1e2a2`). The user accepted \"old way\nfirst\", the three reworded messages, and polishing two messages\nlater (`int-binding-nat` should say `m` is a `let`-bound `Nat`;\n`rfl` rejections print `Int.mod x 3`, not `x % 3`). Stage 4 (integer\npatterns, `-k` and `k` in `Int` columns, missing-case errors name\nintegers) merged (`9cb1d72`). Small polish for later: \"a `Int`\" →\n\"an `Int`\"; the default's note should suggest `OfNat Zero`/`OfNat\n(Succ k)` for `Int`; `f Zero = …; f 0 = …` points at the wrong row.",
+      "body": "Three small Int diagnostics left over from integers.md stages 3-4: (1) 'a `Int`' -> 'an `Int`' (the pattern-type error still says 'this pattern is a `Int`, but other patterns here are `Nat`'; reproduced 19 Oct); (2) the E-REFL note prints `Int.mod x 3` instead of `x % 3` ('`Int.mod x 3` and `1` aren't equal'; reproduced), and `int-binding-nat` should say `m` is a `let`-bound `Nat`; (3) when `f Zero = ..; f 0 = ..` mixes Nat and Int patterns the error should point at the right row (I could not reproduce the wrong row: the row-2 error pointed at row 2; find the case first, otherwise drop). Also the default's note should suggest `OfNat Zero`/`OfNat (Succ k)` for Int. Done: snapshots updated. (Mechanical: DeepSeek.)",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -243,7 +241,7 @@
         "proof",
         "stdlib"
       ],
-      "body": "Not done in Int stage 6: division laws for the truncating and flooring pairs (the Euclidean pair has them: `Int.divAddMod`, remainder bounds). From TODO.md Next 1: `int-grid.sw`) merged (`c49d2bc`). Not done: division laws for the\ntruncating and flooring pairs. Next: stage 7, docs (DESIGN.md,",
+      "body": "Int stage 6 proved the Euclidean pair's laws (`Int.divAddMod`, remainder bounds, prelude.sw ~1736-1790) but nothing for `Int.tdiv`/`Int.tmod` (truncating) or `Int.fdiv`/`Int.fmod` (flooring) (prelude.sw:1647-1672; no `Int.t*`/`Int.f*` theorems exist). Add `d * tdiv a d + tmod a d = a` and the same for floor, with sign/bound facts, unless a use case says only some are needed. Done: lemmas in prelude with tests.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -266,14 +264,14 @@
     {
       "id": 18,
       "title": "Standard library for real programs: Array, balanced-tree map/set, grid helpers, min/max/absDiff facts",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "stdlib",
         "aoc"
       ],
-      "body": "**Standard library for real programs** (ranked by the AoC survey,\n[aoc-2025.md](docs/aoc-2025.md)). Done: the list toolkit (`map`,\n`filter`, folds, `sum`, `zip`, `take`/`drop`, `get`, …) and `Nat`\nmin/max/absDiff/pow (`51ce453`; callbacks are pure for now — no\neffect-row convention yet). `Nat` arithmetic lemmas merged\n(`9871787`: add/mul laws, order, subtraction, `divMod` and `modLess`\nwith an explicit `d != 0`; not yet min/max/absDiff facts). To do: a\n`readAllLines` helper, `Nat.digits`, sorting with a correctness proof (sorted\npermutation), `==` on lists (tests can't compare lists today); later an\n`Array` type, a balanced-tree map/set, grid helpers.",
+      "body": "**Standard library for real programs** (ranked by the AoC survey,\n[aoc-2025.md](docs/aoc-2025.md)). Done: the list toolkit (`map`,\n`filter`, folds, `sum`, `zip`, `take`/`drop`, `get`, …) and `Nat`\nmin/max/absDiff/pow (`51ce453`; callbacks are pure for now — no\neffect-row convention yet). `Nat` arithmetic lemmas merged\n(`9871787`: add/mul laws, order, subtraction, `divMod` and `modLess`\nwith an explicit `d != 0`; not yet min/max/absDiff facts). To do: a\n`readAllLines` helper, `Nat.digits`, sorting with a correctness proof (sorted\npermutation), `==` on lists (tests can't compare lists today); later an\n`Array` type, a balanced-tree map/set, grid helpers.\n\nSplit 19 Oct into SW-111, SW-112, SW-113. Grid helpers and the small list helpers go to SW-13.\n\nClosed 19 Oct (backlog review): list toolkit and Nat min/max/absDiff/pow (cb59f9b, 51ce453), Nat arithmetic lemmas (9871787), `IO.readAll`/`readAllLines` (prelude.sw:2238), `Nat.digits` (prelude.sw:2186), sorting with proofs (8ef0c31), `==` on lists/tuples/Maybe (57392bd), min/max facts (prelude.sw:750-775); remaining items split into new tickets.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -288,7 +286,7 @@
         "syntax",
         "elab"
       ],
-      "body": "`E-LET-REFUTABLE`) merged (`ec2a784`). Later: annotated lambda\nparameters `\\(x : T) -> …` (would also fix the `p.name` hint). Step 5, `where`, waits for the declaration-syntax\n\nAlso in TODO.md (AoC item): \"annotated lambda parameters later\". Currently refused.",
+      "body": "`\\(y: Nat) => y + 1` is refused today: 'a lambda's parameter can't have a type here: annotate the lambda instead, `((\\x => ...): A -> B)`' (reproduced 19 Oct). Allow annotated parameters. It would also fix the `p.name` hint (E-CANNOT-INFER on `\\p => p.name` without a known type). Syntax depends on the lambda-syntax decision in SW-90; do that first or together. Done: `\\(x: T) => e` elaborates and the E-CANNOT-INFER note suggests it.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -303,7 +301,7 @@
         "syntax",
         "elab"
       ],
-      "body": "addition, `Globals::frozen_metas`) merged (`9b9bae8`). Leftovers: a\nlifted `match` in a partial function, a data/ability declaration or\nthe REPL is refused. Step 4 (patterns in `let` and lambdas,",
+      "body": "`E-MATCH-MOTIVE` ('a `match` can't be used here') is still raised when a lifted `match` (a `match` inside a definition, lifted to a helper) occurs in (a) a partial function, (b) a data or ability declaration, (c) the REPL, because drafts aren't resolved there (docs/proposals/syntax-conveniences.md ~1104 and 'Leftovers', ~1184). One task: resolve lifted-`match` drafts in those three contexts. Start with the REPL and partial functions (the ones a user can hit); data/ability declarations may be left refused with a better message. Done: examples for each accepted context.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -311,14 +309,14 @@
     {
       "id": 21,
       "title": "Warn when a record field and a namespaced function share a name",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "elab",
         "syntax"
       ],
-      "body": "Friction from the days 1-3 rewrite (TODO.md, Next 3): \"a field and a namespaced function may share a name without a warning\". Surrounding text:\n\nreview. Friction from it: a comparison isn't a `Bool` outside\n`if`/`&&`/tests (`List.filter (\\n => k * n <= size)`); no `Int` sum;\n`[highest : Nat]` repeated on every `Dial` function; a field and a\nnamespaced function may share a name without a warning; no\n`[x, ..rest]` list pattern. Running (user, 18 Oct): method sections merged (`ff2d6ed`: `.f args`,",
+      "body": "Friction from the days 1-3 rewrite (TODO.md, Next 3): \"a field and a namespaced function may share a name without a warning\". Surrounding text:\n\nreview. Friction from it: a comparison isn't a `Bool` outside\n`if`/`&&`/tests (`List.filter (\\n => k * n <= size)`); no `Int` sum;\n`[highest : Nat]` repeated on every `Dial` function; a field and a\nnamespaced function may share a name without a warning; no\n`[x, ..rest]` list pattern. Running (user, 18 Oct): method sections merged (`ff2d6ed`: `.f args`,\n\nClosed 19 Oct (backlog review): since namespaces stage 2 (e38accd) `def P.name` next to a field `name` of `P` is E-DUPLICATE, an error not a warning (docs/proposals/namespaces.md:565; examples/reject/dot-field-and-function.sw); a field and a function in different namespaces don't clash, so this friction from before namespaces is obsolete.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -340,14 +338,14 @@
     {
       "id": 23,
       "title": "AoC 2025 early days (medium-term goal): proofs, Array/Map/Set, friction write-up",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "aoc",
         "proof"
       ],
-      "body": "**Advent of Code 2025, early days** — the medium-term goal.\n**Queued proofs (user agreed, 18 Oct; start after compaction):**\n- Day 3 (Opus, medium): `best k ds` is a subsequence of `ds`; its\n  length is `min k (length ds)`; optimal — for every length-k\n  subsequence `s`, `fromDigits s <= fromDigits (best k ds)` (with a\n  lemma: equal-length digit lists compare lexicographically as\n  numbers).\n- Day 2 (Opus, medium; after day 3, both may add library lemmas):\n  (a) `r.repeated k n` equals the brute-force sum of ids in `r` that\n  are a k-digit block written n times (Gauss sum, digits of\n  `base * 10101…`); (b) part 1 equals the brute-force sum of doubled\n  ids; part 2's Möbius inclusion–exclusion: no proof, a brute-force\n  cross-check test on many small ranges instead. *Done* (a) and (b)\n  (`repeatedCorrect`, `part1Correct`; specs walk k-digit blocks, not\n  ids) and the cross-check (160 ranges, about 2.5 s); 31 prelude\n  lemmas; friction (a `let` before an `if` yields an `Effect.runPure`\n  term source can't write) in aoc-2025.md \"Proofs (18 October 2026)\".\nLambda postponing merged (`39665ae`: `List.map (\\p => p.name) people`\ninfers). Plan\n(user, 18 Oct): day 1 done (`aoc/day01.sw`, both answers right,\n0.7 s; `IO.readAllLines`, `Nat.digits` added; friction write-up in\naoc-2025.md: no `let` patterns (step 4 running), `type Dial = (Nat,\nNat, Nat)` is a parse error, no `==` for user data types (deriving),\na duplicate prelude name gives a debug dump without file/line, no\n`List.scanl`). Sorting merged (`8ef0c31`: `List.sort`, `sortBy`,\n`sortWith`, stable bottom-up merge sort, O(n log n), no fuel;\n`Sorted` and counting-based `Perm` proved; 20,000 numbers in 0.7 s;\nnot proved: stability, totality of `Text.compare`; new default-visible\n`And`/`Both`); prelude errors now render with file and\nline, `List.scanl` added (`0ff412a`; user programs can no longer\nclash with prelude names since namespaces); `type Dial = (Nat, Nat, Nat)` stays a parse error (user:\nwrite `Dial : Type`). Automatic `==` for user data types merged\n(`cc94701`, eager, generated `T.%decEq`; skipped for function/proof\nfields, mutual types). Day 1 proved correct (`23c2778`: positions on\nthe dial by type; part 2 equals a click-by-click spec). Proof friction\n(aoc-2025.md \"Proofs\"): fixed since (`30e183a`, `a129404`): proofs and\ntypes are erased when running (`erase.rs`; tests 10× fewer steps) and\n`Nat.mod` is `n - (n / d) * d` (`% 100` in proofs 20–70× faster);\nstill: the checker evaluates proofs inside concrete types, and\nchecking evaluates an input-independent `main` print twice; no\nrewriting; (fixed since: `Int` addition laws incl.\nassociativity, `Ordering.decEq`, `7f9fc01`). Days 2 and 3 done (`99e806d` 0.15 s, `4f23aec`\n0.45 s; answers right). Fixed since: `if x < y` works on decidable Props\nand list patterns `[]`/`[a, b]` exist (`a48e928`, `8754e6d`). Still\nmissing: `&&`/`||` (the lexer rejects `&`) and a Prop-aware `not`; division by a variable\nneeds a proof; unreachable `Nil` equations. User OK'd default-visible\n`And`/`Both`; annotated lambda\nparameters later; then days 1–5 rewritten with proofs (deep\nones for 1, 3, 5 by Opus). `Array`/`Map`/`Set` later (days 4, 8, 9).\nEarlier notes: (decisions in aoc-2025.md: programs\nin `aoc/`, inputs and answers out of git, worked examples as tests), as a stress test with proofs where\nnatural (sort correctness, parser round trips, worked examples by `rfl`).\nInputs: the user's repo https://github.com/mdr/aoc-2025/tree/main/src/main/resources.\nWrite up the friction found.",
+      "body": "**Advent of Code 2025, early days** — the medium-term goal.\n**Queued proofs (user agreed, 18 Oct; start after compaction):**\n- Day 3 (Opus, medium): `best k ds` is a subsequence of `ds`; its\n  length is `min k (length ds)`; optimal — for every length-k\n  subsequence `s`, `fromDigits s <= fromDigits (best k ds)` (with a\n  lemma: equal-length digit lists compare lexicographically as\n  numbers).\n- Day 2 (Opus, medium; after day 3, both may add library lemmas):\n  (a) `r.repeated k n` equals the brute-force sum of ids in `r` that\n  are a k-digit block written n times (Gauss sum, digits of\n  `base * 10101…`); (b) part 1 equals the brute-force sum of doubled\n  ids; part 2's Möbius inclusion–exclusion: no proof, a brute-force\n  cross-check test on many small ranges instead. *Done* (a) and (b)\n  (`repeatedCorrect`, `part1Correct`; specs walk k-digit blocks, not\n  ids) and the cross-check (160 ranges, about 2.5 s); 31 prelude\n  lemmas; friction (a `let` before an `if` yields an `Effect.runPure`\n  term source can't write) in aoc-2025.md \"Proofs (18 October 2026)\".\nLambda postponing merged (`39665ae`: `List.map (\\p => p.name) people`\ninfers). Plan\n(user, 18 Oct): day 1 done (`aoc/day01.sw`, both answers right,\n0.7 s; `IO.readAllLines`, `Nat.digits` added; friction write-up in\naoc-2025.md: no `let` patterns (step 4 running), `type Dial = (Nat,\nNat, Nat)` is a parse error, no `==` for user data types (deriving),\na duplicate prelude name gives a debug dump without file/line, no\n`List.scanl`). Sorting merged (`8ef0c31`: `List.sort`, `sortBy`,\n`sortWith`, stable bottom-up merge sort, O(n log n), no fuel;\n`Sorted` and counting-based `Perm` proved; 20,000 numbers in 0.7 s;\nnot proved: stability, totality of `Text.compare`; new default-visible\n`And`/`Both`); prelude errors now render with file and\nline, `List.scanl` added (`0ff412a`; user programs can no longer\nclash with prelude names since namespaces); `type Dial = (Nat, Nat, Nat)` stays a parse error (user:\nwrite `Dial : Type`). Automatic `==` for user data types merged\n(`cc94701`, eager, generated `T.%decEq`; skipped for function/proof\nfields, mutual types). Day 1 proved correct (`23c2778`: positions on\nthe dial by type; part 2 equals a click-by-click spec). Proof friction\n(aoc-2025.md \"Proofs\"): fixed since (`30e183a`, `a129404`): proofs and\ntypes are erased when running (`erase.rs`; tests 10× fewer steps) and\n`Nat.mod` is `n - (n / d) * d` (`% 100` in proofs 20–70× faster);\nstill: the checker evaluates proofs inside concrete types, and\nchecking evaluates an input-independent `main` print twice; no\nrewriting; (fixed since: `Int` addition laws incl.\nassociativity, `Ordering.decEq`, `7f9fc01`). Days 2 and 3 done (`99e806d` 0.15 s, `4f23aec`\n0.45 s; answers right). Fixed since: `if x < y` works on decidable Props\nand list patterns `[]`/`[a, b]` exist (`a48e928`, `8754e6d`). Still\nmissing: `&&`/`||` (the lexer rejects `&`) and a Prop-aware `not`; division by a variable\nneeds a proof; unreachable `Nil` equations. User OK'd default-visible\n`And`/`Both`; annotated lambda\nparameters later; then days 1–5 rewritten with proofs (deep\nones for 1, 3, 5 by Opus). `Array`/`Map`/`Set` later (days 4, 8, 9).\nEarlier notes: (decisions in aoc-2025.md: programs\nin `aoc/`, inputs and answers out of git, worked examples as tests), as a stress test with proofs where\nnatural (sort correctness, parser round trips, worked examples by `rfl`).\nInputs: the user's repo https://github.com/mdr/aoc-2025/tree/main/src/main/resources.\nWrite up the friction found.\n\nClosed 19 Oct (backlog review): day 1 proofs 23c2778, day 2 proofs da8bf58, day 3 proofs 57d0777; days 1-5 exist (aoc/day01..05.sw); friction write-up is docs/aoc-2025.md; remaining live items are SW-6, SW-7, SW-13, SW-99, SW-101, SW-26 and the SW-18 split tickets.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -386,15 +384,15 @@
     },
     {
       "id": 26,
-      "title": "Proof ergonomics",
+      "title": "Reasoning about `if` in proofs: no hand-written Bool.inspect motive",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [
-        "aoc",
-        "proof"
+        "proof",
+        "elab"
       ],
-      "body": "**Proof ergonomics** (from the AoC rewrites, 19 Oct): proofs can't refer\nto a let's names, so they restate long terms; an `if` inside a helper\nappears in goals as `Decidable.elim (Bool.decTrue b) ...`; `List.sum` is a\n`foldl`, so every proof needs `List.sumCons`; no rewrite/`calc`, so most\nproof text restates terms. Candidates for a proof-ergonomics design.",
+      "body": "A helper with an `if` appears in goals as `Decidable.elim (Bool.decTrue b) (\\u => ...) (\\u => ...)`, and every case split on it is `Bool.inspect` with the goal restated by hand as the motive (docs/aoc-2025.md:1117; every lemma about day 3's `pick` repeats it). Investigate first what removes the motive: a library lemma `ifCases` with the motive inferred, printing `if` in goals as `if`, or an `if`-split in the elaborator. Done: day 3's `pick` lemmas shrink measurably, or the finding is written up. Related: SW-99.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -423,7 +421,7 @@
         "bug",
         "kernel"
       ],
-      "body": "**Identical-looking type mismatch** (day 1 batch): with `Dial.place`\ninlined, `backFrom`, `backFar`, `leftOne`, `leftStep` fail with expected\nand actual types that print the same. Worth a look (printing hides a\ndifference, or a conversion gap).",
+      "body": "Found in the AoC day 1 batch: with `Dial.place` inlined, `backFrom`, `backFar`, `leftOne`, `leftStep` failed with 'expected' and 'actual' types that print the same. Either the printer hides a difference (an implicit argument, a universe, a erased proof) or conversion has a gap. Not reproduced since; aoc/day01.sw has been rewritten. Investigate: recover the failing version from git history (git log -S'Dial.place' -- aoc/day01.sw), reproduce, then fix the printer or conversion. Done: a failing example turned into a test, or closed as not reproducible.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -431,7 +429,7 @@
     {
       "id": 29,
       "title": "AoC friction (days 2-4): parser, messages, proof ergonomics",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -439,7 +437,7 @@
         "syntax",
         "elab"
       ],
-      "body": "**AoC friction (days 2-4):** uppercase parameter names are a parse\nerror; error messages print fully evaluated terms (one was 10 KB); no type synonyms (`type Grid = List (List\nNat)` is a parse error; `def Grid : Type := ...` works); no\n`List.zipWith3`; a multi-line list literal can't start a line with `,`;\nchar-pattern exhaustiveness error says \"numbers other than 97 and 98\";\nno pair eta (`p = (p.fst, p.snd)` isn't `rfl`); recursive calls passed\nas induction hypotheses must be fully applied; reasoning about `if` goes\nthrough `Bool.inspect` with a hand-written motive; no `calc`/rewrite.",
+      "body": "**AoC friction (days 2-4):** uppercase parameter names are a parse\nerror; error messages print fully evaluated terms (one was 10 KB); no type synonyms (`type Grid = List (List\nNat)` is a parse error; `def Grid : Type := ...` works); no\n`List.zipWith3`; a multi-line list literal can't start a line with `,`;\nchar-pattern exhaustiveness error says \"numbers other than 97 and 98\";\nno pair eta (`p = (p.fst, p.snd)` isn't `rfl`); recursive calls passed\nas induction hypotheses must be fully applied; reasoning about `if` goes\nthrough `Bool.inspect` with a hand-written motive; no `calc`/rewrite.\n\nSplit 19 Oct into SW-114, SW-115, SW-116. The `if` and calc items go to SW-26 and SW-99; pair eta is covered by SW-55 (its rewrite awaits Matt).\n\nClosed 19 Oct (backlog review): fixed: type synonyms (a5ce8ce), `List.zipWith3` (prelude.sw:871), multi-line list starting with `,` (a5ce8ce), char-pattern exhaustiveness wording (a5ce8ce), `&&`/`||` (426b2b6, 02bf48d); the still-open items are split into new tickets.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -522,14 +520,14 @@
     },
     {
       "id": 35,
-      "title": "Benchmark gaps",
+      "title": "Benchmarks: add rows from generated inputs, and time `stitchwort run` as a subprocess",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [
         "tooling"
       ],
-      "body": "**Benchmark gaps:** generated rows aren't benchmarked; `stitchwort run`\nisn't timed as a subprocess; no deterministic count catches loops that\nneither evaluate, recurse through a guarded pass nor allocate (e.g. the\n`expr.span()` walk in long chains).",
+      "body": "crates/bench/src/programs.rs only has fixed example programs, timed in-process. Add (1) rows whose input is generated in-language (an LCG producing e.g. 4,462 rotations, docs/aoc-2025.md:740-745) so an aoc/ program can be a row without puzzle data; (2) a timing of the `stitchwort run` binary as a subprocess (startup + check + run). Done: both rows exist in bench/baseline.toml and `nix flake check` gates them.\n\nSplit 19 Oct: the third original item (no deterministic count for loops that neither evaluate nor allocate) moved to SW-60.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -543,7 +541,7 @@
       "labels": [
         "js"
       ],
-      "body": "**Compact text stages 2–3** ([compact-text.md](docs/proposals/compact-text.md)\ndraft 2): B1 (compact `List Char` in the evaluator) and selected B2\nnatives. Prerequisites in draft 2: the expansion invariant, the list of\npasses to update, binding to declarations, an automatic build fingerprint\nin the test-cache key.",
+      "body": "**Compact text stages 2–3** ([compact-text.md](docs/proposals/compact-text.md)\ndraft 2): B1 (compact `List Char` in the evaluator) and selected B2\nnatives. Prerequisites in draft 2: the expansion invariant, the list of\npasses to update, binding to declarations, an automatic build fingerprint\nin the test-cache key.\n\nMerged from SW-70:\n**For a kernel `decEqText` native** (compact text stage 3), follow the\n`decEqNat` pattern: make the definition ask a Boolean test so its `No` is\n`No (textNeq a b rfl)`, which the native can return, with whole-result\ntests.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -565,29 +563,28 @@
     },
     {
       "id": 38,
-      "title": "Faster `textOfChars`",
+      "title": "Measure `textOfChars` in generated JS, then speed up `encodeChar` if it matters",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [
-        "js",
-        "stdlib"
+        "js"
       ],
-      "body": "**Faster `textOfChars`** in JS (10⁶ characters: 98 ms) and stack-safe\nlist helpers (`foldChars`, `compareChars`, …) when user code calls them\ndirectly.\n\n19 Oct: partly out of date — textOfChars is already a loop (crates/js/src/lib.rs:861-865; the 98 ms is per-char encodeChar cost), and foldChars/compareChars no longer exist. Needs a measurement before any work.",
+      "body": "Partly out of date: `textOfChars` is already a loop and `foldChars`/`compareChars` no longer exist. What remains is the 98 ms per 10^6 characters, which is per-character `encodeChar` cost (crates/js/src/lib.rs, CHARS_OF_TEXT/TEXT_AS_STRING). Measure on a 10^6-char text, profile, and decide whether a faster path (e.g. String.fromCodePoint in chunks) is worth it. Done: a measured number and a change or a 'not worth it'.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
     },
     {
       "id": 39,
-      "title": "`Globals` fields `state` and `body` are `pub`",
+      "title": "Make `Def.body`/`Def.state` and `Data.state` private behind the admission API",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [
         "kernel"
       ],
-      "body": "**`Globals` fields `state` and `body` are `pub`**; make them private\nbehind the admission API (with the mutual-recursion work).",
+      "body": "crates/core/src/globals.rs:37-38 (`Def.body`, `Def.state`) and :100 (`Data.state`) are `pub`, so the elaborator and tests can bypass admission. Make them private and route writes through the admission API (kernel admission and mutual recursion are complete). Done: fields private, `cargo build` and the gate green.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -601,7 +598,7 @@
       "labels": [
         "js"
       ],
-      "body": "**More tail calls as loops in generated JS:** only a function's calls to\nitself (including in either branch of an `if`) are loops today. Not\nthrough `if h : P`, helpers like `maybeThen`, or between functions.",
+      "body": "Only a function's calls to itself (including in either branch of an `if`) become loops today (crates/js/src/lib.rs). Also loop-ify self tail calls through `if h : P` and helpers like `maybeThen`. Calls between functions are SW-49. Done: examples that overflow today (give one in the ticket) run to 10^7.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -629,7 +626,7 @@
       "labels": [
         "js"
       ],
-      "body": "**JS encoding doesn't preserve sharing:** a result with much sharing is\nencoded once per path (`echoTree(dag(12))` gives 2^13−1 objects), so it\ncan be exponential. Accept and document (done, DESIGN §12), or bound it.",
+      "body": "A result with much sharing is encoded once per path (`echoTree(dag(12))` gives 2^13-1 objects), so encoding can take exponential time. This is documented as accepted (DESIGN.md:872). Options: bound the output size and fail with a clear error, or memoise encoding of shared nodes (as decoding already does, DESIGN.md:847). Done: a DAG result of depth 60 encodes or fails fast and clearly.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -643,7 +640,7 @@
       "labels": [
         "js"
       ],
-      "body": "**JS strings are checked at every place they appear** (the same 1 MB\nstring in 1,000 slots is scanned 1,000 times).",
+      "body": "Decoding scans a string each place it appears: the same 1 MB string in 1,000 slots is scanned 1,000 times (documented, DESIGN.md:872). Remember the strings already validated in one decode (by identity), like shared arrays/objects (DESIGN.md:847). Done: measured before/after on that case.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -664,14 +661,15 @@
     },
     {
       "id": 45,
-      "title": "Nested recursive types",
+      "title": "Support nested recursive types such as `List Tree` (rose trees)",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [
-        "bug"
+        "design",
+        "kernel"
       ],
-      "body": "**Nested recursive types** (`rest : Nest (Box a)`, probably rose trees\n`List Tree`) are refused with a misleading \"negative position\" message,\nand aren't supported.",
+      "body": "Refused on purpose today (E-POSITIVITY, 'whether it's safe inside another type would depend on how that type uses it'). Design: positivity through type parameters (Lean's nested inductives, auxiliary-type compilation), and what it does to termination (size change through `List.map`) and JS extraction. Also covers the `rest : Nest (Box a)` form. Design note first (Opus, external review). Done: a note recommending build/don't build. (The message half is fixed: `type Tree = | Node (kids: List Tree)` now gives E-POSITIVITY with a clear note.)",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -679,13 +677,13 @@
     {
       "id": 46,
       "title": "Checking evaluates expensive input-independent expressions in `main`",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
-        "playground"
+        "elab"
       ],
-      "body": "**Checking evaluates expensive input-independent expressions in `main`**\n(a `main` printing `spin 6000000` takes 2.4 s to check), which can tie\nup the playground's checker.",
+      "body": "**Checking evaluates expensive input-independent expressions in `main`**\n(a `main` printing `spin 6000000` takes 2.4 s to check), which can tie\nup the playground's checker.\n\nClosed 19 Oct (backlog review): f7699c9 \"Checker: bind operation arguments and dot receivers instead of computing them (stage 1A)\"; docs/proposals/checker-evaluation.md §6 (print args 2,324,583 -> 1,799 steps); re-measured: `print (Nat.toText (spin 3000000))` checks in 0.09 s.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -706,16 +704,15 @@
     },
     {
       "id": 48,
-      "title": "Mutual recursion stage 2 gaps",
+      "title": "Test a callback kept after its creator returns, for mutual groups",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [
-        "playground",
         "kernel",
         "elab"
       ],
-      "body": "**Mutual recursion stage 2 gaps:** a callback kept after its creator\nreturns is tested only for single definitions; hash stability under\nreordering of identical-shaped members isn't tested (allowed to change);\nthe playground doesn't show warnings (`W-MODULE-NAME`); for a body with\nno pattern match, termination errors point at the whole definition.",
+      "body": "docs/proposals/mutual-recursion.md ~2088: `f` returns a record/closure holding a callback that is called after `f` returns; the mutual-recursion termination check is tested for single definitions only. Add must-accept/must-reject examples and a differential test for a function group, including the unsound-looking case in §6.4 step 4. Done: tests merged, or a counterexample found and written up.\n\nSplit 19 Oct into SW-117. Done already: playground shows warnings (976b912). Dropped: hash stability under reordering of identical-shaped members (explicitly allowed to change; hashes aren't a design constraint).",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -730,22 +727,22 @@
         "js",
         "kernel"
       ],
-      "body": "**Mutual tail calls aren't loops in generated JS** (`isEven 10000000n`\nis a `StitchwortResourceError`).",
+      "body": "**Mutual tail calls aren't loops in generated JS** (`isEven 10000000n`\nis a `StitchwortResourceError`).\n\nSW-40 covers self tail calls.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
     },
     {
       "id": 50,
-      "title": "Mutual data limits",
+      "title": "Mutual data types: members' parameters needn't be written identically",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [
-        "js",
-        "kernel"
+        "kernel",
+        "elab"
       ],
-      "body": "**Mutual data limits:** nested (`List Tree`), inductive-recursive and\ninductive-inductive types are out of scope; members' parameters must be\nwritten identically (names included); JS error paths alternating\n`.kids.first` aren't shortened.",
+      "body": "In a group of mutual data types every member must spell its parameters the same, names included (docs/proposals/mutual-recursion.md, 'Limits'). Allow renamed parameters (compare up to renaming). Done: an example whose members name the shared parameter differently is accepted, and a mismatching one is still rejected with a clear message.\n\nSplit 19 Oct into SW-118. Nested (`List Tree`) is SW-45; inductive-recursive / inductive-inductive types are documented out of scope, not tasks.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -753,27 +750,27 @@
     {
       "id": 51,
       "title": "`zonk` walks computations inside types recursively",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "elab"
       ],
-      "body": "**`zonk` walks computations inside types recursively**, so a check like\n`textJoin … == t` on tens of thousands of characters runs out of\nresources while checking (found by compact text stage 2).",
+      "body": "**`zonk` walks computations inside types recursively**, so a check like\n`textJoin … == t` on tens of thousands of characters runs out of\nresources while checking (found by compact text stage 2).\n\nMerged into SW-77 (19 Oct)",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
     },
     {
       "id": 52,
-      "title": "Compact text in the playground's WASM build",
+      "title": "Measure compact text (stage 2) in the playground's WASM build",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [
         "playground"
       ],
-      "body": "**Compact text in the playground's WASM build** isn't measured.",
+      "body": "Compact `List Char` literals (d4d3626) were measured natively only. Measure checking a long text/list literal in the WASM build (limit before E-RESOURCE, time), compare with the stack guard of SW-82. Done: numbers recorded in docs/evaluator-speed.md or compact-text.md.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -787,7 +784,7 @@
       "labels": [
         "kernel"
       ],
-      "body": "**`Term::Nat`'s hash doesn't include `Nat`'s own hash** (pre-existing).",
+      "body": "crates/core/src/hash.rs:430 hashes `Term::Nat` as the tag and the value only, whereas `Term::Chars` (hash.rs:~440) includes the `List` and `Char` data references it expands to. So changing `Nat`'s definition would not change hashes of terms mentioning numeric literals. Include `Nat`'s hash in `Term::Nat`. Hashes needn't stay stable (SW-32); regenerate snapshots. Done: hash snapshot test updated.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -795,14 +792,14 @@
     {
       "id": 54,
       "title": "JS internal-name encoding may collide",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "bug",
         "js"
       ],
-      "body": "**JS internal-name encoding may collide** (from reading the code, not\ntested): a prime becomes `$` and a dot `$$`, and primes may appear\nmid-name, so `a''b` and `a.b` both become `$a$$b`. Namespaces stage 1\nadded a new naming scheme with tests that names up to 4 characters are\ndistinct; check whether this item is now closed.",
+      "body": "**JS internal-name encoding may collide** (from reading the code, not\ntested): a prime becomes `$` and a dot `$$`, and primes may appear\nmid-name, so `a''b` and `a.b` both become `$a$$b`. Namespaces stage 1\nadded a new naming scheme with tests that names up to 4 characters are\ndistinct; check whether this item is now closed.\n\nClosed 19 Oct (backlog review): 3faeb10 (namespaces stage 1): crates/js/src/lib.rs `encode` is written as injective (`'` -> `$p`, `.` -> `$d`, `%` -> `$g`, other `$uXXXXXX`; source names never contain `$`), so `a''b` (`a$p$pb`) and `a.b` (`a$db`) differ; field keys (`field_key`) likewise.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -818,21 +815,22 @@
         "kernel",
         "syntax"
       ],
-      "body": "**Records follow-ups:** stage 2 (kernel projections and eta — deferred\nby the user until proofs about records need it; with the\nsame-type rule and eta off in unification's `first_order` fallback;\nrecords.md draft 2 §7); `==` for records with proof or dependent fields;\n`(.name)` accessor sections; proof-field checks at the JS boundary for\nordinary data types; printing `R.f r` as `r.f` in errors; descent through\nrecord fields for termination. After `->`, `{` starts an ability row, so\na record literal in a result type needs parentheses.",
+      "body": "**Records follow-ups:** stage 2 (kernel projections and eta — deferred\nby the user until proofs about records need it; with the\nsame-type rule and eta off in unification's `first_order` fallback;\nrecords.md draft 2 §7); `==` for records with proof or dependent fields;\n`(.name)` accessor sections; proof-field checks at the JS boundary for\nordinary data types; printing `R.f r` as `r.f` in errors; descent through\nrecord fields for termination. After `->`, `{` starts an ability row, so\na record literal in a result type needs parentheses.\n\nSplit 19 Oct into SW-119, SW-120, SW-121. Done already: `(.name)` accessor sections (74db93a).\nNEEDS MATT (backlog review): proposed rewrite of this ticket as \"Record projections and eta in the kernel (records stage 2)\": docs/proposals/records.md draft 2 §7, deferred by Matt until proofs about records need it; makes `p = (p.fst, p.snd)` provable by `rfl` for pairs and records (docs/aoc-2025.md:1115), with the same-type rule and eta off in unification's `first_order` fallback; do after SW-93 (proof irrelevance) is decided. Is it time? Also unmade tickets, if wanted: `==` for records with proof or dependent fields (examples/reject/record-eqeq-proof-field.sw; likely follows from SW-93/SW-95) and proof-field checks at the JS boundary for ordinary data types.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
     },
     {
       "id": 56,
-      "title": "`Partial` follow-ups",
+      "title": "Generated-program differential test of the partial runner against crates/partial-model",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [
-        "kernel"
+        "kernel",
+        "tooling"
       ],
-      "body": "**`Partial` follow-ups:** a generated-program differential test of the\nrunner against `crates/partial-model`; `mapP` in the library; the\n`E-PARTIAL-CALLBACK` note could point at polymorphic library variants. (Decided:\nan endless partial `main` in the CLI runs until stopped, like any\nprogram; no total-work limit.)",
+      "body": "crates/driver/tests/partial.rs compares the runner with the executable model (crates/partial-model) on fixed programs only. Add a generator of small random partial programs (as the model's typed API and as source) and compare the full traces (operations, replies, ticks). Done: the test runs in the gate with a fixed seed and a few hundred programs. (DeepSeek-suitable once the generator is specified.)\n\nSplit 19 Oct into SW-122. An endless partial `main` is decided: it runs until stopped.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -847,7 +845,7 @@
         "js",
         "playground"
       ],
-      "body": "**Measure the JS limits in browsers** (only Node so far).",
+      "body": "**Measure the JS limits in browsers** (only Node so far).\n\nNode only so far; use web/stress.html; record in DESIGN.md §12.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -855,13 +853,13 @@
     {
       "id": 58,
       "title": "Compact text (text step 7): in generated JS first, then the checking evaluator",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "js"
       ],
-      "body": "**Compact text** (text step 7): in generated JS first, then possibly in the\nchecking evaluator, with differential tests against the plain-list version.",
+      "body": "**Compact text** (text step 7): in generated JS first, then possibly in the\nchecking evaluator, with differential tests against the plain-list version.\n\nClosed 19 Oct (backlog review): stage 1 (generated JS) f2276c0 and stage 2 (checking evaluator, B1) d4d3626 are merged; docs/proposals/compact-text.md says both are built; what's left is SW-36 (stage 3).",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -869,13 +867,13 @@
     {
       "id": 59,
       "title": "`==` operands are computed at check time",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "elab"
       ],
-      "body": "**`==` operands are computed at check time.** `f x == y` puts `f x = y` in\na type, so checking computes `f x`. Needs lazily evaluated values, or a\ntranslation of `==` that keeps its operands out of types.",
+      "body": "**`==` operands are computed at check time.** `f x == y` puts `f x = y` in\na type, so checking computes `f x`. Needs lazily evaluated values, or a\ntranslation of `==` that keeps its operands out of types.\n\nClosed 19 Oct (backlog review): 65415c5 \"Checker: decide with operands bound as variables, falling back to values (stage 1B)\"; checker-evaluation.md \"Stage 1B (done)\": `cost == 5` 1,182,949 -> 23,225 steps. Residual (`if h : P` computing operands up to 3 times) is covered by SW-8.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -889,7 +887,7 @@
       "labels": [
         "elab"
       ],
-      "body": "**Elaborating a chain is quadratic:** `expr.span()` and `may_perform` walk\nthe whole subexpression at every level.",
+      "body": "**Elaborating a chain is quadratic:** `expr.span()` and `may_perform` walk\nthe whole subexpression at every level.\n\nA regression guard for this needs a deterministic counter that those walks increment (the step/alloc counts of crates/bench don't see them; e.g. the `expr.span()` walk); add one as part of the fix. (From SW-35, 19 Oct.)",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -897,13 +895,13 @@
     {
       "id": 61,
       "title": "The WebAssembly guard size",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "playground"
       ],
-      "body": "**The WebAssembly guard size:** 128 KiB gives the playground about 25\nlevels of nesting and list literals of about 200 elements. 256 KiB would\nroughly double that, with a 2× margin in Node. Separately, the parser's\nstack use per level could be cut (e.g. by boxing the `Diagnostic` in its\n`Result`).",
+      "body": "**The WebAssembly guard size:** 128 KiB gives the playground about 25\nlevels of nesting and list literals of about 200 elements. 256 KiB would\nroughly double that, with a 2× margin in Node. Separately, the parser's\nstack use per level could be cut (e.g. by boxing the `Diagnostic` in its\n`Result`).\n\nMerged into SW-82 (19 Oct)",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -915,9 +913,9 @@
       "agent": "",
       "where": "",
       "labels": [
-        "syntax"
+        "elab"
       ],
-      "body": "**Long list and text literals** stop at about 1,800 elements in a 2 MiB\nthread (about 75,000 in the CLI); waits on compact literals or checking\nliterals without recursion.",
+      "body": "A list/text literal stops at ~1,800 elements in a 2 MiB thread (~75,000 in the CLI) because the parser/elaborator recurse per element. Make literal elaboration iterative (or build compact literals directly: compact text stage 2 already stores `List Char` literals compactly in the kernel, d4d3626). Done: a 100,000-element list literal checks in the playground's WASM build.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -947,7 +945,7 @@
       "labels": [
         "tooling"
       ],
-      "body": "**Mutation testing** (in small sharded runs): the machine (`value.rs`),\n`budget.rs`, `native.rs` (167 mutants, never done).\n\n19 Oct: runs are cargo-mutants (a tool, no model) driven by scratchpad/mutrun.sh in ~/scratch/mutants-20261019. Pilot budget.rs: 56 mutants, ~12 min, 23 caught / 26 missed (core tests only) / 1 timeout / 6 unviable. Next: re-check survivors against driver+cli tests; then DeepSeek writes tests to kill real survivors (direct-edit spec), Opus judges equivalent mutants.\n\nMatt (19 Oct): paused after the budget.rs pilot; no further mutation runs for now. Survivor results in scratchpad/mut/budget-*.",
+      "body": "**Mutation testing** (in small sharded runs): the machine (`value.rs`),\n`budget.rs`, `native.rs` (167 mutants, never done).\n\n19 Oct: runs are cargo-mutants (a tool, no model) driven by scratchpad/mutrun.sh in ~/scratch/mutants-20261019. Pilot budget.rs: 56 mutants, ~12 min, 23 caught / 26 missed (core tests only) / 1 timeout / 6 unviable. Next: re-check survivors against driver+cli tests; then DeepSeek writes tests to kill real survivors (direct-edit spec), Opus judges equivalent mutants.\n\nMatt (19 Oct): paused after the budget.rs pilot; no further mutation runs for now. Survivor results in scratchpad/mut/budget-*.\n\nMerged from SW-87:\n**Remaining surviving mutants** judged equivalent or unreachable:\n`effects.rs` lines 223 (×3), 403, 414, 706 (×2), 709, 745, 844;\n`termination.rs` line 111 (`>` → `>=`); the `auto` fix in step 1 (masked\nby the sticky budget).\n\nSurvivors already judged equivalent/unreachable (line numbers as of 19 Oct): effects.rs 223 (x3), 403, 414, 706 (x2), 709, 745, 844; termination.rs 111 (`>` -> `>=`); the `auto` fix in step 1 (masked by the sticky budget). Put them in a cargo-mutants exclude list (.cargo/mutants.toml; none exists yet) when runs resume. Paused by Matt after the budget.rs pilot; keep as backlog.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -959,9 +957,10 @@
       "agent": "",
       "where": "",
       "labels": [
-        "proof"
+        "proof",
+        "stdlib"
       ],
-      "body": "**Prove** `textToNat (natToText n) = Just n` (needs lemmas about `/` and\n`%`; tested only, for now).",
+      "body": "**Prove** `textToNat (natToText n) = Just n` (needs lemmas about `/` and\n`%`; tested only, for now).\n\nThe needed lemmas now exist: Nat.divUnique/modUnique (prelude.sw:563-565), Nat.modLess, Nat.addDivSelf; start from them.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -1027,14 +1026,14 @@
     {
       "id": 70,
       "title": "For a kernel `decEqText` native",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "kernel",
         "elab"
       ],
-      "body": "**For a kernel `decEqText` native** (compact text stage 3), follow the\n`decEqNat` pattern: make the definition ask a Boolean test so its `No` is\n`No (textNeq a b rfl)`, which the native can return, with whole-result\ntests.",
+      "body": "**For a kernel `decEqText` native** (compact text stage 3), follow the\n`decEqNat` pattern: make the definition ask a Boolean test so its `No` is\n`No (textNeq a b rfl)`, which the native can return, with whole-result\ntests.\n\nMerged into SW-36 (19 Oct)",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -1078,7 +1077,7 @@
       "labels": [
         "elab"
       ],
-      "body": "**Inferring a bare lambda's type** needs an annotation, e.g.\n`runState ((\\n -> n) : Nat -> {Choose} Nat) …`.",
+      "body": "**Inferring a bare lambda's type** needs an annotation, e.g.\n`runState ((\\n -> n) : Nat -> {Choose} Nat) …`.\n\nRelated: SW-19, SW-90.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -1099,15 +1098,14 @@
     },
     {
       "id": 75,
-      "title": "Number patterns follow-ups",
+      "title": "Number patterns: prune unreachable rows before choosing keys",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [
-        "syntax",
         "elab"
       ],
-      "body": "**Number patterns follow-ups:** rows after an equation that matches\neverything still add keys, so open terms can stay stuck needlessly (the\n`f6` example in number-patterns.md); prune unreachable rows before\nchoosing keys. Default inequalities (`n ≠ k`) and `Char` literal patterns\n(`MkChar k _`) as later features.",
+      "body": "docs/proposals/number-patterns.md (the `f6` example, ~line 676): rows after an equation that matches everything still contribute keys, so open terms can stay stuck needlessly. Drop unreachable rows before choosing keys. Done: `f6` computes on open terms; snapshots/hashes updated.\n\nDone already: Char literal patterns `'a' =>` (e5b3eed).\nNEEDS MATT (backlog review): a new ticket \"Number patterns: default inequalities (`n != k`)\" [syntax, elab] was proposed (number-patterns.md open question 2, ~line 543: give the catch-all row the inequalities from earlier rows so the checker knows `n != 0` in a default; decide the surface, design note first). Not created: nobody has asked for it; say if wanted.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -1135,7 +1133,7 @@
       "labels": [
         "elab"
       ],
-      "body": "**Solving metavariables without recursion** (low priority: only large\nliteral values in types hit it): `solve`, `rename`, `prune` and `zonk`\nstill recurse over a solution. They're guarded, so a deep one is\n`E-RESOURCE`, but they share the stack: in the CLI,\n`theorem a : [1, …, n] = [1, …, n]` checks up to n = 56,875 with `rfl` but\nonly 26,875 with `sym rfl`, whose hidden arguments are solved to the list.",
+      "body": "`solve`, `rename`, `prune` and `zonk` in the elaborator recurse over a solution. They're guarded, so a deep one is E-RESOURCE, but they share the stack: in the CLI `theorem a : [1, ..., n] = [1, ..., n]` checks up to n = 56,875 with `rfl` but only 26,875 with `sym rfl` (hidden arguments solved to the list). Also (from SW-51): zonk walking computations inside types ran out of resources on `textJoin ... == t` with tens of thousands of characters; re-test, it may be gone after 65415c5. Low priority: only large literal values in types hit it. Done: iterative versions (explicit stack) and the two limits above raised.\n\nMerged from SW-51:\n**`zonk` walks computations inside types recursively**, so a check like\n`textJoin … == t` on tens of thousands of characters runs out of\nresources while checking (found by compact text stage 2).",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -1158,13 +1156,13 @@
     {
       "id": 79,
       "title": "An operation's argument is computed while checking",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "bug"
       ],
-      "body": "**An operation's argument is computed while checking**\n(`effects::make_call` evaluates it for the result type): a closed\n`print (expensive)` runs twice in the checker before `run` runs it\n(`docs/evaluator-speed.md` section 6). Only needed when the result type\ndepends on the argument.",
+      "body": "**An operation's argument is computed while checking**\n(`effects::make_call` evaluates it for the result type): a closed\n`print (expensive)` runs twice in the checker before `run` runs it\n(`docs/evaluator-speed.md` section 6). Only needed when the result type\ndepends on the argument.\n\nClosed 19 Oct (backlog review): f7699c9 (stage 1A binds operation arguments and dot receivers); checker-evaluation.md §6: closed `print`s 2,324,583 -> 1,799 steps. Same cause and fix as SW-46.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -1176,7 +1174,7 @@
       "agent": "",
       "where": "",
       "labels": [
-        "bug"
+        "design"
       ],
       "body": "**Row order is fixed by declaration order**, so `IO` (declared in the\nprelude) always comes first in a row: `{State Nat, IO}` and\n`{IO, State Nat}` are the same type. Harmless, but it means no test can\nput `IO` on the right of a row.",
       "created": "2026-10-19",
@@ -1191,7 +1189,7 @@
       "where": "",
       "labels": [
         "bug",
-        "proof"
+        "elab"
       ],
       "body": "**A misleading follow-on error** (found by the IO lane): after an\n`E-UNKNOWN-NAME` earlier in a file, a later `rfl` proof over a handled\ncomputation failed with \"`rfl` proves an equation, but the expected type\nis `runPure (bind …)`\". It checked once the first error was fixed.",
       "created": "2026-10-19",
@@ -1200,15 +1198,14 @@
     },
     {
       "id": 82,
-      "title": "In WebAssembly the stack guard measures the wrong stack",
+      "title": "WebAssembly stack guard: calibrate beyond Node/Chrome and choose the guard size",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [
-        "bug",
         "playground"
       ],
-      "body": "**In WebAssembly the stack guard measures the wrong stack.** Each call uses\nboth the stack in linear memory (which the guard measures) and the\nengine's own call stack (about 1 MiB in V8), and the engine's runs out\nfirst. So the guard is set to 128 KiB there (`crates/web/build.rs`),\ncalibrated in Node and Chrome only; Firefox and Safari are unmeasured.\nEliminating recursion (steps 3 and 4) is the real fix.",
+      "body": "Each call uses the stack in linear memory (which the guard measures) and the engine's own call stack (~1 MiB in V8), and the engine's runs out first, so the guard is 128 KiB (crates/web/build.rs), calibrated in Node and Chrome only; Firefox and Safari are unmeasured. 128 KiB gives about 25 levels of nesting and list literals of ~200 elements; 256 KiB would roughly double that with a 2x margin in Node. Measure in all four engines (web/stress.html exists), pick the size, record it. Eliminating recursion (stack-safe-evaluation steps 3 and 4) is the real fix. Done: a table of limits per browser and the guard set from it.\n\nSplit 19 Oct (with the SW-61 merge) into SW-126.\n\nMerged from SW-61:\n**The WebAssembly guard size:** 128 KiB gives the playground about 25\nlevels of nesting and list literals of about 200 elements. 256 KiB would\nroughly double that, with a 2× margin in Node. Separately, the parser's\nstack use per level could be cut (e.g. by boxing the `Diagnostic` in its\n`Result`).",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -1249,9 +1246,10 @@
       "agent": "",
       "where": "",
       "labels": [
-        "bug"
+        "bug",
+        "tooling"
       ],
-      "body": "**The differential test overflows in debug builds:**\n`the_evaluators_agree_on_the_prelude_and_every_example` overflows its\n64 MiB thread in a debug build (already so before step 4), at\n`examples/accept/io.sw`; release builds, which the gate uses, pass.\n\nAlso listed under Later in TODO.md:\n\n**Differential test overflows in debug** at `io.sw`'s \"5,000 prints\"\n(see Known issues entry, if present).",
+      "body": "**The differential test overflows in debug builds:**\n`the_evaluators_agree_on_the_prelude_and_every_example` overflows its\n64 MiB thread in a debug build (already so before step 4), at\n`examples/accept/io.sw`; release builds, which the gate uses, pass.\n\nAlso listed under Later in TODO.md:\n\n**Differential test overflows in debug** at `io.sw`'s \"5,000 prints\"\n(see Known issues entry, if present).\n\nNot re-verified; the gate runs release builds.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -1274,14 +1272,14 @@
     {
       "id": 87,
       "title": "Remaining surviving mutants",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "tooling",
         "kernel"
       ],
-      "body": "**Remaining surviving mutants** judged equivalent or unreachable:\n`effects.rs` lines 223 (×3), 403, 414, 706 (×2), 709, 745, 844;\n`termination.rs` line 111 (`>` → `>=`); the `auto` fix in step 1 (masked\nby the sticky budget).",
+      "body": "**Remaining surviving mutants** judged equivalent or unreachable:\n`effects.rs` lines 223 (×3), 403, 414, 706 (×2), 709, 745, 844;\n`termination.rs` line 111 (`>` → `>=`); the `auto` fix in step 1 (masked\nby the sticky budget).\n\nMerged into SW-64 (19 Oct)",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -1494,7 +1492,7 @@
     },
     {
       "id": 100,
-      "title": "Prelude: division/modulo lemmas (`x = q * s + r`, `r < s` ⇒ `x / s = q`, `x % s = r`) and Int.modNat facts",
+      "title": "Prelude: modulo identities (`(a % s + b) % s`, `a % s % s`) and the `Int.modNat` shifts",
       "status": "backlog",
       "agent": "",
       "where": "",
@@ -1502,7 +1500,7 @@
         "stdlib",
         "proof"
       ],
-      "body": "From the day 1 comparison (SW-96): recommendation 2. Idris derived almost every other division fact from the uniqueness lemma; Agda's stdlib has ~60. Small effort; helps later AoC days. Check what Nat.divUnique/modUnique already give.",
+      "body": "From docs/comparisons/aoc-day01.md recommendation 2. Uniqueness of `/` and `%` exists (`Nat.divUnique`/`modUnique`). Still missing: `(a % s + b) % s = (a + b) % s`, `a % s % s = a % s`, `Int.modNat (x + k * s) s = Int.modNat x s`, and `Int.modNat (x - 1)` for a position. With these, day 1's `backFrom`/`backFar` and the four `subNatNat` lemmas should go. Done: lemmas added; aoc/day01.sw simplified using them.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -1653,6 +1651,241 @@
         "design"
       ],
       "body": "Split from SW-17 (19 Oct): `map`, `filter` and the folds take pure functions; a callback that uses an ability (IO, a handler's state) can't be passed. Later, when a program needs it: needs effect-polymorphic signatures (`(a -> {e} b) -> List a -> {e} List b`) and checking they don't break existing hashes/inference.",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 111,
+      "title": "Nat.absDiff lemmas",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "stdlib",
+        "proof"
+      ],
+      "body": "Nat.min/max have order lemmas (prelude.sw:750-775) but Nat.absDiff (prelude.sw:779) has none. Add the ones a proof about distances needs: symmetry `absDiff m n = absDiff n m`, `absDiff m m = 0`, and `m <= n -> absDiff m n = n - m`. Check what docs/aoc-2025.md day 8/9 plans would use first.",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 112,
+      "title": "Array type with get/set/length",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "stdlib",
+        "aoc",
+        "design"
+      ],
+      "body": "docs/aoc-2025.md capability #4: a compact native `Array a` (like compact text) for days 4, 8, 9. Large; design note first (Opus), with a design review before building. Measure after days 4-5 whether it's really needed (aoc-2025.md says so).",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 113,
+      "title": "Balanced-tree Map and Set",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "stdlib",
+        "aoc"
+      ],
+      "body": "docs/aoc-2025.md capability #6: `Map`/`Set` with keys that have an `Ordering`, for days 4, 7, 8 (the user's Scala form). Needs the interfaces question (SW-4) or an explicit comparison argument. Sonnet; Opus for proofs. Decide the key-ordering approach first.",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 114,
+      "title": "Uppercase parameter names are a parse error",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "syntax"
+      ],
+      "body": "`def f (A: Nat): Nat := A` gives E-PARSE 'expected a parameter's name, but found A' because uppercase reads as a constructor (docs/aoc-2025.md:1029). Decide: keep (improve the message with a note: parameters start lowercase) or allow it (affects pattern/constructor resolution). Done: decision implemented and documented.",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 115,
+      "title": "Error messages print fully evaluated terms",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab",
+        "kernel"
+      ],
+      "body": "A wrong theorem about `Range.repeated` printed ~10 KB: the term unfolded through `Nat.divFuel` and every `Bool.ifThenElse` (docs/aoc-2025.md:1032). Investigate first: reproduce, then see whether the pretty printer can fold a definition back to its call (`pretty.rs`) or print the unevaluated types where it has them. Done: a measured before/after on the reproduction.",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 116,
+      "title": "Recursive calls used as induction hypotheses must be fully applied",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab",
+        "proof"
+      ],
+      "body": "In a structural proof, passing the recursive call along un-applied (`... ih ...`) fails; the user writes out `\\c2 a2 ... => pickBest k ih w ...` (aoc-2025.md:1120). Investigate whether eta-expanding a partially applied recursive call is sound for the termination checker (kernel sees an arity-short occurrence) and if so do it automatically. Done: day 3's lambda wrapper in `pickBest` proofs is removable.",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 117,
+      "title": "Termination errors point at the whole definition when the body has no `match`",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab",
+        "bug"
+      ],
+      "body": "mutual-recursion.md ~2092: for a recursive call in a body with no case tree (e.g. `def f n := ... f (n - 1)`) the E-TERMINATION error points at the whole definition instead of the call. Point at the offending call. Done: snapshot of the new location.",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 118,
+      "title": "Shorten JS error paths that alternate `.kids.first`",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "js"
+      ],
+      "body": "JS decode error paths through mutual data (e.g. `.kids.first.kids.first...`) aren't shortened the way a single recursive type's are. Find where decoder paths are abbreviated (crates/js/src/lib.rs) and apply the same rule. Done: a test with a 20-level mutual structure shows a short path.",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 119,
+      "title": "Print `R.f r` as `r.f` in error messages",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "Errors show `Pair.fst p` / `Person.name x`. Print projections of records and pairs in dot form (crates/core/src/pretty.rs). Done: snapshots updated; no change to hashes.",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 120,
+      "title": "Termination: descend through record fields",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "kernel"
+      ],
+      "body": "records.md §6.4 R4 'field paths': a recursive call on `r.list` where `r` is a parameter is refused; flatten record fields into size-change paths one layer deep (dependent fields as a telescope). Refuse `loop r = loop { r | list = r.list }`. Done: examples accepted/rejected per records.md §6.4/§7.5.",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 121,
+      "title": "A record literal in a result type needs parentheses",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "syntax"
+      ],
+      "body": "After `->`, `{` starts an ability row, so `def f: Nat -> { name: Nat }` is E-PARSE ('expected `}`, but found `:`'). Look ahead for `ident :` to tell a record type from a row, or improve the message with a note. Done: one of those, with an example.",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 122,
+      "title": "`mapP` in the library, and make E-PARTIAL-CALLBACK point at it",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "stdlib",
+        "elab"
+      ],
+      "body": "docs/proposals/partial.md §7.3.7 / line 670: a library `mapP : (a -> {Partial | e} b) -> List a -> {Partial | e} List b` (total callbacks fit via `lift`). `E-PARTIAL-CALLBACK` (crates/elab/src/check.rs; examples/reject/partial-callback.sw) should then name `mapP` when the library function is `map`. Done: example using mapP, updated snapshot. Related: SW-110.",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 123,
+      "title": "Rewrite the examples to dot notation",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "syntax",
+        "tooling"
+      ],
+      "body": "namespaces.md §9 follow-up: most of examples/accept still write `List.map f xs`/`Bag.map f xs` where dot notation reads better. Convert the examples that are about ordinary use (not the ones testing the prefix form); regenerate snapshots; hashes may change (that's fine). Mechanical: DeepSeek. (Investigate how many first; if few, drop.)",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 124,
+      "title": "A pure `Comp NoOp NoRes Nat` is accepted where `Nat` is expected",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab",
+        "bug"
+      ],
+      "body": "Noticed while writing namespaces §9, not investigated: with `import Effect (Comp, NoOp, NoRes)`, `def f: Comp NoOp NoRes Nat := 3` and `def g: Nat := f` both check (reproduced 19 Oct). Find out whether that's intended (a pure block is not wrapped, let.md stage 1) or a conversion hole, then document it as intended (docs/proposals/let.md) or fix it. Done: a test or a doc line recording the answer.",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 125,
+      "title": "AoC: real-input tests in per-day `dayNN.input.sw` files via `include`",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "After `include` (SW-5): add aoc/day04.input.sw etc. with `test` lines comparing solvePart1/2 on `include`d real inputs; inputs stay gitignored (aoc/inputs). Done: `stitchwort test aoc/...` runs them locally; CI without inputs skips cleanly. Depends on SW-5.",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 126,
+      "title": "Parser: use less stack per nesting level",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab",
+        "playground"
+      ],
+      "body": "e.g. box the `Diagnostic` in the parser's `Result` so frames are smaller (from SW-61). Measure frame size before/after with web/stress.html and the nesting tests (crates/driver/tests/nesting.rs). Done: nesting depth in a 2 MiB thread improves measurably.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
