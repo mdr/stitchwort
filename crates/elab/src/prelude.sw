@@ -632,6 +632,72 @@ theorem Nat.leqFalseOfLess (a: Nat) (b: Nat) (h: a < b): Nat.leq b a = False :=
     (\f => rfl)
 
 
+-- `lo <= x && x <= hi`, by cases on where `x` is.
+theorem Nat.betweenYes (lo: Nat) (hi: Nat) (x: Nat) (h1: lo <= x) (h2: x <= hi): (lo <= x && x <= hi) = True :=
+  J (\c q => Bool.ifThenElse (Decidable.toBool (Bool.decTrue c)) (\u => Decidable.toBool (Bool.decTrue (Nat.leq x hi))) (\u => False) = True)
+    (J (\c q => Decidable.toBool (Bool.decTrue c) = True) rfl (Eq.sym h2)) (Eq.sym h1)
+
+theorem Nat.betweenBelow (lo: Nat) (hi: Nat) (x: Nat) (h: Nat.leq lo x = False): (lo <= x && x <= hi) = False :=
+  J (\c q => Bool.ifThenElse (Decidable.toBool (Bool.decTrue c)) (\u => Decidable.toBool (Bool.decTrue (Nat.leq x hi))) (\u => False) = False) rfl (Eq.sym h)
+
+theorem Nat.betweenAbove (lo: Nat) (hi: Nat) (x: Nat) (h1: lo <= x) (h2: Nat.leq x hi = False): (lo <= x && x <= hi) = False :=
+  J (\c q => Bool.ifThenElse (Decidable.toBool (Bool.decTrue c)) (\u => Decidable.toBool (Bool.decTrue (Nat.leq x hi))) (\u => False) = False)
+    (J (\c q => Decidable.toBool (Bool.decTrue c) = False) rfl (Eq.sym h2)) (Eq.sym h1)
+
+theorem Nat.betweenOver (lo: Nat) (hi: Nat) (x: Nat) (h: Nat.leq x hi = False): (lo <= x && x <= hi) = False :=
+  Bool.inspect (Nat.leq lo x) (\c => (lo <= x && x <= hi) = False) (\t => Nat.betweenAbove lo hi x t h) (\f => Nat.betweenBelow lo hi x f)
+
+-- Rounding up and down: with `d = Succ m`, `lo <= b * d` exactly when
+-- `(lo + d - 1) / d <= b`, and `b * d <= hi` exactly when `b <= hi / d`.
+theorem Nat.roundUpArg (lo: Nat) (m: Nat): lo + Succ m - 1 = lo + m := Eq.cong (\t => t - 1) (Nat.addSucc lo m)
+
+theorem Nat.roundUpLe (lo: Nat) (m: Nat) (b: Nat) (h: lo <= b * Succ m): (lo + Succ m - 1) / Succ m <= b :=
+  Nat.leCongLeft ((lo + m) / Succ m) ((lo + Succ m - 1) / Succ m) b (Eq.cong (\t => t / Succ m) (Eq.sym (Nat.roundUpArg lo m)))
+    (Nat.divLeOfLtMul (lo + m) b (Succ m) (Nat.leCongLeft (m + lo) (lo + m) (m + b * Succ m) (Nat.addComm m lo) (Nat.leAddCong m lo (b * Succ m) h)))
+
+theorem Nat.roundUpGe (lo: Nat) (m: Nat) (b: Nat) (h: (lo + Succ m - 1) / Succ m <= b): lo <= b * Succ m :=
+  Nat.leTrans lo (((lo + m) / Succ m) * Succ m) (b * Succ m)
+    (Nat.leAddCancel m lo (((lo + m) / Succ m) * Succ m)
+      (Nat.leCongLeft (lo + m) (m + lo) (m + ((lo + m) / Succ m) * Succ m) (Nat.addComm lo m)
+        (Nat.divFuelBound (lo + m) (lo + m) (Succ m) (Nat.succNotZero m) (Nat.leRefl (lo + m)))))
+    (Nat.leMulRight ((lo + m) / Succ m) b (Succ m) (Nat.leCongLeft ((lo + Succ m - 1) / Succ m) ((lo + m) / Succ m) b (Eq.cong (\t => t / Succ m) (Nat.roundUpArg lo m)) h))
+
+theorem Nat.roundUpNo (lo: Nat) (m: Nat) (b: Nat) (h: Nat.leq ((lo + Succ m - 1) / Succ m) b = False): Nat.leq lo (b * Succ m) = False :=
+  Bool.inspect (Nat.leq lo (b * Succ m)) (\c => c = False)
+    (\t => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym h) (Nat.roundUpLe lo m b t))))
+    (\f => rfl)
+
+theorem Nat.roundDownNo (hi: Nat) (m: Nat) (b: Nat) (h: Nat.leq b (hi / Succ m) = False): Nat.leq (b * Succ m) hi = False :=
+  Bool.inspect (Nat.leq (b * Succ m) hi) (\c => c = False)
+    (\t => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym h) (Nat.leDivOfMulLe b hi (Succ m) t))))
+    (\f => rfl)
+
+theorem Nat.powTenPredLe: (k: Nat) -> Nat.pow 10 (k - 1) <= Nat.pow 10 k
+  | Zero   => rfl
+  | Succ k => Nat.leAddRight (Nat.pow 10 k) (9 * Nat.pow 10 k)
+
+-- `y * p + p` is at most `t * p` when `y < t`.
+theorem Nat.nextMultipleLe (y: Nat) (t: Nat) (p: Nat) (h: y < t): y * p + p <= t * p :=
+  Nat.leCongLeft (Succ y * p) (y * p + p) (t * p) (Nat.addComm p (y * p)) (Nat.leMulRight (Succ y) t p h)
+
+theorem Nat.headLessArith (y: Nat) (t: Nat) (p: Nat) (vs: Nat) (vr: Nat) (bound: vs < p) (h: y < t): y * p + vs <= t * p + vr :=
+  Nat.leTrans (y * p + vs) (t * p) (t * p + vr)
+    (Nat.leTrans (y * p + vs) (y * p + p) (t * p) (Nat.lessLe (y * p + vs) (y * p + p) (Nat.ltAddCong (y * p) vs p bound)) (Nat.nextMultipleLe y t p h))
+    (Nat.leAddRight (t * p) vr)
+
+-- `k + (n - k) <= n` when `k <= n`, and the other way round.
+theorem Nat.addSubLe (k: Nat) (n: Nat) (room: k <= n): k + (n - k) <= n :=
+  Nat.leCongRight (k + (n - k)) (k + (n - k)) n (Nat.addSubCancel k n room) (Nat.leRefl (k + (n - k)))
+
+theorem Nat.leSubAdd (k: Nat) (n: Nat) (room: k <= n): n <= (n - k) + k :=
+  Nat.leCongRight n n ((n - k) + k) (Eq.trans (Eq.sym (Nat.addSubCancel k n room)) (Nat.addComm k (n - k))) (Nat.leRefl n)
+
+theorem Nat.addSuccLeSucc (k: Nat) (w: Nat) (n: Nat) (h: k + Succ w <= Succ n): k + w <= n :=
+  Nat.leCongLeft (k + Succ w) (Succ (k + w)) (Succ n) (Nat.addSucc k w) h
+
+theorem Nat.leOfAddLe (k: Nat) (w: Nat) (n: Nat) (h: k + w <= n): k <= n := Nat.leTrans k (k + w) n (Nat.leAddRight k w) h
+
+
 -- Lists, continued
 
 theorem List.lengthAppend: (xs: List a) -> (ys: List a) -> List.length (List.append xs ys) = List.length xs + List.length ys
@@ -1043,6 +1109,24 @@ theorem List.gaussSum: (d: Nat) -> (x: Nat) ->
             (Eq.trans (Eq.cong (\t => (x + x) + t) (Nat.mulSucc (Succ d) (x + (x + Succ d))))
               (Eq.trans (Eq.sym (Nat.addAssoc (x + x) (Succ d) (Succ d * (x + (x + Succ d)))))
                 (Eq.cong (\t => t + Succ d * (x + (x + Succ d))) (Nat.addAssoc x x (Succ d))))))))
+
+-- `x + (x + 1) + ... + (y - 1)`
+def Nat.span (x: Nat) (y: Nat): Nat := List.sum (List.rangeFrom (y - x) x)
+
+theorem Nat.spanEmpty (x: Nat) (y: Nat) (h: y <= x): Nat.span x y = 0 := Eq.cong (\t => List.sum (List.rangeFrom t x)) (Nat.subEqZero y x h)
+
+theorem Nat.spanStep (s: Nat) (y: Nat) (h: Succ s <= y): Nat.span s y = s + Nat.span (Succ s) y :=
+  Eq.trans (Eq.cong (\t => List.sum (List.rangeFrom t s)) (Nat.subSuccRight s y h)) (List.sumCons s (List.rangeFrom (y - Succ s) (Succ s)))
+
+-- The closed form is the sum of `lo..hi`.
+theorem Nat.gaussSpan (d: Nat) (lo: Nat) (hi: Nat) (h: lo <= hi): d * ((lo + hi) * (hi - lo + 1) / 2) = d * Nat.span lo (Succ hi) :=
+  Eq.trans
+    (Eq.cong (\t => d * (t / 2))
+      (Eq.trans (Eq.cong (\t => (lo + t) * (hi - lo + 1)) (Eq.sym (Nat.addSubCancel lo hi h)))
+        (Eq.trans (Eq.cong (\t => (lo + (lo + (hi - lo))) * t) (Nat.addOne (hi - lo)))
+          (Eq.trans (Nat.mulComm (lo + (lo + (hi - lo))) (Succ (hi - lo))) (Eq.sym (List.gaussSum (hi - lo) lo))))))
+    (Eq.trans (Eq.cong (\t => d * t) (Nat.halfDouble (List.sum (List.rangeFrom (Succ (hi - lo)) lo))))
+      (Eq.sym (Eq.cong (\t => d * List.sum (List.rangeFrom t lo)) (Nat.subSuccRight lo (Succ hi) h))))
 
 theorem List.mapCongr (f: a -> b) (g: a -> b) (h: (x: a) -> f x = g x): (xs: List a) -> List.map f xs = List.map g xs
   | Nil       => rfl
@@ -1806,6 +1890,10 @@ theorem Int.subNatNatFromSucc (m: Nat) (n: Nat): (t: Nat) ->
 
 theorem Int.subNatNatSucc (m: Nat) (n: Nat): Int.subNatNat (Succ m) (Succ n) = Int.subNatNat m n := Int.subNatNatFromSucc m n (n - m)
 
+theorem Int.subOfNats (m: Nat): (n: Nat) -> Nat.toInt m - Nat.toInt n = Int.subNatNat m n
+  | Zero   => Eq.trans (Eq.cong Nat.toInt (Nat.addZero m)) (Eq.sym (Int.subNatNatZeroRight m))
+  | Succ n => rfl
+
 theorem Int.negSubNatNat: (m: Nat) -> (n: Nat) -> Int.neg (Int.subNatNat m n) = Int.subNatNat n m
   | Zero,   Zero   => rfl
   | Zero,   Succ n => rfl
@@ -2213,6 +2301,107 @@ theorem Nat.fromDigitsFrom: (a: Nat) -> (ds: List Nat) ->
 theorem Nat.fromDigitsCons (d: Nat) (ds: List Nat):
   Nat.fromDigits (Cons d ds) = d * Nat.pow 10 (List.length ds) + Nat.fromDigits ds := Nat.fromDigitsFrom d ds
 
+
+-- `n / 10 < n` once `n` has two digits.
+theorem Nat.divTenLess: (n: Nat) -> Nat.leq n 9 = False -> Succ (n / 10) <= n
+  | Zero,   h => Void.exfalso (Bool.trueNotFalse h)
+  | Succ n, h =>
+    Nat.divLeOfLtMul (Succ n) n 10
+      (Nat.leTrans n (n * 10) (8 + n * 10)
+        (Nat.leCongRight n (n + n * 9) (n * 10) (Eq.sym (Nat.mulSucc n 9)) (Nat.leAddRight n (n * 9)))
+        (Nat.leAddLeft 8 (n * 10)))
+
+-- `n` has few enough digits: `n < 10 ^ (number of digits)`.
+theorem Nat.digitsFuelBound: (fuel: Nat) -> (n: Nat) -> (acc: List Nat) -> n < fuel ->
+    Succ n * Nat.pow 10 (List.length acc) <= Nat.pow 10 (List.length (Nat.digitsFuel fuel n acc))
+  | Zero,      n, acc, h => Void.exfalso (Bool.falseNotTrue h)
+  | Succ fuel, n, acc, h =>
+    Bool.inspect (Nat.leq n 9)
+      (\c => Succ n * Nat.pow 10 (List.length acc)
+        <= Nat.pow 10 (List.length (Bool.ifThenElse c (\u => Cons n acc) (\u => Nat.digitsFuel fuel (n / 10) (Cons (n % 10) acc)))))
+      (\small => Nat.leMulRight (Succ n) 10 (Nat.pow 10 (List.length acc)) small)
+      (\big => Nat.leTrans (Succ n * Nat.pow 10 (List.length acc)) ((Succ (n / 10) * 10) * Nat.pow 10 (List.length acc))
+        (Nat.pow 10 (List.length (Nat.digitsFuel fuel (n / 10) (Cons (n % 10) acc))))
+        (Nat.leMulRight (Succ n) (Succ (n / 10) * 10) (Nat.pow 10 (List.length acc)) (Nat.divFuelBound n n 10 (Nat.succNotZero 9) (Nat.leRefl n)))
+        (Nat.leCongLeft (Succ (n / 10) * (10 * Nat.pow 10 (List.length acc))) ((Succ (n / 10) * 10) * Nat.pow 10 (List.length acc)) (Nat.pow 10 (List.length (Nat.digitsFuel fuel (n / 10) (Cons (n % 10) acc))))
+          (Eq.sym (Nat.mulAssoc (Succ (n / 10)) 10 (Nat.pow 10 (List.length acc))))
+          (Nat.digitsFuelBound fuel (n / 10) (Cons (n % 10) acc) (Nat.leTrans (Succ (n / 10)) n fuel (Nat.divTenLess n big) h))))
+
+theorem Nat.ltPowTenDigits (hi: Nat): hi < Nat.pow 10 (List.length (Nat.digits hi)) :=
+  Nat.leCongLeft (Succ hi * 1) (Succ hi) (Nat.pow 10 (List.length (Nat.digits hi))) (Nat.mulOne (Succ hi))
+    (Nat.digitsFuelBound (Succ hi) hi Nil (Nat.leRefl hi))
+
+-- Every element is a decimal digit.
+def Nat.Digits: List Nat -> Prop
+  | Nil       => Unit
+  | Cons d ds => And (d < 10) (Nat.Digits ds)
+
+theorem Nat.digitsOfSubsequence: (s: List Nat) -> (ds: List Nat) -> List.Subsequence s ds -> Nat.Digits ds -> Nat.Digits s
+  | Nil,       ds,        h,              hd          => Trivial
+  | Cons x xs, Nil,       h,              hd          => Void.exfalso h
+  | Cons x xs, Cons y ys, Inl (Both e h), Both hy hys => Both (Nat.ltCongLeft y x 10 (Eq.sym e) hy) (Nat.digitsOfSubsequence xs ys h hys)
+  | Cons x xs, Cons y ys, Inr h,          Both hy hys => Nat.digitsOfSubsequence (Cons x xs) ys h hys
+
+theorem Or.andWith: [p q r: Prop] -> r -> Or p q -> Or p (And q r)
+  | hr, Inl a => Inl a
+  | hr, Inr b => Inr (Both b hr)
+
+-- `Nat.fromDigitsCons`, with the power written for another list of the
+-- same length.
+theorem Nat.fromDigitsConsLen (d: Nat) (s: List Nat) (r: List Nat) (hl: List.length s = List.length r):
+  Nat.fromDigits (Cons d s) = d * Nat.pow 10 (List.length r) + Nat.fromDigits s :=
+  Eq.trans (Nat.fromDigitsCons d s) (Eq.cong (\n => d * Nat.pow 10 n + Nat.fromDigits s) hl)
+
+-- n digits make a number below 10^n.
+theorem Nat.fromDigitsBound: (s: List Nat) -> Nat.Digits s -> Nat.fromDigits s < Nat.pow 10 (List.length s)
+  | Nil,      h          => rfl
+  | Cons d s, Both hd hs =>
+    Nat.ltCongLeft (d * Nat.pow 10 (List.length s) + Nat.fromDigits s) (Nat.fromDigits (Cons d s)) (10 * Nat.pow 10 (List.length s))
+      (Eq.sym (Nat.fromDigitsCons d s))
+      (Nat.leTrans (Succ (d * Nat.pow 10 (List.length s) + Nat.fromDigits s)) (d * Nat.pow 10 (List.length s) + Nat.pow 10 (List.length s)) (10 * Nat.pow 10 (List.length s))
+        (Nat.ltAddCong (d * Nat.pow 10 (List.length s)) (Nat.fromDigits s) (Nat.pow 10 (List.length s)) (Nat.fromDigitsBound s hs))
+        (Nat.nextMultipleLe d 10 (Nat.pow 10 (List.length s)) hd))
+
+-- Equal-length numbers: a smaller first digit gives a smaller number.
+theorem Nat.fromDigitsHeadLess (y: Nat) (t: Nat) (s: List Nat) (r: List Nat) (hl: List.length s = List.length r)
+  (hd: Nat.Digits s) (h: y < t): Nat.fromDigits (Cons y s) <= Nat.fromDigits (Cons t r) :=
+  Nat.leCongLeft (y * Nat.pow 10 (List.length r) + Nat.fromDigits s) (Nat.fromDigits (Cons y s)) (Nat.fromDigits (Cons t r))
+    (Eq.sym (Nat.fromDigitsConsLen y s r hl))
+    (Nat.leCongRight (y * Nat.pow 10 (List.length r) + Nat.fromDigits s) (t * Nat.pow 10 (List.length r) + Nat.fromDigits r) (Nat.fromDigits (Cons t r))
+      (Eq.sym (Nat.fromDigitsCons t r))
+      (Nat.headLessArith y t (Nat.pow 10 (List.length r)) (Nat.fromDigits s) (Nat.fromDigits r)
+        (Nat.ltCongRight (Nat.fromDigits s) (Nat.pow 10 (List.length s)) (Nat.pow 10 (List.length r)) (Eq.cong (\n => Nat.pow 10 n) hl) (Nat.fromDigitsBound s hd))
+        h))
+
+-- Equal-length numbers with the same first digit: the rest decides.
+theorem Nat.fromDigitsConsLe (c: Nat) (s: List Nat) (r: List Nat) (hl: List.length s = List.length r)
+  (h: Nat.fromDigits s <= Nat.fromDigits r): Nat.fromDigits (Cons c s) <= Nat.fromDigits (Cons c r) :=
+  Nat.leCongLeft (c * Nat.pow 10 (List.length r) + Nat.fromDigits s) (Nat.fromDigits (Cons c s)) (Nat.fromDigits (Cons c r))
+    (Eq.sym (Nat.fromDigitsConsLen c s r hl))
+    (Nat.leCongRight (c * Nat.pow 10 (List.length r) + Nat.fromDigits s) (c * Nat.pow 10 (List.length r) + Nat.fromDigits r) (Nat.fromDigits (Cons c r))
+      (Eq.sym (Nat.fromDigitsCons c r))
+      (Nat.leAddCong (c * Nat.pow 10 (List.length r)) (Nat.fromDigits s) (Nat.fromDigits r) h))
+
+def Maybe.IsDigit: Maybe Nat -> Prop
+  | Nothing => Unit
+  | Just n  => n < 10
+
+theorem Char.digitValueDigit (c: Char): Maybe.IsDigit (Char.digitValue c) :=
+  Bool.inspect (Nat.leq 48 (Char.toNat c))
+    (\b => Maybe.IsDigit (Bool.ifThenElse b (\u => Bool.ifThenElse (Nat.leq (Char.toNat c) 57) (\u => Just (Char.toNat c - 48)) (\u => Nothing)) (\u => Nothing)))
+    (\e1 => Bool.inspect (Nat.leq (Char.toNat c) 57)
+      (\b => Maybe.IsDigit (Bool.ifThenElse b (\u => Just (Char.toNat c - 48)) (\u => Nothing)))
+      (\e2 => Nat.subLtAdd (Char.toNat c) 48 10 e1 e2)
+      (\e2 => Trivial))
+    (\e1 => Trivial)
+
+theorem List.consJustDigits: (m: Maybe Nat) -> (ys: List Nat) -> Maybe.IsDigit m -> Nat.Digits ys -> Nat.Digits (List.consJust m ys)
+  | Nothing, ys, h, hy => hy
+  | Just n,  ys, h, hy => Both h hy
+
+theorem Char.mapDigitValueDigits: (cs: List Char) -> Nat.Digits (List.mapMaybe Char.digitValue cs)
+  | Nil       => Trivial
+  | Cons c cs => List.consJustDigits (Char.digitValue c) (List.mapMaybe Char.digitValue cs) (Char.digitValueDigit c) (Char.mapDigitValueDigits cs)
 
 theorem Nat.digitsZero: Nat.digits 0 = [0] := rfl
 

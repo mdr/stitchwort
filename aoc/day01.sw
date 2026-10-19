@@ -132,19 +132,6 @@ theorem part2Puzzle (turns: List Turn): solvePart2 turns = zerosPassedSpec dial 
 def zerosAfter (d: Dial highest) (turns: List Turn): Nat :=
   List.occurrences Dial.isZero (List.drop 1 (List.scanLeft Dial.move d turns))
 
--- Integers.
-theorem subNatNatFromSucc (m: Nat) (n: Nat): (k: Nat) -> Int.subNatNatFrom (Succ m) (Succ n) k = Int.subNatNatFrom m n k
-  | Zero   => rfl
-  | Succ k => rfl
-
-theorem subNatNatSucc (m: Nat) (n: Nat): Int.subNatNat (Succ m) (Succ n) = Int.subNatNat m n := subNatNatFromSucc m n (n - m)
-
-theorem subNatNatZero (m: Nat): Int.subNatNat m 0 = Nat.toInt m := Eq.cong (\k => Int.subNatNatFrom m 0 k) (Nat.zeroSub m)
-
-theorem subIsSubNatNat (m: Nat): (n: Nat) -> Nat.toInt m - Nat.toInt n = Int.subNatNat m n
-  | Zero   => Eq.trans (Eq.cong Nat.toInt (Nat.addZero m)) (Eq.sym (subNatNatZero m))
-  | Succ n => rfl
-
 -- Two dials at the same position are the same.
 theorem dialExt: (d: Dial highest) -> (e: Dial highest) -> d.position = e.position -> d = e
   | { position = a, inRange = h1 }, { position = b, inRange = h2 }, e => dialExtAt highest a h1 b e h2
@@ -216,7 +203,7 @@ theorem leftZero (highest: Nat): Dial.place highest (Int.subNatNat 0 1) = highes
   Eq.cong (\x => highest - x) (Nat.modSmall 0 (Succ highest) rfl)
 
 theorem leftOne (highest: Nat) (m: Nat) (h: Succ m <= highest): Dial.place highest (Int.subNatNat (Succ m) 1) = m :=
-  Eq.trans (Eq.cong (\x => Dial.place highest x) (Eq.trans (subNatNatSucc m 0) (subNatNatZero m)))
+  Eq.trans (Eq.cong (\x => Dial.place highest x) (Eq.trans (Int.subNatNatSucc m 0) (Int.subNatNatZeroRight m)))
     (Nat.modSmall m (Succ highest) (Nat.leTrans m (Succ m) highest (Nat.leSucc m) h))
 
 theorem stepLeftAt (highest: Nat): (a: Nat) -> a <= highest -> (n: Nat) ->
@@ -224,11 +211,11 @@ theorem stepLeftAt (highest: Nat): (a: Nat) -> a <= highest -> (n: Nat) ->
       = Dial.place highest (Int.subNatNat a (Succ n))
   | Zero,   h, n =>
     Eq.trans (Eq.cong (\x => Dial.place highest (Nat.toInt x - Nat.toInt n)) (leftZero highest))
-      (Eq.trans (Eq.cong (\x => Dial.place highest x) (subIsSubNatNat highest n)) (backFrom highest n))
+      (Eq.trans (Eq.cong (\x => Dial.place highest x) (Int.subOfNats highest n)) (backFrom highest n))
   | Succ m, h, n =>
     Eq.trans (Eq.cong (\x => Dial.place highest (Nat.toInt x - Nat.toInt n)) (leftOne highest m h))
-      (Eq.trans (Eq.cong (\x => Dial.place highest x) (subIsSubNatNat m n))
-        (Eq.cong (\x => Dial.place highest x) (Eq.sym (subNatNatSucc m n))))
+      (Eq.trans (Eq.cong (\x => Dial.place highest x) (Int.subOfNats m n))
+        (Eq.cong (\x => Dial.place highest x) (Eq.sym (Int.subNatNatSucc m n))))
 
 -- The count after one click left to `m`, from `Succ m`.
 theorem stepLeftFrom (highest: Nat): (m: Nat) -> Succ m <= highest -> (n: Nat) ->
