@@ -809,9 +809,17 @@ def List.map (f : a -> b) : List a -> List b
   | Nil       => Nil
   | Cons x xs => Cons (f x) (List.map f xs)
 
+-- One step of `List.filter`: `x` in front of the filtered rest, or not. A
+-- function of its own so the recursive call is written once: with an `if`
+-- around it in both branches, a condition the checker can't decide (one on
+-- a variable) keeps both branches, and the value doubles with every element.
+def List.filterStep (x : a) (rest : List a) : Bool -> List a
+  | True  => Cons x rest
+  | False => rest
+
 def List.filter (p : a -> Bool) : List a -> List a
   | Nil       => Nil
-  | Cons x xs => if p x then Cons x (List.filter p xs) else List.filter p xs
+  | Cons x xs => List.filterStep x (List.filter p xs) (p x)
 
 -- Left fold; tail-recursive. `List.foldl f z [x, y]` is `f (f z x) y`.
 def List.foldl (f : b -> a -> b) (z : b) : List a -> b
@@ -889,8 +897,16 @@ def List.all (p : a -> Bool) : List a -> Bool
   | Nil       => True
   | Cons x xs => if p x then List.all p xs else False
 
+-- `n`, plus one if `b`: `List.count`'s step. A function of its own so `n` is
+-- written once: `if b then Succ n else n` writes it twice, so when the
+-- checker can't decide the conditions, a count doubles in size with every
+-- element.
+def Nat.succIf (n : Nat) : Bool -> Nat
+  | True  => Succ n
+  | False => n
+
 -- How many elements satisfy `p`.
-def List.count (p : a -> Bool) (xs : List a) : Nat := List.foldl (\n x => if p x then Succ n else n) 0 xs
+def List.count (p : a -> Bool) (xs : List a) : Nat := List.foldl (\n x => Nat.succIf n (p x)) 0 xs
 
 -- The first element satisfying `p`.
 def List.find (p : a -> Bool) : List a -> Maybe a
@@ -1030,10 +1046,10 @@ theorem List.mapCongr (f : a -> b) (g : a -> b) (h : (x : a) -> f x = g x) : (xs
   | Cons x xs => Eq.trans (Eq.cong (\y => Cons y (List.map f xs)) (h x)) (Eq.cong (\ys => Cons (g x) ys) (List.mapCongr f g h xs))
 
 theorem List.filterKeep (p : a -> Bool) (x : a) (xs : List a) (h : p x = True) : List.filter p (Cons x xs) = Cons x (List.filter p xs) :=
-  J (\c q => Bool.ifThenElse c (\u => Cons x (List.filter p xs)) (\u => List.filter p xs) = Cons x (List.filter p xs)) rfl (Eq.sym h)
+  J (\c q => List.filterStep x (List.filter p xs) c = Cons x (List.filter p xs)) rfl (Eq.sym h)
 
 theorem List.filterSkip (p : a -> Bool) (x : a) (xs : List a) (h : p x = False) : List.filter p (Cons x xs) = List.filter p xs :=
-  J (\c q => Bool.ifThenElse c (\u => Cons x (List.filter p xs)) (\u => List.filter p xs) = List.filter p xs) rfl (Eq.sym h)
+  J (\c q => List.filterStep x (List.filter p xs) c = List.filter p xs) rfl (Eq.sym h)
 
 theorem List.foldlAppend (f : b -> a -> b) : (z : b) -> (xs : List a) -> (ys : List a) ->
     List.foldl f z (List.append xs ys) = List.foldl f (List.foldl f z xs) ys
@@ -1174,14 +1190,14 @@ def List.occurrences (p : a -> Bool) : List a -> Nat
 
 -- `List.count` is `List.occurrences`, which suits proofs; counting and
 -- `List.scanl` over `++`. (`List.drop 1` drops the starting value.)
-theorem List.countStep : (b : Bool) -> (k : Nat) -> (o : Nat) -> (if b then Succ k else k) + o = k + (Bool.toNat b + o)
+theorem List.countStep : (b : Bool) -> (k : Nat) -> (o : Nat) -> Nat.succIf k b + o = k + (Bool.toNat b + o)
   | True,  k, o => Eq.sym (Nat.addSucc k o)
   | False, k, o => rfl
 
 theorem List.countFold (p : a -> Bool) (k : Nat) : (xs : List a) ->
-    List.foldl (\n x => if p x then Succ n else n) k xs = k + List.occurrences p xs
+    List.foldl (\n x => Nat.succIf n (p x)) k xs = k + List.occurrences p xs
   | Nil       => Eq.sym (Nat.addZero k)
-  | Cons x xs => Eq.trans (List.countFold p (if p x then Succ k else k) xs) (List.countStep (p x) k (List.occurrences p xs))
+  | Cons x xs => Eq.trans (List.countFold p (Nat.succIf k (p x)) xs) (List.countStep (p x) k (List.occurrences p xs))
 
 theorem List.countOccurrences (p : a -> Bool) (xs : List a) : List.count p xs = List.occurrences p xs := List.countFold p 0 xs
 
