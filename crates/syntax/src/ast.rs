@@ -597,13 +597,17 @@ pub enum Decl {
 
 /// `import List (map, filter)`: makes `map` and `filter` from the namespace
 /// `List` usable without `List.` in this file (docs/proposals/namespaces.md
-/// §4.5).
+/// §4.5). `import List (..)` makes every name declared directly in `List`
+/// usable, below the names imported one by one
+/// (docs/proposals/multi-file.md §4.5).
 #[derive(Clone, Debug)]
 pub struct Import {
     /// The namespace, as written: `List`, or `Std.List`.
     pub path: Name,
-    /// At least one.
+    /// The names listed: at least one, or none for `(..)`.
     pub items: Vec<Name>,
+    /// `(..)`: the span of the `..`.
+    pub everything: Option<Span>,
     pub span: Span,
 }
 

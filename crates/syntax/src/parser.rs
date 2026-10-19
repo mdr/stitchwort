@@ -551,7 +551,7 @@ impl<'t> Parser<'t> {
     }
 
     /// `import List (map, filter)`: a namespace, then the names to use from
-    /// it, at least one.
+    /// it, at least one; or `import List (..)` for all of them.
     fn import(&mut self) -> Result<Import> {
         let start = self.expect(Tok::KwImport, "`import`")?.span;
         let path = match self.peek() {
@@ -566,8 +566,26 @@ impl<'t> Parser<'t> {
             _ => return Err(self.unexpected("a namespace, such as `List`")),
         };
         self.expect(Tok::LParen, "`(` and the names to import")?;
+        let mixed = |dots: Span, path: &Name| {
+            error(
+                dots,
+                format!(
+                    "`..` imports everything from a namespace, so it goes on its own: `import {} (..)`",
+                    path.text
+                ),
+            )
+        };
         let mut items = Vec::new();
-        loop {
+        let mut everything = None;
+        if self.peek() == Some(&Tok::DotDot) {
+            let dots = self.here();
+            self.bump();
+            if self.peek() != Some(&Tok::RParen) {
+                return Err(mixed(dots, &path));
+            }
+            everything = Some(dots);
+        }
+        while everything.is_none() {
             match self.peek() {
                 Some(Tok::Lower(text) | Tok::Upper(text)) if !text.contains('.') => {
                     items.push(Name {
@@ -576,6 +594,7 @@ impl<'t> Parser<'t> {
                     });
                     self.bump();
                 }
+                Some(Tok::DotDot) if !items.is_empty() => return Err(mixed(self.here(), &path)),
                 _ => return Err(self.unexpected("a name to import")),
             }
             if !self.eat(&Tok::Comma) {
@@ -586,6 +605,7 @@ impl<'t> Parser<'t> {
         Ok(Import {
             path,
             items,
+            everything,
             span: start.to(end),
         })
     }
@@ -3420,6 +3440,32 @@ mod tests {
         let module = parse("namespace Aoc.Day05\ndef x: Nat := 1\n");
         assert_eq!(module.namespace.unwrap().path.text, "Aoc.Day05");
         assert!(parse("def x: Nat := 1\n").namespace.is_none());
+    }
+
+    #[test]
+    fn import_everything_is_read_with_its_dots() {
+        let module = parse("import List (..)\n\ndef x: Nat := 1\n");
+        let import = &module.imports[0];
+        assert_eq!(import.path.text, "List");
+        assert!(import.items.is_empty());
+        let dots = import.everything.expect("`(..)`");
+        assert_eq!((dots.start, dots.end), (13, 15));
+        let module = parse("import Std.List (..)\n");
+        assert_eq!(module.imports[0].path.text, "Std.List");
+        assert!(module.imports[0].everything.is_some());
+        let module = parse("import List (map)\n");
+        assert!(module.imports[0].everything.is_none());
+        for source in ["import Aoc (Range, ..)\n", "import Aoc (.., Range)\n"] {
+            let e = parse_error(source);
+            assert!(
+                e.message.contains("so it goes on its own: `import Aoc (..)`"),
+                "{e:?}"
+            );
+        }
+        let e = parse_error("import List ()\n");
+        assert!(e.message.contains("a name to import"), "{e:?}");
+        let e = parse_error("import List\n");
+        assert!(e.message.contains("`(` and the names to import"), "{e:?}");
     }
 
     #[test]
