@@ -1382,7 +1382,10 @@ name in type hashes); a per-namespace elaboration cache.
 
 ## 13. Questions for Matt
 
-### 13.1 Open
+### 13.1 Decided after draft 4
+
+Matt (19 October) took both recommendations below: Q1, keep the rule; Q2,
+break ties by full name. Nothing is open for stage 1.
 
 Draft 3's Q1 (`check`/`test FILE`), Q2 (`auto` and sibling files), Q3
 (interfaces) and Q4 (the `.gitignore`) are decided or deferred, above.
