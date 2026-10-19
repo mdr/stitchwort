@@ -936,13 +936,13 @@
     {
       "id": 64,
       "title": "Mutation testing",
-      "status": "doing",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [
         "tooling"
       ],
-      "body": "**Mutation testing** (in small sharded runs): the machine (`value.rs`),\n`budget.rs`, `native.rs` (167 mutants, never done).\n\n19 Oct: runs are cargo-mutants (a tool, no model) driven by scratchpad/mutrun.sh in ~/scratch/mutants-20261019. Pilot budget.rs: 56 mutants, ~12 min, 23 caught / 26 missed (core tests only) / 1 timeout / 6 unviable. Next: re-check survivors against driver+cli tests; then DeepSeek writes tests to kill real survivors (direct-edit spec), Opus judges equivalent mutants.",
+      "body": "**Mutation testing** (in small sharded runs): the machine (`value.rs`),\n`budget.rs`, `native.rs` (167 mutants, never done).\n\n19 Oct: runs are cargo-mutants (a tool, no model) driven by scratchpad/mutrun.sh in ~/scratch/mutants-20261019. Pilot budget.rs: 56 mutants, ~12 min, 23 caught / 26 missed (core tests only) / 1 timeout / 6 unviable. Next: re-check survivors against driver+cli tests; then DeepSeek writes tests to kill real survivors (direct-edit spec), Opus judges equivalent mutants.\n\nMatt (19 Oct): paused after the budget.rs pilot; no further mutation runs for now. Survivor results in scratchpad/mut/budget-*.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -1359,14 +1359,14 @@
     {
       "id": 93,
       "title": "Proof irrelevance stage 1: proof-position masks in conversion (D1′)",
-      "status": "next",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [
         "kernel",
         "proof"
       ],
-      "body": "Implement stage 1 of docs/proposals/proof-irrelevance.md (draft 3, decided): conv skips arguments/fields whose declared type is in Prop; homogeneous-input precondition documented; unifier rule (whole proof metas only); tests 1-16 incl. the Loop/bad termination test. Kernel work: Opus (spec + implementation or careful review). Stage 2 (remove canonical) follows.",
+      "body": "Implement stage 1 of docs/proposals/proof-irrelevance.md (draft 3, decided): conv skips arguments/fields whose declared type is in Prop; homogeneous-input precondition documented; unifier rule (whole proof metas only); tests 1-16 incl. the Loop/bad termination test. Kernel work: Opus (spec + implementation or careful review). Stage 2 (remove canonical) follows.\n\nMatt (19 Oct): on hold; multi-file first.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
