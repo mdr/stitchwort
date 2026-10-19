@@ -1,0 +1,19 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-NAMESPACE-CYCLE] Error: these namespaces use each other: A → B → A
+   ╭─[ wildcard-cycle/src/a.sw:3:8 ]
+   │
+ 3 │ import B (..)
+   │        ┬  
+   │        ╰── `A` uses `B` here
+   │
+   ├─[ wildcard-cycle/src/b.sw:3:8 ]
+   │
+ 3 │ import A (..)
+   │        ┬  
+   │        ╰── `B` uses `A` here
+   │ 
+   │ Note: put what both need into one namespace, or into a third that both use
+───╯

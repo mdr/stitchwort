@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-IMPORT-WILDCARD] Error: `Day` is this file's own namespace, so its names are visible already
+   ╭─[ wildcard-own-namespace/src/day.sw:3:8 ]
+   │
+ 3 │ import Day (..)
+   │        ─┬─  
+   │         ╰─── `import Day (..)` would add nothing
+   │ 
+   │ Note: remove this import
+───╯

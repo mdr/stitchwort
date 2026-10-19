@@ -3,14 +3,14 @@
 //! [`Elaborator::elaborate_namespace`] takes, and the pre-pass that finds
 //! which namespaces a namespace uses.
 
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 
 use stitchwort_syntax::ast::{Decl, Module};
 use stitchwort_syntax::{FileId, Span};
 
 use crate::Elaborator;
 use crate::module::{Ref, decl_refs};
-use crate::scope::{Qualifier, QualifierLevels, STD, qualifier};
+use crate::scope::{Qualifier, QualifierLevels, STD, WildcardSource, import_target, qualifier};
 
 /// One file of a module: its display name (project-relative path, for
 /// messages) and its syntax.
@@ -113,6 +113,19 @@ impl Elaborator {
             .collect();
     }
 
+    /// What `import N (..)` brings from each project namespace (call after
+    /// [`Self::set_project_namespaces`], before the pre-pass and checking).
+    /// A namespace whose files didn't parse has no entry.
+    pub fn set_project_names(&mut self, names: BTreeMap<String, BTreeSet<String>>) {
+        self.project_names = names;
+    }
+
+    /// What the project pre-pass says `import N (..)` brings from namespace
+    /// `ns`, if its files parsed.
+    pub fn project_names(&self, ns: &str) -> Option<&BTreeSet<String>> {
+        self.project_names.get(ns)
+    }
+
     /// The project namespaces `ns` uses directly, each with the first place
     /// (by file, then position) that uses it. Never `ns` itself. Sorted by
     /// target.
@@ -148,6 +161,42 @@ impl Elaborator {
             })
             .collect();
 
+        // What each file's `(..)` imports bring: read like checking does,
+        // from the import's path (found without any imports) and the same
+        // names routine. A file that imports everything from a namespace
+        // whose files didn't parse is blind: its names are unknown.
+        let none: Vec<HashSet<String>> = Vec::new();
+        let own_root = format!("{}.", ns.name);
+        let mut wildcard: Vec<HashSet<String>> = vec![HashSet::new(); ns.files.len()];
+        let mut blind = vec![false; ns.files.len()];
+        for (f, unit) in ns.files.iter().enumerate() {
+            let path_levels = PrePass {
+                e: self,
+                declared: &declared,
+                qualified: &qualified,
+                imported: &imported,
+                wildcard: &none,
+                file: f,
+                imports: false,
+                ns: &ns.name,
+            };
+            for import in unit
+                .module
+                .imports
+                .iter()
+                .filter(|i| i.everything.is_some())
+            {
+                let Some(k) = import_target(&path_levels, &import.path.text, &own_root) else {
+                    continue;
+                };
+                match self.wildcard_source(&k, Some(&ns.name)) {
+                    Some(WildcardSource::Names(names)) => wildcard[f].extend(names),
+                    Some(WildcardSource::Unknown) => blind[f] = true,
+                    Some(WildcardSource::Refused(_)) | None => {}
+                }
+            }
+        }
+
         let mut edges: BTreeMap<String, Span> = BTreeMap::new();
         for (f, unit) in ns.files.iter().enumerate() {
             let levels = PrePass {
@@ -155,19 +204,30 @@ impl Elaborator {
                 declared: &declared,
                 qualified: &qualified,
                 imported: &imported,
+                wildcard: &wildcard,
                 file: f,
+                imports: true,
+                ns: &ns.name,
+            };
+            // An import's path is read without the file's imports.
+            let path_levels = PrePass {
+                imports: false,
+                ..levels
             };
             let mut found = |target: String, span: Span| {
                 edges.entry(target).or_insert(span);
             };
             for import in &unit.module.imports {
                 let first = import.path.text.split('.').next().unwrap_or("");
-                if matches!(qualifier(&levels, first), Qualifier::Project)
+                if matches!(qualifier(&path_levels, first), Qualifier::Project)
                     && let Some(q) = self.longest_namespace(&import.path.text, true)
                     && q != ns.name
                 {
                     found(q, import.path.span);
                 }
+            }
+            if blind[f] {
+                continue;
             }
             for (decl, equations) in grouped(&unit.module.decls) {
                 for (r, _) in decl_refs(decl, equations) {
@@ -192,13 +252,28 @@ impl Elaborator {
 
     /// The longest project namespace `Q` with `path == Q` (if `equal`) or
     /// `path` starting with `Q.`.
-    fn longest_namespace(&self, path: &str, equal: bool) -> Option<String> {
+    pub(crate) fn longest_namespace(&self, path: &str, equal: bool) -> Option<String> {
         self.project_namespaces
             .iter()
             .filter(|q| (equal && q.as_str() == path) || path.starts_with(&format!("{q}.")))
             .max_by_key(|q| q.len())
             .cloned()
     }
+}
+
+/// The names `import N (..)` brings from namespace `ns`: what its files
+/// declare without a qualifier (types, abilities, definitions, theorems,
+/// synonyms), sorted. A qualified declaration such as `def Range.size` lands
+/// under `Range`, never directly in `ns`; tests and equations declare no
+/// name.
+pub fn direct_names(ns: &NamespaceSyntax) -> BTreeSet<String> {
+    ns.files
+        .iter()
+        .flat_map(|unit| unit.module.decls.iter())
+        .map(written)
+        .filter(|text| !text.is_empty() && !text.contains('.'))
+        .map(str::to_string)
+        .collect()
 }
 
 /// The text of the name a declaration declares, as written.
@@ -248,13 +323,20 @@ struct PrePass<'e, 'a> {
     qualified: &'e [(&'a str, usize)],
     /// The names each file imports.
     imported: &'e [HashSet<&'a str>],
+    /// The names each file's `(..)` imports bring.
+    wildcard: &'e [HashSet<String>],
     file: usize,
+    /// Whether the file's imports count: not for an import's own path.
+    imports: bool,
+    /// The namespace being read.
+    ns: &'e str,
 }
 
 impl PrePass<'_, '_> {
     fn short_in(&self, first: &str, file: usize) -> bool {
         self.declared.contains(first)
-            || self.imported[file].contains(first)
+            || (self.imports
+                && (self.imported[file].contains(first) || self.wildcard[file].contains(first)))
             || self.e.scope.is_std_root(first)
     }
 }
@@ -282,5 +364,13 @@ impl QualifierLevels for PrePass<'_, '_> {
 
     fn library_namespace(&self, first: &str) -> bool {
         self.e.scope.is_namespace(&format!("Std.{first}"))
+    }
+
+    fn short_key(&self, first: &str, _: &()) -> Option<String> {
+        if self.declared.contains(first) {
+            Some(format!("{}.{first}", self.ns))
+        } else {
+            self.e.scope.std_root_key(first).map(str::to_string)
+        }
     }
 }

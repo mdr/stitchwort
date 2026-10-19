@@ -308,6 +308,23 @@ impl Elaborator {
                         .any(|n| d.message == format!("unknown name `{n}`"))
             });
         }
+        // The same for the names a failed `(..)` import would have brought.
+        if !self.scope.wildcard_failed.is_empty() {
+            let files: Vec<Option<FileId>> = self
+                .scope
+                .wildcard_failed
+                .iter()
+                .filter_map(|i| self.module.files.get(*i).map(|f| f.id))
+                .collect();
+            diagnostics.retain(|d| {
+                d.code != "E-UNKNOWN-NAME"
+                    || d.message.contains('.')
+                    || !d
+                        .labels
+                        .first()
+                        .is_some_and(|l| files.iter().any(|f| f.is_none_or(|id| id == l.span.file)))
+            });
+        }
         // Failing because something used failed goes without saying when
         // that failure is reported too.
         if diagnostics

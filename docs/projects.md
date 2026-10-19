@@ -1,6 +1,6 @@
 # Projects: several files and namespaces
 
-**Status:** describes multi-file stage 1 (implemented 19 October 2026). `import N (..)` is planned for stage 2.
+**Status:** describes multi-file stages 1 and 2 (`import N (..)`).
 
 A **project** is a folder with a `stitchwort.yaml`. It says where the `.sw`
 files are. Every file says which namespace it belongs to. Several files can
@@ -138,15 +138,51 @@ also brings its constructors.
   writes its own import. The file above writes `Aoc.Range.size` instead.
 - **Sibling files share declarations, not imports.** `day05-merge.sw` can
   see everything declared in `Day05`. It cannot see `day05.sw`'s imports.
-- **`import N` with no list is not allowed.** Write at least one name.
-  `import N (..)` is planned for stage 2, not available now.
+- **`import N` with no list is not allowed.** Write the names, or `(..)`.
+- **An import's namespace is found without the other imports.**
+  `import Cat (f)` means the namespace `Cat` (this namespace's own, the
+  project's, or the library's), even if the file also imports a type `Cat`;
+  write `import Lib.Cat (f)` for that one. Import order never matters.
 - **There is no `private`.** Every declaration of a namespace can be
   imported or named from any other namespace.
+
+### Importing everything: `import N (..)`
+
+```
+import Aoc (..)
+```
+
+brings every name declared directly in `Aoc`, from all its files: its
+types (with their constructors), abilities (with their operations) and
+definitions. It doesn't bring names inside them (`Range.size` is still
+written `Range.size`, or `size` after `import Aoc.Range (size)`), `Aoc`'s
+own imports, or namespaces under it such as `Aoc.Grid`.
+
+- **Lowest priority among imports.** A short name means, first found: a
+  local variable; a declaration of this namespace (any file); a name this
+  file imports by name; a name a `(..)` import brings; the default names
+  (`Nat`, `Maybe`, `not`, ...). So your own declarations and named imports
+  win silently, and a `(..)` import can hide a default name.
+- **Two `(..)` imports may bring the same name.** That's only an error
+  (`E-AMBIGUOUS`) where the name is used. Write it in full, or import the
+  one you mean by name: `import Aoc (merge)` beats any `(..)`.
+- **It names a namespace with its own namespace line, or one of the
+  library's** (`import List (..)` works in single files too). Not the
+  file's own namespace, not `Std` itself, and not a type or other part of a
+  namespace (`import Aoc.Range (..)`): those are `E-IMPORT-WILDCARD`.
+- **`(..)` goes alone**: `import Aoc (Range, ..)` is `E-PARSE`.
+- **Per file, and not passed on**, like any import.
+- **It counts as using `N`**: `N` is checked first, a cycle through it is
+  `E-NAMESPACE-CYCLE`, and `N`'s decision procedures become `auto`
+  candidates.
+- **A wildcard name can also be a qualifier.** If `Aoc` declares `Range`,
+  `Range.parse` means `Aoc.Range.parse`; if it declared a type `Text`,
+  `Text.split` would mean `Aoc.Text.split` (write `Std.Text.split`).
 
 ## Cycles between namespaces
 
 Namespaces are checked one at a time, each completely, in dependency order.
-`N` depends on `M` if a file of `N` imports from `M`, or writes a qualified
+`N` depends on `M` if a file of `N` imports from `M` (by name or with `(..)`), or writes a qualified
 name that resolves into `M`.
 
 - **Cycles are refused for now** (`E-NAMESPACE-CYCLE`). Two definitions in
@@ -173,7 +209,7 @@ found it. The `E-AUTO-NONE` hint names the file; pass the procedure
 explicitly to fix it.
 
 A namespace `M` counts as depended on if a file of this namespace imports
-from `M` or writes a qualified name that resolves into `M`. One such use is
+from `M` (by name or with `(..)`) or writes a qualified name that resolves into `M`. One such use is
 enough to make all of `M`'s decision procedures candidates.
 
 ## Running and testing
@@ -252,14 +288,16 @@ the working directory. `--cache-dir` overrides both.
 | `E-FOREIGN-NAMESPACE` | A file adds a declaration to another namespace. |
 | `E-NAMESPACE-FAILED` | A namespace wasn't checked because a namespace it depends on has errors. |
 | `E-NAMESPACE-UNKNOWN` | A command named a namespace the project doesn't have. |
+| `E-IMPORT-WILDCARD` | `import N (..)` names the file's own namespace, `Std`, or a part of a namespace instead of a whole one. |
 | `E-RUN-TYPE` | The named function doesn't have a main-like type. |
 | `E-RUN-UNKNOWN` | There's no function with that full name. |
 
 `E-STD-NAMESPACE` is unchanged: it covers `namespace Std` and its children.
 Older codes also now cover projects: `E-DUPLICATE` names both files,
 `E-IMPORT-CLASH` checks an import against every file of the namespace, and
-`E-IMPORT-UNKNOWN`, `E-AMBIGUOUS` and `E-EXPORT` work as before.
+`E-IMPORT-UNKNOWN`, `E-AMBIGUOUS` and `E-EXPORT` work as before. `W-IMPORT-TWICE`
+also covers `(..)` written twice for the same namespace.
 
-## Not in stage 1
+## Not yet
 
-Adding definitions to another namespace waits for its own design; `import N (..)` is planned for stage 2, and interfaces are planned but not designed yet.
+Adding definitions to another namespace waits for its own design, and interfaces are planned but not designed yet.

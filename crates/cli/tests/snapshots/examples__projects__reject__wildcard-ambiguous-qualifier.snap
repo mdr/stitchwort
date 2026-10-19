@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-AMBIGUOUS] Error: `Range.make` could mean `Lib.Range` or `Twin.Range`
+   ╭─[ wildcard-ambiguous-qualifier/src/day.sw:7:16 ]
+   │
+ 7 │ test "make" := Range.make == 7
+   │                ─────┬────  
+   │                     ╰────── write `Lib.Range` or `Twin.Range` in full
+   │ 
+   │ Note: both come in through `(..)` imports; to choose one, import it by name, e.g. `import Lib (Range)`
+───╯

@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: `..` imports everything from a namespace, so it goes on its own: `import List (..)`
+   ╭─[ reject/import-everything-mixed.sw:3:19 ]
+   │
+ 3 │ import List (map, ..)
+   │                   ─┬  
+   │                    ╰── `..` imports everything from a namespace, so it goes on its own: `import List (..)`
+───╯

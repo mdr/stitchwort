@@ -6,7 +6,7 @@ use std::cmp::Reverse;
 use std::collections::{BTreeMap, BTreeSet, BinaryHeap, VecDeque};
 use std::path::{Path, PathBuf};
 
-use stitchwort_elab::project::{Edge, NamespaceSyntax, SourceUnit};
+use stitchwort_elab::project::{Edge, NamespaceSyntax, SourceUnit, direct_names};
 use stitchwort_syntax::ast::{Decl, Module};
 use stitchwort_syntax::{
     Diagnostic, FileId, Severity, SourceMap, Span, parse_module_within, parse_namespace_line,
@@ -302,18 +302,22 @@ pub fn analyse(session: &mut Session, project: &str, mut files: Vec<(String, Str
     session
         .elab
         .set_project_namespaces(namespaces.iter().map(|n| n.name.clone()));
-    for ns in &mut namespaces {
-        if ns.modules.is_empty() {
-            continue;
-        }
-        let names: Vec<String> = ns
-            .files
-            .iter()
-            .map(|id| session.sources.get(*id).name.clone())
-            .collect();
-        let syntax = NamespaceSyntax {
+    // Every namespace's names first, since an import of everything from one
+    // is read while another's edges are found.
+    let display_names: Vec<Vec<String>> = namespaces
+        .iter()
+        .map(|ns| {
+            ns.files
+                .iter()
+                .map(|id| session.sources.get(*id).name.clone())
+                .collect()
+        })
+        .collect();
+    let syntax_of = |i: usize| {
+        let ns = &namespaces[i];
+        NamespaceSyntax {
             name: ns.name.clone(),
-            files: names
+            files: display_names[i]
                 .iter()
                 .zip(&ns.files)
                 .zip(&ns.modules)
@@ -323,8 +327,24 @@ pub fn analyse(session: &mut Session, project: &str, mut files: Vec<(String, Str
                     module,
                 })
                 .collect(),
-        };
-        ns.edges = session.elab.namespace_edges(&syntax);
+        }
+    };
+    let names: BTreeMap<String, BTreeSet<String>> = (0..namespaces.len())
+        .filter(|i| !namespaces[*i].modules.is_empty())
+        .map(|i| (namespaces[i].name.clone(), direct_names(&syntax_of(i))))
+        .collect();
+    session.elab.set_project_names(names);
+    let edges: Vec<Vec<Edge>> = (0..namespaces.len())
+        .map(|i| {
+            if namespaces[i].modules.is_empty() {
+                Vec::new()
+            } else {
+                session.elab.namespace_edges(&syntax_of(i))
+            }
+        })
+        .collect();
+    for (ns, edges) in namespaces.iter_mut().zip(edges) {
+        ns.edges = edges;
     }
     Analysis {
         namespaces,

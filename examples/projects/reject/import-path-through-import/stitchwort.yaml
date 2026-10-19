@@ -1,0 +1,2 @@
+# expect-error: E-IMPORT-UNKNOWN
+sources: [src]

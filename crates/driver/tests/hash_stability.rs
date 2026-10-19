@@ -137,6 +137,15 @@ fn a_namespace_checked_alone_has_the_same_hashes() {
     dirs.sort();
     if !filtering() {
         assert!(!dirs.is_empty());
+        // These two projects reach a namespace only through `import N (..)`: if
+        // they went missing, checking alone would silently stop covering wildcards.
+        for wildcard in ["wildcard-precedence", "wildcard-only-edge"] {
+            assert!(
+                dirs.iter()
+                    .any(|d| d.file_name().is_some_and(|n| n == wildcard)),
+                "{wildcard} is missing"
+            );
+        }
     }
     for dir in dirs {
         let name = dir.file_name().unwrap().to_string_lossy().to_string();

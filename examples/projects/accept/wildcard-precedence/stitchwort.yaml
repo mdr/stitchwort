@@ -1,0 +1,3 @@
+# Own declarations beat named imports, which beat `(..)` imports, which
+# beat the default names.
+sources: [src]

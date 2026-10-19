@@ -101,6 +101,9 @@ pub struct Elaborator {
     project_namespaces: BTreeSet<String>,
     /// Every prefix of a project namespace's name, the namespace included.
     project_prefixes: BTreeSet<String>,
+    /// What `import N (..)` brings from each project namespace whose files
+    /// parsed (`project::set_project_names`).
+    project_names: BTreeMap<String, BTreeSet<String>>,
     /// In a project: the definitions each namespace checked so far made.
     namespace_defs: BTreeMap<String, std::ops::Range<usize>>,
     /// How many definitions the prelude made.
@@ -330,6 +333,19 @@ impl Elaborator {
     /// Whether anything at all has key `key`.
     pub fn has_key(&self, key: &str) -> bool {
         self.scope.get(key).is_some()
+    }
+
+    /// The single-component names directly under namespace `namespace`
+    /// (`namespace.x`, not `%` names), from the scope: what `import N (..)`
+    /// brings once `N` is checked.
+    pub fn direct_keys(&self, namespace: &str) -> std::collections::BTreeSet<String> {
+        let prefix = format!("{namespace}.");
+        self.scope
+            .keys()
+            .filter_map(|k| k.strip_prefix(&prefix))
+            .filter(|x| !x.contains('.') && !x.starts_with('%'))
+            .map(str::to_string)
+            .collect()
     }
 
     /// The keys of the definitions whose keys start with `prefix`, sorted.

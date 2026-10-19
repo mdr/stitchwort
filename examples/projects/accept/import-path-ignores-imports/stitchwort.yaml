@@ -1,0 +1,3 @@
+# An import's namespace is found without the file's other imports:
+# `import Cat (f)` is the project namespace `Cat`, not the type `A.Cat`.
+sources: [src]

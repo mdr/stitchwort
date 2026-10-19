@@ -602,3 +602,399 @@ fn an_unknown_target_is_named() {
     assert_eq!(found[0].code, "E-NAMESPACE-UNKNOWN");
     assert_eq!(found[0].notes, ["did you mean `Lib`?"]);
 }
+
+/// An import's path is found without the file's other imports, so the order
+/// of two import lines never changes what they mean, and the pre-pass sees
+/// the same project namespace that checking does.
+#[test]
+fn import_order_doesnt_matter() {
+    let a = "namespace A\n\ntype Cat = | MkA\n\ndef Cat.f: Nat := 7\n";
+    let cat = "namespace Cat\n\ndef f: Nat := 1\n";
+    for bay in [
+        "namespace Bay\n\nimport A (Cat)\nimport Cat (f)\n\ndef g: Nat := f\n\ntest \"which\" := g == 1\n",
+        "namespace Bay\n\nimport Cat (f)\nimport A (Cat)\n\ndef g: Nat := f\n\ntest \"which\" := g == 1\n",
+    ] {
+        let files = [("a.sw", a), ("cat.sw", cat), ("bay.sw", bay)];
+        let session = load(&files);
+        passes(&session);
+        let mut analysing = Session::new();
+        let analysis = stitchwort_driver::project::analyse(&mut analysing, "proj", owned(&files));
+        let targets: Vec<&str> = analysis
+            .namespace("Bay")
+            .expect("Bay")
+            .edges
+            .iter()
+            .map(|e| e.target.as_str())
+            .collect();
+        assert_eq!(targets, ["A", "Cat"]);
+    }
+}
+
+#[test]
+fn auto_uses_a_namespace_only_wildcard_imported() {
+    let zed = "namespace Zed
+
+type Token: Prop =
+  | MkToken
+
+def needsToken: [auto t: Token] -> Nat := 1
+
+def decZ: Decidable Token := Yes MkToken
+";
+    let alpha = "namespace Alpha
+
+import Zed (..)
+
+def client: Nat := needsToken
+
+test \"client\" := client == 1
+";
+    passes(&load(&[("zed.sw", zed), ("alpha.sw", alpha)]));
+    let (session, loaded) = load_target(
+        &[("zed.sw", zed), ("alpha.sw", alpha)],
+        &Target::Namespaces(vec!["Alpha".to_string()]),
+    );
+    let loaded = loaded.unwrap_or_else(|e| panic!("{e:#?}"));
+    assert_eq!(loaded.checked, ["Zed", "Alpha"]);
+    passes(&session);
+}
+
+const LIB_WITH_IMPORT: &str = "namespace Lib
+
+import Base (helper)
+
+type Range = { lo: Nat, hi: Nat }
+
+def Range.size (r: Range): Nat := r.hi + r.lo
+
+def libThing: Nat := helper
+";
+const BASE_HELPER: &str = "namespace Base\n\ndef helper: Nat := 1\n";
+
+#[test]
+fn a_wildcard_doesnt_bring_the_namespaces_imports() {
+    let day = |body: &str| format!("namespace Day\n\nimport Lib (..)\n\n{body}\n");
+    let files = |body: &str| {
+        [
+            ("base.sw", BASE_HELPER.to_string()),
+            ("lib.sw", LIB_WITH_IMPORT.to_string()),
+            ("day.sw", day(body)),
+        ]
+    };
+    let run = |body: &str| {
+        let owned = files(body);
+        let refs: Vec<(&str, &str)> = owned.iter().map(|(p, t)| (*p, t.as_str())).collect();
+        errors(&refs)
+    };
+    // `helper` is `Lib`'s own import, not `Lib`'s.
+    assert_eq!(codes(&run("def a: Nat := helper")), ["E-UNKNOWN-NAME"]);
+    // `Range.size` is inside `Range`.
+    assert_eq!(
+        codes(&run("def b (r: Range): Nat := size r")),
+        ["E-UNKNOWN-NAME"]
+    );
+    // `Range` and `libThing` are.
+    let owned =
+        files("def c (r: Range): Nat := Range.size r + libThing\n\ntest \"c\" := libThing == 1");
+    let refs: Vec<(&str, &str)> = owned.iter().map(|(p, t)| (*p, t.as_str())).collect();
+    passes(&load(&refs));
+}
+
+#[test]
+fn a_wildcard_isnt_shared_with_sibling_files() {
+    let found = errors(&[
+        ("lib.sw", "namespace Lib\n\ndef f: Nat := 1\n"),
+        (
+            "day1.sw",
+            "namespace Day\n\nimport Lib (..)\n\ndef a: Nat := f\n",
+        ),
+        ("day2.sw", "namespace Day\n\ndef b: Nat := f\n"),
+    ]);
+    assert_eq!(codes(&found), ["E-UNKNOWN-NAME"]);
+    assert!(found[0].message.contains("`f`"));
+}
+
+#[test]
+fn a_wildcard_brings_every_file_of_the_namespace() {
+    let session = load(&[
+        ("lib1.sw", "namespace Lib\n\ndef one: Nat := 1\n"),
+        ("lib2.sw", "namespace Lib\n\ndef two: Nat := 2\n"),
+        (
+            "day.sw",
+            "namespace Day\n\nimport Lib (..)\n\ntest \"both\" := one + two == 3\n",
+        ),
+    ]);
+    passes(&session);
+}
+
+#[test]
+fn adding_through_a_wildcard_is_foreign() {
+    let found = errors(&[
+        ("lib.sw", LIB),
+        (
+            "day.sw",
+            "namespace Day\n\nimport Lib (..)\n\ndef Range.extra (r: Range): Nat := 1\n",
+        ),
+    ]);
+    assert_eq!(codes(&found), ["E-FOREIGN-NAMESPACE"]);
+    assert!(
+        found[0].message.contains("belongs to namespace Lib"),
+        "{found:#?}"
+    );
+}
+
+#[test]
+fn wildcard_refusals_in_a_project() {
+    let day = |import: &str| format!("namespace Day\n\n{import}\n\ndef x: Nat := 1\n");
+    // Part of a namespace.
+    let found = errors(&[("lib.sw", LIB), ("day.sw", &day("import Lib.Range (..)"))]);
+    assert_eq!(codes(&found), ["E-IMPORT-WILDCARD"]);
+    assert!(found[0].message.contains("is part of namespace Lib"));
+    // Only the start of namespace names.
+    let found = errors(&[
+        ("d5.sw", "namespace Aoc.Day05\n\ndef y: Nat := 1\n"),
+        ("day.sw", &day("import Aoc (..)")),
+    ]);
+    assert!(
+        ["E-IMPORT-WILDCARD", "E-IMPORT-UNKNOWN"].contains(&found[0].code),
+        "{found:#?}"
+    );
+    // Its own namespace.
+    let found = errors(&[("day.sw", &day("import Day (..)"))]);
+    assert_eq!(codes(&found), ["E-IMPORT-WILDCARD"]);
+    assert!(found[0].message.contains("is this file's own namespace"));
+}
+
+#[test]
+fn wildcard_project_file_order_doesnt_change_hashes() {
+    let project = [
+        ("stitchwort.yaml", ""),
+        ("src/a.sw", "namespace A\n\ndef f: Nat := 1\n"),
+        (
+            "src/b.sw",
+            "namespace B\n\nimport A (..)\n\ndef g: Nat := f + 1\n\ntest \"g\" := g == 2\n",
+        ),
+        ("src/c.sw", "namespace A\n\ndef h: Nat := 5\n"),
+    ];
+    let run = |reversed: bool| {
+        let mut session = Session::new();
+        let loaded = session
+            .load_project(&memory(&project, reversed), "proj", &Target::Everything)
+            .unwrap_or_else(|e| panic!("{e:#?}"));
+        (
+            loaded.checked,
+            def_hash_of(&session, "A.f"),
+            def_hash_of(&session, "B.g"),
+        )
+    };
+    assert_eq!(run(false), run(true));
+}
+
+/// The pre-pass's table of a namespace's direct names is the set of
+/// single-component keys of the checked scope, for every accepted project
+/// (generated `%` names aside).
+#[test]
+fn the_names_table_matches_the_scope() {
+    let root =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/projects/accept");
+    let mut dirs: Vec<_> = std::fs::read_dir(&root)
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .filter(|p| p.is_dir())
+        .collect();
+    dirs.sort();
+    for dir in dirs {
+        let name = dir.file_name().unwrap().to_string_lossy().to_string();
+        let mut session = Session::new();
+        let files = stitchwort_driver::project::DiskFiles { root: dir };
+        let loaded = session
+            .load_project(&files, &name, &Target::Everything)
+            .unwrap_or_else(|e| panic!("{name}: {e:#?}"));
+        for namespace in &loaded.checked {
+            let table = session
+                .elab
+                .project_names(namespace)
+                .unwrap_or_else(|| panic!("{name}: no names for {namespace}"));
+            assert_eq!(
+                table,
+                &session.elab.direct_keys(namespace),
+                "{name}: {namespace}"
+            );
+        }
+    }
+}
+
+/// Own > named import > `(..)` import > default, across namespaces (the
+/// `wildcard-precedence` example project, in memory).
+#[test]
+fn wildcard_precedence_across_namespaces() {
+    macro_rules! source {
+        ($name:literal) => {
+            include_str!(concat!(
+                "../../../examples/projects/accept/wildcard-precedence/src/",
+                $name
+            ))
+        };
+    }
+    let session = load(&[
+        ("lib.sw", source!("lib.sw")),
+        ("lib-more.sw", source!("lib-more.sw")),
+        ("other.sw", source!("other.sw")),
+        ("twin.sw", source!("twin.sw")),
+        ("day.sw", source!("day.sw")),
+    ]);
+    passes(&session);
+}
+
+/// Checks `files` as a project, then walks the checked types and bodies of
+/// every namespace and asserts that each reaches only itself, the namespaces
+/// of its closure in the pre-pass, or the library: what name resolution found
+/// agrees with what the pre-pass planned (docs/proposals/multi-file.md §4.6).
+fn assert_reaches_only_planned(label: &str, files: Vec<(String, String)>) {
+    use stitchwort_core::Term;
+    use stitchwort_driver::project::{analyse, closure};
+    let analysis = analyse(&mut Session::new(), "proj", files.clone());
+    let mut session = Session::new();
+    let loaded = session
+        .load_project_sources("proj", files, &Target::Everything)
+        .unwrap_or_else(|e| panic!("{label}: {e:#?}"));
+    let g = &session.elab.globals;
+    let ranges: Vec<(String, std::ops::Range<usize>)> = loaded
+        .checked
+        .iter()
+        .map(|n| (n.clone(), session.elab.namespace_def_range(n)))
+        .collect();
+    // Definitions before every namespace's are the library's.
+    let library_end = ranges.iter().map(|(_, r)| r.start).min().unwrap_or(0);
+    let def_namespace = |id: DefId| {
+        if id.0 < library_end {
+            return Some(None);
+        }
+        ranges
+            .iter()
+            .find(|(_, r)| r.contains(&id.0))
+            .map(|(n, _)| Some(n.as_str()))
+    };
+    let data_namespace = |d: DataId| {
+        let path = &*g.data(d).path;
+        loaded
+            .checked
+            .iter()
+            .filter(|n| path.starts_with(&format!("{n}.")))
+            .max_by_key(|n| n.len())
+            .map(String::as_str)
+    };
+    for (namespace, range) in &ranges {
+        let mut terms: Vec<&Term> = Vec::new();
+        for def in &g.defs[range.clone()] {
+            terms.push(&def.ty);
+            terms.extend(def.body.as_deref());
+        }
+        for d in (0..g.datas.len()).map(DataId) {
+            if data_namespace(d) == Some(namespace.as_str()) {
+                let data = g.data(d);
+                terms.extend(data.params.iter().map(|(_, t)| t));
+                terms.extend(
+                    data.ctors
+                        .iter()
+                        .flat_map(|c| c.fields.iter().map(|(_, t)| t)),
+                );
+            }
+        }
+        let allowed = closure(&analysis, std::slice::from_ref(namespace));
+        for term in terms {
+            for (t, _) in term.subterms() {
+                let reached = match t {
+                    Term::Def(id) => def_namespace(*id)
+                        .unwrap_or_else(|| panic!("{label}: {namespace} reaches stray def {id:?}")),
+                    Term::Data(d, _) | Term::Ctor(d, ..) => data_namespace(*d),
+                    _ => continue,
+                };
+                if let Some(reached) = reached {
+                    assert!(
+                        allowed.iter().any(|a| a == reached),
+                        "{label}: {namespace} reaches {reached}, which the pre-pass didn't plan (closure: {allowed:?})"
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn checked_terms_only_reach_planned_namespaces() {
+    let root =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/projects/accept");
+    let mut dirs: Vec<_> = std::fs::read_dir(&root)
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .filter(|p| p.is_dir())
+        .collect();
+    dirs.sort();
+    for dir in dirs {
+        let name = dir.file_name().unwrap().to_string_lossy().to_string();
+        let files = stitchwort_driver::project::DiskFiles { root: dir };
+        let mut sources = stitchwort_syntax::SourceMap::new();
+        let found = project_sources(&files, &name, &mut sources)
+            .unwrap_or_else(|e| panic!("{name}: {e:#?}"));
+        assert_reaches_only_planned(&name, found);
+    }
+    assert_reaches_only_planned("shadowing", owned(&SHADOWING));
+    // In memory: wildcards of several namespaces over several files.
+    assert_reaches_only_planned(
+        "in memory",
+        owned(&[
+            ("lib1.sw", "namespace Lib\n\ndef one: Nat := 1\n"),
+            ("lib2.sw", "namespace Lib\n\ndef two: Nat := 2\n"),
+            (
+                "day.sw",
+                "namespace Day\n\nimport Lib (..)\n\ntest \"both\" := one + two == 3\n",
+            ),
+        ]),
+    );
+}
+
+/// `Lib`'s type `Range` comes in through `(..)`, so `Range.make` in `Zday` is
+/// `Lib.Range.make` (7), not the project namespace `Range`'s (99), which
+/// sorts, and is checked, first.
+const SHADOWING: [(&str, &str); 3] = [
+    (
+        "lib.sw",
+        "namespace Lib\n\ntype Range =\n  | R (n: Nat)\n\ndef Range.make: Nat := 7\n",
+    ),
+    ("range.sw", "namespace Range\n\ndef make: Nat := 99\n"),
+    (
+        "zday.sw",
+        "namespace Zday\n\nimport Lib (..)\n\ntest \"t\" := Range.make == 7\n",
+    ),
+];
+
+#[test]
+fn a_wildcard_name_shadows_a_project_namespace() {
+    passes(&load(&SHADOWING));
+}
+
+/// Two types with the same name make their constructors ambiguous, not
+/// unknown, whether they come in by name or with `(..)`.
+#[test]
+fn constructors_of_two_same_named_types_are_ambiguous() {
+    let lib = "namespace Lib\n\ntype Range =\n  | R\n";
+    let twin = "namespace Twin\n\ntype Range =\n  | R\n";
+    for imports in [
+        "import Lib (Range)\nimport Twin (Range)",
+        "import Lib (..)\nimport Twin (..)",
+    ] {
+        let day = format!("namespace Day\n\n{imports}\n\ntest \"u\" := R == R\n");
+        let found = errors(&[("lib.sw", lib), ("twin.sw", twin), ("day.sw", &day)]);
+        assert_eq!(codes(&found), ["E-AMBIGUOUS"], "{imports}");
+        assert!(
+            found[0].message.contains("`Lib.Range.R`")
+                && found[0].message.contains("`Twin.Range.R`"),
+            "{found:#?}"
+        );
+        assert!(
+            found[0].notes.iter().all(|n| !n.contains("library has")),
+            "{found:#?}"
+        );
+    }
+}
