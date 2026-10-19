@@ -871,6 +871,13 @@ def List.zipWith (f : a -> b -> c) : List a -> List b -> List c
   | Cons x xs, Nil       => Nil
   | Cons x xs, Cons y ys => Cons (f x y) (List.zipWith f xs ys)
 
+-- Combines three lists up to the shortest list's length.
+def List.zipWith3 (f : a -> b -> c -> d) : List a -> List b -> List c -> List d
+  | Nil,       ys,        zs        => Nil
+  | Cons x xs, Nil,       zs        => Nil
+  | Cons x xs, Cons y ys, Nil       => Nil
+  | Cons x xs, Cons y ys, Cons z zs => Cons (f x y z) (List.zipWith3 f xs ys zs)
+
 -- The first n elements (all of them if there are fewer).
 def List.take : Nat -> List a -> List a
   | Zero,   xs        => Nil
