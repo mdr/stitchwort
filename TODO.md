@@ -369,6 +369,9 @@ capability we know we'll need before the work that needs it):
 
 ## Later
 
+- **Style: no space before `:` in type annotations?** Consider making `(x: Nat)` / `def f (n: Nat): Nat` the default style instead of `(x : Nat)` (user, 19 Oct).
+- **Rename `Maybe` to `Option`?** Consider it (user, 19 Oct); hashes aren't a constraint yet.
+- **Syntax highlighting of string interpolation** in the playground and the VS Code extension: colour `${ … }` as code inside text literals (user, 19 Oct).
 - **Proof ergonomics** (from the AoC rewrites, 19 Oct): proofs can't refer
   to a let's names, so they restate long terms; an `if` inside a helper
   appears in goals as `Decidable.elim (Bool.decTrue b) ...`; `List.sum` is a
