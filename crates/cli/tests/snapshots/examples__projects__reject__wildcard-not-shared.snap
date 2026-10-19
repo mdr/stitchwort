@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-UNKNOWN-NAME] Error: unknown name `f`
+   ╭─[ wildcard-not-shared/src/day2.sw:4:17 ]
+   │
+ 4 │ def b(): Nat := f()
+   │                 ┬  
+   │                 ╰── not in scope
+───╯

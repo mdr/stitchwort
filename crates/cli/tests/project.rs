@@ -379,3 +379,45 @@ fn main_is_not_a_namespace_name() {
     );
     fails(&dir, &["check"], "E-NAMESPACE-RESERVED");
 }
+
+#[test]
+fn a_project_file_importing_everything_from_the_project_is_file_mode() {
+    let day = "namespace Day\n\nimport Lib (..)\n\ndef x(): Nat := 1\n";
+    let dir = project(
+        "file_mode_wildcard",
+        &[
+            ("stitchwort.yaml", ""),
+            ("src/lib.sw", LIB),
+            ("src/day.sw", day),
+        ],
+    );
+    let message = fails(&dir, &["check", "src/day.sw"], "E-FILE-MODE");
+    assert!(
+        message.contains("`Lib` is a namespace of the project"),
+        "{message}"
+    );
+    assert!(!message.contains("E-IMPORT"), "{message}");
+}
+
+/// `Alpha` reaches `Zed` only through `import Zed (..)`, which makes the
+/// dependency: testing `Alpha` runs `Zed`'s tests too.
+#[test]
+fn a_wildcard_makes_the_dependency() {
+    let dir = project(
+        "wildcard_dependency",
+        &[
+            ("stitchwort.yaml", ""),
+            (
+                "src/zed.sw",
+                include_str!("../../../examples/projects/accept/wildcard-only-edge/src/zed.sw"),
+            ),
+            (
+                "src/alpha.sw",
+                include_str!("../../../examples/projects/accept/wildcard-only-edge/src/alpha.sw"),
+            ),
+        ],
+    );
+    let stdout = succeeds(&dir, &["test", "Alpha", "--no-cache"]);
+    assert!(stdout.contains("zed"), "{stdout}");
+    assert!(stdout.contains("client"), "{stdout}");
+}

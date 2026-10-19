@@ -823,3 +823,25 @@ fn the_names_table_matches_the_scope() {
         }
     }
 }
+
+/// Own > named import > `(..)` import > default, across namespaces (the
+/// `wildcard-precedence` example project, in memory).
+#[test]
+fn wildcard_precedence_across_namespaces() {
+    macro_rules! source {
+        ($name:literal) => {
+            include_str!(concat!(
+                "../../../examples/projects/accept/wildcard-precedence/src/",
+                $name
+            ))
+        };
+    }
+    let session = load(&[
+        ("lib.sw", source!("lib.sw")),
+        ("lib-more.sw", source!("lib-more.sw")),
+        ("other.sw", source!("other.sw")),
+        ("twin.sw", source!("twin.sw")),
+        ("day.sw", source!("day.sw")),
+    ]);
+    passes(&session);
+}

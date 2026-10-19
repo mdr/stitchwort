@@ -1,0 +1,2 @@
+# Two `(..)` imports bring `reverse`: fine while it is only written in full.
+sources: [src]

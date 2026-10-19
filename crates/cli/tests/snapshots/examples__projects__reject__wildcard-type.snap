@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-IMPORT-WILDCARD] Error: `(..)` imports a whole namespace, and `Lib.Range` is part of namespace Lib
+   ╭─[ wildcard-type/src/day.sw:3:8 ]
+   │
+ 3 │ import Lib.Range (..)
+   │        ────┬────  
+   │            ╰────── `Lib.Range` is declared in Lib
+   │ 
+   │ Note: import the names you need, `import Lib.Range (decEq)`, or import `Range` from Lib and write `Range.decEq`
+───╯
