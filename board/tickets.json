@@ -1,5 +1,5 @@
 {
-  "next": 96,
+  "next": 97,
   "tickets": [
     {
       "id": 1,
@@ -1397,6 +1397,22 @@
         "proof"
       ],
       "body": "Idea from aoc/day01.sw `dialExt` (19 Oct): like Lean's `@[ext]`, generate `T.ext : a.f = b.f -> a = b` for a record whose remaining fields are proofs. Easy once proof irrelevance (SW-93, D1′) lands: the proof fields compare equal by masks. Not before SW-93.",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 96,
+      "title": "Compare AoC day 1 proofs in Lean, Agda and Idris vs Stitchwort",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "worktree agent-a1a58daee6ab08ccd; comparisons/aoc-day01/, docs/comparisons/aoc-day01.md",
+      "labels": [
+        "aoc",
+        "proof",
+        "design"
+      ],
+      "body": "Matt (19 Oct): formalise day 1 (zerosPassedCorrect, any dial size, all inputs) in Lean 4 (core, no Mathlib), Agda (stdlib), Idris 2; compare ease of proof (tactics, omega, library, proof irrelevance, ...) and rank what Stitchwort should add.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
