@@ -1973,9 +1973,9 @@
     {
       "id": 131,
       "title": "Move general lemmas out of AoC into the prelude",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
-      "where": "gate running on main (started 23:21)",
+      "where": "-",
       "labels": [
         "aoc",
         "std"
@@ -1990,9 +1990,9 @@
     {
       "id": 132,
       "title": "Turn aoc/ into a project: Aoc.DayNN + Aoc.Common, proofs beside definitions",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
-      "where": "gate running on main (started 23:21)",
+      "where": "-",
       "labels": [
         "aoc",
         "multi-file"
@@ -2038,9 +2038,9 @@
     {
       "id": 135,
       "title": "Aoc.Common: range functions back under Range (D43/D44)",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
-      "where": "gate running on main (started 23:21)",
+      "where": "-",
       "labels": [
         "aoc"
       ],
