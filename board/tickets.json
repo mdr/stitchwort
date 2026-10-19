@@ -580,7 +580,7 @@
     {
       "id": 39,
       "title": "Make `Def.body`/`Def.state` and `Data.state` private behind the admission API",
-      "status": "doing",
+      "status": "review",
       "agent": "DeepSeek",
       "where": "/Users/matt/scratch/opencode/funlang-20261019-213623",
       "labels": [
@@ -589,7 +589,9 @@
       "body": "crates/core/src/globals.rs:37-38 (`Def.body`, `Def.state`) and :100 (`Data.state`) are `pub`, so the elaborator and tests can bypass admission. Make them private and route writes through the admission API (kernel admission and mutual recursion are complete). Done: fields private, `cargo build` and the gate green.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
-      "commits": []
+      "commits": [
+        "4342cd3"
+      ]
     },
     {
       "id": 40,
