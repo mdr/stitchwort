@@ -23,14 +23,12 @@ How it's kept:
 
 **In flight (19 Oct, late afternoon) — for whoever picks this up after a context compaction:**
 - DeepSeek (OpenCode Go, `opencode run --agent worker --model opencode-go/deepseek-v4.1-flash`) tasks, each in a remote-free scratch clone; specs and logs in the session scratchpad `tasks/` dir (`<name>.txt`, `<name>.log`, `<name>.dir`):
-  1. `fuzz` — deterministic lexer/parser fuzz test `crates/syntax/tests/fuzz.rs` (mutated examples + token soup; never panics). Clone `~/scratch/opencode/funlang-20261019-164950`.
-  2. `cycle` — `E-SYNONYM-CYCLE` for type-synonym cycles + reject examples. Clone `…-164952`.
-  3. `hash` — `NAT_DATA_HASH`/`TEXT_DATA_HASH` checks for JS representations like `INT_DATA_HASH`. Clone `…-164954`.
-  4. `zip3` — `List.zipWith3` + tests. Clone `…-164956`.
-  5. `reuse` — crates/web keeps the last checked Session for check/test/extract of the same source (first Tests visit checks once). Clone `…-165906`.
+  1. `fuzz`, `cycle`, `hash`, `zip3`: merged and gated (see Recently done).
+  2. `hlweb`, `hlvscode`: string-interpolation colouring in the playground and the VS Code grammar. Clones `…-171137`, `…-171139`.
+  3. `reuse` — crates/web keeps the last checked Session for check/test/extract of the same source (first Tests visit checks once). Clone `…-165906`.
   For each: review the diff (DeepSeek has introduced real bugs before), check author email, commit in the clone with a "Done by OpenCode with DeepSeek…" trailer, fetch into main, regenerate snapshots/bench, gate (in the background), browser tests for web changes (`web/test.sh`, background), update this file.
-- Opus lane (Claude Code worktree agent): fix the char-pattern equation bug (Known issue above); told to stop and report if a kernel change is needed.
-- Multi-file Draft 2 awaiting the user's independent review (reviewer prompt was given via clipboard); then Draft 3 with the user's decisions (see the multi-file line below).
+- Opus char-pattern fix: done on branch `worktree-agent-a63abe6e178bb1d04` (`55c48eb`); merging into main.
+- Opus lane: multi-file Draft 3 (worktree agent), plus a reviewer prompt in the session scratchpad. The independent review reads Draft 3, not Draft 2.
 - Playground: stale-worker fix (`9c024a9`) and tab-switch reuse (`5f08d1b`) committed and verified; local server `web/serve.sh --no-build` on port 8000 (no-store headers).
 
 Work runs in lanes (up to three at once), each in its own git worktree and
@@ -93,6 +91,7 @@ Queued after the current lanes (user, 19 Oct):
 - Multi-file design Draft 2 written ([multi-file.md](docs/proposals/multi-file.md); files declare namespaces; stitchwort.yaml with source roots); awaiting independent review (prompt given to user, 19 Oct). User decided: `namespace X` lines, shared namespaces across files, file names meaningless, `stitchwort.yaml` source roots (default `src/`), `run Ns.fn` for any main-compatible function. Also decided (19 Oct): every project file must declare a namespace (E-NO-NAMESPACE, no default); imports per file; cycles between namespaces refused for now; adding to another namespace deferred (needs its own design); test cache in the project folder, gitignored; `run path/file.sw` is always file mode (Std only, needs `main`), `run Ns.fn` is project mode. Draft 3 (after the independent review): compare the Decidable/`auto` search with Lean, Agda, Haskell, Idris instance search and design it alongside interfaces.
 - Playground (19 Oct, DeepSeek from Opus specs): AoC days 1-5 in the picker with example input (`c65023e`); test results cached like the CLI, "cached"/"ran" per test, "Forget cached results" (`2806ae5`). `Char.toText`, `Bool.toText` (`b707e9f`, found by the fuzz pilot).
 - **Char-pattern branches lose the equation (bug, reproduced 19 Oct by the fuzz pilot):** in `| 'a', h => rfl` for goal `c = 'a'`, `rfl` fails with "`'a'` and `'a'` aren't equal": the pattern binds `MkChar 97 p` with a fresh proof `p`, which isn't convertible to the literal's (no proof irrelevance). Valid proofs rejected (incompleteness, not unsoundness); confusing message. Opus (patterns/kernel). Also reported, not reproduced: `match h :` equations not refined in branches.
+- DeepSeek batch (19 Oct, from Opus specs, all reviewed): lexer/parser fuzz test `crates/syntax/tests/fuzz.rs` (20,000 cases, fixed seed); `E-SYNONYM-CYCLE` for type-synonym cycles (was E-TERMINATION; found by the fuzz pilot); `NAT_DATA_HASH`/`TEXT_DATA_HASH`, so Nat's and Text's JS representations apply only when the prelude's types hash as expected (extract-js bench allocations +29% from the hashing); `List.zipWith3`. [docs/workflow.md](docs/workflow.md) records the model tiers and hand-off steps.
 - Fuzz pilot (19 Oct, DeepSeek, ~65 min): 30 crash probes, 30 native-vs-JS programs, 91 prove-Void attempts: no crashes, no output mismatches, all Void attempts rejected. Harness and briefs in the session scratchpad.
 - Fuzz pilot findings to triage (DeepSeek's reports, not yet reproduced): type-synonym cycle reported as E-TERMINATION; non-ASCII identifiers refused (check intent); bare "unknown name" when a parameter is missing.
 - Compile-time `include "file" : Text` (contents part of the definition's
