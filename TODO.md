@@ -34,7 +34,12 @@ spends time; day 4 is 84 rounds x 0.17 s).
 
 Queued after the `let` fix (user, 19 Oct): prove day 2's block-walking
 spec equals ID-walking (the puzzle's wording, the user's Scala). Partly
-to find out what makes such proofs hard and improve Stitchwort for it. `[x, ..rest]` list patterns merged (tail may be any
+to find out what makes such proofs hard and improve Stitchwort for it.
+Also after the `let` fix: prove day 5 part 2 equals the brute-force count
+of covered ids for every input (merged ranges sorted and disjoint, merging
+keeps coverage). Example `rfl` checks are unit tests, not proofs (user).
+Deferred (user, 19 Oct): list helpers and days 6-9 until the user is
+happy with the learnings from days 1-5. `[x, ..rest]` list patterns merged (tail may be any
 pattern; `[..p]` is `p`; not in list expressions).
 
 Merged overnight (18-19 Oct): day 3 proofs (`best` is a subsequence, has
@@ -58,8 +63,7 @@ Waiting on a decision (for the morning):
 - Proof `let`s (from day 3): a `let` is opaque to the checker (after
   `let p := 10 ^ n`, a proof about `p + 1` doesn't see `p`'s value), and
   a `let` can't bind a proof (`E-UNIVERSE`). Both need compiler work.
-- Day 5: prove merged ranges sorted and disjoint, or leave the `rfl`
-  checks?
+
 
 ## Next
 
