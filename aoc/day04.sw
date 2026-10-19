@@ -15,14 +15,14 @@
 def Grid : Type := List (List Nat)
 
 def main () : {IO} () :=
-  let (one, two) := solve (parse (IO.readAllLines ()))
+  let (one, two) := solve (Grid.parse (IO.readAllLines ()))
   print ("Part 1: " ++ one.toText)
   print ("Part 2: " ++ two.toText)
 
 def solve (grid : Grid) : (Nat, Nat) :=
-  (rolls grid - rolls (round grid), rolls grid - rolls (settle (rolls grid) grid))
+  (grid.rolls - grid.round.rolls, grid.rolls - (grid.settle grid.rolls).rolls)
 
-def parse (lines : List Text) : Grid := lines.map parseLine
+def Grid.parse (lines : List Text) : Grid := lines.map parseLine
 
 def parseLine (line : Text) : List Nat := line.toList.map parseChar
 
@@ -31,24 +31,24 @@ def parseChar : Char -> Nat
   | '@' => 1
   | _   => 0
 
-def rolls (grid : Grid) : Nat := grid |> .sumBy List.sum
+def Grid.rolls (grid : Grid) : Nat := grid |> .sumBy List.sum
 
 -- Remove every accessible roll, all at once.
-def round (grid : Grid) : Grid :=
+def Grid.round (grid : Grid) : Grid :=
   let sums := grid.map rowSums
   let gap := List.replicate ((grid.headOr []).length) 0
   let above := Cons gap sums
   let below := sums.drop 1 |> .append [gap]
-  let windows := zipGrid Nat.add (zipGrid Nat.add above sums) below
-  zipGrid (\roll window => if roll == 1 && 5 <= window then 1 else 0) grid windows
+  let windows := Grid.zipWith Nat.add (Grid.zipWith Nat.add above sums) below
+  Grid.zipWith (\roll window => if roll == 1 && 5 <= window then 1 else 0) grid windows
 
 -- Remove accessible rolls until there are none. Every round that changes
 -- something removes a roll, so as many rounds as there are rolls is enough.
-def settle : Nat -> Grid -> Grid
-  | Zero,   grid => grid
-  | Succ n, grid =>
-    let next := round grid
-    if rolls next == rolls grid then grid else settle n next
+def Grid.settle (grid : Grid) : Nat -> Grid
+  | Zero   => grid
+  | Succ n =>
+    let next := grid.round
+    if next.rolls == grid.rolls then grid else next.settle n
 
 -- Each cell becomes the sum of itself and its left and right neighbours.
 def rowSums (row : List Nat) : List Nat :=
@@ -57,7 +57,7 @@ def rowSums (row : List Nat) : List Nat :=
   List.zipWith Nat.add (List.zipWith Nat.add left row) right
 
 -- Combine two grids of the same shape cell by cell.
-def zipGrid (f : Nat -> Nat -> Nat) (a b : Grid) : Grid := List.zipWith (List.zipWith f) a b
+def Grid.zipWith (f : Nat -> Nat -> Nat) (a b : Grid) : Grid := List.zipWith (List.zipWith f) a b
 
 -- Examples -----------------------------------------------------------------
 
@@ -65,11 +65,11 @@ def example : List Text :=
   [ "..@@.@@@@.", "@@@.@.@.@@", "@@@@@.@.@@", "@.@@@@..@.", "@@.@@@@.@@",
     ".@@@@@@@.@", ".@.@.@.@@@", "@.@@@.@@@@", ".@@@@@@@@.", "@.@.@@@.@." ]
 
-test "example" := solve (parse example) == (13, 43)
-test "rolls" := rolls (parse example) == 71
+test "example" := solve (Grid.parse example) == (13, 43)
+test "rolls" := (Grid.parse example).rolls == 71
 test "row sums" := rowSums [1, 0, 1, 1] == [1, 2, 2, 2]
 test "lone roll" := solve [[1]] == (1, 1)
 test "full square" := solve [[1, 1], [1, 1]] == (4, 4)
 test "plus shape keeps its centre" := solve [[0, 1, 0], [1, 1, 1], [0, 1, 0]] == (4, 5)
 
-theorem exampleAnswer : solve (parse example) = (13, 43) := rfl
+theorem exampleAnswer : solve (Grid.parse example) = (13, 43) := rfl
