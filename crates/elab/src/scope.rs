@@ -137,9 +137,11 @@ impl<'e> QualifierLevels for CheckingLevels<'e> {
     }
 
     fn own_namespace(&self, first: &str) -> bool {
-        self.0
-            .scope
-            .is_namespace(&format!("{}{first}", self.0.root()))
+        let key = format!("{}{first}", self.0.root());
+        // A project namespace below this one is reached by its full name
+        // only (nesting is by name, not by scope): it isn't "own".
+        let nested = !self.0.root().is_empty() && self.0.project_prefixes.contains(&key);
+        !nested && self.0.scope.is_namespace(&key)
     }
 
     fn project_namespace(&self, first: &str) -> bool {
@@ -684,6 +686,37 @@ impl Elaborator {
         diagnostics: &mut Vec<Diagnostic>,
     ) {
         for import in imports {
+            // In a project, an ambiguous first component is an error: the
+            // pre-pass, which can't tell, counts every imported name as short.
+            if !self.project_namespaces.is_empty()
+                && !self.loading_prelude
+                && import.path.text != STD
+            {
+                let first = import.path.text.split('.').next().unwrap_or_default();
+                if let Resolved::Ambiguous(keys) = self.resolve_short(first, false) {
+                    if own {
+                        let shown: Vec<String> = keys
+                            .iter()
+                            .map(|k| format!("`{}`", self.written(k)))
+                            .collect();
+                        diagnostics.push(
+                            error(
+                                "E-AMBIGUOUS",
+                                import.path.span,
+                                format!(
+                                    "`{first}` is ambiguous here: it could mean {}",
+                                    or_list(&shown)
+                                ),
+                            )
+                            .with_note(format!(
+                                "write {} in full, or drop one of the imports of `{first}`",
+                                or_list(&shown)
+                            )),
+                        );
+                    }
+                    continue;
+                }
+            }
             let namespace = match self.import_namespace(&import.path) {
                 Some(namespace) => namespace,
                 None if own => {

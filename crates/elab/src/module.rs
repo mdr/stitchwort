@@ -622,7 +622,10 @@ impl Elaborator {
 
     /// Step 3: the strongly connected components, in the order to check
     /// them: each after everything it depends on, and of those ready, the
-    /// one starting earliest in the source first.
+    /// one starting earliest *in its file* first, ties by name. (Not by
+    /// position in the module, which would follow the files' names and so
+    /// let them decide what `auto` can use: docs/proposals/multi-file.md
+    /// §4.9.5. With one file, this is source order.)
     fn components(&mut self) -> Vec<Vec<usize>> {
         let edges: Vec<Vec<usize>> = self
             .module
@@ -635,6 +638,11 @@ impl Elaborator {
                 targets
             })
             .collect();
+        // Where each file's declarations start.
+        let mut file_start = vec![usize::MAX; self.module.files.len()];
+        for item in &self.module.items {
+            file_start[item.file] = file_start[item.file].min(item.position);
+        }
         let components = tarjan(&edges);
         for (c, members) in components.iter().enumerate() {
             for &i in members {
@@ -657,11 +665,14 @@ impl Elaborator {
         let start = |c: usize| {
             components[c]
                 .iter()
-                .map(|i| self.module.items[*i].position)
+                .map(|i| {
+                    let item = &self.module.items[*i];
+                    (item.position - file_start[item.file], item.name.clone())
+                })
                 .min()
-                .unwrap_or(0)
+                .unwrap_or_default()
         };
-        let mut ready: BinaryHeap<Reverse<(usize, usize)>> = (0..components.len())
+        let mut ready: BinaryHeap<Reverse<((usize, String), usize)>> = (0..components.len())
             .filter(|c| waiting_on[*c] == 0)
             .map(|c| Reverse((start(c), c)))
             .collect();
