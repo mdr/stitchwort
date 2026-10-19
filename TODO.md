@@ -28,8 +28,10 @@ this file.
 The main session orchestrates: it chooses lanes, hands each to a background
 agent, then reviews, merges and updates this file.
 
-Running: `let-design` (Opus, docs: transparent `let` that can hold proofs;
-Lean/Agda/Idris/Rocq survey), `eval-speed` (Opus, report: where `run`
+Design note `docs/proposals/let.md` written (recommends a kernel `let`
+that keeps its value, Rocq/Lean style, after a step 0 that stops treating
+every `let` as effectful); awaiting independent review and the user.
+Running: `eval-speed` (Opus, report: where `run`
 spends time; day 4 is 84 rounds x 0.17 s).
 
 Queued after the `let` fix (user, 19 Oct): prove day 2's block-walking
