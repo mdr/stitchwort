@@ -21,6 +21,18 @@ How it's kept:
 
 ## Now
 
+**In flight (19 Oct, late afternoon) — for whoever picks this up after a context compaction:**
+- DeepSeek (OpenCode Go, `opencode run --agent worker --model opencode-go/deepseek-v4.1-flash`) tasks, each in a remote-free scratch clone; specs and logs in the session scratchpad `tasks/` dir (`<name>.txt`, `<name>.log`, `<name>.dir`):
+  1. `fuzz` — deterministic lexer/parser fuzz test `crates/syntax/tests/fuzz.rs` (mutated examples + token soup; never panics). Clone `~/scratch/opencode/funlang-20261019-164950`.
+  2. `cycle` — `E-SYNONYM-CYCLE` for type-synonym cycles + reject examples. Clone `…-164952`.
+  3. `hash` — `NAT_DATA_HASH`/`TEXT_DATA_HASH` checks for JS representations like `INT_DATA_HASH`. Clone `…-164954`.
+  4. `zip3` — `List.zipWith3` + tests. Clone `…-164956`.
+  5. `reuse` — crates/web keeps the last checked Session for check/test/extract of the same source (first Tests visit checks once). Clone `…-165906`.
+  For each: review the diff (DeepSeek has introduced real bugs before), check author email, commit in the clone with a "Done by OpenCode with DeepSeek…" trailer, fetch into main, regenerate snapshots/bench, gate (in the background), browser tests for web changes (`web/test.sh`, background), update this file.
+- Opus lane (Claude Code worktree agent): fix the char-pattern equation bug (Known issue above); told to stop and report if a kernel change is needed.
+- Multi-file Draft 2 awaiting the user's independent review (reviewer prompt was given via clipboard); then Draft 3 with the user's decisions (see the multi-file line below).
+- Playground: stale-worker fix (`9c024a9`) and tab-switch reuse (`5f08d1b`) committed and verified; local server `web/serve.sh --no-build` on port 8000 (no-store headers).
+
 Work runs in lanes (up to three at once), each in its own git worktree and
 branch, merged into `main` one at a time (with `nix flake check` after each). Only `main` edits
 this file.
