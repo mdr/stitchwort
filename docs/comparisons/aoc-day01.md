@@ -1,7 +1,7 @@
 # AoC 2025 day 1: the Stitchwort proof next to Lean 4, Agda and Idris 2
 
 **Date:** 19 October 2026. **Code:** `comparisons/aoc-day01/` (the commands to check
-each version are in its README). **Stitchwort version:** `aoc/day01.sw`.
+each version are in its README). **Stitchwort version:** `aoc/src/day01/day01.sw`.
 
 Labels used below:
 
@@ -73,7 +73,7 @@ include starting the prover.
 All rows are **[checked]**. Sources: `wc`/`grep` over the files, `time` around the commands
 in the README, and the `nix shell` output for sizes (Lean's size comes from the
 cache.nixos.org narinfo, `FileSize: 679245015`). Stitchwort's time is
-`target/release/stitchwort check aoc/day01.sw` with the main checkout's release build. In
+`target/release/stitchwort check aoc/src/day01/day01.sw` with the main checkout's release build. In
 the Agda row, the 3.2 s for the standard library is **[inferred]**: a second run with
 `Day01.agdai` cached still took 4.2 s.
 

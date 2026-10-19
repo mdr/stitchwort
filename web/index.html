@@ -580,9 +580,6 @@ export def area: Shape -> Nat
 
   let view = "check";
   let evalInput = "";
-  /** The Advent of Code puzzles, if the build shipped them. */
-  let aoc = [];
-  const aocText = new Map();
 
   for (const ex of examples) {
     const option = document.createElement("option");
@@ -611,26 +608,6 @@ export def area: Shape -> Nat
     for (const [k, v] of Object.entries(attrs)) node[k] = v;
     node.append(...children);
     return node;
-  }
-
-  /** Fetches the list of Advent of Code puzzles, if the build shipped one. */
-  async function loadAoc() {
-    try {
-      const response = await fetch(new URL("pkg/aoc/index.json", import.meta.url));
-      if (!response.ok) return null;
-      const list = await response.json();
-      return Array.isArray(list) ? list : null;
-    } catch {
-      return null;
-    }
-  }
-
-  /** Adds the Advent of Code puzzles to the example picker. */
-  function showAoc(list) {
-    if (!list.length) return;
-    const group = el("optgroup", { label: "Advent of Code 2025" });
-    for (const day of list) group.append(el("option", { value: day.id, textContent: day.title }));
-    picker.append(group);
   }
 
   const secs = (ms) => ms < 1000 ? `${ms.toFixed(0)} ms` : `${(ms / 1000).toFixed(1)} s`;
@@ -892,34 +869,6 @@ export def area: Shape -> Nat
   runInput.addEventListener("input", () => store("stitchwort.input", runInput.value));
 
   async function loadExample(id) {
-    if (id.startsWith("aoc-")) {
-      const day = aoc.find((d) => d.id === id);
-      if (day) {
-        let texts = aocText.get(id);
-        if (!texts) {
-          try {
-            const [src, input] = await Promise.all([
-              fetch(new URL(`pkg/aoc/${day.source}`, import.meta.url)),
-              fetch(new URL(`pkg/aoc/${day.input}`, import.meta.url)),
-            ]);
-            if (!src.ok || !input.ok) throw new Error("AoC example missing");
-            texts = { source: await src.text(), input: await input.text() };
-            aocText.set(id, texts);
-          } catch {
-            return;
-          }
-        }
-        picker.value = id;
-        source.value = texts.source;
-        evalInput = "";
-        runInput.value = texts.input;
-        runResult.replaceChildren();
-        store("stitchwort.example", id);
-        store("stitchwort.input", runInput.value);
-        refresh();
-        return;
-      }
-    }
     const ex = document.getElementById(id) || examples[0];
     picker.value = ex.id;
     source.value = ex.textContent.replace(/^\n/, "");
@@ -1287,17 +1236,7 @@ export def area: Shape -> Nat
     if (draft) { source.value = draft; refresh(); }
     if (input !== null) { runInput.value = input; store("stitchwort.input", input); }
   }
-  if (!chosen.startsWith("aoc-")) { loadExample(chosen); restoreDraft(); }
+  loadExample(chosen); restoreDraft();
   const savedView = stored("stitchwort.view");
   if (savedView && tabs.some((t) => t.dataset.view === savedView)) selectView(savedView);
-
-  // The Advent of Code puzzles are optional: the page works without them.
-  // A stored AoC choice is loaded once the list has arrived, and the draft
-  // and input are restored after it, as for the inline examples.
-  loadAoc().then(async (list) => {
-    if (list) { aoc = list; showAoc(list); }
-    if (!chosen.startsWith("aoc-")) return;
-    await loadExample(list?.some((day) => day.id === chosen) ? chosen : "ex-lists");
-    restoreDraft();
-  });
 </script>

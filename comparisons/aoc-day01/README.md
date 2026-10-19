@@ -1,6 +1,6 @@
 # AoC 2025 day 1 in Lean 4, Agda and Idris 2
 
-These are ports of `aoc/day01.sw` (Stitchwort), written to compare how hard the proofs
+These are ports of `aoc/src/day01/day01.sw` (Stitchwort), written to compare how hard the proofs
 are. The write-up is in `docs/comparisons/aoc-day01.md`. Each file states the same
 theorem, `zerosPassedCorrect`: the arithmetic count of part 2 equals the
 click-by-click count, for any dial size, start and list of turns. Each file also has

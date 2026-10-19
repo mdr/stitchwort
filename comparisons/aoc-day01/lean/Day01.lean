@@ -1,6 +1,6 @@
 /-
 Advent of Code 2025, day 1, in Lean 4 (core only, no Mathlib), mirroring
-Stitchwort's aoc/day01.sw: a dial numbered 0 to `highest` is turned left or
+Stitchwort's aoc/src/day01/day01.sw: a dial numbered 0 to `highest` is turned left or
 right. Part 1 counts the turns that end on 0; part 2 counts every click that
 lands on 0. The theorem `zerosPassedCorrect` says part 2's arithmetic count
 equals turning the dial one click at a time, for any dial, start and turns.
