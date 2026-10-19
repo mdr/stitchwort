@@ -1,5 +1,5 @@
 {
-  "next": 137,
+  "next": 138,
   "tickets": [
     {
       "id": 1,
@@ -197,7 +197,7 @@
         "aoc",
         "stdlib"
       ],
-      "body": "Open decision (D15, Matt's call; keep open). Days 6-9 and the list helpers they'd need were deferred until Matt is happy with the learnings from days 1-5 (docs/aoc-2025.md, docs/comparisons/aoc-day01.md). Related prerequisites: multi-file (SW-89 done, SW-106 stage 2), the parked AoC layout questions (shared Aoc namespace, playground loading, aoc/ layout), SW-100 (division lemmas), SW-99 (calc/rewrite). Already merged: [x, ..rest] list patterns.",
+      "body": "Open decision (D15, Matt's call; keep open). Days 6-9 and the list helpers they'd need were deferred until Matt is happy with the learnings from days 1-5 (docs/aoc-2025.md, docs/comparisons/aoc-day01.md). Related prerequisites: multi-file (SW-89 done, SW-106 stage 2), the parked AoC layout questions (shared Aoc namespace, playground loading, aoc/ layout), SW-100 (division lemmas), SW-99 (calc/rewrite). Already merged: [x, ..rest] list patterns.\n\n19 Oct: Matt started day 6 (SW-137).",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -2067,6 +2067,21 @@
         "syntax"
       ],
       "body": "D46 (Matt, 19 Oct): build calc now per docs/proposals/calc-rewrite.md §5 with the external review's fixes: D32 aligned form only; D33 proofless step = check rfl against the step proposition (not endpoint conversion); D34 Nat =/<=/< mixed, final relation by folding the composition table; elaborates to Eq.trans/J/Nat.leTrans etc. No rewrite yet; reserve only what calc needs.",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 137,
+      "title": "AoC day 6: solution with proofs, and pain-point notes",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree-agent-a4a4ab96c9057ab9f (day6 lane, started 23:28, ~2h box)",
+      "labels": [
+        "aoc",
+        "proof"
+      ],
+      "body": "Matt (19 Oct): solve day 6 in the aoc/ project (Aoc.Day06), with proofs of correctness as appropriate, and record pain points to drive language/stdlib evolution. Plan in docs/aoc-2025.md §Day 6 (needs List.transpose, padRight, split-at-blank helper).",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
