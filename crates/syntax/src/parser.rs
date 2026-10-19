@@ -3458,7 +3458,8 @@ mod tests {
         for source in ["import Aoc (Range, ..)\n", "import Aoc (.., Range)\n"] {
             let e = parse_error(source);
             assert!(
-                e.message.contains("so it goes on its own: `import Aoc (..)`"),
+                e.message
+                    .contains("so it goes on its own: `import Aoc (..)`"),
                 "{e:?}"
             );
         }

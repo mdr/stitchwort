@@ -196,7 +196,7 @@ fn walk_at(
             // means it.
             let (module, unknown) = match e.resolve(&name.text) {
                 Resolved::Found {
-                    level: Level::Import,
+                    level: Level::Import | Level::Wildcard,
                     ..
                 } => (true, false),
                 Resolved::Found {

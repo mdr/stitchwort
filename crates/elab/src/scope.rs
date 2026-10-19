@@ -7,10 +7,11 @@
 //! ability owns the namespace of the same name, which holds its
 //! constructors or operations, and anything declared in it.
 //!
-//! A short name is looked up at four levels, and the first level where it's
+//! A short name is looked up at five levels, and the first level where it's
 //! found decides (§4.4): local variables (the caller's), then the module's
-//! own top-level declarations, then its imports, then the default set: what
-//! `Std` declares at its root. Constructors and operations come with their
+//! own top-level declarations, then the file's imports by name, then what its
+//! `import N (..)` bring, then the default set: what `Std` declares at its
+//! root. Constructors and operations come with their
 //! type or ability, at the same level, but only while that binding of their
 //! type is the one visible. Two different things at one level are
 //! ambiguous, which is an error only where the name is used.
@@ -19,7 +20,7 @@
 //! program's, then the library's), and looks the rest up inside it. `Std.…`
 //! always means the library.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 use stitchwort_syntax::ast::{self, Import};
 use stitchwort_syntax::{Diagnostic, Span};
@@ -40,7 +41,10 @@ pub enum Level {
     Qualified,
     /// The module's own top-level declarations.
     Module,
+    /// This file's `import N (a, b)`.
     Import,
+    /// This file's `import N (..)`.
+    Wildcard,
     Default,
 }
 
@@ -56,8 +60,9 @@ pub enum Resolved<'a> {
         /// field accesses on it (`Origin.x`).
         rest: Vec<String>,
     },
-    /// Two or more different things at the same level: their keys.
-    Ambiguous(Vec<String>),
+    /// Two or more different things at the same level: their keys, and
+    /// the level.
+    Ambiguous(Vec<String>, Level),
     Missing,
 }
 
@@ -73,6 +78,13 @@ pub struct Scope {
     namespaces: HashSet<String>,
     /// Each file of the current module's imports: short name to keys.
     imports: Vec<HashMap<String, Vec<(String, Span)>>>,
+    /// Each file's `import N (..)`: short name to keys, each with the span
+    /// of the import that brought it. Empty for a program without `(..)`.
+    wildcards: Vec<BTreeMap<String, Vec<(String, Span)>>>,
+    /// The files (of the current module) with a `(..)` import that failed
+    /// with an error of its own, so the uses of names in them aren't
+    /// reported again as unknown.
+    pub(crate) wildcard_failed: BTreeSet<usize>,
     /// The names of imports that failed with an error of their own, so the
     /// uses of them aren't reported again as unknown.
     pub(crate) import_failed: HashSet<String>,
@@ -103,6 +115,8 @@ pub(crate) trait QualifierLevels {
     fn own_namespace(&self, first: &str) -> bool;
     fn project_namespace(&self, first: &str) -> bool;
     fn library_namespace(&self, first: &str) -> bool;
+    /// The key a short name found by `short` means, if it's known.
+    fn short_key(&self, first: &str, found: &Self::Short) -> Option<String>;
 }
 
 pub(crate) fn qualifier<L: QualifierLevels>(levels: &L, first: &str) -> Qualifier<L::Short> {
@@ -154,6 +168,68 @@ impl<'e> QualifierLevels for CheckingLevels<'e> {
     fn library_namespace(&self, first: &str) -> bool {
         self.0.scope.is_namespace(&format!("Std.{first}"))
     }
+
+    fn short_key(&self, _: &str, found: &Resolved<'e>) -> Option<String> {
+        match found {
+            Resolved::Found { key, .. } => Some(key.to_string()),
+            _ => None,
+        }
+    }
+}
+
+/// The namespace key an import's path names, resolved like a qualifier
+/// without the file's imports (docs/proposals/multi-file.md §4.5). `own_root`
+/// is the file's namespace as a key prefix (`Day05.`, or nothing). `None` if
+/// the path's first component names nothing. One routine for checking and the
+/// project pre-pass.
+pub(crate) fn import_target<L: QualifierLevels>(
+    levels: &L,
+    path: &str,
+    own_root: &str,
+) -> Option<String> {
+    if path == STD {
+        return Some(STD.to_string());
+    }
+    let (first, rest) = match path.split_once('.') {
+        Some((f, r)) => (f, Some(r)),
+        None => (path, None),
+    };
+    let base = match qualifier(levels, first) {
+        Qualifier::Std => STD.to_string(),
+        Qualifier::Short(found) => levels.short_key(first, &found)?,
+        Qualifier::Missing => return None,
+        Qualifier::Own => format!("{own_root}{first}"),
+        Qualifier::Project => first.to_string(),
+        Qualifier::Library => format!("Std.{first}"),
+    };
+    Some(match rest {
+        Some(rest) => format!("{base}.{rest}"),
+        None => base,
+    })
+}
+
+/// What `import K (..)` brings, for a file of namespace `own` (docs/proposals/
+/// multi-file.md §4.5, §4.6). Shared by checking and the project pre-pass.
+pub(crate) enum WildcardSource {
+    /// The short names, sorted, deduplicated.
+    Names(Vec<String>),
+    Refused(Refusal),
+}
+
+/// Why `import K (..)` is refused.
+pub(crate) enum Refusal {
+    /// `Std` itself.
+    StdRoot,
+    /// The file's own namespace.
+    Own,
+    /// Something inside the file's own namespace (a type, say).
+    PartOfOwn,
+    /// Something inside another project namespace.
+    PartOf(String),
+    /// Only the start of project namespace names.
+    Prefix,
+    /// A project namespace: not available yet.
+    NotYet,
 }
 
 /// `key`'s last component.
@@ -223,7 +299,14 @@ impl Scope {
 
     pub fn clear_imports(&mut self) {
         self.imports.clear();
+        self.wildcards.clear();
         self.import_failed.clear();
+        self.wildcard_failed.clear();
+    }
+
+    /// The key of the library's root name `x`, or of the alias.
+    pub(crate) fn std_root_key(&self, x: &str) -> Option<&str> {
+        self.std_root.get(x).map(String::as_str)
     }
 
     /// Every key, for suggestions.
@@ -304,7 +387,9 @@ impl Elaborator {
         let base: String = match qualifier(&CheckingLevels(self, true), first) {
             Qualifier::Std => STD.to_string(),
             Qualifier::Short(Resolved::Found { key, .. }) => key.to_string(),
-            Qualifier::Short(Resolved::Ambiguous(keys)) => return Resolved::Ambiguous(keys),
+            Qualifier::Short(Resolved::Ambiguous(keys, level)) => {
+                return Resolved::Ambiguous(keys, level);
+            }
             Qualifier::Short(Resolved::Missing) | Qualifier::Missing => return Resolved::Missing,
             Qualifier::Own => format!("{}{first}", self.root()),
             Qualifier::Project => first.to_string(),
@@ -348,8 +433,13 @@ impl Elaborator {
         if x.starts_with('%') {
             return Resolved::Missing;
         }
-        for level in [Level::Module, Level::Import, Level::Default] {
-            if !imports && level == Level::Import {
+        for level in [
+            Level::Module,
+            Level::Import,
+            Level::Wildcard,
+            Level::Default,
+        ] {
+            if !imports && matches!(level, Level::Import | Level::Wildcard) {
                 continue;
             }
             // The first candidate, and any others that are different things
@@ -390,7 +480,7 @@ impl Elaborator {
                         .map(str::to_string)
                         .collect();
                     keys.sort();
-                    return Resolved::Ambiguous(keys);
+                    return Resolved::Ambiguous(keys, level);
                 }
             }
         }
@@ -450,6 +540,26 @@ impl Elaborator {
                         .and_then(|t| t.get(short(owner)))
                         .is_some_and(|v| v.iter().any(|(k, _)| k == owner));
                     if imported && self.visible_as(owner) {
+                        found(key);
+                    }
+                }
+            }
+            Level::Wildcard => {
+                let Some(table) = self.scope.wildcards.get(self.current_file()) else {
+                    return;
+                };
+                if table.is_empty() {
+                    return;
+                }
+                for (key, _) in table.get(x).into_iter().flatten() {
+                    found(key);
+                }
+                for key in followed() {
+                    let owner = parent(key).unwrap_or("");
+                    let brought = table
+                        .get(short(owner))
+                        .is_some_and(|v| v.iter().any(|(k, _)| k == owner));
+                    if brought && self.visible_as(owner) {
                         found(key);
                     }
                 }
@@ -632,7 +742,7 @@ impl Elaborator {
                 name.span,
                 format!("`{}` has no `{}`", display(key), rest.join(".")),
             )),
-            Resolved::Ambiguous(keys) => Err(self.ambiguous(name, &keys)),
+            Resolved::Ambiguous(keys, level) => Err(self.ambiguous(name, &keys, level)),
             Resolved::Missing => Err(self.unknown(name)),
         }
     }
@@ -650,7 +760,7 @@ impl Elaborator {
     }
 
     /// `E-AMBIGUOUS`, where an ambiguous name is used.
-    pub(crate) fn ambiguous(&self, name: &ast::Name, keys: &[String]) -> Diagnostic {
+    pub(crate) fn ambiguous(&self, name: &ast::Name, keys: &[String], level: Level) -> Diagnostic {
         let shown: Vec<String> = keys
             .iter()
             .map(|k| format!("`{}`", self.written(k)))
@@ -666,6 +776,14 @@ impl Elaborator {
             {
                 d = d.with_label(span, format!("`{}` is declared here", display(key)));
             }
+        }
+        if level == Level::Wildcard {
+            let owner = keys.first().and_then(|k| parent(k)).unwrap_or("");
+            d = d.with_note(format!(
+                "both come in through `(..)` imports; to choose one, import it by name, e.g. `import {} ({})`",
+                display(owner),
+                short(&name.text)
+            ));
         }
         d
     }
@@ -726,6 +844,7 @@ impl Elaborator {
                         self.scope
                             .import_failed
                             .extend(import.items.iter().map(|i| i.text.clone()));
+                        self.wildcard_failed(import);
                         continue;
                     }
                     let mut d = error(
@@ -737,18 +856,27 @@ impl Elaborator {
                     // The first component may be a name this file imports:
                     // an import's path isn't read through another import.
                     let first = import.path.text.split('.').next().unwrap_or_default();
+                    let example = import.items.first().map_or("..", |i| i.text.as_str());
                     if let Some(source) = imports
                         .iter()
                         .find(|i| i.items.iter().any(|n| n.text == first))
                     {
-                        let example = import.items.first().map_or("..", |i| i.text.as_str());
                         d = d.with_note(format!(
                             "`{first}` is imported in this file, but an import's namespace is never found through another import: write it in full, e.g. `import {}.{} ({example})`",
-                            source.path.text,
-                            import.path.text
+                            source.path.text, import.path.text
+                        ));
+                    } else if let Some(source) = imports
+                        .iter()
+                        .filter(|i| i.everything.is_some())
+                        .find(|i| self.wildcard_brings(i, first))
+                    {
+                        d = d.with_note(format!(
+                            "`{first}` comes in through `import {} (..)` in this file, but an import's namespace is never found through another import: write it in full, e.g. `import {}.{} ({example})`",
+                            source.path.text, source.path.text, import.path.text
                         ));
                     }
                     diagnostics.push(d);
+                    self.wildcard_failed(import);
                     continue;
                 }
                 None => continue,
@@ -757,6 +885,10 @@ impl Elaborator {
             let is_own =
                 self.loading_prelude || !(namespace == STD || namespace.starts_with("Std."));
             if is_own != own {
+                continue;
+            }
+            if import.everything.is_some() {
+                self.add_wildcard(import, &namespace, diagnostics);
                 continue;
             }
             for item in &import.items {
@@ -816,29 +948,223 @@ impl Elaborator {
     }
 
     /// The namespace an import's path names, resolved like a qualifier.
+    /// Read without this file's imports, so import order never matters
+    /// (docs/proposals/multi-file.md §4.5).
     fn import_namespace(&self, path: &ast::Name) -> Option<String> {
-        if path.text == STD {
-            return Some(STD.to_string());
+        import_target(&CheckingLevels(self, false), &path.text, self.root())
+            .filter(|k| k == STD || self.scope.is_namespace(k))
+    }
+
+    /// Records that `import`, if it's a `(..)`, failed with an error of its
+    /// own.
+    fn wildcard_failed(&mut self, import: &Import) {
+        if import.everything.is_some() {
+            let file = self.current_file();
+            self.scope.wildcard_failed.insert(file);
         }
-        let (first, rest) = match path.text.split_once('.') {
-            Some((f, r)) => (f, Some(r)),
-            None => (path.text.as_str(), None),
+    }
+
+    /// Whether the `(..)` import `wildcard` brings the short name `x`.
+    fn wildcard_brings(&self, wildcard: &Import, x: &str) -> bool {
+        let Some(k) = self.import_namespace(&wildcard.path) else {
+            return false;
         };
-        // Read without this file's imports, so import order never matters
-        // (docs/proposals/multi-file.md §4.5).
-        let base = match qualifier(&CheckingLevels(self, false), first) {
-            Qualifier::Std => STD.to_string(),
-            Qualifier::Short(Resolved::Found { key, .. }) => key.to_string(),
-            Qualifier::Short(_) | Qualifier::Missing => return None,
-            Qualifier::Own => format!("{}{first}", self.root()),
-            Qualifier::Project => first.to_string(),
-            Qualifier::Library => format!("Std.{first}"),
+        matches!(
+            self.wildcard_source(&k, self.current_namespace()),
+            Some(WildcardSource::Names(names)) if names.iter().any(|n| n == x)
+        )
+    }
+
+    /// Adds what `import K (..)` brings to this file's wildcard table.
+    fn add_wildcard(&mut self, import: &Import, k: &str, diagnostics: &mut Vec<Diagnostic>) {
+        let own = self.current_namespace().map(str::to_string);
+        let file = self.current_file();
+        let dots = import.everything.unwrap_or(import.span);
+        match self.wildcard_source(k, own.as_deref()) {
+            Some(WildcardSource::Names(names)) => {
+                if self.scope.wildcards.len() <= file {
+                    self.scope.wildcards.resize_with(file + 1, BTreeMap::new);
+                }
+                let table = &mut self.scope.wildcards[file];
+                let twice = names.first().is_some_and(|x| {
+                    let key = format!("{k}.{x}");
+                    table
+                        .get(x)
+                        .is_some_and(|v| v.iter().any(|(k, _)| *k == key))
+                });
+                if twice {
+                    diagnostics.push(
+                        Diagnostic::warning(
+                            "W-IMPORT-TWICE",
+                            format!("`import {} (..)` is written twice", display(k)),
+                        )
+                        .with_label(dots, "written again here"),
+                    );
+                    return;
+                }
+                for x in names {
+                    let key = format!("{k}.{x}");
+                    if self.scope.entries.contains_key(&key) {
+                        let keys = self.scope.wildcards[file].entry(x).or_default();
+                        if let Err(at) = keys.binary_search_by(|(k, _)| k.as_str().cmp(&key)) {
+                            keys.insert(at, (key, import.span));
+                        }
+                    }
+                }
+            }
+            Some(WildcardSource::Refused(refusal)) => {
+                diagnostics.push(self.refused_wildcard(&refusal, k, &import.path));
+                self.scope.wildcard_failed.insert(file);
+            }
+            None => {
+                diagnostics.push(
+                    error(
+                        "E-IMPORT-UNKNOWN",
+                        import.path.span,
+                        format!("there's no namespace `{}`", import.path.text),
+                    )
+                    .with_note("`import` takes a namespace, such as `List` or `Text`"),
+                );
+                self.scope.wildcard_failed.insert(file);
+            }
+        }
+    }
+
+    /// What `import k (..)` brings, for a file of namespace `own`. `None` if
+    /// `k` is no namespace this can import from at all.
+    pub(crate) fn wildcard_source(&self, k: &str, own: Option<&str>) -> Option<WildcardSource> {
+        if k == STD {
+            return Some(WildcardSource::Refused(Refusal::StdRoot));
+        }
+        if k.starts_with("Std.") && self.scope.is_namespace(k) {
+            let prefix = format!("{k}.");
+            let mut names: Vec<String> = self
+                .scope
+                .keys()
+                .filter_map(|key| key.strip_prefix(&prefix))
+                .filter(|x| !x.contains('.') && !x.starts_with('%'))
+                .map(str::to_string)
+                .collect();
+            names.sort_unstable();
+            names.dedup();
+            return Some(WildcardSource::Names(names));
+        }
+        if own == Some(k) {
+            return Some(WildcardSource::Refused(Refusal::Own));
+        }
+        if self.project_namespaces.contains(k) {
+            return Some(WildcardSource::Refused(Refusal::NotYet));
+        }
+        let root = self.root();
+        let in_own = if root.is_empty() {
+            !k.starts_with("Std.")
+        } else {
+            k.starts_with(root)
         };
-        let namespace = match rest {
-            Some(rest) => format!("{base}.{rest}"),
-            None => base,
+        if in_own {
+            return Some(WildcardSource::Refused(Refusal::PartOfOwn));
+        }
+        if let Some(q) = self.longest_namespace(k, false) {
+            return Some(WildcardSource::Refused(Refusal::PartOf(q)));
+        }
+        if self.project_prefixes.contains(k) {
+            return Some(WildcardSource::Refused(Refusal::Prefix));
+        }
+        None
+    }
+
+    /// `E-IMPORT-WILDCARD`: `import k (..)` names something that can't be
+    /// imported whole.
+    fn refused_wildcard(&self, refusal: &Refusal, k: &str, path: &ast::Name) -> Diagnostic {
+        let shown = display(k);
+        // A name inside `k` to use as an example, if there is one.
+        let example = || {
+            let prefix = format!("{k}.");
+            self.scope
+                .keys()
+                .filter_map(|key| key.strip_prefix(&prefix))
+                .filter(|x| !x.contains('.') && !x.starts_with('%'))
+                .min()
         };
-        self.scope.is_namespace(&namespace).then_some(namespace)
+        let (message, label, note) = match refusal {
+            Refusal::StdRoot => (
+                "`Std`'s own names are visible already".to_string(),
+                "`import Std (..)` would add nothing".to_string(),
+                "import one of the library's namespaces instead, such as `import List (..)`"
+                    .to_string(),
+            ),
+            Refusal::Own => (
+                format!("`{shown}` is this file's own namespace, so its names are visible already"),
+                format!("`import {shown} (..)` would add nothing"),
+                "remove this import".to_string(),
+            ),
+            Refusal::PartOfOwn => {
+                let rel = k.strip_prefix(self.root()).unwrap_or(k);
+                let note = match example() {
+                    Some(x) => format!(
+                        "write its names in full, `{rel}.{x}`, or import them by name: `import {rel} ({x})`"
+                    ),
+                    None => format!(
+                        "write its names in full, or import them by name: `import {rel} (…)`"
+                    ),
+                };
+                (
+                    format!(
+                        "`(..)` imports a whole namespace, and `{rel}` is part of this file's namespace"
+                    ),
+                    format!("`{rel}` is declared in this file's namespace"),
+                    note,
+                )
+            }
+            Refusal::PartOf(q) => {
+                let owner = short(k);
+                let note = match example() {
+                    Some(x) => format!(
+                        "import the names you need, `import {shown} ({x})`, or import `{owner}` from {q} and write `{owner}.{x}`"
+                    ),
+                    None => format!(
+                        "import the names you need, `import {shown} (…)`, or import `{owner}` from {q} and write its names after `{owner}.`"
+                    ),
+                };
+                (
+                    format!(
+                        "`(..)` imports a whole namespace, and `{shown}` is part of namespace {q}"
+                    ),
+                    format!("`{shown}` is declared in {q}"),
+                    note,
+                )
+            }
+            Refusal::NotYet => {
+                let message = "importing a project namespace with `(..)` isn't available yet";
+                return error("E-IMPORT-WILDCARD", path.span, message);
+            }
+            Refusal::Prefix => {
+                let prefix = format!("{k}.");
+                let mut inside: Vec<String> = self
+                    .project_namespaces
+                    .iter()
+                    .filter(|q| q.starts_with(&prefix))
+                    .take(4)
+                    .map(|q| format!("`{q}`"))
+                    .collect();
+                let more = inside.len() > 3;
+                inside.truncate(3);
+                let mut list = inside.join(", ");
+                if more {
+                    list.push_str(", …");
+                }
+                (
+                    format!(
+                        "`{shown}` declares nothing itself: it's only the start of namespace names"
+                    ),
+                    format!("there's no namespace `{shown}` of its own"),
+                    format!("import from one of its namespaces: {list}"),
+                )
+            }
+        };
+        Diagnostic::error("E-IMPORT-WILDCARD", message)
+            .with_label(path.span, label)
+            .with_note(note)
     }
 
     fn import_unknown(&self, namespace: &str, item: &ast::Name) -> Diagnostic {

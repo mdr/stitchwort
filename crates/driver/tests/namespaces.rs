@@ -248,3 +248,107 @@ fn two_namespaced_files_in_one_session_have_separate_tests() {
     session.load("b.sw", &file("B", "second")).unwrap();
     passes(&session);
 }
+
+fn error_of(source: &str) -> Vec<stitchwort_syntax::Diagnostic> {
+    let mut session = Session::new();
+    session.load("test.sw", source).err().expect("refused")
+}
+
+#[test]
+fn a_wildcard_import_brings_a_namespaces_names() {
+    let session = load(
+        "import List (..)\n\n\
+         def go(xs: List Nat): Nat := sum (map (\\x => x + 1) (filter (\\x => not (x == 0)) (reverse xs)))\n\n\
+         def nil(): List Nat := Nil\n\n\
+         test \"go\" := go (Cons 1 (Cons 2 Nil)) == 5\n",
+    );
+    passes(&session);
+}
+
+/// An own declaration beats a wildcard (no clash), a named import beats it,
+/// and a wildcard that brings the default name again isn't ambiguous.
+#[test]
+fn wildcard_precedence_in_a_file() {
+    passes(&load(
+        "import List (..)\n\n\
+         def reverse (xs: List Nat): List Nat := xs\n\n\
+         test \"own\" := reverse [1, 2] == [1, 2]\n",
+    ));
+    passes(&load(
+        "import List (..)\nimport Text (length)\n\n\
+         test \"named\" := length \"abc\" == 3\n",
+    ));
+    passes(&load(
+        "import Bool (..)\n\ntest \"same thing\" := not True == False\n",
+    ));
+}
+
+#[test]
+fn two_wildcards_are_ambiguous_only_where_used() {
+    load("import List (..)\nimport Text (..)\n\ntest \"qualified\" := List.length [1] == 1\n");
+    let found =
+        error_of("import List (..)\nimport Text (..)\n\ndef n(xs: List Nat): Nat := length xs\n");
+    assert_eq!(found[0].code, "E-AMBIGUOUS");
+    assert!(
+        found[0]
+            .notes
+            .iter()
+            .any(|n| n.contains("import it by name")),
+        "{found:#?}"
+    );
+}
+
+#[test]
+fn importing_everything_twice_is_a_warning() {
+    assert_eq!(
+        codes("import List (..)\nimport List (..)\n\ndef x(): Nat := 1\n"),
+        ["W-IMPORT-TWICE"]
+    );
+}
+
+#[test]
+fn a_wildcard_name_in_a_type_is_not_a_type_variable() {
+    assert!(
+        codes("import List (..)\n\ndef f (x : length) : Nat := 0\n")
+            .iter()
+            .any(|c| *c == "W-MODULE-NAME" || c.starts_with("E-"))
+    );
+}
+
+#[test]
+fn wildcard_refusals_in_a_file() {
+    for source in [
+        "import Std (..)\n",
+        "import Shape (..)\n\ntype Shape: Type =\n  | Square (side: Nat)\n",
+        "namespace Demo\n\nimport Demo (..)\n\ndef x(): Nat := 1\n",
+    ] {
+        assert_eq!(codes(source), ["E-IMPORT-WILDCARD"], "{source}");
+    }
+}
+
+#[test]
+fn a_failed_wildcard_doesnt_cascade() {
+    assert_eq!(
+        codes("import Nope (..)\n\ndef x(): Nat := foo\n"),
+        ["E-IMPORT-UNKNOWN"]
+    );
+    assert_eq!(
+        codes("import Std (..)\n\ndef x(): Nat := foo\n"),
+        ["E-IMPORT-WILDCARD"]
+    );
+}
+
+#[test]
+fn wildcards_still_work_for_eval_after_a_single_file() {
+    let mut session = Session::new();
+    session
+        .load(
+            "test.sw",
+            "import List (..)\n\ndef double(n: Nat): Nat := n + n\n",
+        )
+        .unwrap();
+    let expr = session
+        .parse_expression("<eval>", "map double [1, 2]")
+        .unwrap();
+    session.elab.infer_expr(&expr).unwrap();
+}

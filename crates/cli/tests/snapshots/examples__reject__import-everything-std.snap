@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-IMPORT-WILDCARD] Error: `Std`'s own names are visible already
+   ╭─[ reject/import-everything-std.sw:3:8 ]
+   │
+ 3 │ import Std (..)
+   │        ─┬─  
+   │         ╰─── `import Std (..)` would add nothing
+   │ 
+   │ Note: import one of the library's namespaces instead, such as `import List (..)`
+───╯

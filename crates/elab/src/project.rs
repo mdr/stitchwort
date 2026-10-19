@@ -157,6 +157,7 @@ impl Elaborator {
                 imported: &imported,
                 file: f,
                 imports: true,
+                ns: &ns.name,
             };
             // An import's path is read without the file's imports.
             let path_levels = PrePass {
@@ -198,7 +199,7 @@ impl Elaborator {
 
     /// The longest project namespace `Q` with `path == Q` (if `equal`) or
     /// `path` starting with `Q.`.
-    fn longest_namespace(&self, path: &str, equal: bool) -> Option<String> {
+    pub(crate) fn longest_namespace(&self, path: &str, equal: bool) -> Option<String> {
         self.project_namespaces
             .iter()
             .filter(|q| (equal && q.as_str() == path) || path.starts_with(&format!("{q}.")))
@@ -257,6 +258,8 @@ struct PrePass<'e, 'a> {
     file: usize,
     /// Whether the file's imports count: not for an import's own path.
     imports: bool,
+    /// The namespace being read.
+    ns: &'e str,
 }
 
 impl PrePass<'_, '_> {
@@ -290,5 +293,13 @@ impl QualifierLevels for PrePass<'_, '_> {
 
     fn library_namespace(&self, first: &str) -> bool {
         self.e.scope.is_namespace(&format!("Std.{first}"))
+    }
+
+    fn short_key(&self, first: &str, _: &()) -> Option<String> {
+        if self.declared.contains(first) {
+            Some(format!("{}.{first}", self.ns))
+        } else {
+            self.e.scope.std_root_key(first).map(str::to_string)
+        }
     }
 }
