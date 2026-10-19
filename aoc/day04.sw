@@ -22,8 +22,14 @@ def main () : {IO} () :=
 def solve (grid : Grid) : (Nat, Nat) :=
   (rolls grid - rolls (round grid), rolls grid - rolls (settle (rolls grid) grid))
 
-def parse (lines : List Text) : Grid :=
-  lines |> .map (\line => line.toList |> .map (\c => if c == '@' then 1 else 0))
+def parse (lines : List Text) : Grid := lines.map parseLine
+
+def parseLine (line : Text) : List Nat := line.toList.map parseChar
+
+-- A roll is 1, floor is 0.
+def parseChar : Char -> Nat
+  | '@' => 1
+  | _   => 0
 
 def rolls (grid : Grid) : Nat := grid |> .sumBy List.sum
 
