@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REFL] Error: `rfl` can't prove this
+   ╭─[ reject/char-pattern-wrong-claim.sw:5:18 ]
+   │
+ 5 │     | 'a' => Inl rfl
+   │                  ─┬─  
+   │                   ╰─── `'a'` and `'b'` aren't equal
+   │ 
+   │ Note: `rfl` proves `a = b` only when both sides compute to the same value
+───╯

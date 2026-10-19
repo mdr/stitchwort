@@ -39,7 +39,7 @@ use stitchwort_core::native::{self, Native};
 use stitchwort_core::partial::Primitive;
 use stitchwort_core::registry::{self, Builtin};
 use stitchwort_core::term::{Branch, NumArm};
-use stitchwort_core::value::{Head, eval, force};
+use stitchwort_core::value::{Head, eval, force, quote};
 use stitchwort_core::{DataId, DefId, Globals, Icit, Limits, Name, Sort, Term, Value, pretty};
 use stitchwort_syntax::ast::{Decl, Expr, Pattern};
 use stitchwort_syntax::{Diagnostic, Span, ast};
@@ -94,6 +94,10 @@ pub struct Elaborator {
     /// The characters whose patterns became number patterns (by span), so
     /// a missing case can be reported as characters.
     char_patterns: RefCell<HashMap<Span, char>>,
+    /// The spans of the `_` a char pattern puts for its proof field
+    /// (`'a'` is `MkChar 97 _`), so an arm can make the matched character
+    /// the literal itself (`canonical`).
+    char_proofs: RefCell<std::collections::HashSet<Span>>,
     /// While the prelude is loaded, its built-in types and natively
     /// implemented definitions are registered with the kernel by name.
     pub loading_prelude: bool,
@@ -202,6 +206,8 @@ struct Row<'a> {
 enum Tree<'a> {
     Leaf {
         aliases: Vec<(&'a str, usize)>,
+        /// The levels of char patterns' proof fields (`canonical`).
+        canon: Vec<usize>,
         rhs: Option<&'a Expr>,
         span: Span,
     },
@@ -1761,6 +1767,7 @@ impl Elaborator {
             }
             Tree::Leaf {
                 aliases: Vec::new(),
+                canon: Vec::new(),
                 rhs: first_rhs,
                 span: first_span,
             }
@@ -1843,13 +1850,21 @@ impl Elaborator {
         let Some((j, d)) = split else {
             // The first row matches whatever is left: it's the result.
             let mut aliases = first.aliases.clone();
+            let mut canon = Vec::new();
+            let proofs = self.char_proofs.borrow();
             for (pattern, level) in first.pats.iter().zip(columns) {
                 if let Some(x) = pattern_var(pattern) {
                     aliases.push((&x.text, *level));
                 }
+                if let Pattern::Wildcard(s) = &**pattern
+                    && proofs.contains(s)
+                {
+                    canon.push(*level);
+                }
             }
             return Ok(Tree::Leaf {
                 aliases,
+                canon,
                 rhs: first.rhs,
                 span: first.span,
             });
@@ -2158,6 +2173,7 @@ impl Elaborator {
             Pattern::Char(c, span) => {
                 let (data, ctor) = self.builtin_ctor(Builtin::MkChar, *span)?;
                 self.char_patterns.borrow_mut().insert(*span, *c);
+                self.char_proofs.borrow_mut().insert(*span);
                 Ok(Some(CtorPattern {
                     data,
                     ctor,
@@ -2338,12 +2354,163 @@ impl Elaborator {
     }
 }
 
+/// In an arm of a char pattern like `'a'`, the matched character is
+/// `MkChar 97 p` for a proof variable `p : Char.isScalar 97 = True`, which
+/// isn't the literal `'a'` (`MkChar 97 rfl`) by computation alone: the kernel
+/// doesn't identify proofs. So where the goal or a hypothesis mentions a
+/// proof in `proofs`, the arm is checked with `rfl` for it, and the result is
+/// transported back with `J` along `Bool.uniqueEq _ _ rfl p : rfl = p`, the
+/// hypotheses that mention `p` taken as arguments. Names whose values mention
+/// `p` (the matched character itself) stand for their values with `rfl` in
+/// the arm. The kernel checks the whole term, so a mistake here can only
+/// reject a program. `body` checks the arm, told whether it's under a `J`.
+fn canonical(
+    cx: &mut Ctx,
+    proofs: &[usize],
+    goal: &Value,
+    body: &mut dyn FnMut(&mut Ctx, &Value, bool) -> Result<Term>,
+) -> Result<Term> {
+    let Some((&p, rest)) = proofs.split_first() else {
+        return body(cx, goal, false);
+    };
+    let g = cx.g();
+    let base = cx.level();
+    let own = |cx: &Ctx, l: usize| {
+        cx.lets[l].is_none()
+            && matches!(&cx.env[l], Value::Neutral(Head::Var(x), s) if *x == l && s.is_empty())
+    };
+    // `p : a = b` in `Bool`, where `a` computes to `b` (it's `True`).
+    let (a, b) = match force(g, cx.types[p].clone())? {
+        Value::Eq(ty, a, b)
+            if own(cx, p)
+                && matches!(force(g, (*ty).clone())?,
+                    Value::Data(d, _) if g.registry.is_data(Builtin::Bool, d))
+                && stitchwort_core::value::conv(g, base, &a, &b)? =>
+        {
+            (a, b)
+        }
+        _ => return canonical(cx, rest, goal, body),
+    };
+    let mentions = |t: &Term, l: usize| t.mentions(base - 1 - l);
+    let types = (0..base)
+        .map(|l| quote(g, base, &cx.types[l]))
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    let goal_t = quote(g, base, goal)?;
+    // The hypotheses to take as arguments: those whose types mention `p`,
+    // or one of them.
+    let mut reverted: Vec<usize> = Vec::new();
+    loop {
+        let more: Vec<usize> = (0..base)
+            .filter(|&l| l != p && !reverted.contains(&l) && own(cx, l))
+            .filter(|&l| mentions(&types[l], p) || reverted.iter().any(|&h| mentions(&types[l], h)))
+            .collect();
+        if more.is_empty() {
+            break;
+        }
+        reverted.extend(more);
+    }
+    reverted.sort_unstable();
+    // Each type may mention only the hypotheses before it.
+    let ordered = reverted
+        .iter()
+        .enumerate()
+        .all(|(i, &h)| reverted[i..].iter().all(|&h2| !mentions(&types[h], h2)));
+    if !ordered || (reverted.is_empty() && !mentions(&goal_t, p)) {
+        return canonical(cx, rest, goal, body);
+    }
+    let k = reverted.len();
+    // `σ`: what each variable becomes, `p` as `with` and the hypotheses as
+    // new variables from `first`.
+    let subst = |with: Value, first: usize| {
+        let mut env: Vec<Value> = (0..base).map(Value::var).collect();
+        env[p] = with;
+        for (i, &h) in reverted.iter().enumerate() {
+            env[h] = Value::var(first + i);
+        }
+        env
+    };
+    // The motive `\r e => (h₁ : T₁[r]) -> … -> G[r]`, under `r` and `e` at
+    // `base` and `base + 1`.
+    let motive_env = subst(Value::var(base), base + 2);
+    let mut motive = quote(g, base + 2 + k, &eval(g, &motive_env, &goal_t)?)?;
+    for (i, &h) in reverted.iter().enumerate().rev() {
+        let ty = quote(g, base + 2 + i, &eval(g, &motive_env, &types[h])?)?;
+        motive = Term::Pi(
+            cx.names[h].clone(),
+            Icit::Explicit,
+            Rc::new(ty),
+            Rc::new(motive),
+        );
+    }
+    let motive = Term::Lam(
+        "r".into(),
+        Icit::Explicit,
+        Rc::new(Term::Lam("e".into(), Icit::Explicit, Rc::new(motive))),
+    );
+    // The arm, with `rfl` for `p` and new variables for the hypotheses.
+    let mark = cx.mark();
+    let refl_env = subst(Value::Refl, base);
+    for &h in &reverted {
+        let ty = eval(g, &refl_env, &types[h])?;
+        cx.bind_hidden(cx.names[h].clone(), ty);
+    }
+    for (i, &h) in reverted.iter().enumerate() {
+        cx.rebind(h, base + i);
+    }
+    let mut names = cx.scope_names();
+    names.sort();
+    names.dedup();
+    for name in names {
+        let Some(l) = cx.lookup(&name) else { continue };
+        if l >= base || l == p || reverted.contains(&l) || own(cx, l) || cx.lets[l].is_some() {
+            continue;
+        }
+        let value = quote(g, base, &cx.env[l])?;
+        if mentions(&value, p) || reverted.iter().any(|&h| mentions(&value, h)) {
+            let term = quote(g, base + k, &eval(g, &refl_env, &value)?)?;
+            let ty = eval(g, &refl_env, &types[l])?;
+            cx.bind_local(&name, term, ty);
+        }
+    }
+    let arm_goal = eval(g, &refl_env, &goal_t)?;
+    let result = canonical(cx, rest, &arm_goal, &mut |cx, goal, _| body(cx, goal, true));
+    cx.reset(mark);
+    let mut arm = result?;
+    for &h in reverted.iter().rev() {
+        arm = Term::Lam(cx.names[h].clone(), Icit::Explicit, Rc::new(arm));
+    }
+    // `Bool.uniqueEq a b rfl p : rfl = p`.
+    let mut unique = Term::Def(check::builtin_def(cx, Builtin::BoolUniqueEq)?);
+    for arg in [
+        quote(g, base, &a)?,
+        quote(g, base, &b)?,
+        Term::Refl,
+        Term::Var(base - 1 - p),
+    ] {
+        unique = Term::App(Rc::new(unique), Rc::new(arg), Icit::Explicit);
+    }
+    let mut term = Term::J(Rc::new(motive), Rc::new(arm), Rc::new(unique));
+    for &h in &reverted {
+        term = Term::App(
+            Rc::new(term),
+            Rc::new(Term::Var(base - 1 - h)),
+            Icit::Explicit,
+        );
+    }
+    Ok(term)
+}
+
 /// Checks a compiled pattern match against `goal`, refining the goal in each
 /// branch (the kernel does the same when it re-checks the result).
 fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
     cx.g().budget.nesting(check::PASS)?;
     match tree {
-        Tree::Leaf { aliases, rhs, span } => {
+        Tree::Leaf {
+            aliases,
+            canon,
+            rhs,
+            span,
+        } => {
             let Some(rhs) = rhs else {
                 return Err(error(
                     "E-ARITY",
@@ -2355,14 +2522,17 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
             for (x, level) in aliases {
                 cx.alias(x, *level);
             }
-            // A `match` that's the whole right-hand side, on variables of
-            // the equation, splits them further here
-            // (docs/proposals/syntax-conveniences.md §4.3).
-            let in_tree = match rhs {
-                Expr::Match { .. } => matching::in_tree(cx, rhs, goal),
-                _ => None,
-            };
-            let result = in_tree.unwrap_or_else(|| check(cx, rhs, goal));
+            let result = canonical(cx, canon, goal, &mut |cx, goal, wrapped| {
+                // A `match` that's the whole right-hand side, on variables of
+                // the equation, splits them further here
+                // (docs/proposals/syntax-conveniences.md §4.3); not under
+                // `canonical`'s `J`, as a case split must be at the top.
+                let in_tree = match rhs {
+                    Expr::Match { .. } if !wrapped => matching::in_tree(cx, rhs, goal),
+                    _ => None,
+                };
+                in_tree.unwrap_or_else(|| check(cx, rhs, goal))
+            });
             cx.reset(mark);
             result
         }
