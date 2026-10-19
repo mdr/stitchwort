@@ -97,6 +97,8 @@ pub(crate) struct ItemInfo {
     /// The index of its first declaration in the module.
     pub position: usize,
     pub kind: Kind,
+    /// `type Name = …`, which may not be recursive (`E-SYNONYM-CYCLE`).
+    pub synonym: bool,
     pub deps: Vec<Dep>,
     /// Its strongly connected component.
     pub component: usize,
@@ -272,11 +274,15 @@ impl Elaborator {
                 test_names.insert(name, *span);
             }
             let status = Status::Waiting;
-            let (kind, name, span) = match decl {
-                Decl::Data { name, .. } => (Kind::Data, name.text.clone(), name.span),
-                Decl::Ability { name, .. } => (Kind::Ability, name.text.clone(), name.span),
-                Decl::Signature { name, .. } => (Kind::Def, name.text.clone(), name.span),
-                Decl::Test { name, span, .. } => (Kind::Test, format!("test \"{name}\""), *span),
+            let (kind, name, span, synonym) = match decl {
+                Decl::Data { name, .. } => (Kind::Data, name.text.clone(), name.span, false),
+                Decl::Ability { name, .. } => (Kind::Ability, name.text.clone(), name.span, false),
+                Decl::Signature { name, synonym, .. } => {
+                    (Kind::Def, name.text.clone(), name.span, *synonym)
+                }
+                Decl::Test { name, span, .. } => {
+                    (Kind::Test, format!("test \"{name}\""), *span, false)
+                }
                 Decl::Equation { .. } => unreachable!("equations go with signatures"),
             };
             // Worked out once the names are registered.
@@ -286,6 +292,7 @@ impl Elaborator {
                 span,
                 position,
                 kind,
+                synonym,
                 deps: Vec::new(),
                 component: 0,
                 status,
@@ -622,6 +629,10 @@ impl Elaborator {
             .iter()
             .map(|i| self.module.items[*i].kind)
             .collect();
+        if recursive && component.iter().all(|i| self.module.items[*i].synonym) {
+            diagnostics.push((first.position, self.synonym_cycle(component)));
+            return;
+        }
         let all_data = kinds.iter().all(|k| *k == Kind::Data);
         if component.len() > 1 && kinds.iter().any(|k| *k != Kind::Def) && !all_data {
             diagnostics.push((first.position, self.mixed_cycle(component)));
@@ -762,6 +773,53 @@ impl Elaborator {
             out.push_str(&quoted(i));
         }
         out
+    }
+
+    /// The error for a cycle among type synonyms: they stand for each other,
+    /// so none of them has a type to stand for.
+    fn synonym_cycle(&self, component: &[usize]) -> Diagnostic {
+        let items = &self.module.items;
+        let first = component[0];
+        let back = items[first]
+            .deps
+            .iter()
+            .map(|d| d.item)
+            .find(|&j| j != first && self.module.in_current(j));
+        let cycle = match back {
+            Some(back) => {
+                let mut cycle = vec![first];
+                cycle.extend(self.path_within(back, first));
+                cycle
+            }
+            None => vec![first, first],
+        };
+        let what = match component {
+            [only] => format!(
+                "the type synonym `{}` is defined in terms of itself, so it has no meaning",
+                items[*only].name
+            ),
+            [a, b] => format!(
+                "the type synonyms `{}` and `{}` are defined in terms of each other, so neither \
+                 has a meaning",
+                items[*a].name, items[*b].name
+            ),
+            _ => format!(
+                "the type synonyms {} are defined in terms of each other, so none has a meaning",
+                listed(component.iter().map(|i| &items[*i].name))
+            ),
+        };
+        let trail: Vec<&str> = cycle.iter().map(|&i| items[i].name.as_str()).collect();
+        Diagnostic::error("E-SYNONYM-CYCLE", what)
+            .with_label(
+                items[first].span,
+                format!("`{}` is defined here", items[first].name),
+            )
+            .with_note(format!("the cycle is `{}`", trail.join(" -> ")))
+            .with_note(
+                "a type synonym stands for its definition, so a cycle never reaches a type; \
+                 break the cycle by defining at least one of them as a data type with \
+                 constructors",
+            )
     }
 
     /// The error for a cycle that mixes data types and definitions, or

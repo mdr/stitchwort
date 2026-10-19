@@ -142,6 +142,7 @@ impl Parser<'_> {
             ty,
             theorem,
             export,
+            synonym: false,
             span,
         }];
         match self.peek() {
@@ -260,6 +261,7 @@ impl Parser<'_> {
                 ty,
                 theorem: false,
                 export: false,
+                synonym: true,
                 span: start.to(name.span),
             },
             Decl::Equation {

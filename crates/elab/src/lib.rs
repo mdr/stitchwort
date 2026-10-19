@@ -626,6 +626,7 @@ impl Elaborator {
             ty: res_ty,
             theorem: false,
             export: false,
+            synonym: false,
             span: *span,
         };
         let res_eqs: Vec<Decl> = sigs
@@ -721,6 +722,7 @@ impl Elaborator {
             ty: elim_ty,
             theorem: false,
             export: false,
+            synonym: false,
             span: *span,
         };
         let elim_eqs: Vec<Decl> = sigs
@@ -1367,6 +1369,7 @@ impl Elaborator {
             ty,
             theorem,
             export,
+            synonym: _,
             span,
         } = signature
         else {
