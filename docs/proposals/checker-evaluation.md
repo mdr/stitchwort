@@ -671,6 +671,64 @@ Instead, in order:
    expensive value inside a type, compared with itself), if a real program
    ever shows them.
 
+### 9.5 Fixes 1 and 2, as committed
+
+*19 October 2026.* Both fixes are in, as two commits.
+
+**Fix 1** (`auto.rs`): the decision search keeps, per definition, the data
+type its result type is (`Elaborator::result_heads`), worked out the first
+time the search looks at it. It's only worked out for a final definition
+(the search skips the others), whose type and everything it refers to never
+change, and definitions are only ever added, so an entry can't go stale in
+the REPL or the playground either. Whether a definition is "checked, above
+the use" is still asked on every search. Same candidates, same order.
+`crates/driver/tests/decision_search.rs` checks that a decision procedure
+loaded in a later file is found after a search has failed, and that one
+written below the use still isn't used.
+
+**Fix 2** (the prelude): `List.filter` calls `List.filterStep x (List.filter
+p xs) (p x)`, which matches the `Bool`. Writing `let rest := List.filter p
+xs` and then the `if` doesn't help: the `let` is substituted, and both
+branches still contain the rest, so the elaborated size is unchanged (233,483
+nodes at 11 elements, measured). A stuck `filterStep`, by contrast, stays one
+call. `List.filterKeep` and `List.filterSkip` only change their motive.
+
+The audit found the same trap in a different shape in `List.count`:
+`List.foldl (\n x => if p x then Succ n else n)` writes the accumulator in
+both branches, so the count of `[2..12]` under `\n => k * n <= size` also
+doubled per element (218,127 nodes at 11). It now steps with `Nat.succIf n
+(p x)` (`True => Succ n`, `False => n`), and `List.countStep`/`countFold`
+change their statement only. Found and left alone:
+
+| Definition | Why left |
+|---|---|
+| `List.merge` | Recursive call in both branches of `if le x y`. Merging two concrete lists of 7 under a stuck comparison takes 0.42 s to check (0.12 s at 5): it grows like the number of interleavings. But `List.sortWith` doesn't show it (8 elements: 0.11 s, flat from 3), because the next merge stops at the stuck result. Fixing it needs `merge` and a step function to be mutually recursive, and its sortedness and permutation proofs restated. |
+| `Text.linesFrom` | Recursive call in both branches, stuck only on a character that's a variable, in a list of known length. Rare. |
+| `Nat.min`, `Nat.max` | Not recursive, but a fold of them writes the accumulator in the condition and a branch. A step function can't help, as the condition needs it too. |
+
+Run time is unchanged: the generated JS calls `filterStep` (and `succIf`)
+where it had a conditional, and the AoC `run --js` times are the same
+within noise (day 4: 0.88 s before, 0.90 s after; day 1: 0.29 s, 0.28 s).
+
+Check times, release build, `stitchwort check`, best of 3 (measured with
+other jobs on the machine, so within about 0.02 s):
+
+| Program | before | fix 1 | fixes 1 and 2 |
+|---|---:|---:|---:|
+| empty | 0.14 s | 0.11 s | 0.11 s |
+| day 1 | 0.30 s | 0.15 s | 0.16 s |
+| day 2 | 0.71 s | 0.54 s | 0.28 s |
+| day 3 | 0.18 s | 0.14 s | 0.13 s |
+| day 4 | 0.16 s | 0.11 s | 0.11 s |
+| day 5 | 0.16 s | 0.11 s | 0.11 s |
+
+The deterministic guard is `stuck_conditions_keep_filter_and_count_linear`
+in `crates/bench/tests/check_work.rs`: the `Eq.trans rfl rfl` program of
+§9.2 with 5, 7, 9 and 11 elements, for `filter` and for `count`, must grow by
+no more than half as much again from 9→11 as from 7→9. Now each two elements
+add 3,680 steps and 198 nodes for `filter` (15,236 steps and 620 nodes at 5);
+with the old prelude the test fails (steps +1,061,104 then +4,244,080).
+
 ---
 
 ## Appendix: details for the reviewer

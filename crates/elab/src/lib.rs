@@ -158,6 +158,13 @@ pub struct Elaborator {
     /// The frozen metavariables standing for local definitions, with their
     /// names, for messages.
     pub(crate) local_metas: RefCell<HashMap<usize, String>>,
+    /// For each definition, by `DefId`, once worked out: the data type its
+    /// result type is (after all its parameters), if it is one. The decision
+    /// search (`auto::decision_procedures`) reads it instead of evaluating
+    /// every definition's type each time. Only worked out for a final
+    /// definition, whose type, and everything it refers to, never changes;
+    /// definitions are only ever added, so an entry never goes stale.
+    pub(crate) result_heads: RefCell<Vec<Option<Option<DataId>>>>,
 }
 
 /// A pattern that matches a constructor.

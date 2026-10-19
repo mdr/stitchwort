@@ -175,3 +175,34 @@ fn comparing_closed_lists_keeps_the_program_small() {
     println!("List.range == List.range: {small:?} / {large:?}");
     assert_eq!(small, large);
 }
+
+/// Checks `program(n)` for 5, 7, 9 and 11 elements: the growth from 7 to 9
+/// and from 9 to 11, in steps and in size.
+fn growth(what: &str, program: impl Fn(usize) -> String) -> [(u64, usize); 2] {
+    let m: Vec<Measured> = [5, 7, 9, 11].iter().map(|&n| measure(program(n))).collect();
+    println!("{what}: {m:?}");
+    [1, 2].map(|i| (m[i + 1].steps - m[i].steps, m[i + 1].size - m[i].size))
+}
+
+/// Section 9.2 of the note: a library function that wrote its recursive call
+/// (or its accumulator) in both branches of an `if` made a value that
+/// doubled with every element when the condition couldn't be decided, here
+/// because it mentions variables, and solving the hidden argument of
+/// `Eq.trans` copied it into the program. `List.filter` and `List.count` now
+/// write it once, so checking grows linearly: two more elements add about as
+/// much as the two before did (they used to add four times as much).
+#[test]
+fn stuck_conditions_keep_filter_and_count_linear() {
+    let theorem = |f: &str, n: usize| {
+        let side = format!("List.{f} (\\n => k * n <= size) (List.rangeFrom {n} 2)");
+        format!("theorem t (k : Nat) (size : Nat) : {side} = {side} := Eq.trans rfl rfl\n")
+    };
+    for f in ["filter", "count"] {
+        let [(steps1, size1), (steps2, size2)] = growth(f, |n| theorem(f, n));
+        assert!(
+            steps2 <= steps1 * 3 / 2 && size2 <= size1 * 3 / 2,
+            "{f}: checking grew faster than linearly: steps +{steps1} then +{steps2}, \
+             size +{size1} then +{size2}"
+        );
+    }
+}
