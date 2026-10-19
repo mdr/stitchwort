@@ -1,5 +1,5 @@
 {
-  "next": 90,
+  "next": 91,
   "tickets": [
     {
       "id": 1,
@@ -164,7 +164,7 @@
         "elab",
         "proof"
       ],
-      "body": "**Char-pattern branches lose the equation:** fixed (`55c48eb`, Opus; see Recently done). Limit: a nested `match` inside a char arm isn't covered (not yet put to the user; proof irrelevance would remove it). The `match h :` report was not a bug (same as Lean).",
+      "body": "**Char-pattern branches lose the equation:** fixed (`55c48eb`, Opus; see Recently done). Limit: a nested `match` inside a char arm isn't covered (not yet put to the user; proof irrelevance would remove it). The `match h :` report was not a bug (same as Lean).\n\n19 Oct: the proof-irrelevance lane reports that a char pattern inside a nested `match` already works on main (built at 80c87a8). Verify and close.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -482,9 +482,9 @@
     {
       "id": 33,
       "title": "Two proofs of the same fact aren't treated as equal",
-      "status": "doing",
-      "agent": "Opus",
-      "where": "worktree (Claude Code agent), docs/proposals/proof-irrelevance.md",
+      "status": "review",
+      "agent": "Matt",
+      "where": "docs/proposals/proof-irrelevance.md §10 (Q1-Q5); reviewer prompt on clipboard",
       "labels": [
         "design",
         "kernel"
@@ -492,7 +492,9 @@
       "body": "**Two proofs of the same fact aren't treated as equal** (no definitional\nproof irrelevance): `x % 100` with a hand-written divisor proof and\nwith the `auto` one have different types that print identically (Int\nstage 6 worked around it with `[auto]` arguments). Consider proof\nirrelevance for `Prop` in conversion (kernel; design note first).\nSecond example (19 Oct): char-pattern branches couldn't prove `c = 'a'`\nbecause the matched char's validity proof differed from the literal's;\nfixed in the elaborator with `Bool.uniqueEq` (`55c48eb`), which proof\nirrelevance would make unnecessary. User (19 Oct): wants this considered, with the\nliterature and trade-offs properly understood: Opus design note after\nmulti-file Draft 3, with web research comparing at least Lean (definitional\nirrelevance for `Prop`), Agda (opt-in `Prop`) and Coq/Rocq (`SProp`), and\nthe known metatheory (decidability, interaction with recursion on proofs,\nlarge elimination, hashing).",
       "created": "2026-10-19",
       "updated": "2026-10-19",
-      "commits": []
+      "commits": [
+        "4c6d693"
+      ]
     },
     {
       "id": 34,
@@ -1298,6 +1300,21 @@
         "elab"
       ],
       "body": "Implement stage 1 of docs/proposals/multi-file.md (draft 4, §12 Stages). Needs a spec from Opus first; likely Sonnet implementation (judgement-heavy: scope.rs per-file imports, module.rs dependency discovery, hash tie-break by name with a both-orders test).",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 90,
+      "title": "Consider lambda syntax",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "syntax",
+        "design"
+      ],
+      "body": "Matt (19 Oct): reconsider how anonymous functions are written. Today: `\\x y => x + y` (examples/accept/list-toolkit.sw). Compare e.g. Lean `fun x => e`, Haskell `\\x -> e`, Agda `λ x → e`, JS/Scala `x => e`, Kotlin `{ x -> e }`; readability for newcomers, how annotated parameters look, pattern-matching lambdas. Related: SW-19 (annotated lambda parameters `\\(x : T) -> …`). Design note first if it changes syntax.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
