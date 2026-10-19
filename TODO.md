@@ -77,6 +77,7 @@ Queued after the current lanes (user, 19 Oct):
   generalising the `Decidable` auto search; coherence, predictability,
   hashes, namespaces §8. After the current work, before days 6-9 (sort,
   maps, sets; would remove `sum`/`sumInt` duplication). User, 19 Oct.
+- Multi-file design note Draft 1 written ([multi-file.md](docs/proposals/multi-file.md)); awaiting user/independent review.
 - Compile-time `include "file" : Text` (contents part of the definition's
   hash, so the existing test cache covers input files; precedents Rust
   `include_str!`, Zig `@embedFile`, Lean `include_str`, Dhall integrity
