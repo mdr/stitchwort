@@ -52,6 +52,12 @@ values while checking; (d) glued values). Reviewed; the user accepted
 with fallback); the kernel `Let` value is lazy at check time (contained
 thunk, `run` stays strict); decide (b) after re-measuring.
 Queued after the current lanes (user, 19 Oct):
+- Model tiers (user, 19 Oct): Opus (design/kernel/proofs/review), Sonnet
+  (implementation), Haiku (very mechanical lanes; read-big-report-short),
+  local OpenCode (zero quota; mechanical; checker/gate as judge). Pull
+  `qwen3.6:27b` and compare with `qwen3-coder:30b` on the rename sweep;
+  Qwen3.8 27B needs Ollama 0.32.12+ (system has 0.30.7: the user is
+  investigating why the system nixpkgs is older than the flake's pin).
 - Rename sweep (OpenCode `worker`, local qwen3-coder, Claude reviews;
   after `checker-fixes` merges): `foldl`/`scanl`/`foldr` (and lemma names) to
   `foldLeft`/`scanLeft`/`foldRight`. `count` stays. `fst`/`snd` stay; no
