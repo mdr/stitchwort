@@ -1303,9 +1303,9 @@
     {
       "id": 89,
       "title": "Multi-file stage 1: implementation (projects, namespace lines, per-file imports)",
-      "status": "doing",
-      "agent": "Sonnet",
-      "where": "worktree lane, 9 gated steps from scratchpad/tasks/mf-stage1-spec.md",
+      "status": "review",
+      "agent": "Opus",
+      "where": "review subagent (read-only) + merge rehearsal in ~/scratch/mf-merge (branch mf-merge)",
       "labels": [
         "multi-file",
         "elab"
@@ -1313,7 +1313,17 @@
       "body": "Implement stage 1 of docs/proposals/multi-file.md (draft 4, §12 Stages). Needs a spec from Opus first; likely Sonnet implementation (judgement-heavy: scope.rs per-file imports, module.rs dependency discovery, hash tie-break by name with a both-orders test).\n\n19 Oct: Opus spec written (scratchpad/tasks/mf-stage1-spec.md, 9 steps: 1 hash ties by name; 2 ability row order; 3 namespace line; 4 one namespace over files, per-file imports; 5a project pre-pass; 5b checking in order; 6 stitchwort.yaml + serde-saphyr; 7 CLI; 8 JS). AoC conversion excluded. Matt accepted the spec's §11 proposals (test names unique per namespace; `def Aoc.f` in another namespace is E-FOREIGN-NAMESPACE; std abilities first then by name; E-FILE-MODE only inside a project; the smaller choices). Sonnet starts after the colon restyle (SW-24) merges.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
-      "commits": []
+      "commits": [
+        "6a71222",
+        "435c211",
+        "3b9f70f",
+        "389908f",
+        "d1ba978",
+        "08c0c12",
+        "cc22433",
+        "273819d",
+        "4e2e143"
+      ]
     },
     {
       "id": 90,
