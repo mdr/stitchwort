@@ -1485,9 +1485,9 @@
     {
       "id": 99,
       "title": "`calc` notation and a `rewrite` term for equational proofs",
-      "status": "review",
-      "agent": "Matt",
-      "where": "draft 2 (1cc6aa1) with Matt's external reviewer; decisions D32-D42",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "calc-design agent writing draft 3 from external review 1 (started 23:23)",
       "labels": [
         "proof",
         "syntax",
