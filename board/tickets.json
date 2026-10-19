@@ -39,9 +39,9 @@
     {
       "id": 3,
       "title": "Int stage 7: docs (DESIGN.md, syntax.md, core.md)",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "/Users/matt/scratch/opencode/funlang-20261019-210918",
       "labels": [
         "docs",
         "kernel"
