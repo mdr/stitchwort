@@ -52,15 +52,16 @@ values while checking; (d) glued values). Reviewed; the user accepted
 with fallback); the kernel `Let` value is lazy at check time (contained
 thunk, `run` stays strict); decide (b) after re-measuring.
 Queued after the current lanes (user, 19 Oct):
-- Model tiers (user, 19 Oct): Opus (design/kernel/proofs/review), Sonnet
-  (implementation), cheap tier via OpenCode Go ($10/mo, `opencode run
+- Model tiers (user, 19 Oct): Opus (design/analysis/review), Sonnet
+  (implementation needing judgement), DeepSeek V4.1 Flash (mechanical
+  coding; GLM-5.3-Flash fallback; Haiku mostly retired), via OpenCode Go ($10/mo, `opencode run
   --agent worker --model opencode-go/<id>` in an `opencode-scratch` clone;
   login with `opencode console login`). Rename sweep bake-off (identical,
   correct diffs): DeepSeek V4.1 Flash 1m28s (Go "Global" region on; likely
   China-hosted, ZDR renewed monthly), GLM-5.3-Flash 2m11s, local Qwen3.8
   27B 34m40s (too slow; local is fallback only), qwen3-coder:30b stalled.
-  Pending user: default cheap model; next test on a real implementation
-  task (string interpolation); OpenCode 2.0 (`opencode upgrade --major`)
+  Next: DeepSeek tries string interpolation from a precise spec. Later:
+  OpenCode 2.0 (`opencode upgrade --major`)
   vs nixpkgs 1.19.
 - Option (b) of checker-evaluation.md stays shelved: after the checker
   fixes, AoC days check in 0.11-0.28 s. `if` on a proposition stays partly
