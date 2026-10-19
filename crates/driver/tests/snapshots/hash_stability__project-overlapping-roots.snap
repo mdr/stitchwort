@@ -1,0 +1,7 @@
+---
+source: crates/driver/tests/hash_stability.rs
+expression: "lines(&session, d, f)"
+---
+Top.f 6f6ff7506d13f94c1d564de206e757ae17425fa7d27bcd13f28456b8aea4353b
+Top.test "f" a2ad8dea00d73587e3aefc032ced2dab86e015055b04972ce09b71244d729c21
+Inner.test "top" a2ad8dea00d73587e3aefc032ced2dab86e015055b04972ce09b71244d729c21

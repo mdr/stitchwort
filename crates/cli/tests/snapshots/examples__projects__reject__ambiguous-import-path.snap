@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-AMBIGUOUS] Error: `Cat` is ambiguous here: it could mean `A.Cat` or `B.Cat`
+   ╭─[ ambiguous-import-path/src/day.sw:5:8 ]
+   │
+ 5 │ import Cat (f)
+   │        ─┬─  
+   │         ╰─── `Cat` is ambiguous here: it could mean `A.Cat` or `B.Cat`
+   │ 
+   │ Note: write `A.Cat` or `B.Cat` in full, or drop one of the imports of `Cat`
+───╯

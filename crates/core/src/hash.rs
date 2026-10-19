@@ -14,7 +14,7 @@
 //! member changes every member's hash. The order is by each member's *shape*
 //! (its hash with every reference to a member replaced by one marker), so
 //! moving members around in the source doesn't change their hashes; members
-//! with the same shape are ordered as they were submitted. Only final groups
+//! with the same shape are ordered by full name. Only final groups
 //! are hashed, and the shapes are never stored.
 //!
 //! A group of data types declared together (two or more, by
@@ -161,8 +161,8 @@ fn group_hashes(g: &Globals, members: &[DefId]) -> Result<()> {
         h.term(&def.ty)?;
         h.term(body)
     };
-    // Every member's shape, then the canonical order: by shape, and as
-    // submitted where shapes are the same.
+    // Every member's shape, then the canonical order: by shape, and by full
+    // name where shapes are the same.
     let mut shapes = Vec::new();
     for &id in members {
         let mut h = Hasher::new(
@@ -177,7 +177,15 @@ fn group_hashes(g: &Globals, members: &[DefId]) -> Result<()> {
         shapes.push(h.finish().0);
     }
     let mut order: Vec<usize> = (0..members.len()).collect();
-    order.sort_by_key(|&m| (shapes[m], m));
+    order.sort_by(|&a, &b| {
+        shapes[a]
+            .cmp(&shapes[b])
+            .then_with(|| {
+                let (pa, pb) = (&g.def(members[a]).path, &g.def(members[b]).path);
+                (**pa).cmp(&**pb)
+            })
+            .then(a.cmp(&b))
+    });
     let mut h = Hasher::new(
         g,
         Itself::Group {

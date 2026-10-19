@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-AUTO-NONE] Error: no way to decide `Base.Token`
+   ╭─[ auto-unrelated/src/day.sw:7:20 ]
+   │
+ 7 │ def client: Nat := needsToken
+   │                    ─────┬────  
+   │                         ╰────── the compiler needs a proof of this
+   │ 
+   │ Note 1: supply a proof by name, or write a decision procedure: a function returning `Decidable …`
+   │ 
+   │ Note 2: `decU` is in `Another`, which `Day` doesn't use
+───╯

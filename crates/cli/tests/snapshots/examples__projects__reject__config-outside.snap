@@ -1,0 +1,6 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PROJECT-CONFIG] Error: `config-outside/stitchwort.yaml`: the source folder `..` is outside the project folder
+  note: source folders are relative to the folder holding `stitchwort.yaml`

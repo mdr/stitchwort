@@ -7,6 +7,7 @@ use std::path::PathBuf;
 use stitchwort_core::hash::{ContentHash, def_hash};
 use stitchwort_core::value::{eval, force};
 use stitchwort_core::{Globals, Limits, ResourceError, Term, Value};
+use stitchwort_elab::project::{FileModeContext, SourceUnit};
 use stitchwort_elab::{Elaborator, PRELUDE};
 use stitchwort_syntax::ast::Expr;
 use stitchwort_syntax::{
@@ -87,35 +88,137 @@ impl Session {
     /// Parses, elaborates and checks a file, and checks that its exports can
     /// cross the JS boundary.
     pub fn load(&mut self, name: &str, text: &str) -> Result<FileId, Vec<Diagnostic>> {
+        self.load_file(name, text, None)
+    }
+
+    /// [`Session::load`] for a file named on its own that lives inside a
+    /// project: with `context`, a use of one of the project's namespaces is
+    /// `E-FILE-MODE`, which says what to do instead.
+    pub fn load_file(
+        &mut self,
+        name: &str,
+        text: &str,
+        context: Option<FileModeContext>,
+    ) -> Result<FileId, Vec<Diagnostic>> {
         let file = self.sources.add(name, text);
         let module = parse_module_within(file, text, self.elab.limits.stack)?;
         let first_new_def = self.elab.globals.defs.len();
-        let mut diagnostics = self.elab.elaborate_module(&module);
-        let errors = |ds: &[Diagnostic]| ds.iter().any(|d| d.severity == Severity::Error);
-        if !errors(&diagnostics) {
-            let g = &self.elab.globals;
-            let _op = g
-                .budget
-                .operation(Limits::stack_only(self.elab.limits.stack));
-            for id in first_new_def..g.defs.len() {
-                let id = stitchwort_core::DefId(id);
-                if g.def(id).export
-                    && let Err(d) = stitchwort_js::exportable(g, id)
-                {
-                    diagnostics.push(d);
-                }
+        self.elab.file_mode = context;
+        let diagnostics = self.elab.elaborate_module(&module);
+        self.elab.file_mode = None;
+        self.finish_load(first_new_def, diagnostics)?;
+        Ok(file)
+    }
+
+    /// Loads several files of one namespace as one module: for tests, until
+    /// projects load (`docs/proposals/multi-file.md` §4.4). Each file is
+    /// `(name, text)`, and all must start with the same namespace line.
+    #[doc(hidden)]
+    pub fn load_namespace(&mut self, files: &[(&str, &str)]) -> Result<(), Vec<Diagnostic>> {
+        let mut sorted: Vec<(&str, &str)> = files.to_vec();
+        sorted.sort_by_key(|(name, _)| *name);
+        let ids: Vec<FileId> = sorted
+            .iter()
+            .map(|&(name, text)| self.sources.add(name, text))
+            .collect();
+        let mut modules = Vec::new();
+        let mut errors = Vec::new();
+        for (id, (_, text)) in ids.iter().zip(&sorted) {
+            match parse_module_within(*id, text, self.elab.limits.stack) {
+                Ok(module) => modules.push(module),
+                Err(parse_errors) => errors.extend(parse_errors),
             }
-            if !errors(&diagnostics)
-                && let Err(d) = stitchwort_js::exports_fit_together(g)
+        }
+        if !errors.is_empty() {
+            return Err(errors);
+        }
+        let internal = |message: &str| vec![Diagnostic::error("E-INTERNAL", message)];
+        let Some(first) = modules.first().and_then(|m| m.namespace.as_ref()) else {
+            return Err(internal("every file of a namespace needs a namespace line"));
+        };
+        let namespace = first.path.text.clone();
+        if modules
+            .iter()
+            .any(|m| m.namespace.as_ref().map(|n| &n.path.text) != Some(&namespace))
+        {
+            return Err(internal("the files must all be in the same namespace"));
+        }
+        if let Err(d) = self.elab.check_namespace_name(first) {
+            return Err(vec![d]);
+        }
+        let units: Vec<SourceUnit> = sorted
+            .iter()
+            .zip(&ids)
+            .zip(&modules)
+            .map(|(((name, _), id), module)| SourceUnit {
+                file: Some(*id),
+                name,
+                module,
+            })
+            .collect();
+        let first_new_def = self.elab.globals.defs.len();
+        let diagnostics = self
+            .elab
+            .elaborate_namespace(Some(&namespace), &units, None);
+        self.finish_load(first_new_def, diagnostics)
+    }
+
+    /// What `load` does once the elaborator is done: checks that the new
+    /// definitions' exports can cross the JS boundary, keeps the warnings,
+    /// and returns the errors if there are any.
+    fn finish_load(
+        &mut self,
+        first_new_def: usize,
+        mut diagnostics: Vec<Diagnostic>,
+    ) -> Result<(), Vec<Diagnostic>> {
+        self.check_exports(first_new_def, false, &mut diagnostics);
+        if diagnostics.iter().any(|d| d.severity == Severity::Error) {
+            Err(diagnostics)
+        } else {
+            self.warnings.extend(diagnostics);
+            Ok(())
+        }
+    }
+
+    /// If `diagnostics` has no errors, checks that the exports of the
+    /// definitions from `first_new_def` on can cross the JS boundary, and
+    /// can be named together: with every export of the session (a file), or
+    /// with only these (`among`: one namespace of a project).
+    pub(crate) fn check_exports(
+        &self,
+        first_new_def: usize,
+        among: bool,
+        diagnostics: &mut Vec<Diagnostic>,
+    ) {
+        let errors = |ds: &[Diagnostic]| ds.iter().any(|d| d.severity == Severity::Error);
+        if errors(diagnostics) {
+            return;
+        }
+        let g = &self.elab.globals;
+        let _op = g
+            .budget
+            .operation(Limits::stack_only(self.elab.limits.stack));
+        for id in first_new_def..g.defs.len() {
+            let id = stitchwort_core::DefId(id);
+            if g.def(id).export
+                && let Err(d) = stitchwort_js::exportable(g, id)
             {
                 diagnostics.push(d);
             }
         }
-        if errors(&diagnostics) {
-            Err(diagnostics)
+        if errors(diagnostics) {
+            return;
+        }
+        let fit = if among {
+            stitchwort_js::exports_fit_together_among(
+                g,
+                (first_new_def..g.defs.len()).map(stitchwort_core::DefId),
+            )
         } else {
-            self.warnings.extend(diagnostics);
-            Ok(file)
+            stitchwort_js::exports_fit_together(g)
+        };
+        if let Err(d) = fit {
+            diagnostics.push(d);
         }
     }
 
@@ -134,6 +237,24 @@ impl Session {
     /// Generates JavaScript for the exports loaded so far.
     pub fn extract(&self) -> Result<stitchwort_js::Output, Diagnostic> {
         stitchwort_js::generate(&self.elab.globals, self.elab.limits)
+    }
+
+    /// Generates JavaScript for the exports of namespace `namespace` of the
+    /// project loaded, and no others'.
+    pub fn extract_namespace(&self, namespace: &str) -> Result<stitchwort_js::Output, Diagnostic> {
+        let g = &self.elab.globals;
+        let ids: Vec<stitchwort_core::DefId> = self
+            .elab
+            .namespace_def_range(namespace)
+            .map(stitchwort_core::DefId)
+            .filter(|id| g.def(*id).export)
+            .collect();
+        stitchwort_js::generate_exports(
+            g,
+            self.elab.limits,
+            stitchwort_js::Options::default(),
+            &ids,
+        )
     }
 
     /// Generates the JavaScript program that runs `main` under Node
@@ -158,6 +279,8 @@ pub enum Outcome {
 
 pub struct TestResult {
     pub name: String,
+    /// The namespace its module is in; empty if it has none.
+    pub namespace: String,
     pub outcome: Outcome,
     /// Whether the outcome came from the cache, rather than running the test.
     pub cached: bool,
@@ -318,6 +441,7 @@ impl Session {
                     Err(e) => {
                         return TestResult {
                             name: test.name.clone(),
+                            namespace: test.namespace.clone(),
                             outcome: Outcome::OutOfResources(e),
                             cached: false,
                             hash: None,
@@ -327,6 +451,7 @@ impl Session {
                 if let Some(outcome) = cache.get(&hash, &modes) {
                     return TestResult {
                         name: test.name.clone(),
+                        namespace: test.namespace.clone(),
                         outcome,
                         cached: true,
                         hash: Some(hash),
@@ -345,6 +470,7 @@ impl Session {
                 cache.put(&hash, &modes, outcome);
                 TestResult {
                     name: test.name.clone(),
+                    namespace: test.namespace.clone(),
                     outcome,
                     cached: false,
                     hash: Some(hash),

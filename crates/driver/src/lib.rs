@@ -2,5 +2,6 @@
 //! shared by the `stitchwort` command and the browser playground.
 
 pub mod driver;
+pub mod project;
 pub mod render;
 pub mod run;

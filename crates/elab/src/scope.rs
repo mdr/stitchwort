@@ -71,10 +71,89 @@ pub struct Scope {
     followers: HashMap<String, Vec<String>>,
     /// Every proper prefix of a key: the namespaces.
     namespaces: HashSet<String>,
-    /// The current module's imports: short name to keys.
-    imports: HashMap<String, Vec<(String, Span)>>,
+    /// Each file of the current module's imports: short name to keys.
+    imports: Vec<HashMap<String, Vec<(String, Span)>>>,
+    /// The names of imports that failed with an error of their own, so the
+    /// uses of them aren't reported again as unknown.
+    pub(crate) import_failed: HashSet<String>,
     /// What `Std` declares at its root, and its aliases: short name to key.
     std_root: HashMap<String, String>,
+}
+
+/// What the first component of a qualified name means, in order
+/// (docs/proposals/multi-file.md §4.5, §4.6): `Std`; a short name (a local
+/// variable is the caller's business); a namespace of the module's own; a
+/// project namespace; a library namespace.
+pub(crate) enum Qualifier<S> {
+    Std,
+    Short(S),
+    Own,
+    Project,
+    Library,
+    Missing,
+}
+
+/// The tests [`qualifier`] makes, so that checking and the project
+/// analysis decide with one routine.
+pub(crate) trait QualifierLevels {
+    type Short;
+    /// Levels 2-4 (own declarations, this file's imports, the defaults),
+    /// without constructors or operations.
+    fn short(&self, first: &str) -> Option<Self::Short>;
+    fn own_namespace(&self, first: &str) -> bool;
+    fn project_namespace(&self, first: &str) -> bool;
+    fn library_namespace(&self, first: &str) -> bool;
+}
+
+pub(crate) fn qualifier<L: QualifierLevels>(levels: &L, first: &str) -> Qualifier<L::Short> {
+    if first == STD {
+        return Qualifier::Std;
+    }
+    if let Some(s) = levels.short(first) {
+        return Qualifier::Short(s);
+    }
+    if levels.own_namespace(first) {
+        return Qualifier::Own;
+    }
+    if levels.project_namespace(first) {
+        return Qualifier::Project;
+    }
+    if levels.library_namespace(first) {
+        return Qualifier::Library;
+    }
+    Qualifier::Missing
+}
+
+/// Checking's meaning of each test. The flag says whether an ambiguous short
+/// name counts as one (a name being resolved), or not (an import's path).
+struct CheckingLevels<'e>(&'e Elaborator, bool);
+
+impl<'e> QualifierLevels for CheckingLevels<'e> {
+    type Short = Resolved<'e>;
+
+    fn short(&self, first: &str) -> Option<Resolved<'e>> {
+        match self.0.resolve_short(first, false) {
+            Resolved::Missing => None,
+            Resolved::Ambiguous(_) if !self.1 => None,
+            found => Some(found),
+        }
+    }
+
+    fn own_namespace(&self, first: &str) -> bool {
+        let key = format!("{}{first}", self.0.root());
+        // A project namespace below this one is reached by its full name
+        // only (nesting is by name, not by scope): it isn't "own".
+        let nested = !self.0.root().is_empty() && self.0.project_prefixes.contains(&key);
+        !nested && self.0.scope.is_namespace(&key)
+    }
+
+    fn project_namespace(&self, first: &str) -> bool {
+        !self.0.loading_prelude && !self.0.root().is_empty() && self.0.scope.is_namespace(first)
+    }
+
+    fn library_namespace(&self, first: &str) -> bool {
+        self.0.scope.is_namespace(&format!("Std.{first}"))
+    }
 }
 
 /// `key`'s last component.
@@ -137,8 +216,14 @@ impl Scope {
         self.namespaces.contains(key)
     }
 
+    /// Whether `x` is a name at the library's root (or an alias of one).
+    pub(crate) fn is_std_root(&self, x: &str) -> bool {
+        self.std_root.contains_key(x)
+    }
+
     pub fn clear_imports(&mut self) {
         self.imports.clear();
+        self.import_failed.clear();
     }
 
     /// Every key, for suggestions.
@@ -149,9 +234,65 @@ impl Scope {
 
 impl Elaborator {
     /// The current module's root, as a key prefix: `Std.` for the prelude,
-    /// nothing for a program.
-    pub(crate) fn root(&self) -> &'static str {
-        if self.loading_prelude { "Std." } else { "" }
+    /// `Day05.` for a program in namespace `Day05`, nothing for a program
+    /// without a namespace line.
+    pub(crate) fn root(&self) -> &str {
+        if self.loading_prelude {
+            "Std."
+        } else {
+            &self.namespace_root
+        }
+    }
+
+    /// A data type's or definition's kernel name (its key, without `Std.`)
+    /// as it's written in this module: without the module's root. For source
+    /// the elaborator generates itself, which is read like the program's.
+    pub(crate) fn relative_to_root(&self, name: &str) -> String {
+        if self.loading_prelude {
+            name.to_string()
+        } else {
+            name.strip_prefix(self.root()).unwrap_or(name).to_string()
+        }
+    }
+
+    /// The namespace of the module last elaborated (its root without the
+    /// trailing `.`), if it has one.
+    pub fn current_namespace(&self) -> Option<&str> {
+        self.root().strip_suffix('.')
+    }
+
+    /// Whether a file's namespace line may be used: not the library's, and
+    /// not starting with the name of one of the library's namespaces.
+    pub fn check_namespace_name(&self, decl: &ast::NamespaceDecl) -> Result<()> {
+        let first = decl.path.text.split('.').next().unwrap_or("");
+        if first == STD {
+            return Err(Diagnostic::error(
+                "E-STD-NAMESPACE",
+                "`Std` is the standard library's namespace, which a program can't add to",
+            )
+            .with_label(decl.path.span, "`Std` always means the standard library")
+            .with_note("choose another name for this file's namespace"));
+        }
+        if first == "Main" {
+            return Err(Diagnostic::error(
+                "E-NAMESPACE-RESERVED",
+                "`Main` is the name of a file without a namespace line",
+            )
+            .with_label(decl.path.span, "`Main` is reserved")
+            .with_note("choose another name for this file's namespace"));
+        }
+        let std = format!("Std.{first}");
+        if self.scope.get(&std).is_some() || self.scope.is_namespace(&std) {
+            return Err(Diagnostic::error(
+                "E-NAMESPACE-RESERVED",
+                format!("`{first}` is a namespace of the standard library"),
+            )
+            .with_label(decl.path.span, format!("`{first}.…` always means the library's"))
+            .with_note(
+                "choose another name: a program's namespace can't start with the name of one of the library's",
+            ));
+        }
+        Ok(())
     }
 
     /// What a written name means, apart from local variables (the caller's).
@@ -160,24 +301,14 @@ impl Elaborator {
             return self.resolve_short(written, true);
         };
         let rest: Vec<&str> = after.split('.').collect();
-        let base: String = if first == STD {
-            STD.to_string()
-        } else {
-            match self.resolve_short(first, false) {
-                Resolved::Found { key, .. } => key.to_string(),
-                Resolved::Ambiguous(keys) => return Resolved::Ambiguous(keys),
-                Resolved::Missing => {
-                    let own = format!("{}{first}", self.root());
-                    let std = format!("Std.{first}");
-                    if self.scope.is_namespace(&own) {
-                        own
-                    } else if self.scope.is_namespace(&std) {
-                        std
-                    } else {
-                        return Resolved::Missing;
-                    }
-                }
-            }
+        let base: String = match qualifier(&CheckingLevels(self, true), first) {
+            Qualifier::Std => STD.to_string(),
+            Qualifier::Short(Resolved::Found { key, .. }) => key.to_string(),
+            Qualifier::Short(Resolved::Ambiguous(keys)) => return Resolved::Ambiguous(keys),
+            Qualifier::Short(Resolved::Missing) | Qualifier::Missing => return Resolved::Missing,
+            Qualifier::Own => format!("{}{first}", self.root()),
+            Qualifier::Project => first.to_string(),
+            Qualifier::Library => format!("Std.{first}"),
         };
         // The longest prefix that names a declaration.
         for k in (0..rest.len()).rev() {
@@ -282,8 +413,13 @@ impl Elaborator {
                     if let Some((key, ..)) = self.scope.entry(x) {
                         found(key);
                     }
-                } else if let Some(key) = self.scope.std_root.get(x)
+                } else if self.loading_prelude
+                    && let Some(key) = self.scope.std_root.get(x)
                     && key.strip_prefix("Std.") == Some(x)
+                {
+                    found(key);
+                } else if !self.loading_prelude
+                    && let Some((key, ..)) = self.scope.entry(&format!("{root}{x}"))
                 {
                     found(key);
                 }
@@ -295,15 +431,14 @@ impl Elaborator {
                 }
             }
             Level::Import => {
-                for (key, _) in self.scope.imports.get(x).into_iter().flatten() {
+                let imports = self.scope.imports.get(self.current_file());
+                for (key, _) in imports.and_then(|t| t.get(x)).into_iter().flatten() {
                     found(key);
                 }
                 for key in followed() {
                     let owner = parent(key).unwrap_or("");
-                    let imported = self
-                        .scope
-                        .imports
-                        .get(short(owner))
+                    let imported = imports
+                        .and_then(|t| t.get(short(owner)))
                         .is_some_and(|v| v.iter().any(|(k, _)| k == owner));
                     if imported && self.visible_as(owner) {
                         found(key);
@@ -371,6 +506,60 @@ impl Elaborator {
                 return Ok(written.clone());
             }
             return Err(refuse(STD));
+        }
+        // In a namespace, a declaration can't go in another's
+        // (docs/proposals/multi-file.md §4.8, §11 P8), nor use its own
+        // namespace's name as a qualifier.
+        if !self.loading_prelude && !root.is_empty() {
+            let ns = self.current_namespace().unwrap_or("");
+            match self.resolve_short(first, false) {
+                Resolved::Found { key, .. }
+                    if !key.starts_with(root) && !key.starts_with("Std.") =>
+                {
+                    let owner = self
+                        .project_namespaces
+                        .iter()
+                        .filter(|q| key.starts_with(&format!("{q}.")))
+                        .max_by_key(|q| q.len())
+                        .map(String::as_str)
+                        .or_else(|| parent(key))
+                        .unwrap_or(key);
+                    return Err(Diagnostic::error(
+                        "E-FOREIGN-NAMESPACE",
+                        format!("`{first}` belongs to namespace {owner}, and {ns} can't add to it"),
+                    )
+                    .with_label(name.span, format!("`{first}` here means `{key}`"))
+                    .with_note(format!(
+                        "name it in {ns} without the `{first}.` prefix, e.g. `{}`",
+                        short(written)
+                    )));
+                }
+                Resolved::Missing
+                    if self.project_prefixes.contains(first)
+                        || ns == first
+                        || ns.starts_with(&format!("{first}.")) =>
+                {
+                    return Err(Diagnostic::error(
+                        "E-FOREIGN-NAMESPACE",
+                        format!(
+                            "`{first}` is a namespace {}, and {ns} can't add to it",
+                            if self.project_prefixes.contains(first) {
+                                "of the project"
+                            } else {
+                                "of this file"
+                            }
+                        ),
+                    )
+                    .with_label(
+                        name.span,
+                        format!("`{first}` here means the namespace `{first}`"),
+                    )
+                    .with_note(format!(
+                        "declarations go in the file's own namespace: write `{rest}`"
+                    )));
+                }
+                _ => {}
+            }
         }
         // A library namespace is always available as a qualifier (§4.6), so
         // `Text.foo` means the library's `Text`, even without a type `Text`.
@@ -475,6 +664,12 @@ impl Elaborator {
     /// `E-UNKNOWN-NAME`, with the library's declarations of that short name
     /// as suggestions.
     pub(crate) fn unknown(&self, name: &ast::Name) -> Diagnostic {
+        if let Some(context) = &self.file_mode
+            && name.text.contains('.')
+            && let Some(d) = context.diagnostic(&name.text, name.span)
+        {
+            return d;
+        }
         let mut d = Diagnostic::error("E-UNKNOWN-NAME", format!("unknown name `{}`", name.text))
             .with_label(name.span, "not in scope");
         if !name.text.contains('.') {
@@ -512,9 +707,52 @@ impl Elaborator {
         diagnostics: &mut Vec<Diagnostic>,
     ) {
         for import in imports {
+            // In a project, an ambiguous first component is an error: the
+            // pre-pass, which can't tell, counts every imported name as short.
+            if !self.project_namespaces.is_empty()
+                && !self.loading_prelude
+                && import.path.text != STD
+            {
+                let first = import.path.text.split('.').next().unwrap_or_default();
+                if let Resolved::Ambiguous(keys) = self.resolve_short(first, false) {
+                    if own {
+                        let shown: Vec<String> = keys
+                            .iter()
+                            .map(|k| format!("`{}`", self.written(k)))
+                            .collect();
+                        diagnostics.push(
+                            error(
+                                "E-AMBIGUOUS",
+                                import.path.span,
+                                format!(
+                                    "`{first}` is ambiguous here: it could mean {}",
+                                    or_list(&shown)
+                                ),
+                            )
+                            .with_note(format!(
+                                "write {} in full, or drop one of the imports of `{first}`",
+                                or_list(&shown)
+                            )),
+                        );
+                    }
+                    self.scope
+                        .import_failed
+                        .extend(import.items.iter().map(|i| i.text.clone()));
+                    continue;
+                }
+            }
             let namespace = match self.import_namespace(&import.path) {
                 Some(namespace) => namespace,
                 None if own => {
+                    if let Some(context) = &self.file_mode
+                        && let Some(d) = context.diagnostic(&import.path.text, import.path.span)
+                    {
+                        diagnostics.push(d);
+                        self.scope
+                            .import_failed
+                            .extend(import.items.iter().map(|i| i.text.clone()));
+                        continue;
+                    }
                     diagnostics.push(
                         error(
                             "E-IMPORT-UNKNOWN",
@@ -547,24 +785,33 @@ impl Elaborator {
                     ..
                 } = self.resolve_short(&item.text, true)
                 {
+                    let message = match self.current_namespace() {
+                        Some(namespace) if span.file != item.span.file => format!(
+                            "`{}` is imported, but `{}` is also defined in another file of namespace {namespace}",
+                            item.text, item.text
+                        ),
+                        _ => format!(
+                            "`{}` is imported, but this file also defines `{}`",
+                            item.text, item.text
+                        ),
+                    };
                     diagnostics.push(
-                        error(
-                            "E-IMPORT-CLASH",
-                            item.span,
-                            format!(
-                                "`{}` is imported, but this file also defines `{}`",
-                                item.text, item.text
-                            ),
-                        )
-                        .with_label(span, "defined here, which would hide the import")
-                        .with_note(format!(
-                            "remove the import, and write `{}` where you mean that one",
-                            display(&key)
-                        )),
+                        error("E-IMPORT-CLASH", item.span, message)
+                            .with_label(span, "defined here, which would hide the import")
+                            .with_note(format!(
+                                "remove the import, and write `{}` where you mean that one",
+                                display(&key)
+                            )),
                     );
                     continue;
                 }
-                let entry = self.scope.imports.entry(item.text.clone()).or_default();
+                let file = self.current_file();
+                if self.scope.imports.len() <= file {
+                    self.scope.imports.resize_with(file + 1, HashMap::new);
+                }
+                let entry = self.scope.imports[file]
+                    .entry(item.text.clone())
+                    .or_default();
                 if entry.iter().any(|(k, _)| *k == key) {
                     diagnostics.push(
                         Diagnostic::warning(
@@ -589,23 +836,15 @@ impl Elaborator {
             Some((f, r)) => (f, Some(r)),
             None => (path.text.as_str(), None),
         };
-        let base = if first == STD {
-            STD.to_string()
-        } else {
-            match self.resolve_short(first, false) {
-                Resolved::Found { key, .. } => key.to_string(),
-                _ => {
-                    let own = format!("{}{first}", self.root());
-                    let std = format!("Std.{first}");
-                    if self.scope.is_namespace(&own) {
-                        own
-                    } else if self.scope.is_namespace(&std) {
-                        std
-                    } else {
-                        return None;
-                    }
-                }
-            }
+        // An ambiguous first component doesn't stop an import path from
+        // being a namespace.
+        let base = match qualifier(&CheckingLevels(self, false), first) {
+            Qualifier::Std => STD.to_string(),
+            Qualifier::Short(Resolved::Found { key, .. }) => key.to_string(),
+            Qualifier::Short(_) | Qualifier::Missing => return None,
+            Qualifier::Own => format!("{}{first}", self.root()),
+            Qualifier::Project => first.to_string(),
+            Qualifier::Library => format!("Std.{first}"),
         };
         let namespace = match rest {
             Some(rest) => format!("{base}.{rest}"),
@@ -653,7 +892,7 @@ fn or_list(items: &[String]) -> String {
     }
 }
 
-pub(crate) fn edit_distance(a: &str, b: &str) -> usize {
+pub fn edit_distance(a: &str, b: &str) -> usize {
     let b: Vec<char> = b.chars().collect();
     let mut row: Vec<usize> = (0..=b.len()).collect();
     for (i, ca) in a.chars().enumerate() {

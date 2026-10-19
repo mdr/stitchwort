@@ -183,11 +183,11 @@ pub fn decide(cx: &mut Ctx, prop: &Value, depth: usize) -> Result<Term> {
         },
         _ => error,
     };
-    Err(cx
-        .e
-        .auto_hints()
-        .into_iter()
-        .fold(error, Diagnostic::with_note))
+    let error =
+        cx.e.auto_hints()
+            .into_iter()
+            .fold(error, Diagnostic::with_note);
+    Err(unrelated_hints(cx, error, decidable, prop, depth)?)
 }
 
 /// Runs `f`, undoing what it did unless it succeeds (`undo.rs`).
@@ -212,11 +212,35 @@ fn decidable(cx: &Ctx) -> Result<DataId> {
     builtin_data(cx, Builtin::Decidable)
 }
 
-/// Definitions whose result type is `Decidable …`, most recent first.
+/// Definitions whose result type is `Decidable …`, in the order `auto` tries
+/// them. In file mode, every definition, most recent first. In a project
+/// (docs/proposals/multi-file.md §4.9.5): this module's, most recent first;
+/// then each namespace it depends on, the last in canonical order first, by
+/// name within it; then the prelude's, most recent first. No other
+/// namespace's.
 fn decision_procedures(cx: &Ctx, decidable: DataId) -> Result<Vec<DefId>> {
     let g = cx.g();
+    let candidates: Vec<DefId> = match &cx.e.module.closure {
+        None => (0..g.defs.len()).rev().map(DefId).collect(),
+        Some(closure) => {
+            let mut all: Vec<DefId> = (cx.e.module.first_def..g.defs.len())
+                .rev()
+                .map(DefId)
+                .collect();
+            for namespace in closure.iter().rev() {
+                let Some(range) = cx.e.namespace_defs.get(namespace) else {
+                    continue;
+                };
+                let mut ids: Vec<DefId> = range.clone().map(DefId).collect();
+                ids.sort_by(|a, b| g.def(*a).path.cmp(&g.def(*b).path));
+                all.extend(ids);
+            }
+            all.extend((0..cx.e.prelude_defs).rev().map(DefId));
+            all
+        }
+    };
     let mut found = Vec::new();
-    for id in (0..g.defs.len()).rev().map(DefId) {
+    for id in candidates {
         if !cx.e.auto_eligible(id) {
             continue; // not checked yet, or below the use
         }
@@ -225,6 +249,60 @@ fn decision_procedures(cx: &Ctx, decidable: DataId) -> Result<Vec<DefId>> {
         }
     }
     Ok(found)
+}
+
+/// In a project, what the error says about decision procedures in
+/// namespaces that were checked but that this one doesn't use: they'd
+/// fit, but `auto` won't look there. At most three.
+fn unrelated_hints(
+    cx: &mut Ctx,
+    error: Diagnostic,
+    decidable: DataId,
+    prop: &Value,
+    depth: usize,
+) -> Result<Diagnostic> {
+    let Some(closure) = cx.e.module.closure.clone() else {
+        return Ok(error);
+    };
+    let current = cx.e.module.namespace.clone().unwrap_or_default();
+    let mut error = error;
+    let mut hints = 0;
+    let namespaces: Vec<(String, std::ops::Range<usize>)> =
+        cx.e.namespace_defs
+            .iter()
+            .filter(|(name, _)| **name != current && !closure.contains(name))
+            .map(|(name, range)| (name.clone(), range.clone()))
+            .collect();
+    for (namespace, range) in namespaces {
+        let mut ids: Vec<DefId> = range.map(DefId).collect();
+        ids.sort_by(|a, b| cx.g().def(*a).path.cmp(&cx.g().def(*b).path));
+        for id in ids {
+            if hints == 3 {
+                return Ok(error);
+            }
+            if cx.g().def(id).body.is_none() || result_head(cx, id)? != Some(decidable) {
+                continue;
+            }
+            let mut fits = false;
+            attempt(cx, |cx| {
+                let mut reasons = Vec::new();
+                fits = instantiate(cx, id, decidable, prop, depth, &mut reasons)?.is_some();
+                Ok(None::<()>)
+            })?;
+            if fits {
+                let name = cx.g().def(id).name.to_string();
+                let short = name
+                    .strip_prefix(&format!("{namespace}."))
+                    .unwrap_or(&name)
+                    .to_string();
+                error = error.with_note(format!(
+                    "`{short}` is in `{namespace}`, which `{current}` doesn't use"
+                ));
+                hints += 1;
+            }
+        }
+    }
+    Ok(error)
 }
 
 /// The data type that definition `id`'s result type is, after all its

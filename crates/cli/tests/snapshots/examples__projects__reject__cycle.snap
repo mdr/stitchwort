@@ -1,0 +1,25 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-NAMESPACE-CYCLE] Error: these namespaces use each other: A → B → C → A
+   ╭─[ cycle/src/a.sw:4:15 ]
+   │
+ 4 │ def x: Nat := B.x
+   │               ─┬─  
+   │                ╰─── `A` uses `B` here
+   │
+   ├─[ cycle/src/b.sw:4:15 ]
+   │
+ 4 │ def x: Nat := C.x
+   │               ─┬─  
+   │                ╰─── `B` uses `C` here
+   │
+   ├─[ cycle/src/c.sw:4:15 ]
+   │
+ 4 │ def x: Nat := A.x
+   │               ─┬─  
+   │                ╰─── `C` uses `A` here
+   │ 
+   │ Note: put what both need into one namespace, or into a third that both use
+───╯

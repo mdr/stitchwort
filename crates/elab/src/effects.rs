@@ -45,10 +45,10 @@ pub struct AbilityInfo {
     pub elim: DefId,
     /// Operation names, in constructor order.
     pub ops: Vec<String>,
-    /// Where it's declared: the module (counting from the prelude) and its
-    /// position there. Rows list abilities in this order, which is the
-    /// source's, whatever order the declarations were checked in.
-    pub order: (usize, usize),
+    /// Where it sorts in a row: the library's first, then by full logical
+    /// name (`Std.IO`, `Main.Counter`, `Day05.Log`). Rows list abilities in
+    /// this order, which depends only on names.
+    pub order: (bool, String),
 }
 
 /// A row: abilities (each at most once), then a tail, and whether it's
@@ -829,7 +829,11 @@ pub fn effect_type(
         }
         labels.push(label);
     }
-    labels.sort_by_key(|l| cx.e.abilities[l.ability].order);
+    labels.sort_by(|a, b| {
+        cx.e.abilities[a.ability]
+            .order
+            .cmp(&cx.e.abilities[b.ability].order)
+    });
     let tail = match &row.tail {
         None => None,
         Some(name) => {

@@ -22,8 +22,10 @@ mod numbers;
 mod partial;
 mod patlet;
 mod pipe;
+pub mod project;
 mod records;
 mod scope;
+pub use scope::edit_distance;
 mod undo;
 mod unify;
 
@@ -77,6 +79,9 @@ enum Global {
 /// A `test "name" = expr` declaration, checked as a definition of type `Bool`.
 pub struct TestDecl {
     pub name: String,
+    /// The namespace of the module that declares it; empty if the module
+    /// has none.
+    pub namespace: String,
     pub def: DefId,
     pub span: Span,
 }
@@ -87,6 +92,22 @@ pub struct Elaborator {
     pub tests: Vec<TestDecl>,
     /// Every declaration, by its full name (`scope.rs`).
     scope: scope::Scope,
+    /// The current module's key prefix: `Day05.` in namespace `Day05`, empty
+    /// for a file without a namespace line. Kept after the module is
+    /// elaborated, so names typed in afterwards (`eval`, the REPL, `main`)
+    /// are read as in the file.
+    namespace_root: String,
+    /// The project's namespaces (`project::set_project_namespaces`).
+    project_namespaces: BTreeSet<String>,
+    /// Every prefix of a project namespace's name, the namespace included.
+    project_prefixes: BTreeSet<String>,
+    /// In a project: the definitions each namespace checked so far made.
+    namespace_defs: BTreeMap<String, std::ops::Range<usize>>,
+    /// How many definitions the prelude made.
+    prelude_defs: usize,
+    /// While a single file from inside a project is loaded: what to say
+    /// when it uses the project (`E-FILE-MODE`).
+    pub file_mode: Option<project::FileModeContext>,
     /// Auto arguments still to be proved in the current declaration.
     obligations: RefCell<Vec<auto::Obligation>>,
     /// Metavariables that literals made `Nat` in the current declaration.
@@ -124,8 +145,6 @@ pub struct Elaborator {
     /// `check::decide_to_bool`, as the condition's proposition reading does
     /// that its own way.
     condition: std::cell::Cell<usize>,
-    /// How many modules have been elaborated (the prelude is the first).
-    modules: usize,
     /// While the members of a partial recursive group are described: their
     /// private recursion signature (`partial.rs`).
     recursion: Option<effects::Recursion>,
@@ -294,11 +313,54 @@ impl Elaborator {
             .map_err(|d| self.locate(d, expr.span()))
     }
 
+    /// The definition with key `key` (its full name), if there is one.
+    pub fn lookup_def(&self, key: &str) -> Option<DefId> {
+        match self.scope.get(key) {
+            Some((Global::Def(id), _)) => Some(id),
+            _ => None,
+        }
+    }
+
+    /// The definitions checked as part of namespace `namespace` of the
+    /// project, as indices into `globals.defs`; empty if it wasn't checked.
+    pub fn namespace_def_range(&self, namespace: &str) -> std::ops::Range<usize> {
+        self.namespace_defs.get(namespace).cloned().unwrap_or(0..0)
+    }
+
+    /// Whether anything at all has key `key`.
+    pub fn has_key(&self, key: &str) -> bool {
+        self.scope.get(key).is_some()
+    }
+
+    /// The keys of the definitions whose keys start with `prefix`, sorted.
+    pub fn def_keys_under(&self, prefix: &str) -> Vec<String> {
+        let mut keys: Vec<String> = self
+            .scope
+            .keys()
+            .filter(|k| k.starts_with(prefix))
+            .filter(|k| matches!(self.scope.get(k), Some((Global::Def(_), _))))
+            .cloned()
+            .collect();
+        keys.sort();
+        keys
+    }
+
+    /// Forgets the module's namespace and imports, so names typed in
+    /// afterwards (the `run` call, `eval`) see no namespace and no imports,
+    /// and reach a project's names only qualified
+    /// (docs/proposals/multi-file.md §9.1).
+    pub fn leave_namespace(&mut self) {
+        self.namespace_root = String::new();
+        self.scope.clear_imports();
+        self.module = module::ModuleState::default();
+    }
+
     /// Ends loading the prelude: every built-in must be bound by now.
     pub fn finish_prelude(&mut self) -> Result<()> {
         self.loading_prelude = false;
         // The prelude's imports are its own.
         self.scope.clear_imports();
+        self.prelude_defs = self.globals.defs.len();
         registry::check_complete(&self.globals)
     }
 
@@ -438,7 +500,14 @@ impl Elaborator {
 
     fn test(&mut self, name: &str, expr: &Expr, span: Span) -> Result<()> {
         self.module.phase = Phase::Body;
-        if let Some(earlier) = self.tests.iter().find(|t| t.name == name) {
+        // A test's name is unique in its namespace in a project, and in the
+        // session for a file.
+        let from = if self.module.closure.is_some() {
+            self.module.first_test
+        } else {
+            0
+        };
+        if let Some(earlier) = self.tests[from..].iter().find(|t| t.name == name) {
             return Err(error(
                 "E-DUPLICATE",
                 span,
@@ -453,7 +522,12 @@ impl Elaborator {
                 "tests need the prelude's `Bool`",
             ));
         };
-        let label: Name = format!("test \"{name}\"").into();
+        let label: Name = if self.loading_prelude {
+            format!("test \"{name}\"")
+        } else {
+            format!("{}test \"{name}\"", self.root())
+        }
+        .into();
         self.local_helpers.clear();
         self.preadmitted.borrow_mut().clear();
         let shown = ast::Name {
@@ -476,6 +550,7 @@ impl Elaborator {
         kernel::define_def(&mut self.globals, id, &body)?;
         self.tests.push(TestDecl {
             name: name.to_string(),
+            namespace: self.module.namespace.clone().unwrap_or_default(),
             def: id,
             span,
         });
@@ -767,10 +842,10 @@ impl Elaborator {
             elim,
             ops: sigs.iter().map(|(op, ..)| op.text.clone()).collect(),
             order: (
-                self.modules,
-                self.module
-                    .item
-                    .map_or(0, |i| self.module.items[i].position),
+                !ability_key.starts_with("Std."),
+                self.globals
+                    .path(&scope::display(&ability_key).into())
+                    .to_string(),
             ),
         });
         self.scope

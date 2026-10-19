@@ -1,0 +1,19 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-IMPORT-CLASH] Error: `map` is imported, but `map` is also defined in another file of namespace N
+   ╭─[ import-clash/src/a.sw:4:14 ]
+   │
+ 4 │ import List (map)
+   │              ─┬─  
+   │               ╰─── `map` is imported, but `map` is also defined in another file of namespace N
+   │
+   ├─[ import-clash/src/b.sw:4:5 ]
+   │
+ 4 │ def map: Nat := 2
+   │     ─┬─  
+   │      ╰─── defined here, which would hide the import
+   │ 
+   │ Note: remove the import, and write `List.map` where you mean that one
+───╯

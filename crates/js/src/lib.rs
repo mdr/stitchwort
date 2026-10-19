@@ -480,8 +480,16 @@ fn check_names(g: &Globals, exports: &[ExportSig]) -> Result<Vec<DataId>, Diagno
 /// Checks that the exports loaded so far can be named in JS and TypeScript
 /// together: [`exportable`] checks each on its own.
 pub fn exports_fit_together(g: &Globals) -> Result<(), Diagnostic> {
-    let exports = (0..g.defs.len())
-        .map(DefId)
+    exports_fit_together_among(g, (0..g.defs.len()).map(DefId))
+}
+
+/// [`exports_fit_together`] for the exports among `ids` only: one
+/// namespace's.
+pub fn exports_fit_together_among(
+    g: &Globals,
+    ids: impl Iterator<Item = DefId>,
+) -> Result<(), Diagnostic> {
+    let exports = ids
         .filter(|id| g.def(*id).export)
         .map(|id| exportable(g, id))
         .collect::<Result<Vec<_>, _>>()?;
@@ -494,11 +502,24 @@ pub fn generate(g: &Globals, limits: Limits) -> Result<Output, Diagnostic> {
 
 /// [`generate`], with the given representation options.
 pub fn generate_with(g: &Globals, limits: Limits, options: Options) -> Result<Output, Diagnostic> {
-    let _op = g.budget.operation(Limits::stack_only(limits.stack));
-    let exports = (0..g.defs.len())
+    let ids: Vec<DefId> = (0..g.defs.len())
         .map(DefId)
         .filter(|id| g.def(*id).export)
-        .map(|id| exportable(g, id))
+        .collect();
+    generate_exports(g, limits, options, &ids)
+}
+
+/// [`generate_with`] for the exports `ids` only: one namespace's.
+pub fn generate_exports(
+    g: &Globals,
+    limits: Limits,
+    options: Options,
+    ids: &[DefId],
+) -> Result<Output, Diagnostic> {
+    let _op = g.budget.operation(Limits::stack_only(limits.stack));
+    let exports = ids
+        .iter()
+        .map(|id| exportable(g, *id))
         .collect::<Result<Vec<_>, _>>()?;
 
     let boundary_datas = check_names(g, &exports)?;

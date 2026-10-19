@@ -11,6 +11,8 @@ stitchwort-core.workspace = true
 stitchwort-elab.workspace = true
 stitchwort-js.workspace = true
 ariadne.workspace = true
+serde.workspace = true
+serde-saphyr.workspace = true
 
 [build-dependencies]
 blake3.workspace = true

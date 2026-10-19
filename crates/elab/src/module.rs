@@ -39,8 +39,9 @@ use stitchwort_core::DefId;
 use stitchwort_core::check as kernel;
 use stitchwort_core::registry::Builtin;
 use stitchwort_syntax::ast::{self, Clause, Decl, Expr, Module, Pattern};
-use stitchwort_syntax::{Diagnostic, Severity, Span};
+use stitchwort_syntax::{Diagnostic, FileId, Severity, Span};
 
+use crate::project::SourceUnit;
 use crate::{Elaborator, Global, RESERVED, error};
 
 /// What a declaration of the module is.
@@ -96,6 +97,9 @@ pub(crate) struct ItemInfo {
     pub span: Span,
     /// The index of its first declaration in the module.
     pub position: usize,
+    /// Which of the module's files it's in (an index into
+    /// [`ModuleState::files`]).
+    pub file: usize,
     pub kind: Kind,
     /// `type Name = …`, which may not be recursive (`E-SYNONYM-CYCLE`).
     pub synonym: bool,
@@ -108,10 +112,30 @@ pub(crate) struct ItemInfo {
     pub decides: bool,
 }
 
+/// One file of the module being elaborated.
+pub(crate) struct FileInfo {
+    pub id: Option<FileId>,
+    /// Its display name, for messages.
+    pub name: String,
+}
+
 /// The module being elaborated, and what's being checked in it.
 #[derive(Default)]
 pub(crate) struct ModuleState {
     pub items: Vec<ItemInfo>,
+    /// The module's files, sorted by display name.
+    pub files: Vec<FileInfo>,
+    /// The file whose imports name lookup uses while no item is being
+    /// elaborated (registering names, the dependency pre-pass).
+    pub file: Option<usize>,
+    /// The module's namespace, if it has one.
+    pub namespace: Option<String>,
+    /// In a project: the namespaces this one depends on, in canonical order.
+    /// `None` in file mode.
+    pub closure: Option<Vec<String>>,
+    /// The first definition and test the module declares.
+    pub first_def: usize,
+    pub first_test: usize,
     /// The items of the component being checked.
     pub current: Vec<usize>,
     /// The item being elaborated.
@@ -138,9 +162,37 @@ struct Item<'m> {
 }
 
 impl Elaborator {
-    /// Elaborates and checks every declaration, continuing past errors.
-    /// Declarations may refer to each other in any order.
+    /// Elaborates and checks every declaration of one file, continuing past
+    /// errors. Declarations may refer to each other in any order.
     pub fn elaborate_module(&mut self, module: &Module) -> Vec<Diagnostic> {
+        let namespace = match &module.namespace {
+            Some(decl) if !self.loading_prelude => {
+                if let Err(d) = self.check_namespace_name(decl) {
+                    return vec![d];
+                }
+                Some(decl.path.text.as_str())
+            }
+            _ => None,
+        };
+        let unit = SourceUnit {
+            file: None,
+            name: "",
+            module,
+        };
+        self.elaborate_namespace(namespace, &[unit], None)
+    }
+
+    /// Elaborates the files of namespace `namespace` as one module
+    /// (docs/proposals/multi-file.md §4.4). `files` must be sorted by
+    /// display name and all have `namespace` as their namespace line.
+    /// `closure` is `None` in file mode; in a project, the namespaces this
+    /// one depends on, in canonical order.
+    pub fn elaborate_namespace(
+        &mut self,
+        namespace: Option<&str>,
+        files: &[SourceUnit],
+        closure: Option<&[String]>,
+    ) -> Vec<Diagnostic> {
         // User code is elaborated only once every built-in is bound
         // (docs/proposals/namespaces.md §4.7).
         if !self.loading_prelude
@@ -148,13 +200,34 @@ impl Elaborator {
         {
             return vec![d];
         }
+        match namespace {
+            Some(ns) if !self.loading_prelude => {
+                self.namespace_root = format!("{ns}.");
+                self.globals.module = "".into();
+            }
+            _ => {
+                self.namespace_root = String::new();
+                self.globals.module = if self.loading_prelude { "Std" } else { "Main" }.into();
+            }
+        }
         let mut diagnostics: Vec<(usize, Diagnostic)> = Vec::new();
         let first_test = self.tests.len();
-        self.module = ModuleState::default();
-        self.modules += 1;
-        self.globals.module = if self.loading_prelude { "Std" } else { "Main" }.into();
+        self.module = ModuleState {
+            files: files
+                .iter()
+                .map(|f| FileInfo {
+                    id: f.file,
+                    name: f.name.to_string(),
+                })
+                .collect(),
+            namespace: namespace.map(str::to_string),
+            closure: closure.map(<[String]>::to_vec),
+            first_def: self.globals.defs.len(),
+            first_test,
+            ..ModuleState::default()
+        };
         self.scope.clear_imports();
-        let items = self.collect(module, &mut diagnostics);
+        let (items, decl_spans) = self.collect(files, &mut diagnostics);
         self.dependencies(&items);
         let order = self.components();
 
@@ -188,7 +261,7 @@ impl Elaborator {
                 // only as precisely as the declaration.
                 for (position, d) in &mut diagnostics[before..] {
                     if d.labels.is_empty() {
-                        let span = module.decls[*position].span();
+                        let span = decl_spans[*position];
                         *d = d.clone().with_label(span, "while checking this");
                     }
                 }
@@ -198,17 +271,43 @@ impl Elaborator {
         self.module.current.clear();
         self.module.item = None;
         self.module.phase = Phase::Body;
+        if let (Some(ns), Some(_)) = (namespace, closure) {
+            self.namespace_defs.insert(
+                ns.to_string(),
+                self.module.first_def..self.globals.defs.len(),
+            );
+        }
         // Names that were never checked now just name failures.
         for (global, _) in self.scope.entries.values_mut() {
             if let Global::Unchecked(_) = global {
                 *global = Global::Failed;
             }
         }
-        // Tests run in source order, whatever order they were checked in.
-        self.tests[first_test..].sort_by_key(|t| t.span.start);
+        // Tests run by file, then in source order, whatever order they were
+        // checked in.
+        let ranks: HashMap<FileId, usize> = self
+            .module
+            .files
+            .iter()
+            .enumerate()
+            .filter_map(|(i, f)| f.id.map(|id| (id, i)))
+            .collect();
+        self.tests[first_test..]
+            .sort_by_key(|t| (ranks.get(&t.span.file).copied().unwrap_or(0), t.span.start));
         // Reported in source order, whatever order things were checked in.
         diagnostics.sort_by_key(|(position, _)| *position);
         let mut diagnostics: Vec<Diagnostic> = diagnostics.into_iter().map(|(_, d)| d).collect();
+        // The names of an import that failed (and was reported) aren't
+        // reported again where they're used.
+        if !self.scope.import_failed.is_empty() {
+            let failed = &self.scope.import_failed;
+            diagnostics.retain(|d| {
+                d.code != "E-UNKNOWN-NAME"
+                    || !failed
+                        .iter()
+                        .any(|n| d.message == format!("unknown name `{n}`"))
+            });
+        }
         // Failing because something used failed goes without saying when
         // that failure is reported too.
         if diagnostics
@@ -226,94 +325,109 @@ impl Elaborator {
     /// is taken is reported and fails.
     fn collect<'m>(
         &mut self,
-        module: &'m Module,
+        files: &[SourceUnit<'m>],
         diagnostics: &mut Vec<(usize, Diagnostic)>,
-    ) -> Vec<Item<'m>> {
-        let decls = &module.decls;
+    ) -> (Vec<Item<'m>>, Vec<Span>) {
         let mut items = Vec::new();
+        let mut decl_spans: Vec<Span> = Vec::new();
+        // The position of each file's first declaration.
+        let mut file_starts = Vec::new();
         let mut test_names: HashMap<&str, Span> = HashMap::new();
-        let mut i = 0;
-        while i < decls.len() {
-            let equations_for = |name: &str, from: usize| {
-                let mut j = from;
-                while let Some(Decl::Equation { name: n, .. }) = decls.get(j)
-                    && n.text == name
-                {
-                    j += 1;
+        for (file, unit) in files.iter().enumerate() {
+            let decls: &'m [Decl] = &unit.module.decls;
+            let base = decl_spans.len();
+            file_starts.push(base);
+            decl_spans.extend(decls.iter().map(Decl::span));
+            let mut i = 0;
+            while i < decls.len() {
+                let equations_for = |name: &str, from: usize| {
+                    let mut j = from;
+                    while let Some(Decl::Equation { name: n, .. }) = decls.get(j)
+                        && n.text == name
+                    {
+                        j += 1;
+                    }
+                    j
+                };
+                let local = i;
+                let position = base + local;
+                let (decl, equations) = match &decls[i] {
+                    Decl::Signature { name, .. } => {
+                        let end = equations_for(&name.text, i + 1);
+                        i = end;
+                        (&decls[local], &decls[local + 1..end])
+                    }
+                    // A `def` header always carries its type, so the parser
+                    // never produces an arm without its signature in front.
+                    Decl::Equation { .. } => unreachable!("an equation without a signature"),
+                    decl => {
+                        i += 1;
+                        (decl, &decls[..0])
+                    }
+                };
+                if let Decl::Test { name, span, .. } = decl {
+                    if let Some(earlier) = test_names.get(name.as_str()) {
+                        diagnostics.push((
+                            position,
+                            error(
+                                "E-DUPLICATE",
+                                *span,
+                                format!("there's already a test called \"{name}\""),
+                            )
+                            .with_label(*earlier, "first defined here"),
+                        ));
+                        continue;
+                    }
+                    test_names.insert(name, *span);
                 }
-                j
-            };
-            let position = i;
-            let (decl, equations) = match &decls[i] {
-                Decl::Signature { name, .. } => {
-                    let end = equations_for(&name.text, i + 1);
-                    i = end;
-                    (&decls[position], &decls[position + 1..end])
-                }
-                // A `def` header always carries its type, so the parser never
-                // produces an arm without its signature in front.
-                Decl::Equation { .. } => unreachable!("an equation without a signature"),
-                decl => {
-                    i += 1;
-                    (decl, &decls[..0])
-                }
-            };
-            if let Decl::Test { name, span, .. } = decl {
-                if let Some(earlier) = test_names.get(name.as_str()) {
-                    diagnostics.push((
-                        position,
-                        error(
-                            "E-DUPLICATE",
-                            *span,
-                            format!("there's already a test called \"{name}\""),
-                        )
-                        .with_label(*earlier, "first defined here"),
-                    ));
-                    continue;
-                }
-                test_names.insert(name, *span);
+                let status = Status::Waiting;
+                let (kind, name, span, synonym) = match decl {
+                    Decl::Data { name, .. } => (Kind::Data, name.text.clone(), name.span, false),
+                    Decl::Ability { name, .. } => {
+                        (Kind::Ability, name.text.clone(), name.span, false)
+                    }
+                    Decl::Signature { name, synonym, .. } => {
+                        (Kind::Def, name.text.clone(), name.span, *synonym)
+                    }
+                    Decl::Test { name, span, .. } => {
+                        (Kind::Test, format!("test \"{name}\""), *span, false)
+                    }
+                    Decl::Equation { .. } => unreachable!("equations go with signatures"),
+                };
+                // Worked out once the names are registered.
+                let decides = false;
+                self.module.items.push(ItemInfo {
+                    name,
+                    span,
+                    position,
+                    file,
+                    kind,
+                    synonym,
+                    deps: Vec::new(),
+                    component: 0,
+                    status,
+                    decides,
+                });
+                items.push(Item {
+                    decl,
+                    equations,
+                    position,
+                });
             }
-            let status = Status::Waiting;
-            let (kind, name, span, synonym) = match decl {
-                Decl::Data { name, .. } => (Kind::Data, name.text.clone(), name.span, false),
-                Decl::Ability { name, .. } => (Kind::Ability, name.text.clone(), name.span, false),
-                Decl::Signature { name, synonym, .. } => {
-                    (Kind::Def, name.text.clone(), name.span, *synonym)
-                }
-                Decl::Test { name, span, .. } => {
-                    (Kind::Test, format!("test \"{name}\""), *span, false)
-                }
-                Decl::Equation { .. } => unreachable!("equations go with signatures"),
-            };
-            // Worked out once the names are registered.
-            let decides = false;
-            self.module.items.push(ItemInfo {
-                name,
-                span,
-                position,
-                kind,
-                synonym,
-                deps: Vec::new(),
-                component: 0,
-                status,
-                decides,
-            });
-            items.push(Item {
-                decl,
-                equations,
-                position,
-            });
         }
-        // Names without a qualifier, then the library's imports, then
-        // qualified names, then imports of the module's own namespaces.
-        let mut import_errors = Vec::new();
+        // Names without a qualifier, then each file's imports of the library's,
+        // then qualified names, then each file's imports of the module's own
+        // namespaces. Imports are per file (docs/proposals/multi-file.md
+        // §4.4); an import error is reported at its file's first declaration.
+        let mut import_errors: Vec<(usize, Diagnostic)> = Vec::new();
         let mut left_out = HashSet::new();
         for qualified in [false, true] {
             if qualified {
-                self.add_imports(&module.imports, false, &mut import_errors);
+                self.add_file_imports(files, &file_starts, false, &mut import_errors);
             }
             for (index, item) in items.iter().enumerate() {
                 let main = declared_names(item.decl).0;
+                self.module.file = Some(self.module.items[index].file);
                 if main.as_ref().is_some_and(|m| m.text.contains('.')) == qualified
                     && let Err(d) = self.register(index, item.decl)
                 {
@@ -327,11 +441,12 @@ impl Elaborator {
                 }
             }
         }
-        self.add_imports(&module.imports, true, &mut import_errors);
+        self.add_file_imports(files, &file_starts, true, &mut import_errors);
         // Whether a signature's result is the library's `Decidable`, by what
         // its head means here, not how it's spelt.
         let decidable = self.globals.registry.data(Builtin::Decidable);
         for (index, item) in items.iter().enumerate() {
+            self.module.file = Some(self.module.items[index].file);
             if let Decl::Signature { ty, .. } = item.decl
                 && let Some(head) = result_head(ty)
             {
@@ -339,7 +454,8 @@ impl Elaborator {
                     && matches!(self.named(&head.text), Some((Global::Data(d), _)) if Some(*d) == decidable);
             }
         }
-        diagnostics.extend(import_errors.into_iter().map(|d| (0, d)));
+        self.module.file = None;
+        diagnostics.extend(import_errors);
         // A declaration whose own name is taken is left out.
         if !left_out.is_empty() {
             let mut kept = Vec::new();
@@ -361,9 +477,38 @@ impl Elaborator {
                     *i = new;
                 }
             }
-            return kept;
+            return (kept, decl_spans);
         }
-        items
+        (items, decl_spans)
+    }
+
+    /// Adds each file's imports to its own table (`own` as in
+    /// [`Elaborator::add_imports`]); errors are positioned at the file's
+    /// first declaration.
+    fn add_file_imports(
+        &mut self,
+        files: &[SourceUnit],
+        file_starts: &[usize],
+        own: bool,
+        errors: &mut Vec<(usize, Diagnostic)>,
+    ) {
+        for (file, unit) in files.iter().enumerate() {
+            self.module.file = Some(file);
+            let mut found = Vec::new();
+            self.add_imports(&unit.module.imports, own, &mut found);
+            errors.extend(found.into_iter().map(|d| (file_starts[file], d)));
+        }
+        self.module.file = None;
+    }
+
+    /// The file whose imports name lookup uses: the one the item being
+    /// elaborated is in, or the one being registered; file 0 when nothing is
+    /// (so `eval`, the REPL and `main` see a single file's imports).
+    pub(crate) fn current_file(&self) -> usize {
+        self.module
+            .file
+            .or_else(|| self.module.item.map(|i| self.module.items[i].file))
+            .unwrap_or(0)
     }
 
     /// Enters the names declaration `index` declares as unchecked. The error
@@ -436,118 +581,62 @@ impl Elaborator {
     /// Step 2: what each declaration refers to.
     fn dependencies(&mut self, items: &[Item]) {
         for (index, item) in items.iter().enumerate() {
+            self.module.file = Some(self.module.items[index].file);
             let mut deps = Vec::new();
             let names = &self.module.names;
-            let mut add = |refs: Vec<Ref<'_>>, in_header: bool| {
-                for r in refs {
-                    let (n, mut fields) = match r {
-                        Ref::Name(n) => (n, Vec::new()),
-                        Ref::Dot(n, field) => (n, vec![field]),
-                    };
-                    if fields.is_empty()
-                        && let crate::scope::Resolved::Found { global, rest, .. } =
-                            self.resolve(&n.text)
-                    {
-                        if let Global::Unchecked(j) = global {
+            let mut add = |r: Ref<'_>, in_header: bool| {
+                let (n, mut fields) = match r {
+                    Ref::Name(n) => (n, Vec::new()),
+                    Ref::Dot(n, field) => (n, vec![field]),
+                };
+                if fields.is_empty()
+                    && let crate::scope::Resolved::Found { global, rest, .. } =
+                        self.resolve(&n.text)
+                {
+                    if let Global::Unchecked(j) = global {
+                        deps.push(Dep {
+                            item: j,
+                            span: n.span,
+                            in_header,
+                            speculative: None,
+                        });
+                    }
+                    fields = rest;
+                }
+                // Dot notation: its target isn't known until the receiver's
+                // type is, so every declaration of this module that it
+                // could mean (§5).
+                for field in fields {
+                    let suffix = format!(".{field}");
+                    for key in names.iter().filter(|k| k.ends_with(&suffix)) {
+                        if let Some((Global::Unchecked(j), _)) = self.scope.get(key) {
                             deps.push(Dep {
                                 item: j,
                                 span: n.span,
                                 in_header,
-                                speculative: None,
+                                speculative: Some(format!(
+                                    "`.{field}` might mean `{}`",
+                                    crate::scope::display(key)
+                                )),
                             });
-                        }
-                        fields = rest;
-                    }
-                    // Dot notation: its target isn't known until the receiver's
-                    // type is, so every declaration of this module that it
-                    // could mean (§5).
-                    for field in fields {
-                        let suffix = format!(".{field}");
-                        for key in names.iter().filter(|k| k.ends_with(&suffix)) {
-                            if let Some((Global::Unchecked(j), _)) = self.scope.get(key) {
-                                deps.push(Dep {
-                                    item: j,
-                                    span: n.span,
-                                    in_header,
-                                    speculative: Some(format!(
-                                        "`.{field}` might mean `{}`",
-                                        crate::scope::display(key)
-                                    )),
-                                });
-                            }
                         }
                     }
                 }
             };
-            match item.decl {
-                Decl::Signature { ty, .. } => {
-                    add(free_names(vec![Work::Expr(ty)]), true);
-                    let binders = body_binders(ty, item.equations);
-                    for eq in item.equations {
-                        let Decl::Equation { patterns, rhs, .. } = eq else {
-                            continue;
-                        };
-                        let mut work: Vec<Work> = binders.iter().map(|x| Work::Bind(x)).collect();
-                        work.extend(patterns.iter().map(Work::Pattern));
-                        work.extend(rhs.iter().map(Work::Expr));
-                        add(free_names(work), false);
-                    }
-                }
-                Decl::Data {
-                    params,
-                    sort,
-                    ctors,
-                    ..
-                } => {
-                    let mut header = Vec::new();
-                    let mut bind_params = Vec::new();
-                    for binder in params {
-                        header.push(Work::Expr(&binder.ty));
-                        for n in &binder.names {
-                            header.push(Work::Bind(&n.text));
-                            bind_params.push(Work::Bind(&n.text));
-                        }
-                    }
-                    add(free_names(header), true);
-                    if let Some(sort) = sort {
-                        add(free_names(vec![Work::Expr(sort)]), true);
-                    }
-                    for ctor in ctors {
-                        let mut work = bind_params.clone();
-                        for binder in &ctor.fields {
-                            work.push(Work::Expr(&binder.ty));
-                            work.extend(binder.names.iter().map(|n| Work::Bind(&n.text)));
-                        }
-                        add(free_names(work), false);
-                    }
-                }
-                Decl::Ability { params, ops, .. } => {
-                    let mut bind_params = Vec::new();
-                    let mut header = Vec::new();
-                    for binder in params {
-                        header.push(Work::Expr(&binder.ty));
-                        for n in &binder.names {
-                            header.push(Work::Bind(&n.text));
-                            bind_params.push(Work::Bind(&n.text));
-                        }
-                    }
-                    add(free_names(header), true);
-                    for (_, ty) in ops {
-                        let mut work = bind_params.clone();
-                        work.push(Work::Expr(ty));
-                        add(free_names(work), false);
-                    }
-                }
-                Decl::Test { expr, .. } => add(free_names(vec![Work::Expr(expr)]), false),
-                Decl::Equation { .. } => {}
+            for (r, in_header) in decl_refs(item.decl, item.equations) {
+                add(r, in_header);
             }
             self.module.items[index].deps = deps;
         }
+        self.module.file = None;
     }
 
     /// Step 3: the strongly connected components, in the order to check
     /// them: each after everything it depends on, and of those ready, the
-    /// one starting earliest in the source first.
+    /// one starting earliest *in its file* first, ties by name. (Not by
+    /// position in the module, which would follow the files' names and so
+    /// let them decide what `auto` can use: docs/proposals/multi-file.md
+    /// §4.9.5. With one file, this is source order.)
     fn components(&mut self) -> Vec<Vec<usize>> {
         let edges: Vec<Vec<usize>> = self
             .module
@@ -560,6 +649,11 @@ impl Elaborator {
                 targets
             })
             .collect();
+        // Where each file's declarations start.
+        let mut file_start = vec![usize::MAX; self.module.files.len()];
+        for item in &self.module.items {
+            file_start[item.file] = file_start[item.file].min(item.position);
+        }
         let components = tarjan(&edges);
         for (c, members) in components.iter().enumerate() {
             for &i in members {
@@ -582,11 +676,14 @@ impl Elaborator {
         let start = |c: usize| {
             components[c]
                 .iter()
-                .map(|i| self.module.items[*i].position)
+                .map(|i| {
+                    let item = &self.module.items[*i];
+                    (item.position - file_start[item.file], item.name.clone())
+                })
                 .min()
-                .unwrap_or(0)
+                .unwrap_or_default()
         };
-        let mut ready: BinaryHeap<Reverse<(usize, usize)>> = (0..components.len())
+        let mut ready: BinaryHeap<Reverse<((usize, String), usize)>> = (0..components.len())
             .filter(|c| waiting_on[*c] == 0)
             .map(|c| Reverse((start(c), c)))
             .collect();
@@ -1037,6 +1134,13 @@ impl Elaborator {
                 ));
             } else if item.status == Status::Failed {
                 hints.push(format!("`{name}` has errors, so `auto` can't use it"));
+            } else if item.file != here.file {
+                let namespace = self.current_namespace().unwrap_or("this namespace");
+                hints.push(format!(
+                    "`{name}` is in another file of `{namespace}` (`{}`): `auto` only uses \
+                     decision procedures from the same file, above the use, so pass it explicitly",
+                    self.module.files[item.file].name
+                ));
             } else if item.position > here.position {
                 hints.push(format!(
                     "`auto` only uses decision procedures defined above where it's used, and \
@@ -1116,7 +1220,8 @@ impl Elaborator {
         }
         match (self.module.def_items.get(&id), self.module.item) {
             (Some(item), Some(current)) => {
-                self.module.items[*item].position < self.module.items[current].position
+                let (item, current) = (&self.module.items[*item], &self.module.items[current]);
+                item.file == current.file && item.position < current.position
             }
             _ => true,
         }
@@ -1245,9 +1350,83 @@ enum Work<'a> {
     Name(&'a ast::Name),
 }
 
+/// The free names of a declaration, in order, each with whether it's in the
+/// declaration's header (a signature, or a data type's parameters and
+/// universe). The dependency pre-pass and project analysis both read a
+/// declaration through this, so they see the names checking resolves.
+pub(crate) fn decl_refs<'a>(decl: &'a Decl, equations: &'a [Decl]) -> Vec<(Ref<'a>, bool)> {
+    let mut out: Vec<(Ref<'a>, bool)> = Vec::new();
+    let mut add = |refs: Vec<Ref<'a>>, in_header: bool| {
+        out.extend(refs.into_iter().map(|r| (r, in_header)));
+    };
+    match decl {
+        Decl::Signature { ty, .. } => {
+            add(free_names(vec![Work::Expr(ty)]), true);
+            let binders = body_binders(ty, equations);
+            for eq in equations {
+                let Decl::Equation { patterns, rhs, .. } = eq else {
+                    continue;
+                };
+                let mut work: Vec<Work> = binders.iter().map(|x| Work::Bind(x)).collect();
+                work.extend(patterns.iter().map(Work::Pattern));
+                work.extend(rhs.iter().map(Work::Expr));
+                add(free_names(work), false);
+            }
+        }
+        Decl::Data {
+            params,
+            sort,
+            ctors,
+            ..
+        } => {
+            let mut header = Vec::new();
+            let mut bind_params = Vec::new();
+            for binder in params {
+                header.push(Work::Expr(&binder.ty));
+                for n in &binder.names {
+                    header.push(Work::Bind(&n.text));
+                    bind_params.push(Work::Bind(&n.text));
+                }
+            }
+            add(free_names(header), true);
+            if let Some(sort) = sort {
+                add(free_names(vec![Work::Expr(sort)]), true);
+            }
+            for ctor in ctors {
+                let mut work = bind_params.clone();
+                for binder in &ctor.fields {
+                    work.push(Work::Expr(&binder.ty));
+                    work.extend(binder.names.iter().map(|n| Work::Bind(&n.text)));
+                }
+                add(free_names(work), false);
+            }
+        }
+        Decl::Ability { params, ops, .. } => {
+            let mut bind_params = Vec::new();
+            let mut header = Vec::new();
+            for binder in params {
+                header.push(Work::Expr(&binder.ty));
+                for n in &binder.names {
+                    header.push(Work::Bind(&n.text));
+                    bind_params.push(Work::Bind(&n.text));
+                }
+            }
+            add(free_names(header), true);
+            for (_, ty) in ops {
+                let mut work = bind_params.clone();
+                work.push(Work::Expr(ty));
+                add(free_names(work), false);
+            }
+        }
+        Decl::Test { expr, .. } => add(free_names(vec![Work::Expr(expr)]), false),
+        Decl::Equation { .. } => {}
+    }
+    out
+}
+
 /// A reference the pre-pass finds: a name, or dot notation's `.field`
 /// (with where it's written).
-enum Ref<'a> {
+pub(crate) enum Ref<'a> {
     Name(&'a ast::Name),
     Dot(&'a ast::Name, String),
 }

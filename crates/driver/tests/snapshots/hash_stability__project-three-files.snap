@@ -1,0 +1,16 @@
+---
+source: crates/driver/tests/hash_stability.rs
+expression: "lines(&session, d, f)"
+---
+data Shapes.Shape a9db476471c70748bf6b71a6e4997b4cbd2f21bc168c4f8bd041b21bb267d04e
+Shapes.Shape.%tag 0be7f2278fc74924cbd0f03beb4b988ff556e3b7e5b9407cc97331ce44949066
+Shapes.Shape.%Square%0 32ac59bc34fd158b3213e479f1d70dfb55dc53c5c1f6fb6690bab06e1be9f802
+Shapes.Shape.%Rect%0 a873fce34ad669cc6365e549f0ef50339fb2126d49c6d459d67863dd0e6b780f
+Shapes.Shape.%Rect%1 6a1fc2c496ae7c7786d0d8606dc241b1462403e789e7d5832f65098ee350b413
+Shapes.Shape.%differ ad0720fd4a9726cdef1af85a4ded85cfd4039975b8a96f9927b02d9b8d30f325
+Shapes.Shape.%decEq 4a501d10aa63c25dea133d6e5b400e10b5c3ca6dc3ea73db6ca10a47b9dcab6b
+Shapes.isEven 7bffc0904cd6cfc7ab28e4e15161f419506611d9a18147ae67391a554dea0b41
+Shapes.isOdd a0f0bb70240f857f68e792ff96e6261a21e4f5733981db31261ec9a9ab30f7c1
+Shapes.test "odd" 4f50805a33b0e955084ce0abd17f7b4429bdc2015dd1863bc40b24a2b1c3a017
+Shapes.Shape.area abaa65ce83982ca8b8d3c1309280c76c94a34471a73f479e06d8afeb83418306
+Shapes.test "area" 6126ed32ca06961fb0c12c102c31963d48ce92782e1efd2adf9bc277b5d8bc0f

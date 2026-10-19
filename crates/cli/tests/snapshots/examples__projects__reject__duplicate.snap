@@ -1,0 +1,17 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-DUPLICATE] Error: `f` is already defined
+   ╭─[ duplicate/src/b.sw:4:5 ]
+   │
+ 4 │ def f: Nat := 2
+   │     ┬  
+   │     ╰── `f` is already defined
+   │
+   ├─[ duplicate/src/a.sw:4:5 ]
+   │
+ 4 │ def f: Nat := 1
+   │     ┬  
+   │     ╰── first defined here
+───╯

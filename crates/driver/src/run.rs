@@ -135,38 +135,111 @@ impl Main {
 /// library, whatever the program declares.
 const MAIN_CALL: &str = "((\\u => main ()) : () -> {Std.IO, Partial} ()) ()";
 
+/// Why a call of a definition to run didn't check.
+enum CallError {
+    /// Running out of resources, or a failure to parse the call.
+    Other(Diagnostic),
+    /// The definition's type isn't one that can be run.
+    Type {
+        span: stitchwort_syntax::Span,
+        ty: String,
+    },
+}
+
 impl Session {
     /// Finds the loaded program's `main`, and checks its type.
     pub fn main(&mut self) -> Result<Main, Diagnostic> {
         let g = &self.elab.globals;
-        let Some(index) = g.defs.iter().rposition(|d| &*d.name == "main") else {
+        let main_name = self
+            .elab
+            .current_namespace()
+            .map_or("main".to_string(), |n| format!("{n}.main"));
+        let Some(index) = g.defs.iter().rposition(|d| *d.name == *main_name) else {
             return Err(
                 Diagnostic::error("E-NO-MAIN", "there's no `main` to run").with_note(
                     "define `def main(): {IO} () := …`, or `def main(): {IO, Partial} () := …`",
                 ),
             );
         };
-        let def = &g.defs[index];
-        let (span, ty) = (def.span, self.elab.show(&def.ty_value));
-        let partial = self
-            .elab
-            .is_partial(stitchwort_core::DefId(index))
-            .unwrap_or(false);
-        let expr = self.parse_internal("<main>", MAIN_CALL)?;
-        match self.elab.infer_expr(&expr) {
-            Ok((term, _)) => Ok(Main {
-                term,
-                span,
-                partial,
-            }),
-            Err(d) if d.code == "E-RESOURCE" => Err(d),
-            Err(_) => Err(Diagnostic::error(
+        match self.main_call(index, MAIN_CALL) {
+            Ok(main) => Ok(main),
+            Err(CallError::Other(d)) => Err(d),
+            Err(CallError::Type { span, ty }) => Err(Diagnostic::error(
                 "E-MAIN-TYPE",
                 "`main` must have type `() -> {IO} ()` or `() -> {IO, Partial} ()`",
             )
             .with_label(span, format!("this has type `{ty}`"))
             .with_note(
                 "a pure `main: () -> ()` is allowed too; other abilities must be handled inside `main`",
+            )),
+        }
+    }
+
+    /// Elaborates `call` (a call of the definition at `index`, in the shape
+    /// of [`MAIN_CALL`]) as a computation in the row `{IO, Partial}`.
+    fn main_call(&mut self, index: usize, call: &str) -> Result<Main, CallError> {
+        let def = &self.elab.globals.defs[index];
+        let (span, ty) = (def.span, self.elab.show(&def.ty_value));
+        let partial = self
+            .elab
+            .is_partial(stitchwort_core::DefId(index))
+            .unwrap_or(false);
+        let expr = self
+            .parse_internal("<main>", call)
+            .map_err(CallError::Other)?;
+        match self.elab.infer_expr(&expr) {
+            Ok((term, _)) => Ok(Main {
+                term,
+                span,
+                partial,
+            }),
+            Err(d) if d.code == "E-RESOURCE" => Err(CallError::Other(d)),
+            Err(_) => Err(CallError::Type { span, ty }),
+        }
+    }
+
+    /// Finds the definition a project's `run` names by its full name
+    /// (`Day05.main`), and checks that it can be run: a function from `()`
+    /// to `()` with abilities among `IO` and `Partial`.
+    pub fn main_named(&mut self, name: &str, project: &str) -> Result<Main, Diagnostic> {
+        self.elab.leave_namespace();
+        let Some(id) = self.elab.lookup_def(name) else {
+            if self.elab.has_key(name) {
+                return Err(Diagnostic::error(
+                    "E-RUN-TYPE",
+                    format!("`{name}` can't be run: it isn't a function"),
+                ));
+            }
+            let prefix = name
+                .rsplit_once('.')
+                .map_or(String::new(), |(namespace, _)| format!("{namespace}."));
+            let nearest = self
+                .elab
+                .def_keys_under(&prefix)
+                .into_iter()
+                .map(|key| (stitchwort_elab::edit_distance(name, &key), key))
+                .filter(|(distance, _)| *distance <= 2)
+                .min();
+            let mut d = Diagnostic::error(
+                "E-RUN-UNKNOWN",
+                format!("there's no `{name}` in project {project}/"),
+            );
+            if let Some((_, near)) = nearest {
+                d = d.with_note(format!("did you mean `{near}`?"));
+            }
+            return Err(d);
+        };
+        let call = format!("((\\u => {name} ()) : () -> {{Std.IO, Partial}} ()) ()");
+        match self.main_call(id.0, &call) {
+            Ok(main) => Ok(main),
+            Err(CallError::Other(d)) => Err(d),
+            Err(CallError::Type { span, ty }) => Err(Diagnostic::error(
+                "E-RUN-TYPE",
+                format!("`{name}` can't be run: it has type `{ty}`"),
+            )
+            .with_label(span, "defined here")
+            .with_note(
+                "a function to run takes `()` and returns `()`, with abilities among IO and Partial: `() -> {IO} ()`, `() -> {IO, Partial} ()`, `() -> {Partial} ()` or `() -> ()`",
             )),
         }
     }

@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-UNKNOWN-NAME] Error: unknown name `Grid.f`
+   ╭─[ nested-short-name/src/aoc.sw:3:21 ]
+   │
+ 3 │ def g: Nat := Z.z + Grid.f
+   │                     ───┬──  
+   │                        ╰──── not in scope
+───╯

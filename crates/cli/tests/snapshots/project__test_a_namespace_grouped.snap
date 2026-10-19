@@ -1,0 +1,9 @@
+---
+source: crates/cli/tests/project.rs
+expression: stdout
+---
+Lib
+  ✓ lib  ran
+Day
+  ✓ day  ran
+2 test(s): 2 passed, 0 failed (0 from the cache)

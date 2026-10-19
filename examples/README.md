@@ -10,6 +10,8 @@ These `.sw` files are the main test suite. `cargo test` runs every one of them
 | `extract/` | Must type-check, and their exports are extracted to JS. Each `-- run: f args` line is evaluated by both the reference evaluator and the generated JS under Node, and the results must agree (`crates/cli/tests/extract.rs`). |
 | `soundness/` | The "must reject" suite from DESIGN.md §13: programs that exploit a known paradox (e.g. a non-positive data type), each paired with a nearby program that must be accepted (which goes in `accept/`). Must fail like `reject/`. |
 
+| `projects/accept/NAME/`, `projects/reject/NAME/` | Whole projects: a folder with a `stitchwort.yaml` and its source files, as for `accept/` and `reject/`. A rejected project declares its error on a leading `# expect-error: E-CODE` comment line of its `stitchwort.yaml`. |
+
 Files in `reject/` and `soundness/` start by declaring the error they expect:
 
 ```

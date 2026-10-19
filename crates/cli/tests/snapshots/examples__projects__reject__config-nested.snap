@@ -1,0 +1,6 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PROJECT-CONFIG] Error: `src/inner/` is a project inside the project config-nested/
+  note: move it out of the source folders, or delete its `stitchwort.yaml`

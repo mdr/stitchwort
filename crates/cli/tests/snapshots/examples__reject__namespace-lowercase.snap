@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: each part of a namespace's name starts with a capital letter
+   ╭─[ reject/namespace-lowercase.sw:3:11 ]
+   │
+ 3 │ namespace Demo.day
+   │           ────┬───  
+   │               ╰───── each part of a namespace's name starts with a capital letter
+───╯

@@ -1,0 +1,2 @@
+# The project folder and src/ overlap: a file is read once.
+sources: [., src]
