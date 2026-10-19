@@ -354,8 +354,8 @@
       "id": 24,
       "title": "Style: no space before `:` (`(x: Nat)`, like Scala/TS)",
       "status": "doing",
-      "agent": "DeepSeek",
-      "where": "/Users/matt/scratch/opencode/funlang-20261019-180312",
+      "agent": "Sonnet",
+      "where": "salvaging DeepSeek's half-done restyle in ~/scratch/opencode/funlang-20261019-180312 (subagent)",
       "labels": [
         "design",
         "syntax"
@@ -937,12 +937,12 @@
       "id": 64,
       "title": "Mutation testing",
       "status": "doing",
-      "agent": "Claude",
-      "where": "~/scratch/mutants-20261019 (clone); runner scratchpad/mutrun.sh; pilot budget.rs (56 mutants, 6 shards), then value.rs (219), native.rs (194) after stage 1 settles",
+      "agent": "",
+      "where": "",
       "labels": [
         "tooling"
       ],
-      "body": "**Mutation testing** (in small sharded runs): the machine (`value.rs`),\n`budget.rs`, `native.rs` (167 mutants, never done).",
+      "body": "**Mutation testing** (in small sharded runs): the machine (`value.rs`),\n`budget.rs`, `native.rs` (167 mutants, never done).\n\n19 Oct: runs are cargo-mutants (a tool, no model) driven by scratchpad/mutrun.sh in ~/scratch/mutants-20261019. Pilot budget.rs: 56 mutants, ~12 min, 23 caught / 26 missed (core tests only) / 1 timeout / 6 unviable. Next: re-check survivors against driver+cli tests; then DeepSeek writes tests to kill real survivors (direct-edit spec), Opus judges equivalent mutants.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
