@@ -103,3 +103,57 @@ fn projects() {
         insta::assert_snapshot!(format!("project-{name}"), lines(&session, d, f));
     }
 }
+
+/// Checking a namespace on its own gives the same hashes as checking the
+/// whole project (docs/proposals/multi-file.md: a target never changes
+/// meaning): every declaration of the target, and of what it uses, has the
+/// hash it has in the full check, and the target's declarations are all there.
+#[test]
+fn a_namespace_checked_alone_has_the_same_hashes() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/projects/accept");
+    let mut dirs: Vec<_> = std::fs::read_dir(&root)
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .filter(|p| p.is_dir())
+        .collect();
+    dirs.sort();
+    assert!(!dirs.is_empty());
+    for dir in dirs {
+        let name = dir.file_name().unwrap().to_string_lossy().to_string();
+        let files = DiskFiles { root: dir.clone() };
+        let mut whole = Session::new();
+        let loaded = whole
+            .load_project(&files, &name, &Target::Everything)
+            .unwrap_or_else(|e| panic!("{name} doesn't load: {e:#?}"));
+        let all = lines(&whole, 0, 0);
+        let all: std::collections::HashSet<&str> = all.lines().collect();
+        // The whole project's lines, without the prelude's.
+        let prelude = Session::new();
+        let base = lines(&prelude, 0, 0);
+        let base: std::collections::HashSet<&str> = base.lines().collect();
+        for namespace in &loaded.checked {
+            let mut alone = Session::new();
+            alone
+                .load_project(&files, &name, &Target::Namespaces(vec![namespace.clone()]))
+                .unwrap_or_else(|e| panic!("{name}: {namespace} alone doesn't load: {e:#?}"));
+            let text = lines(&alone, 0, 0);
+            let mut own = 0;
+            for line in text.lines().filter(|l| !base.contains(l)) {
+                assert!(
+                    all.contains(line),
+                    "{name}: `{line}` differs when {namespace} is checked alone"
+                );
+                let declared = line.strip_prefix("data ").unwrap_or(line);
+                if declared.starts_with(&format!("{namespace}.")) {
+                    own += 1;
+                }
+            }
+            let expected = all
+                .iter()
+                .filter(|l| !base.contains(*l))
+                .filter(|l| l.strip_prefix("data ").unwrap_or(l).starts_with(&format!("{namespace}.")))
+                .count();
+            assert_eq!(own, expected, "{name}: {namespace} alone lacks declarations");
+        }
+    }
+}
