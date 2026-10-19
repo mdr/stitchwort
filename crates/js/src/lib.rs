@@ -21,6 +21,8 @@ use stitchwort_core::{
 };
 use stitchwort_syntax::Diagnostic;
 
+pub mod run;
+
 /// Generating code recurses over a definition's body, so each level checks
 /// there's stack left first (docs/proposals/stack-safe-evaluation.md).
 type Fallible<T> = Result<T, ResourceError>;
@@ -290,6 +292,15 @@ fn check_codec(g: &Globals, d: DataId, visiting: &mut HashSet<DataId>) -> Result
         env.push(Value::var(env.len()));
     }
     for (c, (ctor, fields)) in data.ctors.iter().zip(data_fields(g, d)).enumerate() {
+        // Each field has its own key at the boundary.
+        for (i, (field, _)) in ctor.fields.iter().enumerate() {
+            if ctor.fields[..i].iter().any(|(other, _)| other == field) {
+                return Err(format!(
+                    "`{}`'s constructor `{}` has two fields called `{field}`",
+                    data.name, ctor.name
+                ));
+            }
+        }
         for (i, (field, _)) in ctor.fields.iter().enumerate() {
             if !ctor.field_erased[i] {
                 continue;
@@ -1107,6 +1118,11 @@ struct Gen<'g> {
     infos: Vec<OnceCell<DefInfo>>,
     /// The prelude's `ifThenElse`, which `if` becomes.
     if_then_else: Option<DefId>,
+    /// For `stitchwort run --js` ([`run`]): a `Delay` is a real value that
+    /// the runner steps, rather than the erased token, so partial
+    /// definitions are generated, and `Delay`'s constants build
+    /// `StitchwortDelay` objects.
+    run_delay: bool,
 }
 
 /// What the generator decides about a definition from its type.
@@ -1196,6 +1212,7 @@ impl<'g> Gen<'g> {
             int_natives,
             infos: g.defs.iter().map(|_| OnceCell::new()).collect(),
             if_then_else: g.registry.def(Builtin::IfThenElse),
+            run_delay: false,
         })
     }
 
@@ -1217,11 +1234,19 @@ impl<'g> Gen<'g> {
             (Value::Neutral(Head::Def(d), spine), Some(delay)) => d == delay && spine.len() == 3,
             _ => false,
         };
-        let delay = partial.then(|| tel.params.iter().map(|(_, _, e)| *e).collect());
+        let delay =
+            (partial && !self.run_delay).then(|| tel.params.iter().map(|(_, _, e)| *e).collect());
+        // `Delay`'s constants have no body, so no arity: each takes all of
+        // its parameters ([`run::primitive_js`]).
+        let constant = self.run_delay && g.builtins.primitive(id).is_some();
         let mask: Vec<bool> = tel
             .params
             .iter()
-            .take(def.arity)
+            .take(if constant {
+                tel.params.len()
+            } else {
+                def.arity
+            })
             .map(|(_, _, erased)| *erased)
             .collect();
         let result_erased = tel.result_erased;
@@ -1248,6 +1273,20 @@ impl<'g> Gen<'g> {
         }))
     }
 
+    /// Whether `\y => body` is `\y => Done y`, the continuation the
+    /// elaborator writes for an operation or a recursion request, which the
+    /// runner recognises to run a tail request in constant space (as
+    /// `stitchwort_core::step` does).
+    fn is_done_continuation(&self, body: &Term) -> bool {
+        let mut body = body;
+        while let Term::Loc(_, t) | Term::Ann(t, _) = body {
+            body = t;
+        }
+        matches!(body, Term::Ctor(d, 0, fields)
+            if Some(*d) == self.g.registry.data(Builtin::Comp)
+                && matches!(&fields[..], [field] if matches!(field.strip_loc(), Term::Var(0))))
+    }
+
     /// `try_info` for a definition the generator has already consulted:
     /// `generate_with` computes it for every definition it reaches.
     fn info(&self, id: DefId) -> &DefInfo {
@@ -1264,6 +1303,15 @@ impl<'g> Gen<'g> {
         let convention = *convention;
         if convention == Convention::Erased {
             return Ok(String::new());
+        }
+        if self.run_delay
+            && let Some(prim) = self.g.builtins.primitive(id)
+        {
+            return Ok(format!(
+                "const {} = {};\n",
+                def_name(&def.path),
+                run::primitive_js(prim)
+            ));
         }
         let Some(body) = &def.body else {
             unreachable!("`generate_with` refuses a definition without a body");
@@ -1411,7 +1459,7 @@ impl<'g> Gen<'g> {
         let mut branch = |out: &mut String, c: usize, b: &Branch, depth: usize| {
             let pad = "  ".repeat(depth);
             let level = env.len();
-            for (f, ((field, _), erased)) in data.ctors[c]
+            for (f, ((_, _), erased)) in data.ctors[c]
                 .fields
                 .iter()
                 .zip(&data.ctors[c].field_erased)
@@ -1422,7 +1470,7 @@ impl<'g> Gen<'g> {
                         out,
                         "{pad}const {} = {scrutinee}{};",
                         var(level + f),
-                        member(&key(self.g, *d, field))
+                        member(&field_key_at(self.g, *d, c, f))
                     );
                 }
                 env.push(*erased);
@@ -1567,6 +1615,9 @@ impl<'g> Gen<'g> {
                 }
                 out
             }
+            Term::Lam(_, _, body) if self.run_delay && self.is_done_continuation(body) => {
+                run::DONE_K.into()
+            }
             Term::Lam(_, _, body) => {
                 let level = env.len();
                 env.push(false);
@@ -1623,11 +1674,9 @@ impl<'g> Gen<'g> {
                 if !data.record {
                     fields.push(format!("tag: \"{}\"", ctor.name));
                 }
-                for (((field, _), erased), arg) in
-                    ctor.fields.iter().zip(&ctor.field_erased).zip(args)
-                {
+                for (f, (erased, arg)) in ctor.field_erased.iter().zip(args).enumerate() {
                     if !erased {
-                        let key = ts_key(&key(self.g, *d, field));
+                        let key = ts_key(&field_key_at(self.g, *d, *c, f));
                         fields.push(format!("{key}: {}", self.expr(arg, env)?));
                     }
                 }
@@ -2778,6 +2827,20 @@ pub fn record_key(name: &str) -> String {
         format!("${key}")
     } else {
         key
+    }
+}
+
+/// The key of field `i` of constructor `c` of data type `d` inside
+/// generated code: [`key`], unless the constructor has two fields of that
+/// name (a partial definition's request type has a field `_` for each
+/// unnamed parameter), when it's `$i`, which no name's key can be.
+pub(crate) fn field_key_at(g: &Globals, d: DataId, c: usize, i: usize) -> String {
+    let fields = &g.data(d).ctors[c].fields;
+    let name = &fields[i].0;
+    if fields.iter().filter(|(n, _)| n == name).count() > 1 {
+        format!("${i}")
+    } else {
+        key(g, d, name)
     }
 }
 

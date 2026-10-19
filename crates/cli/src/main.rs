@@ -40,7 +40,13 @@ enum Command {
     },
     /// Type-check a file, then run its `main`, reading standard input and
     /// writing standard output
-    Run { file: PathBuf },
+    Run {
+        file: PathBuf,
+        /// Compile `main` to JavaScript and run it with Node.js (`node` on
+        /// the PATH), which is much faster
+        #[arg(long)]
+        js: bool,
+    },
     /// Evaluate an expression in the context of a file
     Eval { file: PathBuf, expr: String },
     /// Start an interactive session, optionally with a file loaded
@@ -81,7 +87,8 @@ fn run(cli: Cli) -> ExitCode {
                 Cache::at(cache_dir)
             },
         ),
-        Command::Run { file } => run_main(&file),
+        Command::Run { file, js: false } => run_main(&file),
+        Command::Run { file, js: true } => run_main_js(&file),
         Command::Eval { file, expr } => eval(&file, &expr),
         Command::Repl { file } => repl(file.as_deref()),
         Command::Build { file, out, .. } => build(&file, &out),
@@ -177,6 +184,124 @@ fn run_main(path: &Path) -> ExitCode {
         Err(err) => {
             report(&session.sources, &[err.diagnostic(&main)]);
             ExitCode::FAILURE
+        }
+    }
+}
+
+/// `run --js`: checks the file as `run` does, then writes `main` and a
+/// runner as JavaScript to a temporary directory and runs it with Node,
+/// which inherits standard input, output and error.
+fn run_main_js(path: &Path) -> ExitCode {
+    use stitchwort_js::run::{EXIT_IO, EXIT_RESOURCE};
+    let mut session = new_session();
+    if !load(&mut session, path) {
+        return ExitCode::FAILURE;
+    }
+    let main = match session.main() {
+        Ok(main) => main,
+        Err(diagnostic) => {
+            report(&session.sources, &[diagnostic]);
+            return ExitCode::FAILURE;
+        }
+    };
+    let program = match session.extract_program(&main) {
+        Ok(program) => program,
+        Err(diagnostic) => {
+            report(&session.sources, &[diagnostic]);
+            return ExitCode::FAILURE;
+        }
+    };
+    let dir = TempDir::new();
+    let launcher = dir.path.join("run.mjs");
+    let error_file = dir.path.join("error.txt");
+    let written = std::fs::create_dir_all(&dir.path)
+        .and_then(|()| std::fs::write(dir.path.join("program.mjs"), &program.module))
+        .and_then(|()| std::fs::write(&launcher, &program.launcher));
+    if let Err(err) = written {
+        eprintln!("error: can't write the JavaScript program: {err}");
+        return ExitCode::FAILURE;
+    }
+    let status = match std::process::Command::new("node")
+        .arg(&launcher)
+        .arg(&error_file)
+        .status()
+    {
+        Ok(status) => status,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+            eprintln!(
+                "error: `run --js` needs Node.js, but there's no `node` on the PATH (it's in the nix dev shell)"
+            );
+            return ExitCode::FAILURE;
+        }
+        Err(err) => {
+            eprintln!("error: can't start `node`: {err}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let message = || {
+        std::fs::read_to_string(&error_file)
+            .unwrap_or_default()
+            .trim()
+            .to_string()
+    };
+    match status.code() {
+        Some(0) => ExitCode::SUCCESS,
+        Some(EXIT_RESOURCE) => {
+            let diagnostic = Diagnostic::error(
+                "E-RESOURCE",
+                format!("ran out of resources: {} (in Node.js)", message()),
+            )
+            .with_label(main.span, "while running this program")
+            .with_note(
+                "this isn't a type error or a failed test: there's no answer within the limits",
+            );
+            report(&session.sources, &[diagnostic]);
+            ExitCode::FAILURE
+        }
+        Some(EXIT_IO) => {
+            report(&session.sources, &[Diagnostic::error("E-IO", message())]);
+            ExitCode::FAILURE
+        }
+        // Node has reported what went wrong.
+        Some(_) => ExitCode::FAILURE,
+        None => {
+            eprintln!("error: `node` was stopped by a signal ({status})");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+/// A fresh temporary directory, removed when dropped, or the directory
+/// `STITCHWORT_RUN_JS_DIR` names, kept.
+struct TempDir {
+    path: PathBuf,
+    keep: bool,
+}
+
+impl TempDir {
+    fn new() -> TempDir {
+        // For looking at the generated program: it's written there, and kept.
+        if let Some(dir) = std::env::var_os("STITCHWORT_RUN_JS_DIR") {
+            return TempDir {
+                path: dir.into(),
+                keep: true,
+            };
+        }
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |d| d.subsec_nanos());
+        TempDir {
+            path: std::env::temp_dir()
+                .join(format!("stitchwort-run-js-{}-{nanos}", std::process::id())),
+            keep: false,
+        }
+    }
+}
+
+impl Drop for TempDir {
+    fn drop(&mut self) {
+        if !self.keep {
+            let _ = std::fs::remove_dir_all(&self.path);
         }
     }
 }

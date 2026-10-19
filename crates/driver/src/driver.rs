@@ -133,6 +133,15 @@ impl Session {
     pub fn extract(&self) -> Result<stitchwort_js::Output, Diagnostic> {
         stitchwort_js::generate(&self.elab.globals, self.elab.limits)
     }
+
+    /// Generates the JavaScript program that runs `main` under Node
+    /// (`stitchwort run --js`).
+    pub fn extract_program(
+        &self,
+        main: &crate::run::Main,
+    ) -> Result<stitchwort_js::run::Program, Diagnostic> {
+        stitchwort_js::run::generate_program(&self.elab.globals, self.elab.limits, main.term())
+    }
 }
 
 /// Whether a test's expression evaluated to `True`.
