@@ -2,8 +2,8 @@
 //! (`crates/core/src/termination.rs` at commit `cc353ee`), kept only so the
 //! tests can compare the two: everything it accepts, the new one must accept
 //! too, apart from partial recursive calls, which are now refused on purpose
-//! (docs/proposals/mutual-recursion.md §6.3). Only the imports and this
-//! comment differ from the original.
+//! (docs/proposals/mutual-recursion.md §6.3). Only the imports, this
+//! comment and the `Let` case (added later) differ from the original.
 //!
 //! Structural termination checking for recursive definitions.
 //!
@@ -172,6 +172,13 @@ impl Walker<'_> {
             Term::Ann(e, t) => {
                 self.walk(e)?;
                 self.walk(t)?;
+            }
+            // Added with `Let` (after `cc353ee`): its variable is unknown
+            // here, which accepts no more than the original could.
+            Term::Let(_, a, v, body) => {
+                self.walk(a)?;
+                self.walk(v)?;
+                self.under(&[false], None, body)?;
             }
             Term::Case(ix, d, branches) => {
                 let scrutinee = &self.infos[self.infos.len() - 1 - ix];

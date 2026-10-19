@@ -275,6 +275,14 @@ impl<'g> Printer<'g> {
                 names.pop();
                 (format!("\\{x} => {body}"), Prec::Arrow)
             }
+            // The annotation isn't shown, as for `Ann`.
+            Term::Let(x, _, v, b) => {
+                let value = self.print(names, v, Prec::Arrow);
+                names.push(x.clone());
+                let body = self.print(names, b, Prec::Arrow);
+                names.pop();
+                (format!("let {x} := {value}; {body}"), Prec::Arrow)
+            }
             Term::Meta(_) if let Some(name) = self.label(names, term) => name,
             Term::Meta(m) => (format!("?{m}"), Prec::Atom),
             Term::App(..) if let Some(shown) = self.label(names, term) => shown,

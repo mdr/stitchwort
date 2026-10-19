@@ -324,6 +324,8 @@ enum Frame {
         env: Env,
         done: Vec<Value>,
     },
+    /// The value of `let` `term` (its body is next, with the value added).
+    LetBody { term: Rc<Term>, env: Env },
     /// The domain of a function type (`term`).
     PiDomain { term: Rc<Term>, env: Env },
     /// The next part of an equation `term`: its type, then the sides.
@@ -393,14 +395,14 @@ fn apply_step(f: Value, arg: Value, icit: Icit) -> Control {
 
 /// Applying a closure: evaluating its body with the argument added.
 fn enter(closure: &Closure, arg: Value) -> Control {
+    Control::Eval(closure.body.clone(), extend(&closure.env, arg))
+}
+
+/// `env` with `value` added as the innermost variable.
+fn extend(env: &Env, value: Value) -> Env {
     // Built in place, in one allocation.
-    let env: Rc<[Value]> = closure
-        .env
-        .iter()
-        .cloned()
-        .chain(std::iter::once(arg))
-        .collect();
-    Control::Eval(closure.body.clone(), Values(env))
+    let env: Rc<[Value]> = env.iter().cloned().chain(std::iter::once(value)).collect();
+    Values(env)
 }
 
 fn run(g: &Globals, mut control: Control) -> Result<Value> {
@@ -566,6 +568,23 @@ fn eval_step(g: &Globals, term: Rc<Term>, env: Env, stack: &mut Vec<Frame>) -> R
             }
         },
         Term::Ann(e, _) => Control::Eval(e.clone(), env),
+        // Strict and shared: the value is computed once, before the body,
+        // which sees it in its environment (docs/proposals/let.md §A.2).
+        Term::Let(_, _, value, body) => match quick(g, value, &env) {
+            Some(value) => Control::Eval(body.clone(), extend(&env, value)),
+            None => {
+                let value = value.clone();
+                push(
+                    g,
+                    stack,
+                    Frame::LetBody {
+                        term: term.clone(),
+                        env: env.clone(),
+                    },
+                )?;
+                Control::Eval(value, env)
+            }
+        },
         Term::Loc(_, t) => Control::Eval(t.clone(), env),
         Term::Case(..) | Term::NumCase(..) => Control::Tree(term.clone(), env.to_vec(), None),
         Term::Eq(ty, _, _) => {
@@ -660,6 +679,12 @@ fn resume(g: &Globals, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Re
         } => {
             done.push(value);
             fields(g, term, env, done, stack)?
+        }
+        Frame::LetBody { term, env } => {
+            let Term::Let(_, _, _, body) = &*term else {
+                unreachable!("a `LetBody` frame is for a `let`")
+            };
+            Control::Eval(body.clone(), extend(&env, value))
         }
         Frame::PiDomain { term, env } => {
             let Term::Pi(x, i, _, b) = &*term else {

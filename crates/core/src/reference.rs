@@ -70,6 +70,11 @@ pub fn eval(g: &Globals, env: &[Value], term: &Term) -> Result<Value> {
             apply_icit(g, f, eval(g, env, a)?, *i)?
         }
         Term::Ann(e, _) => eval(g, env, e)?,
+        Term::Let(_, _, value, body) => {
+            let mut env = env.to_vec();
+            env.push(eval(g, &env, value)?);
+            eval(g, &env, body)?
+        }
         Term::Case(..) | Term::NumCase(..) => eval_tree(g, env.to_vec(), term)?
             .expect("internal error: a case outside a definition's case tree got stuck"),
         Term::Eq(ty, a, b) => Value::Eq(
@@ -189,6 +194,7 @@ pub fn expand_term(g: &Globals, term: &Term) -> Term {
         Term::Lam(x, i, b) => Term::Lam(x.clone(), *i, go(b)),
         Term::App(f, a, i) => Term::App(go(f), go(a), *i),
         Term::Ann(e, t) => Term::Ann(go(e), go(t)),
+        Term::Let(x, a, v, b) => Term::Let(x.clone(), go(a), go(v), go(b)),
         Term::Case(ix, d, branches) => Term::Case(
             *ix,
             *d,

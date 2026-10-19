@@ -210,6 +210,9 @@ fn go_replace(
         Term::Lam(x, i, b) => Term::Lam(x.clone(), *i, go(b, under + 1)?),
         Term::App(h, a, i) => Term::App(go(h, under)?, go(a, under)?, *i),
         Term::Ann(e, t) => Term::Ann(go(e, under)?, go(t, under)?),
+        Term::Let(x, a, v, b) => {
+            Term::Let(x.clone(), go(a, under)?, go(v, under)?, go(b, under + 1)?)
+        }
         Term::Case(ix, d, branches) => Term::Case(
             split(*ix)?,
             *d,

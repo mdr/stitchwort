@@ -461,6 +461,11 @@ impl<'g> Hasher<'g> {
                     self.tag("ann");
                     pending.extend([Item::Term(e), Item::Term(t)]);
                 }
+                // The name isn't hashed, as for other binders.
+                Term::Let(_, a, v, b) => {
+                    self.tag("let");
+                    pending.extend([Item::Term(a), Item::Term(v), Item::Term(b)]);
+                }
                 Term::Case(ix, d, branches) => {
                     self.tag("case");
                     self.usize(*ix);

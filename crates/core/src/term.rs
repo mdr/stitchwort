@@ -100,6 +100,11 @@ pub enum Term {
     Lam(Name, Icit, Rc<Term>),
     App(Rc<Term>, Rc<Term>, Icit),
     Ann(Rc<Term>, Rc<Term>),
+    /// `let x : A := v; b`: a transparent local definition
+    /// (docs/proposals/let.md §A.2). `b` is under one binder, `x`, which
+    /// stands for `v` itself, not an unknown of type `A`: checking `b` may
+    /// compute with it. Fields: the name, `A`, `v`, `b`.
+    Let(Name, Rc<Term>, Rc<Term>, Rc<Term>),
     /// Pattern match on a variable of data type `DataId`, with one branch per
     /// constructor, in declaration order. Only appears at the top of a
     /// definition's body (after its parameters), forming a case tree.
@@ -169,6 +174,7 @@ fn has_unique_child(term: &Term) -> bool {
     match term {
         Term::Pi(_, _, a, b) | Term::App(a, b, _) | Term::Ann(a, b) => unique(a) || unique(b),
         Term::Lam(_, _, b) | Term::Loc(_, b) => unique(b),
+        Term::Let(_, a, v, b) => unique(a) || unique(v) || unique(b),
         Term::Data(_, args) | Term::Ctor(_, _, args) => args.iter().any(unique),
         Term::Eq(ty, a, b) => ty.as_ref().is_some_and(unique) || unique(a) || unique(b),
         Term::J(m, b, p) => unique(m) || unique(b) || unique(p),
@@ -197,6 +203,11 @@ fn take_children(term: &mut Term, leaf: &Rc<Term>, pending: &mut Vec<Rc<Term>>) 
             take(b);
         }
         Term::Lam(_, _, b) | Term::Loc(_, b) => take(b),
+        Term::Let(_, a, v, b) => {
+            take(a);
+            take(v);
+            take(b);
+        }
         Term::Data(_, args) | Term::Ctor(_, _, args) => pending.append(args),
         Term::Eq(ty, a, b) => {
             if let Some(ty) = ty {
@@ -364,6 +375,12 @@ impl Term {
             Term::Lam(x, i, b) => Term::Lam(x.clone(), *i, go(b, cutoff + 1)?),
             Term::App(f, a, i) => Term::App(go(f, cutoff)?, go(a, cutoff)?, *i),
             Term::Ann(e, t) => Term::Ann(go(e, cutoff)?, go(t, cutoff)?),
+            Term::Let(x, a, v, b) => Term::Let(
+                x.clone(),
+                go(a, cutoff)?,
+                go(v, cutoff)?,
+                go(b, cutoff + 1)?,
+            ),
             Term::Case(ix, d, branches) => Term::Case(
                 if *ix >= cutoff { ix + by } else { *ix },
                 *d,
@@ -444,6 +461,11 @@ impl Term {
                 f(b, 1);
             }
             Term::Lam(_, _, b) => f(b, 1),
+            Term::Let(_, a, v, b) => {
+                f(a, 0);
+                f(v, 0);
+                f(b, 1);
+            }
             Term::App(a, b, _) | Term::Ann(a, b) => {
                 f(a, 0);
                 f(b, 0);

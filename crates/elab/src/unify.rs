@@ -536,6 +536,12 @@ pub fn zonk_keeping(
         Term::Lam(x, i, b) => Term::Lam(x.clone(), *i, go(b, level + 1)?),
         Term::App(f, a, i) => Term::App(go(f, level)?, go(a, level)?, *i),
         Term::Ann(e, t) => Term::Ann(go(e, level)?, go(t, level)?),
+        // The body counts the `let`'s slot. A metavariable applied there is
+        // evaluated with the slot as a variable, so what's quoted back
+        // mentions `x` only where `x` is in scope.
+        Term::Let(x, a, v, b) => {
+            Term::Let(x.clone(), go(a, level)?, go(v, level)?, go(b, level + 1)?)
+        }
         Term::Case(ix, d, branches) => Term::Case(
             *ix,
             *d,
