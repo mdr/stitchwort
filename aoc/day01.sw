@@ -31,11 +31,12 @@ def zerosLandedOn (start : Dial highest) (turns : List Turn) : Nat :=
     |> .drop 1
     |> .count Dial.isZero
 
--- Part 2: add up the clicks onto 0, turn by turn, carrying the dial along.
+-- Part 2: for each turn, the clicks onto 0 from where the dial was before it.
 def zerosPassed (start : Dial highest) (turns : List Turn) : Nat :=
-  def step : (Dial highest, Nat) -> Turn -> (Dial highest, Nat)
-    | (d, count), t => (d.move t, count + d.zerosDuring t)
-  (List.foldl step (start, 0) turns).snd
+  turns
+    |> .scanl Dial.move start
+    |> .zipWith Dial.zerosDuring turns
+    |> .sum
 
 -- The specification of part 2: turn the dial one click at a time, and count
 -- the positions after each click that are 0.
@@ -121,7 +122,7 @@ theorem alwaysOnDial [highest : Nat] (d : Dial highest) (t : Turn) : (d.move t).
 -- Theorem 2: the arithmetic count is the click-by-click count, for any dial,
 -- start and turns.
 theorem zerosPassedCorrect (start : Dial highest) (turns : List Turn) : zerosPassed start turns = zerosPassedSpec start turns :=
-  Eq.trans (zerosPassedFrom start 0 turns)
+  Eq.trans (zerosPassedFrom start turns)
     (Eq.sym (List.countOccurrences Dial.isZero (List.drop 1 (List.scanl Dial.move start (List.concatMap Turn.clicks turns)))))
 
 -- And so for the puzzle's answer.
@@ -307,10 +308,10 @@ theorem zerosPassedSplit (d : Dial highest) (t : Turn) (ts : List Turn) :
           (turnCount d t))
         (Eq.cong (\e => d.zerosDuring t + zerosAfter e (List.concatMap Turn.clicks ts)) (turnAt d t))))
 
-theorem zerosPassedFrom (d : Dial highest) (acc : Nat) : (ts : List Turn) ->
-    (List.foldl zerosPassed.step (d, acc) ts).snd = acc + zerosAfter d (List.concatMap Turn.clicks ts)
-  | Nil       => Eq.sym (Nat.addZero acc)
+theorem zerosPassedFrom (d : Dial highest) : (ts : List Turn) ->
+    zerosPassed d ts = zerosAfter d (List.concatMap Turn.clicks ts)
+  | Nil       => rfl
   | Cons t ts =>
-    Eq.trans (zerosPassedFrom (d.move t) (acc + d.zerosDuring t) ts)
-      (Eq.trans (Nat.addAssoc acc (d.zerosDuring t) (zerosAfter (d.move t) (List.concatMap Turn.clicks ts)))
-        (Eq.cong (\x => acc + x) (Eq.sym (zerosPassedSplit d t ts))))
+    Eq.trans (List.sumCons (d.zerosDuring t) (List.zipWith Dial.zerosDuring (List.scanl Dial.move (d.move t) ts) ts))
+      (Eq.trans (Eq.cong (\x => d.zerosDuring t + x) (zerosPassedFrom (d.move t) ts))
+        (Eq.sym (zerosPassedSplit d t ts)))

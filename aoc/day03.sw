@@ -42,8 +42,8 @@ def Bank.best : Nat -> Bank -> Bank
       | Succ _, [],          c, after => (c, after)
       | Succ w, Cons x more, c, after =>
         if c < x then pick w more x more else pick w more c after
-    let chosen := pick (rest.length - k) rest d rest
-    Cons chosen.fst (Bank.best k chosen.snd)
+    let (top, after) := pick (rest.length - k) rest d rest
+    Cons top (Bank.best k after)
 
 -- Examples -----------------------------------------------------------------
 
