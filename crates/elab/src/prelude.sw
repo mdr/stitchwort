@@ -231,20 +231,16 @@ def Bool.decTrue : (b : Bool) -> Decidable (b = True)
   | True  => Yes rfl
   | False => No Bool.falseNotTrue
 
-def Nat.decSucc (m : Nat) (n : Nat) : Decidable (m = n) -> Decidable (Succ m = Succ n)
-  | Yes p => Yes (Eq.cong Succ p)
-  | No r  => No (\p => r (Nat.succInjective m n p))
-
 -- A decision from what `Nat.equal` says.
 def Nat.decEqFrom (m : Nat) (n : Nat) : (b : Bool) -> Nat.equal m n = b -> Decidable (m = n)
   | True,  h => Yes (Nat.equalSound m n h)
   | False, h => No (Nat.equalFalse m n h)
 
 -- For two numbers this computes `Yes rfl` or `No (Nat.equalFalse m n rfl)`, and the
--- native gives exactly that, however big they are. (Recursing with `Nat.decSucc`
--- would build a refutation as deep as the smaller number.) It matches on
--- both numbers so it waits until they're known, rather than unfolding around
--- an unknown one.
+-- native gives exactly that, however big they are. (Recursing on both numbers
+-- one step at a time would build a refutation as deep as the smaller number.)
+-- It matches on both numbers so it waits until they're known, rather than
+-- unfolding around an unknown one.
 def Nat.decEq : (m : Nat) -> (n : Nat) -> Decidable (m = n)
   | Zero,   Zero   => Yes rfl
   | Zero,   Succ n => No (Nat.equalFalse 0 (Succ n) rfl)
