@@ -1,5 +1,5 @@
 {
-  "next": 88,
+  "next": 89,
   "tickets": [
     {
       "id": 1,
@@ -19,10 +19,10 @@
     },
     {
       "id": 2,
-      "title": "Multi-file design Draft 3: independent review, then decisions",
-      "status": "review",
-      "agent": "",
-      "where": "docs/proposals/multi-file.md (commit 6ee0888 and later)",
+      "title": "Multi-file design: Draft 4 from the independent review of Draft 3",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "worktree (Claude Code agent), docs/proposals/multi-file.md",
       "labels": [
         "multi-file",
         "design"
@@ -50,14 +50,14 @@
     {
       "id": 4,
       "title": "Interfaces design note (Agda/Lean style, with independent review)",
-      "status": "next",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [
         "design",
         "elab"
       ],
-      "body": "Interfaces design note (Opus, with independent review), Agda/Lean style:\nan interface is a record (laws as proof fields), instances found by\ngeneralising the `Decidable` auto search; coherence, predictability,\nhashes, namespaces §8. After the current work, before days 6-9 (sort,\nmaps, sets; would remove `sum`/`sumInt` duplication). User, 19 Oct.",
+      "body": "Interfaces design note (Opus, with independent review), Agda/Lean style:\nan interface is a record (laws as proof fields), instances found by\ngeneralising the `Decidable` auto search; coherence, predictability,\nhashes, namespaces §8. After the current work, before days 6-9 (sort,\nmaps, sets; would remove `sum`/`sumInt` duplication). User, 19 Oct.\n\nUser (19 Oct): not starting the interfaces design yet. Draft 3/4 of multi-file.md §4.9.6 sketches the direction; the reviewer's interface-overlap finding is input for this note.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -480,9 +480,9 @@
     {
       "id": 33,
       "title": "Two proofs of the same fact aren't treated as equal",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "worktree (Claude Code agent), docs/proposals/proof-irrelevance.md",
       "labels": [
         "design",
         "kernel"
@@ -1268,6 +1268,22 @@
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
+    },
+    {
+      "id": 88,
+      "title": "Kanban board replaces TODO.md",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "tooling"
+      ],
+      "body": "Local board (board/, http://127.0.0.1:8020) with CLI; TODO.md migrated to 87 tickets; history in docs/history.md.",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": [
+        "3f47e15"
+      ]
     }
   ]
 }
