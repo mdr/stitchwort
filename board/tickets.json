@@ -353,9 +353,9 @@
     {
       "id": 24,
       "title": "Style: no space before `:` (`(x: Nat)`, like Scala/TS)",
-      "status": "doing",
-      "agent": "Sonnet",
-      "where": "salvaging DeepSeek's half-done restyle in ~/scratch/opencode/funlang-20261019-180312 (subagent)",
+      "status": "done",
+      "agent": "",
+      "where": "",
       "labels": [
         "design",
         "syntax"
@@ -363,7 +363,10 @@
       "body": "**Style: no space before `:` in type annotations?** Consider making `(x: Nat)` / `def f (n: Nat): Nat` the default style instead of `(x : Nat)` (user, 19 Oct).\n\n19 Oct analysis (Sonnet): recommends keeping spaces (option a). Evidence: all 335 .sw files use ` : ` (~2,665 lines); the lexer ignores whitespace around `:` (lexer.rs:344-348, `:=` is one token), so `x: T` already parses; Lean/Mathlib style guide requires spaces, Agda/Idris docs use them; Rust/Kotlin/TS use `x: T`. Switching would touch ~180 of 280 CLI snapshots and the printer (pretty.rs:264,267), with no formatter to hold the line. Options: (a) keep; (b) switch everywhere after a `stitchwort fmt` exists; (c) mixed (rejected); (d) accept both, document house style.\n\nMatt (19 Oct): switch to `x: T` everywhere (closer to Scala/TS); record the style in docs/syntax.md. DeepSeek restyles .sw files, printer/messages, docs (not proposals/history), playground; hash_stability snapshots must not change.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
-      "commits": []
+      "commits": [
+        "8378bbb",
+        "07e926b"
+      ]
     },
     {
       "id": 25,
@@ -1330,9 +1333,9 @@
     {
       "id": 91,
       "title": "Zero-argument effectful calls: `IO.readAllLines ()`",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Claude",
+      "where": "main: one regex, then hash/AoC/gate checks",
       "labels": [
         "design",
         "syntax"
