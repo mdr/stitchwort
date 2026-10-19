@@ -36,7 +36,11 @@ own note, `grid.rolls` fix in step 0. Lane `let-note-rev` folds the review
 in; then build in three Opus stages, one at a time: (1) step 0; (2) kernel
 `Let` + metavariable audit; (3) lifting with re-created lets, termination,
 erasure, JS, pattern lets.
-Running: `let-stage1` (Opus: step 0 + `grid.rolls`), `checker-eval-design`
+`let` stage 1 merged (`f1255e8`: proof lets work, no `runPure` in pure
+code, `grid.rolls` after an IO `let`; day 2's `pickIf` gone). Stage 3
+also: written type when the value is itself an effectful call
+(`let g := Grid.read ()`).
+Running: `let-stage2` (Opus: kernel `Let`, metavariable audit), `checker-eval-design`
 (Opus, docs: where the checker computes values it doesn't need; compare
 Lean/Agda/Rocq/Idris lazy/glued evaluation; staged plan; user, 19 Oct).
 `run-js` (Opus: `stitchwort run --js`: compile `main` to JS, run under
