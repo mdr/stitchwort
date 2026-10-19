@@ -392,7 +392,7 @@
         "proof",
         "elab"
       ],
-      "body": "A helper with an `if` appears in goals as `Decidable.elim (Bool.decTrue b) (\\u => ...) (\\u => ...)`, and every case split on it is `Bool.inspect` with the goal restated by hand as the motive (docs/aoc-2025.md:1117; every lemma about day 3's `pick` repeats it). Investigate first what removes the motive: a library lemma `ifCases` with the motive inferred, printing `if` in goals as `if`, or an `if`-split in the elaborator. Done: day 3's `pick` lemmas shrink measurably, or the finding is written up. Related: SW-99.",
+      "body": "A helper with an `if` appears in goals as `Decidable.elim (Bool.decTrue b) (\\u => ...) (\\u => ...)`, and every case split on it is `Bool.inspect` with the goal restated by hand as the motive (docs/aoc-2025.md:1117; every lemma about day 3's `pick` repeats it). Investigate first what removes the motive: a library lemma `ifCases` with the motive inferred, printing `if` in goals as `if`, or an `if`-split in the elaborator. Done: day 3's `pick` lemmas shrink measurably, or the finding is written up. Related: SW-99.\n\n19 Oct (SW-99 draft 2, §7): no new feature needed: `match h: e with` already does it. Trial converted 6 of 11 Bool.inspect proofs and deleted IsTrue/decIsTrue (not on main). Proposed (D40, awaiting review): convert all, document the idiom, separate ticket for printing `if` in goals.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -1487,7 +1487,7 @@
       "title": "`calc` notation and a `rewrite` term for equational proofs",
       "status": "review",
       "agent": "Matt",
-      "where": "",
+      "where": "draft 2 (1cc6aa1) with Matt's external reviewer; decisions D32-D42",
       "labels": [
         "proof",
         "syntax",
@@ -1506,7 +1506,7 @@
       "title": "Prelude: modulo identities (`(a % s + b) % s`, `a % s % s`) and the `Int.modNat` shifts",
       "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": "worktree-agent-aefa2194e2ab644b1 (rebased on main; gating)",
       "labels": [
         "stdlib",
         "proof"
@@ -1974,8 +1974,8 @@
       "id": 131,
       "title": "Move general lemmas out of AoC into the prelude",
       "status": "doing",
-      "agent": "Sonnet",
-      "where": "worktree-agent-a852a3e4d9cdca104",
+      "agent": "Claude",
+      "where": "merged to main; batch gate pending",
       "labels": [
         "aoc",
         "std"
@@ -1991,8 +1991,8 @@
       "id": 132,
       "title": "Turn aoc/ into a project: Aoc.DayNN + Aoc.Common, proofs beside definitions",
       "status": "doing",
-      "agent": "Sonnet",
-      "where": "worktree-agent-a852a3e4d9cdca104",
+      "agent": "Claude",
+      "where": "merged to main; batch gate pending",
       "labels": [
         "aoc",
         "multi-file"
@@ -2001,7 +2001,8 @@
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": [
-        "32cb955"
+        "32cb955",
+        "105b399"
       ]
     },
     {
@@ -2024,7 +2025,7 @@
       "title": "IO operations need the IO. prefix (no longer default names)",
       "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": "worktree-agent-a4ed98feff489c0f6 (rebased on main; gating)",
       "labels": [
         "std",
         "namespaces"
