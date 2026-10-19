@@ -1338,6 +1338,8 @@ Also:
 
 ## 10. Questions for Matt
 
+**Decided (Matt, 19 October 2026):** all four as recommended: adopt D1′; leave `Prop.irrel` out of the prelude for now; remove `canonical` in stage 2, accepting the hash changes; wait for a real need before stage 3.
+
 Only question 1 blocks stage 1. The rest affect stage 2 or later.
 
 1. **Adopt D1′?** In plain terms: when the checker compares two values, it

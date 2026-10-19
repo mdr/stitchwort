@@ -1,5 +1,5 @@
 {
-  "next": 93,
+  "next": 94,
   "tickets": [
     {
       "id": 1,
@@ -483,15 +483,15 @@
     },
     {
       "id": 33,
-      "title": "Two proofs of the same fact aren't treated as equal",
-      "status": "review",
-      "agent": "Matt",
-      "where": "draft 3 ready to implement: answer §10 Q1 (adopt D1′)",
+      "title": "Proof irrelevance (D1′): design decided",
+      "status": "done",
+      "agent": "",
+      "where": "",
       "labels": [
         "design",
         "kernel"
       ],
-      "body": "**Two proofs of the same fact aren't treated as equal** (no definitional\nproof irrelevance): `x % 100` with a hand-written divisor proof and\nwith the `auto` one have different types that print identically (Int\nstage 6 worked around it with `[auto]` arguments). Consider proof\nirrelevance for `Prop` in conversion (kernel; design note first).\nSecond example (19 Oct): char-pattern branches couldn't prove `c = 'a'`\nbecause the matched char's validity proof differed from the literal's;\nfixed in the elaborator with `Bool.uniqueEq` (`55c48eb`), which proof\nirrelevance would make unnecessary. User (19 Oct): wants this considered, with the\nliterature and trade-offs properly understood: Opus design note after\nmulti-file Draft 3, with web research comparing at least Lean (definitional\nirrelevance for `Prop`), Agda (opt-in `Prop`) and Coq/Rocq (`SProp`), and\nthe known metatheory (decidability, interaction with recursion on proofs,\nlarge elimination, hashing).",
+      "body": "**Two proofs of the same fact aren't treated as equal** (no definitional\nproof irrelevance): `x % 100` with a hand-written divisor proof and\nwith the `auto` one have different types that print identically (Int\nstage 6 worked around it with `[auto]` arguments). Consider proof\nirrelevance for `Prop` in conversion (kernel; design note first).\nSecond example (19 Oct): char-pattern branches couldn't prove `c = 'a'`\nbecause the matched char's validity proof differed from the literal's;\nfixed in the elaborator with `Bool.uniqueEq` (`55c48eb`), which proof\nirrelevance would make unnecessary. User (19 Oct): wants this considered, with the\nliterature and trade-offs properly understood: Opus design note after\nmulti-file Draft 3, with web research comparing at least Lean (definitional\nirrelevance for `Prop`), Agda (opt-in `Prop`) and Coq/Rocq (`SProp`), and\nthe known metatheory (decidability, interaction with recursion on proofs,\nlarge elimination, hashing).\n\nMatt (19 Oct): adopt D1′; no Prop.irrel yet; remove canonical in stage 2; stage 3 on demand. Design done (draft 3, bf74b30).",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": [
@@ -1352,6 +1352,21 @@
         "syntax"
       ],
       "body": "From SW-91 research (19 Oct): Unison's `do` delays a block; Stitchwort could make `do e` sugar for `\\() => e`, handy for passing programs to handlers (`IO.simulate lines (do main())`). Pure sugar, no soundness risk. Not now (Matt).",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 93,
+      "title": "Proof irrelevance stage 1: proof-position masks in conversion (D1′)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "kernel",
+        "proof"
+      ],
+      "body": "Implement stage 1 of docs/proposals/proof-irrelevance.md (draft 3, decided): conv skips arguments/fields whose declared type is in Prop; homogeneous-input precondition documented; unifier rule (whole proof metas only); tests 1-16 incl. the Loop/bad termination test. Kernel work: Opus (spec + implementation or careful review). Stage 2 (remove canonical) follows.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
