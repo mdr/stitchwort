@@ -1577,7 +1577,7 @@
     {
       "id": 105,
       "title": "docs/compared.md: how Stitchwort differs from Lean and Unison",
-      "status": "review",
+      "status": "done",
       "agent": "Matt",
       "where": "",
       "labels": [
