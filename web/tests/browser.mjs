@@ -319,13 +319,47 @@ test("every example checks, and passes its tests but the failing one", async (pa
       (document.querySelector(".summary")?.textContent ||
        document.getElementById("output").textContent.match(/No tests yet/)?.[0])`, 30000, `${id}'s tests`);
     if (id === "ex-tests") {
-      assert.match(summary, /^4 tests: 3 passed, 1 failed$/, `${id}: ${summary} / ${await page.output()} / ${await page.ev("document.getElementById(\"source\").value.slice(0,80)")} / ${ids}`);
+      assert.match(summary, /^4 tests: 3 passed, 1 failed( \(4 from the cache\))?$/, `${id}: ${summary} / ${await page.output()} / ${await page.ev("document.getElementById(\"source\").value.slice(0,80)")} / ${ids}`);
       assert.match(await page.output(), /✗\s*this one fails \(evaluated to False\)/);
     } else if (summary !== "No tests yet") {
-      assert.match(summary, /^(\d+) tests: \1 passed, 0 failed$/, id);
+      assert.match(summary, /^(\d+) tests: \1 passed, 0 failed( \(\d+ from the cache\))?$/, id);
     }
     await assertAligned(page, id);
   }
+});
+
+test("test results are cached, and can be forgotten", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  await page.pick("ex-tests");
+  await page.untilChecked();
+  await page.tab("tests");
+  // Results arrive asynchronously: wait for the ones for this source.
+  const results = () => page.until(`(() => {
+    const o = document.getElementById("output");
+    const summary = o.querySelector(".summary")?.textContent;
+    if (!summary || o.dataset.for !== document.getElementById("source").value) return false;
+    return { rows: [...o.querySelectorAll("ul.tests li")].map((li) => li.textContent), summary };
+  })()`, 30000, "the tests for this source");
+
+  const first = await results();
+  assert.equal(first.rows.length, 4);
+  assert.ok(first.rows.every((row) => row.endsWith("ran")), first.rows.join("\n"));
+  assert.doesNotMatch(first.summary, /from the cache/);
+  assert.match(first.summary, /^4 tests: 3 passed, 1 failed$/);
+
+  // A harmless edit: the tests' results are still valid, so they're cached.
+  const source = await page.ev(`document.getElementById("source").value`);
+  await page.setSource(source + "\n-- edit\n");
+  await page.untilChecked();
+  const second = await results();
+  assert.ok(second.rows.every((row) => row.endsWith("cached")), second.rows.join("\n"));
+  assert.match(second.summary, /^4 tests: 3 passed, 1 failed \(4 from the cache\)$/);
+
+  await page.click("#forget-cache");
+  const third = await results();
+  assert.ok(third.rows.every((row) => row.endsWith("ran")), third.rows.join("\n"));
+  assert.doesNotMatch(third.summary, /from the cache/);
 });
 
 test("errors show in the Check tab", async (page) => {
@@ -625,7 +659,7 @@ for (const [how, patch] of [
     assert.ok(page.console.some((m) => m.startsWith("warning: The playground's worker didn't start")), page.console.join("\n"));
     await page.pick("ex-tests");
     await page.tab("tests");
-    await page.until(`document.querySelector(".summary")?.textContent === "4 tests: 3 passed, 1 failed"`);
+    await page.until(`/^4 tests: 3 passed, 1 failed( \\(4 from the cache\\))?$/.test(document.querySelector(".summary")?.textContent ?? "")`);
     await page.pick("ex-main");
     await page.run();
     assert.equal(await page.printed(), MAIN_OUTPUT);
