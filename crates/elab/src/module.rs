@@ -151,7 +151,6 @@ impl Elaborator {
         let mut diagnostics: Vec<(usize, Diagnostic)> = Vec::new();
         let first_test = self.tests.len();
         self.module = ModuleState::default();
-        self.modules += 1;
         self.globals.module = if self.loading_prelude { "Std" } else { "Main" }.into();
         self.scope.clear_imports();
         let items = self.collect(module, &mut diagnostics);

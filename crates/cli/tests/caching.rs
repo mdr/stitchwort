@@ -213,6 +213,23 @@ fn test_results_are_only_reused_by_the_same_build_and_modes() {
 }
 
 #[test]
+fn ability_order_in_rows_doesnt_depend_on_declaration_order() {
+    let ask = "ability Ask where
+  ask : () -> {Ask} Nat
+";
+    let log = "ability Log where
+  say : Nat -> {Log} ()
+";
+    let both = "def both(): {Log, Ask} Nat :=
+  say 1
+  ask()
+";
+    let a = load(&format!("{ask}{log}{both}"));
+    let b = load(&format!("{log}{ask}{both}"));
+    assert_eq!(hash_of(&a, "both"), hash_of(&b, "both"));
+}
+
+#[test]
 fn same_shaped_recursive_members_hash_by_name_not_order() {
     let ping = "def ping (n: Nat): Nat := match n with
   | Zero => Zero

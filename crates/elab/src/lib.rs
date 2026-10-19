@@ -124,8 +124,6 @@ pub struct Elaborator {
     /// `check::decide_to_bool`, as the condition's proposition reading does
     /// that its own way.
     condition: std::cell::Cell<usize>,
-    /// How many modules have been elaborated (the prelude is the first).
-    modules: usize,
     /// While the members of a partial recursive group are described: their
     /// private recursion signature (`partial.rs`).
     recursion: Option<effects::Recursion>,
@@ -767,10 +765,10 @@ impl Elaborator {
             elim,
             ops: sigs.iter().map(|(op, ..)| op.text.clone()).collect(),
             order: (
-                self.modules,
-                self.module
-                    .item
-                    .map_or(0, |i| self.module.items[i].position),
+                !ability_key.starts_with("Std."),
+                self.globals
+                    .path(&scope::display(&ability_key).into())
+                    .to_string(),
             ),
         });
         self.scope

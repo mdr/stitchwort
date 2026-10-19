@@ -6,10 +6,10 @@
 
 [examples]
 inputs = "329 files, 8117f23021e3be41"
-steps = 439267067
-visits = 52527290
-allocations = 549190951
-peak_bytes = 21778019
+steps = 439212414
+visits = 52519928
+allocations = 549154263
+peak_bytes = 21785279
 time_ms = 1707.9
 
 [extract-js]
