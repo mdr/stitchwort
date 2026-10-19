@@ -1,12 +1,12 @@
 {
-  "next": 91,
+  "next": 92,
   "tickets": [
     {
       "id": 1,
       "title": "DeepSeek `reuse`: crates/web keeps the last checked Session",
-      "status": "doing",
-      "agent": "DeepSeek",
-      "where": "/Users/matt/scratch/opencode/funlang-20261019-175024 (restarted 19 Oct ~17:55; the first run never started)",
+      "status": "done",
+      "agent": "",
+      "where": "",
       "labels": [
         "web",
         "playground",
@@ -15,7 +15,9 @@
       "body": "crates/web keeps the last checked Session for check/test/extract of the same source (first Tests visit checks once). Clone `…-165906`. (Full in-flight text from TODO.md below.)\n\nDeepSeek (OpenCode Go, `opencode run --agent worker --model opencode-go/deepseek-v4.1-flash`) tasks, each in a remote-free scratch clone; specs and logs in the session scratchpad `tasks/` dir (`<name>.txt`, `<name>.log`, `<name>.dir`):\n1. `fuzz`, `cycle`, `hash`, `zip3`: merged and gated (see Recently done).\n2. `hlweb`, `hlvscode`: merged and gated (interpolation colouring; VS Code extension 0.0.2 installed locally).\n3. `reuse` — crates/web keeps the last checked Session for check/test/extract of the same source (first Tests visit checks once). Clone `…-165906`.\nFor each: review the diff (DeepSeek has introduced real bugs before), check author email, commit in the clone with a \"Done by OpenCode with DeepSeek…\" trailer, fetch into main, regenerate snapshots/bench, gate (in the background), browser tests for web changes (`web/test.sh`, background), update this file.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
-      "commits": []
+      "commits": [
+        "2c10a0a"
+      ]
     },
     {
       "id": 2,
@@ -156,10 +158,10 @@
     },
     {
       "id": 11,
-      "title": "Char-pattern arms: a nested `match` inside a char arm is not covered",
-      "status": "doing",
-      "agent": "DeepSeek",
-      "where": "~/scratch/opencode/funlang-20261019-174938",
+      "title": "Char-pattern arms: nested match inside a char arm (works; tests added)",
+      "status": "done",
+      "agent": "",
+      "where": "",
       "labels": [
         "elab",
         "proof"
@@ -350,15 +352,15 @@
     },
     {
       "id": 24,
-      "title": "Style: no space before `:` in type annotations?",
+      "title": "Style: no space before `:` (`(x: Nat)`, like Scala/TS)",
       "status": "doing",
-      "agent": "Sonnet",
-      "where": "read-only analysis (subagent), report to Matt",
+      "agent": "DeepSeek",
+      "where": "/Users/matt/scratch/opencode/funlang-20261019-180312",
       "labels": [
         "design",
         "syntax"
       ],
-      "body": "**Style: no space before `:` in type annotations?** Consider making `(x: Nat)` / `def f (n: Nat): Nat` the default style instead of `(x : Nat)` (user, 19 Oct).",
+      "body": "**Style: no space before `:` in type annotations?** Consider making `(x: Nat)` / `def f (n: Nat): Nat` the default style instead of `(x : Nat)` (user, 19 Oct).\n\n19 Oct analysis (Sonnet): recommends keeping spaces (option a). Evidence: all 335 .sw files use ` : ` (~2,665 lines); the lexer ignores whitespace around `:` (lexer.rs:344-348, `:=` is one token), so `x: T` already parses; Lean/Mathlib style guide requires spaces, Agda/Idris docs use them; Rust/Kotlin/TS use `x: T`. Switching would touch ~180 of 280 CLI snapshots and the printer (pretty.rs:264,267), with no formatter to hold the line. Options: (a) keep; (b) switch everywhere after a `stitchwort fmt` exists; (c) mixed (rejected); (d) accept both, document house style.\n\nMatt (19 Oct): switch to `x: T` everywhere (closer to Scala/TS); record the style in docs/syntax.md. DeepSeek restyles .sw files, printer/messages, docs (not proposals/history), playground; hash_stability snapshots must not change.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -499,14 +501,14 @@
     {
       "id": 34,
       "title": "`a_write_error_is_an_error`",
-      "status": "doing",
-      "agent": "DeepSeek",
-      "where": "~/scratch/opencode/funlang-20261019-174940",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
       "labels": [
         "bug",
         "tooling"
       ],
-      "body": "**`a_write_error_is_an_error`** (crates/cli/tests/run.rs) failed once\nduring a gate and passed on rerun: possibly flaky.",
+      "body": "**`a_write_error_is_an_error`** (crates/cli/tests/run.rs) failed once\nduring a gate and passed on rerun: possibly flaky.\n\n19 Oct: DeepSeek attempt stopped: OpenCode's sandbox refused reading outside the clone (Rust std source) and several shell commands; no reproduction recorded. Better suited to a Sonnet worktree lane (needs loops of the test binary and reading std's pipe code).",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -916,16 +918,18 @@
     {
       "id": 63,
       "title": "The printer prints a function type's domain twice",
-      "status": "doing",
-      "agent": "DeepSeek",
-      "where": "~/scratch/opencode/funlang-20261019-174935",
+      "status": "done",
+      "agent": "",
+      "where": "",
       "labels": [
         "elab"
       ],
       "body": "**The printer prints a function type's domain twice** in some branches,\nwhich may grow exponentially with nested domains (not measured).",
       "created": "2026-10-19",
       "updated": "2026-10-19",
-      "commits": []
+      "commits": [
+        "118ecb2"
+      ]
     },
     {
       "id": 64,
@@ -1000,16 +1004,18 @@
     {
       "id": 69,
       "title": "`decSucc` is no longer used in the prelude",
-      "status": "doing",
-      "agent": "DeepSeek",
-      "where": "~/scratch/opencode/funlang-20261019-174942",
+      "status": "done",
+      "agent": "",
+      "where": "",
       "labels": [
         "stdlib"
       ],
       "body": "**`decSucc` is no longer used in the prelude** (after the `decEqNat`\nfix); keep it for users or remove it.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
-      "commits": []
+      "commits": [
+        "035f0f5"
+      ]
     },
     {
       "id": 70,
@@ -1315,6 +1321,21 @@
         "design"
       ],
       "body": "Matt (19 Oct): reconsider how anonymous functions are written. Today: `\\x y => x + y` (examples/accept/list-toolkit.sw). Compare e.g. Lean `fun x => e`, Haskell `\\x -> e`, Agda `λ x → e`, JS/Scala `x => e`, Kotlin `{ x -> e }`; readability for newcomers, how annotated parameters look, pattern-matching lambdas. Related: SW-19 (annotated lambda parameters `\\(x : T) -> …`). Design note first if it changes syntax.",
+      "created": "2026-10-19",
+      "updated": "2026-10-19",
+      "commits": []
+    },
+    {
+      "id": 91,
+      "title": "Zero-argument effectful calls: `IO.readAllLines ()`",
+      "status": "review",
+      "agent": "Matt",
+      "where": "",
+      "labels": [
+        "design",
+        "syntax"
+      ],
+      "body": "Matt (19 Oct): how do Unison and other effect-tracking languages invoke 0-arity effectful actions, vs Stitchwort's `IO.readAllLines ()`? Research subagent (Sonnet, read-only): Stitchwort today, Unison/Koka/Effekt/Frank/Flix/Roc/OCaml 5/Scala/Haskell/Lean, options and a recommendation.\n\nResearch (Sonnet, 19 Oct): Stitchwort's 0-arity ops are `() -> {IO} T` thunks (prelude.sw:2236-2238), needed because evaluation is strict and effects happen at application (DESIGN.md:131-135). Strict effect languages call them with `f()` (Koka, Unison since UCM 0.5.23 alongside `!f`, Effekt, Flix, Scala's convention that `()` signals side effects); monadic languages (Haskell, Lean, Idris) make actions values, which in Stitchwort would expose `Comp` (abilities.md:259). Checked by Claude: `f()` and `def main(): {IO} ()` already parse and run. Recommendation: keep the unit-argument model; adopt `f()` / `def main()` (no space) as house style; `do e` sugar later; no `!` operator.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []

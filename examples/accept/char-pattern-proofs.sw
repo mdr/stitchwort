@@ -66,3 +66,41 @@ test "bits" := bitChar (bitValue '1') == '1' && isBit '0' && not (isBit '2')
 -- The transport computes away on a literal.
 theorem firstIsAComputes : firstIsA 'a' rfl = rfl := rfl
 theorem nextOfAComputes : nextOfA 'a' rfl = rfl := rfl
+
+-- A `match` nested inside a char arm, on another char or on the same one,
+-- gets the same treatment: in its arms the matched characters are the
+-- literals.
+
+theorem nestedReturnC : (c d : Char) -> c = 'a' -> d = 'b' -> c = 'a'
+  | 'a', d, hc, hd =>
+      match d with
+        | 'b' => rfl
+        | _   => hc
+  | c, d, hc, hd => hc
+
+theorem nestedReturnD : (c d : Char) -> c = 'a' -> d = 'b' -> d = 'b'
+  | 'a', d, hc, hd =>
+      match d with
+        | 'b' => rfl
+        | _   => hd
+  | c, d, hc, hd => hd
+
+theorem nestedBoth : (c d : Char) -> c = 'a' -> d = 'b' -> And (c = 'a') (d = 'b')
+  | 'a', d, hc, hd =>
+      match d with
+        | 'b' => Both rfl rfl
+        | _   => Both rfl hd
+  | c, d, hc, hd => Both hc hd
+
+theorem nestedSame : (c : Char) -> Or (c = 'x') (c = c)
+  | 'a' => Inr rfl
+  | c   =>
+      match c with
+        | 'x' => Inl rfl
+        | _   => Inr rfl
+
+theorem nestedOnlySame : (c : Char) -> Or (c = 'x') (c = c)
+  | c =>
+      match c with
+        | 'x' => Inl rfl
+        | _   => Inr rfl
