@@ -157,9 +157,9 @@
     {
       "id": 11,
       "title": "Char-pattern arms: a nested `match` inside a char arm is not covered",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "~/scratch/opencode/funlang-20261019-174938",
       "labels": [
         "elab",
         "proof"
@@ -499,9 +499,9 @@
     {
       "id": 34,
       "title": "`a_write_error_is_an_error`",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "~/scratch/opencode/funlang-20261019-174940",
       "labels": [
         "bug",
         "tooling"
@@ -542,14 +542,14 @@
     {
       "id": 37,
       "title": "After merging number patterns",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "js",
         "elab"
       ],
-      "body": "**After merging number patterns:** regenerate JS snapshots and re-check\nthe `TEXT_NATIVES` hashes in `crates/js/src/lib.rs` (`textTrim` and\n`natToText` depend on helpers that use number patterns).",
+      "body": "**After merging number patterns:** regenerate JS snapshots and re-check\nthe `TEXT_NATIVES` hashes in `crates/js/src/lib.rs` (`textTrim` and\n`natToText` depend on helpers that use number patterns).\n\nClosed 19 Oct: the gate (nix flake check, green on main at e61845a) includes the JS snapshots and `text_natives_are_bound_to_the_prelude` (crates/cli/tests/extract.rs:1703), which fails if a TEXT_NATIVES hash is stale; both pass.",
       "created": "2026-10-19",
       "updated": "2026-10-19",
       "commits": []
@@ -916,9 +916,9 @@
     {
       "id": 63,
       "title": "The printer prints a function type's domain twice",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "~/scratch/opencode/funlang-20261019-174935",
       "labels": [
         "elab"
       ],
@@ -1000,9 +1000,9 @@
     {
       "id": 69,
       "title": "`decSucc` is no longer used in the prelude",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "~/scratch/opencode/funlang-20261019-174942",
       "labels": [
         "stdlib"
       ],
