@@ -1557,9 +1557,9 @@
     {
       "id": 104,
       "title": "Examples test: select example files by name (e.g. EXAMPLES=synonym)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "/Users/matt/scratch/opencode/funlang-20261019-214231",
       "labels": [
         "tooling"
       ],
@@ -1722,9 +1722,9 @@
     {
       "id": 115,
       "title": "Error messages print fully evaluated terms",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "/Users/matt/repos/misc/funlang/.claude/worktrees/agent-a8097286c99ce0bba",
       "labels": [
         "elab",
         "kernel"
