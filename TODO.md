@@ -36,8 +36,9 @@ own note, `grid.rolls` fix in step 0. Lane `let-note-rev` folds the review
 in; then build in three Opus stages, one at a time: (1) step 0; (2) kernel
 `Let` + metavariable audit; (3) lifting with re-created lets, termination,
 erasure, JS, pattern lets.
-Running: `eval-speed` (Opus, report: where `run`
-spends time; day 4 is 84 rounds x 0.17 s).
+Running: `let-stage1` (Opus: step 0 + `grid.rolls`), `checker-eval-design`
+(Opus, docs: where the checker computes values it doesn't need; compare
+Lean/Agda/Rocq/Idris lazy/glued evaluation; staged plan; user, 19 Oct).
 
 Queued after the `let` fix (user, 19 Oct): prove day 2's block-walking
 spec equals ID-walking (the puzzle's wording, the user's Scala). Partly
