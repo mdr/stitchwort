@@ -30,6 +30,16 @@ theorem zipped : [1, 2, 3].zip [4, 5] = [MkPair 1 4, MkPair 2 5] := rfl
 
 theorem zippedWith : [1, 2, 3].zipWith (\x y => x + y) [10, 20, 30] = [11, 22, 33] := rfl
 
+theorem zippedWith3 : [1, 2, 3].zipWith3 (\x y z => x + y + z) [10, 20, 30] [100, 200, 300] = [111, 222, 333] := rfl
+
+theorem zippedWith3ShortFirst : List.zipWith3 (\x y z => x + y + z) ([] : List Nat) [10, 20] [100, 200] = [] := rfl
+
+theorem zippedWith3ShortMiddle : [1, 2].zipWith3 (\x y z => x + y + z) [10] [100, 200] = [111] := rfl
+
+theorem zippedWith3ShortLast : [1, 2].zipWith3 (\x y z => x + y + z) [10, 20] [100] = [111] := rfl
+
+theorem zippedWith3Empty : List.zipWith3 (\x y z => x + y + z) ([] : List Nat) ([] : List Nat) ([] : List Nat) = [] := rfl
+
 theorem taken : [1, 2, 3].take 2 = [1, 2] := rfl
 
 theorem takenMore : [1, 2].take 5 = [1, 2] := rfl
