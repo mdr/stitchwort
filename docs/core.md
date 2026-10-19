@@ -232,10 +232,10 @@ Abilities are translated into ordinary data before the kernel sees them, so the 
   - Expressions that perform nothing become `Effect.Comp.Done v`.
   - An operation call becomes `Effect.Comp.Call (inject op) (\r -> Effect.Comp.Done r)`, injected into the row with `Effect.Plus.L`/`Effect.Plus.R`.
   - Effectful arguments, conditions and operands run first, left to right, through `Effect.bind`.
-  - `let` and the lines of a block are `Effect.bind`s; a pure `let` is a beta-redex.
+  - A `let` whose value performs operations, and the lines of a block, are `Effect.bind`s; a `let` whose value is pure is a beta-redex, `(\x -> rest) v`, even when the rest performs operations.
   - A call to an effectful function whose row differs from the current one is moved into it with `Effect.translate` and a generated `Effect.SigMap`. Every ability it uses must be in the row (`E-ABILITY`). An unknown row variable in the callee is solved with the rest of the row.
   - A result type that depends on an operation's result is refused (`E-EFFECT-ESCAPE`); return a pair instead.
-- **Pure contexts.** Code there may perform only what it handles itself: it's elaborated in the empty row and run with `runPure`.
+- **Pure contexts.** Code there may perform only what it handles itself: it's elaborated in the empty row and run with `runPure`. A `let` counts as performing only if its value or the rest of the block does (the rest is asked again once the name is bound, so calling a `let`-bound effectful function counts); a block that performs nothing is elaborated directly, as the beta-redex `(\x -> rest) v`, with no `runPure` or `Done` ([proposals/let.md](proposals/let.md), stage 1).
 - **`handle e with …`**, with output row `out`:
   - `e` runs in the row `{A} + (out without A)`, with fresh unknowns for `A`'s parameters.
   - The result is `foldComp done step e`, where `done` is the `return` clause, and `step` dispatches `A`'s operations to the clauses through `A.elim`, forwarding every other operation into `out`.

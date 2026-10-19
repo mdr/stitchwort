@@ -356,7 +356,14 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             let (term, sort) = effects::effect_type(cx, row, ty)?;
             Ok((term, Value::Sort(sort)))
         }
-        Expr::Let { .. } | Expr::Seq(..) | Expr::Handle { .. } => {
+        Expr::Let {
+            name,
+            ty,
+            value,
+            body,
+            ..
+        } => effects::pure_let(cx, name, ty.as_deref(), value, body, None),
+        Expr::Seq(..) | Expr::Handle { .. } => {
             unreachable!("these may perform operations, so they're handled above")
         }
         Expr::Var(_) | Expr::App(..) => {
@@ -1051,6 +1058,16 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
         (Expr::LocalDefs { defs, body, .. }, _) => {
             crate::local::around(cx, defs, |cx| check(cx, body, &expected))
         }
+        (
+            Expr::Let {
+                name,
+                ty,
+                value,
+                body,
+                ..
+            },
+            _,
+        ) => Ok(effects::pure_let(cx, name, ty.as_deref(), value, body, Some(&expected))?.0),
         // `(A, B)` where a type is expected is `Pair A B`, and `(a, b)` where
         // a pair is expected is `MkPair a b`.
         (Expr::Tuple(a, b, _), Value::Sort(_)) => {
