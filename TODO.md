@@ -78,7 +78,9 @@ Queued after the current lanes (user, 19 Oct):
   generalising the `Decidable` auto search; coherence, predictability,
   hashes, namespaces §8. After the current work, before days 6-9 (sort,
   maps, sets; would remove `sum`/`sumInt` duplication). User, 19 Oct.
-- Multi-file design Draft 2 written ([multi-file.md](docs/proposals/multi-file.md); files declare namespaces; stitchwort.yaml with source roots); awaiting independent review.
+- Multi-file design Draft 2 written ([multi-file.md](docs/proposals/multi-file.md); files declare namespaces; stitchwort.yaml with source roots); awaiting independent review (prompt given to user, 19 Oct). User decided: `namespace X` lines, shared namespaces across files, file names meaningless, `stitchwort.yaml` source roots (default `src/`), `run Ns.fn` for any main-compatible function. Open: `auto` across a namespace's files (wait for review).
+- Playground (19 Oct, DeepSeek from Opus specs): AoC days 1-5 in the picker with example input (`c65023e`); test results cached like the CLI, "cached"/"ran" per test, "Forget cached results" (`2806ae5`). `Char.toText`, `Bool.toText` (`b707e9f`, found by the fuzz pilot).
+- Fuzz pilot findings to triage (DeepSeek's reports, not yet reproduced): type-synonym cycle reported as E-TERMINATION; non-ASCII identifiers refused (check intent); bare "unknown name" when a parameter is missing.
 - Compile-time `include "file" : Text` (contents part of the definition's
   hash, so the existing test cache covers input files; precedents Rust
   `include_str!`, Zig `@embedFile`, Lean `include_str`, Dhall integrity
