@@ -2081,9 +2081,9 @@
     {
       "id": 137,
       "title": "AoC day 6: solution with proofs, and pain-point notes",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
-      "where": "merged as c5385d9; gate running on main (started 00:04)",
+      "where": "-",
       "labels": [
         "aoc",
         "proof"
