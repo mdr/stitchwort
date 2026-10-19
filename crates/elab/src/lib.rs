@@ -321,6 +321,12 @@ impl Elaborator {
         }
     }
 
+    /// The definitions checked as part of namespace `namespace` of the
+    /// project, as indices into `globals.defs`; empty if it wasn't checked.
+    pub fn namespace_def_range(&self, namespace: &str) -> std::ops::Range<usize> {
+        self.namespace_defs.get(namespace).cloned().unwrap_or(0..0)
+    }
+
     /// Whether anything at all has key `key`.
     pub fn has_key(&self, key: &str) -> bool {
         self.scope.get(key).is_some()

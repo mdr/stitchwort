@@ -16,8 +16,8 @@ time_ms = 1707.9
 inputs = "24 files, 30bc746db4a38b49"
 steps = 23862
 visits = 15180
-allocations = 191988
-peak_bytes = 370779
+allocations = 192031
+peak_bytes = 371291
 time_ms = 11.8
 
 [eval-lengths]

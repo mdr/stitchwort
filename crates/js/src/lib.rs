@@ -502,11 +502,24 @@ pub fn generate(g: &Globals, limits: Limits) -> Result<Output, Diagnostic> {
 
 /// [`generate`], with the given representation options.
 pub fn generate_with(g: &Globals, limits: Limits, options: Options) -> Result<Output, Diagnostic> {
-    let _op = g.budget.operation(Limits::stack_only(limits.stack));
-    let exports = (0..g.defs.len())
+    let ids: Vec<DefId> = (0..g.defs.len())
         .map(DefId)
         .filter(|id| g.def(*id).export)
-        .map(|id| exportable(g, id))
+        .collect();
+    generate_exports(g, limits, options, &ids)
+}
+
+/// [`generate_with`] for the exports `ids` only: one namespace's.
+pub fn generate_exports(
+    g: &Globals,
+    limits: Limits,
+    options: Options,
+    ids: &[DefId],
+) -> Result<Output, Diagnostic> {
+    let _op = g.budget.operation(Limits::stack_only(limits.stack));
+    let exports = ids
+        .iter()
+        .map(|id| exportable(g, *id))
         .collect::<Result<Vec<_>, _>>()?;
 
     let boundary_datas = check_names(g, &exports)?;

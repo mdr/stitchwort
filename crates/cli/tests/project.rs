@@ -265,3 +265,74 @@ fn the_cache_is_in_the_project_folder() {
     assert!(again.contains("(4 from the cache)"), "{again}");
     assert!(!again.contains(" ran"), "{again}");
 }
+
+const EXPORTS_LIB: &str = "namespace Lib
+
+export def solve (n: Nat): Nat := n + 2
+
+def greet(): {IO} () := print \"lib\"
+";
+
+const EXPORTS_DAY: &str = "namespace Day
+
+import Lib (greet)
+
+export def solve (n: Nat): Nat := n + 1
+
+def main(): {IO} () :=
+  print \"day\"
+  greet()
+";
+
+fn exports_project(test: &str) -> PathBuf {
+    project(
+        test,
+        &[
+            ("stitchwort.yaml", ""),
+            ("src/lib.sw", EXPORTS_LIB),
+            ("src/day.sw", EXPORTS_DAY),
+        ],
+    )
+}
+
+/// What `solve(1n)` prints from `{namespace}.js` in `out`, under Node.
+fn solve_in(out_dir: &Path, namespace: &str) -> String {
+    let script =
+        format!("import {{ solve }} from './{namespace}.js'; console.log(solve(1n).toString())");
+    let output = Command::new("node")
+        .current_dir(out_dir)
+        .args(["--input-type=module", "-e", &script])
+        .output()
+        .expect("run node (it's in the nix dev shell)");
+    assert!(output.status.success(), "{}", err(&output));
+    out(&output).to_string()
+}
+
+/// Two namespaces export `solve`: building one gives that one's, and the
+/// other's doesn't clash with it.
+#[test]
+fn build_one_namespace() {
+    let dir = exports_project("build_one");
+    let built = succeeds(&dir, &["build", "--js", "Day", "-o", "out"]);
+    assert!(
+        built.contains("Day.js") && built.contains("Day.d.ts"),
+        "{built}"
+    );
+    let declarations = std::fs::read_to_string(dir.join("out/Day.d.ts")).unwrap();
+    assert_eq!(
+        declarations.matches("function solve(").count(),
+        1,
+        "{declarations}"
+    );
+    assert_eq!(solve_in(&dir.join("out"), "Day"), "2\n");
+    succeeds(&dir, &["build", "--js", "Lib", "-o", "out"]);
+    assert_eq!(solve_in(&dir.join("out"), "Lib"), "3\n");
+    fails(&dir, &["build", "--js", "Dya"], "E-NAMESPACE-UNKNOWN");
+}
+
+#[test]
+fn run_js_across_namespaces() {
+    let dir = exports_project("run_js");
+    assert_eq!(succeeds(&dir, &["run", "--js", "Day.main"]), "day\nlib\n");
+    assert_eq!(succeeds(&dir, &["run", "Day.main"]), "day\nlib\n");
+}

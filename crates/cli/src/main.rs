@@ -649,9 +649,7 @@ fn repl(path: Option<&Path>) -> ExitCode {
 
 fn build(target: &str, out: &Path, project: Option<&Path>) -> ExitCode {
     if !is_file_target(target) {
-        let _ = (out, project);
-        eprintln!("error: building a namespace isn't supported yet");
-        return ExitCode::FAILURE;
+        return build_namespace(target, out, project);
     }
     let path = Path::new(target);
     let mut session = new_session();
@@ -669,6 +667,29 @@ fn build(target: &str, out: &Path, project: Option<&Path>) -> ExitCode {
         .file_stem()
         .map_or("out".into(), |s| s.to_string_lossy());
     write_output(out, &stem, output)
+}
+
+/// `build --js NAMESPACE`: the exports of one namespace of the project, in
+/// `{NAMESPACE}.js` and `{NAMESPACE}.d.ts`.
+fn build_namespace(namespace: &str, out: &Path, project: Option<&Path>) -> ExitCode {
+    let Some(project) = locate_project(project, "build", "build --js hello.sw") else {
+        return ExitCode::FAILURE;
+    };
+    let mut session = new_session();
+    if !load_project(
+        &mut session,
+        &project,
+        &Target::Namespaces(vec![namespace.to_string()]),
+    ) {
+        return ExitCode::FAILURE;
+    }
+    match session.extract_namespace(namespace) {
+        Ok(output) => write_output(out, namespace, output),
+        Err(diagnostic) => {
+            report(&session.sources, &[diagnostic]);
+            ExitCode::FAILURE
+        }
+    }
 }
 
 /// Writes `{stem}.js` and `{stem}.d.ts` in `out`.

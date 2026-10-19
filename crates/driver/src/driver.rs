@@ -239,6 +239,24 @@ impl Session {
         stitchwort_js::generate(&self.elab.globals, self.elab.limits)
     }
 
+    /// Generates JavaScript for the exports of namespace `namespace` of the
+    /// project loaded, and no others'.
+    pub fn extract_namespace(&self, namespace: &str) -> Result<stitchwort_js::Output, Diagnostic> {
+        let g = &self.elab.globals;
+        let ids: Vec<stitchwort_core::DefId> = self
+            .elab
+            .namespace_def_range(namespace)
+            .map(stitchwort_core::DefId)
+            .filter(|id| g.def(*id).export)
+            .collect();
+        stitchwort_js::generate_exports(
+            g,
+            self.elab.limits,
+            stitchwort_js::Options::default(),
+            &ids,
+        )
+    }
+
     /// Generates the JavaScript program that runs `main` under Node
     /// (`stitchwort run --js`).
     pub fn extract_program(
