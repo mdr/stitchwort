@@ -236,6 +236,7 @@ impl Elaborator {
             let saved = self.globals.budget.start(self.limits);
             self.module.current = component.clone();
             let before = diagnostics.len();
+            self.globals.failed_mentioned.set(false);
             self.check_component(&items, &component, &mut diagnostics);
             self.globals.budget.restore(saved);
             self.blame_failed_dependency(&component, before, diagnostics.as_mut_slice());
@@ -337,11 +338,13 @@ impl Elaborator {
         diagnostics
     }
 
-    /// An error that mentions a declaration that failed (a failed
-    /// definition is stuck, so a proof about it won't check) isn't the
-    /// component's: it becomes one saying the failed declaration has
-    /// errors, which goes without saying when that failure is reported too.
-    /// Errors that don't mention it, and unknown names, stay.
+    /// When a message of this component showed a term that uses a failed
+    /// definition (`Globals::failed_mentioned`, decided from the terms, not
+    /// the text: messages elide), its errors are fallout of that failure (a
+    /// failed definition is stuck, so a proof about it won't check): they
+    /// become one saying the failed declaration has errors, which goes
+    /// without saying when that failure is reported too. Unknown names stay,
+    /// and so does everything when no message showed a failed definition.
     fn blame_failed_dependency(
         &self,
         component: &[usize],
@@ -358,7 +361,7 @@ impl Elaborator {
             })
             .map(|d| (d, self.module.items[d.item].name.as_str()))
             .collect();
-        if failed.is_empty() {
+        if failed.is_empty() || !self.globals.failed_mentioned.get() {
             return;
         }
         for (_, d) in &mut diagnostics[before..] {
@@ -368,20 +371,12 @@ impl Elaborator {
             {
                 continue;
             }
-            let texts: Vec<&str> = std::iter::once(d.message.as_str())
-                .chain(d.labels.iter().map(|l| l.message.as_str()))
-                .chain(d.notes.iter().map(String::as_str))
-                .collect();
-            if let Some((dep, name)) = failed
-                .iter()
-                .find(|(_, name)| texts.iter().any(|t| mentions(t, name)))
-            {
-                let name = ast::Name {
-                    text: (*name).to_string(),
-                    span: dep.span,
-                };
-                *d = failed_name(&name);
-            }
+            let (dep, name) = failed[0];
+            let name = ast::Name {
+                text: name.to_string(),
+                span: dep.span,
+            };
+            *d = failed_name(&name);
         }
     }
 
@@ -1311,16 +1306,6 @@ pub(crate) fn failed_name(name: &ast::Name) -> Diagnostic {
             "this can't be accepted until the errors in `{}` are fixed",
             name.text
         ))
-}
-
-/// Whether `text` mentions `name` as a whole name, not as part of a longer
-/// one.
-fn mentions(text: &str, name: &str) -> bool {
-    let word = |c: char| c.is_alphanumeric() || c == '_' || c == '\'' || c == '.';
-    text.match_indices(name).any(|(at, _)| {
-        !text[..at].chars().next_back().is_some_and(word)
-            && !text[at + name.len()..].chars().next().is_some_and(word)
-    })
 }
 
 fn internal_order(name: &ast::Name) -> Diagnostic {

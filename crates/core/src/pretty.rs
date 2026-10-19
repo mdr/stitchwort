@@ -61,6 +61,7 @@ pub fn value_for_message(g: &Globals, names: &[Name], value: &Value) -> String {
 
 /// [`value_for_message`], for a term.
 pub fn term_for_message(g: &Globals, names: &[Name], term_: &Term) -> String {
+    note_failed_mention(g, term_);
     let full = term(g, names, term_);
     if full.chars().count() <= MESSAGE_LIMIT || std::env::var_os("STITCHWORT_FULL_TERMS").is_some()
     {
@@ -608,4 +609,21 @@ fn list_literal<'t>(g: &Globals, term: &'t Term) -> Option<Vec<&'t Term>> {
             _ => return None,
         }
     }
+}
+
+/// Records on `g` that a message showed a term that uses a definition that
+/// failed: whatever went wrong then is fallout of that failure (see
+/// `Globals::failed_mentioned`). Looks at the whole term, whatever the
+/// message elides.
+fn note_failed_mention(g: &Globals, term: &Term) {
+    if g.failed_mentioned.get() || g.budget.stack_exhausted() {
+        return;
+    }
+    if let Term::Def(d) = term
+        && g.def(*d).state() == crate::globals::State::Failed
+    {
+        g.failed_mentioned.set(true);
+        return;
+    }
+    term.for_each_child(|c, _| note_failed_mention(g, c));
 }

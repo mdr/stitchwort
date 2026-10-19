@@ -1,6 +1,6 @@
 //! Checked top-level declarations.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use stitchwort_syntax::Span;
@@ -197,6 +197,10 @@ pub struct Globals {
     pub hashes: RefCell<std::collections::HashMap<HashKey, crate::hash::ContentHash>>,
     /// Resource limits for the operation in progress.
     pub budget: crate::budget::Budget,
+    /// Whether an error message has shown a term that uses a failed
+    /// definition since the elaborator last cleared this: its errors are
+    /// then fallout of that failure, not the declaration's own.
+    pub failed_mentioned: Cell<bool>,
     /// Whether running erases proofs and types, and what each definition
     /// erases (`erase.rs`). Never in effect while checking.
     pub erasure: crate::erase::Erasure,
