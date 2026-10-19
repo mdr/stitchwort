@@ -16,7 +16,12 @@ echo "Stress tests: http://127.0.0.1:$PORT/stress.html"
 # don't know it), so the browser can compile the module as it downloads.
 exec python3 -c '
 import http.server, sys
-handler = http.server.SimpleHTTPRequestHandler
+# No caching: after a rebuild, the browser must not mix an old script (say
+# the worker) with a new WebAssembly bundle.
+class handler(http.server.SimpleHTTPRequestHandler):
+    def end_headers(self):
+        self.send_header("Cache-Control", "no-store")
+        super().end_headers()
 handler.extensions_map[".wasm"] = "application/wasm"
 handler.extensions_map[".js"] = "text/javascript"
 http.server.ThreadingHTTPServer(("127.0.0.1", int(sys.argv[1])), handler).serve_forever()
