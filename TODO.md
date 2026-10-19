@@ -82,8 +82,9 @@ Merged 19 Oct: `run --js` (`9f905c9`; day 4 17 s -> 1 s; Partial works;
 `Let`, value computed on demand while checking, strict when running).
 AoC example answers are now tests; `theorem` only for all-input facts.
 Running: `let-stage3` (Opus: elaborator emits `Let`, lifting re-creates
-lets, erasure, pattern lets via projections), `syntax-polish` (Sonnet: `type` synonyms, leading commas,
-char-match errors). Checker fix (a) merged (`1fc7824`: print/dot/==/if no
+lets, erasure, pattern lets via projections), (syntax polish merged: `type Grid = List (List Nat)`, lines may start
+with `,` or a closing bracket, trailing commas, char-match errors name
+characters). Checker fix (a) merged (`1fc7824`: print/dot/==/if no
 longer compute closed values at check time; day 1 check 1.11 s -> 0.58 s).
 `run --js` (user, 19 Oct): compile `main` to JS, run under Node with an
 IO driver and a big stack. Quick wins Q1/Q2
@@ -120,6 +121,9 @@ Waiting on a decision (for the morning):
 - Proof `let`s (from day 3): a `let` is opaque to the checker (after
   `let p := 10 ^ n`, a proof about `p + 1` doesn't see `p`'s value), and
   a `let` can't bind a proof (`E-UNIVERSE`). Being fixed (let stages).
+Repo published (19 Oct): https://github.com/mdr/stitchwort, public, MIT;
+`origin` uses the `github.com-mdr` SSH host. Push only when asked.
+
 ## Next
 
 In this order, after the in-flight lanes finish (the user: build a
