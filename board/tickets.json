@@ -1813,7 +1813,7 @@
     {
       "id": 119,
       "title": "Print `R.f r` as `r.f` in error messages",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "main",
       "labels": [
@@ -2325,7 +2325,7 @@
     {
       "id": 152,
       "title": "Print `if` in goals as `if`, not Bool.ifThenElse (D40 split-off)",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "main",
       "labels": [
