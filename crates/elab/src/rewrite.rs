@@ -847,7 +847,7 @@ mod tests {
             Value::var(0),
             Icit::Explicit,
         )];
-        let unknown = Value::Neutral(stitchwort_core::value::Head::Meta(m), spine);
+        let unknown = Value::Neutral(stitchwort_core::value::Head::Meta(m), spine.into());
         assert!(has_carrier(&cx, &mut kcx, &p, &unknown).unwrap());
         assert!(cx.g().meta_solution(m).is_some());
     }
