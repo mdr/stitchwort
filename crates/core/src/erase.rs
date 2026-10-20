@@ -14,7 +14,9 @@
 //! 4. `J` on the placeholder takes its base (in a closed program every proof
 //!    of an equation is `refl`, so that's where `J` would go);
 //! 5. a `case` on the placeholder, for a type in `Prop`, takes the first
-//!    branch with placeholder fields.
+//!    branch with placeholder fields (its only possible one: if it's
+//!    impossible, every branch is, and the run fails as unreachable;
+//!    docs/proposals/indexed-families.md §6.8).
 //!
 //! Why it's safe: a proof or a type never decides which way a computation of
 //! data goes. Nothing matches on a type, and matching on a proof to produce
