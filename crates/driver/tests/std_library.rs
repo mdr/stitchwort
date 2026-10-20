@@ -713,3 +713,29 @@ fn render_all(session: &Session, errors: &[Diagnostic]) -> String {
         .map(|d| render(&session.sources, d, false))
         .collect()
 }
+
+/// A report, not a check: what building the index costs (stage 1 measures it,
+/// §4.3). `cargo test --release -p stitchwort-driver --test std_library
+/// index_cost -- --ignored --nocapture`.
+#[test]
+#[ignore = "a report, not a check"]
+fn index_cost() {
+    for _ in 0..3 {
+        let started = std::time::Instant::now();
+        let index = LibraryIndex::build(PRELUDE, LIBRARY_FILES, STACK).unwrap();
+        let names: usize = index.files.iter().map(|f| f.names.len()).sum();
+        eprintln!("index build: {:?} ({names} names)", started.elapsed());
+    }
+    let started = std::time::Instant::now();
+    let _ = LibraryIndex::standard(STACK).unwrap();
+    eprintln!("standard index (first use): {:?}", started.elapsed());
+    let started = std::time::Instant::now();
+    let _ = Session::core_alone();
+    eprintln!("a session, core alone: {:?}", started.elapsed());
+    let started = std::time::Instant::now();
+    let _ = Session::new();
+    eprintln!(
+        "a session with the library's names: {:?}",
+        started.elapsed()
+    );
+}
