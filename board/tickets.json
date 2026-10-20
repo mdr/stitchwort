@@ -1,5 +1,5 @@
 {
-  "next": 176,
+  "next": 178,
   "tickets": [
     {
       "id": 1,
@@ -1933,7 +1933,7 @@
       "title": "AoC day 4: prove the grid result for all grids",
       "status": "doing",
       "agent": "Opus",
-      "where": "worktree agent-a6fdd90ee149c9328 (D108 part 2)",
+      "where": "part 1 merged; part 2 awaiting D123",
       "labels": [
         "aoc",
         "proof"
@@ -2027,7 +2027,7 @@
       "title": "Playground: load projects (bring the AoC days back)",
       "status": "review",
       "agent": "Sonnet",
-      "where": "merged; awaiting gate + browser run",
+      "where": "merged; gate blocked by bench nondeterminism lane",
       "labels": [
         "web",
         "multi-file"
@@ -2713,6 +2713,34 @@
         "syntax"
       ],
       "body": "D120 (Matt, 20 Oct 2026): keep AoC day 1's `Dial highest` as is for now; consider a feature like Lean's `variable {highest : Nat}` so a file or section declares a shared parameter once and every definition below gets it. Motivation: aoc/src/Aoc/Day01 repeats `highest` 13 times in the program and 71 in Proofs/Part2.sw, kept generic so the part 2 proof covers any dial size. Design-review gate: research Lean 4 variable/section, Agda parameterised modules, Coq Section/Variable; write a note before implementing.",
+      "created": "2026-10-20",
+      "updated": "2026-10-20",
+      "commits": []
+    },
+    {
+      "id": 176,
+      "title": "Lambdas in comments and docs in the new syntax (D122)",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "two DeepSeek clones: funlang-20261020-203439 (docs), -203441 (code comments)",
+      "labels": [
+        "docs"
+      ],
+      "body": "D122 (Matt, 20 Oct 2026): all docs and comments get the new lambda syntax (x => e). Excludes docs/history.md, docs/proposals/lambda-syntax.md (about the change itself) and Haskell model notation (crates/partial-model, bindD/pfix lines).",
+      "created": "2026-10-20",
+      "updated": "2026-10-20",
+      "commits": []
+    },
+    {
+      "id": 177,
+      "title": "Bench: examples counts differ between runs; re-baseline after (gate blocker)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "tooling"
+      ],
+      "body": "",
       "created": "2026-10-20",
       "updated": "2026-10-20",
       "commits": []
