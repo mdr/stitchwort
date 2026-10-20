@@ -456,6 +456,18 @@ There are two translations. If the `match` is the whole right-hand side of a def
 
 `match h: e with` gives each branch an equation `h` about the original expression, such as `h: length xs = Zero` in the `Zero` branch. The expression is also generalised in the expected type, even when `e` is a variable. A `match` with a name is always generated as a definition.
 
+This is how a proof splits on an `if`: matching on the condition replaces it in the goal, and `h` is the evidence for the branch. No motive is written by hand (`Bool.inspect` asks for one).
+
+```
+theorem pickGe: (w: Nat) -> (xs: List Nat) -> (c: Nat) -> (after: List Nat) -> c <= Pair.fst (Bank.best.pick w xs c after)
+  | Succ w, Cons x more, c, after =>
+    match e: Nat.leq (Succ c) x with
+      | True  => Nat.leTrans c x (Pair.fst (Bank.best.pick w more x more)) (Nat.lessLe c x e) (pickGe w more x more)
+      | False => pickGe w more c after
+```
+
+Write the condition as `Nat.leq …` (`Bool` values), not `a <= b`: that form is the `Decidable` test the `if` elaborates to, and generalising it can be `E-MATCH-MOTIVE`. Hypotheses whose types mention the condition (`h: Nat.leq a b = False -> …`) are generalised too, and a branch's goal has already computed one step further, so a branch may need less than the same proof under `Bool.inspect` did. Real proofs: `aoc/src/day03/day03.sw` (`pickGe`, `pickLen`, `pickSub`, `pickBestStep`) and `aoc/src/day02/day02.sw` (`window`, `gaussPick`).
+
 A scrutinee that performs abilities runs once, in order from left to right, before any branch is chosen. Branches may perform abilities too, if the ability row of the definition allows them.
 
 The first version has limits. Each one is `E-MATCH-MOTIVE`, and the message says how to get round it:
