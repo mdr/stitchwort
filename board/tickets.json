@@ -1966,7 +1966,7 @@
     {
       "id": 130,
       "title": "Apply the OpenCode worker's new permission rules (run sw)",
-      "status": "next",
+      "status": "done",
       "agent": "Matt",
       "where": "",
       "labels": [
@@ -1974,7 +1974,7 @@
       ],
       "body": "19 Oct: ~/.config/nix-darwin/opencode.nix now gives the `worker` agent freedom to run commands (\"*\" = allow) with a deny list (git push/remote/commit/reset/rebase, gh, ssh, scp, curl, wget, sudo, rm -rf / and ~, darwin-rebuild, opencode) and external_directory = allow (Matt asked for freedom by default). Written by Claude, not yet applied: Matt runs `sw`. Until then DeepSeek keeps hitting refusals (sed, node, rm, chmod, env-prefixed commands). Also uncommitted in the nix-darwin repo (flake.nix, home.nix, opencode.nix).",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-20",
       "commits": []
     },
     {
