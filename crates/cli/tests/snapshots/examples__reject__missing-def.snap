@@ -1,0 +1,22 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: expected a declaration: `def`, `theorem`, `type`, `ability` or `test`
+   ╭─[ reject/missing-def.sw:3:1 ]
+   │
+ 3 │ double: Nat -> Nat
+   │ ───┬──  
+   │    ╰──── a declaration starts with a keyword
+   │ 
+   │ Note: a definition is written `def name (x: A): B := …`
+───╯
+[E-PARSE] Error: expected a declaration: `def`, `theorem`, `type`, `ability` or `test`
+   ╭─[ reject/missing-def.sw:4:1 ]
+   │
+ 4 │ double n = n + n
+   │ ───┬──  
+   │    ╰──── a declaration starts with a keyword
+   │ 
+   │ Note: a definition is written `def name (x: A): B := …`
+───╯
