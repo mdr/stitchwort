@@ -11,7 +11,7 @@ use num_bigint::BigUint;
 use crate::budget::Result;
 use crate::globals::Globals;
 use crate::registry::Builtin;
-use crate::term::{DataId, Icit, Name, Sort, Term};
+use crate::term::{DataId, DefId, Icit, Name, Sort, Term};
 use crate::value::{Value, quote};
 
 /// Prints `term`, whose free variables are named by `names` (outermost first).
@@ -354,6 +354,25 @@ impl<'g> Printer<'g> {
                 // aren't shown.
                 let (head, args) = explicit_spine(term);
                 if let Term::Def(id) = head {
+                    // A projection, as written: `x.name` or `p.fst`.
+                    if let Some(field) = self.projection_field(*id)
+                        && let [arg] = &args[..]
+                    {
+                        let arg = self.print(names, arg, Prec::Atom);
+                        return (format!("{arg}.{field}"), Prec::Atom);
+                    }
+                    // `if c then a else b`.
+                    if self.g.registry.is_def(Builtin::IfThenElse, *id)
+                        && let [cond, then, otherwise] = &args[..]
+                        && let Some(then) = self.unused_branch(names, then)
+                        && let Some(otherwise) = self.unused_branch(names, otherwise)
+                    {
+                        let cond = self.print(names, cond, Prec::Arrow);
+                        return (
+                            format!("if {cond} then {then} else {otherwise}"),
+                            Prec::Arrow,
+                        );
+                    }
                     // A partial computation: `{IO, Partial} a`.
                     if self.g.builtins.primitive(*id) == Some(crate::partial::Primitive::Delay)
                         && let [ops, _, result] = &args[..]
@@ -444,6 +463,57 @@ impl<'g> Printer<'g> {
             .collect();
         drop(labels);
         Some(self.applied(names, name, rest.into_iter()))
+    }
+
+    /// The field name of a projection `R.f`, if `id` is one: a record's
+    /// generated projection, or the prelude's `Pair.fst` or `Pair.snd`.
+    fn projection_field(&self, id: DefId) -> Option<String> {
+        match self.g.registry.def_builtin(id) {
+            Some(Builtin::Fst) => return Some("fst".into()),
+            Some(Builtin::Snd) => return Some("snd".into()),
+            _ => {}
+        }
+        let name = self.g.def(id).name.to_string();
+        let (record, field) = name.rsplit_once('.')?;
+        let (ix, data) = self
+            .g
+            .datas
+            .iter()
+            .enumerate()
+            .find(|(_, d)| d.record && &*d.name == record)?;
+        let is_field = data
+            .ctors
+            .first()
+            .is_some_and(|c| c.fields.iter().any(|(f, _)| &**f == field));
+        if !is_field {
+            return None;
+        }
+        // A projection takes the record as its only explicit argument.
+        let mut ty = self.g.def(id).ty.strip_loc();
+        while let Term::Pi(_, Icit::Implicit, _, b) = ty {
+            ty = b.strip_loc();
+        }
+        let takes_record = matches!(
+            ty,
+            Term::Pi(_, Icit::Explicit, dom, _)
+                if matches!(dom.strip_loc(), Term::Data(d, _) if *d == DataId(ix))
+        );
+        takes_record.then(|| field.to_string())
+    }
+
+    /// The body of `t`, if it's a lambda whose body doesn't use its parameter:
+    /// one of the branches of `if c then a else b`.
+    fn unused_branch(&self, names: &mut Vec<Name>, t: &Term) -> Option<String> {
+        let Term::Lam(x, _, body) = t.strip_loc() else {
+            return None;
+        };
+        if body.mentions(0) {
+            return None;
+        }
+        names.push(x.clone());
+        let text = self.print(names, body, Prec::Arrow);
+        names.pop();
+        Some(text)
     }
 
     fn tuple(&self, names: &mut Vec<Name>, items: &[&Term]) -> String {

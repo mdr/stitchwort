@@ -164,7 +164,7 @@ fn projections_and_equality_are_generated() {
     assert_eq!(shown("Person.age"), "Person -> Nat");
     assert_eq!(
         shown("Sized.ok"),
-        "(r: Sized) -> List.length (Sized.items r) = Sized.size r"
+        "(r: Sized) -> List.length r.items = r.size"
     );
     assert_eq!(shown("Box.value"), "[a: Type] -> Box a -> a");
     assert_eq!(
