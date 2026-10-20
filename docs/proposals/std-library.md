@@ -663,6 +663,15 @@ split can follow the `*` marks.
 - The playground: `crates/web` builds and its tests pass; the wasm build is part of the gate. The
   index build uses no clock, since `Instant` panics on wasm32.
 
+**Stage 3 (20 October 2026).** The library is registered as six files: `Int/Int.sw` (46
+declarations), `List/Sort.sw` (107), `List/Toolkit.sw` (98), `Nat/Arith.sw` (121),
+`Nat/Digits.sw` (47) and `Text/Text.sw` (20). No declaration moved back into core. The one
+failure registration exposed was `Text/Text.sw`'s `IO.readAllLines` naming `.lines`, which the
+dot-notation pre-pass counted as a dependency on the same file; `dependencies` now leaves out
+the file being loaded, as the index's edges already did. `std/core.sw` is 1,085 lines. Release
+timings (median of three): `stitchwort check` of `def z: Nat := 0`, 0.04 s (before, about
+0.12 s); `aoc`, 4.01 s (before, about 3.8 s).
+
 ## Sources
 
 - [I1] Idris 2 documentation, "Type-Driven Development with Idris" porting notes: the prelude

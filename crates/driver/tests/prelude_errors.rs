@@ -7,7 +7,7 @@ use stitchwort_elab::PRELUDE;
 #[test]
 fn a_duplicate_prelude_declaration_names_both_places() {
     let prelude = format!(
-        "{PRELUDE}\ndef Nat.digits (n : Nat) : List Nat := Nat.digitsFuel (Succ n) n Nil\n"
+        "{PRELUDE}\ndef Nat.digitsOnto (fuel : Nat) (n : Nat) (acc : List Char) : List Char := acc\n"
     );
     let Err(report) = Session::try_with_prelude(&prelude) else {
         panic!("a duplicate declaration should not check");

@@ -533,20 +533,6 @@ const $Std$dChar$ddecEqFrom = (v0) => (v1) => (v2) => {
   throw new Error("unreachable");
 };
 const $Std$dChar$ddecEq = (v0) => (v1) => $Std$dChar$ddecEqFrom(v0)(v1)($Std$dNat$ddecEq($Std$dChar$dtoNat(v0))($Std$dChar$dtoNat(v1)));
-const $Std$dOrdering$disLess = (v0) => {
-  switch (v0.tag) {
-    case "Less": {
-      return { tag: "True" };
-    }
-    case "Equal": {
-      return { tag: "False" };
-    }
-    case "Greater": {
-      return { tag: "False" };
-    }
-  }
-  throw new Error("unreachable");
-};
 const $Std$dText$dtoList = charsOfText;
 const $Std$dText$dfromList = textOfChars;
 const $Std$dText$dappend = (a) => (b) => a + b;
@@ -584,7 +570,6 @@ const $Std$dText$dcompare = (a) => (b) => {
   }
   return { tag: a.length === b.length ? "Equal" : a.length < b.length ? "Less" : "Greater" };
 };
-const $Std$dText$dless = (v0) => (v1) => $Std$dOrdering$disLess($Std$dText$dcompare(v0)(v1));
 const $Std$dText$dtrim = (t) => {
   const space = (unit) => unit === 32 || (unit >= 9 && unit <= 13);
   let start = 0;
@@ -608,6 +593,21 @@ const $Std$dText$djoin = (s) => (ts) => {
   for (let l = ts; l.tag === "Cons"; l = l.tail) parts.push(l.head);
   return parts.join(encodeChar(s));
 };
+const $Std$dOrdering$disLess = (v0) => {
+  switch (v0.tag) {
+    case "Less": {
+      return { tag: "True" };
+    }
+    case "Equal": {
+      return { tag: "False" };
+    }
+    case "Greater": {
+      return { tag: "False" };
+    }
+  }
+  throw new Error("unreachable");
+};
+const $Std$dText$dless = (v0) => (v1) => $Std$dOrdering$disLess($Std$dText$dcompare(v0)(v1));
 const $Main$dlen = (v0) => $Std$dText$dlength(v0);
 const $Main$dchars = (v0) => $Std$dText$dtoList(v0);
 const $Main$dfromChars = (v0) => $Std$dText$dfromList(v0);

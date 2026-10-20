@@ -864,10 +864,9 @@ fn assert_reaches_only_planned(label: &str, files: Vec<(String, String)>) {
         .iter()
         .map(|n| (n.clone(), session.elab.namespace_def_range(n)))
         .collect();
-    // Definitions before every namespace's are the library's.
-    let library_end = ranges.iter().map(|(_, r)| r.start).min().unwrap_or(0);
+    // Definitions in `Std` are the library's, wherever they loaded.
     let def_namespace = |id: DefId| {
-        if id.0 < library_end {
+        if g.def(id).path.starts_with("Std.") {
             return Some(None);
         }
         ranges
