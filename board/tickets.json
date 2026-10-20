@@ -389,9 +389,9 @@
     {
       "id": 26,
       "title": "Reasoning about `if` in proofs: no hand-written Bool.inspect motive",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
-      "where": "",
+      "where": "main",
       "labels": [
         "proof",
         "elab"
@@ -2395,7 +2395,7 @@
     {
       "id": 157,
       "title": "Convert AoC proofs to rewrite/calc (D41) and Bool.inspect proofs to match h: (SW-26)",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "main",
       "labels": [
