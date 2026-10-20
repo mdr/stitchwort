@@ -2557,8 +2557,8 @@
       "id": 166,
       "title": "AoC day 2 for all inputs: port the Lean proof to Stitchwort (natural-number weights)",
       "status": "doing",
-      "agent": "Opus",
-      "where": "worktree",
+      "agent": "Claude",
+      "where": "main",
       "labels": [
         "aoc",
         "proof"
@@ -2566,7 +2566,14 @@
       "body": "D82/D83 (20 Oct 2026): port comparisons/aoc-day02-general (SW-159) to Stitchwort: plus/minus Nat weights, periods as index arithmetic, smallest period as a Bool search; program tries repeat counts up to the digit count; remove fits/ifAllFit/10-digit refusal; theorem with no hypothesis. Replaces the computed-facts parts of part2proof.sw.",
       "created": "2026-10-20",
       "updated": "2026-10-20",
-      "commits": []
+      "commits": [
+        "39d0b4e",
+        "e578196",
+        "f2f4954",
+        "ab5cc3d",
+        "0de820a",
+        "d480354"
+      ]
     }
   ]
 }
