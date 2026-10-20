@@ -2429,14 +2429,14 @@
     {
       "id": 158,
       "title": "Cache evaluated closed statements so proof-by-computation facts aren't recomputed (D75)",
-      "status": "review",
-      "agent": "Matt",
-      "where": "branch worktree-agent-a5f8080551d5c389e (664a0c5), not merged",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
       "labels": [
         "kernel",
         "performance"
       ],
-      "body": "From SW-154's findings (docs/evaluator-speed.md §8): the evaluator is now 72% of proof checking; 28% is in infer_j where facts proved by computation are computed by the elaborator and again by the kernel; threeChecked alone is 1.1 s. D75 (Matt, 20 Oct 2026): next speed step, an Opus lane, after SW-157 (AoC proof conversion) lands. Glued evaluation is a later design note.",
+      "body": "From SW-154's findings (docs/evaluator-speed.md §8): the evaluator is now 72% of proof checking; 28% is in infer_j where facts proved by computation are computed by the elaborator and again by the kernel; threeChecked alone is 1.1 s. D75 (Matt, 20 Oct 2026): next speed step, an Opus lane, after SW-157 (AoC proof conversion) lands. Glued evaluation is a later design note.\n\nD90 (Matt, 20 Oct 2026): built (branch worktree-agent-a5f8080551d5c389e, 664a0c5; memo cache in crates/core/src/memo.rs, cache on/off differential test) but NOT merged. It targeted computed facts (threeChecked etc.) that SW-166 removed; on current main no measurable gain, and it adds kernel complexity at 2-3% cost when nothing repeats. Revisit if proofs that compute large facts return.\n",
       "created": "2026-10-20",
       "updated": "2026-10-20",
       "commits": []
