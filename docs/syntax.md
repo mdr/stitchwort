@@ -132,6 +132,7 @@ export def identityNat (n: Nat): Nat := n
 
 let x := 1 + 2                       -- in a block
 \x => x + 1                          -- a lambda
+\(x: Nat) (y: Nat) => x + y          -- a lambda with typed parameters
 match xs with
   | Nil => 0
   | Cons x _ => x
@@ -142,6 +143,7 @@ handle prog() with
 
 - `->` is only the function type. `=>` separates a pattern or parameter from what follows (arms, `match`, handlers, lambdas). `=` is only equality; `:=` gives a body or a `let` its value. Using `=` there is `E-DEF-EQUALS`.
 - Parameters before the colon have the same name in every arm and can't be matched. Parameters after the colon are matched by the arms. `()` before the colon is an unused unit parameter (it becomes `_`).
+- A lambda's parameters are names, patterns, or typed parameters written as a definition's are: `\(x: Nat) => …`, `\(x y: Nat) => …`, mixed freely (`\x (y: Nat) => …`). A typed parameter takes its type from the annotation, which in a checked lambda must agree with the expected parameter type (else `E-TYPE-MISMATCH`, pointing at the annotation), and which lets a lambda with no expected type be inferred: `\(p: Person) => p.name` has type `Person -> Text`. A typed parameter can't also be a pattern, and `[x: T]` (implicit) parameters aren't allowed. Examples: `examples/accept/lambda-annotations.sw`.
 - A handler clause is `| op x, k => body`: the operation's argument, then the continuation's name. The argument is one atomic pattern, so bracket a tuple: `| op (a, b), k => …`.
 
 **Layout.** Let *D* be the column of the declaration's `def`, `theorem` or `export`.
@@ -575,7 +577,6 @@ The one-alternative `match` must cover every value of the type, or the `let` is 
 Limits:
 
 - a record pattern in a lambda needs its type known where the lambda is checked, as `p.name` does;
-- a lambda's parameter can't be annotated: `\(x: T) => …` is an error, so annotate the lambda, `((\x => …): A -> B)`;
 - a pattern `let` that isn't the whole right-hand side is lifted like a `match`, so it isn't available in `partial` functions, data or ability declarations, or the REPL.
 
 Examples: `examples/accept/let-patterns.sw`. Design: [syntax-conveniences.md](proposals/syntax-conveniences.md) section 5.

@@ -264,6 +264,13 @@ fn walk_at(
             walk(e, body, bound, false, uses)?;
             bound.truncate(before);
         }
+        Expr::TypedLam(name, ty, body, _) => {
+            walk(e, ty, bound, true, uses)?;
+            let before = bound.len();
+            bound.push(name.text.clone());
+            walk(e, body, bound, false, uses)?;
+            bound.truncate(before);
+        }
         Expr::Binary(_, a, b) => {
             walk(e, a, bound, false, uses)?;
             walk(e, b, bound, false, uses)?;

@@ -316,7 +316,7 @@ fn find(cx: &Ctx, recv: &Expr, field: &AstName, mut ty: Ty) -> Result<(TyHead, D
                     .with_note(format!(
                         "`.{}` is looked up in the namespace of the value's type, so that type \
                          must be known where it's used: annotate it, as in \
-                         `\\(p: Person) -> p.{}`, or write the function's full name",
+                         `\\(p: Person) => p.{}`, or write the function's full name",
                         field.text, field.text
                     )));
             }

@@ -931,6 +931,7 @@ pub fn may_perform(cx: &Ctx, expr: &Expr) -> Result<bool> {
             may_perform(cx, value)?
                 || match &**f {
                     Expr::Lam(names, body, _) => names.len() == 1 && may_perform(cx, body)?,
+                    Expr::TypedLam(_, _, body, _) => may_perform(cx, body)?,
                     f => call_performs(cx, f, 1)?,
                 }
         }
@@ -1522,6 +1523,16 @@ fn pipe_call(
             let as_let = Expr::Let {
                 name: names[0].clone(),
                 ty: None,
+                value: Box::new(value),
+                body: body.clone(),
+                span: *span,
+            };
+            comp_infer(cx, &as_let, row)?
+        }
+        Expr::TypedLam(name, ty, body, span) => {
+            let as_let = Expr::Let {
+                name: name.clone(),
+                ty: Some(ty.clone()),
                 value: Box::new(value),
                 body: body.clone(),
                 span: *span,

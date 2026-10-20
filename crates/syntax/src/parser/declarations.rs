@@ -13,7 +13,7 @@ use crate::lexer::Tok;
 use crate::{Diagnostic, Span};
 
 /// A parameter written in a header, before the colon.
-enum Param {
+pub(super) enum Param {
     /// `(x y : A)`; with `implicit`, `[x y : A]`; with `auto` too,
     /// `[auto h : P]`.
     Named {
@@ -276,7 +276,7 @@ impl Parser<'_> {
 
     /// One parameter in a header: `(x y : A)`, `[x y : A]`, `[auto h : P]`
     /// or `()`.
-    fn header_param(&mut self) -> Result<Param> {
+    pub(super) fn header_param(&mut self) -> Result<Param> {
         let start = self.here();
         let implicit = match self.peek() {
             Some(Tok::LParen) if self.peek_at(1) == Some(&Tok::RParen) => {

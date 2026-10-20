@@ -38,7 +38,8 @@ pub(crate) fn infer_pipe(cx: &mut Ctx, value: &Expr, f: &Expr) -> Result<(Term, 
     args.reverse();
     // A number literal takes its type from where it's used: `5 |> f` is
     // `f 5`, whatever number type `f` takes.
-    if crate::numbers::literal(value).is_some() && !matches!(f, Expr::Lam(..)) {
+    if crate::numbers::literal(value).is_some() && !matches!(f, Expr::Lam(..) | Expr::TypedLam(..))
+    {
         args.push(Arg::Explicit(value));
         return infer_app(cx, head, &args);
     }
@@ -49,7 +50,7 @@ pub(crate) fn infer_pipe(cx: &mut Ctx, value: &Expr, f: &Expr) -> Result<(Term, 
         ty,
         span: f.span(),
     };
-    if let Expr::Lam(..) = f {
+    if let Expr::Lam(..) | Expr::TypedLam(..) = f {
         return lambda(cx, f, piped);
     }
     if let Some(known) = known_head(cx, head) {
@@ -74,6 +75,7 @@ fn lambda(cx: &mut Ctx, f: &Expr, piped: Piped) -> Result<(Term, Value)> {
     let g = cx.g();
     let name: Name = match f {
         Expr::Lam(names, _, _) => names[0].text.as_str().into(),
+        Expr::TypedLam(name, ..) => name.text.as_str().into(),
         _ => unreachable!("only called with a lambda"),
     };
     let mark = cx.mark();

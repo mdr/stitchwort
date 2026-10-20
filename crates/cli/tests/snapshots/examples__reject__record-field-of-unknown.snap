@@ -9,5 +9,5 @@ expression: output
     │                                        ───┬──  
     │                                           ╰──── its type isn't known yet here
     │ 
-    │ Note: `.name` is looked up in the namespace of the value's type, so that type must be known where it's used: annotate it, as in `\(p: Person) -> p.name`, or write the function's full name
+    │ Note: `.name` is looked up in the namespace of the value's type, so that type must be known where it's used: annotate it, as in `\(p: Person) => p.name`, or write the function's full name
 ────╯
