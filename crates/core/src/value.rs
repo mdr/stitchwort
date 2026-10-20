@@ -1349,7 +1349,7 @@ fn conv_step(
             ));
             true
         }
-        // Eta: `f` and `\x -> f x` are equal.
+        // Eta: `f` and `x => f x` are equal.
         (Value::Lam(_, i, b), other) | (other, Value::Lam(_, i, b)) => {
             work.push(ConvTask::Values(
                 level + 1,

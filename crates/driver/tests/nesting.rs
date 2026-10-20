@@ -217,7 +217,7 @@ fn deep_term(f: Term, x: Term, depth: usize) -> Term {
 }
 
 /// A session with `f : Nat -> Nat` and an export `g : Nat -> Nat`, whose
-/// body is then replaced (without checking it) by `\n -> f (f (… n))`.
+/// body is then replaced (without checking it) by `n => f (f (… n))`.
 fn with_deep_definition(depth: usize) -> (Session, DefId) {
     let mut session = Session::new();
     session

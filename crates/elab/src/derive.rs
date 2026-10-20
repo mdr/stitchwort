@@ -33,9 +33,9 @@
 //!   (r : T a) -> (s : T a) -> Decidable (r = s)
 //! T.%decEq d (C2 a0 a1) (C2 b0 b1) =
 //!   if h0 : a0 = b0 then
-//!     if h1 : a1 = b1 then Yes (J (\y q -> (C2 a0 a1 : T a) = C2 b0 y) (J … rfl h0) h1)
-//!     else No (\e -> h1 (Eq.cong (T.%C2%1 a1) e))
-//!   else No (\e -> h0 (Eq.cong (T.%C2%0 a0) e))
+//!     if h1 : a1 = b1 then Yes (J (y q => (C2 a0 a1 : T a) = C2 b0 y) (J … rfl h0) h1)
+//!     else No (e => h1 (Eq.cong (T.%C2%1 a1) e))
+//!   else No (e => h0 (Eq.cong (T.%C2%0 a0) e))
 //! …   -- one equation for each constructor
 //! T.%decEq d r s = No (T.%differ r s rfl)
 //! ```

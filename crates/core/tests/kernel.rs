@@ -269,7 +269,7 @@ fn rejects_a_bare_self_reference() {
 #[test]
 fn rejects_a_self_reference_passed_as_an_argument() {
     let mut p = Prelude::new();
-    // \n -> ((\g -> g n) : (Nat -> Nat) -> Nat) f
+    // n => ((g => g n) : (Nat -> Nat) -> Nat) f
     let nat_to_nat = arrow(p.nat_ty(), p.nat_ty());
     let apply_to_n = Term::Ann(
         Rc::new(lam("g", app(v(0), [v(1)]))),
@@ -576,7 +576,7 @@ fn rejects_j_on_something_that_is_not_an_equation() {
 #[test]
 fn recursive_definitions_stay_folded_on_unknown_arguments() {
     let p = Prelude::new();
-    // \n -> add n 0 normalises to itself: `add` can't unfold on a variable.
+    // n => add n 0 normalises to itself: `add` can't unfold on a variable.
     let term = Term::Ann(
         Rc::new(lam("n", p.plus(v(0), p.num(0)))),
         Rc::new(arrow(p.nat_ty(), p.nat_ty())),
@@ -953,7 +953,7 @@ fn conversion_keeps_nested_binders_apart() {
     let p = Prelude::new();
     let g = &p.g;
     let closed = |t: &Term| eval(g, &[], t).unwrap();
-    // \x y -> x  vs  \x y -> y
+    // x y => x  vs  x y => y
     let first = lam("x", lam("y", v(1)));
     let second = lam("x", lam("y", v(0)));
     assert!(!conv(g, 0, &closed(&first), &closed(&second)).unwrap());
@@ -961,7 +961,7 @@ fn conversion_keeps_nested_binders_apart() {
     let first = pi("x", ty(), pi("y", ty(), v(1)));
     let second = pi("x", ty(), pi("y", ty(), v(0)));
     assert!(!conv(g, 0, &closed(&first), &closed(&second)).unwrap());
-    // Eta, twice: with f a variable, \x y -> f y x is not f.
+    // Eta, twice: with f a variable, x y => f y x is not f.
     let f = Value::var(0);
     let flipped = eval(
         g,
@@ -1314,7 +1314,7 @@ fn constructors_are_defined_only_once() {
 
 #[test]
 fn an_under_applied_definition_is_a_function_for_conversion() {
-    // `succ n = Succ n`, unapplied, equals `\n -> Succ n`.
+    // `succ n = Succ n`, unapplied, equals `n => Succ n`.
     let mut p = Prelude::new();
     let nat = p.nat;
     let ty = arrow(p.nat_ty(), p.nat_ty());

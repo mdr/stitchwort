@@ -808,7 +808,7 @@ fn a_compact_list_is_never_a_smaller_argument() {
     // Kernel declarations outside an operation have no limits.
     let define = |g: &mut Globals, name: &str, recurse: Term| {
         let id = declare_def(g, &name.into(), &ty, false, false, span()).unwrap();
-        // \cs -> case cs of Nil -> 0 | Cons c rest -> self <recurse>
+        // cs => case cs of Nil -> 0 | Cons c rest -> self <recurse>
         let body = Term::Lam(
             "cs".into(),
             Icit::Explicit,

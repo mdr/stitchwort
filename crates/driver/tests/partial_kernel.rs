@@ -71,9 +71,9 @@ struct Rows {
     rec_nat: Term,
     /// `Plus (Rec Nat) NoOp`
     ops: Term,
-    /// `PlusRes (RecRes (\_ -> Nat)) NoRes`
+    /// `PlusRes (RecRes (_ => Nat)) NoRes`
     res: Term,
-    /// `\_ -> Nat`, under `depth` binders.
+    /// `_ => Nat`, under `depth` binders.
     ans: Term,
 }
 

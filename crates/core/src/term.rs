@@ -561,7 +561,7 @@ mod tests {
 
     #[test]
     fn shift_moves_only_free_variables() {
-        // \x -> x y, with y free: y moves, x doesn't.
+        // x => x y, with y free: y moves, x doesn't.
         assert_same(
             lam(Term::app(v(0), v(1))).shifted(2, 0),
             lam(Term::app(v(0), v(3))),

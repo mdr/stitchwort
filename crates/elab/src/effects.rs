@@ -1792,7 +1792,7 @@ fn op_call(
     if !may_perform(cx, arg)? {
         let x = check(cx, arg, &dom)?;
         // The result type comes from the operation's `res`, which usually
-        // looks only at which operation it is: `(\%arg => op %arg) x`, so
+        // looks only at which operation it is: `(%arg => op %arg) x`, so
         // that neither this nor the kernel's check of `Call`'s fields
         // computes `x` (docs/proposals/checker-evaluation.md, option (a)).
         let whole = |cx: &Ctx, ty: &Value| comp_type(cx, row, ty.clone());
@@ -1871,7 +1871,7 @@ fn make_call(
     Ok((op_call, result_ty))
 }
 
-/// An operation used as a value, `op`: the function `\x -> op x`, of type
+/// An operation used as a value, `op`: the function `x => op x`, of type
 /// `(x : A) -> {Ability args} B`.
 pub fn op_value(cx: &mut Ctx, a: usize, i: usize) -> Result<(Term, Value)> {
     let op_data = cx.e.abilities[a].op_data;
@@ -2175,7 +2175,7 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
     }
 
     // Everything else is forwarded to `out`, with the handler around the rest:
-    // `\o k -> Call (sigInject m o) (\y -> k (sigReply m o y))`.
+    // `o k => Call (sigInject m o) (y => k (sigReply m o y))`.
     // Elaborating the body may have added abilities to an unknown tail.
     let out = &refresh(cx, out)?;
     let rest = refresh(cx, &rest)?;
@@ -2336,7 +2336,7 @@ pub fn partial_mismatch(
 /// If `found` and `expected` are both effectful function types, and
 /// `found`'s abilities are among `expected`'s (after solving unknown tails)
 /// though not in the same form, wraps `term` so it has the expected type:
-/// `\x … -> translate m (term x …)` (or `mapSig`, or `lift` from a total
+/// `x … => translate m (term x …)` (or `mapSig`, or `lift` from a total
 /// function to a partial one).
 pub fn coerce(cx: &mut Ctx, term: &Term, found: &Value, expected: &Value) -> Result<Option<Term>> {
     let g = cx.g();

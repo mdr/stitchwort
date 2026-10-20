@@ -211,7 +211,7 @@ fn a_constructor_field_cannot_refer_to_a_pending_declaration() {
 fn a_proof_cannot_refer_to_a_pending_declaration() {
     let mut p = Prelude::new();
     let f = declare(&mut p.g, "f", nat_to_nat(p.nat));
-    // (\x -> rfl : Nat -> 0 = 0) (f 0)
+    // (x => rfl : Nat -> 0 = 0) (f 0)
     let zero_is_zero = eq(None, p.num(0), p.num(0));
     let constant = Term::Ann(
         Rc::new(lam("x", Term::Refl)),
