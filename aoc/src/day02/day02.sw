@@ -482,7 +482,7 @@ test "brute force agrees" := checkRanges.all agrees
 -- Why part 1 is right (b): `part1BlocksCorrect` says the printed part 1 is
 -- `part1Blocks`, the brute-force sum over every range and block length of the
 -- blocks written twice; (c) below says that is the puzzle's own sum. Part 2
--- is proved in part2proof.sw (`part2Correct`).
+-- is proved in part2proof.sw (`Aoc.Day02.Proofs.part2Correct`).
 
 -- Brute force for part 1: in each range, every block length up to the
 -- number of digits of `hi` (a longer block makes a longer id), every block of

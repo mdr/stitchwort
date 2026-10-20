@@ -22,8 +22,9 @@
 -- swapping the order of the sums gives, for each id, the counts above
 -- (`weightedIds`, `rangeSplit`).
 
-namespace Aoc.Day02
+namespace Aoc.Day02.Proofs
 import Aoc.Common (Range, rangeEnd)
+import Aoc.Day02 (..)
 
 -- (1) n copies ------------------------------------------------------------
 -- The twice* lemmas of day02.sw, for any number of copies n >= 2.

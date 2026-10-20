@@ -1,5 +1,5 @@
 {
-  "next": 156,
+  "next": 157,
   "tickets": [
     {
       "id": 1,
@@ -2364,6 +2364,20 @@
         "diagnostics"
       ],
       "body": "From SW-147: for `\\r => ... r.ids` the E-CANNOT-INFER hint suggests annotating the lambda parameter, e.g. `\\(p: Person) -> p.ids`; writing that gives E-PARSE 'a lambda's parameter can't have a type here'. Either allow annotated lambda parameters or change the hint (e.g. to Range.ids r / a type ascription). Related: SW-138.",
+      "created": "2026-10-20",
+      "updated": "2026-10-20",
+      "commits": []
+    },
+    {
+      "id": 156,
+      "title": "Day 2 part 2 proof in its own namespace so run skips it (D68)",
+      "status": "done",
+      "agent": "Claude",
+      "where": "main",
+      "labels": [
+        "aoc"
+      ],
+      "body": "",
       "created": "2026-10-20",
       "updated": "2026-10-20",
       "commits": []
