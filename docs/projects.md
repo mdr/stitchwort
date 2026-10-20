@@ -48,14 +48,14 @@ lines may come before it. Imports come after it.
 namespace Aoc
 
 -- A range of ids, both ends included.
-type Range = { lo: Nat, hi: Nat }
+type Range = { from: Nat, to: Nat }
 
 def Range.parse (t: Text): Maybe Range :=
   match (t.split '-').map Text.toNat with
-    | [Just lo, Just hi] => Just { lo, hi }
+    | [Just from, Just to] => Just { from, to }
     | _                  => Nothing
 
-def Range.size (r: Range): Nat := r.hi + 1 - r.lo
+def Range.size (r: Range): Nat := r.to + 1 - r.from
 ```
 
 ```
@@ -87,7 +87,9 @@ The rules:
   `namespace Day05` together make one namespace.
 - **File names and folders mean nothing.** `range.sw` could be called
   `helpers.sw` and nothing would change. A file's namespace comes from its
-  first line, not its path.
+  first line, not its path. (The `aoc/` project, by convention, keeps folders matching namespaces:
+  `Aoc.Day02.Proofs` lives in `src/Aoc/Day02/Proofs/`, and holds the theorems that
+  `Aoc.Day02` leaves out so that running the day does not check them.)
 - **Every declaration of a namespace is visible to all its files by short
   name**, in any order. Definitions in different files can call each other,
   including mutual recursion.

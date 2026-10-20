@@ -25,12 +25,13 @@
 --   Everything stays in natural numbers.
 
 namespace Aoc.Day02.Proofs
-import Aoc.Common (Range, rangeEnd)
+import Aoc.Common (Range)
+import Aoc.Common.Proofs (rangeEnd)
 import Aoc.Day02 (..)
 import Std (Eq)
 
 -- (1) n copies ------------------------------------------------------------
--- The twice* lemmas of day02.sw, for any number of copies n >= 2.
+-- The twice* lemmas of Repeated.sw, for any number of copies n >= 2.
 
 -- The digits `p` written n times make `fromDigits p` written n times.
 theorem fromDigitsRep (p: List Nat): (n: Nat) -> Nat.fromDigits (List.concat (List.replicate n p)) = writeTimes (List.length p) (Nat.fromDigits p) n
@@ -170,21 +171,21 @@ theorem blockCountRep (x: Nat) (m: Nat): (k: Nat) -> 1 <= k ->
 theorem blocksAsIdsRep (r: Range) (k: Nat) (n: Nat):
     repeatedSpec r k n
       = List.sumBy (\x => List.sumBy (\b => Nat.keepIf x (writeTimes k b n == x)) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1))))
-          (List.rangeFrom (r.hi + 1 - r.lo) r.lo) :=
+          (List.rangeFrom (r.to + 1 - r.from) r.from) :=
   calc repeatedSpec r k n
     -- filtering the block ids by the range is summing "the id if it is in the range"
-    _ = List.sumBy (\y => Nat.keepIf y (r.lo <= y && y <= r.hi)) (List.map (\b => writeTimes k b n) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1))))
-        := List.sumFilter (\x => r.lo <= x && x <= r.hi) (List.map (\b => writeTimes k b n) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1))))
-    _ = List.sumBy (\b => Nat.keepIf (writeTimes k b n) (r.lo <= writeTimes k b n && writeTimes k b n <= r.hi)) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1)))
-        := List.sumByMap (\y => Nat.keepIf y (r.lo <= y && y <= r.hi)) (\b => writeTimes k b n) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1)))
+    _ = List.sumBy (\y => Nat.keepIf y (r.from <= y && y <= r.to)) (List.map (\b => writeTimes k b n) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1))))
+        := List.sumFilter (\x => r.from <= x && x <= r.to) (List.map (\b => writeTimes k b n) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1))))
+    _ = List.sumBy (\b => Nat.keepIf (writeTimes k b n) (r.from <= writeTimes k b n && writeTimes k b n <= r.to)) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1)))
+        := List.sumByMap (\y => Nat.keepIf y (r.from <= y && y <= r.to)) (\b => writeTimes k b n) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1)))
     -- and, for each block, "the id if it is in the range" is the sum over the range ids that equal it
-    _ = List.sumBy (\b => List.sumBy (\x => Nat.keepIf x (writeTimes k b n == x)) (List.rangeFrom (r.hi + 1 - r.lo) r.lo)) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1)))
-        := List.sumByCongr (\b => Nat.keepIf (writeTimes k b n) (r.lo <= writeTimes k b n && writeTimes k b n <= r.hi))
-             (\b => List.sumBy (\x => Nat.keepIf x (writeTimes k b n == x)) (List.rangeFrom (r.hi + 1 - r.lo) r.lo))
-             (\b => Eq.sym (sumIdsEq r.lo r.hi (writeTimes k b n)))
+    _ = List.sumBy (\b => List.sumBy (\x => Nat.keepIf x (writeTimes k b n == x)) (List.rangeFrom (r.to + 1 - r.from) r.from)) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1)))
+        := List.sumByCongr (\b => Nat.keepIf (writeTimes k b n) (r.from <= writeTimes k b n && writeTimes k b n <= r.to))
+             (\b => List.sumBy (\x => Nat.keepIf x (writeTimes k b n == x)) (List.rangeFrom (r.to + 1 - r.from) r.from))
+             (\b => Eq.sym (sumIdsEq r.from r.to (writeTimes k b n)))
              (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1)))
-    _ = List.sumBy (\x => List.sumBy (\b => Nat.keepIf x (writeTimes k b n == x)) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1)))) (List.rangeFrom (r.hi + 1 - r.lo) r.lo)
-        := List.sumBySwap (\b x => Nat.keepIf x (writeTimes k b n == x)) (List.rangeFrom (r.hi + 1 - r.lo) r.lo) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1)))
+    _ = List.sumBy (\x => List.sumBy (\b => Nat.keepIf x (writeTimes k b n == x)) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1)))) (List.rangeFrom (r.to + 1 - r.from) r.from)
+        := List.sumBySwap (\b x => Nat.keepIf x (writeTimes k b n == x)) (List.rangeFrom (r.to + 1 - r.from) r.from) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1)))
 
 -- (1) `repeated r k n` adds the ids of the range whose digits are a k-digit
 -- block written n times.
@@ -248,9 +249,9 @@ theorem collapse (x: Nat) (n: Nat) (hn: 2 <= n) (size: Nat) (hLS: List.length (N
             | False => rfl)
 
 -- The ids of a range have at most as many digits as its end.
-theorem idsBelow (r: Range) (x: Nat) (h1: r.lo <= x) (h2: x < r.lo + r.size): List.length (Nat.digits x) <= List.length (Nat.digits r.hi) :=
-  Nat.digitsLengthLe x (List.length (Nat.digits r.hi)) (Nat.digitsNonEmpty r.hi)
-    (Nat.leTrans (Succ x) (Succ r.hi) (Nat.pow 10 (List.length (Nat.digits r.hi))) (rangeEnd r.lo r.hi x h1 h2) (Nat.ltPowTenDigits r.hi))
+theorem idsBelow (r: Range) (x: Nat) (h1: r.from <= x) (h2: x < r.from + r.size): List.length (Nat.digits x) <= List.length (Nat.digits r.to) :=
+  Nat.digitsLengthLe x (List.length (Nat.digits r.to)) (Nat.digitsNonEmpty r.to)
+    (Nat.leTrans (Succ x) (Succ r.to) (Nat.pow 10 (List.length (Nat.digits r.to))) (rangeEnd r.from r.to x h1 h2) (Nat.ltPowTenDigits r.to))
 
 
 -- (2) The weights ------------------------------------------------------------
@@ -585,38 +586,38 @@ theorem idPlusMinus (size: Nat) (x: Nat) (hL: digitCount x <= size): idTerms plu
 
 -- (6) Swapping the sums ------------------------------------------------------
 
--- A term with more digits than `hi` is 0 anyway.
+-- A term with more digits than `to` is 0 anyway.
 theorem keptTerm (w: Nat -> Nat) (r: Range) (k: Nat) (hk: 1 <= k) (n: Nat) (hn: 2 <= n):
-    (if Nat.leq (k * n) (List.length (Nat.digits r.hi)) then w n * repeated r k n else 0) = w n * repeated r k n :=
-  match h: Nat.leq (k * n) (List.length (Nat.digits r.hi)) with
+    (if Nat.leq (k * n) (List.length (Nat.digits r.to)) then w n * repeated r k n else 0) = w n * repeated r k n :=
+  match h: Nat.leq (k * n) (List.length (Nat.digits r.to)) with
     | True  => rfl
     | False => Eq.sym (Eq.trans (Eq.cong (\t => w n * t) (repeatedZero r k hk n hn h)) (Nat.mulZero (w n)))
 
 -- One term of `weighted`, as a sum over the ids of the range.
 theorem termIds (w: Nat -> Nat) (r: Range) (k: Nat) (hk: 1 <= k) (n: Nat) (hn: 2 <= n):
-    (if Nat.leq (k * n) (List.length (Nat.digits r.hi)) then w n * repeated r k n else 0)
+    (if Nat.leq (k * n) (List.length (Nat.digits r.to)) then w n * repeated r k n else 0)
       = List.sumBy (\x => w n * Nat.keepIf x (writtenAs (Nat.digits x) k n)) r.ids :=
   Eq.trans (keptTerm w r k hk n hn)
     (Eq.trans (Eq.cong (\t => w n * t) (repeatedIds r k hk n hn))
       (Eq.sym (List.sumByMulLeft (w n) (\x => Nat.keepIf x (writtenAs (Nat.digits x) k n)) r.ids)))
 
--- A block written n times with more digits than `hi` adds nothing.
-theorem repeatedZero (r: Range) (k: Nat) (hk: 1 <= k) (n: Nat) (hn: 2 <= n) (h: Nat.leq (k * n) (List.length (Nat.digits r.hi)) = False): repeated r k n = 0 :=
+-- A block written n times with more digits than `to` adds nothing.
+theorem repeatedZero (r: Range) (k: Nat) (hk: 1 <= k) (n: Nat) (hn: 2 <= n) (h: Nat.leq (k * n) (List.length (Nat.digits r.to)) = False): repeated r k n = 0 :=
   Eq.trans (repeatedIds r k hk n hn)
-    (List.sumRangeNone (\x => writtenAs (Nat.digits x) k n) (\x => x) r.size r.lo
+    (List.sumRangeNone (\x => writtenAs (Nat.digits x) k n) (\x => x) r.size r.from
       (\x x1 x2 =>
         match t: writtenAs (Nat.digits x) k n with
           | True =>
-            Void.exfalso (Nat.lessIrrefl (List.length (Nat.digits r.hi))
-              (calc Succ (List.length (Nat.digits r.hi))
-                _ <= k * n                      := Nat.leqFalse (k * n) (List.length (Nat.digits r.hi)) h
+            Void.exfalso (Nat.lessIrrefl (List.length (Nat.digits r.to))
+              (calc Succ (List.length (Nat.digits r.to))
+                _ <= k * n                      := Nat.leqFalse (k * n) (List.length (Nat.digits r.to)) h
                 _ = List.length (Nat.digits x)  := Eq.trans (Nat.mulComm k n) (countOf x k n hn t)
-                _ <= List.length (Nat.digits r.hi) := idsBelow r x x1 x2))
+                _ <= List.length (Nat.digits r.to) := idsBelow r x x1 x2))
           | False => rfl))
 
 -- One range under weights w, id by id.
-theorem weightedIds (w: Nat -> Nat) (r: Range): weighted w r = List.sumBy (\x => idTerms w (List.length (Nat.digits r.hi)) x) r.ids :=
-  let size := List.length (Nat.digits r.hi)
+theorem weightedIds (w: Nat -> Nat) (r: Range): weighted w r = List.sumBy (\x => idTerms w (List.length (Nat.digits r.to)) x) r.ids :=
+  let size := List.length (Nat.digits r.to)
   calc weighted w r
     _ = List.sumBy (\k => List.sumBy (\n => List.sumBy (\x => w n * Nat.keepIf x (writtenAs (Nat.digits x) k n)) r.ids) (List.rangeFrom (size - 1) 2)) (List.rangeFrom size 1)
         := List.sumRangeCongr (\k => List.sumBy (\n => if Nat.leq (k * n) size then w n * repeated r k n else 0) (List.rangeFrom (size - 1) 2))
@@ -634,11 +635,11 @@ theorem weightedIds (w: Nat -> Nat) (r: Range): weighted w r = List.sumBy (\x =>
 
 -- One range: the plus terms are the puzzle's sum plus the minus terms.
 theorem rangeSplit (r: Range): weighted plus r = List.sum (List.filter repeats r.ids) + weighted minus r :=
-  let size := List.length (Nat.digits r.hi)
+  let size := List.length (Nat.digits r.to)
   calc weighted plus r
     _ = List.sumBy (\x => idTerms plus size x) r.ids := weightedIds plus r
     _ = List.sumBy (\x => Nat.keepIf x (repeats x) + idTerms minus size x) r.ids
-        := List.sumRangeCongr (\x => idTerms plus size x) (\x => Nat.keepIf x (repeats x) + idTerms minus size x) r.size r.lo
+        := List.sumRangeCongr (\x => idTerms plus size x) (\x => Nat.keepIf x (repeats x) + idTerms minus size x) r.size r.from
              (\x x1 x2 => idPlusMinus size x (idsBelow r x x1 x2))
     _ = List.sumBy (\x => Nat.keepIf x (repeats x)) r.ids + List.sumBy (\x => idTerms minus size x) r.ids
         := List.sumByAdd (\x => Nat.keepIf x (repeats x)) (\x => idTerms minus size x) r.ids

@@ -2611,15 +2611,19 @@
       "id": 169,
       "title": "AoC restructure: from/to in Range, folders match namespaces, proofs split into Aoc.DayNN.Proofs",
       "status": "doing",
-      "agent": "Sonnet",
-      "where": "worktree",
+      "agent": "Claude",
+      "where": "main",
       "labels": [
         "aoc"
       ],
       "body": "Matt, 20 Oct 2026: (1) Range fields lo/hi -> from/to; (2) folders match namespaces: aoc/src/Aoc/Common/, aoc/src/Aoc/DayNN/, aoc/src/Aoc/DayNN/Proofs/; (3) split proofs from programs: theorems and proof-only helpers to Aoc.DayNN.Proofs (Aoc.Common.Proofs for Range lemmas), tests stay next to code. Reverses D24's adjacency.",
       "created": "2026-10-20",
       "updated": "2026-10-20",
-      "commits": []
+      "commits": [
+        "2fff657",
+        "3cb2a83",
+        "b4a7318"
+      ]
     },
     {
       "id": 170,
