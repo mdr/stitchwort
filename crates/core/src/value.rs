@@ -1168,6 +1168,8 @@ pub fn conv(g: &Globals, level: usize, a: &Value, b: &Value) -> Result<bool> {
         let same = match task {
             ConvTask::Values(level, a, b) => conv_step(g, level, a, b, &mut work)?,
             // Function types' codomains, compared once their domains are.
+            // The same function gives the same codomain (see `same_closure`).
+            ConvTask::Codomains(_, b1, b2) if same_closure(&b1, &b2) => true,
             ConvTask::Codomains(level, b1, b2) => {
                 let fresh = Value::var(level);
                 work.push(ConvTask::Values(
@@ -1248,6 +1250,9 @@ fn conv_step(
             work.push(ConvTask::Values(level, (**a1).clone(), (**a2).clone()));
             true
         }
+        // The same function, recognised without running it: comparing its
+        // body applied to a fresh variable would find the same value twice.
+        (Value::Lam(_, _, b1), Value::Lam(_, _, b2)) if same_closure(b1, b2) => true,
         (Value::Lam(_, _, b1), Value::Lam(_, _, b2)) => {
             work.push(ConvTask::Values(
                 level + 1,
@@ -1393,5 +1398,435 @@ pub fn underapplied(g: &Globals, value: &Value) -> Option<Icit> {
     match body.peel_lams(spine.len()) {
         Term::Lam(_, icit, _) => Some(*icit),
         _ => None,
+    }
+}
+
+// Recognising the same function without running it.
+//
+// Comparing two functions applies both to a fresh variable and compares the
+// results, which runs their bodies: for a lambda in a proposition, like
+// `\n => keepIf (repeated r k n) (plus n)` in a sum over 2 to 10, that can be
+// most of the work. When the two closures are *identical* (the same body, and
+// the same values for the variables it uses), so are the results, and
+// conversion is reflexive, so the comparison can answer "equal" at once.
+// That's the whole argument: identity here is exact likeness of
+// representation (no evaluation, no unfolding, no `3` against `Succ 2`), so
+// whatever running the two bodies could observe, it would observe the same in
+// both. When the closures aren't identical, nothing is concluded and the
+// comparison runs as before; so this can only skip work that would have
+// answered "equal", never change an answer (apart from not running out of
+// resources where the long way would have).
+
+#[cfg(any(test, feature = "reference"))]
+thread_local! {
+    static SHORTCUTS_OFF: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Turns the identical-closure shortcut of [`conv`] off (or back on) on this
+/// thread: for tests comparing the verdicts with and without it.
+#[cfg(any(test, feature = "reference"))]
+pub fn set_shortcuts_disabled(disabled: bool) {
+    SHORTCUTS_OFF.with(|s| s.set(disabled));
+}
+
+#[inline]
+fn shortcuts_disabled() -> bool {
+    #[cfg(any(test, feature = "reference"))]
+    {
+        SHORTCUTS_OFF.with(|s| s.get())
+    }
+    #[cfg(not(any(test, feature = "reference")))]
+    {
+        false
+    }
+}
+
+/// Whether closures `a` and `b` are identical: the same body term (ignoring
+/// names and source locations) and, for each variable it uses from its
+/// environment, identical values. Variables the body doesn't use can differ:
+/// they're never looked at.
+fn same_closure(a: &Closure, b: &Closure) -> bool {
+    !shortcuts_disabled() && identical(Same::Closures(a, b))
+}
+
+/// A pair still to compare for [`identical`].
+enum Same<'v> {
+    Values(&'v Value, &'v Value),
+    Closures(&'v Closure, &'v Closure),
+    Terms(&'v Term, &'v Term),
+}
+
+/// Whether two values, closures or terms are exactly alike (see
+/// [`same_closure`]). A work list, not recursion, as values can nest deeply.
+/// No evaluation: the cost is at most the size of the smaller side.
+fn identical(first: Same) -> bool {
+    let mut work = vec![first];
+    while let Some(pair) = work.pop() {
+        let alike = match pair {
+            Same::Values(a, b) => same_layer(a, b, &mut work),
+            Same::Closures(a, b) => same_closure_layer(a, b, &mut work),
+            Same::Terms(a, b) => same_term_layer(a, b, &mut work),
+        };
+        if !alike {
+            return false;
+        }
+    }
+    true
+}
+
+/// Compares two closures for [`identical`]: pushes their bodies and the
+/// values of the variables the body uses.
+fn same_closure_layer<'v>(a: &'v Closure, b: &'v Closure, work: &mut Vec<Same<'v>>) -> bool {
+    let same_body = Rc::ptr_eq(&a.body, &b.body);
+    if same_body && Rc::ptr_eq(&a.env.0, &b.env.0) {
+        return true;
+    }
+    if !same_body {
+        work.push(Same::Terms(&a.body, &b.body));
+    }
+    // Variable `ix` of the body is `env[len - ix]`: index 0 is the closure's
+    // own parameter, the same fresh variable on both sides. (If the bodies
+    // turn out to differ, these pairs are never needed; they're only looked
+    // at if everything else matches.)
+    let (x, y) = (&a.env, &b.env);
+    for ix in free_variables(&a.body) {
+        if ix == 0 {
+            continue;
+        }
+        if ix > x.len() || ix > y.len() {
+            return false;
+        }
+        work.push(Same::Values(&x[x.len() - ix], &y[y.len() - ix]));
+    }
+    true
+}
+
+/// The free variables of `term` (de Bruijn indices), each once.
+fn free_variables(term: &Term) -> Vec<usize> {
+    let mut free: Vec<usize> = term
+        .subterms()
+        .filter_map(|(t, binders)| match t {
+            Term::Var(i) | Term::Case(i, ..) | Term::NumCase(i, ..) if *i >= binders => {
+                Some(*i - binders)
+            }
+            _ => None,
+        })
+        .collect();
+    free.sort_unstable();
+    free.dedup();
+    free
+}
+
+/// Compares the outermost layer of two values for [`identical`], pushing
+/// their parts.
+fn same_layer<'v>(a: &'v Value, b: &'v Value, work: &mut Vec<Same<'v>>) -> bool {
+    let rc_values = |work: &mut Vec<Same<'v>>, x: &'v Rc<Value>, y: &'v Rc<Value>| {
+        if !Rc::ptr_eq(x, y) {
+            work.push(Same::Values(x, y));
+        }
+    };
+    let all = |work: &mut Vec<Same<'v>>, xs: &'v [Value], ys: &'v [Value]| {
+        work.extend(xs.iter().zip(ys).map(|(x, y)| Same::Values(x, y)));
+    };
+    match (a, b) {
+        (Value::Sort(s), Value::Sort(t)) => s == t,
+        (Value::Pi(_, i1, a1, b1), Value::Pi(_, i2, a2, b2)) => {
+            rc_values(work, a1, a2);
+            work.push(Same::Closures(b1, b2));
+            i1 == i2
+        }
+        (Value::Lam(_, i1, b1), Value::Lam(_, i2, b2)) => {
+            work.push(Same::Closures(b1, b2));
+            i1 == i2
+        }
+        (Value::Data(d1, a1), Value::Data(d2, a2)) => {
+            all(work, a1, a2);
+            d1 == d2 && a1.len() == a2.len()
+        }
+        (Value::Ctor(d1, c1, f1), Value::Ctor(d2, c2, f2)) => {
+            if !Rc::ptr_eq(&f1.0, &f2.0) {
+                all(work, f1, f2);
+            }
+            d1 == d2 && c1 == c2 && f1.len() == f2.len()
+        }
+        (Value::Nat(m), Value::Nat(n)) => m == n,
+        (Value::NatAdd(k1, x1), Value::NatAdd(k2, x2)) => {
+            rc_values(work, x1, x2);
+            k1 == k2
+        }
+        (Value::Chars(x), Value::Chars(y)) => x.as_slice() == y.as_slice(),
+        (Value::Eq(t1, x1, y1), Value::Eq(t2, x2, y2)) => {
+            rc_values(work, t1, t2);
+            rc_values(work, x1, x2);
+            rc_values(work, y1, y2);
+            true
+        }
+        (Value::Refl, Value::Refl) => true,
+        (Value::Neutral(h1, s1), Value::Neutral(h2, s2)) => {
+            if h1 != h2 || s1.len() != s2.len() {
+                return false;
+            }
+            for pair in s1.iter().zip(s2) {
+                match pair {
+                    (Elim::App(x, i1), Elim::App(y, i2)) if i1 == i2 => {
+                        work.push(Same::Values(x, y));
+                    }
+                    (
+                        Elim::J {
+                            motive: m1,
+                            base: b1,
+                        },
+                        Elim::J {
+                            motive: m2,
+                            base: b2,
+                        },
+                    ) => {
+                        work.push(Same::Values(m1, m2));
+                        work.push(Same::Values(b1, b2));
+                    }
+                    _ => return false,
+                }
+            }
+            true
+        }
+        _ => false,
+    }
+}
+
+/// Compares the outermost layer of two terms for [`identical`], pushing
+/// their parts. Names and source locations are ignored, as evaluation
+/// ignores them; everything else must match.
+fn same_term_layer<'v>(a: &'v Term, b: &'v Term, work: &mut Vec<Same<'v>>) -> bool {
+    let mut both = |x: &'v Rc<Term>, y: &'v Rc<Term>| {
+        if !Rc::ptr_eq(x, y) {
+            work.push(Same::Terms(x, y));
+        }
+    };
+    match (a.strip_loc(), b.strip_loc()) {
+        (Term::Var(i), Term::Var(j)) => i == j,
+        (Term::Def(i), Term::Def(j)) => i == j,
+        (Term::Meta(i), Term::Meta(j)) => i == j,
+        (Term::Sort(s), Term::Sort(t)) => s == t,
+        (Term::Nat(m), Term::Nat(n)) => m == n,
+        (Term::Chars(x), Term::Chars(y)) => x.as_slice() == y.as_slice(),
+        (Term::Refl, Term::Refl) => true,
+        (Term::Data(d1, xs), Term::Data(d2, ys)) => {
+            if d1 != d2 || xs.len() != ys.len() {
+                return false;
+            }
+            xs.iter().zip(ys).for_each(|(x, y)| both(x, y));
+            true
+        }
+        (Term::Ctor(d1, c1, xs), Term::Ctor(d2, c2, ys)) => {
+            if d1 != d2 || c1 != c2 || xs.len() != ys.len() {
+                return false;
+            }
+            xs.iter().zip(ys).for_each(|(x, y)| both(x, y));
+            true
+        }
+        (Term::Pi(_, i1, a1, b1), Term::Pi(_, i2, a2, b2)) => {
+            both(a1, a2);
+            both(b1, b2);
+            i1 == i2
+        }
+        (Term::Lam(_, i1, b1), Term::Lam(_, i2, b2)) => {
+            both(b1, b2);
+            i1 == i2
+        }
+        (Term::App(f1, a1, i1), Term::App(f2, a2, i2)) => {
+            both(f1, f2);
+            both(a1, a2);
+            i1 == i2
+        }
+        (Term::Ann(e1, t1), Term::Ann(e2, t2)) => {
+            both(e1, e2);
+            both(t1, t2);
+            true
+        }
+        (Term::Let(_, t1, v1, b1, s1), Term::Let(_, t2, v2, b2, s2)) => {
+            both(t1, t2);
+            both(v1, v2);
+            both(b1, b2);
+            s1 == s2
+        }
+        (Term::Eq(t1, x1, y1), Term::Eq(t2, x2, y2)) => {
+            match (t1, t2) {
+                (Some(t1), Some(t2)) => both(t1, t2),
+                (None, None) => {}
+                _ => return false,
+            }
+            both(x1, x2);
+            both(y1, y2);
+            true
+        }
+        (Term::J(m1, b1, p1), Term::J(m2, b2, p2)) => {
+            both(m1, m2);
+            both(b1, b2);
+            both(p1, p2);
+            true
+        }
+        (Term::Case(i1, d1, br1), Term::Case(i2, d2, br2)) => {
+            if i1 != i2 || d1 != d2 || br1.len() != br2.len() {
+                return false;
+            }
+            if !Rc::ptr_eq(br1, br2) {
+                for (x, y) in br1.iter().zip(br2.iter()) {
+                    if x.names.len() != y.names.len() {
+                        return false;
+                    }
+                    both(&x.body, &y.body);
+                }
+            }
+            true
+        }
+        (Term::NumCase(i1, a1, d1), Term::NumCase(i2, a2, d2)) => {
+            if i1 != i2 || a1.len() != a2.len() {
+                return false;
+            }
+            if !Rc::ptr_eq(a1, a2) {
+                for (x, y) in a1.iter().zip(a2.iter()) {
+                    if x.value != y.value {
+                        return false;
+                    }
+                    both(&x.body, &y.body);
+                }
+            }
+            both(d1, d2);
+            true
+        }
+        _ => false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::term::Icit;
+
+    fn rc(t: Term) -> Rc<Term> {
+        Rc::new(t)
+    }
+
+    /// `f x`, with `f` the closure's environment's last value and `x` its
+    /// parameter.
+    fn call_last() -> Term {
+        Term::App(rc(Term::Var(1)), rc(Term::Var(0)), Icit::Explicit)
+    }
+
+    fn closure(env: Vec<Value>, body: Term) -> Closure {
+        Closure {
+            env: env.into(),
+            body: rc(body),
+        }
+    }
+
+    fn lam(c: Closure) -> Value {
+        Value::Lam("x".into(), Icit::Explicit, c)
+    }
+
+    /// `conv` with and without the shortcut, which must agree; and the steps
+    /// each took.
+    fn conv_both(g: &Globals, a: &Value, b: &Value) -> (bool, u64, u64) {
+        let before = g.budget.total_work();
+        let with = conv(g, 0, a, b).unwrap();
+        let middle = g.budget.total_work();
+        set_shortcuts_disabled(true);
+        let without = conv(g, 0, a, b);
+        set_shortcuts_disabled(false);
+        let without = without.unwrap();
+        let after = g.budget.total_work();
+        assert_eq!(with, without, "the shortcut changed conv's answer");
+        (with, middle - before, after - middle)
+    }
+
+    #[test]
+    fn the_same_body_with_the_same_values_is_the_same_closure() {
+        // Separately built bodies, one wrapped in a location and named
+        // differently; the unused environment entries differ.
+        let a = closure(vec![Value::var(7), Value::var(3)], call_last());
+        let b = closure(
+            vec![Value::var(9), Value::var(3)],
+            Term::Loc(
+                {
+                    let mut sources = stitchwort_syntax::SourceMap::new();
+                    stitchwort_syntax::Span::point(sources.add("test", ""), 0)
+                },
+                rc(call_last()),
+            ),
+        );
+        assert!(same_closure(&a, &b));
+        let g = Globals::default();
+        let (equal, with, without) = conv_both(&g, &lam(a), &lam(b));
+        assert!(equal);
+        assert!(with < without, "the shortcut was taken: {with} < {without}");
+    }
+
+    #[test]
+    fn a_different_value_for_a_used_variable_is_not_the_same_closure() {
+        let a = closure(vec![Value::var(3)], call_last());
+        let b = closure(vec![Value::var(4)], call_last());
+        assert!(!same_closure(&a, &b));
+        let g = Globals::default();
+        assert!(!conv_both(&g, &lam(a), &lam(b)).0);
+    }
+
+    #[test]
+    fn a_different_body_is_not_the_same_closure() {
+        let a = closure(vec![Value::var(3)], call_last());
+        let b = closure(
+            vec![Value::var(3)],
+            Term::App(rc(Term::Var(1)), rc(Term::Var(1)), Icit::Explicit),
+        );
+        assert!(!same_closure(&a, &b));
+        let implicit = closure(
+            vec![Value::var(3)],
+            Term::App(rc(Term::Var(1)), rc(Term::Var(0)), Icit::Implicit),
+        );
+        assert!(!same_closure(&a, &implicit));
+        let g = Globals::default();
+        assert!(!conv_both(&g, &lam(a.clone()), &lam(b)).0);
+        // (Conversion ignores how an argument is passed, so this pair is
+        // equal the long way; `conv_both` checks the two ways agree.)
+        assert!(conv_both(&g, &lam(a), &lam(implicit)).0);
+    }
+
+    #[test]
+    fn closures_in_the_environment_are_compared_by_identity_too() {
+        let inner = |n| lam(closure(vec![Value::var(n)], call_last()));
+        let a = closure(vec![inner(3)], call_last());
+        let b = closure(vec![inner(3)], call_last());
+        assert!(same_closure(&a, &b));
+        let c = closure(vec![inner(4)], call_last());
+        assert!(!same_closure(&a, &c));
+    }
+
+    #[test]
+    fn convertible_but_not_identical_closures_are_still_equal() {
+        // `f` against `\y => f y`: equal by eta, which only the long way sees.
+        let f = Value::var(3);
+        let eta = lam(closure(vec![f.clone()], call_last()));
+        let a = closure(vec![f], call_last());
+        let b = closure(vec![eta], call_last());
+        assert!(!same_closure(&a, &b));
+        let g = Globals::default();
+        assert!(conv_both(&g, &lam(a), &lam(b)).0);
+    }
+
+    #[test]
+    fn function_types_with_the_same_codomain_are_equal() {
+        let pi = |env: Vec<Value>| {
+            Value::Pi(
+                "x".into(),
+                Icit::Explicit,
+                Rc::new(Value::Sort(Sort::Type(0))),
+                closure(env, call_last()),
+            )
+        };
+        let g = Globals::default();
+        let (equal, with, without) =
+            conv_both(&g, &pi(vec![Value::var(2)]), &pi(vec![Value::var(2)]));
+        assert!(equal);
+        assert!(with < without);
+        assert!(!conv_both(&g, &pi(vec![Value::var(2)]), &pi(vec![Value::var(5)])).0);
     }
 }
