@@ -1,5 +1,5 @@
 {
-  "next": 171,
+  "next": 172,
   "tickets": [
     {
       "id": 1,
@@ -2025,16 +2025,16 @@
     {
       "id": 133,
       "title": "Playground: load projects (bring the AoC days back)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "worktree",
       "labels": [
         "web",
         "multi-file"
       ],
-      "body": "D26: after the aoc/ restructure the playground can't load AoC days (it fetches single files via pkg/aoc/index.json). Design how the playground loads a multi-file project. Later.",
+      "body": "D105/D106 (Matt, 20 Oct 2026): design note first. Scope: AoC solutions browsable, editable and runnable in the LOCAL playground (no shareable links). Covers the wasm project API (files + target, reusing crates/driver/src/project.rs), tabs/file UI, project picker, bundling aoc/src at build, per-file local storage with reset, inputs (never bundled: test examples or paste), proofs on demand, performance in wasm. Design-review gate: research, note, stop for Matt.",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-20",
       "commits": []
     },
     {
@@ -2636,6 +2636,21 @@
         "syntax"
       ],
       "body": "D91 (Matt, 20 Oct 2026): after the backslash switch (SW-90 build). The grammar already admits it; the elaborator needs binder modes Explicit | Implicit | Auto (not an implicit flag): checking [a: Type] => e consumes a compatible implicit Pi rather than auto-introducing one; inferring builds an implicit Pi; [auto h: P] => e builds/consumes an auto Pi; distinct from today's silent introduction when x => x checks against [a: Type] -> a -> a. See docs/proposals/lambda-syntax.md (draft 3).",
+      "created": "2026-10-20",
+      "updated": "2026-10-20",
+      "commits": []
+    },
+    {
+      "id": 171,
+      "title": "AoC day 4 takes ~17 s to run: profile and speed up",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree",
+      "labels": [
+        "aoc",
+        "performance"
+      ],
+      "body": "D107 (Matt, 20 Oct 2026). stitchwort run Aoc.Day04.main takes ~16.8 s (run time, not proofs; same before the restructure). Profile first (evaluator vs program algorithm), then fix in the program or the evaluator, measured.",
       "created": "2026-10-20",
       "updated": "2026-10-20",
       "commits": []
