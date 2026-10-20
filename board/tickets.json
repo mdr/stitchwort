@@ -2181,7 +2181,7 @@
     {
       "id": 143,
       "title": "Prelude: small missing functions (List.init, List.head, Text.padRight) and Nat.max fold lemmas",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "main",
       "labels": [
