@@ -249,6 +249,14 @@ fn boundary(
                 (Some(Builtin::List), [elem]) => Ok(Boundary::List(Box::new(boundary(
                     g, elem, params, visiting,
                 )?))),
+                // Decoding would have to check the indices (a `Vec a n`'s
+                // length, a `Grid`'s rows): refused wherever it appears in the
+                // serialized form (docs/proposals/indexed-families.md §6.8, D147).
+                _ if !data.indices.is_empty() => Err(format!(
+                    "`{}` is an indexed family, which can't cross the JS boundary yet: \
+                     decoding would have to check its indices",
+                    data.name
+                )),
                 _ if data.sort != Sort::Prop => {
                     let args = args
                         .iter()
