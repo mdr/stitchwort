@@ -1,5 +1,5 @@
 {
-  "next": 170,
+  "next": 171,
   "tickets": [
     {
       "id": 1,
@@ -2617,6 +2617,21 @@
         "aoc"
       ],
       "body": "Matt, 20 Oct 2026: (1) Range fields lo/hi -> from/to; (2) folders match namespaces: aoc/src/Aoc/Common/, aoc/src/Aoc/DayNN/, aoc/src/Aoc/DayNN/Proofs/; (3) split proofs from programs: theorems and proof-only helpers to Aoc.DayNN.Proofs (Aoc.Common.Proofs for Range lemmas), tests stay next to code. Reverses D24's adjacency.",
+      "created": "2026-10-20",
+      "updated": "2026-10-20",
+      "commits": []
+    },
+    {
+      "id": 170,
+      "title": "Implicit and auto lambda parameters: [a: Type] (x: a) => x (D91)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab",
+        "syntax"
+      ],
+      "body": "D91 (Matt, 20 Oct 2026): after the backslash switch (SW-90 build). The grammar already admits it; the elaborator needs binder modes Explicit | Implicit | Auto (not an implicit flag): checking [a: Type] => e consumes a compatible implicit Pi rather than auto-introducing one; inferring builds an implicit Pi; [auto h: P] => e builds/consumes an auto Pi; distinct from today's silent introduction when x => x checks against [a: Type] -> a -> a. See docs/proposals/lambda-syntax.md (draft 3).",
       "created": "2026-10-20",
       "updated": "2026-10-20",
       "commits": []
