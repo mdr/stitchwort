@@ -61,9 +61,9 @@ test "padded grid" := paddedGrid ["ab", "a"] == [['a', 'b'], ['a', ' ']]
 -- One block of columns, the last character of each being the operator row.
 def parseProblem (columns: List (List Char)): Problem :=
   let rows := columns.transpose
-  { operator = (columns.mapMaybe (\column => column.last.andThen Operator.parse)).get 0
-  , rowNumbers = (rows.take (rows.length - 1)).map readNumber
-  , columnNumbers = columns.map (\column => readNumber (column.take (column.length - 1))) }
+  { operator = (columns.mapMaybe (\column => column.last.andThen Operator.parse)).head
+  , rowNumbers = rows.init.map readNumber
+  , columnNumbers = columns.map (\column => readNumber column.init) }
 
 test "example problems" :=
   (parseWorksheet example).map (\p => (p.rowNumbers, p.columnNumbers))
