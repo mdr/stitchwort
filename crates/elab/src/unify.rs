@@ -278,8 +278,8 @@ fn first_order(g: &Globals, level: usize, m: usize, spine: &[Elim], other: &Valu
         && unify(
             g,
             level,
-            &Value::Neutral(Head::Meta(m), rest1.to_vec()),
-            &Value::Neutral(*head, rest2.to_vec()),
+            &Value::Neutral(Head::Meta(m), rest1.to_vec().into()),
+            &Value::Neutral(*head, rest2.to_vec().into()),
         )?)
 }
 
@@ -770,7 +770,8 @@ mod tests {
                 vec![
                     Elim::App(Value::var(1), Icit::Explicit),
                     Elim::App(Value::var(0), Icit::Explicit),
-                ],
+                ]
+                .into(),
             ),
             _ => unreachable!(),
         };
@@ -915,7 +916,8 @@ mod tests {
                 vec![Elim::J {
                     motive: Box::new(motive),
                     base: Box::new(ty()),
-                }],
+                }]
+                .into(),
             )
         };
         assert!(unify(&g, 1, &stuck(ty()), &stuck(ty())).unwrap());

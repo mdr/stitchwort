@@ -35,7 +35,7 @@ use std::rc::Rc;
 use stitchwort_core::check as kernel;
 use stitchwort_core::partial::Primitive;
 use stitchwort_core::registry::Builtin;
-use stitchwort_core::value::{Elim, Head, Value, eval, force, quote};
+use stitchwort_core::value::{Elim, Head, Spine, Value, eval, force, quote};
 use stitchwort_core::{DataId, DefId, Icit, Name, Sort, Term};
 use stitchwort_syntax::ast::Decl;
 use stitchwort_syntax::{Diagnostic, Span};
@@ -451,7 +451,7 @@ impl Elaborator {
         }
         self.recursion = Some(effects::Recursion {
             ans: {
-                let mut ans = Value::Neutral(Head::Def(response), Vec::new());
+                let mut ans = Value::Neutral(Head::Def(response), Spine::new());
                 for (i, p) in fixed_params.iter().enumerate() {
                     ans = stitchwort_core::value::apply_icit(
                         &self.globals,

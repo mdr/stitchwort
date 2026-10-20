@@ -574,8 +574,10 @@ fn run_partial(
                 }
                 Some(_) if k.is_zero() => None,
                 Some(base) => {
-                    let stuck =
-                        Value::Neutral(Head::Def(id), vec![explicit(base), explicit((*n).clone())]);
+                    let stuck = Value::Neutral(
+                        Head::Def(id),
+                        vec![explicit(base), explicit((*n).clone())].into(),
+                    );
                     Some(Outcome::Done(from_view(k, Some(stuck))))
                 }
             })
@@ -702,7 +704,8 @@ fn run_numbers(g: &Globals, native: Native, args: &[BigUint]) -> Option<Value> {
                         arg(nat_value(m.clone())),
                         arg(nat_value(n.clone())),
                         arg(Value::Refl),
-                    ],
+                    ]
+                    .into(),
                 );
                 Some(Value::Ctor(dec, 1, [refutation].into()))
             }

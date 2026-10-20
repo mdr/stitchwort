@@ -323,12 +323,16 @@ fn normal(g: &Globals, level: usize, value: &Value) -> String {
 
 /// `f arg` by both evaluators, which must agree: its normal form.
 fn call_both(g: &Globals, f: DefId, arg: &Value) -> String {
-    let fast = value::apply(g, Value::Neutral(Head::Def(f), Vec::new()), arg.clone())
-        .and_then(|v| value::force(g, v))
-        .expect("no limits");
+    let fast = value::apply(
+        g,
+        Value::Neutral(Head::Def(f), stitchwort_core::value::Spine::new()),
+        arg.clone(),
+    )
+    .and_then(|v| value::force(g, v))
+    .expect("no limits");
     let slow = reference::apply_icit(
         g,
-        Value::Neutral(Head::Def(f), Vec::new()),
+        Value::Neutral(Head::Def(f), stitchwort_core::value::Spine::new()),
         arg.clone(),
         Icit::Explicit,
     )
@@ -372,7 +376,10 @@ fn evaluation_follows_the_table() {
         assert_eq!(call_both(g, hit, &succ), f);
         // A metavariable in the tail: stuck, then decided once it's solved.
         let m = g.new_meta(span());
-        let pending = plus(403, Value::Neutral(Head::Meta(m), Vec::new()));
+        let pending = plus(
+            403,
+            Value::Neutral(Head::Meta(m), stitchwort_core::value::Spine::new()),
+        );
         stuck(&pending);
         g.solve_meta(m, n(1));
         assert_eq!(call_both(g, hit, &pending), t);
@@ -380,7 +387,7 @@ fn evaluation_follows_the_table() {
         let m2 = g.new_meta(span());
         let id = value::eval(g, &[], &lam(Term::Var(0))).unwrap();
         g.solve_meta(m2, id);
-        let applied = Value::Neutral(Head::Meta(m2), vec![Elim::App(n(4), Icit::Explicit)]);
+        let applied = Value::Neutral(Head::Meta(m2), vec![Elim::App(n(4), Icit::Explicit)].into());
         assert_eq!(call_both(g, hit, &plus(400, applied)), t);
     });
 }
@@ -477,7 +484,7 @@ enum Arg {
 /// `f args`, by the machine: `None` if it's stuck (stays a folded call).
 fn run(g: &Globals, f: DefId, args: &[Arg]) -> Option<String> {
     let bool_data = g.find_data("Bool").unwrap();
-    let mut value = Value::Neutral(Head::Def(f), Vec::new());
+    let mut value = Value::Neutral(Head::Def(f), stitchwort_core::value::Spine::new());
     for (i, arg) in args.iter().enumerate() {
         let arg = match arg {
             Arg::Nat(n) => nat_value(BigUint::from(*n)),

@@ -22,7 +22,7 @@ use crate::budget::Result;
 use crate::globals::Globals;
 use crate::native;
 use crate::term::{Branch, DefId, Icit, Term};
-use crate::value::{Closure, Elim, Head, Value};
+use crate::value::{Closure, Elim, Head, Spine, Value};
 
 pub fn eval(g: &Globals, env: &[Value], term: &Term) -> Result<Value> {
     let eval_all = |args: &[Rc<Term>]| -> Result<Vec<Value>> {
@@ -34,12 +34,12 @@ pub fn eval(g: &Globals, env: &[Value], term: &Term) -> Result<Value> {
             let def = g.def(*id);
             match &def.body {
                 Some(body) if def.arity == 0 => eval(g, &[], body)?,
-                _ => Value::Neutral(Head::Def(*id), Vec::new()),
+                _ => Value::Neutral(Head::Def(*id), Spine::new()),
             }
         }
         Term::Meta(m) => match g.meta_solution(*m) {
             Some(value) => value,
-            None => Value::Neutral(Head::Meta(*m), Vec::new()),
+            None => Value::Neutral(Head::Meta(*m), Spine::new()),
         },
         Term::Data(d, args) => Value::Data(*d, eval_all(args)?),
         Term::Ctor(d, c, args) => native::ctor(g, *d, *c, eval_all(args)?),
@@ -114,7 +114,7 @@ pub fn apply_icit(g: &Globals, f: Value, arg: Value, icit: Icit) -> Result<Value
         Value::Lam(_, _, closure) => apply_closure(g, &closure, arg),
         Value::Neutral(Head::Def(id), mut spine) => {
             spine.push(Elim::App(arg, icit));
-            unfold(g, id, spine)
+            unfold(g, id, spine.into_vec())
         }
         Value::Neutral(head, mut spine) => {
             spine.push(Elim::App(arg, icit));
@@ -268,7 +268,7 @@ fn unfold(g: &Globals, id: DefId, spine: Vec<Elim>) -> Result<Value> {
             return Ok(value);
         }
     }
-    Ok(Value::Neutral(Head::Def(id), spine))
+    Ok(Value::Neutral(Head::Def(id), spine.into()))
 }
 
 fn eval_tree(g: &Globals, mut env: Vec<Value>, term: &Term) -> Result<Option<Value>> {

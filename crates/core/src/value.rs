@@ -37,7 +37,7 @@ pub enum Value {
     Refl,
     /// A computation stuck on a variable or an unsolved metavariable, or a
     /// folded definition.
-    Neutral(Head, Vec<Elim>),
+    Neutral(Head, Spine),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -55,6 +55,79 @@ pub enum Elim {
         motive: Box<Value>,
         base: Box<Value>,
     },
+}
+
+/// The eliminations applied to a neutral value's head, in order: shared, so
+/// copying a value is cheap however large the stuck computation in it.
+/// Adding an elimination copies the list only if it's shared (copying each
+/// elimination is then cheap too). Empty spines (variables, folded
+/// definitions with no arguments yet) allocate nothing.
+#[derive(Clone, Debug, Default)]
+pub struct Spine(Option<Rc<Vec<Elim>>>);
+
+impl Spine {
+    pub fn new() -> Spine {
+        Spine(None)
+    }
+
+    /// Adds `elim` at the end.
+    pub fn push(&mut self, elim: Elim) {
+        match &mut self.0 {
+            Some(elims) => Rc::make_mut(elims).push(elim),
+            None => self.0 = Some(Rc::new(vec![elim])),
+        }
+    }
+
+    /// The eliminations, copied only if they're shared.
+    pub fn into_vec(self) -> Vec<Elim> {
+        match self.0 {
+            Some(elims) => Rc::try_unwrap(elims).unwrap_or_else(|elims| (*elims).clone()),
+            None => Vec::new(),
+        }
+    }
+
+    /// Whether `self` and `other` are the same shared list (so equal).
+    pub fn ptr_eq(&self, other: &Spine) -> bool {
+        match (&self.0, &other.0) {
+            (Some(a), Some(b)) => Rc::ptr_eq(a, b),
+            (None, None) => true,
+            _ => false,
+        }
+    }
+}
+
+impl std::ops::Deref for Spine {
+    type Target = [Elim];
+    fn deref(&self) -> &[Elim] {
+        match &self.0 {
+            Some(elims) => elims,
+            None => &[],
+        }
+    }
+}
+
+impl From<Vec<Elim>> for Spine {
+    fn from(elims: Vec<Elim>) -> Spine {
+        if elims.is_empty() {
+            Spine(None)
+        } else {
+            Spine(Some(Rc::new(elims)))
+        }
+    }
+}
+
+impl FromIterator<Elim> for Spine {
+    fn from_iter<I: IntoIterator<Item = Elim>>(elims: I) -> Spine {
+        elims.into_iter().collect::<Vec<_>>().into()
+    }
+}
+
+impl<'s> IntoIterator for &'s Spine {
+    type Item = &'s Elim;
+    type IntoIter = std::slice::Iter<'s, Elim>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -191,7 +264,12 @@ fn detach(value: Value, empty: &Rc<[Value]>, pending: &mut Vec<Value>) {
             unwrap(b);
         }
         Value::Neutral(_, spine) => {
-            for elim in spine {
+            // Only the last owner takes the eliminations apart.
+            let elims = match spine.0 {
+                Some(elims) => Rc::try_unwrap(elims).unwrap_or_default(),
+                None => Vec::new(),
+            };
+            for elim in elims {
                 match elim {
                     Elim::App(v, _) => pending.push(v),
                     Elim::J { motive, base } => {
@@ -226,12 +304,12 @@ impl Closure {
 /// A placeholder for a value that's never looked at: an environment entry the
 /// body doesn't mention.
 pub fn unused() -> Value {
-    Value::Neutral(Head::Var(usize::MAX), Vec::new())
+    Value::Neutral(Head::Var(usize::MAX), Spine::new())
 }
 
 impl Value {
     pub fn var(level: usize) -> Value {
-        Value::Neutral(Head::Var(level), Vec::new())
+        Value::Neutral(Head::Var(level), Spine::new())
     }
 }
 
@@ -300,10 +378,10 @@ enum Control {
     Apply(Box<(Value, Value, Icit)>),
     /// A definition with these arguments: run its native implementation or
     /// its case tree, or leave it folded.
-    Unfold(DefId, Vec<Elim>),
+    Unfold(DefId, Spine),
     /// Walk a case tree. If it's stuck, the result is the definition left
     /// folded (or, for a case outside a definition, an internal error).
-    Tree(Rc<Term>, Vec<Value>, Option<(DefId, Vec<Elim>)>),
+    Tree(Rc<Term>, Vec<Value>, Option<(DefId, Spine)>),
     /// Replace a solved metavariable at the head of a value.
     Force(Value),
     /// Give a value to the frame on top of the stack.
@@ -343,22 +421,22 @@ enum Frame {
         term: Rc<Term>,
         env: Env,
         head: Head,
-        spine: Vec<Elim>,
+        spine: Spine,
     },
     /// The base of a stuck `J`: its head, spine and motive. (Boxed: it's the
     /// largest frame, and rare.)
-    JBase(Box<(Head, Vec<Elim>, Value)>),
+    JBase(Box<(Head, Spine, Value)>),
     /// The forced scrutinee of the case node `tree`.
     Scrutinee {
         tree: Rc<Term>,
         env: Vec<Value>,
-        stuck: Option<(DefId, Vec<Elim>)>,
+        stuck: Option<(DefId, Spine)>,
     },
     /// A metavariable's solution, or the result of applying it so far:
     /// apply the eliminations of `spine` from `next` on, then force again.
-    Replay { spine: Vec<Elim>, next: usize },
+    Replay { spine: Spine, next: usize },
     /// The forced value a `J` elimination at `spine[next]` applies to.
-    ReplayJ { spine: Vec<Elim>, next: usize },
+    ReplayJ { spine: Spine, next: usize },
 }
 
 #[cfg(any(test, feature = "reference"))]
@@ -487,7 +565,7 @@ fn quick(g: &Globals, term: &Rc<Term>, env: &Env) -> Option<Value> {
             let def = g.def(*id);
             match &def.body {
                 Some(_) if def.arity == 0 => None,
-                _ => Some(Value::Neutral(Head::Def(*id), Vec::new())),
+                _ => Some(Value::Neutral(Head::Def(*id), Spine::new())),
             }
         }
         Term::Ctor(d, c, args) if args.is_empty() => Some(native::ctor(g, *d, *c, Vec::new())),
@@ -505,12 +583,12 @@ fn eval_step(g: &Globals, term: Rc<Term>, env: Env, stack: &mut Vec<Frame>) -> R
             match &def.body {
                 Some(_) if def.arity == 0 && erases_result(g, *id) => Control::Return(erased()),
                 Some(body) if def.arity == 0 => Control::Eval(body.clone(), Values::from([])),
-                _ => Control::Return(Value::Neutral(Head::Def(*id), Vec::new())),
+                _ => Control::Return(Value::Neutral(Head::Def(*id), Spine::new())),
             }
         }
         Term::Meta(m) => Control::Return(match g.meta_solution(*m) {
             Some(value) => value,
-            None => Value::Neutral(Head::Meta(*m), Vec::new()),
+            None => Value::Neutral(Head::Meta(*m), Spine::new()),
         }),
         Term::Data(d, args) if args.is_empty() => Control::Return(Value::Data(*d, Vec::new())),
         Term::Ctor(d, c, args) if args.is_empty() => {
@@ -869,7 +947,7 @@ fn branch(
     g: &Globals,
     tree: Rc<Term>,
     mut env: Vec<Value>,
-    stuck: Option<(DefId, Vec<Elim>)>,
+    stuck: Option<(DefId, Spine)>,
     value: Value,
 ) -> Result<Control> {
     let (d, branches) = match &*tree {
@@ -918,7 +996,7 @@ fn branch(
 }
 
 /// A case tree that can't take a step: its definition stays folded.
-fn stuck_tree(stuck: Option<(DefId, Vec<Elim>)>) -> Control {
+fn stuck_tree(stuck: Option<(DefId, Spine)>) -> Control {
     match stuck {
         Some((id, spine)) => Control::Return(Value::Neutral(Head::Def(id), spine)),
         None => panic!("internal error: a case outside a definition's case tree got stuck"),
@@ -927,7 +1005,7 @@ fn stuck_tree(stuck: Option<(DefId, Vec<Elim>)>) -> Control {
 
 /// A definition applied to `spine`: its native implementation, or its case
 /// tree if it has all its arguments, or else it stays folded.
-fn unfold(g: &Globals, id: DefId, spine: Vec<Elim>) -> Result<Control> {
+fn unfold(g: &Globals, id: DefId, spine: Spine) -> Result<Control> {
     if spine.len() == g.def(id).arity && erases_result(g, id) {
         return Ok(Control::Return(erased()));
     }
@@ -936,7 +1014,7 @@ fn unfold(g: &Globals, id: DefId, spine: Vec<Elim>) -> Result<Control> {
     {
         match native::run(g, id, op, &spine, force)? {
             Some(native::Outcome::Done(value)) => return Ok(Control::Return(value)),
-            Some(native::Outcome::Again(spine)) => return Ok(Control::Unfold(id, spine)),
+            Some(native::Outcome::Again(spine)) => return Ok(Control::Unfold(id, spine.into())),
             None => {}
         }
     }
@@ -1563,6 +1641,9 @@ fn same_layer<'v>(a: &'v Value, b: &'v Value, work: &mut Vec<Same<'v>>) -> bool 
         }
         (Value::Refl, Value::Refl) => true,
         (Value::Neutral(h1, s1), Value::Neutral(h2, s2)) => {
+            if h1 == h2 && s1.ptr_eq(s2) {
+                return true;
+            }
             if h1 != h2 || s1.len() != s2.len() {
                 return false;
             }
