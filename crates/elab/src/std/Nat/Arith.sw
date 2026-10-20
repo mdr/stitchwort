@@ -165,6 +165,8 @@ theorem Nat.nonzeroPos: (d: Nat) -> Not (d = 0) -> 0 < d
   | Zero, ok => Void.exfalso (ok rfl)
   | Succ d, ok => rfl
 
+theorem Nat.nonzeroOfPos (d: Nat) (h: 1 <= d): d != 0 := \e => Bool.falseNotTrue (J (\y q => 1 <= y) h e)
+
 theorem Nat.divFuelBound: (fuel: Nat) -> (n: Nat) -> (d: Nat) -> Not (d = 0) -> n <= fuel -> n < Succ (Nat.divFuel fuel n d) * d
   | Zero, Zero, d, ok, hn => Nat.ltCongRight 0 d (d + 0) (Eq.sym (Nat.addZero d)) (Nat.nonzeroPos d ok)
   | Zero, Succ n, d, ok, hn => Void.exfalso (Bool.falseNotTrue hn)
@@ -290,6 +292,52 @@ theorem Nat.addModMod (a: Nat) (b: Nat) (d: Nat) [auto ok: d != 0]: (a + b % d) 
   Eq.trans (Eq.cong (\t => t % d) (Nat.addComm a (b % d)))
     (Eq.trans (Nat.modAddMod b a d) (Eq.cong (\t => t % d) (Nat.addComm b a)))
 
+-- `x % len % k = x % k` when `len` is a multiple of `k`.
+theorem Nat.modModOfMul (x: Nat) (len: Nat) (k: Nat) (t: Nat) [auto hl: len != 0] [auto hk: k != 0] (e: len = t * k): x % len % k = x % k :=
+  Eq.sym (calc x % k
+    _ = (x % len + (x / len) * len) % k  := Eq.cong (\y => y % k) (Eq.trans (Nat.divMod x len hl) (Nat.addComm ((x / len) * len) (x % len)))
+    _ = (x % len + (x / len * t) * k) % k
+        := Eq.cong (\y => (x % len + y) % k) (Eq.trans (Eq.cong (\l => (x / len) * l) e) (Eq.sym (Nat.mulAssoc (x / len) t k)))
+    _ = x % len % k                      := Nat.modAddMul (x % len) (x / len * t) k)
+
+-- Divisibility, as a test: `Nat.divides d n` when `n` is `t * d` for some
+-- `t` (so 0 divides only 0). There is no `Exists`, so taking it apart passes
+-- the factor to a continuation, as `List.anyRangeElim` does.
+def Nat.divides: Nat -> Nat -> Bool
+  | Zero,   n => n == 0
+  | Succ d, n => n % Succ d == 0
+
+theorem Nat.dividesExample: Nat.divides 3 12 = True := rfl
+
+theorem Nat.dividesNotExample: Nat.divides 5 12 = False := rfl
+
+theorem Nat.dividesMul: (d: Nat) -> (t: Nat) -> Nat.divides d (t * d) = True
+  | Zero,   t => Decidable.toBoolOf (Nat.decEq (t * 0) 0) (Nat.mulZero t)
+  | Succ d, t => Decidable.toBoolOf (Nat.decEq ((t * Succ d) % Succ d) 0) (Nat.modAddMul 0 t (Succ d))
+
+theorem Nat.dividesSelf (d: Nat): Nat.divides d d = True := J (\y q => Nat.divides d y = True) (Nat.dividesMul d 1) (Nat.addZero d)
+
+theorem Nat.dividesElim (goal: Prop): (d: Nat) -> (n: Nat) -> Nat.divides d n = True -> ((t: Nat) -> n = t * d -> goal) -> goal
+  | Zero,   n, h, k => k 0 (Decidable.toBoolSound (Nat.decEq n 0) h)
+  | Succ d, n, h, k =>
+    k (n / Succ d)
+      (calc n
+        _ = (n / Succ d) * Succ d + n % Succ d := Nat.divMod n (Succ d) (Nat.succNotZero d)
+        _ = (n / Succ d) * Succ d + 0          := Eq.cong (\r => (n / Succ d) * Succ d + r) (Decidable.toBoolSound (Nat.decEq (n % Succ d) 0) h)
+        _ = (n / Succ d) * Succ d              := Nat.addZero ((n / Succ d) * Succ d))
+
+-- A number from 1 up is divided by nothing bigger than itself.
+theorem Nat.dividesSmall: (d: Nat) -> (n: Nat) -> 1 <= n -> n < d -> Nat.divides d n = False
+  | Zero,   n, h1, h2 => Void.exfalso (Bool.falseNotTrue h2)
+  | Succ d, n, h1, h2 =>
+    Decidable.toBoolOfNot (Nat.decEq (n % Succ d) 0)
+      (\e => Bool.falseNotTrue (J (\y q => 1 <= y) h1 (Eq.trans (Eq.sym (Nat.modSmall n (Succ d) h2)) e)))
+
+theorem Nat.dividesLe (d: Nat) (n: Nat) (hn: 1 <= n) (h: Nat.divides d n = True): d <= n :=
+  match e: Nat.leq d n with
+    | True  => rfl
+    | False => Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym h) (Nat.dividesSmall d n hn (Nat.leqFalse d n e))))
+
 theorem Nat.leqFalseOfLess (a: Nat) (b: Nat) (h: a < b): Nat.leq b a = False :=
   Bool.inspect (Nat.leq b a) (\c => c = False)
     (\t => Void.exfalso (Nat.lessIrrefl a (Nat.leTrans (Succ a) b a h t)))
@@ -409,6 +457,15 @@ theorem Nat.ltAddSuccSelf (s: Nat) (c: Nat): s < s + Succ c := Nat.ltAddSucc s c
 theorem Nat.predLeSucc: (l: Nat) -> (j: Nat) -> l - 1 <= j -> l <= Succ j
   | Zero,   j, h => rfl
   | Succ l, j, h => h
+
+-- In the run `s .. s + (n - s) - 1` means below `n`, even when `n < s`
+-- (then the run is empty).
+theorem Nat.ltOfRunSub (s: Nat) (d: Nat) (n: Nat) (h1: s <= d) (h2: d < s + (n - s)): d < n :=
+  match e: Nat.leq s n with
+    | True  => Nat.ltCongRight d (s + (n - s)) n (Nat.addSubCancel s n e) h2
+    | False =>
+      Void.exfalso (Nat.lessIrrefl d (Nat.leTrans (Succ d) s d
+        (Nat.ltCongRight d (s + (n - s)) s (Eq.trans (Eq.cong (\t => s + t) (Nat.subEqZero n s (Nat.lessLe n s (Nat.leqFalse s n e)))) (Nat.addZero s)) h2) h1))
 
 def Ordering.isLess: Ordering -> Bool
   | Less    => True
