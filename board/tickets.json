@@ -2025,7 +2025,7 @@
     {
       "id": 133,
       "title": "Playground: load projects (bring the AoC days back)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "merged; gate blocked by bench nondeterminism lane",
       "labels": [
@@ -2199,7 +2199,7 @@
     {
       "id": 144,
       "title": "Prelude: Nat.fromDigits (Nat.digits n) = n and List.get lemmas",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": "worktree",
       "labels": [
@@ -2582,7 +2582,7 @@
     {
       "id": 167,
       "title": "Print Nat * / % as operators in messages, like + and -",
-      "status": "doing",
+      "status": "review",
       "agent": "DeepSeek",
       "where": "scratch clone (latest funlang-2026…); crates/core/src/pretty.rs",
       "labels": [
@@ -2661,7 +2661,7 @@
     {
       "id": 172,
       "title": "AoC day 6: end-to-end correctness proof for both parts (D108)",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": "aoc/src/Aoc/Day06/Proofs/ (merged; awaiting gate + Matt's spec check)",
       "labels": [
@@ -2720,7 +2720,7 @@
     {
       "id": 176,
       "title": "Lambdas in comments and docs in the new syntax (D122)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "merged 77e50ca, af5cc4e",
       "labels": [
@@ -2734,7 +2734,7 @@
     {
       "id": 177,
       "title": "Bench: examples counts differ between runs; re-baseline after (gate blocker)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "f8ca7b5 (merged); baseline 903cd62",
       "labels": [
