@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-IMPLICIT-FIELD] Error: `i` needs to be written as a field
+    ╭─[ reject/implicit-field-dependent.sw:12:24 ]
+    │
+ 12 │   | Mk (n: Nat): Dep n i
+    │                        ┬  
+    │                        ╰── `i` needs to be written as a field
+    │ 
+    │ Note 1: `i` isn't declared, so it's an automatic implicit field, of type `Fin n`, which mentions the field `n`. Automatic fields go before the written ones
+    │ 
+    │ Note 2: write `[i: Fin n]` after `n`
+────╯

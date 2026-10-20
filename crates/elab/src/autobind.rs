@@ -85,7 +85,11 @@ pub fn auto_bound_in(e: &Elaborator, ty: &Expr, mut bound: Vec<String>) -> Resul
         let all_types = uses
             .iter()
             .filter(|u| u.name.text == name.text)
-            .all(|u| u.position != Position::Value);
+            // A module's name in an index means that name: no warning.
+            .all(|u| u.position != Position::Value && !(u.module && u.position == Position::Index))
+            // A use in an index binds a name that isn't the module's.
+            || (!use_.module
+                && (uses.iter()).any(|u| u.name.text == name.text && u.position == Position::Index));
         let found = if use_.module {
             &mut shadowing
         } else {
@@ -122,6 +126,10 @@ enum Position {
     Type,
     /// The whole argument of a type for a parameter that's a value.
     ValueArg,
+    /// In an index of an indexed family (`Vec a (Succ n)`): it binds the
+    /// name whatever its other uses are, since a variable in an index is
+    /// almost always meant as one (docs/proposals/indexed-families.md §7).
+    Index,
     /// Anywhere else.
     Value,
 }
@@ -129,7 +137,7 @@ enum Position {
 /// The explicit parameters of the type-former `head` (a data type, an
 /// ability, or a definition whose result is a type): for each, whether it's
 /// a type. `None` if `head` isn't one.
-fn type_former(e: &Elaborator, head: &Expr, bound: &[String]) -> Option<Vec<bool>> {
+fn type_former(e: &Elaborator, head: &Expr, bound: &[String]) -> Option<Vec<Option<bool>>> {
     let Expr::Var(name) = head else {
         return None;
     };
@@ -146,7 +154,7 @@ fn type_former(e: &Elaborator, head: &Expr, bound: &[String]) -> Option<Vec<bool
             let mut ty = &e.globals.def(*id).ty;
             while let Term::Pi(_, icit, dom, cod) = ty.strip_loc() {
                 if *icit == Icit::Explicit {
-                    params.push(is_sort(dom));
+                    params.push(Some(is_sort(dom)));
                 }
                 ty = cod;
             }
@@ -154,7 +162,33 @@ fn type_former(e: &Elaborator, head: &Expr, bound: &[String]) -> Option<Vec<bool
         }
         _ => return None,
     };
-    Some(data.params.iter().map(|(_, ty)| is_sort(ty)).collect())
+    // The indices come after the parameters: `None` marks an index.
+    Some(
+        data.params
+            .iter()
+            .map(|(_, ty)| Some(is_sort(ty)))
+            .chain(data.indices.iter().map(|_| None))
+            .collect(),
+    )
+}
+
+/// Walks an index of an indexed family: every candidate name in it is a
+/// qualifying use, its type worked out by unification.
+fn walk_index(
+    e: &Elaborator,
+    expr: &Expr,
+    bound: &mut Vec<String>,
+    uses: &mut Vec<Use>,
+) -> Result<()> {
+    e.globals.budget.nesting(crate::check::PASS)?;
+    match expr {
+        Expr::Var(_) => walk_at(e, expr, bound, Position::Index, uses),
+        Expr::App(a, b) | Expr::Binary(_, a, b) => {
+            walk_index(e, a, bound, uses)?;
+            walk_index(e, b, bound, uses)
+        }
+        _ => walk_at(e, expr, bound, Position::Value, uses),
+    }
 }
 
 fn walk(
@@ -238,8 +272,12 @@ fn walk_at(
                     }
                 };
                 let position = match param {
-                    Some(true) => Position::Type,
-                    Some(false) if matches!(arg, Expr::Var(_)) => Position::ValueArg,
+                    Some(Some(true)) => Position::Type,
+                    Some(Some(false)) if matches!(arg, Expr::Var(_)) => Position::ValueArg,
+                    Some(None) => {
+                        walk_index(e, arg, bound, uses)?;
+                        continue;
+                    }
                     _ => Position::Value,
                 };
                 walk_at(e, arg, bound, position, uses)?;
@@ -434,6 +472,7 @@ fn pattern_vars(pattern: &stitchwort_syntax::ast::Pattern, out: &mut Vec<String>
             pattern_vars(b, out);
         }
         Pattern::Record { fields, .. } => fields.iter().for_each(|(_, p)| pattern_vars(p, out)),
+        Pattern::Named(_, p, _) => pattern_vars(p, out),
         Pattern::Wildcard(_)
         | Pattern::Absurd(_)
         | Pattern::Num(..)

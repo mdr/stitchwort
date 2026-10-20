@@ -758,6 +758,18 @@ impl<'t> Parser<'t> {
                 Ok(Pattern::Absurd(span.to(end)))
             }
             Some(Tok::LBrace) => self.record_pattern(),
+            // `[n := p]`: an implicit field of a constructor, by name.
+            Some(Tok::LBracket)
+                if matches!(self.peek_at(1), Some(Tok::Lower(_)))
+                    && self.peek_at(2) == Some(&Tok::ColonEq) =>
+            {
+                self.bump();
+                let field = self.lower("a field name")?;
+                self.bump();
+                let inner = self.pattern()?;
+                let end = self.expect(Tok::RBracket, "`]`")?.span;
+                Ok(Pattern::Named(field, Box::new(inner), span.to(end)))
+            }
             Some(Tok::LBracket) => {
                 self.bump();
                 let mut items = Vec::new();
@@ -895,8 +907,26 @@ impl<'t> Parser<'t> {
         while self.peek() == Some(&Tok::LParen) {
             params.push(self.binder()?);
         }
+        // After the colon: index types, each followed by `->`, then the
+        // universe (docs/proposals/indexed-families.md §7.1).
+        let mut indices = Vec::new();
         let sort = if self.eat(&Tok::Colon) {
-            Some(self.app()?)
+            loop {
+                if self.is_pi_binder() {
+                    let binder = self.binder()?;
+                    self.expect(Tok::Arrow, "`->`")?;
+                    for n in binder.names {
+                        indices.push((Some(n), binder.ty.clone()));
+                    }
+                    continue;
+                }
+                let ty = self.app()?;
+                if self.eat(&Tok::Arrow) {
+                    indices.push((None, ty));
+                    continue;
+                }
+                break Some(ty);
+            }
         } else {
             None
         };
@@ -904,6 +934,13 @@ impl<'t> Parser<'t> {
         let mut record = false;
         if self.eat(&Tok::Equals) {
             if !matches!(self.peek(), Some(Tok::LBrace | Tok::Pipe)) {
+                if let Some((_, ty)) = indices.first() {
+                    return Err(error(
+                        ty.span(),
+                        "a type synonym can't have indices: `->` after the colon is only for a \
+                         data type's indices",
+                    ));
+                }
                 return self.type_synonym(start, name, params, sort);
             }
             if self.peek() == Some(&Tok::LBrace) {
@@ -914,10 +951,37 @@ impl<'t> Parser<'t> {
                     let name =
                         self.upper("a constructor name (starting with an uppercase letter)")?;
                     let mut fields = Vec::new();
-                    while self.peek() == Some(&Tok::LParen) {
-                        fields.push(self.binder()?);
+                    let mut implicit = Vec::new();
+                    loop {
+                        if self.peek() == Some(&Tok::LParen) {
+                            fields.push(self.binder()?);
+                            implicit.push(false);
+                        } else if self.is_implicit_binder() {
+                            let (binder, auto) = self.implicit_binder()?;
+                            if auto {
+                                return Err(error(
+                                    binder.names[0].span,
+                                    "a constructor's implicit fields can't be `auto`",
+                                ));
+                            }
+                            fields.push(binder);
+                            implicit.push(true);
+                        } else {
+                            break;
+                        }
                     }
-                    ctors.push(CtorDecl { name, fields });
+                    // The result type, `: Vec a (Succ n)`.
+                    let result = if self.eat(&Tok::Colon) {
+                        Some(self.app()?)
+                    } else {
+                        None
+                    };
+                    ctors.push(CtorDecl {
+                        name,
+                        fields,
+                        implicit,
+                        result,
+                    });
                 }
                 if ctors.is_empty() {
                     return Err(
@@ -930,6 +994,7 @@ impl<'t> Parser<'t> {
             span: start.to(self.prev_span()),
             name,
             params,
+            indices,
             sort,
             ctors,
             record,
@@ -966,6 +1031,8 @@ impl<'t> Parser<'t> {
                 span: data.span,
             },
             fields,
+            implicit: Vec::new(),
+            result: None,
         })
     }
 
@@ -2467,6 +2534,45 @@ mod tests {
         let mut sources = SourceMap::new();
         let file = sources.add("test.sw", text);
         parse_expression(file, text)
+    }
+
+    #[test]
+    fn indexed_families_have_indices_result_types_and_implicit_fields() {
+        let module = parse(
+            "type Sub (a: Type): (n: Nat) -> Fin n -> Type =\n  \
+             | Here [m: Nat] (x: a): Sub a (Succ m) FZero\n  | There\n\n\
+             def f: Vec a n -> Nat\n  | VCons [n := k] _ _ => k\n",
+        );
+        let Decl::Data {
+            indices,
+            sort,
+            ctors,
+            ..
+        } = &module.decls[0]
+        else {
+            panic!("expected a data type");
+        };
+        let names: Vec<Option<&str>> = indices
+            .iter()
+            .map(|(n, _)| n.as_ref().map(|n| n.text.as_str()))
+            .collect();
+        assert_eq!(names, [Some("n"), None]);
+        assert!(matches!(sort, Some(Expr::Type(0, _))));
+        assert_eq!(ctors[0].implicit, [true, false]);
+        assert!(ctors[0].result.is_some());
+        assert!(ctors[1].result.is_none() && ctors[1].fields.is_empty());
+        let Decl::Equation { patterns, .. } = &module.decls[2] else {
+            panic!("expected an arm");
+        };
+        let Pattern::Ctor(_, args, _) = &patterns[0] else {
+            panic!("expected a constructor pattern");
+        };
+        assert!(matches!(&args[0], Pattern::Named(n, p, _)
+            if n.text == "n" && matches!(**p, Pattern::Var(_))));
+        // A synonym has no indices.
+        let mut sources = SourceMap::new();
+        let file = sources.add("test.sw", "");
+        assert!(parse_module(file, "type T: Nat -> Type = Nat\n").is_err());
     }
 
     #[test]

@@ -180,6 +180,7 @@ pub fn ctor(name: &str, fields: Vec<(&str, Term)>) -> CtorDecl {
             .map(|(x, t)| (x.into(), t, span()))
             .collect(),
         result: Vec::new(),
+        implicit: Vec::new(),
     }
 }
 

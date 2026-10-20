@@ -14,6 +14,7 @@ mod check;
 mod derive;
 mod dot;
 mod effects;
+mod families;
 mod library;
 #[cfg(test)]
 mod library_tests;
@@ -165,6 +166,11 @@ pub struct Elaborator {
     /// a shared reference to the elaborator is at hand. One per lambda
     /// (checking can reach the same lambda twice); drained with `warnings`.
     lambda_warnings: RefCell<Vec<Diagnostic>>,
+    /// Arms of the definition being checked that a case on an indexed family
+    /// dropped because their constructor can't be there, with a reason, and
+    /// the arms that were reached: those dropped and never reached are
+    /// `W-UNREACHABLE` (`families.rs`).
+    pub(crate) arm_reach: RefCell<families::ArmReach>,
     /// Above zero while an application is elaborated again the old way
     /// after its expected result type was used first and failed: no
     /// application inside uses its expected type first
@@ -262,6 +268,10 @@ enum Tree<'a> {
     },
     /// The variable at `level` has a type with no values.
     Absurd { level: usize, span: Span },
+    /// No arm matches this constructor of an indexed family: right if it
+    /// can't be here, or if one of the variables at `columns` has a type
+    /// with no possible constructor (docs/proposals/indexed-families.md §7.3).
+    Missing { columns: Vec<usize>, span: Span },
     Case {
         /// The level of the variable being matched.
         level: usize,
@@ -729,6 +739,7 @@ impl Elaborator {
         let data_decl = Decl::Data {
             name: ability.clone(),
             params: params.clone(),
+            indices: Vec::new(),
             sort: None,
             ctors: sigs
                 .iter()
@@ -738,6 +749,8 @@ impl Elaborator {
                         names: vec![x_name(x)],
                         ty: dom.clone(),
                     }],
+                    implicit: Vec::new(),
+                    result: None,
                 })
                 .collect(),
             record: false,
@@ -972,12 +985,16 @@ impl Elaborator {
     ) -> Vec<(Option<usize>, Diagnostic)> {
         let mut out = Vec::new();
         let mut headers = Vec::new();
+        let mut member_indices = Vec::new();
         for &(item, decl) in members {
             if item.is_some() {
                 self.module.item = item;
             }
             match self.data_header(decl) {
-                Ok(header) => headers.push(header),
+                Ok((params, indices, sort)) => {
+                    headers.push((params, sort));
+                    member_indices.push(indices);
+                }
                 Err(d) => out.push((item, d)),
             }
         }
@@ -993,24 +1010,27 @@ impl Elaborator {
         if !out.is_empty() {
             return out;
         }
-        let names: Vec<(Name, Span, bool)> = members
+        let names: Vec<kernel::DataDecl> = members
             .iter()
-            .map(|(_, decl)| match decl {
+            .zip(member_indices)
+            .map(|(&(_, decl), indices)| match decl {
                 Decl::Data {
                     name: n,
                     span,
                     record,
                     ..
-                } => (
-                    self.declaration_key(n)
+                } => kernel::DataDecl {
+                    name: self
+                        .declaration_key(n)
                         .map_or_else(|_| name(n), |k| scope::display(&k).into()),
-                    *span,
-                    *record,
-                ),
+                    span: *span,
+                    record: *record,
+                    indices,
+                },
                 _ => unreachable!(),
             })
             .collect();
-        let ids = match kernel::declare_data_group_as(&mut self.globals, params, sort, names) {
+        let ids = match kernel::declare_indexed_data_group(&mut self.globals, params, sort, names) {
             Ok(ids) => ids,
             Err(d) => return vec![(members[0].0, d)],
         };
@@ -1067,11 +1087,14 @@ impl Elaborator {
     }
 
     /// Elaborates a data type's parameters and universe.
-    fn data_header(&mut self, decl: &Decl) -> Result<(Vec<(Name, Term)>, Sort)> {
+    #[allow(clippy::type_complexity)]
+    fn data_header(&mut self, decl: &Decl) -> Result<(Vec<(Name, Term)>, Vec<(Name, Term)>, Sort)> {
         let Decl::Data {
             name: data_name,
             params,
+            indices,
             sort,
+            record,
             span,
             ..
         } = decl
@@ -1092,6 +1115,24 @@ impl Elaborator {
                 cx.bind(&n.text, value);
             }
         }
+        // The indices, in the context of the parameters (docs/proposals/indexed-families.md).
+        if *record && let Some((_, ty)) = indices.first() {
+            return Err(
+                error("E-RECORD-INDICES", ty.span(), "a record can't have indices")
+                    .with_note("declare it with `|` and a constructor instead of `{ … }`"),
+            );
+        }
+        let mut checked_indices = Vec::new();
+        let mut index_sorts = Vec::new();
+        for (k, (x, written)) in indices.iter().enumerate() {
+            let (ty, s) = check_type(&mut cx, written)?;
+            index_sorts.push((s, written.span()));
+            let ty = self.finish(&ty, cx.level())?;
+            let value = cx.eval(&ty)?;
+            let x: Name = x.as_ref().map_or_else(|| format!("i{k}").into(), name);
+            cx.bind(&x, value);
+            checked_indices.push((x, ty));
+        }
         let sort = match sort {
             None => Sort::Type(0),
             Some(e) => {
@@ -1108,7 +1149,27 @@ impl Elaborator {
                 }
             }
         };
-        Ok((checked, sort))
+        // No large indices (D142): an index's type fits the universe, as a
+        // field's must. (The kernel checks it too.)
+        if let Some((s, at)) = index_sorts.iter().find(|(s, _)| !s.fits_in(sort)) {
+            let show = |s: &Sort| pretty::term(&self.globals, &[], &Term::Sort(*s));
+            return Err(error(
+                "E-UNIVERSE",
+                *at,
+                format!(
+                    "this index is too large for `{}`: its type is in `{}`, but `{}` is in `{}`",
+                    data_name.text,
+                    show(s),
+                    data_name.text,
+                    show(&sort)
+                ),
+            )
+            .with_note(
+                "an index's type must fit in the data type's universe, as a field's must: a \
+                 type indexed by types lives one universe up, as in `Ty: Type -> Type 1`",
+            ));
+        }
+        Ok((checked, checked_indices, sort))
     }
 
     /// Whether data type `decl` has the same parameters (names and types) and
@@ -1215,6 +1276,15 @@ impl Elaborator {
                 )
                 .with_label(earlier.name.span, "first defined here"));
             }
+            // With indices, a result type or implicit fields
+            // (docs/proposals/indexed-families.md §7.1).
+            if !self.globals.data(d).indices.is_empty()
+                || ctor.result.is_some()
+                || ctor.implicit.contains(&true)
+            {
+                core_ctors.push(self.family_ctor(d, ctor, *span)?);
+                continue;
+            }
             self.clear_metas();
             let mut cx = Ctx::new(self, *span);
             for (x, ty) in &self.globals.data(d).params {
@@ -1247,6 +1317,7 @@ impl Elaborator {
                 name: name(&ctor.name),
                 fields,
                 result: Vec::new(),
+                implicit: Vec::new(),
             });
         }
         Ok(core_ctors)
@@ -1941,7 +2012,7 @@ impl Elaborator {
                 .collect();
             self.compile(&rows, cx.level(), &columns, &column_types, span)?
         };
-        let mut term = check_tree(cx, &tree, &ty)?;
+        let mut term = families::warn_unreachable(cx, |cx| check_tree(cx, &tree, &ty))?;
         for (x, icit) in lams.into_iter().rev() {
             term = Term::Lam(x, icit, Rc::new(term));
         }
@@ -2062,17 +2133,7 @@ impl Elaborator {
                         if c2 != c {
                             continue;
                         }
-                        if args.len() != k {
-                            return Err(error(
-                                "E-ARITY",
-                                pattern_span,
-                                format!(
-                                    "`{}` has {k} fields, but this pattern has {}",
-                                    ctor.name,
-                                    args.len()
-                                ),
-                            ));
-                        }
+                        let args = self.ctor_pattern_args(d, c, args, pattern_span)?;
                         for (f, arg) in args.iter().enumerate() {
                             if let Some(x) = pattern_var(arg) {
                                 names[f].get_or_insert_with(|| name(x));
@@ -2100,6 +2161,19 @@ impl Elaborator {
                     rhs: row.rhs,
                     span: row.span,
                 });
+            }
+            if branch_rows.is_empty() && !data.indices.is_empty() {
+                // It may be impossible: `check_tree` unifies, and decides
+                // (docs/proposals/indexed-families.md §7.3).
+                let names = (ctor.fields.iter()).map(|(x, _)| x.clone()).collect();
+                branches.push((
+                    names,
+                    Tree::Missing {
+                        columns: branch_columns,
+                        span,
+                    },
+                ));
+                continue;
             }
             if branch_rows.is_empty() {
                 let example = std::iter::once(ctor.name.to_string())
@@ -2247,6 +2321,11 @@ impl Elaborator {
     ) -> Result<Option<CtorPattern<'a>>> {
         match &**pattern {
             Pattern::Var(_) | Pattern::Wildcard(_) | Pattern::Absurd(_) => Ok(None),
+            Pattern::Named(_, _, span) => Err(error(
+                "E-ARITY",
+                *span,
+                "`[n := p]` only matches an implicit field, among a constructor's arguments",
+            )),
             // A number pattern on an `Int` is `OfNat k` or `NegSucc (k - 1)`
             // around a number pattern on the `Nat` field (`-0` is `OfNat 0`).
             // A negative one on a type not known to be `Int` is one too, and
@@ -2656,6 +2735,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
             rhs,
             span,
         } => {
+            families::reached(cx, *span);
             let Some(rhs) = rhs else {
                 return Err(error(
                     "E-ARITY",
@@ -2680,6 +2760,18 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
             });
             cx.reset(mark);
             result
+        }
+        Tree::Missing { columns, span } => Err(error(
+            "E-NONEXHAUSTIVE",
+            *span,
+            format!("missing case ({} columns left)", columns.len()),
+        )),
+        // An indexed family whose every constructor conflicts here is empty
+        // too (docs/proposals/indexed-families.md §7.3).
+        Tree::Absurd { level, span }
+            if let Some(term) = families::empty_case(cx, *level, Some(*span))? =>
+        {
+            Ok(Term::Loc(*span, Rc::new(term)))
         }
         Tree::Absurd { level, span } => match force(cx.g(), cx.types[*level].clone())? {
             Value::Data(d, _) if cx.g().data(d).ctors.is_empty() => Ok(Term::Loc(
@@ -2710,7 +2802,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                 // the argument that fixes its type, as in `List.map ((a, b)
                 // => …) ps` (docs/proposals/syntax-conveniences.md §5.5). Its
                 // type is the constructor's, with parameters still unknown.
-                let params = (0..data.params.len())
+                let params = (0..data.params.len() + data.indices.len())
                     .map(|_| cx.eval(&cx.fresh_meta()))
                     .collect::<Result<Vec<_>>>()?;
                 let known = Value::Data(*d, params);
@@ -2733,6 +2825,10 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                 }
             };
             let goal_term = cx.quote(goal)?;
+            if !data.indices.is_empty() {
+                let term = families::check_case(cx, *x, *d, &params, branches, &goal_term, *span)?;
+                return Ok(Term::Loc(*span, Rc::new(term)));
+            }
             let mut out = Vec::new();
             for (c, ((names, subtree), ctor)) in branches.iter().zip(&data.ctors).enumerate() {
                 let mark = cx.mark();

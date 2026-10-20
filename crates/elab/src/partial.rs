@@ -294,6 +294,7 @@ impl Elaborator {
                     .map(|p| (p.name.clone(), p.ty.clone(), m.span))
                     .collect(),
                 result: Vec::new(),
+                implicit: Vec::new(),
             })
             .collect();
         kernel::define_data_group(&mut self.globals, vec![(req, ctors)])

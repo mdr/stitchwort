@@ -55,6 +55,7 @@ fn declare(
                 .map(|f| ((*f).into(), nat.clone(), span()))
                 .collect(),
             result: Vec::new(),
+            implicit: Vec::new(),
         })
         .collect();
     define_data_group(g, vec![(ids[0], ctors)]).map_err(|d| d.code)?;

@@ -322,6 +322,14 @@ impl<'g> Hasher<'g> {
             }
             // One per index, so none for a type without indices (whose hash
             // is unchanged).
+            // Which fields are implicit, only when some are (a tag no term
+            // starts with), so other constructors hash as before.
+            if ctor.implicit.contains(&true) {
+                self.tag("implicit");
+                for i in &ctor.implicit {
+                    self.bool(*i);
+                }
+            }
             for r in &ctor.result {
                 self.term(r)?;
             }

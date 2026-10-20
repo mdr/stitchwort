@@ -1594,6 +1594,7 @@ fn pattern_binders<'a>(pattern: &'a Pattern, out: &mut Vec<&'a str>) {
             pattern_binders(b, out);
         }
         Pattern::Record { fields, .. } => fields.iter().for_each(|(_, p)| pattern_binders(p, out)),
+        Pattern::Named(_, p, _) => pattern_binders(p, out),
         Pattern::Wildcard(_)
         | Pattern::Absurd(_)
         | Pattern::Num(..)
@@ -1654,6 +1655,7 @@ fn free_names(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
                     Pattern::Cons(a, b, _) => {
                         then(&mut stack, vec![Work::Pattern(a), Work::Pattern(b)]);
                     }
+                    Pattern::Named(_, p, _) => then(&mut stack, vec![Work::Pattern(p)]),
                     Pattern::Record { fields, .. } => {
                         then(
                             &mut stack,

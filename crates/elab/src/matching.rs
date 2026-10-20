@@ -190,7 +190,11 @@ pub(crate) fn in_tree(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Option<Result<
         }
         columns.push(level);
     }
-    Some(compile(cx, alts, &columns, span, kind).and_then(|tree| check_tree(cx, &tree, goal)))
+    Some(
+        compile(cx, alts, &columns, span, kind).and_then(|tree| {
+            crate::families::warn_unreachable(cx, |cx| check_tree(cx, &tree, goal))
+        }),
+    )
 }
 
 /// A `match`, lifted (§4.4).
@@ -277,7 +281,7 @@ fn lifted(
             })
             .collect();
         let tree = compile(cx, alts, &levels, span, kind)?;
-        let body = check_tree(cx, &tree, goal)?;
+        let body = crate::families::warn_unreachable(cx, |cx| check_tree(cx, &tree, goal))?;
         return lift::draft(cx, base, Vec::new(), body, goal, span);
     }
     generalised(cx, columns, exprs, alts, span, kind, goal, base)
@@ -425,7 +429,7 @@ fn generalised(
         })
         .collect();
     let tree = compile(cx, alts, &levels, span, kind)?;
-    let body = check_tree(cx, &tree, &motive)?;
+    let body = crate::families::warn_unreachable(cx, |cx| check_tree(cx, &tree, &motive))?;
     lift::draft(cx, base, extra, body, &motive, span)
 }
 

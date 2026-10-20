@@ -213,6 +213,17 @@ def count (xs: List Nat): Nat := List.length xs
 
 **Brackets continue lines.** Inside `[ ]`, `( )` and `{ }`, a line starting with `,` or a closing bracket continues the bracket however far left it starts, so a list can be laid out with leading commas (`examples/accept/list-literal-layout.sw`). A trailing comma is allowed in list, tuple and record expressions and patterns, and in a record declaration's fields.
 
+## Indexed data types
+
+docs/proposals/indexed-families.md §7; `examples/accept/indexed-families.sw`.
+
+- **Indices go after the header's colon**, parameters before it: `type Vec (a: Type): Nat -> Type =`. They can be named, `(len: Nat) -> Type`, and a later one's type can mention an earlier one, `(n: Nat) -> Fin n -> Type`. An index's type must fit in the type's universe, as a field's must, so a type indexed by types is written `Ty: Type -> Type 1` (`E-UNIVERSE` otherwise). Records and synonyms have no indices (`E-RECORD-INDICES`, `E-PARSE`).
+- **Each constructor states its result type** after `:`, the type applied to its parameters exactly as declared, then indices: `| VCons (x: a) (xs: Vec a n): Vec a (Succ n)`. `Vec Nat 0` in `Vec (a: Type)` is `E-TYPE-MISMATCH`. Without indices the result type is optional.
+- **Implicit fields.** `[n: Nat]` among a constructor's fields is an implicit field. In a constructor of a type with indices, an undeclared lowercase name (`n` above) becomes an automatic implicit field, as in a signature; a use in an index counts (`FZero: Fin (Succ n)` binds `n: Nat`). Automatic fields go first, ordered by their dependencies; one whose type would mention a written field must be written out, after it (`E-IMPLICIT-FIELD`). Implicit fields are filled in by unification when building a value, or named: `VCons [n := k] x xs`.
+- **Write `Succ n` (or `1 + n`), not `n + 1`, in an index**: `+` counts down its first argument, so `n + 1` doesn't compute while `n` is unknown.
+- **In a signature**, a name used in an index is bound automatically even where it's also used as a value: `def head: Vec a (Succ n) -> a`, `theorem leToLeq: Le m n -> m <= n`.
+- **Matching** needs no new syntax. Implicit fields are skipped in patterns, or matched by name, `VCons [n := k] _ _` (positional `[k]` isn't allowed). An arm may be left out only when its constructor can't be there (`head` has no `VNil` arm), or when another argument then has no possible constructor (`get: Vec a n -> Fin n -> a` has no `VNil` arm: there, `i: Fin 0`). A left-out arm that can be there is `E-NONEXHAUSTIVE`. When the compiler can't tell (an index like `n + m` with `n` unknown, or a type to take apart), it's `E-INDEX-STUCK`: match on `n` first, or use a variable index. `()` works for a family with no possible constructor (`Even 1`). An arm that can never match is the warning `W-UNREACHABLE`, and isn't checked.
+
 ## Records
 
 A record declaration makes a new type with named fields (docs/proposals/records.md, stage 1). Two record types with the same fields are different types. An alias is a type synonym instead (above).
