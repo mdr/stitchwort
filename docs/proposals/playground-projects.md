@@ -1,7 +1,7 @@
 # Proposal: projects in the playground
 
 **Status:** draft 1, 20 October 2026 (SW-133). Design only: nothing is
-built. Decisions for Matt are D108 to D115 ([§10](#10-decisions-for-matt)),
+built. Decisions for Matt are D109 to D116 ([§10](#10-decisions-for-matt)),
 each with a recommended answer. The goal is Matt's (D105/D106): make the
 Advent of Code project (`aoc/`) browsable, editable and runnable in the
 **local** playground (`web/serve.sh`). Shareable links are out of scope.
@@ -149,7 +149,7 @@ Measured: B makes the WebAssembly **35% larger**, 3.55 MB against 2.63 MB
 today, because it brings in the YAML parser (`serde_saphyr`). A adds 6%
 (2.79 MB). Both check the same in my prototype. The config is never edited
 in the playground, so B's extra agreement buys little. **Recommended: A
-(D111)**, with the build step refusing to bundle unless
+(D112)**, with the build step refusing to bundle unless
 `aoc/stitchwort.yaml` says exactly `sources: [src]`, so a change there
 can't silently drift from what the CLI reads.
 
@@ -193,7 +193,7 @@ The Example dropdown gets an optgroup, "Advent of Code 2025", with "Day 1"
 to "Day 6", as before `32cb955`. All six open the **same** `aoc` project;
 the day decides which file opens, which tabs show, what is checked, and
 what Run runs. Edits are per project, so an edit to `Common/Range.sw` made
-while on day 2 is still there on day 5. (D108.)
+while on day 2 is still there on day 5. (D109.)
 
 ### 3.2 Showing the files: options
 
@@ -204,7 +204,7 @@ while on day 2 is still there on day 5. (D108.)
 | 3. One "File" dropdown | A second dropdown beside Example | Least work | Hides which files belong together; switching files takes two clicks |
 | 4. One editor, files separated by marker lines | As the Go playground does with its `-- name --` lines (txtar) [G1] | No new UI at all | Line numbers in errors stop matching the editor; the files aren't independent; long scrolling |
 
-**Recommended: option 1 (D109).** The tabs are the files of the day's
+**Recommended: option 1 (D110).** The tabs are the files of the day's
 namespaces (`Aoc.Day02`, `Aoc.Day02.Proofs`) and of every namespace they
 use, from `outline_project`, in this order: the program file first, then
 the day's proofs, then shared files, each group by path. A file that
@@ -213,7 +213,7 @@ The tab row scrolls sideways inside itself on a phone, so the page never
 does. "Other files" lists the rest of the project, by path; choosing one
 opens it as an extra tab until another day is chosen.
 
-**Which file opens first:** the day's program, `Aoc/DayNN/DayNN.sw` (D108).
+**Which file opens first:** the day's program, `Aoc/DayNN/DayNN.sw` (D109).
 
 ### 3.3 Editing
 
@@ -229,7 +229,7 @@ and not needed here.
 
 - **As you type** (after the same 250 ms pause as today), the page checks
   the day's target: `Aoc.DayNN` and `Aoc.DayNN.Proofs` (where it exists),
-  and so everything they use. Proofs are included, not opt-in (D110):
+  and so everything they use. Proofs are included, not opt-in (D111):
   measured at 1.1 s for day 2 and at most 0.26 s for the others (§7). The
   status says what was checked, as in "Day 2 and its proofs checked by the
   kernel".
@@ -252,7 +252,7 @@ and not needed here.
   loading a project leaves no namespace open (`project.rs:141`).
   Evaluating *inside* the open file's namespace, so short names work, needs
   new elaborator support. Recommended: full names now, prefilled as above;
-  short names later (D114).
+  short names later (D115).
 - **JavaScript** extracts the exports of the open file's namespace, as
   `build --js NS` does (`Session::extract_namespace`, `driver.rs:361`). No
   AoC day exports anything today, so it will mostly say "Nothing is
@@ -260,7 +260,7 @@ and not needed here.
 - **Run** runs `Aoc.DayNN.main` (the button's tooltip says so), in the
   separate run worker as today. The input box starts with the day's
   example input and is saved per day (§6). The 15 s run limit stays
-  (D112).
+  (D113).
 
 ## 5. Bundling
 
@@ -322,13 +322,13 @@ web/pkg/projects/aoc/examples/day01.txt        … every example input
   changed since you edited it", with "Use the new version" and "Keep mine".
   Choosing "Keep mine" records the new hash, so the banner goes. No merge;
   editing in the repository and in the playground at once is not what this
-  is for. (D113.) A saved edit to a file the bundle no longer has is
+  is for. (D114.) A saved edit to a file the bundle no longer has is
   dropped, with a note in the banner.
 - **Space**: browsers allow about 5 MiB of `localStorage` per origin [M1];
   the whole project is about 100 KB, so even a fully edited project fits.
   Writes are wrapped in `try`, as today's are (`index.html:592-594`).
 - **Single-file examples keep today's keys**, unchanged.
-- **No new, renamed or deleted files** in this version (D114). A new
+- **No new, renamed or deleted files** in this version (D115). A new
   namespace means a new file, which means a new tab, path rules and a
   place in the manifest; it can come later.
 
@@ -376,7 +376,7 @@ while the worker lives). Native peak for checking everything: 86 MB.
 **What follows:**
 
 - WebAssembly is 1.1 to 1.4 times native here, so checking proofs as you
-  type costs little: no need to make it opt-in (D110).
+  type costs little: no need to make it opt-in (D111).
 - Day 2 is the slow one: 1.1 s per pause in typing. Each keystroke during a
   check cancels it by restarting the worker, which is cheap (the module is
   already compiled; starting it took 3 ms in Node). If days get slower, a
@@ -385,7 +385,7 @@ while the worker lives). Native peak for checking everything: 86 MB.
 - Nothing hit the stack guard, which was my main worry for the proofs.
 - The limits stay: 60 s for checking and tests, 15 s for a run. Only day 4
   with a real input exceeds them, and day 4's speed is being worked on
-  separately (the board's "day 4 performance"). (D112.)
+  separately (the board's "day 4 performance"). (D113.)
 
 ## 8. Browser tests
 
@@ -432,14 +432,14 @@ storage, as now:
 
 | ID | Question | Recommended answer |
 |---|---|---|
-| D108 | How is the project offered? | An "Advent of Code 2025" group in the Example dropdown, one entry per day, all opening the one `aoc` project at that day's program file |
-| D109 | How are a project's files shown? | Tabs for the chosen day's files (its namespaces and what they use), plus an "Other files" list; not a file tree or a single file dropdown (§3.2) |
-| D110 | Are proofs checked as you type, or on demand? | As you type: the day's program and proofs together (1.1 s at worst, measured), plus a "Check every day" button for the whole project |
-| D111 | Does the WebAssembly read `stitchwort.yaml`? | No: it gets the `.sw` files; the build step refuses anything but `sources: [src]` (saves 0.75 MB of WebAssembly) |
-| D112 | Change the 15 s run limit for real puzzle inputs? | No: only day 4 with a real input exceeds it (23.6 s), and day 4 is being sped up separately |
-| D113 | A saved edit when the bundled file changes? | Keep the edit, show a banner offering the new version; no merging |
-| D114 | Scope of the first version | No adding, renaming or deleting files; Evaluate takes full names (`Aoc.Day02.solvePart1 …`); short names in the open file's namespace later |
-| D115 | Is this designed only for `aoc/`? | Build it for any project listed in the build step, but bundle only `aoc/` for now; the day list is AoC-specific (from the folder layout), other projects would list their `main`s |
+| D109 | How is the project offered? | An "Advent of Code 2025" group in the Example dropdown, one entry per day, all opening the one `aoc` project at that day's program file |
+| D110 | How are a project's files shown? | Tabs for the chosen day's files (its namespaces and what they use), plus an "Other files" list; not a file tree or a single file dropdown (§3.2) |
+| D111 | Are proofs checked as you type, or on demand? | As you type: the day's program and proofs together (1.1 s at worst, measured), plus a "Check every day" button for the whole project |
+| D112 | Does the WebAssembly read `stitchwort.yaml`? | No: it gets the `.sw` files; the build step refuses anything but `sources: [src]` (saves 0.75 MB of WebAssembly) |
+| D113 | Change the 15 s run limit for real puzzle inputs? | No: only day 4 with a real input exceeds it (23.6 s), and day 4 is being sped up separately |
+| D114 | A saved edit when the bundled file changes? | Keep the edit, show a banner offering the new version; no merging |
+| D115 | Scope of the first version | No adding, renaming or deleting files; Evaluate takes full names (`Aoc.Day02.solvePart1 …`); short names in the open file's namespace later |
+| D116 | Is this designed only for `aoc/`? | Build it for any project listed in the build step, but bundle only `aoc/` for now; the day list is AoC-specific (from the folder layout), other projects would list their `main`s |
 
 ## Sources
 
