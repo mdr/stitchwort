@@ -472,7 +472,7 @@ test "parse" := parseRanges "4-14,1490-3407\n" == [range 4 14, range 1490 3407]
 --
 -- Both parts compared with the obvious method on many small ranges: look at
 -- every id's digits. (Both are also proved: part 1 below, part 2 in
--- part2proof.sw.)
+-- Proofs/Part2.sw.)
 
 -- Part 1: written twice; part 2: written two or more times.
 def doubled (x: Nat): Bool :=
@@ -511,7 +511,7 @@ test "long ids found" := List.map invalid longRanges == [11111111111, 1111111111
 -- Why part 1 is right (b): `part1BlocksCorrect` says the printed part 1 is
 -- `part1Blocks`, the brute-force sum over every range and block length of the
 -- blocks written twice; (c) below says that is the puzzle's own sum. Part 2
--- is proved in part2proof.sw (`Aoc.Day02.Proofs.part2Correct`).
+-- is proved in Proofs/Part2.sw (`Aoc.Day02.Proofs.part2Correct`).
 
 -- Brute force for part 1: in each range, every block length up to the
 -- number of digits of `to` (a longer block makes a longer id), every block of

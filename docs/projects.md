@@ -87,7 +87,8 @@ The rules:
   `namespace Day05` together make one namespace.
 - **File names and folders mean nothing.** `range.sw` could be called
   `helpers.sw` and nothing would change. A file's namespace comes from its
-  first line, not its path.
+  first line, not its path. (The `aoc/` project, by convention, keeps folders matching namespaces:
+  `Aoc.Day02.Proofs` lives in `src/Aoc/Day02/Proofs/`.)
 - **Every declaration of a namespace is visible to all its files by short
   name**, in any order. Definitions in different files can call each other,
   including mutual recursion.
