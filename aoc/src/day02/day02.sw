@@ -330,12 +330,12 @@ theorem writtenTwiceOf (p: List Nat) (k: Nat) (hk: List.length p = k): writtenAs
 
 theorem twiceDigits (j: Nat) (b: Nat) (h1: Nat.pow 10 j <= b) (h2: b < Nat.pow 10 (Succ j)):
     writtenAs (Nat.digits (writeTimes (Succ j) b 2)) (Succ j) 2 = True :=
-  J (\l q => writtenAs l (Succ j) 2 = True) (writtenTwiceOf (Nat.digits b) (Succ j) (Nat.digitsLength j b h1 h2))
-    (calc List.append (Nat.digits b) (Nat.digits b)
+  rewrite <- (calc List.append (Nat.digits b) (Nat.digits b)
       _ = Nat.digits (b * Nat.pow 10 (List.length (Nat.digits b)) + Nat.fromDigits (Nat.digits b))
           := Eq.sym (Nat.digitsShift (Nat.digits b) b (Nat.leTrans 1 (Nat.pow 10 j) b (Nat.powSuccPos 9 j) h1) (Nat.digitsDigits b))
       _ = Nat.digits (b * Nat.pow 10 (List.length (Nat.digits b)) + b) := rewrite Nat.fromDigitsDigits b
       _ = Nat.digits (writeTimes (Succ j) b 2)                          := rewrite Nat.digitsLength j b h1 h2)
+    in writtenTwiceOf (Nat.digits b) (Succ j) (Nat.digitsLength j b h1 h2)
 
 theorem twiceInjective (k: Nat) (b: Nat) (v: Nat) (e: writeTimes k b 2 = writeTimes k v 2): b = v :=
   Nat.mulSuccCancel b v (Nat.pow 10 k * multiplier k 1)

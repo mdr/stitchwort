@@ -116,11 +116,11 @@ theorem writtenRepOf (p: List Nat) (k: Nat) (hk: List.length p = k) (n: Nat): wr
 
 theorem repDigits (j: Nat) (b: Nat) (h1: Nat.pow 10 j <= b) (h2: b < Nat.pow 10 (Succ j)) (n: Nat):
     writtenAs (Nat.digits (writeTimes (Succ j) b (Succ n))) (Succ j) (Succ n) = True :=
-  J (\l q => writtenAs l (Succ j) (Succ n) = True) (writtenRepOf (Nat.digits b) (Succ j) (Nat.digitsLength j b h1 h2) n)
-    (calc List.concat (List.replicate (Succ n) (Nat.digits b))
+  rewrite <- (calc List.concat (List.replicate (Succ n) (Nat.digits b))
       _ = Nat.digits (writeTimes (List.length (Nat.digits b)) b (Succ n))
           := Eq.sym (digitsRep b (Nat.leTrans 1 (Nat.pow 10 j) b (Nat.powSuccPos 9 j) h1) n)
       _ = Nat.digits (writeTimes (Succ j) b (Succ n)) := rewrite Nat.digitsLength j b h1 h2)
+    in writtenRepOf (Nat.digits b) (Succ j) (Nat.digitsLength j b h1 h2) n
 
 theorem repInjective (k: Nat) (b: Nat) (v: Nat) (m: Nat) (e: writeTimes k b (Succ m) = writeTimes k v (Succ m)): b = v :=
   Nat.mulSuccCancel b v (Nat.pow 10 k * multiplier k m)
