@@ -1931,9 +1931,9 @@
     {
       "id": 127,
       "title": "AoC day 4: prove the grid result for all grids",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
-      "where": "Opus lane: docs/proposals/vec.md draft 1 first (D125), then restate day 4",
+      "where": "docs/proposals/vec.md draft 1 (D126-D133 for Matt)",
       "labels": [
         "aoc",
         "proof"
