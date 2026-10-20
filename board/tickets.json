@@ -2348,8 +2348,8 @@
       "id": 154,
       "title": "Kernel conversion is slow on proof-by-computation facts (day 2 check went 0.5 s -> ~10 s)",
       "status": "doing",
-      "agent": "Opus",
-      "where": "worktree",
+      "agent": "Claude",
+      "where": "main",
       "labels": [
         "kernel",
         "performance"
@@ -2357,7 +2357,12 @@
       "body": "SW-147 (day 2 part 2 proof) made aoc check ~9.3 s (measured on main after merge). Biggest: block checks 1.3 s, agreeAll 1.3 s, kFold 1.7 s, totalSplit 1.5 s, part2Correct 1 s. The lane's hypothesis (unverified): conv in crates/core/src/value.rs has no shortcut for identical terms, and types are evaluated eagerly, so a fact proved by computation is recomputed wherever its statement is evaluated. Investigate with a profile before changing anything; candidates: pointer/hash-equality fast path, lazier unfolding. Also: a fixed big range plus a free variable unrolled 9 billion blocks (E-RESOURCE) until the bound became a variable.",
       "created": "2026-10-20",
       "updated": "2026-10-20",
-      "commits": []
+      "commits": [
+        "af2a8dd",
+        "0450062",
+        "c021154",
+        "30b16bb"
+      ]
     },
     {
       "id": 155,
