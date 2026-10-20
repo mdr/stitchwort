@@ -385,6 +385,7 @@
 
 <script type="text/plain" id="ex-lists" data-title="Proofs about lists">-- A proof that appending lists adds their lengths, by induction on the first
 -- list. The compiler checks it; change a line and see what it says.
+import Std (Eq)
 
 theorem appendLength: (xs: List a) -> (ys: List a) ->
     List.length (List.append xs ys) = List.length xs + List.length ys

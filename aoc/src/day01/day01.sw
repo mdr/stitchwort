@@ -12,6 +12,7 @@
 -- `rightCases`).
 
 namespace Aoc.Day01
+import Std (Eq)
 
 def main(): {IO} () :=
   let turns := parseTurns (IO.readAllLines())

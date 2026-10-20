@@ -10,6 +10,8 @@
 -- run: total []
 
 -- The length of two appended lists is the sum of their lengths.
+import Std (Eq)
+
 theorem appendLength: (xs: List a) -> (ys: List a) ->
     List.length (List.append xs ys) = List.length xs + List.length ys
   | Nil,       ys => rfl

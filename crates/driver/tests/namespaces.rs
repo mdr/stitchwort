@@ -106,8 +106,8 @@ fn importing_twice_is_a_warning() {
 #[test]
 fn constructors_come_with_an_imported_type() {
     passes(&load(
-        "import Effect (Comp)\n\n\
-         def one : Comp Builtin.UnitType (\\o => Builtin.UnitType) Nat := Done 1\n\n\
+        "import Std.Effect (Comp)\n\n\
+         def one : Comp Std.Builtin.UnitType (\\o => Std.Builtin.UnitType) Nat := Done 1\n\n\
          test \"done\" := List.length [one, Call () (\\u => one)] == 2\n",
     ));
 }
@@ -118,9 +118,9 @@ fn constructors_come_with_an_imported_type() {
 #[test]
 fn library_namespaces_are_closed_however_they_are_reached() {
     for source in [
-        "import Effect (Comp)\n\ndef Comp.size : Nat := 0\n",
+        "import Std.Effect (Comp)\n\ndef Comp.size : Nat := 0\n",
         "def Text.size : Nat := 0\n",
-        "def Effect.size : Nat := 0\n",
+        "import Std (Effect)\n\ndef Effect.size : Nat := 0\n",
         "def Std.size : Nat := 0\n",
     ] {
         assert_eq!(codes(source), ["E-STD-NAMESPACE"], "{source}");

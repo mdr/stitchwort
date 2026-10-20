@@ -3,6 +3,8 @@
 -- for `a` in the goal.
 
 -- With `in t`, `t` proves the goal after the replacement.
+import Std (Eq)
+
 theorem inBody (a: Nat) (b: Nat) (h: a = b) (k: Nat) (p: b + k = k + b): a + k = k + a :=
   rewrite h in p
 
