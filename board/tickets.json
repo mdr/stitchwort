@@ -1,5 +1,5 @@
 {
-  "next": 161,
+  "next": 162,
   "tickets": [
     {
       "id": 1,
@@ -990,15 +990,15 @@
     {
       "id": 67,
       "title": "Exit codes for `stitchwort run`",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "/Users/matt/scratch/opencode/funlang-20261020-134531",
       "labels": [
         "tooling"
       ],
       "body": "**Exit codes for `stitchwort run`:** every failure is 1. Decide whether\n\"didn't check\" and \"failed while running\" should differ.",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-20",
       "commits": []
     },
     {
@@ -1622,16 +1622,16 @@
     {
       "id": 107,
       "title": "A namespace line after an import should say 'must come first', not E-NO-NAMESPACE",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "/Users/matt/scratch/opencode/funlang-20261020-134525",
       "labels": [
         "multi-file",
         "bug"
       ],
       "body": "Found checking docs/projects.md (19 Oct): `import A (x)` then `namespace N` reports E-NO-NAMESPACE (as if the file had none). Better: E-PARSE or a note 'the namespace line must come before imports and declarations', pointing at the misplaced line. Small.",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-20",
       "commits": []
     },
     {
@@ -1653,8 +1653,8 @@
       "id": 109,
       "title": "Test: records whose fields are lists, tuples or Maybe get `==`",
       "status": "doing",
-      "agent": "DeepSeek",
-      "where": "~/scratch/opencode/funlang-20261020-134115",
+      "agent": "Claude",
+      "where": "main",
       "labels": [
         "elab",
         "tooling"
@@ -1728,15 +1728,15 @@
     {
       "id": 114,
       "title": "Uppercase parameter names are a parse error",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "/Users/matt/scratch/opencode/funlang-20261020-134528",
       "labels": [
         "syntax"
       ],
       "body": "`def f (A: Nat): Nat := A` gives E-PARSE 'expected a parameter's name, but found A' because uppercase reads as a constructor (docs/aoc-2025.md:1029). Decide: keep (improve the message with a note: parameters start lowercase) or allow it (affects pattern/constructor resolution). Done: decision implemented and documented.",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-20",
       "commits": []
     },
     {
@@ -2128,16 +2128,16 @@
     {
       "id": 140,
       "title": "Parser: hint 'write not x' for !x",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "/Users/matt/scratch/opencode/funlang-20261020-134523",
       "labels": [
         "syntax",
         "errors"
       ],
       "body": "Day 6 pain point 1: `!x` gives 'unexpected character !' with no hint. Add a hint to write `not x`.",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-20",
       "commits": []
     },
     {
@@ -2425,9 +2425,9 @@
     {
       "id": 159,
       "title": "Day 2 for all inputs: prototype the general proof in Lean (rotations/gcd, computed Möbius weights)",
-      "status": "doing",
-      "agent": "Opus",
-      "where": "worktree",
+      "status": "review",
+      "agent": "Matt",
+      "where": "branch worktree-agent-a5383a6eab2944d40 (Lean prototype)",
       "labels": [
         "aoc",
         "proof",
@@ -2448,6 +2448,20 @@
         "stdlib"
       ],
       "body": "D78 (20 Oct 2026). Orchestrator generated the split with the stage 1 closure tool (core keeps the registry built-ins, Decidable procedures and their closure, plus Bool.inspect/Bool.toNat; files acyclic; core 2715 -> 1084 lines), commit 2f6acf3 in the clone. DeepSeek registers the files, fixes fallout, tidies headers, checks hashes, measures, documents, gates. Natives stay in core for now (moving them needs registry changes).",
+      "created": "2026-10-20",
+      "updated": "2026-10-20",
+      "commits": []
+    },
+    {
+      "id": 161,
+      "title": "Same wording for 'function field has no ==' in records and data types",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "/Users/matt/scratch/opencode/funlang-20261020-134534",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "",
       "created": "2026-10-20",
       "updated": "2026-10-20",
       "commits": []
