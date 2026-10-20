@@ -7,7 +7,7 @@ use std::rc::Rc;
 use stitchwort_core::budget::{ResourceError, Result};
 use stitchwort_core::native;
 use stitchwort_core::value::{
-    Closure, Elim, Head, apply_icit, eval, expand_step, force, quote, underapplied,
+    Closure, Elim, Head, apply_icit, eval, expand_step, force, quote, same_closure, underapplied,
 };
 use stitchwort_core::{Globals, Term, Value};
 
@@ -26,6 +26,8 @@ pub fn unify(g: &Globals, level: usize, a: &Value, b: &Value) -> Result<bool> {
         g.budget.step()?;
         let same = match task {
             Task::Values(level, a, b) => unify_step(g, level, &a, &b, &mut work)?,
+            // Identical functions unify without solving anything (`same_closure`).
+            Task::Codomains(_, b1, b2) if same_closure(&b1, &b2) => true,
             Task::Codomains(level, b1, b2) => {
                 let fresh = Value::var(level);
                 work.push(Task::Values(
@@ -92,6 +94,7 @@ fn unify_step(
             work.push(Task::Values(level, (**a1).clone(), (**a2).clone()));
             true
         }
+        (Value::Lam(_, _, b1), Value::Lam(_, _, b2)) if same_closure(b1, b2) => true,
         (Value::Lam(_, _, b1), Value::Lam(_, _, b2)) => {
             work.push(Task::Values(
                 level + 1,
@@ -1149,5 +1152,38 @@ mod tests {
         assert!(unify(&g, 0, &mixed, &compact("ab")).unwrap());
         assert!(unify(&g, 0, &compact("ab"), &mixed).unwrap());
         assert!(!unify(&g, 0, &mixed, &compact("ba")).unwrap());
+    }
+
+    #[test]
+    fn identical_functions_unify_without_solving_anything() {
+        let g = globals();
+        // `\x => ?m y x`, twice, with different values for the variable
+        // the body doesn't use.
+        let (m, _) = meta(&g, &[]);
+        let body = || {
+            Rc::new(Term::App(
+                Rc::new(Term::App(
+                    Rc::new(Term::Meta(m)),
+                    Rc::new(Term::Var(1)),
+                    Icit::Explicit,
+                )),
+                Rc::new(Term::Var(0)),
+                Icit::Explicit,
+            ))
+        };
+        let lam = |unused: usize| {
+            Value::Lam(
+                "x".into(),
+                Icit::Explicit,
+                Closure {
+                    env: vec![Value::var(unused), Value::var(3)].into(),
+                    body: body(),
+                },
+            )
+        };
+        let before = g.budget.total_work();
+        assert!(unify(&g, 4, &lam(0), &lam(1)).unwrap());
+        assert_eq!(g.budget.total_work() - before, 1, "one step: the shortcut");
+        assert!(g.meta_solution(m).is_none());
     }
 }

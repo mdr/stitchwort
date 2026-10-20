@@ -1,8 +1,9 @@
-//! The kernel's conversion check recognises identical closures without
-//! running them (`value.rs`, `same_closure`). That may only skip work, never
-//! change a verdict: every example, accepted or rejected (the soundness suite
-//! included), must get exactly the same result, the same diagnostics, with
-//! the shortcut turned off.
+//! The kernel's conversion check, and the elaborator's unification,
+//! recognise identical closures without running them (`value.rs`,
+//! `same_closure`). That may only skip work, never change a verdict: every
+//! example, accepted or rejected (the soundness suite included), must get
+//! exactly the same result, the same diagnostics, with the shortcut turned
+//! off.
 
 use std::path::Path;
 

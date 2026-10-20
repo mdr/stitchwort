@@ -1494,14 +1494,20 @@ pub fn underapplied(g: &Globals, value: &Value) -> Option<Icit> {
 // comparison runs as before; so this can only skip work that would have
 // answered "equal", never change an answer (apart from not running out of
 // resources where the long way would have).
+//
+// The elaborator's unification (`crates/elab/src/unify.rs`) uses it too:
+// unifying identical values succeeds without solving any metavariable (a
+// metavariable against itself only unifies the identical arguments), so
+// answering at once changes nothing there either.
 
 #[cfg(any(test, feature = "reference"))]
 thread_local! {
     static SHORTCUTS_OFF: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
-/// Turns the identical-closure shortcut of [`conv`] off (or back on) on this
-/// thread: for tests comparing the verdicts with and without it.
+/// Turns the identical-closure shortcut of [`conv`] (and of the elaborator's
+/// unification) off, or back on, on this thread: for tests comparing the
+/// verdicts with and without it.
 #[cfg(any(test, feature = "reference"))]
 pub fn set_shortcuts_disabled(disabled: bool) {
     SHORTCUTS_OFF.with(|s| s.set(disabled));
@@ -1523,7 +1529,7 @@ fn shortcuts_disabled() -> bool {
 /// names and source locations) and, for each variable it uses from its
 /// environment, identical values. Variables the body doesn't use can differ:
 /// they're never looked at.
-fn same_closure(a: &Closure, b: &Closure) -> bool {
+pub fn same_closure(a: &Closure, b: &Closure) -> bool {
     !shortcuts_disabled() && identical(Same::Closures(a, b))
 }
 
