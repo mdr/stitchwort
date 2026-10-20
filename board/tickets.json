@@ -2748,9 +2748,9 @@
     {
       "id": 178,
       "title": "Indexed data types (inductive families) in the kernel (D133)",
-      "status": "review",
+      "status": "doing",
       "agent": "Opus",
-      "where": "docs/proposals/indexed-families.md draft 3; decisions accepted; build not started",
+      "where": "stages 1+2 (kernel) in worktree agent-ae6d5f72d21c22428; overnight plan scratchpad/OVERNIGHT.md",
       "labels": [
         "kernel",
         "design"
