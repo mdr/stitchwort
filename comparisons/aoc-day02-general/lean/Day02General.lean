@@ -9,7 +9,8 @@ The theorem is `part2Correct`: `solvePart2 ranges = part2Spec ranges` for every
 list of ranges. See README.md for the outline and the porting note.
 -/
 
-set_option maxHeartbeats 400000
+-- Lean 4.34 marks `if_pos`/`if_neg` deprecated; they still work.
+set_option linter.deprecated false
 
 -- ===========================================================================
 -- 1. The puzzle's definitions (the specification)
@@ -302,7 +303,7 @@ theorem getD_take' (l : List Nat) (k i : Nat) (h : i < k) : (l.take k).getD i 0 
   simp [List.getD_eq_getElem?_getD, h]
 
 -- Position i of a block written n times.
-theorem getD_flatten_replicate (b : List Nat) (k : Nat) (hb : b.length = k) (hk : 0 < k) :
+theorem getD_flatten_replicate (b : List Nat) (k : Nat) (hb : b.length = k) :
     ∀ n i, i < n * k → ((List.replicate n b).flatten).getD i 0 = b.getD (i % k) 0 := by
   intro n
   induction n with
@@ -362,7 +363,7 @@ theorem writtenAs_iff (ds : List Nat) (k n : Nat) (hk : 0 < k) (hL : 0 < ds.leng
   constructor
   · intro e i hi
     unfold at_
-    have := getD_flatten_replicate (ds.take k) k htake hk n i (by rw [Nat.mul_comm]; omega)
+    have := getD_flatten_replicate (ds.take k) k htake n i (by rw [Nat.mul_comm]; omega)
     rw [e] at this
     rw [this, getD_take' _ _ _ (Nat.mod_lt _ hk)]
   · intro hb
@@ -370,7 +371,7 @@ theorem writtenAs_iff (ds : List Nat) (k n : Nat) (hk : 0 < k) (hL : 0 < ds.leng
     · rw [length_flatten_replicate, htake, Nat.mul_comm]; exact hkn
     · intro i hi
       rw [length_flatten_replicate, htake, Nat.mul_comm] at hi
-      rw [getD_flatten_replicate _ k htake hk n i (by rw [Nat.mul_comm]; omega)]
+      rw [getD_flatten_replicate _ k htake n i (by rw [Nat.mul_comm]; omega)]
       rw [getD_take' _ _ _ (Nat.mod_lt _ hk)]
       exact (hb i (by omega)).symm
 
@@ -498,15 +499,371 @@ theorem count_id (x size : Nat) (hLs : (digits x).length ≤ size) (hLpos : 0 < 
 -- 8. The digit bridge: `repeated` adds the ids that are a block written n times
 -- ===========================================================================
 
+-- Stitchwort already proves all of this section for any n ≥ 2 (`repeatedIds`
+-- in aoc/src/day02/part2proof.sw); it is here so the Lean file is complete.
+
+-- 8a. Digits -----------------------------------------------------------------
+
+theorem digits_lt (x : Nat) (h : x < 10) : digits x = [x] := by
+  rw [digits]; simp [h]
+
+theorem digits_ge (x : Nat) (h : 10 ≤ x) : digits x = digits (x / 10) ++ [x % 10] := by
+  rw [digits]; simp [show ¬ x < 10 by omega]
+
 theorem digits_length_pos (x : Nat) : 0 < (digits x).length := by
-  sorry
+  by_cases h : x < 10
+  · rw [digits_lt x h]; simp
+  · rw [digits_ge x (by omega)]; simp
 
-theorem digits_length_mono (x y : Nat) (h : x ≤ y) : (digits x).length ≤ (digits y).length := by
-  sorry
+theorem digits_length_mono : ∀ y x, x ≤ y → (digits x).length ≤ (digits y).length := by
+  intro y
+  induction y using Nat.strongRecOn with
+  | _ y ih =>
+    intro x hxy
+    by_cases hx : x < 10
+    · rw [digits_lt x hx]; exact digits_length_pos y
+    · rw [digits_ge x (by omega), digits_ge y (by omega)]
+      simp only [List.length_append, List.length_singleton]
+      have := ih (y / 10) (by omega) (x / 10) (by omega)
+      omega
 
+theorem digits_lt_ten : ∀ x, ∀ d ∈ digits x, d < 10 := by
+  intro x
+  induction x using Nat.strongRecOn with
+  | _ x ih =>
+    intro d hd
+    by_cases hx : x < 10
+    · rw [digits_lt x hx] at hd; simp at hd; omega
+    · rw [digits_ge x (by omega)] at hd
+      simp only [List.mem_append, List.mem_singleton] at hd
+      rcases hd with hd | hd
+      · exact ih (x / 10) (by omega) d hd
+      · omega
+
+def fromDigits (ds : List Nat) : Nat := ds.foldl (fun a d => 10 * a + d) 0
+
+theorem foldl_digits (l : List Nat) :
+    ∀ acc, l.foldl (fun a d => 10 * a + d) acc = acc * 10 ^ l.length + fromDigits l := by
+  induction l with
+  | nil => intro acc; simp [fromDigits]
+  | cons d t ih =>
+    intro acc
+    simp only [fromDigits, List.foldl_cons, List.length_cons, Nat.mul_zero, Nat.zero_add]
+    rw [ih (10 * acc + d), ih d, Nat.pow_succ]
+    grind
+
+theorem fromDigits_append (l₁ l₂ : List Nat) :
+    fromDigits (l₁ ++ l₂) = fromDigits l₁ * 10 ^ l₂.length + fromDigits l₂ := by
+  show List.foldl _ 0 (l₁ ++ l₂) = _
+  rw [List.foldl_append, foldl_digits]; rfl
+
+theorem fromDigits_single (d : Nat) : fromDigits [d] = d := by simp [fromDigits]
+
+theorem fromDigits_digits : ∀ x, fromDigits (digits x) = x := by
+  intro x
+  induction x using Nat.strongRecOn with
+  | _ x ih =>
+    by_cases hx : x < 10
+    · rw [digits_lt x hx, fromDigits_single]
+    · rw [digits_ge x (by omega), fromDigits_append, ih (x / 10) (by omega), fromDigits_single]
+      simp; omega
+
+theorem fromDigits_cons (d : Nat) (t : List Nat) : fromDigits (d :: t) = d * 10 ^ t.length + fromDigits t := by
+  rw [show d :: t = [d] ++ t from rfl, fromDigits_append, fromDigits_single]
+
+theorem fromDigits_lt (l : List Nat) (h : ∀ d ∈ l, d < 10) : fromDigits l < 10 ^ l.length := by
+  induction l with
+  | nil => simp [fromDigits]
+  | cons d t ih =>
+    rw [fromDigits_cons, List.length_cons, Nat.pow_succ]
+    have h1 := ih (fun e he => h e (by simp [he]))
+    have h2 : d + 1 ≤ 10 := h d (by simp)
+    have := Nat.mul_le_mul_right (10 ^ t.length) h2
+    rw [Nat.add_mul, Nat.one_mul] at this
+    rw [Nat.mul_comm (10 ^ t.length) 10]
+    omega
+
+-- Induction adding one element at the end.
+theorem snoc_induction (P : List Nat → Prop) (h0 : P []) (hs : ∀ l d, P l → P (l ++ [d])) :
+    ∀ l, P l := by
+  intro l
+  rw [← List.reverse_reverse l]
+  induction l.reverse with
+  | nil => exact h0
+  | cons d t ih => rw [List.reverse_cons]; exact hs _ _ ih
+
+theorem pow_pred_mul (L : Nat) (h : 1 ≤ L) : 10 ^ L = 10 ^ (L - 1) * 10 := by
+  rw [← Nat.pow_succ]; congr 1; omega
+
+-- Digits with no leading 0 are the digits of their value.
+theorem digits_fromDigits (l : List Nat) (hne : l ≠ []) (hd : ∀ d ∈ l, d < 10)
+    (hb : 10 ^ (l.length - 1) ≤ fromDigits l) : digits (fromDigits l) = l := by
+  revert hne hd hb
+  refine snoc_induction (fun l => l ≠ [] → (∀ d ∈ l, d < 10) → 10 ^ (l.length - 1) ≤ fromDigits l →
+    digits (fromDigits l) = l) (fun hne => absurd rfl hne) ?_ l
+  intro l d ih hne hd hb
+  · have hd10 := hd d (by simp)
+    rw [fromDigits_append, fromDigits_single, List.length_singleton, Nat.pow_one] at hb ⊢
+    rw [List.length_append, List.length_singleton, Nat.add_sub_cancel] at hb
+    by_cases hl : l = []
+    · subst hl
+      simp only [fromDigits, List.foldl_nil, Nat.zero_mul, Nat.zero_add, List.nil_append]
+      exact digits_lt d hd10
+    · have hlpos : 1 ≤ l.length := List.length_pos_iff.mpr hl
+      rw [pow_pred_mul _ hlpos] at hb
+      have hfl : 10 ^ (l.length - 1) ≤ fromDigits l := by omega
+      have hp : 1 ≤ 10 ^ (l.length - 1) := Nat.pow_pos (by decide)
+      rw [digits_ge _ (by omega), show (fromDigits l * 10 + d) / 10 = fromDigits l by omega,
+        show (fromDigits l * 10 + d) % 10 = d by omega, ih hl (fun e he => hd e (by simp [he])) hfl]
+
+theorem digits_bounds : ∀ b, 1 ≤ b → 10 ^ ((digits b).length - 1) ≤ b ∧ b < 10 ^ (digits b).length := by
+  intro b
+  induction b using Nat.strongRecOn with
+  | _ b ih =>
+    intro hb
+    by_cases h : b < 10
+    · rw [digits_lt b h]; simp; omega
+    · rw [digits_ge b (by omega)]
+      obtain ⟨h1, h2⟩ := ih (b / 10) (by omega) (by omega)
+      have e := pow_pred_mul _ (digits_length_pos (b / 10))
+      simp only [List.length_append, List.length_singleton, Nat.add_sub_cancel, Nat.pow_succ]
+      constructor <;> omega
+
+theorem digits_length_of_bounds (k b : Nat) (hk : 1 ≤ k) (h1 : 10 ^ (k - 1) ≤ b) (h2 : b < 10 ^ k) :
+    (digits b).length = k := by
+  have hb : 1 ≤ b := Nat.le_trans (Nat.pow_pos (by decide)) h1
+  obtain ⟨h3, h4⟩ := digits_bounds b hb
+  have hL := digits_length_pos b
+  have a := (Nat.pow_lt_pow_iff_right (a := 10) (by decide)).mp (Nat.lt_of_le_of_lt h3 h2)
+  have c := (Nat.pow_lt_pow_iff_right (a := 10) (by decide)).mp (Nat.lt_of_le_of_lt h1 h4)
+  omega
+
+-- The digits of a written after the digits of c.
+theorem digits_append : ∀ c a, 1 ≤ a → digits (a * 10 ^ (digits c).length + c) = digits a ++ digits c := by
+  intro c
+  induction c using Nat.strongRecOn with
+  | _ c ih =>
+    intro a ha
+    by_cases hc : c < 10
+    · rw [digits_lt c hc]; simp only [List.length_singleton, Nat.pow_one]
+      rw [digits_ge _ (by omega), show (a * 10 + c) / 10 = a by omega, show (a * 10 + c) % 10 = c by omega]
+    · rw [digits_ge c (by omega)]
+      simp only [List.length_append, List.length_singleton, Nat.pow_succ, ← Nat.mul_assoc]
+      have hp : 1 ≤ a * 10 ^ (digits (c / 10)).length := Nat.mul_pos ha (Nat.pow_pos (by decide))
+      rw [digits_ge _ (by omega),
+        show (a * 10 ^ (digits (c / 10)).length * 10 + c) / 10 = a * 10 ^ (digits (c / 10)).length + c / 10 by omega,
+        show (a * 10 ^ (digits (c / 10)).length * 10 + c) % 10 = c % 10 by omega,
+        ih (c / 10) (by omega) a ha, List.append_assoc]
+
+-- 8b. A block written n times --------------------------------------------------
+
+theorem multiplier_snoc (k n : Nat) : multiplier k (n + 1) = multiplier k n + 10 ^ (k * n) := by
+  simp [multiplier, List.range_succ, List.sum_append]
+
+theorem multiplier_succ (k : Nat) : ∀ n, multiplier k (n + 1) = multiplier k n * 10 ^ k + 1 := by
+  intro n
+  induction n with
+  | zero => simp [multiplier]
+  | succ n ih =>
+    rw [multiplier_snoc k (n + 1), multiplier_snoc k n, Nat.add_mul, Nat.mul_succ, Nat.pow_add]
+    rw [multiplier_snoc k n] at ih
+    omega
+
+theorem multiplier_pos (k n : Nat) (hn : 1 ≤ n) : 1 ≤ multiplier k n := by
+  obtain ⟨n', rfl⟩ : ∃ n', n = n' + 1 := ⟨n - 1, by omega⟩
+  rw [multiplier_succ]; omega
+
+theorem digits_rep (b : Nat) (hb : 1 ≤ b) :
+    ∀ n, digits (b * multiplier (digits b).length (n + 1)) = (List.replicate (n + 1) (digits b)).flatten := by
+  intro n
+  induction n with
+  | zero => simp [multiplier]
+  | succ n ih =>
+    have hpos : 1 ≤ b * multiplier (digits b).length (n + 1) := Nat.mul_pos hb (multiplier_pos _ _ (by omega))
+    rw [multiplier_succ, Nat.mul_add, Nat.mul_one, ← Nat.mul_assoc, digits_append b _ hpos, ih,
+      List.replicate_succ' (n := n + 1), List.flatten_append]
+    simp
+
+-- A k-digit block written n times has digits that are that block n times.
+theorem written_of_block (k n b : Nat) (hk : 1 ≤ k) (hn : 1 ≤ n) (h1 : 10 ^ (k - 1) ≤ b) (h2 : b < 10 ^ k) :
+    writtenAs (digits (b * multiplier k n)) k n = true := by
+  have hL := digits_length_of_bounds k b hk h1 h2
+  have hb : 1 ≤ b := Nat.le_trans (Nat.pow_pos (by decide)) h1
+  obtain ⟨n', rfl⟩ : ∃ n', n = n' + 1 := ⟨n - 1, by omega⟩
+  rw [← hL, digits_rep b hb n']
+  have htake : ((List.replicate (n' + 1) (digits b)).flatten).take (digits b).length = digits b := by
+    rw [List.replicate_succ, List.flatten_cons, List.take_left' rfl]
+  unfold writtenAs
+  rw [htake]
+  simp
+
+-- And an id whose digits are a k-digit block written n ≥ 2 times is that
+-- block times the multiplier.
+theorem block_of_written (x k n : Nat) (hn : 2 ≤ n) (h : writtenAs (digits x) k n = true) :
+    ∃ b, 10 ^ (k - 1) ≤ b ∧ b < 10 ^ k ∧ b * multiplier k n = x := by
+  have hLpos := digits_length_pos x
+  obtain ⟨hkn, hk⟩ := writtenAs_length _ k n hLpos hn h
+  have hkL : k ≤ (digits x).length := by rw [← hkn]; exact Nat.le_mul_of_pos_right k (by omega)
+  have e : (List.replicate n ((digits x).take k)).flatten = digits x := by
+    unfold writtenAs at h; simpa using h
+  obtain ⟨blk, hblk⟩ : ∃ blk, blk = (digits x).take k := ⟨_, rfl⟩
+  rw [← hblk] at e
+  have hblen : blk.length = k := by rw [hblk, List.length_take]; omega
+  have hlt10 := digits_lt_ten x
+  have hsplit : digits x = blk ++ (digits x).drop k := by rw [hblk]; exact (List.take_append_drop k _).symm
+  have hdroplen : ((digits x).drop k).length = (digits x).length - k := List.length_drop
+  have hx : x = fromDigits blk * 10 ^ ((digits x).length - k) + fromDigits ((digits x).drop k) := by
+    have := fromDigits_digits x
+    rw [hsplit, fromDigits_append, hdroplen] at this
+    exact this.symm
+  have hrest := fromDigits_lt ((digits x).drop k) (fun d hd => hlt10 d (List.mem_of_mem_drop hd))
+  rw [hdroplen] at hrest
+  have hblk_lt := fromDigits_lt blk (fun d hd => hlt10 d (by rw [hblk] at hd; exact List.mem_of_mem_take hd))
+  rw [hblen] at hblk_lt
+  have hx1 : 1 ≤ x := by
+    by_cases hx : x < 10
+    · rw [digits_lt x hx] at hkn; simp at hkn
+      have : k * 2 ≤ k * n := Nat.mul_le_mul_left k hn
+      omega
+    · omega
+  obtain ⟨hxb, _⟩ := digits_bounds x hx1
+  have hlow : 10 ^ (k - 1) ≤ fromDigits blk := by
+    have e2 : 10 ^ ((digits x).length - 1) = 10 ^ (k - 1) * 10 ^ ((digits x).length - k) := by
+      rw [← Nat.pow_add]; congr 1; omega
+    apply Nat.le_of_lt_succ
+    apply Nat.lt_of_mul_lt_mul_right (a := 10 ^ ((digits x).length - k))
+    rw [Nat.succ_mul]
+    omega
+  refine ⟨fromDigits blk, hlow, hblk_lt, ?_⟩
+  have hcanon : digits (fromDigits blk) = blk :=
+    digits_fromDigits blk (by intro hn; rw [hn] at hblen; simp at hblen; omega)
+      (fun d hd => hlt10 d (by rw [hblk] at hd; exact List.mem_of_mem_take hd)) (by rw [hblen]; exact hlow)
+  have hb1 : 1 ≤ fromDigits blk := Nat.le_trans (Nat.pow_pos (by decide)) hlow
+  obtain ⟨n', rfl⟩ : ∃ n', n = n' + 1 := ⟨n - 1, by omega⟩
+  have hd := digits_rep (fromDigits blk) hb1 n'
+  rw [hcanon, hblen, e] at hd
+  rw [← fromDigits_digits (fromDigits blk * multiplier k (n' + 1)), hd, fromDigits_digits]
+
+-- 8c. Counting blocks as ids ---------------------------------------------------
+
+-- The k-digit numbers.
+def blocks (k : Nat) : List Nat := List.range' (10 ^ (k - 1)) (10 ^ k - 10 ^ (k - 1))
+
+theorem pow_pred_le (k : Nat) : 10 ^ (k - 1) ≤ 10 ^ k := Nat.pow_le_pow_right (by decide) (by omega)
+
+-- For one id x: the blocks that make x add up to x when x's digits are a
+-- k-digit block written n times, else to 0.
+theorem block_count (x k n : Nat) (hk : 1 ≤ k) (hn : 2 ≤ n) :
+    sumBy (fun b => if b * multiplier k n = x then (x : Int) else 0) (blocks k)
+      = if writtenAs (digits x) k n then (x : Int) else 0 := by
+  have hm := multiplier_pos k n (by omega)
+  have hp := pow_pred_le k
+  by_cases h : writtenAs (digits x) k n = true
+  · obtain ⟨b, h1, h2, hbx⟩ := block_of_written x k n hn h
+    rw [if_pos h, blocks, sumBy_single _ b ?off, if_pos (by omega), if_pos hbx]
+    case off =>
+      intro b' hb'
+      rw [if_neg]
+      intro e
+      exact hb' (Nat.eq_of_mul_eq_mul_right hm (e.trans hbx.symm))
+  · rw [if_neg h]
+    apply sumBy_zero
+    intro b hb
+    simp only [blocks, List.mem_range'] at hb
+    obtain ⟨i, hi, hbi⟩ := hb
+    rw [if_neg]
+    intro e
+    apply h
+    rw [← e]
+    exact written_of_block k n b hk (by omega) (by omega) (by omega)
+
+-- Walking the blocks is walking the ids.
+theorem blocks_as_ids (r : Range) (k n : Nat) (hk : 1 ≤ k) (hn : 2 ≤ n) :
+    sumBy (fun b => if r.lo ≤ b * multiplier k n ∧ b * multiplier k n ≤ r.hi
+        then ((b * multiplier k n : Nat) : Int) else 0) (blocks k)
+      = sumBy (fun x => if writtenAs (digits x) k n then (x : Int) else 0) r.ids := by
+  rw [sumBy_congr _ (fun b => sumBy (fun x => if b * multiplier k n = x then (x : Int) else 0) r.ids)]
+  · rw [sumBy_swap]
+    exact sumBy_congr _ _ _ (fun x _ => block_count x k n hk hn)
+  · intro b _
+    unfold Range.ids
+    rw [sumBy_single _ (b * multiplier k n) (fun x hx => by rw [if_neg (Ne.symm hx)])]
+    by_cases hin : r.lo ≤ b * multiplier k n ∧ b * multiplier k n ≤ r.hi
+    · rw [if_pos hin, if_pos (by omega), if_pos rfl]
+    · rw [if_neg hin, if_neg (by omega)]
+
+-- 8d. The arithmetic series --------------------------------------------------
+
+-- Keeping the terms between p and q of a run of numbers.
+theorem sumBy_window (f : Nat → Int) (p q : Nat) : ∀ c s,
+    sumBy (fun b => if p ≤ b ∧ b ≤ q then f b else 0) (List.range' s c)
+      = sumBy f (List.range' (max p s) (min (q + 1) (s + c) - max p s)) := by
+  intro c
+  induction c with
+  | zero => intro s; rw [show min (q + 1) (s + 0) - max p s = 0 by omega]; rfl
+  | succ c ih =>
+    intro s
+    rw [List.range'_succ]; simp only [sumBy]; rw [ih (s + 1)]
+    by_cases h1 : p ≤ s ∧ s ≤ q
+    · rw [if_pos h1, show max p s = s by omega, show max p (s + 1) = s + 1 by omega,
+        show min (q + 1) (s + (c + 1)) - s = (min (q + 1) (s + 1 + c) - (s + 1)) + 1 by omega,
+        List.range'_succ]
+      rfl
+    · rw [if_neg h1, Int.zero_add]
+      by_cases h2 : s < p
+      · rw [show max p (s + 1) = max p s by omega, show s + 1 + c = s + (c + 1) by omega]
+      · rw [show min (q + 1) (s + 1 + c) - max p (s + 1) = 0 by omega,
+          show min (q + 1) (s + (c + 1)) - max p s = 0 by omega]
+        rfl
+
+theorem sumBy_natCast_mul (m : Nat) (l : List Nat) :
+    sumBy (fun b => ((b * m : Nat) : Int)) l = ((m * l.sum : Nat) : Int) := by
+  induction l with
+  | nil => simp [sumBy]
+  | cons x xs ih => simp only [sumBy, ih, List.sum_cons]; push_cast; grind
+
+-- Gauss: lo + ... + hi.
+theorem gauss (lo hi : Nat) (h : lo ≤ hi) :
+    (List.range' lo (hi + 1 - lo)).sum = (lo + hi) * (hi - lo + 1) / 2 := by
+  rw [List.sum_range']
+  obtain ⟨c, rfl⟩ : ∃ c, hi = lo + c := ⟨hi - lo, by omega⟩
+  rw [show lo + c + 1 - lo = c + 1 by omega, show lo + c - lo + 1 = c + 1 by omega, Nat.add_sub_cancel,
+    Nat.mul_one, show (lo + (lo + c)) * (c + 1) = 2 * (lo * (c + 1)) + (c + 1) * c by grind,
+    Nat.mul_add_div (by decide), Nat.mul_comm (c + 1) lo]
+
+-- (a) The arithmetic sum is the brute-force sum over blocks.
+theorem repeated_blocks (r : Range) (k n : Nat) (hn : 1 ≤ n) :
+    (repeated r k n : Int) = sumBy (fun b => if r.lo ≤ b * multiplier k n ∧ b * multiplier k n ≤ r.hi
+        then ((b * multiplier k n : Nat) : Int) else 0) (blocks k) := by
+  have hm := multiplier_pos k n hn
+  have hp := pow_pred_le k
+  have hp1 : 1 ≤ 10 ^ k := Nat.pow_pos (by decide)
+  -- lo ≤ b·m iff b ≥ lo/m rounded up; b·m ≤ hi iff b ≤ hi/m rounded down.
+  rw [sumBy_congr _ (fun b => if (r.lo + multiplier k n - 1) / multiplier k n ≤ b ∧ b ≤ r.hi / multiplier k n
+      then ((b * multiplier k n : Nat) : Int) else 0)]
+  · unfold blocks
+    rw [sumBy_window, show 10 ^ (k - 1) + (10 ^ k - 10 ^ (k - 1)) = 10 ^ k by omega]
+    unfold repeated
+    simp only [show multiplier k n ≠ 0 by omega, if_true, ne_eq, not_false_eq_true]
+    rw [sumBy_natCast_mul]
+    generalize (r.lo + multiplier k n - 1) / multiplier k n = c
+    generalize r.hi / multiplier k n = d
+    by_cases hle : max (10 ^ (k - 1)) c ≤ min (10 ^ k - 1) d
+    · rw [if_pos hle, ← gauss _ _ hle, Nat.max_comm c,
+        show min (d + 1) (10 ^ k) - max (10 ^ (k - 1)) c = min (10 ^ k - 1) d + 1 - max (10 ^ (k - 1)) c by omega]
+    · rw [if_neg hle, show min (d + 1) (10 ^ k) - max c (10 ^ (k - 1)) = 0 by omega]
+      simp
+  · intro b _
+    have e1 : r.lo ≤ b * multiplier k n ↔ (r.lo + multiplier k n - 1) / multiplier k n ≤ b := by
+      rw [Nat.div_le_iff_le_mul_add_pred (by omega), Nat.mul_comm]; omega
+    have e2 : b * multiplier k n ≤ r.hi ↔ b ≤ r.hi / multiplier k n := (Nat.le_div_iff_mul_le (by omega)).symm
+    simp only [e1, e2]
+
+-- (1) `repeated r k n` adds the ids of the range whose digits are a k-digit
+-- block written n times.
 theorem repeatedIds (r : Range) (k n : Nat) (hk : 1 ≤ k) (hn : 2 ≤ n) :
     (repeated r k n : Int) = sumBy (fun x => if writtenAs (digits x) k n then (x : Int) else 0) r.ids := by
-  sorry
+  rw [repeated_blocks r k n (by omega), blocks_as_ids r k n hk hn]
 
 -- ===========================================================================
 -- 9. Part 2 is right, for every input
@@ -530,7 +887,7 @@ theorem invalid_eq (r : Range) :
     apply sumBy_congr
     intro x hx
     simp [Range.ids, List.mem_range'] at hx
-    exact count_id x _ (digits_length_mono x r.hi (by omega)) (digits_length_pos x)
+    exact count_id x _ (digits_length_mono r.hi x (by omega)) (digits_length_pos x)
   case step =>
     intro k hk
     simp [List.mem_range'] at hk
@@ -579,4 +936,16 @@ def bigRanges : List Range :=
    ⟨10101010101010101010 - 20, 10101010101010101010 + 20⟩]   -- 10 written 10 times
 
 #eval bigRanges.map fun r => (solvePart2 [r], part2Spec [r])
-#eval solvePart2 bigRanges == part2Spec bigRanges
+#eval solvePart2 bigRanges == part2Spec bigRanges  -- true
+
+-- Every id up to 200,000 one range at a time, and 4,001-id windows around
+-- some 11- and 12-digit repeats.
+def manyRanges : List Range :=
+  (List.range 4000).map (fun i => ⟨50 * i, 50 * i + 49⟩) ++
+  [⟨11111111111 - 2000, 11111111111 + 2000⟩, ⟨999999999999 - 2000, 999999999999 + 2000⟩,
+   ⟨100000000000 - 2000, 100000000000 + 2000⟩, ⟨123123123123 - 2000, 123123123123 + 2000⟩]
+
+#eval manyRanges.all fun r => solvePart2 [r] == part2Spec [r]  -- true
+
+-- No `sorry`: only Lean's standard axioms.
+#print axioms part2Correct
