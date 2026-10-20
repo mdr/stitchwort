@@ -284,6 +284,14 @@ enum NumberKind {
     Other,
 }
 
+/// The indefinite article for a type name: `an` before a vowel, `a` otherwise.
+pub(crate) fn article(name: &str) -> &'static str {
+    match name.chars().next() {
+        Some('A' | 'E' | 'I' | 'O' | 'U' | 'a' | 'e' | 'i' | 'o' | 'u') => "an",
+        _ => "a",
+    }
+}
+
 /// The error for a negative number pattern where a `Nat` is matched.
 fn negative_nat(span: Span) -> Diagnostic {
     Diagnostic::error("E-TYPE-MISMATCH", "a `Nat` can't be negative")
@@ -2037,7 +2045,8 @@ impl Elaborator {
                                 "E-TYPE-MISMATCH",
                                 pattern_span,
                                 format!(
-                                    "this pattern is a `{}`, but other patterns here are `{}`",
+                                    "this pattern is {} `{}`, but other patterns here are `{}`",
+                                    article(&self.globals.data(d2).name),
                                     self.globals.data(d2).name,
                                     data.name
                                 ),

@@ -1329,10 +1329,11 @@ fn append(cx: &mut Ctx, a: &Expr, b: &Expr) -> Result<(Term, Value)> {
             )
         }
         other => {
+            let other = cx.show(&other);
             return Err(cx.error(
                 "E-TYPE-MISMATCH",
                 "`++` joins two texts or two lists",
-                format!("this is a `{}`", cx.show(&other)),
+                format!("this is {} `{}`", crate::article(&other), other),
             ));
         }
     };

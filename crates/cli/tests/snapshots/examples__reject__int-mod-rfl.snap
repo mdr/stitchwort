@@ -7,7 +7,7 @@ expression: output
    │
  4 │ def bad (x: Int): x % 3 = 1 := rfl
    │                                ─┬─  
-   │                                 ╰─── `Int.mod x 3` and `1` aren't equal
+   │                                 ╰─── `x % 3` and `1` aren't equal
    │ 
    │ Note: `rfl` proves `a = b` only when both sides compute to the same value
 ───╯
