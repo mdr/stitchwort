@@ -1,8 +1,46 @@
-# Splitting the prelude into a standard library (SW-148), draft 1
+# Splitting the prelude into a standard library (SW-148), draft 2
 
 **Date:** 20 October 2026. **Ticket:** SW-148 (related: SW-145, SW-146; supersedes D48).
 **Decisions already made by Matt:** D49, D50, D55, D56 (§2). **Open:** D57 (deferred), D58 to D62 (§10).
-**Status:** draft for external review. Nothing is implemented.
+**Status:** reviewed once externally ("proceed, but tighten the loader invariants before
+implementing stage 1"; no soundness issue found). Nothing is implemented.
+
+## Changes since draft 1
+
+Draft 1 had one external review, with four major findings and three minor. Its verdicts were:
+D57 defer; D58, D59 and D60 agree with changes; D61 and D62 agree. It had no objection to
+D49, D50, D55 or D56. Every finding is addressed:
+
+1. **A governing invariant** (§4.0, new). Lazy loading is an implementation detail. Apart
+   from D50's intended import change, a program resolves and elaborates exactly as if all of
+   `Std` were checked. Stage 1 gets an eager-versus-lazy comparison mode to enforce it
+   (§7).
+2. **File dependencies are more than namespace edges** (major; §4.2).
+   - A reference inside one namespace can still be an edge between two files, so every
+     reference resolves to its owning file.
+   - Dot notation can add edges during checking. The loader tracks *not loaded / loading /
+     loaded* and reports a cycle on any load request, static or dynamic.
+3. **The index is part of name resolution** (major; §4.3).
+   - Resolution always consults the complete index, never "what's loaded so far".
+   - Suggestions never load anything.
+4. **The index must be complete and unique** (major; §4.3).
+   - It is built by a declaration-collection phase that includes generated names
+     (constructors, record fields, ability operations, aliases).
+   - It rejects any full name declared twice across core and library, even in files no
+     program loads.
+   - It keeps a namespace tree, so `import Std (Eq)` needs no load.
+5. **D58 is the stage 1 rule, not the ideal** (major; §4.5). The later rule is a global,
+   canonically ordered index of `Decidable` candidates that `auto` searches whatever is
+   loaded. A chosen candidate's file is loaded before use.
+6. **§3 corrected** (minor). Lean, Agda and Idris need an import before even a fully
+   qualified name from another module works. Stitchwort deliberately differs: references,
+   not imports, establish dependencies on `Std`. Rust's `std` is the closest precedent.
+7. **The index is built once per process** and keeps the parsed syntax for loading (minor;
+   §4.3, D60). Stage 1 measures its time and memory.
+8. **"Default name" isn't a reason to be in core** (minor; §5). A default name can point
+   into a library file. Keeping `And` and `Or` in core is just simpler for now.
+
+The reviewer's answers to §9's questions are summarised in [§9](#9-review-answers).
 
 Claims about the code are marked **[checked]** when I ran or read the thing named, and
 **[unmeasured]** or **[estimate]** when they aren't. Line numbers are for `main` at `65e6e4e`.
@@ -18,7 +56,7 @@ Claims about the code are marked **[checked]** when I ran or read the thing name
 6. [Effects on the rest of the system](#6-effects-on-the-rest-of-the-system)
 7. [Staging](#7-staging)
 8. [Risks](#8-risks)
-9. [Questions for the reviewer](#9-questions-for-the-reviewer)
+9. [Review answers](#9-review-answers)
 10. [Decisions](#10-decisions)
 11. [Sources](#sources)
 
@@ -32,6 +70,9 @@ Claims about the code are marked **[checked]** when I ran or read the thing name
 - **Proposal.** Only a small **core** stays always loaded: what built-in syntax, `deriving`,
   `calc`, `auto` and abilities need. Everything else becomes **library files** under `Std`,
   each checked only when a program uses something in it.
+- **The rule everything else follows (§4.0).** Lazy loading is an implementation detail.
+  Apart from D50's import change, a program must resolve and elaborate exactly as if the
+  whole standard library had already been checked.
 - **No user-visible change in meaning.** Full names don't change (`Std.Nat.modAddMod` stays
   `Std.Nat.modAddMod`), and imports keep their meaning: they only decide which names can be
   written without a prefix (D50).
@@ -142,8 +183,15 @@ has no type of its own, since `=` is built in), `Effect` and `Builtin`.
 
 What this means for us:
 
-- **Small core plus libraries loaded on demand** is what Idris, Rocq and Lean do. Idris's
-  header comment states our D49 almost word for word.
+- **A small, automatically available core plus separately loaded modules** is common. Idris,
+  Rocq and Lean all do it, and Idris's header comment states our D49 almost word for word.
+- **But Stitchwort differs on how a module gets loaded.** In Lean, Agda and Idris, even a
+  fully qualified name from another module works only after that module is imported. Lean's
+  `import` adds a module's contents, while namespaces and `open` are a separate mechanism.
+  Agda needs `import M` before `M.x` works, and `open` gives the short forms [A1]. Idris
+  files list their imports. In Stitchwort, **references, not imports, establish a dependency
+  on `Std`**: writing `Std.List.sort` is enough to load it. Rust's treatment of `std` is the
+  closest precedent [R1]. Users coming from Lean or Agda should be told this explicitly.
 - **Separating lemmas from definitions** follows Agda's `Base`/`Properties` split and Rocq's
   `Arith`. We get the same speed benefit without renaming, by splitting the *files* while
   keeping the *names* (§4.2). Agda users effectively do the same by hand: the style guide
@@ -159,6 +207,23 @@ What this means for us:
   the list as it is.
 
 ## 4. The design
+
+### 4.0 The invariant
+
+> **Lazy loading is an implementation detail.** Apart from the intended import change of
+> D50, a program must resolve and elaborate exactly as if the entire standard library had
+> already been checked.
+
+- What's loaded may decide whether a declaration's *body* has been checked yet. It must never
+  decide whether that declaration *takes part in resolution*.
+  - Name lookup, ambiguity, import validation, dot notation and `auto` all see the whole
+    library, through the index (§4.3).
+- **Enforced by a test mode.** A test-only "eager `Std`" mode loads every library file first.
+  Stage 1 runs `aoc`, the examples and the library's own tests in both modes and compares
+  them. The two modes must agree on:
+  - which programs are accepted and which rejected;
+  - which declaration each name resolves to;
+  - declaration hashes.
 
 ### 4.1 Layout
 
@@ -194,17 +259,58 @@ finer unit:
 - So **library files are loaded one at a time**, each after the files it uses.
 - **Library files must not form a cycle** between them. A library test checks this, and the
   library's authors fix it by moving declarations. Within one file, anything goes, as today.
-- **Dependencies are found the way projects find them.** The pre-pass that finds a
-  namespace's edges (`project.rs:132`, `namespace_edges`, built on `decl_refs`) works at the
-  level of files for `Std`. The edges are exact, not merely safe, as multi-file.md §4.6
-  requires.
+  If two files ever genuinely need mutual recursion, they become one file. Generalising the
+  unit to a cycle of files can come later.
+- **Ordinary references give exact file edges, by resolving each one to its owning file.**
+  This is *not* `namespace_edges` (`project.rs:132`) with a different key. Within one
+  namespace, a reference is internal to the namespace but can still connect two files:
+
+  ```
+  -- Nat/A.sw, namespace Std.Nat
+  def a := … b …         -- unqualified, same namespace
+  -- Nat/B.sw, namespace Std.Nat
+  def b := …
+  ```
+
+  Here `A.sw → B.sw` is an edge. So the analysis resolves every reference, qualified or not,
+  through the index to the file that owns it. It reuses `decl_refs` to collect references.
+- **Type-directed references add edges during checking.** A library file can contain
+  `xs.sort`, whose target the pre-pass can't know. The loader keeps a state for each file:
+  *not loaded*, *loading* or *loaded*. A load request for a file that is *loading* is a
+  cycle. It's reported as an internal library error naming both files, never a hang and
+  never a silent skip. Static and dynamic requests use the same check.
+  - The load-every-file test (§4.6) loads in an order that exercises these dynamic edges
+    too.
+  - A stricter rule would forbid dot calls across library files. The reviewer preferred the
+    robust loader, and so do I.
 
 ### 4.3 The name index and what triggers a load
 
-- **The index.** At start-up, every library file is *parsed*, not checked. This builds an
-  index from full name to file (`Std.Nat.modAddMod` → `Nat/Division.sw`). Parsing ~2,500
-  lines should be cheap compared with checking them **[unmeasured; measured in stage 1; if not
-  cheap, the index is built at compile time by `build.rs`]**.
+- **The index is part of name resolution, not just a loading shortcut.** Every lookup
+  (short names, qualified names, `import` items, dot notation, default names and
+  near-miss suggestions) consults the full index. It never consults "what's loaded" first and
+  the index only on failure. For example, `import Std.A (foo)` with `import Std.B (foo)`
+  followed by `foo` is ambiguous whether or not `A` happens to be loaded.
+- **What the index holds.** It maps each full name to its owning file
+  (`Std.Nat.modAddMod` → `Nat/Division.sw`), and it keeps a **namespace tree**. So
+  `import Std (Eq)` can introduce the prefix `Eq` without loading every file that adds to
+  `Std.Eq`.
+- **It's built by a declaration-collection phase, not a scan of top-level names.** Every
+  name a user can write must be in it, including generated ones: constructors (`Std.List.Cons`
+  and their short forms), record fields (`Std.X.R.field`), ability operations (`IO.print`),
+  and aliases (`not`). Stage 1 lists each declaration form and the names it generates, and a
+  test checks the index against an eager load.
+- **Global uniqueness.** Building the index rejects any full name declared twice, whether
+  library vs library, core vs library, or a generated name vs either. This happens before any
+  user code is checked, even if neither file would otherwise be loaded, so lazy loading can't
+  hide a malformed library.
+- **Once per process.** The index is immutable, process-level data shared by every
+  `Session`. The parsed syntax of each file is kept and reused when that file loads, so
+  parsing happens once.
+- **Cost.** Parsing ~2,500 lines should be cheap compared with checking them **[unmeasured]**.
+  Stage 1 measures the time once per process and the memory for keeping the parsed library.
+  If either is significant, or the library grows by an order of magnitude, the index is built
+  at compile time by `build.rs` instead (D60).
 - **What triggers a load.** Before a user namespace (or single file) is checked, the pre-pass
   collects every reference that resolves into `Std`, by any route:
   - `List.sort`, where `List` is a default name;
@@ -217,8 +323,17 @@ finer unit:
   The files those references name, and their dependencies, are loaded in a **canonical
   order** first: dependency order, with ties broken by path. The order never depends on the
   order in which the program mentions things.
-- **Errors.** "Unknown name" and its near-miss suggestions search the index as well as what's
-  loaded. So `List.sortt` still suggests `List.sort` even when the sorting file isn't loaded.
+- **Errors.** "Unknown name" and its near-miss suggestions search the index, so `List.sortt`
+  still suggests `List.sort` even when the sorting file isn't loaded. **Diagnostics never
+  load anything:** asking for a suggestion has no side effects.
+- **The resulting model for users:**
+
+  | Written | Result |
+  |---|---|
+  | `Std.List.sort` | always allowed; loads the sorting file |
+  | `List.sort` | allowed, because `List` is a default name; loads it |
+  | `Eq.sym` (no import) | scope error, suggesting `import Std (Eq)` or `Std.Eq.sym` |
+  | `Std.Eq.sym` | always allowed |
 
 ### 4.4 Imports (D50, D55)
 
@@ -249,8 +364,15 @@ finer unit:
   would be bizarre. There are about 20 procedures (§1.3), plus the lemmas their definitions
   need. A library test enforces it: no library file may declare a definition whose result
   type's head is `Decidable`.
-  - *Later, compatible:* proper instance declarations (multi-file.md §4.9.6) could lift this,
-    with an index of instances by the type they decide.
+  - **This is the simple stage 1 rule, not the ideal.** Its cost is that core includes
+    everything those procedures depend on, which may be much more than the ~20 procedures
+    themselves. Stage 1 measures that closure, and D58 stands only if it's acceptable.
+  - **The later rule** (no instance system needed): a global, canonically ordered index of
+    the library's `Decidable` candidates, built with the name index. `auto` always searches
+    it, whatever is loaded. When a candidate's file isn't loaded, it is loaded and checked
+    before the candidate is tried. The index is only a hint, never trusted, because the
+    declaration is still checked before use. Then `auto`'s result depends on the program and
+    the library version only.
 
 ### 4.6 Natives (D56)
 
@@ -266,6 +388,9 @@ finer unit:
 - **A library test loads every library file** and runs `check_complete` over the whole
   registry. A native whose definition went missing is still caught, in CI rather than at
   start-up.
+- **No bypassing the loader.** Compiler code may refer by identity only to *core* built-ins.
+  A library built-in is reached only by name, so it goes through the loader, and a debug
+  assertion catches any attempt to use one before it is bound.
 
 ### 4.7 Tests in library files
 
@@ -290,7 +415,7 @@ A first cut, from the sections in §1.2. Stage 1's dependency tool (§7) gives t
 
 | Stays in core | Why |
 |---|---|
-| Logic (`Void`, `Unit`, `Not`, `And`, `Or`) | Default names; `!=` is `Not` |
+| Logic (`Void`, `Unit`, `Not`, `And`, `Or`) | `!=` is `Not`, and the registry lists `And` and `Or` (`registry.rs:77-78`). Being a default name is *not* by itself a reason to stay in core, since a default name can point into a library file (§4.3). Keeping these in core is just simpler for now |
 | `Nat` with `add`, `sub`, `mul`, `div`, `mod`, `leq`, `LessThan`, `LessEq`, `equal…`, `decEq` | Operators, natives the kernel relies on, `deriving` |
 | `Nat.leTrans`, `Nat.lessTrans` and the lemmas they need | `calc` |
 | `Bool`, `ifThenElse`, `not`, `uniqueEq` | `if`, the `not` alias |
@@ -343,10 +468,21 @@ lemmas. Stage 1 measures it.
    - Natives bound on load (the registry column, `finish_core`), and the whole-library
      `check_complete` test.
    - The library test target (SW-146).
+   - The resolver consults the index for every lookup (§4.3), and the index is unique and
+     complete, including generated names.
+   - The loader tracks file states and detects cycles on static and dynamic requests (§4.2).
+   - **Gate additions:**
+     - the eager-versus-lazy comparison over `aoc`, the examples and the library tests
+       (§4.0);
+     - a duplicate-name test for the index;
+     - test cases for a cross-file cycle and for a dot-notation cycle;
+     - a test that loads core alone.
    - Move **Sorting** (lines 1395–2077: self-contained, no natives, not used by syntax), as
      the proof that the mechanism works.
-   - **Measure:** an empty file, `aoc` check, examples benchmark, and parse time for the
-     index.
+   - **Measure:**
+     - an empty file, `aoc` check and the examples benchmark;
+     - the index's cost once per process, in time and in memory for the kept syntax;
+     - the size of D58's core closure.
    - A small tool lists, for each prelude declaration, the core declarations it needs. This
      settles §5's split.
 2. **Imports (D50, D55).** Drop the prefix rule, allow `import Std (Eq)`, add the hint,
@@ -378,30 +514,42 @@ lemmas. Stage 1 measures it.
   heavily, so they may load most of the library and see little saving until checked files
   are cached. Small programs and the playground benefit most. **[unmeasured]**
 
-## 9. Questions for the reviewer
+## 9. Review answers
 
-1. Is the file-level loading unit (§4.2) sound, given that project namespaces are checked as
-   a whole? Is there a simpler unit that keeps most of the saving?
-2. D58, keeping every `Decidable` procedure in core, is the simplest fix for `auto`. Is
-   there a better rule that keeps `auto`'s result independent of what's loaded?
-3. Are there other places where loading on demand could change meaning, such as dot
-   notation's unfolding loop or error recovery?
-4. Is parsing the whole library at start-up for the index the right trade-off, against an
-   index built at compile time?
-5. Anything missing from the precedents in §3 that would change the design? In particular,
-   how Lean, Agda and Idris handle the "you used a name from a module you didn't import"
-   error.
+Draft 1 asked the reviewer five questions. A summary of the answers:
+
+1. **Is file-level loading sound?** Yes, and it's the right granularity. A whole namespace
+   is too coarse for `Std.Nat`. Single declarations would add much more complexity:
+   mutual recursion, generated definitions, checking groups. A file is an explicit,
+   human-maintained bundle. The required changes (owner-file edges and dynamic cycle
+   detection) are now in §4.2.
+2. **Is D58 the best `auto` rule?** It's the best *simple* stage 1 rule, accepted subject to
+   measuring its core closure. The cleaner long-term rule is a global candidate index, now
+   in §4.5.
+3. **Other sources of load-dependent meaning?** Ordinary name resolution and ambiguity,
+   generated names, dot lookup, `auto`, and compiler-generated references. Diagnostics must
+   have no side effects, and imports resolve against the index. Natives aren't a semantic
+   problem as long as they're checked against their loaded definitions. The best defence is
+   the eager-versus-lazy comparison (§4.0).
+4. **Parse at start-up, or an index built at compile time?** Parse at start-up and measure.
+   Build it once per process and reuse the parsed syntax. Move to `build.rs` only on
+   evidence (§4.3).
+5. **Missing precedents?** Lean, Agda and Idris need an explicit import before a fully
+   qualified name from another module is available. Stitchwort is deliberately different:
+   references establish library dependencies. §3 and §4.3 now say so.
+
+The reviewer also proposed the sentence that is now §4.0's invariant.
 
 ## 10. Decisions
 
-| ID | Question | Recommendation |
-|---|---|---|
-| D57 | Rename what's left of the prelude to `std/core.sw`, and drop the word "prelude"? | Deferred by Matt until after the first step |
-| D58 | Keep every `Decidable` procedure in core, so `auto` never depends on what's loaded (§4.5)? | Yes |
-| D59 | Load the library a file at a time, with no cycles between library files (§4.2)? | Yes |
-| D60 | Build the name index by parsing at start-up, falling back to `build.rs` if slow (§4.3)? | Yes |
-| D61 | Run library tests only under a library target, never in projects (§4.7, SW-146)? | Yes |
-| D62 | Stage as in §7, moving Sorting first as the test case? | Yes |
+| ID | Question | Review | Recommendation |
+|---|---|---|---|
+| D57 | Rename what's left of the prelude to `std/core.sw`, and drop the word "prelude"? | Agree to defer | Deferred by Matt until after the first step |
+| D58 | For stage 1, keep every `Decidable` procedure in core, so `auto` never depends on what's loaded (§4.5)? | Agree with changes (measure; global candidate index later) | Yes, as revised |
+| D59 | Load the library a file at a time, with owner-file edges, dynamic cycle detection, and no cycles between library files (§4.2)? | Agree with changes (now included) | Yes |
+| D60 | Build the name index once per process by a declaration-collection phase that checks uniqueness, keeping the parsed syntax; `build.rs` only if measured slow (§4.3)? | Agree with changes (now included) | Yes |
+| D61 | Run library tests only under a library target, never in projects (§4.7, SW-146)? | Agree | Yes |
+| D62 | Stage as in §7, moving Sorting first, with the eager-versus-lazy, duplicate-name and cycle tests in the stage 1 gate? | Agree (with those tests) | Yes |
 
 ## Sources
 
