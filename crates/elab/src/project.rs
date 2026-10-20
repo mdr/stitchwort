@@ -362,8 +362,10 @@ impl QualifierLevels for PrePass<'_, '_> {
         self.e.project_prefixes.contains(first)
     }
 
-    fn library_namespace(&self, first: &str) -> bool {
-        self.e.scope.is_namespace(&format!("Std.{first}"))
+    fn library_namespace(&self, _: &str) -> bool {
+        // Only default names (found as short names) and imported ones
+        // (likewise, through `imported`) work as qualifiers (D50).
+        false
     }
 
     fn short_key(&self, first: &str, _: &()) -> Option<String> {

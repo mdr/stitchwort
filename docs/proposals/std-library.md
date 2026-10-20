@@ -672,6 +672,29 @@ the file being loaded, as the index's edges already did. `std/core.sw` is 1,085 
 timings (median of three): `stitchwort check` of `def z: Nat := 0`, 0.04 s (before, about
 0.12 s); `aoc`, 4.01 s (before, about 3.8 s).
 
+## As built: stage 2 (compiler part, 20 October 2026, SW-165)
+
+**Code.** `crates/elab/src/scope.rs` (`Elaborator::library_namespace`, the note in `unknown`
+and in `add_imports`), `crates/elab/src/project.rs` (the pre-pass).
+
+- **Qualifiers (D50).** A library namespace is a qualifier without import only if it is a
+  default name (a root declaration of `Std`, found as a short name) or the file's own. Inside
+  library files every `Std.X` namespace still works (`loading_prelude`). Otherwise the file
+  must import it (`import Std (Eq)`) or write `Std.Eq.sym`. No namespace was added to the
+  default set (D55).
+- **Imports.** An item of `import Std (...)` may be any namespace, even one with no
+  declaration of its own: it is accepted when `Std.X` is a namespace, and then counts as a
+  qualifier in that file. A user file that declares `Eq.foo` with no import now gets its own
+  namespace `Eq`, as it would for any unknown name.
+- **Import paths are read without imports** (unchanged), so `import Effect (Comp)` no longer
+  works in a program: write `import Std.Effect (Comp)`. The error is `E-IMPORT-UNKNOWN` with
+  the note "`Effect` is `Std.Effect`, which isn't a default name: write
+  `import Std.Effect (Comp)`".
+- **New hint.** `Eq.sym` with no import is `E-UNKNOWN-NAME` with the note "`Eq` is `Std.Eq`;
+  add `import Std (Eq)`, or write `Std.Eq.sym`". Dot notation (`p.sym`) is unaffected.
+- **Examples.** `examples/reject/eq-qualifier-without-import.sw`,
+  `examples/accept/import-std-namespace.sw`, `examples/accept/std-qualified-eq.sw`.
+
 ## Sources
 
 - [I1] Idris 2 documentation, "Type-Driven Development with Idris" porting notes: the prelude

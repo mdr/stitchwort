@@ -352,3 +352,33 @@ fn wildcards_still_work_for_eval_after_a_single_file() {
         .unwrap();
     session.elab.infer_expr(&expr).unwrap();
 }
+
+/// D50: a library namespace that isn't a default name is a qualifier only
+/// through an import or its full name.
+#[test]
+fn non_default_library_namespaces_need_an_import() {
+    let proof = "theorem flip (a : Nat) (b : Nat) (p : a = b) : b = a := ";
+    assert_eq!(codes(&format!("{proof}Eq.sym p\n")), ["E-UNKNOWN-NAME"]);
+    assert!(codes(&format!("{proof}Std.Eq.sym p\n")).is_empty());
+    assert!(codes(&format!("import Std (Eq)\n\n{proof}Eq.sym p\n")).is_empty());
+    // Dot notation finds the namespace from the type.
+    assert!(codes(&format!("{proof}p.sym\n")).is_empty());
+    // The same holds for `Effect`, and an import path is read in full.
+    assert_eq!(
+        codes("import Effect (Comp)\n\ndef x : Nat := 0\n"),
+        ["E-IMPORT-UNKNOWN"]
+    );
+    assert!(codes("import Std.Effect (Comp)\n\ndef x : Nat := 0\n").is_empty());
+    assert!(codes("import Std (Effect)\n\ndef x : Nat := Effect.runPure (Done 1)\n").is_empty());
+}
+
+/// Without the import, a program's own `Eq.foo` is its own namespace, not
+/// the library's.
+#[test]
+fn a_programs_own_eq_namespace_is_its_own() {
+    assert!(codes("def Eq.size : Nat := 0\n\ndef n : Nat := Eq.size\n").is_empty());
+    assert_eq!(
+        codes("import Std (Eq)\n\ndef Eq.size : Nat := 0\n"),
+        ["E-STD-NAMESPACE"]
+    );
+}

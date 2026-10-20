@@ -1,0 +1,6 @@
+---
+source: crates/driver/tests/hash_stability.rs
+expression: "lines(&session, d, f)"
+---
+Main.flip 7d2f55234a4e22b0ae534009adbaf795c3b7b4f8fd06bea5ce4c8da780aec6dd
+Main.flipDot 7d2f55234a4e22b0ae534009adbaf795c3b7b4f8fd06bea5ce4c8da780aec6dd
