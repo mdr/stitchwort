@@ -1,3 +1,7 @@
+-- `Int` arithmetic for programs: the sum of a list of integers, the arithmetic
+-- and division laws, and `Int.modNat`, proved from the core's definitions.
+-- This file was the prelude's blocks of `Int` lemmas after the core's `Int`.
+
 -- The sum of a list of `Int`s, as `List.sum` is of `Nat`s.
 def List.sumInt (xs: List Int): Int := List.foldLeft Int.add 0 xs
 

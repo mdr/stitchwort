@@ -1,3 +1,7 @@
+-- Decimal digits of a `Nat`: `Nat.digits` and `Nat.fromDigits`, the lemmas
+-- about them, and the digit values of characters. This file was the prelude's
+-- digit block.
+
 -- Decimal digits, most significant first: `Nat.digits 1205` is `[1, 2, 0, 5]`
 -- and `Nat.digits 0` is `[0]`. The fuel is `n + 1`, more than the digits need.
 def Nat.digitsFuel: Nat -> Nat -> List Nat -> List Nat

@@ -386,6 +386,8 @@ theorem Nat.lessLe (m: Nat) (n: Nat) (h: m < n): m <= n := Nat.leTrans m (Succ m
 
 theorem Nat.lessTrans (m: Nat) (n: Nat) (p: Nat) (h1: m < n) (h2: n < p): m < p := Nat.leTrans (Succ m) n p h1 (Nat.lessLe n p h2)
 
+-- Lists, continued
+
 def List.IsNil: List a -> Prop
   | Nil       => Unit
   | Cons x xs => Void

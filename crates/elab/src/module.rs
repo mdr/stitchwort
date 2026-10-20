@@ -665,6 +665,7 @@ impl Elaborator {
     /// module uses (`library.rs`).
     fn dependencies(&mut self, items: &[Item]) -> std::collections::BTreeSet<usize> {
         let mut needs = std::collections::BTreeSet::new();
+        let own = self.scope.loading;
         let library = self.library_index();
         for (index, item) in items.iter().enumerate() {
             self.module.file = Some(self.module.items[index].file);
@@ -718,6 +719,9 @@ impl Elaborator {
             self.module.items[index].deps = deps;
         }
         self.module.file = None;
+        if let Some(f) = own {
+            needs.remove(&f);
+        }
         needs
     }
 

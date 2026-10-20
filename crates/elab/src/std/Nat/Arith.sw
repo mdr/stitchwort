@@ -1,3 +1,6 @@
+-- `Nat` arithmetic and its lemmas. This file was the prelude's arithmetic,
+-- division and number-helper blocks after the core's division primitives.
+
 -- Arithmetic lemmas: addition, multiplication, order and subtraction facts proved
 -- by induction, then the division law and `n % d < d`.
 

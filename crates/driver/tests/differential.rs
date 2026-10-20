@@ -351,7 +351,7 @@ fn deep_evaluation_runs_in_one_machine_and_the_reference_in_none() {
 #[test]
 fn the_evaluators_agree_on_let() {
     with_stack(STACK, || {
-        let session = Session::for_stack(STACK);
+        let session = Session::eager_for_stack(STACK);
         let g = &session.elab.globals;
         let nat = g.builtins.nat.unwrap();
         let nat_ty = || Term::data(nat, vec![]);

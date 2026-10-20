@@ -1,4 +1,6 @@
--- Lists, continued
+-- The list toolkit: `map`, `filter`, folds, sums, `zip`, `take`/`drop`, `get`,
+-- `splitBy`, padding, transpose and their lemmas. This file was the prelude's
+-- "List toolkit" block and the list lemmas beside it.
 
 theorem List.lengthAppend: (xs: List a) -> (ys: List a) -> List.length (List.append xs ys) = List.length xs + List.length ys
   | Nil,       ys => rfl

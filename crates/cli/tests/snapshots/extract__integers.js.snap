@@ -451,19 +451,6 @@ const $Std$dDecidable$dnot = (v1) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dList$dmap = (v2) => (v3) => {
-  switch (v3.tag) {
-    case "Nil": {
-      return { tag: "Nil" };
-    }
-    case "Cons": {
-      const v4 = v3.head;
-      const v5 = v3.tail;
-      return { tag: "Cons", head: (v2)(v4), tail: $Std$dList$dmap(v2)(v5) };
-    }
-  }
-  throw new Error("unreachable");
-};
 const $Std$dText$dappend = (a) => (b) => a + b;
 const $Std$dNat$dtoText = (n) => n.toString();
 const $Std$dMaybe$dmap = (v2) => (v3) => {
@@ -510,6 +497,19 @@ const $Std$dInt$dtdiv = (a) => (d) => a / d;
 const $Std$dInt$dtmod = (a) => (d) => a % d;
 const $Std$dInt$dfdiv = (a) => (d) => { const q = a / d, r = a % d; return r !== 0n && (r < 0n) !== (d < 0n) ? q - 1n : q; };
 const $Std$dInt$dfmod = (a) => (d) => { const r = a % d; return r !== 0n && (r < 0n) !== (d < 0n) ? r + d : r; };
+const $Std$dList$dmap = (v2) => (v3) => {
+  switch (v3.tag) {
+    case "Nil": {
+      return { tag: "Nil" };
+    }
+    case "Cons": {
+      const v4 = v3.head;
+      const v5 = v3.tail;
+      return { tag: "Cons", head: (v2)(v4), tail: $Std$dList$dmap(v2)(v5) };
+    }
+  }
+  throw new Error("unreachable");
+};
 const $Main$ddial = (v0) => $Std$dInt$dmod(v0)(100n);
 const $Main$ddivide = (v0) => (v1) => ({ tag: "Cons", head: $Std$dInt$ddiv(v0)(v1), tail: { tag: "Cons", head: $Std$dInt$dmod(v0)(v1), tail: { tag: "Cons", head: $Std$dInt$dtdiv(v0)(v1), tail: { tag: "Cons", head: $Std$dInt$dtmod(v0)(v1), tail: { tag: "Cons", head: $Std$dInt$dfdiv(v0)(v1), tail: { tag: "Cons", head: $Std$dInt$dfmod(v0)(v1), tail: { tag: "Nil" } } } } } } });
 const $Main$ddescribe = (v0) => {
