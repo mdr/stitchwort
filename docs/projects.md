@@ -48,14 +48,14 @@ lines may come before it. Imports come after it.
 namespace Aoc
 
 -- A range of ids, both ends included.
-type Range = { lo: Nat, hi: Nat }
+type Range = { from: Nat, to: Nat }
 
 def Range.parse (t: Text): Maybe Range :=
   match (t.split '-').map Text.toNat with
-    | [Just lo, Just hi] => Just { lo, hi }
+    | [Just from, Just to] => Just { from, to }
     | _                  => Nothing
 
-def Range.size (r: Range): Nat := r.hi + 1 - r.lo
+def Range.size (r: Range): Nat := r.to + 1 - r.from
 ```
 
 ```
