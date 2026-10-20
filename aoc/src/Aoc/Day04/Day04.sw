@@ -65,7 +65,7 @@ def Grid.round (grid: Grid): Grid :=
 -- add the three rows column by column, then walk along the row with each
 -- column's sum and its neighbours' (the window of 3 by 3 cells).
 def peelRow (above row below: List Nat): List Nat :=
-  peelCells 0 (List.zipWith3 (\a r b => a + r + b) above row below) row
+  peelCells 0 (List.zipWith3 (a r b => a + r + b) above row below) row
 
 -- `left` is the column sum before the first of `columns`.
 def peelCells (left: Nat): List Nat -> List Nat -> List Nat
@@ -101,7 +101,7 @@ def sweepFrom (above: List Nat) (aboveChanged: Bool): Marked -> Marked
 -- Sweep until a pass changes nothing. Every pass that changes something
 -- removes a roll, so as many passes as there are rolls is enough.
 def Grid.settle (grid: Grid) (rolls: Nat): Grid :=
-  (settleMarked (grid.map (\row => (row, True))) rolls).map Pair.fst
+  (settleMarked (grid.map (row => (row, True))) rolls).map Pair.fst
 
 def settleMarked (grid: Marked): Nat -> Marked
   | Zero   => grid
