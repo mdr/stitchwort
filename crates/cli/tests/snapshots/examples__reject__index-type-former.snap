@@ -1,0 +1,14 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-INDEX-STUCK] Error: can't tell whether `TNat` can be here
+    ╭─[ reject/index-type-former.sw:11:3 ]
+    │
+ 11 │ ╭─▶   | TNat    => 0
+ 12 │ ├─▶   | TList _ => 1
+    │ │                      
+    │ ╰────────────────────── the argument has type `Ty (List Nat)`; matching `TNat` needs `List Nat = Nat`
+    │     
+    │     Note: types aren't taken apart by matching; matching works when the index is a variable
+────╯

@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: `Weird`'s result must be `Vec a` applied to its indices, but this is `Vec Nat 0`
+   ╭─[ reject/index-result-parameters.sw:8:12 ]
+   │
+ 8 │   | Weird: Vec Nat 0
+   │            ────┬────  
+   │                ╰────── `Weird`'s result must be `Vec a` applied to its indices, but this is `Vec Nat 0`
+   │ 
+   │ Note: a constructor's result has the type's own parameters, as they're declared; only the indices may differ
+───╯

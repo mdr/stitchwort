@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-INDEX-STUCK] Error: can't tell whether `R` can be here
+    ╭─[ soundness/index-proof-conflict.sw:16:5 ]
+    │
+ 16 │   | ()
+    │     ─┬  
+    │      ╰── the argument has type `SameP A B`; matching `R` needs `B = A`
+    │ 
+    │ Note: they're proofs of `P`, and matching never takes proofs apart
+────╯

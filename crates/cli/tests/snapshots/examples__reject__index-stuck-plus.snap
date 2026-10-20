@@ -1,0 +1,14 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-INDEX-STUCK] Error: can't tell whether `VNil` can be here
+    ╭─[ reject/index-stuck-plus.sw:12:3 ]
+    │
+ 12 │ ╭─▶   | VNil      => 0
+ 13 │ ├─▶   | VCons _ _ => 1
+    │ │                        
+    │ ╰──────────────────────── the argument has type `Vec a (n + m)`; matching `VNil` needs `n + m = 0`
+    │     
+    │     Note: `+` counts down its first argument, so this doesn't compute while `n` is unknown: match on `n` first
+────╯

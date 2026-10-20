@@ -1123,8 +1123,10 @@ impl Elaborator {
             );
         }
         let mut checked_indices = Vec::new();
-        for (k, (x, ty)) in indices.iter().enumerate() {
-            let (ty, _) = check_type(&mut cx, ty)?;
+        let mut index_sorts = Vec::new();
+        for (k, (x, written)) in indices.iter().enumerate() {
+            let (ty, s) = check_type(&mut cx, written)?;
+            index_sorts.push((s, written.span()));
             let ty = self.finish(&ty, cx.level())?;
             let value = cx.eval(&ty)?;
             let x: Name = x.as_ref().map_or_else(|| format!("i{k}").into(), name);
@@ -1147,6 +1149,26 @@ impl Elaborator {
                 }
             }
         };
+        // No large indices (D142): an index's type fits the universe, as a
+        // field's must. (The kernel checks it too.)
+        if let Some((s, at)) = index_sorts.iter().find(|(s, _)| !s.fits_in(sort)) {
+            let show = |s: &Sort| pretty::term(&self.globals, &[], &Term::Sort(*s));
+            return Err(error(
+                "E-UNIVERSE",
+                *at,
+                format!(
+                    "this index is too large for `{}`: its type is in `{}`, but `{}` is in `{}`",
+                    data_name.text,
+                    show(s),
+                    data_name.text,
+                    show(&sort)
+                ),
+            )
+            .with_note(
+                "an index's type must fit in the data type's universe, as a field's must: a \
+                 type indexed by types lives one universe up, as in `Ty: Type -> Type 1`",
+            ));
+        }
         Ok((checked, checked_indices, sort))
     }
 
@@ -2746,7 +2768,9 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
         )),
         // An indexed family whose every constructor conflicts here is empty
         // too (docs/proposals/indexed-families.md §7.3).
-        Tree::Absurd { level, span } if let Some(term) = families::empty_case(cx, *level)? => {
+        Tree::Absurd { level, span }
+            if let Some(term) = families::empty_case(cx, *level, Some(*span))? =>
+        {
             Ok(Term::Loc(*span, Rc::new(term)))
         }
         Tree::Absurd { level, span } => match force(cx.g(), cx.types[*level].clone())? {

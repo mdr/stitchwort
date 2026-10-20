@@ -1,0 +1,17 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TERMINATION] Error: can't show that `down` terminates
+    ╭─[ soundness/index-descent.sw:17:29 ]
+    │
+ 17 │   | VCons [n := m] _ _   => down [n := m] (replicate m 0)
+    │                             ──────────────┬─────────────  
+    │                                           ╰─────────────── this recursive call might not terminate: the implicit argument `n` is smaller than the 1st argument was
+    │ 
+    │ Note 1: making this call twice in a row, over and over, no argument is known to get smaller
+    │ 
+    │ Note 2: however the recursive calls are repeated, some argument must get smaller (a part of a pattern-matched constructor); an argument passed on unchanged, or rebuilt from its own pattern, is no smaller
+    │ 
+    │ Note 3: non-terminating definitions are rejected unless they're partial: `{Partial}` in the result type
+────╯

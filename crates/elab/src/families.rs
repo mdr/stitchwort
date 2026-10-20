@@ -509,7 +509,7 @@ fn case_branch(
         Entered::Solved(goal) => match subtree {
             Tree::Missing { columns, span } => {
                 for &level in columns {
-                    if let Some(term) = empty_case(cx, level)? {
+                    if let Some(term) = empty_case(cx, level, None)? {
                         return Ok(Some(term));
                     }
                 }
@@ -618,7 +618,11 @@ fn enter(
 /// If the variable at `level` has an indexed family's type, every one of
 /// whose constructors conflicts with it: the case on it with every branch
 /// impossible. For `()`, and for a missing arm (§7.3).
-pub(crate) fn empty_case(cx: &mut Ctx, level: usize) -> Result<Option<Term>> {
+pub(crate) fn empty_case(
+    cx: &mut Ctx,
+    level: usize,
+    stuck_at: Option<Span>,
+) -> Result<Option<Term>> {
     let g = cx.g();
     let Value::Data(d, args) = force(g, cx.types[level].clone())? else {
         return Ok(None);
@@ -627,6 +631,7 @@ pub(crate) fn empty_case(cx: &mut Ctx, level: usize) -> Result<Option<Term>> {
     if data.indices.is_empty() {
         return Ok(None);
     }
+    let scrutinee = cx.show(&Value::Data(d, args.clone()));
     let mut branches = Vec::new();
     for (c, ctor) in data.ctors.iter().enumerate() {
         let names: Vec<Name> = ctor.fields.iter().map(|(x, _)| x.clone()).collect();
@@ -634,9 +639,19 @@ pub(crate) fn empty_case(cx: &mut Ctx, level: usize) -> Result<Option<Term>> {
         let saved_env = cx.env.clone();
         let saved_types = cx.types.clone();
         let entered = enter(cx, level, d, c, &args, &names, Value::Sort(Sort::Prop));
+        // For `()`, a stuck constructor is an error: it may be possible.
+        let stuck = match (&entered, stuck_at) {
+            (Ok(Entered::Stuck(k, reason)), Some(span)) => Some(index_stuck(
+                cx, level, &ctor.name, k, reason, span, &scrutinee,
+            )),
+            _ => None,
+        };
         cx.reset(mark);
         cx.env = saved_env;
         cx.types = saved_types;
+        if let Some(stuck) = stuck {
+            return Err(stuck);
+        }
         if !matches!(entered?, Entered::Conflict(_)) {
             return Ok(None);
         }

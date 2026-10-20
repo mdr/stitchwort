@@ -85,8 +85,11 @@ pub fn auto_bound_in(e: &Elaborator, ty: &Expr, mut bound: Vec<String>) -> Resul
         let all_types = uses
             .iter()
             .filter(|u| u.name.text == name.text)
-            .all(|u| u.position != Position::Value)
-            || (uses.iter()).any(|u| u.name.text == name.text && u.position == Position::Index);
+            // A module's name in an index means that name: no warning.
+            .all(|u| u.position != Position::Value && !(u.module && u.position == Position::Index))
+            // A use in an index binds a name that isn't the module's.
+            || (!use_.module
+                && (uses.iter()).any(|u| u.name.text == name.text && u.position == Position::Index));
         let found = if use_.module {
             &mut shadowing
         } else {

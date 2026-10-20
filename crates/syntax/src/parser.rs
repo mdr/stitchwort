@@ -2537,6 +2537,45 @@ mod tests {
     }
 
     #[test]
+    fn indexed_families_have_indices_result_types_and_implicit_fields() {
+        let module = parse(
+            "type Sub (a: Type): (n: Nat) -> Fin n -> Type =\n  \
+             | Here [m: Nat] (x: a): Sub a (Succ m) FZero\n  | There\n\n\
+             def f: Vec a n -> Nat\n  | VCons [n := k] _ _ => k\n",
+        );
+        let Decl::Data {
+            indices,
+            sort,
+            ctors,
+            ..
+        } = &module.decls[0]
+        else {
+            panic!("expected a data type");
+        };
+        let names: Vec<Option<&str>> = indices
+            .iter()
+            .map(|(n, _)| n.as_ref().map(|n| n.text.as_str()))
+            .collect();
+        assert_eq!(names, [Some("n"), None]);
+        assert!(matches!(sort, Some(Expr::Type(0, _))));
+        assert_eq!(ctors[0].implicit, [true, false]);
+        assert!(ctors[0].result.is_some());
+        assert!(ctors[1].result.is_none() && ctors[1].fields.is_empty());
+        let Decl::Equation { patterns, .. } = &module.decls[2] else {
+            panic!("expected an arm");
+        };
+        let Pattern::Ctor(_, args, _) = &patterns[0] else {
+            panic!("expected a constructor pattern");
+        };
+        assert!(matches!(&args[0], Pattern::Named(n, p, _)
+            if n.text == "n" && matches!(**p, Pattern::Var(_))));
+        // A synonym has no indices.
+        let mut sources = SourceMap::new();
+        let file = sources.add("test.sw", "");
+        assert!(parse_module(file, "type T: Nat -> Type = Nat\n").is_err());
+    }
+
+    #[test]
     fn a_record_declaration_is_one_constructor() {
         let module =
             parse("type Person =\n  { name : Text\n  , age : Nat\n  }\n\ntype Empty = {}\n");
