@@ -1,5 +1,5 @@
 {
-  "next": 159,
+  "next": 160,
   "tickets": [
     {
       "id": 1,
@@ -2418,6 +2418,22 @@
         "performance"
       ],
       "body": "From SW-154's findings (docs/evaluator-speed.md §8): the evaluator is now 72% of proof checking; 28% is in infer_j where facts proved by computation are computed by the elaborator and again by the kernel; threeChecked alone is 1.1 s. D75 (Matt, 20 Oct 2026): next speed step, an Opus lane, after SW-157 (AoC proof conversion) lands. Glued evaluation is a later design note.",
+      "created": "2026-10-20",
+      "updated": "2026-10-20",
+      "commits": []
+    },
+    {
+      "id": 159,
+      "title": "Day 2 for all inputs: prototype the general proof in Lean (rotations/gcd, computed Möbius weights)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "worktree",
+      "labels": [
+        "aoc",
+        "proof",
+        "research"
+      ],
+      "body": "Matt, 20 Oct 2026: before generalising day 2's proof in Stitchwort (today: ids up to 10 digits, weights a fixed table), prototype the general proof in core Lean 4 (no Mathlib, like comparisons/aoc-day01/lean) to confirm and refine the strategy, then port it once SW-157 (rewrite/calc conversion) is in. Strategy to test: weight defined recursively so divisor-sums from 2 give 1; an id is n repeats iff rotating by L/n fixes it; fixing rotations are closed under gcd, so the working repeat counts are the divisors of L/(smallest block); then the weighted sum is 1 iff any repeat works. Output: a checked Lean file plus a porting note (lemma list with sizes, which core-Lean lemmas were used that Stitchwort lacks, where Lean's tactics did heavy lifting).",
       "created": "2026-10-20",
       "updated": "2026-10-20",
       "commits": []
