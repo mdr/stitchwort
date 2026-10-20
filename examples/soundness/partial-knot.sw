@@ -7,6 +7,6 @@
 -- partial computation in code the elaborator doesn't treat as partial, so
 -- it's refused. The kernel refuses the same thing written as core terms by
 -- termination (`crates/core/tests/partial.rs`).
-import Effect (Delay, NoOp, NoRes, mapSig, pfix, sigRight)
+import Std.Effect (Delay, NoOp, NoRes, mapSig, pfix, sigRight)
 
 def bad: Nat -> Delay NoOp NoRes Nat := pfix (\x => mapSig sigRight (bad x))

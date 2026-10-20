@@ -1,7 +1,7 @@
 -- expect-error: E-TERMINATION
 -- The outer call is on a smaller tree (`rest …`), but its argument hides a
 -- call on the original one. Every recursive call is checked.
-import Effect (Comp)
+import Std.Effect (Comp)
 
 type ChooseOp: Type =
   | Choose

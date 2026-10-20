@@ -4,7 +4,7 @@
 -- crates/driver/tests/partial.rs runs them and counts their ticks.
 
 -- Not recursive: an ordinary definition whose result is partial.
-import Effect (Sig)
+import Std.Effect (Sig)
 
 def immediate (n: Nat): {Partial} Nat := n + 1
 

@@ -8,7 +8,7 @@
 -- run: answer 0
 -- run: kept 5
 
-import Effect (Delay)
+import Std.Effect (Delay)
 
 def collatzSteps: Nat -> {Partial} Nat
   | 1 => 0

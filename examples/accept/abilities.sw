@@ -2,7 +2,7 @@
 -- tests as handlers.sw, written in the source syntax: the compiler
 -- translates them into `Comp` trees, and the kernel checks the result.
 
-import Effect (Comp)
+import Std.Effect (Comp)
 
 def fstOf: Pair a b -> a
   | MkPair x y => x
