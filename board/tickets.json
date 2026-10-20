@@ -2231,9 +2231,9 @@
     {
       "id": 147,
       "title": "AoC day 2 part 2: prove against the id-walking spec (block repeated 2+ times)",
-      "status": "doing",
-      "agent": "Opus",
-      "where": "worktree (study)",
+      "status": "review",
+      "agent": "Matt",
+      "where": "branch worktree-agent-af988f2f62ed6eb7e (54e4a40, prototype)",
       "labels": [
         "aoc",
         "proof"
