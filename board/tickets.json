@@ -2261,7 +2261,7 @@
     {
       "id": 149,
       "title": "AoC: keep only generic Range utilities in Aoc.Common; move day-specific logic to its day",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "main",
       "labels": [
