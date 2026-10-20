@@ -1,0 +1,1252 @@
+//! Interfaces and instances (docs/proposals/interfaces.md, stage 1).
+//!
+//! An interface `interface Pretty (a: Type) = { pretty: a -> Text }` is a
+//! record (`records.rs`) the elaborator also remembers as an interface:
+//!
+//! - each field `f` gets a **method** `Pretty.f: [a: Type] -> [auto pretty:
+//!   Pretty a] -> …`, which projects the field from the dictionary it's given
+//!   (§5.1). The record's own projections are kept under hidden names
+//!   (`Pretty.%f`), for dot notation on a dictionary (`d.pretty`), updates
+//!   and patterns;
+//! - a field whose type is another interface applied to the parameter is a
+//!   **superclass** (§5.8). The superclass graph is acyclic
+//!   (`E-INTERFACE-CYCLE`).
+//!
+//! An `instance` is a definition with a marker. Its signature may only have
+//! head variables and prerequisites, and its head must be a nominal type
+//! applied to distinct variables (§5.2); it must be declared in the module
+//! that owns the interface or the head (§5.6), and there's at most one per
+//! interface and head. So finding one is a lookup ([`attempt`], §5.5): the
+//! dictionaries in scope first (and their superclass paths), then the one
+//! global instance for the head. Every test has three results: a match, a
+//! rigid mismatch, or *blocked* on an unknown the test didn't make itself,
+//! and a blocked test makes the obligation wait (`auto.rs` retries it in
+//! rounds) rather than guess.
+//!
+//! Nothing here is trusted: the kernel sees records, definitions and their
+//! applications, and checks them as usual.
+
+use std::rc::Rc;
+
+use stitchwort_core::check as kernel;
+use stitchwort_core::value::{Head, conv, force};
+use stitchwort_core::{DataId, DefId, Icit, Name, Term, Value, pretty};
+use stitchwort_syntax::ast::{self, Decl};
+use stitchwort_syntax::{Diagnostic, Span};
+
+use crate::auto::Obligation;
+use crate::check::{Ctx, Result, implicit_arg};
+use crate::{Elaborator, Global, error};
+
+/// How many instance steps one obligation, with the prerequisites it
+/// creates, may take in all, across every round (§5.5 step 7, D182).
+const BUDGET: usize = 10_000;
+
+/// What the elaborator knows about an interface, beyond its record.
+pub(crate) struct InterfaceInfo {
+    /// The name of its methods' dictionary parameter: the interface's name
+    /// with a lower-case first letter (`pretty` for `Pretty`, D181).
+    pub dict: String,
+    /// Its superclass fields: each field's index and the parent interface.
+    pub supers: Vec<(usize, DataId)>,
+    /// Its record's own projections, by field (`Pretty.%pretty`).
+    pub projections: Vec<DefId>,
+}
+
+/// What an instance's parameter is.
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum InstanceParam {
+    /// A head variable: argument `k` of the head's type.
+    Head(usize),
+    /// A prerequisite: an `auto` parameter of an interface applied to a head
+    /// variable.
+    Prerequisite,
+}
+
+/// A global instance (§5.6).
+pub(crate) struct InstanceInfo {
+    pub def: DefId,
+    /// Its name, for messages.
+    pub name: String,
+    pub span: Span,
+    pub params: Vec<InstanceParam>,
+    /// Checked completely: its body, and its superclasses against the
+    /// canonical ones (§5.8 (b)). Only a valid instance is used.
+    pub valid: bool,
+}
+
+/// The result of one try at an interface obligation.
+pub(crate) enum Attempt {
+    /// Its metavariable is solved (any prerequisites are new obligations).
+    Solved,
+    /// It can't be settled yet: the error to report if nothing changes.
+    Wait(Diagnostic),
+}
+
+/// The three results of matching a candidate's type with a goal, or of
+/// comparing two candidates (§5.5).
+enum Tri {
+    Equal,
+    Distinct,
+    /// Depends on the unknown with this number.
+    Blocked(usize),
+}
+
+/// A dictionary in scope: a variable, or a superclass path from one.
+struct Candidate {
+    term: Term,
+    /// `d`, `d.eq`, `d.b.a`: for messages.
+    path: String,
+    interface: DataId,
+    arg: Value,
+}
+
+/// `Pretty` → `pretty`, `DecEq` → `decEq`, `Shapes.Area` → `area`.
+pub(crate) fn dictionary_name(interface: &str) -> String {
+    let last = interface.rsplit('.').next().unwrap_or(interface);
+    let mut chars = last.chars();
+    match chars.next() {
+        Some(c) => c.to_lowercase().chain(chars).collect(),
+        None => String::new(),
+    }
+}
+
+impl Elaborator {
+    /// The module a declaration made now belongs to (§5.6 rule 1): `Std`
+    /// for the core and the library, the namespace in a project or a file
+    /// with a namespace line, and `Main` for a file without one.
+    pub(crate) fn module_owner(&self) -> String {
+        if self.loading_prelude {
+            "Std".to_string()
+        } else {
+            self.module
+                .namespace
+                .clone()
+                .unwrap_or_else(|| "Main".to_string())
+        }
+    }
+
+    /// Whether `d` is an interface.
+    pub(crate) fn is_interface(&self, d: DataId) -> bool {
+        self.interfaces.contains_key(&d)
+    }
+
+    /// An interface's header: one parameter, a type, in `Type` (D174).
+    pub(crate) fn check_interface_header(
+        &self,
+        decl: &Decl,
+        params: &[(Name, Term)],
+        sort: stitchwort_core::Sort,
+    ) -> Result<()> {
+        let Decl::Data { name, span, .. } = decl else {
+            unreachable!()
+        };
+        let one_type = matches!(params, [(_, ty)] if matches!(ty.strip_loc(), Term::Sort(stitchwort_core::Sort::Type(0))));
+        if !one_type || sort != stitchwort_core::Sort::Type(0) {
+            return Err(error(
+                "E-INTERFACE-SHAPE",
+                *span,
+                format!(
+                    "an interface has one parameter, a type: `interface {} (a: Type) = {{ … }}`",
+                    name.text
+                ),
+            )
+            .with_note(
+                "interfaces with several parameters, or over type constructors, aren't supported",
+            ));
+        }
+        Ok(())
+    }
+
+    /// Checks field `field` of interface `d` (declared with the interfaces
+    /// `group`), whose type is `ty` in the context of the parameter (level
+    /// 0) and the earlier fields: a field whose type is an interface is a
+    /// superclass, which must be that interface applied to the parameter,
+    /// and must not be one being declared with `d` (`E-INTERFACE-CYCLE`).
+    pub(crate) fn check_interface_field(
+        &self,
+        d: DataId,
+        group: &[DataId],
+        field: &ast::Name,
+        ty: &Value,
+    ) -> Result<()> {
+        let g = &self.globals;
+        let Value::Data(j, args) = force(g, ty.clone())? else {
+            return Ok(());
+        };
+        if group.contains(&j) {
+            let cycle = if j == d {
+                format!("`{}` contains itself", g.data(d).name)
+            } else {
+                format!(
+                    "`{}` contains `{}`, which contains `{}`",
+                    g.data(d).name,
+                    g.data(j).name,
+                    g.data(d).name
+                )
+            };
+            return Err(error(
+                "E-INTERFACE-CYCLE",
+                field.span,
+                format!("an interface can't be its own superclass: {cycle}"),
+            )
+            .with_note("a field whose type is an interface is a superclass, and the superclasses can't form a cycle"));
+        }
+        if !self.is_interface(j) {
+            return Ok(());
+        }
+        let on_param = matches!(args.as_slice(), [a] if matches!(force(g, a.clone())?, Value::Neutral(Head::Var(0), s) if s.is_empty()));
+        if !on_param {
+            return Err(error(
+                "E-INTERFACE-SHAPE",
+                field.span,
+                format!(
+                    "the superclass field `{}` must be `{}` applied to the interface's parameter",
+                    field.text,
+                    g.data(j).name
+                ),
+            ));
+        }
+        Ok(())
+    }
+
+    /// After interface `d`'s record is admitted, with its projections
+    /// `projections` (registered under hidden names): its methods, and what
+    /// resolution needs to know.
+    pub(crate) fn after_interface(&mut self, d: DataId, projections: Vec<DefId>) -> Result<()> {
+        let g = &self.globals;
+        let data = g.data(d);
+        let dict = dictionary_name(&data.name);
+        let fields: Vec<(Name, Term)> = data.ctors[0].fields.clone();
+        // Superclasses: fields whose type is an interface (on the parameter,
+        // as `check_interface_field` made sure).
+        let mut supers = Vec::new();
+        let mut env = vec![Value::var(0)];
+        for (i, (_, ty)) in fields.iter().enumerate() {
+            // Earlier fields aren't needed: a superclass's type doesn't
+            // mention them.
+            if !(0..i).any(|j| ty.mentions(i - 1 - j))
+                && let Value::Data(j, _) = force(g, stitchwort_core::value::eval(g, &env, ty)?)?
+                && self.is_interface(j)
+            {
+                supers.push((i, j));
+            }
+            env.push(stitchwort_core::value::unused());
+        }
+        let data_key = self.data_key(d);
+        let span = data.span;
+        let name = data.name.clone();
+        for (i, (field, _)) in fields.iter().enumerate() {
+            let proj = projections[i];
+            // `Proj: [a: Type] -> (r: I a) -> T` becomes
+            // `I.f: [a: Type] -> [auto i: I a] -> T`, defined as `Proj [a] i`.
+            let proj_ty = self.globals.def(proj).ty.clone();
+            let Term::Pi(a, _, a_ty, rest) = &proj_ty else {
+                unreachable!("a projection's type")
+            };
+            let Term::Pi(_, _, r_ty, result) = &**rest else {
+                unreachable!("a projection's type")
+            };
+            let (a, a_ty, r_ty, result) = (a.clone(), a_ty.clone(), r_ty.clone(), result.clone());
+            let dict_name: Name = dict.as_str().into();
+            let ty = Term::Pi(
+                a.clone(),
+                Icit::Implicit,
+                a_ty,
+                Rc::new(Term::Pi(dict_name.clone(), Icit::Auto, r_ty, result)),
+            );
+            let body = Term::Lam(
+                a,
+                Icit::Implicit,
+                Rc::new(Term::Lam(
+                    dict_name,
+                    Icit::Auto,
+                    Rc::new(Term::app(
+                        Term::app_icit(Term::Def(proj), Term::Var(1), Icit::Implicit),
+                        Term::Var(0),
+                    )),
+                )),
+            );
+            let method: Name = format!("{name}.{field}").into();
+            let id = kernel::declare_def(&mut self.globals, &method, &ty, false, false, span)?;
+            kernel::define_def(&mut self.globals, id, &body)?;
+            let key = Self::member_key(&data_key, field);
+            self.scope.insert(&key, Global::Def(id), span, false);
+        }
+        self.interfaces.insert(
+            d,
+            InterfaceInfo {
+                dict,
+                supers,
+                projections,
+            },
+        );
+        Ok(())
+    }
+
+    /// Every superclass path of interface `i`, through the whole closure:
+    /// each step a field index and the interface it leads to.
+    fn super_paths(&self, i: DataId) -> Vec<Vec<(usize, DataId)>> {
+        let mut out = Vec::new();
+        let mut pending: Vec<Vec<(usize, DataId)>> = Vec::new();
+        for &(f, j) in &self.interfaces[&i].supers {
+            pending.push(vec![(f, j)]);
+        }
+        while let Some(path) = pending.pop() {
+            let last = path.last().expect("not empty").1;
+            for &(f, j) in &self.interfaces[&last].supers {
+                let mut longer = path.clone();
+                longer.push((f, j));
+                pending.push(longer);
+            }
+            out.push(path);
+        }
+        out.sort_by_key(|p| p.iter().map(|(f, d)| (*f, d.0)).collect::<Vec<_>>());
+        out
+    }
+
+    /// Checks the signature of instance `id` (§5.2), its owner (§5.6 rules
+    /// 1, 2) and that it's the only one for its interface and head (rule
+    /// 3), and registers it. It's used once it's valid
+    /// ([`Elaborator::validate_instance`]).
+    pub(crate) fn register_instance(&mut self, id: DefId, def_name: &ast::Name) -> Result<()> {
+        let g = &self.globals;
+        let def = g.def(id);
+        let span = def_name.span;
+        let shown_name = def_name.text.clone();
+        // The parameters, as variables.
+        let mut params: Vec<(Name, Icit, Value)> = Vec::new();
+        let mut ty = def.ty_value.clone();
+        while let Value::Pi(x, icit, dom, cod) = force(g, ty.clone())? {
+            let level = params.len();
+            params.push((x, icit, (*dom).clone()));
+            ty = cod.apply(g, Value::var(level))?;
+        }
+        let names: Vec<Name> = params.iter().map(|(x, _, _)| x.clone()).collect();
+        let show = |v: &Value| pretty::value_for_message(g, &names, v);
+        // The result as written, for the synonym note.
+        let mut written = &def.ty;
+        while let Term::Pi(_, _, _, cod) = written.strip_loc() {
+            written = cod;
+        }
+        let ty = force(g, ty)?;
+        let (interface, arg) = match &ty {
+            Value::Data(i, args) if self.is_interface(*i) => (*i, args[0].clone()),
+            _ => {
+                return Err(error(
+                    "E-INSTANCE-HEAD",
+                    span,
+                    format!(
+                        "`{shown_name}` is declared as an instance, but `{}` isn't an interface",
+                        show(&ty)
+                    ),
+                )
+                .with_note(
+                    "an instance's type is an interface applied to a type, like `Pretty (List a)`",
+                ));
+            }
+        };
+        let iface_name = g.data(interface).name.clone();
+        let goal = show(&ty);
+        // A synonym written as the head, for the notes: its name.
+        let synonym = match written.strip_loc() {
+            Term::Data(_, written_args) => {
+                written_args
+                    .first()
+                    .and_then(|a| match a.strip_loc().spine().0.strip_loc() {
+                        Term::Def(syn) => Some(g.def(*syn).name.to_string()),
+                        _ => None,
+                    })
+            }
+            _ => None,
+        };
+        let head_error = || {
+            let d = error(
+                "E-INSTANCE-HEAD",
+                span,
+                format!(
+                    "an instance must be for a type name applied to distinct variables, like \
+                     `{iface_name} (List a)`; `{goal}` isn't"
+                ),
+            )
+            .with_note(
+                "so two instances of one interface overlap exactly when they're for the same type \
+                 name; use a named alternative (a `def` of the interface's type, passed by name) \
+                 for anything more specific",
+            );
+            match &synonym {
+                Some(name) => d.with_note(format!(
+                    "`{name}` is another name for a type, and the instance is for that type"
+                )),
+                None => d,
+            }
+        };
+        let (head, args) = match force(g, arg)? {
+            Value::Data(d, args) => (d, args),
+            _ => return Err(head_error()),
+        };
+        let mut position: Vec<Option<usize>> = vec![None; params.len()];
+        for (k, a) in args.iter().enumerate() {
+            match force(g, a.clone())? {
+                Value::Neutral(Head::Var(l), s) if s.is_empty() && position[l].is_none() => {
+                    position[l] = Some(k);
+                }
+                _ => return Err(head_error()),
+            }
+        }
+        let mut kinds = Vec::new();
+        for (l, (x, icit, dom)) in params.iter().enumerate() {
+            match (position[l], icit) {
+                (Some(k), _) => kinds.push(InstanceParam::Head(k)),
+                (None, Icit::Auto) => {
+                    let on_head = match force(g, dom.clone())? {
+                        Value::Data(j, a) if self.is_interface(j) && a.len() == 1 => matches!(
+                            force(g, a[0].clone())?,
+                            Value::Neutral(Head::Var(m), s) if s.is_empty() && position[m].is_some()
+                        ),
+                        _ => false,
+                    };
+                    if !on_head {
+                        let shown_param = if **x == *ast::NAMELESS {
+                            format!("[auto {}]", show(dom))
+                        } else {
+                            format!("[auto {x}: {}]", show(dom))
+                        };
+                        return Err(error(
+                            "E-INSTANCE-CONTEXT",
+                            span,
+                            format!(
+                                "`{shown_param}`: an instance may only ask for interfaces of the \
+                                 variables in `{goal}`"
+                            ),
+                        )
+                        .with_note(
+                            "each thing an instance asks for must be about a smaller type than \
+                             the one it's for, so finding instances always ends",
+                        ));
+                    }
+                    kinds.push(InstanceParam::Prerequisite);
+                }
+                (None, _) => {
+                    return Err(error(
+                        "E-INSTANCE-PARAMETER",
+                        span,
+                        format!(
+                            "`{x}` isn't fixed by `{goal}`; an instance can't have other parameters"
+                        ),
+                    )
+                    .with_note(
+                        "the compiler finds an instance by its type alone, so it couldn't choose \
+                         `x`; a function that builds a dictionary from arguments can be a plain \
+                         `def`, passed by name"
+                            .replace("`x`", &format!("`{x}`")),
+                    ));
+                }
+            }
+        }
+        // Ownership (§5.6 rules 1, 2).
+        let here = self.module_owner();
+        let owner_of = |d: DataId| {
+            self.data_owners
+                .get(&d)
+                .cloned()
+                .unwrap_or_else(|| "Std".to_string())
+        };
+        let (iface_owner, head_owner) = (owner_of(interface), owner_of(head));
+        if here != iface_owner && here != head_owner {
+            let head_name = g.data(head).name.clone();
+            let mut d = error(
+                "E-INSTANCE-ORPHAN",
+                span,
+                format!(
+                    "`{goal}` must be declared in `{iface_owner}` (which owns `{iface_name}`) or \
+                     `{head_owner}` (which owns `{head_name}`)"
+                ),
+            )
+            .with_note(format!(
+                "this is `{here}`; a named alternative (a `def` of type `{goal}`) can be declared \
+                 here and passed by name"
+            ));
+            // A synonym owns nothing: say what it stands for.
+            if let Some(name) = &synonym {
+                d = d.with_note(format!(
+                    "`{name}` is another name for `{head_name}`, which `{head_owner}` owns"
+                ));
+            }
+            return Err(d);
+        }
+        // Overlap (§5.6 rule 3).
+        if let Some(first) = self.instances.get(&(interface, head)) {
+            let head_name = g.data(head).name.clone();
+            return Err(error(
+                "E-INSTANCE-OVERLAP",
+                span,
+                format!(
+                    "`{iface_name} {head_name}` already has an instance, `{}`",
+                    first.name
+                ),
+            )
+            .with_label(first.span, "the first instance is here")
+            .with_note(
+                "there's at most one instance of an interface for each type; declare another \
+                 ordering, say, as a named alternative (a `def`), passed by name",
+            ));
+        }
+        kernel::mark_instance(&mut self.globals, id);
+        self.instances.insert(
+            (interface, head),
+            InstanceInfo {
+                def: id,
+                name: shown_name,
+                span,
+                params: kinds,
+                valid: false,
+            },
+        );
+        Ok(())
+    }
+
+    /// Once instance `id` is admitted: each superclass path of it must be
+    /// the instance resolution finds for that parent, in the instance's own
+    /// context (its prerequisites in scope, and nothing else), by
+    /// computation (§5.8 (b)). It's never changed. Then it's valid.
+    pub(crate) fn validate_instance(&mut self, id: DefId) -> Result<()> {
+        let Some((&(interface, head), _)) = self.instances.iter().find(|(_, i)| i.def == id) else {
+            return Ok(());
+        };
+        let paths = self.super_paths(interface);
+        if !paths.is_empty() {
+            self.check_supers(id, interface, &paths)?;
+        }
+        if let Some(info) = self.instances.get_mut(&(interface, head)) {
+            info.valid = true;
+        }
+        Ok(())
+    }
+
+    fn check_supers(
+        &self,
+        id: DefId,
+        interface: DataId,
+        paths: &[Vec<(usize, DataId)>],
+    ) -> Result<()> {
+        let g = &self.globals;
+        let def = g.def(id);
+        let span = def.span;
+        let inst_name = def.name.to_string();
+        let mut env = Vec::new();
+        let mut types = Vec::new();
+        let mut names = Vec::new();
+        let mut icits = Vec::new();
+        let mut ty = def.ty_value.clone();
+        while let Value::Pi(x, icit, dom, cod) = force(g, ty.clone())? {
+            let level = env.len();
+            env.push(Value::var(level));
+            types.push((*dom).clone());
+            names.push(x);
+            icits.push(icit);
+            ty = cod.apply(g, Value::var(level))?;
+        }
+        let level = env.len();
+        let inst = icits
+            .iter()
+            .enumerate()
+            .fold(Term::Def(id), |t, (l, icit)| {
+                Term::app_icit(t, Term::Var(level - 1 - l), *icit)
+            });
+        let arg = match force(g, ty)? {
+            Value::Data(_, args) => args[0].clone(),
+            _ => unreachable!("an instance's type is an interface"),
+        };
+        for path in paths {
+            self.clear_metas();
+            let mut cx = Ctx::from_parts(self, env.clone(), types.clone(), names.clone(), span);
+            // `N.p`, by the record's own projections.
+            let mut term = inst.clone();
+            let mut at = interface;
+            let mut shown = Vec::new();
+            for &(field, parent) in path {
+                let proj = self.interfaces[&at].projections[field];
+                let arg_term = cx.quote(&arg)?;
+                term = Term::app(
+                    Term::app_icit(Term::Def(proj), arg_term, Icit::Implicit),
+                    term,
+                );
+                shown.push(g.data(at).ctors[0].fields[field].0.to_string());
+                at = parent;
+            }
+            let goal = Value::Data(at, vec![arg.clone()]);
+            let shown_goal = cx.show(&goal);
+            let shown_path = shown.join(".");
+            let meta = implicit_arg(&mut cx, Icit::Auto, &goal);
+            let found = match self.solve_obligations() {
+                Ok(()) => self.zonk(&meta, level)?,
+                Err(e) if crate::undo::fatal(&e) => return Err(e),
+                Err(e) => {
+                    let mut d = Diagnostic::error(
+                        "E-INSTANCE-SUPER",
+                        format!(
+                            "the `{shown_goal}` inside `{inst_name}` (its `{shown_path}`) must be \
+                             the instance the compiler finds for `{shown_goal}`, but it can't \
+                             find one"
+                        ),
+                    )
+                    .with_label(span, "this instance");
+                    d = d.with_note(e.message);
+                    return Err(d);
+                }
+            };
+            let (have, want) = (cx.eval(&term)?, cx.eval(&found)?);
+            if !conv(g, level, &have, &want)? {
+                // The instance found, by name if it's a global one (its
+                // value would show as its body).
+                let global = match force(g, arg.clone())? {
+                    Value::Data(h, _) => self.instances.get(&(at, h)).map(|i| i.name.clone()),
+                    _ => None,
+                };
+                let shown_found = global.unwrap_or_else(|| pretty::term(g, &names, &found));
+                return Err(Diagnostic::error(
+                    "E-INSTANCE-SUPER",
+                    format!(
+                        "the `{shown_goal}` inside `{inst_name}` (its `{shown_path}`) isn't \
+                         `{shown_found}`"
+                    ),
+                )
+                .with_label(span, "this instance")
+                .with_note(format!(
+                    "a global instance's superclasses must be the instances the compiler finds \
+                     for them, so that every way of reaching a `{shown_goal}` agrees: leave \
+                     `{}` out to have it filled in, or give `{shown_found}`",
+                    shown[0]
+                )));
+            }
+        }
+        self.clear_metas();
+        Ok(())
+    }
+
+    /// `E-INSTANCE-REDUNDANT`: a signature `ty` (a closed term) that asks for
+    /// an interface and, on the same type, one of its superclasses (§5.8
+    /// (c)).
+    pub(crate) fn check_redundant(&self, ty: &Term, span: Span) -> Result<()> {
+        if self.interfaces.is_empty() {
+            return Ok(());
+        }
+        let g = &self.globals;
+        let mut asked: Vec<(Name, DataId, Value)> = Vec::new();
+        let mut value = stitchwort_core::value::eval(g, &[], ty)?;
+        let mut level = 0;
+        let mut names = Vec::new();
+        while let Value::Pi(x, icit, dom, cod) = force(g, value.clone())? {
+            if icit == Icit::Auto
+                && let Value::Data(i, args) = force(g, (*dom).clone())?
+                && self.is_interface(i)
+            {
+                asked.push((x.clone(), i, args[0].clone()));
+            }
+            names.push(x);
+            value = cod.apply(g, Value::var(level))?;
+            level += 1;
+        }
+        for (x, i, a) in &asked {
+            for path in self.super_paths(*i) {
+                let parent = path.last().expect("not empty").1;
+                for (y, j, b) in &asked {
+                    if *j == parent && conv(g, level, a, b)? {
+                        let shown = |d: DataId, v: &Value| {
+                            format!(
+                                "{} {}",
+                                g.data(d).name,
+                                pretty::value_for_message(g, &names, v)
+                            )
+                        };
+                        let param = |n: &Name, d: DataId, v: &Value| {
+                            if **n == *ast::NAMELESS {
+                                format!("[auto {}]", shown(d, v))
+                            } else {
+                                format!("[auto {n}: {}]", shown(d, v))
+                            }
+                        };
+                        return Err(error(
+                            "E-INSTANCE-REDUNDANT",
+                            span,
+                            format!(
+                                "`{}` already contains a `{}`; remove `{}`",
+                                shown(*i, a),
+                                shown(*j, b),
+                                param(y, *j, b)
+                            ),
+                        )
+                        .with_note(format!(
+                            "asking for both would give two `{}` dictionaries, which needn't \
+                             agree; use the one inside `{}`",
+                            shown(*j, b),
+                            param(x, *i, a)
+                        )));
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Whether `goal` is an interface applied to a type: the interface and the
+/// type.
+pub(crate) fn interface_goal(e: &Elaborator, goal: &Value) -> Result<Option<(DataId, Value)>> {
+    if e.interfaces.is_empty() {
+        return Ok(None);
+    }
+    Ok(match force(&e.globals, goal.clone())? {
+        Value::Data(i, args) if e.is_interface(i) && args.len() == 1 => Some((i, args[0].clone())),
+        _ => None,
+    })
+}
+
+/// Spends one step of obligation tree `tree`'s budget.
+fn step(cx: &Ctx, tree: usize, goal: &Value) -> Result<()> {
+    let budget = cx.e.instance_budget.unwrap_or(BUDGET);
+    let mut steps = cx.e.instance_steps.borrow_mut();
+    let used = steps.entry(tree).or_insert(0);
+    *used += 1;
+    if *used > budget {
+        return Err(cx
+            .error(
+                "E-INSTANCE-BUDGET",
+                format!(
+                    "stopped looking for `{}` after {budget} steps; this is a limit, not a \
+                     missing instance",
+                    cx.show(goal)
+                ),
+                "while finding the instance for this",
+            )
+            .with_note("pass the dictionary by name to skip the search"));
+    }
+    Ok(())
+}
+
+/// One try at the interface obligation `ob`, whose goal is `interface`
+/// applied to `arg` (§5.5), in its context `cx`.
+pub(crate) fn attempt(
+    cx: &mut Ctx,
+    ob: &Obligation,
+    interface: DataId,
+    arg: &Value,
+) -> Result<Attempt> {
+    let g = cx.g();
+    let placeholder = cx.eval(&ob.meta)?;
+    // 1. Already solved, by unification.
+    if !matches!(
+        force(g, placeholder.clone())?,
+        Value::Neutral(Head::Meta(_), _)
+    ) {
+        return Ok(Attempt::Solved);
+    }
+    let arg = &refresh(cx, arg)?;
+    let goal = Value::Data(interface, vec![arg.clone()]);
+    let iface_name = g.data(interface).name.to_string();
+    let dict = cx.e.interfaces[&interface].dict.clone();
+    step(cx, ob.tree, &goal)?;
+    // 3. Wait while the type's head is unknown.
+    let target = force(g, arg.clone())?;
+    if let Value::Neutral(Head::Meta(_), _) = target {
+        return Ok(Attempt::Wait(
+            cx.error(
+                "E-INSTANCE-UNKNOWN-TYPE",
+                format!("can't tell which type's `{iface_name}` to use here"),
+                format!("this needs `{}`", cx.show(&goal)),
+            )
+            .with_note("annotate, so the type is known: e.g. `(xs: List Nat)`"),
+        ));
+    }
+    // 4. Dictionaries in scope.
+    let candidates = locals(cx)?;
+    let mut matched: Vec<Candidate> = Vec::new();
+    for c in candidates {
+        if c.interface != interface {
+            continue;
+        }
+        step(cx, ob.tree, &goal)?;
+        match tri(cx, &c.arg, arg)? {
+            Tri::Equal => matched.push(c),
+            Tri::Distinct => {}
+            Tri::Blocked(m) => {
+                return Ok(Attempt::Wait(stuck(
+                    cx,
+                    &goal,
+                    m,
+                    &format!("whether `{}` gives `{}`", c.path, cx.show(&goal)),
+                )));
+            }
+        }
+    }
+    // Merge the candidates that are the same dictionary.
+    let mut distinct: Vec<(Candidate, Value)> = Vec::new();
+    'next: for c in matched {
+        let value = cx.eval(&c.term)?;
+        for (d, other) in &distinct {
+            match tri(cx, &value, other)? {
+                Tri::Equal => continue 'next,
+                Tri::Distinct => {}
+                Tri::Blocked(m) => {
+                    return Ok(Attempt::Wait(stuck(
+                        cx,
+                        &goal,
+                        m,
+                        &format!(
+                            "whether `{}` and `{}` are the same dictionary",
+                            d.path, c.path
+                        ),
+                    )));
+                }
+            }
+        }
+        distinct.push((c, value));
+    }
+    match distinct.len() {
+        0 => {}
+        1 => {
+            let (_, value) = distinct.pop().expect("one");
+            return solve(cx, &placeholder, &value);
+        }
+        _ => {
+            let mut paths: Vec<String> = distinct.iter().map(|(c, _)| c.path.clone()).collect();
+            paths.sort();
+            let listed = listed(&paths);
+            return Err(cx
+                .error(
+                    "E-INSTANCE-AMBIGUOUS",
+                    format!(
+                        "{} different `{}` dictionaries are in scope: {listed}",
+                        if paths.len() == 2 { "two" } else { "several" },
+                        cx.show(&goal)
+                    ),
+                    format!("this needs `{}`", cx.show(&goal)),
+                )
+                .with_note(format!(
+                    "nothing says they're the same, so the compiler won't choose: pass one by \
+                     name, as in `[{dict} := {}]`",
+                    paths[0]
+                )));
+        }
+    }
+    // 5. The global instance for the head.
+    let (head, args) = match &target {
+        Value::Data(d, args) => (*d, args.clone()),
+        Value::Neutral(Head::Def(_), _) => {
+            if let Some(m) = unsolved_in(cx, &target)? {
+                return Ok(Attempt::Wait(stuck(
+                    cx,
+                    &goal,
+                    m,
+                    &format!("which type `{}` is", cx.show(&target)),
+                )));
+            }
+            return Err(none(cx, interface, &goal, None));
+        }
+        _ => return Err(none(cx, interface, &goal, None)),
+    };
+    let Some(info) = cx.e.instances.get(&(interface, head)) else {
+        return Err(none(cx, interface, &goal, Some(head)));
+    };
+    if !info.valid {
+        let name = info.name.clone();
+        let failed = g.def(info.def).state() == stitchwort_core::globals::State::Failed;
+        let reason = if failed || cx.e.globals.def(info.def).body().is_some() {
+            format!("`{name}` has errors")
+        } else {
+            format!(
+                "`{name}` isn't finished here: it can't be used inside its own definition, or one it depends on"
+            )
+        };
+        return Err(cx
+            .error(
+                "E-INSTANCE-NONE",
+                format!(
+                    "can't use the instance `{name}` for `{}` here",
+                    cx.show(&goal)
+                ),
+                format!("this needs `{}`", cx.show(&goal)),
+            )
+            .with_note(reason));
+    }
+    let (def, params) = (info.def, info.params.clone());
+    // An argument of the head that's a dictionary, equated with an unknown,
+    // isn't a solution: wait for the unknown's own obligation (§5.5 step 5).
+    let data = g.data(head);
+    let binders = data.params.iter().chain(&data.indices);
+    for ((_, ty), value) in binders.zip(&args) {
+        if let Term::Data(j, _) = ty.strip_loc()
+            && cx.e.is_interface(*j)
+            && let Value::Neutral(Head::Meta(m), _) = force(g, value.clone())?
+        {
+            return Ok(Attempt::Wait(stuck(
+                cx,
+                &goal,
+                m,
+                &format!(
+                    "the dictionary that `{}` gives `{}`",
+                    cx.show(&target),
+                    g.def(def).name
+                ),
+            )));
+        }
+    }
+    // Commit: the instance, applied to the head's arguments and a new
+    // obligation for each prerequisite.
+    let mut term = Term::Def(def);
+    let mut ty = g.def(def).ty_value.clone();
+    for p in &params {
+        let Value::Pi(_, icit, dom, cod) = force(g, ty.clone())? else {
+            unreachable!("an instance's parameters")
+        };
+        let (arg_term, value) = match p {
+            InstanceParam::Head(k) => (cx.quote(&args[*k])?, args[*k].clone()),
+            InstanceParam::Prerequisite => {
+                let meta = implicit_arg(cx, Icit::Auto, &dom);
+                if let Some(last) = cx.e.obligations.borrow_mut().last_mut() {
+                    last.tree = ob.tree;
+                }
+                let value = cx.eval(&meta)?;
+                (meta, value)
+            }
+        };
+        term = Term::app_icit(term, arg_term, icit);
+        ty = cod.apply(g, value)?;
+    }
+    let value = cx.eval(&term)?;
+    solve(cx, &placeholder, &value)
+}
+
+fn solve(cx: &mut Ctx, placeholder: &Value, value: &Value) -> Result<Attempt> {
+    if !cx.unify(placeholder, value)? {
+        return Err(cx.error(
+            "E-INTERNAL",
+            "internal error: a found instance doesn't fit",
+            "here",
+        ));
+    }
+    Ok(Attempt::Solved)
+}
+
+/// "`a`, `b` and `c`".
+fn listed(items: &[String]) -> String {
+    let quoted: Vec<String> = items.iter().map(|i| format!("`{i}`")).collect();
+    match quoted.split_last() {
+        Some((last, rest)) if !rest.is_empty() => format!("{} and {last}", rest.join(", ")),
+        _ => quoted.join(""),
+    }
+}
+
+/// The error for an obligation still blocked on unknown `m` when nothing
+/// more can be solved: `E-INSTANCE-STUCK`.
+fn stuck(cx: &Ctx, goal: &Value, m: usize, what: &str) -> Diagnostic {
+    let shown_meta = cx.show(&Value::Neutral(
+        Head::Meta(m),
+        stitchwort_core::value::Spine::new(),
+    ));
+    let mut d = cx.error(
+        "E-INSTANCE-STUCK",
+        format!("can't tell {what} until `{shown_meta}` is known"),
+        format!("this needs `{}`", cx.show(goal)),
+    );
+    let span = cx.g().metas.borrow()[m].span;
+    if span != cx.span {
+        d = d.with_label(span, format!("`{shown_meta}` is what goes here"));
+    }
+    d.with_note("pass the dictionary by name, or annotate")
+}
+
+/// `E-INSTANCE-NONE`, with what might help.
+fn none(cx: &Ctx, interface: DataId, goal: &Value, head: Option<DataId>) -> Diagnostic {
+    let g = cx.g();
+    let e = cx.e;
+    let iface_name = g.data(interface).name.to_string();
+    let dict = e.interfaces[&interface].dict.clone();
+    let arg = match goal {
+        Value::Data(_, args) => args[0].clone(),
+        _ => unreachable!(),
+    };
+    let mut d = cx.error(
+        "E-INSTANCE-NONE",
+        format!("no `{iface_name}` instance for `{}`", cx.show(&arg)),
+        format!("this needs `{}`", cx.show(goal)),
+    );
+    match head {
+        Some(h) => {
+            let owner = |d: DataId| {
+                e.data_owners
+                    .get(&d)
+                    .cloned()
+                    .unwrap_or_else(|| "Std".to_string())
+            };
+            let (io, ho) = (owner(interface), owner(h));
+            let where_ = if io == ho {
+                format!("in `{io}`")
+            } else {
+                format!(
+                    "in `{io}` (which owns `{iface_name}`) or `{ho}` (which owns `{}`)",
+                    g.data(h).name
+                )
+            };
+            d = d.with_note(format!(
+                "an instance of `{iface_name}` for `{}` can be declared {where_}",
+                g.data(h).name
+            ));
+        }
+        None => {
+            if let Value::Neutral(Head::Var(_), _) = force(g, arg.clone()).unwrap_or(arg.clone()) {
+                d = d.with_note(format!(
+                    "`{}` is a type variable: ask for its instance with `[auto {dict}: {}]`",
+                    cx.show(&arg),
+                    cx.show(goal)
+                ));
+            }
+        }
+    }
+    // Instances of this module that aren't checked where this is.
+    for name in e.unchecked_instances(interface) {
+        d = d.with_note(format!(
+            "`{name}` is an instance in this module, but it's checked after this, since it \
+             depends on it: move what it needs out of this declaration, or pass it by name"
+        ));
+    }
+    // Named alternatives of the right type.
+    let mut hints = 0;
+    for (k, def) in g.defs.iter().enumerate() {
+        if hints == 3 {
+            break;
+        }
+        if def.body().is_none() || def.instance {
+            continue;
+        }
+        if let Value::Data(i, args) = &def.ty_value
+            && *i == interface
+            && conv(g, cx.level(), &args[0], &arg).unwrap_or(false)
+            && !e.helper_keys.contains(&def.name.to_string())
+        {
+            let _ = k;
+            d = d.with_note(format!(
+                "`{}` has type `{}`: pass it with `[{dict} := {}]`",
+                def.name,
+                cx.show(goal),
+                def.name
+            ));
+            hints += 1;
+        }
+    }
+    d
+}
+
+/// Every dictionary in scope (§5.5 step 4): each variable whose type is an
+/// interface, and every superclass path from one.
+fn locals(cx: &Ctx) -> Result<Vec<Candidate>> {
+    let g = cx.g();
+    let mut out = Vec::new();
+    for level in (0..cx.level()).rev() {
+        let Value::Data(i, args) = force(g, cx.types[level].clone())? else {
+            continue;
+        };
+        if !cx.e.is_interface(i) {
+            continue;
+        }
+        let mut pending = vec![Candidate {
+            term: Term::Var(cx.level() - 1 - level),
+            path: cx.names[level].to_string(),
+            interface: i,
+            arg: args[0].clone(),
+        }];
+        while let Some(c) = pending.pop() {
+            let info = &cx.e.interfaces[&c.interface];
+            for &(field, parent) in &info.supers {
+                let proj = info.projections[field];
+                let arg_term = cx.quote(&c.arg)?;
+                let field_name = &g.data(c.interface).ctors[0].fields[field].0;
+                pending.push(Candidate {
+                    term: Term::app(
+                        Term::app_icit(Term::Def(proj), arg_term, Icit::Implicit),
+                        c.term.clone(),
+                    ),
+                    path: format!("{}.{field_name}", c.path),
+                    interface: parent,
+                    arg: c.arg.clone(),
+                });
+            }
+            out.push(c);
+        }
+    }
+    Ok(out)
+}
+
+/// Compares `a` and `b` without assigning any unknown that exists now
+/// (§5.5): equal, rigidly distinct, or blocked on an unknown.
+fn tri(cx: &mut Ctx, a: &Value, b: &Value) -> Result<Tri> {
+    // A computation that was stuck on an unknown solved since is run again.
+    let (a, b) = (&refresh(cx, a)?, &refresh(cx, b)?);
+    let snapshot = crate::undo::Snapshot::take(cx);
+    let before = cx.g().metas.borrow().len();
+    let unified = cx.unify(a, b);
+    let solved = snapshot.solved_since(cx);
+    snapshot.restore(cx);
+    let unified = unified?;
+    if unified {
+        return Ok(match solved.into_iter().find(|m| *m < before) {
+            Some(m) => Tri::Blocked(m),
+            None => Tri::Equal,
+        });
+    }
+    if rigidly_distinct(cx, a, b)? {
+        return Ok(Tri::Distinct);
+    }
+    if let Some(m) = unsolved_in(cx, a)? {
+        return Ok(Tri::Blocked(m));
+    }
+    if let Some(m) = unsolved_in(cx, b)? {
+        return Ok(Tri::Blocked(m));
+    }
+    Ok(Tri::Distinct)
+}
+
+/// Whether `a` and `b` differ in a way no solution of the unknowns could
+/// change: different type or constructor names, numbers, sorts or rigid
+/// variables, here or in arguments of the same name.
+fn rigidly_distinct(cx: &Ctx, a: &Value, b: &Value) -> Result<bool> {
+    let g = cx.g();
+    let mut pending = vec![(a.clone(), b.clone())];
+    while let Some((a, b)) = pending.pop() {
+        let (a, b) = (force(g, a)?, force(g, b)?);
+        match (&a, &b) {
+            (Value::Data(d1, a1), Value::Data(d2, a2)) => {
+                if d1 != d2 || a1.len() != a2.len() {
+                    return Ok(true);
+                }
+                pending.extend(a1.iter().cloned().zip(a2.iter().cloned()));
+            }
+            (Value::Ctor(d1, c1, f1), Value::Ctor(d2, c2, f2)) => {
+                if d1 != d2 || c1 != c2 || f1.len() != f2.len() {
+                    return Ok(true);
+                }
+                pending.extend(f1.iter().cloned().zip(f2.iter().cloned()));
+            }
+            (Value::Nat(m), Value::Nat(n)) if m != n => return Ok(true),
+            (Value::Sort(s), Value::Sort(t)) if s != t => return Ok(true),
+            (Value::Neutral(Head::Var(x), s), Value::Neutral(Head::Var(y), t))
+                if s.is_empty() && t.is_empty() && x != y =>
+            {
+                return Ok(true);
+            }
+            _ => {
+                let kind = |v: &Value| match v {
+                    Value::Data(..) => Some(0),
+                    Value::Pi(..) => Some(1),
+                    Value::Sort(_) => Some(2),
+                    Value::Eq(..) => Some(3),
+                    Value::Neutral(Head::Var(_), s) if s.is_empty() => Some(4),
+                    _ => None,
+                };
+                if let (Some(k), Some(l)) = (kind(&a), kind(&b))
+                    && k != l
+                {
+                    return Ok(true);
+                }
+            }
+        }
+    }
+    Ok(false)
+}
+
+/// `v` with the solutions of its unknowns substituted, computed again: a
+/// definition left folded because it was stuck on an unknown that's solved
+/// now takes its step.
+fn refresh(cx: &Ctx, v: &Value) -> Result<Value> {
+    let term = cx.quote(v)?;
+    let term = cx.e.zonk_keeping(&term, cx.level(), &|_| true)?;
+    cx.eval(&term)
+}
+
+/// An unknown that `v` mentions and that nothing has solved, if any.
+fn unsolved_in(cx: &Ctx, v: &Value) -> Result<Option<usize>> {
+    let term = cx.quote(v)?;
+    let term = cx.e.zonk_keeping(&term, cx.level(), &|_| true)?;
+    Ok(term.subterms().find_map(|(t, _)| match t {
+        Term::Meta(m) if cx.g().meta_solution(*m).is_none() => Some(*m),
+        _ => None,
+    }))
+}
+
+impl Elaborator {
+    /// The instances declared in the module being elaborated, of interface
+    /// `interface`, that aren't checked yet: their names.
+    fn unchecked_instances(&self, interface: DataId) -> Vec<String> {
+        let mut out = Vec::new();
+        for (i, item) in self.module.items.iter().enumerate() {
+            if !item.instance || item.status != crate::module::Status::Waiting {
+                continue;
+            }
+            if self.module.in_current(i) {
+                continue;
+            }
+            if item.interface == Some(Global::Data(interface)) {
+                out.push(item.name.clone());
+            }
+        }
+        out
+    }
+
+    /// Tries to solve the obligation for metavariable `meta` (just made, for
+    /// an omitted superclass field) now, with any prerequisites it makes:
+    /// whatever can't be solved yet is left for the end of the declaration
+    /// (§5.8 (a)).
+    pub(crate) fn solve_now(&self, meta: &Term) -> Result<()> {
+        let Term::Meta(root) = meta.spine().0 else {
+            return Ok(());
+        };
+        let root = *root;
+        let tree = {
+            let obligations = self.obligations.borrow();
+            match obligations
+                .iter()
+                .find(|ob| matches!(ob.meta.spine().0, Term::Meta(m) if *m == root))
+            {
+                Some(ob) => ob.tree,
+                None => return Ok(()),
+            }
+        };
+        let mut tried = std::collections::HashSet::new();
+        loop {
+            // The next obligation of this tree not tried yet.
+            let index = self.obligations.borrow().iter().position(|ob| {
+                ob.tree == tree && !matches!(ob.meta.spine().0, Term::Meta(m) if tried.contains(m))
+            });
+            let Some(index) = index else { break };
+            let ob = self.obligations.borrow_mut().remove(index);
+            let mut ob_cx = Ctx::from_parts(
+                self,
+                ob.env.clone(),
+                ob.types.clone(),
+                ob.names.clone(),
+                ob.span,
+            );
+            let goal = interface_goal(self, &ob.goal)?;
+            let solved = match goal {
+                Some((i, arg)) => {
+                    crate::undo::transaction(&mut ob_cx, |cx| match attempt(cx, &ob, i, &arg) {
+                        Ok(Attempt::Solved) => Ok(Some(())),
+                        Ok(Attempt::Wait(_)) => Ok(None),
+                        Err(e) if crate::undo::fatal(&e) => Err(e),
+                        Err(_) => Ok(None),
+                    })?
+                    .is_some()
+                }
+                None => false,
+            };
+            if !solved {
+                if let Term::Meta(m) = ob.meta.spine().0 {
+                    tried.insert(*m);
+                }
+                self.obligations.borrow_mut().insert(index, ob);
+            }
+        }
+        Ok(())
+    }
+}

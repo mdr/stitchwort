@@ -15,6 +15,7 @@ mod derive;
 mod dot;
 mod effects;
 mod families;
+mod interfaces;
 mod library;
 #[cfg(test)]
 mod library_tests;
@@ -224,6 +225,21 @@ pub struct Elaborator {
     /// definition, whose type, and everything it refers to, never changes;
     /// definitions are only ever added, so an entry never goes stale.
     pub(crate) result_heads: RefCell<Vec<Option<Option<DataId>>>>,
+    /// The interfaces declared so far (docs/proposals/interfaces.md §5.1).
+    interfaces: HashMap<DataId, interfaces::InterfaceInfo>,
+    /// The global instances, by interface and head (§5.6).
+    instances: HashMap<(DataId, DataId), interfaces::InstanceInfo>,
+    /// The module that declared each data type (§5.6 rule 1).
+    data_owners: HashMap<DataId, String>,
+    /// The instance steps each obligation tree has taken so far (§5.5 step
+    /// 7), by its first metavariable. Not part of the inference state
+    /// `undo.rs` restores: steps spent aren't refunded.
+    instance_steps: RefCell<HashMap<usize, usize>>,
+    /// For tests: the instance step budget, instead of the default.
+    pub instance_budget: Option<usize>,
+    /// For tests: how many times finding an instance has had to wait
+    /// (`auto.rs`), in this session.
+    pub instance_waits: std::cell::Cell<usize>,
 }
 
 /// A pattern that matches a constructor.
@@ -495,6 +511,7 @@ impl Elaborator {
         self.local_metas.borrow_mut().clear();
         self.obligations.borrow_mut().clear();
         self.defaulted.borrow_mut().clear();
+        self.instance_steps.borrow_mut().clear();
     }
 
     /// Proves outstanding auto arguments, then substitutes metavariable
@@ -754,6 +771,7 @@ impl Elaborator {
                 })
                 .collect(),
             record: false,
+            interface: false,
             span: *span,
         };
         self.data(&data_decl)?;
@@ -780,6 +798,7 @@ impl Elaborator {
             theorem: false,
             export: false,
             synonym: false,
+            instance: false,
             span: *span,
         };
         let res_eqs: Vec<Decl> = sigs
@@ -876,6 +895,7 @@ impl Elaborator {
             theorem: false,
             export: false,
             synonym: false,
+            instance: false,
             span: *span,
         };
         let elim_eqs: Vec<Decl> = sigs
@@ -1036,7 +1056,16 @@ impl Elaborator {
         };
         // Every member can be mentioned in fields now, as a type. None has
         // constructors until the kernel admits them all.
+        let owner = self.module_owner();
+        let mut group_interfaces = Vec::new();
         for (&(_, decl), d) in members.iter().zip(&ids) {
+            self.data_owners.insert(*d, owner.clone());
+            if let Decl::Data {
+                interface: true, ..
+            } = decl
+            {
+                group_interfaces.push(*d);
+            }
             if let Decl::Data { name: n, .. } = decl
                 && let Ok(key) = self.declaration_key(n)
             {
@@ -1048,7 +1077,7 @@ impl Elaborator {
             if item.is_some() {
                 self.module.item = item;
             }
-            match self.data_ctors(decl, *d) {
+            match self.data_ctors(decl, *d, &group_interfaces) {
                 Ok(ctors) => defined.push((*d, ctors)),
                 Err(d) => out.push((item, d)),
             }
@@ -1149,6 +1178,12 @@ impl Elaborator {
                 }
             }
         };
+        if let Decl::Data {
+            interface: true, ..
+        } = decl
+        {
+            self.check_interface_header(decl, &checked, sort)?;
+        }
         // No large indices (D142): an index's type fits the universe, as a
         // field's must. (The kernel checks it too.)
         if let Some((s, at)) = index_sorts.iter().find(|(s, _)| !s.fits_in(sort)) {
@@ -1253,11 +1288,18 @@ impl Elaborator {
     }
 
     /// Elaborates the constructors of data type `d`, declared from `decl`.
-    fn data_ctors(&mut self, decl: &Decl, d: DataId) -> Result<Vec<kernel::CtorDecl>> {
+    /// `group_interfaces` are the members of its group that are interfaces.
+    fn data_ctors(
+        &mut self,
+        decl: &Decl,
+        d: DataId,
+        group_interfaces: &[DataId],
+    ) -> Result<Vec<kernel::CtorDecl>> {
         let Decl::Data {
             name: data_name,
             ctors,
             span,
+            interface,
             ..
         } = decl
         else {
@@ -1309,6 +1351,9 @@ impl Elaborator {
                 for (k, n) in binder.names.iter().enumerate() {
                     let ty = self.finish(&ty.shift(&self.globals, k, 0)?, cx.level())?;
                     let value = cx.eval(&ty)?;
+                    if *interface {
+                        self.check_interface_field(d, group_interfaces, n, &value)?;
+                    }
                     fields.push((name(n), ty, binder.ty.span()));
                     cx.bind(&n.text, value);
                 }
@@ -1357,7 +1402,14 @@ impl Elaborator {
             }
         }
         if self.globals.data(d).record {
-            self.after_record(d)?;
+            let interface = matches!(
+                decl,
+                Decl::Data {
+                    interface: true,
+                    ..
+                }
+            );
+            self.after_record(d, interface)?;
         } else {
             self.derive_data_eq(d)?;
         }
@@ -1584,6 +1636,7 @@ impl Elaborator {
             theorem,
             export,
             synonym: _,
+            instance,
             span,
         } = signature
         else {
@@ -1654,6 +1707,7 @@ impl Elaborator {
             let unfinished = ty;
             self.finish(&unfinished, 0).map_err(with_notes)?
         };
+        self.check_redundant(&ty, def_name.span)?;
         let id = kernel::declare_def(
             &mut self.globals,
             &scope::display(&key).into(),
@@ -1666,15 +1720,24 @@ impl Elaborator {
         if let Some(item) = self.module.item {
             self.module.def_items.insert(id, item);
         }
+        if *instance {
+            self.register_instance(id, def_name)?;
+        }
         Ok(id)
     }
 
     /// After a definition is admitted: registering natives (in the prelude)
     /// and an export's validators.
     fn after_definition(&mut self, signature: &Decl, id: DefId) -> Result<()> {
-        let Decl::Signature { export, .. } = signature else {
+        let Decl::Signature {
+            export, instance, ..
+        } = signature
+        else {
             unreachable!()
         };
+        if *instance {
+            self.validate_instance(id)?;
+        }
         if self.loading_prelude {
             match registry::bind_def(&mut self.globals, id) {
                 Some(Builtin::NatNeq) => native::register_nat_neq(&mut self.globals, id)?,

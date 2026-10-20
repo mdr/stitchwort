@@ -29,6 +29,13 @@
 //!    together (`define_data_group`). A cycle mixing data types (or
 //!    abilities) with definitions, or including an ability, is refused.
 //!
+//! Instances (docs/proposals/interfaces.md §5.6) are found by type, not by
+//! name, so no reference says what uses one. Every other definition and
+//! test of the module is checked after every instance of it that doesn't
+//! itself depend on that declaration ([`Elaborator::instance_edges`]); and
+//! an instance after another one of the module whose interface it mentions
+//! or has as a superclass.
+//!
 //! Untrusted: the kernel refuses a group that refers to an unfinished
 //! declaration outside it, so a mistake here can't split a cycle.
 
@@ -113,6 +120,11 @@ pub(crate) struct ItemInfo {
     /// A definition whose written type is a function type, which `W-LAMBDA-SHADOW`
     /// needs to know before the definition is checked.
     pub function: bool,
+    /// Declared with `instance`.
+    pub instance: bool,
+    /// For an instance: what the head of its type names, as far as names
+    /// tell before anything is checked (its interface).
+    pub interface: Option<Global>,
 }
 
 /// One file of the module being elaborated.
@@ -251,6 +263,7 @@ impl Elaborator {
             first_test = self.tests.len();
             self.module.first_test = first_test;
         }
+        self.instance_edges(&items);
         let order = self.components();
 
         for component in order {
@@ -467,6 +480,7 @@ impl Elaborator {
                     test_names.insert(name, *span);
                 }
                 let status = Status::Waiting;
+                let instance = matches!(decl, Decl::Signature { instance: true, .. });
                 let (kind, name, span, synonym) = match decl {
                     Decl::Data { name, .. } => (Kind::Data, name.text.clone(), name.span, false),
                     Decl::Ability { name, .. } => {
@@ -494,6 +508,8 @@ impl Elaborator {
                     status,
                     decides,
                     function: false,
+                    instance,
+                    interface: None,
                 });
                 items.push(Item {
                     decl,
@@ -544,6 +560,16 @@ impl Elaborator {
         for (index, item) in items.iter().enumerate() {
             if let Decl::Signature { ty, .. } = item.decl {
                 self.module.items[index].function = is_function_type(ty);
+            }
+        }
+        for (index, item) in items.iter().enumerate() {
+            if let Decl::Signature {
+                ty, instance: true, ..
+            } = item.decl
+                && let Some(head) = result_head(ty)
+            {
+                self.module.file = Some(self.module.items[index].file);
+                self.module.items[index].interface = self.named(&head.text).map(|(g, _)| *g);
             }
         }
         self.module.file = None;
@@ -732,6 +758,143 @@ impl Elaborator {
             needs.remove(&f);
         }
         needs
+    }
+
+    /// Instances are found by type, so nothing names them where they're
+    /// used: every definition and test is made to depend on every instance
+    /// of the module that doesn't depend on it (so it's checked after
+    /// them), and an instance on another one whose interface it mentions,
+    /// or whose interface its own contains as a superclass (as far as the
+    /// names say). An edge that would close a cycle is left out, so this
+    /// never makes a cycle; an instance needed where it isn't checked yet is
+    /// an error that says so (`interfaces.rs`). The instances are taken in
+    /// source order.
+    fn instance_edges(&mut self, items: &[Item]) {
+        let instances: Vec<usize> = (0..self.module.items.len())
+            .filter(|i| self.module.items[*i].instance)
+            .collect();
+        if instances.is_empty() {
+            return;
+        }
+        let add = |this: &mut Self, from: usize, to: usize| {
+            if from == to || this.reaches(to, from) {
+                return;
+            }
+            let span = this.module.items[to].span;
+            this.module.items[from].deps.push(Dep {
+                item: to,
+                span,
+                in_header: false,
+                speculative: Some("it may use instances".to_string()),
+            });
+        };
+        // Between instances: by the interfaces their declarations mention,
+        // and their interfaces' superclasses.
+        for &y in &instances {
+            let Some(wanted) = self.module.items[y].interface else {
+                continue;
+            };
+            for &x in &instances {
+                if x == y || self.module.items[x].interface == Some(wanted) {
+                    continue;
+                }
+                let mentions = self.mentions_global(x, &items[x], wanted)
+                    || self.is_super_of(self.module.items[x].interface, wanted, items);
+                if mentions {
+                    add(self, x, y);
+                }
+            }
+        }
+        // Everything else that may use one.
+        for &y in &instances {
+            for x in 0..self.module.items.len() {
+                let kind = self.module.items[x].kind;
+                if self.module.items[x].instance || !matches!(kind, Kind::Def | Kind::Test) {
+                    continue;
+                }
+                add(self, x, y);
+            }
+        }
+    }
+
+    /// Whether item `from` depends on item `to`, directly or not.
+    fn reaches(&self, from: usize, to: usize) -> bool {
+        let mut seen = HashSet::new();
+        let mut pending = vec![from];
+        while let Some(i) = pending.pop() {
+            if i == to {
+                return true;
+            }
+            if !seen.insert(i) {
+                continue;
+            }
+            pending.extend(self.module.items[i].deps.iter().map(|d| d.item));
+        }
+        false
+    }
+
+    /// Whether `item`'s declaration names `wanted` (or something in its
+    /// namespace).
+    fn mentions_global(&mut self, index: usize, item: &Item, wanted: Global) -> bool {
+        self.module.file = Some(self.module.items[index].file);
+        // A checked interface's methods are definitions in its namespace.
+        let members = match wanted {
+            Global::Data(d) => Some(format!("{}.", self.data_key(d))),
+            _ => None,
+        };
+        let mut found = false;
+        for (r, _) in decl_refs(item.decl, item.equations) {
+            let n = match r {
+                Ref::Name(n) | Ref::Dot(n, _) => n,
+            };
+            if let crate::scope::Resolved::Found { global, key, .. } = self.resolve(&n.text)
+                && (global == wanted || members.as_ref().is_some_and(|m| key.starts_with(m)))
+            {
+                found = true;
+                break;
+            }
+        }
+        self.module.file = None;
+        found
+    }
+
+    /// Whether interface `parent` (a module item or a checked interface) is
+    /// a superclass of interface `of`, directly or not, as far as the names
+    /// in the module's interface declarations say.
+    fn is_super_of(&self, of: Option<Global>, parent: Global, items: &[Item]) -> bool {
+        let mut pending: Vec<Global> = of.into_iter().collect();
+        let mut seen = Vec::new();
+        while let Some(i) = pending.pop() {
+            if seen.contains(&i) {
+                continue;
+            }
+            seen.push(i);
+            let parents: Vec<Global> = match i {
+                Global::Data(d) => match self.interfaces.get(&d) {
+                    Some(info) => info.supers.iter().map(|(_, p)| Global::Data(*p)).collect(),
+                    None => Vec::new(),
+                },
+                Global::Unchecked(j) => match items.get(j).map(|it| it.decl) {
+                    Some(Decl::Data {
+                        interface: true,
+                        ctors,
+                        ..
+                    }) => ctors
+                        .iter()
+                        .flat_map(|c| &c.fields)
+                        .filter_map(|b| crate::module::type_head(&b.ty))
+                        .filter_map(|n| self.named(&n.text).map(|(g, _)| *g))
+                        .collect(),
+                    _ => Vec::new(),
+                },
+                _ => Vec::new(),
+            };
+            if parents.contains(&parent) {
+                return true;
+            }
+            pending.extend(parents);
+        }
+        false
     }
 
     /// Names that were declared but never checked now just name failures:
@@ -1386,6 +1549,27 @@ fn internal_order(name: &ast::Name) -> Diagnostic {
 /// or operation (visible wherever the type or ability is) or not.
 pub(crate) fn declared_names(decl: &Decl) -> (Option<ast::Name>, Vec<(ast::Name, bool)>) {
     match decl {
+        // An interface's methods are named in its namespace from the start,
+        // so they can be imported (docs/proposals/interfaces.md §5.1).
+        Decl::Data {
+            name,
+            ctors,
+            interface: true,
+            ..
+        } => (
+            Some(name.clone()),
+            ctors
+                .iter()
+                .map(|c| (c.name.clone(), true))
+                .chain(
+                    ctors
+                        .iter()
+                        .flat_map(|c| &c.fields)
+                        .flat_map(|b| &b.names)
+                        .map(|n| (n.clone(), false)),
+                )
+                .collect(),
+        ),
         Decl::Data { name, ctors, .. } => (
             Some(name.clone()),
             ctors.iter().map(|c| (c.name.clone(), true)).collect(),
@@ -1427,6 +1611,18 @@ impl Elaborator {
     /// function type.
     pub(crate) fn item_is_function(&self, item: usize) -> bool {
         self.module.items[item].function
+    }
+}
+
+/// The name at the head of a type expression: `Ord` in `Ord a`.
+pub(crate) fn type_head(ty: &Expr) -> Option<&ast::Name> {
+    let mut ty = ty;
+    while let Expr::App(f, _) = ty {
+        ty = f;
+    }
+    match ty {
+        Expr::Var(n) => Some(n),
+        _ => None,
     }
 }
 

@@ -1510,12 +1510,12 @@ export def area: Shape -> Nat
   // closing quote or the end of the line, with `\` escaping the next
   // character. A string's `${…}` interpolation holds ordinary code, braces
   // and all, delimited in its own colour. `auto` is only a keyword as the
-  // first word in `[…]`, as in the parser. A name after `def` or `theorem`
+  // first word in `[…]`, as in the parser. A name after `def`, `theorem` or `instance`
   // is being defined; `:=` and `=>` are coloured as operators, like the rest
   // of the punctuation. One pass over the text, so a long paste stays quick.
   const KEYWORDS = new Set(["type", "def", "theorem", "export", "test", "if", "then", "else",
                             "ability", "where", "handle", "with", "match", "return", "let", "Type", "Prop",
-                            "namespace", "import", "calc", "rewrite"]);
+                            "namespace", "import", "calc", "rewrite", "interface", "instance"]);
   const KINDS = ["keyword", "name", "defined", "number", "string", "interp", "comment", "operator"];
   const isWordStart = (c) => (c >= "a" && c <= "z") || (c >= "A" && c <= "Z") || c === "_";
   const isWord = (c) => isWordStart(c) || (c >= "0" && c <= "9") || c === "'";
@@ -1582,7 +1582,7 @@ export def area: Shape -> Nat
         while (i < text.length && isWord(text[i])) i++;
         const word = text.slice(start, i);
         const k = KEYWORDS.has(word) || (word === "auto" && previous === "[") ? "keyword"
-          : word !== "_" && (previous === "def" || previous === "theorem") ? "defined"
+          : word !== "_" && (previous === "def" || previous === "theorem" || previous === "instance") ? "defined"
           : c >= "A" && c <= "Z" ? "name"
           : "";
         if (k) add(k, start, i);

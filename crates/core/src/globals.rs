@@ -50,6 +50,10 @@ pub struct Def {
     /// treat members of a group of two or more as one unit.
     pub group: Option<Rc<[DefId]>>,
     pub theorem: bool,
+    /// Declared with `instance`, so `auto` finds it by its type
+    /// (docs/proposals/interfaces.md §9.3). Hashed when set; nothing in
+    /// checking depends on it.
+    pub instance: bool,
     pub export: bool,
     /// For an export: how to check each proof parameter at runtime.
     pub validators: Vec<Validator>,

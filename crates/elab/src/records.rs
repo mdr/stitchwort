@@ -47,8 +47,8 @@ pub(crate) struct RecordInfo {
 impl Elaborator {
     /// After record `d` is admitted: its projections, and `==` if it can be
     /// derived.
-    pub(crate) fn after_record(&mut self, d: DataId) -> Result<()> {
-        let projections = self.projections(d)?;
+    pub(crate) fn after_record(&mut self, d: DataId, interface: bool) -> Result<()> {
+        let projections = self.projections(d, interface)?;
         self.records.insert(
             d,
             RecordInfo {
@@ -56,6 +56,14 @@ impl Elaborator {
                 no_eq: None,
             },
         );
+        if interface {
+            let projections = self.records[&d]
+                .projections
+                .iter()
+                .map(|p| p.expect("an interface is in `Type`"))
+                .collect();
+            self.after_interface(d, projections)?;
+        }
         let no_eq = self.derive_eq(d)?;
         if let Some(info) = self.records.get_mut(&d) {
             info.no_eq = no_eq;
@@ -65,7 +73,9 @@ impl Elaborator {
 
     /// Defines `R.field : [params] -> (r : R params) -> T` for each field,
     /// by matching `r`. In `T`, earlier fields are their projections of `r`.
-    fn projections(&mut self, d: DataId) -> Result<Vec<Option<DefId>>> {
+    /// For an interface, they're `R.%field`, out of the way of its methods
+    /// (`interfaces.rs`).
+    fn projections(&mut self, d: DataId, interface: bool) -> Result<Vec<Option<DefId>>> {
         let mut out: Vec<Option<DefId>> = Vec::new();
         let count = self.globals.data(d).ctors[0].fields.len();
         for i in 0..count {
@@ -114,14 +124,15 @@ impl Elaborator {
                 ty = Term::Pi(x.clone(), Icit::Implicit, Rc::new(t.clone()), Rc::new(ty));
                 body = Term::Lam(x.clone(), Icit::Implicit, Rc::new(body));
             }
-            let name: Name = format!("{}.{field}", data.name).into();
+            let hidden = if interface { "%" } else { "" };
+            let name: Name = format!("{}.{hidden}{field}", data.name).into();
             let span = data.span;
             let id = kernel::declare_def(&mut self.globals, &name, &ty, false, false, span)?;
             kernel::define_def(&mut self.globals, id, &body)?;
             // In the record's namespace, but not visible by its short name:
             // fields are reached through a record (`p.name`), or written in
             // full (`Person.name`).
-            let key = Self::member_key(&self.data_key(d), &field);
+            let key = Self::member_key(&self.data_key(d), &format!("{hidden}{field}"));
             self.scope.insert(&key, Global::Def(id), span, false);
             out.push(Some(id));
         }
@@ -273,6 +284,7 @@ impl Elaborator {
             theorem: false,
             export: false,
             synonym: false,
+            instance: false,
             span,
         };
         let pattern = |f: &dyn Fn(usize) -> String| {
@@ -584,11 +596,18 @@ fn literal(
     let g = cx.g();
     check_field_names(g, d, fields.iter().map(|(n, _)| n))?;
     let ctor = &g.data(d).ctors[0];
+    // An interface's superclass fields may be left out: they're filled in
+    // (docs/proposals/interfaces.md §5.8 (a)).
+    let supers: Vec<usize> = match cx.e.interfaces.get(&d) {
+        Some(info) => info.supers.iter().map(|(i, _)| *i).collect(),
+        None => Vec::new(),
+    };
     let missing: Vec<String> = ctor
         .fields
         .iter()
-        .filter(|(f, _)| !fields.iter().any(|(n, _)| *n.text == **f))
-        .map(|(f, _)| format!("`{f}`"))
+        .enumerate()
+        .filter(|(i, (f, _))| !supers.contains(i) && !fields.iter().any(|(n, _)| *n.text == **f))
+        .map(|(_, (f, _))| format!("`{f}`"))
         .collect();
     if !missing.is_empty() {
         return Err(cx.error(
@@ -605,11 +624,17 @@ fn literal(
     let mut terms = Vec::new();
     for (i, (field, field_ty)) in ctor.fields.iter().enumerate() {
         let ty = eval(g, &env, field_ty)?;
-        let (_, expr) = fields
-            .iter()
-            .find(|(n, _)| *n.text == **field)
-            .expect("checked above");
-        let term = check(cx, expr, &ty)?;
+        let term = match fields.iter().find(|(n, _)| *n.text == **field) {
+            Some((_, expr)) => check(cx, expr, &ty)?,
+            None => {
+                // An omitted superclass: a typed unknown, with an obligation
+                // to find it, before the later fields are checked; solved now
+                // if it can be, otherwise with the declaration's others.
+                let meta = crate::check::implicit_arg(cx, Icit::Auto, &ty);
+                cx.e.solve_now(&meta)?;
+                meta
+            }
+        };
         env.push(if kernel::later_types_mention(&ctor.fields, i) {
             cx.eval(&term)?
         } else {

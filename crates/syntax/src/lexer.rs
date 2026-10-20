@@ -28,6 +28,12 @@ pub enum Tok {
     KwDef,
     KwExport,
     KwTest,
+    /// `interface Ord (a: Type) = { … }`: a record the compiler finds
+    /// instances of (docs/proposals/interfaces.md §5.1).
+    KwInterface,
+    /// `instance Nat.instOrd: Ord Nat := …`: a definition the compiler finds
+    /// by its type (docs/proposals/interfaces.md §5.2).
+    KwInstance,
     /// `Type`, the universe.
     TypeU,
     Prop,
@@ -193,6 +199,8 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
                     "def" => Tok::KwDef,
                     "export" => Tok::KwExport,
                     "test" => Tok::KwTest,
+                    "interface" => Tok::KwInterface,
+                    "instance" => Tok::KwInstance,
                     "if" => Tok::KwIf,
                     "then" => Tok::KwThen,
                     "else" => Tok::KwElse,
