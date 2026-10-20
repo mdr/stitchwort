@@ -61,7 +61,7 @@ def f (n : Nat) : Nat :=
 a proof about `f (n + 5)` gets stuck on
 
 ```
-Effect.runPure (Decidable.elim (…) (\_ => Done 0) (\_ => Done (n + 5 + 1)))
+Effect.runPure (Decidable.elim (…) (_  => Done 0) (_  => Done (n + 5 + 1)))
 ```
 
 while the same function without the `let` gets stuck on the
@@ -150,7 +150,7 @@ layers:
 So `theorem one` above becomes, roughly:
 
 ```
-Effect.runPure ((\p => Done (Nat.leAddRight p 1)) n)
+Effect.runPure ((p  => Done (Nat.leAddRight p 1)) n)
 ```
 
 and the generated JavaScript for `let m := n + 1; m + m` really does build
@@ -216,7 +216,7 @@ This is the same choice Idris 2 made, for a similar reason (§3).
 | **Idris 2** | `let x = v in e` | **No**: "essentially equivalent to `(x => e) val`", chosen because making it compute "would need significant changes to the way `case` and `with` are elaborated" | (that *is* the default) | `x <- e` in `do` | yes |
 | Haskell | `let` | (no dependent types) | — | `x <- e` in `do`; `let` in `do` is pure | yes (lazy) |
 | Koka | `val x = e` | (no dependent types) | — | the **same** `val` syntax; the compiler uses the effect types to translate only effectful code into bind form | yes |
-| **Stitchwort today** | `(\x => b) v` inside `runPure` | **No** | (that's the default) | the same `let` syntax; becomes `Effect.bind` | yes (but via `Done`/`runPure`) |
+| **Stitchwort today** | `(x  => b) v` inside `runPure` | **No** | (that's the default) | the same `let` syntax; becomes `Effect.bind` | yes (but via `Done`/`runPure`) |
 
 Takeaways:
 
@@ -480,7 +480,7 @@ records the written type of the pure call that produces its result.
 pure-block case instead of handing it to `run_pure`).
 *Tests:* problem 2 (proof `let`) and problem 3 (`f (n + 5)` unfolds to
 `Decidable.elim … (_ => 0) …`) accepted; generated JS for `twice` has no
-`Done`/`runPure`; `let f := \u => get (); …` in a pure function is pure;
+`Done`/`runPure`; `let f := u  => get (); …` in a pure function is pure;
 an effectful value still binds with `Effect.bind`, and a pure value inside
 an effectful block doesn't; `grid.rolls` after an effectful `let`.
 *Size:* small, about 150-250 lines.

@@ -183,7 +183,7 @@ So the rules are:
 - Each recursive call is checked separately, including calls inside the arguments of another call (`hidden (rest (… (hidden (Call Choose rest)) …))` is refused).
 - A reference to the function being defined that isn't applied to all its arguments, such as passing it to a helper, is refused.
 
-**The fresh-wrapper invariant.** The review's example `loop t = match Call Later (\_ -> t) with … Call Later rest -> loop (rest ())` would make `rest ()` equal `t`. It can't arise, because in the core a `case` only appears at the top of a definition's body, on a variable. So every matched value is a parameter or a field of an earlier match, never a freshly built value. The kernel rejects a `case` anywhere else (`rejects_a_case_outside_a_case_tree`). **When `match` or `let` expressions are added, they must preserve this:** matching a value that isn't a parameter or a descendant gives fields of unknown relation.
+**The fresh-wrapper invariant.** The review's example `loop t = match Call Later (_  => t) with … Call Later rest -> loop (rest ())` would make `rest ()` equal `t`. It can't arise, because in the core a `case` only appears at the top of a definition's body, on a variable. So every matched value is a parameter or a field of an earlier match, never a freshly built value. The kernel rejects a `case` anywhere else (`rejects_a_case_outside_a_case_tree`). **When `match` or `let` expressions are added, they must preserve this:** matching a value that isn't a parameter or a descendant gives fields of unknown relation.
 
 **Refinement.**
 - Inside a branch, the constructor value is substituted for the matched variable in the goal and in every variable's type and value, including variables bound before it (`rest : res o` once `o` is matched).
@@ -201,7 +201,7 @@ These are must-reject tests in `examples/soundness/`:
 
 | Attempt | Rejected by |
 |---|---|
-| `forever u = Call Later (\v -> forever u)`, which with `drain` would prove `Void` | Termination: `u` isn't smaller |
+| `forever u = Call Later (v  => forever u)`, which with `drain` would prove `Void` | Termination: `u` isn't smaller |
 | A fake child: `loop ((b => Call o rest) True)` | Termination: the head isn't the field variable |
 | `Ping`: `bad (Call o rest) = bad (Call o rest)` | Termination: rebuilding the parameter isn't smaller |
 | A recursive call hidden inside an accepted call's argument | Termination: every call is checked |

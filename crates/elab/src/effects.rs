@@ -1825,7 +1825,7 @@ fn op_call(
     Ok((bind, result_ty))
 }
 
-/// `Call (op x) (\r -> Done r)`, with the operation injected at position
+/// `Call (op x) (r  => Done r)`, with the operation injected at position
 /// `pos` of `row`, and its result type.
 fn make_call(
     cx: &mut Ctx,
