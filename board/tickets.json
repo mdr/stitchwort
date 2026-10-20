@@ -1351,9 +1351,9 @@
     {
       "id": 90,
       "title": "Consider lambda syntax",
-      "status": "doing",
-      "agent": "Opus",
-      "where": "worktree",
+      "status": "review",
+      "agent": "Matt",
+      "where": "docs/proposals/lambda-syntax.md (draft 1)",
       "labels": [
         "syntax",
         "design"
