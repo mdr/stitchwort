@@ -1509,7 +1509,14 @@ impl<'g> Gen<'g> {
                 }
                 env.push(*erased);
             }
-            out.push_str(&self.tree(&b.body, env, depth, self_call)?);
+            match &b.body {
+                Some(body) => out.push_str(&self.tree(body, env, depth, self_call)?),
+                // An impossible branch (docs/proposals/indexed-families.md
+                // §6.8): never reached by a well-typed value.
+                None => {
+                    let _ = writeln!(out, "{pad}throw new Error(\"unreachable\");");
+                }
+            }
             env.truncate(level);
             Ok(())
         };
@@ -1546,7 +1553,10 @@ impl<'g> Gen<'g> {
             // its characters, in a loop, but only if `cs` is used.
             let level = env.len();
             env.push(false);
-            let body = self.tree(&branches[0].body, env, depth, self_call)?;
+            let body = match &branches[0].body {
+                Some(body) => self.tree(body, env, depth, self_call)?,
+                None => format!("{pad}throw new Error(\"unreachable\");\n"),
+            };
             env.truncate(level);
             if mentions(&body, &var(level)) {
                 let _ = writeln!(out, "{pad}const {} = charsOfText({scrutinee});", var(level));

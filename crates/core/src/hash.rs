@@ -141,6 +141,7 @@ pub fn data_hash(g: &Globals, id: DataId) -> Result<Option<ContentHash>> {
     for (_, ty) in &data.params {
         h.term(ty)?;
     }
+    h.indices(data)?;
     h.ctors(data)?;
     let hash = h.finish();
     g.hashes.borrow_mut().insert(HashKey::Data(id), hash);
@@ -240,6 +241,7 @@ fn data_group_hashes(g: &Globals, members: &[DataId]) -> Result<()> {
         let data = g.data(members[m]);
         h.tag("data");
         h.str(&data.path);
+        h.indices(data)?;
         h.ctors(data)?;
     }
     let group = h.finish();
@@ -313,6 +315,26 @@ impl<'g> Hasher<'g> {
                 self.str(name);
                 self.term(ty)?;
             }
+            // One per index, so none for a type without indices (whose hash
+            // is unchanged).
+            for r in &ctor.result {
+                self.term(r)?;
+            }
+        }
+        Ok(())
+    }
+
+    /// A data type's index telescope (docs/proposals/indexed-families.md
+    /// §6.9): nothing at all for a type without indices, so its hash is
+    /// what it was before indices existed.
+    fn indices(&mut self, data: &Data) -> Result<()> {
+        if data.indices.is_empty() {
+            return Ok(());
+        }
+        self.tag("indices");
+        self.usize(data.indices.len());
+        for (_, ty) in &data.indices {
+            self.term(ty)?;
         }
         Ok(())
     }
@@ -479,8 +501,14 @@ impl<'g> Hasher<'g> {
                     self.usize(*ix);
                     self.data_ref(*d)?;
                     self.usize(branches.len());
+                    // An impossible branch has no body, and is a tag no term
+                    // starts with.
                     for b in branches.iter() {
-                        pending.extend([Item::Usize(b.names.len()), Item::Term(&b.body)]);
+                        pending.push(Item::Usize(b.names.len()));
+                        pending.push(match &b.body {
+                            Some(body) => Item::Term(body),
+                            None => Item::Tag("impossible"),
+                        });
                     }
                 }
                 // Every number, every arm and the default, and `Nat` itself

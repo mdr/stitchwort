@@ -99,6 +99,12 @@ pub struct Data {
     pub path: Name,
     /// Parameter types, each in the context of the previous parameters.
     pub params: Vec<(Name, Term)>,
+    /// Index types (docs/proposals/indexed-families.md §6.1), each in the
+    /// context of the parameters and the previous indices. Empty for a type
+    /// without indices. `Term::Data` and `Value::Data` hold the parameters
+    /// then the indices. Unlike the parameters, each member of a group has
+    /// its own.
+    pub indices: Vec<(Name, Term)>,
     pub sort: Sort,
     pub ctors: Vec<Ctor>,
     /// Whether it was declared as a record (docs/proposals/records.md): one
@@ -156,6 +162,10 @@ pub struct Ctor {
     pub field_sorts: Vec<Sort>,
     /// Whether each field is erased at runtime (a proof or a type).
     pub field_erased: Vec<bool>,
+    /// The result's indices, in the context of the parameters and the
+    /// fields: one per index of the data type, so empty for a type without
+    /// indices. The result's parameters are always the type's own.
+    pub result: Vec<Term>,
 }
 
 /// A metavariable created by the elaborator. Solutions are closed values

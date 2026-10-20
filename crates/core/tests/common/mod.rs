@@ -71,7 +71,7 @@ pub fn case(ix: usize, d: DataId, branches: Vec<(Vec<&str>, Term)>) -> Term {
             .into_iter()
             .map(|(names, body)| Branch {
                 names: names.into_iter().map(Into::into).collect(),
-                body: Rc::new(body),
+                body: Some(Rc::new(body)),
             })
             .collect(),
     )
@@ -179,6 +179,7 @@ pub fn ctor(name: &str, fields: Vec<(&str, Term)>) -> CtorDecl {
             .into_iter()
             .map(|(x, t)| (x.into(), t, span()))
             .collect(),
+        result: Vec::new(),
     }
 }
 
@@ -192,4 +193,68 @@ pub fn define(g: &mut Globals, name: &str, ty: Term, body: Term) -> Result<DefId
     let id = check::declare_def(g, &name.into(), &ty, false, false, span()).map_err(|d| d.code)?;
     check::define_def(g, id, &body).map_err(|d| d.code)?;
     Ok(id)
+}
+
+// Indexed families (docs/proposals/indexed-families.md)
+
+/// Declares a data type with parameters and an index telescope.
+pub fn try_family(
+    g: &mut Globals,
+    name: &str,
+    params: Vec<(&str, Term)>,
+    indices: Vec<(&str, Term)>,
+    sort: Sort,
+) -> Result<DataId, stitchwort_syntax::Diagnostic> {
+    let ids = check::declare_indexed_data_group(
+        g,
+        params.into_iter().map(|(x, t)| (x.into(), t)).collect(),
+        sort,
+        vec![check::DataDecl {
+            name: name.into(),
+            span: span(),
+            record: false,
+            indices: indices.into_iter().map(|(x, t)| (x.into(), t)).collect(),
+        }],
+    )?;
+    Ok(ids[0])
+}
+
+pub fn family(
+    g: &mut Globals,
+    name: &str,
+    params: Vec<(&str, Term)>,
+    indices: Vec<(&str, Term)>,
+    sort: Sort,
+) -> DataId {
+    try_family(g, name, params, indices, sort).expect("the family's telescopes check")
+}
+
+/// A constructor with result indices, in the context of the parameters and
+/// the fields.
+pub fn ictor(name: &str, fields: Vec<(&str, Term)>, result: Vec<Term>) -> CtorDecl {
+    CtorDecl {
+        result,
+        ..ctor(name, fields)
+    }
+}
+
+/// A case whose branches may be impossible (no body).
+pub fn icase(ix: usize, d: DataId, branches: Vec<(Vec<&str>, Option<Term>)>) -> Term {
+    Term::Case(
+        ix,
+        d,
+        branches
+            .into_iter()
+            .map(|(names, body)| Branch {
+                names: names.into_iter().map(Into::into).collect(),
+                body: body.map(Rc::new),
+            })
+            .collect(),
+    )
+}
+
+impl Prelude {
+    pub fn succ(&self, t: Term) -> Term {
+        Term::ctor(self.nat, 1, vec![t])
+    }
 }

@@ -99,7 +99,7 @@ impl Gen<'_> {
                         let k = self.rng.below(3);
                         Branch {
                             names: (0..k).map(|_| "y".into()).collect(),
-                            body: Rc::new(self.term(depth - 1, scope + k)),
+                            body: Some(Rc::new(self.term(depth - 1, scope + k))),
                         }
                     })
                     .collect();

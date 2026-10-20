@@ -1001,8 +1001,17 @@ fn branch(
         }
         _ => return Ok(stuck_tree(stuck)),
     };
+    let Some(body) = branches[c].body.clone() else {
+        // An impossible branch is never reached by a well-typed value
+        // (docs/proposals/indexed-families.md §6.8). A run that reaches one
+        // anyway fails loudly; checking leaves the definition folded.
+        if g.erasure.active() {
+            panic!("internal error: unreachable: an impossible branch was reached");
+        }
+        return Ok(stuck_tree(stuck));
+    };
     env.extend(fields);
-    Ok(Control::Tree(branches[c].body.clone(), env, stuck))
+    Ok(Control::Tree(body, env, stuck))
 }
 
 /// A case tree that can't take a step: its definition stays folded.
@@ -1768,10 +1777,12 @@ fn same_term_layer<'v>(a: &'v Term, b: &'v Term, work: &mut Vec<Same<'v>>) -> bo
             }
             if !Rc::ptr_eq(br1, br2) {
                 for (x, y) in br1.iter().zip(br2.iter()) {
-                    if x.names.len() != y.names.len() {
-                        return false;
+                    match (&x.body, &y.body) {
+                        _ if x.names.len() != y.names.len() => return false,
+                        (Some(a), Some(b)) => both(a, b),
+                        (None, None) => {}
+                        _ => return false,
                     }
-                    both(&x.body, &y.body);
                 }
             }
             true

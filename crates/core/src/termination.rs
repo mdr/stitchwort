@@ -347,7 +347,11 @@ impl Walker<'_> {
                         .zip(&g.data(*d).ctors[c].fields)
                         .map(|(x, (_, ty))| (x.clone(), is_recursive_fn(g, ty, *d)))
                         .collect();
-                    let result = self.under(&fields, source, &branch.body);
+                    // An impossible branch has nothing to walk.
+                    let result = match &branch.body {
+                        Some(body) => self.under(&fields, source, body),
+                        None => Ok(()),
+                    };
                     self.matched.pop();
                     result?;
                 }

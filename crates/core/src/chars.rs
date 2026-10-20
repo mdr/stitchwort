@@ -180,6 +180,7 @@ pub fn register(g: &mut Globals, list: DataId, char: DataId) -> bool {
         let data = g.data(d);
         data.state == State::Final
             && data.params.len() == params
+            && data.indices.is_empty()
             && data.sort == Sort::Type(0)
             && data
                 .ctors

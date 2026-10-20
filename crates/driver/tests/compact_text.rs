@@ -818,11 +818,11 @@ fn a_compact_list_is_never_a_smaller_argument() {
                 vec![
                     Branch {
                         names: vec![],
-                        body: Rc::new(Term::Nat(Rc::new(BigUint::from(0u32)))),
+                        body: Some(Rc::new(Term::Nat(Rc::new(BigUint::from(0u32))))),
                     },
                     Branch {
                         names: vec!["c".into(), "rest".into()],
-                        body: Rc::new(Term::app(Term::Def(id), recurse)),
+                        body: Some(Rc::new(Term::app(Term::Def(id), recurse))),
                     },
                 ]
                 .into(),

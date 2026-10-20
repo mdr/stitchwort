@@ -20,6 +20,7 @@ pub mod sct;
 pub mod step;
 pub mod term;
 pub mod termination;
+pub mod unify_index;
 pub mod value;
 
 pub use budget::{Limits, ResourceError};

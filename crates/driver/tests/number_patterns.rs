@@ -265,15 +265,15 @@ fn a_number_case_is_no_evidence_for_termination_but_keeps_what_came_before() {
             vec![
                 Branch {
                     names: vec![],
-                    body: Rc::new(num(0)),
+                    body: Some(Rc::new(num(0))),
                 },
                 Branch {
                     names: vec!["m".into()],
-                    body: Rc::new(num_case(
+                    body: Some(Rc::new(num_case(
                         0,
                         vec![(3, call(id, Term::Var(0)))],
                         call(id, Term::Var(0))
-                    )),
+                    ))),
                 },
             ]
             .into(),
@@ -409,7 +409,7 @@ fn expand(g: &Globals, term: &Term) -> Term {
                 .iter()
                 .map(|b| Branch {
                     names: b.names.clone(),
-                    body: Rc::new(expand(g, &b.body)),
+                    body: b.body.as_ref().map(|body| Rc::new(expand(g, body))),
                 })
                 .collect(),
         ),
@@ -446,11 +446,11 @@ fn chain(g: &Globals, ix: usize, arms: &[(BigUint, Term)], default: &Term, j: us
         vec![
             Branch {
                 names: vec![],
-                body: Rc::new(zero),
+                body: Some(Rc::new(zero)),
             },
             Branch {
                 names: vec!["p".into()],
-                body: Rc::new(succ),
+                body: Some(Rc::new(succ)),
             },
         ]
         .into(),

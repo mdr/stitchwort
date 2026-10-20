@@ -293,6 +293,7 @@ impl Elaborator {
                     .iter()
                     .map(|p| (p.name.clone(), p.ty.clone(), m.span))
                     .collect(),
+                result: Vec::new(),
             })
             .collect();
         kernel::define_data_group(&mut self.globals, vec![(req, ctors)])
@@ -316,7 +317,7 @@ impl Elaborator {
                     Ok(stitchwort_core::term::Branch {
                         names: m.params[f..].iter().map(|p| p.name.clone()).collect(),
                         // From (fixed, changing) to (fixed, r, changing).
-                        body: Rc::new(m.result.shift(&self.globals, 1, c)?),
+                        body: Some(Rc::new(m.result.shift(&self.globals, 1, c)?)),
                     })
                 })
                 .collect::<Result<_>>()?;
@@ -530,7 +531,7 @@ impl Elaborator {
                     );
                     stitchwort_core::term::Branch {
                         names: m.params[f..].iter().map(|p| p.name.clone()).collect(),
-                        body: Rc::new(apps(Term::Def(*desc), args)),
+                        body: Some(Rc::new(apps(Term::Def(*desc), args))),
                     }
                 })
                 .collect();

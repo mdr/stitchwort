@@ -644,7 +644,13 @@ pub(crate) fn zonk_in(
                 .map(|b| {
                     Ok(stitchwort_core::term::Branch {
                         names: b.names.clone(),
-                        body: Rc::new(zonk_keeping(g, level + b.names.len(), &b.body, keep)?),
+                        body: b
+                            .body
+                            .as_ref()
+                            .map(|body| {
+                                zonk_keeping(g, level + b.names.len(), body, keep).map(Rc::new)
+                            })
+                            .transpose()?,
                     })
                 })
                 .collect::<std::result::Result<_, ZonkError>>()?,
@@ -996,14 +1002,14 @@ mod tests {
             stitchwort_core::DataId(0),
             vec![stitchwort_core::term::Branch {
                 names: vec!["a".into(), "b".into()],
-                body: Rc::new(Term::app(Term::Meta(id), Term::Var(0))),
+                body: Some(Rc::new(Term::app(Term::Meta(id), Term::Var(0)))),
             }]
             .into(),
         );
         match zonk(&g, 1, &branch) {
             Ok(Term::Case(_, _, ref branches)) => {
                 assert!(
-                    matches!(*branches[0].body, Term::Var(0)),
+                    matches!(branches[0].body.as_deref(), Some(Term::Var(0))),
                     "{:?}",
                     branches[0].body
                 );

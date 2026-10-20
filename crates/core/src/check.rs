@@ -12,6 +12,7 @@ use crate::globals::{Ctor, Data, Def, FieldValidator, Globals, State, Validator}
 use crate::pretty;
 use crate::term::{Branch, DataId, DefId, Icit, Name, NumArm, Sort, Term};
 use crate::termination;
+use crate::unify_index::{Constraint, Outcome, Reason, Scope, unify};
 use crate::value::{Value, apply, conv, eval, quote, unused};
 
 type Result<T> = std::result::Result<T, Diagnostic>;
@@ -237,18 +238,30 @@ pub fn infer(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
             let Some(data) = g.datas.get(d.0) else {
                 return Err(malformed(cx, "reference to an unknown data type"));
             };
-            if args.len() != data.params.len() {
-                return Err(malformed(
-                    cx,
-                    format!("`{}` needs {} parameter(s)", data.name, data.params.len()),
-                ));
+            if args.len() != data.params.len() + data.indices.len() {
+                let wanted = if data.indices.is_empty() {
+                    format!("{} parameter(s)", data.params.len())
+                } else {
+                    format!(
+                        "{} parameter(s) and {} index(es)",
+                        data.params.len(),
+                        data.indices.len()
+                    )
+                };
+                return Err(malformed(cx, format!("`{}` needs {wanted}", data.name)));
             }
+            // The parameters then the indices: one telescope.
+            let telescope: std::borrow::Cow<[(Name, Term)]> = if data.indices.is_empty() {
+                std::borrow::Cow::Borrowed(&data.params)
+            } else {
+                std::borrow::Cow::Owned(data.params.iter().chain(&data.indices).cloned().collect())
+            };
             let mut params = Vec::new();
             let mut out = Vec::new();
-            for (i, ((_, param_ty), arg)) in data.params.iter().zip(args).enumerate() {
+            for (i, ((_, param_ty), arg)) in telescope.iter().zip(args).enumerate() {
                 let ty = eval(g, &params, param_ty)?;
                 let arg = check(cx, arg, &ty)?;
-                params.push(if later_types_mention(&data.params, i) {
+                params.push(if later_types_mention(&telescope, i) {
                     cx.eval(&arg)?
                 } else {
                     unused()
@@ -355,9 +368,28 @@ pub fn infer(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
         }
         Term::J(motive, base, proof) => infer_j(cx, motive, base, proof),
         // A constructor of a data type without parameters has only one possible type.
-        Term::Ctor(d, _, _) if g.datas.get(d.0).is_some_and(|d| d.params.is_empty()) => {
+        Term::Ctor(d, _, _)
+            if g.datas
+                .get(d.0)
+                .is_some_and(|d| d.params.is_empty() && d.indices.is_empty()) =>
+        {
             let ty = Value::Data(*d, Vec::new());
             Ok((check(cx, term, &ty)?, ty))
+        }
+        // With indices but no parameters, its type is the type applied to
+        // its result indices.
+        Term::Ctor(d, c, args) if g.datas.get(d.0).is_some_and(|d| d.params.is_empty()) => {
+            if *c >= g.data(*d).ctors.len() {
+                return Err(malformed(cx, "reference to an unknown constructor"));
+            }
+            let (out, env) = check_ctor_fields(cx, *d, *c, Vec::new(), args)?;
+            let ctor = &g.data(*d).ctors[*c];
+            let indices = ctor
+                .result
+                .iter()
+                .map(|r| eval(g, &env, r))
+                .collect::<budget::Result<Vec<Value>>>()?;
+            Ok((Term::ctor(*d, *c, out), Value::Data(*d, indices)))
         }
         Term::Meta(_) => Err(malformed(cx, "unsolved metavariable")),
         Term::Lam(..) | Term::Ctor(..) | Term::Refl | Term::Case(..) | Term::NumCase(..) => Err(cx
@@ -397,25 +429,41 @@ pub fn check(cx: &mut Ctx, term: &Term, expected: &Value) -> Result<Term> {
         (Term::Ctor(d, c, _), _) if g.datas.get(d.0).and_then(|d| d.ctors.get(*c)).is_none() => {
             Err(malformed(cx, "reference to an unknown constructor"))
         }
-        (Term::Ctor(d, c, args), Value::Data(d2, params)) if d == d2 => {
-            let ctor = &g.data(*d).ctors[*c];
-            if args.len() != ctor.fields.len() {
+        (Term::Ctor(d, c, args), Value::Data(d2, type_args)) if d == d2 => {
+            let data = g.data(*d);
+            let np = data.params.len();
+            if type_args.len() != np + data.indices.len() {
                 return Err(malformed(
                     cx,
-                    format!("`{}` needs {} field(s)", ctor.name, ctor.fields.len()),
+                    "a data type with the wrong number of arguments",
                 ));
             }
-            let mut env = params.clone();
-            let mut out = Vec::new();
-            for (i, ((_, field_ty), arg)) in ctor.fields.iter().zip(args).enumerate() {
-                let ty = eval(g, &env, field_ty)?;
-                let arg = check(cx, arg, &ty)?;
-                env.push(if later_types_mention(&ctor.fields, i) {
-                    cx.eval(&arg)?
-                } else {
-                    unused()
-                });
-                out.push(arg);
+            let (params, indices) = type_args.split_at(np);
+            let (out, env) = check_ctor_fields(cx, *d, *c, params.to_vec(), args)?;
+            // The constructor's result indices, with the parameters and
+            // fields substituted, must be the expected type's.
+            let ctor = &data.ctors[*c];
+            for (r, expected_index) in ctor.result.iter().zip(indices) {
+                let found = eval(g, &env, r)?;
+                if !cx.conv(&found, expected_index)? {
+                    let found_indices = ctor
+                        .result
+                        .iter()
+                        .map(|r| eval(g, &env, r))
+                        .collect::<budget::Result<Vec<Value>>>()?;
+                    let found_ty =
+                        Value::Data(*d, params.iter().cloned().chain(found_indices).collect());
+                    return Err(cx.error(
+                        "E-TYPE-MISMATCH",
+                        "type mismatch",
+                        format!(
+                            "`{}` builds a `{}`, but the expected type is `{}`",
+                            ctor.name,
+                            cx.show(&found_ty),
+                            cx.show(expected)
+                        ),
+                    ));
+                }
             }
             Ok(Term::ctor(*d, *c, out))
         }
@@ -471,6 +519,37 @@ pub fn check(cx: &mut Ctx, term: &Term, expected: &Value) -> Result<Term> {
             }
         }
     }
+}
+
+/// Checks the fields `args` of constructor `c` of `d`, with `params` for the
+/// data type's parameters. Returns the checked fields, and the parameters
+/// followed by the fields' values: the context the constructor's result
+/// indices are in. A field's value is computed only if a later field's type
+/// or a result index mentions it.
+fn check_ctor_fields(
+    cx: &mut Ctx,
+    d: DataId,
+    c: usize,
+    params: Vec<Value>,
+    args: &[Rc<Term>],
+) -> Result<(Vec<Term>, Vec<Value>)> {
+    let g = cx.g;
+    let ctor = &g.data(d).ctors[c];
+    let n = ctor.fields.len();
+    if args.len() != n {
+        return Err(malformed(cx, format!("`{}` needs {n} field(s)", ctor.name)));
+    }
+    let mut env = params;
+    let mut out = Vec::new();
+    for (i, ((_, field_ty), arg)) in ctor.fields.iter().zip(args).enumerate() {
+        let ty = eval(g, &env, field_ty)?;
+        let arg = check(cx, arg, &ty)?;
+        let needed = later_types_mention(&ctor.fields, i)
+            || ctor.result.iter().any(|r| r.mentions(n - 1 - i));
+        env.push(if needed { cx.eval(&arg)? } else { unused() });
+        out.push(arg);
+    }
+    Ok((out, env))
 }
 
 pub fn check_type(cx: &mut Ctx, term: &Term) -> Result<(Term, Sort)> {
@@ -568,6 +647,15 @@ fn motive_error(cx: &Ctx) -> Diagnostic {
     )
 }
 
+/// `Case(x, D, branches) ⇐ G`, where `x : D ps is` (docs/core.md "Case
+/// trees"; docs/proposals/indexed-families.md §6.3). In the branch for each
+/// constructor: its fields are bound, its result indices are unified with
+/// `is` (for a type with indices), the solutions refine the whole context
+/// and the goal, and then `x` *is* the constructor value, which is
+/// substituted likewise. A branch whose indices conflict is impossible and
+/// must have no body; every other branch must have one, checked in the
+/// refined context against the refined goal. If unification is stuck, the
+/// case is refused (`E-INDEX-STUCK`).
 fn check_case(
     cx: &mut Ctx,
     ix: usize,
@@ -594,8 +682,8 @@ fn check_case(
             format!("a match on `{}`, which isn't finished", data.name),
         ));
     }
-    let params = match &cx.types[x] {
-        Value::Data(d2, params) if *d2 == d => params.clone(),
+    let args = match &cx.types[x] {
+        Value::Data(d2, args) if *d2 == d => args.clone(),
         other => {
             return Err(cx.error(
                 "E-TYPE-MISMATCH",
@@ -609,6 +697,12 @@ fn check_case(
             ));
         }
     };
+    if args.len() != data.params.len() + data.indices.len() {
+        return Err(malformed(
+            cx,
+            "a data type with the wrong number of arguments",
+        ));
+    }
     if branches.len() != data.ctors.len() {
         return Err(cx.error(
             "E-NONEXHAUSTIVE",
@@ -616,6 +710,23 @@ fn check_case(
             format!("`{}` has {} constructors", data.name, data.ctors.len()),
         ));
     }
+    if let Some((ctor, branch)) = data
+        .ctors
+        .iter()
+        .zip(branches)
+        .find(|(ctor, branch)| ctor.fields.len() != branch.names.len())
+    {
+        return Err(malformed(
+            cx,
+            format!(
+                "the `{}` branch binds {} field(s), but it has {}",
+                ctor.name,
+                branch.names.len(),
+                ctor.fields.len()
+            ),
+        ));
+    }
+    let goal_term = cx.quote(goal)?;
     if data.sort == Sort::Prop && sort_of(cx, goal)? != Sort::Prop {
         // Like Lean, propositions defined together never eliminate into
         // data: a deliberately conservative rule
@@ -626,7 +737,9 @@ fn check_case(
                 .ctors
                 .iter()
                 .all(|c| c.field_sorts.iter().all(|s| *s == Sort::Prop));
-        if !subsingleton {
+        // A case whose every branch is impossible is never reached, so it
+        // may produce anything (docs/proposals/indexed-families.md §6.4).
+        if !subsingleton && !every_branch_impossible(cx, x, d, &args, branches, &goal_term)? {
             let note = if data.group.len() > 1 {
                 format!(
                     "`{}` is a proposition, so its proofs are erased at runtime. It's defined \
@@ -652,61 +765,219 @@ fn check_case(
         }
     }
 
-    if let Some((ctor, branch)) = data
-        .ctors
-        .iter()
-        .zip(branches)
-        .find(|(ctor, branch)| ctor.fields.len() != branch.names.len())
-    {
-        return Err(malformed(
-            cx,
-            format!(
-                "the `{}` branch binds {} field(s), but it has {}",
-                ctor.name,
-                branch.names.len(),
-                ctor.fields.len()
-            ),
-        ));
-    }
-
-    let goal_term = cx.quote(goal)?;
     let mut out = Vec::new();
     for (c, (ctor, branch)) in data.ctors.iter().zip(branches).enumerate() {
-        let base = cx.level();
-        let fields: Vec<Value> = (0..ctor.fields.len())
-            .map(|i| Value::var(base + i))
-            .collect();
-        // Inside the branch, the matched variable *is* the constructor value,
-        // so it's substituted into the goal and the whole context.
-        let value = Value::Ctor(d, c, fields.clone().into());
-        let level = cx.level();
-        let mut env = substitute(g, level, x, &value, &cx.env)?;
-        env[x] = value.clone();
-        let refined_types = substitute(g, level, x, &value, &cx.types)?;
-        let branch_goal = substitute(g, level, x, &value, &[eval(g, &cx.env, &goal_term)?])?
-            .pop()
-            .expect("one value in, one out");
-        let saved_env = std::mem::replace(&mut cx.env, env);
-        let saved_types = std::mem::replace(&mut cx.types, refined_types);
-
-        let mut field_env = params.clone();
-        for ((_, field_ty), (name, field)) in
-            ctor.fields.iter().zip(branch.names.iter().zip(&fields))
-        {
-            let ty = eval(g, &field_env, field_ty)?;
-            field_env.push(field.clone());
-            cx.bind(name.clone(), ty);
-        }
-        let result = check(cx, &branch.body, &branch_goal);
+        let (saved_env, saved_types, branch_goal) =
+            enter_branch(cx, x, d, c, &args, &branch.names, &goal_term)?;
+        let result = match (&branch_goal, &branch.body) {
+            (Some(goal), Some(body)) => check(cx, body, goal).map(|b| Some(Rc::new(b))),
+            (None, None) => Ok(None),
+            (Some(_), None) => Err(malformed(
+                cx,
+                format!(
+                    "the `{}` branch is marked impossible, but `{}` can be here: its indices \
+                     unify with `{}`'s",
+                    ctor.name, ctor.name, cx.names[x]
+                ),
+            )),
+            (None, Some(_)) => Err(malformed(
+                cx,
+                format!(
+                    "the `{}` branch has a body, but `{}` can't be here: its indices conflict \
+                     with `{}`'s",
+                    ctor.name, ctor.name, cx.names[x]
+                ),
+            )),
+        };
         cx.unbind(ctor.fields.len());
         cx.env = saved_env;
         cx.types = saved_types;
         out.push(Branch {
             names: branch.names.clone(),
-            body: Rc::new(result?),
+            body: result?,
         });
     }
     Ok(Term::Case(ix, d, out.into()))
+}
+
+/// Whether every branch of a case on `x` (of type `d` applied to `args`)
+/// is impossible: each constructor's indices conflict with the scrutinee's.
+fn every_branch_impossible(
+    cx: &mut Ctx,
+    x: usize,
+    d: DataId,
+    args: &[Value],
+    branches: &[Branch],
+    goal_term: &Term,
+) -> Result<bool> {
+    let g = cx.g;
+    if g.data(d).indices.is_empty() {
+        return Ok(g.data(d).ctors.is_empty());
+    }
+    for (c, branch) in branches.iter().enumerate() {
+        let (saved_env, saved_types, goal) =
+            enter_branch(cx, x, d, c, args, &branch.names, goal_term)?;
+        cx.unbind(branch.names.len());
+        cx.env = saved_env;
+        cx.types = saved_types;
+        if goal.is_some() {
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}
+
+/// Enters branch `c` of a case on variable `x`, of type `d` applied to
+/// `args` (docs/proposals/indexed-families.md §6.3.4), in this order:
+///
+/// 1. binds the constructor's fields, named `names`;
+/// 2. for a type with indices, unifies the constructor's result indices
+///    with the scrutinee's ([`unify`]), each solution refining the whole
+///    context and the goal;
+/// 3. unless that found a conflict, substitutes `x := c fields` in the
+///    context and the goal.
+///
+/// Returns the context as it was before, to restore after the branch, and
+/// the refined goal, or `None` if the branch is impossible. The fields stay
+/// bound. On an error, the context is left as it was.
+fn enter_branch(
+    cx: &mut Ctx,
+    x: usize,
+    d: DataId,
+    c: usize,
+    args: &[Value],
+    names: &[Name],
+    goal_term: &Term,
+) -> Result<(Vec<Value>, Vec<Value>, Option<Value>)> {
+    let base = cx.level();
+    let saved_env = cx.env.clone();
+    let saved_types = cx.types.clone();
+    match refine_branch(cx, x, d, c, args, names, goal_term) {
+        Ok(goal) => Ok((saved_env, saved_types, goal)),
+        Err(e) => {
+            cx.env = saved_env;
+            cx.types = saved_types;
+            cx.names.truncate(base);
+            cx.pending.truncate(base);
+            Err(e)
+        }
+    }
+}
+
+/// The work of [`enter_branch`], which may leave the context half refined
+/// on an error.
+fn refine_branch(
+    cx: &mut Ctx,
+    x: usize,
+    d: DataId,
+    c: usize,
+    args: &[Value],
+    names: &[Name],
+    goal_term: &Term,
+) -> Result<Option<Value>> {
+    let g = cx.g;
+    let data = g.data(d);
+    let ctor = &data.ctors[c];
+    let (params, indices) = args.split_at(data.params.len());
+    let mut goal = eval(g, &cx.env, goal_term)?;
+    let base = cx.level();
+    // 1. The fields, bound after everything in scope.
+    let mut field_env = params.to_vec();
+    for ((_, field_ty), name) in ctor.fields.iter().zip(names) {
+        let ty = eval(g, &field_env, field_ty)?;
+        field_env.push(Value::var(cx.level()));
+        cx.bind(name.clone(), ty);
+    }
+    // 2. The indices.
+    if !data.indices.is_empty() {
+        let result = ctor
+            .result
+            .iter()
+            .map(|r| eval(g, &field_env, r))
+            .collect::<budget::Result<Vec<Value>>>()?;
+        let mut scope = Scope {
+            env: std::mem::take(&mut cx.env),
+            types: std::mem::take(&mut cx.types),
+            extra: vec![goal],
+            rigid: vec![x],
+        };
+        let outcome = unify(
+            g,
+            &mut scope,
+            &data.indices,
+            params.to_vec(),
+            indices.to_vec(),
+            result,
+        );
+        cx.env = scope.env;
+        cx.types = scope.types;
+        goal = scope.extra.pop().expect("the goal");
+        match outcome? {
+            Outcome::Solved(_) => {}
+            Outcome::Conflict(_) => return Ok(None),
+            Outcome::Stuck(constraint, reason) => {
+                return Err(index_stuck(cx, x, &ctor.name, &constraint, &reason));
+            }
+        }
+    }
+    // 3. The matched variable *is* the constructor value, with the fields
+    // as the solutions left them. Neither the fields' types nor the
+    // solutions mention `x`, so only what was in scope before needs it.
+    let fields: Vec<Value> = cx.env[base..].to_vec();
+    let value = Value::Ctor(d, c, fields.into());
+    let level = cx.level();
+    let mut env = substitute(g, level, x, &value, &cx.env[..base])?;
+    env[x] = value.clone();
+    env.extend_from_slice(&cx.env[base..]);
+    let mut types = substitute(g, level, x, &value, &cx.types[..base])?;
+    types.extend_from_slice(&cx.types[base..]);
+    let goal = substitute(g, level, x, &value, &[goal])?
+        .pop()
+        .expect("one value in, one out");
+    cx.env = env;
+    cx.types = types;
+    Ok(Some(goal))
+}
+
+/// `E-INDEX-STUCK`: unification for constructor `ctor` of a case on `x`
+/// got stuck at `constraint`.
+fn index_stuck(
+    cx: &Ctx,
+    x: usize,
+    ctor: &Name,
+    constraint: &Constraint,
+    reason: &Reason,
+) -> Diagnostic {
+    let (lhs, rhs) = (cx.show(&constraint.lhs), cx.show(&constraint.rhs));
+    let note = match reason {
+        Reason::NotConstructor => format!(
+            "`{lhs}` and `{rhs}` aren't both constructors, and neither is a variable that can \
+             be solved; matching works when each index is a variable or built from \
+             constructors"
+        ),
+        Reason::TypeFormer => "types aren't taken apart by matching".to_string(),
+        Reason::Occurs => {
+            "solving it would make a variable contain itself (or its own type)".to_string()
+        }
+        Reason::Proof => format!(
+            "they're proofs of `{}`, and matching never takes proofs apart",
+            cx.show(&constraint.ty)
+        ),
+        Reason::TypesDiffer { ty_right } => format!(
+            "their types, `{}` and `{}`, aren't known to be the same",
+            cx.show(&constraint.ty),
+            cx.show(ty_right)
+        ),
+    };
+    cx.error(
+        "E-INDEX-STUCK",
+        format!("can't tell whether `{ctor}` can be here"),
+        format!(
+            "matching `{}` against `{ctor}` needs `{lhs} = {rhs}`",
+            cx.names[x]
+        ),
+    )
+    .with_note(note)
 }
 
 /// `NumCase(x, arms, default) ⇐ G`: `x` must be a variable of type `Nat`,
@@ -1057,7 +1328,44 @@ pub fn declare_data_group_as(
     sort: Sort,
     members: Vec<(Name, Span, bool)>,
 ) -> Result<Vec<DataId>> {
-    let Some(&(_, span, _)) = members.first() else {
+    let members = members
+        .into_iter()
+        .map(|(name, span, record)| DataDecl {
+            name,
+            span,
+            record,
+            indices: Vec::new(),
+        })
+        .collect();
+    declare_indexed_data_group(g, params, sort, members)
+}
+
+/// A member of a data group, for [`declare_indexed_data_group`].
+pub struct DataDecl {
+    pub name: Name,
+    pub span: Span,
+    /// Whether it's a record (see [`declare_data_group_as`]). A record can't
+    /// have indices.
+    pub record: bool,
+    /// Its index telescope, in the context of the group's parameters: each
+    /// index's type may mention the earlier ones
+    /// (docs/proposals/indexed-families.md §6.1).
+    pub indices: Vec<(Name, Term)>,
+}
+
+/// [`declare_data_group_as`], with an index telescope for each member, so
+/// that a member's type is `(params) -> (indices) -> sort`. Each index's
+/// type is checked in the context of the parameters and the earlier
+/// indices, and must fit in the group's universe, exactly as a
+/// constructor's field must (§6.2, §6.6): `Ty: Type -> Type` is refused
+/// (`E-UNIVERSE`), `Ty: Type -> Type 1` accepted.
+pub fn declare_indexed_data_group(
+    g: &mut Globals,
+    params: Vec<(Name, Term)>,
+    sort: Sort,
+    members: Vec<DataDecl>,
+) -> Result<Vec<DataId>> {
+    let Some(span) = members.first().map(|m| m.span) else {
         return Err(Diagnostic::error(
             "E-MALFORMED",
             "malformed core term: an empty group of data types",
@@ -1073,16 +1381,66 @@ pub fn declare_data_group_as(
         cx.bind(x.clone(), value);
         checked.push((x, ty));
     }
+    let mut member_indices = Vec::new();
+    for member in &members {
+        cx.span = member.span;
+        if member.record && !member.indices.is_empty() {
+            return Err(malformed(
+                &cx,
+                format!("`{}` is a record, so it can't have indices", member.name),
+            ));
+        }
+        admissible(&cx, member.indices.iter().map(|(_, ty)| ty), None)?;
+        let mut indices = Vec::new();
+        for (x, ty) in &member.indices {
+            if !case_only_in_tree(ty, false) {
+                return Err(malformed(
+                    &cx,
+                    "`case` may only appear at the top of a definition",
+                ));
+            }
+            let (ty, index_sort) = check_type(&mut cx, ty)?;
+            if !index_sort.fits_in(sort) {
+                return Err(cx
+                    .error(
+                        "E-UNIVERSE",
+                        format!("index `{x}` is too large for `{}`", member.name),
+                        format!(
+                            "its type is in `{}`, but `{}` is in `{}`",
+                            pretty::term(g, &[], &Term::Sort(index_sort)),
+                            member.name,
+                            pretty::term(g, &[], &Term::Sort(sort))
+                        ),
+                    )
+                    .with_note(
+                        "an index's type must fit in the data type's universe, as a field's \
+                         must: a type indexed by types lives one universe up",
+                    ));
+            }
+            let value = cx.eval(&ty)?;
+            cx.bind(x.clone(), value);
+            indices.push((x.clone(), ty));
+        }
+        cx.unbind(indices.len());
+        member_indices.push(indices);
+    }
     let (defs_before, datas_before) = (g.defs.len(), g.datas.len());
     let group: Rc<[DataId]> = (0..members.len())
         .map(|i| DataId(datas_before + i))
         .collect();
-    for (name, span, record) in members {
+    for (
+        DataDecl {
+            name, span, record, ..
+        },
+        indices,
+    ) in members.into_iter().zip(member_indices)
+    {
         let path = g.path(&name);
         g.datas.push(Data {
             name,
             path,
             params: checked.clone(),
+            indices,
             sort,
             ctors: Vec::new(),
             record,
@@ -1100,6 +1458,10 @@ pub fn declare_data_group_as(
 pub struct CtorDecl {
     pub name: Name,
     pub fields: Vec<(Name, Term, Span)>,
+    /// The result's indices, in the context of the parameters and the
+    /// fields: one per index of the data type (none for a type without
+    /// indices).
+    pub result: Vec<Term>,
 }
 
 /// Checks and adds the constructors of a data type added by
@@ -1266,7 +1628,8 @@ fn admit_data_group(
                         ),
                     ));
                 }
-                if let Some((found, how)) = not_positive(&ty, group, cx.level()) {
+                if let Some((found, how)) = not_positive(&ty, group, first.params.len(), cx.level())
+                {
                     return Err(not_positive_error(&cx, &x, found, how, group));
                 }
                 let value = cx.eval(&ty)?;
@@ -1275,12 +1638,15 @@ fn admit_data_group(
                 fields.push((x, ty));
                 field_sorts.push(sort);
             }
+            let result = check_result_indices(&mut cx, d, group, &ctor.name, ctor.result)?;
+            failed = failed.or(result.1);
             cx.unbind(fields.len());
             checked.push(Ctor {
                 name: ctor.name,
                 fields,
                 field_sorts,
                 field_erased,
+                result: result.0,
             });
         }
         out.push((d, checked));
@@ -1289,6 +1655,76 @@ fn admit_data_group(
         Some(dep) => Err(failed_dependency(&cx, &first.name, &dep)),
         None => Ok(out),
     }
+}
+
+/// Checks constructor `name`'s result indices `result` against data type
+/// `d`'s index telescope, in a context of the parameters and the fields
+/// (docs/proposals/indexed-families.md §6.1, §6.2): one per index, each
+/// against its index's type with the parameters and the earlier result
+/// indices substituted. No member of the group may occur in them. Also a
+/// failed declaration they refer to, if any.
+fn check_result_indices(
+    cx: &mut Ctx,
+    d: DataId,
+    group: &[DataId],
+    name: &Name,
+    result: Vec<Term>,
+) -> Result<(Vec<Term>, Option<Name>)> {
+    let g = cx.g;
+    let data = g.data(d);
+    if result.len() != data.indices.len() {
+        return Err(malformed(
+            cx,
+            format!(
+                "`{name}`'s result has {} index(es), but `{}` has {}",
+                result.len(),
+                data.name,
+                data.indices.len()
+            ),
+        ));
+    }
+    let failed = admissible(cx, &result, Some(Itself::DataGroup(group)))?;
+    // The parameters are the first variables in scope.
+    let mut env: Vec<Value> = (0..data.params.len()).map(Value::var).collect();
+    let mut out = Vec::new();
+    for ((x, index_ty), r) in data.indices.iter().zip(result) {
+        if !case_only_in_tree(&r, false) {
+            return Err(malformed(
+                cx,
+                "`case` may only appear at the top of a definition",
+            ));
+        }
+        if let Some(later) = declared_later(g, &r, d) {
+            return Err(cx.error(
+                "E-POSITIVITY",
+                format!(
+                    "`{name}`'s result uses {later}, which was declared after `{}`",
+                    data.name
+                ),
+                "declared later",
+            ));
+        }
+        if let Some(found) = occurs(&r, group) {
+            return Err(cx
+                .error(
+                    "E-POSITIVITY",
+                    format!(
+                        "`{}` is used in a constructor's result indices",
+                        g.data(found).name
+                    ),
+                    format!("`{name}`'s index `{x}` mentions `{}`", g.data(found).name),
+                )
+                .with_note(
+                    "a constructor's result indices can't mention the type being defined, or \
+                     the types defined with it",
+                ));
+        }
+        let ty = eval(g, &env, index_ty)?;
+        let r = check(cx, &r, &ty)?;
+        env.push(cx.eval(&r)?);
+        out.push(r);
+    }
+    Ok((out, failed))
 }
 
 /// Marks every pending declaration failed. For an elaborator that gives up
@@ -1472,7 +1908,11 @@ fn case_only_in_tree(term: &Term, in_tree: bool) -> bool {
                 if !in_tree {
                     return false;
                 }
-                pending.extend(branches.iter().map(|b| (&*b.body, true)));
+                pending.extend(
+                    branches
+                        .iter()
+                        .filter_map(|b| Some((&**b.body.as_ref()?, true))),
+                );
             }
             Term::NumCase(_, arms, default) => {
                 if !in_tree {
@@ -1496,25 +1936,40 @@ enum Occurrence {
     Input,
     /// Applied to something other than the group's parameters.
     OtherParameters,
+    /// In the indices of a member (docs/proposals/indexed-families.md §6.2).
+    InIndex,
     /// Inside another type (a nested occurrence, like `List Rose`), or
     /// anywhere else.
     Inside,
 }
 
 /// Strict positivity across a data group: each member may appear in a
-/// field's type only as itself applied to the group's parameters, possibly
-/// as the result of a function whose inputs mention no member. The member
-/// that doesn't, if one doesn't (the first found), and how it occurs.
-fn not_positive(ty: &Term, group: &[DataId], depth: usize) -> Option<(DataId, Occurrence)> {
+/// field's type only as itself applied to the group's `params` parameters
+/// and then to indices that mention no member, possibly as the result of a
+/// function whose inputs mention no member. The member that doesn't, if one
+/// doesn't (the first found), and how it occurs.
+fn not_positive(
+    ty: &Term,
+    group: &[DataId],
+    params: usize,
+    depth: usize,
+) -> Option<(DataId, Occurrence)> {
     let (mut ty, mut depth) = (ty, depth);
     loop {
         let found = occurs(ty, group)?;
         match ty.strip_loc() {
             Term::Data(d2, args) if group.contains(d2) => {
-                let own_params = args.iter().enumerate().all(
+                let (own, indices) = args.split_at(params.min(args.len()));
+                let own_params = own.iter().enumerate().all(
                     |(j, arg)| matches!(arg.strip_loc(), Term::Var(ix) if depth - 1 - ix == j),
                 );
-                return (!own_params).then_some((*d2, Occurrence::OtherParameters));
+                if !own_params {
+                    return Some((*d2, Occurrence::OtherParameters));
+                }
+                return indices
+                    .iter()
+                    .find_map(|i| occurs(i, group))
+                    .map(|d3| (d3, Occurrence::InIndex));
             }
             Term::Pi(_, _, dom, cod) => match occurs(dom, group) {
                 Some(d2) => return Some((d2, Occurrence::Input)),
@@ -1576,6 +2031,16 @@ fn not_positive_error(
                          it's declared with, as written"
                     .to_string(),
             }),
+        Occurrence::InIndex => cx
+            .error(
+                "E-POSITIVITY",
+                format!("`{name}` is used in an index"),
+                format!("field `{x}` has `{name}` among a type's indices"),
+            )
+            .with_note(
+                "in a constructor's fields, the types being defined can't appear in the indices \
+                 they're applied to",
+            ),
         Occurrence::Inside => cx
             .error(
                 "E-POSITIVITY",

@@ -202,7 +202,7 @@ pub fn expand_term(g: &Globals, term: &Term) -> Term {
                 .iter()
                 .map(|b| Branch {
                     names: b.names.clone(),
-                    body: go(&b.body),
+                    body: b.body.as_ref().map(go),
                 })
                 .collect(),
         ),
@@ -285,6 +285,9 @@ fn eval_tree(g: &Globals, mut env: Vec<Value>, term: &Term) -> Result<Option<Val
                 _ => return Ok(None),
             };
             let Branch { body, .. } = &branches[c];
+            let Some(body) = body else {
+                return Ok(None);
+            };
             env.extend(fields);
             eval_tree(g, env, body)
         }

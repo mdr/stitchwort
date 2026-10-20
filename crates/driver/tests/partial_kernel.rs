@@ -264,11 +264,11 @@ fn a_delay_cant_be_matched_on() {
             vec![
                 stitchwort_core::term::Branch {
                     names: vec![],
-                    body: Rc::new(zero()),
+                    body: Some(Rc::new(zero())),
                 },
                 stitchwort_core::term::Branch {
                     names: vec!["k".into()],
-                    body: Rc::new(zero()),
+                    body: Some(Rc::new(zero())),
                 },
             ]
             .into(),
@@ -412,6 +412,7 @@ fn a_data_type_recursing_through_delay_is_refused() {
     let ctors = vec![CtorDecl {
         name: "MkBad".into(),
         fields: vec![("d".into(), field, span())],
+        result: Vec::new(),
     }];
     assert_eq!(code(check::define_ctors(g, bad, ctors)), "E-POSITIVITY");
 }

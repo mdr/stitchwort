@@ -104,7 +104,7 @@ impl Elaborator {
                     0,
                     d,
                     vec![Branch {
-                        body: Rc::new(Term::Var(count - 1 - i)),
+                        body: Some(Rc::new(Term::Var(count - 1 - i))),
                         names,
                     }]
                     .into(),

@@ -186,7 +186,8 @@ fn has_unique_child(term: &Term) -> bool {
         Term::Eq(ty, a, b) => ty.as_ref().is_some_and(unique) || unique(a) || unique(b),
         Term::J(m, b, p) => unique(m) || unique(b) || unique(p),
         Term::Case(_, _, branches) => {
-            Rc::strong_count(branches) == 1 && branches.iter().any(|b| unique(&b.body))
+            Rc::strong_count(branches) == 1
+                && branches.iter().any(|b| b.body.as_ref().is_some_and(unique))
         }
         Term::NumCase(_, arms, default) => {
             unique(default) || (Rc::strong_count(arms) == 1 && arms.iter().any(|a| unique(&a.body)))
@@ -231,7 +232,9 @@ fn take_children(term: &mut Term, leaf: &Rc<Term>, pending: &mut Vec<Rc<Term>>) 
         Term::Case(_, _, branches) => {
             if let Some(branches) = Rc::get_mut(branches) {
                 for branch in branches {
-                    take(&mut branch.body);
+                    if let Some(body) = &mut branch.body {
+                        take(body);
+                    }
                 }
             }
         }
@@ -257,7 +260,10 @@ fn take_children(term: &mut Term, leaf: &Rc<Term>, pending: &mut Vec<Rc<Term>>) 
 pub struct Branch {
     /// Names of the constructor's fields, bound in `body`.
     pub names: Vec<Name>,
-    pub body: Rc<Term>,
+    /// `None` for an impossible branch: one whose constructor can.t have
+    /// the scrutinee.s indices (docs/proposals/indexed-families.md
+    /// §6.3.5). The kernel checks which branches are impossible.
+    pub body: Option<Rc<Term>>,
 }
 
 /// One arm of a `NumCase`: taken when the variable is `value`.
@@ -403,7 +409,11 @@ impl Term {
                     .map(|b| {
                         Ok(Branch {
                             names: b.names.clone(),
-                            body: go(&b.body, cutoff + b.names.len())?,
+                            body: b
+                                .body
+                                .as_ref()
+                                .map(|body| go(body, cutoff + b.names.len()))
+                                .transpose()?,
                         })
                     })
                     .collect::<Result<_>>()?,
@@ -486,7 +496,9 @@ impl Term {
             }
             Term::Case(_, _, branches) => {
                 for b in branches.iter() {
-                    f(&b.body, b.names.len());
+                    if let Some(body) = &b.body {
+                        f(body, b.names.len());
+                    }
                 }
             }
             Term::NumCase(_, arms, default) => {
@@ -542,7 +554,7 @@ mod tests {
             DataId(0),
             vec![Branch {
                 names: (0..names).map(|_| "y".into()).collect(),
-                body: Rc::new(body),
+                body: Some(Rc::new(body)),
             }]
             .into(),
         )
