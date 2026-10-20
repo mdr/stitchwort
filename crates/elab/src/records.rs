@@ -171,6 +171,12 @@ impl Elaborator {
         for (field, ty) in &fields {
             let mut cx = Ctx::new(self, span);
             let ty = cx.eval(ty)?;
+            if matches!(force(cx.g(), ty.clone())?, Value::Pi(..)) {
+                self.clear_metas();
+                return Ok(Some(format!(
+                    "its field `{field}` is a function, and functions can't be compared"
+                )));
+            }
             cx.bind_hidden("x".into(), ty.clone());
             cx.bind_hidden("y".into(), ty.clone());
             let eq = Value::Eq(
