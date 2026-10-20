@@ -1,5 +1,5 @@
 {
-  "next": 162,
+  "next": 165,
   "tickets": [
     {
       "id": 1,
@@ -2396,8 +2396,8 @@
       "id": 157,
       "title": "Convert AoC proofs to rewrite/calc (D41) and Bool.inspect proofs to match h: (SW-26)",
       "status": "doing",
-      "agent": "Sonnet",
-      "where": "worktree",
+      "agent": "Claude",
+      "where": "main",
       "labels": [
         "aoc",
         "proof"
@@ -2405,7 +2405,16 @@
       "body": "D71 (20 Oct 2026): wait until SW-154 (proof-checking speed) lands, so its before/after measurements use unchanged proofs. House style per D41: rewrite for one to three replacements; calc when intermediate forms help the reader or relations mix. Includes SW-26's conversion to match h: e with and deleting IsTrue/decIsTrue.",
       "created": "2026-10-20",
       "updated": "2026-10-20",
-      "commits": []
+      "commits": [
+        "b545287",
+        "80e77b9",
+        "9fd1d2f",
+        "a824266",
+        "ad7a6fc",
+        "3317e36",
+        "36e6105",
+        "7656d6b"
+      ]
     },
     {
       "id": 158,
@@ -2462,6 +2471,51 @@
         "diagnostics"
       ],
       "body": "",
+      "created": "2026-10-20",
+      "updated": "2026-10-20",
+      "commits": []
+    },
+    {
+      "id": 162,
+      "title": "rewrite: choose occurrences, and rewrite … at h (from SW-157)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "proof",
+        "syntax"
+      ],
+      "body": "SW-157 pain points 1-2: no way to rewrite one occurrence (J kept in twiceBlockLength, twiceAbove, repAbove); no rewrite at a named hypothesis (J kept at day02.sw:372, part2proof.sw:157). Stage 3 of calc-rewrite.md already lists 'choosing occurrences'. Details in docs/aoc-2025.md 'Proofs with rewrite and calc'.",
+      "created": "2026-10-20",
+      "updated": "2026-10-20",
+      "commits": []
+    },
+    {
+      "id": 163,
+      "title": "Per-declaration check-time report (stitchwort check --timings)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tooling",
+        "performance"
+      ],
+      "body": "SW-157 pain point 8 and SW-147: finding slow proofs needs ad-hoc measurement; rewrite's metrics line doesn't show time. A flag listing each declaration's check time and evaluation steps, slowest first.",
+      "created": "2026-10-20",
+      "updated": "2026-10-20",
+      "commits": []
+    },
+    {
+      "id": 164,
+      "title": "calc accepts a < chain against a <= goal although syntax.md says the relation must match",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "proof",
+        "docs"
+      ],
+      "body": "SW-157 pain point 10. Decide: document it (a < b implies a <= b, accepted by conversion?) or make it an error; check why it is accepted first. Also pain points 3-7 and 9 in docs/aoc-2025.md.",
       "created": "2026-10-20",
       "updated": "2026-10-20",
       "commits": []
