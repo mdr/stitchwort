@@ -14,6 +14,9 @@ mod check;
 mod derive;
 mod dot;
 mod effects;
+mod library;
+#[cfg(test)]
+mod library_tests;
 mod lift;
 mod local;
 mod logic;
@@ -26,6 +29,7 @@ mod pipe;
 pub mod project;
 mod records;
 mod scope;
+pub use library::{LIBRARY_FILES, LibraryIndex};
 pub use scope::edit_distance;
 mod undo;
 mod unify;
@@ -50,7 +54,7 @@ use stitchwort_syntax::{Diagnostic, Span, ast};
 use check::{Ctx, check, check_type, infer};
 use module::Phase;
 
-pub const PRELUDE: &str = include_str!("prelude.sw");
+pub const PRELUDE: &str = include_str!("std/core.sw");
 
 type Result<T> = std::result::Result<T, Diagnostic>;
 
@@ -75,10 +79,18 @@ enum Global {
     Unchecked(usize),
     /// Declared by a declaration that failed before it was checked.
     Failed,
+    /// Declared by a library file that isn't loaded yet: the name index's
+    /// entry (`library.rs`). Resolution sees it like any declaration; what
+    /// it names is only checked once the file loads.
+    Pending(usize, library::PendingKind),
 }
 
 /// A `test "name" = expr` declaration, checked as a definition of type `Bool`.
 pub struct TestDecl {
+    /// A test of the core or of a library file: run by the library test
+    /// target, never by a project's `stitchwort test`
+    /// (docs/proposals/std-library.md §4.7).
+    pub library: bool,
     pub name: String,
     /// The namespace of the module that declares it; empty if the module
     /// has none.
@@ -126,6 +138,12 @@ pub struct Elaborator {
     /// While the prelude is loaded, its built-in types and natively
     /// implemented definitions are registered with the kernel by name.
     pub loading_prelude: bool,
+    /// The standard library's files, once the core is loaded
+    /// (`library.rs`).
+    library: Option<library::LibraryState>,
+    /// Whether the `test`s of the core and the library files are checked
+    /// (the library test target), instead of skipped.
+    pub library_tests: bool,
     abilities: Vec<effects::AbilityInfo>,
     /// Resource limits for checking each declaration.
     pub limits: Limits,
@@ -372,12 +390,19 @@ impl Elaborator {
         self.module = module::ModuleState::default();
     }
 
-    /// Ends loading the prelude: every built-in must be bound by now.
-    pub fn finish_prelude(&mut self) -> Result<()> {
+    /// Ends loading the core: every core built-in must be bound by now. (A
+    /// library built-in is bound when its file loads.)
+    pub fn finish_core(&mut self) -> Result<()> {
         self.loading_prelude = false;
         // The prelude's imports are its own.
         self.scope.clear_imports();
         self.prelude_defs = self.globals.defs.len();
+        registry::check_complete_core(&self.globals)
+    }
+
+    /// Checks that every built-in is bound, library ones too: for a test
+    /// that has loaded every library file.
+    pub fn check_registry_complete(&self) -> Result<()> {
         registry::check_complete(&self.globals)
     }
 
@@ -566,6 +591,7 @@ impl Elaborator {
         let id = kernel::declare_def(&mut self.globals, &label, &ty, false, false, span)?;
         kernel::define_def(&mut self.globals, id, &body)?;
         self.tests.push(TestDecl {
+            library: self.loading_prelude,
             name: name.to_string(),
             namespace: self.module.namespace.clone().unwrap_or_default(),
             def: id,
@@ -2443,6 +2469,7 @@ impl Elaborator {
             (Global::Ctor(d, c), ..) => Ok((d, c)),
             (Global::Unchecked(item), ..) => Err(self.unchecked(&used, item)),
             (Global::Failed, ..) => Err(module::failed_name(&used)),
+            (Global::Pending(file, _), ..) => Err(self.unloaded(&used, file)),
             _ => Err(error(
                 "E-NOT-A-CONSTRUCTOR",
                 span,

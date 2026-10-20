@@ -878,6 +878,9 @@ fn ability_label(cx: &mut Ctx, expr: &Expr) -> Result<Label> {
     if let Some((Global::Failed, _)) = found {
         return Err(crate::module::failed_name(name));
     }
+    if let Some((Global::Pending(file, _), _)) = found {
+        return Err(cx.e.unloaded(name, file));
+    }
     let Some((Global::Ability(a), _)) = found else {
         return Err(cx.error(
             "E-ABILITY",
@@ -1985,6 +1988,9 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
                 }
                 if let Some((Global::Failed, _)) = found {
                     return Err(crate::module::failed_name(op));
+                }
+                if let Some((Global::Pending(file, _), _)) = found {
+                    return Err(cx.e.unloaded(op, file));
                 }
                 let Some((Global::Op(a, _), _)) = found else {
                     return Err(Diagnostic::error(

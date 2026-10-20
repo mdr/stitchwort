@@ -54,7 +54,7 @@ pointer, not a chain of `Succ`. `Nat.add`, `Nat.sub`, `Nat.mul`, `Nat.leq`, `Nat
 `Nat.divFuel`, `Nat.decEq` and two proof helpers are **native** (`crates/core/src/native.rs`):
 when a definition has all its arguments, the machine looks its id up in a hash map of natives.
 Everything else, including `List.zipWith`, `List.foldLeft`, `List.sum`, `List.sumBy` and the sort,
-is ordinary prelude code (`crates/elab/src/prelude.sw`) run by the machine.
+is ordinary prelude code (`crates/elab/src/std/core.sw`) run by the machine.
 
 ## 2. What was measured
 

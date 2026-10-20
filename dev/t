@@ -20,6 +20,7 @@ Areas:
   cli        stitchwort-cli (all integration tests)
   examples   stitchwort-cli --test examples
   hashes     stitchwort-driver --test hash_stability
+  std        the standard library: index, loader, eager-vs-lazy, library tests
   bench      stitchwort-bench
   web        stitchwort-web (unit tests; browser tests are `dev/t browser`)
   browser    web/build.sh then web/test.sh
@@ -108,6 +109,9 @@ case "$area" in
   hashes)
     args=(-p stitchwort-driver --test hash_stability)
     examples_filter=1
+    ;;
+  std)
+    args=(-p stitchwort-driver --test std_library)
     ;;
   bench)
     args=(-p stitchwort-bench)

@@ -1,7 +1,7 @@
 # Splitting the prelude into a standard library (SW-148), draft 2
 
 **Date:** 20 October 2026. **Ticket:** SW-148 (related: SW-145, SW-146; supersedes D48).
-**Decisions already made by Matt:** D49, D50, D55, D56 (§2). **Open:** D57 (deferred), D58 to D62 (§10).
+**Decisions already made by Matt:** D49, D50, D55, D56 (§2). **Open:** none; D57 was accepted after the review and done in stage 1.
 **Status:** reviewed once externally ("proceed, but tighten the loader invariants before
 implementing stage 1"; no soundness issue found). Nothing is implemented.
 
@@ -550,6 +550,118 @@ The reviewer also proposed the sentence that is now §4.0's invariant.
 | D60 | Build the name index once per process by a declaration-collection phase that checks uniqueness, keeping the parsed syntax; `build.rs` only if measured slow (§4.3)? | Agree with changes (now included) | Yes |
 | D61 | Run library tests only under a library target, never in projects (§4.7, SW-146)? | Agree | Yes |
 | D62 | Stage as in §7, moving Sorting first, with the eager-versus-lazy, duplicate-name and cycle tests in the stage 1 gate? | Agree (with those tests) | Yes |
+
+## As built (stage 1)
+
+**Code.** `crates/elab/src/library.rs` (index, loader), `crates/elab/src/std/` (the files),
+`crates/driver/tests/std_library.rs` (the gate's tests), `dev/t std`.
+
+- **Layout (§4.1).** `crates/elab/src/std/core.sw` is the old `prelude.sw` (D57: renamed; the
+  Rust const is still `PRELUDE` and `Session::with_prelude` keeps its name, because dozens of
+  tests edit `PRELUDE`'s text). Library files are listed in `LIBRARY_FILES` (a test checks the
+  list against the directory). One file so far, `std/List/Sort.sw`.
+- **No namespace line in library files (deviation from §4.1).** A library file is written as the
+  prelude is (`def List.sort`, `theorem Nat.addRotate`), and each declaration goes in the
+  namespace its name says, so one file can add to `Bool`, `Nat`, `List` and `Ordering`. A single
+  `namespace` line couldn't say that. The index derives each name's full key the way loading does.
+- **Index (§4.3).** Built once per process (`LibraryIndex::standard`) from the parsed core and
+  library files: every declared name, with generated ones (constructors, record fields, ability
+  operations and their `%` helpers), mapped to its file; a duplicate full name, across core,
+  library or generated, fails the build. The parsed syntax is kept and reused when a file loads
+  (and the core's, for `Session::new`). A test compares the index with the names an eager load
+  makes, both ways.
+- **The index is the name table (§4.3).** Each library name is entered in the one name table as
+  `Global::Pending(file, kind)`. So resolution, imports, `(..)`, the namespace tree, ambiguity,
+  dot notation and suggestions already read the whole library and none of them loads. Loading a
+  file replaces its entries in place. `Pending` reaching the checker is an internal error.
+- **Loading (§4.2, §4.3).** Before a module is checked, `dependencies()` collects the files its
+  references resolve to; files load in canonical order (Kahn's algorithm, ties by path), each
+  after the files it needs. A file's own edges come from the same resolver, run once when the
+  index is built. A nested load sets the module state aside and restores it.
+- **Deviation: dot notation is over-approximated before checking, not loaded during it.**
+  Loading in the middle of checking needs `&mut Elaborator` where the checker has `&Elaborator`,
+  plus metavariable and module state that nested elaboration would clobber. Instead `x.f` loads
+  every file with a function whose last name component is `f`, exactly as `module.rs` already
+  treats `.f` among a module's own declarations (`speculative` dependencies). Resolution is
+  unaffected (it uses the full index either way); the cost is that `xs.map` may load a file that
+  `List.map` alone wouldn't. Cycles through dot notation are therefore found with the static
+  edges. If a `Pending` name is reached at check time anyway, the error says so and names the
+  file (and both files, if one is loading).
+- **Cycles.** `load_order` reports a cycle, `E-INTERNAL` naming every file in it; a request for
+  a file that is loading is reported the same way. Tests: a two-file cycle, a three-file one, a
+  cycle through dot notation.
+- **Natives and the registry (§4.6).** `Builtin::home()` (core or library; the library list is
+  empty so far, since Sorting has no natives), `finish_core` checks only core built-ins,
+  `check_registry_complete` checks all (a test loads every file first), and a debug assertion
+  fires if compiler code uses a library built-in that isn't bound. Library natives bind as their
+  file loads, because a library file is elaborated in prelude mode.
+- **Tests (§4.7).** `test`s in the core and library files are skipped unless
+  `Elaborator::library_tests` is set; they are marked `library` and `Session::run_tests` never
+  runs them. `Session::with_library_tests().run_library_tests(..)` does (gate test
+  `the_standard_library_passes_its_own_tests`; there are no library tests yet). The library
+  test target is `dev/t std`, and all of it runs in the gate.
+- **Eager mode and gate additions (§4.0, §7).** `Session::eager()` loads every file first.
+  `std_library.rs` loads `examples/accept`, `extract`, `reject`, `soundness`, the example
+  projects and `aoc/` in a lazy and an eager session and requires the same accept or reject,
+  the same rendered errors, the same hash for every declaration. It also covers: the
+  duplicate-name index test, the cycle tests, a core-alone test (every example that loads no
+  library file behaves identically with no library installed, and a program using records,
+  `==`, `calc`, `auto`, abilities and text works), D58 (`library_decision_procedures` is empty,
+  with a negative control), the registry homes, and load order independent of mention order.
+  `flake.nix` now includes `aoc/` in the build's sources for this.
+- **`hash_stability`** now uses `Session::eager()` (library defs would otherwise count as the
+  example's own); its `prelude` snapshot is sorted by name, since the library loads after the
+  core. The 638 lines are the same set as before the move (`sort | diff`: identical), so every
+  moved declaration (91) has its old hash.
+- **Not done, as stated:** D50/D55 (stage 2).
+
+**What moved.** The prelude's "Sorting" section ran from `-- Sorting` to just before `type
+Text`: 102 declarations, in `Bool`, `Nat`, `List` and `Ordering`. 91 moved to
+`std/List/Sort.sw` (548 lines). 11 stayed in core because other, unmoved prelude declarations
+use them: `Bool.inspect`, `Bool.toNat`, `List.sumByFrom`, `List.sumByCons`, `List.filterKeep`,
+`List.filterSkip`, `List.foldLeftAppend`, `List.appendNil`, `List.appendAssoc`,
+`List.occurrences`, `List.Subsequence`. They can follow when their users move (stage 3).
+None of the 102 is in the D58 core closure. `Text` (line 2001 on) isn't Sorting, and stays.
+
+**Measurements** (release builds, this machine, one run each of five or three; the baseline is
+`main` at `f21af95`):
+
+| | before | after |
+|---|---|---|
+| `stitchwort check` of a one-line file, wall | 0.20-0.21 s | 0.17-0.18 s (user 0.19 -> 0.16) |
+| same, peak RSS | 25.4 MB | 21.3 MB |
+| `stitchwort check` of `aoc/`, wall | 0.55-0.56 s | 0.55-0.56 s (RSS 39.3 -> 40.3 MB) |
+| bench `examples`: steps / visits / allocations | 1,211 M / 114.4 M / 1,412 M | 944.5 M (-22.0%) / 85.9 M (-24.9%) / 1,093.5 M (-22.6%) |
+| bench `examples`: peak heap | 108.9 MB | 111.1 MB (+2.1%) |
+| bench `check-nested-apps` peak heap | 918 kB | 1.0 MB (+11.3%, over the 10% threshold; baseline updated) |
+| index build, once per process | n/a | about 5-7 ms for 674 names (included in the above) |
+
+`aoc/` doesn't gain: its programs use the sorting lemmas, so the file loads. The index's
+memory isn't isolated: the process is 4 MB smaller overall for an empty file, because the
+library file isn't checked. The kept syntax of 3,231 lines is small next to that.
+`examples` bench steps fall because the examples that don't use sorting no longer check it.
+
+**The core closure D58 implies** (`cargo test -p stitchwort-elab --release closure_report --
+--ignored --nocapture`, with `PRELUDE_REPORT=<path>` to run it on another text; it prints, for
+each declaration, what it needs, and `*` marks the closure). On the prelude before the move:
+roots are the registry's built-ins plus every function whose result is `Decidable` (25), and the
+closure is **202 of 636 declarations, 584 of 2,132 code lines (27%)**. By blocks of 250 file lines (declarations in the closure of all): 0-250: 49 of 50; 250-500: 26 of 62;
+500-750: 0 of 58 (division lemmas); 750-1000: 20 of 58; 1000-1250: 1 of 54; 1250-1500: 0 of 51;
+1500-2000: 0 of 81 (sorting and its lemmas); 2000-2250: 49 of 59 (`Text`, characters);
+2250-2500: 14 of 40; 2500-2750: 12 of 38; 2750-3000: 27 of 48 (effects); 3000+: 4 of 37. So D58 leaves
+most of the division, comparison, sorting and number-printing lemmas movable. It is acceptable, and the stage 3
+split can follow the `*` marks.
+
+**Open for stage 2 and later.**
+- `Session::with_prelude` and `PRELUDE` could be renamed to core names; left because of the
+  test churn.
+- Library names are entered per session (674 entries today). It's cheap, but it grows with the
+  library; a shared immutable table would avoid it if the library grows tenfold.
+- A library file can't yet say it adds to a namespace and not declare in it; none needs to.
+- Dot notation's over-approximation could be tightened (only `Def`s whose namespace is a type)
+  or replaced by loading during checking if a case turns up where it over-loads badly.
+- The playground: `crates/web` builds and its tests pass; the wasm build is part of the gate. The
+  index build uses no clock, since `Instant` panics on wasm32.
 
 ## Sources
 

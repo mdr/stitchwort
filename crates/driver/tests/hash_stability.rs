@@ -47,10 +47,22 @@ fn lines(session: &Session, first_data: usize, first_def: usize) -> String {
     out
 }
 
+/// The core and every library file, with every declaration's hash, sorted by
+/// name (the library's files load after the core, so declaration order is no
+/// longer the prelude's source order). Moving a declaration between files
+/// leaves this unchanged (docs/proposals/std-library.md §4.8).
 #[test]
 fn prelude() {
-    let session = Session::new();
-    insta::assert_snapshot!("prelude", lines(&session, 0, 0));
+    let session = Session::eager();
+    let text = lines(&session, 0, 0);
+    let mut sorted: Vec<&str> = text.lines().collect();
+    sorted.sort_by_key(|l| {
+        (
+            !l.starts_with("data "),
+            l.strip_prefix("data ").unwrap_or(l).to_string(),
+        )
+    });
+    insta::assert_snapshot!("prelude", sorted.join("\n") + "\n");
 }
 
 #[test]
@@ -67,7 +79,8 @@ fn examples() {
         files.sort();
         for path in files {
             let text = std::fs::read_to_string(&path).unwrap();
-            let mut session = Session::new();
+            // Every library file loaded first, so the lines are the file's own.
+            let mut session = Session::eager();
             let (d, f) = (
                 session.elab.globals.datas.len(),
                 session.elab.globals.defs.len(),
@@ -108,7 +121,7 @@ fn projects() {
     }
     for dir in dirs {
         let name = dir.file_name().unwrap().to_string_lossy().to_string();
-        let mut session = Session::new();
+        let mut session = Session::eager();
         let (d, f) = (
             session.elab.globals.datas.len(),
             session.elab.globals.defs.len(),
