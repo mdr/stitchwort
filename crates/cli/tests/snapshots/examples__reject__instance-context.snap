@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-INSTANCE-CONTEXT] Error: `[auto p: Pretty (List a)]`: an instance may only ask for interfaces of the variables in `Pretty (List a)`
+    ╭─[ reject/instance-context.sw:11:10 ]
+    │
+ 11 │ instance Pretty.instList [auto p: Pretty (List a)]: Pretty (List a) :=
+    │          ───────┬───────  
+    │                 ╰───────── `[auto p: Pretty (List a)]`: an instance may only ask for interfaces of the variables in `Pretty (List a)`
+    │ 
+    │ Note: each thing an instance asks for must be about a smaller type than the one it's for, so finding instances always ends
+────╯

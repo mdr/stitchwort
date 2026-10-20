@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-INSTANCE-HEAD] Error: an instance must be for a type name applied to distinct variables, like `Pretty (List a)`; `Pretty (List Nat)` isn't
+    ╭─[ reject/instance-head.sw:11:10 ]
+    │
+ 11 │ instance Pretty.instNats: Pretty (List Nat) :=
+    │          ───────┬───────  
+    │                 ╰───────── an instance must be for a type name applied to distinct variables, like `Pretty (List a)`; `Pretty (List Nat)` isn't
+    │ 
+    │ Note: so two instances of one interface overlap exactly when they're for the same type name; use a named alternative (a `def` of the interface's type, passed by name) for anything more specific
+────╯

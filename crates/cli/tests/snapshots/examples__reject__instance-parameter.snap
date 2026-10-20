@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-INSTANCE-PARAMETER] Error: `prefix` isn't fixed by `Pretty Item`; an instance can't have other parameters
+    ╭─[ reject/instance-parameter.sw:14:10 ]
+    │
+ 14 │ instance Item.instPretty (prefix: Text): Pretty Item :=
+    │          ───────┬───────  
+    │                 ╰───────── `prefix` isn't fixed by `Pretty Item`; an instance can't have other parameters
+    │ 
+    │ Note: the compiler finds an instance by its type alone, so it couldn't choose `prefix`; a function that builds a dictionary from arguments can be a plain `def`, passed by name
+────╯

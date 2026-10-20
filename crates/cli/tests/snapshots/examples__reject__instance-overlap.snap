@@ -1,0 +1,17 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-INSTANCE-OVERLAP] Error: `Pretty Item` already has an instance, `Item.instPretty`
+    ╭─[ reject/instance-overlap.sw:17:10 ]
+    │
+ 14 │ instance Item.instPretty: Pretty Item :=
+    │          ───────┬───────  
+    │                 ╰───────── the first instance is here
+    │ 
+ 17 │ instance Item.instLoud: Pretty Item :=
+    │          ──────┬──────  
+    │                ╰──────── `Pretty Item` already has an instance, `Item.instPretty`
+    │ 
+    │ Note: there's at most one instance of an interface for each type; declare another ordering, say, as a named alternative (a `def`), passed by name
+────╯

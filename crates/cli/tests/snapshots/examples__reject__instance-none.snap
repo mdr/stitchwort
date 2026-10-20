@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-INSTANCE-NONE] Error: no `Pretty` instance for `Item`
+    ╭─[ reject/instance-none.sw:14:20 ]
+    │
+ 14 │ def shown: Text := Pretty.pretty MkItem
+    │                    ──────────┬─────────  
+    │                              ╰─────────── this needs `Pretty Item`
+    │ 
+    │ Note 1: an instance of `Pretty` for `Item` can be declared in `Main`
+    │ 
+    │ Note 2: `plain` has type `Pretty Item`: pass it with `[pretty := plain]`
+────╯

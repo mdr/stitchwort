@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-INSTANCE-SUPER] Error: the `Base Bool` inside `Child.instBool` (its `base`) isn't `Base.instBool`
+    ╭─[ reject/instance-super.sw:19:1 ]
+    │
+ 19 │ instance Child.instBool: Child Bool :=
+    │ ─────────────────┬─────────────────  
+    │                  ╰─────────────────── this instance
+    │ 
+    │ Note: a global instance's superclasses must be the instances the compiler finds for them, so that every way of reaching a `Base Bool` agrees: leave `base` out to have it filled in, or give `Base.instBool`
+────╯

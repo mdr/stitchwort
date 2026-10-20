@@ -1,0 +1,22 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-INTERFACE-CYCLE] Error: an interface can't be its own superclass: `Ping` contains `Pong`, which contains `Ping`
+   ╭─[ reject/interface-cycle.sw:9:5 ]
+   │
+ 9 │   { pong: Pong a, ping: a -> Text }
+   │     ──┬─  
+   │       ╰─── an interface can't be its own superclass: `Ping` contains `Pong`, which contains `Ping`
+   │ 
+   │ Note: a field whose type is an interface is a superclass, and the superclasses can't form a cycle
+───╯
+[E-INTERFACE-CYCLE] Error: an interface can't be its own superclass: `Pong` contains `Ping`, which contains `Pong`
+    ╭─[ reject/interface-cycle.sw:12:5 ]
+    │
+ 12 │   { ping: Ping a, pong: a -> Text }
+    │     ──┬─  
+    │       ╰─── an interface can't be its own superclass: `Pong` contains `Ping`, which contains `Pong`
+    │ 
+    │ Note: a field whose type is an interface is a superclass, and the superclasses can't form a cycle
+────╯

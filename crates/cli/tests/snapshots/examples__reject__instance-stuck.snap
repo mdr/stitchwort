@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-INSTANCE-STUCK] Error: can't tell whether `p` gives `Pretty (List (?2 a p x))` until `?2` is known
+    ╭─[ reject/instance-stuck.sw:11:53 ]
+    │
+ 11 │ def shown [auto p: Pretty (List a)] (x: a): Text := Pretty.pretty []
+    │                                                     ────────┬──────┬  
+    │                                                             ╰───────── this needs `Pretty (List (?2 a p x))`
+    │                                                                    │  
+    │                                                                    ╰── `?2` is what goes here
+    │ 
+    │ Note: pass the dictionary by name, or annotate
+────╯

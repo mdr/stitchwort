@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-INSTANCE-REDUNDANT] Error: `Child a` already contains a `Base a`; remove `[auto b: Base a]`
+    ╭─[ reject/instance-redundant.sw:13:5 ]
+    │
+ 13 │ def twice [auto b: Base a] [auto c: Child a] (x: a): a := Base.op (Base.op x)
+    │     ──┬──  
+    │       ╰──── `Child a` already contains a `Base a`; remove `[auto b: Base a]`
+    │ 
+    │ Note: asking for both would give two `Base a` dictionaries, which needn't agree; use the one inside `[auto c: Child a]`
+────╯

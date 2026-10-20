@@ -1,0 +1,2 @@
+# expect-error: E-INSTANCE-ORPHAN
+# Report owns neither `Area` (Geometry does) nor `Nat` (Std does), so it can't declare `Area Nat` (docs/proposals/interfaces.md §5.6). The accepted neighbour is projects/accept/instance-owners, where Geometry declares it and Report passes its own as a named alternative.
