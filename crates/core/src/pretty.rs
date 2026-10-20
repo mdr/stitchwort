@@ -91,6 +91,8 @@ enum Prec {
     And,
     Eq,
     Add,
+    /// `*`, `/`, `%`: tighter than `+`, looser than a prefix minus.
+    Mul,
     /// A prefix minus: tighter than `*`, looser than application.
     Neg,
     App,
@@ -363,18 +365,24 @@ impl<'g> Printer<'g> {
                     let infix = match self.g.registry.def_builtin(*id) {
                         Some(Builtin::Add) => Some(("+", Prec::Add)),
                         Some(Builtin::Sub) => Some(("-", Prec::Add)),
+                        Some(Builtin::IntAdd) => Some(("+", Prec::Add)),
+                        Some(Builtin::IntSub) => Some(("-", Prec::Add)),
+                        Some(Builtin::IntMul) => Some(("*", Prec::Mul)),
+                        Some(Builtin::IntDiv) => Some(("/", Prec::Mul)),
+                        Some(Builtin::IntMod) => Some(("%", Prec::Mul)),
                         Some(Builtin::LessEq) => Some(("<=", Prec::Eq)),
                         Some(Builtin::LessThan) => Some(("<", Prec::Eq)),
                         _ => None,
                     };
                     if let (Some((op, prec)), [lhs, rhs]) = (infix, &args[..]) {
-                        // `+` and `-` associate left; comparisons don't associate.
-                        let right = if prec == Prec::Add {
-                            Prec::App
-                        } else {
-                            Prec::Add
+                        // `+`, `-`, `*`, `/` and `%` associate left;
+                        // comparisons don't associate.
+                        let (left, right) = match prec {
+                            Prec::Add => (Prec::Add, Prec::App),
+                            Prec::Mul => (Prec::Mul, Prec::Neg),
+                            _ => (Prec::Add, Prec::Add),
                         };
-                        let lhs = self.print(names, lhs, Prec::Add);
+                        let lhs = self.print(names, lhs, left);
                         let rhs = self.print(names, rhs, right);
                         return (format!("{lhs} {op} {rhs}"), prec);
                     }
