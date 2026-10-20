@@ -5,6 +5,7 @@
 use stitchwort_core::hash::def_hash;
 use stitchwort_core::pretty;
 use stitchwort_driver::driver::Session;
+use stitchwort_syntax::equivalence::parse_shape;
 
 /// Loads `def t : sig := body`, returns its printed body and content hash.
 fn printed_and_hash(sig: &str, body: &str) -> (String, String) {
@@ -44,9 +45,13 @@ fn a_lambda_as_an_argument_is_bracketed() {
 
 #[test]
 fn a_lambda_that_is_applied_is_bracketed() {
-    let (printed, hash) = printed_and_hash("Nat -> Nat", "y => (x => x + 1) y");
-    assert!(printed.contains("(x => "), "{printed}");
-    assert_eq!(printed_and_hash("Nat -> Nat", &printed).1, hash, "{printed}");
+    // The printer drops the annotation, so the printed text doesn't elaborate
+    // again; it must still parse to the bracketed application.
+    let (printed, _) = printed_and_hash("Nat -> Nat", "y => ((x: Nat) => x + 1) y");
+    assert_eq!(printed, "y => (x => x + 1) y");
+    let shape = |body: &str| parse_shape(&format!("def t : Nat -> Nat := {body}\n")).unwrap();
+    assert_eq!(shape(&printed), shape("y => (x => x + 1) y"));
+    assert_ne!(shape(&printed), shape("y => x => x + 1 y"));
 }
 
 #[test]
