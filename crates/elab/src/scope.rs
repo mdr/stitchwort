@@ -90,6 +90,19 @@ pub struct Scope {
     pub(crate) import_failed: HashSet<String>,
     /// What `Std` declares at its root, and its aliases: short name to key.
     std_root: HashMap<String, String>,
+    /// While a library file loads: its own index entries are out of the way,
+    /// so it can declare the names the index promised.
+    pub(crate) loading: Option<usize>,
+}
+
+/// A file's imports, set aside while a library file loads in the middle of
+/// checking a module (`library.rs`).
+#[derive(Default)]
+pub(crate) struct SavedImports {
+    imports: Vec<HashMap<String, Vec<(String, Span)>>>,
+    wildcards: Vec<BTreeMap<String, Vec<(String, Span)>>>,
+    wildcard_failed: BTreeSet<usize>,
+    import_failed: HashSet<String>,
 }
 
 /// What the first component of a qualified name means, in order
@@ -277,15 +290,42 @@ impl Scope {
         self.entries.insert(key.to_string(), (global, span));
     }
 
-    /// The key `key` as stored, and what it names.
+    /// The key `key` as stored, and what it names. (Not a name the library
+    /// file being loaded declares, which isn't declared until it is.)
     fn entry(&self, key: &str) -> Option<(&str, Global, Span)> {
         self.entries
             .get_key_value(key)
+            .filter(|(_, (g, _))| !self.is_loading(g))
             .map(|(k, (g, s))| (k.as_str(), *g, *s))
     }
 
     pub fn get(&self, key: &str) -> Option<(Global, Span)> {
-        self.entries.get(key).copied()
+        self.entries
+            .get(key)
+            .copied()
+            .filter(|(g, _)| !self.is_loading(g))
+    }
+
+    /// Whether `global` is an index entry of the file being loaded.
+    fn is_loading(&self, global: &Global) -> bool {
+        matches!(global, Global::Pending(f, _) if self.loading == Some(*f))
+    }
+
+    /// Sets the file's imports aside, for a nested load.
+    pub(crate) fn take_imports(&mut self) -> SavedImports {
+        SavedImports {
+            imports: std::mem::take(&mut self.imports),
+            wildcards: std::mem::take(&mut self.wildcards),
+            wildcard_failed: std::mem::take(&mut self.wildcard_failed),
+            import_failed: std::mem::take(&mut self.import_failed),
+        }
+    }
+
+    pub(crate) fn restore_imports(&mut self, saved: SavedImports) {
+        self.imports = saved.imports;
+        self.wildcards = saved.wildcards;
+        self.wildcard_failed = saved.wildcard_failed;
+        self.import_failed = saved.import_failed;
     }
 
     pub fn is_namespace(&self, key: &str) -> bool {
@@ -575,7 +615,13 @@ impl Elaborator {
                     let at_root = owner.strip_prefix("Std.").is_some_and(|p| !p.contains('.'));
                     // A library ability's operations aren't default: they
                     // are written `IO.print`, or imported (SW-134).
-                    let is_op = matches!(self.scope.get(key), Some((Global::Op(..), _)));
+                    let is_op = matches!(
+                        self.scope.get(key),
+                        Some((
+                            Global::Op(..) | Global::Pending(_, crate::library::PendingKind::Op),
+                            _
+                        ))
+                    );
                     if at_root && !is_op && self.visible_as(owner) {
                         found(key);
                     }

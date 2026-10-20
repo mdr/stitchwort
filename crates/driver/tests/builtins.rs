@@ -62,7 +62,7 @@ fn a_prelude_without_a_builtin_is_refused_before_user_code() {
     session
         .load("<prelude>", &prelude)
         .expect("the prelude loads");
-    let missing = session.elab.finish_prelude().unwrap_err();
+    let missing = session.elab.finish_core().unwrap_err();
     assert_eq!(missing.code, "E-BUILTIN");
     assert!(
         missing.message.contains("`IO.simulate`"),

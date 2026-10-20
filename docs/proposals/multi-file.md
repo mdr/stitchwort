@@ -770,7 +770,9 @@ can't change its choice). It doesn't have to be clever.
    on; within one namespace, sorted by full name. This is purely a fixed
    tie-break, not a judgement of which is "closer";
 4. `Std`, most recent first (unchanged; the prelude is one module, loaded
-   the same way every time).
+   the same way every time). Every `Decidable` procedure is in the core, never
+   in a library file, so this list doesn't depend on which library files a
+   program loaded (docs/proposals/std-library.md D58).
 
 Never by file path, file read order or load order. The candidate list must
 be **sorted explicitly** by these keys: today's scan walks definitions by

@@ -3,16 +3,28 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use stitchwort_core::hash::{ContentHash, def_hash};
 use stitchwort_core::value::{eval, force};
 use stitchwort_core::{Globals, Limits, ResourceError, Term, Value};
 use stitchwort_elab::project::{FileModeContext, SourceUnit};
-use stitchwort_elab::{Elaborator, PRELUDE};
+use stitchwort_elab::{Elaborator, LibraryIndex, PRELUDE};
 use stitchwort_syntax::ast::Expr;
 use stitchwort_syntax::{
     Diagnostic, FileId, Severity, SourceMap, parse_expression_within, parse_module_within,
 };
+
+/// Which library files a session knows.
+#[derive(Clone, Copy)]
+enum Library<'a> {
+    /// The standard library, `std/`.
+    Standard,
+    /// None: the core alone.
+    None,
+    /// These instead, for tests.
+    Files(&'a [(&'a str, &'a str)]),
+}
 
 /// A compiler session: the prelude plus whatever has been loaded since.
 pub struct Session {
@@ -50,6 +62,14 @@ impl Session {
         session
     }
 
+    /// [`Session::eager`], for a thread with `stack` bytes of stack.
+    #[doc(hidden)]
+    pub fn eager_for_stack(stack: usize) -> Self {
+        let mut session = Session::eager();
+        session.elab.limits = Limits::for_stack(stack);
+        session
+    }
+
     pub fn new() -> Self {
         Session::with_prelude(PRELUDE)
     }
@@ -66,21 +86,115 @@ impl Session {
     /// the prelude needs), not a panic.
     #[doc(hidden)]
     pub fn try_with_prelude(prelude: &str) -> Result<Self, String> {
+        Self::start(prelude, Library::Standard, false, false)
+    }
+
+    /// A session with every library file loaded up front, in canonical
+    /// order, instead of on demand: for tests that compare it with the lazy
+    /// one (docs/proposals/std-library.md §4.0).
+    #[doc(hidden)]
+    pub fn eager() -> Self {
+        Self::start(PRELUDE, Library::Standard, true, false)
+            .unwrap_or_else(|report| panic!("{report}"))
+    }
+
+    /// A session with the core only: the library's names aren't known, and
+    /// nothing loads. For a test that the core stands on its own.
+    #[doc(hidden)]
+    pub fn core_alone() -> Self {
+        Self::start(PRELUDE, Library::None, false, false)
+            .unwrap_or_else(|report| panic!("{report}"))
+    }
+
+    /// A session whose library is the given files `(path, text)`, after the
+    /// real core: for tests of the loader. The files load on demand, or all
+    /// of them now with `eager`; with `library_tests` their `test`s are
+    /// checked too.
+    #[doc(hidden)]
+    pub fn with_library_files(
+        files: &[(&str, &str)],
+        eager: bool,
+        library_tests: bool,
+    ) -> Result<Self, String> {
+        Self::start(PRELUDE, Library::Files(files), eager, library_tests)
+    }
+
+    /// A session with every library file loaded, and the `test`s of the core
+    /// and the library files checked: what [`Session::run_library_tests`]
+    /// runs.
+    #[doc(hidden)]
+    pub fn with_library_tests() -> Self {
+        Self::start(PRELUDE, Library::Standard, true, true)
+            .unwrap_or_else(|report| panic!("{report}"))
+    }
+
+    /// Loads the core (the prelude text given), then makes the library's
+    /// names known, and loads its files too if `eager`.
+    fn start(
+        prelude: &str,
+        library: Library,
+        eager: bool,
+        library_tests: bool,
+    ) -> Result<Self, String> {
         let mut session = Session {
             sources: SourceMap::new(),
             elab: Elaborator::new(),
             warnings: Vec::new(),
         };
-        session.elab.loading_prelude = true;
-        if let Err(diagnostics) = session.load("<prelude>", prelude) {
-            let mut report = String::from("internal error: the prelude doesn't check:\n");
-            for d in &diagnostics {
-                report.push_str(&crate::render::render(&session.sources, d, false));
-            }
-            return Err(report);
+        let stack = session.elab.limits.stack;
+        let index = match library {
+            Library::Standard | Library::None => LibraryIndex::standard(stack),
+            Library::Files(files) => LibraryIndex::build(PRELUDE, files, stack).map(Arc::new),
         }
-        if let Err(missing) = session.elab.finish_prelude() {
+        .map_err(|e| format!("internal error: the standard library: {e}"))?;
+        let report = |sources: &SourceMap, what: &str, diagnostics: &[Diagnostic]| {
+            let mut report = format!("internal error: {what}:\n");
+            for d in diagnostics {
+                report.push_str(&crate::render::render(sources, d, false));
+            }
+            report
+        };
+        session.elab.loading_prelude = true;
+        session.elab.library_tests = library_tests;
+        let file = session.sources.add("<prelude>", prelude);
+        // The library's files follow the core in the source map, in the
+        // index's order, so the spans the index parsed are this session's.
+        for lib in index.files.iter().skip(1) {
+            let id = session.sources.add(format!("std/{}", lib.path), &lib.text);
+            assert_eq!(
+                id, lib.id,
+                "the library's files are numbered as the index's"
+            );
+        }
+        // The index has parsed the core, unless a test changed its text.
+        let parsed;
+        let module = if prelude == index.files[0].text {
+            &index.files[0].module
+        } else {
+            parsed = parse_module_within(file, prelude, stack)
+                .map_err(|ds| report(&session.sources, "the prelude doesn't parse", &ds))?;
+            &parsed
+        };
+        let diagnostics = session.elab.elaborate_module(module);
+        if let Err(diagnostics) = session.finish_load(0, diagnostics) {
+            return Err(report(
+                &session.sources,
+                "the prelude doesn't check",
+                &diagnostics,
+            ));
+        }
+        if let Err(missing) = session.elab.finish_core() {
             return Err(format!("internal error: {}", missing.message));
+        }
+        if !matches!(library, Library::None) {
+            session.elab.install_library(index);
+        }
+        if eager && let Err(diagnostics) = session.elab.load_all_libraries() {
+            return Err(report(
+                &session.sources,
+                "the standard library doesn't check",
+                &diagnostics,
+            ));
         }
         Ok(session)
     }
@@ -226,7 +340,10 @@ impl Session {
     /// session's stack limit.
     pub fn parse_expression(&mut self, name: &str, text: &str) -> Result<Expr, Diagnostic> {
         let file = self.sources.add(name, text);
-        parse_expression_within(file, text, self.elab.limits.stack)
+        let expr = parse_expression_within(file, text, self.elab.limits.stack)?;
+        // The library files it uses load now: checking it needs them.
+        self.elab.prepare_expr(&expr)?;
+        Ok(expr)
     }
 
     /// Parses an expression the driver wrote itself.
@@ -425,13 +542,27 @@ impl Cache {
 }
 
 impl Session {
-    /// Runs every test loaded so far, using cached results where possible.
+    /// Runs every test of the program loaded so far, using cached results
+    /// where possible. The core's and the library's tests aren't the
+    /// program's (docs/proposals/std-library.md §4.7): see
+    /// [`Session::run_library_tests`].
     pub fn run_tests(&self, cache: &Cache) -> Vec<TestResult> {
+        self.run_selected(cache, false)
+    }
+
+    /// Runs the tests of the core and of the library files loaded (all of
+    /// them, in [`Session::with_library_tests`]).
+    pub fn run_library_tests(&self, cache: &Cache) -> Vec<TestResult> {
+        self.run_selected(cache, true)
+    }
+
+    fn run_selected(&self, cache: &Cache, library: bool) -> Vec<TestResult> {
         let g = &self.elab.globals;
         let modes = modes(g);
         self.elab
             .tests
             .iter()
+            .filter(|test| test.library == library)
             .map(|test| {
                 // Each test is one operation, with its own resource limits:
                 // hashing it, then running it unless its result is cached.

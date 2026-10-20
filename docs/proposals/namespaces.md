@@ -238,9 +238,12 @@ The elaborator keeps every global name in one flat map from a string to what
 it names (`names: HashMap<String, (Global, Span)>`,
 `crates/elab/src/lib.rs:67`). That covers definitions, data types,
 constructors, abilities and operations. The prelude
-(`crates/elab/src/prelude.sw`, 770 lines) is loaded first, as a module of
+(`crates/elab/src/prelude.sw`, 770 lines; now `std/core.sw`) is loaded first, as a module of
 its own (`crates/driver/src/driver.rs:56-60`), and the user's file is
-elaborated against the same table.
+elaborated against the same table. (Since docs/proposals/std-library.md stage
+1, `std/core.sw` (formerly `prelude.sw`) is the always-loaded *core*, and the library files under
+`crates/elab/src/std/` are checked when a program uses them; their names are
+in the same table from the start, as pending entries.)
 
 A new top-level name that's already in the table is refused
 (`new_module_name`, `crates/elab/src/module.rs:338`). The message reads
@@ -1763,7 +1766,9 @@ matter once users can write dotted names.
 in `Globals`, with an entry per built-in (data types, constructors,
 definitions) bound by `bind_data` and `bind_def` as the prelude's
 declarations are admitted, and `check_complete` run by
-`Elaborator::finish_prelude` and again before any user module. Syntax the
+`Elaborator::finish_prelude` and again before any user module. (Since
+docs/proposals/std-library.md stage 1 it is `finish_core`, which checks only
+the core built-ins; a library built-in is bound when its file loads.) Syntax the
 compiler *generates* as source (records' `==`, the runner's call of `main`
 and `simulate`) is elaborated with those names temporarily meaning the
 registry's declarations (`with_builtin_names`). The tests are in

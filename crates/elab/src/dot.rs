@@ -366,6 +366,15 @@ fn find(cx: &Ctx, recv: &Expr, field: &AstName, mut ty: Ty) -> Result<(TyHead, D
                             span: field.span,
                         }));
                     }
+                    Some((Global::Pending(file, _), _)) => {
+                        return Err(cx.e.unloaded(
+                            &AstName {
+                                text: shown_key,
+                                span: field.span,
+                            },
+                            file,
+                        ));
+                    }
                     Some(_) => {
                         return Err(cx
                             .error(

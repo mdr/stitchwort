@@ -196,7 +196,7 @@ impl Elaborator {
         // User code is elaborated only once every built-in is bound
         // (docs/proposals/namespaces.md §4.7).
         if !self.loading_prelude
-            && let Err(d) = stitchwort_core::registry::check_complete(&self.globals)
+            && let Err(d) = stitchwort_core::registry::check_complete_core(&self.globals)
         {
             return vec![d];
         }
@@ -211,7 +211,7 @@ impl Elaborator {
             }
         }
         let mut diagnostics: Vec<(usize, Diagnostic)> = Vec::new();
-        let first_test = self.tests.len();
+        let mut first_test = self.tests.len();
         self.module = ModuleState {
             files: files
                 .iter()
@@ -228,7 +228,26 @@ impl Elaborator {
         };
         self.scope.clear_imports();
         let (items, decl_spans) = self.collect(files, &mut diagnostics);
-        self.dependencies(&items);
+        let needs = self.dependencies(&items);
+        // Library files this module uses load first, so what it names is
+        // checked before it is (docs/proposals/std-library.md §4.3).
+        if !needs.is_empty() {
+            let loaded = if self.library_stack_is_empty() {
+                self.load_libraries(&needs)
+            } else {
+                // A library file's own files load before it does, so this
+                // is a cycle, or a reference the analysis missed.
+                Err(self.unloaded_needs(&needs))
+            };
+            if let Err(errors) = loaded {
+                self.fail_unchecked_names();
+                return errors;
+            }
+            // Not the definitions and tests the files made.
+            self.module.first_def = self.globals.defs.len();
+            first_test = self.tests.len();
+            self.module.first_test = first_test;
+        }
         let order = self.components();
 
         for component in order {
@@ -280,11 +299,7 @@ impl Elaborator {
             );
         }
         // Names that were never checked now just name failures.
-        for (global, _) in self.scope.entries.values_mut() {
-            if let Global::Unchecked(_) = global {
-                *global = Global::Failed;
-            }
-        }
+        self.fail_unchecked_names();
         // Tests run by file, then in source order, whatever order they were
         // checked in.
         let ranks: HashMap<FileId, usize> = self
@@ -426,6 +441,13 @@ impl Elaborator {
                         (decl, &decls[..0])
                     }
                 };
+                // The core's and the library files' tests run under the
+                // library test target (`library_tests`), and are skipped
+                // otherwise.
+                if self.loading_prelude && !self.library_tests && matches!(decl, Decl::Test { .. })
+                {
+                    continue;
+                }
                 if let Decl::Test { name, span, .. } = decl {
                     if let Some(earlier) = test_names.get(name.as_str()) {
                         diagnostics.push((
@@ -531,8 +553,8 @@ impl Elaborator {
                 }
             }
             self.module.items = infos;
-            for (global, _) in self.scope.entries.values_mut() {
-                if let Global::Unchecked(i) = global
+            for key in &self.module.names {
+                if let Some((Global::Unchecked(i), _)) = self.scope.entries.get_mut(key)
                     && let Some(&new) = renumber.get(i)
                 {
                     *i = new;
@@ -639,8 +661,11 @@ impl Elaborator {
         Ok(())
     }
 
-    /// Step 2: what each declaration refers to.
-    fn dependencies(&mut self, items: &[Item]) {
+    /// Step 2: what each declaration refers to. Also the library files the
+    /// module uses (`library.rs`).
+    fn dependencies(&mut self, items: &[Item]) -> std::collections::BTreeSet<usize> {
+        let mut needs = std::collections::BTreeSet::new();
+        let library = self.library_index();
         for (index, item) in items.iter().enumerate() {
             self.module.file = Some(self.module.items[index].file);
             let mut deps = Vec::new();
@@ -685,11 +710,27 @@ impl Elaborator {
                 }
             };
             for (r, in_header) in decl_refs(item.decl, item.equations) {
+                if let Some(index) = &library {
+                    self.note_library_use(index, &r, &mut needs);
+                }
                 add(r, in_header);
             }
             self.module.items[index].deps = deps;
         }
         self.module.file = None;
+        needs
+    }
+
+    /// Names that were declared but never checked now just name failures:
+    /// the module's own.
+    fn fail_unchecked_names(&mut self) {
+        for key in &self.module.names {
+            if let Some((global, _)) = self.scope.entries.get_mut(key)
+                && let Global::Unchecked(_) = global
+            {
+                *global = Global::Failed;
+            }
+        }
     }
 
     /// Step 3: the strongly connected components, in the order to check
@@ -1324,7 +1365,7 @@ fn internal_order(name: &ast::Name) -> Diagnostic {
 /// of its constructors or operations (and what an ability generates).
 /// Each other name is in the declaration's namespace, and is a constructor
 /// or operation (visible wherever the type or ability is) or not.
-fn declared_names(decl: &Decl) -> (Option<ast::Name>, Vec<(ast::Name, bool)>) {
+pub(crate) fn declared_names(decl: &Decl) -> (Option<ast::Name>, Vec<(ast::Name, bool)>) {
     match decl {
         Decl::Data { name, ctors, .. } => (
             Some(name.clone()),
@@ -1347,7 +1388,7 @@ fn declared_names(decl: &Decl) -> (Option<ast::Name>, Vec<(ast::Name, bool)>) {
 }
 
 /// The name at the head of a signature's result, after its parameters.
-fn result_head(ty: &Expr) -> Option<&ast::Name> {
+pub(crate) fn result_head(ty: &Expr) -> Option<&ast::Name> {
     let mut ty = ty;
     while let Expr::Pi { cod, .. } | Expr::Arrow(_, cod) = ty {
         ty = cod;
@@ -1483,6 +1524,11 @@ pub(crate) fn decl_refs<'a>(decl: &'a Decl, equations: &'a [Decl]) -> Vec<(Ref<'
         Decl::Equation { .. } => {}
     }
     out
+}
+
+/// The references an expression makes (for `eval` and the REPL).
+pub(crate) fn expr_refs(expr: &Expr) -> Vec<Ref<'_>> {
+    free_names(vec![Work::Expr(expr)])
 }
 
 /// A reference the pre-pass finds: a name, or dot notation's `.field`

@@ -50,6 +50,7 @@
             fileset = lib.fileset.unions [
               (craneLib.fileset.commonCargoSources ./.)
               ./examples # example programs are the main test suite
+              ./aoc # the lazy-versus-eager library comparison checks it (crates/driver/tests/std_library.rs)
               (lib.fileset.fileFilter (file: file.hasExt "snap") ./crates)
               (lib.fileset.fileFilter (file: file.hasExt "sw") ./crates) # the prelude
               ./web/index.html # the playground's examples are checked

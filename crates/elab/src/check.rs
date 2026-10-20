@@ -695,6 +695,7 @@ pub(crate) fn infer_app(cx: &mut Ctx, head: &Expr, args: &[Arg]) -> Result<(Term
         }
         Some((Global::Unchecked(item), _)) => Err(cx.e.unchecked(name, *item)),
         Some((Global::Failed, _)) => Err(crate::module::failed_name(name)),
+        Some((Global::Pending(file, _), _)) => Err(cx.e.unloaded(name, *file)),
         Some((Global::Ability(_), _)) => Err(cx.error(
             "E-ABILITY",
             format!("`{}` is an ability, not a type or a value", name.text),

@@ -287,7 +287,7 @@ fn written(decl: &Decl) -> &str {
 }
 
 /// A file's declarations, each signature with its equations.
-fn grouped(decls: &[Decl]) -> Vec<(&Decl, &[Decl])> {
+pub(crate) fn grouped(decls: &[Decl]) -> Vec<(&Decl, &[Decl])> {
     let mut out = Vec::new();
     let mut i = 0;
     while i < decls.len() {

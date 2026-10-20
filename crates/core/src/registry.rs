@@ -15,7 +15,11 @@
 //! 4. Entries are bound as their declarations are admitted, so prelude code
 //!    after them can use the syntax.
 //! 5. The registry is complete ([`check_complete`]) before any user code is
-//!    elaborated.
+//!    elaborated: every *core* built-in ([`check_complete_core`]). A
+//!    built-in's [`Home`] says whether its declaration is in the always-loaded
+//!    core or in a library file (docs/proposals/std-library.md §4.6): a
+//!    library built-in is bound when its file loads, and compiler code may
+//!    use only core built-ins by identity, which a debug assertion checks.
 //!
 //! Binding a built-in only says which declaration is meant. Whether a native
 //! implementation may replace it is decided separately, by the checks in
@@ -37,6 +41,21 @@ pub enum Kind {
     /// A constructor of the given built-in data type.
     Ctor(Builtin),
 }
+
+/// Where a built-in's declaration lives.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Home {
+    /// The always-loaded core: syntax, the checker, `deriving`, `calc` and
+    /// abilities need it.
+    Core,
+    /// A library file, bound when that file loads (a native whose
+    /// definition moved out of the core).
+    Library,
+}
+
+/// The built-ins whose declaration is in a library file. Everything else is
+/// in the core.
+const LIBRARY: &[Builtin] = &[];
 
 macro_rules! builtins {
     ($($variant:ident = $name:literal : $kind:expr,)*) => {
@@ -61,6 +80,15 @@ macro_rules! builtins {
                 use Kind::*;
                 match self {
                     $(Builtin::$variant => $kind,)*
+                }
+            }
+
+            /// Whether its declaration is in the core or a library file.
+            pub fn home(self) -> Home {
+                if LIBRARY.contains(&self) {
+                    Home::Library
+                } else {
+                    Home::Core
                 }
             }
         }
@@ -237,6 +265,7 @@ pub struct Registry {
 
 impl Registry {
     pub fn data(&self, b: Builtin) -> Option<DataId> {
+        self.assert_usable(b);
         match self.entries.get(&b) {
             Some(Entry::Data(d)) => Some(*d),
             _ => None,
@@ -244,6 +273,7 @@ impl Registry {
     }
 
     pub fn def(&self, b: Builtin) -> Option<DefId> {
+        self.assert_usable(b);
         match self.entries.get(&b) {
             Some(Entry::Def(id)) => Some(*id),
             _ => None,
@@ -252,10 +282,23 @@ impl Registry {
 
     /// A constructor: its data type and index.
     pub fn ctor(&self, b: Builtin) -> Option<(DataId, usize)> {
+        self.assert_usable(b);
         match self.entries.get(&b) {
             Some(Entry::Ctor(d, c)) => Some((*d, *c)),
             _ => None,
         }
+    }
+
+    /// Compiler code refers by identity only to built-ins that are in the
+    /// core (a library file loads on demand, so a library built-in may not
+    /// be bound yet): a library built-in is reached by name, through the
+    /// loader.
+    fn assert_usable(&self, b: Builtin) {
+        debug_assert!(
+            b.home() == Home::Core || self.entries.contains_key(&b),
+            "compiler code uses the library built-in `{}` before its file loads",
+            b.name()
+        );
     }
 
     /// Whether `d` is built-in data type `b`.
@@ -282,6 +325,14 @@ impl Registry {
             .iter()
             .copied()
             .filter(|b| !self.entries.contains_key(b))
+            .collect()
+    }
+
+    /// The core built-ins not bound yet.
+    pub fn missing_core(&self) -> Vec<Builtin> {
+        self.missing()
+            .into_iter()
+            .filter(|b| b.home() == Home::Core)
             .collect()
     }
 
@@ -336,7 +387,16 @@ fn unbound(g: &Globals, name: &str, kind: impl Fn(Kind) -> bool) -> Option<Built
 /// Refuses an incomplete registry: user code can't be elaborated until every
 /// built-in is bound.
 pub fn check_complete(g: &Globals) -> Result<(), Diagnostic> {
-    let missing = g.registry.missing();
+    complete(&g.registry.missing())
+}
+
+/// [`check_complete`] for the core built-ins only: what user code needs
+/// before it is elaborated. A library built-in is bound when its file loads.
+pub fn check_complete_core(g: &Globals) -> Result<(), Diagnostic> {
+    complete(&g.registry.missing_core())
+}
+
+fn complete(missing: &[Builtin]) -> Result<(), Diagnostic> {
     if missing.is_empty() {
         return Ok(());
     }
