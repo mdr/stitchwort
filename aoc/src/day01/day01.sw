@@ -61,12 +61,9 @@ def zerosAfter (d: Dial highest) (turns: List Turn): Nat :=
 theorem zerosPassedSplit (d: Dial highest) (t: Turn) (ts: List Turn):
     zerosAfter d (t.clicks ++ List.concatMap Turn.clicks ts)
       = d.zerosDuring t + zerosAfter (d.move t) (List.concatMap Turn.clicks ts) :=
-  Eq.trans (Eq.cong (List.occurrences Dial.isZero) (List.scanLeftAppend Dial.move d t.clicks (List.concatMap Turn.clicks ts)))
-    (Eq.trans (List.occurrencesAppend Dial.isZero (List.drop 1 (List.scanLeft Dial.move d t.clicks))
-        (List.drop 1 (List.scanLeft Dial.move (List.foldLeft Dial.move d t.clicks) (List.concatMap Turn.clicks ts))))
-      (Eq.trans (Eq.cong (\x => x + zerosAfter (List.foldLeft Dial.move d t.clicks) (List.concatMap Turn.clicks ts))
-          (turnCount d t))
-        (Eq.cong (\e => d.zerosDuring t + zerosAfter e (List.concatMap Turn.clicks ts)) (turnAt d t))))
+  rewrite <- turnCount d t, <- turnAt d t
+    in Eq.trans (Eq.cong (List.occurrences Dial.isZero) (List.scanLeftAppend Dial.move d t.clicks (List.concatMap Turn.clicks ts)))
+      (List.occurrencesAppend Dial.isZero _ _)
 
 theorem zerosPassedFrom (d: Dial highest): (ts: List Turn) ->
     zerosPassed d ts = zerosAfter d (List.concatMap Turn.clicks ts)
@@ -235,15 +232,14 @@ theorem stepLeftFrom (highest: Nat): (m: Nat) -> Succ m <= highest -> (n: Nat) -
     Bool.toNat (m == 0) + ((Succ highest - m) % Succ highest + n) / Succ highest
       = ((Succ highest - Succ m) % Succ highest + Succ n) / Succ highest
   | Zero,   h, n =>
-    Eq.trans (Eq.cong (\x => Succ ((x + n) / Succ highest)) (Nat.modSelf (Succ highest)))
-      (Eq.sym (Eq.trans (Eq.cong (\x => (x + Succ n) / Succ highest) (Nat.modSmall highest (Succ highest) (Nat.leRefl highest)))
-        (Eq.trans (Eq.cong (\x => x / Succ highest) (Nat.addSucc highest n)) (Nat.addDivSelf (Succ highest) n))))
+    rewrite Nat.modSelf (Succ highest), Nat.modSmall highest (Succ highest) (Nat.leRefl highest), Nat.addSucc highest n
+      in Eq.sym (Nat.addDivSelf (Succ highest) n)
   | Succ j, h, n =>
-    Eq.trans (Eq.cong (\x => (x + n) / Succ highest)
-        (Eq.trans (Nat.modSmall (highest - j) (Succ highest) (Nat.subLe highest j))
-          (Nat.subSuccRight j highest (Nat.leTrans (Succ j) (Succ (Succ j)) highest (Nat.leSucc (Succ j)) h))))
-      (Eq.trans (Eq.cong (\x => x / Succ highest) (Eq.sym (Nat.addSucc (highest - Succ j) n)))
-        (Eq.cong (\x => (x + Succ n) / Succ highest) (Eq.sym (Nat.modSmall (highest - Succ j) (Succ highest) (Nat.subLe highest (Succ j))))))
+    rewrite Nat.modSmall (highest - j) (Succ highest) (Nat.subLe highest j),
+        Nat.modSmall (highest - Succ j) (Succ highest) (Nat.subLe highest (Succ j)),
+        Nat.subSuccRight j highest (Nat.leTrans (Succ j) (Succ (Succ j)) highest (Nat.leSucc (Succ j)) h),
+        Nat.addSucc (highest - Succ j) n
+      in rfl
 
 -- The count after one click left from 0, to `highest`.
 theorem stepLeftTop: (highest: Nat) -> (n: Nat) ->
