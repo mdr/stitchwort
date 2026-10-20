@@ -2347,7 +2347,7 @@
     {
       "id": 154,
       "title": "Kernel conversion is slow on proof-by-computation facts (day 2 check went 0.5 s -> ~10 s)",
-      "status": "done",
+      "status": "doing",
       "agent": "Claude",
       "where": "main",
       "labels": [
