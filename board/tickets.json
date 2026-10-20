@@ -1,5 +1,5 @@
 {
-  "next": 173,
+  "next": 174,
   "tickets": [
     {
       "id": 1,
@@ -2669,6 +2669,20 @@
         "proof"
       ],
       "body": "D108 (Matt, 20 Oct 2026): close day 6's gap. Today only grid-shape lemmas (Aoc.Day06.Proofs: paddedGridRectangular, columnsKeepEveryCell, blocksAreRuns, blocksKeepEveryColumn). Needs SW-144 (Nat.fromDigits (Nat.digits n) = n, List.get lemmas), a Char.digitValue round trip, a cell-level transposition lemma, and a puzzle-literal spec for both parts to prove against. Then day 4.",
+      "created": "2026-10-20",
+      "updated": "2026-10-20",
+      "commits": []
+    },
+    {
+      "id": 173,
+      "title": "Host the playground publicly on GitHub Pages (D118)",
+      "status": "backlog",
+      "agent": "",
+      "where": "docs/proposals/playground-projects.md §10",
+      "labels": [
+        "web"
+      ],
+      "body": "D118 (Matt, 20 Oct 2026): yes, but not until Stitchwort is further along. Per the note §10: switch the ?load=<time> cache-busting to a content hash (pkg/version.json), check .wasm compression on the real site, publish the nix build .#playground output, decide on loading the font from Google.",
       "created": "2026-10-20",
       "updated": "2026-10-20",
       "commits": []
