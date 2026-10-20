@@ -1713,9 +1713,9 @@
         "aoc",
         "design"
       ],
-      "body": "docs/aoc-2025.md capability #4: a compact native `Array a` (like compact text) for days 4, 8, 9. Large; design note first (Opus), with a design review before building. Measure after days 4-5 whether it's really needed (aoc-2025.md says so).",
+      "body": "docs/aoc-2025.md capability #4: a compact native `Array a` (like compact text) for days 4, 8, 9. Large; design note first (Opus), with a design review before building. Measure after days 4-5 whether it's really needed (aoc-2025.md says so).\n\n20 Oct 2026 (D107): AoC day 4 part 2 would use a worklist (remove a roll, recheck its 8 neighbours) with O(1) grid access; today it sweeps the whole grid ~60 times (5 s). Concrete use case for this ticket.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-20",
       "commits": []
     },
     {
@@ -2644,8 +2644,8 @@
       "id": 171,
       "title": "AoC day 4 takes ~17 s to run: profile and speed up",
       "status": "doing",
-      "agent": "Sonnet",
-      "where": "worktree",
+      "agent": "Claude",
+      "where": "main",
       "labels": [
         "aoc",
         "performance"
@@ -2653,7 +2653,10 @@
       "body": "D107 (Matt, 20 Oct 2026). stitchwort run Aoc.Day04.main takes ~16.8 s (run time, not proofs; same before the restructure). Profile first (evaluator vs program algorithm), then fix in the program or the evaluator, measured.",
       "created": "2026-10-20",
       "updated": "2026-10-20",
-      "commits": []
+      "commits": [
+        "fb948ab",
+        "66f9621"
+      ]
     }
   ]
 }
