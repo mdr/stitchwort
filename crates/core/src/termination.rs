@@ -45,7 +45,7 @@
 //! arity. **Occurrences of members must be saturated**: applied to at least
 //! the callee's entry arity's arguments, so that the call's graph says what
 //! every parameter is given. A bare or partial occurrence is refused, with a
-//! suggestion to write `\x -> f a x` (§6.3).
+//! suggestion to write `x => f a x` (§6.3).
 
 use stitchwort_syntax::{Diagnostic, Span};
 

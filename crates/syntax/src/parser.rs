@@ -3439,7 +3439,7 @@ mod tests {
         assert_eq!((name.as_str(), ty.as_str()), ("y", "Nat"));
         let (_, _, body) = typed(&rhs("def f : Nat := (x: Nat) (y: Bool) => x\n"));
         assert!(matches!(body, Expr::TypedLam(..)));
-        // Mixed with plain parameters: `\x (y: Nat)` is a `Lam` around a
+        // Mixed with plain parameters: `x (y: Nat)` is a `Lam` around a
         // `TypedLam`.
         match &rhs("def f : Nat := x (y: Nat) => x\n") {
             Expr::Lam(names, body, _) => {

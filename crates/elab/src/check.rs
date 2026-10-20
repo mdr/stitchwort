@@ -1400,8 +1400,8 @@ fn append(cx: &mut Ctx, a: &Expr, b: &Expr) -> Result<(Term, Value)> {
     Ok((Term::app(Term::app(head, a), b), ty))
 }
 
-/// `if c then a else b` is `ifThenElse c (\_ -> a) (\_ -> b)`, and
-/// `if h : P then a else b` is `elimDec (decision for P) (\h -> a) (\h -> b)`.
+/// `if c then a else b` is `ifThenElse c (_ => a) (_ => b)`, and
+/// `if h : P then a else b` is `elimDec (decision for P) (h => a) (h => b)`.
 /// The branches are functions so only the chosen one is evaluated.
 ///
 /// `if c` with no binder where `c` isn't a `Bool` but a proposition is
@@ -1468,7 +1468,7 @@ pub(crate) fn check_if(
     }
 }
 
-/// `elimDec decision (\name -> then) (\name -> otherwise)`, where `decision`
+/// `elimDec decision (name => then) (name => otherwise)`, where `decision`
 /// decides `prop`: `name` is a proof of `prop` in `then` and of `Not prop`
 /// in `otherwise`.
 #[allow(clippy::too_many_arguments)]
@@ -1955,7 +1955,7 @@ fn ctor_app(
         ));
     }
 
-    // Partial application: `\x … -> C args x …`, checked against a function type.
+    // Partial application: `x … => C args x …`, checked against a function type.
     let mut missing_types = Vec::new();
     let mark = cx.mark();
     let mut target = expected.cloned();

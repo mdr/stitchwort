@@ -309,7 +309,7 @@ fn settle<T>(r: std::result::Result<T, Fail>) -> Result<Option<T>> {
 }
 
 /// Solves `?m spine = rhs`, where the spine must be distinct variables (a
-/// "pattern"). The solution is `\x1 … xn -> rhs`, with the spine's variables
+/// "pattern"). The solution is `x1 … xn => rhs`, with the spine's variables
 /// renamed to the lambda's parameters.
 fn solve(g: &Globals, level: usize, m: usize, spine: &[Elim], rhs: &Value) -> Result<bool> {
     let mut renaming = HashMap::new();
@@ -711,7 +711,7 @@ mod tests {
     #[test]
     fn solves_a_pattern() {
         let g = globals();
-        // ?m x0 x1 = x1, so ?m = \a b -> b
+        // ?m x0 x1 = x1, so ?m = a b => b
         let (m, lhs) = meta(&g, &[0, 1]);
         assert!(unify(&g, 2, &lhs, &Value::var(1)).unwrap());
         let solution = g.meta_solution(m).expect("solved");
@@ -757,7 +757,7 @@ mod tests {
     #[test]
     fn refuses_a_spine_that_repeats_a_variable() {
         let g = globals();
-        // ?m x0 x0 = x0 has two solutions (\a b -> a and \a b -> b), so neither is chosen.
+        // ?m x0 x0 = x0 has two solutions (a b => a and a b => b), so neither is chosen.
         let (m, lhs) = meta(&g, &[0, 0]);
         assert!(!unify(&g, 1, &lhs, &Value::var(0)).unwrap());
         assert!(g.meta_solution(m).is_none());
@@ -786,7 +786,7 @@ mod tests {
     fn prunes_dependencies_that_a_solution_cannot_have() {
         let g = globals();
         // ?a = (?b x0 = Type), where ?a can't depend on x0. Pruning solves
-        // ?b := \_ -> ?c, so the equation has the solution ?a := (?c = Type).
+        // ?b := _ => ?c, so the equation has the solution ?a := (?c = Type).
         let (a, lhs) = meta(&g, &[]);
         let (b, b_applied) = meta(&g, &[0]);
         assert!(unify(&g, 1, &lhs, &eq(b_applied.clone(), ty())).unwrap());
@@ -816,7 +816,7 @@ mod tests {
         let g = globals();
         let (m, lhs) = meta(&g, &[0]);
         assert!(unify(&g, 1, &lhs, &Value::var(0)).unwrap());
-        // ?m x0 with ?m = \a -> a zonks to x0.
+        // ?m x0 with ?m = a => a zonks to x0.
         let term = Term::app(Term::Meta(m), Term::Var(0));
         let zonked = zonk(&g, 1, &term).expect("solved");
         assert!(matches!(zonked, Term::Var(0)), "{zonked:?}");
@@ -875,7 +875,7 @@ mod tests {
                 "{a:?} vs itself"
             );
         }
-        // Eta: `\x -> f x` unifies with `f`, but `\x y -> f y x` doesn't.
+        // Eta: `x => f x` unifies with `f`, but `x y => f y x` doesn't.
         let f = Value::var(0);
         let eta = eval(
             &g,
@@ -930,7 +930,7 @@ mod tests {
     #[test]
     fn solutions_can_contain_binders() {
         let g = globals();
-        // ?m x0 = (\y -> x0), so ?m = \a -> \y -> a.
+        // ?m x0 = (y => x0), so ?m = a => y => a.
         let (m, lhs) = meta(&g, &[0]);
         let rhs = eval(&g, &[Value::var(0)], &lam(Term::Var(1))).unwrap();
         assert!(unify(&g, 1, &lhs, &rhs).unwrap());
@@ -983,7 +983,7 @@ mod tests {
         let g = globals();
         let (m, lhs) = meta(&g, &[]);
         assert!(unify(&g, 0, &lhs, &ty()).unwrap());
-        // \x -> ?m, inside a case branch with two fields.
+        // x => ?m, inside a case branch with two fields.
         let term = lam(Term::Meta(m));
         assert!(
             matches!(zonk(&g, 0, &term), Ok(Term::Lam(_, _, ref body)) if matches!(**body, Term::Sort(_)))

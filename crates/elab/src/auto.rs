@@ -16,7 +16,7 @@
 //!    passing a procedure explicitly makes it a dependency, checked first. Its arguments are found by unification, and any
 //!    `Decidable` or auto arguments it needs are found recursively, as are
 //!    decision procedures it takes as arguments (`(x y : a) -> Decidable
-//!    (x = y)`, for `List.decEq`): `\x y -> …`, searched for with `x` and `y`
+//!    (x = y)`, for `List.decEq`): `x y => …`, searched for with `x` and `y`
 //!    in scope. Each recursive search is one deeper, up to `MAX_DEPTH`. It's run at
 //!    compile time, and must say `Yes`. The proof is then `fromYes d Trivial`,
 //!    which the kernel re-checks by running `d` itself.
@@ -382,7 +382,7 @@ fn result_head(cx: &Ctx, id: DefId) -> Result<Option<DataId>> {
 
 /// For an argument of type `(x : A) -> (y : B) -> Decidable P` (a decision
 /// procedure passed in, such as the one for elements that `List.decEq`
-/// takes): `\x y -> d`, where `d` decides `P` with `x` and `y` in scope.
+/// takes): `x y => d`, where `d` decides `P` with `x` and `y` in scope.
 /// `None` if `ty` isn't such a type; if `P` can't be decided, the error and
 /// what `P` is, for saying why.
 ///

@@ -255,7 +255,7 @@ fn a_stuck_case_unblocks_when_its_metavariable_is_solved() {
             )
         )
     );
-    // `?m := \x -> Succ (Succ x)`: now `pred (?m 3)` is 4.
+    // `?m := x => Succ (Succ x)`: now `pred (?m 3)` is 4.
     let nat = g.builtins.nat.unwrap();
     let solution = value::eval(
         g,

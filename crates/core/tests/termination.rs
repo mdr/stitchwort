@@ -304,7 +304,7 @@ fn rejects_rebuilding_with_a_different_constructor_or_fields() {
 
 #[test]
 fn transport_is_no_evidence() {
-    // f n = case n of Zero -> 0; Succ m -> f (J (\y p -> Nat) m (rfl : m = m)):
+    // f n = case n of Zero -> 0; Succ m -> f (J (y p => Nat) m (rfl : m = m)):
     // the result of `J` is `m`, but a transport never counts as a part.
     let mut p = Prelude::new();
     let ty = nats_to_nat(&p, 1);
@@ -396,7 +396,7 @@ fn rejects_a_partial_recursive_call() {
         e.notes.iter().any(|n| n.contains("`x => sumWith m' x`")),
         "suggests the lambda: {e:?}"
     );
-    // The neighbour: `\x -> f m' x`.
+    // The neighbour: `x => f m' x`.
     let r = define_rec(&mut p, "sumWith2", ty, |f| {
         lam(
             "m",
@@ -476,7 +476,7 @@ fn implicit_parameters_count_towards_the_arity() {
 /// a definition returning a function is saturated by its entry parameters.
 #[test]
 fn the_arity_comes_from_the_body_not_the_type() {
-    // f : Nat -> (Nat -> Nat); f n = case n of Zero -> \x -> x; Succ m -> f m
+    // f : Nat -> (Nat -> Nat); f n = case n of Zero -> x => x; Succ m -> f m
     let mut p = Prelude::new();
     let ty = arrow(p.nat_ty(), nats_to_nat(&p, 1));
     let nat = p.nat;
@@ -499,7 +499,7 @@ fn the_arity_comes_from_the_body_not_the_type() {
 #[test]
 fn over_applied_calls_are_walked_in_every_argument() {
     // f : Nat -> Nat -> Nat with entry arity 1:
-    // f n = case n of Zero -> \x -> x; Succ m -> \x -> f m (<hidden>)
+    // f n = case n of Zero -> x => x; Succ m -> x => f m (<hidden>)
     let mut p = Prelude::new();
     let ty = arrow(p.nat_ty(), nats_to_nat(&p, 1));
     let nat = p.nat;
@@ -543,7 +543,7 @@ fn rejects_an_arity_zero_self_reference() {
 
 #[test]
 fn rejects_an_arity_zero_function_calling_itself() {
-    // loop : Nat -> Nat; loop = (\n -> loop n : Nat -> Nat)
+    // loop : Nat -> Nat; loop = (n => loop n : Nat -> Nat)
     // No entry lambdas (the annotation comes first), so `loop n` is
     // over-applied and its graph has no entries.
     let mut p = Prelude::new();

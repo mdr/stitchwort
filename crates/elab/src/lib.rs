@@ -2706,8 +2706,8 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
             if let Value::Neutral(Head::Meta(_), _) = ty {
                 // A variable of a type not yet known, matched by a
                 // constructor: a pattern lambda's parameter checked before
-                // the argument that fixes its type, as in `List.map (\(a, b)
-                // -> …) ps` (docs/proposals/syntax-conveniences.md §5.5). Its
+                // the argument that fixes its type, as in `List.map ((a, b)
+                // => …) ps` (docs/proposals/syntax-conveniences.md §5.5). Its
                 // type is the constructor's, with parameters still unknown.
                 let params = (0..data.params.len())
                     .map(|_| cx.eval(&cx.fresh_meta()))

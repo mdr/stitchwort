@@ -654,7 +654,7 @@ fn call(
     let base_level = cx.level();
     // With parameters left out, the call becomes a function of them, and
     // the receiver is bound first so it's evaluated once:
-    // `(\r -> \x -> T.f x r) e`.
+    // `(r => x => T.f x r) e`.
     let recv_level = cx.level();
     // Otherwise the receiver's value is computed only if the result type
     // needs it (docs/proposals/checker-evaluation.md).
@@ -765,7 +765,7 @@ fn call(
         let rest = &args[placeholders.len()..];
         return apply_args(cx, (term, ty), rest);
     }
-    // `(\r -> \x… -> call) e`, annotated for the kernel.
+    // `(r => x… => call) e`, annotated for the kernel.
     let mut fun_ty = cx.quote(&ty)?;
     for (x, dom, at) in missing_doms.iter().rev() {
         let dom = stitchwort_core::value::quote(g, *at, dom)?;

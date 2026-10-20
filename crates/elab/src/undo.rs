@@ -198,7 +198,7 @@ mod tests {
         let mut cx = Ctx::new(&e, span());
         cx.bind_hidden("x".into(), ty(0));
         // `?a = Type1` against `(?b x0 = Type0) = Type0`, with `?a` unable to
-        // depend on `x0`: pruning makes a new `?c` with `?b := \_ -> ?c`,
+        // depend on `x0`: pruning makes a new `?c` with `?b := _ => ?c`,
         // then `Type1` against `Type0` fails.
         let (a, a_value) = meta(&cx, &[]);
         let (b, b_applied) = meta(&cx, &[0]);

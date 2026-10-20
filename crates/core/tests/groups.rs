@@ -25,7 +25,7 @@ fn nats_to_nat(p: &Prelude, n: usize) -> Term {
     (0..n).fold(p.nat_ty(), |ty, _| arrow(p.nat_ty(), ty))
 }
 
-/// `\n -> case n of Zero -> zero; Succ k -> succ`, where `succ` is written
+/// `n => case n of Zero -> zero; Succ k -> succ`, where `succ` is written
 /// with `k` as `v(0)` and `n` as `v(1)`.
 fn on_nat(nat: DataId, zero: Term, succ: Term) -> Term {
     lam("n", case(0, nat, vec![(vec![], zero), (vec!["k"], succ)]))
@@ -267,7 +267,7 @@ fn a_signature_cannot_mention_a_sibling() {
 #[test]
 fn members_are_opaque_while_their_group_is_checked() {
     // `f`'s body needs `z` to compute to `Zero`:
-    // `((\_ -> n) : z = 0 -> Nat) rfl`.
+    // `((_ => n) : z = 0 -> Nat) rfl`.
     let mut p = Prelude::new();
     let body_using = |p: &Prelude, z: DefId| {
         let ignore = Term::Ann(
@@ -403,7 +403,7 @@ fn a_member_must_be_given_all_its_arguments() {
         e.message,
         "`walkList` is used here without all its arguments"
     );
-    // Neighbour: `\x -> walkList x` has all its arguments, but `x` isn't
+    // Neighbour: `x => walkList x` has all its arguments, but `x` isn't
     // smaller than anything, so going round nothing gets smaller.
     let ids = declare_all(&mut p, &["walk2", "walkList2"]);
     let eta = lam("x", app(Term::Def(ids[1]), [v(0)]));
@@ -867,7 +867,7 @@ fn leaving_out_the_only_decreasing_argument_is_refused() {
     let partial = |g: DefId| lam("t", app(Term::Def(h), [app(Term::Def(g), [zero.clone()])]));
     let e = decreasing_second(&mut p, "1", &partial).unwrap_err();
     assert_eq!(e.message, "`g1` is used here without all its arguments");
-    // f t = h (\x -> g 0 x): saturated, but `x` is unrelated to anything,
+    // f t = h (x => g 0 x): saturated, but `x` is unrelated to anything,
     // so there's no arc into `g`'s decreasing position.
     let eta = |g: DefId| {
         lam(
@@ -881,7 +881,7 @@ fn leaving_out_the_only_decreasing_argument_is_refused() {
     let e = decreasing_second(&mut p, "2", &eta).unwrap_err();
     assert_eq!(e.message, "can't show that `f2` and `g2` terminate");
     // Neighbour: leave out the *other* argument instead. f (Succ k) =
-    // h (\n -> g n k), where `k` is smaller.
+    // h (n => g n k), where `k` is smaller.
     let other = |g: DefId| {
         let call = lam("n", app(Term::Def(g), [v(0), v(1)]));
         lam(

@@ -11,7 +11,7 @@ pub struct Name {
 }
 
 /// The parameter of a method section's lambda: `.f a` is parsed as
-/// `\%section => %section.f a` (docs/syntax.md, Method sections). Users
+/// `%section => %section.f a` (docs/syntax.md, Method sections). Users
 /// can't write the name, so it never captures one of theirs.
 pub const SECTION: &str = "%section";
 
@@ -28,7 +28,7 @@ pub enum Expr {
     Type(u32, Span),
     Prop(Span),
     App(Box<Expr>, Box<Expr>),
-    /// `\x y -> body`
+    /// `x y => body`
     Lam(Vec<Name>, Box<Expr>, Span),
     /// `(x: A) => body`: a lambda whose parameter has a written type (one
     /// parameter; several are nested).
@@ -201,7 +201,7 @@ pub enum MatchKind {
     Match,
     /// `let p = e`, followed by the rest of the block.
     Let,
-    /// `\p -> body`: the lambda's parameters are generated variables
+    /// `p => body`: the lambda's parameters are generated variables
     /// matched against its patterns.
     Lambda,
 }
