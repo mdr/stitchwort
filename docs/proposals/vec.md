@@ -1,6 +1,7 @@
 # Proposal: length-indexed vectors (`Vec`) and day 4 over them
 
 > **Status (20 Oct 2026):** D133 yes and D135 (a): indexed data types go into the kernel first (SW-178); this note's representation decisions (D126-D132, D134) wait until then (SW-179, SW-180).
+
 **Status:** draft 1, 20 October 2026. Waiting for review (design-review gate). Nothing is
 built yet. Decisions D124 and D125 (Matt, 20 October) set the direction; the open questions
 are D126 to D133 in [§8](#8-decisions-wanted).
