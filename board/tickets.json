@@ -2246,8 +2246,8 @@
     {
       "id": 148,
       "title": "Design note: split the prelude into Std library files loaded on use",
-      "status": "doing",
-      "agent": "Claude",
+      "status": "review",
+      "agent": "Matt",
       "where": "main",
       "labels": [
         "design",
