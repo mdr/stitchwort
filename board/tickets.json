@@ -56,9 +56,9 @@
     {
       "id": 4,
       "title": "Interfaces design note (Agda/Lean style, with independent review)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
-      "where": "docs/proposals/interfaces.md (draft 1); then external review",
+      "where": "docs/proposals/interfaces.md draft 1 (D154-D174); external review next",
       "labels": [
         "design",
         "elab"
