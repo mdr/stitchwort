@@ -2750,7 +2750,7 @@
       "title": "Indexed data types (inductive families) in the kernel (D133)",
       "status": "doing",
       "agent": "Opus",
-      "where": "stages 1+2 (kernel) in worktree agent-ae6d5f72d21c22428; overnight plan scratchpad/OVERNIGHT.md",
+      "where": "stages 1-2 merged df9636f (gate passed); stages 3-4 running",
       "labels": [
         "kernel",
         "design"
