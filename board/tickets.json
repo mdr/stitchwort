@@ -2750,7 +2750,7 @@
       "title": "Indexed data types (inductive families) in the kernel (D133)",
       "status": "review",
       "agent": "Opus",
-      "where": "docs/proposals/indexed-families.md draft 1 (D136-D149, D153)",
+      "where": "docs/proposals/indexed-families.md draft 3; review closed (D185); decisions D136-D149, D153, D184 open",
       "labels": [
         "kernel",
         "design"
