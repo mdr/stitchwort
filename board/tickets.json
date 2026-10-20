@@ -1349,9 +1349,9 @@
     {
       "id": 90,
       "title": "Consider lambda syntax",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "worktree",
       "labels": [
         "syntax",
         "design"
@@ -1689,8 +1689,8 @@
       "id": 111,
       "title": "Nat.absDiff lemmas",
       "status": "doing",
-      "agent": "DeepSeek",
-      "where": "/Users/matt/scratch/opencode/funlang-20261020-183059",
+      "agent": "Claude",
+      "where": "main",
       "labels": [
         "stdlib",
         "proof"
