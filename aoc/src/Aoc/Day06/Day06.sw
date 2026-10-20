@@ -15,9 +15,10 @@
 -- trailing ones), turned into columns, and split into blocks at the blank
 -- columns. Each block gives a problem its operator and both readings.
 --
--- That the grid is padded rectangular and the blocks are the runs of columns
--- that aren't blank is proved in `Aoc.Day06.Proofs` (Proofs/Grid.sw), which
--- `run` does not check.
+-- Both answers are proved right for every input, against the puzzle's own
+-- wording read cell by cell, in `Aoc.Day06.Proofs` (Proofs/Spec.sw,
+-- Proofs/Correct.sw; the grid's shape in Proofs/Grid.sw), which `run` does
+-- not check.
 
 namespace Aoc.Day06
 
@@ -61,9 +62,9 @@ test "padded grid" := paddedGrid ["ab", "a"] == [['a', 'b'], ['a', ' ']]
 -- One block of columns, the last character of each being the operator row.
 def parseProblem (columns: List (List Char)): Problem :=
   let rows := columns.transpose
-  { operator = (columns.mapMaybe (column => column.last.andThen Operator.parse)).get 0
-  , rowNumbers = (rows.take (rows.length - 1)).map readNumber
-  , columnNumbers = columns.map (column => readNumber (column.take (column.length - 1))) }
+  { operator = (columns.mapMaybe (column => column.last.andThen Operator.parse)).head
+  , rowNumbers = rows.init.map readNumber
+  , columnNumbers = columns.map (column => readNumber column.init) }
 
 test "example problems" :=
   (parseWorksheet example).map (p => (p.rowNumbers, p.columnNumbers))

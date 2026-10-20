@@ -531,3 +531,80 @@ def List.Subsequence: List a -> List a -> Prop
   | Nil,       ys        => Unit
   | Cons x xs, Nil       => Void
   | Cons x xs, Cons y ys => Or (And (x = y) (List.Subsequence xs ys)) (List.Subsequence (Cons x xs) ys)
+
+-- Lemmas for proofs about grids: runs' lengths, `map` and `mapMaybe` fused,
+-- `init`, `last` and `reverse` of a `map`, and transposing a grid given cell
+-- by cell.
+theorem List.lengthRangeFrom: (n: Nat) -> (s: Nat) -> List.length (List.rangeFrom n s) = n
+  | Zero,   s => rfl
+  | Succ n, s => rewrite List.lengthRangeFrom n (Succ s)
+
+theorem List.mapMap (f: b -> c) (g: a -> b): (xs: List a) -> List.map f (List.map g xs) = List.map (x => f (g x)) xs
+  | Nil       => rfl
+  | Cons x xs => rewrite List.mapMap f g xs
+
+theorem List.mapMaybeMap (f: b -> Maybe c) (g: a -> b): (xs: List a) -> List.mapMaybe f (List.map g xs) = List.mapMaybe (x => f (g x)) xs
+  | Nil       => rfl
+  | Cons x xs => rewrite List.mapMaybeMap f g xs
+
+theorem List.mapMaybeJust (f: a -> b): (xs: List a) -> List.mapMaybe (x => Just (f x)) xs = List.map f xs
+  | Nil       => rfl
+  | Cons x xs => rewrite List.mapMaybeJust f xs
+
+theorem List.mapMaybeAppend (f: a -> Maybe b): (xs: List a) -> (ys: List a) ->
+    List.mapMaybe f (List.append xs ys) = List.append (List.mapMaybe f xs) (List.mapMaybe f ys)
+  | Nil,       ys => rfl
+  | Cons x xs, ys =>
+    match f x with
+      | Nothing => List.mapMaybeAppend f xs ys
+      | Just y  => rewrite List.mapMaybeAppend f xs ys
+
+theorem List.initMap (f: a -> b): (xs: List a) -> List.init (List.map f xs) = List.map f (List.init xs)
+  | Nil                => rfl
+  | Cons x Nil         => rfl
+  | Cons x (Cons y ys) => rewrite List.initMap f (Cons y ys)
+
+theorem List.lastMap (f: a -> b): (xs: List a) -> List.last (List.map f xs) = Maybe.map f (List.last xs)
+  | Nil                => rfl
+  | Cons x Nil         => rfl
+  | Cons x (Cons y ys) => List.lastMap f (Cons y ys)
+theorem List.mapRangeShift (f: Nat -> b): (n: Nat) -> (s: Nat) ->
+    List.map f (List.rangeFrom n (Succ s)) = List.map (i => f (Succ i)) (List.rangeFrom n s)
+  | Zero,   s => rfl
+  | Succ n, s => rewrite List.mapRangeShift f n (Succ s)
+
+-- Transposing a grid given cell by cell: row x, column y becomes row y, column x.
+theorem List.transposeNGrid (cell: a -> b -> c) (rows: List a): (cols: List b) ->
+    List.transposeN (List.length cols) (List.map (x => List.map (cell x) cols) rows) = List.map (y => List.map (x => cell x y) rows) cols
+  | Nil         => rfl
+  | Cons y cols =>
+    calc List.transposeN (Succ (List.length cols)) (List.map (x => List.map (cell x) (Cons y cols)) rows)
+      _ = Cons (List.mapMaybe (List.get 0) (List.map (x => List.map (cell x) (Cons y cols)) rows))
+               (List.transposeN (List.length cols) (List.map (List.drop 1) (List.map (x => List.map (cell x) (Cons y cols)) rows)))
+      _ = Cons (List.mapMaybe (x => Just (cell x y)) rows) (List.transposeN (List.length cols) (List.map (x => List.map (cell x) cols) rows))
+          := rewrite List.mapMaybeMap (List.get 0) (x => List.map (cell x) (Cons y cols)) rows,
+                     List.mapMap (List.drop 1) (x => List.map (cell x) (Cons y cols)) rows
+      _ = Cons (List.map (x => cell x y) rows) (List.map (z => List.map (x => cell x z) rows) cols)
+          := rewrite List.mapMaybeJust (x => cell x y) rows, List.transposeNGrid cell rows cols
+
+theorem List.transposeGrid (cell: a -> b -> c) (r: a) (rows: List a) (cols: List b):
+    List.transpose (List.map (x => List.map (cell x) cols) (Cons r rows)) = List.map (y => List.map (x => cell x y) (Cons r rows)) cols :=
+  calc List.transpose (List.map (x => List.map (cell x) cols) (Cons r rows))
+    _ = List.transposeN (List.length (List.map (cell r) cols)) (List.map (x => List.map (cell x) cols) (Cons r rows))
+    _ = List.transposeN (List.length cols) (List.map (x => List.map (cell x) cols) (Cons r rows)) := rewrite List.lengthMap (cell r) cols
+    _ = List.map (y => List.map (x => cell x y) (Cons r rows)) cols := List.transposeNGrid cell (Cons r rows) cols
+
+theorem List.mapReverseOnto (f: a -> b): (xs: List a) -> (acc: List a) ->
+    List.map f (List.reverseOnto xs acc) = List.reverseOnto (List.map f xs) (List.map f acc)
+  | Nil,       acc => rfl
+  | Cons x xs, acc => List.mapReverseOnto f xs (Cons x acc)
+
+theorem List.mapReverse (f: a -> b) (xs: List a): List.map f (List.reverse xs) = List.reverse (List.map f xs) := List.mapReverseOnto f xs Nil
+
+theorem List.mapMaybeCongr (f: a -> Maybe b) (g: a -> Maybe b) (h: (x: a) -> f x = g x): (xs: List a) -> List.mapMaybe f xs = List.mapMaybe g xs
+  | Nil       => rfl
+  | Cons x xs => rewrite h x, List.mapMaybeCongr f g h xs
+
+theorem Maybe.andThenMap (g: b -> Maybe c) (f: a -> b): (m: Maybe a) -> Maybe.andThen g (Maybe.map f m) = Maybe.andThen (x => g (f x)) m
+  | Nothing => rfl
+  | Just x  => rfl

@@ -298,3 +298,33 @@ theorem Nat.digitsTen: Nat.digits 10 = [1, 0] := rfl
 theorem Nat.fromDigitsNil: Nat.fromDigits Nil = 0 := rfl
 
 theorem Nat.digitsRoundTrip: Nat.fromDigits (Nat.digits 9876543210) = 9876543210 := rfl
+
+-- Digit characters read back as their digits.
+theorem Char.digitValueChar: (d: Nat) -> Nat.leq d 9 = True -> Char.digitValue (Nat.digitChar d) = Just d
+  | 0, h => rfl
+  | 1, h => rfl
+  | 2, h => rfl
+  | 3, h => rfl
+  | 4, h => rfl
+  | 5, h => rfl
+  | 6, h => rfl
+  | 7, h => rfl
+  | 8, h => rfl
+  | 9, h => rfl
+  | Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ d))))))))), h => Void.exfalso (Bool.falseNotTrue h)
+
+theorem Char.digitsOntoValues: (f: Nat) -> (n: Nat) -> (acc: List Char) -> n < f ->
+    List.mapMaybe Char.digitValue (Nat.digitsOnto f n acc) = Nat.digitsFuel f n (List.mapMaybe Char.digitValue acc)
+  | Zero,   n, acc, h => Void.exfalso (Bool.falseNotTrue h)
+  | Succ f, n, acc, h =>
+    match e: Nat.leq n 9 with
+      | True  => rewrite Char.digitValueChar n e
+      | False =>
+        calc List.mapMaybe Char.digitValue (Nat.digitsOnto f (n / 10) (Cons (Nat.digitChar (n % 10)) acc))
+          _ = Nat.digitsFuel f (n / 10) (List.mapMaybe Char.digitValue (Cons (Nat.digitChar (n % 10)) acc))
+              := Char.digitsOntoValues f (n / 10) (Cons (Nat.digitChar (n % 10)) acc) (Nat.leTrans (Succ (n / 10)) n f (Nat.divTenLess n e) h)
+          _ = Nat.digitsFuel f (n / 10) (Cons (n % 10) (List.mapMaybe Char.digitValue acc)) := rewrite Char.digitValueChar (n % 10) (Nat.modLt n 10)
+
+-- A number written in decimal reads back as its digits.
+theorem Char.toTextDigits (n: Nat): List.mapMaybe Char.digitValue (Text.toList (Nat.toText n)) = Nat.digits n :=
+  Char.digitsOntoValues (Succ n) n Nil (Nat.leRefl n)
