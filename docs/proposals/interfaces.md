@@ -1,6 +1,7 @@
 # Proposal: interfaces
 
-**Status:** draft 3, 20 October 2026. Design only, nothing is built.
+**Status:** draft 3, 20 October 2026. Stage 1 is built
+([As built (stage 1)](#as-built-stage-1)); stages 2 to 7 are design only.
 Review closed and decisions D154-D174, D178-D182, D186, D187 accepted as recommended (D188, Matt, 20 October 2026).
 Ticket SW-4, decision D152 (Matt, 20 October 2026: write this note).
 Draft 2 answered the external review of draft 1
@@ -161,6 +162,7 @@ candidates blocked on unknowns. Every point:
 11. [The kernel](#11-the-kernel)
 12. [Stages](#12-stages)
 13. [Risks](#13-risks)
+- [As built (stage 1)](#as-built-stage-1)
 14. [Decisions](#14-decisions)
 15. [Sources](#15-sources)
 
@@ -1749,6 +1751,122 @@ nothing here depends on how families are checked.
     `Nat` and `Int` instances need now live in `Nat/Arith.sw` and
     `Int/Int.sw`. Core grows; std-library.md's D58 measured that kind of
     growth, and stage 5 measures it again.
+
+## As built (stage 1)
+
+Stage 1 is built (SW-4, 21 October 2026): the syntax, the instance table
+and module rules, resolution, superclasses and the errors, with test
+interfaces only. The code is `crates/elab/src/interfaces.rs` (most of it),
+`auto.rs` (rounds and waiting), `records.rs` (filling superclasses in
+literals), `module.rs` (checking order) and `dot.rs` (fields of a
+dictionary); the kernel change is the hashed `instance` flag
+(`crates/core/src/globals.rs`, `hash.rs`). Surface: docs/syntax.md
+"Interfaces". Tests: `examples/accept/interfaces*.sw`, the `instance-*` and
+`interface-*` rejects, `examples/projects/{accept,reject}/instance-*`, and
+`crates/driver/tests/interfaces.rs` (waiting, the budget, the hashed
+marker). Existing hashes are unchanged (the marker is hashed only when set),
+and so is every existing example's behaviour; the one visible change is the
+list of keywords in the parse error for a declaration without one.
+
+What differs from the text above, or wasn't settled by it:
+
+1. **§5.6 rule 4 (all signatures first) is met by checking order, not by a
+   separate pass.** Instance signatures can't be elaborated before the
+   module's interfaces and types, which are checked in dependency order
+   with everything else. Instead, every other definition and test of the
+   module is checked after each instance of the module that doesn't itself
+   depend on it, and an instance after another one whose interface it
+   mentions or has as a superclass (by names, before anything is checked);
+   an edge that would close a cycle is left out (`Elaborator::instance_edges`).
+   An instance is registered, and the overlap check made, when its signature
+   is checked; it's used once its body and superclass check are done. So
+   the order of declarations in a file doesn't matter
+   (`interfaces-order.sw`); an instance needed by a declaration it depends
+   on itself is `E-INSTANCE-NONE`, with a note saying so. Of two
+   overlapping instances, the one checked second gets `E-INSTANCE-OVERLAP`.
+   Stage 2, which derives instances, needs to know which hand-written ones
+   a module has before deriving: the names give that (each instance item's
+   interface and head type name), or deriving can follow the instances in
+   the same order.
+2. **Methods and projections.** The record's own projections are
+   `I.%f` (hidden), and the methods `I.f` (§5.1). `d.f` on a dictionary
+   `d` is the projection, by dot notation; record updates and patterns use
+   the projections as for any record. An interface's methods are named in
+   its namespace from the start, so `import Pretty (pretty)` works in the
+   file that declares it.
+3. **New error codes.** `E-INTERFACE-SHAPE`: an interface without exactly
+   one parameter, of type `Type`, in `Type` (D174); or a superclass field
+   that isn't its interface applied to the parameter (`base: Base a`). An
+   `instance` whose type isn't an interface is `E-INSTANCE-HEAD`.
+4. **Dictionaries in heads, before stage 4.** Without `auto` parameters on
+   data types, the `?mapOrd` case of §5.5 step 5 is tested with a data type
+   that takes a dictionary as an ordinary parameter (`type Box (k: Type)
+   (o: Ordered k)`): an instance head `Pretty (Box k o)` has `o` as a head
+   variable, and an argument of the head whose parameter type is an
+   interface, equated by matching with an unsolved unknown, makes the
+   obligation wait (`interfaces-waiting.sw`, last part). Stage 4 can keep
+   this rule for its `auto` parameters.
+5. **Three-way tests.** A test unifies inside an undo transaction: success
+   that assigned no unknown older than the test is a match (or equal), and
+   success that did is blocked. A failure is a rigid mismatch if a
+   structural walk finds different type or constructor names, numbers,
+   sorts or rigid variables in matching positions; otherwise it's blocked if
+   either side mentions an unsolved unknown, and a mismatch if not. That's
+   conservative: a failure in a non-rigid position that mentions an unknown
+   waits (and may end as `E-INSTANCE-STUCK`) where a finer analysis might
+   say mismatch. Both sides are first read back and evaluated again with
+   solutions substituted, so a definition left folded because it was stuck
+   on an unknown solved since takes its step (the `W` example needs this:
+   the unifier doesn't unfold a stuck application again on its own).
+6. **Global matching is by head.** Since heads are a type name applied to
+   distinct variables, matching a global instance is a lookup of the goal's
+   head (after unfolding); its arguments become the head variables. A goal
+   whose type is stuck on an unknown (a type-level function applied to one)
+   waits; one stuck on anything else, or whose type is a variable or a
+   function type, is `E-INSTANCE-NONE`.
+7. **Rounds.** `solve_obligations` takes the obligations in creation order,
+   as before; an interface obligation that waits is retried after the rest,
+   while any round solves something, and the first still waiting is
+   reported. With no interfaces in a program nothing changes. Proof
+   obligations are still solved immediately, in order, as before.
+8. **Superclass filling "at once"** (§5.8 (a)) runs resolution on the new
+   obligation and the prerequisites it makes straight away, each try in a
+   transaction; whatever can't be settled stays an obligation for the
+   rounds. The superclass check (b) resolves in a context of all the
+   instance's parameters: its prerequisites, and its head variables, which
+   are only dictionaries in the stage 4 case.
+9. **Budget.** 10,000 steps per obligation tree (the obligation and the
+   prerequisites it creates), one per try and one per dictionary in scope
+   tested, cumulative across rounds and not refunded by undo
+   (`Elaborator::instance_budget` sets it, for tests).
+10. **Ambiguity names paths sorted**, so swapping the order of the
+    dictionaries in scope gives the same message
+    (`instance-ambiguous-swapped.sw`).
+11. **Not in stage 1, as planned:** library interfaces and instances
+    (none in `Std` yet; the `Std` owner rule is in place), `Decidable`
+    instances (D163: `instance` with a `Decidable` result is
+    `E-INSTANCE-HEAD` for now), derivation, relation fields (§5.16),
+    operators (§5.13). The legacy search's `prove` called on an interface
+    goal (a decision procedure with an interface `auto` parameter) records
+    an obligation rather than resolving at once, so a decision run at
+    compile time can't use it yet: stage 2's concern. Record field names
+    are lowercase, so §6.2's `LessThan` and `LessEq` fields need records to
+    allow uppercase field names, or other names, by stage 3.
+12. **A `let` of a function with an `auto` parameter**, `let o := makeOrd`,
+    keeps its polymorphic type, as for any bare name, so `o` isn't a
+    dictionary in scope; the examples annotate it
+    (`let o: Pretty (W …) := makePretty`).
+13. **An instance found is inlined.** An obligation's solution is a value,
+    and a definition evaluates to its body once it has its arguments, so
+    `Pretty.instNat` ends up in the elaborated term as its record literal,
+    not by name (as an argument-less decision procedure already does), and
+    `Pretty.instList [p := …]` likewise. Meaning and checking are the same,
+    and a changed instance changes its users' hashes either way; but terms
+    and generated JS are bigger, and a dictionary is built at each use
+    rather than shared (`examples/extract/interfaces.sw`). §9.3's "which
+    instance was found is part of the term" holds through the body. Stage
+    5's projection works on the literal anyway; keeping the name would need
+    a way to solve a metavariable with a folded definition.
 
 ---
 
