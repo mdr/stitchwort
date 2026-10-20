@@ -990,7 +990,7 @@
     {
       "id": 67,
       "title": "Exit codes for `stitchwort run`",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "main",
       "labels": [
@@ -1624,7 +1624,7 @@
     {
       "id": 107,
       "title": "A namespace line after an import should say 'must come first', not E-NO-NAMESPACE",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "main",
       "labels": [
@@ -1732,7 +1732,7 @@
     {
       "id": 114,
       "title": "Uppercase parameter names are a parse error",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "main",
       "labels": [
@@ -2134,7 +2134,7 @@
     {
       "id": 140,
       "title": "Parser: hint 'write not x' for !x",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "main",
       "labels": [
@@ -2458,7 +2458,7 @@
     {
       "id": 160,
       "title": "Std library stage 3: move the rest of core into library files (Nat/Arith, Nat/Digits, List/Toolkit, Int/Int, Text/Text)",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "main",
       "labels": [
@@ -2475,7 +2475,7 @@
     {
       "id": 161,
       "title": "Same wording for 'function field has no ==' in records and data types",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "main",
       "labels": [
