@@ -2610,7 +2610,7 @@
     {
       "id": 169,
       "title": "AoC restructure: from/to in Range, folders match namespaces, proofs split into Aoc.DayNN.Proofs",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "main",
       "labels": [
