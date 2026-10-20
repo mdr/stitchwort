@@ -266,7 +266,7 @@ The public wrappers (`eval` and so on) run the machine to completion, and are wh
 
 ### 4. Freeing memory and other recursive helpers
 
-Values can be dropped at any transition: replacing the control state, popping a frame, discarding an unused argument (`(\_ -> 0) (replicate n 1)`), or abandoning everything on `Err`. So destruction must be iterative everywhere.
+Values can be dropped at any transition: replacing the control state, popping a frame, discarding an unused argument (`(_ => 0) (replicate n 1)`), or abandoning everything on `Err`. So destruction must be iterative everywhere.
 
 - **The ownership graph.** `Value` owns its children through:
   - `Ctor` fields (`Rc<[Value]>`);

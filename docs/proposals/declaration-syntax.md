@@ -96,7 +96,7 @@ appendNil (Cons x xs) = Eq.cong (\ys -> Cons x ys) (appendNil xs)
 -- after
 theorem appendNil : (xs : List a) -> List.append xs Nil = xs
   | Nil       => rfl
-  | Cons x xs => Eq.cong (\ys => Cons x ys) (appendNil xs)
+  | Cons x xs => Eq.cong (ys => Cons x ys) (appendNil xs)
 ```
 
 An effectful function, a value, a test, an export:
@@ -422,7 +422,7 @@ def pick : Nat -> List Nat -> Nat -> List Nat -> (Nat, List Nat)
 
   ```
   def f : Nat -> Nat -> Nat
-    | Zero,   y => y              -- not `| Zero => \y => y`
+    | Zero,   y => y              -- not `| Zero => y => y`
     | Succ x, y => Succ (f x y)
   ```
 
@@ -434,7 +434,7 @@ def pick : Nat -> List Nat -> Nat -> List Nat -> (Nat, List Nat)
   such as an ability row (`Nat -> {IO} (Nat -> Nat)` has one). The check
   is today's `E-ARITY`, now also failing when an arm has *fewer* patterns;
   it applies to arms only. A `:=` body has no arity rule: `def f (x : Nat)
-  : Nat -> Nat := \y => x + y` is fine. A definition with arms but no
+  : Nat -> Nat := y => x + y` is fine. A definition with arms but no
   explicit argument after the colon is `E-ARITY` too ("arms need an
   argument after the colon to match; use `:=`").
 - **Implicit and auto arguments after the colon are not matched**; they're
@@ -449,7 +449,7 @@ def pick : Nat -> List Nat -> Nat -> List Nat -> (Nat, List Nat)
   theorem appendNil (xs : List a) : List.append xs Nil = xs :=
     match xs with
       | Nil       => rfl
-      | Cons y ys => Eq.cong (\zs => Cons y zs) (appendNil ys)
+      | Cons y ys => Eq.cong (zs => Cons y zs) (appendNil ys)
   ```
 
   This is a matter of taste; both forms are allowed. The converter (§5)
@@ -933,12 +933,12 @@ Per file, from the parsed module, for each signature with its equations
 4. **Exact arity for arms.** If the arm form has fewer patterns than *n*
    minus the named parameters, each arm is completed, arm by arm:
    - if the arm's body is a lambda whose first parameters are written as
-     plain names (`\y z => …`, not a pattern lambda), its parameters are
+     plain names (`y z => …`, not a pattern lambda), its parameters are
      moved into the arm's patterns, as many as are missing, by deleting
      them from the lambda (and the lambda, if none are left) and
      appending them after the arm's patterns. This is safe without any
      renaming: those names were in scope in exactly the lambda's body,
-     which is now the arm's body. Example: `| Zero => \y => y` becomes
+     which is now the arm's body. Example: `| Zero => y => y` becomes
      `| Zero, y => y`;
    - otherwise (and for the rest still missing) fresh variables are
      appended and the body is applied to them: `| Succ x => g x` becomes
@@ -1252,7 +1252,7 @@ removed; "equation" messages reworded to "arm"; playground colouring.
 - **The old parser** lives on in `crates/convert/src/old_parser*` (a copy,
   used by the converter only), with the old-vs-new equivalence tests
   (`crates/convert/tests/declarations.rs`, `declaration_hashes.rs`).
-- **The printer** prints lambdas as `\x => body`.
+- **The printer** prints lambdas as `x => body`.
 - **Hashes.** Besides E1 (the five definitions of §5.5a and their
   dependents), one more kind of change: a partial definition that calls
   itself gets a generated `….Request` data type whose constructor's field

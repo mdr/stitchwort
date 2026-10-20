@@ -209,8 +209,8 @@ the user's answers. In order of the note:
     is no postponement (Lean postpones, see [§3](#3-how-other-languages-do-it)).
   - Unlike a plain application, **the receiver is elaborated first** and its
     type is unified with its parameter before the other arguments are
-    checked. So `xs.map (\x -> x.length)` infers where
-    `List.map (\x -> x.length) xs` can't.
+    checked. So `xs.map (x => x.length)` infers where
+    `List.map (x => x.length) xs` can't.
 - **Built-in syntax binds to fixed identities, not to names.** A registry
   of finalised declarations, bound as the library loads and checked complete
   before user code, serves operators, literals, `if`, `()`, the effect
@@ -644,7 +644,7 @@ first level where `x` is found:
 
 | Level | Source of the name | Example |
 |---|---|---|
-| 1 | Local binders: function parameters, `let`, pattern variables, named implicit parameters, handler variables | `\xs -> …` |
+| 1 | Local binders: function parameters, `let`, pattern variables, named implicit parameters, handler variables | `xs => …` |
 | 2 | **The file's own top-level declarations**, plus the constructors of the file's top-level types and the operations of its top-level abilities | `area`, `Shape`, `Square` |
 | 3 | **Names brought in by `import`** | `import List (map)` |
 | 4 | **The default set** (§4.6) | `Nat`, `Cons`, `Just` |
@@ -933,7 +933,7 @@ the types as written.
    place and `a₁ … aₙ` filling the other explicit parameters in order.
    Implicit and `auto` arguments are inserted as usual.
    - With fewer arguments, the result is a function of the missing ones:
-     `t.split` is `\s -> Text.split s t`, with `t` evaluated once. This is
+     `t.split` is `s => Text.split s t`, with `t` evaluated once. This is
      allowed only when no missing parameter is one the receiver's parameter
      type depends on (§4.8.2).
 
@@ -947,7 +947,7 @@ position.
 t.length              -- Text.length t
 xs.length             -- List.length xs
 line.split ','        -- Text.split ',' line
-xs.map (\x => x * 2)  -- List.map (\x -> x * 2) xs
+xs.map (x => x * 2)  -- List.map (x => x * 2) xs
 n.toText              -- Nat.toText n
 p.name                -- the field (Person.name p)
 p.name.length         -- Text.length (Person.name p)
@@ -978,8 +978,8 @@ patterns still refer only to fields.
 
 **Dot notation needs the receiver's type before it can do anything.**
 
-- `\p -> p.name` with nothing saying what `p` is gives `E-CANNOT-INFER`,
-  suggesting `\(p : Person) -> p.name`. That's the records lane's behaviour,
+- `p => p.name` with nothing saying what `p` is gives `E-CANNOT-INFER`,
+  suggesting `(p : Person) => p.name`. That's the records lane's behaviour,
   and Lean's when postponing doesn't help [L5].
 - Lean and Idris *postpone* such an expression and retry once more is known
   [L5, I3]. Stitchwort's elaborator has no postponement except for `auto`
@@ -1012,7 +1012,7 @@ s.read 4   -- E-MISMATCH: 4 isn't 3
 ```
 
 **Missing arguments that the receiver depends on are refused.** `s.read`
-alone can't become `\n -> Sized.read n s`: the captured `s` has type
+alone can't become `n => Sized.read n s`: the captured `s` has type
 `Sized 3`, not `Sized n` for every `n`. Rather than silently taking `n = 3`
 (and pretending the argument was given) or making a lambda that ignores its
 argument, that's an error:
@@ -1028,9 +1028,9 @@ fine. Its type is then also allowed to depend on the receiver.
 This makes dot notation infer *better* than the plain call:
 
 ```
-def names := List.map (\p => p.name) people   -- E-CANNOT-INFER: the lambda is checked first,
+def names := List.map (p => p.name) people   -- E-CANNOT-INFER: the lambda is checked first,
                                          -- when `p`'s type is still unknown
-def names := people.map (\p => p.name)        -- fine: `people : List Person` is elaborated
+def names := people.map (p => p.name)        -- fine: `people : List Person` is elaborated
                                          -- first, so `p : Person` is known
 ```
 
@@ -1184,9 +1184,9 @@ error[E-IMPORT-CLASH]: `map` is imported, but this file also defines `map`
 ```
 error[E-CANNOT-INFER]: can't tell what `p` is, so can't look up `.name`
    |
- 3 | def names := List.map (\p => p.name) people
+ 3 | def names := List.map (p => p.name) people
    |                              ^^^^^^ `p`'s type isn't known yet here
-   = note: annotate it, `\(p : Person) -> p.name`, or write `people.map (\p -> p.name)`
+   = note: annotate it, `(p : Person) => p.name`, or write `people.map (p => p.name)`
 ```
 
 **No such field or function:**
@@ -1875,7 +1875,7 @@ shares `Expr::Field`).
     and falls back to `Nat.show` without one), whatever the evaluator does;
   - a blocked unfolding (`x : Family n`) reports and stops;
   - a found `T.f` with no receiver parameter stops lookup;
-  - inference through `people.map (\p -> p.name)`;
+  - inference through `people.map (p => p.name)`;
   - evaluation order: an effectful receiver and an effectful argument run
     receiver first, then the arguments as written;
   - the spurious-cycle example of §5 and its note, and the mixed-kind
@@ -1911,7 +1911,7 @@ shares `Expr::Field`).
   lane's `E-NOT-A-RECORD` for `.field` is gone (`examples/reject/
   record-not-a-record.sw` became `dot-unknown-function.sw`, since `p.fst`
   on a `Pair` is now `Pair.fst p`); record patterns and updates keep it.
-- **Partial application** (`t.split`) is `(\r -> \c -> Text.split c r) t`,
+- **Partial application** (`t.split`) is `(r => c => Text.split c r) t`,
   annotated, so the receiver is evaluated once. Only parameters before the
   receiver can be missing; ones after it are ordinary currying.
 - **Effects:** in a computation, `e.f a` runs `e`, then the arguments, then

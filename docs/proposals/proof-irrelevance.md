@@ -263,7 +263,7 @@ fail when combined.
 
 **Subject reduction.** "Computing doesn't change a term's type": if the
 checker accepts `t : T` and `t` computes to `t'`, the checker also accepts
-`t' : T`. Example: it accepts `(\x => x) 3 : Nat`, and also `3 : Nat`. When
+`t' : T`. Example: it accepts `(x => x) 3 : Nat`, and also `3 : Nat`. When
 it fails, replacing an expression by its value (inlining, or the elaborator
 writing in a computed solution) can turn an accepted program into a
 rejected one. In a checker that is sound, failure of subject reduction shows
@@ -602,10 +602,10 @@ checks quickly today, because `J` is stuck on `h Top a` **[run]**:
 ```
 def Bot : Prop := (a : Prop) -> a
 def Top : Prop := Bot -> Bot
-def delta : Top := \z => z Top z
+def delta : Top := z => z Top z
 def omega : ((a : Prop) -> (b : Prop) -> a = b) -> Bot :=
-  \h a => J (\y e => y) delta (h Top a)
-def bigOmega : ((a : Prop) -> (b : Prop) -> a = b) -> Bot := \h => delta (omega h)
+  h a => J (y e => y) delta (h Top a)
+def bigOmega : ((a : Prop) -> (b : Prop) -> a = b) -> Bot := h => delta (omega h)
 theorem omegaUnfolds (h : (a : Prop) -> (b : Prop) -> a = b) :
     bigOmega h = omega h Top (omega h) := rfl
 ```
@@ -728,10 +728,10 @@ def Box.unbox [p : Prop] : Box p -> p
 
 def castViaBox (a : Prop) (p : a) (q : a) (f : a -> Type) (x : f p)
     (e : MkBox p = MkBox q) : f q :=
-  J (\y e2 => f (Box.unbox y)) x e
+  J (y e2 => f (Box.unbox y)) x e
 
 theorem piViaBox (a : Prop) (p : a) (q : a) (e : MkBox p = MkBox q) : p = q :=
-  J (\y e2 => p = Box.unbox y) rfl e
+  J (y e2 => p = Box.unbox y) rfl e
 ```
 
 Today `rfl : MkBox p = MkBox q` is rejected (`E-REFL` **[run]**), so `e`
@@ -799,10 +799,10 @@ creative unfoldings.
     theorem boxEq (a: Prop) (p: a) (q: a): MkBox p = MkBox q := rfl   -- needs D1′
 
     theorem Prop.irrel (a: Prop) (p: a) (q: a): p = q :=
-      J (\y e2 => p = Box.unbox y) rfl (boxEq a p q)
+      J (y e2 => p = Box.unbox y) rfl (boxEq a p q)
 
     def Loop.expose (l: Loop): Loop :=
-      J (\y e => Loop) (MkLoop (Loop.inv l)) (Prop.irrel Loop (MkLoop (Loop.inv l)) l)
+      J (y e => Loop) (MkLoop (Loop.inv l)) (Prop.irrel Loop (MkLoop (Loop.inv l)) l)
 
     def bad (l: Loop): Void :=
       match Loop.expose l with
@@ -1271,8 +1271,8 @@ pairings of 4 and 6 are new in draft 2; 11b and 14-16 in draft 3.
 | 1 | `rfl : MkTBox Nat = MkTBox Bool` for `type TBox : Type 1 = MkTBox (t : Type)` | `E-REFL` | A type field is erased but relevant: catches `field_erased` used for `field_sorts` | `rfl : MkChar 97 p = 'a'` (§2.2) |
 | 2 | `rfl : choose Nat n = choose Bool n`, for `choose : Type -> Nat -> Nat` stuck on `n` | `E-REFL` | The same for definition parameters (`erase::of_def` marks types) | `sameMod` (§2.1) |
 | 3 | `rfl : Sorted [1, 2] = Sorted [2, 1]`, for a test-defined `type Sorted (xs : List Nat) : Prop` | `E-REFL` | Data parameters that are data stay relevant | A data type with a proof parameter, two different proofs, `rfl` |
-| 4 | With a test-defined `type Exists (p : Nat -> Prop) : Prop = MkEx (x : Nat) (h : p x)`: `def leak (e : Exists (\n => n = n)) : Nat` matching out the witness; and `rfl : MkEx 1 rfl = MkEx 2 rfl` | `E-PROP-ELIM`; `E-REFL` | Irrelevance must not leak a proof's data (§5.3); a data field inside a proof is still compared | `rfl : MkEx 1 h1 = MkEx 1 h2` for two proofs `h1 h2 : 1 = 1` (the witness agrees, the proof field is skipped) |
-| 5 | `J (\y e => P y) d h = d` for a variable `h : n = n` | `E-REFL` | No K-like rule (§5.2) | `J (\y e => P y) d rfl = d`; and `omegaUnfolds` (§5.2) checks within the default budget |
+| 4 | With a test-defined `type Exists (p : Nat -> Prop) : Prop = MkEx (x : Nat) (h : p x)`: `def leak (e : Exists (n => n = n)) : Nat` matching out the witness; and `rfl : MkEx 1 rfl = MkEx 2 rfl` | `E-PROP-ELIM`; `E-REFL` | Irrelevance must not leak a proof's data (§5.3); a data field inside a proof is still compared | `rfl : MkEx 1 h1 = MkEx 1 h2` for two proofs `h1 h2 : 1 = 1` (the witness agrees, the proof field is skipped) |
+| 5 | `J (y e => P y) d h = d` for a variable `h : n = n` | `E-REFL` | No K-like rule (§5.2) | `J (y e => P y) d rfl = d`; and `omegaUnfolds` (§5.2) checks within the default budget |
 | 6 | `rfl : f = g` for two different `f g : Unit -> {IO} Unit` | `E-REFL` | Effectful functions are data, never proofs | `rfl : MkBox p = MkBox q` for `p q : Unit` (the `Prop`) |
 | 7 | Agda #8699's shape adapted: a recursive call whose argument is smaller only inside a proof field that comparison ignores | `E-TERMINATION` | §5.4 | Structural recursion on a real proof field (`Loop -> Void`, `f (MkLoop n) = f n`) |
 | 8 | `rfl : x = y` for two different variables `x y : Nat` inside a record with a proof field | `E-REFL` | Skipping the proof must not skip its neighbours | `rfl : MkSortedList xs p = MkSortedList xs q` for a test-defined record with a proof field |
@@ -1283,7 +1283,7 @@ pairings of 4 and 6 are new in draft 2; 11b and 14-16 in draft 3.
 | 12 | `theorem pi (p q : a) : p = q := rfl` for variables `p q : a` | `E-REFL` | Documents the incompleteness: bare proof variables are compared (until stage 3) | `piViaBox a p q rfl : p = q` (§5.7) |
 | 13 | `def bad (a : Prop) (p q : a) (f : a -> Type) (x : f p) : f q := x` | `E-TYPE-MISMATCH` | Documents the subject-reduction gap (§5.7): `castViaBox a p q f x rfl` computes to `x`, but `x` itself is rejected at `f q` | `def ok … : f q := castViaBox a p q f x rfl` |
 | 14 | `bad (l: Loop): Void` matching on `Loop.expose l` and recursing on the field (§5.7), with `Prop.irrel` built from `boxEq: MkBox p = MkBox q := rfl` | `E-TERMINATION` | A computing `Prop.irrel` manufactures a constructor from a stuck proof; that must never count as descent. Today: `E-TERMINATION` **[run]** (and `boxEq` is `E-REFL`, which D1′ fixes) | `Loop.expose` itself is accepted, and `theorem (l: Loop): Loop.expose l = MkLoop (Loop.inv l) := rfl` checks (today `E-REFL`, needs `boxEq` **[run]**); plus test 7's structural `Loop -> Void` |
-| 15 | With `def fnEq (n: Nat) (h: Unit): (Nat -> Nat) = (Nat -> Nat)` stuck on `n` and `def apply (f: Nat -> Nat) (x: Nat): Nat := f x`: `rfl : apply (J (\y e => y) (\x => x) (fnEq n u)) 3 = apply (J … (fnEq n u)) 4` | `E-REFL` | Masks cover only a definition's leading arguments, never an argument after a `J` entry (§7.2). A `J` entry can only come after at least the whole telescope (the proof must be an equation), so a mask indexed by spine position already gets this right; the test pins the rule against a looser implementation **[inferred]**. (`J` with a fourth argument is `E-ARITY`, hence `apply`.) Today: `E-REFL` **[run]** | the same with `fnEq n u1` and `fnEq n u2` and both applied to `3` (position 1 of `fnEq` is a proof position). Today `E-REFL` **[run]**; D1′ must accept |
+| 15 | With `def fnEq (n: Nat) (h: Unit): (Nat -> Nat) = (Nat -> Nat)` stuck on `n` and `def apply (f: Nat -> Nat) (x: Nat): Nat := f x`: `rfl : apply (J (y e => y) (x => x) (fnEq n u)) 3 = apply (J … (fnEq n u)) 4` | `E-REFL` | Masks cover only a definition's leading arguments, never an argument after a `J` entry (§7.2). A `J` entry can only come after at least the whole telescope (the proof must be an equation), so a mask indexed by spine position already gets this right; the test pins the rule against a looser implementation **[inferred]**. (`J` with a fourth argument is `E-ARITY`, hence `apply`.) Today: `E-REFL` **[run]** | the same with `fnEq n u1` and `fnEq n u2` and both applied to `3` (position 1 of `fnEq` is a proof position). Today `E-REFL` **[run]**; D1′ must accept |
 | 16 | `undo.rs` unit test: inside `undo::unify`, `MkT ?p 1` against `MkT q 2` (field 0 a proof) | unit test | §7.4: a whole-proof solution made before a failure is undone by the transaction (`?p` unsolved afterwards); bare `cx.unify` leaves `?p := q`, documenting why the transaction is needed | `MkT ?p 1` against `MkT q 1` solves `?p := q` |
 
 Must not hang: `steps l 0 = steps (MkLoop (Loop.inv l)) 0` is rejected

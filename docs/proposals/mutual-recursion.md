@@ -109,7 +109,7 @@ three are adopted. In order of the sections they touch:
   raw-kernel examples are must-reject tests. Draft 1's "signatures may not
   mention a sibling" becomes a special case of the invariant.
 - **§6.3 (new): partial applications.** Recursive occurrences of group
-  members must be saturated in the checked core; users write `\x -> g child
+  members must be saturated in the checked core; users write `x => g child
   x`. No eta-expansion pass. Measured: no accepted example or prelude
   definition uses a partial or bare self-call today.
 - **§6.4 (new): the soundness argument** is restructured into the review's
@@ -677,7 +677,7 @@ definition's arity, and every consumer uses it:
   and its *entry arity* is `r`. The parameter prefix is the maximal run of
   lambdas before the case tree; lambdas returned by a branch are part of the
   result, not entry parameters. So `f : Nat -> (Nat -> Nat)` with `f Zero =
-  \x -> x; f (Succ n) = f n` has entry arity 1, and `f n` is saturated even
+  x => x; f (Succ n) = f n` has entry arity 1, and `f n` is saturated even
   though its result is a function. Arity is not read from the type.
 - **Wrappers.** The prefix is found by stripping exactly the
   non-computational wrappers that `Term::count_lams` and `Term::peel_lams`
@@ -914,12 +914,12 @@ says what to write:
 [E-TERMINATION] `g` is used here without all its arguments
   | Node l k => mapForest (g k) xs
                             ^^^^^ `g` takes 2 arguments; it's given 1
-  = write `\x => g k x` so the call can be checked
+  = write `x => g k x` so the call can be checked
 ```
 
 There is **no automatic eta-expansion pass**, as the review advised: an
 automatic transformation has to keep the supplied arguments' evaluation
-behaviour (a strict language evaluates `g (expensive y)` once; `\x -> g
+behaviour (a strict language evaluates `g (expensive y)` once; `x => g
 (expensive y) x` evaluates it on every call) and must neither lose nor
 invent structural provenance by introducing aliases. The elaborator may
 *suggest* the eta-expanded form in the message; it doesn't apply it. Calls
@@ -931,7 +931,7 @@ review offered two options: keep partial applications with call-dependency
 edges that track the originating invocation and captured arguments, or
 require saturation. Saturation is recommended because:
 
-- *It makes call extraction exact.* With `\x -> g child x`, the whole call
+- *It makes call extraction exact.* With `x => g child x`, the whole call
   `g child x` is a syntactic call site inside `f`'s body. Its graph relates
   `child` to `f`'s parameters, and `x` (lambda-bound) to nothing. That is
   precisely the "originating invocation and captured argument" relation the
@@ -954,19 +954,19 @@ by reading.
 
 **Tests** (each must-reject paired with an accepted neighbour):
 
-1. *A callback invoked repeatedly*: `f (Node l k) = applyTwice (\x -> g k x)
+1. *A callback invoked repeatedly*: `f (Node l k) = applyTwice (x => g k x)
    l`, where `applyTwice` is a final helper. Accepted when `g`'s call on `k`
-   decreases; the neighbour passing `\x -> g (Node l k) x` is rejected.
+   decreases; the neighbour passing `x => g (Node l k) x` is rejected.
 2. *A callback retained after its creator returns*: `f` returns a record (or
-   a `Comp` continuation) containing `\x -> g k x`, and a later, final
+   a `Comp` continuation) containing `x => g k x`, and a later, final
    definition calls it. Accepted when it decreases; rejected when it rebuilds
    the parameter.
 3. *The omitted argument was the only decreasing position*: `g : Nat -> Tree
    -> Nat`, in a cycle with `f`, decreasing only on its second argument, and
-   `f t = h (g 0)`. Rejected by saturation; the eta-expanded `f t = h (\x ->
+   `f t = h (g 0)`. Rejected by saturation; the eta-expanded `f t = h (x =>
    g 0 x)` is also rejected, by termination (`x` is lambda-bound, so no arc
    into position 1). The accepted neighbour omits the *other* argument:
-   `f (Node _ k) = h (\n -> g n k)`, where `k` is smaller.
+   `f (Node _ k) = h (n => g n k)`, where `k` is smaller.
 4. *A bare member reference* (the mutual version of
    `soundness/higher-order-recursion.sw`; §6.8 example 12): rejected by
    saturation.
@@ -1046,7 +1046,7 @@ standard route, for the reviewer to check, not a proof:
    of the table above (coverage and valid relations); it is about the
    provenance rules of §6.2, and doesn't need the recursive body to finish.
 4. Because the induction is over call instances, not over the runtime
-   stack, **delayed calls are covered**: a closure `\x -> g k x` created by
+   stack, **delayed calls are covered**: a closure `x => g k x` created by
    one invocation `f(v)` and called much later, or many times, by a final
    helper. For every appropriately typed good `x`, the call instance
    `g(k, x)` is `≺ f(v)` (by the lemma, with `x` part of the substitution),
@@ -1272,7 +1272,7 @@ Must be **accepted**:
    forestHead (FCons t _) = firstLabel t
    ```
 7. Effectful mutual recursion. The recursive call sits in a continuation
-   after translation to `Comp` (`bind (get ()) (\s -> …)`), i.e. under a
+   after translation to `Comp` (`bind (get ()) (s => …)`), i.e. under a
    lambda, where calls are already collected; the call is saturated:
 
    ```
@@ -1346,7 +1346,7 @@ Must be **rejected**:
     walkList (Cons _ ts) = walk ts
     ```
 
-    Even eta-expanded (`applyTo (\x -> walkList x) ts`), the call
+    Even eta-expanded (`applyTo (x => walkList x) ts`), the call
     `walkList x` relates `x` to nothing, so the loop has no strict arc.
 13. Rebuilding the parameter, across the group (the mutual version of
     `reject/rebuild-parameter.sw`): `a (Succ n) = b (Succ n)` and
@@ -1852,7 +1852,7 @@ The rest of milestone 1, as built:
 - **Saturation (§6.3).** An occurrence with fewer than `arity` arguments,
   including a bare one, is refused with `E-TERMINATION`, "`f` is used here
   without all its arguments", and a note suggesting the lambda (`write
-  \x -> sumWith n x so the call can be checked`), built from the
+  x => sumWith n x so the call can be checked`), built from the
   arguments given, counting explicit ones. An arity-0 occurrence is a call
   whose graph has no entries.
 - **Deciding (§6.5).** The calls form a `sct::Group` of one member, checked
@@ -1872,7 +1872,7 @@ of all fourteen `E-TERMINATION` snapshots changed;
 `soundness/higher-order-recursion.sw` and `soundness/cell-result.sw` are
 now refused by the saturation rule, as §6.3 predicted. Newly accepted:
 `examples/accept/size-change.sw` (Ackermann, swapped arguments, merging
-two lists, a call passed to a helper as `\x -> f n x`) and
+two lists, a call passed to a helper as `x => f n x`) and
 `examples/extract/size-change.sw` (the same shapes run in JavaScript,
 including tail calls with permuted arguments). New must-reject files:
 `reject/partial-recursive-call.sw`, `reject/swap-without-descent.sw`,
@@ -2031,7 +2031,7 @@ pre-pass's tables); steps are unchanged.
 `extract/mutual.sw`): `main` written above its helpers; `isEven`/`isOdd`;
 the `countdown`/`step` wrapper; `total`/`inner` over a list of lists (the
 `size`/`sizeForest` shape with existing types); `evenNotOdd`/`oddNotEven`;
-effectful `ping`/`pong`; a callback `\x -> stepBy k x` passed to a helper;
+effectful `ping`/`pong`; a callback `x => stepBy k x` passed to a helper;
 local names spelled like definitions; a decision procedure passed
 explicitly, wherever it's written; in JS, a bare member passed outside its
 group, members returning functions, and a value computed from a member at

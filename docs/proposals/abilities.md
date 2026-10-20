@@ -81,7 +81,7 @@ Evaluation is call-by-value, left to right. `C[…]` is an evaluation context wi
 ```
 handle v with H        ⟶  e_return[v/x]
 
-handle C[op v] with H  ⟶  e_op[v/x, (\y -> handle C[y] with H)/k]
+handle C[op v] with H  ⟶  e_op[v/x, (y => handle C[y] with H)/k]
                           if H handles op
 ```
 
@@ -125,8 +125,8 @@ def p () :=
 
 | Test | Expected | Shows |
 |---|---|---|
-| `allResults (\() -> runState 0 p)` | `[(1, 1), (0, 0)]` | State inside choice: each branch has its own state. Forwarding, and resuming twice |
-| `runState 0 (\() -> allResults p)` | `([1, 1], 1)` | Choice inside state: one state threads through both branches |
+| `allResults (() => runState 0 p)` | `[(1, 1), (0, 0)]` | State inside choice: each branch has its own state. Forwarding, and resuming twice |
+| `runState 0 (() => allResults p)` | `([1, 1], 1)` | Choice inside state: one state threads through both branches |
 | A `State` clause whose own `get` scales the outer state's value | `51` for `get () + 1` with outer state `5` | A clause runs outside its handler; the output row keeps `State` |
 | `toMaybe (safeDiv 7 0)` | `Nothing` | Not resuming |
 | `allResults` written with `foldComp` | the same as the handler, `[7, 6, …, 0]` for three choices | The generic fold |
@@ -153,11 +153,11 @@ type Comp (op : Type) (res : op -> Type) (a : Type) : Type =
 
 def foldComp (done : a -> r) (call : (o : op) -> (res o -> r) -> r) : Comp op res a -> r
   | Done x      => done x
-  | Call o rest => call o (\y => foldComp done call (rest y))
+  | Call o rest => call o (y => foldComp done call (rest y))
 
 def bind : Comp op res a -> (a -> Comp op res b) -> Comp op res b
   | Done x,      next => next x
-  | Call o rest, next => Call o (\y => bind (rest y) next)
+  | Call o rest, next => Call o (y => bind (rest y) next)
 ```
 
 - **`foldComp` is the eliminator handlers are justified by.** `call` receives the operation together with the results of folding every way it could continue, packaged as a function. It may use that function any number of times.
@@ -202,7 +202,7 @@ These are must-reject tests in `examples/soundness/`:
 | Attempt | Rejected by |
 |---|---|
 | `forever u = Call Later (\v -> forever u)`, which with `drain` would prove `Void` | Termination: `u` isn't smaller |
-| A fake child: `loop ((\b -> Call o rest) True)` | Termination: the head isn't the field variable |
+| A fake child: `loop ((b => Call o rest) True)` | Termination: the head isn't the field variable |
 | `Ping`: `bad (Call o rest) = bad (Call o rest)` | Termination: rebuilding the parameter isn't smaller |
 | A recursive call hidden inside an accepted call's argument | Termination: every call is checked |
 | The function passed to a higher-order helper | Termination: an unapplied reference is refused |
@@ -234,7 +234,7 @@ These come before the direct-style translation:
     inject : op₁ -> op₂
     reply  : (o : op₁) -> res₂ (inject o) -> res₁ o
 
-    translate (Call o rest) = Call (inject o) (\r -> translate (rest (reply o r)))
+    translate (Call o rest) = Call (inject o) (r => translate (rest (reply o r)))
     ```
 
     For inclusion into a sum, `reply` passes the response through.
@@ -243,10 +243,10 @@ These come before the direct-style translation:
 - **Sequencing is `bind`. Dependent results use a dependent pair.** An operation's result is bound by the continuation's lambda, and can index types inside it, but it can't escape `bind`'s fixed result type. A function whose result type depends on an input is fine (`(n : Nat) -> {E} Vec Nat n`). One whose result depends on a value it obtains returns the value with it, as a *data-level* dependent pair (not an existential in `Prop`, because the caller needs the index):
 
   ```
-  make : () -> {ReadNat} Sigma Nat (\n -> Vec Nat n)
+  make : () -> {ReadNat} Sigma Nat (n => Vec Nat n)
   ```
 
-  This works with multi-shot handlers too: branches can produce different lengths, all inhabiting `List (Sigma Nat (\n -> Vec Nat n))`. There's no dependent `bind` until an example needs one.
+  This works with multi-shot handlers too: branches can produce different lengths, all inhabiting `List (Sigma Nat (n => Vec Nat n))`. There's no dependent `bind` until an example needs one.
 - **The empty row.** `Comp` over an empty signature is equivalent to a plain value, but it isn't the same type. The plan:
   - pure functions stay plain;
   - code polymorphic in a row and instantiated at the empty row is run with an explicit `runPure : Comp Empty … a -> a`;
