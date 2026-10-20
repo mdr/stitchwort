@@ -518,9 +518,9 @@
         "bug",
         "tooling"
       ],
-      "body": "**`a_write_error_is_an_error`** (crates/cli/tests/run.rs) failed once\nduring a gate and passed on rerun: possibly flaky.\n\n19 Oct: DeepSeek attempt stopped: OpenCode's sandbox refused reading outside the clone (Rust std source) and several shell commands; no reproduction recorded. Better suited to a Sonnet worktree lane (needs loops of the test binary and reading std's pipe code).",
+      "body": "**`a_write_error_is_an_error`** (crates/cli/tests/run.rs) failed once\nduring a gate and passed on rerun: possibly flaky.\n\n19 Oct: DeepSeek attempt stopped: OpenCode's sandbox refused reading outside the clone (Rust std source) and several shell commands; no reproduction recorded. Better suited to a Sonnet worktree lane (needs loops of the test binary and reading std's pipe code).\n\n20 Oct 2026: failed again in the stage 2 gate (exit 0, expected 2), after SW-67 made runtime failures exit 2. Hypothesis (unverified): on macOS std creates pipes with a non-atomic close-on-exec, so a child spawned by a parallel test in the same binary can inherit the reader end; with a reader alive, the write succeeds. Fix idea: serialise child spawns in crates/cli/tests/run.rs with a static Mutex (or create the pipe via Command and drop the parent end), then loop the test binary to confirm.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-20",
       "commits": []
     },
     {
