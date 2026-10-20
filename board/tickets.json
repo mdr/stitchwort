@@ -2231,7 +2231,7 @@
     {
       "id": 147,
       "title": "AoC day 2 part 2: prove against the id-walking spec (block repeated 2+ times)",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "main",
       "labels": [
