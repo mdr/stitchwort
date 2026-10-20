@@ -8,7 +8,7 @@ def mapList (f: a -> b): List a -> List b
   | Cons x xs => Cons (f x) (mapList f xs)
 
 -- Inferred from the arguments.
-def lengths: List Nat := mapList (\xs => List.length xs) [[1], [2, 3]]
+def lengths: List Nat := mapList (xs => List.length xs) [[1], [2, 3]]
 
 -- Supplied by name, or as a hole for the compiler to fill in.
 def named: Nat := List.length [a := Nat] [1, 2]
@@ -27,7 +27,7 @@ theorem orComm: Or p q -> Or q p
 -- Implicit parameters are in scope in the equations, by name.
 theorem appendNil: (xs: List a) -> xs.append Nil = xs
   | Nil       => rfl
-  | Cons x xs => Eq.cong (\ys => Cons x ys) (appendNil xs)
+  | Cons x xs => Eq.cong (ys => Cons x ys) (appendNil xs)
 
 theorem plusZeroNat: (n: Nat) -> n + 0 = n
   | Zero   => rfl
@@ -43,12 +43,12 @@ def constant (x: a) [b: Type] (y: b): a := x
 theorem succCong (m: Nat) (n: Nat) (p: m = n): Succ m = Succ n := Eq.cong [b := Nat] Succ p
 
 -- A definition without patterns still has its implicit parameters in scope.
-def identity: [a: Type] -> a -> a := \x => x
+def identity: [a: Type] -> a -> a := x => x
 
 -- A lambda passed where a polymorphic function is expected.
 def applyToThree (f: [a: Type] -> a -> a): Nat := f 3
 
-def three: Nat := applyToThree (\x => x)
+def three: Nat := applyToThree (x => x)
 
 -- A constructor with both fields missing, used as a function.
 def foldRight (f: a -> b -> b) (z: b): List a -> b

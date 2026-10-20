@@ -28,9 +28,9 @@ ability Ask where
 def runState (init: s) (prog: () -> {State s | e} a): {e} Pair a s :=
   let run: s -> {e} Pair a s :=
     handle prog() with
-      | return x       => \st => MkPair x st
-      | get(), k      => \st => k st st
-      | put st2, k     => \st => k() st2
+      | return x       => st => MkPair x st
+      | get(), k      => st => k st st
+      | put st2, k     => st => k() st2
   run init
 
 def collect (prog: () -> {Log | e} a): {e} Pair (List Nat) a :=
@@ -77,12 +77,12 @@ test "list, annotation, named argument" :=
 def current: {State Nat} Nat := get()
 
 test "a computation used twice runs twice" :=
-  fstOf (runState 4 (\u => current + current)) == 8
+  fstOf (runState 4 (u => current + current)) == 8
 
 -- A value read first and captured by a pure function.
 def adder(): {State Nat} (Nat -> Nat) :=
   let s := get()
-  \n => n + s
+  n => n + s
 
 test "captured" := (fstOf (runState 3 adder)) 4 == 7
 
@@ -99,7 +99,7 @@ def everything(): {State Nat, Log, Choose, Ask} Nat :=
 -- `runState` is outermost, so they share the state: the `True` branch sets
 -- it to 11, which the `False` branch then reads.
 test "four abilities, handled in another order" :=
-  let r := runState 1 (\u => collect (\v => allResults (\w => answer 10 everything)))
+  let r := runState 1 (u => collect (v => allResults (w => answer 10 everything)))
   let said := fstOf (fstOf r)
   let results := sndOf (fstOf r)
   if eqNats said [10, 0] then (if eqNats results [11, 11] then sndOf r == 11 else False) else False
@@ -111,7 +111,7 @@ def pairNats: List (Pair (Pair (List Nat) Nat) Nat) -> List Nat
   | Cons (MkPair (MkPair said x) s) r => List.append said (Cons x (Cons s (pairNats r)))
 
 test "four abilities, choice outermost" :=
-  let r := allResults (\u => runState 1 (\v => collect (\w => answer 10 everything)))
+  let r := allResults (u => runState 1 (v => collect (w => answer 10 everything)))
   eqNats (pairNats r) [10, 11, 11, 10, 0, 1, 1]
 
 -- A function that needs only some of the abilities in its caller's row.
@@ -124,7 +124,7 @@ def bigger(): {State Nat, Log, Ask} Nat :=
   get()
 
 test "a smaller row inside a bigger one" :=
-  let r := runState 7 (\u => collect (\v => answer 2 bigger))
+  let r := runState 7 (u => collect (v => answer 2 bigger))
   if eqNats (fstOf (fstOf r)) [2, 2] then sndOf (fstOf r) == 7 else False
 
 -- A partially applied effectful function is a value (it doesn't run yet).
@@ -138,12 +138,12 @@ def peek(): {State s | e} s :=
   let unused := 1
   get()
 
-test "a pure let under a row variable" := fstOf (runState 9 (\u => peek())) == 9
+test "a pure let under a row variable" := fstOf (runState 9 (u => peek())) == 9
 
 -- A handler inside a function with other abilities: what it doesn't handle
 -- (`say`) goes out to the function's own row.
 def choicesLogged(): {Log} (List Nat) :=
-  allResults (\v =>
+  allResults (v =>
     say 1
     if choose() then 10 else 20)
 
@@ -159,13 +159,13 @@ def anyChoice(): {Choose | e} Nat := if choose() then 1 else 2
 def useBoth (f: () -> {State Nat, Choose} Nat): {State Nat, Choose} Nat := f() + get()
 
 test "a row-polymorphic function, reordered" :=
-  eqNats (allResults (\u => fstOf (runState 5 (\v => useBoth anyChoice)))) [6, 7]
+  eqNats (allResults (u => fstOf (runState 5 (v => useBoth anyChoice)))) [6, 7]
 
 -- A function that performs fewer abilities than a parameter allows.
 def onlyChoice(): {Choose} Nat := if choose() then 1 else 2
 
 test "fewer abilities than allowed" :=
-  eqNats (allResults (\u => fstOf (runState 5 (\v => useBoth onlyChoice)))) [6, 7]
+  eqNats (allResults (u => fstOf (runState 5 (v => useBoth onlyChoice)))) [6, 7]
 
 -- A `handle` written inside a function with a concrete row: `say` isn't
 -- handled here, so it's forwarded to the function's own `Log`.
@@ -186,4 +186,4 @@ test "a handle expression forwards to a concrete row" :=
 def countTrue (f: () -> {Choose} Bool): {Choose} Nat := if f() then (if f() then 2 else 1) else 0
 
 test "an operation as a value" := List.length (allResults choose) == 2
-test "passing an operation" := eqNats (allResults (\u => countTrue choose)) [2, 1, 0]
+test "passing an operation" := eqNats (allResults (u => countTrue choose)) [2, 1, 0]

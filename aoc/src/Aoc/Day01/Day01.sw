@@ -55,9 +55,9 @@ def Turn.parse (t: Text): Maybe Turn :=
       | 'L' => Just (Left n)
       | 'R' => Just (Right n)
       | _   => Nothing
-  t.uncons.andThen (\(c, rest) => rest.toNat.andThen (turnOf c))
+  t.uncons.andThen ((c, rest) => rest.toNat.andThen (turnOf c))
 
-def after (t: Text): Maybe Nat := (Turn.parse t).map (\turn => (dial.move turn).position)
+def after (t: Text): Maybe Nat := (Turn.parse t).map (turn => (dial.move turn).position)
 
 test "parse" := after "L68" == Just 82
 test "parse right" := after "R5" == Just 55

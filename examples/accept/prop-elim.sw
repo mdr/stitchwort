@@ -20,8 +20,8 @@ type Exists (p: Nat -> Prop): Prop =
   | Witness (x: Nat) (proof: p x)
 
 -- Using the witness inside another proof is fine.
-theorem existsSucc: Exists (\n => n = n) -> Exists (\n => Succ n = Succ n)
+theorem existsSucc: Exists (n => n = n) -> Exists (n => Succ n = Succ n)
   | Witness x h => Witness x rfl
 
 -- Transport along an equality may produce data.
-def transport [x y: a] (p: x = y) (f: a -> Type) (fx: f x): f y := J (\y' p' => f y') fx p
+def transport [x y: a] (p: x = y) (f: a -> Type) (fx: f x): f y := J (y' p' => f y') fx p

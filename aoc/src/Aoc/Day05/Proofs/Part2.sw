@@ -12,13 +12,13 @@ import Std (Eq)
 -- Part 2 as the puzzle says it, by brute force: the ids, up to the largest
 -- end of a range, that some fresh range holds.
 def countFresh (db: Database): Nat :=
-  let top := db.fresh.foldLeft (\m r => Nat.max m r.to) 0
-  List.range (top + 1) |> .count (\id => db.fresh.any (\r => r.contains id))
+  let top := db.fresh.foldLeft (m r => Nat.max m r.to) 0
+  List.range (top + 1) |> .count (id => db.fresh.any (r => r.contains id))
 
 test "example brute force" := countFresh (parseDatabase example) == 14
 
 -- Whether some range holds the id.
-def covered (rs: List Range) (id: Nat): Bool := rs.any (\r => r.contains id)
+def covered (rs: List Range) (id: Nat): Bool := rs.any (r => r.contains id)
 
 theorem coveredFirst (m: Range) (rest: List Range) (id: Nat) (h: m.contains id = True): covered (Cons m rest) id = True :=
   rewrite h
@@ -35,14 +35,14 @@ theorem coveredSkip (m: Range) (rest: List Range) (id: Nat) (f: m.contains id = 
 def Below (b: Nat) (rs: List Range): Prop := (id: Nat) -> covered rs id = True -> id < b
 
 -- Every id the ranges hold is at most the largest end.
-theorem topGe: (z: Nat) -> (rs: List Range) -> z <= rs.foldLeft (\m r => Nat.max m r.to) z
+theorem topGe: (z: Nat) -> (rs: List Range) -> z <= rs.foldLeft (m r => Nat.max m r.to) z
   | z, Nil       => Nat.leRefl z
   | z, Cons r rs =>
     calc z
       _ <= Nat.max z r.to                                       := Nat.leMaxLeft z r.to
-      _ <= rs.foldLeft (\m r => Nat.max m r.to) (Nat.max z r.to) := topGe (Nat.max z r.to) rs
+      _ <= rs.foldLeft (m r => Nat.max m r.to) (Nat.max z r.to) := topGe (Nat.max z r.to) rs
 
-theorem coveredTop: (z: Nat) -> (rs: List Range) -> (id: Nat) -> covered rs id = True -> id <= rs.foldLeft (\m r => Nat.max m r.to) z
+theorem coveredTop: (z: Nat) -> (rs: List Range) -> (id: Nat) -> covered rs id = True -> id <= rs.foldLeft (m r => Nat.max m r.to) z
   | z, Nil,       id, h => Void.exfalso (Bool.falseNotTrue h)
   | z, Cons r rs, id, h =>
     match e: r.contains id with
@@ -50,7 +50,7 @@ theorem coveredTop: (z: Nat) -> (rs: List Range) -> (id: Nat) -> covered rs id =
         calc id
           _ <= r.to                                                  := containsHi r id e
           _ <= Nat.max z r.to                                        := Nat.leMaxRight z r.to
-          _ <= rs.foldLeft (\m r => Nat.max m r.to) (Nat.max z r.to) := topGe (Nat.max z r.to) rs
+          _ <= rs.foldLeft (m r => Nat.max m r.to) (Nat.max z r.to) := topGe (Nat.max z r.to) rs
       | False => coveredTop (Nat.max z r.to) rs id h
 
 -- Ranges, latest first, each starting after every id the ones after it hold.
@@ -60,7 +60,7 @@ def Stacked: List Range -> Prop
 
 -- The first range of a list whose ids are below `n` holds `size` of them.
 theorem headCount (m: Range) (rest: List Range) (n: Nat) (b: Below n (Cons m rest)):
-    List.occurrences (\id => m.contains id) (List.range n) = m.size :=
+    List.occurrences (id => m.contains id) (List.range n) = m.size :=
   match e: Nat.leq m.from m.to with
     | True  => countBelow m n (b m.to (coveredFirst m rest m.to (Nat.betweenYes m.from m.to m.to e (Nat.leRefl m.to))))
     | False => countEmpty m e (List.range n)
@@ -68,20 +68,20 @@ theorem headCount (m: Range) (rest: List Range) (n: Nat) (b: Below n (Cons m res
 -- Stacked ranges hold different ids, so the ids below `n` they hold number
 -- the sum of their sizes.
 theorem stackedCount (n: Nat): (ms: List Range) -> Stacked ms -> Below n ms ->
-    List.occurrences (\id => covered ms id) (List.range n) = ms.sumBy Range.size
-  | Nil,         s,             b => List.occurrencesNone (\id => covered Nil id) (\id => rfl) (List.range n)
+    List.occurrences (id => covered ms id) (List.range n) = ms.sumBy Range.size
+  | Nil,         s,             b => List.occurrencesNone (id => covered Nil id) (id => rfl) (List.range n)
   | Cons m rest, Both bm srest, b =>
-    calc List.occurrences (\id => covered (Cons m rest) id) (List.range n)
-      _ = List.occurrences (\id => m.contains id) (List.range n) + List.occurrences (\id => covered rest id) (List.range n)
-          := List.occurrencesOr (\id => m.contains id) (\id => covered rest id)
-               (\id h =>
+    calc List.occurrences (id => covered (Cons m rest) id) (List.range n)
+      _ = List.occurrences (id => m.contains id) (List.range n) + List.occurrences (id => covered rest id) (List.range n)
+          := List.occurrencesOr (id => m.contains id) (id => covered rest id)
+               (id h =>
                  match t: covered rest id with
                    | True  => Void.exfalso (Nat.lessIrrefl id (Nat.leTrans (Succ id) m.from id (bm id t) (containsLo m id h)))
                    | False => rfl)
                (List.range n)
-      _ = m.size + List.occurrences (\id => covered rest id) (List.range n) := rewrite headCount m rest n b
+      _ = m.size + List.occurrences (id => covered rest id) (List.range n) := rewrite headCount m rest n b
       _ = m.size + rest.sumBy Range.size
-          := rewrite stackedCount n rest srest (\id h => b id (coveredRest m rest id h))
+          := rewrite stackedCount n rest srest (id h => b id (coveredRest m rest id h))
       _ = (Cons m rest).sumBy Range.size := Eq.sym (List.sumByCons Range.size m rest)
 
 -- Merging keeps the covered ids (`stackCovers`), and the merged ranges,
@@ -89,37 +89,37 @@ theorem stackedCount (n: Nat): (ms: List Range) -> Stacked ms -> Below n ms ->
 -- the earlier ones hold. So no id is counted twice, and the sizes add up to
 -- the count (`stackedCount`).
 theorem solvePart2Correct (db: Database): solvePart2 db = countFresh db :=
-  let top := db.fresh.foldLeft (\m r => Nat.max m r.to) 0
+  let top := db.fresh.foldLeft (m r => Nat.max m r.to) 0
   calc solvePart2 db
     _ = (stack db.fresh).sumBy Range.size := List.sumByReverse Range.size (stack db.fresh)
-    _ = List.occurrences (\id => covered (stack db.fresh) id) (List.range (top + 1))
+    _ = List.occurrences (id => covered (stack db.fresh) id) (List.range (top + 1))
         := Eq.sym (stackedCount (top + 1) (stack db.fresh) (stackStacked db.fresh)
-             (\id h => Nat.ltCongRight id (Succ top) (top + 1) (Eq.sym (Nat.addOne top))
+             (id h => Nat.ltCongRight id (Succ top) (top + 1) (Eq.sym (Nat.addOne top))
                (Nat.leLessSucc id top (coveredTop 0 db.fresh id (Eq.trans (Eq.sym (stackCovers db.fresh id)) h)))))
-    _ = List.occurrences (\id => covered db.fresh id) (List.range (top + 1))
-        := List.occurrencesCongr (\id => covered (stack db.fresh) id) (\id => covered db.fresh id) (stackCovers db.fresh) (List.range (top + 1))
-    _ = countFresh db := Eq.sym (List.countOccurrences (\id => covered db.fresh id) (List.range (top + 1)))
+    _ = List.occurrences (id => covered db.fresh id) (List.range (top + 1))
+        := List.occurrencesCongr (id => covered (stack db.fresh) id) (id => covered db.fresh id) (stackCovers db.fresh) (List.range (top + 1))
+    _ = countFresh db := Eq.sym (List.countOccurrences (id => covered db.fresh id) (List.range (top + 1)))
 
 -- The merged ranges, latest first: `merge` before its `reverse`.
 def stack (ranges: List Range): List Range :=
   ranges
-    |> .sortBy (\a b => Nat.compare a.from b.from)
+    |> .sortBy (a b => Nat.compare a.from b.from)
     |> .foldLeft absorb []
 
 theorem stackSorted (ranges: List Range):
-    List.Sorted (\x y => Ordering.isLessEq (Nat.compare x.from y.from)) (ranges.sortBy (\a b => Nat.compare a.from b.from)) :=
-  List.sortBySorted (\a b => Nat.compare (Range.from a) (Range.from b)) (\x y h => Nat.compareTotal x.from y.from h) ranges
+    List.Sorted (x y => Ordering.isLessEq (Nat.compare x.from y.from)) (ranges.sortBy (a b => Nat.compare a.from b.from)) :=
+  List.sortBySorted (a b => Nat.compare (Range.from a) (Range.from b)) (x y h => Nat.compareTotal x.from y.from h) ranges
 
 theorem stackCovers (ranges: List Range) (id: Nat): covered (stack ranges) id = covered ranges id :=
-  Eq.trans (foldCovers id Nil (ranges.sortBy (\a b => Nat.compare a.from b.from)) (stackSorted ranges) (fitsNil (ranges.sortBy (\a b => Nat.compare a.from b.from))))
-    (List.anyPerm (\r => Range.contains r id) (ranges.sortBy (\a b => Nat.compare a.from b.from)) ranges (List.sortByPerm (\a b => Nat.compare (Range.from a) (Range.from b)) ranges))
+  Eq.trans (foldCovers id Nil (ranges.sortBy (a b => Nat.compare a.from b.from)) (stackSorted ranges) (fitsNil (ranges.sortBy (a b => Nat.compare a.from b.from))))
+    (List.anyPerm (r => Range.contains r id) (ranges.sortBy (a b => Nat.compare a.from b.from)) ranges (List.sortByPerm (a b => Nat.compare (Range.from a) (Range.from b)) ranges))
 
 theorem stackStacked (ranges: List Range): Stacked (stack ranges) :=
-  foldStacked Nil (ranges.sortBy (\a b => Nat.compare a.from b.from)) (stackSorted ranges) (fitsNil (ranges.sortBy (\a b => Nat.compare a.from b.from))) Trivial
+  foldStacked Nil (ranges.sortBy (a b => Nat.compare a.from b.from)) (stackSorted ranges) (fitsNil (ranges.sortBy (a b => Nat.compare a.from b.from))) Trivial
 
 -- Merging keeps exactly the covered ids.
-theorem mergeCovers (ranges: List Range) (id: Nat): (merge ranges).any (\r => r.contains id) = ranges.any (\r => r.contains id) :=
-  Eq.trans (List.anyPerm (\r => Range.contains r id) (merge ranges) (stack ranges) (List.reversePerm (stack ranges))) (stackCovers ranges id)
+theorem mergeCovers (ranges: List Range) (id: Nat): (merge ranges).any (r => r.contains id) = ranges.any (r => r.contains id) :=
+  Eq.trans (List.anyPerm (r => Range.contains r id) (merge ranges) (stack ranges) (List.reversePerm (stack ranges))) (stackCovers ranges id)
 
 -- The latest merged range starts no later than `b`.
 def LoAtMost (b: Nat): List Range -> Prop
@@ -164,13 +164,13 @@ theorem absorbLo (r: Range) (b: Nat) (h: r.from <= b): (merged: List Range) -> L
       | False => h
 
 theorem absorbStacked (r: Range): (merged: List Range) -> LoAtMost r.from merged -> Stacked merged -> Stacked (absorb merged r)
-  | Nil,               ok, s           => Both (\id h => Void.exfalso (Bool.falseNotTrue h)) Trivial
+  | Nil,               ok, s           => Both (id h => Void.exfalso (Bool.falseNotTrue h)) Trivial
   | Cons last earlier, ok, Both b rest =>
     match e: Nat.leq r.from (last.to + 1) with
       | True  => Both b rest
       | False =>
         Both
-          (\id h =>
+          (id h =>
             match i: last.contains id with
               | True =>
                 calc id
@@ -193,12 +193,12 @@ theorem fitsNil: (xs: List Range) -> Fits Nil xs
   | Cons x xs => Trivial
 
 theorem fitsStep (acc: List Range) (x: Range): (xs: List Range) -> LoAtMost x.from acc ->
-    List.LeHead (\a b => Ordering.isLessEq (Nat.compare a.from b.from)) x xs -> Fits (absorb acc x) xs
+    List.LeHead (a b => Ordering.isLessEq (Nat.compare a.from b.from)) x xs -> Fits (absorb acc x) xs
   | Nil,       ok, hx => Trivial
   | Cons y ys, ok, hx => absorbLo x y.from (Eq.trans (Eq.sym (Nat.compareLeq x.from y.from)) hx) acc ok
 
 theorem foldCovers (id: Nat): (acc: List Range) -> (xs: List Range) ->
-    List.Sorted (\a b => Ordering.isLessEq (Nat.compare a.from b.from)) xs -> Fits acc xs ->
+    List.Sorted (a b => Ordering.isLessEq (Nat.compare a.from b.from)) xs -> Fits acc xs ->
     covered (xs.foldLeft absorb acc) id = (covered acc id || covered xs id)
   | acc, Nil,       s,           ok => Eq.sym (Bool.orFalse (covered acc id))
   | acc, Cons x xs, Both hx sxs, ok =>
@@ -208,6 +208,6 @@ theorem foldCovers (id: Nat): (acc: List Range) -> (xs: List Range) ->
       _ = (covered acc id || covered (Cons x xs) id)           := Bool.orAssoc (covered acc id) (x.contains id) (covered xs id)
 
 theorem foldStacked: (acc: List Range) -> (xs: List Range) ->
-    List.Sorted (\a b => Ordering.isLessEq (Nat.compare a.from b.from)) xs -> Fits acc xs -> Stacked acc -> Stacked (xs.foldLeft absorb acc)
+    List.Sorted (a b => Ordering.isLessEq (Nat.compare a.from b.from)) xs -> Fits acc xs -> Stacked acc -> Stacked (xs.foldLeft absorb acc)
   | acc, Nil,       s,           ok, st => st
   | acc, Cons x xs, Both hx sxs, ok, st => foldStacked (absorb acc x) xs sxs (fitsStep acc x xs ok hx) (absorbStacked x acc ok st)

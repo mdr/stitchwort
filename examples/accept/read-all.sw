@@ -36,7 +36,7 @@ test "readAll gives every line, each followed by LF" :=
   result (IO.simulate ["a", "b"] slurp) == "a\nb\n"
 
 test "IO.readAll is the same operation" :=
-  result (IO.simulate ["a"] (\u => IO.readAll())) == "a\n"
+  result (IO.simulate ["a"] (u => IO.readAll())) == "a\n"
 
 test "readAll of empty input is empty" := result (IO.simulate [] slurp) == ""
 

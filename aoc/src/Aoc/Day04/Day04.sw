@@ -59,7 +59,7 @@ def Grid.round (grid: Grid): Grid :=
   let above := Cons gap sums
   let below := sums.drop 1 |> .append [gap]
   let windows := Grid.zipWith Nat.add (Grid.zipWith Nat.add above sums) below
-  Grid.zipWith (\roll window => if roll == 1 && 5 <= window then 1 else 0) grid windows
+  Grid.zipWith (roll window => if roll == 1 && 5 <= window then 1 else 0) grid windows
 
 -- Remove accessible rolls until there are none. Every round that changes
 -- something removes a roll, so as many rounds as there are rolls is enough.

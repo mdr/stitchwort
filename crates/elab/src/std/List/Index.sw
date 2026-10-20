@@ -36,8 +36,8 @@ theorem List.extGetOr (d: a): (xs: List a) -> (ys: List a) -> List.length xs = L
   | Nil,       Cons y ys, e, h => Void.exfalso (Nat.zeroNotSucc (List.length ys) e)
   | Cons x xs, Nil,       e, h => Void.exfalso (Nat.succNotZero (List.length xs) e)
   | Cons x xs, Cons y ys, e, h =>
-    Eq.trans (Eq.cong (\z => Cons z xs) (h 0 rfl))
-      (Eq.cong (Cons y) (List.extGetOr d xs ys (Nat.succInjective (List.length xs) (List.length ys) e) (\i hi => h (Succ i) hi)))
+    Eq.trans (Eq.cong (z => Cons z xs) (h 0 rfl))
+      (Eq.cong (Cons y) (List.extGetOr d xs ys (Nat.succInjective (List.length xs) (List.length ys) e) (i hi => h (Succ i) hi)))
 
 -- Index i of a block of k elements written n times is index `i % k` of the block.
 theorem List.getOrConcatReplicate (d: a) (b: List a) (k: Nat) [auto hk: k != 0] (hb: List.length b = k): (n: Nat) -> (i: Nat) -> i < n * k ->
@@ -48,14 +48,14 @@ theorem List.getOrConcatReplicate (d: a) (b: List a) (k: Nat) [auto hk: k != 0] 
       | False =>
         calc List.getOr d i (List.append b (List.concat (List.replicate n b)))
           _ = List.getOr d i b       := List.getOrAppendLeft d i b (List.concat (List.replicate n b)) (Nat.ltCongRight i k (List.length b) (Eq.sym hb) (Nat.leqFalse k i t))
-          _ = List.getOr d (i % k) b := Eq.cong (\y => List.getOr d y b) (Eq.sym (Nat.modSmall i k (Nat.leqFalse k i t)))
+          _ = List.getOr d (i % k) b := Eq.cong (y => List.getOr d y b) (Eq.sym (Nat.modSmall i k (Nat.leqFalse k i t)))
       | True =>
         calc List.getOr d i (List.append b (List.concat (List.replicate n b)))
           _ = List.getOr d (i - List.length b) (List.concat (List.replicate n b))
               := List.getOrAppendRight d i b (List.concat (List.replicate n b)) (Nat.leCongLeft k (List.length b) i (Eq.sym hb) t)
-          _ = List.getOr d (i - k) (List.concat (List.replicate n b)) := Eq.cong (\y => List.getOr d (i - y) (List.concat (List.replicate n b))) hb
+          _ = List.getOr d (i - k) (List.concat (List.replicate n b)) := Eq.cong (y => List.getOr d (i - y) (List.concat (List.replicate n b))) hb
           _ = List.getOr d ((i - k) % k) b
               := List.getOrConcatReplicate d b k hb n (i - k) (Nat.subLtAdd i k (n * k) t (Nat.ltCongRight i (k + n * k) (n * k + k) (Nat.addComm k (n * k)) h))
           _ = List.getOr d (i % k) b
-              := Eq.cong (\y => List.getOr d y b) (Eq.trans (Eq.sym (Nat.addModSelf k (i - k))) (Eq.cong (\y => y % k) (Nat.addSubCancel k i t)))
+              := Eq.cong (y => List.getOr d y b) (Eq.trans (Eq.sym (Nat.addModSelf k (i - k))) (Eq.cong (y => y % k) (Nat.addSubCancel k i t)))
 

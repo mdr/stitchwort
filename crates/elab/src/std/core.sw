@@ -145,11 +145,11 @@ def List.reverseOnto: List a -> List a -> List a
 
 -- Equality lemmas, all built from `J`.
 
-theorem Eq.cong (f: a -> b) [x y: a] (p: x = y): f x = f y := J (\y' p' => f x = f y') rfl p
+theorem Eq.cong (f: a -> b) [x y: a] (p: x = y): f x = f y := J (y' p' => f x = f y') rfl p
 
-theorem Eq.sym [x y : a] (p : x = y) : y = x := J (\y' p' => y' = x) rfl p
+theorem Eq.sym [x y : a] (p : x = y) : y = x := J (y' p' => y' = x) rfl p
 
-theorem Eq.trans [x y z: a] (p: x = y) (q: y = z): x = z := J (\z' q' => x = z') p q
+theorem Eq.trans [x y z: a] (p: x = y) (q: y = z): x = z := J (z' q' => x = z') p q
 
 -- Different constructors are different. Each proof transports along the
 -- equation into a family that's `Unit` at one constructor and `Void` at the other.
@@ -159,7 +159,7 @@ def Nat.IsZero: Nat -> Prop
   | Succ n => Void
 
 theorem Nat.zeroNotSucc (n: Nat): Not (0 = Succ n)
-  | p => J (\y q => Nat.IsZero y) Trivial p
+  | p => J (y q => Nat.IsZero y) Trivial p
 
 theorem Nat.succNotZero (n: Nat): Not (Succ n = 0)
   | p => Nat.zeroNotSucc n (Eq.sym p)
@@ -171,7 +171,7 @@ def Bool.IsFalse: Bool -> Prop
   | True  => Void
 
 theorem Bool.falseNotTrue: Not (False = True)
-  | p => J (\y q => Bool.IsFalse y) Trivial p
+  | p => J (y q => Bool.IsFalse y) Trivial p
 
 -- Whether two numbers are equal, as a `Bool`.
 def Nat.equal: Nat -> Nat -> Bool
@@ -193,7 +193,7 @@ theorem Nat.equalSound: (m: Nat) -> (n: Nat) -> Nat.equal m n = True -> m = n
 
 -- Numbers that `Nat.equal` says differ are different.
 theorem Nat.equalFalse (m: Nat) (n: Nat) (h: Nat.equal m n = False): Not (m = n)
-  | p => Bool.falseNotTrue (Eq.trans (Eq.sym h) (J (\y q => Nat.equal m y = True) (Nat.equalRefl m) p))
+  | p => Bool.falseNotTrue (Eq.trans (Eq.sym h) (J (y q => Nat.equal m y = True) (Nat.equalRefl m) p))
 
 -- Decisions
 
@@ -257,7 +257,7 @@ def Bool.decEq: (a: Bool) -> (b: Bool) -> Decidable (a = b)
   | True,  True  => Yes rfl
 
 def Decidable.not: [p: Prop] -> Decidable p -> Decidable (Not p)
-  | Yes h => No (\n => n h)
+  | Yes h => No (n => n h)
   | No r  => Yes r
 
 -- `p && q` and `p || q` are decided from decisions of each side. Both are
@@ -265,8 +265,8 @@ def Decidable.not: [p: Prop] -> Decidable p -> Decidable (Not p)
 -- `p` is false (`if p && q`, without a name, doesn't).
 def Decidable.and: [p q: Prop] -> Decidable p -> Decidable q -> Decidable (And p q)
   | Yes a, Yes b => Yes (Both a b)
-  | Yes a, No r  => No (\h => r (And.right h))
-  | No r,  d     => No (\h => r (And.left h))
+  | Yes a, No r  => No (h => r (And.right h))
+  | No r,  d     => No (h => r (And.left h))
 
 def Decidable.or: [p q: Prop] -> Decidable p -> Decidable q -> Decidable (Or p q)
   | Yes a, d     => Yes (Inl a)
@@ -290,18 +290,18 @@ theorem Bool.canonConst: [x y: Bool] -> (d: Decidable (x = y)) -> (p: x = y) -> 
   | Yes e, p, q => rfl
   | No r,  p, q => Void.exfalso (r p)
 
-theorem Bool.symThenSelf [x y: Bool] (q: x = y): rfl = Eq.trans (Eq.sym q) q := J (\y' q' => rfl = Eq.trans (Eq.sym q') q') rfl q
+theorem Bool.symThenSelf [x y: Bool] (q: x = y): rfl = Eq.trans (Eq.sym q) q := J (y' q' => rfl = Eq.trans (Eq.sym q') q') rfl q
 
 theorem Bool.fromCanon (x: Bool) (y: Bool) (p: x = y):
   p = Eq.trans (Eq.sym (Bool.canon (Bool.decEq x x) rfl)) (Bool.canon (Bool.decEq x y) p) :=
-  J (\y' p' => p' = Eq.trans (Eq.sym (Bool.canon (Bool.decEq x x) rfl)) (Bool.canon (Bool.decEq x y') p'))
+  J (y' p' => p' = Eq.trans (Eq.sym (Bool.canon (Bool.decEq x x) rfl)) (Bool.canon (Bool.decEq x y') p'))
     (Bool.symThenSelf (Bool.canon (Bool.decEq x x) rfl)) p
 
 theorem Bool.uniqueEq (x : Bool) (y : Bool) (p : x = y) (q : x = y) : p = q :=
-  J (\z e => p = z)
-    (J (\r e => p = Eq.trans (Eq.sym (Bool.canon (Bool.decEq x x) rfl)) r)
+  J (z e => p = z)
+    (J (r e => p = Eq.trans (Eq.sym (Bool.canon (Bool.decEq x x) rfl)) r)
       (Bool.fromCanon x y p) (Bool.canonConst (Bool.decEq x y) p q))
-    (J (\z e => z = q) rfl (Bool.fromCanon x y q))
+    (J (z e => z = q) rfl (Bool.fromCanon x y q))
 
 theorem Bool.decTrueToBool : (c : Bool) -> Decidable.toBool (Bool.decTrue c) = c
   | True  => rfl
@@ -343,8 +343,8 @@ def Char.fromNat (n : Nat) : Maybe Char := if h : Char.isScalar n = True then Ju
 -- Characters with the same code are equal: their proofs of `valid` are too.
 theorem Char.mkExt (a : Nat) (b : Nat) (p : Char.isScalar a = True) (e : a = b) :
   (q : Char.isScalar b = True) -> MkChar a p = MkChar b q :=
-  J (\b' e' => (q': Char.isScalar b' = True) -> MkChar a p = MkChar b' q')
-    (\q' => J (\r e'' => MkChar a p = MkChar a r) rfl (Bool.uniqueEq (Char.isScalar a) True p q'))
+  J (b' e' => (q': Char.isScalar b' = True) -> MkChar a p = MkChar b' q')
+    (q' => J (r e'' => MkChar a p = MkChar a r) rfl (Bool.uniqueEq (Char.isScalar a) True p q'))
     e
 
 theorem Char.ext : (x : Char) -> (y : Char) -> Char.toNat x = Char.toNat y -> x = y
@@ -352,7 +352,7 @@ theorem Char.ext : (x : Char) -> (y : Char) -> Char.toNat x = Char.toNat y -> x 
 
 def Char.decEqFrom (x : Char) (y : Char) : Decidable (Char.toNat x = Char.toNat y) -> Decidable (x = y)
   | Yes e => Yes (Char.ext x y e)
-  | No r  => No (\p => r (Eq.cong Char.toNat p))
+  | No r  => No (p => r (Eq.cong Char.toNat p))
 
 def Char.decEq (x : Char) (y : Char) : Decidable (x = y) := Char.decEqFrom x y (Nat.decEq (Char.toNat x) (Char.toNat y))
 
@@ -393,7 +393,7 @@ def List.IsNil: List a -> Prop
   | Cons x xs => Void
 
 theorem List.nilNotCons (x: a) (xs: List a): Not (Nil = Cons x xs)
-  | p => J (\y q => List.IsNil y) Trivial p
+  | p => J (y q => List.IsNil y) Trivial p
 
 theorem List.consNotNil (x: a) (xs: List a): Not (Cons x xs = Nil)
   | p => List.nilNotCons x xs (Eq.sym p)
@@ -408,9 +408,9 @@ def List.tailOf: List a -> List a
 
 def List.decCons (x: a) (y: a) (xs: List a) (ys: List a):
     Decidable (x = y) -> Decidable (xs = ys) -> Decidable (Cons x xs = Cons y ys)
-  | Yes p, Yes q => Yes (J (\y' p' => Cons x xs = Cons y' ys) (Eq.cong (Cons x) q) p)
-  | No r,  dq    => No (\e => r (Eq.cong (List.headOr x) e))
-  | Yes p, No r  => No (\e => r (Eq.cong List.tailOf e))
+  | Yes p, Yes q => Yes (J (y' p' => Cons x xs = Cons y' ys) (Eq.cong (Cons x) q) p)
+  | No r,  dq    => No (e => r (Eq.cong (List.headOr x) e))
+  | Yes p, No r  => No (e => r (Eq.cong List.tailOf e))
 
 -- Equality of lists, from equality of their elements.
 def List.decEq (d : (x : a) -> (y : a) -> Decidable (x = y)) : (xs : List a) -> (ys : List a) -> Decidable (xs = ys)
@@ -421,9 +421,9 @@ def List.decEq (d : (x : a) -> (y : a) -> Decidable (x = y)) : (xs : List a) -> 
 
 def Pair.decMk (x1 : a) (x2 : a) (y1 : b) (y2 : b) :
     Decidable (x1 = x2) -> Decidable (y1 = y2) -> Decidable (MkPair x1 y1 = MkPair x2 y2)
-  | Yes p, Yes q => Yes (J (\x' p' => MkPair x1 y1 = MkPair x' y2) (Eq.cong (MkPair x1) q) p)
-  | No r,  dq    => No (\e => r (Eq.cong Pair.fst e))
-  | Yes p, No r  => No (\e => r (Eq.cong Pair.snd e))
+  | Yes p, Yes q => Yes (J (x' p' => MkPair x1 y1 = MkPair x' y2) (Eq.cong (MkPair x1) q) p)
+  | No r,  dq    => No (e => r (Eq.cong Pair.fst e))
+  | Yes p, No r  => No (e => r (Eq.cong Pair.snd e))
 
 -- Equality of pairs, from equality of their parts.
 def Pair.decEq (da: (x: a) -> (y: a) -> Decidable (x = y)) (db: (x: b) -> (y: b) -> Decidable (x = y)):
@@ -435,7 +435,7 @@ def Maybe.IsNothing: Maybe a -> Prop
   | Just x  => Void
 
 theorem Maybe.nothingNotJust (x: a): Not (Nothing = Just x)
-  | p => J (\y q => Maybe.IsNothing y) Trivial p
+  | p => J (y q => Maybe.IsNothing y) Trivial p
 
 theorem Maybe.justNotNothing (x: a): Not (Just x = Nothing)
   | p => Maybe.nothingNotJust x (Eq.sym p)
@@ -447,7 +447,7 @@ def Maybe.withDefault (d: a): Maybe a -> a
 
 def Maybe.decJust (x: a) (y: a): Decidable (x = y) -> Decidable (Just x = Just y)
   | Yes p => Yes (Eq.cong Just p)
-  | No r  => No (\e => r (Eq.cong (Maybe.withDefault x) e))
+  | No r  => No (e => r (Eq.cong (Maybe.withDefault x) e))
 
 -- Equality of optional values, from equality of the values.
 def Maybe.decEq (d: (x: a) -> (y: a) -> Decidable (x = y)): (m: Maybe a) -> (n: Maybe a) -> Decidable (m = n)
@@ -478,13 +478,13 @@ def Ordering.index: Ordering -> Nat
 
 def Ordering.decEq: (a: Ordering) -> (b: Ordering) -> Decidable (a = b)
   | Less,    Less    => Yes rfl
-  | Less,    Equal   => No (\p => Nat.zeroNotSucc 0 (Eq.cong Ordering.index p))
-  | Less,    Greater => No (\p => Nat.zeroNotSucc 1 (Eq.cong Ordering.index p))
-  | Equal,   Less    => No (\p => Nat.zeroNotSucc 0 (Eq.sym (Eq.cong Ordering.index p)))
+  | Less,    Equal   => No (p => Nat.zeroNotSucc 0 (Eq.cong Ordering.index p))
+  | Less,    Greater => No (p => Nat.zeroNotSucc 1 (Eq.cong Ordering.index p))
+  | Equal,   Less    => No (p => Nat.zeroNotSucc 0 (Eq.sym (Eq.cong Ordering.index p)))
   | Equal,   Equal   => Yes rfl
-  | Equal,   Greater => No (\p => Nat.zeroNotSucc 0 (Nat.succInjective 0 1 (Eq.cong Ordering.index p)))
-  | Greater, Less    => No (\p => Nat.zeroNotSucc 1 (Eq.sym (Eq.cong Ordering.index p)))
-  | Greater, Equal   => No (\p => Nat.zeroNotSucc 0 (Nat.succInjective 0 1 (Eq.sym (Eq.cong Ordering.index p))))
+  | Equal,   Greater => No (p => Nat.zeroNotSucc 0 (Nat.succInjective 0 1 (Eq.cong Ordering.index p)))
+  | Greater, Less    => No (p => Nat.zeroNotSucc 1 (Eq.sym (Eq.cong Ordering.index p)))
+  | Greater, Equal   => No (p => Nat.zeroNotSucc 0 (Nat.succInjective 0 1 (Eq.sym (Eq.cong Ordering.index p))))
   | Greater, Greater => Yes rfl
 
 def List.concatMap (f: a -> List b): List a -> List b
@@ -537,7 +537,7 @@ def Text.isEmpty: Text -> Bool
 
 def Text.decEqFrom (a: Text) (b: Text): Decidable (Text.toList a = Text.toList b) -> Decidable (a = b)
   | Yes p => Yes (Eq.trans (Eq.sym (Text.fromToList a)) (Eq.trans (Eq.cong Text.fromList p) (Text.fromToList b)))
-  | No r  => No (\p => r (Eq.cong Text.toList p))
+  | No r  => No (p => r (Eq.cong Text.toList p))
 
 def Text.decEq (a: Text) (b: Text): Decidable (a = b) := Text.decEqFrom a b (List.decEq Char.decEq (Text.toList a) (Text.toList b))
 
@@ -620,7 +620,7 @@ def Char.digitValue (c: Char): Maybe Nat := if Nat.leq 48 (Char.toNat c) then (i
 
 def Text.readDigits (acc: Nat): List Char -> Maybe Nat
   | Nil       => Just acc
-  | Cons c cs => Maybe.andThen (\d => Text.readDigits (acc * 10 + d) cs) (Char.digitValue c)
+  | Cons c cs => Maybe.andThen (d => Text.readDigits (acc * 10 + d) cs) (Char.digitValue c)
 
 -- A non-empty sequence of ASCII digits, and nothing else: no sign,
 -- whitespace or separators. Leading zeros are allowed, so
@@ -688,7 +688,7 @@ def Int.IsOfNat: Int -> Prop
   | NegSucc n => Void
 
 theorem Int.ofNatNotNegSucc (m: Nat) (n: Nat): Not (OfNat m = NegSucc n)
-  | p => J (\y q => Int.IsOfNat y) Trivial p
+  | p => J (y q => Int.IsOfNat y) Trivial p
 
 theorem Int.negSuccNotOfNat (m: Nat) (n: Nat): Not (NegSucc m = OfNat n)
   | p => Int.ofNatNotNegSucc n m (Eq.sym p)
@@ -699,11 +699,11 @@ theorem Int.negSuccInjective (m: Nat) (n: Nat) (p: NegSucc m = NegSucc n): m = n
 
 def Int.decOfNat (m: Nat) (n: Nat): Decidable (m = n) -> Decidable (OfNat m = OfNat n)
   | Yes p => Yes (Eq.cong OfNat p)
-  | No r  => No (\p => r (Int.ofNatInjective m n p))
+  | No r  => No (p => r (Int.ofNatInjective m n p))
 
 def Int.decNegSucc (m: Nat) (n: Nat): Decidable (m = n) -> Decidable (NegSucc m = NegSucc n)
   | Yes p => Yes (Eq.cong NegSucc p)
-  | No r  => No (\p => r (Int.negSuccInjective m n p))
+  | No r  => No (p => r (Int.negSuccInjective m n p))
 
 -- For two integers this computes `Yes rfl` or a `No` of constant size,
 -- however big they are, since `Nat.decEq` does.
@@ -769,7 +769,7 @@ def Text.toInt: Text -> Maybe Int
   | MkText Nil         => Nothing
   | MkText (Cons c cs) =>
     if Nat.equal (Char.toNat c) 45
-    then Maybe.map (\n => Int.neg (OfNat n)) (Text.toNat (MkText cs))
+    then Maybe.map (n => Int.neg (OfNat n)) (Text.toNat (MkText cs))
     else Maybe.map OfNat (Text.toNat (MkText (Cons c cs)))
 
 -- Division. `a / d` and `a % d` are Euclidean: `a = d * (a / d) + a % d`
@@ -884,13 +884,13 @@ type Effect.Comp (op: Type) (res: op -> Type) (a: Type): Type =
 def Effect.foldComp [op: Type] [res: op -> Type] [a r: Type]
     (done: a -> r) (call: (o: op) -> (res o -> r) -> r): Comp op res a -> r
   | Done x      => done x
-  | Call o rest => call o (\y => foldComp done call (rest y))
+  | Call o rest => call o (y => foldComp done call (rest y))
 
 -- Sequencing: run `c`, then `next` with its result.
 def Effect.bind: [op: Type] -> [res: op -> Type] -> [a b: Type] ->
     Comp op res a -> (a -> Comp op res b) -> Comp op res b
   | Done x,      next => next x
-  | Call o rest, next => Call o (\y => bind (rest y) next)
+  | Call o rest, next => Call o (y => bind (rest y) next)
 
 -- Rows: signatures side by side, and mappings between signatures.
 
@@ -922,22 +922,22 @@ def Effect.sigReply: [op1: Type] -> [res1: op1 -> Type] -> [op2: Type] -> [res2:
 def Effect.translate [op1: Type] [res1: op1 -> Type] [op2: Type] [res2: op2 -> Type] [a: Type]
     (m: SigMap op1 res1 op2 res2): Comp op1 res1 a -> Comp op2 res2 a
   | Done x      => Done x
-  | Call o rest => Call (sigInject m o) (\r => translate m (rest (sigReply m o r)))
+  | Call o rest => Call (sigInject m o) (r => translate m (rest (sigReply m o r)))
 
-def Effect.sigId: [op: Type] -> [res: op -> Type] -> SigMap op res op res := MkSigMap (\o => o) (\o r => r)
+def Effect.sigId: [op: Type] -> [res: op -> Type] -> SigMap op res op res := MkSigMap (o => o) (o r => r)
 
 def Effect.sigCompose: [op1: Type] -> [res1: op1 -> Type] -> [op2: Type] -> [res2: op2 -> Type] ->
     [op3: Type] -> [res3: op3 -> Type] ->
     SigMap op1 res1 op2 res2 -> SigMap op2 res2 op3 res3 -> SigMap op1 res1 op3 res3
   | MkSigMap i1 r1, MkSigMap i2 r2 =>
-    MkSigMap (\o => i2 (i1 o)) (\o r => r1 o (r2 (i1 o) r))
+    MkSigMap (o => i2 (i1 o)) (o r => r1 o (r2 (i1 o) r))
 
 -- Weakening: a signature into a row with something else on the right or left.
 def Effect.sigLeft: [l r: Type] -> [lres: l -> Type] -> [rres: r -> Type] ->
-  SigMap l lres (Plus l r) (PlusRes lres rres) := MkSigMap (\o => L o) (\o x => x)
+  SigMap l lres (Plus l r) (PlusRes lres rres) := MkSigMap (o => L o) (o x => x)
 
 def Effect.sigRight: [l r: Type] -> [lres: l -> Type] -> [rres: r -> Type] ->
-  SigMap r rres (Plus l r) (PlusRes lres rres) := MkSigMap (\o => R o) (\o x => x)
+  SigMap r rres (Plus l r) (PlusRes lres rres) := MkSigMap (o => R o) (o x => x)
 
 -- Reordering: `{l, r}` to `{r, l}`.
 def Effect.swapOp: [l r: Type] -> Plus l r -> Plus r l
@@ -1065,7 +1065,7 @@ def IO.nextLine: List Text -> Maybe Text
 -- All of the scripted input, as `IO.readAll` gives it: each line followed by a
 -- line feed, as a real interpreter would read it.
 def IO.restOf (ins: List Text): Text :=
-  MkText (List.concatMap (\l => List.append (Text.toList l) ['\n']) ins)
+  MkText (List.concatMap (l => List.append (Text.toList l) ['\n']) ins)
 
 -- Runs a program against scripted input lines: each `IO.readLine` takes the
 -- next one, and gives `Nothing` once they're used up; `IO.readAll` takes all
@@ -1078,8 +1078,8 @@ def IO.restOf (ins: List Text): Text :=
 def IO.simulate (input: List Text) (prog: () -> {IO | e} a): {e} Pair (List Text) a :=
   let run: List Text -> List Text -> {e} Pair (List Text) a :=
     handle prog() with
-      | return x      => \ins out => MkPair (List.reverseOnto out Nil) x
-      | IO.print t, k    => \ins out => k() ins (Cons t out)
-      | IO.readLine u, k => \ins out => k (IO.nextLine ins) (List.tailOf ins) out
-      | IO.readAll u, k  => \ins out => k (IO.restOf ins) Nil out
+      | return x      => ins out => MkPair (List.reverseOnto out Nil) x
+      | IO.print t, k    => ins out => k() ins (Cons t out)
+      | IO.readLine u, k => ins out => k (IO.nextLine ins) (List.tailOf ins) out
+      | IO.readAll u, k  => ins out => k (IO.restOf ins) Nil out
   run input Nil

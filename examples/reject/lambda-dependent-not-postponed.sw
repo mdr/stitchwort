@@ -9,4 +9,4 @@ def ann: Person := { name = "Ann" }
 
 def applyChecked (f: a -> Text) (same: f = f) (x: a): Text := f x
 
-def name: Text := applyChecked (\p => p.name) Refl ann
+def name: Text := applyChecked (p => p.name) Refl ann

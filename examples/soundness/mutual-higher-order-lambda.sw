@@ -6,7 +6,7 @@
 -- Neighbour: `walk`/`stepBy` in accept/mutual.sw.
 def applyTo (f: List Nat -> Nat) (xs: List Nat): Nat := f xs
 
-def walk (ts: List Nat): Nat := applyTo (\x => walkList x) ts
+def walk (ts: List Nat): Nat := applyTo (x => walkList x) ts
 
 def walkList: List Nat -> Nat
   | Nil       => walk Nil

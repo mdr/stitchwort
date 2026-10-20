@@ -48,7 +48,7 @@ def isEmpty (xs: List Nat): Bool := match h: xs.length with
 -- The equation used in a branch.
 def lenZero (xs: List Nat): Decidable (xs.length = 0) := match h: xs.length with
   | Zero => Yes rfl
-  | Succ k => No (\e => Nat.equalFalse (Succ k) 0 rfl e)
+  | Succ k => No (e => Nat.equalFalse (Succ k) 0 rfl e)
 
 def keep (p: Prop): p -> Bool
   | _ => True
@@ -186,9 +186,9 @@ test "scrutinees once, in order" :=
   let r := collect twoScrutinees
   if eqNats (fstOf r) [0, 1, 2, 9] then sndOf r == 2 else False
 test "branches" :=
-  let r := collect (\u => inBranches 3)
+  let r := collect (u => inBranches 3)
   if eqNats (fstOf r) [0, 2, 2] then sndOf r == 6 else False
-test "tail" := eqNats (fstOf (collect (\u => tailEff 3))) [2, 1, 0]
+test "tail" := eqNats (fstOf (collect (u => tailEff 3))) [2, 1, 0]
 test "named" :=
   let r := collect named
   if eqNats (fstOf r) [3] then sndOf r == 2 else False

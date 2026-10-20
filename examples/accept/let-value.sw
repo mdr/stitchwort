@@ -64,7 +64,7 @@ theorem afterLetIs (n: Nat): afterLet n = n * 2 + 1 + 1 + 1 := rfl
 -- Nested `let`s under binders.
 def nested (a: Nat): Nat -> Nat :=
   let x := a + 1
-  \b =>
+  b =>
     let y := x + b
     y + x
 

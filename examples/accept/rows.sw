@@ -88,14 +88,14 @@ def answerPlus [l r: Type] [lres: l -> Type] [rres: r -> Type]
 
 def SC (a: Type): Type := Comp (Plus StateOp ChooseOp) (PlusRes StateRes ChooseRes) a
 
-def get: SC Nat := Call (L Get) (\n => Done n)
+def get: SC Nat := Call (L Get) (n => Done n)
 
-def put (n: Nat): SC Unit1 := Call (L (Put n)) (\u => Done u)
+def put (n: Nat): SC Unit1 := Call (L (Put n)) (u => Done u)
 
-def choose: SC Bool := Call (R Choose) (\b => Done b)
+def choose: SC Bool := Call (R Choose) (b => Done b)
 
 -- choose, then put 1 if it said yes, then get
-def p: SC Nat := bind choose (\b => bind (if b then put 1 else Done MkUnit) (\u => get))
+def p: SC Nat := bind choose (b => bind (if b then put 1 else Done MkUnit) (u => get))
 
 def answerSC (o: Plus StateOp ChooseOp): Pair Nat (PlusRes StateRes ChooseRes o) := answerPlus answerState answerChoose o
 
@@ -113,7 +113,7 @@ test "swap, then swap back" :=
   eqNats (trace answerSC (translate sigSwap (translate sigSwap p))) (trace answerSC p)
 
 -- Weakening `{Choose}` into `{{State, Choose}, Tick}` in two steps, and in one.
-def chooseOnly: Comp ChooseOp ChooseRes Nat := Call Choose (\b => Done (if b then 1 else 0))
+def chooseOnly: Comp ChooseOp ChooseRes Nat := Call Choose (b => Done (if b then 1 else 0))
 
 def SCT: Type := Plus (Plus StateOp ChooseOp) TickOp
 
@@ -121,7 +121,7 @@ def SCTRes (o: SCT): Type := PlusRes (PlusRes StateRes ChooseRes) TickRes o
 
 def twoSteps: SigMap ChooseOp ChooseRes SCT SCTRes := sigCompose sigRight sigLeft
 
-def oneStep: SigMap ChooseOp ChooseRes SCT SCTRes := MkSigMap (\o => L (R o)) (\o x => x)
+def oneStep: SigMap ChooseOp ChooseRes SCT SCTRes := MkSigMap (o => L (R o)) (o x => x)
 
 def answerSCT (o: SCT): Pair Nat (SCTRes o) := answerPlus answerSC answerTick o
 
@@ -139,16 +139,16 @@ def runStateL [e: Type] [eres: e -> Type] [a: Type]
   | Done x                => Done (MkPair x s)
   | Call (L Get) rest     => runStateL s (rest s)
   | Call (L (Put n)) rest => runStateL n (rest MkUnit)
-  | Call (R o) rest       => Call o (\y => runStateL s (rest y))
+  | Call (R o) rest       => Call o (y => runStateL s (rest y))
 
 -- `Choose` on the left of any row `e`: every outcome, `True` first.
 def allResultsL: [e: Type] -> [eres: e -> Type] -> [a: Type] ->
     Comp (Plus ChooseOp e) (PlusRes ChooseRes eres) a -> Comp e eres (List a)
   | Done x               => Done [x]
   | Call (L Choose) rest =>
-    bind (allResultsL (rest True)) (\xs =>
-      bind (allResultsL (rest False)) (\ys => Done (List.append xs ys)))
-  | Call (R o) rest      => Call o (\y => allResultsL (rest y))
+    bind (allResultsL (rest True)) (xs =>
+      bind (allResultsL (rest False)) (ys => Done (List.append xs ys)))
+  | Call (R o) rest      => Call o (y => allResultsL (rest y))
 
 -- Removing the last ability.
 def allResults: Comp ChooseOp ChooseRes a -> List a

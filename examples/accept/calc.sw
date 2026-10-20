@@ -7,7 +7,7 @@ import Std (Eq)
 theorem appendThree (xs: List Nat) (ys: List Nat) (zs: List Nat): List.length (xs ++ (ys ++ zs)) = List.length xs + (List.length ys + List.length zs) :=
   calc List.length (xs ++ (ys ++ zs))
     _ = List.length xs + List.length (ys ++ zs) := List.lengthAppend xs (ys ++ zs)
-    _ = List.length xs + (List.length ys + List.length zs) := Eq.cong (\k => List.length xs + k) (List.lengthAppend ys zs)
+    _ = List.length xs + (List.length ys + List.length zs) := Eq.cong (k => List.length xs + k) (List.lengthAppend ys zs)
 
 -- A chain at a type that isn't `Nat`.
 theorem listChain (xs: List Nat) (ys: List Nat) (h: xs = ys): [] ++ xs = ys :=

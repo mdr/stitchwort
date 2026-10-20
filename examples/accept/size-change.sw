@@ -34,7 +34,7 @@ def applyTo (f: Nat -> Nat) (x: Nat): Nat := f x
 
 def sumWith: Nat -> Nat -> Nat
   | Zero,   acc => acc
-  | Succ n, acc => applyTo (\x => sumWith n x) (acc + Succ n)
+  | Succ n, acc => applyTo (x => sumWith n x) (acc + Succ n)
 
 def eqList: List Nat -> List Nat -> Bool
   | Nil,       Nil       => True

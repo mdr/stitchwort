@@ -20,17 +20,17 @@ def maybeThen: Maybe a -> (a -> Maybe b) -> Maybe b
   | Nothing, f => Nothing
   | Just x, f => f x
 
-def parse (n: Nat) (m: Maybe Nat): Maybe Rot := maybeThen m (\x => Just { dir = TL, amount = n + x })
+def parse (n: Nat) (m: Maybe Nat): Maybe Rot := maybeThen m (x => Just { dir = TL, amount = n + x })
 
 def amountOf: Maybe Rot -> Nat
   | Nothing => 0
   | Just r => r.amount
 
 -- The record literal's type comes from the result `List Point`.
-def points (xs: List Nat): List Point := List.map (\x => { x = x, y = 0 }) xs
+def points (xs: List Nat): List Point := List.map (x => { x = x, y = 0 }) xs
 
 -- Likewise for the accumulator of a fold.
-def sumPoints (rs: List Nat): Point := List.foldRight (\r acc => { x = r + acc.x, y = acc.y }) { x = 0, y = 0 } rs
+def sumPoints (rs: List Nat): Point := List.foldRight (r acc => { x = r + acc.x, y = acc.y }) { x = 0, y = 0 } rs
 
 test "parse" := amountOf (parse 1 (Just 2)) == 3
 test "parse nothing" := amountOf (parse 1 Nothing) == 0
@@ -105,7 +105,7 @@ def ran: Nat := runIt p
 test "runIt" := ran == 0
 
 -- A total lambda where a partial function is expected.
-def asPartial: Nat -> {Partial} Nat := same (\n => n)
+def asPartial: Nat -> {Partial} Nat := same (n => n)
 
 -- A comparison that fails part-way (the domain is solved before the rows
 -- differ), followed by a coercion.
