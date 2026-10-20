@@ -121,7 +121,7 @@ way, so the soundness argument stands on its own.
 
 ### A. Elaborate to existing terms (Lean's approach)
 
-Compile a number test to `elimDec (decEqNat n 404) (\h -> yes) (\h -> no)`,
+Compile a number test to `elimDec (decEqNat n 404) (h => yes) (h => no)`,
 where `elimDec : Decidable p -> (p -> a) -> (Not p -> a) -> a`. The kernel
 already checks all of this, and `decEqNat` runs natively, so a test is one
 step.

@@ -120,7 +120,7 @@ Labels used below:
 ## 0. The short version
 
 Stitchwort proofs are terms, and every equality step is written by hand as
-`Eq.trans (Eq.cong (\x => …) lemma) …`. The `\x => …` (the *motive*, §3) repeats the whole
+`Eq.trans (Eq.cong (x => …) lemma) …`. The `x => …` (the *motive*, §3) repeats the whole
 expression around the part that changes. The Advent of Code (AoC) proofs for days 1 to 3
 contain 81 such hand-written motives and 11 `Bool.inspect` case splits with hand-written
 motives (§2).
@@ -176,7 +176,7 @@ A small kernel re-checks everything the elaborator produces.
   module comment).
 - Equality is built in. `a = b` is a proposition, `rfl: a = a` its only constructor, and `J`
   its eliminator. The rule (`docs/core.md`) is: if `p: x = y` at type `A`, and the motive `P`
-  is written `\y' p' => T` with `y': A` and `p': x = y'`, then `J P d p` needs `d: P x rfl`
+  is written `y' p' => T` with `y': A` and `p': x = y'`, then `J P d p` needs `d: P x rfl`
   and has type `P y p`. `J P d rfl` computes to `d`; with any other proof it's stuck.
 - There is no axiom K and no definitional proof irrelevance: "two different proof terms
   aren't automatically equal" (`docs/core.md`). There is no function extensionality.
@@ -236,11 +236,11 @@ All quoted from `crates/elab/src/prelude.sw` (line numbers as of commit `8305858
 Equality lemmas (lines 148 to 152):
 
 ```
-theorem Eq.cong (f: a -> b) [x y: a] (p: x = y): f x = f y := J (\y' p' => f x = f y') rfl p
+theorem Eq.cong (f: a -> b) [x y: a] (p: x = y): f x = f y := J (y' p' => f x = f y') rfl p
 
-theorem Eq.sym [x y : a] (p : x = y) : y = x := J (\y' p' => y' = x) rfl p
+theorem Eq.sym [x y : a] (p : x = y) : y = x := J (y' p' => y' = x) rfl p
 
-theorem Eq.trans [x y z: a] (p: x = y) (q: y = z): x = z := J (\z' q' => x = z') p q
+theorem Eq.trans [x y z: a] (p: x = y) (q: y = z): x = z := J (z' q' => x = z') p q
 ```
 
 Logic, booleans and numbers (lines 22, 60 to 109):
@@ -303,9 +303,9 @@ def Bool.decTrue: (b: Bool) -> Decidable (b = True)
 
 How `if` elaborates (`check.rs`, `check_if`):
 
-- `if c then a else b` with `c: Bool` becomes `Bool.ifThenElse c (\_ => a) (\_ => b)`.
+- `if c then a else b` with `c: Bool` becomes `Bool.ifThenElse c (_ => a) (_ => b)`.
 - `if P then a else b` with a decidable proposition `P` becomes
-  `Decidable.elim decision (\_ => a) (\_ => b)`. For `c < x` on `Nat`, the decision is
+  `Decidable.elim decision (_ => a) (_ => b)`. For `c < x` on `Nat`, the decision is
   `Bool.decTrue (Nat.leq (Succ c) x)`, as the motive in §2's Example 4 shows **[checked]**.
 
 Order lemmas (lines 417 to 446):
@@ -332,7 +332,7 @@ theorem Bool.inspect: (b: Bool) -> (motive: Bool -> Prop) -> (b = True -> motive
 
 - Declarations: `def f (n: Nat): Nat := …` and `theorem t (x: Nat): P := …`. Equations are
   written as arms after the signature (`| Zero, h, n => …`).
-- Lambdas are `\x => e`, and application is juxtaposition.
+- Lambdas are `x => e`, and application is juxtaposition.
 - `e: T` in parentheses is a type ascription.
 - `d.move t` is dot notation for `Dial.move d t`, resolved from the type of `d`.
 - `++` on lists is `List.append`.
@@ -354,9 +354,9 @@ with the first case's pattern `m = Zero` substituted, is
 
 ```
   | Zero,   h, n =>
-    Eq.trans (Eq.cong (\x => Succ ((x + n) / Succ highest)) (Nat.modSelf (Succ highest)))
-      (Eq.sym (Eq.trans (Eq.cong (\x => (x + Succ n) / Succ highest) (Nat.modSmall highest (Succ highest) (Nat.leRefl highest)))
-        (Eq.trans (Eq.cong (\x => x / Succ highest) (Nat.addSucc highest n)) (Nat.addDivSelf (Succ highest) n))))
+    Eq.trans (Eq.cong (x => Succ ((x + n) / Succ highest)) (Nat.modSelf (Succ highest)))
+      (Eq.sym (Eq.trans (Eq.cong (x => (x + Succ n) / Succ highest) (Nat.modSmall highest (Succ highest) (Nat.leRefl highest)))
+        (Eq.trans (Eq.cong (x => x / Succ highest) (Nat.addSucc highest n)) (Nat.addDivSelf (Succ highest) n))))
 ```
 
 The lemmas used are:
@@ -376,13 +376,13 @@ computes to `writeTimes k b n * Nat.pow 10 k + b`. It has seven steps, nested se
 
 ```
   | Succ n =>
-    Eq.trans (Eq.cong (\t => t * Nat.pow 10 k + b) (writeTimesMul k b n))
-      (Eq.trans (Eq.cong (\t => t + b) (Nat.mulAssoc b (multiplier k n) (Nat.pow 10 k)))
-        (Eq.trans (Eq.cong (\t => b * t + b) (Nat.mulComm (multiplier k n) (Nat.pow 10 k)))
+    Eq.trans (Eq.cong (t => t * Nat.pow 10 k + b) (writeTimesMul k b n))
+      (Eq.trans (Eq.cong (t => t + b) (Nat.mulAssoc b (multiplier k n) (Nat.pow 10 k)))
+        (Eq.trans (Eq.cong (t => b * t + b) (Nat.mulComm (multiplier k n) (Nat.pow 10 k)))
           (Eq.trans (Nat.addComm (b * (Nat.pow 10 k * multiplier k n)) b)
-            (Eq.trans (Eq.cong (\t => t + b * (Nat.pow 10 k * multiplier k n)) (Eq.sym (Nat.mulOne b)))
+            (Eq.trans (Eq.cong (t => t + b * (Nat.pow 10 k * multiplier k n)) (Eq.sym (Nat.mulOne b)))
               (Eq.trans (Eq.sym (Nat.mulDistribLeft b 1 (Nat.pow 10 k * multiplier k n)))
-                (Eq.cong (\t => b * t) (Eq.sym (multiplierSucc k n))))))))
+                (Eq.cong (t => b * t) (Eq.sym (multiplierSucc k n))))))))
 ```
 
 **Example 3, an inequality chain** (day 3's `headLess`, since moved to the prelude as
@@ -397,11 +397,11 @@ theorem headLess (y: Nat) (t: Nat) (s: List Nat) (r: List Nat) (hl: List.length 
     (Nat.leCongRight (y * Nat.pow 10 (List.length r) + Nat.fromDigits s) (t * Nat.pow 10 (List.length r) + Nat.fromDigits r) (Nat.fromDigits (Cons t r))
       (Eq.sym (Nat.fromDigitsCons t r))
       (headLessArith y t (Nat.pow 10 (List.length r)) (Nat.fromDigits s) (Nat.fromDigits r)
-        (Nat.ltCongRight (Nat.fromDigits s) (Nat.pow 10 (List.length s)) (Nat.pow 10 (List.length r)) (Eq.cong (\n => Nat.pow 10 n) hl) (fromDigitsBound s hd))
+        (Nat.ltCongRight (Nat.fromDigits s) (Nat.pow 10 (List.length s)) (Nat.pow 10 (List.length r)) (Eq.cong (n => Nat.pow 10 n) hl) (fromDigitsBound s hd))
         h))
 ```
 
-Here `Nat.leCongLeft a b n (p: a = b) (h: a <= n): b <= n` is `J (\y q => y <= n) h p`, and
+Here `Nat.leCongLeft a b n (p: a = b) (h: a <= n): b <= n` is `J (y q => y <= n) h p`, and
 `Nat.leCongRight` is its mirror image.
 
 **Example 4, a case split on an `if`** (day 3, `pickGe`, SW-26). `Bank.best.pick` ends with
@@ -410,9 +410,9 @@ with the `if` spelled out as it elaborates (§1.3):
 
 ```
     Bool.inspect (Nat.leq (Succ c) x)
-      (\b => c <= Pair.fst (Decidable.elim (Bool.decTrue b) (\u => Bank.best.pick w more x more) (\u => Bank.best.pick w more c after)))
-      (\e => Nat.leTrans c x (Pair.fst (Bank.best.pick w more x more)) (Nat.lessLe c x e) (pickGe w more x more))
-      (\e => pickGe w more c after)
+      (b => c <= Pair.fst (Decidable.elim (Bool.decTrue b) (u => Bank.best.pick w more x more) (u => Bank.best.pick w more c after)))
+      (e => Nat.leTrans c x (Pair.fst (Bank.best.pick w more x more)) (Nat.lessLe c x e) (pickGe w more x more))
+      (e => pickGe w more c after)
 ```
 
 Sections 5, 6, 8 and 10 show each example rewritten.
@@ -421,12 +421,12 @@ Sections 5, 6, 8 and 10 show each example rewritten.
 
 - **Motive.** A function that says *where* in a proposition the change happens. To turn a
   proof of `P a` into a proof of `P b` using `a = b`, you need `P` itself, the "motive".
-  Today you write it: `\x => (x + n) / Succ highest`.
+  Today you write it: `x => (x + n) / Succ highest`.
 - **Transport** means using `J` (or `Eq.cong`) to move a proof along an equation.
 - **Abstraction** is finding every occurrence of a term in an expression and replacing it
   with a variable. This is how other systems compute a motive. With goal
   `((a + 1) % d + n) % d = …` and equation `(a + 1) % d = 0`, abstracting `(a + 1) % d`
-  gives the motive `\x => (x + n) % d = …`.
+  gives the motive `x => (x + n) % d = …`.
 - **Conversion** means two terms are equal by computing, for example `0 + n` and `n`. The
   checker compares types this way. A `calc` line or a `rewrite` may therefore differ from the
   goal as long as it computes to the same thing.
@@ -734,8 +734,8 @@ proved so far, from `a` to `b` (proof `p`); `R2` is the new step, from `b` to `c
 | `R1` then `R2` | Result | Term produced |
 |---|---|---|
 | `=`, `=` | `=` | `Eq.trans p q` |
-| `=`, any `R` | `R` | `J (\w _ => w R c) q (Eq.sym p)` |
-| any `R`, `=` | `R` | `J (\w _ => a R w) p q` |
+| `=`, any `R` | `R` | `J (w _ => w R c) q (Eq.sym p)` |
+| any `R`, `=` | `R` | `J (w _ => a R w) p q` |
 | `<=`, `<=` | `<=` | `Nat.leTrans a b c p q` |
 | `<`, `<=` | `<` | `Nat.leTrans (Succ a) b c p q` |
 | `<=`, `<` | `<` | `Nat.leTrans (Succ a) (Succ b) c p q` |
@@ -758,8 +758,8 @@ I checked `<=`/`<`, `<`/`<=`, `=`/`<=` and `<=`/`=` as plain theorems **[checked
 ```
 theorem leLt (a: Nat) (b: Nat) (c: Nat) (h1: a <= b) (h2: b < c): a < c := Nat.leTrans (Succ a) (Succ b) c h1 h2
 theorem ltLe (a: Nat) (b: Nat) (c: Nat) (h1: a < b) (h2: b <= c): a < c := Nat.leTrans (Succ a) b c h1 h2
-theorem eqLe (a: Nat) (b: Nat) (c: Nat) (p: a = b) (h: b <= c): a <= c := J (\w q => w <= c) h (Eq.sym p)
-theorem leEq (a: Nat) (b: Nat) (c: Nat) (h: a <= b) (p: b = c): a <= c := J (\w q => a <= w) h p
+theorem eqLe (a: Nat) (b: Nat) (c: Nat) (p: a = b) (h: b <= c): a <= c := J (w q => w <= c) h (Eq.sym p)
+theorem leEq (a: Nat) (b: Nat) (c: Nat) (h: a <= b) (p: b = c): a <= c := J (w q => a <= w) h p
 ```
 
 - Every produced term is re-checked by the kernel, so a wrong table entry would be rejected,
@@ -809,9 +809,9 @@ rewrite <- p in t           -- right to left: `rewrite (Eq.sym p) in t`
 Given `p: a = b` at carrier type `A`, and an expected goal `G`:
 
 1. Abstract `a` in `G` (§6.2), giving `G[x]` with `x` where `a` was.
-2. Check that `\x _ => G[x]` is a well-typed motive, with `x: A`.
+2. Check that `x _ => G[x]` is a well-typed motive, with `x: A`.
 3. Check `t` against `G[b]`.
-4. Produce `J (\x _ => G[x]) t (Eq.sym p)`. With `Eq.sym p: b = a`, `J` needs a base of type
+4. Produce `J (x _ => G[x]) t (Eq.sym p)`. With `Eq.sym p: b = a`, `J` needs a base of type
    `G[b]` and gives `G[a]`, which is `G` up to conversion.
 
 This is Lean's `rw`, Agda's `rewrite`, Idris's `rewrite … in` and Arend's `rewrite`, in the
@@ -1537,13 +1537,13 @@ waits until the proof-checking speed work (SW-154) lands.
    proof is a term when the motive is checked.
 4. **The carrier-type test is weaker than §6.2 describes, for terms the kernel can't type.**
    The kernel infers the type of a definition or variable application, but a constructor or a
-   function is only *checked* against a type, and `\x => x` checks at any `a -> a`. For those,
+   function is only *checked* against a type, and `x => x` checks at any `a -> a`. For those,
    the candidate is checked against the carrier if it has no unsolved metavariable, and
    otherwise (or if the candidate has one) the type test is skipped and conversion decides. The
    typed test exists mainly for proof irrelevance (D1′), which isn't built; today it can only
    reject a candidate whose head is a definition or a variable.
 5. **A match by syntax skips the type test, so it can be of the wrong type.** That is §6.2's
-   order, and the motive check catches it: two copies of `\x => x`, one at `Bool -> Bool` and
+   order, and the motive check catches it: two copies of `x => x`, one at `Bool -> Bool` and
    one at `Nat -> Nat`, are the same term, and a rule about the `Nat` one meets the `Bool` one
    first, ending in `E-REWRITE-MOTIVE` rather than rewriting the right one. The §7 list gains this
    as an item in `docs/syntax.md`.

@@ -649,7 +649,7 @@ search (`crates/elab/src/auto.rs:1-22`, `prove` at `auto.rs:82-118`,
    followed by trying the next candidate (`auto.rs:89-117`).
 
 The same search decides propositions used as `Bool`s: `x == y`, `if x <
-3`, `List.filter (\n => n <= k)` (`check.rs:1452-1488`,
+3`, `List.filter (n => n <= k)` (`check.rs:1452-1488`,
 `logic.rs:125-148`, `bind.rs:187-192`). There the chosen procedure isn't
 run at compile time; it becomes part of the program.
 

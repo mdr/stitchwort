@@ -46,7 +46,7 @@ short:
   anything defaults ([Literals](#literals)).
   (17 October 2026: fixed where the result type is known, by result-type-first, syntax-conveniences.md section 7; see examples/accept/int-choose-first.sw.)
 - **R4, operators:** revise. "The first non-literal leaf" fails when that
-  leaf's type is itself unknown (`List.map (\x -> x + 1) [1, 2]`), and
+  leaf's type is itself unknown (`List.map (x => x + 1) [1, 2]`), and
   equality and comparisons need the same coordinated typing
   ([Numeric expressions](#numeric-expressions)).
 - **R5, division:** approved; the reviewer tested the JS formulas on 49,742
@@ -654,7 +654,7 @@ constant-size `No`, never a proof as deep as a number:
   (`Int.ofNatNotNegSucc`);
 - same constructor: `Nat.decEq` on the fields, wrapped. `Yes p` becomes
   `Yes (Eq.cong OfNat p)`, which computes to `Yes rfl` on numbers; `No q`
-  becomes `No (\h -> q (Int.ofNatInjective h))`, constant size since the
+  becomes `No (h -> q (Int.ofNatInjective h))`, constant size since the
   `decEqNat` fix.
 
 Draft 1 proposed testing this against a copy of the definition; as the
@@ -904,8 +904,8 @@ With `x i : Int`, `n : Nat`, `t : Text`:
 | `(if c then 1 else 2) + i` | `i` (pass 1, before the `if`) | `Int`: the `if` is then checked against `Int`, and so are its branches |
 | `Just 5 == m` with `m : Maybe Int` | `m` (pass 1) | `Maybe Int` equality, with `Just 5` checked against it (rejected today) |
 | `f 5 + i` with `f : a -> a` | `i` (pass 1) | accepted as of 17 October 2026 (result-type-first, syntax-conveniences.md section 7: `f 5` is checked against `Int`, so `a := Int` before the `5`; see examples/accept/expected-types.sw). Originally rejected: checking `f 5` against `Int` inferred the application first (`fallback`), so the `5` defaulted, as in `chooseFirst` |
-| `List.map (\x -> x + 1) [1, 2]` | nothing (`x`'s type is a metavariable): default | `Nat`, as today |
-| `(\(y : Int) -> y + 1)` | `y` | `Int` |
+| `List.map (x => x + 1) [1, 2]` | nothing (`x`'s type is a metavariable): default | `Nat`, as today |
+| `((y : Int) => y + 1)` | `y` | `Int` |
 | `t + 1` | `t` | error: "`+` works on `Nat` and `Int`; `t` is a `Text`" |
 | `x < 0` | `x` | `Int.LessThan x (OfNat 0)`; the result `Prop` isn't an operand type |
 | `xs = []` (no numbers) | `xs` | generic equality, as today |
@@ -1005,7 +1005,7 @@ digit  ::= "0" | "1" | … | "9"   -- ASCII only
 - **Rejected** (`Nothing`): `""`, `"-"`, `"+5"`, `"--5"`, `"- 5"`, `" 5"`,
   `"5 "`, `"0x10"`, `"1_000"`, `"5.0"`, and non-ASCII digits such as
   `"５"` (fullwidth) or `"٥"` (Arabic-Indic).
-- **Definition:** `Text.toInt (MkText (Cons '-' cs)) = Maybe.map (\n -> Int.neg (OfNat n)) (Text.toNat (MkText cs))`,
+- **Definition:** `Text.toInt (MkText (Cons '-' cs)) = Maybe.map (n => Int.neg (OfNat n)) (Text.toNat (MkText cs))`,
   otherwise `Maybe.map OfNat (Text.toNat t)`. Since `Text.toNat` already
   rejects the empty text, `"-"` is `Nothing`, and `Int.neg` maps `0` to
   `0`.

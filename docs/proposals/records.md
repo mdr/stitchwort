@@ -541,7 +541,7 @@ new record declarations and opt-in for existing types (§7).
 `p.name` is elaborated (Lean's dot notation needs the head symbol; stage 1);
 (b) postpone; (c) with R2, emit a `HasField.name ?t ?a` obligation and solve it at
 the end of the declaration, as `auto` obligations already are, which gives
-inference for lambdas like `map (\p -> p.name) people` (stage 4).
+inference for lambdas like `map (p => p.name) people` (stage 4).
 
 ### 4.7 Pattern matching
 
@@ -619,8 +619,8 @@ type SortedList = { items : List Nat, sorted : IsSorted items }
   `name`, `p.name` is `R.name [ps] p` (stage 2: `Proj`). If the type is a
   record without that field, `E-UNKNOWN-FIELD`, listing the fields. If it's
   not a record (a data type, a function), `E-NOT-A-RECORD`. If it isn't
-  known yet (an unsolved unknown, as in `\p -> p.name` with no expected
-  type), `E-CANNOT-INFER`, suggesting an annotation (`\(p : Person) ->
+  known yet (an unsolved unknown, as in `p => p.name` with no expected
+  type), `E-CANNOT-INFER`, suggesting an annotation (`(p : Person) =>
   p.name`); stage 4 can turn this case into a `HasField` obligation instead
   (§4.6). Field names are looked up in the record's own declaration only:
   two record types may have fields of the same name, and nothing is guessed
@@ -762,7 +762,7 @@ firstLead (Cons { lead = { name, .. }, .. } rest) = name
   to the record's parameters and `e`; a record without `f` is
   `E-UNKNOWN-FIELD`; any other known type is `E-NOT-A-RECORD`; an unknown
   type (a lambda's parameter with nothing to say what it is) is
-  `E-CANNOT-INFER`, suggesting `\(p : Person) -> p.name`. Field names are
+  `E-CANNOT-INFER`, suggesting `(p : Person) => p.name`. Field names are
   looked up only in the record's own declaration, never across records.
   `R.f` can't be written in source: there, `Person.name` is field access on
   `Person`, which isn't a record.
@@ -797,7 +797,7 @@ expression that performs operations, in the order written, binding each
 result to a variable (the mechanism effectful arguments already use), and
 then builds the record from those variables: `{ b = next (), a = next () }`
 reads `b` first (`examples/accept/records-effects.sw`). An update whose
-base isn't a variable binds it to one first (`(\r -> R.mk … (R.f r) …)
+base isn't a variable binds it to one first (`(r => R.mk … (R.f r) …)
 base`), so the base is evaluated once and never copied into each
 projection. One consequence: in `{ e | … }` with `e` not a variable, the
 new fields are checked knowing only that the base is *some* `R`, not that
@@ -1521,7 +1521,7 @@ r.list }` refused.
   `birthday` preserves other fields (differential, and with a proof per
   concrete type); missing field `E-AUTO-NONE`-style error naming the field;
   `HasField.items SortedList` derived, `CanSetField.items SortedList`
-  refused; `map (\p -> p.name) people` infers.
+  refused; `map (p => p.name) people` infers.
 
 ## 15. Questions for the user
 

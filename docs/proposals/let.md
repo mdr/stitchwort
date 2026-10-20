@@ -65,7 +65,7 @@ Effect.runPure (Decidable.elim (…) (\_ => Done 0) (\_ => Done (n + 5 + 1)))
 ```
 
 while the same function without the `let` gets stuck on the
-`Decidable.elim (…) (\_ => 0) (\_ => n + 5 + 1)` you'd expect. The
+`Decidable.elim (…) (_ => 0) (_ => n + 5 + 1)` you'd expect. The
 `runPure` and `Done`s come from the effects machinery, can't usefully be
 written in a lemma, and so the day 2 proofs needed proof-only helper
 functions.
@@ -96,7 +96,7 @@ functions.
 
   ```
   def m () : {IO} () :=
-    let grid := Grid.parse (List.map (\x => 0) (IO.readAllLines ()))
+    let grid := Grid.parse (List.map (x => 0) (IO.readAllLines ()))
     print grid.rolls.toText
   ```
 
@@ -140,12 +140,12 @@ layers:
    but not its value), elaborates the rest of the block, and emits
 
    ```
-   (\name => rest) value          -- annotated with  (name : A) -> Comp … T
+   (name => rest) value          -- annotated with  (name : A) -> Comp … T
    ```
 
-   with the comment "A pure `let` is `(\name -> body) term`, annotated so the
+   with the comment "A pure `let` is `(name => body) term`, annotated so the
    kernel can check it" (`effects.rs:1309`). An effectful `let x := op ()`
-   becomes `Effect.bind (op ()) (\x => rest)` instead.
+   becomes `Effect.bind (op ()) (x => rest)` instead.
 
 So `theorem one` above becomes, roughly:
 
@@ -163,7 +163,7 @@ const $Main$dtwice = (v0) => $Std$dEffect$drunPure(
 
 ### 2.2 How that produces each symptom
 
-- **Problem 1:** the body `(\p => …)` is checked with `p` as an unknown of
+- **Problem 1:** the body `(p => …)` is checked with `p` as an unknown of
   type `Nat`. That's the ordinary rule for a function: a function must work
   for *every* argument, so it can't assume `p` is `n`. The kernel checks it
   the same way.
@@ -173,7 +173,7 @@ const $Main$dtwice = (v0) => $Std$dEffect$drunPure(
   (`crates/elab/src/prelude.sw:1982`, `:2115`). A proof's type is a
   proposition (`Prop`), not a `Type`, so `Comp … (n <= Succ (Succ n))` is a
   universe error. *The error comes from the effects wrapper, not from the
-  `let` itself*: `(\h => body) proof` on its own would be fine.
+  `let` itself*: `(h => body) proof` on its own would be fine.
 - **Problem 3:** the `if` is elaborated as part of the computation, so each
   branch is `Done …` and the whole is under `runPure`.
 - **Termination:** same as problem 1; `r` is a lambda's parameter.
@@ -193,7 +193,7 @@ From the history and the design notes:
   beta-redex".
 - The opacity was known and accepted. The syntax-conveniences note lists as a
   fact about the compiler: "**`let x = e` is a function applied to `e`**,
-  `(\x -> body) e`, so `x` is computed once but is *opaque* in types"
+  `(x => body) e`, so `x` is computed once but is *opaque* in types"
   ([syntax-conveniences.md](syntax-conveniences.md), background, and §3.4:
   "Plain values stay `let`s … opaque in types. A value that must compute in
   types can be a function of `()` or move to top level").
@@ -213,7 +213,7 @@ This is the same choice Idris 2 made, for a similar reason (§3).
 | **Rocq (Coq)** | `let x := v in b`, a core term | **Yes.** The context holds the *definition* `x := v : T`; "ζ-reduction" replaces `x` by `v` | tactics like `assert` | (no effects) | yes |
 | **Lean 4** | `let x := v; b`, a core term | **Yes** ("definitionally equal to … replacing every `a` in `t2` by `t1`") | **`have x := v; b`**: "the value of `x` is not accessible to `b`" | `let x ← e` in `do` (bind); `let x := e` in `do` stays a plain `let` | yes |
 | **Agda** | `let x = v in b` | **Yes**, by substitution: "Agda inlines all let-bound variables during type checking"; no `let` in the internal syntax | none | (no effects) | **no**: "let-binding cannot be used to introduce sharing" |
-| **Idris 2** | `let x = v in e` | **No**: "essentially equivalent to `(\x => e) val`", chosen because making it compute "would need significant changes to the way `case` and `with` are elaborated" | (that *is* the default) | `x <- e` in `do` | yes |
+| **Idris 2** | `let x = v in e` | **No**: "essentially equivalent to `(x => e) val`", chosen because making it compute "would need significant changes to the way `case` and `with` are elaborated" | (that *is* the default) | `x <- e` in `do` | yes |
 | Haskell | `let` | (no dependent types) | — | `x <- e` in `do`; `let` in `do` is pure | yes (lazy) |
 | Koka | `val x = e` | (no dependent types) | — | the **same** `val` syntax; the compiler uses the effect types to translate only effectful code into bind form | yes |
 | **Stitchwort today** | `(\x => b) v` inside `runPure` | **No** | (that's the default) | the same `let` syntax; becomes `Effect.bind` | yes (but via `Done`/`runPure`) |
@@ -270,7 +270,7 @@ A proof, a number, a type: all the same. That's why problem 2 disappears.
   pasted in type-checks too). A `let` is a convenience with sharing, not new
   logical power, so it can't make `Void` provable. It's in the kernels of
   Rocq and Lean.
-- **Versus `(\x => b) v` (today):** the function form checks `b` for *every*
+- **Versus `(x => b) v` (today):** the function form checks `b` for *every*
   `x`, which is stronger than needed and loses the value.
 - **Versus inlining (Agda):** same checking power, but the program computes
   `v` once per use.
@@ -302,7 +302,7 @@ A proof, a number, a type: all the same. That's why problem 2 disappears.
   be known while checking. Every language in §3 keeps that case as an
   opaque bind; for Stitchwort this is necessary, not just convenient. Only
   pure `let`s become transparent. Note that "pure" is about what *computing
-  the value* does now: `let f := \u => get ()` binds a function, and making
+  the value* does now: `let f := u => get ()` binds a function, and making
   a function performs nothing, so it's a pure (transparent) `let` even
   though *calling* `f` later performs `get`.
 
@@ -314,7 +314,7 @@ value or the rest of the block is.** `may_perform` should look inside a
 Then a pure function's block never goes through `Comp`/`runPure`. This alone,
 an elaborator-only change, fixes problems 2 (proof `let`s) and 3 (the
 `runPure`/`Done` trace in proofs and in the generated JavaScript), because
-the remaining `(\h => body) proof` has no `Type` restriction and computes
+the remaining `(h => body) proof` has no `Type` restriction and computes
 away like any other function application. It doesn't fix problem 1 or
 termination. *I haven't prototyped step 0; the claim rests on the error
 coming from `Comp`/`runPure`'s `[a : Type]` (§2.2) and on the `if` without
@@ -382,7 +382,7 @@ Step 0 also fixes the separate dot-notation bug after an effectful `let`
 
 - Step 0, then a `let` whose type is a proposition is elaborated as a lifted
   local `theorem` (the feature that already works, §1); data `let`s stay
-  `(\x => b) v`.
+  `(x => b) v`.
 - **Fixes:** problems 2 and 3. **Not** problem 1 or termination: data
   `let`s stay opaque, as in Idris 2. Users who need a transparent data value
   use a local `def` (recomputed at each use).
@@ -473,13 +473,13 @@ Sizes are rough guesses, including tests.
 *Scope:* `may_perform` looks inside `let` (the whole block may perform if the
 value or the rest may); binding follows the value (§5 table); a pure block
 no longer goes through `Comp`/`runPure`. The pure binding stays the
-annotated `(\x => rest) v` for now. Fix `grid.rolls`: an effectful `let`
+annotated `(x => rest) v` for now. Fix `grid.rolls`: an effectful `let`
 records the written type of the pure call that produces its result.
 *Files:* `crates/elab/src/effects.rs` (`may_perform`, `comp_check`,
 `sequence`, `comp_call`), `crates/elab/src/check.rs` (`infer`/`check` gain a
 pure-block case instead of handing it to `run_pure`).
 *Tests:* problem 2 (proof `let`) and problem 3 (`f (n + 5)` unfolds to
-`Decidable.elim … (\_ => 0) …`) accepted; generated JS for `twice` has no
+`Decidable.elim … (_ => 0) …`) accepted; generated JS for `twice` has no
 `Done`/`runPure`; `let f := \u => get (); …` in a pure function is pure;
 an effectful value still binds with `Effect.bind`, and a pure value inside
 an effectful block doesn't; `grid.rolls` after an effectful `let`.
@@ -495,7 +495,7 @@ hashing and printing; `crates/elab/src/unify.rs` (audit; §A.3).
 annotation is rejected; a mutated hash-pinned `Let` is rejected by the
 kernel. For rule 1: a `let` followed by a dependent function or `Pi` whose
 type is shown or used outside the `let`; nested `let`s under binders
-(`\a => let x := … a …; \b => let y := … x … b …; …`); the type-level
+(`a => let x := … a …; b => let y := … x … b …; …`); the type-level
 `let n := 3; (zeros n : Vec Nat n)`. For rule 2: an unknown created before
 a `let` and solved inside it; one created inside and used after it; both
 must end up mentioning `v`, not `x`. Differential tests
@@ -534,7 +534,7 @@ where the branches only check if the helper still knows `ys` is `xs`.
 
 - **`if` after `let`** (problem 3): fixed by step 0. The block becomes
   `Let m := n + 1 in (if …)`, and unfolding `f (n + 5)` gives exactly the
-  `Decidable.elim … (\_ => 0) (\_ => n + 5 + 1)` you'd get without the
+  `Decidable.elim … (_ => 0) (_ => n + 5 + 1)` you'd get without the
   `let`. No proof-only helpers needed.
 - **Pattern `let` on a tuple or record**: a transparent `let` alone doesn't
   help, because the `match` is still stuck on an unknown `p`. Agda's answer
@@ -588,7 +588,7 @@ where the branches only check if the helper still knows `ys` is `xs`.
 The next proof the user wants is that day 2's specification, which walks
 k-digit *blocks*, equals a brute-force one that walks *ids*. The current day
 2 proofs (`aoc/day02.sw`, `specWindow` and friends) show the friction: long
-nested `Bool.inspect (…) (\u => <the whole goal restated>)` terms, and
+nested `Bool.inspect (…) (u => <the whole goal restated>)` terms, and
 helpers that exist only because a `let` before an `if` left a `runPure`
 term no lemma could mention. Under option A:
 
@@ -655,7 +655,7 @@ after option A lands before designing them.
   <https://agda.readthedocs.io/en/latest/language/record-types.html>
 - Idris 2: changes since Idris 1:
   <https://idris2.readthedocs.io/en/latest/updates/updates.html> (`let x =
-  val in e` is "essentially equivalent to `(\x => e) val`"; use local
+  val in e` is "essentially equivalent to `(x => e) val`"; use local
   function definitions for computation).
 - Haskell 2010 report, `do` expressions (`let` vs `<-`):
   <https://www.haskell.org/onlinereport/haskell2010/haskellch3.html#x8-470003.14>
@@ -784,7 +784,7 @@ and what stage 3 must keep true:
 | Kernel context (`crates/core/src/check.rs:75` `define`, `:94` `eval`) | both | Every evaluation goes through `Ctx::eval`, which computes the pending `let`s a term mentions before evaluating it, so no value the checker builds sees the placeholder; case refinement, which rewrites the whole environment, computes every pending `let` first (`:558`, `:705`). |
 
 **Cost at check time (added in stage 2, decided by the user on 19 October
-2026).** The function form `(\x => b) v` cost nothing to check unless a type
+2026).** The function form `(x => b) v` cost nothing to check unless a type
 needed `v` (`Closure::apply_lazy`), and a kernel `Let` that evaluated `v` on
 entry would have made every closed `let` cost its value at check time. So the
 kernel computes a `let`'s value only when checking first evaluates a term
@@ -893,7 +893,7 @@ Plan for stage 3:
 - **Effects.** `may_perform(let x := v; rest)` = `may_perform(v) ||
   may_perform(rest)` classifies the block; the binding follows `v` alone
   (§5 table). `may_perform` tracks what *evaluating* the expression
-  performs now, not effects latent in a returned function, so `let f := \u
+  performs now, not effects latent in a returned function, so `let f := u
   => get ()` is pure (lambda bodies already don't count,
   `effects.rs:909`). `may_perform(rest)` must be asked with `x` bound
   and its type known, as `Expr::LocalDefs` already does ("asked again once
@@ -974,7 +974,7 @@ above.
   budget, `unify::cheaply`; most are, being stuck on variables) is computed
   when bound. Otherwise the slot is *deferred*: it holds a solved
   metavariable applied to a dummy and the context, `?d _ x₀ … xₙ`, whose
-  solution is `\_ x₀ … xₙ => v`, so anything that forces the value computes
+  solution is `_ x₀ … xₙ => v`, so anything that forces the value computes
   it, and a `let` of a long list in `main` costs nothing to check. This is
   the marker the stage 2 audit asked for: a deferred slot is never its own
   variable, so `fresh_meta`, matching and `lift::spine`'s variable test

@@ -58,9 +58,9 @@ separate change of its own (§6.3).
 | `where` | `solve ls = go 0 ls` / `where go : …` | each local function becomes a top-level definition, `solve.go`, taking the outer variables it needs as extra arguments ("lambda lifting", §2) |
 | `match` | `match xs with \| Nil -> 0 \| Cons x _ -> x` | in tail position on a variable: more splitting in the enclosing case tree. Otherwise a generated top-level definition with one equation per alternative (§4) |
 | pattern `let` | `let (q, r) = divMod n 7` | a `match` with one alternative; the pattern must cover its whole type (else `E-LET-REFUTABLE`) |
-| pattern lambda | `\(a, b) -> a + b` | `\p -> let (a, b) = p` … |
+| pattern lambda | `(a, b) => a + b` | `p => let (a, b) = p` … |
 | tuples | `(Nat, Text)`, `(1, "a")`, `(a, b, c)` | `Pair`, `MkPair`; three or more nest to the right |
-| result type first | `maybeThen m (\x -> Just { dir = TL, amount = n })` checked against `Maybe Rot` | compare the application's result type with the expected type before checking its arguments, as a transaction with one fallback (§7) |
+| result type first | `maybeThen m (x => Just { dir = TL, amount = n })` checked against `Maybe Rot` | compare the application's result type with the expected type before checking its arguments, as a transaction with one fallback (§7) |
 
 **The guarantee lifting gives** (review finding 1): *lifting preserves the
 kernel's ordinary obligations; generated declarations and every call
@@ -121,7 +121,7 @@ File references are to the source at `00e769a`.
   a member of its own group (`E-MUTUAL-SIGNATURE`). Metavariables
   (unknowns) and pending `auto` obligations are per body: `clear_metas`
   empties both before each body.
-- **`let x = e` is a function applied to `e`**, `(\x -> body) e`, so `x` is
+- **`let x = e` is a function applied to `e`**, `(x => body) e`, so `x` is
   computed once but is *opaque* in types.
 - **Checking is bidirectional.** An application whose head isn't a
   constructor is *inferred* and its type compared with the expected one at
@@ -1196,8 +1196,8 @@ error (not seen in practice). The pretty-printing of a lifted call as
 let (q, r) := divMod n 7
 let { pos, atZero, .. } := acc
 let MkPair a b := p
-foldl (\acc (k, v) => acc + v) 0 entries
-map (\{ name, .. } => name) people
+foldl (acc (k, v) => acc + v) 0 entries
+map ({ name, .. } => name) people
 ```
 
 **The one authoritative rule** (review finding 9): a pattern binding is
@@ -1234,7 +1234,7 @@ language can't crash, so a compile-time error is the only fit.
 
 `let pat = e` followed by the rest of the block is
 `match e with | pat -> rest`, one alternative (§4). A lambda
-`\pat -> body` is `\x -> let pat = x` … `body` (Haskell defines lambda
+`pat => body` is `x => let pat = x` … `body` (Haskell defines lambda
 patterns this way [H1, §3.3]). Several pattern parameters are several
 `let`s.
 
@@ -1255,14 +1255,14 @@ alternative.
 **Not proposed:** pattern bindings in a `where` block or at top level
 (`(a, b) = …`), which would define two names from one computation and need
 a different translation; multi-alternative pattern lambdas (Haskell's
-`\case`): `\x -> match x with …` is as short.
+`\case`): `x => match x with …` is as short.
 
 ### 5.3 Parsing
 
 - `let` takes a pattern instead of a name. A lowercase name is a variable
   pattern; `let x : T = e` and `let (a, b) : (Nat, Nat) = e` work.
-- In a lambda, `\(x : T) -> …` is an annotated parameter, while `\(a, b)`,
-  `\(MkPair a b)` and `\{ … }` are patterns, told apart by a lowercase
+- In a lambda, `(x : T) => …` is an annotated parameter, while `(a, b)`,
+  `(MkPair a b)` and `{ … }` are patterns, told apart by a lowercase
   name followed by `:` right after `(`.
 
 ### 5.4 Errors and tests
@@ -1302,7 +1302,7 @@ for a `match` of those kinds, reworded: "this pattern doesn't match every
 the same check (`let 0 = n`: "numbers other than 0"). When the matched
 type isn't known yet (a lambda's parameter, below) it says "every case".
 
-**Lambda parameters of an unknown type.** In `List.map (\(a, b) -> a + b)
+**Lambda parameters of an unknown type.** In `List.map ((a, b) => a + b)
 ps` the lambda is checked before `ps`, so its parameter's type is still a
 metavariable when the pattern splits it. `check_tree` now solves such a
 type, when a constructor of `D` splits it, with `D` applied to new
@@ -1313,7 +1313,7 @@ the fields don't say which record type is meant.
 
 **Parsing.** After `let`, a constructor takes arguments without brackets
 up to `=` or `:`. Lambda parameters are names, `_`, or patterns starting
-with `(`, `{`, a constructor or a number. `\(x : T) -> …` is a parse error
+with `(`, `{`, a constructor or a number. `(x : T) => …` is a parse error
 pointing at annotating the lambda instead: there are no annotated lambda
 parameters yet, so §5.3's distinction is only used to report that. Also
 fixed: `(Just a, b)`, a constructor with arguments as a tuple's first
@@ -1337,9 +1337,9 @@ fails, but so does any plain `let` in a proof (a pure block is elaborated
 as a computation, whose type isn't a proposition); that predates this step.
 In an effectful block, each pattern `let` copies the rest of the block's
 syntax once (step 3's `alts.clone()`), quadratic in the block's length.
-Annotated lambda parameters (and so `\({ name, .. } : Person) -> …`) are
+Annotated lambda parameters (and so `({ name, .. } : Person) => …`) are
 for later; the existing `E-CANNOT-INFER` note for `p.name` suggests
-`\(p : Person) -> p.name`, which doesn't parse.
+`(p : Person) => p.name`, which doesn't parse.
 
 ## 6. Tuples
 
@@ -1478,7 +1478,7 @@ for valid input; `decode(encode(v))` gives back `v`):
 ```
 type Rot = { dir : Dir, amount : Nat }
 
-def parse (n : Nat) (m : Maybe Nat) : Maybe Rot := maybeThen m (\x => Just { dir = TL, amount = n + x })   -- E-CANNOT-INFER
+def parse (n : Nat) (m : Maybe Nat) : Maybe Rot := maybeThen m (x => Just { dir = TL, amount = n + x })   -- E-CANNOT-INFER
 ```
 
 A record literal with no known type is an error
@@ -1599,12 +1599,12 @@ result is used; if it fails, **its** error is reported.
 
 ### 7.5 What it fixes and what it doesn't
 
-Fixed: `maybeThen m (\x -> Just { dir = TL, amount = x })` where the
-result type is known; `map (\x -> { x = x, y = 0 }) xs` checked against
-`List Point`; `foldr (\r acc -> …{ … }…) { … } rs` with the literal before
+Fixed: `maybeThen m (x => Just { dir = TL, amount = x })` where the
+result type is known; `map (x => { x = x, y = 0 }) xs` checked against
+`List Point`; `foldr (r acc => …{ … }…) { … } rs` with the literal before
 anything fixes its type.
 
-Not fixed, by design (U6): `let r = maybeThen m (\x -> Just { … })` with
+Not fixed, by design (U6): `let r = maybeThen m (x => Just { … })` with
 nothing saying what `r` is: still `E-CANNOT-INFER`.
 
 Possible later, not proposed: checking lambda arguments after the others
@@ -1705,7 +1705,7 @@ hashes, both direct consequences of comparing the result type first:
   constructor application of a parameterised type is wrapped in an
   annotation (`annotate` in `check.rs`), and annotations are hashed. With
   the result type known first, it's checked instead. In
-  `codes t = Text.fold (\c ns -> Cons (Char.toNat c) ns) Nil t`, the old
+  `codes t = Text.fold (c ns => Cons (Char.toNat c) ns) Nil t`, the old
   body had `Ann(Cons …, List Nat)` around the lambda's body, the new one
   the bare `Cons …`; `allResultsFold`'s `[x]` is the same.
 - **An implicit argument is written as the signature writes it.** In

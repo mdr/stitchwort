@@ -98,7 +98,7 @@ type Comp (op : Type) (res : op -> Type) (a : Type) : Type =
 Draft 1 represented a partial computation as a `Comp` tree that may be infinite, built by guarded recursion:
 
 ```
-spin n = Call later (\_ => spin n)
+spin n = Call later (_ => spin n)
 ```
 
 But `Comp` is *inductive*: its fold (any structurally recursive function over it) assumes every path through the tree ends. With an infinite tree available, an ordinary function proves anything:
@@ -581,7 +581,7 @@ Implicit arguments are elided where obvious. `Delay op res a` lives in the same 
 `A -> {Partial | ρ} B` translates to `A -> Delay op_ρ res_ρ B`, where `ρ` is the rest of the row. Without `Partial`, the translation is `A -> Comp op_ρ res_ρ B`, as today. So `Partial` isn't a signature label. It's a *mode* that selects `Delay` instead of `Comp`.
 
 - **Calling a partial function** from partial code is `bindD`. Calling one from total code is a type error: goal 1.
-- **A total computation** used where a partial one is expected is wrapped with `lift`. For a computation that's one constructor around a well-founded tree. For a *function* the wrapper goes inside: a total callback `f : X -> {ρ} Y` passed where `X -> {Partial | ρ} Y` is expected becomes `\x -> lift (f x)` [RV §8].
+- **A total computation** used where a partial one is expected is wrapped with `lift`. For a computation that's one constructor around a well-founded tree. For a *function* the wrapper goes inside: a total callback `f : X -> {ρ} Y` passed where `X -> {Partial | ρ} Y` is expected becomes `x => lift (f x)` [RV §8].
 - **Another partial function called inside a description** is embedded with `mapSig sigRight`, so its operations pass through the description's private signature untouched.
 
 #### 7.3.2 Which definitions use `pfix`
@@ -597,8 +597,8 @@ Inside the body, *every* occurrence of a member of the definition's own recursiv
 | Source occurrence (inside the group's bodies) | Translation |
 |---|---|
 | Saturated call `g e₁ … eₙ` | `recur (inj_g (pack e₁ … eₙ))` |
-| Partial application `g e₁ … eₖ`, `k < n` | `let a₁ = e₁ … aₖ = eₖ in \xₖ₊₁ … xₙ -> recur (inj_g (pack a₁ … aₖ xₖ₊₁ … xₙ))` |
-| Bare reference `g` | `\x₁ … xₙ -> recur (inj_g (pack x₁ … xₙ))` |
+| Partial application `g e₁ … eₖ`, `k < n` | `let a₁ = e₁ … aₖ = eₖ in xₖ₊₁ … xₙ => recur (inj_g (pack a₁ … aₖ xₖ₊₁ … xₙ))` |
+| Bare reference `g` | `x₁ … xₙ => recur (inj_g (pack x₁ … xₙ))` |
 | Any of these under a lambda, inside an argument or a `let` | The same, wherever it occurs |
 | In a type | Refused: a member's result is a `Delay`, which no type can compute with anyway |
 
@@ -636,7 +636,7 @@ def loop (n : Nat) : {Partial} Nat := useP loop n
 The diagnostic names the helper and the parameter, and suggests the type. When the helper is a library function the user can't change, it says so and suggests the polymorphic variant if one exists (`mapP` for `map`).
 
 **Escapes.** A translated reference can't leave the description, because nothing outside it answers its requests:
-- **Returned:** `retry n = \x -> retry (n - 1) x`, where the result type `Nat -> {Partial} Nat` has no private signature in it.
+- **Returned:** `retry n = x => retry (n - 1) x`, where the result type `Nat -> {Partial} Nat` has no private signature in it.
 - **Stored in returned data:** a record of callbacks referring to the definition, returned as the result.
 - **Passed to a polymorphic helper whose result keeps it**, e.g. `wrap : (Nat -> {Partial | e} Nat) -> Box e`, whose result is then returned.
 
@@ -713,15 +713,15 @@ step (tie f d)     = tieSeg f (step d)
 step (resume s)    = s                            -- ticks in s are kept, none added
 
 mapLeaves (Done v)            = Done (Now v)
-mapLeaves (Call o r)          = Call o (\y -> mapLeaves (r y))
+mapLeaves (Call o r)          = Call o (y => mapLeaves (r y))
 
 bindSeg k (Done (Now v))      = step (k v)
 bindSeg k (Done (Later d'))   = Done (Later (bindD d' k))
-bindSeg k (Call o r)          = Call o (\y -> bindSeg k (r y))
+bindSeg k (Call o r)          = Call o (y => bindSeg k (r y))
 
 mapSeg m (Done (Now v))       = Done (Now v)
 mapSeg m (Done (Later d'))    = Done (Later (mapSig m d'))
-mapSeg m (Call o r)           = Call (m.op o) (\y -> mapSeg m (r (m.res o y)))
+mapSeg m (Call o r)           = Call (m.op o) (y => mapSeg m (r (m.res o y)))
 
 tieSeg f (Done (Now v))          = Done (Now v)
 tieSeg f (Done (Later d'))       = Done (Later (tie f d'))
@@ -897,7 +897,7 @@ If total code could step a `Delay`, a description could step its own recursive c
 
 A translated reference makes requests in a private signature. If one escaped its description (returned, or stored in returned data), nothing would answer its requests.
 - It can't: the result type `B` doesn't mention the private signature, so the core doesn't type-check, and the elaborator reports E-PARTIAL-ESCAPE (§7.3.4).
-- **Tests** (elaborator, with accepted neighbours): `retry n = \x -> retry (n - 1) x` refused, and the same returning a closure over a separately defined partial function accepted; a record of callbacks referring to the definition, returned, refused, and the same record passed to a row-polymorphic driver inside the definition accepted; `loop n = useP loop n` refused with a monomorphic `useP` (E-PARTIAL-CALLBACK) and accepted with a polymorphic one. The model has each of these (§9.1).
+- **Tests** (elaborator, with accepted neighbours): `retry n = x => retry (n - 1) x` refused, and the same returning a closure over a separately defined partial function accepted; a record of callbacks referring to the definition, returned, refused, and the same record passed to a row-polymorphic driver inside the definition accepted; `loop n = useP loop n` refused with a monomorphic `useP` (E-PARTIAL-CALLBACK) and accepted with a polymorphic one. The model has each of these (§9.1).
 
 ### 8.5 Equality and conversion on partial values
 
@@ -911,7 +911,7 @@ A translated reference makes requests in a private signature. If one escaped its
 ### 8.6 Interaction with the termination checker
 
 - **No exemption.** The translated description and wrapper undergo ordinary kernel checking; the translation removes unrestricted source recursion by replacing it with requests (§7.3.7). A malformed translation that kept a recursive reference is refused by the ordinary checks.
-- **Total code may *mention* partial definitions** freely (`\() -> spin 0` is a total value).
+- **Total code may *mention* partial definitions** freely (`() => spin 0` is a total value).
 - **Size-change termination** for groups ([`mutual-recursion.md`](mutual-recursion.md) §6) is unaffected. A partial group becomes one non-recursive description over a sum (§9.3).
 - **Test.** A hand-written core description that calls its own wrapper is refused by termination; one that calls a sibling's not-yet-final wrapper is refused by admission.
 
@@ -1010,7 +1010,7 @@ by name and type.
   is `Delay ops res t`. Sequencing is `bindD`, a result `now`, an
   operation `lift (Call op Done)`, a partial call from another row `mapSig
   m`, a total computation in a partial row `lift` (after `translate`),
-  and a total function where a partial one is expected `\x -> lift (f x)`.
+  and a total function where a partial one is expected `x => lift (f x)`.
   `Partial` is reserved, and messages print a `Delay` as `{…, Partial} a`.
 - **E-PARTIAL** (a code beyond the three named in §7.3): running partial
   code in a total context, including a handled computation (§7.3.8) and a

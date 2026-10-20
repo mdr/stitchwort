@@ -312,7 +312,7 @@ The existing native `decEqNat` returns `No (natNeq m n rfl)`, and the definition
 
 ```
 theorem sameNo : myDecEqNat 3 5 = decEqNat 3 5 := rfl
--- E-REFL: `No (\p -> J (\y -> \q -> IsZero y) Trivial (J … p))` and `No (natNeq 3 5 rfl)` aren't equal
+-- E-REFL: `No (p => J (y => q => IsZero y) Trivial (J … p))` and `No (natNeq 3 5 rfl)` aren't equal
 ```
 
 The same theorem with `3 3` is accepted (`Yes rfl` on both sides). So the native changes which conversions the kernel accepts: it doesn't prove anything false (both payloads are valid refutations, and rejecting a conversion can't make the kernel unsound), but a program that checks with natives off can fail with them on. It's a precedent to audit, not a justification. The fix options are to make the native return the definition's own `No` term (built by the native for the specific numbers, which is O(min(m, n)) in size), to return the `No` only when the payload is never compared (not decidable locally), or to accept and document the difference. This note recommends the first, tested by the whole-result comparison above; it's listed as follow-up work, separate from text.

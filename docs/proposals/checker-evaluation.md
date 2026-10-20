@@ -230,7 +230,7 @@ Gains are from §3's measurements where stated, otherwise estimates.
 **(a) Targeted: bind instead of evaluate, in the elaborator.** Where the
 elaborator now evaluates an argument to build a type (operation calls, dot
 receivers, `==`/`if`), it binds the argument to a variable instead, works out
-the type with the variable, and emits `(\x => …) arg`, exactly as a pure
+the type with the variable, and emits `(x => …) arg`, exactly as a pure
 `let` is emitted today (which is why row 3 costs nothing). If the type turns
 out to mention the variable, fall back to today's code. The kernel then never
 evaluates the argument either, because the lambda's type doesn't depend on
@@ -254,7 +254,7 @@ Rules for (a):
   dependency that's only apparent costs a missed saving, never a wrong
   answer. The argument is still *checked* against its type; only computing
   its value for the type is skipped.
-- **Run-time evaluation order is kept.** `(\x => use x) arg` is a strict
+- **Run-time evaluation order is kept.** `(x => use x) arg` is a strict
   application, so `arg` is computed once, before the use, exactly when it
   was computed before. Several bound operands are applied in source order.
   Nothing may be reordered, duplicated or removed at run time; effectful
@@ -432,7 +432,7 @@ Measured (steps, `cost` over 2,000 and 20,000 elements, before → after):
 `cost == 5` 138,949 and 1,182,949 → 23,225 for both; `if cost == 5`
 1,183,002 → 23,278; `test "…" := cost == 200000` 1,182,946 → 23,222;
 `cost < 5 && 3 < 4`, `not (cost <= 5)`, `cost != 5` and
-`List.any (\n => n < cost)` constant too. The remaining ~23,000 steps are
+`List.any (n => n < cost)` constant too. The remaining ~23,000 steps are
 the search through the decision procedures, independent of the input. Row
 13, `List.range 100000 == List.range 100000`, now checks: 47,753 steps and
 an elaborated program of 54 nodes, the same at 20,000 and at 100,000
@@ -444,7 +444,7 @@ separate variables.
 
 **Let stage 2 (another lane): a lazy kernel `Let`.** Today a pure
 `let x := v` costs nothing at check time (row 3) because it's elaborated as
-`(\x => …) v`. A transparent kernel `Let` that *evaluated* `v` into the
+`(x => …) v`. A transparent kernel `Let` that *evaluated* `v` into the
 context would compute every closed `let` value while checking, twice. So
 the kernel `Let` holds its value as a contained thunk while checking: one
 suspended, shared computation, designed as part of the `let` semantics
@@ -573,7 +573,7 @@ def List.filter (p : a -> Bool) : List a -> List a
   | Cons x xs => if p x then Cons x (List.filter p xs) else List.filter p xs
 ```
 
-`Range.invalid.terms` filters the list `[2..10]` with `\n => k * n <= size`,
+`Range.invalid.terms` filters the list `[2..10]` with `n => k * n <= size`,
 where `k` and `size` are variables in the proof. Each `if` is stuck, so the
 value of the filter is an `if` whose *both* branches contain the filter of
 the rest: a tree with 2⁹ = 512 leaves for 9 elements. When the elaborator
@@ -582,7 +582,7 @@ writes that tree into the program (cause 3 of §3), and every later step
 (unification, the kernel's re-check, conversion) walks it again.
 
 Evidence: the program
-`theorem t (k : Nat) (size : Nat) : List.filter (\n => k * n <= size) (List.rangeFrom N 2) = … := Eq.trans rfl rfl`
+`theorem t (k : Nat) (size : Nat) : List.filter (n => k * n <= size) (List.rangeFrom N 2) = … := Eq.trans rfl rfl`
 (the same filter on both sides) gives
 
 | `N` | steps | elaborated size |
@@ -694,8 +694,8 @@ nodes at 11 elements, measured). A stuck `filterStep`, by contrast, stays one
 call. `List.filterKeep` and `List.filterSkip` only change their motive.
 
 The audit found the same trap in a different shape in `List.count`:
-`List.foldl (\n x => if p x then Succ n else n)` writes the accumulator in
-both branches, so the count of `[2..12]` under `\n => k * n <= size` also
+`List.foldl (n x => if p x then Succ n else n)` writes the accumulator in
+both branches, so the count of `[2..12]` under `n => k * n <= size` also
 doubled per element (218,127 nodes at 11). It now steps with `Nat.succIf n
 (p x)` (`True => Succ n`, `False => n`), and `List.countStep`/`countFold`
 change their statement only. Found and left alone:
@@ -816,7 +816,7 @@ Python script wrote the programs and timed them. `cost` is
 | `def big : Nat := cost`, or `def big (u : ()) : Nat := …` | 0.14–0.15 s | defining is free; nothing evaluates a body |
 | `f cost`, `f : Nat -> Nat` | 0.14 s | `apply_lazy` skips it |
 | `cost \|> Nat.toText` | 0.14 s | |
-| `let n := cost` / `n + 1` | 0.15 s | the `(\x => …) v` form |
+| `let n := cost` / `n + 1` | 0.15 s | the `(x => …) v` form |
 | `cost.toText` | 0.30 s | 1 computation, the receiver |
 | `cost == 5` | 0.45 s | 2 |
 | `if cost == 5 …` | 0.46 s | 2 |
@@ -878,7 +878,7 @@ bound variable rather than add a second path.
   runs only through the opaque `Delay` type, which the checker doesn't run.
   Effects are data (`Comp`), so nothing is performed by evaluation.
 - **Option (a) is not laziness**: it changes the generated term
-  (`(\x => body) arg`), which the unchanged kernel checks. The only argument
+  (`(x => body) arg`), which the unchanged kernel checks. The only argument
   needed is that the result type was computed with `x` free and doesn't
   mention it, which the code tests.
 - **Option (b) risks:** a missing `force` before a `match` on a value
