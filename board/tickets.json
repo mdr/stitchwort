@@ -1,5 +1,5 @@
 {
-  "next": 160,
+  "next": 161,
   "tickets": [
     {
       "id": 1,
@@ -1652,16 +1652,16 @@
     {
       "id": 109,
       "title": "Test: records whose fields are lists, tuples or Maybe get `==`",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "~/scratch/opencode/funlang-20261020-134115",
       "labels": [
         "elab",
         "tooling"
       ],
       "body": "Split from SW-17 (19 Oct): since 57392bd, `==` works on lists, tuples and Maybe via auto-built element deciders, so records with such fields can derive `==` too, but it's untested on its own. Add an accept example (e.g. examples/accept/eqeq-record-containers.sw) with tests comparing records whose fields are List Nat, (Nat, Text), Maybe Nat, and a nested record; plus one reject example if a field type has no decider. Mechanical: DeepSeek.",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-20",
       "commits": []
     },
     {
@@ -2173,15 +2173,15 @@
     {
       "id": 143,
       "title": "Prelude: small missing functions (List.init, List.head, Text.padRight) and Nat.max fold lemmas",
-      "status": "backlog",
-      "agent": "",
+      "status": "next",
+      "agent": "DeepSeek",
       "where": "",
       "labels": [
         "stdlib"
       ],
-      "body": "Day 6 pain point 7.",
+      "body": "Prelude: small missing functions (List.init, List.head, Text.padRight) and Nat.max fold lemmas. D78: DeepSeek, after stage 3 lands (the functions go into the new List/Toolkit.sw and Text/Text.sw).",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-20",
       "commits": []
     },
     {
@@ -2434,6 +2434,20 @@
         "research"
       ],
       "body": "Matt, 20 Oct 2026: before generalising day 2's proof in Stitchwort (today: ids up to 10 digits, weights a fixed table), prototype the general proof in core Lean 4 (no Mathlib, like comparisons/aoc-day01/lean) to confirm and refine the strategy, then port it once SW-157 (rewrite/calc conversion) is in. Strategy to test: weight defined recursively so divisor-sums from 2 give 1; an id is n repeats iff rotating by L/n fixes it; fixing rotations are closed under gcd, so the working repeat counts are the divisors of L/(smallest block); then the weighted sum is 1 iff any repeat works. Output: a checked Lean file plus a porting note (lemma list with sizes, which core-Lean lemmas were used that Stitchwort lacks, where Lean's tactics did heavy lifting).",
+      "created": "2026-10-20",
+      "updated": "2026-10-20",
+      "commits": []
+    },
+    {
+      "id": 160,
+      "title": "Std library stage 3: move the rest of core into library files (Nat/Arith, Nat/Digits, List/Toolkit, Int/Int, Text/Text)",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "~/scratch/opencode/funlang-20261020-134021",
+      "labels": [
+        "stdlib"
+      ],
+      "body": "D78 (20 Oct 2026). Orchestrator generated the split with the stage 1 closure tool (core keeps the registry built-ins, Decidable procedures and their closure, plus Bool.inspect/Bool.toNat; files acyclic; core 2715 -> 1084 lines), commit 2f6acf3 in the clone. DeepSeek registers the files, fixes fallout, tidies headers, checks hashes, measures, documents, gates. Natives stay in core for now (moving them needs registry changes).",
       "created": "2026-10-20",
       "updated": "2026-10-20",
       "commits": []
