@@ -223,16 +223,16 @@
     {
       "id": 15,
       "title": "Int polish: messages, wording and a wrong-row pointer",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "/Users/matt/scratch/opencode/funlang-20261020-183054",
       "labels": [
         "elab",
         "syntax"
       ],
       "body": "Three small Int diagnostics left over from integers.md stages 3-4: (1) 'a `Int`' -> 'an `Int`' (the pattern-type error still says 'this pattern is a `Int`, but other patterns here are `Nat`'; reproduced 19 Oct); (2) the E-REFL note prints `Int.mod x 3` instead of `x % 3` ('`Int.mod x 3` and `1` aren't equal'; reproduced), and `int-binding-nat` should say `m` is a `let`-bound `Nat`; (3) when `f Zero = ..; f 0 = ..` mixes Nat and Int patterns the error should point at the right row (I could not reproduce the wrong row: the row-2 error pointed at row 2; find the case first, otherwise drop). Also the default's note should suggest `OfNat Zero`/`OfNat (Succ k)` for Int. Done: snapshots updated. (Mechanical: DeepSeek.)",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-20",
       "commits": []
     },
     {
@@ -1686,16 +1686,16 @@
     {
       "id": 111,
       "title": "Nat.absDiff lemmas",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "/Users/matt/scratch/opencode/funlang-20261020-183059",
       "labels": [
         "stdlib",
         "proof"
       ],
       "body": "Nat.min/max have order lemmas (prelude.sw:750-775) but Nat.absDiff (prelude.sw:779) has none. Add the ones a proof about distances needs: symmetry `absDiff m n = absDiff n m`, `absDiff m m = 0`, and `m <= n -> absDiff m n = n - m`. Check what docs/aoc-2025.md day 8/9 plans would use first.",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-20",
       "commits": []
     },
     {
@@ -1809,15 +1809,15 @@
     {
       "id": 119,
       "title": "Print `R.f r` as `r.f` in error messages",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "/Users/matt/scratch/opencode/funlang-20261020-183102",
       "labels": [
         "elab"
       ],
       "body": "Errors show `Pair.fst p` / `Person.name x`. Print projections of records and pairs in dot form (crates/core/src/pretty.rs). Done: snapshots updated; no change to hashes.",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-20",
       "commits": []
     },
     {
@@ -2321,9 +2321,9 @@
     {
       "id": 152,
       "title": "Print `if` in goals as `if`, not Bool.ifThenElse (D40 split-off)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "/Users/matt/scratch/opencode/funlang-20261020-183102",
       "labels": [
         "diagnostics"
       ],
@@ -2375,9 +2375,9 @@
     {
       "id": 155,
       "title": "Contradictory hint: E-CANNOT-INFER suggests `\\\\(p: Person) -> p.ids`, which is E-PARSE",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "/Users/matt/scratch/opencode/funlang-20261020-183057",
       "labels": [
         "diagnostics"
       ],
