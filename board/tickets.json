@@ -1,5 +1,5 @@
 {
-  "next": 171,
+  "next": 172,
   "tickets": [
     {
       "id": 1,
@@ -1713,9 +1713,9 @@
         "aoc",
         "design"
       ],
-      "body": "docs/aoc-2025.md capability #4: a compact native `Array a` (like compact text) for days 4, 8, 9. Large; design note first (Opus), with a design review before building. Measure after days 4-5 whether it's really needed (aoc-2025.md says so).",
+      "body": "docs/aoc-2025.md capability #4: a compact native `Array a` (like compact text) for days 4, 8, 9. Large; design note first (Opus), with a design review before building. Measure after days 4-5 whether it's really needed (aoc-2025.md says so).\n\n20 Oct 2026 (D107): AoC day 4 part 2 would use a worklist (remove a roll, recheck its 8 neighbours) with O(1) grid access; today it sweeps the whole grid ~60 times (5 s). Concrete use case for this ticket.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-20",
       "commits": []
     },
     {
@@ -2025,16 +2025,16 @@
     {
       "id": 133,
       "title": "Playground: load projects (bring the AoC days back)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "worktree",
       "labels": [
         "web",
         "multi-file"
       ],
-      "body": "D26: after the aoc/ restructure the playground can't load AoC days (it fetches single files via pkg/aoc/index.json). Design how the playground loads a multi-file project. Later.",
+      "body": "D105/D106 (Matt, 20 Oct 2026): design note first. Scope: AoC solutions browsable, editable and runnable in the LOCAL playground (no shareable links). Covers the wasm project API (files + target, reusing crates/driver/src/project.rs), tabs/file UI, project picker, bundling aoc/src at build, per-file local storage with reset, inputs (never bundled: test examples or paste), proofs on demand, performance in wasm. Design-review gate: research, note, stop for Matt.",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-20",
       "commits": []
     },
     {
@@ -2610,7 +2610,7 @@
     {
       "id": 169,
       "title": "AoC restructure: from/to in Range, folders match namespaces, proofs split into Aoc.DayNN.Proofs",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "main",
       "labels": [
@@ -2639,6 +2639,24 @@
       "created": "2026-10-20",
       "updated": "2026-10-20",
       "commits": []
+    },
+    {
+      "id": 171,
+      "title": "AoC day 4 takes ~17 s to run: profile and speed up",
+      "status": "doing",
+      "agent": "Claude",
+      "where": "main",
+      "labels": [
+        "aoc",
+        "performance"
+      ],
+      "body": "D107 (Matt, 20 Oct 2026). stitchwort run Aoc.Day04.main takes ~16.8 s (run time, not proofs; same before the restructure). Profile first (evaluator vs program algorithm), then fix in the program or the evaluator, measured.",
+      "created": "2026-10-20",
+      "updated": "2026-10-20",
+      "commits": [
+        "fb948ab",
+        "66f9621"
+      ]
     }
   ]
 }
