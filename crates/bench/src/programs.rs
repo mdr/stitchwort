@@ -446,6 +446,10 @@ fn examples() -> Result<Prepared, String> {
     let accepted = [example_files("accept")?, example_files("extract")?].concat();
     let rejected = [example_files("reject")?, example_files("soundness")?].concat();
     let inputs = fingerprint(&[accepted.as_slice(), rejected.as_slice()].concat());
+    // The first session of a process builds the standard library's index,
+    // once per process (`LibraryIndex::standard`); without this, the first
+    // run would count that work and later runs wouldn't. It isn't measured.
+    drop(Session::new());
     Ok(Prepared {
         inputs: Some(inputs),
         run: Box::new(move || {
