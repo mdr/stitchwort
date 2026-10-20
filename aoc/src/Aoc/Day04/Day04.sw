@@ -9,8 +9,12 @@
 --
 -- The grid is a list of rows of 0 (floor) and 1 (roll). A roll's "window" is
 -- the 3 by 3 block around it, itself included, so it is accessible when its
--- window holds fewer than 5 rolls. Sum each row horizontally in threes once,
--- then add the sums of the rows above, at, and below to get every window.
+-- window holds fewer than 5 rolls. For each row, add it to the rows above and
+-- below column by column, then walk along it with each column's sum and its
+-- neighbours' (`peelRow`).
+--
+-- Part 1 is proved right for every rectangular grid in `Aoc.Day04.Proofs`
+-- (Proofs/Spec.sw, Proofs/Part1.sw), which `run` does not check.
 
 namespace Aoc.Day04
 
@@ -44,22 +48,23 @@ def parseGrid (lines: List Text): Grid := lines.map parseLine
 def parseLine (line: Text): List Nat := line.toList.map parseChar
 
 -- A roll is 1, floor is 0.
-def parseChar: Char -> Nat
-  | '@' => 1
-  | _   => 0
+def parseChar (ch: Char): Nat := if ch == '@' then 1 else 0
 
 def Grid.rolls (grid: Grid): Nat := grid |> .sumBy List.sum
 
 test "rolls" := (parseGrid example).rolls == 71
 
--- Remove every accessible roll, all at once.
+-- Remove every accessible roll, all at once: each row sees the rows above
+-- and below as they were.
 def Grid.round (grid: Grid): Grid :=
-  let sums := grid.map rowSums
   let gap := List.replicate ((grid.headOr []).length) 0
-  let above := Cons gap sums
-  let below := sums.drop 1 |> .append [gap]
-  let windows := Grid.zipWith Nat.add (Grid.zipWith Nat.add above sums) below
-  Grid.zipWith (roll window => if roll == 1 && 5 <= window then 1 else 0) grid windows
+  roundFrom gap gap grid
+
+-- `above` is the row above the first of `rows`; `gap` stands for the missing
+-- row past the bottom.
+def roundFrom (gap above: List Nat): Grid -> Grid
+  | Nil           => Nil
+  | Cons row rest => Cons (peelRow above row (rest.headOr gap)) (roundFrom gap row rest)
 
 -- Remove the accessible rolls of one row, given the rows above and below:
 -- add the three rows column by column, then walk along the row with each
@@ -109,14 +114,3 @@ def settleMarked (grid: Marked): Nat -> Marked
     let next := sweep grid
     if next.any Pair.snd then settleMarked next n else next
 
-
--- Each cell becomes the sum of itself and its left and right neighbours.
-def rowSums (row: List Nat): List Nat :=
-  let left := Cons 0 row
-  let right := row.drop 1 |> .append [0]
-  List.zipWith Nat.add (List.zipWith Nat.add left row) right
-
-test "row sums" := rowSums [1, 0, 1, 1] == [1, 2, 2, 2]
-
--- Combine two grids of the same shape cell by cell.
-def Grid.zipWith (f: Nat -> Nat -> Nat) (a b: Grid): Grid := List.zipWith (List.zipWith f) a b
