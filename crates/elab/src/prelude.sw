@@ -766,6 +766,10 @@ theorem Nat.mulSuccCancel (b: Nat) (v: Nat) (m: Nat) (e: b * Succ m = v * Succ m
   Eq.trans (Eq.sym (Nat.divUnique (b * Succ m) (Succ m) b 0 rfl (Eq.sym (Nat.addZero (b * Succ m)))))
     (Eq.trans (Eq.cong (\t => t / Succ m) e) (Nat.divUnique (v * Succ m) (Succ m) v 0 rfl (Eq.sym (Nat.addZero (v * Succ m)))))
 
+theorem Nat.mulCancelLeft: (n: Nat) -> 1 <= n -> (a: Nat) -> (b: Nat) -> n * a = n * b -> a = b
+  | Zero,   h, a, b, e => Void.exfalso (Bool.falseNotTrue h)
+  | Succ m, h, a, b, e => Nat.mulSuccCancel a b m (Eq.trans (Nat.mulComm a (Succ m)) (Eq.trans e (Nat.mulComm (Succ m) b)))
+
 theorem Nat.addSelfNotSelf (a: Nat) (h: 1 <= a) (e: a + a = a): Void :=
   Nat.lessIrrefl a (Nat.leCongRight (Succ a) (a + a) a e (Nat.leCongLeft (a + 1) (Succ a) (a + a) (Nat.addOne a) (Nat.leAddCong a 1 a h)))
 
@@ -1426,6 +1430,34 @@ theorem Bool.orComm: (a: Bool) -> (b: Bool) -> (a || b) = (b || a)
   | False, True  => rfl
   | False, False => rfl
 
+-- `&&` from its sides and back; `not a || b` as "a implies b"; two booleans
+-- are equal when each implies the other.
+theorem Bool.andIntro: (a: Bool) -> (b: Bool) -> a = True -> b = True -> (a && b) = True
+  | True,  b, ha, hb => hb
+  | False, b, ha, hb => Void.exfalso (Bool.falseNotTrue ha)
+
+theorem Bool.andLeft: (a: Bool) -> (b: Bool) -> (a && b) = True -> a = True
+  | True,  b, h => rfl
+  | False, b, h => Void.exfalso (Bool.falseNotTrue h)
+
+theorem Bool.andRight: (a: Bool) -> (b: Bool) -> (a && b) = True -> b = True
+  | True,  b, h => h
+  | False, b, h => Void.exfalso (Bool.falseNotTrue h)
+
+theorem Bool.impIntro: (a: Bool) -> (b: Bool) -> (a = True -> b = True) -> (Bool.not a || b) = True
+  | True,  b, h => h rfl
+  | False, b, h => rfl
+
+theorem Bool.impElim: (a: Bool) -> (b: Bool) -> (Bool.not a || b) = True -> a = True -> b = True
+  | True,  b, h, ha => h
+  | False, b, h, ha => Void.exfalso (Bool.falseNotTrue ha)
+
+theorem Bool.eqOf: (a: Bool) -> (b: Bool) -> (a = True -> b = True) -> (b = True -> a = True) -> a = b
+  | True,  True,  f, g => rfl
+  | True,  False, f, g => Void.exfalso (Bool.falseNotTrue (f rfl))
+  | False, True,  f, g => Void.exfalso (Bool.falseNotTrue (g rfl))
+  | False, False, f, g => rfl
+
 theorem Nat.addRotate (a: Nat) (b: Nat) (c: Nat): (a + b) + c = b + (a + c) := Eq.trans (Eq.cong (\t => t + c) (Nat.addComm a b)) (Nat.addAssoc b a c)
 
 theorem Nat.addLeftComm (a: Nat) (b: Nat) (c: Nat): a + (b + c) = b + (a + c) := Eq.trans (Eq.sym (Nat.addAssoc a b c)) (Nat.addRotate a b c)
@@ -1534,6 +1566,18 @@ theorem List.appendAssoc: (xs: List a) -> (ys: List a) -> (zs: List a) -> List.a
   | Nil,       ys, zs => rfl
   | Cons x xs, ys, zs => Eq.cong (Cons x) (List.appendAssoc xs ys zs)
 
+-- `p` written n times: n times as long, and one more copy goes on the end.
+theorem List.lengthConcatReplicate (p: List a): (n: Nat) -> List.length (List.concat (List.replicate n p)) = n * List.length p
+  | Zero   => rfl
+  | Succ n => Eq.trans (List.lengthAppend p (List.concat (List.replicate n p))) (Eq.cong (\t => List.length p + t) (List.lengthConcatReplicate p n))
+
+theorem List.concatReplicateSnoc (p: List a): (n: Nat) -> List.concat (List.replicate (Succ n) p) = List.append (List.concat (List.replicate n p)) p
+  | Zero   => List.appendNil p
+  | Succ n =>
+    calc List.append p (List.concat (List.replicate (Succ n) p))
+      _ = List.append p (List.append (List.concat (List.replicate n p)) p) := Eq.cong (List.append p) (List.concatReplicateSnoc p n)
+      _ = List.append (List.append p (List.concat (List.replicate n p))) p := Eq.sym (List.appendAssoc p (List.concat (List.replicate n p)) p)
+
 theorem List.lengthTake: (k: Nat) -> (xs: List a) -> k <= List.length xs -> List.length (List.take k xs) = k
   | Zero,   xs,        h => rfl
   | Succ k, Nil,       h => Void.exfalso (Bool.falseNotTrue h)
@@ -1562,6 +1606,26 @@ def Nat.keepIf (x: Nat): Bool -> Nat
 theorem List.sumByZero: (xs: List a) -> List.sumBy (\x => 0) xs = 0
   | Nil       => rfl
   | Cons x xs => Eq.trans (List.sumByCons (\x => 0) x xs) (List.sumByZero xs)
+
+theorem Nat.keepIfZero: (b: Bool) -> Nat.keepIf 0 b = 0
+  | True  => rfl
+  | False => rfl
+
+-- Keeping a sum is keeping each term.
+theorem Nat.keepIfSumBy (g: a -> Nat) (xs: List a): (b: Bool) -> Nat.keepIf (List.sumBy g xs) b = List.sumBy (\x => Nat.keepIf (g x) b) xs
+  | True  => rfl
+  | False => Eq.sym (List.sumByZero xs)
+
+-- `keepIf` as multiplying by 1 or 0.
+theorem Nat.mulToNat (x: Nat): (a: Bool) -> x * Bool.toNat a = Nat.keepIf x a
+  | True  => Nat.mulOne x
+  | False => Nat.mulZero x
+
+theorem Nat.keepIfKeepIf (x: Nat): (a: Bool) -> (b: Bool) -> Nat.keepIf (Nat.keepIf x a) b = x * Bool.toNat (a && b)
+  | True,  True  => Eq.sym (Nat.mulOne x)
+  | True,  False => Eq.sym (Nat.mulZero x)
+  | False, True  => Eq.sym (Nat.mulZero x)
+  | False, False => Eq.sym (Nat.mulZero x)
 
 theorem List.sumByAdd (f: a -> Nat) (g: a -> Nat): (xs: List a) -> List.sumBy (\x => f x + g x) xs = List.sumBy f xs + List.sumBy g xs
   | Nil       => rfl
@@ -1665,6 +1729,39 @@ theorem List.anyRangeIntro (q: Nat -> Bool): (c: Nat) -> (s: Nat) -> (k: Nat) ->
       (\t => Eq.cong (\b => Bool.ifThenElse b (\u => True) (\u => List.any q (List.rangeFrom c (Succ s)))) t)
       (\f => Eq.trans (Eq.cong (\b => Bool.ifThenElse b (\u => True) (\u => List.any q (List.rangeFrom c (Succ s)))) f)
         (List.anyRangeIntro q c (Succ s) k (Nat.leNeSucc s k h1 (\e => Bool.trueNotFalse (Eq.trans (Eq.sym hk) (Eq.trans (Eq.cong q (Eq.sym e)) f)))) (Nat.ltSuccAdd s c k h2) hk))
+
+-- `all` over a run of numbers: each element passes, and back. With a check
+-- that computes to `True`, the first turns a finite computation into a fact
+-- about every number of the run.
+theorem List.allRangeElim (q: Nat -> Bool): (c: Nat) -> (s: Nat) -> List.all q (List.rangeFrom c s) = True ->
+    (k: Nat) -> s <= k -> k < s + c -> q k = True
+  | Zero,   s, h, k, h1, h2 => Void.exfalso (Nat.lessIrrefl k (Nat.leTrans (Succ k) s k (Nat.ltCongRight k (s + 0) s (Nat.addZero s) h2) h1))
+  | Succ c, s, h, k, h1, h2 =>
+    Bool.inspect (q s) (\u => q k = True)
+      (\t => Bool.inspect (k == s) (\u => q k = True)
+        (\e => J (\z p => q z = True) t (Eq.sym (Decidable.toBoolSound (Nat.decEq k s) e)))
+        (\ne => List.allRangeElim q c (Succ s)
+          (Eq.trans (Eq.cong (\b => Bool.ifThenElse b (\u => List.all q (List.rangeFrom c (Succ s))) (\u => False)) (Eq.sym t)) h)
+          k (Nat.leNeSucc s k h1 (\e => Bool.trueNotFalse (Eq.trans (Eq.sym (Decidable.toBoolOf (Nat.decEq k s) (Eq.sym e))) ne))) (Nat.ltSuccAdd s c k h2)))
+      (\f => Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym h) (Eq.cong (\b => Bool.ifThenElse b (\u => List.all q (List.rangeFrom c (Succ s))) (\u => False)) f))))
+
+theorem List.allRangeIntro (q: Nat -> Bool): (c: Nat) -> (s: Nat) -> ((k: Nat) -> s <= k -> k < s + c -> q k = True) -> List.all q (List.rangeFrom c s) = True
+  | Zero,   s, h => rfl
+  | Succ c, s, h =>
+    Eq.trans (Eq.cong (\b => Bool.ifThenElse b (\u => List.all q (List.rangeFrom c (Succ s))) (\u => False)) (h s (Nat.leRefl s) (Nat.ltAddSuccSelf s c)))
+      (List.allRangeIntro q c (Succ s) (\k h1 h2 => h k (Nat.leTrans s (Succ s) k (Nat.leSucc s) h1) (Nat.ltAddSucc s c k h2)))
+
+theorem List.allRangeExample: List.all (\k => k * k != 2) (List.rangeFrom 100 0) = True := rfl
+
+-- Sums that agree on the elements passing a check `all` says they all pass.
+theorem List.sumByCongrAll (p: a -> Bool) (f: a -> Nat) (g: a -> Nat) (h: (x: a) -> p x = True -> f x = g x):
+    (xs: List a) -> List.all p xs = True -> List.sumBy f xs = List.sumBy g xs
+  | Nil,       ok => rfl
+  | Cons x xs, ok =>
+    Eq.trans (List.sumByCons f x xs)
+      (Eq.trans (Eq.cong (\t => t + List.sumBy f xs) (h x (Bool.andLeft (p x) (List.all p xs) ok)))
+        (Eq.trans (Eq.cong (\t => g x + t) (List.sumByCongrAll p f g h xs (Bool.andRight (p x) (List.all p xs) ok)))
+          (Eq.sym (List.sumByCons g x xs))))
 
 -- `True` for `Less` and `Equal`.
 def Ordering.isLessEq: Ordering -> Bool
@@ -2551,6 +2648,15 @@ theorem Int.subNatNatAddNegSucc (k: Nat) (m: Nat) (n: Nat):
     Int.add (Int.subNatNat m n) (NegSucc k) = Int.subNatNat m (Succ (n + k)) :=
   Eq.trans (Int.addComm (Int.subNatNat m n) (NegSucc k)) (Int.negSuccAddSubNatNat k m n)
 
+-- A running total `p - q` of naturals: subtracting `r` adds it to `q`; and
+-- `(s + q) - q` is `s`.
+theorem Int.subNatNatAddNeg (p: Nat) (q: Nat): (r: Nat) -> Int.add (Int.subNatNat p q) (Int.neg (OfNat r)) = Int.subNatNat p (q + r)
+  | Zero   => Eq.trans (Int.addZero (Int.subNatNat p q)) (Eq.cong (Int.subNatNat p) (Eq.sym (Nat.addZero q)))
+  | Succ r => Eq.trans (Int.subNatNatAddNegSucc r p q) (Eq.cong (Int.subNatNat p) (Eq.sym (Nat.addSucc q r)))
+
+theorem Int.toNatSubNatNat (s: Nat) (q: Nat): Int.toNat (Int.subNatNat (s + q) q) = s :=
+  Eq.trans (Eq.cong (\t => Int.toNat (Int.subNatNatFrom (s + q) q t)) (Nat.subEqZero q (s + q) (Nat.leAddLeft s q))) (Nat.addSub s q)
+
 theorem Int.addAssoc: (a: Int) -> (b: Int) -> (c: Int) ->
     Int.add (Int.add a b) c = Int.add a (Int.add b c)
   | OfNat a,   OfNat b,   OfNat c   => Eq.cong OfNat (Nat.addAssoc a b c)
@@ -2573,6 +2679,14 @@ theorem Int.addAssoc: (a: Int) -> (b: Int) -> (c: Int) ->
   | NegSucc a, NegSucc b, NegSucc c =>
     Eq.trans (Eq.cong (\t => NegSucc (Succ (Succ t))) (Nat.addAssoc a b c))
              (Eq.cong (\t => NegSucc (Succ t)) (Eq.sym (Nat.addSucc a (b + c))))
+
+-- `List.sumInt` from a starting total.
+theorem List.sumIntFrom: (a: Int) -> (xs: List Int) -> List.foldLeft Int.add a xs = Int.add a (List.sumInt xs)
+  | a, Nil       => Eq.sym (Int.addZero a)
+  | a, Cons x xs =>
+    Eq.trans (List.sumIntFrom (Int.add a x) xs)
+      (Eq.trans (Int.addAssoc a x (List.sumInt xs))
+        (Eq.sym (Eq.cong (Int.add a) (Eq.trans (List.sumIntFrom (Int.add (OfNat 0) x) xs) (Eq.cong (\t => Int.add t (List.sumInt xs)) (Int.zeroAdd x))))))
 
 -- Integers modulo a size. The remainder `Int.modNat x d` doesn't change when
 -- `d` is added to `x`, hence not for any multiple of `d`.
@@ -3149,6 +3263,17 @@ theorem Nat.digitsLength (j: Nat) (b: Nat) (h1: Nat.pow 10 j <= b) (h2: b < Nat.
           (Nat.fromDigitsHeadBound (Nat.digits b) (Nat.digitsHead b (Nat.leTrans 1 (Nat.pow 10 j) b (Nat.powSuccPos 9 j) h1))))
         h2))
     (Nat.powTenLt j (List.length (Nat.digits b)) b h1 (Nat.ltPowTenDigits b))
+
+-- A number below 10^m (m >= 1) has at most m digits.
+theorem Nat.digitsLengthLe: (x: Nat) -> (m: Nat) -> 1 <= m -> x < Nat.pow 10 m -> List.length (Nat.digits x) <= m
+  | x,      Zero,   hm, h => Void.exfalso (Bool.falseNotTrue hm)
+  | Zero,   Succ j, hm, h => rfl
+  | Succ y, Succ j, hm, h =>
+    Nat.predLeSucc (List.length (Nat.digits (Succ y))) j
+      (Nat.powTenLt (List.length (Nat.digits (Succ y)) - 1) (Succ j) (Succ y)
+        (Nat.leCongRight (Nat.pow 10 (List.length (Nat.digits (Succ y)) - 1)) (Nat.fromDigits (Nat.digits (Succ y))) (Succ y) (Nat.fromDigitsDigits (Succ y))
+          (Nat.fromDigitsHeadBound (Nat.digits (Succ y)) (Nat.digitsHead (Succ y) rfl)))
+        h)
 
 def Maybe.IsDigit: Maybe Nat -> Prop
   | Nothing => Unit
