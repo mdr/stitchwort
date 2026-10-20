@@ -2182,8 +2182,8 @@
       "id": 143,
       "title": "Prelude: small missing functions (List.init, List.head, Text.padRight) and Nat.max fold lemmas",
       "status": "doing",
-      "agent": "DeepSeek",
-      "where": "/Users/matt/scratch/opencode/funlang-20261020-142933",
+      "agent": "Claude",
+      "where": "main",
       "labels": [
         "stdlib"
       ],
