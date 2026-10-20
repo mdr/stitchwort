@@ -1,5 +1,5 @@
 {
-  "next": 168,
+  "next": 169,
   "tickets": [
     {
       "id": 1,
@@ -1351,9 +1351,9 @@
     {
       "id": 90,
       "title": "Consider lambda syntax",
-      "status": "review",
-      "agent": "Matt",
-      "where": "docs/proposals/lambda-syntax.md (draft 1)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "worktree",
       "labels": [
         "syntax",
         "design"
@@ -2589,6 +2589,20 @@
         "diagnostics"
       ],
       "body": "Found by SW-15: crates/core/src/pretty.rs prints Nat.add/sub and Int arithmetic as infix, but Nat.mul/div/mod (Builtin::Mul/Div/Mod) as prefix calls. Add them to the infix table at Prec::Mul (SW-15 added that level). Mechanical: DeepSeek.",
+      "created": "2026-10-20",
+      "updated": "2026-10-20",
+      "commits": []
+    },
+    {
+      "id": 168,
+      "title": "Remove the old-syntax error E-OLD-DECLARATION; an ordinary parse error instead (D102)",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "/Users/matt/scratch/opencode/funlang-20261020-191711",
+      "labels": [
+        "syntax"
+      ],
+      "body": "D102 (Matt, 20 Oct 2026): no backwards compatibility; errors that exist to explain old syntax go. Keep a useful E-PARSE for a declaration without a keyword.",
       "created": "2026-10-20",
       "updated": "2026-10-20",
       "commits": []
