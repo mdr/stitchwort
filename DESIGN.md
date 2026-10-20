@@ -437,6 +437,8 @@ The check reads the **inductive declaration itself**, distinguishing its paramet
 
 Otherwise, matching on it can only produce another proof.
 
+**With indices, as built.** The rule is read over the declaration as above, with two additions and one omission ([indexed families](docs/proposals/indexed-families.md), §6.4). A match whose every branch is impossible may produce anything, since it's never reached (`Le (Succ n) 0 -> Nat`). A proposition matched into data also has its impossible branches counted, so a proposition with two constructors where only one is possible at that index still needs the one-constructor test on the *declaration* (D140). The "appears in an index" clause (second bullet above) is **deferred**: it isn't adopted yet, so a field that the proof's indices determine still disqualifies (`type IsSucc: Nat -> Prop = | MkIsSucc: IsSucc (Succ n)` can't be read into `Nat`: `E-PROP-ELIM`). It can be added later without making an accepted program wrong.
+
 The check is over the declaration. It must **not** be implemented by asking "would the compiler erase this field?", because types are erased but can still carry information:
 
 ```
@@ -458,7 +460,7 @@ def reveal: HiddenType -> Type      -- rejected: `a` is a type, not a proof,
 
 The kernel implements this rule and nothing looser. Each "No" row is a "must reject" test, paired with an accepted test for a nearby "Yes" row ([§13](#13-soundness-policy)). Definitional proof irrelevance (treating any two proofs of the same proposition as equal during type checking) isn't needed for the POC.
 
-Data indices like a vector's length are **not** erased, because they're data, not proofs. That costs some runtime space, which is acceptable since performance isn't a goal. A more general relevance system (Idris 2-style usage annotations) can come later if needed.
+Data indices like a vector's length are **not** erased, because they're data, not proofs: a constructor's forced implicit fields (`n` in `VCons`) are stored, while its proof fields are erased even in a family that is data (`Certified n`). That costs some runtime space and work (the field is computed from whatever the elaborator inferred for it, so `fromList` should pass the length down rather than recompute it), which is acceptable since performance isn't a goal. A more general relevance system (Idris 2-style usage annotations) can come later if needed.
 
 ### Four separate questions about an argument
 
@@ -505,7 +507,7 @@ Possible outcomes, each with its own error message:
 
 ### Dependent pattern matching
 
-Pattern matching in proofs requires the compiler to learn facts about types in each branch. In full generality this is one of the hardest parts of any dependently-typed language. **For the POC, patterns are kept simple:** constructors (nested), variables, numbers and `()`, compiled into a tree of simple `case` expressions. Equations are tried top to bottom. There's no overlap or redundancy warning yet.
+Pattern matching in proofs requires the compiler to learn facts about types in each branch. In full generality this is one of the hardest parts of any dependently-typed language. **For the POC, patterns are kept simple:** constructors (nested), variables, numbers and `()`, compiled into a tree of simple `case` expressions. Equations are tried top to bottom. Indexed families add one thing, unification of the constructor's indices with the scrutinee's (the kernel's `case` rule, `docs/core.md`): a branch where that finds a conflict is impossible and needs no arm, a stuck one is `E-INDEX-STUCK`, and an arm that can never match is the warning `W-UNREACHABLE`. There's no other overlap or redundancy warning yet.
 
 ### Effects and dependent types
 
@@ -825,6 +827,7 @@ The guarantee starts *after* decoding succeeds. It makes no promise that decodin
 | sum type `Square … \| Rect …` | `{ tag: "Square"; side: bigint } \| { tag: "Rect"; … }` (exported constructors must name their fields; a field called `tag` is `$tag`, see [Names](#names)) |
 | proof arguments and fields | omitted (a record's proof fields are re-established by decision procedures when decoded; other data types with proof fields can't cross yet) |
 | data types with parameters, such as `Maybe Text` or `Pair Char Nat` | `Maybe<string>`, `Pair<string, bigint>`: generic aliases, whose codecs take the arguments' codecs |
+| indexed families (`Vec a n`), anywhere in an export's inputs or result: directly, through a synonym, in a container or in a record field | not exportable yet (`E-EXPORT`): decoding would have to check the indices. An export may use them internally |
 | functions, abilities, `Float`, type parameters of the exported function | not exportable yet |
 
 Notes:
@@ -930,6 +933,14 @@ Each rejected example is paired with a nearby example that must be **accepted**,
 | Updating `items` of a `SortedList` without a new proof | Dependent record updates | Supplying `items` and a new `sorted` proof |
 | Exporting `bogus` (depends on `assume impossible: False`) | Exports must be assumption-free | Exporting an assumption-free function |
 | Exporting `identity: [a: Type] -> a -> a` | No codec for an unknown type | Exporting `identity` specialised to `Nat` |
+| Exporting `head: Vec Nat (Succ n) -> Nat`, `List (Vec Nat 3) -> Nat`, a function through `type Row = Vec Bool 5`, or `Grid -> Grid` with `Vec` in a record field | No codec checks indices | Exporting a `List Nat -> Nat` function that uses `Vec` inside |
+| Matching `v: Vec a (n + m)` with `n` unknown; a constructor declared `Vec a (n + 1)`; `Ty (List Nat)` against `TList` | The unifier is stuck (`E-INDEX-STUCK`), never guessing | The same after matching `n`; `append`; `Ty c` |
+| Matching `l: Loop n n` where `MkLoop: Loop m (Succ m)`; stuck dependent injectivity | Occurs check; no comparison at the wrong type | `Loop n k`; the same with variables for the stuck side |
+| A `Prop` conflict or injectivity taken through a proposition (`SameP A B`, `Hide 0 = Hide 1`, a proof field before data) | Proofs are never taken apart as data (the `Prop` guard) | The same in `Type`, which does conflict |
+| A body on an impossible branch, or no body on a possible one, built directly | The kernel re-checks which branches are impossible | The branch marked correctly |
+| `down [n: Nat]: Vec Bool n -> Nat` recursing on a solved index; Agda #6654 in `Prop` (`noBad`) | Termination reads no decrease from an index equation | The same recursing on `xs`; `leToLeq` |
+| `type Bad: Type = \| B (f: (p: Type) -> p -> p): Bad f` and `type Ty: Type -> Type`, a large index or field | Universe rule for fields and indices | The same in `Type 1` |
+| `IsSucc k -> Nat` reading the index field; `Le m n -> Bool` by matching | `Prop` elimination with indices (the index clause is deferred) | `IsSucc k -> k != 0`; `Le (Succ n) 0 -> Nat` |
 
 **A rejection only counts if it's for the right reason.** Every diagnostic has a stable error code (e.g. `E-POSITIVITY`), and each "must reject" example declares the code it expects. A crash, a timeout, a syntax error in the example, or an unrelated error (like an unknown name) is a test failure, not a pass.
 

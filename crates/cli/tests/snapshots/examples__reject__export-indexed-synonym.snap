@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-EXPORT] Error: `first` can't be exported
+   ╭─[ reject/export-indexed-synonym.sw:9:1 ]
+   │
+ 9 │ export def first: Row -> Bool
+   │ ──────────────┬──────────────  
+   │               ╰──────────────── parameter `arg0`: `Vec` is an indexed family, which can't cross the JS boundary yet: decoding would have to check its indices
+───╯

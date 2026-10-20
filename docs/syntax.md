@@ -223,6 +223,7 @@ docs/proposals/indexed-families.md §7; `examples/accept/indexed-families.sw`.
 - **Write `Succ n` (or `1 + n`), not `n + 1`, in an index**: `+` counts down its first argument, so `n + 1` doesn't compute while `n` is unknown.
 - **In a signature**, a name used in an index is bound automatically even where it's also used as a value: `def head: Vec a (Succ n) -> a`, `theorem leToLeq: Le m n -> m <= n`.
 - **Matching** needs no new syntax. Implicit fields are skipped in patterns, or matched by name, `VCons [n := k] _ _` (positional `[k]` isn't allowed). An arm may be left out only when its constructor can't be there (`head` has no `VNil` arm), or when another argument then has no possible constructor (`get: Vec a n -> Fin n -> a` has no `VNil` arm: there, `i: Fin 0`). A left-out arm that can be there is `E-NONEXHAUSTIVE`. When the compiler can't tell (an index like `n + m` with `n` unknown, or a type to take apart), it's `E-INDEX-STUCK`: match on `n` first, or use a variable index. `()` works for a family with no possible constructor (`Even 1`). An arm that can never match is the warning `W-UNREACHABLE`, and isn't checked.
+- **Running and exporting.** A family's values run like any data type's; its forced fields are stored, and its proof fields are erased. An `export` can't have a family anywhere in its inputs or result, directly, through a synonym, in a container or in a record field (`E-EXPORT`); a function may use one inside (`examples/extract/vec-inside.sw`).
 
 ## Records
 

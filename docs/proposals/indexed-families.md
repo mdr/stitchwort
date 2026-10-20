@@ -1,11 +1,10 @@
 # Proposal: indexed data types (inductive families)
 
-**Status:** draft 3, 20 October 2026. Drafts 1 and 2 each had an external review; draft 3
+**Status:** implemented (stages 1-5, SW-178; see [As built](#as-built)). Draft 3, 20 October 2026. Drafts 1 and 2 each had an external review; draft 3
 makes the second review's changes ([below](#changes-since-draft-2-re-review)), and draft
 2 made the first's ([further down](#changes-since-draft-1-external-review)). The
 re-review approves the architecture; its one required change before kernel work (the
-`Prop` guard in the unifier, D137) is made. Review closed (D185, Matt, 20 October: no further review needed). Decisions D136-D149, D153 and D184 accepted as recommended (Matt, 20 October). Waiting for Matt's call on when to build (design-review
-gate). Stages 1 and 2, the kernel, are built ([As built](#as-built)). Ticket SW-178. Matt decided D133 and D135 (20 October): indexed
+`Prop` guard in the unifier, D137) is made. Review closed (D185, Matt, 20 October: no further review needed). Decisions D136-D149, D153 and D184 accepted as recommended (Matt, 20 October). Built, all five stages ([As built](#as-built)). Ticket SW-178. Matt decided D133 and D135 (20 October): indexed
 data types go into the kernel before `Vec` (docs/proposals/vec.md, parked). The open
 questions are D136 to D149, D153 and D184 in [§12](#12-decisions-wanted).
 
@@ -1399,6 +1398,36 @@ Differences and choices:
   Left for stage 5: tests 18 and 28 (`E-EXPORT`), driver tests with and
   without erasure (`stitchwort test` already runs the accept example's tests
   with erasure), and JS.
+
+**Stage 5 (running, JavaScript, docs), SW-178.** As specified, with these
+notes.
+
+- **`E-EXPORT` (tests 18, 28).** One check in `crates/js`' `boundary`: a
+  data type with indices is refused wherever the boundary walk reaches it,
+  so directly, through a synonym (the type is evaluated first), inside
+  `List` or another container, and in a record's field (the message names
+  the field, ``parameter `g`: `Grid`'s field `rows`: `Vec` is an indexed
+  family ...``). The message names the family, not the applied type, since a
+  field's type can mention earlier fields. `examples/reject/export-indexed-*.sw`
+  are the four forms; the accepted counterpart is `examples/extract/vec-inside.sw`,
+  whose `-- run:` lines go through the JS differential test, `head`'s
+  impossible `VNil` branch included (it generates no case; the fall-through
+  `throw` is unchanged).
+- **Driver tests** (`crates/driver/tests/indexed_families.rs`): the `Vec`
+  functions with and without erasure; `Certified` and a `CVec` with a forced
+  field beside a proof field, whose proof costs 9.7 million steps without
+  erasure and 389 with it, with every result unchanged; and `fromList`
+  counted in evaluation steps rather than seconds: the linear version
+  takes 720,385 steps for 8,000 elements and 1,440,385 for 16,000 (2.00x),
+  and the quadratic one 3.96x for a doubling (the guard that the
+  measurement tells them apart). `erasure.rs` also runs
+  `examples/accept/indexed-families.sw` both ways, as it does every accepted
+  example. The note's lemma names in `fromListN` are
+  `Nat.succInjective`, `Nat.succNotZero` and `Nat.zeroNotSucc`.
+- **Docs:** `docs/core.md` (erasure and JS), `docs/syntax.md`, DESIGN.md §6
+  (the index clause of `Prop` elimination is deferred, D140), §12 and §13.
+- **Left:** SW-179 (`Vec`'s representation), `==` for indexed families, and
+  exporting a family with a decoder that checks its indices.
 
 ## Sources
 
