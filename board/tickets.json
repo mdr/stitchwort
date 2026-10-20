@@ -2238,7 +2238,7 @@
         "aoc",
         "proof"
       ],
-      "body": "SW-6 proved part 1 for all inputs (part1Correct against part1Spec). Part 2 remains: its inclusion-exclusion (Möbius weights) isn't proved even against the block walk; repeatedTwice would need generalising to n copies. Only cross-checked by the brute-force test.\n\n20 Oct 2026: Matt asked for a feasibility study first: can we practically prove part 2's inclusion-exclusion? Opus lane writes a report (approach, lemmas needed, estimated size, blockers, language pain points), prototyping as needed.",
+      "body": "\u001b[43;30mWarning:\u001b[0m safe-chain is not available to protect you from installing malware. python3 will run without it.\nInstall safe-chain by using \u001b[36mnpm install -g @aikidosec/safe-chain\u001b[0m.",
       "created": "2026-10-19",
       "updated": "2026-10-20",
       "commits": []
@@ -2293,8 +2293,8 @@
       "id": 151,
       "title": "Std library stage 1: loader, name index, natives on load, library tests; move Sorting",
       "status": "doing",
-      "agent": "Sonnet",
-      "where": "worktree",
+      "agent": "Claude",
+      "where": "main",
       "labels": [
         "stdlib",
         "elab"
@@ -2302,7 +2302,10 @@
       "body": "Implements docs/proposals/std-library.md draft 2, stage 1 (§7), D58-D62 accepted by Matt 20 Oct 2026. Mechanism plus moving the Sorting section as the test case; gate additions: eager-vs-lazy comparison, duplicate-name index test, cross-file and dot-notation cycle tests, core-alone test. Measure: empty file, aoc check, examples bench, index cost, D58 core closure. Fixes SW-146.",
       "created": "2026-10-20",
       "updated": "2026-10-20",
-      "commits": []
+      "commits": [
+        "fc682a2",
+        "33f8367"
+      ]
     },
     {
       "id": 152,
