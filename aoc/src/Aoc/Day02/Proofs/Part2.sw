@@ -25,12 +25,13 @@
 --   Everything stays in natural numbers.
 
 namespace Aoc.Day02.Proofs
-import Aoc.Common (Range, rangeEnd)
+import Aoc.Common (Range)
+import Aoc.Common.Proofs (rangeEnd)
 import Aoc.Day02 (..)
 import Std (Eq)
 
 -- (1) n copies ------------------------------------------------------------
--- The twice* lemmas of Day02.sw, for any number of copies n >= 2.
+-- The twice* lemmas of Repeated.sw, for any number of copies n >= 2.
 
 -- The digits `p` written n times make `fromDigits p` written n times.
 theorem fromDigitsRep (p: List Nat): (n: Nat) -> Nat.fromDigits (List.concat (List.replicate n p)) = writeTimes (List.length p) (Nat.fromDigits p) n
