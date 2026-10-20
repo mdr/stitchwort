@@ -61,13 +61,54 @@ def Grid.round (grid: Grid): Grid :=
   let windows := Grid.zipWith Nat.add (Grid.zipWith Nat.add above sums) below
   Grid.zipWith (\roll window => if roll == 1 && 5 <= window then 1 else 0) grid windows
 
--- Remove accessible rolls until there are none. Every round that changes
--- something removes a roll, so as many rounds as there are rolls is enough.
-def Grid.settle (grid: Grid): Nat -> Grid
+-- Remove the accessible rolls of one row, given the rows above and below:
+-- add the three rows column by column, then walk along the row with each
+-- column's sum and its neighbours' (the window of 3 by 3 cells).
+def peelRow (above row below: List Nat): List Nat :=
+  peelCells 0 (List.zipWith3 (\a r b => a + r + b) above row below) row
+
+-- `left` is the column sum before the first of `columns`.
+def peelCells (left: Nat): List Nat -> List Nat -> List Nat
+  | Cons here columns, Cons roll rolls =>
+    let window := left + here + columns.headOr 0
+    Cons (if roll == 1 && 5 <= window then 1 else 0) (peelCells here columns rolls)
+  | _, _ => Nil
+-- A grid whose rows are marked with whether they changed in the last pass.
+type Marked = List (List Nat, Bool)
+
+-- Like `round`, but going down the grid, each row sees the row above it
+-- after its rolls were removed. Removing a roll never stops another from
+-- being accessible, so the end state is the same as with `round`, reached in
+-- fewer passes. A row is only looked at again when it or a neighbour changed
+-- since it was last looked at; the rest are passed over.
+def sweep (grid: Marked): Marked :=
+  let width := (grid.headOr ([], False)).fst.length
+  sweepFrom (List.replicate width 0) False grid
+
+-- `above` is the (already swept) row above the first row of the grid, and
+-- `aboveChanged` says whether this pass changed it.
+def sweepFrom (above: List Nat) (aboveChanged: Bool): Marked -> Marked
+  | Nil                   => Nil
+  | Cons (row, moved) rest =>
+    let (below, belowMoved) := rest.headOr (List.replicate row.length 0, False)
+    if moved || belowMoved || aboveChanged then
+      let swept := peelRow above row below
+      let changed := not (swept == row)
+      Cons (swept, changed) (sweepFrom swept changed rest)
+    else
+      Cons (row, False) (sweepFrom row False rest)
+
+-- Sweep until a pass changes nothing. Every pass that changes something
+-- removes a roll, so as many passes as there are rolls is enough.
+def Grid.settle (grid: Grid) (rolls: Nat): Grid :=
+  (settleMarked (grid.map (\row => (row, True))) rolls).map Pair.fst
+
+def settleMarked (grid: Marked): Nat -> Marked
   | Zero   => grid
   | Succ n =>
-    let next := grid.round
-    if next.rolls == grid.rolls then grid else next.settle n
+    let next := sweep grid
+    if next.any Pair.snd then settleMarked next n else next
+
 
 -- Each cell becomes the sum of itself and its left and right neighbours.
 def rowSums (row: List Nat): List Nat :=
