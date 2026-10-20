@@ -505,3 +505,28 @@ theorem Nat.powMono (b: Nat) (e: Nat) (f: Nat) (h: e <= f): Nat.pow (Succ b) e <
     (Nat.leMulPos (Nat.pow (Succ b) e) (Nat.pow (Succ b) (f - e)) (Nat.powSuccPos b (f - e)))
 
 theorem Nat.addTwo (n: Nat): n + 2 = Succ (Succ n) := rewrite Nat.addSucc n 1, Nat.addOne n
+
+-- `m == n` on numbers is `Nat.equal m n`, which computes one step at a time
+-- (`Succ m == Succ n` becomes `m == n` only through this).
+theorem Nat.decEqFromToBool (m: Nat) (n: Nat): (b: Bool) -> (h: Nat.equal m n = b) -> Decidable.toBool (Nat.decEqFrom m n b h) = b
+  | True,  h => rfl
+  | False, h => rfl
+
+theorem Nat.eqIsEqual: (m: Nat) -> (n: Nat) -> (m == n) = Nat.equal m n
+  | Zero,   Zero   => rfl
+  | Zero,   Succ n => rfl
+  | Succ m, Zero   => rfl
+  | Succ m, Succ n => Nat.decEqFromToBool (Succ m) (Succ n) (Nat.equal m n) rfl
+
+-- A number differs from every smaller one.
+theorem Nat.equalOfLess: (b: Nat) -> (v: Nat) -> b < v -> Nat.equal v b = False
+  | b,      Zero,   h => Void.exfalso (Bool.falseNotTrue h)
+  | Zero,   Succ v, h => rfl
+  | Succ b, Succ v, h => Nat.equalOfLess b v h
+
+-- A sum is 0 only when both terms are.
+theorem Nat.addEqZero: (a: Nat) -> (b: Nat) -> a + b = 0 -> And (a = 0) (b = 0)
+  | Zero,   b, h => Both rfl h
+  | Succ a, b, h => Void.exfalso (Nat.succNotZero (a + b) h)
+
+theorem Nat.eqIsEqualExample: (Succ 4 == Succ 2) = (4 == 2) := Eq.trans (Nat.eqIsEqual 5 3) (Eq.sym (Nat.eqIsEqual 4 2))

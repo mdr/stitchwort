@@ -1,48 +1,80 @@
--- Day 4 as the puzzle states it, cell by cell, for the proof in
--- Proofs/Part1.sw.
+-- Day 4 as the puzzle states it, position by position, for the proofs in
+-- Proofs/Part1.sw and Proofs/Part2.sw.
 --
 -- In plain words:
---   - The input's lines are the rows of a grid. A cell holds a roll of paper
---     when it is `@`; anything else is floor, and so is everything off the
---     grid.
+--   - The grid has `height` rows and `width` columns. What a position holds
+--     is a function from (row, column) to a cell, a roll or floor; off the
+--     grid, everything is floor.
 --   - "The forklifts can only access a roll of paper if there are fewer than
---     four rolls of paper in the eight adjacent positions": a roll is
---     accessible when fewer than 4 of the 8 cells around it hold rolls.
+--     four rolls of paper in the eight adjacent positions": a position's
+--     neighbours are the other positions whose row and column each differ
+--     from its own by at most 1, and a roll is accessible when fewer than 4
+--     of them hold rolls.
 --   - Part 1 counts the accessible rolls.
+--   - Part 2: "Once a roll of paper can be accessed by a forklift, it can be
+--     removed. Once a roll of paper is removed, the forklifts might be able
+--     to access more rolls of paper": remove the accessible rolls (all at
+--     once, a round), and repeat until none is accessible. Count the rolls
+--     removed. Each round that changes anything removes a roll, so as many
+--     rounds as there are rolls are enough; Proofs/Core.sw proves that no
+--     roll is accessible after them (`roundsStable`).
 --
--- The grid is rectangular in the puzzle; the proof assumes it (all lines as
--- long as each other), and only that.
---
--- Shared with the program: `Cell` and `Cell.count` (a roll counts 1, floor 0)
--- and `parseChar` (`@` is a roll, anything else floor).
+-- Shared with the program: `Cell` and the grid's type, `Grid`.
 
 namespace Aoc.Day04.Proofs
 import Aoc.Day04 (..)
 
--- Row R, column C of the grid with an empty border around it: rows and
--- columns are counted from 1, and row 0 and column 0 (and everything past
--- the grid) are floor.
-def cellAt (lines: List Text) (row: Nat) (col: Nat): Cell :=
-  List.getOr Floor col (Cons Floor (List.getOr Nil row (Cons Nil (lines.map (line => line.toList.map parseChar)))))
+-- What each position holds, (row, column) -> cell.
+type Cells = Nat -> Nat -> Cell
 
--- 1 for a roll there, 0 for none.
-def rollAt (lines: List Text) (row: Nat) (col: Nat): Nat := (cellAt lines row col).count
+-- The grid's cells: row r (counted from 0, and a row of floor past the last),
+-- then cell c of it (floor past the last).
+def cellsOf (grid: Grid): Cells :=
+  r c => grid.rows |> Vec.toList |> List.getOr (Vec.replicate grid.width Floor) r |> Vec.toList |> List.getOr Floor c
 
--- How many of the eight cells around the cell in row r, column c (counted
--- from 0) hold rolls: the column to its left, the cells above and below it,
--- and the column to its right.
-def neighbours (lines: List Text) (r: Nat) (c: Nat): Nat :=
-  (rollAt lines r c + rollAt lines (r + 1) c + rollAt lines (r + 2) c) +
-    (rollAt lines r (c + 1) + rollAt lines (r + 2) (c + 1)) +
-    (rollAt lines r (c + 2) + rollAt lines (r + 1) (c + 2) + rollAt lines (r + 2) (c + 2))
+-- How many positions (r, c) of the grid satisfy `p`.
+def countPositions (grid: Grid) (p: Nat -> Nat -> Bool): Nat :=
+  List.range grid.height |> .sumBy (r => List.range grid.width |> .count (c => p r c))
 
--- The cell holds a roll that a forklift can access.
-def accessible (lines: List Text) (r: Nat) (c: Nat): Bool := cellAt lines (r + 1) (c + 1) == Roll && neighbours lines r c < 4
+-- Positions (r, c) and (r2, c2) are next to each other: different, with
+-- rows and columns each at most 1 apart.
+def adjacent (r: Nat) (c: Nat) (r2: Nat) (c2: Nat): Bool :=
+  Nat.absDiff r r2 <= 1 && Nat.absDiff c c2 <= 1 && not (r == r2 && c == c2)
 
--- Part 1: the accessible rolls, row by row.
-def part1Spec (lines: List Text): Nat :=
-  List.range lines.length |> .sumBy (r =>
-    List.range (List.getOr "" r lines).length |> .sumBy (c => if accessible lines r c then 1 else 0))
+-- How many positions next to (r, c) hold rolls.
+def neighbours (grid: Grid) (cells: Cells) (r: Nat) (c: Nat): Nat :=
+  countPositions grid (r2 c2 => adjacent r c r2 c2 && cells r2 c2 == Roll)
 
-test "spec on the example" := part1Spec example == 13
-test "spec cells" := (rollAt example 1 3, rollAt example 0 3, rollAt example 1 0, neighbours example 0 2, accessible example 0 2) == (1, 0, 0, 3, True)
+-- Position (r, c) holds a roll that a forklift can access.
+def accessible (grid: Grid) (cells: Cells) (r: Nat) (c: Nat): Bool :=
+  cells r c == Roll && neighbours grid cells r c < 4
+
+-- Part 1: the accessible rolls.
+def part1Spec (grid: Grid): Nat := countPositions grid (r c => accessible grid (cellsOf grid) r c)
+
+-- The rolls on the grid.
+def rollCount (grid: Grid) (cells: Cells): Nat := countPositions grid (r c => cells r c == Roll)
+
+-- One round: every accessible roll is removed, all at once.
+def removeAccessible (grid: Grid) (cells: Cells): Cells :=
+  r c => if accessible grid cells r c then Floor else cells r c
+
+-- n rounds.
+def rounds (grid: Grid) (n: Nat) (cells: Cells): Cells :=
+  match n with
+    | Zero   => cells
+    | Succ k => rounds grid k (removeAccessible grid cells)
+
+-- Part 2: the rolls removed by as many rounds as there are rolls.
+def part2Spec (grid: Grid): Nat :=
+  let start := rollCount grid (cellsOf grid)
+  start - rollCount grid (rounds grid start (cellsOf grid))
+
+def exampleGrid: Grid := Maybe.withDefault ({ height = 0, width = 0, rows = VNil }: Grid) (parseGrid example)
+
+def plusGrid: Grid := Maybe.withDefault ({ height = 0, width = 0, rows = VNil }: Grid) (parseGrid [".@.", "@@@", ".@."])
+
+test "spec on the example" := part1Spec exampleGrid == 13
+test "spec cells" := ((cellsOf exampleGrid) 0 2, (cellsOf exampleGrid) 0 0, (cellsOf exampleGrid) 10 2, neighbours exampleGrid (cellsOf exampleGrid) 0 2) == (Roll, Floor, Floor, 3)
+test "adjacent" := adjacent 3 4 2 5 && adjacent 0 0 1 1 && not (adjacent 3 4 3 4) && not (adjacent 3 4 5 4)
+test "part 2 spec on a plus" := (part1Spec plusGrid, rollCount plusGrid (rounds plusGrid 1 (cellsOf plusGrid)), part2Spec plusGrid) == (4, 1, 5)

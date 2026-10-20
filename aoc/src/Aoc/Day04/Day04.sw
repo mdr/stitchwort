@@ -7,14 +7,17 @@
 --
 -- The puzzle input is committed in aoc/inputs/ (D119).
 --
--- The grid is a list of rows of cells, each a roll or floor. A roll's "window"
--- is the 3 by 3 block around it, itself included, so it is accessible when its
--- window holds fewer than 5 rolls. For each row, add it to the rows above and
--- below column by column, then walk along it with each column's sum and its
--- neighbours' (`peelRow`).
+-- The grid is a vector of rows, each a vector of cells (a roll or floor), so
+-- it is rectangular by its type; parsing refuses lines of different lengths.
+-- A roll's "window" is the 3 by 3 block around it, itself included, so it is
+-- accessible when its window holds fewer than 5 rolls. For each row, add it
+-- to the rows above and below column by column, then walk along it with each
+-- column's sum and its neighbours' (`peelRow`).
 --
--- Part 1 is proved right for every rectangular grid in `Aoc.Day04.Proofs`
--- (Proofs/Spec.sw, Proofs/Part1.sw), which `run` does not check.
+-- Both parts are proved right for every grid in `Aoc.Day04.Proofs`
+-- (Proofs/Spec.sw states the puzzle by positions; Proofs/Part1.sw and
+-- Proofs/Part2.sw; the parser in Proofs/Parse.sw), which `run` does not
+-- check.
 
 namespace Aoc.Day04
 
@@ -27,96 +30,112 @@ def Cell.count: Cell -> Nat
   | Roll  => 1
   | Floor => 0
 
-type Grid = List (List Cell)
+-- `height` rows of `width` cells each.
+type Grid = { height: Nat, width: Nat, rows: Vec (Vec Cell width) height }
 
 def main(): {IO} () :=
-  let grid := parseGrid (IO.readAllLines())
-  IO.print "Part 1: ${solvePart1 grid}"
-  IO.print "Part 2: ${solvePart2 grid}"
+  match parseGrid (IO.readAllLines()) with
+    | Nothing   => IO.print "The lines are not all the same length."
+    | Just grid =>
+      IO.print "Part 1: ${solvePart1 grid}"
+      IO.print "Part 2: ${solvePart2 grid}"
 
 -- Part 1: the rolls one round removes.
 def solvePart1 (grid: Grid): Nat := grid.rolls - grid.round.rolls
 
 -- Part 2: the rolls removed by rounds until none is accessible.
-def solvePart2 (grid: Grid): Nat := grid.rolls - (grid.settle grid.rolls).rolls
+def solvePart2 (grid: Grid): Nat := grid.rolls - grid.settle.rolls
 
 def example: List Text :=
   [ "..@@.@@@@.", "@@@.@.@.@@", "@@@@@.@.@@", "@.@@@@..@.", "@@.@@@@.@@",
     ".@@@@@@@.@", ".@.@.@.@@@", "@.@@@.@@@@", ".@@@@@@@@.", "@.@.@@@.@." ]
 
-test "example" := (solvePart1 (parseGrid example), solvePart2 (parseGrid example)) == (13, 43)
-test "lone roll" := (solvePart1 [[Roll]], solvePart2 [[Roll]]) == (1, 1)
-test "full square" := (solvePart1 [[Roll, Roll], [Roll, Roll]], solvePart2 [[Roll, Roll], [Roll, Roll]]) == (4, 4)
+-- Both answers for some lines, if they make a grid.
+def answers (lines: List Text): Maybe (Nat, Nat) := Maybe.map (grid => (solvePart1 grid, solvePart2 grid)) (parseGrid lines)
 
-def plus: Grid := [[Floor, Roll, Floor], [Roll, Roll, Roll], [Floor, Roll, Floor]]
+test "example" := answers example == Just (13, 43)
+test "lone roll" := answers ["@"] == Just (1, 1)
+test "full square" := answers ["@@", "@@"] == Just (4, 4)
+test "plus shape keeps its centre" := answers [".@.", "@@@", ".@."] == Just (4, 5)
+test "no lines" := answers [] == Just (0, 0)
+test "ragged" := answers ["@@", "@"] == Nothing
 
-test "plus shape keeps its centre" := (solvePart1 plus, solvePart2 plus) == (4, 5)
-
-def parseGrid (lines: List Text): Grid := lines.map parseLine
+-- `Nothing` if the lines are not all as long as the first.
+def parseGrid (lines: List Text): Maybe Grid :=
+  let width := (lines.headOr "").length
+  Vec.fromList lines
+    |> Vec.traverseMaybe (line => Vec.ofList width (parseLine line))
+    |> Maybe.map (rows => ({ height = lines.length, width, rows }: Grid))
 
 def parseLine (line: Text): List Cell := line.toList.map parseChar
 
 def parseChar (ch: Char): Cell := if ch == '@' then Roll else Floor
 
-def Grid.rolls (grid: Grid): Nat := grid |> .sumBy (row => row.sumBy Cell.count)
+def Grid.rolls (grid: Grid): Nat := grid.rows.sumBy (row => row.sumBy Cell.count)
 
-test "rolls" := (parseGrid example).rolls == 71
+test "rolls" := Maybe.map Grid.rolls (parseGrid example) == Just 71
 
 -- Remove every accessible roll, all at once: each row sees the rows above
 -- and below as they were.
 def Grid.round (grid: Grid): Grid :=
-  let gap := List.replicate ((grid.headOr []).length) Floor
-  roundFrom gap gap grid
+  let gap := Vec.replicate grid.width Floor
+  { grid | rows = roundFrom gap gap grid.rows }
 
 -- `above` is the row above the first of `rows`; `gap` stands for the missing
 -- row past the bottom.
-def roundFrom (gap above: List Cell): Grid -> Grid
-  | Nil           => Nil
-  | Cons row rest => Cons (peelRow above row (rest.headOr gap)) (roundFrom gap row rest)
+def roundFrom (gap above: Vec Cell w): Vec (Vec Cell w) h -> Vec (Vec Cell w) h
+  | VNil           => VNil
+  | VCons row rest => VCons (peelRow above row (rest.headOr gap)) (roundFrom gap row rest)
 
 -- Remove the accessible rolls of one row, given the rows above and below:
 -- add the three rows column by column, then walk along the row with each
 -- column's sum and its neighbours' (the window of 3 by 3 cells).
-def peelRow (above row below: List Cell): List Cell :=
-  peelCells 0 (List.zipWith3 (a r b => a.count + r.count + b.count) above row below) row
+def peelRow (above row below: Vec Cell w): Vec Cell w :=
+  peelCells 0 (Vec.zipWith3 (a r b => a.count + r.count + b.count) above row below) row
 
 -- `left` is the column sum before the first of `columns`.
-def peelCells (left: Nat): List Nat -> List Cell -> List Cell
-  | Cons here columns, Cons roll rolls =>
+def peelCells (left: Nat): Vec Nat w -> Vec Cell w -> Vec Cell w
+  | VNil,               VNil            => VNil
+  | VCons here columns, VCons roll rolls =>
     let window := left + here + columns.headOr 0
-    Cons (if roll == Roll && 5 <= window then Roll else Floor) (peelCells here columns rolls)
-  | _, _ => Nil
--- A grid whose rows are marked with whether they changed in the last pass.
-type Marked = List (List Cell, Bool)
+    VCons (if roll == Roll && 5 <= window then Roll else Floor) (peelCells here columns rolls)
+
+-- Rows marked with whether they changed in the last pass.
+type Marked (w h: Nat) = Vec (Vec Cell w, Bool) h
 
 -- Like `round`, but going down the grid, each row sees the row above it
 -- after its rolls were removed. Removing a roll never stops another from
 -- being accessible, so the end state is the same as with `round`, reached in
--- fewer passes. A row is only looked at again when it or a neighbour changed
--- since it was last looked at; the rest are passed over.
-def sweep (grid: Marked): Marked :=
-  let width := (grid.headOr ([], False)).fst.length
-  sweepFrom (List.replicate width Floor) False grid
+-- fewer passes. A row is only looked at again when it or the row below
+-- changed in the last pass, or the row above changed in this one; the rest
+-- are passed over.
+def sweep (grid: Marked w h): Marked w h :=
+  let gap := Vec.replicate w Floor
+  sweepFrom gap gap False grid
 
 -- `above` is the (already swept) row above the first row of the grid, and
 -- `aboveChanged` says whether this pass changed it.
-def sweepFrom (above: List Cell) (aboveChanged: Bool): Marked -> Marked
-  | Nil                   => Nil
-  | Cons (row, moved) rest =>
-    let (below, belowMoved) := rest.headOr (List.replicate row.length Floor, False)
-    if moved || belowMoved || aboveChanged then
-      let swept := peelRow above row below
-      let changed := not (swept == row)
-      Cons (swept, changed) (sweepFrom swept changed rest)
-    else
-      Cons (row, False) (sweepFrom row False rest)
+def sweepFrom (gap above: Vec Cell w) (aboveChanged: Bool): Marked w h -> Marked w h
+  | VNil                    => VNil
+  | VCons (row, moved) rest =>
+    let (below, belowMoved) := rest.headOr (gap, False)
+    let (swept, changed) := sweepRow above aboveChanged row moved below belowMoved
+    VCons (swept, changed) (sweepFrom gap swept changed rest)
+
+-- One row of a pass, and whether it changed: peeled if it or the row below
+-- changed in the last pass, or the row above in this one; else kept.
+def sweepRow (above: Vec Cell w) (aboveChanged: Bool) (row: Vec Cell w) (moved: Bool) (below: Vec Cell w) (belowMoved: Bool): (Vec Cell w, Bool) :=
+  if moved || belowMoved || aboveChanged then
+    let swept := peelRow above row below
+    (swept, not (swept.toList == row.toList))
+  else (row, False)
 
 -- Sweep until a pass changes nothing. Every pass that changes something
--- removes a roll, so as many passes as there are rolls is enough.
-def Grid.settle (grid: Grid) (rolls: Nat): Grid :=
-  (settleMarked (grid.map (row => (row, True))) rolls).map Pair.fst
+-- removes a roll, so as many passes as there are rolls are enough.
+def Grid.settle (grid: Grid): Grid :=
+  { grid | rows = Vec.map Pair.fst (settleMarked (grid.rows.map (row => (row, True))) grid.rolls) }
 
-def settleMarked (grid: Marked): Nat -> Marked
+def settleMarked (grid: Marked w h): Nat -> Marked w h
   | Zero   => grid
   | Succ n =>
     let next := sweep grid

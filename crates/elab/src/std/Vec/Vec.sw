@@ -89,11 +89,24 @@ def Vec.get: Vec a n -> Fin n -> a
 -- to be longer than 2, or with the proof passed by name.
 def Vec.getLt (v: Vec a n) (i: Nat) [auto ok: i < n]: a := Vec.get v (Fin.ofNatLt n i ok)
 
+-- Whether some element satisfies `p`.
+def Vec.any (p: a -> Bool): Vec a n -> Bool
+  | VNil       => False
+  | VCons x xs => p x || Vec.any p xs
+
 -- Lemmas: `toList`.
 
 theorem Vec.lengthToList: (v: Vec a n) -> List.length (Vec.toList v) = n
   | VNil       => rfl
   | VCons x xs => Eq.cong Succ (Vec.lengthToList xs)
+
+-- Vectors with the same list are equal (so `Vec.toList u == Vec.toList v`
+-- decides `u = v`).
+theorem Vec.toListInjective: (u: Vec a n) -> (v: Vec a n) -> Vec.toList u = Vec.toList v -> u = v
+  | VNil,       VNil,       h => rfl
+  | VCons x xs, VCons y ys, h =>
+    Eq.trans (Eq.cong (z => VCons z xs) (Eq.cong (List.headOr x) h))
+      (Eq.cong (VCons y) (Vec.toListInjective xs ys (Eq.cong List.tailOf h)))
 
 theorem Vec.toListFromListN: (n: Nat) -> (xs: List a) -> (ok: List.length xs = n) -> Vec.toList (Vec.fromListN n xs ok) = xs
   | Zero,   Nil,       _  => rfl
@@ -146,6 +159,22 @@ theorem Vec.sumByToList (f: a -> Nat) (v: Vec a n): Vec.sumBy f v = List.sumBy f
 
 theorem Vec.sumToList (v: Vec Nat n): Vec.sum v = List.sum (Vec.toList v) := Vec.foldLeftToList Nat.add 0 v
 
+-- What `traverseMaybe` accepts is `f` of each element.
+theorem Vec.traverseMaybeCons (f: a -> Maybe b) (x: a) (xs: Vec a n) (y: b) (ys: Vec b n): (m: Maybe b) -> f x = m ->
+    Vec.traverseMaybe f (VCons x xs) = Just (VCons y ys) -> And (f x = Just y) (Vec.traverseMaybe f xs = Just ys)
+  | Nothing, e, h =>
+    Void.exfalso (Maybe.nothingNotJust (VCons y ys)
+      (Eq.trans (Eq.cong (Maybe.andThen (z => Maybe.map (zs => VCons z zs) (Vec.traverseMaybe f xs))) (Eq.sym e)) h))
+  | Just z,  e, h =>
+    let parts := Vec.ofListCons z y ys (Vec.traverseMaybe f xs)
+      (Eq.trans (Eq.cong (Maybe.andThen (z => Maybe.map (zs => VCons z zs) (Vec.traverseMaybe f xs))) (Eq.sym e)) h)
+    Both (Eq.trans e (Eq.cong Just (And.left parts))) (And.right parts)
+
+theorem Vec.traverseMaybeGet (f: a -> Maybe b): (v: Vec a n) -> (out: Vec b n) -> Vec.traverseMaybe f v = Just out ->
+    (i: Fin n) -> f (Vec.get v i) = Just (Vec.get out i)
+  | VCons x xs, VCons y ys, h, FZero   => And.left (Vec.traverseMaybeCons f x xs y ys (f x) rfl h)
+  | VCons x xs, VCons y ys, h, FSucc i => Vec.traverseMaybeGet f xs ys (And.right (Vec.traverseMaybeCons f x xs y ys (f x) rfl h)) i
+
 -- Lemmas: `get`.
 
 -- `get` is `List.getOr` on the list, whatever the default.
@@ -171,6 +200,25 @@ theorem Vec.getZipWith3 (f: a -> b -> c -> d): (u: Vec a n) -> (v: Vec b n) -> (
   | VCons x xs, VCons y ys, VCons z zs, FZero   => rfl
   | VCons x xs, VCons y ys, VCons z zs, FSucc i => Vec.getZipWith3 f xs ys zs i
 
+-- `headOr` is index 0 of the list.
+theorem Vec.headOrToList (d: a): (v: Vec a n) -> Vec.headOr d v = List.getOr d 0 (Vec.toList v)
+  | VNil       => rfl
+  | VCons x xs => rfl
+
+-- `getOr` on the list of a `zipWith3`, at any index, with defaults that
+-- `f` maps to the default.
+theorem Vec.getOrZipWith3 (f: a -> b -> c -> r) (d1: a) (d2: b) (d3: c) (d: r) (hd: f d1 d2 d3 = d):
+    (u: Vec a n) -> (v: Vec b n) -> (w: Vec c n) -> (i: Nat) ->
+    List.getOr d i (Vec.toList (Vec.zipWith3 f u v w)) = f (List.getOr d1 i (Vec.toList u)) (List.getOr d2 i (Vec.toList v)) (List.getOr d3 i (Vec.toList w))
+  | VNil,       VNil,       VNil,       i      => Eq.sym hd
+  | VCons x xs, VCons y ys, VCons z zs, Zero   => rfl
+  | VCons x xs, VCons y ys, VCons z zs, Succ i => Vec.getOrZipWith3 f d1 d2 d3 d hd xs ys zs i
+
+-- `any` is the list's.
+theorem Vec.anyToList (p: a -> Bool): (v: Vec a n) -> Vec.any p v = List.any p (Vec.toList v)
+  | VNil       => rfl
+  | VCons x xs => Eq.cong (t => p x || t) (Vec.anyToList p xs)
+
 -- Vectors that agree at every position are equal.
 theorem Vec.ext: (u: Vec a n) -> (v: Vec a n) -> ((i: Fin n) -> Vec.get u i = Vec.get v i) -> u = v
   | VNil,       VNil,       h => rfl
@@ -193,4 +241,5 @@ test "ofList" := Maybe.map Vec.toList (Vec.ofList 2 [4, 5]) == Just [4, 5]
 test "ofList refuses another length" := Maybe.map Vec.toList (Vec.ofList 3 [4, 5]) == Nothing
 test "traverseMaybe" := Maybe.map Vec.toList (Vec.traverseMaybe (x => if x < 5 then Just (x + 1) else Nothing) Vec.example) == Just [2, 3, 4]
 test "traverseMaybe fails" := Maybe.map Vec.toList (Vec.traverseMaybe (x => if x < 3 then Just x else Nothing) Vec.example) == Nothing
+test "any" := Vec.any (x => x == 2) Vec.example && Bool.not (Vec.any (x => x == 4) Vec.example)
 test "get" := Vec.get Vec.example (FSucc FZero) == 2 && Vec.getLt Vec.example 0 == 1

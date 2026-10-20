@@ -276,12 +276,34 @@ theorem List.sumRangeCongr (f: Nat -> Nat) (g: Nat -> Nat): (c: Nat) -> (s: Nat)
         (Eq.trans (Eq.cong (t => g s + t) (List.sumRangeCongr f g c (Succ s) (x hx1 hx2 => h x (Nat.leTrans s (Succ s) x (Nat.leSucc s) hx1) (Nat.ltAddSucc s c x hx2))))
           (Eq.sym (List.sumByCons g s (List.rangeFrom c (Succ s))))))
 
+-- A sum over a run of numbers that is 0 has every term 0.
+theorem List.sumRangeZero (f: Nat -> Nat): (c: Nat) -> (s: Nat) -> List.sumBy f (List.rangeFrom c s) = 0 ->
+    (x: Nat) -> s <= x -> x < s + c -> f x = 0
+  | Zero,   s, h, x, h1, h2 => Void.exfalso (Nat.lessIrrefl x (Nat.leTrans (Succ x) s x (Nat.ltCongRight x (s + 0) s (Nat.addZero s) h2) h1))
+  | Succ c, s, h, x, h1, h2 =>
+    let parts := Nat.addEqZero (f s) (List.sumBy f (List.rangeFrom c (Succ s))) (Eq.trans (Eq.sym (List.sumByCons f s (List.rangeFrom c (Succ s)))) h)
+    match e: Nat.equal s x with
+      | True  => rewrite <- Nat.equalSound s x e in And.left parts
+      | False =>
+        List.sumRangeZero f c (Succ s) (And.right parts) x (Nat.leNeSucc s x h1 (Nat.equalFalse s x e)) (Nat.ltSuccAdd s c x h2)
+
 -- Sums over the ids of a run that pick out `y`.
 theorem List.sumRangeEq (y: Nat) (c: Nat) (s: Nat) (h1: s <= y) (h2: y < s + c): List.sumBy (x => Nat.keepIf x (y == x)) (List.rangeFrom c s) = y :=
   List.sumRangeOne (x => y == x) (x => x) y (Decidable.toBoolOf (Nat.decEq y y) rfl) (b h => Eq.sym (Decidable.toBoolSound (Nat.decEq y b) h)) c s h1 h2
 
 theorem List.sumRangeEqNone (y: Nat) (c: Nat) (s: Nat) (h: (x: Nat) -> s <= x -> x < s + c -> Not (y = x)): List.sumBy (x => Nat.keepIf x (y == x)) (List.rangeFrom c s) = 0 :=
   List.sumRangeNone (x => y == x) (x => x) c s (b h1 h2 => Decidable.toBoolOfNot (Nat.decEq y b) (h b h1 h2))
+
+-- A sum over 0, 1, …, n - 1 that picks out `v`: `g v`, which must be 0
+-- when `v` is past the end.
+theorem List.sumRangePick (g: Nat -> Nat) (n: Nat) (v: Nat) (hz: n <= v -> g v = 0):
+    List.sumBy (x => Nat.keepIf (g x) (Nat.equal v x)) (List.range n) = g v :=
+  match e: Nat.leq (Succ v) n with
+    | True  => List.sumRangeOne (x => Nat.equal v x) g v (Nat.equalRefl v) (b h => Eq.sym (Nat.equalSound v b h)) n 0 (Nat.zeroLe v) e
+    | False =>
+      rewrite hz (Nat.leqFalse (Succ v) n e) in
+        List.sumRangeNone (x => Nat.equal v x) g n 0
+          (b h1 h2 => Nat.equalOfLess b v (Nat.leTrans (Succ b) n v h2 (Nat.leqFalse (Succ v) n e)))
 
 -- `any` over a run of numbers: a witness out, a witness in.
 theorem List.anyRangeElim (q: Nat -> Bool) (goal: Prop): (c: Nat) -> (s: Nat) -> List.any q (List.rangeFrom c s) = True ->
@@ -522,6 +544,14 @@ theorem List.countFold (p: a -> Bool) (k: Nat): (xs: List a) ->
   | Cons x xs => Eq.trans (List.countFold p (Nat.succIf k (p x)) xs) (List.countStep (p x) k (List.occurrences p xs))
 
 theorem List.countOccurrences (p: a -> Bool) (xs: List a): List.count p xs = List.occurrences p xs := List.countFold p 0 xs
+
+theorem List.occurrencesSumBy (p: a -> Bool): (xs: List a) -> List.occurrences p xs = List.sumBy (x => Bool.toNat (p x)) xs
+  | Nil       => rfl
+  | Cons x xs => rewrite List.sumByCons (x => Bool.toNat (p x)) x xs, List.occurrencesSumBy p xs
+
+-- A count is a sum of 1s and 0s, so the sum lemmas apply to it.
+theorem List.countSumBy (p: a -> Bool) (xs: List a): List.count p xs = List.sumBy (x => Bool.toNat (p x)) xs :=
+  Eq.trans (List.countOccurrences p xs) (List.occurrencesSumBy p xs)
 
 theorem List.occurrencesAppend (p: a -> Bool): (xs: List a) -> (ys: List a) ->
     List.occurrences p (List.append xs ys) = List.occurrences p xs + List.occurrences p ys
