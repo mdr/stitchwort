@@ -157,6 +157,25 @@ def List.last: List a -> Maybe a
   | Cons x Nil         => Just x
   | Cons x (Cons y ys) => List.last (Cons y ys)
 
+-- The first element, or `Nothing` for an empty list.
+def List.head: List a -> Maybe a
+  | Nil       => Nothing
+  | Cons x xs => Just x
+
+theorem List.headExample: List.head [3, 4] = Just 3 := rfl
+
+theorem List.headEmpty: List.head (Nil: List Nat) = Nothing := rfl
+
+-- All but the last element (`Nil` for an empty list).
+def List.init: List a -> List a
+  | Nil                => Nil
+  | Cons x Nil         => Nil
+  | Cons x (Cons y ys) => Cons x (List.init (Cons y ys))
+
+theorem List.initExample: List.init [1, 2, 3] = [1, 2] := rfl
+
+theorem List.initEmpty: List.init (Nil: List Nat) = Nil := rfl
+
 -- Membership, given a decision for equality (as `List.decEq` takes).
 def List.elem (d: (x: a) -> (y: a) -> Decidable (x = y)) (z: a): List a -> Bool
   | Nil       => False

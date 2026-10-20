@@ -7,6 +7,15 @@ theorem Text.toFromList (cs: List Char): Text.toList (Text.fromList cs) = cs := 
 theorem Text.lengthAppend (a: Text) (b: Text):
   Text.length (Text.append a b) = Text.length a + Text.length b := List.lengthAppend (Text.toList a) (Text.toList b)
 
+-- `Text.padRight n c t` is `t` followed by enough copies of `c` to make it
+-- n characters long (it is `t` itself when that is already n long or longer).
+def Text.padRight (n: Nat) (c: Char) (t: Text): Text :=
+  Text.fromList (List.padRight n c (Text.toList t))
+
+theorem Text.padRightExample: Text.padRight 5 '.' "ab" = "ab..." := rfl
+
+theorem Text.padRightLongEnough: Text.padRight 1 '.' "ab" = "ab" := rfl
+
 def Text.less (a: Text) (b: Text): Bool := Ordering.isLess (Text.compare a b)
 
 -- Itself: so `"${t}"` works when `t` is already text.
