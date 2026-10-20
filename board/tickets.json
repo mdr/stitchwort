@@ -2582,9 +2582,9 @@
     {
       "id": 167,
       "title": "Print Nat * / % as operators in messages, like + and -",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "scratch clone (latest funlang-2026…); crates/core/src/pretty.rs",
       "labels": [
         "diagnostics"
       ],
