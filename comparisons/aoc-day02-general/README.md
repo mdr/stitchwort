@@ -7,6 +7,11 @@ directory proves part 2 for **every** input, in Lean 4 with the core library onl
 no Batteries). It is a prototype for the Stitchwort port, so the porting note below lists what
 Lean's core gave for free.
 
+**The port landed (SW-166, 20 October 2026):** `aoc/src/day02/part2proof.sw` now proves
+`part2Correct` with no hypothesis, following this prototype (664 lines, about 390 of them new,
+plus 176 lines of library; it checks in about 0.85 s). See docs/aoc-2025.md, "Part 2 for every
+input".
+
 ## How to check
 
 ```
