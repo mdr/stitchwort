@@ -1,5 +1,5 @@
 {
-  "next": 172,
+  "next": 173,
   "tickets": [
     {
       "id": 1,
@@ -2199,16 +2199,16 @@
     {
       "id": 144,
       "title": "Prelude: Nat.fromDigits (Nat.digits n) = n and List.get lemmas",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "worktree",
       "labels": [
         "stdlib",
         "proof"
       ],
       "body": "Day 6: couldn't prove a column's number reads back as itself (needs fromDigits∘digits) or cell-level transpose (needs List.get lemmas). Related: SW-65 (textToNat (natToText n)).",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-20",
       "commits": []
     },
     {
@@ -2657,6 +2657,21 @@
         "fb948ab",
         "66f9621"
       ]
+    },
+    {
+      "id": 172,
+      "title": "AoC day 6: end-to-end correctness proof for both parts (D108)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "worktree",
+      "labels": [
+        "aoc",
+        "proof"
+      ],
+      "body": "D108 (Matt, 20 Oct 2026): close day 6's gap. Today only grid-shape lemmas (Aoc.Day06.Proofs: paddedGridRectangular, columnsKeepEveryCell, blocksAreRuns, blocksKeepEveryColumn). Needs SW-144 (Nat.fromDigits (Nat.digits n) = n, List.get lemmas), a Char.digitValue round trip, a cell-level transposition lemma, and a puzzle-literal spec for both parts to prove against. Then day 4.",
+      "created": "2026-10-20",
+      "updated": "2026-10-20",
+      "commits": []
     }
   ]
 }
