@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: a record type can't be written here: `{` in a type starts an ability row
+   ╭─[ reject/record-after-arrow.sw:3:15 ]
+   │
+ 3 │ def f: Nat -> { name: Nat } := \_ => { name = 0 }
+   │               ┬  
+   │               ╰── this `{` starts an ability row
+   │ 
+   │ Note: anonymous record types aren't supported: give it a name with `type`, then write that name after `->`
+───╯

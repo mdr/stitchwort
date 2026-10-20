@@ -1173,6 +1173,17 @@ impl<'t> Parser<'t> {
     /// `{A, B args | e}`, `{e}` or `{}`.
     fn row(&mut self) -> Result<Row> {
         let start = self.expect(Tok::LBrace, "`{`")?.span;
+        if matches!(self.peek(), Some(Tok::Lower(_))) && self.peek_at(1) == Some(&Tok::Colon) {
+            return Err(Diagnostic::error(
+                "E-PARSE",
+                "a record type can't be written here: `{` in a type starts an ability row",
+            )
+            .with_label(start, "this `{` starts an ability row")
+            .with_note(
+                "anonymous record types aren't supported: give it a name with `type`, then write \
+                 that name after `->`",
+            ));
+        }
         let mut abilities = Vec::new();
         let mut tail = None;
         if self.peek() != Some(&Tok::RBrace) && self.peek() != Some(&Tok::Pipe) {
