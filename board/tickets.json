@@ -1,5 +1,5 @@
 {
-  "next": 167,
+  "next": 168,
   "tickets": [
     {
       "id": 1,
@@ -224,8 +224,8 @@
       "id": 15,
       "title": "Int polish: messages, wording and a wrong-row pointer",
       "status": "doing",
-      "agent": "DeepSeek",
-      "where": "/Users/matt/scratch/opencode/funlang-20261020-183054",
+      "agent": "Claude",
+      "where": "main",
       "labels": [
         "elab",
         "syntax"
@@ -2576,6 +2576,20 @@
         "0de820a",
         "d480354"
       ]
+    },
+    {
+      "id": 167,
+      "title": "Print Nat * / % as operators in messages, like + and -",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "Found by SW-15: crates/core/src/pretty.rs prints Nat.add/sub and Int arithmetic as infix, but Nat.mul/div/mod (Builtin::Mul/Div/Mod) as prefix calls. Add them to the infix table at Prec::Mul (SW-15 added that level). Mechanical: DeepSeek.",
+      "created": "2026-10-20",
+      "updated": "2026-10-20",
+      "commits": []
     }
   ]
 }
