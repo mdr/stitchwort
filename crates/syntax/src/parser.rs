@@ -3680,9 +3680,11 @@ mod tests {
         assert!(e.message.contains("only one namespace line"), "{e:?}");
         assert!(e.notes[0].contains("import from it"), "{e:?}");
         let e = parse_error("import List (map)\nnamespace A\n");
-        assert!(e.message.contains("goes at the top of the file"), "{e:?}");
+        assert_eq!(e.code, "E-NAMESPACE-NOT-FIRST", "{e:?}");
+        assert!(e.message.contains("must come first"), "{e:?}");
+        assert!(e.notes[0].contains("move `namespace A` to the top"), "{e:?}");
         let e = parse_error("def x: Nat := 1\nnamespace A\n");
-        assert!(e.message.contains("goes at the top of the file"), "{e:?}");
+        assert!(e.message.contains("must come first"), "{e:?}");
     }
 
     #[test]
