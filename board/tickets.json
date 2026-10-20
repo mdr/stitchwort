@@ -1785,15 +1785,15 @@
       "id": 117,
       "title": "Termination errors point at the whole definition when the body has no `match`",
       "status": "backlog",
-      "agent": "",
-      "where": "",
+      "agent": "Claude",
+      "where": "main",
       "labels": [
         "elab",
         "bug"
       ],
       "body": "mutual-recursion.md ~2092: for a recursive call in a body with no case tree (e.g. `def f n := ... f (n - 1)`) the E-TERMINATION error points at the whole definition instead of the call. Point at the offending call. Done: snapshot of the new location.",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-20",
       "commits": []
     },
     {
