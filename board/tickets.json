@@ -58,7 +58,7 @@
       "title": "Interfaces design note (Agda/Lean style, with independent review)",
       "status": "review",
       "agent": "Opus",
-      "where": "docs/proposals/interfaces.md draft 3; review closed, decisions accepted (D188); build not started",
+      "where": "stage 1 lane running (overnight)",
       "labels": [
         "design",
         "elab"
