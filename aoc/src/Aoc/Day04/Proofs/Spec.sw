@@ -13,16 +13,20 @@
 -- The grid is rectangular in the puzzle; the proof assumes it (all lines as
 -- long as each other), and only that.
 --
--- Shared with the program: `parseChar` (`@` is a roll, 1; anything else 0).
+-- Shared with the program: `Cell` and `Cell.count` (a roll counts 1, floor 0)
+-- and `parseChar` (`@` is a roll, anything else floor).
 
 namespace Aoc.Day04.Proofs
 import Aoc.Day04 (..)
 
 -- Row R, column C of the grid with an empty border around it: rows and
 -- columns are counted from 1, and row 0 and column 0 (and everything past
--- the grid) hold no roll. 1 for a roll, 0 for none.
-def rollAt (lines: List Text) (row: Nat) (col: Nat): Nat :=
-  List.getOr 0 col (Cons 0 (List.getOr Nil row (Cons Nil (lines.map (line => line.toList.map parseChar)))))
+-- the grid) are floor.
+def cellAt (lines: List Text) (row: Nat) (col: Nat): Cell :=
+  List.getOr Floor col (Cons Floor (List.getOr Nil row (Cons Nil (lines.map (line => line.toList.map parseChar)))))
+
+-- 1 for a roll there, 0 for none.
+def rollAt (lines: List Text) (row: Nat) (col: Nat): Nat := (cellAt lines row col).count
 
 -- How many of the eight cells around the cell in row r, column c (counted
 -- from 0) hold rolls: the column to its left, the cells above and below it,
@@ -33,7 +37,7 @@ def neighbours (lines: List Text) (r: Nat) (c: Nat): Nat :=
     (rollAt lines r (c + 2) + rollAt lines (r + 1) (c + 2) + rollAt lines (r + 2) (c + 2))
 
 -- The cell holds a roll that a forklift can access.
-def accessible (lines: List Text) (r: Nat) (c: Nat): Bool := rollAt lines (r + 1) (c + 1) == 1 && neighbours lines r c < 4
+def accessible (lines: List Text) (r: Nat) (c: Nat): Bool := cellAt lines (r + 1) (c + 1) == Roll && neighbours lines r c < 4
 
 -- Part 1: the accessible rolls, row by row.
 def part1Spec (lines: List Text): Nat :=
