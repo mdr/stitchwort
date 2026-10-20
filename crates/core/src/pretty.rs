@@ -398,6 +398,9 @@ impl<'g> Printer<'g> {
                     let infix = match self.g.registry.def_builtin(*id) {
                         Some(Builtin::Add) => Some(("+", Prec::Add)),
                         Some(Builtin::Sub) => Some(("-", Prec::Add)),
+                        Some(Builtin::Mul) => Some(("*", Prec::Mul)),
+                        Some(Builtin::Div) => Some(("/", Prec::Mul)),
+                        Some(Builtin::Mod) => Some(("%", Prec::Mul)),
                         Some(Builtin::IntAdd) => Some(("+", Prec::Add)),
                         Some(Builtin::IntSub) => Some(("-", Prec::Add)),
                         Some(Builtin::IntMul) => Some(("*", Prec::Mul)),
