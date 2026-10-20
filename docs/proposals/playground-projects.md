@@ -1,15 +1,34 @@
 # Proposal: projects in the playground
 
-**Status:** draft 1, 20 October 2026 (SW-133). Design only: nothing is
-built. Decisions for Matt are D109 to D116 ([§10](#10-decisions-for-matt)),
-each with a recommended answer. The goal is Matt's (D105/D106): make the
-Advent of Code project (`aoc/`) browsable, editable and runnable in the
-**local** playground (`web/serve.sh`). Shareable links are out of scope.
+**Status:** draft 2, 20 October 2026 (SW-133). Design only: nothing is
+built. Decisions for Matt are D109 to D116, D118 and D119
+([§11](#11-decisions-for-matt)), each with a recommended answer. The goal
+is Matt's (D105/D106): make the Advent of Code project (`aoc/`) browsable,
+editable and runnable in the **local** playground (`web/serve.sh`).
+Shareable links are out of scope. Matt would ultimately like to host the
+playground publicly as a static site (no server code), so the design must
+work there too ([§10](#10-hosting-as-a-static-site)).
+
+## Changes since draft 1
+
+1. **New §10, hosting as a static site**: what must hold, what in today's
+   page would need to change (the per-load cache-busting), download size
+   and caching, what gets published (and AoC's request not to publish
+   puzzle inputs or text), browser storage on a public origin, keeping
+   shareable links possible later, and where to host. New decisions D118
+   (where and when to host) and D119 (the example inputs).
+2. **Day 4 re-measured** after its speed-up: 4.9 s native, 6.8 s in
+   WebAssembly with the real input (was 17.0 s and 23.6 s). Every day now
+   fits under the 15 s run limit, so D113's reason changed (its answer
+   didn't).
+3. Decisions renumbered D109 to D116 (D108 was taken), as merged; the
+   decisions table is now §11. The project's size is corrected to about
+   160 KB (draft 1 said 100 KB, leaving out the example inputs).
 
 Claims are labelled **checked** (with a `file:line` or a source),
 **measured** (by me, numbers in [§7](#7-performance-and-limits)),
 **inferred** (reasoned from checked facts) or **unverified**. Code references
-are to commit `f58a061`.
+are to commit `f58a061` (§10 and the day 4 re-measurement: `1e60e6d`).
 
 ## Contents
 
@@ -23,7 +42,8 @@ are to commit `f58a061`.
 7. [Performance and limits](#7-performance-and-limits)
 8. [Browser tests](#8-browser-tests)
 9. [Stages](#9-stages)
-10. [Decisions for Matt](#10-decisions-for-matt)
+10. [Hosting as a static site](#10-hosting-as-a-static-site)
+11. [Decisions for Matt](#11-decisions-for-matt)
 - [Sources](#sources)
 
 ## 0. The short version
@@ -60,6 +80,11 @@ are to commit `f58a061`.
 - **Bundling**: `web/build.sh` copies `aoc/src/**/*.sw` and
   `aoc/examples/*.txt` under `web/pkg/projects/aoc/`, with a small
   `manifest.json` listing the files and the days.
+- **Hosting later as a static site** (§10) needs one change to today's
+  page: it fetches the compiler afresh on every visit (`?load=<time>`),
+  which a public site should replace with a content hash written by the
+  build. Everything else already uses relative URLs. Recommended: host
+  later, on GitHub Pages, as its own task (D118).
 
 ## 1. What exists today
 
@@ -128,7 +153,7 @@ New functions beside today's, which stay as they are for single files:
   its namespace is found by `namespace_of` (`project.rs:155`), as the CLI
   does.
 - **Each call is self-contained**: the page sends every file each time.
-  The project is about 100 KB, which costs nothing next to checking
+  The project is about 160 KB, which costs nothing next to checking
   (inferred). As today, `check_project`, `test_project` and
   `extract_project` share the most recent load, now keyed by the files
   *and* the targets, since the page asks Check then Tests for the same
@@ -325,7 +350,8 @@ web/pkg/projects/aoc/examples/day01.txt        … every example input
   is for. (D114.) A saved edit to a file the bundle no longer has is
   dropped, with a note in the banner.
 - **Space**: browsers allow about 5 MiB of `localStorage` per origin [M1];
-  the whole project is about 100 KB, so even a fully edited project fits.
+  the whole project is about 160 KB (its `.sw` files and example
+  inputs), so even a fully edited project fits.
   Writes are wrapped in `try`, as today's are (`index.html:592-594`).
 - **Single-file examples keep today's keys**, unchanged.
 - **No new, renamed or deleted files** in this version (D115). A new
@@ -366,8 +392,10 @@ native, 8.7 s WebAssembly.
 **Runs**, example input: 0.13 to 0.24 s in WebAssembly, printing the same
 answers as the CLI. With Matt's real puzzle inputs (read locally, not
 copied anywhere): days 1, 2, 3, 5, 6 take 0.2 to 1.3 s in WebAssembly;
-**day 4 takes 17.0 s native and 23.6 s in WebAssembly**, which the page's
-15 s run limit would stop.
+day 4 took 17.0 s native and 23.6 s in WebAssembly in draft 1. **Day 4 was
+sped up the same day: re-measured, it takes 4.9 s native and 6.8 s in
+WebAssembly**, well under the page's 15 s run limit (re-measured 20
+October 2026 at `1e60e6d`, same method; the other days were not re-run).
 
 **Memory**: after checking the whole project and every target in one
 instance, the WebAssembly memory had grown to 40 MiB (it never shrinks
@@ -383,9 +411,9 @@ while the worker lives). Native peak for checking everything: 86 MB.
   later step is to check the program first, then the proofs, so the
   program's errors show sooner.
 - Nothing hit the stack guard, which was my main worry for the proofs.
-- The limits stay: 60 s for checking and tests, 15 s for a run. Only day 4
-  with a real input exceeds them, and day 4's speed is being worked on
-  separately (the board's "day 4 performance"). (D113.)
+- The limits stay: 60 s for checking and tests, 15 s for a run. Every day,
+  real input included, now fits; the slowest run is day 4 at 6.8 s.
+  (D113.)
 
 ## 8. Browser tests
 
@@ -428,7 +456,174 @@ storage, as now:
 4. **Saved edits** (§6).
 5. **Browser tests** (§8), written alongside stages 3 and 4.
 
-## 10. Decisions for Matt
+## 10. Hosting as a static site
+
+Matt would ultimately like the playground on the public web as a **static
+site**: a folder of files served as they are, with no server code. Hosting
+is not part of this work; this section makes sure nothing here gets in its
+way, and lists what hosting itself would need. It covers the playground
+generally, not just projects.
+
+### 10.1 What must hold
+
+- **Every file is static.** The compiler already runs entirely in the
+  browser, and the page makes no requests of its own to a server
+  (checked: its only requests are the WebAssembly, the bindings, the
+  worker script and the font; `index.html:5-7`, `626`, `672`, `711`;
+  `playground-worker.js:23`). Projects add only static files: the manifest,
+  the `.sw` files and the example inputs (§5). No endpoint is needed.
+- **Every URL is relative**, so the site works under a path prefix such as
+  `https://mdr.github.io/stitchwort/`. Checked, today's page:
+
+  | Where | URL | Under a prefix? |
+  |---|---|---|
+  | `index.html:626` | `new URL("pkg/stitchwort_web_bg.wasm…", import.meta.url)` | yes: relative to the page |
+  | `index.html:672` | `new URL("playground-worker.js…", import.meta.url)` | yes |
+  | `index.html:711` | `import("./pkg/stitchwort_web.js…")` | yes |
+  | `playground-worker.js:23` | `import("./pkg/stitchwort_web.js…")` | yes: relative to the worker, which sits next to the page |
+  | `index.html:5-7` | Google Fonts, absolute `https://` | yes (a third party; see below) |
+
+  No absolute path (`/pkg/…`) and no `localhost` or `127.0.0.1` appears in
+  `index.html`, `playground-worker.js` or `build.sh` (checked by search).
+  The local addresses are only in `web/serve.sh`, which is for local use.
+  **New fetches for projects must follow the same rule**:
+  `new URL("pkg/projects/aoc/manifest.json", import.meta.url)`, and file
+  paths from the manifest joined onto the manifest's own URL.
+- **The worker is a module worker from the same origin**
+  (`index.html:672`), which any static host gives (inferred: the worker
+  script is served from the same site as the page).
+- **The WebAssembly's content type doesn't matter**: the page downloads the
+  bytes and then compiles them (`WebAssembly.compile` on an
+  `ArrayBuffer`, `index.html:626-628`), which works whatever type the
+  server gives; only streaming compilation needs `application/wasm`
+  (inferred from the standard; unverified on every host). GitHub Pages
+  does send `application/wasm` (checked with `curl -I` on a `.wasm` file
+  on `mdn.github.io`, 20 October 2026).
+- **One thing to change: cache-busting.** Each page load adds
+  `?load=<current time>` to the compiler's URLs (`index.html:623-628`), so
+  that a browser never mixes an old worker with a new bundle. Locally,
+  `serve.sh` also turns caching off. On a public site this would make
+  every visit download the whole compiler again. §10.2 replaces it.
+- **Not published**: `web/serve.sh`, and the stress page
+  (`web/stress.html`, `stress-worker.js`) unless wanted. The `playground`
+  package in `flake.nix` already copies only `index.html`, the worker and
+  `pkg/` (`flake.nix:104-112`).
+- **The font** comes from Google Fonts. That's allowed on a static site,
+  but each visitor's browser contacts Google. Copying the font files into
+  the site would avoid it; optional.
+
+### 10.2 Download size and caching
+
+- **Sizes, measured at `1e60e6d`**: the WebAssembly is 2.63 MB (2.79 MB
+  with the project functions, §2.2), 0.96 MB gzipped at level 9; the
+  bindings 12 KB; the AoC project about 160 KB before compression.
+- **Compression is up to the host.** GitHub Pages gzips HTML (checked with
+  `curl -I`, `content-encoding: gzip`); whether it compresses `.wasm` is
+  **unverified** (the small `.wasm` file I checked came back uncompressed,
+  which may only be because it was 83 bytes). Uncompressed, a first visit
+  downloads about 2.8 MB; that's acceptable, but worth checking when
+  hosting.
+- **Caching by content hash.** The build writes `pkg/version.json` with a
+  hash of the compiler's files (the WebAssembly, the bindings and the
+  worker script). The page fetches it first with `cache: "no-cache"`
+  (always asking the server whether it changed, which costs one small
+  request), then uses `?v=<hash>` where today it uses `?load=<time>`. The
+  worker already passes its own query on to the bindings
+  (`playground-worker.js:23`), so it keeps working unchanged. A browser
+  then reuses the compiler until a build changes it, and still never mixes
+  versions. GitHub Pages sends `cache-control: max-age=600` (checked with
+  `curl -I`), so without the hash a returning visitor could get a
+  ten-minute-old file next to a new one.
+- **The project files** get the same treatment: the manifest records each
+  file's hash, the page fetches each file with `?v=<its hash>`, and the
+  manifest itself with `cache: "no-cache"`. The same hash is the "edited
+  from" hash of a saved edit (§6), so when a bundled file changes, the
+  page both downloads the new one and knows to show the D114 banner.
+- Renaming the files themselves by hash (`stitchwort_web_bg.3f9a….wasm`)
+  would work too, but wasm-bindgen's generated bindings name the
+  WebAssembly file, so it's more to rewrite; the query string is enough.
+
+### 10.3 What is published
+
+- **Published**: the compiler, the page, `aoc/src/**/*.sw` (already public
+  in the repository) and `aoc/examples/*.txt`.
+- **Never published: `aoc/inputs/`.** Guards, at build time:
+  - the build copies only `aoc/src/**/*.sw` and `aoc/examples/*.txt`, by
+    those patterns, never the whole `aoc/` folder;
+  - the build stops with an error if any path it would bundle contains
+    `inputs/`, or if the manifest names a file outside `src/` and
+    `examples/`;
+  - the Nix build reads only files Git tracks, and `aoc/inputs/` is in
+    `.gitignore`, so the published `result-playground` can't contain them
+    (inferred from how flakes copy a Git repository; the `playground`
+    package should also list its AoC files explicitly, as the removed
+    `aocSrc` did before `32cb955`);
+  - browser test 10 (§8) checks that `pkg/projects/aoc/inputs/` isn't
+    served.
+- **AoC's request.** The Advent of Code FAQ says (checked, [A1]): "Advent
+  of Code is free to *use*, not free to copy", and "If you're posting a
+  code repository somewhere, please don't include parts of Advent of Code
+  like the puzzle text or your inputs." The real inputs are covered by the
+  guards above.
+- **The example inputs are copied from the puzzle text**, so on a strict
+  reading of that FAQ they are "parts of Advent of Code". The FAQ doesn't
+  single them out. A community FAQ on Reddit suggests using the puzzle's
+  sample inputs for tests instead of real inputs [A2] (not an official
+  source; unverified as the author's view). They're already public in the
+  repository (`aoc/examples/`, and in the code: `def example …` in each
+  `DayNN.sw`), so the playground adds no new exposure; but if Matt wants
+  to follow the FAQ strictly, the repository is the place to change it,
+  not just the playground. Options: keep them (common practice, small
+  excerpts); or replace each with a made-up input of the same shape, with
+  the expected answers worked out by the program. (D119.)
+- The FAQ also asks that a website not "look like Advent of Code or [be
+  named] something similar" [A1]. A dropdown group titled "Advent of Code
+  2025" in a playground that looks nothing like it is a reference, not a
+  look-alike (inferred; Matt's call).
+
+### 10.4 Browser storage on a public origin
+
+- `localStorage` belongs to an **origin** (scheme, host and port). On
+  GitHub Pages, every project site of one account shares the origin
+  `https://mdr.github.io`, so another of Matt's project sites there could
+  read the playground's saved edits (inferred from the same-origin rule;
+  harmless here, since nothing secret is stored). A custom domain would
+  give the playground an origin of its own.
+- Saved edits **survive updates** of the site, since the origin doesn't
+  change. That's what the D114 banner is for: after an update changes a
+  bundled file the visitor had edited, they keep their edit and are
+  offered the new version (§6). The test cache survives too and stays
+  correct, because its keys include the compiler's fingerprint
+  (multi-file.md §8.2).
+- Storage is per browser, per device: nothing is shared between
+  visitors, and a browser may clear it. Keys keep their `stitchwort.`
+  prefix, so they can't collide with other sites on a shared origin.
+
+### 10.5 Shareable links, later
+
+Out of scope (D105), but nothing here prevents them. The state worth
+sharing is small and already plain data: the project name, the chosen day,
+the edited files (path to text) and the Run input. A later link could put
+that, compressed, in the part of the URL after `#`, which browsers never
+send to the server, so it works on a static host. To keep that possible:
+keep the saved state as such plain data (§6), and don't make the page
+depend on anything that exists only in one browser.
+
+### 10.6 Where to host
+
+- **GitHub Pages** fits: it serves a folder of static files, can be
+  published from a GitHub Actions workflow, and the repository is already
+  on GitHub (`mdr/stitchwort`). The folder would be the Nix build's
+  output, `nix build .#playground` (`result-playground` locally), with the
+  projects bundle added (§5). Others (Netlify, Cloudflare Pages) would
+  serve the same folder; none needs anything this design doesn't provide.
+- **Recommended: later, on GitHub Pages, as its own task (D118)**, after
+  the projects work. That task would: switch to content-hash caching
+  (§10.2), check `.wasm` compression on the real site, add a workflow
+  that builds `.#playground` and publishes it, and decide about the font.
+  This is a recommendation, not a commitment.
+
+## 11. Decisions for Matt
 
 | ID | Question | Recommended answer |
 |---|---|---|
@@ -436,12 +631,33 @@ storage, as now:
 | D110 | How are a project's files shown? | Tabs for the chosen day's files (its namespaces and what they use), plus an "Other files" list; not a file tree or a single file dropdown (§3.2) |
 | D111 | Are proofs checked as you type, or on demand? | As you type: the day's program and proofs together (1.1 s at worst, measured), plus a "Check every day" button for the whole project |
 | D112 | Does the WebAssembly read `stitchwort.yaml`? | No: it gets the `.sw` files; the build step refuses anything but `sources: [src]` (saves 0.75 MB of WebAssembly) |
-| D113 | Change the 15 s run limit for real puzzle inputs? | No: only day 4 with a real input exceeds it (23.6 s), and day 4 is being sped up separately |
+| D113 | Change the 15 s run limit for real puzzle inputs? | No: every day fits with its real input; the slowest, day 4, takes 6.8 s in WebAssembly since its speed-up (measured) |
 | D114 | A saved edit when the bundled file changes? | Keep the edit, show a banner offering the new version; no merging |
 | D115 | Scope of the first version | No adding, renaming or deleting files; Evaluate takes full names (`Aoc.Day02.solvePart1 …`); short names in the open file's namespace later |
 | D116 | Is this designed only for `aoc/`? | Build it for any project listed in the build step, but bundle only `aoc/` for now; the day list is AoC-specific (from the folder layout), other projects would list their `main`s |
+| D118 | Where and when to host the playground publicly? | Later, on GitHub Pages, as its own task after the projects work (§10.6); this design keeps everything static and relative so nothing blocks it |
+| D119 | Keep the example inputs (copied from the puzzle text) in the repository and the bundle? | Keep them: they're already public in the repository, small, and the usual practice; the real inputs are never bundled. If you'd rather follow AoC's FAQ strictly, replace them with made-up inputs in the repository first (§10.3) |
 
 ## Sources
+
+- [A1] Advent of Code 2025, "About", FAQ "Can I copy/redistribute part of
+  Advent of Code?": https://adventofcode.com/2025/about ("Please don't.
+  Advent of Code is free to *use*, not free to copy."; "If you're posting
+  a code repository somewhere, please don't include parts of Advent of
+  Code like the puzzle text or your inputs."; "If you're making a website,
+  please don't make it look like Advent of Code or name it something
+  similar."). Checked 20 October 2026.
+- [A2] r/adventofcode community wiki, "Puzzle Inputs" (via a mirror):
+  https://red.127.pp.ua/r/adventofcode/wiki/faqs/copyright/inputs
+  (don't share puzzle inputs publicly; use sample inputs from the puzzle
+  statements or made-up cases for tests). Community-written, seen only
+  through a search summary; unverified.
+- [P1] GitHub Pages response headers, checked with `curl -I` on
+  `https://mdn.github.io/webassembly-examples/js-api-examples/simple.wasm`
+  (`content-type: application/wasm`, `cache-control: max-age=600`, no
+  compression) and `https://mdn.github.io/webassembly-examples/`
+  (`content-encoding: gzip`, `cache-control: max-age=600`), 20 October
+  2026.
 
 - [G1] Go playground, "support multiple input files in txtar format":
   https://go.googlesource.com/playground/+/a7b4d4c4bb72efd2ec20c9f30d5c1e6f09cee3d2%5E%21/
