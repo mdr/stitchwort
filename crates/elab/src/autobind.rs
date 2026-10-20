@@ -85,7 +85,8 @@ pub fn auto_bound_in(e: &Elaborator, ty: &Expr, mut bound: Vec<String>) -> Resul
         let all_types = uses
             .iter()
             .filter(|u| u.name.text == name.text)
-            .all(|u| u.position != Position::Value);
+            .all(|u| u.position != Position::Value)
+            || (uses.iter()).any(|u| u.name.text == name.text && u.position == Position::Index);
         let found = if use_.module {
             &mut shadowing
         } else {
@@ -120,11 +121,12 @@ struct Use {
 enum Position {
     /// Where a type is expected.
     Type,
-    /// The whole argument of a type for a parameter that's a value, or
-    /// anywhere in an index of an indexed family (`Vec a (Succ n)`; uses in
-    /// indices never count against a name, docs/proposals/indexed-families.md
-    /// §7.1).
+    /// The whole argument of a type for a parameter that's a value.
     ValueArg,
+    /// In an index of an indexed family (`Vec a (Succ n)`): it binds the
+    /// name whatever its other uses are, since a variable in an index is
+    /// almost always meant as one (docs/proposals/indexed-families.md §7).
+    Index,
     /// Anywhere else.
     Value,
 }
@@ -177,7 +179,7 @@ fn walk_index(
 ) -> Result<()> {
     e.globals.budget.nesting(crate::check::PASS)?;
     match expr {
-        Expr::Var(_) => walk_at(e, expr, bound, Position::ValueArg, uses),
+        Expr::Var(_) => walk_at(e, expr, bound, Position::Index, uses),
         Expr::App(a, b) | Expr::Binary(_, a, b) => {
             walk_index(e, a, bound, uses)?;
             walk_index(e, b, bound, uses)

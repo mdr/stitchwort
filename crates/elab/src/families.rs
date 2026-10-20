@@ -3,14 +3,20 @@
 //! (`[n: Nat]`) or automatic (an unknown lowercase name in a constructor of
 //! an indexed family, D144).
 
+use std::borrow::Cow;
+use std::rc::Rc;
+
 use stitchwort_core::check as kernel;
-use stitchwort_core::value::force;
-use stitchwort_core::{DataId, Name, Term, Value, pretty};
-use stitchwort_syntax::ast::{self, Expr};
+use stitchwort_core::registry::Builtin;
+use stitchwort_core::term::Branch;
+use stitchwort_core::unify_index::{Constraint, Outcome, Reason, Scope, unify};
+use stitchwort_core::value::{Elim, Head, eval, force, quote};
+use stitchwort_core::{DataId, Name, Sort, Term, Value, pretty};
+use stitchwort_syntax::ast::{self, Expr, Pattern};
 use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::check::{Ctx, check_type};
-use crate::{Elaborator, Result, autobind, error, name};
+use crate::{Elaborator, Pat, Result, Tree, autobind, check_tree, error, name};
 
 impl Elaborator {
     /// Elaborates constructor `ctor` of data type `d`, which has indices, a
@@ -290,4 +296,438 @@ fn orders(n: usize) -> Vec<Vec<usize>> {
         current[i..].reverse();
     }
     out
+}
+
+// Matching (docs/proposals/indexed-families.md §7.3)
+
+impl Elaborator {
+    /// The patterns for every field of constructor `c` of `d`, from a
+    /// constructor pattern's arguments `args`: positional ones for the
+    /// explicit fields, in order, `[n := p]` for implicit field `n`, and
+    /// `_` for the implicit fields not named. Adding an implicit field
+    /// never shifts a pattern (D146).
+    pub(crate) fn ctor_pattern_args<'a>(
+        &self,
+        d: DataId,
+        c: usize,
+        args: Vec<Pat<'a>>,
+        span: Span,
+    ) -> Result<Vec<Pat<'a>>> {
+        let ctor = &self.globals.data(d).ctors[c];
+        let k = ctor.fields.len();
+        let implicit: Vec<bool> = (0..k)
+            .map(|i| ctor.implicit.get(i).copied().unwrap_or(false))
+            .collect();
+        let explicit = implicit.iter().filter(|i| !**i).count();
+        let mut out: Vec<Option<Pat<'a>>> = vec![None; k];
+        let mut positional = Vec::new();
+        for arg in args {
+            let (field, inner) = match &arg {
+                Cow::Borrowed(Pattern::Named(n, p, _)) => (n, Cow::Borrowed(&**p)),
+                Cow::Owned(Pattern::Named(n, p, _)) => (n, Cow::Owned((**p).clone())),
+                _ => {
+                    positional.push(arg);
+                    continue;
+                }
+            };
+            let Some(i) = (0..k).find(|&i| implicit[i] && *ctor.fields[i].0 == *field.text) else {
+                return Err(error(
+                    "E-UNKNOWN-NAME",
+                    field.span,
+                    format!("`{}` has no implicit field `{}`", ctor.name, field.text),
+                ));
+            };
+            if out[i].replace(inner).is_some() {
+                return Err(error(
+                    "E-DUPLICATE",
+                    field.span,
+                    format!("the field `{}` is matched twice", field.text),
+                ));
+            }
+        }
+        if positional.len() != explicit {
+            let mut e = error(
+                "E-ARITY",
+                span,
+                format!(
+                    "`{}` has {explicit} fields, but this pattern has {}",
+                    ctor.name,
+                    positional.len()
+                ),
+            );
+            if explicit != k {
+                e = e.with_note(
+                    "implicit fields are skipped in a pattern; match one by name with `[n := p]`",
+                );
+            }
+            return Err(e);
+        }
+        let mut positional = positional.into_iter();
+        Ok(out
+            .into_iter()
+            .enumerate()
+            .map(|(i, p)| match p {
+                Some(p) => p,
+                None if implicit[i] => Cow::Owned(Pattern::Wildcard(span)),
+                None => positional.next().expect("one per explicit field"),
+            })
+            .collect())
+    }
+}
+
+/// The arms of the definition being checked that a case dropped (each with
+/// why) and those it reached (see `Elaborator::arm_reach`).
+#[derive(Default)]
+pub(crate) struct ArmReach {
+    dropped: Vec<(Span, String)>,
+    reached: Vec<Span>,
+}
+
+/// Records that the arm at `span` is reached.
+pub(crate) fn reached(cx: &Ctx, span: Span) {
+    cx.e.arm_reach.borrow_mut().reached.push(span);
+}
+
+/// Runs `f`, which checks a compiled pattern match, then warns
+/// (`W-UNREACHABLE`) about each arm a case dropped because its constructor
+/// can't be there, and that no other branch reached. An arm that's dropped
+/// isn't checked, so it may not even be well typed.
+pub(crate) fn warn_unreachable<T>(
+    cx: &mut Ctx,
+    f: impl FnOnce(&mut Ctx) -> Result<T>,
+) -> Result<T> {
+    let saved = cx.e.arm_reach.take();
+    let result = f(cx);
+    let here = cx.e.arm_reach.replace(saved);
+    if result.is_ok() {
+        let mut warnings = cx.e.lambda_warnings.borrow_mut();
+        for (span, why) in here.dropped {
+            let warned =
+                (warnings.iter()).any(|w| w.labels.first().is_some_and(|l| l.span == span));
+            if here.reached.contains(&span) || warned {
+                continue;
+            }
+            warnings.push(
+                Diagnostic::warning("W-UNREACHABLE", "this arm can never match")
+                    .with_label(span, why),
+            );
+        }
+    }
+    result
+}
+
+/// The spans of the arms a compiled match's leaves come from.
+fn leaf_spans(tree: &Tree, out: &mut Vec<Span>) {
+    match tree {
+        Tree::Leaf { span, .. } => out.push(*span),
+        Tree::Absurd { .. } | Tree::Missing { .. } => {}
+        Tree::Case { branches, .. } => branches.iter().for_each(|(_, t)| leaf_spans(t, out)),
+        Tree::NumCase { arms, default, .. } => {
+            arms.iter().for_each(|(_, t)| leaf_spans(t, out));
+            leaf_spans(default, out);
+        }
+    }
+}
+
+/// A case on variable `x`, of the indexed family `d` applied to `args`
+/// (docs/proposals/indexed-families.md §6.3, §7.3). In each branch, the
+/// constructor's result indices are unified with `args`' by the kernel's
+/// unifier (`unify_index`, D149): a conflict makes the branch impossible
+/// (its arms are dropped, with `W-UNREACHABLE` if never reached otherwise),
+/// a stuck problem is `E-INDEX-STUCK`, and a solution refines the context
+/// and the goal, as the kernel will. A constructor no arm matches is
+/// accepted if it's impossible, or if one of the variables still to be
+/// matched has a type whose every constructor is: the branch is then a case
+/// on it with no possible branch.
+pub(crate) fn check_case(
+    cx: &mut Ctx,
+    x: usize,
+    d: DataId,
+    args: &[Value],
+    branches: &[(Vec<Name>, Tree)],
+    goal_term: &Term,
+    span: Span,
+) -> Result<Term> {
+    let mut out = Vec::new();
+    let scrutinee = cx.show(&Value::Data(d, args.to_vec()));
+    for (c, (names, subtree)) in branches.iter().enumerate() {
+        let mark = cx.mark();
+        let saved_env = cx.env.clone();
+        let saved_types = cx.types.clone();
+        let result = case_branch(
+            cx, x, d, c, args, names, subtree, goal_term, span, &scrutinee,
+        );
+        cx.reset(mark);
+        cx.env = saved_env;
+        cx.types = saved_types;
+        out.push(Branch {
+            names: names.clone(),
+            body: result?.map(Rc::new),
+        });
+    }
+    Ok(Term::Case(cx.level() - 1 - x, d, out.into()))
+}
+
+#[allow(clippy::too_many_arguments)]
+fn case_branch(
+    cx: &mut Ctx,
+    x: usize,
+    d: DataId,
+    c: usize,
+    args: &[Value],
+    names: &[Name],
+    subtree: &Tree,
+    goal_term: &Term,
+    span: Span,
+    scrutinee: &str,
+) -> Result<Option<Term>> {
+    let g = cx.g();
+    let ctor_name = g.data(d).ctors[c].name.clone();
+    let goal = eval(g, &cx.env, goal_term)?;
+    match enter(cx, x, d, c, args, names, goal)? {
+        Entered::Conflict(k) => {
+            if !matches!(subtree, Tree::Missing { .. }) {
+                let mut spans = Vec::new();
+                leaf_spans(subtree, &mut spans);
+                let why = format!(
+                    "`{ctor_name}` can't be here: {} has type `{scrutinee}`, and matching \
+                     `{ctor_name}` would need `{} = {}`",
+                    subject(cx, x),
+                    cx.show(&k.lhs),
+                    cx.show(&k.rhs)
+                );
+                let mut reach = cx.e.arm_reach.borrow_mut();
+                reach
+                    .dropped
+                    .extend(spans.into_iter().map(|s| (s, why.clone())));
+            }
+            Ok(None)
+        }
+        Entered::Stuck(k, reason) => {
+            Err(index_stuck(cx, x, &ctor_name, &k, &reason, span, scrutinee))
+        }
+        Entered::Solved(goal) => match subtree {
+            Tree::Missing { columns, span } => {
+                for &level in columns {
+                    if let Some(term) = empty_case(cx, level)? {
+                        return Ok(Some(term));
+                    }
+                }
+                let ctor = &g.data(d).ctors[c];
+                let example = std::iter::once(ctor.name.to_string())
+                    .chain(
+                        (0..ctor.fields.len())
+                            .filter(|&i| !ctor.implicit.get(i).copied().unwrap_or(false))
+                            .map(|_| "_".to_string()),
+                    )
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                Err(error(
+                    "E-NONEXHAUSTIVE",
+                    *span,
+                    format!("missing case: no arm matches `{example}`"),
+                )
+                .with_note(format!(
+                    "here {} has type `{scrutinee}`, and `{}` can be one",
+                    subject(cx, x),
+                    ctor.name
+                )))
+            }
+            tree => check_tree(cx, tree, &goal).map(Some),
+        },
+    }
+}
+
+/// What entering a branch found.
+enum Entered {
+    /// The branch is possible: this is its goal.
+    Solved(Value),
+    Conflict(Constraint),
+    Stuck(Constraint, Reason),
+}
+
+/// Enters the branch for constructor `c` of a case on `x`, of type `d`
+/// applied to `args`, as the kernel does (§6.3.4): binds the fields as
+/// `names`, unifies the result indices with the scrutinee's, and if that
+/// succeeds, substitutes `x := c fields` through the context and `goal`.
+/// The caller restores the context.
+#[allow(clippy::too_many_arguments)]
+fn enter(
+    cx: &mut Ctx,
+    x: usize,
+    d: DataId,
+    c: usize,
+    args: &[Value],
+    names: &[Name],
+    goal: Value,
+) -> Result<Entered> {
+    let g = cx.g();
+    let data = g.data(d);
+    let ctor = &data.ctors[c];
+    let (params, indices) = args.split_at(data.params.len());
+    let base = cx.level();
+    let mut field_env = params.to_vec();
+    for ((_, field_ty), name) in ctor.fields.iter().zip(names) {
+        let ty = eval(g, &field_env, field_ty)?;
+        field_env.push(Value::var(cx.level()));
+        cx.bind_hidden(name.clone(), ty);
+    }
+    let level = cx.level();
+    // The unifier compares with the kernel's conversion, which doesn't look
+    // inside solved metavariables: they're substituted first.
+    let identity: Vec<Value> = (0..level).map(Value::var).collect();
+    let solved = |v: &Value| -> Result<Value> { Ok(eval(g, &identity, &quote(g, level, v)?)?) };
+    let all = |vs: &[Value]| vs.iter().map(solved).collect::<Result<Vec<_>>>();
+    let result = (ctor.result.iter())
+        .map(|r| eval(g, &field_env, r))
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    let mut scope = Scope {
+        env: all(&cx.env)?,
+        types: all(&cx.types)?,
+        extra: vec![solved(&goal)?],
+        rigid: vec![x],
+    };
+    let outcome = unify(
+        g,
+        &mut scope,
+        &data.indices,
+        all(params)?,
+        all(indices)?,
+        all(&result)?,
+    )?;
+    match outcome {
+        Outcome::Solved(_) => {}
+        Outcome::Conflict(k) => return Ok(Entered::Conflict(k)),
+        Outcome::Stuck(k, reason) => return Ok(Entered::Stuck(k, reason)),
+    }
+    let goal = scope.extra.pop().expect("the goal");
+    let value = Value::Ctor(d, c, scope.env[base..].to_vec().into());
+    let mut env = kernel::substitute(g, level, x, &value, &scope.env[..base])?;
+    env[x] = value.clone();
+    env.extend_from_slice(&scope.env[base..]);
+    let mut types = kernel::substitute(g, level, x, &value, &scope.types[..base])?;
+    types.extend_from_slice(&scope.types[base..]);
+    let goal = kernel::substitute(g, level, x, &value, &[goal])?
+        .pop()
+        .expect("one value in, one out");
+    cx.env = env;
+    cx.types = types;
+    Ok(Entered::Solved(goal))
+}
+
+/// If the variable at `level` has an indexed family's type, every one of
+/// whose constructors conflicts with it: the case on it with every branch
+/// impossible. For `()`, and for a missing arm (§7.3).
+pub(crate) fn empty_case(cx: &mut Ctx, level: usize) -> Result<Option<Term>> {
+    let g = cx.g();
+    let Value::Data(d, args) = force(g, cx.types[level].clone())? else {
+        return Ok(None);
+    };
+    let data = g.data(d);
+    if data.indices.is_empty() {
+        return Ok(None);
+    }
+    let mut branches = Vec::new();
+    for (c, ctor) in data.ctors.iter().enumerate() {
+        let names: Vec<Name> = ctor.fields.iter().map(|(x, _)| x.clone()).collect();
+        let mark = cx.mark();
+        let saved_env = cx.env.clone();
+        let saved_types = cx.types.clone();
+        let entered = enter(cx, level, d, c, &args, &names, Value::Sort(Sort::Prop));
+        cx.reset(mark);
+        cx.env = saved_env;
+        cx.types = saved_types;
+        if !matches!(entered?, Entered::Conflict(_)) {
+            return Ok(None);
+        }
+        branches.push(Branch { names, body: None });
+    }
+    Ok(Some(Term::Case(cx.level() - 1 - level, d, branches.into())))
+}
+
+/// `E-INDEX-STUCK`, with hints for `n + 1` (D145).
+fn index_stuck(
+    cx: &Ctx,
+    x: usize,
+    ctor: &Name,
+    k: &Constraint,
+    reason: &Reason,
+    span: Span,
+    scrutinee: &str,
+) -> Diagnostic {
+    let (lhs, rhs) = (cx.show(&k.lhs), cx.show(&k.rhs));
+    let note = match reason {
+        Reason::NotConstructor => {
+            "matching works when each index is a variable or built from constructors".to_string()
+        }
+        Reason::TypeFormer => "types aren't taken apart by matching; matching works when the \
+                               index is a variable"
+            .to_string(),
+        Reason::Occurs => format!(
+            "solving `{lhs} = {rhs}` would make a variable contain itself (or its own type)"
+        ),
+        Reason::Proof => format!(
+            "they're proofs of `{}`, and matching never takes proofs apart",
+            cx.show(&k.ty)
+        ),
+        Reason::TypesDiffer { ty_right } => format!(
+            "their types, `{}` and `{}`, aren't known to be the same",
+            cx.show(&k.ty),
+            cx.show(ty_right)
+        ),
+    };
+    let d = Diagnostic::error(
+        "E-INDEX-STUCK",
+        format!("can't tell whether `{ctor}` can be here"),
+    )
+    .with_label(
+        span,
+        format!(
+            "{} has type `{scrutinee}`; matching `{ctor}` needs `{lhs} = {rhs}`",
+            subject(cx, x)
+        ),
+    );
+    // `a + k` with `a` unknown: on the constructor's side, declare `Succ a`;
+    // on the scrutinee's, match on `a` first.
+    if let Some((a, n)) = plus(cx, &k.rhs) {
+        d.with_note(format!(
+            "`+` counts down its first argument, so `{a} + {n}` doesn't compute while `{a}` is \
+             unknown. Declare `{ctor}` with `Succ {a}` (or `{n} + {a}`) instead"
+        ))
+    } else if let Some((a, _)) = plus(cx, &k.lhs) {
+        d.with_note(format!(
+            "`+` counts down its first argument, so this doesn't compute while `{a}` is \
+             unknown: match on `{a}` first"
+        ))
+    } else {
+        d.with_note(note)
+    }
+}
+
+/// How a message refers to the matched variable `x`: by its name, or as
+/// "the argument" if it has none.
+fn subject(cx: &Ctx, x: usize) -> String {
+    match &*cx.names[x] {
+        n if n == "_" || n.starts_with('%') => "the argument".to_string(),
+        n => format!("`{n}`"),
+    }
+}
+
+/// If `value` is `a + b` (the prelude's `Nat.add`) with `a` not a number:
+/// `a` and `b`, shown.
+fn plus(cx: &Ctx, value: &Value) -> Option<(String, String)> {
+    let g = cx.g();
+    let Value::Neutral(Head::Def(id), spine) = value else {
+        return None;
+    };
+    if !g.registry.is_def(Builtin::Add, *id) {
+        return None;
+    }
+    let [Elim::App(a, _), Elim::App(b, _)] = &spine[..] else {
+        return None;
+    };
+    if matches!(a, Value::Nat(_)) {
+        return None;
+    }
+    Some((cx.show(a), cx.show(b)))
 }

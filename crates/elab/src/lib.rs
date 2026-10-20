@@ -166,6 +166,11 @@ pub struct Elaborator {
     /// a shared reference to the elaborator is at hand. One per lambda
     /// (checking can reach the same lambda twice); drained with `warnings`.
     lambda_warnings: RefCell<Vec<Diagnostic>>,
+    /// Arms of the definition being checked that a case on an indexed family
+    /// dropped because their constructor can't be there, with a reason, and
+    /// the arms that were reached: those dropped and never reached are
+    /// `W-UNREACHABLE` (`families.rs`).
+    pub(crate) arm_reach: RefCell<families::ArmReach>,
     /// Above zero while an application is elaborated again the old way
     /// after its expected result type was used first and failed: no
     /// application inside uses its expected type first
@@ -263,6 +268,10 @@ enum Tree<'a> {
     },
     /// The variable at `level` has a type with no values.
     Absurd { level: usize, span: Span },
+    /// No arm matches this constructor of an indexed family: right if it
+    /// can't be here, or if one of the variables at `columns` has a type
+    /// with no possible constructor (docs/proposals/indexed-families.md §7.3).
+    Missing { columns: Vec<usize>, span: Span },
     Case {
         /// The level of the variable being matched.
         level: usize,
@@ -1981,7 +1990,7 @@ impl Elaborator {
                 .collect();
             self.compile(&rows, cx.level(), &columns, &column_types, span)?
         };
-        let mut term = check_tree(cx, &tree, &ty)?;
+        let mut term = families::warn_unreachable(cx, |cx| check_tree(cx, &tree, &ty))?;
         for (x, icit) in lams.into_iter().rev() {
             term = Term::Lam(x, icit, Rc::new(term));
         }
@@ -2102,17 +2111,7 @@ impl Elaborator {
                         if c2 != c {
                             continue;
                         }
-                        if args.len() != k {
-                            return Err(error(
-                                "E-ARITY",
-                                pattern_span,
-                                format!(
-                                    "`{}` has {k} fields, but this pattern has {}",
-                                    ctor.name,
-                                    args.len()
-                                ),
-                            ));
-                        }
+                        let args = self.ctor_pattern_args(d, c, args, pattern_span)?;
                         for (f, arg) in args.iter().enumerate() {
                             if let Some(x) = pattern_var(arg) {
                                 names[f].get_or_insert_with(|| name(x));
@@ -2140,6 +2139,19 @@ impl Elaborator {
                     rhs: row.rhs,
                     span: row.span,
                 });
+            }
+            if branch_rows.is_empty() && !data.indices.is_empty() {
+                // It may be impossible: `check_tree` unifies, and decides
+                // (docs/proposals/indexed-families.md §7.3).
+                let names = (ctor.fields.iter()).map(|(x, _)| x.clone()).collect();
+                branches.push((
+                    names,
+                    Tree::Missing {
+                        columns: branch_columns,
+                        span,
+                    },
+                ));
+                continue;
             }
             if branch_rows.is_empty() {
                 let example = std::iter::once(ctor.name.to_string())
@@ -2701,6 +2713,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
             rhs,
             span,
         } => {
+            families::reached(cx, *span);
             let Some(rhs) = rhs else {
                 return Err(error(
                     "E-ARITY",
@@ -2725,6 +2738,16 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
             });
             cx.reset(mark);
             result
+        }
+        Tree::Missing { columns, span } => Err(error(
+            "E-NONEXHAUSTIVE",
+            *span,
+            format!("missing case ({} columns left)", columns.len()),
+        )),
+        // An indexed family whose every constructor conflicts here is empty
+        // too (docs/proposals/indexed-families.md §7.3).
+        Tree::Absurd { level, span } if let Some(term) = families::empty_case(cx, *level)? => {
+            Ok(Term::Loc(*span, Rc::new(term)))
         }
         Tree::Absurd { level, span } => match force(cx.g(), cx.types[*level].clone())? {
             Value::Data(d, _) if cx.g().data(d).ctors.is_empty() => Ok(Term::Loc(
@@ -2755,7 +2778,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                 // the argument that fixes its type, as in `List.map ((a, b)
                 // => …) ps` (docs/proposals/syntax-conveniences.md §5.5). Its
                 // type is the constructor's, with parameters still unknown.
-                let params = (0..data.params.len())
+                let params = (0..data.params.len() + data.indices.len())
                     .map(|_| cx.eval(&cx.fresh_meta()))
                     .collect::<Result<Vec<_>>>()?;
                 let known = Value::Data(*d, params);
@@ -2778,6 +2801,10 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                 }
             };
             let goal_term = cx.quote(goal)?;
+            if !data.indices.is_empty() {
+                let term = families::check_case(cx, *x, *d, &params, branches, &goal_term, *span)?;
+                return Ok(Term::Loc(*span, Rc::new(term)));
+            }
             let mut out = Vec::new();
             for (c, ((names, subtree), ctor)) in branches.iter().zip(&data.ctors).enumerate() {
                 let mark = cx.mark();
