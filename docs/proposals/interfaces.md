@@ -577,7 +577,7 @@ interface DecEq (a: Type) =
 - **Decision procedures need the `instance` marker too** (D163):
   `instance Nat.decLessEq (m: Nat) (n: Nat): Decidable (m <= n) := …`.
   One rule for what `auto` may use. About 20 in the library (std-library.md
-  §4.5); none in `aoc/src`, but and about 5 example files (**checked** by grep, 20 October) need it.
+  §4.5); none in `aoc/src`, and about 5 example files (**checked** by grep, 20 October) need it.
 - **The name is `DecEq`, not `Eq`** (D155). `Eq` is already the
   namespace of the lemmas about `=` (`Eq.sym`, `Eq.trans`, `Eq.cong`; 762
   uses in the library, **checked**). Idris 2's interface for exactly this
