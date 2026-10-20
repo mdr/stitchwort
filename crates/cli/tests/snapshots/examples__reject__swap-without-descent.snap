@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-TERMINATION] Error: can't show that `swap` terminates
-   ╭─[ reject/swap-without-descent.sw:5:1 ]
+   ╭─[ reject/swap-without-descent.sw:5:36 ]
    │
  5 │ def swap (x: Nat) (y: Nat): Nat := swap y x
-   │ ───────────────┬───────────────  
-   │                ╰───────────────── this recursive call might not terminate: the 1st argument is what the 2nd argument was, the 2nd argument is what the 1st argument was
+   │                                    ────┬───  
+   │                                        ╰───── this recursive call might not terminate: the 1st argument is what the 2nd argument was, the 2nd argument is what the 1st argument was
    │ 
    │ Note 1: making this call twice in a row, over and over: the 1st argument stays the same, the 2nd argument stays the same, so no argument keeps getting smaller
    │ 

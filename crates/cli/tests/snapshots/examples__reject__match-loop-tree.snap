@@ -3,21 +3,23 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-TERMINATION] Error: can't show that `loop` and this `match` terminate
-   ╭─[ reject/match-loop-tree.sw:3:1 ]
+   ╭─[ reject/match-loop-tree.sw:3:27 ]
    │
- 3 │ ╭─▶ def loop (n: Nat): Nat := match Succ n with
-   │ │   ───────────┬──────────  
-   │ │              ╰──────────── this call to this `match` might not terminate: no argument is known to be smaller
-   ┆ ┆   
- 5 │ ├─▶   | Succ k => loop k
-   │ │                 ───┬──   
-   │ │                    ╰───── then this call to `loop`: `loop`'s 1st argument is smaller than this `match`'s 1st argument
-   │ │                          
-   │ ╰────────────────────────── this `match`
-   │     
-   │     Note 1: going round `loop` → this `match` → `loop`, over and over, no argument is known to get smaller
-   │     
-   │     Note 2: however the recursive calls are repeated, some argument must get smaller (a part of a pattern-matched constructor); an argument passed on unchanged, or rebuilt from its own pattern, is no smaller
-   │     
-   │     Note 3: non-terminating definitions are rejected unless they're partial: `{Partial}` in the result type
+ 3 │ ╭───▶ def loop (n: Nat): Nat := match Succ n with
+   │ │                               ▲                   
+   │ │ ╭─────────────────────────────╯                   
+   ┆ ┆ ┆   
+ 5 │ ├─│ ▶   | Succ k => loop k
+   │ │ │                 ───┬─┬   
+   │ │ │                    ╰───── then this call to `loop`: `loop`'s 1st argument is smaller than this `match`'s 1st argument
+   │ │ │                      │   
+   │ ╰──────────────────────────── this call to this `match` might not terminate: no argument is known to be smaller
+   │   │                      │   
+   │   ╰──────────────────────┴─── this `match`
+   │       
+   │       Note 1: going round `loop` → this `match` → `loop`, over and over, no argument is known to get smaller
+   │       
+   │       Note 2: however the recursive calls are repeated, some argument must get smaller (a part of a pattern-matched constructor); an argument passed on unchanged, or rebuilt from its own pattern, is no smaller
+   │       
+   │       Note 3: non-terminating definitions are rejected unless they're partial: `{Partial}` in the result type
 ───╯

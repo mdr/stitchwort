@@ -133,16 +133,29 @@ fn check_members(
             .with_note("this is a bug in the compiler, not in your program"));
         }
         let mut params = Vec::new();
-        let mut tree = body.strip_loc();
-        while let Term::Lam(x, icit, inner) = tree {
-            params.push((x.clone(), *icit));
-            tree = inner.strip_loc();
+        let mut tree = body;
+        // The innermost location around what's left after the parameters:
+        // for a body that's just a call, that call's own span, so a failing
+        // call in it is labelled precisely.
+        let mut tree_span = span;
+        loop {
+            match tree {
+                Term::Loc(loc, inner) => {
+                    tree_span = *loc;
+                    tree = inner.as_ref();
+                }
+                Term::Lam(x, icit, inner) => {
+                    params.push((x.clone(), *icit));
+                    tree = inner.as_ref();
+                }
+                _ => break,
+            }
         }
         infos.push(MemberInfo { name, params, span });
-        trees.push(tree);
+        trees.push((tree, tree_span));
     }
     let mut calls = Vec::new();
-    for (from, tree) in trees.into_iter().enumerate() {
+    for (from, (tree, tree_span)) in trees.into_iter().enumerate() {
         let params = &infos[from].params;
         let mut walker = Walker {
             g,
@@ -161,7 +174,7 @@ fn check_members(
                 .collect(),
             calls: Vec::new(),
             matched: Vec::new(),
-            span: infos[from].span,
+            span: tree_span,
         };
         walker.walk(tree)?;
         calls.extend(walker.calls);
