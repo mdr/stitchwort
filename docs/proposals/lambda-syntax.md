@@ -1,7 +1,7 @@
 # Lambdas without the backslash (SW-90), draft 1
 
 **Date:** 20 October 2026. **Ticket:** SW-90 (related: SW-19, annotated lambda parameters;
-D89 asked for this note). **Decisions:** D90 to D98, all open.
+D89 asked for this note). **Decisions:** D92 to D100, all open.
 **Status:** design only, for Matt and an external review. Nothing is implemented.
 
 Claims about Stitchwort are marked **[checked]** when I read or ran the thing named (line
@@ -63,7 +63,7 @@ repository change (§8); a one-off rewriting tool, checked by comparing syntax t
 after, does the `.sw` files and the code blocks in the docs.
 
 **Recommendation:** adopt it (option B), with no transition period: `\` becomes an error that
-shows the new form (D90 to D98, §10).
+shows the new form (D92 to D100, §10).
 
 ## 1. Lambdas today
 
@@ -248,7 +248,7 @@ Accept `\x => e` and `x => e` for a while.
   Matt chose "no transition period" for the declaration syntax (declaration-syntax
   proposal, status line), and the same reasoning holds: there are no outside users, and one
   commit can convert everything. Keeping `\` only to produce a helpful error gives the
-  benefit without the cost (D94).
+  benefit without the cost (D96).
 
 ### Option D: a keyword, `fun x => e`
 
@@ -278,7 +278,7 @@ lambda   ::= head "=>" expr
 head     ::= name | "_"                       -- one parameter, no brackets
            | "(" ")"                          -- one parameter, the unit value
            | "(" param ("," param)* ","? ")"
-param    ::= name+ ":" type                   -- typed: `x: Nat`, or `x y: Nat` (D93)
+param    ::= name+ ":" type                   -- typed: `x: Nat`, or `x y: Nat` (D95)
            | pattern                          -- as in an arm: `x`, `_`, `(a, b)`, `{ name, .. }`,
                                               -- `MkPair a b` (no brackets needed), `[]` …
 ```
@@ -293,7 +293,7 @@ param    ::= name+ ":" type                   -- typed: `x: Nat`, or `x y: Nat` 
 - **`() => e`** is a function taking the unit value, called `f()`. That's what TypeScript
   readers expect from `() => e` and `f()`, and it is today's `\() => e`.
 - **`(x) => e`** is allowed and means `x => e` (TypeScript and Scala allow it too).
-- **Typed parameters** (SW-19's feature, D93): `(x: Nat) => e`, `(x: Nat, y: Nat) => e`,
+- **Typed parameters** (SW-19's feature, D95): `(x: Nat) => e`, `(x: Nat, y: Nat) => e`,
   mixed `(acc, x: Nat) => e`, and later types may mention earlier names:
   `(a: Type, x: a) => x`. `(x y: Nat) => e` is accepted as one item, mirroring the function
   type `(x y: Nat) -> B` and definition headers.
@@ -537,7 +537,7 @@ because its key includes a fingerprint of the compiler's source; that's expected
 
 - **Printer** (`crates/core/src/pretty.rs:337`): print `x => body`, and gather nested lambdas
   into one list, `(x, y) => body`, which is shorter than `x => y => body` and is what people
-  write (D98). Snapshots change with it.
+  write (D100). Snapshots change with it.
 - **VS Code grammar** (`editors/vscode/syntaxes/stitchwort.tmLanguage.json`): `=>` is already
   an operator; `\` is in its operator character class and can stay or go. No new rule is
   needed: parameters are coloured as names, as they are in arms.
@@ -574,15 +574,15 @@ because its key includes a fingerprint of the compiler's source; that's expected
 
 | ID | Question | Recommended answer |
 |---|---|---|
-| D90 | Which lambda syntax: keep `\` (A), Scala/TS arrows (B), both for a while (C), a keyword `fun` (D)? | **B**: `x => e`, `(x, y) => e`, `(x: T) => e` |
-| D91 | What does `(a, b) => e` mean? | **Two (curried) parameters**, as in Scala, TypeScript and C#; a pair taken apart is `((a, b)) => e` |
-| D92 | Should `(a, b) => e` also be accepted where a function of a pair is expected (Scala 3's parameter untupling)? | **Not now**: a specific error note instead (§7); revisit if `((a, b))` turns out to be common (12 uses today) |
-| D93 | Typed parameters | `(x: Nat, y: Nat) => e`; typed and untyped may be **mixed**; `(x y: Nat) => e` **accepted** (mirrors `(x y: Nat) -> B`); separate groups `(x: Nat) (y: Nat) => e` are an error with the fix |
-| D94 | What happens to `\x => e`? | **An error, `E-OLD-LAMBDA`, showing the exact new form**; no transition period, one switch commit (as for declarations) |
-| D95 | Allow `x y => e` without brackets? | **No**: an error with the fix `(x, y) => e`; so `f x => e` can never silently become a two-parameter lambda |
-| D96 | How the parser decides | **Lookahead to the matching `)`** using a matching-bracket table built once per declaration; no cover grammar, no backtracking; `is_pi_binder` uses the same table |
-| D97 | How to migrate | A throwaway rewriting tool driven by the old parameter parser, with every file's syntax trees compared before and after (`equivalence::shape`), and every declaration's hash compared; Rust strings, prose and the board by hand |
-| D98 | How the printer shows lambdas | `x => body`, with nested lambdas gathered: `(x, y) => body` |
+| D92 | Which lambda syntax: keep `\` (A), Scala/TS arrows (B), both for a while (C), a keyword `fun` (D)? | **B**: `x => e`, `(x, y) => e`, `(x: T) => e` |
+| D93 | What does `(a, b) => e` mean? | **Two (curried) parameters**, as in Scala, TypeScript and C#; a pair taken apart is `((a, b)) => e` |
+| D94 | Should `(a, b) => e` also be accepted where a function of a pair is expected (Scala 3's parameter untupling)? | **Not now**: a specific error note instead (§7); revisit if `((a, b))` turns out to be common (12 uses today) |
+| D95 | Typed parameters | `(x: Nat, y: Nat) => e`; typed and untyped may be **mixed**; `(x y: Nat) => e` **accepted** (mirrors `(x y: Nat) -> B`); separate groups `(x: Nat) (y: Nat) => e` are an error with the fix |
+| D96 | What happens to `\x => e`? | **An error, `E-OLD-LAMBDA`, showing the exact new form**; no transition period, one switch commit (as for declarations) |
+| D97 | Allow `x y => e` without brackets? | **No**: an error with the fix `(x, y) => e`; so `f x => e` can never silently become a two-parameter lambda |
+| D98 | How the parser decides | **Lookahead to the matching `)`** using a matching-bracket table built once per declaration; no cover grammar, no backtracking; `is_pi_binder` uses the same table |
+| D99 | How to migrate | A throwaway rewriting tool driven by the old parameter parser, with every file's syntax trees compared before and after (`equivalence::shape`), and every declaration's hash compared; Rust strings, prose and the board by hand |
+| D100 | How the printer shows lambdas | `x => body`, with nested lambdas gathered: `(x, y) => body` |
 
 ## Sources
 
