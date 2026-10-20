@@ -1355,6 +1355,51 @@ and differences. None changes a rule above.
   (impossible branches already compile to `throw`, and the switch's
   fall-through is unchanged).
 
+**Stages 3 and 4 (syntax, declarations, matching), SW-178.** Built as
+§7 describes, in `crates/syntax` (`Decl::Data.indices`, `CtorDecl.implicit`
+and `.result`, `Pattern::Named`) and `crates/elab/src/families.rs`.
+Differences and choices:
+
+- **Automatic implicit fields only for types with indices.** An unknown
+  name in a constructor of a type without indices is still
+  `E-UNKNOWN-NAME`, as before, rather than an implicit field (which would
+  usually be `E-UNIVERSE`, a worse message for a typo). Written `[n: T]`
+  fields and result types work for any data type.
+- **Ordering automatic fields.** They're tried in the order of first use,
+  then every other order (up to four fields); the first that checks wins.
+  This is "ordered by their dependencies" without building the dependency
+  graph from unsolved metavariables. `E-IMPLICIT-FIELD` is found by trying
+  the automatic fields after the written ones.
+- **Signatures.** §7.3's `head: Vec a (Succ n) -> a`, `append: … -> Vec a
+  (n + m)` and §8.3's `leToLeq: Le m n -> m <= n` need `n`, `m` bound
+  automatically, though `Succ n`, `n + m` and `m <= n` are value uses,
+  which today's rule refuses. Built: a name used anywhere in an index of a
+  family is bound whatever its other uses are, unless it's a name the module
+  declares (no `W-MODULE-NAME` either then). The same extension applies in
+  constructors (§7.1's "uses in the result type's indices don't count
+  against it").
+- **Codes.** A record with indices is the new `E-RECORD-INDICES`; a
+  constructor of a type with indices without a result type is
+  `E-TYPE-MISMATCH`. `W-UNREACHABLE` arms are dropped unchecked, and the
+  warning is only given for an arm no other branch reached.
+- **Test 22 at the surface** is `()` on `SameP A B`: a stuck constructor
+  makes `()` `E-INDEX-STUCK`, as the table says, not `E-NOT-EMPTY`. In the
+  one-level search for a missing arm, a stuck column just isn't empty.
+- **Test 20's lifted variant** is `keep` in `examples/accept/indexed-families.sw`:
+  `same (match v with …)` is lifted to `keep.%match1`, whose captures put
+  `n` before `h`, and `h: p n` is refined in the `VCons` branch.
+- **Unification in the elaborator** runs on the context with solved
+  metavariables substituted (the kernel's conversion doesn't look inside
+  them); an unsolved one is never flexible, so a problem mentioning one is
+  stuck.
+- **`==` isn't derived** for a type with indices yet.
+- **Surface tests** 3, 4, 5, 6, 10, 16 and 26 are `examples/reject/index-*.sw`
+  and `implicit-field-dependent.sw`; 12, 13, 21 and 22 are also surface
+  soundness examples (`examples/soundness/index-*.sw`, `large-index.sw`).
+  Left for stage 5: tests 18 and 28 (`E-EXPORT`), driver tests with and
+  without erasure (`stitchwort test` already runs the accept example's tests
+  with erasure), and JS.
+
 ## Sources
 
 Stitchwort (at `9ccb120`): DESIGN.md §2, §6, §13; docs/core.md; docs/syntax.md;
