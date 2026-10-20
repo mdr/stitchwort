@@ -295,6 +295,7 @@ fn constant(g: &Globals, s: &Shapes, d: Value) -> Result<(Primitive, Vec<Value>)
     .into_iter()
     .find_map(|(c, p)| (c == id).then_some(p));
     let args: Vec<Value> = spine
+        .into_vec()
         .into_iter()
         .map(|e| match e {
             Elim::App(v, _) => v,

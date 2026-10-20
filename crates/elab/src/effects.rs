@@ -22,7 +22,7 @@ use std::rc::Rc;
 
 use stitchwort_core::partial::Primitive;
 use stitchwort_core::registry::Builtin;
-use stitchwort_core::value::{Elim, Head, apply, force};
+use stitchwort_core::value::{Elim, Head, Spine, apply, force};
 use stitchwort_core::{DataId, DefId, Icit, Name, Term, Value};
 use stitchwort_syntax::Diagnostic;
 use stitchwort_syntax::ast::{BinOp, Clause, Expr, Name as AstName, Pattern};
@@ -154,13 +154,13 @@ fn label_res(cx: &Ctx, label: &Label) -> Result<Value> {
     if label.ability == REC {
         // `RecRes [A] B`.
         let rec = cx.e.recursion.as_ref().expect("only while describing");
-        let f = Value::Neutral(Head::Def(def(cx, Builtin::RecRes)?), Vec::new());
+        let f = Value::Neutral(Head::Def(def(cx, Builtin::RecRes)?), Spine::new());
         let f =
             stitchwort_core::value::apply_icit(cx.g(), f, label.args[0].clone(), Icit::Implicit)?;
         return Ok(apply(cx.g(), f, rec.ans.clone())?);
     }
     let info = &cx.e.abilities[label.ability];
-    let mut f = Value::Neutral(Head::Def(info.res), Vec::new());
+    let mut f = Value::Neutral(Head::Def(info.res), Spine::new());
     for a in &label.args {
         f = apply(cx.g(), f, a.clone())?;
     }
@@ -173,7 +173,7 @@ pub fn ops(cx: &Ctx, row: &Row) -> Result<Value> {
     let mut value = match &row.tail {
         Some(e) => apply(
             g,
-            Value::Neutral(Head::Def(def(cx, Builtin::SigOp)?), Vec::new()),
+            Value::Neutral(Head::Def(def(cx, Builtin::SigOp)?), Spine::new()),
             e.clone(),
         )?,
         None => Value::Data(data(cx, Builtin::NoOp)?, Vec::new()),
@@ -191,15 +191,15 @@ pub fn res(cx: &Ctx, row: &Row) -> Result<Value> {
     let mut value = match &row.tail {
         Some(e) => apply(
             g,
-            Value::Neutral(Head::Def(def(cx, Builtin::SigRes)?), Vec::new()),
+            Value::Neutral(Head::Def(def(cx, Builtin::SigRes)?), Spine::new()),
             e.clone(),
         )?,
-        None => Value::Neutral(Head::Def(def(cx, Builtin::NoRes)?), Vec::new()),
+        None => Value::Neutral(Head::Def(def(cx, Builtin::NoRes)?), Spine::new()),
     };
     let plus_res = def(cx, Builtin::PlusRes)?;
     for (i, label) in row.labels.iter().enumerate().rev() {
         let rest_ops = ops(cx, &row.suffix(i + 1))?;
-        let mut f = Value::Neutral(Head::Def(plus_res), Vec::new());
+        let mut f = Value::Neutral(Head::Def(plus_res), Spine::new());
         f = stitchwort_core::value::apply_icit(g, f, label_ops(cx, label), Icit::Implicit)?;
         f = stitchwort_core::value::apply_icit(g, f, rest_ops, Icit::Implicit)?;
         f = apply(g, f, label_res(cx, label)?)?;
@@ -213,7 +213,7 @@ pub fn res(cx: &Ctx, row: &Row) -> Result<Value> {
 pub fn comp_type(cx: &Ctx, row: &Row, t: Value) -> Result<Value> {
     if row.partial {
         let delay = primitive(cx, Primitive::Delay)?;
-        let mut ty = Value::Neutral(Head::Def(delay), Vec::new());
+        let mut ty = Value::Neutral(Head::Def(delay), Spine::new());
         for arg in [ops(cx, row)?, res(cx, row)?, t] {
             ty = apply(cx.g(), ty, arg)?;
         }

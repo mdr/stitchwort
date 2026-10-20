@@ -11,7 +11,7 @@ use std::path::Path;
 
 use stitchwort_core::reference;
 use stitchwort_core::term::Term;
-use stitchwort_core::value::{self, Elim, Head, Value, machine_runs};
+use stitchwort_core::value::{self, Elim, Head, Spine, Value, machine_runs};
 use stitchwort_core::{DefId, Globals, Icit};
 use stitchwort_driver::driver::{Session, with_stack};
 use stitchwort_syntax::{SourceMap, Span};
@@ -214,11 +214,11 @@ fn agree_after_forcing(g: &Globals, f: DefId, value: &Value) -> String {
     let fast = value::force(g, value.clone()).expect("no limits");
     let slow = reference::force(g, value.clone()).expect("no limits");
     assert_eq!(normal(g, 0, &fast), normal(g, 0, &slow));
-    let fast = value::apply(g, Value::Neutral(Head::Def(f), Vec::new()), value.clone())
+    let fast = value::apply(g, Value::Neutral(Head::Def(f), Spine::new()), value.clone())
         .expect("no limits");
     let slow = reference::apply_icit(
         g,
-        Value::Neutral(Head::Def(f), Vec::new()),
+        Value::Neutral(Head::Def(f), Spine::new()),
         value.clone(),
         Icit::Explicit,
     )
@@ -242,7 +242,8 @@ fn a_stuck_case_unblocks_when_its_metavariable_is_solved() {
         vec![Elim::App(
             stitchwort_core::native::nat_value(3u32.into()),
             Icit::Explicit,
-        )],
+        )]
+        .into(),
     );
     assert_eq!(
         agree_after_forcing(g, pred, &stuck),

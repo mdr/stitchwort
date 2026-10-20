@@ -23,6 +23,7 @@ num-traits = "0.2.19"
 rustyline = "18.0.1"
 serde = { version = "1.0.228", features = ["derive"] }
 serde-saphyr = { version = "2.0.0", default-features = false, features = ["deserialize"] }
+smallvec = "1.16.3"
 
 [workspace.lints.rust]
 # `unsafe` is allowed where there's a compelling engineering reason: mark the
