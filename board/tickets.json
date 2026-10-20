@@ -511,9 +511,9 @@
     {
       "id": 34,
       "title": "`a_write_error_is_an_error`",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree",
       "labels": [
         "bug",
         "tooling"
