@@ -50,12 +50,10 @@ type Turn =
 
 -- "L68" is `Left 68`.
 def Turn.parse (t: Text): Maybe Turn :=
-  def turnOf (c: Char) (n: Nat): Maybe Turn :=
-    match c with
-      | 'L' => Just (Left n)
-      | 'R' => Just (Right n)
-      | _   => Nothing
-  t.uncons.andThen ((c, rest) => rest.toNat.andThen (turnOf c))
+  match t.uncons with
+    | Just ('L', rest) => rest.toNat.map Left
+    | Just ('R', rest) => rest.toNat.map Right
+    | _                => Nothing
 
 def after (t: Text): Maybe Nat := (Turn.parse t).map (turn => (dial.move turn).position)
 
