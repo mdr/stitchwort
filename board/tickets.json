@@ -56,16 +56,16 @@
     {
       "id": 4,
       "title": "Interfaces design note (Agda/Lean style, with independent review)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "docs/proposals/interfaces.md (draft 1); then external review",
       "labels": [
         "design",
         "elab"
       ],
       "body": "Interfaces design note (Opus, with independent review), Agda/Lean style:\nan interface is a record (laws as proof fields), instances found by\ngeneralising the `Decidable` auto search; coherence, predictability,\nhashes, namespaces §8. After the current work, before days 6-9 (sort,\nmaps, sets; would remove `sum`/`sumInt` duplication). User, 19 Oct.\n\nUser (19 Oct): not starting the interfaces design yet. Draft 3/4 of multi-file.md §4.9.6 sketches the direction; the reviewer's interface-overlap finding is input for this note.",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-20",
       "commits": []
     },
     {
@@ -1728,9 +1728,9 @@
         "stdlib",
         "aoc"
       ],
-      "body": "docs/aoc-2025.md capability #6: `Map`/`Set` with keys that have an `Ordering`, for days 4, 7, 8 (the user's Scala form). Needs the interfaces question (SW-4) or an explicit comparison argument. Sonnet; Opus for proofs. Decide the key-ordering approach first.",
+      "body": "docs/aoc-2025.md capability #6: Map/Set with ordered keys, for days 4, 7, 8. D152 (Matt, 20 Oct 2026): blocked on the interfaces design (SW-4) for key ordering (Ord). Balanced tree (weight-balanced as Haskell Data.Map, or AVL), invariants as separate theorems, contents as a sorted list. Sonnet build; Opus for proofs.",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-20",
       "commits": []
     },
     {
