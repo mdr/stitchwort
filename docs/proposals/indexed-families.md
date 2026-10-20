@@ -1,14 +1,18 @@
 # Proposal: indexed data types (inductive families)
 
-**Status:** draft 2, 20 October 2026. Draft 1 had an external review; draft 2 makes its
-changes ([below](#changes-since-draft-1-external-review)). Waiting for Matt's decisions
-(design-review gate). Nothing is built. Ticket SW-178. Matt decided D133 and D135
-(20 October): indexed data types go into the kernel before `Vec` (docs/proposals/vec.md,
-parked). The open questions are D136 to D149 and D153 in [§12](#12-decisions-wanted).
+**Status:** draft 3, 20 October 2026. Drafts 1 and 2 each had an external review; draft 3
+makes the second review's changes ([below](#changes-since-draft-2-re-review)), and draft
+2 made the first's ([further down](#changes-since-draft-1-external-review)). The
+re-review approves the architecture; its one required change before kernel work (the
+`Prop` guard in the unifier, D137) is made. Waiting for Matt's decisions (design-review
+gate). Nothing is built. Ticket SW-178. Matt decided D133 and D135 (20 October): indexed
+data types go into the kernel before `Vec` (docs/proposals/vec.md, parked). The open
+questions are D136 to D149, D153 and D184 in [§12](#12-decisions-wanted).
 
 This note can be read without knowing type theory. [§1](#1-words) explains the words it
 uses. Claims about Stitchwort were checked against the source on `main` at `9ccb120`
-(draft 1) and `5625c05` (draft 2; `crates/` unchanged in what this note cites).
+(draft 1), `5625c05` (draft 2) and `10000a5` (draft 3; `crates/` unchanged in what this
+note cites).
 Labels, as in the other notes:
 
 - **[checked: S]**: read in source S (listed in [Sources](#sources)), or in the Stitchwort
@@ -16,6 +20,49 @@ Labels, as in the other notes:
 - **[run]**: a Stitchwort program run with the release CLI on 20 October 2026;
 - **[inferred]**: my reasoning from checked facts, not stated in a source;
 - **[unverified]**: believed, but not confirmed.
+
+## Changes since draft 2 (re-review)
+
+1. **`Prop` guard in the unifier (required, D137).** Draft 2 let injectivity and conflict
+   fire at any data type, so also at an inductive *proposition*. With two proof
+   constructors `A`, `B: P`, the unifier would call `A = B` impossible, while the adopted
+   proof irrelevance (D1′) proves `A = B`; transporting along it would then prove false.
+   And `Hide 0 = Hide 1` at `Hidden: Prop` would decompose into `0 = 1`, recovering what
+   the proposition hides. Now injectivity and conflict require the constraint's type to be
+   an inductive type in `Type i`; deletion by conversion and well-typed solution stay for
+   proofs; any other equation between proofs is stuck. Behaviour before and after D1′ is
+   spelled out, and a later "delete any `Prop` constraint" rule is the new D184 (§6.3.2).
+   Four regressions are added (tests 22-25).
+2. **Dependent automatic constructor fields (D144).** `| Mk (n: Nat): Dep n i` would put
+   `i: Fin n` in front of `n`. Policy: automatic fields still go at the front, ordered by
+   their dependencies on each other; one whose type mentions a written field is refused,
+   asking for an explicit binder (§7.1, test 26).
+3. **Coverage builds a nested case (D146).** For `get`, `VNil` is *possible*; it's the
+   `Fin 0` argument that is empty. The search now says it synthesises a case on that
+   argument with every branch impossible, and keeps that reason separate from a
+   constructor that itself conflicts. Kernel pair: test 27 (§7.3).
+4. **Run-time cost of stored fields (D141).** `fromList` elaborates `VCons [n :=
+   List.length xs] …`, so it is quadratic. An analogue run today shows it: 2.8 s for 4,000
+   elements, 10.8 s for 8,000, 0.11 s without the length field **[run]**. §8.1 now gives a
+   linear worker. Proof fields of a `Type` family are still erased as usual; driver tests
+   cover a family with both kinds. "So it's no slower" is replaced by the narrower claim
+   (§6.8).
+5. **Termination (D143).** A recursive function field is classified from the
+   positivity-checked declaration, before any parameter instantiation or refinement. Test
+   12 is rewritten to reach the termination check for sure (`IdP`, an explicit empty
+   proposition).
+6. **Smaller points.** §6.3.4 says the index problem and its solutions never mention the
+   matched variable. §6.3.6 cites Cockx–Devriese–Piessens, "Unifiers as Equivalences",
+   for injectivity under K, and limits "different constructors are never equal" to data in
+   `Type`. D142 is described as a conservative initial policy. D149's oracle compares the
+   *effects* of substitutions, tells constructors, opaque applications and type formers
+   apart, and comes with direct invariant checks. D147 refuses an indexed family anywhere
+   in an export's serialized form (records, containers, aliases; test 28).
+7. **Editorial.** §6.6 no longer says unification at `Type` "only ever deletes" (it also
+   solves variables). §6.10's `Even`/`Odd` now has an example. Source L3's URL is fixed.
+   §10's line counts are labelled rough, with the invariants and tests as the completion
+   criteria.
+8. **Decisions** gain the re-review's verdicts (§12). New: D184.
 
 ## Changes since draft 1 (external review)
 
@@ -95,7 +142,8 @@ changes before any kernel work. All are made.
   are never equal (the branch is impossible); equal constructors have equal fields; a
   variable equal to a term is replaced by it; an equation that already holds is dropped.
   Every equation is *typed*, and both sides always have the same type; a constructor's
-  fields are compared one at a time, in order. Anything else is refused. An impossible
+  fields are compared one at a time, in order. Proofs are never taken apart: the
+  constructor rules apply only at types in `Type`, never `Prop`. Anything else is refused. An impossible
   branch has no body.
 - **Axiom K is accepted.** Dropping an equation that already holds is Streicher's axiom
   K. Lean has it, and so does Agda by default; Stitchwort's adopted proof-irrelevance
@@ -115,8 +163,8 @@ changes before any kernel work. All are made.
   arm that can never match is a warning. Write `Succ n`, not `n + 1`, in an index:
   `+` counts down its *first* argument, so `n + 1` doesn't compute when `n` is unknown
   **[run]** (D145).
-- **Cost:** about 1,200 to 1,500 lines in `crates/core` with its tests, 200 in
-  `crates/syntax`, 1,000 to 1,400 in `crates/elab`, and 100 in `crates/js`, in five stages
+- **Cost (rough):** about 1,250 to 1,550 lines in `crates/core` with its tests, 200 in
+  `crates/syntax`, 1,050 to 1,450 in `crates/elab`, and 100 in `crates/js`, in five stages
   (§10). `Vec`'s representation (D126) is decided after this lands (SW-179).
 
 ## 1. Words
@@ -412,16 +460,17 @@ refined context:
   in the type of any variable of `t`, nor, transitively, in the types of the variables
   those types mention. If it passes, substitute `t` for `y` (§6.3.4) and the binder is
   solved. If it fails, the problem is **stuck** (not impossible; D143).
-- **Injectivity.** `type` is a data type `D' qs rs`, and both sides are the same
-  constructor `c'` of `D'`, with fields `us` and `vs`. The binder counts as solved, and a
+- **Injectivity.** `type` is a data type `D' qs rs` **whose universe is `Type i`, not
+  `Prop`**, and both sides are the same constructor `c'` of `D'`, with fields `us` and
+  `vs`. The binder counts as solved, and a
   new telescope entry is pushed: `c'`'s fields, with `qs` for `D'`'s parameters, `us` on the
   left and `vs` on the right. So the fields are compared in telescope order, each one's
   constraint formed (and its types compared) only after the earlier fields are solved.
   Their parameters need no constraint: both sides have type `D' qs rs` by the invariant.
   The outer telescope's next binder is formed only after the pushed entry is popped, so
   its types compare the *solved* fields.
-- **Conflict.** `type` is a data type and the sides are *different* constructors of it.
-  The branch is **impossible**, and unification stops.
+- **Conflict.** `type` is a data type **in `Type i`, not `Prop`**, and the sides are
+  *different* constructors of it. The branch is **impossible**, and unification stops.
 - **Numbers.** For `type` = `Nat`, a number is `Succ` of its predecessor, and `k + x` is
   `Succ` applied `k` times, for injectivity and conflict: `3 = Succ m` gives `2 = m`;
   `0 = Succ m` and `5 = 7` conflict. A compact text range expands one cell, as conversion
@@ -432,13 +481,51 @@ refined context:
     `Type` is stuck, never `a = Nat` (D139);
   - a function application that doesn't compute (`n + m` with `n` unknown);
   - an occurs-check failure (`n = Succ n`);
-  - two different proofs, neither a variable (stage 1 has no proof-irrelevance rule;
-    with D1′, conversion skips proof fields, so Deletion will cover more);
+  - an equation between two proofs (its `type` is in `Prop`) that isn't settled by
+    Deletion or Solution, whether or not the proofs are built from constructors;
   - a next binder whose `typeL ≢ typeR`.
 
 The problem is **solved** when the stack is empty: the branch is possible, under the
 substitutions made. If a conflict was found, it's impossible. Only a conflict makes a
 branch impossible; a stuck problem is never treated as impossible (D140, D146).
+
+**Why proofs are never taken apart.** Stitchwort reads propositions as having at most
+one proof (DESIGN.md §6, and the adopted D1′, which derives propositional proof
+irrelevance). Take
+
+```
+type P: Prop = | A | B
+type Hidden: Prop = | Hide (n: Nat)
+```
+
+If Conflict fired at `P`, the unifier would call `A = B` impossible, and a function
+`SameP A B -> FalseP` (with `type SameP (x: P): P -> Prop = | R: SameP x x`) would be
+accepted by an empty match. Under D1′, `A = B` is provable, so `J` turns `R: SameP A A`
+into a `SameP A B`, and that function proves `FalseP`. If Injectivity fired at `Hidden`,
+`Hide 0 = Hide 1` would become `0 = 1`, a conflict, recovering the number the proposition
+hides. So the guard is on the type of the *equation being solved*, at every constraint,
+including those injectivity pushes for a constructor's fields. It doesn't stop matching on
+`Le` or `Even`: their index equations are between numbers, at type `Nat`. Agda's unifier
+likewise skips equations at irrelevant or `Prop` types before its other rules
+**[unverified: per the re-review]**.
+
+**Before and after D1′.**
+
+- *Stage 1 (no D1′).* A proof equation is settled only by Deletion (the two proofs are
+  convertible, e.g. both `h`) or Solution (one side is a proof variable, e.g. `h := A`).
+  Otherwise it is stuck and the case is refused. Example: with `type T: Type = | MkT (h: P)
+  (n: Nat)`, `MkT A 0 = MkT B 1` at `T` decomposes (`T` is in `Type`), reaches `A = B` at
+  `P`, and is **stuck**. It is not impossible, even though the `Nat` fields would
+  conflict, because the proof field comes first (test 25). `MkT h 0 = MkT A 1` solves
+  `h := A`, then `0 = 1` conflicts: impossible, correctly.
+- *With D1′.* D1′ skips proof-typed *arguments and fields* when comparing values, so
+  Deletion succeeds more often: `MkT A 0 = MkT B 0` is deleted whole. But D1′ doesn't
+  compare at the root, so the equation `A = B` at `P` on its own is still not convertible,
+  and stays stuck. Neither version derives a contradiction by telling proof constructors
+  apart. A further rule, "an equation at a type in `Prop` is deleted", would be sound once
+  D1′ makes all proofs of a proposition equal, and would make `MkT A 0 = MkT B 1` an
+  ordinary conflict. It's D184, for when D1′ lands; without D1′ it would break the
+  homogeneity invariant, since types mentioning `A` and `B` wouldn't compare equal.
 
 #### 6.3.3 Which variable a solution replaces
 
@@ -496,7 +583,12 @@ whose value is `Succ m`, like the gap a `let` leaves (docs/core.md:167).
 form a telescope) and each step keeps it: a field's type only mentions the parameters of
 `x`'s type and earlier fields, and a solution `y := t` can only add edges from variables
 whose types mentioned `y` to the variables of `t`; the transitive occurs check refuses
-exactly the solutions where `t`'s variables' types lead back to `y`. So the variables can
+exactly the solutions where `t`'s variables' types lead back to `y`. The matched `x` takes
+no part in this: the index problem never mentions it (`x`'s type `D ps is` can't, and the
+fields' types mention only `ps` and earlier fields), and `x` isn't flexible, so no
+solution mentions it either. The final step `x := c f₁ … fₖ` therefore substitutes a
+value built from the fields into a context and goal where every solution is already in
+place, and adds no edge back into the index problem. So the variables can
 always be put in some order where each type mentions only earlier ones. Nothing in the
 kernel needs that order, but anything that rebuilds a telescope can find it.
 
@@ -530,13 +622,19 @@ Hashing covers that (§6.9).
 
 #### 6.3.6 Why it's sound
 
-**[inferred, from G1 and C3]** The rules use only facts true of values of data types:
-different constructors are never equal, equal constructor values have equal fields
-(taken in order, so each field equation is between values of one type), a variable equal
-to a term can be replaced by it, and an equation that already holds can be dropped (K).
-Goguen, McBride and McKinna's translation turns exactly these steps on homogeneous
-equations into eliminators plus K, so a case tree using them proves nothing that
-eliminators plus K couldn't. Operationally: a case only reduces when `x` is a constructor
+**[inferred, from G1, C3 and U1]** The rules use only facts true of values of data types
+in `Type`: different constructors of such a type are never equal, equal constructor
+values have equal fields (taken in order, so each field equation is between values of
+one type), a variable equal to a term can be replaced by it, and an equation that already
+holds can be dropped (K). For proofs only the last two are used, and they hold in any
+reading of `Prop`, including the proof-irrelevant one (§6.3.2). Goguen, McBride and
+McKinna's translation turns exactly these steps on homogeneous equations into
+eliminators plus K, so a case tree using them proves nothing that eliminators plus K
+couldn't. For the injectivity step on an *indexed* constructor, where the fields'
+equations are taken in telescope order, Cockx, Devriese and Piessens give the general
+statement: constructor injectivity holds for an indexed family when its index telescope
+satisfies K ("Unifiers as Equivalences", §4.3, Lemma 6 **[unverified: section and lemma
+number as cited by the re-review]**). K is accepted (D138), so that condition holds. Operationally: a case only reduces when `x` is a constructor
 value `c us`. Its type `D ps is` then makes `is ≡ js[us]`, so the substitutions the branch
 was checked under hold for the actual values, and an impossible branch is never reached.
 
@@ -606,15 +704,18 @@ lives in `Type 1`, bigger than the family's `Type`. And `TList` has a hidden imp
 while keeping that rule, which contradicted itself. Lean has the same rule: its
 `WithIndex: Type u → Type (u + 1)` is one universe up because the `Type u` argument is an
 index, not a parameter **[checked: L3]**. This isn't only about what's stored at run time;
-it's a condition for the universes to make sense at all.
+with the rest of this design (stored fields, fields as structural subterms, impredicative
+`Prop`), it's what keeps the universes sound.
 
-The cost: without universe polymorphism, a `Ty a: Type 1` can't go in a `List`, which holds
-`Type 0`. Genuinely large indices (Agda's `--large-indices`) would need their own design,
-covering forcing, erasure, termination and universe soundness.
+This is Stitchwort's **conservative initial policy**, not a claim that no design could
+allow larger indices. The cost: without universe polymorphism, a `Ty a: Type 1` can't go
+in a `List`, which holds `Type 0`. Genuinely large indices (Agda's `--large-indices`) would
+need their own design, covering forcing, erasure, termination and universe soundness.
 
-Matching on `Ty`: unification at type `Type` only ever deletes, because type formers aren't
-injective (§6.3.2). So matching `t: Ty (List Nat)` against `TList` is stuck
-(`List Nat = List b`) and refused. Matching `t: Ty c` (a variable) works: `c := List b`.
+Matching on `Ty`: at type `Type`, unification can delete (convertible types) or solve (a
+type variable), but never decompose, because type formers aren't injective (§6.3.2). So
+matching `t: Ty (List Nat)` against `TList` is stuck (`List Nat = List b`) and refused.
+Matching `t: Ty c` (a variable) works: `c := List b`.
 
 ### 6.7 Termination
 
@@ -623,8 +724,15 @@ Two different things, kept apart (D143):
 - **Allowed, as today: stored fields are structural subterms.** A field of a matched
   constructor is smaller than the match, whatever its type (docs/core.md:153). The
   implicit `n` in `VCons [n] x xs` is a real stored field, so it is smaller than the
-  vector, and so is `xs`. A recursive function field is one whose type is a function
-  returning a group member at *any* indices.
+  vector, and so is `xs`. A **recursive function field** is one whose *declared* type is a
+  function returning a group member at any indices. That classification is made once,
+  from the positivity-checked constructor declaration, before any parameter is
+  instantiated or any branch refined, and never from a field's type as it looks in a
+  branch. So a generic field `f: (p: Prop) -> p -> p` never becomes a recursive function
+  field, even where `f` is applied with `p` set to the type being defined (`is_recursive_fn`
+  already reads the declared field term, `g.data(d).ctors[c].fields`, at
+  `crates/core/src/termination.rs:245, 344-348` **[checked]**; the kernel work keeps it
+  there, and must not switch to the refined value).
 - **Not allowed: a decrease derived from an index equation.** In the branch where the
   definition's parameter `n` was solved as `Succ m`, the termination checker does *not*
   learn `m < n`. It still reads relations only from the terms (termination.rs:19), and a
@@ -634,28 +742,42 @@ Two different things, kept apart (D143):
 Issue #6654 is why the second stays out. Agda's counterexample recursed on a field whose
 own value was not a subterm in any real sense (the forced function `f`, applied to make a
 new `Bad`), and Agda counted it because the index determined it. Stitchwort's version of
-that example is test 12, refused because `f` returns `p`, not `Bad`.
+that example is test 12, refused because `f`'s declared type returns `p`, not `Bad`. The
+issue's discussion names restricting descent to proper recursive arguments as one repair,
+and shows why a generic function can hide the recursive use; that's why the
+classification is made from the declaration **[checked: A5]**.
 
-**No cycle rule either.** `n = Succ n` is stuck, not impossible (§6.3.2). Agda's cycle rule would accept more, and
-can come later (D143).
+**No cycle rule either.** `n = Succ n` is stuck, not impossible (§6.3.2). Agda's cycle
+rule would accept more, and can come later (D143).
 
 ### 6.8 Evaluation, conversion, erasure, JavaScript
 
 - **Values.** `Value::Data(D, args)` carries parameters and indices; a constructor value
-  carries its fields, forced ones included. Conversion is unchanged: indices are just more
-  arguments. Nothing is added to conversion, so it's no slower. Fording would add a proof
-  to every value and a `J` to every match.
+  carries its fields, forced ones included. Conversion gains no new equality rules: its
+  existing machinery compares the extra index arguments like any others. That doesn't make
+  it free: comparing two `Data` values now also compares their indices, which may need
+  computing, so cost depends on the terms compared. Fording would add a proof to every
+  value and a `J` to every match.
 - **Unfolding.** A case reduces when its scrutinee is a constructor; it can never be one
   of the impossible ones (by typing).
-- **Running with erasure.** Constructor fields of a data family are data, so they're
-  computed and stored (D141). A `case` on an erased proof takes its only *possible* branch;
+- **Running with erasure.** A family's *computational* fields, including forced implicit
+  ones like `n` in `VCons`, are computed and stored (D141). Its *proof* fields follow the
+  existing erasure rule (`Ctor::field_erased`): in `type Certified: Nat -> Type = |
+  MkCertified (n: Nat) (ok: IsPrime n): Certified n`, `ok` is erased even though
+  `Certified n` is data. Driver tests run such a family with and without erasure.
+  Stored fields cost work: an implicit field is computed from whatever the elaborator
+  inferred for it, which can be expensive (`fromList`, §8.1).
+  A `case` on an erased proof takes its only *possible* branch;
   if every branch is impossible, the program is wrong and the run fails loudly
   (`unreachable`). The erasure argument in erase.rs still holds, because the `Prop` rule
   is unchanged.
 - **JavaScript.** A family's values are `{ tag, …fields }`, as for any data type, with forced
   fields like `n` stored. An impossible branch compiles to nothing; a case with no possible
-  branch throws. Exporting a function whose inputs or result mention an indexed family is
-  `E-EXPORT` for now: decoding would have to check the indices (D147).
+  branch throws. Exporting a function is `E-EXPORT` for now if an indexed family appears
+  **anywhere in the serialized form** of its inputs or result: directly, through a type
+  synonym, inside a container (`List (Vec Nat 3)`), or in a record field. Decoding would
+  have to check the indices. §8.5's `Grid` is the example: `Grid -> Grid` must be refused,
+  since decoding `rows` would have to check every row's length (D147, test 28).
 
 ### 6.9 Hashing
 
@@ -667,8 +789,18 @@ regenerated.
 ### 6.10 Data groups
 
 Members of a group share parameters and universe (as now), but each has its own index
-telescope, so `Even` and `Odd` (§8.4) can be defined together. Lean allows different indices
-in a mutual block **[unverified]**. The elaborator's `E-MUTUAL-PARAMETERS` still compares
+telescope. For example (a variant of §8.4's `Even`, defined together with `Odd`):
+
+```
+type Even: Nat -> Prop =
+  | EvenZero: Even 0
+  | EvenSucc (h: Odd n): Even (Succ n)
+
+type Odd: Nat -> Prop =
+  | OddSucc (h: Even n): Odd (Succ n)
+```
+
+Lean allows different indices in a mutual block **[unverified]**. The elaborator's `E-MUTUAL-PARAMETERS` still compares
 parameters only.
 
 ## 7. The surface language
@@ -696,6 +828,28 @@ type Vec (a: Type): Nat -> Type =
   name becomes a **real implicit field** of the constructor, in the kernel declaration,
   and passes the positivity and universe checks like any written field. That's what
   refuses `b` in `TList` for a `Ty: Type -> Type` (§6.6).
+- **Where automatic fields go.** At the front, before the written fields, as in
+  signatures. Among themselves they're ordered by dependency (one whose type mentions
+  another comes after it), and a cycle is an error. An automatic field whose type would
+  mention a **written** field can't go at the front, so it's refused with a message asking
+  for an explicit binder:
+
+  ```
+  type Dep: (n: Nat) -> Fin n -> Type =
+    | Mk (n: Nat): Dep n i               -- refused: `i: Fin n` would need `n`, a written field
+    | Mk (n: Nat) [i: Fin n]: Dep n i    -- accepted: written out, after `n`
+  ```
+
+  ```
+  [E-IMPLICIT-FIELD] `i` needs to be written as a field
+    `i` is used only in the result, so its type is `Fin n` from `Dep`'s indices, and that
+    mentions the field `n`. Automatic fields go before the written ones.
+    Note: write `[i: Fin n]` after `(n: Nat)`.
+  ```
+
+  Placing automatic fields among the written ones by their dependencies would accept
+  more, at the cost of a less predictable order of implicit fields; it can come later
+  (D144, test 26).
 - **Write `Succ n` (or `1 + n`), not `n + 1`.** `+` counts down its first argument, so
   `n + 1` doesn't compute when `n` is unknown **[run]**, and a constructor declared with
   it could never be matched on a `Vec a (Succ k)`. The declaration is still allowed:
@@ -724,13 +878,30 @@ signature's `n`.
   If unification is stuck, the constructor stays possible: it is never quietly treated as
   impossible, and the case can't be built at all (`E-INDEX-STUCK`, which the kernel would
   also give).
-- **A missing arm can be impossible because of another argument.** In `get: Vec a n ->
-  Fin n -> a`, the `VNil` case has no arm. In that branch `n` is 0, so every `Fin 0`
-  constructor conflicts. The compiler tries splitting the other columns whose types
-  are families, one level deep, and accepts if one of them has only conflicting
-  constructors (Lean and Agda accept this `get` **[unverified for Lean]**). The search is
-  intentionally incomplete: an emptiness that needs two levels of splitting isn't found,
-  and the user writes the split (or a `()`) by hand (D146).
+- **A missing arm can be empty because of another argument.** This is a different reason
+  from the one above, and the compiler keeps them apart. In `get: Vec a n -> Fin n -> a`,
+  the `VNil` case has no arm, but `VNil` is *possible* for a `Vec a n`: it solves `n := 0`.
+  What's empty is the other argument, now `i: Fin 0`. The compiler tries splitting the
+  other columns whose types are families, one level deep. If one has only conflicting
+  constructors, it **synthesises a case on that argument**, with every branch impossible,
+  as the `VNil` branch's body:
+
+  ```
+  case v of
+    VNil         => case i of           -- VNil: possible, so it has a body
+                      FZero => impossible     -- Fin 0 = Fin (Succ k): conflict
+                      FSucc => impossible     -- likewise
+    VCons x xs   => case i of
+                      FZero   => x
+                      FSucc j => get xs j
+  ```
+
+  So the kernel sees `VNil.body = Some(inner case)`, and both inner branches have no body.
+  Marking `VNil` itself impossible would be wrong (unification succeeds there), and the
+  kernel refuses that tree (`E-MALFORMED`, test 27). Lean and Agda accept this `get`
+  **[unverified for Lean]**. The search is intentionally incomplete: an emptiness that
+  needs two levels of splitting isn't found, and the user writes the split (or a `()`) by
+  hand (D146).
 - **`()`** says "this argument's type has no possible constructor". Today it needs a type
   with no constructors; now it also accepts `Even 1` (§8.4). Otherwise `E-NOT-EMPTY`.
 - **An arm that can never match** (`| VNil => …` for a `Vec a (Succ n)`) is the warning
@@ -808,6 +979,31 @@ theorem mapAppend (f: a -> b): (xs: Vec a n) -> (ys: Vec a m) ->
   | VNil, ys       => rfl
   | VCons x xs, ys => Eq.cong (r => VCons (f x) r) (mapAppend f xs ys)
 ```
+
+**`fromList` as written is quadratic.** `VCons` has a stored implicit field `n` (D141),
+and the elaborator fills it by unification: the expected type `Vec a (List.length (Cons
+x xs))` computes to `Vec a (Succ (List.length xs))`, so the second arm elaborates to
+`VCons [n := List.length xs] x (fromList xs)` **[inferred]**. Running it computes
+`List.length` of every suffix: n(n-1)/2 steps for n elements. An analogue that runs today,
+a list type with a stored field `SCons (List.length xs) x (fromList xs)`, takes 2.8 s for
+4,000 elements, 10.8 s for 8,000 (four times as long for twice as many), and 0.11 s for
+8,000 with the field set to `0` **[run]**. The linear version passes the length down, so
+each field is a number already computed:
+
+```
+def fromListN: (n: Nat) -> (xs: List a) -> List.length xs = n -> Vec a n
+  | 0, Nil, _              => VNil
+  | Succ k, Cons x xs, ok  => VCons [n := k] x (fromListN k xs (Nat.succInj ok))
+  | 0, Cons _ _, ok        => Void.absurd (Nat.succNotZero ok)
+  | Succ _, Nil, ok        => Void.absurd (Nat.zeroNotSucc ok)
+
+def fromList (xs: List a): Vec a (List.length xs) := fromListN (List.length xs) xs rfl
+```
+
+(The lemma names stand for the prelude's constructor injectivity and disjointness lemmas
+**[unverified: exact names]**; the proofs are erased at run time.) The general lesson for
+D141: a stored implicit field costs whatever its inferred term costs. SW-179 should
+compare `Vec` representations with the linear conversions, and measure at AoC sizes.
 
 What happens in `zipWith`, branch by branch **[inferred]**: splitting the first vector
 gives `n := 0` or `n := Succ k`. In the first, the second vector is `Vec b 0`, and
@@ -923,7 +1119,7 @@ are; the surface ones go in `examples/reject` and `examples/accept`.
 | 8 | Negative occurrence through an index-varying field: `\| MkBad (f: Bad 0 -> Void): Bad 1` | `E-POSITIVITY` | `Vec` |
 | 10 | Wrong parameters in a constructor result: `\| Weird: Vec Nat 0` in `Vec (a: Type)` | `E-TYPE-MISMATCH` | `VNil: Vec a 0` |
 | 11 | Agda #6654 in `Type`: `type Bad: ((p: Type) -> p -> p) -> Type = \| B (f: (p: Type) -> p -> p): Bad f` | `E-UNIVERSE` (the field is too large) | The same in `Type 1` |
-| 12 | Agda #6654 in `Prop`: the same family in `Prop` (allowed, impredicative), and `noBad: Bad x -> Void \| B f => noBad (f _ bad)` | `E-TERMINATION` (`f` returns `p`, not `Bad`) | Structural recursion on a proof of `Le` (`leToLeq`, §8.3) |
+| 12 | Agda #6654 in `Prop`, isolating termination: `type FalseP: Prop` (no constructors); `def IdP: Prop := (p: Prop) -> p -> p`; `type Bad: IdP -> Prop = \| B (f: IdP): Bad f`; `def idP: IdP := p h => h`; `def bad: Bad idP := B idP`; `theorem noBad [x: IdP]: Bad x -> FalseP \| B f => noBad [idP] (f (Bad idP) bad)`. Everything is a proof matched into a proof, so typing and `Prop` elimination pass, and the index equation `x = f` at `IdP` is a variable solution | `E-TERMINATION` (`f`'s declared type returns `p`, not `Bad`, so `f (Bad idP) bad` isn't smaller) | Structural recursion on a proof of `Le` (`leToLeq`, §8.3) |
 | 13 | Descent only through a solved index: `def down [n: Nat]: Vec Bool n -> Nat \| VNil => 0 \| VCons [n := m] _ _ => down [m] (replicate m True)` (`m` is one less than `n`, but that isn't evidence) | `E-TERMINATION` | The same recursing on `xs` |
 | 14 | `Prop` elimination through an index field: `type IsSucc: Nat -> Prop = \| MkIsSucc: IsSucc (Succ n)`, `pred: IsSucc k -> Nat` reading `n` | `E-PROP-ELIM` | `IsSucc k -> k != 0` |
 | 15 | `Prop` elimination with two constructors: `Le m n -> Bool` by matching | `E-PROP-ELIM` | `Le (Succ n) 0 -> Nat` (every branch impossible) |
@@ -933,78 +1129,97 @@ are; the surface ones go in `examples/reject` and `examples/accept`.
 | 19 | Dependent constructor injectivity, stuck variant. `type W: Type = \| Mk (n: Nat) (i: Fin (Succ n))`, `type Q: W -> Type = \| MkQ: Q (Mk (Succ m) j)`, matching `q: Q (Mk (g k) i)` with `g` opaque. The first fields give `g k = Succ m` (stuck). The unifier must stop there, never comparing `i: Fin (Succ (g k))` with `j: Fin (Succ (Succ m))` (which would "solve" `j := i` at the wrong type) | `E-INDEX-STUCK` (kernel) | `type P: W -> Type = \| MkP: P (Mk m j)` matching `p: P (Mk n i)`: `m := n` first, then `j := i` at `Fin (Succ n)` |
 | 20 | A refined outer hypothesis read at the wrong type: with `[n: Nat] (h: P n) (v: Vec a n)`, the `VCons [n := m] _ _` branch using `h` where a `P m` is expected | `E-TYPE-MISMATCH` (kernel) | The same branch using `h` where `P (Succ m)` is expected, with `h`'s type quoted at the branch's depth as the well-scoped `P (Succ m)`; and the same through a lifted `match` (captures ordered `m` before `h`) |
 | 21 | Large index: `type Ty: Type -> Type = \| TNat: Ty Nat \| TList (t: Ty b): Ty (List b)` (also covers draft 1's test 9, whose example this rule now refuses first) | `E-UNIVERSE` | `type Ty: Type -> Type 1 = …` |
+| 22 | `Prop` conflict: `type P: Prop = \| A \| B`, `type SameP (x: P): P -> Prop = \| R: SameP x x`, `theorem noAB: SameP A B -> FalseP \| ()`. The equation `B = A` is at `P: Prop`, so it never conflicts | `E-INDEX-STUCK` | The same with `type P: Type = \| A \| B` (`SameP` still a `Prop` family): accepted, by conflict at `P: Type` |
+| 23 | `Prop` injectivity: `type Hidden: Prop = \| Hide (n: Nat)`, a family indexed by `Hidden`, and an empty match needing `Hide 0 = Hide 1` | `E-INDEX-STUCK` (never decomposed into `0 = 1`) | The same with `Hidden: Type`: accepted, by injectivity then conflict |
+| 24 | (accept side only) Ordinary data still works: tests 22 and 23 in `Type` | - | Unit tests of the unifier at both universes, before and after D1′ (and D184 if adopted) |
+| 25 | Proof field before data: `type T: Type = \| MkT (h: P) (n: Nat)` (`P: Prop` as in 22), an empty match needing `MkT A 0 = MkT B 1` | `E-INDEX-STUCK` (stuck at `A = B`, never "impossible" from the later `0 = 1`) | `MkT h 0 = MkT A 1` with `h` a variable: `h := A`, then `0 = 1`: impossible, accepted |
+| 26 | Dependent automatic field: `type Dep: (n: Nat) -> Fin n -> Type = \| Mk (n: Nat): Dep n i` | `E-IMPLICIT-FIELD` | `\| Mk (n: Nat) [i: Fin n]: Dep n i` |
+| 27 | `get` (§8.2) with the `VNil` branch marked impossible, built directly | `E-MALFORMED` (kernel: `VNil` unifies with `Vec a n`) | `VNil`'s body a case on `i: Fin 0` with both branches impossible (§7.3) |
+| 28 | Exporting `Grid -> Grid` (§8.5: `Vec` inside a record); exporting `List (Vec Nat 3) -> Nat`; exporting through a synonym `type Row = Vec Bool 5` | `E-EXPORT` | Exporting a `List Nat -> Nat` function that uses `Vec` inside |
 
 Also, not a rejection: `sameK` (§6.5) is **accepted**, documenting the K decision. Driver
 tests run each §8 example with and without erasure and compare results, as
-`crates/driver/tests` does for natives.
+`crates/driver/tests` does for natives, plus an indexed family with both a computational
+field and a proof field (`Certified`, §6.8), so erasure of the proof field and retention
+of the data field are both exercised.
 
 ## 10. Build plan
 
 Kernel work is Opus (spec and implementation, or careful review), per the model tiers.
-Sizes are rough and include tests.
+Line counts are rough planning estimates, including tests. A stage is **done when its
+invariants hold and its tests pass**, not when it reaches a size: in particular the `Prop`
+guard (tests 22-25), dependent fields and binders (19, 26), and context refinement (20, 27).
 
 | Stage | What | Crates | Size |
 |---|---|---|---|
 | 1 | **Kernel declarations.** Index telescopes in `declare_data_group`; result indices in `define_data_group`; `Data`/`Ctor` typing with indices; positivity and universe rules (§6.2); records refuse indices; index types under the field universe rule (§6.6); hashing; printing. Kernel tests 8, 10, 11, 17, 21 | `core` (globals, check, hash, pretty, registry) | 400-500 |
-| 2 | **Kernel `case`.** The unifier on typed constraints with the telescope stack (new `core/src/unify_index.rs`, public so the elaborator can call it; §6.3); the orientation policy and the bind-unify-substitute order in `check_case`; impossible branches (`Branch.body: Option`); `Prop` rule addition; evaluation, erasure (`unreachable`), termination (impossible branches have nothing). A **reference unifier** in the tests: first-order terms over a toy signature (`Nat`, `Fin`, `W`), naive substitution, no levels; generated bounded problems (depth ≤ 3, dependent fields included) are run through both, comparing the outcome (solved, conflict, stuck) and the substitution (D149). Kernel tests 1, 2, 4-7, 12-15, 19, 20 and `sameK` | `core` | 800-1,000 |
-| 3 | **Syntax and declarations.** `type D (ps): I -> s =`; constructor result types; implicit fields `[n: T]` and automatic ones (D144); building values with implicit fields; `E-INDEX-STUCK` hints | `syntax` (~200), `elab` (~300) | 500 |
-| 4 | **Matching.** Typed splitting in `compile`: impossible branches, the one-level search for missing arms (D146), `[n := k]` patterns, `()` for families, `W-UNREACHABLE`, `match` lifting over indices, messages (§7.4). Surface tests 3, 4, 5, 6, 16 | `elab` (`lib.rs`, `matching.rs`, `lift.rs`) | 700-900 |
-| 5 | **Running and JS; docs.** Driver tests with and without erasure; JS for impossible branches; `E-EXPORT` for families (test 18); examples `examples/accept/indexed-families.sw`; docs/core.md, docs/syntax.md, DESIGN.md §6 and §13 | `js` (~100), `driver`, docs | 300 |
+| 2 | **Kernel `case`.** The unifier on typed constraints with the telescope stack (new `core/src/unify_index.rs`, public so the elaborator can call it; §6.3); the orientation policy and the bind-unify-substitute order in `check_case`; impossible branches (`Branch.body: Option`); `Prop` rule addition; evaluation, erasure (`unreachable`), termination (impossible branches have nothing). A **reference unifier** in the tests (D149): terms over a toy signature that tells apart data constructors (in `Type` and in `Prop`), opaque applications and type formers (`Nat`, `Fin`, `W`, `P`, `Hidden`), naive substitution, no levels. Generated bounded problems (depth ≤ 3, dependent fields and proof fields included) go through both; the outcome (solved, conflict, stuck) must agree, and for solved ones the *effect* of the two substitutions on the original variables and constraints, normalised, must agree (equivalent substitutions can differ as maps). Separately, direct checks on the production unifier: every reported solution makes the original equations convertible; the refined context is well formed; the occurs check catches an occurrence hidden in another variable's type, including transitively; refined types quoted at branch depth are well scoped. Those last two need levels, so they are kernel tests, not oracle comparisons. Kernel tests 1, 2, 4-7, 12-15, 19, 20, 22-25, 27 and `sameK` | `core` | 850-1,050 |
+| 3 | **Syntax and declarations.** `type D (ps): I -> s =`; constructor result types; implicit fields `[n: T]` and automatic ones, ordered by dependency, with `E-IMPLICIT-FIELD` (D144, test 26); building values with implicit fields; `E-INDEX-STUCK` hints | `syntax` (~200), `elab` (~300) | 500 |
+| 4 | **Matching.** Typed splitting in `compile`: impossible branches, the one-level search for missing arms, synthesising the nested empty case (D146, §7.3), `[n := k]` patterns, `()` for families, `W-UNREACHABLE`, `match` lifting over indices, messages (§7.4). Surface tests 3, 4, 5, 6, 16 | `elab` (`lib.rs`, `matching.rs`, `lift.rs`) | 700-900 |
+| 5 | **Running and JS; docs.** Driver tests with and without erasure, including `Certified`; JS for impossible branches; `E-EXPORT` for families anywhere in the serialized form (tests 18, 28); examples `examples/accept/indexed-families.sw`; docs/core.md, docs/syntax.md, DESIGN.md §6 and §13 | `js` (~100), `driver`, docs | 300 |
 
 Stages 1 and 2 can be one lane; 3 and 4 depend on 2. Each stage's tests are the
-must-reject rows above for its part; stage 2 isn't done until tests 19 and 20 and the
-reference-unifier comparison pass. Totals: `core` about 1,200-1,500 lines (draft 1:
-1,000-1,300; the difference is typed constraints and the reference unifier), the rest
-unchanged. After stage 5, SW-179 decides `Vec`'s representation
+must-reject rows above for its part; stage 2 isn't done until tests 19, 20, 22-25 and 27
+and the reference-unifier checks pass. Totals: `core` about 1,250-1,550 lines (draft 1:
+1,000-1,300; typed constraints, the `Prop` guard and the reference unifier), `elab` about
+1,050-1,450 (the dependency ordering of automatic fields and the nested empty case), the
+rest unchanged. After stage 5, SW-179 decides `Vec`'s representation
 (vec.md D126 and the rest) with a real choice between options A and C there.
 
 ## 11. What else changes
 
 - **DESIGN.md §6.** "Dependent pattern matching: for the POC, patterns are kept simple"
   becomes a pointer to this note. The `Prop` index clause is marked "not yet" (D140).
-  §13's must-reject table gains rows 4, 6, 11, 12, 13, 19 and 21.
+  §13's must-reject table gains rows 4, 6, 11, 12, 13, 19, 21, 22 and 25.
 - **docs/core.md.** The table row "Parameters but no indices" changes; "Data types" and
   "Case trees" gain §6.2 and §6.3; "Equality" mentions K.
 - **docs/proposals/vec.md.** Option C becomes available; its §4 C paragraph and D133 are
   answered.
 - **Proof irrelevance (SW-93).** Independent. D1′ masks proof positions in conversion;
   this note adds no proofs to values. The unifier only ever compares two values of one
-  type (§6.3.1), which is the precondition D1′ documents for its masked conversion, so
-  either can land first **[inferred]**.
+  type (§6.3.1), which is the precondition D1′ documents for its masked conversion. And
+  the unifier never takes proofs apart (§6.3.2), so nothing it concludes contradicts
+  D1′'s proof irrelevance. Before D1′ some proof equations are stuck; after it, more are
+  deleted; neither tells proof constructors apart. So either can land first
+  **[inferred]**. If D184 is adopted, its rule lands with or after D1′, never before.
 
 ## 12. Decisions wanted
 
-This note's decisions are D136 to D149 and D153. D150 to D152 were never part of it:
-decision numbers are shared across all of Stitchwort's work, and those three went to
-other decisions while draft 1 was being written. No new decisions were needed for draft 2.
+This note's decisions are D136 to D149, D153 and D184. D150 to D152 were never part of
+it: decision numbers are shared across all of Stitchwort's work, and those three went to
+other decisions while draft 1 was being written. Draft 3 adds D184; the numbers between
+D153 and D184 went to other notes.
 
-The "Review" column is the external reviewer's verdict on draft 1. Where it was "agree
-with changes" or "disagree", the recommendation below is already changed to match.
+"Review 1" is the external verdict on draft 1, "Review 2" the verdict on draft 2. Every
+change either review asked for is already in the recommendations below.
 
-| # | Question | Recommendation (draft 2) | Review |
-|---|---|---|---|
-| D136 | Approach | A: native indices, unification in kernel case trees | Agree with changes (the typed-unifier fixes, made in §6.3) |
-| D137 | Kernel unification rules | Four rules, typed homogeneous constraints, telescope-ordered injectivity, stuck refuses | Agree with changes (made) |
-| D138 | Axiom K | Accept | Agree |
-| D139 | Type former injectivity | Never | Agree |
-| D140 | `Prop` elimination | Today's rule, plus "every branch conflicts" | Agree (only conflict establishes emptiness: stated) |
-| D141 | Indices at run time | Store all fields | Agree |
-| D142 | Large indices | **Reversed:** not in stage 1; index types obey the field universe bound | Disagree with draft 1 (now followed) |
-| D143 | Termination and cycles | No decrease from index equations; stored fields still subterms; no cycle rule | Agree with wording change (made) |
-| D144 | Constructor syntax | As draft 1; auto-bound names are real implicit fields | Agree with changes (made) |
-| D145 | `n + 1` | `Succ n` / `1 + n`, with a hint | Agree |
-| D146 | Patterns | As draft 1; only conflict permits omission; one-level search incomplete | Agree with changes (made) |
-| D147 | JS boundary | `E-EXPORT` | Agree |
-| D148 | Records and groups | No indexed records; per-member indices in groups | Agree |
-| D149 | One unifier | One production unifier, plus a reference unifier as a test oracle | Agree with changes (made) |
-| D153 | Built-in `=` | Keep | Agree |
+| # | Question | Recommendation (draft 3) | Review 1 | Review 2 |
+|---|---|---|---|---|
+| D136 | Approach | A: native indices, unification in kernel case trees | Agree with changes (made) | Agree |
+| D137 | Kernel unification rules | Four rules on typed homogeneous constraints, telescope-ordered injectivity; injectivity and conflict only at types in `Type`; proof equations otherwise stuck; stuck refuses | Agree with changes (made) | Agree after the `Prop` guard and its regressions (made: §6.3.2, tests 22-25) |
+| D138 | Axiom K | Accept | Agree | Agree |
+| D139 | Type former injectivity | Never | Agree | Agree |
+| D140 | `Prop` elimination | Today's rule, plus "every branch conflicts" (conflict as now guarded) | Agree | Agree |
+| D141 | Indices at run time | Keep computational fields, forced implicit ones included; proof fields erased as usual; cost documented | Agree | Agree with changes (made: §6.8, §8.1) |
+| D142 | Large indices | Not in stage 1: index types obey the field universe bound (conservative initial policy) | Disagree with draft 1 (reversed) | Agree |
+| D143 | Termination and cycles | Stored fields are subterms; no decrease from index equations; recursive fields classified from the declaration; no cycle rule | Agree with wording change (made) | Agree with changes (made: §6.7, test 12) |
+| D144 | Constructor syntax | Automatic fields are real implicit fields, at the front, ordered among themselves; refused if they depend on a written field | Agree with changes (made) | Agree after choosing the policy (made: policy 2, test 26) |
+| D145 | `n + 1` | `Succ n` / `1 + n`, with a hint | Agree | Agree |
+| D146 | Patterns | Omission only by conflict; one-level search synthesises the nested empty case; incomplete by design | Agree with changes (made) | Agree with changes (made: §7.3, test 27) |
+| D147 | JS boundary | `E-EXPORT` for a family anywhere in the serialized form | Agree | Agree with changes (made: §6.8, test 28) |
+| D148 | Records and groups | No indexed records; per-member indices in groups | Agree | Agree |
+| D149 | One unifier | One production unifier; a reference oracle comparing effects; direct invariant checks | Agree with changes (made) | Agree with changes (made: §10) |
+| D153 | Built-in `=` | Keep | Agree | Agree |
+| D184 | `Prop` deletion after D1′ | New; see below | - | - |
 
 - **D136. Approach.** (A) native indices, with unification in kernel case trees
   (recommended); (B) native indices, kernel cases only on variable indices, and the
   elaborator casts with `J`; (C) Fording, with equation fields and no indices.
 - **D137. Unification rules in the kernel.** Exactly deletion, solution (with an occurs
   check that covers types, transitively, and the fixed orientation of §6.3.3),
-  injectivity and conflict for data constructors and numbers. Constraints are typed and
+  injectivity and conflict for constructors and numbers **at types in `Type`, never at a
+  proposition**; an equation between proofs that deletion or solution doesn't settle is
+  stuck (§6.3.2). Constraints are typed and
   homogeneous before every rule; a constructor's fields are unified in telescope order,
   each formed only after the earlier ones are solved; a field whose two types still differ
   is stuck; anything stuck refuses the case (recommended). The alternative is to add
@@ -1017,45 +1232,70 @@ with changes" or "disagree", the recommendation below is already changed to matc
 - **D140. `Prop` elimination.** Keep today's rule, plus "a case whose branches all
   conflict produces anything" (recommended). Only a conflict, never a stuck problem,
   shows a branch is empty. DESIGN.md §6's index clause waits until something needs it.
-- **D141. Indices at run time.** Store forced fields (like `n` in `VCons`) and keep
-  implicit index parameters at run time, as DESIGN.md §6 says (recommended). Erasing
+- **D141. Indices at run time.** Keep computational fields, forced implicit ones (like `n`
+  in `VCons`) included, and keep implicit index parameters at run time, as DESIGN.md §6
+  says; proof fields are erased by the existing rule (recommended). A stored implicit
+  field costs whatever its inferred term costs: `fromList` as written is quadratic, and the
+  library uses a linear worker (§8.1). Erasing
   forced fields (Brady–McBride–McKinna) or Idris-style quantities come later, as a
   separate change with its own argument that the representations agree.
 - **D142. No large indices in stage 1.** An index's type obeys the universe bound for
   constructor fields: `Vec: Nat -> Type` is fine, `Ty: Type -> Type` is `E-UNIVERSE`, and
-  `Ty: Type -> Type 1` is the form to write (recommended; Lean's rule). Genuinely large
-  indices would be a separate design. (Draft 1 recommended allowing them; the review
+  `Ty: Type -> Type 1` is the form to write (recommended; Lean's rule). This is a
+  conservative initial policy; genuinely large indices would be a separate design. (Draft 1 recommended allowing them; the review
   showed that contradicted the field rule, and that Lean doesn't allow them.)
 - **D143. Termination and cycles.** A stored constructor field, implicit ones included, is
   a structural subterm of the value, as today. No decrease is ever derived from an index
-  equation: after `n := Succ m`, `m` isn't smaller than `n`. And `n = Succ n` is stuck
+  equation: after `n := Succ m`, `m` isn't smaller than `n`. A recursive function field is
+  classified from the positivity-checked declaration, never from a refined or
+  instantiated type. And `n = Succ n` is stuck
   rather than impossible (recommended; test 13 and Agda issue #6654's test 12).
 - **D144. Constructor syntax.** Indices after the header's colon; each constructor states
   its result type; unknown lowercase names in a constructor become real implicit fields at
   the front, checked for positivity and universes like written ones, including names used
-  only in the result type; uses in the result's indices don't disqualify a name
-  (recommended).
+  only in the result type; uses in the result's indices don't disqualify a name.
+  Automatic fields are ordered by their dependencies on each other; one whose type would
+  mention a written field is refused (`E-IMPLICIT-FIELD`), asking for an explicit binder
+  (recommended). The alternative is placing automatic fields among the written ones.
 - **D145. `n + 1` in indices.** Write `Succ n` or `1 + n`, with a targeted hint when `n + 1`
   gets stuck (recommended). Alternatives: make `+` count down its second argument, as
   Lean's does (rewrites many proofs); or a trusted native rule `x + k ≡ Succ^k x`
   (breaks "a native computes exactly its definition").
 - **D146. Patterns.** Implicit fields are skipped, or named `VCons [n := k] x xs` (no
   positional form). An arm may be left out only when unification finds a conflict; a
-  stuck constructor stays possible (and the case is `E-INDEX-STUCK`). The one-level search
-  over other family-typed arguments is intentionally incomplete. `()` works for families.
+  stuck constructor stays possible (and the case is `E-INDEX-STUCK`). Separately, a
+  possible constructor whose branch leaves another argument empty gets a synthesised
+  case on that argument with every branch impossible; the one-level search for it is
+  intentionally incomplete. `()` works for families.
   An arm that can never match is the warning `W-UNREACHABLE` (recommended).
-- **D147. JavaScript.** Functions whose exported type mentions an indexed family are
-  `E-EXPORT` for now (recommended). Boundary codecs that check indices come later.
+- **D147. JavaScript.** An export is `E-EXPORT` for now if an indexed family appears
+  anywhere in the serialized form of its inputs or result: directly, through synonyms,
+  in containers or in record fields (recommended). Boundary codecs that check indices come later.
 - **D148. Records and groups.** Records can't have indices. Data groups may give each
   member its own indices, so `Even`/`Odd` can be mutual (recommended).
 - **D149. One unifier, checked by a reference.** The elaborator calls the kernel's unifier
   (a public function in `crates/core`) to find impossible branches, and the kernel runs it
   again when checking. A second production implementation would only be more to keep in
-  step. But the unifier is trusted, so the tests carry a tiny, obviously correct reference
-  unifier and compare the two on bounded generated problems: the outcome (solved,
-  conflict, stuck) and the substitution (recommended).
+  step. But the unifier is trusted, so the tests carry a small reference unifier, simple
+  enough to read in one sitting, that tells data constructors (in `Type` and in `Prop`),
+  opaque applications and type formers apart. The two are compared on bounded generated
+  problems: the outcome (solved, conflict, stuck), and for solved ones the normalised
+  effect of the substitutions on the original variables and constraints. Direct kernel
+  tests check what the oracle can't, since it has no levels: solutions make the original
+  equations convertible, the refined context is well formed, the occurs check sees through
+  types transitively, and quoting at branch depth stays in scope (recommended).
 - **D153. Built-in `=`.** Keep `Eq` and `J` built in, not redefined as a family. Without
   universe polymorphism, a family would only cover one universe (recommended).
+- **D184. Deleting `Prop` equations once D1′ lands.** After D1′ (proof irrelevance)
+  is built, add a unifier rule: a constraint whose type is a proposition is deleted, since
+  any two proofs of it are then equal. That makes `MkT A 0 = MkT B 1` (§6.3.2) an ordinary
+  conflict instead of stuck. Recommended: yes, as part of D1′'s stage, with tests 22-25
+  rerun: 22 and 23 still fail, but as `E-NOT-EMPTY` (the equation is deleted, so the
+  branch is possible), and 25's empty match is accepted by the later `0 = 1` conflict.
+  None of them is ever decided by a conflict between proofs. Not
+  before D1′: without it, types that mention the two proofs wouldn't compare equal, and
+  the homogeneity invariant would break. The alternative is to leave proof equations stuck
+  for good.
 
 ## Sources
 
@@ -1071,7 +1311,7 @@ docs/proposals/vec.md, proof-irrelevance.md, compact-text.md, mutual-recursion.m
   "at most one constructor" and "each of the constructor's parameter types is either a
   `Prop`, a parameter, or an index".
 - **L3.** *Functional Programming in Lean*, "Indices, Parameters, and Universe Levels":
-  <https://lean-lang.org/functional_programming_in_lean/dependent-types/indices-parameters-universes.html>.
+  <https://lean-lang.org/functional_programming_in_lean/Programming-with-Dependent-Types/Indices___-Parameters___-and-Universe-Levels/>.
   `inductive WithIndex : Type u → Type (u + 1)`, one universe up because the argument is
   an index; a parameter wouldn't raise it. The Lean Language Reference, "Universe
   Levels" (in L1's page): "All other constructor parameters must be smaller than the type
@@ -1107,3 +1347,10 @@ docs/proposals/vec.md, proof-irrelevance.md, compact-text.md, mutual-recursion.m
   without K", JFP 2016: <https://www.cambridge.org/core/product/4BC4EA2D02D801E5ABED264FE5FB177A>.
 - **C3.** J. Cockx, A. Abel, "Elaborating dependent (co)pattern matching: No pattern left
   behind", JFP 30 (2020), e2 (ICFP 2018): <https://research.chalmers.se/en/publication/515222>.
+- **U1.** J. Cockx, D. Devriese, F. Piessens, "Unifiers as Equivalences: Proof-Relevant
+  Unification of Dependently Typed Data", ICFP 2016 (record and abstract):
+  <https://researchportal.vub.be/en/publications/unifiers-as-equivalences-proof-relevant-unification-of-dependentl/>.
+  §4.3, Lemma 6 (generalised injectivity for indexed constructors when the index telescope
+  satisfies K) as cited by the re-review **[unverified: not read in full]**. Journal
+  version: "Proof-relevant unification: Dependent pattern matching with only the axioms of
+  your type theory", JFP 28 (2018).
