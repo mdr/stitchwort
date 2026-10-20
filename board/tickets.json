@@ -1489,9 +1489,9 @@
     {
       "id": 99,
       "title": "`calc` notation and a `rewrite` term for equational proofs",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
-      "where": "stage 2 = SW-153",
+      "where": "main",
       "labels": [
         "proof",
         "syntax",
@@ -2327,7 +2327,7 @@
     {
       "id": 153,
       "title": "rewrite term (stage 2 of SW-99)",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "main",
       "labels": [
