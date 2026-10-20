@@ -636,7 +636,7 @@ depend on anything that exists only in one browser.
 | D115 | Scope of the first version | No adding, renaming or deleting files; Evaluate takes full names (`Aoc.Day02.solvePart1 …`); short names in the open file's namespace later |
 | D116 | Is this designed only for `aoc/`? | Build it for any project listed in the build step, but bundle only `aoc/` for now; the day list is AoC-specific (from the folder layout), other projects would list their `main`s |
 | D118 | Where and when to host the playground publicly? | **Agreed (Matt, 20 Oct 2026):** GitHub Pages, as a backlog task, not until Stitchwort is further along (§10.6) |
-| D119 | Keep the example inputs (copied from the puzzle text) in the repository and the bundle? | **Agreed (Matt, 20 Oct 2026):** keep them; AoC's request doesn't persuade us. Real inputs stay out of the repository and the bundle (§10.3) |
+| D119 | Keep the example inputs (copied from the puzzle text) in the repository and the bundle? | **Decided (Matt, 20 Oct 2026):** keep them, and commit and bundle Matt's real puzzle inputs too; AoC's request doesn't persuade us. Supersedes the 'never published' guards in §5 and §10.3 |
 
 ## Sources
 
