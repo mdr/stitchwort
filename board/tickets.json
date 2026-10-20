@@ -991,15 +991,17 @@
       "id": 67,
       "title": "Exit codes for `stitchwort run`",
       "status": "doing",
-      "agent": "DeepSeek",
-      "where": "/Users/matt/scratch/opencode/funlang-20261020-134531",
+      "agent": "Claude",
+      "where": "main",
       "labels": [
         "tooling"
       ],
       "body": "**Exit codes for `stitchwort run`:** every failure is 1. Decide whether\n\"didn't check\" and \"failed while running\" should differ.",
       "created": "2026-10-19",
       "updated": "2026-10-20",
-      "commits": []
+      "commits": [
+        "396368a"
+      ]
     },
     {
       "id": 68,
@@ -1623,8 +1625,8 @@
       "id": 107,
       "title": "A namespace line after an import should say 'must come first', not E-NO-NAMESPACE",
       "status": "doing",
-      "agent": "DeepSeek",
-      "where": "/Users/matt/scratch/opencode/funlang-20261020-134525",
+      "agent": "Claude",
+      "where": "main",
       "labels": [
         "multi-file",
         "bug"
@@ -1632,7 +1634,9 @@
       "body": "Found checking docs/projects.md (19 Oct): `import A (x)` then `namespace N` reports E-NO-NAMESPACE (as if the file had none). Better: E-PARSE or a note 'the namespace line must come before imports and declarations', pointing at the misplaced line. Small.",
       "created": "2026-10-19",
       "updated": "2026-10-20",
-      "commits": []
+      "commits": [
+        "3e8b06f"
+      ]
     },
     {
       "id": 108,
@@ -1729,15 +1733,17 @@
       "id": 114,
       "title": "Uppercase parameter names are a parse error",
       "status": "doing",
-      "agent": "DeepSeek",
-      "where": "/Users/matt/scratch/opencode/funlang-20261020-134528",
+      "agent": "Claude",
+      "where": "main",
       "labels": [
         "syntax"
       ],
       "body": "`def f (A: Nat): Nat := A` gives E-PARSE 'expected a parameter's name, but found A' because uppercase reads as a constructor (docs/aoc-2025.md:1029). Decide: keep (improve the message with a note: parameters start lowercase) or allow it (affects pattern/constructor resolution). Done: decision implemented and documented.",
       "created": "2026-10-19",
       "updated": "2026-10-20",
-      "commits": []
+      "commits": [
+        "22644b9"
+      ]
     },
     {
       "id": 115,
@@ -2129,8 +2135,8 @@
       "id": 140,
       "title": "Parser: hint 'write not x' for !x",
       "status": "doing",
-      "agent": "DeepSeek",
-      "where": "/Users/matt/scratch/opencode/funlang-20261020-134523",
+      "agent": "Claude",
+      "where": "main",
       "labels": [
         "syntax",
         "errors"
@@ -2138,7 +2144,9 @@
       "body": "Day 6 pain point 1: `!x` gives 'unexpected character !' with no hint. Add a hint to write `not x`.",
       "created": "2026-10-19",
       "updated": "2026-10-20",
-      "commits": []
+      "commits": [
+        "6beb38d"
+      ]
     },
     {
       "id": 141,
@@ -2465,15 +2473,17 @@
       "id": 161,
       "title": "Same wording for 'function field has no ==' in records and data types",
       "status": "doing",
-      "agent": "DeepSeek",
-      "where": "/Users/matt/scratch/opencode/funlang-20261020-134534",
+      "agent": "Claude",
+      "where": "main",
       "labels": [
         "diagnostics"
       ],
       "body": "",
       "created": "2026-10-20",
       "updated": "2026-10-20",
-      "commits": []
+      "commits": [
+        "16d73c4"
+      ]
     },
     {
       "id": 162,
