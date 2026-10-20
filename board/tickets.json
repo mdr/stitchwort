@@ -223,7 +223,7 @@
     {
       "id": 15,
       "title": "Int polish: messages, wording and a wrong-row pointer",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "main",
       "labels": [
@@ -283,7 +283,7 @@
     {
       "id": 19,
       "title": "Annotated lambda parameters `\\(x : T) -> …` (would also fix the `p.name` hint)",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "main",
       "labels": [
@@ -513,7 +513,7 @@
     {
       "id": 34,
       "title": "`a_write_error_is_an_error`",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "main",
       "labels": [
@@ -1690,7 +1690,7 @@
     {
       "id": 111,
       "title": "Nat.absDiff lemmas",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "main",
       "labels": [
@@ -1784,7 +1784,7 @@
     {
       "id": 117,
       "title": "Termination errors point at the whole definition when the body has no `match`",
-      "status": "backlog",
+      "status": "done",
       "agent": "Claude",
       "where": "main",
       "labels": [
@@ -1841,7 +1841,7 @@
     {
       "id": 121,
       "title": "A record literal in a result type needs parentheses",
-      "status": "backlog",
+      "status": "done",
       "agent": "Claude",
       "where": "main",
       "labels": [
@@ -2170,7 +2170,7 @@
     {
       "id": 142,
       "title": "Prelude: List.All predicate (and List.Any) with lemmas",
-      "status": "backlog",
+      "status": "done",
       "agent": "Claude",
       "where": "main",
       "labels": [
