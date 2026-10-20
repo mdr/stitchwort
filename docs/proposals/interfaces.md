@@ -11,6 +11,91 @@ source or `file:line`), **inferred** (reasoned from checked facts), or
 **unverified** where it matters. Sources are listed at the end, as
 [L1], [H1] and so on.
 
+## Stitchwort in brief (for a reader new to it)
+
+Stitchwort is a strict, pure functional language with dependent types,
+implemented in Rust (repository `mdr/stitchwort`). It combines:
+
+- **Totality.** Functions terminate by default (structural recursion,
+  checked by size change). Code that might not terminate says so in its
+  type, as the `Partial` ability.
+- **Proofs about programs.** Dependent types, a built-in equality type
+  `a = b` with its eliminator `J`, an impredicative `Prop` whose proofs are
+  erased at runtime, and `Type`, `Type 1`, … above it. There is no
+  universe polymorphism. Data types have parameters but no indices yet
+  (indexed families are being designed in parallel, in
+  [indexed-families.md](indexed-families.md); this note doesn't depend on
+  them).
+- **Abilities** (algebraic effects, Unison-style): effects appear in types,
+  e.g. `{IO} ()`, and are implemented by handlers, in direct style, with
+  no monads.
+- **Content-addressed caching.** Each definition is identified by a hash
+  of its contents, so checks and tests whose dependencies haven't changed
+  aren't re-run.
+- **Extraction to JavaScript** (an ES module with TypeScript types) for
+  exported, proven code.
+
+**Architecture.** An *elaborator* turns surface syntax into core terms,
+filling in implicit arguments, `auto` arguments, dot notation and so on.
+A small, trusted *kernel* then re-checks every core term on its own
+(types, termination, positivity, `Prop` elimination). Anything the
+elaborator invents is therefore checked again, and an interface design
+that needs no kernel change keeps the trusted part unchanged.
+
+**The surface, in one example** (from the Advent of Code solutions in
+the repository):
+
+```
+namespace Aoc.Day01
+
+type Turn =
+  | Left (distance: Nat)
+  | Right (distance: Nat)
+
+-- A record type with a proof field.
+type Dial (highest: Nat) = { position: Nat, inRange: position <= highest }
+
+def Turn.parse (t: Text): Maybe Turn :=
+  match t.uncons with
+    | Just ('L', rest) => rest.toNat.map Left
+    | Just ('R', rest) => rest.toNat.map Right
+    | _                => Nothing
+
+-- Part 1: the positions after each turn that are 0.
+def zerosLandedOn (start: Dial highest) (turns: List Turn): Nat :=
+  turns
+    |> .scanLeft Dial.move start
+    |> .drop 1
+    |> .count Dial.isZero
+
+-- From the standard library (List/Toolkit.sw): a theorem whose proof is
+-- an ordinary structurally recursive function.
+theorem List.appendNil: (xs: List a) -> List.append xs Nil = xs
+  | Nil       => rfl
+  | Cons x xs => Eq.cong (Cons x) (List.appendNil xs)
+```
+
+(`highest` and `a` are used in the signatures without being bound, so
+they become implicit arguments automatically.)
+
+- Binders are written `(x: T)`; `[a: Type]` is an implicit argument,
+  `[auto ok: p]` one the compiler finds (§2.1). Lambdas are `x => e`.
+- **Namespaces** group definitions: `Nat.compare` lives in namespace
+  `Nat`. **Dot notation** `x.compare y` looks in the namespace of `x`'s
+  type. A file starts with `namespace …` and can `import Std (List)` or
+  `import Aoc.Common (Range)`; explicit imports are normal and cheap.
+- **The standard library** is a core file (`crates/elab/src/std/core.sw`)
+  plus library files (`List/Sort.sw`, `Int/Int.sw`, …) loaded when a
+  program first uses one of their names.
+- **Projects** are folders of `.sw` files whose namespaces follow their
+  paths, with no cycles between namespaces.
+
+**Status and constraints.** There are no external users yet, so there
+are no backwards-compatibility constraints: old forms are simply
+replaced, and hash stability is not a goal. The language is used
+day to day on Advent of Code 2025 solutions, several of which are proved
+correct for all inputs; those are the main source of the needs below.
+
 ## Contents
 
 0. [Summary](#0-summary)
