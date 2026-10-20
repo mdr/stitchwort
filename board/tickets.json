@@ -2588,7 +2588,7 @@
       "labels": [
         "diagnostics"
       ],
-      "body": "Found by SW-15: crates/core/src/pretty.rs prints Nat.add/sub and Int arithmetic as infix, but Nat.mul/div/mod (Builtin::Mul/Div/Mod) as prefix calls. Add them to the infix table at Prec::Mul (SW-15 added that level). Mechanical: DeepSeek.",
+      "body": "Found by SW-15: crates/core/src/pretty.rs prints Nat.add/sub and Int arithmetic as infix, but Nat.mul/div/mod (Builtin::Mul/Div/Mod) as prefix calls. Add them to the infix table at Prec::Mul (SW-15 added that level). Mechanical: DeepSeek. Approved 20 Oct 2026; launch after the SW-90 lambda switch merges (both touch the printer and snapshots).",
       "created": "2026-10-20",
       "updated": "2026-10-20",
       "commits": []
@@ -2692,7 +2692,7 @@
       "title": "AoC: test every day's answers on the real inputs (D119)",
       "status": "doing",
       "agent": "DeepSeek",
-      "where": "crates/cli/tests/aoc_answers.rs, dev/t aoc",
+      "where": "scratch clone funlang-20261020-200522; crates/cli/tests/aoc_answers.rs, dev/t aoc",
       "labels": [
         "aoc",
         "tooling"
