@@ -2425,9 +2425,9 @@
     {
       "id": 159,
       "title": "Day 2 for all inputs: prototype the general proof in Lean (rotations/gcd, computed Möbius weights)",
-      "status": "review",
-      "agent": "Matt",
-      "where": "branch worktree-agent-a5383a6eab2944d40 (Lean prototype)",
+      "status": "done",
+      "agent": "Claude",
+      "where": "main",
       "labels": [
         "aoc",
         "proof",
