@@ -242,6 +242,41 @@ theorem List.transposeNLength: (n: Nat) -> (rows: List (List a)) -> List.length 
   | Zero,   rows => rfl
   | Succ n, rows => Eq.cong Succ (List.transposeNLength n (List.map (List.drop 1) rows))
 
+-- Every element of the list satisfies `p`.
+def List.All (p: a -> Prop): List a -> Prop
+  | Nil       => Unit
+  | Cons x xs => And (p x) (List.All p xs)
+
+-- Some element of the list satisfies `p`.
+def List.Any (p: a -> Prop): List a -> Prop
+  | Nil       => Void
+  | Cons x xs => Or (p x) (List.Any p xs)
+
+theorem List.allAppend (p: a -> Prop): (xs: List a) -> (ys: List a) -> List.All p xs -> List.All p ys -> List.All p (List.append xs ys)
+  | Nil,       ys, hx, hy => hy
+  | Cons x xs, ys, Both hx hxs, hy => Both hx (List.allAppend p xs ys hxs hy)
+
+theorem List.allAppendLeft (p: a -> Prop): (xs: List a) -> (ys: List a) -> List.All p (List.append xs ys) -> List.All p xs
+  | Nil,       ys, h => Trivial
+  | Cons x xs, ys, Both h hxs => Both h (List.allAppendLeft p xs ys hxs)
+
+theorem List.allAppendRight (p: a -> Prop): (xs: List a) -> (ys: List a) -> List.All p (List.append xs ys) -> List.All p ys
+  | Nil,       ys, h => h
+  | Cons x xs, ys, Both h hxs => List.allAppendRight p xs ys hxs
+
+theorem List.allMap (p: b -> Prop) (f: a -> b): (xs: List a) -> List.All (\x => p (f x)) xs -> List.All p (List.map f xs)
+  | Nil,       h => Trivial
+  | Cons x xs, Both h hxs => Both h (List.allMap p f xs hxs)
+
+theorem List.allImplies (p: a -> Prop) (q: a -> Prop) (h: (x: a) -> p x -> q x): (xs: List a) -> List.All p xs -> List.All q xs
+  | Nil,       hp => Trivial
+  | Cons x xs, Both hpx hpxs => Both (h x hpx) (List.allImplies p q h xs hpxs)
+
+theorem List.anyAppendLeft (p: a -> Prop): (xs: List a) -> (ys: List a) -> List.Any p xs -> List.Any p (List.append xs ys)
+  | Nil,       ys, h => Void.exfalso h
+  | Cons x xs, ys, Inl h => Inl h
+  | Cons x xs, ys, Inr h => Inr (List.anyAppendLeft p xs ys h)
+
 -- Every row has length n (the list is rectangular).
 def List.AllLength (n: Nat): List (List a) -> Prop
   | Nil       => Unit
