@@ -30,7 +30,7 @@ def amountOf: Maybe Rot -> Nat
 def points (xs: List Nat): List Point := List.map (x => { x = x, y = 0 }) xs
 
 -- Likewise for the accumulator of a fold.
-def sumPoints (rs: List Nat): Point := List.foldRight (r acc => { x = r + acc.x, y = acc.y }) { x = 0, y = 0 } rs
+def sumPoints (rs: List Nat): Point := List.foldRight (p acc => { x = p + acc.x, y = acc.y }) { x = 0, y = 0 } rs
 
 test "parse" := amountOf (parse 1 (Just 2)) == 3
 test "parse nothing" := amountOf (parse 1 Nothing) == 0

@@ -231,27 +231,41 @@ struct Parser<'t> {
 const NO_PARTNER: u32 = u32::MAX;
 
 /// For each opening bracket in `tokens`, the index of its closing partner.
+/// The table is its own stack: while an opener is unmatched its entry holds
+/// the opener below it, so there is a single allocation (the nesting
+/// benchmarks' allocation and heap counts depend on that).
 fn match_brackets(tokens: &[Token]) -> Vec<u32> {
     let mut matching = vec![NO_PARTNER; tokens.len()];
-    let mut open: Vec<usize> = Vec::new();
+    let mut top = NO_PARTNER;
     for (i, token) in tokens.iter().enumerate() {
         match token.tok {
-            Tok::LParen | Tok::LBracket | Tok::LBrace => open.push(i),
+            Tok::LParen | Tok::LBracket | Tok::LBrace => {
+                matching[i] = top;
+                top = i as u32;
+            }
             Tok::RParen | Tok::RBracket | Tok::RBrace => {
+                if top == NO_PARTNER {
+                    continue;
+                }
                 let want = match token.tok {
                     Tok::RParen => Tok::LParen,
                     Tok::RBracket => Tok::LBracket,
                     _ => Tok::LBrace,
                 };
-                if let Some(&top) = open.last()
-                    && tokens[top].tok == want
-                {
-                    open.pop();
-                    matching[top] = i as u32;
+                if tokens[top as usize].tok == want {
+                    let below = matching[top as usize];
+                    matching[top as usize] = i as u32;
+                    top = below;
                 }
             }
             _ => {}
         }
+    }
+    // Openers never closed: forget the links.
+    while top != NO_PARTNER {
+        let below = matching[top as usize];
+        matching[top as usize] = NO_PARTNER;
+        top = below;
     }
     matching
 }
@@ -457,7 +471,10 @@ impl<'t> Parser<'t> {
             Some(token) => format!("found {}", describe(&token.tok)),
             None => "reached the end of the declaration".to_string(),
         };
-        let found_arrow = self.tokens.get(self.pos).is_some_and(|t| t.tok == Tok::FatArrow);
+        let found_arrow = self
+            .tokens
+            .get(self.pos)
+            .is_some_and(|t| t.tok == Tok::FatArrow);
         let diagnostic = error(self.here(), format!("expected {expected}, but {found}"));
         if found_arrow {
             return diagnostic.with_note(
@@ -1403,19 +1420,17 @@ impl<'t> Parser<'t> {
                         params.push(LamParam::Typed(name, ty.clone()));
                     }
                 }
-                Some(Tok::LParen | Tok::LBrace) => {
-                    match self.pattern()? {
-                        Pattern::Var(name) => params.push(LamParam::Plain(name, None)),
-                        pattern => {
-                            let i = params.len();
-                            let name = Name {
-                                text: format!("%arg{i}"),
-                                span: pattern.span(),
-                            };
-                            params.push(LamParam::Plain(name, Some(pattern)));
-                        }
+                Some(Tok::LParen | Tok::LBrace) => match self.pattern()? {
+                    Pattern::Var(name) => params.push(LamParam::Plain(name, None)),
+                    pattern => {
+                        let i = params.len();
+                        let name = Name {
+                            text: format!("%arg{i}"),
+                            span: pattern.span(),
+                        };
+                        params.push(LamParam::Plain(name, Some(pattern)));
                     }
-                }
+                },
                 _ => break,
             }
         }
@@ -1782,7 +1797,9 @@ impl<'t> Parser<'t> {
                 self.tokens[at].span,
                 "implicit lambda parameters aren't supported yet",
             )
-            .with_note("write the lambda without `[…]`; the implicit parameter is introduced for you")),
+            .with_note(
+                "write the lambda without `[…]`; the implicit parameter is introduced for you",
+            )),
             (is_lambda, _) => Ok(is_lambda),
         }
     }
@@ -1791,10 +1808,23 @@ impl<'t> Parser<'t> {
     /// (this covers `[auto name :`).
     fn implicit_group_at(&self, i: usize) -> bool {
         let mut j = i + 1;
-        while matches!(self.tokens.get(j), Some(Token { tok: Tok::Lower(_), .. })) {
+        while matches!(
+            self.tokens.get(j),
+            Some(Token {
+                tok: Tok::Lower(_),
+                ..
+            })
+        ) {
             j += 1;
         }
-        j > i + 1 && matches!(self.tokens.get(j), Some(Token { tok: Tok::Colon, .. }))
+        j > i + 1
+            && matches!(
+                self.tokens.get(j),
+                Some(Token {
+                    tok: Tok::Colon,
+                    ..
+                })
+            )
     }
 
     /// `( name+ : ... ) ->`
@@ -3470,7 +3500,10 @@ mod tests {
         ));
         // Both branches of an `if`, and a record field.
         let e = rhs("def f : Nat := if c then x => a else y => b\n");
-        let Expr::If { then, otherwise, .. } = &e else {
+        let Expr::If {
+            then, otherwise, ..
+        } = &e
+        else {
             panic!("expected an if")
         };
         assert!(is_lam(then) && is_lam(otherwise));

@@ -93,7 +93,11 @@ fn lines(session: &Session, first_data: usize, first_def: usize) -> String {
     let g = &session.elab.globals;
     let mut out = String::new();
     for i in first_data..g.datas.len() {
-        out += &format!("data {} {}\n", g.datas[i].path, show(data_hash(g, DataId(i))));
+        out += &format!(
+            "data {} {}\n",
+            g.datas[i].path,
+            show(data_hash(g, DataId(i)))
+        );
     }
     for i in first_def..g.defs.len() {
         out += &format!("{} {}\n", g.defs[i].path, show(def_hash(g, DefId(i))));
@@ -130,14 +134,18 @@ fn all_hashes() -> BTreeMap<String, String> {
             units.insert(name, unit);
         }
     }
-    let mut projects: Vec<(String, PathBuf)> = std::fs::read_dir(
-        root.join("examples/projects/accept"),
-    )
-    .unwrap()
-    .map(|e| e.unwrap().path())
-    .filter(|p| p.is_dir())
-    .map(|p| (format!("project-{}", p.file_name().unwrap().to_string_lossy()), p))
-    .collect();
+    let mut projects: Vec<(String, PathBuf)> =
+        std::fs::read_dir(root.join("examples/projects/accept"))
+            .unwrap()
+            .map(|e| e.unwrap().path())
+            .filter(|p| p.is_dir())
+            .map(|p| {
+                (
+                    format!("project-{}", p.file_name().unwrap().to_string_lossy()),
+                    p,
+                )
+            })
+            .collect();
     projects.push(("aoc".to_string(), root.join("aoc")));
     for (name, dir) in projects {
         let mut session = Session::eager();

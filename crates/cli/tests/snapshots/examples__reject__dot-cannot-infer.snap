@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-CANNOT-INFER] Error: can't tell what `p` is, so can't look up `.name`
-    ╭─[ reject/dot-cannot-infer.sw:16:39 ]
+    ╭─[ reject/dot-cannot-infer.sw:16:38 ]
     │
- 16 │ def names: Bag Text := Bag.map (\p => p.name) Empty
-    │                                       ───┬──  
-    │                                          ╰──── its type isn't known yet here
+ 16 │ def names: Bag Text := Bag.map (p => p.name) Empty
+    │                                      ───┬──  
+    │                                         ╰──── its type isn't known yet here
     │ 
-    │ Note: `.name` is looked up in the namespace of the value's type, so that type must be known where it's used: annotate it, as in `\(p: Person) => p.name`, or write the function's full name
+    │ Note: `.name` is looked up in the namespace of the value's type, so that type must be known where it's used: annotate it, as in `(p: Person) => p.name`, or write the function's full name
 ────╯

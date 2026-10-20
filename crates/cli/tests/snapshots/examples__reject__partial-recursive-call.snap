@@ -9,7 +9,7 @@ expression: output
     │                             ────┬────  
     │                                 ╰────── `sumWith` takes 2 arguments; it's given 1
     │ 
-    │ Note 1: write `\x => sumWith n x` so the call can be checked
+    │ Note 1: write `x => sumWith n x` so the call can be checked
     │ 
     │ Note 2: a recursive call must be given all the arguments, so the termination checker can see what each one is
 ────╯

@@ -21,7 +21,10 @@ fn printed_and_hash(sig: &str, body: &str) -> (String, String) {
         .find(|(_, d)| &*d.name == "t")
         .expect("def t");
     let printed = pretty::term(g, &[], def.body().expect("a body"));
-    let hash = def_hash(g, stitchwort_core::DefId(id)).unwrap().unwrap().hex();
+    let hash = def_hash(g, stitchwort_core::DefId(id))
+        .unwrap()
+        .unwrap()
+        .hex();
     (printed, hash)
 }
 

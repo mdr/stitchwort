@@ -161,6 +161,10 @@ pub struct Elaborator {
     /// declaration-level code (`&mut self`) adds them, so an attempt undone
     /// by `undo.rs` can't have added any.
     warnings: Vec<Diagnostic>,
+    /// `W-LAMBDA-SHADOW` warnings, found while checking a lambda, where only
+    /// a shared reference to the elaborator is at hand. One per lambda
+    /// (checking can reach the same lambda twice); drained with `warnings`.
+    lambda_warnings: RefCell<Vec<Diagnostic>>,
     /// Above zero while an application is elaborated again the old way
     /// after its expected result type was used first and failed: no
     /// application inside uses its expected type first
@@ -1400,6 +1404,7 @@ impl Elaborator {
             self.module.item = Some(item);
             let result = self.signature(signature);
             out.extend(self.warnings.drain(..).map(|w| (item, w)));
+            out.extend(self.lambda_warnings.take().into_iter().map(|w| (item, w)));
             match result {
                 Ok(id) => ids.push(id),
                 Err(d) => out.push((item, d)),
@@ -1474,6 +1479,7 @@ impl Elaborator {
                 }
                 Err(d) => out.push((item, d)),
             }
+            out.extend(self.lambda_warnings.take().into_iter().map(|w| (item, w)));
         }
         if bodies.len() < members.len() {
             return out;

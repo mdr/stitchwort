@@ -110,6 +110,9 @@ pub(crate) struct ItemInfo {
     /// A definition whose type ends in `Decidable …`: something `auto`
     /// might have used.
     pub decides: bool,
+    /// A definition whose written type is a function type, which `W-LAMBDA-SHADOW`
+    /// needs to know before the definition is checked.
+    pub function: bool,
 }
 
 /// One file of the module being elaborated.
@@ -490,6 +493,7 @@ impl Elaborator {
                     component: 0,
                     status,
                     decides,
+                    function: false,
                 });
                 items.push(Item {
                     decl,
@@ -535,6 +539,11 @@ impl Elaborator {
             {
                 self.module.items[index].decides = decidable.is_some()
                     && matches!(self.named(&head.text), Some((Global::Data(d), _)) if Some(*d) == decidable);
+            }
+        }
+        for (index, item) in items.iter().enumerate() {
+            if let Decl::Signature { ty, .. } = item.decl {
+                self.module.items[index].function = is_function_type(ty);
             }
         }
         self.module.file = None;
@@ -930,6 +939,12 @@ impl Elaborator {
             Decl::Equation { .. } => unreachable!("equations go with signatures"),
         };
         diagnostics.extend(self.warnings.drain(..).map(|w| (item.position, w)));
+        diagnostics.extend(
+            self.lambda_warnings
+                .take()
+                .into_iter()
+                .map(|w| (item.position, w)),
+        );
         if let Err(d) = result {
             diagnostics.push((item.position, self.explain_lifted(d)));
         }
@@ -1392,6 +1407,29 @@ pub(crate) fn declared_names(decl: &Decl) -> (Option<ast::Name>, Vec<(ast::Name,
 }
 
 /// The name at the head of a signature's result, after its parameters.
+/// Whether a written type is a function type (after any implicit parameters).
+pub(crate) fn is_function_type(ty: &Expr) -> bool {
+    let mut ty = ty;
+    loop {
+        match ty {
+            Expr::Arrow(..) => return true,
+            Expr::Pi {
+                implicit: false, ..
+            } => return true,
+            Expr::Pi { cod, .. } => ty = cod,
+            _ => return false,
+        }
+    }
+}
+
+impl Elaborator {
+    /// Whether the module's item `item`, not checked yet, is declared with a
+    /// function type.
+    pub(crate) fn item_is_function(&self, item: usize) -> bool {
+        self.module.items[item].function
+    }
+}
+
 pub(crate) fn result_head(ty: &Expr) -> Option<&ast::Name> {
     let mut ty = ty;
     while let Expr::Pi { cod, .. } | Expr::Arrow(_, cod) = ty {
