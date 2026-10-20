@@ -608,3 +608,13 @@ theorem List.mapMaybeCongr (f: a -> Maybe b) (g: a -> Maybe b) (h: (x: a) -> f x
 theorem Maybe.andThenMap (g: b -> Maybe c) (f: a -> b): (m: Maybe a) -> Maybe.andThen g (Maybe.map f m) = Maybe.andThen (x => g (f x)) m
   | Nothing => rfl
   | Just x  => rfl
+
+theorem List.lengthZipWith3 (f: a -> b -> c -> e): (xs: List a) -> (ys: List b) -> (zs: List c) ->
+    List.length ys = List.length xs -> List.length zs = List.length xs -> List.length (List.zipWith3 f xs ys zs) = List.length xs
+  | Nil,       ys,        zs,        h1, h2 => rfl
+  | Cons x xs, Nil,       zs,        h1, h2 => Void.exfalso (Nat.zeroNotSucc (List.length xs) h1)
+  | Cons x xs, Cons y ys, Nil,       h1, h2 => Void.exfalso (Nat.zeroNotSucc (List.length xs) h2)
+  | Cons x xs, Cons y ys, Cons z zs, h1, h2 =>
+    rewrite List.lengthZipWith3 f xs ys zs (Nat.succInjective (List.length ys) (List.length xs) h1) (Nat.succInjective (List.length zs) (List.length xs) h2)
+
+-- A sum over a list is the sum over its indices.

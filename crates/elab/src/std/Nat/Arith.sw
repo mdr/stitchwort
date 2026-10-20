@@ -503,3 +503,5 @@ theorem Nat.powMono (b: Nat) (e: Nat) (f: Nat) (h: e <= f): Nat.pow (Succ b) e <
   Nat.leCongRight (Nat.pow (Succ b) e) (Nat.pow (Succ b) e * Nat.pow (Succ b) (f - e)) (Nat.pow (Succ b) f)
     (Eq.trans (Eq.sym (Nat.powAdd (Succ b) e (f - e))) (Eq.cong (t => Nat.pow (Succ b) t) (Nat.addSubCancel e f h)))
     (Nat.leMulPos (Nat.pow (Succ b) e) (Nat.pow (Succ b) (f - e)) (Nat.powSuccPos b (f - e)))
+
+theorem Nat.addTwo (n: Nat): n + 2 = Succ (Succ n) := rewrite Nat.addSucc n 1, Nat.addOne n

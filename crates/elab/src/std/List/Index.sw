@@ -90,3 +90,31 @@ theorem List.mapGetOr (d: a): (xs: List a) -> List.map (i => List.getOr d i xs) 
       _ = Cons x (List.map (i => List.getOr d i xs) (List.rangeFrom (List.length xs) 0))
           := rewrite List.mapRangeShift (i => List.getOr d i (Cons x xs)) (List.length xs) 0
       _ = Cons x xs := rewrite List.mapGetOr d xs
+
+-- `headOr` is index 0; `getOr` of a `map` and of a `zipWith3`; a sum over a
+-- list as a sum over its indices.
+theorem List.headOrGetOr (d: a): (xs: List a) -> List.headOr d xs = List.getOr d 0 xs
+  | Nil       => rfl
+  | Cons x xs => rfl
+
+theorem List.getOrZipWith3 (f: a -> b -> c -> e) (d1: a) (d2: b) (d3: c) (d: e) (hd: f d1 d2 d3 = d):
+    (xs: List a) -> (ys: List b) -> (zs: List c) -> List.length ys = List.length xs -> List.length zs = List.length xs -> (i: Nat) ->
+    List.getOr d i (List.zipWith3 f xs ys zs) = f (List.getOr d1 i xs) (List.getOr d2 i ys) (List.getOr d3 i zs)
+  | Nil,       Nil,       Nil,       h1, h2, i      => Eq.sym hd
+  | Nil,       Cons y ys, zs,        h1, h2, i      => Void.exfalso (Nat.succNotZero (List.length ys) h1)
+  | Nil,       Nil,       Cons z zs, h1, h2, i      => Void.exfalso (Nat.succNotZero (List.length zs) h2)
+  | Cons x xs, Nil,       zs,        h1, h2, i      => Void.exfalso (Nat.zeroNotSucc (List.length xs) h1)
+  | Cons x xs, Cons y ys, Nil,       h1, h2, i      => Void.exfalso (Nat.zeroNotSucc (List.length xs) h2)
+  | Cons x xs, Cons y ys, Cons z zs, h1, h2, Zero   => rfl
+  | Cons x xs, Cons y ys, Cons z zs, h1, h2, Succ i =>
+    List.getOrZipWith3 f d1 d2 d3 d hd xs ys zs (Nat.succInjective (List.length ys) (List.length xs) h1) (Nat.succInjective (List.length zs) (List.length xs) h2) i
+
+theorem List.getOrMap (f: a -> b) (d: a): (i: Nat) -> (xs: List a) -> List.getOr (f d) i (List.map f xs) = f (List.getOr d i xs)
+  | i,      Nil       => rfl
+  | Zero,   Cons x xs => rfl
+  | Succ i, Cons x xs => List.getOrMap f d i xs
+
+theorem List.sumByGetOr (f: a -> Nat) (d: a) (xs: List a): List.sumBy f xs = List.sumBy (i => f (List.getOr d i xs)) (List.range (List.length xs)) :=
+  calc List.sumBy f xs
+    _ = List.sumBy f (List.map (i => List.getOr d i xs) (List.range (List.length xs))) := rewrite List.mapGetOr d xs
+    _ = List.sumBy (i => f (List.getOr d i xs)) (List.range (List.length xs)) := List.sumByMap f (i => List.getOr d i xs) (List.range (List.length xs))

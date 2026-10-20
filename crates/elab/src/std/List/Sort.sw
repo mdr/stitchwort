@@ -936,3 +936,17 @@ theorem List.productReverseOnto: (xs: List Nat) -> (acc: List Nat) -> List.produ
 
 theorem List.productReverse (xs: List Nat): List.product (List.reverse xs) = List.product xs :=
   rewrite List.productReverseOnto xs Nil in Nat.mulOne (List.product xs)
+
+-- Taking away a smaller sum term by term.
+theorem List.sumBySplit (f: a -> Nat) (g: a -> Nat) (h: (x: a) -> g x <= f x) (xs: List a):
+    List.sumBy f xs =List.sumBy g xs + List.sumBy (x => f x - g x) xs :=
+  calc List.sumBy f xs
+    _ = List.sumBy (x => g x + (f x - g x)) xs := List.sumByCongr f (x => g x + (f x - g x)) (x => Eq.sym (Nat.addSubCancel (g x) (f x) (h x))) xs
+    _ = List.sumBy g xs + List.sumBy (x => f x - g x) xs := List.sumByAdd g (x => f x - g x) xs
+
+theorem List.sumByLe (f: a -> Nat) (g: a -> Nat) (h: (x: a) -> g x <= f x) (xs: List a): List.sumBy g xs <= List.sumBy f xs :=
+  rewrite List.sumBySplit f g h xs in Nat.leAddRight (List.sumBy g xs) (List.sumBy (x => f x - g x) xs)
+
+theorem List.sumBySub (f: a -> Nat) (g: a -> Nat) (h: (x: a) -> g x <= f x) (xs: List a):
+    List.sumBy f xs - List.sumBy g xs = List.sumBy (x => f x - g x) xs :=
+  rewrite List.sumBySplit f g h xs in Nat.addSubLeft (List.sumBy g xs) (List.sumBy (x => f x - g x) xs)

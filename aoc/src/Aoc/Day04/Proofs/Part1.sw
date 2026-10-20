@@ -10,52 +10,6 @@ theorem parseCharBit (ch: Char): parseChar ch <= 1 :=
 theorem rollAtGrid (lines: List Text) (row: Nat) (col: Nat):
     rollAt lines row col = List.getOr 0 col (Cons 0 (List.getOr Nil row (Cons Nil (parseGrid lines)))) := rfl
 
--- General lemmas (to move to the library).
-
-theorem PList.headOrGetOr (d: a): (xs: List a) -> List.headOr d xs = List.getOr d 0 xs
-  | Nil       => rfl
-  | Cons x xs => rfl
-
-theorem PList.getOrZipWith3 (f: a -> b -> c -> e) (d1: a) (d2: b) (d3: c) (d: e) (hd: f d1 d2 d3 = d):
-    (xs: List a) -> (ys: List b) -> (zs: List c) -> List.length ys = List.length xs -> List.length zs = List.length xs -> (i: Nat) ->
-    List.getOr d i (List.zipWith3 f xs ys zs) = f (List.getOr d1 i xs) (List.getOr d2 i ys) (List.getOr d3 i zs)
-  | Nil,       Nil,       Nil,       h1, h2, i      => Eq.sym hd
-  | Nil,       Cons y ys, zs,        h1, h2, i      => Void.exfalso (Nat.succNotZero (List.length ys) h1)
-  | Nil,       Nil,       Cons z zs, h1, h2, i      => Void.exfalso (Nat.succNotZero (List.length zs) h2)
-  | Cons x xs, Nil,       zs,        h1, h2, i      => Void.exfalso (Nat.zeroNotSucc (List.length xs) h1)
-  | Cons x xs, Cons y ys, Nil,       h1, h2, i      => Void.exfalso (Nat.zeroNotSucc (List.length xs) h2)
-  | Cons x xs, Cons y ys, Cons z zs, h1, h2, Zero   => rfl
-  | Cons x xs, Cons y ys, Cons z zs, h1, h2, Succ i =>
-    PList.getOrZipWith3 f d1 d2 d3 d hd xs ys zs (Nat.succInjective (List.length ys) (List.length xs) h1) (Nat.succInjective (List.length zs) (List.length xs) h2) i
-
-theorem PList.lengthZipWith3 (f: a -> b -> c -> e): (xs: List a) -> (ys: List b) -> (zs: List c) ->
-    List.length ys = List.length xs -> List.length zs = List.length xs -> List.length (List.zipWith3 f xs ys zs) = List.length xs
-  | Nil,       ys,        zs,        h1, h2 => rfl
-  | Cons x xs, Nil,       zs,        h1, h2 => Void.exfalso (Nat.zeroNotSucc (List.length xs) h1)
-  | Cons x xs, Cons y ys, Nil,       h1, h2 => Void.exfalso (Nat.zeroNotSucc (List.length xs) h2)
-  | Cons x xs, Cons y ys, Cons z zs, h1, h2 =>
-    rewrite PList.lengthZipWith3 f xs ys zs (Nat.succInjective (List.length ys) (List.length xs) h1) (Nat.succInjective (List.length zs) (List.length xs) h2)
-
--- A sum over a list is the sum over its indices.
-theorem PList.sumByGetOr (f: a -> Nat) (d: a) (xs: List a): List.sumBy f xs = List.sumBy (i => f (List.getOr d i xs)) (List.range (List.length xs)) :=
-  calc List.sumBy f xs
-    _ = List.sumBy f (List.map (i => List.getOr d i xs) (List.range (List.length xs))) := rewrite List.mapGetOr d xs
-    _ = List.sumBy (i => f (List.getOr d i xs)) (List.range (List.length xs)) := List.sumByMap f (i => List.getOr d i xs) (List.range (List.length xs))
-
--- Taking away a smaller sum term by term.
-theorem PList.sumBySplit (f: a -> Nat) (g: a -> Nat) (h: (x: a) -> g x <= f x) (xs: List a):
-    List.sumBy f xs = List.sumBy g xs + List.sumBy (x => f x - g x) xs :=
-  calc List.sumBy f xs
-    _ = List.sumBy (x => g x + (f x - g x)) xs := List.sumByCongr f (x => g x + (f x - g x)) (x => Eq.sym (Nat.addSubCancel (g x) (f x) (h x))) xs
-    _ = List.sumBy g xs + List.sumBy (x => f x - g x) xs := List.sumByAdd g (x => f x - g x) xs
-
-theorem PList.sumByLe (f: a -> Nat) (g: a -> Nat) (h: (x: a) -> g x <= f x) (xs: List a): List.sumBy g xs <= List.sumBy f xs :=
-  rewrite PList.sumBySplit f g h xs in Nat.leAddRight (List.sumBy g xs) (List.sumBy (x => f x - g x) xs)
-
-theorem PList.sumBySub (f: a -> Nat) (g: a -> Nat) (h: (x: a) -> g x <= f x) (xs: List a):
-    List.sumBy f xs - List.sumBy g xs = List.sumBy (x => f x - g x) xs :=
-  rewrite PList.sumBySplit f g h xs in Nat.addSubLeft (List.sumBy g xs) (List.sumBy (x => f x - g x) xs)
-
 -- What a round leaves in a cell holding `roll`, whose 3 by 3 window holds
 -- `window` rolls.
 def keep (roll: Nat) (window: Nat): Nat := if roll == 1 && 5 <= window then 1 else 0
@@ -67,7 +21,7 @@ theorem peelCellsAt (left: Nat): (cols: List Nat) -> (rolls: List Nat) -> List.l
   | Nil,               Nil,              h, i      => rfl
   | Nil,               Cons roll rolls,  h, i      => Void.exfalso (Nat.zeroNotSucc (List.length rolls) h)
   | Cons here columns, Nil,              h, i      => Void.exfalso (Nat.succNotZero (List.length columns) h)
-  | Cons here columns, Cons roll rolls,  h, Zero   => rewrite PList.headOrGetOr 0 columns
+  | Cons here columns, Cons roll rolls,  h, Zero   => rewrite List.headOrGetOr 0 columns
   | Cons here columns, Cons roll rolls,  h, Succ i => peelCellsAt here columns rolls (Nat.succInjective (List.length columns) (List.length rolls) h) i
 
 theorem lengthPeelCells (left: Nat): (cols: List Nat) -> (rolls: List Nat) -> List.length cols = List.length rolls ->
@@ -81,7 +35,7 @@ theorem lengthPeelCells (left: Nat): (cols: List Nat) -> (rolls: List Nat) -> Li
 theorem roundFromAt (gap: List Nat): (above: List Nat) -> (rows: Grid) -> (r: Nat) -> r < List.length rows ->
     List.getOr Nil r (roundFrom gap above rows) = peelRow (List.getOr gap r (Cons above rows)) (List.getOr gap r rows) (List.getOr gap (Succ r) rows)
   | above, Nil,           r,      h => Void.exfalso (Bool.falseNotTrue h)
-  | above, Cons row rest, Zero,   h => rewrite PList.headOrGetOr gap rest
+  | above, Cons row rest, Zero,   h => rewrite List.headOrGetOr gap rest
   | above, Cons row rest, Succ r, h => roundFromAt gap row rest r h
 
 theorem lengthRoundFrom (gap: List Nat): (above: List Nat) -> (rows: Grid) -> List.length (roundFrom gap above rows) = List.length rows
@@ -126,7 +80,7 @@ theorem colsAt (k: Nat) (grid: Grid) (rect: Rows k grid) (r: Nat): (col: Nat) ->
       = colSum grid r col
   | Zero   => rfl
   | Succ i =>
-    rewrite PList.getOrZipWith3 (a b c => a + b + c) 0 0 0 0 rfl
+    rewrite List.getOrZipWith3 (a b c => a + b + c) 0 0 0 0 rfl
         (List.getOr (List.replicate k 0) r (Cons (List.replicate k 0) grid)) (List.getOr (List.replicate k 0) r grid) (List.getOr (List.replicate k 0) (Succ r) grid)
         (rewrite rowsLength k (List.replicate k 0) (List.lengthReplicate 0 k) grid rect r,
            rowsLength k (List.replicate k 0) (List.lengthReplicate 0 k) (Cons (List.replicate k 0) grid) (rowsTop k grid rect) r)
@@ -145,7 +99,7 @@ theorem cellRound (k: Nat) (grid: Grid) (rect: Rows k grid) (r: Nat) (hr: r < Li
   let lenR: List.length (List.getOr gap r grid) = k := rowsLength k gap (List.lengthReplicate 0 k) grid rect r
   let lenB: List.length (List.getOr gap (Succ r) grid) = k := rowsLength k gap (List.lengthReplicate 0 k) grid rect (Succ r)
   let lenCols: List.length cols = List.length (List.getOr gap r grid) :=
-    rewrite PList.lengthZipWith3 (a b c => a + b + c) (List.getOr gap r (Cons gap grid)) (List.getOr gap r grid) (List.getOr gap (Succ r) grid)
+    rewrite List.lengthZipWith3 (a b c => a + b + c) (List.getOr gap r (Cons gap grid)) (List.getOr gap r grid) (List.getOr gap (Succ r) grid)
         (rewrite lenR, lenA) (rewrite lenB, lenA),
       lenA, lenR
   calc List.getOr 0 c (List.getOr Nil r (roundFrom gap gap grid))
@@ -177,7 +131,6 @@ theorem borderedBit (lines: List Text): (r: Nat) -> (c: Nat) -> bordered (parseG
   | Zero,   Succ c => rfl
   | Succ r, Succ c => rowBits lines r c
 
-theorem PNat.addTwo (n: Nat): n + 2 = Succ (Succ n) := rewrite Nat.addSucc n 1, Nat.addOne n
 
 -- The window is the neighbours and the cell itself.
 theorem windowSplit (l: Nat) (a: Nat) (m: Nat) (b: Nat) (rt: Nat): l + (a + m + b) + rt = l + (a + b) + rt + m :=
@@ -189,7 +142,7 @@ theorem windowSplit (l: Nat) (a: Nat) (m: Nat) (b: Nat) (rt: Nat): l + (a + m + 
 theorem windowIsNeighbours (lines: List Text) (r: Nat) (c: Nat):
     colSum (parseGrid lines) r c + colSum (parseGrid lines) r (Succ c) + colSum (parseGrid lines) r (Succ (Succ c))
       = neighbours lines r c + bordered (parseGrid lines) (Succ r) (Succ c) :=
-  rewrite Nat.addOne r, Nat.addOne c, PNat.addTwo r, PNat.addTwo c in
+  rewrite Nat.addOne r, Nat.addOne c, Nat.addTwo r, Nat.addTwo c in
     windowSplit (colSum (parseGrid lines) r c) (bordered (parseGrid lines) r (Succ c)) (bordered (parseGrid lines) (Succ r) (Succ c))
       (bordered (parseGrid lines) (Succ (Succ r)) (Succ c)) (colSum (parseGrid lines) r (Succ (Succ c)))
 
@@ -203,22 +156,17 @@ theorem taken: (a: Nat) -> (n: Nat) -> a <= 1 -> a - keep a (n + a) = (if a == 1
   | 1,               Succ (Succ (Succ (Succ n))), h => rewrite Nat.addOne n
   | Succ (Succ a),   n, h => Void.exfalso (Bool.falseNotTrue h)
 
-theorem PList.getOrMap (f: a -> b) (d: a): (i: Nat) -> (xs: List a) -> List.getOr (f d) i (List.map f xs) = f (List.getOr d i xs)
-  | i,      Nil       => rfl
-  | Zero,   Cons x xs => rfl
-  | Succ i, Cons x xs => PList.getOrMap f d i xs
-
 -- The rolls of a rectangular grid, cell by cell.
 theorem rollsCells (k: Nat) (grid: Grid) (rect: Rows k grid):
     Grid.rolls grid = List.sumBy (r => List.sumBy (c => bordered grid (Succ r) (Succ c)) (List.range k)) (List.range (List.length grid)) :=
   calc List.sumBy List.sum grid
-    _ = List.sumBy (r => List.sum (List.getOr Nil r grid)) (List.range (List.length grid)) := PList.sumByGetOr List.sum Nil grid
+    _ = List.sumBy (r => List.sum (List.getOr Nil r grid)) (List.range (List.length grid)) := List.sumByGetOr List.sum Nil grid
     _ = List.sumBy (r => List.sumBy (c => bordered grid (Succ r) (Succ c)) (List.range k)) (List.range (List.length grid)) :=
         List.sumRangeCongr (r => List.sum (List.getOr Nil r grid)) (r => List.sumBy (c => bordered grid (Succ r) (Succ c)) (List.range k)) (List.length grid) 0
           (r h1 h2 =>
             calc List.sum (List.getOr Nil r grid)
               _ = List.sumBy (x => x) (List.getOr Nil r grid)
-              _ = List.sumBy (c => List.getOr 0 c (List.getOr Nil r grid)) (List.range (List.length (List.getOr Nil r grid))) := PList.sumByGetOr (x => x) 0 (List.getOr Nil r grid)
+              _ = List.sumBy (c => List.getOr 0 c (List.getOr Nil r grid)) (List.range (List.length (List.getOr Nil r grid))) := List.sumByGetOr (x => x) 0 (List.getOr Nil r grid)
               _ = List.sumBy (c => bordered grid (Succ r) (Succ c)) (List.range k) := rewrite rect r h2)
 
 -- A round keeps the grid's shape.
@@ -231,7 +179,7 @@ theorem roundRows (k: Nat) (grid: Grid) (rect: Rows k grid): Rows k (roundFrom (
     let lenB: List.length (List.getOr gap (Succ r) grid) = k := rowsLength k gap (List.lengthReplicate 0 k) grid rect (Succ r)
     rewrite roundFromAt gap gap grid r hr2,
       lengthPeelCells 0 (List.zipWith3 (a b c => a + b + c) (List.getOr gap r (Cons gap grid)) (List.getOr gap r grid) (List.getOr gap (Succ r) grid)) (List.getOr gap r grid)
-        (rewrite PList.lengthZipWith3 (a b c => a + b + c) (List.getOr gap r (Cons gap grid)) (List.getOr gap r grid) (List.getOr gap (Succ r) grid)
+        (rewrite List.lengthZipWith3 (a b c => a + b + c) (List.getOr gap r (Cons gap grid)) (List.getOr gap r grid) (List.getOr gap (Succ r) grid)
             (rewrite lenR, lenA) (rewrite lenB, lenA),
           lenA, lenR) in
       lenR
@@ -251,7 +199,7 @@ theorem takenCell (lines: List Text) (r: Nat) (c: Nat):
 -- The parsed grid of a rectangular input is rectangular.
 theorem parsedRows (lines: List Text) (w: Nat) (rect: (r: Nat) -> r < List.length lines -> Text.length (List.getOr "" r lines) = w):
     Rows w (parseGrid lines) :=
-  r hr => rewrite PList.getOrMap parseLine "" r lines, List.lengthMap parseChar (Text.toList (List.getOr "" r lines)) in
+  r hr => rewrite List.getOrMap parseLine "" r lines, List.lengthMap parseChar (Text.toList (List.getOr "" r lines)) in
     rect r (rewrite <- List.lengthMap parseLine lines in hr)
 
 -- Part 1 is right for every rectangular grid: the printed answer is the
@@ -282,13 +230,13 @@ theorem part1Correct (lines: List Text) (w: Nat) (rect: (r: Nat) -> r < List.len
                  (r h1 h2 => List.sumByCongr (c => bordered (roundFrom gap gap grid) (Succ r) (Succ c)) (c => keep (a r c) (window r c))
                     (c => cellRound w grid rows r h2 c) (List.range w))
         _ = List.sumBy (r => List.sumBy (c => a r c - keep (a r c) (window r c)) (List.range w)) (List.range (List.length grid))
-            := rewrite PList.sumBySub (r => List.sumBy (c => a r c) (List.range w)) (r => List.sumBy (c => keep (a r c) (window r c)) (List.range w))
-                   (r => PList.sumByLe (c => a r c) (c => keep (a r c) (window r c)) (c => keepLe (a r c) (window r c)) (List.range w))
+            := rewrite List.sumBySub (r => List.sumBy (c => a r c) (List.range w)) (r => List.sumBy (c => keep (a r c) (window r c)) (List.range w))
+                   (r => List.sumByLe (c => a r c) (c => keep (a r c) (window r c)) (c => keepLe (a r c) (window r c)) (List.range w))
                    (List.range (List.length grid)) in
                  List.sumByCongr
                    (r => List.sumBy (c => a r c) (List.range w) - List.sumBy (c => keep (a r c) (window r c)) (List.range w))
                    (r => List.sumBy (c => a r c - keep (a r c) (window r c)) (List.range w))
-                   (r => PList.sumBySub (c => a r c) (c => keep (a r c) (window r c)) (c => keepLe (a r c) (window r c)) (List.range w))
+                   (r => List.sumBySub (c => a r c) (c => keep (a r c) (window r c)) (c => keepLe (a r c) (window r c)) (List.range w))
                    (List.range (List.length grid))
         _ = List.sumBy (r => List.sumBy (c => if accessible (Cons l rest) r c then 1 else 0) (List.range w)) (List.range (List.length grid))
             := List.sumByCongr
