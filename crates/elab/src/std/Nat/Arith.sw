@@ -165,6 +165,8 @@ theorem Nat.nonzeroPos: (d: Nat) -> Not (d = 0) -> 0 < d
   | Zero, ok => Void.exfalso (ok rfl)
   | Succ d, ok => rfl
 
+theorem Nat.nonzeroOfPos (d: Nat) (h: 1 <= d): d != 0 := \e => Bool.falseNotTrue (J (\y q => 1 <= y) h e)
+
 theorem Nat.divFuelBound: (fuel: Nat) -> (n: Nat) -> (d: Nat) -> Not (d = 0) -> n <= fuel -> n < Succ (Nat.divFuel fuel n d) * d
   | Zero, Zero, d, ok, hn => Nat.ltCongRight 0 d (d + 0) (Eq.sym (Nat.addZero d)) (Nat.nonzeroPos d ok)
   | Zero, Succ n, d, ok, hn => Void.exfalso (Bool.falseNotTrue hn)
@@ -409,6 +411,15 @@ theorem Nat.ltAddSuccSelf (s: Nat) (c: Nat): s < s + Succ c := Nat.ltAddSucc s c
 theorem Nat.predLeSucc: (l: Nat) -> (j: Nat) -> l - 1 <= j -> l <= Succ j
   | Zero,   j, h => rfl
   | Succ l, j, h => h
+
+-- In the run `s .. s + (n - s) - 1` means below `n`, even when `n < s`
+-- (then the run is empty).
+theorem Nat.ltOfRunSub (s: Nat) (d: Nat) (n: Nat) (h1: s <= d) (h2: d < s + (n - s)): d < n :=
+  match e: Nat.leq s n with
+    | True  => Nat.ltCongRight d (s + (n - s)) n (Nat.addSubCancel s n e) h2
+    | False =>
+      Void.exfalso (Nat.lessIrrefl d (Nat.leTrans (Succ d) s d
+        (Nat.ltCongRight d (s + (n - s)) s (Eq.trans (Eq.cong (\t => s + t) (Nat.subEqZero n s (Nat.lessLe n s (Nat.leqFalse s n e)))) (Nat.addZero s)) h2) h1))
 
 def Ordering.isLess: Ordering -> Bool
   | Less    => True

@@ -170,6 +170,11 @@ def Nat.keepIf (x: Nat): Bool -> Nat
   | True  => x
   | False => 0
 
+-- `if b then x else 0` is `keepIf x b`.
+theorem Nat.ifKeep (x: Nat): (b: Bool) -> (if b then x else 0) = Nat.keepIf x b
+  | True  => rfl
+  | False => rfl
+
 theorem List.sumByZero: (xs: List a) -> List.sumBy (\x => 0) xs = 0
   | Nil       => rfl
   | Cons x xs => Eq.trans (List.sumByCons (\x => 0) x xs) (List.sumByZero xs)
@@ -319,6 +324,55 @@ theorem List.allRangeIntro (q: Nat -> Bool): (c: Nat) -> (s: Nat) -> ((k: Nat) -
       (List.allRangeIntro q c (Succ s) (\k h1 h2 => h k (Nat.leTrans s (Succ s) k (Nat.leSucc s) h1) (Nat.ltAddSucc s c k h2)))
 
 theorem List.allRangeExample: List.all (\k => k * k != 2) (List.rangeFrom 100 0) = True := rfl
+
+-- The first number of the run `s .. s + c - 1` that passes `q` (`s + c` if
+-- none does): a least witness, found by computation. Nothing before it passes,
+-- and if some `k` of the run passes, so does it, and it is at most `k`.
+def Nat.firstFrom (q: Nat -> Bool): Nat -> Nat -> Nat
+  | Zero,   s => s
+  | Succ c, s => if q s then s else Nat.firstFrom q c (Succ s)
+
+theorem Nat.firstFromExample: Nat.firstFrom (\k => Nat.leq 11 (k * k)) 9 1 = 4 := rfl
+
+theorem Nat.firstFromStop (q: Nat -> Bool) (c: Nat) (s: Nat) (h: q s = True): Nat.firstFrom q (Succ c) s = s :=
+  Eq.cong (\b => Bool.ifThenElse b (\u => s) (\u => Nat.firstFrom q c (Succ s))) h
+
+theorem Nat.firstFromSkip (q: Nat -> Bool) (c: Nat) (s: Nat) (h: q s = False): Nat.firstFrom q (Succ c) s = Nat.firstFrom q c (Succ s) :=
+  Eq.cong (\b => Bool.ifThenElse b (\u => s) (\u => Nat.firstFrom q c (Succ s))) h
+
+theorem Nat.firstFromAtLeast (q: Nat -> Bool): (c: Nat) -> (s: Nat) -> s <= Nat.firstFrom q c s
+  | Zero,   s => Nat.leRefl s
+  | Succ c, s =>
+    Bool.inspect (q s) (\u => s <= Nat.firstFrom q (Succ c) s)
+      (\t => J (\z p => s <= z) (Nat.leRefl s) (Eq.sym (Nat.firstFromStop q c s t)))
+      (\f => J (\z p => s <= z) (Nat.leTrans s (Succ s) (Nat.firstFrom q c (Succ s)) (Nat.leSucc s) (Nat.firstFromAtLeast q c (Succ s))) (Eq.sym (Nat.firstFromSkip q c s f)))
+
+theorem Nat.firstFromBefore (q: Nat -> Bool): (c: Nat) -> (s: Nat) -> (j: Nat) -> s <= j -> j < Nat.firstFrom q c s -> q j = False
+  | Zero,   s, j, h1, h2 => Void.exfalso (Nat.lessIrrefl j (Nat.leTrans (Succ j) s j h2 h1))
+  | Succ c, s, j, h1, h2 =>
+    Bool.inspect (q s) (\u => q j = False)
+      (\t => Void.exfalso (Nat.lessIrrefl j (Nat.leTrans (Succ j) s j (Nat.ltCongRight j (Nat.firstFrom q (Succ c) s) s (Nat.firstFromStop q c s t) h2) h1)))
+      (\f => Bool.inspect (j == s) (\u => q j = False)
+        (\e => J (\z p => q z = False) f (Eq.sym (Decidable.toBoolSound (Nat.decEq j s) e)))
+        (\ne => Nat.firstFromBefore q c (Succ s) j
+          (Nat.leNeSucc s j h1 (\e => Bool.trueNotFalse (Eq.trans (Eq.sym (Decidable.toBoolOf (Nat.decEq j s) (Eq.sym e))) ne)))
+          (Nat.ltCongRight j (Nat.firstFrom q (Succ c) s) (Nat.firstFrom q c (Succ s)) (Nat.firstFromSkip q c s f) h2)))
+
+theorem Nat.firstFromFound (q: Nat -> Bool): (c: Nat) -> (s: Nat) -> (k: Nat) -> s <= k -> k < s + c -> q k = True -> q (Nat.firstFrom q c s) = True
+  | Zero,   s, k, h1, h2, hk => Void.exfalso (Nat.lessIrrefl k (Nat.leTrans (Succ k) s k (Nat.ltCongRight k (s + 0) s (Nat.addZero s) h2) h1))
+  | Succ c, s, k, h1, h2, hk =>
+    Bool.inspect (q s) (\u => q (Nat.firstFrom q (Succ c) s) = True)
+      (\t => J (\z p => q z = True) t (Eq.sym (Nat.firstFromStop q c s t)))
+      (\f => J (\z p => q z = True)
+        (Nat.firstFromFound q c (Succ s) k
+          (Nat.leNeSucc s k h1 (\e => Bool.trueNotFalse (Eq.trans (Eq.sym hk) (Eq.trans (Eq.cong q (Eq.sym e)) f))))
+          (Nat.ltSuccAdd s c k h2) hk)
+        (Eq.sym (Nat.firstFromSkip q c s f)))
+
+theorem Nat.firstFromLe (q: Nat -> Bool) (c: Nat) (s: Nat) (k: Nat) (h1: s <= k) (hk: q k = True): Nat.firstFrom q c s <= k :=
+  match e: Nat.leq (Nat.firstFrom q c s) k with
+    | True  => rfl
+    | False => Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym hk) (Nat.firstFromBefore q c s k h1 (Nat.leqFalse (Nat.firstFrom q c s) k e))))
 
 -- Sums that agree on the elements passing a check `all` says they all pass.
 theorem List.sumByCongrAll (p: a -> Bool) (f: a -> Nat) (g: a -> Nat) (h: (x: a) -> p x = True -> f x = g x):

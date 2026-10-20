@@ -147,6 +147,12 @@ def List.rangeFrom: Nat -> Nat -> List Nat
   | Zero,   i => Nil
   | Succ n, i => Cons i (List.rangeFrom n (Succ i))
 
+-- A run of `a + b` numbers is a run of `a` followed by a run of `b`.
+theorem List.rangeFromAppend: (a: Nat) -> (b: Nat) -> (s: Nat) -> List.rangeFrom (a + b) s = List.append (List.rangeFrom a s) (List.rangeFrom b (s + a))
+  | Zero,   b, s => Eq.cong (\t => List.rangeFrom b t) (Eq.sym (Nat.addZero s))
+  | Succ a, b, s =>
+    Eq.cong (Cons s) (Eq.trans (List.rangeFromAppend a b (Succ s)) (Eq.cong (\t => List.append (List.rangeFrom a (Succ s)) (List.rangeFrom b t)) (Eq.sym (Nat.addSucc s a))))
+
 -- `List.range n` is `[0, 1, ..., n - 1]`.
 def List.range (n: Nat): List Nat := List.rangeFrom n 0
 
@@ -451,6 +457,9 @@ theorem List.sumByFrom (f: a -> Nat): (z: Nat) -> (xs: List a) -> List.foldLeft 
       (Eq.trans (Nat.addAssoc z (f x) (List.sumBy f xs)) (Eq.cong (\t => z + t) (Eq.sym (List.sumByFrom f (f x) xs))))
 
 theorem List.sumByCons (f: a -> Nat) (x: a) (xs: List a): List.sumBy f (Cons x xs) = f x + List.sumBy f xs := List.sumByFrom f (f x) xs
+
+theorem List.sumByAppend (f: a -> Nat) (xs: List a) (ys: List a): List.sumBy f (List.append xs ys) = List.sumBy f xs + List.sumBy f ys :=
+  Eq.trans (List.foldLeftAppend (\acc x => acc + f x) 0 xs ys) (List.sumByFrom f (List.sumBy f xs) ys)
 
 theorem List.filterKeep (p: a -> Bool) (x: a) (xs: List a) (h: p x = True): List.filter p (Cons x xs) = Cons x (List.filter p xs) :=
   J (\c q => List.filterStep x (List.filter p xs) c = Cons x (List.filter p xs)) rfl (Eq.sym h)
