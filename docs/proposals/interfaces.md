@@ -1,6 +1,7 @@
 # Proposal: interfaces
 
 **Status:** draft 3, 20 October 2026. Design only, nothing is built.
+Review closed and decisions D154-D174, D178-D182, D186, D187 accepted as recommended (D188, Matt, 20 October 2026).
 Ticket SW-4, decision D152 (Matt, 20 October 2026: write this note).
 Draft 2 answered the external review of draft 1
 ([Changes since draft 1](#changes-since-draft-1-external-review)); draft 3
