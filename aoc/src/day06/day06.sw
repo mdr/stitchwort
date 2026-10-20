@@ -62,14 +62,16 @@ def Fits (width: Nat): List Text -> Prop
 theorem foldWidenGrows (start: Nat): (lines: List Text) -> start <= lines.foldLeft widen start
   | Nil         => Nat.leRefl start
   | Cons l rest =>
-    Nat.leTrans start (widen start l) (rest.foldLeft widen (widen start l))
-      (Nat.leMaxLeft start l.length) (foldWidenGrows (widen start l) rest)
+    calc start
+      _ <= widen start l                         := Nat.leMaxLeft start l.length
+      _ <= rest.foldLeft widen (widen start l)   := foldWidenGrows (widen start l) rest
 
 theorem foldWidenFits (start: Nat): (lines: List Text) -> Fits (lines.foldLeft widen start) lines
   | Nil         => Trivial
   | Cons l rest =>
-    Both (Nat.leTrans l.length (widen start l) (rest.foldLeft widen (widen start l))
-            (Nat.leMaxRight start l.length) (foldWidenGrows (widen start l) rest))
+    Both (calc l.length
+            _ <= widen start l                       := Nat.leMaxRight start l.length
+            _ <= rest.foldLeft widen (widen start l) := foldWidenGrows (widen start l) rest)
          (foldWidenFits (widen start l) rest)
 
 theorem paddedAllLength (width: Nat): (lines: List Text) -> Fits width lines ->
@@ -86,7 +88,7 @@ theorem paddedGridRectangular (lines: List Text): List.AllLength (gridWidth line
 theorem columnsKeepEveryCell (lines: List Text) (w: Nat) (wide: gridWidth lines = Succ w):
     (paddedGrid lines).transpose.transpose = paddedGrid lines :=
   List.transposeTwice w (paddedGrid lines)
-    (J (\y q => List.AllLength y (paddedGrid lines)) (paddedGridRectangular lines) wide)
+    (rewrite <- wide in paddedGridRectangular lines)
 
 -- Only the blank columns separate problems. Every block is a non-empty run of
 -- columns with no blank one in it (`isBlank` is the separator test)...

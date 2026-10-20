@@ -61,17 +61,22 @@ def zerosAfter (d: Dial highest) (turns: List Turn): Nat :=
 theorem zerosPassedSplit (d: Dial highest) (t: Turn) (ts: List Turn):
     zerosAfter d (t.clicks ++ List.concatMap Turn.clicks ts)
       = d.zerosDuring t + zerosAfter (d.move t) (List.concatMap Turn.clicks ts) :=
-  rewrite <- turnCount d t, <- turnAt d t
-    in Eq.trans (Eq.cong (List.occurrences Dial.isZero) (List.scanLeftAppend Dial.move d t.clicks (List.concatMap Turn.clicks ts)))
-      (List.occurrencesAppend Dial.isZero _ _)
+  calc zerosAfter d (t.clicks ++ List.concatMap Turn.clicks ts)
+    _ = zerosAfter d t.clicks + zerosAfter (List.foldLeft Dial.move d t.clicks) (List.concatMap Turn.clicks ts)
+        := Eq.trans (Eq.cong (List.occurrences Dial.isZero) (List.scanLeftAppend Dial.move d t.clicks (List.concatMap Turn.clicks ts)))
+             (List.occurrencesAppend Dial.isZero _ _)
+    _ = d.zerosDuring t + zerosAfter (List.foldLeft Dial.move d t.clicks) (List.concatMap Turn.clicks ts) := rewrite turnCount d t
+    _ = d.zerosDuring t + zerosAfter (d.move t) (List.concatMap Turn.clicks ts)                          := rewrite turnAt d t
 
 theorem zerosPassedFrom (d: Dial highest): (ts: List Turn) ->
     zerosPassed d ts = zerosAfter d (List.concatMap Turn.clicks ts)
   | Nil       => rfl
   | Cons t ts =>
-    Eq.trans (List.sumCons (d.zerosDuring t) (List.zipWith Dial.zerosDuring (List.scanLeft Dial.move (d.move t) ts) ts))
-      (Eq.trans (Eq.cong (\x => d.zerosDuring t + x) (zerosPassedFrom (d.move t) ts))
-        (Eq.sym (zerosPassedSplit d t ts)))
+    calc zerosPassed d (Cons t ts)
+      _ = d.zerosDuring t + zerosPassed (d.move t) ts
+          := List.sumCons (d.zerosDuring t) (List.zipWith Dial.zerosDuring (List.scanLeft Dial.move (d.move t) ts) ts)
+      _ = d.zerosDuring t + zerosAfter (d.move t) (List.concatMap Turn.clicks ts) := rewrite zerosPassedFrom (d.move t) ts
+      _ = zerosAfter d (List.concatMap Turn.clicks (Cons t ts))                   := Eq.sym (zerosPassedSplit d t ts)
 
 -- Positions stay on the dial by the type `Dial` (its `inRange` field), and
 -- part 1's code reads as the puzzle's own statement, so neither needs a
@@ -148,17 +153,19 @@ def Dial.move (d: Dial highest): Turn -> Dial highest
 -- 0, otherwise to `a + 1`.
 theorem rightCases (n: Nat) [auto ok: n != 0] (a: Nat) (h: a < n) (goal: Prop)
     (wraps: a + 1 = n -> goal) (below: Succ a < n -> goal): goal :=
-  Bool.inspect (Nat.leq n (Succ a)) (\b => goal)
-    (\t => wraps (Eq.trans (Nat.addOne a) (Nat.leAntisym (Succ a) n h t)))
-    (\f => below (Nat.leqFalse n (Succ a) f))
+  match e: Nat.leq n (Succ a) with
+    | True  => wraps (Eq.trans (Nat.addOne a) (Nat.leAntisym (Succ a) n h e))
+    | False => below (Nat.leqFalse n (Succ a) e)
 
 theorem stepRightAt (d: Nat) [auto ok: d != 0] (a: Nat) (n: Nat):
     ((a + 1) % d + n) % d = (a + Succ n) % d :=
-  Eq.trans (Nat.modAddMod (a + 1) n d) (Eq.cong (\x => x % d) (Nat.addAssoc a 1 n))
+  calc ((a + 1) % d + n) % d
+    _ = (a + 1 + n) % d  := Nat.modAddMod (a + 1) n d
+    _ = (a + Succ n) % d := rewrite Nat.addAssoc a 1 n
 
 theorem rightAt [highest: Nat] (d: Dial highest): (n: Nat) ->
     (List.foldLeft Dial.move d (List.replicate n (Right 1))).position = (d.position + n) % Succ highest
-  | Zero   => Eq.sym (Eq.trans (Eq.cong (\x => x % Succ highest) (Nat.addZero d.position)) (Nat.modSmall d.position (Succ highest) d.inRange))
+  | Zero   => rewrite Nat.addZero d.position, Nat.modSmall d.position (Succ highest) d.inRange
   | Succ n => Eq.trans (rightAt (d.move (Right 1)) n) (stepRightAt (Succ highest) d.position n)
 
 -- Where an integer lands on a dial numbered 0 to `highest`. Proofs only: it
@@ -178,19 +185,18 @@ theorem stepLeftAt (highest: Nat): (a: Nat) -> a <= highest -> (n: Nat) ->
     Dial.place highest (Nat.toInt (Dial.place highest (Int.subNatNat a 1)) - Nat.toInt n)
       = Dial.place highest (Int.subNatNat a (Succ n))
   | Zero,   h, n =>
-    Eq.trans (Eq.cong (\x => Dial.place highest (Nat.toInt x - Nat.toInt n)) (leftZero highest))
-      (Eq.trans (Eq.cong (\x => Dial.place highest x) (Int.subOfNats highest n))
-        (Eq.trans (Eq.cong (\x => Dial.place highest x)
-            (Eq.sym (Eq.trans (Int.subNatNatAddOfNat (Succ highest) 0 (Succ n)) (Int.subNatNatSucc highest n))))
-          (Int.modNatAddSize (Int.subNatNat 0 (Succ n)) (Succ highest))))
+    calc Dial.place highest (Nat.toInt (Dial.place highest (Int.subNatNat 0 1)) - Nat.toInt n)
+      _ = Dial.place highest (Nat.toInt highest - Nat.toInt n)  := rewrite leftZero highest
+      _ = Dial.place highest (Int.subNatNat highest n)          := rewrite Int.subOfNats highest n
+      _ = Dial.place highest (Int.subNatNat 0 (Succ n) + Nat.toInt (Succ highest))
+          := rewrite <- Eq.trans (Int.subNatNatAddOfNat (Succ highest) 0 (Succ n)) (Int.subNatNatSucc highest n)
+      _ = Dial.place highest (Int.subNatNat 0 (Succ n))         := Int.modNatAddSize (Int.subNatNat 0 (Succ n)) (Succ highest)
   | Succ m, h, n =>
-    Eq.trans (Eq.cong (\x => Dial.place highest (Nat.toInt x - Nat.toInt n)) (leftOne highest m h))
-      (Eq.trans (Eq.cong (\x => Dial.place highest x) (Int.subOfNats m n))
-        (Eq.cong (\x => Dial.place highest x) (Eq.sym (Int.subNatNatSucc m n))))
+    rewrite leftOne highest m h, Int.subOfNats m n, Int.subNatNatSucc m n
 
 theorem leftAt [highest: Nat] (d: Dial highest): (n: Nat) ->
     (List.foldLeft Dial.move d (List.replicate n (Left 1))).position = Dial.place highest (Nat.toInt d.position - Nat.toInt n)
-  | Zero   => Eq.sym (Eq.trans (Eq.cong (\x => x % Succ highest) (Nat.addZero d.position)) (Nat.modSmall d.position (Succ highest) d.inRange))
+  | Zero   => rewrite Nat.addZero d.position, Nat.modSmall d.position (Succ highest) d.inRange
   | Succ n => Eq.trans (leftAt (d.move (Left 1)) n) (stepLeftAt highest d.position d.inRange n)
 
 def Dial.isZero (d: Dial highest): Bool := d.position == 0
@@ -213,19 +219,24 @@ test "left a full turn from zero" := zerosFrom 0 (Left 200) == 2
 theorem stepRight (d: Nat) [auto ok: d != 0] (a: Nat) (h: a < d) (n: Nat):
     Bool.toNat ((a + 1) % d == 0) + ((a + 1) % d + n) / d = (a + Succ n) / d :=
   rightCases d a h (Bool.toNat ((a + 1) % d == 0) + ((a + 1) % d + n) / d = (a + Succ n) / d)
-    (\e => Eq.trans (Eq.cong (\x => Bool.toNat (x == 0) + (x + n) / d) (Eq.trans (Eq.cong (\x => x % d) e) (Nat.modSelf d)))
-      (Eq.sym (Eq.trans (Eq.cong (\x => x / d) (Eq.trans (Nat.addSucc a n) (Eq.cong (\x => x + n) (Eq.trans (Eq.sym (Nat.addOne a)) e))))
-        (Nat.addDivSelf d n))))
-    (\lt => Eq.trans (Eq.cong (\x => Bool.toNat (x == 0) + (x + n) / d) (Eq.trans (Eq.cong (\x => x % d) (Nat.addOne a)) (Nat.modSmall (Succ a) d lt)))
-      (Eq.cong (\x => x / d) (Eq.sym (Nat.addSucc a n))))
+    (\e =>
+      calc Bool.toNat ((a + 1) % d == 0) + ((a + 1) % d + n) / d
+        _ = Succ (n / d)       := rewrite e, Nat.modSelf d
+        _ = (d + n) / d        := Eq.sym (Nat.addDivSelf d n)
+        _ = (Succ a + n) / d   := Eq.cong (\x => (x + n) / d) (Eq.sym (Eq.trans (Eq.sym (Nat.addOne a)) e))
+        _ = (a + Succ n) / d   := rewrite Nat.addSucc a n)
+    (\lt => rewrite Nat.addOne a, Nat.modSmall (Succ a) d lt, Nat.addSucc a n)
 
 theorem rightCount [highest: Nat] (d: Dial highest): (n: Nat) ->
     zerosAfter d (List.replicate n (Right 1)) = (d.position + n) / Succ highest
-  | Zero   => Eq.sym (Eq.trans (Eq.cong (\x => x / Succ highest) (Nat.addZero d.position)) (Nat.divSmall d.position (Succ highest) d.inRange))
+  | Zero   => rewrite Nat.addZero d.position, Nat.divSmall d.position (Succ highest) d.inRange
   | Succ n =>
-    Eq.trans (Eq.cong (List.occurrences Dial.isZero) (List.scanLeftCons Dial.move (d.move (Right 1)) (List.replicate n (Right 1))))
-      (Eq.trans (Eq.cong (\t => Bool.toNat (d.move (Right 1)).isZero + t) (rightCount (d.move (Right 1)) n))
-        (stepRight (Succ highest) d.position d.inRange n))
+    calc zerosAfter d (List.replicate (Succ n) (Right 1))
+      _ = Bool.toNat (d.move (Right 1)).isZero + zerosAfter (d.move (Right 1)) (List.replicate n (Right 1))
+          := Eq.cong (List.occurrences Dial.isZero) (List.scanLeftCons Dial.move (d.move (Right 1)) (List.replicate n (Right 1)))
+      _ = Bool.toNat (d.move (Right 1)).isZero + ((d.move (Right 1)).position + n) / Succ highest
+          := rewrite rightCount (d.move (Right 1)) n
+      _ = (d.position + Succ n) / Succ highest := stepRight (Succ highest) d.position d.inRange n
 
 -- The count after one click left to `m`, from `Succ m`.
 theorem stepLeftFrom (highest: Nat): (m: Nat) -> Succ m <= highest -> (n: Nat) ->
@@ -245,32 +256,34 @@ theorem stepLeftFrom (highest: Nat): (m: Nat) -> Succ m <= highest -> (n: Nat) -
 theorem stepLeftTop: (highest: Nat) -> (n: Nat) ->
     Bool.toNat (highest == 0) + ((Succ highest - highest) % Succ highest + n) / Succ highest
       = ((Succ highest - 0) % Succ highest + Succ n) / Succ highest
-  | Zero,   n => Eq.trans (Eq.cong Succ (Nat.divOne n)) (Eq.sym (Nat.divOne (Succ n)))
+  | Zero,   n => rewrite Nat.divOne n
   | Succ t, n =>
-    Eq.trans (Eq.cong (\x => (x % Succ (Succ t) + n) / Succ (Succ t)) (Nat.succSub t))
-      (Eq.trans (Eq.cong (\x => (x + n) / Succ (Succ t)) (Nat.modSmall 1 (Succ (Succ t)) rfl))
-        (Eq.sym (Eq.cong (\x => (x + Succ n) / Succ (Succ t)) (Nat.modSelf (Succ (Succ t))))))
+    calc Bool.toNat (Succ t == 0) + ((Succ (Succ t) - Succ t) % Succ (Succ t) + n) / Succ (Succ t)
+      _ = (1 % Succ (Succ t) + n) / Succ (Succ t)  := rewrite Nat.succSub t
+      _ = (1 + n) / Succ (Succ t)
+      _ = ((Succ (Succ t) - 0) % Succ (Succ t) + Succ n) / Succ (Succ t) := rewrite Nat.modSelf (Succ (Succ t))
 
 theorem stepLeft (highest: Nat): (a: Nat) -> a <= highest -> (n: Nat) ->
     Bool.toNat (Dial.place highest (Int.subNatNat a 1) == 0)
         + ((Succ highest - Dial.place highest (Int.subNatNat a 1)) % Succ highest + n) / Succ highest
       = ((Succ highest - a) % Succ highest + Succ n) / Succ highest
   | Zero,   h, n =>
-    Eq.trans (Eq.cong (\x => Bool.toNat (x == 0) + ((Succ highest - x) % Succ highest + n) / Succ highest) (leftZero highest))
-      (stepLeftTop highest n)
+    rewrite leftZero highest in stepLeftTop highest n
   | Succ m, h, n =>
-    Eq.trans (Eq.cong (\x => Bool.toNat (x == 0) + ((Succ highest - x) % Succ highest + n) / Succ highest) (leftOne highest m h))
-      (stepLeftFrom highest m h n)
+    rewrite leftOne highest m h in stepLeftFrom highest m h n
 
 theorem leftCount [highest: Nat] (d: Dial highest): (n: Nat) ->
     zerosAfter d (List.replicate n (Left 1)) = ((Succ highest - d.position) % Succ highest + n) / Succ highest
   | Zero   =>
-    Eq.sym (Eq.trans (Eq.cong (\x => x / Succ highest) (Nat.addZero ((Succ highest - d.position) % Succ highest)))
-      (Nat.divSmall ((Succ highest - d.position) % Succ highest) (Succ highest) (Nat.modLt (Succ highest - d.position) (Succ highest))))
+    rewrite Nat.addZero ((Succ highest - d.position) % Succ highest),
+        Nat.divSmall ((Succ highest - d.position) % Succ highest) (Succ highest) (Nat.modLt (Succ highest - d.position) (Succ highest))
   | Succ n =>
-    Eq.trans (Eq.cong (List.occurrences Dial.isZero) (List.scanLeftCons Dial.move (d.move (Left 1)) (List.replicate n (Left 1))))
-      (Eq.trans (Eq.cong (\t => Bool.toNat (d.move (Left 1)).isZero + t) (leftCount (d.move (Left 1)) n))
-        (stepLeft highest d.position d.inRange n))
+    calc zerosAfter d (List.replicate (Succ n) (Left 1))
+      _ = Bool.toNat (d.move (Left 1)).isZero + zerosAfter (d.move (Left 1)) (List.replicate n (Left 1))
+          := Eq.cong (List.occurrences Dial.isZero) (List.scanLeftCons Dial.move (d.move (Left 1)) (List.replicate n (Left 1)))
+      _ = Bool.toNat (d.move (Left 1)).isZero + ((Succ highest - (d.move (Left 1)).position) % Succ highest + n) / Succ highest
+          := rewrite leftCount (d.move (Left 1)) n
+      _ = ((Succ highest - d.position) % Succ highest + Succ n) / Succ highest := stepLeft highest d.position d.inRange n
 
 -- A turn is its clicks, one at a time: it ends in the same place, and
 -- `zerosDuring` counts the clicks that land on 0.
