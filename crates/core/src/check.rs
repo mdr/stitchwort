@@ -1462,6 +1462,9 @@ pub struct CtorDecl {
     /// fields: one per index of the data type (none for a type without
     /// indices).
     pub result: Vec<Term>,
+    /// Which fields are implicit (`[n: T]`), for the elaborator: the kernel
+    /// checks them like any other. Empty means none is.
+    pub implicit: Vec<bool>,
 }
 
 /// Checks and adds the constructors of a data type added by
@@ -1640,6 +1643,19 @@ fn admit_data_group(
             }
             let result = check_result_indices(&mut cx, d, group, &ctor.name, ctor.result)?;
             failed = failed.or(result.1);
+            let implicit = match ctor.implicit {
+                flags if flags.is_empty() => vec![false; fields.len()],
+                flags if flags.len() == fields.len() => flags,
+                _ => {
+                    return Err(malformed(
+                        &cx,
+                        format!(
+                            "`{}` says which of its fields are implicit wrongly",
+                            ctor.name
+                        ),
+                    ));
+                }
+            };
             cx.unbind(fields.len());
             checked.push(Ctor {
                 name: ctor.name,
@@ -1647,6 +1663,7 @@ fn admit_data_group(
                 field_sorts,
                 field_erased,
                 result: result.0,
+                implicit,
             });
         }
         out.push((d, checked));

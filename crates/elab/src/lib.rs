@@ -14,6 +14,7 @@ mod check;
 mod derive;
 mod dot;
 mod effects;
+mod families;
 mod library;
 #[cfg(test)]
 mod library_tests;
@@ -729,6 +730,7 @@ impl Elaborator {
         let data_decl = Decl::Data {
             name: ability.clone(),
             params: params.clone(),
+            indices: Vec::new(),
             sort: None,
             ctors: sigs
                 .iter()
@@ -738,6 +740,8 @@ impl Elaborator {
                         names: vec![x_name(x)],
                         ty: dom.clone(),
                     }],
+                    implicit: Vec::new(),
+                    result: None,
                 })
                 .collect(),
             record: false,
@@ -972,12 +976,16 @@ impl Elaborator {
     ) -> Vec<(Option<usize>, Diagnostic)> {
         let mut out = Vec::new();
         let mut headers = Vec::new();
+        let mut member_indices = Vec::new();
         for &(item, decl) in members {
             if item.is_some() {
                 self.module.item = item;
             }
             match self.data_header(decl) {
-                Ok(header) => headers.push(header),
+                Ok((params, indices, sort)) => {
+                    headers.push((params, sort));
+                    member_indices.push(indices);
+                }
                 Err(d) => out.push((item, d)),
             }
         }
@@ -993,24 +1001,27 @@ impl Elaborator {
         if !out.is_empty() {
             return out;
         }
-        let names: Vec<(Name, Span, bool)> = members
+        let names: Vec<kernel::DataDecl> = members
             .iter()
-            .map(|(_, decl)| match decl {
+            .zip(member_indices)
+            .map(|(&(_, decl), indices)| match decl {
                 Decl::Data {
                     name: n,
                     span,
                     record,
                     ..
-                } => (
-                    self.declaration_key(n)
+                } => kernel::DataDecl {
+                    name: self
+                        .declaration_key(n)
                         .map_or_else(|_| name(n), |k| scope::display(&k).into()),
-                    *span,
-                    *record,
-                ),
+                    span: *span,
+                    record: *record,
+                    indices,
+                },
                 _ => unreachable!(),
             })
             .collect();
-        let ids = match kernel::declare_data_group_as(&mut self.globals, params, sort, names) {
+        let ids = match kernel::declare_indexed_data_group(&mut self.globals, params, sort, names) {
             Ok(ids) => ids,
             Err(d) => return vec![(members[0].0, d)],
         };
@@ -1067,11 +1078,14 @@ impl Elaborator {
     }
 
     /// Elaborates a data type's parameters and universe.
-    fn data_header(&mut self, decl: &Decl) -> Result<(Vec<(Name, Term)>, Sort)> {
+    #[allow(clippy::type_complexity)]
+    fn data_header(&mut self, decl: &Decl) -> Result<(Vec<(Name, Term)>, Vec<(Name, Term)>, Sort)> {
         let Decl::Data {
             name: data_name,
             params,
+            indices,
             sort,
+            record,
             span,
             ..
         } = decl
@@ -1092,6 +1106,22 @@ impl Elaborator {
                 cx.bind(&n.text, value);
             }
         }
+        // The indices, in the context of the parameters (docs/proposals/indexed-families.md).
+        if *record && let Some((_, ty)) = indices.first() {
+            return Err(
+                error("E-RECORD-INDICES", ty.span(), "a record can't have indices")
+                    .with_note("declare it with `|` and a constructor instead of `{ … }`"),
+            );
+        }
+        let mut checked_indices = Vec::new();
+        for (k, (x, ty)) in indices.iter().enumerate() {
+            let (ty, _) = check_type(&mut cx, ty)?;
+            let ty = self.finish(&ty, cx.level())?;
+            let value = cx.eval(&ty)?;
+            let x: Name = x.as_ref().map_or_else(|| format!("i{k}").into(), name);
+            cx.bind(&x, value);
+            checked_indices.push((x, ty));
+        }
         let sort = match sort {
             None => Sort::Type(0),
             Some(e) => {
@@ -1108,7 +1138,7 @@ impl Elaborator {
                 }
             }
         };
-        Ok((checked, sort))
+        Ok((checked, checked_indices, sort))
     }
 
     /// Whether data type `decl` has the same parameters (names and types) and
@@ -1215,6 +1245,15 @@ impl Elaborator {
                 )
                 .with_label(earlier.name.span, "first defined here"));
             }
+            // With indices, a result type or implicit fields
+            // (docs/proposals/indexed-families.md §7.1).
+            if !self.globals.data(d).indices.is_empty()
+                || ctor.result.is_some()
+                || ctor.implicit.contains(&true)
+            {
+                core_ctors.push(self.family_ctor(d, ctor, *span)?);
+                continue;
+            }
             self.clear_metas();
             let mut cx = Ctx::new(self, *span);
             for (x, ty) in &self.globals.data(d).params {
@@ -1247,6 +1286,7 @@ impl Elaborator {
                 name: name(&ctor.name),
                 fields,
                 result: Vec::new(),
+                implicit: Vec::new(),
             });
         }
         Ok(core_ctors)
@@ -2247,6 +2287,11 @@ impl Elaborator {
     ) -> Result<Option<CtorPattern<'a>>> {
         match &**pattern {
             Pattern::Var(_) | Pattern::Wildcard(_) | Pattern::Absurd(_) => Ok(None),
+            Pattern::Named(_, _, span) => Err(error(
+                "E-ARITY",
+                *span,
+                "`[n := p]` only matches an implicit field, among a constructor's arguments",
+            )),
             // A number pattern on an `Int` is `OfNat k` or `NegSucc (k - 1)`
             // around a number pattern on the `Nat` field (`-0` is `OfNat 0`).
             // A negative one on a type not known to be `Int` is one too, and

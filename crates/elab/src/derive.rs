@@ -155,6 +155,11 @@ impl Elaborator {
         if data.sort == Sort::Prop {
             return Ok(Err(format!("`{name}` is a proposition")));
         }
+        if !data.indices.is_empty() {
+            return Ok(Err(format!(
+                "`{name}` has indices, which `==` isn't derived for yet"
+            )));
+        }
         if data.ctors.is_empty() {
             return Ok(Err(format!("`{name}` has no constructors")));
         }

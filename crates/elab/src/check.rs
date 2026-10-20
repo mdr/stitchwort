@@ -704,7 +704,8 @@ pub(crate) fn infer_app(cx: &mut Ctx, head: &Expr, args: &[Arg]) -> Result<(Term
         }
         Some((Global::Data(d), _)) => {
             let data = g.data(*d);
-            let n = data.params.len();
+            // The parameters, then the indices: one telescope.
+            let n = data.params.len() + data.indices.len();
             if args.len() < n {
                 return Err(cx.error(
                     "E-ARITY",
@@ -714,7 +715,7 @@ pub(crate) fn infer_app(cx: &mut Ctx, head: &Expr, args: &[Arg]) -> Result<(Term
             }
             let mut params = Vec::new();
             let mut terms = Vec::new();
-            for ((_, param_ty), arg) in data.params.iter().zip(args) {
+            for ((_, param_ty), arg) in data.params.iter().chain(&data.indices).zip(args) {
                 let Arg::Explicit(arg) = arg else {
                     return Err(cx.error("E-ARITY", "data type parameters are explicit", "here"));
                 };
@@ -755,11 +756,15 @@ pub(crate) fn infer_app(cx: &mut Ctx, head: &Expr, args: &[Arg]) -> Result<(Term
                 )))
         }
         Some((Global::Ctor(d, c), _)) => {
-            let explicit = explicit_args(cx, args)?;
-            let missing = g.data(*d).ctors[*c]
-                .fields
-                .len()
-                .saturating_sub(explicit.len());
+            let explicit = ctor_args(args);
+            let ctor = &g.data(*d).ctors[*c];
+            let fields = (0..ctor.fields.len())
+                .filter(|&i| !ctor.implicit.get(i).copied().unwrap_or(false))
+                .count();
+            let given = (explicit.iter())
+                .filter(|a| matches!(a, CtorArg::Pos(_)))
+                .count();
+            let missing = fields.saturating_sub(given);
             if missing > 0 {
                 // A partially applied constructor is a function; unification
                 // works out its type.
@@ -794,13 +799,11 @@ fn fresh_function_type(cx: &mut Ctx, arity: usize) -> Result<Term> {
     ))
 }
 
-fn explicit_args<'a>(cx: &Ctx, args: &[Arg<'a>]) -> Result<Vec<&'a Expr>> {
+fn ctor_args<'a>(args: &[Arg<'a>]) -> Vec<CtorArg<'a>> {
     args.iter()
         .map(|a| match a {
-            Arg::Explicit(e) => Ok(*e),
-            Arg::Named(..) => {
-                Err(cx.error("E-ARITY", "constructors don't take named arguments", "here"))
-            }
+            Arg::Explicit(e) => CtorArg::Pos(e),
+            Arg::Named(n, e) => CtorArg::Named(n, e),
             Arg::Piped(_) => unreachable!("`|>` applies a constructor as a function"),
         })
         .collect()
@@ -1908,7 +1911,8 @@ fn as_fields(cx: &Ctx, name: &AstName) -> Option<Expr> {
 
 /// If `expr` is a constructor applied to explicit arguments: the constructor
 /// and the arguments.
-fn ctor_head<'a>(cx: &Ctx, expr: &'a Expr) -> Result<Option<(DataId, usize, Vec<&'a Expr>)>> {
+#[allow(clippy::type_complexity)]
+fn ctor_head<'a>(cx: &Ctx, expr: &'a Expr) -> Result<Option<(DataId, usize, Vec<CtorArg<'a>>)>> {
     let mut args = Vec::new();
     let mut head = expr;
     while let Expr::App(f, a) = head {
@@ -1924,46 +1928,88 @@ fn ctor_head<'a>(cx: &Ctx, expr: &'a Expr) -> Result<Option<(DataId, usize, Vec<
     }
     match cx.e.named(&name.text) {
         Some((Global::Ctor(d, c), _)) => {
-            if args.iter().any(|a| matches!(a, Expr::NamedArg(..))) {
-                return Err(cx.error("E-ARITY", "constructors don't take named arguments", "here"));
-            }
+            let args = (args.into_iter())
+                .map(|a| match a {
+                    Expr::NamedArg(n, e, _) => CtorArg::Named(n, e),
+                    e => CtorArg::Pos(e),
+                })
+                .collect();
             Ok(Some((*d, *c, args)))
         }
         _ => Ok(None),
     }
 }
 
+/// An argument of a constructor: positional, for an explicit field, or
+/// `[n := e]`, for an implicit one (docs/proposals/indexed-families.md §7.2).
+#[derive(Clone, Copy)]
+pub(crate) enum CtorArg<'a> {
+    Pos(&'a Expr),
+    Named(&'a AstName, &'a Expr),
+}
+
 /// Elaborates constructor `c` of `d` applied to `args`. The data type's
-/// parameters come from `expected` if given, or are left to unification.
+/// parameters come from `expected` if given, or are left to unification;
+/// implicit fields not given by name are left to unification too.
 /// A partially applied constructor is a function, which needs `expected`.
 fn ctor_app(
     cx: &mut Ctx,
     d: DataId,
     c: usize,
-    args: &[&Expr],
+    args: &[CtorArg],
     expected: Option<&Value>,
 ) -> Result<(Term, Value)> {
     let g = cx.g();
     let data = g.data(d);
     let ctor = &data.ctors[c];
     let k = ctor.fields.len();
-    if args.len() > k {
+    let implicit: Vec<bool> = (0..k)
+        .map(|i| ctor.implicit.get(i).copied().unwrap_or(false))
+        .collect();
+    let explicit_fields: Vec<usize> = (0..k).filter(|&i| !implicit[i]).collect();
+    let mut named: Vec<Option<&Expr>> = vec![None; k];
+    let mut positional = Vec::new();
+    for arg in args {
+        match arg {
+            CtorArg::Pos(e) => positional.push(*e),
+            CtorArg::Named(n, e) => {
+                let Some(i) = (0..k).find(|&i| implicit[i] && *ctor.fields[i].0 == *n.text) else {
+                    return Err(Diagnostic::error(
+                        "E-UNKNOWN-NAME",
+                        format!("`{}` has no implicit field `{}`", ctor.name, n.text),
+                    )
+                    .with_label(n.span, "not an implicit field of this constructor"));
+                };
+                if named[i].replace(e).is_some() {
+                    return Err(cx.error(
+                        "E-DUPLICATE",
+                        format!("the field `{}` is given twice", n.text),
+                        "here",
+                    ));
+                }
+            }
+        }
+    }
+    let wanted = explicit_fields.len();
+    if positional.len() > wanted {
         return Err(cx.error(
             "E-NOT-A-FUNCTION",
-            format!("`{}` takes {k} argument(s)", ctor.name),
-            format!("it's given {}", args.len()),
+            format!("`{}` takes {wanted} argument(s)", ctor.name),
+            format!("it's given {}", positional.len()),
         ));
     }
 
     // Partial application: `x … => C args x …`, checked against a function type.
     let mut missing_types = Vec::new();
+    let mut missing_level: Vec<Option<usize>> = vec![None; k];
     let mark = cx.mark();
     let mut target = expected.cloned();
-    for i in args.len()..k {
+    for &i in &explicit_fields[positional.len()..] {
         match target.as_ref().map(|t| force(g, t.clone())).transpose()? {
             Some(Value::Pi(_, Icit::Explicit, dom, cod)) => {
                 let var = Value::var(cx.level());
                 let name: Name = ctor.fields[i].0.clone();
+                missing_level[i] = Some(cx.level());
                 cx.bind_hidden(name.clone(), (*dom).clone());
                 missing_types.push(name);
                 target = Some(cod.apply(g, var)?);
@@ -1972,15 +2018,20 @@ fn ctor_app(
                 cx.reset(mark);
                 return Err(cx.error(
                     "E-CANNOT-INFER",
-                    format!("`{}` is missing {} argument(s)", ctor.name, k - args.len()),
+                    format!(
+                        "`{}` is missing {} argument(s)",
+                        ctor.name,
+                        wanted - positional.len()
+                    ),
                     "add the missing arguments, or a type annotation",
                 ));
             }
         }
     }
 
+    let np = data.params.len();
     let params = match target.as_ref().map(|t| force(g, t.clone())).transpose()? {
-        Some(Value::Data(d2, params)) if d2 == d => params,
+        Some(Value::Data(d2, args)) if d2 == d && args.len() >= np => args[..np].to_vec(),
         _ => data
             .params
             .iter()
@@ -1992,28 +2043,34 @@ fn ctor_app(
     };
     let mut env = params.clone();
     let mut terms = Vec::new();
-    let first_missing_level = mark.level;
+    let mut next = positional.iter();
     for (i, (_, field_ty)) in ctor.fields.iter().enumerate() {
         let ty = eval(g, &env, field_ty)?;
-        let term = if let Some(arg) = args.get(i) {
-            check(cx, arg, &ty)?
-        } else {
-            let level = first_missing_level + (i - args.len());
+        let term = if let Some(level) = missing_level[i] {
             let found = cx.types[level].clone();
             if !cx.unify(&found, &ty)? {
                 cx.reset(mark);
                 return Err(cx.mismatch(&ty, &found));
             }
             Term::Var(cx.level() - 1 - level)
-        };
-        env.push(if kernel::later_types_mention(&ctor.fields, i) {
-            cx.eval(&term)?
+        } else if implicit[i] {
+            match named[i] {
+                Some(e) => check(cx, e, &ty)?,
+                None => implicit_arg(cx, Icit::Implicit, &ty),
+            }
         } else {
-            unused()
-        });
+            let arg = next.next().expect("one argument per explicit field");
+            check(cx, arg, &ty)?
+        };
+        let needed = kernel::later_types_mention(&ctor.fields, i)
+            || ctor.result.iter().any(|r| r.mentions(k - 1 - i));
+        env.push(if needed { cx.eval(&term)? } else { unused() });
         terms.push(term);
     }
-    let result_ty = Value::Data(d, params);
+    let indices = (ctor.result.iter())
+        .map(|r| eval(g, &env, r))
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    let result_ty = Value::Data(d, params.into_iter().chain(indices).collect());
     if let Some(target) = &target
         && !cx.unify(&result_ty, target)?
     {

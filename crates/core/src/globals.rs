@@ -166,6 +166,10 @@ pub struct Ctor {
     /// fields: one per index of the data type, so empty for a type without
     /// indices. The result's parameters are always the type's own.
     pub result: Vec<Term>,
+    /// Whether each field is implicit, `[n: T]`: only the elaborator reads it
+    /// (it fills implicit fields in, and patterns skip them). Hashed when any
+    /// is.
+    pub implicit: Vec<bool>,
 }
 
 /// A metavariable created by the elaborator. Solutions are closed values

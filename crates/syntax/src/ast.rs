@@ -564,6 +564,9 @@ pub enum Pattern {
     /// `[p, q]` is `Cons p (Cons q Nil)`: the library's `Cons`, by identity.
     /// A list pattern is parsed to these, nested to the right.
     Cons(Box<Pattern>, Box<Pattern>, Span),
+    /// `[n := p]` among a constructor pattern's arguments: implicit field
+    /// `n` matched by `p` (docs/proposals/indexed-families.md §7.3).
+    Named(Name, Box<Pattern>, Span),
     /// A record pattern `{ name = p, age }` (a punned field is a variable of
     /// its name), with `rest` for a trailing `..` that ignores the other
     /// fields.
@@ -599,6 +602,7 @@ impl Pattern {
             | Pattern::Tuple(_, _, span)
             | Pattern::Nil(span)
             | Pattern::Cons(_, _, span)
+            | Pattern::Named(_, _, span)
             | Pattern::Record { span, .. } => *span,
         }
     }
@@ -615,6 +619,11 @@ pub struct Binder {
 pub struct CtorDecl {
     pub name: Name,
     pub fields: Vec<Binder>,
+    /// For each binder of `fields`, whether it's implicit, `[n: T]`.
+    pub implicit: Vec<bool>,
+    /// The result type, `: Vec a (Succ n)`, if written
+    /// (docs/proposals/indexed-families.md §7.1).
+    pub result: Option<Expr>,
 }
 
 #[derive(Clone, Debug)]
@@ -626,6 +635,9 @@ pub enum Decl {
     Data {
         name: Name,
         params: Vec<Binder>,
+        /// The index telescope after the header's colon: `Nat -> Type`, or
+        /// with names, `(len: Nat) -> Type` (docs/proposals/indexed-families.md).
+        indices: Vec<(Option<Name>, Expr)>,
         sort: Option<Expr>,
         ctors: Vec<CtorDecl>,
         record: bool,
