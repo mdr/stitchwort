@@ -31,7 +31,7 @@
 //! tick; a request reaching a `Tie` is exactly one `Later`, whose rest enters
 //! the callee and then returns to the caller; other operations pass through
 //! a `Tie` with their reply unchanged. A request in tail position (nothing
-//! pending above the caller's `Tie`, and the continuation `y  => Done y`)
+//! pending above the caller's `Tie`, and the continuation `y => Done y`)
 //! keeps no frame, so a loop runs in constant space.
 //!
 //! Each transition is a step of the operation's budget, and the frame stack
@@ -83,7 +83,7 @@ impl Shapes {
 
 /// What a `Call`'s rest does with the reply.
 enum Cont {
-    /// `y  => Done y`. Kept apart so a tail request can be recognised.
+    /// `y => Done y`. Kept apart so a tail request can be recognised.
     Done,
     Fn(Value),
 }
@@ -310,7 +310,7 @@ fn constant(g: &Globals, s: &Shapes, d: Value) -> Result<(Primitive, Vec<Value>)
 
 /// The continuation of a `Call`.
 fn cont(s: &Shapes, rest: &Value) -> Cont {
-    // `y  => Done y`, as the elaborator writes a request or an operation.
+    // `y => Done y`, as the elaborator writes a request or an operation.
     if let Value::Lam(_, _, closure) = rest {
         let mut body = closure.body.as_ref();
         while let Term::Loc(_, t) | Term::Ann(t, _) = body {

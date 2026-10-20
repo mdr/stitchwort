@@ -109,7 +109,7 @@ def drain : Comp LaterOp LaterRes a -> a
   | Call Later rest => drain (rest ())
 
 def forever : () -> Comp LaterOp LaterRes Void
-  | () => Call Later (_  => forever ())
+  | () => Call Later (_ => forever ())
 
 def contradiction : Void := drain (forever ())
 ```
