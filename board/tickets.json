@@ -2216,16 +2216,16 @@
     {
       "id": 146,
       "title": "Prelude tests leak into every project's stitchwort test",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "bug",
         "driver"
       ],
-      "body": "Day 6 pain point 9: prelude `test`s run in every project's `stitchwort test` and change its totals (broke two driver unit tests). Projects should run only their own tests (and their dependencies' per the multi-file design).",
+      "body": "Day 6 pain point 9: prelude tests ran in every project's stitchwort test. Fixed by SW-151 (std library stage 1): library tests run only under dev/t std.",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-20",
       "commits": []
     },
     {
@@ -2292,7 +2292,7 @@
     {
       "id": 151,
       "title": "Std library stage 1: loader, name index, natives on load, library tests; move Sorting",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "main",
       "labels": [
