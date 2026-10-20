@@ -862,8 +862,13 @@ export def area: Shape -> Nat
   }
   setRunHint();
 
+  /** Chooses one of the day's bundled inputs (a project only). */
+  const inputChoice = el("select", { id: "input-choice", hidden: true });
+  inputChoice.setAttribute("aria-label", "Fill the input from a bundled one");
+
   const runPanel = [
     runHint,
+    inputChoice,
     runInput,
     el("div", { className: "runrow" }, runAgain, stopButton),
     runChecked,
@@ -1238,17 +1243,14 @@ export def area: Shape -> Nat
     filebar.hidden = false;
     store("stitchwort.example", `aoc:${project.day}`);
     store(`${PROJECT_KEYS}open`, project.open);
-    evalInput = project.day === 1 ? "Aoc.Day02.solvePart1 Aoc.Day02.exampleRanges" : `${day.main.replace(/main$/, "example")}`;
+    evalInput = day.main === "Aoc.Day02.main" ? "Aoc.Day02.solvePart1 Aoc.Day02.exampleRanges" : `${day.main.replace(/main$/, "example")}`;
+    // The Run input: what was saved for this day, else the day's first
+    // bundled input (the example).
+    inputChoice.replaceChildren(el("option", { value: "" }, "Input…"),
+      ...(day.inputs ?? []).map((choice) => el("option", { value: choice.path }, choice.title)));
+    inputChoice.hidden = !(day.inputs ?? []).length;
     let input = stored(inputKey(day.main));
-    if (input === null) {
-      input = "";
-      if (day.input) {
-        try {
-          const r = await fetch(projectUrl(day.input));
-          if (r.ok) input = await r.text();
-        } catch {}
-      }
-    }
+    if (input === null) input = (await bundledInput(day.inputs?.[0]?.path)) ?? "";
     runInput.value = input;
     setRunHint();
     runResult.replaceChildren();
@@ -1256,6 +1258,24 @@ export def area: Shape -> Nat
     showFile();
     refresh();
   }
+
+  /** A bundled input's text, or null. */
+  async function bundledInput(path) {
+    if (!path) return null;
+    try {
+      const r = await fetch(projectUrl(path));
+      return r.ok ? await r.text() : null;
+    } catch { return null; }
+  }
+
+  inputChoice.addEventListener("change", async () => {
+    const path = inputChoice.value;
+    inputChoice.value = "";
+    const text = await bundledInput(path);
+    if (text === null) return;
+    runInput.value = text;
+    runInput.dispatchEvent(new Event("input"));
+  });
 
   /** Adds the project's days to the Example dropdown. */
   function addProjectGroup(manifest) {
@@ -1335,21 +1355,33 @@ export def area: Shape -> Nat
 
   async function render() {
     const current = ++rendering;
-    const src = source.value;
+    const src = stateKey();
     delete output.dataset.for;
     if (view === "run") {
       output.replaceChildren(...runPanel);
       runStale.hidden = ranSource === null || ranSource === src;
     }
-    const checked = await ask({ action: "check", source: src });
+    if (project) {
+      // Which files the day is made of (parsing only), for the tabs.
+      const outline = await ask(requestFor("outline"));
+      if (current !== rendering) return;
+      if (outline?.ok) useOutline(outline);
+    }
+    const checked = await ask(requestFor("check"));
     if (current !== rendering) return;
     setWarnings(checked?.warnings);
     if (!checked) return;
-    setStatus(checked.ok ? "Checked by the kernel" : "Doesn’t check", checked.ok ? "" : "bad");
+    if (project) markErrors(checked.diagnostics);
+    const day = project?.manifest.days[project.day];
+    setStatus(checked.ok
+      ? (day ? `${day.title}${day.namespaces.length > 1 ? " and its proofs" : ""} checked by the kernel` : "Checked by the kernel")
+      : "Doesn’t check", checked.ok ? "" : "bad");
+    /** The errors, with links to their files in a project. */
+    const errorsOf = (answer) => project ? projectErrorsView(answer) : errorsView(answer.errors, answer.warnings);
 
     if (view === "run") {
       runChecked.replaceChildren(...(checked.ok ? [] :
-        [el("p", { className: "hint" }, "This doesn’t check yet."), ...errorsView(checked.errors, checked.warnings)]));
+        [el("p", { className: "hint" }, "This doesn’t check yet."), ...errorsOf(checked)]));
       return;
     }
 
@@ -1361,20 +1393,35 @@ export def area: Shape -> Nat
           el("p", { className: "hint" }, "Edit the source to see errors as you type. The Tests, Evaluate, JavaScript and Run tabs use the same program."),
           ...warningsView(checked.warnings));
       } else {
-        output.append(...errorsView(checked.errors, checked.warnings));
+        output.append(...errorsOf(checked));
+      }
+      if (project) {
+        // Edits to shared files can break another day: check them all.
+        const all = el("div", { id: "check-all-result" });
+        const button = el("button", { id: "check-all", type: "button", className: "hint" }, "Check every day");
+        button.addEventListener("click", async () => {
+          all.replaceChildren(el("p", { className: "hint" }, "Checking every day…"));
+          const result = await ask(requestFor("checkall"));
+          if (current !== rendering || !result) return;
+          all.replaceChildren(...(result.ok
+            ? [el("p", { className: "summary" }, `Every day checked: ${result.checked.length} namespaces.`)]
+            : projectErrorsView(result)));
+          markErrors(result.diagnostics);
+        });
+        output.append(button, all);
       }
       return;
     }
 
     if (!checked.ok) {
       output.append(el("p", { className: "hint" }, "Fix the errors first; the Check tab shows them."),
-                    ...errorsView(checked.errors, checked.warnings));
+                    ...errorsOf(checked));
       return;
     }
 
     if (view === "tests") {
       output.append(el("p", { className: "hint" }, "Running the tests…"));
-      const result = await ask({ action: "test", source: src, known: stored(TEST_CACHE) ?? "" });
+      const result = await ask(requestFor("test", { known: stored(TEST_CACHE) ?? "" }));
       if (result) rememberTests(result.added);
       if (current !== rendering || !result) return;
       output.replaceChildren();
@@ -1383,9 +1430,18 @@ export def area: Shape -> Nat
         output.append(el("p", { className: "hint" }, 'No tests yet. Add one: test "name" := leq (1 + 1) 2'));
         return;
       }
-      const list = el("ul", { className: "tests" });
+      const lists = [];
+      let list = null;
+      let group = null;
       for (const t of result.tests) {
         const unfinished = t.outcome !== "passed" && t.outcome !== "failed";
+        // In a project, the tests are grouped by namespace, as the CLI prints them.
+        if (!list || (project && t.namespace !== group)) {
+          group = t.namespace;
+          list = el("ul", { className: "tests" });
+          if (project) list.dataset.namespace = group;
+          lists.push(list);
+        }
         list.append(el("li", { className: t.passed ? "pass" : "fail" },
           el("span", { className: "mark" }, t.passed ? "✓" : unfinished ? "!" : "✗"),
           el("span", {}, t.name + (t.passed ? "" : unfinished ? ` (${t.outcome})` : " (evaluated to False)")),
@@ -1396,7 +1452,9 @@ export def area: Shape -> Nat
       const cached = result.tests.filter((t) => t.cached).length;
       const forgetButton = el("button", { id: "forget-cache", className: "hint", type: "button" }, "Forget cached results");
       forgetButton.addEventListener("click", () => { forget(TEST_CACHE); answers.delete("test"); render(); });
-      output.append(list, el("p", { className: "summary" },
+      const shown = project
+        ? lists.flatMap((l) => [el("h3", { className: "testgroup" }, l.dataset.namespace), l]) : lists;
+      output.append(...shown, el("p", { className: "summary" },
         `${result.tests.length} test${result.tests.length === 1 ? "" : "s"}: ${result.tests.length - failed - unfinished} passed, ${failed} failed` +
         (unfinished ? `, ${unfinished} ran out of resources` : "") +
         (cached ? ` (${cached} from the cache)` : "")), forgetButton);
@@ -1413,7 +1471,7 @@ export def area: Shape -> Nat
       const evaluate = async() => {
         evalInput = input.value;
         answer.replaceChildren(el("p", { className: "hint" }, "Evaluating…"));
-        const result = await ask({ action: "evaluate", source: src, expr: input.value });
+        const result = await ask(requestFor("evaluate", { expr: input.value }));
         if (current !== rendering || !result) return;
         answer.replaceChildren(result.ok
           ? el("div", { className: "result" }, result.value, el("span", { className: "type" }, ": " + result.type))
@@ -1426,7 +1484,13 @@ export def area: Shape -> Nat
     }
 
     if (view === "js") {
-      const result = await ask({ action: "extract", source: src });
+      // In a project, the open file's namespace (as `build --js NS`).
+      const namespace = project?.namespaceOf.get(project.open);
+      if (project && !namespace) {
+        output.append(el("p", { className: "hint" }, "This file’s namespace isn’t known yet."));
+        return;
+      }
+      const result = await ask(requestFor("extract", { namespace }));
       if (current !== rendering || !result) return;
       if (!result.ok) { output.append(...errorsView(result.errors)); return; }
       if (!/export declare function/.test(result.dts)) {
@@ -1615,7 +1679,8 @@ export def area: Shape -> Nat
   let timer = null;
   function refresh() {
     paint();
-    store("stitchwort.draft", source.value);
+    if (project) saveOpenFile();
+    else store("stitchwort.draft", source.value);
     clearTimeout(timer);
     timer = setTimeout(render, 250);
   }
@@ -1663,7 +1728,10 @@ export def area: Shape -> Nat
     if (draft) { source.value = draft; refresh(); }
     if (input !== null) { runInput.value = input; store("stitchwort.input", input); }
   }
-  loadExample(chosen); restoreDraft();
+  fetchManifest().then(addProjectGroup);
+  if (chosen.startsWith("aoc:")) loadProject(Number(chosen.slice(4)) || 0, stored(`${PROJECT_KEYS}open`));
+  else loadExample(chosen);
+  if (!chosen.startsWith("aoc:")) restoreDraft();
   const savedView = stored("stitchwort.view");
   if (savedView && tabs.some((t) => t.dataset.view === savedView)) selectView(savedView);
 </script>

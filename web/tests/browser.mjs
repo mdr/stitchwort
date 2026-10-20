@@ -109,7 +109,7 @@ function serve(dir) {
   const server = createServer((req, res) => {
     const path = decodeURIComponent(new URL(req.url, "http://x").pathname);
     if (overrides.has(path)) {
-      res.writeHead(200, { "content-type": TYPES[extname(path)], "cache-control": "no-store" });
+      res.writeHead(200, { "content-type": TYPES[extname(path)] ?? "text/plain", "cache-control": "no-store" });
       res.end(overrides.get(path));
       return;
     }
@@ -579,10 +579,10 @@ test("a runaway run is stopped by the timeout, with its output", async (page) =>
 // which overflows it inside the WebAssembly, as a deep program once did.
 const CRASH = "-- crash the engine's stack";
 const crashing = (worker) => {
-  const check = "check: () => check(data.source),";
-  assert.ok(worker.includes(check), "the worker checks with check(data.source)");
+  const check = "check: () => b.check(data.source),";
+  assert.ok(worker.includes(check), "the worker checks with b.check(data.source)");
   return worker.replace(check, `check: () => data.source.includes(${JSON.stringify(CRASH)})
-      ? withoutStack(() => check(data.source)) : check(data.source),`) + `
+      ? withoutStack(() => b.check(data.source)) : b.check(data.source),`) + `
 // For the browser tests: runs f with only a little of the stack left, so
 // that the stack runs out inside the WebAssembly. It recurses until the
 // stack runs out, then calls f a few frames up while unwinding. If only
@@ -851,6 +851,247 @@ test("dragging the editor's corner resizes it", async (page) => {
   assert.ok(Math.abs(shorter.before - shorter.after - 150) <= 2, `shorter: ${JSON.stringify(shorter)}`);
   await assertAligned(page, "after making it shorter");
 });
+
+// The AoC project (docs/proposals/playground-projects.md) -----------------------
+
+/** What each day prints for its example input, and for its real input (the CLI's answers). */
+const AOC_EXAMPLE = ["Part 1: 3\nPart 2: 6\n", "Part 1: 1227775554\nPart 2: 4174379265\n", "Part 1: 357\nPart 2: 3121910778619\n",
+                     "Part 1: 13\nPart 2: 43\n", "Part 1: 3\nPart 2: 14\n", "Part 1: 4277556\nPart 2: 3263827\n"];
+const AOC_PUZZLE = ["Part 1: 1076\nPart 2: 6379\n", "Part 1: 16793817782\nPart 2: 27469417404\n",
+                    "Part 1: 17263\nPart 2: 170731717900423\n", "Part 1: 1397\nPart 2: 8758\n",
+                    "Part 1: 525\nPart 2: 333892124923577\n", "Part 1: 4722948564882\nPart 2: 9581313737063\n"];
+/** The days that have proofs: all but day 4. */
+const hasProofs = (day) => day !== 4;
+const dayStatus = (day) => `Day ${day}${hasProofs(day) ? " and its proofs" : ""} checked by the kernel`;
+const DAY2 = "src/Aoc/Day02/Day02.sw";
+const DAY2_TABS = ["Day02.sw", "Proofs/Part1.sw", "Proofs/Part2.sw", "Proofs/Repeated.sw", "Common/Range.sw", "Common/Proofs/Range.sw"];
+
+/** The labels of the file tabs. */
+const fileTabs = (page) => page.ev(`[...document.querySelectorAll("#filetabs button")].map((b) => b.firstChild.textContent)`);
+/** Opens a day and waits for it to check; its tabs are those of its namespaces. */
+async function openDay(page, day) {
+  await page.pick(`aoc:${day - 1}`);
+  await page.untilStatus(dayStatus(day), 60000);
+}
+const openTab = (page, label) => page.ev(`[...document.querySelectorAll("#filetabs button")].find((b) => b.firstChild.textContent === ${JSON.stringify(label)}).click()`);
+const sourceText = (page) => page.ev(`document.getElementById("source").value`);
+/** The bundled text of a file, fetched as the page does. */
+const bundled = (page, path) => page.ev(`fetch("pkg/projects/aoc/${path}").then((r) => r.text())`);
+/** Sets the source (the open file), as typing would, and waits for the checked status to be blank first. */
+const edit = (page, text) => page.setSource(text);
+/** Waits for a stored edit of `path` to be saved. */
+const savedEdit = (page, path) => page.until(`localStorage.getItem(${JSON.stringify("stitchwort.project.aoc.file." + path)})`, 10000, `a saved edit of ${path}`);
+
+test("the AoC days are listed, and a day opens its program with its files as tabs", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  assert.equal(await page.ev(`document.getElementById("filebar").hidden`), true, "no file tabs for a single file");
+  const days = await page.until(`(() => { const g = document.querySelector("#example optgroup"); return g && { label: g.label,
+    days: [...g.children].map((o) => o.textContent) }; })()`, 10000, "the AoC group");
+  assert.deepEqual(days, { label: "Advent of Code 2025", days: ["Day 1", "Day 2", "Day 3", "Day 4", "Day 5", "Day 6"] });
+  await openDay(page, 2);
+  assert.equal(await page.ev(`document.getElementById("filebar").hidden`), false);
+  await page.until(`document.querySelectorAll("#filetabs button").length === ${DAY2_TABS.length}`, 10000, "day 2's tabs");
+  assert.deepEqual(await fileTabs(page), DAY2_TABS);
+  assert.equal(await sourceText(page), await bundled(page, DAY2));
+  assert.match(await page.output(), /Every definition type-checks/);
+  await assertAligned(page, "day 2");
+  // Switching tabs shows another file of the day.
+  await openTab(page, "Proofs/Part1.sw");
+  await page.until(`document.querySelector('#filetabs [aria-selected="true"]').firstChild.textContent === "Proofs/Part1.sw"`);
+  assert.equal(await sourceText(page), await bundled(page, "src/Aoc/Day02/Proofs/Part1.sw"));
+  assert.equal(await page.status(), dayStatus(2), "still checked");
+  await assertAligned(page, "day 2 proofs tab");
+  // A day without proofs has fewer tabs, and its own status.
+  await openDay(page, 4);
+  await page.until(`document.querySelectorAll("#filetabs button").length === 1`);
+  assert.deepEqual(await fileTabs(page), ["Day04.sw"]);
+}, { ms: 120000 });
+
+test("every day checks, with its proofs, and runs on its example and on its puzzle input", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  for (let day = 1; day <= 6; day++) {
+    await openDay(page, day);
+    const input = await page.until(`document.getElementById("run-input")?.value || (document.getElementById("run").click(), false)`, 10000, "the input");
+    assert.equal(input, await page.ev(`fetch("pkg/projects/aoc/examples/day0${day}.txt").then((r) => r.text())`), `day ${day}: the input box has the example`);
+    assert.equal(await page.ev(`document.getElementById("run").title`), `Run Aoc.Day0${day}.main (Ctrl+Enter)`);
+    await page.run(30000);
+    assert.equal(await page.printed(), AOC_EXAMPLE[day - 1], `day ${day} on its example`);
+    // The puzzle input, chosen next to the example.
+    await page.ev(`(() => { const s = document.getElementById("input-choice"); s.value = "inputs/day0${day}.txt";
+      s.dispatchEvent(new Event("change")); })()`);
+    await page.until(`document.getElementById("run-input").value.length > 1000`, 10000, "the puzzle input");
+    await page.run(60000);
+    assert.equal(await page.printed(), AOC_PUZZLE[day - 1], `day ${day} on its puzzle input`);
+  }
+}, { ms: 240000 });
+
+test("the AoC tests are grouped by namespace, and cached on the next visit", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  await openDay(page, 3);
+  await page.tab("tests");
+  const results = () => page.until(`(() => {
+    const o = document.getElementById("output");
+    const summary = o.querySelector(".summary")?.textContent;
+    if (!summary || !o.querySelector("ul.tests")) return false;
+    return { groups: [...o.querySelectorAll("ul.tests")].map((l) => l.dataset.namespace), summary,
+             rows: [...o.querySelectorAll("ul.tests li")].map((li) => li.textContent) };
+  })()`, 60000, "the tests");
+  const first = await results();
+  assert.deepEqual(first.groups, ["Aoc.Day03", "Aoc.Day03.Proofs"]);
+  assert.ok(first.rows.length >= 2 && first.rows.every((r) => r.startsWith("✓")), first.rows.join("\n"));
+  assert.doesNotMatch(first.summary, /failed, [1-9]|[1-9]\d* failed/);
+  await page.reload();
+  await page.until(`document.getElementById("status").textContent === ${JSON.stringify(dayStatus(3))}`, 60000);
+  const second = await results();
+  assert.ok(second.rows.every((r) => r.endsWith("cached")), second.rows.join("\n"));
+}, { ms: 120000 });
+
+test("an error in a shared file shows in the Check tab, marks its tab, and links to its line", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  await openDay(page, 2);
+  await page.until(`document.querySelectorAll("#filetabs button").length === ${DAY2_TABS.length}`);
+  await openTab(page, "Common/Range.sw");
+  await page.until(`document.querySelector('#filetabs [aria-selected="true"]').firstChild.textContent === "Common/Range.sw"`);
+  const range = await sourceText(page);
+  await edit(page, range + "\ndef broken: Nat := rfl\n");
+  await page.untilStatus("Doesn’t check", 60000);
+  const shown = await page.ev(`({
+    errors: [...document.querySelectorAll("#output pre.errors")].map((p) => p.textContent),
+    marked: [...document.querySelectorAll("#filetabs button[data-errors]")].map((b) => b.firstChild.textContent),
+    jumps: [...document.querySelectorAll("#output button.jump")].map((b) => b.textContent) })`);
+  assert.equal(shown.errors.length, 2, shown.errors.join("\n"));
+  assert.match(shown.errors[0], /E-TYPE-MISMATCH/);
+  assert.match(shown.errors[1], /E-NAMESPACE-FAILED/, "listed after the error that caused it");
+  assert.ok(shown.marked.includes("Common/Range.sw"));
+  const line = range.split("\n").length + 1;
+  assert.match(shown.jumps[0], new RegExp(`^src/Aoc/Common/Range\\.sw:${line}:`));
+  // Going to the other file's error, and back by the link.
+  await openTab(page, "Day02.sw");
+  await page.until(`document.querySelector('#filetabs [aria-selected="true"]').firstChild.textContent === "Day02.sw"`);
+  await page.click("#output button.jump");
+  await page.until(`document.querySelector('#filetabs [aria-selected="true"]').firstChild.textContent === "Common/Range.sw"`);
+  const caretLine = await page.ev(`(() => { const s = document.getElementById("source");
+    return s.value.slice(0, s.selectionStart).split("\\n").length; })()`);
+  assert.equal(caretLine, line, "the caret is on the error's line");
+}, { ms: 120000 });
+
+test("a saved edit survives a reload, shows on its tab, and can be reset", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  await openDay(page, 2);
+  const original = await sourceText(page);
+  await edit(page, original + "\n-- my edit\n");
+  await savedEdit(page, DAY2);
+  assert.equal(await page.ev(`document.querySelectorAll("#filetabs button[data-edited]").length`), 1);
+  await page.reload();
+  await page.until(`document.getElementById("status").textContent === ${JSON.stringify(dayStatus(2))}`, 60000);
+  assert.equal(await sourceText(page), original + "\n-- my edit\n");
+  assert.equal(await page.ev(`document.querySelector("#filetabs button[data-edited]")?.firstChild.textContent`), "Day02.sw");
+  // The edit is on every day that uses the file, and the page remembers which file was open.
+  await openDay(page, 5);
+  await page.until(`document.querySelectorAll("#filetabs button").length >= 2`);
+  assert.equal(await page.ev(`document.querySelectorAll("#filetabs button[data-edited]").length`), 0, "day 5 doesn't show day 2's file");
+  await openDay(page, 2);
+  assert.equal(await sourceText(page), original + "\n-- my edit\n");
+  await page.pick("aoc:1");
+  await page.click("#reset-file");
+  await page.until(`document.getElementById("source").value === ${JSON.stringify(original)}`);
+  assert.equal(await page.ev(`localStorage.getItem("stitchwort.project.aoc.file.${DAY2}")`), null, "the saved edit is gone");
+  assert.equal(await page.ev(`document.querySelectorAll("#filetabs button[data-edited]").length`), 0);
+  // Resetting the whole project asks first.
+  await edit(page, original + "\n-- again\n");
+  await savedEdit(page, DAY2);
+  await page.click("#reset-project");
+  assert.equal(await page.ev(`document.getElementById("reset-confirm").hidden`), false);
+  assert.equal(await sourceText(page), original + "\n-- again\n", "nothing is reset before it's confirmed");
+  await page.click("#reset-yes");
+  await page.until(`document.getElementById("source").value === ${JSON.stringify(original)}`);
+  assert.equal(await page.ev(`localStorage.getItem("stitchwort.project.aoc.file.${DAY2}")`), null);
+}, { ms: 120000 });
+
+test("when the bundled file changes under a saved edit, the edit is kept and a banner asks", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  await openDay(page, 2);
+  const original = await sourceText(page);
+  const mine = original + "\n-- mine\n";
+  await edit(page, mine);
+  await savedEdit(page, DAY2);
+  const newer = original + "\n-- the new bundled version\n";
+  overrides.set("/pkg/projects/aoc/" + DAY2, newer);
+  await page.reload();
+  await page.until(`document.getElementById("status").textContent === ${JSON.stringify(dayStatus(2))}`, 60000);
+  assert.equal(await sourceText(page), mine, "the edit is kept");
+  assert.match(await page.ev(`document.getElementById("banner").textContent`), /Day02\.sw has changed since you edited it/);
+  // "Keep mine": the banner goes, and stays gone after a reload.
+  await page.click("#keep-mine");
+  assert.equal(await page.ev(`document.getElementById("banner").hidden`), true);
+  assert.equal(await sourceText(page), mine);
+  await page.reload();
+  await page.until(`document.getElementById("status").textContent === ${JSON.stringify(dayStatus(2))}`, 60000);
+  assert.equal(await page.ev(`document.getElementById("banner").hidden`), true, "no banner after keeping mine");
+  assert.equal(await sourceText(page), mine);
+  // Change the bundle again: "Use the new version" drops the edit.
+  const newest = original + "\n-- the newest\n";
+  overrides.set("/pkg/projects/aoc/" + DAY2, newest);
+  await page.reload();
+  await page.until(`document.getElementById("banner").textContent.includes("has changed")`, 60000);
+  await page.click("#use-new");
+  await page.until(`document.getElementById("source").value === ${JSON.stringify(newest)}`);
+  assert.equal(await page.ev(`document.getElementById("banner").hidden`), true);
+  assert.equal(await page.ev(`localStorage.getItem("stitchwort.project.aoc.file.${DAY2}")`), null);
+}, { ms: 120000 });
+
+test("Evaluate takes full names in a project", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  await openDay(page, 2);
+  await page.tab("eval");
+  assert.equal(await page.until(`document.getElementById("eval-input")?.value`, 10000), "Aoc.Day02.solvePart1 Aoc.Day02.exampleRanges");
+  await page.until(`document.querySelector(".result")?.textContent.startsWith("1227775554")`, 30000, "the value");
+  // A short name isn't in scope.
+  await page.ev(`(() => { const i = document.getElementById("eval-input"); i.value = "solvePart1";
+    i.form.dispatchEvent(new Event("submit", { cancelable: true })); })()`);
+  await page.until(`document.querySelector("#output pre.errors")?.textContent.includes("E-UNKNOWN-NAME")`, 30000, "an unknown name");
+}, { ms: 120000 });
+
+test("only the listed folders are bundled: sources, examples and puzzle inputs", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  const manifest = await page.ev(`fetch("pkg/projects/aoc/manifest.json").then((r) => r.json())`);
+  const listed = [...manifest.files, ...manifest.days.flatMap((d) => d.inputs.map((i) => i.path))];
+  assert.ok(listed.length > 15);
+  for (const path of listed) {
+    assert.match(path, /^(src\/.*\.sw|examples\/[^/]*\.txt|inputs\/[^/]*\.txt)$/, path);
+  }
+  for (const path of listed) assert.equal(await page.ev(`fetch("pkg/projects/aoc/${path}").then((r) => r.status)`), 200, path);
+  // The project's config and anything else of aoc/ isn't served.
+  for (const path of ["stitchwort.yaml", "../../../aoc/stitchwort.yaml", "board/tickets.json"]) {
+    assert.equal(await page.ev(`fetch("pkg/projects/aoc/${path}").then((r) => r.status)`), 404, path);
+  }
+  // Every URL the page fetches is relative.
+  const html = readFileSync(join(root, "index.html"), "utf8");
+  assert.doesNotMatch(html, /127\.0\.0\.1|localhost/);
+  assert.doesNotMatch(html, /(?:fetch|URL)\(\s*["'`]\//);
+});
+
+test("on a phone, a project's file tabs scroll inside themselves", async (page) => {
+  await page.send("Emulation.setDeviceMetricsOverride", { width: 400, height: 860, deviceScaleFactor: 2, mobile: true });
+  await page.open();
+  await page.untilChecked();
+  await openDay(page, 2);
+  await page.until(`document.querySelectorAll("#filetabs button").length === ${DAY2_TABS.length}`);
+  const l = await page.ev(`(() => { const t = document.getElementById("filetabs");
+    return { width: innerWidth, scrollWidth: document.documentElement.scrollWidth,
+             tabs: { client: t.clientWidth, scroll: t.scrollWidth, overflow: getComputedStyle(t).overflowX } }; })()`);
+  assert.equal(l.width, 400);
+  assert.ok(l.scrollWidth <= l.width, `the page scrolls sideways: ${JSON.stringify(l)}`);
+  assert.ok(l.tabs.scroll > l.tabs.client && l.tabs.overflow === "auto", `the tabs scroll inside themselves: ${JSON.stringify(l)}`);
+}, { ms: 120000 });
 
 // Running them -------------------------------------------------------------------
 

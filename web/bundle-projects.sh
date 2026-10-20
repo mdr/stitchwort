@@ -3,9 +3,9 @@
 # playground-projects.md §5):
 #   web/bundle-projects.sh REPO_ROOT OUT_DIR
 # writes OUT_DIR/projects/aoc/{manifest.json,src/**/*.sw,examples/*.txt}.
-# Only aoc/src/**/*.sw and aoc/examples/*.txt are copied, by those patterns;
-# aoc/inputs/ (the private puzzle inputs) is never read, and the script stops
-# if any path it would bundle contains `inputs/`.
+# Only aoc/src/**/*.sw, aoc/examples/*.txt and aoc/inputs/*.txt are copied, by
+# those patterns, never the whole aoc/ folder (D119: the puzzle inputs are
+# bundled too). The script stops if a path falls outside those folders.
 set -euo pipefail
 export LC_ALL=C
 root="$1"
@@ -20,16 +20,16 @@ fi
 
 cd "$root/aoc"
 files=$(find src -type f -name '*.sw' | sort)
-examples=$(find examples -maxdepth 1 -type f -name '*.txt' | sort)
+examples=$(find examples inputs -maxdepth 1 -type f -name '*.txt' | sort)
 for path in $files $examples; do
   case "$path" in
-    *inputs/* | /* | *..*)
+    /* | *..*)
       echo "bundle-projects: refusing to bundle '$path'" >&2
       exit 1
       ;;
-    src/* | examples/*) ;;
+    src/* | examples/* | inputs/*) ;;
     *)
-      echo "bundle-projects: '$path' is outside src/ and examples/" >&2
+      echo "bundle-projects: '$path' is outside src/, examples/ and inputs/" >&2
       exit 1
       ;;
   esac
@@ -60,12 +60,17 @@ done
     if [ -d "src/Aoc/$day/Proofs" ]; then
       namespaces="$namespaces, \"Aoc.$day.Proofs\""
     fi
-    input=""
+    inputs=""
+    isep=""
     if [ -f "examples/day$n.txt" ]; then
-      input=", \"input\": \"examples/day$n.txt\""
+      inputs="{ \"title\": \"Example\", \"path\": \"examples/day$n.txt\" }"
+      isep=", "
     fi
-    printf '%s\n    { "title": "Day %d", "open": "%s", "namespaces": [%s], "main": "Aoc.%s.main"%s }' \
-      "$sep" "$((10#$n))" "$program" "$namespaces" "$day" "$input"
+    if [ -f "inputs/day$n.txt" ]; then
+      inputs="$inputs$isep{ \"title\": \"Puzzle input\", \"path\": \"inputs/day$n.txt\" }"
+    fi
+    printf '%s\n    { "title": "Day %d", "open": "%s", "namespaces": [%s], "main": "Aoc.%s.main", "inputs": [%s] }' \
+      "$sep" "$((10#$n))" "$program" "$namespaces" "$day" "$inputs"
     sep=","
   done
   printf '\n  ]\n}\n'

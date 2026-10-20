@@ -96,9 +96,14 @@ fn diagnostics_json(session: &Session, diagnostics: &[&Diagnostic]) -> String {
                 )
             });
             format!(
-                r#"{{"severity":"{severity}","code":{}{}}}"#,
+                r#"{{"severity":"{severity}","code":{}{},"text":{}}}"#,
                 json_string(d.code),
-                place.unwrap_or_default()
+                place.unwrap_or_default(),
+                json_string(&stitchwort_driver::render::render(
+                    &session.sources,
+                    d,
+                    false
+                ))
             )
         })
         .collect();

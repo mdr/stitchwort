@@ -1,0 +1,29 @@
+{
+  "name": "aoc",
+  "title": "Advent of Code 2025",
+  "files": [
+    "src/Aoc/Common/Proofs/Range.sw",
+    "src/Aoc/Common/Range.sw",
+    "src/Aoc/Day01/Day01.sw",
+    "src/Aoc/Day01/Proofs/Part2.sw",
+    "src/Aoc/Day02/Day02.sw",
+    "src/Aoc/Day02/Proofs/Part1.sw",
+    "src/Aoc/Day02/Proofs/Part2.sw",
+    "src/Aoc/Day02/Proofs/Repeated.sw",
+    "src/Aoc/Day03/Day03.sw",
+    "src/Aoc/Day03/Proofs/Best.sw",
+    "src/Aoc/Day04/Day04.sw",
+    "src/Aoc/Day05/Day05.sw",
+    "src/Aoc/Day05/Proofs/Part2.sw",
+    "src/Aoc/Day06/Day06.sw",
+    "src/Aoc/Day06/Proofs/Grid.sw"
+  ],
+  "days": [
+    { "title": "Day 1", "open": "src/Aoc/Day01/Day01.sw", "namespaces": ["Aoc.Day01", "Aoc.Day01.Proofs"], "main": "Aoc.Day01.main", "inputs": [{ "title": "Example", "path": "examples/day01.txt" }, { "title": "Puzzle input", "path": "inputs/day01.txt" }] },
+    { "title": "Day 2", "open": "src/Aoc/Day02/Day02.sw", "namespaces": ["Aoc.Day02", "Aoc.Day02.Proofs"], "main": "Aoc.Day02.main", "inputs": [{ "title": "Example", "path": "examples/day02.txt" }, { "title": "Puzzle input", "path": "inputs/day02.txt" }] },
+    { "title": "Day 3", "open": "src/Aoc/Day03/Day03.sw", "namespaces": ["Aoc.Day03", "Aoc.Day03.Proofs"], "main": "Aoc.Day03.main", "inputs": [{ "title": "Example", "path": "examples/day03.txt" }, { "title": "Puzzle input", "path": "inputs/day03.txt" }] },
+    { "title": "Day 4", "open": "src/Aoc/Day04/Day04.sw", "namespaces": ["Aoc.Day04"], "main": "Aoc.Day04.main", "inputs": [{ "title": "Example", "path": "examples/day04.txt" }, { "title": "Puzzle input", "path": "inputs/day04.txt" }] },
+    { "title": "Day 5", "open": "src/Aoc/Day05/Day05.sw", "namespaces": ["Aoc.Day05", "Aoc.Day05.Proofs"], "main": "Aoc.Day05.main", "inputs": [{ "title": "Example", "path": "examples/day05.txt" }, { "title": "Puzzle input", "path": "inputs/day05.txt" }] },
+    { "title": "Day 6", "open": "src/Aoc/Day06/Day06.sw", "namespaces": ["Aoc.Day06", "Aoc.Day06.Proofs"], "main": "Aoc.Day06.main", "inputs": [{ "title": "Example", "path": "examples/day06.txt" }, { "title": "Puzzle input", "path": "inputs/day06.txt" }] }
+  ]
+}

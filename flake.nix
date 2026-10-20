@@ -58,13 +58,14 @@
             ];
           };
           # What the playground bundles of the AoC project: its sources and
-          # example inputs, listed explicitly (never aoc/inputs/).
+          # example and puzzle inputs, listed explicitly.
           aocBundle = lib.fileset.toSource {
             root = ./.;
             fileset = lib.fileset.unions [
               ./aoc/stitchwort.yaml
               (lib.fileset.fileFilter (file: file.hasExt "sw") ./aoc/src)
               (lib.fileset.fileFilter (file: file.hasExt "txt") ./aoc/examples)
+              (lib.fileset.fileFilter (file: file.hasExt "txt") ./aoc/inputs)
             ];
           };
           commonArgs = {
