@@ -4,7 +4,7 @@
 --
 --   $ cd aoc && stitchwort run Aoc.Day01.main < inputs/day01.txt
 --
--- The puzzle input is not in git (aoc/inputs/ is ignored).
+-- The puzzle input is committed in aoc/inputs/ (D119).
 --
 -- The dial's size is a parameter, `highest` being its largest number (99 in
 -- the puzzle). Part 2 is proved correct, for a dial of any size, in

@@ -4,7 +4,7 @@
 --
 --   $ cd aoc && stitchwort run Aoc.Day02.main < inputs/day02.txt
 --
--- The puzzle input is not in git (aoc/inputs/ is ignored).
+-- The puzzle input is committed in aoc/inputs/ (D119).
 --
 -- Rather than test every id, add up the invalid ones arithmetically. The
 -- ids made of a k-digit block written n times are base * m for the k-digit

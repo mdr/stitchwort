@@ -9,7 +9,7 @@
 --
 --   $ cd aoc && stitchwort run Aoc.Day06.main < inputs/day06.txt
 --
--- The puzzle input is not in git (aoc/inputs/ is ignored).
+-- The puzzle input is committed in aoc/inputs/ (D119).
 --
 -- The lines are padded with spaces to the same length (editors trim the
 -- trailing ones), turned into columns, and split into blocks at the blank

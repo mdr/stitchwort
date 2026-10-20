@@ -5,7 +5,7 @@
 --
 --   $ cd aoc && stitchwort run Aoc.Day04.main < inputs/day04.txt
 --
--- The puzzle input is not in git (aoc/inputs/ is ignored).
+-- The puzzle input is committed in aoc/inputs/ (D119).
 --
 -- The grid is a list of rows of 0 (floor) and 1 (roll). A roll's "window" is
 -- the 3 by 3 block around it, itself included, so it is accessible when its
