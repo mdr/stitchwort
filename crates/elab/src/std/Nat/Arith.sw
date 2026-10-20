@@ -471,6 +471,19 @@ theorem Nat.minSucc (m: Nat) (n: Nat): Nat.min (Succ m) (Succ n) = Succ (Nat.min
 -- The distance between two numbers; `(a - b) + (b - a)`, as one of them is 0.
 def Nat.absDiff (m: Nat) (n: Nat): Nat := (m - n) + (n - m)
 
+-- The distance from a number to itself is 0.
+theorem Nat.absDiffSelf (m: Nat): Nat.absDiff m m = 0 :=
+  Eq.trans (Eq.cong (\t => t + (m - m)) (Nat.subSelf m))
+    (Eq.trans (Eq.cong (\t => 0 + t) (Nat.subSelf m)) rfl)
+
+-- The distance is symmetric.
+theorem Nat.absDiffComm (m: Nat) (n: Nat): Nat.absDiff m n = Nat.absDiff n m :=
+  Nat.addComm (m - n) (n - m)
+
+-- When `m <= n`, the distance is the difference `n - m`.
+theorem Nat.absDiffOfLe (m: Nat) (n: Nat) (h: m <= n): Nat.absDiff m n = n - m :=
+  Eq.trans (Eq.cong (\t => t + (n - m)) (Nat.subEqZero m n h)) rfl
+
 -- `Nat.pow b e` is b to the power e.
 def Nat.pow (b: Nat): Nat -> Nat
   | Zero   => 1
