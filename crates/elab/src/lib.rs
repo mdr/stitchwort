@@ -1246,6 +1246,7 @@ impl Elaborator {
             core_ctors.push(kernel::CtorDecl {
                 name: name(&ctor.name),
                 fields,
+                result: Vec::new(),
             });
         }
         Ok(core_ctors)
@@ -2767,7 +2768,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                 cx.types = saved_types;
                 out.push(Branch {
                     names: names.clone(),
-                    body: Rc::new(result?),
+                    body: Some(Rc::new(result?)),
                 });
             }
             Ok(Term::Loc(

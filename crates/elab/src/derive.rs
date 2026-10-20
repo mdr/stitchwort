@@ -303,7 +303,7 @@ impl Elaborator {
             .iter()
             .enumerate()
             .map(|(c, ctor)| Branch {
-                body: Rc::new(Term::Nat(Rc::new(BigUint::from(c)))),
+                body: Some(Rc::new(Term::Nat(Rc::new(BigUint::from(c))))),
                 names: ctor.fields.iter().map(|(x, _)| x.clone()).collect(),
             })
             .collect();
@@ -351,7 +351,7 @@ impl Elaborator {
                     Term::Var(n + 1)
                 };
                 Branch {
-                    body: Rc::new(body),
+                    body: Some(Rc::new(body)),
                     names: o.fields.iter().map(|(x, _)| x.clone()).collect(),
                 }
             })

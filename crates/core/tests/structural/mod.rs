@@ -197,7 +197,9 @@ impl Walker<'_> {
                         .iter()
                         .map(|(_, ty)| is_recursive_fn(ty, *d))
                         .collect();
-                    self.under(&recursive, source, &branch.body)?;
+                    if let Some(body) = &branch.body {
+                        self.under(&recursive, source, body)?;
+                    }
                     self.matched.pop();
                 }
             }

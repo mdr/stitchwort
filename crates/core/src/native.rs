@@ -197,6 +197,7 @@ pub fn register_nat(g: &mut Globals, d: DataId) -> Result<()> {
     let data = g.data(d);
     let ok = data.state == State::Final
         && data.params.is_empty()
+        && data.indices.is_empty()
         && data.sort == Sort::Type(0)
         && data_sig(g, d) == [vec![], vec![0]]
         && matches!(&data.ctors[1].fields[0].1.strip_loc(), Term::Data(d2, args) if *d2 == d && args.is_empty());
@@ -212,6 +213,7 @@ pub fn register_bool(g: &mut Globals, d: DataId) -> Result<()> {
     let data = g.data(d);
     if !(data.state == State::Final
         && data.params.is_empty()
+        && data.indices.is_empty()
         && data.sort == Sort::Type(0)
         && data_sig(g, d) == [vec![], vec![]])
     {
@@ -231,6 +233,7 @@ pub fn register_decidable(g: &mut Globals, d: DataId) -> Result<()> {
     let void = g.registry.data(Builtin::Void);
     let shaped = data.state == State::Final
         && data.params.len() == 1
+        && data.indices.is_empty()
         && data.sort == Sort::Type(0)
         && data_sig(g, d) == [vec![0], vec![0]];
     let shaped = shaped

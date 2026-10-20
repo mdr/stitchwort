@@ -5,7 +5,7 @@ makes the second review's changes ([below](#changes-since-draft-2-re-review)), a
 2 made the first's ([further down](#changes-since-draft-1-external-review)). The
 re-review approves the architecture; its one required change before kernel work (the
 `Prop` guard in the unifier, D137) is made. Review closed (D185, Matt, 20 October: no further review needed). Decisions D136-D149, D153 and D184 accepted as recommended (Matt, 20 October). Waiting for Matt's call on when to build (design-review
-gate). Nothing is built. Ticket SW-178. Matt decided D133 and D135 (20 October): indexed
+gate). Stages 1 and 2, the kernel, are built ([As built](#as-built)). Ticket SW-178. Matt decided D133 and D135 (20 October): indexed
 data types go into the kernel before `Vec` (docs/proposals/vec.md, parked). The open
 questions are D136 to D149, D153 and D184 in [§12](#12-decisions-wanted).
 
@@ -125,7 +125,8 @@ changes before any kernel work. All are made.
 10. [Build plan](#10-build-plan)
 11. [What else changes](#11-what-else-changes)
 12. [Decisions wanted](#12-decisions-wanted)
-13. [Sources](#sources)
+13. [As built](#as-built)
+14. [Sources](#sources)
 
 ## 0. Summary
 
@@ -1296,6 +1297,63 @@ change either review asked for is already in the recommendations below.
   before D1′: without it, types that mention the two proofs wouldn't compare equal, and
   the homogeneity invariant would break. The alternative is to leave proof equations stuck
   for good.
+
+## As built
+
+**Stages 1 and 2 (kernel), SW-178.** Built as specified, with these choices
+and differences. None changes a rule above.
+
+- **API.** `declare_indexed_data_group(params, sort, [DataDecl { name, span,
+  record, indices }])`; `declare_data_group` and `declare_data_group_as` are
+  that with no indices. `CtorDecl` gained `result` (empty without indices),
+  `Data` gained `indices`, `Ctor` gained `result`, and `Branch.body` is an
+  `Option`. The unifier is `unify_index::unify` over a `Scope` (values and
+  types by level, extra values to refine, and the rigid matched variable).
+- **Hashes (§6.9).** The note expected every data type's hash to change.
+  They don't: the index telescope, the result indices and an impossible
+  branch are hashed only when present, so a type without indices and a case
+  without impossible branches hash exactly as before, and the hash snapshot
+  is unchanged. Their layout is still unambiguous: the number of indices is
+  hashed before the constructors, which then have exactly that many result
+  indices.
+- **Test 10.** A kernel constructor's result has no parameters to get
+  wrong (§6.1), so "`Weird: Vec Nat 0` in `Vec (a: Type)`" is a surface
+  test for stage 3. The kernel test refuses a result index of the wrong type
+  (`E-TYPE-MISMATCH`), and the wrong number of result indices
+  (`E-MALFORMED`).
+- **Test 20** is a kernel test, through a type annotation: the `VCons`
+  branch's `(h: P m)` is `E-TYPE-MISMATCH`, whose message shows `h`'s
+  refined type quoted at the branch's depth as `P (Succ m)`, and `(h: P
+  (Succ m))` is accepted. The lifted-`match` variant is the elaborator's
+  (stage 4).
+- **Order in `check_case`.** The branch-arity check now comes before the
+  `Prop` rule, which needs to unify each branch to know whether all are
+  impossible (it does so only for a proposition matched into data). The
+  matched variable's substitution (step 3 of §6.3.4) is applied to the
+  slots bound before the fields and to the goal: the fields' types and the
+  solutions never mention it. For a type without indices this computes
+  exactly what it did before.
+- **"Types differ" is a guard.** With only the four rules, a binder's
+  constraint is formed after the earlier ones are solved, which makes their
+  sides convertible, so the left and right types always agree and no test
+  reaches `Reason::TypesDiffer`. It stays, as §6.3.1 says, for D184 and
+  anything else that might solve a constraint without making its sides
+  convertible.
+- **Evaluation.** A well-typed value never reaches an impossible branch.
+  If an ill-typed term does while checking, the definition stays folded;
+  while running (with erasure), it panics with `unreachable`, as §6.8 asks.
+- **The reference oracle** (`crates/core/tests/unify_index.rs`) compares
+  outcomes and effects on 4,000 generated problems over `Nat`, `Fin`, a `W`
+  with a dependent field, `P` and `Hidden` in `Prop`, a `Type` with a proof
+  field first, an opaque `g` and type formers. Disabling the `Prop` guard
+  fails it; making the occurs check non-transitive doesn't (its generated
+  contexts can't express the hidden dependency), which the direct test
+  `the_occurs_check_looks_through_types_transitively` catches.
+- **Left for stages 3-5:** tests 3, 16, 18, 26 and 28; the surface
+  syntax; the elaborator calling `unify_index::unify`; the nested empty
+  case search; driver tests with and without erasure (`Certified`); JS
+  (impossible branches already compile to `throw`, and the switch's
+  fall-through is unchanged).
 
 ## Sources
 

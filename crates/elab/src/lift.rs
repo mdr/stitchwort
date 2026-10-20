@@ -236,7 +236,11 @@ fn go_replace(
                 .map(|b| {
                     Ok(Branch {
                         names: b.names.clone(),
-                        body: go(&b.body, under + b.names.len())?,
+                        body: b
+                            .body
+                            .as_ref()
+                            .map(|body| go(body, under + b.names.len()))
+                            .transpose()?,
                     })
                 })
                 .collect::<Result<_>>()?,
@@ -683,7 +687,11 @@ impl Elaborator {
                     .map(|b| {
                         Ok(Branch {
                             names: b.names.clone(),
-                            body: go(&b.body, under + b.names.len(), false)?,
+                            body: b
+                                .body
+                                .as_ref()
+                                .map(|body| go(body, under + b.names.len(), false))
+                                .transpose()?,
                         })
                     })
                     .collect::<Result<_>>()?,
