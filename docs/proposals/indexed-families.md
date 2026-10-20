@@ -4,7 +4,7 @@
 makes the second review's changes ([below](#changes-since-draft-2-re-review)), and draft
 2 made the first's ([further down](#changes-since-draft-1-external-review)). The
 re-review approves the architecture; its one required change before kernel work (the
-`Prop` guard in the unifier, D137) is made. Review closed (D185, Matt, 20 October: no further review needed). Waiting for Matt's decisions on what to build when (design-review
+`Prop` guard in the unifier, D137) is made. Review closed (D185, Matt, 20 October: no further review needed). Decisions D136-D149, D153 and D184 accepted as recommended (Matt, 20 October). Waiting for Matt's call on when to build (design-review
 gate). Nothing is built. Ticket SW-178. Matt decided D133 and D135 (20 October): indexed
 data types go into the kernel before `Vec` (docs/proposals/vec.md, parked). The open
 questions are D136 to D149, D153 and D184 in [§12](#12-decisions-wanted).
