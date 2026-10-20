@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: expected a parameter's name, but found `A`
+   ╭─[ reject/uppercase-parameter.sw:3:8 ]
+   │
+ 3 │ def f (A: Nat): Nat := A
+   │        ┬  
+   │        ╰── expected a parameter's name, but found `A`
+   │ 
+   │ Note: parameter names start with a lowercase letter; an uppercase name such as `A` is a constructor
+───╯

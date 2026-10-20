@@ -293,9 +293,9 @@ impl Parser<'_> {
             }
         };
         self.bump();
-        let mut names = vec![self.lower("a parameter's name")?];
+        let mut names = vec![self.param_name()?];
         while let Some(Tok::Lower(_)) = self.peek() {
-            names.push(self.lower("a parameter's name")?);
+            names.push(self.param_name()?);
         }
         // `auto` is only special as the first word of a binder with names
         // after it, as in types.

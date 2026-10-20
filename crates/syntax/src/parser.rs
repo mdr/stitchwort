@@ -524,6 +524,18 @@ impl<'t> Parser<'t> {
         unqualified(name)
     }
 
+    /// A parameter's name: like `lower`, but says why an uppercase name isn't one.
+    fn param_name(&mut self) -> Result<Name> {
+        if let Some(Tok::Upper(text)) = self.peek() {
+            let text = text.clone();
+            return Err(self.unexpected("a parameter's name").with_note(format!(
+                "parameter names start with a lowercase letter; an uppercase name such as \
+                 `{text}` is a constructor"
+            )));
+        }
+        self.lower("a parameter's name")
+    }
+
     /// A lowercase name, possibly qualified: `length` or `List.length`.
     fn lower_q(&mut self, what: &str) -> Result<Name> {
         match self.peek() {
