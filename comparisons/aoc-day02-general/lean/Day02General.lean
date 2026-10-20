@@ -7,6 +7,21 @@ Batteries), proved for every input. A prototype for the Stitchwort proof
 
 The theorem is `part2Correct`: `solvePart2 ranges = part2Spec ranges` for every
 list of ranges. See README.md for the outline and the porting note.
+
+The outline, for one id x with L digits:
+- A rotation of the digits by p places that leaves them unchanged is a
+  *period*. Periods add and subtract, so the remainder of a period divided by
+  the smallest positive period p₀ is again a period, and smaller than p₀:
+  it is 0. So every period is a multiple of p₀ (section 5).
+- x's digits are a block written n times exactly when L / n is a period
+  (section 6), that is when n divides K = L / p₀ (section 7).
+- The program weighs repeat count n by `plus n - minus n`, defined so that
+  over the divisors of K from 2 on, plus adds up to one more than minus when
+  K ≥ 2 (section 4). So x's plus terms are its minus terms, plus x itself
+  exactly when x repeats (section 7).
+- `repeated r k n` adds the ids of the range that are a k-digit block written
+  n times (section 8; Stitchwort already has this), and swapping the sums
+  finishes it (section 9). Everything stays in natural numbers.
 -/
 
 -- Lean 4.34 marks `if_pos`/`if_neg` deprecated; they still work.
@@ -46,8 +61,8 @@ def part2Spec (ranges : List Range) : Nat :=
 -- 2. The program
 -- ===========================================================================
 
--- Integer sums (Stitchwort's `List.sumBy`).
-def sumBy {α : Type} (f : α → Int) : List α → Int
+-- Sums of natural numbers (Stitchwort's `List.sumBy`).
+def sumBy {α : Type} (f : α → Nat) : List α → Nat
   | [] => 0
   | x :: xs => f x + sumBy f xs
 
@@ -64,36 +79,47 @@ def repeated (r : Range) (k n : Nat) : Nat :=
     if lo ≤ hi then m * ((lo + hi) * (hi - lo + 1) / 2) else 0
   else 0
 
--- The weights, computed rather than tabled: `weight K` is chosen so that, for
--- every K ≥ 2, the weights of the divisors of K from 2 on add up to 1.
--- (This is minus the Moebius function.) The first argument is fuel, so the
--- recursion is structural; `weight n` gives it enough.
-def wf : Nat → Nat → Int
-  | 0, _ => 0
-  | f + 1, n => 1 - sumBy (fun d => if n % d = 0 then wf f d else 0) (List.range' 2 (n - 2))
+-- The weights, computed rather than tabled. Repeat count n has weight
+-- `plus n - minus n` (minus the Moebius function), chosen so that for every
+-- K ≥ 2 the weights of the divisors of K from 2 on add up to 1:
+--
+--   plus K  = 1 + (minus d added up over the divisors d of K, 2 ≤ d < K)
+--   minus K =     (plus d  added up over the same divisors)
+--
+-- The two parts are kept apart so that everything stays a natural number.
+-- `wf fuel sign n` is `plus n` (sign true) or `minus n` (sign false); the fuel
+-- makes the recursion structural, and `plus n`/`minus n` give it enough.
+def wf : Nat → Bool → Nat → Nat
+  | 0, _, _ => 0
+  | f + 1, true, n => 1 + sumBy (fun d => if n % d = 0 then wf f false d else 0) (List.range' 2 (n - 2))
+  | f + 1, false, n => sumBy (fun d => if n % d = 0 then wf f true d else 0) (List.range' 2 (n - 2))
 
-def weight (n : Nat) : Int := wf (n + 1) n
+def plus (n : Nat) : Nat := wf (n + 1) true n
+def minus (n : Nat) : Nat := wf (n + 1) false n
 
--- One range: every block length k and repeat count n whose ids fit in the
--- digits of `hi`, weighted.
-def invalid (r : Range) : Int :=
+-- One range under weights w: every block length k and repeat count n whose
+-- ids fit in the digits of `hi`.
+def weighted (w : Nat → Nat) (r : Range) : Nat :=
   let size := (digits r.hi).length
-  sumBy (fun k => sumBy (fun n => if k * n ≤ size then weight n * repeated r k n else 0)
+  sumBy (fun k => sumBy (fun n => if k * n ≤ size then w n * repeated r k n else 0)
     (List.range' 2 (size - 1))) (List.range' 1 size)
 
-def solvePart2 (ranges : List Range) : Nat := (sumBy invalid ranges).toNat
+-- The ids counted with a plus, less those counted with a minus.
+def invalid (r : Range) : Nat := weighted plus r - weighted minus r
+
+def solvePart2 (ranges : List Range) : Nat := sumBy invalid ranges
 
 -- ===========================================================================
 -- 3. Sums
 -- ===========================================================================
 
-theorem sumBy_append {α} (f : α → Int) (l₁ l₂ : List α) :
+theorem sumBy_append {α} (f : α → Nat) (l₁ l₂ : List α) :
     sumBy f (l₁ ++ l₂) = sumBy f l₁ + sumBy f l₂ := by
   induction l₁ with
   | nil => simp [sumBy]
   | cons x xs ih => simp [sumBy, ih]; omega
 
-theorem sumBy_congr {α} (f g : α → Int) (l : List α) (h : ∀ x ∈ l, f x = g x) :
+theorem sumBy_congr {α} (f g : α → Nat) (l : List α) (h : ∀ x ∈ l, f x = g x) :
     sumBy f l = sumBy g l := by
   induction l with
   | nil => rfl
@@ -101,26 +127,26 @@ theorem sumBy_congr {α} (f g : α → Int) (l : List α) (h : ∀ x ∈ l, f x 
     simp only [sumBy]
     rw [h x (by simp), ih (fun y hy => h y (by simp [hy]))]
 
-theorem sumBy_zero {α} (f : α → Int) (l : List α) (h : ∀ x ∈ l, f x = 0) : sumBy f l = 0 := by
+theorem sumBy_zero {α} (f : α → Nat) (l : List α) (h : ∀ x ∈ l, f x = 0) : sumBy f l = 0 := by
   induction l with
   | nil => rfl
   | cons x xs ih =>
     simp only [sumBy]
-    rw [h x (by simp), ih (fun y hy => h y (by simp [hy]))]; rfl
+    rw [h x (by simp), ih (fun y hy => h y (by simp [hy]))]
 
-theorem sumBy_add {α} (f g : α → Int) (l : List α) :
+theorem sumBy_add {α} (f g : α → Nat) (l : List α) :
     sumBy (fun x => f x + g x) l = sumBy f l + sumBy g l := by
   induction l with
   | nil => rfl
   | cons x xs ih => simp only [sumBy, ih]; omega
 
-theorem sumBy_mul {α} (c : Int) (f : α → Int) (l : List α) :
+theorem sumBy_mul {α} (c : Nat) (f : α → Nat) (l : List α) :
     sumBy (fun x => c * f x) l = c * sumBy f l := by
   induction l with
   | nil => simp [sumBy]
-  | cons x xs ih => simp only [sumBy, ih, Int.mul_add]
+  | cons x xs ih => simp only [sumBy, ih, Nat.mul_add]
 
-theorem sumBy_swap {α β} (f : α → β → Int) (la : List α) (lb : List β) :
+theorem sumBy_swap {α β} (f : α → β → Nat) (la : List α) (lb : List β) :
     sumBy (fun a => sumBy (fun b => f a b) lb) la = sumBy (fun b => sumBy (fun a => f a b) la) lb := by
   induction la with
   | nil => simp [sumBy]; exact (sumBy_zero _ _ (fun _ _ => rfl)).symm
@@ -128,7 +154,7 @@ theorem sumBy_swap {α β} (f : α → β → Int) (la : List α) (lb : List β)
     simp only [sumBy]; rw [ih, ← sumBy_add]
 
 -- A sum over a run of numbers where only `x₀` can count.
-theorem sumBy_single (f : Nat → Int) (x₀ : Nat) (h : ∀ x, x ≠ x₀ → f x = 0) :
+theorem sumBy_single (f : Nat → Nat) (x₀ : Nat) (h : ∀ x, x ≠ x₀ → f x = 0) :
     ∀ n s, sumBy f (List.range' s n) = if s ≤ x₀ ∧ x₀ < s + n then f x₀ else 0 := by
   intro n
   induction n with
@@ -143,11 +169,11 @@ theorem sumBy_single (f : Nat → Int) (x₀ : Nat) (h : ∀ x, x ≠ x₀ → f
     · rw [h s hs]
       by_cases hin : s + 1 ≤ x₀ ∧ x₀ < s + 1 + n
       · rw [if_pos hin, if_pos (by omega)]; simp
-      · rw [if_neg hin, if_neg (by omega)]; simp
+      · rw [if_neg hin, if_neg (by omega)]
 
--- The spec's Nat sum as an Int sum.
+-- The spec's filtered sum as a sum of kept-or-zero terms.
 theorem filter_sum_eq (p : Nat → Bool) (l : List Nat) :
-    ((l.filter p).sum : Int) = sumBy (fun x => if p x then (x : Int) else 0) l := by
+    (l.filter p).sum = sumBy (fun x => if p x then x else 0) l := by
   induction l with
   | nil => simp [sumBy]
   | cons x xs ih =>
@@ -155,33 +181,47 @@ theorem filter_sum_eq (p : Nat → Bool) (l : List Nat) :
     cases hp : p x <;> simp [List.sum_cons, ih]
 
 -- ===========================================================================
--- 4. The weights: over the divisors of K from 2 on, they add up to 1
+-- 4. The weights: over the divisors of K from 2 on, plus is one more than minus
 -- ===========================================================================
 
 -- More fuel doesn't change `wf`.
-theorem wf_fuel : ∀ f g n, n < f → n < g → wf f n = wf g n := by
+theorem wf_fuel : ∀ f g s n, n < f → n < g → wf f s n = wf g s n := by
   intro f
   induction f with
-  | zero => intro g n h; omega
+  | zero => intro g s n h; omega
   | succ f ih =>
-    intro g n hf hg
+    intro g s n hf hg
     cases g with
     | zero => omega
     | succ g =>
-      simp only [wf]
-      congr 1
-      apply sumBy_congr
-      intro d hd
-      simp [List.mem_range'] at hd
-      split
-      · exact ih g d (by omega) (by omega)
-      · rfl
+      have hsum : ∀ s', sumBy (fun d => if n % d = 0 then wf f s' d else 0) (List.range' 2 (n - 2))
+          = sumBy (fun d => if n % d = 0 then wf g s' d else 0) (List.range' 2 (n - 2)) := by
+        intro s'
+        apply sumBy_congr
+        intro d hd
+        simp [List.mem_range'] at hd
+        split
+        · exact ih g s' d (by omega) (by omega)
+        · rfl
+      cases s <;> simp only [wf, hsum]
 
--- The divisors of K from 2 to K, weighted.
-def divisorSum (K : Nat) : Int :=
-  sumBy (fun n => if K % n = 0 then weight n else 0) (List.range' 2 (K - 1))
+-- The divisors of K from 2 to K, weighted by w.
+def divisorSum (w : Nat → Nat) (K : Nat) : Nat :=
+  sumBy (fun n => if K % n = 0 then w n else 0) (List.range' 2 (K - 1))
 
-theorem divisorSum_eq (K : Nat) (hK : 2 ≤ K) : divisorSum K = 1 := by
+-- The divisors below K, with `wf K` in place of `plus`/`minus`.
+theorem below_fuel (K : Nat) (s : Bool) :
+    sumBy (fun n => if K % n = 0 then wf (n + 1) s n else 0) (List.range' 2 (K - 2))
+      = sumBy (fun d => if K % d = 0 then wf K s d else 0) (List.range' 2 (K - 2)) := by
+  apply sumBy_congr
+  intro d hd
+  simp [List.mem_range'] at hd
+  split
+  · exact wf_fuel _ _ _ _ (by omega) (by omega)
+  · rfl
+
+theorem divisorSum_split (w : Nat → Nat) (K : Nat) (hK : 2 ≤ K) :
+    divisorSum w K = sumBy (fun n => if K % n = 0 then w n else 0) (List.range' 2 (K - 2)) + w K := by
   unfold divisorSum
   have hsplit : List.range' 2 (K - 1) = List.range' 2 (K - 2) ++ [K] := by
     have := List.range'_append (s := 2) (m := K - 2) (n := 1) (step := 1)
@@ -189,23 +229,21 @@ theorem divisorSum_eq (K : Nat) (hK : 2 ≤ K) : divisorSum K = 1 := by
     rw [show K - 1 = K - 2 + 1 by omega, ← this]
     simp [List.range'_succ, show 2 + (K - 2) = K by omega]
   rw [hsplit, sumBy_append]
-  simp only [sumBy, Nat.mod_self, if_true, Int.add_zero]
-  have hw : weight K = 1 - sumBy (fun d => if K % d = 0 then wf K d else 0) (List.range' 2 (K - 2)) := rfl
-  have : sumBy (fun n => if K % n = 0 then weight n else 0) (List.range' 2 (K - 2))
-      = sumBy (fun d => if K % d = 0 then wf K d else 0) (List.range' 2 (K - 2)) := by
-    apply sumBy_congr
-    intro d hd
-    simp [List.mem_range'] at hd
-    split
-    · exact wf_fuel _ _ _ (by omega) (by omega)
-    · rfl
-  rw [this, hw]; omega
+  simp [sumBy, Nat.mod_self]
 
--- So, for K ≥ 1, the weights of the divisors of K from 2 on add up to
--- 1 if K ≥ 2 and 0 if K = 1.
-theorem divisorSum_ind (K : Nat) (hK : 1 ≤ K) : divisorSum K = if 2 ≤ K then 1 else 0 := by
+-- For every K ≥ 1: over the divisors of K from 2 on, plus adds up to one more
+-- than minus if K ≥ 2, and to the same if K = 1 (there are none).
+theorem divisorSum_plus (K : Nat) (hK : 1 ≤ K) :
+    divisorSum plus K = (if 2 ≤ K then 1 else 0) + divisorSum minus K := by
   by_cases h : 2 ≤ K
-  · rw [if_pos h, divisorSum_eq K h]
+  · rw [if_pos h, divisorSum_split _ K h, divisorSum_split _ K h]
+    have hp : wf (K + 1) true K
+        = 1 + sumBy (fun d => if K % d = 0 then wf K false d else 0) (List.range' 2 (K - 2)) := rfl
+    have hm : wf (K + 1) false K
+        = sumBy (fun d => if K % d = 0 then wf K true d else 0) (List.range' 2 (K - 2)) := rfl
+    simp only [plus, minus]
+    rw [below_fuel K true, below_fuel K false, hp, hm]
+    omega
   · rw [if_neg h, show K = 1 by omega]; rfl
 
 -- ===========================================================================
@@ -376,7 +414,7 @@ theorem writtenAs_iff (ds : List Nat) (k n : Nat) (hk : 0 < k) (hL : 0 < ds.leng
       exact (hb i (by omega)).symm
 
 -- ===========================================================================
--- 7. One id: the weighted count is 1 exactly when the id repeats
+-- 7. One id: plus counts it once more than minus exactly when it repeats
 -- ===========================================================================
 
 -- Let p₀ be the smallest period of x's L digits, and K = L / p₀ (how many
@@ -428,14 +466,15 @@ theorem repeats_iff (x : Nat) (p₀ K : Nat) (hp₀ : 0 < p₀) (hL : (digits x)
     refine ⟨p₀, ⟨p₀ - 1, by omega, by omega⟩, K, ⟨K - 2, by omega, by omega⟩, ?_⟩
     exact (writtenAs_iff _ p₀ K hp₀ hLpos hL.symm).mpr ((hper p₀).mpr (Nat.dvd_refl _))
 
--- The program's terms for one id x, before the weights.
-def term (size : Nat) (x k n : Nat) : Int :=
-  if k * n ≤ size then weight n * (if writtenAs (digits x) k n then (x : Int) else 0) else 0
+-- The program's terms for one id x under weights w.
+def term (w : Nat → Nat) (size : Nat) (x k n : Nat) : Nat :=
+  if k * n ≤ size then w n * (if writtenAs (digits x) k n then x else 0) else 0
 
 -- For one repeat count n, only the block length L / n can count.
-theorem count_k (x size n : Nat) (hn : 2 ≤ n) (hLs : (digits x).length ≤ size) (hLpos : 0 < (digits x).length) :
-    sumBy (fun k => term size x k n) (List.range' 1 size)
-      = if writtenAs (digits x) ((digits x).length / n) n then weight n * x else 0 := by
+theorem count_k (w : Nat → Nat) (x size n : Nat) (hn : 2 ≤ n) (hLs : (digits x).length ≤ size)
+    (hLpos : 0 < (digits x).length) :
+    sumBy (fun k => term w size x k n) (List.range' 1 size)
+      = if writtenAs (digits x) ((digits x).length / n) n then w n * x else 0 := by
   rw [sumBy_single _ ((digits x).length / n) ?off size 1]
   · by_cases h : writtenAs (digits x) ((digits x).length / n) n = true
     · obtain ⟨hkn, hk⟩ := writtenAs_length _ _ n hLpos hn h
@@ -459,10 +498,13 @@ theorem range'_split (a b : Nat) (hab : 1 ≤ a) (h : a ≤ b) :
   rw [show 2 + (a - 1) = a + 1 by omega, show a - 1 + (b - a) = b - 1 by omega] at this
   exact this.symm
 
--- One id: the program's terms add up to x if x repeats, else 0.
+-- One id under any weights w: the terms add up to x times the weights of the
+-- divisors of K (from 2 on), where K is how many times x's smallest block is
+-- written; and x repeats exactly when K ≥ 2.
 theorem count_id (x size : Nat) (hLs : (digits x).length ≤ size) (hLpos : 0 < (digits x).length) :
-    sumBy (fun k => sumBy (fun n => term size x k n) (List.range' 2 (size - 1))) (List.range' 1 size)
-      = if repeats x then (x : Int) else 0 := by
+    ∃ K, 1 ≤ K ∧ (repeats x = true ↔ 2 ≤ K) ∧ ∀ w : Nat → Nat,
+      sumBy (fun k => sumBy (fun n => term w size x k n) (List.range' 2 (size - 1))) (List.range' 1 size)
+        = x * divisorSum w K := by
   obtain ⟨p₀, hp₀, ⟨K, hK⟩, _, hper⟩ := smallest_period (at_ (digits x)) _ hLpos
   have hK0 : 0 < K := by
     cases K with
@@ -471,29 +513,33 @@ theorem count_id (x size : Nat) (hLs : (digits x).length ≤ size) (hLpos : 0 < 
   have hKs : K ≤ size := by
     have : K ≤ (digits x).length := by rw [hK]; exact Nat.le_mul_of_pos_left K hp₀
     omega
-  rw [sumBy_swap]
-  rw [sumBy_congr _ (fun n => if K % n = 0 then weight n * x else 0)]
-  · rw [range'_split K size hK0 hKs, sumBy_append]
-    rw [sumBy_zero _ (List.range' (K + 1) (size - K))]
-    · have hd := divisorSum_ind K hK0
-      unfold divisorSum at hd
-      rw [sumBy_congr _ (fun n => x * (if K % n = 0 then weight n else 0))]
-      · rw [sumBy_mul, hd]
-        by_cases h2 : 2 ≤ K
-        · rw [if_pos h2, if_pos ((repeats_iff x p₀ K hp₀ hK hK0 hper).mpr h2)]; simp
-        · rw [if_neg h2, if_neg (by rw [repeats_iff x p₀ K hp₀ hK hK0 hper]; exact h2)]; simp
-      · intro n _; split <;> simp [Int.mul_comm]
+  refine ⟨K, hK0, repeats_iff x p₀ K hp₀ hK hK0 hper, fun w => ?_⟩
+  rw [sumBy_swap, sumBy_congr _ (fun n => x * (if K % n = 0 then w n else 0))]
+  · rw [range'_split K size hK0 hKs, sumBy_append, sumBy_zero _ (List.range' (K + 1) (size - K)),
+      Nat.add_zero, sumBy_mul]
+    · rfl
     · intro n hn
       simp [List.mem_range'] at hn
       have : K % n ≠ 0 := by rw [Nat.mod_eq_of_lt (by omega)]; omega
       simp [this]
   · intro n hn
     simp [List.mem_range'] at hn
-    rw [count_k x size n (by omega) hLs hLpos]
+    rw [count_k w x size n (by omega) hLs hLpos]
     have hiff := written_iff_dvd (digits x) p₀ K n hp₀ hK hK0 hper (by omega)
     by_cases h : K % n = 0
-    · rw [if_pos (hiff.mpr (Nat.dvd_of_mod_eq_zero h)), if_pos h]
-    · rw [if_neg (fun hw => h (Nat.mod_eq_zero_of_dvd (hiff.mp hw))), if_neg h]
+    · rw [if_pos (hiff.mpr (Nat.dvd_of_mod_eq_zero h)), if_pos h, Nat.mul_comm]
+    · rw [if_neg (fun hw => h (Nat.mod_eq_zero_of_dvd (hiff.mp hw))), if_neg h]; simp
+
+-- One id: its plus terms are its minus terms, plus x if x repeats.
+theorem count_plus (x size : Nat) (hLs : (digits x).length ≤ size) (hLpos : 0 < (digits x).length) :
+    sumBy (fun k => sumBy (fun n => term plus size x k n) (List.range' 2 (size - 1))) (List.range' 1 size)
+      = (if repeats x then x else 0)
+        + sumBy (fun k => sumBy (fun n => term minus size x k n) (List.range' 2 (size - 1))) (List.range' 1 size) := by
+  obtain ⟨K, hK, hrep, hcount⟩ := count_id x size hLs hLpos
+  rw [hcount plus, hcount minus, divisorSum_plus K hK, Nat.mul_add]
+  by_cases h2 : 2 ≤ K
+  · rw [if_pos h2, if_pos (hrep.mpr h2), Nat.mul_one]
+  · rw [if_neg h2, if_neg (fun h => h2 (hrep.mp h))]; simp
 
 -- ===========================================================================
 -- 8. The digit bridge: `repeated` adds the ids that are a block written n times
@@ -754,8 +800,8 @@ theorem pow_pred_le (k : Nat) : 10 ^ (k - 1) ≤ 10 ^ k := Nat.pow_le_pow_right 
 -- For one id x: the blocks that make x add up to x when x's digits are a
 -- k-digit block written n times, else to 0.
 theorem block_count (x k n : Nat) (hk : 1 ≤ k) (hn : 2 ≤ n) :
-    sumBy (fun b => if b * multiplier k n = x then (x : Int) else 0) (blocks k)
-      = if writtenAs (digits x) k n then (x : Int) else 0 := by
+    sumBy (fun b => if b * multiplier k n = x then x else 0) (blocks k)
+      = if writtenAs (digits x) k n then x else 0 := by
   have hm := multiplier_pos k n (by omega)
   have hp := pow_pred_le k
   by_cases h : writtenAs (digits x) k n = true
@@ -780,9 +826,9 @@ theorem block_count (x k n : Nat) (hk : 1 ≤ k) (hn : 2 ≤ n) :
 -- Walking the blocks is walking the ids.
 theorem blocks_as_ids (r : Range) (k n : Nat) (hk : 1 ≤ k) (hn : 2 ≤ n) :
     sumBy (fun b => if r.lo ≤ b * multiplier k n ∧ b * multiplier k n ≤ r.hi
-        then ((b * multiplier k n : Nat) : Int) else 0) (blocks k)
-      = sumBy (fun x => if writtenAs (digits x) k n then (x : Int) else 0) r.ids := by
-  rw [sumBy_congr _ (fun b => sumBy (fun x => if b * multiplier k n = x then (x : Int) else 0) r.ids)]
+        then b * multiplier k n else 0) (blocks k)
+      = sumBy (fun x => if writtenAs (digits x) k n then x else 0) r.ids := by
+  rw [sumBy_congr _ (fun b => sumBy (fun x => if b * multiplier k n = x then x else 0) r.ids)]
   · rw [sumBy_swap]
     exact sumBy_congr _ _ _ (fun x _ => block_count x k n hk hn)
   · intro b _
@@ -795,7 +841,7 @@ theorem blocks_as_ids (r : Range) (k n : Nat) (hk : 1 ≤ k) (hn : 2 ≤ n) :
 -- 8d. The arithmetic series --------------------------------------------------
 
 -- Keeping the terms between p and q of a run of numbers.
-theorem sumBy_window (f : Nat → Int) (p q : Nat) : ∀ c s,
+theorem sumBy_window (f : Nat → Nat) (p q : Nat) : ∀ c s,
     sumBy (fun b => if p ≤ b ∧ b ≤ q then f b else 0) (List.range' s c)
       = sumBy f (List.range' (max p s) (min (q + 1) (s + c) - max p s)) := by
   intro c
@@ -809,18 +855,17 @@ theorem sumBy_window (f : Nat → Int) (p q : Nat) : ∀ c s,
         show min (q + 1) (s + (c + 1)) - s = (min (q + 1) (s + 1 + c) - (s + 1)) + 1 by omega,
         List.range'_succ]
       rfl
-    · rw [if_neg h1, Int.zero_add]
+    · rw [if_neg h1, Nat.zero_add]
       by_cases h2 : s < p
       · rw [show max p (s + 1) = max p s by omega, show s + 1 + c = s + (c + 1) by omega]
       · rw [show min (q + 1) (s + 1 + c) - max p (s + 1) = 0 by omega,
           show min (q + 1) (s + (c + 1)) - max p s = 0 by omega]
         rfl
 
-theorem sumBy_natCast_mul (m : Nat) (l : List Nat) :
-    sumBy (fun b => ((b * m : Nat) : Int)) l = ((m * l.sum : Nat) : Int) := by
+theorem sumBy_mul_right (m : Nat) (l : List Nat) : sumBy (fun b => b * m) l = m * l.sum := by
   induction l with
   | nil => simp [sumBy]
-  | cons x xs ih => simp only [sumBy, ih, List.sum_cons]; push_cast; grind
+  | cons x xs ih => simp only [sumBy, ih, List.sum_cons, Nat.mul_add, Nat.mul_comm x]
 
 -- Gauss: lo + ... + hi.
 theorem gauss (lo hi : Nat) (h : lo ≤ hi) :
@@ -833,19 +878,19 @@ theorem gauss (lo hi : Nat) (h : lo ≤ hi) :
 
 -- (a) The arithmetic sum is the brute-force sum over blocks.
 theorem repeated_blocks (r : Range) (k n : Nat) (hn : 1 ≤ n) :
-    (repeated r k n : Int) = sumBy (fun b => if r.lo ≤ b * multiplier k n ∧ b * multiplier k n ≤ r.hi
-        then ((b * multiplier k n : Nat) : Int) else 0) (blocks k) := by
+    repeated r k n = sumBy (fun b => if r.lo ≤ b * multiplier k n ∧ b * multiplier k n ≤ r.hi
+        then b * multiplier k n else 0) (blocks k) := by
   have hm := multiplier_pos k n hn
   have hp := pow_pred_le k
   have hp1 : 1 ≤ 10 ^ k := Nat.pow_pos (by decide)
   -- lo ≤ b·m iff b ≥ lo/m rounded up; b·m ≤ hi iff b ≤ hi/m rounded down.
   rw [sumBy_congr _ (fun b => if (r.lo + multiplier k n - 1) / multiplier k n ≤ b ∧ b ≤ r.hi / multiplier k n
-      then ((b * multiplier k n : Nat) : Int) else 0)]
+      then b * multiplier k n else 0)]
   · unfold blocks
     rw [sumBy_window, show 10 ^ (k - 1) + (10 ^ k - 10 ^ (k - 1)) = 10 ^ k by omega]
     unfold repeated
     simp only [show multiplier k n ≠ 0 by omega, if_true, ne_eq, not_false_eq_true]
-    rw [sumBy_natCast_mul]
+    rw [sumBy_mul_right]
     generalize (r.lo + multiplier k n - 1) / multiplier k n = c
     generalize r.hi / multiplier k n = d
     by_cases hle : max (10 ^ (k - 1)) c ≤ min (10 ^ k - 1) d
@@ -862,32 +907,30 @@ theorem repeated_blocks (r : Range) (k n : Nat) (hn : 1 ≤ n) :
 -- (1) `repeated r k n` adds the ids of the range whose digits are a k-digit
 -- block written n times.
 theorem repeatedIds (r : Range) (k n : Nat) (hk : 1 ≤ k) (hn : 2 ≤ n) :
-    (repeated r k n : Int) = sumBy (fun x => if writtenAs (digits x) k n then (x : Int) else 0) r.ids := by
+    repeated r k n = sumBy (fun x => if writtenAs (digits x) k n then x else 0) r.ids := by
   rw [repeated_blocks r k n (by omega), blocks_as_ids r k n hk hn]
 
 -- ===========================================================================
 -- 9. Part 2 is right, for every input
 -- ===========================================================================
 
-theorem sumBy_ite {α} (c : Prop) [Decidable c] (f : α → Int) (l : List α) :
+theorem sumBy_ite {α} (c : Prop) [Decidable c] (f : α → Nat) (l : List α) :
     (if c then sumBy f l else 0) = sumBy (fun x => if c then f x else 0) l := by
   by_cases h : c
   · simp [h]
   · simp [h]; exact (sumBy_zero _ _ (fun _ _ => rfl)).symm
 
-theorem invalid_eq (r : Range) :
-    invalid r = sumBy (fun x => if repeats x then (x : Int) else 0) r.ids := by
-  unfold invalid
+-- One range under weights w, as a sum over its ids of their terms.
+theorem weighted_ids (w : Nat → Nat) (r : Range) :
+    weighted w r = sumBy (fun x => sumBy (fun k => sumBy (fun n => term w (digits r.hi).length x k n)
+      (List.range' 2 ((digits r.hi).length - 1))) (List.range' 1 (digits r.hi).length)) r.ids := by
+  unfold weighted
   -- Each (k, n) term as a sum over the ids.
-  rw [sumBy_congr _ (fun k => sumBy (fun n => sumBy (fun x => term (digits r.hi).length x k n) r.ids)
+  rw [sumBy_congr _ (fun k => sumBy (fun n => sumBy (fun x => term w (digits r.hi).length x k n) r.ids)
       (List.range' 2 ((digits r.hi).length - 1))) _ ?step]
-  · rw [sumBy_congr _ (fun k => sumBy (fun x => sumBy (fun n => term (digits r.hi).length x k n)
+  · rw [sumBy_congr _ (fun k => sumBy (fun x => sumBy (fun n => term w (digits r.hi).length x k n)
         (List.range' 2 ((digits r.hi).length - 1))) r.ids) _ (fun k _ => sumBy_swap _ _ _)]
     rw [sumBy_swap]
-    apply sumBy_congr
-    intro x hx
-    simp [Range.ids, List.mem_range'] at hx
-    exact count_id x _ (digits_length_mono r.hi x (by omega)) (digits_length_pos x)
   case step =>
     intro k hk
     simp [List.mem_range'] at hk
@@ -897,18 +940,25 @@ theorem invalid_eq (r : Range) :
     rw [repeatedIds r k n (by omega) (by omega), ← sumBy_mul, sumBy_ite]
     rfl
 
-theorem sumBy_cast (ranges : List Range) :
-    sumBy invalid ranges = ((part2Spec ranges : Nat) : Int) := by
-  unfold part2Spec
-  induction ranges with
-  | nil => rfl
-  | cons r rs ih =>
-    simp only [sumBy, List.map_cons, List.sum_cons, Int.natCast_add, ih, invalid_eq, filter_sum_eq]
+-- One range: the plus terms are the puzzle's sum plus the minus terms.
+theorem range_split (r : Range) :
+    weighted plus r = (r.ids.filter repeats).sum + weighted minus r := by
+  rw [weighted_ids, weighted_ids, filter_sum_eq, ← sumBy_add]
+  apply sumBy_congr
+  intro x hx
+  simp [Range.ids, List.mem_range'] at hx
+  exact count_plus x _ (digits_length_mono r.hi x (by omega)) (digits_length_pos x)
+
+theorem invalid_eq (r : Range) : invalid r = (r.ids.filter repeats).sum := by
+  unfold invalid; rw [range_split]; omega
 
 -- Part 2 is the sum of the ids, in all the ranges, whose digits are some
 -- block written two or more times. For every input.
 theorem part2Correct (ranges : List Range) : solvePart2 ranges = part2Spec ranges := by
-  unfold solvePart2; rw [sumBy_cast]; rfl
+  unfold solvePart2 part2Spec
+  induction ranges with
+  | nil => rfl
+  | cons r rs ih => simp only [sumBy, List.map_cons, List.sum_cons, ih, invalid_eq]
 
 -- ===========================================================================
 -- 10. The example, and a cross-check on ids of more than 10 digits
