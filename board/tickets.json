@@ -1,5 +1,5 @@
 {
-  "next": 153,
+  "next": 154,
   "tickets": [
     {
       "id": 1,
@@ -1489,9 +1489,9 @@
     {
       "id": 99,
       "title": "`calc` notation and a `rewrite` term for equational proofs",
-      "status": "review",
-      "agent": "Matt",
-      "where": "draft 3 (935fce1) addresses external review 1; D32-D42 await Matt",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "stage 2 = SW-153",
       "labels": [
         "proof",
         "syntax",
@@ -1499,7 +1499,7 @@
       ],
       "body": "From the day 1 comparison (SW-96, docs/comparisons/aoc-day01.md): the top recommendation. `calc` desugars to Eq.trans chains (small); `rewrite` infers the `\\x => …` motive from the expected goal (medium). Removes most hand-written motives, like Agda's `rewrite` and `≡⟨ … ⟩`. Design note first. Related: SW-26 proof ergonomics.",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-20",
       "commits": [
         "a522d9c",
         "1cc6aa1",
@@ -2317,6 +2317,21 @@
         "diagnostics"
       ],
       "body": "From calc-rewrite.md §8 / D40: goals and error messages show `Bool.ifThenElse c a b` where the user wrote `if c then a else b`; print it back as `if`.",
+      "created": "2026-10-20",
+      "updated": "2026-10-20",
+      "commits": []
+    },
+    {
+      "id": 153,
+      "title": "rewrite term (stage 2 of SW-99)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree",
+      "labels": [
+        "proof",
+        "syntax"
+      ],
+      "body": "Implements docs/proposals/calc-rewrite.md draft 4 §6 and §9 stage 2 (D35-D38, D36 as tightened in draft 4; D67 accepted by Matt 20 Oct 2026): rewrite p in t, rewrite p, comma lists left to right, <- for right to left, contextual in; keyed, typed, transactional matching with a shared budget (E-REWRITE-BUDGET); pre-order outermost-first search, no descent into a selected match; round-trip M a = G check; skip occurrences under binders that mention the bound variable; errors E-REWRITE-NOTHING / -MOTIVE / -BUDGET etc.; metrics; the listed tests.",
       "created": "2026-10-20",
       "updated": "2026-10-20",
       "commits": []
