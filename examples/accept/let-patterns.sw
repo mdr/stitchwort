@@ -1,6 +1,6 @@
 -- Patterns in `let` and in lambdas (docs/proposals/syntax-conveniences.md
 -- section 5). `let p := e` followed by the rest of the block is
--- `match e with | p => rest`; `\p => body` matches its parameter. The
+-- `match e with | p => rest`; `p => body` matches its parameter. The
 -- pattern must cover every value of its type.
 
 import List (map, foldLeft, zip)
@@ -47,15 +47,15 @@ def unit (u: ()): Nat :=
   3
 
 -- Lambdas: a pattern parameter, one among others, and a record.
-def sums (ps: List (Nat, Nat)): List Nat := ps.map (\(a, b) => a + b)
+def sums (ps: List (Nat, Nat)): List Nat := ps.map ((a, b) => a + b)
 
-def total (entries: List (Text, Nat)): Nat := entries.foldLeft (\acc (k, v) => acc + v) 0
+def total (entries: List (Text, Nat)): Nat := entries.foldLeft (acc (k, v) => acc + v) 0
 
 -- A record pattern needs its type known where the lambda is checked, as
 -- `p.name` does: here, from the signature.
-def nameOf: Person -> Text := \{ name, .. } => name
+def nameOf: Person -> Text := { name, .. } => name
 
-def nestedLambda (xs: List ((Nat, Nat), Nat)): List Nat := xs.map (\((a, b), c) => a * b + c)
+def nestedLambda (xs: List ((Nat, Nat), Nat)): List Nat := xs.map (((a, b), c) => a * b + c)
 
 -- A proof: `let (a, b) = p` on a variable refines `p` to `(a, b)`, so the
 -- goal computes.

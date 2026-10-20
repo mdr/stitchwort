@@ -1,6 +1,6 @@
 //! Pipe forward (docs/syntax.md): `x |> f a b` is `f a b x`, elaborated
 //! with `x` first, so its type can tell the call what the other arguments
-//! are: in `people |> List.map (\p => p.name)`, `p` is a `Person`.
+//! are: in `people |> List.map (p => p.name)`, `p` is a `Person`.
 //!
 //! As dot notation does with its receiver (`dot.rs`), `x` is inferred, then
 //! the parameter it fills is found by walking `f`'s type, with variables
@@ -69,7 +69,7 @@ pub(crate) fn infer_pipe(cx: &mut Ctx, value: &Expr, f: &Expr) -> Result<(Term, 
     apply_args(cx, call, &args)
 }
 
-/// `x |> \y => body`: the lambda is checked as a function from `x`'s type,
+/// `x |> y => body`: the lambda is checked as a function from `x`'s type,
 /// and applied to `x`.
 fn lambda(cx: &mut Ctx, f: &Expr, piped: Piped) -> Result<(Term, Value)> {
     let g = cx.g();

@@ -11,4 +11,4 @@ def collatzSteps: Nat -> {Partial} Nat
 
 def settled (n: Nat): {Partial} Nat := 0
 
-theorem same: ((\u => collatzSteps 1): () -> {Partial} Nat) = (\u => settled 1) := rfl
+theorem same: ((u => collatzSteps 1): () -> {Partial} Nat) = (u => settled 1) := rfl

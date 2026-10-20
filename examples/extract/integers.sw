@@ -149,7 +149,7 @@ export def maybeInt: Maybe Int -> Int
   | Nothing => 0
   | Just x => x * 2
 
-export def negateAll (xs: List (Maybe Int)): List (Maybe Int) := List.map (\m => Maybe.map Int.neg m) xs
+export def negateAll (xs: List (Maybe Int)): List (Maybe Int) := List.map (m => Maybe.map Int.neg m) xs
 
 export def firstNeg: List Int -> Maybe Int
   | Nil => Nothing

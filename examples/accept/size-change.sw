@@ -29,12 +29,12 @@ def merge: List Nat -> List Nat -> List Nat
     if Nat.leq x y then Cons x (merge xs (Cons y ys)) else Cons y (merge (Cons x xs) ys)
 
 -- A recursive call passed to another function must be given all its
--- arguments: `\x => sumWith n x`, not `sumWith n` (reject/partial-recursive-call.sw).
+-- arguments: `x => sumWith n x`, not `sumWith n` (reject/partial-recursive-call.sw).
 def applyTo (f: Nat -> Nat) (x: Nat): Nat := f x
 
 def sumWith: Nat -> Nat -> Nat
   | Zero,   acc => acc
-  | Succ n, acc => applyTo (\x => sumWith n x) (acc + Succ n)
+  | Succ n, acc => applyTo (x => sumWith n x) (acc + Succ n)
 
 def eqList: List Nat -> List Nat -> Bool
   | Nil,       Nil       => True

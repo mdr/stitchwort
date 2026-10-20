@@ -41,7 +41,6 @@ pub enum Tok {
     ColonEq,
     Equals,
     Arrow,
-    Backslash,
     Pipe,
     /// `||`
     OrOr,
@@ -364,7 +363,6 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
                     Tok::FatArrow
                 }
                 b'=' => Tok::Equals,
-                b'\\' => Tok::Backslash,
                 b'|' if bytes.get(i) == Some(&b'|') => {
                     i += 1;
                     Tok::OrOr
@@ -554,7 +552,7 @@ mod tests {
     fn distinguishes_keywords_names_and_symbols() {
         assert_eq!(
             tokens(
-                "type Type x Xs _ _y x' := : = -> [ ] ( ) , | + \\ 42 - * / % != < <= if then else"
+                "type Type x Xs _ _y x' := : = -> [ ] ( ) , | + 42 - * / % != < <= if then else"
             ),
             Ok(vec![
                 Tok::KwType,
@@ -575,7 +573,6 @@ mod tests {
                 Tok::Comma,
                 Tok::Pipe,
                 Tok::Plus,
-                Tok::Backslash,
                 Tok::Num(42u32.into()),
                 Tok::Minus,
                 Tok::Star,

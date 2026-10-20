@@ -30,7 +30,7 @@ pub enum Expr {
     App(Box<Expr>, Box<Expr>),
     /// `\x y -> body`
     Lam(Vec<Name>, Box<Expr>, Span),
-    /// `\(x: A) => body`: a lambda whose parameter has a written type (one
+    /// `(x: A) => body`: a lambda whose parameter has a written type (one
     /// parameter; several are nested).
     TypedLam(Name, Box<Expr>, Box<Expr>, Span),
     /// `(x y : A) -> B`, `[x y : A] -> B` with `implicit`, or

@@ -36,38 +36,38 @@ import Aoc.Day06 (..)
 def charAt (line: Text) (c: Nat): Char := line.toList.getOr ' ' c
 
 -- Column c of the worksheet, top to bottom.
-def column (lines: List Text) (c: Nat): List Char := lines.map (\line => charAt line c)
+def column (lines: List Text) (c: Nat): List Char := lines.map (line => charAt line c)
 
 -- A full column of only spaces.
 def blank (lines: List Text) (c: Nat): Bool := (column lines c).all Char.isSpace
 
 -- Columns lo .. hi - 1 hold one problem.
 def isProblem (lines: List Text) (lo: Nat) (hi: Nat): Bool :=
-  (lo == 0 || blank lines (lo - 1)) && (lo < hi && ((List.rangeFrom (hi - lo) lo).all (\c => not (blank lines c)) && blank lines hi))
+  (lo == 0 || blank lines (lo - 1)) && (lo < hi && ((List.rangeFrom (hi - lo) lo).all (c => not (blank lines c)) && blank lines hi))
 
 -- The lines with numbers in them: all but the last.
 def numberLines (lines: List Text): List Text := lines.init
 
 -- The + or * under the problem in the last line (the first, if there are several).
 def operatorOf (lines: List Text) (lo: Nat) (hi: Nat): Maybe Operator :=
-  (List.rangeFrom (hi - lo) lo).mapMaybe (\c => lines.last.andThen (\bottom => Operator.parse (charAt bottom c))) |> .head
+  (List.rangeFrom (hi - lo) lo).mapMaybe (c => lines.last.andThen (bottom => Operator.parse (charAt bottom c))) |> .head
 
 -- Part 1: each number line, read across the problem's columns.
 def rowNumbers (lines: List Text) (lo: Nat) (hi: Nat): List Nat :=
-  (numberLines lines).map (\line => readNumber ((List.rangeFrom (hi - lo) lo).map (\c => charAt line c)))
+  (numberLines lines).map (line => readNumber ((List.rangeFrom (hi - lo) lo).map (c => charAt line c)))
 
 -- Part 2: each of the problem's columns, right to left, read top to bottom.
 def columnNumbers (lines: List Text) (lo: Nat) (hi: Nat): List Nat :=
-  (List.rangeFrom (hi - lo) lo).reverse.map (\c => readNumber ((numberLines lines).map (\line => charAt line c)))
+  (List.rangeFrom (hi - lo) lo).reverse.map (c => readNumber ((numberLines lines).map (line => charAt line c)))
 
 -- The answers of all the problems, added up.
 def grandTotal (lines: List Text) (answer: Nat -> Nat -> Nat): Nat :=
-  List.range (gridWidth lines) |> .sumBy (\lo =>
-    List.range (gridWidth lines + 1) |> .sumBy (\hi => if isProblem lines lo hi then answer lo hi else 0))
+  List.range (gridWidth lines) |> .sumBy (lo =>
+    List.range (gridWidth lines + 1) |> .sumBy (hi => if isProblem lines lo hi then answer lo hi else 0))
 
-def part1Spec (lines: List Text): Nat := grandTotal lines (\lo hi => evaluate (operatorOf lines lo hi) (rowNumbers lines lo hi))
+def part1Spec (lines: List Text): Nat := grandTotal lines (lo hi => evaluate (operatorOf lines lo hi) (rowNumbers lines lo hi))
 
-def part2Spec (lines: List Text): Nat := grandTotal lines (\lo hi => evaluate (operatorOf lines lo hi) (columnNumbers lines lo hi))
+def part2Spec (lines: List Text): Nat := grandTotal lines (lo hi => evaluate (operatorOf lines lo hi) (columnNumbers lines lo hi))
 
 test "spec on the example" := (part1Spec example, part2Spec example) == (4277556, 3263827)
 test "spec problem columns" := isProblem example 0 3 && isProblem example 12 15 && not (isProblem example 0 2) && not (isProblem example 1 3)

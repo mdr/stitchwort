@@ -21,6 +21,6 @@ def firstOf: Pair Nat (Nat -> {Partial} Nat) -> Nat
 
 -- `collatzSteps` is passed bare, applied under a lambda, and stored in data;
 -- none of it runs.
-export def answer (n: Nat): Nat := discard collatzSteps + discard (\m => collatzSteps (m + n)) + n
+export def answer (n: Nat): Nat := discard collatzSteps + discard (m => collatzSteps (m + n)) + n
 
 export def kept (n: Nat): Nat := firstOf (MkPair n collatzSteps)

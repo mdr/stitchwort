@@ -67,8 +67,8 @@ theorem dialExt: (d: Dial highest) -> (e: Dial highest) -> d.position = e.positi
 
 theorem dialExtAt (highest: Nat) (a: Nat) (h1: a <= highest) (b: Nat) (e: a = b): (h2: b <= highest) ->
     ({ position = a, inRange = h1 }: Dial highest) = { position = b, inRange = h2 } :=
-  J (\y e2 => (h3: y <= highest) -> ({ position = a, inRange = h1 }: Dial highest) = { position = y, inRange = h3 })
-    (\h3 => J (\h e3 => ({ position = a, inRange = h1 }: Dial highest) = { position = a, inRange = h }) rfl (Bool.uniqueEq (Nat.leq a highest) True h1 h3))
+  J (y e2 => (h3: y <= highest) -> ({ position = a, inRange = h1 }: Dial highest) = { position = y, inRange = h3 })
+    (h3 => J (h e3 => ({ position = a, inRange = h1 }: Dial highest) = { position = a, inRange = h }) rfl (Bool.uniqueEq (Nat.leq a highest) True h1 h3))
     e
 
 -- The lemmas about the dial are for a dial of any size, `Succ highest`: with
@@ -105,7 +105,7 @@ theorem leftZero (highest: Nat): place highest (Int.subNatNat 0 1) = highest := 
 
 theorem leftOne (highest: Nat) (m: Nat) (h: Succ m <= highest): place highest (Int.subNatNat (Succ m) 1) = m :=
   calc place highest (Int.subNatNat (Succ m) 1)
-    _ = place highest (OfNat m) := Eq.cong (\x => place highest x) (Eq.trans (Int.subNatNatSucc m 0) (Int.subNatNatZeroRight m))
+    _ = place highest (OfNat m) := Eq.cong (x => place highest x) (Eq.trans (Int.subNatNatSucc m 0) (Int.subNatNatZeroRight m))
     _ = m := Nat.modSmall m (Succ highest) (Nat.leTrans m (Succ m) highest (Nat.leSucc m) h)
 
 theorem stepLeftAt (highest: Nat): (a: Nat) -> a <= highest -> (n: Nat) ->
@@ -129,13 +129,13 @@ theorem leftAt [highest: Nat] (d: Dial highest): (n: Nat) ->
 theorem stepRight (d: Nat) [auto ok: d != 0] (a: Nat) (h: a < d) (n: Nat):
     Bool.toNat ((a + 1) % d == 0) + ((a + 1) % d + n) / d = (a + Succ n) / d :=
   rightCases d a h (Bool.toNat ((a + 1) % d == 0) + ((a + 1) % d + n) / d = (a + Succ n) / d)
-    (\e =>
+    (e =>
       calc Bool.toNat ((a + 1) % d == 0) + ((a + 1) % d + n) / d
         _ = Succ (n / d)       := rewrite e, Nat.modSelf d
         _ = (d + n) / d        := Eq.sym (Nat.addDivSelf d n)
-        _ = (Succ a + n) / d   := Eq.cong (\x => (x + n) / d) (Eq.sym (Eq.trans (Eq.sym (Nat.addOne a)) e))
+        _ = (Succ a + n) / d   := Eq.cong (x => (x + n) / d) (Eq.sym (Eq.trans (Eq.sym (Nat.addOne a)) e))
         _ = (a + Succ n) / d   := rewrite Nat.addSucc a n)
-    (\lt => rewrite Nat.addOne a, Nat.modSmall (Succ a) d lt, Nat.addSucc a n)
+    (lt => rewrite Nat.addOne a, Nat.modSmall (Succ a) d lt, Nat.addSucc a n)
 
 theorem rightCount [highest: Nat] (d: Dial highest): (n: Nat) ->
     zerosAfter d (List.replicate n (Right 1)) = (d.position + n) / Succ highest

@@ -65,15 +65,15 @@ def runStateL [e: Type] [eres: e -> Type] [a: Type]
   | Done x                => Done (MkPair x s)
   | Call (L Get) rest     => runStateL s (rest s)
   | Call (L (Put n)) rest => runStateL n (rest MkUnit)
-  | Call (R o) rest       => Call o (\y => runStateL s (rest y))
+  | Call (R o) rest       => Call o (y => runStateL s (rest y))
 
 def allResultsR: [e: Type] -> [eres: e -> Type] -> [a: Type] ->
     Comp (Plus e ChooseOp) (PlusRes eres ChooseRes) a -> Comp e eres (List a)
   | Done x               => Done [x]
   | Call (R Choose) rest =>
-    bind (allResultsR (rest True)) (\xs =>
-      bind (allResultsR (rest False)) (\ys => Done (List.append xs ys)))
-  | Call (L o) rest      => Call o (\y => allResultsR (rest y))
+    bind (allResultsR (rest True)) (xs =>
+      bind (allResultsR (rest False)) (ys => Done (List.append xs ys)))
+  | Call (L o) rest      => Call o (y => allResultsR (rest y))
 
 -- Handler order (from the review)
 
@@ -84,15 +84,15 @@ def allResultsR: [e: Type] -> [eres: e -> Type] -> [a: Type] ->
 -- Computations with the row `{State Nat, Choose}`, and its operations.
 def SC (a: Type): Type := Comp (Plus StateOp ChooseOp) (PlusRes StateRes ChooseRes) a
 
-def get: SC Nat := Call (L Get) (\n => Done n)
+def get: SC Nat := Call (L Get) (n => Done n)
 
-def put (n: Nat): SC Unit1 := Call (L (Put n)) (\u => Done u)
+def put (n: Nat): SC Unit1 := Call (L (Put n)) (u => Done u)
 
-def choose: SC Bool := Call (R Choose) (\b => Done b)
+def choose: SC Bool := Call (R Choose) (b => Done b)
 
 def p: SC Nat :=
-  bind choose (\b =>
-    bind (if b then put 1 else Done MkUnit) (\u =>
+  bind choose (b =>
+    bind (if b then put 1 else Done MkUnit) (u =>
       get))
 
 def eqPairs: List (Pair Nat Nat) -> List (Pair Nat Nat) -> Bool
@@ -128,18 +128,18 @@ test "choice inside state: the state threads through" :=
 -- State handler out, so the handler's own result still has State.
 def scaleGets: Comp StateOp StateRes a -> Comp StateOp StateRes a
   | Done x            => Done x
-  | Call Get rest     => Call Get (\m => scaleGets (rest (m * 10)))
-  | Call (Put n) rest => Call (Put n) (\u => scaleGets (rest u))
+  | Call Get rest     => Call Get (m => scaleGets (rest (m * 10)))
+  | Call (Put n) rest => Call (Put n) (u => scaleGets (rest u))
 
 -- get() + 1
-def getPlusOne: Comp StateOp StateRes Nat := Call Get (\n => Done (n + 1))
+def getPlusOne: Comp StateOp StateRes Nat := Call Get (n => Done (n + 1))
 
 test "a clause's own get goes to the outer handler" :=
   fstOf (runState 5 (scaleGets getPlusOne)) == 51
 
 -- Abort: the polymorphic `abort` is the primitive one (returning `Empty`)
 -- followed by `fromEmpty`.
-def abort: Comp AbortOp AbortRes a := Call Abort (\v => fromEmpty v)
+def abort: Comp AbortOp AbortRes a := Call Abort (v => fromEmpty v)
 
 def safeDiv (n: Nat) (d: Nat): Comp AbortOp AbortRes Nat := if h: d != 0 then Done (n / d) else abort
 
@@ -152,17 +152,17 @@ def fromJust0: Maybe Nat -> Nat
   | Just x  => x
 
 test "abort stops" := isNothing (toMaybe (safeDiv 7 0))
-test "no abort" := fromJust0 (toMaybe (bind (safeDiv 7 2) (\q => safeDiv 100 q))) == 33
+test "no abort" := fromJust0 (toMaybe (bind (safeDiv 7 2) (q => safeDiv 100 q))) == 33
 
 -- The generic fold: `allResults` again, written with `foldComp`.
 def both: (o: ChooseOp) -> (ChooseRes o -> List a) -> List a
   | Choose, k => List.append (k True) (k False)
 
-def allResultsFold (c: Comp ChooseOp ChooseRes a): List a := foldComp (\x => [x]) both c
+def allResultsFold (c: Comp ChooseOp ChooseRes a): List a := foldComp (x => [x]) both c
 
 -- Three choices: eight outcomes.
 def threeChoices: Comp ChooseOp ChooseRes Nat :=
-  Call Choose (\a => Call Choose (\b => Call Choose (\c =>
+  Call Choose (a => Call Choose (b => Call Choose (c =>
     Done ((if a then 4 else 0) + (if b then 2 else 0) + (if c then 1 else 0)))))
 
 test "fold" := eqNats (allResultsFold threeChoices) [7, 6, 5, 4, 3, 2, 1, 0]
@@ -186,11 +186,11 @@ def runFnState (f: Nat -> Comp ChooseOp ChooseRes Nat): Comp FnStateOp FnStateRe
 
 -- Store "add 0 or 10", then read it back and run it under `allResults`.
 def storeAndRun: Comp FnStateOp FnStateRes (List Nat) :=
-  Call (PutFn (\n => Call Choose (\b => Done (if b then n + 10 else n)))) (\u =>
-    Call GetFn (\g => Done (allResults (g 5))))
+  Call (PutFn (n => Call Choose (b => Done (if b then n + 10 else n)))) (u =>
+    Call GetFn (g => Done (allResults (g 5))))
 
 test "effectful function in state" :=
-  eqNats (runFnState (\n => Done n) storeAndRun) [15, 5]
+  eqNats (runFnState (n => Done n) storeAndRun) [15, 5]
 
 -- A computation type whose operations come from a type function stuck on a
 -- variable: not a row of abilities, so it's an ordinary data type here.

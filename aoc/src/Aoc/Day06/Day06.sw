@@ -9,7 +9,7 @@
 --
 --   $ cd aoc && stitchwort run Aoc.Day06.main < inputs/day06.txt
 --
--- The puzzle input is not in git (aoc/inputs/ is ignored).
+-- The puzzle input is committed in aoc/inputs/ (D119).
 --
 -- The lines are padded with spaces to the same length (editors trim the
 -- trailing ones), turned into columns, and split into blocks at the blank
@@ -49,7 +49,7 @@ def blocks (lines: List Text): List (List (List Char)) := (paddedGrid lines).tra
 
 -- Every line, padded with spaces on the right to the longest line's length.
 def paddedGrid (lines: List Text): List (List Char) :=
-  lines.map (\line => line.toList.padRight (gridWidth lines) ' ')
+  lines.map (line => line.toList.padRight (gridWidth lines) ' ')
 
 def gridWidth (lines: List Text): Nat := lines.foldLeft widen 0
 
@@ -61,17 +61,17 @@ test "padded grid" := paddedGrid ["ab", "a"] == [['a', 'b'], ['a', ' ']]
 -- One block of columns, the last character of each being the operator row.
 def parseProblem (columns: List (List Char)): Problem :=
   let rows := columns.transpose
-  { operator = (columns.mapMaybe (\column => column.last.andThen Operator.parse)).head
+  { operator = (columns.mapMaybe (column => column.last.andThen Operator.parse)).head
   , rowNumbers = rows.init.map readNumber
-  , columnNumbers = columns.map (\column => readNumber column.init) }
+  , columnNumbers = columns.map (column => readNumber column.init) }
 
 test "example problems" :=
-  (parseWorksheet example).map (\p => (p.rowNumbers, p.columnNumbers))
+  (parseWorksheet example).map (p => (p.rowNumbers, p.columnNumbers))
     == [ ([123, 45, 6], [1, 24, 356]), ([328, 64, 98], [369, 248, 8])
        , ([51, 387, 215], [32, 581, 175]), ([64, 23, 314], [623, 431, 4]) ]
 test "example operators" :=
-  (parseWorksheet example).map (\p => p.operator) == [Just Multiply, Just Add, Just Multiply, Just Add]
-test "no operator" := (parseWorksheet ["1", "2", " "]).map (\p => p.operator) == [Nothing]
+  (parseWorksheet example).map (p => p.operator) == [Just Multiply, Just Add, Just Multiply, Just Add]
+test "no operator" := (parseWorksheet ["1", "2", " "]).map (p => p.operator) == [Nothing]
 
 def Operator.parse: Char -> Maybe Operator
   | '+' => Just Add
@@ -94,12 +94,12 @@ def evaluate (operator: Maybe Operator) (numbers: List Nat): Nat :=
     | Just op => op.apply numbers
 
 -- Part 1: the answers of the problems read by rows.
-def solvePart1 (problems: List Problem): Nat := problems.sumBy (\p => evaluate p.operator p.rowNumbers)
+def solvePart1 (problems: List Problem): Nat := problems.sumBy (p => evaluate p.operator p.rowNumbers)
 
 test "example part 1" := solvePart1 (parseWorksheet example) == 4277556
 
 -- Part 2: the answers of the problems read by columns.
-def solvePart2 (problems: List Problem): Nat := problems.sumBy (\p => evaluate p.operator p.columnNumbers)
+def solvePart2 (problems: List Problem): Nat := problems.sumBy (p => evaluate p.operator p.columnNumbers)
 
 test "example part 2" := solvePart2 (parseWorksheet example) == 3263827
 test "no problems" := (solvePart1 [], solvePart2 []) == (0, 0)

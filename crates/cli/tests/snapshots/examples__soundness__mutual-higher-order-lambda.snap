@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-TERMINATION] Error: can't show that `walk` and `walkList` terminate
-    ╭─[ soundness/mutual-higher-order-lambda.sw:9:48 ]
+    ╭─[ soundness/mutual-higher-order-lambda.sw:9:47 ]
     │
-  9 │ def walk (ts: List Nat): Nat := applyTo (\x => walkList x) ts
-    │                                                ─────┬────  
-    │                                                     ╰────── this call to `walkList` might not terminate: no argument is known to be smaller
+  9 │ def walk (ts: List Nat): Nat := applyTo (x => walkList x) ts
+    │                                               ─────┬────  
+    │                                                    ╰────── this call to `walkList` might not terminate: no argument is known to be smaller
     │ 
  12 │   | Nil       => walk Nil
     │                  ────┬───  

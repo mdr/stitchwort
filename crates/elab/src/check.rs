@@ -194,7 +194,7 @@ impl<'e> Ctx<'e> {
     /// `main`, costs nothing to check (docs/proposals/let.md §A.3, "Cost at
     /// check time"). Such a *deferred* slot holds a solved metavariable
     /// applied to the context, `?d _ x₀ … xₙ`, whose solution is
-    /// `\_ x₀ … xₙ => value`: forcing it, as everything that looks at a value
+    /// `_ x₀ … xₙ => value`: forcing it, as everything that looks at a value
     /// does, computes the value, again each time. It's not the slot's own
     /// variable, so the placeholder can't be taken for one (a pending slot
     /// has its own marker, stage 2's warning), and since the context is in
@@ -533,7 +533,7 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             "can't work out the type of this function",
             "add a type annotation: `(…: T)`",
         )),
-        // `\(x: A) => body`: the parameter's type is written, so the
+        // `(x: A) => body`: the parameter's type is written, so the
         // function's type follows from the body's.
         Expr::TypedLam(name, ann, body, _) => {
             let (dom, _) = check_type(cx, ann)?;
@@ -829,7 +829,7 @@ pub(crate) type Supply = std::collections::VecDeque<Term>;
 ///
 /// An argument that is a lambda (or a method section) whose parameter type
 /// isn't known yet when it's reached is checked after the later arguments,
-/// which may fix that type: `List.map (\p => p.name) people`. Only the
+/// which may fix that type: `List.map (p => p.name) people`. Only the
 /// checking order changes; the term's arguments stay in place. Not when a
 /// later argument's type depends on it (it would see only a placeholder). A
 /// section is always postponed then; a plain lambda only if checking it in
@@ -1241,6 +1241,7 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
             _,
         ) => check_if(cx, binder.as_ref(), cond, then, otherwise, &expected),
         (Expr::Lam(names, body, span), Value::Pi(_, Icit::Explicit, dom, cod)) => {
+            let shadowed = lambda_shadow(cx, names, *span)?;
             let (first, rest) = names.split_first().expect("lambdas have parameters");
             let mark = cx.mark();
             let var = Value::var(cx.level());
@@ -1252,6 +1253,7 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
                 check(cx, &Expr::Lam(rest.to_vec(), body.clone(), *span), &cod)
             };
             cx.reset(mark);
+            let result = result.map_err(|d| shadow_note(d, shadowed.as_ref()));
             Ok(Term::Lam(
                 first.text.as_str().into(),
                 Icit::Explicit,
@@ -1286,14 +1288,20 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
                 Rc::new(result?),
             ))
         }
-        (Expr::Lam(..), _) => Err(cx.error(
-            "E-TYPE-MISMATCH",
-            "type mismatch",
-            format!(
-                "this is a function, but the expected type is `{}`",
-                cx.show(&expected)
-            ),
-        )),
+        (Expr::Lam(names, _, span), _) => {
+            let shadowed = lambda_shadow(cx, names, *span)?;
+            Err(shadow_note(
+                cx.error(
+                    "E-TYPE-MISMATCH",
+                    "type mismatch",
+                    format!(
+                        "this is a function, but the expected type is `{}`",
+                        cx.show(&expected)
+                    ),
+                ),
+                shadowed.as_ref(),
+            ))
+        }
         (Expr::Var(name), Value::Eq(_, a, b))
             if name.text == "rfl" && cx.lookup("rfl").is_none() =>
         {
@@ -1515,7 +1523,7 @@ fn fallback(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
 
 /// Where a `Bool` is expected, a proposition with a decision procedure is
 /// decided, as Lean's `decide` coercion does: `term : Prop` becomes
-/// `Decidable.toBool {term} decision`, so `List.filter (\n => n <= k) xs`
+/// `Decidable.toBool {term} decision`, so `List.filter (n => n <= k) xs`
 /// works. `None` (nothing done) unless `expected` is the library's `Bool`
 /// and `found` is `Prop`, so other comparisons don't pay for it. A
 /// condition (`if c`, `&&` …) whose `Bool` reading is being tried isn't
@@ -1650,6 +1658,92 @@ fn propagate(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Option<Resul
             off.set(off.get() - 1);
             Ok(Some(old))
         }
+    }
+}
+
+/// `W-LAMBDA-SHADOW` (docs/proposals/lambda-syntax.md §7.2): a lambda with two
+/// or more parameters whose first is a plain name that, in the scope around
+/// the lambda, is a function: `map x => …` where `map (x => …)` was probably
+/// meant. Returns the lambda's first two parameters then, and records the
+/// warning (once per lambda). Called for the lambda as written, not for the
+/// rest of its parameters that checking peels off one at a time.
+fn lambda_shadow(cx: &Ctx, names: &[AstName], span: Span) -> Result<Option<(AstName, AstName)>> {
+    let [first, second, ..] = names else {
+        return Ok(None);
+    };
+    // A pattern parameter is named `%arg…`, and `_` hides nothing; the first
+    // parameter is the lambda's first token, unless a typed parameter came
+    // before it.
+    if first.text.starts_with('%') || first.text == "_" || first.span.start != span.start {
+        return Ok(None);
+    }
+    if !names_a_function(cx, &first.text)? {
+        return Ok(None);
+    }
+    let mut seen = cx.e.lambda_warnings.borrow_mut();
+    if !seen
+        .iter()
+        .any(|w| w.labels.first().is_some_and(|l| l.span == first.span))
+    {
+        seen.push(
+            Diagnostic::warning(
+                "W-LAMBDA-SHADOW",
+                format!(
+                    "this lambda's first parameter `{0}` hides the function `{0}`",
+                    first.text
+                ),
+            )
+            .with_label(first.span, format!("`{}` is a parameter here", first.text))
+            .with_note(shadow_advice(first, second)),
+        );
+    }
+    Ok(Some((first.clone(), second.clone())))
+}
+
+fn shadow_advice(first: &AstName, second: &AstName) -> String {
+    format!(
+        "if you meant to pass a lambda to `{0}`, put it in brackets: `{0} ({1} => …)`; \
+         otherwise rename the parameter",
+        first.text, second.text
+    )
+}
+
+/// `d`, with `W-LAMBDA-SHADOW`'s advice added if it was reported inside or at
+/// a lambda that shadows a function.
+fn shadow_note(d: Diagnostic, shadowed: Option<&(AstName, AstName)>) -> Diagnostic {
+    match shadowed {
+        Some((first, second)) => {
+            let advice = shadow_advice(first, second);
+            if d.notes.contains(&advice) {
+                d
+            } else {
+                d.with_note(advice)
+            }
+        }
+        None => d,
+    }
+}
+
+/// Whether `name`, as seen from where the lambda starts, is a function: a
+/// local variable or local definition whose type is one, a definition or
+/// ability operation, or a definition of this module not checked yet that is
+/// declared with a function type.
+fn names_a_function(cx: &Ctx, name: &str) -> Result<bool> {
+    let g = cx.g();
+    let is_pi = |ty: &Value| -> Result<bool> { Ok(matches!(force(g, ty.clone())?, Value::Pi(..))) };
+    if let Some((_, ty)) = cx.local(name)? {
+        return is_pi(&ty);
+    }
+    if let Some(level) = cx.lookup(name) {
+        return is_pi(&cx.types[level]);
+    }
+    match cx.e.named(name) {
+        Some((Global::Def(id), _)) => is_pi(&g.def(*id).ty_value),
+        Some((Global::Op(..), _)) => Ok(true),
+        Some((Global::Unchecked(item), _)) => Ok(cx.e.item_is_function(*item)),
+        // A library name whose file isn't loaded: the index knows its type's shape.
+        Some((Global::Pending(file, _), _)) => Ok(cx.e.pending_is_function(name, *file)),
+        _ => Ok(false),
     }
 }
 
@@ -2076,7 +2170,7 @@ fn motive_error(cx: &Ctx) -> Diagnostic {
     cx.error(
         "E-CANNOT-INFER",
         "the first argument of `J` must be a function of two arguments",
-        "write it as `\\y p -> …`",
+        "write it as `y p => …`",
     )
 }
 

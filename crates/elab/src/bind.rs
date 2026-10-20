@@ -6,7 +6,7 @@
 //! computes it again. Where only the type of a use of the argument is
 //! needed, and that type doesn't depend on the argument's value, the use is
 //! elaborated with a variable in its place, and the program is
-//! `(\x => use x) arg`: exactly how a pure `let` is elaborated. Neither the
+//! `(x => use x) arg`: exactly how a pure `let` is elaborated. Neither the
 //! elaborator nor the kernel then computes `arg` (the kernel's application
 //! rule computes an argument only if the function's type mentions it), and
 //! at run time `arg` is computed once, before the use, as it was before:
@@ -45,7 +45,7 @@ pub(crate) fn cheap(term: &Term) -> bool {
 }
 
 /// `use arg`, for `arg : dom` (already checked), elaborated without
-/// computing `arg`: `(\name => use name) arg`, if the use's type doesn't
+/// computing `arg`: `(name => use name) arg`, if the use's type doesn't
 /// depend on `arg`. `use` elaborates the use, given the term standing for
 /// the argument, and gives it with its type; `whole` gives the type of the
 /// use's term from that type, if they differ (an operation's result type,
@@ -123,7 +123,7 @@ pub(crate) struct Bound {
 }
 
 impl Bound {
-    /// `(\x… => body) operands…`, where `body : ty` inside the binders.
+    /// `(x… => body) operands…`, where `body : ty` inside the binders.
     fn apply(self, body: Term, ty: Term) -> Term {
         let (lam, pi) = self
             .binders
@@ -143,7 +143,7 @@ impl Bound {
 
 impl Decision {
     /// A term of type `Decidable prop`, in the outer scope:
-    /// `(\x… => d) operands…`.
+    /// `(x… => d) operands…`.
     pub(crate) fn term(self, cx: &Ctx) -> Result<Term> {
         match self {
             Decision::Plain(d) => Ok(d),
@@ -158,7 +158,7 @@ impl Decision {
 
     /// `Decidable.toBool {prop} d`, in the outer scope. With the operands
     /// bound, the whole of it goes under the binders,
-    /// `(\x… => toBool {prop'} d) operands…`, so that its type, `Bool`,
+    /// `(x… => toBool {prop'} d) operands…`, so that its type, `Bool`,
     /// doesn't mention them and the kernel doesn't compute them either.
     pub(crate) fn into_bool(self, cx: &Ctx, prop: Term) -> Result<Term> {
         let to_bool = Term::Def(builtin_def(cx, Builtin::ToBool)?);

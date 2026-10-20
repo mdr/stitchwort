@@ -132,7 +132,7 @@ pub(crate) fn check_rewrite(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Resu
 
 /// One rule's rewrite of the goal.
 struct Step {
-    /// `\x _ => G[x]`.
+    /// `x _ => G[x]`.
     motive: Term,
     /// Proves `rhs = lhs`, which `J` takes the base `G[rhs]` along.
     proof: Term,
@@ -254,7 +254,7 @@ fn rewrite_once(
         error: RefCell::new(None),
         first: RefCell::new(None),
     };
-    // The goal with the occurrences replaced by `x`, under `\x _ =>`.
+    // The goal with the occurrences replaced by `x`, under `x _ =>`.
     let body = replace_with(
         g,
         &goal_term,
@@ -550,7 +550,7 @@ fn mentions_bound(term: &Term, under: usize) -> bool {
         })
 }
 
-/// Checks that `\x _ => body` is a motive: the body is a type with `x` of
+/// Checks that `x _ => body` is a motive: the body is a type with `x` of
 /// the equation's type and `_ : rhs = x` in scope. The kernel would reject a
 /// `J` whose motive isn't, but here the message can say why.
 fn check_motive(
@@ -794,7 +794,7 @@ mod tests {
         let e = Elaborator::new();
         let cx = Ctx::new(&e, span());
         // The goal is `Type0 = Type0`. The motive for replacing `Type0` by `Type1`
-        // is `\x _ => x = Type0`: applied to `Type0` it gives the goal...
+        // is `x _ => x = Type0`: applied to `Type0` it gives the goal...
         let goal = Value::Eq(
             Rc::new(Value::Sort(Sort::Type(1))),
             Rc::new(Value::Sort(Sort::Type(0))),
@@ -815,8 +815,8 @@ mod tests {
             round_trip(&cx, &right, &lhs, &Value::Refl, &goal, &mut remaining).unwrap(),
             Some(true)
         );
-        // ...and one that dropped an occurrence, `\x _ => x = x`, gives
-        // `Type0 = Type0` too, but `\x _ => Type1 = x` doesn't.
+        // ...and one that dropped an occurrence, `x _ => x = x`, gives
+        // `Type0 = Type0` too, but `x _ => Type1 = x` doesn't.
         let wrong = lam(eq(ty(1), Term::Var(1)));
         assert_eq!(
             round_trip(&cx, &wrong, &lhs, &Value::Refl, &goal, &mut remaining).unwrap(),
@@ -872,7 +872,7 @@ mod tests {
         // Under one binder of the goal: `f #0` mentions it, `f #1` doesn't.
         assert!(mentions_bound(&app(f.clone(), Term::Var(0)), 1));
         assert!(!mentions_bound(&app(f.clone(), Term::Var(1)), 1));
-        // A binder of its own shifts: `f (\y => #1)` mentions the goal's `#0`.
+        // A binder of its own shifts: `f (y => #1)` mentions the goal's `#0`.
         let lam = |b: Term| Term::Lam("y".into(), Icit::Explicit, Rc::new(b));
         assert!(mentions_bound(&app(f.clone(), lam(Term::Var(1))), 1));
         assert!(!mentions_bound(&app(f, lam(Term::Var(0))), 1));

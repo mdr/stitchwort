@@ -133,7 +133,7 @@ impl Main {
 /// allowed.
 /// The library's names are written from `Std`, which always means the
 /// library, whatever the program declares.
-const MAIN_CALL: &str = "((\\u => main ()) : () -> {Std.IO, Partial} ()) ()";
+const MAIN_CALL: &str = "((u => main ()) : () -> {Std.IO, Partial} ()) ()";
 
 /// Why a call of a definition to run didn't check.
 enum CallError {
@@ -229,7 +229,7 @@ impl Session {
             }
             return Err(d);
         };
-        let call = format!("((\\u => {name} ()) : () -> {{Std.IO, Partial}} ()) ()");
+        let call = format!("((u => {name} ()) : () -> {{Std.IO, Partial}} ()) ()");
         match self.main_call(id.0, &call) {
             Ok(main) => Ok(main),
             Err(CallError::Other(d)) => Err(d),
@@ -268,7 +268,7 @@ impl Session {
             })
             .collect();
         let source = format!(
-            "Std.Pair.fst (Std.IO.simulate [{}] ((\\u => main ()) : () -> {{Std.IO}} ()))",
+            "Std.Pair.fst (Std.IO.simulate [{}] ((u => main ()) : () -> {{Std.IO}} ()))",
             lines.join(", ")
         );
         let expr = self.parse_internal("<simulate>", &source)?;

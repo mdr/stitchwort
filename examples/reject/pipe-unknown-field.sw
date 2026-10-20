@@ -5,4 +5,4 @@ type Person = { name: Text, age: Nat }
 
 def people: List Person := [{ name = "Ann", age = 30 }]
 
-def names: List Text := people |> List.map (\p => p.nmae)
+def names: List Text := people |> List.map (p => p.nmae)

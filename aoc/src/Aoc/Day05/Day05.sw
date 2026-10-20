@@ -5,7 +5,7 @@
 --
 --   $ cd aoc && stitchwort run Aoc.Day05.main < inputs/day05.txt
 --
--- The puzzle input is not in git (aoc/inputs/ is ignored).
+-- The puzzle input is committed in aoc/inputs/ (D119).
 --
 -- Part 1 checks every id against every range. Part 2 can't list the numbers
 -- (there are about 4 * 10^14), so it merges the ranges instead: sorted by
@@ -38,7 +38,7 @@ test "example parse" := (parseDatabase example).available == [1, 5, 8, 11, 17, 3
 
 -- Part 1: the available ids that are fresh.
 def solvePart1 (db: Database): Nat :=
-  db.available.count (\id => db.fresh.any (\r => r.contains id))
+  db.available.count (id => db.fresh.any (r => r.contains id))
 
 test "example part 1" := solvePart1 (parseDatabase example) == 3
 
@@ -52,7 +52,7 @@ test "no ranges" := solvePart2 { fresh = [], available = [] } == 0
 -- folded into a list of merged ranges with the latest first.
 def merge (ranges: List Range): List Range :=
   ranges
-    |> .sortBy (\a b => Nat.compare a.from b.from)
+    |> .sortBy (a b => Nat.compare a.from b.from)
     |> .foldLeft absorb []
     |> .reverse
 

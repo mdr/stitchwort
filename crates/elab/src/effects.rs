@@ -926,7 +926,7 @@ pub fn may_perform(cx: &Ctx, expr: &Expr) -> Result<bool> {
     };
     Ok(match expr {
         Expr::Var(_) | Expr::App(..) => call_performs(cx, expr, 0)?,
-        // `x |> \y => body` runs `body`; `x |> \y z => …` is a function.
+        // `x |> y => body` runs `body`; `x |> y z => …` is a function.
         Expr::Pipe(value, f) => {
             may_perform(cx, value)?
                 || match &**f {
@@ -1507,7 +1507,7 @@ fn written_outside(cx: &Ctx, term: &Term, base: usize) -> Result<Option<crate::d
 }
 
 /// `value |> f` that performs operations: `value` runs first, then the call
-/// (docs/syntax.md). A lambda on the right is a `let`: `x |> \y => body`
+/// (docs/syntax.md). A lambda on the right is a `let`: `x |> y => body`
 /// runs `x`, then `body` with `y` bound to its result.
 fn pipe_call(
     cx: &mut Ctx,

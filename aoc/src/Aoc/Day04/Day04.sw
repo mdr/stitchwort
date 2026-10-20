@@ -5,7 +5,7 @@
 --
 --   $ cd aoc && stitchwort run Aoc.Day04.main < inputs/day04.txt
 --
--- The puzzle input is not in git (aoc/inputs/ is ignored).
+-- The puzzle input is committed in aoc/inputs/ (D119).
 --
 -- The grid is a list of rows of 0 (floor) and 1 (roll). A roll's "window" is
 -- the 3 by 3 block around it, itself included, so it is accessible when its
@@ -59,13 +59,13 @@ def Grid.round (grid: Grid): Grid :=
   let above := Cons gap sums
   let below := sums.drop 1 |> .append [gap]
   let windows := Grid.zipWith Nat.add (Grid.zipWith Nat.add above sums) below
-  Grid.zipWith (\roll window => if roll == 1 && 5 <= window then 1 else 0) grid windows
+  Grid.zipWith (roll window => if roll == 1 && 5 <= window then 1 else 0) grid windows
 
 -- Remove the accessible rolls of one row, given the rows above and below:
 -- add the three rows column by column, then walk along the row with each
 -- column's sum and its neighbours' (the window of 3 by 3 cells).
 def peelRow (above row below: List Nat): List Nat :=
-  peelCells 0 (List.zipWith3 (\a r b => a + r + b) above row below) row
+  peelCells 0 (List.zipWith3 (a r b => a + r + b) above row below) row
 
 -- `left` is the column sum before the first of `columns`.
 def peelCells (left: Nat): List Nat -> List Nat -> List Nat
@@ -101,7 +101,7 @@ def sweepFrom (above: List Nat) (aboveChanged: Bool): Marked -> Marked
 -- Sweep until a pass changes nothing. Every pass that changes something
 -- removes a roll, so as many passes as there are rolls is enough.
 def Grid.settle (grid: Grid) (rolls: Nat): Grid :=
-  (settleMarked (grid.map (\row => (row, True))) rolls).map Pair.fst
+  (settleMarked (grid.map (row => (row, True))) rolls).map Pair.fst
 
 def settleMarked (grid: Marked): Nat -> Marked
   | Zero   => grid

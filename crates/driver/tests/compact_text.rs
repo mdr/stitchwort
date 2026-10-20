@@ -140,7 +140,7 @@ def swapFirst : Text -> List Char
   | MkText (Cons a (Cons b rest)) => Cons b (Cons a rest)
   | t => Text.toList t
 
-def countChars (t : Text) : Nat := Text.fold (\c n => Succ n) 0 t
+def countChars (t : Text) : Nat := Text.fold (c n => Succ n) 0 t
 
 def copy : List Char -> List Char
   | Nil => Nil

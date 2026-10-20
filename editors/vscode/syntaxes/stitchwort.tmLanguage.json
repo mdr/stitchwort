@@ -100,7 +100,7 @@
       "patterns": [
         {
           "name": "keyword.operator.stitchwort",
-          "match": ":=|=>|->|\\|>|\\|\\||&&|==|!=|<=|\\+\\+|\\.\\.|[=<+\\-*/%\\\\|:]"
+          "match": ":=|=>|->|\\|>|\\|\\||&&|==|!=|<=|\\+\\+|\\.\\.|[=<+\\-*/%|:]"
         },
         { "name": "punctuation.separator.stitchwort", "match": "[,.]" }
       ]

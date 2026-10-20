@@ -158,7 +158,7 @@ export def empty (t: Text): Bool := Text.isEmpty t
 
 export def less (a: Text) (b: Text): Bool := Text.less a b
 
-export def codes (t: Text): List Nat := Text.fold (\c ns => Cons (Char.toNat c) ns) Nil t
+export def codes (t: Text): List Nat := Text.fold (c ns => Cons (Char.toNat c) ns) Nil t
 
 def mapList (f: a -> b): List a -> List b
   | Nil       => Nil

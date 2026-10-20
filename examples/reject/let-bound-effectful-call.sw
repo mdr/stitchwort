@@ -7,5 +7,5 @@ ability Ask where
   ask: () -> {Ask} Nat
 
 def bad (n: Nat): Nat :=
-  let f: () -> {Ask} Nat := \u => ask() + n
+  let f: () -> {Ask} Nat := u => ask() + n
   f() + 1
