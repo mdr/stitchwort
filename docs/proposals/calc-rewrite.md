@@ -1,8 +1,15 @@
 # `calc` chains and a `rewrite` term (SW-99), draft 3
 
 **Date:** 19 October 2026. **Ticket:** SW-99 (related: SW-26). **Decisions:** D32 to D42.
-**Status:** reviewed once externally ("adopt with changes"; no critical findings). All
-decisions await Matt. Nothing is implemented.
+**Status:** reviewed once externally ("adopt with changes"; no critical findings). D32 to D42
+accepted by Matt on 20 October 2026. `calc` is built (SW-136, D46). `rewrite` (stage 2) waits for a
+second external review (D47).
+
+**For the second review.** Please focus on `rewrite` (§6, its staging in §9 and its
+surprises in §7), the part not yet built. `calc` (§5) is built as described, in
+`crates/elab/src/calc.rs`. The first review's findings and how they were addressed are in
+"Changes since draft 2" and §12. The questions are the same as §11's; please also say whether
+anything in §6 should change before implementation starts.
 
 ## Changes since draft 2
 
@@ -1323,7 +1330,7 @@ Rocq 9.1.1 showed otherwise (§4.5); the survey keeps draft 2's description, now
 
 ## 13. Decisions
 
-Each decision has a stable ID. All await Matt.
+Each decision has a stable ID. All were accepted by Matt on 20 October 2026.
 
 | ID | Decision | Recommendation | Review of draft 2 |
 |---|---|---|---|

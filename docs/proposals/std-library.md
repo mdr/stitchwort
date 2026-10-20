@@ -544,7 +544,7 @@ The reviewer also proposed the sentence that is now §4.0's invariant.
 
 | ID | Question | Review | Recommendation |
 |---|---|---|---|
-| D57 | Rename what's left of the prelude to `std/core.sw`, and drop the word "prelude"? | Agree to defer | Deferred by Matt until after the first step |
+| D57 | Rename what's left of the prelude to `std/core.sw`, and drop the word "prelude"? | Agree to defer | **Accepted by Matt (20 Oct 2026)**: the core file is `std/core.sw` |
 | D58 | For stage 1, keep every `Decidable` procedure in core, so `auto` never depends on what's loaded (§4.5)? | Agree with changes (measure; global candidate index later) | Yes, as revised |
 | D59 | Load the library a file at a time, with owner-file edges, dynamic cycle detection, and no cycles between library files (§4.2)? | Agree with changes (now included) | Yes |
 | D60 | Build the name index once per process by a declaration-collection phase that checks uniqueness, keeping the parsed syntax; `build.rs` only if measured slow (§4.3)? | Agree with changes (now included) | Yes |

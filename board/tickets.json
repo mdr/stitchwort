@@ -1,5 +1,5 @@
 {
-  "next": 152,
+  "next": 153,
   "tickets": [
     {
       "id": 1,
@@ -396,9 +396,9 @@
         "proof",
         "elab"
       ],
-      "body": "A helper with an `if` appears in goals as `Decidable.elim (Bool.decTrue b) (\\u => ...) (\\u => ...)`, and every case split on it is `Bool.inspect` with the goal restated by hand as the motive (docs/aoc-2025.md:1117; every lemma about day 3's `pick` repeats it). Investigate first what removes the motive: a library lemma `ifCases` with the motive inferred, printing `if` in goals as `if`, or an `if`-split in the elaborator. Done: day 3's `pick` lemmas shrink measurably, or the finding is written up. Related: SW-99.\n\n19 Oct (SW-99 draft 2, §7): no new feature needed: `match h: e with` already does it. Trial converted 6 of 11 Bool.inspect proofs and deleted IsTrue/decIsTrue (not on main). Proposed (D40, awaiting review): convert all, document the idiom, separate ticket for printing `if` in goals.",
+      "body": "Reasoning about `if` in proofs: no hand-written Bool.inspect motive.\n\nD40 (accepted 20 Oct 2026, calc-rewrite.md §8): close without new machinery. Move the AoC Bool.inspect proofs to `match h: e with` (six done in the experiment), delete IsTrue/decIsTrue, document the idiom. 'Print if in goals as if' is SW-152.",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-20",
       "commits": []
     },
     {
@@ -2300,6 +2300,20 @@
         "elab"
       ],
       "body": "Implements docs/proposals/std-library.md draft 2, stage 1 (§7), D58-D62 accepted by Matt 20 Oct 2026. Mechanism plus moving the Sorting section as the test case; gate additions: eager-vs-lazy comparison, duplicate-name index test, cross-file and dot-notation cycle tests, core-alone test. Measure: empty file, aoc check, examples bench, index cost, D58 core closure. Fixes SW-146.",
+      "created": "2026-10-20",
+      "updated": "2026-10-20",
+      "commits": []
+    },
+    {
+      "id": 152,
+      "title": "Print `if` in goals as `if`, not Bool.ifThenElse (D40 split-off)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "From calc-rewrite.md §8 / D40: goals and error messages show `Bool.ifThenElse c a b` where the user wrote `if c then a else b`; print it back as `if`.",
       "created": "2026-10-20",
       "updated": "2026-10-20",
       "commits": []
