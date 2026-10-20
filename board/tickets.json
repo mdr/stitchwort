@@ -1,5 +1,5 @@
 {
-  "next": 157,
+  "next": 158,
   "tickets": [
     {
       "id": 1,
@@ -2383,6 +2383,21 @@
         "aoc"
       ],
       "body": "",
+      "created": "2026-10-20",
+      "updated": "2026-10-20",
+      "commits": []
+    },
+    {
+      "id": 157,
+      "title": "Convert AoC proofs to rewrite/calc (D41) and Bool.inspect proofs to match h: (SW-26)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc",
+        "proof"
+      ],
+      "body": "D71 (20 Oct 2026): wait until SW-154 (proof-checking speed) lands, so its before/after measurements use unchanged proofs. House style per D41: rewrite for one to three replacements; calc when intermediate forms help the reader or relations mix. Includes SW-26's conversion to match h: e with and deleting IsTrue/decIsTrue.",
       "created": "2026-10-20",
       "updated": "2026-10-20",
       "commits": []

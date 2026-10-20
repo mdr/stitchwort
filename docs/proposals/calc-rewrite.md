@@ -1475,6 +1475,11 @@ Each decision has a stable ID. All were accepted by Matt on 20 October 2026.
 ("`rewrite`"). The sections above are the design; this records how the build differs, and what
 it measured.
 
+**Decided after the build (Matt, 20 October 2026).** D70: accepted that inside a `calc` step
+`rewrite` searches the step as it computes, with messages showing it as written (deviation 1
+below). D71: the bulk conversion of the AoC proofs to `rewrite` and `calc` (D41) and SW-26
+waits until the proof-checking speed work (SW-154) lands.
+
 **Built as designed.**
 
 - **Syntax (§6.1).** `rewrite` is a keyword. `rewrite p in t`, `rewrite p` (`in rfl`),
