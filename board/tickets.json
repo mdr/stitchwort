@@ -1,5 +1,5 @@
 {
-  "next": 178,
+  "next": 181,
   "tickets": [
     {
       "id": 1,
@@ -1931,9 +1931,9 @@
     {
       "id": 127,
       "title": "AoC day 4: prove the grid result for all grids",
-      "status": "review",
+      "status": "backlog",
       "agent": "Opus",
-      "where": "docs/proposals/vec.md draft 1 (D126-D133 for Matt)",
+      "where": "part 1 merged (List Text form); rework in SW-180",
       "labels": [
         "aoc",
         "proof"
@@ -2741,6 +2741,51 @@
         "tooling"
       ],
       "body": "",
+      "created": "2026-10-20",
+      "updated": "2026-10-20",
+      "commits": []
+    },
+    {
+      "id": 178,
+      "title": "Indexed data types (inductive families) in the kernel (D133)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "docs/proposals/indexed-families.md (draft 1)",
+      "labels": [
+        "kernel",
+        "design"
+      ],
+      "body": "D133/D135 (Matt, 20 Oct 2026): Stitchwort's kernel has parameters but no indices (docs/core.md:21), though DESIGN.md assumed them (§6 Prop elimination over indices, line 461 'data indices like a vector's length are not erased'). Add inductive families before Vec. Design-review gate: research (Lean 4, Agda, Rocq, Idris 2; how indices reduce to equality / Fording; dependent pattern matching and unification), note first, stop for Matt.",
+      "created": "2026-10-20",
+      "updated": "2026-10-20",
+      "commits": []
+    },
+    {
+      "id": 179,
+      "title": "Vec in the standard library (after indexed families)",
+      "status": "backlog",
+      "agent": "",
+      "where": "docs/proposals/vec.md (draft 1)",
+      "labels": [
+        "stdlib",
+        "design"
+      ],
+      "body": "D135 (Matt, 20 Oct): build Vec after indexed families land, then decide its representation (indexed data type vs list plus length proof). Open decisions D126-D132, D134 in docs/proposals/vec.md carry over.",
+      "created": "2026-10-20",
+      "updated": "2026-10-20",
+      "commits": []
+    },
+    {
+      "id": 180,
+      "title": "AoC day 4 on Vec: theorems over Grid, position-based spec (D124, D125)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc",
+        "proof"
+      ],
+      "body": "After the Vec ticket. D124: theorems at solvePartN level over Grid (solvePart1 grid = part1Spec grid; parseGrid separate). D125: spec by position, program on Vec (Vec Bool width) height. Then part 2 (D123 parked: full sweep proof recommended; repeated rounds measured 13.2 s vs 4.85 s native, over the playground's 15 s limit in wasm). See docs/proposals/vec.md.",
       "created": "2026-10-20",
       "updated": "2026-10-20",
       "commits": []
