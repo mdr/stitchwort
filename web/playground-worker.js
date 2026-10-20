@@ -21,16 +21,26 @@ let ready = null;
 self.onmessage = async ({ data }) => {
   try {
     bindings ??= import(`./pkg/stitchwort_web.js${self.location.search}`);
-    const { default: init, check, evaluate, extract, run_streaming, test } = await bindings;
-    ready ??= init({ module_or_path: data.module });
+    const b = await bindings;
+    ready ??= b.default({ module_or_path: data.module });
     await ready;
     const sink = { write: (output) => self.postMessage({ id: data.id, output }) };
-    const answer = {
-      check: () => check(data.source),
-      test: () => test(data.source, data.known ?? ""),
-      evaluate: () => evaluate(data.source, data.expr),
-      extract: () => extract(data.source),
-      run: () => run_streaming(data.source, data.input, data.maxOutput, sink),
+    // A request with `paths` is for a project: the files are `paths` and
+    // `texts`, and `targets` are the namespaces to check.
+    const answer = data.paths ? {
+      outline: () => b.outline_project(data.paths, data.texts),
+      check: () => b.check_project(data.paths, data.texts, data.targets),
+      checkall: () => b.check_project(data.paths, data.texts, ""),
+      test: () => b.test_project(data.paths, data.texts, data.targets, data.known ?? ""),
+      evaluate: () => b.evaluate_project(data.paths, data.texts, data.targets, data.expr),
+      extract: () => b.extract_project(data.paths, data.texts, data.namespace),
+      run: () => b.run_project_streaming(data.paths, data.texts, data.name, data.input, data.maxOutput, sink),
+    }[data.action] : {
+      check: () => b.check(data.source),
+      test: () => b.test(data.source, data.known ?? ""),
+      evaluate: () => b.evaluate(data.source, data.expr),
+      extract: () => b.extract(data.source),
+      run: () => b.run_streaming(data.source, data.input, data.maxOutput, sink),
     }[data.action];
     self.postMessage({ id: data.id, out: JSON.parse(answer()) });
   } catch (e) {

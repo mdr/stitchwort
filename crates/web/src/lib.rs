@@ -7,13 +7,15 @@
 //! `"warnings": ["…", …]`, left out when there are none. (The page checks
 //! before anything else, so it gets them from there.)
 
+mod project;
+
 use std::cell::RefCell;
 use std::io::{self, BufRead, Read, Write};
 use std::rc::Rc;
 
 use stitchwort_driver::driver::{Cache, Outcome, Session};
 use stitchwort_driver::render::render;
-use stitchwort_driver::run::RunError;
+use stitchwort_driver::run::{Main, RunError};
 use stitchwort_syntax::{Diagnostic, Severity};
 use wasm_bindgen::prelude::wasm_bindgen;
 
@@ -78,6 +80,12 @@ pub fn test(source: &str, known: &str) -> String {
         Ok(session) => session,
         Err(failed) => return failed,
     };
+    test_answer(&session, known, false)
+}
+
+/// [`test`]'s answer for a loaded session; each result also has its
+/// `namespace` if `with_namespace`.
+fn test_answer(session: &Session, known: &str, with_namespace: bool) -> String {
     let cache = Cache::memory(known_results(known));
     let tests: Vec<String> = session
         .run_tests(&cache)
@@ -88,8 +96,13 @@ pub fn test(source: &str, known: &str) -> String {
                 Outcome::Failed => "failed".to_string(),
                 Outcome::OutOfResources(e) => format!("no result: {e}"),
             };
+            let namespace = if with_namespace {
+                format!(r#","namespace":{}"#, json_string(&r.namespace))
+            } else {
+                String::new()
+            };
             format!(
-                r#"{{"name":{},"passed":{},"outcome":{},"cached":{}}}"#,
+                r#"{{"name":{}{namespace},"passed":{},"outcome":{},"cached":{}}}"#,
                 json_string(&r.name),
                 r.outcome == Outcome::Passed,
                 json_string(&outcome),
@@ -259,14 +272,37 @@ fn run_by_line(
     max_past_end: usize,
     print: &mut dyn FnMut(&str),
 ) -> Ran {
+    run_by_line_of(session, None, input, max_output, max_past_end, print)
+}
+
+/// [`run_by_line`] for `main` if given, else the loaded program's own.
+fn run_by_line_of(
+    session: Session,
+    main: Option<Main>,
+    input: &str,
+    max_output: usize,
+    max_past_end: usize,
+    print: &mut dyn FnMut(&str),
+) -> Ran {
     let mut line = Vec::new();
-    let ran = run_in(session, input, max_output, max_past_end, &mut |b| {
+    let mut by_line = |b: &[u8]| {
         line.extend_from_slice(b);
         if b.ends_with(b"\n") {
             print(&String::from_utf8_lossy(&line));
             line.clear();
         }
-    });
+    };
+    let ran = match main {
+        None => run_in(session, input, max_output, max_past_end, &mut by_line),
+        Some(main) => run_main_in(
+            session,
+            &main,
+            input,
+            max_output,
+            max_past_end,
+            &mut by_line,
+        ),
+    };
     if !line.is_empty() {
         print(&String::from_utf8_lossy(&line));
     }
@@ -290,6 +326,18 @@ fn run_in(
         Ok(main) => main,
         Err(error) => return Err(rendered(&session, &[error])),
     };
+    run_main_in(session, &main, input, max_output, max_past_end, print)
+}
+
+/// [`run_in`] for a `main` that's already found.
+fn run_main_in(
+    session: Session,
+    main: &Main,
+    input: &str,
+    max_output: usize,
+    max_past_end: usize,
+    print: &mut dyn FnMut(&[u8]),
+) -> Ran {
     let mut output = Capped {
         print,
         written: 0,
@@ -302,7 +350,7 @@ fn run_in(
         past_end: 0,
         max_past_end,
     };
-    let result = session.run_main(&main, &mut input, &mut output);
+    let result = session.run_main(main, &mut input, &mut output);
     Ok(result.map_err(|error| {
         let error = match error {
             RunError::Write(_) if output.full => Diagnostic::error(
@@ -319,7 +367,7 @@ fn run_in(
             )
             .with_label(main.span, "while running this program")
             .with_note("`IO.readLine()` gives `Nothing` at the end of the input"),
-            error => error.diagnostic(&main),
+            error => error.diagnostic(main),
         };
         rendered(&session, &[error])
     }))
