@@ -2169,15 +2169,15 @@
       "id": 142,
       "title": "Prelude: List.All predicate (and List.Any) with lemmas",
       "status": "backlog",
-      "agent": "",
-      "where": "",
+      "agent": "Claude",
+      "where": "main",
       "labels": [
         "stdlib",
         "proof"
       ],
       "body": "Day 6 pain point 4: three near-identical recursive propositions (AllLength, Groups, Fits) because there's no List.All p xs. Add List.All/List.Any as Props with map/append/forall lemmas.",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-20",
       "commits": []
     },
     {
