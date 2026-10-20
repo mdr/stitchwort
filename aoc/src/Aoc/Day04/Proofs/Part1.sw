@@ -1,3 +1,13 @@
+-- Day 4, part 1 proved for every rectangular grid: the printed answer is the
+-- number of accessible rolls as Proofs/Spec.sw states it (`part1Correct`, at
+-- the bottom). The argument: a round, row by row (`roundFromAt`) and cell by
+-- cell (`peelCellsAt`, `colsAt`), leaves each cell as `keep cell window`
+-- (`cellRound`), where the window is the 3 by 3 block with an empty border;
+-- the window is the neighbours plus the cell (`windowIsNeighbours`); and a
+-- round only removes rolls (`keepLe`), so the rolls it removes add up cell by
+-- cell to the accessible ones (`taken`). Part 2 is not proved yet: see the
+-- plan in docs/aoc-2025.md (day 4).
+
 namespace Aoc.Day04.Proofs
 import Aoc.Day04 (..)
 import Std (Eq)
