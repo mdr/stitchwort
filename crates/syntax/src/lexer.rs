@@ -400,6 +400,14 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
                     Tok::Le
                 }
                 b'<' => Tok::Lt,
+                b'!' => {
+                    return Err(Diagnostic::error("E-PARSE", "unexpected character `!`")
+                        .with_label(
+                            Span::new(file, start as u32, i as u32),
+                            "unexpected character `!`",
+                        )
+                        .with_note("write `not x` for \"not\", and `!=` for \"not equal\""));
+                }
                 _ => {
                     return Err(error(
                         file,
