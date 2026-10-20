@@ -53,6 +53,12 @@ pub struct Ctx<'e> {
     /// number of variables in scope where it makes sense. A failed `rfl`
     /// shows the sides of an `=` as they were written, if this is the type.
     pub goal: Option<(usize, Rc<Term>)>,
+    /// Set by `calc` just before it checks a step's proof that is a
+    /// `rewrite`: the step's proposition as it was built (a term in the
+    /// current context), which `rewrite` searches instead of reading the
+    /// evaluated goal back (docs/proposals/calc-rewrite.md §6.2). Taken by
+    /// the first `rewrite` that looks.
+    pub(crate) written_goal: Option<Term>,
     pub span: Span,
 }
 
@@ -96,6 +102,7 @@ impl<'e> Ctx<'e> {
             locals: Vec::new(),
             lets: Vec::new(),
             goal: None,
+            written_goal: None,
             span,
         }
     }
@@ -122,6 +129,7 @@ impl<'e> Ctx<'e> {
             locals: Vec::new(),
             lets,
             goal: None,
+            written_goal: None,
             span,
         }
     }
@@ -439,6 +447,7 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
         Expr::Tuple(a, b, _) => infer_tuple(cx, a, b),
         Expr::Match { .. } => crate::matching::infer_match(cx, expr),
         Expr::Calc { .. } => crate::calc::infer_calc(cx, expr),
+        Expr::Rewrite { .. } => crate::rewrite::infer_rewrite(cx, expr),
         Expr::LocalDefs { defs, body, .. } => crate::local::around(cx, defs, |cx| infer(cx, body)),
         Expr::Effect(row, ty) => {
             let (term, sort) = effects::effect_type(cx, row, ty)?;
@@ -1196,6 +1205,7 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
         (Expr::Neg(..), _) => Ok(crate::numbers::group(cx, expr, Some(&expected))?.0),
         (Expr::Match { .. }, _) => crate::matching::check_match(cx, expr, &expected),
         (Expr::Calc { .. }, _) => crate::calc::check_calc(cx, expr, &expected),
+        (Expr::Rewrite { .. }, _) => crate::rewrite::check_rewrite(cx, expr, &expected),
         (
             Expr::If {
                 binder,

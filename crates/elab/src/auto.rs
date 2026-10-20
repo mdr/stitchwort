@@ -78,6 +78,54 @@ impl Elaborator {
     }
 }
 
+impl Elaborator {
+    /// Tries to prove the outstanding obligations whose metavariable is one
+    /// of `wanted`, now rather than once the declaration is elaborated:
+    /// `rewrite` needs to see the proof it would abstract over. One that
+    /// can't be proved yet is left for later, unchanged. Whether any was
+    /// proved.
+    pub(crate) fn prove_now(&self, wanted: &dyn Fn(usize) -> bool) -> Result<bool> {
+        let pending: Vec<_> = self
+            .obligations
+            .borrow()
+            .iter()
+            .filter(|ob| matches!(ob.meta.spine().0, Term::Meta(m) if wanted(*m)))
+            .map(|ob| {
+                (
+                    ob.env.clone(),
+                    ob.types.clone(),
+                    ob.names.clone(),
+                    ob.goal.clone(),
+                    ob.meta.clone(),
+                    ob.span,
+                )
+            })
+            .collect();
+        let mut proved = false;
+        for (env, types, names, goal, meta, span) in pending {
+            let mut cx = Ctx::from_parts(self, env, types, names, span);
+            let placeholder = cx.eval(&meta)?;
+            if !matches!(
+                force(cx.g(), placeholder.clone())?,
+                Value::Neutral(Head::Meta(_), _)
+            ) {
+                continue;
+            }
+            let solved = crate::undo::attempt(&mut cx, |cx| {
+                let proof = prove(cx, &goal, 0)?;
+                let proof_value = cx.eval(&proof)?;
+                if cx.unify(&placeholder, &proof_value)? {
+                    Ok(())
+                } else {
+                    Err(cx.error("E-AUTO", "a found proof doesn't fit", "here"))
+                }
+            })?;
+            proved |= solved.is_some();
+        }
+        Ok(proved)
+    }
+}
+
 /// A proof of `goal`.
 pub fn prove(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Term> {
     let goal = force(cx.g(), goal.clone())?;

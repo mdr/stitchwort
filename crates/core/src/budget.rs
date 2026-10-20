@@ -213,6 +213,40 @@ impl Budget {
         self.visits.get()
     }
 
+    /// Runs `f` allowed at most `*remaining` more evaluation steps, and
+    /// takes what it used off `*remaining`. `Ok(None)` if `f` went over:
+    /// that is the caller's own limit, not the operation running out, so
+    /// the operation carries on (`rewrite`'s search budget). Running out of
+    /// anything else, or of the operation's own steps, is an error as usual
+    /// (`f`'s own error, if it converts the resource error to one).
+    pub fn limited<T, E>(
+        &self,
+        remaining: &mut u64,
+        f: impl FnOnce() -> std::result::Result<T, E>,
+    ) -> std::result::Result<Option<T>, E> {
+        let before = self.work.get();
+        let outer = self.work_limit.get();
+        if outer == 0 {
+            return f().map(Some);
+        }
+        let cap = before.saturating_add(*remaining).min(outer);
+        self.work_limit.set(cap);
+        let result = f();
+        let used = self.work.get().saturating_sub(before);
+        *remaining = remaining.saturating_sub(used);
+        if cap < outer && self.exhausted.get() == Some(ResourceError::Work) && self.work.get() > cap
+        {
+            self.exhausted.set(None);
+            self.work_limit.set(outer);
+            *remaining = 0;
+            return Ok(None);
+        }
+        if self.exhausted.get().is_none() {
+            self.work_limit.set(outer);
+        }
+        result.map(Some)
+    }
+
     /// The error the current operation ran out with, if it did.
     pub fn exhausted(&self) -> Option<ResourceError> {
         self.exhausted.get()
