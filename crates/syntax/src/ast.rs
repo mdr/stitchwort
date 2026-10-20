@@ -123,8 +123,26 @@ pub enum Expr {
         steps: Vec<CalcStep>,
         span: Span,
     },
+    /// `rewrite p, <- q in t` (docs/syntax.md, rewrite): `t` proves the
+    /// expected proposition with each rule's left side replaced by its right
+    /// side, the rules applied left to right. Without `in t`, `t` is `rfl`.
+    Rewrite {
+        rules: Vec<RewriteRule>,
+        body: Option<Box<Expr>>,
+        span: Span,
+    },
     /// Field access `e.name`.
     Field(Box<Expr>, Name),
+}
+
+/// One rule of a `rewrite`: a proof of an equation, used left to right or,
+/// with `<-`, right to left.
+#[derive(Clone, Debug)]
+pub struct RewriteRule {
+    pub reverse: bool,
+    pub proof: Expr,
+    /// From the `<-` (if any) to the end of the proof.
+    pub span: Span,
 }
 
 /// One line of a `calc`: `_ R rhs := proof`. `R` is `=`, `<=` or `<` (as a
@@ -281,6 +299,7 @@ impl Expr {
             | Expr::Record { span, .. }
             | Expr::Handle { span, .. }
             | Expr::Calc { span, .. }
+            | Expr::Rewrite { span, .. }
             | Expr::Match { span, .. } => *span,
             Expr::Field(e, name) => e.span().to(name.span),
             Expr::Effect(..)
@@ -340,6 +359,9 @@ fn has_nested(expr: &Expr) -> bool {
                 || steps
                     .iter()
                     .any(|s| nested(&s.rhs) || s.proof.as_ref().is_some_and(nested))
+        }
+        Expr::Rewrite { rules, body, .. } => {
+            rules.iter().any(|r| nested(&r.proof)) || body.as_deref().is_some_and(nested)
         }
         Expr::LocalDefs { body, .. } => nested(body),
         Expr::Match {
@@ -422,6 +444,17 @@ fn take_children(expr: &mut Expr, pending: &mut Vec<Expr>) {
                 if let Some(proof) = &mut step.proof {
                     pending.push(std::mem::replace(proof, Expr::Prop(Span::NOWHERE)));
                 }
+            }
+        }
+        Expr::Rewrite { rules, body, .. } => {
+            if let Some(body) = body {
+                take(body);
+            }
+            for rule in rules {
+                pending.push(std::mem::replace(
+                    &mut rule.proof,
+                    Expr::Prop(Span::NOWHERE),
+                ));
             }
         }
         // A long block of local definitions nests its rest here.

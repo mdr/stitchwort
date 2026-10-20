@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REWRITE-RULE] Error: this equation's left side starts with an unknown function
+   ╭─[ reject/rewrite-rule-unknown-head.sw:4:11 ]
+   │
+ 4 │   rewrite h
+   │           ┬  
+   │           ╰── there is no function or constructor of its left side to look for in the goal
+   │ 
+   │ Note: give the implicit arguments explicitly, such as `[f := …]`
+───╯

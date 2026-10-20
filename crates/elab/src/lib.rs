@@ -28,6 +28,7 @@ mod patlet;
 mod pipe;
 pub mod project;
 mod records;
+mod rewrite;
 mod scope;
 pub use library::{LIBRARY_FILES, LibraryIndex};
 pub use scope::edit_distance;
@@ -138,6 +139,9 @@ pub struct Elaborator {
     /// While the prelude is loaded, its built-in types and natively
     /// implemented definitions are registered with the kernel by name.
     pub loading_prelude: bool,
+    /// Evaluation steps one `rewrite`'s comparisons may use between them;
+    /// `None` is the default (`rewrite.rs`). Tests set it small.
+    pub rewrite_budget: Option<u64>,
     /// The standard library's files, once the core is loaded
     /// (`library.rs`).
     library: Option<library::LibraryState>,

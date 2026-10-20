@@ -837,6 +837,10 @@ fn has_number(expr: &Expr) -> bool {
                     stack.extend(step.proof.as_ref());
                 }
             }
+            Expr::Rewrite { rules, body, .. } => {
+                stack.extend(rules.iter().map(|r| &r.proof));
+                stack.extend(body.as_deref());
+            }
             Expr::Match {
                 scrutinees, alts, ..
             } => {

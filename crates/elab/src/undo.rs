@@ -56,6 +56,14 @@ impl Snapshot {
         cx.e.drafts.borrow().len() > self.drafts
     }
 
+    /// The metavariables solved (or re-solved) since the snapshot was taken.
+    pub(crate) fn solved_since(&self, cx: &Ctx) -> Vec<usize> {
+        cx.g().meta_trail.borrow()[self.trail..]
+            .iter()
+            .map(|(m, _)| *m)
+            .collect()
+    }
+
     /// Undoes everything done since the snapshot was taken.
     pub(crate) fn restore(self, cx: &mut Ctx) {
         let g = cx.g();

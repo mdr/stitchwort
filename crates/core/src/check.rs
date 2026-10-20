@@ -50,11 +50,32 @@ impl<'g> Ctx<'g> {
         }
     }
 
-    fn level(&self) -> usize {
+    /// A context with the elaborator's variables in scope, to check a term
+    /// the elaborator is working on (`rewrite`'s motive and the types of
+    /// the occurrences it compares).
+    pub fn with_variables(
+        g: &'g Globals,
+        env: &[Value],
+        types: &[Value],
+        names: &[Name],
+        span: Span,
+    ) -> Self {
+        Ctx {
+            g,
+            env: env.to_vec(),
+            types: types.to_vec(),
+            names: names.to_vec(),
+            pending: vec![None; env.len()],
+            unforced: 0,
+            span,
+        }
+    }
+
+    pub fn level(&self) -> usize {
         self.env.len()
     }
 
-    fn bind(&mut self, name: Name, ty: Value) {
+    pub fn bind(&mut self, name: Name, ty: Value) {
         self.env.push(Value::var(self.level()));
         self.types.push(ty);
         self.names.push(name);

@@ -1698,6 +1698,12 @@ fn free_names(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
                 }
                 then(&mut stack, steps_work);
             }
+            Expr::Rewrite { rules, body, .. } => {
+                let mut steps_work: Vec<Work> =
+                    rules.iter().map(|r| Work::Expr(&r.proof)).collect();
+                steps_work.extend(body.iter().map(|b| Work::Expr(b)));
+                then(&mut stack, steps_work);
+            }
             Expr::Effect(row, ty) => {
                 let mut steps: Vec<Work> = row.abilities.iter().map(Work::Expr).collect();
                 steps.extend(row.tail.iter().map(Work::Name));

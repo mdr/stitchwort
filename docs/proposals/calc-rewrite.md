@@ -4,7 +4,8 @@
 **Status:** reviewed once externally ("adopt with changes"; no critical findings). D32 to D42
 accepted by Matt on 20 October 2026. `calc` is built (SW-136, D46). A second external review
 of draft 3 (D47) found no critical issue and said: implement `rewrite` once two changes are
-made to §6. Draft 4 makes them. `rewrite` (stage 2) is ready to implement.
+made to §6. Draft 4 makes them. `rewrite` (stage 2) is built (SW-153); see
+[As built](#as-built-stage-2-sw-153) for what differs from the text above.
 
 ## Changes since draft 3
 
@@ -108,6 +109,7 @@ to the nine questions are summarised in [Review answers](#12-review-answers).
 - [11. Questions for the reviewer (draft 2)](#11-questions-for-the-reviewer-draft-2)
 - [12. Review answers](#12-review-answers)
 - [13. Decisions](#13-decisions)
+- [As built (stage 2, SW-153)](#as-built-stage-2-sw-153)
 
 Labels used below:
 
@@ -1466,6 +1468,128 @@ Each decision has a stable ID. All were accepted by Matt on 20 October 2026.
 | D40 | SW-26 (§8) | Close it without new machinery: move the AoC `Bool.inspect` proofs to `match h: e with` (done for six in the experiment), delete `IsTrue`/`decIsTrue`, document the idiom. "Print `if` in goals as `if`" becomes its own ticket. | Agree |
 | D41 | House style once both exist (§10) | `rewrite` for one to three replacements; `calc` when the intermediate forms help the reader or the chain mixes relations. Then convert the AoC proofs. | Agree |
 | D42 | DESIGN.md §6 (§9) | Correct the claim that `rewrite` is a library function, and link this note. | Agree |
+
+## As built (stage 2, SW-153)
+
+`rewrite` is in `crates/elab/src/rewrite.rs`. User documentation is in `docs/syntax.md`
+("`rewrite`"). The sections above are the design; this records how the build differs, and what
+it measured.
+
+**Built as designed.**
+
+- **Syntax (§6.1).** `rewrite` is a keyword. `rewrite p in t`, `rewrite p` (`in rfl`),
+  `rewrite p, q in t` (left to right) and `<-`. `in` is contextual: it ends a rule only
+  outside brackets and inside a rule, so `(in)` and a variable named `in` work. `<-` is not a
+  token of its own (`a<-1` stays a comparison and a negative): the parser reads `<` followed
+  directly by `-` after `rewrite` or a comma.
+- **Check mode only (§6.4).** Inferring position is `E-REWRITE-NO-GOAL`, with the ascription hint.
+- **Search (§6.2).** Pre-order, outermost first, left to right, never inside a selected
+  match, built on `lift::replace_with` with a hook. Tests per candidate: key (head and
+  arity), mentions a bound variable (skipped, D37), syntax, carrier type, budgeted conversion.
+  The transaction (`undo::Snapshot`) starts before the carrier-type check and is undone on any
+  failure. Only metavariables made while elaborating the rule may be solved: after a
+  successful comparison, any solved metavariable older than the rule's fails the candidate and
+  is rolled back. The budget is not refunded. After a match the rule's left side is read back
+  so later copies match by syntax.
+- **Budget (§6.2).** One budget per `rewrite` (all its rules), `1_000_000` evaluation steps
+  (`Elaborator::rewrite_budget` overrides it, for tests). Running out is `E-REWRITE-BUDGET`
+  and doesn't stop the declaration. It is `Budget::limited` in `crates/core/src/budget.rs`: a
+  nested limit that, when it is the thing that ran out, un-latches the operation's exhaustion.
+- **After abstraction.** The motive body is kernel-checked in the goal's context with
+  `x: carrier` and `_: rhs = x` (`E-REWRITE-MOTIVE`), then `M a ≡ G` is checked
+  (`round_trip`, charged to the budget; `E-REWRITE-MOTIVE` with its own text; a unit test calls it
+  on a deliberately mismatched motive, as §9 says). Then the `J` is `J M t (Eq.sym p)`
+  (`p` itself for `<-`). The kernel's rules are unchanged.
+- **Errors.** `E-REWRITE-NOTHING`, `E-REWRITE-BUDGET`, `E-REWRITE-RULE` (unknown head, or not an
+  equation), `E-REWRITE-MOTIVE`, and one the note didn't name, `E-REWRITE-NO-GOAL`.
+- **Metrics (§9).** `STITCHWORT_REWRITE_METRICS=1` prints one line per `rewrite`: subterms
+  visited, keyed, skipped under a binder, syntactic matches, comparisons by conversion,
+  occurrences replaced, evaluation steps used by the comparisons. There is no conversion cache,
+  so `cache_hits` is always 0 (§6.2's "caches" point has nothing to attach to today).
+
+**Differences from the text.**
+
+1. **The goal searched is always the goal as it computes, also in a `calc` step (§6.2).**
+   The note said a `calc` step searches its own elaborated sides. That was built first and
+   failed on the §10 chain's last line: the step's proposition (as written) keeps
+   `multiplier k (Succ n)` folded, but the rule `multiplierSucc k n`'s left side is read from
+   an evaluated type, where `multiplier` has unfolded to its `List.foldLeft`, so the key never
+   matched. Evaluated against evaluated is consistent: with it, every line of §10's
+   `writeTimesMul` chain passes. The step as written is used only in messages, with the
+   computed goal underneath ("searched as it computes").
+2. **Some definitions unfold before the search sees them.** `x % d` is `Nat.mod x d`, a
+   definition with no case tree, so it unfolds at once to `x - Nat.mul (Nat.divFuel x x d) d`.
+   Two consequences for §6.3. A goal with concrete arguments is already a number
+   (`fib 27` is `196418`), so a rule about `fib 26` finds nothing. And the `auto` proof of
+   `x % d` is gone by the time the motive is built, because `Nat.mod`'s body doesn't use it: the
+   note's `x % d` example is accepted. `E-REWRITE-MOTIVE` shows with a definition that keeps the
+   proof (`examples/reject/rewrite-motive-auto.sw`: an opaque `g` taking `[auto ok: d != 0]`).
+3. **Pending `auto` obligations are proved early inside a rewrite.** Such an argument is a
+   metavariable in the goal until the declaration ends, and abstracting `d` turns `?ok x d` into
+   `?ok x z`, whose later solution ignores `z`: the kernel would reject the result with no
+   hint. Before searching, `rewrite` proves the obligations that appear in its goal
+   (`Elaborator::prove_now`, in a transaction; one that can't be proved yet is left alone), so the
+   proof is a term when the motive is checked.
+4. **The carrier-type test is weaker than §6.2 describes, for terms the kernel can't type.**
+   The kernel infers the type of a definition or variable application, but a constructor or a
+   function is only *checked* against a type, and `\x => x` checks at any `a -> a`. For those,
+   the candidate is checked against the carrier if it has no unsolved metavariable, and
+   otherwise (or if the candidate has one) the type test is skipped and conversion decides. The
+   typed test exists mainly for proof irrelevance (D1′), which isn't built; today it can only
+   reject a candidate whose head is a definition or a variable.
+5. **A match by syntax skips the type test, so it can be of the wrong type.** That is §6.2's
+   order, and the motive check catches it: two copies of `\x => x`, one at `Bool -> Bool` and
+   one at `Nat -> Nat`, are the same term, and a rule about the `Nat` one meets the `Bool` one
+   first, ending in `E-REWRITE-MOTIVE` rather than rewriting the right one. The §7 list gains this
+   as an item in `docs/syntax.md`.
+6. **Kernel context for candidates.** The kernel never meets metavariables, and compares a
+   solved one's head as it is, so the types and values of the context, the carrier and the
+   right side are read back with solved metavariables replaced before the kernel sees them
+   (`kernel_context`). `kernel::Ctx::with_variables` and a public `bind` are the only
+   additions to `crates/core/src/check.rs`.
+7. **`rewrite p` with a failing `rfl`** adds a note with the goal after the rewrite.
+
+**Tests.**
+
+- `examples/accept/rewrite.sw`: every form, order, nesting, the `F ?x ?x` rollback
+  (`rolledBack`), the step-3 rollback (`rolledBackType`), under a binder, in a `calc` step,
+  `in` as a name and as an argument, and the §10 `stepLeftFrom` case.
+- `examples/reject/rewrite-*.sw` with snapshots: nothing found (both directions), unknown head,
+  not an equation, ill-typed motive (`auto`), no goal, under a binder, first instance fixes the
+  arguments, body mismatch.
+- `crates/driver/tests/rewrite.rs`: budget exhaustion (with a small budget), that one
+  `rewrite`'s budget isn't another's, keyword. Unit tests in `rewrite.rs`: the round trip,
+  carrier types, keys, bound variables. In `budget.rs`: `limited`. In the parser: rules, `<-`, `in`.
+- Not tested by an example: the Box case of §6.2 (needs D1′), and a real expensive `% 100`
+  candidate (no goal keeps one: see difference 2); the small budget stands in for it.
+
+**Measured on real programs** (`aoc/`, after converting three proofs: `zerosPassedSplit` and
+`stepLeftFrom` to `rewrite`, `writeTimesMul` to a `calc` of `rewrite` steps):
+
+| | |
+|---|---|
+| `rewrite`s / rules | 9 / 15 |
+| subterms visited | 947 |
+| with the right head and arity | 57 |
+| matched by syntax alone | 22 |
+| comparisons by type and conversion | 30 |
+| evaluation steps in them (all) | 6,570 |
+| most steps in one `rewrite` | 1,482, against a budget of 1,000,000 |
+| project check time | 0.58 s, as before (0.53 to 0.6 s) |
+
+So keyed conversion costs nothing noticeable on these. The cost to watch is the number of
+keyed candidates when a rule's head is common (`Nat.sub`, `Nat.add` after `%` unfolds): the
+worst `rewrite` had 23 keyed candidates and 15 comparisons.
+
+**Left for later.**
+
+- Rewriting in the body's own type when no goal is known (§6.4, stage 3), and choosing occurrences.
+- Showing a goal in messages as it was written. It is only done for a `calc` step's line and a
+  definition's own type; elsewhere `x % d` shows as `Nat.mod x d`, and the searched form as
+  `x - Nat.mul …`.
+- A rule stated with `x % d` whose left side differs after unfolding in a way the evaluator
+  doesn't make equal is a "found nothing" with the computed goal shown. Whether to search a
+  second, written form is a design question, not a bug.
 
 ## Sources
 

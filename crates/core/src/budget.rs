@@ -213,6 +213,40 @@ impl Budget {
         self.visits.get()
     }
 
+    /// Runs `f` allowed at most `*remaining` more evaluation steps, and
+    /// takes what it used off `*remaining`. `Ok(None)` if `f` went over:
+    /// that is the caller's own limit, not the operation running out, so
+    /// the operation carries on (`rewrite`'s search budget). Running out of
+    /// anything else, or of the operation's own steps, is an error as usual
+    /// (`f`'s own error, if it converts the resource error to one).
+    pub fn limited<T, E>(
+        &self,
+        remaining: &mut u64,
+        f: impl FnOnce() -> std::result::Result<T, E>,
+    ) -> std::result::Result<Option<T>, E> {
+        let before = self.work.get();
+        let outer = self.work_limit.get();
+        if outer == 0 {
+            return f().map(Some);
+        }
+        let cap = before.saturating_add(*remaining).min(outer);
+        self.work_limit.set(cap);
+        let result = f();
+        let used = self.work.get().saturating_sub(before);
+        *remaining = remaining.saturating_sub(used);
+        if cap < outer && self.exhausted.get() == Some(ResourceError::Work) && self.work.get() > cap
+        {
+            self.exhausted.set(None);
+            self.work_limit.set(outer);
+            *remaining = 0;
+            return Ok(None);
+        }
+        if self.exhausted.get().is_none() {
+            self.work_limit.set(outer);
+        }
+        result.map(Some)
+    }
+
     /// The error the current operation ran out with, if it did.
     pub fn exhausted(&self) -> Option<ResourceError> {
         self.exhausted.get()
@@ -291,5 +325,54 @@ impl Budget {
         self.exhausted.set(Some(e));
         self.work_limit.set(0);
         e
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn steps(b: &Budget, n: u32) -> Result<()> {
+        (0..n).try_for_each(|_| b.step())
+    }
+
+    #[test]
+    fn a_limited_part_that_goes_over_ends_without_ending_the_operation() {
+        let b = Budget::default();
+        let _op = b.operation(Limits::default());
+        let mut remaining = 5;
+        assert_eq!(b.limited(&mut remaining, || steps(&b, 10)), Ok(None));
+        assert_eq!(remaining, 0);
+        // The operation itself is fine, and has its own limit again.
+        assert_eq!(b.exhausted(), None);
+        assert_eq!(steps(&b, 1000), Ok(()));
+    }
+
+    #[test]
+    fn a_limited_part_that_stays_under_is_charged_what_it_used() {
+        let b = Budget::default();
+        let _op = b.operation(Limits::default());
+        let mut remaining = 100;
+        assert_eq!(b.limited(&mut remaining, || steps(&b, 10)), Ok(Some(())));
+        assert_eq!(remaining, 90);
+        // A second part draws on what is left.
+        assert_eq!(b.limited(&mut remaining, || steps(&b, 95)), Ok(None));
+        assert_eq!(remaining, 0);
+    }
+
+    #[test]
+    fn running_out_of_the_operations_own_steps_is_not_hidden() {
+        let b = Budget::default();
+        let _op = b.operation(Limits {
+            work: 50,
+            ..Limits::default()
+        });
+        let mut remaining = 1_000;
+        // The caller's allowance is more than the operation has left.
+        assert_eq!(
+            b.limited(&mut remaining, || steps(&b, 100)),
+            Err(ResourceError::Work)
+        );
+        assert_eq!(b.exhausted(), Some(ResourceError::Work));
     }
 }

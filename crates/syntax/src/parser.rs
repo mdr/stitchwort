@@ -13,7 +13,7 @@
 
 use crate::ast::{
     Alt, BinOp, Binder, CalcStep, CtorDecl, Decl, Expr, Import, LocalDef, MatchKind, Module, Name,
-    NamespaceDecl, Pattern, Row, SECTION, Scrutinee,
+    NamespaceDecl, Pattern, RewriteRule, Row, SECTION, Scrutinee,
 };
 use crate::lexer::{Tok, Token, lex};
 use crate::stack::StackLimit;
@@ -206,6 +206,9 @@ struct Parser<'t> {
     /// How many `calc`s the parser is inside. In one, a line starting with
     /// `_` is the next step, not an argument of the line before.
     calc_depth: u32,
+    /// While a `rewrite` rule is being parsed: the token it starts at. A `in`
+    /// outside brackets ends the rule (`in` is an ordinary name elsewhere).
+    rewrite_rule: Option<usize>,
     /// How deep the recursion may go.
     stack: StackLimit,
 }
@@ -231,6 +234,7 @@ impl<'t> Parser<'t> {
             limit: None,
             allow: None,
             calc_depth: 0,
+            rewrite_rule: None,
             stack,
         }
     }
@@ -276,6 +280,11 @@ impl<'t> Parser<'t> {
         if self.calc_depth > 0 && self.starts_calc_step(i) {
             return true;
         }
+        if let Some(start) = self.rewrite_rule
+            && self.ends_rewrite_rule(i, start)
+        {
+            return true;
+        }
         let Some(limit) = self.limit else {
             return false;
         };
@@ -285,6 +294,21 @@ impl<'t> Parser<'t> {
                 .get(i)
                 .is_some_and(|t| t.line_start && t.column <= limit)
             && !self.continues_bracket(i)
+    }
+
+    /// Whether the token at `i` is the `in` that ends the `rewrite` rule
+    /// starting at token `start`: an `in` not inside brackets opened since.
+    #[inline(never)]
+    fn ends_rewrite_rule(&self, i: usize, start: usize) -> bool {
+        if !matches!(self.tokens.get(i), Some(Token { tok: Tok::Lower(w), .. }) if w == "in") {
+            return false;
+        }
+        let depth = self.tokens[start..i].iter().fold(0i64, |d, t| match t.tok {
+            Tok::LBracket | Tok::LParen | Tok::LBrace => d + 1,
+            Tok::RBracket | Tok::RParen | Tok::RBrace => d - 1,
+            _ => d,
+        });
+        depth <= 0
     }
 
     /// Whether the token at `i`, a `,` or a closing bracket, is inside an
@@ -1472,6 +1496,59 @@ impl<'t> Parser<'t> {
         })
     }
 
+    /// `rewrite p, <- q in t`, after `rewrite`: rules separated by commas,
+    /// each optionally `<-`, then (optionally) `in` and the body. `in` is only
+    /// special where a rule could end: outside brackets, inside a rule.
+    #[inline(never)]
+    fn rewrite_expr(&mut self, start: Span) -> Result<Expr> {
+        let saved = self.rewrite_rule.take();
+        let result = self.rewrite_body(start);
+        self.rewrite_rule = saved;
+        result
+    }
+
+    #[inline(never)]
+    fn rewrite_body(&mut self, start: Span) -> Result<Expr> {
+        let mut rules: Vec<RewriteRule> = Vec::new();
+        loop {
+            let rule_start = self.here();
+            let reverse = self.peek() == Some(&Tok::Lt)
+                && self.peek_at(1) == Some(&Tok::Minus)
+                && self.tokens[self.pos].span.end == self.tokens[self.pos + 1].span.start;
+            if reverse {
+                self.bump();
+                self.bump();
+            }
+            self.rewrite_rule = Some(self.pos);
+            let proof = self.append_expr();
+            self.rewrite_rule = None;
+            let proof = proof?;
+            rules.push(RewriteRule {
+                reverse,
+                span: rule_start.to(proof.span()),
+                proof,
+            });
+            if !self.eat(&Tok::Comma) {
+                break;
+            }
+        }
+        let at_in = matches!(self.peek(), Some(Tok::Lower(w)) if w == "in");
+        let body = if at_in {
+            self.bump();
+            Some(Box::new(self.expr()?))
+        } else {
+            None
+        };
+        let end = body
+            .as_ref()
+            .map_or_else(|| rules.last().expect("a rule").span, |b| b.span());
+        Ok(Expr::Rewrite {
+            rules,
+            body,
+            span: start.to(end),
+        })
+    }
+
     /// `(x : A) -> B` or `[x : A] -> B`. Out of line, as `if_expr` is.
     #[inline(never)]
     fn pi_expr(&mut self, start: Span, implicit: bool) -> Result<Expr> {
@@ -1503,6 +1580,9 @@ impl<'t> Parser<'t> {
         }
         if self.eat(&Tok::KwCalc) {
             return self.calc_expr(start);
+        }
+        if self.eat(&Tok::KwRewrite) {
+            return self.rewrite_expr(start);
         }
         if self.eat(&Tok::Backslash) {
             return self.lambda(start);
@@ -2176,6 +2256,7 @@ fn describe(tok: &Tok) -> String {
         Tok::KwImport => "`import`".into(),
         Tok::KwNamespace => "`namespace`".into(),
         Tok::KwCalc => "`calc`".into(),
+        Tok::KwRewrite => "`rewrite`".into(),
         Tok::LBrace => "`{`".into(),
         Tok::RBrace => "`}`".into(),
         Tok::FatArrow => "`=>`".into(),
@@ -3609,6 +3690,40 @@ mod tests {
         );
         // The `_` argument stays an argument when it isn't at the start of a line.
         assert!(matches!(&steps[2].proof, Some(Expr::App(..))));
+    }
+
+    #[test]
+    fn rewrite_takes_rules_left_to_right_and_an_optional_body() {
+        let text = "def f (a: Nat): a = a :=\n  rewrite p, <- q x, r (in) in Nat.f _\n";
+        let expr = rhs(text);
+        let Expr::Rewrite { rules, body, .. } = &expr else {
+            panic!("expected a rewrite");
+        };
+        let shape: Vec<bool> = rules.iter().map(|r| r.reverse).collect();
+        assert_eq!(shape, vec![false, true, false]);
+        assert!(matches!(&rules[1].proof, Expr::App(..)));
+        // `(in)` is an ordinary argument; the bare `in` ended the rule.
+        let Expr::App(_, arg) = &rules[2].proof else {
+            panic!("expected an application");
+        };
+        assert!(matches!(&**arg, Expr::Var(n) if n.text == "in"));
+        assert!(matches!(body.as_deref(), Some(Expr::App(..))));
+        // No `in`: the body is `rfl`, left to the elaborator.
+        let text = "def f (a: Nat): a = a :=\n  rewrite p x\n";
+        let expr = rhs(text);
+        let Expr::Rewrite { rules, body, .. } = &expr else {
+            panic!("expected a rewrite");
+        };
+        assert_eq!(rules.len(), 1);
+        assert!(body.is_none());
+    }
+
+    #[test]
+    fn rewrite_is_a_keyword_and_in_is_not() {
+        assert!(parse_module_text("def rewrite: Nat := 1\n").is_err());
+        assert!(parse_module_text("def f (in: Nat): Nat := in\n").is_ok());
+        // `<` then `-` apart is a comparison, not an arrow.
+        assert!(parse_module_text("def f (a: Nat): a = a :=\n  rewrite < - p in rfl\n").is_err());
     }
 
     #[test]

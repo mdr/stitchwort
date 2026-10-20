@@ -385,9 +385,9 @@ A generic `withFuel: Nat -> (() -> {Partial | e} a) -> {e} Optional a`, which bo
 
 - **Propositions are types; proofs are values.** `xs ++ [] = xs` is a type, and a value of that type is a proof.
 - **`theorem`** is a definition whose type is a proposition (in `Prop`). It's always erased at runtime and must be total and pure.
-- **Equality** is a built-in proposition `a = b` with `rfl: a = a`, plus library functions `Eq.cong`, `Eq.sym` and `Eq.trans`. Equational proofs use `calc` chains (built) and a planned `rewrite` term, which is elaborator syntax, not a library function ([calc-rewrite.md](docs/proposals/calc-rewrite.md)).
+- **Equality** is a built-in proposition `a = b` with `rfl: a = a`, plus library functions `Eq.cong`, `Eq.sym` and `Eq.trans`. Equational proofs use `calc` chains and `rewrite p in t`, both built (docs/syntax.md); `rewrite` is elaborator syntax, not a library function, and elaborates to `J` ([calc-rewrite.md](docs/proposals/calc-rewrite.md)).
 - **Proof by computation.** Types are compared by evaluating them, so `rfl` proves anything that holds by just computing both sides (`2 + 2 = 4`, `List.length [1, 2] = 2`).
-- **No tactics.** Proofs are ordinary terms, written by pattern matching and recursion. `calc` writes a chain of `=`, `<=` and `<` steps one per line (docs/syntax.md); it elaborates to `Eq.trans`, `J` and `Nat.leTrans` terms.
+- **No tactics.** Proofs are ordinary terms, written by pattern matching and recursion. `calc` writes a chain of `=`, `<=` and `<` steps one per line (docs/syntax.md); it elaborates to `Eq.trans`, `J` and `Nat.leTrans` terms. `rewrite` finds the motive of `J` by looking for the equation's left side in the goal.
 
 Conventions that make proofs go through by computation should be documented. For example, `+` on `Nat` recurses on its *first* argument, so `Succ m + n` reduces to `Succ (m + n)`.
 

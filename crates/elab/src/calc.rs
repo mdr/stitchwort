@@ -122,7 +122,7 @@ fn elaborate(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(Ter
         let prop = cx.eval(&prop_term)?;
         let line = written(cx, &prop_term);
         let proof = match &step.proof {
-            Some(p) => check_step(cx, p, &prop, &line)?,
+            Some(p) => check_step(cx, p, &prop, &prop_term, &line)?,
             None => by_computation(cx, step, &prop, &line)?,
         };
         link = Some(match link {
@@ -195,8 +195,18 @@ fn written(cx: &Ctx, term: &Term) -> String {
 /// A step's proof, checked against its line's proposition. A proof that
 /// proves something else is `E-CALC-STEP`, pointing at the proof; an error
 /// inside the proof is reported as it would be anywhere else.
-fn check_step(cx: &mut Ctx, proof: &Expr, prop: &Value, line: &str) -> Result<Term> {
-    match check(cx, proof, prop) {
+fn check_step(
+    cx: &mut Ctx,
+    proof: &Expr,
+    prop: &Value,
+    prop_term: &Term,
+    line: &str,
+) -> Result<Term> {
+    // A `rewrite` shows the line as it was built in its messages (rewrite.rs).
+    cx.written_goal = matches!(proof, Expr::Rewrite { .. }).then(|| prop_term.clone());
+    let checked = check(cx, proof, prop);
+    cx.written_goal = None;
+    match checked {
         Err(e)
             if matches!(e.code, "E-TYPE-MISMATCH" | "E-REFL")
                 && e.primary_span() == Some(proof.span()) =>
@@ -427,7 +437,7 @@ fn motive(body: Term) -> Term {
 
 /// The prelude lemma `which` applied to `args`, with its implicit arguments
 /// found from their types.
-fn lemma(cx: &mut Ctx, which: Builtin, args: &[Piped]) -> Result<Term> {
+pub(crate) fn lemma(cx: &mut Ctx, which: Builtin, args: &[Piped]) -> Result<Term> {
     let id = builtin_def(cx, which)?;
     let head = (Term::Def(id), cx.g().def(id).ty_value.clone());
     let args: Vec<Arg> = args.iter().map(Arg::Piped).collect();

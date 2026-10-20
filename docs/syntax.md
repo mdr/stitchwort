@@ -501,6 +501,44 @@ The steps line up, one column further right than the line `calc` is on, and each
 
 (`p` proves `a R1 b` and `q` proves `b R2 c`.) Examples: `examples/accept/calc.sw`, `examples/reject/calc-*.sw`. Design: [calc-rewrite.md](proposals/calc-rewrite.md) section 5.
 
+### `rewrite`
+
+`rewrite p in t` proves the goal from `t` by replacing, in the goal, the left side of the equation `p: a = b` by its right side. It spares you the motive: where `Eq.cong (\x => (x + n) / d) p` spells out the expression around the change, `rewrite p` looks for `a` in the goal and works the motive out itself.
+
+```
+theorem stepZero (highest: Nat) (n: Nat):
+    Bool.toNat (0 == 0) + ((Succ highest - 0) % Succ highest + n) / Succ highest
+      = ((Succ highest - 1) % Succ highest + Succ n) / Succ highest :=
+  rewrite Nat.modSelf (Succ highest), Nat.modSmall highest (Succ highest) (Nat.leRefl highest), Nat.addSucc highest n
+    in Eq.sym (Nat.addDivSelf (Succ highest) n)
+```
+
+| form | meaning |
+|---|---|
+| `rewrite p in t` | `t` proves the goal with `a` replaced by `b` |
+| `rewrite p` | the same as `rewrite p in rfl`, against the whole goal |
+| `rewrite p, q in t` | `p`, then `q` on what is left, then `t`: `rewrite p in (rewrite q in t)` |
+| `rewrite <- p in t` | right to left: `b` is replaced by `a` |
+
+`rewrite` is a keyword. `in` is not: it is only special where a rule can end (outside brackets, inside a rule), so a variable called `in` is an ordinary name, and a rule that passes it as an argument puts it in parentheses, `rewrite f (in) in t`. The result is a `J` term, which the kernel re-checks; the kernel is unchanged.
+
+- **The goal must be known.** `rewrite` is checked against a goal: a definition's body, an argument whose type is fixed, a `calc` step, a `let` with a type. With none (`let h := rewrite p in t`), it is `E-REWRITE-NO-GOAL`; give the type with an ascription, `(rewrite p in t: a = b)`. In a `calc` step, `rewrite p` is checked against the step's line, `e(i-1) R e(i)`, and may rewrite either side.
+- **The rule** is any proof of an equation, with its implicit arguments left open if nothing fixes them (`[n: Nat] -> f n = g n` used as `rewrite h`). The equation's *left side* needs a function, constructor or variable at its head; an unknown function (`?g x`) is `E-REWRITE-RULE`, as is a proof that isn't an equation (a lemma still waiting for its arguments).
+- **Finding occurrences.** The goal is searched in pre-order, outermost first, left to right, and the search never looks inside an occurrence it has chosen. A subterm is an occurrence if it has the same head and number of arguments as `a`, is the same term or has the same type and *computes* to it. Matching the rule's open arguments is one-way: only the rule's own can be solved, and a candidate that fails leaves nothing solved. Every occurrence is replaced, then `t` is checked against the result. If there are none, it is `E-REWRITE-NOTHING`.
+- **Binders.** An occurrence that mentions a variable the goal binds (`f y` in `(y: Nat) -> f y = g y`) is skipped: `J` can't rewrite inside a function without function extensionality. One that doesn't mention it (`f 1`) is rewritten normally. If that leaves nothing, the message points at a pointwise lemma like `List.mapCongr`.
+- **Cost.** All the comparisons of one `rewrite` share a budget of evaluation steps. Running out is `E-REWRITE-BUDGET`, never "no match": it says the comparison was too expensive, not that the occurrence is absent. State the step with `calc`, or rewrite with a more specific equation. `STITCHWORT_REWRITE_METRICS=1` prints, per `rewrite`, how many subterms were looked at, how many had the right head, how many comparisons ran and the steps they took.
+- **The motive.** After the occurrences are replaced by a variable, the goal must still be a valid proposition (`E-REWRITE-MOTIVE`: the usual cause is an `auto` proof, such as the `d != 0` of `x % d`, that is about the term being replaced; rewrite a larger term that contains it, or use `calc`), and putting the left side back must compute to the original goal. That second check fails only where comparison ignores something it shouldn't have, and is also `E-REWRITE-MOTIVE`.
+- **What will surprise you.**
+  - `rewrite p` in a `calc` step rewrites the whole step proposition, both sides, not just the expression on the line before. `<-` is therefore needed less often, but it is the only way to replace the right side by the left.
+  - Every matching occurrence is replaced. There is no way to pick one; use `calc` to say exactly which form you want.
+  - An occurrence can match without being there textually, because a term that computes to the left side matches. And the goal searched is the elaborated goal, which keeps definitions folded only until they can compute: a goal written `Succ m + n` is `Succ (m + n)` by then, and `x % d` has unfolded into `x - x / d * d` (so error messages may show `Nat.leq a b = True` for `a <= b`). A rule's left side is read the same way, so the two still agree.
+  - The first match fixes the rule's open arguments. With `f n = g n` and a goal `f 1 + f 2`, only `f 1` is rewritten; `f 2` is a different instance. The search order is what picks the instance, and a chosen occurrence isn't searched inside: in `f (f 1)` with `n := f 1`, the inner `f 1` stays.
+  - An occurrence found by being the same term can be of the wrong type: two copies of `\x => x`, one for `Bool` and one for `Nat`, are the same term to the search, and a rule about the `Nat` one meets the `Bool` one first (`E-REWRITE-MOTIVE`: the goal with it replaced is ill typed).
+  - `E-REWRITE-BUDGET` is about cost, not truth.
+  - If a proof-irrelevant comparison arrives ([proof-irrelevance.md](proposals/proof-irrelevance.md)), a candidate that equals the left side only by ignoring a proof field can match and then fail the round trip, as `E-REWRITE-MOTIVE`.
+
+Examples: `examples/accept/rewrite.sw`, `examples/reject/rewrite-*.sw`. Design: [calc-rewrite.md](proposals/calc-rewrite.md) section 6; as built, its "As built" note.
+
 #### Patterns in `let` and lambdas
 
 `let` and a lambda's parameters take patterns too:
