@@ -2238,7 +2238,7 @@
         "aoc",
         "proof"
       ],
-      "body": "\u001b[43;30mWarning:\u001b[0m safe-chain is not available to protect you from installing malware. python3 will run without it.\nInstall safe-chain by using \u001b[36mnpm install -g @aikidosec/safe-chain\u001b[0m.",
+      "body": "SW-6 proved part 1 for all inputs (part1Correct against part1Spec). Part 2 remains: its inclusion-exclusion (Möbius weights) isn't proved even against the block walk; repeatedTwice would need generalising to n copies. Only cross-checked by the brute-force test.\n\n20 Oct 2026: Matt asked for a feasibility study first: can we practically prove part 2's inclusion-exclusion? Opus lane writes a report (approach, lemmas needed, estimated size, blockers, language pain points), prototyping as needed.\n\n20 Oct 2026 (later): Matt approved the full proof (D64: ids at most 10 digits as a hypothesis, program refuses 11+ digit ids; D65 go; D66 allRangeElim and Int sum lemmas to the library).\n",
       "created": "2026-10-19",
       "updated": "2026-10-20",
       "commits": []
