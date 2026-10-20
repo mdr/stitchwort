@@ -2597,8 +2597,8 @@
       "id": 168,
       "title": "Remove the old-syntax error E-OLD-DECLARATION; an ordinary parse error instead (D102)",
       "status": "doing",
-      "agent": "DeepSeek",
-      "where": "/Users/matt/scratch/opencode/funlang-20261020-191711",
+      "agent": "Claude",
+      "where": "main",
       "labels": [
         "syntax"
       ],
