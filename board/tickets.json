@@ -1814,8 +1814,8 @@
       "id": 119,
       "title": "Print `R.f r` as `r.f` in error messages",
       "status": "doing",
-      "agent": "DeepSeek",
-      "where": "/Users/matt/scratch/opencode/funlang-20261020-183102",
+      "agent": "Claude",
+      "where": "main",
       "labels": [
         "elab"
       ],
@@ -2326,8 +2326,8 @@
       "id": 152,
       "title": "Print `if` in goals as `if`, not Bool.ifThenElse (D40 split-off)",
       "status": "doing",
-      "agent": "DeepSeek",
-      "where": "/Users/matt/scratch/opencode/funlang-20261020-183102",
+      "agent": "Claude",
+      "where": "main",
       "labels": [
         "diagnostics"
       ],
