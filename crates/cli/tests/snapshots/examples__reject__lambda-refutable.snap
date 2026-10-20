@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-LET-REFUTABLE] Error: this pattern doesn't match every case: it doesn't match `Nothing`
-   ╭─[ reject/lambda-refutable.sw:3:57 ]
+   ╭─[ reject/lambda-refutable.sw:3:56 ]
    │
- 3 │ def nums (ms: List (Maybe Nat)): List Nat := List.map (\(Just x) => x) ms
-   │                                                         ────┬───  
-   │                                                             ╰───── doesn't match `Nothing`
+ 3 │ def nums (ms: List (Maybe Nat)): List Nat := List.map ((Just x) => x) ms
+   │                                                        ────┬───  
+   │                                                            ╰───── doesn't match `Nothing`
    │ 
    │ Note: use `match` to say what happens otherwise
 ───╯

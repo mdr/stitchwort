@@ -88,7 +88,7 @@ fn render(g: &Gen, indent: usize) -> String {
         Gen::Var(x) => x.clone(),
         Gen::App(f, a) => format!("{} ({})", render(f, indent), render(a, indent + 2)),
         Gen::Block(..) => block(g, indent + 2),
-        Gen::Lam(x, body) => format!("\\{x} => {}", render(body, indent)),
+        Gen::Lam(x, body) => format!("{x} => {}", render(body, indent)),
         Gen::Handle(body, clauses) => {
             let mut out = format!("handle {} with", render(body, indent));
             let col = indent + 2;

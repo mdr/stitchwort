@@ -107,8 +107,8 @@ fn importing_twice_is_a_warning() {
 fn constructors_come_with_an_imported_type() {
     passes(&load(
         "import Std.Effect (Comp)\n\n\
-         def one : Comp Std.Builtin.UnitType (\\o => Std.Builtin.UnitType) Nat := Done 1\n\n\
-         test \"done\" := List.length [one, Call () (\\u => one)] == 2\n",
+         def one : Comp Std.Builtin.UnitType (o => Std.Builtin.UnitType) Nat := Done 1\n\n\
+         test \"done\" := List.length [one, Call () (u => one)] == 2\n",
     ));
 }
 
@@ -258,7 +258,7 @@ fn error_of(source: &str) -> Vec<stitchwort_syntax::Diagnostic> {
 fn a_wildcard_import_brings_a_namespaces_names() {
     let session = load(
         "import List (..)\n\n\
-         def go(xs: List Nat): Nat := sum (map (\\x => x + 1) (filter (\\x => not (x == 0)) (reverse xs)))\n\n\
+         def go(xs: List Nat): Nat := sum (map (x => x + 1) (filter (x => not (x == 0)) (reverse xs)))\n\n\
          def nil(): List Nat := Nil\n\n\
          test \"go\" := go (Cons 1 (Cons 2 Nil)) == 5\n",
     );

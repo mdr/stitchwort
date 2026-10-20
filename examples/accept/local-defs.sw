@@ -55,7 +55,7 @@ def count [a: Type] (xs: List a) (p: a -> Bool): Nat :=
     | Cons x rest => if p x then Succ (go rest) else go rest
   go xs
 
-test "count" := count [1, 2, 3, 4] (\x => x == 2) == 1
+test "count" := count [1, 2, 3, 4] (x => x == 2) == 1
 
 def need (i: Nat) (ok: i < 5): Nat := i
 

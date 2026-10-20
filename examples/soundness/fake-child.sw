@@ -12,4 +12,4 @@ def ChooseRes: ChooseOp -> Type
 
 def loop: Comp ChooseOp ChooseRes Nat -> Nat
   | Done x      => x
-  | Call o rest => loop ((\b => Call o rest: Bool -> Comp ChooseOp ChooseRes Nat) True)
+  | Call o rest => loop ((b => Call o rest: Bool -> Comp ChooseOp ChooseRes Nat) True)

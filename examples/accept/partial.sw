@@ -64,7 +64,7 @@ def twiceWith (k: Nat -> {Partial | e} Nat) (n: Nat): {Partial | e} Nat := k n +
 
 def tree: Nat -> {Partial} Nat
   | 0 => 1
-  | n => twiceWith (\x => tree x) (n - 1)
+  | n => twiceWith (x => tree x) (n - 1)
 
 -- A partial application of a member, inside the group.
 def addThen: Nat -> Nat -> {Partial} Nat
@@ -79,10 +79,10 @@ def drive: [e: Sig] -> Handlers e -> Nat -> {Partial | e} Nat
   | MkHandlers onStep onDone, 0 => onDone 0
   | MkHandlers onStep onDone, n => onStep n
 
-def stepper (n: Nat): {Partial} Nat := drive (MkHandlers (\m => stepper (m - 1)) (\m => m)) n
+def stepper (n: Nat): {Partial} Nat := drive (MkHandlers (m => stepper (m - 1)) (m => m)) n
 
 -- A closure over a partial function that's already defined can be returned.
-def retryWith (n: Nat): {Partial} (Nat -> {Partial} Nat) := \x => collatzSteps (x + n)
+def retryWith (n: Nat): {Partial} (Nat -> {Partial} Nat) := x => collatzSteps (x + n)
 
 -- Type parameters are fixed: each recursive call passes them on.
 def mapP (f: a -> {Partial | e} b): List a -> {Partial | e} (List b)
@@ -90,7 +90,7 @@ def mapP (f: a -> {Partial | e} b): List a -> {Partial | e} (List b)
   | Cons x xs => Cons (f x) (mapP f xs)
 
 -- A total function is passed where a partial one is expected.
-def incrementAll (xs: List Nat): {Partial} (List Nat) := mapP (\x => x + 1) xs
+def incrementAll (xs: List Nat): {Partial} (List Nat) := mapP (x => x + 1) xs
 
 def stepsOfAll (xs: List Nat): {Partial} (List Nat) := mapP collatzSteps xs
 
@@ -121,13 +121,13 @@ def discard (f: Nat -> {Partial} Nat): Nat := 0
 
 def kept: Pair Nat (Nat -> {Partial} Nat) := MkPair 1 collatzSteps
 
-def later: () -> {Partial} Nat := \u => spin 0
+def later: () -> {Partial} Nat := u => spin 0
 
 test "mentioning partial functions is total" := discard collatzSteps + Pair.fst kept == 1
 
 def main(): {IO, Partial} () :=
   IO.print (Nat.toText (collatzSteps 27))
-  IO.print (Nat.toText (firstFrom (\n => Nat.leq 100 (n * n)) 0))
+  IO.print (Nat.toText (firstFrom (n => Nat.leq 100 (n * n)) 0))
   IO.print (Nat.toText (fib 10))
   IO.print (if isEven 10 then "even" else "odd")
   IO.print (Nat.toText (hofF 10))

@@ -4,7 +4,7 @@
 -- anything else is the type.
 type Grid = List (List Nat)
 
-def Grid.rolls (g: Grid): Nat := (g.map (\row => row.length)).sum
+def Grid.rolls (g: Grid): Nat := (g.map (row => row.length)).sum
 
 type Matrix (a: Type) = List (List a)
 

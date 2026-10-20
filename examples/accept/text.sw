@@ -23,7 +23,7 @@ test "length"            := "hello".length == 5
 test "empty"             := "".isEmpty
 test "not empty"         := not (" ".isEmpty)
 test "escapes"           := "\n\t\\\"\'".length == 5
-test "fold"              := "ab".fold (\c n => Char.toNat c + n) 0 == 195
+test "fold"              := "ab".fold (c n => Char.toNat c + n) 0 == 195
 
 def unconsCode: Maybe (Pair Char Text) -> Nat
   | Nothing            => 0

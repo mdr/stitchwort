@@ -452,9 +452,9 @@ def sndOf: Pair a b -> b
 def runState (init: s) (prog: () -> {State s | e} a): {e} Pair a s :=
   let run: s -> {e} Pair a s :=
     handle prog() with
-      | return x       => \st => MkPair x st
-      | get(), k      => \st => k st st
-      | put st2, k     => \st => k() st2
+      | return x       => st => MkPair x st
+      | get(), k      => st => k st st
+      | put st2, k     => st => k() st2
   run init
 
 def allResults (prog: () -> {Choose | e} a): {e} List a :=
@@ -468,10 +468,10 @@ def step(): {State Nat, Choose} Nat :=
   get()
 
 -- Each branch has its own state...
-test "state inside choice" := List.length (allResults (\u => runState 1 step)) == 2
+test "state inside choice" := List.length (allResults (u => runState 1 step)) == 2
 
 -- ...or one state threads through both branches.
-test "choice inside state" := sndOf (runState 1 (\u => allResults step)) == 11
+test "choice inside state" := sndOf (runState 1 (u => allResults step)) == 11
 </script>
 <script type="text/plain" id="ex-main" data-title="Input and output: main">-- A program with input and output. `main` prints with `IO.print` and reads
 -- lines with `IO.readLine`, which gives `Nothing` at the end of the input. Press
@@ -504,7 +504,7 @@ def step (total: Nat): Maybe Text -> (Nat -> {IO} Nat) -> {IO} Nat
 -- operations.
 def addLines: Nat -> Nat -> {IO} Nat
   | 0,      total => total
-  | Succ n, total => step total (IO.readLine()) (\t => addLines n t)
+  | Succ n, total => step total (IO.readLine()) (t => addLines n t)
 
 def main(): {IO} () :=
   IO.print "What's your name?"

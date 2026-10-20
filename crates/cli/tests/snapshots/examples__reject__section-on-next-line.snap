@@ -5,7 +5,7 @@ expression: output
 [E-PARSE] Error: a line can't start with a method section
    ╭─[ reject/section-on-next-line.sw:9:5 ]
    │
- 9 │     .map (\x => x)
+ 9 │     .map (x => x)
    │     ┬  
    │     ╰── a line can't start with a method section
    │ 

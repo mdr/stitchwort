@@ -34,7 +34,7 @@ def step (total: Nat): Maybe Text -> (Nat -> {IO} Nat) -> {IO} Nat
 -- operations.
 def addLines: Nat -> Nat -> {IO} Nat
   | 0,      total => total
-  | Succ n, total => step total (IO.readLine()) (\t => addLines n t)
+  | Succ n, total => step total (IO.readLine()) (t => addLines n t)
 
 def main(): {IO} () :=
   IO.print "What's your name?"

@@ -13,4 +13,4 @@ def Bag.map (f: a -> b): Bag a -> Bag b
   | Empty => Empty
   | Put x xs => Put (f x) (Bag.map f xs)
 
-def names: Bag Text := Bag.map (\p => p.name) Empty
+def names: Bag Text := Bag.map (p => p.name) Empty

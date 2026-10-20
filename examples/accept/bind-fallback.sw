@@ -24,7 +24,7 @@ type Fun = | MkFun (apply: Nat -> Nat)
 
 def decSelf (f: Fun): Decidable (f = f) := Yes rfl
 
-def adder (n: Nat): Fun := MkFun (\x => x + n)
+def adder (n: Nat): Fun := MkFun (x => x + n)
 
 def same: Bool := adder 1 == adder 1
 

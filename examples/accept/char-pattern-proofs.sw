@@ -15,8 +15,8 @@ def next: Char -> Char
 
 theorem nextOfA: (c: Char) -> c = 'a' -> next c = 'b'
   | 'a', h => rfl
-  | 'b', h => J (\y e => next y = 'b') rfl (Eq.sym h)
-  | _, h   => J (\y e => next y = 'b') rfl (Eq.sym h)
+  | 'b', h => J (y e => next y = 'b') rfl (Eq.sym h)
+  | _, h   => J (y e => next y = 'b') rfl (Eq.sym h)
 
 -- The matched character by name in a `match`.
 theorem isItself (c: Char): Or (c = 'x') (c = c) :=
@@ -42,8 +42,8 @@ def bitChar: Nat -> Char
 theorem bitRoundTrip: (c: Char) -> Or (c = '0') (c = '1') -> bitChar (bitValue c) = c
   | '0', o       => rfl
   | '1', o       => rfl
-  | _, Inl h     => J (\y e => bitChar (bitValue y) = y) rfl (Eq.sym h)
-  | _, Inr h     => J (\y e => bitChar (bitValue y) = y) rfl (Eq.sym h)
+  | _, Inl h     => J (y e => bitChar (bitValue y) = y) rfl (Eq.sym h)
+  | _, Inr h     => J (y e => bitChar (bitValue y) = y) rfl (Eq.sym h)
 
 theorem bitIsBit: (c: Char) -> Or (c = '0') (c = '1') -> isBit c = True
   | '0', o   => rfl

@@ -24,7 +24,7 @@ fn evaluates_and_prints_expressions() {
         ("List.length [1, 2, 3]", "3 : Nat"),
         ("List.append [1] [2, 3]", "[1, 2, 3] : List Nat"),
         ("[[1], []]", "[[1], []] : List (List Nat)"),
-        ("Succ", "\\n => Succ n : Nat -> Nat"),
+        ("Succ", "n => Succ n : Nat -> Nat"),
         ("7 / 2", "3 : Nat"),
         ("Nat.div 7 2", "3 : Nat"),
     ];

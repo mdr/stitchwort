@@ -1301,7 +1301,7 @@ impl<'g> Gen<'g> {
         }))
     }
 
-    /// Whether `\y => body` is `\y => Done y`, the continuation the
+    /// Whether `y => body` is `y => Done y`, the continuation the
     /// elaborator writes for an operation or a recursion request, which the
     /// runner recognises to run a tail request in constant space (as
     /// `stitchwort_core::step` does).

@@ -3,4 +3,4 @@
 -- functions.
 def inc (x: Nat): Nat := x + 1
 
-def same: Bool := inc == (\x => Succ x)
+def same: Bool := inc == (x => Succ x)

@@ -16,6 +16,6 @@ def depth: Tree -> Nat
   | Node False b rest => Succ (depth (rest (not b)))
 
 -- A number node whose `rest` takes a number, then a boolean node.
-def example: Tree := Node True 5 (\n => Node False True (\b => if b then Node False b (\c => Leaf) else Leaf))
+def example: Tree := Node True 5 (n => Node False True (b => if b then Node False b (c => Leaf) else Leaf))
 
 test "depth" := depth example == 2

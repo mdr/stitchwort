@@ -51,21 +51,21 @@ theorem pickSub (t: List Nat): (w: Nat) -> (xs: List Nat) -> (c: Nat) -> (after:
   | Succ w, Nil,         c, after, hx, hc, s, h => hc s h
   | Succ w, Cons x more, c, after, hx, hc, s, h =>
     match e: Nat.leq (Succ c) x with
-      | True  => pickSub t w more x more (\s2 g2 => hx s2 (List.subsequenceCons x s2 more g2)) (\s2 g2 => hx (Cons x s2) (Inl (Both rfl g2))) s h
-      | False => pickSub t w more c after (\s2 g2 => hx s2 (List.subsequenceCons x s2 more g2)) hc s h
+      | True  => pickSub t w more x more (s2 g2 => hx s2 (List.subsequenceCons x s2 more g2)) (s2 g2 => hx (Cons x s2) (Inl (Both rfl g2))) s h
+      | False => pickSub t w more c after (s2 g2 => hx s2 (List.subsequenceCons x s2 more g2)) hc s h
 
 -- 1. `best k ds` is a subsequence of `ds`.
 theorem bestSub: (k: Nat) -> (ds: List Nat) -> List.Subsequence (Bank.best k ds) ds
   | Zero,   ds          => Trivial
   | Succ k, Nil         => Trivial
   | Succ k, Cons d rest =>
-    pickSub (Cons d rest) (List.length rest - k) rest d rest (\s h => List.subsequenceCons d s rest h) (\s h => Inl (Both rfl h))
+    pickSub (Cons d rest) (List.length rest - k) rest d rest (s h => List.subsequenceCons d s rest h) (s h => Inl (Both rfl h))
       (Bank.best k (Pair.snd (Bank.best.pick (List.length rest - k) rest d rest))) (bestSub k (Pair.snd (Bank.best.pick (List.length rest - k) rest d rest)))
 
 theorem bestLengthStep (k: Nat) (d: Nat) (rest: List Nat)
   (ih: (a: List Nat) -> List.length (Bank.best k a) = Nat.min k (List.length a)):
     Succ (List.length (Bank.best k (Pair.snd (Bank.best.pick (List.length rest - k) rest d rest))))
-      = Bool.ifThenElse (Nat.leq k (List.length rest)) (\u => Succ k) (\u => Succ (List.length rest)) :=
+      = Bool.ifThenElse (Nat.leq k (List.length rest)) (u => Succ k) (u => Succ (List.length rest)) :=
   match e: Nat.leq k (List.length rest) with
     | True =>
       rewrite ih (Pair.snd (Bank.best.pick (List.length rest - k) rest d rest)),
@@ -80,7 +80,7 @@ theorem bestLengthStep (k: Nat) (d: Nat) (rest: List Nat)
 theorem bestLength: (k: Nat) -> (ds: List Nat) -> List.length (Bank.best k ds) = Nat.min k (List.length ds)
   | Zero,   ds          => rfl
   | Succ k, Nil         => rfl
-  | Succ k, Cons d rest => bestLengthStep k d rest (\a => bestLength k a)
+  | Succ k, Cons d rest => bestLengthStep k d rest (a => bestLength k a)
 
 -- 3. No k digits of `ds`, in order, make a larger number than `best k ds`.
 
@@ -118,7 +118,7 @@ theorem pickBase (k: Nat) (ih: BestBelow k) (c: Nat) (after: List Nat) (h2: k <=
   (y: Nat) (s: List Nat) (hd: Nat.Digits s) (hk: List.length s = k) (e: y = c) (hs: List.Subsequence s after):
   Nat.fromDigits (Cons y s) <= Nat.fromDigits (Cons c (Bank.best k after)) :=
   calc Nat.fromDigits (Cons y s)
-    _ = Nat.fromDigits (Cons c s) := Eq.cong (\z => Nat.fromDigits (Cons z s)) e
+    _ = Nat.fromDigits (Cons c s) := Eq.cong (z => Nat.fromDigits (Cons z s)) e
     _ <= Nat.fromDigits (Cons c (Bank.best k after)) := Nat.fromDigitsConsLe c s (Bank.best k after) (Eq.trans hk (Eq.sym (Eq.trans (bestLength k after) (Nat.minLeft k (List.length after) h2)))) (ih after s hs hd hk)
 
 -- When `x` ties with `c`, starting from `x` is no better than from `c`, which
@@ -133,23 +133,23 @@ theorem pickTie (k: Nat) (w: Nat) (x: Nat) (more: List Nat) (c: Nat) (after: Lis
       pickBeatsSmaller k w more c after h1 h2 y s hd hk
         (Nat.ltCongLeft x y (Pair.fst (Bank.best.pick w more c after)) (Eq.sym eyx) (Nat.leTrans (Succ x) c (Pair.fst (Bank.best.pick w more c after)) e2 (pickGe w more c after)))
     | False =>
-      rec c after h1 h2 (\t h => hsa t (List.subsequenceCons x t more h)) y s hd hk
+      rec c after h1 h2 (t h => hsa t (List.subsequenceCons x t more h)) y s hd hk
         (Inl (Both (Eq.trans eyx (Nat.leAntisym x c le (Nat.leqFalse (Succ x) c e2))) (hsa s (List.subsequenceCons x s more hs))))
 
 theorem pickBestStep (k: Nat) (w: Nat) (x: Nat) (more: List Nat) (c: Nat) (after: List Nat)
   (rec: (c2: Nat) -> (a2: List Nat) -> PickBeats k w more c2 a2)
   (h1: k + w <= List.length more) (h2: k <= List.length after) (hsa: (s: List Nat) -> List.Subsequence s (Cons x more) -> List.Subsequence s after)
   (y: Nat) (s: List Nat) (hd: Nat.Digits s) (hk: List.length s = k) (cand: Candidate k (Succ w) (Cons x more) c after y s):
-    Nat.fromDigits (Cons y s) <= Nat.fromDigits (Cons (Pair.fst (Decidable.elim (Bool.decTrue (Nat.leq (Succ c) x)) (\u => Bank.best.pick w more x more) (\u => Bank.best.pick w more c after)))
-      (Bank.best k (Pair.snd (Decidable.elim (Bool.decTrue (Nat.leq (Succ c) x)) (\u => Bank.best.pick w more x more) (\u => Bank.best.pick w more c after))))) :=
+    Nat.fromDigits (Cons y s) <= Nat.fromDigits (Cons (Pair.fst (Decidable.elim (Bool.decTrue (Nat.leq (Succ c) x)) (u => Bank.best.pick w more x more) (u => Bank.best.pick w more c after)))
+      (Bank.best k (Pair.snd (Decidable.elim (Bool.decTrue (Nat.leq (Succ c) x)) (u => Bank.best.pick w more x more) (u => Bank.best.pick w more c after))))) :=
   match e: Nat.leq (Succ c) x, cand with
     | True, Inl (Both ey hs) =>
       pickBeatsSmaller k w more x more h1 (Nat.leOfAddLe k w (List.length more) h1) y s hd hk
         (Nat.ltCongLeft c y (Pair.fst (Bank.best.pick w more x more)) (Eq.sym ey) (Nat.leTrans (Succ c) x (Pair.fst (Bank.best.pick w more x more)) e (pickGe w more x more)))
     | True, Inr (Both g hlen) =>
-      rec x more h1 (Nat.leOfAddLe k w (List.length more) h1) (\t h => h) y s hd hk (Or.andWith hlen g)
-    | False, Inl a => rec c after h1 h2 (\t h => hsa t (List.subsequenceCons x t more h)) y s hd hk (Inl a)
-    | False, Inr (Both (Inr g) hlen) => rec c after h1 h2 (\t h => hsa t (List.subsequenceCons x t more h)) y s hd hk (Inr (Both g hlen))
+      rec x more h1 (Nat.leOfAddLe k w (List.length more) h1) (t h => h) y s hd hk (Or.andWith hlen g)
+    | False, Inl a => rec c after h1 h2 (t h => hsa t (List.subsequenceCons x t more h)) y s hd hk (Inl a)
+    | False, Inr (Both (Inr g) hlen) => rec c after h1 h2 (t h => hsa t (List.subsequenceCons x t more h)) y s hd hk (Inr (Both g hlen))
     | False, Inr (Both (Inl (Both eyx hs)) hlen) =>
       pickTie k w x more c after rec h1 h2 hsa y s hd hk (Nat.leqFalse (Succ c) x e) eyx hs
 
@@ -162,7 +162,7 @@ theorem pickBest (k: Nat) (ih: BestBelow k): (w: Nat) -> (xs: List Nat) -> (c: N
   | Succ w, Nil, c, after, h1, h2, hsa, y, s, hd, hk, Inr (Both g hlen) => Void.exfalso g
   | Succ w, Cons x more, c, after, h1, h2, hsa, y, s, hd, hk, cand =>
     pickBestStep k w x more c after
-      (\c2 a2 g1 g2 g3 y2 s2 g4 g5 g6 => pickBest k ih w more c2 a2 g1 g2 g3 y2 s2 g4 g5 g6)
+      (c2 a2 g1 g2 g3 y2 s2 g4 g5 g6 => pickBest k ih w more c2 a2 g1 g2 g3 y2 s2 g4 g5 g6)
       (Nat.addSuccLeSucc k w (List.length more) h1) h2 hsa y s hd hk cand
 
 theorem bestOptimal: (k: Nat) -> BestBelow k
@@ -172,7 +172,7 @@ theorem bestOptimal: (k: Nat) -> BestBelow k
   | Succ k, Nil,         Cons y s, h, hd,        hk => Void.exfalso h
   | Succ k, Cons d rest, Nil,      h, hd,        hk => Void.exfalso (Nat.zeroNotSucc k hk)
   | Succ k, Cons d rest, Cons y s, h, Both hy hs, hk =>
-    bestOptimalStep k d rest y s (\l t g gd gk => bestOptimal k l t g gd gk) h hs (Nat.succInjective (List.length s) k hk)
+    bestOptimalStep k d rest y s (l t g gd gk => bestOptimal k l t g gd gk) h hs (Nat.succInjective (List.length s) k hk)
 
 theorem bestOptimalStep (k: Nat) (d: Nat) (rest: List Nat) (y: Nat) (s: List Nat) (ih: BestBelow k)
   (h: List.Subsequence (Cons y s) (Cons d rest)) (hs: Nat.Digits s) (hk: List.length s = k):
@@ -180,7 +180,7 @@ theorem bestOptimalStep (k: Nat) (d: Nat) (rest: List Nat) (y: Nat) (s: List Nat
   pickBest k ih (List.length rest - k) rest d rest
     (Nat.addSubLe k (List.length rest) (Nat.leCongLeft (List.length s) k (List.length rest) hk (List.subsequenceLength (Cons y s) (Cons d rest) h)))
     (Nat.leCongLeft (List.length s) k (List.length rest) hk (List.subsequenceLength (Cons y s) (Cons d rest) h))
-    (\t g => g) y s hs hk
+    (t g => g) y s hs hk
     (Or.andWith (Nat.leSubAdd k (List.length rest) (Nat.leCongLeft (List.length s) k (List.length rest) hk (List.subsequenceLength (Cons y s) (Cons d rest) h))) h)
 
 -- For a bank of digits: the greedy pick beats every choice of k digits.

@@ -21,7 +21,7 @@ land on 0.
 - **Lean 4** (core library only, no Mathlib) was quickest to write, about 15 minutes, and
   its proof is about half the size of Stitchwort's: 5,000 characters against 11,500.
   Almost all of the saving comes from `omega`, `simp` and `grind`. These tactics do the
-  shuffling that Stitchwort's `Eq.trans (Eq.cong (\x => …))` chains do by hand:
+  shuffling that Stitchwort's `Eq.trans (Eq.cong (x => …))` chains do by hand:
   `a + 1 + n = a + (n + 1)`, `±1`, commutativity, and integer casts. **None of them can
   reason about `x / s` or `x % s` when `s` is a variable.** So the Lean proof splits into
   the same cases as Stitchwort's, and uses the same kind of library lemmas
@@ -127,9 +127,9 @@ theorem stepLeftFrom (highest : Nat) : (m : Nat) -> Succ m <= highest -> (n : Na
     Bool.toNat (m == 0) + ((Succ highest - m) % Succ highest + n) / Succ highest
       = ((Succ highest - Succ m) % Succ highest + Succ n) / Succ highest
   | Zero,   h, n =>
-    Eq.trans (Eq.cong (\x => Succ ((x + n) / Succ highest)) (Nat.modSelf (Succ highest)))
-      (Eq.sym (Eq.trans (Eq.cong (\x => (x + Succ n) / Succ highest) (Nat.modSmall highest (Succ highest) (Nat.leRefl highest)))
-        (Eq.trans (Eq.cong (\x => x / Succ highest) (Nat.addSucc highest n)) (Nat.addDivSelf (Succ highest) n))))
+    Eq.trans (Eq.cong (x => Succ ((x + n) / Succ highest)) (Nat.modSelf (Succ highest)))
+      (Eq.sym (Eq.trans (Eq.cong (x => (x + Succ n) / Succ highest) (Nat.modSmall highest (Succ highest) (Nat.leRefl highest)))
+        (Eq.trans (Eq.cong (x => x / Succ highest) (Nat.addSucc highest n)) (Nat.addDivSelf (Succ highest) n))))
   | Succ j, h, n => …
 ```
 
@@ -164,7 +164,7 @@ proves `-1 = h + (h + 1) * (-1)` and the integer casts. The core library lemmas
 (`leftAt`) is `Int.sub_emod`, `Int.emod_emod` and `congr; omega` **[checked]**.
 
 **Agda.** The same case split as Stitchwort's. `rewrite` takes the place of the
-`Eq.cong (\x => …)` motives, and the standard library's `DivMod` lemmas fill the gaps:
+`Eq.cong (x => …)` motives, and the standard library's `DivMod` lemmas fill the gaps:
 
 ```agda
 stepLeft h zero _ n rewrite leftZero h with h
@@ -236,7 +236,7 @@ stepLeft h (S m) le n = rewrite leftSucc h m le in case m of
 
 - **Same design as Stitchwort, with better notation.** There are no tactics, but:
   - `rewrite e` abstracts the left side of `e` in the goal, so you don't write the
-    motive `\x => …` yourself;
+    motive `x => …` yourself;
   - `begin … ≡⟨ p ⟩ … ∎` lays a chain of `trans` steps out one equation per line, with
     each intermediate expression written down and checked;
   - `with` does case analysis on a computed value (`with m ≤? h`).
@@ -321,7 +321,7 @@ guesses **[inferred]**.
    - `rewrite e in t` would infer the motive by abstracting `e`'s left side in the
      expected type, then produce `J` or `Eq.cong` as today.
 
-   Together these remove nearly every hand-written `\x => …` motive, which is most of the
+   Together these remove nearly every hand-written `x => …` motive, which is most of the
    length of `stepLeftFrom`, `stepRight` and `zerosPassedSplit`. Agda shows that this
    brings a term-only proof to about Agda's size (8,100 characters against 11,500).
    Effort: `calc` is small (parser and desugaring, a few days). `rewrite` is medium: it

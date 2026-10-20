@@ -121,7 +121,7 @@ fn program(rng: &mut Rng, n: usize) -> String {
     rng.shuffle(&mut order);
     let mut call = format!("prog{n}");
     for i in &order {
-        call = format!("(\\u => relay{i} {call})");
+        call = format!("(u => relay{i} {call})");
     }
     let expected = expected
         .iter()

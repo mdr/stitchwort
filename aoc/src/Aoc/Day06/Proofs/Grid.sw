@@ -27,7 +27,7 @@ theorem foldWidenFits (start: Nat): (lines: List Text) -> Fits (lines.foldLeft w
          (foldWidenFits (widen start l) rest)
 
 theorem paddedAllLength (width: Nat): (lines: List Text) -> Fits width lines ->
-    List.AllLength width (lines.map (\line => line.toList.padRight width ' '))
+    List.AllLength width (lines.map (line => line.toList.padRight width ' '))
   | Nil,         fits          => Trivial
   | Cons l rest, Both fit fits => Both (List.padRightLength width ' ' l.toList fit) (paddedAllLength width rest fits)
 
@@ -49,5 +49,5 @@ theorem blocksAreRuns (lines: List Text): List.Groups Aoc.Day06.isBlank (blocks 
 
 -- ...and together the blocks hold every column that isn't blank, in order.
 theorem blocksKeepEveryColumn (lines: List Text):
-    List.concat (blocks lines) = (paddedGrid lines).transpose.filter (\column => not (isBlank column)) :=
+    List.concat (blocks lines) = (paddedGrid lines).transpose.filter (column => not (isBlank column)) :=
   List.splitByConcat isBlank (paddedGrid lines).transpose

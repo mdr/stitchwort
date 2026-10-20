@@ -34,7 +34,7 @@ def length: List a -> Nat
   | Cons x xs => Succ (length xs)
 
 -- Implicit parameters can also be written out, and are in scope by name.
-theorem cong (f: a -> b) [x y: a] (p: x = y): f x = f y := J (\y' p' => f x = f y') rfl p
+theorem cong (f: a -> b) [x y: a] (p: x = y): f x = f y := J (y' p' => f x = f y') rfl p
 
 -- A theorem's type must be a proposition
 theorem zeroPlus (n: Nat): 0 + n = n := rfl
@@ -84,7 +84,7 @@ def isOdd: Nat -> Bool
 ```
 
 - **A type can't mention a definition it's checked together with** (`E-MUTUAL-SIGNATURE`): the definitions in a cycle are finished all at once, and a type may only use what's finished. A proof about `isEven` belongs outside the cycle, where its type computes.
-- **Inside a cycle, a definition must be given all its arguments** wherever it's used, so the termination checker sees what each call passes: `map isOdd xs` inside `isEven` is refused, `map (\n => isOdd n) xs` isn't. Outside the cycle, anything goes.
+- **Inside a cycle, a definition must be given all its arguments** wherever it's used, so the termination checker sees what each call passes: `map isOdd xs` inside `isEven` is refused, `map (n => isOdd n) xs` isn't. Outside the cycle, anything goes.
 - **Data types that refer to each other are checked together**, like a tree whose children are a forest:
 
   ```
@@ -131,8 +131,8 @@ test "parse" := parseBank "102" == [1, 0, 2]
 export def identityNat (n: Nat): Nat := n
 
 let x := 1 + 2                       -- in a block
-\x => x + 1                          -- a lambda
-\(x: Nat) (y: Nat) => x + y          -- a lambda with typed parameters
+x => x + 1                          -- a lambda
+(x: Nat) (y: Nat) => x + y          -- a lambda with typed parameters
 match xs with
   | Nil => 0
   | Cons x _ => x
@@ -143,7 +143,11 @@ handle prog() with
 
 - `->` is only the function type. `=>` separates a pattern or parameter from what follows (arms, `match`, handlers, lambdas). `=` is only equality; `:=` gives a body or a `let` its value. Using `=` there is `E-DEF-EQUALS`.
 - Parameters before the colon have the same name in every arm and can't be matched. Parameters after the colon are matched by the arms. `()` before the colon is an unused unit parameter (it becomes `_`).
-- A lambda's parameters are names, patterns, or typed parameters written as a definition's are: `\(x: Nat) => …`, `\(x y: Nat) => …`, mixed freely (`\x (y: Nat) => …`). A typed parameter takes its type from the annotation, which in a checked lambda must agree with the expected parameter type (else `E-TYPE-MISMATCH`, pointing at the annotation), and which lets a lambda with no expected type be inferred: `\(p: Person) => p.name` has type `Person -> Text`. A typed parameter can't also be a pattern, and `[x: T]` (implicit) parameters aren't allowed. Examples: `examples/accept/lambda-annotations.sw`.
+- A lambda's parameters are names, patterns, or typed parameters written as a definition's are: `(x: Nat) => …`, `(x y: Nat) => …`, mixed freely (`x (y: Nat) => …`). A typed parameter takes its type from the annotation, which in a checked lambda must agree with the expected parameter type (else `E-TYPE-MISMATCH`, pointing at the annotation), and which lets a lambda with no expected type be inferred: `(p: Person) => p.name` has type `Person -> Text`. A typed parameter can't also be a pattern, and `[x: T]` (implicit) parameters aren't allowed. Examples: `examples/accept/lambda-annotations.sw`.
+- A lambda is a run of parameters followed by `=>`: `x => e`, `x y => e` (curried), `_ => e`. A parameter is a lower-case name, `_`, a typed group, or a pattern in brackets (`(a, b)`, `(MkPair a b)`, `{ name, .. }`); `(a, b) => e` is one pair taken apart, not two parameters (for two, write `a b => e`). A constructor or number parameter needs brackets too: `(Trivial) => …`. A lambda is a whole expression only: after `:=`, `=>`, `then`, `else`, `|>`, an opening bracket or a comma, a record field's `=`, or at the start of a block line. As an argument or an operand it needs brackets. There is no backslash form.
+
+> **Lambdas used as arguments need brackets:** `map (x => x + 1) xs`. Without them, `map x => …` is a two-parameter lambda whose first parameter is named `map`. A lambda with two or more parameters whose first parameter hides a function in scope gets the warning `W-LAMBDA-SHADOW`, and an error inside it gets a note saying to bracket the lambda. Example: `examples/accept/lambda-shadow.sw`, `examples/reject/lambda-forgotten-brackets.sw`.
+
 - A handler clause is `| op x, k => body`: the operation's argument, then the continuation's name. The argument is one atomic pattern, so bracket a tuple: `| op (a, b), k => …`.
 
 **Layout.** Let *D* be the column of the declaration's `def`, `theorem` or `export`.
@@ -174,12 +178,12 @@ def sumTo (n: Nat): Nat :=
 - **Each is lifted** to a top-level definition `sumTo.go`. It takes as leading parameters the outer variables it uses, and the ones their types mention (a proof `ok: i < 5` is captured together with `i`). A captured implicit or auto parameter stays implicit or auto. A local definition and its owner may call each other, and termination is checked on the lifted program, as for any definitions that call each other.
 - **Naming from outside:** `sumTo.go`, and `f.go.inner` for a definition inside `go`. Names are unique within one top-level definition (`E-DUPLICATE`), even if a later one shadows an earlier one, because the lifted names are all `f.name`.
 - **Lemmas:** a local `theorem goZero (a: Nat): go 0 a = a := rfl` about a local function works when that function doesn't call its owner (it must be finished for the lemma's type to compute). If the function calls its owner, it isn't finished while the owner is checked: a proof that needs it to compute fails (with a note suggesting a top-level theorem about `f.go`), and a lemma whose type mentions it is `E-MUTUAL-SIGNATURE`.
-- **Limits:** a recursive local definition can't be `{Partial}` (`E-LOCAL-DEFINITION`; define it at top level). A local definition in a cycle with its owner can't be passed unapplied (`E-TERMINATION`): write `\x => go x`. A block must end with an expression (`E-PARSE`).
+- **Limits:** a recursive local definition can't be `{Partial}` (`E-LOCAL-DEFINITION`; define it at top level). A local definition in a cycle with its owner can't be passed unapplied (`E-TERMINATION`): write `x => go x`. A block must end with an expression (`E-PARSE`).
 - There is no `where` clause: after a body or the last arm it is `E-WHERE`, which points to local definitions.
 
 Examples: `examples/accept/local-defs.sw`, `examples/accept/local-defs-effects.sw`, `examples/extract/local-defs.sw`. Design: [syntax-conveniences.md](proposals/syntax-conveniences.md) section 3.
 
-**Exact arity.** Every arm has exactly one pattern for each explicit argument after the colon. These are counted after unfolding definitions, up to the first thing that isn't a function type (such as an ability row). So `def f: Nat -> Nat -> Nat` needs `| Zero, y => y`, not `| Zero => \y => y`. Fewer patterns is `E-ARITY`, as is a different number in different arms. A `:=` body has no arity rule. Implicit and auto arguments after the colon aren't matched; they're in scope by name.
+**Exact arity.** Every arm has exactly one pattern for each explicit argument after the colon. These are counted after unfolding definitions, up to the first thing that isn't a function type (such as an ability row). So `def f: Nat -> Nat -> Nat` needs `| Zero, y => y`, not `| Zero => y => y`. Fewer patterns is `E-ARITY`, as is a different number in different arms. A `:=` body has no arity rule. Implicit and auto arguments after the colon aren't matched; they're in scope by name.
 
 **`E-DUPLICATE-PARAMETER`.** The names of the header's parameters, and of the implicit and auto parameters after the colon, must all be different.
 
@@ -238,7 +242,7 @@ def nameOf: Person -> Text
 ```
 
 - **A literal needs an expected type**: a signature, an argument's type, or an annotation, `({ x = 0, y = 0 }: Point)`. Nothing is guessed from the field names (`E-CANNOT-INFER`).
-- **`e.name`** reads a field, or calls a function by dot notation: it looks `name` up in the namespace of `e`'s type `T`, finding the field or `T.name`, and puts `e` in the place of `T.name`'s first parameter of type `T`, whatever its position (`line.split ','` is `Text.split ',' line`; `t.split` alone is `\c => Text.split c t`). A nickname's namespace is tried before what it stands for (`p: Price` tries `Price.show`, then `Nat.show`), and `p.sym` on an equation finds `Eq.sym`. It's written without spaces around the `.`, binds tighter than application (`f p.name` is `f (p.name)`), and chains (`t.lead.name`, `(f x).age`). The receiver runs first, then the arguments as written. `e`'s type must be known where it's used: `\p => p.name` needs `\(p: Person) => p.name` unless the function's type is known from elsewhere (`people.map (\p => p.name)` works, since `people` is checked first; so does `List.map (\p => p.name) people`: in an application, a lambda whose parameter type isn't known yet, and that can't be checked without it, is checked after the later arguments, unless a later argument's type depends on it. Only the checking order changes, not the order arguments are passed or run in). `f p .name`, with a space, is a method section instead ([Method sections](#method-sections)). See docs/proposals/namespaces.md §4.8.
+- **`e.name`** reads a field, or calls a function by dot notation: it looks `name` up in the namespace of `e`'s type `T`, finding the field or `T.name`, and puts `e` in the place of `T.name`'s first parameter of type `T`, whatever its position (`line.split ','` is `Text.split ',' line`; `t.split` alone is `c => Text.split c t`). A nickname's namespace is tried before what it stands for (`p: Price` tries `Price.show`, then `Nat.show`), and `p.sym` on an equation finds `Eq.sym`. It's written without spaces around the `.`, binds tighter than application (`f p.name` is `f (p.name)`), and chains (`t.lead.name`, `(f x).age`). The receiver runs first, then the arguments as written. `e`'s type must be known where it's used: `p => p.name` needs `(p: Person) => p.name` unless the function's type is known from elsewhere (`people.map (p => p.name)` works, since `people` is checked first; so does `List.map (p => p.name) people`: in an application, a lambda whose parameter type isn't known yet, and that can't be checked without it, is checked after the later arguments, unless a later argument's type depends on it. Only the checking order changes, not the order arguments are passed or run in). `f p .name`, with a space, is a method section instead ([Method sections](#method-sections)). See docs/proposals/namespaces.md §4.8.
 - **An update** `{ e | f = …, … }` replaces some fields. A later field whose type mentions a replaced one must be replaced too (`E-RECORD-UPDATE`): `{ s | items = xs }` isn't allowed for `s: Sized a`, `{ s | items = xs, size = n, ok = proof }` is.
 - **Record patterns** `{ f = p, g, .. }` work wherever patterns do, nested in constructors and other records, when the type of what they match is known (a parameter's from the signature, or a field's from the constructor around it). After `=`, a constructor pattern takes its arguments without parentheses: `{ items = Cons x xs, .. }`.
 - **Order of effects**: in a computation, field expressions run in the order written, then the record is built; an update's base runs once, first.
@@ -273,7 +277,7 @@ def allResults (prog: () -> {Choose | e} a): {e} List a :=
     | choose u, k    => List.append (k True) (k False)
 ```
 
-Effectful code is written in direct style. Arguments are evaluated left to right, and the lines of a block in order. A handler's clauses on their own lines must line up: a `|` at another column belongs to an enclosing handler. An operation on its own (`choose`) is a function, `\x => choose x`. A signature can be a computation that isn't a function: `current: {State Nat} Nat`. A pure function can use a handler inside; what it handles doesn't appear in its type. How this is translated into ordinary data is described in `docs/core.md`, under "Abilities".
+Effectful code is written in direct style. Arguments are evaluated left to right, and the lines of a block in order. A handler's clauses on their own lines must line up: a `|` at another column belongs to an enclosing handler. An operation on its own (`choose`) is a function, `x => choose x`. A signature can be a computation that isn't a function: `current: {State Nat} Nat`. A pure function can use a handler inside; what it handles doesn't appear in its type. How this is translated into ordinary data is described in `docs/core.md`, under "Abilities".
 
 ## `IO`
 
@@ -310,7 +314,7 @@ def loop: Nat -> {Partial} Nat
 ```
 
 - Calling a partial function in code whose type doesn't say `Partial` is
-  `E-PARTIAL`. Mentioning one is fine: `\u => collatzSteps 3` is a total
+  `E-PARTIAL`. Mentioning one is fine: `u => collatzSteps 3` is a total
   value, and partial functions can be passed around and stored.
 - A total function fits where a partial one is expected; not the other way
   round. A row variable never stands for `Partial`, so a handler can't run
@@ -333,7 +337,7 @@ Loosest-binding first:
 
 | Syntax | Meaning |
 |---|---|
-| `\x y => e` | Function |
+| `x y => e` | Function |
 | `(x y: A) -> B` | Dependent function type |
 | `[x y: A] -> B` | Function type with implicit parameters, filled in by the compiler |
 | `[auto x: P] -> B` | An implicit proof of `P`, found from hypotheses in scope or a decision procedure |
@@ -369,13 +373,13 @@ Loosest-binding first:
 | `[a, b, c]` | `List` literal. In an expression, `[x := e]` supplies an implicit argument and every other `[…]` is a list |
 | `{ name = e, age }`, `{ p \| age = e }` | Record literal (with an expected type) and update ([Records](#records)). After an arrow, `{` starts an ability row instead |
 | `e.name` | A field, or dot notation: `T.name e …` for `e: T`. No spaces around the `.`; binds tighter than application |
-| `.name`, `.drop 1` | Method section: `\x => x.name`, `\x => x.drop 1`. A space before the `.` (or a bracket or line start). See [Method sections](#method-sections) |
+| `.name`, `.drop 1` | Method section: `x => x.name`, `x => x.drop 1`. A space before the `.` (or a bracket or line start). See [Method sections](#method-sections) |
 | `rfl` | Proof of `a = a` |
-| `J (\y p => P) base proof` | Transport along an equality |
+| `J (y p => P) base proof` | Transport along an equality |
 
 **Interpolation.** Inside a text literal, `${e}` inserts `e` converted with `.toText`: `"Part 1: ${solvePart1 turns}"` is `"Part 1: " ++ (solvePart1 turns).toText`, and `"n = ${2 + 3}"` is `"n = 5"`. The expression may contain braces and nested text literals, as in `"${f "x"}"`. A `$` not followed by `{` is an ordinary character; write `\$` for a literal dollar sign: `"cost: \$5"`.
 
-A partially applied constructor is a function: `Succ` on its own means `\n => Succ n`.
+A partially applied constructor is a function: `Succ` on its own means `n => Succ n`.
 
 ### `&&`, `||` and `not`
 
@@ -388,7 +392,7 @@ Precedence, loosest first: `->`, then `\|>`, then `\|\|`, then `&&`, then `=` `!
 
 A test (`test "…" := e`) takes `e` as a condition too: a `Bool`, or a proposition with a decision procedure, so `test "ordered" := 1 < 2 && 2 < 3` and `test "small" := 3 < 5` work.
 
-**Anywhere a `Bool` is expected**, a proposition with a decision procedure is decided, as Lean's `decide` coercion does: `List.filter (\n => k * n <= size) xs`, `List.all (\x => x < 10) xs`, `def le (a b: Nat): Bool := a <= b`. The expression is elaborated as usual; only if it turns out to be a proposition (its type is `Prop`) and the expected type is the library's `Bool` is it replaced by `Decidable.toBool` of its decision. A proposition nothing decides is `E-AUTO-NONE` at the expression, saying a `Bool` is expected (`List.filter (\g => g = f) gs` on functions). Where a proposition is expected nothing changes, and conditions (`if c`, `&&`, `||`, `not`, `test`) still try the `Bool` reading first and then the proposition, as above.
+**Anywhere a `Bool` is expected**, a proposition with a decision procedure is decided, as Lean's `decide` coercion does: `List.filter (n => k * n <= size) xs`, `List.all (x => x < 10) xs`, `def le (a b: Nat): Bool := a <= b`. The expression is elaborated as usual; only if it turns out to be a proposition (its type is `Prop`) and the expected type is the library's `Bool` is it replaced by `Decidable.toBool` of its decision. A proposition nothing decides is `E-AUTO-NONE` at the expression, saying a `Bool` is expected (`List.filter (g => g = f) gs` on functions). Where a proposition is expected nothing changes, and conditions (`if c`, `&&`, `||`, `not`, `test`) still try the `Bool` reading first and then the proposition, as above.
 
 ### Pipe forward `|>`
 
@@ -397,7 +401,7 @@ A test (`test "…" := e`) takes `e` as a condition too: a `Bool`, or a proposit
 ```
 def total: Nat :=
   people
-    |> List.map (\p => p.age)
+    |> List.map (p => p.age)
     |> List.sum
 ```
 
@@ -406,8 +410,8 @@ def total: Nat :=
 It is the loosest operator except `->`, and groups to the left: `x |> f |> g` is `(x |> f) |> g`, `a + b |> f` is `(a + b) |> f`, and `x |> f -> T` is `(x |> f) -> T`. Because it's looser than `=`, `xs |> List.sum = 6` is `xs |> (List.sum = 6)`; write `(xs |> List.sum) = 6`.
 
 - **Layout.** A line may start with `|>` to continue the expression, if it's indented at least as far as the line the expression starts on, even at the enclosing block's own column (as `then` and `else` may). `|>` is its own token, so it never clashes with the `|` of arms and alternatives. After a `match`, a `|>` line at or right of the last alternative's `|` continues that alternative's body (the last alternative takes what follows, as with any operator); one further left, but at least at the `match` line's column, pipes the whole `match`.
-- **A lambda on the right** takes the rest of the pipeline: `x |> \y => f y |> g` is `x |> \y => (f y |> g)`, which means the same as `(x |> \y => f y) |> g`.
-- **The left side is checked first**, and its type is unified with the function's last parameter before the other arguments are checked. So `people |> List.map (\p => p.name)` knows `p: Person` when it reaches the lambda (`List.map (\p => p.name) people` works too, by checking the lambda last; see [`e.name`](#records)). A value of the wrong type is `E-TYPE-MISMATCH`, pointing at the function: "this takes `List Nat` as its last argument, but the value before `|>` has type `Text`".
+- **A lambda on the right** takes the rest of the pipeline: `x |> y => f y |> g` is `x |> y => (f y |> g)`, which means the same as `(x |> y => f y) |> g`.
+- **The left side is checked first**, and its type is unified with the function's last parameter before the other arguments are checked. So `people |> List.map (p => p.name)` knows `p: Person` when it reaches the lambda (`List.map (p => p.name) people` works too, by checking the lambda last; see [`e.name`](#records)). A value of the wrong type is `E-TYPE-MISMATCH`, pointing at the function: "this takes `List Nat` as its last argument, but the value before `|>` has type `Text`".
 - **The left side runs first** when it performs operations, then the right side's arguments, then the call: `say "left" 1 |> add (say "right" 2)` prints `left`, then `right`.
 - **A number literal on the left** is just `f 5`: it takes its type from `f`, as an argument would.
 
@@ -415,19 +419,19 @@ Implicit and `auto` arguments, `[x := e]` and constructors work on the right as 
 
 ### Method sections
 
-`.f args` is `\x => x.f args`: dot notation with the receiver left out.
+`.f args` is `x => x.f args`: dot notation with the receiver left out.
 
 ```
-people.map .name                    -- people.map (\p => p.name)
-people |> .map .age |> .sum         -- (people.map (\p => p.age)).sum
-ls.map (.split ',')                 -- ls.map (\l => l.split ',')
+people.map .name                    -- people.map (p => p.name)
+people |> .map .age |> .sum         -- (people.map (p => p.age)).sum
+ls.map (.split ',')                 -- ls.map (l => l.split ',')
 ```
 
-- **Chains and arguments.** `.name.length` is `\x => x.name.length`. Arguments after the head section belong to it: `.drop 1` is `\x => x.drop 1`. As an argument a section takes none, so bracket it: `List.map .name people`, `people.map (.greet "Hi")`. Like `e.name`, the receiver goes in whatever position of the function it fits (`.split ','` is `\t => Text.split ',' t`).
+- **Chains and arguments.** `.name.length` is `x => x.name.length`. Arguments after the head section belong to it: `.drop 1` is `x => x.drop 1`. As an argument a section takes none, so bracket it: `List.map .name people`, `people.map (.greet "Hi")`. Like `e.name`, the receiver goes in whatever position of the function it fits (`.split ','` is `t => Text.split ',' t`).
 - **The space rule.** A section follows a space (or a bracket, or starts the expression): `f p .name` is `f p (.name)`, while `p.name` is still a field access. `p. name` is still an error, and so are `.Name` and `.1`.
 - **Pipe.** `xs |> .drop 1` is rewritten by the parser to exactly `xs.drop 1`, with no lambda, so `xs |> .drop 1 |> .sum` is `(xs.drop 1).sum`.
 - **Layout.** A section can't start a continuation line as an argument: in `foo xs` followed by an indented `.map f`, the `.map f` would read as another argument of `foo`, so it's a parse error ("a line can't start with a method section"), with a note pointing to `|> .map f` or `(.map f)`. A line starting `|> .map f` is fine.
-- **Checking.** A section is a lambda, so it's checked like one: its receiver's type must be known from the expected function type (`people.map .name`, `apply .length "abc"` for `apply (f: Text -> Nat)`), from a pipe's left side, or from an annotation (`(.drop 1: List Nat -> List Nat)`). In an application, a section whose parameter type isn't known yet is checked after the other arguments, so `List.map .name people` works (as `List.map (\p => p.name) people` does; a plain lambda is checked in place first and waits only if that fails).
+- **Checking.** A section is a lambda, so it's checked like one: its receiver's type must be known from the expected function type (`people.map .name`, `apply .length "abc"` for `apply (f: Text -> Nat)`), from a pipe's left side, or from an annotation (`(.drop 1: List Nat -> List Nat)`). In an application, a section whose parameter type isn't known yet is checked after the other arguments, so `List.map .name people` works (as `List.map (p => p.name) people` does; a plain lambda is checked in place first and waits only if that fails).
 - **Unknown receiver.** `let g := .drop 1` or `(.length) "abcd"` is `E-CANNOT-INFER` ("can't tell what `.drop` is applied to"), with a note suggesting a pipe, passing it where a function type is known, or an annotation.
 - **No such function.** The ordinary dot-notation error: `xs |> .dorp 1` is `E-UNKNOWN-FIELD`, "`List` has no field or function `dorp`", with a "did you mean `drop`?" note.
 - **Effects.** It follows lambda rules: `IO.readAllLines() |> .map (.split ',') |> .length` works in a `{IO}` function.
@@ -506,8 +510,8 @@ The steps line up, one column further right than the line `calc` is on, and each
 | steps so far, next step | result | term |
 |---|---|---|
 | `=`, `=` | `=` | `Eq.trans p q` |
-| `=`, `R` | `R` | `J (\w _ => w R c) q (Eq.sym p)` |
-| `R`, `=` | `R` | `J (\w _ => a R w) p q` |
+| `=`, `R` | `R` | `J (w _ => w R c) q (Eq.sym p)` |
+| `R`, `=` | `R` | `J (w _ => a R w) p q` |
 | `<=`, `<=` | `<=` | `Nat.leTrans a b c p q` |
 | `<`, `<=` | `<` | `Nat.leTrans (Succ a) b c p q` |
 | `<=`, `<` | `<` | `Nat.leTrans (Succ a) (Succ b) c p q` |
@@ -517,7 +521,7 @@ The steps line up, one column further right than the line `calc` is on, and each
 
 ### `rewrite`
 
-`rewrite p in t` proves the goal from `t` by replacing, in the goal, the left side of the equation `p: a = b` by its right side. It spares you the motive: where `Eq.cong (\x => (x + n) / d) p` spells out the expression around the change, `rewrite p` looks for `a` in the goal and works the motive out itself.
+`rewrite p in t` proves the goal from `t` by replacing, in the goal, the left side of the equation `p: a = b` by its right side. It spares you the motive: where `Eq.cong (x => (x + n) / d) p` spells out the expression around the change, `rewrite p` looks for `a` in the goal and works the motive out itself.
 
 ```
 theorem stepZero (highest: Nat) (n: Nat):
@@ -547,7 +551,7 @@ theorem stepZero (highest: Nat) (n: Nat):
   - Every matching occurrence is replaced. There is no way to pick one; use `calc` to say exactly which form you want.
   - An occurrence can match without being there textually, because a term that computes to the left side matches. And the goal searched is the elaborated goal, which keeps definitions folded only until they can compute: a goal written `Succ m + n` is `Succ (m + n)` by then, and `x % d` has unfolded into `x - x / d * d` (so error messages may show `Nat.leq a b = True` for `a <= b`). A rule's left side is read the same way, so the two still agree.
   - The first match fixes the rule's open arguments. With `f n = g n` and a goal `f 1 + f 2`, only `f 1` is rewritten; `f 2` is a different instance. The search order is what picks the instance, and a chosen occurrence isn't searched inside: in `f (f 1)` with `n := f 1`, the inner `f 1` stays.
-  - An occurrence found by being the same term can be of the wrong type: two copies of `\x => x`, one for `Bool` and one for `Nat`, are the same term to the search, and a rule about the `Nat` one meets the `Bool` one first (`E-REWRITE-MOTIVE`: the goal with it replaced is ill typed).
+  - An occurrence found by being the same term can be of the wrong type: two copies of `x => x`, one for `Bool` and one for `Nat`, are the same term to the search, and a rule about the `Nat` one meets the `Bool` one first (`E-REWRITE-MOTIVE`: the goal with it replaced is ill typed).
   - `E-REWRITE-BUDGET` is about cost, not truth.
   - If a proof-irrelevant comparison arrives ([proof-irrelevance.md](proposals/proof-irrelevance.md)), a candidate that equals the left side only by ignoring a proof field can match and then fail the round trip, as `E-REWRITE-MOTIVE`.
 
@@ -563,9 +567,9 @@ let MkPair a b := p                -- a constructor's arguments need no brackets
 let { name, .. } := p
 let (a, b): (Nat, Nat) := e       -- the right-hand side is checked against the type
 let _ := e
-\(a, b) => a + b
-\acc (k, v) => acc + v
-\{ name, .. } => name
+(a, b) => a + b
+acc (k, v) => acc + v
+{ name, .. } => name
 ```
 
 `let p := e` followed by the rest of the block means `match e with | p => rest`, and a lambda's pattern parameters are matched against its arguments in the same way. `let x := e` and `let (x) := e` are the ordinary `let`.

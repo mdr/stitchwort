@@ -62,15 +62,15 @@ def pong: Nat -> {Counter} ()
 def countBumps (prog: () -> {Counter} ()): Nat :=
   let run: Nat -> Nat :=
     handle prog() with
-      | return x      => \n => n
-      | bump u, k     => \n => k() (Succ n)
+      | return x      => n => n
+      | bump u, k     => n => k() (Succ n)
   run 0
 
 -- A callback passed to a helper as a lambda that calls a member with all
 -- its arguments: `\x => stepBy k x` relates `k` to `walk`'s parameter.
 def walk: Nat -> Nat
   | 0      => 0
-  | Succ k => applyTo (\x => stepBy k x) 1
+  | Succ k => applyTo (x => stepBy k x) 1
 
 def stepBy (k: Nat) (x: Nat): Nat := x + walk k
 
@@ -78,13 +78,13 @@ def applyTo (f: Nat -> Nat) (x: Nat): Nat := f x
 
 -- Names stay local: the pattern variable `step` and the lambda's `isOdd` are
 -- not the definitions of those names, so they make no dependency on them.
-def shadows (step: Nat): Nat := applyTo (\isOdd => isOdd + step) 1
+def shadows (step: Nat): Nat := applyTo (isOdd => isOdd + step) 1
 
 test "main" := main == 6
 test "isEven 10" := isEven 10
 test "isOdd 7" := isOdd 7
 test "total" := total [[1, 2], [], [3, 4]] == 10
-test "ping 5 bumps 3 times" := countBumps (\u => ping 5) == 3
-test "pong 5 bumps 2 times" := countBumps (\u => pong 5) == 2
+test "ping 5 bumps 3 times" := countBumps (u => ping 5) == 3
+test "pong 5 bumps 2 times" := countBumps (u => pong 5) == 2
 test "walk" := walk 3 == 3
 test "shadows" := shadows 2 == 3
