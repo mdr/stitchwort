@@ -63,7 +63,15 @@ pub enum Elim {
 /// elimination is then cheap too). Empty spines (variables, folded
 /// definitions with no arguments yet) allocate nothing.
 #[derive(Clone, Debug, Default)]
-pub struct Spine(Option<Rc<Vec<Elim>>>);
+pub struct Spine(Option<Rc<Elims>>);
+
+/// A spine's eliminations: the first two in the same allocation as the
+/// shared count, so a short spine is one allocation, as a `Vec` was. (An
+/// `Rc<Vec>` took two, which made running programs, which build a short spine
+/// for every partly applied definition, about 7% slower; four inline was no
+/// faster than two, and needed more memory.)
+type Elims = smallvec::SmallVec<[Elim; SPINE_INLINE]>;
+const SPINE_INLINE: usize = 2;
 
 impl Spine {
     pub fn new() -> Spine {
@@ -74,14 +82,16 @@ impl Spine {
     pub fn push(&mut self, elim: Elim) {
         match &mut self.0 {
             Some(elims) => Rc::make_mut(elims).push(elim),
-            None => self.0 = Some(Rc::new(vec![elim])),
+            None => self.0 = Some(Rc::new(smallvec::smallvec![elim])),
         }
     }
 
     /// The eliminations, copied only if they're shared.
     pub fn into_vec(self) -> Vec<Elim> {
         match self.0 {
-            Some(elims) => Rc::try_unwrap(elims).unwrap_or_else(|elims| (*elims).clone()),
+            Some(elims) => Rc::try_unwrap(elims)
+                .unwrap_or_else(|elims| (*elims).clone())
+                .into_vec(),
             None => Vec::new(),
         }
     }
@@ -111,7 +121,7 @@ impl From<Vec<Elim>> for Spine {
         if elims.is_empty() {
             Spine(None)
         } else {
-            Spine(Some(Rc::new(elims)))
+            Spine(Some(Rc::new(Elims::from_vec(elims))))
         }
     }
 }
@@ -267,7 +277,7 @@ fn detach(value: Value, empty: &Rc<[Value]>, pending: &mut Vec<Value>) {
             // Only the last owner takes the eliminations apart.
             let elims = match spine.0 {
                 Some(elims) => Rc::try_unwrap(elims).unwrap_or_default(),
-                None => Vec::new(),
+                None => Elims::new(),
             };
             for elim in elims {
                 match elim {

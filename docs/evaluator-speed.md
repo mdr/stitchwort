@@ -295,3 +295,54 @@ gives `E-RESOURCE` at 100,000 characters".
   (Text.trim (IO.readAll ()))))))`, run as `echo 100000 | stitchwort run bench.sw`.
 - `bench/baseline.toml` (`stitchwort-bench`) remains the regression check for any change made
   from this list.
+
+## 8. Checking proofs (SW-154, 20 October 2026)
+
+`stitchwort check Aoc.Day02.Proofs` took 8.9–9.6 s (from 0.55 s before the day 2 part 2
+proof). Profiled with samply as in section 7 plus a scratch per-declaration timer.
+
+**What the time was** (20,807 samples): the kernel's check 42%, the elaborator 55%; inside
+both, **copying and freeing stuck terms**: `Value::clone` 25% (almost all of it copying
+`Vec<Elim>`, the eliminations of a `Neutral`, recursively), dropping them 20%, the allocator
+34%. A stuck term like `keepIf (repeated r k n) (plus n) + …` nests neutrals in neutrals, so
+each copy (an argument list for `unfold`, a scrutinee, `spine_pairs` in `conv` and `unify`,
+`native::as_nat`) copied the whole thing. The second cost was **comparing functions by
+running them**: `conv` and `unify` compare two lambdas (or function types' codomains) by
+applying both to a fresh variable, and 31% of the time was evaluating those bodies, mostly
+on pairs that were the same lambda (from the same statement, or the same source text).
+
+**Not the problem**: a missing "identical terms" fast path at the top of `conv` (the values
+compared are built separately, so pointer equality rarely holds there), lazy unfolding in
+`conv` (`conv` never unfolds: definitions are folded or unfolded by evaluation), and
+evaluation steps as such (the slow declarations took 9–14 million steps at about 9 million steps a
+second, against 44 million a second for plain computation like `threeChecked`).
+
+**Changed**:
+1. `conv` and `unify` answer "equal" at once for **identical closures**: the same body term
+   (ignoring names and locations) and identical values (same representation, no evaluation)
+   for the variables the body uses (`value.rs`, `same_closure`). Identical values are
+   convertible, and unifying them solves nothing, so no answer can change; a differential test
+   (`crates/driver/tests/conv_shortcut.rs`) checks every example, the soundness suite
+   included, gets the same diagnostics with the shortcut off.
+2. **Shared spines**: `Value::Neutral` holds a `Spine` (`Rc<SmallVec<[Elim; 2]>>`, copied only
+   when an elimination is added to a shared one), so copying a value is constant time.
+   Representation only: the same steps, counts and hashes.
+
+| | before | after |
+|---|---:|---:|
+| `check Aoc.Day02.Proofs` | 8.9 s | 3.7 s |
+| `check` (whole AoC project) | 9.0 s | 3.8 s |
+| empty file | 0.15 s | 0.12 s |
+
+**What's left** (profile after): evaluation 72%, of which the motives of `J` (`infer_j`, in
+the elaborator and again in the kernel, 28%): facts proved by computation such as
+`fourChecked` are computed by both, which is the price of re-checking in the kernel.
+`threeChecked` alone is 1.1 s of real computation (49 million steps).
+
+Recommended next, by gain for the work: (a) the evaluator's own speed (section 4: Q1, Q2,
+and items 2–5), which now dominates checking too; (b) cache the result of evaluating a closed
+term (a definition's statement instantiated with closed arguments), so a computed fact isn't
+recomputed where it's restated; (c) a "glued" evaluation strategy (keep a definition folded
+next to its unfolding, compare folded heads first, as Lean and Coq do) would avoid unrolling
+statements like the "9 billion blocks" one, but changes how every comparison works in the
+trusted kernel: a design note first.

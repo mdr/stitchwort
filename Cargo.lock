@@ -613,6 +613,7 @@ dependencies = [
  "blake3",
  "num-bigint",
  "num-traits",
+ "smallvec",
  "stitchwort-syntax",
 ]
 
