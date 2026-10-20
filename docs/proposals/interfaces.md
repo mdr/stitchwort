@@ -1,15 +1,17 @@
 # Proposal: interfaces
 
-**Status:** draft 2, 20 October 2026. Design only, nothing is built.
+**Status:** draft 3, 20 October 2026. Design only, nothing is built.
 Ticket SW-4, decision D152 (Matt, 20 October 2026: write this note).
-Draft 2 answers the external review of draft 1
-([Changes since draft 1](#changes-since-draft-1-external-review)).
-Open questions are numbered D154 to D174, and new ones D178 to D182
-([§14](#14-decisions)), each with a recommendation and, for the old
-ones, the reviewer's verdict.
+Draft 2 answered the external review of draft 1
+([Changes since draft 1](#changes-since-draft-1-external-review)); draft 3
+answers the focused re-review of draft 2
+([Changes since draft 2](#changes-since-draft-2-re-review)).
+Open questions are numbered D154 to D174, D178 to D182, and D186 to D187
+([§14](#14-decisions)), each with a recommendation and the reviewer's
+verdicts on drafts 1 and 2.
 
 This note can be read without knowing the codebase. Code references were
-checked at commit `4c5b6fe`. Claims are labelled **checked** (with a
+checked at commit `5619eb6`. Claims are labelled **checked** (with a
 source or `file:line`), **inferred** (reasoned from checked facts), or
 **unverified** where it matters. Sources are listed at the end, as
 [L1], [H1] and so on.
@@ -109,9 +111,9 @@ and a precise resolution algorithm. Every point, and where it's answered:
 | # | Review point | Draft 2 |
 |---|---|---|
 | 1 | The uniqueness argument works, but three premises must be rules: ownership is by the declaring module, not the dotted name; all instance signatures of the owning module are collected first, sibling files included; aliases unfold and never create ownership | Made normative (§5.6). Aliases unfold to the underlying head; `type LocalNat = Nat` can't own `Nat` |
-| 2 | Superclass filling isn't a consistent mechanism: `Ord.byKey` has no `DecEq a` to use; literals in plain `def`s omit `eq`; a non-literal instance body has nothing to fill; replacing a field of a built record can break later fields; abstract diamonds aren't covered | Redesigned (§5.8): (a) omitted superclass fields are filled when an interface record literal is elaborated, anywhere; (b) a global instance is *checked*, never changed, against the canonical parents; (c) diamonds: the full superclass closure is searched, only definitionally equal candidates merge, otherwise ambiguity naming both paths; the superclass graph must be acyclic. `Ord.byKey` takes `[auto eq: DecEq a]`. The narrower guarantee is stated exactly |
-| 3 | The `Nat`/`Int` exception for operators makes generic and monomorphic code disagree under the same dictionary | `+ * < <=` now mean the resolved dictionary for every type (§5.13). A global instance written as a record literal is projected at elaboration time, so `Nat`/`Int` code elaborates to exactly today's terms: proof migration cost is zero, checked by comparing hashes. For `<`/`<=`, `Ord` gains its relations and their deciders as fields (D180), so `Nat`'s instance can carry `Nat.LessThan` itself. The discrepancy example is now a test |
-| 4 | Resolution needs a precise algorithm: no depth limit of 8; local matching mustn't commit while testing; the whole instance signature must be restricted (`instance Item.show (prefix: Text)`); recursive prerequisites first check whether head matching solved them | §5.5 is now a numbered algorithm. Matching is one-way (never assigns the goal's unknowns), so order can't matter; goals with unknown inputs wait. A step budget replaces the depth limit, and running out says "stopped" (D182). §5.2 lists the complete allowed signature |
+| 2 | Superclass filling isn't a consistent mechanism: `Ord.byKey` has no `DecEq a` to use; literals in plain `def`s omit `eq`; a non-literal instance body has nothing to fill; replacing a field of a built record can break later fields; abstract diamonds aren't covered | Redesigned (§5.8): (a) omitted superclass fields are filled when an interface record literal is elaborated, anywhere; (b) a global instance is *checked*, never changed, against the canonical parents; (c) diamonds: the full superclass closure is searched, only definitionally equal candidates merge, otherwise ambiguity naming both paths; the superclass graph must be acyclic. `Ord.byKey` takes a `DecEq a` (named `decEq` in draft 3, D181). The narrower guarantee is stated exactly |
+| 3 | The `Nat`/`Int` exception for operators makes generic and monomorphic code disagree under the same dictionary | `+ * < <=` now mean the resolved dictionary for every type (§5.13). A global instance written as a record literal is projected at elaboration time, so `Nat`/`Int` operators are expected to elaborate to today's terms, with no proof rewrites; stage 5 verifies this against the pre-stage-5 baseline by comparing hashes (wording corrected in draft 3). For `<`/`<=`, `Ord` gains its relations and their deciders as fields (D180), so `Nat`'s instance can carry `Nat.LessThan` itself. The discrepancy example is now a test |
+| 4 | Resolution needs a precise algorithm: no depth limit of 8; local matching mustn't commit while testing; the whole instance signature must be restricted (`instance Item.show (prefix: Text)`); recursive prerequisites first check whether head matching solved them | §5.5 is now a numbered algorithm. Matching is one-way (never assigns the goal's unknowns); goals with unknown inputs wait. (Draft 3 adds the blocked result: see the next table.) A step budget replaces the depth limit, and running out says "stopped" (D182). §5.2 lists the complete allowed signature |
 | 5 | Equality proof obligations must keep using hypotheses first; `DecEq` only for deciding | Stated (§5.12), with a stage 2 acceptance example (`h: f = g`) |
 | 6 | Hashing the marker isn't enough for an elaboration cache: adding a hand-written instance suppresses a derived one without touching the caller | No elaboration cache exists today (multi-file §8.3, **checked**). Any future one must key on a per-module *instance environment fingerprint* (§9.3) |
 | 7 | `Map` types distinguish whole dictionaries, not comparators; "the map holds no functions" needs qualifying; five stage-4 tests | All three in §7.5 and §12 |
@@ -122,6 +124,23 @@ and a precise resolution algorithm. Every point, and where it's answered:
 | 9d | `Text`'s laws need a bridge to `Text.compare` | `Text.instOrd` uses `Text.compare` itself (it's a JS native) and proves the laws through a stated bridge lemma (§6.2) |
 | 9e | Stage numbers disagree; `Add.add Nat.add x y` passes a function as a dictionary | Fixed (§7.3, §5.13) |
 | 9f | The summary says Haskell forbids orphans | Fixed: Haskell allows them with a warning; the prohibition is Rust's; the head restriction is Haskell's (§0) |
+
+## Changes since draft 2 (re-review)
+
+The re-review accepted the redesigned superclasses, uniform operators and
+most clarifications, and found two remaining gaps: how `if` and `auto`
+decide a relation stored in a dictionary, and resolution's sensitivity to
+candidates blocked on unknowns. Every point:
+
+| # | Re-review point | Draft 3 |
+|---|---|---|
+| 1 | D180 puts deciders in `Ord`, but nothing says `if x < y` uses them; deciding `Ord.LessThan [ord := o] x y` must use `o`'s own `decLessThan`, never a fresh `Ord` search; the order between this, projection, unfolding, `DecEq` and the legacy search must be fixed | New §5.16, normative (D186). The order: hypotheses (for `auto` proofs); a relation method applied to a dictionary takes its paired decider from the same dictionary; `=` as written goes to `DecEq`; then the legacy search; then unfold the head definition one step and start again. Known-instance projection runs last, on the finished declaration, so it never hides the relation from these steps. The four acceptance cases are in §5.16 and stage 5 |
+| 2 | Resolution can still depend on order: a candidate can be *blocked* on another obligation (the `W`/`makeOrd` example), and two candidates can be blocked from comparing (`build ?d1` vs `build ?d2`) | §5.5 rewritten: matching and comparison have three results (match, rigid mismatch, blocked). Resolution waits while a blocked candidate or comparison could change the outcome; it never falls back to a global while a blocked local could win, and never assigns outside unknowns to make candidates agree. Rigid type parameters aren't unknowns; `?candidateOrd := ?mapOrd` doesn't count as found. The `W` example is worked through |
+| 3 | "Bootstrap until declared" confuses signature collection with a dictionary being usable; `Nat.addAssoc` contains `+` and `Nat.instAdd` uses `Nat.addAssoc`; `Int` too | A fixed prelude bootstrap phase with primitive lowering for `Nat` and `Int` operators and their laws, ending when the numeric dictionaries are built and checked; signature collection stays separate (§5.13, D187) |
+| 4 | Superclass filling vs deferred resolution: later fields may determine the type (`Ord ?a` fixed by `compare = Nat.compare`) | A typed unknown and an instance obligation are created for an omitted parent before later fields are checked; solved at once if possible, otherwise later; the canonical-parent check runs on the completed instance, in its original context, never using the instance as evidence for itself (§5.8) |
+| 5 | D179: "ignored" should mean runtime comparison only; the four proof steps; no circular evidence (`Node (child: Tree) (h: child = child)`) | Reworded, with the four steps; evidence must not depend on the derivation in progress (§5.11) |
+| 6 | "Zero proof migration" is a target until the comparison runs | Reworded as expected, verified in stage 5 against the pre-stage-5 baseline, allowing for the dependency closure of generalised definitions; representative elaborated terms are checked too (§5.13, §12; the draft 1 table row too) |
+| 7 | `before`/`beforeNat` return a proposition where a `Bool` is declared; `Ord.byKey`/`Ord.fromCompare` name their dictionary `eq`, against D181; D178 should promise a source-like form, not parseable text; D182's budget should last across retries | `if x < y then True else False` (§5.13); parameters renamed `decEq` (§5.8, §6.2); `toSource` is a source-like representation (§5.14); the budget is per obligation tree and cumulative across retries (§5.5) |
 
 ---
 
@@ -173,8 +192,9 @@ The recommendation, in short:
    inside one module, so the overlap check is local (§5.6).
 5. **Finding an instance is a lookup, not a search.** Dictionaries in
    scope first, then the one global instance for that interface and type.
-   Matching never guesses a type, so nothing depends on order, file
-   layout or imports (§5.5).
+   Matching never guesses a type, and a test that depends on something
+   not yet known waits instead of deciding, so nothing depends on order,
+   file layout or imports (§5.5).
 6. **Other choices are passed by name**:
    `List.sort [ord := Nat.descending] xs` (§5.7).
 7. **Superclasses** (`Ord` contains a `DecEq`) are filled in when an
@@ -188,7 +208,9 @@ The recommendation, in short:
 9. **Operators mean the dictionary, for every type.** `+`, `*`, `<`, `<=`
    use `Add`, `Mul` and `Ord`, including on `Nat` and `Int`. Because the
    library's `Nat` and `Int` instances are projected at compile time,
-   existing code elaborates to the same terms as today (§5.13).
+   existing code is expected to elaborate to the same terms as today;
+   stage 5 checks this by comparing hashes (§5.13). `if x < y` uses the
+   decider stored with the relation, from the same dictionary (§5.16).
 10. **`Ord`, `Add`, `Mul` and `Show`** join `DecEq` in the library (§6).
     They remove `List.sum`/`List.sumInt` and similar pairs, make
     `List.sort` generic, and give `Map`/`Set` their keys.
@@ -533,48 +555,96 @@ separate feature, recommended for later (D173).
 **When.** An `auto` argument records an obligation, as today; the
 obligations of a declaration are solved after the declaration is
 elaborated, when unification has done what it can (`auto.rs:51-78`).
-Unsolved obligations are retried in rounds while any round makes
-progress (solving one can determine another's type).
+Obligations that can't be settled yet **wait**, and are retried in
+rounds while any round makes progress (solving one can determine
+another's type).
 
-**Matching is one-way.** "Candidate `c: J U` matches goal `I T`" means:
-`J` is `I`, and `U` and `T` can be made equal by solving *only the
-candidate's own* unknowns (fresh unknowns for an instance's parameters).
-A match never assigns an unknown of the goal. Each test runs inside an
-undo transaction (`crates/elab/src/undo.rs`) and is rolled back, so
-testing one candidate can't change whether another fits. This is what
-makes the answer independent of the order candidates are tried in.
+**Unknowns and rigid variables.** An *unknown* is a metavariable that
+nothing has solved yet (`?add`, `?a`). A *rigid* variable is a parameter
+or bound variable: `a` in `[a: Type]`, `ord` in `[auto ord: Ord a]`. A
+rigid variable is never an unknown: `ord: Ord a` matches the goal
+`Ord a` at once. An *outside* unknown, for a given test, is any unknown
+the test didn't create itself: the goal's, and those inside a
+candidate's type or value (such as an unknown left by another pending
+obligation).
 
-**Steps**, for an obligation with goal `I T` (D159):
+**Three results.** Testing whether a candidate `c: J U` matches a goal
+`I T` gives one of (D159):
 
-1. **Already solved.** If unification has already solved the obligation
-   (because some other type fixes it, as `Map`'s type fixes its ordering,
-   §7.5), stop. Nothing is searched.
+| Result | Meaning |
+|---|---|
+| **Match** | `J` is `I`, and `U` and `T` are made equal by solving only the test's own fresh unknowns (an instance's parameters), without assigning or needing the value of any outside unknown |
+| **Mismatch** | They differ in a way no solution of the outside unknowns could change: different heads, different constructors, different rigid variables, after computing |
+| **Blocked** | Whether they match depends on an outside unknown: computing `U` or `T` is stuck on one, or equating them would need to assign one |
+
+Each test runs in an undo transaction (`crates/elab/src/undo.rs`) and is
+rolled back. **Comparing two candidates** (are they the same dictionary?)
+has the same three results: definitionally **equal**, rigidly
+**distinct**, or **blocked** on an outside unknown. Comparison never
+assigns outside unknowns to make two candidates agree.
+
+**Steps**, for an obligation with goal `I T`:
+
+1. **Already solved.** If the obligation's unknown has been solved by
+   unification to something that isn't itself an unsolved unknown (some
+   other type fixes it, as `Map`'s type fixes its ordering, §7.5), stop.
+   Nothing is searched.
 2. **Given by name**, `[ord := e]`: `e` is checked against `I T`.
-3. **Wait if `T`'s inputs aren't known.** If `T`'s head is an unknown, or
-   matching would need to assign a goal unknown, the obligation waits for
-   a later round. At the end of the declaration, one still waiting is
-   `E-INSTANCE-UNKNOWN-TYPE` ("can't tell which type's `Ord` to use;
-   annotate").
+3. **Wait if `T`'s head is an unknown.**
 4. **Dictionaries in scope.** Candidates are every variable in scope of
    interface type, and every superclass path from one, through the whole
-   superclass closure (`ord.eq` for `DecEq a`; for diamonds, §5.8).
-   Collect all that match. Merge candidates that are definitionally equal
-   (they're the same dictionary reached two ways). If one remains, use
-   it. If several remain, `E-INSTANCE-AMBIGUOUS`, naming each path
-   (`o1`, `o2.base`). If any matched, stop: global instances aren't
-   tried.
+   superclass closure (`ord.eq` for `DecEq a`; diamonds, §5.8). Test
+   each.
+   - **If any is blocked, wait.** A blocked candidate might match later,
+     and then it would win over a global instance, or make the result
+     ambiguous. So resolution never falls back to a global instance while
+     a blocked candidate in scope could still take precedence.
+   - Otherwise, compare the candidates that match, pairwise. Merge those
+     that are equal. **If a comparison is blocked, wait.** If exactly one
+     remains, use it. If several rigidly distinct ones remain,
+     `E-INSTANCE-AMBIGUOUS`, naming each path (`d.b.a`, `d.c.a`).
+   - If none match (all mismatched), go on to step 5.
 5. **The global instance.** Look up the one instance of `I` for `T`'s
-   head (§5.6). None: `E-INSTANCE-NONE`. Otherwise match its head against
-   `T`, which fixes all its head variables (§5.2). Then for each of its
-   prerequisites, **first check whether matching already fixed it**
-   (step 1 again: a head like `Map k v [ord := o]` fixes `o`), and
-   otherwise solve it as a new obligation from step 2.
-6. **Budget.** Each obligation tree has a budget of instance steps
-   (large: thousands). Termination is guaranteed by §5.2's rules, but not
-   any fixed depth: `DecEq (List (List … Nat))` twelve deep is fine.
-   Running out is `E-INSTANCE-BUDGET`, which says resolution was
-   *stopped*, not that no instance exists (D182). The legacy `Decidable`
-   search keeps its depth limit of 8 (§5.12).
+   head (§5.6). Test it: blocked, wait; mismatch or no instance,
+   `E-INSTANCE-NONE`. On a match, its head variables are fixed (§5.2).
+   Then for each prerequisite:
+   - if matching fixed it to a term that isn't an unsolved unknown (a
+     head like `Map k v [ord := o]` fixes `o`), keep it: it's not
+     searched again;
+   - if matching only equated it with an outside unsolved unknown
+     (`?candidateOrd := ?mapOrd`), that is **not** a solution: the
+     prerequisite waits for `?mapOrd`'s own obligation;
+   - otherwise it's a new obligation, solved from step 1.
+6. **Rounds.** When a round settles nothing, every waiting obligation is
+   reported: `E-INSTANCE-UNKNOWN-TYPE` if `T`'s head is still unknown
+   ("can't tell which type's `Ord` to use; annotate"), otherwise
+   `E-INSTANCE-STUCK`, naming the unknown that blocks a candidate.
+7. **Budget.** Each obligation tree (an obligation with the prerequisites
+   it creates) has a budget of instance steps (large: thousands), spent
+   cumulatively across all rounds: a retry doesn't get a fresh budget.
+   Termination is guaranteed by §5.2's rules, but not any fixed depth:
+   `DecEq (List (List … Nat))` twelve deep is fine. Running out is
+   `E-INSTANCE-BUDGET`, which says resolution was *stopped*, not that no
+   instance exists (D182). The legacy `Decidable` search keeps its depth
+   limit of 8 (§5.12).
+
+**Why order can't matter** (the re-review's example). Suppose a helper
+`def makeOrd [auto add: Add Nat]: Ord (W (Add.zero [add := add]))`
+gave a local `o`, where `W (n: Nat)` is a data type with a global
+`W.instOrd: Ord (W n)`. The declaration has two obligations: `?add: Add
+Nat` (from `makeOrd`) and a goal `Ord (W 0)`; so `o: Ord (W (Add.zero
+[add := ?add]))`.
+
+- If `?add` is solved first (by `Nat.instAdd`), `o`'s type computes to
+  `Ord (W 0)`, `o` matches, and wins over `W.instOrd`.
+- If `Ord (W 0)` is tried first, testing `o` gets stuck computing
+  `Add.zero [add := ?add]`: **blocked**, so the goal waits rather than
+  taking `W.instOrd`. `?add` is then solved, and next round `o` matches.
+
+Both orders choose `o`. Two local dictionaries `build ?d1` and
+`build ?d2` work the same way: their comparison is blocked until `?d1`
+and `?d2` are solved, and only then are they merged or reported as
+ambiguous.
 
 A dictionary in scope wins over a global instance. That's how Lean,
 Scala and Idris behave, and it's what lets a function's caller choose:
@@ -582,8 +652,10 @@ Scala and Idris behave, and it's what lets a function's caller choose:
 call of `List.sort` use it.
 
 There's **no backtracking among globals and no tie-break**: at most one
-global instance can fit, so nothing depends on declaration order, file
-order, load order or which namespaces were checked first.
+global instance can fit, and every test is either decided by rigid
+structure or waits, so nothing depends on the order obligations or
+candidates are tried in, declaration order, file order, load order or
+which namespaces were checked first.
 
 ### 5.6 One instance per type, checked locally
 
@@ -645,32 +717,41 @@ stay: `List.sortBy (x y => Nat.compare y x) scores` (D154).
 
 `Ord` has a field `eq: DecEq a`. The reviewer showed that "the compiler
 fills it when an instance is declared" doesn't work for all bodies.
-Draft 2 separates three things (D160).
+Draft 2 separates three things (D160); draft 3 fixes when (a) happens.
 
 **(a) Filling, when a record is built.** When the elaborator checks a
 record literal of an interface type and the literal leaves out a
-superclass field, it fills the field by resolving the superclass at that
-point (§5.5), in the literal's context. This happens for every interface
-record literal: in instances, in named alternatives, in helpers. It
-happens before later fields are checked, so a later field that mentions
-the superclass (a law about `base.op`) is checked against the filled
-value. A literal may also give the field explicitly.
+superclass field, then, **before checking the later fields**, it creates
+a typed unknown for that field (of the parent's type, say `DecEq ?a`)
+and records an instance obligation for it in the literal's context.
+Later fields' types refer to that unknown, so a law about `base.op` has
+a well-defined parent term even before its value is known. The
+obligation is solved at once if it can be; otherwise by §5.5's rounds,
+like any other. This matters because a later field can fix the type: a
+literal expected at `Ord ?a` learns `?a := Nat` from
+`compare = Nat.compare`, and only then can `DecEq ?a` be resolved. This
+happens for every interface record literal: in instances, in named
+alternatives, in helpers. A literal may also give the field explicitly.
 
 ```
-def Ord.byKey [auto eq: DecEq a] [auto ord: Ord b] (key: a -> b)
+def Ord.byKey [auto decEq: DecEq a] [auto ord: Ord b] (key: a -> b)
   (inj: (x: a) -> (y: a) -> key x = key y -> x = y): Ord a :=
-  { compare = (x y => Ord.compare (key x) (key y)), … }    -- `eq` filled: the parameter `eq`
+  { compare = (x y => Ord.compare (key x) (key y)), … }    -- `eq` filled: the parameter `decEq`
 ```
 
-Here `eq` is filled with the parameter `eq: DecEq a`, the only `DecEq a`
-in scope (`ord.eq` is a `DecEq b`).
+Here `eq` is filled with the parameter `decEq: DecEq a`, the only
+`DecEq a` in scope (`ord.eq` is a `DecEq b`). The superclass *field*
+keeps the name `eq`; the *parameter* follows D181's convention.
 
-**(b) Checking, when a global instance is registered.** For each
-superclass path `p` of a global instance `N: I (D vs)` (every path
-through the closure, `eq`, and for deeper hierarchies `eq.…`), the
-compiler resolves the parent at that type in the instance's own context
-(its prerequisites in scope) and checks that `N.p` is **definitionally
-equal** to it. It never replaces a field: a later field may depend on
+**(b) Checking, when a global instance is registered.** Once the
+instance's body is completely elaborated (all its obligations solved),
+for each superclass path `p` of the global instance `N: I (D vs)` (every
+path through the closure, `eq`, and for deeper hierarchies `eq.…`), the
+compiler resolves the parent at that type in the instance's **original
+context**: its declared prerequisites in scope, and nothing else. `N`
+itself is never evidence for its own check, neither as a global
+instance nor as a dictionary in scope. It then checks that `N.p` is
+**definitionally equal** to the parent found. It never replaces a field: a later field may depend on
 it, and replacing it could make that field's proof wrong. A mismatch is
 `E-INSTANCE-SUPER`: "the `DecEq Text` inside `Text.instOrd` isn't
 `Text.instDecEq`". For `instance Text.instOrd := Ord.fromCompare …`, the
@@ -765,12 +846,33 @@ Rule 4 of §5.6 makes this decidable before deriving.
 - **Proof fields whose type is an equation in a type with `DecEq`**, such
   as `inRange: position <= highest` (which is `Nat.leq position highest
   = True`, an equation in `Bool`) or `ok: List.length items = size` (in
-  `Nat`). These are ignored: two values with equal data fields are equal,
-  because any two proofs of an equation in a type with decidable equality
-  are equal. That's Hedberg's theorem; the library already proves it for
-  `Bool` (`Bool.uniqueEq`, `core.sw:299`, **checked**), and stage 2
-  proves it generically (`DecEq.uniqueEq`). `Ord` ignores them the same
-  way, and `Show` leaves them out (`{ position = 3 }`).
+  `Nat`). **They're omitted from runtime comparison**: the generated
+  `decide` compares only the data fields. **Their equality is
+  established with `DecEq.uniqueEq` in the generated correctness proof**:
+  any two proofs of an equation in a type with decidable equality are
+  equal (propositionally, not by computation). That's Hedberg's theorem;
+  the library already proves it for `Bool` (`Bool.uniqueEq`,
+  `core.sw:299`, **checked**), and stage 2 proves it generically
+  (`DecEq.uniqueEq`; Agda's standard library has the same construction).
+  For a value `C f1 … fn` with an eligible proof field, the generated
+  `Yes` proof:
+  1. compares the data fields before it and gets their equalities;
+  2. proves the two proof fields equal with `DecEq.uniqueEq`, after
+     transporting one along the equalities from step 1 so that both have
+     the same type;
+  3. transports any later fields whose types depend on earlier ones;
+  4. builds the equality of the whole values from these (by `J`, as
+     `derive.rs` already does for data fields).
+
+  `Ord` handles them the same way, and `Show` leaves them out
+  (`{ position = 3 }`).
+- **No circular evidence.** The `DecEq` used for an eligible proof field
+  must not depend on the derivation in progress. In
+  `Node (child: Tree) (h: child = child)`, `h` is an equation in `Tree`,
+  and using `DecEq.uniqueEq` for it would need `DecEq Tree` while
+  deriving `DecEq Tree`. The first version refuses this (the field isn't
+  eligible, so derivation stops, with a note); accepting it would need a
+  separately justified, terminating derivation, which isn't proposed.
 - **Any other proof field** (`sorted: IsSorted items`) stops derivation,
   with a note, since equal data needn't mean equal proofs without proof
   irrelevance. The user can write an instance (`Ord.byKey` on the data
@@ -792,8 +894,12 @@ So the introduction's `Dial` gets `==`, an ordering by `position`, and
   `[auto ok: f = g]` is solved by `h`; it doesn't need a
   `DecEq (Nat -> Nat)`, which doesn't exist. This is a stage 2
   acceptance test.
-- **Other propositions keep today's search** (`x < y` on `Nat`,
-  `p && q`, `Not p`, user predicates): any definition marked `instance`
+- **Relations stored in a dictionary come before any search.** Deciding
+  `Ord.LessThan [ord := o] x y` uses `o`'s own decider; §5.16 gives the
+  full order (D186).
+- **Other propositions keep today's search** (`p && q`, `Not p`, user
+  predicates, and anything §5.16's earlier steps don't settle): any
+  definition marked `instance`
   whose result is `Decidable …`, first fit wins, in the D9 order, depth
   limit 8. That's safe for answers (multi-file §4.9.4). These overlap all
   the time (`Decidable.and` fits any `p && q`), and their propositions are
@@ -817,12 +923,16 @@ So the introduction's `Dial` gets `==`, an ordering by `position`, and
 The reviewer's example, in draft 1's rules:
 
 ```
-def before [auto ord: Ord a] (x: a) (y: a): Bool := x < y
-def beforeNat [auto ord: Ord Nat] (x: Nat) (y: Nat): Bool := x < y
+def before [auto ord: Ord a] (x: a) (y: a): Bool :=
+  if x < y then True else False
+def beforeNat [auto ord: Ord Nat] (x: Nat) (y: Nat): Bool :=
+  if x < y then True else False
 
 -- draft 1: `before [ord := Nat.descending] 1 2` is False (it uses `ord`),
 -- but `beforeNat [ord := Nat.descending] 1 2` is True (`<` on Nat ignored `ord`).
 ```
+
+(`x < y` is a proposition; `if` decides it, by §5.16.)
 
 Generalising a function's type shouldn't change what it does. So
 (D165):
@@ -848,8 +958,11 @@ So `beforeNat [ord := Nat.descending] 1 2` uses `ord` too, and both
 calls give `False`. That pair is a stage 5 test.
 
 **Known-instance projection.** When the dictionary resolved is a *global
-instance whose body is a record literal*, the elaborator writes the
-field's term directly instead of the method call. `Add.add
+instance whose body is a record literal*, and that instance has been
+validated (§5.8 (b)), the elaborator replaces the method call by the
+field's term. This is done on the finished declaration, when solved
+unknowns are substituted in, after `if` and `auto` have built their
+decisions (§5.16). `Add.add
 [add := Nat.instAdd] x y` becomes `Nat.add x y`. This changes nothing
 about meaning: the method is a projection, and the instance's body is a
 literal, so the two are definitionally equal (docs/core.md: a definition
@@ -877,25 +990,58 @@ Nat.decLessThan` and so on, and projection turns `x < y` on `Nat` into
 `Nat.LessThan x y`, today's term. A user's instance gets them from
 `Ord.fromCompare` without thinking about it (§6.2).
 
-**The cost, measured.** In `crates/elab/src/std` there are 464 lines
-using `+` or `*` and 206 using `<` or `<=`; in `aoc/src`, 442 and 206;
-there are 698 theorems in the two together (**checked** by grep, 20
-October). None of them has a dictionary parameter for `Nat` or `Int`
-(**checked**: no `[auto …: Add|Mul|Ord …]` anywhere), so every one of
-those operators resolves to the global instance and is projected to
-today's term. **Expected proof migration: none.** This is checkable
-exactly: after stage 5, every existing definition's hash must be
-unchanged, except those whose terms really change (callers of
-`List.sum` and the other generalised functions). A hash diff is the
-stage's acceptance test ("hashes as a migration oracle"). Runtime cost
-for existing code: none, since the terms and so the JS and the natives
-are the same. Generic code pays one dictionary argument and one
-projection per operation (§10). Compile time: one lookup per operator.
+**The cost, measured and expected.** In `crates/elab/src/std` there are
+464 lines using `+` or `*` and 206 using `<` or `<=`; in `aoc/src`, 442
+and 206; there are 698 theorems in the two together (**checked** by
+grep, 20 October). None of them has a dictionary parameter for `Nat` or
+`Int` (**checked**: no `[auto …: Add|Mul|Ord …]` anywhere), so every one
+of those operators resolves to the global instance and is projected to
+today's term, and `if x < y` on `Nat` decides it with today's
+`Nat.decLessThan` (§5.16, step 2). **No proof rewrites are expected from
+operator lowering.** That's an expectation, not yet a fact: it also
+depends on the decision terms `if` and `auto` build, the remaining
+implicit arguments, and what earlier stages changed. **Stage 5 verifies
+it against the pre-stage-5 baseline**: every definition's hash must be
+unchanged, except those in the dependency closure of deliberately
+generalised definitions (callers of `List.sum` and the like), which are
+listed and checked by hand. Representative elaborated terms (an
+addition, a comparison in an `if`, an `auto` proof of `x < y`, on `Nat`
+and `Int`) are compared with today's as golden tests. Runtime cost for
+unchanged code: none, since the terms and so the JS and the natives are
+the same. Generic code pays one dictionary argument and one projection
+per operation (§10). Compile time: one lookup per operator.
 
-**Bootstrap.** `core.sw` uses `+` and `<` before `Add`, `Ord` and their
-`Nat` instances exist. Until they're declared (only possible inside the
-prelude), operators on `Nat` elaborate to the same terms projection
-would give.
+**Bootstrap: a fixed prelude phase** (D187). The prelude defines
+`Nat.add` and then proves `Nat.addAssoc` *using* `+`; `Nat.instAdd`
+needs `Nat.addAssoc` for its `assoc` law. So `+` in `Nat.addAssoc` can't
+wait for `Nat.instAdd`. The same holds for `*`, `<`, `<=`, and for
+`Int`'s operations and laws (`Int.addComm`, `Int.addAssoc`,
+`Int/Int.sw:165, 229`). The rule:
+
+- **The bootstrap phase** is a fixed, marked prefix of the prelude. It
+  contains `Nat`, `Int`, `Bool`, `Ordering`, their operations, the laws
+  their instances need, the interfaces `DecEq`, `Ord`, `Add`, `Mul`, and
+  the instances `Nat.instDecEq`, `Int.instDecEq`, `Nat.instAdd`,
+  `Nat.instMul`, `Nat.instOrd`, `Int.instAdd`, `Int.instMul`,
+  `Int.instOrd` (and the `DecEq` instances `Ord`'s parents need). Today
+  some of those laws live in library files (`Nat/Arith.sw`,
+  `Int/Int.sw`); they move into the phase.
+- **Inside the phase**, operators on `Nat` and `Int` are lowered
+  primitively, to exactly the terms projection gives afterwards
+  (`Nat.add`, `Nat.LessThan`, `Int.add`, `Int.LessThan`, …), and `if` on
+  them uses the primitive deciders (`Nat.decLessThan`, …).
+- **The phase ends** when those dictionaries are built and validated:
+  bodies checked, laws included, and §5.8 (b)'s parent check passed.
+  After that, every operator is elaborated uniformly (§5.13's rule), and
+  primitive lowering is never used again, in the rest of the prelude, in
+  library files or in programs.
+- **Signature collection is separate.** §5.6 rule 4 still collects every
+  instance signature up front, in the prelude too, for forward references
+  and overlap checks. A collected signature doesn't make a dictionary
+  usable for projection; only a validated one is.
+- **A check**: a stage 5 test elaborates a sample of `Nat` and `Int`
+  operators both ways, primitive and uniform, and requires identical
+  terms.
 
 **The alternative**, keeping `<` and `<=` built in for `Nat` and `Int`
 (D180's option B), is smaller (`Ord` keeps three laws and one function)
@@ -925,8 +1071,11 @@ traits for this (`Display`, `Debug`); here it's two fields (D178):
 
 - **`toText`** is what `"${e}"` inserts (D167). For `Text` it's the text
   itself; for `Char`, the character.
-- **`toSource`** is how the value is written in source: `Text` in quotes
-  with escapes, `Char` as `'a'`, `Int` as `-5`.
+- **`toSource`** is a **source-like representation**: `Text` in quotes
+  with escapes, `Char` as `'a'`, `Int` as `-5`, records as
+  `{ name = "tea" }`. It's for people reading output, not a promise that
+  the text parses back to the value: proof fields are left out, names
+  aren't qualified, and brackets are added only where they help reading.
 - **For everything else** (numbers, `Bool`, lists, tuples, `Maybe`,
   derived data and records), `toText` and `toSource` are the same, and
   **elements are always shown with `toSource`**. So
@@ -954,6 +1103,61 @@ programs here have needed (**inferred** from the AoC programs, which use
 field quantifies over types) and, without universe polymorphism, could
 only hold `Type 0` containers. D168 recommends waiting. The reviewer
 agreed.
+
+### 5.16 Deciding a relation stored in a dictionary
+
+`Ord` holds `LessThan` and its decider `decLessThan` (D180). Putting the
+decider in the record doesn't by itself make `if x < y` use it: today's
+search (§2.1) looks at definitions, not at fields of a dictionary in
+scope. This section is the rule that connects them (D186).
+
+**Relation fields.** When an interface is declared, the elaborator pairs
+each field `R` whose type ends in `Prop` with a field `decR` of type
+`(the same parameters) -> Decidable (R …)`, if there is one. In `Ord`
+the pairs are `LessThan`/`decLessThan` and `LessEq`/`decLessEq`. Any
+interface may have such pairs.
+
+**Deciding a proposition `P`** (for `if P`, `if h: P`, `&&`, `||`,
+`not`, a `Bool` expected, and an `[auto ok: P]` that has to be decided),
+in this order:
+
+1. **Hypotheses** (`auto` proof obligations only, as today): one in
+   scope whose type is `P` is used, and nothing is decided.
+2. **A relation from a dictionary.** If `P`, as elaborated, is a
+   relation method applied to a dictionary `d`, such as
+   `Ord.LessThan [ord := d] x y`, the decision is the paired decider
+   applied to **the same `d`**: `Ord.decLessThan [ord := d] x y`. There's
+   no new `Ord` search, which could be ambiguous or find a different
+   dictionary.
+3. **Equality.** If `P` as written is `x = y`, use `DecEq` (§5.12).
+4. **The legacy search**: `Decidable` instances whose result fits `P`,
+   first fit, D9's order (§5.12).
+5. **Unfold one step.** If none of these applies, and `P`'s head is a
+   definition that can unfold (`Below x y`, below), unfold it once and go
+   back to step 2. Relation methods themselves are never unfolded here:
+   that would lose the dictionary that step 2 needs.
+
+**Known-instance projection comes last.** Operators produce the method
+form (`Ord.LessThan [ord := Nat.instOrd] x y`), and the decision is built
+in that form (`Ord.decLessThan [ord := Nat.instOrd] x y`). Projection
+(§5.13) runs on the finished declaration, when solved unknowns are
+substituted in, so steps 2 to 5 always see the relation and its
+dictionary together. Then the proposition becomes `Nat.LessThan x y` and
+the decision `Nat.decLessThan x y`: today's terms. (Before projection,
+the two forms are definitionally equal, so unification and type
+checking are unaffected by when it happens.) Because step 3 looks only at
+`P` *as written*, `Nat.LessThan x y` is never unfolded to
+`Nat.leq (Succ x) y = True` and sent to `DecEq Bool`, which would build
+a different term.
+
+**Acceptance cases** (stage 5):
+
+| Case | Expected |
+|---|---|
+| Generic `before` (§5.13): `if x < y` with `[auto ord: Ord a]` | Decided by `Ord.decLessThan [ord := ord] x y` (step 2), no other `Ord` search |
+| A predicate behind a definition: `def Below [auto ord: Ord a] (x: a) (y: a): Prop := x < y`, then `if Below x y` | Step 5 unfolds `Below`, step 2 uses the same `ord`'s decider |
+| A named alternative with its own relation: `Nat.descending` with `LessThan = (x y => Nat.LessThan y x)` and its decider; `beforeNat [ord := Nat.descending] 1 2` | `False`, decided by `Nat.descending`'s `decLessThan` |
+| A concrete `Nat` conditional: `def least (x: Nat) (y: Nat): Nat := if x < y then x else y` | Exactly today's term, with `Nat.decLessThan x y`; same hash as before stage 5 |
 
 ---
 
@@ -1023,15 +1227,15 @@ These are Lean's `OrientedCmp`, `TransCmp` and `LawfulEqCmp`, bundled
 -- From a comparison and its three laws. The relations are
 -- `compare x y = Less` and `Not (compare x y = Greater)`, decided through
 -- `DecEq Ordering`; their four laws are trivial. `eq` is filled (§5.8).
-def Ord.fromCompare [auto eq: DecEq a] (compare: a -> a -> Ordering)
+def Ord.fromCompare [auto decEq: DecEq a] (compare: a -> a -> Ordering)
   (equal: …) (flip: …) (trans: …): Ord a
 
 -- Order `a` by a key, given that the key tells values apart.
-def Ord.byKey [auto eq: DecEq a] [auto ord: Ord b] (key: a -> b)
+def Ord.byKey [auto decEq: DecEq a] [auto ord: Ord b] (key: a -> b)
   (inj: (x: a) -> (y: a) -> key x = key y -> x = y): Ord a
 ```
 
-`Ord.byKey` keeps the caller's `eq` as its superclass (draft 1 had no
+`Ord.byKey` keeps the caller's `decEq` as its superclass field `eq` (draft 1 had no
 `DecEq a` to give it).
 
 **Instances.** `Nat` and `Int` are written out in full, with today's
@@ -1343,6 +1547,7 @@ Each has a stable code and an example in `examples/reject/`.
 |---|---|---|
 | `E-INSTANCE-NONE` | No instance for a type | "no `Ord` instance for `Shop.Item`". Notes: why none was derived ("`Ord` isn't derived for `Item`: field `tag` is a function"); where one may be declared ("in `Std` or `Shop`"); a named alternative of the right type in scope, if any ("`Report.byPrice` has type `Ord Item`: pass it with `[ord := Report.byPrice]`") |
 | `E-INSTANCE-UNKNOWN-TYPE` | The goal's type is still unknown at the end of the declaration | "can't tell which type's `Ord` to use here"; note: "annotate, e.g. `(xs: List Nat)`" |
+| `E-INSTANCE-STUCK` | A candidate or comparison is still blocked when nothing more can be solved (§5.5 step 6) | "can't tell whether `o` gives `Ord (W 0)` until `?add` is known"; note: "pass the dictionary by name, or annotate" |
 | `E-INSTANCE-AMBIGUOUS` | Two distinct dictionaries in scope match | "two different `A a` dictionaries are in scope: `d.b.a` and `d.c.a`"; note: "pass one by name" |
 | `E-INSTANCE-REDUNDANT` | A signature asks for an interface and its own parent on one type | "`Ord a` already contains a `DecEq a`; remove `[auto e: DecEq a]`" |
 | `E-INSTANCE-OVERLAP` | A second instance for the same head | "`Ord Item` already has an instance, `Item.instOrd` (file:line)" |
@@ -1472,11 +1677,11 @@ lines. Each stage ends with the full gate.
 
 | # | Stage | `syntax` | `elab` | `core` | `std` (.sw) | Tests |
 |---|---|---|---|---|---|---|
-| 1 | **Interfaces and instances.** `interface`, `instance`, `[auto I a]` without a name, generated methods, the instance table and the module rules of §5.6 (ownership, orphans, overlap, all signatures first, synonyms), the complete-signature rules of §5.2, §5.5's algorithm (one-way matching, waiting, budget), superclass filling and checking (§5.8), `E-INSTANCE-*` errors. Test interfaces only | ~250 | ~1,200 | ~30 (flag, hash) | 0 | ~20 accept, ~16 reject; must-reject pairs for overlap, orphan, synonym-orphan (`LocalNat`), head, parameter, context, ambiguity (order of locals swapped gives the same error), diamond, cycle; a twelve-deep `DecEq (List …)`; the `Base`/`Child` record of §5.8 |
+| 1 | **Interfaces and instances.** `interface`, `instance`, `[auto I a]` without a name, generated methods, the instance table and the module rules of §5.6 (ownership, orphans, overlap, all signatures first, synonyms), the complete-signature rules of §5.2, §5.5's algorithm (three-way matching and comparison, waiting, cumulative budget), superclass filling and checking (§5.8), `E-INSTANCE-*` errors. Test interfaces only | ~250 | ~1,200 | ~30 (flag, hash) | 0 | ~20 accept, ~16 reject; must-reject pairs for overlap, orphan, synonym-orphan (`LocalNat`), head, parameter, context, ambiguity (order of locals swapped gives the same error), diamond, cycle; the `W`/`makeOrd` example of §5.5 giving `o` with the obligations in either order; two `build ?d` candidates merged once solved; a prerequisite equated with an unsolved `?mapOrd` waiting, not found; a twelve-deep `DecEq (List …)`; the `Base`/`Child` record of §5.8 |
 | 2 | **`DecEq` replaces `=`'s procedures.** `DecEq` and its instances; `==`/`if h: x = y` through it; hypotheses first for proof obligations; derived `T.%instDecEq` with value parameters and equation proof fields (D179); `DecEq.uniqueEq`; `decide_under` and `local_deciders` removed; `instance` marker on the remaining `Decidable` procedures | ~20 | ~500 (and ~300 removed) | 0 | ~250 | all `eqeq-*`, `if-decidable`, derive examples unchanged in behaviour; `[auto ok: f = g]` with `h: f = g` in scope; `Dial` gets `==`; AoC programs and proofs pass (3 places spell out `Nat.decEq`/`List.decEq` terms and may need edits) |
 | 3 | **`Ord`.** With its laws and relation fields; `Ord.fromCompare`, `Ord.byKey`; instances for `Nat`, `Int`, `Char`, `Bool`, `Ordering`, `Text` (bridge lemma), `List`, `Maybe`, pairs; generic `List.sort` and §7.6's theorems; `List.maximum`/`minimum` generic | 0 | ~150 | 0 | ~800 (proofs: Opus) | `sort.sw` examples; new `ord-*.sw`; `Text`'s laws |
 | 4 | **`auto` parameters on data types** (for `Map`, D169). Unblocks SW-113 | ~30 | ~300 | 0 | 0 | §7.5's five cases, plus `Map Text Nat` filled by search |
-| 5 | **Operators through dictionaries.** `Add`, `Mul` and instances; `+ * < <=` resolved by §5.5 for every type, with known-instance projection; generic `sum`/`sumBy`/`product`; remove `sumInt`/`sumIntBy`; restate the sum lemmas generically (§7.7) | 0 | ~400 | 0 | ~400 (moved and generalised) | **hash oracle**: every existing definition's hash unchanged except callers of generalised functions; `before`/`beforeNat` (§5.13) agree; a `Point` with `+`; AoC day 2 proofs (heavy users of sum lemmas) |
+| 5 | **Operators through dictionaries.** The prelude bootstrap phase (D187); `Add`, `Mul` and instances; relation deciders (§5.16, D186); `+ * < <=` resolved by §5.5 for every type, with known-instance projection; generic `sum`/`sumBy`/`product`; remove `sumInt`/`sumIntBy`; restate the sum lemmas generically (§7.7) | 0 | ~400 | 0 | ~400 (moved and generalised) | **hash oracle** against the pre-stage-5 baseline: every definition's hash unchanged outside the listed dependency closure of generalised functions; golden elaborated terms for `+`, `if x < y` and `auto` proofs of `x < y` on `Nat` and `Int`; primitive and uniform lowering identical on a sample (D187); §5.16's four cases; `before`/`beforeNat` (§5.13) agree; a `Point` with `+`; AoC day 2 proofs (heavy users of sum lemmas) |
 | 6 | **`Show` and interpolation**; derived `Show` (`toText`/`toSource`) | 0 | ~350 | 0 | ~100 | interpolation examples; derived text for data, records (proof fields left out), lists of texts (`["a", "b"]`) |
 | 7 | **Derived `Ord`** (enums and records first, then data types with fields) | 0 | ~400 | 0 | ~200 (combinator proofs) | `derive-ord-*` examples; `Dial` ordered by `position` |
 | later | Dot notation through dictionaries in scope (D173); the `Std` instance index (§9.2); specialisation (§10) | | | | | |
@@ -1528,6 +1733,21 @@ nothing here depends on how families are checked.
 7. **Records stage 4's `HasField`** is a two-parameter interface with a
    dependency. It stays its own derived mechanism, as records.md §9.2
    describes, not an `interface` (D174).
+8. **Waiting can turn into `E-INSTANCE-STUCK`.** §5.5 waits rather than
+   guess whenever a candidate is blocked. Dictionaries in scope usually
+   have rigid types (they're parameters), so this should be rare; when it
+   happens, the message names the unknown and suggests passing the
+   dictionary by name. Stage 1's tests include the cases that should
+   *not* get stuck (a rigid `ord: Ord a`, the `W` example).
+9. **Projection at the end of a declaration** (§5.16) means error
+   messages during elaboration show the method form
+   (`Ord.LessThan [ord := Nat.instOrd] x y`), not `x < y` or
+   `Nat.LessThan x y`. The printer should show the operator form for
+   both.
+10. **The bootstrap phase moves lemmas into core** (D187): the laws the
+    `Nat` and `Int` instances need now live in `Nat/Arith.sw` and
+    `Int/Int.sw`. Core grows; std-library.md's D58 measured that kind of
+    growth, and stage 5 measures it again.
 
 ---
 
@@ -1535,36 +1755,39 @@ nothing here depends on how families are checked.
 
 Each with a recommendation and the external reviewer's verdict on draft
 1. D154–D160 and D162 block stage 1 or 2; the rest can wait for their
-stage. D175–D177 are taken by other notes.
+stage. The last column is the re-review of draft 2 (only the decisions
+it discussed). D175–D177 are taken by other notes.
 
-| # | Decision | Recommendation | Reviewer (draft 1) |
-|---|---|---|---|
-| D154 | **Laws in the interface**, as proof fields; orderings without laws stay plain function arguments (`sortBy`) (§5.9) | Bundled | Accept |
-| D155 | **The equality interface is `DecEq`**, since `Eq` is `=`'s lemma namespace (§5.12) | `DecEq` | Accept |
-| D156 | **Declarations**: `interface Ord (a: Type) = { … }`; `instance Nat.instOrd: Ord Nat := …`, always named (§5.1, §5.2) | As written | Accept |
-| D157 | **Asking**: the `auto` binder, name optional (`[auto Ord a]`, `[auto ord: Ord a]`) (§5.3) | `auto` | Accept |
-| D158 | **Coherence**: one instance per interface and head; ownership by declaring module; orphan rule; synonyms unfold and own nothing; heads a nominal type applied to distinct variables; complete signature = head variables + prerequisites on them; all of a module's instance signatures registered first; overlap checked when declared (§5.2, §5.6) | Yes | Accept, with the ownership, alias and whole-module rules made explicit (done) |
-| D159 | **Resolution and alternatives**: §5.5's algorithm (one-way matching, waiting for unknown types, dictionaries in scope before globals, ambiguity only for distinct candidates, prerequisites fixed by matching kept); other choices are named alternatives passed by name (§5.5, §5.7) | Yes | Accept; specify matching and name overridable parameters (done) |
-| D160 | **Superclasses**: filled when an interface literal is built; checked, never replaced, when a global instance is registered; full-closure search with definitional merging and ambiguity naming paths; acyclic superclass graph; the guarantee as stated in §5.8 | Yes (redesigned) | Revise (done) |
-| D161 | **No default methods**; helpers and builders (`Ord.fromCompare`) are generic functions (§5.10) | Yes | Keep deferred |
-| D162 | **`=` is decided only through `DecEq`**; proof obligations use hypotheses first; other `Decidable` goals keep D9's first-fit search (§5.12) | Yes | Accept for decisions; keep hypotheses first (done) |
-| D163 | **Decision procedures need the `instance` marker** (§5.12) | Yes | Not commented on |
-| D164 | **Derived instances**: `DecEq` (as today's `==`), `Show`, later `Ord`; the owner's own instance replaces the derived one; scope as D179 (§5.11) | Yes | Accept; document proof and dependent fields (done, D179) |
-| D165 | **Operators**: `+ * < <=` mean the resolved dictionary for every type, `Nat` and `Int` included, with known-instance projection; `- / %` stay numbers only; no generic literals (§5.13) | Uniform (changed from draft 1) | Reconsider the exception; prefer uniform for `+ *`; make the `<` tradeoff explicit (done) |
-| D166 | **Numeric interfaces**: only `Add` (commutative) and `Mul` (§6.3) | Yes | Keep deferred (no tower) |
-| D167 | **`${e}` uses `Show` only** (`toText`), not dot notation (§5.14) | Yes | Not commented on |
-| D168 | **`Functor`/`Monad` not now** (§5.15) | Not now | Keep deferred |
-| D169 | **`Map`/`Set` carry their ordering dictionary in their type**, via `auto` parameters on data types; types differ by whole dictionary; data when keys and values are (§7.5) | In the type | Accept, with the dictionary-identity and `IsData` limits stated (done) |
-| D170 | **All of `Std`'s instances in core** for now; an index later (§9.2) | Yes | Not commented on |
-| D171 | **The `instance` marker is hashed**; any future elaboration cache keys on a per-module instance environment fingerprint (§9.3) | Yes | Accept with the fingerprint (done) |
-| D172 | **Imports and qualified names never change which instance is found** (§9.1) | Yes | Accept, given the ownership rules |
-| D173 | **Dot notation through dictionaries in scope** (`x.compare y` for `x: a`) (§5.4) | Later | Not commented on |
-| D174 | **One type parameter**; no multi-parameter interfaces, output parameters or `Type -> Type` interfaces; `HasField` stays special (§5.1) | Yes | Keep deferred |
-| D178 | **`Show` has two fields**, `toText` (for `${…}`) and `toSource` (source syntax, used for elements of containers and records) (§5.14) | Yes | New (answers review 9c) |
-| D179 | **Derivation's boundary**: value parameters are allowed; proof fields that are equations in a type with `DecEq` are ignored (by Hedberg, `DecEq.uniqueEq`); other proof fields, function and type fields stop it (§5.11) | Yes | New (answers review 9b) |
-| D180 | **`Ord` carries `LessThan`, `LessEq` and their deciders as fields**, so `<` and `<=` can be uniform with no proof migration. Option B: keep `<`/`<=` built in for `Nat`/`Int` and document the discrepancy (§5.13, §6.2) | Fields (A) | New (answers review 3) |
-| D181 | **Names**: instances `T.instI` by convention; generated methods' and library functions' dictionary parameters named after the interface (`ord`, `decEq`, `add`, `mul`, `show`) so they can be overridden (§5.1, §5.3) | Yes | New (answers review 8) |
-| D182 | **A step budget, not a depth limit**, for interface resolution; running out is "stopped", never "none". `Decidable` keeps depth 8 (§5.5) | Yes | New (answers review 4) |
+| # | Decision | Recommendation | Reviewer (draft 1) | Re-review (draft 2) |
+|---|---|---|---|---|
+| D154 | **Laws in the interface**, as proof fields; orderings without laws stay plain function arguments (`sortBy`) (§5.9) | Bundled | Accept | – |
+| D155 | **The equality interface is `DecEq`**, since `Eq` is `=`'s lemma namespace (§5.12) | `DecEq` | Accept | – |
+| D156 | **Declarations**: `interface Ord (a: Type) = { … }`; `instance Nat.instOrd: Ord Nat := …`, always named (§5.1, §5.2) | As written | Accept | – |
+| D157 | **Asking**: the `auto` binder, name optional (`[auto Ord a]`, `[auto ord: Ord a]`) (§5.3) | `auto` | Accept | – |
+| D158 | **Coherence**: one instance per interface and head; ownership by declaring module; orphan rule; synonyms unfold and own nothing; heads a nominal type applied to distinct variables; complete signature = head variables + prerequisites on them; all of a module's instance signatures registered first; overlap checked when declared (§5.2, §5.6) | Yes | Accept, with the ownership, alias and whole-module rules made explicit (done) | Accept; distinguish signature collection from bootstrap availability (done, D187) |
+| D159 | **Resolution and alternatives**: §5.5's algorithm (three-way matching and comparison: match, rigid mismatch, blocked; waiting whenever a blocked test could change the result; dictionaries in scope before globals; ambiguity only for rigidly distinct candidates; prerequisites fixed by matching kept; equating with an unsolved unknown isn't a solution); other choices are named alternatives passed by name (§5.5, §5.7) | Yes | Accept; specify matching and name overridable parameters (done) | Add blocked matching and blocked comparison (done, §5.5) |
+| D160 | **Superclasses**: an omitted parent gets a typed unknown and an obligation before later fields are checked, solved at once or later;  checked, never replaced, when a global instance is registered; full-closure search with definitional merging and ambiguity naming paths; acyclic superclass graph; the guarantee as stated in §5.8 | Yes (redesigned) | Revise (done) | Accept; clarify deferred filling of parents (done, §5.8) |
+| D161 | **No default methods**; helpers and builders (`Ord.fromCompare`) are generic functions (§5.10) | Yes | Keep deferred | – |
+| D162 | **`=` is decided only through `DecEq`**; proof obligations use hypotheses first; other `Decidable` goals keep D9's first-fit search (§5.12) | Yes | Accept for decisions; keep hypotheses first (done) | Resolved |
+| D163 | **Decision procedures need the `instance` marker** (§5.12) | Yes | Not commented on | – |
+| D164 | **Derived instances**: `DecEq` (as today's `==`), `Show`, later `Ord`; the owner's own instance replaces the derived one; scope as D179 (§5.11) | Yes | Accept; document proof and dependent fields (done, D179) | – |
+| D165 | **Operators**: `+ * < <=` mean the resolved dictionary for every type, `Nat` and `Int` included, with known-instance projection; `- / %` stay numbers only; no generic literals (§5.13) | Uniform (changed from draft 1) | Reconsider the exception; prefer uniform for `+ *`; make the `<` tradeoff explicit (done) | Accept |
+| D166 | **Numeric interfaces**: only `Add` (commutative) and `Mul` (§6.3) | Yes | Keep deferred (no tower) | – |
+| D167 | **`${e}` uses `Show` only** (`toText`), not dot notation (§5.14) | Yes | Not commented on | – |
+| D168 | **`Functor`/`Monad` not now** (§5.15) | Not now | Keep deferred | – |
+| D169 | **`Map`/`Set` carry their ordering dictionary in their type**, via `auto` parameters on data types; types differ by whole dictionary; data when keys and values are (§7.5) | In the type | Accept, with the dictionary-identity and `IsData` limits stated (done) | – |
+| D170 | **All of `Std`'s instances in core** for now; an index later (§9.2) | Yes | Not commented on | – |
+| D171 | **The `instance` marker is hashed**; any future elaboration cache keys on a per-module instance environment fingerprint (§9.3) | Yes | Accept with the fingerprint (done) | – |
+| D172 | **Imports and qualified names never change which instance is found** (§9.1) | Yes | Accept, given the ownership rules | – |
+| D173 | **Dot notation through dictionaries in scope** (`x.compare y` for `x: a`) (§5.4) | Later | Not commented on | – |
+| D174 | **One type parameter**; no multi-parameter interfaces, output parameters or `Type -> Type` interfaces; `HasField` stays special (§5.1) | Yes | Keep deferred | – |
+| D178 | **`Show` has two fields**, `toText` (for `${…}`) and `toSource` (a source-like representation, not promised to parse, used for elements of containers and records) (§5.14) | Yes | New (answers review 9c) | Accept; say source-like, not parseable (done) |
+| D179 | **Derivation's boundary**: value parameters are allowed; proof fields that are equations in a type with `DecEq` (not the one being derived) are omitted from runtime comparison, their equality proved with `DecEq.uniqueEq` (Hedberg); other proof fields, function and type fields stop it (§5.11) | Yes | New (answers review 9b) | Accept; specify the proof steps and non-circular evidence (done) |
+| D180 | **`Ord` carries `LessThan`, `LessEq` and their deciders as fields**, so `<` and `<=` can be uniform with no expected proof migration (verified in stage 5). Option B: keep `<`/`<=` built in for `Nat`/`Int` and document the discrepancy (§5.13, §6.2) | Fields (A) | New (answers review 3) | Accept the record; add the decider rule (done, D186) |
+| D181 | **Names**: instances `T.instI` by convention; generated methods' and library functions' dictionary parameters named after the interface (`ord`, `decEq`, `add`, `mul`, `show`) so they can be overridden (§5.1, §5.3) | Yes | New (answers review 8) | Accept; apply to helper parameters (done) |
+| D182 | **A step budget, not a depth limit**, for interface resolution; running out is "stopped", never "none". `Decidable` keeps depth 8 (§5.5) | Yes | New (answers review 4) | Accept; cumulative across retries (done) |
+| D186 | **Deciding a relation**: a relation field applied to a dictionary is decided by its paired decider from the same dictionary; the order is hypotheses, dictionary relation, `DecEq` for `=` as written, legacy search, unfold one step; known-instance projection last (§5.16) | Yes | – | New (answers re-review 1) |
+| D187 | **A fixed prelude bootstrap phase**: primitive lowering of `Nat` and `Int` operators until their dictionaries are built and validated; signature collection stays separate (§5.13) | Yes | – | New (answers re-review 3) |
 
 ---
 
