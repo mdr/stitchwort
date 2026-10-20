@@ -1,5 +1,5 @@
 {
-  "next": 154,
+  "next": 156,
   "tickets": [
     {
       "id": 1,
@@ -2335,6 +2335,35 @@
         "syntax"
       ],
       "body": "Implements docs/proposals/calc-rewrite.md draft 4 §6 and §9 stage 2 (D35-D38, D36 as tightened in draft 4; D67 accepted by Matt 20 Oct 2026): rewrite p in t, rewrite p, comma lists left to right, <- for right to left, contextual in; keyed, typed, transactional matching with a shared budget (E-REWRITE-BUDGET); pre-order outermost-first search, no descent into a selected match; round-trip M a = G check; skip occurrences under binders that mention the bound variable; errors E-REWRITE-NOTHING / -MOTIVE / -BUDGET etc.; metrics; the listed tests.",
+      "created": "2026-10-20",
+      "updated": "2026-10-20",
+      "commits": []
+    },
+    {
+      "id": 154,
+      "title": "Kernel conversion is slow on proof-by-computation facts (day 2 check went 0.5 s -> ~10 s)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "kernel",
+        "performance"
+      ],
+      "body": "SW-147 (day 2 part 2 proof) made aoc check ~9.3 s (measured on main after merge). Biggest: block checks 1.3 s, agreeAll 1.3 s, kFold 1.7 s, totalSplit 1.5 s, part2Correct 1 s. The lane's hypothesis (unverified): conv in crates/core/src/value.rs has no shortcut for identical terms, and types are evaluated eagerly, so a fact proved by computation is recomputed wherever its statement is evaluated. Investigate with a profile before changing anything; candidates: pointer/hash-equality fast path, lazier unfolding. Also: a fixed big range plus a free variable unrolled 9 billion blocks (E-RESOURCE) until the bound became a variable.",
+      "created": "2026-10-20",
+      "updated": "2026-10-20",
+      "commits": []
+    },
+    {
+      "id": 155,
+      "title": "Contradictory hint: E-CANNOT-INFER suggests `\\\\(p: Person) -> p.ids`, which is E-PARSE",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "From SW-147: for `\\r => ... r.ids` the E-CANNOT-INFER hint suggests annotating the lambda parameter, e.g. `\\(p: Person) -> p.ids`; writing that gives E-PARSE 'a lambda's parameter can't have a type here'. Either allow annotated lambda parameters or change the hint (e.g. to Range.ids r / a type ascription). Related: SW-138.",
       "created": "2026-10-20",
       "updated": "2026-10-20",
       "commits": []
