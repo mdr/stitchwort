@@ -2025,9 +2025,9 @@
     {
       "id": 133,
       "title": "Playground: load projects (bring the AoC days back)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
-      "where": "docs/proposals/playground-projects.md (draft 2); build lane worktree agent-a0bf910c9fbf2322a",
+      "where": "merged; awaiting gate + browser run",
       "labels": [
         "web",
         "multi-file"
