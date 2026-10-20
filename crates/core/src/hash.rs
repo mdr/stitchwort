@@ -32,6 +32,11 @@
 //! with their constructors' names, their fields' names, and whether they're
 //! records.
 //!
+//! A data type's index telescope and its constructors' result indices, and
+//! which branches of a `case` are impossible, are hashed only when present
+//! (docs/proposals/indexed-families.md §6.9), so a type without indices and
+//! a case without impossible branches hash as they did before indices.
+//!
 //! A term is walked with a work list, since it can nest more deeply than
 //! recursion could follow. Hashing a reference hashes the declaration it
 //! refers to first (if it hasn't been yet), which does recurse, once per

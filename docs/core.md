@@ -18,7 +18,7 @@ The core is the small, explicit language that every Stitchwort definition is tra
 | Numbers | `Nat`, plus `Int` as a data type over `Nat`. `Nat` numbers are native and can be any size (see [Numbers](#numbers)) |
 | Pattern matching | Nested patterns, but no overlap warnings |
 | Declaration order | Free: every name is visible throughout its module, definitions may call each other ([groups](#groups-of-definitions)), and data types may refer to each other ([data groups](#groups-of-data-types)) |
-| Data types | Parameters but no indices. Equality is the only built-in indexed type |
+| Data types | Parameters, and indices in the kernel ([indexed families](proposals/indexed-families.md): declarations and `case` with unification, below). The surface syntax and the pattern compiler for indices come next (its stages 3 and 4), so programs can't declare one yet. Equality is built in |
 | Universes | Numbered, no polymorphism, no cumulativity |
 
 ## Terms
@@ -29,15 +29,15 @@ Variables are de Bruijn indices in terms and de Bruijn levels in values.
 |---|---|
 | `Var(i)` | A local variable |
 | `Def(f)` | A top-level definition |
-| `Data(D, params)` | A data type applied to all its parameters |
-| `Ctor(D, c, fields)` | Constructor `c` of `D` applied to all its fields. Parameters come from the expected type |
+| `Data(D, args)` | A data type applied to all its parameters, then all its indices |
+| `Ctor(D, c, fields)` | Constructor `c` of `D` applied to all its fields. Parameters and indices come from the expected type |
 | `Sort(s)` | `Prop` or `Type i` |
 | `Pi(x, i, A, B)` | `(x: A) -> B`; with `i` implicit, `[x: A] -> B`; with `i` auto, `[auto x: A] -> B` |
 | `Lam(x, i, b)` | `x => b` |
 | `App(f, a, i)` | Application, to an explicit or implicit argument |
 | `Ann(e, T)` | `(e: T)` |
 | `Let(x, A, v, b)` | `let x: A := v; b`: a transparent local definition. `x` takes a slot (`b` is under one binder) but stands for `v` itself ([proposals/let.md](proposals/let.md)). A leaf, never a case-tree node: no `Case` may appear under it. It also carries whether running skips `v`, which the kernel sets when it checks it (below); hashing ignores that |
-| `Case(x, D, branches)` | Match variable `x: D params`, one branch per constructor. Only appears at the top of a definition, forming a case tree |
+| `Case(x, D, branches)` | Match variable `x: D params indices`, one branch per constructor. A branch has no body when its constructor is impossible ([below](#unifying-indices)). Only appears at the top of a definition, forming a case tree |
 | `Chars(range)` | A `List Char`, stored compactly: the characters of a range of an array, standing for `Cons (MkChar c rfl) … Nil` ([text](#text)) |
 | `NumCase(x, arms, default)` | Compare variable `x: Nat` with numbers: one arm per number, in strictly increasing order (at least one), and a default. Only appears where `Case` may |
 | `Eq(A?, a, b)` | `a = b`. `A` is filled in by the checker |
@@ -68,7 +68,7 @@ Checking is bidirectional. `Γ ⊢ t ⇒ A` infers a type, and `Γ ⊢ t ⇐ A` 
 **Inferred:**
 
 - `Var`, `Def`: from the context or the declaration.
-- `Data(D, ps)`: each parameter is checked against its declared type. The result is `D`'s universe.
+- `Data(D, args)`: the parameters, then the indices, are checked against their declared types, as one telescope. The result is `D`'s universe.
 - `Sort(s) ⇒ Sort(succ s)`.
 - `Pi(x, A, B)`: `A` and `B` must be types. The universe follows the table above.
 - `App(f, a)`: `f ⇒ (x: A) -> B`, `a ⇐ A`, giving `B[a/x]`.
@@ -76,14 +76,14 @@ Checking is bidirectional. `Γ ⊢ t ⇒ A` infers a type, and `Γ ⊢ t ⇐ A` 
 - `Let(x, A, v, b)`: `A` is a type in any universe (a proof, data or a type are all defined the same way), `v ⇐ A`, then `b ⇒ B` with `x: A := v` in the context, giving `B[v/x]`. In the context `x` evaluates to `v`'s value, not to a variable, so while checking `b` its uses compute (ζ-reduction), and `B`, a value, never mentions `x`: it's already `B[v/x]`, usable outside the `let`. Checked the same way against an expected type, with `b ⇐` it. While checking, `v` is computed only when the checker first evaluates a term that mentions `x` (a type, or an argument a type depends on), and then once; running a program computes it strictly.
 - `Eq(_, a, b)`: infers `a`'s type `A` (or `b`'s, if `a` can't be inferred) and checks the other side against it. Gives `Prop`.
 - `J(P, d, p)`: `p ⇒ x = y` at type `A`. `P` must be written `y' p' => T` with `T` a type, where `y': A` and `p': x = y'`. Then `d ⇐ P x rfl`, giving `P y p`.
-- `Ctor` of a data type *without parameters*: checked against that type.
+- `Ctor` of a data type *without parameters*: checked against that type; with indices, its type is `D` applied to its result indices, with the fields substituted (`FZero [2] ⇒ Fin 3`).
 
 Implicitness only has to agree: `App(f, a, i)` needs `f`'s type to be a function type with the same `i`, and `Lam(x, i, b)` checks only against a function type with the same `i`. The kernel never inserts implicit arguments. It sees them already filled in.
 
 **Checked:**
 
 - `Lam(x, i, b) ⇐ (x: A) -> B` (same `i`): `b ⇐ B` with `x: A`.
-- `Ctor(D, c, fs) ⇐ D ps`: each field is checked against its declared type, with the parameters and earlier fields substituted in.
+- `Ctor(D, c, fs) ⇐ D ps is`: each field is checked against its declared type, with the parameters and earlier fields substituted in. Then the constructor's result indices, with the parameters and fields substituted, must be convertible with `is` (`E-TYPE-MISMATCH`: `VNil` builds a `Vec a 0`, not a `Vec a 1`).
 - `Refl ⇐ a = b`: requires `a ≡ b`. Otherwise error `E-REFL`.
 - `Case`: see below.
 - Anything else: infer, then require the inferred type `≡` the expected one. If both are universes, the error is `E-UNIVERSE`, otherwise `E-TYPE-MISMATCH`.
@@ -93,21 +93,39 @@ Implicitness only has to agree: `App(f, a, i)` needs `f`'s type to be a function
 A declaration `type D (params): s = | C₁ fields | …`:
 
 - **Parameters** are checked as a telescope.
+- **Indices** (`declare_indexed_data_group`, docs/proposals/indexed-families.md §6.1): an index telescope after the parameters, checked in their context, each index's type in the context of the earlier ones. `D`'s type is `(params) -> (indices) -> s`; `Vec (a: Type): Nat -> Type` has the parameter `a` and one index. Most types have none.
 - **The universe `s`** defaults to `Type`.
 - **Each field type** is checked in the context of the parameters and the earlier fields.
-- **Universe constraint (`E-UNIVERSE`).** A field whose type is in `Type i` is only allowed if `D: Type j` with `i ≤ j`, or `D: Prop`. Prop-valued fields are always allowed.
-- **Strict positivity (`E-POSITIVITY`).** `D` may only appear in a field's type as `D` applied to exactly its own parameters, or as the result of a function type whose inputs don't mention `D`. Nested occurrences, like `List D`, are rejected conservatively. In a [data group](#groups-of-data-types), this holds for every member, in the fields of every member.
+- **Result indices.** Each constructor of a type with indices states the indices of its result, terms in the context of the parameters and its fields, checked against the index telescope (each index's type with the parameters and the earlier result indices substituted). As many as there are indices (`E-MALFORMED` otherwise); none for a type without indices. The result's parameters aren't written: they're always the type's own. `VCons [n: Nat] (x: a) (xs: Vec a n)` has the result index `Succ n`.
+- **Universe constraint (`E-UNIVERSE`).** A field whose type is in `Type i` is only allowed if `D: Type j` with `i ≤ j`, or `D: Prop`. Prop-valued fields are always allowed. An index's type obeys the same rule (no large indices, D142): `Ty: Type -> Type` is refused, since its index `Type` is in `Type 1`, and `Ty: Type -> Type 1` is the form to write.
+- **Strict positivity (`E-POSITIVITY`).** `D` may only appear in a field's type as `D` applied to exactly its own parameters, and then to indices that don't mention `D`, or as the result of a function type whose inputs don't mention `D`. Nested occurrences, like `List D`, are rejected conservatively. A constructor's result indices mustn't mention `D` either. In a [data group](#groups-of-data-types), this holds for every member, in the fields and result indices of every member.
 - **Erased fields:** a field is erased if its type is a proposition or a type former (a universe, or a function returning one).
-- **Records** (`declare_data_group_as`, docs/proposals/records.md): a data type may be declared as a record, which must have exactly one constructor (`E-MALFORMED` otherwise). The flag is fixed when the type is declared and hashed; checking never depends on it (it only says how JS represents the type). The elaborator gives a record a projection per field, an ordinary definition by a one-branch case. A record's proof field may get a **validator** (`add_field_validator`): a decision procedure for the field's proposition, in the context of the parameters and earlier fields, which the kernel checks has type `Decidable P` (as for an export's precondition), and which extracted JS runs to establish the field for decoded input.
+- **Records** (`declare_data_group_as`, docs/proposals/records.md): a data type may be declared as a record, which must have exactly one constructor (`E-MALFORMED` otherwise), and no indices (`E-MALFORMED`). The flag is fixed when the type is declared and hashed; checking never depends on it (it only says how JS represents the type). The elaborator gives a record a projection per field, an ordinary definition by a one-branch case. A record's proof field may get a **validator** (`add_field_validator`): a decision procedure for the field's proposition, in the context of the parameters and earlier fields, which the kernel checks has type `Decidable P` (as for an export's precondition), and which extracted JS runs to establish the field for decoded input.
 
 ## Case trees
 
-`Case(x, D, branches) ⇐ G`, where `x: D ps` is a variable in the context:
+`Case(x, D, branches) ⇐ G`, where `x: D ps is` is a variable in the context (`is` empty for a type without indices):
 
 1. There must be exactly one branch per constructor, in declaration order (`E-NONEXHAUSTIVE`).
-2. **`Prop` elimination (`E-PROP-ELIM`).** If `D: Prop` and `G`'s universe isn't `Prop`, then `D` must be alone in its data group, have at most one constructor, and every field of it must be a proof (propositions defined together never eliminate into data, a conservative rule taken from Lean). This is Lean's subsingleton-elimination rule. It's stated over the declaration's fields, not over runtime erasure: a `Type` field is erased but still disqualifies (`HiddenType`). `D` has no indices, so the "or appears in an index" clause from DESIGN.md §6 doesn't arise yet. Equality is built in, and its eliminator `J` is always allowed.
-3. **Refinement.** For constructor `c` with fields `f₁ … fₖ`, the branch is checked with the fields in scope, against `G` with `x` replaced by `c f₁ … fₖ`. Inside the branch, `x` also *evaluates* to that constructor value, so its uses compute, and the constructor value is substituted for `x` throughout the context: in every variable's type and value, including variables bound before `x` (with nested patterns, `rest: res o` is bound before `o` is matched). For example, in `Decidable.fromYes (No r) u`, the hypothesis `u: Decidable.IsYes d` becomes `u: Decidable.IsYes (No r)`, which computes to `Void`.
-4. **No constructors.** A case with no branches is how an absurd pattern `()` compiles. It's only accepted when the data type has no constructors, and since such a type is trivially a subsingleton, it may produce anything.
+2. **`Prop` elimination (`E-PROP-ELIM`).** If `D: Prop` and `G`'s universe isn't `Prop`, then `D` must be alone in its data group, have at most one constructor, and every field of it must be a proof (propositions defined together never eliminate into data, a conservative rule taken from Lean). This is Lean's subsingleton-elimination rule. It's stated over the declaration's fields, not over runtime erasure: a `Type` field is erased but still disqualifies (`HiddenType`). One addition: a case whose every branch is impossible (by a conflict, below) may produce anything, since it's never reached (`Le (Succ n) 0 -> Nat`). The "or appears in an index" clause from DESIGN.md §6 isn't adopted (D140): a field that a proof's indices determine still disqualifies (`IsSucc k -> Nat` reading `IsSucc`'s `n` is refused). Equality is built in, and its eliminator `J` is always allowed.
+3. **Refinement.** For constructor `c` with fields `f₁ … fₖ`, in this order: the fields are bound, after everything in scope; for a type with indices, `c`'s result indices are unified with `is` ([below](#unifying-indices)), each solution substituted throughout the context and the goal; then the branch is checked with the fields in scope, against `G` with `x` replaced by `c f₁ … fₖ`. Inside the branch, `x` also *evaluates* to that constructor value, so its uses compute, and the constructor value is substituted for `x` throughout the context: in every variable's type and value, including variables bound before `x` (with nested patterns, `rest: res o` is bound before `o` is matched). For example, in `Decidable.fromYes (No r) u`, the hypothesis `u: Decidable.IsYes d` becomes `u: Decidable.IsYes (No r)`, which computes to `Void`.
+4. **Impossible branches.** A branch whose unification finds a conflict is impossible: it has no body. A body on an impossible branch, or no body on a possible one, is `E-MALFORMED` (the elaborator decides which, and the kernel checks). For `get: Vec a n -> Fin n -> a`, the `VNil` branch is *possible* (`n := 0`): its body is a case on `i: Fin 0` whose branches are both impossible.
+5. **No constructors.** A case with no branches is how an absurd pattern `()` compiles. It's only accepted when the data type has no constructors, and since such a type is trivially a subsingleton, it may produce anything.
+
+### Unifying indices
+
+docs/proposals/indexed-families.md §6.3; `crates/core/src/unify_index.rs`, which the elaborator will call too, so there's one implementation. The problem for a branch is a telescope: `D`'s index telescope, with `ps` for the parameters, `is` on the left and `c`'s result indices on the right. Constraints are formed from a **stack of telescopes**, one binder at a time: a binder's constraint is `{ type, lhs, rhs }` with `type` its type evaluated with the earlier *left* values, and it's formed only once every earlier binder is solved; if its type evaluated with the earlier *right* values differs, the problem is stuck. So both sides of every constraint have the same type. Each constraint, with both sides evaluated in the current refined context, gets the first rule that applies:
+
+- **Deletion.** `lhs ≡ rhs`: solved. This is axiom K (D138): `sameK (p: Same x x): p = Refl` is provable by matching.
+- **Solution.** One side is a *flexible* variable: one that still stands for itself (a parameter, or a field of this or an enclosing case not yet replaced), other than the matched `x`. If both are, the one bound later is solved as the earlier one (it's usually a field the user didn't name); if its occurs check fails, the other way round. The **occurs check**: the variable mustn't occur in the other side, nor in the type of any variable of it, nor, transitively, in the types of the variables those mention. A failed occurs check is stuck (`n = Succ n`), never impossible. A solution `y := t` is substituted through the whole context (values and types), the goal and the rest of the problem, and `y` then evaluates to `t`, as a matched variable does. The context is semantic (values by level), so a variable bound before a field can get a type mentioning it (`h: P n` becomes `h: P (Succ m)`); among the flexible variables, "the type of one mentions another" stays acyclic.
+- **Injectivity.** `type` is a data type in `Type i` (never `Prop`) and both sides are the same constructor: its fields are pushed as a new telescope (with `type`'s parameters), compared in order.
+- **Conflict.** `type` is a data type in `Type i` and the sides are different constructors: the branch is **impossible**.
+- For `Nat`, a number is `Succ` of its predecessor, and `k + x` is `Succ` applied `k` times; a compact list expands one cell.
+- **Anything else is stuck**, and the case is refused (`E-INDEX-STUCK`): a type former on a side (`List a = List Nat` at `Type`: types are never taken apart, D139), an application that doesn't compute (`n + m = 0` with `n` unknown: `+` counts down its first argument, so declare `Succ n`, not `n + 1`), a failed occurs check, and an equation between proofs (its type is a proposition) that deletion and solution don't settle. Proofs are never taken apart: telling `A = B` at `P: Prop` impossible would contradict proof irrelevance (D137, tests 22-25 of the note).
+
+The problem is solved when the stack is empty. Only a conflict makes a branch impossible; stuck never does.
+
+**Termination** reads no decrease from an index equation (D143): after `n := Succ m`, `m` isn't smaller than `n` (test 13), though a constructor's implicit fields, like `m` in `VCons [m] x xs`, are stored fields, so smaller than the vector. A recursive function field is recognised from the constructor's declared field type, never from its type in a branch (test 12, Agda issue #6654). An impossible branch has nothing to walk.
 
 `NumCase(x, [(k₁, b₁), …, (kₘ, bₘ)], d) ⇐ G` is how number patterns compile (docs/proposals/number-patterns.md). `x` must be a variable of the prelude's `Nat`, and the numbers strictly increasing with `m ≥ 1`; anything else is `E-MALFORMED`, since the elaborator never produces it. Each arm `bᵢ` is checked with the number `kᵢ` substituted for `x` throughout the context and the goal, as a `Case` branch substitutes its constructor value. The default `d` is checked with nothing new known about `x`: not a predecessor, and not that it differs from the `kᵢ`. So a `NumCase` stands for the nested `Zero`/`Succ` cases that count down to `kₘ`, with the default copied to every other leaf, and accepts no more than they would (it accepts less: the copies of the default know more about `x`). It binds nothing, so it's no evidence of structural descent for termination, but evidence from cases around it still counts in every arm and the default.
 
@@ -119,6 +137,7 @@ It evaluates by the value of `x`: a number takes its arm, or the default; `k + x
 - `J` computes: `J P d rfl ⟶ d`. With any other proof it's stuck.
 - `Eq` satisfies the elimination rule: one constructor, no fields. So `J` may produce data (transport).
 - There's no definitional proof irrelevance: two different proof terms aren't automatically equal.
+- Axiom K holds: matching deletes an index equation that already holds ([above](#unifying-indices)), so `p = Refl` for `p: Same x x` of an equality family, and through `J`, K for `=`. That's consistent, and rules out only univalent and higher-dimensional readings of equality (docs/proposals/indexed-families.md §6.5).
 
 ## Definitions
 
@@ -148,7 +167,7 @@ Definitions are admitted in **groups** of one or more that may call each other (
 
 Data types are admitted in **data groups** of one or more whose fields may mention each other (docs/proposals/mutual-recursion.md §5.4, §7). `declare_data` and `define_ctors` are a group of one.
 
-- **Declare** (`declare_data_group(params, sort, names)`): one parameter telescope, checked once in one context, and one universe, shared by every member by construction. The parameters may refer only to final declarations; a reference to a declaration that doesn't exist yet, including one a member is about to become (ids are plain indices), is `E-MALFORMED`, and nothing is added. Each member records its group (the members, in declaration order), fixed then and never changed. The members are pending.
+- **Declare** (`declare_data_group(params, sort, names)`, or `declare_indexed_data_group` with an index telescope for each member): one parameter telescope, checked once in one context, and one universe, shared by every member by construction. Each member has its own indices (`Even`/`Odd` can be mutual), checked in the parameters' context. The parameters may refer only to final declarations; a reference to a declaration that doesn't exist yet, including one a member is about to become (ids are plain indices), is `E-MALFORMED`, and nothing is added. Each member records its group (the members, in declaration order), fixed then and never changed. The members are pending.
 - **Define** (`define_data_group`): the constructors of every member, in one call. Every member of the group must be listed, once, and nothing else; otherwise `E-MALFORMED`, and every member fails. A field may mention final declarations and the group's members *as types*; a member's constructors, or a `case` on one, are pending references (`E-MALFORMED`; the elaborator says `E-MUTUAL-CONSTRUCTOR`). Positivity is checked for every member in every field; the "declared later" guard allows the group's own members and nothing declared after the group. Either every member becomes final, with its constructors, at once (until then none can be built, matched on or hashed), or every one fails.
 - **Termination.** A field of a constructor matched out of a parameter is smaller than it, whatever its type, so `size (Node n kids) = Succ (sizeForest kids)` is a smaller call. A function field returning any member of the matched type's group (`child: Nat -> Layer` in a `Branching`) is a recursive function field: its results are smaller.
 - **`Prop`.** A member of a group of two or more propositions never eliminates into data; proof-to-proof matching is unaffected.
@@ -165,7 +184,7 @@ Normalisation by evaluation (`crates/core/src/value.rs`):
 - **Arguments are computed only when a type needs them.** The type of `f a` is `f`'s result type with `a`'s value put in, so checking would compute `a`. When the result type doesn't mention its parameter, as in `constant 0 (List.length bigList)`, `a` isn't computed at all; the same goes for constructor fields and data parameters that later types don't mention (`Closure::apply_lazy`, `later_types_mention`). A computation that does appear in a type is still run while checking: in `test "t" = f x == y`, the equation `f x = y` is the type of the decision, so `f x` is computed when the test is checked as well as when it runs.
 - **Conversion `≡`:** structural on values, with eta for functions (`f ≡ x => f x`). Folded definitions are equal when they're the same definition applied to convertible arguments. A definition applied to fewer arguments than it takes is a function too, so it's compared by applying both sides to a fresh variable: `F` defined by `F o = PlusRes … o` equals `PlusRes …`.
 - **`let`** evaluates its value once, strictly, before the body, which sees it in its environment: `eval(Let(x, A, v, b), ρ) = eval(b, ρ ++ [eval(v, ρ)])`. Quoting never produces a `Let`, and conversion needs no case for it, since values don't contain one. A `let` takes a slot in terms (de Bruijn indices count it) but no variable level stands for it, so the levels in use have a gap there, as after a case split. When running (with erasure, below), a `let` the kernel marked is skipped, its slot getting the placeholder: one whose `A` would make a parameter erased (a proposition or a type former), or whose body doesn't use `x`.
-- **Running a program** uses the same evaluator, strictly. Arguments are evaluated before calls. `stitchwort run` and `stitchwort test` (never the checker) also **erase** as JS extraction does (`crates/core/src/erase.rs`): arguments for erased parameters (proofs and types) and erased constructor fields aren't computed, a definition whose result is erased isn't run, `J` on an erased proof takes its base, and a `case` on an erased proof takes its only branch. This is safe because nothing matches on a type, and a proof is matched into data only when it has one possible shape (`E-PROP-ELIM` below), so the run takes the same branches with or without erasure; only proofs and types, which are never printed or compared, differ. A record carrying `ok = Int.modNatLt x 100` costs nothing at run time.
+- **Running a program** uses the same evaluator, strictly. Arguments are evaluated before calls. `stitchwort run` and `stitchwort test` (never the checker) also **erase** as JS extraction does (`crates/core/src/erase.rs`): arguments for erased parameters (proofs and types) and erased constructor fields aren't computed, a definition whose result is erased isn't run, `J` on an erased proof takes its base, and a `case` on an erased proof takes its only branch. A run that reaches an impossible branch (which a well-typed program never does) fails with an internal error; while checking, such a case just stays stuck. This is safe because nothing matches on a type, and a proof is matched into data only when it has one possible shape (`E-PROP-ELIM` below), so the run takes the same branches with or without erasure; only proofs and types, which are never printed or compared, differ. A record carrying `ok = Int.modNatLt x 100` costs nothing at run time.
 - **Comparing types** reduces under binders. It never reaches an effectful operation, because there aren't any yet.
 
 ## Numbers
@@ -326,7 +345,8 @@ Every checked declaration has a content hash (`crates/core/src/hash.rs`, BLAKE3)
 - **references to other declarations are hashed as their hashes**, so a hash covers everything it depends on;
 - **a recursive reference is a fixed marker**;
 - **names aren't hashed**: not the definition's own, not binder names, not local variables (which are de Bruijn indices). Source locations aren't hashed either;
-- **data types are nominal**, so their hash includes their name, their constructors' names, their fields' names (which are the keys of their JS objects), and whether they're records.
+- **data types are nominal**, so their hash includes their name, their constructors' names, their fields' names (which are the keys of their JS objects), and whether they're records;
+- **indices**: a data type's index telescope and its constructors' result indices, and which branches of a `case` are impossible, are hashed. A type without indices, and a case without impossible branches, hash exactly as they did before indices existed.
 
 Renaming a function or reformatting code changes no hashes. Changing a body changes its hash and the hash of everything that uses it.
 
@@ -372,7 +392,7 @@ Only definitions reachable from the exports (and their checks) are emitted, in t
 | `E-ARITY` | Wrong number of patterns or arguments |
 | `E-NOT-A-CONSTRUCTOR` | A pattern that isn't a constructor |
 | `E-TYPE-MISMATCH` | Types don't match |
-| `E-UNIVERSE` | Universe mismatch, or a field too large for its data type |
+| `E-UNIVERSE` | Universe mismatch, or a field or an index too large for its data type |
 | `E-CANNOT-INFER` | Needs a type annotation |
 | `E-NOT-A-TYPE` / `E-NOT-A-FUNCTION` / `E-NOT-A-SORT` | Wrong kind of thing |
 | `E-NOT-A-PROP` | A `theorem` whose type isn't a proposition |
@@ -382,13 +402,14 @@ Only definitions reachable from the exports (and their checks) are emitted, in t
 | `E-MATCH-EQUATION` | The equation of `match h: e with` can't be formed (the types differ); not reported in the first version |
 | `E-TERMINATION` | Recursion that can't be shown to terminate, or a recursive call not given all its arguments |
 | `E-SYNONYM-CYCLE` | Type synonyms defined in terms of each other, so none of them has a meaning |
-| `E-POSITIVITY` | Data type used in a negative position, inside another type, or with other parameters (for any member of its data group) |
+| `E-POSITIVITY` | Data type used in a negative position, inside another type, with other parameters, or in an index (for any member of its data group) |
 | `E-MUTUAL-SIGNATURE` / `E-MUTUAL-CONSTRUCTOR` / `E-MUTUAL-PARAMETERS` / `E-MUTUAL-KIND` | A type or header mentioning something it's checked together with; a field using a constructor of its own group; data types defined together with different parameters or universes; a cycle mixing data types and definitions, or with an ability |
 | `E-PROP-ELIM` | Matching on a proof to produce data, where that's not allowed |
 | `E-EXPORT` | Export can't cross the JS boundary |
 | `E-UNSOLVED` | An implicit argument the elaborator couldn't work out |
 | `E-AUTO-FALSE` / `E-AUTO-STUCK` / `E-AUTO-NONE` | An auto argument is false, can't be decided at compile time, or has no decision procedure |
 | `E-NOT-EMPTY` | An absurd pattern `()` for a type that has values |
+| `E-INDEX-STUCK` | A `case` on an indexed type where unifying a constructor's indices with the scrutinee's gets stuck: neither solved nor a conflict ([unifying indices](#unifying-indices)) |
 | `E-UNSUPPORTED` | Not implemented yet |
 | `E-ABILITY` | An operation or effectful call where its ability isn't allowed, or a malformed `ability` |
 | `E-HANDLER` | A handler without a `return` clause or a clause for every operation |
