@@ -2748,9 +2748,9 @@
     {
       "id": 178,
       "title": "Indexed data types (inductive families) in the kernel (D133)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
-      "where": "stages 1-4 merged (e9956e4, gate passed); stage 5 running (Sonnet)",
+      "where": "implemented: stages 1-5 merged (df9636f, e9956e4, 40171e7), gates passed",
       "labels": [
         "kernel",
         "design"
