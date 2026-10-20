@@ -2025,9 +2025,9 @@
     {
       "id": 133,
       "title": "Playground: load projects (bring the AoC days back)",
-      "status": "doing",
-      "agent": "Opus",
-      "where": "worktree",
+      "status": "review",
+      "agent": "Matt",
+      "where": "docs/proposals/playground-projects.md (draft 1)",
       "labels": [
         "web",
         "multi-file"
