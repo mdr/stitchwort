@@ -2232,8 +2232,8 @@
       "id": 147,
       "title": "AoC day 2 part 2: prove against the id-walking spec (block repeated 2+ times)",
       "status": "doing",
-      "agent": "Opus",
-      "where": "worktree (resumed study lane)",
+      "agent": "Claude",
+      "where": "main",
       "labels": [
         "aoc",
         "proof"
@@ -2241,7 +2241,10 @@
       "body": "SW-6 proved part 1 for all inputs (part1Correct against part1Spec). Part 2 remains: its inclusion-exclusion (Möbius weights) isn't proved even against the block walk; repeatedTwice would need generalising to n copies. Only cross-checked by the brute-force test.\n\n20 Oct 2026: Matt asked for a feasibility study first: can we practically prove part 2's inclusion-exclusion? Opus lane writes a report (approach, lemmas needed, estimated size, blockers, language pain points), prototyping as needed.\n\n20 Oct 2026 (later): Matt approved the full proof (D64: ids at most 10 digits as a hypothesis, program refuses 11+ digit ids; D65 go; D66 allRangeElim and Int sum lemmas to the library).\n",
       "created": "2026-10-19",
       "updated": "2026-10-20",
-      "commits": []
+      "commits": [
+        "10466b0",
+        "e36ad56"
+      ]
     },
     {
       "id": 148,
