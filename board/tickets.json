@@ -1,5 +1,5 @@
 {
-  "next": 150,
+  "next": 151,
   "tickets": [
     {
       "id": 1,
@@ -2273,6 +2273,21 @@
       "commits": [
         "ecf988b"
       ]
+    },
+    {
+      "id": 150,
+      "title": "File-private declarations: `private def` visible only in its own file (helpers)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "language",
+        "namespaces"
+      ],
+      "body": "Matt, 20 Oct 2026: helpers (e.g. AoC's twice*/window* lemmas, prelude's Text.splitCons/splitChars) shouldn't join the namespace; only their file should see them.\n\nAlready listed as deferred: multi-file.md §4.5 ('no private yet') and the 'Later' list in §12; namespaces.md §8 table ('private and protected', Lean's modifiers).\n\nSketch: `private` before def/theorem/type; the name resolves only within its file. Two files of one namespace may each have a private `helper` without clashing (the full name gets a file-unique part, as Lean does). Bodies stay visible to the checker: a public function that uses a private helper still unfolds in other files' proofs (it hides the name, not the definition; unlike Idris's `export`). Errors: naming it from another file is E-PRIVATE with 'private to file X'. Precedents: Lean private (file-local), Agda private blocks, Rust (private by default), Scala/TS private. Needs a short design note first.",
+      "created": "2026-10-20",
+      "updated": "2026-10-20",
+      "commits": []
     }
   ]
 }
