@@ -127,9 +127,9 @@ ability State (s : Type) where
 def runState (init : s) (prog : () -> {State s | e} a) : {e} Pair a s :=
   let run : s -> {e} Pair a s :=
     handle prog () with
-      | return x       => \st => MkPair x st
-      | get u, k       => \st => k st st
-      | put st2, k     => \st => k () st2
+      | return x       => st => MkPair x st
+      | get u, k       => st => k st st
+      | put st2, k     => st => k () st2
   run init
 
 def count () : {IO, State Nat} () :=

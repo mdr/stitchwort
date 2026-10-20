@@ -343,8 +343,8 @@ struct Step {
 /// | `R1`, `R2` | result | term |
 /// |---|---|---|
 /// | `=`, `=` | `=` | `Eq.trans p q` |
-/// | `=`, `R` | `R` | `J (\w _ => w R c) q (Eq.sym p)` |
-/// | `R`, `=` | `R` | `J (\w _ => a R w) p q` |
+/// | `=`, `R` | `R` | `J (w _ => w R c) q (Eq.sym p)` |
+/// | `R`, `=` | `R` | `J (w _ => a R w) p q` |
 /// | `<=`, `<=` | `<=` | `Nat.leTrans a b c p q` |
 /// | `<`, `<=` | `<` | `Nat.leTrans (Succ a) b c p q` |
 /// | `<=`, `<` | `<` | `Nat.leTrans (Succ a) (Succ b) c p q` |
@@ -426,7 +426,7 @@ fn ordering_of(cx: &Ctx, rel: Rel, x: Term, y: Term) -> Result<Term> {
     }
 }
 
-/// `\w q => body`: the motive of `J`, with `w` as `Var(1)` in `body`.
+/// `w q => body`: the motive of `J`, with `w` as `Var(1)` in `body`.
 fn motive(body: Term) -> Term {
     Term::Lam(
         "w".into(),

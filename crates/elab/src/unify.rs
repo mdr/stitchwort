@@ -1157,7 +1157,7 @@ mod tests {
     #[test]
     fn identical_functions_unify_without_solving_anything() {
         let g = globals();
-        // `\x => ?m y x`, twice, with different values for the variable
+        // `x => ?m y x`, twice, with different values for the variable
         // the body doesn't use.
         let (m, _) = meta(&g, &[]);
         let body = || {

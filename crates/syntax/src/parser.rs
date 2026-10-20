@@ -219,8 +219,41 @@ struct Parser<'t> {
     /// While a `rewrite` rule is being parsed: the token it starts at. A `in`
     /// outside brackets ends the rule (`in` is an ordinary name elsewhere).
     rewrite_rule: Option<usize>,
+    /// For each opening bracket (`(`, `[`, `{`), the index of its partner,
+    /// and `NO_PARTNER` for every other token and for unmatched brackets.
+    /// Built once per declaration, so that skipping a bracketed group is one
+    /// lookup (the lambda scan and `is_pi_binder`).
+    matching: Vec<u32>,
     /// How deep the recursion may go.
     stack: StackLimit,
+}
+
+const NO_PARTNER: u32 = u32::MAX;
+
+/// For each opening bracket in `tokens`, the index of its closing partner.
+fn match_brackets(tokens: &[Token]) -> Vec<u32> {
+    let mut matching = vec![NO_PARTNER; tokens.len()];
+    let mut open: Vec<usize> = Vec::new();
+    for (i, token) in tokens.iter().enumerate() {
+        match token.tok {
+            Tok::LParen | Tok::LBracket | Tok::LBrace => open.push(i),
+            Tok::RParen | Tok::RBracket | Tok::RBrace => {
+                let want = match token.tok {
+                    Tok::RParen => Tok::LParen,
+                    Tok::RBracket => Tok::LBracket,
+                    _ => Tok::LBrace,
+                };
+                if let Some(&top) = open.last()
+                    && tokens[top].tok == want
+                {
+                    open.pop();
+                    matching[top] = i as u32;
+                }
+            }
+            _ => {}
+        }
+    }
+    matching
 }
 
 /// One line of a block.
@@ -245,6 +278,7 @@ impl<'t> Parser<'t> {
             allow: None,
             calc_depth: 0,
             rewrite_rule: None,
+            matching: match_brackets(tokens),
             stack,
         }
     }
@@ -255,7 +289,7 @@ impl<'t> Parser<'t> {
         if self.peek() == Some(&Tok::Arrow) {
             return Err(self
                 .unexpected(what)
-                .with_note("lambdas and arms use `=>`: `\\x => e`, `| p => e`"));
+                .with_note("lambdas and arms use `=>`: `x => e`, `| p => e`"));
         }
         self.expect(Tok::FatArrow, what)
     }
@@ -423,7 +457,14 @@ impl<'t> Parser<'t> {
             Some(token) => format!("found {}", describe(&token.tok)),
             None => "reached the end of the declaration".to_string(),
         };
-        error(self.here(), format!("expected {expected}, but {found}"))
+        let found_arrow = self.tokens.get(self.pos).is_some_and(|t| t.tok == Tok::FatArrow);
+        let diagnostic = error(self.here(), format!("expected {expected}, but {found}"));
+        if found_arrow {
+            return diagnostic.with_note(
+                "to pass a lambda as an argument, put it in brackets: `List.map (x => …) xs`",
+            );
+        }
+        diagnostic
     }
 
     /// The rest of `(a, b, c)` after its first component, as nested pairs.
@@ -1332,7 +1373,8 @@ impl<'t> Parser<'t> {
         self.tuple_component()
     }
 
-    /// `\x (a, b) => body`, after the `\`. Out of line, so that
+    /// `x (a, b) => body`, once `lambda_ahead` has said this is one. Out of
+    /// line, so that
     /// `expr_inline`, which every nested expression recurses through, keeps
     /// a small stack frame.
     #[inline(never)]
@@ -1361,7 +1403,7 @@ impl<'t> Parser<'t> {
                         params.push(LamParam::Typed(name, ty.clone()));
                     }
                 }
-                Some(Tok::LParen | Tok::LBrace | Tok::Upper(_) | Tok::Num(_)) => {
+                Some(Tok::LParen | Tok::LBrace) => {
                     match self.pattern()? {
                         Pattern::Var(name) => params.push(LamParam::Plain(name, None)),
                         pattern => {
@@ -1643,7 +1685,7 @@ impl<'t> Parser<'t> {
         if self.eat(&Tok::KwRewrite) {
             return self.rewrite_expr(start);
         }
-        if self.eat(&Tok::Backslash) {
+        if self.lambda_ahead()? {
             return self.lambda(start);
         }
         if self.eat(&Tok::KwIf) {
@@ -1700,6 +1742,61 @@ impl<'t> Parser<'t> {
         Ok((Binder { names, ty }, auto))
     }
 
+    /// Whether a lambda starts here: a run of one or more parameters followed
+    /// by `=>` (docs/proposals/lambda-syntax.md §5.1). A parameter is a
+    /// lower-case name (unqualified), `_`, or a bracketed group (`(`, `{`, or
+    /// `[` opening an implicit binder), which the scan skips in one step with
+    /// the bracket table. The run continues while the next token isn't a
+    /// stop, and the `=>` after it isn't one either. Nothing is consumed.
+    /// An implicit group in the run is an error: not supported yet.
+    #[inline(never)]
+    fn lambda_ahead(&self) -> Result<bool> {
+        let mut i = self.pos;
+        let mut count = 0;
+        let mut implicit: Option<usize> = None;
+        while i < self.tokens.len() && !self.is_stop(i) {
+            match &self.tokens[i].tok {
+                Tok::Lower(w) if !w.contains('.') => i += 1,
+                Tok::Underscore => i += 1,
+                Tok::LParen | Tok::LBrace => match self.matching[i] {
+                    NO_PARTNER => return Ok(false),
+                    close => i = close as usize + 1,
+                },
+                Tok::LBracket if self.implicit_group_at(i) => match self.matching[i] {
+                    NO_PARTNER => return Ok(false),
+                    close => {
+                        implicit.get_or_insert(i);
+                        i = close as usize + 1;
+                    }
+                },
+                _ => break,
+            }
+            count += 1;
+        }
+        let is_lambda = count > 0
+            && i < self.tokens.len()
+            && self.tokens[i].tok == Tok::FatArrow
+            && !self.is_stop(i);
+        match (is_lambda, implicit) {
+            (true, Some(at)) => Err(error(
+                self.tokens[at].span,
+                "implicit lambda parameters aren't supported yet",
+            )
+            .with_note("write the lambda without `[…]`; the implicit parameter is introduced for you")),
+            (is_lambda, _) => Ok(is_lambda),
+        }
+    }
+
+    /// Whether the `[` at token `i` opens an implicit binder: `[name+ :`
+    /// (this covers `[auto name :`).
+    fn implicit_group_at(&self, i: usize) -> bool {
+        let mut j = i + 1;
+        while matches!(self.tokens.get(j), Some(Token { tok: Tok::Lower(_), .. })) {
+            j += 1;
+        }
+        j > i + 1 && matches!(self.tokens.get(j), Some(Token { tok: Tok::Colon, .. }))
+    }
+
     /// `( name+ : ... ) ->`
     fn is_pi_binder(&self) -> bool {
         if self.peek() != Some(&Tok::LParen) {
@@ -1716,20 +1813,10 @@ impl<'t> Parser<'t> {
         if i == first_name || self.tokens.get(i).map(|t| &t.tok) != Some(&Tok::Colon) {
             return false;
         }
-        let mut depth = 0;
-        for (j, token) in self.tokens.iter().enumerate().skip(self.pos) {
-            match token.tok {
-                Tok::LParen => depth += 1,
-                Tok::RParen => {
-                    depth -= 1;
-                    if depth == 0 {
-                        return self.tokens.get(j + 1).map(|t| &t.tok) == Some(&Tok::Arrow);
-                    }
-                }
-                _ => {}
-            }
+        match self.matching[self.pos] {
+            NO_PARTNER => false,
+            close => self.tokens.get(close as usize + 1).map(|t| &t.tok) == Some(&Tok::Arrow),
         }
-        false
     }
 
     /// `a && b` and `a || b`: binding more loosely than comparisons, `&&`
@@ -1786,8 +1873,8 @@ impl<'t> Parser<'t> {
     /// the expression, if it's indented at least as far as the line the
     /// expression starts on. The right side is an operand at the level of
     /// `||` (an application, usually), or a lambda, whose body takes the rest
-    /// of the pipeline: `x |> \y => f y |> g` is `x |> \y => (f y |> g)`,
-    /// which means the same as `(x |> \y => f y) |> g`. Out of line and in a
+    /// of the pipeline: `x |> y => f y |> g` is `x |> y => (f y |> g)`,
+    /// which means the same as `(x |> y => f y) |> g`. Out of line and in a
     /// loop, as `logic_chain` is.
     #[inline(never)]
     fn pipe_chain(&mut self, operand: &mut Expr) -> Result<()> {
@@ -1805,8 +1892,8 @@ impl<'t> Parser<'t> {
                 break;
             }
             self.bump();
-            let rhs = if self.peek() == Some(&Tok::Backslash) {
-                let start = self.bump().span;
+            let rhs = if self.lambda_ahead()? {
+                let start = self.here();
                 self.lambda(start)?
             } else {
                 let mut rhs = self.cmp_expr()?;
@@ -1913,7 +2000,7 @@ impl<'t> Parser<'t> {
     }
 
     fn app(&mut self) -> Result<Expr> {
-        // A section's arguments are its own: `.drop 1` is `\x => x.drop 1`.
+        // A section's arguments are its own: `.drop 1` is `x => x.drop 1`.
         let section = self.peek() == Some(&Tok::Dot);
         let mut expr = self.atom()?;
         while self.starts_atom() {
@@ -2035,7 +2122,7 @@ impl<'t> Parser<'t> {
             },
             _ => {
                 return Err(error(dot, "expected a name right after `.`").with_note(
-                    "`.name args` is a method section, the function `\\x => x.name args`",
+                    "`.name args` is a method section, the function `x => x.name args`",
                 ));
             }
         };
@@ -2292,7 +2379,6 @@ fn describe(tok: &Tok) -> String {
         Tok::ColonEq => "`:=`".into(),
         Tok::Equals => "`=`".into(),
         Tok::Arrow => "`->`".into(),
-        Tok::Backslash => "`\\`".into(),
         Tok::Pipe => "`|`".into(),
         Tok::Plus => "`+`".into(),
         Tok::PlusPlus => "`++`".into(),
@@ -2722,7 +2808,7 @@ mod tests {
 
     #[test]
     fn blocks_nest() {
-        let body = rhs("def f (u : Nat) : Nat :=\n  let g := \\x =>\n    say x\n    x\n  g 1\n");
+        let body = rhs("def f (u : Nat) : Nat :=\n  let g := x =>\n    say x\n    x\n  g 1\n");
         assert_eq!(lines(&body), ["let g", "result"]);
         let Expr::Let { value, .. } = &body else {
             panic!()
@@ -3271,31 +3357,31 @@ mod tests {
             other => panic!("expected a lambda match, got {other:?}"),
         };
 
-        let (names, body) = lam("def f : Nat := \\(a, b) => a\n");
+        let (names, body) = lam("def f : Nat := (a, b) => a\n");
         assert_eq!(names[0].text, "%arg0");
         assert_eq!(lambda_match(&body), (1, 1));
 
-        let (names, body) = lam("def f : Nat := \\acc (k, v) => acc\n");
+        let (names, body) = lam("def f : Nat := acc (k, v) => acc\n");
         let texts: Vec<_> = names.iter().map(|n| n.text.as_str()).collect();
         assert_eq!(texts, ["acc", "%arg1"]);
         assert_eq!(lambda_match(&body), (1, 1));
 
-        let (names, body) = lam("def f : Nat := \\{ name, .. } => name\n");
+        let (names, body) = lam("def f : Nat := { name, .. } => name\n");
         assert_eq!(names[0].text, "%arg0");
         assert_eq!(lambda_match(&body), (1, 1));
 
-        let (_, body) = lam("def f : Nat := \\(MkPair a b) => a\n");
+        let (_, body) = lam("def f : Nat := (MkPair a b) => a\n");
         assert_eq!(lambda_match(&body), (1, 1));
 
-        let (names, body) = lam("def f : Nat := \\(a, b) (c, d) => a\n");
+        let (names, body) = lam("def f : Nat := (a, b) (c, d) => a\n");
         assert_eq!(names.len(), 2);
         assert_eq!(lambda_match(&body), (2, 2));
 
         // Plain parameters are unchanged.
-        let (names, body) = lam("def f : Nat := \\x y => x\n");
+        let (names, body) = lam("def f : Nat := x y => x\n");
         assert_eq!(names.len(), 2);
         assert!(matches!(body, Expr::Var(_)));
-        let (names, body) = lam("def f : Nat := \\(x) _ => x\n");
+        let (names, body) = lam("def f : Nat := (x) _ => x\n");
         assert_eq!(names.len(), 2);
         assert!(matches!(body, Expr::Var(_)));
     }
@@ -3311,34 +3397,141 @@ mod tests {
                 other => panic!("expected a typed lambda, got {other:?}"),
             }
         }
-        let (name, ty, body) = typed(&rhs("def f : Nat := \\(x: Nat) => x\n"));
+        let (name, ty, body) = typed(&rhs("def f : Nat := (x: Nat) => x\n"));
         assert_eq!((name.as_str(), ty.as_str()), ("x", "Nat"));
         assert!(matches!(body, Expr::Var(_)));
         // With a space before the colon, too.
-        typed(&rhs("def f : Nat := \\(x : Nat) => x\n"));
+        typed(&rhs("def f : Nat := (x : Nat) => x\n"));
         // Several parameters nest, in order; a group shares one type.
-        let (name, _, body) = typed(&rhs("def f : Nat := \\(x y: Nat) => x\n"));
+        let (name, _, body) = typed(&rhs("def f : Nat := (x y: Nat) => x\n"));
         assert_eq!(name, "x");
         let (name, ty, _) = typed(&body);
         assert_eq!((name.as_str(), ty.as_str()), ("y", "Nat"));
-        let (_, _, body) = typed(&rhs("def f : Nat := \\(x: Nat) (y: Bool) => x\n"));
+        let (_, _, body) = typed(&rhs("def f : Nat := (x: Nat) (y: Bool) => x\n"));
         assert!(matches!(body, Expr::TypedLam(..)));
         // Mixed with plain parameters: `\x (y: Nat)` is a `Lam` around a
         // `TypedLam`.
-        match &rhs("def f : Nat := \\x (y: Nat) => x\n") {
+        match &rhs("def f : Nat := x (y: Nat) => x\n") {
             Expr::Lam(names, body, _) => {
                 assert_eq!(names.len(), 1);
                 assert!(matches!(**body, Expr::TypedLam(..)));
             }
             other => panic!("expected a lambda, got {other:?}"),
         }
-        let (_, _, body) = typed(&rhs("def f : Nat := \\(x: Nat) y z => x\n"));
+        let (_, _, body) = typed(&rhs("def f : Nat := (x: Nat) y z => x\n"));
         assert!(matches!(&body, Expr::Lam(names, _, _) if names.len() == 2));
         // A parenthesised name alone is still a plain parameter.
-        assert!(matches!(rhs("def f : Nat := \\(x) => x\n"), Expr::Lam(..)));
+        assert!(matches!(rhs("def f : Nat := (x) => x\n"), Expr::Lam(..)));
         // A missing type or closing bracket is an error.
-        assert!(rhs_of("def f : Nat := \\(x:) => x\n").is_err());
-        assert!(rhs_of("def f : Nat := \\(x: Nat => x\n").is_err());
+        assert!(rhs_of("def f : Nat := (x:) => x\n").is_err());
+        assert!(rhs_of("def f : Nat := (x: Nat => x\n").is_err());
+    }
+
+    /// The first error's message and notes, for a source that must fail.
+    fn error_text(text: &str) -> String {
+        let e = rhs_of(text).expect_err("expected a parse error");
+        format!("{} {}", e.message, e.notes.join(" "))
+    }
+
+    /// docs/proposals/lambda-syntax.md §5.1, layout rule: the run and its
+    /// `=>` follow the parser's existing continuation rule.
+    #[test]
+    fn a_lambdas_run_follows_the_layout_rule() {
+        let lam_names = |e: &Expr| match e {
+            Expr::Lam(names, _, _) => names.len(),
+            other => panic!("expected a lambda, got {other:?}"),
+        };
+        // The body on the next line, indented.
+        let e = rhs("def f : Nat :=\n  x y =>\n    x\n");
+        assert_eq!(lam_names(&e), 2);
+        // A second parameter on a continuation line.
+        let e = rhs("def f : Nat :=\n  x\n    y =>\n      x\n");
+        assert_eq!(lam_names(&e), 2);
+        // `=>` at the block's column is a stop: `x y` is a statement.
+        let text = "def f : Nat :=\n  x y\n  => x\n";
+        assert!(error_text(text).contains("=>"), "{}", error_text(text));
+        // A second line at the block's column starts a new statement.
+        let e = rhs("def f : Nat :=\n  f x\n  y => y\n");
+        assert_eq!(lines(&e), ["_", "result"]);
+        let Expr::Seq(_, last) = &e else { panic!() };
+        assert_eq!(lam_names(last), 1);
+    }
+
+    #[test]
+    fn lambda_positions() {
+        let is_lam = |e: &Expr| matches!(e, Expr::Lam(..) | Expr::TypedLam(..));
+        // `_` as a parameter, and a lambda returning a lambda.
+        assert!(is_lam(&rhs("def f : Nat := _ => 0\n")));
+        assert!(is_lam(&rhs("def f : Nat := x => y => x\n")));
+        // Arguments need brackets, and with them the application is ordinary.
+        assert!(matches!(
+            rhs("def f : Nat := List.map (x => x) xs\n"),
+            Expr::App(..)
+        ));
+        // Both branches of an `if`, and a record field.
+        let e = rhs("def f : Nat := if c then x => a else y => b\n");
+        let Expr::If { then, otherwise, .. } = &e else {
+            panic!("expected an if")
+        };
+        assert!(is_lam(then) && is_lam(otherwise));
+        assert!(matches!(
+            rhs("def f : Nat := { f = x => x + 1 }\n"),
+            Expr::Record { .. }
+        ));
+        // In an arm's result, and after `|>`.
+        let e = rhs("def f : Nat := match n with | Zero => x => x | Succ k => g k\n");
+        assert!(matches!(e, Expr::Match { .. }));
+        assert!(matches!(
+            rhs("def f : Nat := xs |> ys => ys\n"),
+            Expr::Pipe(..)
+        ));
+        // `f x => e` is a lambda with parameters `f` and `x`.
+        let e = rhs("def f : Nat := map x => x + 1\n");
+        let Expr::Lam(names, _, _) = &e else {
+            panic!("expected a lambda")
+        };
+        assert_eq!(names.len(), 2);
+    }
+
+    #[test]
+    fn what_is_not_a_lambda() {
+        // A bare constructor or number isn't a parameter: use brackets.
+        assert!(rhs_of("def f : Nat := Trivial => 1\n").is_err());
+        assert!(rhs_of("def f : Nat := 0 => 1\n").is_err());
+        assert!(matches!(
+            rhs("def f : Nat := (Trivial) => 1\n"),
+            Expr::Lam(..)
+        ));
+        // A qualified name or dot access can't be a parameter, so a forgotten
+        // bracket is an error with a note.
+        for text in [
+            "def f : Nat := List.map x => x + 1\n",
+            "def f : Nat := xs.map x => x + 1\n",
+            "def f : Nat := Just x => x\n",
+        ] {
+            let message = error_text(text);
+            assert!(message.contains("put it in brackets"), "{text}: {message}");
+        }
+        // After an operator the operand isn't a lambda position.
+        assert!(rhs_of("def f : Nat := a + x => e\n").is_err());
+        // An unclosed bracket isn't skipped over.
+        assert!(rhs_of("def f : Nat := (a, b => e\n").is_err());
+    }
+
+    #[test]
+    fn the_backslash_is_gone() {
+        assert!(rhs_of("def f : Nat := \\x => x\n").is_err());
+        let mut sources = SourceMap::new();
+        let file = sources.add("t.sw", "\\");
+        assert!(crate::lex(file, "\\").is_err());
+    }
+
+    #[test]
+    fn implicit_lambda_parameters_are_not_supported_yet() {
+        let message = error_text("def f : Nat := [a: Type] (x: a) => x\n");
+        assert!(message.contains("aren't supported yet"), "{message}");
+        // The function type with the same start is unaffected.
+        assert!(rhs_of("def f : Nat := [a: Type] -> a -> a\n").is_ok());
     }
 
     #[test]
@@ -3416,11 +3609,11 @@ mod tests {
     #[test]
     fn a_lambda_on_the_right_takes_the_rest_of_the_pipeline() {
         let cases = [
-            ("x |> \\y => f y", "(|> x (\\y (f y)))"),
-            ("x |> \\y => f y |> g", "(|> x (\\y (|> (f y) g)))"),
-            ("x |> f |> \\y => y + 1", "(|> (|> x f) (\\y (Add y 1)))"),
+            ("x |> y => f y", "(|> x (\\y (f y)))"),
+            ("x |> y => f y |> g", "(|> x (\\y (|> (f y) g)))"),
+            ("x |> f |> y => y + 1", "(|> (|> x f) (\\y (Add y 1)))"),
             (
-                "x |> List.map (\\y => y |> f)",
+                "x |> List.map (y => y |> f)",
                 "(|> x (List.map (\\y (|> y f))))",
             ),
         ];

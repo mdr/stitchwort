@@ -55,7 +55,7 @@ pub const EXIT_IO: i32 = 71;
 /// frames of a simple recursion.
 pub const STACK_MB: u32 = 2048;
 
-/// The JS name of the continuation `\y => Done y` (see
+/// The JS name of the continuation `y => Done y` (see
 /// [`Gen::is_done_continuation`]).
 pub(crate) const DONE_K: &str = "DONE_K";
 
@@ -285,7 +285,7 @@ class StitchwortDelay {
   }
 }
 
-// `\y => Done y`, the continuation of an operation the elaborator writes:
+// `y => Done y`, the continuation of an operation the elaborator writes:
 // one value, so the runner can tell a request in tail position.
 const DONE_K = (y) => ({ tag: SHAPE.done, [SHAPE.doneValue]: y });
 "#;

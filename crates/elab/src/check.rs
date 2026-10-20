@@ -194,7 +194,7 @@ impl<'e> Ctx<'e> {
     /// `main`, costs nothing to check (docs/proposals/let.md §A.3, "Cost at
     /// check time"). Such a *deferred* slot holds a solved metavariable
     /// applied to the context, `?d _ x₀ … xₙ`, whose solution is
-    /// `\_ x₀ … xₙ => value`: forcing it, as everything that looks at a value
+    /// `_ x₀ … xₙ => value`: forcing it, as everything that looks at a value
     /// does, computes the value, again each time. It's not the slot's own
     /// variable, so the placeholder can't be taken for one (a pending slot
     /// has its own marker, stage 2's warning), and since the context is in
@@ -533,7 +533,7 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             "can't work out the type of this function",
             "add a type annotation: `(…: T)`",
         )),
-        // `\(x: A) => body`: the parameter's type is written, so the
+        // `(x: A) => body`: the parameter's type is written, so the
         // function's type follows from the body's.
         Expr::TypedLam(name, ann, body, _) => {
             let (dom, _) = check_type(cx, ann)?;
@@ -829,7 +829,7 @@ pub(crate) type Supply = std::collections::VecDeque<Term>;
 ///
 /// An argument that is a lambda (or a method section) whose parameter type
 /// isn't known yet when it's reached is checked after the later arguments,
-/// which may fix that type: `List.map (\p => p.name) people`. Only the
+/// which may fix that type: `List.map (p => p.name) people`. Only the
 /// checking order changes; the term's arguments stay in place. Not when a
 /// later argument's type depends on it (it would see only a placeholder). A
 /// section is always postponed then; a plain lambda only if checking it in
@@ -1515,7 +1515,7 @@ fn fallback(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
 
 /// Where a `Bool` is expected, a proposition with a decision procedure is
 /// decided, as Lean's `decide` coercion does: `term : Prop` becomes
-/// `Decidable.toBool {term} decision`, so `List.filter (\n => n <= k) xs`
+/// `Decidable.toBool {term} decision`, so `List.filter (n => n <= k) xs`
 /// works. `None` (nothing done) unless `expected` is the library's `Bool`
 /// and `found` is `Prop`, so other comparisons don't pay for it. A
 /// condition (`if c`, `&&` …) whose `Bool` reading is being tried isn't

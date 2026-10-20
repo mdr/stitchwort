@@ -114,7 +114,7 @@ fn nested_functions_and_function_types() {
             format!(
                 "def {x} : {}Nat := {}0\n",
                 "Nat -> ".repeat(n),
-                "\\y => ".repeat(n)
+                "y => ".repeat(n)
             )
         });
     });

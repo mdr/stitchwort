@@ -2567,7 +2567,7 @@ fn canonical(
         }
         env
     };
-    // The motive `\r e => (h₁ : T₁[r]) -> … -> G[r]`, under `r` and `e` at
+    // The motive `r e => (h₁ : T₁[r]) -> … -> G[r]`, under `r` and `e` at
     // `base` and `base + 1`.
     let motive_env = subst(Value::var(base), base + 2);
     let mut motive = quote(g, base + 2 + k, &eval(g, &motive_env, &goal_t)?)?;

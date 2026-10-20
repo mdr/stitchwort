@@ -178,7 +178,7 @@ type Box (n : Nat) =
 def Box.value : [n : Nat] -> Box n -> Nat
   | MkBox v => v
 
-def castBox [a b : Nat] (p : a = b) (x : Box a) : Box b := J (\y q => Box y) x p
+def castBox [a b : Nat] (p : a = b) (x : Box a) : Box b := J (y q => Box y) x p
 
 test "transport keeps the payload" := Box.value (castBox (rfl : 2 + 2 = 4) (MkBox 7)) == 7
 test "and through a symmetric proof" :=
@@ -262,7 +262,7 @@ def slow : Nat -> Nat
 -- The proof's value runs `slow k` (a lambda's argument isn't erased), unless
 -- the `let` is.
 def withProof (k : Nat) : Nat :=
-  let h : k = k := ((\u => rfl) : Nat -> k = k) (slow k)
+  let h : k = k := ((u => rfl) : Nat -> k = k) (slow k)
   let m := k + 1
   m
 

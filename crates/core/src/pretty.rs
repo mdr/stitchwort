@@ -332,11 +332,21 @@ impl<'g> Printer<'g> {
                     (format!("{dom} -> {cod}"), Prec::Arrow)
                 }
             }
+            // Nested lambdas are one run: `x y => body`. A lambda is a whole
+            // expression only; everywhere else it gets brackets, since it
+            // prints at the loosest precedence (docs/proposals/lambda-syntax.md §8.3).
             Term::Lam(x, _, b) => {
+                let mut params = vec![x.to_string()];
                 names.push(x.clone());
-                let body = self.print(names, b, Prec::Arrow);
-                names.pop();
-                (format!("\\{x} => {body}"), Prec::Arrow)
+                let mut body = &**b;
+                while let Term::Lam(y, _, inner) = body.strip_loc() {
+                    params.push(y.to_string());
+                    names.push(y.clone());
+                    body = inner;
+                }
+                let body = self.print(names, body, Prec::Arrow);
+                names.truncate(names.len() - params.len());
+                (format!("{} => {body}", params.join(" ")), Prec::Arrow)
             }
             // The annotation isn't shown, as for `Ann`.
             Term::Let(x, _, v, b, _) => {
@@ -367,7 +377,11 @@ impl<'g> Printer<'g> {
                         && let Some(then) = self.unused_branch(names, then)
                         && let Some(otherwise) = self.unused_branch(names, otherwise)
                     {
-                        let cond = self.print(names, cond, Prec::Arrow);
+                        let cond = if matches!(cond.strip_loc(), Term::Lam(..)) {
+                            self.print(names, cond, Prec::Or)
+                        } else {
+                            self.print(names, cond, Prec::Arrow)
+                        };
                         return (
                             format!("if {cond} then {then} else {otherwise}"),
                             Prec::Arrow,
@@ -511,7 +525,13 @@ impl<'g> Printer<'g> {
             return None;
         }
         names.push(x.clone());
-        let text = self.print(names, body, Prec::Arrow);
+        // A lambda as a branch keeps its brackets, so that it visibly ends
+        // before `else`.
+        let text = if matches!(body.strip_loc(), Term::Lam(..)) {
+            self.print(names, body, Prec::Or)
+        } else {
+            self.print(names, body, Prec::Arrow)
+        };
         names.pop();
         Some(text)
     }
