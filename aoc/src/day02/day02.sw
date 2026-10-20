@@ -19,9 +19,11 @@ namespace Aoc.Day02
 import Aoc.Common (Range, rangeIn, rangeEnd)
 
 def main(): {IO} () :=
-  let ranges := parseRanges (IO.readAll())
-  IO.print "Part 1: ${solvePart1 ranges}"
-  IO.print "Part 2: ${solvePart2 ranges}"
+  match parseRanges (IO.readAll()) with
+    | Just ranges =>
+      IO.print "Part 1: ${solvePart1 ranges}"
+      IO.print "Part 2: ${solvePart2 ranges}"
+    | Nothing => IO.print "Ids of more than 10 digits aren't supported"
 
 def solvePart1 (ranges: List Range): Nat := total twice ranges
 
@@ -407,15 +409,25 @@ def total (w: Nat -> Int) (ranges: List Range): Nat :=
     |> .sumInt
     |> .toNat
 
-def parseRanges (t: Text): List Range :=
-  t.trim.split ',' |> .mapMaybe Range.parse
+-- The ranges, or `Nothing` if an id has more than 10 digits: the weights
+-- stop at 10 repeats, so part 2 would miss 11111111111 (1 written 11 times).
+def parseRanges (t: Text): Maybe (List Range) :=
+  t.trim.split ',' |> .mapMaybe Range.parse |> ifAllFit
+
+def ifAllFit (ranges: List Range): Maybe (List Range) :=
+  if ranges.all fits then Just ranges else Nothing
+
+def fits (r: Range): Bool := r.hi < 10000000000
 
 def example: Text := "11-22,95-115,998-1012,1188511880-1188511890,222220-222224,1698522-1698528,446443-446449,38593856-38593862,565653-565659,824824821-824824827,2121212118-2121212124"
 
 def range (lo hi: Nat): Range := { lo, hi }
 
-test "example" := (solvePart1 (parseRanges example), solvePart2 (parseRanges example)) == (1227775554, 4174379265)
-test "parse" := parseRanges "4-14,1490-3407\n" == [range 4 14, range 1490 3407]
+def exampleRanges: List Range := Maybe.withDefault [] (parseRanges example)
+
+test "example" := (solvePart1 exampleRanges, solvePart2 exampleRanges) == (1227775554, 4174379265)
+test "parse" := parseRanges "4-14,1490-3407\n" == Just [range 4 14, range 1490 3407]
+test "too many digits" := parseRanges "1-9999999999,10000000000-11111111111" == Nothing
 
 -- Minus the Moebius function, for the repeat counts 2 to 10.
 def weight: Nat -> Int
@@ -440,8 +452,9 @@ test "empty overlap" := invalid weight (range 12 21) == 0
 
 -- Cross-check against brute force ---------------------------------------
 --
--- Part 2's inclusion-exclusion isn't proved; instead it's compared with the
--- obvious method on many small ranges: look at every id's digits.
+-- Both parts compared with the obvious method on many small ranges: look at
+-- every id's digits. (Both are also proved: part 1 below, part 2 in
+-- part2proof.sw.)
 
 -- Part 1: written twice; part 2: written two or more times.
 def doubled (x: Nat): Bool :=
@@ -468,8 +481,8 @@ test "brute force agrees" := checkRanges.all agrees
 
 -- Why part 1 is right (b): `part1BlocksCorrect` says the printed part 1 is
 -- `part1Blocks`, the brute-force sum over every range and block length of the
--- blocks written twice; (c) below says that is the puzzle's own sum. Part 2's inclusion-exclusion isn't proved (see the
--- cross-check above).
+-- blocks written twice; (c) below says that is the puzzle's own sum. Part 2
+-- is proved in part2proof.sw (`part2Correct`).
 
 -- Brute force for part 1: in each range, every block length up to the
 -- number of digits of `hi` (a longer block makes a longer id), every block of
@@ -571,7 +584,7 @@ theorem part1BlocksCorrect (ranges: List Range): solvePart1 ranges = part1Blocks
 def part1Spec (ranges: List Range): Nat :=
   ranges |> .sumBy (\r => r.ids |> .filter doubled |> .sum)
 
-test "part 1 spec" := part1Spec (parseRanges example) == 1227775554
+test "part 1 spec" := part1Spec exampleRanges == 1227775554
 
 
 -- For one id `x` up to `hi`: over all block lengths, the blocks written twice

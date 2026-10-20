@@ -764,6 +764,10 @@ theorem Nat.mulSuccCancel (b: Nat) (v: Nat) (m: Nat) (e: b * Succ m = v * Succ m
   Eq.trans (Eq.sym (Nat.divUnique (b * Succ m) (Succ m) b 0 rfl (Eq.sym (Nat.addZero (b * Succ m)))))
     (Eq.trans (Eq.cong (\t => t / Succ m) e) (Nat.divUnique (v * Succ m) (Succ m) v 0 rfl (Eq.sym (Nat.addZero (v * Succ m)))))
 
+theorem Nat.mulCancelLeft: (n: Nat) -> 1 <= n -> (a: Nat) -> (b: Nat) -> n * a = n * b -> a = b
+  | Zero,   h, a, b, e => Void.exfalso (Bool.falseNotTrue h)
+  | Succ m, h, a, b, e => Nat.mulSuccCancel a b m (Eq.trans (Nat.mulComm a (Succ m)) (Eq.trans e (Nat.mulComm (Succ m) b)))
+
 theorem Nat.addSelfNotSelf (a: Nat) (h: 1 <= a) (e: a + a = a): Void :=
   Nat.lessIrrefl a (Nat.leCongRight (Succ a) (a + a) a e (Nat.leCongLeft (a + 1) (Succ a) (a + a) (Nat.addOne a) (Nat.leAddCong a 1 a h)))
 
@@ -2009,6 +2013,15 @@ theorem Int.subNatNatAddNegSucc (k: Nat) (m: Nat) (n: Nat):
     Int.add (Int.subNatNat m n) (NegSucc k) = Int.subNatNat m (Succ (n + k)) :=
   Eq.trans (Int.addComm (Int.subNatNat m n) (NegSucc k)) (Int.negSuccAddSubNatNat k m n)
 
+-- A running total `p - q` of naturals: subtracting `r` adds it to `q`; and
+-- `(s + q) - q` is `s`.
+theorem Int.subNatNatAddNeg (p: Nat) (q: Nat): (r: Nat) -> Int.add (Int.subNatNat p q) (Int.neg (OfNat r)) = Int.subNatNat p (q + r)
+  | Zero   => Eq.trans (Int.addZero (Int.subNatNat p q)) (Eq.cong (Int.subNatNat p) (Eq.sym (Nat.addZero q)))
+  | Succ r => Eq.trans (Int.subNatNatAddNegSucc r p q) (Eq.cong (Int.subNatNat p) (Eq.sym (Nat.addSucc q r)))
+
+theorem Int.toNatSubNatNat (s: Nat) (q: Nat): Int.toNat (Int.subNatNat (s + q) q) = s :=
+  Eq.trans (Eq.cong (\t => Int.toNat (Int.subNatNatFrom (s + q) q t)) (Nat.subEqZero q (s + q) (Nat.leAddLeft s q))) (Nat.addSub s q)
+
 theorem Int.addAssoc: (a: Int) -> (b: Int) -> (c: Int) ->
     Int.add (Int.add a b) c = Int.add a (Int.add b c)
   | OfNat a,   OfNat b,   OfNat c   => Eq.cong OfNat (Nat.addAssoc a b c)
@@ -2031,6 +2044,14 @@ theorem Int.addAssoc: (a: Int) -> (b: Int) -> (c: Int) ->
   | NegSucc a, NegSucc b, NegSucc c =>
     Eq.trans (Eq.cong (\t => NegSucc (Succ (Succ t))) (Nat.addAssoc a b c))
              (Eq.cong (\t => NegSucc (Succ t)) (Eq.sym (Nat.addSucc a (b + c))))
+
+-- `List.sumInt` from a starting total.
+theorem List.sumIntFrom: (a: Int) -> (xs: List Int) -> List.foldLeft Int.add a xs = Int.add a (List.sumInt xs)
+  | a, Nil       => Eq.sym (Int.addZero a)
+  | a, Cons x xs =>
+    Eq.trans (List.sumIntFrom (Int.add a x) xs)
+      (Eq.trans (Int.addAssoc a x (List.sumInt xs))
+        (Eq.sym (Eq.cong (Int.add a) (Eq.trans (List.sumIntFrom (Int.add (OfNat 0) x) xs) (Eq.cong (\t => Int.add t (List.sumInt xs)) (Int.zeroAdd x))))))
 
 -- Integers modulo a size. The remainder `Int.modNat x d` doesn't change when
 -- `d` is added to `x`, hence not for any multiple of `d`.
@@ -2606,6 +2627,17 @@ theorem Nat.digitsLength (j: Nat) (b: Nat) (h1: Nat.pow 10 j <= b) (h2: b < Nat.
           (Nat.fromDigitsHeadBound (Nat.digits b) (Nat.digitsHead b (Nat.leTrans 1 (Nat.pow 10 j) b (Nat.powSuccPos 9 j) h1))))
         h2))
     (Nat.powTenLt j (List.length (Nat.digits b)) b h1 (Nat.ltPowTenDigits b))
+
+-- A number below 10^m (m >= 1) has at most m digits.
+theorem Nat.digitsLengthLe: (x: Nat) -> (m: Nat) -> 1 <= m -> x < Nat.pow 10 m -> List.length (Nat.digits x) <= m
+  | x,      Zero,   hm, h => Void.exfalso (Bool.falseNotTrue hm)
+  | Zero,   Succ j, hm, h => rfl
+  | Succ y, Succ j, hm, h =>
+    Nat.predLeSucc (List.length (Nat.digits (Succ y))) j
+      (Nat.powTenLt (List.length (Nat.digits (Succ y)) - 1) (Succ j) (Succ y)
+        (Nat.leCongRight (Nat.pow 10 (List.length (Nat.digits (Succ y)) - 1)) (Nat.fromDigits (Nat.digits (Succ y))) (Succ y) (Nat.fromDigitsDigits (Succ y))
+          (Nat.fromDigitsHeadBound (Nat.digits (Succ y)) (Nat.digitsHead (Succ y) rfl)))
+        h)
 
 def Maybe.IsDigit: Maybe Nat -> Prop
   | Nothing => Unit
