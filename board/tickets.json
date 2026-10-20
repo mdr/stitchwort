@@ -283,16 +283,16 @@
     {
       "id": 19,
       "title": "Annotated lambda parameters `\\(x : T) -> …` (would also fix the `p.name` hint)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree",
       "labels": [
         "syntax",
         "elab"
       ],
       "body": "`\\(y: Nat) => y + 1` is refused today: 'a lambda's parameter can't have a type here: annotate the lambda instead, `((\\x => ...): A -> B)`' (reproduced 19 Oct). Allow annotated parameters. It would also fix the `p.name` hint (E-CANNOT-INFER on `\\p => p.name` without a known type). Syntax depends on the lambda-syntax decision in SW-90; do that first or together. Done: `\\(x: T) => e` elaborates and the E-CANNOT-INFER note suggests it.",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-20",
       "commits": []
     },
     {
@@ -1347,16 +1347,16 @@
     {
       "id": 90,
       "title": "Consider lambda syntax",
-      "status": "backlog",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [
         "syntax",
         "design"
       ],
-      "body": "Matt (19 Oct): reconsider how anonymous functions are written. Today: `\\x y => x + y` (examples/accept/list-toolkit.sw). Compare e.g. Lean `fun x => e`, Haskell `\\x -> e`, Agda `λ x → e`, JS/Scala `x => e`, Kotlin `{ x -> e }`; readability for newcomers, how annotated parameters look, pattern-matching lambdas. Related: SW-19 (annotated lambda parameters `\\(x : T) -> …`). Design note first if it changes syntax.",
+      "body": "Matt (19 Oct): reconsider how anonymous functions are written. Today: `\\x y => x + y`. D89 (20 Oct 2026): after SW-19 lands, write a design note on dropping the backslash for Scala/TypeScript-style `x => e` and `(x: T) => e` (Matt prefers mainstream Scala/TS surface style): parsing ambiguities (`(x: T) => e` vs a parenthesised ascription/expression, `x => e` vs arms), multi-parameter and pattern lambdas, migration of every lambda in the repo, precedents. Design-review gate: research, note, stop for Matt/reviewer.",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-20",
       "commits": []
     },
     {
