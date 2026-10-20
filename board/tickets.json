@@ -2722,7 +2722,7 @@
       "title": "Lambdas in comments and docs in the new syntax (D122)",
       "status": "doing",
       "agent": "DeepSeek",
-      "where": "two DeepSeek clones: funlang-20261020-203439 (docs), -203441 (code comments)",
+      "where": "merged 77e50ca, af5cc4e",
       "labels": [
         "docs"
       ],
@@ -2736,7 +2736,7 @@
       "title": "Bench: examples counts differ between runs; re-baseline after (gate blocker)",
       "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": "f8ca7b5 (merged); baseline 903cd62",
       "labels": [
         "tooling"
       ],
