@@ -346,3 +346,10 @@ recomputed where it's restated; (c) a "glued" evaluation strategy (keep a defini
 next to its unfolding, compare folded heads first, as Lean and Coq do) would avoid unrolling
 statements like the "9 billion blocks" one, but changes how every comparison works in the
 trusted kernel: a design note first.
+
+**Decided (Matt, 20 October 2026).** D72: keep `smallvec` in the core crate for the inline spine.
+D73: accept the examples bench's peak memory rising 14% (111 to 126 MB). D74: the
+shortcut-off comparison (`crates/driver/tests/conv_shortcut.rs`) covers only the rejected and
+soundness examples, since the shortcut can only answer "equal"; that takes it from about 100 s
+to about 58 s. D75: the next step is caching evaluated closed statements, after the AoC proofs
+are converted to `rewrite`/`calc` (SW-157).
