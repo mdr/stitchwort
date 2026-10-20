@@ -1,5 +1,5 @@
 {
-  "next": 148,
+  "next": 150,
   "tickets": [
     {
       "id": 1,
@@ -2231,17 +2231,48 @@
     {
       "id": 147,
       "title": "AoC day 2 part 2: prove against the id-walking spec (block repeated 2+ times)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "worktree (study)",
       "labels": [
         "aoc",
         "proof"
       ],
-      "body": "SW-6 proved part 1 for all inputs (part1Correct against part1Spec). Part 2 remains: its inclusion-exclusion (Möbius weights) isn't proved even against the block walk; repeatedTwice would need generalising to n copies. Only cross-checked by the brute-force test.",
+      "body": "SW-6 proved part 1 for all inputs (part1Correct against part1Spec). Part 2 remains: its inclusion-exclusion (Möbius weights) isn't proved even against the block walk; repeatedTwice would need generalising to n copies. Only cross-checked by the brute-force test.\n\n20 Oct 2026: Matt asked for a feasibility study first: can we practically prove part 2's inclusion-exclusion? Opus lane writes a report (approach, lemmas needed, estimated size, blockers, language pain points), prototyping as needed.",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-20",
       "commits": []
+    },
+    {
+      "id": 148,
+      "title": "Design note: split the prelude into Std library files loaded on use",
+      "status": "doing",
+      "agent": "Claude",
+      "where": "main",
+      "labels": [
+        "design",
+        "stdlib"
+      ],
+      "body": "D49: only what built-in syntax needs stays in the prelude; the rest moves to Std library files, checked only when used. D50: drop the special 'qualifiers always available' rule (namespaces.md §4.6); imports stay purely about which names you can write. D55: no additions to the default set; Eq, Int, And, Or, Effect, Builtin need import Std (X). D56: natives attach their Rust version when their file loads. Supersedes D48 (prelude check cost). Web research, then docs/proposals/, then external review.",
+      "created": "2026-10-20",
+      "updated": "2026-10-20",
+      "commits": []
+    },
+    {
+      "id": 149,
+      "title": "AoC: keep only generic Range utilities in Aoc.Common; move day-specific logic to its day",
+      "status": "doing",
+      "agent": "Claude",
+      "where": "main",
+      "labels": [
+        "aoc"
+      ],
+      "body": "Matt, 20 Oct 2026: much of aoc/src/common/range.sw is day 2 business logic (repeated blocks, writeTimes, windowSum, writtenAs, the twice* lemmas, Range.invalid) and possibly day 5's (covered, Below, Stacked). Rule: Aoc.Common keeps only Range utility code that could conceivably be used by different days (Range, parse, contains, size, ids, generic counting lemmas). Day-specific definitions and proofs move into their day's namespace, next to what uses them. Supersedes part of SW-135.",
+      "created": "2026-10-20",
+      "updated": "2026-10-20",
+      "commits": [
+        "ecf988b"
+      ]
     }
   ]
 }
