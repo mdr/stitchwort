@@ -15,7 +15,7 @@
 -- is the brute-force count of the ids some range holds.
 
 namespace Aoc.Day05
-import Aoc.Common (Range, covered, Below, Stacked, stackedCount, coveredTop, coveredSkip)
+import Aoc.Common (Range)
 
 def main(): {IO} () :=
   let database := parseDatabase (IO.readAllLines())
@@ -54,6 +54,64 @@ def countFresh (db: Database): Nat :=
   List.range (top + 1) |> .count (\id => db.fresh.any (\r => r.contains id))
 
 test "example brute force" := countFresh (parseDatabase example) == 14
+
+-- Whether some range holds the id.
+def covered (rs: List Range) (id: Nat): Bool := rs.any (\r => r.contains id)
+
+theorem coveredFirst (m: Range) (rest: List Range) (id: Nat) (h: m.contains id = True): covered (Cons m rest) id = True :=
+  Eq.cong (\c => c || covered rest id) h
+
+theorem coveredRest (m: Range) (rest: List Range) (id: Nat) (h: covered rest id = True): covered (Cons m rest) id = True :=
+  Eq.trans (Eq.cong (\c => m.contains id || c) h) (Bool.orTrue (m.contains id))
+
+theorem coveredSkip (m: Range) (rest: List Range) (id: Nat) (f: m.contains id = False) (h: covered (Cons m rest) id = True): covered rest id = True :=
+  Eq.trans (Eq.sym (Eq.cong (\c => c || covered rest id) f)) h
+
+-- Every id the ranges hold is below `b`.
+def Below (b: Nat) (rs: List Range): Prop := (id: Nat) -> covered rs id = True -> id < b
+
+-- Every id the ranges hold is at most the largest end.
+theorem topGe: (z: Nat) -> (rs: List Range) -> z <= rs.foldLeft (\m r => Nat.max m r.hi) z
+  | z, Nil       => Nat.leRefl z
+  | z, Cons r rs =>
+    Nat.leTrans z (Nat.max z r.hi) (rs.foldLeft (\m r => Nat.max m r.hi) (Nat.max z r.hi)) (Nat.leMaxLeft z r.hi) (topGe (Nat.max z r.hi) rs)
+
+theorem coveredTop: (z: Nat) -> (rs: List Range) -> (id: Nat) -> covered rs id = True -> id <= rs.foldLeft (\m r => Nat.max m r.hi) z
+  | z, Nil,       id, h => Void.exfalso (Bool.falseNotTrue h)
+  | z, Cons r rs, id, h =>
+    Bool.inspect (r.contains id) (\u => id <= rs.foldLeft (\m r => Nat.max m r.hi) (Nat.max z r.hi))
+      (\t => Nat.leTrans id r.hi (rs.foldLeft (\m r => Nat.max m r.hi) (Nat.max z r.hi)) (Range.containsHi r id t)
+        (Nat.leTrans r.hi (Nat.max z r.hi) (rs.foldLeft (\m r => Nat.max m r.hi) (Nat.max z r.hi)) (Nat.leMaxRight z r.hi) (topGe (Nat.max z r.hi) rs)))
+      (\f => coveredTop (Nat.max z r.hi) rs id (coveredSkip r rs id f h))
+
+-- Ranges, latest first, each starting after every id the ones after it hold.
+def Stacked: List Range -> Prop
+  | Nil         => Unit
+  | Cons m rest => And (Below m.lo rest) (Stacked rest)
+
+-- The first range of a list whose ids are below `n` holds `size` of them.
+theorem headCount (m: Range) (rest: List Range) (n: Nat) (b: Below n (Cons m rest)):
+    List.occurrences (\id => m.contains id) (List.range n) = m.size :=
+  Bool.inspect (Nat.leq m.lo m.hi) (\u => List.occurrences (\id => m.contains id) (List.range n) = m.size)
+    (\t => Range.countBelow m n (b m.hi (coveredFirst m rest m.hi (Nat.betweenYes m.lo m.hi m.hi t (Nat.leRefl m.hi)))))
+    (\f => Range.countEmpty m f (List.range n))
+
+-- Stacked ranges hold different ids, so the ids below `n` they hold number
+-- the sum of their sizes.
+theorem stackedCount (n: Nat): (ms: List Range) -> Stacked ms -> Below n ms ->
+    List.occurrences (\id => covered ms id) (List.range n) = ms.sumBy Range.size
+  | Nil,         s,             b => List.occurrencesNone (\id => covered Nil id) (\id => rfl) (List.range n)
+  | Cons m rest, Both bm srest, b =>
+    Eq.trans
+      (List.occurrencesOr (\id => m.contains id) (\id => covered rest id)
+        (\id h => Bool.inspect (covered rest id) (\c => c = False)
+          (\t => Void.exfalso (Nat.lessIrrefl id (Nat.leTrans (Succ id) m.lo id (bm id t) (Range.containsLo m id h))))
+          (\f => rfl))
+        (List.range n))
+      (Eq.trans (Eq.cong (\t => t + List.occurrences (\id => covered rest id) (List.range n)) (headCount m rest n b))
+        (Eq.trans (Eq.cong (\t => m.size + t) (stackedCount n rest srest (\id h => b id (coveredRest m rest id h))))
+          (Eq.sym (List.sumByCons Range.size m rest))))
+
 
 -- Merging keeps the covered ids (`stackCovers`), and the merged ranges,
 -- latest first, are stacked (`stackStacked`): each starts after every id
