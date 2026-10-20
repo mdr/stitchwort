@@ -18,6 +18,7 @@ Areas:
   driver     stitchwort-driver (all integration tests)
   js         stitchwort-js plus the CLI extract and run_js tests
   cli        stitchwort-cli (all integration tests)
+  aoc        every AoC day on its real input (crates/cli/tests/aoc_answers.rs)
   examples   stitchwort-cli --test examples
   hashes     stitchwort-driver --test hash_stability
   std        the standard library: index, loader, eager-vs-lazy, library tests
@@ -101,6 +102,9 @@ case "$area" in
     ;;
   cli)
     args=(-p stitchwort-cli)
+    ;;
+  aoc)
+    args=(-p stitchwort-cli --test aoc_answers)
     ;;
   examples)
     args=(-p stitchwort-cli --test examples)

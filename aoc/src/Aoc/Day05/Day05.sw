@@ -5,7 +5,7 @@
 --
 --   $ cd aoc && stitchwort run Aoc.Day05.main < inputs/day05.txt
 --
--- The puzzle input is not in git (aoc/inputs/ is ignored).
+-- The puzzle input is committed in aoc/inputs/ (D119).
 --
 -- Part 1 checks every id against every range. Part 2 can't list the numbers
 -- (there are about 4 * 10^14), so it merges the ranges instead: sorted by
