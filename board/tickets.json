@@ -2419,9 +2419,9 @@
     {
       "id": 158,
       "title": "Cache evaluated closed statements so proof-by-computation facts aren't recomputed (D75)",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "worktree",
       "labels": [
         "kernel",
         "performance"
