@@ -1,0 +1,2 @@
+# expect-error: E-NAMESPACE-NOT-FIRST
+# A namespace line after an import should say it must come first.

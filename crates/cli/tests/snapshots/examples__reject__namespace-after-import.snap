@@ -2,12 +2,12 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-PARSE] Error: the namespace line goes at the top of the file
+[E-NAMESPACE-NOT-FIRST] Error: the namespace line must come first, before imports and declarations
    ╭─[ reject/namespace-after-import.sw:4:1 ]
    │
  4 │ namespace Demo
    │ ────┬────  
-   │     ╰────── the namespace line goes at the top of the file
+   │     ╰────── the namespace line must come first, before imports and declarations
    │ 
-   │ Note: move it before the imports and declarations
+   │ Note: move `namespace Demo` to the top of the file
 ───╯

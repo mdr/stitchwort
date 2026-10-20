@@ -254,14 +254,20 @@ pub fn analyse(session: &mut Session, project: &str, mut files: Vec<(String, Str
         let parsed = parse_module_within(id, text, session.elab.limits.stack);
         let (namespace, errors, module) = match parsed {
             Ok(module) => (module.namespace.clone(), Vec::new(), Some(module)),
-            Err(errors) => match parse_namespace_line(id, text) {
-                Ok(line) => (line, errors, None),
-                Err(d) => {
-                    // The namespace line itself is the trouble.
-                    diagnostics.push(d);
+            Err(errors) => {
+                if let Some(not_first) = errors.iter().find(|d| d.code == "E-NAMESPACE-NOT-FIRST") {
+                    diagnostics.push(not_first.clone());
                     continue;
                 }
-            },
+                match parse_namespace_line(id, text) {
+                    Ok(line) => (line, errors, None),
+                    Err(d) => {
+                        // The namespace line itself is the trouble.
+                        diagnostics.push(d);
+                        continue;
+                    }
+                }
+            }
         };
         let Some(line) = namespace else {
             diagnostics.push(no_namespace(project, path, &display));
