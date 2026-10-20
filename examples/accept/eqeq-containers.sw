@@ -42,3 +42,12 @@ test "record with containers" := entry == { ids = [1, 2], pair = (3, "x"), delta
 test "record, list differs" := Bool.not (entry == { entry | ids = [2, 1] })
 test "record, tuple differs" := Bool.not (entry == { entry | pair = (3, "y") })
 test "record, Maybe differs" := Bool.not (entry == { entry | delta = Nothing })
+
+-- A record with a record field gets `==` too.
+type Tagged = { tag: Text, entry: Entry }
+
+def tagged: Tagged := { tag = "t", entry = entry }
+
+test "nested record" := tagged == { tag = "t", entry = entry }
+test "nested record, inner field differs" := Bool.not (tagged == { tagged | entry = { entry | ids = [] } })
+test "nested record, outer field differs" := Bool.not (tagged == { tagged | tag = "u" })

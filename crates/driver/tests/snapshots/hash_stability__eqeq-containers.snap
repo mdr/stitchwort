@@ -3,6 +3,7 @@ source: crates/driver/tests/hash_stability.rs
 expression: "lines(&session, d, f)"
 ---
 data Main.Entry 2caa8c4e5983bfe1c37d25d260a07c7cbdb426240b5701294c4fbd361e2bbe65
+data Main.Tagged 0395d228f5d6d25046937b58b95c1b1ef43f696bf35bbb7b51b0718c25465191
 Main.test "lists of numbers" 299abeda3b8801586e82ec2b7f8aefb10e2529bc731fb1f77e58cb17b5c5e436
 Main.test "different lengths" 487660e1d254aca15bc8a58200b07fba21ef696610e0562b27037a80a9cb5127
 Main.test "different elements" 98929163a53782bd1176ef15317ac67b95054431061a02f89897e420d48694bd
@@ -36,3 +37,10 @@ Main.test "record with containers" 0cf54a299f43ea4199e2e104101feba81ac3695a4e239
 Main.test "record, list differs" 8ab1e595b37d43bc7de9023596b657796861f1f347fd327217bdae871a3ab39d
 Main.test "record, tuple differs" d4fcb885967df7d58a96c7b07fdd534ebcb15bbc0bfea5928864382b8cb7fb9e
 Main.test "record, Maybe differs" 1add66c6d5345c0c9303ce762ce9c074dc10db12aaa4a13f336557780470a966
+Main.Tagged.tag 5730f1b45b5c43bdd7d268f73f2e837720c181398e4a79c3cce99945331a8fe1
+Main.Tagged.entry ea776f7af41f4c3a960fca8181dc77c349f5032b27b84e4da23ceb91143546db
+Main.Tagged.decEq 6bbc7d98facca2b571638311278ae0be597cc4273a9c93aafa50a78f148bc501
+Main.tagged 21c0152eccd8498713e77fb25b8ebf93c22ac6991d0cf3c6e47e152e1b3f4240
+Main.test "nested record" 38a254eba2138e5c17bb937f26da6bb8b96db0c0dfe1842b2c1a761fdc0db5a9
+Main.test "nested record, inner field differs" bf44a0278152f260fec7c96f987fd56b581f401b3cc87d59094b99e494228f0e
+Main.test "nested record, outer field differs" 2232f932a30226eedc49e0288a125e3f2eacd9c6fe23ba0e76a68267b56ff295
