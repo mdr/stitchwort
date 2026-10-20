@@ -3,7 +3,7 @@
 **Status:** draft 1, 20 October 2026. Waiting for review (design-review gate). Nothing is
 built. Ticket SW-178. Matt decided D133 and D135 (20 October): indexed data types go into
 the kernel before `Vec` (docs/proposals/vec.md, parked). The open questions are D136 to
-D150 in [§12](#12-decisions-wanted).
+D153 in [§12](#12-decisions-wanted).
 
 This note can be read without knowing type theory. [§1](#1-words) explains the words it
 uses. Claims about Stitchwort were checked against the source on `main` at `9ccb120`.
@@ -790,7 +790,7 @@ must-reject rows above for its part. After stage 5, SW-179 decides `Vec`'s repre
   `crates/core`) to find impossible branches, and the kernel runs it again when checking
   (recommended). The alternative, a second implementation in `crates/elab`, gives
   two to keep in step and no extra safety: the kernel's run is the one that counts.
-- **D150. Built-in `=`.** Keep `Eq` and `J` built in, not redefined as a family. Without
+- **D153. Built-in `=`.** Keep `Eq` and `J` built in, not redefined as a family. Without
   universe polymorphism, a family would only cover one universe (recommended).
 
 ## Sources
