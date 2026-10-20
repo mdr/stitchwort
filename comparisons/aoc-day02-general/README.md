@@ -9,7 +9,7 @@ Lean's core gave for free.
 
 **The port landed (SW-166, 20 October 2026):** `aoc/src/day02/part2proof.sw` now proves
 `part2Correct` with no hypothesis, following this prototype (664 lines, about 390 of them new,
-plus 176 lines of library; it checks in about 0.85 s). See docs/aoc-2025.md, "Part 2 for every
+plus about 185 lines of library; it checks in about 0.85 s). See docs/aoc-2025.md, "Part 2 for every
 input".
 
 ## How to check
