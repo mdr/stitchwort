@@ -1,6 +1,8 @@
 # Proposal: length-indexed vectors (`Vec`) and day 4 over them
 
 > **Status (20 Oct 2026):** D133 yes and D135 (a): indexed data types go into the kernel first (SW-178); this note's representation decisions (D126-D132, D134) wait until then (SW-179, SW-180).
+>
+> **Built (SW-179, D191):** `Vec` is the indexed data type (option C), chosen by measurement, in `std/Vec/Vec.sw`, with `Fin` in `std/Fin/Fin.sw`. See [As decided](#as-decided); §0-§8 below are draft 1, written before families existed.
 
 **Status:** draft 1, 20 October 2026. Waiting for review (design-review gate). Nothing is
 built yet. Decisions D124 and D125 (Matt, 20 October) set the direction; the open questions
@@ -21,7 +23,8 @@ their sources. Anything not checked against a source is marked **unverified**.
 6. [The library file](#6-the-library-file)
 7. [Day 4 over `Vec`](#7-day-4-over-vec)
 8. [Decisions wanted](#8-decisions-wanted)
-9. [Sources](#sources)
+9. [As decided](#as-decided)
+10. [Sources](#sources)
 
 ## 0. Summary
 
@@ -269,6 +272,186 @@ built.
   (recommended), or pads short lines with floor.
 - **D133. Indexed data types.** Record "indexed families in the kernel" as a later milestone
   (Agda/Idris-style `Vec`, `Fin`), not needed for day 4. Yes or no.
+
+## As decided
+
+SW-179, 20 October 2026. Matt's decisions (D191): D126 by measurement between (A) and (C),
+C by default; D127 `Fin n` plus `getLt` with an `auto` bound; D128 `std/Vec/Vec.sw`,
+namespace `Vec`, loaded on use; D134 no external review. Indexed data types are in the
+language since SW-178 (docs/syntax.md "Indexed data types").
+
+### Measurements (D126)
+
+Three scratch programs did the same work on a 136 × 136 grid of `Nat`, the size of day 4's
+input (136 wide, 135 rows): **L**, plain `List (List Nat)`; **A**, the record
+`{ list: List a, len: List.length list = n }` with each operation the list one plus its
+length proof; **C**, the indexed data type. Each parses the grid from a `List (List Nat)`
+(`ofList` per row, then a `traverse`), runs 20 rounds of one operation over every row, and
+sums the result. Times are `stitchwort run` (release build, the interpreter), best of 3,
+with the size, round count and operation read from standard input so that checking can't
+compute the answer. The per-round figure is (time for 20 rounds − time for 0 rounds) / 20.
+
+| Operation (every row of the grid) | L | A | C |
+|---|---|---|---|
+| 0 rounds: check, parse, one sum (total) | 0.20 s | 0.30 s | 0.26 s |
+| `map` | 43 ms | 44 ms | 48 ms |
+| `zipWith` | 57 ms | (not comparable)¹ | 58 ms |
+| `zipWith3` | 70 ms | 71 ms | 75 ms |
+| `replicate` | 9.5 ms | 9.5 ms | 8.5 ms |
+| `sumBy` (row sums, then the total) | 26 ms | 26 ms | 28 ms |
+| `toList` then `fromList`, linear² | — | 0 ms³ | 22 ms |
+| `toList`, `fromList` and a sum, with the quadratic `fromList`⁴ | — | 33 ms³ | 487 ms |
+
+1. A's `zipWith` was written with `List.zipWith3`; the same work as its `zipWith3` row.
+2. C: `Vec.fromListN w (Vec.toList row) (Vec.lengthToList row)`, which stores numbers
+   already computed (indexed-families.md §8.1).
+3. In A both conversions are the field itself (`v.list`, `{ list = xs, len = rfl }`),
+   so they cost nothing; 33 ms is the sum.
+4. `fromList: (xs: List a) -> Vec a (List.length xs)` by plain recursion, so each `VCons`
+   stores `List.length` of the rest. About 10 times the linear version's 22 + 28 ms at this
+   size, and growing with the square of the row length. The library has only the linear
+   one.
+
+With `--js` (Node), 20 rounds of `zipWith3` took 0.27-0.29 s in all three: the difference
+is below noise. End to end, a sketch of day 4 part 1 over `Vec` (below) took 0.56 s on the
+real input against 0.53 s for the same program over lists, both including checking, and
+both give 1397.
+
+So C costs about 5-10% more per operation than lists and A, from the stored length in each
+`VCons`, and a linear conversion to or from a list costs about one `map`. A day 4 program
+converts once (parsing), so the difference is a few hundredths of a second.
+
+A side finding, **unverified as to cause**: the first version of the A program had the
+grid size and input as closed definitions (`def SIZE: Nat := 136`). Checking its `main`
+then ran out of evaluation steps after 3 min 47 s (`E-RESOURCE`), while C's program in the
+same form checked and ran in 5 s. Reading the size from standard input avoided it. I
+suspect the checker evaluating the closed `parse SIZE SIZE input` through A's `Nat.decEq`
+and length proofs, but didn't confirm it.
+
+### Proof ergonomics
+
+- **C.** Each lemma is an induction on the vector of two to four lines, with no arm for
+  impossible cases: `Vec.getMap` is `rfl` and the induction hypothesis. Lengths never appear
+  as proof terms. Facts about lists come over through the `toList` lemmas
+  (`Vec.toListMap`, `Vec.toListZipWith3`, `Vec.sumByToList`, …) and `Vec.getToList`
+  (`get` is `List.getOr` at `Fin.toNat i`), so day 6's index lemmas still apply.
+  `Vec.ext` is three lines.
+- **A.** `get` facts are the list facts directly, but every operation builds its length
+  proof by hand (`zipWith3`'s is `Eq.trans (List.lengthZipWith3 f … (Eq.trans v.len
+  (Eq.sym u.len)) …) u.len`), record literals inside lambdas need type annotations
+  (`E-CANNOT-INFER`), and two vectors with the same list are equal only through proof
+  irrelevance or an extensionality lemma.
+
+**Choice: C.** It costs a few per cent at run time, and makes the library and its proofs
+shorter.
+
+### The library
+
+`std/Fin/Fin.sw` (namespace `Fin`, 36 lines) and `std/Vec/Vec.sw` (namespace `Vec`, about
+200 lines), both in `LIBRARY_FILES` and loaded on use. `Vec.sw` uses `Fin` and
+`List.getOr`, so it loads `Fin/Fin.sw` and `List/Index.sw`.
+
+```
+type Fin: Nat -> Type =
+  | FZero: Fin (Succ n)
+  | FSucc (i: Fin n): Fin (Succ n)
+
+type Vec (a: Type): Nat -> Type =
+  | VNil: Vec a 0
+  | VCons (x: a) (xs: Vec a n): Vec a (Succ n)
+```
+
+| Group | Names |
+|---|---|
+| `Fin` | `Fin.toNat`, `Fin.ofNatLt n i h`, `Fin.ofNat i [auto ok: i < n]`; lemmas `Fin.toNatLt`, `Fin.toNatOfNatLt` |
+| Shape | `Vec.length` (the index), `Vec.head`, `Vec.tail` (on `Vec a (Succ n)`), `Vec.headOr d` |
+| Building | `Vec.replicate n x`, `Vec.map`, `Vec.zipWith`, `Vec.zipWith3` |
+| Folding | `Vec.foldLeft`, `Vec.sum`, `Vec.sumBy` |
+| Lists | `Vec.toList`; `Vec.fromListN n xs (ok: List.length xs = n)` (linear); `Vec.fromList xs: Vec a (List.length xs)`; `Vec.ofList n xs: Maybe (Vec a n)`; `Vec.traverseMaybe` |
+| Indexing | `Vec.get v (i: Fin n)`; `Vec.getLt v (i: Nat) [auto ok: i < n]` |
+| Lemmas, `toList` | `lengthToList`, `toListFromListN`, `toListFromList`, `ofListToList` (what `ofList` accepts is its list), `toListReplicate`, `toListMap`, `toListZipWith`, `toListZipWith3`, `foldLeftToList`, `sumByToList`, `sumToList` |
+| Lemmas, `get` | `getToList` (`List.getOr d (Fin.toNat i) (toList v) = get v i`), `getReplicate`, `getMap`, `getZipWith`, `getZipWith3`, `ext` |
+
+Tests are in both files; `examples/accept/vec-library.sw` parses a grid, proves
+`flip`'s cells through `Vec.getMap`, and a `sumBy` over a `map` through the `toList`
+lemmas.
+
+Changes from §6: `Fin` came first (D127), so `get` takes a `Fin` and `getLt` builds one;
+`fromList` is the linear `fromListN` at the list's length; `Vec.traverseMaybe` replaces the
+"traverse for `Maybe`" the parser sketch needed. §6's `Vec.ext` (vectors with equal lists
+are equal) belonged to A; here `Vec.ext` is equality by position. There's no `Vec.count`
+yet (day 4 sums with `sumBy`). `==` isn't derived for indexed types yet, so tests compare
+`toList`.
+
+### Day 4 over this API
+
+A sketch of part 1, checked and run on the real input (1397), not the port:
+
+```
+type Grid = { height: Nat, width: Nat, rows: Vec (Vec Cell width) height }
+
+-- `Nothing` for ragged input.
+def parseGrid (lines: List Text): Maybe Grid :=
+  let width := (lines.headOr "").length
+  Vec.fromList lines
+    |> Vec.traverseMaybe (line => Vec.ofList width (parseLine line))
+    |> Maybe.map (rows => ({ height = lines.length, width, rows }: Grid))
+
+def Grid.rolls (grid: Grid): Nat := grid.rows.sumBy (row => row.sumBy Cell.count)
+
+def Grid.round (grid: Grid): Grid :=
+  let gap := Vec.replicate grid.width Floor
+  { grid | rows = roundFrom gap gap grid.rows }
+
+def roundFrom (gap above: Vec Cell w): Vec (Vec Cell w) h -> Vec (Vec Cell w) h
+  | VNil           => VNil
+  | VCons row rest => VCons (peelRow above row (rest.headOr gap)) (roundFrom gap row rest)
+
+def peelRow (above row below: Vec Cell w): Vec Cell w :=
+  peelCells 0 (Vec.zipWith3 (a r b => a.count + r.count + b.count) above row below) row
+
+def peelCells (left: Nat): Vec Nat w -> Vec Cell w -> Vec Cell w
+  | VNil, VNil => VNil
+  | VCons here columns, VCons roll rolls =>
+    let window := left + here + columns.headOr 0
+    VCons (if roll == Roll && 5 <= window then Roll else Floor) (peelCells here columns rolls)
+
+-- For the spec: a cell by `Nat` position; off the grid is no roll.
+def Grid.roll (grid: Grid) (r: Nat) (c: Nat): Bool :=
+  if hr: r < grid.height then
+    if hc: c < grid.width then Vec.getLt (Vec.getLt grid.rows r [ok := hr]) c [ok := hc] == Roll
+    else False
+  else False
+```
+
+The program keeps today's shape: `roundFrom`, `peelRow` and `peelCells` are the list
+versions with `VCons` for `Cons` and `Vec.headOr` for `List.headOr`, and `peelCells` no
+longer needs a catch-all arm, since its two vectors have the same length. The proofs can
+state cell facts with `Vec.get`/`Vec.getLt` and move between the grid and lists with
+`Vec.getToList`, `Vec.toListZipWith3` and `Vec.sumByToList`; `parseGrid`'s claim goes
+through `Vec.ofListToList`. Everything above exists in the library. Not there yet, and
+for the port to add if it wants them: lemmas about `traverseMaybe` (each element of the
+result is `f`'s `Just` of the input's), `Vec.headOr` of a `tail`, and a `Vec.count`.
+
+### Pain points with families (feedback for SW-178)
+
+- **A missing `Zero` arm isn't excused by an empty `Fin 0` in the next column.**
+  `getReplicate: (n: Nat) -> (i: Fin n) -> …` with arms `Succ k, FZero` and
+  `Succ k, FSucc i` is `E-NONEXHAUSTIVE` ("no arm matches `Zero`"), though `i: Fin 0` then
+  has no values. syntax.md says an arm may be left out "when another argument then has no
+  possible constructor"; it works when the left-out constructor is a family's (`get`'s
+  `VNil`), not for `Nat`'s `Zero` here. The workaround matches only on the `Fin` and names
+  its implicit field: `| _, FSucc [n := k] i => Vec.getReplicate x k i`.
+- **The quadratic `fromList` is the natural definition** (§8.1 of the families note): 487
+  ms against about 50 ms per grid at day 4's size. The library offers only the linear one,
+  but a user writing their own will hit it.
+- **No injectivity for free.** `Vec.ofListToList` needs `Just (VCons x w) = Just (VCons y
+  ys)` taken apart, by `Eq.cong` with `Maybe.withDefault`, `Vec.head` and `Vec.tail`, as
+  for plain data types; the unifier's injectivity is only for matching.
+- **`==` isn't derived** for an indexed type, so tests compare `Vec.toList`.
+- Not about families, met on the way: a record literal at the end of a `|>` pipe has no
+  expected type and needs `({ … }: Grid)`; and `getLt`'s `auto` bound is stuck for a size
+  known only at run time (as designed: pass a proof from `if h: …`).
 
 ## Sources
 

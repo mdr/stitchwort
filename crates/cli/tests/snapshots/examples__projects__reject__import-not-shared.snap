@@ -9,5 +9,5 @@ expression: output
    │                    ─┬─  
    │                     ╰─── not in scope
    │ 
-   │ Note: the library has `List.map` or `Maybe.map`: write it in full, or `import List (map)`
+   │ Note: the library has `List.map`, `Maybe.map` or `Vec.map`: write it in full, or `import List (map)`
 ───╯

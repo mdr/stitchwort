@@ -40,6 +40,7 @@ use crate::{Elaborator, Global, PRELUDE};
 /// The library files, `(path under std/, text)`, sorted by path. A test
 /// checks this lists every `.sw` file under `std/`.
 pub const LIBRARY_FILES: &[(&str, &str)] = &[
+    ("Fin/Fin.sw", include_str!("std/Fin/Fin.sw")),
     ("Int/Int.sw", include_str!("std/Int/Int.sw")),
     ("List/Index.sw", include_str!("std/List/Index.sw")),
     ("List/Sort.sw", include_str!("std/List/Sort.sw")),
@@ -48,6 +49,7 @@ pub const LIBRARY_FILES: &[(&str, &str)] = &[
     ("Nat/Digits.sw", include_str!("std/Nat/Digits.sw")),
     ("Nat/Divides.sw", include_str!("std/Nat/Divides.sw")),
     ("Text/Text.sw", include_str!("std/Text/Text.sw")),
+    ("Vec/Vec.sw", include_str!("std/Vec/Vec.sw")),
 ];
 
 /// What a name the index promises is, as far as resolution cares.
