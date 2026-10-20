@@ -1931,16 +1931,16 @@
     {
       "id": 127,
       "title": "AoC day 4: prove the grid result for all grids",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "worktree agent-a6fdd90ee149c9328 (D108 part 2)",
       "labels": [
         "aoc",
         "proof"
       ],
       "body": "D4 (Matt, 19 Oct). aoc/day04.sw has no theorems (days 1-3 have about 30 each). Decide what to prove against a puzzle-literal spec (e.g. one round removes exactly the rolls with fewer than 4 neighbours; settling repeats rounds until nothing changes) and prove it for all grids. Report what made it hard, as findings.",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-20",
       "commits": []
     },
     {
@@ -2199,7 +2199,7 @@
     {
       "id": 144,
       "title": "Prelude: Nat.fromDigits (Nat.digits n) = n and List.get lemmas",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": "worktree",
       "labels": [
@@ -2643,7 +2643,7 @@
     {
       "id": 171,
       "title": "AoC day 4 takes ~17 s to run: profile and speed up",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "main",
       "labels": [
@@ -2661,9 +2661,9 @@
     {
       "id": 172,
       "title": "AoC day 6: end-to-end correctness proof for both parts (D108)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
-      "where": "worktree",
+      "where": "aoc/src/Aoc/Day06/Proofs/ (merged; awaiting gate + Matt's spec check)",
       "labels": [
         "aoc",
         "proof"
