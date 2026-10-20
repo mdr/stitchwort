@@ -1,13 +1,47 @@
-# Lambdas without the backslash (SW-90), draft 1
+# Lambdas without the backslash (SW-90), draft 2
 
-**Date:** 20 October 2026. **Ticket:** SW-90 (related: SW-19, annotated lambda parameters;
-D89 asked for this note). **Decisions:** D92 to D100, all open.
-**Status:** design only, for Matt and an external review. Nothing is implemented.
+**Date:** 20 October 2026. **Ticket:** SW-90 (related: SW-19, annotated lambda parameters,
+now on `main`; D89 asked for this note). **Decisions:** D92 to D100 (D91 folded in, §4.3).
+**Status:** Matt reviewed draft 1 on 20 October 2026 and decided the direction (below). This
+draft is the design for that direction; D97's heuristic (§7) and the details of D98 and D99 are
+for review. Nothing is implemented.
 
 Claims about Stitchwort are marked **[checked]** when I read or ran the thing named (line
-numbers are for `main` at `6257b9d`), and **[estimate]** when they are guesses. Claims about
+numbers are for `main` at `db3d043`), and **[estimate]** when they are guesses. Claims about
 other languages cite [Sources](#sources); anything I couldn't check against an official
 source is marked **unverified**.
+
+## Changes since draft 1
+
+Draft 1 recommended Scala/TypeScript lambdas with comma-separated parameter lists,
+`(acc, x) => e`. Matt's review (20 October 2026):
+
+1. **Stay in the ML/Lean family; drop the backslash** (D92). Comma lists are rejected: they'd
+   be out of step with application, which is `f x y`, and with definition headers, which are
+   groups side by side, `def add (x: Nat) (y: Nat)`. Lambdas become `x => e`, `x y => e`,
+   `(x: Nat) (y: Nat) => e`, `x (y: Nat) => e`, `_ => e`, with parameter groups exactly as in
+   headers (SW-19's `header_param`). Unison is a precedent: `x y -> e`, with application by
+   juxtaposition [U1].
+2. **`(a, b) => e` keeps today's meaning**: one parameter, a pair taken apart, as
+   `\(a, b) => e` is now. D93 (draft 1's "two parameters") is superseded; D94 (Scala-style
+   untupling) is moot.
+3. **Typed parameters are header groups** (D95): `(x: Nat) (y: Nat) => e` and `(x y: Nat) =>
+   e`. No comma lists.
+4. **No compatibility path at all** (D96): no `E-OLD-LAMBDA`, no transition. After the switch,
+   `\x => e` is an ordinary parse error. (Matt: "WE DO NOT HAVE BACKWARDS COMPAT ISSUES".)
+5. **Bare runs are allowed** (D97): `x y => e` without brackets. The risk that a forgotten
+   bracket (`map x => x + 1`) parses as a two-parameter lambda is accepted, and mitigated by
+   a note and a warning. §7 designs the heuristic and measures how often it fires.
+6. **Parsing** (D98) is "a run of parameters, then `=>`", using draft 1's matching-bracket
+   table; §5 states it precisely for this form, with its interactions.
+7. **Migration** (D99) becomes "delete the `\`", since the meaning is unchanged. §8 checks
+   that this is really safe; it is, for every `\` in the repository's `.sw` code.
+8. **Printer** (D100): `x y => body`.
+9. **Implicit parameters** (D91) are folded in: `[a: Type] (x: a) => x` fits the new form
+   (§4.3).
+
+Sections 0, 3 to 10 are rewritten for this. The research (§2) is kept, with its conclusions
+(§2.9) updated.
 
 ## Contents
 
@@ -15,85 +49,82 @@ source is marked **unverified**.
 1. [Lambdas today](#1-lambdas-today)
 2. [How other languages write lambdas](#2-how-other-languages-write-lambdas)
 3. [The options](#3-the-options)
-4. [The proposed syntax](#4-the-proposed-syntax)
-5. [Parsing it](#5-parsing-it)
+4. [The syntax](#4-the-syntax)
+5. [Parsing it (D98)](#5-parsing-it-d98)
 6. [Every place it could be ambiguous](#6-every-place-it-could-be-ambiguous)
-7. [Near-misses and their messages](#7-near-misses-and-their-messages)
-8. [Migration](#8-migration)
+7. [Forgotten brackets (D97)](#7-forgotten-brackets-d97)
+8. [Migration (D99)](#8-migration-d99)
 9. [Risks](#9-risks)
 10. [Decisions](#10-decisions)
 
 ## 0. The short version
 
-Write lambdas the way Scala, TypeScript and C# do:
+Delete the backslash. Nothing else about lambdas changes:
 
-| Today | Proposed |
+| Today | New |
 |---|---|
 | `\x => x + 1` | `x => x + 1` |
-| `\acc x => acc + x` | `(acc, x) => acc + x` |
-| `\(x: Nat) => x + 1` (SW-19, being built) | `(x: Nat) => x + 1` |
-| `\(x: Nat) (y: Nat) => x + y` | `(x: Nat, y: Nat) => x + y` |
-| `\(a, b) => a + b` (one pair, taken apart) | `((a, b)) => a + b` |
-| `\acc (k, v) => acc + v` | `(acc, (k, v)) => acc + v` |
-| `\{ name, .. } => name` | `({ name, .. }) => name` |
-| `\() => e` | `() => e` |
+| `\acc x => acc + x` | `acc x => acc + x` |
+| `\(x: Nat) => x + 1` | `(x: Nat) => x + 1` |
+| `\(x: Nat) (y: Nat) => x + y` | `(x: Nat) (y: Nat) => x + y` |
+| `\x (y: Nat) => x + y` | `x (y: Nat) => x + y` |
+| `\(a, b) => a + b` (one pair, taken apart) | `(a, b) => a + b` (the same) |
+| `\{ name, .. } => name` | `{ name, .. } => name` |
 | `\_ => 0` | `_ => 0` |
+| (not possible today) | `[a: Type] (x: a) => x` (§4.3) |
 
-The rule in one sentence: **a lambda is either one bare name (or `_`) before `=>`, or a
-bracketed list of parameters separated by commas, exactly like the patterns of an arm.** An
-arm `| acc, (k, v) => …` and a lambda `(acc, (k, v)) => …` then take their arguments the same
-way, which today's `\acc (k, v) => …` doesn't (it separates parameters by spaces, while arms
-use commas).
+**The rule:** at the start of an expression, a run of one or more parameters (lower-case
+names, `_`, and bracketed groups or patterns) followed by `=>` is a lambda. A lambda's
+parameters are written the way a definition's header writes them, and the lambda is applied
+the way every function is, `f x y`.
 
-The one real change of meaning is `(a, b) => e`: today `\(a, b) => e` takes one pair; in
-the new syntax `(a, b) => e` takes two arguments, as it does in every mainstream language.
-Taking a pair apart needs its own brackets, `((a, b)) => e`, as TypeScript writes
-`([a, b]) => …` and Kotlin `{ (a, b) -> … }`. That form is rare here (12 lambdas in the whole
-repository **[checked]**).
+**Parsing** looks along the run, skipping each bracketed group in one step with a table of
+matching brackets built once per declaration, and checks for `=>` at its end. No backtracking.
+A lambda may appear without brackets only as a whole expression (after `:=`, `=>`, `then`,
+`else`, `|>`, an opening bracket, a comma, a record field's `=`, or at the start of a line in a
+block), never as an argument or an operand; that's already so today.
 
-The parser decides cheaply: a lambda starts with a lower-case name or `_` followed by `=>`,
-or with a `(` whose matching `)` is followed by `=>`. Matching brackets are found from a table
-built once per declaration, so there's no backtracking and no slowdown on deeply nested
-brackets. This is the same test the parser already uses to tell `(x: A) -> B` (a function
-type) from `(x: A)` (an annotation), with one more arrow to look for.
+**Migration is deleting every `\` token.** All 1,273 `\` tokens in the repository's `.sw`
+code sit at the start of an expression (after `(`, `:=`, `=>`, `|>`, `in`, or at the start of
+a block line), so no lambda ends up in a position where it would parse differently
+**[checked]**. A tool deletes them and confirms each file's syntax trees are unchanged;
+elaborated terms and hashes are therefore unchanged too.
 
-Nothing after the parser changes: the new forms produce exactly the syntax trees the old
-ones do, so elaborated terms and content hashes stay the same. About 1,700 lambdas in the
-repository change (§8); a one-off rewriting tool, checked by comparing syntax trees before and
-after, does the `.sw` files and the code blocks in the docs.
-
-**Recommendation:** adopt it (option B), with no transition period: `\` becomes an error that
-shows the new form (D92 to D100, §10).
+**The one new risk** is a forgotten bracket around an argument lambda: `map x => x + 1 xs`
+becomes a lambda with parameters `map` and `x`. It's a parse error when the function is
+qualified or reached by dot notation (`List.map x => …`, `xs.map x => …`), which is the
+common case. When it is a bare name, a warning fires if the lambda's first parameter hides a
+function and isn't used; on today's code that would fire 0 times in 223 multi-parameter
+lambdas (§7).
 
 ## 1. Lambdas today
 
-**[checked]** against `docs/syntax.md` and `crates/syntax/src/parser.rs`:
+**[checked]** against `docs/syntax.md` and `crates/syntax/src/parser.rs` at `db3d043`:
 
-- **Form.** `\` then one or more parameters separated by spaces, then `=>`, then the body
-  (`parser.rs:1320`, `fn lambda`). A parameter is a name, `_`, or a pattern starting with
-  `(`, `{`, a constructor or a number: `\x (a, b) => …`, `\{ name, .. } => name`.
+- **Form.** `\`, then one or more parameters side by side, then `=>`, then the body
+  (`fn lambda`, `parser.rs:1339`). A parameter is a name, `_`, an annotated group `(x: A)` or
+  `(x y: A)` (SW-19, read by the definition header's `header_param`,
+  `parser/declarations.rs:279`, after `annotated_param_ahead`, `parser.rs:1436`), or a pattern
+  starting with `(`, `{`, a constructor or a number: `\x (a, b) => …`, `\{ name, .. } => name`.
 - **Patterns.** A lambda with a pattern parameter becomes a lambda over a fresh name
-  (`%arg0`) whose body is a one-alternative `match`, which must cover every value
-  (`docs/syntax.md`, "Patterns in `let` and lambdas").
-- **No types on parameters yet.** `\(x: T) => …` is refused with "a lambda's parameter can't
-  have a type here" (`parser.rs:1340`). SW-19 is adding it now.
+  (`%arg0`) whose body is a one-alternative `match`, which must cover every value.
+- **Typed parameters** (SW-19) become `Expr::TypedLam`, one per name; a run of untyped ones is
+  one `Expr::Lam`.
 - **Where a lambda may start.** Only at the start of an expression (`expr_inline`,
-  `parser.rs:1601`) or right after `|>` (`pipe_chain`, `parser.rs:1763`). It isn't an atom,
-  so as an argument it needs brackets: `List.map (\x => x + 1) xs`.
-- **How far it reaches.** The body is a whole expression (`self.expr()`), so it extends as
-  far right as it can, as in Haskell. After `|>`, a lambda takes the rest of the pipeline:
-  `x |> \y => f y |> g` is `x |> \y => (f y |> g)`.
-- **`=>` already means "the patterns end here, what follows is the result"** in arms,
-  `match`, handlers and lambdas; `->` is only the function type. This was decided in the
-  declaration-syntax proposal (§2.11), which also gave a reason for keeping `\`: with `\`, the
-  annotated lambda `\(x: T) => …` doesn't look like the function type `(x: T) -> B`. §6.2
-  revisits that.
-- **Three readings of `(` today.** `(x: Nat) -> B` is a function type, found by scanning to
-  the matching `)` and looking for `->` (`is_pi_binder`, `parser.rs:1659`); `(x: Nat)` without
-  the arrow is an annotation (test `parenthesised_names_without_an_arrow_are_annotations`);
-  `(a, b)` is a tuple or tuple type; `(e)` is grouping.
-- **The printer** shows a lambda as `\x => body`, one parameter at a time
-  (`crates/core/src/pretty.rs:337`).
+  `parser.rs:1646`) or right after `|>` (`pipe_chain`, `parser.rs:1808`). It isn't an atom, so
+  as an argument it needs brackets: `List.map (\x => x + 1) xs`.
+- **How far it reaches.** The body is a whole expression, so it extends as far right as it
+  can. After `|>`, a lambda takes the rest of the pipeline.
+- **`=>` means "the patterns end here, what follows is the result"** in arms, `match`,
+  handlers and lambdas; `->` is only the function type (declaration-syntax proposal §2.11).
+- **Readings of `(`**: `(x: Nat) -> B` is a function type, found by scanning to the matching
+  `)` and looking for `->` (`is_pi_binder`, `parser.rs:1704`); `(x: Nat)` without it is an
+  annotation; `(a, b)` is a tuple or tuple type; `(e)` is grouping.
+- **Implicit parameters.** When a term is checked against `[a: Type] -> …`, the checker
+  introduces the implicit parameter itself, under a hidden name (`check.rs:1211`,
+  `bind_hidden`), so `x => x` checks against `[a: Type] -> a -> a`, but its body can't name
+  `a`. A lambda can't write `[a: Type]` today.
+- **The printer** shows `\x => body`, one parameter at a time (`crates/core/src/pretty.rs:335`).
 
 ## 2. How other languages write lambdas
 
@@ -116,8 +147,8 @@ shows the new form (D92 to D100, §10).
 There are two families. **Mainstream languages** (Scala, TypeScript, C#, Kotlin, Swift) put
 several parameters in one list with commas, and `(a, b)` there means two parameters. **The
 functional and proof languages** (Haskell, Lean, Agda, Idris, Unison) put parameters side by
-side with spaces, and `(a, b)` there means one pair taken apart. Stitchwort today is in the
-second family.
+side, and `(a, b)` there means one pair taken apart. Stitchwort stays in the second family,
+and with this change joins Unison in having neither a keyword nor a backslash.
 
 ### 2.2 Scala 3
 
@@ -153,9 +184,9 @@ followed by something that can't start a parameter is definitely not; `([` and `
 *unknown*, "this could be the start of a binding pattern", and the parser tries a lambda and
 backs off if it fails, remembering positions where it failed so it doesn't try twice [J3].
 
-Two JavaScript pitfalls worth avoiding: `callback || () => {}` is a syntax error ("parentheses
-are necessary to avoid `callback || ()` being parsed as the arguments list") [J2], and
-`() => { foo: 1 }` returns `undefined` because `{` after `=>` starts a block [J2].
+Two JavaScript pitfalls: `callback || () => {}` is a syntax error ("parentheses are necessary
+to avoid `callback || ()` being parsed as the arguments list") [J2], and `() => { foo: 1 }`
+returns `undefined` because `{` after `=>` starts a block [J2].
 
 ### 2.4 C#
 
@@ -169,8 +200,7 @@ Kotlin: "a lambda expression is always surrounded by curly braces",
 `{ x: Int, y: Int -> x + y }`; with one parameter it can be left out and called `it`; a pair
 is taken apart with brackets, `{ (_, value) -> … }` [K1]. Swift: `{ (parameters) -> return
 type in statements }`, with types inferred from context and `$0`, `$1` as short names [W1].
-Both put the parameters *inside* the braces, which is how they avoid any ambiguity with
-brackets.
+Both put the parameters *inside* the braces, which is how they avoid any ambiguity.
 
 ### 2.6 Lean 4
 
@@ -185,195 +215,183 @@ keyword means there's never a question where a lambda starts.
 
 Haskell 2010: `\ apat1 … apatn -> exp`, and lambdas, `let` and `if` "extend as far to the
 right as possible" [H1]. If a lambda's pattern doesn't match, the result is undefined [H1].
-Agda: `\ x → x + x` or `λ`, typed `\ (A : Set)(x : A) → x`, pattern lambdas
-`λ { true x → x ; false _ → false }` and `λ where`, and the absurd lambda `λ ()` [A1].
-Idris 2: `\x => val`, several parameters with commas, `\x, y, z => val`, types
-`\x : Int => x * 2`, patterns `\(x, y) => x + y` [I1]. Stitchwort's current `\x => e` is
-Idris's.
+Agda: `\ x → x + x` or `λ`, typed `\ (A : Set)(x : A) → x`, implicit `λ {A : Set} (x : A) →
+x`, pattern lambdas `λ { true x → x ; false _ → false }` and `λ where`, and the absurd lambda
+`λ ()` [A1]. Idris 2: `\x => val`, several parameters with commas, `\x, y, z => val`, types
+`\x : Int => x * 2`, patterns `\(x, y) => x + y` [I1].
 
 ### 2.8 Gleam and Unison
 
 Gleam keeps a keyword and braces, `fn(x) { … }`, and has a capture shorthand,
 `some_function(..., _, ...)` [G1, G2]. Unison: `elem -> elem + 1`; "a lambda with two
-arguments is represented by separating the function arguments with spaces"; patterns use
-`cases`: `cases (a, b) -> a Nat.+ b` [U1]. Unison has no keyword or backslash, like the
-proposal, but uses `->` for both lambdas and function types.
+arguments is represented by separating the function arguments with spaces"; as an argument
+it's in brackets, `List.map (elem -> elem + 1) a`; patterns use `cases`:
+`cases (a, b) -> a Nat.+ b` [U1]. Unison has no keyword or backslash and applies functions by
+juxtaposition, which makes it the closest precedent for this design. How Unison's parser
+finds where a lambda starts I haven't checked (unverified); it uses `->` for both lambdas and
+function types, where Stitchwort has two arrows to tell them apart.
 
 ### 2.9 What to take from this
 
-1. **`x => e` and `(x, y) => e` are by far the most widely read lambda forms** (Scala, C#,
-   TypeScript and JavaScript). That's Matt's preferred style, and also what Stitchwort's arms
-   already look like (`| x, y => …`).
-2. **Bracketed parameter lists need a decision rule**, and the two known ones are a cover
-   grammar (JavaScript) and lookahead with speculative parsing (TypeScript). Stitchwort's
-   parser has all tokens in a vector already, which allows a simpler, exact rule (§5).
-3. **No mainstream language lets `(a, b) => …` mean "one pair"**: pair destructuring always
-   has its own brackets (`([a, b]) =>`, `{ (a, b) -> }`) or a `case`. Scala's untupling is a
-   type-directed convenience on top.
+1. **The ML family puts parameters side by side**, matching application `f x y`; Stitchwort
+   already does, and its definition headers do too. Matt chose to keep that (D92).
+2. **Dropping the lambda's leading marker has a precedent in Unison**, and in the mainstream
+   family for single names (`x => e`). The cost is that the parser must find the lambda by
+   looking ahead to `=>`; Stitchwort's parser has all of a declaration's tokens in a vector,
+   so that's direct (§5).
+3. **A forgotten bracket around an argument lambda** is the known hazard of marker-free
+   lambdas: JavaScript makes `callback || () => {}` an error [J2]. In Stitchwort, a bare-name
+   head followed by names and `=>` is a valid lambda, so the error can't always be at parse
+   time (§7).
 
 ## 3. The options
 
 ### Option A: keep `\`
 
-`\x => e`, `\acc x => e`, `\(x: T) => e` once SW-19 lands.
+- For: no migration; a lambda always starts with one token.
+- Against: `\` looks like noise to people who haven't met Haskell, and needs escaping in Rust
+  strings, JSON and Markdown (the board's ticket for SW-19 says `\\(y: Nat)` **[checked]**).
 
-- For: no migration. Familiar to Haskell and Idris readers. The parser can't confuse a
-  lambda with anything, and errors are easy to word.
-- Against: unfamiliar to most programmers; `\` looks like noise to people who haven't met
-  Haskell. It needs escaping in Rust strings, JSON and Markdown tables: the board's own
-  ticket for SW-19 says `\\(y: Nat)` **[checked]**. It is the one place where parameters are
-  separated by spaces while arms separate them by commas.
+### Option B: ML/Lean family without `\` (Matt's decision, D92)
 
-### Option B: Scala/TypeScript style, no `\` (recommended)
+`x => e`, `x y => e`, `(x: Nat) (y: Nat) => e`, `(a, b) => e` (a pair). Details in §4.
 
-`x => e`, `(acc, x) => e`, `(x: T) => e`, `((a, b)) => e`. Details in §4.
-
-- For: matches Matt's stated style and the most widely used languages. Lines up with arms
-  (`(acc, (k, v)) => …` versus `| acc, (k, v) => …`). Also lines up with the function type:
-  `(x: Nat) -> P x` and a value of it, `(x: Nat) => proof`, differ only in the arrow (§6.2).
-  Code written by people (and, I'd expect, by language models; **unverified**) coming from
-  TypeScript, Scala or C# is more likely to be right first time.
-- Against: a one-off migration of about 1,700 lambdas (§8). `(a, b) => e` changes meaning
-  for anyone used to Haskell, Lean or Idris (it's two arguments, not a pair); §7 gives that
-  case its own error message. Several parameters cost brackets and commas:
-  `\w _ => w R c` becomes `(w, _) => w R c`, which matters in proof motives. A lambda
+- For: lambdas look like definition headers and like application. Typed lambdas line up with
+  function types: `(x: Nat) -> P x` and a value of it, `(x: Nat) => proof`, differ only in the
+  arrow. The migration is mechanical and changes no meaning (§8).
+- Against: a forgotten bracket can make a bare-name call into a lambda (§7). A lambda
   returning a lambda in an arm reads as a chain of `=>`: `| return x => st => MkPair x st`.
 
-### Option C: both, during a transition
+### Option B-comma: Scala/TypeScript lists (draft 1; rejected)
 
-Accept `\x => e` and `x => e` for a while.
+`(acc, x) => e`, with `((a, b)) => e` for a pair. Rejected by Matt: comma lists would be out
+of step with `f x y` and with `def add (x: Nat) (y: Nat)`.
 
-- For: nothing breaks on the day.
-- Against: two ways to write the same thing, in docs and in examples that people copy.
-  Matt chose "no transition period" for the declaration syntax (declaration-syntax
-  proposal, status line), and the same reasoning holds: there are no outside users, and one
-  commit can convert everything. Keeping `\` only to produce a helpful error gives the
-  benefit without the cost (D96).
+### Option C: both, during a transition (rejected)
 
-### Option D: a keyword, `fun x => e`
+No backwards-compatibility constraints exist (D96).
 
-Lean, OCaml and F# style (Gleam: `fn`).
+### Option D: a keyword, `fun x => e` (not chosen)
 
-- For: a lambda always starts with a word, so parsing and error messages are as easy as with
-  `\`, and it's searchable. Fits next to `def`. Lean users would feel at home, and Lean is the
-  closest relative among proof languages.
-- Against: it isn't the Scala/TypeScript style Matt prefers; it's longer than either today's
-  `\` or option B, and lambdas are frequent (about 1,300 of the 1,700 are one-parameter
-  lambdas, often inside an argument list).
+Lean, OCaml, F# style. Easy to parse and search for, but longer, and not the style Matt
+prefers.
 
-### Option B′: no `\`, but parameters side by side (Lean without `fun`)
+## 4. The syntax
 
-`x => e`, `acc x => e`, `(a, b) => e` meaning one pair. Not recommended, but worth recording
-because migrating would be just "delete the `\`".
-
-- Against: `g x => e` would quietly be a lambda with two parameters, `g` and `x`, when the
-  writer meant `g (x => e)`; nothing in the syntax tells the two apart, and the mistake
-  surfaces later as a confusing type error, or not at all. And `(a, b) => e` would mean the
-  opposite of what Scala and TypeScript readers expect.
-
-## 4. The proposed syntax
+### 4.1 Grammar
 
 ```
-lambda   ::= head "=>" expr
-head     ::= name | "_"                       -- one parameter, no brackets
-           | "(" ")"                          -- one parameter, the unit value
-           | "(" param ("," param)* ","? ")"
-param    ::= name+ ":" type                   -- typed: `x: Nat`, or `x y: Nat` (D95)
-           | pattern                          -- as in an arm: `x`, `_`, `(a, b)`, `{ name, .. }`,
-                                              -- `MkPair a b` (no brackets needed), `[]` …
+lambda ::= param+ "=>" expr
+param  ::= name | "_"                          -- `x`, `_`
+         | "(" name+ ":" type ")"              -- typed, as in a header: `(x: Nat)`, `(x y: Nat)`
+         | "[" name+ ":" type "]"              -- implicit (§4.3): `[a: Type]`
+         | "[" "auto" name ":" type "]"        -- auto (§4.3)
+         | "(" pattern ")" | "(" ")"           -- a pattern in brackets: `(a, b)`, `(MkPair a b)`, `()`
+         | "{" record-pattern "}"              -- `{ name, .. }`
 ```
 
-- **Several parameters are curried**, as today: `(acc, x) => e` is `acc => x => e`, and is
-  called `f acc x`. Its syntax tree is the same as today's `\acc x => e` (`Expr::Lam` with
-  two names).
-- **Patterns** are those of an arm, so a constructor takes its arguments without brackets
-  (`(MkPair a b, c) => …`) and a pair needs its own brackets (`((a, b), c) => …`), exactly as
-  in `| MkPair a b, c =>` and `| (a, b), c =>`. As today, a pattern parameter must cover its
-  type (a lambda can't fail).
-- **`() => e`** is a function taking the unit value, called `f()`. That's what TypeScript
-  readers expect from `() => e` and `f()`, and it is today's `\() => e`.
-- **`(x) => e`** is allowed and means `x => e` (TypeScript and Scala allow it too).
-- **Typed parameters** (SW-19's feature, D95): `(x: Nat) => e`, `(x: Nat, y: Nat) => e`,
-  mixed `(acc, x: Nat) => e`, and later types may mention earlier names:
-  `(a: Type, x: a) => x`. `(x y: Nat) => e` is accepted as one item, mirroring the function
-  type `(x y: Nat) -> B` and definition headers.
+- **Exactly today's parameters**, minus the `\`. The groups are those of a definition header
+  (`header_param`), so `(x y: Nat)` is two parameters of type `Nat`, as in
+  `def add (x y: Nat)` (D95). Typed and untyped parameters mix freely: `x (y: Nat) => …`.
+- **A pattern parameter is in brackets** (`(a, b)`, `(MkPair a b)`) or a record pattern. Bare
+  constructors and numbers, which today's `\` accepts (`\Zero => …`), aren't parameters in the
+  new rule: the repository has none **[checked]**, they could never cover their type anyway
+  except for one-constructor types, and `(Unit) => …` still works. This keeps the rule simple
+  (a run starts only with a lower-case name, `_` or a bracket).
+- **List patterns** (`[a, b]`) aren't parameters: a list pattern can't cover `List a`, so it
+  would be refused anyway, and `[` is kept for implicit groups. `([a, b]) => …` is still
+  accepted by the bracketed-pattern rule, and refused by the coverage check as today.
+- **`(a, b) => e` is one pair**, as today. Several parameters are curried: `x y => e` is
+  `x => y => e`, the same `Expr::Lam(["x", "y"], …)` as `\x y => e`.
 - **The body** is an expression and reaches as far right as possible, as today. `{` after
-  `=>` is a record literal, never a block (Stitchwort's blocks are made by layout), so
-  JavaScript's `() => { foo: 1 }` trap doesn't exist.
-- **What SW-19 becomes.** Whatever syntax tree SW-19 builds for `\(x: T) => e` is kept; only
-  the surface changes: `\(x: T) => e` is written `(x: T) => e`, and SW-19's
-  `\(x: T) (y: U) => e` is written `(x: T, y: U) => e`. Its tests and examples go through the
-  same rewrite as everything else (§8). The `E-CANNOT-INFER` hint it adds ("annotate the
-  parameter, `\(p: Person) => p.name`") changes to `(p: Person) => p.name`.
+  `=>` is a record literal, never a block, so JavaScript's `() => { foo: 1 }` trap doesn't
+  arise.
 
-Out of scope: implicit lambdas (`[a: Type] => …`), a match-lambda with several alternatives
-(Lean's `fun | … | …`, Scala's `{ case … }`), and placeholder shorthands like Scala's `_ * 2`
-(method sections, `.name`, already cover the most common case). None of them is made harder by
-this syntax. Stitchwort has no `do` notation (DESIGN.md: effects are written in direct style)
-and this changes nothing there.
+### 4.2 Where a lambda may appear without brackets
 
-## 5. Parsing it
+Only as a **whole expression** in its position, exactly where `\` lambdas may appear today:
+after `:=`, `=>` (arms, alternatives, handlers, another lambda), `then`, `else`, `|>`, `(`,
+`,` (tuples, lists), a record field's `=`, a named argument's `:=` (`f [x := y => y]`), `in`
+(`rewrite … in`), and at the start of a line in a block. Never as an application argument
+(`f (x => e)` needs its brackets), and never as an operand (`a || (x => e)`).
+
+### 4.3 Implicit parameters (D91, folded in)
+
+`[a: Type] (x: a) => x` fits the form with no extra rules: a `[ name+ :` group is a parameter,
+read by `header_param` as in `def id [a: Type] (x: a): a := x`, and `[auto h: P]` likewise. The
+lookahead already exists (`is_implicit_binder`, `parser.rs:1671`), and the run rule in §5
+tells `[a: Type] (x: a) => x` from the function type `[a: Type] -> a -> a` by what follows
+the run.
+
+What it needs beyond the parser **[estimate]**: an implicit flag on `Expr::TypedLam` (or a
+sibling node); checking it against `[a: Type] -> …` binds `a` by name instead of the hidden
+name used today (`check.rs:1211`); inferring it gives an implicit function type. It isn't
+needed by the migration (no code writes it today), so it can be a small follow-up ticket after
+the switch, or part of the same lane if it's cheap. Until then, `[a: Type] … =>` is a parse
+error naming the follow-up.
+
+## 5. Parsing it (D98)
 
 ### 5.1 The rule
 
-At the two places a lambda may start today (the start of an expression, and right after
-`|>`), the parser checks:
+At a **lambda position**, which is the start of an expression (`expr_inline`) or right after
+`|>` (`pipe_chain`), the parser scans forward from the current token:
 
-1. a lower-case name or `_`, and the next token is `=>`: a one-parameter lambda; or
-2. `(`, and the token after its **matching** `)` is `=>`: a lambda with a parameter list.
+1. A **parameter token** is a lower-case name; `_`; `(`; `{`; or `[` when followed by
+   `name+ :` or `auto name :` (an implicit group). For `(`, `{` and `[`, the scan jumps to the
+   matching closing bracket in one step.
+2. It repeats while the next token is a parameter token on the same logical line (not at or
+   left of the enclosing block's column, the "stop" rule `at_pipe` uses, `parser.rs:1778`).
+3. If at least one parameter was scanned and the token after the run is `=>`, this is a
+   lambda. Otherwise nothing has been consumed, and the expression is parsed as before.
 
-Anything else is parsed as before. Once it has decided, it parses the parameter list with a
-dedicated function (each item: `name+ :` type, found by the same lookahead
-`is_implicit_binder` uses, or a pattern), then `=>`, then the body. No re-reading, no
-backtracking.
+Once it has decided, the parser reads the parameters with today's code (`fn lambda` without
+the `\`: names, `header_param` for typed groups, `pattern` for the rest), then `=>`, then the
+body. No re-reading and no backtracking.
 
-This is the test `is_pi_binder` already makes for `(x: A) -> B` (`parser.rs:1659`), with
-`=>` in place of `->`. Together they give `(` four readings, decided by what follows the
-matching `)`:
+Why this never changes the meaning of an expression that's valid today: a `=>` right after a
+complete expression is always a parse error today. **[checked]** with the built compiler:
+`:= n => n` gives "expected the end of the declaration, but found `=>`", and so do `| x =>
+Nat.succ x => 1` in an arm and `List.map x => x xs`. Patterns before `=>` in arms, `match` and
+handlers are read by the pattern parser, which never consults this rule.
 
-| After the matching `)` | `(x: Nat)` | `(a, b)` |
-|---|---|---|
-| `->` | function type `(x: Nat) -> …` | tuple type `(A, B) -> …` |
-| `=>` | lambda | lambda with two parameters |
-| anything else | annotation | tuple |
+### 5.2 The matching-bracket table
 
-### 5.2 Why not a cover grammar
+Scanning from every `(` to its partner would be slow on deeply nested brackets: the benchmark
+`check-nested-parens` parses `((…(0)…))` 12,000 deep (`crates/bench/src/programs.rs`
+**[checked]**), and a naive scan from every bracket would be over 100 million token steps
+**[estimate]**. Instead, the parser builds a table from each opening bracket (`(`, `[`, `{`)
+to the index of its partner once per declaration, in one pass with a stack (a `Vec<u32>` the
+size of the token vector). Each jump is one lookup.
 
-JavaScript parses `( … )` as an expression and reinterprets it as parameters when `=>`
-appears [J1]. That works when every parameter form is also an expression. In Stitchwort it
-isn't: `{ name, .. }`, `[x, ..rest]`, `(-1)` and a constructor applied to patterns are
-patterns with no matching expression (or a different one), so a cover grammar would need a
-third kind of syntax tree for "either". TypeScript's speculative parsing [J3] avoids that but
-needs save, rewind and a cache of failures. Stitchwort's lexer produces every token of a
-declaration before parsing starts (`self.tokens`), so looking ahead to a bracket's partner is
-direct.
+**Cost of the scan.** It stops at the first token that isn't a parameter token, and jumps over
+brackets, so at each lambda position it costs the length of the leading run of names and
+groups. An application's arguments aren't lambda positions (they're atoms), so a long
+`f a b c …` is scanned once, from its start. Total work is linear in the declaration's tokens
+**[estimate]**. The table lives on the parser, not the call stack, so the nesting limits
+(measured in stack) don't move. `is_pi_binder` should use the table too.
 
-### 5.3 Cost: the matching-bracket table
+### 5.3 Why not a cover grammar
 
-A naive scan from each `(` to its partner is slow on deeply nested brackets: the benchmark
-`check-nested-parens` parses `((…(0)…))` 12,000 deep (`crates/bench/src/programs.rs:165`
-**[checked]**), and scanning from every `(` would be over 100 million token steps
-**[estimate]**. Instead, the parser builds a table from each `(` to the index of its partner
-once per declaration, in one pass with a stack (a `Vec<u32>` the size of the token vector).
-Each check is then one lookup. The table lives on the parser, not on the call stack, so the
-nesting limits (which are measured in stack) don't move. `is_pi_binder` should use it too.
+JavaScript parses `( … )` as an expression and re-reads it as parameters when `=>` appears
+[J1]. Here, `{ name, .. }`, `(-1)`, `[a: Type]` and typed groups have no expression reading,
+so a cover grammar would need a third kind of syntax tree. TypeScript's speculative parse
+[J3] needs save, rewind and a failure cache. With every token already lexed, the scan in §5.1
+is simpler.
 
 ### 5.4 Size of the change
 
-**[estimate]**, one lane: about 200 lines of parser code (the check, the parameter-list
-parser, the new errors in §7), about 60 removed (the `\` path, kept only as the error), the
-printer (one function), and 40 or so parser tests. The syntax tree, elaborator, kernel and JS
-back end don't change.
+**[estimate]**, one lane: the scan and table (about 80 lines), `lambda` called without the
+`\` (a few lines), the lexer's `\` token removed (so `\` becomes "unexpected character"), the
+parse-error notes and the warning in §7 (about 120 lines across parser and elaborator), the
+printer, and 30 or so tests. The syntax tree, kernel and JS back end don't change.
 
 ## 6. Every place it could be ambiguous
 
-Each case below names the competing reading and how the rule in §5.1 settles it.
+### 6.1 Arms, `match` and handlers
 
-### 6.1 `x => e` against arms, `match` and handlers
-
-`| p => e` in arms, `match` and `handle` is read by the pattern parser, which stops at `=>`;
-the lambda check is never asked there. A lambda *inside* an arm's result is fine and
-unambiguous, because the first `=>` has already ended the patterns:
+`| p => e`: the pattern parser reads `p` and stops at `=>`; the lambda rule is never asked.
+A lambda in an arm's result follows the first `=>`:
 
 ```
 handle prog() with
@@ -381,208 +399,241 @@ handle prog() with
   | get(), k => st => k st st
 ```
 
-On one line, `match n with | Zero => x => x | Succ k => f k`: the lambda's body `x` stops at
-`|`, as `\x => x` does today. A lower-case name followed by `=>` at the start of an expression
-is never anything else today: a stray `=>` after an expression is a parse error now
-(**[checked]** with the built compiler: `:= n => n` gives "expected the end of the
-declaration, but found `=>`", and the same after an arm's result or `List.map x`), so rule 1
-takes nothing away.
+One-line `match n with | Zero => x => x | Succ k => f k`: the lambda body `x` stops at `|`,
+as today. `| Nil => f x | …`: the scan sees `f x` then `|`, so not a lambda.
 
 ### 6.2 `(x: T) => e` against `(e: T)` and `(x: T) -> B`
 
-Stitchwort has the annotation `(e: T)` (`({ x = 0, y = 0 }: Point)`, `(5: Int)`) and the
-dependent function type `(x: T) -> B`. All three start `( name :`, and the token after the
-matching `)` decides (§5.1). The declaration-syntax proposal (§2.11) kept `\` partly so that
-`\(x: T) => e` wouldn't look like `(x: T) -> B`. Without `\` they now differ only in the
-arrow. I think that is a feature, not a risk: a function and its type look alike, and the
-arrow says which is which.
+The run rule decides by the token after the run: `(x: Nat) => …` is a lambda,
+`(x: Nat) -> B` a function type (the scan stops at `->`, then `is_pi_binder` applies), and
+`(x: Nat)` alone an annotation. A function and its type look alike, which I think is a
+feature:
 
 ```
 def twice: (n: Nat) -> Nat := (n: Nat) => n + n
 ```
 
-Scala uses the *same* arrow for both and tells them apart by context [S5]; Lean uses `fun`
-for the value and `→` for the type [L1]. Stitchwort would sit between. The risky mistake is
-typing the wrong arrow, and §7 gives both directions their own message.
-
 ### 6.3 Tuples and tuple patterns
 
-`(a, b)` followed by `=>` is two parameters; anywhere else it's a tuple (or a tuple type
-before `->`). `((a, b)) => e` is one pair parameter; `((a, b))` elsewhere is just a tuple in
-redundant brackets. `(a, b) -> T` stays a function type from a tuple. A tuple annotation
-inside a parameter list, `((a, b): (Nat, Nat)) => …`, follows `let (a, b): (Nat, Nat) := e`
-if SW-19's annotation covers patterns; otherwise it's an error naming the alternative.
+`(a, b) => e` takes one pair; `(a, b)` elsewhere is a tuple; `(a, b) -> T` a function type.
+`acc (k, v) => e` takes two arguments, the second a pair. All as today.
 
 ### 6.4 `|>`
 
-`pipe_chain` (`parser.rs:1763`) checks for `\` today; it would use the new check instead.
-`xs |> ys => List.append ys [0] |> List.sum` keeps today's meaning: the lambda takes the rest
-of the pipeline. `xs |> (acc, x) => …` works the same way.
+`pipe_chain` applies the same rule. `xs |> ys => List.append ys [0] |> List.sum` keeps today's
+meaning: the lambda takes the rest of the pipeline.
 
-### 6.5 Application: `f x => e`
+### 6.5 Application and operators
 
-A lambda isn't an argument without brackets, today or in the proposal: `List.map (x => x + 1)
-xs`. When the parser reads `List.map x => …`, it parses the application `List.map x`, then
-finds `=>` where an expression has ended. That's an error with a specific message (§7),
-the same choice JavaScript makes for `callback || () => {}` [J2]. Rule 1 only fires at the
-start of an expression, so `f x =>` never quietly becomes a lambda with parameters `f` and
-`x` (the danger of option B′). The same applies after any operator: `a + x => e`,
-`a || x => e` are errors, with the hint to bracket the lambda.
+`f x => e` at the start of an expression is a lambda with parameters `f` and `x`. That is the
+accepted risk of D97, handled in §7. Inside an application it can't arise (arguments are
+atoms), and after an operator (`a + x => e`, `a || x => e`) the operand isn't a lambda position,
+so it's a parse error at `=>`, as today.
 
-### 6.6 `if`, `let`, blocks, records
+### 6.6 `if`, `let`, blocks, records, sections, `calc`
 
-- `if c then x => a else y => b`: each branch's lambda body stops at `else` (or the end), as
-  `\x => a` does today.
-- `let f := x => x + 1` and `let f: Nat -> Nat := x => x + 1` work as expected; `let (a, b)
-  := e` is a `let` pattern, not a lambda (it uses `:=`).
-- A block whose last line is `(a, b) => a + b` returns that function.
-- Record fields: `{ f = x => x + 1 }` and updates `{ r | f = x => … }` work, since a field
-  value is an expression.
-- `calc` steps start with `_`, but are always `_ =`, `_ <=` or `_ <`; `_ =>` is lexed as `_`
-  then `=>`, so `_ => e` (a lambda ignoring its argument) can't be confused with a step.
+- `if c then x => a else y => b`: each branch is a lambda position; the body stops at `else`
+  as today. `if c then f x else g` isn't a lambda (the run ends at `else`).
+- `let f := x y => x + y` is a lambda; `let (a, b) := e` is a `let` pattern (it uses `:=`).
+- A block line `i hi => …` is a lambda (two such lines exist in `aoc/src/day02/part2proof.sw`
+  and `examples/accept/abilities-edge.sw` after deletion). A block line starting `f x` and
+  continuing with something other than `=>` is an ordinary statement.
+- Records: `{ name, .. } => name` is a lambda; `{ x = 0 }` without `=>` is a record literal;
+  `{ f = x => x + 1 }` has a lambda as a field value.
+- Method sections start with `.`, which isn't a parameter token: `.name` is never a lambda
+  parameter, and `xs.map x => …` is a parse error (§7).
+- `calc` steps are `_ = …`, `_ <= …`, `_ < …`; `_ =>` is a different token, so `_ => e` (a
+  lambda ignoring its argument) can't be confused with a step.
 
 ### 6.7 Layout
 
-A lambda's body may start on the next line, as today. `=>` itself may begin a continuation
-line, indented further than the line the lambda starts on, like any operator in a
-continuation; at or left of the block's column it starts a new statement and the lookahead
-doesn't see it (the same "stop" rule `at_pipe` uses, `parser.rs:1733`). JavaScript forbids a
-line break before `=>` [J1]; Stitchwort doesn't need to, because its layout rules already say
-where a statement ends.
+The run must be on one logical line with its `=>`: a `=>` that starts a continuation line
+(indented further) counts, one at or left of the block's column starts a new statement, as for
+any operator. The body may start on the next line, as today.
 
 ### 6.8 Unclosed brackets
 
-`(a, b => e` has no matching `)`, so it isn't a lambda by the rule; it's parsed as a tuple and
-fails at `=>` with "expected `)`". The message gets a note when the unclosed `(` is followed
-by `=>` inside: "a lambda's parameter list is closed before `=>`: `(a, b) => e`".
+`(a, b => e` has no matching `)`, so the scan doesn't see a lambda, and the tuple parse fails
+at `=>` with "expected `)`".
 
-## 7. Near-misses and their messages
+## 7. Forgotten brackets (D97)
 
-| Written | What happens | Message (draft) |
-|---|---|---|
-| `\x => e`, `\acc x => e` | `\` is still a token, only to give this error | `E-OLD-LAMBDA` "lambdas are written without `\`"; note with the exact rewrite, built from the old parameter parser: "write `(acc, x) => e`" (and `((a, b)) => e` for `\(a, b) => e`) |
-| `x y => e` | `=>` after the application `x y` | "a lambda with several parameters lists them in brackets: `(x, y) => e`" |
-| `List.map x => e` | `=>` after `List.map x` | "to pass a lambda as an argument, put it in brackets: `List.map (x => e)`" (the same check as the row above: when the head isn't a plain name, only this note; when it is, both notes) |
-| `(a, b) => e` where a function of a pair is expected | the elaborator checks a two-parameter lambda against `Pair A B -> C` and fails at `b` | the type error, plus a note: "this lambda takes two arguments; to take one pair apart, write `((a, b)) => e`" (the parser marks lambdas written with a comma list so the note can be specific) |
-| `((a, b)) => e` where two arguments are expected | the pattern `(a, b)` against `A` | the type error, plus: "this lambda takes one pair; for two arguments write `(a, b) => e`" |
-| `(x: Nat) -> x + 1` where a value is expected | parses as a function type whose result `x + 1` isn't a type | the not-a-type error, plus: "a function value is written with `=>`: `(x: Nat) => x + 1`" |
-| `x -> x + 1` (Unison, Kotlin, Haskell habit) | the function type `x -> …` | the same note: "a lambda uses `=>`" |
-| `def f: (n: Nat) => Nat` | a lambda where a type is expected | `E-NOT-A-TYPE`, plus "a function type uses `->`" |
-| `(x: Nat) (y: Nat) => e` (header habit) | `(x: Nat)` then `(` | "a lambda's parameters go in one list: `(x: Nat, y: Nat) => e`" (found by continuing the bracket lookahead across adjacent groups) |
-| `() => e` where `Nat -> …` is expected | the unit pattern against `Nat` | the type error, plus "`()` is the unit value; for a parameter you don't use, write `_ => e`" |
+### 7.1 When it's a parse error, and when it isn't
 
-## 8. Migration
+The mistake is writing an argument lambda without its brackets: `List.map x => x + 1` for
+`List.map (x => x + 1)`. Whether the parser catches it depends on the **head** of the
+expression (its first token):
+
+- **A qualified name, dot notation, a constructor, a literal or `(`-expression followed by
+  something that isn't a run:** not a lambda by §5.1, so it's a parse error at `=>`. The
+  message gets a note: "to pass a lambda as an argument, put it in brackets: `List.map (x =>
+  …)`". This covers `List.map x => …`, `xs.map x => …`, `J x => …`, `Eq.cong y => …`.
+- **A bare lower-case name** (`map x => x + 1`, `go acc x => …`, `allResults u => …`): a valid
+  lambda whose first parameter is the function's name.
+
+How often is the head a bare name? Of the 1,201 lambdas in `.sw` code written as `(\`, the
+token just before the bracket is a qualified name or dot access 616 times, a constructor 120,
+a bare lower-case name 124, and a closing bracket, literal or other token the rest
+**[checked]** (a script over the `.sw` files, with strings and comments removed). So roughly
+half of today's argument lambdas follow a qualified or dotted function, where a forgotten
+bracket is a parse error, and about a tenth follow a bare name. (For the 292 preceded by a
+closing bracket, the head of the application wasn't measured.)
+
+### 7.2 The heuristic for the silent case
+
+A forgotten bracket at a bare-name head produces a lambda whose **first parameter has the
+same name as a function in scope**, and that parameter is almost never used in the body (it
+was meant to be the function being called). Proposed:
+
+- **Warning `W-LAMBDA-SHADOW`** when all of these hold:
+  1. the lambda has two or more parameters, the first a plain name (not `_`, not a group);
+  2. that name, in the scope around the lambda, refers to a function: a top-level definition,
+     an import, an ability operation, or a local variable whose type is a function type;
+  3. the first parameter isn't used in the body.
+
+  Message: "this lambda's first parameter `map` hides the function `map`, and isn't used";
+  note: "if you meant to pass a lambda to `map`, put it in brackets: `map (x => …)`; to keep
+  the parameter, rename it or write `_`".
+- **A note on errors.** When conditions 1 and 2 hold (whether or not 3 does) and an error is
+  reported inside the lambda or at it (for example "this is a function, but the expected type
+  is `List Nat`", or the body's `x + 1 xs` failing), the error gets the same note.
+
+**How often it fires.** Over today's `.sw` code (223 lambdas with two or more parameters;
+scope approximated as the same file's top-level definitions and its `import`s, not local
+function-typed variables) **[checked]**:
+
+| Condition | Lambdas |
+|---|---|
+| 1: two or more parameters, first a name | 223 |
+| 1 and 2: the first parameter names a function in the file | 1 (`\r acc =>` in `examples/accept/expected-types.sw`) |
+| 1 and 3: the first parameter is unused | 8 |
+| 1, 2 and 3: **the warning** | **0** |
+
+So on correct code the warning would never have fired, and the error note could only appear
+on one lambda, and only if it had an error. For the mistake it targets (`map x => x + 1`),
+all three conditions hold. **[estimate]**: it misses the case where the forgotten function's
+name is *used* in the body by coincidence, or where the function is in scope only as a local
+not of function type; I expect both to be rare.
+
+The warning is the elaborator's (it needs scope and use); the parser needs nothing new for
+it, since every lambda is now a run.
+
+## 8. Migration (D99)
 
 ### 8.1 How many lambdas
 
-Counted with a regular expression for `\` followed by parameters and `=>` on one line, over
-the files git tracks **[checked]**; approximate, since it can't see a lambda whose `=>` is on
-another line, and in Rust it counts lambdas inside test strings:
+Counted with a regular expression for `\` followed by parameters and `=>` on one line, over the
+files git tracks at `db3d043` **[checked]**; approximate (it misses a `=>` on another line, and
+in Rust it counts lambdas inside test strings):
 
 | Where | Lambdas | Files |
 |---|---|---|
-| Library (`crates/elab`, `.sw`) | 551 | 9 |
+| Library (`crates/elab/src/std`, `.sw`) | 552 | 9 |
 | Advent of Code (`aoc/`, `.sw`) | 447 | 8 |
-| `examples/` (`.sw`) | 274 | 77 |
-| Rust test and benchmark sources (syntax 70, driver 51, elab 29, core 18, bench 13, cli 7, js 4, web 3) | 195 | 41 |
-| Docs (`docs/proposals` 112, `syntax.md` 43, `aoc-2025.md` 31, others 20, `DESIGN.md` 8) | 214 | 17 |
+| `examples/` (`.sw`) | 290 | 80 |
+| Rust test and benchmark sources (syntax 78, driver 51, elab 31, core 18, bench 13, cli 7, js 4, web 3) | 205 | 42 |
+| Docs (`docs/proposals` 162, `syntax.md` 46, `aoc-2025.md` 31, others 20, `DESIGN.md` 8) | 267 | 18 |
 | `board/tickets.json` | 15 | 1 |
 | Playground examples (`web/index.html`) | 6 | 1 |
 | Editor grammars (`editors/`) | 0 | 0 |
-| **Total** | **about 1,700** | |
+| **Total** | **about 1,780** | |
 
-By kind: 1,303 have one plain name, 339 several plain names, 52 a pattern (12 of them a tuple,
-7 a record), and 8 an annotation (in tickets, tests and docs ahead of SW-19). Separately, 29
-snapshot files (`crates/cli/tests/snapshots/*.snap`) show lambdas in quoted source or printed
-terms; they're regenerated, not edited.
+By kind: 1,319 one plain name, 350 several names, 69 with a pattern, 44 with a typed group.
+In `.sw` code alone (strings and comments removed) there are **1,273 `\` tokens**. 29 snapshot
+files (`crates/cli/tests/snapshots/*.snap`) show lambdas in quoted source or printed terms;
+they're regenerated, not edited.
 
-### 8.2 Is a mechanical rewrite safe?
+### 8.2 Is "delete the `\`" safe?
 
-There's no formatter (the CLI has `check`, `test`, `run`, `eval`, `repl` and `build`
-**[checked]**), and the old declaration converter crate was removed after its migration. A
-plain text substitution is **not** safe: deleting the `\` from `\(a, b) => e` gives
-`(a, b) => e`, which now takes two arguments, and `\acc x => e` would become the error
-`acc x => e`. The rewrite has to know the parameter list.
+The meaning of every parameter list is unchanged, so the question is only whether each lambda,
+without its `\`, is still found as a lambda in the same place. It is, if every `\` is at a
+lambda position (§5.1). **[checked]** with a script over the `.sw` files (strings and comments
+removed), the token before each of the 1,273 `\` is:
 
-Proposed tool (a throwaway dev binary, like the declaration converter was):
+| Before the `\` | Count |
+|---|---|
+| `(` | 1,201 |
+| `:=` | 37 |
+| `=>` | 21 |
+| `|>` | 7 |
+| `((` (a bracket right after another) | 3 |
+| `in` (`rewrite … in`) | 2 |
+| start of a block line (after a `let`) | 2 |
 
-1. Lex each file; for each `\` token, run today's `lambda` parameter parser to get the
-   parameters' source ranges.
-2. Replace the text from `\` to `=>` with the new head: one plain name stays bare (`x =>`);
-   otherwise `(` + the parameters' original text joined by `, ` + `)`, where a parameter that
-   is a pair pattern, or a constructor applied to arguments in brackets (`(Just x)`), keeps
-   its brackets as written: `\acc (k, v)` → `(acc, (k, v))`, `\(a, b)` → `((a, b))`.
-3. **Check:** the old parser on the old text and the new parser on the new text must give the
-   same syntax tree, compared without positions by `crates/syntax/src/equivalence.rs`
-   (`shape`), which was built for exactly this in the declaration-syntax switch. Any
-   difference stops the tool on that file.
+All are lambda positions. **No `\` follows an argument or operand** (an unbracketed argument
+lambda, `f \x => e`, is a parse error today, so there are none to worry about). And every
+parameter list starts with a lower-case name, `_`, `(` or `{` (17 start with `(`, 1 with `{`,
+1 with `_`, none with a constructor or number), so all are runs by §5.1.
 
-The `.sw` files (1,272 lambdas) and the docs' ```` ``` ```` code blocks go through the tool.
-Rust test strings, inline code in prose, the board and the playground's six are done by hand
-or by a reviewed search-and-replace; anything missed in a test string fails loudly, because
-`\` becomes `E-OLD-LAMBDA` (§7), except tests that expect a parse error, which need a look
-each.
+**The tool** (throwaway, like the declaration converter was):
 
-### 8.3 Hashes
+1. For each `.sw` file, lex with today's lexer and delete the text of every `\` token (the
+   lexer, not a text search, so `\n` and `\u{…}` inside text and character literals are never
+   touched).
+2. Parse the old text with the old parser and the new text with the new parser, and compare
+   the syntax trees without positions (`crates/syntax/src/equivalence.rs`, `shape`, built for
+   the declaration switch). Any difference stops the tool on that file. Given §8.2's survey
+   none is expected, so this is the safety net, not the plan.
+3. Compare every declaration's content hash before and after across the library, `aoc/` and
+   `examples/`: a definition's hash covers its elaborated type and body, not names or
+   positions (`docs/core.md`, "Tests and content hashes" **[checked]**), so it must be
+   identical.
 
-A definition's hash covers its elaborated type and body; binder names, local variable names
-and source positions aren't hashed (`docs/core.md`, "Tests and content hashes";
-`crates/core/src/hash.rs` header comment **[checked]**). The rewrite produces the same syntax
-trees (checked in step 3), so the same elaborated terms, so the same hashes. As with the
-declaration switch, comparing every declaration's hash before and after is the end-to-end
-check that the migration changed nothing. (The test cache will still rerun everything once,
-because its key includes a fingerprint of the compiler's source; that's expected.)
+**Not by the tool:** Rust test strings (a Stitchwort lambda in a normal Rust string is `\\x`, and
+`\\n` there may be a Stitchwort escape, so these are edited by a reviewed search for `\\`
+followed by parameters and `=>`, then the tests are run: a missed one is now an "unexpected
+character" error and fails loudly, except in tests that expect a parse error, which get a
+look each); the docs' code blocks and inline code (search and replace, reviewed; historical
+documents such as `docs/history.md` and the declaration-syntax proposal keep the old form
+where they describe it); the board's tickets (left as written, since they record history; the
+open ones that quote syntax are edited by hand); the playground's six.
 
-### 8.4 Printer, editors, playground
+### 8.3 Printer, editors, playground
 
-- **Printer** (`crates/core/src/pretty.rs:337`): print `x => body`, and gather nested lambdas
-  into one list, `(x, y) => body`, which is shorter than `x => y => body` and is what people
-  write (D100). Snapshots change with it.
+- **Printer** (`crates/core/src/pretty.rs:335`): `x y => body`, gathering nested lambdas into
+  one run (D100). Snapshots change with it.
 - **VS Code grammar** (`editors/vscode/syntaxes/stitchwort.tmLanguage.json`): `=>` is already
-  an operator; `\` is in its operator character class and can stay or go. No new rule is
-  needed: parameters are coloured as names, as they are in arms.
-- **Playground highlighter** (`web/index.html`, the hand-written tokenizer): no change; `\` is
-  coloured as an operator by its fallback branch. Its six example lambdas are rewritten.
-- **Docs**: `docs/syntax.md` (the expression table, "Patterns in `let` and lambdas", the
-  pipe and method-section sections), DESIGN.md §4, and the declaration-syntax proposal's
-  §2.11 gets a pointer to this note.
+  an operator; `\` can be dropped from its operator character class. No new rule is needed.
+- **Playground highlighter** (`web/index.html`): no change; its six example lambdas are
+  rewritten.
+- **Docs**: `docs/syntax.md` (the expression table, "Patterns in `let` and lambdas", pipes,
+  method sections, the SW-19 annotation hint), DESIGN.md §4, and a pointer from the
+  declaration-syntax proposal's §2.11.
 
-### 8.5 Order of work
+### 8.4 Order of work
 
-1. SW-19 lands first (annotated parameters with `\`). This note doesn't block it.
-2. One lane: the parser change, `E-OLD-LAMBDA` and the other messages, the printer, the
-   rewriting tool; then the tool run over the repository, hashes compared, in one commit
-   (as the declaration switch was).
-3. Docs and the remaining hand edits in the same lane; the tool is deleted afterwards.
+One lane: the scan and table, `\` removed from the lexer, the printer, the tool run and the
+hand edits, hashes compared, all in one commit (as the declaration switch was). Then the
+warning and notes of §7 (same lane or straight after). Implicit lambda parameters (§4.3) as a
+small follow-up.
 
 ## 9. Risks
 
-- **The meaning of `(a, b) => e` flips** for readers from Haskell, Lean or Idris, and for
-  this codebase's own habits. Mitigation: the two notes in §7 are specific, and the rewrite
-  tool never produces the wrong reading (step 3).
-- **Proof motives get a little longer**: `J (\y' p' => f x = f y') rfl p` becomes
-  `J ((y', p') => f x = f y') rfl p`. Measurable but small; about 340 lambdas have several
-  parameters.
-- **A lambda returning a lambda** in an arm reads as a chain of `=>`. Brackets help where it
+- **Forgotten brackets at a bare-name head** (§7). Mitigated, not removed; the measurement
+  says the warning is quiet on correct code.
+- **Readers from TypeScript or Scala** may write `(acc, x) => …` expecting two parameters; it
+  takes a pair. When such a lambda is checked against a function whose first parameter isn't
+  a pair, the type error gets a note: "`(acc, x)` is one pair; for two parameters write `acc x
+  => …`" **[estimate]**: cheap, since the elaborator knows the pattern came from a lambda.
+- **A lambda returning a lambda** in an arm reads as a chain of `=>`; brackets help where it
   matters: `| return x => (st => MkPair x st)`.
-- **Stray `=>` errors** now need to tell three intentions apart (§7). Getting the wording
-  right is most of the parser work; it's tested with a reject example per row of §7.
-- **Unverified:** that language models write the Scala/TypeScript form more reliably than
-  `\x => e`. It's plausible from how much more common the form is, but I haven't measured it.
+- **Unverified:** how Unison's parser finds lambdas, and whether it has the same
+  forgotten-bracket issue.
 
 ## 10. Decisions
 
-| ID | Question | Recommended answer |
+| ID | Question | Answer |
 |---|---|---|
-| D92 | Which lambda syntax: keep `\` (A), Scala/TS arrows (B), both for a while (C), a keyword `fun` (D)? | **B**: `x => e`, `(x, y) => e`, `(x: T) => e` |
-| D93 | What does `(a, b) => e` mean? | **Two (curried) parameters**, as in Scala, TypeScript and C#; a pair taken apart is `((a, b)) => e` |
-| D94 | Should `(a, b) => e` also be accepted where a function of a pair is expected (Scala 3's parameter untupling)? | **Not now**: a specific error note instead (§7); revisit if `((a, b))` turns out to be common (12 uses today) |
-| D95 | Typed parameters | `(x: Nat, y: Nat) => e`; typed and untyped may be **mixed**; `(x y: Nat) => e` **accepted** (mirrors `(x y: Nat) -> B`); separate groups `(x: Nat) (y: Nat) => e` are an error with the fix |
-| D96 | What happens to `\x => e`? | **An error, `E-OLD-LAMBDA`, showing the exact new form**; no transition period, one switch commit (as for declarations) |
-| D97 | Allow `x y => e` without brackets? | **No**: an error with the fix `(x, y) => e`; so `f x => e` can never silently become a two-parameter lambda |
-| D98 | How the parser decides | **Lookahead to the matching `)`** using a matching-bracket table built once per declaration; no cover grammar, no backtracking; `is_pi_binder` uses the same table |
-| D99 | How to migrate | A throwaway rewriting tool driven by the old parameter parser, with every file's syntax trees compared before and after (`equivalence::shape`), and every declaration's hash compared; Rust strings, prose and the board by hand |
-| D100 | How the printer shows lambdas | `x => body`, with nested lambdas gathered: `(x, y) => body` |
+| D91 | Implicit lambda parameters `[a: Type]` | **Folded in** (§4.3): the syntax `[a: Type] (x: a) => x` falls out of the run rule; the elaborator part is a small follow-up (recommended), not needed for the switch |
+| D92 | Which lambda syntax? | **Decided (Matt)**: ML/Lean family without `\`: `x => e`, `x y => e`, `(x: Nat) (y: Nat) => e` |
+| D93 | What does `(a, b) => e` mean? | **Superseded**: one pair parameter, as today |
+| D94 | Scala-style untupling | **Moot** |
+| D95 | Typed parameters | **Decided (Matt)**: header groups, `(x: Nat) (y: Nat)`, `(x y: Nat)`, mixed with untyped |
+| D96 | What happens to `\x => e`? | **Decided (Matt)**: nothing special; `\` is removed from the lexer, so it's an ordinary "unexpected character" error |
+| D97 | Bare runs `x y => e` | **Decided (Matt)**: allowed. Open for review: the mitigation in §7.2, `W-LAMBDA-SHADOW` plus a note on errors (recommended as written) |
+| D98 | How the parser decides | **Decided (Matt)**: a run of parameter tokens, then `=>`, with the matching-bracket table. Open for review: the precise rule in §5.1 (recommended as written, including: no bare constructors or numbers as parameters, `[` only for implicit groups) |
+| D99 | How to migrate | **Decided (Matt)**: the tool. Open for review: §8.2, deleting `\` tokens by lexing, checking syntax trees and hashes; Rust strings and docs by reviewed search (recommended as written) |
+| D100 | How the printer shows lambdas | **Decided (Matt)**: `x y => body` |
 
 ## Sources
 
