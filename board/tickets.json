@@ -2459,15 +2459,18 @@
       "id": 160,
       "title": "Std library stage 3: move the rest of core into library files (Nat/Arith, Nat/Digits, List/Toolkit, Int/Int, Text/Text)",
       "status": "doing",
-      "agent": "DeepSeek",
-      "where": "~/scratch/opencode/funlang-20261020-134021",
+      "agent": "Claude",
+      "where": "main",
       "labels": [
         "stdlib"
       ],
       "body": "D78 (20 Oct 2026). Orchestrator generated the split with the stage 1 closure tool (core keeps the registry built-ins, Decidable procedures and their closure, plus Bool.inspect/Bool.toNat; files acyclic; core 2715 -> 1084 lines), commit 2f6acf3 in the clone. DeepSeek registers the files, fixes fallout, tidies headers, checks hashes, measures, documents, gates. Natives stay in core for now (moving them needs registry changes).",
       "created": "2026-10-20",
       "updated": "2026-10-20",
-      "commits": []
+      "commits": [
+        "2f6acf3",
+        "e98efed"
+      ]
     },
     {
       "id": 161,
