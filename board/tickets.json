@@ -2537,8 +2537,8 @@
       "id": 165,
       "title": "Std library stage 2: drop the 'qualifiers always available' rule (D50/D55); import Std (X) for any sub-namespace",
       "status": "doing",
-      "agent": "Sonnet",
-      "where": "worktree",
+      "agent": "DeepSeek",
+      "where": "/Users/matt/scratch/opencode/agent-a5862ccd088e5f3be-20261020-145209",
       "labels": [
         "stdlib",
         "elab"
