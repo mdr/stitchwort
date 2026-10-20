@@ -33,7 +33,7 @@
       "patterns": [
         {
           "name": "keyword.control.stitchwort",
-          "match": "\\b(type|theorem|def|export|test|if|then|else|ability|where|handle|with|match|return|let|import|namespace|calc)(?![A-Za-z0-9_'])"
+          "match": "\\b(type|theorem|def|export|test|if|then|else|ability|where|handle|with|match|return|let|import|namespace|calc|rewrite)(?![A-Za-z0-9_'])"
         },
         {
           "name": "support.type.stitchwort",

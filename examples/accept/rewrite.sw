@@ -83,6 +83,14 @@ theorem namedIn (in: Nat) (a: Nat) (h: a = in): Succ a = Succ in :=
 theorem argumentIn (f: Nat -> Nat) (g: Nat -> Nat) (in: Nat) (h: (x: Nat) -> f x = g x): f in = g in :=
   rewrite h (in)
 
+-- A rule's left side is matched by computing: `Nat.modSelf (Succ highest)` is about
+-- `Succ highest % Succ highest`, and the goal has `(Succ highest - 0) % Succ highest`.
+theorem stepZero (highest: Nat) (n: Nat):
+    Bool.toNat (0 == 0) + ((Succ highest - 0) % Succ highest + n) / Succ highest
+      = ((Succ highest - 1) % Succ highest + Succ n) / Succ highest :=
+  rewrite Nat.modSelf (Succ highest), Nat.modSmall highest (Succ highest) (Nat.leRefl highest), Nat.addSucc highest n
+    in Eq.sym (Nat.addDivSelf (Succ highest) n)
+
 -- In a `calc` step, `rewrite p` is checked against the step's own line.
 theorem inCalc (a: Nat) (n: Nat): a + Succ n = Succ (n + a) :=
   calc a + Succ n

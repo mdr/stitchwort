@@ -93,13 +93,14 @@ theorem multiplierSucc (k: Nat) (n: Nat): multiplier k (Succ n) = 1 + Nat.pow 10
 theorem writeTimesMul (k: Nat) (b: Nat): (n: Nat) -> writeTimes k b n = b * multiplier k n
   | Zero   => Eq.sym (Nat.mulZero b)
   | Succ n =>
-    Eq.trans (Eq.cong (\t => t * Nat.pow 10 k + b) (writeTimesMul k b n))
-      (Eq.trans (Eq.cong (\t => t + b) (Nat.mulAssoc b (multiplier k n) (Nat.pow 10 k)))
-        (Eq.trans (Eq.cong (\t => b * t + b) (Nat.mulComm (multiplier k n) (Nat.pow 10 k)))
-          (Eq.trans (Nat.addComm (b * (Nat.pow 10 k * multiplier k n)) b)
-            (Eq.trans (Eq.cong (\t => t + b * (Nat.pow 10 k * multiplier k n)) (Eq.sym (Nat.mulOne b)))
-              (Eq.trans (Eq.sym (Nat.mulDistribLeft b 1 (Nat.pow 10 k * multiplier k n)))
-                (Eq.cong (\t => b * t) (Eq.sym (multiplierSucc k n))))))))
+    calc writeTimes k b n * Nat.pow 10 k + b
+      _ = b * multiplier k n * Nat.pow 10 k + b := rewrite writeTimesMul k b n
+      _ = b * (multiplier k n * Nat.pow 10 k) + b := rewrite Nat.mulAssoc b (multiplier k n) (Nat.pow 10 k)
+      _ = b * (Nat.pow 10 k * multiplier k n) + b := rewrite Nat.mulComm (multiplier k n) (Nat.pow 10 k)
+      _ = b + b * (Nat.pow 10 k * multiplier k n) := Nat.addComm (b * (Nat.pow 10 k * multiplier k n)) b
+      _ = b * 1 + b * (Nat.pow 10 k * multiplier k n) := rewrite Nat.mulOne b
+      _ = b * (1 + Nat.pow 10 k * multiplier k n) := rewrite Nat.mulDistribLeft b 1 (Nat.pow 10 k * multiplier k n)
+      _ = b * multiplier k (Succ n) := rewrite multiplierSucc k n
 
 -- The ids `b * d` for `b` from `s` to `s + c - 1` that lie in `lo..hi`, added up.
 def windowSum (lo: Nat) (hi: Nat) (d: Nat) (c: Nat) (s: Nat): Nat :=

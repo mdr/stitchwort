@@ -202,8 +202,7 @@ fn check_step(
     prop_term: &Term,
     line: &str,
 ) -> Result<Term> {
-    // A `rewrite` looks for its rule in the line as it was built, not as it
-    // computes (rewrite.rs).
+    // A `rewrite` shows the line as it was built in its messages (rewrite.rs).
     cx.written_goal = matches!(proof, Expr::Rewrite { .. }).then(|| prop_term.clone());
     let checked = check(cx, proof, prop);
     cx.written_goal = None;

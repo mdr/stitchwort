@@ -55,9 +55,9 @@ pub struct Ctx<'e> {
     pub goal: Option<(usize, Rc<Term>)>,
     /// Set by `calc` just before it checks a step's proof that is a
     /// `rewrite`: the step's proposition as it was built (a term in the
-    /// current context), which `rewrite` searches instead of reading the
-    /// evaluated goal back (docs/proposals/calc-rewrite.md §6.2). Taken by
-    /// the first `rewrite` that looks.
+    /// current context), which `rewrite` shows in its messages. It searches
+    /// the goal as it computes, not this (docs/proposals/calc-rewrite.md,
+    /// "As built"). Taken by the first `rewrite` that looks.
     pub(crate) written_goal: Option<Term>,
     pub span: Span,
 }

@@ -165,8 +165,14 @@ fn report(span: Span, rules: usize, stats: &Stats, steps: u64) {
     eprintln!(
         "rewrite-metrics: at={}..{} rules={rules} visited={} keyed={} bound={} syntactic={} \
          conversions={} matched={} steps={steps} cache_hits=0",
-        span.start, span.end, stats.visited, stats.keyed, stats.bound, stats.syntactic,
-        stats.conversions, stats.matched
+        span.start,
+        span.end,
+        stats.visited,
+        stats.keyed,
+        stats.bound,
+        stats.syntactic,
+        stats.conversions,
+        stats.matched
     );
 }
 
@@ -183,15 +189,14 @@ fn rewrite_once(
     let (proof, ty) = infer(cx, &rule.proof)?;
     let (proof, ty) = insert(cx, proof, ty)?;
     let Value::Eq(carrier, left, right) = force(g, ty.clone())? else {
-        return Err(Diagnostic::error(
-            "E-REWRITE-RULE",
-            "`rewrite` needs a proof of an equation",
-        )
-        .with_label(
-            rule.proof.span(),
-            format!("this has type `{}`, which isn't an equation", cx.show(&ty)),
-        )
-        .with_note("give a function its arguments: `rewrite Nat.addComm a b`"));
+        return Err(
+            Diagnostic::error("E-REWRITE-RULE", "`rewrite` needs a proof of an equation")
+                .with_label(
+                    rule.proof.span(),
+                    format!("this has type `{}`, which isn't an equation", cx.show(&ty)),
+                )
+                .with_note("give a function its arguments: `rewrite Nat.addComm a b`"),
+        );
     };
     let carrier = (*carrier).clone();
     let (lhs, rhs) = if rule.reverse {
@@ -216,15 +221,21 @@ fn rewrite_once(
         return Err(unknown_head(rule));
     };
     let goal_value = force(g, goal.clone())?;
-    let mut goal_term = searched(cx, written.clone(), &goal_value)?;
+    let mut goal_term = cx.quote(&goal_value)?;
     // An `auto` proof still to be found inside the goal could depend on what
     // is replaced, which only shows once it is found.
     let pending: Vec<usize> = goal_term
         .subterms()
-        .filter_map(|(t, _)| if let Term::Meta(m) = t { Some(*m) } else { None })
+        .filter_map(|(t, _)| {
+            if let Term::Meta(m) = t {
+                Some(*m)
+            } else {
+                None
+            }
+        })
         .collect();
     if !pending.is_empty() && cx.e.prove_now(&|m| pending.contains(&m))? {
-        goal_term = searched(cx, written, &goal_value)?;
+        goal_term = cx.quote(&goal_value)?;
     }
     let level = cx.level();
 
@@ -266,7 +277,15 @@ fn rewrite_once(
     drop(search);
     let body = body?;
     if found.matched == 0 {
-        return Err(nothing_found(cx, rule, &lhs, &goal_value, &found));
+        let as_written = goal_as_written(cx, written, &goal_value)?;
+        return Err(nothing_found(
+            cx,
+            rule,
+            &lhs,
+            &goal_value,
+            as_written,
+            &found,
+        ));
     }
 
     let motive = Term::Lam(
@@ -281,7 +300,14 @@ fn rewrite_once(
         Some(false) => {
             return Err(round_trip_error(cx, rule, &lhs, first.as_ref()));
         }
-        None => return Err(budget_error(cx, rule, first.as_ref().unwrap_or(&goal_term), &lhs)),
+        None => {
+            return Err(budget_error(
+                cx,
+                rule,
+                first.as_ref().unwrap_or(&goal_term),
+                &lhs,
+            ));
+        }
     }
     let motive_value = cx.eval(&motive)?;
     let next = apply(g, apply(g, motive_value, rhs)?, Value::Refl)?;
@@ -290,20 +316,6 @@ fn rewrite_once(
         proof: to_lhs,
         goal: next,
     })
-}
-
-/// The goal as a term to search: `written`, the proposition as it was built
-/// (a `calc` step's), if it still computes to the goal; otherwise the goal
-/// read back, which keeps what evaluation left folded.
-fn searched(cx: &mut Ctx, written: Option<Term>, goal: &Value) -> Result<Term> {
-    if let Some(term) = written
-        && let Ok(term) = crate::unify::zonk_in(cx.g(), cx.level(), &term, &|_| true, &[])
-        && let Ok(value) = cx.eval(&term)
-        && crate::undo::unify(cx, &value, goal)?
-    {
-        return Ok(term);
-    }
-    cx.quote(goal)
 }
 
 /// The occurrence search over one goal term.
@@ -463,12 +475,7 @@ fn kernel_context<'e>(cx: &Ctx<'e>) -> Result<kernel::Ctx<'e>> {
 /// carrier, if it has no unsolved metavariable to solve. If it has, or the
 /// term has one the goal hasn't solved yet, nothing can be said and the
 /// comparison by conversion is left to decide.
-fn has_carrier(
-    cx: &Ctx,
-    kcx: &mut kernel::Ctx,
-    term: &Term,
-    carrier: &Value,
-) -> Result<bool> {
+fn has_carrier(cx: &Ctx, kcx: &mut kernel::Ctx, term: &Term, carrier: &Value) -> Result<bool> {
     match kernel::infer(kcx, term) {
         Ok((_, ty)) => return cx.unify(&ty, carrier),
         Err(e) if fatal(&e) => return Err(e),
@@ -584,12 +591,16 @@ fn check_motive(
                 shown(cx, lhs)
             ),
         )
-        .with_label(rule.span, "the goal with this replaced by a variable doesn't type-check")
+        .with_label(
+            rule.span,
+            "the goal with this replaced by a variable doesn't type-check",
+        )
         .with_note(format!(
             "the checker says: {}",
-            e.labels
-                .first()
-                .map_or(e.message.clone(), |l| format!("{} ({})", e.message, l.message))
+            e.labels.first().map_or(e.message.clone(), |l| format!(
+                "{} ({})",
+                e.message, l.message
+            ))
         ))
         .with_note(
             "something in the goal can depend on the term being replaced, such as the proof an \
@@ -632,14 +643,21 @@ fn written(cx: &Ctx, term: &Term) -> String {
         let (head, args) = t.spine();
         match head {
             Term::Meta(m)
-                if !args.is_empty() && args.iter().all(|a| matches!(a.strip_loc(), Term::Var(_))) =>
+                if !args.is_empty()
+                    && args.iter().all(|a| matches!(a.strip_loc(), Term::Var(_))) =>
             {
                 Some(Term::Meta(*m))
             }
             _ => None,
         }
     };
-    let tidy = replace_with(cx.g(), term, level, &|l| Ok(Term::Var(level - 1 - l)), &bare);
+    let tidy = replace_with(
+        cx.g(),
+        term,
+        level,
+        &|l| Ok(Term::Var(level - 1 - l)),
+        &bare,
+    );
     stitchwort_core::pretty::term_for_message(cx.g(), &cx.names, tidy.as_ref().unwrap_or(term))
 }
 
@@ -664,21 +682,47 @@ fn unknown_head(rule: &RewriteRule) -> Diagnostic {
     .with_note("give the implicit arguments explicitly, such as `[f := …]`")
 }
 
+/// The goal as it was written (a `calc` step's line, or the type of the
+/// definition being checked), if that is what `goal` computes from: for
+/// messages, since `rewrite` searches the goal as it computes.
+fn goal_as_written(cx: &mut Ctx, written: Option<Term>, goal: &Value) -> Result<Option<Term>> {
+    let own = cx
+        .goal
+        .as_ref()
+        .and_then(|(level, term)| (*level == cx.level()).then(|| Term::clone(term)));
+    for term in written.into_iter().chain(own) {
+        let Ok(value) = cx.eval(&term) else { continue };
+        if crate::undo::unify(cx, &value, goal)? {
+            return Ok(Some(term));
+        }
+    }
+    Ok(None)
+}
+
 fn nothing_found(
     cx: &Ctx,
     rule: &RewriteRule,
     lhs: &Value,
     goal: &Value,
+    as_written: Option<Term>,
     found: &Stats,
 ) -> Diagnostic {
     let shown = shown(cx, lhs);
+    let computed = cx.show(goal);
     let mut error = Diagnostic::error(
         "E-REWRITE-NOTHING",
         format!("`rewrite` found no `{shown}` in the goal"),
     )
-    .with_label(rule.span, format!("looking for `{shown}`"))
-    .with_note(format!("goal: `{}`", cx.show(goal)))
-    .with_note(
+    .with_label(rule.span, format!("looking for `{shown}`"));
+    match as_written.map(|t| written(cx, &t)) {
+        Some(text) if text != computed => {
+            error = error
+                .with_note(format!("goal: `{text}`"))
+                .with_note(format!("searched as it computes: `{computed}`"));
+        }
+        _ => error = error.with_note(format!("goal: `{computed}`")),
+    }
+    error = error.with_note(
         "occurrences are looked for by their outer function and compared by computing, \
          and only where they don't mention a variable bound inside the goal",
     );
@@ -711,12 +755,7 @@ fn budget_error(cx: &Ctx, rule: &RewriteRule, candidate: &Term, lhs: &Value) -> 
     .with_note("state the step with `calc`, or rewrite with a more specific equation")
 }
 
-fn round_trip_error(
-    cx: &Ctx,
-    rule: &RewriteRule,
-    lhs: &Value,
-    first: Option<&Term>,
-) -> Diagnostic {
+fn round_trip_error(cx: &Ctx, rule: &RewriteRule, lhs: &Value, first: Option<&Term>) -> Diagnostic {
     let lhs = shown(cx, lhs);
     let message = match first {
         Some(first) => format!(
@@ -804,7 +843,10 @@ mod tests {
         assert!(!has_carrier(&cx, &mut kcx, &p, &Value::Sort(Sort::Type(0))).unwrap());
         // A type with an unsolved metavariable in it is solved by the check.
         let m = cx.g().new_meta(span());
-        let spine = vec![stitchwort_core::value::Elim::App(Value::var(0), Icit::Explicit)];
+        let spine = vec![stitchwort_core::value::Elim::App(
+            Value::var(0),
+            Icit::Explicit,
+        )];
         let unknown = Value::Neutral(stitchwort_core::value::Head::Meta(m), spine);
         assert!(has_carrier(&cx, &mut kcx, &p, &unknown).unwrap());
         assert!(cx.g().meta_solution(m).is_some());
