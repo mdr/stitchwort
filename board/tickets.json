@@ -1931,9 +1931,9 @@
     {
       "id": 127,
       "title": "AoC day 4: prove the grid result for all grids",
-      "status": "doing",
+      "status": "backlog",
       "agent": "Opus",
-      "where": "day 4 Cell enum (D150), worktree agent-a6fdd90ee149c9328",
+      "where": "part 1 proved, Cell enum (D150) merged; rework in SW-180",
       "labels": [
         "aoc",
         "proof"
@@ -2582,7 +2582,7 @@
     {
       "id": 167,
       "title": "Print Nat * / % as operators in messages, like + and -",
-      "status": "review",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "scratch clone (latest funlang-2026…); crates/core/src/pretty.rs",
       "labels": [
@@ -2748,9 +2748,9 @@
     {
       "id": 178,
       "title": "Indexed data types (inductive families) in the kernel (D133)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
-      "where": "docs/proposals/indexed-families.md (draft 1)",
+      "where": "docs/proposals/indexed-families.md draft 1 (D136-D149, D153)",
       "labels": [
         "kernel",
         "design"
