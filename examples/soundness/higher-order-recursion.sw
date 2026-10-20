@@ -1,7 +1,7 @@
 -- expect-error: E-TERMINATION
 -- Passing the function being defined to another function hides what it's
 -- called on, so it's refused, even though here it would be fine.
-import Effect (Comp)
+import Std.Effect (Comp)
 
 type ChooseOp: Type =
   | Choose

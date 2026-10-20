@@ -1,6 +1,8 @@
 -- Implicit arguments: inferred, supplied by name, or left as holes.
 
 -- `a` and `b` are bound automatically, because they're only used as types.
+import Std (Eq)
+
 def mapList (f: a -> b): List a -> List b
   | Nil       => Nil
   | Cons x xs => Cons (f x) (mapList f xs)

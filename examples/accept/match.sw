@@ -4,6 +4,7 @@
 -- lifted into a generated definition named after its owner.
 
 import List (length)
+import Std (Eq)
 
 -- In the tree: the whole right-hand side.
 def describe (xs: List Nat): Text :=

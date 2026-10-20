@@ -1,6 +1,7 @@
 -- Proofs by char patterns: in an arm for `'a'`, the matched character *is*
 -- `'a'`, so `rfl` proves it equal to the literal. (A char pattern is
 -- `MkChar 97 _`; the arm takes the proof field to be the literal's.)
+import Std (Eq)
 
 theorem firstIsA: (c: Char) -> c = 'a' -> c = 'a'
   | 'a', h => rfl

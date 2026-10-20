@@ -11,6 +11,7 @@
 -- most is left over; then repeat on what follows it.
 
 namespace Aoc.Day03
+import Std (Eq)
 
 def main(): {IO} () :=
   let banks := parseBanks (IO.readAllLines())

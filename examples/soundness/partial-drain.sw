@@ -6,7 +6,7 @@
 -- drain: here the "drain" is refused where it runs `forever()`, and there
 -- is no other way into a `Delay` (it isn't a data type, so there's no
 -- `case` on one, and no eliminator).
-import Effect (Delay)
+import Std.Effect (Delay)
 
 type Empty: Type
 

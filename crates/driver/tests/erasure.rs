@@ -182,7 +182,7 @@ def castBox [a b : Nat] (p : a = b) (x : Box a) : Box b := J (\y q => Box y) x p
 
 test "transport keeps the payload" := Box.value (castBox (rfl : 2 + 2 = 4) (MkBox 7)) == 7
 test "and through a symmetric proof" :=
-  Box.value (castBox (Eq.sym (rfl : 2 + 2 = 4)) (MkBox 9)) == 9
+  Box.value (castBox (Std.Eq.sym (rfl : 2 + 2 = 4)) (MkBox 9)) == 9
 "#,
         2,
     );
@@ -232,7 +232,7 @@ fn an_expensive_proof_in_data_isnt_run() {
         r#"
 theorem addZero : (n : Nat) -> n + 0 = n
   | Zero   => rfl
-  | Succ k => Eq.cong Succ (addZero k)
+  | Succ k => Std.Eq.cong Succ (addZero k)
 
 type Wit = { n : Nat, ok : n + 0 = n }
 

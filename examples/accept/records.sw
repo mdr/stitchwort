@@ -1,6 +1,8 @@
 -- Declared records (docs/proposals/records.md, stage 1): a record type is a
 -- new type with named fields, written and read by name.
 
+import Std (Eq)
+
 type Person = { name: Text, age: Nat }
 
 def alice: Person := { name = "Alice", age = 30 }

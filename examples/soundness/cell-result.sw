@@ -2,7 +2,7 @@
 -- Landin's knot (`Cell`, DESIGN.md §8): `read` would return an effectful
 -- function, so the result type of `Cell`'s operations would have to mention
 -- itself. That self-reference isn't a terminating definition.
-import Effect (Comp)
+import Std.Effect (Comp)
 
 type CellOp: Type =
   | Read

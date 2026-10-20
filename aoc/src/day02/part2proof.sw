@@ -25,6 +25,7 @@
 namespace Aoc.Day02.Proofs
 import Aoc.Common (Range, rangeEnd)
 import Aoc.Day02 (..)
+import Std (Eq)
 
 -- (1) n copies ------------------------------------------------------------
 -- The twice* lemmas of day02.sw, for any number of copies n >= 2.

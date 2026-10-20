@@ -17,6 +17,7 @@
 
 namespace Aoc.Day02
 import Aoc.Common (Range, rangeIn, rangeEnd)
+import Std (Eq)
 
 def main(): {IO} () :=
   match parseRanges (IO.readAll()) with

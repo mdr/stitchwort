@@ -3,7 +3,7 @@
 -- the prelude, and a deep handler is a structurally recursive function over
 -- it, checked like any other.
 
-import Effect (Comp, Plus, PlusRes, bind, foldComp)
+import Std.Effect (Comp, Plus, PlusRes, bind, foldComp)
 
 type Unit1: Type =
   | MkUnit

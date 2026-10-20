@@ -711,8 +711,13 @@ import Effect (Comp)
   lowercase or uppercase, a function, theorem, type, constructor or
   ability.
   - Importing a type also imports its constructors (§4.4).
-  - An item may be a sub-namespace that is a type (`import Effect (Comp)`
-    makes `Comp` usable as a type and as a qualifier, `Comp.Done`).
+  - An item may be any sub-namespace (D50, stage 2 of the library). If it
+    is a type, `import Std.Effect (Comp)` makes `Comp` usable as a type and
+    as a qualifier, `Comp.Done`. If it declares no name of its own,
+    `import Std (Eq)` makes `Eq` usable as a qualifier (`Eq.sym`).
+  - The path is read without the file's imports, so a library namespace
+    that isn't a default name is written in full in a path:
+    `import Std.Effect (Comp)`, not `import Effect (Comp)`.
 - **Errors** (§4.12):
   - An unknown namespace is `E-IMPORT-UNKNOWN`. So is an unknown item: "`List`
     has no `sortt`", with near-miss suggestions.
@@ -746,6 +751,9 @@ The operations are still visible unqualified inside the library itself.
 | `Text` | `MkText` |
 | `Ordering` | `Less`, `Equal`, `Greater` |
 | `Decidable` | `Yes`, `No` |
+| `And` | `Both` |
+| `Or` | `Inl`, `Inr` |
+| `Int` | `OfNat`, `NegSucc` |
 | `Void` | (no constructors) |
 | `Unit` | `Trivial` |
 | `Not` | (a definition: `Not p = p -> Void`, used in many types) |
@@ -753,7 +761,7 @@ The operations are still visible unqualified inside the library itself.
 | `Partial` (ability, from the `Partial` lane) | (its operations, if any) |
 | `not` | an **alias** of `Std.Bool.not` (Q1: yes) |
 
-The table has 13 type and ability names, plus `Not`, `not`, and 17
+The table has 16 type and ability names, plus `Not`, `not`, and 22
 constructors.
 
 **`not` is an alias, not a definition at the root.** `not` lives in `Bool`
@@ -765,12 +773,16 @@ would write it, and a user's own `not` hides the alias like any default
 name. Aliases are internal to the library for now; user-written aliases are
 a compatible later addition (§8).
 
-**Qualifiers are always available.** Every namespace directly under `Std`
-can be written as a qualifier without importing it. These are the types
-above, plus `Eq` (for `=`, §4.8), `Effect` (the machinery behind abilities)
-and `Builtin` (what syntax uses, such as the type of `()`). So `List.map`,
-`Effect.bind` and `Eq.sym` work in every file. Rust treats crate names
-similarly [R3].
+**Qualifiers follow the default set** (D50, 20 October 2026; this replaces
+"Qualifiers are always available"). A namespace is usable as a qualifier
+without an import only if its name is a default name or the file's own. So
+`List.map` and `Int.abs` work everywhere, but `Eq` (for `=`, §4.8),
+`Effect` (the machinery behind abilities) and `Builtin` (what syntax uses,
+such as the type of `()`) are written `Std.Eq.sym`, or imported with
+`import Std (Eq)`. A bare `Eq.sym` is `E-UNKNOWN-NAME` with the note "`Eq`
+is `Std.Eq`; add `import Std (Eq)`, or write `Std.Eq.sym`". Dot notation
+(`p.sym`) finds the namespace from the type and needs no import (§4.8). No
+namespace joins the default set for this (D55).
 
 **The operators aren't names** and need no visibility (§4.7).
 

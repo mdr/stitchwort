@@ -3,7 +3,7 @@
 -- conversion doesn't unfold `pfix`, so `collatzSteps 1` isn't `now 0`, even
 -- though both finish with 0. Unfolding it would let checking loop forever
 -- on a partial function that doesn't finish.
-import Effect (now, pfix)
+import Std.Effect (now, pfix)
 
 def collatzSteps: Nat -> {Partial} Nat
   | 1 => 0

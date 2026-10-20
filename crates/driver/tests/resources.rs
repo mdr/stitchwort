@@ -140,7 +140,7 @@ test "half"     := half 9 == 4
 test "safeDiv"  := safeDiv 7 0 == 0
 test "text"     := Text.join '-' (Text.split ',' "a,,b") == "a--b"
 test "trim"     := Text.trim "  x " == "x"
-test "count"    := Pair.fst (Effect.runPure (counted (\u => ticks 3))) == 3
+test "count"    := Pair.fst (Std.Effect.runPure (counted (\u => ticks 3))) == 3
 "#;
 
 /// With every work limit from 1 up to enough for everything: loading either
@@ -235,7 +235,7 @@ theorem three : List.length (replicate 3 1) = 3 := rfl
 def ok : Pair Nat Nat := MkPair (List.length (replicate 3 1)) 0
 
 -- `Eq.cong`'s result type mentions its arguments.
-theorem wrong : List.length (replicate 3 1) = 4 := Eq.cong (\\x => x) rfl
+theorem wrong : List.length (replicate 3 1) = 4 := Std.Eq.cong (\\x => x) rfl
 "
     );
     assert_eq!(

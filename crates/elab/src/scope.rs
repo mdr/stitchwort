@@ -179,7 +179,7 @@ impl<'e> QualifierLevels for CheckingLevels<'e> {
     }
 
     fn library_namespace(&self, first: &str) -> bool {
-        self.0.scope.is_namespace(&format!("Std.{first}"))
+        self.0.library_namespace(first, self.1)
     }
 
     fn short_key(&self, _: &str, found: &Resolved<'e>) -> Option<String> {
@@ -356,6 +356,23 @@ impl Scope {
 }
 
 impl Elaborator {
+    /// Whether `first` is a library namespace usable as a qualifier here
+    /// without being a default name: inside the library itself, or because
+    /// this file imports it (`import Std (Eq)`). The default names are
+    /// found as short names instead (docs/proposals/namespaces.md §4.6, D50).
+    pub(crate) fn library_namespace(&self, first: &str, imports: bool) -> bool {
+        let key = format!("Std.{first}");
+        self.scope.is_namespace(&key)
+            && (self.loading_prelude
+                || (imports
+                    && self
+                        .scope
+                        .imports
+                        .get(self.current_file())
+                        .and_then(|m| m.get(first))
+                        .is_some_and(|v| v.iter().any(|(k, _)| *k == key))))
+    }
+
     /// The current module's root, as a key prefix: `Std.` for the prelude,
     /// `Day05.` for a program in namespace `Day05`, nothing for a program
     /// without a namespace line.
@@ -736,7 +753,7 @@ impl Elaborator {
         // `Text.foo` means the library's `Text`, even without a type `Text`.
         let base = match self.resolve_short(first, false) {
             Resolved::Found { key, .. } => key.to_string(),
-            _ if self.scope.is_namespace(&format!("Std.{first}")) => format!("Std.{first}"),
+            _ if self.library_namespace(first, true) => format!("Std.{first}"),
             _ => format!("{root}{first}"),
         };
         if !self.loading_prelude && base.starts_with("Std.") {
@@ -866,6 +883,17 @@ impl Elaborator {
         }
         let mut d = Diagnostic::error("E-UNKNOWN-NAME", format!("unknown name `{}`", name.text))
             .with_label(name.span, "not in scope");
+        // A library namespace that isn't a default name needs an import (D50).
+        if let Some((first, _)) = name.text.split_once('.')
+            && !self.loading_prelude
+            && first != STD
+            && self.scope.is_namespace(&format!("Std.{first}"))
+        {
+            d = d.with_note(format!(
+                "`{first}` is `Std.{first}`; add `import Std ({first})`, or write `Std.{}`",
+                name.text
+            ));
+        }
         if !name.text.contains('.') {
             let mut found: Vec<String> = self
                 .scope
@@ -924,7 +952,15 @@ impl Elaborator {
                     // an import's path isn't read through another import.
                     let first = import.path.text.split('.').next().unwrap_or_default();
                     let example = import.items.first().map_or("..", |i| i.text.as_str());
-                    if let Some(source) = imports
+                    if !self.loading_prelude
+                        && first != STD
+                        && self.scope.is_namespace(&format!("Std.{first}"))
+                    {
+                        d = d.with_note(format!(
+                            "`{first}` is `Std.{first}`, which isn't a default name: write `import Std.{} ({example})`",
+                            import.path.text
+                        ));
+                    } else if let Some(source) = imports
                         .iter()
                         .find(|i| i.items.iter().any(|n| n.text == first))
                     {
@@ -960,7 +996,11 @@ impl Elaborator {
             }
             for item in &import.items {
                 let key = format!("{namespace}.{}", item.text);
-                if item.text.starts_with('%') || self.scope.get(&key).is_none() {
+                // An item may be a namespace that declares no name of its
+                // own (`import Std (Eq)`).
+                if item.text.starts_with('%')
+                    || (self.scope.get(&key).is_none() && !self.scope.is_namespace(&key))
+                {
                     diagnostics.push(self.import_unknown(&namespace, item));
                     continue;
                 }

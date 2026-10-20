@@ -198,7 +198,7 @@ fn growth(what: &str, program: impl Fn(usize) -> String) -> [(u64, usize); 2] {
 fn stuck_conditions_keep_filter_and_count_linear() {
     let theorem = |f: &str, n: usize| {
         let side = format!("List.{f} (\\n => k * n <= size) (List.rangeFrom {n} 2)");
-        format!("theorem t (k : Nat) (size : Nat) : {side} = {side} := Eq.trans rfl rfl\n")
+        format!("theorem t (k : Nat) (size : Nat) : {side} = {side} := Std.Eq.trans rfl rfl\n")
     };
     for f in ["filter", "count"] {
         let [(steps1, size1), (steps2, size2)] = growth(f, |n| theorem(f, n));

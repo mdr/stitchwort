@@ -2,7 +2,7 @@
 -- `Ping` from DESIGN.md §8: a clause that handles the original computation
 -- again, instead of resuming it, loops. Rebuilding the matched tree isn't
 -- smaller than it.
-import Effect (Comp)
+import Std.Effect (Comp)
 
 type PingOp: Type =
   | Ping

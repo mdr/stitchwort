@@ -398,7 +398,7 @@ theorem myEqNatSound : (m : Nat) -> (n : Nat) -> Nat.equal m n = True -> m = n
   | Zero,   Zero,   h => rfl
   | Zero,   Succ n, h => Void.exfalso (Bool.falseNotTrue h)
   | Succ m, Zero,   h => Void.exfalso (Bool.falseNotTrue h)
-  | Succ m, Succ n, h => Eq.cong Succ (myEqNatSound m n h)
+  | Succ m, Succ n, h => Std.Eq.cong Succ (myEqNatSound m n h)
 ";
 
 const BIG: &str = "1180591620717411303424"; // 2^70

@@ -106,8 +106,8 @@ fn importing_twice_is_a_warning() {
 #[test]
 fn constructors_come_with_an_imported_type() {
     passes(&load(
-        "import Effect (Comp)\n\n\
-         def one : Comp Builtin.UnitType (\\o => Builtin.UnitType) Nat := Done 1\n\n\
+        "import Std.Effect (Comp)\n\n\
+         def one : Comp Std.Builtin.UnitType (\\o => Std.Builtin.UnitType) Nat := Done 1\n\n\
          test \"done\" := List.length [one, Call () (\\u => one)] == 2\n",
     ));
 }
@@ -118,9 +118,9 @@ fn constructors_come_with_an_imported_type() {
 #[test]
 fn library_namespaces_are_closed_however_they_are_reached() {
     for source in [
-        "import Effect (Comp)\n\ndef Comp.size : Nat := 0\n",
+        "import Std.Effect (Comp)\n\ndef Comp.size : Nat := 0\n",
         "def Text.size : Nat := 0\n",
-        "def Effect.size : Nat := 0\n",
+        "import Std (Effect)\n\ndef Effect.size : Nat := 0\n",
         "def Std.size : Nat := 0\n",
     ] {
         assert_eq!(codes(source), ["E-STD-NAMESPACE"], "{source}");
@@ -351,4 +351,38 @@ fn wildcards_still_work_for_eval_after_a_single_file() {
         .parse_expression("<eval>", "map double [1, 2]")
         .unwrap();
     session.elab.infer_expr(&expr).unwrap();
+}
+
+/// D50: a library namespace that isn't a default name is a qualifier only
+/// through an import or its full name.
+#[test]
+fn non_default_library_namespaces_need_an_import() {
+    let proof = "theorem flip (a : Nat) (b : Nat) (p : a = b) : b = a := ";
+    assert_eq!(codes(&format!("{proof}Eq.sym p\n")), ["E-UNKNOWN-NAME"]);
+    assert!(codes(&format!("{proof}Std.Eq.sym p\n")).is_empty());
+    assert!(codes(&format!("import Std (Eq)\n\n{proof}Eq.sym p\n")).is_empty());
+    // Dot notation finds the namespace from the type.
+    assert!(codes(&format!("{proof}p.sym\n")).is_empty());
+    // The same holds for `Effect`, and an import path is read in full.
+    assert_eq!(
+        codes("import Effect (Comp)\n\ndef x : Nat := 0\n"),
+        ["E-IMPORT-UNKNOWN"]
+    );
+    assert!(codes("import Std.Effect (Comp)\n\ndef x : Nat := 0\n").is_empty());
+    // An imported namespace is the library's, so it can't be added to.
+    assert_eq!(
+        codes("import Std (Effect)\n\ndef Effect.size : Nat := 0\n"),
+        ["E-STD-NAMESPACE"]
+    );
+}
+
+/// Without the import, a program's own `Eq.foo` is its own namespace, not
+/// the library's.
+#[test]
+fn a_programs_own_eq_namespace_is_its_own() {
+    assert!(codes("def Eq.size : Nat := 0\n\ndef n : Nat := Eq.size\n").is_empty());
+    assert_eq!(
+        codes("import Std (Eq)\n\ndef Eq.size : Nat := 0\n"),
+        ["E-STD-NAMESPACE"]
+    );
 }

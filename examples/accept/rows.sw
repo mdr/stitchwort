@@ -4,7 +4,7 @@
 -- traces as well as results, since a mapping that dropped, repeated or
 -- reordered an operation could still produce a well-typed result.
 
-import Effect (Comp, Plus, PlusRes, SigMap, bind, sigCompose, sigId, sigLeft, sigRight, sigSwap, translate)
+import Std.Effect (Comp, Plus, PlusRes, SigMap, bind, sigCompose, sigId, sigLeft, sigRight, sigSwap, translate)
 
 type Unit1: Type =
   | MkUnit

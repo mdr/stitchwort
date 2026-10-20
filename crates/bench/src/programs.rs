@@ -149,7 +149,7 @@ pub const ALL: &[Benchmark] = &[
     Benchmark {
         name: "check-list-sym-rfl",
         about: "the same by `Eq.sym rfl`, whose hidden arguments are solved to the list",
-        prepare: || check(list_theorem(20_000, "Eq.sym rfl")),
+        prepare: || check(list_theorem(20_000, "Std.Eq.sym rfl")),
     },
     // The next three are near the command line's limits, measured on
     // 2026-10-15: a sum of 9,500 ones checks and 10,000 doesn't; 12,740
