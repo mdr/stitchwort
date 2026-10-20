@@ -1,4 +1,4 @@
--- Method sections. `.f args` is `\x => x.f args`, dot notation with the
+-- Method sections. `.f args` is `x => x.f args`, dot notation with the
 -- receiver left out (docs/syntax.md, "Method sections"). Chains work
 -- (`.name.length`), the head section takes the arguments after it, and as an
 -- argument a section takes none unless it's in brackets (`.map (.greet "Hi")`).

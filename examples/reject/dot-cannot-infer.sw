@@ -1,7 +1,7 @@
 -- expect-error: E-CANNOT-INFER
 -- The lambda is checked after `Empty` (it comes first, but its parameter
 -- type isn't known yet), and `Empty` doesn't fix `p`'s type either.
--- `Bag.map (\(p: Person) => p.name) Empty` works.
+-- `Bag.map ((p: Person) => p.name) Empty` works.
 
 type Person = { name: Text }
 

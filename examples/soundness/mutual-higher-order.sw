@@ -3,7 +3,7 @@
 -- on (§6.8, example 12): refused, because a member must be given all its
 -- arguments wherever it's used in the group.
 -- Neighbour: `walk`/`stepBy` in accept/mutual.sw, which passes
--- `\x => stepBy k x` with `k` smaller.
+-- `x => stepBy k x` with `k` smaller.
 def applyTo (f: List Nat -> Nat) (xs: List Nat): Nat := f xs
 
 def walk (ts: List Nat): Nat := applyTo walkList ts

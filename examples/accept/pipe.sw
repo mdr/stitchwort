@@ -9,7 +9,7 @@ type Person = { name: Text, age: Nat }
 def people: List Person := [{ name = "Ann", age = 30 }, { name = "Bob", age = 25 }]
 
 -- The left side is checked first, so its type is known when the lambda is
--- checked: `p: Person`. `List.map (\p => p.name) people` can't do that.
+-- checked: `p: Person`. `List.map (p => p.name) people` can't do that.
 def names: List Text := people |> List.map (p => p.name)
 
 test "inference through a pipe" := names == ["Ann", "Bob"]

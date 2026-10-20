@@ -564,7 +564,7 @@ fn motive_error(cx: &Ctx) -> Diagnostic {
     cx.error(
         "E-CANNOT-INFER",
         "the first argument of `J` must be a function of two arguments",
-        "write it as `\\y p -> …`",
+        "write it as `y p => …`",
     )
 }
 

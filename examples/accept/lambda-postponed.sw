@@ -1,6 +1,6 @@
 -- A lambda argument whose parameter type isn't known yet when it's reached
 -- is checked after the later arguments (docs/syntax.md, "Lambdas"): in
--- `List.map (\p => p.name) people`, `people` fixes `p`'s type first. Only
+-- `List.map (p => p.name) people`, `people` fixes `p`'s type first. Only
 -- the checking order changes; the arguments are passed as written.
 
 type Person = { name: Text, age: Nat }

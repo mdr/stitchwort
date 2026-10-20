@@ -1,6 +1,6 @@
 -- expect-error: E-CANNOT-INFER
 -- A lambda isn't checked after the later arguments when a later argument's
--- type depends on it: here `same`'s type mentions `f`, so `\p => p.name` is
+-- type depends on it: here `same`'s type mentions `f`, so `p => p.name` is
 -- checked where it is, before `ann` has fixed `p`'s type.
 
 type Person = { name: Text }

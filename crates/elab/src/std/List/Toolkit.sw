@@ -363,7 +363,7 @@ theorem List.transposeTwice (k: Nat): (rows: List (List a)) -> List.AllLength (S
 
 -- The groups of consecutive elements that don't satisfy `p`, in order: `p`
 -- marks the separators, which are dropped, and no group is empty. So
--- `List.splitBy (\x => x == 0) [1, 2, 0, 0, 3]` is `[[1, 2], [3]]`.
+-- `List.splitBy (x => x == 0) [1, 2, 0, 0, 3]` is `[[1, 2], [3]]`.
 def List.splitBy (p: a -> Bool) (xs: List a): List (List a) := List.finishGroups (List.splitGroups p xs)
 
 -- Reads the list from the right: the group still open at the front, and the

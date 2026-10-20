@@ -1,5 +1,5 @@
 -- A lambda's parameter may have a written type, as a definition's does:
--- `\(x: T) => e`. The annotation gives dot notation the type it needs, and
+-- `(x: T) => e`. The annotation gives dot notation the type it needs, and
 -- lets a lambda be inferred with no expected type.
 
 import List (map)
