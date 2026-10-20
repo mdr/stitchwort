@@ -5,10 +5,25 @@
 
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
-use std::process::{Command, Output, Stdio};
+use std::process::{Child, Command, Output, Stdio};
+use std::sync::Mutex;
 use std::time::Duration;
 
 use stitchwort_cli::driver::Session;
+
+/// Held while creating pipes and spawning children. On macOS, std makes a
+/// pipe with `pipe` and then sets close-on-exec on each end in a second step
+/// (no `pipe2`; std/src/sys/pipe/unix.rs), so a child spawned by another test
+/// thread in between inherits the pipe's ends. That broke
+/// `a_write_error_is_an_error`, which needs a pipe with no reader: a child
+/// that inherited the read end kept it open, and the write succeeded.
+static SPAWN: Mutex<()> = Mutex::new(());
+
+/// Spawns `command` while holding [`SPAWN`].
+fn spawn(command: &mut Command) -> Child {
+    let _guard = SPAWN.lock().unwrap_or_else(|e| e.into_inner());
+    command.spawn().expect("start stitchwort")
+}
 
 /// Writes `source` to a temporary file called `name`.
 fn source_file(name: &str, source: &str) -> PathBuf {
@@ -27,14 +42,14 @@ fn example(name: &str) -> PathBuf {
 
 /// Runs `stitchwort run path` with `input` piped to it.
 fn run(path: &Path, input: &[u8]) -> Output {
-    let mut child = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
-        .arg("run")
-        .arg(path)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .expect("start stitchwort");
+    let mut child = spawn(
+        Command::new(env!("CARGO_BIN_EXE_stitchwort"))
+            .arg("run")
+            .arg(path)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped()),
+    );
     let mut stdin = child.stdin.take().unwrap();
     let input = input.to_vec();
     // A program that stops early doesn't read it all, so writing may fail.
@@ -133,14 +148,14 @@ fn the_example_session() {
 /// before every read, even though standard output is a pipe.
 #[test]
 fn the_prompt_appears_before_the_program_reads() {
-    let mut child = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
-        .arg("run")
-        .arg(example("adder.sw"))
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .spawn()
-        .expect("start stitchwort");
+    let mut child = spawn(
+        Command::new(env!("CARGO_BIN_EXE_stitchwort"))
+            .arg("run")
+            .arg(example("adder.sw"))
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null()),
+    );
     let mut stdout = BufReader::new(child.stdout.take().unwrap());
     let (send, receive) = std::sync::mpsc::channel();
     let reader = std::thread::spawn(move || {
@@ -253,16 +268,22 @@ fn invalid_utf8_input_is_an_error() {
 fn a_write_error_is_an_error() {
     let path = source_file("print.sw", "def main () : {IO} () := IO.print \"hello\"\n");
     // Standard output is a pipe that nobody reads.
-    let (reader, writer) = std::io::pipe().expect("a pipe");
-    drop(reader);
-    let output = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
-        .arg("run")
-        .arg(&path)
-        .stdin(Stdio::null())
-        .stdout(writer)
-        .stderr(Stdio::piped())
-        .output()
-        .expect("run stitchwort");
+    // The pipe and the spawn happen under `SPAWN`, so no other child can
+    // inherit the read end before it's closed.
+    let child = {
+        let _guard = SPAWN.lock().unwrap_or_else(|e| e.into_inner());
+        let (reader, writer) = std::io::pipe().expect("a pipe");
+        drop(reader);
+        Command::new(env!("CARGO_BIN_EXE_stitchwort"))
+            .arg("run")
+            .arg(&path)
+            .stdin(Stdio::null())
+            .stdout(writer)
+            .stderr(Stdio::piped())
+            .spawn()
+            .expect("start stitchwort")
+    };
+    let output = child.wait_with_output().expect("run stitchwort");
     assert_eq!(output.status.code(), Some(2));
     let errors = String::from_utf8(output.stderr).unwrap();
     assert!(
@@ -367,14 +388,14 @@ fn an_endless_partial_main_runs_until_stopped() {
          let l := IO.readLine ()\n  \
          IO.print (Nat.toText (spin 0))\n",
     );
-    let mut child = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
-        .arg("run")
-        .arg(&path)
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .expect("start stitchwort");
+    let mut child = spawn(
+        Command::new(env!("CARGO_BIN_EXE_stitchwort"))
+            .arg("run")
+            .arg(&path)
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped()),
+    );
     let mut stdout = BufReader::new(child.stdout.take().unwrap());
     let mut line = String::new();
     stdout.read_line(&mut line).expect("read the first line");
