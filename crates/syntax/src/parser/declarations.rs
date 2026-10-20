@@ -46,7 +46,7 @@ impl Parser<'_> {
                 self.definition(start, true)
             }
             Some(Tok::KwDef | Tok::KwTheorem) => self.definition(start, false),
-            Some(Tok::Lower(_) | Tok::Upper(_)) => Err(self.old_declaration()),
+            Some(Tok::Lower(_) | Tok::Upper(_)) => Err(self.missing_keyword()),
             _ => Err(self.unexpected("a declaration")),
         }
     }
@@ -74,29 +74,15 @@ impl Parser<'_> {
         })
     }
 
-    /// `E-OLD-DECLARATION`: a declaration starting with a name, as the old
-    /// syntax's signatures (`f : T`) and equations (`f x = e`) did.
-    fn old_declaration(&self) -> Diagnostic {
-        let name = match self.peek() {
-            Some(Tok::Lower(text) | Tok::Upper(text)) => text.clone(),
-            _ => "f".to_string(),
-        };
-        let note = if self.peek_at(1) == Some(&Tok::Colon) {
-            format!(
-                "write `def {name}: …` with a `:=` body or arms under it; a signature and \
-                 equations are one definition now"
-            )
-        } else {
-            format!(
-                "write `def {name} (x: A): B := …`, or arms `| p => …` under `def {name}: A -> B`"
-            )
-        };
-        Diagnostic::error("E-OLD-DECLARATION", "definitions start with `def`")
-            .with_label(
-                self.here(),
-                "expected `def`, `theorem`, `type`, `ability` or `test`",
-            )
-            .with_note(note)
+    /// `E-PARSE`: a declaration starting with a name, as a definition
+    /// written without `def` does.
+    fn missing_keyword(&self) -> Diagnostic {
+        Diagnostic::error(
+            "E-PARSE",
+            "expected a declaration: `def`, `theorem`, `type`, `ability` or `test`",
+        )
+        .with_label(self.here(), "a declaration starts with a keyword")
+        .with_note("a definition is written `def name (x: A): B := …`")
     }
 
     /// `=` where `:=` gives something its value.
