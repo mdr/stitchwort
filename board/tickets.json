@@ -1931,9 +1931,9 @@
     {
       "id": 127,
       "title": "AoC day 4: prove the grid result for all grids",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Opus",
-      "where": "part 1 merged (List Text form); rework in SW-180",
+      "where": "day 4 Cell enum (D150), worktree agent-a6fdd90ee149c9328",
       "labels": [
         "aoc",
         "proof"
