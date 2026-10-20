@@ -860,9 +860,8 @@ const AOC_EXAMPLE = ["Part 1: 3\nPart 2: 6\n", "Part 1: 1227775554\nPart 2: 4174
 const AOC_PUZZLE = ["Part 1: 1076\nPart 2: 6379\n", "Part 1: 16793817782\nPart 2: 27469417404\n",
                     "Part 1: 17263\nPart 2: 170731717900423\n", "Part 1: 1397\nPart 2: 8758\n",
                     "Part 1: 525\nPart 2: 333892124923577\n", "Part 1: 4722948564882\nPart 2: 9581313737063\n"];
-/** The days that have proofs: all but day 4. */
-const hasProofs = (day) => day !== 4;
-const dayStatus = (day) => `Day ${day}${hasProofs(day) ? " and its proofs" : ""} checked by the kernel`;
+/** Every day has proofs. */
+const dayStatus = (day) => `Day ${day} and its proofs checked by the kernel`;
 const DAY2 = "src/Aoc/Day02/Day02.sw";
 const DAY2_TABS = ["Day02.sw", "Proofs/Part1.sw", "Proofs/Part2.sw", "Proofs/Repeated.sw", "Common/Proofs/Range.sw", "Common/Range.sw"];
 
@@ -902,10 +901,11 @@ test("the AoC days are listed, and a day opens its program with its files as tab
   assert.equal(await sourceText(page), await bundled(page, "src/Aoc/Day02/Proofs/Part1.sw"));
   assert.equal(await page.status(), dayStatus(2), "still checked");
   await assertAligned(page, "day 2 proofs tab");
-  // A day without proofs has fewer tabs, and its own status.
+  // Another day has its own files as tabs.
   await openDay(page, 4);
-  await page.until(`document.querySelectorAll("#filetabs button").length === 1`);
-  assert.deepEqual(await fileTabs(page), ["Day04.sw"]);
+  await page.until(`document.querySelectorAll("#filetabs button")[0]?.firstChild.textContent === "Day04.sw"`);
+  const day4 = await fileTabs(page);
+  assert.ok(day4.includes("Proofs/Part1.sw") && day4.includes("Proofs/Spec.sw"), `day 4's tabs: ${day4}`);
 }, { ms: 120000 });
 
 test("every day checks, with its proofs, and runs on its example and on its puzzle input", async (page) => {
