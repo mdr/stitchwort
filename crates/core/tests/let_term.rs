@@ -149,7 +149,7 @@ fn a_let_can_define_a_type() {
 }
 
 /// The value is visible: `let n := 2; (rfl : n + n = 4)` checks, but the
-/// function form, `(\n => (rfl : n + n = 4)) 2`, which checks the body for
+/// function form, `(n => (rfl : n + n = 4)) 2`, which checks the body for
 /// every `n`, doesn't.
 #[test]
 fn the_body_sees_the_value() {
@@ -184,7 +184,7 @@ fn a_proof_let_can_be_used_twice() {
 }
 
 /// A dependent function after a `let`, whose type is used outside it:
-/// `let n := 2; (\m => rfl : (m : Nat) -> n + m = n + m)`. Its type, quoted
+/// `let n := 2; (m => rfl : (m : Nat) -> n + m = n + m)`. Its type, quoted
 /// at depth 0, mentions only its own binder, and is `(m : Nat) -> 2 + m = 2
 /// + m`.
 #[test]
@@ -214,7 +214,7 @@ fn a_dependent_function_type_after_a_let_is_closed_outside_it() {
     );
 }
 
-/// Nested `let`s under binders: `\a => let x := a + 1; \b => let y := x + b;
+/// Nested `let`s under binders: `a => let x := a + 1; b => let y := x + b;
 /// (rfl : y = x + b)` against `(a b : Nat) -> (a + 1) + b = (a + 1) + b`.
 /// Inside, `a` and `b` are variable levels 0 and 2: `x`'s slot (1) has no
 /// level, so quoting at a depth that counts it must leave the gap.
@@ -248,7 +248,7 @@ fn nested_lets_under_binders() {
         code(define(&mut p.g, "nested", ty.clone(), body.clone())),
         "ok"
     );
-    // Its normal form is `\a => \b => rfl`: no `let` is quoted back.
+    // Its normal form is `a => b => rfl`: no `let` is quoted back.
     let value = eval(&p.g, &[], &body).unwrap();
     let normal = quote(&p.g, 0, &value).unwrap();
     assert_eq!(
@@ -370,7 +370,7 @@ fn a_mutated_let_is_refused_by_the_kernel() {
 fn evaluation_puts_the_value_in_the_environment() {
     let p = Prelude::new();
     let g = &p.g;
-    // let x := 2 + 3; \y => x + y, applied to 1.
+    // let x := 2 + 3; y => x + y, applied to 1.
     let f = let_(
         "x",
         p.nat_ty(),
@@ -597,7 +597,7 @@ fn a_value_no_type_needs_is_not_computed_while_checking() {
 fn a_pending_let_computes_the_ones_its_value_mentions() {
     let p = Prelude::new();
     let nat = p.nat_ty();
-    // \z => let a := 2; let b := a + 1; let c := z + 7; (rfl : b = 3)
+    // z => let a := 2; let b := a + 1; let c := z + 7; (rfl : b = 3)
     let term = ann(
         lam(
             "z",
@@ -621,7 +621,7 @@ fn a_pending_let_computes_the_ones_its_value_mentions() {
         pi("z", nat.clone(), eq(None, p.num(3), p.num(3))),
     );
     assert_eq!(infer_code(&p.g, &term), "ok");
-    // \z => let a := 2; let c := z + 7; (rfl : c = z + 7): `c` is computed
+    // z => let a := 2; let c := z + 7; (rfl : c = z + 7): `c` is computed
     // from the binder `z`, in its own scope.
     let term = ann(
         lam(

@@ -4,7 +4,7 @@
 --
 --   $ cd aoc && stitchwort run Aoc.Day02.main < inputs/day02.txt
 --
--- The puzzle input is not in git (aoc/inputs/ is ignored).
+-- The puzzle input is committed in aoc/inputs/ (D119).
 --
 -- Rather than test every id, add up the invalid ones arithmetically. The
 -- ids made of a k-digit block written n times are base * m for the k-digit
@@ -39,8 +39,8 @@ def invalid (r: Range): Nat := weighted plus r - weighted minus r
 -- ids that are a k-digit block written n times, times `w n`.
 def weighted (w: Nat -> Nat) (r: Range): Nat :=
   let size := (Nat.digits r.to).length
-  List.rangeFrom size 1 |> .sumBy (\k =>
-    List.rangeFrom (size - 1) 2 |> .sumBy (\n => if Nat.leq (k * n) size then w n * repeated r k n else 0))
+  List.rangeFrom size 1 |> .sumBy (k =>
+    List.rangeFrom (size - 1) 2 |> .sumBy (n => if Nat.leq (k * n) size then w n * repeated r k n else 0))
 
 -- The weights. Repeat count n has weight `plus n - minus n` (minus the
 -- Moebius function), chosen so that for every K >= 2 the weights of the
@@ -58,15 +58,15 @@ def minus (n: Nat): Nat := weightFuel (Succ n) False n
 
 def weightFuel: Nat -> Bool -> Nat -> Nat
   | Zero,   s,     n => 0
-  | Succ f, True,  n => 1 + divisorWeights (\d => weightFuel f False d) n (n - 2)
-  | Succ f, False, n => divisorWeights (\d => weightFuel f True d) n (n - 2)
+  | Succ f, True,  n => 1 + divisorWeights (d => weightFuel f False d) n (n - 2)
+  | Succ f, False, n => divisorWeights (d => weightFuel f True d) n (n - 2)
 
 -- The weights w of the divisors of m among 2, 3, ..., c + 1, added up. (An
 -- `if` rather than `Nat.keepIf`, so that only the divisors' weights are computed.)
 def divisorWeights (w: Nat -> Nat) (m: Nat) (c: Nat): Nat :=
-  List.rangeFrom c 2 |> .sumBy (\d => if Nat.divides d m then w d else 0)
+  List.rangeFrom c 2 |> .sumBy (d => if Nat.divides d m then w d else 0)
 
-test "weights" := List.map (\n => (plus n).toInt - (minus n).toInt) (List.rangeFrom 11 2) == [1, 1, 0, 1, -1, 1, 0, 0, -1, 1, 0]
+test "weights" := List.map (n => (plus n).toInt - (minus n).toInt) (List.rangeFrom 11 2) == [1, 1, 0, 1, -1, 1, 0, 0, -1, 1, 0]
 
 -- Part 1 only wants a block written exactly twice.
 def twice (n: Nat): Nat := if n == 2 then 1 else 0
@@ -80,7 +80,7 @@ test "empty overlap" := invalid (range 12 21) == 0
 -- m is the multiplier: 12 written 3 times is 12 * 10101, and 10101 is
 -- 1 + 10^2 + 10^4.
 def repeated (r: Range) (k: Nat) (n: Nat): Nat :=
-  let m := List.range n |> .sumBy (\i => Nat.pow 10 (k * i))
+  let m := List.range n |> .sumBy (i => Nat.pow 10 (k * i))
   if m != 0 then
     let from := Nat.max (Nat.pow 10 (k - 1)) ((r.from + m - 1) / m)
     let to := Nat.min (Nat.pow 10 k - 1) (r.to / m)
@@ -114,11 +114,11 @@ test "written as" := (writtenAs [1, 2, 1, 2] 2 2, writtenAs [1, 2, 1, 2] 1 4, wr
 -- Part 1: written twice; part 2: written two or more times.
 def doubled (x: Nat): Bool :=
   let ds := Nat.digits x
-  List.rangeFrom ds.length 1 |> .any (\k => writtenAs ds k 2)
+  List.rangeFrom ds.length 1 |> .any (k => writtenAs ds k 2)
 
 def repeats (x: Nat): Bool :=
   let ds := Nat.digits x
-  List.rangeFrom ds.length 1 |> .any (\k => List.rangeFrom ds.length 2 |> .any (\n => writtenAs ds k n))
+  List.rangeFrom ds.length 1 |> .any (k => List.rangeFrom ds.length 2 |> .any (n => writtenAs ds k n))
 
 def bruteSum (invalid: Nat -> Bool) (r: Range): Nat :=
   r.ids |> .filter invalid |> .sum
@@ -129,7 +129,7 @@ def agrees (r: Range): Bool :=
 -- Ranges of 40 ids starting every 13 up to 2000, and some that cross into
 -- more digits.
 def checkRanges: List Range :=
-  (List.rangeFrom 154 0 |> .map (\i => range (13 * i) (13 * i + 39)))
+  (List.rangeFrom 154 0 |> .map (i => range (13 * i) (13 * i + 39)))
     ++ [range 95 115, range 990 1010, range 9990 10010, range 99990 100010, range 111100 111200, range 999990 1000010]
 
 test "brute force agrees" := checkRanges.all agrees
@@ -142,5 +142,5 @@ def longRanges: List Range :=
    range 121212121202 121212121222, range 123412341224 123412341244, range 99999999989 100000000009,
    range 11111111111111101 11111111111111121, range 10101010101010101000 10101010101010101020]
 
-test "long ids" := longRanges.all (\r => invalid r == bruteSum repeats r)
+test "long ids" := longRanges.all (r => invalid r == bruteSum repeats r)
 test "long ids found" := List.map invalid longRanges == [11111111111, 111111111111, 1111111111111, 121212121212, 123412341234, 99999999999, 11111111111111111, 10101010101010101010]

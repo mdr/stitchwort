@@ -5,7 +5,7 @@ expression: output
 [E-UNKNOWN-NAME] Error: unknown name `map`
    ╭─[ import-not-shared/src/b.sw:4:20 ]
    │
- 4 │ def g: List Nat := map (\x => x) [1]
+ 4 │ def g: List Nat := map (x => x) [1]
    │                    ─┬─  
    │                     ╰─── not in scope
    │ 

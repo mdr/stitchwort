@@ -5,9 +5,9 @@ expression: output
 [E-POSITIVITY] Error: `CellOp` is used inside another type
     ╭─[ soundness/cell-operation.sw:10:15 ]
     │
- 10 │   | Write (f: Unit1 -> Comp CellOp (\o => Unit1) Unit1)
-    │               ────────────────────┬───────────────────  
-    │                                   ╰───────────────────── field `f` has `CellOp` inside another type
+ 10 │   | Write (f: Unit1 -> Comp CellOp (o => Unit1) Unit1)
+    │               ───────────────────┬───────────────────  
+    │                                  ╰───────────────────── field `f` has `CellOp` inside another type
     │ 
     │ Note 1: a data type's fields can contain it only directly, or as the result of a function field: whether it's safe inside another type (such as a `List`) would depend on how that type uses it, which isn't checked
     │ 

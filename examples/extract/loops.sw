@@ -34,7 +34,7 @@ export def countTail (c: Char) (t: Text): Nat := countFrom c 0 (Text.toList t)
 -- not the last one.
 def adders (acc: List (Nat -> Nat)): Nat -> List (Nat -> Nat)
   | 0      => acc
-  | Succ n => adders (Cons (\x => x + n) acc) n
+  | Succ n => adders (Cons (x => x + n) acc) n
 
 def applyAll: List (Nat -> Nat) -> List Nat
   | Nil       => Nil

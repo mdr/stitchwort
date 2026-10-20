@@ -5,7 +5,7 @@ expression: output
 [E-PARSE] Error: a record type can't be written here: `{` in a type starts an ability row
    ╭─[ reject/record-after-arrow.sw:3:15 ]
    │
- 3 │ def f: Nat -> { name: Nat } := \_ => { name = 0 }
+ 3 │ def f: Nat -> { name: Nat } := _ => { name = 0 }
    │               ┬  
    │               ╰── this `{` starts an ability row
    │ 

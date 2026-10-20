@@ -6,4 +6,4 @@ def foo (xs: List Nat): List Nat := xs
 
 def g (xs: List Nat): List Nat :=
   foo xs
-    .map (\x => x)
+    .map (x => x)

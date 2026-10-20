@@ -24,9 +24,9 @@ type Sized (n: Nat) = { value: Nat }
 
 def Sized.read (n: Nat) (s: Sized n): Nat := s.value
 
-def names (people: Bag Person): Bag Text := people.map (\p => p.name)
+def names (people: Bag Person): Bag Text := people.map (p => p.name)
 
-def lengths (ts: Bag Text): Bag Nat := ts.map (\t => t.length)
+def lengths (ts: Bag Text): Bag Nat := ts.map (t => t.length)
 
 def splitLine (line: Text): List Text := line.split ','
 

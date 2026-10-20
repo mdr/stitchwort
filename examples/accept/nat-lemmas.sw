@@ -3,11 +3,11 @@ import Std (Eq)
 
 theorem addSwap (a: Nat) (b: Nat) (c: Nat): a + (b + c) = b + (a + c) :=
   Eq.trans (Eq.sym (Nat.addAssoc a b c))
-    (Eq.trans (Eq.cong (\t => t + c) (Nat.addComm a b)) (Nat.addAssoc b a c))
+    (Eq.trans (Eq.cong (t => t + c) (Nat.addComm a b)) (Nat.addAssoc b a c))
 
 theorem squareOfSum (a: Nat) (b: Nat): (a + b) * (a + b) = a * (a + b) + b * (a + b) := Nat.mulDistribRight a b (a + b)
 
-theorem timesTwo (n: Nat): n * 2 = n + n := Eq.trans (Nat.mulSucc n 1) (Eq.cong (\t => n + t) (Nat.mulOne n))
+theorem timesTwo (n: Nat): n * 2 = n + n := Eq.trans (Nat.mulSucc n 1) (Eq.cong (t => n + t) (Nat.mulOne n))
 
 theorem leftSmaller (a: Nat) (b: Nat) (c: Nat) (h: a <= b): a <= b + c := Nat.leTrans a b (b + c) h (Nat.leAddRight b c)
 

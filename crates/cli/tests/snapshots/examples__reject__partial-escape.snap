@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-PARTIAL-ESCAPE] Error: a recursive call to `retry` can't escape its definition
-   ╭─[ reject/partial-escape.sw:6:63 ]
+   ╭─[ reject/partial-escape.sw:6:62 ]
    │
- 6 │ def retry (n: Nat): {Partial} (Nat -> {Partial} Nat) := \x => retry (n - 1) x
-   │                                                               ───────┬───────  
-   │                                                                      ╰───────── this calls `retry`, but it's returned or stored where nothing can run the call
+ 6 │ def retry (n: Nat): {Partial} (Nat -> {Partial} Nat) := x => retry (n - 1) x
+   │                                                              ───────┬───────  
+   │                                                                     ╰───────── this calls `retry`, but it's returned or stored where nothing can run the call
    │ 
    │ Note 1: inside `retry`'s definition, a call to `retry` is a request that only `retry`'s own definition can answer, so it can't be part of the result
    │ 

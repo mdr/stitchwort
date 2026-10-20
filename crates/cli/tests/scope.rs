@@ -86,7 +86,7 @@ fn local_names_make_no_dependencies() {
     let (session, result) = load(
         "def f [g : Type] (n : Nat) : Nat :=\n  \
          let k := n\n  \
-         applyTo (\\h => h) k\n\n\
+         applyTo (h => h) k\n\n\
          def applyTo (f : Nat -> Nat) (x : Nat) : Nat := f x\n\n\
          def g (n : Nat) : Nat := f [g := Nat] n\n\n\
          def h (n : Nat) : Nat := f [g := Nat] n\n\n\

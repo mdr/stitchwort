@@ -131,8 +131,8 @@ This section defines what the rest of the document promises.
 meaning "evaluating `t` produces a value of type `A`, and may perform the abilities in `ε`". The abilities that *evaluating* an expression may perform are different from the abilities mentioned *inside* its type:
 
 ```
-\() => spin 0          -- : () -> {Partial} Nat  ! {}         building the closure is pure
-(\() => spin 0) ()     -- : Nat                  ! {Partial}  calling it is partial
+() => spin 0          -- : () -> {Partial} Nat  ! {}         building the closure is pure
+(() => spin 0) ()     -- : Nat                  ! {Partial}  calling it is partial
 ```
 
 **Total.** If `⊢ t : A ! {}` is checked and assumption-free, with `t` closed, then evaluating `t` reaches a value in finitely many steps. `A` may itself contain function types with abilities: those apply when the function is called, not when `t` is evaluated. How this extends to other cases:
@@ -201,8 +201,8 @@ def map (f: a -> b): List a -> List b
   | []        => []
   | x :: xs   => f x :: map f xs
 
-def doubled := map (\x => x * 2) [1, 2, 3]                 -- a and b inferred
-def doubled := map [a := Nat] [b := Nat] (\x => x * 2) [1, 2, 3]   -- supplied by name
+def doubled := map (x => x * 2) [1, 2, 3]                 -- a and b inferred
+def doubled := map [a := Nat] [b := Nat] (x => x * 2) [1, 2, 3]   -- supplied by name
 ```
 
 **`==` on a declared data type is derived automatically**, with no `deriving` clause: when `Shape` is declared, the compiler also generates a proved decision procedure for `=` on it (named so that source can't refer to it), which `==` finds. It's what one expects of `==` on plain data, a user's own `Shape.decEq` still takes priority, and a type that can't have one says why when `==` is used. It's generated when every field is data that can be compared: of the type itself (recursion), or of a type with a decision procedure, including through the type's parameters (`Tree a` takes one for `a`, as `List.decEq` does). Function fields, proof fields, types defined together, and parameters other than types get none (`E-AUTO-NONE`, with a note). It's generated eagerly, at the declaration, rather than on first use: that's simpler, and costs a few milliseconds per type (`crates/elab/src/derive.rs`).
@@ -522,7 +522,7 @@ The type checker and the program runner share an evaluator, but use it with **di
 | | Running a program | Comparing types |
 |---|---|---|
 | Goal | Reach a value | Reach a normal form, so two types can be compared |
-| Goes inside `\x -> …`? | No | Yes |
+| Goes inside `x => …`? | No | Yes |
 | Reduces effectful applications (including `Partial`)? | Yes, via handlers | **Never**. They stay as stuck terms |
 | Budget | Per run | Per check. Running out is inconclusive |
 
@@ -536,7 +536,7 @@ A test is a named, closed expression of type `Bool` that must be checked, total 
 
 ```
 test "tick twice" :=
-  runState 0 (\() -> tick(); tick()) == (1, 2)
+  runState 0 (() => tick(); tick()) == (1, 2)
 ```
 
 Running it to `true` checks `expr = true` by computation, so a passing test is a proof of one specific fact. Tests and theorems are cached in the same way ([§11](#11-content-hashing-and-caching)).
@@ -577,9 +577,9 @@ Handlers are **deep**: the continuation `k` already includes the handler, so a c
 def runState [auto d: IsData s] (init: s) (prog: () -> {State s | e} a): {e} (a, s) :=
   let run :=
     handle prog() with
-      | return x     => \s => (x, s)
-      | get(), k => \s => k s s
-      | put s', k => \_ => k() s'
+      | return x     => s => (x, s)
+      | get(), k => s => k s s
+      | put s', k => _ => k() s'
   run init
 ```
 
@@ -602,7 +602,7 @@ def bad (prog: () -> {Ping} a): a :=
     | return x    => x
     | ping(), k  => bad prog     -- never resumes k, loops forever
 
-bad (\() -> ping())
+bad (() => ping())
 ```
 
 *Landin's knot: storing a function that reads itself back:*
@@ -614,7 +614,7 @@ ability Cell where
 
 def knot: () -> {Cell} ()
   | () =>
-    let f := \() => (read()) ()
+    let f := () => (read()) ()
     write f
     f()           -- f reads f and calls it, forever
 ```

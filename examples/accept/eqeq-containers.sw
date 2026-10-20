@@ -5,7 +5,7 @@
 test "lists of numbers" := [1, 2, 3] == [1, 2, 3]
 test "different lengths" := Bool.not ([1, 2, 3] == [1, 2])
 test "different elements" := Bool.not ([1, 2, 3] == [1, 5, 3])
-test "empty lists" := List.filter (\x => Nat.leq x 0) [1, 2] == []
+test "empty lists" := List.filter (x => Nat.leq x 0) [1, 2] == []
 test "lists of lists" := [[1], [], [2, 3]] == [[1], [], [2, 3]]
 test "lists of lists, different" := Bool.not ([[1], [2, 3]] == [[1], [3, 2]])
 test "lists of texts" := ["ab", "", "c"] == ["ab", "", "c"]

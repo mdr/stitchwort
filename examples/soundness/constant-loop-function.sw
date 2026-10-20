@@ -6,4 +6,4 @@
 -- accept/size-change.sw.
 def twice (f: Nat -> Nat) (x: Nat): Nat := f (f x)
 
-def loop: Nat -> Nat := twice (\n => loop n)
+def loop: Nat -> Nat := twice (n => loop n)

@@ -5,9 +5,9 @@
 -- `x % len % k = x % k` when `len` is a multiple of `k`.
 theorem Nat.modModOfMul (x: Nat) (len: Nat) (k: Nat) (t: Nat) [auto hl: len != 0] [auto hk: k != 0] (e: len = t * k): x % len % k = x % k :=
   Eq.sym (calc x % k
-    _ = (x % len + (x / len) * len) % k  := Eq.cong (\y => y % k) (Eq.trans (Nat.divMod x len hl) (Nat.addComm ((x / len) * len) (x % len)))
+    _ = (x % len + (x / len) * len) % k  := Eq.cong (y => y % k) (Eq.trans (Nat.divMod x len hl) (Nat.addComm ((x / len) * len) (x % len)))
     _ = (x % len + (x / len * t) * k) % k
-        := Eq.cong (\y => (x % len + y) % k) (Eq.trans (Eq.cong (\l => (x / len) * l) e) (Eq.sym (Nat.mulAssoc (x / len) t k)))
+        := Eq.cong (y => (x % len + y) % k) (Eq.trans (Eq.cong (l => (x / len) * l) e) (Eq.sym (Nat.mulAssoc (x / len) t k)))
     _ = x % len % k                      := Nat.modAddMul (x % len) (x / len * t) k)
 
 -- Divisibility, as a test: `Nat.divides d n` when `n` is `t * d` for some
@@ -25,7 +25,7 @@ theorem Nat.dividesMul: (d: Nat) -> (t: Nat) -> Nat.divides d (t * d) = True
   | Zero,   t => Decidable.toBoolOf (Nat.decEq (t * 0) 0) (Nat.mulZero t)
   | Succ d, t => Decidable.toBoolOf (Nat.decEq ((t * Succ d) % Succ d) 0) (Nat.modAddMul 0 t (Succ d))
 
-theorem Nat.dividesSelf (d: Nat): Nat.divides d d = True := J (\y q => Nat.divides d y = True) (Nat.dividesMul d 1) (Nat.addZero d)
+theorem Nat.dividesSelf (d: Nat): Nat.divides d d = True := J (y q => Nat.divides d y = True) (Nat.dividesMul d 1) (Nat.addZero d)
 
 theorem Nat.dividesElim (goal: Prop): (d: Nat) -> (n: Nat) -> Nat.divides d n = True -> ((t: Nat) -> n = t * d -> goal) -> goal
   | Zero,   n, h, k => k 0 (Decidable.toBoolSound (Nat.decEq n 0) h)
@@ -33,7 +33,7 @@ theorem Nat.dividesElim (goal: Prop): (d: Nat) -> (n: Nat) -> Nat.divides d n = 
     k (n / Succ d)
       (calc n
         _ = (n / Succ d) * Succ d + n % Succ d := Nat.divMod n (Succ d) (Nat.succNotZero d)
-        _ = (n / Succ d) * Succ d + 0          := Eq.cong (\r => (n / Succ d) * Succ d + r) (Decidable.toBoolSound (Nat.decEq (n % Succ d) 0) h)
+        _ = (n / Succ d) * Succ d + 0          := Eq.cong (r => (n / Succ d) * Succ d + r) (Decidable.toBoolSound (Nat.decEq (n % Succ d) 0) h)
         _ = (n / Succ d) * Succ d              := Nat.addZero ((n / Succ d) * Succ d))
 
 -- A number from 1 up is divided by nothing bigger than itself.
@@ -41,7 +41,7 @@ theorem Nat.dividesSmall: (d: Nat) -> (n: Nat) -> 1 <= n -> n < d -> Nat.divides
   | Zero,   n, h1, h2 => Void.exfalso (Bool.falseNotTrue h2)
   | Succ d, n, h1, h2 =>
     Decidable.toBoolOfNot (Nat.decEq (n % Succ d) 0)
-      (\e => Bool.falseNotTrue (J (\y q => 1 <= y) h1 (Eq.trans (Eq.sym (Nat.modSmall n (Succ d) h2)) e)))
+      (e => Bool.falseNotTrue (J (y q => 1 <= y) h1 (Eq.trans (Eq.sym (Nat.modSmall n (Succ d) h2)) e)))
 
 theorem Nat.dividesLe (d: Nat) (n: Nat) (hn: 1 <= n) (h: Nat.divides d n = True): d <= n :=
   match e: Nat.leq d n with

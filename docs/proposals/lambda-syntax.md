@@ -6,7 +6,7 @@ now on `main`; D89 asked for this note). **Decisions:** D92 to D100 (D91 folded 
 one external review: "proceed with the direction", with no parsing impossibility or
 type-system problem found. This draft applies its findings
 ([Changes since draft 2](#changes-since-draft-2)) and adds an
-[implementation plan](#11-implementation-plan) for one lane. Nothing is implemented.
+[implementation plan](#11-implementation-plan) for one lane. **Implemented** (SW-90) as designed here; the body below is the design as reviewed, so its "today" is the syntax before the switch.
 
 ## Changes since draft 2
 

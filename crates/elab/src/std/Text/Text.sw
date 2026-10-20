@@ -41,7 +41,7 @@ theorem Text.joinSplitCons (s: Char) (c: Char) (cs: List Char):
     (p: Pair (List Char) (List (List Char))) -> Text.joinPair s p = cs ->
     (d: Decidable (c = s)) -> Text.joinPair s (Text.splitCons s c (Decidable.toBool d) p) = Cons c cs
   | MkPair f fs, h, Yes e =>
-    Eq.trans (Eq.cong (Cons s) h) (Eq.cong (\x => Cons x cs) (Eq.sym e))
+    Eq.trans (Eq.cong (Cons s) h) (Eq.cong (x => Cons x cs) (Eq.sym e))
   | MkPair f fs, h, No r =>
     Eq.trans (Text.joinCons s c f fs) (Eq.cong (Cons c) h)
 
@@ -56,7 +56,7 @@ theorem Text.charListsOfTexts: (fs: List (List Char)) -> Text.charListsOf (Text.
 
 theorem Text.joinSplitTexts (s: Char): (p: Pair (List Char) (List (List Char))) ->
     Text.join s (Text.splitTexts p) = MkText (Text.joinPair s p)
-  | MkPair f fs => Eq.cong (\l => MkText (Text.joinChars s f l)) (Text.charListsOfTexts fs)
+  | MkPair f fs => Eq.cong (l => MkText (Text.joinChars s f l)) (Text.charListsOfTexts fs)
 
 theorem Text.joinSplit (s: Char): (t: Text) -> Text.join s (Text.split s t) = t
   | MkText cs =>

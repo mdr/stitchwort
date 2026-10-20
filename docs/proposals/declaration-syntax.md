@@ -748,6 +748,9 @@ with lane G.
 
 ### 2.11 Lambdas, `let`, `match`, handlers: `=>` for "then do this"
 
+> **Since SW-90:** lambdas no longer start with a backslash (`x => e`, `x y => e`);
+> the `\x => …` forms below are historical. See [lambda-syntax.md](lambda-syntax.md).
+
 One meaning per arrow (question 2, decided): **`->` is only the function
 type; `=>` separates a pattern or parameter from what follows** (in arms,
 `match`, handlers and lambdas). This is Lean's split [L10]. Scala uses

@@ -148,7 +148,7 @@ def twiceWith (k : Nat -> {Partial | e} Nat) (n : Nat) : {Partial | e} Nat := k 
 
 def tree : Nat -> {Partial} Nat
   | 0 => 1
-  | n => twiceWith (\x => tree x) (n - 1)
+  | n => twiceWith (x => tree x) (n - 1)
 
 type Handlers (e : Std.Effect.Sig) : Type =
   | MkHandlers (onStep : Nat -> {Partial | e} Nat) (onDone : Nat -> {Partial | e} Nat)
@@ -157,7 +157,7 @@ def drive : [e : Std.Effect.Sig] -> Handlers e -> Nat -> {Partial | e} Nat
   | MkHandlers onStep onDone, 0 => onDone 0
   | MkHandlers onStep onDone, n => onStep (n - 1)
 
-def stored (n : Nat) : {Partial} Nat := drive (MkHandlers (\y => stored y) (\u => 42)) n
+def stored (n : Nat) : {Partial} Nat := drive (MkHandlers (y => stored y) (u => 42)) n
 
 def countFrom (x : Nat) : Nat -> {Partial} Nat
   | 0 => x * 10
@@ -325,7 +325,7 @@ fn endless_loops_stop_at_the_tick_limit_like_the_model() {
 /// `main ()` as a `Delay` value, to step by hand.
 fn main_value(session: &mut Session) -> stitchwort_core::Value {
     let expr = session
-        .parse_expression("<main>", "((\\u => main ()) : () -> {IO, Partial} ()) ()")
+        .parse_expression("<main>", "((u => main ()) : () -> {IO, Partial} ()) ()")
         .unwrap();
     let (term, _) = session.elab.infer_expr(&expr).unwrap();
     let g = &session.elab.globals;

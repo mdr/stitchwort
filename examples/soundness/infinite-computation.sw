@@ -19,4 +19,4 @@ def drain: Comp LaterOp LaterRes a -> a
   | Done x          => x
   | Call Later rest => drain (rest MkUnit)
 
-def forever (u: Unit1): Comp LaterOp LaterRes Empty := Call Later (\v => forever u)
+def forever (u: Unit1): Comp LaterOp LaterRes Empty := Call Later (v => forever u)

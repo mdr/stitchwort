@@ -5,9 +5,9 @@ expression: output
 [E-PROP-ELIM] Error: can't match on a proof of `Exists` to produce data
    ╭─[ soundness/lambda-exists-witness.sw:6:50 ]
    │
- 6 │ def witness (p: Nat -> Prop): Exists p -> Nat := \(Witness x h) => x
-   │                                                  ─────────┬─────────  
-   │                                                           ╰─────────── the result type `Nat` isn't a proposition
+ 6 │ def witness (p: Nat -> Prop): Exists p -> Nat := (Witness x h) => x
+   │                                                  ─────────┬────────  
+   │                                                           ╰────────── the result type `Nat` isn't a proposition
    │ 
    │ Note: `Exists` is a proposition, so its proofs are erased at runtime. Matching on one can only produce data when the proposition has at most one constructor and every field is itself a proof.
 ───╯

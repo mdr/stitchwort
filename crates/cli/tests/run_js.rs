@@ -175,7 +175,7 @@ def total : List Nat -> Nat
   | Cons x xs => x + total xs
 
 def main () : {IO} () :=
-  let xs := List.map (\i => (i * 7919) % 500000) (List.range 500000)
+  let xs := List.map (i => (i * 7919) % 500000) (List.range 500000)
   IO.print (Nat.toText (total xs))
   IO.print (Nat.toText (total (List.take 3 (List.sort xs))))
 "#,

@@ -68,6 +68,9 @@ pub struct IndexedName {
     pub kind: PendingKind,
     /// A constructor or operation: visible wherever its type or ability is.
     pub follower: bool,
+    /// A definition declared with a function type (`W-LAMBDA-SHADOW` asks
+    /// before the file is loaded).
+    pub function: bool,
     pub span: Span,
 }
 
@@ -331,6 +334,7 @@ pub(crate) fn file_names(
             key: key.clone(),
             kind: own,
             follower: false,
+            function: matches!(decl, Decl::Signature { ty, .. } if crate::module::is_function_type(ty)),
             span: main.span,
         });
         for (name, follower) in members {
@@ -338,6 +342,7 @@ pub(crate) fn file_names(
                 key: Elaborator::member_key(&key, &name.text),
                 kind: if follower { member } else { PendingKind::Other },
                 follower,
+                function: follower,
                 span: name.span,
             });
         }
@@ -354,6 +359,7 @@ pub(crate) fn file_names(
                         key: Elaborator::member_key(&key, &name.text),
                         kind: PendingKind::Def,
                         follower: false,
+                        function: true,
                         span: name.span,
                     });
                 }
@@ -391,11 +397,26 @@ struct Context {
     file_mode: Option<crate::project::FileModeContext>,
     loading_prelude: bool,
     warnings: Vec<Diagnostic>,
+    lambda_warnings: Vec<Diagnostic>,
 }
 
 impl Elaborator {
     /// Enters every name the library files declare as pending, once the
     /// core is loaded, and starts tracking the files.
+    /// Whether the library name `written`, declared by the file `file` that
+    /// isn't loaded, is a definition with a function type.
+    pub(crate) fn pending_is_function(&self, written: &str, file: usize) -> bool {
+        let (Some(lib), scope::Resolved::Found { key, .. }) =
+            (&self.library, self.resolve(written))
+        else {
+            return false;
+        };
+        lib.index.files[file]
+            .names
+            .iter()
+            .any(|n| n.key == key && n.function)
+    }
+
     pub fn install_library(&mut self, index: Arc<LibraryIndex>) {
         let mut state = vec![LoadState::NotLoaded; index.files.len()];
         state[0] = LoadState::Loaded;
@@ -608,6 +629,7 @@ impl Elaborator {
             file_mode: self.file_mode.take(),
             loading_prelude: self.loading_prelude,
             warnings: std::mem::take(&mut self.warnings),
+            lambda_warnings: self.lambda_warnings.take(),
         };
         self.loading_prelude = true;
         self.scope.loading = Some(f);
@@ -626,6 +648,7 @@ impl Elaborator {
         self.file_mode = saved.file_mode;
         self.loading_prelude = saved.loading_prelude;
         self.warnings = saved.warnings;
+        self.lambda_warnings.replace(saved.lambda_warnings);
         let lib = self.library.as_mut().expect("a library is installed");
         lib.stack.pop();
         lib.state[f] = LoadState::Loaded;

@@ -89,7 +89,7 @@ impl<'g> Ctx<'g> {
     ///
     /// `value` is computed only when checking first evaluates a term that
     /// mentions `x`, and then once ([`Ctx::eval`]): a `let` whose value no
-    /// type needs costs nothing to check, as the function form `(\x => b) v`
+    /// type needs costs nothing to check, as the function form `(x => b) v`
     /// didn't (docs/proposals/let.md §A.2, "Cost at check time"). Until then
     /// the slot holds its own variable as a placeholder, which nothing reads:
     /// every evaluation in the checker goes through `Ctx::eval`.
@@ -564,7 +564,7 @@ fn motive_error(cx: &Ctx) -> Diagnostic {
     cx.error(
         "E-CANNOT-INFER",
         "the first argument of `J` must be a function of two arguments",
-        "write it as `\\y p -> …`",
+        "write it as `y p => …`",
     )
 }
 

@@ -19,7 +19,7 @@ then thrown away.
      erased types), and each recursive call goes through 5 half-applied stages before it runs.
      On day 4 that's **79.7 million half-applied stages** against **19 million real calls**.
   2. **`if` is a function call with two closures.** `if c then a else b` is
-     `Bool.ifThenElse c (\_ => a) (\_ => b)`: 3.2 million of them on day 4, 3 per comparison
+     `Bool.ifThenElse c (_ => a) (_ => b)`: 3.2 million of them on day 4, 3 per comparison
      in a sort.
   3. **`==` on numbers goes through a proof-producing decision** (`Nat.decEq`, then
      `Decidable.toBool`) instead of the native `Nat.equal`.
@@ -125,12 +125,12 @@ compute it ahead of time (see section 6). `n = 100,000`; times are after subtrac
 | `countDown n 0` (a tail-recursive loop on `Nat`) | 0.3 µs | 10 |
 | `List.length (List.range n)` | 0.8 µs | 29 |
 | `List.sum (List.range n)` | 1.2 µs | 52 |
-| `List.foldLeft (\acc x => acc + x) 0 (List.range n)` | 1.5 µs | 62 |
-| `List.sum (List.map (\x => x + 1) (List.range n))` | 2.2 µs | 93 |
-| `List.count (\x => x == 50000) (List.range n)` | 2.5 µs | 96 |
+| `List.foldLeft (acc x => acc + x) 0 (List.range n)` | 1.5 µs | 62 |
+| `List.sum (List.map (x => x + 1) (List.range n))` | 2.2 µs | 93 |
+| `List.count (x => x == 50000) (List.range n)` | 2.5 µs | 96 |
 | `List.sum (List.zipWith Nat.add (List.range n) (List.range n))` | 2.8 µs | 118 |
-| `List.count (\x => x <= 50000) (List.range n)` | 2.9 µs | 113 |
-| `List.sum (List.map (\x => if x == 7 then 1 else 0) (List.range n))` | 3.1 µs | 123 |
+| `List.count (x => x <= 50000) (List.range n)` | 2.9 µs | 113 |
+| `List.sum (List.map (x => if x == 7 then 1 else 0) (List.range n))` | 3.1 µs | 123 |
 | `List.sortBy Nat.compare` of `n` numbers | **3.8 µs per comparison** (5.9 s in all) | 156 per comparison |
 
 The sort made 1.56 million comparisons, each costing **3 `if`s** (one in `List.merge`, two in
@@ -191,7 +191,7 @@ All gains below are **guesses** from the counters and profile, not measurements.
 |---|---|---|---|---|---|
 | 1 | **`stitchwort run --js`**: generate JS for `main` and run it under Node, with a small driver that performs `IO` operations and loops for `Partial` (section 5) | 14–30× (anchored by the measurements in section 5) | medium | medium: `Partial` isn't extractable today (`E-JS-PARTIAL`); deep recursion needs a big stack; results come from the extractor, not the trusted evaluator (it is differential-tested against it) | Opus to design, Sonnet to build |
 | 2 | **Saturated calls at run time**: when a term applies a known definition to all its parameters, call it directly with all the arguments at once, and drop erased parameters altogether while running | 1.3–1.6× (removes most of the 79.7 million half-applied stages and the vector growth that goes with them) | medium | medium: the machine is shared with the checker, so this must only apply while erasure is on, and keep the checker's folding behaviour | Opus |
-| 3 | **`if` without closures at run time**: evaluate `Bool.ifThenElse c (\_ => a) (\_ => b)` as a case on `c` directly | 5–10% on day 4, 15–25% on sorting (3 `if`s per comparison) | small–medium | low–medium | Sonnet, Opus review |
+| 3 | **`if` without closures at run time**: evaluate `Bool.ifThenElse c (_ => a) (_ => b)` as a case on `c` directly | 5–10% on day 4, 15–25% on sorting (3 `if`s per comparison) | small–medium | low–medium | Sonnet, Opus review |
 | 4 | **Cheaper freeing**: in `Values::drop`, skip the work list when no field is itself a uniquely owned compound value (most list cells hold a number) | 5–8% (freeing is 14%) | small–medium | medium: must stay stack-safe for million-element lists (tests exist) | Opus |
 | 5 | **Move, don't copy, a definition's arguments**: `unfold` clones the whole argument list into a new `Vec` to walk the case tree; take them from the owned list instead | 5–8% (collecting is 8.6%) | small | low | Sonnet |
 | 6 | **`==` on `Nat` straight to `Nat.equal`** where only a `Bool` is needed (elaborator), or a native for `Decidable.toBool (Nat.decEq m n)` | 3–5% on day 4; more where `==` is in the inner loop | small–medium | low–medium (the elaborator's choice of `==` instance) | Sonnet, Opus review |

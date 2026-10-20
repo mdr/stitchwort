@@ -5,7 +5,7 @@ expression: output
 [E-REWRITE-NOTHING] Error: `rewrite` found no `f ?0` in the goal
    ╭─[ reject/rewrite-under-binder.sw:5:11 ]
    │
- 5 │   rewrite h in \y => rfl
+ 5 │   rewrite h in y => rfl
    │           ┬  
    │           ╰── looking for `f ?0`
    │ 

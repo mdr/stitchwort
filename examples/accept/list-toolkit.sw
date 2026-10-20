@@ -2,15 +2,15 @@
 -- most of them also by dot notation.
 
 
-theorem mapped: [1, 2, 3].map (\x => x + 1) = [2, 3, 4] := rfl
+theorem mapped: [1, 2, 3].map (x => x + 1) = [2, 3, 4] := rfl
 
-theorem filtered: [1, 2, 3, 4].filter (\x => Nat.leq x 2) = [1, 2] := rfl
+theorem filtered: [1, 2, 3, 4].filter (x => Nat.leq x 2) = [1, 2] := rfl
 
-theorem folded: [1, 2, 3].foldLeft (\acc x => acc * 10 + x) 0 = 123 := rfl
+theorem folded: [1, 2, 3].foldLeft (acc x => acc * 10 + x) 0 = 123 := rfl
 
-theorem scanned: [1, 2, 3].scanLeft (\acc x => acc + x) 0 = [0, 1, 3, 6] := rfl
+theorem scanned: [1, 2, 3].scanLeft (acc x => acc + x) 0 = [0, 1, 3, 6] := rfl
 
-theorem foldedRight: [1, 2, 3].foldRight (\x acc => acc * 10 + x) 0 = 321 := rfl
+theorem foldedRight: [1, 2, 3].foldRight (x acc => acc * 10 + x) 0 = 321 := rfl
 
 theorem summed: [1, 2, 3, 4].sum = 10 := rfl
 
@@ -28,17 +28,17 @@ theorem minimumEmpty: List.minimum [] = Nothing := rfl
 
 theorem zipped: [1, 2, 3].zip [4, 5] = [MkPair 1 4, MkPair 2 5] := rfl
 
-theorem zippedWith: [1, 2, 3].zipWith (\x y => x + y) [10, 20, 30] = [11, 22, 33] := rfl
+theorem zippedWith: [1, 2, 3].zipWith (x y => x + y) [10, 20, 30] = [11, 22, 33] := rfl
 
-theorem zippedWith3: [1, 2, 3].zipWith3 (\x y z => x + y + z) [10, 20, 30] [100, 200, 300] = [111, 222, 333] := rfl
+theorem zippedWith3: [1, 2, 3].zipWith3 (x y z => x + y + z) [10, 20, 30] [100, 200, 300] = [111, 222, 333] := rfl
 
-theorem zippedWith3ShortFirst: ([]: List Nat).zipWith3 (\x y z => x + y + z) [10, 20] [100, 200] = [] := rfl
+theorem zippedWith3ShortFirst: ([]: List Nat).zipWith3 (x y z => x + y + z) [10, 20] [100, 200] = [] := rfl
 
-theorem zippedWith3ShortMiddle: [1, 2].zipWith3 (\x y z => x + y + z) [10] [100, 200] = [111] := rfl
+theorem zippedWith3ShortMiddle: [1, 2].zipWith3 (x y z => x + y + z) [10] [100, 200] = [111] := rfl
 
-theorem zippedWith3ShortLast: [1, 2].zipWith3 (\x y z => x + y + z) [10, 20] [100] = [111] := rfl
+theorem zippedWith3ShortLast: [1, 2].zipWith3 (x y z => x + y + z) [10, 20] [100] = [111] := rfl
 
-theorem zippedWith3Empty: ([]: List Nat).zipWith3 (\x y z => x + y + z) ([]: List Nat) ([]: List Nat) = [] := rfl
+theorem zippedWith3Empty: ([]: List Nat).zipWith3 (x y z => x + y + z) ([]: List Nat) ([]: List Nat) = [] := rfl
 
 theorem taken: [1, 2, 3].take 2 = [1, 2] := rfl
 
@@ -52,20 +52,20 @@ theorem got: [5, 6, 7].get 1 = Just 6 := rfl
 
 theorem gotMissing: [5, 6, 7].get 3 = Nothing := rfl
 
-test "any" := [1, 2, 3].any (\x => Nat.equal x 2)
-test "all" := [1, 2, 3].all (\x => Nat.leq x 3)
-test "not all" := Bool.not ([1, 2, 3].all (\x => Nat.leq x 2))
-test "count" := [1, 2, 3, 4].count (\x => Nat.leq 3 x) == 2
+test "any" := [1, 2, 3].any (x => Nat.equal x 2)
+test "all" := [1, 2, 3].all (x => Nat.leq x 3)
+test "not all" := Bool.not ([1, 2, 3].all (x => Nat.leq x 2))
+test "count" := [1, 2, 3, 4].count (x => Nat.leq 3 x) == 2
 
-theorem found: [1, 2, 3].find (\x => Nat.leq 2 x) = Just 2 := rfl
+theorem found: [1, 2, 3].find (x => Nat.leq 2 x) = Just 2 := rfl
 
-theorem notFound: [1, 2, 3].find (\x => Nat.leq 9 x) = Nothing := rfl
+theorem notFound: [1, 2, 3].find (x => Nat.leq 9 x) = Nothing := rfl
 
-theorem mappedMaybe: [1, 2, 3, 4].mapMaybe (\x => if Nat.leq 3 x then Just (x * 2) else Nothing) = [6, 8] := rfl
+theorem mappedMaybe: [1, 2, 3, 4].mapMaybe (x => if Nat.leq 3 x then Just (x * 2) else Nothing) = [6, 8] := rfl
 
 theorem concatenated: [[1], [], [2, 3]].concat = [1, 2, 3] := rfl
 
-theorem concatMapped: [1, 2].concatMap (\x => [x, x]) = [1, 1, 2, 2] := rfl
+theorem concatMapped: [1, 2].concatMap (x => [x, x]) = [1, 1, 2, 2] := rfl
 
 theorem replicated: List.replicate 3 7 = [7, 7, 7] := rfl
 
@@ -82,7 +82,7 @@ theorem lastedEmpty: ([]: List Nat).last = Nothing := rfl
 test "elem" := List.elem Nat.decEq 2 [1, 2, 3]
 test "not elem" := Bool.not (List.elem Nat.decEq 5 [1, 2, 3])
 
-theorem partitioned: [1, 2, 3, 4].partition (\x => Nat.leq x 2) = MkPair [1, 2] [3, 4] := rfl
+theorem partitioned: [1, 2, 3, 4].partition (x => Nat.leq x 2) = MkPair [1, 2] [3, 4] := rfl
 
 theorem looked: List.lookup Nat.decEq 2 [MkPair 1 10, MkPair 2 20] = Just 20 := rfl
 
@@ -96,8 +96,8 @@ test "pow" := Nat.pow 2 10 == 1024
 test "pow zero" := Nat.pow 7 0 == 1
 
 -- Lists compare with `==` too (as the theorems above do with `rfl`).
-test "map" := [1, 2, 3].map (\x => x + 1) == [2, 3, 4]
-test "filter" := [1, 2, 3, 4].filter (\x => Nat.leq x 2) == [1, 2]
+test "map" := [1, 2, 3].map (x => x + 1) == [2, 3, 4]
+test "filter" := [1, 2, 3, 4].filter (x => Nat.leq x 2) == [1, 2]
 test "zip" := [1, 2, 3].zip [4, 5] == [MkPair 1 4, MkPair 2 5]
-test "partition" := [1, 2, 3, 4].partition (\x => Nat.leq x 2) == MkPair [1, 2] [3, 4]
+test "partition" := [1, 2, 3, 4].partition (x => Nat.leq x 2) == MkPair [1, 2] [3, 4]
 test "maximum" := [3, 9, 2].maximum == Just 9

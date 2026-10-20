@@ -4,7 +4,7 @@
 --
 --   $ cd aoc && stitchwort run Aoc.Day03.main < inputs/day03.txt
 --
--- The puzzle input is not in git (aoc/inputs/ is ignored).
+-- The puzzle input is committed in aoc/inputs/ (D119).
 --
 -- Greedy: the first digit is the largest one in the part of the bank that
 -- still leaves k - 1 digits after it, taking the leftmost such digit so the

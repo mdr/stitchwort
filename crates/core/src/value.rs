@@ -1493,7 +1493,7 @@ pub fn underapplied(g: &Globals, value: &Value) -> Option<Icit> {
 //
 // Comparing two functions applies both to a fresh variable and compares the
 // results, which runs their bodies: for a lambda in a proposition, like
-// `\n => keepIf (repeated r k n) (plus n)` in a sum over 2 to 10, that can be
+// `n => keepIf (repeated r k n) (plus n)` in a sum over 2 to 10, that can be
 // most of the work. When the two closures are *identical* (the same body, and
 // the same values for the variables it uses), so are the results, and
 // conversion is reflexive, so the comparison can answer "equal" at once.
@@ -1899,7 +1899,7 @@ mod tests {
 
     #[test]
     fn convertible_but_not_identical_closures_are_still_equal() {
-        // `f` against `\y => f y`: equal by eta, which only the long way sees.
+        // `f` against `y => f y`: equal by eta, which only the long way sees.
         let f = Value::var(3);
         let eta = lam(closure(vec![f.clone()], call_last()));
         let a = closure(vec![f], call_last());

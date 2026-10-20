@@ -60,7 +60,7 @@ theorem rolledBackType (m: [a: Type] -> a -> a -> a) (h: [a: Type] -> [x: a] -> 
 -- Under a binder, an occurrence that doesn't use the bound variable is
 -- found and replaced.
 theorem underBinder (f: Nat -> Nat) (g: Nat -> Nat) (h: f 1 = g 1): (y: Nat) -> f 1 + y = g 1 + y :=
-  rewrite h in \y => rfl
+  rewrite h in y => rfl
 
 -- The rule can be any proof of an equation, such as a hypothesis applied to
 -- an argument or a larger term in parentheses.

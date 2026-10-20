@@ -48,7 +48,7 @@ def example: Tree := Node 1 (FCons (leaf 2) (FCons (Node 3 (FCons (leaf 4) FNil)
 
 test "size" := size example == 4
 test "sum" := sumTree example == 10
-test "map" := sumTree (mapTree (\n => n + 1) example) == 14
+test "map" := sumTree (mapTree (n => n + 1) example) == 14
 
 -- Proofs by mutual induction over the two types: mapping changes no sizes.
 theorem sizeMap (f: Nat -> Nat): (t: Tree) -> size (mapTree f t) = size t
@@ -58,8 +58,8 @@ theorem sizeMapForest (f: Nat -> Nat): (ts: Forest) ->
     sizeForest (mapForest f ts) = sizeForest ts
   | FNil       => rfl
   | FCons t ts =>
-    Eq.trans (Eq.cong (\a => a + sizeForest (mapForest f ts)) (sizeMap f t))
-          (Eq.cong (\b => size t + b) (sizeMapForest f ts))
+    Eq.trans (Eq.cong (a => a + sizeForest (mapForest f ts)) (sizeMap f t))
+          (Eq.cong (b => size t + b) (sizeMapForest f ts))
 
 -- Every tree has at least one node.
 theorem sizeNotZero: (t: Tree) -> Not (size t = 0)

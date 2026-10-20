@@ -1,4 +1,4 @@
--- Method sections. `.f args` is `\x => x.f args`, dot notation with the
+-- Method sections. `.f args` is `x => x.f args`, dot notation with the
 -- receiver left out (docs/syntax.md, "Method sections"). Chains work
 -- (`.name.length`), the head section takes the arguments after it, and as an
 -- argument a section takes none unless it's in brackets (`.map (.greet "Hi")`).
@@ -35,7 +35,7 @@ def names2: List Text := List.map .name people
 test "a section before the collection" := names2 == names
 
 -- Pipelines.
-def piped: Nat := [1, 2, 3, 4] |> .drop 1 |> .map (\x => x * 2) |> .sum
+def piped: Nat := [1, 2, 3, 4] |> .drop 1 |> .map (x => x * 2) |> .sum
 
 def ages: Nat := people |> .map .age |> .sum
 
@@ -46,7 +46,7 @@ test "pipeline over a field" := ages == 34
 def multi: Nat :=
   people
     |> .map .age
-    |> .filter (\a => a == 4)
+    |> .filter (a => a == 4)
     |> .length
 
 test "multi-line" := multi == 1

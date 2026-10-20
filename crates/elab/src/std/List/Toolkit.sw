@@ -37,9 +37,9 @@ def List.scanLeft (f: b -> a -> b) (z: b): List a -> List b
   | Nil       => Cons z Nil
   | Cons x xs => Cons z (List.scanLeft f (f z x) xs)
 
-theorem List.scanLeftNil: List.scanLeft (\acc x => acc + x) 5 Nil = [5] := rfl
+theorem List.scanLeftNil: List.scanLeft (acc x => acc + x) 5 Nil = [5] := rfl
 
-theorem List.scanLeftSums: List.scanLeft (\acc x => acc + x) 0 [1, 2, 3] = [0, 1, 3, 6] := rfl
+theorem List.scanLeftSums: List.scanLeft (acc x => acc + x) 0 [1, 2, 3] = [0, 1, 3, 6] := rfl
 
 -- Right fold. `List.foldRight f z [x, y]` is `f x (f y z)`.
 def List.foldRight (f: a -> b -> b) (z: b): List a -> b
@@ -50,9 +50,9 @@ def List.sum (xs: List Nat): Nat := List.foldLeft Nat.add 0 xs
 
 -- The sum of `f` over the elements: `List.sumBy f xs` is `List.sum (List.map f xs)`
 -- without building the intermediate list.
-def List.sumBy (f: a -> Nat) (xs: List a): Nat := List.foldLeft (\acc x => acc + f x) 0 xs
+def List.sumBy (f: a -> Nat) (xs: List a): Nat := List.foldLeft (acc x => acc + f x) 0 xs
 
-theorem List.sumByDoubles: List.sumBy (\x => x * 2) [1, 2, 3] = 12 := rfl
+theorem List.sumByDoubles: List.sumBy (x => x * 2) [1, 2, 3] = 12 := rfl
 
 def List.product (xs: List Nat): Nat := List.foldLeft Nat.mul 1 xs
 
@@ -117,7 +117,7 @@ def Nat.succIf (n: Nat): Bool -> Nat
   | False => n
 
 -- How many elements satisfy `p`.
-def List.count (p: a -> Bool) (xs: List a): Nat := List.foldLeft (\n x => Nat.succIf n (p x)) 0 xs
+def List.count (p: a -> Bool) (xs: List a): Nat := List.foldLeft (n x => Nat.succIf n (p x)) 0 xs
 
 -- The first element satisfying `p`.
 def List.find (p: a -> Bool): List a -> Maybe a
@@ -149,9 +149,9 @@ def List.rangeFrom: Nat -> Nat -> List Nat
 
 -- A run of `a + b` numbers is a run of `a` followed by a run of `b`.
 theorem List.rangeFromAppend: (a: Nat) -> (b: Nat) -> (s: Nat) -> List.rangeFrom (a + b) s = List.append (List.rangeFrom a s) (List.rangeFrom b (s + a))
-  | Zero,   b, s => Eq.cong (\t => List.rangeFrom b t) (Eq.sym (Nat.addZero s))
+  | Zero,   b, s => Eq.cong (t => List.rangeFrom b t) (Eq.sym (Nat.addZero s))
   | Succ a, b, s =>
-    Eq.cong (Cons s) (Eq.trans (List.rangeFromAppend a b (Succ s)) (Eq.cong (\t => List.append (List.rangeFrom a (Succ s)) (List.rangeFrom b t)) (Eq.sym (Nat.addSucc s a))))
+    Eq.cong (Cons s) (Eq.trans (List.rangeFromAppend a b (Succ s)) (Eq.cong (t => List.append (List.rangeFrom a (Succ s)) (List.rangeFrom b t)) (Eq.sym (Nat.addSucc s a))))
 
 -- `List.range n` is `[0, 1, ..., n - 1]`.
 def List.range (n: Nat): List Nat := List.rangeFrom n 0
@@ -188,7 +188,7 @@ def List.elem (d: (x: a) -> (y: a) -> Decidable (x = y)) (z: a): List a -> Bool
   | Cons x xs => if Decidable.toBool (d z x) then True else List.elem d z xs
 
 -- The elements that satisfy `p`, and those that don't.
-def List.partition (p: a -> Bool) (xs: List a): Pair (List a) (List a) := MkPair (List.filter p xs) (List.filter (\x => Bool.not (p x)) xs)
+def List.partition (p: a -> Bool) (xs: List a): Pair (List a) (List a) := MkPair (List.filter p xs) (List.filter (x => Bool.not (p x)) xs)
 
 -- The value for the first pair whose key is equal, given a decision for equality.
 def List.lookup (d: (x: k) -> (y: k) -> Decidable (x = y)) (key: k): List (Pair k v) -> Maybe v
@@ -207,7 +207,7 @@ theorem List.lengthReplicate (x: a): (n: Nat) -> List.length (List.replicate n x
 theorem List.padRightLength (n: Nat) (x: a) (xs: List a) (h: List.length xs <= n):
     List.length (List.padRight n x xs) = n :=
   Eq.trans (List.lengthAppend xs (List.replicate (n - List.length xs) x))
-    (Eq.trans (Eq.cong (\t => List.length xs + t) (List.lengthReplicate x (n - List.length xs)))
+    (Eq.trans (Eq.cong (t => List.length xs + t) (List.lengthReplicate x (n - List.length xs)))
       (Nat.addSubCancel (List.length xs) n h))
 
 -- The first `n` columns of a list of rows (`List.transpose`'s loop): column i
@@ -264,7 +264,7 @@ theorem List.allAppendRight (p: a -> Prop): (xs: List a) -> (ys: List a) -> List
   | Nil,       ys, h => h
   | Cons x xs, ys, Both h hxs => List.allAppendRight p xs ys hxs
 
-theorem List.allMap (p: b -> Prop) (f: a -> b): (xs: List a) -> List.All (\x => p (f x)) xs -> List.All p (List.map f xs)
+theorem List.allMap (p: b -> Prop) (f: a -> b): (xs: List a) -> List.All (x => p (f x)) xs -> List.All p (List.map f xs)
   | Nil,       h => Trivial
   | Cons x xs, Both h hxs => Both h (List.allMap p f xs hxs)
 
@@ -292,10 +292,10 @@ theorem List.transposeNNil: (n: Nat) -> List.transposeN n (Nil: List (List a)) =
 
 theorem List.allLengthZero: (rows: List (List a)) -> (n: Nat) -> List.length rows = n -> List.AllLength 0 rows ->
     rows = List.replicate n Nil
-  | Nil,        n,      hl, hr          => J (\y q => (Nil: List (List a)) = List.replicate y (Nil: List a)) rfl hl
+  | Nil,        n,      hl, hr          => J (y q => (Nil: List (List a)) = List.replicate y (Nil: List a)) rfl hl
   | Cons r rs,  Zero,   hl, hr          => Void.exfalso (Nat.succNotZero (List.length rs) hl)
   | Cons r rs,  Succ m, hl, Both hr hrs =>
-    Eq.trans (Eq.cong (\t => Cons t rs) (List.lengthZero r hr))
+    Eq.trans (Eq.cong (t => Cons t rs) (List.lengthZero r hr))
       (Eq.cong (Cons Nil) (List.allLengthZero rs m (Nat.succInjective (List.length rs) m hl) hrs))
 
 theorem List.tailsAllLength (k: Nat): (rows: List (List a)) -> List.AllLength (Succ k) rows ->
@@ -356,14 +356,14 @@ theorem List.transposeTwice (k: Nat): (rows: List (List a)) -> List.AllLength (S
     List.transpose (List.transpose rows) = rows
   | Nil,        hr          => rfl
   | Cons r rs,  Both hr hrs =>
-    J (\y q => List.transposeN (List.length (List.headOr Nil (List.transposeN y (Cons r rs)))) (List.transposeN y (Cons r rs)) = Cons r rs)
+    J (y q => List.transposeN (List.length (List.headOr Nil (List.transposeN y (Cons r rs)))) (List.transposeN y (Cons r rs)) = Cons r rs)
       (List.transposeNTwice (Succ k) (List.length (List.headOr Nil (List.transposeN (Succ k) (Cons r rs)))) (Cons r rs)
         (Eq.sym (List.headsLength k (Cons r rs) (Both hr hrs))) (Both hr hrs))
       (Eq.sym hr)
 
 -- The groups of consecutive elements that don't satisfy `p`, in order: `p`
 -- marks the separators, which are dropped, and no group is empty. So
--- `List.splitBy (\x => x == 0) [1, 2, 0, 0, 3]` is `[[1, 2], [3]]`.
+-- `List.splitBy (x => x == 0) [1, 2, 0, 0, 3]` is `[[1, 2], [3]]`.
 def List.splitBy (p: a -> Bool) (xs: List a): List (List a) := List.finishGroups (List.splitGroups p xs)
 
 -- Reads the list from the right: the group still open at the front, and the
@@ -404,7 +404,7 @@ theorem List.splitGroupsTotal (p: a -> Bool): (xs: List a) ->
   | Nil       => rfl
   | Cons x xs =>
     Eq.trans (Eq.sym (Nat.addAssoc (List.splitTotal (List.splitStep x (p x) (List.splitGroups p xs))) (Bool.toNat (p x)) (List.occurrences p xs)))
-      (Eq.trans (Eq.cong (\t => t + List.occurrences p xs) (List.splitStepTotal x (p x) (List.splitGroups p xs)))
+      (Eq.trans (Eq.cong (t => t + List.occurrences p xs) (List.splitStepTotal x (p x) (List.splitGroups p xs)))
         (Eq.cong Succ (List.splitGroupsTotal p xs)))
 
 theorem List.finishGroupsSum: (st: Pair (List a) (List (List a))) ->
@@ -412,17 +412,17 @@ theorem List.finishGroupsSum: (st: Pair (List a) (List (List a))) ->
   | MkPair cur done => List.closeGroupSum cur done
 
 -- The groups hold every element that isn't a separator, and nothing else.
-theorem List.splitByExample: List.splitBy (\x => x == 0) [1, 2, 0, 0, 3] = [[1, 2], [3]] := rfl
+theorem List.splitByExample: List.splitBy (x => x == 0) [1, 2, 0, 0, 3] = [[1, 2], [3]] := rfl
 
-theorem List.splitByEdges: List.splitBy (\x => x == 0) [0, 4, 0] = [[4]] := rfl
+theorem List.splitByEdges: List.splitBy (x => x == 0) [0, 4, 0] = [[4]] := rfl
 
 -- Splitting loses only the separators: the groups' lengths plus the number of separators is the length.
 theorem List.splitByLength (p: a -> Bool) (xs: List a):
     List.sumBy List.length (List.splitBy p xs) + List.occurrences p xs = List.length xs :=
-  Eq.trans (Eq.cong (\t => t + List.occurrences p xs) (List.finishGroupsSum (List.splitGroups p xs))) (List.splitGroupsTotal p xs)
+  Eq.trans (Eq.cong (t => t + List.occurrences p xs) (List.finishGroupsSum (List.splitGroups p xs))) (List.splitGroupsTotal p xs)
 
 -- The group has no separator in it.
-def List.NonSep (p: a -> Bool) (g: List a): Prop := List.all (\x => Bool.not (p x)) g = True
+def List.NonSep (p: a -> Bool) (g: List a): Prop := List.all (x => Bool.not (p x)) g = True
 
 -- Every group is non-empty and has no separator in it.
 def List.Groups (p: a -> Bool): List (List a) -> Prop
@@ -438,7 +438,7 @@ theorem List.closeGroupGroups (p: a -> Bool): (cur: List a) -> (done: List (List
   | Cons y ys, done, hc, hd => Both (Both (Nat.zeroLe (List.length ys)) hc) hd
 
 theorem List.nonSepCons (p: a -> Bool) (x: a) (cur: List a) (h: p x = False) (hc: List.NonSep p cur): List.NonSep p (Cons x cur) :=
-  J (\y q => (if Bool.not y then List.all (\z => Bool.not (p z)) cur else False) = True) hc (Eq.sym h)
+  J (y q => (if Bool.not y then List.all (z => Bool.not (p z)) cur else False) = True) hc (Eq.sym h)
 
 theorem List.splitStepOk (p: a -> Bool) (x: a): (b: Bool) -> p x = b -> (st: Pair (List a) (List (List a))) -> List.SplitOk p st ->
     List.SplitOk p (List.splitStep x b st)
@@ -462,15 +462,15 @@ theorem List.closeGroupConcat: (cur: List a) -> (done: List (List a)) ->
   | Cons y ys, done => rfl
 
 def List.SplitKeeps (p: a -> Bool) (xs: List a) (st: Pair (List a) (List (List a))): Prop :=
-  List.append (Pair.fst st) (List.concat (Pair.snd st)) = List.filter (\x => Bool.not (p x)) xs
+  List.append (Pair.fst st) (List.concat (Pair.snd st)) = List.filter (x => Bool.not (p x)) xs
 
 theorem List.splitStepKeeps (p: a -> Bool) (x: a) (xs: List a): (b: Bool) -> p x = b -> (st: Pair (List a) (List (List a))) ->
     List.SplitKeeps p xs st -> List.SplitKeeps p (Cons x xs) (List.splitStep x b st)
   | True,  e, MkPair cur done, h =>
     Eq.trans (List.closeGroupConcat cur done)
-      (Eq.trans h (Eq.sym (List.filterSkip (\z => Bool.not (p z)) x xs (Eq.cong Bool.not e))))
+      (Eq.trans h (Eq.sym (List.filterSkip (z => Bool.not (p z)) x xs (Eq.cong Bool.not e))))
   | False, e, MkPair cur done, h =>
-    Eq.trans (Eq.cong (Cons x) h) (Eq.sym (List.filterKeep (\z => Bool.not (p z)) x xs (Eq.cong Bool.not e)))
+    Eq.trans (Eq.cong (Cons x) h) (Eq.sym (List.filterKeep (z => Bool.not (p z)) x xs (Eq.cong Bool.not e)))
 
 theorem List.splitGroupsKeeps (p: a -> Bool): (xs: List a) -> List.SplitKeeps p xs (List.splitGroups p xs)
   | Nil       => rfl
@@ -482,25 +482,25 @@ theorem List.finishGroupsConcat: (st: Pair (List a) (List (List a))) ->
 
 -- Joining the groups gives back the elements that aren't separators, in order.
 theorem List.splitByConcat (p: a -> Bool) (xs: List a):
-    List.concat (List.splitBy p xs) = List.filter (\x => Bool.not (p x)) xs :=
+    List.concat (List.splitBy p xs) = List.filter (x => Bool.not (p x)) xs :=
   Eq.trans (List.finishGroupsConcat (List.splitGroups p xs)) (List.splitGroupsKeeps p xs)
 
-theorem List.sumByFrom (f: a -> Nat): (z: Nat) -> (xs: List a) -> List.foldLeft (\acc x => acc + f x) z xs = z + List.sumBy f xs
+theorem List.sumByFrom (f: a -> Nat): (z: Nat) -> (xs: List a) -> List.foldLeft (acc x => acc + f x) z xs = z + List.sumBy f xs
   | z, Nil       => Eq.sym (Nat.addZero z)
   | z, Cons x xs =>
     Eq.trans (List.sumByFrom f (z + f x) xs)
-      (Eq.trans (Nat.addAssoc z (f x) (List.sumBy f xs)) (Eq.cong (\t => z + t) (Eq.sym (List.sumByFrom f (f x) xs))))
+      (Eq.trans (Nat.addAssoc z (f x) (List.sumBy f xs)) (Eq.cong (t => z + t) (Eq.sym (List.sumByFrom f (f x) xs))))
 
 theorem List.sumByCons (f: a -> Nat) (x: a) (xs: List a): List.sumBy f (Cons x xs) = f x + List.sumBy f xs := List.sumByFrom f (f x) xs
 
 theorem List.sumByAppend (f: a -> Nat) (xs: List a) (ys: List a): List.sumBy f (List.append xs ys) = List.sumBy f xs + List.sumBy f ys :=
-  Eq.trans (List.foldLeftAppend (\acc x => acc + f x) 0 xs ys) (List.sumByFrom f (List.sumBy f xs) ys)
+  Eq.trans (List.foldLeftAppend (acc x => acc + f x) 0 xs ys) (List.sumByFrom f (List.sumBy f xs) ys)
 
 theorem List.filterKeep (p: a -> Bool) (x: a) (xs: List a) (h: p x = True): List.filter p (Cons x xs) = Cons x (List.filter p xs) :=
-  J (\c q => List.filterStep x (List.filter p xs) c = Cons x (List.filter p xs)) rfl (Eq.sym h)
+  J (c q => List.filterStep x (List.filter p xs) c = Cons x (List.filter p xs)) rfl (Eq.sym h)
 
 theorem List.filterSkip (p: a -> Bool) (x: a) (xs: List a) (h: p x = False): List.filter p (Cons x xs) = List.filter p xs :=
-  J (\c q => List.filterStep x (List.filter p xs) c = List.filter p xs) rfl (Eq.sym h)
+  J (c q => List.filterStep x (List.filter p xs) c = List.filter p xs) rfl (Eq.sym h)
 
 theorem List.foldLeftAppend (f: b -> a -> b): (z: b) -> (xs: List a) -> (ys: List a) ->
     List.foldLeft f z (List.append xs ys) = List.foldLeft f (List.foldLeft f z xs) ys

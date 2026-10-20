@@ -9,7 +9,7 @@ expression: output
     │        ─┬  
     │         ╰── `go` takes 1 argument; it's given none here
     │ 
-    │ Note 1: write `\x => owner.go x` so the call can be checked
+    │ Note 1: write `x => owner.go x` so the call can be checked
     │ 
     │ Note 2: a call between definitions that call each other must be given all the arguments, so the termination checker can see what each one is
 ────╯

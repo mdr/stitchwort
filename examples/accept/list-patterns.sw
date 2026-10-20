@@ -55,7 +55,7 @@ test "justsOne" := justs [Just 4, Nothing] == 4
 -- `let` and lambda patterns must cover their type, and no list pattern does
 -- (see reject/list-pattern-let-refutable.sw), so lists go in `match`.
 -- `match` in a lambda body.
-def lengthOne: List Nat -> Nat := \xs => match xs with
+def lengthOne: List Nat -> Nat := xs => match xs with
   | [_] => 1
   | _ => 0
 

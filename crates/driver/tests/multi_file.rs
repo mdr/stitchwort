@@ -78,11 +78,11 @@ fn an_import_in_one_file_isnt_visible_in_a_sibling() {
     let (session, errors) = errors(&[
         (
             "a.sw",
-            "namespace N\n\nimport List (map)\n\ndef f(): List Nat := map (\\x => x) [1]\n",
+            "namespace N\n\nimport List (map)\n\ndef f(): List Nat := map (x => x) [1]\n",
         ),
         (
             "b.sw",
-            "namespace N\n\ndef g(): List Nat := map (\\x => x) [1]\n",
+            "namespace N\n\ndef g(): List Nat := map (x => x) [1]\n",
         ),
     ]);
     assert_eq!(errors.len(), 1, "{errors:#?}");

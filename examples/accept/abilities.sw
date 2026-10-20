@@ -48,9 +48,9 @@ ability Log where
 def runState (init: s) (prog: () -> {State s | e} a): {e} Pair a s :=
   let run: s -> {e} Pair a s :=
     handle prog() with
-      | return x       => \st => MkPair x st
-      | get u, k       => \st => k st st
-      | put st2, k     => \st => k() st2
+      | return x       => st => MkPair x st
+      | get u, k       => st => k st st
+      | put st2, k     => st => k() st2
   run init
 
 -- Resumes twice: every outcome, `True` first.
@@ -82,10 +82,10 @@ def p(): {State Nat, Choose} Nat :=
   get()
 
 test "state inside choice: each branch has its own state" :=
-  eqPairs (allResults (\u => runState 0 p)) [MkPair 1 1, MkPair 0 0]
+  eqPairs (allResults (u => runState 0 p)) [MkPair 1 1, MkPair 0 0]
 
 test "choice inside state: the state threads through" :=
-  let r := runState 0 (\u => allResults p)
+  let r := runState 0 (u => allResults p)
   if eqNats (fstOf r) [1, 1] then sndOf r == 1 else False
 
 -- A clause's own `get` goes to the next `State` handler out.
@@ -100,7 +100,7 @@ def scaleGets (prog: () -> {State Nat | e} a): {State Nat | e} a :=
       k()
 
 test "a clause's own get goes to the outer handler" :=
-  fstOf (runState 5 (\u => scaleGets (\v => get() + 1))) == 51
+  fstOf (runState 5 (u => scaleGets (v => get() + 1))) == 51
 
 -- Abort
 
@@ -111,9 +111,9 @@ def orZero: Maybe Nat -> Nat
   | Nothing => 0
   | Just x  => x
 
-test "abort stops" := orZero (toMaybe (\u => safeDiv 7 0)) == 0
+test "abort stops" := orZero (toMaybe (u => safeDiv 7 0)) == 0
 test "no abort" :=
-  orZero (toMaybe (\u => safeDiv 100 (safeDiv 7 2))) == 33
+  orZero (toMaybe (u => safeDiv 100 (safeDiv 7 2))) == 33
 
 -- Order of operations: arguments run left to right, and lines in order.
 
@@ -130,23 +130,23 @@ def loud (n: Nat): {Log} Nat :=
   n
 
 test "arguments run left to right" :=
-  let r := collect (\u => loud 1 + loud 2 * loud 3)
+  let r := collect (u => loud 1 + loud 2 * loud 3)
   if eqNats (fstOf r) [1, 2, 3] then sndOf r == 7 else False
 
 -- An operation's argument can perform operations too.
 def increment(): {State Nat} () := put (get() + 1)
 
 test "an effectful argument" :=
-  sndOf (runState 41 (\u => increment())) == 42
+  sndOf (runState 41 (u => increment())) == 42
 
 -- Functions in state
 
 -- A function using `Choose` stored in `State`: fine, because its effects
 -- don't refer back to the state's own ability.
 def storeAndRun(): {State (Nat -> {Choose} Nat)} (List Nat) :=
-  put (\n => if choose() then n + 10 else n)
+  put (n => if choose() then n + 10 else n)
   let g := get()
-  allResults (\v => g 5)
+  allResults (v => g 5)
 
 test "an effectful function in state" :=
-  eqNats (fstOf (runState ((\n => n): Nat -> {Choose} Nat) storeAndRun)) [15, 5]
+  eqNats (fstOf (runState ((n => n): Nat -> {Choose} Nat) storeAndRun)) [15, 5]
