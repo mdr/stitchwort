@@ -13,8 +13,7 @@ use stitchwort_syntax::{Diagnostic, Severity};
 use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::{
-    MAX_READS_PAST_END, OutputSink, failure, json_string, rendered, run_by_line_of, session_limits,
-    test_answer,
+    MAX_READS_PAST_END, OutputSink, failure, json_string, rendered, run_by_line_of, test_answer,
 };
 
 /// The project's name in messages: errors show `aoc/src/Aoc/Day02/Day02.sw`,
@@ -30,7 +29,7 @@ fn limits() -> stitchwort_core::Limits {
     #[cfg(test)]
     return stitchwort_core::Limits::for_stack(TEST_STACK);
     #[cfg(not(test))]
-    session_limits()
+    super::session_limits()
 }
 
 /// A project loaded for a target: the session, and the namespaces checked.
@@ -39,12 +38,15 @@ struct Loaded {
     checked: Vec<String>,
 }
 
+/// A load shared by the read-only calls, or the answer for one that failed.
+type Shared = Result<Rc<Loaded>, String>;
+
 /// What a load is keyed by: the files and the targets.
 type Key = (Vec<String>, Vec<String>, String);
 
 thread_local! {
     /// The most recent shared load, as for single files (`load_shared`).
-    static LAST: RefCell<Option<(Key, Result<Rc<Loaded>, String>)>> =
+    static LAST: RefCell<Option<(Key, Shared)>> =
         const { RefCell::new(None) };
 }
 

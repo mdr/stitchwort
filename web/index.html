@@ -849,6 +849,8 @@ export def area: Shape -> Nat
   const runStale = el("p", { className: "hint", hidden: true }, "The source has changed since this run.");
   let ranSource = null;
 
+  /** The open project: the manifest, the files, and what's open; or null. */
+  let project = null;
   const runHint = el("p", { className: "hint" });
   /** The run panel's explanation, for `main` of the program or of a project's day. */
   function setRunHint() {
@@ -960,7 +962,7 @@ export def area: Shape -> Nat
   const banner = document.getElementById("banner");
 
   /** The open project: the manifest, the files, and what's open; or null. */
-  let project = null;
+  // (declared with the run panel, which needs it)
   let manifestPromise = null;
   let bundlePromise = null;
 

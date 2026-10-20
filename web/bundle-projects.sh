@@ -8,8 +8,9 @@
 # bundled too). The script stops if a path falls outside those folders.
 set -euo pipefail
 export LC_ALL=C
-root="$1"
-dest="$2/projects/aoc"
+root="$(cd "$1" && pwd)"
+mkdir -p "$2"
+dest="$(cd "$2" && pwd)/projects/aoc"
 
 # The playground reads only the .sw files, so the config must say nothing
 # else (D112).

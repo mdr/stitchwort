@@ -668,3 +668,46 @@ depend on anything that exists only in one browser.
   ("Browsers can store up to 5 MiB of local storage, and 5 MiB of session
   storage per origin"; writes past it throw `QuotaExceededError`). Checked
   20 October 2026.
+
+## As built
+
+Built on 20 October 2026 (SW-133), stages 1 to 5. Where the build differs from
+the note:
+
+- **Real puzzle inputs are bundled (D119, decided after the note).** The
+  "never publish `inputs/`" guards of §5 and §10.3 and browser test 10's
+  "`inputs/` is a 404" are gone. `web/bundle-projects.sh` copies
+  `aoc/src/**/*.sw`, `aoc/examples/*.txt` and `aoc/inputs/*.txt` by those
+  patterns (never the whole `aoc/`), stops if a path falls outside `src/`,
+  `examples/` and `inputs/`, and stops unless `aoc/stitchwort.yaml` is exactly
+  `sources: [src]`. A day's manifest entry has `"inputs"`, a list of
+  `{title, path}` (Example, Puzzle input), instead of one `"input"`. In the
+  Run tab an "Input…" dropdown fills the input box from a bundled input; the
+  box starts as the example. The browser test now checks that every listed
+  file is under those three folders and served, that `stitchwort.yaml` and
+  other paths are 404, and that each day gives the CLI's answers on its
+  example and on its puzzle input.
+- **One script for the bundle.** `web/bundle-projects.sh REPO_ROOT OUT_DIR` is
+  called by `web/build.sh` and by the `playground` package in `flake.nix`
+  (which gives it an explicit file set, `aocBundle`).
+- **Diagnostics carry their own text.** Each `diagnostics` entry also has
+  `text`, its rendered report, so the page can group errors by file without
+  parsing the combined `errors` string.
+- **Extra answers.** `check_project` answers also list `checked` (the
+  namespaces); the page's "Check every day" uses a `checkall` request, which
+  is `check_project` with no target.
+- **Tab order.** Within each group the files are sorted by path, so
+  `Common/Proofs/Range.sw` comes before `Common/Range.sw` (the note's example
+  had them the other way).
+- **Reset the whole project** asks with an inline "Reset every file? Yes,
+  reset / No" rather than `window.confirm`, so it works in the headless tests.
+- **Evaluate prefill**: day 2 gets `Aoc.Day02.solvePart1
+  Aoc.Day02.exampleRanges`; other days get `Aoc.DayNN.example`.
+- **Rust test stack.** The AoC proofs need more stack than a 2 MiB test
+  thread gives, so the `crates/web` project tests run on a 256 MiB thread with
+  limits to match; in WebAssembly the real 128 KiB guard is enough, as
+  measured in §7.
+- **Not done**, as the note says: public hosting and content-hash caching
+  (D118), adding, renaming or deleting files, and short names in Evaluate
+  (D115). The page still adds `?load=<time>` to the bundle's URLs, as it does
+  for the compiler.
