@@ -1,15 +1,43 @@
-# `calc` chains and a `rewrite` term (SW-99), draft 3
+# `calc` chains and a `rewrite` term (SW-99), draft 4
 
 **Date:** 19 October 2026. **Ticket:** SW-99 (related: SW-26). **Decisions:** D32 to D42.
 **Status:** reviewed once externally ("adopt with changes"; no critical findings). D32 to D42
-accepted by Matt on 20 October 2026. `calc` is built (SW-136, D46). `rewrite` (stage 2) waits for a
-second external review (D47).
+accepted by Matt on 20 October 2026. `calc` is built (SW-136, D46). A second external review
+of draft 3 (D47) found no critical issue and said: implement `rewrite` once two changes are
+made to §6. Draft 4 makes them. `rewrite` (stage 2) is ready to implement.
 
-**For the second review.** Please focus on `rewrite` (§6, its staging in §9 and its
-surprises in §7), the part not yet built. `calc` (§5) is built as described, in
-`crates/elab/src/calc.rs`. The first review's findings and how they were addressed are in
-"Changes since draft 2" and §12. The questions are the same as §11's; please also say whether
-anything in §6 should change before implementation starts.
+## Changes since draft 3
+
+The second review (of draft 3) found the first review's findings adequately resolved and no
+unsoundness. Its findings were two major and one minor, plus a wording nit:
+
+1. **A round-trip check after abstraction** (major; §6.2, §6.3, §9).
+   - The search abstracts a matched candidate `c` to build the motive `M`, but `M a` (with
+     the rule's left side `a`) was assumed to be convertible to the original goal `G`.
+     That holds when conversion is congruent.
+   - The proof-irrelevance proposal's D1′ deliberately isn't congruent there. It equates
+     `MkBox p` with `MkBox r` by masking the proof field, while `Box.unbox` can still tell
+     `p` from `r`. So a match can produce a `J` the kernel rejects.
+   - The kernel still catches this, so it is never unsound, but it would be a confusing
+     failure. Now, after abstraction, `M a ≡ G` is checked explicitly, even for matches found
+     by the syntactic fast path. Failure is `E-REWRITE-MOTIVE` with its own explanation.
+   - §9's claim that proof irrelevance would "remove" the differing-proofs problem is toned
+     down.
+2. **"First occurrence" is now defined** (major; §6.2, §7).
+   - The search is pre-order (outermost first), left to right.
+   - Once a candidate is selected, the search doesn't look inside it, so matches never
+     overlap. This is what Lean's `kabstract` does.
+   - So "the first match fixes the rule's implicit arguments" has a precise meaning. Two
+     tests pin it down.
+3. **Transactions cover the whole candidate attempt** (minor; §6.2).
+   - The saved state is taken before the carrier-type check, step 3, which can itself
+     constrain rule metavariables.
+   - The shared budget is *not* rolled back, because failed candidates still did work.
+   - Caches that depend on metavariable assignments are part of the transaction or are
+     invalidated.
+4. **Wording** (§6.1). An argument named `in` is written in parentheses, not "brackets".
+
+The second review's answers to §11's questions are summarised at the end of §12.
 
 ## Changes since draft 2
 
@@ -815,21 +843,27 @@ equation was checked by ascription, §5.2]**.
   name would make `rewrite p in t` ambiguous with a call of a function named `rewrite`.
 - `in` is a *contextual* keyword, recognised only where a rewrite rule list can end, as
   `auto` is recognised only at the start of a binder (§1.2). Elsewhere `in` stays an ordinary
-  identifier. The cost is that a rule can't pass a variable named `in` as an argument without
-  brackets **[inferred from the parser's `auto` precedent; not yet prototyped]**.
+  identifier. The cost is that a rule must put a variable named `in` in parentheses to pass it
+  as an argument, as in `rewrite f (in) in t` **[inferred from the parser's `auto` precedent;
+  not yet prototyped]**.
 - No identifier in the repository's `.sw` files is named `calc`, `rewrite` or `in`; they
   appear only inside strings and comments **[checked: grep]**.
 
 **Metavariables in the rule.** Implicit arguments of `p` that elaboration couldn't solve are
 left as metavariables belonging to the rule. They are solved by the first occurrence that
-matches, and later occurrences must match that same instance (§6.2). If the left side's
+matches, in the search order of §6.2 (outermost first, left to right), and later occurrences
+must match that same instance. If the left side's
 *head* is a metavariable (for example `?f x`), the rule is rejected: there is no key to
 search by. Lean has the same check (`lhs.getAppFn.isMVar`, §4.2).
 
 ### 6.2 Finding occurrences (D36)
 
-The search walks the goal term. At each subterm `c` that doesn't mention a variable bound
-inside the goal (§6.3), it applies these tests in order:
+The search walks the goal term **in pre-order, outermost first, left to right**: it tries a
+term before its subterms, and a function's arguments in order. **Once a candidate is
+selected, the search doesn't look inside it.** The selected occurrence is replaced as a whole,
+so matches never overlap. Lean's `kabstract` behaves the same way: it tries the current
+expression before its children and doesn't descend into a selected match. At each subterm `c`
+that doesn't mention a variable bound inside the goal (§6.3), it applies these tests in order:
 
 1. **Key.** `c` must have the same head as `a` (the same definition, constructor or
    variable) and the same number of arguments. Otherwise, skip it and look inside.
@@ -840,12 +874,19 @@ inside the goal (§6.3), it applies these tests in order:
 4. **Conversion.** Compare `c` with `a` by conversion. This may solve the rule's own
    metavariables.
 
-Three properties of the search:
+Four properties of the search:
 
 - **Transactional, one-way matching.** Before each candidate, save the metavariable state;
   restore it if the candidate fails. Only metavariables created for the rule may be solved;
   a comparison that would need to solve a metavariable already present in the goal is a
   failure for that candidate. Lean rolls back unselected matches the same way (§4.2).
+  - **The transaction covers the whole attempt,** from step 3 on. Inferring the candidate's
+    type and comparing it with `A` can already constrain the rule's metavariables, so the
+    state is saved before step 3, and restoring it undoes everything steps 3 and 4 did.
+  - **The budget isn't rolled back.** A failed candidate still did work, and that work
+    counts.
+  - **Caches.** Any conversion or unification cache whose entries depend on metavariable
+    assignments is either part of the transaction or invalidated when it is rolled back.
 
   Without the rollback, a pattern `F ?x ?x` tried against `F 1 2` could leave `?x := 1`
   behind and miss a later `F 3 3`. Once a candidate succeeds, its solutions are kept, and
@@ -870,6 +911,37 @@ Three properties of the search:
     but the result would be unpredictable.
   - `E-REWRITE-NOTHING` is reported only when every plausible candidate was decided and none
     matched.
+
+- **A round-trip check after abstraction.** Once every selected occurrence is abstracted
+  into a motive `M`, check that **`M a` is convertible to the original goal `G`** before
+  accepting the rewrite. This applies to matches found by the syntactic fast path too.
+  - **Why it's needed.** The generated `J` needs exactly this property; Lean's `rewrite`
+    states it as a requirement on its motive. It normally follows from the match, because
+    conversion is congruent.
+  - **It isn't guaranteed once proof irrelevance lands.** The proof-irrelevance proposal's
+    D1′ deliberately makes conversion non-congruent in proof-sensitive places. The
+    reviewer's example:
+
+    ```
+    type Box (P: Prop): Type =
+      | MkBox (h: P)
+
+    def Box.unbox [P: Prop]: Box P -> P
+      | MkBox h => h
+    ```
+
+    Under D1′, `MkBox p ≡ MkBox r` for proofs `p r: P`, because the proof field is
+    masked. Suppose a rule's left side is `MkBox p`, and the goal is
+    `Box.unbox (MkBox r) = r`. Then `MkBox r` matches, and the motive is
+    `M x := Box.unbox x = r`. `M (MkBox r)` computes to `r = r`, the goal, but `M (MkBox p)`
+    computes to `p = r`, which D1′ doesn't equate with it. The resulting `J` would be
+    rejected.
+  - **Failure** is reported as `E-REWRITE-MOTIVE` (§6.3), with an explanation that the match
+    held only up to an ignored proof, and a hint to rewrite a larger term or use `calc`.
+  - The kernel would reject such a `J` anyway, so this is about a clear message rather than
+    soundness.
+  - **Cost.** The check's conversion draws on the rewrite's shared budget, and running out
+    there is `E-REWRITE-BUDGET`, never a silent skip.
 
 All matching occurrences are replaced, as in Lean, Idris and Arend. Rocq rewrites every copy
 of the first-matched instance (§4.5), which is the same rule once the first match has fixed
@@ -946,6 +1018,14 @@ the rule's metavariables.
     Note: rewrite a larger term that contains `d` (such as `x % d`), or state the step with `calc`
   ```
 
+  The same code covers a failed round-trip check (§6.2), with its own explanation:
+
+  ```
+  [E-REWRITE-MOTIVE] Error: `MkBox r` matched `MkBox p` only because the proof inside is ignored
+    after replacing it, the goal no longer computes to what it was
+    Note: rewrite a larger term that contains it, or state the step with `calc`
+  ```
+
 - **Under a binder (D37).** Occurrences of `a` that mention a variable bound inside the goal
   can't be abstracted: `J` can't rewrite inside a function without function extensionality,
   which Stitchwort doesn't have (§1.1). They are skipped, as in Lean and Rocq.
@@ -1008,6 +1088,13 @@ list is the reviewer's, plus the `windowZero` case found in the SW-26 experiment
    proposition computes to something `rfl` proves: `calc 0` / `_ <= n` is accepted (§5.1).
 10. **`E-REWRITE-BUDGET` is about cost, not truth.** A rewrite can fail because a comparison
     was too expensive to decide, not because the occurrence was absent (§6.2).
+11. **The search order decides which instance a rewrite picks.** With an implicit argument
+    left open, as in `lemma: F ?n = G ?n`, the outermost, leftmost occurrence fixes `?n`.
+    Given `… F 1 … F 2 …`, only the `F 1`s are rewritten. Also, a match is never searched
+    inside, so an occurrence nested within a replaced one isn't rewritten separately (§6.2).
+12. **If proof irrelevance (D1′) lands, a match can still be unusable.** A candidate equal
+    to the left side only because a proof field is ignored fails the round-trip check as
+    `E-REWRITE-MOTIVE` (§6.2).
 
 ## 8. SW-26 (`if` case splits): the existing `match h: e with` already solves it (D40)
 
@@ -1106,8 +1193,10 @@ The ticket's other idea, printing `if` in goals as `if`, is separate and still w
   - Reject a left side with a metavariable at its head.
   - Pick the term to search (§6.2), and run the search: key, syntax, carrier type, then
     budgeted conversion, transactional per candidate.
-  - Abstract the matches, check the motive, check the body against the rewritten goal, and
-    produce `J`.
+  - Abstract the matches, check the motive, check that `M a` converts to the original goal
+    (the round trip, §6.2), check the body against the rewritten goal, and produce `J`.
+  - The search order is pre-order, outermost first and left to right, and it never looks
+    inside a selected match.
   - Rules in a comma list are applied left to right.
 - **Reuse.** `lift::replace_with` with a hook is already the "replace matching subterms by a
   variable" walk that `let` refolding and `match` generalisation use. The new parts are the
@@ -1126,6 +1215,15 @@ The ticket's other idea, printing `if` in goals as `if`, is separate and still w
     a metavariable-headed rule; the `x % d` `auto` case; an occurrence under a binder.
   - The `F ?x ?x` rollback case from §6.2.
   - A candidate of the wrong carrier type that would otherwise convert.
+  - **Order:** `lemma: F ?n = G ?n` against a goal with `F 1` before `F 2`. `?n` becomes 1,
+    and only the `F 1`s are rewritten.
+  - **Nesting:** a goal where both an outer term and a term inside it match. The outer one is
+    replaced, and the inner one isn't searched separately.
+  - **Rollback of step 3:** a candidate whose carrier-type check constrains a rule
+    metavariable and then fails conversion leaves nothing behind.
+  - **Round trip:** a test that fails the `M a ≡ G` check. The Box example needs D1′; until
+    D1′ exists, the check is exercised by a unit test that calls it on a deliberately
+    mismatched motive.
 
 ### Stage 3 (later, if wanted)
 
@@ -1142,7 +1240,9 @@ The ticket's other idea, printing `if` in goals as `if`, is separate and still w
 - **`auto` arguments.** These are the most likely cause of ill-typed motives (§6.3). Two
   occurrences of `x % d` with different `ok` proofs may also fail to match, since proofs
   aren't irrelevant (§1.1). The [proof-irrelevance proposal](proof-irrelevance.md) would
-  remove that, provided the matcher keeps its same-type invariant (§6.2).
+  let such occurrences match, provided the matcher keeps its same-type invariant (§6.2). It
+  would not remove every problem, because its comparison isn't congruent in proof-sensitive
+  places. The round-trip check (§6.2) turns those cases into a clear `E-REWRITE-MOTIVE`.
 - **Cost.** Keyed conversion runs a comparison at each plausible candidate. The shared budget
   bounds it, `E-REWRITE-BUDGET` makes exhaustion visible, and the stage 2 metrics show
   whether it matters.
@@ -1328,6 +1428,27 @@ The external review of draft 2 answered as follows. The changes they led to are 
 The review also said current Rocq replaces only the first occurrence by default. Running
 Rocq 9.1.1 showed otherwise (§4.5); the survey keeps draft 2's description, now checked.
 
+**The second review (of draft 3)** re-answered the same questions. A summary:
+
+1. **Keyed matching and its cost.** Still agreed, with the single budget and
+   `E-REWRITE-BUDGET`. Add the round-trip `M a ≡ G` check, charged to the budget, never
+   skipped silently. (Adopted: §6.2.)
+2. **`auto` in motives.** Still don't re-run `auto`. "Rewrite a larger term" is the right
+   escape hatch.
+3. **Under binders.** Still agreed.
+4. **Mixed relations.** Resolved and built.
+5. **Implicit arguments and dot notation.** The first-match policy is fine once the search
+   order is specified, and the transaction must cover the carrier-type check too. (Adopted:
+   §6.2.)
+6. **`rewrite p` in `calc`.** Still agreed.
+7. **Syntax.** Contextual `in` is good. Say "parentheses", not "brackets". (Adopted: §6.1.)
+8. **`windowZero`.** Unchanged.
+9. **Surprises.** No new unsoundness. Two new surprises: the search order picks the
+   instance, and D1′ can make a match unusable. (Adopted: §7, items 11 and 12.)
+
+Its verdict: implement `rewrite` once the round-trip check and the search order are added.
+Draft 4 adds both.
+
 ## 13. Decisions
 
 Each decision has a stable ID. All were accepted by Matt on 20 October 2026.
@@ -1338,7 +1459,7 @@ Each decision has a stable ID. All were accepted by Matt on 20 October 2026.
 | D33 | Steps without a proof (§5.1) | Allowed; a step with no proof means "check `rfl` against `e(i-1) R ei`". | Agree with changes (made: was "the endpoints are convertible") |
 | D34 | Relations in a chain (§5.3) | `=`, `<=` and `<` on `Nat`, mixed freely, from a fixed composition table. The chain's relation is the fold of the table. `Int` once its transitivity lemmas exist. A user-extensible table later, if ever. | Agree with changes (made: fold, not "strongest wins") |
 | D35 | `rewrite` surface (§6.1) | `rewrite p in t`, `rewrite p` (meaning `in rfl` against the whole proposition), `rewrite p, q in t` applied left to right, ASCII `<-` for right to left. `in` contextual. | Agree with changes (made: contextual `in`, left-to-right stated) |
-| D36 | Matching occurrences (§6.2) | Keyed matching: key, syntax, carrier type, then conversion. Transactional, one-way matching of rule metavariables; reject a metavariable-headed left side. One shared budget, with exhaustion reported as `E-REWRITE-BUDGET`. Rewrite all occurrences. | Agree with changes (made: all four) |
+| D36 | Matching occurrences (§6.2) | Keyed matching: key, syntax, carrier type, then conversion. Transactional, one-way matching of rule metavariables; reject a metavariable-headed left side. One shared budget, with exhaustion reported as `E-REWRITE-BUDGET`. Rewrite all occurrences. Search pre-order, outermost first, left to right, never inside a selected match; the transaction covers the carrier-type check; after abstraction, check `M a ≡ G` (draft 4). | Draft 2: agree with changes (made: all four). Draft 3: agree with changes (made: round trip, order, transaction scope) |
 | D37 | Under binders (§6.3) | Skip occurrences that mention a bound variable, and point to `List.mapCongr`-style lemmas. No function extensionality. | Agree |
 | D38 | Goal not known (§6.4) | An error with a type-ascription hint for now. Arend's "rewrite the argument's type instead" possibly in stage 3. | Agree |
 | D39 | Staging (§9) | `calc` first (small, no new inference, useful at once for `<=` chains), then `rewrite`. Reserve only `calc` in stage 1. | Agree (keyword timing adopted) |
