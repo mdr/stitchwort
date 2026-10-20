@@ -1,5 +1,5 @@
 {
-  "next": 175,
+  "next": 176,
   "tickets": [
     {
       "id": 1,
@@ -2698,6 +2698,21 @@
         "tooling"
       ],
       "body": "Real inputs are committed (D119). A CLI test runs each day's main on aoc/inputs/dayNN.txt and compares with a fixed answer table; dev/t gets an aoc area. Also fixes comments saying inputs aren't in git.",
+      "created": "2026-10-20",
+      "updated": "2026-10-20",
+      "commits": []
+    },
+    {
+      "id": 175,
+      "title": "Consider section variables: declare a parameter once per file/section (Lean's `variable`) (D120)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "design",
+        "syntax"
+      ],
+      "body": "D120 (Matt, 20 Oct 2026): keep AoC day 1's `Dial highest` as is for now; consider a feature like Lean's `variable {highest : Nat}` so a file or section declares a shared parameter once and every definition below gets it. Motivation: aoc/src/Aoc/Day01 repeats `highest` 13 times in the program and 71 in Proofs/Part2.sw, kept generic so the part 2 proof covers any dial size. Design-review gate: research Lean 4 variable/section, Agda parameterised modules, Coq Section/Variable; write a note before implementing.",
       "created": "2026-10-20",
       "updated": "2026-10-20",
       "commits": []
