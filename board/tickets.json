@@ -1,5 +1,5 @@
 {
-  "next": 151,
+  "next": 152,
   "tickets": [
     {
       "id": 1,
@@ -2231,9 +2231,9 @@
     {
       "id": 147,
       "title": "AoC day 2 part 2: prove against the id-walking spec (block repeated 2+ times)",
-      "status": "review",
-      "agent": "Matt",
-      "where": "branch worktree-agent-af988f2f62ed6eb7e (54e4a40, prototype)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "worktree (resumed study lane)",
       "labels": [
         "aoc",
         "proof"
@@ -2246,7 +2246,7 @@
     {
       "id": 148,
       "title": "Design note: split the prelude into Std library files loaded on use",
-      "status": "review",
+      "status": "done",
       "agent": "Matt",
       "where": "main",
       "labels": [
@@ -2285,6 +2285,21 @@
         "namespaces"
       ],
       "body": "Matt, 20 Oct 2026: helpers (e.g. AoC's twice*/window* lemmas, prelude's Text.splitCons/splitChars) shouldn't join the namespace; only their file should see them.\n\nAlready listed as deferred: multi-file.md §4.5 ('no private yet') and the 'Later' list in §12; namespaces.md §8 table ('private and protected', Lean's modifiers).\n\nSketch: `private` before def/theorem/type; the name resolves only within its file. Two files of one namespace may each have a private `helper` without clashing (the full name gets a file-unique part, as Lean does). Bodies stay visible to the checker: a public function that uses a private helper still unfolds in other files' proofs (it hides the name, not the definition; unlike Idris's `export`). Errors: naming it from another file is E-PRIVATE with 'private to file X'. Precedents: Lean private (file-local), Agda private blocks, Rust (private by default), Scala/TS private. Needs a short design note first.",
+      "created": "2026-10-20",
+      "updated": "2026-10-20",
+      "commits": []
+    },
+    {
+      "id": 151,
+      "title": "Std library stage 1: loader, name index, natives on load, library tests; move Sorting",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree",
+      "labels": [
+        "stdlib",
+        "elab"
+      ],
+      "body": "Implements docs/proposals/std-library.md draft 2, stage 1 (§7), D58-D62 accepted by Matt 20 Oct 2026. Mechanism plus moving the Sorting section as the test case; gate additions: eager-vs-lazy comparison, duplicate-name index test, cross-file and dot-notation cycle tests, core-alone test. Measure: empty file, aoc check, examples bench, index cost, D58 core closure. Fixes SW-146.",
       "created": "2026-10-20",
       "updated": "2026-10-20",
       "commits": []
