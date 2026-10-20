@@ -1,50 +1,15 @@
--- Advent of Code 2025, day 1: a dial numbered 0 to 99 starts at 50 and is
--- turned left or right. Part 1 counts the turns that end on 0; part 2 counts
--- every click that lands on 0, including those in the middle of a turn.
+-- Day 1, part 2 proved correct: the arithmetic count of the clicks that land on
+-- 0 agrees with turning the dial one click at a time, for a dial of any size.
+-- Kept apart from the program, so `stitchwort run Aoc.Day01.main` doesn't
+-- check it.
 --
---   $ cd aoc && stitchwort run Aoc.Day01.main < inputs/day01.txt
---
--- The puzzle input is not in git (aoc/inputs/ is ignored).
---
--- The dial's size is a parameter, `highest` being its largest number (99 in
--- the puzzle). The proofs below are about any dial; besides being more
--- general, that keeps them fast to check (see the comment before
--- `rightCases`).
+-- The lemmas about the dial are for a dial of any size, `Succ highest`; with
+-- the literal 100, `x % 100` unfolds to `x - 100 * (x / 100)` and `100 * q`
+-- to a hundred additions, so every comparison of such types took seconds.
 
-namespace Aoc.Day01
+namespace Aoc.Day01.Proofs
+import Aoc.Day01 (..)
 import Std (Eq)
-
-def main(): {IO} () :=
-  let turns := parseTurns (IO.readAllLines())
-  IO.print "Part 1: ${solvePart1 turns}"
-  IO.print "Part 2: ${solvePart2 turns}"
-
-def parseTurns (lines: List Text): List Turn := lines.mapMaybe Turn.parse
-
-def solvePart1 (turns: List Turn): Nat := zerosLandedOn dial turns
-
-def solvePart2 (turns: List Turn): Nat := zerosPassed dial turns
-
--- The puzzle's dial, at 50.
-def dial: Dial 99 := { position = 50, inRange = rfl }
-
-def example: List Text := ["L68", "L30", "R48", "L5", "R60", "L55", "L1", "L99", "R14", "L82"]
-
-test "example" := (solvePart1 (parseTurns example), solvePart2 (parseTurns example)) == (3, 6)
-
--- Part 1: the positions after each turn that are 0.
-def zerosLandedOn (start: Dial highest) (turns: List Turn): Nat :=
-  turns
-    |> .scanLeft Dial.move start
-    |> .drop 1
-    |> .count Dial.isZero
-
--- Part 2: for each turn, the clicks onto 0 from where the dial was before it.
-def zerosPassed (start: Dial highest) (turns: List Turn): Nat :=
-  turns
-    |> .scanLeft Dial.move start
-    |> .zipWith Dial.zerosDuring turns
-    |> .sum
 
 -- The specification of part 2: turn the dial one click at a time, and count
 -- the positions after each click that are 0.
@@ -96,33 +61,6 @@ theorem zerosPassedCorrect (start: Dial highest) (turns: List Turn): zerosPassed
 theorem part2Puzzle (turns: List Turn): solvePart2 turns = zerosPassedSpec dial turns :=
   zerosPassedCorrect dial turns
 
-type Turn =
-  | Left (distance: Nat)
-  | Right (distance: Nat)
-
--- "L68" is `Left 68`.
-def Turn.parse (t: Text): Maybe Turn :=
-  def turnOf (c: Char) (n: Nat): Maybe Turn :=
-    match c with
-      | 'L' => Just (Left n)
-      | 'R' => Just (Right n)
-      | _   => Nothing
-  t.uncons.andThen (\(c, rest) => rest.toNat.andThen (turnOf c))
-
-def after (t: Text): Maybe Nat := (Turn.parse t).map (\turn => (dial.move turn).position)
-
-test "parse" := after "L68" == Just 82
-test "parse right" := after "R5" == Just 55
-test "parse junk" := after "X5" == Nothing
-
--- A turn, one click at a time: `Left 3` is three `Left 1`s.
-def Turn.clicks: Turn -> List Turn
-  | Left n  => List.replicate n (Left 1)
-  | Right n => List.replicate n (Right 1)
-
--- A dial numbered 0 to `highest`, at `position`.
-type Dial (highest: Nat) = { position: Nat, inRange: position <= highest }
-
 -- Two dials at the same position are the same.
 theorem dialExt: (d: Dial highest) -> (e: Dial highest) -> d.position = e.position -> d = e
   | { position = a, inRange = h1 }, { position = b, inRange = h2 }, e => dialExtAt highest a h1 b e h2
@@ -132,18 +70,6 @@ theorem dialExtAt (highest: Nat) (a: Nat) (h1: a <= highest) (b: Nat) (e: a = b)
   J (\y e2 => (h3: y <= highest) -> ({ position = a, inRange = h1 }: Dial highest) = { position = y, inRange = h3 })
     (\h3 => J (\h e3 => ({ position = a, inRange = h1 }: Dial highest) = { position = a, inRange = h }) rfl (Bool.uniqueEq (Nat.leq a highest) True h1 h3))
     e
-
--- Any integer, wrapped onto the dial.
-def Dial.fromInt (highest: Nat) (x: Int): Dial highest :=
-  { position = Int.modNat x (Succ highest), inRange = Int.modNatLt x (Succ highest) }
-
--- The number of positions on the dial.
-def Dial.size (d: Dial highest): Nat := Succ highest
-
--- Where a turn leaves the dial.
-def Dial.move (d: Dial highest): Turn -> Dial highest
-  | Left n  => Dial.fromInt highest (d.position.toInt - n.toInt)
-  | Right n => Dial.fromInt highest (d.position.toInt + n.toInt)
 
 -- The lemmas about the dial are for a dial of any size, `Succ highest`: with
 -- the literal 100, `x % 100` unfolds to `x - 100 * (x / 100)`, and `100 * q`
@@ -172,50 +98,33 @@ theorem rightAt [highest: Nat] (d: Dial highest): (n: Nat) ->
 -- Where an integer lands on a dial numbered 0 to `highest`. Proofs only: it
 -- keeps `Int.modNat` folded, which the checker would otherwise unfold in the
 -- lemmas below.
-def Dial.place (highest: Nat) (x: Int): Nat := Int.modNat x (Succ highest)
+def place (highest: Nat) (x: Int): Nat := Int.modNat x (Succ highest)
 
 -- One click left: from 0 to `highest`, otherwise down by one.
-theorem leftZero (highest: Nat): Dial.place highest (Int.subNatNat 0 1) = highest := Int.modNatNegOne highest
+theorem leftZero (highest: Nat): place highest (Int.subNatNat 0 1) = highest := Int.modNatNegOne highest
 
-theorem leftOne (highest: Nat) (m: Nat) (h: Succ m <= highest): Dial.place highest (Int.subNatNat (Succ m) 1) = m :=
-  calc Dial.place highest (Int.subNatNat (Succ m) 1)
-    _ = Dial.place highest (OfNat m) := Eq.cong (\x => Dial.place highest x) (Eq.trans (Int.subNatNatSucc m 0) (Int.subNatNatZeroRight m))
+theorem leftOne (highest: Nat) (m: Nat) (h: Succ m <= highest): place highest (Int.subNatNat (Succ m) 1) = m :=
+  calc place highest (Int.subNatNat (Succ m) 1)
+    _ = place highest (OfNat m) := Eq.cong (\x => place highest x) (Eq.trans (Int.subNatNatSucc m 0) (Int.subNatNatZeroRight m))
     _ = m := Nat.modSmall m (Succ highest) (Nat.leTrans m (Succ m) highest (Nat.leSucc m) h)
 
 theorem stepLeftAt (highest: Nat): (a: Nat) -> a <= highest -> (n: Nat) ->
-    Dial.place highest (Nat.toInt (Dial.place highest (Int.subNatNat a 1)) - Nat.toInt n)
-      = Dial.place highest (Int.subNatNat a (Succ n))
+    place highest (Nat.toInt (place highest (Int.subNatNat a 1)) - Nat.toInt n)
+      = place highest (Int.subNatNat a (Succ n))
   | Zero,   h, n =>
-    calc Dial.place highest (Nat.toInt (Dial.place highest (Int.subNatNat 0 1)) - Nat.toInt n)
-      _ = Dial.place highest (Nat.toInt highest - Nat.toInt n)  := rewrite leftZero highest
-      _ = Dial.place highest (Int.subNatNat highest n)          := rewrite Int.subOfNats highest n
-      _ = Dial.place highest (Int.subNatNat 0 (Succ n) + Nat.toInt (Succ highest))
+    calc place highest (Nat.toInt (place highest (Int.subNatNat 0 1)) - Nat.toInt n)
+      _ = place highest (Nat.toInt highest - Nat.toInt n)  := rewrite leftZero highest
+      _ = place highest (Int.subNatNat highest n)          := rewrite Int.subOfNats highest n
+      _ = place highest (Int.subNatNat 0 (Succ n) + Nat.toInt (Succ highest))
           := rewrite <- Eq.trans (Int.subNatNatAddOfNat (Succ highest) 0 (Succ n)) (Int.subNatNatSucc highest n)
-      _ = Dial.place highest (Int.subNatNat 0 (Succ n))         := Int.modNatAddSize (Int.subNatNat 0 (Succ n)) (Succ highest)
+      _ = place highest (Int.subNatNat 0 (Succ n))         := Int.modNatAddSize (Int.subNatNat 0 (Succ n)) (Succ highest)
   | Succ m, h, n =>
     rewrite leftOne highest m h, Int.subOfNats m n, Int.subNatNatSucc m n
 
 theorem leftAt [highest: Nat] (d: Dial highest): (n: Nat) ->
-    (List.foldLeft Dial.move d (List.replicate n (Left 1))).position = Dial.place highest (Nat.toInt d.position - Nat.toInt n)
+    (List.foldLeft Dial.move d (List.replicate n (Left 1))).position = place highest (Nat.toInt d.position - Nat.toInt n)
   | Zero   => rewrite Nat.addZero d.position, Nat.modSmall d.position (Succ highest) d.inRange
   | Succ n => Eq.trans (leftAt (d.move (Left 1)) n) (stepLeftAt highest d.position d.inRange n)
-
-def Dial.isZero (d: Dial highest): Bool := d.position == 0
-
--- How many clicks of a turn land on 0. Going right from `d`, the dial is at
--- 0 after each click that brings `d + k` to a multiple of the dial's size.
--- Going left is the mirror image: 0 is `(size - d) % size` clicks away.
-def Dial.zerosDuring (d: Dial highest): Turn -> Nat
-  | Right n => (d.position + n) / d.size
-  | Left n  => ((d.size - d.position) % d.size + n) / d.size
-
-def zerosFrom (x: Int) (t: Turn): Nat := (Dial.fromInt 99 x).zerosDuring t
-
-test "left past zero" := zerosFrom 10 (Left 40) == 1
-test "left onto zero" := zerosFrom 20 (Left 20) == 1
-test "right onto zero" := zerosFrom 0 (Right 100) == 1
-test "left from zero" := zerosFrom 0 (Left 42) == 0
-test "left a full turn from zero" := zerosFrom 0 (Left 200) == 2
 
 theorem stepRight (d: Nat) [auto ok: d != 0] (a: Nat) (h: a < d) (n: Nat):
     Bool.toNat ((a + 1) % d == 0) + ((a + 1) % d + n) / d = (a + Succ n) / d :=
@@ -265,8 +174,8 @@ theorem stepLeftTop: (highest: Nat) -> (n: Nat) ->
       _ = ((Succ (Succ t) - 0) % Succ (Succ t) + Succ n) / Succ (Succ t) := rewrite Nat.modSelf (Succ (Succ t))
 
 theorem stepLeft (highest: Nat): (a: Nat) -> a <= highest -> (n: Nat) ->
-    Bool.toNat (Dial.place highest (Int.subNatNat a 1) == 0)
-        + ((Succ highest - Dial.place highest (Int.subNatNat a 1)) % Succ highest + n) / Succ highest
+    Bool.toNat (place highest (Int.subNatNat a 1) == 0)
+        + ((Succ highest - place highest (Int.subNatNat a 1)) % Succ highest + n) / Succ highest
       = ((Succ highest - a) % Succ highest + Succ n) / Succ highest
   | Zero,   h, n =>
     rewrite leftZero highest in stepLeftTop highest n
