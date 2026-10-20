@@ -2750,7 +2750,7 @@
       "title": "Indexed data types (inductive families) in the kernel (D133)",
       "status": "doing",
       "agent": "Opus",
-      "where": "stages 1-2 merged df9636f (gate passed); stages 3-4 running",
+      "where": "stages 1-4 merged (e9956e4, gate passed); stage 5 running (Sonnet)",
       "labels": [
         "kernel",
         "design"
@@ -2763,9 +2763,9 @@
     {
       "id": 179,
       "title": "Vec in the standard library (after indexed families)",
-      "status": "backlog",
-      "agent": "",
-      "where": "docs/proposals/vec.md (draft 1)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "Vec lane running (worktree agent-a54a3ed51e3efe7da)",
       "labels": [
         "stdlib",
         "design"
