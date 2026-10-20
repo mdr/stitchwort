@@ -15,9 +15,10 @@
 -- trailing ones), turned into columns, and split into blocks at the blank
 -- columns. Each block gives a problem its operator and both readings.
 --
--- That the grid is padded rectangular and the blocks are the runs of columns
--- that aren't blank is proved in `Aoc.Day06.Proofs` (Proofs/Grid.sw), which
--- `run` does not check.
+-- Both answers are proved right for every input, against the puzzle's own
+-- wording read cell by cell, in `Aoc.Day06.Proofs` (Proofs/Spec.sw,
+-- Proofs/Correct.sw; the grid's shape in Proofs/Grid.sw), which `run` does
+-- not check.
 
 namespace Aoc.Day06
 

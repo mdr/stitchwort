@@ -1,8 +1,24 @@
+-- Day 6, proved end to end: for every input, both printed answers are the
+-- puzzle's grand totals as Proofs/Spec.sw states them (`part1Correct`,
+-- `part2Correct`, at the bottom). The argument:
+--   1. The program's columns are the worksheet's columns cell by cell
+--      (`columnsAre`: padding then transposing reads line l, column c as
+--      `charAt l c`).
+--   2. Splitting the columns at the blank ones gives exactly the problems the
+--      spec finds by their column numbers (`blocksTotal`, from the library's
+--      `List.splitByRuns`; column `gridWidth` is blank, which closes the last).
+--   3. Each block, transposed again, reads the same numbers and operator as
+--      the spec reads from the cells (`blockRows`, `blockColumns`,
+--      `blockOperator`); part 2's right-to-left order doesn't change a sum or
+--      a product (`evaluateReverse`).
+-- No precondition: the spec says what happens on any input.
+
 namespace Aoc.Day06.Proofs
 import Aoc.Day06 (..)
 import Std (Eq)
 
-theorem isProblemRun (lines: List Text) (lo: Nat) (hi: Nat): isProblem lines lo hi = PNat.isRun (c => blank lines c) lo hi := rfl
+-- The spec's problem test is the library's maximal run of non-blank columns.
+theorem isProblemRun (lines: List Text) (lo: Nat) (hi: Nat): isProblem lines lo hi = Nat.isRun (c => blank lines c) lo hi := rfl
 
 -- Padded to width w, each line is its first w columns.
 theorem paddedCells (w: Nat): (lines: List Text) -> Fits w lines ->
@@ -12,11 +28,11 @@ theorem paddedCells (w: Nat): (lines: List Text) -> Fits w lines ->
     calc Cons (List.padRight w ' ' (Text.toList l)) (List.map (line => List.padRight w ' ' (Text.toList line)) rest)
       _ = Cons (List.map (c => List.getOr ' ' c (List.padRight w ' ' (Text.toList l))) (List.range (List.length (List.padRight w ' ' (Text.toList l)))))
                (List.map (line => List.map (charAt line) (List.range w)) rest)
-          := rewrite PList.mapGetOr ' ' (List.padRight w ' ' (Text.toList l)), paddedCells w rest fits
+          := rewrite List.mapGetOr ' ' (List.padRight w ' ' (Text.toList l)), paddedCells w rest fits
       _ = Cons (List.map (charAt l) (List.range w)) (List.map (line => List.map (charAt line) (List.range w)) rest)
           := rewrite List.padRightLength w ' ' (Text.toList l) fit,
                List.mapCongr (c => List.getOr ' ' c (List.padRight w ' ' (Text.toList l))) (charAt l)
-                 (c => PList.getOrPadRight ' ' w c (Text.toList l)) (List.range w)
+                 (c => List.getOrPadRight ' ' w c (Text.toList l)) (List.range w)
 
 -- The program's columns are the worksheet's columns, cell by cell.
 theorem columnsAre: (lines: List Text) ->
@@ -27,12 +43,12 @@ theorem columnsAre: (lines: List Text) ->
       _ = List.transpose (List.map (line => List.map (charAt line) (List.range (gridWidth (Cons l rest)))) (Cons l rest))
           := Eq.cong List.transpose (paddedCells (gridWidth (Cons l rest)) (Cons l rest) (foldWidenFits 0 (Cons l rest)))
       _ = List.map (c => List.map (line => charAt line c) (Cons l rest)) (List.range (gridWidth (Cons l rest)))
-          := PList.transposeGrid charAt l rest (List.range (gridWidth (Cons l rest)))
+          := List.transposeGrid charAt l rest (List.range (gridWidth (Cons l rest)))
 
 -- Past the widest line, every column is blank.
 theorem blankPast (w: Nat): (lines: List Text) -> Fits w lines -> blank lines w = True
   | Nil,         fits          => rfl
-  | Cons l rest, Both fit fits => rewrite PList.getOrPast ' ' w (Text.toList l) fit in blankPast w rest fits
+  | Cons l rest, Both fit fits => rewrite List.getOrPast ' ' w (Text.toList l) fit in blankPast w rest fits
 
 -- One problem's block of columns, as the program reads it, against the
 -- spec's reading of the same cells. `Cons c cs` are the problem's columns.
@@ -41,38 +57,38 @@ theorem blockRows (lines: List Text) (c: Nat) (cs: List Nat):
       = List.map (line => readNumber (List.map (x => charAt line x) (Cons c cs))) (List.init lines) :=
   calc List.map readNumber (List.init (List.transpose (List.map (x => List.map (line => charAt line x) lines) (Cons c cs))))
     _ = List.map readNumber (List.init (List.map (line => List.map (x => charAt line x) (Cons c cs)) lines))
-        := rewrite PList.transposeGrid (x line => charAt line x) c cs lines
+        := rewrite List.transposeGrid (x line => charAt line x) c cs lines
     _ = List.map (line => readNumber (List.map (x => charAt line x) (Cons c cs))) (List.init lines)
-        := rewrite PList.initMap (line => List.map (x => charAt line x) (Cons c cs)) lines,
-             PList.mapMap readNumber (line => List.map (x => charAt line x) (Cons c cs)) (List.init lines)
+        := rewrite List.initMap (line => List.map (x => charAt line x) (Cons c cs)) lines,
+             List.mapMap readNumber (line => List.map (x => charAt line x) (Cons c cs)) (List.init lines)
 
 theorem blockColumns (lines: List Text) (cs: List Nat):
     (parseProblem (List.map (x => List.map (line => charAt line x) lines) cs)).columnNumbers
       = List.map (x => readNumber (List.map (line => charAt line x) (List.init lines))) cs :=
   calc List.map (column => readNumber (List.init column)) (List.map (x => List.map (line => charAt line x) lines) cs)
     _ = List.map (x => readNumber (List.init (List.map (line => charAt line x) lines))) cs
-        := PList.mapMap (column => readNumber (List.init column)) (x => List.map (line => charAt line x) lines) cs
+        := List.mapMap (column => readNumber (List.init column)) (x => List.map (line => charAt line x) lines) cs
     _ = List.map (x => readNumber (List.map (line => charAt line x) (List.init lines))) cs
         := List.mapCongr (x => readNumber (List.init (List.map (line => charAt line x) lines))) (x => readNumber (List.map (line => charAt line x) (List.init lines)))
-             (x => rewrite PList.initMap (line => charAt line x) lines) cs
+             (x => rewrite List.initMap (line => charAt line x) lines) cs
 
 theorem blockOperator (lines: List Text) (cs: List Nat):
     (parseProblem (List.map (x => List.map (line => charAt line x) lines) cs)).operator
       = List.head (List.mapMaybe (x => Maybe.andThen (bottom => Operator.parse (charAt bottom x)) (List.last lines)) cs) :=
   calc List.head (List.mapMaybe (column => Maybe.andThen Operator.parse (List.last column)) (List.map (x => List.map (line => charAt line x) lines) cs))
     _ = List.head (List.mapMaybe (x => Maybe.andThen Operator.parse (List.last (List.map (line => charAt line x) lines))) cs)
-        := rewrite PList.mapMaybeMap (column => Maybe.andThen Operator.parse (List.last column)) (x => List.map (line => charAt line x) lines) cs
+        := rewrite List.mapMaybeMap (column => Maybe.andThen Operator.parse (List.last column)) (x => List.map (line => charAt line x) lines) cs
     _ = List.head (List.mapMaybe (x => Maybe.andThen (bottom => Operator.parse (charAt bottom x)) (List.last lines)) cs)
-        := rewrite PList.mapMaybeCongr (x => Maybe.andThen Operator.parse (List.last (List.map (line => charAt line x) lines)))
+        := rewrite List.mapMaybeCongr (x => Maybe.andThen Operator.parse (List.last (List.map (line => charAt line x) lines)))
                      (x => Maybe.andThen (bottom => Operator.parse (charAt bottom x)) (List.last lines))
-                     (x => rewrite PList.lastMap (line => charAt line x) lines, PMaybe.andThenMap Operator.parse (line => charAt line x) (List.last lines))
+                     (x => rewrite List.lastMap (line => charAt line x) lines, Maybe.andThenMap Operator.parse (line => charAt line x) (List.last lines))
                      cs
 
 -- Adding and multiplying don't mind the order.
 theorem evaluateReverse: (op: Maybe Operator) -> (xs: List Nat) -> evaluate op (List.reverse xs) = evaluate op xs
   | Nothing,       xs => rfl
-  | Just Add,      xs => PList.sumReverse xs
-  | Just Multiply, xs => PList.productReverse xs
+  | Just Add,      xs => List.sumReverse xs
+  | Just Multiply, xs => List.productReverse xs
 
 -- A problem has at least one column.
 theorem problemWide (lines: List Text) (lo: Nat) (hi: Nat) (h: isProblem lines lo hi = True): lo < hi :=
@@ -109,7 +125,7 @@ theorem answer2 (lines: List Text) (lo: Nat) (hi: Nat):
   | True,  h =>
     rewrite blockOperator lines (List.rangeFrom (hi - lo) lo),
       blockColumns lines (List.rangeFrom (hi - lo) lo),
-      PList.mapReverse (x => readNumber (List.map (line => charAt line x) (List.init lines))) (List.rangeFrom (hi - lo) lo),
+      List.mapReverse (x => readNumber (List.map (line => charAt line x) (List.init lines))) (List.rangeFrom (hi - lo) lo),
       evaluateReverse (List.head (List.mapMaybe (x => Maybe.andThen (bottom => Operator.parse (charAt bottom x)) (List.last lines)) (List.rangeFrom (hi - lo) lo)))
         (List.map (x => readNumber (List.map (line => charAt line x) (List.init lines))) (List.rangeFrom (hi - lo) lo))
 
@@ -120,7 +136,7 @@ theorem blocksTotal (lines: List Text) (answer: List (List Char) -> Nat):
       = List.sumBy (lo => List.sumBy (hi => Nat.keepIf (answer (blockOf lines lo hi)) (isProblem lines lo hi)) (List.range (gridWidth lines + 1)))
           (List.range (gridWidth lines)) :=
   rewrite Nat.addOne (gridWidth lines), columnsAre lines in
-    PList.splitByRuns isBlank (c => List.map (line => charAt line c) lines) (c => blank lines c) (c => rfl) answer (gridWidth lines)
+    List.splitByRuns isBlank (c => List.map (line => charAt line c) lines) (c => blank lines c) (c => rfl) answer (gridWidth lines)
       (blankPast (gridWidth lines) lines (foldWidenFits 0 lines))
 
 

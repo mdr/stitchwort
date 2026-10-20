@@ -82,7 +82,7 @@ theorem spacesNoDigits: (k: Nat) -> List.mapMaybe Char.digitValue (List.replicat
 
 theorem readNumberWritten (n: Nat) (before: Nat) (after: Nat):
     readNumber (List.append (List.replicate before ' ') (List.append (Text.toList (Nat.toText n)) (List.replicate after ' '))) = n :=
-  rewrite PList.mapMaybeAppend Char.digitValue (List.replicate before ' ') (List.append (Text.toList (Nat.toText n)) (List.replicate after ' ')),
-    PList.mapMaybeAppend Char.digitValue (Text.toList (Nat.toText n)) (List.replicate after ' '),
-    spacesNoDigits before, spacesNoDigits after, PChar.toTextDigits n, List.appendNil (Nat.digits n) in
+  rewrite List.mapMaybeAppend Char.digitValue (List.replicate before ' ') (List.append (Text.toList (Nat.toText n)) (List.replicate after ' ')),
+    List.mapMaybeAppend Char.digitValue (Text.toList (Nat.toText n)) (List.replicate after ' '),
+    spacesNoDigits before, spacesNoDigits after, Char.toTextDigits n, List.appendNil (Nat.digits n) in
       Nat.fromDigitsDigits n

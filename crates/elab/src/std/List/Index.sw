@@ -59,3 +59,34 @@ theorem List.getOrConcatReplicate (d: a) (b: List a) (k: Nat) [auto hk: k != 0] 
           _ = List.getOr d (i % k) b
               := Eq.cong (y => List.getOr d y b) (Eq.trans (Eq.sym (Nat.addModSelf k (i - k))) (Eq.cong (y => y % k) (Nat.addSubCancel k i t)))
 
+
+-- `getOr` past the end and after padding, and a list read off by index.
+theorem List.getOrReplicate (x: a): (i: Nat) -> (n: Nat) -> List.getOr x i (List.replicate n x) = x
+  | i,      Zero   => rfl
+  | Zero,   Succ n => rfl
+  | Succ i, Succ n => List.getOrReplicate x i n
+
+-- Copies of the default on the end change no index.
+theorem List.getOrAppendReplicate (x: a) (k: Nat): (i: Nat) -> (xs: List a) -> List.getOr x i (List.append xs (List.replicate k x)) = List.getOr x i xs
+  | i,      Nil       => List.getOrReplicate x i k
+  | Zero,   Cons y ys => rfl
+  | Succ i, Cons y ys => List.getOrAppendReplicate x k i ys
+
+theorem List.getOrPadRight (x: a) (n: Nat) (i: Nat) (xs: List a): List.getOr x i (List.padRight n x xs) = List.getOr x i xs :=
+  List.getOrAppendReplicate x (n - List.length xs) i xs
+
+-- Past the end, the default.
+theorem List.getOrPast (d: a): (i: Nat) -> (xs: List a) -> List.length xs <= i -> List.getOr d i xs = d
+  | i,      Nil,       h => rfl
+  | Zero,   Cons x xs, h => Void.exfalso (Bool.falseNotTrue h)
+  | Succ i, Cons x xs, h => List.getOrPast d i xs h
+
+-- A list is its elements read off by index.
+theorem List.mapGetOr (d: a): (xs: List a) -> List.map (i => List.getOr d i xs) (List.range (List.length xs)) = xs
+  | Nil       => rfl
+  | Cons x xs =>
+    calc List.map (i => List.getOr d i (Cons x xs)) (List.rangeFrom (Succ (List.length xs)) 0)
+      _ = Cons x (List.map (i => List.getOr d i (Cons x xs)) (List.rangeFrom (List.length xs) 1))
+      _ = Cons x (List.map (i => List.getOr d i xs) (List.rangeFrom (List.length xs) 0))
+          := rewrite List.mapRangeShift (i => List.getOr d i (Cons x xs)) (List.length xs) 0
+      _ = Cons x xs := rewrite List.mapGetOr d xs
