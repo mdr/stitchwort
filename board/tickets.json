@@ -1351,7 +1351,7 @@
     {
       "id": 90,
       "title": "Consider lambda syntax",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "worktree",
       "labels": [
@@ -2379,13 +2379,13 @@
     {
       "id": 155,
       "title": "Contradictory hint: E-CANNOT-INFER suggests `\\\\(p: Person) -> p.ids`, which is E-PARSE",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "diagnostics"
       ],
-      "body": "Folded into SW-19 (20 Oct 2026, Matt: allow type annotations on lambda parameters). Once \\(p: Person) => … works, the E-CANNOT-INFER note's suggestion is valid code. A DeepSeek change to suggest the full name instead was made in a scratch clone and deliberately not merged.",
+      "body": "Obsolete: the lambda switch (SW-90) removed `\\`, so the contradictory hint no longer exists. Closed 20 Oct 2026.",
       "created": "2026-10-20",
       "updated": "2026-10-20",
       "commits": []
@@ -2690,7 +2690,7 @@
     {
       "id": 174,
       "title": "AoC: test every day's answers on the real inputs (D119)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "scratch clone funlang-20261020-200522; crates/cli/tests/aoc_answers.rs, dev/t aoc",
       "labels": [
