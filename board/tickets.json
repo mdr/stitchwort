@@ -2537,8 +2537,8 @@
       "id": 165,
       "title": "Std library stage 2: drop the 'qualifiers always available' rule (D50/D55); import Std (X) for any sub-namespace",
       "status": "doing",
-      "agent": "DeepSeek",
-      "where": "/Users/matt/scratch/opencode/agent-a5862ccd088e5f3be-20261020-145209",
+      "agent": "Claude",
+      "where": "main",
       "labels": [
         "stdlib",
         "elab"
@@ -2546,7 +2546,12 @@
       "body": "docs/proposals/std-library.md §4.4, D50/D55 (accepted), D85 (20 Oct 2026): compiler change on Sonnet (drop namespaces.md §4.6 'Qualifiers are always available'; allow import Std (Eq) for non-type sub-namespaces; hint naming the import; update namespaces.md §4.5/§4.6 incl. the stale default-set table: And/Or/Int are root declarations). Sonnet stops after the compiler part with the exact list of files needing imports; DeepSeek then adds the imports.",
       "created": "2026-10-20",
       "updated": "2026-10-20",
-      "commits": []
+      "commits": [
+        "f44b8a1",
+        "dd705fe",
+        "5926d98",
+        "6bedc9a"
+      ]
     },
     {
       "id": 166,
