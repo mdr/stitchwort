@@ -2536,7 +2536,7 @@
     {
       "id": 165,
       "title": "Std library stage 2: drop the 'qualifiers always available' rule (D50/D55); import Std (X) for any sub-namespace",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "main",
       "labels": [
