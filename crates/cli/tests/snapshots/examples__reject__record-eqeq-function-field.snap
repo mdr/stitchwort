@@ -11,5 +11,5 @@ expression: output
    │ 
    │ Note 1: supply a proof by name, or write a decision procedure: a function returning `Decidable …`
    │ 
-   │ Note 2: `==` isn't derived for `Handler`: its field `run` has type `Nat -> Nat`, which has no decision procedure for `=` (when `Handler` was checked)
+   │ Note 2: `==` isn't derived for `Handler`: its field `run` is a function, and functions can't be compared
 ───╯
