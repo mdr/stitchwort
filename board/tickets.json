@@ -1351,14 +1351,14 @@
     {
       "id": 90,
       "title": "Consider lambda syntax",
-      "status": "review",
-      "agent": "Matt",
-      "where": "docs/proposals/lambda-syntax.md (draft 2)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree",
       "labels": [
         "syntax",
         "design"
       ],
-      "body": "Matt (19 Oct): reconsider how anonymous functions are written. Today: `\\x y => x + y`. D89 (20 Oct 2026): after SW-19 lands, write a design note on dropping the backslash for Scala/TypeScript-style `x => e` and `(x: T) => e` (Matt prefers mainstream Scala/TS surface style): parsing ambiguities (`(x: T) => e` vs a parenthesised ascription/expression, `x => e` vs arms), multi-parameter and pattern lambdas, migration of every lambda in the repo, precedents. Design-review gate: research, note, stop for Matt/reviewer.",
+      "body": "Design: docs/proposals/lambda-syntax.md draft 3 (reviewed; D92, D95-D100, D104 accepted by Matt 20 Oct 2026). Build per §11: drop the backslash; parser rule (§5.1), printer, W-LAMBDA-SHADOW, lexer-based migration tool with syntax-tree + hash equivalence as acceptance, remove \\ from the lexer, docs box, round-trip tests. D91 implicit lambda params is a separate follow-up.",
       "created": "2026-10-19",
       "updated": "2026-10-20",
       "commits": []
