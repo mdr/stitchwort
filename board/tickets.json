@@ -2375,13 +2375,13 @@
     {
       "id": 155,
       "title": "Contradictory hint: E-CANNOT-INFER suggests `\\\\(p: Person) -> p.ids`, which is E-PARSE",
-      "status": "doing",
-      "agent": "DeepSeek",
-      "where": "/Users/matt/scratch/opencode/funlang-20261020-183057",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
       "labels": [
         "diagnostics"
       ],
-      "body": "From SW-147: for `\\r => ... r.ids` the E-CANNOT-INFER hint suggests annotating the lambda parameter, e.g. `\\(p: Person) -> p.ids`; writing that gives E-PARSE 'a lambda's parameter can't have a type here'. Either allow annotated lambda parameters or change the hint (e.g. to Range.ids r / a type ascription). Related: SW-138.",
+      "body": "Folded into SW-19 (20 Oct 2026, Matt: allow type annotations on lambda parameters). Once \\(p: Person) => … works, the E-CANNOT-INFER note's suggestion is valid code. A DeepSeek change to suggest the full name instead was made in a scratch clone and deliberately not merged.",
       "created": "2026-10-20",
       "updated": "2026-10-20",
       "commits": []
