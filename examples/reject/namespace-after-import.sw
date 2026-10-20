@@ -1,5 +1,5 @@
--- expect-error: E-PARSE
--- The namespace line goes before the imports.
+-- expect-error: E-NAMESPACE-NOT-FIRST
+-- The namespace line must come before the imports.
 import List (length)
 namespace Demo
 

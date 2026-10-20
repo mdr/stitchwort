@@ -81,7 +81,7 @@ The rules:
 
 - **Exactly one namespace line per file**, and it must come first; only
   comments and blank lines may come before it. A namespace line after an
-  import or a declaration means the file has none: `E-NO-NAMESPACE`. A
+  import or a declaration is `E-NAMESPACE-NOT-FIRST`, pointing at it. A
   second namespace line is `E-PARSE` with a note.
 - **Several files may share a namespace.** All files that say
   `namespace Day05` together make one namespace.
@@ -281,6 +281,7 @@ the working directory. `--cache-dir` overrides both.
 |---|---|
 | `E-PROJECT-CONFIG` | `stitchwort.yaml` is invalid: unknown key, bad value, missing or outside source folder, or a nested project. |
 | `E-NO-NAMESPACE` | A file in a project has no namespace line. |
+| `E-NAMESPACE-NOT-FIRST` | A namespace line comes after an import or a declaration. |
 | `E-FILE-MODE` | A file run, checked or tested on its own uses something outside `Std`. |
 | `E-NAMESPACE-CYCLE` | Namespaces depend on each other in a cycle. |
 | `E-NAMESPACE-RESERVED` | A namespace's first component is a library namespace or `Main`. |

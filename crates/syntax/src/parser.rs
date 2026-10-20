@@ -61,13 +61,15 @@ pub fn parse_module_within(
                 continue;
             }
             if !imports.is_empty() || !decls.is_empty() {
-                errors.push(
-                    error(
-                        group[0].span,
-                        "the namespace line goes at the top of the file",
-                    )
-                    .with_note("move it before the imports and declarations"),
-                );
+                let name = parser.namespace().ok().map(|decl| decl.path.text);
+                let message = "the namespace line must come first, before imports and declarations";
+                let mut diagnostic = Diagnostic::error("E-NAMESPACE-NOT-FIRST", message)
+                    .with_label(group[0].span, message);
+                if let Some(name) = name {
+                    diagnostic = diagnostic
+                        .with_note(format!("move `namespace {name}` to the top of the file"));
+                }
+                errors.push(diagnostic);
                 continue;
             }
             match parser
