@@ -1840,14 +1840,14 @@
       "id": 121,
       "title": "A record literal in a result type needs parentheses",
       "status": "backlog",
-      "agent": "",
-      "where": "",
+      "agent": "Claude",
+      "where": "main",
       "labels": [
         "syntax"
       ],
       "body": "After `->`, `{` starts an ability row, so `def f: Nat -> { name: Nat }` is E-PARSE ('expected `}`, but found `:`'). Look ahead for `ident :` to tell a record type from a row, or improve the message with a note. Done: one of those, with an example.",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-20",
       "commits": []
     },
     {
