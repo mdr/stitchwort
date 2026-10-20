@@ -369,7 +369,11 @@ fn non_default_library_namespaces_need_an_import() {
         ["E-IMPORT-UNKNOWN"]
     );
     assert!(codes("import Std.Effect (Comp)\n\ndef x : Nat := 0\n").is_empty());
-    assert!(codes("import Std (Effect)\n\ndef x : Nat := Effect.runPure (Done 1)\n").is_empty());
+    // An imported namespace is the library's, so it can't be added to.
+    assert_eq!(
+        codes("import Std (Effect)\n\ndef Effect.size : Nat := 0\n"),
+        ["E-STD-NAMESPACE"]
+    );
 }
 
 /// Without the import, a program's own `Eq.foo` is its own namespace, not
