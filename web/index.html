@@ -209,6 +209,38 @@
   .hl-comment { color: var(--hl-comment); }
   .hl-operator { color: var(--hl-operator); }
 
+  /* A project's files: a row of tabs that scrolls inside itself (so the page
+     never scrolls sideways), and the controls for the open file. */
+  .filebar { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0; }
+  .filetabs { flex: 1 1 100%; display: flex; gap: 4px; overflow-x: auto; min-width: 0; padding-bottom: 2px; }
+  .filetabs button {
+    flex: none;
+    white-space: nowrap;
+    background: transparent;
+    border-color: transparent;
+    color: var(--muted);
+    padding: 4px 9px;
+    font-family: var(--mono);
+    font-variation-settings: "MONO" 1, "CASL" 0;
+    font-size: 12.5px;
+    font-weight: 500;
+  }
+  .filetabs button[aria-selected="true"] { background: var(--petal); border-color: var(--line); color: var(--ink); }
+  .filetabs button[data-errors] { color: var(--bad); }
+  .filetabs .mark { margin-left: 5px; font-weight: 700; }
+  .filetabs .edited { color: var(--leaf); }
+  .filebar select { font-size: 0.82rem; padding: 3px 8px; max-width: 100%; }
+  .filebar .hint { font-size: 0.8rem; font-weight: 500; padding: 3px 8px; }
+  .banner {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px;
+    font-size: 0.85rem; padding: 8px 12px; border-radius: 8px;
+    background: var(--warn-soft); color: var(--warn);
+  }
+  .banner button { font-size: 0.8rem; padding: 3px 8px; }
+  .errorfile { display: flex; flex-direction: column; gap: 4px; }
+  button.jump { align-self: flex-start; font-family: var(--mono); font-size: 0.78rem; font-weight: 500; padding: 2px 8px; color: var(--bad); }
+  h3.testgroup { margin: 0; font-size: 0.82rem; font-family: var(--mono); font-weight: 600; color: var(--muted); }
+
   .status {
     display: inline-flex;
     align-items: center;
@@ -363,6 +395,16 @@
       <button id="warning-count" class="status warn" type="button" title="Show the warnings" hidden></button>
       <button id="run" class="primary run" type="button" title="Run main (Ctrl+Enter)">Run ▸</button>
     </div>
+    <div id="filebar" class="filebar" hidden>
+      <div id="filetabs" class="filetabs" role="tablist" aria-label="Files of this day"></div>
+      <select id="other-files" aria-label="Other files of the project"></select>
+      <button id="reset-file" class="hint" type="button" title="Go back to the bundled text of this file">Reset this file</button>
+      <button id="reset-project" class="hint" type="button" title="Go back to the bundled text of every file">Reset the project</button>
+      <span id="reset-confirm" class="hint" hidden>Reset every file?
+        <button id="reset-yes" class="hint" type="button">Yes, reset</button>
+        <button id="reset-no" class="hint" type="button">No</button></span>
+    </div>
+    <div id="banner" class="banner" role="status" hidden></div>
     <div class="editor">
       <pre id="highlight" aria-hidden="true"></pre>
       <textarea id="source" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="Stitchwort source"></textarea>
@@ -711,7 +753,16 @@ export def area: Shape -> Nat
         const compiler = await import(`./pkg/stitchwort_web.js${LOAD}`);
         await compiler.default({ module_or_path: await wasm });
         const sink = { write: (text) => onOutput?.(text) };
-        const answer = {
+        // As in playground-worker.js: a request with `paths` is for a project.
+        const answer = request.paths ? {
+          outline: () => compiler.outline_project(request.paths, request.texts),
+          check: () => compiler.check_project(request.paths, request.texts, request.targets),
+          checkall: () => compiler.check_project(request.paths, request.texts, ""),
+          test: () => compiler.test_project(request.paths, request.texts, request.targets, request.known ?? ""),
+          evaluate: () => compiler.evaluate_project(request.paths, request.texts, request.targets, request.expr),
+          extract: () => compiler.extract_project(request.paths, request.texts, request.namespace),
+          run: () => compiler.run_project_streaming(request.paths, request.texts, request.name, request.input, request.maxOutput, sink),
+        }[request.action] : {
           check: () => compiler.check(request.source),
           test: () => compiler.test(request.source, request.known ?? ""),
           evaluate: () => compiler.evaluate(request.source, request.expr),
@@ -764,16 +815,19 @@ export def area: Shape -> Nat
    * switching tabs reuses them instead of checking the same source again.
    */
   const answers = new Map();
-  const REMEMBERED = new Set(["check", "test", "extract"]);
+  const REMEMBERED = new Set(["check", "test", "extract", "outline"]);
+  /** What an answer is for: the source, or a project's files and targets. */
+  const keyOf = (request) => request.paths
+    ? JSON.stringify([request.texts, request.targets, request.namespace]) : request.source;
 
   async function ask(request) {
     const remember = REMEMBERED.has(request.action);
     const hit = remember && answers.get(request.action);
-    if (hit && hit.source === request.source) return hit.out;
+    if (hit && hit.source === keyOf(request)) return hit.out;
     let result = await checker.call(request, CHECK_SECONDS);
     if (fallBack(result)) result = await checker.call(request, CHECK_SECONDS);
     if (result.out) {
-      if (remember) answers.set(request.action, { source: request.source, out: result.out });
+      if (remember) answers.set(request.action, { source: keyOf(request), out: result.out });
       return result.out;
     }
     if (!result.cancelled) {
@@ -795,11 +849,21 @@ export def area: Shape -> Nat
   const runStale = el("p", { className: "hint", hidden: true }, "The source has changed since this run.");
   let ranSource = null;
 
+  const runHint = el("p", { className: "hint" });
+  /** The run panel's explanation, for `main` of the program or of a project's day. */
+  function setRunHint() {
+    const main = project ? project.manifest.days[project.day].main : "main";
+    runButton.title = `Run ${main} (Ctrl+Enter)`;
+    runHint.textContent =
+      `Run calls ${project ? main : "main"} (). Its IO.readLine () gets the lines below, one at a time, then Nothing; ` +
+      "IO.readAll () gets all that's left at once. " +
+      `A run may print up to ${MAX_OUTPUT / 1024} KB and take up to ${RUN_SECONDS} s.` +
+      (project ? " The input starts as the day's example." : "");
+  }
+  setRunHint();
+
   const runPanel = [
-    el("p", { className: "hint" },
-       "Run calls main (). Its IO.readLine () gets the lines below, one at a time, then Nothing; " +
-       "IO.readAll () gets all that's left at once. " +
-       `A run may print up to ${MAX_OUTPUT / 1024} KB and take up to ${RUN_SECONDS} s.`),
+    runHint,
     runInput,
     el("div", { className: "runrow" }, runAgain, stopButton),
     runChecked,
@@ -809,7 +873,7 @@ export def area: Shape -> Nat
 
   async function runMain() {
     selectView("run");
-    const src = source.value;
+    const src = stateKey();
     runButton.disabled = runAgain.disabled = true;
     stopButton.disabled = false;
     // The output shows as it's printed: the worker sends each line, and the
@@ -832,7 +896,8 @@ export def area: Shape -> Nat
       printed += text;
       unshown += text;
     };
-    const request = { action: "run", source: src, input: runInput.value, maxOutput: MAX_OUTPUT };
+    const request = requestFor("run", { input: runInput.value, maxOutput: MAX_OUTPUT,
+                                        name: project?.manifest.days[project.day].main });
     const started = performance.now();
     let result = await runner.call(request, RUN_SECONDS, onOutput);
     if (fallBack(result)) result = await runner.call(request, RUN_SECONDS, onOutput);
@@ -867,9 +932,370 @@ export def area: Shape -> Nat
   runButton.addEventListener("click", runMain);
   runAgain.addEventListener("click", runMain);
   stopButton.addEventListener("click", () => runner.cancel());
-  runInput.addEventListener("input", () => store("stitchwort.input", runInput.value));
+  runInput.addEventListener("input", () => {
+    if (project) store(inputKey(project.manifest.days[project.day].main), runInput.value);
+    else store("stitchwort.input", runInput.value);
+  });
+
+  // ---- Projects (docs/proposals/playground-projects.md) ------------------
+  // A project is a folder of files bundled with the page (pkg/projects/NAME/):
+  // a manifest, its sources, and example inputs. The Example dropdown has a
+  // group with one entry per day; every day opens the same project, so a
+  // saved edit to a shared file shows on every day. While one is open,
+  // `source` shows the open file; the others' texts are in `project.texts`.
+  // The compiler is sent every file each time, with the day's namespaces as
+  // the target.
+
+  const filebar = document.getElementById("filebar");
+  const fileTabs = document.getElementById("filetabs");
+  const otherFiles = document.getElementById("other-files");
+  const resetFile = document.getElementById("reset-file");
+  const resetProject = document.getElementById("reset-project");
+  const resetConfirm = document.getElementById("reset-confirm");
+  const banner = document.getElementById("banner");
+
+  /** The open project: the manifest, the files, and what's open; or null. */
+  let project = null;
+  let manifestPromise = null;
+  let bundlePromise = null;
+
+  const PROJECT_KEYS = "stitchwort.project.aoc.";
+  const fileKey = (path) => `${PROJECT_KEYS}file.${path}`;
+  const inputKey = (main) => `${PROJECT_KEYS}input.${main}`;
+  /** A short hash of a text, to tell which bundled text an edit was made from. */
+  function shortHash(text) {
+    let h = 0x811c9dc5;
+    for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 0x01000193);
+    return (h >>> 0).toString(16);
+  }
+
+  const projectUrl = (path) => new URL(`pkg/projects/aoc/${path}${LOAD}`, import.meta.url);
+
+  /** The manifest, or null if this build has no project. */
+  function fetchManifest() {
+    manifestPromise ??= fetch(projectUrl("manifest.json"))
+      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .catch(() => null);
+    return manifestPromise;
+  }
+
+  /** The project's files, with the saved edits applied. */
+  function fetchProject(manifest) {
+    bundlePromise ??= Promise.all(manifest.files.map((path) =>
+      fetch(projectUrl(path)).then((r) => { if (!r.ok) throw new Error(`${path}: HTTP ${r.status}`); return r.text(); })))
+      .then((texts) => {
+        const bundled = new Map(manifest.files.map((path, i) => [path, texts[i]]));
+        const state = { manifest, bundled, texts: new Map(bundled), stale: new Map(), dropped: [], day: 0, open: "",
+                        extras: new Set(), outlineTabs: null, errors: new Set(), namespaceOf: new Map(), carets: new Map(),
+                        examples: new Map() };
+        for (const path of manifest.files) {
+          let saved = null;
+          try { saved = JSON.parse(stored(fileKey(path))); } catch {}
+          if (!saved || typeof saved.text !== "string") continue;
+          if (saved.text === bundled.get(path)) { forget(fileKey(path)); continue; }
+          state.texts.set(path, saved.text);
+          // The bundled file changed since the edit: keep the edit, and ask.
+          if (saved.from !== shortHash(bundled.get(path))) state.stale.set(path, saved.from);
+        }
+        try {
+          const prefix = `${PROJECT_KEYS}file.`;
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key.startsWith(prefix) && !bundled.has(key.slice(prefix.length))) state.dropped.push(key);
+          }
+          for (const key of state.dropped) forget(key);
+        } catch {}
+        return state;
+      });
+    return bundlePromise;
+  }
+
+  /** What a render or a run is for: the source, or the day with every file's text. */
+  const stateKey = () => project
+    ? JSON.stringify([project.day, project.manifest.files.map((p) => project.texts.get(p))]) : source.value;
+
+  /** A compiler request for the open program or project. */
+  function requestFor(action, extra = {}) {
+    if (!project) return { action, source: source.value, ...extra };
+    const { manifest } = project;
+    return { action, paths: manifest.files, texts: manifest.files.map((p) => project.texts.get(p)),
+             targets: manifest.days[project.day].namespaces.join(","), ...extra };
+  }
+
+  const isEdited = (path) => project.texts.get(path) !== project.bundled.get(path);
+
+  /** A tab's label: the path from the day's folder (or from `Aoc/`, for the shared files). */
+  function tabLabel(path) {
+    const day = project.manifest.days[project.day];
+    const dayFolder = day.open.replace(/[^/]*$/, "");
+    return path.startsWith(dayFolder) ? path.slice(dayFolder.length) : path.replace(/^src\/Aoc\//, "");
+  }
+
+  /** The day's files before the compiler has said which they are. */
+  function initialTabs() {
+    const day = project.manifest.days[project.day];
+    const folder = day.open.replace(/[^/]*$/, "");
+    return [day.open, ...project.manifest.files.filter((p) => p.startsWith(`${folder}Proofs/`))];
+  }
+
+  function tabPaths() {
+    const list = [...(project.outlineTabs ?? initialTabs())];
+    for (const path of [...project.extras, project.open]) if (!list.includes(path)) list.push(path);
+    return list;
+  }
+
+  function renderTabs() {
+    const paths = tabPaths();
+    fileTabs.replaceChildren(...paths.map((path) => {
+      const tab = el("button", { type: "button", role: "tab", title: path }, tabLabel(path));
+      tab.dataset.path = path;
+      tab.setAttribute("aria-selected", String(path === project.open));
+      if (project.errors.has(path)) {
+        tab.dataset.errors = "";
+        tab.append(el("span", { className: "mark", title: "has errors" }, "!"));
+      }
+      if (isEdited(path)) {
+        tab.dataset.edited = "";
+        tab.append(el("span", { className: "mark edited", title: "edited" }, "•"));
+      }
+      tab.addEventListener("click", () => openFile(path));
+      return tab;
+    }));
+    const others = project.manifest.files.filter((p) => !paths.includes(p));
+    otherFiles.replaceChildren(el("option", { value: "" }, "Other files…"),
+      ...others.map((p) => el("option", { value: p }, p.replace(/^src\/Aoc\//, ""))));
+    otherFiles.hidden = others.length === 0;
+    resetFile.disabled = !isEdited(project.open);
+    resetProject.disabled = !project.manifest.files.some(isEdited);
+  }
+
+  function renderBanner() {
+    const parts = [];
+    const { open } = project;
+    if (project.stale.has(open)) {
+      const use = el("button", { type: "button", id: "use-new" }, "Use the new version");
+      const keep = el("button", { type: "button", id: "keep-mine" }, "Keep mine");
+      use.addEventListener("click", () => {
+        project.stale.delete(open);
+        project.texts.set(open, project.bundled.get(open));
+        showFile();
+        refresh();
+      });
+      keep.addEventListener("click", () => {
+        project.stale.delete(open);
+        saveOpenFile();
+        renderBanner();
+      });
+      parts.push(el("span", {}, `${tabLabel(open)} has changed since you edited it.`), use, keep);
+    }
+    if (project.dropped.length) {
+      const ok = el("button", { type: "button" }, "OK");
+      ok.addEventListener("click", () => { project.dropped = []; renderBanner(); });
+      parts.push(el("span", {}, `${project.dropped.length === 1 ? "A saved edit was" : `${project.dropped.length} saved edits were`} dropped: ` +
+                                "the file is no longer in the project."), ok);
+    }
+    banner.replaceChildren(...parts);
+    banner.hidden = parts.length === 0;
+  }
+
+  /** Puts the open file in the editor. */
+  function showFile() {
+    source.value = project.texts.get(project.open);
+    const caret = project.carets.get(project.open);
+    if (caret) {
+      source.setSelectionRange(caret.start, caret.end);
+      source.scrollTop = caret.top;
+      source.scrollLeft = caret.left;
+    }
+    paint();
+    renderTabs();
+    renderBanner();
+  }
+
+  /** Saves the editor's text as the open file's (an edit, if it differs from the bundled). */
+  function saveOpenFile() {
+    const path = project.open;
+    const text = source.value;
+    const bundled = project.bundled.get(path);
+    project.texts.set(path, text);
+    if (text === bundled) {
+      forget(fileKey(path));
+      project.stale.delete(path);
+    } else {
+      store(fileKey(path), JSON.stringify({ text, from: project.stale.get(path) ?? shortHash(bundled) }));
+    }
+    renderTabs();
+  }
+
+  function rememberCaret() {
+    project.carets.set(project.open, { start: source.selectionStart, end: source.selectionEnd,
+                                        top: source.scrollTop, left: source.scrollLeft });
+  }
+
+  function openFile(path) {
+    if (project.open !== path) {
+      rememberCaret();
+      if (!tabPaths().includes(path)) project.extras.add(path);
+      project.open = path;
+      store(`${PROJECT_KEYS}open`, path);
+    }
+    showFile();
+    render();
+  }
+
+  /** Opens a file with the caret at `line`, `column` (counted from 1). */
+  function goTo(path, line, column) {
+    openFile(path);
+    const lines = source.value.split("\n");
+    let offset = 0;
+    for (let i = 0; i < line - 1 && i < lines.length; i++) offset += lines[i].length + 1;
+    offset = Math.min(offset + column - 1, source.value.length);
+    source.focus();
+    source.setSelectionRange(offset, offset);
+    const lineHeight = parseFloat(getComputedStyle(source).lineHeight) || 20;
+    source.scrollTop = Math.max(0, (line - 4) * lineHeight);
+    align();
+  }
+
+  /** Works out the day's tabs from the compiler's outline: the day's program, its proofs, then what they use. */
+  function useOutline(outline) {
+    const day = project.manifest.days[project.day];
+    const byName = new Map(outline.namespaces.map((n) => [n.name, n]));
+    project.namespaceOf = new Map(outline.namespaces.flatMap((n) => n.files.map((f) => [f, n.name])));
+    const own = new Set(day.namespaces);
+    const used = new Set();
+    const visit = (name) => {
+      if (used.has(name) || !byName.has(name)) return;
+      used.add(name);
+      byName.get(name).uses.forEach(visit);
+    };
+    day.namespaces.forEach(visit);
+    const files = (name) => [...(byName.get(name)?.files ?? [])].sort();
+    const shared = [...used].filter((n) => !own.has(n)).flatMap(files).sort();
+    const tabs = [...day.namespaces.flatMap(files), ...shared];
+    if (JSON.stringify(tabs) !== JSON.stringify(project.outlineTabs)) {
+      project.outlineTabs = tabs;
+      renderTabs();
+    }
+  }
+
+  /** Checks from the errors' files which tabs get the red mark. */
+  function markErrors(diagnostics = []) {
+    const files = new Set(diagnostics.filter((d) => d.severity === "error" && d.file).map((d) => d.file));
+    if ([...files].sort().join() !== [...project.errors].sort().join()) {
+      project.errors = files;
+      renderTabs();
+    }
+  }
+
+  /** The errors of a project check, grouped by file, each with a link to its place in the file. */
+  function projectErrorsView(answer) {
+    const groups = new Map();
+    for (const d of answer.diagnostics ?? []) {
+      if (d.severity !== "error") continue;
+      const key = d.file ?? "";
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(d);
+    }
+    if (groups.size === 0) return errorsView(answer.errors, answer.warnings);
+    const views = [];
+    for (const [file, found] of groups) {
+      const group = el("div", { className: "errorfile" });
+      if (file) group.dataset.file = file;
+      for (const d of found) {
+        if (file) {
+          const jump = el("button", { type: "button", className: "jump" }, `${file}:${d.line}:${d.column}`);
+          jump.addEventListener("click", () => goTo(file, d.line, d.column));
+          group.append(jump);
+        }
+        group.append(el("pre", { className: "errors" }, d.text));
+      }
+      views.push(el("h2", {}, "Errors" + (file ? ` in ${tabLabel(file)}` : "")), group);
+    }
+    return [...views, ...warningsView(answer.warnings)];
+  }
+
+  async function loadProject(index, openPath) {
+    const manifest = await fetchManifest();
+    if (!manifest) return loadExample("ex-lists");
+    let state;
+    try {
+      state = await fetchProject(manifest);
+    } catch (e) {
+      setStatus("The project didn’t load", "bad");
+      output.replaceChildren(el("p", {}, `The bundled project couldn’t be fetched: ${e.message}`));
+      return;
+    }
+    if (project) rememberCaret();
+    project = state;
+    const day = manifest.days[Math.min(index, manifest.days.length - 1)];
+    project.day = manifest.days.indexOf(day);
+    project.open = openPath && manifest.files.includes(openPath) ? openPath : day.open;
+    project.extras = new Set();
+    project.outlineTabs = null;
+    project.errors = new Set();
+    picker.value = `aoc:${project.day}`;
+    filebar.hidden = false;
+    store("stitchwort.example", `aoc:${project.day}`);
+    store(`${PROJECT_KEYS}open`, project.open);
+    evalInput = project.day === 1 ? "Aoc.Day02.solvePart1 Aoc.Day02.exampleRanges" : `${day.main.replace(/main$/, "example")}`;
+    let input = stored(inputKey(day.main));
+    if (input === null) {
+      input = "";
+      if (day.input) {
+        try {
+          const r = await fetch(projectUrl(day.input));
+          if (r.ok) input = await r.text();
+        } catch {}
+      }
+    }
+    runInput.value = input;
+    setRunHint();
+    runResult.replaceChildren();
+    ranSource = null;
+    showFile();
+    refresh();
+  }
+
+  /** Adds the project's days to the Example dropdown. */
+  function addProjectGroup(manifest) {
+    if (!manifest) return;
+    const group = el("optgroup", { label: manifest.title });
+    manifest.days.forEach((day, i) => group.append(el("option", { value: `aoc:${i}` }, day.title)));
+    picker.append(group);
+    if (project) picker.value = `aoc:${project.day}`;
+  }
+
+  otherFiles.addEventListener("change", () => {
+    const path = otherFiles.value;
+    otherFiles.value = "";
+    if (path) openFile(path);
+  });
+  resetFile.addEventListener("click", () => {
+    project.stale.delete(project.open);
+    project.texts.set(project.open, project.bundled.get(project.open));
+    showFile();
+    saveOpenFile();
+    refresh();
+  });
+  resetProject.addEventListener("click", () => { resetProject.hidden = true; resetConfirm.hidden = false; });
+  document.getElementById("reset-no").addEventListener("click", () => { resetProject.hidden = false; resetConfirm.hidden = true; });
+  document.getElementById("reset-yes").addEventListener("click", () => {
+    resetProject.hidden = false;
+    resetConfirm.hidden = true;
+    for (const path of project.manifest.files) forget(fileKey(path));
+    project.texts = new Map(project.bundled);
+    project.stale.clear();
+    showFile();
+    refresh();
+  });
 
   async function loadExample(id) {
+    if (id.startsWith("aoc:")) return loadProject(Number(id.slice(4)) || 0);
+    project = null;
+    filebar.hidden = true;
+    banner.hidden = true;
+    setRunHint();
     const ex = document.getElementById(id) || examples[0];
     picker.value = ex.id;
     source.value = ex.textContent.replace(/^\n/, "");

@@ -57,6 +57,16 @@
               ./bench # benchmark counts are checked against the baseline
             ];
           };
+          # What the playground bundles of the AoC project: its sources and
+          # example inputs, listed explicitly (never aoc/inputs/).
+          aocBundle = lib.fileset.toSource {
+            root = ./.;
+            fileset = lib.fileset.unions [
+              ./aoc/stitchwort.yaml
+              (lib.fileset.fileFilter (file: file.hasExt "sw") ./aoc/src)
+              (lib.fileset.fileFilter (file: file.hasExt "txt") ./aoc/examples)
+            ];
+          };
           commonArgs = {
             inherit src;
             pname = "stitchwort";
@@ -109,6 +119,7 @@
                   $out/pkg/stitchwort_web_bg.wasm -o $out/pkg/stitchwort_web_bg.wasm
                 cp ${./web/index.html} $out/index.html
                 cp ${./web/playground-worker.js} $out/playground-worker.js
+                bash ${./web/bundle-projects.sh} ${aocBundle} $out/pkg
               '';
             }
           );
