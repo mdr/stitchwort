@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REFL] Error: `rfl` can't prove this
+   ╭─[ reject/rewrite-first-instance.sw:5:11 ]
+   │
+ 5 │   rewrite h
+   │           ┬  
+   │           ╰── `g 1 + f 2` and `g 1 + g 2` aren't equal
+   │ 
+   │ Note 1: `rfl` proves `a = b` only when both sides compute to the same value
+   │ 
+   │ Note 2: this is the goal after rewriting; `rewrite p` without `in` closes it with `rfl`: `g 1 + f 2 = g 1 + g 2`
+───╯

@@ -1,0 +1,17 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REWRITE-NOTHING] Error: `rewrite` found no `m + n` in the goal
+   ╭─[ reject/rewrite-nothing.sw:4:11 ]
+   │
+ 4 │   rewrite Nat.addComm m n
+   │           ───────┬───────  
+   │                  ╰───────── looking for `m + n`
+   │ 
+   │ Note 1: goal: `n + 0 = n`
+   │ 
+   │ Note 2: occurrences are looked for by their outer function and compared by computing, and only where they don't mention a variable bound inside the goal
+   │ 
+   │ Note 3: to replace the right side by the left, write `rewrite <- …`
+───╯

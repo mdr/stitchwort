@@ -213,7 +213,7 @@ fn rewrite_once(
 
     let lhs_term = cx.quote(&lhs)?;
     let Some(key) = key(&lhs_term, 0) else {
-        return Err(unknown_head(cx, rule, &lhs));
+        return Err(unknown_head(rule));
     };
     let goal_value = force(g, goal.clone())?;
     let mut goal_term = searched(cx, written.clone(), &goal_value)?;
@@ -581,7 +581,7 @@ fn check_motive(
             "E-REWRITE-MOTIVE",
             format!(
                 "replacing `{}` everywhere in the goal doesn't give a valid proposition",
-                cx.show(lhs)
+                shown(cx, lhs)
             ),
         )
         .with_label(rule.span, "the goal with this replaced by a variable doesn't type-check")
@@ -592,8 +592,8 @@ fn check_motive(
                 .map_or(e.message.clone(), |l| format!("{} ({})", e.message, l.message))
         ))
         .with_note(
-            "something in the goal can depend on the term being replaced, such as a proof about \
-             it: `x % d` carries a proof that `d != 0`",
+            "something in the goal can depend on the term being replaced, such as the proof an \
+             `auto` argument carries (the `d != 0` in `x % d`)",
         )
         .with_note(
             "rewrite a larger term that contains it (such as `x % d`), or state the step with \
@@ -624,23 +624,44 @@ fn round_trip(
     })
 }
 
+/// A term for a message. An unknown the rule left open is shown as `?3`,
+/// not applied to every variable in scope as it is made.
 fn written(cx: &Ctx, term: &Term) -> String {
-    stitchwort_core::pretty::term_for_message(cx.g(), &cx.names, term)
+    let level = cx.level();
+    let bare = |t: &Term, _: usize| {
+        let (head, args) = t.spine();
+        match head {
+            Term::Meta(m)
+                if !args.is_empty() && args.iter().all(|a| matches!(a.strip_loc(), Term::Var(_))) =>
+            {
+                Some(Term::Meta(*m))
+            }
+            _ => None,
+        }
+    };
+    let tidy = replace_with(cx.g(), term, level, &|l| Ok(Term::Var(level - 1 - l)), &bare);
+    stitchwort_core::pretty::term_for_message(cx.g(), &cx.names, tidy.as_ref().unwrap_or(term))
 }
 
-fn unknown_head(cx: &Ctx, rule: &RewriteRule, lhs: &Value) -> Diagnostic {
+/// A value for a message, as [`written`].
+fn shown(cx: &Ctx, value: &Value) -> String {
+    match cx.quote(value) {
+        Ok(term) => written(cx, &term),
+        Err(_) => "…".into(),
+    }
+}
+
+fn unknown_head(rule: &RewriteRule) -> Diagnostic {
+    let side = if rule.reverse { "right" } else { "left" };
     Diagnostic::error(
         "E-REWRITE-RULE",
-        format!(
-            "this equation's left side, `{}`, starts with an unknown",
-            cx.show(lhs)
-        ),
+        format!("this equation's {side} side starts with an unknown function"),
     )
     .with_label(
         rule.proof.span(),
-        "there is no function or constructor to look for in the goal",
+        format!("there is no function or constructor of its {side} side to look for in the goal"),
     )
-    .with_note("give the implicit arguments explicitly, such as `[f := …]`, or use `<-`")
+    .with_note("give the implicit arguments explicitly, such as `[f := …]`")
 }
 
 fn nothing_found(
@@ -650,7 +671,7 @@ fn nothing_found(
     goal: &Value,
     found: &Stats,
 ) -> Diagnostic {
-    let shown = cx.show(lhs);
+    let shown = shown(cx, lhs);
     let mut error = Diagnostic::error(
         "E-REWRITE-NOTHING",
         format!("`rewrite` found no `{shown}` in the goal"),
@@ -676,7 +697,7 @@ fn nothing_found(
 }
 
 fn budget_error(cx: &Ctx, rule: &RewriteRule, candidate: &Term, lhs: &Value) -> Diagnostic {
-    let (candidate, lhs) = (written(cx, candidate), cx.show(lhs));
+    let (candidate, lhs) = (written(cx, candidate), shown(cx, lhs));
     Diagnostic::error(
         "E-REWRITE-BUDGET",
         format!("`rewrite` couldn't decide whether `{candidate}` is `{lhs}`"),
@@ -696,7 +717,7 @@ fn round_trip_error(
     lhs: &Value,
     first: Option<&Term>,
 ) -> Diagnostic {
-    let lhs = cx.show(lhs);
+    let lhs = shown(cx, lhs);
     let message = match first {
         Some(first) => format!(
             "`{}` matched `{lhs}` only up to a detail that comparison ignores",
@@ -768,6 +789,25 @@ mod tests {
             round_trip(&cx, &right, &lhs, &Value::Refl, &goal, &mut none).unwrap(),
             None
         );
+    }
+
+    #[test]
+    fn a_candidate_of_another_type_is_not_of_the_carrier() {
+        let e = Elaborator::new();
+        let mut cx = Ctx::new(&e, span());
+        // `x: Type0` and `p: x`: the variable `p` has type `x`.
+        cx.bind_hidden("x".into(), Value::Sort(Sort::Type(0)));
+        cx.bind_hidden("p".into(), Value::var(0));
+        let p = Term::Var(0);
+        let mut kcx = kernel_context(&cx).unwrap();
+        assert!(has_carrier(&cx, &mut kcx, &p, &Value::var(0)).unwrap());
+        assert!(!has_carrier(&cx, &mut kcx, &p, &Value::Sort(Sort::Type(0))).unwrap());
+        // A type with an unsolved metavariable in it is solved by the check.
+        let m = cx.g().new_meta(span());
+        let spine = vec![stitchwort_core::value::Elim::App(Value::var(0), Icit::Explicit)];
+        let unknown = Value::Neutral(stitchwort_core::value::Head::Meta(m), spine);
+        assert!(has_carrier(&cx, &mut kcx, &p, &unknown).unwrap());
+        assert!(cx.g().meta_solution(m).is_some());
     }
 
     #[test]

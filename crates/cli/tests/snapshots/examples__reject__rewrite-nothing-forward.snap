@@ -1,0 +1,17 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REWRITE-NOTHING] Error: `rewrite` found no `a` in the goal
+   ╭─[ reject/rewrite-nothing-forward.sw:4:11 ]
+   │
+ 4 │   rewrite h
+   │           ┬  
+   │           ╰── looking for `a`
+   │ 
+   │ Note 1: goal: `Succ b = Succ b`
+   │ 
+   │ Note 2: occurrences are looked for by their outer function and compared by computing, and only where they don't mention a variable bound inside the goal
+   │ 
+   │ Note 3: to replace the right side by the left, write `rewrite <- …`
+───╯

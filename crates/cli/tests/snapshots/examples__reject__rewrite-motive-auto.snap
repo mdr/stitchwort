@@ -1,0 +1,17 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REWRITE-MOTIVE] Error: replacing `d` everywhere in the goal doesn't give a valid proposition
+   ╭─[ reject/rewrite-motive-auto.sw:6:11 ]
+   │
+ 6 │   rewrite h
+   │           ┬  
+   │           ╰── the goal with this replaced by a variable doesn't type-check
+   │ 
+   │ Note 1: the checker says: type mismatch (expected `x' != 0`, but this has type `d != 0`)
+   │ 
+   │ Note 2: something in the goal can depend on the term being replaced, such as the proof an `auto` argument carries (the `d != 0` in `x % d`)
+   │ 
+   │ Note 3: rewrite a larger term that contains it (such as `x % d`), or state the step with `calc`
+───╯
