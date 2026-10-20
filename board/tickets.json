@@ -1652,7 +1652,7 @@
     {
       "id": 109,
       "title": "Test: records whose fields are lists, tuples or Maybe get `==`",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "main",
       "labels": [
