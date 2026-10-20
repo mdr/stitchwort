@@ -35,6 +35,8 @@ nix flake check                 # build, tests, clippy, rustfmt
 cargo run --release -p stitchwort-bench   # benchmarks, compared with bench/baseline.toml
 ```
 
+`stitchwort run` exit codes: 0 means success; 1 means the program didn't check (a compile error, or a file or usage error); 2 means it checked but failed while running (a runtime error, or it ran out of resources).
+
 ## Editor support
 
 A local VS Code syntax-colouring extension for `.sw` files is in

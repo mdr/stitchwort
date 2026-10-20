@@ -461,7 +461,7 @@ fn run_main(session: &mut Session, main: &Main) -> ExitCode {
         Ok(()) => ExitCode::SUCCESS,
         Err(err) => {
             report(&session.sources, &[err.diagnostic(main)]);
-            ExitCode::FAILURE
+            ExitCode::from(2)
         }
     }
 }
@@ -523,17 +523,17 @@ fn run_main_js(session: &mut Session, main: Main) -> ExitCode {
                 "this isn't a type error or a failed test: there's no answer within the limits",
             );
             report(&session.sources, &[diagnostic]);
-            ExitCode::FAILURE
+            ExitCode::from(2)
         }
         Some(EXIT_IO) => {
             report(&session.sources, &[Diagnostic::error("E-IO", message())]);
-            ExitCode::FAILURE
+            ExitCode::from(2)
         }
         // Node has reported what went wrong.
-        Some(_) => ExitCode::FAILURE,
+        Some(_) => ExitCode::from(2),
         None => {
             eprintln!("error: `node` was stopped by a signal ({status})");
-            ExitCode::FAILURE
+            ExitCode::from(2)
         }
     }
 }

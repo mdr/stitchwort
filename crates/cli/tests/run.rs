@@ -62,17 +62,29 @@ fn succeeds(path: &Path, input: &[u8]) -> String {
     stdout(&output).to_string()
 }
 
-/// Runs `path` with `input`, which must fail with exit code 1 and report
-/// `code`: what it printed before failing.
-fn fails(path: &Path, input: &[u8], code: &str) -> String {
+/// Runs `path` with `input`, which must fail with exit code `status` and
+/// report `code`: what it printed before failing.
+fn fails_with(path: &Path, input: &[u8], code: &str, status: i32) -> String {
     let output = run(path, input);
-    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(output.status.code(), Some(status), "{}", stderr(&output));
     assert!(
         stderr(&output).contains(&format!("[{code}]")),
         "expected {code}:\n{}",
         stderr(&output)
     );
     stdout(&output).to_string()
+}
+
+/// Runs `path` with `input`, which must fail while checking (exit code 1)
+/// and report `code`: what it printed before failing.
+fn fails(path: &Path, input: &[u8], code: &str) -> String {
+    fails_with(path, input, code, 1)
+}
+
+/// Runs `path` with `input`, which must fail while running (exit code 2)
+/// and report `code`: what it printed before failing.
+fn fails_running(path: &Path, input: &[u8], code: &str) -> String {
+    fails_with(path, input, code, 2)
 }
 
 #[test]
@@ -221,7 +233,7 @@ fn read_all_after_read_line_gives_the_rest_and_nothing_remains() {
 #[test]
 fn invalid_utf8_for_read_all_is_an_error() {
     let path = source_file("read-all-utf8.sw", READ_ALL);
-    assert_eq!(fails(&path, b"a\nb\n\xff", "E-IO"), "");
+    assert_eq!(fails_running(&path, b"a\nb\n\xff", "E-IO"), "");
     assert!(
         stderr(&run(&path, b"a\nb\n\xff")).contains("line 3 of standard input isn't valid UTF-8")
     );
@@ -230,7 +242,7 @@ fn invalid_utf8_for_read_all_is_an_error() {
 #[test]
 fn invalid_utf8_input_is_an_error() {
     let echo = source_file("echo-utf8.sw", ECHO);
-    let printed = fails(&echo, b"ok\n\xff\nmore\n", "E-IO");
+    let printed = fails_running(&echo, b"ok\n\xff\nmore\n", "E-IO");
     assert_eq!(printed, "[ok]\n");
     assert!(
         stderr(&run(&echo, b"ok\n\xff\n")).contains("line 2 of standard input isn't valid UTF-8")
@@ -251,7 +263,7 @@ fn a_write_error_is_an_error() {
         .stderr(Stdio::piped())
         .output()
         .expect("run stitchwort");
-    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(output.status.code(), Some(2));
     let errors = String::from_utf8(output.stderr).unwrap();
     assert!(
         errors.contains("[E-IO]") && errors.contains("can't write standard output"),

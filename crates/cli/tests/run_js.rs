@@ -205,7 +205,7 @@ def main () : {IO} () :=
 "#,
     );
     let js = run(&path, true, &[b'.'; 40]);
-    assert_eq!(js.status.code(), Some(1), "{}", text(&js.stderr));
+    assert_eq!(js.status.code(), Some(2), "{}", text(&js.stderr));
     assert_eq!(text(&js.stdout), "before\n");
     let stderr = text(&js.stderr);
     assert!(stderr.contains("[E-RESOURCE]"), "{stderr}");
