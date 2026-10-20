@@ -16,7 +16,8 @@
 --
 -- Both parts are proved right for every grid in `Aoc.Day04.Proofs`
 -- (Proofs/Spec.sw states the puzzle by positions; Proofs/Part1.sw and
--- Proofs/Part2.sw), which `run` does not check.
+-- Proofs/Part2.sw; the parser in Proofs/Parse.sw), which `run` does not
+-- check.
 
 namespace Aoc.Day04
 
@@ -118,12 +119,16 @@ def sweepFrom (gap above: Vec Cell w) (aboveChanged: Bool): Marked w h -> Marked
   | VNil                    => VNil
   | VCons (row, moved) rest =>
     let (below, belowMoved) := rest.headOr (gap, False)
-    if moved || belowMoved || aboveChanged then
-      let swept := peelRow above row below
-      let changed := not (swept.toList == row.toList)
-      VCons (swept, changed) (sweepFrom gap swept changed rest)
-    else
-      VCons (row, False) (sweepFrom gap row False rest)
+    let (swept, changed) := sweepRow above aboveChanged row moved below belowMoved
+    VCons (swept, changed) (sweepFrom gap swept changed rest)
+
+-- One row of a pass, and whether it changed: peeled if it or the row below
+-- changed in the last pass, or the row above in this one; else kept.
+def sweepRow (above: Vec Cell w) (aboveChanged: Bool) (row: Vec Cell w) (moved: Bool) (below: Vec Cell w) (belowMoved: Bool): (Vec Cell w, Bool) :=
+  if moved || belowMoved || aboveChanged then
+    let swept := peelRow above row below
+    (swept, not (swept.toList == row.toList))
+  else (row, False)
 
 -- Sweep until a pass changes nothing. Every pass that changes something
 -- removes a roll, so as many passes as there are rolls are enough.

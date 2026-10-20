@@ -16,8 +16,8 @@
 --     to access more rolls of paper": remove the accessible rolls (all at
 --     once, a round), and repeat until none is accessible. Count the rolls
 --     removed. Each round that changes anything removes a roll, so as many
---     rounds as there are rolls are enough; Proofs/Part2.sw proves that no
---     roll is accessible after them (`roundsEnough`).
+--     rounds as there are rolls are enough; Proofs/Core.sw proves that no
+--     roll is accessible after them (`roundsStable`).
 --
 -- Shared with the program: `Cell` and the grid's type, `Grid`.
 

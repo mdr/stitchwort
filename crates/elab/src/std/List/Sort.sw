@@ -276,6 +276,17 @@ theorem List.sumRangeCongr (f: Nat -> Nat) (g: Nat -> Nat): (c: Nat) -> (s: Nat)
         (Eq.trans (Eq.cong (t => g s + t) (List.sumRangeCongr f g c (Succ s) (x hx1 hx2 => h x (Nat.leTrans s (Succ s) x (Nat.leSucc s) hx1) (Nat.ltAddSucc s c x hx2))))
           (Eq.sym (List.sumByCons g s (List.rangeFrom c (Succ s))))))
 
+-- A sum over a run of numbers that is 0 has every term 0.
+theorem List.sumRangeZero (f: Nat -> Nat): (c: Nat) -> (s: Nat) -> List.sumBy f (List.rangeFrom c s) = 0 ->
+    (x: Nat) -> s <= x -> x < s + c -> f x = 0
+  | Zero,   s, h, x, h1, h2 => Void.exfalso (Nat.lessIrrefl x (Nat.leTrans (Succ x) s x (Nat.ltCongRight x (s + 0) s (Nat.addZero s) h2) h1))
+  | Succ c, s, h, x, h1, h2 =>
+    let parts := Nat.addEqZero (f s) (List.sumBy f (List.rangeFrom c (Succ s))) (Eq.trans (Eq.sym (List.sumByCons f s (List.rangeFrom c (Succ s)))) h)
+    match e: Nat.equal s x with
+      | True  => rewrite <- Nat.equalSound s x e in And.left parts
+      | False =>
+        List.sumRangeZero f c (Succ s) (And.right parts) x (Nat.leNeSucc s x h1 (Nat.equalFalse s x e)) (Nat.ltSuccAdd s c x h2)
+
 -- Sums over the ids of a run that pick out `y`.
 theorem List.sumRangeEq (y: Nat) (c: Nat) (s: Nat) (h1: s <= y) (h2: y < s + c): List.sumBy (x => Nat.keepIf x (y == x)) (List.rangeFrom c s) = y :=
   List.sumRangeOne (x => y == x) (x => x) y (Decidable.toBoolOf (Nat.decEq y y) rfl) (b h => Eq.sym (Decidable.toBoolSound (Nat.decEq y b) h)) c s h1 h2

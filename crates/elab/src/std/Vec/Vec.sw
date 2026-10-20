@@ -159,6 +159,22 @@ theorem Vec.sumByToList (f: a -> Nat) (v: Vec a n): Vec.sumBy f v = List.sumBy f
 
 theorem Vec.sumToList (v: Vec Nat n): Vec.sum v = List.sum (Vec.toList v) := Vec.foldLeftToList Nat.add 0 v
 
+-- What `traverseMaybe` accepts is `f` of each element.
+theorem Vec.traverseMaybeCons (f: a -> Maybe b) (x: a) (xs: Vec a n) (y: b) (ys: Vec b n): (m: Maybe b) -> f x = m ->
+    Vec.traverseMaybe f (VCons x xs) = Just (VCons y ys) -> And (f x = Just y) (Vec.traverseMaybe f xs = Just ys)
+  | Nothing, e, h =>
+    Void.exfalso (Maybe.nothingNotJust (VCons y ys)
+      (Eq.trans (Eq.cong (Maybe.andThen (z => Maybe.map (zs => VCons z zs) (Vec.traverseMaybe f xs))) (Eq.sym e)) h))
+  | Just z,  e, h =>
+    let parts := Vec.ofListCons z y ys (Vec.traverseMaybe f xs)
+      (Eq.trans (Eq.cong (Maybe.andThen (z => Maybe.map (zs => VCons z zs) (Vec.traverseMaybe f xs))) (Eq.sym e)) h)
+    Both (Eq.trans e (Eq.cong Just (And.left parts))) (And.right parts)
+
+theorem Vec.traverseMaybeGet (f: a -> Maybe b): (v: Vec a n) -> (out: Vec b n) -> Vec.traverseMaybe f v = Just out ->
+    (i: Fin n) -> f (Vec.get v i) = Just (Vec.get out i)
+  | VCons x xs, VCons y ys, h, FZero   => And.left (Vec.traverseMaybeCons f x xs y ys (f x) rfl h)
+  | VCons x xs, VCons y ys, h, FSucc i => Vec.traverseMaybeGet f xs ys (And.right (Vec.traverseMaybeCons f x xs y ys (f x) rfl h)) i
+
 -- Lemmas: `get`.
 
 -- `get` is `List.getOr` on the list, whatever the default.

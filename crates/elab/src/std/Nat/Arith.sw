@@ -524,4 +524,9 @@ theorem Nat.equalOfLess: (b: Nat) -> (v: Nat) -> b < v -> Nat.equal v b = False
   | Zero,   Succ v, h => rfl
   | Succ b, Succ v, h => Nat.equalOfLess b v h
 
+-- A sum is 0 only when both terms are.
+theorem Nat.addEqZero: (a: Nat) -> (b: Nat) -> a + b = 0 -> And (a = 0) (b = 0)
+  | Zero,   b, h => Both rfl h
+  | Succ a, b, h => Void.exfalso (Nat.succNotZero (a + b) h)
+
 theorem Nat.eqIsEqualExample: (Succ 4 == Succ 2) = (4 == 2) := Eq.trans (Nat.eqIsEqual 5 3) (Eq.sym (Nat.eqIsEqual 4 2))
