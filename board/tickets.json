@@ -2371,7 +2371,7 @@
     {
       "id": 156,
       "title": "Day 2 part 2 proof in its own namespace so run skips it (D68)",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "main",
       "labels": [
