@@ -30,6 +30,9 @@ pub enum Expr {
     App(Box<Expr>, Box<Expr>),
     /// `\x y -> body`
     Lam(Vec<Name>, Box<Expr>, Span),
+    /// `\(x: A) => body`: a lambda whose parameter has a written type (one
+    /// parameter; several are nested).
+    TypedLam(Name, Box<Expr>, Box<Expr>, Span),
     /// `(x y : A) -> B`, `[x y : A] -> B` with `implicit`, or
     /// `[auto x : P] -> B` with `implicit` and `auto`.
     Pi {
@@ -285,6 +288,7 @@ impl Expr {
             | Expr::Type(_, span)
             | Expr::Prop(span)
             | Expr::Lam(_, _, span)
+            | Expr::TypedLam(_, _, _, span)
             | Expr::Pi { span, .. }
             | Expr::NamedArg(_, _, span)
             | Expr::If { span, .. }
@@ -344,6 +348,7 @@ fn has_nested(expr: &Expr) -> bool {
         }
         Expr::Pi { dom, cod, .. } => nested(dom) || nested(cod),
         Expr::Ann(e, t, _) | Expr::Tuple(e, t, _) => nested(e) || nested(t),
+        Expr::TypedLam(_, t, b, _) => nested(t) || nested(b),
         Expr::If {
             cond,
             then,
@@ -416,6 +421,10 @@ fn take_children(expr: &mut Expr, pending: &mut Vec<Expr>) {
         Expr::Ann(e, t, _) | Expr::Tuple(e, t, _) => {
             take(e);
             take(t);
+        }
+        Expr::TypedLam(_, t, b, _) => {
+            take(t);
+            take(b);
         }
         Expr::If {
             cond,

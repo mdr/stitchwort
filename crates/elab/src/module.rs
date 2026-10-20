@@ -1657,6 +1657,14 @@ fn free_names(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
                 steps.extend(unbind);
                 then(&mut stack, steps);
             }
+            Expr::TypedLam(name, ty, body, _) => {
+                let (bind, unbind) = binds(std::slice::from_ref(name));
+                let mut steps = vec![Work::Expr(ty)];
+                steps.extend(bind);
+                steps.push(Work::Expr(body));
+                steps.extend(unbind);
+                then(&mut stack, steps);
+            }
             Expr::Pi {
                 names, dom, cod, ..
             } => {

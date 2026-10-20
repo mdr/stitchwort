@@ -20,6 +20,7 @@ use crate::stack::StackLimit;
 use crate::{Diagnostic, FileId, Span};
 
 mod declarations;
+use declarations::Param;
 
 type Result<T> = std::result::Result<T, Diagnostic>;
 
@@ -193,6 +194,13 @@ fn split_decls(tokens: &[Token]) -> Result<Vec<&[Token]>> {
         groups.push(&tokens[start..end]);
     }
     Ok(groups)
+}
+
+/// A lambda parameter: a name (with the pattern it stands for, if it was
+/// written as one), or a name with a written type.
+enum LamParam {
+    Plain(Name, Option<Pattern>),
+    Typed(Name, Expr),
 }
 
 struct Parser<'t> {
@@ -1320,39 +1328,38 @@ impl<'t> Parser<'t> {
     fn lambda(&mut self, start: Span) -> Result<Expr> {
         // Each parameter is a name, with the pattern it stands for if it
         // was written as one.
-        let mut params: Vec<(Name, Option<Pattern>)> = Vec::new();
+        let mut params: Vec<LamParam> = Vec::new();
         loop {
             match self.peek() {
-                Some(Tok::Lower(_)) => params.push((self.lower("a name")?, None)),
+                Some(Tok::Lower(_)) => params.push(LamParam::Plain(self.lower("a name")?, None)),
                 Some(Tok::Underscore) => {
                     let span = self.bump().span;
                     let name = Name {
                         text: "_".to_string(),
                         span,
                     };
-                    params.push((name, None));
+                    params.push(LamParam::Plain(name, None));
                 }
-                Some(Tok::LParen)
-                    if matches!(self.peek_at(1), Some(Tok::Lower(_)))
-                        && self.peek_at(2) == Some(&Tok::Colon) =>
-                {
-                    let span = self.here().to(self.tokens[self.pos + 2].span);
-                    return Err(error(
-                        span,
-                        "a lambda's parameter can't have a type here: annotate the lambda \
-                             instead, `((\\x => …): A -> B)`",
-                    ));
+                // `(x: A)`, `(x y: A)`: parameters with a written type, as in
+                // a definition's header.
+                Some(Tok::LParen) if self.annotated_param_ahead() => {
+                    let Param::Named { names, ty, .. } = self.header_param()? else {
+                        unreachable!("an annotated parameter is a named one")
+                    };
+                    for name in names {
+                        params.push(LamParam::Typed(name, ty.clone()));
+                    }
                 }
                 Some(Tok::LParen | Tok::LBrace | Tok::Upper(_) | Tok::Num(_)) => {
                     match self.pattern()? {
-                        Pattern::Var(name) => params.push((name, None)),
+                        Pattern::Var(name) => params.push(LamParam::Plain(name, None)),
                         pattern => {
                             let i = params.len();
                             let name = Name {
                                 text: format!("%arg{i}"),
                                 span: pattern.span(),
                             };
-                            params.push((name, Some(pattern)));
+                            params.push(LamParam::Plain(name, Some(pattern)));
                         }
                     }
                 }
@@ -1365,35 +1372,62 @@ impl<'t> Parser<'t> {
         self.expect_fat_arrow("`=>`")?;
         let body = self.expr()?;
         let span = start.to(body.span());
-        if params.iter().all(|(_, p)| p.is_none()) {
-            let names = params.into_iter().map(|(n, _)| n).collect();
-            return Ok(Expr::Lam(names, Box::new(body), span));
-        }
-        let mut names = Vec::new();
         let mut scrutinees = Vec::new();
         let mut patterns = Vec::new();
-        for (name, pattern) in params {
-            if let Some(pattern) = pattern {
+        for param in &params {
+            if let LamParam::Plain(name, Some(pattern)) = param {
                 scrutinees.push(Scrutinee {
                     name: None,
                     expr: Expr::Var(name.clone()),
                 });
-                patterns.push(pattern);
+                patterns.push(pattern.clone());
             }
-            names.push(name);
         }
-        let alt_span = patterns[0].span().to(body.span());
-        let matched = Expr::Match {
-            scrutinees,
-            alts: vec![Alt {
-                patterns,
-                body,
-                span: alt_span,
-            }],
-            span,
-            kind: MatchKind::Lambda,
+        let mut result = if patterns.is_empty() {
+            body
+        } else {
+            let alt_span = patterns[0].span().to(body.span());
+            Expr::Match {
+                scrutinees,
+                alts: vec![Alt {
+                    patterns,
+                    body,
+                    span: alt_span,
+                }],
+                span,
+                kind: MatchKind::Lambda,
+            }
         };
-        Ok(Expr::Lam(names, Box::new(matched), span))
+        // Build from the last parameter outwards: a run of untyped ones is
+        // one `Lam`, and each typed one is a `TypedLam`.
+        let mut run: Vec<Name> = Vec::new();
+        for param in params.into_iter().rev() {
+            match param {
+                LamParam::Plain(name, _) => run.push(name),
+                LamParam::Typed(name, ty) => {
+                    if !run.is_empty() {
+                        run.reverse();
+                        result = Expr::Lam(std::mem::take(&mut run), Box::new(result), span);
+                    }
+                    result = Expr::TypedLam(name, Box::new(ty), Box::new(result), span);
+                }
+            }
+        }
+        if !run.is_empty() {
+            run.reverse();
+            result = Expr::Lam(run, Box::new(result), span);
+        }
+        Ok(result)
+    }
+
+    /// Whether a `(` here opens an annotated parameter, `(x: A)` or
+    /// `(x y: A)`, rather than a pattern.
+    fn annotated_param_ahead(&self) -> bool {
+        let mut i = 1;
+        while matches!(self.peek_at(i), Some(Tok::Lower(_))) {
+            i += 1;
+        }
+        i > 1 && self.peek_at(i) == Some(&Tok::Colon)
     }
 
     /// `if c then a else b`, after the `if`. Its own function, so the stack
@@ -3256,11 +3290,48 @@ mod tests {
     }
 
     #[test]
+    fn lambda_parameters_may_be_annotated() {
+        // (name, type, body) of a typed lambda.
+        fn typed(e: &Expr) -> (String, String, Expr) {
+            match e {
+                Expr::TypedLam(name, ty, body, _) => {
+                    (name.text.clone(), pshape(ty), body.as_ref().clone())
+                }
+                other => panic!("expected a typed lambda, got {other:?}"),
+            }
+        }
+        let (name, ty, body) = typed(&rhs("def f : Nat := \\(x: Nat) => x\n"));
+        assert_eq!((name.as_str(), ty.as_str()), ("x", "Nat"));
+        assert!(matches!(body, Expr::Var(_)));
+        // With a space before the colon, too.
+        typed(&rhs("def f : Nat := \\(x : Nat) => x\n"));
+        // Several parameters nest, in order; a group shares one type.
+        let (name, _, body) = typed(&rhs("def f : Nat := \\(x y: Nat) => x\n"));
+        assert_eq!(name, "x");
+        let (name, ty, _) = typed(&body);
+        assert_eq!((name.as_str(), ty.as_str()), ("y", "Nat"));
+        let (_, _, body) = typed(&rhs("def f : Nat := \\(x: Nat) (y: Bool) => x\n"));
+        assert!(matches!(body, Expr::TypedLam(..)));
+        // Mixed with plain parameters: `\x (y: Nat)` is a `Lam` around a
+        // `TypedLam`.
+        match &rhs("def f : Nat := \\x (y: Nat) => x\n") {
+            Expr::Lam(names, body, _) => {
+                assert_eq!(names.len(), 1);
+                assert!(matches!(**body, Expr::TypedLam(..)));
+            }
+            other => panic!("expected a lambda, got {other:?}"),
+        }
+        let (_, _, body) = typed(&rhs("def f : Nat := \\(x: Nat) y z => x\n"));
+        assert!(matches!(&body, Expr::Lam(names, _, _) if names.len() == 2));
+        // A parenthesised name alone is still a plain parameter.
+        assert!(matches!(rhs("def f : Nat := \\(x) => x\n"), Expr::Lam(..)));
+        // A missing type or closing bracket is an error.
+        assert!(rhs_of("def f : Nat := \\(x:) => x\n").is_err());
+        assert!(rhs_of("def f : Nat := \\(x: Nat => x\n").is_err());
+    }
+
+    #[test]
     fn rejects_bad_pattern_bindings() {
-        let message = rhs_of("def f : Nat := \\(x : Nat) => x\n")
-            .unwrap_err()
-            .message;
-        assert!(message.contains("can't have a type"), "{message}");
         assert!(rhs_of("def f (e : Nat) : Nat :=\n  let (a, b) := e\n").is_err());
         assert!(rhs_of("def f (e : Nat) : Nat :=\n  let (a, b)\n  e\n").is_err());
     }

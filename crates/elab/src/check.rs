@@ -533,6 +533,30 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             "can't work out the type of this function",
             "add a type annotation: `(…: T)`",
         )),
+        // `\(x: A) => body`: the parameter's type is written, so the
+        // function's type follows from the body's.
+        Expr::TypedLam(name, ann, body, _) => {
+            let (dom, _) = check_type(cx, ann)?;
+            let dom = cx.eval(&dom)?;
+            let mark = cx.mark();
+            cx.bind(&name.text, dom.clone());
+            let inferred = infer(cx, body).and_then(|(term, ty)| {
+                let (term, ty) = insert(cx, term, ty)?;
+                Ok((term, cx.quote(&ty)?))
+            });
+            cx.reset(mark);
+            let (body, cod) = inferred?;
+            let x: Name = name.text.as_str().into();
+            let lam = Term::Lam(x.clone(), Icit::Explicit, Rc::new(body));
+            let cod = Closure {
+                env: cx.env.as_slice().into(),
+                body: Rc::new(cod),
+            };
+            let pi = Value::Pi(x, Icit::Explicit, Rc::new(dom), cod);
+            // Annotated for the kernel, which doesn't infer a lambda's type.
+            let ann = Term::Ann(Rc::new(lam), Rc::new(cx.quote(&pi)?));
+            Ok((ann, pi))
+        }
         Expr::Pi {
             names,
             implicit,
@@ -1230,6 +1254,34 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
             cx.reset(mark);
             Ok(Term::Lam(
                 first.text.as_str().into(),
+                Icit::Explicit,
+                Rc::new(result?),
+            ))
+        }
+        (Expr::TypedLam(name, ann, body, _), Value::Pi(_, Icit::Explicit, dom, cod)) => {
+            let (written, _) = check_type(cx, ann)?;
+            let written = cx.eval(&written)?;
+            if !cx.unify(&written, dom)? {
+                let (expected, found) = (cx.show(dom), cx.show(&written));
+                return with_span(cx, ann.span(), |cx| {
+                    Err(cx.error(
+                        "E-TYPE-MISMATCH",
+                        "type mismatch",
+                        format!(
+                            "this parameter is annotated `{found}`, but the function is \
+                             expected to take `{expected}`"
+                        ),
+                    ))
+                });
+            }
+            let mark = cx.mark();
+            let var = Value::var(cx.level());
+            cx.bind(&name.text, (**dom).clone());
+            let cod = cod.apply(g, var)?;
+            let result = check(cx, body, &cod);
+            cx.reset(mark);
+            Ok(Term::Lam(
+                name.text.as_str().into(),
                 Icit::Explicit,
                 Rc::new(result?),
             ))
