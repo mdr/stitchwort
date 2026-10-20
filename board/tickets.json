@@ -1933,12 +1933,12 @@
       "title": "AoC day 4: prove the grid result for all grids",
       "status": "doing",
       "agent": "Opus",
-      "where": "part 1 merged; part 2 awaiting D123",
+      "where": "Opus lane: docs/proposals/vec.md draft 1 first (D125), then restate day 4",
       "labels": [
         "aoc",
         "proof"
       ],
-      "body": "D4 (Matt, 19 Oct). aoc/day04.sw has no theorems (days 1-3 have about 30 each). Decide what to prove against a puzzle-literal spec (e.g. one round removes exactly the rolls with fewer than 4 neighbours; settling repeats rounds until nothing changes) and prove it for all grids. Report what made it hard, as findings.",
+      "body": "D108 part 2 for day 4. Part 1 proved (merged 20 Oct, over List Text with a rectangular precondition). 20 Oct, Matt: D124 restate theorems at solvePartN level over Grid (solvePart1 grid = part1Spec grid; parseGrid separate). D125 'E with C': spec by position (cell function / sets of positions), program on length-indexed Vec h (Vec w Bool); Vec is new in the library, so design note docs/proposals/vec.md first (design-review gate). D123 (part 2: full sweep proof vs repeated round; measured 4.85 s vs 13.2 s native) PARKED until the restatement.",
       "created": "2026-10-19",
       "updated": "2026-10-20",
       "commits": []
