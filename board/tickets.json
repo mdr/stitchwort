@@ -2556,7 +2556,7 @@
     {
       "id": 166,
       "title": "AoC day 2 for all inputs: port the Lean proof to Stitchwort (natural-number weights)",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "main",
       "labels": [
