@@ -284,8 +284,8 @@
       "id": 19,
       "title": "Annotated lambda parameters `\\(x : T) -> …` (would also fix the `p.name` hint)",
       "status": "doing",
-      "agent": "Sonnet",
-      "where": "worktree",
+      "agent": "Claude",
+      "where": "main",
       "labels": [
         "syntax",
         "elab"
@@ -293,7 +293,9 @@
       "body": "`\\(y: Nat) => y + 1` is refused today: 'a lambda's parameter can't have a type here: annotate the lambda instead, `((\\x => ...): A -> B)`' (reproduced 19 Oct). Allow annotated parameters. It would also fix the `p.name` hint (E-CANNOT-INFER on `\\p => p.name` without a known type). Syntax depends on the lambda-syntax decision in SW-90; do that first or together. Done: `\\(x: T) => e` elaborates and the E-CANNOT-INFER note suggests it.",
       "created": "2026-10-19",
       "updated": "2026-10-20",
-      "commits": []
+      "commits": [
+        "c383843"
+      ]
     },
     {
       "id": 20,
