@@ -74,9 +74,8 @@ pub fn check(source: &str) -> String {
 /// elaborated. Not cached: it loads the program again with recording on.
 #[wasm_bindgen]
 pub fn check_index(source: &str) -> String {
-    let mut session = Session::new();
+    let mut session = Session::navigable();
     session.elab.limits = session_limits();
-    session.elab.enable_navigation();
     let loaded = session.load(FILE, source);
     let ok = loaded.is_ok();
     let mut reported = std::mem::take(&mut session.warnings);

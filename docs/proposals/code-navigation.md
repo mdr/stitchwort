@@ -107,8 +107,11 @@ Local definitions aren't listed (they are binders).
   work there), a local variable's binder has a `binder` ref to itself (no
   `type`), and the files of the library that were loaded have refs of
   their own, with the same rules, so navigation continues inside them. (A
-  library file's local variables and its names are covered; its outline is
-  not, only the symbols something refers to.)
+  library file's local variables and its names are covered, and the name of
+  a declaration something refers to has a ref to itself; its outline is not,
+  only the symbols something refers to. The core, `core.sw`, is covered like
+  the other files: a session must record from its start, as
+  `Session::navigable` does, since the core loads when it is made.)
 - `errors`: whether checking reported errors. The index is still written, for
   the parts that were elaborated.
 - `diagnostics`: everything checking reported, errors and warnings, in the

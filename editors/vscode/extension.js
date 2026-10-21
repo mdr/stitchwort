@@ -197,13 +197,20 @@ function stdUri(std) {
   return vscode.Uri.from({ scheme: STD_SCHEME, path: '/' + std });
 }
 
+// The root each library file was last jumped to from: its index is the one to
+// answer from while the file is open (a library file has refs only in the
+// indexes of programs that loaded it).
+const stdRoot = new Map();
+
 function locationOf(p, t) {
+  if (t.std) stdRoot.set(t.std, p.key);
   const uri = t.std ? stdUri(t.std) : vscode.Uri.file(path.resolve(p.cwd, t.path));
   return new vscode.Location(uri, toRange(t.range));
 }
 
 // Reference at a position, or the declaration whose name is there.
 async function lookup(document, position) {
+  if (document.uri.scheme === STD_SCHEME) return lookupInStd(document, position);
   if (document.uri.scheme !== 'file') return null;
   const found = await indexFor(document.uri.fsPath);
   if (!found) return null;
@@ -211,6 +218,19 @@ async function lookup(document, position) {
   const file = nav.fileIndexByPath(index, p.indexPath);
   if (file < 0) return null;
   const ref = nav.refAt(index, file, position.line, position.character);
+  return ref ? { index, p, ref } : null;
+}
+
+// The same, in a read-only library document, from the index of the program
+// it was opened from (or any that loaded it).
+function lookupInStd(document, position) {
+  const std = nav.stdOfPath(document.uri.path);
+  const candidates = [];
+  for (const [key, s] of roots) if (s.index) candidates.push({ key, index: s.index, p: s.plan });
+  const picked = nav.pickIndexForStd(candidates, std, stdRoot.get(std));
+  if (!picked) return null;
+  const { index, p } = picked.candidate;
+  const ref = nav.refAt(index, picked.file, position.line, position.character);
   return ref ? { index, p, ref } : null;
 }
 
@@ -324,12 +344,15 @@ function activate(context) {
   output = vscode.window.createOutputChannel('Stitchwort');
   diagnostics = vscode.languages.createDiagnosticCollection('stitchwort');
   const selector = { language: 'stitchwort', scheme: 'file' };
+  // Definition, hover and references work in the library's read-only
+  // documents too (the outline is only of files of the program).
+  const withLibrary = [selector, { language: 'stitchwort', scheme: STD_SCHEME }];
   context.subscriptions.push(
     output,
-    vscode.languages.registerDefinitionProvider(selector, definitionProvider),
-    vscode.languages.registerHoverProvider(selector, hoverProvider),
+    vscode.languages.registerDefinitionProvider(withLibrary, definitionProvider),
+    vscode.languages.registerHoverProvider(withLibrary, hoverProvider),
     vscode.languages.registerDocumentSymbolProvider(selector, symbolProvider),
-    vscode.languages.registerReferenceProvider(selector, referenceProvider),
+    vscode.languages.registerReferenceProvider(withLibrary, referenceProvider),
     vscode.languages.registerWorkspaceSymbolProvider(workspaceSymbolProvider),
     diagnostics,
     vscode.workspace.registerTextDocumentContentProvider(STD_SCHEME, stdContent),

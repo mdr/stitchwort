@@ -1883,6 +1883,12 @@ export def area: Shape -> Nat
   }
   /** Whether the index's positions in this file are still the text's. */
   const validFor = (idx, path) => idx.day === (project ? project.day : null) && idx.texts.get(path) === inputsNow().texts.get(path);
+  /**
+   * Whether the index's positions are the text shown: the open file's own, or,
+   * while a library file is shown (its text never changes), the index of this
+   * project (a stale one still has the library's refs).
+   */
+  const validHere = (idx) => stdView ? idx.day === (project ? project.day : null) : validFor(idx, openPath());
   const failedNow = () => nav.failed && sameInputs(nav.failed, inputsNow());
 
   /** The index for the current text: computed if it isn't yet (null if the compiler couldn't). */
@@ -1913,11 +1919,11 @@ export def area: Shape -> Nat
     return promise;
   }
 
-  /** The ref (and its offsets in the editor) at an offset of the open file, or null. */
+  /** The ref (and its offsets in the editor) at an offset of the open file or library file, or null. */
   function lookupAt(idx, offset) {
     const path = openPath();
-    if (stdView || !validFor(idx, path)) return null;
-    const file = idx.out.files.findIndex((f) => f.path === path && !f.std);
+    if (!validHere(idx)) return null;
+    const file = idx.out.files.findIndex((f) => stdView ? f.std === stdView.std : f.path === path && !f.std);
     const refs = idx.byFile.get(file);
     if (!refs) return null;
     const text = source.value;
@@ -1969,7 +1975,7 @@ export def area: Shape -> Nat
   /** Underlines the hovered name while Cmd/Ctrl is held, as an editor does a link. */
   function showLink() {
     const hover = nav.hover;
-    const r = hover && nav.mod && !stdView ? rectOf(hover.from, hover.to) : null;
+    const r = hover && nav.mod ? rectOf(hover.from, hover.to) : null;
     source.style.cursor = r ? "pointer" : "";
     navlink.hidden = !r;
     if (!r) return;
@@ -1990,14 +1996,14 @@ export def area: Shape -> Nat
   function updateNav() {
     const p = nav.pointer;
     let hit = null;
-    if (p && !stdView) {
+    if (p) {
       const offset = offsetAt(p.x, p.y);
       if (offset !== null) {
-        if (nav.index && validFor(nav.index, openPath())) {
+        if (nav.index && validHere(nav.index)) {
           hit = lookupAt(nav.index, offset);
         } else if (!failedNow()) {
           // Wait for the index, then look again (only if it helps: no loop).
-          ensureIndex().then((idx) => { if (idx && validFor(idx, openPath())) scheduleNav(); });
+          ensureIndex().then((idx) => { if (idx && validHere(idx)) scheduleNav(); });
         }
       }
     }
@@ -2035,24 +2041,34 @@ export def area: Shape -> Nat
     }
   }
 
-  /** Shows a file's range: another file of the project, or the open one. */
+  /** Shows a file's range: another file of the project, or the open one (leaving a library file). */
   function openAt(path, range) {
-    if (project) {
-      if (!project.texts.has(path)) return;
-      if (project.open !== path) openFile(path);
-    } else if (path !== SINGLE) {
-      return;
-    }
+    if (project ? !project.texts.has(path) : path !== SINGLE) return false;
+    exitStd();
+    if (project && project.open !== path) openFile(path);
     reveal(range);
+    return true;
   }
 
-  /** Shows the library's text, read-only; `exitStd` puts the editor back. */
-  function enterStd(std, text) {
-    const stash = { value: source.value, start: source.selectionStart, end: source.selectionEnd,
-                    top: source.scrollTop, left: source.scrollLeft };
-    if (project) rememberCaret();
-    stdView = { std, stash };
+  /**
+   * Shows a library file's text, read-only; `exitStd` puts the editor back.
+   * Already showing one, it shows another in its place (the editor's own state
+   * stays stashed): navigation goes on from file to file of the library.
+   */
+  function showStd(std, text) {
+    if (!stdView) {
+      const stash = { value: source.value, start: source.selectionStart, end: source.selectionEnd,
+                      top: source.scrollTop, left: source.scrollLeft };
+      if (project) rememberCaret();
+      stdView = { std, stash };
+    } else {
+      stdView.std = std;
+    }
     hideTip();
+    hideRefs();
+    hideMenu();
+    nav.hover = null;
+    showLink();
     source.value = text;
     source.readOnly = true;
     source.scrollTop = source.scrollLeft = 0;
@@ -2090,24 +2106,31 @@ export def area: Shape -> Nat
   }
   async function openStd(std, range) {
     const text = await stdText(std);
-    if (!text || stdView) return false;
-    enterStd(std, text);
+    if (!text) return false;
+    if (stdView?.std !== std) showStd(std, text);
     reveal(range);
     return true;
   }
 
   /** Remembers where the editor is, to come back to. */
   function pushBack() {
-    nav.back.push({ path: project?.open ?? null, start: source.selectionStart, end: source.selectionEnd,
+    nav.back.push({ std: stdView?.std ?? null, path: project?.open ?? null, start: source.selectionStart, end: source.selectionEnd,
                     top: source.scrollTop, left: source.scrollLeft });
     if (nav.back.length > 50) nav.back.shift();
   }
-  /** Back to where the last jump was made from. */
+  /** Back to where the last jump was made from: a file of the project or of the library. */
   function goBack() {
     const there = nav.back.pop();
-    exitStd();
-    if (!there) return;
-    if (project && there.path !== project.open && project.texts.has(there.path)) openFile(there.path);
+    if (!there) {
+      exitStd();
+      return;
+    }
+    if (there.std) {
+      showStd(there.std, nav.std.get(there.std) ?? ""); // it was shown, so it is kept
+    } else {
+      exitStd();
+      if (project && there.path !== project.open && project.texts.has(there.path)) openFile(there.path);
+    }
     source.focus({ preventScroll: true });
     source.setSelectionRange(there.start, there.end);
     source.scrollTop = there.top;
@@ -2115,9 +2138,8 @@ export def area: Shape -> Nat
     align();
   }
 
-  /** Goes to the definition of the name at `offset` of the open file; whether there was one. */
+  /** Goes to the definition of the name at `offset` of the open file (or library file); whether there was one. */
   async function goToDefinition(offset) {
-    if (stdView) return false;
     const idx = await ensureIndex();
     const hit = idx && lookupAt(idx, offset);
     if (!hit) return false;
@@ -2125,7 +2147,7 @@ export def area: Shape -> Nat
     const target = idx.out.files[file];
     hideTip();
     pushBack();
-    const went = target.std ? await openStd(target.std, range) : (openAt(target.path, range), true);
+    const went = target.std ? await openStd(target.std, range) : openAt(target.path, range);
     if (!went) nav.back.pop();
     return went;
   }
@@ -2142,8 +2164,15 @@ export def area: Shape -> Nat
   const navmenu = el("div", { id: "navmenu", role: "menu", hidden: true });
   document.body.append(navrefs, navmenu);
 
-  /** The uses of the target of `ref`: { declaration, uses (project files), library (a count) }. */
-  function referencesOf(idx, ref) {
+  /** The most uses in the library listed when the lookup is made from within the library. */
+  const LIBRARY_ROWS = 200;
+
+  /**
+   * The uses of the target of `ref`: { declaration, uses, library (a count) }.
+   * The uses are those in project files; from within the library (`inLibrary`)
+   * also the first few in library files, and `library` counts the rest.
+   */
+  function referencesOf(idx, ref, inLibrary = false) {
     const { out } = idx;
     const t = targetOf(idx, ref);
     const sameTarget = ref.symbol !== undefined
@@ -2155,7 +2184,9 @@ export def area: Shape -> Nat
     for (const r of out.refs) {
       if (!sameTarget(r) || isDeclaration(r.file, r.range)) continue;
       const f = out.files[r.file];
-      if (f.std) library++; else uses.push({ file: r.file, path: f.path, range: r.range });
+      if (!f.std) uses.push({ file: r.file, path: f.path, std: null, range: r.range });
+      else if (inLibrary && uses.length < LIBRARY_ROWS) uses.push({ file: r.file, path: f.path, std: f.std, range: r.range });
+      else library++;
     }
     const f = out.files[t.file];
     const declaration = { file: t.file, path: f.path, std: f.std ?? null, range: t.range };
@@ -2186,7 +2217,7 @@ export def area: Shape -> Nat
     row.addEventListener("click", async () => {
       hideRefs();
       pushBack();
-      const went = use.std ? await openStd(use.std, use.range) : (openAt(use.path, use.range), true);
+      const went = use.std ? await openStd(use.std, use.range) : openAt(use.path, use.range);
       if (!went) nav.back.pop();
     });
     return el("li", {}, row);
@@ -2195,11 +2226,12 @@ export def area: Shape -> Nat
   async function showRefs(idx, hit) {
     hideTip();
     hideMenu();
-    const found = referencesOf(idx, hit.ref);
-    if (found.declaration.std) await stdText(found.declaration.std); // for its line
+    const found = referencesOf(idx, hit.ref, !!stdView);
+    // The library files' text, for the lines of the rows.
+    for (const std of new Set([found.declaration, ...found.uses].map((u) => u.std).filter(Boolean))) await stdText(std);
     const rows = [refRow(idx, found.declaration, true), ...found.uses.map((u) => refRow(idx, u, false))];
     const count = found.uses.length;
-    const more = found.library ? `, and ${found.library} in the library` : "";
+    const more = found.library ? `, and ${found.library} ${stdView ? "more " : ""}in the library` : "";
     const close = el("button", { type: "button", title: "Close (Esc)", "aria-label": "Close" }, "×");
     close.addEventListener("click", () => { hideRefs(); source.focus({ preventScroll: true }); });
     navrefs.replaceChildren(
@@ -2219,9 +2251,8 @@ export def area: Shape -> Nat
     (navrefs.querySelectorAll("li button")[found.uses.length ? 1 : 0]).focus({ preventScroll: true });
   }
 
-  /** Lists the uses of the name at `offset` of the open file; whether there was a name. */
+  /** Lists the uses of the name at `offset` of the open file (or library file); whether there was a name. */
   async function findReferences(offset) {
-    if (stdView) return false;
     const idx = await ensureIndex();
     const hit = idx && lookupAt(idx, offset);
     if (!hit) return false;
@@ -2251,9 +2282,9 @@ export def area: Shape -> Nat
   // The right-click menu, on a name: the two lookups and their keys. Anywhere
   // else the browser's own menu stays.
   source.addEventListener("contextmenu", (e) => {
-    if (stdView || !nav.index) return;
+    if (!nav.index) return;
     const offset = offsetAt(e.clientX, e.clientY);
-    const hit = offset !== null && validFor(nav.index, openPath()) ? lookupAt(nav.index, offset) : null;
+    const hit = offset !== null && validHere(nav.index) ? lookupAt(nav.index, offset) : null;
     if (!hit) return;
     e.preventDefault();
     hideTip();
@@ -2281,7 +2312,7 @@ export def area: Shape -> Nat
     }
   });
 
-  editorBox.addEventListener("mouseenter", () => { if (!stdView) ensureIndex(); });
+  editorBox.addEventListener("mouseenter", () => { ensureIndex(); });
   source.addEventListener("mousemove", (e) => {
     nav.pointer = { x: e.clientX, y: e.clientY };
     setMod(e.metaKey || e.ctrlKey);
@@ -2290,7 +2321,7 @@ export def area: Shape -> Nat
   source.addEventListener("mouseleave", () => { nav.pointer = null; scheduleNav(); });
   source.addEventListener("mousedown", (e) => {
     hideTip();
-    if (e.button !== 0 || !(e.metaKey || e.ctrlKey) || stdView) return;
+    if (e.button !== 0 || !(e.metaKey || e.ctrlKey)) return;
     e.preventDefault(); // no caret move: it's a jump
     const offset = offsetAt(e.clientX, e.clientY);
     if (offset !== null) goToDefinition(offset);
