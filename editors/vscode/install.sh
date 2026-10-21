@@ -14,7 +14,7 @@ manifest = f'''<?xml version="1.0" encoding="utf-8"?>
   <Metadata>
     <Identity Language="en-US" Id="stitchwort" Version="{version}" Publisher="local"/>
     <DisplayName>Stitchwort</DisplayName>
-    <Description xml:space="preserve">Syntax colouring for Stitchwort (.sw) files</Description>
+    <Description xml:space="preserve">Syntax colouring, go to definition, hover and outline for Stitchwort (.sw) files</Description>
     <Categories>Programming Languages</Categories>
     <Properties><Property Id="Microsoft.VisualStudio.Code.Engine" Value="^1.60.0"/></Properties>
   </Metadata>
@@ -23,11 +23,13 @@ manifest = f'''<?xml version="1.0" encoding="utf-8"?>
   <Assets><Asset Type="Microsoft.VisualStudio.Code.Manifest" Path="extension/package.json" Addressable="true"/></Assets>
 </PackageManifest>'''
 types = '''<?xml version="1.0" encoding="utf-8"?>
-<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension=".json" ContentType="application/json"/><Default Extension=".md" ContentType="text/markdown"/><Default Extension=".vsixmanifest" ContentType="text/xml"/></Types>'''
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension=".json" ContentType="application/json"/><Default Extension=".js" ContentType="application/javascript"/><Default Extension=".md" ContentType="text/markdown"/><Default Extension=".vsixmanifest" ContentType="text/xml"/></Types>'''
 with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
     z.writestr("extension.vsixmanifest", manifest)
     z.writestr("[Content_Types].xml", types)
     for root, _, files in os.walk(src):
+        if os.path.relpath(root, src).split(os.sep)[0] == "test":
+            continue
         for f in files:
             if f == "install.sh":
                 continue
