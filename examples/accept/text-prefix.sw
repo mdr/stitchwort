@@ -2,6 +2,8 @@
 -- through pipes and dot notation. Dot notation puts the receiver in the first
 -- `Text` parameter, so for `stripPrefix` and the like use a pipe.
 
+import Std (Int, List, Option, Text)
+
 def eqTexts: List Text -> List Text -> Bool
   | Nil,       Nil       => True
   | Cons x xs, Cons y ys => if x == y then eqTexts xs ys else False

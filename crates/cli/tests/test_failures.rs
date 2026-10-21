@@ -5,7 +5,9 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 
-const SOURCE: &str = r#"def part1 (n: Nat): Nat := n + 1
+const SOURCE: &str = r#"import Std (List)
+
+def part1 (n: Nat): Nat := n + 1
 
 test "equal" := part1 1 == 2
 test "part 1 on the example" := part1 1 == 3

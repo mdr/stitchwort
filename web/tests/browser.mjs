@@ -365,7 +365,9 @@ test("test results are cached, and can be forgotten", async (page) => {
 test("a failed comparison test shows both sides in the Tests tab", async (page) => {
   await page.open();
   await page.untilChecked();
-  await page.setSource(`def part1 (n: Nat): Nat := n + 1
+  await page.setSource(`import Std (List)
+
+def part1 (n: Nat): Nat := n + 1
 
 test "part 1 on the example" := part1 1 == 3
 test "greater" := 1 > part1 5
