@@ -1,5 +1,5 @@
 {
-  "next": 235,
+  "next": 238,
   "tickets": [
     {
       "id": 1,
@@ -3502,6 +3502,42 @@
       "where": "",
       "labels": [],
       "body": "Lazy library loading triggers on short names: a library file loads whenever any of its functions' last name component matches a field or method used anywhere (e.g. `add.zeroAdd`, `Add.add`). SW-229 found that naming Mod helpers `Mod.add`/`Mod.zero`/`Mod.zeroAdd` made every List program load Mod.sw (List.range test 0.14 s -> 0.33 s); worked around by renaming them (addMod, zeroMod, ...). The index should only trigger a load when the name can actually resolve into that file (namespace-aware), so library authors can use natural names.\n\nDone when: Mod's helpers could be named add/zero without loading Mod.sw for List programs (a test measures which files load), and the names are restored.\n",
+      "created": "2026-10-21",
+      "updated": "2026-10-21",
+      "commits": []
+    },
+    {
+      "id": 235,
+      "title": "List batch 2: maxBy/minBy (first wins), dropWhile, takeWhile, span, dropRight, tails, findIndex, withIndex, splitAt",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "Second list batch (D360, D361; docs/comparisons/aoc-day03-community.md): List.maxBy / minBy (by a key or comparison; on a tie the FIRST element wins, documented and tested, since the day 3 trap is that Haskell maximumBy / Clojure max-key return the last), dropWhile, takeWhile, span, dropRight, tails, findIndex, zipWithIndex (or withIndex), splitAt. Main value first, as SW-219. Tests and cheap lemmas.\n\nDone when: all exist in std/List with tests; the maxBy tie rule has a test that tells the rules apart.\n",
+      "created": "2026-10-21",
+      "updated": "2026-10-21",
+      "commits": []
+    },
+    {
+      "id": 236,
+      "title": "Day 3: a tie test that tells the rules apart, and the brute force as a test",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "Day 3 tests (D363, D364): make the \"leftmost wins\" test tell the tie rules apart ([2, 7, 5, 7, 3] with k = 2 is 77 leftmost, 73 otherwise; today Bank.best 1 [3, 9, 9, 1] passes either way), and keep the every-choice brute force (choices k ds over the example banks) as a test, as day 2 keeps its brute force. docs/comparisons/aoc-day03-community.md.\n\nDone when: both tests in aoc/src/Aoc/Day03, passing; flipping c < x to c <= x makes the tie test fail.\n",
+      "created": "2026-10-21",
+      "updated": "2026-10-21",
+      "commits": []
+    },
+    {
+      "id": 237,
+      "title": "Design note: pattern guards (| p if c => …)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "Design note: pattern guards (`| p if c => …`, falling through to later arms when c is false), seen in about 11 GitHub files and 5 Reddit comments for day 3 (stack shape: `step (t:ts, d) x | d > 0 && x > t = …`). The arm would know c and later arms not c, tying it to the SW-226 rule for && facts; coverage checking must treat guarded arms as possibly failing. D362. Compare Haskell guards, Scala/Rust `if` guards, OCaml `when`, Lean/Idris.\n\nDone when: the note is reviewed by Matt; implementation separate.\n",
       "created": "2026-10-21",
       "updated": "2026-10-21",
       "commits": []
