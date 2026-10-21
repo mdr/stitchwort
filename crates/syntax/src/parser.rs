@@ -2141,29 +2141,21 @@ impl<'t> Parser<'t> {
     /// associative.
     fn cmp_expr(&mut self) -> Result<Expr> {
         let lhs = self.append_expr()?;
-        let op = match self.peek() {
-            Some(Tok::Equals) => BinOp::Eq,
-            Some(Tok::NotEq) => BinOp::Ne,
-            Some(Tok::EqEq) => BinOp::EqEq,
-            Some(Tok::Lt) => BinOp::Lt,
-            Some(Tok::Le) => BinOp::Le,
+        let (op, flip) = match self.peek() {
+            Some(Tok::Equals) => (BinOp::Eq, false),
+            Some(Tok::NotEq) => (BinOp::Ne, false),
+            Some(Tok::EqEq) => (BinOp::EqEq, false),
+            Some(Tok::Lt) => (BinOp::Lt, false),
+            Some(Tok::Le) => (BinOp::Le, false),
             // `a > b` is `b < a`, `a >= b` is `b <= a`: the same terms, so
             // goals and messages show `<` and `<=`.
-            Some(Tok::Gt) => {
-                self.bump();
-                let rhs = self.append_expr()?;
-                return Ok(Expr::Binary(BinOp::Lt, Box::new(rhs), Box::new(lhs)));
-            }
-            Some(Tok::Ge) => {
-                self.bump();
-                let rhs = self.append_expr()?;
-                return Ok(Expr::Binary(BinOp::Le, Box::new(rhs), Box::new(lhs)));
-            }
+            Some(Tok::Gt) => (BinOp::Lt, true),
+            Some(Tok::Ge) => (BinOp::Le, true),
             _ => return Ok(lhs),
         };
         self.bump();
         let rhs = self.append_expr()?;
-        Ok(Expr::Binary(op, Box::new(lhs), Box::new(rhs)))
+        Ok(binary(op, flip, lhs, rhs))
     }
 
     /// `++`: right-associative, binding more loosely than `+`, so
@@ -2220,22 +2212,11 @@ impl<'t> Parser<'t> {
             let start = self.bump().span;
             return self.match_expr(start);
         }
-        if self.peek() == Some(&Tok::Minus) {
+        if let Some(prefix @ (Tok::Minus | Tok::Bang)) = self.peek() {
             self.deeper()?;
             let start = self.bump().span;
             let operand = self.unary()?;
-            let span = start.to(operand.span());
-            return Ok(Expr::Neg(Box::new(operand), span));
-        }
-        if self.peek() == Some(&Tok::Bang) {
-            self.deeper()?;
-            let start = self.bump().span;
-            let operand = self.unary()?;
-            let not = Expr::Var(Name {
-                text: "Std.Bool.not".into(),
-                span: start,
-            });
-            return Ok(Expr::App(Box::new(not), Box::new(operand)));
+            return Ok(prefix_op(prefix == &Tok::Bang, start, operand));
         }
         self.app()
     }
@@ -2587,6 +2568,32 @@ impl<'t> Parser<'t> {
             _ => Err(self.unexpected("an expression")),
         }
     }
+}
+
+/// `lhs op rhs`, or with `flip` `rhs op lhs`. Out of line, so the recursive
+/// parsing functions keep small stack frames (nesting depth is bounded by
+/// stack use).
+#[inline(never)]
+fn binary(op: BinOp, flip: bool, lhs: Expr, rhs: Expr) -> Expr {
+    if flip {
+        Expr::Binary(op, Box::new(rhs), Box::new(lhs))
+    } else {
+        Expr::Binary(op, Box::new(lhs), Box::new(rhs))
+    }
+}
+
+/// `-operand`, or with `bang` `!operand`, which is `Std.Bool.not operand`.
+#[inline(never)]
+fn prefix_op(bang: bool, start: Span, operand: Expr) -> Expr {
+    if bang {
+        let not = Expr::Var(Name {
+            text: "Std.Bool.not".into(),
+            span: start,
+        });
+        return Expr::App(Box::new(not), Box::new(operand));
+    }
+    let span = start.to(operand.span());
+    Expr::Neg(Box::new(operand), span)
 }
 
 /// `lhs |> rhs`; when `rhs` is a method section, the call it stands for on
