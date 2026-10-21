@@ -364,10 +364,8 @@ fn solve(g: &Globals, level: usize, m: usize, spine: &[Elim], rhs: &Value) -> Re
         match elim {
             Elim::App(arg, icit) => match force(g, arg.clone())? {
                 Value::Neutral(Head::Var(l), s) if s.is_empty() => {
-                    if renaming.contains_key(&l) {
+                    if renaming.insert(l, icits.len()).is_some() {
                         repeated.push(l);
-                    } else {
-                        renaming.insert(l, icits.len());
                     }
                     icits.push(*icit);
                 }
