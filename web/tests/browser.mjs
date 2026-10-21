@@ -438,7 +438,7 @@ test("the JavaScript tab", async (page) => {
   await page.open();
   await page.untilChecked();
   await page.tab("js");
-  await page.until(`document.getElementById("output").textContent.includes("None is exported")`);
+  await page.until(`document.getElementById("output").textContent.includes("Nothing is exported")`);
   await page.pick("ex-js");
   await page.until(`document.getElementById("output").textContent.includes("ES module")`);
   const out = await page.output();
