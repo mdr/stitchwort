@@ -125,6 +125,9 @@ pub(crate) struct ItemInfo {
     /// For an instance: what the head of its type names, as far as names
     /// tell before anything is checked (its interface).
     pub interface: Option<Global>,
+    /// For an instance: what the head of the type it's for names (`Item` in
+    /// `DecEq Item`), the same way.
+    pub head: Option<Global>,
 }
 
 /// One file of the module being elaborated.
@@ -263,7 +266,12 @@ impl Elaborator {
             first_test = self.tests.len();
             self.module.first_test = first_test;
         }
-        self.instance_edges(&items);
+        // The core and the library are written in an order that works,
+        // instances after what the rest of them uses: their uses of syntax
+        // (`if`, `<=`) refer to declarations no name does.
+        if !self.loading_prelude {
+            self.instance_edges(&items);
+        }
         let order = self.components();
 
         for component in order {
@@ -510,6 +518,7 @@ impl Elaborator {
                     function: false,
                     instance,
                     interface: None,
+                    head: None,
                 });
                 items.push(Item {
                     decl,
@@ -550,7 +559,9 @@ impl Elaborator {
         let decidable = self.globals.registry.data(Builtin::Decidable);
         for (index, item) in items.iter().enumerate() {
             self.module.file = Some(self.module.items[index].file);
-            if let Decl::Signature { ty, .. } = item.decl
+            if let Decl::Signature {
+                ty, instance: true, ..
+            } = item.decl
                 && let Some(head) = result_head(ty)
             {
                 self.module.items[index].decides = decidable.is_some()
@@ -570,6 +581,9 @@ impl Elaborator {
             {
                 self.module.file = Some(self.module.items[index].file);
                 self.module.items[index].interface = self.named(&head.text).map(|(g, _)| *g);
+                self.module.items[index].head = instance_head(ty)
+                    .and_then(|n| self.named(&n.text))
+                    .map(|(g, _)| *g);
             }
         }
         self.module.file = None;
@@ -770,14 +784,35 @@ impl Elaborator {
     /// an error that says so (`interfaces.rs`). The instances are taken in
     /// source order.
     fn instance_edges(&mut self, items: &[Item]) {
+        // Decision procedures keep their own rule (D9): only those checked
+        // and above the use.
+        let decidable = self
+            .globals
+            .registry
+            .data(Builtin::Decidable)
+            .map(Global::Data);
         let instances: Vec<usize> = (0..self.module.items.len())
-            .filter(|i| self.module.items[*i].instance)
+            .filter(|i| {
+                let item = &self.module.items[*i];
+                item.instance
+                    && item.interface != decidable
+                    && match item.interface {
+                        Some(Global::Unchecked(j)) => matches!(
+                            items[j].decl,
+                            Decl::Data {
+                                interface: true,
+                                ..
+                            }
+                        ),
+                        _ => true,
+                    }
+            })
             .collect();
         if instances.is_empty() {
             return;
         }
-        let add = |this: &mut Self, from: usize, to: usize| {
-            if from == to || this.reaches(to, from) {
+        let add = |this: &mut Self, reached: &HashSet<usize>, from: usize, to: usize| {
+            if from == to || reached.contains(&from) {
                 return;
             }
             let span = this.module.items[to].span;
@@ -794,6 +829,7 @@ impl Elaborator {
             let Some(wanted) = self.module.items[y].interface else {
                 continue;
             };
+            let reached = self.reachable(y);
             for &x in &instances {
                 if x == y || self.module.items[x].interface == Some(wanted) {
                     continue;
@@ -801,36 +837,36 @@ impl Elaborator {
                 let mentions = self.mentions_global(x, &items[x], wanted)
                     || self.is_super_of(self.module.items[x].interface, wanted, items);
                 if mentions {
-                    add(self, x, y);
+                    add(self, &reached, x, y);
                 }
             }
         }
         // Everything else that may use one.
         for &y in &instances {
+            let reached = self.reachable(y);
             for x in 0..self.module.items.len() {
                 let kind = self.module.items[x].kind;
                 if self.module.items[x].instance || !matches!(kind, Kind::Def | Kind::Test) {
                     continue;
                 }
-                add(self, x, y);
+                add(self, &reached, x, y);
             }
         }
     }
 
-    /// Whether item `from` depends on item `to`, directly or not.
-    fn reaches(&self, from: usize, to: usize) -> bool {
+    /// The items item `from` depends on, directly or not, itself included.
+    /// (Adding edges into `from` never changes it, unless they close a
+    /// cycle, which `instance_edges` doesn't do.)
+    fn reachable(&self, from: usize) -> HashSet<usize> {
         let mut seen = HashSet::new();
         let mut pending = vec![from];
         while let Some(i) = pending.pop() {
-            if i == to {
-                return true;
-            }
             if !seen.insert(i) {
                 continue;
             }
             pending.extend(self.module.items[i].deps.iter().map(|d| d.item));
         }
-        false
+        seen
     }
 
     /// Whether `item`'s declaration names `wanted` (or something in its
@@ -1611,6 +1647,19 @@ impl Elaborator {
     /// function type.
     pub(crate) fn item_is_function(&self, item: usize) -> bool {
         self.module.items[item].function
+    }
+}
+
+/// For an instance's type, the name at the head of the type it's for:
+/// `List` in `[a: Type] -> DecEq (List a)`.
+pub(crate) fn instance_head(ty: &Expr) -> Option<&ast::Name> {
+    let mut ty = ty;
+    while let Expr::Pi { cod, .. } | Expr::Arrow(_, cod) = ty {
+        ty = cod;
+    }
+    match ty {
+        Expr::App(_, arg) => type_head(arg),
+        _ => None,
     }
 }
 

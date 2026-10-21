@@ -2,14 +2,12 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-AUTO-NONE] Error: no way to decide `fs = fs`
+[E-INSTANCE-NONE] Error: no `DecEq` instance for `Nat -> Nat`
    ╭─[ reject/eqeq-list-undecidable.sw:4:43 ]
    │
  4 │ def same (fs: List (Nat -> Nat)): Bool := fs == fs
    │                                           ────┬───  
-   │                                               ╰───── the compiler needs a proof of this
+   │                                               ╰───── this needs `DecEq (Nat -> Nat)`
    │ 
-   │ Note 1: supply a proof by name, or write a decision procedure: a function returning `Decidable …`
-   │ 
-   │ Note 2: `List.decEq` could decide `=` on `List (Nat -> Nat)`, given a way to decide `=` on `Nat -> Nat`
+   │ Note: functions can't be compared: there's no `==` on them
 ───╯

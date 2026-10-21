@@ -375,6 +375,16 @@ pub(crate) fn file_names(
                         function: true,
                         span: name.span,
                     });
+                    // An interface's own projections, beside its methods.
+                    if interface {
+                        out.push(IndexedName {
+                            key: Elaborator::member_key(&key, &format!("%{}", name.text)),
+                            kind: PendingKind::Def,
+                            follower: false,
+                            function: true,
+                            span: name.span,
+                        });
+                    }
                 }
             }
         }

@@ -1,3 +1,3 @@
 namespace N
 
-def helper: Decidable Token := Yes MkToken
+instance helper: Decidable Token := Yes MkToken

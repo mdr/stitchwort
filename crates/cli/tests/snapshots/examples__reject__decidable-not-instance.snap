@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-AUTO-NONE] Error: no way to decide `Token`
+    ╭─[ reject/decidable-not-instance.sw:11:24 ]
+    │
+ 11 │ test "not found" := if Token then True else False
+    │                        ──┬──  
+    │                          ╰──── this is a proposition, and nothing decides it
+    │ 
+    │ Note: `if` takes a `Bool`, or a proposition with a decision procedure: an `instance` returning `Decidable …`
+────╯

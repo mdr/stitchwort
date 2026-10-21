@@ -2,14 +2,14 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-AUTO-NONE] Error: no way to decide `a = b`
+[E-INSTANCE-NONE] Error: no `DecEq` instance for `Handler`
    ╭─[ reject/record-eqeq-function-field.sw:5:45 ]
    │
  5 │ def same (a: Handler) (b: Handler): Bool := a == b
    │                                             ───┬──  
-   │                                                ╰──── the compiler needs a proof of this
+   │                                                ╰──── this needs `DecEq Handler`
    │ 
-   │ Note 1: supply a proof by name, or write a decision procedure: a function returning `Decidable …`
+   │ Note 1: `==` isn't derived for `Handler`: its field `run` is a function, and functions can't be compared
    │ 
-   │ Note 2: `==` isn't derived for `Handler`: its field `run` is a function, and functions can't be compared
+   │ Note 2: an instance of `DecEq` for `Handler` can be declared in `Main`
 ───╯

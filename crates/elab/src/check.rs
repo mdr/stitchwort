@@ -1558,7 +1558,7 @@ fn decide_to_bool(
         Err(mut e) if e.code == "E-AUTO-NONE" && !e.notes.is_empty() => {
             e.labels.clear();
             e.notes[0] = "a `Bool` is expected here, and a proposition is turned into one only \
-                          if it has a decision procedure: a function returning `Decidable …`"
+                          if it has a decision procedure: an `instance` returning `Decidable …`"
                 .into();
             return Err(e.with_label(expr.span(), "this is a proposition, and nothing decides it"));
         }

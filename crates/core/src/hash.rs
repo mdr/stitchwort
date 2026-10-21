@@ -116,7 +116,7 @@ pub fn def_hash(g: &Globals, id: DefId) -> Result<Option<ContentHash>> {
     let mut h = Hasher::new(g, Itself::Def(id));
     h.tag("def");
     h.bool(def.theorem);
-    if def.instance {
+    if hashed_instance(g, def) {
         h.tag("instance");
     }
     h.term(&def.ty)?;
@@ -124,6 +124,23 @@ pub fn def_hash(g: &Globals, id: DefId) -> Result<Option<ContentHash>> {
     let hash = h.finish();
     g.hashes.borrow_mut().insert(HashKey::Def(id), hash);
     Ok(Some(hash))
+}
+
+/// Whether a definition's `instance` marker is part of its hash
+/// (docs/proposals/interfaces.md §9.3): an interface's instance's is. A
+/// decision procedure's (a result of `Decidable …`) isn't: the marker only
+/// says the search may use it, and what the search chose is in the terms
+/// of what uses it.
+fn hashed_instance(g: &Globals, def: &crate::globals::Def) -> bool {
+    if !def.instance {
+        return false;
+    }
+    let mut ty = &def.ty;
+    while let Term::Pi(_, _, _, cod) = ty.strip_loc() {
+        ty = cod;
+    }
+    let decidable = g.registry.data(crate::registry::Builtin::Decidable);
+    !matches!(ty.strip_loc().spine().0.strip_loc(), Term::Data(d, _) if Some(*d) == decidable)
 }
 
 /// `None` for a data type that isn't final: without its constructors, it
@@ -167,7 +184,7 @@ fn group_hashes(g: &Globals, members: &[DefId]) -> Result<()> {
             .expect("internal error: hashing a group that isn't final");
         h.tag("def");
         h.bool(def.theorem);
-        if def.instance {
+        if hashed_instance(g, def) {
             h.tag("instance");
         }
         h.term(&def.ty)?;

@@ -1,11 +1,12 @@
--- `==` on declared data types: when a type is declared, the compiler writes
--- a decision procedure for `=` on it (`T.%decEq`, a name you can't spell),
--- which `==` and `auto` find. It works when every field can be compared:
--- enums, constructors with fields, recursive types, and parameterised types
--- whose parameters are `Type` (`Tree Nat` uses `Nat`'s decider for `a`).
--- Skipped, with `E-AUTO-NONE` and a note saying why: function fields, proof
--- or type fields, types defined together, Prop types, and fields that
--- depend on earlier ones (see reject/eqeq-data-*.sw).
+-- `==` on declared data types: when a type is declared, the compiler
+-- derives a `DecEq` instance for it (`T.%instDecEq`, a name you can't
+-- spell), which `==` and `auto` find. It works when every field can be
+-- compared: enums, constructors with fields, recursive types, and
+-- parameterised types (`Tree Nat` uses `Nat`'s instance for `a`), and proof
+-- fields that are equations (examples/accept/eqeq-proof-fields.sw).
+-- Skipped, with `E-INSTANCE-NONE` and a note saying why: function fields,
+-- other proof fields, type fields, types defined together, Prop types, and
+-- fields that depend on earlier ones (see reject/eqeq-data-*.sw).
 
 type Dir = | North | East | South | West
 

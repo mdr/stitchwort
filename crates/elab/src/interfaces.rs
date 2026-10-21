@@ -330,6 +330,16 @@ impl Elaborator {
             written = cod;
         }
         let ty = force(g, ty)?;
+        // A decision procedure (D163): marked, so the search for one uses
+        // it, and none of the rules below apply (§5.12).
+        if let Value::Data(d, _) = &ty
+            && Some(*d)
+                == g.registry
+                    .data(stitchwort_core::registry::Builtin::Decidable)
+        {
+            kernel::mark_instance(&mut self.globals, id);
+            return Ok(());
+        }
         let (interface, arg) = match &ty {
             Value::Data(i, args) if self.is_interface(*i) => (*i, args[0].clone()),
             _ => {
@@ -342,7 +352,8 @@ impl Elaborator {
                     ),
                 )
                 .with_note(
-                    "an instance's type is an interface applied to a type, like `Pretty (List a)`",
+                    "an instance's type is an interface applied to a type, like `Pretty (List a)`, \
+                     or a `Decidable …` (a decision procedure)",
                 ));
             }
         };
@@ -972,6 +983,23 @@ fn none(cx: &Ctx, interface: DataId, goal: &Value, head: Option<DataId>) -> Diag
         format!("no `{iface_name}` instance for `{}`", cx.show(&arg)),
         format!("this needs `{}`", cx.show(goal)),
     );
+    // For equality: why `==` wasn't derived, or why it can't be.
+    if Some(interface) == dec_eq(e) {
+        match force(g, arg.clone()).unwrap_or(arg.clone()) {
+            Value::Data(t, _) => {
+                if let Some(why) = e.no_eq.get(&t) {
+                    d = d.with_note(format!(
+                        "`==` isn't derived for `{}`: {why}",
+                        g.data(t).name
+                    ));
+                }
+            }
+            Value::Pi(..) => {
+                d = d.with_note("functions can't be compared: there's no `==` on them");
+            }
+            _ => {}
+        }
+    }
     match head {
         Some(h) => {
             let owner = |d: DataId| {
@@ -981,7 +1009,12 @@ fn none(cx: &Ctx, interface: DataId, goal: &Value, head: Option<DataId>) -> Diag
                     .unwrap_or_else(|| "Std".to_string())
             };
             let (io, ho) = (owner(interface), owner(h));
-            let where_ = if io == ho {
+            // A program can't add to `Std`, so only the other owner is any
+            // use to it.
+            let user = !e.loading_prelude;
+            let where_ = if io == ho || (user && io == "Std") {
+                format!("in `{ho}`")
+            } else if user && ho == "Std" {
                 format!("in `{io}`")
             } else {
                 format!(
@@ -989,10 +1022,12 @@ fn none(cx: &Ctx, interface: DataId, goal: &Value, head: Option<DataId>) -> Diag
                     g.data(h).name
                 )
             };
-            d = d.with_note(format!(
-                "an instance of `{iface_name}` for `{}` can be declared {where_}",
-                g.data(h).name
-            ));
+            if !(user && io == "Std" && ho == "Std") {
+                d = d.with_note(format!(
+                    "an instance of `{iface_name}` for `{}` can be declared {where_}",
+                    g.data(h).name
+                ));
+            }
         }
         None => {
             if let Value::Neutral(Head::Var(_), _) = force(g, arg.clone()).unwrap_or(arg.clone()) {
@@ -1198,6 +1233,13 @@ impl Elaborator {
     /// whatever can't be solved yet is left for the end of the declaration
     /// (§5.8 (a)).
     pub(crate) fn solve_now(&self, meta: &Term) -> Result<()> {
+        self.solve_tree(meta, false)
+    }
+
+    /// [`Elaborator::solve_now`], but an obligation of the tree that fails
+    /// (no instance, an ambiguity) is an error now; only waiting leaves it
+    /// for later.
+    pub(crate) fn solve_tree(&self, meta: &Term, strict: bool) -> Result<()> {
         let Term::Meta(root) = meta.spine().0 else {
             return Ok(());
         };
@@ -1228,18 +1270,26 @@ impl Elaborator {
                 ob.span,
             );
             let goal = interface_goal(self, &ob.goal)?;
+            let mut failed = None;
             let solved = match goal {
                 Some((i, arg)) => {
                     crate::undo::transaction(&mut ob_cx, |cx| match attempt(cx, &ob, i, &arg) {
                         Ok(Attempt::Solved) => Ok(Some(())),
                         Ok(Attempt::Wait(_)) => Ok(None),
                         Err(e) if crate::undo::fatal(&e) => Err(e),
-                        Err(_) => Ok(None),
+                        Err(e) => {
+                            failed = Some(e);
+                            Ok(None)
+                        }
                     })?
                     .is_some()
                 }
                 None => false,
             };
+            if strict && let Some(e) = failed {
+                self.obligations.borrow_mut().insert(index, ob);
+                return Err(e);
+            }
             if !solved {
                 if let Term::Meta(m) = ob.meta.spine().0 {
                     tried.insert(*m);
@@ -1249,4 +1299,70 @@ impl Elaborator {
         }
         Ok(())
     }
+}
+
+/// The library's `DecEq`, once it's declared (docs/proposals/interfaces.md
+/// §6.1).
+pub(crate) fn dec_eq(e: &Elaborator) -> Option<DataId> {
+    match e.scope.get("Std.DecEq") {
+        Some((Global::Data(d), _)) if e.is_interface(d) => Some(d),
+        _ => None,
+    }
+}
+
+/// A decision of `x = y`, for `x y: ty`, from the `DecEq` instance for `ty`
+/// (§5.12). It's found now if it can be; an error if there's none. If the
+/// instance found is a record literal (a global instance's, inlined), the
+/// decision is its `decide` field applied to `x` and `y`, which is the term a
+/// search for a decision procedure used to give (`Nat.decEq x y`); otherwise
+/// it's `DecEq.decide x y` with that dictionary, found later if it can't be
+/// yet.
+pub(crate) fn decide_eq(cx: &mut Ctx, ty: &Value, x: &Value, y: &Value) -> Result<Term> {
+    let Some(dec) = dec_eq(cx.e) else {
+        return Err(cx.error(
+            "E-AUTO-NONE",
+            "no way to decide an equation here",
+            "the library's `DecEq` isn't available yet",
+        ));
+    };
+    let goal = Value::Data(dec, vec![ty.clone()]);
+    let meta = implicit_arg(cx, Icit::Auto, &goal);
+    cx.e.solve_tree(&meta, true)?;
+    let (xt, yt) = (cx.quote(x)?, cx.quote(y)?);
+    // A definition, applied or not (not a lambda, whose type the kernel
+    // can't infer where it's applied).
+    if let Value::Ctor(_, 0, fields) = force(cx.g(), cx.eval(&meta)?)?
+        && let Some(decide) = fields.first()
+        && matches!(decide, Value::Neutral(Head::Def(_), _))
+    {
+        let decide = cx.quote(decide)?;
+        return Ok(Term::app(Term::app(decide, xt), yt));
+    }
+    let Some((Global::Def(method), _)) = cx.e.scope.get("Std.DecEq.decide") else {
+        unreachable!("`DecEq` has its method")
+    };
+    let ty = cx.quote(ty)?;
+    let call = Term::app_icit(
+        Term::app_icit(Term::Def(method), ty, Icit::Implicit),
+        meta,
+        Icit::Auto,
+    );
+    Ok(Term::app(Term::app(call, xt), yt))
+}
+
+/// Whether an instance of `goal` (an interface applied to a type) can be
+/// found in `cx` now: `Ok(None)` if so (or if it has to wait), the error if
+/// not. What it found is undone.
+pub(crate) fn findable(cx: &mut Ctx, goal: &Value) -> Result<Option<Diagnostic>> {
+    let mut why = None;
+    crate::undo::transaction(cx, |cx| {
+        let meta = implicit_arg(cx, Icit::Auto, goal);
+        match cx.e.solve_tree(&meta, true) {
+            Ok(()) => {}
+            Err(e) if crate::undo::fatal(&e) => return Err(e),
+            Err(e) => why = Some(e),
+        }
+        Ok(None::<()>)
+    })?;
+    Ok(why)
 }

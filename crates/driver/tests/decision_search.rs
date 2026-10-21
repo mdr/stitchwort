@@ -29,7 +29,10 @@ fn a_decision_procedure_added_in_a_later_file_is_found() {
         .expect_err("nothing decides `Token` yet");
     assert_eq!(codes(&errors), ["E-AUTO-NONE"]);
     session
-        .load("dec.sw", "def decToken : Decidable Token := Yes MkToken")
+        .load(
+            "dec.sw",
+            "instance decToken : Decidable Token := Yes MkToken",
+        )
         .expect("loads");
     session
         .load("late.sw", "def late : Nat := needsToken")
@@ -47,7 +50,7 @@ def first : Nat := needsToken [t := Decidable.fromYes decToken Trivial]
 
 def client : Nat := needsToken
 
-def decToken : Decidable Token := Yes MkToken
+instance decToken : Decidable Token := Yes MkToken
 
 def after : Nat := needsToken
 "

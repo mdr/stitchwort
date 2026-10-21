@@ -169,13 +169,22 @@ fn projections_and_equality_are_generated() {
         "(r: Sized) -> List.length r.items = r.size"
     );
     assert_eq!(shown("Box.value"), "[a: Type] -> Box a -> a");
-    assert_eq!(
-        shown("Person.decEq"),
-        "(r: Person) -> (s: Person) -> Decidable (r = s)"
-    );
-    // Not for a record with a proof field, or with parameters.
-    assert!(!g.defs.iter().any(|d| &*d.name == "Sized.decEq"));
-    assert!(!g.defs.iter().any(|d| &*d.name == "Box.decEq"));
+    // A derived `DecEq` instance (docs/proposals/interfaces.md §5.11), also
+    // for a proof field that's an equation, and with parameters.
+    for record in ["Person", "Sized", "Box"] {
+        let name = format!("{record}.%instDecEq");
+        let def = g
+            .defs
+            .iter()
+            .find(|d| *d.name == *name)
+            .unwrap_or_else(|| panic!("no `{name}`"));
+        assert!(def.instance, "{name} is an instance");
+        let ty = shown(&name);
+        assert!(
+            ty.contains(&format!("DecEq {record}")) || ty.contains(&format!("DecEq ({record}")),
+            "{ty}"
+        );
+    }
 }
 
 /// Changing a record's fields changes what's generated for it, and the

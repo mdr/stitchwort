@@ -125,7 +125,7 @@ fn an_import_clashing_with_a_sibling_declaration() {
 fn auto_doesnt_use_a_sibling_files_procedure() {
     let procedure = "namespace N\n\n\
          type Token: Prop =\n  | MkToken\n\n\
-         def decToken: Decidable Token := Yes MkToken\n\n\
+         instance decToken: Decidable Token := Yes MkToken\n\n\
          def needsToken: [auto t: Token] -> Nat := 1\n";
     let use_it = "def client: Nat := needsToken\n\ntest \"client\" := client == 1\n";
     let (_, errors) = errors(&[

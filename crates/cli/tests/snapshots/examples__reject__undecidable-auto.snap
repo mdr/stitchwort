@@ -9,5 +9,5 @@ expression: output
    │                 ─────┬────  
    │                      ╰────── the compiler needs a proof of this
    │ 
-   │ Note: supply a proof by name, or write a decision procedure: a function returning `Decidable …`
+   │ Note: supply a proof by name, or write a decision procedure: an `instance` returning `Decidable …`
 ───╯

@@ -9,5 +9,5 @@ expression: output
    │          ───────┬──────  
    │                 ╰──────── `Pretty.instNat` is declared as an instance, but `Pretty Nat` isn't an interface
    │ 
-   │ Note: an instance's type is an interface applied to a type, like `Pretty (List a)`
+   │ Note: an instance's type is an interface applied to a type, like `Pretty (List a)`, or a `Decidable …` (a decision procedure)
 ───╯

@@ -1,7 +1,8 @@
 # Proposal: interfaces
 
-**Status:** draft 3, 20 October 2026. Stage 1 is built
-([As built (stage 1)](#as-built-stage-1)); stages 2 to 7 are design only.
+**Status:** draft 3, 20 October 2026. Stages 1 and 2 are built
+([As built (stage 1)](#as-built-stage-1),
+[As built (stage 2)](#as-built-stage-2)); stages 3 to 7 are design only.
 Review closed and decisions D154-D174, D178-D182, D186, D187 accepted as recommended (D188, Matt, 20 October 2026).
 Ticket SW-4, decision D152 (Matt, 20 October 2026: write this note).
 Draft 2 answered the external review of draft 1
@@ -163,6 +164,7 @@ candidates blocked on unknowns. Every point:
 12. [Stages](#12-stages)
 13. [Risks](#13-risks)
 - [As built (stage 1)](#as-built-stage-1)
+- [As built (stage 2)](#as-built-stage-2)
 14. [Decisions](#14-decisions)
 15. [Sources](#15-sources)
 
@@ -1867,6 +1869,105 @@ What differs from the text above, or wasn't settled by it:
     instance was found is part of the term" holds through the body. Stage
     5's projection works on the literal anyway; keeping the name would need
     a way to solve a metavariable with a folded definition.
+
+## As built (stage 2)
+
+Stage 2 is built (SW-4, 21 October 2026): `DecEq` and its instances in
+the core, `=` decided through it, derived instances with value
+parameters and equation proof fields, `DecEq.uniqueEq`, the `instance`
+marker on decision procedures, and `decide_under` and `local_deciders`
+gone. Code: `crates/elab/src/derive.rs` (rewritten), `interfaces.rs`
+(`decide_eq`), `auto.rs`, `bind.rs`, `module.rs`; the library in
+`crates/elab/src/std/core.sw` (end) and `Vec/Vec.sw`. Tests:
+`examples/accept/eqeq-deceq.sw`, `eqeq-proof-fields.sw`, the
+`eqeq-*` rejects, `decidable-not-instance.sw`. The AoC programs and proofs
+check and pass unchanged.
+
+What differs from the text above, or wasn't settled by it:
+
+1. **Which instances.** `DecEq` instances in the core for `Nat`, `Int`,
+   `Bool`, `Char`, `Text`, `Ordering`, and `List a`, `Maybe a`, `(a, b)`
+   given their elements'; `Unit` is a proposition here, so it has none. The
+   function-taking procedures (`List.decEq d` and so on) stay, as what the
+   instances are made of: `List.instDecEq` is
+   `{ decide = List.decEq (x y => DecEq.decide x y) }`.
+2. **Decision-time projection.** When the dictionary found for an equation
+   is a record literal (a global instance, inlined, stage 1 item 13) whose
+   `decide` is a definition, applied or not, the decision is that field
+   applied to the two sides: `x == y` on `Nat` is `Nat.decEq x y`, and on
+   `List Nat` is `List.decEq (x y => Nat.decEq x y) xs ys`, exactly the
+   terms the search used to build. So `==` on the library's types
+   elaborates as before. A `decide` that's a lambda (`Vec`'s) isn't
+   projected (the kernel can't infer the type of an applied lambda); nor is
+   a dictionary in scope: those give `DecEq.decide [decEq := d] x y`. This
+   is a small, early piece of §5.13's projection.
+3. **Where an equation goes.** An equation as written (`x = y`, `==`,
+   `!=`, `if h: x = y`, a `Bool` expected) goes straight to `DecEq`
+   (§5.16 step 3). `auto`'s goals and the search's recursive goals are
+   values, where "as written" is lost, so there the search runs first and an
+   equation it doesn't decide goes to `DecEq` after. The procedures for `=`
+   aren't instances any more, so the only ones that can fit an equation are
+   those for propositions that unfold to one (`Nat.decLessThan` for
+   `Nat.leq (Succ m) n = True`): §5.16's step 4 before step 5, in effect.
+   `if x < y` and `auto` proofs of `x < y` are unchanged.
+4. **Bootstrap.** Until the core has declared `DecEq`, the search uses every
+   procedure returning `Decidable …`, as before D163, so the core's own uses
+   of `==` before it still work. The core and library files are checked in
+   their own order, without stage 1's instance edges: their uses of syntax
+   (`if` needs `Bool.ifThenElse`, `<=` needs `Nat.LessEq`) aren't references
+   the edges could see, and they're written instances-last anyway.
+5. **D163 and hashes.** A definition marked `instance` whose result is
+   `Decidable …` is a decision procedure: none of §5.2's and §5.6's rules
+   apply, and it isn't in the instance table. Its marker is **not** hashed
+   (a deviation from D171 for these): it only says the search may use it,
+   and what the search chose is in the users' terms. Hashing it would have
+   changed the hash of everything that uses `<`, `&&` or `!=` through the
+   core's procedures, for no change in their terms. Interface instances'
+   markers are hashed, as in stage 1.
+6. **Derived instances.** `T.%decEq: [params] -> [auto decEq: DecEq a] -> (r
+   s: T …) -> Decidable (r = s)` and `instance T.%instDecEq … := { decide =
+   T.%decEq }`, for data types and records alike (records no longer get
+   `R.decEq`; they now get `DecEq` with parameters too). The parameters are
+   bound with hole types (`[%p0: _]`), filled by unification, so value
+   parameters need no printing of types. With several dictionaries they're
+   named `decEqA` and so on, after the parameters.
+7. **Equation proof fields** (D179). For each, a helper `T.%C%P%k:
+   (params) -> (fields before) -> Prop` is generated as a core term, so the
+   source can state the field's type. The `Yes` proof is: for any proofs `z`
+   of the proof fields' types (the `a`s' data), `C a… = C a…[z]`, by `J`s
+   along `DecEq.uniqueEq a_k z_k`; then one `J` per data field, its motive
+   quantified over the proof fields (their types change with the field);
+   then applied to the `b`s' proofs. Proof fields may depend on the
+   parameters and the data fields before them, not on other proof fields;
+   data fields still may not depend on earlier fields. The
+   no-circular-evidence check (an equation in a type mentioning `T`) is
+   there, but no data type can reach it today: such a field is refused by
+   positivity first (`T` inside `=`). A proof field that isn't an equation,
+   or one in a type without `DecEq`, stops derivation, with a note.
+8. **A module's own instance replaces the derived one** by names: when `T`
+   is checked, if an instance item of the module names `DecEq` as its
+   interface and `T` as its head's type name, nothing is derived. A head
+   written through a synonym isn't seen, and the two instances then
+   overlap (`E-INSTANCE-OVERLAP`).
+9. **Errors.** `==`, `!=` and `if` on a type without `DecEq` are
+   `E-INSTANCE-NONE`, with derivation's note ("`==` isn't derived for `T`:
+   …"), or "functions can't be compared". The note on where an instance
+   could go leaves out `Std`, which a program can't add to. The error is
+   placed at the condition or comparison as a whole (stage 1 placed it at
+   the equation inside `x < 3 && g = h`).
+10. **The library and D58.** A library file may declare instances of the
+    core's interfaces for its own types: they're registered when the file
+    loads, which happens before any value of the type exists, so `auto`
+    never depends on what's loaded (D58's concern, for procedures). `Vec`
+    has one, by `Vec.toListInjective`: `{ decide = u v => if h: Vec.toList u
+    = Vec.toList v then Yes … else No … }`. Derivation for indexed families
+    isn't built (it didn't fall out: the generated proofs would need the
+    indices' equations too), and `Fin` has no instance yet.
+11. **Hashes.** Existing hashes change only where `==`, `!=` or
+    `if h: x = y` on a declared type is elaborated through its derived
+    instance, where the derived procedures themselves changed, and in the
+    core where `DecEq` and its instances were added; see the stage 2
+    report for the list.
 
 ---
 

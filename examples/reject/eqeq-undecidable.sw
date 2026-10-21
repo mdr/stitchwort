@@ -1,5 +1,5 @@
--- expect-error: E-AUTO-NONE
--- `==` needs a decision procedure for `=` on the type, and there's none for
+-- expect-error: E-INSTANCE-NONE
+-- `==` needs a `DecEq` instance for the type, and there's none for
 -- functions.
 def inc (x: Nat): Nat := x + 1
 
