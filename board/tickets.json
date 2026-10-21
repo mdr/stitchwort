@@ -1,5 +1,5 @@
 {
-  "next": 192,
+  "next": 193,
   "tickets": [
     {
       "id": 1,
@@ -2939,13 +2939,28 @@
     {
       "id": 191,
       "title": "Fin: hand-written DecEq instance in the library (like Vec.instDecEq)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [
         "stdlib"
       ],
       "body": "std/Fin/Fin.sw has no DecEq, so == on Fin n doesn't work; derived == for families is parked (SW-182). Write Fin.instDecEq by hand, as Vec.sw:115 does, with tests.",
+      "created": "2026-10-21",
+      "updated": "2026-10-21",
+      "commits": []
+    },
+    {
+      "id": 192,
+      "title": "AoC day 7: tachyon beam splitters, proved for all inputs",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "aoc",
+        "proof"
+      ],
+      "body": "D217 (Matt, 21 Oct 2026). Program + puzzle-literal spec + all-input theorems (part 2 = number of paths, part 1 = splitters reached); real-input test via include; docs/aoc-2025.md Day 7 notes.",
       "created": "2026-10-21",
       "updated": "2026-10-21",
       "commits": []
