@@ -3087,7 +3087,7 @@
     },
     {
       "id": 201,
-      "title": "Code navigation: resolution index (stitchwort check --index) + VS Code go to definition and hover (D238)",
+      "title": "Code navigation: resolution index (CLI --index and WASM) + go to definition and hover in VS Code and the playground (D238)",
       "status": "doing",
       "agent": "Sonnet",
       "where": "",
