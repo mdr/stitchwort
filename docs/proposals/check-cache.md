@@ -1,0 +1,540 @@
+# Proposal: a cache of checked declarations across runs
+
+**Status:** Draft 1, 21 October 2026 (SW-215, D276). A design note only:
+nothing is built until Matt has reviewed it. Decisions D277–D287 are in the
+[table at the end](#decisions).
+
+This note can be read without knowing the codebase. The main part takes about
+15 minutes. The [appendix](#appendix) has the evidence: the profile, the
+inventory of what the elaborator records, and the survey of other systems.
+
+## 1. The problem
+
+`stitchwort check` starts from nothing every time. On the `aoc/` project
+(37 source files, 694 top-level declarations, 317 KB of source), every run
+parses, elaborates and kernel-checks the whole project. It also re-checks the
+standard library files the project uses. Measured on 21 Oct on a loaded
+machine (load average about 14; release CLI; §A.1):
+
+| Run | Wall time | Instructions |
+|---|---|---|
+| `check` on the whole `aoc` project | 2.77 s | 42.2 G |
+| `check Aoc.Day05` (one namespace and what it imports) | 0.39 s | 5.9 G |
+| `check` on a one-line file (core only) | 0.08 s | 1.1 G |
+
+The VS Code extension runs `stitchwort check --index - --project <root>` in a
+fresh process on every save (`editors/vscode/extension.js:46`). Lanes and the
+gate check the same unchanged library and examples over and over. A time
+audit found that about 40% of agent time goes to builds and tests. The goal
+is to stop paying again for work whose inputs haven't changed.
+
+Only test *results* are cached today. `stitchwort test` keeps one file per
+test under `.stitchwort/cache/tests/`, named by the compiler version, a
+fingerprint of the compiler's source, the evaluation modes and the test's
+content hash (`crates/driver/src/driver.rs:497-617`, `crates/driver/build.rs`).
+This note adds the same idea for *checking*.
+
+## 2. The key fact that shapes the design
+
+A declaration's content hash (`crates/core/src/hash.rs`) is a hash of its
+**elaborated core term**, meaning the output of elaboration. It covers the
+kind, the type, the body, the theorem and instance flags, and, through
+references, everything the declaration depends on. It leaves out the
+declaration's own name, binder names, source locations and the `fold` flag
+(`hash.rs:28-33`, `globals.rs:57-65`).
+
+So **the content hash can't be the lookup key for skipping elaboration**,
+because we only know it after elaborating. A cache that saves elaboration
+time has to be found from what we have *before* elaborating: the source text
+and what it imports. This is how Lean, Agda, Idris 2 and Coq all work. Each
+stores one compiled file per source module and reuses it while the module's
+source and its imports are unchanged (§A.4). Unison is the exception. It
+avoids the problem by storing code only as already-checked, hashed
+definitions, and you edit through its tool rather than as text files.
+
+The content hash still has two uses. It checks that a cached entry's imports
+are the ones we now have. And the existing test cache keeps working
+unchanged, because a declaration loaded from the cache has the same core term
+and therefore the same hash.
+
+## 3. What a cache hit lets us skip (soundness first)
+
+The pipeline has two steps. The **elaborator** turns source into a complete
+core term, which is untrusted. The **kernel** then checks that term
+(`define_group` and friends in `crates/core/src/check.rs:1106-1520`; the
+elaborator's module header says "every declaration it produces is then
+re-checked by the kernel"). A cache hit can skip:
+
+- **A. Elaboration only.** We load the cached core terms and hand them to the
+  kernel exactly as the elaborator would. The kernel re-checks every one,
+  including termination.
+- **B. Elaboration and the kernel.** We load the cached terms and mark them
+  admitted without checking them.
+
+**Option A adds nothing to what must be trusted.** The kernel already treats
+the elaborator's output as a suggestion. A cached term is just another
+suggestion. A corrupted file, a bug in the cache's encoder or decoder, or a
+file from someone else's machine can cause a confusing error, but never an
+accepted false theorem. The worst outcome is a stale *answer*, such as an
+error or a name resolved the old way, never an unsound one (§3.2).
+
+**Option B makes the cache part of the trusted base.** That means the cache
+files, the code that reads them, and the completeness of the key. It also
+needs a new kernel entry point, "admit without checking", which is exactly
+the kind of API a small trusted kernel shouldn't have. Lean takes this route
+for imports. It doesn't re-check `.olean` files when importing them, and
+offers `lean4checker`/`leanchecker`, and now `lake check`, to replay them
+through the kernel when you want assurance. Coq has `coqchk` for the same
+reason (§A.4).
+
+**How much does B save on top of A?** A sampling profile of a full `aoc`
+check (two runs, §A.1) puts kernel admission at **about 19%** of the work.
+The other ~81% is elaboration, including loading standard library files
+(~13%). So A removes most of the cost and B only the last fifth.
+
+**Recommendation (D277): build A.** Revisit B only if measurements after
+stage 2 show the kernel re-check dominating warm runs. If B is ever built, it
+should be limited to local interactive runs, with the gate always running the
+kernel.
+
+### 3.1 Threat model
+
+| Threat | Under A | Under B | Mitigation (both) |
+|---|---|---|---|
+| Cache file corrupted on disk, half-written, or two writers at once (VS Code and a CLI run) | Kernel rejects it, or it's a stale answer | Could admit a wrong term | Write to a temporary file, then rename. A checksum over the body. A bad entry is treated as a miss and rewritten. |
+| Compiler or kernel changed, so an old term would now be rejected | Kernel re-checks, so the new rule applies | Old term admitted | Every key includes the compiler fingerprint (already in `build.rs`) plus `Cargo.lock`, so any compiler change starts a fresh cache |
+| A dependency changed | Kernel re-checks against the new dependency | Admitted against the old one | Key includes the dependencies' keys (§4.2). Each reference records the content hash it expects, and a mismatch is a miss. |
+| Different natives, compact text or limits | Re-checked | Wrong mode admitted | Modes and limits are in the key, as for tests (`driver.rs:528-536`) |
+| A cache copied from elsewhere (another machine, a committed `.stitchwort`, a download) | Sound; may be stale if keys collide by accident | Trusting a stranger's proof | Never read caches you didn't write: a per-machine random salt in the cache directory's header. Mainly matters for B. |
+| Someone malicious who can write to your project folder | Can't forge a proof | Can | Out of scope. They could also edit your source. |
+| The key misses an input that affects elaboration | Stale but sound answer | Stale and possibly unsound | Conservative key (§4.2), a differential test (§5.4), and `--no-cache` |
+
+### 3.2 What "stale but sound" means
+
+Suppose the key forgot some input, such as a file read by `include`. Then a
+namespace could be loaded as it was elaborated last time, even though fresh
+elaboration would now give something different: a different instance chosen,
+a different error. The kernel still checks whatever is loaded, so nothing
+false gets proved, but `check` could disagree with `check --no-cache`. The
+defence is a key that errs towards re-elaborating, plus the differential test
+in §5.4.
+
+## 4. Granularity, keys and invalidation
+
+### 4.1 Per namespace, not per declaration
+
+The unit is **one project namespace**: all its files, elaborated together by
+`elaborate_namespace` (`crates/elab/src/module.rs:208`). For the standard
+library it is **one library file**, the unit lazy loading already uses
+(`crates/elab/src/library.rs`). This matches how projects are already loaded.
+`load_analysis` elaborates one namespace at a time in dependency order, and a
+namespace with errors already stops its dependents (`E-NAMESPACE-FAILED`). It
+also matches every system surveyed in §A.4.
+
+Per declaration would need, for each declaration, a record of everything its
+elaboration looked at. That means every name lookup, every instance searched,
+every dot-notation candidate, and `auto` attempts, each recorded so a later
+run could tell whether that context changed. That is a large and fragile
+addition. Within one namespace, the cheaper and more useful form of
+per-declaration reuse is in memory: keep the elaborated state and re-elaborate
+from the first changed declaration onward. Lean's language server works this
+way. That belongs to the future language server (SW-31), not to an on-disk
+cache.
+
+### 4.2 The key
+
+A namespace's key is a hash, computed before elaborating it, of:
+
+1. the compiler fingerprint (`STITCHWORT_FINGERPRINT`, extended to cover
+   `Cargo.lock`), the crate version and a cache format version;
+2. the modes and limits that change results: natives, compact text,
+   `numbers_as_succ`, the step and depth limits, `rewrite_budget`,
+   `instance_budget`, and `uniform_operators`;
+3. the namespace's name and, for each of its files in order, the path and the
+   full text;
+4. the path and text of every file it reads with `include` (found by parsing,
+   before elaboration);
+5. the sorted list of all namespace names in the project, plus
+   `stitchwort.yaml` (elaboration reads `project_namespaces`,
+   `project_prefixes` and `project_names`, `crates/elab/src/lib.rs:122-127`);
+6. the keys of the namespaces it imports, and of the library files they and it
+   load, in canonical order.
+
+Item 6 makes this a chain of hashes, like a Merkle tree or Lake's trace
+files. An edit anywhere changes the key of that namespace and of everything
+that depends on it, and of nothing else. Any change to the source text, even a
+comment, re-elaborates that namespace. That is necessary anyway, because its
+spans, diagnostics and navigation data have moved.
+
+### 4.3 When the source changes but the hash doesn't
+
+Suppose a comment is added to `Aoc.Common`. Its core terms and content hashes
+don't change, but its key does, so it is re-elaborated. Under §4.2 its key
+change also re-elaborates everything that imports it, which is wasted work.
+The refinement, called **early cutoff** (D280, a later stage), keys a
+dependent on its dependency's **output**, not its source. The output is the
+content hashes, names, flags and side tables it exports. A comment-only edit
+then stops at `Aoc.Common`.
+
+One catch: navigation data records the *span* of each reference's target
+directly (`Noted::target`, `crates/elab/src/nav.rs:61-68`). With early
+cutoff, a dependent's cached go-to-definition targets would point to old
+positions in the edited file. So the cache must store targets by declaration
+and look up their spans when loading. That is easy to do from the start.
+
+### 4.4 Interaction with lazy library loading
+
+Library files load on demand, in an order that depends on what the program
+uses, so a declaration's `DefId` (a position in `Globals.defs`) differs from
+run to run (`globals.rs:203-205`, `library.rs`). A cache entry therefore can't
+store `DefId`s. It stores references by full path (`Std.List.length`) together
+with the content hash it expects. On load, each reference is resolved in the
+current session, its hash is compared (a mismatch is a miss), and it gets the
+current `DefId`. Loading an entry for a library file can trigger loading the
+files it depends on, cached or not, just as elaborating it would.
+
+### 4.5 Interaction with the test cache
+
+None needed. Tests are found from the loaded program and hashed by content
+(`driver.rs:648-700`), and a cached namespace gives the same core terms and
+the same hashes. So a warm `stitchwort test` skips both elaboration and
+running the tests. Today it skips only the running.
+
+## 5. What an entry holds, and how it is loaded
+
+### 5.1 Contents
+
+Elaborating a namespace changes much more than `Globals.defs`. The appendix
+(§A.2) lists every piece of state. An entry must hold everything that later
+namespaces, tests, extraction, diagnostics and the navigation index read:
+
+- **Kernel declarations**, in admission order: each definition's
+  `name`/`path`, type and body (core terms), theorem, instance and `fold`
+  flags, `export` and validators, and group membership. Each data type's
+  parameters, indices, constructors, sort, `record` and `auto_params` flags,
+  field validators and group. Builtins and registry entries the namespace
+  registers (only the core does this).
+- **Elaborator tables**, keyed by the declarations above: the scope entries it
+  adds, records (projections), interfaces, instances (including the `valid`
+  flag, which the hash doesn't cover), abilities, `data_owners`,
+  `no_eq`/`no_show`/`no_ord` reasons, `helper_keys`, lifted helpers with their
+  spans, equation lemmas, and tests (`TestDecl`).
+- **Source-bound data**: warnings, as diagnostics with spans, replayed on a
+  hit; and the navigation records (`nav::Recorder`), with targets stored by
+  declaration (§4.3).
+
+Spans hold a `FileId`, which depends on the order files were added to the
+`SourceMap`. So they are stored as (file path, byte range) and turned back
+into the current run's `FileId` when loaded. `Value`s (`ty_value`), the hash
+table, erasure data and similar caches are not stored. They are recomputed.
+
+**Only namespaces with no errors are cached** (D284). A namespace with errors
+is usually the one being edited, its dependents are skipped anyway, and
+replaying errors would add a second way to produce every error message.
+
+### 5.2 Loading is replay
+
+An entry is loaded by **replaying** it through the same functions the
+elaborator uses: `declare_*` and `define_*` for the kernel, which re-checks
+(option A), and the same insertion functions for each side table. It is not
+loaded by patching tables directly. So a loaded namespace goes through the
+same consistency checks as an elaborated one. Lean loads imported modules the
+same way: each "environment extension" in an `.olean` is replayed into the
+importing environment.
+
+### 5.3 Format
+
+The format is our own compact binary encoding, written with a work list the
+way the hasher walks terms, not with serde. There are three reasons:
+
+1. Terms nest more deeply than recursion can follow. The hasher and the
+   checkers already avoid recursion for this reason (`hash.rs:39-43`), but
+   serde's derived code is recursive and would overflow the stack on deep
+   terms.
+2. It keeps serde derives out of `stitchwort-core`, the trusted crate. Today
+   no type there can be serialised (§A.2, item 5).
+3. Terms share subterms through `Rc`. A hand-written encoder can keep the
+   sharing, or at least decide about it, where serde would silently copy
+   shared subterms.
+
+An entry is a header, then the body, then a checksum. The header holds the
+format version, the key, the machine salt and the dependency list with
+expected hashes. Entries are written atomically. A small `stitchwort cache
+dump` that prints an entry would help debugging (implementation detail).
+
+### 5.4 The differential test
+
+The main protection against both stale answers and loading bugs is a test
+that checks every example file and the `aoc` project twice: fresh, and from a
+warm cache. It compares a canonical dump of the results: declarations, side
+tables, diagnostics and the navigation index. Any table the encoder forgets
+shows up as a difference. The same test runs whenever someone adds a new side
+table to the elaborator, which is the main long-term maintenance risk (§8).
+
+## 6. Where it lives and how big it gets
+
+**Location (D281).** Entries live in the project's
+`.stitchwort/cache/check/`, next to `tests/`. Library-file entries live there
+too, keyed like the rest. A user-level cache (`~/.cache/stitchwort`) for the
+standard library is not worth having yet. The fingerprint changes with every
+build of the compiler, and every lane builds its own, so a shared cache would
+rarely hit. Revisit when there are releases.
+
+**Size (estimates, not measured; no serialiser exists yet).** The standard
+library is 13 files, 323 KB of source and about 1,114 top-level declarations.
+`aoc` is 317 KB and 694. Elaborated core terms are bigger than source because
+of implicit arguments, lifted helpers, derived instances and equation lemmas.
+With an encoding that keeps sharing, my estimate is **2–10× the source**, so
+roughly 1–3 MB each for the library and for `aoc`. That is small for disk and
+for read time. The peak memory of a full `aoc` check (112 MB, against 24 MB
+for the core alone) bounds the whole elaborated state from above. Stage 0
+(§7) prints the real figures.
+
+**Eviction (D283).** The test cache shows what happens without eviction.
+`aoc/.stitchwort/cache/tests` in the main checkout holds 1,256 files from 20
+different compiler builds (5 MB on disk, mostly 4 KB blocks of
+six-byte files). For the check cache:
+
+- When an entry for namespace N is written, delete N's older entries.
+- On the first write by a new fingerprint, delete entries of other
+  fingerprints older than a day. Two worktree binaries may share one project
+  folder, hence the grace period.
+- Apply the same two rules to the test cache.
+
+## 7. Integration
+
+| Where | What happens |
+|---|---|
+| `stitchwort check`, `test`, `run`, `build`, `eval` | Use the cache by default. `--no-cache` ignores it and doesn't write. `--cache-dir` as for `test`. (D285) |
+| VS Code extension | No change needed: it calls the CLI, and each fresh process now reads the cache. The `--index` output must come out the same from cached namespaces (§5.1), which the differential test covers. |
+| Playground | No persistent cache (D287). Each check runs in the worker, and the standard library could later be kept in memory between checks (SW-185 option a). IndexedDB isn't worth it: a playground project is small, and the site must stay static. |
+| `cargo test`, the examples snapshots, `dev/t` lanes, the benchmark | Never use it. Tests exist to exercise the elaborator and the kernel, and the benchmark counts their steps. The only exception is the differential test (§5.4), which uses the cache on purpose. |
+| The gate | Doesn't use the cache (D286). Its CLI runs pass `--no-cache` or use a throwaway cache directory, and the differential test runs as part of it. |
+| Lanes running `stitchwort check` on `aoc` | Benefit directly. Each worktree has its own project folder, so lanes don't share entries, and nothing goes stale across lanes. |
+| Future language server (SW-31) | The same entries as the starting point when it opens a project. In memory, per-declaration re-elaboration within the edited namespace (§4.1). |
+| SW-185 (cache the checked core) | Stage 1 below covers the on-disk part for library files. Sharing the checked core between sessions inside one process (the test runner, the playground) stays SW-185's question. The core itself costs about 0.08 s per process (1.1 G of the 42.2 G instructions for `aoc`), so it is not a priority for the CLI. |
+
+## 8. Expected speedups
+
+These are estimates from the profile in §A.1, not measurements of a cache.
+Elaboration is about 81% of a full `aoc` check (library loading about 13%,
+inside that), and kernel admission about 19%.
+
+| Scenario | Today | With option A (estimate) |
+|---|---|---|
+| Full `aoc` check, nothing changed (VS Code save with no edit, gate-style re-run) | 2.8 s | **0.6–0.8 s**: kernel ~0.5 s, plus core 0.08 s, plus reading and decoding |
+| Edit one leaf namespace (such as `Aoc.Day07.Proofs`) | 2.8 s | ~0.7 s, plus that namespace's own elaboration (a whole day's namespace is ~0.3 s) |
+| Edit `Aoc.Common`, which everything imports | 2.8 s | 2.8 s (all dependents re-elaborate); with early cutoff (D280) and a comment-only edit, ~0.7 s |
+| A first run, cold | 2.8 s | 2.8 s plus writing entries (estimate 2–5%) |
+| (For comparison) option B, nothing changed | 2.8 s | ~0.15–0.25 s |
+
+So option A gives about **4×** on warm whole-project checks, and B about
+**10–15×**. The first step is A. It is sound by construction, and the extra
+gain from B is worth deciding on only after real numbers.
+
+A side finding from the profile: `elab::lift`, which lifts local definitions
+and `match` into helpers, accounts for about **43%** of all samples in both
+runs. That is more than twice the kernel. A separate look at it could speed
+up cold runs too (it should become its own ticket; not part of this design).
+
+## 9. Stages
+
+Each stage is separately mergeable and useful on its own.
+
+0. **Measure.** Add a `STITCHWORT_TIMINGS` environment variable that prints,
+   per namespace and library file, elaboration time, kernel time and core
+   term sizes (node counts). It confirms §6 and §8 before anything else is
+   built. Small.
+1. **Library files.** Write the encoder, the decoder and replay for one unit,
+   and use them for standard library files only. Their keys are simple
+   (fingerprint, modes, file, dependencies). Add the differential test. This
+   saves the ~13% library share on every project run and shows the
+   replay design works. It is also SW-185's on-disk option.
+2. **Project namespaces.** Merkle keys (§4.2), warnings and the navigation
+   index replayed, eviction (also for the test cache), and `--no-cache` on
+   `check`, `run`, `build` and `eval`. This is where `check` on `aoc` drops to
+   well under a second.
+3. **Editor.** Nothing in the extension itself. Check that VS Code's save
+   loop gets the speedup, and combine it with namespace-scoped checks
+   (SW-214).
+4. **Optional.** Early cutoff (D280). Then re-measure and decide about option
+   B (D277).
+
+## 10. Risks
+
+- **Forgetting a table.** The elaborator keeps about 20 side tables keyed by
+  load-order ids (§A.2). A new feature that adds one and forgets the cache
+  makes cached runs differ from fresh ones. *Mitigation:* the differential
+  test fails, and replay goes through the normal insertion functions.
+- **An incomplete key gives stale answers.** *Mitigation:* the conservative
+  key, the differential test, `--no-cache`, and a gate that never uses the
+  cache. It stays sound under option A.
+- **Load-order ids.** Remapping `DefId`s, `DataId`s, ability indices and
+  `FileId`s is where bugs would live. *Mitigation:* store paths and hashes,
+  never ids, and check each reference's hash when loading.
+- **Maintenance cost.** Every change to `Term` or a side table touches the
+  encoder. *Mitigation:* the format version is part of the key, so no
+  migration is ever needed. Old entries are simply misses (no backwards
+  compatibility, as elsewhere).
+- **Confusing behaviour while developing the compiler.** The fingerprint
+  covers the sources, so a rebuilt compiler always starts fresh. A `cargo
+  run` from a dirty tree is no different.
+- **Disk growth.** Eviction (§6).
+
+## Decisions
+
+| ID | Question | Recommendation |
+|---|---|---|
+| D277 | When we reuse a cached result, do we still run the kernel's check on it? | [**Yes.** We skip only elaboration (option A), so a cache file can never make a false proof accepted. Skipping the kernel too (option B) would save about another fifth of the time. Reconsider that only after stage 2's measurements, and then only for local interactive runs, with the gate always checking.] |
+| D278 | What unit is cached? | [**One project namespace, and one standard library file.** Not single declarations. Reusing single declarations is a job for the future language server, in memory.] |
+| D279 | What decides whether a cached namespace is still valid? | [A hash, computed before elaborating, of: the compiler build (including `Cargo.lock`), the modes and limits, the namespace's files and their text, files it `include`s, the list of project namespaces and `stitchwort.yaml`, and the same hash of everything it imports. Any edit re-checks that namespace and everything that uses it.] |
+| D280 | Should a comment-only edit in a namespace avoid re-checking the namespaces that use it ("early cutoff")? | [**Later, stage 4.** It needs dependents keyed by what a namespace *produces*, not its text, and navigation targets stored by declaration (planned from the start).] |
+| D281 | Where are cache files kept? | [**In the project**, under `.stitchwort/cache/check/`, next to the test cache. No shared per-user cache until there are compiler releases.] |
+| D282 | What file format? | [**Our own compact binary encoding**, not serde, written with a work list like the hasher, with a format version, a checksum and atomic writes.] |
+| D283 | How do old cache files get cleaned up? | [Keep only the newest entry per namespace, and drop entries from other compiler builds (after a day's grace). Apply the same rule to the test cache, which today keeps everything (1,256 files from 20 builds in `aoc`).] |
+| D284 | Are namespaces with errors cached? | [**No.** Only namespaces that check without errors. Their warnings and navigation data are stored and replayed.] |
+| D285 | Is the cache on by default? | [**Yes**, for `check`, `test`, `run`, `build` and `eval`, so VS Code and lanes get it without changes. `--no-cache` turns it off.] |
+| D286 | Do the gate and the test suites use it? | [**No.** Tests and the benchmark must exercise the checker. The gate runs without the cache, plus one differential test that checks fresh and cached results are identical.] |
+| D287 | Does the playground get a cache? | [**No persistent one.** At most, later, the standard library kept in memory between checks in the worker (SW-185).] |
+
+---
+
+## Appendix
+
+### A.1 Measurements (21 Oct 2026)
+
+The machine was loaded (load average 13.8–15.6; other lanes running), so
+treat the absolute times as rough and the proportions as the useful part. The
+release CLI at the main repo's `target/release/stitchwort` predates the
+`Option` rename (SW-210), so I measured the `aoc` tree as of commit `512bed0`,
+the last commit before the rename, exported to a scratch folder.
+
+`/usr/bin/time -l`:
+
+| Command | real | max RSS | instructions retired |
+|---|---|---|---|
+| `check` (whole `aoc` project) | 2.77 s | 112 MB | 42.2 G |
+| `check Aoc.Day05` | 0.39 s | 44 MB | 5.9 G |
+| `check` one-line file | 0.08 s | 24 MB | 1.1 G |
+
+**Profile.** I used `/usr/bin/sample` at 1 ms over a whole-project `check`,
+twice. Each line counts the samples under the outermost matching frame, as a
+share of the checking thread's samples. The sampler attached about 50 ms in,
+so the core prelude is mostly missing; it is about 0.08 s on its own.
+
+| Frames | Run 1 (3,325 samples) | Run 2 (2,270 samples) |
+|---|---|---|
+| `elaborate_namespace` (all project work) | 3,324 (100%) | 2,246 (99%) |
+| Kernel admission: `core::check::{define_group, define_def, define_data_group, define_ctors, declare_*}` | 638 (19.2%) | 422 (18.6%) |
+| Any `core::check::{infer, check, check_type}`, including calls from the elaborator | 737 (22.2%) | 445 (19.6%) |
+| `load_libraries` (lazy standard library files) | 433 (13.0%) | 291 (12.8%) |
+| `elab::lift` | 1,410 (42.4%) | 991 (43.7%) |
+| `elab::rewrite` | 274 (8.2%) | 190 (8.4%) |
+
+The kernel admission frames include re-checking library files as they load.
+Content hashing didn't appear at all (`check` doesn't hash).
+
+The sizes in §6 come from `cat` and `grep -cE '^\s*(def|theorem|data|instance|interface|record|test|ability|lemma)\b'`
+over `crates/elab/src/std` and `aoc/src`. The test cache figures in §6 come
+from `ls` and `du` on `/Users/matt/repos/misc/funlang/aoc/.stitchwort/cache`.
+
+### A.2 What elaborating a declaration records
+
+This is a survey of `crates/core/src/globals.rs` and `crates/elab/src/lib.rs:110-267`
+and the modules they point to. Everything below is keyed by position in
+`Globals.defs` and `Globals.datas`, so it depends on load order.
+
+- **`Def`** (`globals.rs:26-70`). Hashed: type, body, theorem, instance.
+  Not hashed: `name`, `path`, `fold`, `span`, `arity` (derived), `group`
+  (hashed only as structure). `export` and `validators` are set after
+  admission (`check.rs:2129`).
+- **`Data`** (`globals.rs:105-151`). Hashed: path, parameters, indices, sort,
+  constructors with names and fields, `record`, and `auto_params` when set.
+  Not hashed: `defs_before` and `datas_before` (load-order counters for
+  positivity), field validators, span.
+- **`Builtins` and `Registry`.** Natives, primitives and compact-text ids,
+  keyed by `DefId`, set while the core loads.
+- **Elaborator tables:**
+  - `scope` (names to `Global`, with spans);
+  - `records`;
+  - `interfaces`;
+  - `instances` (with a `valid` flag that isn't hashed);
+  - `data_owners`;
+  - `abilities` (indexed by position: `Global::Ability(usize)`);
+  - `no_eq`, `no_show` and `no_ord`;
+  - `helper_keys`;
+  - `lifted` (with spans);
+  - `namespace_defs` (`DefId` ranges);
+  - `prelude_defs`;
+  - `tests` (`DefId` and span);
+  - `nav` (all span-based; `Noted::target` is a span, `nav.rs:61-68`);
+  - warnings.
+- **Transient**, not cached: metas, obligations, the per-module state,
+  per-declaration scratch state, and recomputable caches (`ty_value`,
+  hashes, erasure, `result_heads`).
+- **Serialisation today:** none. The only serde use is reading
+  `stitchwort.yaml` (`crates/driver/src/project.rs:589`).
+- **`Term`** (`crates/core/src/term.rs:82-133`) has 19 variants. It uses `Rc`
+  sharing, contains `Loc(Span, …)` nodes, and holds `Nat` as `Rc<BigUint>`. It
+  holds no `Value`s. `Meta` never reaches the kernel.
+
+### A.3 Why not key by content hash after all?
+
+One could elaborate everything, compute each declaration's content hash, and
+skip only the *kernel* for hashes already admitted. That is the
+"`Unison`-style" reading of the ticket. It only saves the ~19% kernel share,
+and it is exactly option B's trust problem: a "this hash was admitted" record
+is a trusted claim. It is the wrong half of the cost to save.
+
+### A.4 How other systems do it
+
+- **Lean 4.**
+  - Each module compiles to an `.olean`, and importing loads it **without
+    re-checking it in the kernel**. The Lean reference says the check marks on
+    imported code mean something only if you "trust the authors of the
+    imported libraries… that they performed this check".
+  - `lean4checker` (now `leanchecker`, bundled from v4.28) "replays them
+    through the kernel". With `--fresh` it replays imports too. It "trusts
+    that the `.olean` files are structurally correct".
+  - For hostile input, the "gold standard" is *comparator*: build in a
+    sandbox, export, and replay outside it.
+  - Lake decides whether to rebuild from trace files: hashes of inputs and
+    dependencies, compared with the stored trace.
+  - Sources: https://lean-lang.org/doc/reference/4.29.0/ValidatingProofs/,
+    https://github.com/leanprover/lean4checker,
+    https://lean-lang.org/doc/api/Lake/Build/Common.html
+- **Agda.**
+  - Each module has an `.agdai` interface file in `_build/VERSION/` under the
+    project root, so "different directories are used for different versions of
+    Agda". "An external module is loaded by loading its interface file". The page
+    doesn't say whether it is re-checked; I assume not, since that is the
+    point of the file.
+  - `--ignore-interfaces` re-type-checks everything.
+  - Sources: https://agda.readthedocs.io/en/latest/tools/interface-files.html,
+    https://agda.readthedocs.io/en/latest/tools/command-line-options.html
+- **Idris 2.**
+  - Each module has a `.ttc` file in `build/ttc`.
+  - Whether to rebuild was decided by modification time. A PR added
+    source-hash checking behind `-Xcheck-hashes`, mainly to speed up CI.
+  - Source: https://github.com/idris-lang/Idris2/pull/1535
+- **Coq/Rocq.**
+  - Each file has a `.vo` file, loaded without re-checking.
+  - `coqchk` is a standalone checker. It re-type-checks the logical content of
+    `.vo` files and their dependencies, but not notations or implicit
+    arguments. It exists because `coqtop` "can load custom tactics" so "it
+    cannot be guaranteed that the produced compiled libraries are correct", and
+    to make sure a third-party library "was not forged".
+  - Source: https://rocq-prover.org/doc/V8.19.0/refman/practical-tools/coq-commands.html
+- **Unison.**
+  - "Each Unison definition is identified by a hash of its syntax tree", so
+    "we can parse and typecheck definitions once, and then store the results
+    in a cache which is never invalidated."
+  - This works because the codebase is a store of checked definitions, not
+    text files.
+  - Source: https://www.unison-lang.org/docs/the-big-idea/
+
+**What we take from them.** All of them cache per module, keyed by source and
+imports. All of the proof assistants trust their cache files on import and
+offer a separate full re-check for assurance. Under option A we re-check on
+every load, which is stronger than any of them by default. It is affordable
+because the kernel is only about a fifth of our cost.
