@@ -1,5 +1,5 @@
 {
-  "next": 200,
+  "next": 201,
   "tickets": [
     {
       "id": 1,
@@ -3067,6 +3067,20 @@
         "proof"
       ],
       "body": "D234 (Matt, 21 Oct 2026): backlog. Fuel today: Nat.divFuel (/ and %), Nat.digits, transposeN, day 4 settle, day 2 weightFuel; each needs fuel-enough/fuel-irrelevant lemmas. Options sketched 21 Oct: A Acc-based (Lean termination_by; WF defs compute badly — bad for rfl/test-heavy Stitchwort), B measure compiled to hidden fuel + generated equation lemmas (kernel unchanged; brings back equation-lemmas D231), C kernel primitive (Dafny-like), D sized types. Early read: B. Write a design note with external review before building.",
+      "created": "2026-10-21",
+      "updated": "2026-10-21",
+      "commits": []
+    },
+    {
+      "id": 200,
+      "title": "Sweep: Bool.not (E) → !E across .sw files (DeepSeek; hashes must not change)",
+      "status": "backlog",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [
+        "stdlib"
+      ],
+      "body": "D237 (Matt, 21 Oct 2026: not yet). ~100 uses in std List/Sort.sw, Toolkit.sw, Map.sw, Set.sw, Vec.sw, day 7 proofs, some examples. !b elaborates to exactly Std.Bool.not b, so every hash snapshot must stay identical: dev/t hashes is the acceptance test. Keep parens in argument position (f (!x)); leave lemma names like Bool.notTrue.",
       "created": "2026-10-21",
       "updated": "2026-10-21",
       "commits": []
