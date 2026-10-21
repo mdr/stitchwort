@@ -3257,7 +3257,7 @@
     {
       "id": 214,
       "title": "VS Code: errors on save from the saved file's namespace; full index in the background",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
