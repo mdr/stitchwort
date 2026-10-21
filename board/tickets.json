@@ -1,5 +1,5 @@
 {
-  "next": 201,
+  "next": 202,
   "tickets": [
     {
       "id": 1,
@@ -471,9 +471,9 @@
       "labels": [
         "tooling"
       ],
-      "body": "**Language server** for `.sw` (live errors, hover types, go to\ndefinition): later (user, 18 Oct). Lane `vscode-ext` (Sonnet) is\nbuilding a local VS Code colouring extension in `editors/vscode/`.",
+      "body": "Language server for .sw (live errors, hover, go to definition, completion): option C of the 21 Oct code-navigation plan. D239 (Matt, 21 Oct 2026): backlog until the resolution index (D238) has been used for a while; the server reuses that index.",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -3081,6 +3081,21 @@
         "stdlib"
       ],
       "body": "D237 (Matt, 21 Oct 2026: not yet). ~100 uses in std List/Sort.sw, Toolkit.sw, Map.sw, Set.sw, Vec.sw, day 7 proofs, some examples. !b elaborates to exactly Std.Bool.not b, so every hash snapshot must stay identical: dev/t hashes is the acceptance test. Keep parens in argument position (f (!x)); leave lemma names like Bool.notTrue.",
+      "created": "2026-10-21",
+      "updated": "2026-10-21",
+      "commits": []
+    },
+    {
+      "id": 201,
+      "title": "Code navigation: resolution index (stitchwort check --index) + VS Code go to definition and hover (D238)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "tooling",
+        "elab"
+      ],
+      "body": "D238 (Matt, 21 Oct 2026): option B. Elaborator records each reference span -> definition (and its type), incl. dot notation, imports, locals; stitchwort check --index writes JSON; editors/vscode gets a definition + hover provider reading it; std files reachable. Short note in docs/proposals/ first (tooling, no external review). Language server (option C) stays SW-31, backlog (D239).",
       "created": "2026-10-21",
       "updated": "2026-10-21",
       "commits": []
