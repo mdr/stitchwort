@@ -1,6 +1,7 @@
 # Proposal: equation lemmas, and lemmas about a `match` inside a definition
 
-**Status:** draft 1, 21 October 2026. Design only: nothing here is built. Ticket SW-194,
+**Status:** draft 1, 21 October 2026. Stages 1 and 2 (D226 to D230) are built, see
+[As built](#as-built); D231 to D233 are not. Ticket SW-194,
 decision D223 (Matt, 21 October 2026: write this note). Related: SW-193 (`match h:` doesn't
 refine a `let`-bound proof, now fixed), SW-192 (AoC day 7). Decisions D226 to D233
 ([§9](#9-decisions)) accepted as recommended (Matt, 21 October 2026): D226 to D230 yes,
@@ -42,6 +43,7 @@ references were checked at commit `cc5df60`. Labels, as in the other notes:
 - [7. Costs and risks](#7-costs-and-risks)
 - [8. Recommendation and build plan](#8-recommendation-and-build-plan)
 - [9. Decisions](#9-decisions)
+- [As built](#as-built)
 - [Sources](#sources)
 
 ## 0. Summary
@@ -787,6 +789,75 @@ or D233 if repeating a definition's `match` in statements becomes common.
   with the definition's.** *Recommendation: not now*; it needs the trusted termination
   checker to understand matchers. Record it as the route if D231's trigger fires for
   statements rather than proofs.
+
+## As built
+
+Stages 1 and 2 (D226 to D230), 21 October 2026, on ticket SW-194. D231 to D233 are not built.
+
+- **D226.** `leftReach` and `reachStep` are gone from `aoc/src/Aoc/Day07/Proofs/Part1.sw`.
+  The second direction of `fallKeeps` keeps `let hr := Bool.andRight … hc` (no `Eq.trans`),
+  passes `_` for the inner `match` operand of `orCases`, and uses `hr` in both branches;
+  SW-193 makes the `let` form work, so it is the §3.4 diff with the `let` kept rather than
+  inlined. `stitchwort check` of `aoc/` passes and `Aoc.Day07.Proofs` runs 17 tests, 17
+  passed. `docs/aoc-2025.md` day 7 pain point 2 is corrected (the pain-point header says so).
+- **D227.** `docs/syntax.md`, after `match`: "Proving things about a definition with an
+  inner `match`" (arms compute; match on the condition; `_` for the inner `match`'s part; split
+  its scrutinee; name it with a local `def`). Accept test:
+  `examples/accept/match-inner-match-proof.sw` (a small `reach` with a flag function in place
+  of `charAt`: `skip`, and `ways`, which is the day 7 step with a `let` and `_`; this is also
+  the "after SW-193" `V0` accept example of §8).
+- **D228.** Captures of a local definition or lifted `match` are ordered by where the variables
+  are written: the variables bound before the arm's case tree (header parameters, and an
+  enclosing arm's own order) first, then the arm's pattern variables from left to right as
+  written (nested patterns, tuples, records and list patterns included), then the rest by
+  level (`let`s, an earlier local definition's variables, a `match`'s copies), moving one later
+  only when a type needs a variable that comes after it (the dependency loop in
+  `lift.rs::captures` is unchanged; only its starting order is). Built as: `Row` and
+  `Tree::Leaf` carry the names in written order (`written_names`); at each leaf `check_tree`
+  computes the order of every variable in scope (`written_order`, in `Ctx::order`, with
+  `Ctx::tree_start` saying where the tree's own variables begin); each `Draft` takes a copy of
+  it where the helper is written; `lift::rank` sorts the captures by it. `reach.left` is now
+  `reach.left rest k d` (was `d k rest`). Documented in `docs/syntax.md` (Local definitions,
+  "Parameter order"). **Hash changes: 119 hashes changed** in existing snapshots (112 in
+  `prelude` 64, `map-set` 23, `data-auto` 25; plus 7 in the new D227 example's own snapshot,
+  committed just before), and 1 new snapshot file (`local-def-capture-order`). The migration
+  oracle holds: every changed hash is a lifted `match` with reordered captures (`%match1` of
+  `Std.Map.Tree`, `Std.List` and `Std.Char` functions), its owner, or a user of one (`Std.Map`,
+  `Std.Set`, and the examples that use them). Accept test:
+  `examples/accept/local-def-capture-order.sw`.
+- **Wrong argument to a local definition** (the last bullet of stage 2, built with D228): an
+  `E-TYPE-MISMATCH` on an argument of a local definition adds a note with its whole signature,
+  named parameters included (`check.rs::local_signature`). Reject test:
+  `examples/reject/local-def-wrong-order.sw` (`reach.left d k rest`, the old order).
+- **D229.** When `explain_lifted` reworded a helper's name to `(match …)` in a message, it adds
+  one note (once, however many helpers): which definition the `match` is written in, that the
+  label "this `match`" marks it, that writing it again makes a different function, and the
+  local-`def` route with `owner.name`. Reject test: `examples/reject/match-repeated-in-statement.sw`
+  (the `r3` shape).
+- **D230.** While the alternatives of a generalised `match` on an expression are checked,
+  `Ctx::scrutinees` holds the scrutinees as types hold them. `Ctx::mismatch` (so only when a
+  type mismatch is being built) looks for one in the expected and found types
+  (`matching::occurs`) and adds a label on the scrutinee and the note "write `_` for such an
+  argument". Reject test: `examples/reject/match-written-argument-not-refined.sw` (the `V1`
+  shape, with `Bool.andRight`).
+
+**Deviations from the note.**
+
+1. D226 keeps the `let hr` instead of inlining it as the §3.4 diff does, because SW-193 is
+   merged; `part1Within` is already merged into `part1Correct`, so the step is in
+   `fallKeeps`'s second direction as before.
+2. D229's note doesn't print `Part1.sw:66`: the elaborator has no line numbers (spans are byte
+   ranges, rendered by the driver), so the existing label "this `match`" on the source
+   location is the location, and the note refers to it.
+3. D230's hint is keyed on the scrutinee still occurring in the mismatch's types (the
+   structural form of "a term that still contains the scrutinee"), not on the argument being
+   an explicit one; the note says "an explicit argument, or a type you wrote". It also
+   fires for a mismatch on any term written out in a branch, not only applications.
+4. The "wrong argument shows the signature" bullet is on `E-TYPE-MISMATCH` of an explicit
+   argument (`check_arg`) only, which covers the order trap; a named or piped argument isn't
+   covered.
+5. Capture order for variables not named by the arm (an anonymous column, a field another arm
+   named) is by level, after the named ones.
 
 ## Sources
 
