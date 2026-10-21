@@ -1,38 +1,14 @@
--- Day 7, proved end to end.
+-- Day 7, part 2, proved for every input (`part2Correct`, at the bottom): the
+-- program's count is the number of timelines in Proofs/Spec.sw. The
+-- program works up from the bottom row, and each column's count is the
+-- number of timelines of a particle falling into it (`countsAre`), by
+-- induction on the rows: a column without a splitter has the timelines of
+-- the column below, and a splitter's are those going left followed by those
+-- going right, each tagged with the splitter (`countStep`).
 
 namespace Aoc.Day07.Proofs
 import Aoc.Day07 (..)
 import Std (Eq)
-
--- Every line is at most this wide.
-def Fits (width: Nat): List Text -> Prop
-  | Nil         => Unit
-  | Cons l rest => And (l.length <= width) (Fits width rest)
-
-theorem foldWidenGrows (start: Nat): (lines: List Text) -> start <= lines.foldLeft widen start
-  | Nil         => Nat.leRefl start
-  | Cons l rest =>
-    calc start
-      _ <= widen start l                         := Nat.leMaxLeft start l.length
-      _ <= rest.foldLeft widen (widen start l)   := foldWidenGrows (widen start l) rest
-
-theorem foldWidenFits (start: Nat): (lines: List Text) -> Fits (lines.foldLeft widen start) lines
-  | Nil         => Trivial
-  | Cons l rest =>
-    Both (calc l.length
-            _ <= widen start l                       := Nat.leMaxRight start l.length
-            _ <= rest.foldLeft widen (widen start l) := foldWidenGrows (widen start l) rest)
-         (foldWidenFits (widen start l) rest)
-
--- A line's splitter flag in column c says whether the character there is ^.
-theorem flagAt (w: Nat) (line: Text) (c: Nat): List.getOr False c (splitterRow w line) = (charAt line c == '^') :=
-  rewrite List.getOrPadRight False w c (List.map isSplitter (Text.toList line)) in
-    List.getOrMap isSplitter '.' c (Text.toList line)
-
-theorem flagsLength (w: Nat) (line: Text) (fit: line.length <= w): List.length (splitterRow w line) = w :=
-  List.padRightLength w False (List.map isSplitter (Text.toList line)) (rewrite List.lengthMap isSplitter (Text.toList line) in fit)
-
--- Part 2 ------------------------------------------------------------------
 
 -- `splitRow` column by column.
 theorem splitRowAt (left: Nat): (flags: List Bool) -> (below: List Nat) -> List.length flags = List.length below -> (c: Nat) ->
@@ -90,15 +66,9 @@ theorem countsAre (w: Nat): (ls: List Text) -> Fits w ls -> (r: Nat) -> (c: Nat)
       _ = List.length (timelinesFrom r c (Cons l rest))
           := countStep l rest r c (countsBelow w rest) (c => countsAre w rest fits (r + 1) c)
 
-theorem fitsDrop (w: Nat): (n: Nat) -> (lines: List Text) -> Fits w lines -> Fits w (List.drop n lines)
-  | Zero,   lines,       fits          => fits
-  | Succ n, Nil,         fits          => Trivial
-  | Succ n, Cons l rest, Both fit fits => fitsDrop w n rest fits
-
 -- Part 2 is right: for every input, the printed answer is the number of
 -- timelines of the particle from S.
 theorem part2Correct (lines: List Text): Maybe.map solvePart2 (parseManifold lines) = part2Spec lines :=
   match e: findStart lines with
     | Nothing           => rfl
-    | Just (MkPair r c) =>
-      Eq.cong Just (countsAre (gridWidth lines) (List.drop (r + 1) lines) (fitsDrop (gridWidth lines) (r + 1) lines (foldWidenFits 0 lines)) (r + 1) c)
+    | Just (MkPair r c) => Eq.cong Just (countsAre (gridWidth lines) (List.drop (r + 1) lines) (belowFits lines r) (r + 1) c)
