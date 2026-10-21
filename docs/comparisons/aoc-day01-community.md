@@ -429,7 +429,7 @@ Why this order:
 | D293 | Should we add `List.mapAccumLeft`, `List.unzip`, `Nat.divMod` and `Int.divMod`? | [backlog ticket] |
 | D294 | `f().x`: should it mean `(f()).x` (today it means `f (().x)` and fails)? | [backlog ticket: `name()` with no space is a call, then dots apply] |
 | D295 | Multi-line text literals, written `"""…"""` (Scala, Idris, Python)? | [backlog ticket] |
-| D296 | Operator sections `(== 0)`, `(+ 1)`, `(100 -)`? | [design note first, then decide] |
+| D296 | Operator sections `(== 0)`, `(+ 1)`, `(100 -)`? | **Decided: not now; think about Scala-style `_` later** (Matt, 21 Oct 2026; SW-222) |
 | D297 | Text patterns: literal (`\| "L" =>`) now, prefix (`\| "L" ++ rest =>`) later? | **Decided: not now** (Matt, 21 Oct 2026) |
 | D298 | A modular number type (`Mod n` with `+`, `-` and laws), or arithmetic on `Fin n`? | [not now; revisit if another day needs it] |
 | D299 | Local mutable variables (`var`, Koka/Roc style)? | [not now] |
