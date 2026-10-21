@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+   ╭─[ reject/mismatch-hidden-proof-argument.sw:9:76 ]
+   │
+ 9 │     Int.modNat x (Succ t) [ok := h1] = Int.modNat x (Succ t) [ok := h1] := p
+   │                                                                            ┬  
+   │                                                                            ╰── expected `Int.modNat x (Succ t) [h1] = Int.modNat x (Succ t) [h1]`, but this has type `Int.modNat x (Succ t) [h2] = Int.modNat x (Succ t) [h2]`
+   │ 
+   │ Note: the two types differ only in arguments the compiler fills in, shown here in `[brackets]` (an implicit argument, or a proof such as `d != 0`; proofs of the same statement aren't interchangeable)
+───╯

@@ -358,12 +358,15 @@ fn settle<T>(r: std::result::Result<T, Fail>) -> Result<Option<T>> {
 /// renamed to the lambda's parameters.
 fn solve(g: &Globals, level: usize, m: usize, spine: &[Elim], rhs: &Value) -> Result<bool> {
     let mut renaming = HashMap::new();
+    let mut repeated = Vec::new();
     let mut icits = Vec::new();
     for elim in spine {
         match elim {
             Elim::App(arg, icit) => match force(g, arg.clone())? {
-                Value::Neutral(Head::Var(l), s) if s.is_empty() && !renaming.contains_key(&l) => {
-                    renaming.insert(l, renaming.len());
+                Value::Neutral(Head::Var(l), s) if s.is_empty() => {
+                    if renaming.insert(l, icits.len()).is_some() {
+                        repeated.push(l);
+                    }
                     icits.push(*icit);
                 }
                 _ => return Ok(false),
@@ -371,7 +374,15 @@ fn solve(g: &Globals, level: usize, m: usize, spine: &[Elim], rhs: &Value) -> Re
             Elim::J { .. } => return Ok(false),
         }
     }
-    let Some(mut solution) = settle(rename(g, m, &renaming, renaming.len(), level, rhs))? else {
+    // A variable given twice (`?m x t x`: a proof's unknown, applied to every
+    // variable in scope, inside a lambda applied to a variable already in
+    // scope) is a solution only if the other side doesn't mention it: with
+    // `?m x x = x` there are two solutions (`a b => a` and `a b => b`), so
+    // neither is chosen, but with `?m x x = p`, `a b => p` is the one.
+    for l in repeated {
+        renaming.remove(&l);
+    }
+    let Some(mut solution) = settle(rename(g, m, &renaming, icits.len(), level, rhs))? else {
         return Ok(false);
     };
     for icit in icits.into_iter().rev() {
@@ -812,6 +823,15 @@ mod tests {
         let (m, lhs) = meta(&g, &[0, 0]);
         assert!(!unify(&g, 1, &lhs, &Value::var(0)).unwrap());
         assert!(g.meta_solution(m).is_none());
+    }
+
+    #[test]
+    fn solves_a_spine_that_repeats_a_variable_when_the_other_side_ignores_it() {
+        let g = globals();
+        // ?m x0 x0 = Type has one solution, `a b => Type`.
+        let (m, lhs) = meta(&g, &[0, 0]);
+        assert!(unify(&g, 1, &lhs, &ty()).unwrap());
+        assert!(g.meta_solution(m).is_some());
     }
 
     #[test]

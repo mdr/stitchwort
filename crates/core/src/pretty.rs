@@ -59,6 +59,24 @@ pub fn value_for_message(g: &Globals, names: &[Name], value: &Value) -> String {
     term_for_message(g, names, &t)
 }
 
+/// [`value_for_message`], showing the arguments the compiler fills in, for
+/// two types that print the same without them.
+pub fn value_for_message_hidden(g: &Globals, names: &[Name], value: &Value) -> String {
+    let Ok(t) = quote(g, names.len(), value) else {
+        return "…".into();
+    };
+    let mut ns = names.to_vec();
+    let printer = Printer::new(g);
+    printer.show_hidden.set(true);
+    let text = printer.print(&mut ns, &t, Prec::Arrow);
+    if text.chars().count() <= MESSAGE_LIMIT * 2 {
+        return text;
+    }
+    let mut text: String = text.chars().take(MESSAGE_LIMIT * 2).collect();
+    text.push('…');
+    text
+}
+
 /// [`value_for_message`], for a term.
 pub fn term_for_message(g: &Globals, names: &[Name], term_: &Term) -> String {
     note_failed_mention(g, term_);
@@ -106,6 +124,8 @@ struct Printer<'g> {
     /// For messages: parts nested deeper than this are shown as `…`.
     max_depth: Cell<Option<usize>>,
     depth: Cell<usize>,
+    /// Show the arguments the compiler fills in, `f [x] [auto p] y`.
+    show_hidden: Cell<bool>,
 }
 
 impl<'g> Printer<'g> {
@@ -115,6 +135,7 @@ impl<'g> Printer<'g> {
             elided: Cell::new(false),
             max_depth: Cell::new(None),
             depth: Cell::new(0),
+            show_hidden: Cell::new(false),
         }
     }
 
@@ -447,6 +468,9 @@ impl<'g> Printer<'g> {
                         return (format!("{a} != {b}"), Prec::Eq);
                     }
                 }
+                if self.show_hidden.get() {
+                    return self.applied_with_hidden(names, term);
+                }
                 let head = self.print(names, head, Prec::App);
                 self.applied(names, head, args.into_iter())
             }
@@ -561,6 +585,30 @@ impl<'g> Printer<'g> {
             .map(|t| self.print(names, t, Prec::Arrow))
             .collect();
         format!("({})", items.join(", "))
+    }
+
+    /// An application with every argument, those the compiler fills in
+    /// (implicit and `auto`) in brackets.
+    fn applied_with_hidden(&self, names: &mut Vec<Name>, term: &Term) -> (String, Prec) {
+        let mut args = Vec::new();
+        let mut head = term.strip_loc();
+        while let Term::App(f, a, icit) = head {
+            args.push((a.as_ref(), *icit));
+            head = f.strip_loc();
+        }
+        args.reverse();
+        let mut text = self.print(names, head, Prec::App);
+        for (arg, icit) in args {
+            text.push(' ');
+            if icit == Icit::Explicit {
+                text.push_str(&self.print(names, arg, Prec::Atom));
+            } else {
+                text.push('[');
+                text.push_str(&self.print(names, arg, Prec::Arrow));
+                text.push(']');
+            }
+        }
+        (text, Prec::App)
     }
 
     fn applied<'t>(

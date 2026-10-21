@@ -2262,9 +2262,23 @@ impl Elaborator {
                     span: row.span,
                 });
             }
-            if branch_rows.is_empty() && !data.indices.is_empty() {
+            let other_family = || -> Result<bool> {
+                for (i, t) in types.iter().enumerate() {
+                    if let Some(t) = t
+                        && i != j
+                        && let Value::Data(d2, _) = force(&self.globals, t.clone())?
+                        && !self.globals.data(d2).indices.is_empty()
+                    {
+                        return Ok(true);
+                    }
+                }
+                Ok(false)
+            };
+            if branch_rows.is_empty() && (!data.indices.is_empty() || other_family()?) {
                 // It may be impossible: `check_tree` unifies, and decides
-                // (docs/proposals/indexed-families.md §7.3).
+                // (docs/proposals/indexed-families.md §7.3). Without
+                // indices, only if another column's type becomes empty in
+                // this branch (`Fin n` with `n := Zero`): SW-181.
                 let names = (ctor.fields.iter()).map(|(x, _)| x.clone()).collect();
                 branches.push((
                     names,
@@ -2958,7 +2972,27 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                     field_env.push(field.clone());
                     cx.bind_hidden(name.clone(), ty);
                 }
-                let result = check_tree(cx, subtree, &branch_goal);
+                let result = match subtree {
+                    // No arm covers this constructor: fine if it makes
+                    // another column's type empty (`Fin n` with `n := Zero`).
+                    Tree::Missing { columns, span } => (|| {
+                        for &level in columns {
+                            if let Some(term) = families::empty_case(cx, level, None)? {
+                                return Ok(term);
+                            }
+                        }
+                        let example = std::iter::once(ctor.name.to_string())
+                            .chain(std::iter::repeat_n("_".to_string(), ctor.fields.len()))
+                            .collect::<Vec<_>>()
+                            .join(" ");
+                        Err(error(
+                            "E-NONEXHAUSTIVE",
+                            *span,
+                            format!("missing case: no arm matches `{example}`"),
+                        ))
+                    })(),
+                    _ => check_tree(cx, subtree, &branch_goal),
+                };
                 cx.reset(mark);
                 cx.env = saved_env;
                 cx.types = saved_types;

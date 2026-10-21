@@ -348,6 +348,11 @@ impl<'e> Ctx<'e> {
         pretty::value_for_message(self.g(), &self.names, value)
     }
 
+    /// [`Ctx::show`], with the arguments the compiler fills in.
+    pub fn show_hidden(&self, value: &Value) -> String {
+        pretty::value_for_message_hidden(self.g(), &self.names, value)
+    }
+
     pub fn error(
         &self,
         code: &'static str,
@@ -385,11 +390,32 @@ impl<'e> Ctx<'e> {
                 )
                 .with_note("`Type n` lives in `Type (n+1)`; allowing `Type: Type` would make the logic inconsistent");
         }
+        // Two types that print the same differ in something the compiler
+        // fills in (an implicit argument, a proof): show those.
+        let (expected_shown, found_shown, hidden) = if expected_shown == found_shown {
+            let (e, f) = (self.show_hidden(expected), self.show_hidden(found));
+            if e != f {
+                (e, f, true)
+            } else {
+                (expected_shown, found_shown, false)
+            }
+        } else {
+            (expected_shown, found_shown, false)
+        };
         let d = self.error(
             "E-TYPE-MISMATCH",
             "type mismatch",
             format!("expected `{expected_shown}`, but this has type `{found_shown}`"),
         );
+        let d = if hidden {
+            d.with_note(
+                "the two types differ only in arguments the compiler fills in, shown here in \
+                 `[brackets]` (an implicit argument, or a proof such as `d != 0`; proofs of the \
+                 same statement aren't interchangeable)",
+            )
+        } else {
+            d
+        };
         match crate::data_auto::auto_mismatch_note(self, expected, found) {
             Some(note) => d.with_note(note),
             None => d,
@@ -822,7 +848,9 @@ pub(crate) type Supply = std::collections::VecDeque<Term>;
 /// checking order changes; the term's arguments stay in place. Not when a
 /// later argument's type depends on it (it would see only a placeholder). A
 /// section is always postponed then; a plain lambda only if checking it in
-/// place fails, so what already worked is elaborated as before. If the
+/// place fails, so what already worked is elaborated as before. (A later
+/// argument that's a lambda too is postponed along with it, so those whose
+/// types mention a postponed lambda are fine.) If the
 /// application fails anyway, the error is the one checking it in place gave.
 pub(crate) fn apply_args_with(
     cx: &mut Ctx,
@@ -856,7 +884,9 @@ fn apply_args_postponing(
                 let later = args[i + 1..]
                     .iter()
                     .any(|a| matches!(a, Arg::Explicit(_) | Arg::Piped(_)));
-                let postponable = later && !cod.body.mentions(0) && unknown_domain(cx, &dom)?;
+                let postponable = later
+                    && only_lambdas_depend_on_it(&cod.body, &args[i + 1..])
+                    && unknown_domain(cx, &dom)?;
                 let checked = if !postponable {
                     Some(check_arg(cx, &term, value, &dom)?)
                 } else if value.section_name().is_some() {
@@ -973,6 +1003,28 @@ fn check_arg(cx: &mut Ctx, head: &Term, value: &Expr, dom: &Value) -> Result<Ter
 
 /// Whether `ty` is a function type whose parameter's type isn't known yet:
 /// a lambda checked against it couldn't use its parameter.
+/// Whether the parameters after a postponed lambda, `rest` (the type of the
+/// application so far), have types that don't mention it, except where the
+/// argument given is a lambda too (which is then postponed with it, as in
+/// `List.sortBySorted (a b => …) (a b => …) xs`). The result type may mention
+/// it: it holds the placeholder, which the lambda then solves.
+fn only_lambdas_depend_on_it(rest: &Term, args: &[Arg]) -> bool {
+    let mut explicit = args
+        .iter()
+        .filter(|a| matches!(a, Arg::Explicit(_) | Arg::Piped(_)));
+    let mut ty = rest;
+    let mut under = 0;
+    while let Term::Pi(_, icit, dom, cod) = ty.strip_loc() {
+        let arg = (*icit == Icit::Explicit).then(|| explicit.next()).flatten();
+        if dom.mentions(under) && !matches!(arg, Some(Arg::Explicit(Expr::Lam(..)))) {
+            return false;
+        }
+        ty = cod;
+        under += 1;
+    }
+    true
+}
+
 fn unknown_domain(cx: &Ctx, ty: &Value) -> Result<bool> {
     let g = cx.g();
     Ok(match force(g, ty.clone())? {
@@ -2327,6 +2379,15 @@ fn written_sides(cx: &Ctx, a: &Value, b: &Value) -> Option<(String, String)> {
     Some((show(ga), show(gb)))
 }
 
+/// Whether a label "`a` and `b` aren't equal" has the same text for both.
+fn written_equal(label: &str) -> bool {
+    label
+        .strip_suffix("` aren't equal")
+        .and_then(|l| l.strip_prefix('`'))
+        .and_then(|l| l.split_once("` and `"))
+        .is_some_and(|(a, b)| a == b)
+}
+
 /// The `E-REFL` error for sides `a` and `b` that aren't equal (kept out of
 /// `check`, whose stack frame is on every recursion).
 #[inline(never)]
@@ -2347,8 +2408,26 @@ fn refl_error(cx: &Ctx, a: &Value, b: &Value) -> Diagnostic {
         }
         None => (format!("`{shown_a}` and `{shown_b}` aren't equal"), None),
     };
+    // Both sides print the same: they differ in what the compiler fills in
+    // (`Int.modNat x 3 [ok := p]` with two different proofs `p`).
+    let (label, hidden) = if shown_a == shown_b || written_equal(&label) {
+        let (ha, hb) = (cx.show_hidden(a), cx.show_hidden(b));
+        if ha != hb {
+            (format!("`{ha}` and `{hb}` aren't equal"), true)
+        } else {
+            (label, false)
+        }
+    } else {
+        (label, false)
+    };
     let mut error = cx.error("E-REFL", "`rfl` can't prove this", label);
-    if let Some(computed) = computed {
+    if hidden {
+        error = error.with_note(
+            "the two sides differ only in arguments the compiler fills in, shown here in \
+             `[brackets]` (an implicit argument, or a proof such as `d != 0`; proofs of the \
+             same statement aren't interchangeable)",
+        );
+    } else if let Some(computed) = computed {
         error = error.with_note(computed);
     }
     error.with_note("`rfl` proves `a = b` only when both sides compute to the same value")
