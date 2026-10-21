@@ -1950,7 +1950,7 @@
     {
       "id": 129,
       "title": "Dot notation sometimes elaborates differently from the prefix call",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
