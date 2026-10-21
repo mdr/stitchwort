@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: a `"""` text starts on the next line: nothing may follow the opening `"""` (use `"…"` for one line)
+   ╭─[ reject/text-block-same-line.sw:3:22 ]
+   │
+ 3 │ def example: Text := """L68
+   │                      ──┬─  
+   │                        ╰─── a `"""` text starts on the next line: nothing may follow the opening `"""` (use `"…"` for one line)
+───╯

@@ -1633,13 +1633,17 @@ export def area: Shape -> Nat
         // A string, from its opening quote or from just after an
         // interpolation, up to its closing quote, the next `${`, or the end
         // of the line. Escapes, including `\$`, stay inside the string.
-        while (i < text.length && text[i] !== "\n" && text[i] !== '"'
+        // A `"""` text runs over lines, to the next `"""`.
+        const ends = mode.block
+          ? () => text.startsWith('"""', i)
+          : () => text[i] === "\n" || text[i] === '"';
+        while (i < text.length && !ends()
                && !(text[i] === "$" && text[i + 1] === "{")) {
-          i += text[i] === "\\" && text[i + 1] !== "\n" ? 2 : 1;
+          i += text[i] === "\\" && (mode.block || text[i + 1] !== "\n") ? 2 : 1;
         }
         const stop = Math.min(i, text.length);
-        if (stop < text.length && text[stop] === '"') {
-          i = stop + 1;
+        if (stop < text.length && text[stop] !== "$" && (mode.block || text[stop] === '"')) {
+          i = stop + (mode.block ? 3 : 1);
           add("string", mode.start, i);
           modes.pop();
           previous = '"';
@@ -1680,8 +1684,9 @@ export def area: Shape -> Nat
         add("number", start, i);
         previous = "0";
       } else if (c === '"') {
-        modes.push({ code: false, start });
-        i++;
+        const block = text.startsWith('"""', i);
+        modes.push({ code: false, start, block });
+        i += block ? 3 : 1;
       } else if (c === "'") {
         i++;
         while (i < text.length && text[i] !== "\n" && text[i] !== "'") {
