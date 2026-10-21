@@ -46,6 +46,7 @@ lines may come before it. Imports come after it.
 ```
 -- src/range.sw
 namespace Aoc
+import Std (Text)
 
 -- A range of ids, both ends included.
 type Range = { from: Nat, to: Nat }
@@ -62,6 +63,7 @@ def Range.size (r: Range): Nat := r.to + 1 - r.from
 -- src/day05.sw
 namespace Day05
 import Aoc (Range)
+import Std (IO, Nat, Text)
 
 type Database = { fresh: List Range, available: List Nat }
 
