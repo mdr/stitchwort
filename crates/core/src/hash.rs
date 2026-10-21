@@ -483,8 +483,16 @@ impl<'g> Hasher<'g> {
                     pending.push(Item::Usize(args.len()));
                     pending.extend(args.iter().map(|t| Item::Term(t)));
                 }
+                // The value, and `Nat` itself, which the number stands for
+                // (as `Chars` does for `List` and `Char`).
                 Term::Nat(n) => {
+                    let nat = self
+                        .g
+                        .builtins
+                        .nat
+                        .expect("internal error: a number without `Nat`");
                     self.tag("nat");
+                    self.data_ref(nat)?;
                     self.nat(n);
                 }
                 // The logical contents (never the buffer or the offsets), and

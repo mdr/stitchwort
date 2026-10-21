@@ -1,0 +1,29 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[W-MODULE-NAME] Warning: `dupSig` in this type is the declaration of that name in this module, not a type variable
+    ╭─[ reject/row-tail-repeats-ability.sw:18:21 ]
+    │
+ 16 │ def dupSig: Sig := MkSig (opsOf sayN) (resOf sayN)
+    │     ───┬──  
+    │        ╰──── `dupSig` is defined here
+    │ 
+ 18 │ def twice(): {Log | dupSig} () :=
+    │                     ───┬──  
+    │                        ╰──── this is the module's `dupSig`
+    │ 
+    │ Note: to make `dupSig` a type variable instead, bind it explicitly: start the type with `[dupSig: Type] ->`
+────╯
+[E-DUPLICATE] Error: `Log` appears twice in this row
+    ╭─[ reject/row-tail-repeats-ability.sw:19:3 ]
+    │
+ 19 │ ╭─▶   say 1
+ 20 │ ├─▶   say 2
+    │ │             
+    │ ╰───────────── here
+    │     
+    │     Note 1: a row has each ability at most once
+    │     
+    │     Note 2: a row variable (`e` in `{A | e}`) can't stand for a signature that already contains `A`
+────╯

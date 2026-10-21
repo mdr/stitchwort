@@ -2,34 +2,34 @@
 source: crates/driver/tests/hash_stability.rs
 expression: "lines(&session, d, f)"
 ---
-Main.eqTexts 3fb7351527dafc1c04d4e4cfd39ab2ae8a036ebda16987598974f0234db0f886
-Main.result 5d5cb8fd7bf57317828dd6dd7f4ff8dd1660c8f9a321d14a4700810c1c213387
-Main.showLine a8443f273cbfde08ed2362523ad23962d9b82651248c857e4218e00e187b8711
-Main.slurp 354a795ff7562538398b005a195919e7cdac00cac6fd2ebec2b8503852a98a6a
-Main.afterOne 882ef5fdd6b2643017df696a6e6135ece54c0d522d36a49a231754f79810cdbe
-Main.afterAll 2be200c8cb7a4ed683ba75762641a6cb58384b03bdb1051e579c6a521453d04b
-Main.twice 26507567c48a95390be9403a2cce9028fb575fed10d98cb264b932b888dd380c
-Main.test "readAll gives every line, each followed by LF" 624e9ba988ba0c3221032916ca29f0fe43562275cd2c83cc3054007a83113379
-Main.test "IO.readAll is the same operation" 9112385b601a4b10a3b6c8e1ac27e82fad4e2f6a22855889aad38469648e9840
-Main.test "readAll of empty input is empty" d3218bce67d946ad20e830cdb2a92bf85a7f91b670e6138a458899b07859d55b
-Main.test "an empty line is kept" 76a6a67121243ce6c220c90c7b1fab4727b5779955a7b85651cf4feedfb37922
-Main.test "readAll after a readLine gives the rest" c630d0b3e2c9e0e79202cb5f57fc47eb45c4fc7b28d23947738d34a6547a5fe3
-Main.test "readAll after the last line is empty" 839479cf9375a591803917a262b40e438445968f2ccab86ddf255e716a910367
-Main.test "readLine after readAll is end of input" d08e6ad67f93f9aa2de005bbe847cac3b8bce232b4e0f9f288cbf6d8f3df259e
-Main.test "a second readAll is empty" 932b0e700d370c457d3857d565fea3cf8028ad10d748df26fa97ca8fb51a126d
-Main.test "lines splits on LF" 20846775cc41a07f80eeb754c5e430b6488d007b303b72f9412835cb11498f4b
-Main.test "a trailing LF ends the last line" 15493864fb62a0ea909de4159906f54da7f37cca38a87d22639f5a46804d1566
-Main.test "no trailing LF is fine" 6aa9fae7d5a4d70883d75dbb5c48ba039f6b6001966bc20183fb4d969957e545
-Main.test "CRLF is one line ending" fe8113fbb9140ddd4be5429a44fbbf1170b29e1699ae9f30e154f81f1a9aecf8
-Main.test "CRLF without a final ending" 9f529174285bf4cf2a657d776cd528bad402c6dad156d168d2b0b63e7fd5f448
-Main.test "empty text has no lines" 8367d150d79228b290bf415b555910bb3291d410f3f1420571fed78a34f94f50
-Main.test "a lone LF is one empty line" 70ebbed0679af2a4722cdb426a2f25153f4586a9e6887cbd4e56ba572c993492
-Main.test "empty lines are kept" 118b68950816553cc77cfe6240e4678c7f334efb100e5e751abc57014ecbb668
-Main.test "a CR elsewhere stays" a0f0500dbe69e9d2808b37acc212795ee68ae8aa7eece0e950b5702f3dc0bb42
-Main.test "a final CR without LF stays" b870f479f4e28bb321dd1b6d5bd469bad8b578ccf4ba53de9e87537278b71295
-Main.test "only one CR goes before an LF" 03af32d42bf946dd32cfa56833f8a5a3a13396abf3ec81224557d5b42e9e3856
-Main.test "lines method style" a97ce540dea5f5bd9aa33c430f0a4cc99a84756d6cf2a0ec373cd10e1681e526
-Main.allLines d72c4b86fa3072c518d31d759189a7a2692475162b5f67735c04c9fe0ab78cb7
-Main.test "readAllLines is total under simulate" d48b78ea816782368025e4b71a9125db810c093dcbcd0c0ed515339fe5b36a41
-Main.test "readAllLines of empty input is empty" 96804bfcfa65e0bd6039697f3482cc38d155e8849264549e59575063e4c9b1b2
-Main.test "readAllLines keeps an empty line" f761510785d6bb3f0482a3aa5ce31320417a6412d3398c51213ffd5bd25edd93
+Main.eqTexts 7f087a95865dcafee6d6a651b6c69bbb35640b0a82e84f7045c505049371b3d8
+Main.result b6dd0aade3ed7c8636a1e1c41f32dd66cdf7aafd523ee5cdf4f0becee6ee927a
+Main.showLine 7d2926d51495425318db59ac7bafc7271b91fbb515367db75fd1689f6ac4673b
+Main.slurp 40ff76481115014fee9c6eab9b50f86a66cbfd985e265f5620756c784cbd986d
+Main.afterOne be170aad65914f100a28ad60ad7df04e12ce13c185f096bbc56578118e85524d
+Main.afterAll 0d72193a01e0dbc56e48575d6faf0fc4c0aed60d35623a99941a40c73c0341a3
+Main.twice 3c6d4992ec916090faebf775268c3d39641ec70d46b025370648f425e5633ca2
+Main.test "readAll gives every line, each followed by LF" 4d52673fb55cfd898e69d3bccb67b7ee8b7f107ae21b160d32c0c7f9a9a46a1d
+Main.test "IO.readAll is the same operation" e521cd25518035d289aa86f2af23032d1b2ba73d456f83bd0adcfbad35d2fc97
+Main.test "readAll of empty input is empty" 5c9a3e6e09d862be4168a05624dc9b043839dc8bc70087714be436f55ff38534
+Main.test "an empty line is kept" b7ecc14099a8da2b80fedea114eebf4ea6650d209cbacc553c1fd8742d49cbb9
+Main.test "readAll after a readLine gives the rest" 46a4c5dcbc93b973cd8811b59c514ec30e7815d9042c04b3f829906e54fe7c64
+Main.test "readAll after the last line is empty" 23d04ea6ea6b3cb1f15f82cf16fcded3640b1e61092046eb0c095aaaeec771f0
+Main.test "readLine after readAll is end of input" 5742f6c1c6e0f9d9bd2173cade1c9d2a05e772d939a0c9cbf5a3ad8aa0b103ef
+Main.test "a second readAll is empty" cff43554d83d361f294a8e62342fce5850e254150343099ffa748e055c0e5acc
+Main.test "lines splits on LF" 2b38554be5b88fe11ce7a0b37c0d6effc0187df254b6e86f33822ba9b7b2526c
+Main.test "a trailing LF ends the last line" 13f34c613f9d5d1adae2e5919e07aa48082ae0cb0805376be2bd2dea11c94689
+Main.test "no trailing LF is fine" c9b23e1e5cf94a7b2586616771aadd4eefb6c8caf648864c8a65b09e0b54b6a4
+Main.test "CRLF is one line ending" 8d8eae72d8c6fc513816b9e2ee91c744f9d9f66db6089708612775cd4cf82072
+Main.test "CRLF without a final ending" 202e76b4a43defedee43609454fbb8e6548479af82a89a4553ee3e7a9b662643
+Main.test "empty text has no lines" 2eeb77f662120cda6d28f1c5453e2277b620c31a1d5924e26d4020eea19330ea
+Main.test "a lone LF is one empty line" 33e662662676e69fbe28cfb16a47ae73057cbe9136a23f8e1ced9630836687dc
+Main.test "empty lines are kept" c0086e193ebd43572e4251051012ff9dd9cc3e036cfe69baa906e64125551cd2
+Main.test "a CR elsewhere stays" 9e43054156e57d201da2d1cd2268cc1d565de73ae0c8cbc284f1661b940ec59e
+Main.test "a final CR without LF stays" 6b5ea9517483b09c0cef65075c609c6c8ef6ccd6599d1c917de4131b713767b8
+Main.test "only one CR goes before an LF" 423b6c6aaa9b1e7ef575f83d4986783715d15a9f62ac9f4e0301cd185f8508bb
+Main.test "lines method style" 8a2dda660876f19bce332b7a38c5be534930cf0bee0528ee25ede29349628e72
+Main.allLines 19c41b3a1f47e2ab0f71c896ca07c75604019a8ca15bab6418e882e92c7a4585
+Main.test "readAllLines is total under simulate" 19b8f7e9f99fdac3332e2792b8d70ca4383705ca7faee484d43a1e25cf221ac4
+Main.test "readAllLines of empty input is empty" db0cba7d54aea2106085719cdd3fc5a2ecfe0279a5183b85dc455de75ae8e7a1
+Main.test "readAllLines keeps an empty line" 409335fe1d287ca7032a2f75c9273b25d961ad95c04d99de2233f20f5297131c
