@@ -1,6 +1,6 @@
--- Text beyond the core: the split/join and length lemmas, the `.toText`
--- conversions, and `Text.lines` with `IO.readAllLines`. This file was the
--- prelude's "Lines" section and the few text theorems beside it.
+-- Text beyond the core: the split/join and length lemmas, and `Text.lines`
+-- with `IO.readAllLines`. This file was the prelude's "Lines" section and
+-- the few text theorems beside it.
 
 theorem Text.toFromList (cs: List Char): Text.toList (Text.fromList cs) = cs := rfl
 
@@ -17,17 +17,6 @@ theorem Text.padRightExample: Text.padRight 5 '.' "ab" = "ab..." := rfl
 theorem Text.padRightLongEnough: Text.padRight 1 '.' "ab" = "ab" := rfl
 
 def Text.less (a: Text) (b: Text): Bool := Ordering.isLess (Text.compare a b)
-
--- Itself: so `"${t}"` works when `t` is already text.
-def Text.toText (t: Text): Text := t
-
--- The character on its own: `'a'.toText` is `"a"`.
-def Char.toText (c: Char): Text := MkText [c]
-
--- `"True"` or `"False"`, as the constructors are written.
-def Bool.toText: Bool -> Text
-  | True  => "True"
-  | False => "False"
 
 def Text.joinPair (s: Char): Pair (List Char) (List (List Char)) -> List Char
   | MkPair f fs => Text.joinChars s f fs

@@ -255,3 +255,7 @@ test "traverseMaybe" := Maybe.map Vec.toList (Vec.traverseMaybe (x => if x < 5 t
 test "traverseMaybe fails" := Maybe.map Vec.toList (Vec.traverseMaybe (x => if x < 3 then Just x else Nothing) Vec.example) == Nothing
 test "any" := Vec.any (x => x == 2) Vec.example && Bool.not (Vec.any (x => x == 4) Vec.example)
 test "get" := Vec.get Vec.example (FSucc FZero) == 2 && Vec.getLt Vec.example 0 == 1
+
+-- Like a list: `[1, 2, 3]`.
+instance Vec.instShow [auto show: Show a]: Show (Vec a n) :=
+  Show.fromText (v => Show.list (x => Show.toSource x) (Vec.toList v))

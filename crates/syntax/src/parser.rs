@@ -2384,7 +2384,7 @@ impl<'t> Parser<'t> {
     }
 
     /// `"a${x}b${y}c"`: text pieces joined with `++`, each interpolation
-    /// becoming `(e).toText`. Empty pieces are left out.
+    /// becoming `Std.Show.toText e`. Empty pieces are left out.
     fn interpolated_str(&mut self) -> Result<Expr> {
         let token = self.bump();
         let (mut text, mut text_span) = match &token.tok {
@@ -2403,12 +2403,12 @@ impl<'t> Parser<'t> {
                 .cloned()
                 .ok_or_else(|| self.unexpected("`}`"))?;
             let span = Span::new(self.file, text_span.end, next.span.start);
-            items.push(Expr::Field(
-                Box::new(value),
-                Name {
-                    text: "toText".into(),
+            items.push(Expr::App(
+                Box::new(Expr::Var(Name {
+                    text: "Std.Show.toText".into(),
                     span,
-                },
+                })),
+                Box::new(value),
             ));
             let (end, piece) = match &next.tok {
                 Tok::StrMid(piece) => (false, piece.clone()),

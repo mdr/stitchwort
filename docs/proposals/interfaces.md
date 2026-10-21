@@ -4,7 +4,7 @@
 ([As built (stage 1)](#as-built-stage-1),
 [As built (stage 2)](#as-built-stage-2),
 [As built (stage 3)](#as-built-stage-3),
-[As built (stage 4)](#as-built-stage-4)); stages 5 to 7 are design only.
+[As built (stage 4)](#as-built-stage-4), [As built (stage 6)](#as-built-stage-6)); stages 5 and 7 are design only.
 Review closed and decisions D154-D174, D178-D182, D186, D187 accepted as recommended (D188, Matt, 20 October 2026).
 Ticket SW-4, decision D152 (Matt, 20 October 2026: write this note).
 Draft 2 answered the external review of draft 1
@@ -169,6 +169,7 @@ candidates blocked on unknowns. Every point:
 - [As built (stage 2)](#as-built-stage-2)
 - [As built (stage 3)](#as-built-stage-3)
 - [As built (stage 4)](#as-built-stage-4)
+- [As built (stage 6)](#as-built-stage-6)
 14. [Decisions](#14-decisions)
 15. [Sources](#15-sources)
 
@@ -2118,6 +2119,75 @@ What differs from the text above, or wasn't settled by it:
    stage 3's `Ord`, `Map.instShow` (stage 6), and a JS boundary for maps
    (§10). Nothing in the elaborator should need to change for those.
 
+## As built (stage 6)
+
+Stage 6 is built (SW-4, 21 October 2026): `Show` with `toText` and
+`toSource`, its instances, `${e}` through `Show`, and derived `Show` for
+data types and records. Code: `crates/elab/src/derive_show.rs` (new,
+modelled on `derive.rs`), `interfaces.rs` (`show`, the note on
+`E-INSTANCE-NONE`), the parser (`interpolated_str`), and the library at the
+end of `crates/elab/src/std/core.sw`, with `Vec/Vec.sw` and `Fin/Fin.sw`.
+Surface: docs/syntax.md "Interfaces" and the interpolation paragraph.
+Tests: `examples/accept/show.sw` (35 tests), `examples/reject/show-none.sw`,
+`examples/extract/show.sw` (agrees with the reference evaluator in JS), the
+existing `interpolation.sw`. AoC answers and the bench counts are unchanged.
+
+What differs from the text above, or wasn't settled by it:
+
+1. **Where `${e}` is decided.** The parser makes `${e}` the application
+   `Std.Show.toText e` (it was the field `e.toText`), so the elaborator
+   needed no new rule: `Show.toText` is the generated method with an `auto`
+   dictionary, found as any other (§5.5). `x.toText` by dot notation still
+   works as a function call, on the types that have a `toText` definition
+   (`Nat`, `Int`, `Char`, `Text`, `Bool`, now `Ordering`); `${e}` no longer
+   looks at it, so a user's `def Point.toText` needs
+   `instance Point.instShow: Show Point := Show.fromText Point.toText`
+   (D167). No existing example or AoC program had one.
+2. **Instances.** In the core: `Nat`, `Int`, `Bool`, `Char`, `Text`,
+   `Ordering`, `List a`, `Maybe a`, `(a, b)` (§6.4 lists `Unit` too, but
+   `Unit` is a proposition here, so it can't be a `Show` argument).
+   `Vec a n` is in `Vec/Vec.sw` (shown as a list, `[1, 2]`) and `Fin n` in
+   `Fin/Fin.sw` (its number). `Text.toText`, `Char.toText` and
+   `Bool.toText` moved from `Text/Text.sw` into the core, since the
+   instances are made from them; their names and bodies are the same.
+3. **Format.** `toText` and `toSource` are equal except for `Text` (`tea`
+   against `"tea"`) and `Char` (`a` against `'a'`). Quoted text escapes `\`,
+   the quote, line feed, tab and carriage return, and a `$` only when a `{`
+   follows (so the result is a valid literal that doesn't interpolate).
+   Lists are `[a, b]`, pairs `(a, b)` (three or more nest, as they are:
+   `(1, ('c', "s"))`), `Maybe` is `Nothing` and `Just x`.
+4. **Brackets.** A constructor argument is put in brackets when its
+   `toSource` has a space and doesn't already start with `[`, `(`, `{`, `"`
+   or `'`, or when it starts with `-`: `Just (Just 1)`, `Just (-5)`,
+   `Just [1, 2]`, `Just { name = "tea", price = 3 }`. That's a test on the
+   text, in `Show.arg`, because the interface has no precedence argument; a
+   user's own instance that prints something with spaces and no brackets
+   gets some added, which is the point.
+5. **Derived `Show`.** `T.%show` and `T.%instShow` (generated source, as
+   derived `DecEq`), for data types and records with data fields that are
+   `T` itself (a recursive call) or have `Show`, given `[auto show: Show a]`
+   for each type parameter the fields use (`showA`, … when there are
+   several). Constructors are `Name f1 f2` (`Dot`, `Rect 3 4`); a record is
+   `{ name = "tea", price = 3 }`, `{}` with no data fields; proof fields are
+   left out. Not derived, with a note on `E-INSTANCE-NONE` saying why: a
+   function field, a type field, a field whose type depends on an earlier
+   one, `T` inside another type (`Node (List (Tree a))`), indexed families,
+   mutual types, propositions. (`Show` for a type with `T` inside another
+   type would need the instance being derived; `Vec` and `Fin` are by
+   hand.) A module's own instance replaces the derived one by names, as for
+   `DecEq`, and the library's types are skipped.
+6. **Hashes.** Only the nine tests of `interpolation.sw` changed hashes
+   (their terms now go through `Show.toText`). Everything else in the
+   snapshots is added: the `Show` definitions in the prelude, and
+   `T.%show`/`T.%instShow` for each declared type (so, one pair for each
+   data type and record in the hash examples). No other definition's hash
+   changed (the AoC programs are not in the hash snapshots; their
+   answers, which `dev/t aoc` checks as printed text, are the same).
+7. **Cost.** Every declared type now elaborates two more definitions when
+   it's declared, as `DecEq` does (§13, risk 5); not measured separately,
+   and the bench counts are unchanged.
+8. **Not done here**, as planned: `Map.instShow` (SW-113), derived `Ord`
+   (stage 7).
 ---
 
 ## 14. Decisions

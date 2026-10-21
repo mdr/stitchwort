@@ -34,3 +34,6 @@ theorem Fin.ofNatExample: Fin.toNat (Fin.ofNat 3: Fin 5) = 3 := rfl
 
 test "toNat" := Fin.toNat (FSucc (FSucc FZero): Fin 4) == 2
 test "ofNat" := Fin.toNat (Fin.ofNat 4: Fin 5) == 4
+
+-- The number itself: `"${(Fin.ofNat 2: Fin 5)}"` is `2`.
+instance Fin.instShow: Show (Fin n) := Show.fromText (i => Nat.toText (Fin.toNat i))
