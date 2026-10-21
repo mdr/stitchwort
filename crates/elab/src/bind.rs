@@ -192,10 +192,16 @@ pub(crate) fn decide(cx: &mut Ctx, prop: &Term) -> Result<Decision> {
     Ok(Decision::Plain(decide_written(cx, prop, &value)?))
 }
 
-/// A decision of `prop` (`value` is its value): an equation as written,
-/// `x = y`, through its type's `DecEq` instance (docs/proposals/interfaces.md
-/// §5.16 step 3); anything else by the search (`auto.rs`).
+/// A decision of `prop` (`value` is its value): a relation method applied to
+/// a dictionary as written, `Ord.lessThan [ord := d] x y`, by its decider
+/// from the same dictionary (docs/proposals/interfaces.md §5.16 step 2); an
+/// equation as written, `x = y`, through its type's `DecEq` instance (step
+/// 3); anything else by the search (`auto.rs`, which also makes step 2 on
+/// what `prop` computes to).
 fn decide_written(cx: &mut Ctx, prop: &Term, value: &Value) -> Result<Term> {
+    if let Some(decision) = crate::interfaces::written_relation_decider(cx.e, prop) {
+        return Ok(decision);
+    }
     if let Term::Eq(Some(ty), a, b) = prop.strip_loc()
         && crate::interfaces::dec_eq(cx.e).is_some()
     {

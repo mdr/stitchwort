@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: `+` gives a `Nat` or an `Int`
+   ╭─[ reject/operators-no-instance.sw:3:39 ]
+   │
+ 3 │ def both (x: Bool) (y: Bool): Bool := x + y
+   │                                       ──┬──  
+   │                                         ╰──── but `Bool` is expected here
+   │ 
+   │ Note: on other types `+` is `Add.add`, and there's no `Add` instance for `Bool` here
+───╯

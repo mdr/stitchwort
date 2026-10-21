@@ -2,10 +2,14 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-TYPE-MISMATCH] Error: `<` works on `Nat` and `Int`
-   ╭─[ reject/int-text-operand.sw:3:26 ]
+[E-TYPE-MISMATCH] Error: type mismatch
+   ╭─[ reject/int-text-operand.sw:4:30 ]
    │
- 3 │ def r (t: Text): Prop := t < 1
-   │                          ┬  
-   │                          ╰── this is `Text`
+ 4 │ def r (t: Text): Prop := t < 1
+   │                          ┬   ┬  
+   │                          ╰────── this comparison is on `Text` because of this
+   │                              │  
+   │                              ╰── expected `Text`, but this has type `Nat`
+   │ 
+   │ Note: a numeral can only be the prelude's `Nat` or `Int`
 ───╯

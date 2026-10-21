@@ -8,4 +8,6 @@ expression: output
  4 │ test "two plus two" := 2 + 2
    │                        ──┬──  
    │                          ╰──── but `Bool` is expected here
+   │ 
+   │ Note: on other types `+` is `Add.add`, and there's no `Add` instance for `Bool` here
 ───╯

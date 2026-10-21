@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: `-` gives a `Nat` or an `Int`
+   ╭─[ reject/operators-numeric-only.sw:6:42 ]
+   │
+ 6 │ def diff (p: Point) (q: Point): Point := p + q - p
+   │                                          ────┬────  
+   │                                              ╰────── but `Point` is expected here
+───╯

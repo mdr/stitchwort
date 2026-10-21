@@ -235,6 +235,12 @@ pub struct Elaborator {
     instance_steps: RefCell<HashMap<usize, usize>>,
     /// For tests: the instance step budget, instead of the default.
     pub instance_budget: Option<usize>,
+    /// For tests: `+ * < <=` on `Nat` and `Int` always find their
+    /// dictionary and project its field, instead of building the term the
+    /// projection would give directly when no dictionary of the interface is
+    /// in scope (docs/proposals/interfaces.md §5.13, D187: the two must be
+    /// the same).
+    pub uniform_operators: bool,
     /// For tests: how many times finding an instance has had to wait
     /// (`auto.rs`), in this session.
     pub instance_waits: std::cell::Cell<usize>,
