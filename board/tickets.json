@@ -3305,7 +3305,7 @@
     {
       "id": 218,
       "title": "Text helpers: drop, take, startsWith, stripPrefix, split on a Text",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
