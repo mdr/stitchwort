@@ -1,7 +1,7 @@
 # Where does `x` go in `x.f a`? (D302)
 
 **Status:** design note, 21 October 2026. No code has changed yet. The
-decisions are D303–D310 (§8). Measurements are in the appendix.
+decisions are D303–D321 (§8). Measurements are in the appendix.
 
 ## 1. The problem in one screen
 
@@ -420,7 +420,7 @@ Measured with the code-navigation index over `crates/elab/src/std/`,
 | D307 | Definition-time warning `W-RECEIVER-NOT-FIRST` when a function in namespace `T` takes an explicit `T` but not first? | [Yes, warning, not error] |
 | D308 | Theorems follow the same order as the functions they're about (`List.sumByAppend (xs) (ys) (f)`), swapped along with the references in step 3, rather than keeping their current order? | [Yes, swap with the functions; theorems are rarely dot-called (5 calls), so only consistency is at stake] |
 | D309 | Internal helpers and `Prop`s in appendix B.2 (comparator-first `decEq`/`compareWith`, `Map.Tree.*`, `List.All p xs`) may keep their order and opt out of the warning, rather than all being reordered? | [Yes, opt out; reorder only where it reads better] |
-| D310 | Ship rule C (ambiguous dot is an error) now, as a guard until E lands? | [No: no current code misuses it (0 dot calls to the 6 Text functions); go straight to E. Yes if E isn't scheduled soon, since C costs 20 call-site rewrites] |
+| D321 | Ship rule C (ambiguous dot is an error) now, as a guard until E lands? | [No: no current code misuses it (0 dot calls to the 6 Text functions); go straight to E. Yes if E isn't scheduled soon, since C costs 20 call-site rewrites] |
 
 ---
 
