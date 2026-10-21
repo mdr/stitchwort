@@ -58,7 +58,7 @@
       "title": "Interfaces design note (Agda/Lean style, with independent review)",
       "status": "review",
       "agent": "Opus",
-      "where": "stages 1-4 merged (fdc3e31, gates passed); stages 5 (operators) and 6 (Show) next",
+      "where": "stages 1-4, 6 merged (e9bb58d, gates passed); stage 5 running; stage 7 next",
       "labels": [
         "design",
         "elab"
