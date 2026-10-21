@@ -1,6 +1,7 @@
--- Day 7 as the puzzle states it, for the proofs in Proofs/Correct.sw. The
--- timelines are explicit: each is the list of splitters the particle
--- reaches, with the way it goes at each, and part 2 counts them.
+-- Day 7 as the puzzle states it, for the proofs in Proofs/Part1.sw and
+-- Proofs/Part2.sw. The timelines are explicit: each is the list of
+-- splitters the particle reaches, with the way it goes at each, and part 2
+-- counts them.
 --
 -- In plain words:
 --   - The diagram is the input's lines; row r, column c is the c-th

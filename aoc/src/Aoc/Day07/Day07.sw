@@ -18,7 +18,8 @@
 --
 -- Both answers are proved right for every input in `Aoc.Day07.Proofs`
 -- (Proofs/Spec.sw states the puzzle with the timelines as explicit lists of
--- the splitters they pass; Proofs/Correct.sw), which `run` does not check.
+-- the splitters they pass; Proofs/Part1.sw and Proofs/Part2.sw), which
+-- `run` does not check.
 
 namespace Aoc.Day07
 
