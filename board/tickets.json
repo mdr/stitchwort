@@ -478,7 +478,7 @@
     {
       "id": 32,
       "title": "Simplify the 'old way first' paths kept only to preserve hashes",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
