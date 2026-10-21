@@ -369,6 +369,23 @@ fn a_cycle_through_dot_notation_is_an_internal_error_naming_both() {
 }
 
 #[test]
+fn a_library_file_may_use_dot_notation_on_a_loaded_file() {
+    // SW-189: `.dotB` notes every file with a function of that name, and
+    // `B.sw` is loaded before `A.sw` is checked; that's no error.
+    let files = [
+        ("A.sw", "def List.dotA (xs: List Nat): Nat := xs.dotB\n"),
+        (
+            "B.sw",
+            "def List.dotB (xs: List Nat): Nat := List.length xs\n",
+        ),
+    ];
+    let mut session = Session::with_library_files(&files, false, false).unwrap();
+    session
+        .load("t.sw", "def x : Nat := List.dotA Nil\n")
+        .unwrap();
+}
+
+#[test]
 fn a_longer_cycle_names_each_file() {
     let files = [
         ("A.sw", "def Nat.cycA (n: Nat): Nat := Nat.cycB n\n"),
