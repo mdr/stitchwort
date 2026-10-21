@@ -56,13 +56,13 @@ theorem List.sumByDoubles: List.sumBy (x => x * 2) [1, 2, 3] = 12 := rfl
 
 def List.product (xs: List Nat): Nat := List.foldLeft Nat.mul 1 xs
 
-def List.maximum: List Nat -> Maybe Nat
+def List.maximum [auto ord: Ord a]: List a -> Maybe a
   | Nil       => Nothing
-  | Cons x xs => Just (List.foldLeft Nat.max x xs)
+  | Cons x xs => Just (List.foldLeft Ord.max x xs)
 
-def List.minimum: List Nat -> Maybe Nat
+def List.minimum [auto ord: Ord a]: List a -> Maybe a
   | Nil       => Nothing
-  | Cons x xs => Just (List.foldLeft Nat.min x xs)
+  | Cons x xs => Just (List.foldLeft Ord.min x xs)
 
 -- Pairs up to the shorter list's length.
 def List.zip: List a -> List b -> List (Pair a b)

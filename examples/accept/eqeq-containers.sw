@@ -20,7 +20,7 @@ test "triples, last differs" := Bool.not ((1, True, "x") == (1, True, "y"))
 test "Maybe Int" := Just (Int.neg 3) == Just (Int.neg 3)
 test "Maybe Int, different" := Bool.not (Just (Int.neg 3) == Just 3)
 test "Nothing and Just" := Bool.not (Just (Int.neg 3) == Nothing)
-test "Nothing" := List.maximum [] == Nothing
+test "Nothing" := List.maximum ([]: List Nat) == Nothing
 
 test "nested" := [Just (1, ["a"]), Nothing] == [Just (1, ["a"]), Nothing]
 test "nested, different" := Bool.not ([Just (1, ["a"]), Nothing] == [Just (1, ["b"]), Nothing])

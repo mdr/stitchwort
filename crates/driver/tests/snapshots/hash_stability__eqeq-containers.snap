@@ -21,7 +21,7 @@ Main.test "triples, last differs" 1256caec80c7c3dd23f73d491843a24ec74efae0e46ce5
 Main.test "Maybe Int" 817d8263a6040267be8c6887905c404598431b4e756482eaa0d215cc61d558d2
 Main.test "Maybe Int, different" 0120c2e1fb2780ca2d3c52a67ca2a744ab8ee99f08223f8fce93e290cdfc5a25
 Main.test "Nothing and Just" 4cdc3d69c7c741ccd5681ac1fa729454ba17ad1847a0956953cba086870b5599
-Main.test "Nothing" c2d09f72c9dc11cafa97b3a5ee2d0d462c4ba4c244e5188342f87a8882bc4e1b
+Main.test "Nothing" 76b64932a988b04ecb9ef166bea1ca38cbfc2bc213c6c89c65d2db52672886b6
 Main.test "nested" cce5dcb9a037398321de5930a46bc4590476af24b7e4072a68b4aa06c044f7b5
 Main.test "nested, different" 2d12a48a15dc85f5ce3d68cb7c5687c51265e023898cc8a3895a5bab2bd206c0
 Main.test "zip" 6e6d9577434e216425e3a9271a13c130d8d1afaeeb2e94d700795d16d517651b

@@ -117,6 +117,9 @@ instance Vec.instDecEq [auto decEq: DecEq a]: DecEq (Vec a n) :=
       if h: Vec.toList u = Vec.toList v then Yes (Vec.toListInjective u v h)
       else No (e => h (Eq.cong Vec.toList e)) }
 
+-- Vectors in order: lexicographic, as their lists (`List.instOrd`).
+instance Vec.instOrd [auto ord: Ord a]: Ord (Vec a n) := Ord.byKey Vec.toList Vec.toListInjective
+
 theorem Vec.toListFromListN: (n: Nat) -> (xs: List a) -> (ok: List.length xs = n) -> Vec.toList (Vec.fromListN n xs ok) = xs
   | Zero,   Nil,       _  => rfl
   | Succ k, Cons x xs, ok => Eq.cong (Cons x) (Vec.toListFromListN k xs (Nat.succInjective (List.length xs) k ok))

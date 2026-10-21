@@ -1,10 +1,11 @@
--- Sorting from the library: `List.sort` (numbers, ascending), `List.sortBy`
--- (by a comparison) and `List.sortWith` (by a "may come before" test), with
--- proofs that the result is sorted and a permutation of the input.
+-- Sorting from the library: `List.sort` (ascending, by the elements' `Ord`:
+-- numbers, texts, lists, pairs, …), `List.sortBy` (by a comparison) and
+-- `List.sortWith` (by a "may come before" test), with proofs that the result
+-- is sorted and a permutation of the input.
 
 theorem sortsNumbers: List.sort [5, 3, 9, 1, 3, 0, 7] = [0, 1, 3, 3, 5, 7, 9] := rfl
 
-theorem sortsEmpty: List.sort [] = [] := rfl
+theorem sortsEmpty: List.sort ([]: List Nat) = [] := rfl
 
 theorem sortsDot: [2, 1].sort = [1, 2] := rfl
 
