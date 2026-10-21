@@ -3245,11 +3245,11 @@
     {
       "id": 213,
       "title": "Design note: a slim prelude, everything else behind imports",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "Design note docs/proposals/prelude-slim.md (D258). The SW-148..165 split was a loading split (\"lazy loading is an implementation detail\"): core.sw is still 2,021 lines / 374 declarations, and because List, Nat, Int, Text, Maybe are default names, everything is usable without an import. Matt's intent was a small prelude with everything else (e.g. list functions) behind imports.\n\nThe note separates \"always checked\" from \"usable without import\", proposes a minimal always-in-scope prelude and a module layout (possibly Base/Properties halves), and puts the semantic choices to Matt: dot notation without import, type-name prefixes (List.map) without import, auto's search scope (D58), what the compiler needs from core (syntax, deriving, calc, literals, natives pinned by hash). Comparisons with Lean, Idris, Agda, Haskell, Scala, Rust, Elm; measured cost in import lines across examples/ and aoc/, and check-time savings.\n\nDone when: the note is written and reviewed by Matt, with his decisions recorded; implementation stages are separate tickets.\n",
+      "body": "Design note docs/proposals/prelude-slim.md (D258). The SW-148..165 split was a loading split (\"lazy loading is an implementation detail\"): core.sw is still 2,021 lines / 374 declarations, and because List, Nat, Int, Text, Maybe are default names, everything is usable without an import. Matt's intent was a small prelude with everything else (e.g. list functions) behind imports.\n\nThe note separates \"always checked\" from \"usable without import\", proposes a minimal always-in-scope prelude and a module layout (possibly Base/Properties halves), and puts the semantic choices to Matt: dot notation without import, type-name prefixes (List.map) without import, auto's search scope (D58), what the compiler needs from core (syntax, deriving, calc, literals, natives pinned by hash). Comparisons with Lean, Idris, Agda, Haskell, Scala, Rust, Elm; measured cost in import lines across examples/ and aoc/, and check-time savings.\n\nDone when: the note is written and reviewed by Matt, with his decisions recorded; implementation stages are separate tickets.\n\nDecided 21 Oct 2026: D260 option B (Matt), D266 the 22-name prelude (Matt), D261 dot notation import-free (follows from B), D262-D264 and D267 as recommended (Claude). Open: D265 (import forms; option A assumed until decided).",
       "created": "2026-10-21",
       "updated": "2026-10-21",
       "commits": []
