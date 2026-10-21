@@ -40,6 +40,15 @@ use stitchwort_syntax::{Diagnostic, Span};
 use crate::Elaborator;
 use crate::check::{Ctx, LetDef, Result};
 
+/// Where a variable comes in the order captures are taken: its place in
+/// `order`, and variables not listed come after, by level.
+pub(crate) fn rank(order: &[usize], level: usize) -> usize {
+    order
+        .iter()
+        .position(|&l| l == level)
+        .unwrap_or(order.len() + level)
+}
+
 /// A helper elaborated in its owner's context, not yet a definition.
 pub(crate) struct Draft {
     /// The frozen metavariable standing for the call.
@@ -66,6 +75,9 @@ pub(crate) struct Draft {
     /// Which variables of the context are `let`s, with their types and
     /// values (`Ctx::lets`): the helper re-creates those it uses.
     pub lets: Vec<Option<Rc<LetDef>>>,
+    /// The order the captures are taken in, from where it was written
+    /// (`Ctx::order`).
+    pub order: Vec<usize>,
     /// For a local definition, what it is; `None` for a `match`.
     pub local: Option<LocalDraft>,
 }
@@ -127,6 +139,7 @@ pub(crate) fn draft(
         goal,
         kinds: cx.kinds.clone(),
         lets: cx.lets.clone(),
+        order: cx.order.clone(),
         local: None,
     });
     Ok(call)
@@ -865,6 +878,7 @@ impl Elaborator {
             }
             let mut ordered: Vec<usize> = Vec::new();
             let mut left: Vec<usize> = caps[i].iter().copied().collect();
+            left.sort_by_key(|&l| rank(&d.order, l));
             while !left.is_empty() {
                 let Some(p) = left
                     .iter()
@@ -1034,6 +1048,7 @@ impl Elaborator {
             .map(|&(id, span)| (self.globals.def(id).name.to_string(), span))
             .collect();
         lifted.sort_by_key(|(name, _)| std::cmp::Reverse(name.len()));
+        let mut owners: Vec<String> = Vec::new();
         for (bare, span) in lifted {
             let mentioned = d.message.contains(&bare)
                 || d.labels.iter().any(|l| l.message.contains(&bare))
@@ -1044,6 +1059,16 @@ impl Elaborator {
             // Named on its own (`f.%match1` in "can't show that … terminate"),
             // it's "this `match`"; inside a printed term, `(match …)`.
             let quoted = format!("`{bare}`");
+            let inline = std::iter::once(&d.message)
+                .chain(d.labels.iter().map(|l| &l.message))
+                .chain(d.notes.iter())
+                .any(|s| s.replace(&quoted, "").contains(&bare));
+            if inline
+                && let Some((owner, _)) = bare.rsplit_once(".%match")
+                && !owners.iter().any(|o| o == owner)
+            {
+                owners.push(owner.to_string());
+            }
             let reword = |s: &str| {
                 s.replace(&quoted, "this `match`")
                     .replace(&bare, "(match …)")
@@ -1056,6 +1081,25 @@ impl Elaborator {
                 *note = reword(note);
             }
             d = d.with_label(span, "this `match`");
+        }
+        // D229: say where the `match` is and how to name it. The source
+        // position is the label, which the renderer shows with its file and
+        // line.
+        if !owners.is_empty() {
+            let inside = owners
+                .iter()
+                .map(|o| format!("`{o}`"))
+                .collect::<Vec<_>>()
+                .join(" and ");
+            d = d.with_note(format!(
+                "`(match …)` is a `match` written inside {inside}, marked \"this `match`\" \
+                 above; the compiler turned it into a function that source can't name, and \
+                 writing the same `match` again makes a different one. To state a lemma \
+                 about it, make it a local `def` in its arm and refer to it as \
+                 `owner.name`, where `owner` is the definition it is written in \
+                 (docs/syntax.md, \"Proving things about a definition with an inner \
+                 `match`\")"
+            ));
         }
         d
     }

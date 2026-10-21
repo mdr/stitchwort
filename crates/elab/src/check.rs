@@ -59,6 +59,19 @@ pub struct Ctx<'e> {
     /// the goal as it computes, not this (docs/proposals/calc-rewrite.md,
     /// "As built"). Taken by the first `rewrite` that looks.
     pub(crate) written_goal: Option<Term>,
+    /// The context's variables in the order a helper lifted here takes its
+    /// captures: the header's parameters, then the pattern variables of the
+    /// arm being checked as written, left to right, then the rest by level
+    /// (D228; set by `check_tree` at each leaf). A level not listed comes
+    /// after the listed ones.
+    pub(crate) order: Vec<usize>,
+    /// The first level the current case tree binds (`check_tree`).
+    pub(crate) tree_start: usize,
+    /// The expression scrutinees of the generalised `match`es whose
+    /// alternatives are being checked: the variables in scope at the `match`,
+    /// the scrutinee as types hold it, and where it is written. A mismatch
+    /// that still contains one gets a hint (D230).
+    pub(crate) scrutinees: Vec<(usize, Term, Span)>,
     pub span: Span,
 }
 
@@ -103,6 +116,9 @@ impl<'e> Ctx<'e> {
             lets: Vec::new(),
             goal: None,
             written_goal: None,
+            order: Vec::new(),
+            tree_start: 0,
+            scrutinees: Vec::new(),
             span,
         }
     }
@@ -130,6 +146,9 @@ impl<'e> Ctx<'e> {
             lets,
             goal: None,
             written_goal: None,
+            order: Vec::new(),
+            tree_start: 0,
+            scrutinees: Vec::new(),
             span,
         }
     }
@@ -416,10 +435,44 @@ impl<'e> Ctx<'e> {
         } else {
             d
         };
-        match crate::data_auto::auto_mismatch_note(self, expected, found) {
+        let d = match crate::data_auto::auto_mismatch_note(self, expected, found) {
             Some(note) => d.with_note(note),
             None => d,
+        };
+        self.unrefined_hint(d, expected, found)
+    }
+
+    /// D230: inside a generalised `match`, a mismatch whose types still
+    /// contain the scrutinee comes from a term written out in the branch,
+    /// which the `match` didn't refine (only the goal and the variables in
+    /// scope are). Only looked for here, when the error is being reported.
+    fn unrefined_hint(&self, d: Diagnostic, expected: &Value, found: &Value) -> Diagnostic {
+        if self.scrutinees.is_empty() {
+            return d;
         }
+        let g = self.g();
+        let level = self.level();
+        let (Ok(expected), Ok(found)) = (quote(g, level, expected), quote(g, level, found)) else {
+            return d;
+        };
+        for (base, needle, span) in self.scrutinees.iter().rev() {
+            let Ok(needle) = needle.shift(g, level - base, 0) else {
+                continue;
+            };
+            let contains = |t: &Term| crate::matching::occurs(g, &needle, t).unwrap_or(false);
+            if contains(&expected) || contains(&found) {
+                return d
+                    .with_label(*span, "the `match`'s scrutinee, still in this type")
+                    .with_note(
+                        "a term written out inside a branch (an explicit argument, or a type you \
+                     wrote) isn't refined by the `match`: only the goal and the variables in scope \
+                     are, so it still has the scrutinee in it. Write `_` for such an argument, so \
+                     it is inferred from the hypothesis (docs/syntax.md, \"Proving things about a \
+                     definition with an inner `match`\")",
+                    );
+            }
+        }
+        d
     }
 }
 
@@ -997,8 +1050,44 @@ fn check_arg(cx: &mut Ctx, head: &Term, value: &Expr, dom: &Value) -> Result<Ter
         Err(e) if e.code == "E-PARTIAL-ESCAPE" => {
             Err(partial_callback(cx, head, value, dom).unwrap_or(e))
         }
+        Err(e) if e.code == "E-TYPE-MISMATCH" => Err(local_signature(cx, head, e)),
         result => result,
     }
+}
+
+/// When the function with a wrong argument is a local definition, its whole
+/// signature: its leading parameters are the variables it uses, in the order
+/// they are written (D228), which nobody could guess from the call.
+fn local_signature(cx: &Ctx, head: &Term, e: Diagnostic) -> Diagnostic {
+    if let Term::Def(id) = head.spine().0 {
+        let def = cx.g().def(*id);
+        if cx.e.helper_keys.contains(&def.name.to_string()) {
+            // The telescope with its parameters' names, as a signature.
+            let g = cx.g();
+            let mut names: Vec<Name> = Vec::new();
+            let mut shown = Vec::new();
+            let mut ty = def.ty.strip_loc();
+            while let Term::Pi(x, icit, dom, cod) = ty {
+                let dom = pretty::term_for_message(g, &names, dom);
+                shown.push(match (&**x, icit) {
+                    ("" | "_", Icit::Explicit) => dom,
+                    (x, Icit::Explicit) => format!("({x}: {dom})"),
+                    (x, _) => format!("[{x}: {dom}]"),
+                });
+                names.push(x.clone());
+                ty = cod.strip_loc();
+            }
+            shown.push(pretty::term_for_message(g, &names, ty));
+            return e.with_note(format!(
+                "`{}` is a local definition with the signature `{}`; its leading parameters \
+                 are the variables it uses, in the order they are written (the header's \
+                 parameters, then the arm's pattern variables from left to right)",
+                def.name,
+                shown.join(" -> ")
+            ));
+        }
+    }
+    e
 }
 
 /// Whether `ty` is a function type whose parameter's type isn't known yet:

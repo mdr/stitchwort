@@ -1,0 +1,25 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+    ╭─[ reject/match-written-argument-not-refined.sw:20:63 ]
+    │
+ 10 │ ╭─▶       (match c with
+    ┆ ┆   
+ 12 │ ├─▶          | Succ b => reach flag k b d)
+    │ │                                            
+    │ ╰──────────────────────────────────────────── this `match`
+    │ 
+ 18 │       match e: flag c with
+    │                ───┬──  
+    │                   ╰──── the `match`'s scrutinee, still in this type
+    │ 
+ 20 │         | False => n => Bool.andRight b (reach flag (Succ k) c d) hc
+    │                                                                   ─┬  
+    │                                                                    ╰── expected `(if b then if flag c then if (match …) flag k c d then True else reach flag k (c + 1) d else reach flag k c d else False) = True`, but this has type `(if b then reach flag k c d else False) = True`
+    │     
+    │     Note 1: a term written out inside a branch (an explicit argument, or a type you wrote) isn't refined by the `match`: only the goal and the variables in scope are, so it still has the scrutinee in it. Write `_` for such an argument, so it is inferred from the hypothesis (docs/syntax.md, "Proving things about a definition with an inner `match`")
+    │     
+    │     Note 2: `(match …)` is a `match` written inside `reach`, marked "this `match`" above; the compiler turned it into a function that source can't name, and writing the same `match` again makes a different one. To state a lemma about it, make it a local `def` in its arm and refer to it as `owner.name`, where `owner` is the definition it is written in (docs/syntax.md, "Proving things about a definition with an inner `match`")
+────╯
