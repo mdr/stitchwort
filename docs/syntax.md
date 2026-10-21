@@ -528,6 +528,16 @@ There are two translations. If the `match` is the whole right-hand side of a def
 
 `match h: e with` gives each branch an equation `h` about the original expression, such as `h: length xs = Zero` in the `Zero` branch. The expression is also generalised in the expected type, even when `e` is a variable. A `match` with a name is always generated as a definition.
 
+What a generalised `match` (an expression scrutinee, or any named one) replaces:
+
+- **The goal.** Every occurrence of the scrutinee in the expected type is replaced by the pattern of the branch. An occurrence is found by shape: the same term, ignoring source positions and binder names. No definition is unfolded to look for it and no metavariable is solved, so `Ord.compare y x` is not an occurrence of `Ord.compare x y`, and `a <= b` (the `Decidable` test) is not `Nat.leq a b`.
+- **The goal as it stands.** The expected type is searched in its computed form, not as you wrote it. A definition applied to the scrutinee that can already take a step is searched as what it unfolded to, and once the branch's pattern is put in, the goal computes further. A definition that can't take a step stays a call, and the scrutinee among its arguments is replaced.
+- **Hypotheses.** Variables in scope whose types mention the scrutinee (`h: Nat.leq a b = False -> …`), and the variables whose types mention those, are copied: in each branch they have the replaced type. Variables whose types don't mention it are left alone.
+- **The equation.** `match h: e with` adds `h: e = pattern`, about the original expression.
+- **`auto` arguments.** A scrutinee that is an application with an `auto` argument is searched as elaborated: `match e: Ord.compare x y with` replaces `Ord.compare x y` in the goal and in `h: Ord.compare x y = Less` without `[ord := ord]` (SW-188; an application's dictionary is found as soon as its arguments fix its type, before the goal is searched).
+
+Nothing else changes. The definitions and lemmas you call keep their statements, so a lemma stated about the folded form (`accessible grid s r c`) fails with a type mismatch against a branch's goal that is a step further along. This was the main surprise in the day 4 proofs ([aoc-2025.md](aoc-2025.md), pain point 1), and it is predictable once known. To avoid it, give the lemma the matched value as an argument (`sweepRowCases` on the marks, `ifFloorRoll` on the condition), or state it about the computed form.
+
 This is how a proof splits on an `if`: matching on the condition replaces it in the goal, and `h` is the evidence for the branch. No motive is written by hand (`Bool.inspect` asks for one).
 
 ```
