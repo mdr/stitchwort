@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-INSTANCE-NONE] Error: no `Ord` instance for `Tagged`
+    ╭─[ reject/derive-ord-none.sw:20:50 ]
+    │
+ 20 │ def sortTagged (xs: List Tagged): List Tagged := List.sort xs
+    │                                                  ──────┬─────  
+    │                                                        ╰─────── this needs `Ord Tagged`
+    │ 
+    │ Note 1: `Ord` isn't derived for `Tagged`: its field `tag` has type `Secret`, which has no `Ord` instance (when `Tagged` was declared)
+    │ 
+    │ Note 2: an instance of `Ord` for `Tagged` can be declared in `Main`
+────╯

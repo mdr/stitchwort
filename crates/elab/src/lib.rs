@@ -13,6 +13,7 @@ mod calc;
 mod check;
 mod data_auto;
 mod derive;
+mod derive_ord;
 mod derive_show;
 mod dot;
 mod effects;
@@ -194,6 +195,8 @@ pub struct Elaborator {
     no_eq: HashMap<DataId, String>,
     /// The same for `Show` (`derive_show.rs`).
     no_show: HashMap<DataId, String>,
+    /// The same for `Ord` (`derive_ord.rs`).
+    no_ord: HashMap<DataId, String>,
     /// Helpers elaborated in the current declaration and not yet lifted
     /// (`lift.rs`). Part of the inference state `undo.rs` restores.
     drafts: RefCell<Vec<lift::Draft>>,
@@ -1426,6 +1429,7 @@ impl Elaborator {
         } else {
             self.derive_data_eq(d)?;
             self.derive_data_show(d)?;
+            self.derive_data_ord(d)?;
         }
         Ok(())
     }

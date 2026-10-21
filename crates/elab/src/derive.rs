@@ -90,29 +90,31 @@ use stitchwort_core::registry::Builtin;
 use stitchwort_core::term::Branch;
 use stitchwort_core::value::{eval, force, quote, unused};
 use stitchwort_core::{DataId, Icit, Name, Sort, Term, Value};
+use stitchwort_syntax::Span;
 use stitchwort_syntax::ast::{self, BinOp, Decl, Expr, Pattern};
 
 use crate::check::Ctx;
 use crate::{Elaborator, Global, Result, interfaces};
 
-/// How `==` treats one field of a constructor.
+/// How `==` (or a derived `Ord`) treats one field of a constructor.
 #[derive(Clone, Copy, PartialEq)]
-enum Field {
+pub(crate) enum Field {
     /// It's `T` again: a recursive call.
     Recursive,
-    /// Its type has a `DecEq` instance, which `if h : x = y` finds.
+    /// Its type has an instance of the interface: `DecEq`, which
+    /// `if h : x = y` finds, or `Ord`.
     Decided,
     /// A proof of an equation in a type with a `DecEq` instance: not
     /// compared.
     Proof,
 }
 
-/// What a derived `==` for a data type is made from.
-struct Plan {
-    /// Which parameters (types) take a `DecEq` dictionary: those fields use.
-    deciders: Vec<bool>,
+/// What a derived `==` (or `Ord`) for a data type is made from.
+pub(crate) struct Plan {
+    /// Which parameters (types) take a dictionary: those fields use.
+    pub(crate) deciders: Vec<bool>,
     /// For each constructor, each field's.
-    fields: Vec<Vec<Field>>,
+    pub(crate) fields: Vec<Vec<Field>>,
 }
 
 impl Elaborator {
@@ -129,7 +131,10 @@ impl Elaborator {
         if self.declares_dec_eq() {
             return Ok(());
         }
-        let plan = match self.eq_plan(d)? {
+        let Some(dec_eq) = interfaces::dec_eq(self) else {
+            return Ok(());
+        };
+        let plan = match self.field_plan(d, dec_eq, "`==`")? {
             Ok(plan) => plan,
             Err(why) => {
                 self.no_eq.insert(d, why);
@@ -184,15 +189,23 @@ impl Elaborator {
         })
     }
 
-    /// Whether `==` can be derived for `d`, and how; or why not.
-    fn eq_plan(&mut self, d: DataId) -> Result<std::result::Result<Plan, String>> {
+    /// Whether `==` can be derived for `d`, and how; or why not. The same
+    /// for a derived `Ord` (`derive_ord.rs`), with `interface` the one whose
+    /// instances data fields need (proof fields always need `DecEq`), and
+    /// `label` what the notes call it.
+    pub(crate) fn field_plan(
+        &mut self,
+        d: DataId,
+        interface: DataId,
+        label: &str,
+    ) -> Result<std::result::Result<Plan, String>> {
         let g = &self.globals;
         let data = g.data(d);
         let name = data.name.to_string();
         let np = data.params.len();
         if data.group.len() > 1 {
             return Ok(Err(format!(
-                "`{name}` is defined together with other types, which `==` isn't derived for yet"
+                "`{name}` is defined together with other types, which {label} isn't derived for yet"
             )));
         }
         if data.sort == Sort::Prop {
@@ -200,7 +213,7 @@ impl Elaborator {
         }
         if !data.indices.is_empty() {
             return Ok(Err(format!(
-                "`{name}` has indices, which `==` isn't derived for yet"
+                "`{name}` has indices, which {label} isn't derived for yet"
             )));
         }
         if data.ctors.is_empty() {
@@ -212,7 +225,8 @@ impl Elaborator {
         // checked below.
         let mut deciders = vec![false; np];
         let mut fields = Vec::new();
-        let mut to_decide: Vec<(Value, String)> = Vec::new();
+        // Each with whether it's a proof field's carrier (needing `DecEq`).
+        let mut to_decide: Vec<(Value, String, bool)> = Vec::new();
         for ctor in &data.ctors {
             let mut kinds: Vec<Field> = Vec::new();
             for (i, (field, ty)) in ctor.fields.iter().enumerate() {
@@ -229,11 +243,13 @@ impl Elaborator {
                 };
                 if ctor.field_erased[i] {
                     if ctor.field_sorts[i] != Sort::Prop {
-                        return Ok(Err(format!("{what} is a type, which `==` can't compare")));
+                        return Ok(Err(format!(
+                            "{what} is a type, which {label} can't compare"
+                        )));
                     }
                     if (0..i).any(|j| kinds[j] == Field::Proof && ty.mentions(i - 1 - j)) {
                         return Ok(Err(format!(
-                            "the type of {what} mentions an earlier proof field, which `==` \
+                            "the type of {what} mentions an earlier proof field, which {label} \
                              isn't derived for yet"
                         )));
                     }
@@ -260,19 +276,19 @@ impl Elaborator {
                     if (0..i).any(|j| carrier_term.mentions(j)) {
                         return Ok(Err(format!(
                             "{what} is an equation in a type that depends on other fields, \
-                             which `==` isn't derived for yet"
+                             which {label} isn't derived for yet"
                         )));
                     }
                     for j in mentioned(&carrier_term, i) {
                         deciders[j] |= param_is_type[j];
                     }
-                    to_decide.push(((*carrier).clone(), what));
+                    to_decide.push(((*carrier).clone(), what, true));
                     kinds.push(Field::Proof);
                     continue;
                 }
                 if (0..i).any(|j| ty.mentions(i - 1 - j)) {
                     return Ok(Err(format!(
-                        "the type of {what} depends on an earlier field, which `==` isn't \
+                        "the type of {what} depends on an earlier field, which {label} isn't \
                          derived for yet"
                     )));
                 }
@@ -302,7 +318,7 @@ impl Elaborator {
                     .any(|(t, _)| matches!(t, Term::Data(e, _) if *e == d))
                 {
                     return Ok(Err(format!(
-                        "{what} contains `{name}` inside another type, which `==` isn't \
+                        "{what} contains `{name}` inside another type, which {label} isn't \
                          derived for yet"
                     )));
                 }
@@ -310,15 +326,20 @@ impl Elaborator {
                     deciders[j] |= param_is_type[j];
                 }
                 kinds.push(Field::Decided);
-                to_decide.push((value, what));
+                to_decide.push((value, what, false));
             }
             fields.push(kinds);
         }
-        // Every type to decide needs a `DecEq` instance, given one for each
+        // Every type to decide needs an instance, given one for each
         // parameter that's a type.
         let Some(dec_eq) = interfaces::dec_eq(self) else {
             return Ok(Err("there's no prelude".into()));
         };
+        let interface_name = |e: &Self, i: DataId| e.globals.data(i).name.to_string();
+        let names = (
+            interface_name(self, interface),
+            interface_name(self, dec_eq),
+        );
         self.clear_metas();
         let span = self.globals.data(d).span;
         let params: Vec<(Name, Term)> = self.globals.data(d).params.clone();
@@ -332,17 +353,22 @@ impl Elaborator {
             for (j, is_type) in param_is_type.iter().enumerate() {
                 if *is_type {
                     cx.bind_hidden(
-                        format!("%decEq{j}").as_str().into(),
-                        Value::Data(dec_eq, vec![Value::var(j)]),
+                        format!("%dict{j}").as_str().into(),
+                        Value::Data(interface, vec![Value::var(j)]),
                     );
                 }
             }
-            for (ty, what) in to_decide {
-                let goal = Value::Data(dec_eq, vec![ty.clone()]);
+            for (ty, what, carrier) in to_decide {
+                let (needed, needed_name) = if carrier {
+                    (dec_eq, &names.1)
+                } else {
+                    (interface, &names.0)
+                };
+                let goal = Value::Data(needed, vec![ty.clone()]);
                 if let Some(e) = interfaces::findable(&mut cx, &goal)? {
                     let mut reason = format!(
-                        "{what} has type `{}`, which has no `DecEq` instance (when `{name}` was \
-                         declared)",
+                        "{what} has type `{}`, which has no `{needed_name}` instance (when \
+                         `{name}` was declared)",
                         cx.show(&ty)
                     );
                     if e.code != "E-INSTANCE-NONE" {
@@ -361,7 +387,7 @@ impl Elaborator {
     }
 
     /// Declares `T.%tag : [params] -> T params -> Nat`.
-    fn derive_tag(&mut self, d: DataId) -> Result<()> {
+    pub(crate) fn derive_tag(&mut self, d: DataId) -> Result<()> {
         let Some(nat) = self.globals.registry.data(Builtin::Nat) else {
             return Ok(());
         };
@@ -447,7 +473,7 @@ impl Elaborator {
 
     /// Declares `T.%C%P%k : (params) -> (fields before k) -> Prop`, the type
     /// of proof field `k` of `C`, all its arguments explicit.
-    fn derive_proof_type(&mut self, d: DataId, c: usize, k: usize) -> Result<()> {
+    pub(crate) fn derive_proof_type(&mut self, d: DataId, c: usize, k: usize) -> Result<()> {
         let data = self.globals.data(d);
         let ctor = &data.ctors[c];
         let binders: Vec<(Name, Term)> = data
@@ -532,7 +558,6 @@ impl Elaborator {
         let a = |k: usize| format!("%a{k}");
         let b = |k: usize| format!("%b{k}");
         let h = |k: usize| format!("%h{k}");
-        let z = |k: usize| format!("%z{k}");
         let dec_eq = format!("{ty_name}.%decEq");
         let deciders: Vec<usize> = (0..np).filter(|j| plan.deciders[*j]).collect();
         // The dictionaries' names: `decEq`, or one per parameter after it
@@ -605,88 +630,20 @@ impl Elaborator {
                     span,
                 )
             };
-            let proofs: Vec<usize> = (0..count).filter(|k| kinds[*k] == Field::Proof).collect();
             let data_fields: Vec<usize> =
                 (0..count).filter(|k| kinds[*k] != Field::Proof).collect();
-            // `C x0 … xn`, the left side annotated for the parameters the
-            // fields don't determine.
-            let built = |field: &dyn Fn(usize) -> Expr| {
-                apps(var(&ctor_name), (0..count).map(field).collect())
-            };
-            let left = Expr::Ann(
-                Box::new(built(&|j| var(&a(j)))),
-                Box::new(this.clone()),
+            let is_proof: Vec<bool> = kinds.iter().map(|k| *k == Field::Proof).collect();
+            let proof = fields_equal(
                 span,
+                &ty_name,
+                &ctor.name,
+                &is_proof,
+                np,
+                &this,
+                &a,
+                &b,
+                &|k| var(&h(k)),
             );
-            // A proof field's type, from the fields before it.
-            let proof_type = |k: usize, field: &dyn Fn(usize) -> Expr| {
-                let helper = format!("{ty_name}.%{}%P%{k}", ctor.name);
-                let mut args: Vec<Expr> = (0..np).map(|j| var(&param(j))).collect();
-                args.extend((0..k).map(field));
-                apps(var(&helper), args)
-            };
-            // First, for proofs `%z…` of the proof fields' types:
-            // `C %a… = C %a…[%z…]`, along `DecEq.uniqueEq`'s equations.
-            let mut proof = var("rfl");
-            for (i, &p) in proofs.iter().enumerate() {
-                let right = built(&|j| {
-                    if kinds[j] == Field::Proof {
-                        match proofs.iter().position(|q| *q == j) {
-                            Some(at) if at < i => var(&z(j)),
-                            Some(at) if at == i => var("%w"),
-                            _ => var(&a(j)),
-                        }
-                    } else {
-                        var(&a(j))
-                    }
-                });
-                let motive = lam(&["%w", "%e"], eq(left.clone(), right));
-                let unique = apps(var("Std.DecEq.uniqueEq"), vec![var(&a(p)), var(&z(p))]);
-                proof = apps(var("J"), vec![motive, proof, unique]);
-            }
-            if !proofs.is_empty() {
-                let names: Vec<String> = proofs.iter().map(|p| z(*p)).collect();
-                let names: Vec<&str> = names.iter().map(String::as_str).collect();
-                proof = lam(&names, proof);
-            }
-            // Then each data field's `J`, the claim for all proofs carried
-            // along: `y q => (%z: P …) -> C %a… = C %b… y %a… %z…`.
-            for (i, &k) in data_fields.iter().enumerate() {
-                let value = |j: usize| -> Expr {
-                    if kinds[j] == Field::Proof {
-                        var(&z(j))
-                    } else {
-                        match data_fields.iter().position(|q| *q == j) {
-                            Some(at) if at < i => var(&b(j)),
-                            Some(at) if at == i => var("%y"),
-                            _ => var(&a(j)),
-                        }
-                    }
-                };
-                let mut claim = eq(left.clone(), built(&value));
-                for &p in proofs.iter().rev() {
-                    claim = pi(&z(p), false, false, proof_type(p, &value), claim);
-                }
-                let motive = lam(&["%y", "%q"], claim);
-                proof = apps(var("J"), vec![motive, proof, var(&h(k))]);
-            }
-            if !proofs.is_empty() {
-                // `J` takes exactly three arguments, so the claim for all
-                // proofs is annotated, then applied to the `b`s' proofs.
-                let value = |j: usize| -> Expr {
-                    if kinds[j] == Field::Proof {
-                        var(&z(j))
-                    } else {
-                        var(&b(j))
-                    }
-                };
-                let mut claim = eq(left.clone(), built(&value));
-                for &p in proofs.iter().rev() {
-                    claim = pi(&z(p), false, false, proof_type(p, &value), claim);
-                }
-                proof = Expr::Ann(Box::new(proof), Box::new(claim), span);
-                proof = apps(proof, proofs.iter().map(|p| var(&b(*p))).collect());
-            }
             let mut body = apps(var("Std.Decidable.Yes"), vec![proof]);
             for &k in data_fields.iter().rev() {
                 let field = format!("{ty_name}.%{}%{k}", ctor.name);
@@ -804,6 +761,124 @@ impl Elaborator {
             instance,
         }
     }
+}
+
+/// A proof of `(C %a0 … : this) = C %b0 …` for constructor `ctor` of the
+/// type named `ty_name` (as source names it), given `h(k): %ak = %bk` for
+/// each data field; `is_proof` says which fields are proofs, and
+/// `T.%C%P%k` must be declared for each. First, for proofs `%z…` of the
+/// proof fields' types: `C %a… = C %a…[%z…]`, along `DecEq.uniqueEq`'s
+/// equations. Then each data field's `J`, the claim for all proofs carried
+/// along: `y q => (%z: P …) -> C %a… = C %b… y %a… %z…`; at the end it's
+/// applied to the `%b`s' proofs. Shared by derived `DecEq` and `Ord`.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn fields_equal(
+    span: Span,
+    ty_name: &str,
+    ctor: &str,
+    is_proof: &[bool],
+    np: usize,
+    this: &Expr,
+    a: &dyn Fn(usize) -> String,
+    b: &dyn Fn(usize) -> String,
+    h: &dyn Fn(usize) -> Expr,
+) -> Expr {
+    let n = |text: &str| ast::Name {
+        text: text.to_string(),
+        span,
+    };
+    let var = |text: &str| Expr::Var(n(text));
+    let apps = |head: Expr, args: Vec<Expr>| {
+        args.into_iter()
+            .fold(head, |f, a| Expr::App(Box::new(f), Box::new(a)))
+    };
+    let eq = |a: Expr, b: Expr| Expr::Binary(BinOp::Eq, Box::new(a), Box::new(b));
+    let lam = |names: &[&str], body: Expr| {
+        Expr::Lam(names.iter().map(|x| n(x)).collect(), Box::new(body), span)
+    };
+    let pi = |x: &str, dom: Expr, cod: Expr| Expr::Pi {
+        names: vec![n(x)],
+        implicit: false,
+        auto: false,
+        dom: Box::new(dom),
+        cod: Box::new(cod),
+        span,
+    };
+    let param = |j: usize| format!("%p{j}");
+    let z = |k: usize| format!("%z{k}");
+    let count = is_proof.len();
+    let ctor_name = format!("{ty_name}.{ctor}");
+    let proofs: Vec<usize> = (0..count).filter(|k| is_proof[*k]).collect();
+    let data_fields: Vec<usize> = (0..count).filter(|k| !is_proof[*k]).collect();
+    // `C x0 … xn`, the left side annotated for the parameters the fields
+    // don't determine.
+    let built =
+        |field: &dyn Fn(usize) -> Expr| apps(var(&ctor_name), (0..count).map(field).collect());
+    let left = Expr::Ann(
+        Box::new(built(&|j| var(&a(j)))),
+        Box::new(this.clone()),
+        span,
+    );
+    // A proof field's type, from the fields before it.
+    let proof_type = |k: usize, field: &dyn Fn(usize) -> Expr| {
+        let helper = format!("{ty_name}.%{ctor}%P%{k}");
+        let mut args: Vec<Expr> = (0..np).map(|j| var(&param(j))).collect();
+        args.extend((0..k).map(field));
+        apps(var(&helper), args)
+    };
+    let mut proof = var("rfl");
+    for (i, &p) in proofs.iter().enumerate() {
+        let right = built(&|j| {
+            if is_proof[j] {
+                match proofs.iter().position(|q| *q == j) {
+                    Some(at) if at < i => var(&z(j)),
+                    Some(at) if at == i => var("%w"),
+                    _ => var(&a(j)),
+                }
+            } else {
+                var(&a(j))
+            }
+        });
+        let motive = lam(&["%w", "%e"], eq(left.clone(), right));
+        let unique = apps(var("Std.DecEq.uniqueEq"), vec![var(&a(p)), var(&z(p))]);
+        proof = apps(var("J"), vec![motive, proof, unique]);
+    }
+    if !proofs.is_empty() {
+        let names: Vec<String> = proofs.iter().map(|p| z(*p)).collect();
+        let names: Vec<&str> = names.iter().map(String::as_str).collect();
+        proof = lam(&names, proof);
+    }
+    for (i, &k) in data_fields.iter().enumerate() {
+        let value = |j: usize| -> Expr {
+            if is_proof[j] {
+                var(&z(j))
+            } else {
+                match data_fields.iter().position(|q| *q == j) {
+                    Some(at) if at < i => var(&b(j)),
+                    Some(at) if at == i => var("%y"),
+                    _ => var(&a(j)),
+                }
+            }
+        };
+        let mut claim = eq(left.clone(), built(&value));
+        for &p in proofs.iter().rev() {
+            claim = pi(&z(p), proof_type(p, &value), claim);
+        }
+        let motive = lam(&["%y", "%q"], claim);
+        proof = apps(var("J"), vec![motive, proof, h(k)]);
+    }
+    if !proofs.is_empty() {
+        // `J` takes exactly three arguments, so the claim for all proofs is
+        // annotated, then applied to the `b`s' proofs.
+        let value = |j: usize| -> Expr { if is_proof[j] { var(&z(j)) } else { var(&b(j)) } };
+        let mut claim = eq(left.clone(), built(&value));
+        for &p in proofs.iter().rev() {
+            claim = pi(&z(p), proof_type(p, &value), claim);
+        }
+        proof = Expr::Ann(Box::new(proof), Box::new(claim), span);
+        proof = apps(proof, proofs.iter().map(|p| var(&b(*p))).collect());
+    }
+    proof
 }
 
 /// The source [`Elaborator::eq_source`] generates.
