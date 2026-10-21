@@ -1981,12 +1981,13 @@ What differs from the text above, or wasn't settled by it:
    the edges could see, and they're written instances-last anyway.
 5. **D163 and hashes.** A definition marked `instance` whose result is
    `Decidable …` is a decision procedure: none of §5.2's and §5.6's rules
-   apply, and it isn't in the instance table. Its marker is **not** hashed
-   (a deviation from D171 for these): it only says the search may use it,
-   and what the search chose is in the users' terms. Hashing it would have
-   changed the hash of everything that uses `<`, `&&` or `!=` through the
-   core's procedures, for no change in their terms. Interface instances'
-   markers are hashed, as in stage 1.
+   apply, and it isn't in the instance table. Its marker **is** hashed, like
+   every other instance's (D171, D198). Stage 2 first left it out, to keep
+   the hashes of everything that uses `<`, `&&` or `!=` unchanged; D198
+   reversed that, because the marker changes what the search may find, so
+   it belongs in the hash, and no hash stability is owed (there are no
+   users). The one-off change reached every definition that uses one of
+   the core's marked procedures, directly or through another definition.
 6. **Derived instances.** `T.%decEq: [params] -> [auto decEq: DecEq a] -> (r
    s: T …) -> Decidable (r = s)` and `instance T.%instDecEq … := { decide =
    T.%decEq }`, for data types and records alike (records no longer get
