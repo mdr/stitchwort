@@ -1,5 +1,5 @@
 {
-  "next": 223,
+  "next": 224,
   "tickets": [
     {
       "id": 1,
@@ -3293,7 +3293,7 @@
     {
       "id": 217,
       "title": "Abort ability in the library, with Option.need and a handler to Option",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -3358,6 +3358,18 @@
       "where": "",
       "labels": [],
       "body": "Short lambdas in the Scala style: `xs.count (_ == 0)`, `xs.map (_ + 1)`, `pairs.map (_.fst)`, where each `_` is a fresh parameter. D296 (Matt, 21 Oct 2026): not now, but Scala-style `_` is the direction to think about rather than Haskell operator sections (`(== 0)`). Evidence: docs/comparisons/aoc-day01-community.md §3.4.\n\nFirst step when picked up: a short design note: scope of `_` (the nearest enclosing bracketed argument, as Scala), several `_` meaning several parameters, interaction with patterns (`_` already means \"ignore\" there), method sections (`.isZero`), pipes, and error messages; compare Scala 3, Lean `·`, Kotlin `it`.\n\nDone when: the note is reviewed by Matt; implementation is a separate ticket.\n",
+      "created": "2026-10-21",
+      "updated": "2026-10-21",
+      "commits": []
+    },
+    {
+      "id": 223,
+      "title": "Effect-polymorphic calls don't pass the expected type to their arguments (orElse 0 at Int)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "Arguments of a call to an effect-polymorphic function are not checked against the expected type first, as pure calls are (propagate in check.rs), so `Abort.orElse 0 (() => …)` at type Int fails: the 0 becomes a Nat before the result type is known. Workaround: `orElse (0: Int)`. Found by SW-217 (examples/accept/abort.sw notes it).\n\nDone when: `Abort.orElse 0 (() => Abort.need (t.toInt))` checks at Int, with an example.\n",
       "created": "2026-10-21",
       "updated": "2026-10-21",
       "commits": []
