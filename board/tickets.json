@@ -58,7 +58,7 @@
       "title": "Interfaces design note (Agda/Lean style, with independent review)",
       "status": "review",
       "agent": "Opus",
-      "where": "stages 1-4, 6 merged + bench fix (a4bbe4e, gate passed); stage 5 and stage 7 running",
+      "where": "stages 1-4, 6, 7 merged (gates passed); stage 5 built but parked on branch worktree-agent-a880f5d85da50ffc1 pending D195",
       "labels": [
         "design",
         "elab"
