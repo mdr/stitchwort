@@ -404,16 +404,6 @@ pub(crate) fn map_leaves(
 /// that isn't part of a negative literal), against `expected` if
 /// it's an arithmetic tree and that's given: its term and type.
 pub(crate) fn group(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(Term, Value)> {
-    // An equation is elaborated as before groups where that works, so
-    // existing programs elaborate to the same terms: inferring a side rather
-    // than checking it can add annotations (`[]` is inferred as
-    // `([] : List ?a)`), which would change their hashes. Where the old way
-    // fails, as in `0 == x` for an `Int` `x`, the group rule decides.
-    if let Expr::Binary(op @ (BinOp::Eq | BinOp::Ne | BinOp::EqEq), a, b) = expr
-        && let Some((a, b, t)) = attempt(cx, |cx| equation_before_groups(cx, a, b))?
-    {
-        return equation(cx, *op, a, b, &t);
-    }
     let mut g = Group::default();
     let (top, sides) = match expr {
         Expr::Binary(op, a, b) if is_comparison(*op) => {
@@ -617,21 +607,6 @@ fn equation(cx: &mut Ctx, op: BinOp, a: Term, b: Term, t: &Value) -> Result<(Ter
             ))
         }
     }
-}
-
-/// An equation the way it was elaborated before groups: the left side
-/// inferred (or, if it can't be, the right) and the other side checked
-/// against its type.
-fn equation_before_groups(cx: &mut Ctx, a: &Expr, b: &Expr) -> Result<(Term, Term, Value)> {
-    Ok(match infer(cx, a).and_then(|(t, ty)| insert(cx, t, ty)) {
-        Ok((a, ty)) => (a, check(cx, b, &ty)?, ty),
-        Err(e) if e.code == "E-CANNOT-INFER" => {
-            let (b, ty) = infer(cx, b)?;
-            let (b, ty) = insert(cx, b, ty)?;
-            (check(cx, a, &ty)?, b, ty)
-        }
-        Err(e) => return Err(e),
-    })
 }
 
 /// Runs `f`, or if it fails (other than by running out of resources),
