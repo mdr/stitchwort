@@ -791,7 +791,7 @@
     {
       "id": 53,
       "title": "`Term::Nat`'s hash doesn't include `Nat`'s own hash",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -1073,7 +1073,7 @@
     {
       "id": 72,
       "title": "Duplicate abilities in a hand-built row are not rejected (no 'lacks' constraint on row variables)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -3077,7 +3077,7 @@
     {
       "id": 201,
       "title": "Code navigation: resolution index (CLI --index and WASM) + go to definition and hover in VS Code and the playground (D238)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
