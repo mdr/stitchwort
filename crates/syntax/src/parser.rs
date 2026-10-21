@@ -834,7 +834,7 @@ impl<'t> Parser<'t> {
                         args.push(self.pattern()?);
                     }
                     if self.peek() == Some(&Tok::Comma) {
-                        // `(Just a, b)`: a constructor as a tuple's first component.
+                        // `(Some a, b)`: a constructor as a tuple's first component.
                         let first = Pattern::Ctor(name, args, span.to(self.prev_span()));
                         return self.tuple_pattern(first, span);
                     }
@@ -3595,7 +3595,7 @@ mod tests {
     #[test]
     fn negative_number_patterns() {
         let module =
-            parse("def f : Int -> Nat -> Maybe Int -> Nat\n  | (-1), 0, (Just (-20)) => 1\n");
+            parse("def f : Int -> Nat -> Option Int -> Nat\n  | (-1), 0, (Some (-20)) => 1\n");
         let Decl::Equation { patterns, .. } = &module.decls[1] else {
             panic!()
         };
@@ -3646,7 +3646,7 @@ mod tests {
     #[test]
     fn parses_list_patterns() {
         let module = parse(
-            "def f : A -> B -> C -> D -> E -> Nat\n  | [], [a], [a, b], [Just x, (-1)], (xs, [y]) => a\n",
+            "def f : A -> B -> C -> D -> E -> Nat\n  | [], [a], [a, b], [Some x, (-1)], (xs, [y]) => a\n",
         );
         let Decl::Equation { patterns, .. } = &module.decls[1] else {
             panic!()
@@ -3686,14 +3686,14 @@ mod tests {
 
     #[test]
     fn parses_a_constructor_as_a_tuples_first_component() {
-        let module = parse("def f : A -> Nat\n  | (Just a, b) => a\n");
+        let module = parse("def f : A -> Nat\n  | (Some a, b) => a\n");
         let Decl::Equation { patterns, .. } = &module.decls[1] else {
             panic!()
         };
         assert!(matches!(&patterns[0], Pattern::Tuple(l, _, _)
             if matches!(&**l, Pattern::Ctor(_, args, _) if args.len() == 1)));
 
-        let e = rhs("def f (p : Nat) : Nat :=\n  let (Just a, b) := p\n  a\n");
+        let e = rhs("def f (p : Nat) : Nat :=\n  let (Some a, b) := p\n  a\n");
         let (_, p, _) = let_parts(&e);
         assert!(matches!(p, Pattern::Tuple(l, _, _)
             if matches!(&**l, Pattern::Ctor(_, args, _) if args.len() == 1)));
@@ -3966,7 +3966,7 @@ mod tests {
         for text in [
             "def f : Nat := List.map x => x + 1\n",
             "def f : Nat := xs.map x => x + 1\n",
-            "def f : Nat := Just x => x\n",
+            "def f : Nat := Some x => x\n",
         ] {
             let message = error_text(text);
             assert!(message.contains("put it in brackets"), "{text}: {message}");

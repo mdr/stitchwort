@@ -49,8 +49,8 @@ def isProblem (lines: List Text) (lo: Nat) (hi: Nat): Bool :=
 def numberLines (lines: List Text): List Text := lines.init
 
 -- The + or * under the problem in the last line (the first, if there are several).
-def operatorOf (lines: List Text) (lo: Nat) (hi: Nat): Maybe Operator :=
-  (List.rangeFrom (hi - lo) lo).mapMaybe (c => lines.last.andThen (bottom => Operator.parse (charAt bottom c))) |> .head
+def operatorOf (lines: List Text) (lo: Nat) (hi: Nat): Option Operator :=
+  (List.rangeFrom (hi - lo) lo).filterMap (c => lines.last.flatMap (bottom => Operator.parse (charAt bottom c))) |> .head
 
 -- Part 1: each number line, read across the problem's columns.
 def rowNumbers (lines: List Text) (lo: Nat) (hi: Nat): List Nat :=
@@ -71,18 +71,18 @@ def part2Spec (lines: List Text): Nat := grandTotal lines (lo hi => evaluate (op
 
 test "spec on the example" := (part1Spec example, part2Spec example) == (4277556, 3263827)
 test "spec problem columns" := isProblem example 0 3 && isProblem example 12 15 && not (isProblem example 0 2) && not (isProblem example 1 3)
-test "spec numbers" := (rowNumbers example 4 7, columnNumbers example 4 7, operatorOf example 4 7) == ([328, 64, 98], [8, 248, 369], Just Add)
+test "spec numbers" := (rowNumbers example 4 7, columnNumbers example 4 7, operatorOf example 4 7) == ([328, 64, 98], [8, 248, 369], Some Add)
 
 -- Why `readNumber` is the right reading: a number written in decimal, with
 -- any spaces before and after it (its alignment in the problem), reads back
 -- as itself.
-theorem spacesNoDigits: (k: Nat) -> List.mapMaybe Char.digitValue (List.replicate k ' ') = Nil
+theorem spacesNoDigits: (k: Nat) -> List.filterMap Char.digitValue (List.replicate k ' ') = Nil
   | Zero   => rfl
   | Succ k => spacesNoDigits k
 
 theorem readNumberWritten (n: Nat) (before: Nat) (after: Nat):
     readNumber (List.append (List.replicate before ' ') (List.append (Text.toList (Nat.toText n)) (List.replicate after ' '))) = n :=
-  rewrite List.mapMaybeAppend Char.digitValue (List.replicate before ' ') (List.append (Text.toList (Nat.toText n)) (List.replicate after ' ')),
-    List.mapMaybeAppend Char.digitValue (Text.toList (Nat.toText n)) (List.replicate after ' '),
+  rewrite List.filterMapAppend Char.digitValue (List.replicate before ' ') (List.append (Text.toList (Nat.toText n)) (List.replicate after ' ')),
+    List.filterMapAppend Char.digitValue (Text.toList (Nat.toText n)) (List.replicate after ' '),
     spacesNoDigits before, spacesNoDigits after, Char.toTextDigits n, List.appendNil (Nat.digits n) in
       Nat.fromDigitsDigits n

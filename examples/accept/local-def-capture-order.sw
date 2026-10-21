@@ -22,8 +22,8 @@ theorem reachSplit (line: Nat) (rest: List Nat) (c: Nat) (k: Nat) (d: Nat) (s: N
 
 -- Header parameters come first, then pattern variables as written, whatever
 -- order the case tree splits them in.
-def pick (base: Nat): Maybe Nat -> Maybe Nat -> Nat
-  | Just x, Just y =>
+def pick (base: Nat): Option Nat -> Option Nat -> Nat
+  | Some x, Some y =>
     def sum: Nat -> Nat
       | Zero   => x + y + base
       | Succ n => base + n

@@ -174,9 +174,9 @@ fn the_prompt_appears_before_the_program_reads() {
 
 /// Echoes each line in brackets, and keeps reading after the end of input.
 const ECHO: &str = r#"
-def showLine : Maybe Text -> Text
-  | Nothing => "<end>"
-  | Just l  => "[" ++ l ++ "]"
+def showLine : Option Text -> Text
+  | None => "<end>"
+  | Some l  => "[" ++ l ++ "]"
 
 def echo : Nat -> {IO} ()
   | 0      => ()
@@ -214,9 +214,9 @@ def main () : {IO} () :=
 "#;
 
 const READ_MIXED: &str = r#"
-def showLine : Maybe Text -> Text
-  | Nothing => "<end>"
-  | Just l  => "[" ++ l ++ "]"
+def showLine : Option Text -> Text
+  | None => "<end>"
+  | Some l  => "[" ++ l ++ "]"
 
 def main () : {IO} () :=
   IO.print (showLine (IO.readLine ()))

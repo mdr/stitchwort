@@ -88,29 +88,29 @@ theorem showNeg: Int.toText (Int.NegSucc 41) = "-42" := rfl
 
 theorem showZero: Int.toText (Int.OfNat 0) = "0" := rfl
 
-theorem readLeadingZeros: "-007".toInt = Just (Int.NegSucc 6) := rfl
+theorem readLeadingZeros: "-007".toInt = Some (Int.NegSucc 6) := rfl
 
-theorem readMinusZero: "-0".toInt = Just (Int.OfNat 0) := rfl
+theorem readMinusZero: "-0".toInt = Some (Int.OfNat 0) := rfl
 
-theorem readPlain: "42".toInt = Just (Int.OfNat 42) := rfl
+theorem readPlain: "42".toInt = Some (Int.OfNat 42) := rfl
 
-theorem readLoneMinus: "-".toInt = Nothing := rfl
+theorem readLoneMinus: "-".toInt = None := rfl
 
-theorem readEmpty: "".toInt = Nothing := rfl
+theorem readEmpty: "".toInt = None := rfl
 
-theorem readPlus: "+5".toInt = Nothing := rfl
+theorem readPlus: "+5".toInt = None := rfl
 
-theorem readTwoMinuses: "--5".toInt = Nothing := rfl
+theorem readTwoMinuses: "--5".toInt = None := rfl
 
-theorem readLeadingSpace: " 5".toInt = Nothing := rfl
+theorem readLeadingSpace: " 5".toInt = None := rfl
 
-theorem readTrailingSpace: "5 ".toInt = Nothing := rfl
+theorem readTrailingSpace: "5 ".toInt = None := rfl
 
-theorem readHex: "0x10".toInt = Nothing := rfl
+theorem readHex: "0x10".toInt = None := rfl
 
-theorem readDecimalPoint: "5.0".toInt = Nothing := rfl
+theorem readDecimalPoint: "5.0".toInt = None := rfl
 
-theorem readFullwidth: "５".toInt = Nothing := rfl
+theorem readFullwidth: "５".toInt = None := rfl
 
 -- Sign, absolute value, conversions.
 theorem signNeg: Int.sign (Int.NegSucc 9) = Int.NegSucc 0 := rfl
@@ -121,9 +121,9 @@ theorem signPos: Int.sign (Int.OfNat 9) = Int.OfNat 1 := rfl
 
 theorem absNeg: Int.abs (Int.NegSucc 4) = Int.OfNat 5 := rfl
 
-theorem checkedNeg: Int.toNatChecked (Int.NegSucc 4) = Nothing := rfl
+theorem checkedNeg: Int.toNatChecked (Int.NegSucc 4) = None := rfl
 
-theorem checkedPos: Int.toNatChecked (Int.OfNat 4) = Just 4 := rfl
+theorem checkedPos: Int.toNatChecked (Int.OfNat 4) = Some 4 := rfl
 
 -- Order: every negative is below every non-negative; `-5 < -2`.
 theorem lessNegZero: Int.LessThan (Int.NegSucc 0) (Int.OfNat 0) := rfl

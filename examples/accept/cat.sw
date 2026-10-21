@@ -7,9 +7,9 @@
 
 -- What to do with the next line: print it and carry on, or stop. Total:
 -- `more` is whatever comes next.
-def echoLine: Maybe Text -> (() -> {IO, Partial | e} ()) -> {IO, Partial | e} ()
-  | Nothing, more => ()
-  | Just l,  more =>
+def echoLine: Option Text -> (() -> {IO, Partial | e} ()) -> {IO, Partial | e} ()
+  | None, more => ()
+  | Some l,  more =>
     IO.print l
     more()
 

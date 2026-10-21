@@ -96,9 +96,9 @@ type List (a : Type) : Type =
   | Cons (head : a) (tail : List a)
   | Extra
 
-type Maybe : Type =
-  | Nothing
-  | Just
+type Option : Type =
+  | None
+  | Some
 
 type Unit : Type =
   | Trivial

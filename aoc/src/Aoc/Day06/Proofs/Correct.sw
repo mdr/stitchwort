@@ -74,21 +74,21 @@ theorem blockColumns (lines: List Text) (cs: List Nat):
 
 theorem blockOperator (lines: List Text) (cs: List Nat):
     (parseProblem (List.map (x => List.map (line => charAt line x) lines) cs)).operator
-      = List.head (List.mapMaybe (x => Maybe.andThen (bottom => Operator.parse (charAt bottom x)) (List.last lines)) cs) :=
-  calc List.head (List.mapMaybe (column => Maybe.andThen Operator.parse (List.last column)) (List.map (x => List.map (line => charAt line x) lines) cs))
-    _ = List.head (List.mapMaybe (x => Maybe.andThen Operator.parse (List.last (List.map (line => charAt line x) lines))) cs)
-        := rewrite List.mapMaybeMap (column => Maybe.andThen Operator.parse (List.last column)) (x => List.map (line => charAt line x) lines) cs
-    _ = List.head (List.mapMaybe (x => Maybe.andThen (bottom => Operator.parse (charAt bottom x)) (List.last lines)) cs)
-        := rewrite List.mapMaybeCongr (x => Maybe.andThen Operator.parse (List.last (List.map (line => charAt line x) lines)))
-                     (x => Maybe.andThen (bottom => Operator.parse (charAt bottom x)) (List.last lines))
-                     (x => rewrite List.lastMap (line => charAt line x) lines, Maybe.andThenMap Operator.parse (line => charAt line x) (List.last lines))
+      = List.head (List.filterMap (x => Option.flatMap (bottom => Operator.parse (charAt bottom x)) (List.last lines)) cs) :=
+  calc List.head (List.filterMap (column => Option.flatMap Operator.parse (List.last column)) (List.map (x => List.map (line => charAt line x) lines) cs))
+    _ = List.head (List.filterMap (x => Option.flatMap Operator.parse (List.last (List.map (line => charAt line x) lines))) cs)
+        := rewrite List.filterMapMap (column => Option.flatMap Operator.parse (List.last column)) (x => List.map (line => charAt line x) lines) cs
+    _ = List.head (List.filterMap (x => Option.flatMap (bottom => Operator.parse (charAt bottom x)) (List.last lines)) cs)
+        := rewrite List.filterMapCongr (x => Option.flatMap Operator.parse (List.last (List.map (line => charAt line x) lines)))
+                     (x => Option.flatMap (bottom => Operator.parse (charAt bottom x)) (List.last lines))
+                     (x => rewrite List.lastMap (line => charAt line x) lines, Option.flatMapMap Operator.parse (line => charAt line x) (List.last lines))
                      cs
 
 -- Adding and multiplying don't mind the order.
-theorem evaluateReverse: (op: Maybe Operator) -> (xs: List Nat) -> evaluate op (List.reverse xs) = evaluate op xs
-  | Nothing,       xs => rfl
-  | Just Add,      xs => List.sumReverse xs
-  | Just Multiply, xs => List.productReverse xs
+theorem evaluateReverse: (op: Option Operator) -> (xs: List Nat) -> evaluate op (List.reverse xs) = evaluate op xs
+  | None,       xs => rfl
+  | Some Add,      xs => List.sumReverse xs
+  | Some Multiply, xs => List.productReverse xs
 
 -- A problem has at least one column.
 theorem problemWide (lines: List Text) (lo: Nat) (hi: Nat) (h: isProblem lines lo hi = True): lo < hi :=
@@ -126,7 +126,7 @@ theorem answer2 (lines: List Text) (lo: Nat) (hi: Nat):
     rewrite blockOperator lines (List.rangeFrom (hi - lo) lo),
       blockColumns lines (List.rangeFrom (hi - lo) lo),
       List.mapReverse (x => readNumber (List.map (line => charAt line x) (List.init lines))) (List.rangeFrom (hi - lo) lo),
-      evaluateReverse (List.head (List.mapMaybe (x => Maybe.andThen (bottom => Operator.parse (charAt bottom x)) (List.last lines)) (List.rangeFrom (hi - lo) lo)))
+      evaluateReverse (List.head (List.filterMap (x => Option.flatMap (bottom => Operator.parse (charAt bottom x)) (List.last lines)) (List.rangeFrom (hi - lo) lo)))
         (List.map (x => readNumber (List.map (line => charAt line x) (List.init lines))) (List.rangeFrom (hi - lo) lo))
 
 -- The program's total over the blocks is the total over the problems the

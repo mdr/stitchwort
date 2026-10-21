@@ -59,23 +59,23 @@ def timelinesFrom (r: Nat) (c: Nat): List Text -> List (List Hit)
     else timelinesFrom (r + 1) c rest
 
 -- The timelines of the particle from S.
-def timelines (lines: List Text): Maybe (List (List Hit)) :=
+def timelines (lines: List Text): Option (List (List Hit)) :=
   (findStart lines).map (((r, c)) => timelinesFrom (r + 1) c (lines.drop (r + 1)))
 
 -- Some timeline reaches the splitter in row r, column c.
 def reached (ts: List (List Hit)) (r: Nat) (c: Nat): Bool := ts.any (t => t.any (hit => hit.row == r && hit.column == c))
 
 -- Part 1: the splitters that some timeline reaches.
-def part1Spec (lines: List Text): Maybe Nat :=
+def part1Spec (lines: List Text): Option Nat :=
   (timelines lines).map (ts => List.range lines.length |> .sumBy (r => List.range (gridWidth lines) |> .count (c => reached ts r c)))
 
 -- Part 2: the timelines.
-def part2Spec (lines: List Text): Maybe Nat := (timelines lines).map List.length
+def part2Spec (lines: List Text): Option Nat := (timelines lines).map List.length
 
-test "spec on the example" := (part1Spec example, part2Spec example) == (Just 21, Just 40)
-test "spec at the edges" := (part1Spec ["S.", "^.", ".."], part2Spec ["S.", "^.", ".."], part1Spec [".S", ".^", ".^"], part2Spec [".S", ".^", ".^"]) == (Just 1, Just 2, Just 1, Just 2)
+test "spec on the example" := (part1Spec example, part2Spec example) == (Some 21, Some 40)
+test "spec at the edges" := (part1Spec ["S.", "^.", ".."], part2Spec ["S.", "^.", ".."], part1Spec [".S", ".^", ".^"], part2Spec [".S", ".^", ".^"]) == (Some 1, Some 2, Some 1, Some 2)
 test "spec timelines" :=
-  Maybe.map (ts => ts.map (t => t.map (hit => (hit.row, hit.column, hit.turn == Left)))) (timelines ["..S..", "..^..", ".^.^.", "..^.."])
-    == Just [ [(1, 2, True), (2, 1, True)], [(1, 2, True), (2, 1, False), (3, 2, True)], [(1, 2, True), (2, 1, False), (3, 2, False)],
+  Option.map (ts => ts.map (t => t.map (hit => (hit.row, hit.column, hit.turn == Left)))) (timelines ["..S..", "..^..", ".^.^.", "..^.."])
+    == Some [ [(1, 2, True), (2, 1, True)], [(1, 2, True), (2, 1, False), (3, 2, True)], [(1, 2, True), (2, 1, False), (3, 2, False)],
               [(1, 2, False), (2, 3, True), (3, 2, True)], [(1, 2, False), (2, 3, True), (3, 2, False)], [(1, 2, False), (2, 3, False)] ]
-test "spec without S" := (part1Spec ["^"], part2Spec ["^"]) == (Nothing, Nothing)
+test "spec without S" := (part1Spec ["^"], part2Spec ["^"]) == (None, None)

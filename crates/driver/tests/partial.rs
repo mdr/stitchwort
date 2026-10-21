@@ -223,9 +223,9 @@ fn ticks_and_results_agree_with_the_model() {
 /// versions of them.
 const IO_DEFINITIONS: &str = r#"
 -- echo count: prints each line until the end of the input.
-def echoLine (count : Nat) : Maybe Text -> (Nat -> {IO, Partial | e} Nat) -> {IO, Partial | e} Nat
-  | Nothing, more => count
-  | Just l,  more =>
+def echoLine (count : Nat) : Option Text -> (Nat -> {IO, Partial | e} Nat) -> {IO, Partial | e} Nat
+  | None, more => count
+  | Some l,  more =>
     IO.print l
     more (count + 1)
 
@@ -249,9 +249,9 @@ ability Ask where
 
 def askTwice () : {Ask} Nat := ask () + ask ()
 
-def lineLength : Maybe Text -> Nat
-  | Nothing => 0
-  | Just t  => List.length (Text.toList t)
+def lineLength : Option Text -> Nat
+  | None => 0
+  | Some t  => List.length (Text.toList t)
 
 def viaReadLine (prog : () -> {Ask} Nat) : {IO} Nat :=
   handle prog () with
@@ -352,9 +352,10 @@ fn a_step_returns_operations_without_performing_them() {
         panic!("an `IO` operation");
     };
     assert_eq!(&*g.data(d).ctors[c].name, "%readLine");
-    // Reply `Nothing`: `echo` finishes with 0, then `main` prints it, which
+    // Reply `None`: `echo` finishes with 0, then `main` prints it, which
     // is again returned rather than performed.
-    let nothing = stitchwort_core::Value::Ctor(g.find_data("Maybe").unwrap(), 0, Vec::new().into());
+    let nothing =
+        stitchwort_core::Value::Ctor(g.find_data("Option").unwrap(), 0, Vec::new().into());
     let Obs::Call(op, _) = pending.reply(g, nothing).unwrap() else {
         panic!("then `main` prints");
     };

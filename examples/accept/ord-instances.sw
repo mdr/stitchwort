@@ -1,7 +1,7 @@
 -- The library's `Ord` (docs/proposals/interfaces.md §6.2, stage 3): a
 -- comparison with its laws, and the relations `lessThan` and `lessEq` with
 -- their decisions. Instances for numbers, characters, texts, booleans,
--- orderings, lists, `Maybe`, pairs and vectors; `List.sort`,
+-- orderings, lists, `Option`, pairs and vectors; `List.sort`,
 -- `List.maximum` and `List.minimum` work on any of them.
 
 import Std (Eq, Vec)
@@ -14,7 +14,7 @@ test "booleans" := Ord.compare False True == Less
 test "orderings" := Ord.compare Greater Less == Greater
 test "lists" := Ord.compare [1, 2] [1, 3] == Less
 test "a list before its extensions" := Ord.compare [1] [1, 0] == Less
-test "Maybe, Nothing first" := Ord.compare Nothing (Just 0) == Less
+test "Option, None first" := Ord.compare None (Some 0) == Less
 test "pairs" := Ord.compare (1, "b") (1, "a") == Greater
 
 def v12: Vec Nat 2 := VCons 1 (VCons 2 VNil)
@@ -27,12 +27,12 @@ test "sort numbers" := [5, 3, 9, 1].sort == [1, 3, 5, 9]
 test "sort texts" := ["pear", "apple", "fig"].sort == ["apple", "fig", "pear"]
 test "sort pairs" := [(2, "a"), (1, "z"), (1, "b")].sort == [(1, "b"), (1, "z"), (2, "a")]
 test "sort lists" := [[2], [1, 5], [1]].sort == [[1], [1, 5], [2]]
-test "sort Maybe" := [Just 2, Nothing, Just 1].sort == [Nothing, Just 1, Just 2]
+test "sort Option" := [Some 2, None, Some 1].sort == [None, Some 1, Some 2]
 
 -- Generic maximum and minimum.
-test "maximum" := ["b", "c", "a"].maximum == Just "c"
-test "minimum" := [(2, True), (1, False)].minimum == Just (1, False)
-test "maximum of none" := ([]: List Int).maximum == Nothing
+test "maximum" := ["b", "c", "a"].maximum == Some "c"
+test "minimum" := [(2, True), (1, False)].minimum == Some (1, False)
+test "maximum of none" := ([]: List Int).maximum == None
 
 -- The relations are fields: for `Nat` they're `<` and `<=` themselves.
 theorem natLessThan: Ord.lessThan 2 3 = (2 < 3) := rfl
@@ -50,7 +50,7 @@ def descending: Ord Nat :=
     (x y z h1 h2 => Nat.compareTrans z y x h2 h1)
 
 test "descending" := List.sort [ord := descending] [5, 3, 9, 1] == [9, 5, 3, 1]
-test "descending maximum" := List.maximum [ord := descending] [5, 3, 9] == Just 3
+test "descending maximum" := List.maximum [ord := descending] [5, 3, 9] == Some 3
 
 -- Ordered by a key that tells values apart: `Ord.byKey`.
 type Version = { major: Nat, minor: Nat }
@@ -68,4 +68,4 @@ def v1: Version := { major = 1, minor = 9 }
 def v2: Version := { major = 2, minor = 0 }
 
 test "versions" := [v2, v1].sort == [v1, v2]
-test "newest" := [v1, v2].maximum == Just v2
+test "newest" := [v1, v2].maximum == Some v2

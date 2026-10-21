@@ -471,20 +471,20 @@ def List.merge (le: a -> a -> Bool): List a -> List a -> List a
 -- of 2^i elements, newest first. Adding an element carries: two runs of the
 -- same size merge into the next slot. Each element takes part in about log n
 -- merges, so sorting is O(n log n).
-def List.pushRun (le: a -> a -> Bool) (run: List a): List (Maybe (List a)) -> List (Maybe (List a))
-  | Nil                => Cons (Just run) Nil
-  | Cons Nothing rest  => Cons (Just run) rest
-  | Cons (Just r) rest => Cons Nothing (List.pushRun le (List.merge le r run) rest)
+def List.pushRun (le: a -> a -> Bool) (run: List a): List (Option (List a)) -> List (Option (List a))
+  | Nil                => Cons (Some run) Nil
+  | Cons None rest  => Cons (Some run) rest
+  | Cons (Some r) rest => Cons None (List.pushRun le (List.merge le r run) rest)
 
-def List.buildRuns (le: a -> a -> Bool) (c: List (Maybe (List a))): List a -> List (Maybe (List a))
+def List.buildRuns (le: a -> a -> Bool) (c: List (Option (List a))): List a -> List (Option (List a))
   | Nil       => c
   | Cons x xs => List.buildRuns le (List.pushRun le (Cons x Nil) c) xs
 
 -- Merges the runs, older (earlier) ones on the left.
-def List.mergeRuns (le: a -> a -> Bool) (acc: List a): List (Maybe (List a)) -> List a
+def List.mergeRuns (le: a -> a -> Bool) (acc: List a): List (Option (List a)) -> List a
   | Nil                => acc
-  | Cons Nothing rest  => List.mergeRuns le acc rest
-  | Cons (Just r) rest => List.mergeRuns le (List.merge le r acc) rest
+  | Cons None rest  => List.mergeRuns le acc rest
+  | Cons (Some r) rest => List.mergeRuns le (List.merge le r acc) rest
 
 -- Sorts by `le`, which says whether its first argument may come before its
 -- second (`Nat.leq` for ascending numbers). Stable: equal elements keep their
@@ -531,29 +531,29 @@ theorem List.mergeSorted (le: a -> a -> Bool) (tot: (x: a) -> (y: a) -> le x y =
       (e => Both (List.mergeLeHead le y (Cons x xs) ys (tot x y e) hy) (List.mergeSorted le tot (Cons x xs) ys (Both hx sxs) sys))
 
 -- Every run in the counter is sorted.
-def List.RunsSorted (le: a -> a -> Bool): List (Maybe (List a)) -> Prop
+def List.RunsSorted (le: a -> a -> Bool): List (Option (List a)) -> Prop
   | Nil                => Unit
-  | Cons Nothing rest  => List.RunsSorted le rest
-  | Cons (Just r) rest => And (List.Sorted le r) (List.RunsSorted le rest)
+  | Cons None rest  => List.RunsSorted le rest
+  | Cons (Some r) rest => And (List.Sorted le r) (List.RunsSorted le rest)
 
 theorem List.pushRunSorted (le: a -> a -> Bool) (tot: (x: a) -> (y: a) -> le x y = False -> le y x = True)
-    (run: List a): (c: List (Maybe (List a))) -> List.Sorted le run -> List.RunsSorted le c -> List.RunsSorted le (List.pushRun le run c)
+    (run: List a): (c: List (Option (List a))) -> List.Sorted le run -> List.RunsSorted le c -> List.RunsSorted le (List.pushRun le run c)
   | Nil,                s, h         => Both s Trivial
-  | Cons Nothing rest,  s, h         => Both s h
-  | Cons (Just r) rest, s, Both sr h =>
+  | Cons None rest,  s, h         => Both s h
+  | Cons (Some r) rest, s, Both sr h =>
     List.pushRunSorted le tot (List.merge le r run) rest (List.mergeSorted le tot r run sr s) h
 
 theorem List.buildRunsSorted (le: a -> a -> Bool) (tot: (x: a) -> (y: a) -> le x y = False -> le y x = True)
-    (c: List (Maybe (List a))): (xs: List a) -> List.RunsSorted le c -> List.RunsSorted le (List.buildRuns le c xs)
+    (c: List (Option (List a))): (xs: List a) -> List.RunsSorted le c -> List.RunsSorted le (List.buildRuns le c xs)
   | Nil,       h => h
   | Cons x xs, h =>
     List.buildRunsSorted le tot (List.pushRun le (Cons x Nil) c) xs (List.pushRunSorted le tot (Cons x Nil) c (Both Trivial Trivial) h)
 
 theorem List.mergeRunsSorted (le: a -> a -> Bool) (tot: (x: a) -> (y: a) -> le x y = False -> le y x = True)
-    (acc: List a): (c: List (Maybe (List a))) -> List.Sorted le acc -> List.RunsSorted le c -> List.Sorted le (List.mergeRuns le acc c)
+    (acc: List a): (c: List (Option (List a))) -> List.Sorted le acc -> List.RunsSorted le c -> List.Sorted le (List.mergeRuns le acc c)
   | Nil,                s, h         => s
-  | Cons Nothing rest,  s, h         => List.mergeRunsSorted le tot acc rest s h
-  | Cons (Just r) rest, s, Both sr h =>
+  | Cons None rest,  s, h         => List.mergeRunsSorted le tot acc rest s h
+  | Cons (Some r) rest, s, Both sr h =>
     List.mergeRunsSorted le tot (List.merge le r acc) rest (List.mergeSorted le tot r acc sr s) h
 
 theorem List.sortWithSorted (le: a -> a -> Bool) (tot: (x: a) -> (y: a) -> le x y = False -> le y x = True)
@@ -745,21 +745,21 @@ theorem List.mergeCount (le: a -> a -> Bool) (p: a -> Bool): (xs: List a) -> (ys
         (Nat.addLeftComm (Bool.toNat (p y)) (List.occurrences p (Cons x xs)) (List.occurrences p ys)))
 
 -- How many elements of all the runs satisfy `p`.
-def List.runsCount (p: a -> Bool): List (Maybe (List a)) -> Nat
+def List.runsCount (p: a -> Bool): List (Option (List a)) -> Nat
   | Nil                => 0
-  | Cons Nothing rest  => List.runsCount p rest
-  | Cons (Just r) rest => List.occurrences p r + List.runsCount p rest
+  | Cons None rest  => List.runsCount p rest
+  | Cons (Some r) rest => List.occurrences p r + List.runsCount p rest
 
-theorem List.pushRunCount (le: a -> a -> Bool) (p: a -> Bool) (run: List a): (c: List (Maybe (List a))) ->
+theorem List.pushRunCount (le: a -> a -> Bool) (p: a -> Bool) (run: List a): (c: List (Option (List a))) ->
     List.runsCount p (List.pushRun le run c) = List.occurrences p run + List.runsCount p c
   | Nil                => rfl
-  | Cons Nothing rest  => rfl
-  | Cons (Just r) rest =>
+  | Cons None rest  => rfl
+  | Cons (Some r) rest =>
     Eq.trans (List.pushRunCount le p (List.merge le r run) rest)
       (Eq.trans (Eq.cong (t => t + List.runsCount p rest) (List.mergeCount le p r run))
         (Nat.addRotate (List.occurrences p r) (List.occurrences p run) (List.runsCount p rest)))
 
-theorem List.buildRunsCount (le: a -> a -> Bool) (p: a -> Bool) (c: List (Maybe (List a))): (xs: List a) ->
+theorem List.buildRunsCount (le: a -> a -> Bool) (p: a -> Bool) (c: List (Option (List a))): (xs: List a) ->
     List.runsCount p (List.buildRuns le c xs) = List.runsCount p c + List.occurrences p xs
   | Nil       => Eq.sym (Nat.addZero (List.runsCount p c))
   | Cons x xs =>
@@ -768,11 +768,11 @@ theorem List.buildRunsCount (le: a -> a -> Bool) (p: a -> Bool) (c: List (Maybe 
         (Eq.trans (Eq.cong (t => (t + List.runsCount p c) + List.occurrences p xs) (Nat.addZero (Bool.toNat (p x))))
           (Nat.addRotate (Bool.toNat (p x)) (List.runsCount p c) (List.occurrences p xs))))
 
-theorem List.mergeRunsCount (le: a -> a -> Bool) (p: a -> Bool) (acc: List a): (c: List (Maybe (List a))) ->
+theorem List.mergeRunsCount (le: a -> a -> Bool) (p: a -> Bool) (acc: List a): (c: List (Option (List a))) ->
     List.occurrences p (List.mergeRuns le acc c) = List.occurrences p acc + List.runsCount p c
   | Nil                => Eq.sym (Nat.addZero (List.occurrences p acc))
-  | Cons Nothing rest  => List.mergeRunsCount le p acc rest
-  | Cons (Just r) rest =>
+  | Cons None rest  => List.mergeRunsCount le p acc rest
+  | Cons (Some r) rest =>
     Eq.trans (List.mergeRunsCount le p (List.merge le r acc) rest)
       (Eq.trans (Eq.cong (t => t + List.runsCount p rest) (List.mergeCount le p r acc))
         (Nat.addRotate (List.occurrences p r) (List.occurrences p acc) (List.runsCount p rest)))

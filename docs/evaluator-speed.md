@@ -291,7 +291,7 @@ gives `E-RESOURCE` at 100,000 characters".
   `branch`, printed by `run_main` when an environment variable is set. Not committed; easy to
   redo from the descriptions above.
 - Micro-benchmarks: a program `def bench (n : Nat) : Nat := …` with
-  `def main () : {IO} () := IO.print (Nat.toText (bench (Maybe.withDefault 0 (Text.toNat
+  `def main () : {IO} () := IO.print (Nat.toText (bench (Option.getOrElse 0 (Text.toNat
   (Text.trim (IO.readAll ()))))))`, run as `echo 100000 | stitchwort run bench.sw`.
 - `bench/baseline.toml` (`stitchwort-bench`) remains the regression check for any change made
   from this list.

@@ -8,12 +8,12 @@ type Grid = { height: Nat, width: Nat, rows: Vec (Vec Bool width) height }
 
 def parseLine (line: Text): List Bool := line.toList.map (c => c == '#')
 
--- `Nothing` when a line's length differs from the first's.
-def parseGrid (lines: List Text): Maybe Grid :=
+-- `None` when a line's length differs from the first's.
+def parseGrid (lines: List Text): Option Grid :=
   let width := (lines.headOr "").length
   Vec.fromList lines
-    |> Vec.traverseMaybe (line => Vec.ofList width (parseLine line))
-    |> Maybe.map (rows => ({ height = lines.length, width, rows }: Grid))
+    |> Vec.traverseOption (line => Vec.ofList width (parseLine line))
+    |> Option.map (rows => ({ height = lines.length, width, rows }: Grid))
 
 def Grid.count (grid: Grid): Nat := grid.rows.sumBy (row => row.sumBy Bool.toNat)
 
@@ -35,9 +35,9 @@ theorem sumByMap (f: b -> Nat) (g: a -> b) (v: Vec a n): Vec.sumBy f (Vec.map g 
 
 def lines: List Text := [".#.", "###", ".#."]
 
-test "parse and count" := Maybe.map Grid.count (parseGrid lines) == Just 5
-test "flip" := Maybe.map (g => g.flip.count) (parseGrid lines) == Just 4
-test "ragged" := Maybe.map Grid.count (parseGrid [".#.", "#"]) == Nothing
+test "parse and count" := Option.map Grid.count (parseGrid lines) == Some 5
+test "flip" := Option.map (g => g.flip.count) (parseGrid lines) == Some 4
+test "ragged" := Option.map Grid.count (parseGrid [".#.", "#"]) == None
 -- A grid of known size: `getLt` takes a `Nat` index, its bound decided by `auto`.
 def plus: Vec (Vec Bool 3) 3 :=
   Vec.fromList [Vec.fromList [False, True, False], Vec.fromList [True, True, True], Vec.fromList [False, True, False]]

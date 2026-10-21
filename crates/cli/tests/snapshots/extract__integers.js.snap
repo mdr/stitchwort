@@ -399,16 +399,16 @@ const encode = (t, v) => {
 };
 
 const info$Std$dOrdering = datatype("Ordering");
-const info$Std$dMaybe = datatype("Maybe");
+const info$Std$dOption = datatype("Option");
 const info$Main$dEntry = datatype("Entry");
 define(info$Std$dOrdering, [
   ["Less", []],
   ["Equal", []],
   ["Greater", []],
 ]);
-define(info$Std$dMaybe, [
-  ["Nothing", []],
-  ["Just", [["value", param(0)]]],
+define(info$Std$dOption, [
+  ["None", []],
+  ["Some", [["value", param(0)]]],
 ]);
 define(info$Main$dEntry, [
   ["%mk", [["count", NAT], ["delta", INT]]],
@@ -453,14 +453,14 @@ const $Std$dDecidable$dnot = (v1) => {
 };
 const $Std$dText$dappend = (a) => (b) => a + b;
 const $Std$dNat$dtoText = (n) => n.toString();
-const $Std$dMaybe$dmap = (v2) => (v3) => {
+const $Std$dOption$dmap = (v2) => (v3) => {
   switch (v3.tag) {
-    case "Nothing": {
-      return { tag: "Nothing" };
+    case "None": {
+      return { tag: "None" };
     }
-    case "Just": {
+    case "Some": {
       const v4 = v3.value;
-      return { tag: "Just", value: (v2)(v4) };
+      return { tag: "Some", value: (v2)(v4) };
     }
   }
   throw new Error("unreachable");
@@ -477,18 +477,18 @@ const $Std$dInt$dleq = (a) => (b) => ({ tag: a <= b ? "True" : "False" });
 const $Std$dInt$dless = (a) => (b) => ({ tag: a < b ? "True" : "False" });
 const $Std$dInt$dcompare = (a) => (b) => ({ tag: a < b ? "Less" : a === b ? "Equal" : "Greater" });
 const $Std$dInt$dabs = (a) => (a < 0n ? -a : a);
-const $Std$dInt$dtoNatChecked = (a) => (a < 0n ? { tag: "Nothing" } : { tag: "Just", value: a });
+const $Std$dInt$dtoNatChecked = (a) => (a < 0n ? { tag: "None" } : { tag: "Some", value: a });
 const $Std$dInt$dsign = (a) => (a > 0n ? 1n : a < 0n ? -1n : 0n);
 const $Std$dInt$dtoText = (a) => a.toString();
 const $Std$dText$dtoInt = (t) => {
   const s = t.charCodeAt(0) === 45 ? t.slice(1) : t;
-  if (s === "") return { tag: "Nothing" };
+  if (s === "") return { tag: "None" };
   for (let i = 0; i < s.length; i++) {
     const unit = s.charCodeAt(i);
-    if (unit < 48 || unit > 57) return { tag: "Nothing" };
+    if (unit < 48 || unit > 57) return { tag: "None" };
   }
   const n = BigInt(s);
-  return { tag: "Just", value: s === t ? n : -n };
+  return { tag: "Some", value: s === t ? n : -n };
 };
 const $Std$dInt$ddiv = (a) => (d) => { const q = a / d, r = a % d; return r < 0n ? (d > 0n ? q - 1n : q + 1n) : q; };
 const $Std$dInt$dmod = (a) => (d) => { const r = a % d; return r < 0n ? (d > 0n ? r + d : r - d) : r; };
@@ -622,32 +622,32 @@ const $Main$dfields = (v0) => {
     return $Std$dNat$dadd(v1)(100n);
   }
 };
-const $Main$dmaybeInt = (v0) => {
+const $Main$doptionInt = (v0) => {
   switch (v0.tag) {
-    case "Nothing": {
+    case "None": {
       return 0n;
     }
-    case "Just": {
+    case "Some": {
       const v1 = v0.value;
       return $Std$dInt$dmul(v1)(2n);
     }
   }
   throw new Error("unreachable");
 };
-const $Main$dnegateAll = (v0) => $Std$dList$dmap(((v1) => $Std$dMaybe$dmap($Std$dInt$dneg)(v1)))(v0);
+const $Main$dnegateAll = (v0) => $Std$dList$dmap(((v1) => $Std$dOption$dmap($Std$dInt$dneg)(v1)))(v0);
 const $Main$dfirstNeg = (v0) => {
   let s0 = v0;
   for (;;) {
     const v0 = s0;
     switch (v0.tag) {
       case "Nil": {
-        return { tag: "Nothing" };
+        return { tag: "None" };
       }
       case "Cons": {
         const v1 = v0.head;
         const v2 = v0.tail;
         if ($Std$dInt$dless(v1)(0n).tag === "True") {
-          return { tag: "Just", value: v1 };
+          return { tag: "Some", value: v1 };
         } else {
           s0 = v2;
           continue;
@@ -922,7 +922,7 @@ function $$toNat(arg0) {
 function $$toNatChecked(arg0) {
   try {
     const v0 = decode(INT, arg0, "x");
-    return encode(data(info$Std$dMaybe, [NAT]), $Main$dtoNatChecked(v0));
+    return encode(data(info$Std$dOption, [NAT]), $Main$dtoNatChecked(v0));
   } catch (e) {
     throw outOfResources("toNatChecked", e);
   }
@@ -958,7 +958,7 @@ function $$toText(arg0) {
 function $$parse(arg0) {
   try {
     const v0 = decode(TEXT, arg0, "t");
-    return encode(data(info$Std$dMaybe, [INT]), $Main$dparse(v0));
+    return encode(data(info$Std$dOption, [INT]), $Main$dparse(v0));
   } catch (e) {
     throw outOfResources("parse", e);
   }
@@ -1004,19 +1004,19 @@ function $$fields(arg0) {
   }
 }
 
-function $$maybeInt(arg0) {
+function $$optionInt(arg0) {
   try {
-    const v0 = decode(data(info$Std$dMaybe, [INT]), arg0, "arg0");
-    return encode(INT, $Main$dmaybeInt(v0));
+    const v0 = decode(data(info$Std$dOption, [INT]), arg0, "arg0");
+    return encode(INT, $Main$doptionInt(v0));
   } catch (e) {
-    throw outOfResources("maybeInt", e);
+    throw outOfResources("optionInt", e);
   }
 }
 
 function $$negateAll(arg0) {
   try {
-    const v0 = decode(list(data(info$Std$dMaybe, [INT])), arg0, "xs");
-    return encode(list(data(info$Std$dMaybe, [INT])), $Main$dnegateAll(v0));
+    const v0 = decode(list(data(info$Std$dOption, [INT])), arg0, "xs");
+    return encode(list(data(info$Std$dOption, [INT])), $Main$dnegateAll(v0));
   } catch (e) {
     throw outOfResources("negateAll", e);
   }
@@ -1025,7 +1025,7 @@ function $$negateAll(arg0) {
 function $$firstNeg(arg0) {
   try {
     const v0 = decode(list(INT), arg0, "arg0");
-    return encode(data(info$Std$dMaybe, [INT]), $Main$dfirstNeg(v0));
+    return encode(data(info$Std$dOption, [INT]), $Main$dfirstNeg(v0));
   } catch (e) {
     throw outOfResources("firstNeg", e);
   }
@@ -1049,4 +1049,4 @@ function $$entries(arg0) {
   }
 }
 
-export { $$dial as dial, $$divide as divide, $$describe as describe, $$negatives as negatives, $$neg as neg, $$add as add, $$sub as sub, $$mul as mul, $$eucDiv as eucDiv, $$eucMod as eucMod, $$tdiv as tdiv, $$tmod as tmod, $$fdiv as fdiv, $$fmod as fmod, $$modNat as modNat, $$decEq as decEq, $$leq as leq, $$less as less, $$compare as compare, $$natAbs as natAbs, $$abs as abs, $$toNat as toNat, $$toNatChecked as toNatChecked, $$sign as sign, $$ofNat as ofNat, $$toText as toText, $$parse as parse, $$ofNats as ofNats, $$residue as residue, $$classify as classify, $$fields as fields, $$maybeInt as maybeInt, $$negateAll as negateAll, $$firstNeg as firstNeg, $$apply as apply, $$entries as entries };
+export { $$dial as dial, $$divide as divide, $$describe as describe, $$negatives as negatives, $$neg as neg, $$add as add, $$sub as sub, $$mul as mul, $$eucDiv as eucDiv, $$eucMod as eucMod, $$tdiv as tdiv, $$tmod as tmod, $$fdiv as fdiv, $$fmod as fmod, $$modNat as modNat, $$decEq as decEq, $$leq as leq, $$less as less, $$compare as compare, $$natAbs as natAbs, $$abs as abs, $$toNat as toNat, $$toNatChecked as toNatChecked, $$sign as sign, $$ofNat as ofNat, $$toText as toText, $$parse as parse, $$ofNats as ofNats, $$residue as residue, $$classify as classify, $$fields as fields, $$optionInt as optionInt, $$negateAll as negateAll, $$firstNeg as firstNeg, $$apply as apply, $$entries as entries };

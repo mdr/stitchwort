@@ -50,11 +50,11 @@ test "lambda chain" := lamChain == 12
 
 -- A constructor is a function, a local function variable is a head too, and a
 -- number literal on the left just takes its type from the function.
-def ctor: Maybe Nat := 3 |> Just
+def ctor: Option Nat := 3 |> Some
 def applyTo (h: Nat -> Nat): Nat := 3 |> h
 def literal: Nat := 5 |> Nat.add 1
 
-test "constructor" := ctor == Just 3
+test "constructor" := ctor == Some 3
 test "local function" := applyTo (x => x + 1) == 4
 test "literal" := literal == 6
 

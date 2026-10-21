@@ -33,7 +33,7 @@ type Operator =
 
 -- A problem's numbers as read by each part, and its operator (none if the
 -- block has no + or *).
-type Problem = { operator: Maybe Operator, rowNumbers: List Nat, columnNumbers: List Nat }
+type Problem = { operator: Option Operator, rowNumbers: List Nat, columnNumbers: List Nat }
 
 def example: List Text :=
   [ "123 328  51 64 ", " 45 64  387 23 ", "  6 98  215 314", "*   +   *   +  " ]
@@ -62,7 +62,7 @@ test "padded grid" := paddedGrid ["ab", "a"] == [['a', 'b'], ['a', ' ']]
 -- One block of columns, the last character of each being the operator row.
 def parseProblem (columns: List (List Char)): Problem :=
   let rows := columns.transpose
-  { operator = (columns.mapMaybe (column => column.last.andThen Operator.parse)).head
+  { operator = (columns.filterMap (column => column.last.flatMap Operator.parse)).head
   , rowNumbers = rows.init.map readNumber
   , columnNumbers = columns.map (column => readNumber column.init) }
 
@@ -71,16 +71,16 @@ test "example problems" :=
     == [ ([123, 45, 6], [1, 24, 356]), ([328, 64, 98], [369, 248, 8])
        , ([51, 387, 215], [32, 581, 175]), ([64, 23, 314], [623, 431, 4]) ]
 test "example operators" :=
-  (parseWorksheet example).map (p => p.operator) == [Just Multiply, Just Add, Just Multiply, Just Add]
-test "no operator" := (parseWorksheet ["1", "2", " "]).map (p => p.operator) == [Nothing]
+  (parseWorksheet example).map (p => p.operator) == [Some Multiply, Some Add, Some Multiply, Some Add]
+test "no operator" := (parseWorksheet ["1", "2", " "]).map (p => p.operator) == [None]
 
-def Operator.parse: Char -> Maybe Operator
-  | '+' => Just Add
-  | '*' => Just Multiply
-  | _   => Nothing
+def Operator.parse: Char -> Option Operator
+  | '+' => Some Add
+  | '*' => Some Multiply
+  | _   => None
 
 -- The number written with these digits; spaces (and anything else) are skipped.
-def readNumber (cells: List Char): Nat := Nat.fromDigits (cells.mapMaybe Char.digitValue)
+def readNumber (cells: List Char): Nat := Nat.fromDigits (cells.filterMap Char.digitValue)
 
 test "read number" := (readNumber [' ', '4', '5'], readNumber ['3', ' ', ' '], readNumber [' ']) == (45, 3, 0)
 
@@ -89,10 +89,10 @@ def Operator.apply: Operator -> List Nat -> Nat
   | Multiply, numbers => numbers.product
 
 -- A problem without an operator has no answer; count it as 0.
-def evaluate (operator: Maybe Operator) (numbers: List Nat): Nat :=
+def evaluate (operator: Option Operator) (numbers: List Nat): Nat :=
   match operator with
-    | Nothing => 0
-    | Just op => op.apply numbers
+    | None => 0
+    | Some op => op.apply numbers
 
 -- Part 1: the answers of the problems read by rows.
 def solvePart1 (problems: List Problem): Nat := problems.sumBy (p => evaluate p.operator p.rowNumbers)

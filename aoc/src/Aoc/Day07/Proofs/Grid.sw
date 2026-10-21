@@ -48,17 +48,17 @@ theorem charAtPast (line: Text) (c: Nat) (h: line.length <= c): charAt line c = 
   List.getOrPast '.' c (Text.toList line) h
 
 -- Where S is: a row of the diagram, and a column inside the grid.
-def StartIn (height: Nat) (width: Nat): Maybe (Nat, Nat) -> Prop
-  | Nothing           => Unit
-  | Just (MkPair r c) => And (r < height) (c < width)
+def StartIn (height: Nat) (width: Nat): Option (Nat, Nat) -> Prop
+  | None           => Unit
+  | Some (MkPair r c) => And (r < height) (c < width)
 
-def ColumnIn (width: Nat): Maybe Nat -> Prop
-  | Nothing => Unit
-  | Just c  => c < width
+def ColumnIn (width: Nat): Option Nat -> Prop
+  | None => Unit
+  | Some c  => c < width
 
-theorem columnSucc (n: Nat): (m: Maybe Nat) -> ColumnIn n m -> ColumnIn (Succ n) (Maybe.map Succ m)
-  | Nothing, h => Trivial
-  | Just c,  h => h
+theorem columnSucc (n: Nat): (m: Option Nat) -> ColumnIn n m -> ColumnIn (Succ n) (Option.map Succ m)
+  | None, h => Trivial
+  | Some c,  h => h
 
 theorem columnOfIn (ch: Char): (xs: List Char) -> ColumnIn (List.length xs) (columnOf ch xs)
   | Nil       => Trivial
@@ -68,10 +68,10 @@ theorem columnOfIn (ch: Char): (xs: List Char) -> ColumnIn (List.length xs) (col
       | False => columnSucc (List.length xs) (columnOf ch xs) (columnOfIn ch xs)
 
 theorem firstFoundIn (height: Nat) (w: Nat) (r: Nat) (hr: r < height) (n: Nat) (hn: n <= w):
-    (m: Maybe Nat) -> ColumnIn n m -> (below: Maybe (Nat, Nat)) -> StartIn height w below ->
-    StartIn height w (firstFound (Maybe.map (c => (r, c)) m) below)
-  | Nothing, hm, below, hb => hb
-  | Just c,  hm, below, hb => Both hr (Nat.leTrans (Succ c) n w hm hn)
+    (m: Option Nat) -> ColumnIn n m -> (below: Option (Nat, Nat)) -> StartIn height w below ->
+    StartIn height w (firstFound (Option.map (c => (r, c)) m) below)
+  | None, hm, below, hb => hb
+  | Some c,  hm, below, hb => Both hr (Nat.leTrans (Succ c) n w hm hn)
 
 theorem addOneLeft (r: Nat) (n: Nat): (r + 1) + n = Succ (r + n) := rewrite Nat.addOne r
 

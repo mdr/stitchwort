@@ -729,18 +729,18 @@ const $Std$dList$dmerge = (v1) => (v2) => (v3) => {
 const $Std$dList$dpushRun = (v1) => (v2) => (v3) => {
   switch (v3.tag) {
     case "Nil": {
-      return { tag: "Cons", head: { tag: "Just", value: v2 }, tail: { tag: "Nil" } };
+      return { tag: "Cons", head: { tag: "Some", value: v2 }, tail: { tag: "Nil" } };
     }
     case "Cons": {
       const v4 = v3.head;
       const v5 = v3.tail;
       switch (v4.tag) {
-        case "Nothing": {
-          return { tag: "Cons", head: { tag: "Just", value: v2 }, tail: v5 };
+        case "None": {
+          return { tag: "Cons", head: { tag: "Some", value: v2 }, tail: v5 };
         }
-        case "Just": {
+        case "Some": {
           const v6 = v4.value;
-          return { tag: "Cons", head: { tag: "Nothing" }, tail: $Std$dList$dpushRun(v1)($Std$dList$dmerge(v1)(v6)(v2))(v5) };
+          return { tag: "Cons", head: { tag: "None" }, tail: $Std$dList$dpushRun(v1)($Std$dList$dmerge(v1)(v6)(v2))(v5) };
         }
       }
       throw new Error("unreachable");
@@ -780,13 +780,13 @@ const $Std$dList$dmergeRuns = (v1) => (v2) => (v3) => {
         const v4 = v3.head;
         const v5 = v3.tail;
         switch (v4.tag) {
-          case "Nothing": {
+          case "None": {
             s1 = v1;
             s2 = v2;
             s3 = v5;
             continue;
           }
-          case "Just": {
+          case "Some": {
             const v6 = v4.value;
             s1 = v1;
             s2 = $Std$dList$dmerge(v1)(v6)(v2);

@@ -625,7 +625,7 @@ const $Main$dAbort$d$gelim = (v1) => (v2) => (v3) => {
 };
 const $Main$dallResults = (v0) => (v2) => $Std$dEffect$dfoldComp(((v3) => ({ tag: "Done", value: { tag: "Cons", head: v3, tail: { tag: "Nil" } } })))($Std$dEffect$dhandlePlus($Main$dChoose$d$gelim(((v3) => ((v4) => $Std$dEffect$dbind((v4)({ tag: "True" }))(((v5) => $Std$dEffect$dbind((v4)({ tag: "False" }))(((v6) => ({ tag: "Done", value: $Std$dList$dappend(v5)(v6) })))))))))(((v3) => ((v4) => ({ tag: "Call", o: $Std$dEffect$dsigInject($Std$dEffect$dsigId)(v3), rest: ((v5) => (v4)($Std$dEffect$dsigReply($Std$dEffect$dsigId)(v3)(v5))) })))))((v2)({ tag: "UnitValue" }));
 const $Main$drunState = (v1) => (v3) => (v4) => $Std$dEffect$dbind($Std$dEffect$dfoldComp(((v5) => ({ tag: "Done", value: ((v6) => ({ tag: "Done", value: { tag: "MkPair", fst: v5, snd: v6 } })) })))($Std$dEffect$dhandlePlus($Main$dState$d$gelim(((v5) => ((v6) => ({ tag: "Done", value: ((v7) => $Std$dEffect$dbind((v6)(v7))(((v8) => (v8)(v7)))) }))))(((v5) => ((v6) => ({ tag: "Done", value: ((v7) => $Std$dEffect$dbind((v6)({ tag: "UnitValue" }))(((v8) => (v8)(v5)))) })))))(((v5) => ((v6) => ({ tag: "Call", o: $Std$dEffect$dsigInject($Std$dEffect$dsigId)(v5), rest: ((v7) => (v6)($Std$dEffect$dsigReply($Std$dEffect$dsigId)(v5)(v7))) })))))((v4)({ tag: "UnitValue" })))(((v5) => (v5)(v3)));
-const $Main$dtoMaybe = (v0) => (v2) => $Std$dEffect$dfoldComp(((v3) => ({ tag: "Done", value: { tag: "Just", value: v3 } })))($Std$dEffect$dhandlePlus($Main$dAbort$d$gelim(((v3) => ((v4) => ({ tag: "Done", value: { tag: "Nothing" } })))))(((v3) => ((v4) => ({ tag: "Call", o: $Std$dEffect$dsigInject($Std$dEffect$dsigId)(v3), rest: ((v5) => (v4)($Std$dEffect$dsigReply($Std$dEffect$dsigId)(v3)(v5))) })))))((v2)({ tag: "UnitValue" }));
+const $Main$dtoOption = (v0) => (v2) => $Std$dEffect$dfoldComp(((v3) => ({ tag: "Done", value: { tag: "Some", value: v3 } })))($Std$dEffect$dhandlePlus($Main$dAbort$d$gelim(((v3) => ((v4) => ({ tag: "Done", value: { tag: "None" } })))))(((v3) => ((v4) => ({ tag: "Call", o: $Std$dEffect$dsigInject($Std$dEffect$dsigId)(v3), rest: ((v5) => (v4)($Std$dEffect$dsigReply($Std$dEffect$dsigId)(v3)(v5))) })))))((v2)({ tag: "UnitValue" }));
 const $Main$dsomeSum = (v0) => {
   switch (v0.tag) {
     case "Nil": {
@@ -652,17 +652,17 @@ const $Main$dcountUp = (v0) => $Std$dEffect$drunPure($Std$dEffect$dbind($Main$dr
 const $Main$dsafeDiv = (v0) => (v1) => $Std$dDecidable$delim($Std$dDecidable$dnot($Std$dNat$ddecEq(v1)(0n)))(((v2) => ({ tag: "Done", value: $Std$dNat$ddiv(v0)(v1) })))(((v2) => $Std$dEffect$dbind({ tag: "Call", o: { tag: "L", o: { tag: "%abort", x: { tag: "UnitValue" } } }, rest: ((v3) => ({ tag: "Done", value: v3 })) })(((v3) => ({ tag: "Done", value: $Main$dfromEmpty(v3) })))));
 const $Main$dorZero = (v0) => {
   switch (v0.tag) {
-    case "Nothing": {
+    case "None": {
       return 0n;
     }
-    case "Just": {
+    case "Some": {
       const v1 = v0.value;
       return v1;
     }
   }
   throw new Error("unreachable");
 };
-const $Main$ddivideOrZero = (v0) => (v1) => $Std$dEffect$drunPure($Std$dEffect$dbind($Main$dtoMaybe({ tag: "MkSig" })(((v2) => $Std$dEffect$dtranslate($Std$dEffect$dsigCase($Std$dEffect$dsigLeft)($Std$dEffect$dsigFromNo))($Main$dsafeDiv(v0)(v1)))))(((v2) => ({ tag: "Done", value: $Main$dorZero(v2) }))));
+const $Main$ddivideOrZero = (v0) => (v1) => $Std$dEffect$drunPure($Std$dEffect$dbind($Main$dtoOption({ tag: "MkSig" })(((v2) => $Std$dEffect$dtranslate($Std$dEffect$dsigCase($Std$dEffect$dsigLeft)($Std$dEffect$dsigFromNo))($Main$dsafeDiv(v0)(v1)))))(((v2) => ({ tag: "Done", value: $Main$dorZero(v2) }))));
 
 function $$subsetSums(arg0) {
   try {

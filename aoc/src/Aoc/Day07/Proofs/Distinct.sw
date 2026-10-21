@@ -64,25 +64,25 @@ theorem timelinesFromDistinct (r: Nat) (c: Nat): (lines: List Text) -> List.Dist
 
 -- No timeline of the particle from S is counted twice: the number part 2
 -- prints is the number of different timelines.
-def TimelinesDistinct: Maybe (List (List Hit)) -> Prop
-  | Nothing => Unit
-  | Just ts => List.Distinct ts
+def TimelinesDistinct: Option (List (List Hit)) -> Prop
+  | None => Unit
+  | Some ts => List.Distinct ts
 
 theorem timelinesDistinct (lines: List Text): TimelinesDistinct (timelines lines) :=
   match e: findStart lines with
-    | Nothing           => Trivial
-    | Just (MkPair r c) => timelinesFromDistinct (r + 1) c (List.drop (r + 1) lines)
+    | None           => Trivial
+    | Some (MkPair r c) => timelinesFromDistinct (r + 1) c (List.drop (r + 1) lines)
 
 -- Both together: what part 2 prints is the length of the spec's list of
 -- timelines, and that list has no repeats, so it is the number of different
 -- timelines.
-def CountsDistinct (answer: Maybe Nat): Maybe (List (List Hit)) -> Prop
-  | Nothing => answer = Nothing
-  | Just ts => And (answer = Just (List.length ts)) (List.Distinct ts)
+def CountsDistinct (answer: Option Nat): Option (List (List Hit)) -> Prop
+  | None => answer = None
+  | Some ts => And (answer = Some (List.length ts)) (List.Distinct ts)
 
-theorem part2Distinct (lines: List Text): CountsDistinct (Maybe.map solvePart2 (parseManifold lines)) (timelines lines) :=
+theorem part2Distinct (lines: List Text): CountsDistinct (Option.map solvePart2 (parseManifold lines)) (timelines lines) :=
   match e: findStart lines with
-    | Nothing           => rfl
-    | Just (MkPair r c) =>
-      Both (Eq.cong Just (countsAre (gridWidth lines) (List.drop (r + 1) lines) (belowFits lines r) (r + 1) c))
+    | None           => rfl
+    | Some (MkPair r c) =>
+      Both (Eq.cong Some (countsAre (gridWidth lines) (List.drop (r + 1) lines) (belowFits lines r) (r + 1) c))
            (timelinesFromDistinct (r + 1) c (List.drop (r + 1) lines))

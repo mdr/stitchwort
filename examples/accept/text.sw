@@ -25,9 +25,9 @@ test "not empty"         := not (" ".isEmpty)
 test "escapes"           := "\n\t\\\"\'".length == 5
 test "fold"              := "ab".fold (c n => Char.toNat c + n) 0 == 195
 
-def unconsCode: Maybe (Pair Char Text) -> Nat
-  | Nothing            => 0
-  | Just (MkPair c cs) => Char.toNat c
+def unconsCode: Option (Pair Char Text) -> Nat
+  | None            => 0
+  | Some (MkPair c cs) => Char.toNat c
 
 def firstChar (t: Text): Nat := unconsCode (t.uncons)
 
@@ -43,40 +43,40 @@ test "no-break space stays" := "\u{A0}x".trim == "\u{A0}x"
 test "ideographic space stays" := "\u{3000}".trim == "\u{3000}"
 
 -- Numbers.
-def justIs (n: Nat): Maybe Nat -> Bool
-  | Nothing => False
-  | Just m  => n == m
+def someIs (n: Nat): Option Nat -> Bool
+  | None => False
+  | Some m  => n == m
 
-def isNothing: Maybe a -> Bool
-  | Nothing => True
-  | Just x  => False
+def isNone: Option a -> Bool
+  | None => True
+  | Some x  => False
 
 test "natToText 0"       := Nat.toText 0 == "0"
 test "natToText 42"      := Nat.toText 42 == "42"
 test "natToText 10"      := Nat.toText 10 == "10"
 test "natToText big"     := Nat.toText 12345678901234567890 == "12345678901234567890"
-test "textToNat"         := justIs 42 ("42".toNat)
-test "leading zeros"     := justIs 7 ("007".toNat)
-test "zero"              := justIs 0 ("0".toNat)
-test "big"               := justIs 98765432109876543210 ("98765432109876543210".toNat)
-test "empty isn't a number"  := isNothing ("".toNat)
-test "no sign"           := isNothing ("+1".toNat)
-test "no minus"          := isNothing ("-1".toNat)
-test "no spaces"         := isNothing (" 1".toNat)
-test "no trailing space" := isNothing ("1 ".toNat)
-test "no separators"     := isNothing ("1,000".toNat)
-test "ASCII digits only" := isNothing ("\u{663}".toNat)
+test "textToNat"         := someIs 42 ("42".toNat)
+test "leading zeros"     := someIs 7 ("007".toNat)
+test "zero"              := someIs 0 ("0".toNat)
+test "big"               := someIs 98765432109876543210 ("98765432109876543210".toNat)
+test "empty isn't a number"  := isNone ("".toNat)
+test "no sign"           := isNone ("+1".toNat)
+test "no minus"          := isNone ("-1".toNat)
+test "no spaces"         := isNone (" 1".toNat)
+test "no trailing space" := isNone ("1 ".toNat)
+test "no separators"     := isNone ("1,000".toNat)
+test "ASCII digits only" := isNone ("\u{663}".toNat)
 
--- The law `Text.toNat (Nat.toText n) = Just n`, for every n up to 100 and
+-- The law `Text.toNat (Nat.toText n) = Some n`, for every n up to 100 and
 -- some larger ones. (Not much further: the evaluator recurses once per
 -- number, and isn't stack-safe yet.)
 def roundTrips: Nat -> Bool
-  | Zero   => justIs 0 ((Nat.toText 0).toNat)
-  | Succ n => if justIs (Succ n) ((Nat.toText (Succ n)).toNat) then roundTrips n else False
+  | Zero   => someIs 0 ((Nat.toText 0).toNat)
+  | Succ n => if someIs (Succ n) ((Nat.toText (Succ n)).toNat) then roundTrips n else False
 
 def allRoundTrip: List Nat -> Bool
   | Nil       => True
-  | Cons n ns => if justIs n ((Nat.toText n).toNat) then allRoundTrip ns else False
+  | Cons n ns => if someIs n ((Nat.toText n).toNat) then allRoundTrip ns else False
 
 test "natToText round trip" := roundTrips 100
 test "natToText round trip, larger" :=

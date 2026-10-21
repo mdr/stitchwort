@@ -385,11 +385,11 @@ theorem part1From (lines: List Text) (r: Nat) (c: Nat) (hr: r < List.length line
 
 -- Part 1 is right: for every input, the printed answer is the number of
 -- splitters some timeline of the particle from S reaches.
-theorem part1Correct (lines: List Text): Maybe.map solvePart1 (parseManifold lines) = part1Spec lines :=
+theorem part1Correct (lines: List Text): Option.map solvePart1 (parseManifold lines) = part1Spec lines :=
   let bounds: StartIn (List.length lines) (gridWidth lines) (findStart lines) := startBounds lines
   match e: findStart lines with
-    | Nothing           => rfl
-    | Just (MkPair r c) =>
+    | None           => rfl
+    | Some (MkPair r c) =>
       match bounds with
-        | Both hr hc => Eq.cong Just (part1From lines r c hr hc)
+        | Both hr hc => Eq.cong Some (part1From lines r c hr hc)
 

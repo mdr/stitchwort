@@ -4,9 +4,9 @@
 
 type Pair2 = { a: Text, b: Text }
 
-def orNone: Maybe Text -> Text
-  | Nothing => "none"
-  | Just t  => t
+def orNone: Option Text -> Text
+  | None => "none"
+  | Some t  => t
 
 def next(): {IO} Text := orNone (IO.readLine())
 

@@ -120,9 +120,9 @@ fn reading_matches_the_rust_runner() {
     let path = source_file(
         "reading.sw",
         r#"
-def show : Maybe Text -> Text
-  | Nothing => "<none>"
-  | Just t  => "[" ++ t ++ "]"
+def show : Option Text -> Text
+  | None => "<none>"
+  | Some t  => "[" ++ t ++ "]"
 
 def main () : {IO} () :=
   IO.print (show (IO.readLine ()))

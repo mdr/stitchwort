@@ -9,7 +9,7 @@ test "the other way" := Ord.compare Spades Hearts == Greater
 test "equal" := Ord.compare Hearts Hearts == Equal
 test "sort" := List.sort [Spades, Clubs, Hearts, Diamonds, Clubs] == [Clubs, Clubs, Diamonds, Hearts, Spades]
 test "max" := Ord.max Diamonds Hearts == Hearts
-test "maximum" := List.maximum [Diamonds, Spades, Clubs] == Just Spades
+test "maximum" := List.maximum [Diamonds, Spades, Clubs] == Some Spades
 
 -- The laws are the instance's, for any suits.
 theorem suitSelf (s: Suit): Ord.compare s s = Equal := Ord.compareSelf s

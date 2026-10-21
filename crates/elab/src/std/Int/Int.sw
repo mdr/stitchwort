@@ -5,7 +5,7 @@
 
 -- Lemmas (checkpoint 1)
 
-theorem Int.toNatCheckedToInt (n: Nat): Int.toNatChecked (Nat.toInt n) = Just n := rfl
+theorem Int.toNatCheckedToInt (n: Nat): Int.toNatChecked (Nat.toInt n) = Some n := rfl
 
 theorem Int.negNeg: (x: Int) -> Int.neg (Int.neg x) = x
   | OfNat Zero     => rfl

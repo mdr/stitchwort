@@ -9,24 +9,24 @@
 -- checks that adder.sw prints the same, for input within the bound.
 
 -- The text, or a default at end of input.
-def textOr (d: Text): Maybe Text -> Text
-  | Nothing => d
-  | Just t  => t
+def textOr (d: Text): Option Text -> Text
+  | None => d
+  | Some t  => t
 
 -- Reports a line that should be a number, and goes on with the new total.
-def stepNumber (total: Nat) (l: Text): Maybe Nat -> (Nat -> {IO} Nat) -> {IO} Nat
-  | Nothing, more =>
+def stepNumber (total: Nat) (l: Text): Option Nat -> (Nat -> {IO} Nat) -> {IO} Nat
+  | None, more =>
     IO.print ("\"" ++ l ++ "\" isn't a number; skipped")
     more total
-  | Just n,  more =>
+  | Some n,  more =>
     IO.print ("  total: " ++ Nat.toText (total + n))
     more (total + n)
 
 -- What to do with a line, given the total so far. An empty line, or the end
 -- of input, stops.
-def step (total: Nat): Maybe Text -> (Nat -> {IO} Nat) -> {IO} Nat
-  | Nothing, more => total
-  | Just l,  more =>
+def step (total: Nat): Option Text -> (Nat -> {IO} Nat) -> {IO} Nat
+  | None, more => total
+  | Some l,  more =>
     if l.isEmpty then total else stepNumber total l ((l.trim).toNat) more
 
 -- Adds the numbers on at most this many more lines. The bound keeps the

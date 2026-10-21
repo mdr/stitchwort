@@ -16,7 +16,7 @@ test "equal" := Ord.compare tea { name = "tea", price = 3 } == Equal
 def items: List Item := [tea, jam, cheapJam]
 
 test "sort" := List.sort items == [cheapJam, jam, tea]
-test "minimum" := List.minimum items == Just cheapJam
+test "minimum" := List.minimum items == Some cheapJam
 
 -- The introduction's `Dial`: a value parameter, and a proof field, which is
 -- left out. Dials are ordered by `position`.
@@ -30,9 +30,9 @@ test "dials sorted" := List.sort [dial7, dial3] == [dial3, dial7]
 test "dial max" := Ord.max dial3 dial7 == dial7
 
 -- A record with no data fields has one value.
-type Nothing2 = { same: 1 = 1 }
+type None2 = { same: 1 = 1 }
 
-test "no data" := Ord.compare ({ same = rfl }: Nothing2) { same = rfl } == Equal
+test "no data" := Ord.compare ({ same = rfl }: None2) { same = rfl } == Equal
 
 -- A record whose fields are lists and pairs.
 type Score = { names: List Text, best: (Nat, Text) }

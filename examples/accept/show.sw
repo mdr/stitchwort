@@ -38,10 +38,10 @@ test "empty list" := "${([]: List Nat)}" == "[]"
 test "nested lists" := "${[[1, 2], [3]]}" == "[[1, 2], [3]]"
 test "pair" := "${("x", 1)}" == "(\"x\", 1)"
 test "triple" := "${(1, 'c', "s")}" == "(1, ('c', \"s\"))"
-test "maybe" := "${Just "a"} ${(Nothing: Maybe Nat)}" == "Just \"a\" Nothing"
-test "maybe nested" := "${Just (Just 1)}" == "Just (Just 1)"
-test "maybe negative" := "${Just (-5)}" == "Just (-5)"
-test "maybe list" := "${Just [1, 2]}" == "Just [1, 2]"
+test "maybe" := "${Some "a"} ${(None: Option Nat)}" == "Some \"a\" None"
+test "maybe nested" := "${Some (Some 1)}" == "Some (Some 1)"
+test "maybe negative" := "${Some (-5)}" == "Some (-5)"
+test "maybe list" := "${Some [1, 2]}" == "Some [1, 2]"
 
 -- Escapes, as in a literal.
 test "escapes" := "${["a\"b\n\\"]}" == "[\"a\\\"b\\n\\\\\"]"
@@ -57,7 +57,7 @@ test "parameter" := "${Node Leaf "a" Leaf}" == "Node Leaf \"a\" Leaf"
 test "record" := "${item}" == "{ name = \"tea\", price = 3 }"
 test "record in a list" := "${[item]}" == "[{ name = \"tea\", price = 3 }]"
 test "generic record" := "${({ first = "a", second = 1 }: Pair2 Text Nat)}" == "{ first = \"a\", second = 1 }"
-test "record in a constructor" := "${Just item}" == "Just { name = \"tea\", price = 3 }"
+test "record in a constructor" := "${Some item}" == "Some { name = \"tea\", price = 3 }"
 
 -- The module's own instance.
 test "own instance" := "${({ x = 1, y = 2 }: Point)}" == "(1, 2)"

@@ -2,12 +2,12 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-LET-REFUTABLE] Error: this pattern doesn't match every `(Maybe Nat, Nat)`: it doesn't match `Nothing`
+[E-LET-REFUTABLE] Error: this pattern doesn't match every `(Option Nat, Nat)`: it doesn't match `None`
    ╭─[ reject/let-refutable-nested.sw:4:7 ]
    │
- 4 │   let (Just a, b) := p
+ 4 │   let (Some a, b) := p
    │       ─────┬─────  
-   │            ╰─────── doesn't match `Nothing`
+   │            ╰─────── doesn't match `None`
    │ 
    │ Note: use `match` to say what happens otherwise
 ───╯

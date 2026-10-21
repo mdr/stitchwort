@@ -63,13 +63,13 @@ theorem List.sumByInts: List.sumBy (x => Int.sub 1 x) [1, 2, 3] = -3 := rfl
 -- The product of the elements, of any type with `Mul`.
 def List.product [auto mul: Mul a] (xs: List a): a := List.foldLeft Mul.mul Mul.one xs
 
-def List.maximum [auto ord: Ord a]: List a -> Maybe a
-  | Nil       => Nothing
-  | Cons x xs => Just (List.foldLeft Ord.max x xs)
+def List.maximum [auto ord: Ord a]: List a -> Option a
+  | Nil       => None
+  | Cons x xs => Some (List.foldLeft Ord.max x xs)
 
-def List.minimum [auto ord: Ord a]: List a -> Maybe a
-  | Nil       => Nothing
-  | Cons x xs => Just (List.foldLeft Ord.min x xs)
+def List.minimum [auto ord: Ord a]: List a -> Option a
+  | Nil       => None
+  | Cons x xs => Some (List.foldLeft Ord.min x xs)
 
 -- Pairs up to the shorter list's length.
 def List.zip: List a -> List b -> List (Pair a b)
@@ -102,9 +102,9 @@ def List.drop: Nat -> List a -> List a
   | Succ n, Cons x xs => List.drop n xs
 
 -- The element at index i, counting from 0.
-def List.get: Nat -> List a -> Maybe a
-  | i,      Nil       => Nothing
-  | Zero,   Cons x xs => Just x
+def List.get: Nat -> List a -> Option a
+  | i,      Nil       => None
+  | Zero,   Cons x xs => Some x
   | Succ i, Cons x xs => List.get i xs
 
 def List.any (p: a -> Bool): List a -> Bool
@@ -127,18 +127,18 @@ def Nat.succIf (n: Nat): Bool -> Nat
 def List.count (p: a -> Bool) (xs: List a): Nat := List.foldLeft (n x => Nat.succIf n (p x)) 0 xs
 
 -- The first element satisfying `p`.
-def List.find (p: a -> Bool): List a -> Maybe a
-  | Nil       => Nothing
-  | Cons x xs => if p x then Just x else List.find p xs
+def List.find (p: a -> Bool): List a -> Option a
+  | Nil       => None
+  | Cons x xs => if p x then Some x else List.find p xs
 
-def List.consJust: Maybe b -> List b -> List b
-  | Nothing, rest => rest
-  | Just y,  rest => Cons y rest
+def List.consSome: Option b -> List b -> List b
+  | None, rest => rest
+  | Some y,  rest => Cons y rest
 
--- Keeps the `Just` results, in order.
-def List.mapMaybe (f: a -> Maybe b): List a -> List b
+-- Keeps the `Some` results, in order.
+def List.filterMap (f: a -> Option b): List a -> List b
   | Nil       => Nil
-  | Cons x xs => List.consJust (f x) (List.mapMaybe f xs)
+  | Cons x xs => List.consSome (f x) (List.filterMap f xs)
 
 -- Joins a list of lists.
 def List.concat: List (List a) -> List a
@@ -165,19 +165,19 @@ def List.range (n: Nat): List Nat := List.rangeFrom n 0
 
 def List.reverse (xs: List a): List a := List.reverseOnto xs Nil
 
-def List.last: List a -> Maybe a
-  | Nil                => Nothing
-  | Cons x Nil         => Just x
+def List.last: List a -> Option a
+  | Nil                => None
+  | Cons x Nil         => Some x
   | Cons x (Cons y ys) => List.last (Cons y ys)
 
--- The first element, or `Nothing` for an empty list.
-def List.head: List a -> Maybe a
-  | Nil       => Nothing
-  | Cons x xs => Just x
+-- The first element, or `None` for an empty list.
+def List.head: List a -> Option a
+  | Nil       => None
+  | Cons x xs => Some x
 
-theorem List.headExample: List.head [3, 4] = Just 3 := rfl
+theorem List.headExample: List.head [3, 4] = Some 3 := rfl
 
-theorem List.headEmpty: List.head (Nil: List Nat) = Nothing := rfl
+theorem List.headEmpty: List.head (Nil: List Nat) = None := rfl
 
 -- All but the last element (`Nil` for an empty list).
 def List.init: List a -> List a
@@ -198,9 +198,9 @@ def List.elem (d: (x: a) -> (y: a) -> Decidable (x = y)) (z: a): List a -> Bool
 def List.partition (p: a -> Bool) (xs: List a): Pair (List a) (List a) := MkPair (List.filter p xs) (List.filter (x => Bool.not (p x)) xs)
 
 -- The value for the first pair whose key is equal, given a decision for equality.
-def List.lookup (d: (x: k) -> (y: k) -> Decidable (x = y)) (key: k): List (Pair k v) -> Maybe v
-  | Nil                    => Nothing
-  | Cons (MkPair k v) rest => if Decidable.toBool (d key k) then Just v else List.lookup d key rest
+def List.lookup (d: (x: k) -> (y: k) -> Decidable (x = y)) (key: k): List (Pair k v) -> Option v
+  | Nil                    => None
+  | Cons (MkPair k v) rest => if Decidable.toBool (d key k) then Some v else List.lookup d key rest
 
 -- `List.padRight n x xs` is `xs` followed by enough copies of `x` to make it
 -- n long (it is `xs` itself when that is already n long or longer).
@@ -221,7 +221,7 @@ theorem List.padRightLength (n: Nat) (x: a) (xs: List a) (h: List.length xs <= n
 -- is the i-th element of each row that has one.
 def List.transposeN: Nat -> List (List a) -> List (List a)
   | Zero,   rows => Nil
-  | Succ n, rows => Cons (List.mapMaybe (List.get 0) rows) (List.transposeN n (List.map (List.drop 1) rows))
+  | Succ n, rows => Cons (List.filterMap (List.get 0) rows) (List.transposeN n (List.map (List.drop 1) rows))
 
 -- Swaps rows and columns: the columns of a list of rows, as many as the first
 -- row is long. For rows that are all the same length, the cell at row r and
@@ -241,7 +241,7 @@ theorem List.lengthMap (f: a -> b): (xs: List a) -> List.length (List.map f xs) 
 
 theorem List.transposeExample: List.transpose [[1, 2, 3], [4, 5, 6]] = [[1, 4], [2, 5], [3, 6]] := rfl
 
-theorem List.transposeNothing: List.transpose (Nil: List (List Nat)) = Nil := rfl
+theorem List.transposeNone: List.transpose (Nil: List (List Nat)) = Nil := rfl
 
 theorem List.transposeShortRow: List.transpose [[1, 2], [3], [4, 5]] = [[1, 3, 4], [2, 5]] := rfl
 
@@ -322,13 +322,13 @@ theorem List.tailsAllLength (k: Nat): (rows: List (List a)) -> List.AllLength (S
   | Cons (Cons y ys) rs, Both hr hrs => Both (Nat.succInjective (List.length ys) k hr) (List.tailsAllLength k rs hrs)
 
 theorem List.headsLength (k: Nat): (rows: List (List a)) -> List.AllLength (Succ k) rows ->
-    List.length (List.mapMaybe (List.get 0) rows) = List.length rows
+    List.length (List.filterMap (List.get 0) rows) = List.length rows
   | Nil,              hr          => rfl
   | Cons Nil rs,      Both hr hrs => Void.exfalso (Nat.zeroNotSucc k hr)
   | Cons (Cons y ys) rs, Both hr hrs => Eq.cong Succ (List.headsLength k rs hrs)
 
 theorem List.rowsAreHeadsAndTails (k: Nat): (rows: List (List a)) -> List.AllLength (Succ k) rows ->
-    rows = List.zipWith Cons (List.mapMaybe (List.get 0) rows) (List.map (List.drop 1) rows)
+    rows = List.zipWith Cons (List.filterMap (List.get 0) rows) (List.map (List.drop 1) rows)
   | Nil,              hr          => rfl
   | Cons Nil rs,      Both hr hrs => Void.exfalso (Nat.zeroNotSucc k hr)
   | Cons (Cons y ys) rs, Both hr hrs => Eq.cong (Cons (Cons y ys)) (List.rowsAreHeadsAndTails k rs hrs)
@@ -346,7 +346,7 @@ theorem List.transposeNCons: (h: Nat) -> (heads: List a) -> (cols: List (List a)
   | Zero,   Cons x xs,  cols, hl, hc => Void.exfalso (Nat.succNotZero (List.length xs) hl)
   | Succ m, Nil,        cols, hl, hc => Void.exfalso (Nat.zeroNotSucc m hl)
   | Succ m, Cons x xs,  cols, hl, hc =>
-    Eq.cong (Cons (Cons x (List.mapMaybe (List.get 0) cols)))
+    Eq.cong (Cons (Cons x (List.filterMap (List.get 0) cols)))
       (List.transposeNCons m xs (List.map (List.drop 1) cols) (Nat.succInjective (List.length xs) m hl) (List.tailsAllLength m cols hc))
 
 theorem List.transposeNTwice: (w: Nat) -> (h: Nat) -> (rows: List (List a)) -> List.length rows = h -> List.AllLength w rows ->
@@ -354,11 +354,11 @@ theorem List.transposeNTwice: (w: Nat) -> (h: Nat) -> (rows: List (List a)) -> L
   | Zero,   h, rows, hl, hr => Eq.trans (List.transposeNNil h) (Eq.sym (List.allLengthZero rows h hl hr))
   | Succ k, h, rows, hl, hr =>
     Eq.trans
-      (List.transposeNCons h (List.mapMaybe (List.get 0) rows) (List.transposeN k (List.map (List.drop 1) rows))
+      (List.transposeNCons h (List.filterMap (List.get 0) rows) (List.transposeN k (List.map (List.drop 1) rows))
         (Eq.trans (List.headsLength k rows hr) hl)
         (List.columnsAllLength k (List.map (List.drop 1) rows) h (Eq.trans (List.lengthMap (List.drop 1) rows) hl) (List.tailsAllLength k rows hr)))
       (Eq.trans
-        (Eq.cong (List.zipWith Cons (List.mapMaybe (List.get 0) rows))
+        (Eq.cong (List.zipWith Cons (List.filterMap (List.get 0) rows))
           (List.transposeNTwice k h (List.map (List.drop 1) rows) (Eq.trans (List.lengthMap (List.drop 1) rows) hl) (List.tailsAllLength k rows hr)))
         (Eq.sym (List.rowsAreHeadsAndTails k rows hr)))
 
@@ -558,7 +558,7 @@ def List.Subsequence: List a -> List a -> Prop
   | Cons x xs, Nil       => Void
   | Cons x xs, Cons y ys => Or (And (x = y) (List.Subsequence xs ys)) (List.Subsequence (Cons x xs) ys)
 
--- Lemmas for proofs about grids: runs' lengths, `map` and `mapMaybe` fused,
+-- Lemmas for proofs about grids: runs' lengths, `map` and `filterMap` fused,
 -- `init`, `last` and `reverse` of a `map`, and transposing a grid given cell
 -- by cell.
 theorem List.lengthRangeFrom: (n: Nat) -> (s: Nat) -> List.length (List.rangeFrom n s) = n
@@ -569,28 +569,28 @@ theorem List.mapMap (f: b -> c) (g: a -> b): (xs: List a) -> List.map f (List.ma
   | Nil       => rfl
   | Cons x xs => rewrite List.mapMap f g xs
 
-theorem List.mapMaybeMap (f: b -> Maybe c) (g: a -> b): (xs: List a) -> List.mapMaybe f (List.map g xs) = List.mapMaybe (x => f (g x)) xs
+theorem List.filterMapMap (f: b -> Option c) (g: a -> b): (xs: List a) -> List.filterMap f (List.map g xs) = List.filterMap (x => f (g x)) xs
   | Nil       => rfl
-  | Cons x xs => rewrite List.mapMaybeMap f g xs
+  | Cons x xs => rewrite List.filterMapMap f g xs
 
-theorem List.mapMaybeJust (f: a -> b): (xs: List a) -> List.mapMaybe (x => Just (f x)) xs = List.map f xs
+theorem List.filterMapSome (f: a -> b): (xs: List a) -> List.filterMap (x => Some (f x)) xs = List.map f xs
   | Nil       => rfl
-  | Cons x xs => rewrite List.mapMaybeJust f xs
+  | Cons x xs => rewrite List.filterMapSome f xs
 
-theorem List.mapMaybeAppend (f: a -> Maybe b): (xs: List a) -> (ys: List a) ->
-    List.mapMaybe f (List.append xs ys) = List.append (List.mapMaybe f xs) (List.mapMaybe f ys)
+theorem List.filterMapAppend (f: a -> Option b): (xs: List a) -> (ys: List a) ->
+    List.filterMap f (List.append xs ys) = List.append (List.filterMap f xs) (List.filterMap f ys)
   | Nil,       ys => rfl
   | Cons x xs, ys =>
     match f x with
-      | Nothing => List.mapMaybeAppend f xs ys
-      | Just y  => rewrite List.mapMaybeAppend f xs ys
+      | None => List.filterMapAppend f xs ys
+      | Some y  => rewrite List.filterMapAppend f xs ys
 
 theorem List.initMap (f: a -> b): (xs: List a) -> List.init (List.map f xs) = List.map f (List.init xs)
   | Nil                => rfl
   | Cons x Nil         => rfl
   | Cons x (Cons y ys) => rewrite List.initMap f (Cons y ys)
 
-theorem List.lastMap (f: a -> b): (xs: List a) -> List.last (List.map f xs) = Maybe.map f (List.last xs)
+theorem List.lastMap (f: a -> b): (xs: List a) -> List.last (List.map f xs) = Option.map f (List.last xs)
   | Nil                => rfl
   | Cons x Nil         => rfl
   | Cons x (Cons y ys) => List.lastMap f (Cons y ys)
@@ -605,13 +605,13 @@ theorem List.transposeNGrid (cell: a -> b -> c) (rows: List a): (cols: List b) -
   | Nil         => rfl
   | Cons y cols =>
     calc List.transposeN (Succ (List.length cols)) (List.map (x => List.map (cell x) (Cons y cols)) rows)
-      _ = Cons (List.mapMaybe (List.get 0) (List.map (x => List.map (cell x) (Cons y cols)) rows))
+      _ = Cons (List.filterMap (List.get 0) (List.map (x => List.map (cell x) (Cons y cols)) rows))
                (List.transposeN (List.length cols) (List.map (List.drop 1) (List.map (x => List.map (cell x) (Cons y cols)) rows)))
-      _ = Cons (List.mapMaybe (x => Just (cell x y)) rows) (List.transposeN (List.length cols) (List.map (x => List.map (cell x) cols) rows))
-          := rewrite List.mapMaybeMap (List.get 0) (x => List.map (cell x) (Cons y cols)) rows,
+      _ = Cons (List.filterMap (x => Some (cell x y)) rows) (List.transposeN (List.length cols) (List.map (x => List.map (cell x) cols) rows))
+          := rewrite List.filterMapMap (List.get 0) (x => List.map (cell x) (Cons y cols)) rows,
                      List.mapMap (List.drop 1) (x => List.map (cell x) (Cons y cols)) rows
       _ = Cons (List.map (x => cell x y) rows) (List.map (z => List.map (x => cell x z) rows) cols)
-          := rewrite List.mapMaybeJust (x => cell x y) rows, List.transposeNGrid cell rows cols
+          := rewrite List.filterMapSome (x => cell x y) rows, List.transposeNGrid cell rows cols
 
 theorem List.transposeGrid (cell: a -> b -> c) (r: a) (rows: List a) (cols: List b):
     List.transpose (List.map (x => List.map (cell x) cols) (Cons r rows)) = List.map (y => List.map (x => cell x y) (Cons r rows)) cols :=
@@ -627,13 +627,13 @@ theorem List.mapReverseOnto (f: a -> b): (xs: List a) -> (acc: List a) ->
 
 theorem List.mapReverse (f: a -> b) (xs: List a): List.map f (List.reverse xs) = List.reverse (List.map f xs) := List.mapReverseOnto f xs Nil
 
-theorem List.mapMaybeCongr (f: a -> Maybe b) (g: a -> Maybe b) (h: (x: a) -> f x = g x): (xs: List a) -> List.mapMaybe f xs = List.mapMaybe g xs
+theorem List.filterMapCongr (f: a -> Option b) (g: a -> Option b) (h: (x: a) -> f x = g x): (xs: List a) -> List.filterMap f xs = List.filterMap g xs
   | Nil       => rfl
-  | Cons x xs => rewrite h x, List.mapMaybeCongr f g h xs
+  | Cons x xs => rewrite h x, List.filterMapCongr f g h xs
 
-theorem Maybe.andThenMap (g: b -> Maybe c) (f: a -> b): (m: Maybe a) -> Maybe.andThen g (Maybe.map f m) = Maybe.andThen (x => g (f x)) m
-  | Nothing => rfl
-  | Just x  => rfl
+theorem Option.flatMapMap (g: b -> Option c) (f: a -> b): (m: Option a) -> Option.flatMap g (Option.map f m) = Option.flatMap (x => g (f x)) m
+  | None => rfl
+  | Some x  => rfl
 
 theorem List.lengthZipWith3 (f: a -> b -> c -> e): (xs: List a) -> (ys: List b) -> (zs: List c) ->
     List.length ys = List.length xs -> List.length zs = List.length xs -> List.length (List.zipWith3 f xs ys zs) = List.length xs

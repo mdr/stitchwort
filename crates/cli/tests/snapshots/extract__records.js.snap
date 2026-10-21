@@ -396,7 +396,7 @@ const encode = (t, v) => {
 };
 
 const info$Main$dPerson = datatype("Person");
-const info$Std$dMaybe = datatype("Maybe");
+const info$Std$dOption = datatype("Option");
 const info$Main$dWeird = datatype("Weird");
 const info$Main$dBox = datatype("Box");
 const info$Main$dSortedList = datatype("SortedList");
@@ -406,9 +406,9 @@ define(info$Main$dPerson, [
   ["%mk", [["name", TEXT], ["age", NAT]]],
 ], true, [
 ]);
-define(info$Std$dMaybe, [
-  ["Nothing", []],
-  ["Just", [["value", param(0)]]],
+define(info$Std$dOption, [
+  ["None", []],
+  ["Some", [["value", param(0)]]],
 ]);
 define(info$Main$dWeird, [
   ["%mk", [["tag", TEXT], ["$__proto__", NAT], ["constructor", NAT], ["x$", NAT]]],
@@ -519,12 +519,12 @@ const $Main$doldestFrom = (v0) => (v1) => {
 const $Main$doldest = (v0) => {
   switch (v0.tag) {
     case "Nil": {
-      return { tag: "Nothing" };
+      return { tag: "None" };
     }
     case "Cons": {
       const v1 = v0.head;
       const v2 = v0.tail;
-      return { tag: "Just", value: $Main$doldestFrom(v1)(v2) };
+      return { tag: "Some", value: $Main$doldestFrom(v1)(v2) };
     }
   }
   throw new Error("unreachable");
@@ -596,17 +596,17 @@ const $Main$disSorted = (v0) => {
   }
 };
 const $Main$ddecIsSorted = (v0) => $Std$dBool$ddecTrue($Main$disSorted(v0));
-const $Main$dsorted = (v0) => $Std$dDecidable$delim($Main$ddecIsSorted(v0))(((v1) => ({ tag: "Just", value: { items: v0 } })))(((v1) => ({ tag: "Nothing" })));
+const $Main$dsorted = (v0) => $Std$dDecidable$delim($Main$ddecIsSorted(v0))(((v1) => ({ tag: "Some", value: { items: v0 } })))(((v1) => ({ tag: "None" })));
 const $Main$dsmallest = (v0) => {
   const v1 = v0.items;
   switch (v1.tag) {
     case "Nil": {
-      return { tag: "Nothing" };
+      return { tag: "None" };
     }
     case "Cons": {
       const v3 = v1.head;
       const v4 = v1.tail;
-      return { tag: "Just", value: v3 };
+      return { tag: "Some", value: v3 };
     }
   }
   throw new Error("unreachable");
@@ -660,7 +660,7 @@ function $$rename(arg0, arg1) {
 function $$oldest(arg0) {
   try {
     const v0 = decode(list(data(info$Main$dPerson)), arg0, "arg0");
-    return encode(data(info$Std$dMaybe, [data(info$Main$dPerson)]), $Main$doldest(v0));
+    return encode(data(info$Std$dOption, [data(info$Main$dPerson)]), $Main$doldest(v0));
   } catch (e) {
     throw outOfResources("oldest", e);
   }
@@ -687,7 +687,7 @@ function $$unbox(arg0) {
 function $$sorted(arg0) {
   try {
     const v0 = decode(list(NAT), arg0, "xs");
-    return encode(data(info$Std$dMaybe, [data(info$Main$dSortedList)]), $Main$dsorted(v0));
+    return encode(data(info$Std$dOption, [data(info$Main$dSortedList)]), $Main$dsorted(v0));
   } catch (e) {
     throw outOfResources("sorted", e);
   }
@@ -696,7 +696,7 @@ function $$sorted(arg0) {
 function $$smallest(arg0) {
   try {
     const v0 = decode(data(info$Main$dSortedList), arg0, "arg0");
-    return encode(data(info$Std$dMaybe, [NAT]), $Main$dsmallest(v0));
+    return encode(data(info$Std$dOption, [NAT]), $Main$dsmallest(v0));
   } catch (e) {
     throw outOfResources("smallest", e);
   }

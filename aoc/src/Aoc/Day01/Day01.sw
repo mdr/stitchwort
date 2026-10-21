@@ -17,7 +17,7 @@ def main(): {IO} () :=
   IO.print "Part 1: ${solvePart1 turns}"
   IO.print "Part 2: ${solvePart2 turns}"
 
-def parseTurns (lines: List Text): List Turn := lines.mapMaybe Turn.parse
+def parseTurns (lines: List Text): List Turn := lines.filterMap Turn.parse
 
 def solvePart1 (turns: List Turn): Nat := zerosLandedOn dial turns
 
@@ -49,17 +49,17 @@ type Turn =
   | Right (distance: Nat)
 
 -- "L68" is `Left 68`.
-def Turn.parse (t: Text): Maybe Turn :=
+def Turn.parse (t: Text): Option Turn :=
   match t.uncons with
-    | Just ('L', rest) => rest.toNat.map Left
-    | Just ('R', rest) => rest.toNat.map Right
-    | _                => Nothing
+    | Some ('L', rest) => rest.toNat.map Left
+    | Some ('R', rest) => rest.toNat.map Right
+    | _                => None
 
-def after (t: Text): Maybe Nat := (Turn.parse t).map (turn => (dial.move turn).position)
+def after (t: Text): Option Nat := (Turn.parse t).map (turn => (dial.move turn).position)
 
-test "parse" := after "L68" == Just 82
-test "parse right" := after "R5" == Just 55
-test "parse junk" := after "X5" == Nothing
+test "parse" := after "L68" == Some 82
+test "parse right" := after "R5" == Some 55
+test "parse junk" := after "X5" == None
 
 -- A turn, one click at a time: `Left 3` is three `Left 1`s. Only the
 -- specification of part 2 and its proofs (`Aoc.Day01.Proofs`) use it; it stays

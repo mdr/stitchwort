@@ -10,7 +10,7 @@ theorem negLit: (-5: Int) = NegSucc 4 := rfl
 theorem negZero: (-0: Int) = OfNat 0 := rfl
 
 -- Expected types reach literals inside constructors and lists.
-theorem inJust: (Just 5: Maybe Int) = Just (OfNat 5) := rfl
+theorem inSome: (Some 5: Option Int) = Some (OfNat 5) := rfl
 
 theorem inList: ([1, 2, -3]: List Int) = [OfNat 1, OfNat 2, NegSucc 2] := rfl
 
@@ -65,7 +65,7 @@ def pick (c: Bool) (i: Int): Int := (if c then 1 else 2) + i
 
 def dialOf (pos: Int): Int := pos % 100
 
-def justFive (m: Maybe Int): Prop := Just 5 = m
+def someFive (m: Option Int): Prop := Some 5 = m
 
 def empty (xs: List Int): Prop := xs = []
 

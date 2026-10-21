@@ -160,13 +160,13 @@ def runState (s: Nat): Comp StateOp StateRes a -> Pair a Nat
   | Call Get rest     => runState s (rest s)
   | Call (Put n) rest => runState n (rest MkUnit)
 
-def toMaybe: Comp AbortOp AbortRes a -> Maybe a
-  | Done x          => Just x
-  | Call Abort rest => Nothing
+def toOption: Comp AbortOp AbortRes a -> Option a
+  | Done x          => Some x
+  | Call Abort rest => None
 
-def fromJustNil: Maybe (List a) -> List a
-  | Nothing => Nil
-  | Just xs => xs
+def fromSomeNil: Option (List a) -> List a
+  | None => Nil
+  | Some xs => xs
 
 -- `runStateL` with `e = Choose`.
 def stateThenChoice: List (Pair Nat Nat) := allResults (runStateL 0 p)
@@ -190,7 +190,7 @@ def replySCA: (o: Plus StateOp ChooseOp) -> SCARes (intoSCA o) -> PlusRes StateR
 def pWider: Comp SCA SCARes Nat := translate (MkSigMap intoSCA replySCA) p
 
 test "the same handler, with a wider rest of the row" :=
-  eqPairs (fromJustNil (toMaybe (allResultsL (runStateL 0 pWider)))) stateThenChoice
+  eqPairs (fromSomeNil (toOption (allResultsL (runStateL 0 pWider)))) stateThenChoice
 
 -- Handling `Choose` when it's on the left instead: swap the program, then
 -- use `allResultsL` with `e = State`. Choice inside, state outside.

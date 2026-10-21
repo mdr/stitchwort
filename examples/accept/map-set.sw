@@ -30,11 +30,11 @@ test "membership" := (visited "RD").contains (1, 1) && not ((visited "RD").conta
 
 -- Removing and altering.
 test "remove" := (wordCounts ["a", "b"] |> Map.remove "a").keys == ["b"]
-test "alter" := (wordCounts ["a"] |> Map.alter (n => Just (Maybe.withDefault 0 n + 5)) "a").get "a" == Just 6
+test "alter" := (wordCounts ["a"] |> Map.alter (n => Some (Option.getOrElse 0 n + 5)) "a").get "a" == Some 6
 test "show" := "${wordCounts ["x", "x"]}" == "Map.fromList [(\"x\", 2)]" && "${Set.fromList [2, 1]}" == "Set.fromList [1, 2]"
 
 -- What `get` says after `insert`, from the library's theorems, for any map.
-theorem afterTwo (m: Map Nat Text): (m |> Map.insert 1 "a" |> Map.insert 2 "b" |> Map.get 1) = Just "a" :=
+theorem afterTwo (m: Map Nat Text): (m |> Map.insert 1 "a" |> Map.insert 2 "b" |> Map.get 1) = Some "a" :=
   Eq.trans (Map.getInsertOther 2 "b" 1 (Nat.equalFalse 1 2 rfl) (Map.insert 1 "a" m)) (Map.getInsert 1 "a" m)
 
 -- The ordering is part of the type (§7.5).
@@ -94,4 +94,4 @@ def stored: Map Nat (Nat -> Nat) :=
   match runState Map.empty (u => functions) with
     | (_, m) => m
 
-test "functions as state" := stored.keys == [1] && Maybe.map (f => f 2) (stored.get 1) == Just 3
+test "functions as state" := stored.keys == [1] && Option.map (f => f 2) (stored.get 1) == Some 3

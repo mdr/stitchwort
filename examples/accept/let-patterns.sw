@@ -94,15 +94,15 @@ def sumForestLifted: Forest -> Nat
   | FCons t ts => sumTreeLifted t + sumForestLifted ts
 
 -- Effects: the right-hand side runs once, before the rest of the block.
-def readTwo(): {IO} (Maybe Text, Maybe Text) :=
+def readTwo(): {IO} (Option Text, Option Text) :=
   let a := IO.readLine()
   let b := IO.readLine()
   (a, b)
 
 def swapLines(): {IO} Nat :=
   let (a, b) := readTwo()
-  IO.print (Maybe.withDefault "" b)
-  IO.print (Maybe.withDefault "" a)
+  IO.print (Option.getOrElse "" b)
+  IO.print (Option.getOrElse "" a)
   let (n, m) := (1, 2)
   IO.print "done"
   n + m

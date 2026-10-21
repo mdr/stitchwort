@@ -12,13 +12,13 @@ def printed (r: Pair (List Text) a): List Text := Pair.fst r
 
 def result (r: Pair (List Text) a): a := Pair.snd r
 
-def isJustText (t: Text): Maybe Text -> Bool
-  | Nothing => False
-  | Just u  => t == u
+def isSomeText (t: Text): Option Text -> Bool
+  | None => False
+  | Some u  => t == u
 
-def isNothing: Maybe a -> Bool
-  | Nothing => True
-  | Just x  => False
+def isNone: Option a -> Bool
+  | None => True
+  | Some x  => False
 
 -- Printing
 
@@ -41,39 +41,39 @@ test "an empty payload is an entry" :=
 
 -- Reading
 
-test "an empty line is Just \"\"" :=
-  isJustText "" (result (IO.simulate [""] (u => IO.readLine())))
+test "an empty line is Some \"\"" :=
+  isSomeText "" (result (IO.simulate [""] (u => IO.readLine())))
 
 test "a line is read whole" :=
-  isJustText "  two words  " (result (IO.simulate ["  two words  "] (u => IO.readLine())))
+  isSomeText "  two words  " (result (IO.simulate ["  two words  "] (u => IO.readLine())))
 
-test "no input: Nothing" := isNothing (result (IO.simulate [] (u => IO.readLine())))
+test "no input: None" := isNone (result (IO.simulate [] (u => IO.readLine())))
 
 -- Reads three times from one line of input.
-def readThree(): {IO} (List (Maybe Text)) :=
+def readThree(): {IO} (List (Option Text)) :=
   let a := IO.readLine()
   let b := IO.readLine()
   let c := IO.readLine()
   [a, b, c]
 
-def maybesAre: List (Maybe Text) -> Bool
+def maybesAre: List (Option Text) -> Bool
   | Cons a (Cons b (Cons c Nil)) =>
-    if isJustText "x" a then (if isNothing b then isNothing c else False) else False
+    if isSomeText "x" a then (if isNone b then isNone c else False) else False
   | _ => False
 
-test "end of input keeps giving Nothing" := maybesAre (result (IO.simulate ["x"] readThree))
+test "end of input keeps giving None" := maybesAre (result (IO.simulate ["x"] readThree))
 
 -- Only the lines asked for are used.
 test "unread input is ignored" :=
-  isJustText "first" (result (IO.simulate ["first", "second"] (u => IO.readLine())))
+  isSomeText "first" (result (IO.simulate ["first", "second"] (u => IO.readLine())))
 
 -- Reading and printing interleaved
 
 -- Echoes each line until the input runs out, reading at most `n` lines. The
 -- bound keeps the recursion structural.
-def echoLine: Maybe Text -> (() -> {IO} ()) -> {IO} ()
-  | Nothing, more => ()
-  | Just l,  more =>
+def echoLine: Option Text -> (() -> {IO} ()) -> {IO} ()
+  | None, more => ()
+  | Some l,  more =>
     IO.print l
     more()
 
@@ -91,9 +91,9 @@ test "echo with no input prints nothing" :=
   eqTexts (printed (IO.simulate [] (u => echo 10))) []
 
 -- Numbers each line, and returns how many there were.
-def numberLine (i: Nat): Maybe Text -> (() -> {IO} Nat) -> {IO} Nat
-  | Nothing, more => i - 1
-  | Just l,  more =>
+def numberLine (i: Nat): Option Text -> (() -> {IO} Nat) -> {IO} Nat
+  | None, more => i - 1
+  | Some l,  more =>
     IO.print (Nat.toText i ++ ": " ++ l)
     more()
 
@@ -109,9 +109,9 @@ test "numbering lines" :=
 test "numbering lines: the count" := result numbered == 3
 
 -- A prompt, then a read, then a reply.
-def textOr (d: Text): Maybe Text -> Text
-  | Nothing => d
-  | Just t  => t
+def textOr (d: Text): Option Text -> Text
+  | None => d
+  | Some t  => t
 
 def greet(): {IO} () :=
   IO.print "Name?"
@@ -146,10 +146,10 @@ def runState (init: s) (prog: () -> {State s | e} a): {e} Pair a s :=
       | put st2, k     => st => k() st2
   run init
 
-def toMaybe (prog: () -> {Abort | e} a): {e} Maybe a :=
+def toOption (prog: () -> {Abort | e} a): {e} Option a :=
   handle prog() with
-    | return x      => Just x
-    | abort u, k    => Nothing
+    | return x      => Some x
+    | abort u, k    => None
 
 -- Reads two lines, counting them in the state, and prints the count.
 def countIS(): {IO, State Nat} () :=
@@ -197,21 +197,21 @@ def abortThenPrint(): {Abort, IO} Nat :=
   IO.print "after"
   fromEmpty e
 
--- With `toMaybe` inside, what was printed before the abort is kept.
+-- With `toOption` inside, what was printed before the abort is kept.
 test "abort inside simulate keeps earlier prints" :=
-  let r := IO.simulate [] (u => toMaybe printThenAbort)
-  if eqTexts (printed r) ["before"] then isNothing (result r) else False
+  let r := IO.simulate [] (u => toOption printThenAbort)
+  if eqTexts (printed r) ["before"] then isNone (result r) else False
 
 test "abort inside simulate, the other row order" :=
-  let r := IO.simulate [] (u => toMaybe abortThenPrint)
-  if eqTexts (printed r) ["before"] then isNothing (result r) else False
+  let r := IO.simulate [] (u => toOption abortThenPrint)
+  if eqTexts (printed r) ["before"] then isNone (result r) else False
 
--- With `toMaybe` outside, the abort discards the whole simulated run.
+-- With `toOption` outside, the abort discards the whole simulated run.
 test "abort outside simulate discards the run" :=
-  isNothing (toMaybe (u => IO.simulate [] printThenAbort))
+  isNone (toOption (u => IO.simulate [] printThenAbort))
 
 test "abort outside simulate, the other row order" :=
-  isNothing (toMaybe (u => IO.simulate [] abortThenPrint))
+  isNone (toOption (u => IO.simulate [] abortThenPrint))
 
 -- A program with no `IO` at all
 

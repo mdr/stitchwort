@@ -29,7 +29,7 @@ type Database = { fresh: List Range, available: List Nat }
 -- A line is a range if it reads as one, an id if it reads as a number, and
 -- is skipped otherwise (the blank line).
 def parseDatabase (lines: List Text): Database :=
-  { fresh = lines.mapMaybe Range.parse, available = lines.mapMaybe Text.toNat }
+  { fresh = lines.filterMap Range.parse, available = lines.filterMap Text.toNat }
 
 def example: List Text :=
   [ "3-5", "10-14", "16-20", "12-18", "", "1", "5", "8", "11", "17", "32" ]

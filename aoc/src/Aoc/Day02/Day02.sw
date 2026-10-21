@@ -89,7 +89,7 @@ def repeated (r: Range) (k: Nat) (n: Nat): Nat :=
 
 test "12 written 3 times" := repeated { from = 0, to = 1000000 } 2 3 == 10101 * ((10 + 99) * 90 / 2)
 
-def parseRanges (t: Text): List Range := t.trim.split ',' |> .mapMaybe Range.parse
+def parseRanges (t: Text): List Range := t.trim.split ',' |> .filterMap Range.parse
 
 def example: Text := "11-22,95-115,998-1012,1188511880-1188511890,222220-222224,1698522-1698528,446443-446449,38593856-38593862,565653-565659,824824821-824824827,2121212118-2121212124"
 

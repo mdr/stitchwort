@@ -10,9 +10,9 @@ export type Ordering =
   | { readonly tag: "Less" }
   | { readonly tag: "Equal" }
   | { readonly tag: "Greater" };
-export type Maybe<a> =
-  | { readonly tag: "Nothing" }
-  | { readonly tag: "Just"; readonly value: a };
+export type Option<a> =
+  | { readonly tag: "None" }
+  | { readonly tag: "Some"; readonly value: a };
 export type Entry = { readonly count: bigint; readonly delta: bigint };
 export declare function dial(x: bigint): bigint;
 export declare function divide(a: bigint, d: bigint): bigint[];
@@ -36,17 +36,17 @@ export declare function compare(a: bigint, b: bigint): Ordering;
 export declare function natAbs(x: bigint): bigint;
 export declare function abs(x: bigint): bigint;
 export declare function toNat(x: bigint): bigint;
-export declare function toNatChecked(x: bigint): Maybe<bigint>;
+export declare function toNatChecked(x: bigint): Option<bigint>;
 export declare function sign(x: bigint): bigint;
 export declare function ofNat(n: bigint): bigint;
 export declare function toText(x: bigint): string;
-export declare function parse(t: string): Maybe<bigint>;
+export declare function parse(t: string): Option<bigint>;
 export declare function ofNats(ns: readonly bigint[]): bigint[];
 export declare function residue(a: bigint, d: bigint): string;
 export declare function classify(arg0: bigint): string;
 export declare function fields(arg0: bigint): bigint;
-export declare function maybeInt(arg0: Maybe<bigint>): bigint;
-export declare function negateAll(xs: readonly Maybe<bigint>[]): Maybe<bigint>[];
-export declare function firstNeg(arg0: readonly bigint[]): Maybe<bigint>;
+export declare function optionInt(arg0: Option<bigint>): bigint;
+export declare function negateAll(xs: readonly Option<bigint>[]): Option<bigint>[];
+export declare function firstNeg(arg0: readonly bigint[]): Option<bigint>;
 export declare function apply(e: Entry): Entry;
 export declare function entries(arg0: readonly Entry[]): bigint;
