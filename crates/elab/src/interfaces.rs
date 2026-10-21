@@ -640,7 +640,22 @@ impl Elaborator {
     /// an interface and, on the same type, one of its superclasses (§5.8
     /// (c)).
     pub(crate) fn check_redundant(&self, ty: &Term, span: Span) -> Result<()> {
-        if self.interfaces.is_empty() {
+        // Only a signature asking for two interfaces or more can be
+        // redundant: counted on the term, so an ordinary signature isn't
+        // evaluated (its types may mention a definition that's expensive to
+        // compute, which evaluating would).
+        let mut asking = 0;
+        let mut rest = ty;
+        while let Term::Pi(_, icit, dom, cod) = rest.strip_loc() {
+            if *icit == Icit::Auto
+                && let Term::Data(i, _) = dom.strip_loc().spine().0.strip_loc()
+                && self.is_interface(*i)
+            {
+                asking += 1;
+            }
+            rest = cod;
+        }
+        if asking < 2 {
             return Ok(());
         }
         let g = &self.globals;
