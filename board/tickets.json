@@ -1,5 +1,5 @@
 {
-  "next": 202,
+  "next": 204,
   "tickets": [
     {
       "id": 1,
@@ -818,18 +818,17 @@
     },
     {
       "id": 55,
-      "title": "Records follow-ups",
+      "title": "Records stage 2: projections and eta in the kernel",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [
-        "js",
         "kernel",
-        "syntax"
+        "proof"
       ],
-      "body": "**Records follow-ups:** stage 2 (kernel projections and eta — deferred\nby the user until proofs about records need it; with the\nsame-type rule and eta off in unification's `first_order` fallback;\nrecords.md draft 2 §7); `==` for records with proof or dependent fields;\n`(.name)` accessor sections; proof-field checks at the JS boundary for\nordinary data types; printing `R.f r` as `r.f` in errors; descent through\nrecord fields for termination. After `->`, `{` starts an ability row, so\na record literal in a result type needs parentheses.\n\nSplit 19 Oct into SW-119, SW-120, SW-121. Done already: `(.name)` accessor sections (74db93a).\nNEEDS MATT (backlog review): proposed rewrite of this ticket as \"Record projections and eta in the kernel (records stage 2)\": docs/proposals/records.md draft 2 §7, deferred by Matt until proofs about records need it; makes `p = (p.fst, p.snd)` provable by `rfl` for pairs and records (docs/aoc-2025.md:1115), with the same-type rule and eta off in unification's `first_order` fallback; do after SW-93 (proof irrelevance) is decided. Is it time? Also unmade tickets, if wanted: `==` for records with proof or dependent fields (examples/reject/record-eqeq-proof-field.sw; likely follows from SW-93/SW-95) and proof-field checks at the JS boundary for ordinary data types.\n\nD8 (Matt, 19 Oct): records stage 2 (kernel projections and eta) not now; stays in backlog.",
+      "body": "docs/proposals/records.md draft 2 §7. Kernel projections and eta, so p = (p.fst, p.snd) holds by rfl for pairs and records (docs/aoc-2025.md:1115); the same-type rule, and eta off in unification's first_order fallback. Do after SW-93 (proof irrelevance) is decided. D8 (Matt, 19 Oct): not now; build when proofs about records need it.\n\nHistory: this was the 'Records follow-ups' umbrella. Split 19 Oct into SW-119 (done), SW-120 (termination through record fields, backlog), SW-121 (done); (.name) sections done (74db93a). 21 Oct review: == for records with proof fields is now partly done (derived DecEq handles proofs of equations in DecEq types; other proof fields still E-INSTANCE-NONE, examples/reject/record-eqeq-proof-field.sw) -> SW-202. JS boundary proof fields for ordinary data types -> SW-203.",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -3096,6 +3095,35 @@
         "elab"
       ],
       "body": "D238 (Matt, 21 Oct 2026): option B. Elaborator records each reference span -> definition (and its type), incl. dot notation, imports, locals; stitchwort check --index writes JSON; editors/vscode gets a definition + hover provider reading it; std files reachable. Short note in docs/proposals/ first (tooling, no external review). Language server (option C) stays SW-31, backlog (D239).",
+      "created": "2026-10-21",
+      "updated": "2026-10-21",
+      "commits": []
+    },
+    {
+      "id": 202,
+      "title": "Derived == for records/data with proof fields other than equations (after SW-93/SW-95)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab",
+        "interfaces"
+      ],
+      "body": "From SW-55 (21 Oct review). Derived DecEq already handles proof fields that are equations in DecEq types (DecEq.uniqueEq); any other proof field gives E-INSTANCE-NONE (examples/reject/record-eqeq-proof-field.sw; docs/syntax.md:413). Needs proof irrelevance (SW-93) or ext lemmas (SW-95) to show two values with equal data fields are equal.",
+      "created": "2026-10-21",
+      "updated": "2026-10-21",
+      "commits": []
+    },
+    {
+      "id": 203,
+      "title": "JS boundary: runtime checks for proof fields of ordinary data types (records already have them)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "js"
+      ],
+      "body": "From SW-55 (21 Oct review). crates/js/src/lib.rs ~318-339: a record's proof field is checked at the boundary by its decision procedure (records.md §11.3); an ordinary data type's proof field is refused ('has a proof or type field, which can't be checked at the boundary yet'). Extend validators to constructors of non-record data.",
       "created": "2026-10-21",
       "updated": "2026-10-21",
       "commits": []
