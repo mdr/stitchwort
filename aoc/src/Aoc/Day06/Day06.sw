@@ -36,8 +36,13 @@ type Operator =
 -- block has no + or *).
 type Problem = { operator: Option Operator, rowNumbers: List Nat, columnNumbers: List Nat }
 
-def example: List Text :=
-  [ "123 328  51 64 ", " 45 64  387 23 ", "  6 98  215 314", "*   +   *   +  " ]
+-- (The lines end in spaces, as in the puzzle.)
+def example: List Text := """
+  123 328  51 64 
+   45 64  387 23 
+    6 98  215 314
+  *   +   *   +  
+  """.lines
 
 def parseWorksheet (lines: List Text): List Problem := (blocks lines).map parseProblem
 

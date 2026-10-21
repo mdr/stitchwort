@@ -31,7 +31,12 @@ def total (k: Nat) (banks: List Bank): Nat := banks |> .sumBy (joltage k)
 
 def joltage (k: Nat) (bank: Bank): Nat := bank |> .best k |> Nat.fromDigits
 
-def example: List Text := ["987654321111111", "811111111111119", "234234234234278", "818181911112111"]
+def example: List Text := """
+  987654321111111
+  811111111111119
+  234234234234278
+  818181911112111
+  """.lines
 
 test "example" := (solvePart1 (parseBanks example), solvePart2 (parseBanks example)) == (357, 3121910778619)
 test "banks part 1" := (parseBanks example).map (joltage 2) == [98, 89, 78, 92]

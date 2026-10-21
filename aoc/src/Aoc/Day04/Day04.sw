@@ -47,9 +47,18 @@ def solvePart1 (grid: Grid): Nat := grid.rolls - grid.round.rolls
 -- Part 2: the rolls removed by rounds until none is accessible.
 def solvePart2 (grid: Grid): Nat := grid.rolls - grid.settle.rolls
 
-def example: List Text :=
-  [ "..@@.@@@@.", "@@@.@.@.@@", "@@@@@.@.@@", "@.@@@@..@.", "@@.@@@@.@@",
-    ".@@@@@@@.@", ".@.@.@.@@@", "@.@@@.@@@@", ".@@@@@@@@.", "@.@.@@@.@." ]
+def example: List Text := """
+  ..@@.@@@@.
+  @@@.@.@.@@
+  @@@@@.@.@@
+  @.@@@@..@.
+  @@.@@@@.@@
+  .@@@@@@@.@
+  .@.@.@.@@@
+  @.@@@.@@@@
+  .@@@@@@@@.
+  @.@.@@@.@.
+  """.lines
 
 -- Both answers for some lines, if they make a grid.
 def answers (lines: List Text): Option (Nat, Nat) := Option.map (grid => (solvePart1 grid, solvePart2 grid)) (parseGrid lines)
