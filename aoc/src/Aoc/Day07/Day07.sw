@@ -51,10 +51,12 @@ def findStart (lines: List Text): Maybe (Nat, Nat) := startFrom 0 lines
 -- `r` is the row number of the first of `lines`.
 def startFrom (r: Nat): List Text -> Maybe (Nat, Nat)
   | Nil            => Nothing
-  | Cons line rest =>
-    match columnOf 'S' line.toList with
-      | Just c  => Just (r, c)
-      | Nothing => startFrom (r + 1) rest
+  | Cons line rest => firstFound ((columnOf 'S' line.toList).map (c => (r, c))) (startFrom (r + 1) rest)
+
+-- The first of two results, if it found something; else the second.
+def firstFound: Maybe a -> Maybe a -> Maybe a
+  | Just x,  later => Just x
+  | Nothing, later => later
 
 -- Where `ch` first appears.
 def columnOf (ch: Char): List Char -> Maybe Nat
