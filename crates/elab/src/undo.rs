@@ -10,6 +10,8 @@
 //! - lifted helpers not yet resolved (`lift.rs`), and the local
 //!   definitions' keys met so far (`local.rs`);
 //! - pending auto obligations and defaulted-literal records (`Elaborator`);
+//! - with code navigation on, the local variables' types noted for printing
+//!   (`nav.rs`), which may mention the metavariables dropped;
 //! - the local context and the current span.
 //!
 //! Warnings aren't part of it: only declaration-level code adds them (it
@@ -33,6 +35,7 @@ pub(crate) struct Snapshot {
     defaulted: usize,
     drafts: usize,
     local_keys: usize,
+    local_types: usize,
 }
 
 impl Snapshot {
@@ -47,6 +50,7 @@ impl Snapshot {
             defaulted: cx.e.defaulted.borrow().len(),
             drafts: cx.e.drafts.borrow().len(),
             local_keys: cx.e.local_keys.borrow().len(),
+            local_types: cx.e.pending_local_types(),
         }
     }
 
@@ -87,6 +91,7 @@ impl Snapshot {
         cx.e.defaulted.borrow_mut().truncate(self.defaulted);
         cx.e.drafts.borrow_mut().truncate(self.drafts);
         cx.e.local_keys.borrow_mut().truncate(self.local_keys);
+        cx.e.drop_local_types_since(self.local_types);
         cx.reset(self.mark);
         cx.span = self.span;
     }
