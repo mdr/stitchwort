@@ -1,5 +1,5 @@
 {
-  "next": 234,
+  "next": 235,
   "tickets": [
     {
       "id": 1,
@@ -3490,6 +3490,18 @@
       "where": "",
       "labels": [],
       "body": "In-place reuse (Perceus/Lean style), combined instructions, measured against bench/baseline.toml. fast-runtime.md stage 4.\n\nD381 (Matt, 21 Oct 2026).\n",
+      "created": "2026-10-21",
+      "updated": "2026-10-21",
+      "commits": []
+    },
+    {
+      "id": 234,
+      "title": "Library loading triggers on short names across namespaces (Mod.add loads for every List program)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "Lazy library loading triggers on short names: a library file loads whenever any of its functions' last name component matches a field or method used anywhere (e.g. `add.zeroAdd`, `Add.add`). SW-229 found that naming Mod helpers `Mod.add`/`Mod.zero`/`Mod.zeroAdd` made every List program load Mod.sw (List.range test 0.14 s -> 0.33 s); worked around by renaming them (addMod, zeroMod, ...). The index should only trigger a load when the name can actually resolve into that file (namespace-aware), so library authors can use natural names.\n\nDone when: Mod's helpers could be named add/zero without loading Mod.sw for List programs (a test measures which files load), and the names are restored.\n",
       "created": "2026-10-21",
       "updated": "2026-10-21",
       "commits": []
