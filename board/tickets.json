@@ -1,5 +1,5 @@
 {
-  "next": 197,
+  "next": 198,
   "tickets": [
     {
       "id": 1,
@@ -3023,6 +3023,20 @@
         "stdlib"
       ],
       "body": "Part 2 = number of timelines counts list length; distinctness holds by construction (two sides of a split start with different turns) but isn't a theorem. Add a general List.Distinct predicate to std with basic lemmas (map of injective, append of disjoint), then prove timelinesFrom's results distinct. Decided Claude 21 Oct: worth doing; small.",
+      "created": "2026-10-21",
+      "updated": "2026-10-21",
+      "commits": []
+    },
+    {
+      "id": 197,
+      "title": "Operators > and >= (flipped < and <=) and prefix ! (Bool.not) (D218)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "syntax"
+      ],
+      "body": "D218 (Matt, 21 Oct 2026): a > b means b < a, a >= b means b <= a, !b means Bool.not b; plain notation, no new interface/laws; goals and messages show the < form. calc accepts > / >= chains. Lexer currently rejects > (crates/syntax/src/lexer.rs:371-394); docs/syntax.md:582.",
       "created": "2026-10-21",
       "updated": "2026-10-21",
       "commits": []
