@@ -2141,6 +2141,24 @@ fn ctor_app(
             })
             .collect::<Result<_>>()?,
     };
+    // A missing field's type is known from `expected` (`List Hit` in
+    // `xs.map (Cons { … })`): unify it first, so the parameters it fixes are
+    // known when the given arguments are checked, whatever the field order.
+    // Only for a type that doesn't depend on earlier fields.
+    for (i, (_, field_ty)) in ctor.fields.iter().enumerate() {
+        let Some(level) = missing_level[i] else {
+            continue;
+        };
+        if (0..i).any(|j| field_ty.mentions(i - 1 - j)) {
+            continue;
+        }
+        let mut early = params.clone();
+        early.extend((0..i).map(|_| unused()));
+        let ty = eval(g, &early, field_ty)?;
+        let found = cx.types[level].clone();
+        // A mismatch is reported by the pass below.
+        cx.unify(&found, &ty)?;
+    }
     let mut env = params.clone();
     let mut terms = Vec::new();
     let mut next = positional.iter();

@@ -53,9 +53,9 @@ def timelinesFrom (r: Nat) (c: Nat): List Text -> List (List Hit)
     if charAt line c == '^' then
       List.append
         (match c with
-           | Zero   => [[({ row = r, column = c, turn = Left }: Hit)]]
-           | Succ b => (timelinesFrom (r + 1) b rest).map (Cons ({ row = r, column = c, turn = Left }: Hit)))
-        ((timelinesFrom (r + 1) (c + 1) rest).map (Cons ({ row = r, column = c, turn = Right }: Hit)))
+           | Zero   => [[{ row = r, column = c, turn = Left }]]
+           | Succ b => (timelinesFrom (r + 1) b rest).map (Cons { row = r, column = c, turn = Left }))
+        ((timelinesFrom (r + 1) (c + 1) rest).map (Cons { row = r, column = c, turn = Right }))
     else timelinesFrom (r + 1) c rest
 
 -- The timelines of the particle from S.
