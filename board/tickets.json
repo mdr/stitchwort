@@ -3317,7 +3317,7 @@
     {
       "id": 219,
       "title": "List.mapAccumLeft, unzip, chunksOf, distinct; Nat/Int.divMod, Nat.divisors; Text.repeat",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -3401,7 +3401,7 @@
     {
       "id": 226,
       "title": "&& and || pass the left side's fact to the right side",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -3413,7 +3413,7 @@
     {
       "id": 227,
       "title": "Say 'no such function' for a missing library function (not E-ARITY / no namespace)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
