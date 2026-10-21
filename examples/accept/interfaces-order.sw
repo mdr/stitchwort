@@ -3,6 +3,8 @@
 -- and the type. Everything else is checked after the module's instances,
 -- and an instance after the one its superclass needs.
 
+import Std (Text)
+
 test "child" := Pretty.pretty (Base.op [base := Child.base [child := Child.instItem]] MkItem) == "item"
 test "list" := Pretty.pretty [MkItem] == "[item]"
 test "uses" := describe MkItem == "item"

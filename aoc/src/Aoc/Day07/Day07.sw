@@ -22,6 +22,7 @@
 -- `run` does not check.
 
 namespace Aoc.Day07
+import Std (IO, List, Nat, Option)
 
 def main(): {IO} () :=
   match parseManifold (IO.readAllLines()) with

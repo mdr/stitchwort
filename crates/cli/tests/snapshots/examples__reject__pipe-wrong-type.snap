@@ -3,9 +3,9 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-TYPE-MISMATCH] Error: the value piped in doesn't fit the function
-   ╭─[ reject/pipe-wrong-type.sw:4:24 ]
+   ╭─[ reject/pipe-wrong-type.sw:7:24 ]
    │
- 4 │ def f: Nat := "abc" |> List.sum
+ 7 │ def f: Nat := "abc" |> List.sum
    │                        ────┬───  
    │                            ╰───── this takes `List ?0` as its last argument, but the value before `|>` has type `Text`
 ───╯

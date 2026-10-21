@@ -8,6 +8,8 @@
 -- run it with `IO.simulate`, against scripted input. crates/driver/tests/run.rs
 -- checks that adder.sw prints the same, for input within the bound.
 
+import Std (IO, Nat, Pair)
+
 -- The text, or a default at end of input.
 def textOr (d: Text): Option Text -> Text
   | None => d

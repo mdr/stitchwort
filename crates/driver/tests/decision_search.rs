@@ -46,7 +46,7 @@ fn a_decision_procedure_below_the_use_is_still_not_used() {
     // `decToken` is written below it.
     let source = format!(
         "{TOKEN}
-def first : Nat := needsToken [t := Decidable.fromYes decToken Trivial]
+def first : Nat := needsToken [t := Std.Decidable.fromYes decToken Trivial]
 
 def client : Nat := needsToken
 

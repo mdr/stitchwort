@@ -120,7 +120,7 @@ fn test_results_are_reused_until_a_dependency_changes() {
     let cache = Cache::at(&dir);
     let program = |double: &str, triple_name: &str| {
         format!(
-            "def double (n : Nat) : Nat := {double}\n\n\
+            "import Std (Nat)\n\ndef double (n : Nat) : Nat := {double}\n\n\
              def {t} (n : Nat) : Nat := n + n + n\n\n\
              test \"double\" := Nat.leq (double 3) 6\n\
              test \"triple\" := Nat.leq ({t} 2) 6\n\
@@ -176,8 +176,7 @@ fn test_results_are_only_reused_by_the_same_build_and_modes() {
     use stitchwort_cli::driver::{FINGERPRINT, modes};
     let dir = std::env::temp_dir().join(format!("stitchwort-modes-test-{}", std::process::id()));
     let cache = Cache::at(&dir);
-    let program =
-        "test \"big\" := Nat.leq 1000 (1000 * 1000)\ntest \"text\" := Text.length \"abc\" == 3\n";
+    let program = "import Std (Nat, Text)\ntest \"big\" := Nat.leq 1000 (1000 * 1000)\ntest \"text\" := Text.length \"abc\" == 3\n";
     let run = |natives: bool, compact: bool| {
         let mut session = Session::new();
         session.elab.globals.builtins.disable_natives = !natives;

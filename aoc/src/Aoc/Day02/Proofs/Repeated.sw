@@ -8,7 +8,7 @@ namespace Aoc.Day02.Proofs
 import Aoc.Common (..)
 import Aoc.Common.Proofs (..)
 import Aoc.Day02 (..)
-import Std (Eq)
+import Std (Bool, Decidable, Eq, List, Nat, Void)
 
 -- Why `repeated` is right (a): `repeated r k n` equals
 -- `repeatedSpec r k n`, the brute-force sum below, for every range, block

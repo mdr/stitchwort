@@ -22,7 +22,7 @@ fn shadow_warnings(session: &Session) -> Vec<&Diagnostic> {
 #[test]
 fn a_first_parameter_that_hides_an_imported_function_warns() {
     let (session, result) = load(
-        "import List (map)\n\n\
+        "import Std (List)\nimport List (map)\n\n\
          def f : (Nat -> Nat) -> List Nat -> List Nat := map xs => List.map map xs\n",
     );
     result.unwrap();

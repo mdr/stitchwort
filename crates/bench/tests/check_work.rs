@@ -70,7 +70,7 @@ fn measure(program: String) -> Measured {
 /// `body`, after a definition `cost` whose value takes work proportional to
 /// `n` to compute.
 fn with_cost(n: usize, body: &str) -> String {
-    format!("def cost : Nat := List.length (List.range {n})\n{body}\n")
+    format!("import Std (List, Nat)\ndef cost : Nat := List.length (List.range {n})\n{body}\n")
 }
 
 /// Programs whose checking must not compute `cost`: the note's table, rows
@@ -171,8 +171,9 @@ fn checking_computes_needed_values() {
 /// literals in the program, too deep for the kernel.
 #[test]
 fn comparing_closed_lists_keeps_the_program_small() {
-    let program =
-        |n: usize| format!("def big (u : ()) : Bool := List.range {n} == List.range {n}\n");
+    let program = |n: usize| {
+        format!("import Std (List)\ndef big (u : ()) : Bool := List.range {n} == List.range {n}\n")
+    };
     let small = measure(program(20_000));
     let large = measure(program(100_000));
     println!("List.range == List.range: {small:?} / {large:?}");
@@ -198,7 +199,9 @@ fn growth(what: &str, program: impl Fn(usize) -> String) -> [(u64, usize); 2] {
 fn stuck_conditions_keep_filter_and_count_linear() {
     let theorem = |f: &str, n: usize| {
         let side = format!("List.{f} (n => k * n <= size) (List.rangeFrom {n} 2)");
-        format!("theorem t (k : Nat) (size : Nat) : {side} = {side} := Std.Eq.trans rfl rfl\n")
+        format!(
+            "import Std (List)\ntheorem t (k : Nat) (size : Nat) : {side} = {side} := Std.Eq.trans rfl rfl\n"
+        )
     };
     for f in ["filter", "count"] {
         let [(steps1, size1), (steps2, size2)] = growth(f, |n| theorem(f, n));

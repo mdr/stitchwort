@@ -384,6 +384,8 @@ fn accepts(source: &str) {
 /// Copies of the prelude's definitions that return proofs, which never run
 /// natively (only the calls inside them to other natives do).
 const COPIES: &str = "\
+import Std (Bool, Nat, Void)
+
 def myDecEqNat : (m : Nat) -> (n : Nat) -> Decidable (m = n)
   | Zero,   Zero   => Yes rfl
   | Zero,   Succ n => No (Nat.equalFalse 0 (Succ n) rfl)

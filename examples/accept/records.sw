@@ -1,7 +1,7 @@
 -- Declared records (docs/proposals/records.md, stage 1): a record type is a
 -- new type with named fields, written and read by name.
 
-import Std (Eq)
+import Std (Eq, Nat)
 
 type Person = { name: Text, age: Nat }
 

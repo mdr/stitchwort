@@ -81,6 +81,8 @@
 -- run: trimmedHead " \t"
 -- run: isText "\u{1F600}"
 
+import Std (Char, List, Nat, Pair, Text)
+
 export def len (t: Text): Nat := Text.length t
 
 export def chars (t: Text): List Char := Text.toList t

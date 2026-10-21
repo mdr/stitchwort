@@ -1,6 +1,8 @@
 -- Tuple sugar: `(A, B)` is `Pair A B`, `(a, b)` is `MkPair a b`, in types,
 -- values and patterns; three or more nest to the right.
 
+import Std (List)
+
 def NatText: Type := (Nat, Text)
 
 def triple: (Nat, Bool, Text) := (1, True, "x")

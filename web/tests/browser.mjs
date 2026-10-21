@@ -55,7 +55,7 @@ def start : Option Text -> Nat
 
 def main () : {IO} () :=
   IO.print "tick"
-  IO.print (Nat.toText (spin (start (IO.readLine ()))))
+  IO.print (spin (start (IO.readLine ()))).toText
 `;
 
 /** Prints `line` `n` times. */
@@ -365,7 +365,9 @@ test("test results are cached, and can be forgotten", async (page) => {
 test("a failed comparison test shows both sides in the Tests tab", async (page) => {
   await page.open();
   await page.untilChecked();
-  await page.setSource(`def part1 (n: Nat): Nat := n + 1
+  await page.setSource(`import Std (List)
+
+def part1 (n: Nat): Nat := n + 1
 
 test "part 1 on the example" := part1 1 == 3
 test "greater" := 1 > part1 5
@@ -442,7 +444,7 @@ test("warnings show apart from errors, without stopping anything", async (page) 
   // Other tabs show them with the errors, and work as usual once it checks.
   await page.tab("tests");
   await page.until(`document.querySelector("#output pre.warnings")`, 30000, "the warnings in the Tests tab");
-  await page.setSource(WARNED + `\ntest "sized" := Nat.leq (size [1, 2]) 2\n`);
+  await page.setSource(WARNED + `\ntest "sized" := size [1, 2] <= 2\n`);
   await page.until(`document.querySelector(".summary")?.textContent === "1 test: 1 passed, 0 failed"`);
   assert.equal((await shown()).count, "1 warning");
   // The count goes to the Check tab.
@@ -533,7 +535,7 @@ test("Run, reading all the input at once", async (page) => {
 def main () : {IO} () :=
   IO.print (textOr (IO.readLine ()))
   let rest := IO.readAll ()
-  IO.print (Nat.toText (List.length rest.lines))
+  IO.print rest.lines.length.toText
   IO.print rest
   IO.print (textOr (IO.readLine ()))
 `);
@@ -758,7 +760,7 @@ test("a text block is coloured as one string over its lines", async (page) => {
 test("`|>` is coloured as one operator", async (page) => {
   await page.open({ patch: "delete window.Highlight;" });
   await page.untilChecked();
-  await page.setSource("def n : Nat := [1, 2]\n  |> List.sum\n");
+  await page.setSource("def n : Nat := [1, 2]\n  |> .sum\n");
   await sleep(100);
   const operators = await page.ev(`[...document.querySelectorAll("#highlight span.hl-operator")].map((s) => s.textContent)`);
   assert.ok(operators.includes("|>"), JSON.stringify(operators));
@@ -1153,7 +1155,9 @@ test("on a phone, a project's file tabs scroll inside themselves", async (page) 
 
 // Code navigation (docs/proposals/code-navigation.md) ------------------------------
 
-const NAV_SOURCE = `def double (n: Nat) : Nat := n + n
+const NAV_SOURCE = `import Std (List, Text)
+
+def double (n: Nat) : Nat := n + n
 
 def quad (n: Nat) : Nat := double (double n)
 
@@ -1242,11 +1246,11 @@ test("with Cmd held, the name under the pointer is underlined, and a click goes 
   await page.until(`document.getElementById("navlink").hidden`, 5000, "the underline to go without Cmd");
   await cmdClick(page, at);
   await page.until(`document.getElementById("source").selectionEnd > document.getElementById("source").selectionStart`, 10000, "a selection at the definition");
-  assert.deepEqual(await selected(page), { text: "double", line: 1, readOnly: false });
+  assert.deepEqual(await selected(page), { text: "double", line: 3, readOnly: false });
   // Cmd-click on a local goes to its binder, after astral characters on the line.
   await cmdClick(page, await whereIs(page, "else List.length ys", 17, 2));
   await page.until(`document.getElementById("source").selectionStart === document.getElementById("source").value.indexOf("ys:")`, 10000, "the binder");
-  assert.deepEqual(await selected(page), { text: "ys", line: 7, readOnly: false });
+  assert.deepEqual(await selected(page), { text: "ys", line: 9, readOnly: false });
   // And back, by Cmd+[.
   await page.key("[", "BracketLeft", 219, { modifiers: CMD });
   await page.until(`document.getElementById("source").selectionStart !== document.getElementById("source").value.indexOf("ys:")`, 10000, "the way back");
@@ -1261,7 +1265,7 @@ test("F12 goes to the definition of the name at the caret", async (page) => {
     const i = s.value.indexOf("(double n)") + 3; s.setSelectionRange(i, i); })()`);
   await page.key("F12", "F12", 123);
   await page.until(`document.getElementById("source").selectionEnd > document.getElementById("source").selectionStart`, 30000, "the jump");
-  assert.deepEqual(await selected(page), { text: "double", line: 1, readOnly: false });
+  assert.deepEqual(await selected(page), { text: "double", line: 3, readOnly: false });
 }, { ms: 90000 });
 
 test("Cmd-click on a library function shows the library's text, read-only, at its definition, with a way back", async (page) => {
@@ -1297,7 +1301,9 @@ test("Cmd-click on a library function shows the library's text, read-only, at it
   assert.equal(await sourceText(page), NAV_SOURCE);
 }, { ms: 90000 });
 
-const STD_SOURCE = `def lengths (xs: List Nat) : Nat := List.length xs
+const STD_SOURCE = `import Std (List)
+
+def lengths (xs: List Nat) : Nat := List.length xs
 
 def total (xs: List Nat) : Nat := List.sum xs
 `;
@@ -1378,7 +1384,7 @@ test("Inside a library file: hover, Cmd-click, F12, find references and the menu
   assert.match(panel.title, /^Std\.List\.sum def: \d+ uses?/);
   assert.equal(panel.rows[0][2], true);
   assert.match(panel.rows[0][0], /^List\/Toolkit\.sw:/);
-  assert.ok(panel.rows.some(([where, text]) => /^line 3$/.test(where) && /List\.sum xs/.test(text)), JSON.stringify(panel));
+  assert.ok(panel.rows.some(([where, text]) => /^line 5$/.test(where) && /List\.sum xs/.test(text)), JSON.stringify(panel));
   await shots(page, "std-references");
   // The right-click menu on a name there, with its two lookups.
   await page.key("Escape", "Escape", 27);
@@ -1446,9 +1452,9 @@ test("Shift+F12 lists the uses of a name in the file, with its declaration; clic
   const panel = await refRows(page);
   assert.match(panel.title, /^Main.double def: 2 uses$/);
   assert.deepEqual(panel.rows, [
-    ["line 1", "def double (n: Nat) : Nat := n + n", true],
-    ["line 3", "def quad (n: Nat) : Nat := double (double n)", false],
-    ["line 3", "def quad (n: Nat) : Nat := double (double n)", false],
+    ["line 3", "def double (n: Nat) : Nat := n + n", true],
+    ["line 5", "def quad (n: Nat) : Nat := double (double n)", false],
+    ["line 5", "def quad (n: Nat) : Nat := double (double n)", false],
   ]);
   // The name is marked in each snippet, and the first use has the focus.
   assert.deepEqual(await page.ev(`[...document.querySelectorAll("#navrefs li button .snippet mark")].map((m) => m.textContent)`), ["double", "double", "double"]);
@@ -1456,7 +1462,7 @@ test("Shift+F12 lists the uses of a name in the file, with its declaration; clic
   // Go to the second use (the inner one).
   await page.ev(`document.querySelectorAll("#navrefs li button")[2].click()`);
   assert.equal(await page.ev(`document.getElementById("navrefs").hidden`), true);
-  assert.deepEqual(await selected(page), { text: "double", line: 3, readOnly: false });
+  assert.deepEqual(await selected(page), { text: "double", line: 5, readOnly: false });
   assert.equal(await page.ev(`document.getElementById("source").selectionStart`),
                (await sourceText(page)).lastIndexOf("double"));
   await page.key("[", "BracketLeft", 219, { modifiers: CMD });
@@ -1482,7 +1488,7 @@ test("references of a local variable and of a library function; the declaration'
   await findReferencesAt(page, "List.length xs", 5);
   const lib = await refRows(page);
   assert.match(lib.title, /^Std.List.length def: 2 uses/);
-  assert.deepEqual(lib.rows.map((r) => r[0]).slice(1), ["line 5", "line 7"]);
+  assert.deepEqual(lib.rows.map((r) => r[0]).slice(1), ["line 7", "line 9"]);
   assert.match(lib.rows[0][0], /\.sw:\d+ \(declaration\)|\.sw:\d+/);
   assert.match(lib.rows[0][1], /def List\.length/);
   await page.key("Escape", "Escape", 27);

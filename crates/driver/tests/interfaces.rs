@@ -95,6 +95,8 @@ def mergedLater: Text :=
 #[test]
 fn a_head_dictionary_equated_with_an_unknown_waits() {
     let source = "\
+import Std (Nat)
+
 interface Ordered (a: Type) =
   { less: a -> a -> Bool }
 
@@ -151,6 +153,8 @@ fn the_budget_lasts_across_retries() {
     // `Pretty (Box Nat ?ord)` waits once (two steps for the round) and
     // then finds its instance and the element's.
     let source = "\
+import Std (Nat)
+
 interface Ordered (a: Type) =
   { less: a -> a -> Bool }
 
@@ -202,6 +206,8 @@ fn the_instance_marker_is_hashed() {
 #[test]
 fn a_type_auto_parameter_equated_with_an_unknown_waits() {
     let source = "\
+import Std (Nat)
+
 interface Ordered (a: Type) =
   { less: a -> a -> Bool }
 
@@ -273,6 +279,8 @@ fn body_of(source: &str, name: &str) -> (Vec<String>, Vec<String>) {
 }
 
 const NAMED: &str = "\
+import Std (Nat)
+
 interface Ordered (a: Type) =
   { less: a -> a -> Bool }
 

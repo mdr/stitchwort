@@ -70,7 +70,8 @@ fn types_are_hashed_with_their_full_names() {
 #[test]
 fn ambiguity_is_reported_only_where_used() {
     passes(&load(
-        "import List (length)\n\
+        "import Std (List, Text)\n\
+         import List (length)\n\
          import Text (length)\n\n\
          test \"full names\" := List.length [1] == Text.length \"a\"\n",
     ));
@@ -106,7 +107,8 @@ fn importing_twice_is_a_warning() {
 #[test]
 fn constructors_come_with_an_imported_type() {
     passes(&load(
-        "import Std.Effect (Comp)\n\n\
+        "import Std (List)\n\
+         import Std.Effect (Comp)\n\n\
          def one : Comp Std.Builtin.UnitType (o => Std.Builtin.UnitType) Nat := Done 1\n\n\
          test \"done\" := List.length [one, Call () (u => one)] == 2\n",
     ));
@@ -145,7 +147,7 @@ fn qualified_names_work_everywhere() {
          def isEmpty : Std.List Nat -> Bool\n  \
          | Std.List.Nil => True\n  \
          | Std.List.Cons x xs => False\n\n\
-         test \"rows and clauses\" := List.length (collect twice) == 2\n\
+         test \"rows and clauses\" := Std.List.length (collect twice) == 2\n\
          test \"patterns\" := isEmpty Std.List.Nil\n",
     ));
 }
@@ -285,7 +287,9 @@ fn wildcard_precedence_in_a_file() {
 
 #[test]
 fn two_wildcards_are_ambiguous_only_where_used() {
-    load("import List (..)\nimport Text (..)\n\ntest \"qualified\" := List.length [1] == 1\n");
+    load(
+        "import Std (List)\nimport List (..)\nimport Text (..)\n\ntest \"qualified\" := List.length [1] == 1\n",
+    );
     let found =
         error_of("import List (..)\nimport Text (..)\n\ndef n(xs: List Nat): Nat := length xs\n");
     assert_eq!(found[0].code, "E-AMBIGUOUS");
@@ -384,5 +388,65 @@ fn a_programs_own_eq_namespace_is_its_own() {
     assert_eq!(
         codes("import Std (Eq)\n\ndef Eq.size : Nat := 0\n"),
         ["E-STD-NAMESPACE"]
+    );
+}
+
+// ------------------------------------------------- the slim prelude (SW-213)
+
+/// A prelude type's namespace needs an import (D260): the error says which.
+#[test]
+fn a_prelude_types_functions_need_its_namespace_imported() {
+    let found = error_of("def n: Nat := List.length [1, 2]\n");
+    assert_eq!(found[0].code, "E-UNKNOWN-NAME");
+    assert!(
+        found[0]
+            .notes
+            .iter()
+            .any(|n| n.contains("`List.length` needs `import Std (List)`")),
+        "{found:#?}"
+    );
+    // Importing it is not a duplicate of the prelude, and isn't warned about.
+    assert_eq!(
+        codes("import Std (List)\n\ndef n: Nat := List.length [1, 2]\n"),
+        Vec::<&str>::new()
+    );
+    // The full name always works.
+    assert_eq!(
+        codes("def n: Nat := Std.List.length [1, 2]\n"),
+        Vec::<&str>::new()
+    );
+}
+
+/// The type's own declaration comes with it: its constructors, fields,
+/// operations and methods. Dot notation and pipes need no import (D261).
+#[test]
+fn a_prelude_types_own_declaration_and_dot_notation_need_no_import() {
+    passes(&load(
+        "type Person = { name: Text, age: Nat }\n\n\
+         def xs: List Nat := List.Cons 1 List.Nil\n\n\
+         def c: Ordering := Ord.compare 1 2\n\n\
+         def main(): {IO} () := IO.print \"hi\"\n\n\
+         test \"dot\" := [1, 2].length == 2\n\
+         test \"pipe\" := ([1, 2] |> .map (x => x + 1) |> .sum) == 5\n\
+         test \"field\" := ({ name = \"a\", age = 3 }: Person).age == 3\n\
+         test \"constructor\" := xs == [1]\n",
+    ));
+}
+
+/// `Map`, `Set`, `Vec` and `Fin` aren't in the prelude (D266): even the
+/// type's name needs an import.
+#[test]
+fn library_types_outside_the_prelude_need_an_import() {
+    let found = error_of("def f (m: Map Nat Nat): Nat := 0\n");
+    assert!(
+        found[0]
+            .notes
+            .iter()
+            .any(|n| n.contains("add `import Std (Map)`")),
+        "{found:#?}"
+    );
+    assert_eq!(
+        codes("import Std (Map)\n\ndef f (m: Map Nat Nat): Nat := 0\n"),
+        Vec::<&str>::new()
     );
 }

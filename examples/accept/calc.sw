@@ -2,7 +2,7 @@
 
 -- An `=` chain works at any type. Each step's proof is checked against the
 -- step's own equation, and the steps are joined with `Eq.trans`.
-import Std (Eq)
+import Std (Eq, List)
 
 theorem appendThree (xs: List Nat) (ys: List Nat) (zs: List Nat): List.length (xs ++ (ys ++ zs)) = List.length xs + (List.length ys + List.length zs) :=
   calc List.length (xs ++ (ys ++ zs))

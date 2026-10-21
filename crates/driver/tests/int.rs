@@ -381,6 +381,8 @@ fn load(source: &str, natives: bool) -> Vec<&'static str> {
 }
 
 const CHECK4: &str = "\
+import Std (Int)
+
 type Tag (n : Nat) : Type =
   | MkTag
 

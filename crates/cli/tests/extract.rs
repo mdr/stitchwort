@@ -1942,7 +1942,8 @@ fn long_literals_extract_as_strings() {
     }
     literal.push('"');
     let source = format!(
-        "export def longText (b : Bool) : Text := {literal}\n\n\
+        "import Std (Text)\n\n\
+         export def longText (b : Bool) : Text := {literal}\n\n\
          export def firstTwo (b : Bool) : List Char := firstTwoOf {literal}\n\n\
          def firstTwoOf : Text -> List Char\n  \
          | MkText (Cons a (Cons b rest)) => [a, b]\n  \

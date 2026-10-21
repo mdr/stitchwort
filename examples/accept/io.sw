@@ -2,6 +2,8 @@
 -- `IO.simulate` is an ordinary handler from the prelude: it answers each
 -- `IO.readLine` from a list of scripted lines and records each `IO.print`.
 
+import Std (IO, List, Nat, Pair)
+
 def eqTexts: List Text -> List Text -> Bool
   | Nil,       Nil       => True
   | Cons x xs, Cons y ys => if x == y then eqTexts xs ys else False

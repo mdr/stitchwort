@@ -731,6 +731,11 @@ import Effect (Comp)
 
 ### 4.6 The default set
 
+> **Superseded (SW-213, D260/D266, 21 October 2026):** the default set is now the 22
+> prelude names of [prelude-slim.md](prelude-slim.md) §3 (`PRELUDE` in `scope.rs`), and a
+> default name used as a prefix reaches only its type's own declaration (constructors,
+> fields, operations, methods); `List.map` needs `import Std (List)`.
+
 **Proposed: the default set is exactly what `Std` declares at its root.** In
 the library source that's a visible, checkable rule: anything not in a
 namespace is default. Constructors follow their type (§4.4), and so do the

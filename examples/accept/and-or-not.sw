@@ -4,6 +4,8 @@
 -- proposition is expected they are `And`, `Or` and `Not`.
 -- Precedence: `->` < `||` < `&&` < comparisons; both are right-associative.
 
+import Std (List)
+
 -- Bool operands, with a comparison as an operand.
 def between (x: Nat) (y: Nat) (z: Nat): Bool := x < y && y < z
 

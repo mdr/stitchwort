@@ -1,6 +1,7 @@
 -- The list toolkit and Nat helpers of the library (`List.map`, `Nat.pow`, ...),
 -- most of them also by dot notation.
 
+import Std (Bool, List, Nat)
 
 theorem mapped: [1, 2, 3].map (x => x + 1) = [2, 3, 4] := rfl
 

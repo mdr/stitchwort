@@ -2,7 +2,7 @@
 -- is rectangular by its type, parsed from lines of unknown length, and two
 -- proofs that go through the library's lemmas.
 
-import Std (Eq)
+import Std (Bool, Eq, Fin, List, Option, Vec)
 
 type Grid = { height: Nat, width: Nat, rows: Vec (Vec Bool width) height }
 

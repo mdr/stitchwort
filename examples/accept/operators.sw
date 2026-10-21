@@ -4,7 +4,7 @@
 -- On `Nat` and `Int` that's the library's instances, so the terms are the
 -- built-in operations, as before.
 
-import Std (Eq)
+import Std (Bool, Eq, Int, List, Nat)
 
 -- A user's type with `+`: an `Add` instance, with its laws.
 type Point = { x: Int, y: Int }

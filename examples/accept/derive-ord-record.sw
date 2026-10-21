@@ -2,6 +2,8 @@
 -- lexicographic, field by field in the order they're declared. Proof
 -- fields are left out of the comparison (D179).
 
+import Std (List, Ord)
+
 type Item = { name: Text, price: Nat }
 
 def tea: Item := { name = "tea", price = 3 }

@@ -3,7 +3,7 @@
 -- from the library's theorems, and §7.5's cases for the ordering in the type
 -- (docs/proposals/interfaces.md), with the real `Ord`.
 
-import Std (Eq)
+import Std (Eq, Map, Nat, Option, Ord, Set)
 
 -- Counting with `insertWith`: each word's count, in alphabetical order.
 def wordCounts (words: List Text): Map Text Nat :=

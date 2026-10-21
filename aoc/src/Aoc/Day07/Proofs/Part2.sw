@@ -8,7 +8,7 @@
 
 namespace Aoc.Day07.Proofs
 import Aoc.Day07 (..)
-import Std (Eq)
+import Std (Eq, List, Nat, Option, Void)
 
 -- `splitRow` column by column.
 theorem splitRowAt (left: Nat): (flags: List Bool) -> (below: List Nat) -> List.length flags = List.length below -> (c: Nat) ->

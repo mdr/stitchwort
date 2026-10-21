@@ -2,6 +2,8 @@
 -- numbers are cheap. They still mean `Succ (Succ … Zero)`: matching on one
 -- takes the `Zero` or `Succ` branch, and `3` is the same as `Succ 2`.
 
+import Std (Nat)
+
 -- Checked by computing both sides, natively.
 theorem bigSum: 1000000 + 1000000 = 2000000 := rfl
 

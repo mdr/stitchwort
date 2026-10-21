@@ -1,6 +1,7 @@
 -- Generic range code, shared between days.
 
 namespace Aoc.Common
+import Std (List, Text)
 
 -- A range of ids, both ends included: "3-5" is `{ from = 3, to = 5 }`.
 type Range = { from: Nat, to: Nat }

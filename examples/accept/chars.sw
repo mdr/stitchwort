@@ -1,5 +1,7 @@
 -- Characters: Unicode scalar values (docs/proposals/text-and-io.md).
 
+import Std (Char)
+
 def isSome: Option a -> Bool
   | None => False
   | Some x  => True

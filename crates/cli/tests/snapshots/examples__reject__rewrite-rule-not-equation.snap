@@ -3,9 +3,9 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-REWRITE-RULE] Error: `rewrite` needs a proof of an equation
-   ╭─[ reject/rewrite-rule-not-equation.sw:4:11 ]
+   ╭─[ reject/rewrite-rule-not-equation.sw:7:11 ]
    │
- 4 │   rewrite Nat.addComm
+ 7 │   rewrite Nat.addComm
    │           ─────┬─────  
    │                ╰─────── this has type `(m: Nat) -> (n: Nat) -> m + n = n + m`, which isn't an equation
    │ 

@@ -3,6 +3,7 @@
 -- lets a lambda be inferred with no expected type.
 
 import List (map)
+import Std (List)
 
 type Person = { name: Text, age: Nat }
 

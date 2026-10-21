@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-DOT-NO-RECEIVER] Error: `Meter.parse` has no parameter of type `Meter` to put `m` in
-   ╭─[ reject/dot-no-receiver.sw:9:32 ]
-   │
- 9 │ def again (m: Meter): Meter := m.parse
-   │                                ───┬───  
-   │                                   ╰───── `Meter.parse: Text -> Meter`
-   │ 
-   │ Note: call it directly, `Meter.parse …`
-───╯
+    ╭─[ reject/dot-no-receiver.sw:11:32 ]
+    │
+ 11 │ def again (m: Meter): Meter := m.parse
+    │                                ───┬───  
+    │                                   ╰───── `Meter.parse: Text -> Meter`
+    │ 
+    │ Note: call it directly, `Meter.parse …`
+────╯

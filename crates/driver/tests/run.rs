@@ -78,6 +78,8 @@ def main () : {IO} () :=
 
 /// Prints each line of `IO.readAllLines ()`.
 const LINES: &str = r#"
+import Std (IO)
+
 def printAll : List Text -> {IO} ()
   | Nil       => ()
   | Cons l ls =>
@@ -120,6 +122,8 @@ fn programs() -> Vec<(&'static str, String)> {
         (
             "with State handled inside",
             r#"
+import Std (Nat)
+
 ability State (s : Type) where
   get : () -> {State s} s
   put : s -> {State s} ()
@@ -534,6 +538,8 @@ fn many_operations_run_without_growing_the_stack() {
 // Resources
 
 const SLOW: &str = "
+import Std (List, Nat)
+
 def replicate : Nat -> a -> List a
   | Zero,   x => Nil
   | Succ n, x => Cons x (replicate n x)

@@ -2,6 +2,8 @@
 -- messages show `<` and `<=`. `a > b` runs `b` first, which only matters for
 -- nothing: the language is pure. `!b` is `Bool.not b`.
 
+import Std (Nat)
+
 type Suit = | Clubs | Diamonds | Hearts | Spades
 
 test "Nat" := 3 > 2 && 3 >= 3 && !(2 > 3) && !(2 >= 3)

@@ -2,6 +2,8 @@
 -- A proof about a handled computation whose function has an error: only the
 -- error in the function is reported, not a mismatch in the proof.
 
+import Std (IO, Pair)
+
 def greet(): {IO} () :=
   let unused := notDefinedAnywhere
   IO.print "Hello"

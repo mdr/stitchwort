@@ -4,6 +4,7 @@
 -- ordering each operation uses.
 
 import Ordered (compare)
+import Std (Nat, Text)
 
 interface Ordered (k: Type) =
   { compare: k -> k -> Ordering }

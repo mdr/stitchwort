@@ -4,7 +4,7 @@
 
 namespace Aoc.Day03.Proofs
 import Aoc.Day03 (..)
-import Std (Eq)
+import Std (Bool, Char, Decidable, Eq, List, Nat, Or, Pair, Text, Void)
 
 -- Parsing gives digits, so this holds for every line of the input: no k
 -- batteries beat the joltage computed.

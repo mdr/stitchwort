@@ -1,6 +1,8 @@
 -- Indexed data types (docs/proposals/indexed-families.md §8). Each reject/
 -- index-*.sw example is paired with a definition here.
 
+import Std (Nat)
+
 -- Vectors: a list whose length is in its type. `n` in `VCons` is an
 -- implicit field, bound automatically.
 type Vec (a: Type): Nat -> Type =

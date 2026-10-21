@@ -4,6 +4,7 @@
 -- pattern must cover every value of its type.
 
 import List (map, foldLeft, zip)
+import Std (IO, Option)
 
 -- A tuple.
 def divMod7 (n: Nat): (Nat, Nat) := (n / 7, n % 7)

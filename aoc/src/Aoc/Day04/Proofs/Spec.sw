@@ -23,6 +23,7 @@
 
 namespace Aoc.Day04.Proofs
 import Aoc.Day04 (..)
+import Std (List, Nat, Option, Vec)
 
 -- What each position holds, (row, column) -> cell.
 type Cells = Nat -> Nat -> Cell

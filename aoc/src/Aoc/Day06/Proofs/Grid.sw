@@ -5,6 +5,7 @@
 
 namespace Aoc.Day06.Proofs
 import Aoc.Day06 (..)
+import Std (List, Nat)
 
 -- Every line is at most this wide (proof-only).
 def Fits (width: Nat): List Text -> Prop

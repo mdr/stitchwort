@@ -15,7 +15,7 @@
 
 namespace Aoc.Day06.Proofs
 import Aoc.Day06 (..)
-import Std (Eq)
+import Std (Bool, Eq, List, Nat, Option, Text)
 
 -- The spec's problem test is the library's maximal run of non-blank columns.
 theorem isProblemRun (lines: List Text) (lo: Nat) (hi: Nat): isProblem lines lo hi = Nat.isRun (c => blank lines c) lo hi := rfl

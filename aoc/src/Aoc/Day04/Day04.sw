@@ -20,6 +20,7 @@
 -- check.
 
 namespace Aoc.Day04
+import Std (IO, Option, Pair, Vec)
 
 type Cell =
   | Roll

@@ -11,6 +11,7 @@
 -- `Aoc.Day01.Proofs` (Proofs/Part2.sw), which `run` does not check.
 
 namespace Aoc.Day01
+import Std (IO, Int, List)
 
 def main(): {IO} () :=
   let turns := parseTurns (IO.readAllLines())

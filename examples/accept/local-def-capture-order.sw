@@ -3,6 +3,8 @@
 -- arm's pattern variables from left to right. So `reach.left` takes `rest k d`
 -- (the order they appear in the arm), then its own argument.
 
+import Std (Nat)
+
 def reach: List Nat -> Nat -> Nat -> Nat -> Bool
   | ls,             c, Zero,   d => c == d
   | Nil,            c, Succ k, d => False

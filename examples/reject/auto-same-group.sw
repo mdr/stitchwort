@@ -1,4 +1,7 @@
 -- expect-error: E-AUTO-NONE
+
+import Std (Decidable)
+
 -- A decision procedure checked together with its use (they call each
 -- other) can't run while they're being checked.
 type Token: Prop =

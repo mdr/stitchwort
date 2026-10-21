@@ -5,7 +5,7 @@
 
 namespace Aoc.Day04.Proofs
 import Aoc.Day04 (..)
-import Std (Eq)
+import Std (And, Bool, Decidable, Eq, List, Nat, Vec, Void)
 
 -- Rows of any size as cells by position, as `cellsOf` reads a grid's.
 def rowsCells (rows: Vec (Vec Cell w) h): Cells :=

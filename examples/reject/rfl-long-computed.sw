@@ -1,4 +1,7 @@
 -- expect-error: E-REFL
+
+import Std (List, Nat)
+
 -- A false `rfl` about a definition that computes a long way: the message
 -- shows the two sides as written, and the computed form is short, with its
 -- inner parts elided (SW-115).

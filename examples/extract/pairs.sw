@@ -5,6 +5,8 @@
 -- run: swap (MkNatPair 1 2)
 -- run: zipSum [1, 2, 3] [10, 20]
 
+import Std (Nat)
+
 type NatPair: Type =
   | MkNatPair (left: Nat) (right: Nat)
 

@@ -124,6 +124,7 @@ impl Elaborator {
             // full (`Person.name`).
             let key = Self::member_key(&self.data_key(d), &format!("{hidden}{field}"));
             self.scope.insert(&key, Global::Def(id), span, false);
+            self.scope.mark_member(&key);
             out.push(Some(id));
         }
         Ok(out)

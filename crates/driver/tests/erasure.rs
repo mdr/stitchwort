@@ -109,6 +109,8 @@ fn erasure_doesnt_change_what_examples_print_or_test() {
 }
 
 const POS: &str = r#"
+import Std (IO, Int, Nat, Text)
+
 type Pos = { at : Nat, ok : at < 100 }
 
 def wrap (x : Int) : Pos := { at = Int.modNat x 100, ok = Int.modNatLt x 100 }

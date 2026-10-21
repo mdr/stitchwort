@@ -11,7 +11,7 @@
 
 namespace Aoc.Day04.Proofs
 import Aoc.Day04 (..)
-import Std (Eq)
+import Std (And, Bool, Eq, List, Nat, Pair, Vec, Void)
 
 -- Counting rolls.
 

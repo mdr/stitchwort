@@ -2,10 +2,10 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-AMBIGUOUS] Error: `length` could mean `List.length` or `Text.length`
+[E-AMBIGUOUS] Error: `length` could mean `Std.List.length` or `Std.Text.length`
    ╭─[ reject/ambiguous-import.sw:6:34 ]
    │
  6 │ def count (xs: List Nat): Nat := length xs
    │                                  ───┬──  
-   │                                     ╰──── write `List.length` or `Text.length` in full
+   │                                     ╰──── write `Std.List.length` or `Std.Text.length` in full
 ───╯

@@ -91,6 +91,8 @@ fn a_forgotten_builtin_is_an_error_not_a_name_lookup() {
 /// looked up by (`add`, `List`, `Nil`, `Comp`, …), which mean something
 /// else, and uses the syntax they stand for.
 const PROGRAM: &str = r#"
+import Std (Char, Nat, Text)
+
 type List (a : Type) : Type =
   | Nil
   | Cons (head : a) (tail : List a)

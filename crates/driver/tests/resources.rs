@@ -9,6 +9,8 @@ use stitchwort_core::{Limits, ResourceError};
 use stitchwort_driver::driver::{Cache, Outcome, Session};
 
 const REPLICATE: &str = "
+import Std (List)
+
 def replicate : Nat -> a -> List a
   | Zero,   x => Nil
   | Succ n, x => Cons x (replicate n x)
@@ -114,6 +116,8 @@ fn printing_too_large_a_value_is_an_error() {
 /// arguments, `if h :`, `==` through decision procedures, text, abilities
 /// with handlers, and proofs by computation.
 const PROGRAM: &str = r#"
+import Std (Pair, Text)
+
 def half (n : Nat) : Nat := n / 2
 
 def safeDiv (n : Nat) (d : Nat) : Nat := if h : d != 0 then n / d else 0
@@ -355,8 +359,9 @@ fn a_large_let_is_computed_only_when_a_type_needs_it() {
     let work = |body: &str| {
         let mut session = Session::new();
         let before = session.elab.globals.budget.total_work();
-        let source =
-            format!("def f : Nat :=\n  let xs := List.range 200000\n{body}  List.length xs\n");
+        let source = format!(
+            "import Std (List)\ndef f : Nat :=\n  let xs := List.range 200000\n{body}  List.length xs\n"
+        );
         let result = codes(session.load("big.sw", &source));
         assert!(result.is_empty(), "{result:?}");
         session.elab.globals.budget.total_work() - before

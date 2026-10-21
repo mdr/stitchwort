@@ -2,6 +2,8 @@
 -- field expression once, in the order written, and then the record is built
 -- in declaration order. An update runs its base once, first.
 
+import Std (IO, Pair)
+
 type Pair2 = { a: Text, b: Text }
 
 def orNone: Option Text -> Text

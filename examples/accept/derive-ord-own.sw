@@ -2,7 +2,7 @@
 -- (docs/proposals/interfaces.md §5.11, §7.3): here items are ordered by
 -- price, then by name, rather than by name first.
 
-import Std (Eq)
+import Std (Eq, List, Ord, Pair)
 
 type Item = { name: Text, price: Nat }
 

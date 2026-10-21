@@ -1,4 +1,7 @@
 -- expect-error: E-UNKNOWN-FIELD
+
+import Std (List)
+
 -- The value on the left fixes `p: Person`, so a mistake inside the lambda is
 -- reported as itself, not as a type that can't be inferred.
 type Person = { name: Text, age: Nat }

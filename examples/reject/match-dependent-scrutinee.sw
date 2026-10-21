@@ -1,4 +1,7 @@
 -- expect-error: E-MATCH-MOTIVE
+
+import Std (List)
+
 -- The second scrutinee's type mentions the first (`List.length xs`), so they
 -- can't be matched together. Write a helper with a signature instead.
 type Tagged (n: Nat): Type =

@@ -3,9 +3,9 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-AUTO-NONE] Error: no way to decide `Token`
-    ╭─[ reject/auto-same-group.sw:14:15 ]
+    ╭─[ reject/auto-same-group.sw:17:15 ]
     │
- 14 │   | 0      => needsToken
+ 17 │   | 0      => needsToken
     │               ─────┬────  
     │                    ╰────── the compiler needs a proof of this
     │ 

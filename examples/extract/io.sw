@@ -10,6 +10,8 @@
 -- run: countdownLines 4
 -- run: oneEntryPerPrint 3
 
+import Std (IO, List, Nat, Pair, Text)
+
 -- Echoes each line until the input runs out, reading at most `n` lines.
 def echoLine: Option Text -> (() -> {IO} ()) -> {IO} ()
   | None, more => ()

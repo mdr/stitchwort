@@ -3,6 +3,8 @@
 -- elements of lists, tuples, records and constructors use: text is quoted
 -- only inside containers.
 
+import Std (Fin, Show, Vec)
+
 type Dir = | L | R
 
 type Shape = | Circle (radius: Nat) | Rect (w: Nat) (h: Nat) | Dot

@@ -5,6 +5,8 @@
 -- run: sorted [3, 1, 2, 3]
 -- run: sortedDown [3, 1, 2, 3]
 
+import Std (List, Nat)
+
 interface Ordered (k: Type) =
   { compare: k -> k -> Ordering }
 

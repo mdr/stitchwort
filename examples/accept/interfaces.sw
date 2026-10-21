@@ -3,6 +3,7 @@
 -- for one type, which `auto` finds by the type.
 
 import Pretty (pretty)
+import Std (Text)
 
 interface Pretty (a: Type) =
   { pretty: a -> Text }

@@ -7,6 +7,8 @@
 -- run: shapes 1
 -- run: shapes 4
 
+import Std (List)
+
 type Suit = | Clubs | Diamonds | Hearts | Spades
 
 type Item = { name: Text, price: Nat, positive: price = price }

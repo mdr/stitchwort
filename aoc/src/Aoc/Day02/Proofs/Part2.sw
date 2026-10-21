@@ -28,7 +28,7 @@ namespace Aoc.Day02.Proofs
 import Aoc.Common (Range)
 import Aoc.Common.Proofs (rangeEnd)
 import Aoc.Day02 (..)
-import Std (Eq)
+import Std (Bool, Decidable, Eq, List, Nat, Void)
 
 -- (1) n copies ------------------------------------------------------------
 -- The twice* lemmas of Repeated.sw, for any number of copies n >= 2.

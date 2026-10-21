@@ -17,6 +17,7 @@
 
 namespace Aoc.Day05
 import Aoc.Common (Range)
+import Std (IO, Nat, Text)
 
 def main(): {IO} () :=
   let database := parseDatabase (IO.readAllLines())

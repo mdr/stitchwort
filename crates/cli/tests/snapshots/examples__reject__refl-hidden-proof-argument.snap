@@ -3,9 +3,9 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-REFL] Error: `rfl` can't prove this
-   ╭─[ reject/refl-hidden-proof-argument.sw:7:76 ]
+   ╭─[ reject/refl-hidden-proof-argument.sw:9:76 ]
    │
- 7 │     Int.modNat x (Succ t) [ok := h1] = Int.modNat x (Succ t) [ok := h2] := rfl
+ 9 │     Int.modNat x (Succ t) [ok := h1] = Int.modNat x (Succ t) [ok := h2] := rfl
    │                                                                            ─┬─  
    │                                                                             ╰─── `Int.modNat x (Succ t) [h1]` and `Int.modNat x (Succ t) [h2]` aren't equal
    │ 

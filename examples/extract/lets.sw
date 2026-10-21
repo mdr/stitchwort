@@ -10,6 +10,8 @@
 -- run: countUp 5 0
 -- run: swapSum 3 4
 
+import Std (Nat)
+
 export def twice (n: Nat): Nat :=
   let m := n + 1
   m + m

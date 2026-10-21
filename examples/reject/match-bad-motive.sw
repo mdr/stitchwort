@@ -1,4 +1,7 @@
 -- expect-error: E-MATCH-MOTIVE
+
+import Std (List)
+
 def two (m: Nat) (p: m = 2): Bool -> Nat
   | True => m
   | False => 0

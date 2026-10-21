@@ -11,6 +11,8 @@ use stitchwort_driver::driver::{Cache, Outcome, Session, with_stack};
 const STACK: usize = 64 * 1024 * 1024;
 
 const VEC: &str = "
+import Std (List, Nat, Void)
+
 type Vec (a: Type): Nat -> Type =
   | VNil: Vec a 0
   | VCons (x: a) (xs: Vec a n): Vec a (Succ n)
@@ -90,6 +92,8 @@ test \"the forced field is stored\" := length (append (replicate 4 0) (replicate
 /// erased (the work disappears), the data fields are kept (the results are the
 /// same).
 const CERTIFIED: &str = "
+import Std (Nat)
+
 type Certified: Nat -> Type =
   | MkCertified (n: Nat) (ok: n + 3000 = 3000 + n): Certified n
 

@@ -3,7 +3,7 @@
 -- (docs/proposals/interfaces.md §5.11), and the error says why. `Tagged`'s
 -- field `tag` is a `Secret`, which has its own `==` but no ordering.
 
-import Std (Eq)
+import Std (Eq, List)
 
 type Secret = | Hidden (code: Nat)
 

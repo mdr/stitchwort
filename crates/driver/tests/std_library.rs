@@ -192,27 +192,33 @@ fn an_empty_program_loads_no_library_file() {
 #[test]
 fn a_file_loads_after_the_files_it_needs() {
     assert_eq!(
-        loaded_by("def x : Nat := Nat.libFour 1\n"),
+        loaded_by("import Std (Nat)\ndef x : Nat := Nat.libFour 1\n"),
         ["A.sw", "B.sw"]
     );
-    assert_eq!(loaded_by("def x : Nat := Nat.libTwice 1\n"), ["A.sw"]);
+    assert_eq!(
+        loaded_by("import Std (Nat)\ndef x : Nat := Nat.libTwice 1\n"),
+        ["A.sw"]
+    );
 }
 
 #[test]
 fn the_order_never_depends_on_how_the_program_mentions_things() {
-    let one = "def x : Nat := Nat.libEight 1\ndef y : Nat := Nat.libTwice 1\n";
-    let other = "def y : Nat := Nat.libTwice 1\ndef x : Nat := Nat.libEight 1\n";
+    let one = "import Std (Nat)\ndef x : Nat := Nat.libEight 1\ndef y : Nat := Nat.libTwice 1\n";
+    let other = "import Std (Nat)\ndef y : Nat := Nat.libTwice 1\ndef x : Nat := Nat.libEight 1\n";
     assert_eq!(loaded_by(one), ["A.sw", "B.sw", "C.sw"]);
     assert_eq!(loaded_by(other), ["A.sw", "B.sw", "C.sw"]);
     // Independent files: by path.
-    let both = "def x : Nat := Nat.libTwice 1\ndef y (xs: List Nat) : Nat := List.libDouble xs\n";
+    let both = "import Std (List, Nat)\ndef x : Nat := Nat.libTwice 1\ndef y (xs: List Nat) : Nat := List.libDouble xs\n";
     assert_eq!(loaded_by(both), ["A.sw", "D.sw"]);
 }
 
 #[test]
 fn every_way_of_naming_a_library_declaration_loads_its_file() {
-    // Qualified, with the default namespace, and with `Std.`.
-    assert_eq!(loaded_by("def x : Nat := Nat.libTwice 1\n"), ["A.sw"]);
+    // Qualified, with the namespace imported, and with `Std.`.
+    assert_eq!(
+        loaded_by("import Std (Nat)\ndef x : Nat := Nat.libTwice 1\n"),
+        ["A.sw"]
+    );
     assert_eq!(loaded_by("def x : Nat := Std.Nat.libTwice 1\n"), ["A.sw"]);
     // By an import, qualified or by name.
     assert_eq!(
@@ -289,7 +295,7 @@ fn library_tests_run_only_under_the_library_target() {
     session
         .load(
             "t.sw",
-            "def x : Nat := Nat.libTwice 1\ntest \"mine\" := x == 2\n",
+            "import Std (Nat)\ndef x : Nat := Nat.libTwice 1\ntest \"mine\" := x == 2\n",
         )
         .unwrap();
     let results = session.run_tests(&Cache::disabled());
@@ -326,7 +332,7 @@ fn a_cycle_between_files_is_an_internal_error_naming_both() {
     ];
     let mut session = Session::with_library_files(&files, false, false).unwrap();
     let errors = session
-        .load("t.sw", "def x : Nat := Nat.cycA 1\n")
+        .load("t.sw", "import Std (Nat)\ndef x : Nat := Nat.cycA 1\n")
         .unwrap_err();
     assert_eq!(codes(&errors), ["E-INTERNAL"]);
     let text = messages(&errors);
@@ -358,7 +364,7 @@ fn a_cycle_through_dot_notation_is_an_internal_error_naming_both() {
     ];
     let mut session = Session::with_library_files(&files, false, false).unwrap();
     let errors = session
-        .load("t.sw", "def x : Nat := List.dotA Nil\n")
+        .load("t.sw", "import Std (List)\ndef x : Nat := List.dotA Nil\n")
         .unwrap_err();
     assert_eq!(codes(&errors), ["E-INTERNAL"]);
     let text = messages(&errors);
@@ -381,7 +387,7 @@ fn a_library_file_may_use_dot_notation_on_a_loaded_file() {
     ];
     let mut session = Session::with_library_files(&files, false, false).unwrap();
     session
-        .load("t.sw", "def x : Nat := List.dotA Nil\n")
+        .load("t.sw", "import Std (List)\ndef x : Nat := List.dotA Nil\n")
         .unwrap();
 }
 
@@ -394,7 +400,7 @@ fn a_longer_cycle_names_each_file() {
     ];
     let mut session = Session::with_library_files(&files, false, false).unwrap();
     let errors = session
-        .load("t.sw", "def x : Nat := Nat.cycB 1\n")
+        .load("t.sw", "import Std (Nat)\ndef x : Nat := Nat.cycB 1\n")
         .unwrap_err();
     let text = messages(&errors);
     for f in ["std/A.sw", "std/B.sw", "std/C.sw"] {
@@ -407,7 +413,7 @@ fn a_library_file_that_doesnt_check_is_reported_as_internal() {
     let files = [("A.sw", "def Nat.bad (n: Nat): Nat := True\n")];
     let mut session = Session::with_library_files(&files, false, false).unwrap();
     let errors = session
-        .load("t.sw", "def x : Nat := Nat.bad 1\n")
+        .load("t.sw", "import Std (Nat)\ndef x : Nat := Nat.bad 1\n")
         .unwrap_err();
     assert_eq!(errors[0].code, "E-INTERNAL");
     assert!(errors[0].message.contains("std/A.sw"));
@@ -702,7 +708,7 @@ type Colour = | Red | Green
 
 test \"derived equality\" := origin == { x = 0, y = 0 }
 
-test \"derived equality on data\" := Bool.not (Red == Green)
+test \"derived equality on data\" := not (Red == Green)
 
 test \"auto proves the divisor isn't zero\" := 7 / 2 == 3
 

@@ -15,6 +15,8 @@
 -- run: total { items = [1, 2, 3], size = 3, ok = rfl }
 -- run: team { lead = { name = "Ada", age = 36 }, size = 4 }
 
+import Std (Bool, List, Nat)
+
 type Person = { name: Text, age: Nat }
 
 export def greet (p: Person): Text := "Hello, " ++ p.name

@@ -4,6 +4,7 @@
 -- being accepted; renaming the parameter, or bracketing an argument lambda,
 -- silences it.
 import List (map)
+import Std (List)
 
 def shadowed : (Nat -> Nat) -> List Nat -> List Nat := map xs => List.map map xs
 

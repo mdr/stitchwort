@@ -102,7 +102,8 @@ fn a_record_has_exactly_one_constructor() {
 #[test]
 fn field_validators_are_checked() {
     let mut s = load(
-        "def IsZero' (n : Nat) : Prop := n = 0\n\n\
+        "import Std (Nat)\n\n\
+         def IsZero' (n : Nat) : Prop := n = 0\n\n\
          type Small = { n : Nat, zero : IsZero' n }\n\n\
          def decZero (n : Nat) : Decidable (IsZero' n) := Nat.decEq n 0\n\n\
          def decOne (n : Nat) : Decidable (n = 1) := Nat.decEq n 1\n",
@@ -150,7 +151,8 @@ fn field_validators_are_checked() {
 #[test]
 fn projections_and_equality_are_generated() {
     let s = load(
-        "type Person = { name : Text, age : Nat }\n\n\
+        "import Std (List)\n\n\
+         type Person = { name : Text, age : Nat }\n\n\
          type Sized = { items : List Nat, size : Nat, ok : List.length items = size }\n\n\
          type Box (a : Type) = { value : a }\n",
     );

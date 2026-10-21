@@ -2,6 +2,8 @@
 -- them, and caches each result by a hash of everything the test depends on,
 -- so a test only runs again after something it uses has changed.
 
+import Std (Nat)
+
 def reverse: List a -> List a
   | Nil       => Nil
   | Cons x xs => (reverse xs).append [x]

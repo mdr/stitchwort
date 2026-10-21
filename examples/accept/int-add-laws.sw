@@ -1,5 +1,7 @@
 -- Laws for integer addition, and `==` on `Ordering`.
 
+import Std (Int)
+
 theorem negPlusSelf (a: Int): a + Int.neg a = Int.OfNat 0 := Int.addNeg a
 
 theorem threeWay (a: Int) (b: Int) (c: Int): (a + b) + c = a + (b + c) := Int.addAssoc a b c

@@ -10,6 +10,8 @@
 -- run: reused [1, 2, 3]
 -- run: digits 1234567890
 
+import Std (List, Nat, Text)
+
 -- Deep enough to overflow the JS stack, if each call used a frame.
 def sumFrom (acc: Nat): Nat -> Nat
   | 0      => acc

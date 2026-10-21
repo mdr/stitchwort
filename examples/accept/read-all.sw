@@ -2,6 +2,8 @@
 -- `IO.simulate` answers `IO.readAll` with the remaining scripted lines, each
 -- followed by LF: what `stitchwort run` reads from the same input.
 
+import Std (IO, Pair, Text)
+
 def eqTexts: List Text -> List Text -> Bool
   | Nil,       Nil       => True
   | Cons x xs, Cons y ys => if x == y then eqTexts xs ys else False

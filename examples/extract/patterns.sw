@@ -8,6 +8,8 @@
 -- run: sameLength [1, 2] [3, 4]
 -- run: bigEqual 123456789012345678901234567890
 
+import Std (List)
+
 export def half: Nat -> Nat
   | 0             => 0
   | 1             => 0
