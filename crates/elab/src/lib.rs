@@ -1741,6 +1741,10 @@ impl Elaborator {
         if let Some(item) = self.module.item {
             self.module.def_items.insert(id, item);
         }
+        // A dictionary keeps its name in what uses it (stage 1, item 13).
+        if self.is_dictionary_type(&self.globals.def(id).ty.clone())? {
+            kernel::mark_folded(&mut self.globals, id);
+        }
         if *instance {
             self.register_instance(id, def_name)?;
         }

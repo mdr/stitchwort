@@ -29,7 +29,7 @@
 use std::rc::Rc;
 
 use stitchwort_core::check as kernel;
-use stitchwort_core::value::{Head, conv, force};
+use stitchwort_core::value::{Head, conv, force, unfold_folded};
 use stitchwort_core::{DataId, DefId, Icit, Name, Term, Value, pretty};
 use stitchwort_syntax::ast::{self, Decl};
 use stitchwort_syntax::{Diagnostic, Span};
@@ -717,6 +717,38 @@ impl Elaborator {
     }
 }
 
+impl Elaborator {
+    /// Whether a definition of type `ty` is a dictionary, which stays folded
+    /// by name until it's taken apart (`Def::fold`): its result, after its
+    /// parameters, is an interface.
+    /// Read from the type as written, so nothing in it is computed unless
+    /// the result is a definition's application (a synonym, perhaps): `cost
+    /// = cost` isn't evaluated.
+    pub(crate) fn is_dictionary_type(&self, ty: &Term) -> Result<bool> {
+        if self.interfaces.is_empty() {
+            return Ok(false);
+        }
+        let g = &self.globals;
+        let mut result = ty.strip_loc();
+        let mut level = 0;
+        while let Term::Pi(_, _, _, cod) = result {
+            result = cod.strip_loc();
+            level += 1;
+        }
+        Ok(match result.spine().0.strip_loc() {
+            Term::Data(i, _) => self.is_interface(*i),
+            Term::Def(_) => {
+                let env: Vec<Value> = (0..level).map(Value::var).collect();
+                matches!(
+                    force(g, stitchwort_core::value::eval(g, &env, result)?)?,
+                    Value::Data(i, _) if self.is_interface(i)
+                )
+            }
+            _ => false,
+        })
+    }
+}
+
 /// Whether `goal` is an interface applied to a type: the interface and the
 /// type.
 pub(crate) fn interface_goal(e: &Elaborator, goal: &Value) -> Result<Option<(DataId, Value)>> {
@@ -1199,6 +1231,8 @@ fn rigidly_distinct(cx: &Ctx, a: &Value, b: &Value) -> Result<bool> {
     let mut pending = vec![(a.clone(), b.clone())];
     while let Some((a, b)) = pending.pop() {
         let (a, b) = (force(g, a)?, force(g, b)?);
+        let a = unfold_folded(g, &a)?.unwrap_or(a);
+        let b = unfold_folded(g, &b)?.unwrap_or(b);
         match (&a, &b) {
             (Value::Data(d1, a1), Value::Data(d2, a2)) => {
                 if d1 != d2 || a1.len() != a2.len() {
@@ -1377,7 +1411,8 @@ pub(crate) fn ord(e: &Elaborator) -> Option<DataId> {
 
 /// A decision of `x = y`, for `x y: ty`, from the `DecEq` instance for `ty`
 /// (§5.12). It's found now if it can be; an error if there's none. If the
-/// instance found is a record literal (a global instance's, inlined), the
+/// instance found is a global instance whose body is a record literal
+/// (unfolded from its name, `Def::fold`), the
 /// decision is its `decide` field applied to `x` and `y`, which is the term a
 /// search for a decision procedure used to give (`Nat.decEq x y`); otherwise
 /// it's `DecEq.decide x y` with that dictionary, found later if it can't be
@@ -1396,7 +1431,8 @@ pub(crate) fn decide_eq(cx: &mut Ctx, ty: &Value, x: &Value, y: &Value) -> Resul
     let (xt, yt) = (cx.quote(x)?, cx.quote(y)?);
     // A definition, applied or not (not a lambda, whose type the kernel
     // can't infer where it's applied).
-    if let Value::Ctor(_, 0, fields) = force(cx.g(), cx.eval(&meta)?)?
+    let dict = force(cx.g(), cx.eval(&meta)?)?;
+    if let Value::Ctor(_, 0, fields) = unfold_folded(cx.g(), &dict)?.unwrap_or(dict)
         && let Some(decide) = fields.first()
         && matches!(decide, Value::Neutral(Head::Def(_), _))
     {

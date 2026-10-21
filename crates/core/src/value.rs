@@ -574,7 +574,7 @@ fn quick(g: &Globals, term: &Rc<Term>, env: &Env) -> Option<Value> {
         Term::Def(id) => {
             let def = g.def(*id);
             match &def.body {
-                Some(_) if def.arity == 0 => None,
+                Some(_) if def.arity == 0 && !folds(g, *id) => None,
                 _ => Some(Value::Neutral(Head::Def(*id), Spine::new())),
             }
         }
@@ -592,7 +592,9 @@ fn eval_step(g: &Globals, term: Rc<Term>, env: Env, stack: &mut Vec<Frame>) -> R
             let def = g.def(*id);
             match &def.body {
                 Some(_) if def.arity == 0 && erases_result(g, *id) => Control::Return(erased()),
-                Some(body) if def.arity == 0 => Control::Eval(body.clone(), Values::from([])),
+                Some(body) if def.arity == 0 && !folds(g, *id) => {
+                    Control::Eval(body.clone(), Values::from([]))
+                }
                 _ => Control::Return(Value::Neutral(Head::Def(*id), Spine::new())),
             }
         }
@@ -960,6 +962,8 @@ fn branch(
     stuck: Option<(DefId, Spine)>,
     value: Value,
 ) -> Result<Control> {
+    // A dictionary is taken apart: it unfolds.
+    let value = unfold_folded(g, &value)?.unwrap_or(value);
     let (d, branches) = match &*tree {
         Term::Case(_, d, branches) => (d, branches),
         Term::NumCase(_, arms, default) => {
@@ -1040,6 +1044,7 @@ fn unfold(g: &Globals, id: DefId, spine: Spine) -> Result<Control> {
     let def = g.def(id);
     if let Some(body) = &def.body
         && def.arity == spine.len()
+        && !folds(g, id)
     {
         let args: Option<Vec<Value>> = spine
             .iter()
@@ -1054,6 +1059,58 @@ fn unfold(g: &Globals, id: DefId, spine: Spine) -> Result<Control> {
         }
     }
     Ok(Control::Return(Value::Neutral(Head::Def(id), spine)))
+}
+
+/// Whether definition `id` stays folded when it has all its arguments: a
+/// dictionary ([`crate::globals::Def::fold`]), except while a program runs.
+fn folds(g: &Globals, id: DefId) -> bool {
+    g.def(id).fold && !g.erasure.active()
+}
+
+/// Whether `value` is a dictionary left folded by name ([`folds`]) that
+/// [`unfold_folded`] would unfold.
+pub fn is_folded(g: &Globals, value: &Value) -> bool {
+    matches!(value, Value::Neutral(Head::Def(id), spine)
+        if folds(g, *id) && spine.len() == g.def(*id).arity && g.def(*id).body.is_some())
+}
+
+/// A dictionary left folded by name, unfolded until it isn't one (its body
+/// may be a call of another, `Ord.fromCompare …`): what taking it apart, or
+/// comparing it with something that isn't the same call, sees. `None` if
+/// `value` isn't one, or its case tree is stuck.
+pub fn unfold_folded(g: &Globals, value: &Value) -> Result<Option<Value>> {
+    let mut current: Option<Value> = None;
+    loop {
+        let v = current.as_ref().unwrap_or(value);
+        if !is_folded(g, v) {
+            return Ok(current);
+        }
+        let Value::Neutral(Head::Def(id), spine) = v else {
+            unreachable!()
+        };
+        let (id, spine) = (*id, spine.clone());
+        let def = g.def(id);
+        let body = def.body.as_ref().expect("checked by is_folded");
+        let args: Option<Vec<Value>> = spine
+            .iter()
+            .map(|e| match e {
+                Elim::App(v, _) => Some(v.clone()),
+                Elim::J { .. } => None,
+            })
+            .collect();
+        let Some(args) = args else {
+            return Ok(current);
+        };
+        let tree = Term::peel_lams_rc(body, def.arity);
+        let next = run(g, Control::Tree(tree, args, Some((id, spine.clone()))))?;
+        if let Value::Neutral(Head::Def(id2), s2) = &next
+            && *id2 == id
+            && s2.ptr_eq(&spine)
+        {
+            return Ok(current); // stuck
+        }
+        current = Some(next);
+    }
 }
 
 /// Whether, while erasing, definition `id` (with a body) applied to all its
@@ -1329,6 +1386,37 @@ fn conv_step(
             return Ok(true);
         }
         _ => {}
+    }
+    // Dictionaries left folded by name: the same one applied to equal
+    // arguments is equal; otherwise they're compared unfolded. (Like a
+    // partially applied definition below, this recurses once per level of
+    // nested dictionaries, which is bounded by the program.)
+    if is_folded(g, &a) || is_folded(g, &b) {
+        if let (Value::Neutral(Head::Def(i1), s1), Value::Neutral(Head::Def(i2), s2)) = (&a, &b)
+            && i1 == i2
+            && s1.len() == s2.len()
+            && let Some(pairs) = spine_pairs(level, s1, s2)
+        {
+            let mut same = true;
+            for pair in pairs {
+                let ConvTask::Values(l, x, y) = pair else {
+                    unreachable!()
+                };
+                if !conv(g, l, &x, &y)? {
+                    same = false;
+                    break;
+                }
+            }
+            if same {
+                return Ok(true);
+            }
+        }
+        let a2 = unfold_folded(g, &a)?;
+        let b2 = unfold_folded(g, &b)?;
+        if a2.is_some() || b2.is_some() {
+            work.push(ConvTask::Values(level, a2.unwrap_or(a), b2.unwrap_or(b)));
+            return Ok(true);
+        }
     }
     let fresh = Value::var(level);
     // Parts are pushed last-first, so they're compared first-first.

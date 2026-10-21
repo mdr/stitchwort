@@ -33,7 +33,7 @@ pub fn eval(g: &Globals, env: &[Value], term: &Term) -> Result<Value> {
         Term::Def(id) => {
             let def = g.def(*id);
             match &def.body {
-                Some(body) if def.arity == 0 => eval(g, &[], body)?,
+                Some(body) if def.arity == 0 && !folds(g, *id) => eval(g, &[], body)?,
                 _ => Value::Neutral(Head::Def(*id), Spine::new()),
             }
         }
@@ -254,6 +254,7 @@ fn unfold(g: &Globals, id: DefId, spine: Vec<Elim>) -> Result<Value> {
     let def = g.def(id);
     if let Some(body) = &def.body
         && def.arity == spine.len()
+        && !folds(g, id)
     {
         let args: Option<Vec<Value>> = spine
             .iter()
@@ -271,10 +272,40 @@ fn unfold(g: &Globals, id: DefId, spine: Vec<Elim>) -> Result<Value> {
     Ok(Value::Neutral(Head::Def(id), spine.into()))
 }
 
+/// Whether a dictionary stays folded when it has all its arguments
+/// (`Def::fold`), except while a program runs.
+fn folds(g: &Globals, id: DefId) -> bool {
+    g.def(id).fold && !g.erasure.active()
+}
+
+/// A dictionary left folded, unfolded (repeatedly) for a `case` to take it
+/// apart; anything else as it is.
+fn unfold_folded(g: &Globals, value: Value) -> Result<Value> {
+    if let Value::Neutral(Head::Def(id), spine) = &value
+        && folds(g, *id)
+        && spine.len() == g.def(*id).arity
+        && let Some(body) = g.def(*id).body.clone()
+    {
+        let args: Option<Vec<Value>> = spine
+            .iter()
+            .map(|e| match e {
+                Elim::App(v, _) => Some(v.clone()),
+                Elim::J { .. } => None,
+            })
+            .collect();
+        if let Some(args) = args
+            && let Some(next) = eval_tree(g, args, body.peel_lams(g.def(*id).arity))?
+        {
+            return unfold_folded(g, force(g, next)?);
+        }
+    }
+    Ok(value)
+}
+
 fn eval_tree(g: &Globals, mut env: Vec<Value>, term: &Term) -> Result<Option<Value>> {
     match term.strip_loc() {
         Term::Case(ix, d, branches) => {
-            let (c, fields) = match force(g, env[env.len() - 1 - ix].clone())? {
+            let (c, fields) = match unfold_folded(g, force(g, env[env.len() - 1 - ix].clone())?)? {
                 Value::Ctor(_, c, fields) => (c, fields.to_vec()),
                 other @ (Value::Nat(_) | Value::NatAdd(..)) if Some(*d) == g.builtins.nat => {
                     match native::split_value(&other) {

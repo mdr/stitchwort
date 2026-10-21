@@ -409,19 +409,6 @@ const $Std$dBool$difThenElse = (v1) => (v2) => (v3) => {
   throw new Error("unreachable");
 };
 const $Std$dNat$dleq = (m) => (n) => ({ tag: m <= n ? "True" : "False" });
-const $Std$dList$dappend = (v1) => (v2) => {
-  switch (v1.tag) {
-    case "Nil": {
-      return v2;
-    }
-    case "Cons": {
-      const v3 = v1.head;
-      const v4 = v1.tail;
-      return { tag: "Cons", head: v3, tail: $Std$dList$dappend(v4)(v2) };
-    }
-  }
-  throw new Error("unreachable");
-};
 const $Std$dDecidable$dtoBool = (v1) => {
   switch (v1.tag) {
     case "Yes": {
@@ -434,7 +421,7 @@ const $Std$dDecidable$dtoBool = (v1) => {
   throw new Error("unreachable");
 };
 const $Std$dNat$ddecEq = (m) => (n) => ({ tag: m === n ? "Yes" : "No" });
-const $Std$dText$dtoList = charsOfText;
+const $Std$dText$dappend = (a) => (b) => a + b;
 const $Std$dText$djoin = (s) => (ts) => {
   const parts = [];
   for (let l = ts; l.tag === "Cons"; l = l.tail) parts.push(l.head);
@@ -458,11 +445,14 @@ const $Main$dPretty$d$gpretty = (v1) => {
   return v2;
 };
 const $Main$dPretty$dpretty = (v1) => $Main$dPretty$d$gpretty(v1);
+const $Main$dPretty$dinstNat = { pretty: ((v0) => $Std$dBool$difThenElse($Std$dDecidable$dtoBool($Std$dNat$ddecEq(v0)(0n)))(((v1) => "zero"))(((v1) => "some"))) };
+const $Main$dPretty$dinstList = (v1) => ({ pretty: ((v2) => $Std$dText$dappend("[")($Std$dText$dappend($Std$dText$djoin({ tag: "MkChar", code: 44n })($Std$dList$dmap($Main$dPretty$dpretty(v1))(v2)))("]"))) });
 const $Main$dOrdered$d$gless = (v1) => {
   const v2 = v1.less;
   return v2;
 };
 const $Main$dOrdered$dless = (v1) => $Main$dOrdered$d$gless(v1);
+const $Main$dOrdered$dinstNat = { less: ((v0) => ((v1) => $Std$dNat$dleq($Std$dNat$dadd(v0)(1n))(v1))) };
 const $Main$dsmallestOf = (v1) => (v2) => (v3) => {
   let s1 = v1, s2 = v2, s3 = v3;
   for (;;) {
@@ -491,9 +481,9 @@ const $Main$dsmallestOf = (v1) => (v2) => (v3) => {
   }
 };
 const $Main$dflipped = { less: ((v0) => ((v1) => $Std$dNat$dleq($Std$dNat$dadd(v1)(1n))(v0))) };
-const $Main$ddescribeAll = (v0) => $Main$dPretty$dpretty({ pretty: ((v1) => textOfChars({ tag: "Cons", head: { tag: "MkChar", code: 91n }, tail: $Std$dList$dappend($Std$dText$dtoList($Std$dText$djoin({ tag: "MkChar", code: 44n })($Std$dList$dmap(((v2) => $Std$dBool$difThenElse($Std$dDecidable$dtoBool($Std$dNat$ddecEq(v2)(0n)))(((v3) => "zero"))(((v3) => "some"))))(v1))))(charsOfText("]")) })) })(v0);
-const $Main$ddescribeNested = (v0) => $Main$dPretty$dpretty({ pretty: ((v1) => textOfChars({ tag: "Cons", head: { tag: "MkChar", code: 91n }, tail: $Std$dList$dappend($Std$dText$dtoList($Std$dText$djoin({ tag: "MkChar", code: 44n })($Std$dList$dmap(((v2) => textOfChars({ tag: "Cons", head: { tag: "MkChar", code: 91n }, tail: $Std$dList$dappend($Std$dText$dtoList($Std$dText$djoin({ tag: "MkChar", code: 44n })($Std$dList$dmap(((v3) => $Std$dBool$difThenElse($Std$dDecidable$dtoBool($Std$dNat$ddecEq(v3)(0n)))(((v4) => "zero"))(((v4) => "some"))))(v2))))(charsOfText("]")) })))(v1))))(charsOfText("]")) })) })(v0);
-const $Main$dsmallest = (v0) => $Main$dsmallestOf({ less: ((v1) => ((v2) => $Std$dNat$dleq($Std$dNat$dadd(v1)(1n))(v2))) })(1000n)(v0);
+const $Main$ddescribeAll = (v0) => $Main$dPretty$dpretty($Main$dPretty$dinstList($Main$dPretty$dinstNat))(v0);
+const $Main$ddescribeNested = (v0) => $Main$dPretty$dpretty($Main$dPretty$dinstList($Main$dPretty$dinstList($Main$dPretty$dinstNat)))(v0);
+const $Main$dsmallest = (v0) => $Main$dsmallestOf($Main$dOrdered$dinstNat)(1000n)(v0);
 const $Main$dsmallestBy = (v0) => $Main$dsmallestOf($Main$dflipped)(0n)(v0);
 
 function $$describeAll(arg0) {

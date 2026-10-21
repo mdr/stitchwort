@@ -247,3 +247,129 @@ fn a_types_auto_parameters_are_hashed() {
     };
     assert_ne!(hash("[auto ord: Ordered k]"), hash("(ord: Ordered k)"));
 }
+
+/// Loads `source`: the definitions that `name`'s elaborated body mentions,
+/// in order, and the records it builds.
+fn body_of(source: &str, name: &str) -> (Vec<String>, Vec<String>) {
+    let mut session = Session::new();
+    if let Err(errors) = session.load("test.sw", source) {
+        panic!("{errors:#?}");
+    }
+    let id = session.elab.lookup_def(name).expect("defined");
+    let g = &session.elab.globals;
+    let body = g.def(id).body().expect("a body");
+    let mut defs = Vec::new();
+    let mut records = Vec::new();
+    for (t, _) in body.subterms() {
+        match t {
+            stitchwort_core::Term::Def(d) => defs.push(g.def(*d).name.to_string()),
+            stitchwort_core::Term::Ctor(d, _, _) if g.data(*d).record => {
+                records.push(g.data(*d).name.to_string())
+            }
+            _ => {}
+        }
+    }
+    (defs, records)
+}
+
+const NAMED: &str = "\
+interface Ordered (a: Type) =
+  { less: a -> a -> Bool }
+
+interface Pretty (a: Type) =
+  { pretty: a -> Text }
+
+instance Ordered.instNat: Ordered Nat :=
+  { less = m n => Nat.leq (m + 1) n }
+
+def descending: Ordered Nat :=
+  { less = m n => Nat.leq (n + 1) m }
+
+instance Pretty.instNat: Pretty Nat :=
+  { pretty = n => \"n\" }
+
+instance Pretty.instList [auto p: Pretty a]: Pretty (List a) :=
+  { pretty = xs => \"list\" }
+
+type Map (k: Type) (v: Type) [auto ord: Ordered k] =
+  { entries: List (k, v) }
+
+instance Map.instPretty: Pretty (Map k v [ord := o]) :=
+  { pretty = m => \"map\" }
+
+def single [auto ord: Ordered k] (x: k): Map k Nat := { entries = [(x, 0)] }
+";
+
+/// A found instance is in the elaborated term by name, not as its record
+/// literal (stage 1, item 13, resolved): with its prerequisites, and with a
+/// head's dictionary kept, by name too.
+#[test]
+fn found_instances_are_named_in_terms() {
+    let source = format!(
+        "{NAMED}
+def nested (xs: List (List Nat)): Text := Pretty.pretty xs
+def shown: Text := Pretty.pretty (single 3)
+def down: Text := Pretty.pretty (single [ord := descending] 3)
+def same (m: Nat) (n: Nat): Bool := m == n
+"
+    );
+    let (defs, records) = body_of(&source, "nested");
+    assert_eq!(
+        defs,
+        [
+            "Pretty.pretty",
+            "Pretty.instList",
+            "Pretty.instList",
+            "Pretty.instNat"
+        ]
+    );
+    assert!(records.is_empty(), "{records:?}");
+    let (defs, records) = body_of(&source, "shown");
+    assert_eq!(
+        defs,
+        [
+            "Pretty.pretty",
+            "Ordered.instNat",
+            "Map.instPretty",
+            "Ordered.instNat",
+            "single",
+            "Ordered.instNat"
+        ]
+    );
+    assert!(records.is_empty(), "{records:?}");
+    let (defs, records) = body_of(&source, "down");
+    assert_eq!(
+        defs,
+        [
+            "Pretty.pretty",
+            "descending",
+            "Map.instPretty",
+            "descending",
+            "single",
+            "descending"
+        ]
+    );
+    assert!(records.is_empty(), "{records:?}");
+    // `==` on a library type is still the field's term (stage 2's projection).
+    let (defs, _) = body_of(&source, "same");
+    assert_eq!(defs, ["Decidable.toBool", "Nat.decEq"]);
+}
+
+/// A dictionary kept by name is still equal to what it unfolds to, and to
+/// another name for the same record: comparison unfolds it when the name
+/// alone doesn't settle it.
+#[test]
+fn a_named_dictionary_equals_its_record() {
+    let source = format!(
+        "{NAMED}
+def alias: Ordered Nat := Ordered.instNat
+
+theorem literal: Ordered.instNat = {{ less = m n => Nat.leq (m + 1) n }} := rfl
+theorem aliased: alias = Ordered.instNat := rfl
+theorem projected: Ordered.less [ordered := alias] 1 2 = True := rfl
+"
+    );
+    assert_eq!(load(None, &source), (vec![], 0));
+    let wrong = format!("{NAMED}\ntheorem wrong: descending = Ordered.instNat := rfl\n");
+    assert_eq!(load(None, &wrong).0, vec!["E-REFL"]);
+}

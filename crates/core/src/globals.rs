@@ -54,6 +54,15 @@ pub struct Def {
     /// (docs/proposals/interfaces.md §9.3). Hashed when set; nothing in
     /// checking depends on it.
     pub instance: bool,
+    /// A dictionary (an instance, or another definition whose result is an
+    /// interface): applied to all its parameters it stays folded, by name,
+    /// until something takes it apart (a `case`, or a comparison that the
+    /// name alone can't settle), and then unfolds as usual
+    /// (docs/proposals/interfaces.md, "As built (stage 1)" item 13). So
+    /// solutions, messages and elaborated terms keep the name. It changes
+    /// only when things are computed, never what's equal, so it isn't hashed;
+    /// and while a program runs (erasure in effect) it unfolds at once.
+    pub fold: bool,
     pub export: bool,
     /// For an export: how to check each proof parameter at runtime.
     pub validators: Vec<Validator>,

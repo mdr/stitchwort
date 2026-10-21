@@ -1875,6 +1875,57 @@ What differs from the text above, or wasn't settled by it:
     5's projection works on the literal anyway; keeping the name would need
     a way to solve a metavariable with a folded definition.
 
+    **Resolved** (D195, 21 October): **dictionaries stay folded by name.**
+    The elaborator marks every definition whose result, after its
+    parameters, is an interface (instances, derived ones included, named
+    alternatives like `descending`, and helpers like `Ord.fromCompare` and
+    `Show.fromText`; not the generated methods or projections) with the
+    core's `Def::fold` flag. Such a definition, once it has all its
+    arguments, evaluates to itself, a neutral `Nat.instAdd` or
+    `Pretty.instList Pretty.instNat`, instead of its body; it unfolds only
+    when something takes it apart: a `case` (a projection, `ord.compare`),
+    or a comparison the name can't settle (conversion and unification try
+    the same dictionary's arguments first, and otherwise compare both sides
+    unfolded). So a metavariable solved by resolution holds the name, with
+    no new kind of solution: what it's solved with is the folded value, and
+    zonking quotes it as the name. What's equal is unchanged (unfolding on
+    demand is still δ-reduction), so the flag isn't hashed; programs that
+    run unfold at once, as before (`docs/core.md`, "Dictionaries stay
+    folded by name"). The effects:
+    - **Terms** name the dictionary: `Pretty.pretty [p := Pretty.instList
+      [p := Pretty.instNat]] xs`, and a head's dictionary is kept by name
+      (`Map.instPretty [o := descending]`). Stage 2's `==` projection
+      unfolds the dictionary it found, so `x == y` on the library's types
+      is the same term as before (`Nat.decEq x y`, and `List.decEq (x y =>
+      Nat.decEq x y)` on lists: the `eqeq-containers` hashes didn't move).
+      Tests: `crates/driver/tests/interfaces.rs`
+      (`found_instances_are_named_in_terms`,
+      `a_named_dictionary_equals_its_record`).
+    - **Messages**: stage 4's mismatch is now "expected `Map Nat Nat [ord :=
+      Ordered.instNat]`, but this has type `Map Nat Nat [ord :=
+      descending]`" (it showed both record literals, the second a 90-column
+      lambda).
+    - **JS** defines each dictionary once and refers to it:
+      `$Main$dsortedDown = (v0) => $Main$dTree$dtoList($Main$ddescending)(…)`
+      rather than the record written out twice in the function, and
+      `Show.toText(Std.List.instShow(Std.Text.instShow))` rather than a
+      300-character record (`examples/extract/*.js` snapshots).
+    - **Hashes**: 910 definitions' hashes in the hash snapshots changed, all
+      ones that pass a dictionary along rather than project from it: in the
+      prelude, the ten `Ord` instances (their `eq` is now
+      `Nat.instDecEq` and so on, by name) and `List.sortSortedNat`; derived
+      `%instOrd`, `%compare`, `%equal`, `%flip`, `%trans`, `%unfold`,
+      `%show`, `%instShow` of types whose fields use dictionaries; derived
+      `%decEq` of types with equation proof fields (`DecEq.uniqueEq`'s
+      dictionary); and tests and definitions that pass one
+      (`List.maximum`, `Pretty.pretty`, interpolation). AoC answers and every
+      example's behaviour are unchanged.
+    - **Cost**: the examples benchmark goes from 555.2 M to 551.2 M steps,
+      85.1 M to 84.9 M visits and 566.5 M to 563.5 M allocations (−0.7%,
+      −0.3%, −0.6%); `extract-js` rises 2.6% (32,390 to 33,248 steps), since
+      the extracted programs now include the dictionaries' definitions.
+      Stage 5, which passes dictionaries far more often, is where it counts.
+
 ## As built (stage 2)
 
 Stage 2 is built (SW-4, 21 October 2026): `DecEq` and its instances in
@@ -1897,7 +1948,8 @@ What differs from the text above, or wasn't settled by it:
    instances are made of: `List.instDecEq` is
    `{ decide = List.decEq (x y => DecEq.decide x y) }`.
 2. **Decision-time projection.** When the dictionary found for an equation
-   is a record literal (a global instance, inlined, stage 1 item 13) whose
+   is a record literal (a global instance, unfolded from its name: stage 1
+   item 13) whose
    `decide` is a definition, applied or not, the decision is that field
    applied to the two sides: `x == y` on `Nat` is `Nat.decEq x y`, and on
    `List Nat` is `List.decEq (x y => Nat.decEq x y) xs ys`, exactly the
@@ -2110,7 +2162,8 @@ What differs from the text above, or wasn't settled by it:
    happens in generated JS: where a map's type supplies the ordering, the
    dictionary is written out at each use (`examples/extract/data-auto.sw`'s
    `sortedDown`), though `descending` is still defined. Keeping the names
-   would need stage 1 item 13's fix.
+   would need stage 1 item 13's fix. (Since made: the message and the JS
+   now name `Ordered.instNat` and `descending`.)
 8. **Hash.** Which parameters are `auto` is hashed (a tag, only when one
    is), like a constructor's implicit fields: it changes how every use of
    the type elaborates. Types without them hash as before.
