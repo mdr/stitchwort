@@ -206,3 +206,29 @@ fn a_namespace_checked_alone_has_the_same_hashes() {
         }
     }
 }
+
+/// Writes every declaration's hash, for the prelude with every library file
+/// and for the AoC project, to the file `HASH_DUMP` names, one sorted line
+/// per declaration: for comparing two versions of the compiler
+/// (docs/proposals/interfaces.md stage 5's hash oracle). Run with
+/// `HASH_DUMP=… cargo test --release -p stitchwort-driver --test
+/// hash_stability -- --ignored dump`.
+#[test]
+#[ignore]
+fn dump() {
+    let Ok(path) = std::env::var("HASH_DUMP") else {
+        return;
+    };
+    let mut session = Session::eager();
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../aoc");
+    let files = DiskFiles { root };
+    if let Err(errors) = session.load_project(&files, "aoc", &Target::Everything) {
+        panic!("aoc doesn't load: {errors:#?}");
+    }
+    let mut out: Vec<String> = lines(&session, 0, 0)
+        .lines()
+        .map(str::to_string)
+        .collect();
+    out.sort();
+    std::fs::write(path, out.join("\n") + "\n").unwrap();
+}

@@ -972,8 +972,6 @@ theorem List.splitByRuns (p: a -> Bool) (f: Nat -> a) (sep: Nat -> Bool) (hsep: 
 -- Sums and products don't mind the order.
 theorem List.sumReverse (xs: List Nat): List.sum (List.reverse xs) = List.sum xs := List.sumByReverse (x => x) xs
 
-theorem Nat.oneMul (n: Nat): 1 * n = n := Nat.addZero n
-
 theorem List.productFrom: (a: Nat) -> (xs: List Nat) -> List.foldLeft Nat.mul a xs = a * List.product xs
   | a, Nil       => Eq.sym (Nat.mulOne a)
   | a, Cons x xs =>
