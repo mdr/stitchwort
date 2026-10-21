@@ -736,6 +736,25 @@ test("interpolation is coloured as code inside a string", async (page) => {
   assert.ok(!marked.string.some((s) => s.includes("world")), `world in the interpolation isn't string-coloured: ${JSON.stringify(marked.string)}`);
 });
 
+test("a text block is coloured as one string over its lines", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  const source = 'test "t" := """\n  say "hi" ${1 + 2}\n  more \\"""\n  """ == "x"\n';
+  await page.setSource(source);
+  await sleep(100);
+  const marked = await page.ev(`(() => {
+    const text = document.getElementById("source").value;
+    const pieces = (kind) => Array.from(CSS.highlights.get("hl-" + kind) ?? [],
+      (r) => text.slice(r.startOffset, r.endOffset));
+    return { string: pieces("string"), interp: pieces("interp"), number: pieces("number") };
+  })()`);
+  assert.deepEqual(marked.number, ["1", "2"], JSON.stringify(marked.number));
+  assert.deepEqual(marked.interp, ["${", "}"], JSON.stringify(marked.interp));
+  assert.ok(marked.string.includes('"""\n  say "hi" '), JSON.stringify(marked.string));
+  assert.ok(marked.string.includes('\n  more \\"""\n  """'), JSON.stringify(marked.string));
+  assert.ok(marked.string.includes('"x"'), JSON.stringify(marked.string));
+});
+
 test("`|>` is coloured as one operator", async (page) => {
   await page.open({ patch: "delete window.Highlight;" });
   await page.untilChecked();

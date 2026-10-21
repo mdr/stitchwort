@@ -302,3 +302,18 @@ fn library_declarations_refer_to_themselves() {
         "no reference at the declaration of List.length"
     );
 }
+
+/// Names inside the `${…}` of a `"""` text, and after it, are placed by their
+/// own line and UTF-16 column, though the literal spans several lines.
+#[test]
+fn positions_inside_and_after_a_multi_line_text() {
+    let mut session = Session::navigable();
+    let source = "def f (t: Text): Text := \"\"\"\n  😀 ${t}\n  é ${t}\n  \"\"\" ++ t\n";
+    session.load("one.sw", source).expect("checks");
+    let json = index_json(&session, false, None, "", &[]);
+    for range in ["[1,7,1,8]", "[2,6,2,7]", "[3,9,3,10]"] {
+        let expected =
+            format!(r#""range":{range},"binder":{{"name":"t","file":0,"range":[0,7,0,8]}}"#);
+        assert!(json.contains(&expected), "{expected}\n{json}");
+    }
+}

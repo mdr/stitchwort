@@ -470,6 +470,7 @@ Loosest-binding first:
 | `0`, `42`, `-5` | Numeric literals: a `Nat`, or an `Int` where one is expected (`Nat` by default); `-5` is always an `Int`. See [Numbers](#numbers) |
 | `'a'`, `'\n'`, `'\u{1F600}'` | `Char` literals: one Unicode scalar value. Escapes are `\n`, `\t`, `\r`, `\\`, `\"`, `\'`, `\$` and `\u{…}` with 1–6 hex digits; `\u{…}` must name a scalar value, so `'\u{D800}'` is an error. Text literals take the same escapes |
 | `"héllo"` | `Text` literal: a sequence of Unicode scalar values (see [text-and-io.md](proposals/text-and-io.md)) |
+| `"""` … `"""` | `Text` literal over several lines. See "Text blocks" below |
 | `include "inputs/day04.txt"` | The `Text` in a file, read when the program is checked. See [`include`](#include) |
 | `Type`, `Type 1`, `Prop` | Universes |
 | `(e: T)` | Type annotation |
@@ -481,6 +482,24 @@ Loosest-binding first:
 | `J (y p => P) base proof` | Transport along an equality |
 
 **Interpolation.** Inside a text literal, `${e}` inserts `e` converted by its type's `Show` instance ([Interfaces](#interfaces)): `"Part 1: ${solvePart1 turns}"` is `"Part 1: " ++ Show.toText (solvePart1 turns)`, and `"n = ${2 + 3}"` is `"n = 5"`. Text and characters are inserted as they are (`"${"tea"}"` is `tea`), and quoted inside lists, tuples, records and constructors (`"${["a", "b"]}"` is `["a", "b"]`). The expression may contain braces and nested text literals, as in `"${f "x"}"`. A `$` not followed by `{` is an ordinary character; write `\$` for a literal dollar sign: `"cost: \$5"`.
+
+**Text blocks.** A text literal over several lines is written between `"""` and `"""`, as Java's text blocks, Swift's and Scala's multi-line strings are, for a puzzle's example input in a test:
+
+```
+def example: Text := """
+  L68
+  L30
+    R48
+  """
+-- is "L68\nL30\n  R48\n"
+```
+
+- **The text starts on the line after the opening `"""`**, which holds nothing else (spaces aside); `"""x"""` is `E-PARSE`. One rule, as in Java, and a one-line text is `"x"`, so nothing is lost. The newline after the opening `"""` isn't part of the text.
+- **The common indentation is removed**: the fewest leading spaces among the lines with something on them and the closing line, when `"""` is alone on it (Java's rule). So the literal can be indented with the code around it, and a closing `"""` indented less than the text keeps the difference: `"""⏎····a⏎··"""` is `"··a\n"`. Lines of only spaces don't count and become empty; spaces at the end of other lines stay. A tab in the indentation is `E-PARSE` (as in code); tabs elsewhere in a line are ordinary characters.
+- **The closing `"""` decides the ending.** Alone on its own line, the text ends with a newline after its last line (`Text.lines` ignores it, so `example.lines` is the ten lines above and nothing more). Right after the last character, there is none: `"""⏎  a⏎  b"""` is `"a\nb"`. `"""⏎"""` is `""`.
+- **Escapes and `${…}` are as in `"…"`**, read after the indentation is removed: `\n`, `\t`, `\u{…}`, `\$`, `\"`. A `"` or `""` needs no escape; three in a row do (`\"""`; `\"\"\"` also works). A `${…}` stays on one line (`E-PARSE` otherwise).
+- **Line endings are read as `\n`**: a CR before an LF is dropped.
+- **It is an ordinary text literal**: the same term as the `"…\n…"` it stands for, with the same hash (`crates/driver/tests/compact_text.rs`), and still compact. Examples: `examples/accept/text-block.sw`.
 
 A partially applied constructor is a function: `Succ` on its own means `n => Succ n`.
 

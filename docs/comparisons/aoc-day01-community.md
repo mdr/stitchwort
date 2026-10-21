@@ -439,7 +439,7 @@ is no local mutable variable; a user-defined `State` ability does the job
 | Pipelines | Lean `\|>.`, F# `>>`, Idris `\|\|>`, Gleam `\|>` | `\|>` with method sections; no `>>` (SW-22, not now, D10) |
 | `where` helpers | Lean (benjaminfjones), Haskell (glguy, mstksg), Agda | local `def`s in a block; `where` is `E-WHERE` by design (syntax.md) |
 | Named tuples | Scala `(pos = …, turn = …)` | records; tuples are positional |
-| Multi-line text | Idris `"""`, Roc `\\`, Lean (literal newlines in `"…"`), Guile (runnerx4's example is a string with literal newlines) | not supported (SW-221 is in progress): `"""` and a newline inside `"…"` are both `E-PARSE` **[checked: `p_multiline.sw`, `p_misc.sw`]**; `include` reads a file |
+| Multi-line text | Idris `"""`, Roc `\\`, Lean (literal newlines in `"…"`), Guile (runnerx4's example is a string with literal newlines) | `"""…"""` text blocks (SW-221, docs/syntax.md); a newline inside `"…"` is still `E-PARSE`; `include` reads a file |
 | Calling a unit function in a chain | Lean `(← IO.FS.lines input).mapM …` | `IO.readAllLines().filterMap parse` reads as `IO.readAllLines (().filterMap parse)`, giving ``E-UNKNOWN-FIELD: `Builtin.UnitType` has no field or function `filterMap` `` **[checked: first try at `run.sw`]**; write `(IO.readAllLines()).filterMap` |
 
 ### 3.5 Testing and tooling
