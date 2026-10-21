@@ -1,6 +1,6 @@
 # Proposal: interfaces
 
-**Status:** draft 3, 20 October 2026. Stages 1 to 3 are built
+**Status:** draft 3, 20 October 2026. Stages 1 to 4 are built
 ([As built (stage 1)](#as-built-stage-1),
 [As built (stage 2)](#as-built-stage-2),
 [As built (stage 3)](#as-built-stage-3),
