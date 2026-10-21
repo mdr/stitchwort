@@ -1048,6 +1048,7 @@ impl Elaborator {
             .map(|&(id, span)| (self.globals.def(id).name.to_string(), span))
             .collect();
         lifted.sort_by_key(|(name, _)| std::cmp::Reverse(name.len()));
+        let mut owners: Vec<String> = Vec::new();
         for (bare, span) in lifted {
             let mentioned = d.message.contains(&bare)
                 || d.labels.iter().any(|l| l.message.contains(&bare))
@@ -1058,6 +1059,16 @@ impl Elaborator {
             // Named on its own (`f.%match1` in "can't show that … terminate"),
             // it's "this `match`"; inside a printed term, `(match …)`.
             let quoted = format!("`{bare}`");
+            let inline = std::iter::once(&d.message)
+                .chain(d.labels.iter().map(|l| &l.message))
+                .chain(d.notes.iter())
+                .any(|s| s.replace(&quoted, "").contains(&bare));
+            if inline
+                && let Some((owner, _)) = bare.rsplit_once(".%match")
+                && !owners.iter().any(|o| o == owner)
+            {
+                owners.push(owner.to_string());
+            }
             let reword = |s: &str| {
                 s.replace(&quoted, "this `match`")
                     .replace(&bare, "(match …)")
@@ -1070,6 +1081,25 @@ impl Elaborator {
                 *note = reword(note);
             }
             d = d.with_label(span, "this `match`");
+        }
+        // D229: say where the `match` is and how to name it. The source
+        // position is the label, which the renderer shows with its file and
+        // line.
+        if !owners.is_empty() {
+            let inside = owners
+                .iter()
+                .map(|o| format!("`{o}`"))
+                .collect::<Vec<_>>()
+                .join(" and ");
+            d = d.with_note(format!(
+                "`(match …)` is a `match` written inside {inside}, marked \"this `match`\" \
+                 above; the compiler turned it into a function that source can't name, and \
+                 writing the same `match` again makes a different one. To state a lemma \
+                 about it, make it a local `def` in its arm and refer to it as \
+                 `owner.name`, where `owner` is the definition it is written in \
+                 (docs/syntax.md, \"Proving things about a definition with an inner \
+                 `match`\")"
+            ));
         }
         d
     }
