@@ -58,14 +58,14 @@
       "title": "Interfaces design note (Agda/Lean style, with independent review)",
       "status": "review",
       "agent": "Opus",
-      "where": "stage 1 lane running (overnight)",
+      "where": "stage 1 merged 8c6a7f6 (gate passed); stage 2 (DecEq) running; D194-D196 for Matt",
       "labels": [
         "design",
         "elab"
       ],
       "body": "Interfaces design note (Opus, with independent review), Agda/Lean style:\nan interface is a record (laws as proof fields), instances found by\ngeneralising the `Decidable` auto search; coherence, predictability,\nhashes, namespaces §8. After the current work, before days 6-9 (sort,\nmaps, sets; would remove `sum`/`sumInt` duplication). User, 19 Oct.\n\nUser (19 Oct): not starting the interfaces design yet. Draft 3/4 of multi-file.md §4.9.6 sketches the direction; the reviewer's interface-overlap finding is input for this note.",
       "created": "2026-10-19",
-      "updated": "2026-10-20",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
