@@ -12,8 +12,8 @@ use std::rc::Rc;
 
 use stitchwort_core::value::{Head, eval, force};
 use stitchwort_core::{DataId, DefId, Globals, Icit, Term, Value};
-use stitchwort_syntax::Diagnostic;
 use stitchwort_syntax::ast::{Expr, Name as AstName, SECTION};
+use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::check::{Arg, Ctx, Result, apply_args, check, implicit_arg, infer, insert};
 use crate::{Global, scope};
@@ -186,7 +186,13 @@ fn written_type(cx: &Ctx, term: &Term) -> Result<Option<Ty>> {
             return Ok(None);
         };
         let cod = cod.clone();
-        env.push(cx.eval(arg)?);
+        // An argument the rest of the type doesn't mention isn't evaluated:
+        // evaluating a long chain of calls at every level is exponential.
+        env.push(if cod.mentions(0) {
+            cx.eval(arg)?
+        } else {
+            stitchwort_core::value::unused()
+        });
         ty = cod;
     }
     Ok(Some(Ty::Term(ty, env)))
@@ -554,6 +560,101 @@ fn params(g: &Globals, f: DefId) -> Vec<Param> {
     out
 }
 
+/// The receiver's place among `params`: the first explicit parameter whose
+/// type has `owner` as a head, as its depth and its index among the
+/// explicit parameters.
+fn receiver_place(cx: &Ctx, params: &[Param], owner: TyHead) -> Result<Option<(usize, usize)>> {
+    let g = cx.g();
+    let level = cx.level();
+    let mut explicit: usize = 0;
+    for (depth, p) in params.iter().enumerate() {
+        if p.icit != Icit::Explicit {
+            continue;
+        }
+        let env: Vec<Value> = (0..depth).map(|k| Value::var(level + k)).collect();
+        if heads(g, Ty::Term(p.ty.clone(), env))?.contains(&owner) {
+            return Ok(Some((depth, explicit)));
+        }
+        explicit += 1;
+    }
+    Ok(None)
+}
+
+/// A function and the arguments it is applied to.
+type PrefixForm<'a> = ((Term, Value), Vec<Arg<'a>>);
+
+/// `recv.field args` checked against an expected type (SW-129): the call as
+/// the prefix form `T.field a… recv …`, so it's elaborated exactly as that
+/// is, with the result compared with the expected type before `recv` is
+/// checked in its parameter's place. Dot notation needs `recv`'s type only
+/// for the head that names the namespace, so `recv` is inferred once here to
+/// find it, and that is undone. `None` where the prefix form can't stand for
+/// the call: a local definition's helper, named or piped arguments, or
+/// parameters left out before the receiver (the call becomes a function);
+/// `call` handles those.
+pub(crate) fn prefix_form<'a>(
+    cx: &mut Ctx,
+    recv: &'a Expr,
+    field: &AstName,
+    args: &[Arg<'a>],
+) -> Result<Option<PrefixForm<'a>>> {
+    if helper(cx, recv, field).is_some() {
+        return Ok(None);
+    }
+    let mut written: Vec<&'a Expr> = Vec::new();
+    for arg in args {
+        match arg {
+            Arg::Explicit(e) => written.push(*e),
+            _ => return Ok(None),
+        }
+    }
+    let key = call_key(recv, field);
+    let cached = cx.e.dot_heads.borrow().get(&key).copied();
+    let (owner, f) = if let Some(found) = cached {
+        found
+    } else {
+        let snapshot = crate::undo::Snapshot::take(cx);
+        let found = (|| -> Result<(TyHead, DefId)> {
+            let (rterm, rty) = infer(cx, recv)?;
+            let (rterm, rty) = insert(cx, rterm, rty)?;
+            let start = written_type(cx, &rterm)?.unwrap_or_else(|| Ty::Value(rty.clone()));
+            let (owner, f, _) = find(cx, recv, field, start)?;
+            Ok((owner, f))
+        })();
+        snapshot.restore(cx);
+        match found {
+            Ok(found) => {
+                cx.e.dot_heads.borrow_mut().insert(key, found);
+                found
+            }
+            Err(e) if crate::undo::fatal(&e) => return Err(e),
+            Err(_) => {
+                mark_failed(cx, key);
+                return Ok(None);
+            }
+        }
+    };
+    let g = cx.g();
+    let Some((_, k)) = receiver_place(cx, &params(g, f), owner)? else {
+        return Ok(None);
+    };
+    if written.len() < k {
+        return Ok(None);
+    }
+    let mut full: Vec<Arg<'a>> = Vec::new();
+    for (i, e) in written.iter().enumerate() {
+        if i == k {
+            full.push(Arg::Explicit(recv));
+        }
+        full.push(Arg::Explicit(e));
+    }
+    if written.len() == k {
+        full.push(Arg::Explicit(recv));
+    }
+    cx.e.note_dot(field, f);
+    Ok(Some(((Term::Def(f), g.def(f).ty_value.clone()), full)))
+}
+
 /// One argument of the call being built.
 enum Piece {
     /// An implicit argument, made at this level.
@@ -603,20 +704,7 @@ fn call(
     // The receiver's place: the first explicit parameter whose type has
     // `owner` as a head.
     let params = params(g, f);
-    let level = cx.level();
-    let mut receiver = None;
-    let mut explicit: usize = 0;
-    for (depth, p) in params.iter().enumerate() {
-        if p.icit != Icit::Explicit {
-            continue;
-        }
-        let env: Vec<Value> = (0..depth).map(|k| Value::var(level + k)).collect();
-        if heads(g, Ty::Term(p.ty.clone(), env))?.contains(&owner) {
-            receiver = Some((depth, explicit));
-            break;
-        }
-        explicit += 1;
-    }
+    let receiver = receiver_place(cx, &params, owner)?;
     let Some((recv_depth, k)) = receiver else {
         let shown_ty = cx.show(&g.def(f).ty_value);
         return Err(cx
@@ -841,4 +929,56 @@ pub(crate) fn target(cx: &Ctx, recv: &Expr, field: &AstName) -> Result<Option<De
         }
     };
     Ok(find(cx, recv, field, ty).ok().map(|(_, id, _)| id))
+}
+
+/// `recv.field args` inferred as its prefix form where that stands for it
+/// (`prefix_form`), so the call is elaborated as the prefix call is
+/// (SW-129); otherwise as dot notation makes it, [`infer_dot`].
+pub(crate) fn infer_call(
+    cx: &mut Ctx,
+    recv: &Expr,
+    field: &AstName,
+    args: &[Arg],
+) -> Result<(Term, Value)> {
+    if has_failed(cx, call_key(recv, field)) {
+        return infer_dot(cx, recv, field, args);
+    }
+    let Some((head, full)) = prefix_form(cx, recv, field, args)? else {
+        return infer_dot(cx, recv, field, args);
+    };
+    let snapshot = crate::undo::Snapshot::take(cx);
+    match crate::check::apply_args(cx, head, &full) {
+        Err(e) if !crate::undo::fatal(&e) => {
+            mark_failed(cx, call_key(recv, field));
+            // The call is wrong either way: say so as dot notation does
+            // (it names the receiver's parameter).
+            snapshot.restore(cx);
+            infer_dot(cx, recv, field, args)
+        }
+        result => result,
+    }
+}
+
+/// Which dot call: the receiver expression (by address and span) and the
+/// field's span.
+pub(crate) type CallKey = (usize, Span, Span);
+
+fn call_key(recv: &Expr, field: &AstName) -> CallKey {
+    (std::ptr::from_ref(recv) as usize, recv.span(), field.span)
+}
+
+/// The metavariable state, which a failure is only valid in.
+fn state(cx: &Ctx) -> (usize, usize) {
+    let g = cx.g();
+    (g.metas.borrow().len(), g.meta_trail.borrow().len())
+}
+
+fn mark_failed(cx: &Ctx, key: CallKey) {
+    let (m, t) = state(cx);
+    cx.e.dot_failed.borrow_mut().insert((key, m, t));
+}
+
+fn has_failed(cx: &Ctx, key: CallKey) -> bool {
+    let (m, t) = state(cx);
+    cx.e.dot_failed.borrow().contains(&(key, m, t))
 }
