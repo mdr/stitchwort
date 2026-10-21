@@ -347,7 +347,10 @@ fn generalised(
     for l in 0..base {
         let ty = quote(g, base, &cx.types[l])?;
         let free = free_levels(&ty, base);
-        let unrefined = is_var(&cx.env[l], l);
+        // A `let`-bound variable is copied too, as a plain hypothesis: in
+        // the alternatives its value is forgotten and only its (refined)
+        // type is known.
+        let unrefined = is_var(&cx.env[l], l) || cx.lets[l].is_some();
         if unrefined
             && (any_occurs(g, &occurrences, &ty)? || free.iter().any(|f| copied.contains(f)))
         {

@@ -288,7 +288,7 @@ theorem fallKeeps (w: Nat) (line: Text) (rest: List Text) (fit: line.length <= w
          match e: charAt line c == '^' with
            | True  =>
              orCases (beamReach w fallen rest k d = True) (leftReach rest k d c) (reach rest (c + 1) k d)
-               (Eq.trans (Eq.sym (rewrite e in rfl: (if charAt line c == '^' then leftReach rest k d c || reach rest (c + 1) k d else reach rest c k d) = (leftReach rest k d c || reach rest (c + 1) k d))) hr)
+               hr
                (hl =>
                  match c with
                    | Zero   => Void.exfalso (Bool.falseNotTrue hl)
@@ -312,7 +312,7 @@ theorem fallKeeps (w: Nat) (line: Text) (rest: List Text) (fit: line.length <= w
              List.anyRangeIntro after w 0 c lo hi
                (Bool.andIntro (List.getOr False c fallen) (reach rest c k d)
                   (rewrite at c hi in orFirst _ _ _ (Bool.andIntro (List.getOr False c beams) (Bool.not (List.getOr False c flags)) hB (rewrite flagAt w line c, e)))
-                  (Eq.trans (Eq.sym (rewrite e in rfl: (if charAt line c == '^' then leftReach rest k d c || reach rest (c + 1) k d else reach rest c k d) = reach rest c k d)) hr))))
+                  hr)))
 
 -- The splitters the beams reach in row k, and all of them below.
 def splitsAt (w: Nat) (beams: List Bool) (ls: List Text) (k: Nat): Nat :=
@@ -396,12 +396,7 @@ theorem part1From (lines: List Text) (r: Nat) (c: Nat) (hr: r < List.length line
 -- Part 1 is right: for every input, the printed answer is the number of
 -- splitters some timeline of the particle from S reaches.
 theorem part1Correct (lines: List Text): Maybe.map solvePart1 (parseManifold lines) = part1Spec lines :=
-  part1Within lines (startBounds lines)
-
--- (The bounds are an argument so that splitting on where S is splits them
--- too; a `let` isn't refined by a `match`.)
-theorem part1Within (lines: List Text) (bounds: StartIn (List.length lines) (gridWidth lines) (findStart lines)):
-    Maybe.map solvePart1 (parseManifold lines) = part1Spec lines :=
+  let bounds: StartIn (List.length lines) (gridWidth lines) (findStart lines) := startBounds lines
   match e: findStart lines with
     | Nothing           => rfl
     | Just (MkPair r c) =>
