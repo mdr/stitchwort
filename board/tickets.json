@@ -1,5 +1,5 @@
 {
-  "next": 226,
+  "next": 228,
   "tickets": [
     {
       "id": 1,
@@ -987,7 +987,7 @@
       "labels": [
         "tooling"
       ],
-      "body": "Problem: `stitchwort run` running out of resources is tested only through the driver (crates/driver/tests/resources.rs sets `Limits` on a Session), not through the command: with the command's own limits it would need about 1.5 GB, and crates/cli/src/main.rs has no way to lower them.\n\nDecide first: a hidden option (`--limits small`) or an environment variable (like STITCHWORT_RUN_JS_DIR, main.rs:566) to lower the limits for tests. Hidden and test-only is enough.\n\nDone when: a CLI test runs `stitchwort run` on a program that exhausts the lowered limits and asserts the 'no answer within the limits' message (main.rs:538) and exit code.\n\nHistory: none.\n",
+      "body": "Problem: `stitchwort run` running out of resources is tested only through the driver (crates/driver/tests/resources.rs sets `Limits` on a Session), not through the command: with the command's own limits it would need about 1.5 GB, and crates/cli/src/main.rs has no way to lower them.\n\nDecide first: a hidden option (`--limits small`) or an environment variable (like STITCHWORT_RUN_JS_DIR, main.rs:566) to lower the limits for tests. Hidden and test-only is enough.\n\nDone when: a CLI test runs `stitchwort run` on a program that exhausts the lowered limits and asserts the 'no answer within the limits' message (main.rs:538) and exit code.\n\nHistory: none.\n\nReproduction (D333, day 2 research): brute force over one list of 1.9 million ids runs out of resources (E-RESOURCE) under `stitchwort run` after 3 s; 77 s with --js; scratch files in the day 2 research scratchpad (docs/comparisons/aoc-day02-community.md).",
       "created": "2026-10-19",
       "updated": "2026-10-21",
       "commits": []
@@ -3316,12 +3316,12 @@
     },
     {
       "id": 219,
-      "title": "List.mapAccumLeft, List.unzip, Nat.divMod, Int.divMod",
+      "title": "List.mapAccumLeft, unzip, chunksOf, distinct; Nat/Int.divMod, Nat.divisors; Text.repeat",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "Small library additions seen across community Day 1 solutions.\n\nFrom docs/comparisons/aoc-day01-community.md (D293).\n\nDone when: they exist with tests and basic lemmas.\n",
+      "body": "Small library additions seen across community Day 1 solutions.\n\nFrom docs/comparisons/aoc-day01-community.md (D293).\n\nDone when: they exist with tests and basic lemmas.\n\nExtended by D332 (day 2 research, docs/comparisons/aoc-day02-community.md): List.chunksOf (and Text chunks), List.distinct (dedup; Set.fromList is today's workaround), Nat.divisors, Text.repeat.",
       "created": "2026-10-21",
       "updated": "2026-10-21",
       "commits": []
@@ -3394,6 +3394,30 @@
       "where": "",
       "labels": [],
       "body": "The interactive REPL (`stitchwort repl`, and the playground REPL) accepts `import` lines, so after the slim prelude (D260) `List.map …` works there once `import Std (List)` has been entered. prelude-slim.md §5.7. Today REPL input sees only the prelude (use `Std.List.map` or dot notation).\n\nDone when: a REPL session can enter `import Std (List)` then `List.map …`; CLI and playground; tests.\n",
+      "created": "2026-10-21",
+      "updated": "2026-10-21",
+      "commits": []
+    },
+    {
+      "id": 226,
+      "title": "&& and || pass the left side's fact to the right side",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "In `a && b` (and `a || b`), `b` should be checked knowing what `a` established, as `if a then b else False` does: `n != 0 && len % n == 0` is E-AUTO-STUCK today (\"can't decide n != 0 here\"), while the `if` form works. Found by the day 2 research (D331), where most part 2 checks have this shape.\n\nDone when: `n != 0 && len % n == 0` checks (and the `||` analogue with the negation), with examples; docs/syntax.md says so.\n",
+      "created": "2026-10-21",
+      "updated": "2026-10-21",
+      "commits": []
+    },
+    {
+      "id": 227,
+      "title": "Say 'no such function' for a missing library function (not E-ARITY / no namespace)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "A call to a library function that does not exist gives a misleading error: `List.chunksOf` reports `E-ARITY: List needs 1 argument(s)` and `Text.repeat` says `Text` \"is a type, which has no namespace\". It should say the function does not exist (and suggest close names). D335, day 2 research.\n\nDone when: both examples say \"no function `List.chunksOf`\" (with suggestions), reject examples added.\n",
       "created": "2026-10-21",
       "updated": "2026-10-21",
       "commits": []
