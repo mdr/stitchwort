@@ -1,5 +1,5 @@
 {
-  "next": 229,
+  "next": 230,
   "tickets": [
     {
       "id": 1,
@@ -3430,6 +3430,18 @@
       "where": "",
       "labels": [],
       "body": "Decide the dot-notation / pipe receiver rule (D302/D303/D304). Today dot fills the first parameter whose type matches and |> fills the last, which gives silent wrong answers (\"L68\".stripPrefix \"L\" = None, 10 |> Nat.sub 3 = 0, s |> .contains t reversed). Options and evidence: docs/proposals/dot-receiver.md (recommends receiver first) and the comparison page \"Where the Dot Goes\". Matt (21 Oct 2026): needs more reflection for now. Possible next step: rewrite Day 1-2 both ways to compare.\n\nDone when: Matt decides D303; implementation is a separate ticket.\n",
+      "created": "2026-10-21",
+      "updated": "2026-10-21",
+      "commits": []
+    },
+    {
+      "id": 229,
+      "title": "Std.Mod: wrapping arithmetic modulo n (D311)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "Add `Std.Mod`: `Mod n`, a Nat below n (Mod 0 has the one value 0) with wrapping `+` and `*` via Add/Mul instances with their laws proved, derived ==/<, named Mod.sub/Mod.neg, Mod.ofNat/Mod.ofInt that wrap, Fin.toMod/Mod.toFin. Range proof built by decision, not Nat.modLt (measured: modLt made rfl proofs blow up with the modulus). Fin stays index-only. D311 (Matt, 21 Oct 2026); details D312-D317 as recommended in docs/proposals/fin-arithmetic.md. D318 (Dial to Mod) later, separately.\n\nDone when: std/Mod/Mod.sw with laws and tests, an example (day 1 part 1 style), docs/syntax.md section, affected areas pass.\n",
       "created": "2026-10-21",
       "updated": "2026-10-21",
       "commits": []
