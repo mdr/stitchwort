@@ -1,5 +1,5 @@
 {
-  "next": 216,
+  "next": 222,
   "tickets": [
     {
       "id": 1,
@@ -3274,6 +3274,78 @@
       "where": "",
       "labels": [],
       "body": "Design note: cache checked definitions across runs by content hash (D276), extending the test-result cache, so check/test/editor/lanes/gate skip unchanged declarations. Soundness first: what a cached \"checked\" result may skip (kernel re-check), what the key must cover (the declaration, everything it depends on, compiler/kernel version, natives), invalidation, and where it lives. Then CLI, editor and test integration; relation to SW-185 (cache checked core) and SW-31 (LSP).\n\nDone when: the note is reviewed by Matt with decisions recorded; implementation stages are separate tickets.\n",
+      "created": "2026-10-21",
+      "updated": "2026-10-21",
+      "commits": []
+    },
+    {
+      "id": 216,
+      "title": "A failed a == b test prints both values",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "When a test of the form a == b fails, show both sides' values, not just 'evaluated to False'.\n\nFrom docs/comparisons/aoc-day01-community.md (D290).\n\nDone when: a failing == test reports both values in CLI and playground output, with an example snapshot.\n",
+      "created": "2026-10-21",
+      "updated": "2026-10-21",
+      "commits": []
+    },
+    {
+      "id": 217,
+      "title": "Abort ability in the library, with Option.need and a handler to Option",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "Early exit while parsing (Lean's do-style ?/failure) works with a user-written ability but the library has none. Add Std.Abort (with Option.need and a handler into Option); check Void as a result type. SW-68 covers only the IO side.\n\nFrom docs/comparisons/aoc-day01-community.md (D291).\n\nDone when: Day 1's parser can use it; library tests.\n",
+      "created": "2026-10-21",
+      "updated": "2026-10-21",
+      "commits": []
+    },
+    {
+      "id": 218,
+      "title": "Text helpers: drop, take, startsWith, stripPrefix, split on a Text",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "Text.drop, Text.take, Text.startsWith, Text.stripPrefix and splitting on a Text separator, as community Day 1 solutions use.\n\nFrom docs/comparisons/aoc-day01-community.md (D292).\n\nDone when: they exist in Std.Text with tests (and JS natives if Text natives need them).\n",
+      "created": "2026-10-21",
+      "updated": "2026-10-21",
+      "commits": []
+    },
+    {
+      "id": 219,
+      "title": "List.mapAccumLeft, List.unzip, Nat.divMod, Int.divMod",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "Small library additions seen across community Day 1 solutions.\n\nFrom docs/comparisons/aoc-day01-community.md (D293).\n\nDone when: they exist with tests and basic lemmas.\n",
+      "created": "2026-10-21",
+      "updated": "2026-10-21",
+      "commits": []
+    },
+    {
+      "id": 220,
+      "title": "Parser: f().x means (f()).x",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "IO.readAllLines().filterMap parse currently parses as IO.readAllLines (().filterMap parse) and fails.\n\nFrom docs/comparisons/aoc-day01-community.md (D294).\n\nDone when: f().x and f().g y parse as calls on the result, with parser tests.\n",
+      "created": "2026-10-21",
+      "updated": "2026-10-21",
+      "commits": []
+    },
+    {
+      "id": 221,
+      "title": "Multi-line text literals (triple quotes)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "Multi-line text literals written \"\"\"...\"\"\" (indentation handling to decide in the ticket). Related to SW-62, not the same.\n\nFrom docs/comparisons/aoc-day01-community.md (D295).\n\nDone when: the lexer accepts them, docs/syntax.md documents them, examples cover indentation.\n",
       "created": "2026-10-21",
       "updated": "2026-10-21",
       "commits": []
