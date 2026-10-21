@@ -284,6 +284,16 @@ theorem List.anyAppendLeft (p: a -> Prop): (xs: List a) -> (ys: List a) -> List.
   | Cons x xs, ys, Inl h => Inl h
   | Cons x xs, ys, Inr h => Inr (List.anyAppendLeft p xs ys h)
 
+-- `List.any` of two lists joined: either list has one.
+theorem List.anyAppend (p: a -> Bool): (xs: List a) -> (ys: List a) -> List.any p (List.append xs ys) = (List.any p xs || List.any p ys)
+  | Nil,       ys => rfl
+  | Cons x xs, ys =>
+    match e: p x with
+      | True  => rfl
+      | False => List.anyAppend p xs ys
+
+theorem List.anyAppendExample: List.any (x => x == 3) (List.append [1, 2] [3]) = (False || True) := rfl
+
 -- Every row has length n (the list is rectangular).
 def List.AllLength (n: Nat): List (List a) -> Prop
   | Nil       => Unit

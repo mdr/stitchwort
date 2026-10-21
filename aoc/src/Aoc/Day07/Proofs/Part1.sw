@@ -35,16 +35,6 @@ theorem notTrue: (a: Bool) -> Bool.not a = True -> a = False
   | False, h => rfl
   | True,  h => Void.exfalso (Bool.falseNotTrue h)
 
-theorem anyAppend (p: a -> Bool): (xs: List a) -> (ys: List a) -> List.any p (List.append xs ys) = (List.any p xs || List.any p ys)
-  | Nil,       ys => rfl
-  | Cons x xs, ys =>
-    match e: p x with
-      | True  => rfl
-      | False => anyAppend p xs ys
-
-theorem natEqTrue (m: Nat) (n: Nat) (h: (m == n) = True): m = n :=
-  Nat.equalSound m n (rewrite <- Nat.eqIsEqual m n in h)
-
 theorem natEqSelf (n: Nat): (n == n) = True := rewrite Nat.eqIsEqual n n in Nat.equalRefl n
 
 theorem natEqBelow (m: Nat) (n: Nat) (h: m < n): (m == n) = False :=
@@ -111,7 +101,7 @@ theorem noHitsAbove (x: Nat) (d: Nat): (r: Nat) -> (c: Nat) -> (ls: List Text) -
       turn => rewrite natEqAbove r x h
     match e: charAt line c == '^' with
       | True  =>
-        rewrite anyAppend (hitIn x d) _ _, anyConsMiss x d { row = r, column = c, turn = Right } (miss Right) _,
+        rewrite List.anyAppend (hitIn x d) _ _, anyConsMiss x d { row = r, column = c, turn = Right } (miss Right) _,
           noHitsAbove x d (r + 1) (c + 1) rest (ltSucc x r h) in
           match c with
             | Zero   => rewrite miss Left
@@ -132,12 +122,12 @@ theorem hitsAt: (ls: List Text) -> (r: Nat) -> (c: Nat) -> (k: Nat) -> (d: Nat) 
       | True  =>
         match f: c == d with
           | True  =>
-            rewrite <- natEqTrue c d f, e, anyAppend (hitIn r c) _ _,
+            rewrite <- DecEq.sound c d f, e, List.anyAppend (hitIn r c) _ _,
               anyConsHit r c ({ row = r, column = c, turn = Right }: Hit) (rewrite natEqSelf r, natEqSelf c)
                 (timelinesFrom (r + 1) (c + 1) rest) (timelinesSome (r + 1) (c + 1) rest)
               in Bool.orTrue _
           | False =>
-            rewrite Bool.andFalse (charAt line d == '^'), anyAppend (hitIn r d) _ _,
+            rewrite Bool.andFalse (charAt line d == '^'), List.anyAppend (hitIn r d) _ _,
               anyConsMiss r d ({ row = r, column = c, turn = Right }: Hit) (rewrite natEqSelf r, f) _,
               noHitsAbove r d (r + 1) (c + 1) rest (ltSelfSucc r) in
               match c with
@@ -147,7 +137,7 @@ theorem hitsAt: (ls: List Text) -> (r: Nat) -> (c: Nat) -> (k: Nat) -> (d: Nat) 
       | False =>
         rewrite noHitsAbove r d (r + 1) c rest (ltSelfSucc r) in
           match f: c == d with
-            | True  => rewrite <- natEqTrue c d f, e
+            | True  => rewrite <- DecEq.sound c d f, e
             | False => rewrite Bool.andFalse (charAt line d == '^')
   | Cons line rest, r, c, Succ k, d =>
     let ih: (c2: Nat) -> List.any (hitIn (Succ (k + r)) d) (timelinesFrom (r + 1) c2 rest) = ((charAt (List.getOr "" k rest) d == '^') && reach rest c2 k d) :=
@@ -155,7 +145,7 @@ theorem hitsAt: (ls: List Text) -> (r: Nat) -> (c: Nat) -> (k: Nat) -> (d: Nat) 
     let above: (r == Succ (k + r)) = False := natEqBelow r (Succ (k + r)) (Nat.leAddLeft k r)
     match e: charAt line c == '^' with
       | True  =>
-        rewrite anyAppend (hitIn (Succ (k + r)) d) _ _,
+        rewrite List.anyAppend (hitIn (Succ (k + r)) d) _ _,
           anyConsMiss (Succ (k + r)) d ({ row = r, column = c, turn = Right }: Hit) (rewrite above) _, ih (c + 1) in
           match c with
             | Zero   => rewrite above
@@ -247,7 +237,7 @@ def beamReach (w: Nat) (beams: List Bool) (ls: List Text) (k: Nat) (d: Nat): Boo
 theorem beamReachZero (w: Nat) (beams: List Bool) (ls: List Text) (d: Nat) (hd: d < w): beamReach w beams ls 0 d = List.getOr False d beams :=
   Bool.eqOf (beamReach w beams ls 0 d) (List.getOr False d beams)
     (h => List.anyRangeElim (c => List.getOr False c beams && reach ls c 0 d) (List.getOr False d beams = True) w 0 h
-       (c lo hi hc => rewrite <- natEqTrue c d (Bool.andRight (List.getOr False c beams) (c == d) hc) in Bool.andLeft (List.getOr False c beams) (c == d) hc))
+       (c lo hi hc => rewrite <- DecEq.sound c d (Bool.andRight (List.getOr False c beams) (c == d) hc) in Bool.andLeft (List.getOr False c beams) (c == d) hc))
     (h => List.anyRangeIntro (c => List.getOr False c beams && reach ls c 0 d) w 0 d (Nat.zeroLe d) hd
        (Bool.andIntro (List.getOr False d beams) (d == d) h (natEqSelf d)))
 
@@ -353,35 +343,19 @@ theorem splitsBelowSum (w: Nat): (ls: List Text) -> Fits w ls -> (beams: List Bo
           := Eq.sym (Eq.trans (List.sumByCons (k => splitsAt w beams (Cons l rest) k) 0 (List.rangeFrom (List.length rest) 1))
                (Eq.cong (t => splitsAt w beams (Cons l rest) 0 + t) (List.sumByRangeShift (k => splitsAt w beams (Cons l rest) k) (List.length rest) 0)))
 
--- Column i of a list made from a run of numbers.
-theorem getOrMapRange (f: Nat -> b) (dflt: b): (n: Nat) -> (s: Nat) -> (i: Nat) -> i < n -> List.getOr dflt i (List.map f (List.rangeFrom n s)) = f (i + s)
-  | Zero,   s, i,      h => Void.exfalso (Bool.falseNotTrue h)
-  | Succ n, s, Zero,   h => rfl
-  | Succ n, s, Succ i, h => rewrite <- Nat.addSucc i s in getOrMapRange f dflt n (Succ s) i h
-
 -- At the start, the only beam is in S's column.
 theorem beamStart (w: Nat) (st: Nat) (hs: st < w) (ls: List Text) (k: Nat) (d: Nat):
     beamReach w (List.map (x => x == st) (List.range w)) ls k d = reach ls st k d :=
   let start := List.map (x => x == st) (List.range w)
   let at: (c: Nat) -> c < w -> List.getOr False c start = (c == st) :=
-    c hc => rewrite getOrMapRange (x => x == st) False w 0 c hc, Nat.addZero c
+    c hc => rewrite List.getOrMapRange (x => x == st) False w 0 c hc, Nat.addZero c
   Bool.eqOf (beamReach w start ls k d) (reach ls st k d)
     (h => List.anyRangeElim (c => List.getOr False c start && reach ls c k d) (reach ls st k d = True) w 0 h
        (c lo hi hc =>
-         let same := natEqTrue c st (Eq.trans (Eq.sym (at c hi)) (Bool.andLeft (List.getOr False c start) (reach ls c k d) hc))
+         let same := DecEq.sound c st (Eq.trans (Eq.sym (at c hi)) (Bool.andLeft (List.getOr False c start) (reach ls c k d) hc))
          rewrite <- same in Bool.andRight (List.getOr False c start) (reach ls c k d) hc))
     (h => List.anyRangeIntro (c => List.getOr False c start && reach ls c k d) w 0 st (Nat.zeroLe st) hs
        (Bool.andIntro (List.getOr False st start) (reach ls st k d) (rewrite at st hs in natEqSelf st) h))
-
-theorem lengthDrop: (n: Nat) -> (xs: List a) -> n <= List.length xs -> n + List.length (List.drop n xs) = List.length xs
-  | Zero,   xs,        h => rfl
-  | Succ n, Nil,       h => Void.exfalso (Bool.falseNotTrue h)
-  | Succ n, Cons x xs, h => Eq.cong Succ (lengthDrop n xs h)
-
--- A sum over a run of numbers starting at s, as one starting at 0.
-theorem sumByOffset (f: Nat -> Nat): (s: Nat) -> (n: Nat) -> List.sumBy f (List.rangeFrom n s) = List.sumBy (i => f (s + i)) (List.range n)
-  | Zero,   n => List.sumByCongr f (i => f (0 + i)) (i => rfl) (List.range n)
-  | Succ s, n => Eq.trans (List.sumByRangeShift f n s) (sumByOffset (i => f (Succ i)) s n)
 
 -- The splitters some timeline reaches in row x.
 def reachedIn (ts: List (List Hit)) (w: Nat) (x: Nat): Nat := List.sumBy (d => Bool.toNat (reached ts x d)) (List.range w)
@@ -395,7 +369,7 @@ theorem part1From (lines: List Text) (r: Nat) (c: Nat) (hr: r < List.length line
   let ts := timelinesFrom (r + 1) c below
   let start := List.map (x => x == c) (List.range w)
   let n := List.length below
-  let hn: (r + 1) + n = List.length lines := lengthDrop (r + 1) lines (rewrite Nat.addOne r in hr)
+  let hn: (r + 1) + n = List.length lines := List.lengthDrop (r + 1) lines (rewrite Nat.addOne r in hr)
   calc splitsBelow start (List.map (splitterRow w) below)
     _ = List.sumBy (k => splitsAt w start below k) (List.range n)
         := splitsBelowSum w below (belowFits lines r) start (rewrite List.lengthMap (x => x == c) (List.range w) in List.lengthRangeFrom w 0)
@@ -407,7 +381,7 @@ theorem part1From (lines: List Text) (r: Nat) (c: Nat) (hr: r < List.length line
                      (List.range w))
              (List.range n)
     _ = List.sumBy (x => reachedIn ts w x) (List.rangeFrom n (r + 1))
-        := Eq.sym (sumByOffset (x => reachedIn ts w x) (r + 1) n)
+        := Eq.sym (List.sumByRangeOffset (x => reachedIn ts w x) (r + 1) n)
     _ = List.sumBy (x => reachedIn ts w x) (List.range (r + 1)) + List.sumBy (x => reachedIn ts w x) (List.rangeFrom n (r + 1))
         := rewrite List.sumRangeCongr (x => reachedIn ts w x) (x => 0) (r + 1) 0
                      (x lo hx => List.sumByCongr (d => Bool.toNat (reached ts x d)) (d => 0) (d => rewrite noHitsAbove x d (r + 1) c below hx) (List.range w)
