@@ -55,6 +55,51 @@ pub struct Program {
     /// What running the program computes: for a `main`, the partial
     /// computation `main ()` (a `Delay`) that the runner steps.
     pub entry: Body,
+    /// The constructors the natives and the runner build and take apart.
+    pub shapes: Shapes,
+}
+
+/// The constructors that natives build and the runner takes apart and
+/// builds, as tags (a constructor's index in its type): found in the
+/// checked program's prelude when it's lowered, each checked to have the
+/// runtime fields the runtime expects. A constructor without runtime fields
+/// is nullary at run time (`Yes`, whose proof is erased). `Ordering`'s
+/// `LT`, `EQ`, `GT` are tags 0, 1, 2: the natives that build them are bound
+/// to their prelude definitions by content hash ([`crate::natives`]).
+#[derive(Clone, Copy, Debug)]
+pub struct Shapes {
+    /// `False`, `True`: no fields.
+    pub false_: u32,
+    pub true_: u32,
+    /// `None`: no fields; `Some x`.
+    pub none: u32,
+    pub some: u32,
+    /// `Yes`, `No`: no runtime fields (the proofs are erased).
+    pub yes: u32,
+    pub no: u32,
+    /// `Nil`: no fields; `Cons x xs`.
+    pub nil: u32,
+    pub cons: u32,
+    /// `MkPair a b`.
+    pub pair: u32,
+    /// `MkChar code` (its proof erased).
+    pub char_: u32,
+    /// The unit value: no fields.
+    pub unit: u32,
+    /// `Done x`, `Call op rest`.
+    pub done: u32,
+    pub call: u32,
+    /// `L op`, `R op` of `Plus`.
+    pub left: u32,
+    pub right: u32,
+    /// `Recur x`, a recursion request.
+    pub recur: u32,
+    /// `MkSigMap inject reply`.
+    pub sig_map: u32,
+    /// `IO`'s `%print text`, `%readLine u`, `%readAll u`.
+    pub print: u32,
+    pub read_line: u32,
+    pub read_all: u32,
 }
 
 /// A body of code with its own frame.

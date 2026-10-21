@@ -20,7 +20,7 @@ use stitchwort_syntax::Diagnostic;
 use crate::erasure::{DefShape, def_shape, defs_in, is_done_continuation, reachable, text_literal};
 use crate::ir::{
     Arm, Body, CtorInfo, Expr, Global, GlobalId, GlobalKind, Lambda, LambdaId, Lit, MatchKind,
-    PrimOp, Program, Slot, TypeId, TypeInfo,
+    PrimOp, Program, Shapes, Slot, TypeId, TypeInfo,
 };
 use crate::natives::{IntNative, Representation, TextNative};
 
@@ -131,6 +131,61 @@ fn lower_roots(g: &Globals, limits: Limits, roots: Vec<DefId>, entry: &Term) -> 
         lambdas: cx.lambdas,
         types: cx.types,
         entry,
+        shapes: shapes(g)?,
+    })
+}
+
+/// The constructors the runtime builds and takes apart, from the prelude:
+/// constructor `c` of data type `d`, checked to have `fields` runtime
+/// fields.
+fn shape(g: &Globals, d: DataId, c: usize, fields: usize) -> Result<u32> {
+    let data = g.data(d);
+    let ctor = data
+        .ctors
+        .get(c)
+        .ok_or_else(|| internal(format!("`{}` has no constructor {c}", data.name)))?;
+    let runtime = ctor.field_erased.iter().filter(|erased| !**erased).count();
+    if runtime != fields {
+        return Err(internal(format!(
+            "`{}` has {runtime} runtime fields, not {fields}",
+            ctor.name
+        )));
+    }
+    Ok(u32::try_from(c).expect("ctors fit"))
+}
+
+fn shapes(g: &Globals) -> Result<Shapes> {
+    let missing = |b: Builtin| internal(format!("the prelude doesn't declare `{}`", b.name()));
+    let ctor = |b: Builtin, fields: usize| -> Result<u32> {
+        let (d, c) = g.registry.ctor(b).ok_or_else(|| missing(b))?;
+        shape(g, d, c, fields)
+    };
+    // For the constructors the registry doesn't name: by index.
+    let nth = |b: Builtin, c: usize, fields: usize| -> Result<u32> {
+        let d = g.registry.data(b).ok_or_else(|| missing(b))?;
+        shape(g, d, c, fields)
+    };
+    Ok(Shapes {
+        false_: ctor(Builtin::False, 0)?,
+        true_: ctor(Builtin::True, 0)?,
+        none: ctor(Builtin::None, 0)?,
+        some: ctor(Builtin::Some, 1)?,
+        yes: ctor(Builtin::Yes, 0)?,
+        no: ctor(Builtin::No, 0)?,
+        nil: ctor(Builtin::Nil, 0)?,
+        cons: ctor(Builtin::Cons, 2)?,
+        pair: ctor(Builtin::MkPair, 2)?,
+        char_: ctor(Builtin::MkChar, 1)?,
+        unit: ctor(Builtin::UnitValue, 0)?,
+        done: ctor(Builtin::Done, 1)?,
+        call: ctor(Builtin::Call, 2)?,
+        left: nth(Builtin::Plus, 0, 1)?,
+        right: nth(Builtin::Plus, 1, 1)?,
+        recur: nth(Builtin::Rec, 0, 1)?,
+        sig_map: nth(Builtin::SigMap, 0, 2)?,
+        print: ctor(Builtin::Print, 1)?,
+        read_line: ctor(Builtin::ReadLine, 1)?,
+        read_all: ctor(Builtin::ReadAll, 1)?,
     })
 }
 

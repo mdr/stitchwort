@@ -10,6 +10,7 @@ stitchwort-syntax.workspace = true
 stitchwort-core.workspace = true
 stitchwort-elab.workspace = true
 stitchwort-js.workspace = true
+stitchwort-rt.workspace = true
 ariadne.workspace = true
 serde.workspace = true
 serde-saphyr.workspace = true
