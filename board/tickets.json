@@ -1,5 +1,5 @@
 {
-  "next": 198,
+  "next": 199,
   "tickets": [
     {
       "id": 1,
@@ -3037,6 +3037,20 @@
         "syntax"
       ],
       "body": "D218 (Matt, 21 Oct 2026): a > b means b < a, a >= b means b <= a, !b means Bool.not b; plain notation, no new interface/laws; goals and messages show the < form. calc accepts > / >= chains. Lexer currently rejects > (crates/syntax/src/lexer.rs:371-394); docs/syntax.md:582.",
+      "created": "2026-10-21",
+      "updated": "2026-10-21",
+      "commits": []
+    },
+    {
+      "id": 198,
+      "title": "AoC day 8: junction boxes (postponed, D225)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "D225 (Matt, 21 Oct 2026): postponed. Plan when resumed: lists + Map + List.sortBy, measure where time goes (estimate 15-25 s: 499,500 pairs sorted); fallback Array (SW-112, also backlog). docs/aoc-2025.md Day 8.",
       "created": "2026-10-21",
       "updated": "2026-10-21",
       "commits": []
