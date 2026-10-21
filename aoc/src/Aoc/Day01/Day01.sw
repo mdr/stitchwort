@@ -27,7 +27,18 @@ def solvePart2 (turns: List Turn): Nat := zerosPassed dial turns
 -- The puzzle's dial, at 50.
 def dial: Dial 99 := { position = 50, inRange = rfl }
 
-def example: List Text := ["L68", "L30", "R48", "L5", "R60", "L55", "L1", "L99", "R14", "L82"]
+def example: List Text := """
+  L68
+  L30
+  R48
+  L5
+  R60
+  L55
+  L1
+  L99
+  R14
+  L82
+  """.lines
 
 test "example" := (solvePart1 (parseTurns example), solvePart2 (parseTurns example)) == (3, 6)
 

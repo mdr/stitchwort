@@ -32,8 +32,19 @@ type Database = { fresh: List Range, available: List Nat }
 def parseDatabase (lines: List Text): Database :=
   { fresh = lines.filterMap Range.parse, available = lines.filterMap Text.toNat }
 
-def example: List Text :=
-  [ "3-5", "10-14", "16-20", "12-18", "", "1", "5", "8", "11", "17", "32" ]
+def example: List Text := """
+  3-5
+  10-14
+  16-20
+  12-18
+
+  1
+  5
+  8
+  11
+  17
+  32
+  """.lines
 
 test "example parse" := (parseDatabase example).available == [1, 5, 8, 11, 17, 32]
 
