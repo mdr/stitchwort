@@ -195,3 +195,55 @@ fn the_instance_marker_is_hashed() {
     };
     assert_ne!(hash("instance"), hash("def"));
 }
+
+/// A type's `auto` parameter (stage 4, §7.5) equated by matching with an
+/// unknown that has its own obligation isn't a solution, as for the `Box`
+/// above: `Pretty (Map Nat Nat ?ord)` waits for `?ord`, then applies.
+#[test]
+fn a_type_auto_parameter_equated_with_an_unknown_waits() {
+    let source = "\
+interface Ordered (a: Type) =
+  { less: a -> a -> Bool }
+
+interface Pretty (a: Type) =
+  { pretty: a -> Text }
+
+instance Ordered.instNat: Ordered Nat :=
+  { less = m n => Nat.leq (m + 1) n }
+
+type Map (k: Type) (v: Type) [auto ord: Ordered k] =
+  { entries: List (k, v) }
+
+instance Map.instPretty: Pretty (Map k v [ord := o]) :=
+  { pretty = m => \"map\" }
+
+def single [auto ord: Ordered k] (x: k): Map k Nat := { entries = [(x, 0)] }
+
+def shown: Text := Pretty.pretty (single 3)
+";
+    assert_eq!(load(None, source), (vec![], 1));
+}
+
+/// Which parameters of a type are `auto` is part of its hash (only when one
+/// is, so other types hash as before).
+#[test]
+fn a_types_auto_parameters_are_hashed() {
+    let hash = |param: &str| {
+        let source = format!(
+            "interface Ordered (a: Type) =\n  {{ less: a -> a -> Bool }}\n\n\
+             type Map (k: Type) {param} =\n  {{ entries: List k }}\n"
+        );
+        let mut session = Session::new();
+        session.load("test.sw", &source).expect("loads");
+        let g = &session.elab.globals;
+        let id = g
+            .datas
+            .iter()
+            .position(|d| &*d.name == "Map")
+            .expect("declared");
+        stitchwort_core::hash::data_hash(g, stitchwort_core::DataId(id))
+            .expect("in budget")
+            .expect("final")
+    };
+    assert_ne!(hash("[auto ord: Ordered k]"), hash("(ord: Ordered k)"));
+}

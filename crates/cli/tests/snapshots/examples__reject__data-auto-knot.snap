@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-ABILITY] Error: an operation's argument can't perform `Cell` itself
+    ╭─[ reject/data-auto-knot.sw:16:10 ]
+    │
+ 16 │   write: Map Nat (() -> {Cell} ()) -> {Cell} ()
+    │          ────────────┬───────────  
+    │                      ╰───────────── an operation's argument can't perform `Cell` itself
+    │ 
+    │ Note: storing or returning a computation that uses the same ability could loop forever (Landin's knot)
+────╯

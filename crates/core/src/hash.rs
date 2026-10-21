@@ -166,6 +166,7 @@ pub fn data_hash(g: &Globals, id: DataId) -> Result<Option<ContentHash>> {
     for (_, ty) in &data.params {
         h.term(ty)?;
     }
+    h.auto_params(data);
     h.indices(data)?;
     h.ctors(data)?;
     let hash = h.finish();
@@ -265,6 +266,7 @@ fn data_group_hashes(g: &Globals, members: &[DataId]) -> Result<()> {
     for (_, ty) in &first.params {
         h.term(ty)?;
     }
+    h.auto_params(first);
     for &m in &order {
         let data = g.data(members[m]);
         h.tag("data");
@@ -358,6 +360,19 @@ impl<'g> Hasher<'g> {
             }
         }
         Ok(())
+    }
+
+    /// Which of a data type's parameters are `auto`
+    /// (docs/proposals/interfaces.md §7.5): nothing at all when none is, so
+    /// other types hash as before.
+    fn auto_params(&mut self, data: &Data) {
+        if !data.auto_params.contains(&true) {
+            return;
+        }
+        self.tag("auto");
+        for a in &data.auto_params {
+            self.bool(*a);
+        }
     }
 
     /// A data type's index telescope (docs/proposals/indexed-families.md

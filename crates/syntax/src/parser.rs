@@ -909,8 +909,38 @@ impl<'t> Parser<'t> {
             self.upper_q("a data type name (starting with an uppercase letter)")?
         };
         let mut params = Vec::new();
-        while self.peek() == Some(&Tok::LParen) {
-            params.push(self.binder()?);
+        let mut auto_params = Vec::new();
+        loop {
+            if self.peek() == Some(&Tok::LParen) {
+                params.push(self.binder()?);
+                auto_params.push(false);
+            } else if self.is_implicit_binder() {
+                // `[auto ord: Ord k]`, filled in by instance search wherever
+                // the type is written (docs/proposals/interfaces.md §7.5).
+                let start = self.here();
+                let (binder, auto) = self.implicit_binder()?;
+                if !auto {
+                    return Err(error(
+                        start.to(self.prev_span()),
+                        "a type's parameters in brackets must be `auto`, like `[auto ord: Ord k]`",
+                    )
+                    .with_note(
+                        "a type's other parameters are always given, so they're written \
+                         `(a: Type)`",
+                    ));
+                }
+                if binder.names[0].text == crate::ast::NAMELESS {
+                    return Err(error(
+                        start.to(self.prev_span()),
+                        "a type's `auto` parameter needs a name, so it can be given by name: \
+                         `[auto ord: Ord k]`",
+                    ));
+                }
+                params.push(binder);
+                auto_params.push(true);
+            } else {
+                break;
+            }
         }
         // After the colon: index types, each followed by `->`, then the
         // universe (docs/proposals/indexed-families.md §7.1).
@@ -951,6 +981,7 @@ impl<'t> Parser<'t> {
                 span: start.to(self.prev_span()),
                 name,
                 params,
+                auto_params,
                 indices,
                 sort,
                 ctors: vec![ctor],
@@ -967,7 +998,7 @@ impl<'t> Parser<'t> {
                          data type's indices",
                     ));
                 }
-                return self.type_synonym(start, name, params, sort);
+                return self.type_synonym(start, name, params, auto_params, sort);
             }
             if self.peek() == Some(&Tok::LBrace) {
                 record = true;
@@ -1020,6 +1051,7 @@ impl<'t> Parser<'t> {
             span: start.to(self.prev_span()),
             name,
             params,
+            auto_params,
             indices,
             sort,
             ctors,
@@ -2925,6 +2957,43 @@ mod tests {
         let text = "interface I (a: Type) = { x: a }\ninstance n: I Nat\n";
         let file = sources.add("test.sw", text);
         assert!(parse_module(file, text).is_err());
+    }
+
+    #[test]
+    fn parses_auto_parameters_of_types() {
+        // docs/proposals/interfaces.md §7.5.
+        let module = parse(
+            "type Map (k: Type) (v: Type) [auto ord: Ord k] = { entries: List (k, v) }\n\
+             type Tree (k: Type) [auto ord: Ord k] = | Leaf | Node (l: Tree k)\n\
+             type Set (k: Type) [auto ord: Ord k] = Map k () [ord := ord]\n",
+        );
+        assert!(matches!(
+            &module.decls[0],
+            Decl::Data { record: true, params, auto_params, .. }
+                if params.len() == 3 && auto_params == &[false, false, true]
+        ));
+        assert!(matches!(
+            &module.decls[1],
+            Decl::Data { record: false, auto_params, .. } if auto_params == &[false, true]
+        ));
+        // A synonym's is the definition's.
+        let Decl::Signature {
+            ty, synonym: true, ..
+        } = &module.decls[2]
+        else {
+            panic!("expected a synonym");
+        };
+        let Expr::Pi { cod, .. } = ty else {
+            panic!("expected a function type, got {ty:?}");
+        };
+        assert!(matches!(
+            &**cod,
+            Expr::Pi { implicit: true, auto: true, names, .. } if names[0].text == "ord"
+        ));
+        let d = parse_error("type T [a: Type] = { x: a }\n");
+        assert!(d.message.contains("must be `auto`"), "{}", d.message);
+        let d = parse_error("type T (a: Type) [auto Ord a] = { x: a }\n");
+        assert!(d.message.contains("needs a name"), "{}", d.message);
     }
 
     #[test]

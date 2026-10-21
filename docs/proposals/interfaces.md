@@ -2026,6 +2026,96 @@ What differs from the text above, or wasn't settled by it:
 5. **Not done here**, as planned: `<` and `<=` through `Ord` (stage 5),
    derived `Ord` (stage 7).
 
+## As built (stage 4)
+
+Stage 4 is built (SW-4, 21 October 2026): `auto` parameters on data types,
+records and synonyms, with a test interface (`Ordered`) standing in for
+stage 3's `Ord`. Code: `crates/elab/src/data_auto.rs` (applications of a
+type, checks, the mismatch note), `check.rs` (a data type's application goes
+there; trailing implicits where a type is expected), `autobind.rs`,
+`derive.rs`, `lib.rs`; the parser (`crates/syntax/src/parser.rs`,
+`parser/declarations.rs`); and in the core, a per-type `auto_params` list,
+hashed only when one is set, and printed (`globals.rs`, `check.rs`,
+`hash.rs`, `pretty.rs`). Surface: docs/syntax.md "Interfaces". Tests:
+`examples/accept/data-auto.sw` (§7.5's cases, `Map Text Nat` filled by
+search, a synonym, derived `==`, state), `examples/extract/data-auto.sw`,
+the `data-auto-*` rejects, two tests in `crates/driver/tests/interfaces.rs`
+(waiting on an unknown ordering; the hash), and a parser test. Existing
+hashes and examples are unchanged.
+
+§7.5's five cases, as tested in `data-auto.sw` and the rejects:
+
+| Case | Result |
+|---|---|
+| A `Map Nat Nat` with a named alternative ordering, as `State` | Accepted ("a map as state") |
+| A map whose values are functions, as `State` | See item 1: pure functions accepted; computations using the ability itself refused (`data-auto-knot.sw`, `E-ABILITY`) |
+| An operation on an existing map with another `Ordered Nat` in scope | The map's ordering, from its type ("the map's own ordering") |
+| A map passed where the parameter names another ordering | `E-TYPE-MISMATCH`, with a note that the dictionaries differ (`data-auto-ordering-differs.sw`) |
+| `Pretty (Map k v [ord := o])` resolved for a map with `descending` | `o` kept: the instance sees `descending` ("the head's ordering is kept") |
+
+What differs from the text above, or wasn't settled by it:
+
+1. **There's no `IsData`.** §7.5 and its test table assume DESIGN.md §8's
+   `IsData`, but abilities.md replaced it with the kernel's own checks
+   (positivity, termination): state may hold pure functions, and only an
+   operation storing a computation that uses its own ability (Landin's
+   knot) is refused. So the second case is tested as both halves: a map of
+   pure functions as `State` is accepted ("functions as state"), and an
+   ability storing a map of its own computations is refused
+   (`E-ABILITY`), through the map's parameters. The ordering dictionary
+   (a record of functions, as a type parameter) affects neither.
+2. **Surface.** `[auto ord: Ord k]` among a type's parameters, in any
+   position, always named (so it can be given by name; a nameless `[auto
+   Ord k]` or an implicit `[a: Type]` there is `E-PARSE`). It must ask for
+   an interface: `E-DATA-AUTO` otherwise (D157's proofs, `[auto ok: p]`,
+   aren't allowed on types). An interface can't have one (it has exactly
+   one parameter, `E-INTERFACE-SHAPE`). Types defined together must have
+   the same ones (`E-MUTUAL-PARAMETERS`). Indexed families may have them.
+3. **Writing the type.** In `D args`, an `auto` parameter takes a named
+   argument written in its place among the positional ones,
+   `Map k v [ord := o]`; otherwise it's a new obligation, as for a
+   function's `auto` argument, so §5.5 applies unchanged: step 1 when an
+   existing map's type fixes it (no new rule was needed), dictionaries in
+   scope, then the global instance. A named argument out of place, or naming
+   no `auto` parameter, is `E-UNKNOWN-NAME`.
+4. **Synonyms** take `auto` parameters as a definition does:
+   `type Set (k: Type) [auto ord: Ord k] = Map k () [ord := ord]` is
+   `def Set (k: Type) [auto ord: Ord k]: Type := …`. For `Set Nat` to find
+   `ord`, an application where a type is expected now inserts trailing
+   implicit and `auto` arguments (`check_type`); before, that was
+   `E-NOT-A-TYPE`, so nothing that checked changes. Dot notation through a
+   synonym needs the synonym's type: `Map.empty |> .add 2` looks in `Map`,
+   so the example writes `Set.add`.
+5. **Instance heads.** In an instance's signature an `auto` parameter of a
+   data type must be written as a variable, `Pretty (Map k v [ord := o])`;
+   left out it's `E-INSTANCE-HEAD`, saying what to write, rather than
+   searched (which could only fail, or make the instance specific). Making it
+   a head variable automatically would need the elaborator to add a binder,
+   and wasn't needed. `o` is bound automatically: a named argument for a
+   type's `auto` parameter that is an unknown lowercase name counts as a
+   value argument for automatic implicits (a name of the module, like a
+   named alternative `[ord := descending]`, means that declaration, with no
+   warning). Matching keeps `o`, and a head argument equated with an unknown
+   waits, by stage 1 item 4's rule, now tested with an `auto` parameter too.
+6. **Derived `==`** writes the parameter by name in the generated
+   signatures (`T %p0 [ord := %p1]`); maps compare by their fields only.
+7. **Printing.** A type with `auto` parameters prints them by name,
+   `Map Nat Nat [ord := …]`. But a found instance is inlined (stage 1 item
+   13), and a named alternative unfolds when the type is evaluated, so the
+   mismatch message shows record literals, not `Ordered.instNat` and
+   `descending`; the note says it's the dictionaries that differ. The same
+   happens in generated JS: where a map's type supplies the ordering, the
+   dictionary is written out at each use (`examples/extract/data-auto.sw`'s
+   `sortedDown`), though `descending` is still defined. Keeping the names
+   would need stage 1 item 13's fix.
+8. **Hash.** Which parameters are `auto` is hashed (a tag, only when one
+   is), like a constructor's implicit fields: it changes how every use of
+   the type elaborates. Types without them hash as before.
+9. **Left for SW-113.** `Map`'s real representation (a balanced tree with
+   an erased `Ordered` proof, §7.5), switching from the test interface to
+   stage 3's `Ord`, `Map.instShow` (stage 6), and a JS boundary for maps
+   (§10). Nothing in the elaborator should need to change for those.
+
 ---
 
 ## 14. Decisions

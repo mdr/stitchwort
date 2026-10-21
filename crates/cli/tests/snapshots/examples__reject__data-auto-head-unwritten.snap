@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-INSTANCE-HEAD] Error: in an instance's type, `Map`'s `auto` parameter `ord` is written as a variable
+    ╭─[ reject/data-auto-head-unwritten.sw:16:34 ]
+    │
+ 16 │ instance Map.instPretty: Pretty (Map k v) :=
+    │                                  ───┬───  
+    │                                     ╰───── write `[ord := o]` among `Map`'s parameters here
+    │ 
+    │ Note: the instance is then for every `ord`; where it's used, `o` is the one in the type it's used at, not found again
+────╯

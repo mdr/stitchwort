@@ -11,6 +11,7 @@ mod autobind;
 mod bind;
 mod calc;
 mod check;
+mod data_auto;
 mod derive;
 mod dot;
 mod effects;
@@ -237,6 +238,10 @@ pub struct Elaborator {
     /// For tests: how many times finding an instance has had to wait
     /// (`auto.rs`), in this session.
     pub instance_waits: std::cell::Cell<usize>,
+    /// Whether an instance's signature is being elaborated: there, a data
+    /// type's `auto` parameter must be written as a variable
+    /// (docs/proposals/interfaces.md §7.5).
+    in_instance_signature: std::cell::Cell<bool>,
 }
 
 /// A pattern that matches a constructor.
@@ -753,6 +758,7 @@ impl Elaborator {
         let data_decl = Decl::Data {
             name: ability.clone(),
             params: params.clone(),
+            auto_params: vec![false; params.len()],
             indices: Vec::new(),
             sort: None,
             ctors: sigs
@@ -1022,6 +1028,8 @@ impl Elaborator {
         for (&(item, decl), header) in members.iter().zip(&headers).skip(1) {
             if let Err(d) = self.same_header(first, &headers[0], decl, header) {
                 out.push((item, d));
+            } else if let Err(d) = Self::same_auto_params(first, decl) {
+                out.push((item, d));
             }
         }
         if !out.is_empty() {
@@ -1056,6 +1064,7 @@ impl Elaborator {
         let owner = self.module_owner();
         let mut group_interfaces = Vec::new();
         for (&(_, decl), d) in members.iter().zip(&ids) {
+            kernel::mark_auto_params(&mut self.globals, *d, Self::data_auto_params(decl));
             self.data_owners.insert(*d, owner.clone());
             if let Decl::Data {
                 interface: true, ..
@@ -1118,6 +1127,7 @@ impl Elaborator {
         let Decl::Data {
             name: data_name,
             params,
+            auto_params,
             indices,
             sort,
             record,
@@ -1132,8 +1142,11 @@ impl Elaborator {
         self.module.phase = Phase::Header;
         let mut cx = Ctx::new(self, *span);
         let mut checked = Vec::new();
-        for binder in params {
+        for (binder, auto) in params.iter().zip(auto_params) {
             let (ty, _) = check_type(&mut cx, &binder.ty)?;
+            if *auto {
+                self.check_data_auto(&mut cx, binder, &ty)?;
+            }
             for (k, n) in binder.names.iter().enumerate() {
                 let ty = self.finish(&ty.shift(&self.globals, k, 0)?, cx.level())?;
                 let value = cx.eval(&ty)?;
@@ -1687,7 +1700,10 @@ impl Elaborator {
                 cx.bind(&n.text, value);
             }
             cx.span = *span;
-            let (mut term, _) = check_type(&mut cx, ty)?;
+            cx.e.in_instance_signature.set(*instance);
+            let checked = check_type(&mut cx, ty);
+            cx.e.in_instance_signature.set(false);
+            let (mut term, _) = checked?;
             for (n, dom) in auto.names.iter().zip(domains).rev() {
                 term = Term::Pi(name(n), Icit::Implicit, Rc::new(dom), Rc::new(term));
             }

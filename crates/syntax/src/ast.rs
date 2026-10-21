@@ -640,6 +640,10 @@ pub enum Decl {
     Data {
         name: Name,
         params: Vec<Binder>,
+        /// For each binder of `params`, whether it's an `auto` parameter,
+        /// `[auto ord: Ord k]`, filled in by instance search wherever the
+        /// type is written (docs/proposals/interfaces.md §7.5).
+        auto_params: Vec<bool>,
         /// The index telescope after the header's colon: `Nat -> Type`, or
         /// with names, `(len: Nat) -> Type` (docs/proposals/indexed-families.md).
         indices: Vec<(Option<Name>, Expr)>,

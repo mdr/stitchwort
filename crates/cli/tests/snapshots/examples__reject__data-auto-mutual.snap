@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-MUTUAL-PARAMETERS] Error: `Tree` and `Forest` are defined together, so the same parameters must be `auto`
+    ╭─[ reject/data-auto-mutual.sw:11:6 ]
+    │
+  8 │ type Tree (k: Type) [auto ord: Ordered k] =
+    │      ──┬─  
+    │        ╰─── `Tree` is declared here
+    │ 
+ 11 │ type Forest (k: Type) (ord: Ordered k) =
+    │      ───┬──  
+    │         ╰──── `Forest` is declared here
+────╯

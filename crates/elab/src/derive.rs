@@ -563,7 +563,20 @@ impl Elaborator {
             }
             ty
         };
-        let this = apps(var(&ty_name), (0..np).map(|j| var(&param(j))).collect());
+        // An `auto` parameter is given by name (docs/proposals/interfaces.md
+        // §7.5): `T %p0 [ord := %p1]`.
+        let this = apps(
+            var(&ty_name),
+            (0..np)
+                .map(|j| {
+                    if data.auto_params.get(j) == Some(&true) {
+                        Expr::NamedArg(n(&data.params[j].0), Box::new(var(&param(j))), span)
+                    } else {
+                        var(&param(j))
+                    }
+                })
+                .collect(),
+        );
 
         // T.%decEq : … -> (%r %s : T %p0 …) -> Decidable (%r = %s)
         let ty = with_params(

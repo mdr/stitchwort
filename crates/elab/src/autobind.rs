@@ -162,14 +162,37 @@ fn type_former(e: &Elaborator, head: &Expr, bound: &[String]) -> Option<Vec<Opti
         }
         _ => return None,
     };
-    // The indices come after the parameters: `None` marks an index.
+    // The indices come after the parameters: `None` marks an index. An
+    // `auto` parameter is given by name, if at all (`auto_param`).
     Some(
         data.params
             .iter()
-            .map(|(_, ty)| Some(is_sort(ty)))
+            .enumerate()
+            .filter(|(k, _)| data.auto_params.get(*k) != Some(&true))
+            .map(|(_, (_, ty))| Some(is_sort(ty)))
             .chain(data.indices.iter().map(|_| None))
             .collect(),
     )
+}
+
+/// Whether `x` is an `auto` parameter of the data type `head`: a variable
+/// given for it by name, `Map k v [ord := o]`, is a value argument, so `o` is
+/// bound automatically (docs/proposals/interfaces.md §7.5).
+fn auto_param(e: &Elaborator, head: &Expr, x: &str, bound: &[String]) -> bool {
+    let Expr::Var(name) = head else {
+        return false;
+    };
+    if bound.contains(&name.text) {
+        return false;
+    }
+    let Some((Global::Data(d), _)) = e.named(&name.text) else {
+        return false;
+    };
+    let data = e.globals.data(*d);
+    data.params
+        .iter()
+        .zip(&data.auto_params)
+        .any(|((p, _), auto)| *auto && **p == *x)
 }
 
 /// Walks an index of an indexed family: every candidate name in it is a
@@ -265,6 +288,16 @@ fn walk_at(
             let mut explicit = 0;
             for arg in args {
                 let param = match arg {
+                    // Only an unknown name: a named alternative of the
+                    // module's, `[ord := descending]`, is just that.
+                    Expr::NamedArg(x, value, _)
+                        if matches!(&**value, Expr::Var(v)
+                            if matches!(e.resolve(&v.text), Resolved::Missing))
+                            && auto_param(e, head, &x.text, bound) =>
+                    {
+                        walk_at(e, value, bound, Position::ValueArg, uses)?;
+                        continue;
+                    }
                     Expr::NamedArg(..) => None,
                     _ => {
                         explicit += 1;

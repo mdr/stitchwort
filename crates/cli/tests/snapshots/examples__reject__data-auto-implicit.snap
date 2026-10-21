@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: a type's parameters in brackets must be `auto`, like `[auto ord: Ord k]`
+   ╭─[ reject/data-auto-implicit.sw:5:13 ]
+   │
+ 5 │ type Tagged [a: Type] (x: a) =
+   │             ────┬────  
+   │                 ╰────── a type's parameters in brackets must be `auto`, like `[auto ord: Ord k]`
+   │ 
+   │ Note: a type's other parameters are always given, so they're written `(a: Type)`
+───╯

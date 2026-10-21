@@ -385,11 +385,15 @@ impl<'e> Ctx<'e> {
                 )
                 .with_note("`Type n` lives in `Type (n+1)`; allowing `Type: Type` would make the logic inconsistent");
         }
-        self.error(
+        let d = self.error(
             "E-TYPE-MISMATCH",
             "type mismatch",
             format!("expected `{expected_shown}`, but this has type `{found_shown}`"),
-        )
+        );
+        match crate::data_auto::auto_mismatch_note(self, expected, found) {
+            Some(note) => d.with_note(note),
+            None => d,
+        }
     }
 }
 
@@ -702,31 +706,9 @@ pub(crate) fn infer_app(cx: &mut Ctx, head: &Expr, args: &[Arg]) -> Result<(Term
             let head = (Term::Def(*id), g.def(*id).ty_value.clone());
             apply_args(cx, head, args)
         }
-        Some((Global::Data(d), _)) => {
-            let data = g.data(*d);
-            // The parameters, then the indices: one telescope.
-            let n = data.params.len() + data.indices.len();
-            if args.len() < n {
-                return Err(cx.error(
-                    "E-ARITY",
-                    format!("`{}` needs {n} argument(s)", data.name),
-                    "here",
-                ));
-            }
-            let mut params = Vec::new();
-            let mut terms = Vec::new();
-            for ((_, param_ty), arg) in data.params.iter().chain(&data.indices).zip(args) {
-                let Arg::Explicit(arg) = arg else {
-                    return Err(cx.error("E-ARITY", "data type parameters are explicit", "here"));
-                };
-                let ty = eval(g, &params, param_ty)?;
-                let term = check(cx, arg, &ty)?;
-                params.push(cx.eval(&term)?);
-                terms.push(term);
-            }
-            let head = (Term::data(*d, terms), Value::Sort(data.sort));
-            apply_args(cx, head, &args[n..])
-        }
+        // The parameters, then the indices: one telescope; `auto` parameters
+        // are found (docs/proposals/interfaces.md §7.5).
+        Some((Global::Data(d), _)) => crate::data_auto::data_app(cx, *d, args),
         Some((Global::Unchecked(item), _)) => Err(cx.e.unchecked(name, *item)),
         Some((Global::Failed, _)) => Err(crate::module::failed_name(name)),
         Some((Global::Pending(file, _), _)) => Err(cx.e.unloaded(name, *file)),
@@ -2168,6 +2150,13 @@ pub fn check_type(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Sort)> {
         return Ok((Term::Loc(span, Rc::new(term)), Sort::Prop));
     }
     let (term, ty) = infer(cx, expr)?;
+    // Trailing implicit and `auto` parameters, as in a synonym's
+    // `type Set (k: Type) [auto ord: Ord k] = …`: `Set Nat` finds `ord`
+    // (docs/proposals/interfaces.md §7.5).
+    let (term, ty) = match force(cx.g(), ty.clone())? {
+        Value::Pi(_, icit, _, _) if icit.is_implicit() => insert(cx, term, ty)?,
+        _ => (term, ty),
+    };
     match force(cx.g(), ty)? {
         Value::Sort(s) => Ok((term, s)),
         ty @ Value::Neutral(Head::Meta(_), _) => {

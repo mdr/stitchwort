@@ -238,6 +238,22 @@ impl<'g> Printer<'g> {
                 items.push(rest);
                 (self.tuple(names, &items), Prec::Atom)
             }
+            Term::Data(d, args) if self.g.data(*d).auto_params.contains(&true) => {
+                // An `auto` parameter given by name, `Map Nat Nat [ord := o]`
+                // (docs/proposals/interfaces.md §7.5).
+                let data = self.g.data(*d);
+                let mut text = data.name.to_string();
+                for (k, arg) in args.iter().enumerate() {
+                    text.push(' ');
+                    if data.auto_params.get(k) == Some(&true) {
+                        let shown = self.print(names, arg, Prec::Arrow);
+                        text.push_str(&format!("[{} := {shown}]", data.params[k].0));
+                    } else {
+                        text.push_str(&self.print(names, arg, Prec::Atom));
+                    }
+                }
+                (text, Prec::App)
+            }
             Term::Data(d, args) => self.applied(
                 names,
                 self.g.data(*d).name.to_string(),
