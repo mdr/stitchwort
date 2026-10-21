@@ -1098,6 +1098,172 @@ test("on a phone, a project's file tabs scroll inside themselves", async (page) 
   assert.ok(l.tabs.scroll > l.tabs.client && l.tabs.overflow === "auto", `the tabs scroll inside themselves: ${JSON.stringify(l)}`);
 }, { ms: 120000 });
 
+// Code navigation (docs/proposals/code-navigation.md) ------------------------------
+
+const NAV_SOURCE = `def double (n: Nat) : Nat := n + n
+
+def quad (n: Nat) : Nat := double (double n)
+
+def lengths (xs: List Nat) : Nat := List.length xs
+
+def tricky (ys: List Nat) : Nat := if Text.isEmpty "😀😀" then 0 else List.length ys
+`;
+
+const CMD = 4;
+
+/**
+ * The centre, in the viewport, of the text `len` characters long at `delta` into the
+ * first `needle` of the editor's text (after scrolling its line into view), where the
+ * browser drew it in the coloured copy.
+ */
+function whereIs(page, needle, delta = 0, len = 1) {
+  return page.ev(`new Promise((done) => {
+    const s = document.getElementById("source"), h = document.getElementById("highlight");
+    const i = s.value.indexOf(${JSON.stringify(needle)}) + ${delta};
+    const line = s.value.slice(0, i).split("\\n").length - 1;
+    const css = getComputedStyle(s), lh = parseFloat(css.lineHeight);
+    const y = parseFloat(css.paddingTop) + line * lh;
+    if (y < s.scrollTop || y + lh > s.scrollTop + s.clientHeight) s.scrollTop = Math.max(0, y - s.clientHeight / 3);
+    s.dispatchEvent(new Event("scroll"));
+    requestAnimationFrame(() => {
+      const range = document.createRange();
+      range.setStart(h.firstChild, i);
+      range.setEnd(h.firstChild, i + ${len});
+      const r = range.getBoundingClientRect();
+      done({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
+    });
+  })`);
+}
+const hoverAt = (page, { x, y }, modifiers = 0) => page.send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y, modifiers });
+async function cmdClick(page, { x, y }) {
+  await hoverAt(page, { x, y }, CMD);
+  await page.send("Input.dispatchMouseEvent", { type: "mousePressed", x, y, button: "left", clickCount: 1, modifiers: CMD });
+  await page.send("Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button: "left", clickCount: 1, modifiers: CMD });
+}
+const tooltip = (page) => page.ev(`(() => { const t = document.getElementById("navtip"); return t.hidden ? null : t.textContent; })()`);
+/** Waits for the tooltip to show (the index is computed, and the pointer has rested). */
+const untilTooltip = (page) => page.until(`!document.getElementById("navtip").hidden && document.getElementById("navtip").textContent`, 30000, "the tooltip");
+/** What the editor has selected, and where. */
+const selected = (page) => page.ev(`(() => { const s = document.getElementById("source");
+  return { text: s.value.slice(s.selectionStart, s.selectionEnd), line: s.value.slice(0, s.selectionStart).split("\\n").length,
+           readOnly: s.readOnly }; })()`);
+
+test("hovering a name shows its type: a local, a declaration, a library function", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  await page.setSource(NAV_SOURCE);
+  await page.untilChecked();
+  // A parameter, used in the body.
+  await hoverAt(page, await whereIs(page, "length xs", 7, 2));
+  assert.match(await untilTooltip(page), /^xs local\n: List Nat$/);
+  // A library function: its qualified name and its type.
+  await hoverAt(page, await whereIs(page, "List.length xs", 5, 6));
+  await page.until(`document.getElementById("navtip").textContent.includes("Std.List.length")`, 10000, "the library function's tooltip");
+  assert.match(await tooltip(page), /^Std.List.length def\n: .*List .*Nat/s);
+  // A parameter after astral characters on its line.
+  await hoverAt(page, await whereIs(page, "else List.length ys", 17, 2));
+  await page.until(`document.getElementById("navtip").textContent.startsWith("ys")`, 10000, "the tooltip of a name after astral characters");
+  assert.match(await tooltip(page), /^ys local\n: List Nat$/);
+  // A declaration of the program.
+  await hoverAt(page, await whereIs(page, "double (double n)", 0, 6));
+  await page.until(`document.getElementById("navtip").textContent.startsWith("double")`, 10000, "the tooltip of a declaration");
+  assert.match(await tooltip(page), /^double def\n: Nat -> Nat$/);
+  // Off a name, there is none.
+  await hoverAt(page, await whereIs(page, "def double", 1, 1));
+  await page.until(`document.getElementById("navtip").hidden`, 5000, "the tooltip to go");
+}, { ms: 90000 });
+
+test("with Cmd held, the name under the pointer is underlined, and a click goes to its definition in the same file", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  await page.setSource(NAV_SOURCE);
+  await page.untilChecked();
+  const at = await whereIs(page, "(double n)", 1, 3);
+  await hoverAt(page, at, CMD);
+  await page.until(`(() => { const l = document.getElementById("navlink"); return !l.hidden && l.getBoundingClientRect().width > 10; })()`, 30000, "the underline");
+  assert.equal(await page.ev(`document.getElementById("source").style.cursor`), "pointer");
+  await hoverAt(page, at, 0);
+  await page.until(`document.getElementById("navlink").hidden`, 5000, "the underline to go without Cmd");
+  await cmdClick(page, at);
+  await page.until(`document.getElementById("source").selectionEnd > document.getElementById("source").selectionStart`, 10000, "a selection at the definition");
+  assert.deepEqual(await selected(page), { text: "double", line: 1, readOnly: false });
+  // Cmd-click on a local goes to its binder, after astral characters on the line.
+  await cmdClick(page, await whereIs(page, "else List.length ys", 17, 2));
+  await page.until(`document.getElementById("source").selectionStart === document.getElementById("source").value.indexOf("ys:")`, 10000, "the binder");
+  assert.deepEqual(await selected(page), { text: "ys", line: 7, readOnly: false });
+  // And back, by Cmd+[.
+  await page.key("[", "BracketLeft", 219, { modifiers: CMD });
+  await page.until(`document.getElementById("source").selectionStart !== document.getElementById("source").value.indexOf("ys:")`, 10000, "the way back");
+}, { ms: 90000 });
+
+test("F12 goes to the definition of the name at the caret", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  await page.setSource(NAV_SOURCE);
+  await page.untilChecked();
+  await page.ev(`(() => { const s = document.getElementById("source"); s.focus();
+    const i = s.value.indexOf("(double n)") + 3; s.setSelectionRange(i, i); })()`);
+  await page.key("F12", "F12", 123);
+  await page.until(`document.getElementById("source").selectionEnd > document.getElementById("source").selectionStart`, 30000, "the jump");
+  assert.deepEqual(await selected(page), { text: "double", line: 1, readOnly: false });
+}, { ms: 90000 });
+
+test("Cmd-click on a library function shows the library's text, read-only, at its definition, with a way back", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  await page.setSource(NAV_SOURCE);
+  await page.untilChecked();
+  await cmdClick(page, await whereIs(page, "List.length xs", 5, 6));
+  await page.until(`!document.getElementById("stdbar").hidden`, 30000, "the library's text");
+  assert.match(await page.ev(`document.getElementById("std-name").textContent`), /\.sw$/);
+  const there = await selected(page);
+  assert.equal(there.text, "List.length");
+  assert.equal(there.readOnly, true);
+  // The line is the library's: the text shown has `length` defined there, and it's in view.
+  const view = await page.ev(`(() => { const s = document.getElementById("source"), css = getComputedStyle(s);
+    const line = s.value.slice(0, s.selectionStart).split("\\n").length - 1, text = s.value.split("\\n")[line];
+    const y = parseFloat(css.paddingTop) + line * parseFloat(css.lineHeight);
+    return { text, visible: y >= s.scrollTop && y < s.scrollTop + s.clientHeight, aligned: document.getElementById("highlight").textContent === s.value + "\\n" }; })()`);
+  assert.match(view.text, /\bdef List\.length\b/);
+  assert.ok(view.visible, "the line is scrolled into view");
+  assert.ok(view.aligned, "the coloured copy shows the library's text");
+  assert.equal(await page.status(), "Checked by the kernel", "the check is not disturbed");
+  // The way back restores the editor, and it can be edited again.
+  await page.click("#std-back");
+  assert.equal(await page.ev(`document.getElementById("stdbar").hidden`), true);
+  assert.equal(await sourceText(page), NAV_SOURCE);
+  assert.equal((await selected(page)).readOnly, false);
+  // Again, left with Escape.
+  await cmdClick(page, await whereIs(page, "List.length xs", 5, 6));
+  await page.until(`!document.getElementById("stdbar").hidden`, 30000, "the library's text again");
+  await page.key("Escape", "Escape", 27);
+  await page.until(`document.getElementById("stdbar").hidden`, 5000, "Escape to go back");
+  assert.equal(await sourceText(page), NAV_SOURCE);
+}, { ms: 90000 });
+
+test("Cmd-click in a project goes to the definition in another file, and a library name shows a tooltip", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  await openDay(page, 2);
+  await page.until(`document.querySelectorAll("#filetabs button").length === ${DAY2_TABS.length}`, 10000, "day 2's tabs");
+  const own = await sourceText(page);
+  // `Range` is defined in Common/Range.sw.
+  await cmdClick(page, await whereIs(page, "def solvePart1 (ranges: List Range)", 29, 5));
+  await page.until(`document.querySelector('#filetabs [aria-selected="true"]').firstChild.textContent === "Common/Range.sw"`, 60000, "the other file");
+  const there = await selected(page);
+  assert.equal(there.text, "Range");
+  assert.equal(await sourceText(page), await bundled(page, "src/Aoc/Common/Range.sw"));
+  assert.match(await page.ev(`(() => { const s = document.getElementById("source");
+    return s.value.split("\\n")[s.value.slice(0, s.selectionStart).split("\\n").length - 1]; })()`), /Range/);
+  // The way back is the file we came from.
+  await page.key("[", "BracketLeft", 219, { modifiers: CMD });
+  await page.until(`document.querySelector('#filetabs [aria-selected="true"]').firstChild.textContent === "Day02.sw"`, 10000, "the way back");
+  assert.equal(await sourceText(page), own);
+  // Hovering a library name in a project.
+  await hoverAt(page, await whereIs(page, "List.rangeFrom size 1", 5, 9));
+  await page.until(`document.getElementById("navtip").textContent.includes("Std.List.rangeFrom")`, 30000, "a library name's tooltip");
+}, { ms: 180000 });
+
 // Running them -------------------------------------------------------------------
 
 async function main() {
