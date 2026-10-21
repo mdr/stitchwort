@@ -8,4 +8,4 @@ def needsToken: [auto t: Token] -> Nat := 1
 
 def client: Nat := needsToken
 
-def decToken: Decidable Token := Yes MkToken
+instance decToken: Decidable Token := Yes MkToken

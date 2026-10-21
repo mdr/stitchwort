@@ -1,6 +1,5 @@
 -- `==` on lists, pairs (tuples) and `Maybe`, whenever their elements have
--- `==`: `List.decEq`, `Pair.decEq` and `Maybe.decEq` take a decision
--- procedure for the elements, and `auto` finds it.
+-- `==`: their `DecEq` instances ask for the elements' instance.
 
 test "lists of numbers" := [1, 2, 3] == [1, 2, 3]
 test "different lengths" := Bool.not ([1, 2, 3] == [1, 2])

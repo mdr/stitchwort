@@ -224,7 +224,10 @@ def Decidable.elim: [p: Prop] -> [a: Type] -> Decidable p -> (p -> a) -> (Not p 
   | Yes h, yes, no => yes h
   | No r,  yes, no => no r
 
--- Decision procedures. `auto` and `if h: …` use any function returning
+-- Decision procedures. `auto` and `if h: …` use those marked `instance`
+-- (docs/proposals/interfaces.md §5.12); `=` is decided through `DecEq`
+-- instead (below), and the procedures for `=` here are what its instances
+-- are made of.
 -- `Decidable …`.
 
 def Bool.decTrue: (b: Bool) -> Decidable (b = True)
@@ -256,26 +259,26 @@ def Bool.decEq: (a: Bool) -> (b: Bool) -> Decidable (a = b)
   | True,  False => No Bool.trueNotFalse
   | True,  True  => Yes rfl
 
-def Decidable.not: [p: Prop] -> Decidable p -> Decidable (Not p)
+instance Decidable.not: [p: Prop] -> Decidable p -> Decidable (Not p)
   | Yes h => No (n => n h)
   | No r  => Yes r
 
 -- `p && q` and `p || q` are decided from decisions of each side. Both are
 -- worked out before these are called, so `if h: p && q` decides `q` even when
 -- `p` is false (`if p && q`, without a name, doesn't).
-def Decidable.and: [p q: Prop] -> Decidable p -> Decidable q -> Decidable (And p q)
+instance Decidable.and: [p q: Prop] -> Decidable p -> Decidable q -> Decidable (And p q)
   | Yes a, Yes b => Yes (Both a b)
   | Yes a, No r  => No (h => r (And.right h))
   | No r,  d     => No (h => r (And.left h))
 
-def Decidable.or: [p q: Prop] -> Decidable p -> Decidable q -> Decidable (Or p q)
+instance Decidable.or: [p q: Prop] -> Decidable p -> Decidable q -> Decidable (Or p q)
   | Yes a, d     => Yes (Inl a)
   | No r,  Yes b => Yes (Inr b)
   | No r,  No s  => No (Or.neither r s)
 
-def Nat.decLessEq (m: Nat) (n: Nat): Decidable (m <= n) := Bool.decTrue (Nat.leq m n)
+instance Nat.decLessEq (m: Nat) (n: Nat): Decidable (m <= n) := Bool.decTrue (Nat.leq m n)
 
-def Nat.decLessThan (m: Nat) (n: Nat): Decidable (m < n) := Bool.decTrue (Nat.leq (Succ m) n)
+instance Nat.decLessThan (m: Nat) (n: Nat): Decidable (m < n) := Bool.decTrue (Nat.leq (Succ m) n)
 
 -- Proofs that two booleans are equal are unique. This is Hedberg's argument,
 -- which works for any type with decidable equality: `Bool.canon` turns any proof
@@ -732,9 +735,9 @@ def Int.LessEq (a: Int) (b: Int): Prop := Int.leq a b = True
 
 def Int.LessThan (a: Int) (b: Int): Prop := Int.less a b = True
 
-def Int.decLessEq (a: Int) (b: Int): Decidable (Int.LessEq a b) := Bool.decTrue (Int.leq a b)
+instance Int.decLessEq (a: Int) (b: Int): Decidable (Int.LessEq a b) := Bool.decTrue (Int.leq a b)
 
-def Int.decLessThan (a: Int) (b: Int): Decidable (Int.LessThan a b) := Bool.decTrue (Int.less a b)
+instance Int.decLessThan (a: Int) (b: Int): Decidable (Int.LessThan a b) := Bool.decTrue (Int.less a b)
 
 def Int.compare: Int -> Int -> Ordering
   | OfNat m,   OfNat n   => Nat.compare m n
@@ -1083,3 +1086,62 @@ def IO.simulate (input: List Text) (prog: () -> {IO | e} a): {e} Pair (List Text
       | IO.readLine u, k => ins out => k (IO.nextLine ins) (List.tailOf ins) out
       | IO.readAll u, k  => ins out => k (IO.restOf ins) Nil out
   run input Nil
+
+-- Decidable equality (docs/proposals/interfaces.md §6.1): `a == b`,
+-- `a != b`, `if h: a = b` and `auto` deciding an equation all use the
+-- `DecEq` instance for the type. A data type or record declared in a
+-- program gets one derived, when it can (`T.%instDecEq`).
+
+interface DecEq (a: Type) =
+  { decide: (x: a) -> (y: a) -> Decidable (x = y) }
+
+instance Nat.instDecEq: DecEq Nat := { decide = Nat.decEq }
+
+instance Int.instDecEq: DecEq Int := { decide = Int.decEq }
+
+instance Bool.instDecEq: DecEq Bool := { decide = Bool.decEq }
+
+instance Char.instDecEq: DecEq Char := { decide = Char.decEq }
+
+instance Text.instDecEq: DecEq Text := { decide = Text.decEq }
+
+instance Ordering.instDecEq: DecEq Ordering := { decide = Ordering.decEq }
+
+instance List.instDecEq [auto decEq: DecEq a]: DecEq (List a) :=
+  { decide = List.decEq (x y => DecEq.decide x y) }
+
+instance Pair.instDecEq [auto decEqA: DecEq a] [auto decEqB: DecEq b]: DecEq (Pair a b) :=
+  { decide = Pair.decEq (x y => DecEq.decide x y) (x y => DecEq.decide x y) }
+
+instance Maybe.instDecEq [auto decEq: DecEq a]: DecEq (Maybe a) :=
+  { decide = Maybe.decEq (x y => DecEq.decide x y) }
+
+-- `x == y` says `x = y`.
+theorem DecEq.sound [auto decEq: DecEq a] (x: a) (y: a) (h: (x == y) = True): x = y :=
+  Decidable.toBoolSound (DecEq.decide x y) h
+
+-- Proofs of an equation in a type with decidable equality are unique:
+-- Hedberg's argument, as for `Bool` above. `DecEq.canon` turns any proof of
+-- `x = y` into the one the decision gives, ignoring which proof it was
+-- given, and every proof can be recovered from its canonical one.
+def DecEq.canon: [x y: a] -> Decidable (x = y) -> x = y -> x = y
+  | Yes e, p => e
+  | No r,  p => Void.exfalso (r p)
+
+theorem DecEq.canonConst: [x y: a] -> (d: Decidable (x = y)) -> (p: x = y) -> (q: x = y) ->
+    DecEq.canon d p = DecEq.canon d q
+  | Yes e, p, q => rfl
+  | No r,  p, q => Void.exfalso (r p)
+
+theorem DecEq.symThenSelf [x y: a] (q: x = y): rfl = Eq.trans (Eq.sym q) q := J (y' q' => rfl = Eq.trans (Eq.sym q') q') rfl q
+
+theorem DecEq.fromCanon [auto decEq: DecEq a] (x: a) (y: a) (p: x = y):
+  p = Eq.trans (Eq.sym (DecEq.canon (DecEq.decide [decEq := decEq] x x) rfl)) (DecEq.canon (DecEq.decide [decEq := decEq] x y) p) :=
+  J (y' p' => p' = Eq.trans (Eq.sym (DecEq.canon (DecEq.decide [decEq := decEq] x x) rfl)) (DecEq.canon (DecEq.decide [decEq := decEq] x y') p'))
+    (DecEq.symThenSelf (DecEq.canon (DecEq.decide [decEq := decEq] x x) rfl)) p
+
+theorem DecEq.uniqueEq [auto decEq: DecEq a] [x y: a] (p: x = y) (q: x = y): p = q :=
+  J (z e => p = z)
+    (J (r e => p = Eq.trans (Eq.sym (DecEq.canon (DecEq.decide [decEq := decEq] x x) rfl)) r)
+      (DecEq.fromCanon x y p) (DecEq.canonConst (DecEq.decide [decEq := decEq] x y) p q))
+    (J (z e => z = q) rfl (DecEq.fromCanon x y q))

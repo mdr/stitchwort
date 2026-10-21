@@ -9,8 +9,8 @@
 //!   type, and updates `{ p | age = … }`;
 //! - record patterns `{ name, age = a, .. }`, resolved by the type of what
 //!   they match;
-//! - a derived decision procedure for `==`, when one can be built for the
-//!   whole record (§11.4);
+//! - a derived `DecEq` instance, for `==`, when one can be built for the
+//!   whole record (`derive.rs`);
 //! - decision procedures for proof fields, which extracted JS runs to
 //!   establish them for decoded input (§11.3).
 //!
@@ -27,7 +27,7 @@ use stitchwort_core::registry::Builtin;
 use stitchwort_core::term::Branch;
 use stitchwort_core::value::{eval, force, quote, unused};
 use stitchwort_core::{DataId, DefId, Icit, Name, Sort, Term, Value};
-use stitchwort_syntax::ast::{self, BinOp, Decl, Expr, Pattern};
+use stitchwort_syntax::ast::{self, Expr, Pattern};
 use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::check::{Ctx, check, infer, insert};
@@ -40,8 +40,6 @@ pub(crate) struct RecordInfo {
     /// (taking data out of a proof isn't allowed), or a field whose type
     /// mentions such a field.
     pub projections: Vec<Option<DefId>>,
-    /// Why `==` isn't derived for it, if it isn't.
-    pub no_eq: Option<String>,
 }
 
 impl Elaborator {
@@ -49,13 +47,7 @@ impl Elaborator {
     /// derived.
     pub(crate) fn after_record(&mut self, d: DataId, interface: bool) -> Result<()> {
         let projections = self.projections(d, interface)?;
-        self.records.insert(
-            d,
-            RecordInfo {
-                projections,
-                no_eq: None,
-            },
-        );
+        self.records.insert(d, RecordInfo { projections });
         if interface {
             let projections = self.records[&d]
                 .projections
@@ -64,11 +56,7 @@ impl Elaborator {
                 .collect();
             self.after_interface(d, projections)?;
         }
-        let no_eq = self.derive_eq(d)?;
-        if let Some(info) = self.records.get_mut(&d) {
-            info.no_eq = no_eq;
-        }
-        Ok(())
+        self.derive_data_eq(d)
     }
 
     /// Defines `R.field : [params] -> (r : R params) -> T` for each field,
@@ -137,180 +125,6 @@ impl Elaborator {
             out.push(Some(id));
         }
         Ok(out)
-    }
-
-    /// Derives `R.decEq : (r s : R) -> Decidable (r = s)`, which `==` then
-    /// finds, when that's possible in stage 1 (docs/proposals/records.md
-    /// §11.4): no parameters, and every field a data field whose type doesn't
-    /// depend on another field and has a decision procedure. Otherwise, why
-    /// not, for the message when `==` is used.
-    fn derive_eq(&mut self, d: DataId) -> Result<Option<String>> {
-        let g = &self.globals;
-        let data = g.data(d);
-        let ctor = &data.ctors[0];
-        let record = self.relative_to_root(&data.name);
-        let span = data.span;
-        if self.globals.registry.data(Builtin::Decidable).is_none() {
-            return Ok(Some("there's no prelude".into()));
-        }
-        if !data.params.is_empty() {
-            return Ok(Some(format!(
-                "`==` is only derived for records without parameters, and `{record}` has some"
-            )));
-        }
-        if data.sort == Sort::Prop {
-            return Ok(Some(format!("`{record}` is a proposition")));
-        }
-        for (i, (field, ty)) in ctor.fields.iter().enumerate() {
-            if ctor.field_erased[i] {
-                return Ok(Some(format!(
-                    "its field `{field}` is a proof or a type, and two records with equal data \
-                     can still differ there: a decision for `=` on `{record}` would need those \
-                     proofs to be unique, which isn't derived yet"
-                )));
-            }
-            if (0..i).any(|j| ty.mentions(i - 1 - j)) {
-                return Ok(Some(format!(
-                    "the type of its field `{field}` depends on an earlier field, which `==` \
-                     isn't derived for yet"
-                )));
-            }
-        }
-        // Every field's type needs a decision procedure for `=`.
-        self.clear_metas();
-        let fields: Vec<(Name, Term)> = ctor.fields.clone();
-        for (field, ty) in &fields {
-            let mut cx = Ctx::new(self, span);
-            let ty = cx.eval(ty)?;
-            if matches!(force(cx.g(), ty.clone())?, Value::Pi(..)) {
-                self.clear_metas();
-                return Ok(Some(format!(
-                    "its field `{field}` is a function, and functions can't be compared"
-                )));
-            }
-            cx.bind_hidden("x".into(), ty.clone());
-            cx.bind_hidden("y".into(), ty.clone());
-            let eq = Value::Eq(
-                Rc::new(ty.clone()),
-                Rc::new(Value::var(0)),
-                Rc::new(Value::var(1)),
-            );
-            if auto::decide(&mut cx, &eq, 0).is_err() {
-                self.clear_metas();
-                return Ok(Some(format!(
-                    "its field `{field}` has type `{}`, which has no decision procedure for `=` \
-                     (when `{record}` was checked)",
-                    cx.show(&ty)
-                )));
-            }
-        }
-        self.clear_metas();
-
-        let n = |text: &str| ast::Name {
-            text: text.to_string(),
-            span,
-        };
-        let var = |text: &str| Expr::Var(n(text));
-        let apps = |head: Expr, args: Vec<Expr>| {
-            args.into_iter()
-                .fold(head, |f, a| Expr::App(Box::new(f), Box::new(a)))
-        };
-        let mk = format!("{record}.%mk");
-        let a = |k: usize| format!("a{k}");
-        let b = |k: usize| format!("b{k}");
-        let h = |k: usize| format!("h{k}");
-        let count = fields.len();
-        // `R.%mk a0 … an = R.%mk b0 … b(k-1) y a(k+1) …`
-        let motive_eq = |k: usize| {
-            let left = apps(var(&mk), (0..count).map(|j| var(&a(j))).collect());
-            let right = apps(
-                var(&mk),
-                (0..count)
-                    .map(|j| match j.cmp(&k) {
-                        std::cmp::Ordering::Less => var(&b(j)),
-                        std::cmp::Ordering::Equal => var("y"),
-                        std::cmp::Ordering::Greater => var(&a(j)),
-                    })
-                    .collect(),
-            );
-            Expr::Binary(BinOp::Eq, Box::new(left), Box::new(right))
-        };
-        let mut proof = var("rfl");
-        for k in 0..count {
-            let motive = Expr::Lam(vec![n("y"), n("p")], Box::new(motive_eq(k)), span);
-            proof = apps(var("J"), vec![motive, proof, var(&h(k))]);
-        }
-        let mut body = apps(var("Std.Decidable.Yes"), vec![proof]);
-        for k in (0..count).rev() {
-            let projection = format!("{record}.{}", fields[k].0);
-            let refute = Expr::Lam(
-                vec![n("e")],
-                Box::new(apps(
-                    var(&h(k)),
-                    vec![apps(var("Std.Eq.cong"), vec![var(&projection), var("e")])],
-                )),
-                span,
-            );
-            body = Expr::If {
-                binder: Some(n(&h(k))),
-                cond: Box::new(Expr::Binary(
-                    BinOp::Eq,
-                    Box::new(var(&a(k))),
-                    Box::new(var(&b(k))),
-                )),
-                then: Box::new(body),
-                otherwise: Box::new(apps(var("Std.Decidable.No"), vec![refute])),
-                span,
-            };
-        }
-        let name = n(&format!("{record}.decEq"));
-        let signature = Decl::Signature {
-            name: name.clone(),
-            ty: Expr::Pi {
-                names: vec![n("r"), n("s")],
-                implicit: false,
-                auto: false,
-                dom: Box::new(var(&record)),
-                cod: Box::new(apps(
-                    var("Std.Decidable"),
-                    vec![Expr::Binary(
-                        BinOp::Eq,
-                        Box::new(var("r")),
-                        Box::new(var("s")),
-                    )],
-                )),
-                span,
-            },
-            theorem: false,
-            export: false,
-            synonym: false,
-            instance: false,
-            span,
-        };
-        let pattern = |f: &dyn Fn(usize) -> String| {
-            Pattern::Ctor(
-                n(&mk),
-                (0..count).map(|k| Pattern::Var(n(&f(k)))).collect(),
-                span,
-            )
-        };
-        let equation = Decl::Equation {
-            name,
-            patterns: vec![pattern(&a), pattern(&b)],
-            rhs: Some(body),
-            arm: None,
-            span,
-        };
-        // Everything it needs was found above, so this doesn't fail; if it
-        // somehow did, `==` just isn't derived.
-        // The generated code's `Yes`, `No`, `cong` and `Decidable` are the
-        // prelude's, whatever those names mean in the program.
-        let result = self.definition(&signature, &[equation]);
-        Ok(match result {
-            Ok(()) => None,
-            Err(e) if e.code == "E-RESOURCE" => return Err(e),
-            Err(e) => Some(format!("deriving it failed: {}", e.message)),
-        })
     }
 
     /// Finds a decision procedure for each proof field of each record that
@@ -405,7 +219,7 @@ impl Elaborator {
                 )
                 .with_note(
                     "a record passed in from JavaScript has no proofs: each proof field needs a \
-                     decision procedure (a function returning `Decidable …`), defined before the \
+                     decision procedure (an `instance` returning `Decidable …`), defined before the \
                      export, to establish it",
                 )
         })?;

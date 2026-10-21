@@ -2,14 +2,14 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-AUTO-NONE] Error: no way to decide `a = b`
-   ╭─[ reject/eqeq-data-proof.sw:6:41 ]
-   │
- 6 │ def same (a: Small) (b: Small): Bool := a == b
-   │                                         ───┬──  
-   │                                            ╰──── the compiler needs a proof of this
-   │ 
-   │ Note 1: supply a proof by name, or write a decision procedure: a function returning `Decidable …`
-   │ 
-   │ Note 2: `==` isn't derived for `Small`: the field `small` of `MkSmall` is a proof or a type, which `==` can't compare: two values equal in their data can still differ there
-───╯
+[E-INSTANCE-NONE] Error: no `DecEq` instance for `Shifted`
+    ╭─[ reject/eqeq-data-proof.sw:10:45 ]
+    │
+ 10 │ def same (a: Shifted) (b: Shifted): Bool := a == b
+    │                                             ───┬──  
+    │                                                ╰──── this needs `DecEq Shifted`
+    │ 
+    │ Note 1: `==` isn't derived for `Shifted`: the field `same` of `MkShifted` has type `Nat -> Nat`, which has no `DecEq` instance (when `Shifted` was declared)
+    │ 
+    │ Note 2: an instance of `DecEq` for `Shifted` can be declared in `Main`
+────╯

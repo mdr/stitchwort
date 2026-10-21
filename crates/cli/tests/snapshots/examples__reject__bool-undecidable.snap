@@ -2,12 +2,12 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-AUTO-NONE] Error: no way to decide `g = f`
+[E-INSTANCE-NONE] Error: no `DecEq` instance for `Nat -> Nat`
    ╭─[ reject/bool-undecidable.sw:5:21 ]
    │
  5 │   List.filter (g => g = f) gs
    │                     ──┬──  
-   │                       ╰──── this is a proposition, and nothing decides it
+   │                       ╰──── this needs `DecEq (Nat -> Nat)`
    │ 
-   │ Note: a `Bool` is expected here, and a proposition is turned into one only if it has a decision procedure: a function returning `Decidable …`
+   │ Note: functions can't be compared: there's no `==` on them
 ───╯

@@ -3,4 +3,4 @@ namespace Another
 
 import Base (Token)
 
-def decU: Decidable Token := Yes MkToken
+instance decU: Decidable Token := Yes MkToken

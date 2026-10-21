@@ -7,7 +7,7 @@ type Token: Prop =
 
 def needsToken: [auto t: Token] -> Nat := 1
 
-def decToken: Decidable Token := laterHelper
+instance decToken: Decidable Token := laterHelper
 
 def client: Nat := needsToken
 

@@ -6,7 +6,7 @@ type Token: Prop =
 
 def needsToken: [auto t: Token] -> Nat := 1
 
-def decToken: Nat -> Decidable Token
+instance decToken: Nat -> Decidable Token
   | 0      => Yes MkToken
   | Succ n => if client n == 0 then Yes MkToken else decToken n
 

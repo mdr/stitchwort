@@ -221,9 +221,8 @@ def needsToken: [auto t: Token] -> Nat := 1
 
 #[test]
 fn auto_uses_a_dependency_not_an_unrelated_namespace() {
-    let a = "namespace A\n\nimport Base (Token)\n\ndef decA: Decidable Token := Yes MkToken\n";
-    let another =
-        "namespace Another\n\nimport Base (Token)\n\ndef decU: Decidable Token := Yes MkToken\n";
+    let a = "namespace A\n\nimport Base (Token)\n\ninstance decA: Decidable Token := Yes MkToken\n";
+    let another = "namespace Another\n\nimport Base (Token)\n\ninstance decU: Decidable Token := Yes MkToken\n";
     let day = "namespace Day
 
 import Base (needsToken)
@@ -265,7 +264,7 @@ test \"client\" := client == 1
 fn auto_choice_doesnt_depend_on_file_order() {
     let procedure = |ns: &str, name: &str| {
         format!(
-            "namespace {ns}\n\nimport Base (Token)\n\ndef {name}: Decidable Token := Yes MkToken\n"
+            "namespace {ns}\n\nimport Base (Token)\n\ninstance {name}: Decidable Token := Yes MkToken\n"
         )
     };
     let (a, b) = (procedure("A", "decA"), procedure("B", "decB"));
@@ -639,7 +638,7 @@ type Token: Prop =
 
 def needsToken: [auto t: Token] -> Nat := 1
 
-def decZ: Decidable Token := Yes MkToken
+instance decZ: Decidable Token := Yes MkToken
 ";
     let alpha = "namespace Alpha
 

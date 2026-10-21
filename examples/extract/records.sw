@@ -52,7 +52,7 @@ def isSorted : List Nat -> Bool
   | Cons x Nil => True
   | Cons x (Cons y rest) => if Nat.leq x y then isSorted (Cons y rest) else False
 
-def decIsSorted (xs : List Nat) : Decidable (IsSorted xs) := Bool.decTrue (isSorted xs)
+instance decIsSorted (xs : List Nat) : Decidable (IsSorted xs) := Bool.decTrue (isSorted xs)
 
 type SortedList = { items : List Nat, ok : IsSorted items }
 

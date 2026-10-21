@@ -134,12 +134,17 @@ fn decided(
     // (its notes after the first).
     let decision = match crate::bind::decide(cx, &prop) {
         Ok(decision) => decision,
-        Err(e) if e.code == "E-AUTO-NONE" && not_bool.code == "E-AUTO-NONE" => return Ok(None),
+        Err(e)
+            if e.code == "E-AUTO-NONE"
+                && matches!(not_bool.code, "E-AUTO-NONE" | "E-INSTANCE-NONE") =>
+        {
+            return Ok(None);
+        }
         Err(mut e) if e.code == "E-AUTO-NONE" && !e.notes.is_empty() => {
             e.labels.clear();
             e.notes[0] = format!(
-                "`{what}` takes a `Bool`, or a proposition with a decision procedure: a \
-                 function returning `Decidable …`"
+                "`{what}` takes a `Bool`, or a proposition with a decision procedure: an \
+                 `instance` returning `Decidable …`"
             );
             return Err(e.with_label(cond.span(), "this is a proposition, and nothing decides it"));
         }

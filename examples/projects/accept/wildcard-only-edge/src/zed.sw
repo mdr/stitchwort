@@ -5,6 +5,6 @@ type Token: Prop =
 
 def needsToken: [auto t: Token] -> Nat := 1
 
-def decZ: Decidable Token := Yes MkToken
+instance decZ: Decidable Token := Yes MkToken
 
 test "zed" := needsToken == 1

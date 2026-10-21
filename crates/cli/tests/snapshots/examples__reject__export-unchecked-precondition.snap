@@ -9,5 +9,5 @@ expression: output
    │ ─────────────────────────────┬────────────────────────────  
    │                              ╰────────────────────────────── its precondition `f = f` can't be checked at runtime
    │ 
-   │ Note: an exported function's proof arguments need a decision procedure (a function returning `Decidable …`)
+   │ Note: an exported function's proof arguments need a decision procedure (an `instance` returning `Decidable …`)
 ───╯

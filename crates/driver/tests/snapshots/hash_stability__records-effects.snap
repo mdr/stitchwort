@@ -5,7 +5,10 @@ expression: "lines(&session, d, f)"
 data Main.Pair2 a1748d40379e848afad1e2fe98a1d920a36582631da7963ecd3627d6c766f71b
 Main.Pair2.a c871b2ea3df7345787b84744d4ac069cab09c048d417419a679f8c7a9f4a0e20
 Main.Pair2.b cd69e83dd2191755666b7d379e9121d162546decbf5f6718e162047faa616fde
-Main.Pair2.decEq bfcd398e5c63ea71ae352cab29067fc9ace8ec96e6d9370d4e644fe4595f08a0
+Main.Pair2.%%mk%0 aa1082fbd026da604e8d16d4b63bfd28812b000a14f33dd4e5161e22962b3d81
+Main.Pair2.%%mk%1 b3e35bbd74405a23ef26c43f63359f4861582e473b0be45108b320308dc64654
+Main.Pair2.%decEq 5c6b2cf227be9cc7a9f99603b551d2e4d0f526aa8344fa42e02857917b3291b1
+Main.Pair2.%instDecEq 3dbd15a045779544b7069cbaecea96f91b2aa25599c1faf093809129ba9858d2
 Main.orNone 9850b6ba53fd61a212a600b3803f6de2fe7eb15d599b0e26d6e35c3e8a6086e2
 Main.next 579a27e8842cef27c41ce1b443469676046dba3428e16dd8dc0b6ace6a3388cf
 Main.backwards e4c3ba8e615e3148ab57bc9e015461d10d4955bc25e46510669204b426ea6f47
@@ -15,4 +18,4 @@ Main.eqTexts 3fb7351527dafc1c04d4e4cfd39ab2ae8a036ebda16987598974f0234db0f886
 Main.test "fields run in the order written" 91005933b23e7f4764975e74a25a1c3f7e50b7fbf1b4c55f384f09daf1ecd0fb
 Main.test "and are put where they belong" ddf3aaf70d0556db93645c708b5a9dec5d7c0e52d01121b82d83c5f7d32d19b2
 Main.test "an update's base runs once" f10601938bda582095cd6b01077a98e524f0cac523a1243e7675286dc4587f82
-Main.test "an update keeps the base's other fields" 9dee00e10707de841a770ed83256d0424c107f4239183bced1378f1352ad397d
+Main.test "an update keeps the base's other fields" f548ab83ffc7f5b58b9c3b5e8623a4799bc33b731cbbd5e5c5c447f71b5f1ced

@@ -64,7 +64,7 @@ type Labelled = { tag: Text, value: Nat }
 
 def labelled: Labelled := { tag = "x", value = 1 }
 
--- `==` is derived for a record whose fields all have decision procedures.
+-- `==` (`DecEq`) is derived for a record whose fields all have it.
 test "equal records" := alice == { name = "Alice", age = 30 }
 test "unequal records" := not (alice == bob)
 test "update" := (birthday alice).age == 31

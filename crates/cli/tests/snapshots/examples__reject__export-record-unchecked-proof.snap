@@ -9,5 +9,5 @@ expression: output
     │ ──────────────────┬─────────────────  
     │                   ╰─────────────────── `SortedList`'s proof field `sorted` (`Sorted items`) can't be checked at runtime
     │ 
-    │ Note: a record passed in from JavaScript has no proofs: each proof field needs a decision procedure (a function returning `Decidable …`), defined before the export, to establish it
+    │ Note: a record passed in from JavaScript has no proofs: each proof field needs a decision procedure (an `instance` returning `Decidable …`), defined before the export, to establish it
 ────╯

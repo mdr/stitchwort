@@ -4,7 +4,9 @@ expression: "lines(&session, d, f)"
 ---
 data Main.Box aaa0084446f3d7f00926cedff6aec85980bfa1a9cd0cbd2598304a44b7a74d5b
 Main.Box.value bf15d890a4e5ee1635fbd66c699896423c9b8ea620fef5bee7269a7a17ed0d13
-Main.Box.decEq 85b1fecfd6c482203cc6d6914ec9973ad570d8ba93bfcf49af29a7e8ff64128f
+Main.Box.%%mk%0 be8f2af43c6f4204631d708f3678c5b87d6c79c27f274ca49bfe9059956788d9
+Main.Box.%decEq d3e966157a8d118f3a230ff240e9acdf1b47b8067007899ec6f7958a0aae4294
+Main.Box.%instDecEq 03109cb2caedf557e97c0f0a18ecd3f10844f3b524fba0fc35bc81b3cf2fad5f
 Main.world 99dcee847affe959af0172632be32958564709f0e5140a9d07b2b1292b0d62f7
 Main.test "nat" a7f4d125eb39dc6d1ab0f08625b62c572122b139eb1d927cc5d25be49b73d4fb
 Main.test "int" 358ccca4eaa9cc96eb4b5c88ed50bbda79684633965099baa1e23e7b14fc30af

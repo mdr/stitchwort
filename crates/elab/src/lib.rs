@@ -187,12 +187,9 @@ pub struct Elaborator {
     recursion: Option<effects::Recursion>,
     /// The record types declared so far (docs/proposals/records.md).
     records: HashMap<DataId, records::RecordInfo>,
-    /// Why `==` isn't derived for a data type that isn't a record, for the
-    /// note when `==` is used on it (`derive.rs`).
+    /// Why `DecEq` isn't derived for a data type or record, for the note
+    /// when `==` is used on it (`derive.rs`).
     no_eq: HashMap<DataId, String>,
-    /// While a derived `==` is elaborated: the decision procedures it takes
-    /// as arguments are found by `==` too (`auto.rs`).
-    local_deciders: std::cell::Cell<bool>,
     /// Helpers elaborated in the current declaration and not yet lifted
     /// (`lift.rs`). Part of the inference state `undo.rs` restores.
     drafts: RefCell<Vec<lift::Draft>>,
@@ -1786,7 +1783,7 @@ impl Elaborator {
                         span,
                         format!("its precondition `{shown}` can't be checked at runtime"),
                     )
-                    .with_note("an exported function's proof arguments need a decision procedure (a function returning `Decidable …`)")
+                    .with_note("an exported function's proof arguments need a decision procedure (an `instance` returning `Decidable …`)")
             })?;
             found.push((i, self.finish(&decision, i)?));
         }

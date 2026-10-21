@@ -2,12 +2,12 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-AUTO-NONE] Error: no way to decide `inc = (x => Succ x)`
+[E-INSTANCE-NONE] Error: no `DecEq` instance for `Nat -> Nat`
    ╭─[ reject/eqeq-undecidable.sw:6:19 ]
    │
  6 │ def same: Bool := inc == (x => Succ x)
    │                   ─────────┬─────────  
-   │                            ╰─────────── the compiler needs a proof of this
+   │                            ╰─────────── this needs `DecEq (Nat -> Nat)`
    │ 
-   │ Note: supply a proof by name, or write a decision procedure: a function returning `Decidable …`
+   │ Note: functions can't be compared: there's no `==` on them
 ───╯

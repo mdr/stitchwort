@@ -2,12 +2,12 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-AUTO-NONE] Error: no way to decide `f = g`
-   ╭─[ reject/if-prop-undecidable.sw:4:53 ]
+[E-INSTANCE-NONE] Error: no `DecEq` instance for `Nat -> Nat`
+   ╭─[ reject/if-prop-undecidable.sw:4:50 ]
    │
  4 │ def same (f: Nat -> Nat) (g: Nat -> Nat): Nat := if f = g then 1 else 0
-   │                                                     ──┬──  
-   │                                                       ╰──── this is a proposition, and nothing decides it
+   │                                                  ───────────┬──────────  
+   │                                                             ╰──────────── this needs `DecEq (Nat -> Nat)`
    │ 
-   │ Note: `if` takes a `Bool`, or a proposition with a decision procedure: a function returning `Decidable …`
+   │ Note: functions can't be compared: there's no `==` on them
 ───╯

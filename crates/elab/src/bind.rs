@@ -189,7 +189,20 @@ pub(crate) fn decide(cx: &mut Ctx, prop: &Term) -> Result<Decision> {
         return Ok(Decision::Bound(bound));
     }
     let value = cx.eval(prop)?;
-    Ok(Decision::Plain(crate::auto::decide(cx, &value, 0)?))
+    Ok(Decision::Plain(decide_written(cx, prop, &value)?))
+}
+
+/// A decision of `prop` (`value` is its value): an equation as written,
+/// `x = y`, through its type's `DecEq` instance (docs/proposals/interfaces.md
+/// §5.16 step 3); anything else by the search (`auto.rs`).
+fn decide_written(cx: &mut Ctx, prop: &Term, value: &Value) -> Result<Term> {
+    if let Term::Eq(Some(ty), a, b) = prop.strip_loc()
+        && crate::interfaces::dec_eq(cx.e).is_some()
+    {
+        let (ty, a, b) = (cx.eval(ty)?, cx.eval(a)?, cx.eval(b)?);
+        return crate::interfaces::decide_eq(cx, &ty, &a, &b);
+    }
+    crate::auto::decide(cx, value, 0)
 }
 
 /// A proposition's structure down to its operands: the operands are data
@@ -233,7 +246,7 @@ fn bound_decision(cx: &mut Ctx, prop: &Term) -> Result<Option<Bound>> {
     }
     let prop = shape.build(cx, operands.len())?;
     let value = cx.eval(&prop)?;
-    let decision = match crate::auto::decide(cx, &value, 0) {
+    let decision = match decide_written(cx, &prop, &value) {
         Ok(decision) => decision,
         Err(e) if crate::undo::fatal(&e) => return Err(e),
         Err(_) => return Ok(None),

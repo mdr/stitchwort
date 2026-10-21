@@ -114,7 +114,7 @@ theorem notEvenOne: Not (Even 1)
 theorem evenInv: Even (Succ (Succ n)) -> Even n
   | EvenTwo h => h
 
-def decEven: (n: Nat) -> Decidable (Even n)
+instance decEven: (n: Nat) -> Decidable (Even n)
   | 0             => Yes EvenZero
   | 1             => No notEvenOne
   | Succ (Succ k) => match decEven k with
