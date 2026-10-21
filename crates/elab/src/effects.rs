@@ -1383,6 +1383,14 @@ pub fn comp_call(
     if let Expr::Pipe(value, f) = expr {
         return pipe_call(cx, value, f, row, expected);
     }
+    // `o.orAbort` with no arguments is a call that performs, not a field of
+    // an effectful receiver: elaborated as calls are (SW-217).
+    if let Expr::Field(recv, field) = expr
+        && dot_performs(cx, recv, field, 0)?
+    {
+        let (term, ty, _) = comp_app(cx, expr, row, expected)?;
+        return Ok((term, ty));
+    }
     if let Expr::Binary(..)
     | Expr::Neg(..)
     | Expr::List(..)

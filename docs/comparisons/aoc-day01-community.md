@@ -341,7 +341,9 @@ What isn't there:
   ```
   The library has no such ability, though. The file declares `Abort`, `need`, `toOption`
   and its own `Empty: Type` (13 lines). `Void` can't be used, because it's a `Prop`, and an
-  operation's result must be a `Type` (`E-UNIVERSE` **[checked]**).
+  operation's result must be a `Type` (`E-UNIVERSE` **[checked]**). *Since SW-217 the
+  library has one: `Std.Abort`, with `need`, `ensure`, `abort`, `toOption` and `orElse`
+  (docs/syntax.md, "`Abort`").*
 
 ### 3.2 Integer and modular arithmetic: part 2's crux
 
