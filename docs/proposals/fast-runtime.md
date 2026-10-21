@@ -1,0 +1,478 @@
+# Proposal: a fast runtime for running programs
+
+**Status:** draft 1, 21 October 2026. Research and recommendation only: nothing here changes the
+compiler. The measurements were made with scratch programs, then thrown away. Decisions are at
+the [end](#decisions).
+
+**The question (Matt):** "It might be interesting to explore a fast native evaluator: what
+strategies are there, can we make use of some other library/project to run our code fast?"
+
+## The short version
+
+- Today `stitchwort run` uses the type checker's own evaluator (`crates/core/src/value.rs`).
+  It has to stay simple and trusted, because it checks proofs. For *running* programs, speed
+  matters more, and a separate runtime can't make a false proof check: like the JS backend, it
+  can only get a program's output wrong, which differential tests can catch.
+- `stitchwort run --js` already runs programs under Node (V8) and is **9–20× faster** than `run`
+  on compute-heavy programs today. Its costs are that it needs Node installed, and it can't be
+  used in the playground in the same form (browsers don't let a page choose a big stack).
+- **Recommendation:** build a second evaluator in Rust, used only for running programs: the
+  program is first lowered to a simpler form with the types and proofs gone (an *erased IR*),
+  and then run by a small **bytecode machine with its own stack**. The same Rust code runs in the
+  CLI and, compiled to WebAssembly, in the playground. A scratch prototype of the core idea ran a
+  100,000-element merge sort **about 12× faster than `run`, at about the speed of Node**
+  ([measurements](#3-what-was-measured)). Effort: about 8–11 lane-days in four stages.
+- **Not recommended now:** embedding a JS engine (QuickJS is 8× slower than Node here and runs
+  out of stack early; V8 adds tens of megabytes and a hard build), or generating native code
+  (Cranelift, LLVM, C, Chez Scheme). Native code could come later from the same erased IR if
+  programs need another 2–5×.
+- **Meanwhile:** keep `run` on the reference evaluator by default and use `run --js` for heavy
+  programs (D385).
+
+## 1. Where the time goes today
+
+From [evaluator-speed.md](../evaluator-speed.md) (19 October; read that for detail):
+
+1. **Every step allocates.** Argument lists are rebuilt and grown, environments copied,
+   numbers boxed twice. About a quarter of the time was the system allocator.
+2. **Arguments arrive one at a time.** `f a b c` is `((f a) b) c`, and the machine only runs a
+   definition once it has all its parameters, *including erased type parameters*. On day 4
+   that was 79.7 million half-applied stages against 19 million real calls.
+3. **`if` is a call with two closures**, and **`==` on numbers builds a proof** (`Nat.decEq`)
+   that is then thrown away.
+4. Each step costs about 410 machine instructions.
+
+Since then, the day 4 time has fallen from 16.4 s to 5.3 s (today's build, below), so the
+reference evaluator is getting faster; but it is still 9–20× behind the JS route on
+compute-heavy code, and the remaining costs are structural: they come from evaluating the
+type checker's terms directly. The type checker needs those terms (with types, proofs and
+one-argument-at-a-time application) and needs an evaluator it can trust, so the fix that
+helps most is not to make that evaluator cleverer but to run programs on something else.
+
+**What the type checker's evaluator must keep doing, and a runtime need not:** produce values
+that can be compared and printed back as terms (neutral terms, stuck computations), handle
+open terms with free variables, count steps for the checker's budget, keep proofs and types
+around. A runtime only ever runs a closed, fully checked, erased `main`.
+
+## 2. Strategies
+
+This section explains the main techniques, what they'd buy here, and how established
+implementations use them. Expected gains are estimates unless marked measured.
+
+### 2.1 An erased, lowered program (the IR)
+
+Every fast option below starts from the same thing: a simpler program representation built
+once, after checking, before running.
+
+- **Erasure.** Types and proofs are removed entirely, not replaced by placeholders that are
+  still passed (today an erased type argument is still an extra argument in every call). The
+  JS backend already does this (`crates/js/`).
+- **Known calls with all their arguments ("saturated calls").** When the code calls a known
+  definition with all its runtime arguments, it becomes one direct call with an argument
+  array. Only genuinely unknown calls (calling a function value, like `f` inside `List.map f`)
+  go through a general "apply" that handles too few or too many arguments. This is the
+  *eval/apply* scheme GHC adopted after measuring it against the alternative
+  ([Marlow & Peyton Jones 2004](https://www.microsoft.com/en-us/research/publication/make-fast-curry-pushenter-vs-evalapply/)).
+  It removes most of the 79.7 million half-applied stages.
+- **Closure conversion and lambda lifting.** Each lambda becomes a code pointer plus a small
+  array holding only the variables it actually uses (a *flat closure*), instead of a copy of
+  the whole environment.
+- **Variables by slot number.** Each variable is an index into the current frame, decided at
+  compile time.
+- **`if` and `==` specialised.** `Bool.ifThenElse c (_ => a) (_ => b)` becomes a two-way
+  branch with no closures; `Decidable.toBool (Nat.decEq m n)` becomes the native `Nat.equal`.
+  More generally, *case of known constructor*: a `match` on something whose constructor is
+  known at compile time is resolved at compile time.
+- **Natives by index**, not by hashing an id on every call.
+
+This IR could be shared with the JS backend, which does some of these steps already in its
+own way. Everything after it (bytecode, native code) is a choice of how to run the IR.
+
+### 2.2 How to run the IR
+
+**(a) Compile to closures.** Each IR node becomes a Rust closure that, when called, computes
+that node, calling the closures of its children. There's no instruction decoding at run time;
+it's simple to write (a few hundred lines), and it's often several times faster than walking
+a tree. The scratch prototype in §3 is this. Its weakness here: every Stitchwort call nests
+several Rust calls, so deep recursion (a non-tail recursion over a 500,000-element list) needs
+a very large Rust stack. Natively that's possible (a thread with a 4 GB stack, as the
+prototype did, or the [`stacker`](https://crates.io/crates/stacker) crate), but **in the
+playground it isn't**: in WebAssembly in the browser, the stitchwort code may use only a small
+stack (the checker's guard is 128 KiB, and V8 crashed from about 640 KiB;
+[stack-safe-evaluation.md](stack-safe-evaluation.md#progress)). Making closures stack-safe
+means continuation-passing or trampolines, which gives up most of their simplicity.
+
+**(b) A bytecode machine with its own stack.** The IR is compiled to a compact list of
+instructions (push a local, call definition 17 with 3 arguments, switch on the constructor
+tag, build `Cons`, return …) and a loop executes them, keeping frames in a Rust `Vec`. Deep
+recursion then costs heap memory, not Rust stack, in the CLI and the browser alike, and the
+existing resource limits (frames, memory) are easy to check at calls. Tail calls reuse the
+frame. This is how OCaml's bytecode works (the *ZINC* machine,
+[Leroy 1990](https://xavierleroy.org/publi/ZINC.pdf)), and Lua's (a register machine,
+[Ierusalimschy et al. 2005](https://www.lua.org/doc/jucs05.pdf)). A well-written interpreter of
+this kind is usually within 1–2× of closure compilation, and both are far from the 410
+instructions per step of today.
+
+Variants: a *stack* machine (instructions push and pop, simplest to generate) or a *register*
+machine (instructions name frame slots: fewer instructions, a little more work in the
+compiler). The [STG machine](https://www.microsoft.com/en-us/research/?p=149862)
+(GHC) is built for laziness, which Stitchwort doesn't need.
+
+**(c) Native code** (Cranelift, LLVM, C, or another language's compiler; §2.6). Another 2–5×
+over a good interpreter on typical functional code, at a much higher cost, and none of it
+runs in the playground except WebAssembly generated as output.
+
+### 2.3 Numbers
+
+Today every number is `Rc<BigUint>`: two allocations per result. The usual answer, used by
+Lean 4, OCaml's Zarith and most Schemes, is **small numbers inline**: a value is either a
+machine integer (63 or 64 bits) or a pointer to a bignum, and arithmetic checks for overflow
+(one CPU flag test) and falls back to the bignum only then. AoC numbers almost always fit.
+Expected: allocation-free arithmetic in the common case; on the arithmetic-heavy day 2 brute
+force, probably the biggest single gain after the IR.
+
+### 2.4 Memory: reference counting with reuse
+
+Rust programs usually manage such values with `Rc` (reference counting), as the reference
+evaluator does. Two refinements from the functional-language literature:
+
+- **Reuse in place** (Lean 4's *reset/reuse*,
+  [Ullrich & de Moura 2019, "Counting Immutable Beans"](https://arxiv.org/abs/1908.05647);
+  Koka's *Perceus*, [Reinking et al. 2021](https://www.microsoft.com/en-us/research/publication/perceus-garbage-free-reference-counting-with-reuse/)):
+  when a `match` takes apart a cell that nothing else refers to (count 1) and the branch builds
+  a new cell of the same size, overwrite the old one instead of freeing and allocating. `map`,
+  `merge`, `zipWith` and most list code then allocate almost nothing. Checking "count is 1" is
+  `Rc::get_mut` in Rust.
+- **Freeing long lists without recursion**, which the reference evaluator already does
+  (a work list); the runtime needs the same.
+
+A tracing garbage collector (as OCaml, V8, Chez have) is the other option. It's much more work
+to write in Rust and buys little for a strict language without cycles: Stitchwort values can't
+form cycles, so reference counting frees everything.
+
+An arena (allocate everything in one block, free it at the end) is simplest of all and very
+fast, but memory never shrinks while running: a long AoC run that builds and drops many lists
+would grow without limit. Not recommended as the main strategy.
+
+### 2.5 Effects
+
+Today an effectful computation is data: a `Comp` value that is either `Done x` or
+`Call op k` (an operation and what to do with its answer), and a loop (`run_loop`, and its JS
+copy) performs `IO` and feeds the reply back. Measured cost in pure code: nothing worth
+measuring (evaluator-speed §2). The runtime can keep exactly this: it runs pure code to a
+`Comp` value and the same runner loop handles the rest. `Partial` (the `Delay` stepping
+machine) is also data, and `run --js` already reimplements its stepping; the runtime does the
+same.
+
+What other languages do, for when handlers inside a program become the bottleneck (SW-74):
+
+- **Koka** passes the active handlers down as an extra hidden argument ("evidence") and
+  compiles most operations to plain calls
+  ([Xie & Leijen 2021, "Generalized Evidence Passing for Effect Handlers"](https://www.microsoft.com/en-us/research/publication/generalized-evidence-passing-for-effect-handlers/)).
+- **Effekt** passes handlers as capabilities and compiles to JS, Chez Scheme and LLVM
+  ([effekt-lang.org](https://effekt-lang.org/)).
+- **OCaml 5** gives each handler its own small stack segment ("fiber") and switches between them
+  ([Sivaramakrishnan et al. 2021, "Retrofitting Effect Handlers onto OCaml"](https://arxiv.org/abs/2104.00250)).
+  A bytecode machine with its own stack can do something similar later (capture a slice of its
+  frames as the continuation `k`), which a closure compiler on the Rust stack can't.
+
+None of this is needed for the first version: AoC programs do a handful of `IO` operations.
+
+### 2.6 Using another project's runtime
+
+The idea: generate code in another language and let its mature compiler or VM run it. The
+JS backend is already this. Each option in one paragraph; the
+[appendix](#appendix-b-other-runtimes-in-detail) has a table.
+
+- **Chez Scheme** ([cisco/ChezScheme](https://github.com/cisco/ChezScheme), Apache-2.0,
+  `nixpkgs#chez` 10.4.1; Racket's fork was merged back into it for 10.0). Idris 2's default
+  backend, and the basis of Unison's native runtime. Fast native code, built-in bignums, proper tail
+  calls, deep recursion limited only by memory, first-class continuations (good for effects).
+  Generating Scheme text would be close to the JS generator. Costs: an external `scheme`
+  binary at run time (like Node today), a compile step on each run, and nothing for the
+  playground.
+- **OCaml via Malfunction** ([stedolan/malfunction](https://github.com/stedolan/malfunction)):
+  an untyped input language for OCaml's optimising native compiler
+  (`nixpkgs#ocamlPackages.malfunction` 0.7.1), used by experimental third-party backends for
+  Idris 1 and Agda. Fast output and Zarith bignums, but needs an OCaml toolchain at run time and
+  compile time per program; nothing for the playground.
+- **Cranelift JIT** (`cranelift-jit` 0.137, Apache-2.0 with LLVM exception, the code generator
+  of Wasmtime; its README still calls the JIT crate "extremely experimental"). A JIT inside the
+  `stitchwort` binary, no external tools, fast compilation, and a `tail` calling convention for
+  proper tail calls. But
+  everything a language runtime needs besides instructions (values, reference counting,
+  bignums, the stack, effects) is ours to write in Rust anyway, and it doesn't run in the
+  browser (a JIT can't generate code inside WebAssembly).
+- **LLVM** (`inkwell` 0.11, Apache-2.0, LLVM 12–23 chosen by a Cargo feature): the best code,
+  at the cost of linking LLVM (large, slow to build, a version to match). Roc uses LLVM and Lean
+  uses C, but they're compilers whose main product is native code.
+- **C** (as Lean 4 and Koka do, with reference counting in a small C runtime): portable, fast,
+  and the same C could become WebAssembly via clang. Needs a C compiler at run time.
+- **WebAssembly as output** (run natively with `wasmtime`, `nixpkgs#wasmtime` 49; in the
+  browser directly): one artefact for both. Tail calls and GC are finished proposals, supported
+  by all three major browser engines since about December 2024 and on by default in Wasmtime.
+  But a dynamic language runtime in Wasm still
+  needs its own memory management (Wasm GC exists but is young), and it's a compiler, not a
+  library: the largest effort here.
+- **Lua/LuaJIT** (`mlua`, MIT; `nixpkgs#luajit`): small and fast, but numbers are floating
+  point (no bignums; 64-bit integers in LuaJIT only as boxed FFI values), and deep recursion is
+  limited.
+- **The JVM, GraalVM Truffle, the BEAM, GHC Core:** large runtimes for a different purpose;
+  startup cost and footprint out of proportion. Not considered further.
+- **HVM / Bend**: parallel evaluation based on interaction nets. Bend 2 has itself become a
+  dependently typed language with C, CUDA, Metal and JS backends, and describes itself as young.
+  Its evaluation model differs from Stitchwort's strict one, and its numbers are `Nat`, `U32`
+  and `F32`. Not a fit as a backend.
+
+**Embedding a JS engine** in the `stitchwort` binary (instead of starting Node) would make
+`run --js` self-contained:
+
+- **QuickJS** (`rquickjs`, MIT, which binds quickjs-ng; the engine is about 1 MB): measured **8.6× slower than Node** on day 4 (2.3 s vs
+  0.27 s), still about 2× faster than today's `run`; but it runs out of stack on lists of
+  30,000 elements within a 64 MB stack (§3). It would need a thread with a stack of gigabytes.
+- **Boa** (`boa_engine`, pure Rust, an interpreter): easy to build; a third-party benchmark
+  puts it well behind QuickJS (unmeasured here).
+- **V8** (`deno_core` / the `v8` crate): Node's speed, but adds roughly 40 MB to the binary (a
+  report on Deno's forum) and downloads a prebuilt static library at build time
+  (`RUSTY_V8_ARCHIVE` can name a local copy, which a Nix build would need).
+
+None of these helps the playground, where the browser already has a fast JS engine, but where
+generated JS recurses on a stack the page can't enlarge.
+
+### 2.7 How comparable languages run code
+
+| Language | How programs run |
+|---|---|
+| Lean 4 | Compiles to C with reference counting and reset/reuse, plus an interpreter. A new code generator (LCNF) runs end to end as of 4.30 (May 2026). |
+| Idris 2 | Default backend Chez Scheme; also Racket, Gambit, JS, and RefC (C with reference counting; its docs call it experimental and slower than the Scheme backends). |
+| Agda | MAlonzo (to Haskell, compiled by GHC) and a JS backend. |
+| Koka | C with Perceus reference counting and reuse; effect handlers by evidence passing; also JS. |
+| Unison | Content-addressed like Stitchwort. First an interpreter in Haskell, then (from 2022) a native runtime through Chez Scheme, reported as hundreds of times faster on arithmetic loops. |
+| Roc | LLVM for optimised builds; reference counting with Perceus-style reuse; the compiler is being rewritten from Rust in Zig (2025). |
+| Effekt | JS and Chez Scheme from its core IR; an LLVM backend (ICFP 2025). |
+| Dafny | Compiles to C#, Java, JS, Go, Python and C++. |
+| F* | Extracts to OCaml; its Low* subset to readable C via KaRaMeL. |
+
+So two patterns: **reuse a mature runtime** (Chez, GHC, OCaml, JS, C compilers), or **write a
+native compiler with reference counting** (Lean, Koka, Roc). Nobody in this list uses its
+type checker's evaluator to run programs. Stitchwort's extra constraint is that the same
+runtime must also work in a static web page. That rules out every option needing an external
+compiler or VM at run time, and leaves JS or WebAssembly.
+
+## 3. What was measured
+
+Apple M4 Pro, release build of `main` at `447b340`, **machine shared with other jobs (load
+average 7–14)**, so times vary by up to ±30% between runs; the best of three is shown where
+repeated. Full numbers in [appendix A](#appendix-a-measurements).
+
+**Day 4** (the real input), one run each:
+
+| How | Time (s) | vs `run` |
+|---|---:|---:|
+| `stitchwort run` (includes 0.22 s of checking) | 5.48 | 1× |
+| `stitchwort run --js` (includes checking and Node's start) | 0.61 | 9× |
+| the generated JS, Node 22 alone | 0.27 | |
+| the same JS under QuickJS 2026-06-04 | 2.32 (user) | |
+| the same JS under quickjs-ng 0.17.0 | 2.34 (user) | |
+
+**A merge sort of 100,000 numbers** (`List.sortBy Nat.compare` over scrambled numbers, then
+`map` and a sum; a scratch `.sw` file):
+
+| How | Time (s) | vs `run` |
+|---|---:|---:|
+| `stitchwort run` (minus 0.24 s of checking) | 6.0 | 1× |
+| the generated JS, Node 22 alone (minus Node's 0.08 s start) | 0.54 | 11× |
+| QuickJS, both versions | stack overflow (also at 30,000) | |
+| **closure-compiled Rust prototype** | **0.39–0.56** | **11–15×** |
+
+At 10,000 numbers: `run` 0.88 s (with checking), Node 0.14 s, QuickJS 0.31 s, prototype 0.04 s.
+
+**The prototype** (scratch, 350 lines of Rust, no dependencies) is option 2.2(a) on a
+hand-written erased IR of exactly the prelude's `List.sortWith` / `pushRun` / `buildRuns` /
+`mergeRuns` / `merge`, `List.map`, `List.rangeFrom` and `Nat.compare`: saturated calls, flat
+closures for the comparator, `if` as a case on `Bool`, numbers as `i64` with overflow checks,
+`Rc` for constructor cells, no reuse. It printed the same results as `stitchwort run` at all
+three sizes. **Caveats:** the IR was written by hand, not generated; no bignum fallback is
+implemented (the overflow check is there, the fallback panics); it recurses on a 4 GB Rust
+stack, which the playground can't have; there are no resource limits; one benchmark. A real
+bytecode machine with its own stack would likely be somewhat slower than this (a guess:
+0.5–1× its speed).
+
+**What it shows:** the gain comes from the IR (erasure, saturated calls, no copied
+environments, cheap `if`), not from native code: a plain Rust interpreter of that IR runs at
+V8's speed on this allocation-heavy code. That's the case for building the runtime in Rust
+rather than adopting another one.
+
+## 4. Recommendation
+
+Ranked by gain for the work.
+
+### Now (no new work): `run --js` for heavy programs
+
+`run --js` gives 9–20× today. **Don't make it the default** (D385): it needs Node on the
+`PATH`, behaves differently when resources run out (Node's stack and memory limits rather
+than `E-RESOURCE` from Stitchwort's own limits), and a default that changes with what's
+installed is surprising. The runtime below replaces it as the fast path in a few weeks of lanes.
+
+### Medium term (recommended): a Rust runtime, `stitchwort-rt`, shared by CLI and playground
+
+1. **Stage 1, the erased IR** (2–3 lane-days; Opus design, Sonnet build). A new crate
+   lowering checked definitions to: erased, closure-converted, saturated calls, slot-numbered
+   variables, `match` as a switch on constructor tags, `if`/`==` specialised, natives by
+   index, compact text and `Int`/`Text` natives as the JS backend binds them. A pretty-printer
+   for it, for tests and debugging.
+2. **Stage 2, the machine** (3–4 lane-days; Opus). A bytecode interpreter with its own frame
+   stack: values with small numbers inline and `BigUint` fallback, `Rc` cells, tags for
+   nullary constructors (`Nil`, `True`) with no allocation, iterative freeing, tail calls,
+   resource limits (frames, memory) reported as `E-RESOURCE`. The `Comp` runner and the `Delay`
+   stepping loop as in `run --js`.
+3. **Stage 3, wiring and differential tests** (1–2 lane-days; Sonnet). `stitchwort run` and
+   the playground use it behind a switch first (`run --rt`, for example). Every `examples/` and
+   `aoc/` `main` and every bench program runs on both the runtime and the reference evaluator
+   and must give the same output, as the existing differential tests do for JS. The reference
+   evaluator is the oracle.
+4. **Stage 4, tuning** (2 lane-days; Opus/Sonnet). Reuse in place (Perceus/Lean-style), a few
+   combined instructions for common sequences, measurement against `bench/baseline.toml`.
+
+Expected: 8–15× over today's `run` (anchored by the prototype's 11–15×, discounted for an
+explicit stack and real bignum checks), i.e. close to Node. In the playground, WebAssembly
+typically runs at a fraction of native speed (a guess: 1.5–2× slower), but the gain over the
+playground's current evaluator should be similar, and deep recursion stops depending on the
+browser's stack.
+
+Then `run` uses it by default (D386), with the reference evaluator still available
+(`run --reference`) and in tests.
+
+**What stays trusted:** nothing changes for proofs. The kernel and its evaluator still check
+everything; the runtime only affects what a program prints, as the JS backend does today
+(DESIGN.md §12). It is checked by testing against the reference evaluator, not by proof.
+
+**Risks:** (1) two evaluators disagreeing: the differential tests, run in `nix flake check`,
+are the guard; (2) bignum fallback bugs: test arithmetic near 2^63 and 2^64 against the
+reference and the natives' own definitions; (3) effects and `Partial`: reuse the JS runner's
+design, which is already differential-tested; (4) a second consumer of erasure: share it with the
+JS backend rather than writing it twice.
+
+### Long term (only if needed): native code from the same IR
+
+If some programs still need more (the day 2 brute force takes 77 s even under Node), the IR
+can feed a code generator. Candidates, cheapest first: **Chez Scheme text** (closest to the JS
+generator; bignums and deep recursion for free; needs `scheme` installed), **C with a small
+reference-counting runtime** (Lean/Koka's route; needs a C compiler), **Cranelift** (no
+external tools; most runtime work). Expected 2–5× over the bytecode machine. Not before the
+runtime has been in use for a while: an algorithm change usually gains more on AoC than any
+backend (day 2's brute force over 1.9 million ids is the example).
+
+## Decisions
+
+| ID | Question | Recommendation |
+|---|---|---|
+| D381 | Build a separate, untrusted runtime in Rust for running programs (an erased IR plus an interpreter), rather than making the type checker's evaluator faster or adopting another language's runtime? | [Yes: it's the only option that is fast, self-contained and also works in the playground] |
+| D382 | Interpreter shape: bytecode with its own frame stack, rather than closures on the Rust stack? | [Bytecode with its own stack: deep recursion must work in the browser, where the stack is tiny; the closure prototype was a speed reference, not the design] |
+| D383 | Values: small numbers inline with `BigUint` fallback, `Rc` cells, reuse in place in stage 4? | [Yes] |
+| D384 | Effects: keep `Comp` as data with the existing runner loop for now; native handler support only if SW-74's benchmarks show handlers are slow? | [Yes] |
+| D385 | Make `run --js` the default meanwhile? | [No: keep it explicit; it needs Node and reports running out of resources differently] |
+| D386 | When the runtime passes the differential tests, make it the default for `run` and the playground, keeping the reference evaluator behind `run --reference` and in tests? | [Yes] |
+| D387 | Embed a JS engine (QuickJS or V8) to make `run --js` self-contained? | [No: QuickJS is 8× slower than Node and needs a huge stack; V8 is too large and hard to build under Nix] |
+| D388 | Native code (Chez, C, Cranelift, LLVM)? | [Not now; revisit from the same IR if programs need it, Chez text or C first] |
+| D389 | Share the erased IR's lowering with the JS backend (eventually generating JS from it)? | [Yes for erasure and natives from the start; moving the JS generator onto the IR later, as its own lane] |
+
+## Appendix A: measurements
+
+All on `447b340`, Apple M4 Pro, other lanes running (load average 7–14). `/usr/bin/time -p`.
+Scratch files under the session scratchpad (`fast-runtime/`), not committed.
+
+**Day 4**, `aoc/` with `inputs/day04.txt`, output `Part 1: 1397`, `Part 2: 8758` everywhere:
+
+| Command | real | user |
+|---|---:|---:|
+| `stitchwort run Aoc.Day04.main` | 5.48 | 5.33 |
+| `stitchwort run --js Aoc.Day04.main` | 0.61 | 0.57 |
+| `node run.mjs` (the generated files, kept with `STITCHWORT_RUN_JS_DIR`) | 0.27 | 0.28 |
+| `qjs` (QuickJS 2026-06-04), `--stack-size 60000000`, `ulimit -s 65520` | 3.52 | 2.32 |
+| `qjs` (quickjs-ng 0.17.0), same | 2.37 | 2.34 |
+
+The QuickJS runs used the generated `program.mjs` with its two Node imports replaced by a 40-line
+shim (`Buffer`, `TextDecoder`, `fs.readSync`/`writeSync` over QuickJS's `std`).
+
+**Merge sort benchmark** (`scramble x = (x * 7919 + 13) % 1000003` over `List.range n`, sorted
+with `List.sortBy Nat.compare`, then `List.map (x => x + 1)` and a tail-recursive sum).
+`stitchwort check` alone: 0.24 s.
+
+| n | `run` (real, incl. check) | Node alone (real, incl. 0.08 s start) | QuickJS / quickjs-ng | Prototype (compute only) |
+|---:|---:|---:|---:|---:|
+| 10,000 | 0.88 | 0.14 | 0.40 / 0.40 | 0.038 |
+| 30,000 | 1.79 | 0.20 | stack overflow / crash after 0.85 s | 0.115 |
+| 100,000 | 6.01, 6.74, 6.54, 6.29 | 0.63, 1.41, 0.64, 0.62 | stack overflow | 0.92, 0.47, 0.56, 0.50, 0.39 |
+
+The first prototype run at 100,000 (0.92 s) and Node's 1.41 s coincide with load spikes; the
+others agree within ±20%. Results printed: 4990372243, 14983989689, 49992816518 (n = 10,000,
+30,000, 100,000), the same from every engine that finished. The prototype's peak memory at
+100,000: 184 MB.
+
+## Appendix B: other runtimes in detail
+
+"Browser" means the option could also serve the playground. Versions as of October 2026.
+Speed is relative to a good bytecode interpreter of the erased IR (§2.2b), and is a rough
+expectation, not a measurement, except where marked.
+
+| Option | How Stitchwort would target it | Licence | In Rust / Nix | Bignums | Deep recursion | Effects | Browser | Speed | Effort |
+|---|---|---|---|---|---|---|---|---|---|
+| Bytecode VM in Rust (recommended) | erased IR → bytecode | ours | it is Rust | `BigUint` fallback | own stack: memory only | `Comp` + runner; one-shot continuations possible later | yes (Wasm) | 1× (guess: 0.5–1× the closure prototype, which matched Node) | 8–11 lane-days |
+| Closure compilation in Rust | erased IR → Rust closures | ours | it is Rust | same | Rust stack: big thread natively, not in the browser | same, but no stack capture | only with shallow recursion | 1–2× | 4–6 lane-days |
+| Node (today's `run --js`) | JS text | MIT | Node in the dev shell | `bigint` | 2 GB worker stack | `Comp` runner in JS | browser JS has a fixed stack | measured ≈ 1× | done |
+| QuickJS (`rquickjs`) | the same JS, embedded | MIT | crate, builds C | `bigint` | C stack: needs a huge thread stack | same | no (browser has its own engine) | measured ≈ 8× slower than Node | 2–3 lane-days |
+| V8 (`deno_core`/`v8`) | the same JS, embedded | MIT/BSD | crate, ~40 MB prebuilt download | `bigint` | settable | same | no | ≈ Node | 3–5 lane-days, Nix work |
+| Boa | the same JS, embedded | MIT/Unlicense | pure Rust | `BigInt` | interpreter | same | no | slower than QuickJS (third-party) | 2–3 lane-days |
+| Chez Scheme | Scheme text, run by `scheme` | Apache-2.0 | external binary; `nixpkgs#chez` 10.4.1 | native | heap-allocated stack segments | `call/cc`, one-shot continuations | no | 2–5× faster | 4–6 lane-days |
+| OCaml via Malfunction | s-expressions → `ocamlopt` | LGPL (OCaml), Malfunction MIT | external toolchain; `nixpkgs#ocamlPackages.malfunction` 0.7.1 | Zarith | OCaml 5 grows its stack | OCaml 5 handlers | no | 2–5× faster | 5–8 lane-days |
+| C (+ RC runtime, Lean/Koka style) | C text → clang | ours | needs a C compiler; Boehm GC is `nixpkgs#boehmgc` if not RC | ours (or GMP) | C stack unless designed otherwise | evidence passing (Koka) | via clang → Wasm, with work | 3–10× faster | weeks |
+| Cranelift JIT | IR → CLIF in-process | Apache-2.0 + LLVM exception | crate 0.137 | ours | ours | ours | no | 2–5× faster | weeks |
+| LLVM (`inkwell`) | IR → LLVM IR | Apache-2.0 (+ LLVM's) | links LLVM 12–23 | ours | ours | ours | via Wasm output | 3–10× faster | weeks, heavy build |
+| Wasm output | IR → Wasm (tail calls, maybe GC) | — | `wasmtime` 49 natively | ours | engine-limited | ours | yes | 2–5× faster | weeks |
+| LuaJIT (`mlua`) | Lua text | MIT | crate; `nixpkgs#luajit` | none (doubles) | limited | coroutines | no | — | not a fit |
+| JVM / Truffle / BEAM / GHC | — | — | large runtimes | — | — | — | no | — | not a fit |
+| HVM / Bend | — | Apache-2.0/MIT | — | `Nat`, `U32`, `F32` | — | — | — | — | not a fit |
+
+### Sources
+
+- Marlow & Peyton Jones, "Making a fast curry: push/enter vs. eval/apply":
+  https://www.microsoft.com/en-us/research/publication/make-fast-curry-pushenter-vs-evalapply/
+- Leroy, "The ZINC experiment" (1990): https://xavierleroy.org/publi/ZINC.pdf
+- Peyton Jones, the STG machine (1992): https://www.microsoft.com/en-us/research/?p=149862
+- Ierusalimschy, de Figueiredo, Celes, "The implementation of Lua 5.0" (2005):
+  https://www.lua.org/doc/jucs05.pdf
+- Ullrich & de Moura, "Counting Immutable Beans" (2019): https://arxiv.org/abs/1908.05647
+- Lean 4.30.0 release notes (LCNF): https://lean-lang.org/doc/reference/latest/releases/v4.30.0/
+- Reinking, Xie, de Moura, Leijen, "Perceus" (PLDI 2021):
+  https://www.microsoft.com/en-us/research/publication/perceus-garbage-free-reference-counting-with-reuse/
+- Xie & Leijen, "Generalized Evidence Passing for Effect Handlers" (ICFP 2021):
+  https://www.microsoft.com/en-us/research/uploads/prod/2021/08/genev-icfp21.pdf
+- Sivaramakrishnan et al., "Retrofitting Effect Handlers onto OCaml" (PLDI 2021):
+  https://arxiv.org/abs/2104.00250
+- Effekt implementation notes: https://effekt-lang.org/docs/implementation
+- Idris 2 backends: https://idris2.readthedocs.io/en/latest/backends/index.html, RefC:
+  https://idris2.readthedocs.io/en/latest/backends/refc.html
+- Agda compilers: https://agda.readthedocs.io/en/latest/tools/compilers.html
+- Dafny reference: https://dafny.org/latest/DafnyRef/DafnyRef
+- KaRaMeL: https://github.com/FStarLang/karamel
+- Unison's Chez runtime: https://www.unison-lang.org/blog/jit-announce/
+- Roc's move to Zig: https://rtfeldman.com/rust-to-zig
+- Bend: https://github.com/bendlang/bend
+- Malfunction: https://github.com/stedolan/malfunction
+- Chez Scheme: https://github.com/cisco/ChezScheme; bignums:
+  https://scheme.com/csug8/numeric.html
+- Cranelift `cranelift-jit`: https://crates.io/crates/cranelift-jit; calling conventions:
+  https://docs.wasmtime.dev/api/cranelift_codegen/isa/enum.CallConv.html
+- inkwell: https://github.com/TheDan64/inkwell
+- WebAssembly finished proposals:
+  https://github.com/WebAssembly/proposals/blob/main/finished-proposals.md; browser support:
+  https://web.dev/blog/wasmgc-wasm-tail-call-optimizations-baseline; Wasmtime defaults:
+  https://docs.wasmtime.dev/api/wasmtime/struct.Config.html
+- rquickjs: https://github.com/ryuapp/rquickjs (docs: https://docs.rs/crate/rquickjs/0.12.2)
+- Boa 0.21: https://boajs.dev/blog/2025/10/22/boa-release-21
+- `v8` crate build notes: https://docs.rs/crate/v8/152.0.0; size report:
+  https://questions.deno.com/m/1204433075623428176
+- QuickJS vs V8 on an M4 (third-party, indicative): https://github.com/buke/quickjs-go/wiki
+- LuaJIT FFI integers: https://luajit.org/ext_ffi_semantics.html; `mlua`:
+  https://github.com/mlua-rs/mlua
