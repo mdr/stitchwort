@@ -7,7 +7,7 @@ data Main.Tagged a23b9fbeda9c4ab08e31d6b310b864978dd871d041e21dd63b0503f74538af6
 Main.test "lists of numbers" 3033f7bba9dcfd9abd9e1ed39ac546b4ecd5c1f6a238d639c061b31469ab4d08
 Main.test "different lengths" 5d60c27bc7c5f8b35d1083ba1f26e2152553b29e14452bd2274f5a5106db8939
 Main.test "different elements" 998d05bdf14cef5c1505072759b4291820c51926290b91cfc7b0cfe490250c2f
-Main.test "empty lists" 3bf6c332d027623c9b709ec2ea8ba70a22407bf0c8333e9d943e6233cc7b4229
+Main.test "empty lists" 28f9ab345fcc228c9a3b6fc21dfe73626c49a16faa842a20e21e8eaceb7d6b36
 Main.test "lists of lists" 4236d0a80cd38877bcda4af5cd2b84bb0fdd647a972c747d5773477c51924e6a
 Main.test "lists of lists, different" 9c44e34140e6c2d584f3260aae63ac05cfa78594c05053efa8e5dcf78129a296
 Main.test "lists of texts" 04d7ea824ff85a31c1182a59178f2ce0f49c47f86dac172a3d2c1680443ccb02
@@ -20,7 +20,7 @@ Main.test "triples" 8a65793bd1dae5185acfb79055e310b6c25e76050a8cb3b6b17834be9569
 Main.test "triples, last differs" 5e7868ed7414ddf35b542f9258336ecb7ae8ab7e5ce51af8ea1f4213e9cff9a6
 Main.test "Maybe Int" 79fa381594ebb148311c54166c12673eda24cdd12ed1e1038951f78c6397c026
 Main.test "Maybe Int, different" 1f8e3153ab11fd2a4fcbdb70a1b664f4143bf0379cf062fe60ea470f31cb866f
-Main.test "Nothing and Just" d799707722faa9094ccaea92ee22610423bc1b06be6d7ea0945f455d6b4ce32f
+Main.test "Nothing and Just" f38d9f403b90473926faa152dc5dfb25dba2df41c15e8493f44fa42b8181feb1
 Main.test "Nothing" 94195a3f9c9e12880c0c178caaf276174e2555e02f13f2847eb89dbc2877077c
 Main.test "nested" 79b56a98da1d579dc62e0e8f02d4eae0588e4822a17bb3a09b7127d7946c33e2
 Main.test "nested, different" 04913dc7c4b0d16b3d9d80ecd4f0172bdf56df2720e1ae0e8b967c3cdf4185b1
