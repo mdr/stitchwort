@@ -48,6 +48,16 @@ export def total: List Nat -> Nat
   | Cons x xs => x + total xs
 ```
 
+When a test whose whole body is a comparison (`==`, `!=`, `=`, `<`, `<=`, `>`, `>=`) fails, `stitchwort test` and the playground's Tests tab show the values of its two sides, in the order written:
+
+```
+  ✗ part 1 on the example  ran  (`==` is False)
+      left:  2
+      right: 3
+```
+
+The sides are evaluated again only when the test fails (also when the failure comes from the cache, which keeps just the outcome), so a passing test costs nothing extra. A value is cut off with `…` after about 200 characters, and one too large to quote is shown as `… (too large to show)`. A test that isn't a bare comparison (`a == b && c`) just reports `evaluated to False`.
+
 Definitions may be named in either case: `length`, or `Not` for a function returning a type.
 
 **Automatic implicits.** An unknown lowercase name in a signature (the whole signature, header parameters included) is bound as an implicit parameter at the front if every use of it is either where a type is expected (`List a`, `a -> b`, `[x: a]`) or the whole argument of a type for a parameter that's a value (Idris's way). So with `type Dial (highest: Nat) = …`, `def part1 (start: Dial highest) (turns: List Turn): Nat` means `def part1 [highest: Nat] (start: Dial highest) …`: its type is the parameter's. "A type" here is a data type, an ability, or a definition whose result is a type (`def Below (n: Nat): Type`). Several are bound in the order of their first uses, and one may depend on another (`(t: Tagged a x)` for `type Tagged (a: Type) (tag: a)` binds `[a: Type] [x: a]`). Uses needing different types are `E-TYPE-MISMATCH` at the later one, with a note. Any other use keeps it an unknown name, so a misspelling doesn't quietly become a parameter: `Dial (highest + 1)` or `… <= highest` in the signature needs `[highest: Nat]` written out. Bound names are in scope by name in the body, as written-out implicits are.

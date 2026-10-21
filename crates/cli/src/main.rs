@@ -482,11 +482,21 @@ fn print_tests(results: &[TestResult], grouped: bool) -> ExitCode {
         }
         let (mark, why) = match result.outcome {
             Outcome::Passed => ("✓", String::new()),
-            Outcome::Failed => ("✗", "  (evaluated to False)".to_string()),
+            Outcome::Failed => (
+                "✗",
+                match &result.detail {
+                    Some(c) => format!("  (`{}` is False)", c.op),
+                    None => "  (evaluated to False)".to_string(),
+                },
+            ),
             Outcome::OutOfResources(e) => ("!", format!("  (no result: {e})")),
         };
         let how = if result.cached { "cached" } else { "ran" };
         println!("  {mark} {:width$}  {how}{why}", result.name);
+        if let Some(c) = &result.detail {
+            println!("      left:  {}", c.left);
+            println!("      right: {}", c.right);
+        }
     }
     let count = |f: fn(&Outcome) -> bool| results.iter().filter(|r| f(&r.outcome)).count();
     let passed = count(|o| *o == Outcome::Passed);

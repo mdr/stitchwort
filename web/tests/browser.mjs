@@ -362,6 +362,40 @@ test("test results are cached, and can be forgotten", async (page) => {
   assert.doesNotMatch(third.summary, /from the cache/);
 });
 
+test("a failed comparison test shows both sides in the Tests tab", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  await page.setSource(`def part1 (n: Nat): Nat := n + 1
+
+test "part 1 on the example" := part1 1 == 3
+test "greater" := 1 > part1 5
+test "long value" := List.range 1000 == []
+test "huge value" := List.range 100000 == []
+test "not a comparison" := part1 1 == 2 && part1 2 == 4
+`);
+  await page.untilChecked();
+  await page.tab("tests");
+  const results = () => page.until(`(() => {
+    const o = document.getElementById("output");
+    if (!o.querySelector(".summary") || o.dataset.for !== document.getElementById("source").value) return false;
+    return [...o.querySelectorAll("ul.tests li")].map((li) => ({
+      text: li.firstChild.nextSibling.textContent,
+      detail: li.querySelector(".detail")?.textContent ?? null }));
+  })()`, 30000, "the tests for this source");
+  const rows = await results();
+  assert.equal(rows.length, 5);
+  assert.equal(rows[0].text, "part 1 on the example (`==` is False)");
+  assert.equal(rows[0].detail, "left:  2\nright: 3");
+  assert.equal(rows[1].text, "greater (`>` is False)");
+  assert.equal(rows[1].detail, "left:  1\nright: 6");
+  assert.match(rows[2].detail, /^left:  \[0, 1, 2, [^]*…\nright: \[\]$/);
+  assert.ok(rows[2].detail.length < 300, rows[2].detail.length);
+  assert.equal(rows[3].detail, "left:  … (too large to show)\nright: []");
+  assert.equal(rows[4].text, "not a comparison (evaluated to False)");
+  assert.equal(rows[4].detail, null);
+  await shots(page, "sw216-tests-tab");
+});
+
 test("errors show in the Check tab", async (page) => {
   await page.open();
   await page.untilChecked();

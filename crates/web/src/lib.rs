@@ -94,7 +94,8 @@ pub fn std_source(path: &str) -> String {
 }
 
 /// Runs a program's tests, reusing the results in `known`:
-/// `{"ok": true, "tests": [{"name": …, "passed": …, "outcome": …, "cached": …}],
+/// `{"ok": true, "tests": [{"name": …, "passed": …, "outcome": …, "cached": …,
+/// "detail": {"op": …, "left": …, "right": …}}],
 /// "added": "…"}`, where the outcome is `passed`, `failed`, or what the test
 /// ran out of. `known` is one `KEY passed` or `KEY failed` per line, and
 /// malformed lines are ignored; `added` is the results that weren't cached,
@@ -126,8 +127,17 @@ fn test_answer(session: &Session, known: &str, with_namespace: bool) -> String {
             } else {
                 String::new()
             };
+            let detail = match &r.detail {
+                Some(c) => format!(
+                    r#","detail":{{"op":{},"left":{},"right":{}}}"#,
+                    json_string(c.op),
+                    json_string(&c.left),
+                    json_string(&c.right)
+                ),
+                None => String::new(),
+            };
             format!(
-                r#"{{"name":{}{namespace},"passed":{},"outcome":{},"cached":{}}}"#,
+                r#"{{"name":{}{namespace},"passed":{},"outcome":{},"cached":{}{detail}}}"#,
                 json_string(&r.name),
                 r.outcome == Outcome::Passed,
                 json_string(&outcome),
