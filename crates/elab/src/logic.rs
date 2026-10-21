@@ -6,7 +6,9 @@
 //!   `if a then True else b`, so `b` is only evaluated (and its operations
 //!   only performed) when it's needed; `not a` is `Bool.not a`. Each operand
 //!   is a condition, as `if` reads one: a `Bool`, or failing that a
-//!   proposition with a decision procedure, decided.
+//!   proposition with a decision procedure, decided. As in that `if`, when
+//!   `a` is a proposition `b` is checked knowing that it holds (`a && b`) or
+//!   doesn't (`a || b`), so `n != 0 && len % n == 0` finds `%`'s proof.
 //! - As a proposition: `And a b`, `Or a b` and `Not a`, each operand a
 //!   proposition.
 //!
@@ -172,31 +174,86 @@ fn as_bool(cx: &mut Ctx, logic: Logic) -> Result<Term> {
         }
         Logic::And(a, b) | Logic::Or(a, b) => (a, b),
     };
-    let a = bool_operand(cx, a, what)?;
-    // The branches of `Bool.ifThenElse` take an unused proof of `Unit`, so
-    // only the chosen one is evaluated.
+    let and = matches!(logic, Logic::And(..));
+    let bool_ty = Term::Data(builtin_data(cx, Builtin::Bool)?, Vec::new());
     let unit = Value::Data(builtin_data(cx, Builtin::Unit)?, Vec::new());
-    let mark = cx.mark();
-    cx.bind("_", unit);
-    let b = bool_operand(cx, b, what);
-    cx.reset(mark);
-    let b = b?;
+    let ite = builtin_def(cx, Builtin::IfThenElse)?;
+    let ite = Term::app_icit(Term::Def(ite), bool_ty.clone(), Icit::Implicit);
+    // `b` is checked as the branch of `if a` that needs it: assuming `a`
+    // (in `a && b`) or `Not a` (in `a || b`) when `a` is a proposition, so
+    // `n != 0 && len % n == 0` finds `%`'s proof; or, for a `Bool` `a`, an
+    // unused proof of `Unit`, as the branches of `Bool.ifThenElse` take.
+    let (head, a, b) = match condition(cx, a, what)? {
+        Condition::Bool(a) => {
+            let mark = cx.mark();
+            cx.bind("_", unit);
+            let b = bool_operand(cx, b, what);
+            cx.reset(mark);
+            (ite, a, b?)
+        }
+        Condition::Decided { prop, decision } => {
+            let prop_value = cx.eval(&prop)?;
+            let assumption = if and {
+                prop_value
+            } else {
+                let not = cx.eval(&Term::Def(builtin_def(cx, Builtin::Not)?))?;
+                stitchwort_core::value::apply(cx.g(), not, prop_value)?
+            };
+            let before = cx.e.obligations.borrow().len();
+            let mark = cx.mark();
+            cx.bind("_", assumption);
+            let b = bool_operand(cx, b, what);
+            cx.reset(mark);
+            let b = b?;
+            if needs_proofs(cx, before)? {
+                // `if _ : a then b else False`, as `if` makes it: `elimDec`.
+                let elim = builtin_def(cx, Builtin::ElimDec)?;
+                let head = Term::app_icit(
+                    Term::app_icit(Term::Def(elim), prop, Icit::Implicit),
+                    bool_ty,
+                    Icit::Implicit,
+                );
+                (head, decision.term(cx)?, b)
+            } else {
+                // Nothing in `b` can have used the assumption (only the
+                // search for an auto argument's proof sees it), so it's
+                // `if a then b else False` on the decision's `Bool`, as
+                // ever: the same term as `Bool.and (toBool …) b` reads, so
+                // the library's facts about `&&` on `Bool`s apply to it.
+                (ite, decision.into_bool(cx, prop)?, b)
+            }
+        }
+    };
     let constant = |cx: &Ctx, which| -> Result<Term> {
         let (d, c) = builtin_ctor(cx, which)?;
         Ok(Term::Ctor(d, c, Vec::new()))
     };
-    let (then, otherwise) = match logic {
-        Logic::And(..) => (b, constant(cx, Builtin::False)?),
-        _ => (constant(cx, Builtin::True)?, b),
+    let (then, otherwise) = if and {
+        (b, constant(cx, Builtin::False)?)
+    } else {
+        (constant(cx, Builtin::True)?, b)
     };
     let branch = |body| Term::Lam("_".into(), Icit::Explicit, Rc::new(body));
-    let bool_ty = Term::Data(builtin_data(cx, Builtin::Bool)?, Vec::new());
-    let ite = builtin_def(cx, Builtin::IfThenElse)?;
-    let head = Term::app_icit(Term::Def(ite), bool_ty, Icit::Implicit);
     Ok(Term::app(
         Term::app(Term::app(head, a), branch(then)),
         branch(otherwise),
     ))
+}
+
+/// Whether an obligation recorded since the first `before` needs a proof:
+/// an auto argument (not an instance to find), whose search sees the
+/// hypotheses in scope.
+fn needs_proofs(cx: &Ctx, before: usize) -> Result<bool> {
+    let goals: Vec<Value> = cx.e.obligations.borrow()[before..]
+        .iter()
+        .map(|ob| ob.goal.clone())
+        .collect();
+    for goal in &goals {
+        if crate::interfaces::interface_goal(cx.e, goal)?.is_none() {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 /// The proposition reading.

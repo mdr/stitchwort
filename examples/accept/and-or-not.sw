@@ -62,6 +62,24 @@ def chain (x: Nat): Bool := 0 < x && x < 10 && x != 5 || x == 100
 
 test "chain" := chain 3 && chain 100 && not (chain 5) && not (chain 0)
 
+-- The right side knows the left side, as in `if a then b else False`: the
+-- `%` and `/` need a proof that `n != 0`, found from the left operand (the
+-- AoC 2025 day 2 guard). A `Bool` left side (`n == 0`) says nothing, just as
+-- `if n == 0` doesn't.
+def repeatsEvery (len: Nat) (n: Nat): Bool := n != 0 && len % n == 0
+
+test "repeatsEvery" := repeatsEvery 6 3 && not (repeatsEvery 6 0) && not (repeatsEvery 6 4)
+
+-- In `a || b`, `b` knows `Not a`.
+def bigShare (total: Nat) (n: Nat): Bool := n = 0 || total / n > 2
+
+test "bigShare" := bigShare 10 0 && bigShare 10 3 && not (bigShare 10 5)
+
+-- In a chain `a && b && c`, `c` knows both `a` and `b`.
+def bothDivide (a: Nat) (b: Nat) (c: Nat): Bool := a != 0 && b != 0 && c % a + c % b == 0
+
+test "bothDivide" := bothDivide 2 3 6 && not (bothDivide 0 3 6) && not (bothDivide 4 3 6)
+
 -- `not` is an ordinary function on `Bool` as well.
 def flipped: List Bool := List.map not [True, False]
 
@@ -99,6 +117,8 @@ def orRuns(): {Log} Bool := noisy 1 False || noisy 2 True
 def pureLeft (x: Nat): {Log} Bool := x < 3 && noisy 2 True
 def notEff(): {Log} Bool := not (noisy 7 False)
 def inIf(): {Log} Nat := if noisy 1 False && noisy 2 True then 1 else 0
+-- With effects on the right too, the right side knows the left.
+def guarded (n: Nat): {Log} Bool := n != 0 && noisy (10 / n) True
 
 test "and skips the right" := (collect andSkips) == ([1], False)
 test "and runs the right" := (collect andRuns) == ([1, 2], True)
@@ -108,3 +128,5 @@ test "pure left false" := (collect (u => pureLeft 5)) == ([], False)
 test "pure left true" := (collect (u => pureLeft 1)) == ([2], True)
 test "not keeps the effect" := (collect notEff) == ([7], True)
 test "in if" := (collect inIf) == ([1], 0)
+test "guarded, zero" := (collect (u => guarded 0)) == ([], False)
+test "guarded, five" := (collect (u => guarded 5)) == ([2], True)
