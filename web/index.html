@@ -266,6 +266,45 @@
   }
   #navtip .name { font-weight: 700; color: var(--hl-defined); }
   #navtip .kind { color: var(--muted); }
+  /* Find references: a small panel by the name, and the right-click menu. */
+  #navrefs, #navmenu {
+    position: fixed;
+    z-index: 11;
+    background: var(--petal);
+    color: var(--ink);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    box-shadow: 0 4px 14px rgb(0 0 0 / 0.18);
+    font-family: var(--mono);
+    font-variation-settings: "MONO" 1, "CASL" 0;
+    font-size: 12.5px;
+    line-height: 1.45;
+  }
+  #navrefs[hidden], #navmenu[hidden] { display: none; }
+  #navrefs { width: min(76ch, calc(100vw - 16px)); max-height: min(46vh, 22rem); display: flex; flex-direction: column; }
+  #navrefs header { display: flex; gap: 8px; align-items: baseline; padding: 6px 10px; border-bottom: 1px solid var(--line); }
+  #navrefs header .title { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  #navrefs header .name { font-weight: 700; color: var(--hl-defined); }
+  #navrefs header .more { color: var(--muted); }
+  #navrefs header button { border: 0; background: none; color: var(--muted); font: inherit; padding: 0 4px; cursor: pointer; }
+  #navrefs ul { list-style: none; margin: 0; padding: 2px 0; overflow: auto; }
+  #navrefs li button {
+    display: flex; gap: 12px; width: 100%; text-align: left; border: 0; border-radius: 0; background: none;
+    color: inherit; font: inherit; padding: 2px 10px; cursor: pointer;
+  }
+  #navrefs li button:hover, #navrefs li button:focus-visible { background: var(--leaf-soft); outline: none; }
+  #navrefs .where { flex: none; color: var(--muted); min-width: 9ch; }
+  #navrefs .snippet { white-space: pre; overflow: hidden; text-overflow: ellipsis; }
+  #navrefs .snippet mark { background: none; color: var(--hl-defined); font-weight: 700; text-decoration: underline; }
+  #navrefs .decl .where::after { content: " (declaration)"; }
+  #navrefs .none { padding: 6px 10px; color: var(--muted); }
+  #navmenu { padding: 3px 0; min-width: 24ch; }
+  #navmenu button {
+    display: flex; justify-content: space-between; gap: 16px; width: 100%; text-align: left; border: 0; border-radius: 0;
+    background: none; color: inherit; font: inherit; padding: 3px 12px; cursor: pointer;
+  }
+  #navmenu button:hover, #navmenu button:focus-visible { background: var(--leaf-soft); outline: none; }
+  #navmenu .key { color: var(--muted); }
   .banner.std { background: var(--leaf-soft); color: var(--ok); }
   .banner.std code { font-family: var(--mono); font-variation-settings: "MONO" 1; }
   h3.testgroup { margin: 0; font-size: 0.82rem; font-family: var(--mono); font-weight: 600; color: var(--muted); }
@@ -2038,7 +2077,8 @@ export def area: Shape -> Nat
       align();
     }
   }
-  async function openStd(std, range) {
+  /** The library file's text, as the compiler embeds it (empty if it couldn't be had). */
+  async function stdText(std) {
     let text = nav.std.get(std);
     if (text === undefined) {
       let result = await indexer.call({ action: "stdsource", path: std }, CHECK_SECONDS);
@@ -2046,6 +2086,10 @@ export def area: Shape -> Nat
       text = result.out?.text ?? "";
       if (result.out) nav.std.set(std, text);
     }
+    return text;
+  }
+  async function openStd(std, range) {
+    const text = await stdText(std);
     if (!text || stdView) return false;
     enterStd(std, text);
     reveal(range);
@@ -2086,6 +2130,157 @@ export def area: Shape -> Nat
     return went;
   }
 
+  // Find references --------------------------------------------------------
+  // Shift+F12 at the caret (or "Find references" in the right-click menu on a
+  // name) lists where the name under it is used, in a panel by the name: file
+  // and line, with the line's text. Click one (or Enter on it) to go there,
+  // with a way back as for a definition. The uses are the index's refs with
+  // the same target; the declaration is listed too. Uses inside the library
+  // are only counted: there can be thousands, and they aren't the program.
+
+  const navrefs = el("div", { id: "navrefs", role: "dialog", "aria-label": "References", hidden: true });
+  const navmenu = el("div", { id: "navmenu", role: "menu", hidden: true });
+  document.body.append(navrefs, navmenu);
+
+  /** The uses of the target of `ref`: { declaration, uses (project files), library (a count) }. */
+  function referencesOf(idx, ref) {
+    const { out } = idx;
+    const t = targetOf(idx, ref);
+    const sameTarget = ref.symbol !== undefined
+      ? (r) => r.symbol === ref.symbol
+      : (r) => r.binder && r.binder.file === ref.binder.file && r.binder.range.join() === ref.binder.range.join();
+    const isDeclaration = (file, range) => file === t.file && range.join() === t.range.join();
+    const uses = [];
+    let library = 0;
+    for (const r of out.refs) {
+      if (!sameTarget(r) || isDeclaration(r.file, r.range)) continue;
+      const f = out.files[r.file];
+      if (f.std) library++; else uses.push({ file: r.file, path: f.path, range: r.range });
+    }
+    const f = out.files[t.file];
+    const declaration = { file: t.file, path: f.path, std: f.std ?? null, range: t.range };
+    return { name: t.name, kind: t.kind, declaration, uses, library };
+  }
+
+  function hideRefs() {
+    if (navrefs.hidden) return false;
+    navrefs.hidden = true;
+    return true;
+  }
+  function hideMenu() { navmenu.hidden = true; }
+
+  /** A row of the panel: where, and the line's text with the name marked. */
+  function refRow(idx, use, isDeclaration) {
+    const text = (use.std ? nav.std.get(use.std) : idx.texts.get(use.path)) ?? "";
+    const range = use.range;
+    const raw = text.split("\n")[range[0]] ?? "";
+    const lead = raw.length - raw.trimStart().length;
+    const shown = raw.trim();
+    const clamp = (n) => Math.max(0, Math.min(n, shown.length));
+    const from = clamp(range[1] - lead), to = range[0] === range[2] ? clamp(range[3] - lead) : shown.length;
+    const label = use.std ? use.std : project ? tabLabel(use.path) : "";
+    const row = el("button", { type: "button", className: isDeclaration ? "decl" : "" },
+      el("span", { className: "where" }, `${label ? label + ":" : "line "}${range[0] + 1}`),
+      el("span", { className: "snippet" }, shown.slice(0, from), el("mark", {}, shown.slice(from, to)), shown.slice(to)));
+    row.title = `${use.std ?? use.path}:${range[0] + 1}:${range[1] + 1}`;
+    row.addEventListener("click", async () => {
+      hideRefs();
+      pushBack();
+      const went = use.std ? await openStd(use.std, use.range) : (openAt(use.path, use.range), true);
+      if (!went) nav.back.pop();
+    });
+    return el("li", {}, row);
+  }
+
+  async function showRefs(idx, hit) {
+    hideTip();
+    hideMenu();
+    const found = referencesOf(idx, hit.ref);
+    if (found.declaration.std) await stdText(found.declaration.std); // for its line
+    const rows = [refRow(idx, found.declaration, true), ...found.uses.map((u) => refRow(idx, u, false))];
+    const count = found.uses.length;
+    const more = found.library ? `, and ${found.library} in the library` : "";
+    const close = el("button", { type: "button", title: "Close (Esc)", "aria-label": "Close" }, "×");
+    close.addEventListener("click", () => { hideRefs(); source.focus({ preventScroll: true }); });
+    navrefs.replaceChildren(
+      el("header", {}, el("span", { className: "title" },
+        el("span", { className: "name" }, found.name), ` ${found.kind}: ${count === 1 ? "1 use" : `${count} uses`}`,
+        el("span", { className: "more" }, more)), close),
+      el("ul", {}, ...rows));
+    navrefs.hidden = false;
+    const r = rectOf(hit.from, hit.to);
+    if (r) {
+      const w = navrefs.offsetWidth, h = navrefs.offsetHeight;
+      navrefs.style.left = `${Math.max(8, Math.min(r.left, innerWidth - w - 8))}px`;
+      const top = r.bottom + 4 + h > innerHeight - 8 ? r.top - h - 4 : r.bottom + 4;
+      navrefs.style.top = `${Math.max(8, Math.min(top, innerHeight - h - 8))}px`; // on screen even if the name is not
+    }
+    // The first use, not the declaration, when there is one: that is what was asked.
+    (navrefs.querySelectorAll("li button")[found.uses.length ? 1 : 0]).focus({ preventScroll: true });
+  }
+
+  /** Lists the uses of the name at `offset` of the open file; whether there was a name. */
+  async function findReferences(offset) {
+    if (stdView) return false;
+    const idx = await ensureIndex();
+    const hit = idx && lookupAt(idx, offset);
+    if (!hit) return false;
+    await showRefs(idx, hit);
+    return true;
+  }
+
+  navrefs.addEventListener("keydown", (e) => {
+    const rows = [...navrefs.querySelectorAll("li button")];
+    const at = rows.indexOf(document.activeElement);
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      rows[(at + (e.key === "ArrowDown" ? 1 : rows.length - 1)) % rows.length]?.focus();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      e.stopPropagation();
+      hideRefs();
+      source.focus({ preventScroll: true });
+    }
+  });
+  // Anywhere else closes the panel and the menu.
+  document.addEventListener("mousedown", (e) => {
+    if (!navrefs.hidden && !navrefs.contains(e.target)) hideRefs();
+    if (!navmenu.hidden && !navmenu.contains(e.target)) hideMenu();
+  });
+
+  // The right-click menu, on a name: the two lookups and their keys. Anywhere
+  // else the browser's own menu stays.
+  source.addEventListener("contextmenu", (e) => {
+    if (stdView || !nav.index) return;
+    const offset = offsetAt(e.clientX, e.clientY);
+    const hit = offset !== null && validFor(nav.index, openPath()) ? lookupAt(nav.index, offset) : null;
+    if (!hit) return;
+    e.preventDefault();
+    hideTip();
+    hideRefs();
+    const item = (label, key, go) => {
+      const b = el("button", { type: "button", role: "menuitem" }, el("span", {}, label), el("span", { className: "key" }, key));
+      b.addEventListener("click", () => { hideMenu(); go(offset); });
+      return b;
+    };
+    navmenu.replaceChildren(item("Go to definition", "F12", goToDefinition), item("Find references", "⇧F12", findReferences));
+    navmenu.hidden = false;
+    navmenu.style.left = `${Math.min(e.clientX, innerWidth - navmenu.offsetWidth - 8)}px`;
+    navmenu.style.top = `${Math.min(e.clientY, innerHeight - navmenu.offsetHeight - 8)}px`;
+    navmenu.querySelector("button").focus({ preventScroll: true });
+  });
+  navmenu.addEventListener("keydown", (e) => {
+    const rows = [...navmenu.querySelectorAll("button")];
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      rows[(rows.indexOf(document.activeElement) + 1) % rows.length].focus();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      hideMenu();
+      source.focus({ preventScroll: true });
+    }
+  });
+
   editorBox.addEventListener("mouseenter", () => { if (!stdView) ensureIndex(); });
   source.addEventListener("mousemove", (e) => {
     nav.pointer = { x: e.clientX, y: e.clientY };
@@ -2100,8 +2295,8 @@ export def area: Shape -> Nat
     const offset = offsetAt(e.clientX, e.clientY);
     if (offset !== null) goToDefinition(offset);
   });
-  source.addEventListener("scroll", () => { hideTip(); showLink(); });
-  source.addEventListener("input", () => { hideTip(); nav.hover = null; showLink(); });
+  source.addEventListener("scroll", () => { hideTip(); hideRefs(); hideMenu(); showLink(); });
+  source.addEventListener("input", () => { hideTip(); hideRefs(); hideMenu(); nav.hover = null; showLink(); });
   window.addEventListener("keydown", (e) => setMod(e.metaKey || e.ctrlKey));
   window.addEventListener("keyup", (e) => setMod(e.metaKey || e.ctrlKey));
   window.addEventListener("blur", () => setMod(false));
@@ -2109,7 +2304,9 @@ export def area: Shape -> Nat
     if (e.key === "F12") {
       e.preventDefault();
       const at = source.selectionStart;
-      goToDefinition(at).then((went) => { if (!went && at > 0) goToDefinition(at - 1); });
+      // The caret may be just after the name, as it is after typing one.
+      const go = e.shiftKey ? findReferences : goToDefinition;
+      go(at).then((went) => { if (!went && at > 0) go(at - 1); });
     } else if (e.key === "Escape" && stdView) {
       e.preventDefault();
       goBack();

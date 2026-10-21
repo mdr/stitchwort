@@ -48,7 +48,7 @@ fn a_project_to_standard_output() {
     let output = stitchwort(&dir, &["check", "--index", "-"]);
     assert!(output.status.success());
     let json = out(&output);
-    assert!(json.starts_with(r#"{"version":1,"errors":false,"files":["#));
+    assert!(json.starts_with(r#"{"version":2,"errors":false,"files":["#));
     // Paths are within the project.
     assert!(json.contains(r#"{"path":"src/Day/Day.sw"}"#), "{json}");
     assert!(json.contains(r#"{"path":"src/Lib/Lib.sw"}"#), "{json}");
@@ -86,7 +86,12 @@ fn errors_still_write_the_index_and_fail() {
     let dir = project("errors", &files);
     let output = stitchwort(&dir, &["check", "--index", "-"]);
     assert_eq!(output.status.code(), Some(1));
-    assert!(out(&output).starts_with(r#"{"version":1,"errors":true,"#));
+    assert!(out(&output).starts_with(r#"{"version":2,"errors":true,"#));
+    assert!(
+        out(&output).contains(r#""diagnostics":[{"severity":"error","code":"E-UNKNOWN-NAME""#),
+        "{}",
+        out(&output)
+    );
     assert!(out(&output).contains(r#""name":"Std.List.length""#));
 }
 

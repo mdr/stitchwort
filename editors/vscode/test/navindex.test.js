@@ -82,13 +82,121 @@ test('dot notation points at the library function', () => {
   });
 });
 
-test('declaration site hovers via declAt', () => {
+test('a declaration has a ref at its own name, on the last component only', () => {
   const [l, c] = at(8, 'Bag.length');
+  // `Bag.` is not part of the name range: `length` is.
   assert.strictEqual(nav.refAt(index, file, l, c), null);
-  const d = nav.declAt(index, file, l, c + 5);
-  assert.ok(d);
-  assert.strictEqual(nav.hoverOf(index, d).kind, 'def');
-  assert.strictEqual(nav.declAt(index, file, 0, 0), null);
+  const ref = nav.refAt(index, file, l, c + 5);
+  assert.ok(ref);
+  assert.strictEqual(textAt(ref.range), 'length');
+  assert.strictEqual(nav.hoverOf(index, ref).kind, 'def');
+  assert.strictEqual(nav.hoverOf(index, ref).name, 'Main.Bag.length');
+  const t = nav.targetOf(index, ref);
+  assert.deepStrictEqual(t.range, ref.range);
+});
+
+test('references of a declaration: uses, with or without the declaration', () => {
+  const ref = nav.refAt(index, file, ...at(10, 'length'));
+  const withDecl = nav.referencesTo(index, ref, true);
+  const without = nav.referencesTo(index, ref, false);
+  assert.strictEqual(withDecl.length, without.length + 1);
+  assert.deepStrictEqual(withDecl[0].range, [8, 8, 8, 14]);
+  assert.deepStrictEqual(without.map((t) => t.range[0]), [10, 62]);
+  for (const t of withDecl) {
+    assert.strictEqual(t.path, 'dot-notation.sw');
+    assert.strictEqual(textAt(t.range), 'length');
+  }
+  // the same answer from the declaration's own name
+  const fromDecl = nav.refAt(index, file, ...at(8, 'length'));
+  assert.deepStrictEqual(nav.referencesTo(index, fromDecl, true), withDecl);
+});
+
+test('references of a local variable include its binder only on request', () => {
+  const ref = nav.refAt(index, file, ...at(10, 'b.length'));
+  const without = nav.referencesTo(index, ref, false);
+  assert.deepStrictEqual(without.map((t) => t.range[0]), [10]);
+  const withDecl = nav.referencesTo(index, ref, true);
+  assert.strictEqual(withDecl.length, 2);
+  assert.strictEqual(textAt(withDecl[0].range), 'b');
+  assert.ok(withDecl[0].range[1] < withDecl[1].range[1]);
+});
+
+test('references of a library function are in the project, and the library', () => {
+  const ref = nav.refAt(index, file, ...at(28, 'length', 1));
+  const refs = nav.referencesTo(index, ref, false);
+  // `t.length` on line 28 and `p.name.length` on line 34: Text.length
+  assert.ok(refs.some((t) => t.range[0] === 28 && t.path === 'dot-notation.sw'));
+  assert.ok(refs.every((t) => t.std || t.path === 'dot-notation.sw'));
+});
+
+test('diagnostics by file', () => {
+  assert.strictEqual(nav.diagnosticsByFile(index).size, 0);
+  const bad = JSON.parse(fs.readFileSync(path.join(dir, 'errors.json'), 'utf8'));
+  const byFile = nav.diagnosticsByFile(bad);
+  assert.deepStrictEqual([...byFile.keys()], ['errors.sw']);
+  const list = byFile.get('errors.sw');
+  assert.deepStrictEqual(
+    list.map((d) => [d.severity, d.code, d.range]),
+    [
+      ['error', 'E-TYPE-MISMATCH', [2, 16, 2, 22]],
+      ['error', 'E-UNKNOWN-NAME', [6, 18, 6, 25]],
+    ],
+  );
+  assert.strictEqual(
+    list[0].message,
+    'type mismatch\nexpected `Nat`, but this has type `Text`',
+  );
+});
+
+test('diagnostics: warnings, notes and secondary labels; library files skipped', () => {
+  const fake = {
+    files: [{ path: 'a.sw' }, { path: 'b.sw' }, { path: 'x/core.sw', std: 'core.sw' }],
+    diagnostics: [
+      {
+        severity: 'warning',
+        code: 'W-X',
+        message: 'm',
+        file: 0,
+        range: [0, 0, 0, 1],
+        labels: [
+          { file: 0, range: [0, 0, 0, 1], message: 'here' },
+          { file: 1, range: [3, 0, 3, 2], message: 'and there' },
+        ],
+        notes: ['n1'],
+      },
+      { severity: 'error', code: 'E-Y', message: 'in std', file: 2, range: [0, 0, 0, 1], labels: [], notes: [] },
+      { severity: 'error', code: 'E-Z', message: 'nowhere', labels: [], notes: [] },
+    ],
+  };
+  const byFile = nav.diagnosticsByFile(fake);
+  assert.deepStrictEqual([...byFile.keys()], ['a.sw']);
+  const [d] = byFile.get('a.sw');
+  assert.strictEqual(d.severity, 'warning');
+  assert.strictEqual(d.message, 'm\nhere\nNote: n1');
+  assert.deepStrictEqual(d.related, [
+    { path: 'b.sw', std: null, range: [3, 0, 3, 2], message: 'and there' },
+  ]);
+});
+
+test('workspace symbols: matching, ranking, and only the project', () => {
+  const all = nav.workspaceSymbols(index, '');
+  assert.ok(all.length > 20);
+  assert.ok(all.every((s) => s.path === 'dot-notation.sw'));
+  const length = nav.workspaceSymbols(index, 'length');
+  assert.strictEqual(length[0].qualified, 'Main.Bag.length');
+  assert.strictEqual(length[0].name, 'length');
+  assert.strictEqual(length[0].container, null);
+  assert.strictEqual(length[0].kind, 'def');
+  assert.deepStrictEqual(length[0].range, [8, 8, 8, 14]);
+  // a field is inside its type
+  const field = nav.workspaceSymbols(index, 'age')[0];
+  assert.strictEqual(field.qualified, 'Main.Person.age');
+  assert.strictEqual(field.container, 'Main.Person');
+  // letters in order, case-insensitively
+  assert.ok(nav.workspaceSymbols(index, 'SHPDSC').some((s) => s.qualified === 'Main.Shape.describe'));
+  assert.deepStrictEqual(nav.workspaceSymbols(index, 'zzzz'), []);
+  // library symbols are not offered
+  assert.ok(nav.workspaceSymbols(index, 'Std.').length === 0);
 });
 
 test('outline nests constructors and fields under their type', () => {

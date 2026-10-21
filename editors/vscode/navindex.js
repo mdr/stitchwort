@@ -1,5 +1,5 @@
 'use strict';
-// Pure lookup logic over a Stitchwort navigation index (version 1, see
+// Pure lookup logic over a Stitchwort navigation index (version 2, see
 // docs/proposals/code-navigation.md). No `vscode` import, so it runs under
 // plain `node --test`. Ranges are [startLine, startChar, endLine, endChar],
 // 0-based, UTF-16, end exclusive.
@@ -36,18 +36,6 @@ function refAt(index, file, line, ch) {
   }
   const r = refs[lo];
   return r && r.file === file && contains(r.range, line, ch) ? r : null;
-}
-
-// A ref-like record for the declaration whose own name is at the position
-// (declaration sites have no ref of their own), so hover works there too.
-function declAt(index, file, line, ch) {
-  for (let i = 0; i < index.symbols.length; i++) {
-    const s = index.symbols[i];
-    if (s.file === file && s.fullRange && contains(s.range, line, ch)) {
-      return { file, range: s.range, symbol: i, type: s.type };
-    }
-  }
-  return null;
 }
 
 // Where a ref points: {file (index), path, std, range} or null.
@@ -115,4 +103,133 @@ function outlineOf(index, file) {
   return roots;
 }
 
-module.exports = { contains, declAt, fileIndexByPath, refAt, targetOf, hoverOf, outlineOf };
+
+function sameRange(a, b) {
+  return a[0] === b[0] && a[1] === b[1] && a[2] === b[2] && a[3] === b[3];
+}
+
+function sameSpot(a, b) {
+  return a.file === b.file && sameRange(a.range, b.range);
+}
+
+// The locations of everything that refers to the same declaration or local
+// variable as `ref` (all refs with the same `symbol`, or the same `binder`),
+// as targets ({file, path, std, range}), in index order. The declaration's
+// own name is among them if `includeDeclaration`, and not otherwise (the
+// index has a ref there too, for a declaration; a local's binder has none).
+function referencesTo(index, ref, includeDeclaration) {
+  const decl = targetOf(index, ref);
+  if (!decl) return [];
+  const isSymbol = ref.symbol !== undefined && ref.symbol !== null;
+  const out = [];
+  for (const r of index.refs) {
+    const same = isSymbol
+      ? r.symbol === ref.symbol
+      : r.binder && r.binder.file === ref.binder.file && sameRange(r.binder.range, ref.binder.range);
+    if (!same) continue;
+    const f = index.files[r.file];
+    if (!f) continue;
+    const here = { file: r.file, path: f.path, std: f.std || null, range: r.range };
+    if (sameSpot(here, decl)) continue;
+    out.push(here);
+  }
+  if (includeDeclaration) out.push(decl);
+  out.sort((a, b) => a.file - b.file || cmp(a.range[0], a.range[1], b.range[0], b.range[1]));
+  return out;
+}
+
+// The index's diagnostics as editor diagnostics, by project file path (library
+// files are skipped; a diagnostic with no location has no file to show on).
+// Each is {path, severity ('error'|'warning'), code, range, message, related:
+// [{path, std, range, message}]}. The message is the main text, then the first
+// label's explanation and the notes, one per line.
+function diagnosticsByFile(index) {
+  const out = new Map();
+  for (const d of index.diagnostics || []) {
+    if (d.file === undefined || d.file === null) continue;
+    const f = index.files[d.file];
+    if (!f || f.std) continue;
+    const lines = [d.message];
+    const labels = d.labels || [];
+    if (labels[0] && labels[0].message && labels[0].message !== d.message) {
+      lines.push(labels[0].message);
+    }
+    for (const n of d.notes || []) lines.push(`Note: ${n}`);
+    const related = [];
+    for (const l of labels.slice(1)) {
+      const lf = index.files[l.file];
+      if (lf) related.push({ path: lf.path, std: lf.std || null, range: l.range, message: l.message });
+    }
+    if (!out.has(f.path)) out.set(f.path, []);
+    out.get(f.path).push({
+      path: f.path,
+      severity: d.severity === 'warning' ? 'warning' : 'error',
+      code: d.code,
+      range: d.range,
+      message: lines.join('\n'),
+      related,
+    });
+  }
+  return out;
+}
+
+// Whether the letters of `query` appear in order in `name`, ignoring case.
+function subsequence(query, name) {
+  const n = name.toLowerCase();
+  let at = 0;
+  for (const ch of query.toLowerCase()) {
+    at = n.indexOf(ch, at);
+    if (at < 0) return false;
+    at++;
+  }
+  return true;
+}
+
+// Workspace symbols: the definitions of the checked files (those with a
+// fullRange) whose qualified name matches `query`, best first (exact short
+// name, then substring, then letters in order). Each is {name (short),
+// qualified, kind, container (qualified name or null), path, range}.
+function workspaceSymbols(index, query) {
+  const q = (query || '').toLowerCase();
+  const scored = [];
+  index.symbols.forEach((s, i) => {
+    if (!s.fullRange) return;
+    const f = index.files[s.file];
+    if (!f || f.std) return;
+    const short = s.name.slice(s.name.lastIndexOf('.') + 1) || s.name;
+    let score;
+    if (!q) score = 3;
+    else if (short.toLowerCase() === q) score = 0;
+    else if (s.name.toLowerCase().includes(q)) score = 1;
+    else if (subsequence(q, s.name)) score = 2;
+    else return;
+    const parent =
+      s.container !== undefined && s.container !== null ? index.symbols[s.container] : null;
+    scored.push({
+      score,
+      i,
+      sym: {
+        name: short,
+        qualified: s.name,
+        kind: s.kind,
+        container: parent ? parent.name : null,
+        path: f.path,
+        range: s.range,
+      },
+    });
+  });
+  scored.sort((a, b) => a.score - b.score || a.i - b.i);
+  return scored.map((x) => x.sym);
+}
+
+module.exports = {
+  contains,
+  diagnosticsByFile,
+  fileIndexByPath,
+  hoverOf,
+  outlineOf,
+  refAt,
+  referencesTo,
+  targetOf,
+  workspaceSymbols,
+};

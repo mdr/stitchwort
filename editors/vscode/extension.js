@@ -1,6 +1,6 @@
 'use strict';
-// Stitchwort VS Code extension: go to definition, hover and outline, from the
-// compiler's navigation index (`stitchwort check --index -`, see
+// Stitchwort VS Code extension: go to definition, references, hover, outline,
+// workspace symbols and diagnostics, from the compiler's navigation index (`stitchwort check --index -`, see
 // docs/proposals/code-navigation.md). Plain CommonJS, no dependencies. The
 // lookup logic lives in navindex.js (no `vscode` import, unit tested).
 
@@ -62,6 +62,53 @@ function plan(file) {
  */
 const roots = new Map();
 
+/** @type {vscode.DiagnosticCollection} */
+let diagnostics;
+
+function fileUri(p, relative) {
+  return vscode.Uri.file(path.resolve(p.cwd, relative));
+}
+
+// Shows the diagnostics of a root's latest index, and clears the files that
+// had some from its earlier runs and have none now. `s.shown` is the set of
+// URIs (as strings) this root has published.
+function publishDiagnostics(s) {
+  const p = s.plan;
+  const byFile = nav.diagnosticsByFile(s.index);
+  const now = new Map();
+  for (const [file, list] of byFile) {
+    const uri = fileUri(p, file);
+    now.set(uri.toString(), uri);
+    diagnostics.set(
+      uri,
+      list.map((d) => {
+        const diagnostic = new vscode.Diagnostic(
+          toRange(d.range),
+          d.message,
+          d.severity === 'warning'
+            ? vscode.DiagnosticSeverity.Warning
+            : vscode.DiagnosticSeverity.Error,
+        );
+        diagnostic.code = d.code;
+        diagnostic.source = 'stitchwort';
+        diagnostic.relatedInformation = d.related
+          .filter((r) => !r.std)
+          .map(
+            (r) => new vscode.DiagnosticRelatedInformation(
+              new vscode.Location(fileUri(p, r.path), toRange(r.range)),
+              r.message,
+            ),
+          );
+        return diagnostic;
+      }),
+    );
+  }
+  for (const [key, uri] of s.shown || []) {
+    if (!now.has(key)) diagnostics.delete(uri);
+  }
+  s.shown = now;
+}
+
 function stateFor(p) {
   let s = roots.get(p.key);
   if (!s) {
@@ -99,8 +146,10 @@ function runIndex(s) {
       // Exit status 1 means check errors, and the index is still written.
       try {
         const index = JSON.parse(Buffer.concat(out).toString('utf8'));
-        if (index.version === 1) s.index = index;
-        else output.appendLine(`unsupported index version ${index.version}`);
+        if (index.version === 2) {
+          s.index = index;
+          publishDiagnostics(s);
+        } else output.appendLine(`unsupported index version ${index.version}`);
       } catch (e) {
         output.appendLine(`no index from ${p.cwd} (exit ${code}): ${e.message}`);
       }
@@ -161,9 +210,7 @@ async function lookup(document, position) {
   const { index, p } = found;
   const file = nav.fileIndexByPath(index, p.indexPath);
   if (file < 0) return null;
-  const ref =
-    nav.refAt(index, file, position.line, position.character) ||
-    nav.declAt(index, file, position.line, position.character);
+  const ref = nav.refAt(index, file, position.line, position.character);
   return ref ? { index, p, ref } : null;
 }
 
@@ -172,6 +219,36 @@ const definitionProvider = {
     const hit = await lookup(document, position);
     const t = hit && nav.targetOf(hit.index, hit.ref);
     return t ? locationOf(hit.p, t) : null;
+  },
+};
+
+const referenceProvider = {
+  async provideReferences(document, position, context) {
+    const hit = await lookup(document, position);
+    if (!hit) return [];
+    return nav
+      .referencesTo(hit.index, hit.ref, context.includeDeclaration)
+      .map((t) => locationOf(hit.p, t));
+  },
+};
+
+const workspaceSymbolProvider = {
+  async provideWorkspaceSymbols(query) {
+    const out = [];
+    for (const s of roots.values()) {
+      if (!s.index) continue;
+      for (const sym of nav.workspaceSymbols(s.index, query)) {
+        out.push(
+          new vscode.SymbolInformation(
+            sym.name,
+            SYMBOL_KINDS[sym.kind] || vscode.SymbolKind.Variable,
+            sym.container || '',
+            new vscode.Location(fileUri(s.plan, sym.path), toRange(sym.range)),
+          ),
+        );
+      }
+    }
+    return out;
   },
 };
 
@@ -245,12 +322,16 @@ function isStitchwort(doc) {
 
 function activate(context) {
   output = vscode.window.createOutputChannel('Stitchwort');
+  diagnostics = vscode.languages.createDiagnosticCollection('stitchwort');
   const selector = { language: 'stitchwort', scheme: 'file' };
   context.subscriptions.push(
     output,
     vscode.languages.registerDefinitionProvider(selector, definitionProvider),
     vscode.languages.registerHoverProvider(selector, hoverProvider),
     vscode.languages.registerDocumentSymbolProvider(selector, symbolProvider),
+    vscode.languages.registerReferenceProvider(selector, referenceProvider),
+    vscode.languages.registerWorkspaceSymbolProvider(workspaceSymbolProvider),
+    diagnostics,
     vscode.workspace.registerTextDocumentContentProvider(STD_SCHEME, stdContent),
     vscode.workspace.onDidOpenTextDocument((d) => {
       if (isStitchwort(d)) schedule(d.uri.fsPath, true);

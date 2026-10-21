@@ -69,7 +69,7 @@ pub fn check(source: &str) -> String {
 }
 
 /// The code navigation index of a program (docs/proposals/code-navigation.md):
-/// the version 1 JSON the CLI's `check --index` writes, with `"ok"` added.
+/// the version 2 JSON the CLI's `check --index` writes, with `"ok"` added.
 /// Written whether or not the program checks, for the parts that were
 /// elaborated. Not cached: it loads the program again with recording on.
 #[wasm_bindgen]
@@ -77,8 +77,13 @@ pub fn check_index(source: &str) -> String {
     let mut session = Session::new();
     session.elab.limits = session_limits();
     session.elab.enable_navigation();
-    let ok = session.load(FILE, source).is_ok();
-    stitchwort_driver::nav::index_json(&session, !ok, Some(ok), "")
+    let loaded = session.load(FILE, source);
+    let ok = loaded.is_ok();
+    let mut reported = std::mem::take(&mut session.warnings);
+    if let Err(errors) = loaded {
+        reported.extend(errors);
+    }
+    stitchwort_driver::nav::index_json(&session, !ok, Some(ok), "", &reported)
 }
 
 /// The text of an embedded library file, by the `std` value of a file of
@@ -571,7 +576,7 @@ mod tests {
     fn indexes_a_program_for_navigation_and_serves_library_text() {
         let index = check_index("def f (xs: List Nat): Nat := xs.length\n");
         assert!(
-            index.starts_with(r#"{"version":1,"errors":false,"ok":true,"files":["#),
+            index.starts_with(r#"{"version":2,"errors":false,"ok":true,"files":["#),
             "{index}"
         );
         assert!(index.contains(r#"{"path":"playground.sw"}"#), "{index}");

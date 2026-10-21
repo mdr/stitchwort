@@ -1166,8 +1166,8 @@ test("hovering a name shows its type: a local, a declaration, a library function
   assert.match(await tooltip(page), /^ys local\n: List Nat$/);
   // A declaration of the program.
   await hoverAt(page, await whereIs(page, "double (double n)", 0, 6));
-  await page.until(`document.getElementById("navtip").textContent.startsWith("double")`, 10000, "the tooltip of a declaration");
-  assert.match(await tooltip(page), /^double def\n: Nat -> Nat$/);
+  await page.until(`document.getElementById("navtip").textContent.startsWith("Main.double")`, 10000, "the tooltip of a declaration");
+  assert.match(await tooltip(page), /^Main.double def\n: Nat -> Nat$/);
   // Off a name, there is none.
   await hoverAt(page, await whereIs(page, "def double", 1, 1));
   await page.until(`document.getElementById("navtip").hidden`, 5000, "the tooltip to go");
@@ -1217,7 +1217,7 @@ test("Cmd-click on a library function shows the library's text, read-only, at it
   await page.until(`!document.getElementById("stdbar").hidden`, 30000, "the library's text");
   assert.match(await page.ev(`document.getElementById("std-name").textContent`), /\.sw$/);
   const there = await selected(page);
-  assert.equal(there.text, "List.length");
+  assert.equal(there.text, "length");
   assert.equal(there.readOnly, true);
   // The line is the library's: the text shown has `length` defined there, and it's in view.
   const view = await page.ev(`(() => { const s = document.getElementById("source"), css = getComputedStyle(s);
@@ -1262,6 +1262,125 @@ test("Cmd-click in a project goes to the definition in another file, and a libra
   // Hovering a library name in a project.
   await hoverAt(page, await whereIs(page, "List.rangeFrom size 1", 5, 9));
   await page.until(`document.getElementById("navtip").textContent.includes("Std.List.rangeFrom")`, 30000, "a library name's tooltip");
+}, { ms: 180000 });
+
+// Find references -------------------------------------------------------------------
+
+const SHIFT = 8;
+/** The panel's rows: [where, snippet text], or null while it is hidden. */
+const refRows = (page) => page.ev(`(() => { const p = document.getElementById("navrefs"); if (p.hidden) return null;
+  return { title: p.querySelector("header .title").textContent,
+           rows: [...p.querySelectorAll("li button")].map((b) => [b.querySelector(".where").textContent, b.querySelector(".snippet").textContent,
+                                                                    b.classList.contains("decl")]) }; })()`);
+const untilRefs = (page) => page.until(`!document.getElementById("navrefs").hidden`, 30000, "the references panel");
+/** Puts the caret `delta` into the first `needle`, and presses Shift+F12. */
+async function findReferencesAt(page, needle, delta) {
+  await page.ev(`(() => { const s = document.getElementById("source"); s.focus();
+    const i = s.value.indexOf(${JSON.stringify(needle)}) + ${delta}; s.setSelectionRange(i, i); })()`);
+  await page.key("F12", "F12", 123, { modifiers: SHIFT });
+  await untilRefs(page);
+}
+
+test("Shift+F12 lists the uses of a name in the file, with its declaration; clicking one goes there, and Cmd+[ comes back", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  await page.setSource(NAV_SOURCE);
+  await page.untilChecked();
+  assert.equal(await refRows(page), null);
+  await findReferencesAt(page, "(double n)", 3);
+  const panel = await refRows(page);
+  assert.match(panel.title, /^Main.double def: 2 uses$/);
+  assert.deepEqual(panel.rows, [
+    ["line 1", "def double (n: Nat) : Nat := n + n", true],
+    ["line 3", "def quad (n: Nat) : Nat := double (double n)", false],
+    ["line 3", "def quad (n: Nat) : Nat := double (double n)", false],
+  ]);
+  // The name is marked in each snippet, and the first use has the focus.
+  assert.deepEqual(await page.ev(`[...document.querySelectorAll("#navrefs li button .snippet mark")].map((m) => m.textContent)`), ["double", "double", "double"]);
+  assert.equal(await page.ev(`document.activeElement === document.querySelectorAll("#navrefs li button")[1]`), true);
+  // Go to the second use (the inner one).
+  await page.ev(`document.querySelectorAll("#navrefs li button")[2].click()`);
+  assert.equal(await page.ev(`document.getElementById("navrefs").hidden`), true);
+  assert.deepEqual(await selected(page), { text: "double", line: 3, readOnly: false });
+  assert.equal(await page.ev(`document.getElementById("source").selectionStart`),
+               (await sourceText(page)).lastIndexOf("double"));
+  await page.key("[", "BracketLeft", 219, { modifiers: CMD });
+  await page.until(`document.getElementById("source").selectionStart === document.getElementById("source").value.indexOf("(double n)") + 3`, 10000, "the way back");
+}, { ms: 90000 });
+
+test("references of a local variable and of a library function; the declaration's own name works too; Escape closes", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  await page.setSource(NAV_SOURCE);
+  await page.untilChecked();
+  // A parameter, from its binder: the binder, then its uses.
+  await findReferencesAt(page, "(ys: List Nat)", 2);
+  const local = await refRows(page);
+  assert.match(local.title, /^ys local: 1 use$/);
+  assert.equal(local.rows.length, 2);
+  assert.match(local.rows[0][1], /^def tricky \(ys: List Nat\)/);
+  assert.match(local.rows[1][1], /else List.length ys$/);
+  await page.key("Escape", "Escape", 27);
+  assert.equal(await page.ev(`document.getElementById("navrefs").hidden`), true);
+  assert.equal(await page.ev(`document.activeElement === document.getElementById("source")`), true);
+  // A library function: the uses in the program, the declaration in the library, and its other uses counted.
+  await findReferencesAt(page, "List.length xs", 5);
+  const lib = await refRows(page);
+  assert.match(lib.title, /^Std.List.length def: 2 uses/);
+  assert.deepEqual(lib.rows.map((r) => r[0]).slice(1), ["line 5", "line 7"]);
+  assert.match(lib.rows[0][0], /\.sw:\d+ \(declaration\)|\.sw:\d+/);
+  assert.match(lib.rows[0][1], /def List\.length/);
+  await page.key("Escape", "Escape", 27);
+  // Off a name, nothing opens.
+  await page.ev(`(() => { const s = document.getElementById("source"); s.focus(); s.setSelectionRange(1, 1); })()`);
+  await page.key("F12", "F12", 123, { modifiers: SHIFT });
+  await sleep(1500);
+  assert.equal(await page.ev(`document.getElementById("navrefs").hidden`), true);
+}, { ms: 90000 });
+
+test("the right-click menu on a name offers go to definition and find references", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  await page.setSource(NAV_SOURCE);
+  await page.untilChecked();
+  const at = await whereIs(page, "(double n)", 1, 3);
+  await hoverAt(page, at);
+  await untilTooltip(page); // the index is ready
+  const menu = () => page.ev(`(() => { const m = document.getElementById("navmenu"); return m.hidden ? null : [...m.querySelectorAll("button")].map((b) => b.textContent); })()`);
+  const contextMenu = (p) => page.ev(`document.getElementById("source").dispatchEvent(new MouseEvent("contextmenu", { clientX: ${p.x}, clientY: ${p.y}, bubbles: true, cancelable: true }))`);
+  // The browser's own menu is left alone off a name (the event isn't cancelled).
+  assert.equal(await contextMenu(await whereIs(page, "def double", 1, 1)), true);
+  assert.equal(await menu(), null);
+  assert.equal(await contextMenu(at), false);
+  assert.deepEqual(await menu(), ["Go to definitionF12", "Find references⇧F12"]);
+  await page.ev(`document.querySelectorAll("#navmenu button")[1].click()`);
+  await untilRefs(page);
+  assert.equal(await menu(), null);
+  assert.equal((await refRows(page)).rows.length, 3);
+}, { ms: 90000 });
+
+test("references in a project include other files; clicking one opens that file", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  await openDay(page, 2);
+  await page.until(`document.querySelectorAll("#filetabs button").length === ${DAY2_TABS.length}`, 10000, "day 2's tabs");
+  await page.ev(`document.getElementById("source").focus()`);
+  await findReferencesAt(page, "def solvePart1 (ranges: List Range)", 30);
+  const panel = await refRows(page);
+  assert.match(panel.title, /^Aoc\.Common\.Range record: \d+ uses?$/);
+  const labels = panel.rows.map((r) => r[0].replace(/:\d+( \(declaration\))?$/, ""));
+  assert.ok(labels.includes("Common/Range.sw"), `rows: ${labels}`);
+  assert.ok(labels.includes("Day02.sw"), `rows: ${labels}`);
+  // The declaration is in Common/Range.sw: go to it from the panel.
+  const decl = panel.rows.findIndex((r) => r[2]);
+  assert.match(panel.rows[decl][0], /^Common\/Range\.sw:/);
+  await page.ev(`document.querySelectorAll("#navrefs li button")[${decl}].click()`);
+  await page.until(`document.querySelector('#filetabs [aria-selected="true"]').firstChild.textContent === "Common/Range.sw"`, 60000, "the other file");
+  assert.equal((await selected(page)).text, "Range");
+  assert.equal(await sourceText(page), await bundled(page, "src/Aoc/Common/Range.sw"));
+  // Back to where it was asked from.
+  await page.key("[", "BracketLeft", 219, { modifiers: CMD });
+  await page.until(`document.querySelector('#filetabs [aria-selected="true"]').firstChild.textContent === "Day02.sw"`, 10000, "the way back");
 }, { ms: 180000 });
 
 // Running them -------------------------------------------------------------------

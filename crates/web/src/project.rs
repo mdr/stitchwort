@@ -281,10 +281,13 @@ pub fn check_project(paths: Vec<String>, texts: Vec<String>, targets: &str) -> S
 pub fn check_index_project(paths: Vec<String>, texts: Vec<String>, targets: &str) -> String {
     let mut session = new_session(&paths, &texts);
     session.elab.enable_navigation();
-    let ok = session
-        .load_project_sources(PROJECT, pairs(&paths, &texts), &target_of(targets))
-        .is_ok();
-    stitchwort_driver::nav::index_json(&session, !ok, Some(ok), &format!("{PROJECT}/"))
+    let loaded = session.load_project_sources(PROJECT, pairs(&paths, &texts), &target_of(targets));
+    let ok = loaded.is_ok();
+    let mut reported = std::mem::take(&mut session.warnings);
+    if let Err(errors) = loaded {
+        reported.extend(errors);
+    }
+    stitchwort_driver::nav::index_json(&session, !ok, Some(ok), &format!("{PROJECT}/"), &reported)
 }
 
 /// [`super::test`] for a project: each result also has its `namespace`.
@@ -466,7 +469,7 @@ mod tests {
             ];
             let index = check_index_project(paths, texts, "");
             assert!(
-                index.starts_with(r#"{"version":1,"errors":false,"ok":true,"files":["#),
+                index.starts_with(r#"{"version":2,"errors":false,"ok":true,"files":["#),
                 "{index}"
             );
             assert!(index.contains(r#"{"path":"src/B/B.sw"}"#), "{index}");

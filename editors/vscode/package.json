@@ -1,7 +1,7 @@
 {
   "name": "stitchwort",
   "displayName": "Stitchwort",
-  "description": "Syntax colouring, go to definition, hover and outline for Stitchwort (.sw) files",
+  "description": "Syntax colouring, go to definition, references, hover, outline, workspace symbols and diagnostics for Stitchwort (.sw) files",
   "version": "0.1.0",
   "publisher": "local",
   "private": true,
