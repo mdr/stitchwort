@@ -1,5 +1,5 @@
 {
-  "next": 230,
+  "next": 234,
   "tickets": [
     {
       "id": 1,
@@ -3442,6 +3442,54 @@
       "where": "",
       "labels": [],
       "body": "Add `Std.Mod`: `Mod n`, a Nat below n (Mod 0 has the one value 0) with wrapping `+` and `*` via Add/Mul instances with their laws proved, derived ==/<, named Mod.sub/Mod.neg, Mod.ofNat/Mod.ofInt that wrap, Fin.toMod/Mod.toFin. Range proof built by decision, not Nat.modLt (measured: modLt made rfl proofs blow up with the modulus). Fin stays index-only. D311 (Matt, 21 Oct 2026); details D312-D317 as recommended in docs/proposals/fin-arithmetic.md. D318 (Dial to Mod) later, separately.\n\nDone when: std/Mod/Mod.sw with laws and tests, an example (day 1 part 1 style), docs/syntax.md section, affected areas pass.\n",
+      "created": "2026-10-21",
+      "updated": "2026-10-21",
+      "commits": []
+    },
+    {
+      "id": 230,
+      "title": "Fast runtime stage 1: erased IR (stitchwort-rt)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "Lowering checked definitions to an erased, closure-converted IR with saturated calls, slot variables, match as tag switch, if/== specialised, natives by index; pretty-printer. docs/proposals/fast-runtime.md §5 stage 1. Done when: every examples/ and aoc/ main lowers, IR snapshots for a few, unit tests.\n\nD381 (Matt, 21 Oct 2026).\n",
+      "created": "2026-10-21",
+      "updated": "2026-10-21",
+      "commits": []
+    },
+    {
+      "id": 231,
+      "title": "Fast runtime stage 2: bytecode machine",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "Interpreter with its own frame stack, small Nat inline + BigUint fallback, Rc values, nullary constructors without allocation, iterative freeing, tail calls, resource limits (E-RESOURCE), Comp runner and Delay stepping as run --js. fast-runtime.md stage 2. Done when: runs IR from stage 1 on the examples with outputs equal to the reference evaluator.\n\nD381 (Matt, 21 Oct 2026).\n",
+      "created": "2026-10-21",
+      "updated": "2026-10-21",
+      "commits": []
+    },
+    {
+      "id": 232,
+      "title": "Fast runtime stage 3: wiring and differential tests",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "run --rt and the playground behind a switch; every examples/ and aoc/ main and bench program on both the runtime and the reference evaluator with equal output. fast-runtime.md stage 3. Done when: differential tests pass; then D386 default switch.\n\nD381 (Matt, 21 Oct 2026).\n",
+      "created": "2026-10-21",
+      "updated": "2026-10-21",
+      "commits": []
+    },
+    {
+      "id": 233,
+      "title": "Fast runtime stage 4: tuning",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "In-place reuse (Perceus/Lean style), combined instructions, measured against bench/baseline.toml. fast-runtime.md stage 4.\n\nD381 (Matt, 21 Oct 2026).\n",
       "created": "2026-10-21",
       "updated": "2026-10-21",
       "commits": []
