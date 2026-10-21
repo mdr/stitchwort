@@ -2188,6 +2188,79 @@ What differs from the text above, or wasn't settled by it:
    and the bench counts are unchanged.
 8. **Not done here**, as planned: `Map.instShow` (SW-113), derived `Ord`
    (stage 7).
+
+## As built (stage 7)
+
+Stage 7 is built (SW-4, 21 October 2026): derived `Ord` for enumerations,
+records and data types with fields, with value parameters and proof
+fields as derived `DecEq` has them. Code: `crates/elab/src/derive_ord.rs`
+(new), `derive.rs` (its field plan and its proof that equal fields give
+equal values, now shared), `interfaces.rs` (`ord`, the note on
+`E-INSTANCE-NONE`); the lemmas the proofs are made of are at the end of
+the `Ord` part of `crates/elab/src/std/core.sw`. Surface: docs/syntax.md
+"Interfaces". Tests: `examples/accept/derive-ord-enum.sw`, `-record.sw`
+(§7.3's `Item`, `Dial` ordered by `position`, a list of records sorted
+with `List.sort`), `-data.sw`, `-params.sw`, `-own.sw` (a module's own
+instance), `examples/reject/derive-ord-none.sw`, and
+`examples/extract/derive-ord.sw` (agrees with the reference evaluator in
+JS). AoC answers are the same.
+
+What differs from the text above, or wasn't settled by it:
+
+1. **What's generated.** `T.%compare` (one equation per constructor, its
+   data fields compared left to right with `Ordering.andThen`, and a last
+   equation for different constructors, `Nat.compare` of their tags), its
+   laws `T.%equal`, `T.%flip` and `T.%trans`, and `instance T.%instOrd :=
+   Ord.fromCompare T.%compare T.%equal T.%flip T.%trans`, as source, like
+   derived `DecEq` and `Show`. A field of type `T` itself is a recursive
+   call (and its laws recursive calls of the laws); any other data field
+   uses `Ord.compare` and `Ord`'s laws. Type parameters get `[auto ord: Ord
+   a]` (`ordA`, … when several), for the same parameters derived `DecEq`
+   asks `DecEq` of.
+2. **Combinator proofs.** Each constructor's case of a law is one lemma
+   per data field, proved once in the core: `Ordering.thenEqual` (splits
+   `andThen c d = Equal`), `Ordering.thenFlip`, `Ord.thenTrans` and
+   `Ordering.thenTransBy` (for a recursive field). Their comparisons are
+   implicit, found from the proofs' types: written out as arguments, an
+   `Ord.compare x y` left its dictionary unknown when the argument was
+   compared with the lemma's type, and the comparison failed. `equal`
+   rebuilds the value from the fields' equations with derived `DecEq`'s
+   proof (proof fields by `DecEq.uniqueEq`), now shared
+   (`derive::fields_equal`).
+3. **Different constructors.** The last equation of each law covers every
+   pair of different constructors, so it's checked once per pair, as
+   derived `DecEq`'s `T.%differ` is: `equal` refutes `Nat.compare i j =
+   Equal` by `Nat.equalFalse … rfl`, `flip` is `Nat.compareFlip` of the
+   tags. `trans` uses `Ordering.byTagTrans`: transitivity of `andThen`
+   with the tags first, where the rest is only needed when all three tags
+   are equal, which `Ordering.notBothEqual … rfl` refutes in each case
+   left. The case tree doesn't look at the third value when the first two
+   differ, so that equation goes through `T.%unfold: T.%compare r s =
+   Ordering.andThen (Nat.compare (T.%tag r) (T.%tag s)) (T.%compare r s)`,
+   which is `rfl` in every case. An **enumeration** is just its tags:
+   `T.%compare r s = Nat.compare (T.%tag r) (T.%tag s)`, `flip` and `trans`
+   are `Nat`'s, and only `equal` has a case per constructor. Records and
+   types with one constructor have no tags.
+4. **`Ord` needs `T`'s `DecEq`** (its `eq`, found by `Ord.fromCompare`).
+   So `Ord` isn't derived where `DecEq` isn't (the note gives `==`'s
+   reason), nor where the module declares its own `DecEq` for `T`: that
+   instance isn't checked yet when `T` is declared (it depends on `T`), so
+   the note asks for an `Ord` instance as well. Otherwise the reasons are
+   derived `DecEq`'s, with "has no `Ord` instance" for a data field
+   (`derive-ord-none.sw`: a field whose type has its own `DecEq` and no
+   `Ord`). `E-INSTANCE-NONE` for `Ord` of a function type now says
+   "functions can't be ordered" (`ord-none.sw`'s snapshot gained the note).
+5. **A module's own instance replaces the derived one** by names, as for
+   `DecEq` and `Show`; the library's types are skipped.
+6. **Hashes.** No existing hash changed. The snapshots gained the eight
+   lemmas in the prelude and, for each data type and record in the hash
+   examples that gets one, `T.%compare`, `T.%equal`, `T.%flip`,
+   `T.%trans`, `T.%instOrd` (and `T.%unfold` with two constructors or
+   more, not an enumeration).
+7. **Cost** (§13, risk 5). The examples benchmark on the same 440 files,
+   before and after: 497.9 M to 527.2 M steps (+5.9%), 74.6 M to 78.1 M
+   visits (+4.7%), 510.6 M to 536.7 M allocations (+5.1%), 28.3 s to 30.0 s
+   (+6%); peak heap unchanged. (The new examples add 28 M steps more.)
 ---
 
 ## 14. Decisions

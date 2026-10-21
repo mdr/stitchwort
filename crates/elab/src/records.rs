@@ -57,7 +57,8 @@ impl Elaborator {
             self.after_interface(d, projections)?;
         }
         self.derive_data_eq(d)?;
-        self.derive_data_show(d)
+        self.derive_data_show(d)?;
+        self.derive_data_ord(d)
     }
 
     /// Defines `R.field : [params] -> (r : R params) -> T` for each field,

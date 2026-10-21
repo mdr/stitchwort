@@ -8,4 +8,6 @@ expression: output
  6 │ def byResult (fs: List (Nat -> Nat)): List (Nat -> Nat) := List.sort fs
    │                                                            ──────┬─────  
    │                                                                  ╰─────── this needs `Ord (Nat -> Nat)`
+   │ 
+   │ Note: functions can't be ordered
 ───╯
