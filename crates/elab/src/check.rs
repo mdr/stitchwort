@@ -348,6 +348,11 @@ impl<'e> Ctx<'e> {
         pretty::value_for_message(self.g(), &self.names, value)
     }
 
+    /// [`Ctx::show`], with the arguments the compiler fills in.
+    pub fn show_hidden(&self, value: &Value) -> String {
+        pretty::value_for_message_hidden(self.g(), &self.names, value)
+    }
+
     pub fn error(
         &self,
         code: &'static str,
@@ -385,11 +390,32 @@ impl<'e> Ctx<'e> {
                 )
                 .with_note("`Type n` lives in `Type (n+1)`; allowing `Type: Type` would make the logic inconsistent");
         }
+        // Two types that print the same differ in something the compiler
+        // fills in (an implicit argument, a proof): show those.
+        let (expected_shown, found_shown, hidden) = if expected_shown == found_shown {
+            let (e, f) = (self.show_hidden(expected), self.show_hidden(found));
+            if e != f {
+                (e, f, true)
+            } else {
+                (expected_shown, found_shown, false)
+            }
+        } else {
+            (expected_shown, found_shown, false)
+        };
         let d = self.error(
             "E-TYPE-MISMATCH",
             "type mismatch",
             format!("expected `{expected_shown}`, but this has type `{found_shown}`"),
         );
+        let d = if hidden {
+            d.with_note(
+                "the two types differ only in arguments the compiler fills in, shown here in \
+                 `[brackets]` (an implicit argument, or a proof such as `d != 0`; proofs of the \
+                 same statement aren't interchangeable)",
+            )
+        } else {
+            d
+        };
         match crate::data_auto::auto_mismatch_note(self, expected, found) {
             Some(note) => d.with_note(note),
             None => d,
@@ -2353,6 +2379,15 @@ fn written_sides(cx: &Ctx, a: &Value, b: &Value) -> Option<(String, String)> {
     Some((show(ga), show(gb)))
 }
 
+/// Whether a label "`a` and `b` aren't equal" has the same text for both.
+fn written_equal(label: &str) -> bool {
+    label
+        .strip_suffix("` aren't equal")
+        .and_then(|l| l.strip_prefix('`'))
+        .and_then(|l| l.split_once("` and `"))
+        .is_some_and(|(a, b)| a == b)
+}
+
 /// The `E-REFL` error for sides `a` and `b` that aren't equal (kept out of
 /// `check`, whose stack frame is on every recursion).
 #[inline(never)]
@@ -2373,8 +2408,26 @@ fn refl_error(cx: &Ctx, a: &Value, b: &Value) -> Diagnostic {
         }
         None => (format!("`{shown_a}` and `{shown_b}` aren't equal"), None),
     };
+    // Both sides print the same: they differ in what the compiler fills in
+    // (`Int.modNat x 3 [ok := p]` with two different proofs `p`).
+    let (label, hidden) = if shown_a == shown_b || written_equal(&label) {
+        let (ha, hb) = (cx.show_hidden(a), cx.show_hidden(b));
+        if ha != hb {
+            (format!("`{ha}` and `{hb}` aren't equal"), true)
+        } else {
+            (label, false)
+        }
+    } else {
+        (label, false)
+    };
     let mut error = cx.error("E-REFL", "`rfl` can't prove this", label);
-    if let Some(computed) = computed {
+    if hidden {
+        error = error.with_note(
+            "the two sides differ only in arguments the compiler fills in, shown here in \
+             `[brackets]` (an implicit argument, or a proof such as `d != 0`; proofs of the \
+             same statement aren't interchangeable)",
+        );
+    } else if let Some(computed) = computed {
         error = error.with_note(computed);
     }
     error.with_note("`rfl` proves `a = b` only when both sides compute to the same value")
