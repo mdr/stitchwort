@@ -3437,7 +3437,7 @@
     {
       "id": 229,
       "title": "Std.Mod: wrapping arithmetic modulo n (D311)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
