@@ -55,10 +55,10 @@
     },
     {
       "id": 4,
-      "title": "Interfaces design note (Agda/Lean style, with independent review)",
-      "status": "review",
+      "title": "Interfaces: design note (reviewed) and build, stages 1-7",
+      "status": "done",
       "agent": "Opus",
-      "where": "D195 approved: instances by name, then stage 5 merge (lane running)",
+      "where": "docs/proposals/interfaces.md (As built, stages 1-7)",
       "labels": [
         "design",
         "elab"
