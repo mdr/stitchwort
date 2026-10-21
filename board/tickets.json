@@ -1,5 +1,5 @@
 {
-  "next": 191,
+  "next": 192,
   "tickets": [
     {
       "id": 1,
@@ -420,7 +420,7 @@
     {
       "id": 28,
       "title": "Identical-looking type mismatch",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -1645,7 +1645,7 @@
     {
       "id": 108,
       "title": "`Nil == Nil` with an unknown element type gives E-AUTO-NONE",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -2108,7 +2108,7 @@
     {
       "id": 138,
       "title": "Lambda argument fails to infer (E-CANNOT-INFER) when a later argument's type depends on it",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -2155,7 +2155,7 @@
     {
       "id": 141,
       "title": "W-MODULE-NAME fires on a module function passed as an argument in a theorem signature",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -2793,7 +2793,7 @@
     {
       "id": 181,
       "title": "Coverage: omitted Nat arm not excused when a later column (Fin 0) is empty",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -2808,13 +2808,13 @@
     {
       "id": 182,
       "title": "Derived == for indexed families",
-      "status": "doing",
+      "status": "backlog",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "elab"
       ],
-      "body": "SW-178 As built: no derived DecEq/== for types with indices yet; tests compare toList. Fold into the interfaces DecEq stage (SW-4 stage 2) or do separately.",
+      "body": "Derived == (DecEq) for indexed families. Bug sweep 21 Oct 2026: derive.rs:214 refuses types with indices, and derive handles only fields whose types don't depend on earlier fields (line 13); families like VCons [n := m] x (xs: Vec a m) need dependent injectivity projections, index-generic tag/differ helpers, and a J-based proof carrying index unification (>300 lines). Options: (1) only families whose fields don't depend on implicit fields; (2) full dependent derivation; (3) leave it. Note Fin's FSucc [n := j] (i: Fin j) has a dependent field, so option 1 doesn't cover Fin. Parked (Claude, 21 Oct): Vec has a library DecEq (Vec.sw:115); Fin has none yet (SW-191). Revisit when a program needs == on a user-defined family.",
       "created": "2026-10-20",
       "updated": "2026-10-21",
       "commits": []
@@ -2932,6 +2932,20 @@
         "stdlib"
       ],
       "body": "Map.sw passes [ord := ord] to Ord.compare throughout to work around SW-188, which doesn't reproduce on main. Remove them and check dev/t std still passes.",
+      "created": "2026-10-21",
+      "updated": "2026-10-21",
+      "commits": []
+    },
+    {
+      "id": 191,
+      "title": "Fin: hand-written DecEq instance in the library (like Vec.instDecEq)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "stdlib"
+      ],
+      "body": "std/Fin/Fin.sw has no DecEq, so == on Fin n doesn't work; derived == for families is parked (SW-182). Write Fin.instDecEq by hand, as Vec.sw:115 does, with tests.",
       "created": "2026-10-21",
       "updated": "2026-10-21",
       "commits": []
