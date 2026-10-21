@@ -1,5 +1,5 @@
 {
-  "next": 185,
+  "next": 186,
   "tickets": [
     {
       "id": 1,
@@ -63,7 +63,7 @@
         "design",
         "elab"
       ],
-      "body": "Interfaces design note (Opus, with independent review), Agda/Lean style:\nan interface is a record (laws as proof fields), instances found by\ngeneralising the `Decidable` auto search; coherence, predictability,\nhashes, namespaces §8. After the current work, before days 6-9 (sort,\nmaps, sets; would remove `sum`/`sumInt` duplication). User, 19 Oct.\n\nUser (19 Oct): not starting the interfaces design yet. Draft 3/4 of multi-file.md §4.9.6 sketches the direction; the reviewer's interface-overlap finding is input for this note.",
+      "body": "Interfaces design note (Opus, with independent review), Agda/Lean style:\nan interface is a record (laws as proof fields), instances found by\ngeneralising the `Decidable` auto search; coherence, predictability,\nhashes, namespaces §8. After the current work, before days 6-9 (sort,\nmaps, sets; would remove `sum`/`sumInt` duplication). User, 19 Oct.\n\nUser (19 Oct): not starting the interfaces design yet. Draft 3/4 of multi-file.md §4.9.6 sketches the direction; the reviewer's interface-overlap finding is input for this note.\n\n21 Oct 2026: D195 (instances folded by name) and stage 5 merged 9990873; all seven stages built.",
       "created": "2026-10-19",
       "updated": "2026-10-21",
       "commits": []
@@ -71,8 +71,8 @@
     {
       "id": 5,
       "title": "Implement `include \"file\"`: compile-time text from a file, hashed by content",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [
         "design",
@@ -80,7 +80,7 @@
       ],
       "body": "Design is docs/proposals/multi-file.md §10 and D14 (path relative to the including file, inside the project; the contents, not the path, are hashed so the test cache covers input files; precedents: Rust include_str!, Zig @embedFile, Lean include_str). multi-file stage 2 is in progress (see SW-3's successor), and the doc says `include` can land any time (line 1374). Today it is E-INCLUDE-UNAVAILABLE (multi-file.md:1228). Done: `(include \"inputs/day04.txt\").lines` checks, edits to the file invalidate cached tests, and a missing/out-of-project path has a clear error.\n\nSplit 19 Oct into SW-125 (real-input AoC tests via `include`).",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -1721,8 +1721,8 @@
     {
       "id": 113,
       "title": "Balanced-tree Map and Set",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Opus",
       "where": "",
       "labels": [
         "stdlib",
@@ -1730,7 +1730,7 @@
       ],
       "body": "docs/aoc-2025.md capability #6: Map/Set with ordered keys, for days 4, 7, 8. D152 (Matt, 20 Oct 2026): blocked on the interfaces design (SW-4) for key ordering (Ord). Balanced tree (weight-balanced as Haskell Data.Map, or AVL), invariants as separate theorems, contents as a sorted list. Sonnet build; Opus for proofs.",
       "created": "2026-10-19",
-      "updated": "2026-10-20",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -1902,15 +1902,15 @@
     {
       "id": 125,
       "title": "AoC: real-input tests in per-day `dayNN.input.sw` files via `include`",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [
         "aoc"
       ],
       "body": "After `include` (SW-5): add aoc/day04.input.sw etc. with `test` lines comparing solvePart1/2 on `include`d real inputs; inputs stay gitignored (aoc/inputs). Done: `stitchwort test aoc/...` runs them locally; CI without inputs skips cleanly. Depends on SW-5.",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -2844,6 +2844,21 @@
         "interfaces"
       ],
       "body": "Decided 21 Oct (Matt deferred to Claude). D198: hash the instance marker on Decidable procedures (expect a one-off hash change for programs using < && etc.). D197: docs/syntax.md note that match e: x also substitutes into definitions the goal mentions and hypotheses (day 4 pain point 1, docs/aoc-2025.md). D203: reword interfaces.md §7.5 case 2 (IsData gone: pure-function map accepted, self-storing ability refused). Do after the D195/stage 5 lane merges.",
+      "created": "2026-10-21",
+      "updated": "2026-10-21",
+      "commits": []
+    },
+    {
+      "id": 185,
+      "title": "Examples benchmark: core grew with stage 5 laws (prelude 708k → 861k steps per session); cache the checked core between sessions?",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "performance",
+        "tooling"
+      ],
+      "body": "Stage 5 (interfaces, operators through dictionaries) moved laws into the bootstrap phase; each session's prelude now costs 861k steps (was 708k), which is ~68M of the +80M (+14.6%) examples benchmark rise. Accepted for now (21 Oct 2026). Options: share the checked core across sessions in one process, or a persistent cache (SW-27).",
       "created": "2026-10-21",
       "updated": "2026-10-21",
       "commits": []
