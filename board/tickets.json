@@ -2939,7 +2939,7 @@
     {
       "id": 191,
       "title": "Fin: hand-written DecEq instance in the library (like Vec.instDecEq)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
