@@ -1,5 +1,5 @@
 {
-  "next": 184,
+  "next": 185,
   "tickets": [
     {
       "id": 1,
@@ -2830,6 +2830,20 @@
         "interfaces"
       ],
       "body": "D209 (Matt, 21 Oct): for now a hand-written DecEq for T blocks the derived Ord (E-INSTANCE-NONE with a note). Option b: derive Ord after the module's own instances are checked, using the hand-written DecEq as eq. Caveat: if that == ignores a field, a field-by-field Ord breaks the laws (a proof that fails to check, with a confusing error); consider detecting that and giving a clear message.",
+      "created": "2026-10-21",
+      "updated": "2026-10-21",
+      "commits": []
+    },
+    {
+      "id": 184,
+      "title": "Interfaces follow-ups: hash decision-procedure instance marker (D198); doc match e: x substitution (D197); reword §7.5 case 2 (D203)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "interfaces"
+      ],
+      "body": "Decided 21 Oct (Matt deferred to Claude). D198: hash the instance marker on Decidable procedures (expect a one-off hash change for programs using < && etc.). D197: docs/syntax.md note that match e: x also substitutes into definitions the goal mentions and hypotheses (day 4 pain point 1, docs/aoc-2025.md). D203: reword interfaces.md §7.5 case 2 (IsData gone: pure-function map accepted, self-storing ability refused). Do after the D195/stage 5 lane merges.",
       "created": "2026-10-21",
       "updated": "2026-10-21",
       "commits": []
