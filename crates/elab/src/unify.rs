@@ -558,31 +558,16 @@ pub(crate) fn refold(
 ) -> std::result::Result<Term, ZonkError> {
     let mut term = term;
     for (slot, normal) in lets {
-        // The value moved under `under` more binders, made when needed.
-        let shifted: std::cell::RefCell<Vec<Option<Term>>> = Default::default();
-        let failed = std::cell::Cell::new(false);
+        // The value, moved under `under` more binders, is compared without
+        // making the moved copy.
         let hook = |t: &Term, under: usize| {
-            let mut shifted = shifted.borrow_mut();
-            if shifted.len() <= under {
-                shifted.resize(under + 1, None);
-            }
-            if shifted[under].is_none() {
-                match normal.shift(g, level - slot + under, 0) {
-                    Ok(n) => shifted[under] = Some(n),
-                    Err(_) => {
-                        failed.set(true);
-                        return None;
-                    }
-                }
-            }
-            let needle = shifted[under].as_ref().expect("just made");
-            crate::matching::same(needle, t).then(|| Term::Var(level + under - 1 - slot))
+            crate::matching::same_shifted(normal, t, level - slot + under, 0)
+                .then(|| Term::Var(level + under - 1 - slot))
         };
-        let folded =
-            crate::lift::replace_with(g, &term, level, &|l| Ok(Term::Var(level - 1 - l)), &hook);
-        match folded {
-            Ok(t) if !failed.get() => term = t,
-            _ => {
+        match fold_back(g, &term, 0, &hook) {
+            Ok(Some(t)) => term = t,
+            Ok(None) => {}
+            Err(_) => {
                 return Err(ZonkError::Resource(ResourceError::Nesting(
                     crate::check::PASS,
                 )));
@@ -590,6 +575,132 @@ pub(crate) fn refold(
         }
     }
     Ok(term)
+}
+
+/// [`refold`]'s pass: `term` (under `under` binders of the pass) with each
+/// sub-term `hook` replaces replaced, outermost first, or `None` if it
+/// replaces none. What's unchanged is shared, not rebuilt: most passes
+/// find nothing to fold, and rebuilding (and then dropping) a large normal
+/// form once per `let` in scope was most of the cost of lifting.
+fn fold_back(
+    g: &Globals,
+    term: &Term,
+    under: usize,
+    hook: &dyn Fn(&Term, usize) -> Option<Term>,
+) -> Result<Option<Term>> {
+    g.budget.nesting(crate::check::PASS)?;
+    if let Some(t) = hook(term, under) {
+        return Ok(Some(t));
+    }
+    // A child, folded; `None` if unchanged.
+    let go = |t: &Rc<Term>, under| fold_back(g, t, under, hook).map(|t| t.map(Rc::new));
+    // The children, if any changed.
+    let all = |ts: &[Rc<Term>], under| -> Result<Option<Vec<Rc<Term>>>> {
+        let mut out: Option<Vec<Rc<Term>>> = None;
+        for (i, t) in ts.iter().enumerate() {
+            if let Some(new) = go(t, under)? {
+                out.get_or_insert_with(|| ts[..i].to_vec()).push(new);
+            } else if let Some(out) = &mut out {
+                out.push(t.clone());
+            }
+        }
+        Ok(out)
+    };
+    let or = |new: Option<Rc<Term>>, old: &Rc<Term>| new.unwrap_or_else(|| old.clone());
+    Ok(match term {
+        Term::Var(_)
+        | Term::Def(_)
+        | Term::Nat(_)
+        | Term::Chars(_)
+        | Term::Sort(_)
+        | Term::Refl
+        | Term::Meta(_) => None,
+        Term::Data(d, args) => all(args, under)?.map(|args| Term::Data(*d, args)),
+        Term::Ctor(d, c, args) => all(args, under)?.map(|args| Term::Ctor(*d, *c, args)),
+        Term::Pi(x, i, a, b) => match (go(a, under)?, go(b, under + 1)?) {
+            (None, None) => None,
+            (a2, b2) => Some(Term::Pi(x.clone(), *i, or(a2, a), or(b2, b))),
+        },
+        Term::Lam(x, i, b) => go(b, under + 1)?.map(|b| Term::Lam(x.clone(), *i, b)),
+        Term::App(h, a, i) => match (go(h, under)?, go(a, under)?) {
+            (None, None) => None,
+            (h2, a2) => Some(Term::App(or(h2, h), or(a2, a), *i)),
+        },
+        Term::Ann(e, t) => match (go(e, under)?, go(t, under)?) {
+            (None, None) => None,
+            (e2, t2) => Some(Term::Ann(or(e2, e), or(t2, t))),
+        },
+        Term::Let(x, a, v, b, e) => match (go(a, under)?, go(v, under)?, go(b, under + 1)?) {
+            (None, None, None) => None,
+            (a2, v2, b2) => Some(Term::Let(x.clone(), or(a2, a), or(v2, v), or(b2, b), *e)),
+        },
+        Term::Case(ix, d, branches) => {
+            let mut new: Vec<Option<Rc<Term>>> = Vec::with_capacity(branches.len());
+            for b in branches.iter() {
+                new.push(match &b.body {
+                    Some(body) => go(body, under + b.names.len())?,
+                    None => None,
+                });
+            }
+            if new.iter().all(Option::is_none) {
+                None
+            } else {
+                Some(Term::Case(
+                    *ix,
+                    *d,
+                    branches
+                        .iter()
+                        .zip(new)
+                        .map(|(b, n)| stitchwort_core::term::Branch {
+                            names: b.names.clone(),
+                            body: b.body.as_ref().map(|old| or(n, old)),
+                        })
+                        .collect(),
+                ))
+            }
+        }
+        Term::NumCase(ix, arms, default) => {
+            let mut new: Vec<Option<Rc<Term>>> = Vec::with_capacity(arms.len());
+            for a in arms.iter() {
+                new.push(go(&a.body, under)?);
+            }
+            let default2 = go(default, under)?;
+            if new.iter().all(Option::is_none) && default2.is_none() {
+                None
+            } else {
+                Some(Term::NumCase(
+                    *ix,
+                    arms.iter()
+                        .zip(new)
+                        .map(|(a, n)| stitchwort_core::term::NumArm {
+                            value: a.value.clone(),
+                            body: or(n, &a.body),
+                        })
+                        .collect(),
+                    or(default2, default),
+                ))
+            }
+        }
+        Term::Eq(t, a, b) => {
+            let t2 = match t {
+                Some(t) => go(t, under)?,
+                None => None,
+            };
+            match (t2, go(a, under)?, go(b, under)?) {
+                (None, None, None) => None,
+                (t2, a2, b2) => Some(Term::Eq(
+                    t.as_ref().map(|t| or(t2, t)),
+                    or(a2, a),
+                    or(b2, b),
+                )),
+            }
+        }
+        Term::J(m, b, p) => match (go(m, under)?, go(b, under)?, go(p, under)?) {
+            (None, None, None) => None,
+            (m2, b2, p2) => Some(Term::J(or(m2, m), or(b2, b), or(p2, p))),
+        },
+        Term::Loc(span, t) => go(t, under)?.map(|t| Term::Loc(*span, t)),
+    })
 }
 
 /// `f`'s result, if it's cheap to compute: a `let`'s value's normal form,

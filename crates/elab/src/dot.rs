@@ -901,16 +901,27 @@ fn call(
 }
 
 /// What `recv.field` calls, if that can be found without elaborating `recv`
-/// (a variable, or a definition without implicit parameters): for deciding
-/// whether a call performs operations before elaborating it.
+/// (a variable, a definition without implicit parameters, or a call whose
+/// result type is known from the function's type, such as `w.toNat` in
+/// `w.toNat.orAbort`): for deciding whether a call performs operations
+/// before elaborating it.
 pub(crate) fn target(cx: &Ctx, recv: &Expr, field: &AstName) -> Result<Option<DefId>> {
+    target_within(cx, recv, field, 8)
+}
+
+fn target_within(cx: &Ctx, recv: &Expr, field: &AstName, depth: usize) -> Result<Option<DefId>> {
     let g = cx.g();
-    let Expr::Var(name) = recv else {
-        return Ok(None);
-    };
     if helper(cx, recv, field).is_some() {
         return Ok(None);
     }
+    let Expr::Var(name) = recv else {
+        return Ok(match call_result(cx, recv, depth)? {
+            Some(ty) => find(cx, recv, field, Ty::Value(ty))
+                .ok()
+                .map(|(_, id, _)| id),
+            None => None,
+        });
+    };
     if cx.local(&name.text)?.is_some() {
         return Ok(None);
     }
@@ -929,6 +940,61 @@ pub(crate) fn target(cx: &Ctx, recv: &Expr, field: &AstName) -> Result<Option<De
         }
     };
     Ok(find(cx, recv, field, ty).ok().map(|(_, id, _)| id))
+}
+
+/// The result type of the call `expr` (`f x`, `x.f`, `x.f y`), when it can be
+/// read off the function's type without elaborating the call: only its head
+/// matters, for finding a namespace. `None` if it can't (a lambda, a local
+/// function, a result that's still a function, or too deep a chain).
+fn call_result(cx: &Ctx, expr: &Expr, depth: usize) -> Result<Option<Value>> {
+    if depth == 0 {
+        return Ok(None);
+    }
+    let mut explicit = 0;
+    let mut head = expr;
+    while let Expr::App(f, a) = head {
+        if !matches!(**a, Expr::NamedArg(..)) {
+            explicit += 1;
+        }
+        head = f;
+    }
+    let id = match head {
+        Expr::Field(inner, f) if helper(cx, inner, f).is_none() => {
+            explicit += 1;
+            match target_within(cx, inner, f, depth - 1)? {
+                Some(id) => id,
+                None => return Ok(None),
+            }
+        }
+        Expr::Var(name) if cx.lookup(&name.text).is_none() && cx.local(&name.text)?.is_none() => {
+            match cx.e.named(&name.text) {
+                Some((Global::Def(id), _)) => *id,
+                _ => return Ok(None),
+            }
+        }
+        _ => return Ok(None),
+    };
+    if explicit == 0 {
+        return Ok(None);
+    }
+    let g = cx.g();
+    let mut ty = g.def(id).ty_value.clone();
+    let mut level = cx.level();
+    loop {
+        match force(g, ty)? {
+            Value::Pi(_, icit, _, cod) => {
+                if !icit.is_implicit() {
+                    if explicit == 0 {
+                        return Ok(None);
+                    }
+                    explicit -= 1;
+                }
+                ty = cod.apply(g, Value::var(level))?;
+                level += 1;
+            }
+            other => return Ok((explicit == 0).then_some(other)),
+        }
+    }
 }
 
 /// `recv.field args` inferred as its prefix form where that stands for it

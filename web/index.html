@@ -399,7 +399,8 @@
   .result .type { color: var(--muted); }
 
   ul.tests { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-  ul.tests li { display: flex; gap: 10px; align-items: baseline; }
+  ul.tests li { display: flex; flex-wrap: wrap; gap: 0 10px; align-items: baseline; }
+  ul.tests .detail { flex-basis: 100%; margin: 2px 0 0 calc(1.2em + 10px); font-family: var(--mono); font-size: 0.85rem; white-space: pre-wrap; overflow-wrap: anywhere; }
   ul.tests .mark { font-weight: 700; width: 1.2em; text-align: center; }
   ul.tests .pass .mark { color: var(--ok); }
   ul.tests .fail .mark { color: var(--bad); }
@@ -1540,8 +1541,9 @@ export def area: Shape -> Nat
         }
         list.append(el("li", { className: t.passed ? "pass" : "fail" },
           el("span", { className: "mark" }, t.passed ? "✓" : unfinished ? "!" : "✗"),
-          el("span", {}, t.name + (t.passed ? "" : unfinished ? ` (${t.outcome})` : " (evaluated to False)")),
-          el("span", { className: "how" }, t.cached ? "cached" : "ran")));
+          el("span", {}, t.name + (t.passed ? "" : unfinished ? ` (${t.outcome})` : t.detail ? ` (\`${t.detail.op}\` is False)` : " (evaluated to False)")),
+          el("span", { className: "how" }, t.cached ? "cached" : "ran"),
+          ...(t.detail ? [el("div", { className: "detail" }, `left:  ${t.detail.left}\nright: ${t.detail.right}`)] : [])));
       }
       const failed = result.tests.filter((t) => t.outcome === "failed").length;
       const unfinished = result.tests.filter((t) => !t.passed && t.outcome !== "failed").length;
@@ -1639,13 +1641,17 @@ export def area: Shape -> Nat
         // A string, from its opening quote or from just after an
         // interpolation, up to its closing quote, the next `${`, or the end
         // of the line. Escapes, including `\$`, stay inside the string.
-        while (i < text.length && text[i] !== "\n" && text[i] !== '"'
+        // A `"""` text runs over lines, to the next `"""`.
+        const ends = mode.block
+          ? () => text.startsWith('"""', i)
+          : () => text[i] === "\n" || text[i] === '"';
+        while (i < text.length && !ends()
                && !(text[i] === "$" && text[i + 1] === "{")) {
-          i += text[i] === "\\" && text[i + 1] !== "\n" ? 2 : 1;
+          i += text[i] === "\\" && (mode.block || text[i + 1] !== "\n") ? 2 : 1;
         }
         const stop = Math.min(i, text.length);
-        if (stop < text.length && text[stop] === '"') {
-          i = stop + 1;
+        if (stop < text.length && text[stop] !== "$" && (mode.block || text[stop] === '"')) {
+          i = stop + (mode.block ? 3 : 1);
           add("string", mode.start, i);
           modes.pop();
           previous = '"';
@@ -1686,8 +1692,9 @@ export def area: Shape -> Nat
         add("number", start, i);
         previous = "0";
       } else if (c === '"') {
-        modes.push({ code: false, start });
-        i++;
+        const block = text.startsWith('"""', i);
+        modes.push({ code: false, start, block });
+        i += block ? 3 : 1;
       } else if (c === "'") {
         i++;
         while (i < text.length && text[i] !== "\n" && text[i] !== "'") {

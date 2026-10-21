@@ -362,6 +362,40 @@ test("test results are cached, and can be forgotten", async (page) => {
   assert.doesNotMatch(third.summary, /from the cache/);
 });
 
+test("a failed comparison test shows both sides in the Tests tab", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  await page.setSource(`def part1 (n: Nat): Nat := n + 1
+
+test "part 1 on the example" := part1 1 == 3
+test "greater" := 1 > part1 5
+test "long value" := List.range 1000 == []
+test "huge value" := List.range 100000 == []
+test "not a comparison" := part1 1 == 2 && part1 2 == 4
+`);
+  await page.untilChecked();
+  await page.tab("tests");
+  const results = () => page.until(`(() => {
+    const o = document.getElementById("output");
+    if (!o.querySelector(".summary") || o.dataset.for !== document.getElementById("source").value) return false;
+    return [...o.querySelectorAll("ul.tests li")].map((li) => ({
+      text: li.firstChild.nextSibling.textContent,
+      detail: li.querySelector(".detail")?.textContent ?? null }));
+  })()`, 30000, "the tests for this source");
+  const rows = await results();
+  assert.equal(rows.length, 5);
+  assert.equal(rows[0].text, "part 1 on the example (`==` is False)");
+  assert.equal(rows[0].detail, "left:  2\nright: 3");
+  assert.equal(rows[1].text, "greater (`>` is False)");
+  assert.equal(rows[1].detail, "left:  1\nright: 6");
+  assert.match(rows[2].detail, /^left:  \[0, 1, 2, [^]*…\nright: \[\]$/);
+  assert.ok(rows[2].detail.length < 300, rows[2].detail.length);
+  assert.equal(rows[3].detail, "left:  … (too large to show)\nright: []");
+  assert.equal(rows[4].text, "not a comparison (evaluated to False)");
+  assert.equal(rows[4].detail, null);
+  await shots(page, "sw216-tests-tab");
+});
+
 test("errors show in the Check tab", async (page) => {
   await page.open();
   await page.untilChecked();
@@ -700,6 +734,25 @@ test("interpolation is coloured as code inside a string", async (page) => {
   }
   assert.ok(marked.string.includes(' \\${z}"'), `the escaped dollar stays a string: ${JSON.stringify(marked.string)}`);
   assert.ok(!marked.string.some((s) => s.includes("world")), `world in the interpolation isn't string-coloured: ${JSON.stringify(marked.string)}`);
+});
+
+test("a text block is coloured as one string over its lines", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  const source = 'test "t" := """\n  say "hi" ${1 + 2}\n  more \\"""\n  """ == "x"\n';
+  await page.setSource(source);
+  await sleep(100);
+  const marked = await page.ev(`(() => {
+    const text = document.getElementById("source").value;
+    const pieces = (kind) => Array.from(CSS.highlights.get("hl-" + kind) ?? [],
+      (r) => text.slice(r.startOffset, r.endOffset));
+    return { string: pieces("string"), interp: pieces("interp"), number: pieces("number") };
+  })()`);
+  assert.deepEqual(marked.number, ["1", "2"], JSON.stringify(marked.number));
+  assert.deepEqual(marked.interp, ["${", "}"], JSON.stringify(marked.interp));
+  assert.ok(marked.string.includes('"""\n  say "hi" '), JSON.stringify(marked.string));
+  assert.ok(marked.string.includes('\n  more \\"""\n  """'), JSON.stringify(marked.string));
+  assert.ok(marked.string.includes('"x"'), JSON.stringify(marked.string));
 });
 
 test("`|>` is coloured as one operator", async (page) => {

@@ -511,6 +511,20 @@ pub struct TestResult {
     pub cached: bool,
     /// `None` if hashing the test ran out of resources.
     pub hash: Option<ContentHash>,
+    /// For a failed comparison, what the two sides were.
+    pub detail: Option<Comparison>,
+}
+
+/// The two sides of a failed comparison test, printed (short ones whole,
+/// long ones cut off with `…`). Found by running the sides again when the
+/// test fails, also for a cached failure: the cache keeps only the outcome,
+/// so a passing test never pays for this.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Comparison {
+    /// The operator as written: `==`, `!=`, `=`, `<`, `<=`, `>` or `>=`.
+    pub op: &'static str,
+    pub left: String,
+    pub right: String,
 }
 
 /// Test results, stored by the test's content hash (DESIGN.md §11). A test's
@@ -649,6 +663,28 @@ impl Cache {
     }
 }
 
+/// The most characters of a value shown for a failed comparison.
+const SHOWN: usize = 200;
+
+/// The most nodes of a value's term that are quoted to show it.
+const SHOWN_NODES: u64 = 8000;
+
+/// `text`, cut off with `…` if it is longer than [`SHOWN`] characters (at
+/// the last `, ` before, so a list of numbers isn't cut in one).
+fn cut(text: &str) -> String {
+    if text.chars().count() <= SHOWN {
+        return text.to_string();
+    }
+    let mut cut: String = text.chars().take(SHOWN).collect();
+    // Back to the end of a whole element, if there is one.
+    if let Some(at) = cut.rfind(", ") {
+        cut.truncate(at + 1);
+        cut.push(' ');
+    }
+    cut.push('…');
+    cut
+}
+
 impl Session {
     /// Runs every test of the program loaded so far, using cached results
     /// where possible. The core's and the library's tests aren't the
@@ -684,6 +720,7 @@ impl Session {
                             outcome: Outcome::OutOfResources(e),
                             cached: false,
                             hash: None,
+                            detail: None,
                         };
                     }
                 };
@@ -694,6 +731,7 @@ impl Session {
                         outcome,
                         cached: true,
                         hash: Some(hash),
+                        detail: self.comparison(test, outcome),
                     };
                 }
                 // Proofs and types aren't computed (`erase.rs`).
@@ -713,9 +751,43 @@ impl Session {
                     outcome,
                     cached: false,
                     hash: Some(hash),
+                    detail: self.comparison(test, outcome),
                 }
             })
             .collect()
+    }
+
+    /// The values of the sides of `test`, if it failed and is a comparison.
+    fn comparison(&self, test: &stitchwort_elab::TestDecl, outcome: Outcome) -> Option<Comparison> {
+        if outcome != Outcome::Failed {
+            return None;
+        }
+        let sides = test.sides.as_ref()?;
+        let g = &self.elab.globals;
+        // Each side is shown in an operation of its own, with a small limit
+        // on the size of the value: a value too big to show is a marker, and
+        // never a crash (quoting a very long list nests as deep as it is
+        // long, which overflows the WebAssembly stack).
+        let limits = Limits {
+            size: SHOWN_NODES,
+            ..self.elab.limits
+        };
+        let show = |term: &Term| -> String {
+            let _op = g.budget.operation(limits);
+            let _erasing = g.erasure.running();
+            let Ok(v) = eval(g, &[], term) else {
+                return "…".to_string();
+            };
+            match stitchwort_core::value::quote(g, 0, &v) {
+                Ok(t) => cut(&stitchwort_core::pretty::term(g, &[], &t)),
+                Err(_) => "… (too large to show)".to_string(),
+            }
+        };
+        Some(Comparison {
+            op: sides.op,
+            left: show(&sides.left),
+            right: show(&sides.right),
+        })
     }
 }
 

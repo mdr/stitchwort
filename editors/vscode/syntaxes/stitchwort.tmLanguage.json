@@ -6,6 +6,7 @@
     { "include": "#comment" },
     { "include": "#definition" },
     { "include": "#auto" },
+    { "include": "#string-block" },
     { "include": "#string" },
     { "include": "#char" },
     { "include": "#keyword" },
@@ -67,6 +68,16 @@
       "patterns": [
         { "include": "#braces" },
         { "include": "$self" }
+      ]
+    },
+    "string-block": {
+      "name": "string.quoted.triple.stitchwort",
+      "begin": "\"\"\"",
+      "end": "\"\"\"",
+      "patterns": [
+        { "include": "#interpolation" },
+        { "include": "#escape" },
+        { "name": "invalid.illegal.escape.stitchwort", "match": "\\\\." }
       ]
     },
     "string": {

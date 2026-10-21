@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: a `${…}` in a `"""` text stays on one line
+   ╭─[ reject/text-block-interpolation-lines.sw:4:8 ]
+   │
+ 4 │   n is ${n +
+   │        ──┬──  
+   │          ╰──── a `${…}` in a `"""` text stays on one line
+───╯

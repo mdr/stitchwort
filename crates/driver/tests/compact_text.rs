@@ -1029,3 +1029,25 @@ fn a_changed_builtin_isnt_bound() {
         Err("E-MALFORMED")
     );
 }
+
+/// A `"""` text is the same term as the `"…"` text with the same characters:
+/// the same hash, with escapes, interpolation and indentation removed.
+#[test]
+fn text_blocks_hash_like_the_one_line_text() {
+    let mut session = Session::new();
+    load(
+        &mut session,
+        "def block: Text := \"\"\"\n    a \"q\" \\t\\u{E9}\n      b\n\n    \"\"\"\n\
+         def line: Text := \"a \\\"q\\\" \\t\\u{E9}\\n  b\\n\\n\"\n\
+         def tight: Text := \"\"\"\n  x\n  y\"\"\"\n\
+         def tightLine: Text := \"x\\ny\"\n\
+         def interp (n: Nat): Text := \"\"\"\n  n = ${n}\n  \"\"\"\n\
+         def interpLine (n: Nat): Text := \"n = ${n}\\n\"\n",
+    );
+    let g = &session.elab.globals;
+    let _op = g.budget.operation(Limits::default());
+    let hash = |name: &str| def_hash(g, def(g, name)).unwrap().unwrap();
+    assert_eq!(hash("block"), hash("line"));
+    assert_eq!(hash("tight"), hash("tightLine"));
+    assert_eq!(hash("interp"), hash("interpLine"));
+}

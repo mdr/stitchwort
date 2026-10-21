@@ -48,6 +48,16 @@ export def total: List Nat -> Nat
   | Cons x xs => x + total xs
 ```
 
+When a test whose whole body is a comparison (`==`, `!=`, `=`, `<`, `<=`, `>`, `>=`) fails, `stitchwort test` and the playground's Tests tab show the values of its two sides, in the order written:
+
+```
+  ✗ part 1 on the example  ran  (`==` is False)
+      left:  2
+      right: 3
+```
+
+The sides are evaluated again only when the test fails (also when the failure comes from the cache, which keeps just the outcome), so a passing test costs nothing extra. A value is cut off with `…` after about 200 characters, and one too large to quote is shown as `… (too large to show)`. A test that isn't a bare comparison (`a == b && c`) just reports `evaluated to False`.
+
 Definitions may be named in either case: `length`, or `Not` for a function returning a type.
 
 **Automatic implicits.** An unknown lowercase name in a signature (the whole signature, header parameters included) is bound as an implicit parameter at the front if every use of it is either where a type is expected (`List a`, `a -> b`, `[x: a]`) or the whole argument of a type for a parameter that's a value (Idris's way). So with `type Dial (highest: Nat) = …`, `def part1 (start: Dial highest) (turns: List Turn): Nat` means `def part1 [highest: Nat] (start: Dial highest) …`: its type is the parameter's. "A type" here is a data type, an ability, or a definition whose result is a type (`def Below (n: Nat): Type`). Several are bound in the order of their first uses, and one may depend on another (`(t: Tagged a x)` for `type Tagged (a: Type) (tag: a)` binds `[a: Type] [x: a]`). Uses needing different types are `E-TYPE-MISMATCH` at the later one, with a note. Any other use keeps it an unknown name, so a misspelling doesn't quietly become a parameter: `Dial (highest + 1)` or `… <= highest` in the signature needs `[highest: Nat]` written out. Bound names are in scope by name in the body, as written-out implicits are.
@@ -336,7 +346,7 @@ def allResults (prog: () -> {Choose | e} a): {e} List a :=
     | choose u, k    => List.append (k True) (k False)
 ```
 
-Effectful code is written in direct style. Arguments are evaluated left to right, and the lines of a block in order. A handler's clauses on their own lines must line up: a `|` at another column belongs to an enclosing handler. An operation on its own (`choose`) is a function, `x => choose x`. A signature can be a computation that isn't a function: `current: {State Nat} Nat`. Naming or calling a computation where a plain value is expected runs it there, so it's allowed only if it may perform nothing: a function over any row `{e}` used at the empty row, or a `Std.Effect.Comp NoOp NoRes a`, gives its `a` ([proposals/let.md](proposals/let.md) §8). The types stay different: a function returning a computation isn't a function returning a value. A row written `{}` is no row: `{} Nat` is `Nat`. A pure function can use a handler inside; what it handles doesn't appear in its type. How this is translated into ordinary data is described in `docs/core.md`, under "Abilities".
+Effectful code is written in direct style. Arguments are evaluated left to right, and the lines of a block in order. A handler's clauses on their own lines must line up: a `|` at another column belongs to an enclosing handler. An operation on its own (`choose`) is a function, `x => choose x`. A dot call to an effectful function is a call like any other and runs where it's written, also with no further arguments and at the end of a chain of pure calls (`1 + w.toNat.orAbort`). A signature can be a computation that isn't a function: `current: {State Nat} Nat`. Naming or calling a computation where a plain value is expected runs it there, so it's allowed only if it may perform nothing: a function over any row `{e}` used at the empty row, or a `Std.Effect.Comp NoOp NoRes a`, gives its `a` ([proposals/let.md](proposals/let.md) §8). The types stay different: a function returning a computation isn't a function returning a value. A row written `{}` is no row: `{} Nat` is `Nat`. A pure function can use a handler inside; what it handles doesn't appear in its type. How this is translated into ordinary data is described in `docs/core.md`, under "Abilities".
 
 ## `IO`
 
@@ -346,6 +356,39 @@ Effectful code is written in direct style. Arguments are evaluated left to right
 - `IO.readAll()` gives everything that remains, verbatim, line endings included; `""` once nothing remains. After it, `IO.readLine()` is `None`; after some `IO.readLine`s it gives the rest. Under `IO.simulate` it gives the remaining scripted lines, each followed by LF.
 - `Text.lines: Text -> List Text` follows Rust's `str::lines`: split on LF, drop a CR right before an LF, and the last line's ending is optional. `"a\nb"` and `"a\nb\n"` both give `["a", "b"]`; `""` gives `[]`; `"\n"` gives `[""]`; `"a\r\nb"` gives `["a", "b"]`. A CR anywhere else stays, including a final one.
 - `IO.readAllLines(): {IO} (List Text)` is `(readAll()).lines`. It is total.
+
+## `Text` helpers
+
+Characters are Unicode scalar values, as for `Text.length`. The text comes last.
+
+- `Text.take n t`, `Text.drop n t`: the first `n` characters, and the rest (all of `t`, or `""`, if it is shorter).
+- `Text.startsWith p t`, `Text.endsWith s t`, `Text.contains p t`: `Bool`s. The empty text starts, ends and occurs in every text.
+- `Text.stripPrefix p t`, `Text.stripSuffix s t`: `Some` of `t` without `p` (or `s`), or `None`.
+- `Text.splitOn sep t`: splits at each whole occurrence of `sep`, left to right without overlaps: `"a, b" |> Text.splitOn ", "` is `["a", "b"]`, `"aaa"` on `"aa"` is `["", "a"]`. There is always at least one piece. An empty `sep` doesn't split: the result is `[t]` (as Lean's `String.splitOn`). `Text.split` splits on one `Char`.
+- Dot notation puts the receiver in the first `Text` parameter, which is the prefix, suffix or separator here: `"L68".stripPrefix "L"` is `Text.stripPrefix "L68" "L"`, so write `line |> Text.stripPrefix "L"`. `t.take 1` and `t.drop 1` read as usual, since their first `Text` parameter is `t`.
+
+Proved: `Text.stripPrefix p (p ++ t) = Some t`, `Text.startsWith p (p ++ t) = True`, `Text.take n t ++ Text.drop n t = t`.
+
+## `Abort`
+
+`Std.Abort` (`crates/elab/src/std/Abort/Abort.sw`) is an ability for giving up, as `do` over `Option` in Lean or `?` in Roc: code that may give up says `{Abort}`, reads each step's `Option` with `need`, and a handler decides what giving up means.
+
+```
+import Std.Abort (need, ensure, abort, toOption)
+
+def turn (t: Text): {Abort} Int :=
+  let (c, rest) := need t.uncons     -- a `None` stops the whole computation
+  ensure (c == 'L' || c == 'R')
+  let n := rest.toInt.orAbort        -- `need`, by dot notation
+  if c == 'L' then -n else n
+
+def parse (t: Text): Option Int := toOption (() => turn t)
+```
+
+- `Abort.need: Option a -> {Abort} a`, and `Option.orAbort` for dot notation (`o.orAbort`). `Abort.ensure: Bool -> {Abort} ()` gives up on `False`. `Abort.abort(): {Abort} a` gives up wherever a value of any type is expected.
+- `Abort.toOption: (() -> {Abort | e} a) -> {e} Option a` and `Abort.orElse: a -> (() -> {Abort | e} a) -> {e} a` are the handlers. Other abilities pass through, so `{IO, Abort}` code works: what was printed before giving up stays printed (`examples/accept/abort.sw`).
+- The operation is `Abort.stop: () -> {Abort} Empty`, for handlers of your own. Its result is `Std.Empty`, a `Type` with no values (`Empty.absurd: Empty -> a`), so no handler can resume it. (`Void` is a proposition, and an operation's result must be a type.) `abort()` is `Empty.absurd (stop())`.
+- `Abort.toOption (() => need o) = o` and `Abort.orElse d (() => need o) = o.getOrElse d` hold for every `o`, by `rfl` on each case (`Abort.toOptionNeed`, `Abort.orElseNeed`).
 
 ## `Partial`
 
@@ -430,6 +473,7 @@ Loosest-binding first:
 | `0`, `42`, `-5` | Numeric literals: a `Nat`, or an `Int` where one is expected (`Nat` by default); `-5` is always an `Int`. See [Numbers](#numbers) |
 | `'a'`, `'\n'`, `'\u{1F600}'` | `Char` literals: one Unicode scalar value. Escapes are `\n`, `\t`, `\r`, `\\`, `\"`, `\'`, `\$` and `\u{…}` with 1–6 hex digits; `\u{…}` must name a scalar value, so `'\u{D800}'` is an error. Text literals take the same escapes |
 | `"héllo"` | `Text` literal: a sequence of Unicode scalar values (see [text-and-io.md](proposals/text-and-io.md)) |
+| `"""` … `"""` | `Text` literal over several lines. See "Text blocks" below |
 | `include "inputs/day04.txt"` | The `Text` in a file, read when the program is checked. See [`include`](#include) |
 | `Type`, `Type 1`, `Prop` | Universes |
 | `(e: T)` | Type annotation |
@@ -441,6 +485,24 @@ Loosest-binding first:
 | `J (y p => P) base proof` | Transport along an equality |
 
 **Interpolation.** Inside a text literal, `${e}` inserts `e` converted by its type's `Show` instance ([Interfaces](#interfaces)): `"Part 1: ${solvePart1 turns}"` is `"Part 1: " ++ Show.toText (solvePart1 turns)`, and `"n = ${2 + 3}"` is `"n = 5"`. Text and characters are inserted as they are (`"${"tea"}"` is `tea`), and quoted inside lists, tuples, records and constructors (`"${["a", "b"]}"` is `["a", "b"]`). The expression may contain braces and nested text literals, as in `"${f "x"}"`. A `$` not followed by `{` is an ordinary character; write `\$` for a literal dollar sign: `"cost: \$5"`.
+
+**Text blocks.** A text literal over several lines is written between `"""` and `"""`, as Java's text blocks, Swift's and Scala's multi-line strings are, for a puzzle's example input in a test:
+
+```
+def example: Text := """
+  L68
+  L30
+    R48
+  """
+-- is "L68\nL30\n  R48\n"
+```
+
+- **The text starts on the line after the opening `"""`**, which holds nothing else (spaces aside); `"""x"""` is `E-PARSE`. One rule, as in Java, and a one-line text is `"x"`, so nothing is lost. The newline after the opening `"""` isn't part of the text.
+- **The common indentation is removed**: the fewest leading spaces among the lines with something on them and the closing line, when `"""` is alone on it (Java's rule). So the literal can be indented with the code around it, and a closing `"""` indented less than the text keeps the difference: `"""⏎····a⏎··"""` is `"··a\n"`. Lines of only spaces don't count and become empty; spaces at the end of other lines stay. A tab in the indentation is `E-PARSE` (as in code); tabs elsewhere in a line are ordinary characters.
+- **The closing `"""` decides the ending.** Alone on its own line, the text ends with a newline after its last line (`Text.lines` ignores it, so `example.lines` is the ten lines above and nothing more). Right after the last character, there is none: `"""⏎  a⏎  b"""` is `"a\nb"`. `"""⏎"""` is `""`.
+- **Escapes and `${…}` are as in `"…"`**, read after the indentation is removed: `\n`, `\t`, `\u{…}`, `\$`, `\"`. A `"` or `""` needs no escape; three in a row do (`\"""`; `\"\"\"` also works). A `${…}` stays on one line (`E-PARSE` otherwise).
+- **Line endings are read as `\n`**: a CR before an LF is dropped.
+- **It is an ordinary text literal**: the same term as the `"…\n…"` it stands for, with the same hash (`crates/driver/tests/compact_text.rs`), and still compact. Examples: `examples/accept/text-block.sw`.
 
 A partially applied constructor is a function: `Succ` on its own means `n => Succ n`.
 

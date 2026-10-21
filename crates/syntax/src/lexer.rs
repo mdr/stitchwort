@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use num_bigint::BigUint;
 
 use crate::{Diagnostic, FileId, Span};
@@ -124,13 +126,17 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
     let mut i = 0;
     let mut line_start = 0;
     let mut fresh_line = true;
-    let mut interps: Vec<(usize, usize)> = Vec::new();
+    let mut interps: Vec<Interp> = Vec::new();
 
     while i < bytes.len() {
         let c = bytes[i];
         match c {
             b'\n' => {
-                if let Some(&(_, string_start)) = interps.last() {
+                if let Some(&Interp {
+                    start: string_start,
+                    ..
+                }) = interps.last()
+                {
                     return Err(error(
                         file,
                         string_start,
@@ -237,7 +243,16 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
                 .expect("a run of ASCII digits is a valid number");
             Tok::Num(n)
         } else if c == b'"' {
-            let (chars, stop, interpolation) = scan_string(file, text, i + 1, i)?;
+            let block = text[i..].starts_with("\"\"\"");
+            let (chars, stop, interpolation, rest) = if block {
+                let mut segs = scan_block(file, text, i)?;
+                let (chars, stop, interpolation) = segs.pop_front().expect("a block has a piece");
+                (chars, stop, interpolation, Some(segs))
+            } else {
+                let (chars, stop, interpolation) = scan_string(file, text, i + 1, i)?;
+                (chars, stop, interpolation, None)
+            };
+            let close_len = if block { 3 } else { 1 };
             if interpolation {
                 tokens.push(Token {
                     tok: Tok::StrStart(chars),
@@ -245,16 +260,23 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
                     column,
                     line_start: fresh_line,
                 });
-                interps.push((0, start));
+                interps.push(Interp {
+                    depth: 0,
+                    start,
+                    block: rest,
+                });
                 i = stop + 2;
             } else {
                 tokens.push(Token {
                     tok: Tok::Str(chars),
-                    span: Span::new(file, start as u32, (stop + 1) as u32),
+                    span: Span::new(file, start as u32, (stop + close_len) as u32),
                     column,
                     line_start: fresh_line,
                 });
-                i = stop + 1;
+                i = stop + close_len;
+            }
+            if let Some(newline) = text[start..stop].rfind('\n') {
+                line_start = start + newline + 1;
             }
             fresh_line = false;
             continue;
@@ -319,19 +341,23 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
         } else {
             i += 1;
             if c == b'{'
-                && let Some((depth, _)) = interps.last_mut()
+                && let Some(interp) = interps.last_mut()
             {
-                *depth += 1;
+                interp.depth += 1;
             }
-            if c == b'}' && matches!(interps.last(), Some(&(0, _))) {
-                let (_, string_start) = interps.pop().expect("checked");
+            if c == b'}' && matches!(interps.last(), Some(Interp { depth: 0, .. })) {
+                let mut interp = interps.pop().expect("checked");
                 let text_start = i;
-                let (chars, stop, interpolation) = scan_string(file, text, i, string_start)?;
+                let (chars, stop, interpolation) = match &mut interp.block {
+                    Some(pieces) => pieces.pop_front().expect("a block's last piece closes it"),
+                    None => scan_string(file, text, i, interp.start)?,
+                };
+                let close_len = if interp.block.is_some() { 3 } else { 1 };
                 let tok = if interpolation {
                     i = stop + 2;
                     Tok::StrMid(chars)
                 } else {
-                    i = stop + 1;
+                    i = stop + close_len;
                     Tok::StrEnd(chars)
                 };
                 tokens.push(Token {
@@ -340,16 +366,19 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
                     column,
                     line_start: fresh_line,
                 });
+                if let Some(newline) = text[text_start..stop].rfind('\n') {
+                    line_start = text_start + newline + 1;
+                }
                 if interpolation {
-                    interps.push((0, string_start));
+                    interps.push(interp);
                 }
                 fresh_line = false;
                 continue;
             }
             if c == b'}'
-                && let Some((depth, _)) = interps.last_mut()
+                && let Some(interp) = interps.last_mut()
             {
-                *depth -= 1;
+                interp.depth -= 1;
             }
             match c {
                 b'(' => Tok::LParen,
@@ -437,7 +466,11 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
         });
         fresh_line = false;
     }
-    if let Some(&(_, string_start)) = interps.last() {
+    if let Some(&Interp {
+        start: string_start,
+        ..
+    }) = interps.last()
+    {
         return Err(error(
             file,
             string_start,
@@ -446,6 +479,181 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
         ));
     }
     Ok(tokens)
+}
+
+/// A text literal whose `${…}` is being lexed.
+struct Interp {
+    /// Braces opened inside the expression and not yet closed.
+    depth: usize,
+    /// Where the literal starts.
+    start: usize,
+    /// For a `"""` literal, the rest of its pieces, already de-indented
+    /// (see `scan_block`).
+    block: Option<VecDeque<Piece>>,
+}
+
+/// A piece of a literal's text: the text, the position of the `${` or the
+/// closing `"""` after it, and whether it was a `${`.
+type Piece = (String, usize, bool);
+
+/// The pieces of the `"""` literal starting at `open`. The text is the lines
+/// after the opening line, with the common indentation removed (the
+/// smallest among the non-blank lines and a closing line of only spaces),
+/// whitespace-only lines emptied, and `\r\n` read as `\n`. A closing `"""`
+/// alone on its line adds nothing, so the text ends with the last line's
+/// newline; right after text, the text ends there. Escapes are read after
+/// the indentation is removed.
+fn scan_block(file: FileId, text: &str, open: usize) -> Result<VecDeque<Piece>, Diagnostic> {
+    let bytes = text.as_bytes();
+    let unclosed = || error(file, open, open + 3, "this text isn't closed with `\"\"\"`");
+    // The opening line holds nothing after the `"""`.
+    let mut i = open + 3;
+    while bytes.get(i) == Some(&b' ') || bytes.get(i) == Some(&b'\r') {
+        i += 1;
+    }
+    if i >= bytes.len() {
+        return Err(unclosed());
+    }
+    if bytes[i] != b'\n' {
+        return Err(error(
+            file,
+            open,
+            i + 1,
+            "a `\"\"\"` text starts on the next line: nothing may follow the opening `\"\"\"` (use `\"…\"` for one line)",
+        ));
+    }
+    let body = i + 1;
+    // Pass 1: where the lines start, the `${…}` ranges, and the closing.
+    let mut line_starts = vec![body];
+    let mut interps: Vec<(usize, usize)> = Vec::new();
+    let mut i = body;
+    let close = loop {
+        match bytes.get(i) {
+            None => return Err(unclosed()),
+            Some(b'\n') => {
+                i += 1;
+                line_starts.push(i);
+            }
+            Some(b'\\') => {
+                i += 1;
+                match text[i..].chars().next() {
+                    Some('\n') | None => {}
+                    Some(ch) => i += ch.len_utf8(),
+                }
+            }
+            Some(b'"') if text[i..].starts_with("\"\"\"") => break i,
+            Some(b'$') if bytes.get(i + 1) == Some(&b'{') => {
+                let dollar = i;
+                i += 2;
+                let mut depth = 0;
+                loop {
+                    match bytes.get(i) {
+                        None => return Err(unclosed()),
+                        Some(b'\n') => {
+                            return Err(error(
+                                file,
+                                dollar,
+                                i,
+                                "a `${…}` in a `\"\"\"` text stays on one line",
+                            ));
+                        }
+                        Some(b'{') => depth += 1,
+                        Some(b'}') if depth == 0 => break,
+                        Some(b'}') => depth -= 1,
+                        Some(&quote @ (b'"' | b'\''))
+                            if quote == b'"'
+                                || !(bytes[i - 1].is_ascii_alphanumeric()
+                                    || bytes[i - 1] == b'_'
+                                    || bytes[i - 1] == b'\'') =>
+                        {
+                            // A one-line text or character literal: skip to
+                            // its end, since it may hold a `}`.
+                            i += 1;
+                            while let Some(&b) = bytes.get(i) {
+                                if b == quote || b == b'\n' {
+                                    break;
+                                }
+                                i += if b == b'\\' { 2 } else { 1 };
+                            }
+                            if bytes.get(i) != Some(&quote) {
+                                continue;
+                            }
+                        }
+                        _ => {}
+                    }
+                    i += 1;
+                }
+                interps.push((dollar, i));
+                i += 1;
+            }
+            Some(_) => i += 1,
+        }
+    };
+    // Each line, as (start, end of its text without the `\n`).
+    let mut lines: Vec<(usize, usize)> = Vec::new();
+    for (k, &ls) in line_starts.iter().enumerate() {
+        let le = line_starts.get(k + 1).map_or(close, |&n| n - 1);
+        lines.push((ls, le));
+    }
+    let blank = |&(ls, le): &(usize, usize)| {
+        bytes[ls..le]
+            .iter()
+            .all(|b| matches!(b, b' ' | b'\t' | b'\r'))
+    };
+    let last = lines.len() - 1;
+    let mut indent = usize::MAX;
+    for (k, line) in lines.iter().enumerate() {
+        if k < last && blank(line) {
+            continue;
+        }
+        let (ls, le) = *line;
+        let width = bytes[ls..le].iter().take_while(|&&b| b == b' ').count();
+        if bytes.get(ls + width) == Some(&b'\t') {
+            return Err(error(
+                file,
+                ls + width,
+                ls + width + 1,
+                "tabs aren't allowed in a `\"\"\"` text's indentation; indent with spaces",
+            ));
+        }
+        indent = indent.min(if blank(line) { le - ls } else { width });
+    }
+    // Pass 2: the pieces.
+    let mut pieces = VecDeque::new();
+    let mut chars = String::new();
+    let mut next_interp = 0;
+    for (k, line) in lines.iter().enumerate() {
+        let (ls, le) = *line;
+        if k == last && blank(line) {
+            break;
+        }
+        let mut j = if blank(line) { le } else { ls + indent };
+        while j < le {
+            match bytes[j] {
+                b'$' if bytes.get(j + 1) == Some(&b'{') => {
+                    pieces.push_back((std::mem::take(&mut chars), j, true));
+                    j = interps[next_interp].1 + 1;
+                    next_interp += 1;
+                }
+                b'\\' => {
+                    let (ch, len) = escape(file, text, j)?;
+                    chars.push(ch);
+                    j += len;
+                }
+                b'\r' if j + 1 == le => j += 1,
+                _ => {
+                    let ch = text[j..].chars().next().expect("non-empty");
+                    chars.push(ch);
+                    j += ch.len_utf8();
+                }
+            }
+        }
+        if k < last {
+            chars.push('\n');
+        }
+    }
+    pieces.push_back((chars, close, false));
+    Ok(pieces)
 }
 
 /// The text of a string from `i` up to its closing `"` or a `${`. Returns
@@ -776,5 +984,107 @@ mod tests {
     fn numbers_can_be_any_size() {
         let huge = "99999999999999999999999999999999999999";
         assert_eq!(tokens(huge), Ok(vec![Tok::Num(huge.parse().unwrap())]));
+    }
+
+    fn block(text: &str) -> Result<String, &'static str> {
+        match tokens(text)?.as_slice() {
+            [Tok::Str(s)] => Ok(s.clone()),
+            other => panic!("expected one text, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn text_block_removes_common_indentation() {
+        assert_eq!(
+            block("\"\"\"\n  a\n    b\n  c\n  \"\"\""),
+            Ok("a\n  b\nc\n".into())
+        );
+        // The closing line's indentation counts too, so it can keep some.
+        assert_eq!(block("\"\"\"\n    a\n  \"\"\""), Ok("  a\n".into()));
+        assert_eq!(block("\"\"\"\na\n\"\"\""), Ok("a\n".into()));
+    }
+
+    #[test]
+    fn text_block_trailing_newline_follows_the_closing_quotes() {
+        assert_eq!(block("\"\"\"\n  a\n  b\"\"\""), Ok("a\nb".into()));
+        assert_eq!(block("\"\"\"\n  a\n  b\n  \"\"\""), Ok("a\nb\n".into()));
+        assert_eq!(block("\"\"\"\n  a\n\n  \"\"\""), Ok("a\n\n".into()));
+        assert_eq!(block("\"\"\"\n\"\"\""), Ok("".into()));
+    }
+
+    #[test]
+    fn text_block_blank_lines_do_not_count_for_indentation() {
+        assert_eq!(
+            block("\"\"\"\n    a\n\n  \n    b\n    \"\"\""),
+            Ok("a\n\n\nb\n".into())
+        );
+    }
+
+    #[test]
+    fn text_block_keeps_quotes_and_reads_escapes() {
+        assert_eq!(
+            block("\"\"\"\n  say \"hi\" and \"\"x\"\"\n  \"\"\""),
+            Ok("say \"hi\" and \"\"x\"\"\n".into())
+        );
+        assert_eq!(
+            block("\"\"\"\n  a\\tb\\n\\u{41}\\$\n  \\\"\"\"\n  \"\"\""),
+            Ok("a\tb\nA$\n\"\"\"\n".into())
+        );
+        // An escaped `\n` isn't a line, so it doesn't affect indentation.
+        assert_eq!(block("\"\"\"\n  a\\nb\n  \"\"\""), Ok("a\nb\n".into()));
+    }
+
+    #[test]
+    fn text_block_reads_crlf_as_lf() {
+        assert_eq!(
+            block("\"\"\"\r\n  a\r\n  b\r\n  \"\"\""),
+            Ok("a\nb\n".into())
+        );
+    }
+
+    #[test]
+    fn text_block_interpolation() {
+        assert_eq!(
+            tokens("\"\"\"\n  a ${x} b\n    c ${f \"}\" '}' {}}\n  \"\"\""),
+            Ok(vec![
+                Tok::StrStart("a ".into()),
+                Tok::Lower("x".into()),
+                Tok::StrMid(" b\n  c ".into()),
+                Tok::Lower("f".into()),
+                Tok::Str("}".into()),
+                Tok::Char('}'),
+                Tok::LBrace,
+                Tok::RBrace,
+                Tok::StrEnd("\n".into()),
+            ])
+        );
+    }
+
+    #[test]
+    fn text_block_errors() {
+        for bad in [
+            "\"\"\"x\"\"\"",
+            "\"\"\"x\n  y\n\"\"\"",
+            "\"\"\"\n  a",
+            "\"\"\"",
+            "\"\"\"\n\ta\n\"\"\"",
+            "\"\"\"\n  ${f\n  x}\n\"\"\"",
+            "\"\"\"\n  ${x\n\"\"\"",
+            "\"\"\"\n  \\q\n\"\"\"",
+        ] {
+            assert_eq!(tokens(bad), Err("E-PARSE"), "{bad:?}");
+        }
+    }
+
+    #[test]
+    fn text_block_keeps_later_columns_and_lines_right() {
+        let mut sources = SourceMap::new();
+        let text = "a \"\"\"\n  x\n  \"\"\" b\n  c";
+        let file = sources.add("test.sw", text);
+        let ts = lex(file, text).unwrap();
+        let columns: Vec<u32> = ts.iter().map(|t| t.column).collect();
+        assert_eq!(columns, vec![0, 2, 6, 2]);
+        let fresh: Vec<bool> = ts.iter().map(|t| t.line_start).collect();
+        assert_eq!(fresh, vec![true, false, false, true]);
     }
 }
