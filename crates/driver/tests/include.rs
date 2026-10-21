@@ -132,7 +132,11 @@ fn a_symlink_out_of_the_project_is_outside() {
         );
         std::fs::write(root.join("src/Day.sw"), day).unwrap();
         Session::new()
-            .load_project(&DiskFiles { root: root.clone() }, "proj", &Target::Everything)
+            .load_project(
+                &DiskFiles { root: root.clone() },
+                "proj",
+                &Target::Everything,
+            )
             .map(|_| ())
             .map_err(|ds| ds.into_iter().map(|d| d.code).collect::<Vec<_>>())
     };
