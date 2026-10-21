@@ -1,6 +1,7 @@
 # Stitchwort VS Code extension (local)
 
-Syntax colouring, go to definition, hover and an outline for `.sw` files.
+Syntax colouring, go to definition, find references, hover, an outline, workspace
+symbols and error squiggles for `.sw` files.
 
 ## Features
 
@@ -13,9 +14,20 @@ Syntax colouring, go to definition, hover and an outline for `.sw` files.
   (to their binder), constructors, fields, dot notation, and so on. Targets in
   the standard library open as read-only documents with the scheme
   `stitchwort-std:`, whose text comes from `stitchwort std-source`.
+- **Find All References** (Shift-F12) on a name: every use of the same declaration
+  or local variable in the project, and the declaration itself when the editor asks
+  for it. Uses inside the standard library are listed too.
 - **Hover** shows the type, and for a declaration its qualified name and kind.
 - **Outline** (and breadcrumbs, Cmd-Shift-O) of a file's definitions, with
   constructors and fields nested under their type.
+- **Workspace symbols** (Cmd-T): the definitions of every indexed project, by
+  qualified name (letters in order are enough: `shpdsc` finds
+  `Shape.describe`). The library's definitions aren't offered.
+- **Diagnostics**: the compiler's errors and warnings as squiggles and in the
+  Problems panel, with its code (`E-TYPE-MISMATCH`), the explanation, notes, and
+  related locations. They are replaced on each indexing run (open, save), and
+  cleared for files that no longer have any. A diagnostic in a library file, or
+  with no location, isn't shown.
 
 These come from the compiler's navigation index (`stitchwort check --index -`,
 see `docs/proposals/code-navigation.md`). The extension runs it when a `.sw`
@@ -24,7 +36,7 @@ per project, so lookups work while the file has errors, and reflect the file as
 last saved, not unsaved edits. The project is the nearest folder above the file
 with a `stitchwort.yaml` (the same rule as the command line); a file outside any
 project is indexed on its own. Output from failed runs goes to the "Stitchwort"
-output channel.
+output channel. Diagnostics, like the rest, reflect the file as last saved.
 
 ## The command line program
 
@@ -56,7 +68,12 @@ It runs against `test/fixture/index.json`, made with the CLI from
 
     cd editors/vscode/test/fixture && stitchwort check --index index.json dot-notation.sw
 
-Regenerate it if the index format changes. The VS Code glue in `extension.js`
+Regenerate both indexes if the index format changes (`errors.sw` is a file with two
+errors, for the diagnostics tests):
+
+    cd editors/vscode/test/fixture && stitchwort check --index errors.json errors.sw
+
+The fixture is for version 2. The VS Code glue in `extension.js`
 isn't covered by tests.
 
 ## Uninstall
