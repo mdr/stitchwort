@@ -3449,7 +3449,7 @@
     {
       "id": 230,
       "title": "Fast runtime stage 1: erased IR (stitchwort-rt)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -3461,7 +3461,7 @@
     {
       "id": 231,
       "title": "Fast runtime stage 2: bytecode machine",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
