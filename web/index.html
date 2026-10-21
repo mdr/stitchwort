@@ -988,13 +988,15 @@ export def area: Shape -> Nat
 
   /** The project's files, with the saved edits applied. */
   function fetchProject(manifest) {
-    bundlePromise ??= Promise.all(manifest.files.map((path) =>
-      fetch(projectUrl(path)).then((r) => { if (!r.ok) throw new Error(`${path}: HTTP ${r.status}`); return r.text(); })))
-      .then((texts) => {
+    const get = (path) =>
+      fetch(projectUrl(path)).then((r) => { if (!r.ok) throw new Error(`${path}: HTTP ${r.status}`); return r.text(); });
+    // The sources, and the files `include` reads (`data`: the puzzle inputs).
+    bundlePromise ??= Promise.all([Promise.all(manifest.files.map(get)), Promise.all((manifest.data ?? []).map(get))])
+      .then(([texts, data]) => {
         const bundled = new Map(manifest.files.map((path, i) => [path, texts[i]]));
         const state = { manifest, bundled, texts: new Map(bundled), stale: new Map(), dropped: [], day: 0, open: "",
                         extras: new Set(), outlineTabs: null, errors: new Set(), namespaceOf: new Map(), carets: new Map(),
-                        examples: new Map() };
+                        examples: new Map(), data };
         for (const path of manifest.files) {
           let saved = null;
           try { saved = JSON.parse(stored(fileKey(path))); } catch {}
@@ -1025,7 +1027,9 @@ export def area: Shape -> Nat
   function requestFor(action, extra = {}) {
     if (!project) return { action, source: source.value, ...extra };
     const { manifest } = project;
-    return { action, paths: manifest.files, texts: manifest.files.map((p) => project.texts.get(p)),
+    const data = manifest.data ?? [];
+    return { action, paths: [...manifest.files, ...data],
+             texts: [...manifest.files.map((p) => project.texts.get(p)), ...project.data],
              targets: manifest.days[project.day].namespaces.join(","), ...extra };
   }
 
