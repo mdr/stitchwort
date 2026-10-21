@@ -644,3 +644,65 @@ theorem List.lengthZipWith3 (f: a -> b -> c -> e): (xs: List a) -> (ys: List b) 
     rewrite List.lengthZipWith3 f xs ys zs (Nat.succInjective (List.length ys) (List.length xs) h1) (Nat.succInjective (List.length zs) (List.length xs) h2)
 
 -- A sum over a list is the sum over its indices.
+
+-- `x` is an element of the list.
+def List.Mem (x: a) (xs: List a): Prop := List.Any (y => y = x) xs
+
+-- No element of the first list is in the second.
+def List.Disjoint (xs: List a) (ys: List a): Prop := List.All (x => Not (List.Mem x ys)) xs
+
+-- No element occurs twice.
+def List.Distinct: List a -> Prop
+  | Nil       => Unit
+  | Cons x xs => And (Not (List.Mem x xs)) (List.Distinct xs)
+
+theorem List.distinctNil: List.Distinct (Nil: List a) := Trivial
+
+theorem List.distinctCons (x: a) (xs: List a) (h: Not (List.Mem x xs)) (d: List.Distinct xs): List.Distinct (Cons x xs) := Both h d
+
+-- An element of two lists joined is in one of them.
+theorem List.memAppend (x: a): (xs: List a) -> (ys: List a) -> List.Mem x (List.append xs ys) -> Or (List.Mem x xs) (List.Mem x ys)
+  | Nil,       ys, h => Inr h
+  | Cons z zs, ys, Inl h => Inl (Inl h)
+  | Cons z zs, ys, Inr h =>
+    match List.memAppend x zs ys h with
+      | Inl m => Inl (Inr m)
+      | Inr m => Inr m
+
+-- `f x` is in `List.map f xs` only if `x` is in `xs`, for an injective `f`.
+theorem List.memMap (f: a -> b) (inj: (x: a) -> (y: a) -> f x = f y -> x = y) (x: a): (xs: List a) -> List.Mem (f x) (List.map f xs) -> List.Mem x xs
+  | Nil,       h => h
+  | Cons z zs, Inl h => Inl (inj z x h)
+  | Cons z zs, Inr h => Inr (List.memMap f inj x zs h)
+
+-- Mapping an injective function keeps a list distinct.
+theorem List.distinctMap (f: a -> b) (inj: (x: a) -> (y: a) -> f x = f y -> x = y): (xs: List a) -> List.Distinct xs -> List.Distinct (List.map f xs)
+  | Nil,       d => Trivial
+  | Cons x xs, Both h d => Both (m => h (List.memMap f inj x xs m)) (List.distinctMap f inj xs d)
+
+-- Two distinct lists with no element in common, joined, are distinct.
+theorem List.distinctAppend: (xs: List a) -> (ys: List a) -> List.Distinct xs -> List.Distinct ys -> List.Disjoint xs ys -> List.Distinct (List.append xs ys)
+  | Nil,       ys, dx, dy, dj => dy
+  | Cons x xs, ys, Both hx dx, dy, Both hj dj =>
+    Both
+      (m => match List.memAppend x xs ys m with
+              | Inl inXs => hx inXs
+              | Inr inYs => hj inYs)
+      (List.distinctAppend xs ys dx dy dj)
+
+theorem List.distinctExample: List.Distinct [1, 2] :=
+  Both (m => match m with
+               | Inl p => Nat.succNotZero 0 (Nat.succInjective 1 0 p)
+               | Inr v => v)
+       (Both (m => m) Trivial)
+
+theorem List.distinctMapExample: List.Distinct (List.map Succ [1, 2]) :=
+  List.distinctMap Succ (x y p => Nat.succInjective x y p) [1, 2] List.distinctExample
+
+theorem List.distinctAppendExample: List.Distinct (List.append [1] [2]) :=
+  List.distinctAppend [1] [2]
+    (Both (m => m) Trivial)
+    (Both (m => m) Trivial)
+    (Both (m => match m with
+                  | Inl p => Nat.succNotZero 0 (Nat.succInjective 1 0 p)
+                  | Inr v => v) Trivial)
