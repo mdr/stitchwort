@@ -479,8 +479,8 @@
     {
       "id": 32,
       "title": "Simplify the 'old way first' paths kept only to preserve hashes",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [
         "elab",
@@ -488,7 +488,7 @@
       ],
       "body": "D12 (Matt, 19 Oct). No users yet, so hashes aren't a constraint (hash_stability.rs stays as a migration test oracle). Remove code bent to keep them: crates/elab/src/numbers.rs:338-345 (group tries an equation 'the old way' before groups, only so [] isn't inferred as ([] : List ?a) and hashes don't change), and the 'elaborated again the old way' re-elaboration (crates/elab/src/check.rs:1522; lib.rs:128/138). Done: the old-way paths are deleted, hash snapshots regenerated, all tests green, and the code is no longer than before.",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
