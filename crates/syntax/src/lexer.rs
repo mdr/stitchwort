@@ -67,6 +67,11 @@ pub enum Tok {
     Lt,
     /// `<=`
     Le,
+    /// `>`, `>=`: written the other way round (`a > b` is `b < a`).
+    Gt,
+    Ge,
+    /// `!`, prefix "not".
+    Bang,
     KwIf,
     KwThen,
     KwElse,
@@ -408,14 +413,12 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
                     Tok::Le
                 }
                 b'<' => Tok::Lt,
-                b'!' => {
-                    return Err(Diagnostic::error("E-PARSE", "unexpected character `!`")
-                        .with_label(
-                            Span::new(file, start as u32, i as u32),
-                            "unexpected character `!`",
-                        )
-                        .with_note("write `not x` for \"not\", and `!=` for \"not equal\""));
+                b'>' if bytes.get(i) == Some(&b'=') => {
+                    i += 1;
+                    Tok::Ge
                 }
+                b'>' => Tok::Gt,
+                b'!' => Tok::Bang,
                 _ => {
                     return Err(error(
                         file,
@@ -562,7 +565,7 @@ mod tests {
     fn distinguishes_keywords_names_and_symbols() {
         assert_eq!(
             tokens(
-                "type Type x Xs _ _y x' := : = -> [ ] ( ) , | + 42 - * / % != < <= if then else"
+                "type Type x Xs _ _y x' := : = -> [ ] ( ) , | + 42 - * / % != < <= > >= ! if then else"
             ),
             Ok(vec![
                 Tok::KwType,
@@ -591,6 +594,9 @@ mod tests {
                 Tok::NotEq,
                 Tok::Lt,
                 Tok::Le,
+                Tok::Gt,
+                Tok::Ge,
+                Tok::Bang,
                 Tok::KwIf,
                 Tok::KwThen,
                 Tok::KwElse,
@@ -624,7 +630,46 @@ mod tests {
         assert_eq!(tokens("\tx"), Err("E-PARSE"));
         assert_eq!(tokens("a ∧ b"), Err("E-PARSE"));
         assert_eq!(tokens("a ; b"), Err("E-PARSE"));
-        assert_eq!(tokens("a ! b"), Err("E-PARSE"));
+    }
+
+    #[test]
+    fn comparison_and_not_symbols() {
+        assert_eq!(
+            tokens("a>b a>=b !a a!=b a=>b x|>f a->b"),
+            Ok(vec![
+                Tok::Lower("a".into()),
+                Tok::Gt,
+                Tok::Lower("b".into()),
+                Tok::Lower("a".into()),
+                Tok::Ge,
+                Tok::Lower("b".into()),
+                Tok::Bang,
+                Tok::Lower("a".into()),
+                Tok::Lower("a".into()),
+                Tok::NotEq,
+                Tok::Lower("b".into()),
+                Tok::Lower("a".into()),
+                Tok::FatArrow,
+                Tok::Lower("b".into()),
+                Tok::Lower("x".into()),
+                Tok::PipeGt,
+                Tok::Lower("f".into()),
+                Tok::Lower("a".into()),
+                Tok::Arrow,
+                Tok::Lower("b".into()),
+            ])
+        );
+        // `>>` is two `>` tokens: the parser rejects them, and a later
+        // composition operator can claim them.
+        assert_eq!(
+            tokens("a >> b"),
+            Ok(vec![
+                Tok::Lower("a".into()),
+                Tok::Gt,
+                Tok::Gt,
+                Tok::Lower("b".into()),
+            ])
+        );
     }
 
     #[test]
