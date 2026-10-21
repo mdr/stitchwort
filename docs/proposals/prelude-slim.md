@@ -3,7 +3,7 @@
 **Date:** 21 October 2026. **Ticket:** SW-213 (D258). **Builds on:** std-library.md
 (SW-148, D49–D62), namespaces.md §4.5–§4.8, interfaces.md §9 (D170, D172).
 **Status:** a design note for Matt's review. Nothing is implemented.
-**Decisions asked for:** D260–D267 (§9).
+**Decisions asked for:** D260–D267 (§9). **Decided (21 Oct 2026):** D260 option B (Matt). D262, D263, D264, D267 as recommended (Claude, implementation detail). Open: D261, D265, D266.
 
 Claims about the code are marked **[checked]** when I read or ran the thing named, and
 **[estimate]** when they come from a heuristic script or arithmetic. Line numbers are for

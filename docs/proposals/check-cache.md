@@ -2,7 +2,7 @@
 
 **Status:** Draft 1, 21 October 2026 (SW-215, D276). A design note only:
 nothing is built until Matt has reviewed it. Decisions D277–D287 are in the
-[table at the end](#decisions).
+[table at the end](#decisions). **Decided (21 Oct 2026, Claude, as recommended):** D277–D287.
 
 This note can be read without knowing the codebase. The main part takes about
 15 minutes. The [appendix](#appendix) has the evidence: the profile, the
