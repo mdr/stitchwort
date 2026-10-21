@@ -1,5 +1,5 @@
 {
-  "next": 214,
+  "next": 216,
   "tickets": [
     {
       "id": 1,
@@ -3250,6 +3250,30 @@
       "where": "",
       "labels": [],
       "body": "Design note docs/proposals/prelude-slim.md (D258). The SW-148..165 split was a loading split (\"lazy loading is an implementation detail\"): core.sw is still 2,021 lines / 374 declarations, and because List, Nat, Int, Text, Maybe are default names, everything is usable without an import. Matt's intent was a small prelude with everything else (e.g. list functions) behind imports.\n\nThe note separates \"always checked\" from \"usable without import\", proposes a minimal always-in-scope prelude and a module layout (possibly Base/Properties halves), and puts the semantic choices to Matt: dot notation without import, type-name prefixes (List.map) without import, auto's search scope (D58), what the compiler needs from core (syntax, deriving, calc, literals, natives pinned by hash). Comparisons with Lean, Idris, Agda, Haskell, Scala, Rust, Elm; measured cost in import lines across examples/ and aoc/, and check-time savings.\n\nDone when: the note is written and reviewed by Matt, with his decisions recorded; implementation stages are separate tickets.\n",
+      "created": "2026-10-21",
+      "updated": "2026-10-21",
+      "commits": []
+    },
+    {
+      "id": 214,
+      "title": "VS Code: errors on save from the saved file's namespace; full index in the background",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "VS Code: errors on save come from checking only the saved file's namespace (~0.4 s on aoc vs 2.7 s for the whole project with --index); the full project index (references, cross-file navigation, errors elsewhere) is refreshed in the background afterwards (D275).\n\nDone when: saving a file in aoc/ shows its errors in well under a second, and the full index still refreshes; pure-module tests cover merging namespace diagnostics with the last full index.\n",
+      "created": "2026-10-21",
+      "updated": "2026-10-21",
+      "commits": []
+    },
+    {
+      "id": 215,
+      "title": "Design note: cache checked definitions across runs (content-hash keyed)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "Design note: cache checked definitions across runs by content hash (D276), extending the test-result cache, so check/test/editor/lanes/gate skip unchanged declarations. Soundness first: what a cached \"checked\" result may skip (kernel re-check), what the key must cover (the declaration, everything it depends on, compiler/kernel version, natives), invalidation, and where it lives. Then CLI, editor and test integration; relation to SW-185 (cache checked core) and SW-31 (LSP).\n\nDone when: the note is reviewed by Matt with decisions recorded; implementation stages are separate tickets.\n",
       "created": "2026-10-21",
       "updated": "2026-10-21",
       "commits": []
