@@ -1,10 +1,11 @@
 # Proposal: interfaces
 
-**Status:** draft 3, 20 October 2026. Stages 1 to 4 are built
+**Status:** draft 3, 20 October 2026. Stages 1 to 5 are built
 ([As built (stage 1)](#as-built-stage-1),
 [As built (stage 2)](#as-built-stage-2),
 [As built (stage 3)](#as-built-stage-3),
-[As built (stage 4)](#as-built-stage-4)); stages 5 to 7 are design only.
+[As built (stage 4)](#as-built-stage-4),
+[As built (stage 5)](#as-built-stage-5)); stages 6 and 7 are design only.
 Review closed and decisions D154-D174, D178-D182, D186, D187 accepted as recommended (D188, Matt, 20 October 2026).
 Ticket SW-4, decision D152 (Matt, 20 October 2026: write this note).
 Draft 2 answered the external review of draft 1
@@ -169,6 +170,7 @@ candidates blocked on unknowns. Every point:
 - [As built (stage 2)](#as-built-stage-2)
 - [As built (stage 3)](#as-built-stage-3)
 - [As built (stage 4)](#as-built-stage-4)
+- [As built (stage 5)](#as-built-stage-5)
 14. [Decisions](#14-decisions)
 15. [Sources](#15-sources)
 
@@ -2117,6 +2119,133 @@ What differs from the text above, or wasn't settled by it:
    an erased `Ordered` proof, §7.5), switching from the test interface to
    stage 3's `Ord`, `Map.instShow` (stage 6), and a JS boundary for maps
    (§10). Nothing in the elaborator should need to change for those.
+
+## As built (stage 5)
+
+Stage 5 is built (SW-4, 21 October 2026): `Add` and `Mul` with their
+`Nat` and `Int` instances, the bootstrap phase, `+ * < <=` through
+dictionaries with known-instance projection, relation deciders (§5.16),
+generic `List.sum`, `List.sumBy` and `List.product`, and the sum lemmas
+restated generically. Code: `crates/elab/src/numbers.rs` (operators),
+`interfaces.rs` (`method_call`, relation pairs and deciders, finding ready
+dictionaries), `auto.rs` and `bind.rs` (§5.16 step 2), `check.rs`,
+`dot.rs` and `rewrite.rs` (dictionaries found early, below). Library: the
+end of `crates/elab/src/std/core.sw`, `List/Toolkit.sw`, `List/Sort.sw`,
+`Int/Int.sw`. Tests: `crates/driver/tests/operators.rs` (golden terms,
+primitive against uniform lowering, §5.16's cases, a user's instance
+projected), `examples/accept/operators.sw` (a `Point` with `+`, generic
+`+ * <`, `before` and `beforeNat` agreeing, `descending`, `Below`),
+`examples/accept/int-sum.sw`, the `operators-*` rejects. Surface:
+docs/syntax.md, "Numbers" and "Interfaces".
+
+What differs from the text above, or wasn't settled by it:
+
+1. **The bootstrap phase** is the core up to the `Add` and `Mul`
+   instances, which are now at its end, after the `Ord` instances (stage
+   3). The laws they need moved into the core: `+` and `*` on `Nat`
+   (`Nat.addZero` … `Nat.mulAssoc`, from `Nat/Arith.sw`; `Nat.oneMul` from
+   `List/Sort.sw`), `+` on `Int` (`Int.addZero` … `Int.addAssoc`, from
+   `Int/Int.sw`), and new: `*` on `Int` (`Int.oneMul`, `Int.mulOne`,
+   `Int.mulAssoc`, the last by signs and sizes: `Int.mulSigned` writes a
+   product as a sign, `Bool.xor` of the signs, and the product of the
+   sizes). Moving a declaration doesn't change its hash. An operator on
+   `Nat` or `Int` goes through its interface once that interface's
+   instance for the type is valid; before, and everywhere in the core
+   before them, it's the built-in operation. Operators on other types
+   need `Add`, `Mul` and `Ord` all declared, so before that they're the
+   old error.
+2. **Projection is made when the operator is elaborated, not on the
+   finished declaration**, as stage 2 item 2 did for `==`: if the
+   dictionary found at once is a record literal (a global instance,
+   inlined, stage 1 item 13) whose field is a definition, applied or not,
+   the operator is that field applied to the operands (`Nat.add x y`,
+   `Point.add p q`). Otherwise it stays the method, `Add.add [add := d] x
+   y`: for a dictionary in scope, one not found yet, and a field that's a
+   lambda (`Ord.fromCompare`'s relations: `x < y` on `Text` is
+   `Ord.lessThan [Text] [{…}] x y`). A dictionary found later isn't
+   projected afterwards. §5.16's point stands: a relation method applied to
+   a dictionary is decided by the paired decider from the same dictionary;
+   only for a projected global instance is the relation already
+   `Nat.LessThan x y`, decided by today's search (`Nat.decLessThan x y`).
+3. **Direct lowering after the phase.** On `Nat` and `Int`, with no
+   dictionary of the operator's interface in scope (directly or as a
+   superclass), §5.5 can only find the library's instance, whose fields are
+   the built-in operations, so the elaborator builds the projection's term
+   directly, without resolving (one scan of the context per operator). With
+   a dictionary in scope it resolves, so `[auto ord: Ord Nat]` makes `<`
+   that order (`beforeNat`). `Elaborator::uniform_operators` (for tests)
+   always resolves; the tests compare the two on a sample and on every
+   definition of the library files and the AoC project (same hashes).
+4. **Relation pairs** (§5.16) are found by name: a field `r` whose type
+   ends in `Prop` and a field `decR` whose type ends in `Decidable`
+   (`lessThan`/`decLessThan`). The decider's type isn't compared further;
+   the kernel checks the terms. Step 2 is made on the proposition as
+   written (a relation method applied to a dictionary, `bind.rs`) and on
+   what it computes to (a relation projection stuck on a variable, as
+   `Below x y` unfolds to, `auto.rs`), before the search, for `if`, `&&`,
+   `Bool` expected and `auto` alike. Step 5 needs nothing new: a definition
+   like `Below` unfolds when its proposition is evaluated.
+5. **Dictionaries found early.** At the end of an application (and of a
+   dot-notation call, which makes its implicit arguments itself), its own
+   dictionaries (its `auto` arguments, not those of the applications in its
+   arguments) are found at once if their type is fully known, and an
+   equation's type stuck on one is computed again; `rewrite` does the same
+   for the dictionaries in its goal first. Without it, a generic lemma used
+   at `Nat` (`List.sumByCons f x xs` in a `calc`, or as a `rewrite` rule)
+   states its
+   sides with `Add.%add ?d …` stuck on the unknown dictionary, and they
+   don't compute to the `Nat` sums they're compared with (stage 3's retry in
+   `check::compare` only covers comparisons made there). It can't change
+   what's found, since that depends only on the type, except where
+   unification could still solve the unknown: an argument of a type in the
+   application's type (`Tree k [ord := ?d]`, stage 4) is left alone. The
+   compare retry now also recomputes a side stuck on a dictionary found
+   earlier.
+6. **Obligations stay in the list.** `solve_tree` used to remove an
+   obligation and put it back if it wasn't solved. `undo.rs` restores the
+   list by its length, so removing one made before a transaction that was
+   then undone lost it (`E-UNSOLVED`: seen as `let m := xs |> .sumBy f`
+   followed by `if m != 0`). A solved obligation now stays, and is skipped
+   later, as `prove_now` already did.
+7. **Errors.** A literal against another type keeps its message, with a
+   note to write `Add.zero` or `Mul.one` where the type has `Add`. A group
+   with `-`, `/`, `%` or a prefix minus, or on a type without the
+   instance an operator needs, gives the old message (`` `+` gives a `Nat`
+   or an `Int` ``, `` `<` works on `Nat` and `Int` ``), with a note naming
+   the missing instance. `E-INSTANCE-NONE` from an operator's own
+   resolution notes which method the operator is. `<` and `<=` now work on
+   `Text`, lists and the other `Ord` types, so `t < 1` with `t: Text` is a
+   literal mismatch, not an operator error (`int-text-operand.sw`).
+8. **The library.** `List.sum`, `List.sumBy` and `List.product` are
+   generic (§7.7's definitions). Restated generically, with the laws:
+   `List.sumFrom`, `List.sumCons`, `List.sumByFrom`, `List.sumByCons`,
+   `List.sumByAppend`, `List.productFrom`, `List.productCons`, and new
+   `List.sumAppend` (§7.7's proof) and `Add.addZero`. The other sum
+   lemmas keep their `Nat` statements (they use `Nat` facts: `keepIf`,
+   `mulDistribLeft`, `<=`, subtraction), now about `List.sumBy [add :=
+   Nat.instAdd]`, and their proofs are unchanged. `List.sumInt`,
+   `List.sumIntBy`, their examples and `List.sumIntFrom` are gone (no AoC
+   program used them); `int-sum.sw` uses the generic functions.
+9. **The hash oracle** (the prelude with every library file, and the AoC
+   project, against `main` before stage 5: `hash_stability`'s ignored
+   `dump` test, with `HASH_DEPS` for each definition's references): 261
+   definitions changed, all in the dependency closure of the ten
+   generalised definitions (`List.sum`, `sumBy`, `product`, `sumFrom`,
+   `sumCons`, `sumByFrom`, `sumByCons`, `sumByAppend`, `productFrom`,
+   `productCons`): 65 in the library, 196 in AoC (days 1 to 6, programs
+   and proofs). None outside it; 5 removed, 40 added. Every `Nat` and `Int`
+   operator, `if x < y` and `auto` proof elsewhere has its old hash, and
+   the golden terms in `operators.rs` were checked against the compiler
+   before stage 5. Among the examples, sum and product users changed, and
+   one other definition: `ord-instances.sw`'s `test "decided"`
+   (`Decidable.toBool (Ord.decLessThan "a" "b")`), whose implicit
+   proposition is now computed (`Less = Less`) rather than
+   `Ord.%lessThan [Text] {…} "a" "b"`: its dictionary is now found when
+   `Ord.decLessThan "a" "b"` is elaborated. Same meaning, smaller term.
+10. **Cost.** `cd aoc && stitchwort check`: 2.01 s before, 2.09 s after
+    (best of five, +4%). Loading the core takes about 11 ms more (the laws
+    moved into it); sums at `Nat` carry the inlined `Nat.instAdd` record
+    (stage 1 item 13), and generic code resolves.
 
 ---
 

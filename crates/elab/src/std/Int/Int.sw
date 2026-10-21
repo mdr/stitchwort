@@ -1,17 +1,7 @@
--- `Int` arithmetic for programs: the sum of a list of integers, the arithmetic
--- and division laws, and `Int.modNat`, proved from the core's definitions.
--- This file was the prelude's blocks of `Int` lemmas after the core's `Int`.
-
--- The sum of a list of `Int`s, as `List.sum` is of `Nat`s.
-def List.sumInt (xs: List Int): Int := List.foldLeft Int.add 0 xs
-
-theorem List.sumIntExample: List.sumInt [3, -5, 1] = -1 := rfl
-
--- The sum of `f` over the elements, as an `Int`: `List.sumIntBy f xs` is
--- `List.sumInt (List.map f xs)` without building the intermediate list.
-def List.sumIntBy (f: a -> Int) (xs: List a): Int := List.foldLeft (acc x => Int.add acc (f x)) 0 xs
-
-theorem List.sumIntByExample: List.sumIntBy (x => Int.sub 1 x) [1, 2, 3] = -3 := rfl
+-- `Int` arithmetic for programs: the arithmetic and division laws, and
+-- `Int.modNat`, proved from the core's definitions. This file was the
+-- prelude's blocks of `Int` lemmas after the core's `Int`. (The sum of a list
+-- of `Int`s is the generic `List.sum`.)
 
 -- Lemmas (checkpoint 1)
 
@@ -167,14 +157,6 @@ theorem Int.subNatNatAddNeg (p: Nat) (q: Nat): (r: Nat) -> Int.add (Int.subNatNa
 
 theorem Int.toNatSubNatNat (s: Nat) (q: Nat): Int.toNat (Int.subNatNat (s + q) q) = s :=
   Eq.trans (Eq.cong (t => Int.toNat (Int.subNatNatFrom (s + q) q t)) (Nat.subEqZero q (s + q) (Nat.leAddLeft s q))) (Nat.addSub s q)
-
--- `List.sumInt` from a starting total.
-theorem List.sumIntFrom: (a: Int) -> (xs: List Int) -> List.foldLeft Int.add a xs = Int.add a (List.sumInt xs)
-  | a, Nil       => Eq.sym (Int.addZero a)
-  | a, Cons x xs =>
-    Eq.trans (List.sumIntFrom (Int.add a x) xs)
-      (Eq.trans (Int.addAssoc a x (List.sumInt xs))
-        (Eq.sym (Eq.cong (Int.add a) (Eq.trans (List.sumIntFrom (Int.add (OfNat 0) x) xs) (Eq.cong (t => Int.add t (List.sumInt xs)) (Int.zeroAdd x))))))
 
 -- Integers modulo a size. The remainder `Int.modNat x d` doesn't change when
 -- `d` is added to `x`, hence not for any multiple of `d`.
