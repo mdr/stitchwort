@@ -499,7 +499,7 @@
 
 <script type="text/plain" id="ex-lists" data-title="Proofs about lists">-- A proof that appending lists adds their lengths, by induction on the first
 -- list. The compiler checks it; change a line and see what it says.
-import Std (Eq)
+import Std (Eq, List)
 
 theorem appendLength: (xs: List a) -> (ys: List a) ->
     List.length (List.append xs ys) = List.length xs + List.length ys
@@ -536,6 +536,8 @@ def averageOfThree: Nat := average 12 3
 <script type="text/plain" id="ex-tests" data-title="Tests">-- Tests are `Bool` expressions that must be `True`. The command-line tool
 -- caches each result by a hash of everything the test depends on.
 
+import Std (Nat)
+
 def double (n: Nat): Nat := n + n
 
 def isEven (n: Nat): Bool := Nat.leq (n % 2) 0
@@ -549,6 +551,8 @@ test "this one fails" := isEven 3
 <script type="text/plain" id="ex-abilities" data-title="Abilities and handlers">-- Effectful code is written directly; the abilities it may perform are in
 -- its type. A handler removes one. `k` resumes the computation and may be
 -- called more than once. Run the tests to see the results.
+
+import Std (List)
 
 ability State (s: Type) where
   get: () -> {State s} s
@@ -591,6 +595,8 @@ test "choice inside state" := sndOf (runState 1 (u => allResults step)) == 11
 -- lines with `IO.readLine`, which gives `None` at the end of the input. Press
 -- Run: the Run tab's box holds the input lines. The tests run the same `main`
 -- with `IO.simulate`, which takes the input as a list.
+
+import Std (IO, Nat, Pair, Text)
 
 -- The text, or a default at end of input.
 def textOr (d: Text): Option Text -> Text
@@ -1553,7 +1559,7 @@ export def area: Shape -> Nat
 
     if (view === "eval") {
       const input = el("input", { type: "text", id: "eval-input", value: evalInput, spellcheck: false,
-                                  placeholder: "an expression, e.g. List.length [1, 2]" });
+                                  placeholder: "an expression, e.g. [1, 2].length" });
       input.setAttribute("aria-label", "Expression to evaluate");
       const go = el("button", { className: "primary", type: "submit" }, "Evaluate");
       const form = el("form", { className: "evalrow" }, input, go);

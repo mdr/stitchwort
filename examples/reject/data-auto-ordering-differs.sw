@@ -3,6 +3,8 @@
 -- type names the instance's: the ordering is part of the map's type, so the
 -- types differ (docs/proposals/interfaces.md §7.5), and the note says so.
 
+import Std (Nat)
+
 interface Ordered (k: Type) =
   { compare: k -> k -> Ordering }
 

@@ -2,6 +2,8 @@
 -- constructors compare in the order they're declared. Nothing is written
 -- for it: `List.sort`, `Ord.max` and the laws work at once.
 
+import Std (List, Ord, Ordering)
+
 type Suit = | Clubs | Diamonds | Hearts | Spades
 
 test "declared order" := Ord.compare Clubs Spades == Less

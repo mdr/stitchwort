@@ -2,7 +2,7 @@
 -- instance always comes with them, so generic theorems need no extra
 -- "and it's lawful" argument.
 
-import Std (Eq)
+import Std (Eq, List, Nat, Ord, Ordering, Text)
 
 -- `List.sort` is sorted, for any ordered type: the `flip` law makes the
 -- comparison total, once, for every type (`Ord.leTotal`).

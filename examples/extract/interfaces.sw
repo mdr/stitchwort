@@ -8,6 +8,8 @@
 -- run: smallest [5, 3, 8]
 -- run: smallestBy [5, 3, 8]
 
+import Std (Nat, Text)
+
 interface Pretty (a: Type) =
   { pretty: a -> Text }
 

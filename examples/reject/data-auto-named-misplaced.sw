@@ -3,6 +3,8 @@
 -- parameters, as declared: `Map Nat Nat [ord := …]`
 -- (docs/proposals/interfaces.md §7.5).
 
+import Std (Nat)
+
 interface Ordered (k: Type) =
   { compare: k -> k -> Ordering }
 

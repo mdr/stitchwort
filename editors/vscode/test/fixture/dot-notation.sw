@@ -1,7 +1,7 @@
 -- Dot notation by type (docs/proposals/namespaces.md §4.8): `e.f` is `T.f`
 -- with `e` in the place of `T.f`'s first parameter of type `T`, where `T` is
 -- `e`'s type. A record's field is the case where `T.f` is its projection.
-
+import Std (Pair, Text)
 type Bag (a: Type): Type =
   | Empty
   | Put (x: a) (rest: Bag a)

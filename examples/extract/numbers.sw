@@ -8,6 +8,8 @@
 -- run: isEven 7
 -- run: isEven 10
 
+import Std (Bool, List, Nat, Void)
+
 def total: List Nat -> Nat
   | Nil       => 0
   | Cons x xs => x + total xs

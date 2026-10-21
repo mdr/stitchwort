@@ -3,6 +3,8 @@
 -- computed once when the program runs, and while checking, the name stands
 -- for the value.
 
+import Std (List, Nat)
+
 -- §1, example 1: `p` is `n`.
 theorem one (n: Nat): n <= n + 1 :=
   let p := n

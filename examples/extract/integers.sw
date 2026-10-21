@@ -12,6 +12,8 @@
 -- run: describe 1000000000000000000000000000000
 -- run: negatives [0, 4]
 
+import Std (Decidable, Int, List, Nat, Option, Text)
+
 -- Where a dial at 0 ends up after `x` clicks, on a dial of 100.
 export def dial (x: Int): Int := x % 100
 

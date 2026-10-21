@@ -3,6 +3,8 @@
 -- written out (`reach flag (Succ k) c d`) is elaborated afresh and still has
 -- the condition in it. `_` would be inferred from `h` instead (SW-194).
 
+import Std (Bool)
+
 def reach (flag: Nat -> Bool): Nat -> Nat -> Nat -> Bool
   | Zero,   c, d => c == d
   | Succ k, c, d =>

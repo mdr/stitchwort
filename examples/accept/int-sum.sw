@@ -2,6 +2,8 @@
 -- (they add with the elements' `Add` instance), so they work on `Int`s as on
 -- `Nat`s. The list comes last, so they end a pipeline.
 
+import Std (Int, List, Nat, Pair)
+
 def net (moves: List Int): Int := moves |> List.sum
 
 theorem netExample: net [10, -3, -8, 2] = 1 := rfl

@@ -1,4 +1,7 @@
 -- expect-error: E-AUTO-FALSE
+
+import Std (Bool, List, Void)
+
 -- An auto argument can't be satisfied by a false proposition: `get` on an
 -- empty list is refused at compile time.
 def get: (xs: List a) -> (i: Nat) -> [auto ok: i < List.length xs] -> a

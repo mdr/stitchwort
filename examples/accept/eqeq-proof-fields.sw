@@ -4,6 +4,8 @@
 -- `DecEq` are equal (`DecEq.uniqueEq`, Hedberg's theorem), and the derived
 -- proof that equal data gives equal values says so.
 
+import Std (DecEq, List, Nat)
+
 -- A value parameter, and a proof field `position <= highest`, which is the
 -- equation `Nat.leq position highest = True` in `Bool`.
 type Dial (highest: Nat) = { position: Nat, inRange: position <= highest }

@@ -2,6 +2,8 @@
 -- parameter (SW-193): in each branch it has the replaced type, and its value
 -- is forgotten there (it is an opaque hypothesis).
 
+import Std (Nat)
+
 def half (n: Nat): Option Nat := match n with | Zero => None | Succ k => Some k
 
 def Small (n: Nat): Option Nat -> Prop

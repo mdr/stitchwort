@@ -11,7 +11,7 @@
 
 namespace Aoc.Day04.Proofs
 import Aoc.Day04 (..)
-import Std (Eq)
+import Std (And, Bool, Decidable, Eq, List, Nat, Void)
 
 theorem rollNotFloor (h: Floor = Roll): Void := Nat.zeroNotSucc 0 (Eq.cong Cell.count h)
 

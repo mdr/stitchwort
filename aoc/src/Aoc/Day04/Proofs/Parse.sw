@@ -4,7 +4,7 @@
 
 namespace Aoc.Day04.Proofs
 import Aoc.Day04 (..)
-import Std (Eq)
+import Std (Eq, Fin, List, Nat, Option, Text, Vec, Void)
 
 -- Rows that `traverseOption` accepted, cell by cell.
 theorem parsedCell (lines: List Text) (rows: Vec (Vec Cell (Text.length (List.headOr "" lines))) (List.length lines))

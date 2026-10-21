@@ -4,6 +4,8 @@
 -- the left, so a pipeline reads top to bottom. The left side is checked, and
 -- run, before the arguments on the right.
 
+import Std (IO, List, Nat, Pair)
+
 type Person = { name: Text, age: Nat }
 
 def people: List Person := [{ name = "Ann", age = 30 }, { name = "Bob", age = 25 }]

@@ -21,6 +21,7 @@
 -- not check.
 
 namespace Aoc.Day06
+import Std (Char, IO, Nat)
 
 def main(): {IO} () :=
   let problems := parseWorksheet (IO.readAllLines())

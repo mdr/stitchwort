@@ -6,6 +6,8 @@
 -- reject/swap-without-descent.sw, reject/rebuild-parameter.sw and
 -- reject/partial-recursive-call.sw.
 
+import Std (Nat)
+
 -- Ackermann's function: each call either makes the first argument smaller,
 -- or keeps it (`Succ m` is the first argument, rebuilt) and makes the
 -- second smaller.

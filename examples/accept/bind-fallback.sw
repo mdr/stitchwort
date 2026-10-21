@@ -3,6 +3,8 @@
 -- (docs/proposals/checker-evaluation.md, option (a)). These are the cases
 -- where it can't, and falls back to computing the value as before.
 
+import Std (List)
+
 -- An operation whose result type depends on its argument.
 def Payload: Nat -> Type
   | 0 => Nat

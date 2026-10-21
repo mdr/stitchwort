@@ -9,7 +9,7 @@
 
 -- A tree whose children are a forest, and a forest of trees. Written in
 -- either order.
-import Std (Eq)
+import Std (Eq, Nat)
 
 type Tree: Type =
   | Node (label: Nat) (kids: Forest)

@@ -1,4 +1,7 @@
 -- expect-error: E-PARTIAL
+
+import Std (IO, Pair)
+
 -- A row variable never stands for `Partial`: `IO.simulate`'s program must be
 -- total. A partial `main` is run by `stitchwort run` instead.
 def cat(): {IO, Partial} () :=

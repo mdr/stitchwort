@@ -4,7 +4,7 @@
 
 namespace Aoc.Common.Proofs
 import Aoc.Common (..)
-import Std (Eq)
+import Std (Bool, Eq, List, Nat, Void)
 
 -- Which ids from `from` to `to` lie in the run `List.rangeFrom (to + 1 - from) from`.
 theorem rangeEnd (from: Nat) (to: Nat) (x: Nat) (h1: from <= x) (h2: x < from + (to + 1 - from)): x <= to :=

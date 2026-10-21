@@ -8,7 +8,7 @@
 
 namespace Aoc.Day04.Proofs
 import Aoc.Day04 (..)
-import Std (Eq)
+import Std (Bool, Eq, List, Nat, Vec)
 
 -- The rolls of a row, and of all the rows, cell by cell.
 theorem rowRolls (row: Vec Cell w): Vec.sumBy Cell.count row = List.sumBy (c => (List.getOr Floor c (Vec.toList row)).count) (List.range w) :=

@@ -3,6 +3,8 @@
 -- (`ordA`, `ordB`, … when there are several); value parameters are head
 -- variables, as for `==`.
 
+import Std (List, Nat, Ord)
+
 type Tree (a: Type) = | Leaf | Node (left: Tree a) (value: a) (right: Tree a)
 
 def leaf (x: a): Tree a := Node Leaf x Leaf

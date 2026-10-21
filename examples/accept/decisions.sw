@@ -1,5 +1,7 @@
 -- Automatic proofs, decision procedures, `if`, and division.
 
+import Std (Bool, Void)
+
 -- `/` needs a proof that the divisor isn't zero. For a literal, `auto`
 -- decides it at compile time.
 def half (n: Nat): Nat := n / 2

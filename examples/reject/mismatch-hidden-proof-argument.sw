@@ -4,6 +4,8 @@
 -- two use different proofs of it, which aren't interchangeable (SW-28). The
 -- message shows them in brackets.
 
+import Std (Int)
+
 theorem differentProofs (x: Int) (t: Nat) (h1: Succ t != 0) (h2: Succ t != 0)
     (p: Int.modNat x (Succ t) [ok := h2] = Int.modNat x (Succ t) [ok := h2]):
     Int.modNat x (Succ t) [ok := h1] = Int.modNat x (Succ t) [ok := h1] := p

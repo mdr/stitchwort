@@ -19,7 +19,7 @@
 
 namespace Aoc.Day07.Proofs
 import Aoc.Day07 (..)
-import Std (Eq)
+import Std (Bool, DecEq, Eq, List, Nat, Option, Void)
 
 -- Bool and list facts --------------------------------------------------------
 

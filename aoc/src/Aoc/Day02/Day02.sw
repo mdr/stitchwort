@@ -21,6 +21,7 @@
 
 namespace Aoc.Day02
 import Aoc.Common (Range)
+import Std (List, Nat)
 
 def main(): {IO} () :=
   let ranges := parseRanges (IO.readAll())

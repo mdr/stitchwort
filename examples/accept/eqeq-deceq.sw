@@ -2,7 +2,7 @@
 -- (docs/proposals/interfaces.md stage 2, §5.11, §5.12): the library's
 -- instances, derived ones, and a module's own.
 
-import Std (Eq, Vec)
+import Std (Bool, Eq, Vec)
 
 -- Derived, for a type with a parameter: `[auto decEq: DecEq a]`.
 type Tree (a: Type) =

@@ -2,6 +2,8 @@
 -- to right, as written, whatever order their types are worked out in
 -- (docs/proposals/integers.md, "Effects and evaluation order").
 
+import Std (Nat)
+
 def fstOf: Pair a b -> a
   | MkPair x y => x
 

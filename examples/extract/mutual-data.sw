@@ -11,6 +11,8 @@
 -- run: deep 3
 -- run: flatten (Bloom "a" (MoreRoses (Bloom "b" NoRoses) NoRoses))
 
+import Std (List)
+
 type Tree: Type =
   | Node (label: Nat) (kids: Forest)
 

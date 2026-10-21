@@ -1,6 +1,8 @@
 -- A walk on a grid. Coordinates are `Int`, so the walk can go below zero:
 -- south and west decrease a coordinate, and the origin is in the middle.
 
+import Std (Int)
+
 type Move = | North | South | East | West
 
 type Point = { x: Int, y: Int }

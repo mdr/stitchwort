@@ -2,6 +2,8 @@
 -- values with constructors; literals are shown in int-literals.sw.
 -- Everything here holds by computation.
 
+import Std (Int)
+
 -- The dial example: -18 % 100 is 82, not -18.
 theorem dial: Int.mod (Int.NegSucc 17) (Int.OfNat 100) = Int.OfNat 82 := rfl
 

@@ -3,6 +3,8 @@
 -- computation run by `Effect.runPure`, so a `let` can hold a proof, and a
 -- function with a `let` unfolds to what it would without one.
 
+import Std (IO, Nat)
+
 -- A `let` holding a proof.
 theorem two (n: Nat): n <= Succ (Succ n) :=
   let h := Nat.leSucc n

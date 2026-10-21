@@ -4,6 +4,8 @@
 -- checked knowing more. If that comparison fails, everything is undone and
 -- the application is elaborated the old way.
 
+import Std (List)
+
 type Dir: Type =
   | TL
   | TR

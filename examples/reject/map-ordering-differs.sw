@@ -3,7 +3,7 @@
 -- parameter's type is `Map Nat Nat`, which means the instance's ordering: the
 -- ordering is part of the map's type (docs/proposals/interfaces.md §7.5).
 
-import Std (Eq)
+import Std (Eq, Map, Nat, Ord)
 
 def descending: Ord Nat :=
   Ord.fromCompare (x y => Nat.compare y x)

@@ -1,6 +1,8 @@
 -- `==` and `<` on `Fin n` values: `Fin` has `DecEq` and `Ord` instances (by
 -- number), so positions can be compared.
 
+import Std (Fin)
+
 def isFirst (i: Fin (Succ n)): Bool := i == FZero
 
 def main: Bool :=

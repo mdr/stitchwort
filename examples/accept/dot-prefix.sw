@@ -4,6 +4,8 @@
 -- crates/driver/tests/dot_prefix.rs checks that each `…Dot` below has the
 -- same hash as its `…Prefix`.
 
+import Std (List, Nat)
+
 def intsDot: List Int := [1, 2].map (x => x)
 def intsPrefix: List Int := List.map (x => x) [1, 2]
 

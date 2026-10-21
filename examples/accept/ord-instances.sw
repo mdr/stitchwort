@@ -4,7 +4,7 @@
 -- orderings, lists, `Option`, pairs and vectors; `List.sort`,
 -- `List.maximum` and `List.minimum` work on any of them.
 
-import Std (Eq, Vec)
+import Std (Decidable, Eq, List, Nat, Ord, Pair, Vec)
 
 test "numbers" := Ord.compare 3 5 == Less
 test "integers" := Ord.compare (-3: Int) 2 == Less

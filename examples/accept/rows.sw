@@ -5,6 +5,7 @@
 -- reordered an operation could still produce a well-typed result.
 
 import Std.Effect (Comp, Plus, PlusRes, SigMap, bind, sigCompose, sigId, sigLeft, sigRight, sigSwap, translate)
+import Std (List)
 
 type Unit1: Type =
   | MkUnit

@@ -4,6 +4,8 @@
 -- predicate), and `List.sortBySorted (a b => …) (a b => …) xs` (the second
 -- lambda's type mentions the first, and both wait for `xs`).
 
+import Std (List, Nat, Ordering)
+
 type R = { lo: Nat, hi: Nat }
 
 def R.contains (r: R) (n: Nat): Bool := Nat.leq r.lo n

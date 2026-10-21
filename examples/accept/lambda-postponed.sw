@@ -3,6 +3,8 @@
 -- `List.map (p => p.name) people`, `people` fixes `p`'s type first. Only
 -- the checking order changes; the arguments are passed as written.
 
+import Std (List)
+
 type Person = { name: Text, age: Nat }
 
 type Entry = { position: Nat, label: Text }

@@ -2,6 +2,8 @@
 -- starts at 50 and is turned left or right. Turning left from 0 lands on 99,
 -- so the position wraps, which `Int.modNat` does for negative numbers too.
 
+import Std (Int, Nat)
+
 type Turn =
   | Left (clicks: Nat)
   | Right (clicks: Nat)

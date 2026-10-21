@@ -5,6 +5,8 @@
 -- and `_` for the operand that is the inner `match` lets unification fill it
 -- in, so the proof never writes it.
 
+import Std (Bool, Void)
+
 def reach (flag: Nat -> Bool): Nat -> Nat -> Nat -> Bool
   | Zero,   c, d => c == d
   | Succ k, c, d =>

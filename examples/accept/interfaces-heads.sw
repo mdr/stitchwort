@@ -2,6 +2,8 @@
 -- to distinct variables. One instance per interface and type name, so
 -- these don't overlap.
 
+import Std (Vec)
+
 interface Size (a: Type) =
   { size: a -> Nat }
 

@@ -5,6 +5,7 @@
 
 -- Not recursive: an ordinary definition whose result is partial.
 import Std.Effect (Sig)
+import Std (List, Nat, Pair)
 
 def immediate (n: Nat): {Partial} Nat := n + 1
 

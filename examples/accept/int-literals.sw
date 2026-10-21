@@ -2,6 +2,8 @@
 -- arithmetic and comparisons are typed a group at a time
 -- (docs/proposals/integers.md, "Literals" and "Numeric expressions").
 
+import Std (List)
+
 -- Literals: `k` is `OfNat k`, `-k` is `NegSucc (k - 1)`, and `-0` is `OfNat 0`.
 theorem lit: (5: Int) = OfNat 5 := rfl
 

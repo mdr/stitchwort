@@ -4,6 +4,7 @@
 -- it, checked like any other.
 
 import Std.Effect (Comp, Plus, PlusRes, bind, foldComp)
+import Std (List)
 
 type Unit1: Type =
   | MkUnit

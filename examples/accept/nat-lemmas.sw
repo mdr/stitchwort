@@ -1,5 +1,5 @@
 -- Arithmetic lemmas from the prelude, used in small proofs.
-import Std (Eq)
+import Std (Eq, Nat)
 
 theorem addSwap (a: Nat) (b: Nat) (c: Nat): a + (b + c) = b + (a + c) :=
   Eq.trans (Eq.sym (Nat.addAssoc a b c))

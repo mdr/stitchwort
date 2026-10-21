@@ -2,6 +2,8 @@
 -- compares the argument with each number; it doesn't count down to it.
 -- See docs/proposals/number-patterns.md.
 
+import Std (Nat)
+
 def statusText: Nat -> Text
   | 200 => "OK"
   | 201 => "Created"

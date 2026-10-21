@@ -21,6 +21,8 @@
 -- program with a bound on the number of lines, as it had to be written
 -- before `Partial`.
 
+import Std (Nat)
+
 -- The text, or a default at end of input.
 def textOr (d: Text): Option Text -> Text
   | None => d

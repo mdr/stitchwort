@@ -1,5 +1,7 @@
 -- Text: sequences of Unicode scalar values (docs/proposals/text-and-io.md).
 
+import Std (Char, Nat, Text)
+
 -- The contract: exact sequences, compared by scalar value, never normalised.
 test "e-acute is one scalar"        := "\u{E9}".length == 1
 test "e and a combining accent: two" := "e\u{301}".length == 2

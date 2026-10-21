@@ -9,6 +9,8 @@
 -- `collatzSteps 1` none. crates/driver/tests/partial.rs checks those counts
 -- against the runtime's model.
 
+import Std (Nat)
+
 -- The next number in the sequence: total, so it can be tested and proved
 -- about.
 def next (n: Nat): Nat := if n % 2 == 0 then n / 2 else 3 * n + 1

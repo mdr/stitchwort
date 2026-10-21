@@ -31,6 +31,7 @@
 
 namespace Aoc.Day06.Proofs
 import Aoc.Day06 (..)
+import Std (Char, List, Nat, Text)
 
 -- Column c of a line; a space past its end.
 def charAt (line: Text) (c: Nat): Char := line.toList.getOr ' ' c

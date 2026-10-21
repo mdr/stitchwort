@@ -9,7 +9,7 @@
 
 namespace Aoc.Day01.Proofs
 import Aoc.Day01 (..)
-import Std (Eq)
+import Std (Bool, Eq, Int, List, Nat)
 
 -- The specification of part 2: turn the dial one click at a time, and count
 -- the positions after each click that are 0.

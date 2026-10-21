@@ -3,6 +3,7 @@
 -- translates them into `Comp` trees, and the kernel checks the result.
 
 import Std.Effect (Comp)
+import Std (List)
 
 def fstOf: Pair a b -> a
   | MkPair x y => x

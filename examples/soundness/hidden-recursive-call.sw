@@ -2,6 +2,7 @@
 -- The outer call is on a smaller tree (`rest …`), but its argument hides a
 -- call on the original one. Every recursive call is checked.
 import Std.Effect (Comp)
+import Std (Nat)
 
 type ChooseOp: Type =
   | Choose

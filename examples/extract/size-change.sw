@@ -11,6 +11,8 @@
 -- run: gcdSteps 12 18 0
 -- run: gcdSteps 0 5 0
 
+import Std (Nat)
+
 export def interleave: List Nat -> List Nat -> List Nat
   | Nil,       ys => ys
   | Cons x xs, ys => Cons x (interleave ys xs)

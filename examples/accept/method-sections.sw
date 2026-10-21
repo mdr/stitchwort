@@ -6,6 +6,8 @@
 -- so it needs the receiver's type from where it's used: a known function type,
 -- a pipe's left side, or an annotation.
 
+import Std (List)
+
 type Person = { name: Text, age: Nat }
 
 def Person.greet (greeting: Text) (p: Person): Text := greeting ++ ", " ++ p.name

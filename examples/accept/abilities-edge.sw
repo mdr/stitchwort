@@ -1,6 +1,8 @@
 -- Less common shapes of effectful code, each checked against an exact
 -- result. (abilities.sw has the main semantic tests.)
 
+import Std (List)
+
 def fstOf: Pair a b -> a
   | MkPair x y => x
 

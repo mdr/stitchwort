@@ -62,6 +62,12 @@ Claims about the code are marked **[checked]** when I ran or read the thing name
 
 ## 0. The short version
 
+> **Since SW-213 (D260, D266):** what a program can *name* without an import is narrower
+> than what it can *use*: a library namespace's functions and lemmas need
+> `import Std (List)` and so on, and `Map`, `Set`, `Vec`, `Fin` need an import even for
+> the type ([prelude-slim.md](prelude-slim.md)). Loading is unchanged: what's loaded never
+> changes what a program means.
+
 - **Today** every program checks the whole prelude, a single 3,226-line Stitchwort file
   (`crates/elab/src/prelude.sw`): 245 definitions, 369 theorems and 21 types **[checked]**.
   Checking an empty file takes about 0.21 s **[checked: `stitchwort check` on a one-line file,

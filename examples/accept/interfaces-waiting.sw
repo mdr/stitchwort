@@ -2,6 +2,8 @@
 -- (docs/proposals/interfaces.md §5.5): a test that depends on an unknown
 -- waits, and is tried again once it's known.
 
+import Std (Nat)
+
 interface HasZero (a: Type) =
   { zero: a }
 

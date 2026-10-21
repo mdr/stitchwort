@@ -34,6 +34,18 @@ pub const STD: &str = "Std";
 /// path under `Std`, and its target's (§4.6).
 pub const ALIASES: &[(&str, &str)] = &[("not", "Bool.not")];
 
+/// The prelude: the library's root names a program sees without an import
+/// (docs/proposals/prelude-slim.md §3, D266). The types built-in syntax
+/// needs, `Option`, the interfaces behind operators and `deriving`, `IO`,
+/// and the alias `not`. A prelude type's own declaration comes with it
+/// (constructors, record fields, an ability's operations, an interface's
+/// methods); the rest of its namespace (`List.map`, `Nat.addComm`) needs
+/// `import Std (List)` (D260). Dot notation needs no import (D261).
+pub const PRELUDE: &[&str] = &[
+    "Nat", "Int", "Bool", "Char", "Text", "List", "Pair", "Unit", "Void", "Not", "And", "Or",
+    "Decidable", "Option", "Ordering", "DecEq", "Ord", "Add", "Mul", "Show", "IO", "not",
+];
+
 /// Which level a name was found at.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Level {
@@ -90,6 +102,10 @@ pub struct Scope {
     pub(crate) import_failed: HashSet<String>,
     /// What `Std` declares at its root, and its aliases: short name to key.
     std_root: HashMap<String, String>,
+    /// The members of a type's, ability's or interface's own declaration:
+    /// constructors, operations, record fields and interface methods. A
+    /// prelude type's are usable through its default name (D260).
+    members: HashSet<String>,
     /// While a library file loads: its own index entries are out of the way,
     /// so it can declare the names the index promised.
     pub(crate) loading: Option<usize>,
@@ -270,6 +286,9 @@ impl Scope {
                 self.namespaces.insert(p.to_string());
                 prefix = p;
             }
+            if follower {
+                self.members.insert(key.to_string());
+            }
             if follower && !short(key).starts_with('%') {
                 self.followers
                     .entry(short(key).to_string())
@@ -335,6 +354,23 @@ impl Scope {
     /// Whether `x` is a name at the library's root (or an alias of one).
     pub(crate) fn is_std_root(&self, x: &str) -> bool {
         self.std_root.contains_key(x)
+    }
+
+    /// Whether `x` is a default name in a program: a prelude name the
+    /// library declares (D266).
+    pub(crate) fn is_prelude(&self, x: &str) -> bool {
+        PRELUDE.contains(&x) && self.std_root.contains_key(x)
+    }
+
+    /// Records that `key` belongs to its type's own declaration (a record
+    /// field, an interface method), like a constructor.
+    pub(crate) fn mark_member(&mut self, key: &str) {
+        self.members.insert(key.to_string());
+    }
+
+    /// Whether `key` belongs to its type's own declaration.
+    pub(crate) fn is_member(&self, key: &str) -> bool {
+        self.members.contains(key)
     }
 
     pub fn clear_imports(&mut self) {
@@ -441,9 +477,15 @@ impl Elaborator {
             return self.resolve_short(written, true);
         };
         let rest: Vec<&str> = after.split('.').collect();
+        // A prelude type found as a default name, not imported: only its
+        // own declaration's members are reached through it (D260).
+        let mut members_only = false;
         let base: String = match qualifier(&CheckingLevels(self, true), first) {
             Qualifier::Std => STD.to_string(),
-            Qualifier::Short(Resolved::Found { key, .. }) => key.to_string(),
+            Qualifier::Short(Resolved::Found { key, level, .. }) => {
+                members_only = level == Level::Default;
+                key.to_string()
+            }
             Qualifier::Short(Resolved::Ambiguous(keys, level)) => {
                 return Resolved::Ambiguous(keys, level);
             }
@@ -457,6 +499,9 @@ impl Elaborator {
             let key = format!("{base}.{}", rest[..=k].join("."));
             let key = alias_target(&key).unwrap_or(key);
             if let Some((key, global, span)) = self.scope.entry(&key) {
+                if members_only && (k > 0 || !self.scope.is_member(key)) {
+                    return Resolved::Missing;
+                }
                 return Resolved::Found {
                     global,
                     span,
@@ -465,6 +510,10 @@ impl Elaborator {
                     rest: rest[k + 1..].iter().map(|s| s.to_string()).collect(),
                 };
             }
+        }
+        // Nor a namespace inside it (`Nat.Divides…`).
+        if members_only && self.scope.is_namespace(&format!("{base}.{}", rest[0])) {
+            return Resolved::Missing;
         }
         match self.scope.entry(&base) {
             Some((key, global, span)) => Resolved::Found {
@@ -624,7 +673,9 @@ impl Elaborator {
             // The default set, in a program: what `Std` declares at its
             // root, and its aliases.
             Level::Default if !self.loading_prelude => {
-                if let Some(key) = self.scope.std_root.get(x) {
+                if let Some(key) = self.scope.std_root.get(x)
+                    && PRELUDE.contains(&x)
+                {
                     found(key);
                 }
                 for key in followed() {
@@ -883,14 +934,40 @@ impl Elaborator {
         }
         let mut d = Diagnostic::error("E-UNKNOWN-NAME", format!("unknown name `{}`", name.text))
             .with_label(name.span, "not in scope");
-        // A library namespace that isn't a default name needs an import (D50).
+        // A library namespace that isn't a default name needs an import (D50),
+        // and so does a prelude type's namespace beyond its own declaration
+        // (D260).
         if let Some((first, _)) = name.text.split_once('.')
             && !self.loading_prelude
             && first != STD
             && self.scope.is_namespace(&format!("Std.{first}"))
         {
+            let full = format!("Std.{}", name.text);
+            let prelude = matches!(
+                self.resolve_short(first, false),
+                Resolved::Found { level: Level::Default, key, .. } if key == format!("Std.{first}")
+            );
+            d = if prelude
+                && (self.scope.get(&full).is_some() || self.scope.is_namespace(&full))
+            {
+                d.with_note(format!(
+                    "`{}` needs `import Std ({first})`, or write it in full: `{full}`",
+                    name.text
+                ))
+            } else {
+                d.with_note(format!(
+                    "`{first}` is `Std.{first}`; add `import Std ({first})`, or write `{full}`"
+                ))
+            };
+        }
+        // A library type outside the prelude (D266).
+        if !name.text.contains('.')
+            && !self.loading_prelude
+            && self.scope.is_std_root(&name.text)
+            && !self.scope.is_prelude(&name.text)
+        {
             d = d.with_note(format!(
-                "`{first}` is `Std.{first}`; add `import Std ({first})`, or write `Std.{}`",
+                "`{0}` is `Std.{0}`, which isn't in the prelude; add `import Std ({0})`, or write `Std.{0}`",
                 name.text
             ));
         }
@@ -909,11 +986,26 @@ impl Elaborator {
             if let Some(first) = found.first() {
                 let namespace = parent(first).unwrap_or(first);
                 let shown: Vec<String> = found.iter().map(|k| format!("`{k}`")).collect();
-                d = d.with_note(format!(
-                    "the library has {}: write it in full, or `import {namespace} ({})`",
-                    or_list(&shown),
-                    name.text
-                ));
+                // A constructor of a library type outside the prelude comes
+                // with its type (D266).
+                let ty = namespace.strip_prefix("Std.").filter(|t| {
+                    found.len() == 1
+                        && !t.contains('.')
+                        && !self.scope.is_prelude(t)
+                        && self.scope.is_member(first)
+                });
+                d = d.with_note(match ty {
+                    Some(t) => format!(
+                        "the library has {}: write it in full, or `import Std ({t})`, or `import {namespace} ({})`",
+                        or_list(&shown),
+                        name.text
+                    ),
+                    None => format!(
+                        "the library has {}: write it in full, or `import {namespace} ({})`",
+                        or_list(&shown),
+                        name.text
+                    ),
+                });
             }
         }
         d

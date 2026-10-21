@@ -8,6 +8,8 @@
 -- run: divideOrZero 7 2
 -- run: divideOrZero 7 0
 
+import Std (List)
+
 def sndOf: Pair a b -> b
   | MkPair x y => y
 

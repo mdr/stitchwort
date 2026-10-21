@@ -7,6 +7,7 @@ import Text (split, join)
 -- `List` here would mean this file's own `List` (below), so the library's
 -- is written from `Std`.
 import Std.List (reverseOnto)
+import Std (Text)
 
 -- A program's own names hide the library's: this file has its own `length`,
 -- `Option` and `Yes`.

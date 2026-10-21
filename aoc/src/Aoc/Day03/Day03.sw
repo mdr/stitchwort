@@ -14,6 +14,7 @@
 -- (Proofs/Best.sw), which `run` does not check.
 
 namespace Aoc.Day03
+import Std (Char, IO, Nat)
 
 def main(): {IO} () :=
   let banks := parseBanks (IO.readAllLines())

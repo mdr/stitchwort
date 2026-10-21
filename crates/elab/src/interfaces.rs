@@ -311,6 +311,7 @@ impl Elaborator {
             methods.push(id);
             let key = Self::member_key(&data_key, field);
             self.scope.insert(&key, Global::Def(id), span, false);
+            self.scope.mark_member(&key);
         }
         self.interfaces.insert(
             d,

@@ -1,3 +1,5 @@
+import Std (List)
+
 -- An indexed family used only inside an export is fine: the boundary types
 -- are `List Nat` and `Nat`. Its forced field `n` is stored and its impossible
 -- branches generate no code (paired with reject/export-indexed-*.sw).

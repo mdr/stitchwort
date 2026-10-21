@@ -8,7 +8,7 @@
 
 namespace Aoc.Day07.Proofs
 import Aoc.Day07 (..)
-import Std (Eq)
+import Std (Bool, Eq, List, Option)
 
 def Turn.isLeft: Turn -> Bool
   | Left  => True

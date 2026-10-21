@@ -2,6 +2,8 @@
 -- §5.11): constructors in the order they're declared, then their fields
 -- left to right. A field of the type itself compares recursively.
 
+import Std (List, Nat)
+
 type Shape =
   | Dot
   | Circle (radius: Nat)

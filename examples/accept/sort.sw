@@ -3,6 +3,8 @@
 -- `List.sortWith` (by a "may come before" test), with proofs that the result
 -- is sorted and a permutation of the input.
 
+import Std (List, Nat, Ordering, Pair, Text)
+
 theorem sortsNumbers: List.sort [5, 3, 9, 1, 3, 0, 7] = [0, 1, 3, 3, 5, 7, 9] := rfl
 
 theorem sortsEmpty: List.sort ([]: List Nat) = [] := rfl

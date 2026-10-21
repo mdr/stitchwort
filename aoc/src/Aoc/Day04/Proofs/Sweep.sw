@@ -9,7 +9,7 @@
 
 namespace Aoc.Day04.Proofs
 import Aoc.Day04 (..)
-import Std (Eq)
+import Std (And, Bool, Decidable, Eq, List, Nat, Pair, Vec, Void)
 
 -- The rows of a marked grid, and its cells.
 def rowsOf (m: Marked w h): Vec (Vec Cell w) h := Vec.map Pair.fst m

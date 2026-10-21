@@ -3,6 +3,8 @@
 -- missing field (the tail) fixes the list's element type before the given
 -- field (the literal) is checked.
 
+import Std (List)
+
 type Hit = { row: Nat, column: Nat }
 
 def prefixAll (c: Nat) (xs: List (List Hit)): List (List Hit) :=

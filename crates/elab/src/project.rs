@@ -434,7 +434,7 @@ impl PrePass<'_, '_> {
         self.declared.contains(first)
             || (self.imports
                 && (self.imported[file].contains(first) || self.wildcard[file].contains(first)))
-            || self.e.scope.is_std_root(first)
+            || self.e.scope.is_prelude(first)
     }
 }
 

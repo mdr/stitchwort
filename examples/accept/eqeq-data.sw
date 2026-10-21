@@ -8,6 +8,8 @@
 -- other proof fields, type fields, types defined together, Prop types, and
 -- fields that depend on earlier ones (see reject/eqeq-data-*.sw).
 
+import Std (Bool)
+
 type Dir = | North | East | South | West
 
 test "enum" := North == North

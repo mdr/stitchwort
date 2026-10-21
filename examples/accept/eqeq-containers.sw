@@ -1,6 +1,8 @@
 -- `==` on lists, pairs (tuples) and `Option`, whenever their elements have
 -- `==`: their `DecEq` instances ask for the elements' instance.
 
+import Std (Bool, Int, List, Nat)
+
 test "lists of numbers" := [1, 2, 3] == [1, 2, 3]
 test "different lengths" := Bool.not ([1, 2, 3] == [1, 2])
 test "different elements" := Bool.not ([1, 2, 3] == [1, 5, 3])

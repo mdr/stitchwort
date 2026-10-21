@@ -3,6 +3,8 @@
 -- (The ticket's report doesn't fail on current main, where an application's
 -- dictionary is found as soon as its arguments fix the type.)
 
+import Std (Ordering, Void)
+
 def pick [auto ord: Ord k] (x: k) (y: k): Nat := match Ord.compare x y with
   | Less => 0
   | _    => 1
