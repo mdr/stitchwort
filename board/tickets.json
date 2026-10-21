@@ -58,7 +58,7 @@
       "title": "Interfaces design note (Agda/Lean style, with independent review)",
       "status": "review",
       "agent": "Opus",
-      "where": "stage 1 merged 8c6a7f6 (gate passed); stage 2 (DecEq) running; D194-D196 for Matt",
+      "where": "stage 2 merged 1ef694f; gate FAILED on bench (check-closed-rfl +47% steps) — lane investigating; D194-D199 for Matt",
       "labels": [
         "design",
         "elab"
