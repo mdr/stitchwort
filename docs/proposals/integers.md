@@ -1702,7 +1702,7 @@ No change to the kernel or the elaborator. Decisions not in the note:
 
 ### As built (stage 6)
 
-The `Nat` lemmas it needs (the arithmetic facts, `Nat.divMod` and
+The `Nat` lemmas it needs (the arithmetic facts, `Nat.divModEq` and
 `Nat.modLess`) were already in the prelude's `Nat` section, added
 separately; the `Int` ones are the prelude's "Lemmas (checkpoint 2)" after
 checkpoint 1. No `Int` definition changed,
@@ -1711,11 +1711,11 @@ decisions:
 
 - **The divisor's proof is an `auto` argument in the `Int` lemmas**
   (`Int.divAddMod : (a : Int) -> (d : Int) -> [auto ok : d != 0] -> …`),
-  unlike `Nat.divMod`'s explicit `(ok : d != 0)`. `x % 7` for an unknown
+  unlike `Nat.divModEq`'s explicit `(ok : d != 0)`. `x % 7` for an unknown
   `x` is stuck with the proof it was given inside it, and the kernel has no
   proof irrelevance, so a lemma instantiated with a hand-written proof
   (`Nat.succNotZero 99`) doesn't match `x.modNat 100` in the user's
-  statement; `auto` finds the same proof in both places. (`Nat.divMod`
+  statement; `auto` finds the same proof in both places. (`Nat.divModEq`
   is fine either way: `Nat.div` and `Nat.mod` unfold for any `n` and
   don't use the proof.) So `Int.modNatLt x 100` proves
   `x.modNat 100 < 100` directly.
@@ -1731,7 +1731,7 @@ decisions:
   `rfl` or a `Nat` lemma. The division law has two helpers:
   `Int.divAddModNeg` for both negative-dividend cases, where
   `d * (a / d)` computes to `NegSucc (q + n * Succ q)` and the sum needs
-  `q + n * Succ q = m + (n - r)` (from `Nat.divMod`, `r <= n` and a chain
+  `q + n * Succ q = m + (n - r)` (from `Nat.divModEq`, `r <= n` and a chain
   of commutativity and associativity steps), and `Int.divAddModPosNeg` for
   `OfNat m` over `NegSucc n`, which splits the quotient because
   `Int.neg (OfNat q)` only computes once `q` is `Zero` or a `Succ`.

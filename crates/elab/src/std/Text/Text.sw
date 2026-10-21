@@ -208,3 +208,18 @@ test "contains" := Text.contains "bc" "abcd" && !(Text.contains "ca" "abcd") && 
 test "splitOn" := Text.splitOn ", " "a, b" == ["a", "b"] && Text.splitOn "x" "" == [""]
 test "splitOn empty separator" := Text.splitOn "" "abc" == ["abc"]
 test "splitOn overlapping" := Text.splitOn "aa" "aaa" == ["", "a"]
+
+-- `t` is the main value: `t.repeat 3` is `t` three times over; `t.repeat 0`
+-- is the empty text.
+def Text.repeat (t: Text) (n: Nat): Text := Text.fromList (List.concat (List.replicate n (Text.toList t)))
+
+-- `t` is the main value: `t.chunksOf 2` cuts it into pieces of `n` characters
+-- (the last one shorter if need be), as `List.chunksOf` does for lists:
+-- `"abcde".chunksOf 2` is `["ab", "cd", "e"]`, and `n = 0` gives the whole
+-- text as one chunk (none for an empty text).
+def Text.chunksOf (t: Text) (n: Nat): List Text := List.map Text.fromList (List.chunksOf (Text.toList t) n)
+
+test "Text.repeat" := Text.repeat "ab" 3 == "ababab" && Text.repeat "ab" 0 == "" && Text.repeat "" 4 == ""
+test "Text.chunksOf" := Text.chunksOf "abcde" 2 == ["ab", "cd", "e"] && Text.chunksOf "" 2 == []
+test "List.distinct texts" := ["a", "b", "a"].distinct == ["a", "b"]
+test "Text.chunksOf zero" := Text.chunksOf "abc" 0 == ["abc"]

@@ -706,3 +706,62 @@ theorem List.distinctAppendExample: List.Distinct (List.append [1] [2]) :=
     (Both (m => match m with
                   | Inl p => Nat.succNotZero 0 (Nat.succInjective 1 0 p)
                   | Inr v => v) Trivial)
+
+-- Mapping with a state threaded left to right (Haskell's `mapAccumL`).
+-- `xs` is the main value: `xs.mapAccumLeft 0 (s x => MkPair (s + x) (s * x))`.
+-- The function takes the state and an element and gives the next state and
+-- the mapped element; the result is the final state and the mapped list.
+def List.mapAccumLeftGo (f: s -> a -> Pair s b) (z: s): List a -> Pair s (List b)
+  | Nil       => MkPair z Nil
+  | Cons x xs => List.mapAccumLeftStep f xs (f z x)
+
+def List.mapAccumLeftStep (f: s -> a -> Pair s b) (xs: List a): Pair s b -> Pair s (List b)
+  | MkPair z y => List.mapAccumLeftCons y (List.mapAccumLeftGo f z xs)
+
+def List.mapAccumLeftCons (y: b): Pair s (List b) -> Pair s (List b)
+  | MkPair z ys => MkPair z (Cons y ys)
+
+def List.mapAccumLeft (xs: List a) (z: s) (f: s -> a -> Pair s b): Pair s (List b) := List.mapAccumLeftGo f z xs
+
+-- Splits a list of pairs into the list of firsts and the list of seconds.
+def List.unzipCons (x: a) (y: b): Pair (List a) (List b) -> Pair (List a) (List b)
+  | MkPair xs ys => MkPair (Cons x xs) (Cons y ys)
+
+def List.unzip: List (Pair a b) -> Pair (List a) (List b)
+  | Nil                  => MkPair Nil Nil
+  | Cons (MkPair x y) ps => List.unzipCons x y (List.unzip ps)
+
+-- Chunks of `n` elements, in order; the last chunk is shorter when `n` doesn't
+-- divide the length. `n = 0` is no sensible chunk size, so it gives the whole
+-- list as one chunk (`[xs]`, or `[]` for an empty `xs`). Total through fuel:
+-- one unit per element is enough, as every chunk takes one element at least.
+def List.chunksOfFuel (n: Nat): Nat -> List a -> List (List a)
+  | Zero,   xs        => Nil
+  | Succ f, Nil       => Nil
+  | Succ f, Cons x xs => Cons (List.take n (Cons x xs)) (List.chunksOfFuel n f (List.drop n (Cons x xs)))
+
+-- `xs` is the main value: `xs.chunksOf 2`. `[1, 2, 3].chunksOf 2` is
+-- `[[1, 2], [3]]`.
+def List.chunksOf (xs: List a) (n: Nat): List (List a) :=
+  List.chunksOfFuel (if n == 0 then List.length xs else n) (List.length xs) xs
+
+-- The elements without repeats, keeping the first occurrence of each and the
+-- order. `seen` is what came before. Needs `DecEq`; quadratic.
+def List.distinctFrom [auto eq: DecEq a] (seen: List a): List a -> List a
+  | Nil       => Nil
+  | Cons x xs => if List.any (y => y == x) seen then List.distinctFrom seen xs else Cons x (List.distinctFrom (Cons x seen) xs)
+
+-- `xs` is the main value: `xs.distinct`. `[3, 1, 3, 2, 1].distinct` is `[3, 1, 2]`.
+def List.distinct [auto eq: DecEq a] (xs: List a): List a := List.distinctFrom Nil xs
+
+test "List.mapAccumLeft" := [1, 2, 3].mapAccumLeft 0 (s x => MkPair (s + x) (s * x)) == MkPair 6 [0, 2, 9]
+test "List.mapAccumLeft empty" := (Nil: List Nat).mapAccumLeft 7 (s x => MkPair (s + x) x) == MkPair 7 Nil
+test "List.unzip" := List.unzip [MkPair 1 True, MkPair 2 False] == MkPair [1, 2] [True, False]
+test "List.unzip empty" := List.unzip (Nil: List (Pair Nat Nat)) == MkPair Nil Nil
+test "List.chunksOf" := List.chunksOf [1, 2, 3, 4, 5] 2 == [[1, 2], [3, 4], [5]]
+test "List.chunksOf exact" := List.chunksOf [1, 2, 3, 4] 2 == [[1, 2], [3, 4]]
+test "List.chunksOf bigger than the list" := List.chunksOf [1, 2] 5 == [[1, 2]]
+test "List.chunksOf empty" := List.chunksOf (Nil: List Nat) 3 == Nil
+test "List.chunksOf zero is one chunk" := List.chunksOf [1, 2, 3] 0 == [[1, 2, 3]] && List.chunksOf (Nil: List Nat) 0 == Nil
+test "List.distinct" := [3, 1, 3, 2, 1].distinct == [3, 1, 2]
+test "List.distinct empty" := (Nil: List Nat).distinct == Nil

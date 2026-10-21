@@ -136,7 +136,13 @@ theorem Nat.divFuelBound: (fuel: Nat) -> (n: Nat) -> (d: Nat) -> Not (d = 0) -> 
 -- `(n / d) * d <= n`: the quotient never overshoots.
 theorem Nat.divMulLe (n: Nat) (d: Nat) (ok: d != 0): (n / d) * d <= n := Nat.divFuelLe n n d
 
-theorem Nat.divMod (n: Nat) (d: Nat) (ok: d != 0): n = (n / d) * d + n % d := Eq.sym (Nat.addSubCancel ((n / d) * d) n (Nat.divMulLe n d ok))
+theorem Nat.divModEq (n: Nat) (d: Nat) (ok: d != 0): n = (n / d) * d + n % d := Eq.sym (Nat.addSubCancel ((n / d) * d) n (Nat.divMulLe n d ok))
+
+-- Quotient and remainder together, as `/` and `%` give them: `Nat.divMod 17 5`
+-- is `MkPair 3 2`. `n` is the main value; `d` isn't zero, found by `auto`.
+def Nat.divMod (n: Nat) (d: Nat) [auto ok: d != 0]: Pair Nat Nat := MkPair (n / d) (n % d)
+
+test "Nat.divMod" := Nat.divMod 17 5 == MkPair 3 2 && Nat.divMod 3 5 == MkPair 0 3
 
 theorem Nat.modLess (n: Nat) (d: Nat) (ok: d != 0): n % d < d := Nat.subLtAdd n ((n / d) * d) d (Nat.divMulLe n d ok) (Nat.divFuelBound n n d ok (Nat.leRefl n))
 
@@ -154,17 +160,17 @@ theorem Nat.quotUnique (d: Nat): (q: Nat) -> (r: Nat) -> (q2: Nat) -> (r2: Nat) 
     Eq.cong Succ (Nat.quotUnique d a r b r2 h1 h2
       (Nat.addCancelLeft d (a * d + r) (b * d + r2) (Eq.trans (Eq.sym (Nat.addAssoc d (a * d) r)) (Eq.trans e (Nat.addAssoc d (b * d) r2)))))
 
-theorem Nat.divUnique (n: Nat) (d: Nat) [auto ok: d != 0] (q: Nat) (r: Nat) (h: r < d) (e: n = q * d + r): n / d = q := Nat.quotUnique d (n / d) (n % d) q r (Nat.modLess n d ok) h (Eq.trans (Eq.sym (Nat.divMod n d ok)) e)
+theorem Nat.divUnique (n: Nat) (d: Nat) [auto ok: d != 0] (q: Nat) (r: Nat) (h: r < d) (e: n = q * d + r): n / d = q := Nat.quotUnique d (n / d) (n % d) q r (Nat.modLess n d ok) h (Eq.trans (Eq.sym (Nat.divModEq n d ok)) e)
 
 theorem Nat.modUnique (n: Nat) (d: Nat) [auto ok: d != 0] (q: Nat) (r: Nat) (h: r < d) (e: n = q * d + r): n % d = r :=
   Nat.addCancelLeft (q * d) (n % d) r
-    (J (y p => y * d + n % d = q * d + r) (Eq.trans (Eq.sym (Nat.divMod n d ok)) e) (Nat.divUnique n d q r h e))
+    (J (y p => y * d + n % d = q * d + r) (Eq.trans (Eq.sym (Nat.divModEq n d ok)) e) (Nat.divUnique n d q r h e))
 
 theorem Nat.modSmall (n: Nat) (d: Nat) [auto ok: d != 0] (h: n < d): n % d = n := Nat.modUnique n d 0 n h rfl
 
 theorem Nat.divSmall (n: Nat) (d: Nat) [auto ok: d != 0] (h: n < d): n / d = 0 := Nat.divUnique n d 0 n h rfl
 
-theorem Nat.addDivModSelf (d: Nat) (n: Nat): [auto ok: d != 0] -> d + n = Succ (n / d) * d + n % d := Eq.trans (Eq.cong (t => d + t) (Nat.divMod n d ok)) (Eq.sym (Nat.addAssoc d ((n / d) * d) (n % d)))
+theorem Nat.addDivModSelf (d: Nat) (n: Nat): [auto ok: d != 0] -> d + n = Succ (n / d) * d + n % d := Eq.trans (Eq.cong (t => d + t) (Nat.divModEq n d ok)) (Eq.sym (Nat.addAssoc d ((n / d) * d) (n % d)))
 
 theorem Nat.addDivSelf (d: Nat) (n: Nat): [auto ok: d != 0] -> (d + n) / d = Succ (n / d) := Nat.divUnique (d + n) d (Succ (n / d)) (n % d) (Nat.modLess n d ok) (Nat.addDivModSelf d n)
 
@@ -223,7 +229,7 @@ theorem Nat.halfDouble (n: Nat): (n + n) / 2 = n :=
 -- Remainders and shifts. A multiple of `d` can be added or dropped without
 -- changing the remainder, and a sum can be reduced early.
 theorem Nat.addMulDivMod (a: Nat) (b: Nat) (d: Nat) [auto ok: d != 0]: a + b * d = (a / d + b) * d + a % d :=
-  Eq.trans (Eq.cong (t => t + b * d) (Nat.divMod a d ok))
+  Eq.trans (Eq.cong (t => t + b * d) (Nat.divModEq a d ok))
     (Eq.trans (Nat.addAssoc ((a / d) * d) (a % d) (b * d))
       (Eq.trans (Eq.cong (t => (a / d) * d + t) (Nat.addComm (a % d) (b * d)))
         (Eq.trans (Eq.sym (Nat.addAssoc ((a / d) * d) (b * d) (a % d)))
@@ -244,7 +250,7 @@ theorem Nat.modMod (a: Nat) (d: Nat) [auto ok: d != 0]: a % d % d = a % d := Nat
 theorem Nat.modAddMod (a: Nat) (b: Nat) (d: Nat) [auto ok: d != 0]: (a % d + b) % d = (a + b) % d :=
   Eq.sym (Eq.trans
     (Eq.cong (t => t % d)
-      (Eq.trans (Eq.cong (t => t + b) (Nat.divMod a d ok))
+      (Eq.trans (Eq.cong (t => t + b) (Nat.divModEq a d ok))
         (Eq.trans (Nat.addAssoc ((a / d) * d) (a % d) b) (Nat.addComm ((a / d) * d) (a % d + b)))))
     (Nat.modAddMul (a % d + b) (a / d) d))
 
