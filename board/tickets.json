@@ -791,8 +791,8 @@
     {
       "id": 53,
       "title": "`Term::Nat`'s hash doesn't include `Nat`'s own hash",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [
         "kernel"
@@ -1073,8 +1073,8 @@
     {
       "id": 72,
       "title": "Duplicate abilities in a hand-built row are not rejected (no 'lacks' constraint on row variables)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [
         "kernel"
@@ -1876,8 +1876,8 @@
     {
       "id": 124,
       "title": "A pure `Comp NoOp NoRes Nat` is accepted where `Nat` is expected",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Opus",
       "where": "",
       "labels": [
         "elab",
@@ -1950,8 +1950,8 @@
     {
       "id": 129,
       "title": "Dot notation sometimes elaborates differently from the prefix call",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [
         "elab",
@@ -3142,7 +3142,7 @@
       "labels": [
         "elab"
       ],
-      "body": "SW-157 pain point 9 (docs/aoc-2025.md:2065): in `mergedContains` three branches were each wrong and each fix revealed the next error. Reproduced (21 Oct, release binary): `def f: Bool -> Nat -> Nat | True, n => True | False, n => False` reports a single E-TYPE-MISMATCH (for the `False` arm) instead of both arms. The branches are independent, so all type errors could be collected and reported. First step: find where the elaborator stops at the first branch error (crates/elab/src/check.rs or the case-tree builder) and whether recovery (checking the remaining branches against their expected type after an error) is safe for unification state.\n\nDone when: a `match` or function with two bad arms reports both errors, with a reject example listing both (examples/reject/ with snapshot).\n",
+      "body": "SW-157 pain point 9 (docs/aoc-2025.md:2065): in `mergedContains` three branches were each wrong and each fix revealed the next error. Reproduced (21 Oct, release binary): `def f: Bool -> Nat -> Nat | True, n => True | False, n => False` reports a single E-TYPE-MISMATCH (for the `False` arm) instead of both arms. The branches are independent, so all type errors could be collected and reported. First step: find where the elaborator stops at the first branch error (crates/elab/src/check.rs or the case-tree builder) and whether recovery (checking the remaining branches against their expected type after an error) is safe for unification state.\n\nDone when: a `match` or function with two bad arms reports both errors, with a reject example listing both (examples/reject/ with snapshot).\n\nD243 (Matt, 21 Oct 2026): proof-ergonomics cluster on ice for now.\n",
       "created": "2026-10-21",
       "updated": "2026-10-21",
       "commits": []
@@ -3157,7 +3157,7 @@
         "elab",
         "proof"
       ],
-      "body": "SW-157 pain points 3, 4 and 5 (docs/aoc-2025.md:2033-2050), all about `match` generalising more than the scrutinee you see. (3) A branch's goal has already computed one step (syntax.md's 'branch goals have already computed one step'), so a proof written for the original goal doesn't fit (`termsSum`/`twiceTerms`, `coveredTop`). (4) Generalising leaks `Decidable.toBool (Bool.decTrue (Nat.leq id (hi r)))` into messages where `Nat.leq id (hi r) = False` was written; the workaround is the lemma `Bool.decTrueToBool` (`x <= y` as a `Bool` should print and compute as `Nat.leq`). (5) `match h: a <= b with` can give E-MATCH-MOTIVE (\"generalising this `match`'s scrutinee makes its type ill-formed\") while `match h: Nat.leq a b with` is fine, and the message doesn't say which form to use.\n\nNot re-verified in this review (the AoC files they cite have since been restructured). First step: write a minimal example for each of the three on current main, then decide per item: fix, or improve the message/doc.\n\nDone when: each of the three is either fixed with an example or documented, with the decision recorded here.\n",
+      "body": "SW-157 pain points 3, 4 and 5 (docs/aoc-2025.md:2033-2050), all about `match` generalising more than the scrutinee you see. (3) A branch's goal has already computed one step (syntax.md's 'branch goals have already computed one step'), so a proof written for the original goal doesn't fit (`termsSum`/`twiceTerms`, `coveredTop`). (4) Generalising leaks `Decidable.toBool (Bool.decTrue (Nat.leq id (hi r)))` into messages where `Nat.leq id (hi r) = False` was written; the workaround is the lemma `Bool.decTrueToBool` (`x <= y` as a `Bool` should print and compute as `Nat.leq`). (5) `match h: a <= b with` can give E-MATCH-MOTIVE (\"generalising this `match`'s scrutinee makes its type ill-formed\") while `match h: Nat.leq a b with` is fine, and the message doesn't say which form to use.\n\nNot re-verified in this review (the AoC files they cite have since been restructured). First step: write a minimal example for each of the three on current main, then decide per item: fix, or improve the message/doc.\n\nDone when: each of the three is either fixed with an example or documented, with the decision recorded here.\n\nD243 (Matt, 21 Oct 2026): proof-ergonomics cluster on ice for now.\n",
       "created": "2026-10-21",
       "updated": "2026-10-21",
       "commits": []
@@ -3172,7 +3172,7 @@
         "elab",
         "proof"
       ],
-      "body": "SW-157 pain points 7 and 8 (docs/aoc-2025.md:2054-2064). (7) `%` and `/` unfold before `rewrite` searches the goal, so a rule about them finds nothing: `rewrite Nat.divOne n, Nat.divOne (Succ n)` gave E-REWRITE-NOTHING 'found no `Succ (Nat.divFuel n n 1)` in the goal' because the first rule had already rewritten both. The computed goal in the note made each quick to fix, so the improvement is to say in the message that the goal is searched after computation. (8) `E-REWRITE-BUDGET` shows an unreadable term when the rule is closed and big; the per-declaration time report that would have found the slow `rewrite` at once is SW-163 and is not part of this ticket.\n\nNot re-verified on current main. First step: reproduce each with a small example, then change the message text (with reject-example snapshots).\n\nDone when: both messages say what happened (goal searched after computation; the big closed rule is printed abbreviated, cf. STITCHWORT_FULL_TERMS in docs/core.md:276), with reject-example snapshots.\n",
+      "body": "SW-157 pain points 7 and 8 (docs/aoc-2025.md:2054-2064). (7) `%` and `/` unfold before `rewrite` searches the goal, so a rule about them finds nothing: `rewrite Nat.divOne n, Nat.divOne (Succ n)` gave E-REWRITE-NOTHING 'found no `Succ (Nat.divFuel n n 1)` in the goal' because the first rule had already rewritten both. The computed goal in the note made each quick to fix, so the improvement is to say in the message that the goal is searched after computation. (8) `E-REWRITE-BUDGET` shows an unreadable term when the rule is closed and big; the per-declaration time report that would have found the slow `rewrite` at once is SW-163 and is not part of this ticket.\n\nNot re-verified on current main. First step: reproduce each with a small example, then change the message text (with reject-example snapshots).\n\nDone when: both messages say what happened (goal searched after computation; the big closed rule is printed abbreviated, cf. STITCHWORT_FULL_TERMS in docs/core.md:276), with reject-example snapshots.\n\nD243 (Matt, 21 Oct 2026): proof-ergonomics cluster on ice for now.\n",
       "created": "2026-10-21",
       "updated": "2026-10-21",
       "commits": []
@@ -3201,7 +3201,7 @@
         "proof",
         "syntax"
       ],
-      "body": "`rewrite p in t` rewrites the goal; there is no way to rewrite the type of a named hypothesis (docs/syntax.md:619-630 documents only `rewrite p, q in t`). A `J` is kept for this at Aoc/Day02/Proofs/Repeated.sw:221-224 and :238 (examples of `J (z q => …)` on a hypothesis). docs/proposals/calc-rewrite.md §6.4 and Stage 3 mention rewriting 'in the body's own type when no goal is known'.\n\nFirst step: decide the surface (`rewrite p at h in t`, or `rewrite p in h` giving a new hypothesis) and whether it overlaps with the Stage 3 'goal not known' item.\n\nHistory: from SW-157 pain point 2.\n\nDone when: the surface is decided and one of the `J`s above is replaced by it.\n",
+      "body": "`rewrite p in t` rewrites the goal; there is no way to rewrite the type of a named hypothesis (docs/syntax.md:619-630 documents only `rewrite p, q in t`). A `J` is kept for this at Aoc/Day02/Proofs/Repeated.sw:221-224 and :238 (examples of `J (z q => …)` on a hypothesis). docs/proposals/calc-rewrite.md §6.4 and Stage 3 mention rewriting 'in the body's own type when no goal is known'.\n\nFirst step: decide the surface (`rewrite p at h in t`, or `rewrite p in h` giving a new hypothesis) and whether it overlaps with the Stage 3 'goal not known' item.\n\nHistory: from SW-157 pain point 2.\n\nDone when: the surface is decided and one of the `J`s above is replaced by it.\n\nD243 (Matt, 21 Oct 2026): proof-ergonomics cluster on ice for now.\n",
       "created": "2026-10-21",
       "updated": "2026-10-21",
       "commits": []
