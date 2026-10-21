@@ -1462,12 +1462,12 @@ instance Map.instShow [auto showK: Show k] [auto showV: Show v]: Show (Map k v [
   named alternatives that are single definitions, this is rare; it's
   accepted as an initial restriction.
 - **What the map holds.** The ordering adds no runtime field to the map
-  (it's a type parameter; the `ordered` proof is erased). So a map is
-  data whenever its keys and values are: it can be used as `State` when
-  `k` and `v` satisfy `IsData` (DESIGN.md §8). A map whose values are
-  functions isn't data, as today. Whether today's `IsData` check looks at
-  a parameter that appears only in erased fields is **unverified**; the
-  stage 4 tests below settle it.
+  (it's a type parameter; the `ordered` proof is erased), and it doesn't
+  affect what state may hold. State may hold pure functions, so a map of
+  them is accepted as `State`; what is refused is a self-storing ability,
+  an operation that stores a computation using its own ability (Landin's
+  knot, `E-ABILITY`), as with any other type (D203; DESIGN.md §8's
+  `IsData` is gone, abilities.md). The stage 4 tests below check both.
 - The kernel sees an ordinary parameter. Only the elaborator inserts it.
 
 **Stage 4's tests** (the reviewer's list):
@@ -1475,7 +1475,7 @@ instance Map.instShow [auto showK: Show k] [auto showV: Show v]: Show (Map k v [
 | Case | Expected |
 |---|---|
 | A `Map Nat Nat` built with a named alternative ordering, used as `State` | Accepted |
-| A map whose values are functions, used as `State` | Rejected (`IsData`) |
+| A map whose values are pure functions, used as `State` | Accepted: state may hold pure functions (abilities.md replaced `IsData`). An operation that stores a computation using its own ability, in a map's values, is refused (`E-ABILITY`) (D203) |
 | An operation on an existing map while a different `Ord` for the key type is in scope | The map's own ordering is used, from its type |
 | A map passed where a parameter's type names a different ordering | Type error, saying the orderings differ |
 | Resolving an instance whose head fixes a map's ordering (`Show (Map k v [ord := o])`) | `o` is kept, not re-resolved |
