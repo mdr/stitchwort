@@ -47,6 +47,7 @@ pub const LIBRARY_FILES: &[(&str, &str)] = &[
     ("List/Sort.sw", include_str!("std/List/Sort.sw")),
     ("List/Toolkit.sw", include_str!("std/List/Toolkit.sw")),
     ("Map/Map.sw", include_str!("std/Map/Map.sw")),
+    ("Mod/Mod.sw", include_str!("std/Mod/Mod.sw")),
     ("Nat/Arith.sw", include_str!("std/Nat/Arith.sw")),
     ("Nat/Digits.sw", include_str!("std/Nat/Digits.sw")),
     ("Nat/Divides.sw", include_str!("std/Nat/Divides.sw")),

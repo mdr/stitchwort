@@ -259,6 +259,24 @@ theorem Nat.addModMod (a: Nat) (b: Nat) (d: Nat) [auto ok: d != 0]: (a + b % d) 
   Eq.trans (Eq.cong (t => t % d) (Nat.addComm a (b % d)))
     (Eq.trans (Nat.modAddMod b a d) (Eq.cong (t => t % d) (Nat.addComm b a)))
 
+-- `a * b` in two parts: the product of the remainder, and whole multiples of `d`.
+theorem Nat.mulSplit (a: Nat) (b: Nat) (d: Nat) [auto ok: d != 0]: a * b = a % d * b + (a / d * b) * d :=
+  Eq.trans (Eq.cong (t => t * b) (Nat.divMod a d ok))
+    (Eq.trans (Nat.mulDistribRight (a / d * d) (a % d) b)
+      (Eq.trans (Nat.addComm ((a / d * d) * b) (a % d * b))
+        (Eq.cong (t => a % d * b + t)
+          (Eq.trans (Nat.mulAssoc (a / d) d b)
+            (Eq.trans (Eq.cong (t => a / d * t) (Nat.mulComm d b)) (Eq.sym (Nat.mulAssoc (a / d) b d)))))))
+
+-- `(a % d * b) % d = (a * b) % d`: reducing the first factor early.
+theorem Nat.modMulMod (a: Nat) (b: Nat) (d: Nat) [auto ok: d != 0]: (a % d * b) % d = (a * b) % d :=
+  Eq.sym (Eq.trans (Eq.cong (t => t % d) (Nat.mulSplit a b d)) (Nat.modAddMul (a % d * b) (a / d * b) d))
+
+-- `(a * (b % d)) % d = (a * b) % d`: the second.
+theorem Nat.mulModMod (a: Nat) (b: Nat) (d: Nat) [auto ok: d != 0]: (a * (b % d)) % d = (a * b) % d :=
+  Eq.trans (Eq.cong (t => t % d) (Nat.mulComm a (b % d)))
+    (Eq.trans (Nat.modMulMod b a d) (Eq.cong (t => t % d) (Nat.mulComm b a)))
+
 theorem Nat.leqFalseOfLess (a: Nat) (b: Nat) (h: a < b): Nat.leq b a = False :=
   Bool.inspect (Nat.leq b a) (c => c = False)
     (t => Void.exfalso (Nat.lessIrrefl a (Nat.leTrans (Succ a) b a h t)))
