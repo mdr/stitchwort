@@ -250,6 +250,25 @@ impl Elaborator {
         }
     }
 
+    /// How many local variables' types are waiting to be printed: a
+    /// [`crate::undo::Snapshot`] keeps it, to drop the ones an undone
+    /// attempt noted.
+    pub(crate) fn pending_local_types(&self) -> usize {
+        self.nav
+            .as_ref()
+            .map_or(0, |nav| nav.borrow().pending.len())
+    }
+
+    /// Drops the local variables' types noted after the first `len`: their
+    /// attempt was undone, and the metavariables in them with it, so they
+    /// can't be printed (a later metavariable may reuse the number of one
+    /// in them, with a different solution).
+    pub(crate) fn drop_local_types_since(&self, len: usize) {
+        if let Some(nav) = &self.nav {
+            nav.borrow_mut().pending.truncate(len);
+        }
+    }
+
     /// Prints the types noted, while the metavariables in them still have
     /// their solutions.
     pub(crate) fn flush_navigation(&self) {

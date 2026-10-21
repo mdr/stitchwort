@@ -317,3 +317,26 @@ fn positions_inside_and_after_a_multi_line_text() {
         assert!(json.contains(&expected), "{expected}\n{json}");
     }
 }
+
+/// A local's type noted inside an attempt that is then undone (a pipe into a
+/// dot section tries the receiver first) is dropped with the attempt's
+/// metavariables, not printed after later ones have reused their numbers
+/// (that panicked: "applying a data type"). The retry notes it again.
+#[test]
+fn a_local_noted_in_an_undone_attempt() {
+    let mut session = Session::navigable();
+    let body = "  xs.filterMap (c => o.flatMap (b => g b c)) |> .head\n";
+    let source = format!(
+        "def g (b: Nat) (c: Nat): Option Nat := Option.Some (b + c)\n\n\
+         def f (xs: List Nat) (o: Option Nat): Option Nat :=\n{body}"
+    );
+    session.load("one.sw", &source).expect("checks");
+    let index = index_of(&session);
+    let col = body.find("g b").unwrap() + 3;
+    let b = index
+        .refs
+        .iter()
+        .find(|r| place(&session, r.span) == ("b".to_string(), format!("one.sw:4:{col}")))
+        .expect("a reference at `b`");
+    assert_eq!(b.ty.as_deref(), Some("Nat"));
+}
