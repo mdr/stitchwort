@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-INSTANCE-UNKNOWN-TYPE] Error: can't tell which type's `DecEq` to use here
+   ╭─[ reject/eqeq-nil-nil.sw:5:19 ]
+   │
+ 5 │ test "nil nil" := Nil == Nil
+   │                   ─────┬────  
+   │                        ╰────── this needs `DecEq ?0`
+   │ 
+   │ Note: annotate, so the type is known: e.g. `(xs: List Nat)`
+───╯
