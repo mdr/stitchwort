@@ -390,3 +390,63 @@ fn a_programs_own_eq_namespace_is_its_own() {
         ["E-STD-NAMESPACE"]
     );
 }
+
+// ------------------------------------------------- the slim prelude (SW-213)
+
+/// A prelude type's namespace needs an import (D260): the error says which.
+#[test]
+fn a_prelude_types_functions_need_its_namespace_imported() {
+    let found = error_of("def n: Nat := List.length [1, 2]\n");
+    assert_eq!(found[0].code, "E-UNKNOWN-NAME");
+    assert!(
+        found[0]
+            .notes
+            .iter()
+            .any(|n| n.contains("`List.length` needs `import Std (List)`")),
+        "{found:#?}"
+    );
+    // Importing it is not a duplicate of the prelude, and isn't warned about.
+    assert_eq!(
+        codes("import Std (List)\n\ndef n: Nat := List.length [1, 2]\n"),
+        Vec::<&str>::new()
+    );
+    // The full name always works.
+    assert_eq!(
+        codes("def n: Nat := Std.List.length [1, 2]\n"),
+        Vec::<&str>::new()
+    );
+}
+
+/// The type's own declaration comes with it: its constructors, fields,
+/// operations and methods. Dot notation and pipes need no import (D261).
+#[test]
+fn a_prelude_types_own_declaration_and_dot_notation_need_no_import() {
+    passes(&load(
+        "type Person = { name: Text, age: Nat }\n\n\
+         def xs: List Nat := List.Cons 1 List.Nil\n\n\
+         def c: Ordering := Ord.compare 1 2\n\n\
+         def main(): {IO} () := IO.print \"hi\"\n\n\
+         test \"dot\" := [1, 2].length == 2\n\
+         test \"pipe\" := ([1, 2] |> .map (x => x + 1) |> .sum) == 5\n\
+         test \"field\" := ({ name = \"a\", age = 3 }: Person).age == 3\n\
+         test \"constructor\" := xs == [1]\n",
+    ));
+}
+
+/// `Map`, `Set`, `Vec` and `Fin` aren't in the prelude (D266): even the
+/// type's name needs an import.
+#[test]
+fn library_types_outside_the_prelude_need_an_import() {
+    let found = error_of("def f (m: Map Nat Nat): Nat := 0\n");
+    assert!(
+        found[0]
+            .notes
+            .iter()
+            .any(|n| n.contains("add `import Std (Map)`")),
+        "{found:#?}"
+    );
+    assert_eq!(
+        codes("import Std (Map)\n\ndef f (m: Map Nat Nat): Nat := 0\n"),
+        Vec::<&str>::new()
+    );
+}
