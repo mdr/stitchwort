@@ -1572,6 +1572,18 @@ pub(crate) fn compare(cx: &mut Ctx, term: Term, found: &Value, expected: &Value)
     if crate::undo::unify(cx, found, expected)? {
         return Ok(term);
     }
+    // A dictionary still to be found may be what's in the way (`List.sort xs`
+    // against its value for `Nat`): find those whose type is known by now,
+    // and compare again (docs/proposals/interfaces.md, "As built (stage 3)").
+    // (Read back and computed again: a projection stuck on the dictionary's
+    // metavariable takes its step now.)
+    if cx.e.solve_ready_instances()? {
+        let found = crate::interfaces::refresh(cx, found)?;
+        let expected = crate::interfaces::refresh(cx, expected)?;
+        if crate::undo::unify(cx, &found, &expected)? {
+            return Ok(term);
+        }
+    }
     // An effectful function whose row lists the same abilities in a
     // different order, or a total one where a partial one is expected.
     if let Some(term) =

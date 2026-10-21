@@ -1145,3 +1145,455 @@ theorem DecEq.uniqueEq [auto decEq: DecEq a] [x y: a] (p: x = y) (q: x = y): p =
     (J (r e => p = Eq.trans (Eq.sym (DecEq.canon (DecEq.decide [decEq := decEq] x x) rfl)) r)
       (DecEq.fromCanon x y p) (DecEq.canonConst (DecEq.decide [decEq := decEq] x y) p q))
     (J (z e => z = q) rfl (DecEq.fromCanon x y q))
+
+-- Orderings (docs/proposals/interfaces.md §6.2)
+
+-- The comparison the other way round.
+def Ordering.flip: Ordering -> Ordering
+  | Less    => Greater
+  | Equal   => Equal
+  | Greater => Less
+
+theorem Ordering.lessNotEqual: Not (Less = Equal)
+  | p => Nat.zeroNotSucc 0 (Eq.cong Ordering.index p)
+
+theorem Ordering.lessNotGreater: Not (Less = Greater)
+  | p => Nat.zeroNotSucc 1 (Eq.cong Ordering.index p)
+
+theorem Ordering.equalNotLess: Not (Equal = Less)
+  | p => Nat.zeroNotSucc 0 (Eq.sym (Eq.cong Ordering.index p))
+
+theorem Ordering.equalNotGreater: Not (Equal = Greater)
+  | p => Nat.zeroNotSucc 0 (Nat.succInjective 0 1 (Eq.cong Ordering.index p))
+
+theorem Ordering.greaterNotLess: Not (Greater = Less)
+  | p => Nat.zeroNotSucc 1 (Eq.sym (Eq.cong Ordering.index p))
+
+theorem Ordering.greaterNotEqual: Not (Greater = Equal)
+  | p => Nat.zeroNotSucc 0 (Nat.succInjective 0 1 (Eq.sym (Eq.cong Ordering.index p)))
+
+theorem Ordering.indexInjective: (c: Ordering) -> (d: Ordering) -> Ordering.index c = Ordering.index d -> c = d
+  | Less,    Less,    h => rfl
+  | Less,    Equal,   h => Void.exfalso (Nat.zeroNotSucc 0 h)
+  | Less,    Greater, h => Void.exfalso (Nat.zeroNotSucc 1 h)
+  | Equal,   Less,    h => Void.exfalso (Nat.succNotZero 0 h)
+  | Equal,   Equal,   h => rfl
+  | Equal,   Greater, h => Void.exfalso (Nat.zeroNotSucc 0 (Nat.succInjective 0 1 h))
+  | Greater, Less,    h => Void.exfalso (Nat.succNotZero 1 h)
+  | Greater, Equal,   h => Void.exfalso (Nat.succNotZero 0 (Nat.succInjective 1 0 h))
+  | Greater, Greater, h => rfl
+
+-- A comparison that's its own opposite is `Equal`.
+theorem Ordering.flipSelf: (c: Ordering) -> c = Ordering.flip c -> c = Equal
+  | Less,    h => Void.exfalso (Ordering.lessNotGreater h)
+  | Equal,   h => rfl
+  | Greater, h => Void.exfalso (Ordering.greaterNotLess h)
+
+theorem Ordering.andThenEqual: (c: Ordering) -> (d: Ordering) -> Ordering.andThen c d = Equal -> And (c = Equal) (d = Equal)
+  | Less,    d, h => Void.exfalso (Ordering.lessNotEqual h)
+  | Equal,   d, h => Both rfl h
+  | Greater, d, h => Void.exfalso (Ordering.greaterNotEqual h)
+
+theorem Ordering.flipAndThen: (c: Ordering) -> (d: Ordering) ->
+    Ordering.flip (Ordering.andThen c d) = Ordering.andThen (Ordering.flip c) (Ordering.flip d)
+  | Less,    d => rfl
+  | Equal,   d => rfl
+  | Greater, d => rfl
+
+-- `Less` is transitive for `c1` then `r1` (lexicographic), given that it
+-- is for the first comparisons and for the rest, and that an `Equal` first
+-- comparison passes the other one on.
+theorem Ordering.andThenTrans: (c1: Ordering) -> (c2: Ordering) -> (c3: Ordering) ->
+    (r1: Ordering) -> (r2: Ordering) -> (r3: Ordering) ->
+    (c1 = Less -> c2 = Less -> c3 = Less) -> (c1 = Equal -> c3 = c2) -> (c2 = Equal -> c3 = c1) ->
+    (r1 = Less -> r2 = Less -> r3 = Less) ->
+    Ordering.andThen c1 r1 = Less -> Ordering.andThen c2 r2 = Less -> Ordering.andThen c3 r3 = Less
+  | Less,    Less,    c3, r1, r2, r3, t, e1, e2, tr, h1, h2 => rewrite t rfl rfl in rfl
+  | Less,    Equal,   c3, r1, r2, r3, t, e1, e2, tr, h1, h2 => rewrite e2 rfl in rfl
+  | Less,    Greater, c3, r1, r2, r3, t, e1, e2, tr, h1, h2 => Void.exfalso (Ordering.greaterNotLess h2)
+  | Equal,   Less,    c3, r1, r2, r3, t, e1, e2, tr, h1, h2 => rewrite e1 rfl in rfl
+  | Equal,   Equal,   c3, r1, r2, r3, t, e1, e2, tr, h1, h2 => rewrite e1 rfl in tr h1 h2
+  | Equal,   Greater, c3, r1, r2, r3, t, e1, e2, tr, h1, h2 => Void.exfalso (Ordering.greaterNotLess h2)
+  | Greater, c2,      c3, r1, r2, r3, t, e1, e2, tr, h1, h2 => Void.exfalso (Ordering.greaterNotLess h1)
+
+-- `Nat.compare` steps down both numbers together, so its laws are proved by
+-- recursion on both.
+theorem Nat.compareSucc (m: Nat) (n: Nat): Nat.compare (Succ m) (Succ n) = Nat.compare m n := rfl
+
+theorem Nat.compareEqual: (m: Nat) -> (n: Nat) -> Nat.compare m n = Equal -> m = n
+  | Zero,   Zero,   h => rfl
+  | Zero,   Succ n, h => Void.exfalso (Ordering.lessNotEqual h)
+  | Succ m, Zero,   h => Void.exfalso (Ordering.greaterNotEqual h)
+  | Succ m, Succ n, h => Eq.cong Succ (Nat.compareEqual m n h)
+
+theorem Nat.compareFlip: (m: Nat) -> (n: Nat) -> Nat.compare n m = Ordering.flip (Nat.compare m n)
+  | Zero,   Zero   => rfl
+  | Zero,   Succ n => rfl
+  | Succ m, Zero   => rfl
+  | Succ m, Succ n => Nat.compareFlip m n
+
+theorem Nat.compareTrans: (x: Nat) -> (y: Nat) -> (z: Nat) ->
+    Nat.compare x y = Less -> Nat.compare y z = Less -> Nat.compare x z = Less
+  | Zero,   Zero,   z,      h1, h2 => Void.exfalso (Ordering.equalNotLess h1)
+  | Zero,   Succ y, Zero,   h1, h2 => Void.exfalso (Ordering.greaterNotLess h2)
+  | Zero,   Succ y, Succ z, h1, h2 => rfl
+  | Succ x, Zero,   z,      h1, h2 => Void.exfalso (Ordering.greaterNotLess h1)
+  | Succ x, Succ y, Zero,   h1, h2 => Void.exfalso (Ordering.greaterNotLess h2)
+  | Succ x, Succ y, Succ z, h1, h2 => Nat.compareTrans x y z h1 h2
+
+theorem Nat.lessOfCompare: (m: Nat) -> (n: Nat) -> Nat.compare m n = Less -> m < n
+  | Zero,   Zero,   h => Void.exfalso (Ordering.equalNotLess h)
+  | Zero,   Succ n, h => rfl
+  | Succ m, Zero,   h => Void.exfalso (Ordering.greaterNotLess h)
+  | Succ m, Succ n, h => Nat.lessOfCompare m n h
+
+theorem Nat.compareOfLess: (m: Nat) -> (n: Nat) -> m < n -> Nat.compare m n = Less
+  | m,      Zero,   h => Void.exfalso (Bool.falseNotTrue h)
+  | Zero,   Succ n, h => rfl
+  | Succ m, Succ n, h => Nat.compareOfLess m n h
+
+theorem Nat.leOfCompare: (m: Nat) -> (n: Nat) -> Not (Nat.compare m n = Greater) -> m <= n
+  | Zero,   n,      h => rfl
+  | Succ m, Zero,   h => Void.exfalso (h rfl)
+  | Succ m, Succ n, h => Nat.leOfCompare m n h
+
+theorem Nat.compareOfLe: (m: Nat) -> (n: Nat) -> m <= n -> Not (Nat.compare m n = Greater)
+  | Zero,   Zero,   h, e => Ordering.equalNotGreater e
+  | Zero,   Succ n, h, e => Ordering.lessNotGreater e
+  | Succ m, Zero,   h, e => Bool.falseNotTrue h
+  | Succ m, Succ n, h, e => Nat.compareOfLe m n h e
+
+theorem Int.compareEqual: (a: Int) -> (b: Int) -> Int.compare a b = Equal -> a = b
+  | OfNat m,   OfNat n,   h => Eq.cong OfNat (Nat.compareEqual m n h)
+  | OfNat m,   NegSucc n, h => Void.exfalso (Ordering.greaterNotEqual h)
+  | NegSucc m, OfNat n,   h => Void.exfalso (Ordering.lessNotEqual h)
+  | NegSucc m, NegSucc n, h => Eq.cong NegSucc (Eq.sym (Nat.compareEqual n m h))
+
+theorem Int.compareFlip: (a: Int) -> (b: Int) -> Int.compare b a = Ordering.flip (Int.compare a b)
+  | OfNat m,   OfNat n   => Nat.compareFlip m n
+  | OfNat m,   NegSucc n => rfl
+  | NegSucc m, OfNat n   => rfl
+  | NegSucc m, NegSucc n => Nat.compareFlip n m
+
+theorem Int.compareTrans: (a: Int) -> (b: Int) -> (c: Int) ->
+    Int.compare a b = Less -> Int.compare b c = Less -> Int.compare a c = Less
+  | OfNat x,   OfNat y,   OfNat z,   h1, h2 => Nat.compareTrans x y z h1 h2
+  | OfNat x,   OfNat y,   NegSucc z, h1, h2 => Void.exfalso (Ordering.greaterNotLess h2)
+  | OfNat x,   NegSucc y, c,         h1, h2 => Void.exfalso (Ordering.greaterNotLess h1)
+  | NegSucc x, OfNat y,   OfNat z,   h1, h2 => rfl
+  | NegSucc x, OfNat y,   NegSucc z, h1, h2 => Void.exfalso (Ordering.greaterNotLess h2)
+  | NegSucc x, NegSucc y, OfNat z,   h1, h2 => rfl
+  | NegSucc x, NegSucc y, NegSucc z, h1, h2 => Nat.compareTrans z y x h2 h1
+
+theorem Int.lessOfCompare: (a: Int) -> (b: Int) -> Int.compare a b = Less -> Int.LessThan a b
+  | OfNat m,   OfNat n,   h => Nat.lessOfCompare m n h
+  | OfNat m,   NegSucc n, h => Void.exfalso (Ordering.greaterNotLess h)
+  | NegSucc m, OfNat n,   h => rfl
+  | NegSucc m, NegSucc n, h => Nat.lessOfCompare n m h
+
+theorem Int.compareOfLess: (a: Int) -> (b: Int) -> Int.LessThan a b -> Int.compare a b = Less
+  | OfNat m,   OfNat n,   h => Nat.compareOfLess m n h
+  | OfNat m,   NegSucc n, h => Void.exfalso (Bool.falseNotTrue h)
+  | NegSucc m, OfNat n,   h => rfl
+  | NegSucc m, NegSucc n, h => Nat.compareOfLess n m h
+
+theorem Int.leOfCompare: (a: Int) -> (b: Int) -> Not (Int.compare a b = Greater) -> Int.LessEq a b
+  | OfNat m,   OfNat n,   h => Nat.leOfCompare m n h
+  | OfNat m,   NegSucc n, h => Void.exfalso (h rfl)
+  | NegSucc m, OfNat n,   h => rfl
+  | NegSucc m, NegSucc n, h => Nat.leOfCompare n m h
+
+theorem Int.compareOfLe: (a: Int) -> (b: Int) -> Int.LessEq a b -> Not (Int.compare a b = Greater)
+  | OfNat m,   OfNat n,   h, e => Nat.compareOfLe m n h e
+  | OfNat m,   NegSucc n, h, e => Bool.falseNotTrue h
+  | NegSucc m, OfNat n,   h, e => Ordering.lessNotGreater e
+  | NegSucc m, NegSucc n, h, e => Nat.compareOfLe n m h e
+
+-- Lexicographic comparison of lists, by a comparison of their elements:
+-- the first difference decides, and a list comes before its extensions.
+def List.compareLex (cmp: a -> a -> Ordering): List a -> List a -> Ordering
+  | Nil,       Nil       => Equal
+  | Nil,       Cons y ys => Less
+  | Cons x xs, Nil       => Greater
+  | Cons x xs, Cons y ys => Ordering.andThen (cmp x y) (List.compareLex cmp xs ys)
+
+theorem List.compareLexEqual (cmp: a -> a -> Ordering) (equal: (x: a) -> (y: a) -> cmp x y = Equal -> x = y):
+    (xs: List a) -> (ys: List a) -> List.compareLex cmp xs ys = Equal -> xs = ys
+  | Nil,       Nil,       h => rfl
+  | Nil,       Cons y ys, h => Void.exfalso (Ordering.lessNotEqual h)
+  | Cons x xs, Nil,       h => Void.exfalso (Ordering.greaterNotEqual h)
+  | Cons x xs, Cons y ys, h =>
+    Eq.trans (Eq.cong (t => Cons t xs) (equal x y (And.left (Ordering.andThenEqual (cmp x y) (List.compareLex cmp xs ys) h))))
+      (Eq.cong (Cons y) (List.compareLexEqual cmp equal xs ys (And.right (Ordering.andThenEqual (cmp x y) (List.compareLex cmp xs ys) h))))
+
+theorem List.compareLexFlip (cmp: a -> a -> Ordering) (flip: (x: a) -> (y: a) -> cmp y x = Ordering.flip (cmp x y)):
+    (xs: List a) -> (ys: List a) -> List.compareLex cmp ys xs = Ordering.flip (List.compareLex cmp xs ys)
+  | Nil,       Nil       => rfl
+  | Nil,       Cons y ys => rfl
+  | Cons x xs, Nil       => rfl
+  | Cons x xs, Cons y ys =>
+    rewrite flip x y, List.compareLexFlip cmp flip xs ys in
+      Eq.sym (Ordering.flipAndThen (cmp x y) (List.compareLex cmp xs ys))
+
+theorem List.compareLexTrans (cmp: a -> a -> Ordering) (equal: (x: a) -> (y: a) -> cmp x y = Equal -> x = y)
+    (trans: (x: a) -> (y: a) -> (z: a) -> cmp x y = Less -> cmp y z = Less -> cmp x z = Less):
+    (xs: List a) -> (ys: List a) -> (zs: List a) ->
+    List.compareLex cmp xs ys = Less -> List.compareLex cmp ys zs = Less -> List.compareLex cmp xs zs = Less
+  | Nil,       Nil,       zs,        h1, h2 => Void.exfalso (Ordering.equalNotLess h1)
+  | Nil,       Cons y ys, Nil,       h1, h2 => Void.exfalso (Ordering.greaterNotLess h2)
+  | Nil,       Cons y ys, Cons z zs, h1, h2 => rfl
+  | Cons x xs, Nil,       zs,        h1, h2 => Void.exfalso (Ordering.greaterNotLess h1)
+  | Cons x xs, Cons y ys, Nil,       h1, h2 => Void.exfalso (Ordering.greaterNotLess h2)
+  | Cons x xs, Cons y ys, Cons z zs, h1, h2 =>
+    Ordering.andThenTrans (cmp x y) (cmp y z) (cmp x z)
+      (List.compareLex cmp xs ys) (List.compareLex cmp ys zs) (List.compareLex cmp xs zs)
+      (trans x y z)
+      (e => Eq.cong (t => cmp t z) (equal x y e))
+      (e => Eq.sym (Eq.cong (t => cmp x t) (equal y z e)))
+      (p q => List.compareLexTrans cmp equal trans xs ys zs p q) h1 h2
+
+-- Pairs, by their first parts, then their second.
+def Pair.compareWith (ca: a -> a -> Ordering) (cb: b -> b -> Ordering): Pair a b -> Pair a b -> Ordering
+  | MkPair x1 y1, MkPair x2 y2 => Ordering.andThen (ca x1 x2) (cb y1 y2)
+
+theorem Pair.compareWithEqual (ca: a -> a -> Ordering) (cb: b -> b -> Ordering)
+    (ea: (x: a) -> (y: a) -> ca x y = Equal -> x = y) (eb: (x: b) -> (y: b) -> cb x y = Equal -> x = y):
+    (p: Pair a b) -> (q: Pair a b) -> Pair.compareWith ca cb p q = Equal -> p = q
+  | MkPair x1 y1, MkPair x2 y2, h =>
+    Eq.trans (Eq.cong (t => MkPair t y1) (ea x1 x2 (And.left (Ordering.andThenEqual (ca x1 x2) (cb y1 y2) h))))
+      (Eq.cong (MkPair x2) (eb y1 y2 (And.right (Ordering.andThenEqual (ca x1 x2) (cb y1 y2) h))))
+
+theorem Pair.compareWithFlip (ca: a -> a -> Ordering) (cb: b -> b -> Ordering)
+    (fa: (x: a) -> (y: a) -> ca y x = Ordering.flip (ca x y)) (fb: (x: b) -> (y: b) -> cb y x = Ordering.flip (cb x y)):
+    (p: Pair a b) -> (q: Pair a b) -> Pair.compareWith ca cb q p = Ordering.flip (Pair.compareWith ca cb p q)
+  | MkPair x1 y1, MkPair x2 y2 =>
+    rewrite fa x1 x2, fb y1 y2 in Eq.sym (Ordering.flipAndThen (ca x1 x2) (cb y1 y2))
+
+theorem Pair.compareWithTrans (ca: a -> a -> Ordering) (cb: b -> b -> Ordering)
+    (ea: (x: a) -> (y: a) -> ca x y = Equal -> x = y)
+    (ta: (x: a) -> (y: a) -> (z: a) -> ca x y = Less -> ca y z = Less -> ca x z = Less)
+    (tb: (x: b) -> (y: b) -> (z: b) -> cb x y = Less -> cb y z = Less -> cb x z = Less):
+    (p: Pair a b) -> (q: Pair a b) -> (r: Pair a b) ->
+    Pair.compareWith ca cb p q = Less -> Pair.compareWith ca cb q r = Less -> Pair.compareWith ca cb p r = Less
+  | MkPair x1 y1, MkPair x2 y2, MkPair x3 y3, h1, h2 =>
+    Ordering.andThenTrans (ca x1 x2) (ca x2 x3) (ca x1 x3) (cb y1 y2) (cb y2 y3) (cb y1 y3)
+      (ta x1 x2 x3)
+      (e => Eq.cong (t => ca t x3) (ea x1 x2 e))
+      (e => Eq.sym (Eq.cong (t => ca x1 t) (ea x2 x3 e)))
+      (tb y1 y2 y3) h1 h2
+
+-- Optional values: `Nothing` first.
+def Maybe.compareWith (cmp: a -> a -> Ordering): Maybe a -> Maybe a -> Ordering
+  | Nothing, Nothing => Equal
+  | Nothing, Just y  => Less
+  | Just x,  Nothing => Greater
+  | Just x,  Just y  => cmp x y
+
+theorem Maybe.compareWithEqual (cmp: a -> a -> Ordering) (equal: (x: a) -> (y: a) -> cmp x y = Equal -> x = y):
+    (m: Maybe a) -> (n: Maybe a) -> Maybe.compareWith cmp m n = Equal -> m = n
+  | Nothing, Nothing, h => rfl
+  | Nothing, Just y,  h => Void.exfalso (Ordering.lessNotEqual h)
+  | Just x,  Nothing, h => Void.exfalso (Ordering.greaterNotEqual h)
+  | Just x,  Just y,  h => Eq.cong Just (equal x y h)
+
+theorem Maybe.compareWithFlip (cmp: a -> a -> Ordering) (flip: (x: a) -> (y: a) -> cmp y x = Ordering.flip (cmp x y)):
+    (m: Maybe a) -> (n: Maybe a) -> Maybe.compareWith cmp n m = Ordering.flip (Maybe.compareWith cmp m n)
+  | Nothing, Nothing => rfl
+  | Nothing, Just y  => rfl
+  | Just x,  Nothing => rfl
+  | Just x,  Just y  => flip x y
+
+theorem Maybe.compareWithTrans (cmp: a -> a -> Ordering)
+    (trans: (x: a) -> (y: a) -> (z: a) -> cmp x y = Less -> cmp y z = Less -> cmp x z = Less):
+    (m: Maybe a) -> (n: Maybe a) -> (o: Maybe a) ->
+    Maybe.compareWith cmp m n = Less -> Maybe.compareWith cmp n o = Less -> Maybe.compareWith cmp m o = Less
+  | Nothing, Nothing, o,       h1, h2 => Void.exfalso (Ordering.equalNotLess h1)
+  | Nothing, Just y,  Nothing, h1, h2 => Void.exfalso (Ordering.greaterNotLess h2)
+  | Nothing, Just y,  Just z,  h1, h2 => rfl
+  | Just x,  Nothing, o,       h1, h2 => Void.exfalso (Ordering.greaterNotLess h1)
+  | Just x,  Just y,  Nothing, h1, h2 => Void.exfalso (Ordering.greaterNotLess h2)
+  | Just x,  Just y,  Just z,  h1, h2 => trans x y z h1 h2
+
+-- Characters, by scalar value.
+def Char.compare (x: Char) (y: Char): Ordering := Nat.compare (Char.toNat x) (Char.toNat y)
+
+theorem Char.compareEqual (x: Char) (y: Char) (h: Char.compare x y = Equal): x = y :=
+  Char.ext x y (Nat.compareEqual (Char.toNat x) (Char.toNat y) h)
+
+theorem Char.compareFlip (x: Char) (y: Char): Char.compare y x = Ordering.flip (Char.compare x y) :=
+  Nat.compareFlip (Char.toNat x) (Char.toNat y)
+
+theorem Char.compareTrans (x: Char) (y: Char) (z: Char) (h1: Char.compare x y = Less) (h2: Char.compare y z = Less):
+    Char.compare x z = Less :=
+  Nat.compareTrans (Char.toNat x) (Char.toNat y) (Char.toNat z) h1 h2
+
+-- `Text.compare` is lexicographic by characters: `List.compareLex` with
+-- `Char.compare`, step for step. So its laws are the list's.
+theorem Text.compareCharsLex: (xs: List Char) -> (ys: List Char) -> Text.compareChars xs ys = List.compareLex Char.compare xs ys
+  | Nil,       Nil       => rfl
+  | Nil,       Cons y ys => rfl
+  | Cons x xs, Nil       => rfl
+  | Cons x xs, Cons y ys => Eq.cong (r => Ordering.andThen (Char.compare x y) r) (Text.compareCharsLex xs ys)
+
+theorem Text.ext: (s: Text) -> (t: Text) -> Text.toList s = Text.toList t -> s = t
+  | MkText a, MkText b, h => Eq.cong MkText h
+
+theorem Text.compareEqual (s: Text) (t: Text) (h: Text.compare s t = Equal): s = t :=
+  Text.ext s t (List.compareLexEqual Char.compare Char.compareEqual (Text.toList s) (Text.toList t)
+    (Eq.trans (Eq.sym (Text.compareCharsLex (Text.toList s) (Text.toList t))) h))
+
+theorem Text.compareFlip (s: Text) (t: Text): Text.compare t s = Ordering.flip (Text.compare s t) :=
+  Eq.trans (Text.compareCharsLex (Text.toList t) (Text.toList s))
+    (Eq.trans (List.compareLexFlip Char.compare Char.compareFlip (Text.toList s) (Text.toList t))
+      (Eq.cong Ordering.flip (Eq.sym (Text.compareCharsLex (Text.toList s) (Text.toList t)))))
+
+theorem Text.compareTrans (s: Text) (t: Text) (u: Text) (h1: Text.compare s t = Less) (h2: Text.compare t u = Less):
+    Text.compare s u = Less :=
+  Eq.trans (Text.compareCharsLex (Text.toList s) (Text.toList u))
+    (List.compareLexTrans Char.compare Char.compareEqual Char.compareTrans (Text.toList s) (Text.toList t) (Text.toList u)
+      (Eq.trans (Eq.sym (Text.compareCharsLex (Text.toList s) (Text.toList t))) h1)
+      (Eq.trans (Eq.sym (Text.compareCharsLex (Text.toList t) (Text.toList u))) h2))
+
+theorem Bool.toNatInjective: (a: Bool) -> (b: Bool) -> Bool.toNat a = Bool.toNat b -> a = b
+  | False, False, h => rfl
+  | False, True,  h => Void.exfalso (Nat.zeroNotSucc 0 h)
+  | True,  False, h => Void.exfalso (Nat.succNotZero 0 h)
+  | True,  True,  h => rfl
+
+-- `False` first.
+def Bool.compare (a: Bool) (b: Bool): Ordering := Nat.compare (Bool.toNat a) (Bool.toNat b)
+
+-- `Less`, `Equal`, `Greater`.
+def Ordering.compare (c: Ordering) (d: Ordering): Ordering := Nat.compare (Ordering.index c) (Ordering.index d)
+
+-- A total order: a comparison with its laws, and the relations `<` and `<=`
+-- with their decisions, agreeing with it (docs/proposals/interfaces.md
+-- §6.2, D180; the fields are `lessThan` and `lessEq`, D200). The relations
+-- are fields so that `Nat`'s can be `Nat.LessThan` and `Nat.LessEq`
+-- themselves. Build one with `Ord.fromCompare` or `Ord.byKey`.
+interface Ord (a: Type) =
+  { eq: DecEq a
+  , compare: a -> a -> Ordering
+  , lessThan: a -> a -> Prop
+  , lessEq: a -> a -> Prop
+  , decLessThan: (x: a) -> (y: a) -> Decidable (lessThan x y)
+  , decLessEq: (x: a) -> (y: a) -> Decidable (lessEq x y)
+  -- `Equal` means equal; the other way round is the opposite; `Less` is
+  -- transitive.
+  , equal: (x: a) -> (y: a) -> compare x y = Equal -> x = y
+  , flip: (x: a) -> (y: a) -> compare y x = Ordering.flip (compare x y)
+  , trans: (x: a) -> (y: a) -> (z: a) -> compare x y = Less -> compare y z = Less -> compare x z = Less
+  -- The relations agree with `compare`.
+  , lessThanOf: (x: a) -> (y: a) -> compare x y = Less -> lessThan x y
+  , lessThanTo: (x: a) -> (y: a) -> lessThan x y -> compare x y = Less
+  , lessEqOf: (x: a) -> (y: a) -> Not (compare x y = Greater) -> lessEq x y
+  , lessEqTo: (x: a) -> (y: a) -> lessEq x y -> Not (compare x y = Greater)
+  }
+
+-- From a comparison and its three laws. The relations are
+-- `compare x y = Less` and `Not (compare x y = Greater)`, decided through
+-- `DecEq Ordering`. `eq` is the `decEq` given.
+def Ord.fromCompare [auto decEq: DecEq a] (compare: a -> a -> Ordering)
+    (equal: (x: a) -> (y: a) -> compare x y = Equal -> x = y)
+    (flip: (x: a) -> (y: a) -> compare y x = Ordering.flip (compare x y))
+    (trans: (x: a) -> (y: a) -> (z: a) -> compare x y = Less -> compare y z = Less -> compare x z = Less): Ord a :=
+  { compare = compare
+  , lessThan = x y => compare x y = Less
+  , lessEq = x y => Not (compare x y = Greater)
+  , decLessThan = x y => Ordering.decEq (compare x y) Less
+  , decLessEq = x y => Decidable.not (Ordering.decEq (compare x y) Greater)
+  , equal = equal
+  , flip = flip
+  , trans = trans
+  , lessThanOf = x y h => h
+  , lessThanTo = x y h => h
+  , lessEqOf = x y h => h
+  , lessEqTo = x y h => h
+  }
+
+-- Orders `a` by a key, given that the key tells values apart.
+def Ord.byKey [auto decEq: DecEq a] [auto ord: Ord b] (key: a -> b)
+    (inj: (x: a) -> (y: a) -> key x = key y -> x = y): Ord a :=
+  Ord.fromCompare (x y => Ord.compare (key x) (key y))
+    (x y h => inj x y (ord.equal (key x) (key y) h))
+    (x y => ord.flip (key x) (key y))
+    (x y z => ord.trans (key x) (key y) (key z))
+
+-- The larger, and the smaller (the first, if they're equal).
+def Ord.max [auto ord: Ord a] (x: a) (y: a): a := match Ord.compare x y with
+  | Less => y
+  | _    => x
+
+def Ord.min [auto ord: Ord a] (x: a) (y: a): a := match Ord.compare x y with
+  | Greater => y
+  | _       => x
+
+-- Anything compares `Equal` with itself.
+theorem Ord.compareSelf [auto ord: Ord a] (x: a): Ord.compare x x = Equal :=
+  Ordering.flipSelf (Ord.compare x x) (ord.flip x x)
+
+instance Nat.instOrd: Ord Nat :=
+  { compare = Nat.compare
+  , lessThan = Nat.LessThan
+  , lessEq = Nat.LessEq
+  , decLessThan = Nat.decLessThan
+  , decLessEq = Nat.decLessEq
+  , equal = Nat.compareEqual
+  , flip = Nat.compareFlip
+  , trans = Nat.compareTrans
+  , lessThanOf = Nat.lessOfCompare
+  , lessThanTo = Nat.compareOfLess
+  , lessEqOf = Nat.leOfCompare
+  , lessEqTo = Nat.compareOfLe
+  }
+
+instance Int.instOrd: Ord Int :=
+  { compare = Int.compare
+  , lessThan = Int.LessThan
+  , lessEq = Int.LessEq
+  , decLessThan = Int.decLessThan
+  , decLessEq = Int.decLessEq
+  , equal = Int.compareEqual
+  , flip = Int.compareFlip
+  , trans = Int.compareTrans
+  , lessThanOf = Int.lessOfCompare
+  , lessThanTo = Int.compareOfLess
+  , lessEqOf = Int.leOfCompare
+  , lessEqTo = Int.compareOfLe
+  }
+
+instance Char.instOrd: Ord Char :=
+  Ord.fromCompare Char.compare Char.compareEqual Char.compareFlip Char.compareTrans
+
+instance Text.instOrd: Ord Text :=
+  Ord.fromCompare Text.compare Text.compareEqual Text.compareFlip Text.compareTrans
+
+instance Bool.instOrd: Ord Bool :=
+  Ord.fromCompare Bool.compare
+    (x y h => Bool.toNatInjective x y (Nat.compareEqual (Bool.toNat x) (Bool.toNat y) h))
+    (x y => Nat.compareFlip (Bool.toNat x) (Bool.toNat y))
+    (x y z => Nat.compareTrans (Bool.toNat x) (Bool.toNat y) (Bool.toNat z))
+
+instance Ordering.instOrd: Ord Ordering :=
+  Ord.fromCompare Ordering.compare
+    (x y h => Ordering.indexInjective x y (Nat.compareEqual (Ordering.index x) (Ordering.index y) h))
+    (x y => Nat.compareFlip (Ordering.index x) (Ordering.index y))
+    (x y z => Nat.compareTrans (Ordering.index x) (Ordering.index y) (Ordering.index z))
+
+instance List.instOrd [auto ord: Ord a]: Ord (List a) :=
+  Ord.fromCompare (List.compareLex Ord.compare)
+    (List.compareLexEqual Ord.compare ord.equal)
+    (List.compareLexFlip Ord.compare ord.flip)
+    (List.compareLexTrans Ord.compare ord.equal ord.trans)
+
+instance Maybe.instOrd [auto ord: Ord a]: Ord (Maybe a) :=
+  Ord.fromCompare (Maybe.compareWith Ord.compare)
+    (Maybe.compareWithEqual Ord.compare ord.equal)
+    (Maybe.compareWithFlip Ord.compare ord.flip)
+    (Maybe.compareWithTrans Ord.compare ord.trans)
+
+instance Pair.instOrd [auto ordA: Ord a] [auto ordB: Ord b]: Ord (Pair a b) :=
+  Ord.fromCompare (Pair.compareWith Ord.compare Ord.compare)
+    (Pair.compareWithEqual Ord.compare Ord.compare ordA.equal ordB.equal)
+    (Pair.compareWithFlip Ord.compare Ord.compare ordA.flip ordB.flip)
+    (Pair.compareWithTrans Ord.compare Ord.compare ordA.equal ordA.trans ordB.trans)

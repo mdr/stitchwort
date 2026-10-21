@@ -22,9 +22,9 @@ theorem maximumOf: [3, 9, 2].maximum = Just 9 := rfl
 
 theorem minimumOf: [3, 9, 2].minimum = Just 2 := rfl
 
-theorem maximumEmpty: List.maximum [] = Nothing := rfl
+theorem maximumEmpty: List.maximum ([]: List Nat) = Nothing := rfl
 
-theorem minimumEmpty: List.minimum [] = Nothing := rfl
+theorem minimumEmpty: List.minimum ([]: List Nat) = Nothing := rfl
 
 theorem zipped: [1, 2, 3].zip [4, 5] = [MkPair 1 4, MkPair 2 5] := rfl
 

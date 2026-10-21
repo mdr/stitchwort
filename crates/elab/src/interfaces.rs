@@ -1208,7 +1208,7 @@ fn rigidly_distinct(cx: &Ctx, a: &Value, b: &Value) -> Result<bool> {
 /// `v` with the solutions of its unknowns substituted, computed again: a
 /// definition left folded because it was stuck on an unknown that's solved
 /// now takes its step.
-fn refresh(cx: &Ctx, v: &Value) -> Result<Value> {
+pub(crate) fn refresh(cx: &Ctx, v: &Value) -> Result<Value> {
     let term = cx.quote(v)?;
     let term = cx.e.zonk_keeping(&term, cx.level(), &|_| true)?;
     cx.eval(&term)
@@ -1380,4 +1380,42 @@ pub(crate) fn findable(cx: &mut Ctx, goal: &Value) -> Result<Option<Diagnostic>>
         Ok(None::<()>)
     })?;
     Ok(why)
+}
+
+impl Elaborator {
+    /// Finds now the instances still to be found whose type has no unknowns
+    /// left, so the answer can't depend on when they're found: for a
+    /// comparison that failed, perhaps on one of their metavariables
+    /// (`check::compare`). Whether any was found.
+    pub(crate) fn solve_ready_instances(&self) -> Result<bool> {
+        if self.interfaces.is_empty() {
+            return Ok(false);
+        }
+        let mut ready = Vec::new();
+        {
+            let obligations = self.obligations.borrow();
+            for ob in obligations.iter() {
+                let Some((_, arg)) = interface_goal(self, &ob.goal)? else {
+                    continue;
+                };
+                let cx = Ctx::from_parts(
+                    self,
+                    ob.env.clone(),
+                    ob.types.clone(),
+                    ob.names.clone(),
+                    ob.span,
+                );
+                if unsolved_in(&cx, &arg)?.is_none() {
+                    ready.push(ob.meta.clone());
+                }
+            }
+        }
+        let mut found = false;
+        for meta in ready {
+            self.solve_now(&meta)?;
+            found |=
+                matches!(meta.spine().0, Term::Meta(m) if self.globals.meta_solution(*m).is_some());
+        }
+        Ok(found)
+    }
 }

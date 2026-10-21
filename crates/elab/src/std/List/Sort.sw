@@ -462,8 +462,10 @@ def List.sortWith (le: a -> a -> Bool) (xs: List a): List a := List.mergeRuns le
 -- Sorts by a comparison, such as `Nat.compare` or `Text.compare`.
 def List.sortBy (cmp: a -> a -> Ordering) (xs: List a): List a := List.sortWith (x y => Ordering.isLessEq (cmp x y)) xs
 
--- Sorts numbers into ascending order.
-def List.sort (xs: List Nat): List Nat := List.sortWith Nat.leq xs
+-- Sorts into ascending order, by the type's `Ord` (docs/proposals/interfaces.md
+-- §7.4): numbers, texts, lists, pairs, … Another order is passed by name,
+-- `List.sort [ord := …] xs`.
+def List.sort [auto ord: Ord a] (xs: List a): List a := List.sortBy Ord.compare xs
 
 -- `List.LeHead le z xs`: `z` may come before the first element of `xs`, if any.
 def List.LeHead (le: a -> a -> Bool) (z: a): List a -> Prop
@@ -530,7 +532,35 @@ theorem List.sortBySorted (cmp: a -> a -> Ordering)
   (tot: (x: a) -> (y: a) -> Ordering.isLessEq (cmp x y) = False -> Ordering.isLessEq (cmp y x) = True)
   (xs: List a): List.Sorted (x y => Ordering.isLessEq (cmp x y)) (List.sortBy cmp xs) := List.sortWithSorted (x y => Ordering.isLessEq (cmp x y)) tot xs
 
-theorem List.sortSorted (xs: List Nat): List.Sorted Nat.leq (List.sort xs) := List.sortWithSorted Nat.leq Nat.leqTotal xs
+-- If `o` isn't `Less` or `Equal`, its opposite is.
+theorem Ordering.flipNotLessEq: (o: Ordering) -> Ordering.isLessEq o = False -> Ordering.isLessEq (Ordering.flip o) = True
+  | Less,    h => Void.exfalso (Bool.trueNotFalse h)
+  | Equal,   h => Void.exfalso (Bool.trueNotFalse h)
+  | Greater, h => rfl
+
+-- An `Ord`'s comparison is total, by its `flip` law (§7.6).
+theorem Ord.leTotal [auto ord: Ord a] (x: a) (y: a)
+    (h: Ordering.isLessEq (Ord.compare x y) = False): Ordering.isLessEq (Ord.compare y x) = True :=
+  rewrite ord.flip x y in Ordering.flipNotLessEq (Ord.compare x y) h
+
+theorem List.sortSorted [auto ord: Ord a] (xs: List a):
+    List.Sorted (x y => Ordering.isLessEq (Ord.compare x y)) (List.sort xs) :=
+  List.sortBySorted Ord.compare Ord.leTotal xs
+
+-- Sorted by one test is sorted by another that agrees with it.
+theorem List.leHeadCongr (le1: a -> a -> Bool) (le2: a -> a -> Bool) (h: (x: a) -> (y: a) -> le1 x y = le2 x y) (z: a):
+    (xs: List a) -> List.LeHead le1 z xs -> List.LeHead le2 z xs
+  | Nil,       p => p
+  | Cons y ys, p => Eq.trans (Eq.sym (h z y)) p
+
+theorem List.sortedCongr (le1: a -> a -> Bool) (le2: a -> a -> Bool) (h: (x: a) -> (y: a) -> le1 x y = le2 x y):
+    (xs: List a) -> List.Sorted le1 xs -> List.Sorted le2 xs
+  | Nil,       p        => p
+  | Cons x xs, Both p q => Both (List.leHeadCongr le1 le2 h x xs p) (List.sortedCongr le1 le2 h xs q)
+
+-- For numbers, that's `Nat.leq`.
+theorem List.sortSortedNat (xs: List Nat): List.Sorted Nat.leq (List.sort xs) :=
+  List.sortedCongr (x y => Ordering.isLessEq (Nat.compare x y)) Nat.leq Nat.compareLeq (List.sort [ord := Nat.instOrd] xs) (List.sortSorted [ord := Nat.instOrd] xs)
 
 -- `List.count` is `List.occurrences`, which suits proofs; counting and
 -- `List.scanLeft` over `++`. (`List.drop 1` drops the starting value.)
@@ -720,9 +750,9 @@ theorem List.sortWithPerm (le: a -> a -> Bool) (xs: List a): List.Perm (List.sor
 
 theorem List.sortByPerm (cmp: a -> a -> Ordering) (xs: List a): List.Perm (List.sortBy cmp xs) xs := List.sortWithPerm (x y => Ordering.isLessEq (cmp x y)) xs
 
-theorem List.sortPerm (xs: List Nat): List.Perm (List.sort xs) xs := List.sortWithPerm Nat.leq xs
+theorem List.sortPerm [auto ord: Ord a] (xs: List a): List.Perm (List.sort xs) xs := List.sortByPerm Ord.compare xs
 
-theorem List.sortLength (xs: List Nat): List.length (List.sort xs) = List.length xs := List.permLength (List.sort xs) xs (List.sortPerm xs)
+theorem List.sortLength [auto ord: Ord a] (xs: List a): List.length (List.sort xs) = List.length xs := List.permLength (List.sort xs) xs (List.sortPerm xs)
 
 -- Splitting a run of positions at the separators.
 
