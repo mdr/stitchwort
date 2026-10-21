@@ -1,0 +1,22 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-UNKNOWN-NAME] Error: unknown name `List.concat`
+   ╭─[ reject/type-function-needs-import.sw:7:20 ]
+   │
+ 7 │ def a: List Nat := List.concat [[1], [2]]
+   │                    ─────┬─────  
+   │                         ╰─────── not in scope
+   │ 
+   │ Note: `List.concat` needs `import Std (List)`, or write it in full: `Std.List.concat`
+───╯
+[E-UNKNOWN-NAME] Error: no function `lenght` in `List`
+   ╭─[ reject/type-function-needs-import.sw:8:15 ]
+   │
+ 8 │ def b: Nat := List.lenght [1, 2, 3]
+   │               ─────┬─────  
+   │                    ╰─────── `List` has no `lenght`
+   │ 
+   │ Note: did you mean `length`?
+───╯

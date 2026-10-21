@@ -2092,6 +2092,12 @@ fn as_fields(cx: &Ctx, name: &AstName) -> Option<Expr> {
         1
     } else {
         match cx.e.resolve(&name.text) {
+            // A type has no fields: `List.chunksOf` is a function of
+            // `List`'s, and if there's none, that's the error
+            // (`Elaborator::no_member`).
+            crate::scope::Resolved::Found { global, .. } if cx.e.is_type_former(global) => {
+                return None;
+            }
             crate::scope::Resolved::Found { rest, .. } if !rest.is_empty() => {
                 parts.len() - rest.len()
             }

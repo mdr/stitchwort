@@ -106,14 +106,14 @@ theorem Int.divAddMod: (a: Int) -> (d: Int) -> [auto ok: d != 0] -> d * (a / d) 
   | a,         OfNat Zero     => Void.exfalso (ok rfl)
   | OfNat m,   OfNat (Succ n) =>
     Eq.cong OfNat (Eq.trans (Eq.cong (t => t + m % Succ n) (Nat.mulComm (Succ n) (m / Succ n)))
-      (Eq.sym (Nat.divMod m (Succ n) (Nat.succNotZero n))))
+      (Eq.sym (Nat.divModEq m (Succ n) (Nat.succNotZero n))))
   | NegSucc m, OfNat (Succ n) =>
-    Int.divAddModNeg m n (m / Succ n) (m % Succ n) (Nat.divMod m (Succ n) (Nat.succNotZero n))
+    Int.divAddModNeg m n (m / Succ n) (m % Succ n) (Nat.divModEq m (Succ n) (Nat.succNotZero n))
       (Nat.modLess m (Succ n) (Nat.succNotZero n))
   | OfNat m,   NegSucc n      =>
-    Int.divAddModPosNeg m n (m / Succ n) (m % Succ n) (Nat.divMod m (Succ n) (Nat.succNotZero n))
+    Int.divAddModPosNeg m n (m / Succ n) (m % Succ n) (Nat.divModEq m (Succ n) (Nat.succNotZero n))
   | NegSucc m, NegSucc n      =>
-    Int.divAddModNeg m n (m / Succ n) (m % Succ n) (Nat.divMod m (Succ n) (Nat.succNotZero n))
+    Int.divAddModNeg m n (m / Succ n) (m % Succ n) (Nat.divModEq m (Succ n) (Nat.succNotZero n))
       (Nat.modLess m (Succ n) (Nat.succNotZero n))
 
 theorem Int.subNatNatSelf (n: Nat): Int.subNatNat n n = OfNat 0 :=
@@ -198,3 +198,10 @@ theorem Int.modNatNegOne (h: Nat): Int.modNat (Int.subNatNat 0 1) (Succ h) = h :
   Eq.trans (Eq.sym (Int.modNatAddSize (Int.subNatNat 0 1) (Succ h)))
     (Eq.trans (Eq.cong (x => Int.modNat x (Succ h) [ok := Nat.succNotZero h]) (Eq.trans (Int.subNatNatSucc h 0) (Int.subNatNatZeroRight h)))
       (Nat.modSmall h (Succ h) (Nat.leRefl h)))
+
+-- Quotient and remainder together, Euclidean as `/` and `%` are: the
+-- remainder is never negative, so `Int.divMod (-7) 2` is `MkPair (-4) 1`.
+-- `a` is the main value; `d` isn't zero, found by `auto`.
+def Int.divMod (a: Int) (d: Int) [auto ok: d != 0]: Pair Int Int := MkPair (a / d) (a % d)
+
+test "Int.divMod" := Int.divMod (-7) 2 == MkPair (-4) 1 && Int.divMod 7 (-2) == MkPair (-3) 1 && Int.divMod (-7) (-2) == MkPair 4 1

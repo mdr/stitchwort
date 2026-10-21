@@ -849,6 +849,53 @@ impl Elaborator {
         format!("{owner}.{member}")
     }
 
+    /// Whether `global` is a type, a function returning one (`List`, a
+    /// `def Grid: Type`), or an ability. A value of one has no fields, so
+    /// `T.f` after it names a member of its namespace, not a field access.
+    pub(crate) fn is_type_former(&self, global: Global) -> bool {
+        match global {
+            Global::Data(_) | Global::Ability(_) => true,
+            Global::Def(id) => {
+                let mut ty = self.globals.def(id).ty.strip_loc();
+                while let stitchwort_core::Term::Pi(_, _, _, cod) = ty {
+                    ty = cod.strip_loc();
+                }
+                matches!(ty, stitchwort_core::Term::Sort(_))
+            }
+            _ => false,
+        }
+    }
+
+    /// `E-UNKNOWN-NAME` for `T.member` where the type (or namespace) `key`
+    /// has no `member`, with near misses among its members as suggestions.
+    /// (One that exists but needs an import never gets here: `resolve`
+    /// doesn't find the type's prefix for it, and `unknown` says what to
+    /// import.)
+    pub(crate) fn no_member(&self, name: &ast::Name, key: &str, member: &str) -> Diagnostic {
+        let shown = self.written(key);
+        let mut d = Diagnostic::error(
+            "E-UNKNOWN-NAME",
+            format!("no function `{member}` in `{shown}`"),
+        )
+        .with_label(name.span, format!("`{shown}` has no `{member}`"));
+        let prefix = format!("{key}.");
+        let mut near: Vec<(usize, &str)> = self
+            .scope
+            .keys()
+            .filter_map(|k| k.strip_prefix(&prefix))
+            .filter(|m| !m.contains('.') && !m.starts_with('%'))
+            .map(|m| (edit_distance(m, member), m))
+            .filter(|&(distance, _)| distance <= 2 && distance < member.len())
+            .collect();
+        near.sort_unstable();
+        near.dedup();
+        let near: Vec<String> = near.iter().take(3).map(|(_, m)| format!("`{m}`")).collect();
+        if !near.is_empty() {
+            d = d.with_note(format!("did you mean {}?", or_list(&near)));
+        }
+        d
+    }
+
     /// What `written` names, if it names one declaration exactly.
     pub(crate) fn named(&self, written: &str) -> Option<&(Global, Span)> {
         match self.resolve(written) {
@@ -877,6 +924,9 @@ impl Elaborator {
                 rest,
                 ..
             } if rest.is_empty() => Ok((global, span, key.to_string())),
+            Resolved::Found {
+                global, key, rest, ..
+            } if self.is_type_former(global) => Err(self.no_member(name, key, &rest[0])),
             Resolved::Found { key, rest, .. } => Err(error(
                 "E-UNKNOWN-NAME",
                 name.span,

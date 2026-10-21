@@ -5,7 +5,7 @@
 -- `x % len % k = x % k` when `len` is a multiple of `k`.
 theorem Nat.modModOfMul (x: Nat) (len: Nat) (k: Nat) (t: Nat) [auto hl: len != 0] [auto hk: k != 0] (e: len = t * k): x % len % k = x % k :=
   Eq.sym (calc x % k
-    _ = (x % len + (x / len) * len) % k  := Eq.cong (y => y % k) (Eq.trans (Nat.divMod x len hl) (Nat.addComm ((x / len) * len) (x % len)))
+    _ = (x % len + (x / len) * len) % k  := Eq.cong (y => y % k) (Eq.trans (Nat.divModEq x len hl) (Nat.addComm ((x / len) * len) (x % len)))
     _ = (x % len + (x / len * t) * k) % k
         := Eq.cong (y => (x % len + y) % k) (Eq.trans (Eq.cong (l => (x / len) * l) e) (Eq.sym (Nat.mulAssoc (x / len) t k)))
     _ = x % len % k                      := Nat.modAddMul (x % len) (x / len * t) k)
@@ -32,7 +32,7 @@ theorem Nat.dividesElim (goal: Prop): (d: Nat) -> (n: Nat) -> Nat.divides d n = 
   | Succ d, n, h, k =>
     k (n / Succ d)
       (calc n
-        _ = (n / Succ d) * Succ d + n % Succ d := Nat.divMod n (Succ d) (Nat.succNotZero d)
+        _ = (n / Succ d) * Succ d + n % Succ d := Nat.divModEq n (Succ d) (Nat.succNotZero d)
         _ = (n / Succ d) * Succ d + 0          := Eq.cong (r => (n / Succ d) * Succ d + r) (Decidable.toBoolSound (Nat.decEq (n % Succ d) 0) h)
         _ = (n / Succ d) * Succ d              := Nat.addZero ((n / Succ d) * Succ d))
 
@@ -47,4 +47,12 @@ theorem Nat.dividesLe (d: Nat) (n: Nat) (hn: 1 <= n) (h: Nat.divides d n = True)
   match e: Nat.leq d n with
     | True  => rfl
     | False => Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym h) (Nat.dividesSmall d n hn (Nat.leqFalse d n e))))
+
+-- The positive divisors of `n`, ascending: `Nat.divisors 12` is
+-- `[1, 2, 3, 4, 6, 12]`. Every number divides 0, so there is no list to give:
+-- `Nat.divisors 0` is `[]`. `n` is the main value: `n.divisors`.
+def Nat.divisors (n: Nat): List Nat := List.filter (d => Nat.divides d n) (List.rangeFrom n 1)
+
+test "Nat.divisors" := Nat.divisors 12 == [1, 2, 3, 4, 6, 12] && Nat.divisors 1 == [1] && Nat.divisors 13 == [1, 13]
+test "Nat.divisors of zero" := Nat.divisors 0 == Nil
 

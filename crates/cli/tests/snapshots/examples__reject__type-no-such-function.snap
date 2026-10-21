@@ -1,0 +1,29 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-UNKNOWN-NAME] Error: no function `lenght` in `List`
+   ╭─[ reject/type-no-such-function.sw:8:15 ]
+   │
+ 8 │ def a: Nat := List.lenght [1, 2, 3]
+   │               ─────┬─────  
+   │                    ╰─────── `List` has no `lenght`
+   │ 
+   │ Note: did you mean `length`?
+───╯
+[E-UNKNOWN-NAME] Error: no function `lenght` in `Text`
+   ╭─[ reject/type-no-such-function.sw:9:15 ]
+   │
+ 9 │ def b: Nat := Text.lenght "abc"
+   │               ─────┬─────  
+   │                    ╰─────── `Text` has no `lenght`
+   │ 
+   │ Note: did you mean `length`?
+───╯
+[E-UNKNOWN-NAME] Error: no function `frobnicate` in `Nat`
+    ╭─[ reject/type-no-such-function.sw:10:15 ]
+    │
+ 10 │ def c: Nat := Nat.frobnicate 3
+    │               ───────┬──────  
+    │                      ╰──────── `Nat` has no `frobnicate`
+────╯

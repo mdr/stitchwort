@@ -383,7 +383,7 @@ theorem periodDvd (g: Nat -> Nat) (len: Nat) (hl: len != 0) (j: Nat) (hp0: Perio
   let rest: Period g len hl (p - t * Succ j) :=
     periodSub g len hl p (t * Succ j) hp (periodMul g len hl (Succ j) hp0 t) (Nat.divMulLe p (Succ j) (Nat.succNotZero j))
   let e: p - t * Succ j = p % Succ j :=
-    Eq.trans (Eq.cong (y => y - t * Succ j) (Eq.trans (Nat.divMod p (Succ j) (Nat.succNotZero j)) (Nat.addComm (t * Succ j) (p % Succ j))))
+    Eq.trans (Eq.cong (y => y - t * Succ j) (Eq.trans (Nat.divModEq p (Succ j) (Nat.succNotZero j)) (Nat.addComm (t * Succ j) (p % Succ j))))
       (Nat.addSub (p % Succ j) (t * Succ j))
   periodBelow g len hl j hmin (p % Succ j) (J (y q => Period g len hl y) rest e) (Nat.modLess p (Succ j) (Nat.succNotZero j))
 
@@ -420,7 +420,7 @@ theorem periodBlock (ds: List Nat) (hl: List.length ds != 0) (k: Nat) [auto hk: 
   calc digitAt ds i
     _ = digitAt ds (i % List.length ds)                     := Eq.cong (digitAt ds) (Eq.sym (Nat.modSmall i (List.length ds) hi))
     _ = digitAt ds ((i % k + (i / k) * k) % List.length ds)
-        := Eq.cong (y => digitAt ds (y % List.length ds)) (Eq.trans (Nat.divMod i k hk) (Nat.addComm ((i / k) * k) (i % k)))
+        := Eq.cong (y => digitAt ds (y % List.length ds)) (Eq.trans (Nat.divModEq i k hk) (Nat.addComm ((i / k) * k) (i % k)))
     _ = digitAt ds (i % k)
         := periodMul (digitAt ds) (List.length ds) hl k hp (i / k) (i % k) (Nat.leTrans (Succ (i % k)) (Succ i) (List.length ds) (Nat.subLe i ((i / k) * k)) hi)
 
@@ -472,7 +472,7 @@ theorem smallestDivides (x: Nat) (p: Nat) (hp: Period (digitAt (Nat.digits x)) (
 
 theorem countTimesPeriod (x: Nat): digitCount x = blockCount x * smallestPeriod x :=
   calc digitCount x
-    _ = blockCount x * smallestPeriod x + digitCount x % smallestPeriod x := Nat.divMod (digitCount x) (smallestPeriod x) (Nat.succNotZero (periodIndex x))
+    _ = blockCount x * smallestPeriod x + digitCount x % smallestPeriod x := Nat.divModEq (digitCount x) (smallestPeriod x) (Nat.succNotZero (periodIndex x))
     _ = blockCount x * smallestPeriod x + 0
         := Eq.cong (t => blockCount x * smallestPeriod x + t)
              (smallestDivides x (digitCount x) (periodLen (digitAt (Nat.digits x)) (digitCount x) (digitCountNonZero x)))
@@ -493,7 +493,7 @@ theorem dividesOfWritten (x: Nat) (n: Nat) (hn: 2 <= n) (k: Nat) (hk1: 1 <= k) (
   -- k is t times the smallest period
   let t := k / smallestPeriod x
   let ek: k = t * smallestPeriod x :=
-    Eq.trans (Nat.divMod k (smallestPeriod x) (Nat.succNotZero (periodIndex x)))
+    Eq.trans (Nat.divModEq k (smallestPeriod x) (Nat.succNotZero (periodIndex x)))
       (Eq.trans (Eq.cong (r => t * smallestPeriod x + r) (smallestDivides x k per)) (Nat.addZero (t * smallestPeriod x)))
   let eK: blockCount x = n * t :=
     Nat.mulSuccCancel (blockCount x) (n * t) (periodIndex x)

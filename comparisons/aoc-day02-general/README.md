@@ -139,7 +139,7 @@ Weights (section 4):
 Periods (section 5), with `Cyc g L p` as above:
 4. `cyc_zero`, `cyc_add`, `cyc_sub`, `cyc_mul` (p·t is a period). Each is a few `mod` rewrites.
 5. `cyc_dvd`: smallest period p₀ divides any period. Uses `p − p₀·(p/p₀) = p % p₀`
-   (`Nat.divMod`) and `p % p₀ < p₀` (`Nat.modLess`).
+   (`Nat.divModEq`) and `p % p₀ < p₀` (`Nat.modLess`).
 6. `exists_min`, `smallest_period`: there is a least positive period, it divides L, and the
    periods are exactly its multiples. **Port differently.** Lean finds the least element
    classically (`by_cases` on a Prop). In Stitchwort, make the period test a `Bool`

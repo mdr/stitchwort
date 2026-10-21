@@ -170,7 +170,7 @@ theorem Nat.fromDigitsFuel: (f: Nat) -> (n: Nat) -> (acc: List Nat) -> n < f ->
         (Eq.trans (Nat.fromDigitsFuel f (n / 10) (Cons (n % 10) acc) (Nat.leTrans (Succ (n / 10)) n f (Nat.divTenLess n b) h))
           (Eq.trans (Eq.cong (t => (n / 10) * Nat.pow 10 (Succ (List.length acc)) + t) (Nat.fromDigitsCons (n % 10) acc))
             (Eq.trans (Nat.shiftDigitArith (n / 10) (n % 10) (Nat.pow 10 (List.length acc)) (Nat.fromDigits acc))
-              (Eq.cong (t => t * Nat.pow 10 (List.length acc) + Nat.fromDigits acc) (Eq.sym (Nat.divMod n 10 (Nat.succNotZero 9))))))))
+              (Eq.cong (t => t * Nat.pow 10 (List.length acc) + Nat.fromDigits acc) (Eq.sym (Nat.divModEq n 10 (Nat.succNotZero 9))))))))
 
 theorem Nat.fromDigitsDigits (n: Nat): Nat.fromDigits (Nat.digits n) = n :=
   Eq.trans (Nat.fromDigitsFuel (Succ n) n Nil (Nat.leRefl n)) (Eq.trans (Nat.addZero (n * 1)) (Nat.mulOne n))
