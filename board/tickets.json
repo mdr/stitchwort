@@ -2984,8 +2984,8 @@
     {
       "id": 194,
       "title": "Lemmas can't name a match written inside a definition (generated %match functions)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Opus",
       "where": "",
       "labels": [
         "design",
