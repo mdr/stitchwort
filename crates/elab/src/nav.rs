@@ -37,10 +37,25 @@ pub(crate) struct Recorder {
     local_types: HashMap<(FileId, u32), String>,
     /// Local variables used, from the walk.
     locals: Vec<LocalUse>,
+    /// Where local variables are bound (a binder refers to itself).
+    binders: Vec<LocalUse>,
     /// The definitions of the files walked.
     outline: Vec<OutlineItem>,
     /// Each record field's name, by its type's declaration and its name.
     field_spans: HashMap<(Span, String), Span>,
+}
+
+impl Recorder {
+    /// A local variable bound at `span`.
+    fn note_binder(&mut self, name: &str, span: Span) {
+        if name != "_" && !name.starts_with('%') {
+            self.binders.push(LocalUse {
+                span,
+                name: name.to_string(),
+                binder: span,
+            });
+        }
+    }
 }
 
 struct Noted {
@@ -381,6 +396,21 @@ impl Elaborator {
                 dot: Some(last.to_string()),
                 target: NavTarget::Symbol(i),
                 ty: symbols[i].ty.clone(),
+            });
+        }
+        // A local variable's binder refers to itself (a record field is a declaration, above).
+        for binder in &nav.binders {
+            if !taken.insert((binder.span.file, binder.span.start)) {
+                continue;
+            }
+            refs.push(NavRef {
+                span: binder.span,
+                dot: None,
+                target: NavTarget::Binder {
+                    name: binder.name.clone(),
+                    span: binder.span,
+                },
+                ty: None,
             });
         }
         refs.sort_by_key(|r| (r.span.file.index(), r.span.start, r.span.end));
@@ -734,6 +764,7 @@ impl Walk<'_> {
         while let Some(step) = stack.pop() {
             let expr = match step {
                 Work::Bind(n) => {
+                    self.nav.note_binder(&n.text, n.span);
                     bound.entry(&n.text).or_default().push(n.span);
                     continue;
                 }
@@ -765,7 +796,10 @@ impl Walk<'_> {
                 }
                 Work::Pattern(p) => {
                     match p {
-                        Pattern::Var(x) => bound.entry(&x.text).or_default().push(x.span),
+                        Pattern::Var(x) => {
+                            self.nav.note_binder(&x.text, x.span);
+                            bound.entry(&x.text).or_default().push(x.span);
+                        }
                         Pattern::Ctor(_, args, _) => {
                             then(&mut stack, args.iter().map(Work::Pattern).collect());
                         }

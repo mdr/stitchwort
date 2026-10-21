@@ -104,7 +104,8 @@ Local definitions aren't listed (they are binders).
   `type` may be missing. Ranges never overlap each other except that `p.name`
   gives two adjacent ranges.
   A declaration's own name has a ref to its symbol (so hover and definition
-  work there), and the files of the library that were loaded have refs of
+  work there), a local variable's binder has a `binder` ref to itself (no
+  `type`), and the files of the library that were loaded have refs of
   their own, with the same rules, so navigation continues inside them. (A
   library file's local variables and its names are covered; its outline is
   not, only the symbols something refers to.)
