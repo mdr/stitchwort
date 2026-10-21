@@ -2968,7 +2968,7 @@
     {
       "id": 193,
       "title": "match h: e doesn't refine a let-bound proof whose type mentions the scrutinee",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -2984,7 +2984,7 @@
     {
       "id": 194,
       "title": "Lemmas can't name a match written inside a definition (generated %match functions)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -2999,7 +2999,7 @@
     {
       "id": 195,
       "title": "Record literal E-CANNOT-INFER inside a match branch under List.append, though the result type fixes it",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -3014,7 +3014,7 @@
     {
       "id": 196,
       "title": "Day 7 spec: prove the timelines are pairwise distinct (std List.Distinct/Nodup predicate)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
