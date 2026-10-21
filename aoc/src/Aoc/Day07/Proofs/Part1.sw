@@ -159,16 +159,6 @@ theorem reachPast (w: Nat): (ls: List Text) -> Fits w ls -> (c: Nat) -> (k: Nat)
   | Cons line rest, Both fit fits, c, Succ k, d, hc, hd =>
     rewrite charAtPast line c (Nat.leTrans line.length w c fit hc) in reachPast w rest fits c k d hc hd
 
--- The step of `reach` with its left branch named.
-def leftReach (rest: List Text) (k: Nat) (d: Nat): Nat -> Bool
-  | Zero   => False
-  | Succ b => reach rest b k d
-
-theorem reachStep (line: Text) (rest: List Text) (k: Nat) (d: Nat): (c: Nat) ->
-    reach (Cons line rest) c (Succ k) d = (if charAt line c == '^' then leftReach rest k d c || reach rest (c + 1) k d else reach rest c k d)
-  | Zero   => rfl
-  | Succ b => rfl
-
 -- The program's side ----------------------------------------------------------
 
 -- Or, from one of its sides.
@@ -284,10 +274,10 @@ theorem fallKeeps (w: Nat) (line: Text) (rest: List Text) (fit: line.length <= w
     (h => List.anyRangeElim before (beamReach w fallen rest k d = True) w 0 h
        (c lo hi hc =>
          let hB := Bool.andLeft (List.getOr False c beams) (reach (Cons line rest) c (Succ k) d) hc
-         let hr := Eq.trans (Eq.sym (reachStep line rest k d c)) (Bool.andRight (List.getOr False c beams) (reach (Cons line rest) c (Succ k) d) hc)
+         let hr := Bool.andRight (List.getOr False c beams) (reach (Cons line rest) c (Succ k) d) hc
          match e: charAt line c == '^' with
            | True  =>
-             orCases (beamReach w fallen rest k d = True) (leftReach rest k d c) (reach rest (c + 1) k d)
+             orCases (beamReach w fallen rest k d = True) _ (reach rest (c + 1) k d)
                hr
                (hl =>
                  match c with
