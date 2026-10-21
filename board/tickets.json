@@ -58,7 +58,7 @@
       "title": "Interfaces design note (Agda/Lean style, with independent review)",
       "status": "review",
       "agent": "Opus",
-      "where": "stages 1-4, 6 merged; gate FAILS after stage 6 (bench repeat test: counts vary within a process) — stage 6 lane fixing; stage 5 running",
+      "where": "stages 1-4, 6 merged + bench fix (a4bbe4e, gate passed); stage 5 and stage 7 running",
       "labels": [
         "design",
         "elab"
