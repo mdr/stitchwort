@@ -344,6 +344,18 @@ Effectful code is written in direct style. Arguments are evaluated left to right
 - `Text.lines: Text -> List Text` follows Rust's `str::lines`: split on LF, drop a CR right before an LF, and the last line's ending is optional. `"a\nb"` and `"a\nb\n"` both give `["a", "b"]`; `""` gives `[]`; `"\n"` gives `[""]`; `"a\r\nb"` gives `["a", "b"]`. A CR anywhere else stays, including a final one.
 - `IO.readAllLines(): {IO} (List Text)` is `(readAll()).lines`. It is total.
 
+## `Text` helpers
+
+Characters are Unicode scalar values, as for `Text.length`. The text comes last.
+
+- `Text.take n t`, `Text.drop n t`: the first `n` characters, and the rest (all of `t`, or `""`, if it is shorter).
+- `Text.startsWith p t`, `Text.endsWith s t`, `Text.contains p t`: `Bool`s. The empty text starts, ends and occurs in every text.
+- `Text.stripPrefix p t`, `Text.stripSuffix s t`: `Some` of `t` without `p` (or `s`), or `None`.
+- `Text.splitOn sep t`: splits at each whole occurrence of `sep`, left to right without overlaps: `"a, b" |> Text.splitOn ", "` is `["a", "b"]`, `"aaa"` on `"aa"` is `["", "a"]`. There is always at least one piece. An empty `sep` doesn't split: the result is `[t]` (as Lean's `String.splitOn`). `Text.split` splits on one `Char`.
+- Dot notation puts the receiver in the first `Text` parameter, which is the prefix, suffix or separator here: `"L68".stripPrefix "L"` is `Text.stripPrefix "L68" "L"`, so write `line |> Text.stripPrefix "L"`. `t.take 1` and `t.drop 1` read as usual, since their first `Text` parameter is `t`.
+
+Proved: `Text.stripPrefix p (p ++ t) = Some t`, `Text.startsWith p (p ++ t) = True`, `Text.take n t ++ Text.drop n t = t`.
+
 ## `Partial`
 
 A function that might not finish says `Partial` in its row, and so does
