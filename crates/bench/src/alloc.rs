@@ -3,6 +3,7 @@
 //! of the same program, unlike its time.
 
 use std::alloc::{GlobalAlloc, Layout, System};
+use std::cell::Cell;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering::Relaxed};
 
 /// The system allocator, counting as it goes.
@@ -15,9 +16,27 @@ static LIVE: AtomicUsize = AtomicUsize::new(0);
 /// The most `LIVE` has been since [`start`].
 static PEAK: AtomicUsize = AtomicUsize::new(0);
 
+thread_local! {
+    /// Whether this thread is the one being measured. Const-initialised and
+    /// without a destructor, so reading it inside the allocator never
+    /// allocates.
+    static MEASURING: Cell<bool> = const { Cell::new(false) };
+}
+
+/// Counts an allocation, if it's on the measured thread: other threads (the
+/// test harness printing "has been running for over 60 seconds", say) would
+/// make the counts differ between runs.
+fn counted() {
+    if MEASURING.with(Cell::get) {
+        ALLOCATIONS.fetch_add(1, Relaxed);
+    }
+}
+
 fn grew(bytes: usize) {
     let live = LIVE.fetch_add(bytes, Relaxed) + bytes;
-    PEAK.fetch_max(live, Relaxed);
+    if MEASURING.with(Cell::get) {
+        PEAK.fetch_max(live, Relaxed);
+    }
 }
 
 // Why `unsafe`: the only way to count a program's allocations is to wrap the
@@ -32,7 +51,7 @@ unsafe impl GlobalAlloc for Counting {
         // SAFETY: our caller meets `alloc`'s contract, which is `System`'s.
         let ptr = unsafe { System.alloc(layout) };
         if !ptr.is_null() {
-            ALLOCATIONS.fetch_add(1, Relaxed);
+            counted();
             grew(layout.size());
         }
         ptr
@@ -42,7 +61,7 @@ unsafe impl GlobalAlloc for Counting {
         // SAFETY: as for `alloc`.
         let ptr = unsafe { System.alloc_zeroed(layout) };
         if !ptr.is_null() {
-            ALLOCATIONS.fetch_add(1, Relaxed);
+            counted();
             grew(layout.size());
         }
         ptr
@@ -60,7 +79,7 @@ unsafe impl GlobalAlloc for Counting {
         // contract for `new_size`.
         let new = unsafe { System.realloc(ptr, layout, new_size) };
         if !new.is_null() {
-            ALLOCATIONS.fetch_add(1, Relaxed);
+            counted();
             LIVE.fetch_sub(layout.size(), Relaxed);
             grew(new_size);
         }
@@ -77,6 +96,7 @@ pub struct Snapshot {
 
 /// Starts measuring: the peak is measured from now.
 pub fn start() -> Snapshot {
+    MEASURING.with(|m| m.set(true));
     let live = LIVE.load(Relaxed);
     PEAK.store(live, Relaxed);
     Snapshot {
@@ -88,6 +108,7 @@ pub fn start() -> Snapshot {
 /// Allocations since `start`, and the most heap in use at once since then
 /// beyond what was in use at `start`.
 pub fn since(start: Snapshot) -> (u64, u64) {
+    MEASURING.with(|m| m.set(false));
     let allocations = ALLOCATIONS.load(Relaxed) - start.allocations;
     let peak = PEAK.load(Relaxed).saturating_sub(start.live);
     (allocations, peak as u64)
