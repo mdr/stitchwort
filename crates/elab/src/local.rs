@@ -244,6 +244,7 @@ fn component(cx: &mut Ctx, defs: &[LocalDef], keys: &[String], members: &[usize]
             goal: ty,
             kinds: cx.kinds.clone(),
             lets: cx.lets.clone(),
+            order: cx.order.clone(),
             local: Some(LocalDraft {
                 key: keys[i].clone(),
                 name: name.text.clone(),

@@ -40,6 +40,15 @@ use stitchwort_syntax::{Diagnostic, Span};
 use crate::Elaborator;
 use crate::check::{Ctx, LetDef, Result};
 
+/// Where a variable comes in the order captures are taken: its place in
+/// `order`, and variables not listed come after, by level.
+pub(crate) fn rank(order: &[usize], level: usize) -> usize {
+    order
+        .iter()
+        .position(|&l| l == level)
+        .unwrap_or(order.len() + level)
+}
+
 /// A helper elaborated in its owner's context, not yet a definition.
 pub(crate) struct Draft {
     /// The frozen metavariable standing for the call.
@@ -66,6 +75,9 @@ pub(crate) struct Draft {
     /// Which variables of the context are `let`s, with their types and
     /// values (`Ctx::lets`): the helper re-creates those it uses.
     pub lets: Vec<Option<Rc<LetDef>>>,
+    /// The order the captures are taken in, from where it was written
+    /// (`Ctx::order`).
+    pub order: Vec<usize>,
     /// For a local definition, what it is; `None` for a `match`.
     pub local: Option<LocalDraft>,
 }
@@ -127,6 +139,7 @@ pub(crate) fn draft(
         goal,
         kinds: cx.kinds.clone(),
         lets: cx.lets.clone(),
+        order: cx.order.clone(),
         local: None,
     });
     Ok(call)
@@ -865,6 +878,7 @@ impl Elaborator {
             }
             let mut ordered: Vec<usize> = Vec::new();
             let mut left: Vec<usize> = caps[i].iter().copied().collect();
+            left.sort_by_key(|&l| rank(&d.order, l));
             while !left.is_empty() {
                 let Some(p) = left
                     .iter()

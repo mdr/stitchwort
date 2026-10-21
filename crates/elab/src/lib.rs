@@ -282,12 +282,39 @@ fn pattern_var<'a>(pattern: &Pat<'a>) -> Option<&'a ast::Name> {
     }
 }
 
+/// The variables the patterns bind, left to right as written.
+pub(crate) fn written_names(patterns: &[Pattern]) -> Vec<&str> {
+    fn walk<'a>(pattern: &'a Pattern, out: &mut Vec<&'a str>) {
+        match pattern {
+            Pattern::Var(x) => out.push(&x.text),
+            Pattern::Ctor(_, args, _) => args.iter().for_each(|p| walk(p, out)),
+            Pattern::Tuple(a, b, _) | Pattern::Cons(a, b, _) => {
+                walk(a, out);
+                walk(b, out);
+            }
+            Pattern::Record { fields, .. } => fields.iter().for_each(|(_, p)| walk(p, out)),
+            Pattern::Named(_, p, _) => walk(p, out),
+            Pattern::Wildcard(_)
+            | Pattern::Absurd(_)
+            | Pattern::Num(..)
+            | Pattern::NegNum(..)
+            | Pattern::Char(..)
+            | Pattern::Nil(_) => {}
+        }
+    }
+    let mut out = Vec::new();
+    patterns.iter().for_each(|p| walk(p, &mut out));
+    out
+}
+
 /// One equation during pattern-match compilation: the patterns still to be
 /// matched, and the pattern variables already bound (to de Bruijn levels).
 #[derive(Clone)]
 struct Row<'a> {
     pats: Vec<Pat<'a>>,
     aliases: Vec<(&'a str, usize)>,
+    /// The variables the equation's patterns bind, in the order written.
+    written: Vec<&'a str>,
     /// `None` for an equation with an absurd pattern `()`.
     rhs: Option<&'a Expr>,
     span: Span,
@@ -297,6 +324,8 @@ struct Row<'a> {
 enum Tree<'a> {
     Leaf {
         aliases: Vec<(&'a str, usize)>,
+        /// The variables the arm binds, in the order written.
+        written: Vec<&'a str>,
         /// The levels of char patterns' proof fields (`canonical`).
         canon: Vec<usize>,
         rhs: Option<&'a Expr>,
@@ -2081,6 +2110,7 @@ impl Elaborator {
             }
             Tree::Leaf {
                 aliases: Vec::new(),
+                written: Vec::new(),
                 canon: Vec::new(),
                 rhs: first_rhs,
                 span: first_span,
@@ -2106,13 +2136,17 @@ impl Elaborator {
                         })
                         .collect(),
                     aliases: Vec::new(),
+                    written: written_names(patterns),
                     rhs,
                     span,
                 })
                 .collect();
             self.compile(&rows, cx.level(), &columns, &column_types, span)?
         };
-        let mut term = families::warn_unreachable(cx, |cx| check_tree(cx, &tree, &ty))?;
+        let mut term = families::warn_unreachable(cx, |cx| {
+            let start = columns.first().copied().unwrap_or(cx.level());
+            check_tree_from(cx, start, &tree, &ty)
+        })?;
         for (x, icit) in lams.into_iter().rev() {
             term = Term::Lam(x, icit, Rc::new(term));
         }
@@ -2178,6 +2212,7 @@ impl Elaborator {
             }
             return Ok(Tree::Leaf {
                 aliases,
+                written: first.written.clone(),
                 canon,
                 rhs: first.rhs,
                 span: first.span,
@@ -2258,6 +2293,7 @@ impl Elaborator {
                 branch_rows.push(Row {
                     pats,
                     aliases,
+                    written: row.written.clone(),
                     rhs: row.rhs,
                     span: row.span,
                 });
@@ -2840,11 +2876,52 @@ fn canonical(
 
 /// Checks a compiled pattern match against `goal`, refining the goal in each
 /// branch (the kernel does the same when it re-checks the result).
+/// The order of every variable in scope at a leaf, for the captures of a
+/// helper lifted from the arm (D228): the variables bound before the case
+/// tree, in the order they already had (so an enclosing arm's order is kept
+/// and a header's parameters come first), then the variables the tree binds,
+/// the ones the arm names in the order written and the rest by level.
+fn written_order(cx: &Ctx, aliases: &[(&str, usize)], written: &[&str]) -> Vec<usize> {
+    let start = cx.tree_start.min(cx.level());
+    let rank = |l: usize| lift::rank(&cx.order, l);
+    let mut order: Vec<usize> = (0..start).collect();
+    order.sort_by_key(|&l| rank(l));
+    for name in written {
+        if let Some(&(_, level)) = aliases.iter().rev().find(|(x, _)| x == name)
+            && level >= start
+            && !order.contains(&level)
+        {
+            order.push(level);
+        }
+    }
+    for level in start..cx.level() {
+        if !order.contains(&level) {
+            order.push(level);
+        }
+    }
+    order
+}
+
+/// [`check_tree`] for a tree that binds only fields, from the current level.
+fn check_tree_here(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
+    let start = cx.level();
+    check_tree_from(cx, start, tree, goal)
+}
+
+/// [`check_tree`] for a tree whose variables start at level `start`.
+fn check_tree_from(cx: &mut Ctx, start: usize, tree: &Tree, goal: &Value) -> Result<Term> {
+    let saved = std::mem::replace(&mut cx.tree_start, start);
+    let result = check_tree(cx, tree, goal);
+    cx.tree_start = saved;
+    result
+}
+
 fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
     cx.g().budget.nesting(check::PASS)?;
     match tree {
         Tree::Leaf {
             aliases,
+            written,
             canon,
             rhs,
             span,
@@ -2861,6 +2938,8 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
             for (x, level) in aliases {
                 cx.alias(x, *level);
             }
+            let order = written_order(cx, aliases, written);
+            let saved_order = std::mem::replace(&mut cx.order, order);
             let result = canonical(cx, canon, goal, &mut |cx, goal, wrapped| {
                 // A `match` that's the whole right-hand side, on variables of
                 // the equation, splits them further here
@@ -2873,6 +2952,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                 in_tree.unwrap_or_else(|| check(cx, rhs, goal))
             });
             cx.reset(mark);
+            cx.order = saved_order;
             result
         }
         Tree::Missing { columns, span } => Err(error(
