@@ -977,8 +977,19 @@ impl Session {
 }
 
 impl stitchwort_elab::project::IncludeFiles for DiskFiles {
+    /// Reads `path`, unless it resolves (through symlinks) to somewhere
+    /// outside the root: that is `PermissionDenied`, which `include`
+    /// reports as `E-INCLUDE-OUTSIDE`.
     fn read(&self, path: &str) -> std::io::Result<String> {
-        Files::read(self, path)
+        let full = std::fs::canonicalize(self.path(path))?;
+        let root = std::fs::canonicalize(&self.root)?;
+        if !full.starts_with(&root) {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::PermissionDenied,
+                "resolves outside the project folder",
+            ));
+        }
+        std::fs::read_to_string(full)
     }
 }
 

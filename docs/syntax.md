@@ -444,7 +444,7 @@ A partially applied constructor is a function: `Succ` on its own means `n => Suc
 
 - **Relative to the file that has the `include`**, with `/` between names, `..` for the folder above, whatever folder `stitchwort` runs from. It must stay inside the project folder (for a file run on its own, the file's folder); a path above it, or an absolute one, is `E-INCLUDE-OUTSIDE`.
 - **The contents are what is hashed, not the path.** The text becomes a literal in the definition, so editing the file reruns exactly the tests that use it, and moving or renaming it, with the same text, changes nothing. Tests in `aoc/src/Aoc/DayNN/Input.sw` use it to check each day's answers on the committed puzzle input.
-- **Errors.** `E-INCLUDE-MISSING` names the file tried (from the project folder); `E-INCLUDE-NOT-TEXT` is a file that isn't UTF-8; `E-INCLUDE-UNAVAILABLE` is anywhere there are no files to read, as the playground.
+- **Errors.** `E-INCLUDE-MISSING` names the file tried (from the project folder); `E-INCLUDE-NOT-TEXT` is a file that isn't UTF-8; `E-INCLUDE-OUTSIDE` includes a path that leaves the project folder, by `..` or through a symlink; `E-INCLUDE-UNAVAILABLE` is anywhere there are no files to read: a single file in the playground (its projects read the bundled files).
 - The text is one compact literal like any other, so a 20 KB input costs no more to check or hash than a 20 KB string.
 
 ### `&&`, `||` and `not`

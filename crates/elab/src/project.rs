@@ -115,7 +115,10 @@ impl Elaborator {
         }
         let full = parts.join("/");
         files.read(&full).map_err(|err| {
-            if err.kind() == std::io::ErrorKind::InvalidData {
+            if err.kind() == std::io::ErrorKind::PermissionDenied {
+                // A symlink in the folder that leads out of it.
+                outside()
+            } else if err.kind() == std::io::ErrorKind::InvalidData {
                 Diagnostic::error("E-INCLUDE-NOT-TEXT", format!("`{full}` is not UTF-8 text"))
                     .with_label(span, "included here")
             } else {

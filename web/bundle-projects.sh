@@ -20,9 +20,7 @@ if [ "$(cat "$root/aoc/stitchwort.yaml")" != "sources: [src]" ]; then
 fi
 
 cd "$root/aoc"
-# `Input.sw` files test the real inputs through `include`, which the playground
-# can't do (E-INCLUDE-UNAVAILABLE), so they stay out of the bundle.
-files=$(find src -type f -name '*.sw' ! -name Input.sw | sort)
+files=$(find src -type f -name '*.sw' | sort)
 examples=$(find examples inputs -maxdepth 1 -type f -name '*.txt' | sort)
 for path in $files $examples; do
   case "$path" in
@@ -51,6 +49,14 @@ done
   printf '{\n  "name": "aoc",\n  "title": "Advent of Code 2025",\n  "files": ['
   sep=""
   for path in $files; do
+    printf '%s\n    "%s"' "$sep" "$path"
+    sep=","
+  done
+  # The files `include` reads (the puzzle inputs): sent to the compiler with
+  # the sources, never shown or edited.
+  printf '\n  ],\n  "data": ['
+  sep=""
+  for path in $(find inputs -maxdepth 1 -type f -name '*.txt' | sort); do
     printf '%s\n    "%s"' "$sep" "$path"
     sep=","
   done

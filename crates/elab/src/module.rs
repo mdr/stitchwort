@@ -255,7 +255,10 @@ impl Elaborator {
             } else {
                 // A library file's own files load before it does, so this
                 // is a cycle, or a reference the analysis missed.
-                Err(self.unloaded_needs(&needs))
+                match self.unloaded_needs(&needs) {
+                    errors if errors.is_empty() => Ok(()),
+                    errors => Err(errors),
+                }
             };
             if let Err(errors) = loaded {
                 self.fail_unchecked_names();

@@ -8,7 +8,9 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use stitchwort_driver::driver::Session;
-use stitchwort_driver::project::{Analysis, Target, analyse, namespace_of, run_unknown_namespace};
+use stitchwort_driver::project::{
+    Analysis, MemoryFiles, Target, analyse, namespace_of, run_unknown_namespace,
+};
 use stitchwort_syntax::{Diagnostic, Severity};
 use wasm_bindgen::prelude::wasm_bindgen;
 
@@ -50,9 +52,35 @@ thread_local! {
         const { RefCell::new(None) };
 }
 
-/// The files as (path, text) pairs. Unequal arrays use the shorter.
+/// The project's source files as (path, text) pairs. Unequal arrays use the
+/// shorter. Other files (`inputs/day01.txt`) are for `include`: see
+/// [`new_session`].
 fn pairs(paths: &[String], texts: &[String]) -> Vec<(String, String)> {
-    paths.iter().cloned().zip(texts.iter().cloned()).collect()
+    paths
+        .iter()
+        .cloned()
+        .zip(texts.iter().cloned())
+        .filter(|(path, _)| path.ends_with(".sw"))
+        .collect()
+}
+
+/// A session whose `include` reads the project's other files, those that
+/// aren't `.sw` (the bundled puzzle inputs), from memory: the same files,
+/// with the same paths, that the CLI reads from disk. No server is involved.
+fn new_session(paths: &[String], texts: &[String]) -> Session {
+    let mut session = Session::new();
+    session.elab.limits = limits();
+    let files = paths
+        .iter()
+        .cloned()
+        .zip(texts.iter().cloned())
+        .filter(|(path, _)| !path.ends_with(".sw"))
+        .collect();
+    session.include_from(Rc::new(MemoryFiles {
+        files,
+        reversed: false,
+    }));
+    session
 }
 
 fn target_of(targets: &str) -> Target {
@@ -148,8 +176,7 @@ fn failed(session: &Session, diagnostics: Vec<Diagnostic>) -> String {
 /// Loads the project's files for `target`, or gives the answer for a load
 /// that fails.
 fn load(paths: &[String], texts: &[String], targets: &str) -> Result<Loaded, String> {
-    let mut session = Session::new();
-    session.elab.limits = limits();
+    let mut session = new_session(paths, texts);
     match session.load_project_sources(PROJECT, pairs(paths, texts), &target_of(targets)) {
         Ok(loaded) => Ok(Loaded {
             session,
@@ -181,8 +208,7 @@ fn load_shared(paths: &[String], texts: &[String], targets: &str) -> Result<Rc<L
 /// errors that stop that (a file with no namespace, a clash).
 #[wasm_bindgen]
 pub fn outline_project(paths: Vec<String>, texts: Vec<String>) -> String {
-    let mut session = Session::new();
-    session.elab.limits = limits();
+    let mut session = new_session(&paths, &texts);
     let analysis = analyse(&mut session, PROJECT, pairs(&paths, &texts));
     if !analysis.diagnostics.is_empty() {
         return failed(&session, analysis.diagnostics);
@@ -312,8 +338,7 @@ pub fn run_project_streaming(
     max_output: usize,
     sink: &OutputSink,
 ) -> String {
-    let mut session = Session::new();
-    session.elab.limits = limits();
+    let mut session = new_session(&paths, &texts);
     let analysis: Analysis = analyse(&mut session, PROJECT, pairs(&paths, &texts));
     if !analysis.diagnostics.is_empty() {
         return failed(&session, analysis.diagnostics);
@@ -354,7 +379,8 @@ mod tests {
     use super::*;
     use std::path::Path;
 
-    /// The `.sw` files under `aoc/src`, as (path within the project, text).
+    /// The `.sw` files under `aoc/src` and the puzzle inputs under
+    /// `aoc/inputs`, as (path within the project, text): the bundle.
     fn aoc_files() -> (Vec<String>, Vec<String>) {
         fn walk(dir: &Path, root: &Path, out: &mut Vec<(String, String)>) {
             let mut entries: Vec<_> = std::fs::read_dir(dir)
@@ -365,11 +391,7 @@ mod tests {
             for path in entries {
                 if path.is_dir() {
                     walk(&path, root, out);
-                } else if path.extension().is_some_and(|e| e == "sw")
-                    // Not bundled: they `include` the real inputs
-                    // (web/bundle-projects.sh).
-                    && path.file_name().is_some_and(|n| n != "Input.sw")
-                {
+                } else if path.extension().is_some_and(|e| e == "sw" || e == "txt") {
                     let relative = path.strip_prefix(root).expect("under the root");
                     out.push((
                         relative.to_string_lossy().into_owned(),
@@ -381,6 +403,7 @@ mod tests {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../aoc");
         let mut files = Vec::new();
         walk(&root.join("src"), &root, &mut files);
+        walk(&root.join("inputs"), &root, &mut files);
         assert!(files.len() >= 10, "{} files", files.len());
         files.into_iter().unzip()
     }
@@ -431,7 +454,7 @@ mod tests {
         );
         assert!(
             outline.contains(
-                r#"{"name":"Aoc.Day02","files":["src/Aoc/Day02/Day02.sw"],"uses":["Aoc.Common"#
+                r#"{"name":"Aoc.Day02","files":["src/Aoc/Day02/Day02.sw","src/Aoc/Day02/Input.sw"],"uses":["Aoc.Common"#
             ),
             "{outline}"
         );
@@ -445,6 +468,8 @@ mod tests {
             assert!(tests.starts_with(r#"{"ok":true,"tests":["#), "day {day}");
             assert!(!tests.contains(r#""passed":false"#), "day {day}: {tests}");
             assert!(tests.contains(r#""namespace":"Aoc.Day"#), "day {day}");
+            // `Input.sw` includes the real input from the bundle.
+            assert!(tests.contains("real input"), "day {day}: {tests}");
             let main = format!("Aoc.Day{day:02}.main");
             let mut out = String::new();
             let answer =
@@ -463,8 +488,7 @@ mod tests {
         input: &str,
         out: &mut String,
     ) -> String {
-        let mut session = Session::new();
-        session.elab.limits = limits();
+        let mut session = new_session(paths, texts);
         let analysis = analyse(&mut session, PROJECT, pairs(paths, texts));
         let namespace = namespace_of(&analysis, name)
             .expect("a namespace")

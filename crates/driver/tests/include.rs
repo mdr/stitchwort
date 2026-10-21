@@ -110,6 +110,43 @@ fn a_path_above_the_project_is_outside() {
     );
 }
 
+/// A symlink inside the project that points outside it is refused; one that
+/// stays inside is followed (SW-186).
+#[cfg(unix)]
+#[test]
+fn a_symlink_out_of_the_project_is_outside() {
+    use stitchwort_driver::project::DiskFiles;
+    let base = std::env::temp_dir().join(format!("sw-include-symlink-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&base);
+    let root = base.join("proj");
+    std::fs::create_dir_all(root.join("src")).unwrap();
+    std::fs::create_dir_all(root.join("inputs")).unwrap();
+    std::fs::write(base.join("secret.txt"), "secret").unwrap();
+    std::fs::write(root.join("stitchwort.yaml"), "sources: [src]\n").unwrap();
+    std::fs::write(root.join("inputs/real.txt"), "x").unwrap();
+    std::os::unix::fs::symlink(base.join("secret.txt"), root.join("inputs/out.txt")).unwrap();
+    std::os::unix::fs::symlink("real.txt", root.join("inputs/in.txt")).unwrap();
+    let attempt = |name: &str| {
+        let day = format!(
+            "namespace Day\n\ndef input: Text := include \"../inputs/{name}\"\n\ntest \"t\" := input == \"x\"\n"
+        );
+        std::fs::write(root.join("src/Day.sw"), day).unwrap();
+        Session::new()
+            .load_project(
+                &DiskFiles { root: root.clone() },
+                "proj",
+                &Target::Everything,
+            )
+            .map(|_| ())
+            .map_err(|ds| ds.into_iter().map(|d| d.code).collect::<Vec<_>>())
+    };
+    let outside = attempt("out.txt");
+    let inside = attempt("in.txt");
+    let _ = std::fs::remove_dir_all(&base);
+    assert_eq!(outside, Err(vec!["E-INCLUDE-OUTSIDE"]));
+    assert_eq!(inside, Ok(()));
+}
+
 #[test]
 fn without_files_include_is_unavailable() {
     let mut session = Session::new();

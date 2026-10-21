@@ -863,7 +863,7 @@ const AOC_PUZZLE = ["Part 1: 1076\nPart 2: 6379\n", "Part 1: 16793817782\nPart 2
 /** Every day has proofs. */
 const dayStatus = (day) => `Day ${day} and its proofs checked by the kernel`;
 const DAY2 = "src/Aoc/Day02/Day02.sw";
-const DAY2_TABS = ["Day02.sw", "Proofs/Part1.sw", "Proofs/Part2.sw", "Proofs/Repeated.sw", "Common/Proofs/Range.sw", "Common/Range.sw"];
+const DAY2_TABS = ["Day02.sw", "Input.sw", "Proofs/Part1.sw", "Proofs/Part2.sw", "Proofs/Repeated.sw", "Common/Proofs/Range.sw", "Common/Range.sw"];
 
 /** The labels of the file tabs. */
 const fileTabs = (page) => page.ev(`[...document.querySelectorAll("#filetabs button")].map((b) => b.firstChild.textContent)`);
@@ -944,6 +944,8 @@ test("the AoC tests are grouped by namespace, and cached on the next visit", asy
   assert.equal(first.groups[0], "Aoc.Day03");
   assert.ok(first.rows.length >= 2 && first.rows.every((r) => r.startsWith("✓")), first.rows.join("\n"));
   assert.doesNotMatch(first.summary, /failed, [1-9]|[1-9]\d* failed/);
+  // `Input.sw` reads the bundled puzzle input through `include` (SW-187).
+  assert.ok(first.rows.some((r) => r.includes("real input")), first.rows.join("\n"));
   await page.reload();
   await page.until(`document.getElementById("status").textContent === ${JSON.stringify(dayStatus(3))}`, 60000);
   const second = await results();
@@ -1064,7 +1066,7 @@ test("only the listed folders are bundled: sources, examples and puzzle inputs",
   await page.open();
   await page.untilChecked();
   const manifest = await page.ev(`fetch("pkg/projects/aoc/manifest.json").then((r) => r.json())`);
-  const listed = [...manifest.files, ...manifest.days.flatMap((d) => d.inputs.map((i) => i.path))];
+  const listed = [...manifest.files, ...manifest.data, ...manifest.days.flatMap((d) => d.inputs.map((i) => i.path))];
   assert.ok(listed.length > 15);
   for (const path of listed) {
     assert.match(path, /^(src\/.*\.sw|examples\/[^/]*\.txt|inputs\/[^/]*\.txt)$/, path);

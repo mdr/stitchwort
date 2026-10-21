@@ -589,6 +589,9 @@ impl Elaborator {
         let by = lib.stack.last().copied().unwrap_or(0);
         needs
             .iter()
+            // Dot notation notes every file with a function of that name,
+            // loaded or not; the loaded ones are no problem.
+            .filter(|&&f| lib.state[f] != LoadState::Loaded)
             .map(|&f| {
                 if lib.state[f] == LoadState::Loading {
                     internal(lib.index.cycle_message(&[by, f]))
