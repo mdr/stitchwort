@@ -1,5 +1,5 @@
 {
-  "next": 186,
+  "next": 190,
   "tickets": [
     {
       "id": 1,
@@ -71,7 +71,7 @@
     {
       "id": 5,
       "title": "Implement `include \"file\"`: compile-time text from a file, hashed by content",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -1902,7 +1902,7 @@
     {
       "id": 125,
       "title": "AoC: real-input tests in per-day `dayNN.input.sw` files via `include`",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -2837,8 +2837,8 @@
     {
       "id": 184,
       "title": "Interfaces follow-ups: hash decision-procedure instance marker (D198); doc match e: x substitution (D197); reword §7.5 case 2 (D203)",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [
         "interfaces"
@@ -2859,6 +2859,65 @@
         "tooling"
       ],
       "body": "Stage 5 (interfaces, operators through dictionaries) moved laws into the bootstrap phase; each session's prelude now costs 861k steps (was 708k), which is ~68M of the +80M (+14.6%) examples benchmark rise. Accepted for now (21 Oct 2026). Options: share the checked core across sessions in one process, or a persistent cache (SW-27).",
+      "created": "2026-10-21",
+      "updated": "2026-10-21",
+      "commits": []
+    },
+    {
+      "id": 186,
+      "title": "include: reject symlinks that resolve outside the project (E-INCLUDE-OUTSIDE is lexical today)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "From SW-5 (21 Oct 2026): read_include (crates/elab/src/project.rs) checks the path lexically; a symlink inside the project pointing outside is followed. Canonicalise and compare against the project root in the CLI/driver IncludeFiles impl.",
+      "created": "2026-10-21",
+      "updated": "2026-10-21",
+      "commits": []
+    },
+    {
+      "id": 187,
+      "title": "Playground: resolve include from the bundled puzzle inputs so AoC Input.sw files ship",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "playground"
+      ],
+      "body": "From SW-5 (21 Oct 2026): the playground already bundles aoc/inputs; give the web Session an IncludeFiles over the bundle, then drop the Input.sw exclusion in web/bundle-projects.sh and the web test walker. Static-site compatible.",
+      "created": "2026-10-21",
+      "updated": "2026-10-21",
+      "commits": []
+    },
+    {
+      "id": 188,
+      "title": "match e: doesn't generalise a scrutinee whose auto dictionary is unsolved (Ord.compare x y)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug",
+        "elab",
+        "interfaces"
+      ],
+      "body": "From SW-113 (21 Oct 2026). Repro:\ndef pick [auto ord: Ord k] (x: k) (y: k): Nat := match Ord.compare x y with | Less => 0 | _ => 1\ntheorem pickLess [auto ord: Ord k] (x: k) (y: k) (h: Ord.compare x y = Less): pick x y = 0 :=\n  match e: Ord.compare x y with | Less => rfl | Equal => Void.exfalso (Ordering.equalNotLess h) | Greater => Void.exfalso (Ordering.greaterNotLess h)\n-> E-REFL: (match …) (Ord.%compare ord x y) and 0 aren't equal. The scrutinee's dictionary is still a metavariable when the goal is abstracted, so nothing matches. Workaround: Ord.compare [ord := ord] x y (Map.sw uses it throughout). Fix: resolve pending auto args in the scrutinee before abstracting. Related: D197 docs on match e: substitution (SW-184).",
+      "created": "2026-10-21",
+      "updated": "2026-10-21",
+      "commits": []
+    },
+    {
+      "id": 189,
+      "title": "Library loader misses a dot-access edge: s.map on a record field in Set.sw gave E-INTERNAL (file not loaded)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug",
+        "elab"
+      ],
+      "body": "From SW-113 (21 Oct 2026): with Set's field named map, s.map inside std/Set/Set.sw failed E-INTERNAL 'Set.sw uses List/Toolkit.sw, Map.sw, Vec.sw, which isn't loaded … the loader's reference analysis missed this use'. Unconfirmed guess: the edge analysis doesn't treat s.map on a local as dot notation needing every file defining map. Worked around by naming the field items. Repro: rename it back.",
       "created": "2026-10-21",
       "updated": "2026-10-21",
       "commits": []
