@@ -2866,7 +2866,7 @@
     {
       "id": 186,
       "title": "include: reject symlinks that resolve outside the project (E-INCLUDE-OUTSIDE is lexical today)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -2880,7 +2880,7 @@
     {
       "id": 187,
       "title": "Playground: resolve include from the bundled puzzle inputs so AoC Input.sw files ship",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -2910,7 +2910,7 @@
     {
       "id": 189,
       "title": "Library loader misses a dot-access edge: s.map on a record field in Set.sw gave E-INTERNAL (file not loaded)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -2925,7 +2925,7 @@
     {
       "id": 190,
       "title": "Map.sw: drop the explicit [ord := ord] workarounds (SW-188 was fixed by stage 5)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
