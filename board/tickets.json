@@ -1,5 +1,5 @@
 {
-  "next": 193,
+  "next": 197,
   "tickets": [
     {
       "id": 1,
@@ -2953,7 +2953,7 @@
     {
       "id": 192,
       "title": "AoC day 7: tachyon beam splitters, proved for all inputs",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -2961,6 +2961,68 @@
         "proof"
       ],
       "body": "D217 (Matt, 21 Oct 2026). Program + puzzle-literal spec + all-input theorems (part 2 = number of paths, part 1 = splitters reached); real-input test via include; docs/aoc-2025.md Day 7 notes.",
+      "created": "2026-10-21",
+      "updated": "2026-10-21",
+      "commits": []
+    },
+    {
+      "id": 193,
+      "title": "match h: e doesn't refine a let-bound proof whose type mentions the scrutinee",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug",
+        "elab",
+        "proof"
+      ],
+      "body": "From AoC day 7 (21 Oct 2026). docs/syntax.md says variables whose types mention the scrutinee are refined; let-bound ones aren't. Repro:\ndef half (n: Nat): Maybe Nat := match n with | Zero => Nothing | Succ k => Just k\ndef Small (n: Nat): Maybe Nat -> Prop | Nothing => Unit | Just k => And (k < n) Unit\ntheorem halfSmall (n: Nat): Small n (half n) := match n with | Zero => Trivial | Succ k => Both (Nat.leRefl (Succ k)) Trivial\ntheorem useLet (n: Nat): Nat.leq 0 n = True :=\n  let small := halfSmall n\n  match e: half n with | Nothing => rfl | Just k => match small with | Both a b => rfl\n-> 'these patterns match a And, but the argument has type Small n (half n)'. Passing it as a parameter works. Also the let's type was shown unfolded.",
+      "created": "2026-10-21",
+      "updated": "2026-10-21",
+      "commits": []
+    },
+    {
+      "id": 194,
+      "title": "Lemmas can't name a match written inside a definition (generated %match functions)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "design",
+        "proof"
+      ],
+      "body": "From AoC day 7: reach's left branch is a generated function with no usable name; matching on the splitter test didn't refine a hypothesis about reach. Workaround: a named helper (leftReach) plus an equation lemma (reachStep) proved by rfl per case. Consider: equation lemmas for definitions (Lean's equational lemmas / unfold), or naming match functions.",
+      "created": "2026-10-21",
+      "updated": "2026-10-21",
+      "commits": []
+    },
+    {
+      "id": 195,
+      "title": "Record literal E-CANNOT-INFER inside a match branch under List.append, though the result type fixes it",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug",
+        "elab"
+      ],
+      "body": "From AoC day 7. Repro (errors at the first literal; annotating the Succ-branch literal fixes it):\ntype Hit = { row: Nat, column: Nat }\ndef paths (r: Nat) (c: Nat): List Bool -> List (List Hit)\n  | Nil => [Nil]\n  | Cons b rest =>\n    if b then\n      List.append\n        (match c with\n           | Zero => [[{ row = r, column = c }]]\n           | Succ k => (paths (r + 1) k rest).map (Cons { row = r, column = c }))\n        ((paths (r + 1) (c + 1) rest).map (Cons { row = r, column = c }))\n    else paths (r + 1) c rest",
+      "created": "2026-10-21",
+      "updated": "2026-10-21",
+      "commits": []
+    },
+    {
+      "id": 196,
+      "title": "Day 7 spec: prove the timelines are pairwise distinct (std List.Distinct/Nodup predicate)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc",
+        "proof",
+        "stdlib"
+      ],
+      "body": "Part 2 = number of timelines counts list length; distinctness holds by construction (two sides of a split start with different turns) but isn't a theorem. Add a general List.Distinct predicate to std with basic lemmas (map of injective, append of disjoint), then prove timelinesFrom's results distinct. Decided Claude 21 Oct: worth doing; small.",
       "created": "2026-10-21",
       "updated": "2026-10-21",
       "commits": []
