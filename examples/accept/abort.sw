@@ -2,7 +2,7 @@
 -- step that fails, as Lean's `do` over `Option` or Roc's `?` do. Each line
 -- is a direction, a distance and a colour: `L68 3 red`.
 import Std.Abort (need, ensure, abort, toOption, orElse)
-import Std (IO)
+import Std (Abort, IO)
 
 type Turn = { left: Bool, steps: Nat, weight: Nat, colour: Text }
 

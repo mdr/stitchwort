@@ -2,7 +2,7 @@
 -- arguments (`b.say`), as an argument, and at the end of a chain whose
 -- earlier calls are pure (`(Box.wrap n).say`, `w.toNat.orAbort`) (SW-217).
 import Std.Abort (toOption)
-import Std (IO, Nat)
+import Std (Abort, IO, Nat)
 
 type Box = { v: Nat }
 

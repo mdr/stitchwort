@@ -911,11 +911,22 @@ fn ability_label(cx: &mut Ctx, expr: &Expr) -> Result<Label> {
         return Err(cx.e.unloaded(name, file));
     }
     let Some((Global::Ability(a), _)) = found else {
-        return Err(cx.error(
+        let mut d = cx.error(
             "E-ABILITY",
             format!("`{}` isn't an ability", name.text),
             "rows list abilities, declared with `ability`",
-        ));
+        );
+        // A library ability outside the prelude needs an import (D266).
+        if found.is_none()
+            && cx.e.scope.is_std_root(&name.text)
+            && !cx.e.scope.is_prelude(&name.text)
+        {
+            d = d.with_note(format!(
+                "`{0}` is `Std.{0}`, which isn't in the prelude; add `import Std ({0})`, or write `Std.{0}`",
+                name.text
+            ));
+        }
+        return Err(d);
     };
     let op_data = cx.e.abilities[a].op_data;
     let params = cx.g().data(op_data).params.clone();
