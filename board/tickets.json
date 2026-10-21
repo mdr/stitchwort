@@ -420,8 +420,8 @@
     {
       "id": 28,
       "title": "Identical-looking type mismatch",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [
         "bug",
@@ -429,7 +429,7 @@
       ],
       "body": "Found in the AoC day 1 batch: with `Dial.place` inlined, `backFrom`, `backFar`, `leftOne`, `leftStep` failed with 'expected' and 'actual' types that print the same. Either the printer hides a difference (an implicit argument, a universe, a erased proof) or conversion has a gap. Not reproduced since; aoc/day01.sw has been rewritten. Investigate: recover the failing version from git history (git log -S'Dial.place' -- aoc/day01.sw), reproduce, then fix the printer or conversion. Done: a failing example turned into a test, or closed as not reproducible.\n\n20 Oct: hit again on day 6 (SW-137, docs/aoc-2025.md Day 6 pain points).",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -1645,8 +1645,8 @@
     {
       "id": 108,
       "title": "`Nil == Nil` with an unknown element type gives E-AUTO-NONE",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [
         "elab",
@@ -1654,7 +1654,7 @@
       ],
       "body": "Split from SW-17 (19 Oct). `==` on lists builds the element decider with auto (depth bound MAX_DEPTH = 8, 57392bd); when the element type is unknown (`Nil == Nil`, `[] == []`) auto has nothing to search for and reports E-AUTO-NONE. Decide: ask for a type annotation with a better message, default the element type, or decide empty lists equal without an element decider. Small design question first.\n\n20 Oct: hit again on day 6 (SW-137, docs/aoc-2025.md Day 6 pain points).",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -2108,8 +2108,8 @@
     {
       "id": 138,
       "title": "Lambda argument fails to infer (E-CANNOT-INFER) when a later argument's type depends on it",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [
         "bug",
@@ -2117,7 +2117,7 @@
       ],
       "body": "SW-7 (day 5 proof, 19 Oct): `List.sortBySorted (\\a b => Nat.compare a.lo b.lo) tot xs` and `List.anyPerm (\\r => r.contains id) xs ys h` fail with E-CANNOT-INFER (\"can't tell what `a` is\"); writing `Range.lo a` / `Range.contains r id` works. The lambda's parameter type should come from the list argument's type. Investigate elaboration order (postponing lambdas until later arguments fix the type, as Lean/Agda do), or at least a better message.",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -2155,8 +2155,8 @@
     {
       "id": 141,
       "title": "W-MODULE-NAME fires on a module function passed as an argument in a theorem signature",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [
         "bug",
@@ -2164,7 +2164,7 @@
       ],
       "body": "Day 6 pain point 3: `List.Groups isBlank …` in a theorem signature warns; had to write `Aoc.Day06.isBlank`.",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -2793,8 +2793,8 @@
     {
       "id": 181,
       "title": "Coverage: omitted Nat arm not excused when a later column (Fin 0) is empty",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [
         "elab",
@@ -2802,21 +2802,21 @@
       ],
       "body": "Found building Vec (SW-179): in getReplicate: (n: Nat) -> (i: Fin n), leaving out the Zero arm gives E-NONEXHAUSTIVE although Fin 0 is then empty. The one-level empty-case search (D146) only excuses an omitted constructor of an indexed family, not of a plain data type like Nat whose omission empties a later family column. Workaround: match only on the Fin, naming its implicit field.",
       "created": "2026-10-20",
-      "updated": "2026-10-20",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
       "id": 182,
       "title": "Derived == for indexed families",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [
         "elab"
       ],
       "body": "SW-178 As built: no derived DecEq/== for types with indices yet; tests compare toList. Fold into the interfaces DecEq stage (SW-4 stage 2) or do separately.",
       "created": "2026-10-20",
-      "updated": "2026-10-20",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -2866,8 +2866,8 @@
     {
       "id": 186,
       "title": "include: reject symlinks that resolve outside the project (E-INCLUDE-OUTSIDE is lexical today)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [
         "elab"
@@ -2880,8 +2880,8 @@
     {
       "id": 187,
       "title": "Playground: resolve include from the bundled puzzle inputs so AoC Input.sw files ship",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [
         "playground"
@@ -2910,8 +2910,8 @@
     {
       "id": 189,
       "title": "Library loader misses a dot-access edge: s.map on a record field in Set.sw gave E-INTERNAL (file not loaded)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [
         "bug",
@@ -2925,8 +2925,8 @@
     {
       "id": 190,
       "title": "Map.sw: drop the explicit [ord := ord] workarounds (SW-188 was fixed by stage 5)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [
         "stdlib"
