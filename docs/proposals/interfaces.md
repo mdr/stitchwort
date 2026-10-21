@@ -2220,7 +2220,8 @@ What differs from the text above, or wasn't settled by it:
    generic (§7.7's definitions). Restated generically, with the laws:
    `List.sumFrom`, `List.sumCons`, `List.sumByFrom`, `List.sumByCons`,
    `List.sumByAppend`, `List.productFrom`, `List.productCons`, and new
-   `List.sumAppend` (§7.7's proof) and `Add.addZero`. The other sum
+   `List.sumAppend` (§7.7's proof, as a chain of `Eq.trans`, which checks a
+   little faster than the `calc`) and `Add.addZero`. The other sum
    lemmas keep their `Nat` statements (they use `Nat` facts: `keepIf`,
    `mulDistribLeft`, `<=`, subtraction), now about `List.sumBy [add :=
    Nat.instAdd]`, and their proofs are unchanged. `List.sumInt`,
@@ -2242,10 +2243,23 @@ What differs from the text above, or wasn't settled by it:
    proposition is now computed (`Less = Less`) rather than
    `Ord.%lessThan [Text] {…} "a" "b"`: its dictionary is now found when
    `Ord.decLessThan "a" "b"` is elaborated. Same meaning, smaller term.
-10. **Cost.** `cd aoc && stitchwort check`: 2.01 s before, 2.09 s after
-    (best of five, +4%). Loading the core takes about 11 ms more (the laws
-    moved into it); sums at `Nat` carry the inlined `Nat.instAdd` record
-    (stage 1 item 13), and generic code resolves.
+10. **Cost.** `cd aoc && stitchwort check`: 1.99 s before, 2.07 s after
+    (best of five, +4%). In evaluation steps (`stitchwort-bench`): loading
+    the core goes from 651k to 803k (+23%): 107k for the laws moved into
+    it, 43k for the new ones (`Int.mulAssoc` is 19k); the `check-closed-*`
+    benchmarks, which are mostly the core, are +2.5%, the rest unchanged.
+    The `examples` benchmark on the same 437 files goes from 484M to 562M
+    steps (+16%): each example's session pays for the core and for the
+    library's sum lemmas, which cost more now. The new generic ones are
+    dearer than the `Nat` ones they replace (`List.sumFrom` 9k to 28k,
+    `List.sumByFrom` 12k to 34k, `List.sumAppend` is new at 34k), and
+    every `Nat` sum carries the inlined `Nat.instAdd` record (stage 1 item
+    13), which is elaborated and checked again at each use: `List.sum xs`
+    costs 566 steps against 301 for `List.foldLeft Nat.add 0 xs`, so the
+    `Nat` sum lemmas are 20% to 50% dearer. Naming the record's proof field
+    (`zeroAdd = Nat.zeroAdd` for `x => rfl`) doesn't help; keeping the
+    instance's name in terms instead of its body (stage 1 item 13) is what
+    would.
 
 ---
 

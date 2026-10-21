@@ -87,11 +87,10 @@ theorem List.sumAppend [auto add: Add a]: (xs: List a) -> (ys: List a) ->
     List.sum (List.append xs ys) = List.sum xs + List.sum ys
   | Nil, ys => Eq.sym (add.zeroAdd (List.sum ys))
   | Cons x xs, ys =>
-    calc List.sum (Cons x (List.append xs ys))
-      _ = x + List.sum (List.append xs ys) := List.sumCons x (List.append xs ys)
-      _ = x + (List.sum xs + List.sum ys) := Eq.cong (t => x + t) (List.sumAppend xs ys)
-      _ = (x + List.sum xs) + List.sum ys := Eq.sym (add.assoc x (List.sum xs) (List.sum ys))
-      _ = List.sum (Cons x xs) + List.sum ys := Eq.cong (t => t + List.sum ys) (Eq.sym (List.sumCons x xs))
+    Eq.trans (List.sumCons x (List.append xs ys))
+      (Eq.trans (Eq.cong (t => x + t) (List.sumAppend xs ys))
+        (Eq.trans (Eq.sym (add.assoc x (List.sum xs) (List.sum ys)))
+          (Eq.cong (t => t + List.sum ys) (Eq.sym (List.sumCons x xs)))))
 
 theorem List.sumByCongr (f: a -> Nat) (g: a -> Nat) (h: (x: a) -> f x = g x): (xs: List a) -> List.sumBy f xs = List.sumBy g xs
   | Nil       => rfl
