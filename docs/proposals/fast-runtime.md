@@ -363,6 +363,96 @@ external tools; most runtime work). Expected 2–5× over the bytecode machine. 
 runtime has been in use for a while: an algorithm change usually gains more on AoC than any
 backend (day 2's brute force over 1.9 million ids is the example).
 
+## As built (stage 1)
+
+SW-230, 21 October 2026. A new crate, `crates/rt` (`stitchwort-rt`). Nothing runs on it
+yet: `run` is unchanged.
+
+**Shared with the JS backend (D389).** The JS backend now depends on `stitchwort-rt` for:
+the native tables and their binding by content hash (`natives.rs`: `TextNative`,
+`IntNative`, `bind_text_natives`, `bind_int`, the `Nat`/`Int`/`Text` representation hashes,
+and a `Representation` that both build from them); and erasure (`erasure.rs`: `def_shape`,
+which parameters and results are erased, `reachable`, `text_literal`,
+`is_done_continuation`). `stitchwort_js` re-exports what was public before. The JS output
+is unchanged (its snapshots and differential tests pass as before); the natives' JS code
+stays in `crates/js`.
+
+**The IR** (`ir.rs`), in short:
+
+```text
+program  = global* lambda* type* entry
+global   = fn name(v0..vn-1) = expr      runtime parameters only, n ≥ 1
+         | const name = expr             no runtime parameters: computed when first used
+         | native name = %op/n           a native operation as a value
+lambda   = λi[captures](v0..vn-1) => expr     consecutive lambdas are one, of arity n
+expr     = vN | cN | name | erased | literal | done-k
+         | name(expr*)                   saturated call of a global
+         | %op(expr*)                    native operation, all arguments
+         | pap name(expr*)               a global with too few arguments
+         | apply expr(expr+)             a function value (eval/apply)
+         | λi[c0 = expr, …]              a closure
+         | Ctor(expr*)                   runtime fields only
+         | let vN = expr; expr
+         | match vN: T { Ctor(field: vM, …) => expr; … }    T a data type, Nat, Int or Text
+         | switch vN { 3 => expr; …; _ => expr }           a number pattern
+         | if expr then expr else expr
+         | unreachable
+literal  = 42 | int(-5) | "text" | chars"abc"
+```
+
+`vN` is slot `N` of the frame (parameters first), `cN` a value the closure captured. A
+match binds only the fields its arm uses. Natives (`%op`) are the kernel's `Nat` natives,
+the `Int` and `Text` natives where they bind, `Delay`'s constants (built as data, run by
+the runner as `run --js` does), and three of the IR's own: `NegSucc`, and `IntEqual` and
+`TextEqual` for `toBool (Int.decEq a b)` and `toBool (Text.decEq a b)` (`Nat.decEq` fuses
+into the kernel's `Nat.equal` the same way). `Bool.ifThenElse c (_ => a) (_ => b)` is an
+`if`. A beta-redex `(x => b) a`, which the elaborator writes for `main` and for bound
+decisions, is a `let` (dropped if the body doesn't use it). An example, from
+`crates/rt/tests/snapshots/lower__a_lambda_capturing_variables.snap`:
+
+```text
+fn Main.scale(v0, v1, v2) {3 slots} =
+  Std.List.map(λ0[c0 = v0, c1 = v1](v0) {1 slots} =>
+    %Nat.add(%Nat.mul(c0, v0), c1), v2)
+```
+
+**API:** `lower_main(g, limits, main_term)` (the term `run` runs), `lower_global`,
+`lower_definitions`; `Program` prints the listing above (`Display`) and checks itself
+(`Program::validate`: slots read are bound and in the frame, a slot isn't rebound while
+in scope, arities, captures, constructor fields).
+
+**Tests** (`crates/rt/tests/lower.rs`, `dev/t rt`, about 25 s): every runnable `main` in
+`examples/accept` and `examples/extract` (9), every example project (none has a `main`)
+and every AoC `main` (7) lowers; so does every definition of each of those programs and of
+the whole library, and each program is validated. A small reference interpreter for the
+IR (`tests/interp/`, test-only, pure code only) runs every `test` of those programs and
+of the library on the IR and compares the outcome with `stitchwort test`: about 1,100
+tests agree. It found one lowering bug (a beta-redex's later argument reusing an earlier
+parameter's slot). Seven IR snapshots: recursion on lists, a record, an effectful `main`
+with `IO`, text and `Int` natives, `==`/`<` on each native type, a local `def`, and a
+lambda capturing variables.
+
+**What turned out differently from §2.1 and §5:**
+
+- `==` fuses as described only when the decision is a native `decEq` directly. `<` on
+  `Nat` is `toBool (Nat.decLessThan a b)`, a call that computes `Bool.decTrue (Nat.leq (a
+  + 1) b)`; `==` on `Char` goes through `Char.decEq`'s definition; and `<` on `Text` (any
+  `Ord` method) is a dictionary projection, `apply Std.Ord.decLessThan(Std.Text.instOrd)(a,
+  b)`, then a closure call. The JS backend does the same. Inlining small definitions and
+  "case of known constructor" on constant dictionaries would remove these; they belong to
+  stage 4 (or a stage 1b), not needed for correctness.
+- Constants: the JS backend has two conventions for a definition without runtime
+  parameters (a value computed when the module loads, or a thunk run at each use, for
+  case trees like `absurd` and members of groups). The IR has one: computed when first
+  used, then kept, which is right for both.
+- The runtime needs the native `Nat` and `Text` representations (as `run --js` needs
+  native text); lowering refuses a prelude whose `Nat` or `Text` hash differs. `Int` may be
+  either.
+- Stage 2 will need to know which data types the natives build (`Bool`, `Option`, `Pair`,
+  `Ordering`, `Decidable`, `List`, `Char`) and the runner's (`Comp`, `Plus`, `IO`…), as the
+  JS runner's `SHAPE` table does; the IR doesn't record them yet.
+- Effort: under one lane-day, against the 2–3 estimated.
+
 ## Decisions
 
 | ID | Question | Recommendation |

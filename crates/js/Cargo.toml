@@ -8,6 +8,7 @@ publish.workspace = true
 [dependencies]
 stitchwort-syntax.workspace = true
 stitchwort-core.workspace = true
+stitchwort-rt.workspace = true
 
 [lints]
 workspace = true

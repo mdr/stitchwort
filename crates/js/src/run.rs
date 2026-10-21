@@ -56,7 +56,7 @@ pub const EXIT_IO: i32 = 71;
 pub const STACK_MB: u32 = 2048;
 
 /// The JS name of the continuation `y => Done y` (see
-/// [`Gen::is_done_continuation`]).
+/// `stitchwort_rt::erasure::is_done_continuation`).
 pub(crate) const DONE_K: &str = "DONE_K";
 
 /// The JS for one of `Delay`'s constants, taking its runtime arguments

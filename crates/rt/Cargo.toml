@@ -1,0 +1,18 @@
+[package]
+name = "stitchwort-rt"
+description = "The fast runtime: erasure and natives shared with the JS backend, and the erased IR programs are lowered to"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+stitchwort-syntax.workspace = true
+stitchwort-core.workspace = true
+num-bigint.workspace = true
+
+[dev-dependencies]
+stitchwort-driver.workspace = true
+insta.workspace = true
+
+[lints]
+workspace = true

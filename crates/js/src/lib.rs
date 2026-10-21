@@ -10,14 +10,20 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::Write;
 
 use stitchwort_core::check::{is_type_former, telescope};
-use stitchwort_core::hash::{data_hash, def_hash};
 use stitchwort_core::native;
 use stitchwort_core::partial::Primitive;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::term::Branch;
-use stitchwort_core::value::{Head, eval, expand_step, force, quote};
+use stitchwort_core::value::{Head, eval, expand_step, quote};
 use stitchwort_core::{
     BigUint, DataId, DefId, Globals, Limits, ResourceError, Sort, Term, Value, pretty,
+};
+use stitchwort_rt::erasure::{def_shape, reachable, text_literal};
+use stitchwort_rt::natives::{Representation, int_data, nat_data, text_data};
+// Shared with the runtime (D389), and part of this crate's interface.
+pub use stitchwort_rt::natives::{
+    IntBinding, IntNative, NAT_DATA_HASH, NativeBinding, TEXT_DATA_HASH, TextBinding, TextNative,
+    bind_int, bind_text_natives,
 };
 use stitchwort_syntax::Diagnostic;
 
@@ -1207,34 +1213,17 @@ struct SelfCall {
 
 impl<'g> Gen<'g> {
     fn new(g: &'g Globals, options: Options) -> Result<Self, Diagnostic> {
-        let text = text_data(g).filter(|_| options.native_text);
-        let text_natives = if text.is_some() {
-            bind_text_natives(g)
-                .map_err(Diagnostic::from)?
-                .into_iter()
-                .filter(|b| b.bound)
-                .filter_map(|b| Some((b.id?, b.native)))
-                .collect()
-        } else {
-            HashMap::new()
-        };
-        // The natives assume the `bigint` representation, so they're used
-        // only with it, and it only for the `Int` it was written for.
-        let int = int_data(g).filter(|_| options.native_int);
-        let int_natives = if int.is_some() {
-            bind_int(g)
-                .map_err(Diagnostic::from)?
-                .natives
-                .into_iter()
-                .filter(|b| b.bound && (text.is_some() || !b.native.uses_text()))
-                .filter_map(|b| Some((b.id?, b.native)))
-                .collect()
-        } else {
-            HashMap::new()
-        };
+        let Representation {
+            nat,
+            text,
+            text_natives,
+            int,
+            int_natives,
+        } = Representation::new(g, options.native_text, options.native_int)
+            .map_err(Diagnostic::from)?;
         Ok(Gen {
             g,
-            nat: nat_data(g),
+            nat,
             text,
             text_natives,
             int,
@@ -1262,30 +1251,12 @@ impl<'g> Gen<'g> {
         }
         let g = self.g;
         let def = g.def(id);
-        let tel = telescope(g, &def.ty_value, def.span)?;
-        let partial = match (
-            force(g, tel.result)?,
-            g.builtins.primitive_id(Primitive::Delay),
-        ) {
-            (Value::Neutral(Head::Def(d), spine), Some(delay)) => d == delay && spine.len() == 3,
-            _ => false,
-        };
-        let delay =
-            (partial && !self.run_delay).then(|| tel.params.iter().map(|(_, _, e)| *e).collect());
-        // `Delay`'s constants have no body, so no arity: each takes all of
-        // its parameters ([`run::primitive_js`]).
-        let constant = self.run_delay && g.builtins.primitive(id).is_some();
-        let mask: Vec<bool> = tel
-            .params
-            .iter()
-            .take(if constant {
-                tel.params.len()
-            } else {
-                def.arity
-            })
-            .map(|(_, _, erased)| *erased)
-            .collect();
-        let result_erased = tel.result_erased;
+        // `Delay`'s constants have no body, so no arity: when they're run,
+        // each takes all of its parameters ([`run::primitive_js`]).
+        let shape = def_shape(g, id, self.run_delay)?;
+        let delay = (shape.partial && !self.run_delay).then(|| shape.params.clone());
+        let mask = shape.mask().to_vec();
+        let result_erased = shape.result_erased;
         let convention = if result_erased {
             Convention::Erased
         } else if mask.iter().any(|e| !e) {
@@ -1307,20 +1278,6 @@ impl<'g> Gen<'g> {
             convention,
             delay,
         }))
-    }
-
-    /// Whether `y => body` is `y => Done y`, the continuation the
-    /// elaborator writes for an operation or a recursion request, which the
-    /// runner recognises to run a tail request in constant space (as
-    /// `stitchwort_core::step` does).
-    fn is_done_continuation(&self, body: &Term) -> bool {
-        let mut body = body;
-        while let Term::Loc(_, t) | Term::Ann(t, _) = body {
-            body = t;
-        }
-        matches!(body, Term::Ctor(d, 0, fields)
-            if Some(*d) == self.g.registry.data(Builtin::Comp)
-                && matches!(&fields[..], [field] if matches!(field.strip_loc(), Term::Var(0))))
     }
 
     /// `try_info` for a definition the generator has already consulted:
@@ -1698,7 +1655,9 @@ impl<'g> Gen<'g> {
                 }
                 out
             }
-            Term::Lam(_, _, body) if self.run_delay && self.is_done_continuation(body) => {
+            Term::Lam(_, _, body)
+                if self.run_delay && stitchwort_rt::erasure::is_done_continuation(self.g, body) =>
+            {
                 run::DONE_K.into()
             }
             Term::Lam(_, _, body) => {
@@ -2254,39 +2213,6 @@ fn erasable(g: &Globals) -> Result<(), Diagnostic> {
     Ok(())
 }
 
-/// Which definitions the given ones use, directly or indirectly. What an
-/// `opaque` definition's body uses doesn't count: an erased one (a proof or a
-/// type) or a natively implemented one.
-fn reachable(
-    g: &Globals,
-    roots: impl IntoIterator<Item = DefId>,
-    opaque: impl Fn(DefId) -> bool,
-) -> Vec<bool> {
-    fn visit(term: &Term, found: &mut Vec<DefId>) {
-        found.extend(term.subterms().filter_map(|(t, _)| match t {
-            Term::Def(id) => Some(*id),
-            _ => None,
-        }));
-    }
-    let mut used = vec![false; g.defs.len()];
-    let mut stack: Vec<DefId> = roots.into_iter().collect();
-    while let Some(id) = stack.pop() {
-        if std::mem::replace(&mut used[id.0], true) {
-            continue;
-        }
-        let def = g.def(id);
-        if let Some(body) = def.body()
-            && !opaque(id)
-        {
-            visit(body, &mut stack);
-        }
-        for validator in &def.validators {
-            visit(&validator.decision, &mut stack);
-        }
-    }
-    used
-}
-
 /// JS for a prelude definition with a native implementation (see
 /// `stitchwort_core::native`). Like the evaluator's, these are trusted, and
 /// tested against the definitions they replace.
@@ -2306,421 +2232,6 @@ fn native_js(op: native::Native) -> &'static str {
         Native::EqNatRefl | Native::EqNatSound => "undefined",
     }
 }
-
-/// A prelude text operation with a native JS implementation, in generated
-/// code where a `Text` is a string ([`Options::native_text`]). Like the
-/// number natives, these are trusted, and tested against the definitions
-/// they replace (`crates/cli/tests/extract.rs`). Each works on Unicode scalar
-/// values, never on UTF-16 code units, and none uses JS stack space
-/// proportional to the length of a text.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum TextNative {
-    TextToList,
-    TextFromList,
-    TextAppend,
-    TextLength,
-    TextIsEmpty,
-    DecEqText,
-    TextCompare,
-    TextUncons,
-    TextFold,
-    TextTrim,
-    TextSplit,
-    TextJoin,
-    NatToText,
-    TextToNat,
-}
-
-/// Each text native, the prelude definition it replaces, and that
-/// definition's content hash (DESIGN.md §11), which covers everything it
-/// depends on. A native is only used for a definition with exactly that hash,
-/// so if the prelude changes, the definition is compiled as written instead:
-/// slower, but still right. A test fails until each native has been checked
-/// against the changed definition and its hash updated here.
-const TEXT_NATIVES: &[(Builtin, TextNative, &str)] = &[
-    (
-        Builtin::TextToList,
-        TextNative::TextToList,
-        "5abb3da49e0fc62dcfa21f87af3b215730957c07d9549ca3dc2842d6c23d7a27",
-    ),
-    (
-        Builtin::TextFromList,
-        TextNative::TextFromList,
-        "8104e7afa0a8a50d79e4669b0b3a8b65667ce412f2f0e09a84c94c35356384bf",
-    ),
-    (
-        Builtin::TextAppend,
-        TextNative::TextAppend,
-        "1f34a024df4b7c9cfc3a3fc147e931f14b035c3224988493b469e3a8bfaf0467",
-    ),
-    (
-        Builtin::TextLength,
-        TextNative::TextLength,
-        "2647eb8b8cbfb640c41d3b803d33a89765e51750f748e1f97f7b28db5259bb32",
-    ),
-    (
-        Builtin::TextIsEmpty,
-        TextNative::TextIsEmpty,
-        "1889f230286963cff75856361014388b31f5036d649d9ac0f3f188b5b4af4661",
-    ),
-    (
-        Builtin::DecEqText,
-        TextNative::DecEqText,
-        "755f6819d139e6e964ec2d0543dd619dee5b3b5bb5aca81cc687d7a65e6de894",
-    ),
-    (
-        Builtin::TextCompare,
-        TextNative::TextCompare,
-        "3a98f1aac6fcb288efa78b2f848214ce19e9146665b0397fb0392aae3f90d37d",
-    ),
-    (
-        Builtin::TextUncons,
-        TextNative::TextUncons,
-        "dc12eccdfb2e03e842ead8377f4a9ab1fd8cce57d740cdc8922e3c002b133d58",
-    ),
-    (
-        Builtin::TextFold,
-        TextNative::TextFold,
-        "0ab7473b8324d4ea62a176128301c5330ed1cc45f5ec9cd842342e0770ce707d",
-    ),
-    (
-        Builtin::TextTrim,
-        TextNative::TextTrim,
-        "ec78b83ebc8635cb689fec17a0d5bc87423a45979d3b4496a68fe995afc37124",
-    ),
-    (
-        Builtin::TextSplit,
-        TextNative::TextSplit,
-        "32813a7f4a37ba5e82e699bfe6763cce7639880f45beaae1f9525305ff996099",
-    ),
-    (
-        Builtin::TextJoin,
-        TextNative::TextJoin,
-        "fbf17affece916ba221e97a7b061f3fb99d5d4c801cc9fc8b607b9549cb3e974",
-    ),
-    (
-        Builtin::NatToText,
-        TextNative::NatToText,
-        "5d782d77af9a709c7532a26ad5b9bcdea82f980455e35fd4a5be785156403fac",
-    ),
-    (
-        Builtin::TextToNat,
-        TextNative::TextToNat,
-        "40b834208c0b6345e3b81e200440e69bfc6969c2018de11d932c3c11d18587ed",
-    ),
-];
-
-/// Whether a native applies to the program's definition of that name.
-pub struct NativeBinding<N> {
-    pub name: &'static str,
-    pub native: N,
-    /// The definition, if there is one.
-    pub id: Option<DefId>,
-    /// Its content hash, in hex.
-    pub hash: Option<String>,
-    /// Whether it's the definition the native was written for.
-    pub bound: bool,
-}
-
-pub type TextBinding = NativeBinding<TextNative>;
-
-/// Matches each native in `table` with the definition it replaces, by
-/// content hash.
-fn bind_natives<N: Copy>(
-    g: &Globals,
-    table: &[(Builtin, N, &str)],
-) -> Result<Vec<NativeBinding<N>>, ResourceError> {
-    let _op = g
-        .budget
-        .operation(Limits::stack_only(Limits::default().stack));
-    table
-        .iter()
-        .map(|&(builtin, native, expected)| {
-            let id = g.registry.def(builtin);
-            let hash = match id {
-                Some(id) => def_hash(g, id)?.map(|h| h.hex()),
-                None => None,
-            };
-            Ok(NativeBinding {
-                name: builtin.name(),
-                native,
-                id,
-                bound: hash.as_deref() == Some(expected),
-                hash,
-            })
-        })
-        .collect()
-}
-
-/// Matches each text native with the definition it replaces, by content hash.
-pub fn bind_text_natives(g: &Globals) -> Result<Vec<TextBinding>, ResourceError> {
-    bind_natives(g, TEXT_NATIVES)
-}
-
-/// The content hash (DESIGN.md §11) of the prelude's `Int`, which the
-/// `bigint` representation was written for. It covers the constructors,
-/// their order, names and fields, and `Nat`. The representation is one
-/// contract with its constructors' and matching's JS, the boundary codec,
-/// the `.d.ts` type and every integer native, so all of those apply exactly
-/// when this matches; otherwise `Int` is compiled as the ordinary data type
-/// it is, with the ordinary codec (docs/proposals/integers.md, "Two separate
-/// fallbacks"). A test fails until the representation has been checked
-/// against a changed `Int` and this updated.
-const INT_DATA_HASH: &str = "428aec701d06adbd62795fdbc01b7976c1beac83cdcb385d8d4eaebd14ce4b30";
-
-/// The content hash (DESIGN.md §11) of the prelude's `Nat`, which the
-/// `bigint` representation was written for. It covers the constructors,
-/// their order, names and fields. The representation is one contract with
-/// its constructors' and matching's JS, the boundary codec and the native
-/// number operations, so all of those apply exactly when this matches;
-/// otherwise `Nat` is compiled as the ordinary data type it is, with the
-/// ordinary codec and its operations from their definitions. A test fails
-/// until the representation has been checked against a changed `Nat` and
-/// this updated.
-pub const NAT_DATA_HASH: &str = "281ae0d5e9e49941a6eddd8b4d6b3f3f38a80ea3f95f9692e66096aae10040f5";
-
-/// The content hash (DESIGN.md §11) of the prelude's `Text`, which the JS
-/// string representation was written for. It covers its constructor, its
-/// name and field, and `List` and `Char`. The representation is one contract
-/// with its constructors' and matching's JS, the boundary codec, the `.d.ts`
-/// type and every text native, so all of those apply exactly when this
-/// matches; otherwise `Text` is compiled as the ordinary data type it is,
-/// with the ordinary codec (docs/proposals/compact-text.md, option A), and
-/// `run --js`, which requires it, refuses. A test fails until the
-/// representation has been checked against a changed `Text` and this
-/// updated.
-pub const TEXT_DATA_HASH: &str = "6ef35ae8fd60047c2bd97ae3fb36e41fabbd60db16bedb2b8c88067372cc65e5";
-
-/// Whether the `bigint` representation applies to the program's `Int`, and
-/// which integer natives apply to its definitions.
-pub struct IntBinding {
-    /// The prelude's `Int`, if there is one.
-    pub data: Option<DataId>,
-    /// Its content hash, in hex.
-    pub hash: Option<String>,
-    /// Whether it's the data type the representation was written for.
-    pub bound: bool,
-    /// Each native, whether or not the representation applies: a native is
-    /// used only if both its definition and the representation are bound.
-    pub natives: Vec<NativeBinding<IntNative>>,
-}
-
-/// Matches the `bigint` representation with the prelude's `Int`, and each
-/// integer native with the definition it replaces, by content hash.
-pub fn bind_int(g: &Globals) -> Result<IntBinding, ResourceError> {
-    let _op = g
-        .budget
-        .operation(Limits::stack_only(Limits::default().stack));
-    let data = g.registry.data(Builtin::Int);
-    let hash = match data {
-        Some(d) => data_hash(g, d)?.map(|h| h.hex()),
-        None => None,
-    };
-    Ok(IntBinding {
-        data,
-        bound: hash.as_deref() == Some(INT_DATA_HASH),
-        hash,
-        natives: bind_natives(g, INT_NATIVES)?,
-    })
-}
-
-/// The prelude's `Int`, if the `bigint` representation applies to it
-/// ([`bind_int`]). Hashing a checked data type with two constructors of one
-/// field each takes a few stack frames, and the hash is remembered.
-fn int_data(g: &Globals) -> Option<DataId> {
-    let d = g.registry.data(Builtin::Int)?;
-    let _op = g
-        .budget
-        .operation(Limits::stack_only(Limits::default().stack));
-    let hash = data_hash(g, d).expect("internal error: hashing `Int` ran out of resources")?;
-    (hash.hex() == INT_DATA_HASH).then_some(d)
-}
-
-/// The prelude's `Nat`, if the `bigint` representation applies to it
-/// ([`NAT_DATA_HASH`]). Hashing a checked data type takes a few stack frames,
-/// and the hash is remembered.
-fn nat_data(g: &Globals) -> Option<DataId> {
-    let d = g.registry.data(Builtin::Nat)?;
-    let _op = g
-        .budget
-        .operation(Limits::stack_only(Limits::default().stack));
-    let hash = data_hash(g, d).expect("internal error: hashing `Nat` ran out of resources")?;
-    (hash.hex() == NAT_DATA_HASH).then_some(d)
-}
-
-/// The prelude's `Text`, if the JS string representation applies to it
-/// ([`TEXT_DATA_HASH`]). Hashing a checked data type takes a few stack
-/// frames, and the hash is remembered.
-fn text_data(g: &Globals) -> Option<DataId> {
-    let d = g.registry.data(Builtin::Text)?;
-    let _op = g
-        .budget
-        .operation(Limits::stack_only(Limits::default().stack));
-    let hash = data_hash(g, d).expect("internal error: hashing `Text` ran out of resources")?;
-    (hash.hex() == TEXT_DATA_HASH).then_some(d)
-}
-
-/// A prelude integer operation with a native JS implementation, in generated
-/// code where an `Int` is a `bigint` ([`Options::native_int`]). Like the
-/// number and text natives, these are trusted, and tested against the
-/// definitions they replace (`crates/cli/tests/extract.rs`). A division's
-/// proof that the divisor isn't zero is erased, but it exists (or an
-/// export's precondition check has just established it), so none of these
-/// divides by zero.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum IntNative {
-    NatToInt,
-    IntNeg,
-    IntAdd,
-    IntSub,
-    IntMul,
-    IntDiv,
-    IntMod,
-    IntTDiv,
-    IntTMod,
-    IntFDiv,
-    IntFMod,
-    IntModNat,
-    DecEqInt,
-    IntLeq,
-    IntLess,
-    IntCompare,
-    IntNatAbs,
-    IntAbs,
-    IntToNat,
-    IntToNatChecked,
-    IntSign,
-    IntToText,
-    TextToInt,
-}
-
-impl IntNative {
-    /// Whether it also assumes that a `Text` is a string
-    /// ([`Options::native_text`]).
-    fn uses_text(self) -> bool {
-        matches!(self, IntNative::IntToText | IntNative::TextToInt)
-    }
-}
-
-/// Each integer native, the prelude definition it replaces, and that
-/// definition's content hash, as for [`TEXT_NATIVES`].
-const INT_NATIVES: &[(Builtin, IntNative, &str)] = &[
-    (
-        Builtin::NatToInt,
-        IntNative::NatToInt,
-        "6e9973e4558cd61d9f97a8a168d3c7c644ee38be27a43c1eb32cc4b60338cb98",
-    ),
-    (
-        Builtin::IntNeg,
-        IntNative::IntNeg,
-        "347cfafd037525c1413df9f8db0642268050cebc4d5f9b45bb402e53f4c828cd",
-    ),
-    (
-        Builtin::IntAdd,
-        IntNative::IntAdd,
-        "8e3611484f01b9db8555c2ad9d374082dabdda2863f293adbf109a7dc248eb7f",
-    ),
-    (
-        Builtin::IntSub,
-        IntNative::IntSub,
-        "5f86c2911011a929b23204a693c68c066b16c39839417876e6e53f96ee9b66f9",
-    ),
-    (
-        Builtin::IntMul,
-        IntNative::IntMul,
-        "62c9c6f96f3e064a133a3d3c51deface622fde015c6eef3a4a9cff45a5d71e71",
-    ),
-    (
-        Builtin::IntDiv,
-        IntNative::IntDiv,
-        "6fb60aaf472c17c6bc9ecd3a68ec69ff2b4ddc99950a5c9ff34783371ee43958",
-    ),
-    (
-        Builtin::IntMod,
-        IntNative::IntMod,
-        "ac4633f8435bedb90554849d7e1808da81fde5289ffd35077689e0b5c93e9440",
-    ),
-    (
-        Builtin::IntTDiv,
-        IntNative::IntTDiv,
-        "5ebf56573fa6c6481defbfbabbb7bbbf7c86108e625f55bb14feb7378ace0f14",
-    ),
-    (
-        Builtin::IntTMod,
-        IntNative::IntTMod,
-        "3575c974d3cba5365faa91dbbdb9f203586ef03d3c8af09f43dcd7017a426ceb",
-    ),
-    (
-        Builtin::IntFDiv,
-        IntNative::IntFDiv,
-        "ac60444781afd5dc0f2404c720904cbfe3b81d7e35314965137a208dbd7afed2",
-    ),
-    (
-        Builtin::IntFMod,
-        IntNative::IntFMod,
-        "d0eac438c0bb4193f1249625e7509e1ea6eca61dae63d3d085784ae424c4ab18",
-    ),
-    (
-        Builtin::IntModNat,
-        IntNative::IntModNat,
-        "526deb729a9528f5d060fe8eb5b51dbeb95a766aeced14e791e9b03debdfb797",
-    ),
-    (
-        Builtin::DecEqInt,
-        IntNative::DecEqInt,
-        "bfb9d75432dc4f02599ca684c24b40096a63cafc987808a93c5fe28d31371f8b",
-    ),
-    (
-        Builtin::IntLeq,
-        IntNative::IntLeq,
-        "1076606963454e39dc191da34bbe1321ba54284d5597a50451af3b9c10ebcac6",
-    ),
-    (
-        Builtin::IntLess,
-        IntNative::IntLess,
-        "206176cbbaa05dc2f9486d7e52c86aedf381cbd28945f337f26e73928221763b",
-    ),
-    (
-        Builtin::IntCompare,
-        IntNative::IntCompare,
-        "ef69f80765a9b9cca880a9c260b0c82b3521fde01f4cacdcea76eeca685f7212",
-    ),
-    (
-        Builtin::IntNatAbs,
-        IntNative::IntNatAbs,
-        "ba7abe1722616144bdd8c853b8857234cde73e16cb804dfaa9a0338bbdd6c50a",
-    ),
-    (
-        Builtin::IntAbs,
-        IntNative::IntAbs,
-        "9c9c66ca4fbfca3668de18a91351c4cea27ae57b6ebaa13c4111d33ec857efb0",
-    ),
-    (
-        Builtin::IntToNat,
-        IntNative::IntToNat,
-        "d0f20cf7ee0670bdf8d81e3d82f871e7c3ea860c70494bc39158cd5ca213dfe7",
-    ),
-    (
-        Builtin::IntToNatChecked,
-        IntNative::IntToNatChecked,
-        "c547e9888ac69af472db81dd6d5d8ad4c37eb090e69144d1c0c72eff07e8634c",
-    ),
-    (
-        Builtin::IntSign,
-        IntNative::IntSign,
-        "a4532fc4f0fcf19b83dea6cda7a6a42c58e90621c6da5f646036d1224ccaf65e",
-    ),
-    (
-        Builtin::IntToText,
-        IntNative::IntToText,
-        "8c74404e1ba5d6e5e34f8fad9d1560a2992b8554149c04312a1903cbb679ae95",
-    ),
-    (
-        Builtin::TextToInt,
-        IntNative::TextToInt,
-        "57c98cd6c3cbc6820ef468b322008a44bbc462168c937464a6feec872de35e7c",
-    ),
-];
 
 /// JS for an integer native. The prelude's types have the representation the
 /// runtime uses (`Some`'s `value`, the constructors' names as tags). BigInt's
@@ -2882,34 +2393,6 @@ fn text_native_js(op: TextNative) -> &'static str {
   }
   return { tag: "Some", value: BigInt(t) };
 }"#
-        }
-    }
-}
-
-/// The characters of a list of `Char`s written out in full (like a text
-/// literal's), if it is one: cons cells of literal characters, ending in
-/// `Nil` or a compact list. A loop, since a long literal nests deeply.
-fn text_literal(chars: &Term) -> Option<String> {
-    let mut text = String::new();
-    let mut list = chars.strip_loc();
-    loop {
-        match list {
-            Term::Chars(rest) => {
-                text.extend(rest.as_slice());
-                return Some(text);
-            }
-            Term::Ctor(_, 0, args) if args.is_empty() => return Some(text),
-            Term::Ctor(_, 1, args) if args.len() == 2 => {
-                let Term::Ctor(_, 0, fields) = args[0].strip_loc() else {
-                    return None;
-                };
-                let Term::Nat(code) = fields.first()?.strip_loc() else {
-                    return None;
-                };
-                text.push(u32::try_from(&**code).ok().and_then(char::from_u32)?);
-                list = args[1].strip_loc();
-            }
-            _ => return None,
         }
     }
 }

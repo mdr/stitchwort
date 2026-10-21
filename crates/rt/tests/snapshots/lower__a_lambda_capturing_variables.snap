@@ -1,0 +1,27 @@
+---
+source: crates/rt/tests/lower.rs
+expression: "ir(r#\"\nimport Std (Nat, Text, Int)\ndef scale (a: Nat) (b: Nat) (xs: List Nat): List Nat := xs.map (x => a * x + b)\n\ndef main(): {IO} () :=\n  let k := 3\n  IO.print (Nat.toText ((scale k 1 [1, 2]).foldLeft (acc x => acc + x + k) 0))\n\"#)"
+---
+native Std.Nat.add = %Nat.add/2
+native Std.Nat.mul = %Nat.mul/2
+native Std.Nat.toText = %NatToText/1
+native Std.Effect.lift = %Effect.lift/1
+fn Std.List.map(v0, v1) {4 slots} =
+  match v1: List {
+    Nil => Nil
+    Cons(head: v2, tail: v3) => Cons(apply v0(v2), Std.List.map(v0, v3))
+  }
+fn Std.List.foldLeft(v0, v1, v2) {5 slots} =
+  match v2: List {
+    Nil => v1
+    Cons(head: v3, tail: v4) => Std.List.foldLeft(v0, apply v0(v1, v3), v4)
+  }
+fn Main.scale(v0, v1, v2) {3 slots} =
+  Std.List.map(λ0[c0 = v0, c1 = v1](v0) {1 slots} =>
+    %Nat.add(%Nat.mul(c0, v0), c1), v2)
+fn Main.main(v0) {3 slots} =
+  let v1 = 3
+  let v2 = %NatToText(Std.List.foldLeft(λ1[c0 = v1](v0, v1) {2 slots} =>
+    %Nat.add(%Nat.add(v0, v1), c0), 0, Main.scale(v1, 1, Cons(1, Cons(2, Nil)))))
+  Call(L(%print(v2)), done-k)
+entry {1 slots} = %Effect.lift(Main.main(UnitValue))

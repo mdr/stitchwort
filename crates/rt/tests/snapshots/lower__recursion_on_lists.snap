@@ -1,0 +1,22 @@
+---
+source: crates/rt/tests/lower.rs
+expression: "ir(r#\"\nimport Std (Nat, Text, Int)\ndef total: List Nat -> Nat\n  | [] => 0\n  | [x, ..rest] => x + total rest\n\ndef double: List Nat -> List Nat\n  | [] => []\n  | [x, ..rest] => Cons (x * 2) (double rest)\n\ndef main(): {IO} () := IO.print (Nat.toText (total (double [1, 2, 3])))\n\"#)"
+---
+native Std.Nat.add = %Nat.add/2
+native Std.Nat.mul = %Nat.mul/2
+native Std.Nat.toText = %NatToText/1
+native Std.Effect.lift = %Effect.lift/1
+fn Main.total(v0) {3 slots} =
+  match v0: List {
+    Nil => 0
+    Cons(head: v1, tail: v2) => %Nat.add(v1, Main.total(v2))
+  }
+fn Main.double(v0) {3 slots} =
+  match v0: List {
+    Nil => Nil
+    Cons(head: v1, tail: v2) => Cons(%Nat.mul(v1, 2), Main.double(v2))
+  }
+fn Main.main(v0) {2 slots} =
+  let v1 = %NatToText(Main.total(Main.double(Cons(1, Cons(2, Cons(3, Nil))))))
+  Call(L(%print(v1)), done-k)
+entry {1 slots} = %Effect.lift(Main.main(UnitValue))
