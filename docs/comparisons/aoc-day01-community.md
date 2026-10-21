@@ -195,8 +195,9 @@ the way the first part does, with a link to each.
 **What it holds.** The post is "2025 Day 1 Solutions" (1 Dec 2025, score 68, archived on 2 Dec
 2025). The tree has 1,139 comments in all: **636 top-level comments**, of which 27 are
 `[deleted]`/`[removed]`, 585 carry a language tag, and 24 are untagged (questions, or a
-language named in prose). Reddit's own count for the post was 871 when it was archived, so the
-archive may not hold every comment **[checked: counted in the JSON]**. 214 of the 609 live
+language named in prose). The post's recorded `num_comments` was 871 when it was archived, fewer
+than the 1,139 in the tree, so I have no sign that comments are missing, but I can't confirm
+the archive is complete **[checked: counted in the JSON]**. 214 of the 609 live
 comments include code inline; the rest link to GitHub or a paste site, so counts of code
 patterns below are lower bounds.
 
