@@ -208,6 +208,7 @@ impl Parser<'_> {
         start: Span,
         name: Name,
         params: Vec<crate::ast::Binder>,
+        auto_params: Vec<bool>,
         sort: Option<Expr>,
     ) -> Result<Vec<Decl>> {
         let body = self.expr()?;
@@ -236,14 +237,18 @@ impl Parser<'_> {
             }
             spine = f;
         }
+        // An `auto` parameter, `[auto ord: Ord k]`, is one of the
+        // definition's: `type Set (k: Type) [auto ord: Ord k] = …`
+        // (docs/proposals/interfaces.md §7.5).
         let params: Vec<Param> = params
             .into_iter()
-            .map(|b| Param::Named {
+            .zip(auto_params)
+            .map(|(b, auto)| Param::Named {
                 span: b.names[0].span.to(b.ty.span()),
                 names: b.names,
                 ty: b.ty,
-                implicit: false,
-                auto: false,
+                implicit: auto,
+                auto,
             })
             .collect();
         let result = sort.unwrap_or(Expr::Type(0, name.span));

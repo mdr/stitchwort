@@ -1293,6 +1293,16 @@ pub fn mark_instance(g: &mut Globals, id: DefId) {
     }
 }
 
+/// Marks which parameters of pending data type `id` are `auto`
+/// (docs/proposals/interfaces.md §7.5): part of its hash when any is, and
+/// how its applications are printed; nothing else.
+pub fn mark_auto_params(g: &mut Globals, id: DataId, auto: Vec<bool>) {
+    let data = &mut g.datas[id.0];
+    if data.state == State::Pending && auto.contains(&true) {
+        data.auto_params = auto;
+    }
+}
+
 /// Checks a data type's parameters and adds it with no constructors yet, so
 /// its constructors can refer to it: a data group of one
 /// ([`declare_data_group`]).
@@ -1450,6 +1460,7 @@ pub fn declare_indexed_data_group(
             name,
             path,
             params: checked.clone(),
+            auto_params: Vec::new(),
             indices,
             sort,
             ctors: Vec::new(),

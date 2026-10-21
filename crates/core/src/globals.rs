@@ -103,6 +103,11 @@ pub struct Data {
     pub path: Name,
     /// Parameter types, each in the context of the previous parameters.
     pub params: Vec<(Name, Term)>,
+    /// Which parameters are `auto`, `[auto ord: Ord k]`, for the elaborator,
+    /// which fills them in by instance search wherever the type is written
+    /// (docs/proposals/interfaces.md §7.5). The kernel sees ordinary
+    /// parameters. Empty when none is; hashed only when one is.
+    pub auto_params: Vec<bool>,
     /// Index types (docs/proposals/indexed-families.md §6.1), each in the
     /// context of the parameters and the previous indices. Empty for a type
     /// without indices. `Term::Data` and `Value::Data` hold the parameters

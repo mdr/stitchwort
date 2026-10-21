@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-DATA-AUTO] Error: a type's `auto` parameter must ask for an interface, but `n = n` isn't one
+   ╭─[ reject/data-auto-not-interface.sw:5:33 ]
+   │
+ 5 │ type Checked (n: Nat) [auto ok: n = n] =
+   │                                 ──┬──  
+   │                                   ╰──── not an interface
+   │ 
+   │ Note: a type's `auto` parameter is found by instance search wherever the type is written, like `[auto ord: Ord k]`; a parameter that's always given is written `(x: T)`
+───╯

@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-UNKNOWN-NAME] Error: `[ord := …]` goes in its place among `Map`'s parameters, as declared
+    ╭─[ reject/data-auto-named-misplaced.sw:15:17 ]
+    │
+ 15 │ def empty: Map [ord := Ordered.instNat] Nat Nat := { entries = [] }
+    │                 ─┬─  
+    │                  ╰─── here
+────╯
