@@ -18,6 +18,7 @@ Areas:
   elab       stitchwort-elab (unit tests)
   driver     stitchwort-driver (all integration tests)
   js         stitchwort-js plus the CLI extract and run_js tests
+  rt         stitchwort-rt (lowering to the runtime IR, over every example)
   cli        stitchwort-cli (all integration tests)
   aoc        every AoC day on its real input (crates/cli/tests/aoc_answers.rs)
   examples   stitchwort-cli --test examples
@@ -90,10 +91,11 @@ run_cargo() {
 #     rust-toolchain.toml                 lint (clippy --all-targets also
 #                                         proves the whole workspace builds)
 #   crates/syntax/**                      syntax elab driver examples
-#   crates/core/** (the kernel)           core elab driver examples js
+#   crates/core/** (the kernel)           core elab driver examples js rt
 #   crates/elab/src/std/** (library .sw)  std hashes examples
-#   crates/elab/** (the rest)             elab driver examples
+#   crates/elab/** (the rest)             elab driver examples rt
 #   crates/js/**                          js
+#   crates/rt/** (shared with js)         rt js
 #   crates/driver/**                      driver examples
 #   crates/cli/**                         cli (every cli test except aoc)
 #   crates/partial-model/**               partial-model driver/partial
@@ -102,8 +104,8 @@ run_cargo() {
 #   crates/web/**, web/**                 web browser
 #   editors/vscode/**                     vscode
 #   aoc/**                                aoc
-#   examples/**                           examples hashes; plus js for
-#                                         accept/ and extract/ (run_js and
+#   examples/**                           examples hashes; plus js and rt for
+#                                         accept/ and extract/ (run_js, rt and
 #                                         extract read them)
 #   crates/CRATE/tests/NAME.rs            CRATE/NAME (just that test target)
 #   crates/CRATE/tests/**/ (fixtures)     CRATE (that package's tests)
@@ -152,6 +154,11 @@ affected_map() {
         *) affected_hit "$crate/$name" "$p" ;;
       esac ;;
     crates/driver/src/snapshots/*) affected_hit driver/lib "$p" ;;
+    crates/*/tests/*/*)
+      # A file in a folder under tests/ (fixtures, a shared module): the
+      # whole package, since `case` patterns match `/` too.
+      rest="${p#crates/}"
+      affected_hit "${rest%%/*}" "$p" ;;
     crates/*/tests/*.rs)
       rest="${p#crates/}"
       crate="${rest%%/*}"
@@ -170,12 +177,14 @@ affected_map() {
     crates/syntax/*)
       for a in syntax elab driver examples; do affected_hit $a "$p"; done ;;
     crates/core/*)
-      for a in core elab driver examples js; do affected_hit $a "$p"; done ;;
+      for a in core elab driver examples js rt; do affected_hit $a "$p"; done ;;
     crates/elab/src/std/*)
       for a in std hashes examples; do affected_hit $a "$p"; done ;;
     crates/elab/*)
-      for a in elab driver examples; do affected_hit $a "$p"; done ;;
+      for a in elab driver examples rt; do affected_hit $a "$p"; done ;;
     crates/js/*) affected_hit js "$p" ;;
+    crates/rt/*)
+      for a in rt js; do affected_hit $a "$p"; done ;;
     crates/driver/*)
       for a in driver examples; do affected_hit $a "$p"; done ;;
     crates/cli/*) affected_hit cli "$p" ;;
@@ -190,7 +199,7 @@ affected_map() {
     editors/vscode/*) affected_hit vscode "$p" ;;
     aoc/*) affected_hit aoc "$p" ;;
     examples/accept/* | examples/extract/*)
-      for a in examples hashes js; do affected_hit $a "$p"; done ;;
+      for a in examples hashes js rt; do affected_hit $a "$p"; done ;;
     examples/*)
       for a in examples hashes; do affected_hit $a "$p"; done ;;
   esac
@@ -222,6 +231,7 @@ affected_specs() {
     bench) echo "stitchwort-bench|" ;;
     web) echo "stitchwort-web|" ;;
     partial-model) echo "stitchwort-partial-model|" ;;
+    rt) echo "stitchwort-rt|" ;;
     */lib) echo "stitchwort-${1%/lib}|--lib" ;;
     */*) echo "stitchwort-${1%%/*}|--test ${1#*/}" ;;
   esac
@@ -396,6 +406,9 @@ case "$area" in
     if [[ -n "$filter" ]]; then run_cargo test --release -p stitchwort-js -- "$filter"
     else run_cargo test --release -p stitchwort-js; fi
     args=(-p stitchwort-cli --test extract --test run_js)
+    ;;
+  rt)
+    args=(-p stitchwort-rt)
     ;;
   cli)
     args=(-p stitchwort-cli)

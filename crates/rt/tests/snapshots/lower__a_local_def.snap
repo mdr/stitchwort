@@ -1,0 +1,17 @@
+---
+source: crates/rt/tests/lower.rs
+expression: "ir(r#\"\nimport Std (Nat, Text, Int)\ndef sumTo (n: Nat): Nat :=\n  def go: Nat -> Nat -> Nat\n    | 0, acc => acc\n    | Succ k, acc => go k (acc + k + 1)\n  go n 0\n\ndef main(): {IO} () := IO.print (Nat.toText (sumTo 10))\n\"#)"
+---
+native Std.Nat.add = %Nat.add/2
+native Std.Nat.toText = %NatToText/1
+native Std.Effect.lift = %Effect.lift/1
+fn Main.sumTo(v0) {1 slots} = Main.sumTo.go(v0, 0)
+fn Main.sumTo.go(v0, v1) {3 slots} =
+  match v0: Nat {
+    Zero => v1
+    Succ(pred: v2) => Main.sumTo.go(v2, %Nat.add(%Nat.add(v1, v2), 1))
+  }
+fn Main.main(v0) {2 slots} =
+  let v1 = %NatToText(Main.sumTo(10))
+  Call(L(%print(v1)), done-k)
+entry {1 slots} = %Effect.lift(Main.main(UnitValue))

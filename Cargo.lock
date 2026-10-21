@@ -649,12 +649,24 @@ name = "stitchwort-js"
 version = "0.1.0"
 dependencies = [
  "stitchwort-core",
+ "stitchwort-rt",
  "stitchwort-syntax",
 ]
 
 [[package]]
 name = "stitchwort-partial-model"
 version = "0.1.0"
+
+[[package]]
+name = "stitchwort-rt"
+version = "0.1.0"
+dependencies = [
+ "insta",
+ "num-bigint",
+ "stitchwort-core",
+ "stitchwort-driver",
+ "stitchwort-syntax",
+]
 
 [[package]]
 name = "stitchwort-syntax"
