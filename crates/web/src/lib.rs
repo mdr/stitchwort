@@ -68,6 +68,29 @@ pub fn check(source: &str) -> String {
     }
 }
 
+/// The code navigation index of a program (docs/proposals/code-navigation.md):
+/// the version 1 JSON the CLI's `check --index` writes, with `"ok"` added.
+/// Written whether or not the program checks, for the parts that were
+/// elaborated. Not cached: it loads the program again with recording on.
+#[wasm_bindgen]
+pub fn check_index(source: &str) -> String {
+    let mut session = Session::new();
+    session.elab.limits = session_limits();
+    session.elab.enable_navigation();
+    let ok = session.load(FILE, source).is_ok();
+    stitchwort_driver::nav::index_json(&session, !ok, Some(ok), "")
+}
+
+/// The text of an embedded library file, by the `std` value of a file of
+/// the index (`List/Toolkit.sw`; `core.sw` is the core): empty if there's
+/// none.
+#[wasm_bindgen]
+pub fn std_source(path: &str) -> String {
+    stitchwort_driver::nav::std_source(path)
+        .unwrap_or_default()
+        .to_string()
+}
+
 /// Runs a program's tests, reusing the results in `known`:
 /// `{"ok": true, "tests": [{"name": …, "passed": …, "outcome": …, "cached": …}],
 /// "added": "…"}`, where the outcome is `passed`, `failed`, or what the test

@@ -113,7 +113,9 @@ fn variable(cx: &Ctx, e: &Expr) -> Option<usize> {
     if cx.local(&x.text).ok().flatten().is_some() {
         return None;
     }
-    cx.lookup(&x.text)
+    let level = cx.lookup(&x.text)?;
+    cx.e.note_local(cx, x, &cx.types[level]);
+    Some(level)
 }
 
 /// A `let` of `value : ty`, named or hidden: its level.

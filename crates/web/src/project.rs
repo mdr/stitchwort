@@ -274,6 +274,19 @@ pub fn check_project(paths: Vec<String>, texts: Vec<String>, targets: &str) -> S
     }
 }
 
+/// [`super::check_index`] for a project: the index of the namespaces in
+/// `targets` (empty for the whole project) and what they use, with paths
+/// within the project. Not cached.
+#[wasm_bindgen]
+pub fn check_index_project(paths: Vec<String>, texts: Vec<String>, targets: &str) -> String {
+    let mut session = new_session(&paths, &texts);
+    session.elab.enable_navigation();
+    let ok = session
+        .load_project_sources(PROJECT, pairs(&paths, &texts), &target_of(targets))
+        .is_ok();
+    stitchwort_driver::nav::index_json(&session, !ok, Some(ok), &format!("{PROJECT}/"))
+}
+
 /// [`super::test`] for a project: each result also has its `namespace`.
 #[wasm_bindgen]
 pub fn test_project(paths: Vec<String>, texts: Vec<String>, targets: &str, known: &str) -> String {
