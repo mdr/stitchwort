@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-CALC-RELATION] Error: a `calc` chain goes one way: `<` and `<=` can't be mixed with `>` and `>=`
+   ╭─[ reject/calc-mixed-direction.sw:4:3 ]
+   │
+ 4 │ ╭─▶   calc a
+   ┆ ┆   
+ 6 │ ├─▶     _ > c := h2
+   │ │                     
+   │ ╰───────────────────── this chain has steps in both directions
+   │     
+   │     Note: write the steps all with `<`/`<=` or all with `>`/`>=` (`=` goes with either)
+───╯

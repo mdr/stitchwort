@@ -1673,7 +1673,7 @@ impl<'t> Parser<'t> {
         let first = self.append_expr()?;
         if matches!(
             self.peek(),
-            Some(Tok::Equals | Tok::Le | Tok::Lt | Tok::NotEq | Tok::EqEq)
+            Some(Tok::Equals | Tok::Le | Tok::Lt | Tok::Gt | Tok::Ge | Tok::NotEq | Tok::EqEq)
         ) {
             return Err(error(
                 self.here(),
@@ -1683,6 +1683,9 @@ impl<'t> Parser<'t> {
         }
         let mut steps: Vec<CalcStep> = Vec::new();
         let mut column = None;
+        // Whether any step is `<`/`<=` (`ascending`) or `>`/`>=` (`descending`).
+        let mut ascending = false;
+        let mut descending = false;
         while let Some(token) = self.tokens.get(self.pos)
             && token.tok == Tok::Underscore
             && token.line_start
@@ -1702,15 +1705,30 @@ impl<'t> Parser<'t> {
             let underscore = self.bump().span;
             let (rel, rel_span) = match self.peek() {
                 Some(Tok::Equals) => (BinOp::Eq, self.bump().span),
-                Some(Tok::Le) => (BinOp::Le, self.bump().span),
-                Some(Tok::Lt) => (BinOp::Lt, self.bump().span),
+                Some(Tok::Le) => {
+                    ascending = true;
+                    (BinOp::Le, self.bump().span)
+                }
+                Some(Tok::Lt) => {
+                    ascending = true;
+                    (BinOp::Lt, self.bump().span)
+                }
+                Some(Tok::Ge) => {
+                    descending = true;
+                    (BinOp::Le, self.bump().span)
+                }
+                Some(Tok::Gt) => {
+                    descending = true;
+                    (BinOp::Lt, self.bump().span)
+                }
                 Some(Tok::NotEq | Tok::EqEq) => {
                     return Err(error(
                         self.here(),
-                        "a `calc` step is `=`, `<=` or `<`: other relations can't be chained",
+                        "a `calc` step is `=`, `<=`, `<`, `>=` or `>`: other relations can't \
+                         be chained",
                     ));
                 }
-                _ => return Err(self.unexpected("`=`, `<=` or `<` after `_`")),
+                _ => return Err(self.unexpected("`=`, `<=`, `<`, `>=` or `>` after `_`")),
             };
             let rhs = self.append_expr()?;
             let proof = if self.eat(&Tok::ColonEq) {
@@ -1731,8 +1749,27 @@ impl<'t> Parser<'t> {
                 .unexpected("a step `_ = e` on the next line, indented past `calc`")
                 .with_note("a `calc` needs at least one step"));
         };
+        let span = start.to(last.span);
+        if descending && ascending {
+            return Err(Diagnostic::error(
+                "E-CALC-RELATION",
+                "a `calc` chain goes one way: `<` and `<=` can't be mixed with `>` and `>=`",
+            )
+            .with_label(span, "this chain has steps in both directions")
+            .with_note(
+                "write the steps all with `<`/`<=` or all with `>`/`>=` (`=` goes with either)",
+            ));
+        }
+        if descending {
+            let (first, steps) = reverse_calc(first, steps);
+            return Ok(Expr::Calc {
+                span,
+                first: Box::new(first),
+                steps,
+            });
+        }
         Ok(Expr::Calc {
-            span: start.to(last.span),
+            span,
             first: Box::new(first),
             steps,
         })
@@ -2100,7 +2137,8 @@ impl<'t> Parser<'t> {
         Ok(matched)
     }
 
-    /// `a = b`, `a != b`, `a == b`, `a < b`, `a <= b`: not associative.
+    /// `a = b`, `a != b`, `a == b`, `a < b`, `a <= b`, `a > b`, `a >= b`: not
+    /// associative.
     fn cmp_expr(&mut self) -> Result<Expr> {
         let lhs = self.append_expr()?;
         let op = match self.peek() {
@@ -2109,6 +2147,18 @@ impl<'t> Parser<'t> {
             Some(Tok::EqEq) => BinOp::EqEq,
             Some(Tok::Lt) => BinOp::Lt,
             Some(Tok::Le) => BinOp::Le,
+            // `a > b` is `b < a`, `a >= b` is `b <= a`: the same terms, so
+            // goals and messages show `<` and `<=`.
+            Some(Tok::Gt) => {
+                self.bump();
+                let rhs = self.append_expr()?;
+                return Ok(Expr::Binary(BinOp::Lt, Box::new(rhs), Box::new(lhs)));
+            }
+            Some(Tok::Ge) => {
+                self.bump();
+                let rhs = self.append_expr()?;
+                return Ok(Expr::Binary(BinOp::Le, Box::new(rhs), Box::new(lhs)));
+            }
             _ => return Ok(lhs),
         };
         self.bump();
@@ -2160,8 +2210,9 @@ impl<'t> Parser<'t> {
         }
     }
 
-    /// A prefix minus (which may repeat), tighter than `*` and looser than
-    /// application and dots: `-x.abs` is `-(x.abs)`, `-f x` is `-(f x)`.
+    /// A prefix minus or `!` (which may repeat), tighter than `*` and looser
+    /// than application and dots: `-x.abs` is `-(x.abs)`, `-f x` is `-(f x)`,
+    /// `!xs.isEmpty` is `Bool.not (xs.isEmpty)`.
     fn unary(&mut self) -> Result<Expr> {
         // A `match` as an operand: `1 + match n with | …`. Its last
         // alternative's body takes whatever follows.
@@ -2175,6 +2226,16 @@ impl<'t> Parser<'t> {
             let operand = self.unary()?;
             let span = start.to(operand.span());
             return Ok(Expr::Neg(Box::new(operand), span));
+        }
+        if self.peek() == Some(&Tok::Bang) {
+            self.deeper()?;
+            let start = self.bump().span;
+            let operand = self.unary()?;
+            let not = Expr::Var(Name {
+                text: "Std.Bool.not".into(),
+                span: start,
+            });
+            return Ok(Expr::App(Box::new(not), Box::new(operand)));
         }
         self.app()
     }
@@ -2552,6 +2613,29 @@ fn piped(lhs: Expr, mut rhs: Expr) -> Expr {
     body
 }
 
+/// A chain `a > b >= c` (its steps stored as `<`/`<=`, the proofs being of
+/// the flipped forms `b < a`, `c <= b`) read the other way round:
+/// `c <= b < a`. A step `_ = x` flips its proof with `Eq.sym`.
+fn reverse_calc(first: Expr, steps: Vec<CalcStep>) -> (Expr, Vec<CalcStep>) {
+    let mut elements = vec![first];
+    elements.extend(steps.iter().map(|step| step.rhs.clone()));
+    let mut reversed = Vec::new();
+    for (i, mut step) in steps.into_iter().enumerate().rev() {
+        step.rhs = elements[i].clone();
+        if step.rel == BinOp::Eq
+            && let Some(proof) = step.proof.take()
+        {
+            let sym = Expr::Var(Name {
+                text: "Std.Eq.sym".into(),
+                span: step.rel_span,
+            });
+            step.proof = Some(Expr::App(Box::new(sym), Box::new(proof)));
+        }
+        reversed.push(step);
+    }
+    (elements.pop().expect("a last element"), reversed)
+}
+
 fn describe(tok: &Tok) -> String {
     match tok {
         Tok::Lower(s) | Tok::Upper(s) => format!("`{s}`"),
@@ -2607,6 +2691,9 @@ fn describe(tok: &Tok) -> String {
         Tok::EqEq => "`==`".into(),
         Tok::Lt => "`<`".into(),
         Tok::Le => "`<=`".into(),
+        Tok::Gt => "`>`".into(),
+        Tok::Ge => "`>=`".into(),
+        Tok::Bang => "`!`".into(),
         Tok::KwIf => "`if`".into(),
         Tok::KwThen => "`then`".into(),
         Tok::KwElse => "`else`".into(),
@@ -3449,6 +3536,53 @@ mod tests {
         }
         // `--` starts a comment.
         assert_eq!(shape_of("a --b"), "a");
+    }
+
+    #[test]
+    fn greater_than_is_less_than_flipped() {
+        let cases = [
+            ("a > b", "(Lt b a)"),
+            ("a >= b", "(Le b a)"),
+            ("a + 1 > b * 2", "(Lt (Mul b 2) (Add a 1))"),
+            ("f x > y", "(Lt y (f x))"),
+            ("a ++ b > y", "(Lt y (Append a b))"),
+            ("a < b", "(Lt a b)"),
+        ];
+        for (text, want) in cases {
+            assert_eq!(shape_of(text), want, "{text}");
+        }
+        // Not associative, like `<`.
+        assert!(rhs_of("def g : Nat := a > b > c\n").is_err());
+        // `>>` is not a token (yet).
+        assert!(rhs_of("def g : Nat := a >> b\n").is_err());
+    }
+
+    #[test]
+    fn bang_precedence() {
+        let n = "Std.Bool.not";
+        let cases = [
+            ("!a", format!("({n} a)")),
+            ("!f x", format!("({n} (f x))")),
+            ("!x.abs", format!("({n} x.abs)")),
+            ("!!a", format!("({n} ({n} a))")),
+            ("!a > b", format!("(Lt b ({n} a))")),
+            ("!a = b", format!("(Eq ({n} a) b)")),
+            ("f (!a)", format!("(f ({n} a))")),
+            ("a != b", "(Ne a b)".to_string()),
+        ];
+        for (text, want) in cases {
+            assert_eq!(shape_of(text), want, "{text}");
+        }
+        let e = rhs_of("def g : Bool := !a && b\n").unwrap();
+        assert!(matches!(e, Expr::Binary(BinOp::And, ..)), "{e:?}");
+    }
+
+    #[test]
+    fn arrows_and_pipes_still_parse_beside_greater_than() {
+        assert!(rhs_of("def g : Nat := x |> f\n").is_ok());
+        assert!(rhs_of("def g : Nat := (x => y) a\n").is_ok());
+        assert!(rhs_of("def g : Type := a -> b\n").is_ok());
+        assert!(rhs_of("def g : Bool := x |> f > y\n").is_ok());
     }
 
     #[test]
