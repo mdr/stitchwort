@@ -40,6 +40,7 @@ use crate::{Elaborator, Global, PRELUDE};
 /// The library files, `(path under std/, text)`, sorted by path. A test
 /// checks this lists every `.sw` file under `std/`.
 pub const LIBRARY_FILES: &[(&str, &str)] = &[
+    ("Abort/Abort.sw", include_str!("std/Abort/Abort.sw")),
     ("Fin/Fin.sw", include_str!("std/Fin/Fin.sw")),
     ("Int/Int.sw", include_str!("std/Int/Int.sw")),
     ("List/Index.sw", include_str!("std/List/Index.sw")),

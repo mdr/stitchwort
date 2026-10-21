@@ -333,7 +333,7 @@ def allResults (prog: () -> {Choose | e} a): {e} List a :=
     | choose u, k    => List.append (k True) (k False)
 ```
 
-Effectful code is written in direct style. Arguments are evaluated left to right, and the lines of a block in order. A handler's clauses on their own lines must line up: a `|` at another column belongs to an enclosing handler. An operation on its own (`choose`) is a function, `x => choose x`. A signature can be a computation that isn't a function: `current: {State Nat} Nat`. Naming or calling a computation where a plain value is expected runs it there, so it's allowed only if it may perform nothing: a function over any row `{e}` used at the empty row, or a `Std.Effect.Comp NoOp NoRes a`, gives its `a` ([proposals/let.md](proposals/let.md) §8). The types stay different: a function returning a computation isn't a function returning a value. A row written `{}` is no row: `{} Nat` is `Nat`. A pure function can use a handler inside; what it handles doesn't appear in its type. How this is translated into ordinary data is described in `docs/core.md`, under "Abilities".
+Effectful code is written in direct style. Arguments are evaluated left to right, and the lines of a block in order. A handler's clauses on their own lines must line up: a `|` at another column belongs to an enclosing handler. An operation on its own (`choose`) is a function, `x => choose x`. A dot call to an effectful function is a call like any other and runs where it's written, also with no further arguments and at the end of a chain of pure calls (`1 + w.toNat.orAbort`). A signature can be a computation that isn't a function: `current: {State Nat} Nat`. Naming or calling a computation where a plain value is expected runs it there, so it's allowed only if it may perform nothing: a function over any row `{e}` used at the empty row, or a `Std.Effect.Comp NoOp NoRes a`, gives its `a` ([proposals/let.md](proposals/let.md) §8). The types stay different: a function returning a computation isn't a function returning a value. A row written `{}` is no row: `{} Nat` is `Nat`. A pure function can use a handler inside; what it handles doesn't appear in its type. How this is translated into ordinary data is described in `docs/core.md`, under "Abilities".
 
 ## `IO`
 
@@ -343,6 +343,27 @@ Effectful code is written in direct style. Arguments are evaluated left to right
 - `IO.readAll()` gives everything that remains, verbatim, line endings included; `""` once nothing remains. After it, `IO.readLine()` is `None`; after some `IO.readLine`s it gives the rest. Under `IO.simulate` it gives the remaining scripted lines, each followed by LF.
 - `Text.lines: Text -> List Text` follows Rust's `str::lines`: split on LF, drop a CR right before an LF, and the last line's ending is optional. `"a\nb"` and `"a\nb\n"` both give `["a", "b"]`; `""` gives `[]`; `"\n"` gives `[""]`; `"a\r\nb"` gives `["a", "b"]`. A CR anywhere else stays, including a final one.
 - `IO.readAllLines(): {IO} (List Text)` is `(readAll()).lines`. It is total.
+
+## `Abort`
+
+`Std.Abort` (`crates/elab/src/std/Abort/Abort.sw`) is an ability for giving up, as `do` over `Option` in Lean or `?` in Roc: code that may give up says `{Abort}`, reads each step's `Option` with `need`, and a handler decides what giving up means.
+
+```
+import Std.Abort (need, ensure, abort, toOption)
+
+def turn (t: Text): {Abort} Int :=
+  let (c, rest) := need t.uncons     -- a `None` stops the whole computation
+  ensure (c == 'L' || c == 'R')
+  let n := rest.toInt.orAbort        -- `need`, by dot notation
+  if c == 'L' then -n else n
+
+def parse (t: Text): Option Int := toOption (() => turn t)
+```
+
+- `Abort.need: Option a -> {Abort} a`, and `Option.orAbort` for dot notation (`o.orAbort`). `Abort.ensure: Bool -> {Abort} ()` gives up on `False`. `Abort.abort(): {Abort} a` gives up wherever a value of any type is expected.
+- `Abort.toOption: (() -> {Abort | e} a) -> {e} Option a` and `Abort.orElse: a -> (() -> {Abort | e} a) -> {e} a` are the handlers. Other abilities pass through, so `{IO, Abort}` code works: what was printed before giving up stays printed (`examples/accept/abort.sw`).
+- The operation is `Abort.stop: () -> {Abort} Empty`, for handlers of your own. Its result is `Std.Empty`, a `Type` with no values (`Empty.absurd: Empty -> a`), so no handler can resume it. (`Void` is a proposition, and an operation's result must be a type.) `abort()` is `Empty.absurd (stop())`.
+- `Abort.toOption (() => need o) = o` and `Abort.orElse d (() => need o) = o.getOrElse d` hold for every `o`, by `rfl` on each case (`Abort.toOptionNeed`, `Abort.orElseNeed`).
 
 ## `Partial`
 
