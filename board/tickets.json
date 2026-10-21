@@ -3281,7 +3281,7 @@
     {
       "id": 216,
       "title": "A failed a == b test prints both values",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
