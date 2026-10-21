@@ -114,6 +114,14 @@ theorem List.sumByRangeShift (f: Nat -> Nat): (n: Nat) -> (s: Nat) ->
       (Eq.trans (Eq.cong (t => f (Succ s) + t) (List.sumByRangeShift f n (Succ s)))
         (Eq.sym (List.sumByCons (i => f (Succ i)) s (List.rangeFrom n (Succ s)))))
 
+-- A sum over `s, s + 1, ..., s + n - 1`, as one over `0, 1, ..., n - 1`.
+theorem List.sumByRangeOffset (f: Nat -> Nat): (s: Nat) -> (n: Nat) ->
+    List.sumBy f (List.rangeFrom n s) = List.sumBy (i => f (s + i)) (List.range n)
+  | Zero,   n => List.sumByCongr f (i => f (0 + i)) (i => rfl) (List.range n)
+  | Succ s, n => Eq.trans (List.sumByRangeShift f n s) (List.sumByRangeOffset (i => f (Succ i)) s n)
+
+theorem List.sumByRangeOffsetExample: List.sumBy (i => i) (List.rangeFrom 3 10) = List.sumBy (i => 10 + i) (List.range 3) := rfl
+
 -- Gauss: twice the sum of `x, x + 1, ..., x + d` is `(d + 1) * (x + (x + d))`.
 theorem List.gaussSum: (d: Nat) -> (x: Nat) ->
     List.sum (List.rangeFrom (Succ d) x) + List.sum (List.rangeFrom (Succ d) x) = Succ d * (x + (x + d))
@@ -171,6 +179,14 @@ theorem List.takeAll: (k: Nat) -> (xs: List a) -> List.length xs <= k -> List.ta
   | Zero,   Cons x xs, h => Void.exfalso (Bool.falseNotTrue h)
   | Succ k, Nil,       h => rfl
   | Succ k, Cons x xs, h => Eq.cong (Cons x) (List.takeAll k xs h)
+
+-- Dropping n elements of a list at least n long leaves the rest.
+theorem List.lengthDrop: (n: Nat) -> (xs: List a) -> n <= List.length xs -> n + List.length (List.drop n xs) = List.length xs
+  | Zero,   xs,        h => rfl
+  | Succ n, Nil,       h => Void.exfalso (Bool.falseNotTrue h)
+  | Succ n, Cons x xs, h => Eq.cong Succ (List.lengthDrop n xs h)
+
+theorem List.lengthDropExample: List.length (List.drop 2 [1, 2, 3, 4, 5]) = 3 := rfl
 
 theorem List.takeAppend: (xs: List a) -> (ys: List a) -> List.take (List.length xs) (List.append xs ys) = xs
   | Nil,       ys => rfl

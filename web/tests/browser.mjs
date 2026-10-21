@@ -856,10 +856,12 @@ test("dragging the editor's corner resizes it", async (page) => {
 
 /** What each day prints for its example input, and for its real input (the CLI's answers). */
 const AOC_EXAMPLE = ["Part 1: 3\nPart 2: 6\n", "Part 1: 1227775554\nPart 2: 4174379265\n", "Part 1: 357\nPart 2: 3121910778619\n",
-                     "Part 1: 13\nPart 2: 43\n", "Part 1: 3\nPart 2: 14\n", "Part 1: 4277556\nPart 2: 3263827\n"];
+                     "Part 1: 13\nPart 2: 43\n", "Part 1: 3\nPart 2: 14\n", "Part 1: 4277556\nPart 2: 3263827\n",
+                     "Part 1: 21\nPart 2: 40\n"];
 const AOC_PUZZLE = ["Part 1: 1076\nPart 2: 6379\n", "Part 1: 16793817782\nPart 2: 27469417404\n",
                     "Part 1: 17263\nPart 2: 170731717900423\n", "Part 1: 1397\nPart 2: 8758\n",
-                    "Part 1: 525\nPart 2: 333892124923577\n", "Part 1: 4722948564882\nPart 2: 9581313737063\n"];
+                    "Part 1: 525\nPart 2: 333892124923577\n", "Part 1: 4722948564882\nPart 2: 9581313737063\n",
+                    "Part 1: 1594\nPart 2: 15650261281478\n"];
 /** Every day has proofs. */
 const dayStatus = (day) => `Day ${day} and its proofs checked by the kernel`;
 const DAY2 = "src/Aoc/Day02/Day02.sw";
@@ -887,7 +889,7 @@ test("the AoC days are listed, and a day opens its program with its files as tab
   assert.equal(await page.ev(`document.getElementById("filebar").hidden`), true, "no file tabs for a single file");
   const days = await page.until(`(() => { const g = document.querySelector("#example optgroup"); return g && { label: g.label,
     days: [...g.children].map((o) => o.textContent) }; })()`, 10000, "the AoC group");
-  assert.deepEqual(days, { label: "Advent of Code 2025", days: ["Day 1", "Day 2", "Day 3", "Day 4", "Day 5", "Day 6"] });
+  assert.deepEqual(days, { label: "Advent of Code 2025", days: ["Day 1", "Day 2", "Day 3", "Day 4", "Day 5", "Day 6", "Day 7"] });
   await openDay(page, 2);
   assert.equal(await page.ev(`document.getElementById("filebar").hidden`), false);
   await page.until(`document.querySelectorAll("#filetabs button").length === ${DAY2_TABS.length}`, 10000, "day 2's tabs");
@@ -911,7 +913,7 @@ test("the AoC days are listed, and a day opens its program with its files as tab
 test("every day checks, with its proofs, and runs on its example and on its puzzle input", async (page) => {
   await page.open();
   await page.untilChecked();
-  for (let day = 1; day <= 6; day++) {
+  for (let day = 1; day <= 7; day++) {
     await openDay(page, day);
     const input = await page.until(`document.getElementById("run-input")?.value || (document.getElementById("run").click(), false)`, 10000, "the input");
     assert.equal(input, await page.ev(`fetch("pkg/projects/aoc/examples/day0${day}.txt").then((r) => r.text())`), `day ${day}: the input box has the example`);

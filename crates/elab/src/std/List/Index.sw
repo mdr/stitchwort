@@ -114,6 +114,15 @@ theorem List.getOrMap (f: a -> b) (d: a): (i: Nat) -> (xs: List a) -> List.getOr
   | Zero,   Cons x xs => rfl
   | Succ i, Cons x xs => List.getOrMap f d i xs
 
+-- Index i of `f` mapped over the run `s, s + 1, ..., s + n - 1` is `f (i + s)`.
+theorem List.getOrMapRange (f: Nat -> b) (d: b): (n: Nat) -> (s: Nat) -> (i: Nat) -> i < n ->
+    List.getOr d i (List.map f (List.rangeFrom n s)) = f (i + s)
+  | Zero,   s, i,      h => Void.exfalso (Bool.falseNotTrue h)
+  | Succ n, s, Zero,   h => rfl
+  | Succ n, s, Succ i, h => rewrite <- Nat.addSucc i s in List.getOrMapRange f d n (Succ s) i h
+
+theorem List.getOrMapRangeExample: List.getOr 0 2 (List.map (i => i * i) (List.rangeFrom 4 3)) = 25 := rfl
+
 theorem List.sumByGetOr (f: a -> Nat) (d: a) (xs: List a): List.sumBy f xs = List.sumBy (i => f (List.getOr d i xs)) (List.range (List.length xs)) :=
   calc List.sumBy f xs
     _ = List.sumBy f (List.map (i => List.getOr d i xs) (List.range (List.length xs))) := rewrite List.mapGetOr d xs
