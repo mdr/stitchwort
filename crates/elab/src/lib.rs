@@ -105,12 +105,33 @@ pub struct TestDecl {
     pub namespace: String,
     pub def: DefId,
     pub span: Span,
+    /// For a test that is a comparison, its two sides, so a failure can show
+    /// their values.
+    pub sides: Option<TestSides>,
+}
+
+/// The two sides of a comparison that is a test, in the order the user wrote
+/// them (`a > b` is elaborated as `b < a`, but its left side is `a`).
+pub struct TestSides {
+    /// The operator as written: `==`, `!=`, `=`, `<`, `<=`, `>` or `>=`.
+    pub op: &'static str,
+    pub left: Term,
+    pub right: Term,
+}
+
+/// What elaborating a test records of its top-level comparison (`numbers.rs`):
+/// the span to watch for, then the sides found.
+#[derive(Default)]
+pub(crate) struct SidesCapture {
+    target: Option<Span>,
+    found: Option<TestSides>,
 }
 
 #[derive(Default)]
 pub struct Elaborator {
     pub globals: Globals,
     pub tests: Vec<TestDecl>,
+    sides_capture: RefCell<SidesCapture>,
     /// Every declaration, by its full name (`scope.rs`).
     scope: scope::Scope,
     /// The current module's key prefix: `Day05.` in namespace `Day05`, empty
@@ -683,6 +704,10 @@ impl Elaborator {
             span,
         };
         let body = self.with_local_retries(&label, &shown, |e| {
+            *e.sides_capture.borrow_mut() = SidesCapture {
+                target: numbers::comparison_span(expr),
+                found: None,
+            };
             let term = {
                 // A condition, as `if` takes: a `Bool`, or a decided proposition.
                 let mut cx = Ctx::new(e, span);
@@ -690,8 +715,21 @@ impl Elaborator {
             };
             // Nothing refers to the test, so its helpers are admitted first.
             e.lift(&label, false)?;
-            e.finish(&term, 0)
+            let body = e.finish(&term, 0)?;
+            // The sides are only for showing a failure: if they can't be
+            // finished, the test just has none.
+            let found = e.sides_capture.borrow_mut().found.take();
+            let sides = found.and_then(|s| {
+                Some(TestSides {
+                    op: s.op,
+                    left: e.finish(&s.left, 0).ok()?,
+                    right: e.finish(&s.right, 0).ok()?,
+                })
+            });
+            Ok((body, sides))
         })?;
+        let (body, sides) = body;
+        self.sides_capture.borrow_mut().target = None;
         self.local_helpers.clear();
         let ty = Term::Data(bool_data, Vec::new());
         let id = kernel::declare_def(&mut self.globals, &label, &ty, false, false, span)?;
@@ -702,6 +740,7 @@ impl Elaborator {
             namespace: self.module.namespace.clone().unwrap_or_default(),
             def: id,
             span,
+            sides,
         });
         Ok(())
     }

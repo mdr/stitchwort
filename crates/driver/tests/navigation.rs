@@ -268,7 +268,11 @@ fn the_core_has_references() {
         .load("one.sw", "def f (xs: List Nat): Nat := xs.length\n")
         .expect("checks");
     let index = index_of(&session);
-    let in_core = index.refs.iter().filter(|r| r.span.file.index() == 0).count();
+    let in_core = index
+        .refs
+        .iter()
+        .filter(|r| r.span.file.index() == 0)
+        .count();
     assert!(in_core > 100, "only {in_core} references in the core");
     // A name used in the core refers to its declaration there.
     let json = index_json(&session, false, None, "", &[]);
