@@ -7,7 +7,7 @@ expression: output
     │
  21 │ def wrong: Nat := size down
     │                        ──┬─  
-    │                          ╰─── expected `Map Nat Nat [ord := { compare = Nat.compare }]`, but this has type `Map Nat Nat [ord := { compare = m n => if Nat.equal n m then Equal else if Nat.leq n m then Less else Greater }]`
+    │                          ╰─── expected `Map Nat Nat [ord := Ordered.instNat]`, but this has type `Map Nat Nat [ord := descending]`
     │ 
     │ Note: the `ord` dictionaries differ: `Map`'s `ord` is part of its type, so a value built with one is a different type from one built with another (they're compared as whole dictionaries, not just their functions)
 ────╯

@@ -410,6 +410,19 @@ const $Std$dList$dlength = (v1) => {
   }
   throw new Error("unreachable");
 };
+const $Std$dAdd$d$gzero = (v1) => {
+  const v2 = v1.zero;
+  const v3 = v1.add;
+  return v2;
+};
+const $Std$dAdd$d$gadd = (v1) => {
+  const v2 = v1.zero;
+  const v3 = v1.add;
+  return v3;
+};
+const $Std$dAdd$dzero = (v1) => $Std$dAdd$d$gzero(v1);
+const $Std$dAdd$dadd = (v1) => $Std$dAdd$d$gadd(v1);
+const $Std$dNat$dinstAdd = { zero: 0n, add: $Std$dNat$dadd };
 const $Std$dList$dfoldLeft = (v2) => (v3) => (v4) => {
   let s2 = v2, s3 = v3, s4 = v4;
   for (;;) {
@@ -430,7 +443,7 @@ const $Std$dList$dfoldLeft = (v2) => (v3) => (v4) => {
     throw new Error("unreachable");
   }
 };
-const $Std$dList$dsum = (v0) => $Std$dList$dfoldLeft($Std$dNat$dadd)(0n)(v0);
+const $Std$dList$dsum = (v1) => (v2) => $Std$dList$dfoldLeft($Std$dAdd$dadd(v1))($Std$dAdd$dzero(v1))(v2);
 const $Main$dfromList = (v1) => {
   switch (v1.tag) {
     case "Nil": {
@@ -521,7 +534,7 @@ const $Main$dfirstOr = (v0) => (v1) => {
   }
   throw new Error("unreachable");
 };
-const $Main$dsumPairs = (v0) => $Std$dList$dsum($Main$dtoList($Std$dList$dlength(v0))($Main$dzipWith($Std$dList$dlength(v0))(((v1) => ((v2) => $Std$dNat$dadd(v1)(v2))))($Main$dfromList(v0))($Main$dfromList(v0))));
+const $Main$dsumPairs = (v0) => $Std$dList$dsum($Std$dNat$dinstAdd)($Main$dtoList($Std$dList$dlength(v0))($Main$dzipWith($Std$dList$dlength(v0))(((v1) => ((v2) => $Std$dNat$dadd(v1)(v2))))($Main$dfromList(v0))($Main$dfromList(v0))));
 
 function $$firstOr(arg0, arg1) {
   try {

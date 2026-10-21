@@ -447,6 +447,7 @@ const $Main$dOrdered$d$gcompare = (v1) => {
   const v2 = v1.compare;
   return v2;
 };
+const $Main$dOrdered$dinstNat = { compare: $Std$dNat$dcompare };
 const $Main$ddescending = { compare: ((v0) => ((v1) => $Std$dNat$dcompare(v1)(v0))) };
 const $Main$dTree$dinsert = (v1) => (v2) => (v3) => {
   switch (v3.tag) {
@@ -490,8 +491,8 @@ const $Main$dTree$dtoList = (v1) => (v2) => {
   }
   throw new Error("unreachable");
 };
-const $Main$dsorted = (v0) => $Main$dTree$dtoList({ compare: $Std$dNat$dcompare })($Std$dList$dfoldLeft(((v1) => ((v2) => $Main$dTree$dinsert({ compare: $Std$dNat$dcompare })(v2)(v1))))({ tag: "Leaf" })(v0));
-const $Main$dsortedDown = (v0) => $Main$dTree$dtoList({ compare: ((v1) => ((v2) => $Std$dBool$difThenElse($Std$dNat$dequal(v2)(v1))(((v3) => ({ tag: "Equal" })))(((v3) => $Std$dBool$difThenElse($Std$dNat$dleq(v2)(v1))(((v4) => ({ tag: "Less" })))(((v4) => ({ tag: "Greater" }))))))) })($Std$dList$dfoldLeft(((v1) => ((v2) => $Main$dTree$dinsert({ compare: ((v3) => ((v4) => $Std$dBool$difThenElse($Std$dNat$dequal(v4)(v3))(((v5) => ({ tag: "Equal" })))(((v5) => $Std$dBool$difThenElse($Std$dNat$dleq(v4)(v3))(((v6) => ({ tag: "Less" })))(((v6) => ({ tag: "Greater" }))))))) })(v2)(v1))))({ tag: "Leaf" })(v0));
+const $Main$dsorted = (v0) => $Main$dTree$dtoList($Main$dOrdered$dinstNat)($Std$dList$dfoldLeft(((v1) => ((v2) => $Main$dTree$dinsert($Main$dOrdered$dinstNat)(v2)(v1))))({ tag: "Leaf" })(v0));
+const $Main$dsortedDown = (v0) => $Main$dTree$dtoList($Main$ddescending)($Std$dList$dfoldLeft(((v1) => ((v2) => $Main$dTree$dinsert($Main$ddescending)(v2)(v1))))({ tag: "Leaf" })(v0));
 
 function $$sorted(arg0) {
   try {

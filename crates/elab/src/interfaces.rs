@@ -29,7 +29,7 @@
 use std::rc::Rc;
 
 use stitchwort_core::check as kernel;
-use stitchwort_core::value::{Head, conv, force};
+use stitchwort_core::value::{Head, conv, force, unfold_folded};
 use stitchwort_core::{DataId, DefId, Icit, Name, Term, Value, pretty};
 use stitchwort_syntax::ast::{self, Decl};
 use stitchwort_syntax::{Diagnostic, Span};
@@ -51,6 +51,12 @@ pub(crate) struct InterfaceInfo {
     pub supers: Vec<(usize, DataId)>,
     /// Its record's own projections, by field (`Pretty.%pretty`).
     pub projections: Vec<DefId>,
+    /// Its methods, by field (`Pretty.pretty`).
+    pub methods: Vec<DefId>,
+    /// Its relation fields and their deciders (§5.16): `(r, d)` for a field
+    /// `r` whose type ends in `Prop` and a field `decR` whose type ends in
+    /// `Decidable`, as `lessThan` and `decLessThan` in `Ord`.
+    pub relations: Vec<(usize, usize)>,
 }
 
 /// What an instance's parameter is.
@@ -99,6 +105,36 @@ struct Candidate {
     path: String,
     interface: DataId,
     arg: Value,
+}
+
+/// An interface's relation fields and their deciders (§5.16): each field
+/// `r` whose type, after its parameters, is `Prop`, with the field `decR`
+/// (`r` with a capital first letter) whose type ends in `Decidable …`.
+fn relation_pairs(fields: &[(Name, Term)], decidable: Option<DataId>) -> Vec<(usize, usize)> {
+    fn result(mut t: &Term) -> &Term {
+        loop {
+            match t.strip_loc() {
+                Term::Pi(_, _, _, cod) => t = cod,
+                other => return other,
+            }
+        }
+    }
+    let mut out = Vec::new();
+    for (r, (name, ty)) in fields.iter().enumerate() {
+        if !matches!(result(ty), Term::Sort(stitchwort_core::Sort::Prop)) {
+            continue;
+        }
+        let mut chars = name.chars();
+        let Some(first) = chars.next() else { continue };
+        let wanted: String = format!("dec{}{}", first.to_uppercase(), chars.as_str());
+        let found = fields.iter().position(|(n, t)| {
+            **n == *wanted && matches!(result(t), Term::Data(d, _) if Some(*d) == decidable)
+        });
+        if let Some(d) = found {
+            out.push((r, d));
+        }
+    }
+    out
 }
 
 /// `Pretty` → `pretty`, `DecEq` → `decEq`, `Shapes.Area` → `area`.
@@ -236,6 +272,8 @@ impl Elaborator {
         let data_key = self.data_key(d);
         let span = data.span;
         let name = data.name.clone();
+        let relations = relation_pairs(&fields, g.builtins.decidable);
+        let mut methods = Vec::new();
         for (i, (field, _)) in fields.iter().enumerate() {
             let proj = projections[i];
             // `Proj: [a: Type] -> (r: I a) -> T` becomes
@@ -270,6 +308,7 @@ impl Elaborator {
             let method: Name = format!("{name}.{field}").into();
             let id = kernel::declare_def(&mut self.globals, &method, &ty, false, false, span)?;
             kernel::define_def(&mut self.globals, id, &body)?;
+            methods.push(id);
             let key = Self::member_key(&data_key, field);
             self.scope.insert(&key, Global::Def(id), span, false);
         }
@@ -279,6 +318,8 @@ impl Elaborator {
                 dict,
                 supers,
                 projections,
+                methods,
+                relations,
             },
         );
         Ok(())
@@ -714,6 +755,38 @@ impl Elaborator {
             }
         }
         Ok(())
+    }
+}
+
+impl Elaborator {
+    /// Whether a definition of type `ty` is a dictionary, which stays folded
+    /// by name until it's taken apart (`Def::fold`): its result, after its
+    /// parameters, is an interface.
+    /// Read from the type as written, so nothing in it is computed unless
+    /// the result is a definition's application (a synonym, perhaps): `cost
+    /// = cost` isn't evaluated.
+    pub(crate) fn is_dictionary_type(&self, ty: &Term) -> Result<bool> {
+        if self.interfaces.is_empty() {
+            return Ok(false);
+        }
+        let g = &self.globals;
+        let mut result = ty.strip_loc();
+        let mut level = 0;
+        while let Term::Pi(_, _, _, cod) = result {
+            result = cod.strip_loc();
+            level += 1;
+        }
+        Ok(match result.spine().0.strip_loc() {
+            Term::Data(i, _) => self.is_interface(*i),
+            Term::Def(_) => {
+                let env: Vec<Value> = (0..level).map(Value::var).collect();
+                matches!(
+                    force(g, stitchwort_core::value::eval(g, &env, result)?)?,
+                    Value::Data(i, _) if self.is_interface(i)
+                )
+            }
+            _ => false,
+        })
     }
 }
 
@@ -1199,6 +1272,8 @@ fn rigidly_distinct(cx: &Ctx, a: &Value, b: &Value) -> Result<bool> {
     let mut pending = vec![(a.clone(), b.clone())];
     while let Some((a, b)) = pending.pop() {
         let (a, b) = (force(g, a)?, force(g, b)?);
+        let a = unfold_folded(g, &a)?.unwrap_or(a);
+        let b = unfold_folded(g, &b)?.unwrap_or(b);
         match (&a, &b) {
             (Value::Data(d1, a1), Value::Data(d2, a2)) => {
                 if d1 != d2 || a1.len() != a2.len() {
@@ -1303,14 +1378,26 @@ impl Elaborator {
                 None => return Ok(()),
             }
         };
+        // Obligations stay in the list, solved or not (a solved one is
+        // skipped later): `undo.rs` restores the list by its length, so
+        // removing one made before a transaction that's then undone would
+        // lose it.
         let mut tried = std::collections::HashSet::new();
         loop {
             // The next obligation of this tree not tried yet.
-            let index = self.obligations.borrow().iter().position(|ob| {
-                ob.tree == tree && !matches!(ob.meta.spine().0, Term::Meta(m) if tried.contains(m))
-            });
-            let Some(index) = index else { break };
-            let ob = self.obligations.borrow_mut().remove(index);
+            let ob = self
+                .obligations
+                .borrow()
+                .iter()
+                .find(|ob| {
+                    ob.tree == tree
+                        && !matches!(ob.meta.spine().0, Term::Meta(m) if tried.contains(m))
+                })
+                .cloned();
+            let Some(ob) = ob else { break };
+            if let Term::Meta(m) = ob.meta.spine().0 {
+                tried.insert(*m);
+            }
             let mut ob_cx = Ctx::from_parts(
                 self,
                 ob.env.clone(),
@@ -1320,30 +1407,19 @@ impl Elaborator {
             );
             let goal = interface_goal(self, &ob.goal)?;
             let mut failed = None;
-            let solved = match goal {
-                Some((i, arg)) => {
-                    crate::undo::transaction(&mut ob_cx, |cx| match attempt(cx, &ob, i, &arg) {
-                        Ok(Attempt::Solved) => Ok(Some(())),
-                        Ok(Attempt::Wait(_)) => Ok(None),
-                        Err(e) if crate::undo::fatal(&e) => Err(e),
-                        Err(e) => {
-                            failed = Some(e);
-                            Ok(None)
-                        }
-                    })?
-                    .is_some()
-                }
-                None => false,
-            };
-            if strict && let Some(e) = failed {
-                self.obligations.borrow_mut().insert(index, ob);
-                return Err(e);
+            if let Some((i, arg)) = goal {
+                crate::undo::transaction(&mut ob_cx, |cx| match attempt(cx, &ob, i, &arg) {
+                    Ok(Attempt::Solved) => Ok(Some(())),
+                    Ok(Attempt::Wait(_)) => Ok(None),
+                    Err(e) if crate::undo::fatal(&e) => Err(e),
+                    Err(e) => {
+                        failed = Some(e);
+                        Ok(None)
+                    }
+                })?;
             }
-            if !solved {
-                if let Term::Meta(m) = ob.meta.spine().0 {
-                    tried.insert(*m);
-                }
-                self.obligations.borrow_mut().insert(index, ob);
+            if strict && let Some(e) = failed {
+                return Err(e);
             }
         }
         Ok(())
@@ -1377,7 +1453,8 @@ pub(crate) fn ord(e: &Elaborator) -> Option<DataId> {
 
 /// A decision of `x = y`, for `x y: ty`, from the `DecEq` instance for `ty`
 /// (§5.12). It's found now if it can be; an error if there's none. If the
-/// instance found is a record literal (a global instance's, inlined), the
+/// instance found is a global instance whose body is a record literal
+/// (unfolded from its name, `Def::fold`), the
 /// decision is its `decide` field applied to `x` and `y`, which is the term a
 /// search for a decision procedure used to give (`Nat.decEq x y`); otherwise
 /// it's `DecEq.decide x y` with that dictionary, found later if it can't be
@@ -1396,7 +1473,8 @@ pub(crate) fn decide_eq(cx: &mut Ctx, ty: &Value, x: &Value, y: &Value) -> Resul
     let (xt, yt) = (cx.quote(x)?, cx.quote(y)?);
     // A definition, applied or not (not a lambda, whose type the kernel
     // can't infer where it's applied).
-    if let Value::Ctor(_, 0, fields) = force(cx.g(), cx.eval(&meta)?)?
+    let dict = force(cx.g(), cx.eval(&meta)?)?;
+    if let Value::Ctor(_, 0, fields) = unfold_folded(cx.g(), &dict)?.unwrap_or(dict)
         && let Some(decide) = fields.first()
         && matches!(decide, Value::Neutral(Head::Def(_), _))
     {
@@ -1438,6 +1516,18 @@ impl Elaborator {
     /// comparison that failed, perhaps on one of their metavariables
     /// (`check::compare`). Whether any was found.
     pub(crate) fn solve_ready_instances(&self) -> Result<bool> {
+        self.solve_ready_instances_keeping(&[], None)
+    }
+
+    /// [`Elaborator::solve_ready_instances`], except for the obligations of
+    /// the metavariables `keep`: those unification may still solve (§5.5
+    /// step 1), so finding them now could choose differently. With `only`,
+    /// just those of these metavariables.
+    pub(crate) fn solve_ready_instances_keeping(
+        &self,
+        keep: &[usize],
+        only: Option<&[usize]>,
+    ) -> Result<bool> {
         if self.interfaces.is_empty() {
             return Ok(false);
         }
@@ -1445,6 +1535,15 @@ impl Elaborator {
         {
             let obligations = self.obligations.borrow();
             for ob in obligations.iter() {
+                let Term::Meta(m) = ob.meta.spine().0 else {
+                    continue;
+                };
+                if keep.contains(m)
+                    || only.is_some_and(|only| !only.contains(m))
+                    || self.globals.meta_solution(*m).is_some()
+                {
+                    continue;
+                }
                 let Some((_, arg)) = interface_goal(self, &ob.goal)? else {
                     continue;
                 };
@@ -1468,4 +1567,204 @@ impl Elaborator {
         }
         Ok(found)
     }
+}
+
+/// Whether `v` has a projection that was stuck on a dictionary found since:
+/// read back, an interface's projection applied to a record literal or a
+/// dictionary's name (`Add.%add {…} x y`, `Add.%add Nat.instAdd x y`), which
+/// [`refresh`] computes.
+pub(crate) fn stuck_on_found(cx: &Ctx, v: &Value) -> Result<bool> {
+    Ok(stuck_term(cx, &cx.quote(v)?))
+}
+
+fn stuck_term(cx: &Ctx, term: &Term) -> bool {
+    term.subterms().any(|(t, _)| {
+        if !matches!(t, Term::App(..)) {
+            return false;
+        }
+        let (head, args) = t.spine();
+        matches!(head.strip_loc(), Term::Def(p) if cx.e.interfaces.values().any(|i| i.projections.contains(p)))
+            && args.len() >= 2
+            && match args[1].strip_loc().spine().0 {
+                Term::Ctor(..) => true,
+                Term::Def(d) => cx.g().def(*d).fold,
+                _ => false,
+            }
+    })
+}
+
+/// Finds the dictionaries still to be found whose type is known (of the
+/// metavariables `only`, if given), except
+/// those that unification may still solve through `ty`: unknowns that are
+/// arguments of a type in it, as `Tree k [ord := ?d]`'s (stage 4). (One
+/// inside a stuck computation, `Add.%add ?d x y`, can't be solved that way.)
+/// `ty` computed again if it is an equation (a proof `rewrite` or `calc` uses)
+/// stuck on one found now or before, so its sides compute; other types are
+/// left as they are, so the terms built from them are what they were
+/// (docs/proposals/interfaces.md, "As built (stage 5)").
+pub(crate) fn find_ready_dictionaries(
+    cx: &Ctx,
+    ty: &Value,
+    only: Option<&[usize]>,
+) -> Result<Option<Value>> {
+    let term = cx.quote(ty)?;
+    let g = cx.g();
+    let mut stale = stuck_term(cx, &term);
+    let zonked = cx.e.zonk_keeping(&term, cx.level(), &|_| true)?;
+    let mut keep = Vec::new();
+    for (t, _) in zonked.subterms() {
+        if let Term::Data(_, args) = t {
+            for arg in args {
+                if let Term::Meta(m) = arg.strip_loc().spine().0
+                    && g.meta_solution(*m).is_none()
+                {
+                    keep.push(*m);
+                }
+            }
+        }
+    }
+    if cx.e.solve_ready_instances_keeping(&keep, only)? {
+        stale |= stuck_term(cx, &cx.e.zonk_keeping(&term, cx.level(), &|_| true)?);
+    }
+    if stale && matches!(force(g, ty.clone())?, Value::Eq(..)) {
+        Ok(Some(refresh(cx, ty)?))
+    } else {
+        Ok(None)
+    }
+}
+
+/// The library's interface called `path` (`Std.Add`), once it's declared.
+pub(crate) fn library_interface(e: &Elaborator, path: &str) -> Option<DataId> {
+    match e.scope.get(path) {
+        Some((Global::Data(d), _)) if e.is_interface(d) => Some(d),
+        _ => None,
+    }
+}
+
+/// Whether the global instance of `interface` for the type `head` is
+/// declared and valid (§5.8 (b)): before that, in the prelude's bootstrap
+/// phase, operators on `Nat` and `Int` are built directly (D187).
+pub(crate) fn instance_ready(e: &Elaborator, interface: DataId, head: DataId) -> bool {
+    e.instances
+        .get(&(interface, head))
+        .is_some_and(|info| info.valid)
+}
+
+/// Whether a dictionary of `interface` is in scope, directly or by a
+/// superclass path (§5.5 step 4), whatever its type.
+pub(crate) fn local_dictionary(cx: &Ctx, interface: DataId) -> Result<bool> {
+    Ok(locals(cx)?.iter().any(|c| c.interface == interface))
+}
+
+/// The method `field` of `interface` at type `ty`, applied to `args`, with
+/// its dictionary found by §5.5 (now, if it can be; an error if there's
+/// none). If the dictionary found is a record literal (a global instance's,
+/// unfolded from its name) whose field is a definition, applied or not, the
+/// result is that
+/// field applied to `args` (§5.13's known-instance projection: `x + y` on
+/// `Nat` is `Nat.add x y`); otherwise it's the method, `Add.add [add := d] x
+/// y`.
+pub(crate) fn method_call(
+    cx: &mut Ctx,
+    interface: DataId,
+    field: &str,
+    ty: &Value,
+    args: Vec<Term>,
+) -> Result<Term> {
+    let goal = Value::Data(interface, vec![ty.clone()]);
+    let meta = implicit_arg(cx, Icit::Auto, &goal);
+    cx.e.solve_tree(&meta, true)?;
+    let g = cx.g();
+    let index = g.data(interface).ctors[0]
+        .fields
+        .iter()
+        .position(|(n, _)| &**n == field)
+        .expect("the interface has the field");
+    // A global instance is found by name; its record is what's projected.
+    let found = force(g, cx.eval(&meta)?)?;
+    let found = unfold_folded(g, &found)?.unwrap_or(found);
+    let head = match found {
+        Value::Ctor(_, 0, fields) if matches!(fields[index], Value::Neutral(Head::Def(_), _)) => {
+            cx.quote(&fields[index])?
+        }
+        _ => {
+            let method = cx.e.interfaces[&interface].methods[index];
+            let ty = cx.quote(ty)?;
+            Term::app_icit(
+                Term::app_icit(Term::Def(method), ty, Icit::Implicit),
+                meta,
+                Icit::Auto,
+            )
+        }
+    };
+    Ok(args.into_iter().fold(head, Term::app))
+}
+
+/// §5.16 step 2: if `prop` is a relation field of a dictionary applied to
+/// its arguments, `Ord.%lessThan [a] d x y` (as `x < y` through a dictionary
+/// `d` evaluates), the paired decider applied to the same dictionary and
+/// arguments, `Ord.decLessThan [a] [d] x y`. No new search is made, so it
+/// can't find a different dictionary.
+pub(crate) fn relation_decider(cx: &Ctx, prop: &Value) -> Result<Option<Term>> {
+    if cx.e.interfaces.is_empty() {
+        return Ok(None);
+    }
+    let Value::Neutral(Head::Def(p), spine) = force(cx.g(), prop.clone())? else {
+        return Ok(None);
+    };
+    for info in cx.e.interfaces.values() {
+        let Some(&(_, d)) = info
+            .relations
+            .iter()
+            .find(|(r, _)| info.projections[*r] == p)
+        else {
+            continue;
+        };
+        // `[a]`, the dictionary, then the relation's arguments.
+        let mut term = Term::Def(info.methods[d]);
+        for (k, elim) in spine.iter().enumerate() {
+            let stitchwort_core::value::Elim::App(v, icit) = elim else {
+                return Ok(None);
+            };
+            let icit = if k == 1 { Icit::Auto } else { *icit };
+            term = Term::app_icit(term, cx.quote(v)?, icit);
+        }
+        if spine.len() < 2 {
+            return Ok(None);
+        }
+        return Ok(Some(term));
+    }
+    Ok(None)
+}
+
+/// §5.16 step 2 on a proposition as written: a relation method applied to
+/// its type, its dictionary and its arguments, `Ord.lessThan [a] [d] x y`,
+/// gives the paired decider's method applied to the same ones,
+/// `Ord.decLessThan [a] [d] x y`. (A dictionary that's a record literal
+/// would compute the relation away before [`relation_decider`] sees it.)
+pub(crate) fn written_relation_decider(e: &Elaborator, prop: &Term) -> Option<Term> {
+    if e.interfaces.is_empty() {
+        return None;
+    }
+    let mut args = Vec::new();
+    let mut head = prop.strip_loc();
+    while let Term::App(f, a, icit) = head {
+        args.push((a.clone(), *icit));
+        head = f.strip_loc();
+    }
+    let Term::Def(m) = head else { return None };
+    args.reverse();
+    if args.len() < 2 {
+        return None;
+    }
+    for info in e.interfaces.values() {
+        if let Some(&(_, d)) = info.relations.iter().find(|(r, _)| info.methods[*r] == *m) {
+            let decider = Term::Def(info.methods[d]);
+            return Some(
+                args.into_iter()
+                    .fold(decider, |f, (a, icit)| Term::App(Rc::new(f), a, icit)),
+            );
+        }
+    }
+    None
 }

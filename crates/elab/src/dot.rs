@@ -248,7 +248,11 @@ pub(crate) fn infer_dot(
     let (rterm, rty) = insert(cx, rterm, rty)?;
     let start = written_type(cx, &rterm)?.unwrap_or_else(|| Ty::Value(rty.clone()));
     let (owner, f, key) = find(cx, recv, field, start)?;
-    call(cx, recv, field, owner, f, &key, rterm, rty, args)
+    // The call's implicit arguments are made here, not by `apply_args`, so
+    // its dictionaries are found here (`check::found_dictionaries`).
+    let (term, ty) = call(cx, recv, field, owner, f, &key, rterm, rty, args)?;
+    let own = crate::check::own_dictionaries(&term);
+    Ok((term, crate::check::found_dictionaries(cx, &own, ty)?))
 }
 
 /// `f.go`, where `f` is a top-level definition (not a local variable) and

@@ -7,7 +7,8 @@ use std::rc::Rc;
 use stitchwort_core::budget::{ResourceError, Result};
 use stitchwort_core::native;
 use stitchwort_core::value::{
-    Closure, Elim, Head, apply_icit, eval, expand_step, force, quote, same_closure, underapplied,
+    Closure, Elim, Head, apply_icit, eval, expand_step, force, is_folded, quote, same_closure,
+    underapplied, unfold_folded,
 };
 use stitchwort_core::{Globals, Term, Value};
 
@@ -76,6 +77,38 @@ fn unify_step(
             },
             |x, v| Ok(is_meta(x) && unify(g, level, x, v)?),
         );
+    }
+    // Dictionaries left folded by name (`Def::fold`), as in `conv`: the same
+    // one's arguments first (what that solves is kept only if they all
+    // unify), otherwise unfolded. A metavariable against one is solved with
+    // it, by name, below.
+    if !is_meta(&a) && !is_meta(&b) && (is_folded(g, &a) || is_folded(g, &b)) {
+        if let (Value::Neutral(Head::Def(i1), s1), Value::Neutral(Head::Def(i2), s2)) = (&a, &b)
+            && i1 == i2
+            && let Some(pairs) = spine_pairs(level, s1, s2)
+        {
+            let trail = g.meta_trail.borrow().len();
+            let mut same = true;
+            for pair in pairs {
+                let Task::Values(l, x, y) = pair else {
+                    unreachable!()
+                };
+                if !unify(g, l, &x, &y)? {
+                    same = false;
+                    break;
+                }
+            }
+            if same {
+                return Ok(true);
+            }
+            undo_since(g, trail);
+        }
+        let a2 = unfold_folded(g, &a)?;
+        let b2 = unfold_folded(g, &b)?;
+        if a2.is_some() || b2.is_some() {
+            work.push(Task::Values(level, a2.unwrap_or(a), b2.unwrap_or(b)));
+            return Ok(true);
+        }
     }
     let fresh = Value::var(level);
     // Parts are pushed last-first, so they're unified first-first.
@@ -215,6 +248,18 @@ fn unify_step(
         }
         _ => push_eta(g, level, &a, &b, work)?,
     })
+}
+
+/// Undoes the metavariable solutions made since the trail was `len` long.
+fn undo_since(g: &Globals, len: usize) {
+    let mut metas = g.metas.borrow_mut();
+    let mut trail = g.meta_trail.borrow_mut();
+    while trail.len() > len {
+        let (m, old) = trail.pop().expect("longer");
+        if let Some(meta) = metas.get_mut(m) {
+            meta.solution = old;
+        }
+    }
 }
 
 /// The pairs of values in two spines, or `None` if they differ in length or

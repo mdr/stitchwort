@@ -68,13 +68,29 @@ theorem Nat.addSwap (a: Nat) (b: Nat) (c: Nat) (d: Nat): (a + b) + (c + d) = (a 
   Eq.trans (Nat.addAssoc a b (c + d))
     (Eq.trans (Eq.cong (t => a + t) (Nat.addLeftComm b c d)) (Eq.sym (Nat.addAssoc a c (b + d))))
 
-theorem List.sumFrom: (a: Nat) -> (xs: List Nat) -> List.foldLeft Nat.add a xs = a + List.sum xs
-  | a, Nil       => Eq.sym (Nat.addZero a)
-  | a, Cons x xs =>
-    Eq.trans (List.sumFrom (a + x) xs)
-      (Eq.trans (Nat.addAssoc a x (List.sum xs)) (Eq.cong (t => a + t) (Eq.sym (List.sumFrom x xs))))
+-- Sums from a starting total, one element at a time and of two lists, for
+-- any `Add` (docs/proposals/interfaces.md §7.7). At `Nat` they state the
+-- facts about `Nat` sums, by computation.
+theorem List.sumFrom [auto add: Add a]: (z: a) -> (xs: List a) -> List.foldLeft Add.add z xs = z + List.sum xs
+  | z, Nil       => Eq.sym (Add.addZero z)
+  | z, Cons x xs =>
+    calc List.foldLeft Add.add (z + x) xs
+      _ = (z + x) + List.sum xs := List.sumFrom (z + x) xs
+      _ = z + (x + List.sum xs) := add.assoc z x (List.sum xs)
+      _ = z + List.foldLeft Add.add x xs := Eq.cong (t => z + t) (Eq.sym (List.sumFrom x xs))
+      _ = z + List.sum (Cons x xs) := Eq.cong (t => z + List.foldLeft Add.add t xs) (Eq.sym (add.zeroAdd x))
 
-theorem List.sumCons (x: Nat) (xs: List Nat): List.sum (Cons x xs) = x + List.sum xs := List.sumFrom x xs
+theorem List.sumCons [auto add: Add a] (x: a) (xs: List a): List.sum (Cons x xs) = x + List.sum xs :=
+  Eq.trans (Eq.cong (t => List.foldLeft Add.add t xs) (add.zeroAdd x)) (List.sumFrom x xs)
+
+theorem List.sumAppend [auto add: Add a]: (xs: List a) -> (ys: List a) ->
+    List.sum (List.append xs ys) = List.sum xs + List.sum ys
+  | Nil, ys => Eq.sym (add.zeroAdd (List.sum ys))
+  | Cons x xs, ys =>
+    Eq.trans (List.sumCons x (List.append xs ys))
+      (Eq.trans (Eq.cong (t => x + t) (List.sumAppend xs ys))
+        (Eq.trans (Eq.sym (add.assoc x (List.sum xs) (List.sum ys)))
+          (Eq.cong (t => t + List.sum ys) (Eq.sym (List.sumCons x xs)))))
 
 theorem List.sumByCongr (f: a -> Nat) (g: a -> Nat) (h: (x: a) -> f x = g x): (xs: List a) -> List.sumBy f xs = List.sumBy g xs
   | Nil       => rfl
@@ -972,18 +988,17 @@ theorem List.splitByRuns (p: a -> Bool) (f: Nat -> a) (sep: Nat -> Bool) (hsep: 
 -- Sums and products don't mind the order.
 theorem List.sumReverse (xs: List Nat): List.sum (List.reverse xs) = List.sum xs := List.sumByReverse (x => x) xs
 
-theorem Nat.oneMul (n: Nat): 1 * n = n := Nat.addZero n
+theorem List.productFrom [auto mul: Mul a]: (z: a) -> (xs: List a) -> List.foldLeft Mul.mul z xs = z * List.product xs
+  | z, Nil       => Eq.sym (mul.mulOne z)
+  | z, Cons x xs =>
+    calc List.foldLeft Mul.mul (z * x) xs
+      _ = (z * x) * List.product xs := List.productFrom (z * x) xs
+      _ = z * (x * List.product xs) := mul.assoc z x (List.product xs)
+      _ = z * List.foldLeft Mul.mul x xs := Eq.cong (t => z * t) (Eq.sym (List.productFrom x xs))
+      _ = z * List.product (Cons x xs) := Eq.cong (t => z * List.foldLeft Mul.mul t xs) (Eq.sym (mul.oneMul x))
 
-theorem List.productFrom: (a: Nat) -> (xs: List Nat) -> List.foldLeft Nat.mul a xs = a * List.product xs
-  | a, Nil       => Eq.sym (Nat.mulOne a)
-  | a, Cons x xs =>
-    calc List.foldLeft Nat.mul (a * x) xs
-      _ = (a * x) * List.product xs := List.productFrom (a * x) xs
-      _ = a * (x * List.product xs) := Nat.mulAssoc a x (List.product xs)
-      _ = a * List.foldLeft Nat.mul (1 * x) xs := rewrite List.productFrom (1 * x) xs, Nat.oneMul x
-
-theorem List.productCons (x: Nat) (xs: List Nat): List.product (Cons x xs) = x * List.product xs :=
-  rewrite List.productFrom (1 * x) xs, Nat.oneMul x
+theorem List.productCons [auto mul: Mul a] (x: a) (xs: List a): List.product (Cons x xs) = x * List.product xs :=
+  Eq.trans (Eq.cong (t => List.foldLeft Mul.mul t xs) (mul.oneMul x)) (List.productFrom x xs)
 
 theorem List.productReverseOnto: (xs: List Nat) -> (acc: List Nat) -> List.product (List.reverseOnto xs acc) = List.product xs * List.product acc
   | Nil,       acc => Eq.sym (Nat.oneMul (List.product acc))

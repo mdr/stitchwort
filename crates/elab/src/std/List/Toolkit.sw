@@ -46,15 +46,22 @@ def List.foldRight (f: a -> b -> b) (z: b): List a -> b
   | Nil       => z
   | Cons x xs => f x (List.foldRight f z xs)
 
-def List.sum (xs: List Nat): Nat := List.foldLeft Nat.add 0 xs
+-- The sum of the elements, of any type with `Add` (docs/proposals/interfaces.md
+-- §7.7): `[1, 2, 3].sum` is `6`, `[3, -5, 1].sum` is `-1`.
+def List.sum [auto add: Add a] (xs: List a): a := List.foldLeft Add.add Add.zero xs
 
 -- The sum of `f` over the elements: `List.sumBy f xs` is `List.sum (List.map f xs)`
 -- without building the intermediate list.
-def List.sumBy (f: a -> Nat) (xs: List a): Nat := List.foldLeft (acc x => acc + f x) 0 xs
+def List.sumBy [auto add: Add b] (f: a -> b) (xs: List a): b := List.foldLeft (acc x => acc + f x) Add.zero xs
 
 theorem List.sumByDoubles: List.sumBy (x => x * 2) [1, 2, 3] = 12 := rfl
 
-def List.product (xs: List Nat): Nat := List.foldLeft Nat.mul 1 xs
+theorem List.sumInts: List.sum [(3: Int), -5, 1] = -1 := rfl
+
+theorem List.sumByInts: List.sumBy (x => Int.sub 1 x) [1, 2, 3] = -3 := rfl
+
+-- The product of the elements, of any type with `Mul`.
+def List.product [auto mul: Mul a] (xs: List a): a := List.foldLeft Mul.mul Mul.one xs
 
 def List.maximum [auto ord: Ord a]: List a -> Maybe a
   | Nil       => Nothing
@@ -485,16 +492,25 @@ theorem List.splitByConcat (p: a -> Bool) (xs: List a):
     List.concat (List.splitBy p xs) = List.filter (x => Bool.not (p x)) xs :=
   Eq.trans (List.finishGroupsConcat (List.splitGroups p xs)) (List.splitGroupsKeeps p xs)
 
-theorem List.sumByFrom (f: a -> Nat): (z: Nat) -> (xs: List a) -> List.foldLeft (acc x => acc + f x) z xs = z + List.sumBy f xs
-  | z, Nil       => Eq.sym (Nat.addZero z)
+-- Sums from a starting total, and one element at a time, for any `Add`:
+-- the laws `zeroAdd`, `assoc` and `comm` (docs/proposals/interfaces.md §7.7).
+theorem Add.addZero [auto add: Add a] (x: a): x + Add.zero = x :=
+  Eq.trans (add.comm x Add.zero) (add.zeroAdd x)
+
+theorem List.sumByFrom [auto add: Add b] (f: a -> b): (z: b) -> (xs: List a) -> List.foldLeft (acc x => acc + f x) z xs = z + List.sumBy f xs
+  | z, Nil       => Eq.sym (Add.addZero z)
   | z, Cons x xs =>
-    Eq.trans (List.sumByFrom f (z + f x) xs)
-      (Eq.trans (Nat.addAssoc z (f x) (List.sumBy f xs)) (Eq.cong (t => z + t) (Eq.sym (List.sumByFrom f (f x) xs))))
+    calc List.foldLeft (acc x => acc + f x) (z + f x) xs
+      _ = (z + f x) + List.sumBy f xs := List.sumByFrom f (z + f x) xs
+      _ = z + (f x + List.sumBy f xs) := add.assoc z (f x) (List.sumBy f xs)
+      _ = z + List.foldLeft (acc x => acc + f x) (f x) xs := Eq.cong (t => z + t) (Eq.sym (List.sumByFrom f (f x) xs))
+      _ = z + List.sumBy f (Cons x xs) := Eq.cong (t => z + List.foldLeft (acc x => acc + f x) t xs) (Eq.sym (add.zeroAdd (f x)))
 
-theorem List.sumByCons (f: a -> Nat) (x: a) (xs: List a): List.sumBy f (Cons x xs) = f x + List.sumBy f xs := List.sumByFrom f (f x) xs
+theorem List.sumByCons [auto add: Add b] (f: a -> b) (x: a) (xs: List a): List.sumBy f (Cons x xs) = f x + List.sumBy f xs :=
+  Eq.trans (Eq.cong (t => List.foldLeft (acc x => acc + f x) t xs) (add.zeroAdd (f x))) (List.sumByFrom f (f x) xs)
 
-theorem List.sumByAppend (f: a -> Nat) (xs: List a) (ys: List a): List.sumBy f (List.append xs ys) = List.sumBy f xs + List.sumBy f ys :=
-  Eq.trans (List.foldLeftAppend (acc x => acc + f x) 0 xs ys) (List.sumByFrom f (List.sumBy f xs) ys)
+theorem List.sumByAppend [auto add: Add b] (f: a -> b) (xs: List a) (ys: List a): List.sumBy f (List.append xs ys) = List.sumBy f xs + List.sumBy f ys :=
+  Eq.trans (List.foldLeftAppend (acc x => acc + f x) Add.zero xs ys) (List.sumByFrom f (List.sumBy f xs) ys)
 
 theorem List.filterKeep (p: a -> Bool) (x: a) (xs: List a) (h: p x = True): List.filter p (Cons x xs) = Cons x (List.filter p xs) :=
   J (c q => List.filterStep x (List.filter p xs) c = Cons x (List.filter p xs)) rfl (Eq.sym h)

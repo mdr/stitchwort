@@ -44,6 +44,7 @@ const MAX_DEPTH: usize = 8;
 
 /// An auto argument still to be proved: the metavariable standing for it, its
 /// type, and the context it was created in.
+#[derive(Clone)]
 pub struct Obligation {
     pub env: Vec<Value>,
     pub types: Vec<Value>,
@@ -241,6 +242,11 @@ pub fn prove(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Term> {
 /// A term of type `Decidable prop`, from the decision procedures in scope.
 pub fn decide(cx: &mut Ctx, prop: &Value, depth: usize) -> Result<Term> {
     let decidable = decidable(cx)?;
+    // A relation from a dictionary: its paired decider, from the same one
+    // (docs/proposals/interfaces.md §5.16 step 2).
+    if let Some(term) = interfaces::relation_decider(cx, prop)? {
+        return Ok(term);
+    }
     if depth <= MAX_DEPTH {
         for id in decision_procedures(cx, decidable)? {
             let found = attempt(cx, |cx| instantiate(cx, id, decidable, prop, depth))?;

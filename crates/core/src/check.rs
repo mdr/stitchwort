@@ -1277,6 +1277,7 @@ pub fn declare_def(
         group: None,
         theorem,
         instance: false,
+        fold: false,
         export,
         validators: Vec::new(),
         span,
@@ -1290,6 +1291,15 @@ pub fn mark_instance(g: &mut Globals, id: DefId) {
     let def = &mut g.defs[id.0];
     if def.state == State::Pending {
         def.instance = true;
+    }
+}
+
+/// Marks pending definition `id` as a dictionary, which stays folded until
+/// it's taken apart ([`Def::fold`]): how it computes, not what it means.
+pub fn mark_folded(g: &mut Globals, id: DefId) {
+    let def = &mut g.defs[id.0];
+    if def.state == State::Pending {
+        def.fold = true;
     }
 }
 
