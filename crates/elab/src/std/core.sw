@@ -124,9 +124,9 @@ def List.append: List a -> List a -> List a
   | Cons x xs, ys => Cons x (List.append xs ys)
 
 -- A value that may be missing.
-type Maybe (a: Type): Type =
-  | Nothing
-  | Just (value: a)
+type Option (a: Type): Type =
+  | None
+  | Some (value: a)
 
 -- Two values together.
 type Pair (a: Type) (b: Type): Type =
@@ -341,7 +341,7 @@ type Char : Type =
 def Char.toNat : Char -> Nat
   | MkChar n v => n
 
-def Char.fromNat (n : Nat) : Maybe Char := if h : Char.isScalar n = True then Just (MkChar n h) else Nothing
+def Char.fromNat (n : Nat) : Option Char := if h : Char.isScalar n = True then Some (MkChar n h) else None
 
 -- Characters with the same code are equal: their proofs of `valid` are too.
 theorem Char.mkExt (a : Nat) (b : Nat) (p : Char.isScalar a = True) (e : a = b) :
@@ -433,31 +433,31 @@ def Pair.decEq (da: (x: a) -> (y: a) -> Decidable (x = y)) (db: (x: b) -> (y: b)
     (p: Pair a b) -> (q: Pair a b) -> Decidable (p = q)
   | MkPair x1 y1, MkPair x2 y2 => Pair.decMk x1 x2 y1 y2 (da x1 x2) (db y1 y2)
 
-def Maybe.IsNothing: Maybe a -> Prop
-  | Nothing => Unit
-  | Just x  => Void
+def Option.IsNone: Option a -> Prop
+  | None => Unit
+  | Some x  => Void
 
-theorem Maybe.nothingNotJust (x: a): Not (Nothing = Just x)
-  | p => J (y q => Maybe.IsNothing y) Trivial p
+theorem Option.noneNotSome (x: a): Not (None = Some x)
+  | p => J (y q => Option.IsNone y) Trivial p
 
-theorem Maybe.justNotNothing (x: a): Not (Just x = Nothing)
-  | p => Maybe.nothingNotJust x (Eq.sym p)
+theorem Option.someNotNone (x: a): Not (Some x = None)
+  | p => Option.noneNotSome x (Eq.sym p)
 
 -- The value, or `d` if there isn't one.
-def Maybe.withDefault (d: a): Maybe a -> a
-  | Nothing => d
-  | Just x  => x
+def Option.getOrElse (d: a): Option a -> a
+  | None => d
+  | Some x  => x
 
-def Maybe.decJust (x: a) (y: a): Decidable (x = y) -> Decidable (Just x = Just y)
-  | Yes p => Yes (Eq.cong Just p)
-  | No r  => No (e => r (Eq.cong (Maybe.withDefault x) e))
+def Option.decSome (x: a) (y: a): Decidable (x = y) -> Decidable (Some x = Some y)
+  | Yes p => Yes (Eq.cong Some p)
+  | No r  => No (e => r (Eq.cong (Option.getOrElse x) e))
 
 -- Equality of optional values, from equality of the values.
-def Maybe.decEq (d: (x: a) -> (y: a) -> Decidable (x = y)): (m: Maybe a) -> (n: Maybe a) -> Decidable (m = n)
-  | Nothing, Nothing => Yes rfl
-  | Nothing, Just y  => No (Maybe.nothingNotJust y)
-  | Just x,  Nothing => No (Maybe.justNotNothing x)
-  | Just x,  Just y  => Maybe.decJust x y (d x y)
+def Option.decEq (d: (x: a) -> (y: a) -> Decidable (x = y)): (m: Option a) -> (n: Option a) -> Decidable (m = n)
+  | None, None => Yes rfl
+  | None, Some y  => No (Option.noneNotSome y)
+  | Some x,  None => No (Option.someNotNone x)
+  | Some x,  Some y  => Option.decSome x y (d x y)
 
 -- Comparisons
 
@@ -545,9 +545,9 @@ def Text.decEqFrom (a: Text) (b: Text): Decidable (Text.toList a = Text.toList b
 def Text.decEq (a: Text) (b: Text): Decidable (a = b) := Text.decEqFrom a b (List.decEq Char.decEq (Text.toList a) (Text.toList b))
 
 -- The first character and the rest, unless the text is empty.
-def Text.uncons: Text -> Maybe (Pair Char Text)
-  | MkText Nil         => Nothing
-  | MkText (Cons c cs) => Just (MkPair c (MkText cs))
+def Text.uncons: Text -> Option (Pair Char Text)
+  | MkText Nil         => None
+  | MkText (Cons c cs) => Some (MkPair c (MkText cs))
 
 def Text.foldChars (f: Char -> b -> b) (z: b): List Char -> b
   | Nil       => z
@@ -611,25 +611,25 @@ def Nat.digitsOnto: Nat -> Nat -> List Char -> List Char
 -- Decimal, without leading zeros: `Nat.toText 42` is `"42"`.
 def Nat.toText (n: Nat): Text := MkText (Nat.digitsOnto (Succ n) n Nil)
 
-def Maybe.andThen (f: a -> Maybe b): Maybe a -> Maybe b
-  | Nothing => Nothing
-  | Just x  => f x
+def Option.flatMap (f: a -> Option b): Option a -> Option b
+  | None => None
+  | Some x  => f x
 
-def Maybe.map (f: a -> b): Maybe a -> Maybe b
-  | Nothing => Nothing
-  | Just x  => Just (f x)
+def Option.map (f: a -> b): Option a -> Option b
+  | None => None
+  | Some x  => Some (f x)
 
-def Char.digitValue (c: Char): Maybe Nat := if Nat.leq 48 (Char.toNat c) then (if Nat.leq (Char.toNat c) 57 then Just (Char.toNat c - 48) else Nothing) else Nothing
+def Char.digitValue (c: Char): Option Nat := if Nat.leq 48 (Char.toNat c) then (if Nat.leq (Char.toNat c) 57 then Some (Char.toNat c - 48) else None) else None
 
-def Text.readDigits (acc: Nat): List Char -> Maybe Nat
-  | Nil       => Just acc
-  | Cons c cs => Maybe.andThen (d => Text.readDigits (acc * 10 + d) cs) (Char.digitValue c)
+def Text.readDigits (acc: Nat): List Char -> Option Nat
+  | Nil       => Some acc
+  | Cons c cs => Option.flatMap (d => Text.readDigits (acc * 10 + d) cs) (Char.digitValue c)
 
 -- A non-empty sequence of ASCII digits, and nothing else: no sign,
 -- whitespace or separators. Leading zeros are allowed, so
--- `Text.toNat (Nat.toText n) = Just n` but `"007"` reads as 7.
-def Text.toNat: Text -> Maybe Nat
-  | MkText Nil         => Nothing
+-- `Text.toNat (Nat.toText n) = Some n` but `"007"` reads as 7.
+def Text.toNat: Text -> Option Nat
+  | MkText Nil         => None
   | MkText (Cons c cs) => Text.readDigits 0 (Cons c cs)
 
 -- Integers (docs/proposals/integers.md)
@@ -750,10 +750,10 @@ def Int.abs: Int -> Int
   | OfNat n   => OfNat n
   | NegSucc n => OfNat (Succ n)
 
--- `Just x` if `x` isn't negative, otherwise `Nothing`.
-def Int.toNatChecked: Int -> Maybe Nat
-  | OfNat n   => Just n
-  | NegSucc n => Nothing
+-- `Some x` if `x` isn't negative, otherwise `None`.
+def Int.toNatChecked: Int -> Option Nat
+  | OfNat n   => Some n
+  | NegSucc n => None
 
 -- `-1`, `0` or `1`.
 def Int.sign: Int -> Int
@@ -767,13 +767,13 @@ def Int.toText: Int -> Text
   | NegSucc n => MkText (Cons '-' (Text.toList (Nat.toText (Succ n))))
 
 -- An optional `-`, then one or more ASCII digits, and nothing else. Leading
--- zeros are fine and `"-0"` is `0`; `"-"`, `""` and `"+5"` are `Nothing`.
-def Text.toInt: Text -> Maybe Int
-  | MkText Nil         => Nothing
+-- zeros are fine and `"-0"` is `0`; `"-"`, `""` and `"+5"` are `None`.
+def Text.toInt: Text -> Option Int
+  | MkText Nil         => None
   | MkText (Cons c cs) =>
     if Nat.equal (Char.toNat c) 45
-    then Maybe.map (n => Int.neg (OfNat n)) (Text.toNat (MkText cs))
-    else Maybe.map OfNat (Text.toNat (MkText (Cons c cs)))
+    then Option.map (n => Int.neg (OfNat n)) (Text.toNat (MkText cs))
+    else Option.map OfNat (Text.toNat (MkText (Cons c cs)))
 
 -- Division. `a / d` and `a % d` are Euclidean: `a = d * (a / d) + a % d`
 -- with `0 <= a % d < |d|`, whatever the signs, so `-18 % 100` is `82`.
@@ -1057,13 +1057,13 @@ def Effect.pfix: [op: Type] -> [res: op -> Type] -> [req: Type] -> [ans: req -> 
 -- code, `IO.simulate` interprets them as data.
 ability IO where
   print: Text -> {IO} ()          -- writes the text, then a line ending
-  readLine: () -> {IO} (Maybe Text)  -- Nothing only at end of input
+  readLine: () -> {IO} (Option Text)  -- None only at end of input
   readAll: () -> {IO} Text          -- the rest of the input, all at once
 
 -- The first line of scripted input, if there is one.
-def IO.nextLine: List Text -> Maybe Text
-  | Nil       => Nothing
-  | Cons l ls => Just l
+def IO.nextLine: List Text -> Option Text
+  | Nil       => None
+  | Cons l ls => Some l
 
 -- All of the scripted input, as `IO.readAll` gives it: each line followed by a
 -- line feed, as a real interpreter would read it.
@@ -1071,8 +1071,8 @@ def IO.restOf (ins: List Text): Text :=
   MkText (List.concatMap (l => List.append (Text.toList l) ['\n']) ins)
 
 -- Runs a program against scripted input lines: each `IO.readLine` takes the
--- next one, and gives `Nothing` once they're used up; `IO.readAll` takes all
--- that are left (see `IO.restOf`), after which `IO.readLine` gives `Nothing`
+-- next one, and gives `None` once they're used up; `IO.readAll` takes all
+-- that are left (see `IO.restOf`), after which `IO.readLine` gives `None`
 -- and `IO.readAll` gives "". Records each `IO.print` payload, in order, with the
 -- result. A payload is one entry even if it contains a line feed: a real
 -- interpreter writes each payload followed by a line ending. The payloads
@@ -1113,8 +1113,8 @@ instance List.instDecEq [auto decEq: DecEq a]: DecEq (List a) :=
 instance Pair.instDecEq [auto decEqA: DecEq a] [auto decEqB: DecEq b]: DecEq (Pair a b) :=
   { decide = Pair.decEq (x y => DecEq.decide x y) (x y => DecEq.decide x y) }
 
-instance Maybe.instDecEq [auto decEq: DecEq a]: DecEq (Maybe a) :=
-  { decide = Maybe.decEq (x y => DecEq.decide x y) }
+instance Option.instDecEq [auto decEq: DecEq a]: DecEq (Option a) :=
+  { decide = Option.decEq (x y => DecEq.decide x y) }
 
 -- `x == y` says `x = y`.
 theorem DecEq.sound [auto decEq: DecEq a] (x: a) (y: a) (h: (x == y) = True): x = y :=
@@ -1382,37 +1382,37 @@ theorem Pair.compareWithTrans (ca: a -> a -> Ordering) (cb: b -> b -> Ordering)
       (e => Eq.sym (Eq.cong (t => ca x1 t) (ea x2 x3 e)))
       (tb y1 y2 y3) h1 h2
 
--- Optional values: `Nothing` first.
-def Maybe.compareWith (cmp: a -> a -> Ordering): Maybe a -> Maybe a -> Ordering
-  | Nothing, Nothing => Equal
-  | Nothing, Just y  => Less
-  | Just x,  Nothing => Greater
-  | Just x,  Just y  => cmp x y
+-- Optional values: `None` first.
+def Option.compareWith (cmp: a -> a -> Ordering): Option a -> Option a -> Ordering
+  | None, None => Equal
+  | None, Some y  => Less
+  | Some x,  None => Greater
+  | Some x,  Some y  => cmp x y
 
-theorem Maybe.compareWithEqual (cmp: a -> a -> Ordering) (equal: (x: a) -> (y: a) -> cmp x y = Equal -> x = y):
-    (m: Maybe a) -> (n: Maybe a) -> Maybe.compareWith cmp m n = Equal -> m = n
-  | Nothing, Nothing, h => rfl
-  | Nothing, Just y,  h => Void.exfalso (Ordering.lessNotEqual h)
-  | Just x,  Nothing, h => Void.exfalso (Ordering.greaterNotEqual h)
-  | Just x,  Just y,  h => Eq.cong Just (equal x y h)
+theorem Option.compareWithEqual (cmp: a -> a -> Ordering) (equal: (x: a) -> (y: a) -> cmp x y = Equal -> x = y):
+    (m: Option a) -> (n: Option a) -> Option.compareWith cmp m n = Equal -> m = n
+  | None, None, h => rfl
+  | None, Some y,  h => Void.exfalso (Ordering.lessNotEqual h)
+  | Some x,  None, h => Void.exfalso (Ordering.greaterNotEqual h)
+  | Some x,  Some y,  h => Eq.cong Some (equal x y h)
 
-theorem Maybe.compareWithFlip (cmp: a -> a -> Ordering) (flip: (x: a) -> (y: a) -> cmp y x = Ordering.flip (cmp x y)):
-    (m: Maybe a) -> (n: Maybe a) -> Maybe.compareWith cmp n m = Ordering.flip (Maybe.compareWith cmp m n)
-  | Nothing, Nothing => rfl
-  | Nothing, Just y  => rfl
-  | Just x,  Nothing => rfl
-  | Just x,  Just y  => flip x y
+theorem Option.compareWithFlip (cmp: a -> a -> Ordering) (flip: (x: a) -> (y: a) -> cmp y x = Ordering.flip (cmp x y)):
+    (m: Option a) -> (n: Option a) -> Option.compareWith cmp n m = Ordering.flip (Option.compareWith cmp m n)
+  | None, None => rfl
+  | None, Some y  => rfl
+  | Some x,  None => rfl
+  | Some x,  Some y  => flip x y
 
-theorem Maybe.compareWithTrans (cmp: a -> a -> Ordering)
+theorem Option.compareWithTrans (cmp: a -> a -> Ordering)
     (trans: (x: a) -> (y: a) -> (z: a) -> cmp x y = Less -> cmp y z = Less -> cmp x z = Less):
-    (m: Maybe a) -> (n: Maybe a) -> (o: Maybe a) ->
-    Maybe.compareWith cmp m n = Less -> Maybe.compareWith cmp n o = Less -> Maybe.compareWith cmp m o = Less
-  | Nothing, Nothing, o,       h1, h2 => Void.exfalso (Ordering.equalNotLess h1)
-  | Nothing, Just y,  Nothing, h1, h2 => Void.exfalso (Ordering.greaterNotLess h2)
-  | Nothing, Just y,  Just z,  h1, h2 => rfl
-  | Just x,  Nothing, o,       h1, h2 => Void.exfalso (Ordering.greaterNotLess h1)
-  | Just x,  Just y,  Nothing, h1, h2 => Void.exfalso (Ordering.greaterNotLess h2)
-  | Just x,  Just y,  Just z,  h1, h2 => trans x y z h1 h2
+    (m: Option a) -> (n: Option a) -> (o: Option a) ->
+    Option.compareWith cmp m n = Less -> Option.compareWith cmp n o = Less -> Option.compareWith cmp m o = Less
+  | None, None, o,       h1, h2 => Void.exfalso (Ordering.equalNotLess h1)
+  | None, Some y,  None, h1, h2 => Void.exfalso (Ordering.greaterNotLess h2)
+  | None, Some y,  Some z,  h1, h2 => rfl
+  | Some x,  None, o,       h1, h2 => Void.exfalso (Ordering.greaterNotLess h1)
+  | Some x,  Some y,  None, h1, h2 => Void.exfalso (Ordering.greaterNotLess h2)
+  | Some x,  Some y,  Some z,  h1, h2 => trans x y z h1 h2
 
 -- Characters, by scalar value.
 def Char.compare (x: Char) (y: Char): Ordering := Nat.compare (Char.toNat x) (Char.toNat y)
@@ -1586,11 +1586,11 @@ instance List.instOrd [auto ord: Ord a]: Ord (List a) :=
     (List.compareLexFlip Ord.compare ord.flip)
     (List.compareLexTrans Ord.compare ord.equal ord.trans)
 
-instance Maybe.instOrd [auto ord: Ord a]: Ord (Maybe a) :=
-  Ord.fromCompare (Maybe.compareWith Ord.compare)
-    (Maybe.compareWithEqual Ord.compare ord.equal)
-    (Maybe.compareWithFlip Ord.compare ord.flip)
-    (Maybe.compareWithTrans Ord.compare ord.trans)
+instance Option.instOrd [auto ord: Ord a]: Ord (Option a) :=
+  Ord.fromCompare (Option.compareWith Ord.compare)
+    (Option.compareWithEqual Ord.compare ord.equal)
+    (Option.compareWithFlip Ord.compare ord.flip)
+    (Option.compareWithTrans Ord.compare ord.trans)
 
 instance Pair.instOrd [auto ordA: Ord a] [auto ordB: Ord b]: Ord (Pair a b) :=
   Ord.fromCompare (Pair.compareWith Ord.compare Ord.compare)
@@ -1747,7 +1747,7 @@ def Show.startsBracketed (c: Char): Bool :=
   else Nat.equal (Char.toNat c) 39
 
 -- An argument of a constructor: bracketed when it has spaces and isn't
--- already one piece (`Just (Just 1)`, `Just (-5)`, `Just [1, 2]`).
+-- already one piece (`Some (Some 1)`, `Some (-5)`, `Some [1, 2]`).
 def Show.argOf (t: Text): List Char -> Text
   | Nil       => t
   | Cons c cs =>
@@ -1770,9 +1770,9 @@ def Show.items (f: a -> Text): List a -> Text
 def Show.list (f: a -> Text) (xs: List a): Text :=
   Text.append "[" (Text.append (Show.items f xs) "]")
 
-def Maybe.showWith (f: a -> Text): Maybe a -> Text
-  | Nothing => "Nothing"
-  | Just x  => Text.append "Just " (Show.arg (f x))
+def Option.showWith (f: a -> Text): Option a -> Text
+  | None => "None"
+  | Some x  => Text.append "Some " (Show.arg (f x))
 
 instance Nat.instShow: Show Nat := Show.fromText Nat.toText
 
@@ -1789,8 +1789,8 @@ instance Ordering.instShow: Show Ordering := Show.fromText Ordering.toText
 instance List.instShow [auto show: Show a]: Show (List a) :=
   Show.fromText (xs => Show.list (x => Show.toSource x) xs)
 
-instance Maybe.instShow [auto show: Show a]: Show (Maybe a) :=
-  Show.fromText (Maybe.showWith (x => Show.toSource x))
+instance Option.instShow [auto show: Show a]: Show (Option a) :=
+  Show.fromText (Option.showWith (x => Show.toSource x))
 
 def Pair.showWith (f: a -> Text) (g: b -> Text): Pair a b -> Text
   | MkPair x y => Text.append "(" (Text.append (f x) (Text.append ", " (Text.append (g y) ")")))

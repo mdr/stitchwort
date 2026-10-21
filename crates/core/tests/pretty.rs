@@ -247,20 +247,20 @@ fn prints_integers_as_signed_literals() {
 fn brackets_a_negative_where_an_argument_needs_it() {
     let mut p = Prelude::new();
     let int = int_type(&mut p, true);
-    let maybe = data(&mut p.g, "Maybe", vec![("a", ty())], Sort::Type(0));
+    let maybe = data(&mut p.g, "Option", vec![("a", ty())], Sort::Type(0));
     stitchwort_core::check::define_ctors(
         &mut p.g,
         maybe,
-        vec![ctor("Nothing", vec![]), ctor("Just", vec![("value", v(0))])],
+        vec![ctor("None", vec![]), ctor("Some", vec![("value", v(0))])],
     )
-    .expect("Maybe");
+    .expect("Option");
     let neg = Term::ctor(int, 1, vec![p.num(4)]);
     let pos = Term::ctor(int, 0, vec![p.num(5)]);
     assert_eq!(
         show(&p, &[], &Term::ctor(maybe, 1, vec![neg.clone()])),
-        "Just (-5)"
+        "Some (-5)"
     );
-    assert_eq!(show(&p, &[], &Term::ctor(maybe, 1, vec![pos])), "Just 5");
+    assert_eq!(show(&p, &[], &Term::ctor(maybe, 1, vec![pos])), "Some 5");
     // Looser than application, tighter than `+`'s right operand.
     let sum = p.plus(neg.clone(), neg);
     assert_eq!(show(&p, &[], &sum), "-5 + (-5)");

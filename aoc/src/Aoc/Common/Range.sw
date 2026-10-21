@@ -5,13 +5,13 @@ namespace Aoc.Common
 -- A range of ids, both ends included: "3-5" is `{ from = 3, to = 5 }`.
 type Range = { from: Nat, to: Nat }
 
-def Range.parse (t: Text): Maybe Range :=
+def Range.parse (t: Text): Option Range :=
   match (t.split '-').map Text.toNat with
-    | [Just from, Just to] => Just { from, to }
-    | _                    => Nothing
+    | [Some from, Some to] => Some { from, to }
+    | _                    => None
 
-test "parse" := Range.parse "3-5" == Just { from = 3, to = 5 }
-test "parse junk" := Range.parse "4-x" == Nothing
+test "parse" := Range.parse "3-5" == Some { from = 3, to = 5 }
+test "parse junk" := Range.parse "4-x" == None
 
 def Range.contains (r: Range) (id: Nat): Bool := r.from <= id && id <= r.to
 

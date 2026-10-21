@@ -2,12 +2,12 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-LET-REFUTABLE] Error: this pattern doesn't match every `Maybe Text`: it doesn't match `Nothing`
+[E-LET-REFUTABLE] Error: this pattern doesn't match every `Option Text`: it doesn't match `None`
    ╭─[ reject/let-refutable-effect.sw:4:7 ]
    │
- 4 │   let Just l := IO.readLine()
+ 4 │   let Some l := IO.readLine()
    │       ───┬──  
-   │          ╰──── doesn't match `Nothing`
+   │          ╰──── doesn't match `None`
    │ 
    │ Note: use `match` to say what happens otherwise
 ───╯

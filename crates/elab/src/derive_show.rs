@@ -14,7 +14,7 @@
 //!
 //! Elements are shown with `toSource`. A constructor is its name, then its
 //! fields, each in brackets when it has spaces and isn't already one piece
-//! (`Node (Leaf 1) (Leaf 2)`, `Just (-5)`); a record is `{ name = "tea",
+//! (`Node (Leaf 1) (Leaf 2)`, `Some (-5)`); a record is `{ name = "tea",
 //! price = 3 }`, and `{}` with nothing to show.
 //!
 //! ```text

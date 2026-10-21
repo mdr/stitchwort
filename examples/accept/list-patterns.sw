@@ -46,11 +46,11 @@ def nested: List (List Nat) -> Nat
 
 test "nestedTwo" := nested [[1], [2, 3]] == 6
 
-def justs: List (Maybe Nat) -> Nat
-  | [Just a, Nothing] => a
+def justs: List (Option Nat) -> Nat
+  | [Some a, None] => a
   | _ => 0
 
-test "justsOne" := justs [Just 4, Nothing] == 4
+test "justsOne" := justs [Some 4, None] == 4
 
 -- `let` and lambda patterns must cover their type, and no list pattern does
 -- (see reject/list-pattern-let-refutable.sw), so lists go in `match`.

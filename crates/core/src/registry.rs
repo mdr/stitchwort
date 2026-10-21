@@ -171,14 +171,14 @@ builtins! {
     FromYes = "Decidable.fromYes": Def,
     ToBool = "Decidable.toBool": Def,
     ElimDec = "Decidable.elim": Def,
-    // Lists, `Maybe`, pairs
+    // Lists, `Option`, pairs
     List = "List": Data,
     Nil = "Nil": Ctor(Builtin::List),
     Cons = "Cons": Ctor(Builtin::List),
     Append = "List.append": Def,
-    Maybe = "Maybe": Data,
-    Nothing = "Nothing": Ctor(Builtin::Maybe),
-    Just = "Just": Ctor(Builtin::Maybe),
+    Option = "Option": Data,
+    None = "None": Ctor(Builtin::Option),
+    Some = "Some": Ctor(Builtin::Option),
     Pair = "Pair": Data,
     MkPair = "MkPair": Ctor(Builtin::Pair),
     Fst = "Pair.fst": Def,

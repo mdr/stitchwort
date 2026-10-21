@@ -1,4 +1,4 @@
--- `==` on lists, pairs (tuples) and `Maybe`, whenever their elements have
+-- `==` on lists, pairs (tuples) and `Option`, whenever their elements have
 -- `==`: their `DecEq` instances ask for the elements' instance.
 
 test "lists of numbers" := [1, 2, 3] == [1, 2, 3]
@@ -17,30 +17,30 @@ test "pairs, second differs" := Bool.not ((1, "one") == (1, "uno"))
 test "triples" := (1, True, "x") == (1, True, "x")
 test "triples, last differs" := Bool.not ((1, True, "x") == (1, True, "y"))
 
-test "Maybe Int" := Just (Int.neg 3) == Just (Int.neg 3)
-test "Maybe Int, different" := Bool.not (Just (Int.neg 3) == Just 3)
-test "Nothing and Just" := Bool.not (Just (Int.neg 3) == Nothing)
-test "Nothing" := List.maximum ([]: List Nat) == Nothing
+test "Option Int" := Some (Int.neg 3) == Some (Int.neg 3)
+test "Option Int, different" := Bool.not (Some (Int.neg 3) == Some 3)
+test "None and Some" := Bool.not (Some (Int.neg 3) == None)
+test "None" := List.maximum ([]: List Nat) == None
 
-test "nested" := [Just (1, ["a"]), Nothing] == [Just (1, ["a"]), Nothing]
-test "nested, different" := Bool.not ([Just (1, ["a"]), Nothing] == [Just (1, ["b"]), Nothing])
+test "nested" := [Some (1, ["a"]), None] == [Some (1, ["a"]), None]
+test "nested, different" := Bool.not ([Some (1, ["a"]), None] == [Some (1, ["b"]), None])
 test "zip" := [1, 2].zip ["a", "b"] == [(1, "a"), (2, "b")]
 
 -- In a definition, too, not just at compile time.
-def sameShape (xs: List (Maybe Nat)) (ys: List (Maybe Nat)): Bool := xs == ys
+def sameShape (xs: List (Option Nat)) (ys: List (Option Nat)): Bool := xs == ys
 
-test "at run time" := sameShape [Just 1, Nothing] [Just 1, Nothing]
-test "at run time, different" := Bool.not (sameShape [Just 1] [Just 2])
+test "at run time" := sameShape [Some 1, None] [Some 1, None]
+test "at run time, different" := Bool.not (sameShape [Some 1] [Some 2])
 
--- A record whose fields are a list, a tuple and a `Maybe` gets `==` too.
-type Entry = { ids: List Nat, pair: (Nat, Text), delta: Maybe Int }
+-- A record whose fields are a list, a tuple and a `Option` gets `==` too.
+type Entry = { ids: List Nat, pair: (Nat, Text), delta: Option Int }
 
-def entry: Entry := { ids = [1, 2], pair = (3, "x"), delta = Just (Int.neg 4) }
+def entry: Entry := { ids = [1, 2], pair = (3, "x"), delta = Some (Int.neg 4) }
 
-test "record with containers" := entry == { ids = [1, 2], pair = (3, "x"), delta = Just (Int.neg 4) }
+test "record with containers" := entry == { ids = [1, 2], pair = (3, "x"), delta = Some (Int.neg 4) }
 test "record, list differs" := Bool.not (entry == { entry | ids = [2, 1] })
 test "record, tuple differs" := Bool.not (entry == { entry | pair = (3, "y") })
-test "record, Maybe differs" := Bool.not (entry == { entry | delta = Nothing })
+test "record, Option differs" := Bool.not (entry == { entry | delta = None })
 
 -- A record with a record field gets `==` too.
 type Tagged = { tag: Text, entry: Entry }

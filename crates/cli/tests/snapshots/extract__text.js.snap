@@ -395,14 +395,14 @@ const encode = (t, v) => {
   }
 };
 
-const info$Std$dMaybe = datatype("Maybe");
+const info$Std$dOption = datatype("Option");
 const info$Std$dOrdering = datatype("Ordering");
 const info$Std$dPair = datatype("Pair");
 const info$Main$dPerson = datatype("Person");
 const info$Main$dLocated = datatype("Located");
-define(info$Std$dMaybe, [
-  ["Nothing", []],
-  ["Just", [["value", param(0)]]],
+define(info$Std$dOption, [
+  ["None", []],
+  ["Some", [["value", param(0)]]],
 ]);
 define(info$Std$dOrdering, [
   ["Less", []],
@@ -520,7 +520,7 @@ const $Std$dChar$dtoNat = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dChar$dfromNat = (v0) => $Std$dDecidable$delim((((v1) => $Std$dBool$ddecEq(v1)({ tag: "True" })))($Std$dChar$disScalar(v0)))(((v1) => ({ tag: "Just", value: { tag: "MkChar", code: v0 } })))(((v1) => ({ tag: "Nothing" })));
+const $Std$dChar$dfromNat = (v0) => $Std$dDecidable$delim((((v1) => $Std$dBool$ddecEq(v1)({ tag: "True" })))($Std$dChar$disScalar(v0)))(((v1) => ({ tag: "Some", value: { tag: "MkChar", code: v0 } })))(((v1) => ({ tag: "None" })));
 const $Std$dChar$ddecEqFrom = (v0) => (v1) => (v2) => {
   switch (v2.tag) {
     case "Yes": {
@@ -547,10 +547,10 @@ const $Std$dText$dlength = (t) => {
 const $Std$dText$disEmpty = (t) => ({ tag: t === "" ? "True" : "False" });
 const $Std$dText$ddecEq = (a) => (b) => ({ tag: a === b ? "Yes" : "No" });
 const $Std$dText$duncons = (t) => {
-  if (t === "") return { tag: "Nothing" };
+  if (t === "") return { tag: "None" };
   const code = t.codePointAt(0);
   const c = { tag: "MkChar", code: BigInt(code) };
-  return { tag: "Just", value: { tag: "MkPair", fst: c, snd: t.slice(code > 0xffff ? 2 : 1) } };
+  return { tag: "Some", value: { tag: "MkPair", fst: c, snd: t.slice(code > 0xffff ? 2 : 1) } };
 };
 const $Std$dText$dfold = (f) => (z) => (t) => {
   let acc = z;
@@ -580,12 +580,12 @@ const $Std$dText$dtrim = (t) => {
 };
 const $Std$dNat$dtoText = (n) => n.toString();
 const $Std$dText$dtoNat = (t) => {
-  if (t === "") return { tag: "Nothing" };
+  if (t === "") return { tag: "None" };
   for (let i = 0; i < t.length; i++) {
     const unit = t.charCodeAt(i);
-    if (unit < 48 || unit > 57) return { tag: "Nothing" };
+    if (unit < 48 || unit > 57) return { tag: "None" };
   }
-  return { tag: "Just", value: BigInt(t) };
+  return { tag: "Some", value: BigInt(t) };
 };
 const $Std$dText$dsplit = (s) => (t) => listOf(t.split(encodeChar(s)));
 const $Std$dText$djoin = (s) => (ts) => {
@@ -695,10 +695,10 @@ const $Main$drename = (v0) => (v1) => {
 };
 const $Main$dorEmpty = (v0) => {
   switch (v0.tag) {
-    case "Nothing": {
+    case "None": {
       return "";
     }
-    case "Just": {
+    case "Some": {
       const v1 = v0.value;
       return v1;
     }
@@ -754,12 +754,12 @@ const $Main$dleadingChar = (v0) => {
   const v1 = charsOfText(v0);
   switch (v1.tag) {
     case "Nil": {
-      return { tag: "Nothing" };
+      return { tag: "None" };
     }
     case "Cons": {
       const v2 = v1.head;
       const v3 = v1.tail;
-      return { tag: "Just", value: v2 };
+      return { tag: "Some", value: v2 };
     }
   }
   throw new Error("unreachable");
@@ -826,7 +826,7 @@ function $$codeOf(arg0) {
 function $$charOf(arg0) {
   try {
     const v0 = decode(NAT, arg0, "n");
-    return encode(data(info$Std$dMaybe, [CHAR]), $Main$dcharOf(v0));
+    return encode(data(info$Std$dOption, [CHAR]), $Main$dcharOf(v0));
   } catch (e) {
     throw outOfResources("charOf", e);
   }
@@ -894,7 +894,7 @@ function $$trim(arg0) {
 function $$toNat(arg0) {
   try {
     const v0 = decode(TEXT, arg0, "t");
-    return encode(data(info$Std$dMaybe, [NAT]), $Main$dtoNat(v0));
+    return encode(data(info$Std$dOption, [NAT]), $Main$dtoNat(v0));
   } catch (e) {
     throw outOfResources("toNat", e);
   }
@@ -912,7 +912,7 @@ function $$fromNat(arg0) {
 function $$uncons(arg0) {
   try {
     const v0 = decode(TEXT, arg0, "t");
-    return encode(data(info$Std$dMaybe, [data(info$Std$dPair, [CHAR, TEXT])]), $Main$duncons(v0));
+    return encode(data(info$Std$dOption, [data(info$Std$dPair, [CHAR, TEXT])]), $Main$duncons(v0));
   } catch (e) {
     throw outOfResources("uncons", e);
   }
@@ -967,7 +967,7 @@ function $$rename(arg0, arg1) {
 
 function $$orEmpty(arg0) {
   try {
-    const v0 = decode(data(info$Std$dMaybe, [TEXT]), arg0, "arg0");
+    const v0 = decode(data(info$Std$dOption, [TEXT]), arg0, "arg0");
     return encode(TEXT, $Main$dorEmpty(v0));
   } catch (e) {
     throw outOfResources("orEmpty", e);
@@ -1060,7 +1060,7 @@ function $$firstField(arg0, arg1) {
 function $$trimmedHead(arg0) {
   try {
     const v0 = decode(TEXT, arg0, "t");
-    return encode(data(info$Std$dMaybe, [CHAR]), $Main$dtrimmedHead(v0));
+    return encode(data(info$Std$dOption, [CHAR]), $Main$dtrimmedHead(v0));
   } catch (e) {
     throw outOfResources("trimmedHead", e);
   }

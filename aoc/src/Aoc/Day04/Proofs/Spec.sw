@@ -70,9 +70,9 @@ def part2Spec (grid: Grid): Nat :=
   let start := rollCount grid (cellsOf grid)
   start - rollCount grid (rounds grid start (cellsOf grid))
 
-def exampleGrid: Grid := Maybe.withDefault ({ height = 0, width = 0, rows = VNil }: Grid) (parseGrid example)
+def exampleGrid: Grid := Option.getOrElse ({ height = 0, width = 0, rows = VNil }: Grid) (parseGrid example)
 
-def plusGrid: Grid := Maybe.withDefault ({ height = 0, width = 0, rows = VNil }: Grid) (parseGrid [".@.", "@@@", ".@."])
+def plusGrid: Grid := Option.getOrElse ({ height = 0, width = 0, rows = VNil }: Grid) (parseGrid [".@.", "@@@", ".@."])
 
 test "spec on the example" := part1Spec exampleGrid == 13
 test "spec cells" := ((cellsOf exampleGrid) 0 2, (cellsOf exampleGrid) 0 0, (cellsOf exampleGrid) 10 2, neighbours exampleGrid (cellsOf exampleGrid) 0 2) == (Roll, Floor, Floor, 3)

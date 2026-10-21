@@ -43,10 +43,10 @@ Draft 1 stated several guarantees more strongly than its rules justified. This d
 | `withFuel` | Generic handler for `Partial` | Postponed. Explicit fuel arguments for now. `Partial` can't be handled by user code |
 | Erasure | Open question | `Prop`-based, with restricted elimination |
 | `auto` | "By computation" | Via a `Decidable` mechanism, which also produces the JS boundary checks |
-| Division | `n / 0 = 0` or a proof, undecided | `/` needs a non-zero proof. `divideChecked` returns `Optional` |
+| Division | `n / 0 = 0` or a proof, undecided | `/` needs a non-zero proof. `divideChecked` returns `Option` |
 | Implicit arguments | `{a: Type}` | `[a: Type]`. `{a: Type}` was ambiguous with a one-field record type |
 | JS integers | `number`, checked | `bigint`. Inputs that pass validation could produce outputs a `number` can't represent |
-| JS `Optional` | `a \| null` | Tagged. `null` merged `None` and `Some None` |
+| JS `Option` | `a \| null` | Tagged. `null` merged `None` and `Some None` |
 | JS inputs | Validated in place | Decoded into an owned copy first, then validated |
 | Hashing | Body + dependency hashes | Whole declaration, recursive groups, nominal identity, explicit cache trust |
 | Dependent records | Mixed with row-polymorphic records | Kept separate. Updates must re-establish dependent fields |
@@ -142,7 +142,7 @@ meaning "evaluating `t` produces a value of type `A`, and may perform the abilit
 | Pure function `f: A -> B` | Applying it to any value of `A` terminates. |
 | Function returning a partial closure, `mk: Nat -> (() -> {Partial} Nat)` | Calling `mk` terminates (`mk 3: … ! {}`). Calling the closure it returns is not covered. |
 | Open ability row, `g: A -> {e} B` | Terminates once every ability in `e` is handled by an admissible handler ([§8](#8-abilities-and-handlers)). The handled computation is then covered. |
-| `Abort` | May stop without producing a `B`. Once handled (into `Optional B`), covered. |
+| `Abort` | May stop without producing a `B`. Once handled (into `Option B`), covered. |
 | `IO` and host-provided operations | Trusted contracts. They may block (waiting for input or the network). The guarantee covers the computation between them, not the operations themselves. |
 | Depends on assumptions | The guarantee holds only if the listed assumptions are true. |
 
@@ -365,13 +365,13 @@ When termination checking fails, the error should say *which call* failed and *w
 For now, bounded versions of partial algorithms take an explicit fuel argument. They terminate by structural recursion on the fuel, so no special support is needed:
 
 ```
-def collatzFuel: Nat -> Nat -> Optional Nat
+def collatzFuel: Nat -> Nat -> Option Nat
   | 0,         _ => None
   | Succ fuel, 1 => Some 0
   | Succ fuel, n => map (+ 1) (collatzFuel fuel (next n))
 ```
 
-A generic `withFuel: Nat -> (() -> {Partial | e} a) -> {e} Optional a`, which bounds *any* partial computation, is attractive but postponed. It needs:
+A generic `withFuel: Nat -> (() -> {Partial | e} a) -> {e} Option a`, which bounds *any* partial computation, is attractive but postponed. It needs:
 
 - **Ticks in the core semantics.** Every unbounded recursion must pass through a "tick", and the kernel must check this. It can't be optional instrumentation added by the front-end.
 - **No opaque divergence.** A foreign function that loops internally can't be interrupted between ticks, so foreign `Partial` must be excluded or treated differently.
@@ -653,7 +653,7 @@ Resuming more than once doesn't by itself cause divergence. Exploring both branc
 |---|---|
 | `Partial` | Might not terminate ([§5](#5-totality-and-partiality)). Not an ability with operations but a mode: a partial computation is an `Effect.Delay`, which only the runtime runs (`stitchwort run`, the playground), one recursive call (tick) at a time ([docs/proposals/partial.md](docs/proposals/partial.md)) |
 | `IO` | The console (`IO.print`, `IO.readLine`, `IO.readAll`). Performed for real only by the runtime, at `main`; Stitchwort handlers may interpret it as data, as the prelude's `IO.simulate` does ([docs/proposals/text-and-io.md](docs/proposals/text-and-io.md)). A trusted contract that may block |
-| `Abort` | Stop early. Handled into `Optional` or `Either` |
+| `Abort` | Stop early. Handled into `Option` or `Either` |
 | `State s` | State, handled purely. `s` must be data-only |
 
 ---
@@ -704,10 +704,10 @@ Records come in two kinds, kept separate at first. The plan, in stages, is [docs
 - `Nat` and `Int` are arbitrary-precision integers.
 - **Division and remainder need a non-zero divisor.** `/` and `%` take an implicit proof `[auto ok: d != 0]`. For literal divisors (`n / 2`) or divisors matched as `Succ _`, the compiler finds it automatically. For unknown divisors there are two routes:
   - establish the fact with a branch (`if h: d != 0 then n / d else …`), or
-  - use `divideChecked: Nat -> Nat -> Optional Nat` (and `remainderChecked`).
+  - use `divideChecked: Nat -> Nat -> Option Nat` (and `remainderChecked`).
 
   The laws of `/` and `%` (e.g. `a % b < b` when `b != 0`) are part of the standard library, since proofs like `gcd`'s termination depend on them.
-- **`Nat` subtraction stops at zero** (`3 - 5 = 0`), documented prominently, with `subtractChecked: Nat -> Nat -> Optional Nat` as the alternative. Code that needs negative results should use `Int`.
+- **`Nat` subtraction stops at zero** (`3 - 5 = 0`), documented prominently, with `subtractChecked: Nat -> Nat -> Option Nat` as the alternative. Code that needs negative results should use `Int`.
 - **`Int` division is Euclidean.** `/` and `%` on `Int` are `Int.div` and `Int.mod`: `a = d * (a / d) + a % d` with `0 <= a % d < |d|` for every non-zero divisor, so `(-18) % 100 = 82` and `(-7) / 3 = -3`. The truncating and flooring variants are separately named, with the same `[auto ok: d != 0]` argument: `Int.tdiv` and `Int.tmod` round toward zero, and `Int.fdiv` and `Int.fmod` round toward negative infinity. The laws are in the standard library (`Int.divAddMod`, `Int.modNonneg`, `Int.modLtAbs`). Extracted JS uses `BigInt`'s truncating operators with a one-step correction, so it gives the same results.
 - **Literals are typed by context.** A numeral is a `Nat` unless an expected type, another operand or a minus sign makes it an `Int`; a negative literal such as `-5` is always an `Int`. So `let x: Int := 5` is an `Int`, while `let n := 5` is a `Nat`.
 - **The `3 - 5` trap.** `Nat` subtraction stops at zero, so `let d := 3 - 5` with no type anywhere is a `Nat` and `d` is `0`; write `let d: Int := 3 - 5` to get `-2`. A later `d + i` with `i: Int` is a type error, because the binding keeps its `Nat` type.
@@ -782,7 +782,7 @@ $ stitchwort build --js src/pricing.sw -o dist/
 The first extraction milestone supports a deliberately narrow subset. An **exportability check** refuses an `export` unless all of these hold:
 
 1. **Pure.** The exported function performs no abilities.
-2. **Concrete boundary types with codecs.** Every input and output type is fully concrete (no type parameters such as `identity: [a: Type] -> a -> a`), and has a supported encoder and decoder: `Nat`, `Int`, `Bool`, `Text`, `Char`, `List`, and data types built from these (such as the prelude's `Maybe` and `Pair`). `Optional` and records will join them once they're built. No functions, no `Float`. Polymorphic helpers are fine *inside* the library, just not at the boundary.
+2. **Concrete boundary types with codecs.** Every input and output type is fully concrete (no type parameters such as `identity: [a: Type] -> a -> a`), and has a supported encoder and decoder: `Nat`, `Int`, `Bool`, `Text`, `Char`, `List`, and data types built from these (such as the prelude's `Option` and `Pair`). Records will join them once they're built. No functions, no `Float`. Polymorphic helpers are fine *inside* the library, just not at the boundary.
 3. **Decidable preconditions.** Every erased proof argument of the exported function has a registered decision procedure ([§6](#6-proofs-universes-and-erasure)), which becomes a runtime check.
 4. **Assumption-free.** The exported function, everything it depends on, *and the decision procedures used by its validators* are assumption-free ([§3](#3-precise-guarantees)). Otherwise an assumed proof hidden inside a decision procedure could let invalid input through as validated, and an assumed falsehood can make extracted code wrong or non-terminating even though the assumption itself is erased. (Rocq's extraction documentation warns about exactly this.) For example, this is refused:
 
@@ -823,19 +823,19 @@ The guarantee starts *after* decoding succeeds. It makes no promise that decodin
 | `List a` | `readonly A[]` (copied on decode; `readonly` is only a hint to TS callers) |
 | a record `type Person = { name: Text, age: Nat }` | `export type Person = { readonly name: string; readonly age: bigint }`: no tag, keys in declared order |
 | an anonymous record `{ name: Text, age: Nat }` (planned) | `{ readonly age: bigint; readonly name: string }`, keys in sorted order |
-| `Optional a` (planned; for now the prelude's `Maybe a` is an ordinary data type) | `{ tag: "None" } \| { tag: "Some"; value: A }` (for now, `Maybe<A>`: `{ tag: "Nothing" } \| { tag: "Just"; value: A }`) |
+| `Option a` | `{ tag: "None" } \| { tag: "Some"; value: A }` (`Option<A>` in TypeScript) |
 | sum type `Square … \| Rect …` | `{ tag: "Square"; side: bigint } \| { tag: "Rect"; … }` (exported constructors must name their fields; a field called `tag` is `$tag`, see [Names](#names)) |
 | proof arguments and fields | omitted (a record's proof fields are re-established by decision procedures when decoded; other data types with proof fields can't cross yet) |
-| data types with parameters, such as `Maybe Text` or `Pair Char Nat` | `Maybe<string>`, `Pair<string, bigint>`: generic aliases, whose codecs take the arguments' codecs |
+| data types with parameters, such as `Option Text` or `Pair Char Nat` | `Option<string>`, `Pair<string, bigint>`: generic aliases, whose codecs take the arguments' codecs |
 | indexed families (`Vec a n`), anywhere in an export's inputs or result: directly, through a synonym, in a container or in a record field | not exportable yet (`E-EXPORT`): decoding would have to check the indices. An export may use them internally |
 | functions, abilities, `Float`, type parameters of the exported function | not exportable yet |
 
 Notes:
 
 - **Integers are `bigint`** for now. With `number`, an input that passes validation could produce an output too large to represent exactly: `addTwo 9007199254740991` would give `9007199254740993`, which a JS `number` can't hold. Plain-`number` options (via bounded types) can come later. `Int` division and remainder are Euclidean, not `BigInt`'s truncating pair: the generated code applies a one-step correction to `BigInt`'s `/` and `%`, while `Int.tdiv` and `Int.tmod` use them directly ([§10](#10-numbers), [integers.md](docs/proposals/integers.md#as-built-stage-5)).
-- **`Optional` will be tagged**, as `Maybe` is. Mapping it to `A | null` would make `None` and `Some None` both `null` for `Optional (Optional Nat)`. A `null`-based encoding can be added later as an optimisation where the payload can never itself be `null`.
+- **`Option` is tagged.** Mapping it to `A | null` would make `None` and `Some None` both `null` for `Option (Option Nat)`. A `null`-based encoding can be added later as an optimisation where the payload can never itself be `null`.
 - **`Text`** is a sequence of Unicode scalar values, so decoding refuses a JS string containing an unpaired surrogate (which JS allows) with `StitchwortInputError`, rather than repairing it. Encoding then gives back exactly the string that was decoded. See [the text proposal](docs/proposals/text-and-io.md#the-javascript-boundary). Inside the generated code, too, a `Text` is that well-formed string (strings are immutable, so it needs no copy), and the prelude's text operations (`Text.length`, `==`, `Text.compare`, `Text.split`, `Text.join`, `Text.fold` and the rest) are native JS working on scalar values, not code units. Code that matches or builds `MkText cs` itself converts between the string and its `List Char` in a loop, only when `cs` is used ([compact text](docs/proposals/compact-text.md#as-built-stage-1)).
-- **Decoding and encoding don't recurse.** Each boundary type is described by data (`list(NAT)`, `data(info$Tree)`, `data(info$Maybe, [TEXT])`), and one loop in the generated module's runtime decodes or encodes a value of any of them, keeping its own stack. So a user's list a million long, or a tree a million deep, crosses the boundary both ways; what the exported function then does with it may still run out of stack ([Caveats](#caveats)). Decoding works depth first, reading each property once and in order, each completely before the next, so the first problem found is the same as a recursive decoder's. An error message gives the path to the problem (`order.items[2].price: expected a non-negative bigint`), summarised for deeply nested input: a run of the same step is written once with a count (`c(.tail ×999999).head`), and the middle of a long path that doesn't repeat is left out.
+- **Decoding and encoding don't recurse.** Each boundary type is described by data (`list(NAT)`, `data(info$Tree)`, `data(info$Option, [TEXT])`), and one loop in the generated module's runtime decodes or encodes a value of any of them, keeping its own stack. So a user's list a million long, or a tree a million deep, crosses the boundary both ways; what the exported function then does with it may still run out of stack ([Caveats](#caveats)). Decoding works depth first, reading each property once and in order, each completely before the next, so the first problem found is the same as a recursive decoder's. An error message gives the path to the problem (`order.items[2].price: expected a non-negative bigint`), summarised for deeply nested input: a run of the same step is written once with a count (`c(.tail ×999999).head`), and the middle of a long path that doesn't repeat is left out.
 
 ### Objects at the boundary
 
@@ -1058,7 +1058,7 @@ Reviewers' opinions are especially welcome here. The second review recommended s
 
 ### Naming
 
-13. **CLI name.** `stitchwort` is long. `stitch` clashes with an existing program-synthesis tool called Stitch. Maybe `sw`, `wort`, or something else?
+13. **CLI name.** `stitchwort` is long. `stitch` clashes with an existing program-synthesis tool called Stitch. Option `sw`, `wort`, or something else?
 
 ---
 

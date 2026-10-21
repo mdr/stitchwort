@@ -62,7 +62,7 @@ export def abs (x: Int): Int := Int.abs x
 
 export def toNat (x: Int): Nat := Int.toNat x
 
-export def toNatChecked (x: Int): Maybe Nat := Int.toNatChecked x
+export def toNatChecked (x: Int): Option Nat := Int.toNatChecked x
 
 export def sign (x: Int): Int := Int.sign x
 
@@ -70,7 +70,7 @@ export def ofNat (n: Nat): Int := Nat.toInt n
 
 export def toText (x: Int): Text := Int.toText x
 
-export def parse (t: Text): Maybe Int := Text.toInt t
+export def parse (t: Text): Option Int := Text.toInt t
 
 -- run: neg 5
 -- run: neg (-5)
@@ -145,15 +145,15 @@ export def fields: Int -> Nat
   | OfNat k => k
   | NegSucc k => k + 100
 
-export def maybeInt: Maybe Int -> Int
-  | Nothing => 0
-  | Just x => x * 2
+export def optionInt: Option Int -> Int
+  | None => 0
+  | Some x => x * 2
 
-export def negateAll (xs: List (Maybe Int)): List (Maybe Int) := List.map (m => Maybe.map Int.neg m) xs
+export def negateAll (xs: List (Option Int)): List (Option Int) := List.map (m => Option.map Int.neg m) xs
 
-export def firstNeg: List Int -> Maybe Int
-  | Nil => Nothing
-  | Cons x xs => if Int.less x 0 then Just x else firstNeg xs
+export def firstNeg: List Int -> Option Int
+  | Nil => None
+  | Cons x xs => if Int.less x 0 then Some x else firstNeg xs
 
 type Entry = { count: Nat, delta: Int }
 
@@ -182,9 +182,9 @@ export def entries: List Entry -> Int
 -- run: classify (-77)
 -- run: fields 5
 -- run: fields (-5)
--- run: maybeInt Nothing
--- run: maybeInt (Just (-4))
--- run: negateAll [Nothing, Just 3, Just (-3)]
+-- run: optionInt None
+-- run: optionInt (Some (-4))
+-- run: negateAll [None, Some 3, Some (-3)]
 -- run: firstNeg [3, -4, -5]
 -- run: firstNeg [3]
 -- run: apply { count = 3, delta = -10 }

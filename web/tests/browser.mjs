@@ -49,9 +49,9 @@ const SPIN = `def spin : Nat -> Nat
   | 0      => 0
   | Succ n => spin n
 
-def start : Maybe Text -> Nat
-  | Nothing => 1000000000000
-  | Just l  => 1000000000000
+def start : Option Text -> Nat
+  | None => 1000000000000
+  | Some l  => 1000000000000
 
 def main () : {IO} () :=
   IO.print "tick"
@@ -438,7 +438,7 @@ test("the JavaScript tab", async (page) => {
   await page.open();
   await page.untilChecked();
   await page.tab("js");
-  await page.until(`document.getElementById("output").textContent.includes("Nothing is exported")`);
+  await page.until(`document.getElementById("output").textContent.includes("None is exported")`);
   await page.pick("ex-js");
   await page.until(`document.getElementById("output").textContent.includes("ES module")`);
   const out = await page.output();
@@ -491,10 +491,10 @@ test("Run, reading all the input at once", async (page) => {
   await page.open();
   await page.untilChecked();
   // `IO.readAll` after a `IO.readLine` gives the rest, verbatim; `IO.readLine` after
-  // it gives `Nothing`.
-  await page.setSource(`def textOr : Maybe Text -> Text
-  | Nothing => "none"
-  | Just t  => t
+  // it gives `None`.
+  await page.setSource(`def textOr : Option Text -> Text
+  | None => "none"
+  | Some t  => t
 
 def main () : {IO} () :=
   IO.print (textOr (IO.readLine ()))

@@ -588,29 +588,29 @@ test "state inside choice" := List.length (allResults (u => runState 1 step)) ==
 test "choice inside state" := sndOf (runState 1 (u => allResults step)) == 11
 </script>
 <script type="text/plain" id="ex-main" data-title="Input and output: main">-- A program with input and output. `main` prints with `IO.print` and reads
--- lines with `IO.readLine`, which gives `Nothing` at the end of the input. Press
+-- lines with `IO.readLine`, which gives `None` at the end of the input. Press
 -- Run: the Run tab's box holds the input lines. The tests run the same `main`
 -- with `IO.simulate`, which takes the input as a list.
 
 -- The text, or a default at end of input.
-def textOr (d: Text): Maybe Text -> Text
-  | Nothing => d
-  | Just t  => t
+def textOr (d: Text): Option Text -> Text
+  | None => d
+  | Some t  => t
 
 -- Reports a line that should be a number, and goes on with the new total.
-def stepNumber (total: Nat) (l: Text): Maybe Nat -> (Nat -> {IO} Nat) -> {IO} Nat
-  | Nothing, more =>
+def stepNumber (total: Nat) (l: Text): Option Nat -> (Nat -> {IO} Nat) -> {IO} Nat
+  | None, more =>
     IO.print ("\"" ++ l ++ "\" isn't a number; skipped")
     more total
-  | Just n,  more =>
+  | Some n,  more =>
     IO.print ("  total: " ++ Nat.toText (total + n))
     more (total + n)
 
 -- What to do with a line, given the total so far. An empty line, or the end
 -- of input, stops.
-def step (total: Nat): Maybe Text -> (Nat -> {IO} Nat) -> {IO} Nat
-  | Nothing, more => total
-  | Just l,  more =>
+def step (total: Nat): Option Text -> (Nat -> {IO} Nat) -> {IO} Nat
+  | None, more => total
+  | Some l,  more =>
     if Text.isEmpty l then total else stepNumber total l (Text.toNat (Text.trim l)) more
 
 -- Adds the numbers on at most this many more lines. The bound keeps the
@@ -938,7 +938,7 @@ export def area: Shape -> Nat
     const main = project ? project.manifest.days[project.day].main : "main";
     runButton.title = `Run ${main} (Ctrl+Enter)`;
     runHint.textContent =
-      `Run calls ${project ? main : "main"} (). Its IO.readLine () gets the lines below, one at a time, then Nothing; ` +
+      `Run calls ${project ? main : "main"} (). Its IO.readLine () gets the lines below, one at a time, then None; ` +
       "IO.readAll () gets all that's left at once. " +
       `A run may print up to ${MAX_OUTPUT / 1024} KB and take up to ${RUN_SECONDS} s.` +
       (project ? " The input starts as the day's example." : "");

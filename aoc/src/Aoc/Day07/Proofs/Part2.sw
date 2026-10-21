@@ -68,7 +68,7 @@ theorem countsAre (w: Nat): (ls: List Text) -> Fits w ls -> (r: Nat) -> (c: Nat)
 
 -- Part 2 is right: for every input, the printed answer is the number of
 -- timelines of the particle from S.
-theorem part2Correct (lines: List Text): Maybe.map solvePart2 (parseManifold lines) = part2Spec lines :=
+theorem part2Correct (lines: List Text): Option.map solvePart2 (parseManifold lines) = part2Spec lines :=
   match e: findStart lines with
-    | Nothing           => rfl
-    | Just (MkPair r c) => Eq.cong Just (countsAre (gridWidth lines) (List.drop (r + 1) lines) (belowFits lines r) (r + 1) c)
+    | None           => rfl
+    | Some (MkPair r c) => Eq.cong Some (countsAre (gridWidth lines) (List.drop (r + 1) lines) (belowFits lines r) (r + 1) c)

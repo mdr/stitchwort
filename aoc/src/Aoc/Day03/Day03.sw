@@ -39,7 +39,7 @@ test "banks part 2" := (parseBanks example).map (joltage 12) == [987654321111, 8
 -- A bank of batteries: one digit per battery.
 def Bank: Type := List Nat
 
-def Bank.parse (t: Text): Bank := t.toList |> .mapMaybe Char.digitValue
+def Bank.parse (t: Text): Bank := t.toList |> .filterMap Char.digitValue
 
 test "parse" := Bank.parse "102" == [1, 0, 2]
 

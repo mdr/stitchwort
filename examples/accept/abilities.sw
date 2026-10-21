@@ -60,10 +60,10 @@ def allResults (prog: () -> {Choose | e} a): {e} List a :=
     | choose u, k    => List.append (k True) (k False)
 
 -- Never resumes.
-def toMaybe (prog: () -> {Abort | e} a): {e} Maybe a :=
+def toOption (prog: () -> {Abort | e} a): {e} Option a :=
   handle prog() with
-    | return x      => Just x
-    | abort u, k    => Nothing
+    | return x      => Some x
+    | abort u, k    => None
 
 -- Collects what's said, in order.
 def collect (prog: () -> {Log | e} a): {e} Pair (List Nat) a :=
@@ -107,13 +107,13 @@ test "a clause's own get goes to the outer handler" :=
 def safeDiv (n: Nat) (d: Nat): {Abort} Nat :=
   if h: d != 0 then n / d else fromEmpty (abort())
 
-def orZero: Maybe Nat -> Nat
-  | Nothing => 0
-  | Just x  => x
+def orZero: Option Nat -> Nat
+  | None => 0
+  | Some x  => x
 
-test "abort stops" := orZero (toMaybe (u => safeDiv 7 0)) == 0
+test "abort stops" := orZero (toOption (u => safeDiv 7 0)) == 0
 test "no abort" :=
-  orZero (toMaybe (u => safeDiv 100 (safeDiv 7 2))) == 33
+  orZero (toOption (u => safeDiv 100 (safeDiv 7 2))) == 33
 
 -- Order of operations: arguments run left to right, and lines in order.
 

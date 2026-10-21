@@ -68,17 +68,17 @@ def Vec.fromListN: (n: Nat) -> (xs: List a) -> List.length xs = n -> Vec a n
 
 def Vec.fromList (xs: List a): Vec a (List.length xs) := Vec.fromListN (List.length xs) xs rfl
 
--- The list as a vector of length n, or `Nothing` if its length isn't n.
-def Vec.ofList: (n: Nat) -> List a -> Maybe (Vec a n)
-  | Zero,   Nil       => Just VNil
-  | Succ k, Cons x xs => Maybe.map (rest => VCons x rest) (Vec.ofList k xs)
-  | _,      _         => Nothing
+-- The list as a vector of length n, or `None` if its length isn't n.
+def Vec.ofList: (n: Nat) -> List a -> Option (Vec a n)
+  | Zero,   Nil       => Some VNil
+  | Succ k, Cons x xs => Option.map (rest => VCons x rest) (Vec.ofList k xs)
+  | _,      _         => None
 
--- `f` of every element, or `Nothing` if any is `Nothing`: parsing a vector
+-- `f` of every element, or `None` if any is `None`: parsing a vector
 -- of lines into a vector of rows of a fixed width.
-def Vec.traverseMaybe (f: a -> Maybe b): Vec a n -> Maybe (Vec b n)
-  | VNil       => Just VNil
-  | VCons x xs => Maybe.andThen (y => Maybe.map (ys => VCons y ys) (Vec.traverseMaybe f xs)) (f x)
+def Vec.traverseOption (f: a -> Option b): Vec a n -> Option (Vec b n)
+  | VNil       => Some VNil
+  | VCons x xs => Option.flatMap (y => Option.map (ys => VCons y ys) (Vec.traverseOption f xs)) (f x)
 
 -- The element at a position.
 def Vec.get: Vec a n -> Fin n -> a
@@ -128,21 +128,21 @@ theorem Vec.toListFromListN: (n: Nat) -> (xs: List a) -> (ok: List.length xs = n
 
 theorem Vec.toListFromList (xs: List a): Vec.toList (Vec.fromList xs) = xs := Vec.toListFromListN (List.length xs) xs rfl
 
-theorem Vec.ofListCons (x: a) (y: a) (ys: Vec a k): (m: Maybe (Vec a k)) ->
-    Maybe.map (rest => VCons x rest) m = Just (VCons y ys) -> And (x = y) (m = Just ys)
-  | Nothing, h => Void.exfalso (Maybe.nothingNotJust (VCons y ys) h)
-  | Just w,  h =>
-    let e := Eq.cong (Maybe.withDefault (VCons x w)) h
-    Both (Eq.cong Vec.head e) (Eq.cong Just (Eq.cong Vec.tail e))
+theorem Vec.ofListCons (x: a) (y: a) (ys: Vec a k): (m: Option (Vec a k)) ->
+    Option.map (rest => VCons x rest) m = Some (VCons y ys) -> And (x = y) (m = Some ys)
+  | None, h => Void.exfalso (Option.noneNotSome (VCons y ys) h)
+  | Some w,  h =>
+    let e := Eq.cong (Option.getOrElse (VCons x w)) h
+    Both (Eq.cong Vec.head e) (Eq.cong Some (Eq.cong Vec.tail e))
 
 -- What `ofList` accepts is the list it was given.
-theorem Vec.ofListToList: (n: Nat) -> (xs: List a) -> (v: Vec a n) -> Vec.ofList n xs = Just v -> Vec.toList v = xs
+theorem Vec.ofListToList: (n: Nat) -> (xs: List a) -> (v: Vec a n) -> Vec.ofList n xs = Some v -> Vec.toList v = xs
   | Zero,   Nil,       VNil,       h => rfl
   | Succ k, Cons x xs, VCons y ys, h =>
     match Vec.ofListCons x y ys (Vec.ofList k xs) h with
       | Both xy rest => Eq.trans (Eq.cong (z => Cons z (Vec.toList ys)) (Eq.sym xy)) (Eq.cong (Cons x) (Vec.ofListToList k xs ys rest))
-  | Zero,   Cons x xs, v,          h => Void.exfalso (Maybe.nothingNotJust v h)
-  | Succ k, Nil,       v,          h => Void.exfalso (Maybe.nothingNotJust v h)
+  | Zero,   Cons x xs, v,          h => Void.exfalso (Option.noneNotSome v h)
+  | Succ k, Nil,       v,          h => Void.exfalso (Option.noneNotSome v h)
 
 theorem Vec.toListReplicate (x: a): (n: Nat) -> Vec.toList (Vec.replicate n x) = List.replicate n x
   | Zero   => rfl
@@ -171,21 +171,21 @@ theorem Vec.sumByToList (f: a -> Nat) (v: Vec a n): Vec.sumBy f v = List.sumBy f
 
 theorem Vec.sumToList (v: Vec Nat n): Vec.sum v = List.sum (Vec.toList v) := Vec.foldLeftToList Nat.add 0 v
 
--- What `traverseMaybe` accepts is `f` of each element.
-theorem Vec.traverseMaybeCons (f: a -> Maybe b) (x: a) (xs: Vec a n) (y: b) (ys: Vec b n): (m: Maybe b) -> f x = m ->
-    Vec.traverseMaybe f (VCons x xs) = Just (VCons y ys) -> And (f x = Just y) (Vec.traverseMaybe f xs = Just ys)
-  | Nothing, e, h =>
-    Void.exfalso (Maybe.nothingNotJust (VCons y ys)
-      (Eq.trans (Eq.cong (Maybe.andThen (z => Maybe.map (zs => VCons z zs) (Vec.traverseMaybe f xs))) (Eq.sym e)) h))
-  | Just z,  e, h =>
-    let parts := Vec.ofListCons z y ys (Vec.traverseMaybe f xs)
-      (Eq.trans (Eq.cong (Maybe.andThen (z => Maybe.map (zs => VCons z zs) (Vec.traverseMaybe f xs))) (Eq.sym e)) h)
-    Both (Eq.trans e (Eq.cong Just (And.left parts))) (And.right parts)
+-- What `traverseOption` accepts is `f` of each element.
+theorem Vec.traverseOptionCons (f: a -> Option b) (x: a) (xs: Vec a n) (y: b) (ys: Vec b n): (m: Option b) -> f x = m ->
+    Vec.traverseOption f (VCons x xs) = Some (VCons y ys) -> And (f x = Some y) (Vec.traverseOption f xs = Some ys)
+  | None, e, h =>
+    Void.exfalso (Option.noneNotSome (VCons y ys)
+      (Eq.trans (Eq.cong (Option.flatMap (z => Option.map (zs => VCons z zs) (Vec.traverseOption f xs))) (Eq.sym e)) h))
+  | Some z,  e, h =>
+    let parts := Vec.ofListCons z y ys (Vec.traverseOption f xs)
+      (Eq.trans (Eq.cong (Option.flatMap (z => Option.map (zs => VCons z zs) (Vec.traverseOption f xs))) (Eq.sym e)) h)
+    Both (Eq.trans e (Eq.cong Some (And.left parts))) (And.right parts)
 
-theorem Vec.traverseMaybeGet (f: a -> Maybe b): (v: Vec a n) -> (out: Vec b n) -> Vec.traverseMaybe f v = Just out ->
-    (i: Fin n) -> f (Vec.get v i) = Just (Vec.get out i)
-  | VCons x xs, VCons y ys, h, FZero   => And.left (Vec.traverseMaybeCons f x xs y ys (f x) rfl h)
-  | VCons x xs, VCons y ys, h, FSucc i => Vec.traverseMaybeGet f xs ys (And.right (Vec.traverseMaybeCons f x xs y ys (f x) rfl h)) i
+theorem Vec.traverseOptionGet (f: a -> Option b): (v: Vec a n) -> (out: Vec b n) -> Vec.traverseOption f v = Some out ->
+    (i: Fin n) -> f (Vec.get v i) = Some (Vec.get out i)
+  | VCons x xs, VCons y ys, h, FZero   => And.left (Vec.traverseOptionCons f x xs y ys (f x) rfl h)
+  | VCons x xs, VCons y ys, h, FSucc i => Vec.traverseOptionGet f xs ys (And.right (Vec.traverseOptionCons f x xs y ys (f x) rfl h)) i
 
 -- Lemmas: `get`.
 
@@ -249,10 +249,10 @@ test "zipWith" := Vec.toList (Vec.zipWith (x y => x + y) Vec.example Vec.example
 test "zipWith3" := Vec.toList (Vec.zipWith3 (x y z => x * y + z) Vec.example Vec.example Vec.example) == [2, 6, 12]
 test "sum and sumBy" := Vec.sum Vec.example == 6 && Vec.sumBy (x => x * x) Vec.example == 14
 test "fromList" := Vec.toList (Vec.fromList [4, 5]) == [4, 5] && Vec.length (Vec.fromList [4, 5]) == 2
-test "ofList" := Maybe.map Vec.toList (Vec.ofList 2 [4, 5]) == Just [4, 5]
-test "ofList refuses another length" := Maybe.map Vec.toList (Vec.ofList 3 [4, 5]) == Nothing
-test "traverseMaybe" := Maybe.map Vec.toList (Vec.traverseMaybe (x => if x < 5 then Just (x + 1) else Nothing) Vec.example) == Just [2, 3, 4]
-test "traverseMaybe fails" := Maybe.map Vec.toList (Vec.traverseMaybe (x => if x < 3 then Just x else Nothing) Vec.example) == Nothing
+test "ofList" := Option.map Vec.toList (Vec.ofList 2 [4, 5]) == Some [4, 5]
+test "ofList refuses another length" := Option.map Vec.toList (Vec.ofList 3 [4, 5]) == None
+test "traverseOption" := Option.map Vec.toList (Vec.traverseOption (x => if x < 5 then Some (x + 1) else None) Vec.example) == Some [2, 3, 4]
+test "traverseOption fails" := Option.map Vec.toList (Vec.traverseOption (x => if x < 3 then Some x else None) Vec.example) == None
 test "any" := Vec.any (x => x == 2) Vec.example && Bool.not (Vec.any (x => x == 4) Vec.example)
 test "get" := Vec.get Vec.example (FSucc FZero) == 2 && Vec.getLt Vec.example 0 == 1
 

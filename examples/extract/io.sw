@@ -11,9 +11,9 @@
 -- run: oneEntryPerPrint 3
 
 -- Echoes each line until the input runs out, reading at most `n` lines.
-def echoLine: Maybe Text -> (() -> {IO} ()) -> {IO} ()
-  | Nothing, more => ()
-  | Just l,  more =>
+def echoLine: Option Text -> (() -> {IO} ()) -> {IO} ()
+  | None, more => ()
+  | Some l,  more =>
     IO.print l
     more()
 
@@ -29,9 +29,9 @@ def linesOf: List Nat -> List Text
 export def linesEchoed (ns: List Nat) (bound: Nat): Nat := List.length (Pair.fst (IO.simulate (linesOf ns) (u => echo bound)))
 
 -- Numbers each line ("1: 7", "2: 42", …).
-def numberLine (i: Nat): Maybe Text -> (() -> {IO} ()) -> {IO} ()
-  | Nothing, more => ()
-  | Just l,  more =>
+def numberLine (i: Nat): Option Text -> (() -> {IO} ()) -> {IO} ()
+  | None, more => ()
+  | Some l,  more =>
     IO.print (Nat.toText i ++ ": " ++ l)
     more()
 

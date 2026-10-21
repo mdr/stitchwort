@@ -25,9 +25,9 @@ export def rename (n: Text) (p: Person): Person := { p | name = n }
 
 def older (p: Person) (q: Person): Person := if Nat.leq q.age p.age then p else q
 
-export def oldest: List Person -> Maybe Person
-  | Nil       => Nothing
-  | Cons p ps => Just (oldestFrom p ps)
+export def oldest: List Person -> Option Person
+  | Nil       => None
+  | Cons p ps => Some (oldestFrom p ps)
 
 def oldestFrom (p: Person): List Person -> Person
   | Nil       => p
@@ -57,12 +57,12 @@ instance decIsSorted (xs : List Nat) : Decidable (IsSorted xs) := Bool.decTrue (
 type SortedList = { items : List Nat, ok : IsSorted items }
 
 -- Out: the proof is left out.
-export def sorted (xs : List Nat) : Maybe SortedList := if h : IsSorted xs then Just { items = xs, ok = h } else Nothing
+export def sorted (xs : List Nat) : Option SortedList := if h : IsSorted xs then Some { items = xs, ok = h } else None
 
 -- In: `ok` is checked.
-export def smallest : SortedList -> Maybe Nat
-  | { items = Nil, .. }       => Nothing
-  | { items = Cons x xs, .. } => Just x
+export def smallest : SortedList -> Option Nat
+  | { items = Nil, .. }       => None
+  | { items = Cons x xs, .. } => Some x
 
 -- A proof field about two earlier fields, checked with the prelude's
 -- `Nat.decEq`.

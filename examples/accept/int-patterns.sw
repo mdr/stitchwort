@@ -115,16 +115,16 @@ test "quadrant (-1) 1 == elsewhere" := quadrant (-1) 1 == "elsewhere"
 test "quadrant 2 2 == elsewhere" := quadrant 2 2 == "elsewhere"
 
 -- Inside other patterns, where the field's type is known to be `Int`.
-def inJust: Maybe Int -> Nat
-  | Just (-1) => 1
-  | Just 2    => 2
+def inSome: Option Int -> Nat
+  | Some (-1) => 1
+  | Some 2    => 2
   | _         => 3
 
-theorem inJust1: inJust (Just (-1)) = 1 := rfl
+theorem inSome1: inSome (Some (-1)) = 1 := rfl
 
-theorem inJust2: inJust (Just 2) = 2 := rfl
+theorem inSome2: inSome (Some 2) = 2 := rfl
 
-theorem inJust3: inJust (Just (-2)) = 3 := rfl
+theorem inSome3: inSome (Some (-2)) = 3 := rfl
 
 def inPair: (Int, Nat) -> Nat
   | (-2, 0) => 1

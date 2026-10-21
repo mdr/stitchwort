@@ -35,8 +35,8 @@ type Grid = { height: Nat, width: Nat, rows: Vec (Vec Cell width) height }
 
 def main(): {IO} () :=
   match parseGrid (IO.readAllLines()) with
-    | Nothing   => IO.print "The lines are not all the same length."
-    | Just grid =>
+    | None   => IO.print "The lines are not all the same length."
+    | Some grid =>
       IO.print "Part 1: ${solvePart1 grid}"
       IO.print "Part 2: ${solvePart2 grid}"
 
@@ -51,21 +51,21 @@ def example: List Text :=
     ".@@@@@@@.@", ".@.@.@.@@@", "@.@@@.@@@@", ".@@@@@@@@.", "@.@.@@@.@." ]
 
 -- Both answers for some lines, if they make a grid.
-def answers (lines: List Text): Maybe (Nat, Nat) := Maybe.map (grid => (solvePart1 grid, solvePart2 grid)) (parseGrid lines)
+def answers (lines: List Text): Option (Nat, Nat) := Option.map (grid => (solvePart1 grid, solvePart2 grid)) (parseGrid lines)
 
-test "example" := answers example == Just (13, 43)
-test "lone roll" := answers ["@"] == Just (1, 1)
-test "full square" := answers ["@@", "@@"] == Just (4, 4)
-test "plus shape keeps its centre" := answers [".@.", "@@@", ".@."] == Just (4, 5)
-test "no lines" := answers [] == Just (0, 0)
-test "ragged" := answers ["@@", "@"] == Nothing
+test "example" := answers example == Some (13, 43)
+test "lone roll" := answers ["@"] == Some (1, 1)
+test "full square" := answers ["@@", "@@"] == Some (4, 4)
+test "plus shape keeps its centre" := answers [".@.", "@@@", ".@."] == Some (4, 5)
+test "no lines" := answers [] == Some (0, 0)
+test "ragged" := answers ["@@", "@"] == None
 
--- `Nothing` if the lines are not all as long as the first.
-def parseGrid (lines: List Text): Maybe Grid :=
+-- `None` if the lines are not all as long as the first.
+def parseGrid (lines: List Text): Option Grid :=
   let width := (lines.headOr "").length
   Vec.fromList lines
-    |> Vec.traverseMaybe (line => Vec.ofList width (parseLine line))
-    |> Maybe.map (rows => ({ height = lines.length, width, rows }: Grid))
+    |> Vec.traverseOption (line => Vec.ofList width (parseLine line))
+    |> Option.map (rows => ({ height = lines.length, width, rows }: Grid))
 
 def parseLine (line: Text): List Cell := line.toList.map parseChar
 
@@ -73,7 +73,7 @@ def parseChar (ch: Char): Cell := if ch == '@' then Roll else Floor
 
 def Grid.rolls (grid: Grid): Nat := grid.rows.sumBy (row => row.sumBy Cell.count)
 
-test "rolls" := Maybe.map Grid.rolls (parseGrid example) == Just 71
+test "rolls" := Option.map Grid.rolls (parseGrid example) == Some 71
 
 -- Remove every accessible roll, all at once: each row sees the rows above
 -- and below as they were.

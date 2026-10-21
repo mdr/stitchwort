@@ -252,9 +252,9 @@ impl Shapes {
             ctor_of(Builtin::ReadAll)?.1,
             &["readAllUnit"],
         )?;
-        let maybe = data(Builtin::Maybe)?;
+        let maybe = data(Builtin::Option)?;
         ctor("nothing", maybe, 0, &[])?;
-        ctor("just", maybe, 1, &["justValue"])?;
+        ctor("just", maybe, 1, &["someValue"])?;
         ctor("unit", data(Builtin::UnitType)?, 0, &[])?;
         Ok(Shapes { lines })
     }
@@ -466,7 +466,7 @@ import * as __wt from "node:worker_threads";
         const line = readLine();
         return line === null
           ? { tag: SHAPE.nothing }
-          : { tag: SHAPE.just, [SHAPE.justValue]: line };
+          : { tag: SHAPE.just, [SHAPE.someValue]: line };
       }
       case SHAPE.readAll:
         flush();

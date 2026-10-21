@@ -53,9 +53,9 @@ def allResults: Comp ChooseOp ChooseRes a -> List a
   | Call Choose rest => List.append (allResults (rest True)) (allResults (rest False))
 
 -- Never resumes.
-def toMaybe: Comp AbortOp AbortRes a -> Maybe a
-  | Done x          => Just x
-  | Call Abort rest => Nothing
+def toOption: Comp AbortOp AbortRes a -> Option a
+  | Done x          => Some x
+  | Call Abort rest => None
 
 -- Handlers for one ability in a row of two. Operations they don't handle are
 -- forwarded, with the handler wrapped round the rest (deep handlers).
@@ -143,16 +143,16 @@ def abort: Comp AbortOp AbortRes a := Call Abort (v => fromEmpty v)
 
 def safeDiv (n: Nat) (d: Nat): Comp AbortOp AbortRes Nat := if h: d != 0 then Done (n / d) else abort
 
-def isNothing: Maybe a -> Bool
-  | Nothing => True
-  | Just x  => False
+def isNone: Option a -> Bool
+  | None => True
+  | Some x  => False
 
-def fromJust0: Maybe Nat -> Nat
-  | Nothing => 0
-  | Just x  => x
+def fromSome0: Option Nat -> Nat
+  | None => 0
+  | Some x  => x
 
-test "abort stops" := isNothing (toMaybe (safeDiv 7 0))
-test "no abort" := fromJust0 (toMaybe (bind (safeDiv 7 2) (q => safeDiv 100 q))) == 33
+test "abort stops" := isNone (toOption (safeDiv 7 0))
+test "no abort" := fromSome0 (toOption (bind (safeDiv 7 2) (q => safeDiv 100 q))) == 33
 
 -- The generic fold: `allResults` again, written with `foldComp`.
 def both: (o: ChooseOp) -> (ChooseRes o -> List a) -> List a

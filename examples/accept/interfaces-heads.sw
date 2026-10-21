@@ -26,17 +26,17 @@ type Tagged (tag: Nat) =
 instance Size.instTagged: Size (Tagged tag) :=
   { size = t => tag }
 
--- A synonym is unfolded: this is `Size (Maybe a)`.
-type Optional (a: Type) = Maybe a
+-- A synonym is unfolded: this is `Size (Option a)`.
+type Optional (a: Type) = Option a
 
 instance Size.instOptional [auto s: Size a]: Size (Optional a) :=
   { size = m => match m with
-      | Just x => Size.size x
-      | Nothing => 0 }
+      | Some x => Size.size x
+      | None => 0 }
 
 test "nat" := Size.size 4 == 4
 test "list" := Size.size [1, 2, 3] == 6
 test "pair" := Size.size (2, [3]) == 5
 test "vec" := Size.size (VCons 5 (VCons 6 VNil)) == 2
 test "tagged" := Size.size (MkTagged: Tagged 7) == 7
-test "maybe" := Size.size (Just [4]) == 4
+test "maybe" := Size.size (Some [4]) == 4

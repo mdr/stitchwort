@@ -9,9 +9,9 @@ def eqTexts: List Text -> List Text -> Bool
 
 def result (r: Pair (List Text) a): a := Pair.snd r
 
-def showLine: Maybe Text -> Text
-  | Nothing => "<end>"
-  | Just l  => "[" ++ l ++ "]"
+def showLine: Option Text -> Text
+  | None => "<end>"
+  | Some l  => "[" ++ l ++ "]"
 
 -- readAll
 

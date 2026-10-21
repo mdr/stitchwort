@@ -15,16 +15,16 @@ type Point = { x: Nat, y: Nat }
 -- Record literals take their type from the expected result.
 
 -- The AoC case (docs/aoc-2025.md, section 9, item 4): a record literal in a
--- lambda passed to `maybeThen`. The result `Maybe Rot` fixes `b`.
-def maybeThen: Maybe a -> (a -> Maybe b) -> Maybe b
-  | Nothing, f => Nothing
-  | Just x, f => f x
+-- lambda passed to `optionThen`. The result `Option Rot` fixes `b`.
+def optionThen: Option a -> (a -> Option b) -> Option b
+  | None, f => None
+  | Some x, f => f x
 
-def parse (n: Nat) (m: Maybe Nat): Maybe Rot := maybeThen m (x => Just { dir = TL, amount = n + x })
+def parse (n: Nat) (m: Option Nat): Option Rot := optionThen m (x => Some { dir = TL, amount = n + x })
 
-def amountOf: Maybe Rot -> Nat
-  | Nothing => 0
-  | Just r => r.amount
+def amountOf: Option Rot -> Nat
+  | None => 0
+  | Some r => r.amount
 
 -- The record literal's type comes from the result `List Point`.
 def points (xs: List Nat): List Point := List.map (x => { x = x, y = 0 }) xs
@@ -32,8 +32,8 @@ def points (xs: List Nat): List Point := List.map (x => { x = x, y = 0 }) xs
 -- Likewise for the accumulator of a fold.
 def sumPoints (rs: List Nat): Point := List.foldRight (p acc => { x = p + acc.x, y = acc.y }) { x = 0, y = 0 } rs
 
-test "parse" := amountOf (parse 1 (Just 2)) == 3
-test "parse nothing" := amountOf (parse 1 Nothing) == 0
+test "parse" := amountOf (parse 1 (Some 2)) == 3
+test "parse nothing" := amountOf (parse 1 None) == 0
 test "sumPoints" := (sumPoints [1, 2, 3]).x == 6
 
 -- Literals take their type from the expected result.

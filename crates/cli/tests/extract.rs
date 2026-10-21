@@ -679,7 +679,7 @@ const ada = r.birthday({ name: "Ada", age: 36n });
 assert.deepEqual(ada, { name: "Ada", age: 37n });
 assert.deepEqual(Object.keys(r.birthday({ age: 1n, name: "x" })), ["name", "age"]);
 assert.equal(Object.getPrototypeOf(ada), Object.prototype);
-assert.deepEqual(r.sorted([1n, 2n]), { tag: "Just", value: { items: [1n, 2n] } });
+assert.deepEqual(r.sorted([1n, 2n]), { tag: "Some", value: { items: [1n, 2n] } });
 // Awkward keys: `tag` is an ordinary key; `__proto__` is still escaped.
 const w = r.weird({ tag: "t", $__proto__: 1n, constructor: 2n, x$: 3n });
 assert.deepEqual(Object.keys(w), ["tag", "$__proto__", "constructor", "x$"]);
@@ -698,7 +698,7 @@ assert.equal(reads, 1);
 refused(() => r.team({ lead: { name: "Ada" }, size: 1n }), /^t\.lead\.age: missing$/);
 
 // Proof fields: checked after the fields they're about are decoded.
-assert.deepEqual(r.smallest({ items: [1n, 4n] }), { tag: "Just", value: 1n });
+assert.deepEqual(r.smallest({ items: [1n, 4n] }), { tag: "Some", value: 1n });
 refused(() => r.smallest({ items: [4n, 1n] }), /^arg0: proof field `ok` \(`IsSorted items`\) doesn't hold$/);
 assert.equal(r.total({ items: [5n, 6n], size: 2n }), 2n);
 refused(() => r.total({ items: [5n, 6n], size: 3n }), /^s: proof field `ok` \(`List.length items = size`\) doesn't hold$/);
@@ -911,17 +911,17 @@ for (const [bad, index] of [
   refused(() => m.echoChar(bad), where);
 }
 
-// Nested inside a list, the prelude's `Maybe` and `Pair`, and a user's type,
+// Nested inside a list, the prelude's `Option` and `Pair`, and a user's type,
 // with the path to the problem.
 refused(() => m.fromChars(["a", "\uD800"]), /^cs\[1\]: a lone surrogate/);
 refused(() => m.joinOn(",", ["ok", "x\uDFFF"]), /^ts\[1\]: a lone surrogate \(U\+DFFF\) at index 1/);
-refused(() => m.orEmpty({ tag: "Just", value: "\uD800" }), /^arg0\.value: a lone surrogate/);
+refused(() => m.orEmpty({ tag: "Some", value: "\uD800" }), /^arg0\.value: a lone surrogate/);
 refused(() => m.firstOf({ tag: "MkPair", fst: "a", snd: "\uDBFF" }), /^p\.snd: a lone surrogate/);
 refused(() => m.greet({ tag: "MkPerson", name: "\uDC00", initial: "x", tags: [] }), /^arg0\.name: a lone surrogate/);
 refused(() => m.greet({ tag: "MkPerson", name: "x", initial: "xy", tags: [] }), /^arg0\.initial: expected exactly one character, but the string has 2$/);
 refused(() => m.greet({ tag: "MkPerson", name: "x", initial: "x", tags: ["\uD800"] }), /^arg0\.tags\[0\]: a lone surrogate/);
 assert.equal(m.greet({ tag: "MkPerson", name: "Zoë", initial: "\u{1F600}", tags: [] }), "Hello, Zoë (\u{1F600})");
-assert.deepEqual(m.uncons("\u{1F600}x"), { tag: "Just", value: { tag: "MkPair", fst: "\u{1F600}", snd: "x" } });
+assert.deepEqual(m.uncons("\u{1F600}x"), { tag: "Some", value: { tag: "MkPair", fst: "\u{1F600}", snd: "x" } });
 
 // A `Char` is exactly one scalar value: a supplementary one (`.length` 2) is
 // accepted; a lone surrogate (one element of `[...s]`) isn't; nor is an
@@ -1040,9 +1040,9 @@ assert.deepEqual(text.order(emoji + "\u{E000}", emoji + "\u{10000}"), { tag: "Le
 assert.equal(text.less(long, long), false);
 assert.equal(text.join(long, long), long + long);
 assert.equal(text.trim(" ".repeat(N) + "x" + " ".repeat(N)), "x");
-assert.deepEqual(text.toNat("7".repeat(N)), { tag: "Just", value: BigInt("7".repeat(N)) });
+assert.deepEqual(text.toNat("7".repeat(N)), { tag: "Some", value: BigInt("7".repeat(N)) });
 assert.equal(text.fromNat(10n ** 20000n).length, 20001);
-assert.deepEqual(text.uncons(emoji), { tag: "Just", value: { tag: "MkPair", fst: "\u{1F600}", snd: emoji.slice(2) } });
+assert.deepEqual(text.uncons(emoji), { tag: "Some", value: { tag: "MkPair", fst: "\u{1F600}", snd: emoji.slice(2) } });
 const codes = text.codes("a\u{1F600}".repeat(N / 2));
 assert.equal(codes.length, N);
 assert.equal(codes[1], 0x1f600n);
@@ -1060,7 +1060,7 @@ assert.equal(cs.length, N);
 assert.ok(cs.every((c, i) => c === (i % 2 === 0 ? "a" : "\u{1F600}")));
 assert.equal(text.fromChars(cs), "a\u{1F600}".repeat(N / 2));
 assert.deepEqual(text.texts([cs]), ["a\u{1F600}".repeat(N / 2)]);
-assert.deepEqual(text.trimmedHead(" ".repeat(N) + long), { tag: "Just", value: "a" });
+assert.deepEqual(text.trimmedHead(" ".repeat(N) + long), { tag: "Some", value: "a" });
 assert.equal(text.isText(long), true);
 
 // User code that recurses once per character still runs out of stack.
@@ -1561,7 +1561,7 @@ fn awkward_names_never_collide() {
         // must match (one more, for the tag).
         let mut counts = Vec::new();
         for (k, (ty, export)) in types.iter().zip(&exports).enumerate() {
-            let mut field_types = vec!["Nat", "Text", "Bool", "Char", "List Nat", "Maybe Text"];
+            let mut field_types = vec!["Nat", "Text", "Bool", "Char", "List Nat", "Option Text"];
             field_types.extend(&types[..k]);
             let mut ctors = Vec::new();
             let n = 1 + rng.below(3);
@@ -1605,7 +1605,7 @@ fn awkward_names_never_collide() {
         // is the key `tag`. Each is exported through an update that reads a
         // field with `.`.
         for k in 0..RECORDS_PER_ROUND {
-            let mut field_types = vec!["Nat", "Text", "Bool", "Char", "List Nat", "Maybe Text"];
+            let mut field_types = vec!["Nat", "Text", "Bool", "Char", "List Nat", "Option Text"];
             field_types.extend(&types);
             let count = 1 + rng.below(6);
             let fields = pick(&mut rng, FIELDS, count);
@@ -2108,7 +2108,7 @@ for (const a of all) {
     ["natAbs", abs(a)],
     ["abs", abs(a)],
     ["toNat", a < 0n ? 0n : a],
-    ["toNatChecked", a < 0n ? { tag: "Nothing" } : { tag: "Just", value: a }],
+    ["toNatChecked", a < 0n ? { tag: "None" } : { tag: "Some", value: a }],
     ["sign", sgn(a)],
     ["toText", a.toString()],
   ]) {
@@ -2120,19 +2120,19 @@ for (const a of all) {
     same(data.ofNat(a), a, tag("ofNat") + " (data)");
   }
   // The round trip.
-  same(native.parse(native.toText(a)), { tag: "Just", value: a }, tag("parse . toText"));
-  same(data.parse(data.toText(a)), { tag: "Just", value: a }, tag("parse . toText") + " (data)");
+  same(native.parse(native.toText(a)), { tag: "Some", value: a }, tag("parse . toText"));
+  same(data.parse(data.toText(a)), { tag: "Some", value: a }, tag("parse . toText") + " (data)");
 }
 
 // The grammar: an optional `-`, then one or more ASCII digits, nothing else.
 const cases = ["", "-", "0", "-0", "007", "-007", "+5", " 5", "5 ", "--5", "0x10", "1e3", "12abc",
   "-12", "18446744073709551616", "-18446744073709551617", "٥", "5\n", "-+5", "1_000"];
 for (const t of cases) {
-  const expected = /^-?[0-9]+$/.test(t) ? { tag: "Just", value: BigInt(t) } : { tag: "Nothing" };
+  const expected = /^-?[0-9]+$/.test(t) ? { tag: "Some", value: BigInt(t) } : { tag: "None" };
   same(native.parse(t), expected, `parse ${JSON.stringify(t)}`);
   same(data.parse(t), expected, `parse ${JSON.stringify(t)} (data)`);
 }
-same(native.parse("-0"), { tag: "Just", value: 0n }, "-0 is 0");
+same(native.parse("-0"), { tag: "Some", value: 0n }, "-0 is 0");
 
 assert.ok(checked > 20000, `only ${checked} checks ran`);
 console.log("ok");
@@ -2157,7 +2157,7 @@ fn int_crosses_the_boundary_strictly() {
         .expect("extraction succeeds")
         .dts;
     assert!(dts.contains("export declare function add(a: bigint, b: bigint): bigint;"));
-    assert!(dts.contains("export declare function maybeInt(arg0: Maybe<bigint>): bigint;"));
+    assert!(dts.contains("export declare function optionInt(arg0: Option<bigint>): bigint;"));
     assert!(
         dts.contains("export type Entry = { readonly count: bigint; readonly delta: bigint };")
     );
@@ -2173,8 +2173,8 @@ const refused = (f, pattern) =>
 for (const x of [0n, 1n, -1n, 5n, -5n, 2n ** 200n, -(2n ** 200n) - 1n]) {
   assert.equal(m.add(x, 0n), x);
   assert.equal(m.neg(m.neg(x)), x);
-  assert.deepEqual(m.maybeInt({ tag: "Just", value: x }), x * 2n);
-  assert.deepEqual(m.negateAll([{ tag: "Just", value: x }]), [{ tag: "Just", value: -x }]);
+  assert.deepEqual(m.optionInt({ tag: "Some", value: x }), x * 2n);
+  assert.deepEqual(m.negateAll([{ tag: "Some", value: x }]), [{ tag: "Some", value: -x }]);
 }
 assert.equal(m.add(-3n, 10n), 7n);
 assert.deepEqual(m.negatives([0n, 4n]), [-1n, -5n]);
@@ -2194,19 +2194,19 @@ refused(() => m.apply({ count: 1n, delta: 1 }), /^e\.delta: expected a bigint$/)
 refused(() => m.ofNat(-1n), /^n: expected a non-negative bigint$/);
 refused(() => m.ofNats([1n, -1n]), /^ns\[1\]: expected a non-negative bigint$/);
 
-// Inside Maybe and List (Maybe Int), in both directions.
-assert.equal(m.maybeInt({ tag: "Nothing" }), 0n);
-assert.deepEqual(m.toNatChecked(-1n), { tag: "Nothing" });
-assert.deepEqual(m.parse("-5"), { tag: "Just", value: -5n });
-refused(() => m.maybeInt({ tag: "Just", value: 4 }), /^arg0\.value: expected a bigint$/);
-refused(() => m.maybeInt({ tag: "Just", value: "4" }), /^arg0\.value: expected a bigint$/);
+// Inside Option and List (Option Int), in both directions.
+assert.equal(m.optionInt({ tag: "None" }), 0n);
+assert.deepEqual(m.toNatChecked(-1n), { tag: "None" });
+assert.deepEqual(m.parse("-5"), { tag: "Some", value: -5n });
+refused(() => m.optionInt({ tag: "Some", value: 4 }), /^arg0\.value: expected a bigint$/);
+refused(() => m.optionInt({ tag: "Some", value: "4" }), /^arg0\.value: expected a bigint$/);
 assert.deepEqual(
-  m.negateAll([{ tag: "Nothing" }, { tag: "Just", value: 3n }, { tag: "Just", value: -3n }]),
-  [{ tag: "Nothing" }, { tag: "Just", value: -3n }, { tag: "Just", value: 3n }],
+  m.negateAll([{ tag: "None" }, { tag: "Some", value: 3n }, { tag: "Some", value: -3n }]),
+  [{ tag: "None" }, { tag: "Some", value: -3n }, { tag: "Some", value: 3n }],
 );
-refused(() => m.negateAll([{ tag: "Nothing" }, { tag: "Just", value: 1.5 }]), /^xs\[1\]\.value: expected a bigint$/);
-refused(() => m.negateAll([{ tag: "Just", value: null }]), /^xs\[0\]\.value: expected a bigint$/);
-assert.deepEqual(m.firstNeg([3n, -4n, -5n]), { tag: "Just", value: -4n });
+refused(() => m.negateAll([{ tag: "None" }, { tag: "Some", value: 1.5 }]), /^xs\[1\]\.value: expected a bigint$/);
+refused(() => m.negateAll([{ tag: "Some", value: null }]), /^xs\[0\]\.value: expected a bigint$/);
+assert.deepEqual(m.firstNeg([3n, -4n, -5n]), { tag: "Some", value: -4n });
 console.log("ok");
 "#;
     run_script("int-boundary", &[("integers.mjs", session)], script);
@@ -2348,7 +2348,7 @@ assert.equal(m.classify(of(2n)), "two");
 assert.equal(m.classify(of(77n)), "positive or zero, k = 77");
 assert.equal(m.classify(of(-77n)), "negative, k = 76");
 assert.equal(m.toText(of(-12n)), "-12");
-assert.deepEqual(m.parse("-12"), { tag: "Just", value: of(-12n) });
+assert.deepEqual(m.parse("-12"), { tag: "Some", value: of(-12n) });
 assert.deepEqual(m.negatives([0n, 4n]), [of(-1n), of(-5n)]);
 assert.deepEqual(m.apply({ count: 3n, delta: of(-10n) }), { count: 3n, delta: of(-7n) });
 // The divisor's precondition is still checked.

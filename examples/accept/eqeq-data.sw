@@ -50,9 +50,9 @@ test "two parameters, side differs" := Bool.not (InL 1 == (InR "a": Either2 Nat 
 
 test "list of enums" := [North, East] == [North, East]
 test "list of enums, different" := Bool.not ([North, East] == [North, South])
-test "Maybe of constructor" := Just (Left 2) == Just (Left 2)
-test "Maybe of constructor, different" := Bool.not (Just (Left 2) == Just (Right 2))
-test "Maybe, Nothing" := Bool.not (Just Stay == Nothing)
+test "Option of constructor" := Some (Left 2) == Some (Left 2)
+test "Option of constructor, different" := Bool.not (Some (Left 2) == Some (Right 2))
+test "Option, None" := Bool.not (Some Stay == None)
 test "tuple" := (North, Right 1) == (North, Right 1)
 test "tuple, different" := Bool.not ((North, Right 1) == (North, Right 2))
 test "list of trees" := [Node Leaf 1 Leaf, Leaf] == [Node Leaf 1 Leaf, Leaf]

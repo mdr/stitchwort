@@ -43,9 +43,9 @@ fn output(source: &str, input: &[u8]) -> String {
 
 /// Echoes each line in brackets, and keeps reading after the end of input.
 const ECHO: &str = r#"
-def showLine : Maybe Text -> Text
-  | Nothing => "<end>"
-  | Just l  => "[" ++ l ++ "]"
+def showLine : Option Text -> Text
+  | None => "<end>"
+  | Some l  => "[" ++ l ++ "]"
 
 def echo : Nat -> {IO} ()
   | 0      => ()
@@ -65,9 +65,9 @@ def main () : {IO} () :=
 
 /// A `readLine`, then `readAll`, then `readLine` and `readAll` again.
 const MIXED: &str = r#"
-def showLine : Maybe Text -> Text
-  | Nothing => "<end>"
-  | Just l  => "[" ++ l ++ "]"
+def showLine : Option Text -> Text
+  | None => "<end>"
+  | Some l  => "[" ++ l ++ "]"
 
 def main () : {IO} () :=
   IO.print (showLine (IO.readLine ()))
@@ -88,9 +88,9 @@ def main () : {IO} () := printAll (IO.readAllLines ())
 "#;
 
 const GREET: &str = r#"
-def textOr (d : Text) : Maybe Text -> Text
-  | Nothing => d
-  | Just t  => t
+def textOr (d : Text) : Option Text -> Text
+  | None => d
+  | Some t  => t
 
 def main () : {IO} () :=
   IO.print "Name?"
@@ -253,8 +253,8 @@ fn readline_after_readall_is_end_of_input() {
 def main () : {IO} () :=
   IO.print (IO.readAll ())
   match IO.readLine () with
-    | Nothing => IO.print "<end>"
-    | Just l  => IO.print l
+    | None => IO.print "<end>"
+    | Some l  => IO.print l
 "#;
     assert_eq!(output(source, b"a\nb\n"), "a\nb\n\n<end>\n");
 }

@@ -25,8 +25,8 @@ namespace Aoc.Day07
 
 def main(): {IO} () :=
   match parseManifold (IO.readAllLines()) with
-    | Nothing       => IO.print "There is no S."
-    | Just manifold =>
+    | None       => IO.print "There is no S."
+    | Some manifold =>
       IO.print "Part 1: ${solvePart1 manifold}"
       IO.print "Part 2: ${solvePart2 manifold}"
 
@@ -40,31 +40,31 @@ def example: List Text :=
     "....^.^...^....", "...............", "...^.^...^.^...", "...............",
     "..^...^.....^..", "...............", ".^.^.^.^.^...^.", "..............." ]
 
--- `Nothing` if there is no S.
-def parseManifold (lines: List Text): Maybe Manifold :=
+-- `None` if there is no S.
+def parseManifold (lines: List Text): Option Manifold :=
   let width := gridWidth lines
   (findStart lines).map (((r, c)) =>
     ({ width, start = c, rows = (lines.drop (r + 1)).map (splitterRow width) }: Manifold))
 
 -- Row and column of the first S, reading top to bottom, left to right.
-def findStart (lines: List Text): Maybe (Nat, Nat) := startFrom 0 lines
+def findStart (lines: List Text): Option (Nat, Nat) := startFrom 0 lines
 
 -- `r` is the row number of the first of `lines`.
-def startFrom (r: Nat): List Text -> Maybe (Nat, Nat)
-  | Nil            => Nothing
+def startFrom (r: Nat): List Text -> Option (Nat, Nat)
+  | Nil            => None
   | Cons line rest => firstFound ((columnOf 'S' line.toList).map (c => (r, c))) (startFrom (r + 1) rest)
 
 -- The first of two results, if it found something; else the second.
-def firstFound: Maybe a -> Maybe a -> Maybe a
-  | Just x,  later => Just x
-  | Nothing, later => later
+def firstFound: Option a -> Option a -> Option a
+  | Some x,  later => Some x
+  | None, later => later
 
 -- Where `ch` first appears.
-def columnOf (ch: Char): List Char -> Maybe Nat
-  | Nil       => Nothing
-  | Cons x xs => if x == ch then Just 0 else (columnOf ch xs).map Succ
+def columnOf (ch: Char): List Char -> Option Nat
+  | Nil       => None
+  | Cons x xs => if x == ch then Some 0 else (columnOf ch xs).map Succ
 
-test "find start" := (findStart example, findStart ["..", ".S", "S."], findStart [".."]) == (Just (0, 7), Just (1, 1), Nothing)
+test "find start" := (findStart example, findStart ["..", ".S", "S."], findStart [".."]) == (Some (0, 7), Some (1, 1), None)
 
 -- The widest line's length.
 def gridWidth (lines: List Text): Nat := lines.foldLeft widen 0
@@ -119,10 +119,10 @@ def splitRow (left: Nat): List Bool -> List Nat -> List Nat
 
 test "split row" := splitRow 1 [False, True, False, True] [2, 3, 4, 5] == [2, 6, 4, 5]
 
-test "example part 1" := Maybe.map solvePart1 (parseManifold example) == Just 21
-test "example part 2" := Maybe.map solvePart2 (parseManifold example) == Just 40
-test "splitter at the left edge" := Maybe.map (m => (solvePart1 m, solvePart2 m)) (parseManifold ["S.", "^.", ".."]) == Just (1, 2)
-test "splitter at the right edge" := Maybe.map (m => (solvePart1 m, solvePart2 m)) (parseManifold [".S", ".^", ".^"]) == Just (1, 2)
-test "beams merge" := Maybe.map (m => (solvePart1 m, solvePart2 m)) (parseManifold ["..S..", "..^..", ".^.^.", "..^.."]) == Just (4, 6)
-test "nothing below S" := Maybe.map (m => (solvePart1 m, solvePart2 m)) (parseManifold ["^^", ".S"]) == Just (0, 1)
-test "no S" := Maybe.map solvePart1 (parseManifold ["..^.."]) == Nothing
+test "example part 1" := Option.map solvePart1 (parseManifold example) == Some 21
+test "example part 2" := Option.map solvePart2 (parseManifold example) == Some 40
+test "splitter at the left edge" := Option.map (m => (solvePart1 m, solvePart2 m)) (parseManifold ["S.", "^.", ".."]) == Some (1, 2)
+test "splitter at the right edge" := Option.map (m => (solvePart1 m, solvePart2 m)) (parseManifold [".S", ".^", ".^"]) == Some (1, 2)
+test "beams merge" := Option.map (m => (solvePart1 m, solvePart2 m)) (parseManifold ["..S..", "..^..", ".^.^.", "..^.."]) == Some (4, 6)
+test "nothing below S" := Option.map (m => (solvePart1 m, solvePart2 m)) (parseManifold ["^^", ".S"]) == Some (0, 1)
+test "no S" := Option.map solvePart1 (parseManifold ["..^.."]) == None

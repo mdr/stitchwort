@@ -209,14 +209,14 @@ pub fn extract(source: &str) -> String {
 }
 
 /// How many times a run may ask for a line after its input has run out
-/// (`readLine` giving `Nothing`). Printing is bounded by the output cap, and
+/// (`readLine` giving `None`). Printing is bounded by the output cap, and
 /// reading lines by the input, so this bounds how many operations a run
 /// performs: a program that keeps reading at the end of its input stops at
 /// once with `E-INPUT`, rather than when the page's timeout stops it.
 pub const MAX_READS_PAST_END: usize = 10_000;
 
 /// Runs a program's `main`, as `stitchwort run` does, with `input` as its
-/// input: `readLine` gives its lines, then `Nothing`. Returns `{"ok": true,
+/// input: `readLine` gives its lines, then `None`. Returns `{"ok": true,
 /// "output": "…"}`, or `{"ok": false, "errors": "…", "output": "…"}` with
 /// what was printed before the error. Each step between operations has the
 /// same resource limits as a test, and the program is stopped with
@@ -392,7 +392,7 @@ fn run_main_in(
                 ),
             )
             .with_label(main.span, "while running this program")
-            .with_note("`IO.readLine()` gives `Nothing` at the end of the input"),
+            .with_note("`IO.readLine()` gives `None` at the end of the input"),
             error => error.diagnostic(main),
         };
         rendered(&session, &[error])
@@ -736,17 +736,17 @@ mod tests {
             run(adder, "Ada\n40\ntwo\n2\n", 100_000),
             r#"{"ok":true,"output":"What's your name?\nHello, Ada! Type numbers to add, one per line, and an empty line to stop.\n  total: 40\n\"two\" isn't a number; skipped\n  total: 42\nThe sum is 42. Goodbye, Ada.\n"}"#
         );
-        // No input at all: `readLine` gives `Nothing`.
+        // No input at all: `readLine` gives `None`.
         assert!(
             run(adder, "", 100_000).contains(r"Hello, stranger!"),
             "{}",
             run(adder, "", 100_000)
         );
-        // An empty line is `Just ""`, and stops adding; a final line without
+        // An empty line is `Some ""`, and stops adding; a final line without
         // a line ending is still a line.
-        let echo = "def textOr (d : Text) : Maybe Text -> Text\n  \
-                    | Nothing => d\n  \
-                    | Just t  => t\n\n\
+        let echo = "def textOr (d : Text) : Option Text -> Text\n  \
+                    | None => d\n  \
+                    | Some t  => t\n\n\
                     def main () : {IO} () :=\n  \
                     IO.print (textOr \"none\" (IO.readLine ()))\n  \
                     IO.print (textOr \"none\" (IO.readLine ()))\n  \
@@ -849,12 +849,12 @@ mod tests {
         assert_eq!(printed(&result), r"before\n");
     }
 
-    /// Reads `n` lines, printing each, or `none` for `Nothing`.
+    /// Reads `n` lines, printing each, or `none` for `None`.
     fn reads(n: usize) -> String {
         format!(
-            "def textOr : Maybe Text -> Text\n  \
-             | Nothing => \"none\"\n  \
-             | Just t  => t\n\n\
+            "def textOr : Option Text -> Text\n  \
+             | None => \"none\"\n  \
+             | Some t  => t\n\n\
              def readN : Nat -> {{IO}} ()\n  \
              | 0      => ()\n  \
              | Succ n =>\n    \

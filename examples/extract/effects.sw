@@ -39,10 +39,10 @@ def runState (init: s) (prog: () -> {State s | e} a): {e} Pair a s :=
       | put st2, k     => st => k() st2
   run init
 
-def toMaybe (prog: () -> {Abort | e} a): {e} Maybe a :=
+def toOption (prog: () -> {Abort | e} a): {e} Option a :=
   handle prog() with
-    | return x      => Just x
-    | abort u, k    => Nothing
+    | return x      => Some x
+    | abort u, k    => None
 
 -- The sum of some of the numbers, chosen one by one.
 def someSum: List Nat -> {Choose} Nat
@@ -63,8 +63,8 @@ export def countUp (n: Nat): Nat := sndOf (runState 0 (u => tick n))
 
 def safeDiv (n: Nat) (d: Nat): {Abort} Nat := if h: d != 0 then n / d else fromEmpty (abort())
 
-def orZero: Maybe Nat -> Nat
-  | Nothing => 0
-  | Just x  => x
+def orZero: Option Nat -> Nat
+  | None => 0
+  | Some x  => x
 
-export def divideOrZero (n: Nat) (d: Nat): Nat := orZero (toMaybe (u => safeDiv n d))
+export def divideOrZero (n: Nat) (d: Nat): Nat := orZero (toOption (u => safeDiv n d))

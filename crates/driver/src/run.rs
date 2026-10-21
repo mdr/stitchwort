@@ -327,10 +327,10 @@ impl Session {
     /// and ticks is one operation, with its own resource limits.
     ///
     /// The contract for reading: input is UTF-8; for `readLine`, a trailing
-    /// LF, and a CR just before it, are removed; an empty line is `Just ""`;
-    /// `Nothing` comes only once nothing remains. `readAll` gives everything
+    /// LF, and a CR just before it, are removed; an empty line is `Some ""`;
+    /// `None` comes only once nothing remains. `readAll` gives everything
     /// that remains, exactly as it is (`""` once nothing does), so a
-    /// `readLine` after it gives `Nothing`. Output is flushed before every
+    /// `readLine` after it gives `None`. Output is flushed before every
     /// read. Each `print` writes its payload, then LF.
     pub fn run_main(
         &self,
@@ -531,7 +531,7 @@ impl Shapes {
             read_line: ctor(Builtin::ReadLine),
             read_all: ctor(Builtin::ReadAll),
             unit: data(Builtin::UnitType),
-            maybe: data(Builtin::Maybe),
+            maybe: data(Builtin::Option),
             text: data(Builtin::Text),
             list: data(Builtin::List),
             char: data(Builtin::Char),
@@ -542,7 +542,7 @@ impl Shapes {
         Value::Ctor(self.unit, 0, Vec::new().into())
     }
 
-    // `Maybe` is `Nothing | Just a`, and `List` is `Nil | Cons a (List a)`.
+    // `Option` is `None | Some a`, and `List` is `Nil | Cons a (List a)`.
 
     fn nothing(&self) -> Value {
         Value::Ctor(self.maybe, 0, Vec::new().into())

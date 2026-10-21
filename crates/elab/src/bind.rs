@@ -26,7 +26,7 @@ use crate::check::{Ctx, Result, builtin_data, builtin_def};
 
 /// Whether computing `term` costs nothing worth avoiding: it's small and
 /// built from variables, literals and constructors only (a text literal,
-/// `Just 3`). Binding those would only make the program longer.
+/// `Some 3`). Binding those would only make the program longer.
 pub(crate) fn cheap(term: &Term) -> bool {
     const SMALL: usize = 64;
     let mut nodes = term.subterms();

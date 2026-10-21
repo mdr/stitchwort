@@ -9,23 +9,23 @@ import Text (split, join)
 import Std.List (reverseOnto)
 
 -- A program's own names hide the library's: this file has its own `length`,
--- `Maybe` and `Yes`.
+-- `Option` and `Yes`.
 def length: Nat := 3
 
 type Answer: Type =
   | Yes
   | No
 
-type Maybe (a: Type): Type =
+type Option (a: Type): Type =
   | Absent
   | Present (value: a)
 
--- The library's `Maybe` is still there, written in full. Its constructors
--- went with the default `Maybe`, so they're written in full too.
-def libraryJust: Std.Maybe Nat := Std.Maybe.Just 1
+-- The library's `Option` is still there, written in full. Its constructors
+-- went with the default `Option`, so they're written in full too.
+def librarySome: Std.Option Nat := Std.Option.Some 1
 
--- The program's own `Maybe` and `Yes`.
-def lookup: Nat -> Maybe Nat
+-- The program's own `Option` and `Yes`.
+def lookup: Nat -> Option Nat
   | 0 => Absent
   | n => Present n
 
@@ -34,8 +34,8 @@ def decide: Nat -> Answer
   | n => Yes
 
 test "own names" := length == 3
-test "library Maybe" := Std.List.length [libraryJust] == 1
-test "own Maybe" := Std.List.length [lookup 0, lookup 2] == 2
+test "library Option" := Std.List.length [librarySome] == 1
+test "own Option" := Std.List.length [lookup 0, lookup 2] == 2
 
 -- A type owns a namespace: its constructors are in it, and so is anything
 -- declared with its name in front.

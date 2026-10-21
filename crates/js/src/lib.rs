@@ -3,7 +3,7 @@
 //!
 //! First-milestone scope: exports take and return concrete first-order data
 //! (`Nat`, `Bool`, `Text`, `Char`, `List`, and data types built from them,
-//! such as `Maybe Text`), and their proof arguments are checked at runtime.
+//! such as `Option Text`), and their proof arguments are checked at runtime.
 
 use std::cell::{Cell, OnceCell};
 use std::collections::{HashMap, HashSet};
@@ -2376,7 +2376,7 @@ const TEXT_NATIVES: &[(Builtin, TextNative, &str)] = &[
     (
         Builtin::TextUncons,
         TextNative::TextUncons,
-        "d952c2ae02610d4301d3f8e441f2204f500fa21d440bee0feb9b03d7d5953178",
+        "dc12eccdfb2e03e842ead8377f4a9ab1fd8cce57d740cdc8922e3c002b133d58",
     ),
     (
         Builtin::TextFold,
@@ -2406,7 +2406,7 @@ const TEXT_NATIVES: &[(Builtin, TextNative, &str)] = &[
     (
         Builtin::TextToNat,
         TextNative::TextToNat,
-        "821a853b8c081463a8189482e6d8bc62a5d39650b351d03b03c3a4aa69bf7785",
+        "40b834208c0b6345e3b81e200440e69bfc6969c2018de11d932c3c11d18587ed",
     ),
 ];
 
@@ -2703,7 +2703,7 @@ const INT_NATIVES: &[(Builtin, IntNative, &str)] = &[
     (
         Builtin::IntToNatChecked,
         IntNative::IntToNatChecked,
-        "65cfa936910e663a0ae2b245934f35a8a9e1227d68bab815208eac8c0ac18a29",
+        "c547e9888ac69af472db81dd6d5d8ad4c37eb090e69144d1c0c72eff07e8634c",
     ),
     (
         Builtin::IntSign,
@@ -2718,12 +2718,12 @@ const INT_NATIVES: &[(Builtin, IntNative, &str)] = &[
     (
         Builtin::TextToInt,
         IntNative::TextToInt,
-        "29b31ed149402eecf3696f866f808771564a1f432befa811ce0f033666ebdac1",
+        "57c98cd6c3cbc6820ef468b322008a44bbc462168c937464a6feec872de35e7c",
     ),
 ];
 
 /// JS for an integer native. The prelude's types have the representation the
-/// runtime uses (`Just`'s `value`, the constructors' names as tags). BigInt's
+/// runtime uses (`Some`'s `value`, the constructors' names as tags). BigInt's
 /// `/` and `%` truncate towards zero, and `%` takes the dividend's sign
 /// (truncated division); the Euclidean and floored conventions correct that
 /// by one step where the remainder has the wrong sign (Leijen, "Division and
@@ -2762,7 +2762,7 @@ fn int_native_js(op: IntNative) -> &'static str {
         IntNative::IntNatAbs | IntNative::IntAbs => "(a) => (a < 0n ? -a : a)",
         IntNative::IntToNat => "(a) => (a < 0n ? 0n : a)",
         IntNative::IntToNatChecked => {
-            "(a) => (a < 0n ? { tag: \"Nothing\" } : { tag: \"Just\", value: a })"
+            "(a) => (a < 0n ? { tag: \"None\" } : { tag: \"Some\", value: a })"
         }
         IntNative::IntSign => "(a) => (a > 0n ? 1n : a < 0n ? -1n : 0n)",
         IntNative::IntToText => "(a) => a.toString()",
@@ -2772,13 +2772,13 @@ fn int_native_js(op: IntNative) -> &'static str {
         IntNative::TextToInt => {
             r#"(t) => {
   const s = t.charCodeAt(0) === 45 ? t.slice(1) : t;
-  if (s === "") return { tag: "Nothing" };
+  if (s === "") return { tag: "None" };
   for (let i = 0; i < s.length; i++) {
     const unit = s.charCodeAt(i);
-    if (unit < 48 || unit > 57) return { tag: "Nothing" };
+    if (unit < 48 || unit > 57) return { tag: "None" };
   }
   const n = BigInt(s);
-  return { tag: "Just", value: s === t ? n : -n };
+  return { tag: "Some", value: s === t ? n : -n };
 }"#
         }
     }
@@ -2786,7 +2786,7 @@ fn int_native_js(op: IntNative) -> &'static str {
 
 /// JS for a text native. The runtime's helpers (`TEXT_AS_STRING`) are in
 /// scope, and the prelude's types have the representation the runtime uses
-/// (`MkChar`'s `code`, `Cons`'s `head` and `tail`, `Just`'s `value`,
+/// (`MkChar`'s `code`, `Cons`'s `head` and `tail`, `Some`'s `value`,
 /// `MkPair`'s `fst` and `snd`).
 fn text_native_js(op: TextNative) -> &'static str {
     match op {
@@ -2825,10 +2825,10 @@ fn text_native_js(op: TextNative) -> &'static str {
         }
         TextNative::TextUncons => {
             r#"(t) => {
-  if (t === "") return { tag: "Nothing" };
+  if (t === "") return { tag: "None" };
   const code = t.codePointAt(0);
   const c = { tag: "MkChar", code: BigInt(code) };
-  return { tag: "Just", value: { tag: "MkPair", fst: c, snd: t.slice(code > 0xffff ? 2 : 1) } };
+  return { tag: "Some", value: { tag: "MkPair", fst: c, snd: t.slice(code > 0xffff ? 2 : 1) } };
 }"#
         }
         // A right fold, as the definition is: `f` gets the last character
@@ -2875,12 +2875,12 @@ fn text_native_js(op: TextNative) -> &'static str {
         // (`BigInt` alone would also accept "", " 12" and "0x10".)
         TextNative::TextToNat => {
             r#"(t) => {
-  if (t === "") return { tag: "Nothing" };
+  if (t === "") return { tag: "None" };
   for (let i = 0; i < t.length; i++) {
     const unit = t.charCodeAt(i);
-    if (unit < 48 || unit > 57) return { tag: "Nothing" };
+    if (unit < 48 || unit > 57) return { tag: "None" };
   }
-  return { tag: "Just", value: BigInt(t) };
+  return { tag: "Some", value: BigInt(t) };
 }"#
         }
     }

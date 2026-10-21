@@ -18,13 +18,13 @@ theorem producted: [1, 2, 3, 4].product = 24 := rfl
 
 theorem productEmpty: List.product [] = 1 := rfl
 
-theorem maximumOf: [3, 9, 2].maximum = Just 9 := rfl
+theorem maximumOf: [3, 9, 2].maximum = Some 9 := rfl
 
-theorem minimumOf: [3, 9, 2].minimum = Just 2 := rfl
+theorem minimumOf: [3, 9, 2].minimum = Some 2 := rfl
 
-theorem maximumEmpty: List.maximum ([]: List Nat) = Nothing := rfl
+theorem maximumEmpty: List.maximum ([]: List Nat) = None := rfl
 
-theorem minimumEmpty: List.minimum ([]: List Nat) = Nothing := rfl
+theorem minimumEmpty: List.minimum ([]: List Nat) = None := rfl
 
 theorem zipped: [1, 2, 3].zip [4, 5] = [MkPair 1 4, MkPair 2 5] := rfl
 
@@ -48,20 +48,20 @@ theorem dropped: [1, 2, 3].drop 2 = [3] := rfl
 
 theorem droppedMore: [1, 2].drop 5 = [] := rfl
 
-theorem got: [5, 6, 7].get 1 = Just 6 := rfl
+theorem got: [5, 6, 7].get 1 = Some 6 := rfl
 
-theorem gotMissing: [5, 6, 7].get 3 = Nothing := rfl
+theorem gotMissing: [5, 6, 7].get 3 = None := rfl
 
 test "any" := [1, 2, 3].any (x => Nat.equal x 2)
 test "all" := [1, 2, 3].all (x => Nat.leq x 3)
 test "not all" := Bool.not ([1, 2, 3].all (x => Nat.leq x 2))
 test "count" := [1, 2, 3, 4].count (x => Nat.leq 3 x) == 2
 
-theorem found: [1, 2, 3].find (x => Nat.leq 2 x) = Just 2 := rfl
+theorem found: [1, 2, 3].find (x => Nat.leq 2 x) = Some 2 := rfl
 
-theorem notFound: [1, 2, 3].find (x => Nat.leq 9 x) = Nothing := rfl
+theorem notFound: [1, 2, 3].find (x => Nat.leq 9 x) = None := rfl
 
-theorem mappedMaybe: [1, 2, 3, 4].mapMaybe (x => if Nat.leq 3 x then Just (x * 2) else Nothing) = [6, 8] := rfl
+theorem mappedOption: [1, 2, 3, 4].filterMap (x => if Nat.leq 3 x then Some (x * 2) else None) = [6, 8] := rfl
 
 theorem concatenated: [[1], [], [2, 3]].concat = [1, 2, 3] := rfl
 
@@ -75,18 +75,18 @@ theorem rangedZero: List.range 0 = [] := rfl
 
 theorem reversed: [1, 2, 3].reverse = [3, 2, 1] := rfl
 
-theorem lasted: [1, 2, 3].last = Just 3 := rfl
+theorem lasted: [1, 2, 3].last = Some 3 := rfl
 
-theorem lastedEmpty: ([]: List Nat).last = Nothing := rfl
+theorem lastedEmpty: ([]: List Nat).last = None := rfl
 
 test "elem" := List.elem Nat.decEq 2 [1, 2, 3]
 test "not elem" := Bool.not (List.elem Nat.decEq 5 [1, 2, 3])
 
 theorem partitioned: [1, 2, 3, 4].partition (x => Nat.leq x 2) = MkPair [1, 2] [3, 4] := rfl
 
-theorem looked: List.lookup Nat.decEq 2 [MkPair 1 10, MkPair 2 20] = Just 20 := rfl
+theorem looked: List.lookup Nat.decEq 2 [MkPair 1 10, MkPair 2 20] = Some 20 := rfl
 
-theorem lookedMissing: List.lookup Nat.decEq 3 [MkPair 1 10, MkPair 2 20] = Nothing := rfl
+theorem lookedMissing: List.lookup Nat.decEq 3 [MkPair 1 10, MkPair 2 20] = None := rfl
 
 test "min" := Nat.min 3 5 == 3
 test "max" := Nat.max 3 5 == 5
@@ -100,4 +100,4 @@ test "map" := [1, 2, 3].map (x => x + 1) == [2, 3, 4]
 test "filter" := [1, 2, 3, 4].filter (x => Nat.leq x 2) == [1, 2]
 test "zip" := [1, 2, 3].zip [4, 5] == [MkPair 1 4, MkPair 2 5]
 test "partition" := [1, 2, 3, 4].partition (x => Nat.leq x 2) == MkPair [1, 2] [3, 4]
-test "maximum" := [3, 9, 2].maximum == Just 9
+test "maximum" := [3, 9, 2].maximum == Some 9

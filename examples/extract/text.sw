@@ -62,8 +62,8 @@
 -- run: greet (MkPerson "Zo\u{EB}" '\u{1F600}' ["x", ""])
 -- run: initials [MkPerson "Ana" 'A' [], MkPerson "\u{10000}" '\u{10000}' ["t"]]
 -- run: rename "\u{0}" (MkPerson "a" 'b' ["c"])
--- run: orEmpty (Just "\u{1F600}")
--- run: orEmpty Nothing
+-- run: orEmpty (Some "\u{1F600}")
+-- run: orEmpty None
 -- run: firstOf (MkPair '\u{1F600}' "rest")
 -- run: located (At "a\u{1F600}" 'x' ['y'])
 -- Native operations used as values, and their results taken apart by user
@@ -93,7 +93,7 @@ export def echoChar (c: Char): Char := c
 
 export def codeOf (c: Char): Nat := Char.toNat c
 
-export def charOf (n: Nat): Maybe Char := Char.fromNat n
+export def charOf (n: Nat): Option Char := Char.fromNat n
 
 export def same (a: Text) (b: Text): Bool := a == b
 
@@ -107,11 +107,11 @@ export def joinOn (c: Char) (ts: List Text): Text := Text.join c ts
 
 export def trim (t: Text): Text := Text.trim t
 
-export def toNat (t: Text): Maybe Nat := Text.toNat t
+export def toNat (t: Text): Option Nat := Text.toNat t
 
 export def fromNat (n: Nat): Text := Nat.toText n
 
-export def uncons (t: Text): Maybe (Pair Char Text) := Text.uncons t
+export def uncons (t: Text): Option (Pair Char Text) := Text.uncons t
 
 -- User code over the characters.
 export def reverse (t: Text): Text := Text.fromList (List.reverseOnto (Text.toList t) Nil)
@@ -122,7 +122,7 @@ def countIn (c: Char): List Char -> Nat
 
 export def countChar (c: Char) (t: Text): Nat := countIn c (Text.toList t)
 
--- Text inside a user's data type, a list and the prelude's `Maybe` and `Pair`.
+-- Text inside a user's data type, a list and the prelude's `Option` and `Pair`.
 type Person: Type =
   | MkPerson (name: Text) (initial: Char) (tags: List Text)
 
@@ -138,9 +138,9 @@ export def initials (ps: List Person): List Char := initialsOf ps
 export def rename (n: Text): Person -> Person
   | MkPerson m i t => MkPerson n i (Cons m t)
 
-export def orEmpty: Maybe Text -> Text
-  | Nothing => ""
-  | Just t  => t
+export def orEmpty: Option Text -> Text
+  | None => ""
+  | Some t  => t
 
 export def firstOf (p: Pair Char Text): Char := Pair.fst p
 
@@ -176,11 +176,11 @@ def firstOfList: List Text -> Text
 
 export def firstField (c: Char) (t: Text): Text := firstOfList (Text.split c t)
 
-def leadingChar: Text -> Maybe Char
-  | MkText Nil         => Nothing
-  | MkText (Cons c cs) => Just c
+def leadingChar: Text -> Option Char
+  | MkText Nil         => None
+  | MkText (Cons c cs) => Some c
 
-export def trimmedHead (t: Text): Maybe Char := leadingChar (Text.trim t)
+export def trimmedHead (t: Text): Option Char := leadingChar (Text.trim t)
 
 -- The characters aren't used, so they aren't made into a list.
 export def isText: Text -> Bool

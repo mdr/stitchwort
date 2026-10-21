@@ -1,8 +1,8 @@
 -- expect-error: E-UNKNOWN-NAME
--- This file's own `Maybe` hides the library's, and the library's `Just`
--- and `Nothing` go with it (they're `Std.Maybe.Just` and `Std.Maybe.Nothing`).
-type Maybe (a: Type): Type =
+-- This file's own `Option` hides the library's, and the library's `Some`
+-- and `None` go with it (they're `Std.Option.Some` and `Std.Option.None`).
+type Option (a: Type): Type =
   | Absent
   | Present (value: a)
 
-def one: Std.Maybe Nat := Just 1
+def one: Std.Option Nat := Some 1

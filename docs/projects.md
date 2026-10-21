@@ -50,10 +50,10 @@ namespace Aoc
 -- A range of ids, both ends included.
 type Range = { from: Nat, to: Nat }
 
-def Range.parse (t: Text): Maybe Range :=
+def Range.parse (t: Text): Option Range :=
   match (t.split '-').map Text.toNat with
-    | [Just from, Just to] => Just { from, to }
-    | _                  => Nothing
+    | [Some from, Some to] => Some { from, to }
+    | _                  => None
 
 def Range.size (r: Range): Nat := r.to + 1 - r.from
 ```
@@ -66,8 +66,8 @@ import Aoc (Range)
 type Database = { fresh: List Range, available: List Nat }
 
 def parseDatabase (lines: List Text): Database :=
-  { fresh = lines.mapMaybe Range.parse,
-    available = lines.mapMaybe Text.toNat }
+  { fresh = lines.filterMap Range.parse,
+    available = lines.filterMap Text.toNat }
 
 def solvePart1 (db: Database): Nat :=
   (db.fresh.map Range.size).sum
@@ -163,7 +163,7 @@ own imports, or namespaces under it such as `Aoc.Grid`.
 - **Lowest priority among imports.** A short name means, first found: a
   local variable; a declaration of this namespace (any file); a name this
   file imports by name; a name a `(..)` import brings; the default names
-  (`Nat`, `Maybe`, `not`, ...). So your own declarations and named imports
+  (`Nat`, `Option`, `not`, ...). So your own declarations and named imports
   win silently, and a `(..)` import can hide a default name.
 - **Two `(..)` imports may bring the same name.** That's only an error
   (`E-AMBIGUOUS`) where the name is used. Write it in full, or import the

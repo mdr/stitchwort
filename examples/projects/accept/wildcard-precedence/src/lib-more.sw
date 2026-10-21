@@ -1,6 +1,6 @@
 namespace Lib
 
-type Maybe =
+type Option =
   | Nope
   | Yep (n: Nat)
 

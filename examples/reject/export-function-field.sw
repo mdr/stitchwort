@@ -5,6 +5,6 @@ type Holder: Type =
   | MkHolder (f: Nat -> Nat)
 
 type Outer: Type =
-  | MkOuter (inner: Maybe Holder)
+  | MkOuter (inner: Option Holder)
 
 export def useOuter (o: Outer): Nat := 0

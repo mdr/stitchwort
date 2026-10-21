@@ -97,9 +97,9 @@ Main.test "two parameters, differs" 43c987f12a45349a6ac9b8e1025ac52422eed4d2e558
 Main.test "two parameters, side differs" a5f1f275f63afc0d8a4e7eb1f58570137c2fc4cba785c0b15565f603addebc9b
 Main.test "list of enums" 431ab49cfed85860bbe2da116b16208b3418b59ac45b14b9ff24152fd5d02928
 Main.test "list of enums, different" d8575203cef880f8ccb0278999cdf1ef55cc7221278703c58f49ce0eac0588f0
-Main.test "Maybe of constructor" ac2ea28d714e7ce41cba3d35811d9dca04debf01d62fb3b9f69cca3dd115a024
-Main.test "Maybe of constructor, different" c370d2589ff7ec959779253c1d415905e684613dce6eb369ed7f6d2f03849049
-Main.test "Maybe, Nothing" 3086c42b4f0ee083ea0c72fa43211aa9531af3e8f8980c0fbc6b4cb11d6737a8
+Main.test "Option of constructor" abfb949ce0620809d3643bc27fff5636aaa80bd4cc551deb307f4a638a018d5b
+Main.test "Option of constructor, different" 6f1fcd7a28e73ce980f7ae023665aecbdee44c6d4902c183ee718532e23d2ea3
+Main.test "Option, None" 09d92d3a0285b1d2f3436568223d46c2dc71e424049468d4917128e73968c2c5
 Main.test "tuple" 791684d5d43ab9ef19114f9b4f7b88ecdae0eef9494d0b39e36dd45f62fa1e8f
 Main.test "tuple, different" d3dac645e502fdb04c88e0826b865c93bf704e5e175ee9c0c052761e14a7ae4a
 Main.test "list of trees" b5b2969d2f7ee6495574260d8cabc882501275554f2f4ca4e0320b19a06e7758
