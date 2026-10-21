@@ -156,10 +156,10 @@ fn partial_when_checking_fails() {
     session.elab.enable_navigation();
     let source = "def ok (xs: List Nat): Nat := xs.length\n\ndef bad (xs: List Nat): Nat := xs.map (n => n)\n";
     assert!(session.load("one.sw", source).is_err());
-    let json = index_json(&session, true, Some(false), "");
-    assert!(json.starts_with(r#"{"version":1,"errors":true,"ok":false,"files":["#));
+    let json = index_json(&session, true, Some(false), "", &[]);
+    assert!(json.starts_with(r#"{"version":2,"errors":true,"ok":false,"files":["#));
     assert!(json.contains(r#""name":"Std.List.length""#), "{json}");
-    assert!(json.contains(r#""name":"ok","kind":"def""#), "{json}");
+    assert!(json.contains(r#""name":"Main.ok","kind":"def""#), "{json}");
 }
 
 /// Columns count UTF-16 code units, and lines and columns start at 0.
@@ -169,7 +169,7 @@ fn columns_are_utf16() {
     session.elab.enable_navigation();
     let source = "def f (t: Text): Text := \"😀\" ++ t\n";
     session.load("one.sw", source).expect("checks");
-    let json = index_json(&session, false, None, "");
+    let json = index_json(&session, false, None, "", &[]);
     // `t` in the body: `def f (t: Text): Text := "😀" ++ t`; the emoji is
     // one character, two UTF-16 units, so the column is one more than the
     // number of characters before it.
@@ -190,10 +190,76 @@ fn library_targets_are_marked() {
     session
         .load("one.sw", "def f (xs: List Nat): Nat := xs.length\n")
         .expect("checks");
-    let json = index_json(&session, false, None, "");
+    let json = index_json(&session, false, None, "", &[]);
     assert!(json.contains(r#"{"path":"crates/elab/src/std/core.sw","std":"core.sw"}"#));
     let text =
         stitchwort_driver::nav::std_source("core.sw", session.elab.limits.stack).expect("embedded");
     assert!(text.contains("List"));
     assert!(stitchwort_driver::nav::std_source("nope.sw", session.elab.limits.stack).is_none());
+}
+
+/// Diagnostics come with the index: where, what, the other labels and notes.
+#[test]
+fn diagnostics_are_in_the_index() {
+    let mut session = Session::new();
+    session.elab.enable_navigation();
+    let source = "def f: Nat := \"a\"\n";
+    let errors = session.load("one.sw", source).expect_err("fails");
+    let json = index_json(&session, true, None, "", &errors);
+    assert!(
+        json.contains(
+            r#""diagnostics":[{"severity":"error","code":"E-TYPE-MISMATCH","message":"type mismatch","file":0,"range":[0,14,0,17],"labels":[{"file":0,"range":[0,14,0,17],"message":"expected `Nat`, but this has type `Text`"}],"notes":[]}]"#
+        ),
+        "{json}"
+    );
+}
+
+/// A name's own declaration refers to it; a single file's names are
+/// qualified with `Main.` as a project's are with the namespace; a symbol's
+/// range is its last name component; `container` is always there.
+#[test]
+fn declarations_refer_to_themselves() {
+    let mut session = Session::new();
+    session.elab.enable_navigation();
+    let source = "type Bag = { n: Nat }\n\ndef Bag.size (b: Bag): Nat := b.n\n\ndef use (b: Bag): Nat := b.size\n";
+    session.load("one.sw", source).expect("checks");
+    let json = index_json(&session, false, None, "", &[]);
+    assert!(
+        json.contains(
+            r#"{"name":"Main.Bag.size","kind":"def","file":0,"range":[2,8,2,12],"fullRange":[2,0,2,33],"container":null,"#
+        ),
+        "{json}"
+    );
+    // the declaration's own name, then the use by dot notation: one symbol
+    assert!(
+        json.contains(r#"{"file":0,"range":[2,8,2,12],"symbol":2,"#),
+        "{json}"
+    );
+    assert!(
+        json.contains(r#"{"file":0,"range":[4,27,4,31],"symbol":2,"#),
+        "{json}"
+    );
+    assert!(!json.contains(r#""name":"Bag.size""#), "{json}");
+    assert_eq!(
+        json.matches(r#""name":"Main.Bag.size""#).count(),
+        1,
+        "{json}"
+    );
+}
+
+/// Names inside the library's files are references too, so that navigation
+/// continues there.
+#[test]
+fn library_files_have_references() {
+    let mut session = Session::new();
+    session.elab.enable_navigation();
+    session
+        .load("one.sw", "def f (xs: List Nat): Nat := xs.length\n")
+        .expect("checks");
+    let index = index_of(&session);
+    let std_files = session.elab.std_file_count();
+    assert!(
+        index.refs.iter().any(|r| r.span.file.index() < std_files),
+        "no references in library files"
+    );
 }

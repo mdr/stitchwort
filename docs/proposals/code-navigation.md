@@ -1,6 +1,7 @@
 # Proposal: code navigation index
 
-**Status:** built (SW-201, D238, 21 October 2026). Tooling only, so no external
+**Status:** built (SW-201, D238, 21 October 2026; version 2 with diagnostics and
+the library's own references, SW-211, D251). Tooling only, so no external
 review. A later language server (SW-31, D239) reuses the same recording.
 
 The compiler resolves every name, but used to throw the answer away. With
@@ -46,11 +47,11 @@ name, kind, name position, whole-declaration range, and the declaration it
 sits in (a constructor or field in its type, an operation in its ability).
 Local definitions aren't listed (they are binders).
 
-## Format (`"version": 1`)
+## Format (`"version": 2`)
 
 ```json
 {
-  "version": 1,
+  "version": 2,
   "errors": false,
   "files": [
     {"path": "Main/Main.sw"},
@@ -64,9 +65,17 @@ Local definitions aren't listed (they are binders).
      "type": "[a: Type] -> [b: Type] -> (f: a -> b) -> (xs: List a) -> List b"}
   ],
   "refs": [
+    {"file": 0, "range": [2, 4, 2, 7], "symbol": 0, "type": "(xs: List Nat) -> Nat"},
     {"file": 0, "range": [3, 9, 3, 16], "symbol": 1, "type": "..."},
     {"file": 0, "range": [3, 4, 3, 6], "type": "List Nat",
      "binder": {"name": "xs", "file": 0, "range": [2, 8, 2, 10]}}
+  ],
+  "diagnostics": [
+    {"severity": "error", "code": "E-TYPE-MISMATCH", "message": "type mismatch",
+     "file": 0, "range": [3, 9, 3, 16],
+     "labels": [{"file": 0, "range": [3, 9, 3, 16],
+                 "message": "expected `Nat`, but this has type `Text`"}],
+     "notes": []}
   ]
 }
 ```
@@ -84,7 +93,9 @@ Local definitions aren't listed (they are binders).
   offsets, so a client never sees bytes.
 - `symbols`: `name` is the full name (`Main.sum`, `Std.List.map`); `kind` is
   one of `def theorem instance type data record interface ctor field ability
-  op test`; `container` is an index into `symbols` or `null`; `fullRange` is
+  op test`; `range` is the declaration's name, only its last component
+  (`length` in `def List.length`; a test's whole description); `container` is
+  an index into `symbols`, or `null`, and always present; `fullRange` is
   present for definitions of the checked files. Symbols of the project files
   come first, in source order; those of the library are only the ones
   referenced. `type` may be missing.
@@ -92,8 +103,19 @@ Local definitions aren't listed (they are binders).
   `symbols`; the target is `symbols[i].file/range`) and `binder` is present.
   `type` may be missing. Ranges never overlap each other except that `p.name`
   gives two adjacent ranges.
+  A declaration's own name has a ref to its symbol (so hover and definition
+  work there), and the files of the library that were loaded have refs of
+  their own, with the same rules, so navigation continues inside them. (A
+  library file's local variables and its names are covered; its outline is
+  not, only the symbols something refers to.)
 - `errors`: whether checking reported errors. The index is still written, for
   the parts that were elaborated.
+- `diagnostics`: everything checking reported, errors and warnings, in the
+  order the compiler reported them: `severity` (`error` or `warning`), `code`
+  (`E-TYPE-MISMATCH`), `message` (the main text), `labels` (each `file`,
+  `range` and `message`; the first is where the diagnostic is, and `file` and
+  `range` of the diagnostic are its range, absent if it has no label), and
+  `notes` (plain strings). A label's file may be a library file.
 
 To go to a definition: find the ref whose range contains the cursor, follow
 `symbol` or `binder`. To hover: show the ref's `type` (and `symbols[i].name`).

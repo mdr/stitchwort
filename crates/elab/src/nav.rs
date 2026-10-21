@@ -59,7 +59,11 @@ struct LocalUse {
 }
 
 struct OutlineItem {
+    /// The full name as the index shows it (`Main.` for a file with no
+    /// namespace line, as for a project's namespaces).
     name: String,
+    /// The name the scope binds it by.
+    key: String,
     kind: &'static str,
     /// Its name.
     span: Span,
@@ -181,7 +185,9 @@ impl Elaborator {
         let def = self.globals.def(id);
         // The declaration's name, as a written name finds it; a definition's
         // own span covers all of it.
-        let target = match self.scope.get(&def.path) {
+        let path = def.path.to_string();
+        let relative = path.strip_prefix("Main.").unwrap_or(&path);
+        let target = match self.scope.get(&path).or_else(|| self.scope.get(relative)) {
             Some((Global::Def(found), span)) if found == id => span,
             _ => def.span,
         };
@@ -258,14 +264,18 @@ impl Elaborator {
         let Some(nav) = &self.nav else {
             return;
         };
-        if self.loading_prelude || !self.library_stack_is_empty() {
-            return;
-        }
+        let library = self.loading_prelude || !self.library_stack_is_empty();
         let mut nav = nav.borrow_mut();
         for module in modules {
             let mut walk = Walk {
                 nav: &mut nav,
                 prefix: self.namespace_root.clone(),
+                outline: !library,
+                display: if self.namespace_root.is_empty() {
+                    "Main.".to_string()
+                } else {
+                    self.namespace_root.clone()
+                },
             };
             walk.module(module);
         }
@@ -286,7 +296,7 @@ impl Elaborator {
         let mut by_span: HashMap<Span, usize> = HashMap::new();
         for item in &nav.outline {
             by_span.insert(item.span, symbols.len());
-            let key = item.name.clone();
+            let key = item.key.clone();
             symbols.push(NavSymbol {
                 ty: self
                     .scope
@@ -356,6 +366,21 @@ impl Elaborator {
                     .local_types
                     .get(&(local.span.file, local.span.start))
                     .cloned(),
+            });
+        }
+        // Each declaration's own name refers to it, for hover and definition there.
+        let mut taken: std::collections::HashSet<(FileId, u32)> =
+            refs.iter().map(|r| (r.span.file, r.span.start)).collect();
+        for (i, item) in nav.outline.iter().enumerate() {
+            if item.kind == "test" || !taken.insert((item.span.file, item.span.start)) {
+                continue;
+            }
+            let last = item.name.rsplit('.').next().unwrap_or_default();
+            refs.push(NavRef {
+                span: item.span,
+                dot: Some(last.to_string()),
+                target: NavTarget::Symbol(i),
+                ty: symbols[i].ty.clone(),
             });
         }
         refs.sort_by_key(|r| (r.span.file.index(), r.span.start, r.span.end));
@@ -456,6 +481,10 @@ enum Work<'a> {
 struct Walk<'n> {
     nav: &'n mut Recorder,
     prefix: String,
+    display: String,
+    /// Whether definitions go in the outline: not for library files, whose
+    /// symbols are made when something refers to them.
+    outline: bool,
 }
 
 impl Walk<'_> {
@@ -562,8 +591,12 @@ impl Walk<'_> {
         range: Span,
         container: Option<usize>,
     ) -> usize {
+        if !self.outline {
+            return 0;
+        }
         self.nav.outline.push(OutlineItem {
-            name: format!("{}{name}", self.prefix),
+            name: format!("{}{name}", self.display),
+            key: format!("{}{name}", self.prefix),
             kind,
             span,
             range,

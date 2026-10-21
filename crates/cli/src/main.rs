@@ -219,13 +219,25 @@ fn locate_project(flag: Option<&Path>, what: &str, example: &str) -> Option<Proj
 /// Loads the namespaces `target` needs; reports what's wrong, or the
 /// warnings.
 fn load_project(session: &mut Session, project: &Project, target: &Target) -> bool {
+    load_project_into(session, project, target, &mut Vec::new())
+}
+
+/// [`load_project`], also keeping what it reported in `reported`.
+fn load_project_into(
+    session: &mut Session,
+    project: &Project,
+    target: &Target,
+    reported: &mut Vec<Diagnostic>,
+) -> bool {
     match session.load_project(&project.files, &project.name, target) {
         Ok(_) => {
-            report(&session.sources, &std::mem::take(&mut session.warnings));
+            reported.extend(std::mem::take(&mut session.warnings));
+            report(&session.sources, reported);
             true
         }
         Err(diagnostics) => {
             report(&session.sources, &diagnostics);
+            reported.extend(diagnostics);
             false
         }
     }
@@ -291,6 +303,16 @@ fn load(session: &mut Session, path: &Path) -> bool {
 /// Loads a file on its own. With a `verb`, a file inside a project that
 /// uses the project is told why it can't.
 fn load_file(session: &mut Session, path: &Path, verb: Option<&'static str>) -> bool {
+    load_file_into(session, path, verb, &mut Vec::new())
+}
+
+/// [`load_file`], also keeping what it reported in `reported`.
+fn load_file_into(
+    session: &mut Session,
+    path: &Path,
+    verb: Option<&'static str>,
+    reported: &mut Vec<Diagnostic>,
+) -> bool {
     let text = match std::fs::read_to_string(path) {
         Ok(text) => text,
         Err(err) => {
@@ -313,11 +335,13 @@ fn load_file(session: &mut Session, path: &Path, verb: Option<&'static str>) -> 
     }
     match session.load_file(&path.display().to_string(), &text, context) {
         Ok(_) => {
-            report(&session.sources, &std::mem::take(&mut session.warnings));
+            reported.extend(std::mem::take(&mut session.warnings));
+            report(&session.sources, reported);
             true
         }
         Err(diagnostics) => {
             report(&session.sources, &diagnostics);
+            reported.extend(diagnostics);
             false
         }
     }
@@ -325,8 +349,14 @@ fn load_file(session: &mut Session, path: &Path, verb: Option<&'static str>) -> 
 
 /// Writes the navigation index of `session` to `index` (`-` is standard
 /// output).
-fn write_index(session: &Session, ok: bool, index: &str, root: &str) -> bool {
-    let json = stitchwort_cli::nav::index_json(session, !ok, None, root);
+fn write_index(
+    session: &Session,
+    ok: bool,
+    index: &str,
+    root: &str,
+    diagnostics: &[Diagnostic],
+) -> bool {
+    let json = stitchwort_cli::nav::index_json(session, !ok, None, root, diagnostics);
     if index == "-" {
         println!("{json}");
         return true;
@@ -358,10 +388,16 @@ fn check(targets: &[String], project: Option<&Path>, index: Option<&str>) -> Exi
             if index.is_some() {
                 session.elab.enable_navigation();
             }
-            let loaded = load_file(&mut session, Path::new(path), Some("checked"));
+            let mut reported = Vec::new();
+            let loaded = load_file_into(
+                &mut session,
+                Path::new(path),
+                Some("checked"),
+                &mut reported,
+            );
             ok &= loaded;
             if let Some(index) = index {
-                ok = write_index(&session, loaded, index, "") && ok;
+                ok = write_index(&session, loaded, index, "", &reported) && ok;
             }
         }
         return exit(ok);
@@ -378,9 +414,11 @@ fn check(targets: &[String], project: Option<&Path>, index: Option<&str>) -> Exi
     if index.is_some() {
         session.elab.enable_navigation();
     }
-    let mut ok = load_project(&mut session, &project, &target);
+    let mut reported = Vec::new();
+    let mut ok = load_project_into(&mut session, &project, &target, &mut reported);
     if let Some(index) = index {
-        ok = write_index(&session, ok, index, &format!("{}/", project.name)) && ok;
+        let root = format!("{}/", project.name);
+        ok = write_index(&session, ok, index, &root, &reported) && ok;
     }
     exit(ok)
 }
