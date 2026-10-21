@@ -1876,14 +1876,14 @@
     {
       "id": 124,
       "title": "A pure `Comp NoOp NoRes Nat` is accepted where `Nat` is expected",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
         "elab",
         "bug"
       ],
-      "body": "Problem (reproduced 21 Oct): with `import Std.Effect (Comp, NoOp, NoRes)`, `def f: Comp NoOp NoRes Nat := 3` and `def g: Nat := f` both check. docs/proposals/let.md (stage 1) says a pure block isn't wrapped in `Comp`/`runPure`, which may make `Comp NoOp NoRes a` convert to `a` by design, or it may be a conversion hole.\n\nFirst step: find the conversion that accepts `f` at `Nat` (crates/elab/src/effects.rs or unify.rs) and decide whether it's intended.\n\nDone when: either it is fixed (the repro's `g` is rejected, with a reject example) or the intent is documented in docs/proposals/let.md and docs/syntax.md, with an accept example locking it.\n\nHistory: noticed while writing namespaces §9.\n",
+      "body": "Problem (reproduced 21 Oct): with `import Std.Effect (Comp, NoOp, NoRes)`, `def f: Comp NoOp NoRes Nat := 3` and `def g: Nat := f` both check. docs/proposals/let.md (stage 1) says a pure block isn't wrapped in `Comp`/`runPure`, which may make `Comp NoOp NoRes a` convert to `a` by design, or it may be a conversion hole.\n\nFirst step: find the conversion that accepts `f` at `Nat` (crates/elab/src/effects.rs or unify.rs) and decide whether it's intended.\n\nDone when: either it is fixed (the repro's `g` is rejected, with a reject example) or the intent is documented in docs/proposals/let.md and docs/syntax.md, with an accept example locking it.\n\nHistory: noticed while writing namespaces §9.\n\nOutcome (21 Oct 2026): not a soundness hole. The elaborator runs an empty-row computation used at its result type through Effect.runPure (direct style); the kernel keeps Comp NoOp NoRes Nat and Nat apart (crates/driver/tests/empty_row_kernel.rs). D248 (Matt): keep accepting it. Documented in let.md §8 and syntax.md; examples accept/empty-row-run.sw, reject/empty-row-function.sw. Printing issue split out as SW-212.",
       "created": "2026-10-19",
       "updated": "2026-10-21",
       "commits": []
