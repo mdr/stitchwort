@@ -88,7 +88,13 @@ pub(crate) fn check_rewrite(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Resu
     let mut remaining = budget;
     let mut stats = Stats::default();
     let mut written = cx.written_goal.take();
-    let mut goal = expected.clone();
+    // A dictionary the goal mentions whose type is known is found first, so
+    // what it adds or compares computes (`xs.sumBy f`'s `+`).
+    let mut goal = match cx.e.interfaces.is_empty() {
+        true => expected.clone(),
+        false => crate::interfaces::find_ready_dictionaries(cx, expected, None)?
+            .unwrap_or_else(|| expected.clone()),
+    };
     let mut steps: Vec<Step> = Vec::new();
     let mut outcome = Ok(());
     for rule in rules {

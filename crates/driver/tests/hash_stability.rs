@@ -206,3 +206,56 @@ fn a_namespace_checked_alone_has_the_same_hashes() {
         }
     }
 }
+
+/// Writes every declaration's hash, for the prelude with every library file
+/// and for the AoC project, to the file `HASH_DUMP` names, one sorted line
+/// per declaration: for comparing two versions of the compiler
+/// (docs/proposals/interfaces.md stage 5's hash oracle). Run with
+/// `HASH_DUMP=… cargo test --release -p stitchwort-driver --test
+/// hash_stability -- --ignored dump`.
+#[test]
+#[ignore]
+fn dump() {
+    let Ok(path) = std::env::var("HASH_DUMP") else {
+        return;
+    };
+    let mut session = Session::eager();
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../aoc");
+    let files = DiskFiles { root };
+    if let Err(errors) = session.load_project(&files, "aoc", &Target::Everything) {
+        panic!("aoc doesn't load: {errors:#?}");
+    }
+    let mut out: Vec<String> = lines(&session, 0, 0).lines().map(str::to_string).collect();
+    out.sort();
+    std::fs::write(path, out.join("\n") + "\n").unwrap();
+    // With `HASH_DEPS`, also each definition's direct references (in its
+    // type and body), one line per definition: `name ref ref …`, for
+    // working out the dependency closure of what changed.
+    let Ok(path) = std::env::var("HASH_DEPS") else {
+        return;
+    };
+    let g = &session.elab.globals;
+    let mut deps = Vec::new();
+    for def in &g.defs {
+        let mut refs = std::collections::BTreeSet::new();
+        for term in std::iter::once(&def.ty).chain(def.body().map(|b| &**b)) {
+            for (t, _) in term.subterms() {
+                match t {
+                    stitchwort_core::Term::Def(id) => {
+                        refs.insert(g.def(*id).path.to_string());
+                    }
+                    stitchwort_core::Term::Data(d, _)
+                    | stitchwort_core::Term::Ctor(d, _, _)
+                    | stitchwort_core::Term::Case(_, d, _) => {
+                        refs.insert(format!("data {}", g.data(*d).path));
+                    }
+                    _ => {}
+                }
+            }
+        }
+        let refs: Vec<String> = refs.into_iter().collect();
+        deps.push(format!("{}\t{}", def.path, refs.join("\t")));
+    }
+    deps.sort();
+    std::fs::write(path, deps.join("\n") + "\n").unwrap();
+}

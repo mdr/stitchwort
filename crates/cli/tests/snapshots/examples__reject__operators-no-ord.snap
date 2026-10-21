@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: `<` works on `Nat` and `Int`
+   ╭─[ reject/operators-no-ord.sw:3:57 ]
+   │
+ 3 │ def earlier (f: Nat -> Nat) (g: Nat -> Nat): Bool := if f < g then True else False
+   │                                                         ┬  
+   │                                                         ╰── this is `Nat -> Nat`
+   │ 
+   │ Note: on other types `<` is `Ord.lessThan`, and there's no `Ord` instance for `Nat -> Nat` here
+───╯

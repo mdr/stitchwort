@@ -134,9 +134,20 @@ pub(crate) fn check_literal(
         }
         Class::Other => {
             let found = num_type(cx, if negative { Kind::Int } else { Kind::Nat })?;
-            Err(cx
+            let e = cx
                 .mismatch(expected, &found)
-                .with_note("a numeral can only be the prelude's `Nat` or `Int`"))
+                .with_note("a numeral can only be the prelude's `Nat` or `Int`");
+            // Where the type has `Add` (generic code, a user's `Point`), say
+            // what to write instead (docs/proposals/interfaces.md §5.13).
+            if let Some(add) = crate::interfaces::library_interface(cx.e, "Std.Add")
+                && crate::interfaces::findable(cx, &Value::Data(add, vec![expected.clone()]))?
+                    .is_none()
+            {
+                return Err(
+                    e.with_note("for another type's zero or one, write `Add.zero` or `Mul.one`")
+                );
+            }
+            Err(e)
         }
     }
 }
@@ -216,6 +227,13 @@ struct Group<'a> {
     arith: bool,
     /// Whether it's `<` or `<=`.
     ordering: bool,
+    /// The first operator in it that only `Nat` and `Int` have (`-`, `/`,
+    /// `%`, prefix `-`): without one, it may be on any type with the
+    /// instances its operators need (docs/proposals/interfaces.md §5.13).
+    numeric_only: Option<&'static str>,
+    /// Whether it has `+`, and `*`.
+    adds: bool,
+    muls: bool,
 }
 
 /// What decided the group's type, for error messages.
@@ -265,12 +283,20 @@ impl<'a> Group<'a> {
         match expr {
             Expr::Binary(o, a, b) if is_arith(*o) => {
                 self.arith = true;
+                match o {
+                    BinOp::Add => self.adds = true,
+                    BinOp::Mul => self.muls = true,
+                    _ => {
+                        self.numeric_only.get_or_insert(op_text(*o));
+                    }
+                }
                 let a = self.tree(cx, a, op_text(*o))?;
                 let b = self.tree(cx, b, op_text(*o))?;
                 Ok(Node::Op(*o, Box::new(a), Box::new(b), expr.span()))
             }
             Expr::Neg(inner, span) => {
                 self.minus.get_or_insert(*span);
+                self.numeric_only.get_or_insert("-");
                 if literal(expr).is_some() {
                     return Ok(self.leaf(expr, op));
                 }
@@ -288,6 +314,49 @@ impl<'a> Group<'a> {
             state: State::Waiting,
         });
         Node::Leaf(self.leaves.len() - 1)
+    }
+
+    /// Whether the group may be on a type other than `Nat` and `Int`: it has
+    /// only `+`, `*`, `<` and `<=` (or is an equation), and the library's
+    /// `Add`, `Mul` and `Ord` are declared (after the prelude's bootstrap
+    /// phase, D187).
+    fn generic(&self, cx: &Ctx) -> bool {
+        self.numeric_only.is_none()
+            && ["Std.Add", "Std.Mul", "Std.Ord"]
+                .iter()
+                .all(|path| crate::interfaces::library_interface(cx.e, path).is_some())
+    }
+
+    /// Why the group can't be on `t`, a type other than `Nat` and `Int`: an
+    /// operator only those have (an empty note), or an instance its
+    /// operators need that `t` doesn't have (a note saying so). `None` if it
+    /// can.
+    fn unsupported(&self, cx: &mut Ctx, t: &Value) -> Result<Option<String>> {
+        if !self.generic(cx) {
+            return Ok(Some(String::new()));
+        }
+        let needed = [
+            (self.adds, "Add", "+", "add"),
+            (self.muls, "Mul", "*", "mul"),
+            (self.ordering, "Ord", "<", "lessThan"),
+        ];
+        for (used, name, op, field) in needed {
+            let Some(interface) =
+                crate::interfaces::library_interface(cx.e, &format!("Std.{name}"))
+            else {
+                continue;
+            };
+            if used
+                && crate::interfaces::findable(cx, &Value::Data(interface, vec![t.clone()]))?
+                    .is_some()
+            {
+                return Ok(Some(format!(
+                    "on other types `{op}` is `{name}.{field}`, and there's no `{name}` instance for `{}` here",
+                    cx.show(t)
+                )));
+            }
+        }
+        Ok(None)
     }
 
     /// Whether the group has numeric syntax, so that it defaults to `Nat`.
@@ -372,17 +441,25 @@ pub(crate) fn group(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Resu
         match classify(cx, e)? {
             Class::Num(kind) => decided = Some((num_type(cx, kind)?, Decider::Expected)),
             Class::Unknown => {}
-            Class::Other => {
-                let op = match &sides.0 {
-                    Node::Op(op, ..) => op_text(*op),
-                    _ => "-",
-                };
-                return Err(cx.error(
-                    "E-TYPE-MISMATCH",
-                    format!("`{op}` gives a `Nat` or an `Int`"),
-                    format!("but `{}` is expected here", cx.show(e)),
-                ));
-            }
+            Class::Other => match g.unsupported(cx, e)? {
+                None => decided = Some((e.clone(), Decider::Expected)),
+                Some(note) => {
+                    let op = match &sides.0 {
+                        Node::Op(op, ..) => op_text(*op),
+                        _ => "-",
+                    };
+                    let error = cx.error(
+                        "E-TYPE-MISMATCH",
+                        format!("`{op}` gives a `Nat` or an `Int`"),
+                        format!("but `{}` is expected here", cx.show(e)),
+                    );
+                    return Err(if note.is_empty() {
+                        error
+                    } else {
+                        error.with_note(note)
+                    });
+                }
+            },
         }
     }
 
@@ -492,7 +569,7 @@ pub(crate) fn group(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Resu
             _ => unreachable!("every leaf is finished"),
         })
         .collect();
-    let a = build(cx, sides.0, kind, &mut leaves)?;
+    let a = build(cx, sides.0, &t, kind, &mut leaves)?;
     let Some(op) = top else {
         if let Some(e) = expected
             && !cx.unify(&t, e)?
@@ -504,21 +581,13 @@ pub(crate) fn group(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Resu
     let b = build(
         cx,
         sides.1.expect("a comparison has two sides"),
+        &t,
         kind,
         &mut leaves,
     )?;
     let prop = Value::Sort(Sort::Prop);
     match op {
-        BinOp::Lt | BinOp::Le => {
-            let builtin = match (op, kind.expect("an ordering is on numbers")) {
-                (BinOp::Lt, Kind::Nat) => Builtin::LessThan,
-                (BinOp::Le, Kind::Nat) => Builtin::LessEq,
-                (BinOp::Lt, Kind::Int) => Builtin::IntLessThan,
-                (_, Kind::Int) => Builtin::IntLessEq,
-                _ => unreachable!(),
-            };
-            Ok((apply_def(cx, builtin_def(cx, builtin)?, vec![a, b])?, prop))
-        }
+        BinOp::Lt | BinOp::Le => Ok((operator(cx, op, &t, kind, a, b)?, prop)),
         _ => equation(cx, op, a, b, &t),
     }
 }
@@ -592,14 +661,25 @@ fn infer_leaf(
         Class::Num(kind) => Some((num_type(cx, kind)?, Decider::Leaf(i))),
         Class::Unknown => None,
         Class::Other if equality => Some((ty.clone(), Decider::Leaf(i))),
-        Class::Other => {
-            let op = g.leaves[i].op;
-            return Err(Diagnostic::error(
-                "E-TYPE-MISMATCH",
-                format!("`{op}` works on `Nat` and `Int`"),
-            )
-            .with_label(expr.span(), format!("this is `{}`", cx.show(&ty))));
-        }
+        Class::Other => match g.unsupported(cx, &ty)? {
+            None => Some((ty.clone(), Decider::Leaf(i))),
+            Some(note) => {
+                let op = match g.leaves[i].op {
+                    "+" | "*" | "<" | "<=" => g.numeric_only.unwrap_or(g.leaves[i].op),
+                    op => op,
+                };
+                let error = Diagnostic::error(
+                    "E-TYPE-MISMATCH",
+                    format!("`{op}` works on `Nat` and `Int`"),
+                )
+                .with_label(expr.span(), format!("this is `{}`", cx.show(&ty)));
+                return Err(if note.is_empty() {
+                    error
+                } else {
+                    error.with_note(note)
+                });
+            }
+        },
     };
     g.leaves[i].state = State::Inferred(term, ty);
     Ok(decision)
@@ -720,10 +800,12 @@ fn decided_by(
     }
 }
 
-/// Assembles the term for `node`, at the number type `kind`.
+/// Assembles the term for `node`, on the type `t` (the number type `kind`,
+/// if it's one).
 fn build(
     cx: &mut Ctx,
     node: Node,
+    t: &Value,
     kind: Option<Kind>,
     leaves: &mut [Option<Term>],
 ) -> Result<Term> {
@@ -731,35 +813,104 @@ fn build(
     match node {
         Node::Leaf(i) => Ok(leaves[i].take().expect("each leaf is used once")),
         Node::Op(op, a, b, span) => {
-            let a = build(cx, *a, kind, leaves)?;
-            let b = build(cx, *b, kind, leaves)?;
-            let builtin = match (op, kind.expect("arithmetic is on numbers")) {
-                (BinOp::Add, Kind::Nat) => Builtin::Add,
-                (BinOp::Sub, Kind::Nat) => Builtin::Sub,
-                (BinOp::Mul, Kind::Nat) => Builtin::Mul,
-                (BinOp::Div, Kind::Nat) => Builtin::Div,
-                (BinOp::Mod, Kind::Nat) => Builtin::Mod,
-                (BinOp::Add, Kind::Int) => Builtin::IntAdd,
-                (BinOp::Sub, Kind::Int) => Builtin::IntSub,
-                (BinOp::Mul, Kind::Int) => Builtin::IntMul,
-                (BinOp::Div, Kind::Int) => Builtin::IntDiv,
-                (BinOp::Mod, Kind::Int) => Builtin::IntMod,
-                _ => unreachable!("only arithmetic operators are nodes"),
-            };
-            let id = builtin_def(cx, builtin)?;
-            // The obligation `d != 0` of `/` and `%` is reported at the
-            // operation.
+            let a = build(cx, *a, t, kind, leaves)?;
+            let b = build(cx, *b, t, kind, leaves)?;
+            // The obligation `d != 0` of `/` and `%`, or a missing instance,
+            // is reported at the operation.
             let saved = std::mem::replace(&mut cx.span, span);
-            let term = apply_def(cx, id, vec![a, b]);
+            let term = operator(cx, op, t, kind, a, b);
             cx.span = saved;
             Ok(Term::Loc(span, Rc::new(term?)))
         }
         Node::Neg(x, span) => {
-            let x = build(cx, *x, kind, leaves)?;
+            let x = build(cx, *x, t, kind, leaves)?;
             let neg = builtin_def(cx, Builtin::IntNeg)?;
             Ok(Term::Loc(span, Rc::new(Term::app(Term::Def(neg), x))))
         }
     }
+}
+
+/// `a op b` on the type `t` (the number type `kind`, if it's one).
+///
+/// `+`, `*`, `<` and `<=` mean the field `add`, `mul`, `lessThan` or
+/// `lessEq` of the dictionary of `Add`, `Mul` or `Ord` that §5.5 finds for
+/// `t`, projected if it's a global instance (docs/proposals/interfaces.md
+/// §5.13: `Nat.add a b`). On `Nat` and `Int`, with no dictionary of the
+/// interface in scope, §5.5 can only find the library's instance, whose
+/// fields are the built-in operations, so the projection's term is built
+/// directly; so it is in the prelude before those instances are ready
+/// (the bootstrap phase, D187). The rest are on `Nat` and `Int` only.
+fn operator(
+    cx: &mut Ctx,
+    op: BinOp,
+    t: &Value,
+    kind: Option<Kind>,
+    a: Term,
+    b: Term,
+) -> Result<Term> {
+    let through = match op {
+        BinOp::Add => Some(("Std.Add", "add")),
+        BinOp::Mul => Some(("Std.Mul", "mul")),
+        BinOp::Lt => Some(("Std.Ord", "lessThan")),
+        BinOp::Le => Some(("Std.Ord", "lessEq")),
+        _ => None,
+    };
+    if let Some((path, field)) = through
+        && let Some(interface) = crate::interfaces::library_interface(cx.e, path)
+    {
+        let dictionary = match kind {
+            None => true,
+            Some(k) => {
+                let head = match k {
+                    Kind::Nat => nat(cx)?,
+                    Kind::Int => builtin_data(cx, Builtin::Int)?,
+                };
+                crate::interfaces::instance_ready(cx.e, interface, head)
+                    && (cx.e.uniform_operators
+                        || crate::interfaces::local_dictionary(cx, interface)?)
+            }
+        };
+        if dictionary {
+            return crate::interfaces::method_call(cx, interface, field, t, vec![a, b]).map_err(
+                |e| {
+                    if e.code == "E-INSTANCE-NONE" {
+                        let name = path.trim_start_matches("Std.");
+                        e.with_note(format!(
+                            "`{}` is `{name}.{field}`, from the `{name}` instance for the operands' type",
+                            op_text(op)
+                        ))
+                    } else {
+                        e
+                    }
+                },
+            );
+        }
+    }
+    let Some(kind) = kind else {
+        return Err(cx.error(
+            "E-TYPE-MISMATCH",
+            format!("`{}` works on `Nat` and `Int`", op_text(op)),
+            format!("this is on `{}`", cx.show(t)),
+        ));
+    };
+    let builtin = match (op, kind) {
+        (BinOp::Add, Kind::Nat) => Builtin::Add,
+        (BinOp::Sub, Kind::Nat) => Builtin::Sub,
+        (BinOp::Mul, Kind::Nat) => Builtin::Mul,
+        (BinOp::Div, Kind::Nat) => Builtin::Div,
+        (BinOp::Mod, Kind::Nat) => Builtin::Mod,
+        (BinOp::Lt, Kind::Nat) => Builtin::LessThan,
+        (BinOp::Le, Kind::Nat) => Builtin::LessEq,
+        (BinOp::Add, Kind::Int) => Builtin::IntAdd,
+        (BinOp::Sub, Kind::Int) => Builtin::IntSub,
+        (BinOp::Mul, Kind::Int) => Builtin::IntMul,
+        (BinOp::Div, Kind::Int) => Builtin::IntDiv,
+        (BinOp::Mod, Kind::Int) => Builtin::IntMod,
+        (BinOp::Lt, Kind::Int) => Builtin::IntLessThan,
+        (BinOp::Le, Kind::Int) => Builtin::IntLessEq,
+        _ => unreachable!("only arithmetic and ordering operators"),
+    };
+    apply_def(cx, builtin_def(cx, builtin)?, vec![a, b])
 }
 
 /// `id args`, with any implicit or auto parameters after them inserted.

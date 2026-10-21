@@ -916,7 +916,45 @@ fn apply_args_postponing(
             return Err(cx.mismatch(&placeholder, &checked));
         }
     }
-    Ok((term, ty))
+    let own = own_dictionaries(&term);
+    Ok((term, found_dictionaries(cx, &own, ty)?))
+}
+
+/// The unknowns an application `term` has as `auto` arguments: its own
+/// dictionaries (and proofs), not those of the applications in its
+/// arguments.
+pub(crate) fn own_dictionaries(mut term: &Term) -> Vec<usize> {
+    let mut out = Vec::new();
+    loop {
+        match term {
+            Term::Loc(_, t) => term = t,
+            Term::App(f, a, icit) => {
+                if *icit == Icit::Auto
+                    && let Term::Meta(m) = a.strip_loc().spine().0
+                {
+                    out.push(*m);
+                }
+                term = f;
+            }
+            _ => return out,
+        }
+    }
+}
+
+/// After an application with the dictionary obligations `own`, of type `ty`:
+/// one whose type its arguments have fixed (`List.sumBy f xs` once
+/// `f` is checked) is found now, so the result type computes (its `+` isn't
+/// stuck on the dictionary) wherever it's compared next, and `ty` is
+/// computed again if it is an equation stuck on one. What's found depends only on the
+/// type, so finding it earlier can't change it, unless unification could
+/// still solve it (an argument of a type in the result, `Tree k [ord :=
+/// ?d]`): those are left (docs/proposals/interfaces.md, "As built (stage
+/// 5)").
+pub(crate) fn found_dictionaries(cx: &mut Ctx, own: &[usize], ty: Value) -> Result<Value> {
+    if own.is_empty() || cx.e.interfaces.is_empty() {
+        return Ok(ty);
+    }
+    Ok(crate::interfaces::find_ready_dictionaries(cx, &ty, Some(own))?.unwrap_or(ty))
 }
 
 /// Checks an explicit argument of `head` against its parameter type `dom`.
@@ -1559,7 +1597,14 @@ pub(crate) fn compare(cx: &mut Ctx, term: Term, found: &Value, expected: &Value)
     // and compare again (docs/proposals/interfaces.md, "As built (stage 3)").
     // (Read back and computed again: a projection stuck on the dictionary's
     // metavariable takes its step now.)
-    if cx.e.solve_ready_instances()? {
+    // (Or found already, by the application that made it: then a side may
+    // still be stuck on it.)
+    let ready = cx.e.solve_ready_instances()?;
+    if ready
+        || (!cx.e.interfaces.is_empty()
+            && (crate::interfaces::stuck_on_found(cx, found)?
+                || crate::interfaces::stuck_on_found(cx, expected)?))
+    {
         let found = crate::interfaces::refresh(cx, found)?;
         let expected = crate::interfaces::refresh(cx, expected)?;
         if crate::undo::unify(cx, &found, &expected)? {

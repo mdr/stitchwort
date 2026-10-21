@@ -8,4 +8,6 @@ expression: output
  15 │   | Node False b rest => Succ (depth (rest (b + 1)))
     │                                             ──┬──  
     │                                               ╰──── but `Bool` is expected here
+    │ 
+    │ Note: on other types `+` is `Add.add`, and there's no `Add` instance for `Bool` here
 ────╯

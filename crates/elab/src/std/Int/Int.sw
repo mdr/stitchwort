@@ -1,17 +1,7 @@
--- `Int` arithmetic for programs: the sum of a list of integers, the arithmetic
--- and division laws, and `Int.modNat`, proved from the core's definitions.
--- This file was the prelude's blocks of `Int` lemmas after the core's `Int`.
-
--- The sum of a list of `Int`s, as `List.sum` is of `Nat`s.
-def List.sumInt (xs: List Int): Int := List.foldLeft Int.add 0 xs
-
-theorem List.sumIntExample: List.sumInt [3, -5, 1] = -1 := rfl
-
--- The sum of `f` over the elements, as an `Int`: `List.sumIntBy f xs` is
--- `List.sumInt (List.map f xs)` without building the intermediate list.
-def List.sumIntBy (f: a -> Int) (xs: List a): Int := List.foldLeft (acc x => Int.add acc (f x)) 0 xs
-
-theorem List.sumIntByExample: List.sumIntBy (x => Int.sub 1 x) [1, 2, 3] = -3 := rfl
+-- `Int` arithmetic for programs: the arithmetic and division laws, and
+-- `Int.modNat`, proved from the core's definitions. This file was the
+-- prelude's blocks of `Int` lemmas after the core's `Int`. (The sum of a list
+-- of `Int`s is the generic `List.sum`.)
 
 -- Lemmas (checkpoint 1)
 
@@ -126,21 +116,8 @@ theorem Int.divAddMod: (a: Int) -> (d: Int) -> [auto ok: d != 0] -> d * (a / d) 
     Int.divAddModNeg m n (m / Succ n) (m % Succ n) (Nat.divMod m (Succ n) (Nat.succNotZero n))
       (Nat.modLess m (Succ n) (Nat.succNotZero n))
 
--- Addition laws, after Lean's core: case analysis on the constructors plus
--- lemmas about `Int.subNatNat`.
-theorem Int.subNatNatZeroRight: (m: Nat) -> Int.subNatNat m 0 = OfNat m
-  | Zero   => rfl
-  | Succ m => rfl
-
 theorem Int.subNatNatSelf (n: Nat): Int.subNatNat n n = OfNat 0 :=
   Eq.trans (Eq.cong (Int.subNatNatFrom n n) (Nat.subSelf n)) (Eq.cong OfNat (Nat.subSelf n))
-
-theorem Int.subNatNatFromSucc (m: Nat) (n: Nat): (t: Nat) ->
-    Int.subNatNatFrom (Succ m) (Succ n) t = Int.subNatNatFrom m n t
-  | Zero   => rfl
-  | Succ t => rfl
-
-theorem Int.subNatNatSucc (m: Nat) (n: Nat): Int.subNatNat (Succ m) (Succ n) = Int.subNatNat m n := Int.subNatNatFromSucc m n (n - m)
 
 theorem Int.subOfNats (m: Nat): (n: Nat) -> Nat.toInt m - Nat.toInt n = Int.subNatNat m n
   | Zero   => Eq.trans (Eq.cong Nat.toInt (Nat.addZero m)) (Eq.sym (Int.subNatNatZeroRight m))
@@ -153,20 +130,6 @@ theorem Int.negSubNatNat: (m: Nat) -> (n: Nat) -> Int.neg (Int.subNatNat m n) = 
   | Succ m, Succ n =>
     Eq.trans (Eq.cong Int.neg (Int.subNatNatSucc m n))
       (Eq.trans (Int.negSubNatNat m n) (Eq.sym (Int.subNatNatSucc n m)))
-
-theorem Int.addZero: (a: Int) -> Int.add a (OfNat 0) = a
-  | OfNat m   => Eq.cong OfNat (Nat.addZero m)
-  | NegSucc m => rfl
-
-theorem Int.zeroAdd: (a: Int) -> Int.add (OfNat 0) a = a
-  | OfNat m   => rfl
-  | NegSucc m => rfl
-
-theorem Int.addComm: (a: Int) -> (b: Int) -> Int.add a b = Int.add b a
-  | OfNat m,   OfNat n   => Eq.cong OfNat (Nat.addComm m n)
-  | OfNat m,   NegSucc n => rfl
-  | NegSucc m, OfNat n   => rfl
-  | NegSucc m, NegSucc n => Eq.cong (t => NegSucc (Succ t)) (Nat.addComm m n)
 
 theorem Int.addNeg: (a: Int) -> Int.add a (Int.neg a) = OfNat 0
   | OfNat Zero     => rfl
@@ -186,37 +149,6 @@ theorem Int.negAdd: (a: Int) -> (b: Int) -> Int.neg (Int.add a b) = Int.add (Int
   | NegSucc m,      OfNat (Succ n) => Int.negSubNatNat (Succ n) (Succ m)
   | NegSucc m,      NegSucc n      => Eq.cong (t => OfNat (Succ t)) (Eq.sym (Nat.addSucc m n))
 
--- Adding a natural number to a difference.
-theorem Int.ofNatAddSubNatNat (k: Nat): (m: Nat) -> (n: Nat) ->
-    Int.add (OfNat k) (Int.subNatNat m n) = Int.subNatNat (m + k) n
-  | Zero,   Zero   =>
-    Eq.trans (Eq.cong OfNat (Nat.addZero k)) (Eq.sym (Int.subNatNatZeroRight k))
-  | Zero,   Succ n => rfl
-  | Succ m, Zero   =>
-    Eq.trans (Eq.cong OfNat (Eq.trans (Nat.addSucc k m) (Eq.cong Succ (Nat.addComm k m))))
-             (Eq.sym (Int.subNatNatZeroRight (Succ (m + k))))
-  | Succ m, Succ n =>
-    Eq.trans (Eq.cong (Int.add (OfNat k)) (Int.subNatNatSucc m n))
-      (Eq.trans (Int.ofNatAddSubNatNat k m n) (Eq.sym (Int.subNatNatSucc (m + k) n)))
-
-theorem Int.subNatNatAddOfNat (k: Nat) (m: Nat) (n: Nat):
-    Int.add (Int.subNatNat m n) (OfNat k) = Int.subNatNat (m + k) n :=
-  Eq.trans (Int.addComm (Int.subNatNat m n) (OfNat k)) (Int.ofNatAddSubNatNat k m n)
-
--- Adding a negative number to a difference.
-theorem Int.negSuccAddSubNatNat (k: Nat): (m: Nat) -> (n: Nat) ->
-    Int.add (NegSucc k) (Int.subNatNat m n) = Int.subNatNat m (Succ (n + k))
-  | Zero,   Zero   => rfl
-  | Zero,   Succ n => Eq.cong (t => NegSucc (Succ t)) (Nat.addComm k n)
-  | Succ m, Zero   => rfl
-  | Succ m, Succ n =>
-    Eq.trans (Eq.cong (Int.add (NegSucc k)) (Int.subNatNatSucc m n))
-      (Eq.trans (Int.negSuccAddSubNatNat k m n) (Eq.sym (Int.subNatNatSucc m (Succ (n + k)))))
-
-theorem Int.subNatNatAddNegSucc (k: Nat) (m: Nat) (n: Nat):
-    Int.add (Int.subNatNat m n) (NegSucc k) = Int.subNatNat m (Succ (n + k)) :=
-  Eq.trans (Int.addComm (Int.subNatNat m n) (NegSucc k)) (Int.negSuccAddSubNatNat k m n)
-
 -- A running total `p - q` of naturals: subtracting `r` adds it to `q`; and
 -- `(s + q) - q` is `s`.
 theorem Int.subNatNatAddNeg (p: Nat) (q: Nat): (r: Nat) -> Int.add (Int.subNatNat p q) (Int.neg (OfNat r)) = Int.subNatNat p (q + r)
@@ -225,37 +157,6 @@ theorem Int.subNatNatAddNeg (p: Nat) (q: Nat): (r: Nat) -> Int.add (Int.subNatNa
 
 theorem Int.toNatSubNatNat (s: Nat) (q: Nat): Int.toNat (Int.subNatNat (s + q) q) = s :=
   Eq.trans (Eq.cong (t => Int.toNat (Int.subNatNatFrom (s + q) q t)) (Nat.subEqZero q (s + q) (Nat.leAddLeft s q))) (Nat.addSub s q)
-
-theorem Int.addAssoc: (a: Int) -> (b: Int) -> (c: Int) ->
-    Int.add (Int.add a b) c = Int.add a (Int.add b c)
-  | OfNat a,   OfNat b,   OfNat c   => Eq.cong OfNat (Nat.addAssoc a b c)
-  | OfNat a,   OfNat b,   NegSucc c =>
-    Eq.trans (Eq.cong (t => Int.subNatNat t (Succ c)) (Nat.addComm a b))
-             (Eq.sym (Int.ofNatAddSubNatNat a b (Succ c)))
-  | OfNat a,   NegSucc b, OfNat c   =>
-    Eq.trans (Int.subNatNatAddOfNat c a (Succ b))
-      (Eq.trans (Eq.cong (t => Int.subNatNat t (Succ b)) (Nat.addComm a c))
-                (Eq.sym (Int.ofNatAddSubNatNat a c (Succ b))))
-  | NegSucc a, OfNat b,   OfNat c   => Int.subNatNatAddOfNat c b (Succ a)
-  | OfNat a,   NegSucc b, NegSucc c => Int.subNatNatAddNegSucc c a (Succ b)
-  | NegSucc a, OfNat b,   NegSucc c =>
-    Eq.trans (Int.subNatNatAddNegSucc c b (Succ a))
-      (Eq.trans (Eq.cong (t => Int.subNatNat b (Succ (Succ t))) (Nat.addComm a c))
-                (Eq.sym (Int.negSuccAddSubNatNat a b (Succ c))))
-  | NegSucc a, NegSucc b, OfNat c   =>
-    Eq.trans (Eq.cong (t => Int.subNatNat c (Succ (Succ t))) (Nat.addComm a b))
-             (Eq.sym (Int.negSuccAddSubNatNat a c (Succ b)))
-  | NegSucc a, NegSucc b, NegSucc c =>
-    Eq.trans (Eq.cong (t => NegSucc (Succ (Succ t))) (Nat.addAssoc a b c))
-             (Eq.cong (t => NegSucc (Succ t)) (Eq.sym (Nat.addSucc a (b + c))))
-
--- `List.sumInt` from a starting total.
-theorem List.sumIntFrom: (a: Int) -> (xs: List Int) -> List.foldLeft Int.add a xs = Int.add a (List.sumInt xs)
-  | a, Nil       => Eq.sym (Int.addZero a)
-  | a, Cons x xs =>
-    Eq.trans (List.sumIntFrom (Int.add a x) xs)
-      (Eq.trans (Int.addAssoc a x (List.sumInt xs))
-        (Eq.sym (Eq.cong (Int.add a) (Eq.trans (List.sumIntFrom (Int.add (OfNat 0) x) xs) (Eq.cong (t => Int.add t (List.sumInt xs)) (Int.zeroAdd x))))))
 
 -- Integers modulo a size. The remainder `Int.modNat x d` doesn't change when
 -- `d` is added to `x`, hence not for any multiple of `d`.

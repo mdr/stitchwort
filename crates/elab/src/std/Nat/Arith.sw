@@ -1,54 +1,15 @@
 -- `Nat` arithmetic and its lemmas. This file was the prelude's arithmetic,
 -- division and number-helper blocks after the core's division primitives.
 
--- Arithmetic lemmas: addition, multiplication, order and subtraction facts proved
--- by induction, then the division law and `n % d < d`.
-
-theorem Nat.addZero: (n: Nat) -> n + 0 = n
-  | Zero => rfl
-  | Succ n => Eq.cong Succ (Nat.addZero n)
-
-theorem Nat.addSucc: (n: Nat) -> (m: Nat) -> n + Succ m = Succ (n + m)
-  | Zero, m => rfl
-  | Succ n, m => Eq.cong Succ (Nat.addSucc n m)
-
-theorem Nat.addComm: (m: Nat) -> (n: Nat) -> m + n = n + m
-  | Zero, n => Eq.sym (Nat.addZero n)
-  | Succ m, n => Eq.trans (Eq.cong Succ (Nat.addComm m n)) (Eq.sym (Nat.addSucc n m))
-
-theorem Nat.addAssoc: (a: Nat) -> (b: Nat) -> (c: Nat) -> (a + b) + c = a + (b + c)
-  | Zero, b, c => rfl
-  | Succ a, b, c => Eq.cong Succ (Nat.addAssoc a b c)
+-- Arithmetic lemmas (the basic laws of `+` and `*` are in the core, for the
+-- `Add` and `Mul` instances): order and subtraction facts proved by induction,
+-- then the division law and `n % d < d`.
 
 theorem Nat.addCancelLeft: (a: Nat) -> (b: Nat) -> (c: Nat) -> a + b = a + c -> b = c
   | Zero, b, c, h => h
   | Succ a, b, c, h => Nat.addCancelLeft a b c (Nat.succInjective (a + b) (a + c) h)
 
-theorem Nat.mulZero: (n: Nat) -> n * 0 = 0
-  | Zero => rfl
-  | Succ n => Nat.mulZero n
-
-theorem Nat.mulOne: (n: Nat) -> n * 1 = n
-  | Zero => rfl
-  | Succ n => Eq.cong Succ (Nat.mulOne n)
-
-theorem Nat.mulSucc: (n: Nat) -> (m: Nat) -> n * Succ m = n + n * m
-  | Zero, m => rfl
-  | Succ n, m => Eq.cong Succ (Eq.trans (Eq.cong (t => m + t) (Nat.mulSucc n m)) (Eq.trans (Eq.sym (Nat.addAssoc m n (n * m))) (Eq.trans (Eq.cong (t => t + n * m) (Nat.addComm m n)) (Nat.addAssoc n m (n * m)))))
-
-theorem Nat.mulComm: (n: Nat) -> (m: Nat) -> n * m = m * n
-  | Zero, m => Eq.sym (Nat.mulZero m)
-  | Succ n, m => Eq.trans (Eq.cong (t => m + t) (Nat.mulComm n m)) (Eq.sym (Nat.mulSucc m n))
-
-theorem Nat.mulDistribRight: (a: Nat) -> (b: Nat) -> (c: Nat) -> (a + b) * c = a * c + b * c
-  | Zero, b, c => rfl
-  | Succ a, b, c => Eq.trans (Eq.cong (t => c + t) (Nat.mulDistribRight a b c)) (Eq.sym (Nat.addAssoc c (a * c) (b * c)))
-
 theorem Nat.mulDistribLeft (a: Nat) (b: Nat) (c: Nat): a * (b + c) = a * b + a * c := Eq.trans (Nat.mulComm a (b + c)) (Eq.trans (Nat.mulDistribRight b c a) (Eq.trans (Eq.cong (t => t + c * a) (Nat.mulComm b a)) (Eq.cong (t => a * b + t) (Nat.mulComm c a))))
-
-theorem Nat.mulAssoc: (a: Nat) -> (b: Nat) -> (c: Nat) -> (a * b) * c = a * (b * c)
-  | Zero, b, c => rfl
-  | Succ a, b, c => Eq.trans (Nat.mulDistribRight b (a * b) c) (Eq.cong (t => b * c + t) (Nat.mulAssoc a b c))
 
 theorem Nat.leRefl: (n: Nat) -> n <= n
   | Zero => rfl
