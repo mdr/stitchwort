@@ -552,6 +552,16 @@ theorem pickGe: (w: Nat) -> (xs: List Nat) -> (c: Nat) -> (after: List Nat) -> c
 
 Write the condition as `Nat.leq …` (`Bool` values), not `a <= b`: that form is the `Decidable` test the `if` elaborates to, and generalising it can be `E-MATCH-MOTIVE`. Hypotheses whose types mention the condition (`h: Nat.leq a b = False -> …`) are generalised too, and a branch's goal has already computed one step further, so a branch may need less than the same proof under `Bool.inspect` did. Real proofs: `aoc/src/day03/day03.sw` (`pickGe`, `pickLen`, `pickSub`, `pickBestStep`) and `aoc/src/day02/day02.sw` (`window`, `gaussPick`).
 
+**Proving things about a definition with an inner `match`.** A `match` inside an arm that isn't the whole right-hand side (an operand of `||`, say) becomes a generated function whose name source can't write, so a lemma can't mention it. A proof doesn't need to:
+
+- *Arms compute.* A call with constructors where the definition splits is already its right-hand side, so `reach (Cons line rest) c (Succ k) d` is an `if` on `charAt line c == '^'` without any lemma, and any equation of that kind is `rfl`.
+- *Match on the condition.* `match e: cond with` refines a hypothesis about the call (a parameter, a lambda's variable or a `let`), because the condition is there once the call has unfolded.
+- *Leave the inner `match`'s part as `_`.* Arguments you write out inside a branch (`reach (Cons line rest) c (Succ k) d`) are elaborated afresh and aren't refined, only the goal and the variables in scope are. A `_` is solved by unification from the hypothesis, so the generated function is filled in and never written. The type mismatch note for a written-out argument suggests this.
+- *Split its scrutinee to make it compute.* The generated function unfolds once its own scrutinee is a constructor, so `match c with | Zero => … | Succ b => …` turns the hidden operand into `False` or `reach rest b k d`.
+- *To state something about it, name it.* Writing the same `match` in a lemma makes a second generated function, which is a different definition (two generated functions are never equal while their scrutinee is unknown). Make the `match` a local `def` in the arm and refer to it from outside as `owner.name` ([Local definitions](#local-definitions)).
+
+Example: `examples/accept/match-inner-match-proof.sw`; a real proof is `fallKeeps` in `aoc/src/Aoc/Day07/Proofs/Part1.sw`. Design: [proposals/equation-lemmas.md](proposals/equation-lemmas.md).
+
 A scrutinee that performs abilities runs once, in order from left to right, before any branch is chosen. Branches may perform abilities too, if the ability row of the definition allows them.
 
 The first version has limits. Each one is `E-MATCH-MOTIVE`, and the message says how to get round it:
