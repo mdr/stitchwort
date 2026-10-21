@@ -7,7 +7,7 @@ use std::rc::Rc;
 use common::*;
 use stitchwort_core::check;
 use stitchwort_core::hash::{ContentHash, data_hash, def_hash};
-use stitchwort_core::{DataId, Icit, Sort, Term};
+use stitchwort_core::{DataId, Globals, Icit, Sort, Term};
 
 /// Defines `name : ty = body` in a fresh prelude and returns its hash.
 fn hash(
@@ -113,4 +113,32 @@ fn hashes_print_as_short_hex() {
     let h = hash(|p| p.nat_ty(), |p| p.num(1), false);
     assert_eq!(h.hex().len(), 64);
     assert_eq!(format!("{h:?}"), format!("#{}", &h.hex()[..12]));
+}
+
+/// The hash of `x : 3 = 3 := refl` in a prelude whose `Nat` has the given
+/// constructor names (registered as the built-in `Nat`). It mentions `Nat`
+/// only through the literal.
+fn literal_hash_with_nat_ctors(zero: &str, succ: &str) -> ContentHash {
+    let mut g = Globals::default();
+    let nat = data(&mut g, "Nat", vec![], Sort::Type(0));
+    let nat_ty = Term::Data(nat, vec![]);
+    check::define_ctors(
+        &mut g,
+        nat,
+        vec![ctor(zero, vec![]), ctor(succ, vec![("n", nat_ty)])],
+    )
+    .expect("Nat");
+    stitchwort_core::native::register_nat(&mut g, nat).expect("Nat");
+    let three = || Term::Nat(Rc::new(3u32.into()));
+    let ty = eq(None, three(), three());
+    let id = check::declare_def(&mut g, &"x".into(), &ty, true, false, span()).expect("type");
+    check::define_def(&mut g, id, &Term::Refl).expect("body");
+    def_hash(&g, id).unwrap().expect("defined")
+}
+
+#[test]
+fn a_number_literal_hashes_the_nat_it_stands_for() {
+    let a = literal_hash_with_nat_ctors("Zero", "Succ");
+    assert_eq!(a, literal_hash_with_nat_ctors("Zero", "Succ"));
+    assert_ne!(a, literal_hash_with_nat_ctors("Z", "S"));
 }
