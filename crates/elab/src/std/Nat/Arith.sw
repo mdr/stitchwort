@@ -261,7 +261,7 @@ theorem Nat.addModMod (a: Nat) (b: Nat) (d: Nat) [auto ok: d != 0]: (a + b % d) 
 
 -- `a * b` in two parts: the product of the remainder, and whole multiples of `d`.
 theorem Nat.mulSplit (a: Nat) (b: Nat) (d: Nat) [auto ok: d != 0]: a * b = a % d * b + (a / d * b) * d :=
-  Eq.trans (Eq.cong (t => t * b) (Nat.divMod a d ok))
+  Eq.trans (Eq.cong (t => t * b) (Nat.divModEq a d ok))
     (Eq.trans (Nat.mulDistribRight (a / d * d) (a % d) b)
       (Eq.trans (Nat.addComm ((a / d * d) * b) (a % d * b))
         (Eq.cong (t => a % d * b + t)
