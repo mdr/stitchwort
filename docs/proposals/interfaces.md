@@ -1410,6 +1410,10 @@ the theorems are restated, §7.6).
 
 ### 7.5 `Map` and `Set` (signatures for SW-113)
 
+> **Built (SW-113):** `std/Map/Map.sw` and `std/Set/Set.sw`, a weight-balanced
+> tree; see [map-set.md](map-set.md) for the API and what differs (`Set` is a
+> record around `Map k ()`).
+
 The ordering is part of the map's type (D169). That needs one small new
 feature: **an `auto` parameter on a data type**, filled in wherever the
 type is written, as for a function:
