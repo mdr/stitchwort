@@ -431,7 +431,18 @@ fn generalised(
         })
         .collect();
     let tree = compile(cx, alts, &levels, span, kind)?;
-    let body = crate::families::warn_unreachable(cx, |cx| check_tree_here(cx, &tree, &motive))?;
+    // While the alternatives are checked, a mismatch that still contains a
+    // scrutinee says why (`Ctx::mismatch`).
+    let known = cx.scrutinees.len();
+    cx.scrutinees.extend(
+        exprs
+            .iter()
+            .filter(|s| !matches!(s.normal.strip_loc(), Term::Var(_)))
+            .map(|s| (base, s.normal.clone(), s.span)),
+    );
+    let body = crate::families::warn_unreachable(cx, |cx| check_tree_here(cx, &tree, &motive));
+    cx.scrutinees.truncate(known);
+    let body = body?;
     lift::draft(cx, base, extra, body, &motive, span)
 }
 
@@ -500,7 +511,7 @@ fn free_levels(term: &Term, depth: usize) -> Vec<usize> {
 
 /// Whether `needle` (a term in some context) occurs in `hay` (in the same
 /// context), by the occurrence test.
-fn occurs(g: &Globals, needle: &Term, hay: &Term) -> Result<bool> {
+pub(crate) fn occurs(g: &Globals, needle: &Term, hay: &Term) -> Result<bool> {
     let mut shifted: Vec<Option<Term>> = Vec::new();
     for (t, under) in hay.subterms() {
         if shifted.len() <= under {

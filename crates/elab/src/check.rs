@@ -67,6 +67,11 @@ pub struct Ctx<'e> {
     pub(crate) order: Vec<usize>,
     /// The first level the current case tree binds (`check_tree`).
     pub(crate) tree_start: usize,
+    /// The expression scrutinees of the generalised `match`es whose
+    /// alternatives are being checked: the variables in scope at the `match`,
+    /// the scrutinee as types hold it, and where it is written. A mismatch
+    /// that still contains one gets a hint (D230).
+    pub(crate) scrutinees: Vec<(usize, Term, Span)>,
     pub span: Span,
 }
 
@@ -113,6 +118,7 @@ impl<'e> Ctx<'e> {
             written_goal: None,
             order: Vec::new(),
             tree_start: 0,
+            scrutinees: Vec::new(),
             span,
         }
     }
@@ -142,6 +148,7 @@ impl<'e> Ctx<'e> {
             written_goal: None,
             order: Vec::new(),
             tree_start: 0,
+            scrutinees: Vec::new(),
             span,
         }
     }
@@ -428,10 +435,44 @@ impl<'e> Ctx<'e> {
         } else {
             d
         };
-        match crate::data_auto::auto_mismatch_note(self, expected, found) {
+        let d = match crate::data_auto::auto_mismatch_note(self, expected, found) {
             Some(note) => d.with_note(note),
             None => d,
+        };
+        self.unrefined_hint(d, expected, found)
+    }
+
+    /// D230: inside a generalised `match`, a mismatch whose types still
+    /// contain the scrutinee comes from a term written out in the branch,
+    /// which the `match` didn't refine (only the goal and the variables in
+    /// scope are). Only looked for here, when the error is being reported.
+    fn unrefined_hint(&self, d: Diagnostic, expected: &Value, found: &Value) -> Diagnostic {
+        if self.scrutinees.is_empty() {
+            return d;
         }
+        let g = self.g();
+        let level = self.level();
+        let (Ok(expected), Ok(found)) = (quote(g, level, expected), quote(g, level, found)) else {
+            return d;
+        };
+        for (base, needle, span) in self.scrutinees.iter().rev() {
+            let Ok(needle) = needle.shift(g, level - base, 0) else {
+                continue;
+            };
+            let contains = |t: &Term| crate::matching::occurs(g, &needle, t).unwrap_or(false);
+            if contains(&expected) || contains(&found) {
+                return d
+                    .with_label(*span, "the `match`'s scrutinee, still in this type")
+                    .with_note(
+                        "a term written out inside a branch (an explicit argument, or a type you \
+                     wrote) isn't refined by the `match`: only the goal and the variables in scope \
+                     are, so it still has the scrutinee in it. Write `_` for such an argument, so \
+                     it is inferred from the hypothesis (docs/syntax.md, \"Proving things about a \
+                     definition with an inner `match`\")",
+                    );
+            }
+        }
+        d
     }
 }
 
