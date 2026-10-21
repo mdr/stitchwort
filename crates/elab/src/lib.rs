@@ -238,6 +238,9 @@ pub struct Elaborator {
     /// Helpers elaborated in the current declaration and not yet lifted
     /// (`lift.rs`). Part of the inference state `undo.rs` restores.
     drafts: RefCell<Vec<lift::Draft>>,
+    /// While lifting, the `let`s each draft's terms are folded back to
+    /// (`lift::Arounds`); empty otherwise.
+    arounds: RefCell<lift::Arounds>,
     /// Every lifted helper so far, with its `match`, for naming the `match`
     /// in diagnostics instead of the helper (`Elaborator::explain_lifted`).
     lifted: Vec<(DefId, Span)>,

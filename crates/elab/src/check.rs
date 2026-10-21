@@ -459,7 +459,7 @@ impl<'e> Ctx<'e> {
             let Ok(needle) = needle.shift(g, level - base, 0) else {
                 continue;
             };
-            let contains = |t: &Term| crate::matching::occurs(g, &needle, t).unwrap_or(false);
+            let contains = |t: &Term| crate::matching::occurs(&needle, t);
             if contains(&expected) || contains(&found) {
                 return d
                     .with_label(*span, "the `match`'s scrutinee, still in this type")
