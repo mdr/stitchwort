@@ -2778,16 +2778,16 @@
     {
       "id": 180,
       "title": "AoC day 4 on Vec: theorems over Grid, position-based spec (D124, D125)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
-      "where": "day 4 on Vec lane running",
+      "where": "merged 68e8de8 (gate + browser passed): both parts proved for every grid",
       "labels": [
         "aoc",
         "proof"
       ],
       "body": "After the Vec ticket. D124: theorems at solvePartN level over Grid (solvePart1 grid = part1Spec grid; parseGrid separate). D125: spec by position, program on Vec (Vec Bool width) height. Then part 2 (D123 parked: full sweep proof recommended; repeated rounds measured 13.2 s vs 4.85 s native, over the playground's 15 s limit in wasm). See docs/proposals/vec.md.",
       "created": "2026-10-20",
-      "updated": "2026-10-20",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
