@@ -632,6 +632,7 @@ dependencies = [
  "stitchwort-elab",
  "stitchwort-js",
  "stitchwort-partial-model",
+ "stitchwort-rt",
  "stitchwort-syntax",
 ]
 
