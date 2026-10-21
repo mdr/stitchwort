@@ -98,6 +98,22 @@ pub(crate) struct LocalDraft {
 /// what each draft became.
 pub(crate) type Batch = (Vec<(DefId, Term)>, Vec<Resolved>);
 
+/// What [`Elaborator::captures`] unrefined, keeping metavariables of the
+/// batch, for finding which drafts each calls: each draft's body and type,
+/// and the types of the variables of its context it captures.
+pub(crate) struct Unrefined {
+    parts: Vec<(Term, Term)>,
+    types: Vec<Vec<Option<Term>>>,
+}
+
+/// The `let`s each draft's terms are folded back to when unrefined (see
+/// [`Elaborator::around`]), by the draft's frozen metavariable: how long the
+/// record of solutions was when they were computed (a solution since may
+/// change them), how many of the draft's context's levels they cover, and
+/// the foldable `let`s among those. Kept only within one lifting (each
+/// starts afresh), since a metavariable's number is reused afterwards.
+pub(crate) type Arounds = HashMap<usize, (usize, usize, Vec<crate::unify::Around>)>;
+
 /// A helper's type, body, and its call's arguments with their kinds.
 type Parts = (Term, Term, Vec<(Term, Icit)>);
 
@@ -399,6 +415,7 @@ impl Elaborator {
         drafts: Vec<Draft>,
         join: bool,
     ) -> Result<Batch> {
+        self.arounds.borrow_mut().clear();
         let keys = keys(owner, &drafts);
         let index: HashMap<usize, usize> = drafts
             .iter()
@@ -406,20 +423,21 @@ impl Elaborator {
             .map(|(i, d)| (d.meta, i))
             .collect();
         let in_batch = |m: usize| index.contains_key(&m);
-        let ordered = self.captures(&drafts, &index)?;
+        let (ordered, unrefined) = self.captures(&drafts, &index)?;
         // Which drafts each one calls (in its body, type or captures' types).
         let mut calls: Vec<Vec<usize>> = Vec::new();
-        for (d, caps) in drafts.iter().zip(&ordered) {
-            let n = d.env.len();
+        for ((caps, (body, goal)), types) in
+            ordered.iter().zip(&unrefined.parts).zip(&unrefined.types)
+        {
             let mut found = BTreeSet::new();
-            metas(&self.unrefine_body(d, &d.body, &in_batch)?, &mut found);
-            metas(&self.unrefine(d, &d.goal, n, &in_batch)?, &mut found);
+            metas(body, &mut found);
+            metas(goal, &mut found);
             for &l in caps {
-                let ty = quote(&self.globals, n, &d.types[l])?;
-                metas(&self.unrefine(d, &ty, n, &in_batch)?, &mut found);
+                metas(types[l].as_ref().expect("a capture's type"), &mut found);
             }
             calls.push(found.iter().filter_map(|m| index.get(m).copied()).collect());
         }
+        drop(unrefined);
         let mut joined: Vec<(DefId, Term)> = Vec::new();
         let mut joined_ids = HashSet::new();
         let mut resolved: Vec<Option<Resolved>> = (0..drafts.len()).map(|_| None).collect();
@@ -515,6 +533,7 @@ impl Elaborator {
             .into_iter()
             .map(|r| r.expect("every component is resolved"))
             .collect();
+        self.arounds.borrow_mut().clear();
         Ok((joined, resolved))
     }
 
@@ -619,24 +638,7 @@ impl Elaborator {
     ) -> Result<Term> {
         let g = &self.globals;
         let t = if lets {
-            // Solutions folded back to the `let`s they'll be inside.
-            let mut around: Vec<crate::unify::Around> = Vec::new();
-            for l in 0..depth.min(draft.lets.len()) {
-                if draft.lets[l].is_some()
-                    && let Some(normal) = crate::unify::cheaply(g, || {
-                        let normal = quote(g, l, &draft.env[l])?;
-                        crate::unify::refold(g, normal, l, &around).map_err(|e| match e {
-                            crate::unify::ZonkError::Resource(e) => e,
-                            crate::unify::ZonkError::Unsolved(_) => {
-                                unreachable!("refolding solves nothing")
-                            }
-                        })
-                    })
-                    && crate::unify::worth_folding(&normal)
-                {
-                    around.push((l, Rc::new(normal)));
-                }
-            }
+            let around = self.around(draft, depth);
             self.zonk_around(term, depth, keep, &around)?
         } else {
             self.zonk_keeping(term, depth, keep)?
@@ -648,6 +650,41 @@ impl Elaborator {
                 Ok(quote(g, depth, &draft.env[l])?)
             }
         })
+    }
+
+    /// The `let`s of `draft`'s context, in its first `depth` variables, that
+    /// solutions are folded back to ([`crate::unify::refold`]): each with
+    /// its value's normal form, itself folded back to the ones before it.
+    /// They're the same for every term of the draft until a metavariable is
+    /// solved, so they're computed once ([`Arounds`]).
+    fn around(&self, draft: &Draft, depth: usize) -> Vec<crate::unify::Around> {
+        let g = &self.globals;
+        let trail = g.meta_trail.borrow().len();
+        let upto = depth.min(draft.lets.len());
+        let mut cache = self.arounds.borrow_mut();
+        let (made, done, around) = cache.entry(draft.meta).or_default();
+        if *made != trail {
+            (*made, *done) = (trail, 0);
+            around.clear();
+        }
+        for l in *done..upto {
+            if draft.lets[l].is_some()
+                && let Some(normal) = crate::unify::cheaply(g, || {
+                    let normal = quote(g, l, &draft.env[l])?;
+                    crate::unify::refold(g, normal, l, around).map_err(|e| match e {
+                        crate::unify::ZonkError::Resource(e) => e,
+                        crate::unify::ZonkError::Unsolved(_) => {
+                            unreachable!("refolding solves nothing")
+                        }
+                    })
+                })
+                && crate::unify::worth_folding(&normal)
+            {
+                around.push((l, Rc::new(normal)));
+            }
+        }
+        *done = (*done).max(upto);
+        around.iter().filter(|(l, _)| *l < depth).cloned().collect()
     }
 
     /// The helper's body, unrefined, with the `let`s of the owner's context
@@ -795,7 +832,11 @@ impl Elaborator {
     /// under the variables each uses, their types' variables, and the
     /// captures of the drafts each calls. `index` gives each draft's
     /// frozen metavariable's draft.
-    fn captures(&self, drafts: &[Draft], index: &HashMap<usize, usize>) -> Result<Vec<Vec<usize>>> {
+    fn captures(
+        &self,
+        drafts: &[Draft],
+        index: &HashMap<usize, usize>,
+    ) -> Result<(Vec<Vec<usize>>, Unrefined)> {
         let g = &self.globals;
         let in_batch = |m: usize| index.contains_key(&m);
         // Bodies and types, and the types of the variables, as the fixed
@@ -902,7 +943,7 @@ impl Elaborator {
             }
             out.push(ordered);
         }
-        Ok(out)
+        Ok((out, Unrefined { parts, types }))
     }
 
     /// The positions in `spine` (the frozen metavariable's arguments) of
@@ -1011,8 +1052,11 @@ impl Elaborator {
     /// The type a `match`'s helper would have (for the motive check before
     /// its alternatives are elaborated).
     pub(crate) fn lifted_type(&self, draft: &Draft) -> Result<Term> {
-        let ordered = self.captures(std::slice::from_ref(draft), &HashMap::new())?;
-        Ok(self.parts(draft, &ordered[0], &|_| false, false)?.0)
+        self.arounds.borrow_mut().clear();
+        let (ordered, _) = self.captures(std::slice::from_ref(draft), &HashMap::new())?;
+        let ty = self.parts(draft, &ordered[0], &|_| false, false);
+        self.arounds.borrow_mut().clear();
+        Ok(ty?.0)
     }
 
     /// Mentions of lifted helpers in a diagnostic name the `match` instead

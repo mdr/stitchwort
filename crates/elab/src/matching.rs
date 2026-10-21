@@ -23,7 +23,7 @@ use std::rc::Rc;
 
 use stitchwort_core::check as kernel;
 use stitchwort_core::value::{Head, quote};
-use stitchwort_core::{Globals, Name, Term, Value};
+use stitchwort_core::{Name, Term, Value};
 use stitchwort_syntax::Diagnostic;
 use stitchwort_syntax::ast::{self, Alt, Expr, MatchKind, Pattern, Scrutinee};
 
@@ -319,7 +319,7 @@ fn generalised(
             if i == j {
                 continue;
             }
-            if occurs(g, &a.normal, &b.normal)? {
+            if occurs(&a.normal, &b.normal) {
                 return Err(motive_error(
                     span,
                     "one scrutinee of this `match` is part of another, which this version \
@@ -328,7 +328,7 @@ fn generalised(
                 .with_label(a.span, "this is part of")
                 .with_label(b.span, "this"));
             }
-            if occurs(g, &a.normal, &b.ty_term)? {
+            if occurs(&a.normal, &b.ty_term) {
                 return Err(motive_error(
                     span,
                     "the type of one scrutinee of this `match` mentions another, which this \
@@ -351,9 +351,7 @@ fn generalised(
         // the alternatives its value is forgotten and only its (refined)
         // type is known.
         let unrefined = is_var(&cx.env[l], l) || cx.lets[l].is_some();
-        if unrefined
-            && (any_occurs(g, &occurrences, &ty)? || free.iter().any(|f| copied.contains(f)))
-        {
+        if unrefined && (any_occurs(&occurrences, &ty) || free.iter().any(|f| copied.contains(f))) {
             copied.push(l);
         }
         type_terms.push(ty);
@@ -512,37 +510,13 @@ fn free_levels(term: &Term, depth: usize) -> Vec<usize> {
 
 /// Whether `needle` (a term in some context) occurs in `hay` (in the same
 /// context), by the occurrence test.
-pub(crate) fn occurs(g: &Globals, needle: &Term, hay: &Term) -> Result<bool> {
-    let mut shifted: Vec<Option<Term>> = Vec::new();
-    for (t, under) in hay.subterms() {
-        if shifted.len() <= under {
-            shifted.resize(under + 1, None);
-        }
-        if shifted[under].is_none() {
-            shifted[under] = Some(shift_free(g, needle, under)?);
-        }
-        if same(shifted[under].as_ref().expect("just set"), t) {
-            return Ok(true);
-        }
-    }
-    Ok(false)
+pub(crate) fn occurs(needle: &Term, hay: &Term) -> bool {
+    hay.subterms()
+        .any(|(t, under)| same_shifted(needle, t, under, 0))
 }
 
-fn any_occurs(g: &Globals, needles: &[&Term], hay: &Term) -> Result<bool> {
-    for n in needles {
-        if occurs(g, n, hay)? {
-            return Ok(true);
-        }
-    }
-    Ok(false)
-}
-
-/// `term` with its free variables moved under `by` binders.
-fn shift_free(g: &Globals, term: &Term, by: usize) -> Result<Term> {
-    if by == 0 {
-        return Ok(term.clone());
-    }
-    Ok(term.shift(g, by, 0)?)
+fn any_occurs(needles: &[&Term], hay: &Term) -> bool {
+    needles.iter().any(|n| occurs(n, hay))
 }
 
 /// The occurrence test (§4.4): the same term, looking through source
@@ -582,6 +556,50 @@ pub(crate) fn same(a: &Term, b: &Term) -> bool {
     }
 }
 
+/// [`same`]`(&a.shift(by, 0), b)`, without making the shifted copy of `a`
+/// (`cutoff` counts the binders of `a` passed so far).
+pub(crate) fn same_shifted(a: &Term, b: &Term, by: usize, cutoff: usize) -> bool {
+    use Term::*;
+    let all = |xs: &[Rc<Term>], ys: &[Rc<Term>]| {
+        xs.len() == ys.len()
+            && xs
+                .iter()
+                .zip(ys)
+                .all(|(x, y)| same_shifted(x, y, by, cutoff))
+    };
+    let go = |x: &Term, y: &Term, cutoff| same_shifted(x, y, by, cutoff);
+    match (a.strip_loc(), b.strip_loc()) {
+        (Var(x), Var(y)) => (if *x >= cutoff { x + by } else { *x }) == *y,
+        (Def(x), Def(y)) => x == y,
+        (Nat(x), Nat(y)) => x == y,
+        (Chars(x), Chars(y)) => x.as_slice() == y.as_slice(),
+        (Sort(x), Sort(y)) => x == y,
+        (Refl, Refl) => true,
+        (Meta(x), Meta(y)) => x == y,
+        (Data(d, xs), Data(e, ys)) => d == e && all(xs, ys),
+        (Ctor(d, c, xs), Ctor(e, k, ys)) => d == e && c == k && all(xs, ys),
+        (Pi(_, i, a1, b1), Pi(_, j, a2, b2)) => {
+            i == j && go(a1, a2, cutoff) && go(b1, b2, cutoff + 1)
+        }
+        (Lam(_, i, b1), Lam(_, j, b2)) => i == j && go(b1, b2, cutoff + 1),
+        (App(f1, a1, i), App(f2, a2, j)) => i == j && go(f1, f2, cutoff) && go(a1, a2, cutoff),
+        (Ann(e1, t1), Ann(e2, t2)) => go(e1, e2, cutoff) && go(t1, t2, cutoff),
+        (Eq(t1, a1, b1), Eq(t2, a2, b2)) => {
+            let types = match (t1, t2) {
+                (Some(t1), Some(t2)) => go(t1, t2, cutoff),
+                (None, None) => true,
+                _ => false,
+            };
+            types && go(a1, a2, cutoff) && go(b1, b2, cutoff)
+        }
+        (J(m1, b1, p1), J(m2, b2, p2)) => {
+            go(m1, m2, cutoff) && go(b1, b2, cutoff) && go(p1, p2, cutoff)
+        }
+        // As in `same`.
+        _ => false,
+    }
+}
+
 /// Replaces occurrences of the scrutinees by their variables and copied
 /// variables by their copies, in a term in the `match`'s context (`base`
 /// variables), giving a term in `depth` variables. Scrutinee `i` is the
@@ -597,7 +615,7 @@ impl Generalise<'_> {
     fn apply(&self, g: &stitchwort_core::Globals, term: &Term) -> Result<Term> {
         let hook = |t: &Term, under: usize| {
             self.exprs.iter().enumerate().find_map(|(i, e)| {
-                (shift_free(g, e, under).is_ok_and(|e| same(&e, t)))
+                same_shifted(e, t, under, 0)
                     .then(|| Term::Var(self.depth + under - 1 - (self.base + i)))
             })
         };
@@ -680,7 +698,7 @@ mod tests {
         assert!(same(&needle, &located));
         // An unsolved metavariable is never an occurrence of something else,
         // and looking doesn't solve it.
-        assert!(!occurs(g, &needle, &unknown).unwrap());
+        assert!(!occurs(&needle, &unknown));
         assert!(g.meta_solution(m).is_none());
         // Under a binder, the needle's variables are shifted.
         let under = Term::Lam(
@@ -688,8 +706,8 @@ mod tests {
             Icit::Explicit,
             Rc::new(Term::app(Term::Var(2), Term::Var(1))),
         );
-        assert!(occurs(g, &needle, &under).unwrap());
+        assert!(occurs(&needle, &under));
         let bound = Term::Lam("y".into(), Icit::Explicit, Rc::new(needle.clone()));
-        assert!(!occurs(g, &needle, &bound).unwrap());
+        assert!(!occurs(&needle, &bound));
     }
 }
