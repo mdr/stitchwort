@@ -453,6 +453,28 @@ mod tests {
         }
     }
 
+    /// The navigation index of a project: paths within it, a reference
+    /// into another namespace, and a library target with its `std` marker.
+    #[test]
+    fn the_navigation_index_of_a_project() {
+        big(|| {
+            let paths = vec!["src/A/A.sw".to_string(), "src/B/B.sw".to_string()];
+            let texts = vec![
+                "namespace A\n\ndef two: Nat := 2\n".to_string(),
+                "namespace B\n\nimport A (two)\n\ndef f (xs: List Nat): Nat := two + xs.length\n"
+                    .to_string(),
+            ];
+            let index = check_index_project(paths, texts, "");
+            assert!(
+                index.starts_with(r#"{"version":1,"errors":false,"ok":true,"files":["#),
+                "{index}"
+            );
+            assert!(index.contains(r#"{"path":"src/B/B.sw"}"#), "{index}");
+            assert!(index.contains(r#""name":"A.two","kind":"def""#), "{index}");
+            assert!(index.contains(r#""std":"core.sw""#), "{index}");
+        });
+    }
+
     #[test]
     fn every_aoc_day_checks_passes_its_tests_and_runs_on_its_example() {
         big(every_aoc_day_body);

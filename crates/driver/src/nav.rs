@@ -4,7 +4,7 @@
 use std::collections::HashMap;
 use std::fmt::Write;
 
-use stitchwort_elab::{LIBRARY_FILES, NavIndex, NavTarget, PRELUDE};
+use stitchwort_elab::{NavIndex, NavTarget};
 use stitchwort_syntax::{FileId, SourceMap, Span};
 
 use crate::driver::Session;
@@ -17,15 +17,11 @@ const STD_DIR: &str = "crates/elab/src/std/";
 
 /// The text of an embedded library file, by its path under `std/`
 /// (`core.sw` is the core), as a file's `std` marker names it.
-pub fn std_source(path: &str) -> Option<&'static str> {
-    if path == "core.sw" {
-        return Some(PRELUDE);
-    }
-    LIBRARY_FILES
-        .iter()
-        .find(|(p, _)| *p == path)
-        .map(|(_, text)| *text)
-}
+///
+/// (Looked up inside the elaborator's crate: the texts are constants, and a
+/// constant used from another crate is copied into it, which in WebAssembly
+/// doubles the library's size.)
+pub use stitchwort_elab::std_source;
 
 /// The index of everything `session` has loaded, with `enable_navigation`
 /// on before it loaded. `errors` is whether checking found errors; `ok`

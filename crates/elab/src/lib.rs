@@ -28,7 +28,7 @@ mod logic;
 mod matching;
 mod module;
 mod nav;
-pub use nav::{NavIndex, NavRef, NavSymbol, NavTarget};
+pub use nav::{NavIndex, NavRef, NavSymbol, NavTarget, std_source};
 mod numbers;
 mod partial;
 mod patlet;

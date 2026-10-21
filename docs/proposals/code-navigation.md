@@ -37,7 +37,7 @@ is a reference of its own).
 Not covered: operators (`+`, `==`, `<`, ... resolve through dictionaries and
 have no name written; they have no entries), literals, the names compiler
 derivations generate, and import paths (`List` in `import List (map)` is a
-namespace, not a declaration). Names the elaborator didn't reach because a
+namespace, not a declaration). Abilities and their operations have no `type`. Names the elaborator didn't reach because a
 declaration failed to check can be missing; locals are found from syntax and
 so are present anyway, without a type.
 

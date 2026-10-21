@@ -86,9 +86,7 @@ pub fn check_index(source: &str) -> String {
 /// none.
 #[wasm_bindgen]
 pub fn std_source(path: &str) -> String {
-    stitchwort_driver::nav::std_source(path)
-        .unwrap_or_default()
-        .to_string()
+    stitchwort_driver::nav::std_source(path, session_limits().stack).unwrap_or_default()
 }
 
 /// Runs a program's tests, reusing the results in `known`:
@@ -568,6 +566,21 @@ fn json_string(text: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn indexes_a_program_for_navigation_and_serves_library_text() {
+        let index = check_index("def f (xs: List Nat): Nat := xs.length\n");
+        assert!(
+            index.starts_with(r#"{"version":1,"errors":false,"ok":true,"files":["#),
+            "{index}"
+        );
+        assert!(index.contains(r#"{"path":"playground.sw"}"#), "{index}");
+        assert!(index.contains(r#""name":"Std.List.length""#), "{index}");
+        let failed = check_index("def f : Nat := rfl\n");
+        assert!(failed.contains(r#""errors":true,"ok":false"#), "{failed}");
+        assert!(std_source("core.sw").contains("type List"));
+        assert_eq!(std_source("nope.sw"), "");
+    }
 
     #[test]
     fn reports_success_errors_tests_values_and_extracted_code() {

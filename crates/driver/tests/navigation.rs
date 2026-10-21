@@ -192,7 +192,8 @@ fn library_targets_are_marked() {
         .expect("checks");
     let json = index_json(&session, false, None, "");
     assert!(json.contains(r#"{"path":"crates/elab/src/std/core.sw","std":"core.sw"}"#));
-    let text = stitchwort_driver::nav::std_source("core.sw").expect("embedded");
+    let text =
+        stitchwort_driver::nav::std_source("core.sw", session.elab.limits.stack).expect("embedded");
     assert!(text.contains("List"));
-    assert!(stitchwort_driver::nav::std_source("nope.sw").is_none());
+    assert!(stitchwort_driver::nav::std_source("nope.sw", session.elab.limits.stack).is_none());
 }

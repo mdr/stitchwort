@@ -103,6 +103,21 @@ pub enum NavTarget {
     Binder { name: String, span: Span },
 }
 
+/// The text of an embedded library file, by its path under `std/`
+/// (`core.sw` is the core). Read from the library index (built if it
+/// isn't yet, with `stack` for the parser): a lookup in the constants the
+/// files are embedded as would copy them, which doubles their size in
+/// WebAssembly.
+pub fn std_source(path: &str, stack: usize) -> Option<String> {
+    let index = crate::LibraryIndex::standard(stack).ok()?;
+    let file = if path == "core.sw" {
+        index.files.first()
+    } else {
+        index.files.iter().skip(1).find(|f| f.path == path)
+    };
+    file.map(|f| f.text.clone())
+}
+
 impl Elaborator {
     /// Starts recording what the index needs. Call before loading anything
     /// that should be in it.

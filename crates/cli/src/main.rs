@@ -117,7 +117,7 @@ fn run(cli: Cli) -> ExitCode {
             project,
             index,
         } => check(&targets, project.as_deref(), index.as_deref()),
-        Command::StdSource { path } => match stitchwort_cli::nav::std_source(&path) {
+        Command::StdSource { path } => match stitchwort_cli::nav::std_source(&path, STACK) {
             Some(text) => {
                 print!("{text}");
                 ExitCode::SUCCESS
