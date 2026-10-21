@@ -1015,6 +1015,23 @@ fn none(cx: &Ctx, interface: DataId, goal: &Value, head: Option<DataId>) -> Diag
             _ => {}
         }
     }
+    // For `Show`: why it wasn't derived.
+    if Some(interface) == show(e) {
+        match force(g, arg.clone()).unwrap_or(arg.clone()) {
+            Value::Data(t, _) => {
+                if let Some(why) = e.no_show.get(&t) {
+                    d = d.with_note(format!(
+                        "`Show` isn't derived for `{}`: {why}",
+                        g.data(t).name
+                    ));
+                }
+            }
+            Value::Pi(..) => {
+                d = d.with_note("functions can't be shown");
+            }
+            _ => {}
+        }
+    }
     match head {
         Some(h) => {
             let owner = |d: DataId| {
@@ -1320,6 +1337,14 @@ impl Elaborator {
 /// §6.1).
 pub(crate) fn dec_eq(e: &Elaborator) -> Option<DataId> {
     match e.scope.get("Std.DecEq") {
+        Some((Global::Data(d), _)) if e.is_interface(d) => Some(d),
+        _ => None,
+    }
+}
+
+/// The library's `Show`, once it's declared (§5.14).
+pub(crate) fn show(e: &Elaborator) -> Option<DataId> {
+    match e.scope.get("Std.Show") {
         Some((Global::Data(d), _)) if e.is_interface(d) => Some(d),
         _ => None,
     }

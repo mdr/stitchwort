@@ -13,6 +13,7 @@ mod calc;
 mod check;
 mod data_auto;
 mod derive;
+mod derive_show;
 mod dot;
 mod effects;
 mod families;
@@ -191,6 +192,8 @@ pub struct Elaborator {
     /// Why `DecEq` isn't derived for a data type or record, for the note
     /// when `==` is used on it (`derive.rs`).
     no_eq: HashMap<DataId, String>,
+    /// The same for `Show` (`derive_show.rs`).
+    no_show: HashMap<DataId, String>,
     /// Helpers elaborated in the current declaration and not yet lifted
     /// (`lift.rs`). Part of the inference state `undo.rs` restores.
     drafts: RefCell<Vec<lift::Draft>>,
@@ -1422,6 +1425,7 @@ impl Elaborator {
             self.after_record(d, interface)?;
         } else {
             self.derive_data_eq(d)?;
+            self.derive_data_show(d)?;
         }
         Ok(())
     }

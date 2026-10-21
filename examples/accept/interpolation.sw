@@ -1,4 +1,4 @@
--- String interpolation: `${e}` inside a text literal inserts `e.toText`.
+-- String interpolation: `${e}` inserts `Show.toText e` (docs/proposals/interfaces.md §5.14).
 
 type Box = { value: Nat }
 

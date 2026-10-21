@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-INSTANCE-NONE] Error: no `Show` instance for `Handler`
+   ╭─[ reject/show-none.sw:7:46 ]
+   │
+ 7 │ def describe (h: Handler): Text := "handler: ${h}"
+   │                                              ──┬─  
+   │                                                ╰─── this needs `Show Handler`
+   │ 
+   │ Note 1: `Show` isn't derived for `Handler`: its field `run` is a function, and functions can't be shown
+   │ 
+   │ Note 2: an instance of `Show` for `Handler` can be declared in `Main`
+───╯
