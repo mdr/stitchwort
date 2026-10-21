@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use stitchwort_core::hash::{data_hash, def_hash};
 use stitchwort_core::registry::{Builtin, Home, Kind};
 use stitchwort_core::{DataId, DefId};
-use stitchwort_driver::driver::{Cache, Outcome, Session, with_stack};
+use stitchwort_driver::driver::{Cache, Outcome, Session, par_map, slow_tier, slow_tier_on};
 use stitchwort_driver::project::{DiskFiles, Target};
 use stitchwort_driver::render::render;
 use stitchwort_elab::{LIBRARY_FILES, LibraryIndex, PRELUDE};
@@ -583,38 +583,44 @@ fn name(source: &Source) -> &str {
 /// agree: accepted or rejected, the same errors, and the same hash for every
 /// declaration the program made and every library declaration that
 /// was loaded (§4.0).
+///
+/// Slow tier: outside it, only every eighth source is compared (a fixed
+/// sample), and the AoC project is skipped.
 fn assert_lazy_is_eager(sources: Vec<Source>) {
-    with_stack(STACK, || {
-        let mut library_loaded = BTreeSet::new();
-        for source in &sources {
-            let mut lazy = Session::for_stack(STACK);
-            let mut eager = Session::eager_for_stack(STACK);
-            let a = run(&mut lazy, source);
-            let b = run(&mut eager, source);
-            let n = name(source);
+    let sources: Vec<Source> = if slow_tier_on() {
+        sources
+    } else {
+        sources.into_iter().step_by(8).collect()
+    };
+    let loaded = par_map(STACK, &sources, |source| {
+        let mut lazy = Session::for_stack(STACK);
+        let mut eager = Session::eager_for_stack(STACK);
+        let a = run(&mut lazy, source);
+        let b = run(&mut eager, source);
+        let n = name(source);
+        assert_eq!(
+            a.accepted, b.accepted,
+            "{n}: accepted lazily and not eagerly"
+        );
+        assert_eq!(a.errors, b.errors, "{n}: its errors differ");
+        // Everything the lazy session made, the eager one made the same.
+        for (decl, hash) in &a.hashes {
             assert_eq!(
-                a.accepted, b.accepted,
-                "{n}: accepted lazily and not eagerly"
+                b.hashes.get(decl),
+                Some(hash),
+                "{n}: `{decl}` differs between a lazy and an eager session"
             );
-            assert_eq!(a.errors, b.errors, "{n}: its errors differ");
-            // Everything the lazy session made, the eager one made the same.
-            for (decl, hash) in &a.hashes {
-                assert_eq!(
-                    b.hashes.get(decl),
-                    Some(hash),
-                    "{n}: `{decl}` differs between a lazy and an eager session"
-                );
-            }
-            // And what the program made is all that the eager one has beyond
-            // the library.
-            let user = |m: &BTreeMap<String, String>| -> BTreeSet<String> {
-                m.keys().filter(|k| !k.contains("Std.")).cloned().collect()
-            };
-            assert_eq!(user(&a.hashes), user(&b.hashes), "{n}");
-            library_loaded.extend(lazy.elab.loaded_library_files());
         }
-        eprintln!("library files some program loaded: {library_loaded:?}");
-    })
+        // And what the program made is all that the eager one has beyond
+        // the library.
+        let user = |m: &BTreeMap<String, String>| -> BTreeSet<String> {
+            m.keys().filter(|k| !k.contains("Std.")).cloned().collect()
+        };
+        assert_eq!(user(&a.hashes), user(&b.hashes), "{n}");
+        lazy.elab.loaded_library_files()
+    });
+    let library_loaded: BTreeSet<_> = loaded.into_iter().flatten().collect();
+    eprintln!("library files some program loaded: {library_loaded:?}");
 }
 
 #[test]
@@ -643,6 +649,9 @@ fn lazy_loading_changes_nothing_for_the_example_projects() {
 
 #[test]
 fn lazy_loading_changes_nothing_for_the_aoc_project() {
+    if !slow_tier("lazy_loading_changes_nothing_for_the_aoc_project") {
+        return;
+    }
     assert_lazy_is_eager(aoc());
 }
 
@@ -651,33 +660,32 @@ fn lazy_loading_changes_nothing_for_the_aoc_project() {
 /// refused as an unknown name.)
 #[test]
 fn the_core_alone_runs_every_example_that_uses_no_library_name() {
-    with_stack(STACK, || {
-        let mut sources = example_files("accept");
-        sources.extend(example_files("extract"));
-        let mut ran = 0;
-        let mut used_the_library = 0;
-        for source in &sources {
-            let mut core = Session::core_alone();
-            core.elab.limits = stitchwort_core::Limits::for_stack(STACK);
-            let mut full = Session::for_stack(STACK);
-            let a = run(&mut core, source);
-            let b = run(&mut full, source);
-            let n = name(source);
-            if full.elab.loaded_library_files().is_empty() {
-                // It uses no library file: the core alone does the same.
-                assert_eq!(a.accepted, b.accepted, "{n}");
-                assert_eq!(a.errors, b.errors, "{n}");
-                assert_eq!(a.hashes, b.hashes, "{n}");
-                ran += 1;
-            } else {
-                // It uses a library name, which the core alone doesn't have.
-                assert!(b.accepted, "{n}: {}", b.errors);
-                used_the_library += 1;
-            }
+    let mut sources = example_files("accept");
+    sources.extend(example_files("extract"));
+    // Whether each source used no library name (and so the core alone ran it).
+    let ran_alone = par_map(STACK, &sources, |source| {
+        let mut core = Session::core_alone();
+        core.elab.limits = stitchwort_core::Limits::for_stack(STACK);
+        let mut full = Session::for_stack(STACK);
+        let a = run(&mut core, source);
+        let b = run(&mut full, source);
+        let n = name(source);
+        if full.elab.loaded_library_files().is_empty() {
+            // It uses no library file: the core alone does the same.
+            assert_eq!(a.accepted, b.accepted, "{n}");
+            assert_eq!(a.errors, b.errors, "{n}");
+            assert_eq!(a.hashes, b.hashes, "{n}");
+            true
+        } else {
+            // It uses a library name, which the core alone doesn't have.
+            assert!(b.accepted, "{n}: {}", b.errors);
+            false
         }
-        eprintln!("core alone ran {ran}; {used_the_library} use a library name");
-        assert!(ran > 50);
-    })
+    });
+    let ran = ran_alone.iter().filter(|r| **r).count();
+    let used_the_library = ran_alone.len() - ran;
+    eprintln!("core alone ran {ran}; {used_the_library} use a library name");
+    assert!(ran > 50);
 }
 
 /// Every compiler path that names a declaration, in a session whose library

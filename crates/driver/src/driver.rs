@@ -54,6 +54,74 @@ pub fn with_stack<T: Send>(stack: usize, f: impl FnOnce() -> T + Send) -> T {
     })
 }
 
+/// How many worker threads the tests' per-file loops use: the machine's
+/// parallelism capped at 8 (each session holds tens of MB), or
+/// `STITCHWORT_TEST_THREADS` if set.
+#[doc(hidden)]
+pub fn test_threads() -> usize {
+    std::env::var("STITCHWORT_TEST_THREADS")
+        .ok()
+        .and_then(|v| v.parse::<usize>().ok())
+        .filter(|n| *n > 0)
+        .unwrap_or_else(|| std::thread::available_parallelism().map_or(1, |n| n.get().min(8)))
+}
+
+/// Maps `f` over `items` on up to [`test_threads`] threads, each with `stack`
+/// bytes of stack, and returns the results in the order of `items`. A panic
+/// in `f` is held until every item has run, then the one for the earliest
+/// item is re-raised, so failures are reported deterministically.
+#[doc(hidden)]
+pub fn par_map<T: Sync, R: Send>(stack: usize, items: &[T], f: impl Fn(&T) -> R + Sync) -> Vec<R> {
+    use std::sync::Mutex;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    let next = AtomicUsize::new(0);
+    let results: Mutex<Vec<Option<std::thread::Result<R>>>> =
+        Mutex::new((0..items.len()).map(|_| None).collect());
+    let workers = test_threads().min(items.len()).max(1);
+    std::thread::scope(|scope| {
+        for _ in 0..workers {
+            std::thread::Builder::new()
+                .stack_size(stack)
+                .spawn_scoped(scope, || {
+                    loop {
+                        let i = next.fetch_add(1, Ordering::Relaxed);
+                        let Some(item) = items.get(i) else { break };
+                        let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| f(item)));
+                        results.lock().unwrap_or_else(|e| e.into_inner())[i] = Some(r);
+                    }
+                })
+                .expect("can't start a thread");
+        }
+    });
+    results
+        .into_inner()
+        .unwrap_or_else(|e| e.into_inner())
+        .into_iter()
+        .map(|r| match r.expect("every item ran") {
+            Ok(v) => v,
+            Err(panic) => std::panic::resume_unwind(panic),
+        })
+        .collect()
+}
+
+/// Whether the slow tier of tests is on: the exhaustive and differential
+/// ones that take over ~20 s. `dev/t slow` and the full gate set
+/// `STITCHWORT_SLOW=1`.
+#[doc(hidden)]
+pub fn slow_tier_on() -> bool {
+    std::env::var("STITCHWORT_SLOW").is_ok_and(|v| !v.is_empty() && v != "0")
+}
+
+/// [`slow_tier_on`], for a test that does nothing otherwise: it says so.
+#[doc(hidden)]
+pub fn slow_tier(test: &str) -> bool {
+    let on = slow_tier_on();
+    if !on {
+        eprintln!("skipped {test}: slow tier (run `dev/t slow`, or the full gate)");
+    }
+    on
+}
+
 impl Session {
     /// A session for a thread with `stack` bytes of stack.
     pub fn for_stack(stack: usize) -> Self {

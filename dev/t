@@ -29,7 +29,20 @@ Areas:
   vscode     node --test on the VS Code extension's lookup logic
   lint       cargo fmt --check and clippy
   all        cargo test --release --workspace
-  gate       nix flake check (the full gate, 6-7 minutes)
+  slow       just the slow tier (see below), with STITCHWORT_SLOW=1
+  gate       nix flake check (the full gate, 6-7 minutes). Bounded so it
+             doesn't starve other lanes: `--option cores 6 --option max-jobs 2`
+             (override with GATE_CORES / GATE_JOBS); CARGO_BUILD_JOBS doesn't
+             reach nix builds.
+
+Slow tier (exhaustive or differential tests over ~20 s), off unless
+STITCHWORT_SLOW=1; only `dev/t slow` and the full gate turn it on:
+  - bench `repeat` (~95 s): returns with "skipped ...: slow tier".
+  - std_library `lazy_loading_changes_nothing_*`: compare every example; a
+    normal run compares every eighth, and skips the AoC project.
+
+The per-file test loops (examples, hashes, std) run on a thread pool: the
+machine's parallelism capped at 8, or STITCHWORT_TEST_THREADS=N.
 
 `dev/t affected [BASE]` runs only the areas the change touches, never more.
 The change is `git diff BASE...HEAD` (BASE defaults to main; on main itself
@@ -430,9 +443,17 @@ case "$area" in
     args=(--workspace)
     ;;
   gate)
-    echo "the full gate, 6-7 minutes"
-    CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-3}" nix flake check
+    echo "the full gate, 6-7 minutes (nix builds use at most ${GATE_CORES:-6} cores, ${GATE_JOBS:-2} jobs)"
+    nix flake check --option cores "${GATE_CORES:-6}" --option max-jobs "${GATE_JOBS:-2}"
     exit 0
+    ;;
+  slow)
+    # The slow tier: exhaustive and differential tests that the normal runs
+    # skip and the full gate runs (STITCHWORT_SLOW is set in flake.nix).
+    export STITCHWORT_SLOW=1
+    run_cargo test --release -p stitchwort-driver --test std_library ${filter:+-- "$filter"}
+    args=(-p stitchwort-bench --test repeat)
+    filter=""
     ;;
   *)
     usage >&2
