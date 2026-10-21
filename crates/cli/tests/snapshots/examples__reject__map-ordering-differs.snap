@@ -7,7 +7,7 @@ expression: output
     │
  18 │ def wrong: Nat := total down
     │                         ──┬─  
-    │                           ╰─── expected `Map … … [ord := …]`, but this has type `Map Nat Nat [ord := { eq = …, compare = …, lessThan = …, lessEq = …, decLessThan = …, decLessEq = …, equal = …, flip = …, trans = …, lessThanOf = …, lessThanTo = …, lessEqOf = …, lessEqTo = … }]`
+    │                           ╰─── expected `Map Nat Nat [ord := Nat.instOrd]`, but this has type `Map Nat Nat [ord := descending]`
     │ 
     │ Note: the `ord` dictionaries differ: `Map`'s `ord` is part of its type, so a value built with one is a different type from one built with another (they're compared as whole dictionaries, not just their functions)
 ────╯
