@@ -1,5 +1,5 @@
 {
-  "next": 199,
+  "next": 200,
   "tickets": [
     {
       "id": 1,
@@ -2984,8 +2984,8 @@
     {
       "id": 194,
       "title": "Lemmas can't name a match written inside a definition (generated %match functions)",
-      "status": "review",
-      "agent": "Opus",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [
         "design",
@@ -3051,6 +3051,22 @@
         "aoc"
       ],
       "body": "D225 (Matt, 21 Oct 2026): postponed. Plan when resumed: lists + Map + List.sortBy, measure where time goes (estimate 15-25 s: 499,500 pairs sorted); fallback Array (SW-112, also backlog). docs/aoc-2025.md Day 8.",
+      "created": "2026-10-21",
+      "updated": "2026-10-21",
+      "commits": []
+    },
+    {
+      "id": 199,
+      "title": "Well-founded recursion: write decreasing n instead of fuel (design note)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "design",
+        "kernel",
+        "proof"
+      ],
+      "body": "D234 (Matt, 21 Oct 2026): backlog. Fuel today: Nat.divFuel (/ and %), Nat.digits, transposeN, day 4 settle, day 2 weightFuel; each needs fuel-enough/fuel-irrelevant lemmas. Options sketched 21 Oct: A Acc-based (Lean termination_by; WF defs compute badly — bad for rfl/test-heavy Stitchwort), B measure compiled to hidden fuel + generated equation lemmas (kernel unchanged; brings back equation-lemmas D231), C kernel primitive (Dafny-like), D sized types. Early read: B. Write a design note with external review before building.",
       "created": "2026-10-21",
       "updated": "2026-10-21",
       "commits": []

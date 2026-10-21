@@ -2,8 +2,10 @@
 
 **Status:** draft 1, 21 October 2026. Design only: nothing here is built. Ticket SW-194,
 decision D223 (Matt, 21 October 2026: write this note). Related: SW-193 (`match h:` doesn't
-refine a `let`-bound proof, being fixed separately), SW-192 (AoC day 7). Open decisions are
-D226 to D233 ([§9](#9-decisions)), each with a recommendation.
+refine a `let`-bound proof, now fixed), SW-192 (AoC day 7). Decisions D226 to D233
+([§9](#9-decisions)) accepted as recommended (Matt, 21 October 2026): D226 to D230 yes,
+D231 to D233 not now. No external review (D235). Well-founded recursion, which may bring
+D231 back, is in the backlog.
 
 **The short answer.** The day 7 workaround (a copied helper `leftReach` and an equation
 `reachStep`) is not needed today: I removed both and the proof checks with two small changes
