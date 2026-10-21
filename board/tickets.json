@@ -1,5 +1,5 @@
 {
-  "next": 210,
+  "next": 211,
   "tickets": [
     {
       "id": 1,
@@ -3202,6 +3202,18 @@
         "syntax"
       ],
       "body": "`rewrite p in t` rewrites the goal; there is no way to rewrite the type of a named hypothesis (docs/syntax.md:619-630 documents only `rewrite p, q in t`). A `J` is kept for this at Aoc/Day02/Proofs/Repeated.sw:221-224 and :238 (examples of `J (z q => …)` on a hypothesis). docs/proposals/calc-rewrite.md §6.4 and Stage 3 mention rewriting 'in the body's own type when no goal is known'.\n\nFirst step: decide the surface (`rewrite p at h in t`, or `rewrite p in h` giving a new hypothesis) and whether it overlaps with the Stage 3 'goal not known' item.\n\nHistory: from SW-157 pain point 2.\n\nDone when: the surface is decided and one of the `J`s above is replaced by it.\n\nD243 (Matt, 21 Oct 2026): proof-ergonomics cluster on ice for now.\n",
+      "created": "2026-10-21",
+      "updated": "2026-10-21",
+      "commits": []
+    },
+    {
+      "id": 210,
+      "title": "Rename Maybe to Option/Some/None",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "Rename the prelude's `Maybe`/`Just`/`Nothing` to `Option`/`Some`/`None` (D244–D246), and drop DESIGN's separately planned `Optional` type: there is one option type.\n\nFunction names: `Maybe.withDefault` → `Option.getOrElse`, `Maybe.andThen` → `Option.flatMap`, `isJust`/`isNothing` → `isSome`/`isNone`, `List.mapMaybe` → `List.filterMap`, `Vec.traverseMaybe` → `Vec.traverseOption`; other names containing Maybe/Just/Nothing follow (`consJust` → `consSome`, `decJust` → `decSome`, …). `Ordering.andThen` is unrelated and stays.\n\nJS boundary tags become `{ tag: \"None\" }` / `{ tag: \"Some\", value }`, TypeScript `Option<A>`.\n\nNot renamed: `comparisons/` (other languages' code), `docs/proposals/` and `docs/history.md` (historical records).\n\nDone when: no `Maybe`/`Just`/`Nothing` names remain outside those exclusions; DESIGN.md describes one option type; snapshots regenerated; gate and browser tests pass.\n",
       "created": "2026-10-21",
       "updated": "2026-10-21",
       "commits": []
