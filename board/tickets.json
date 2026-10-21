@@ -1,5 +1,5 @@
 {
-  "next": 190,
+  "next": 191,
   "tickets": [
     {
       "id": 1,
@@ -1721,7 +1721,7 @@
     {
       "id": 113,
       "title": "Balanced-tree Map and Set",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -2837,7 +2837,7 @@
     {
       "id": 184,
       "title": "Interfaces follow-ups: hash decision-procedure instance marker (D198); doc match e: x substitution (D197); reword §7.5 case 2 (D203)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -2894,7 +2894,7 @@
     {
       "id": 188,
       "title": "match e: doesn't generalise a scrutinee whose auto dictionary is unsolved (Ord.compare x y)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -2902,7 +2902,7 @@
         "elab",
         "interfaces"
       ],
-      "body": "From SW-113 (21 Oct 2026). Repro:\ndef pick [auto ord: Ord k] (x: k) (y: k): Nat := match Ord.compare x y with | Less => 0 | _ => 1\ntheorem pickLess [auto ord: Ord k] (x: k) (y: k) (h: Ord.compare x y = Less): pick x y = 0 :=\n  match e: Ord.compare x y with | Less => rfl | Equal => Void.exfalso (Ordering.equalNotLess h) | Greater => Void.exfalso (Ordering.greaterNotLess h)\n-> E-REFL: (match …) (Ord.%compare ord x y) and 0 aren't equal. The scrutinee's dictionary is still a metavariable when the goal is abstracted, so nothing matches. Workaround: Ord.compare [ord := ord] x y (Map.sw uses it throughout). Fix: resolve pending auto args in the scrutinee before abstracting. Related: D197 docs on match e: substitution (SW-184).",
+      "body": "From SW-113 (21 Oct 2026). Not reproducible on main: the Map/Set lane was based on 5316aa9, before stage 5's found_dictionaries (crates/elab/src/check.rs:961, commit 4a8293f), which solves an application's ready auto dictionaries as soon as its arguments fix the type. Regression test examples/accept/match-eq-auto.sw added (SW-184 lane). If it recurs: generalised() in crates/elab/src/matching.rs ~232-247.",
       "created": "2026-10-21",
       "updated": "2026-10-21",
       "commits": []
@@ -2918,6 +2918,20 @@
         "elab"
       ],
       "body": "From SW-113 (21 Oct 2026): with Set's field named map, s.map inside std/Set/Set.sw failed E-INTERNAL 'Set.sw uses List/Toolkit.sw, Map.sw, Vec.sw, which isn't loaded … the loader's reference analysis missed this use'. Unconfirmed guess: the edge analysis doesn't treat s.map on a local as dot notation needing every file defining map. Worked around by naming the field items. Repro: rename it back.",
+      "created": "2026-10-21",
+      "updated": "2026-10-21",
+      "commits": []
+    },
+    {
+      "id": 190,
+      "title": "Map.sw: drop the explicit [ord := ord] workarounds (SW-188 was fixed by stage 5)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "stdlib"
+      ],
+      "body": "Map.sw passes [ord := ord] to Ord.compare throughout to work around SW-188, which doesn't reproduce on main. Remove them and check dev/t std still passes.",
       "created": "2026-10-21",
       "updated": "2026-10-21",
       "commits": []
