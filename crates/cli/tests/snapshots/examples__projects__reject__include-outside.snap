@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-INCLUDE-OUTSIDE] Error: `include "../../outside.txt"` is outside the project folder
+   ╭─[ include-outside/src/Day.sw:4:20 ]
+   │
+ 4 │ def input: Text := include "../../outside.txt"
+   │                    ─────────────┬─────────────  
+   │                                 ╰─────────────── this path leaves the folder
+   │ 
+   │ Note: an included file must be inside the project folder (for a file on its own, the file's folder); the path is relative to the file that includes it
+───╯

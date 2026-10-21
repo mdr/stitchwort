@@ -1,0 +1,2 @@
+# `include "file"`: a file's text, from a folder above and beside the source.
+sources: [src]

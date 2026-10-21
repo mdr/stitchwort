@@ -1,0 +1,2 @@
+# expect-error: E-INCLUDE-NOT-TEXT
+sources: [src]

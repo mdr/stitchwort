@@ -407,6 +407,7 @@ fn walk_at(
         Expr::Num(..)
         | Expr::Char(..)
         | Expr::Str(..)
+        | Expr::Include(..)
         | Expr::Type(..)
         | Expr::Prop(_)
         | Expr::Hole(_)

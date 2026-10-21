@@ -251,6 +251,7 @@ pub fn analyse(session: &mut Session, project: &str, mut files: Vec<(String, Str
     for (path, text) in &files {
         let display = format!("{project}/{path}");
         let id = session.sources.add(display.clone(), text.clone());
+        session.elab.set_include_location(id, path.clone());
         let parsed = parse_module_within(id, text, session.elab.limits.stack);
         let (namespace, errors, module) = match parsed {
             Ok(module) => (module.namespace.clone(), Vec::new(), Some(module)),
@@ -743,6 +744,12 @@ pub struct Entry {
 pub trait Files {
     fn entries(&self, dir: &str) -> std::io::Result<Vec<Entry>>;
     fn read(&self, path: &str) -> std::io::Result<String>;
+
+    /// The same files for `include` to read (`Session::load_project` hands
+    /// them over), if `include` can read them.
+    fn include_files(&self) -> Option<std::rc::Rc<dyn stitchwort_elab::project::IncludeFiles>> {
+        None
+    }
 }
 
 /// A project on disk.
@@ -759,6 +766,12 @@ impl DiskFiles {
 }
 
 impl Files for DiskFiles {
+    fn include_files(&self) -> Option<std::rc::Rc<dyn stitchwort_elab::project::IncludeFiles>> {
+        Some(std::rc::Rc::new(DiskFiles {
+            root: self.root.clone(),
+        }))
+    }
+
     fn entries(&self, dir: &str) -> std::io::Result<Vec<Entry>> {
         let mut out = Vec::new();
         for entry in std::fs::read_dir(self.path(dir))? {
@@ -790,6 +803,13 @@ pub struct MemoryFiles {
 }
 
 impl Files for MemoryFiles {
+    fn include_files(&self) -> Option<std::rc::Rc<dyn stitchwort_elab::project::IncludeFiles>> {
+        Some(std::rc::Rc::new(MemoryFiles {
+            files: self.files.clone(),
+            reversed: self.reversed,
+        }))
+    }
+
     fn entries(&self, dir: &str) -> std::io::Result<Vec<Entry>> {
         let prefix = if dir.is_empty() {
             String::new()
@@ -948,7 +968,22 @@ impl Session {
         project: &str,
         target: &Target,
     ) -> Result<Loaded, Vec<Diagnostic>> {
+        if let Some(include) = files.include_files() {
+            self.include_from(include);
+        }
         let sources = project_sources(files, project, &mut self.sources)?;
         self.load_project_sources(project, sources, target)
+    }
+}
+
+impl stitchwort_elab::project::IncludeFiles for DiskFiles {
+    fn read(&self, path: &str) -> std::io::Result<String> {
+        Files::read(self, path)
+    }
+}
+
+impl stitchwort_elab::project::IncludeFiles for MemoryFiles {
+    fn read(&self, path: &str) -> std::io::Result<String> {
+        Files::read(self, path)
     }
 }

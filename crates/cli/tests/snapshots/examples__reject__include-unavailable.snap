@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-INCLUDE-UNAVAILABLE] Error: `include` can't read files here
+   ╭─[ reject/include-unavailable.sw:3:20 ]
+   │
+ 3 │ def input: Text := include "input.txt"
+   │                    ─────────┬─────────  
+   │                             ╰─────────── there is no folder to read from
+   │ 
+   │ Note: `include` works when `stitchwort` runs on files; the playground has none
+───╯

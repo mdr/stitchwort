@@ -1256,6 +1256,14 @@ for the driver's own multi-file tests.
 
 ## 10. `include "file"`
 
+**Built** (21 October 2026; reference in [syntax.md](../syntax.md#include)):
+`include` is an expression the parser knows (a keyword followed by a text
+literal), read when the elaborator reaches it and checked as the text literal
+of the file's contents. The driver tells the elaborator where files are (the
+project folder, or a file's own folder) and where each source file is in it;
+with neither, as in the playground, it is `E-INCLUDE-UNAVAILABLE`. Not done:
+a symlink inside the project that points outside it is followed.
+
 Unchanged from draft 1 except for "inside the project":
 
 - **Paths are relative to the file that contains the `include`**: the one

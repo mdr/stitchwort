@@ -84,6 +84,7 @@ pub enum Tok {
     KwLet,
     /// `import List (map, filter)`, at the top of a file.
     KwImport,
+    KwInclude,
     /// `namespace Day05`, the first line of a file.
     KwNamespace,
     /// `calc e` followed by steps `_ = e := proof`, one per line.
@@ -212,6 +213,7 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
                     "return" => Tok::KwReturn,
                     "let" => Tok::KwLet,
                     "import" => Tok::KwImport,
+                    "include" => Tok::KwInclude,
                     "namespace" => Tok::KwNamespace,
                     "calc" => Tok::KwCalc,
                     "rewrite" => Tok::KwRewrite,

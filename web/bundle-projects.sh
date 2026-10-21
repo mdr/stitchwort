@@ -20,7 +20,9 @@ if [ "$(cat "$root/aoc/stitchwort.yaml")" != "sources: [src]" ]; then
 fi
 
 cd "$root/aoc"
-files=$(find src -type f -name '*.sw' | sort)
+# `Input.sw` files test the real inputs through `include`, which the playground
+# can't do (E-INCLUDE-UNAVAILABLE), so they stay out of the bundle.
+files=$(find src -type f -name '*.sw' ! -name Input.sw | sort)
 examples=$(find examples inputs -maxdepth 1 -type f -name '*.txt' | sort)
 for path in $files $examples; do
   case "$path" in

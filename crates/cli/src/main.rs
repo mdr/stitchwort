@@ -277,6 +277,18 @@ fn load_file(session: &mut Session, path: &Path, verb: Option<&'static str>) -> 
         }
     };
     let context = verb.and_then(|verb| file_mode_context(path, &text, verb));
+    let folder = path
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
+    if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+        session.include_in_folder(
+            std::rc::Rc::new(DiskFiles {
+                root: folder.to_path_buf(),
+            }),
+            name,
+        );
+    }
     match session.load_file(&path.display().to_string(), &text, context) {
         Ok(_) => {
             report(&session.sources, &std::mem::take(&mut session.warnings));
@@ -410,6 +422,9 @@ fn run_target(target: &str, js: bool, project: Option<&Path>) -> ExitCode {
         let Some(project) = locate_project(project, "run", "run hello.sw") else {
             return ExitCode::FAILURE;
         };
+        session.include_from(std::rc::Rc::new(DiskFiles {
+            root: project.dir.clone(),
+        }));
         let sources = match project_sources(&project.files, &project.name, &mut session.sources) {
             Ok(sources) => sources,
             Err(diagnostics) => {

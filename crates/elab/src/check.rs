@@ -521,6 +521,10 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
                 Value::Data(text, Vec::new()),
             ))
         }
+        Expr::Include(path, span) => {
+            let text = cx.e.read_include(path, *span)?;
+            infer(cx, &Expr::Str(text, *span))
+        }
         Expr::Binary(BinOp::Append, a, b) => append(cx, a, b),
         Expr::Type(i, _) => Ok((Term::Sort(Sort::Type(*i)), Value::Sort(Sort::Type(i + 1)))),
         Expr::Prop(_) => Ok((Term::Sort(Sort::Prop), Value::Sort(Sort::Type(0)))),

@@ -6,7 +6,7 @@
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 
 use stitchwort_syntax::ast::{Decl, Module};
-use stitchwort_syntax::{FileId, Span};
+use stitchwort_syntax::{Diagnostic, FileId, Span};
 
 use crate::Elaborator;
 use crate::module::{Ref, decl_refs};
@@ -39,6 +39,100 @@ pub struct FileModeContext {
     pub own: Option<String>,
     /// What to do instead.
     pub note: String,
+}
+
+// ---- `include "file"` (docs/proposals/multi-file.md §10) ---------------
+
+/// Where `include` reads files from: the files of the project (or, for a
+/// file on its own, of its folder), by path within it, components joined
+/// by `/`.
+pub trait IncludeFiles {
+    fn read(&self, path: &str) -> std::io::Result<String>;
+}
+
+impl Elaborator {
+    /// Lets `include` read from `files`.
+    pub fn set_include_files(&mut self, files: std::rc::Rc<dyn IncludeFiles>) {
+        self.include_files = Some(files);
+    }
+
+    /// The next file loaded on its own is at `path` in the include root.
+    pub fn set_next_include_location(&mut self, path: String) {
+        self.next_include_location = Some(path);
+    }
+
+    pub fn take_next_include_location(&mut self) -> Option<String> {
+        self.next_include_location.take()
+    }
+
+    /// Records that source file `file` is at `path` in the include root, so
+    /// an `include` in it is relative to there.
+    pub fn set_include_location(&mut self, file: FileId, path: String) {
+        self.include_locations.insert(file, path);
+    }
+
+    /// The text of the file that `include "path"` at `span` names, read now
+    /// and so hashed as the text literal it becomes.
+    pub(crate) fn read_include(&self, path: &str, span: Span) -> Result<String, Diagnostic> {
+        let unavailable = || {
+            Diagnostic::error("E-INCLUDE-UNAVAILABLE", "`include` can't read files here")
+                .with_label(span, "there is no folder to read from")
+                .with_note(
+                    "`include` works when `stitchwort` runs on files; the playground has none",
+                )
+        };
+        let (Some(files), Some(from)) =
+            (&self.include_files, self.include_locations.get(&span.file))
+        else {
+            return Err(unavailable());
+        };
+        let mut parts: Vec<&str> = from.split('/').collect();
+        parts.pop();
+        let outside = || {
+            Diagnostic::error(
+                "E-INCLUDE-OUTSIDE",
+                format!("`include \"{path}\"` is outside the project folder"),
+            )
+            .with_label(span, "this path leaves the folder")
+            .with_note(
+                "an included file must be inside the project folder (for a file on its own, \
+                 the file's folder); the path is relative to the file that includes it",
+            )
+        };
+        if path.starts_with('/') || path.contains('\\') {
+            return Err(outside());
+        }
+        for part in path.split('/') {
+            match part {
+                "" | "." => {}
+                ".." => {
+                    if parts.pop().is_none() {
+                        return Err(outside());
+                    }
+                }
+                part => parts.push(part),
+            }
+        }
+        let full = parts.join("/");
+        files.read(&full).map_err(|err| {
+            if err.kind() == std::io::ErrorKind::InvalidData {
+                Diagnostic::error("E-INCLUDE-NOT-TEXT", format!("`{full}` is not UTF-8 text"))
+                    .with_label(span, "included here")
+            } else {
+                let what = if err.kind() == std::io::ErrorKind::NotFound {
+                    format!("there is no file `{full}`")
+                } else {
+                    format!("can't read `{full}`: {err}")
+                };
+                Diagnostic::error("E-INCLUDE-MISSING", what)
+                    .with_label(span, "included here")
+                    .with_note(
+                        "the path is relative to the file that includes it, and the name shown \
+                         is the one tried, from the project folder",
+                    )
+            }
+        })
+    }
 }
 
 impl FileModeContext {
