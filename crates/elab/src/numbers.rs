@@ -941,6 +941,7 @@ fn has_number(expr: &Expr) -> bool {
             Expr::Num(..) => return true,
             Expr::Var(_)
             | Expr::Str(..)
+            | Expr::Include(..)
             | Expr::Char(..)
             | Expr::Type(..)
             | Expr::Prop(_)

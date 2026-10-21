@@ -424,6 +424,7 @@ Loosest-binding first:
 | `0`, `42`, `-5` | Numeric literals: a `Nat`, or an `Int` where one is expected (`Nat` by default); `-5` is always an `Int`. See [Numbers](#numbers) |
 | `'a'`, `'\n'`, `'\u{1F600}'` | `Char` literals: one Unicode scalar value. Escapes are `\n`, `\t`, `\r`, `\\`, `\"`, `\'`, `\$` and `\u{…}` with 1–6 hex digits; `\u{…}` must name a scalar value, so `'\u{D800}'` is an error. Text literals take the same escapes |
 | `"héllo"` | `Text` literal: a sequence of Unicode scalar values (see [text-and-io.md](proposals/text-and-io.md)) |
+| `include "inputs/day04.txt"` | The `Text` in a file, read when the program is checked. See [`include`](#include) |
 | `Type`, `Type 1`, `Prop` | Universes |
 | `(e: T)` | Type annotation |
 | `[a, b, c]` | `List` literal. In an expression, `[x := e]` supplies an implicit argument and every other `[…]` is a list |
@@ -436,6 +437,15 @@ Loosest-binding first:
 **Interpolation.** Inside a text literal, `${e}` inserts `e` converted by its type's `Show` instance ([Interfaces](#interfaces)): `"Part 1: ${solvePart1 turns}"` is `"Part 1: " ++ Show.toText (solvePart1 turns)`, and `"n = ${2 + 3}"` is `"n = 5"`. Text and characters are inserted as they are (`"${"tea"}"` is `tea`), and quoted inside lists, tuples, records and constructors (`"${["a", "b"]}"` is `["a", "b"]`). The expression may contain braces and nested text literals, as in `"${f "x"}"`. A `$` not followed by `{` is an ordinary character; write `\$` for a literal dollar sign: `"cost: \$5"`.
 
 A partially applied constructor is a function: `Succ` on its own means `n => Succ n`.
+
+### `include`
+
+`include "path"` is a `Text` with the contents of a file, read when the program is checked: `(include "../../../inputs/day04.txt").lines` is the lines of a puzzle input. The path is a literal in quotes, written like an argument (put it in brackets before a `.`, as above).
+
+- **Relative to the file that has the `include`**, with `/` between names, `..` for the folder above, whatever folder `stitchwort` runs from. It must stay inside the project folder (for a file run on its own, the file's folder); a path above it, or an absolute one, is `E-INCLUDE-OUTSIDE`.
+- **The contents are what is hashed, not the path.** The text becomes a literal in the definition, so editing the file reruns exactly the tests that use it, and moving or renaming it, with the same text, changes nothing. Tests in `aoc/src/Aoc/DayNN/Input.sw` use it to check each day's answers on the committed puzzle input.
+- **Errors.** `E-INCLUDE-MISSING` names the file tried (from the project folder); `E-INCLUDE-NOT-TEXT` is a file that isn't UTF-8; `E-INCLUDE-UNAVAILABLE` is anywhere there are no files to read, as the playground.
+- The text is one compact literal like any other, so a 20 KB input costs no more to check or hash than a 20 KB string.
 
 ### `&&`, `||` and `not`
 

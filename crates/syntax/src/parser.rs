@@ -2235,6 +2235,7 @@ impl<'t> Parser<'t> {
                     | Tok::Char(_)
                     | Tok::Str(_)
                     | Tok::StrStart(_)
+                    | Tok::KwInclude
                     | Tok::TypeU
                     | Tok::Prop
                     | Tok::LParen
@@ -2448,6 +2449,21 @@ impl<'t> Parser<'t> {
                 Ok(Expr::Str(s, span))
             }
             Some(Tok::StrStart(_)) => self.interpolated_str(),
+            Some(Tok::KwInclude) => {
+                self.bump();
+                match self.peek() {
+                    Some(Tok::Str(path)) => {
+                        let path = path.clone();
+                        let end = self.here();
+                        self.bump();
+                        Ok(Expr::Include(path, span.to(end)))
+                    }
+                    _ => {
+                        Err(self
+                            .unexpected("a path in quotes, as in `include \"inputs/day04.txt\"`"))
+                    }
+                }
+            }
             Some(Tok::Char(c)) => {
                 let c = *c;
                 self.bump();
@@ -2581,6 +2597,7 @@ fn describe(tok: &Tok) -> String {
         Tok::KwReturn => "`return`".into(),
         Tok::KwLet => "`let`".into(),
         Tok::KwImport => "`import`".into(),
+        Tok::KwInclude => "`include`".into(),
         Tok::KwNamespace => "`namespace`".into(),
         Tok::KwCalc => "`calc`".into(),
         Tok::KwRewrite => "`rewrite`".into(),

@@ -27,6 +27,8 @@ pub enum Expr {
     Num(BigUint, Span),
     /// A text literal: `"héllo"`.
     Str(String, Span),
+    /// `include "path"`: the text of a file, read when the program is checked.
+    Include(String, Span),
     /// A character literal: `'a'`.
     Char(char, Span),
     /// `Type` or `Type n`.
@@ -290,6 +292,7 @@ impl Expr {
             Expr::Num(_, span)
             | Expr::Char(_, span)
             | Expr::Str(_, span)
+            | Expr::Include(_, span)
             | Expr::Type(_, span)
             | Expr::Prop(span)
             | Expr::Lam(_, _, span)
@@ -390,6 +393,7 @@ fn is_leaf(expr: &Expr) -> bool {
         Expr::Var(_)
             | Expr::Num(..)
             | Expr::Str(..)
+            | Expr::Include(..)
             | Expr::Char(..)
             | Expr::Type(..)
             | Expr::Prop(_)

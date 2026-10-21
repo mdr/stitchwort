@@ -365,7 +365,11 @@ mod tests {
             for path in entries {
                 if path.is_dir() {
                     walk(&path, root, out);
-                } else if path.extension().is_some_and(|e| e == "sw") {
+                } else if path.extension().is_some_and(|e| e == "sw")
+                    // Not bundled: they `include` the real inputs
+                    // (web/bundle-projects.sh).
+                    && path.file_name().is_some_and(|n| n != "Input.sw")
+                {
                     let relative = path.strip_prefix(root).expect("under the root");
                     out.push((
                         relative.to_string_lossy().into_owned(),

@@ -199,6 +199,24 @@ impl Session {
         Ok(session)
     }
 
+    /// Lets `include` read the files of a project: from `files`, where the
+    /// project's files are found by their path in it.
+    pub fn include_from(&mut self, files: std::rc::Rc<dyn stitchwort_elab::project::IncludeFiles>) {
+        self.elab.set_include_files(files);
+    }
+
+    /// For the next [`Session::load_file`] of a file on its own: `include`
+    /// reads from `files`, the file's own folder, and the file is called
+    /// `name` in it.
+    pub fn include_in_folder(
+        &mut self,
+        files: std::rc::Rc<dyn stitchwort_elab::project::IncludeFiles>,
+        name: &str,
+    ) {
+        self.elab.set_include_files(files);
+        self.elab.set_next_include_location(name.to_string());
+    }
+
     /// Parses, elaborates and checks a file, and checks that its exports can
     /// cross the JS boundary.
     pub fn load(&mut self, name: &str, text: &str) -> Result<FileId, Vec<Diagnostic>> {
@@ -215,6 +233,9 @@ impl Session {
         context: Option<FileModeContext>,
     ) -> Result<FileId, Vec<Diagnostic>> {
         let file = self.sources.add(name, text);
+        if let Some(location) = self.elab.take_next_include_location() {
+            self.elab.set_include_location(file, location);
+        }
         let module = parse_module_within(file, text, self.elab.limits.stack)?;
         let first_new_def = self.elab.globals.defs.len();
         self.elab.file_mode = context;

@@ -850,10 +850,23 @@ fn wildcard_precedence_across_namespaces() {
 /// of its closure in the pre-pass, or the library: what name resolution found
 /// agrees with what the pre-pass planned (docs/proposals/multi-file.md §4.6).
 fn assert_reaches_only_planned(label: &str, files: Vec<(String, String)>) {
+    assert_reaches_only_planned_in(label, files, None)
+}
+
+fn assert_reaches_only_planned_in(
+    label: &str,
+    files: Vec<(String, String)>,
+    disk: Option<std::path::PathBuf>,
+) {
     use stitchwort_core::Term;
     use stitchwort_driver::project::{analyse, closure};
     let analysis = analyse(&mut Session::new(), "proj", files.clone());
     let mut session = Session::new();
+    if let Some(root) = disk {
+        session.include_from(std::rc::Rc::new(stitchwort_driver::project::DiskFiles {
+            root,
+        }));
+    }
     let loaded = session
         .load_project_sources("proj", files, &Target::Everything)
         .unwrap_or_else(|e| panic!("{label}: {e:#?}"));
@@ -935,7 +948,7 @@ fn checked_terms_only_reach_planned_namespaces() {
         let mut sources = stitchwort_syntax::SourceMap::new();
         let found = project_sources(&files, &name, &mut sources)
             .unwrap_or_else(|e| panic!("{name}: {e:#?}"));
-        assert_reaches_only_planned(&name, found);
+        assert_reaches_only_planned_in(&name, found, Some(files.root.clone()));
     }
     assert_reaches_only_planned("shadowing", owned(&SHADOWING));
     // In memory: wildcards of several namespaces over several files.

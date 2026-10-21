@@ -1922,6 +1922,7 @@ fn free_names(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
             Expr::Var(n) => stack.push(Work::Name(n)),
             Expr::Num(..)
             | Expr::Str(..)
+            | Expr::Include(..)
             | Expr::Char(..)
             | Expr::Type(..)
             | Expr::Prop(_)

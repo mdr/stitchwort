@@ -130,6 +130,12 @@ pub struct Elaborator {
     /// While a single file from inside a project is loaded: what to say
     /// when it uses the project (`E-FILE-MODE`).
     pub file_mode: Option<project::FileModeContext>,
+    /// Where `include` reads from, and where each source file is in it
+    /// (`project::read_include`). Without them `include` is
+    /// `E-INCLUDE-UNAVAILABLE`.
+    include_files: Option<Rc<dyn project::IncludeFiles>>,
+    include_locations: HashMap<stitchwort_syntax::FileId, String>,
+    next_include_location: Option<String>,
     /// Auto arguments still to be proved in the current declaration.
     obligations: RefCell<Vec<auto::Obligation>>,
     /// Metavariables that literals made `Nat` in the current declaration.

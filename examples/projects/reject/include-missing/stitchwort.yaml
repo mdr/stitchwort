@@ -1,0 +1,2 @@
+# expect-error: E-INCLUDE-MISSING
+sources: [src]
