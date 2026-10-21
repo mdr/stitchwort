@@ -1,10 +1,10 @@
 # Proposal: interfaces
 
-**Status:** draft 3, 20 October 2026. Stages 1 to 4 are built
+**Status:** draft 3, 20 October 2026. Stages 1 to 4, 6 and 7 are built
 ([As built (stage 1)](#as-built-stage-1),
 [As built (stage 2)](#as-built-stage-2),
 [As built (stage 3)](#as-built-stage-3),
-[As built (stage 4)](#as-built-stage-4), [As built (stage 6)](#as-built-stage-6)); stages 5 and 7 are design only.
+[As built (stage 4)](#as-built-stage-4), [As built (stage 6)](#as-built-stage-6), [As built (stage 7)](#as-built-stage-7)); stage 5 is built on a branch, merging after D195.
 Review closed and decisions D154-D174, D178-D182, D186, D187 accepted as recommended (D188, Matt, 20 October 2026).
 Build decisions (21 Oct 2026, Matt deferred to Claude): D194, D196-D205 accepted as recommended; D206 (derived Show for nested self-reference) not now; D207-D209 accepted (D208 subject to the unsolved-dictionary test).
 Ticket SW-4, decision D152 (Matt, 20 October 2026: write this note).
