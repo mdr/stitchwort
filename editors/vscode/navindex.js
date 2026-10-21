@@ -18,6 +18,38 @@ function fileIndexByPath(index, path) {
   return index.files.findIndex((f) => f.path === path);
 }
 
+// The index entry of an embedded library file, by its `std` value
+// (`List/Toolkit.sw`; `core.sw` is the core), or -1.
+function fileIndexByStd(index, std) {
+  return index.files.findIndex((f) => f.std === std);
+}
+
+// The `std` value of a `stitchwort-std:` document, from its URI path.
+function stdOfPath(uriPath) {
+  return uriPath.replace(/^\//, '');
+}
+
+// Which index to answer from for a library document: among `candidates`
+// ({key, index, ...}), the one under `preferKey` (the project the document was
+// opened from) if it has refs in that library file, else the first that has.
+// Returns {candidate, file} or null. A library file's refs exist only in the
+// indexes of programs that loaded it.
+function pickIndexForStd(candidates, std, preferKey) {
+  const has = (c) => {
+    const file = fileIndexByStd(c.index, std);
+    return file >= 0 && c.index.refs.some((r) => r.file === file) ? file : -1;
+  };
+  const ordered = [
+    ...candidates.filter((c) => c.key === preferKey),
+    ...candidates.filter((c) => c.key !== preferKey),
+  ];
+  for (const candidate of ordered) {
+    const file = has(candidate);
+    if (file >= 0) return { candidate, file };
+  }
+  return null;
+}
+
 // The ref whose range contains the position, within one file (an index into
 // `index.files`). Refs are sorted by file then position, so binary search for
 // the first ref ending after the position.
@@ -256,11 +288,14 @@ module.exports = {
   contains,
   diagnosticsByFile,
   fileIndexByPath,
+  fileIndexByStd,
   hoverOf,
   namespaceOf,
   outlineOf,
+  pickIndexForStd,
   refAt,
   referencesTo,
+  stdOfPath,
   targetOf,
   workspaceSymbols,
 };

@@ -47,8 +47,7 @@ def Range.size (r: Range): Nat := r.hi + r.lo
 ";
 
 fn project() -> Session {
-    let mut session = Session::new();
-    session.elab.enable_navigation();
+    let mut session = Session::navigable();
     let files = vec![
         ("proj/src/Nav/Nav.sw".to_string(), NAV.to_string()),
         ("proj/src/Lib/Lib.sw".to_string(), LIB.to_string()),
@@ -152,8 +151,7 @@ fn off_by_default() {
 /// What was elaborated is still indexed when a later declaration fails.
 #[test]
 fn partial_when_checking_fails() {
-    let mut session = Session::new();
-    session.elab.enable_navigation();
+    let mut session = Session::navigable();
     let source = "def ok (xs: List Nat): Nat := xs.length\n\ndef bad (xs: List Nat): Nat := xs.map (n => n)\n";
     assert!(session.load("one.sw", source).is_err());
     let json = index_json(&session, true, Some(false), "", &[]);
@@ -165,8 +163,7 @@ fn partial_when_checking_fails() {
 /// Columns count UTF-16 code units, and lines and columns start at 0.
 #[test]
 fn columns_are_utf16() {
-    let mut session = Session::new();
-    session.elab.enable_navigation();
+    let mut session = Session::navigable();
     let source = "def f (t: Text): Text := \"😀\" ++ t\n";
     session.load("one.sw", source).expect("checks");
     let json = index_json(&session, false, None, "", &[]);
@@ -185,8 +182,7 @@ fn columns_are_utf16() {
 /// A library target is marked, with the path under `std/` to read it from.
 #[test]
 fn library_targets_are_marked() {
-    let mut session = Session::new();
-    session.elab.enable_navigation();
+    let mut session = Session::navigable();
     session
         .load("one.sw", "def f (xs: List Nat): Nat := xs.length\n")
         .expect("checks");
@@ -201,8 +197,7 @@ fn library_targets_are_marked() {
 /// Diagnostics come with the index: where, what, the other labels and notes.
 #[test]
 fn diagnostics_are_in_the_index() {
-    let mut session = Session::new();
-    session.elab.enable_navigation();
+    let mut session = Session::navigable();
     let source = "def f: Nat := \"a\"\n";
     let errors = session.load("one.sw", source).expect_err("fails");
     let json = index_json(&session, true, None, "", &errors);
@@ -219,8 +214,7 @@ fn diagnostics_are_in_the_index() {
 /// range is its last name component; `container` is always there.
 #[test]
 fn declarations_refer_to_themselves() {
-    let mut session = Session::new();
-    session.elab.enable_navigation();
+    let mut session = Session::navigable();
     let source = "type Bag = { n: Nat }\n\ndef Bag.size (b: Bag): Nat := b.n\n\ndef use (b: Bag): Nat := b.size\n";
     session.load("one.sw", source).expect("checks");
     let json = index_json(&session, false, None, "", &[]);
@@ -251,8 +245,7 @@ fn declarations_refer_to_themselves() {
 /// continues there.
 #[test]
 fn library_files_have_references() {
-    let mut session = Session::new();
-    session.elab.enable_navigation();
+    let mut session = Session::navigable();
     session
         .load("one.sw", "def f (xs: List Nat): Nat := xs.length\n")
         .expect("checks");
@@ -261,5 +254,47 @@ fn library_files_have_references() {
     assert!(
         index.refs.iter().any(|r| r.span.file.index() < std_files),
         "no references in library files"
+    );
+}
+
+/// The core's own names are references too (it is the first file of the
+/// index, `core.sw`): a user of the playground or editor who jumps into it
+/// can go on from there. This needs recording from the start of the session,
+/// since the core is loaded when the session is made.
+#[test]
+fn the_core_has_references() {
+    let mut session = Session::navigable();
+    session
+        .load("one.sw", "def f (xs: List Nat): Nat := xs.length\n")
+        .expect("checks");
+    let index = index_of(&session);
+    let in_core = index.refs.iter().filter(|r| r.span.file.index() == 0).count();
+    assert!(in_core > 100, "only {in_core} references in the core");
+    // A name used in the core refers to its declaration there.
+    let json = index_json(&session, false, None, "", &[]);
+    assert!(json.contains(r#"{"path":"crates/elab/src/std/core.sw","std":"core.sw"}"#));
+}
+
+/// A library declaration that something refers to has a reference at its own
+/// name too, so that hover, definition and references work there when the
+/// library file is open.
+#[test]
+fn library_declarations_refer_to_themselves() {
+    let mut session = Session::navigable();
+    session
+        .load("one.sw", "def f (xs: List Nat): Nat := xs.length\n")
+        .expect("checks");
+    let index = index_of(&session);
+    let at = index
+        .symbols
+        .iter()
+        .position(|s| s.name == "Std.List.length")
+        .expect("the symbol");
+    let span = index.symbols[at].span;
+    assert!(
+        index.refs.iter().any(|r| r.span.file == span.file
+            && r.span.end == span.end
+            && matches!(r.target, NavTarget::Symbol(s) if s == at)),
+        "no reference at the declaration of List.length"
     );
 }

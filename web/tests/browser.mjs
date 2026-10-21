@@ -14,7 +14,7 @@
 
 import { spawn, execFileSync } from "node:child_process";
 import { createServer } from "node:http";
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, extname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -1126,9 +1126,12 @@ function whereIs(page, needle, delta = 0, len = 1) {
     if (y < s.scrollTop || y + lh > s.scrollTop + s.clientHeight) s.scrollTop = Math.max(0, y - s.clientHeight / 3);
     s.dispatchEvent(new Event("scroll"));
     requestAnimationFrame(() => {
+      // The coloured copy is split into spans: find the text nodes of the offsets.
+      const point = (o) => { const w = document.createTreeWalker(h, NodeFilter.SHOW_TEXT); let at = 0;
+        for (let n = w.nextNode(); n; n = w.nextNode()) { if (o <= at + n.length) return [n, o - at]; at += n.length; } };
       const range = document.createRange();
-      range.setStart(h.firstChild, i);
-      range.setEnd(h.firstChild, i + ${len});
+      range.setStart(...point(i));
+      range.setEnd(...point(i + ${len}));
       const r = range.getBoundingClientRect();
       done({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
     });
@@ -1240,6 +1243,105 @@ test("Cmd-click on a library function shows the library's text, read-only, at it
   await page.until(`document.getElementById("stdbar").hidden`, 5000, "Escape to go back");
   assert.equal(await sourceText(page), NAV_SOURCE);
 }, { ms: 90000 });
+
+const STD_SOURCE = `def lengths (xs: List Nat) : Nat := List.length xs
+
+def total (xs: List Nat) : Nat := List.sum xs
+`;
+
+const stdName = (page) => page.ev(`document.getElementById("stdbar").hidden ? null : document.getElementById("std-name").textContent`);
+const untilStd = (page, name, what) => page.until(`!document.getElementById("stdbar").hidden && document.getElementById("std-name").textContent === ${JSON.stringify(name)}`, 30000, what);
+const textAtCaret = (page) => page.ev(`(() => { const s = document.getElementById("source");
+  return s.value.split("\\n")[s.value.slice(0, s.selectionStart).split("\\n").length - 1]; })()`);
+/** Saves a screenshot, light and dark, under $NAV_SHOTS (if set): for looking at, not asserting. */
+async function shots(page, name) {
+  const dir = process.env.NAV_SHOTS;
+  if (!dir) return;
+  mkdirSync(dir, { recursive: true });
+  for (const scheme of ["light", "dark"]) {
+    await page.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-color-scheme", value: scheme }] });
+    await new Promise((r) => setTimeout(r, 300));
+    const { data } = await page.send("Page.captureScreenshot", { format: "png" });
+    writeFileSync(join(dir, `${name}-${scheme}.png`), Buffer.from(data, "base64"));
+  }
+  await page.send("Emulation.setEmulatedMedia", { features: [] });
+}
+
+test("Inside a library file: hover, Cmd-click, F12, find references and the menu work, across library files, and Back walks the chain", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  await page.setSource(STD_SOURCE);
+  await page.untilChecked();
+  // Program -> List.length in core.sw.
+  await cmdClick(page, await whereIs(page, "List.length xs", 5, 6));
+  await untilStd(page, "core.sw", "core.sw");
+  assert.match(await textAtCaret(page), /^def List\.length\b/);
+  // Hover in the library file: a name in its type, then a constructor in its body.
+  await hoverAt(page, await whereIs(page, "List a -> Nat\n  | Nil       => 0", 10, 3));
+  await page.until(`document.getElementById("navtip").textContent.startsWith("Std.Nat")`, 30000, "the tooltip in the library file");
+  assert.match(await tooltip(page), /^Std.Nat data\n: Type$/);
+  await hoverAt(page, await whereIs(page, "Succ (List.length xs)", 0, 4));
+  await page.until(`document.getElementById("navtip").textContent.startsWith("Std.Nat.Succ") || document.getElementById("navtip").textContent.startsWith("Succ")`, 10000, "the tooltip of a constructor");
+  // With Cmd held the name is underlined, and the cursor says it's a link.
+  const nat = await whereIs(page, "List a -> Nat\n  | Nil       => 0", 10, 3);
+  await hoverAt(page, nat, CMD);
+  await page.until(`(() => { const l = document.getElementById("navlink"); return !l.hidden && l.getBoundingClientRect().width > 10; })()`, 10000, "the underline in the library file");
+  assert.equal(await page.ev(`document.getElementById("source").style.cursor`), "pointer");
+  await shots(page, "std-hover-underline");
+  // Cmd-click: to the definition of Nat, in core.sw again (a second hop).
+  await cmdClick(page, nat);
+  await page.until(`document.getElementById("source").value.slice(document.getElementById("source").selectionStart, document.getElementById("source").selectionEnd) === "Nat" && document.getElementById("source").value.slice(0, document.getElementById("source").selectionStart).split("\\n").length < 100`, 10000, "the jump to Nat's definition");
+  assert.match(await textAtCaret(page), /^type Nat\b/);
+  assert.equal(await stdName(page), "core.sw");
+  assert.equal((await selected(page)).readOnly, true);
+  // Back, once: to List.length in core.sw; twice: to the program, editable again.
+  await page.key("[", "BracketLeft", 219, { modifiers: CMD });
+  await page.until(`document.getElementById("source").value.slice(0, document.getElementById("source").selectionStart).split("\\n").length > 100`, 10000, "back to List.length");
+  assert.match(await textAtCaret(page), /^def List\.length\b/);
+  assert.equal(await stdName(page), "core.sw");
+  await page.key("[", "BracketLeft", 219, { modifiers: CMD });
+  await page.until(`document.getElementById("stdbar").hidden`, 10000, "back to the program");
+  assert.equal(await sourceText(page), STD_SOURCE);
+  assert.equal((await selected(page)).readOnly, false);
+
+  // Program -> List.sum in List/Toolkit.sw -> Add.add in core.sw: another library file, then Back twice.
+  await cmdClick(page, await whereIs(page, "List.sum xs", 5, 3));
+  await untilStd(page, "List/Toolkit.sw", "List/Toolkit.sw");
+  assert.match(await textAtCaret(page), /^def List\.sum\b/);
+  // F12 at the caret in the library file: go to the definition of the name.
+  await page.ev(`(() => { const s = document.getElementById("source"); s.focus();
+    const i = s.value.indexOf("Add.add Add.zero") + 1; s.setSelectionRange(i, i); })()`);
+  await page.key("F12", "F12", 123);
+  await untilStd(page, "core.sw", "core.sw from the toolkit");
+  assert.match(await textAtCaret(page), /Add\b|add\b/);
+  await shots(page, "std-after-jump");
+  await page.key("[", "BracketLeft", 219, { modifiers: CMD });
+  await untilStd(page, "List/Toolkit.sw", "back to the toolkit");
+  assert.match(await textAtCaret(page), /^def List\.sum\b/);
+
+  // Shift+F12 in the library file lists the declaration and uses; a row jumps there.
+  await findReferencesAt(page, "def List.sum", 10);
+  const panel = await refRows(page);
+  assert.match(panel.title, /^Std\.List\.sum def: \d+ uses?/);
+  assert.equal(panel.rows[0][2], true);
+  assert.match(panel.rows[0][0], /^List\/Toolkit\.sw:/);
+  assert.ok(panel.rows.some(([where, text]) => /^line 3$/.test(where) && /List\.sum xs/.test(text)), JSON.stringify(panel));
+  await shots(page, "std-references");
+  // The right-click menu on a name there, with its two lookups.
+  await page.key("Escape", "Escape", 27);
+  const menuAt = await whereIs(page, "Add.add Add.zero", 0, 3);
+  await page.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: menuAt.x, y: menuAt.y });
+  await page.send("Input.dispatchMouseEvent", { type: "mousePressed", x: menuAt.x, y: menuAt.y, button: "right", clickCount: 1 });
+  await page.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: menuAt.x, y: menuAt.y, button: "right", clickCount: 1 });
+  await page.until(`!document.getElementById("navmenu").hidden`, 10000, "the menu in the library file");
+  assert.deepEqual(await page.ev(`[...document.querySelectorAll("#navmenu button")].map((b) => b.textContent)`), ["Go to definitionF12", "Find references⇧F12"]);
+  await shots(page, "std-menu");
+  await page.key("Escape", "Escape", 27);
+  // Back to the program, the editor as it was.
+  await page.key("[", "BracketLeft", 219, { modifiers: CMD });
+  await page.until(`document.getElementById("stdbar").hidden`, 10000, "back to the program");
+  assert.equal(await sourceText(page), STD_SOURCE);
+}, { ms: 180000 });
 
 test("Cmd-click in a project goes to the definition in another file, and a library name shows a tooltip", async (page) => {
   await page.open();

@@ -67,8 +67,8 @@ fn pairs(paths: &[String], texts: &[String]) -> Vec<(String, String)> {
 /// A session whose `include` reads the project's other files, those that
 /// aren't `.sw` (the bundled puzzle inputs), from memory: the same files,
 /// with the same paths, that the CLI reads from disk. No server is involved.
-fn new_session(paths: &[String], texts: &[String]) -> Session {
-    let mut session = Session::new();
+fn new_session(paths: &[String], texts: &[String], navigation: bool) -> Session {
+    let mut session = if navigation { Session::navigable() } else { Session::new() };
     session.elab.limits = limits();
     let files = paths
         .iter()
@@ -176,7 +176,7 @@ fn failed(session: &Session, diagnostics: Vec<Diagnostic>) -> String {
 /// Loads the project's files for `target`, or gives the answer for a load
 /// that fails.
 fn load(paths: &[String], texts: &[String], targets: &str) -> Result<Loaded, String> {
-    let mut session = new_session(paths, texts);
+    let mut session = new_session(paths, texts, false);
     match session.load_project_sources(PROJECT, pairs(paths, texts), &target_of(targets)) {
         Ok(loaded) => Ok(Loaded {
             session,
@@ -208,7 +208,7 @@ fn load_shared(paths: &[String], texts: &[String], targets: &str) -> Result<Rc<L
 /// errors that stop that (a file with no namespace, a clash).
 #[wasm_bindgen]
 pub fn outline_project(paths: Vec<String>, texts: Vec<String>) -> String {
-    let mut session = new_session(&paths, &texts);
+    let mut session = new_session(&paths, &texts, false);
     let analysis = analyse(&mut session, PROJECT, pairs(&paths, &texts));
     if !analysis.diagnostics.is_empty() {
         return failed(&session, analysis.diagnostics);
@@ -279,8 +279,7 @@ pub fn check_project(paths: Vec<String>, texts: Vec<String>, targets: &str) -> S
 /// within the project. Not cached.
 #[wasm_bindgen]
 pub fn check_index_project(paths: Vec<String>, texts: Vec<String>, targets: &str) -> String {
-    let mut session = new_session(&paths, &texts);
-    session.elab.enable_navigation();
+    let mut session = new_session(&paths, &texts, true);
     let loaded = session.load_project_sources(PROJECT, pairs(&paths, &texts), &target_of(targets));
     let ok = loaded.is_ok();
     let mut reported = std::mem::take(&mut session.warnings);
@@ -354,7 +353,7 @@ pub fn run_project_streaming(
     max_output: usize,
     sink: &OutputSink,
 ) -> String {
-    let mut session = new_session(&paths, &texts);
+    let mut session = new_session(&paths, &texts, false);
     let analysis: Analysis = analyse(&mut session, PROJECT, pairs(&paths, &texts));
     if !analysis.diagnostics.is_empty() {
         return failed(&session, analysis.diagnostics);
@@ -526,7 +525,7 @@ mod tests {
         input: &str,
         out: &mut String,
     ) -> String {
-        let mut session = new_session(paths, texts);
+        let mut session = new_session(paths, texts, false);
         let analysis = analyse(&mut session, PROJECT, pairs(paths, texts));
         let namespace = namespace_of(&analysis, name)
             .expect("a namespace")

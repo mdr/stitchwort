@@ -130,6 +130,13 @@ impl Session {
         session
     }
 
+    /// [`Session::navigable`], for a thread with `stack` bytes of stack.
+    pub fn navigable_for_stack(stack: usize) -> Self {
+        let mut session = Session::navigable();
+        session.elab.limits = Limits::for_stack(stack);
+        session
+    }
+
     /// [`Session::eager`], for a thread with `stack` bytes of stack.
     #[doc(hidden)]
     pub fn eager_for_stack(stack: usize) -> Self {
@@ -140,6 +147,14 @@ impl Session {
 
     pub fn new() -> Self {
         Session::with_prelude(PRELUDE)
+    }
+
+    /// A session recording what code navigation needs (the index of
+    /// `nav::index_json`), from the core on: recording turned on after the
+    /// session was made would miss the names in the core (`core.sw`).
+    pub fn navigable() -> Self {
+        Self::start(PRELUDE, Library::Standard, false, false, true)
+            .unwrap_or_else(|report| panic!("{report}"))
     }
 
     /// A session whose prelude is the given text: for tests that change a
@@ -154,7 +169,7 @@ impl Session {
     /// the prelude needs), not a panic.
     #[doc(hidden)]
     pub fn try_with_prelude(prelude: &str) -> Result<Self, String> {
-        Self::start(prelude, Library::Standard, false, false)
+        Self::start(prelude, Library::Standard, false, false, false)
     }
 
     /// A session with every library file loaded up front, in canonical
@@ -162,7 +177,7 @@ impl Session {
     /// one (docs/proposals/std-library.md §4.0).
     #[doc(hidden)]
     pub fn eager() -> Self {
-        Self::start(PRELUDE, Library::Standard, true, false)
+        Self::start(PRELUDE, Library::Standard, true, false, false)
             .unwrap_or_else(|report| panic!("{report}"))
     }
 
@@ -170,7 +185,7 @@ impl Session {
     /// nothing loads. For a test that the core stands on its own.
     #[doc(hidden)]
     pub fn core_alone() -> Self {
-        Self::start(PRELUDE, Library::None, false, false)
+        Self::start(PRELUDE, Library::None, false, false, false)
             .unwrap_or_else(|report| panic!("{report}"))
     }
 
@@ -184,7 +199,7 @@ impl Session {
         eager: bool,
         library_tests: bool,
     ) -> Result<Self, String> {
-        Self::start(PRELUDE, Library::Files(files), eager, library_tests)
+        Self::start(PRELUDE, Library::Files(files), eager, library_tests, false)
     }
 
     /// A session with every library file loaded, and the `test`s of the core
@@ -192,7 +207,7 @@ impl Session {
     /// runs.
     #[doc(hidden)]
     pub fn with_library_tests() -> Self {
-        Self::start(PRELUDE, Library::Standard, true, true)
+        Self::start(PRELUDE, Library::Standard, true, true, false)
             .unwrap_or_else(|report| panic!("{report}"))
     }
 
@@ -203,12 +218,16 @@ impl Session {
         library: Library,
         eager: bool,
         library_tests: bool,
+        navigation: bool,
     ) -> Result<Self, String> {
         let mut session = Session {
             sources: SourceMap::new(),
             elab: Elaborator::new(),
             warnings: Vec::new(),
         };
+        if navigation {
+            session.elab.enable_navigation();
+        }
         let stack = session.elab.limits.stack;
         let index = match library {
             Library::Standard | Library::None => LibraryIndex::standard(stack),

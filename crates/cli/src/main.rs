@@ -22,8 +22,12 @@ struct Cli {
 }
 
 /// A session for the compiler thread.
-fn new_session() -> Session {
-    Session::for_stack(STACK)
+fn new_session(navigation: bool) -> Session {
+    if navigation {
+        Session::navigable_for_stack(STACK)
+    } else {
+        Session::for_stack(STACK)
+    }
 }
 
 #[derive(Subcommand)]
@@ -384,10 +388,7 @@ fn check(targets: &[String], project: Option<&Path>, index: Option<&str>) -> Exi
         let mut ok = true;
         for path in targets {
             // Each file gets its own session.
-            let mut session = new_session();
-            if index.is_some() {
-                session.elab.enable_navigation();
-            }
+            let mut session = new_session(index.is_some());
             let mut reported = Vec::new();
             let loaded = load_file_into(
                 &mut session,
@@ -410,10 +411,7 @@ fn check(targets: &[String], project: Option<&Path>, index: Option<&str>) -> Exi
     } else {
         Target::Namespaces(targets.to_vec())
     };
-    let mut session = new_session();
-    if index.is_some() {
-        session.elab.enable_navigation();
-    }
+    let mut session = new_session(index.is_some());
     let mut reported = Vec::new();
     let mut ok = load_project_into(&mut session, &project, &target, &mut reported);
     if let Some(index) = index {
@@ -446,7 +444,7 @@ fn test(
     cache_dir: Option<PathBuf>,
     project: Option<&Path>,
 ) -> ExitCode {
-    let mut session = new_session();
+    let mut session = new_session(false);
     match target {
         Some(file) if is_file_target(file) => {
             if !load_file(&mut session, Path::new(file), Some("tested")) {
@@ -509,7 +507,7 @@ fn print_tests(results: &[TestResult], grouped: bool) -> ExitCode {
 
 /// `run`: a file's `main`, or a function of the project by its full name.
 fn run_target(target: &str, js: bool, project: Option<&Path>) -> ExitCode {
-    let mut session = new_session();
+    let mut session = new_session(false);
     let main = if is_file_target(target) {
         if !load_file(&mut session, Path::new(target), Some("run")) {
             return ExitCode::FAILURE;
@@ -686,7 +684,7 @@ impl Drop for TempDir {
 }
 
 fn eval(path: &Path, expr: &str) -> ExitCode {
-    let mut session = new_session();
+    let mut session = new_session(false);
     if !load(&mut session, path) {
         return ExitCode::FAILURE;
     }
@@ -714,7 +712,7 @@ fn evaluate(session: &mut Session, expr: &str, type_only: bool) -> Result<String
 }
 
 fn repl(path: Option<&Path>) -> ExitCode {
-    let mut session = new_session();
+    let mut session = new_session(false);
     if let Some(path) = path
         && !load(&mut session, path)
     {
@@ -765,7 +763,7 @@ fn build(target: &str, out: &Path, project: Option<&Path>) -> ExitCode {
         return build_namespace(target, out, project);
     }
     let path = Path::new(target);
-    let mut session = new_session();
+    let mut session = new_session(false);
     if !load_file(&mut session, path, Some("built")) {
         return ExitCode::FAILURE;
     }
@@ -788,7 +786,7 @@ fn build_namespace(namespace: &str, out: &Path, project: Option<&Path>) -> ExitC
     let Some(project) = locate_project(project, "build", "build --js hello.sw") else {
         return ExitCode::FAILURE;
     };
-    let mut session = new_session();
+    let mut session = new_session(false);
     if !load_project(
         &mut session,
         &project,
