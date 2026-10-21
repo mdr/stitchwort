@@ -169,6 +169,19 @@ fn a_module_name_takes_priority_over_a_type_variable_with_a_warning() {
 }
 
 #[test]
+fn a_module_function_passed_as_an_argument_is_not_a_warning() {
+    // SW-141: `isBlank` is a value argument, never a type variable, so there's
+    // nothing to warn about.
+    let (session, result) = load(
+        "def isBlank (n : Nat) : Bool := True\n\n\
+         def Holds (p : Nat -> Bool) (xs : List Nat) : Prop := Unit\n\n\
+         theorem trivial (xs : List Nat) : Holds isBlank xs := Trivial\n",
+    );
+    result.unwrap();
+    assert!(session.warnings.is_empty(), "{:#?}", session.warnings);
+}
+
+#[test]
 fn abilities_are_ordered_by_where_they_are_written() {
     // `Foo` uses `Bar`, written below it, so it's checked after `Baz`; but
     // rows still list `Foo` before `Baz`, as they're written, so `f` is the

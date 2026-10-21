@@ -95,7 +95,14 @@ pub fn auto_bound_in(e: &Elaborator, ty: &Expr, mut bound: Vec<String>) -> Resul
         } else {
             &mut names
         };
-        if all_types && !found.iter().any(|n| n.text == name.text) {
+        // A module's name used as a value (a function passed as an argument,
+        // `Holds isBlank xs`) is just a reference: it could never have been a
+        // type variable, so there's nothing to warn about.
+        let could_have_been_a_variable = !use_.module || use_.position == Position::Type;
+        if all_types
+            && could_have_been_a_variable
+            && !found.iter().any(|n| n.text == name.text)
+        {
             found.push(name.clone());
         }
     }

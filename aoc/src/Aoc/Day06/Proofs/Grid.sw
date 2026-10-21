@@ -44,7 +44,7 @@ theorem columnsKeepEveryCell (lines: List Text) (w: Nat) (wide: gridWidth lines 
 
 -- Only the blank columns separate problems. Every block is a non-empty run of
 -- columns with no blank one in it (`isBlank` is the separator test)...
-theorem blocksAreRuns (lines: List Text): List.Groups Aoc.Day06.isBlank (blocks lines) :=
+theorem blocksAreRuns (lines: List Text): List.Groups isBlank (blocks lines) :=
   List.splitByGroups isBlank (paddedGrid lines).transpose
 
 -- ...and together the blocks hold every column that isn't blank, in order.
