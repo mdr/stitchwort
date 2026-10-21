@@ -37,3 +37,27 @@ test "ofNat" := Fin.toNat (Fin.ofNat 4: Fin 5) == 4
 
 -- The number itself: `"${(Fin.ofNat 2: Fin 5)}"` is `2`.
 instance Fin.instShow: Show (Fin n) := Show.fromText (i => Nat.toText (Fin.toNat i))
+
+-- Positions with the same number are equal (so `Fin.toNat i == Fin.toNat j`
+-- decides `i = j`).
+theorem Fin.toNatInjective: (i: Fin n) -> (j: Fin n) -> Fin.toNat i = Fin.toNat j -> i = j
+  | FZero,   FZero,   h => rfl
+  | FSucc i, FSucc j, h => Eq.cong FSucc (Fin.toNatInjective i j (Nat.succInjective (Fin.toNat i) (Fin.toNat j) h))
+  | FZero,   FSucc j, h => Void.exfalso (Nat.zeroNotSucc (Fin.toNat j) h)
+  | FSucc i, FZero,   h => Void.exfalso (Nat.succNotZero (Fin.toNat i) h)
+
+-- `==` on positions: they're equal exactly when their numbers are. Written
+-- by hand: deriving `==` for an indexed family is not supported yet.
+instance Fin.instDecEq: DecEq (Fin n) :=
+  { decide = i j =>
+      if h: Fin.toNat i = Fin.toNat j then Yes (Fin.toNatInjective i j h)
+      else No (e => h (Eq.cong Fin.toNat e)) }
+
+-- Positions in order of their numbers.
+instance Fin.instOrd: Ord (Fin n) := Ord.byKey Fin.toNat Fin.toNatInjective
+
+test "fin: == equal" := (FSucc FZero: Fin 3) == FSucc FZero
+test "fin: == different" := (FSucc FZero: Fin 3) != FZero
+test "fin: == different depth" := (FSucc (FSucc FZero): Fin 3) != FSucc FZero
+test "fin: < by number" := (FZero: Fin 3) < FSucc FZero && FSucc FZero <= (FSucc (FSucc FZero): Fin 3)
+test "fin: show" := "${(Fin.ofNat 2: Fin 5)}" == "2"
