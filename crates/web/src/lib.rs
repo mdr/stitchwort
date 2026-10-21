@@ -752,7 +752,8 @@ mod tests {
                     IO.print (textOr \"none\" (IO.readLine ()))\n";
         assert_eq!(printed(&run(echo, "\nlast", 1000)), r"\nlast\nnone\n");
         // `readAll` gives the rest of the input as it is, then "".
-        let rest = "def main () : {IO} () :=\n  \
+        let rest = "import Std (IO, List, Nat)\n\n\
+                    def main () : {IO} () :=\n  \
                     IO.print (Nat.toText (List.length (IO.readAllLines ())))\n  \
                     IO.print (IO.readAll ())\n";
         assert_eq!(printed(&run(rest, "a\r\nb", 1000)), r"2\n\n");
@@ -832,7 +833,8 @@ mod tests {
 
     #[test]
     fn reports_running_out_of_resources_with_the_output_so_far() {
-        let source = "def replicate : Nat -> a -> List a\n  \
+        let source = "import Std (List, Nat)\n\n\
+                      def replicate : Nat -> a -> List a\n  \
                       | Zero,   x => Nil\n  \
                       | Succ n, x => Cons x (replicate n x)\n\n\
                       def main () : {IO} () :=\n  \

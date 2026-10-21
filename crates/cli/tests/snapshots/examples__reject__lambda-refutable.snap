@@ -3,9 +3,9 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-LET-REFUTABLE] Error: this pattern doesn't match every case: it doesn't match `None`
-   ╭─[ reject/lambda-refutable.sw:3:57 ]
+   ╭─[ reject/lambda-refutable.sw:6:57 ]
    │
- 3 │ def nums (ms: List (Option Nat)): List Nat := List.map ((Some x) => x) ms
+ 6 │ def nums (ms: List (Option Nat)): List Nat := List.map ((Some x) => x) ms
    │                                                         ────┬───  
    │                                                             ╰───── doesn't match `None`
    │ 

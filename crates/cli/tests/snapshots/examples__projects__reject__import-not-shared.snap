@@ -9,5 +9,5 @@ expression: output
    │                    ─┬─  
    │                     ╰─── not in scope
    │ 
-   │ Note: the library has `List.map`, `Map.Tree.map`, `Map.map`, `Option.map` or `Vec.map`: write it in full, or `import List (map)`
+   │ Note: the library has `Std.List.map`, `Std.Map.Tree.map`, `Std.Map.map`, `Std.Option.map` or `Std.Vec.map`: write it in full, or `import Std.List (map)`
 ───╯

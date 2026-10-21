@@ -67,6 +67,7 @@ fn mark(icit: Icit) -> &'static str {
 }
 
 const SAMPLE: &str = "\
+import Std (Nat)
 def addNat (x: Nat) (y: Nat): Nat := x + y * 2
 def addInt (x: Int) (y: Int): Int := x + y * 2
 def leastNat (x: Nat) (y: Nat): Nat := if x < y then x else y
@@ -266,6 +267,7 @@ fn relation_deciders_come_from_the_same_dictionary() {
 #[test]
 fn a_users_instance_is_projected() {
     let source = "\
+import Std (Int)
 type Point = { x: Int, y: Int }
 def Point.add (p: Point) (q: Point): Point := { x = p.x + q.x, y = p.y + q.y }
 theorem Point.zeroAdd: (p: Point) -> Point.add { x = 0, y = 0 } p = p
@@ -300,6 +302,7 @@ def twice [auto add: Add a] (x: a): a := x + x
 #[test]
 fn a_local_dictionary_not_yet_settled_is_used() {
     let source = "\
+import Std (Nat)
 def other: Add Nat := Nat.instAdd
 def pick [auto add: Add a]: Add a := add
 

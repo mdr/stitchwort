@@ -120,6 +120,8 @@ fn reading_matches_the_rust_runner() {
     let path = source_file(
         "reading.sw",
         r#"
+import Std (Nat, Text)
+
 def show : Option Text -> Text
   | None => "<none>"
   | Some t  => "[" ++ t ++ "]"
@@ -170,6 +172,8 @@ fn deep_recursion_over_a_long_list_runs() {
     let path = source_file(
         "long.sw",
         r#"
+import Std (List, Nat)
+
 def total : List Nat -> Nat
   | Nil       => 0
   | Cons x xs => x + total xs
@@ -194,6 +198,8 @@ fn running_out_of_resources_is_reported() {
     let path = source_file(
         "grow.sw",
         r#"
+import Std (Nat, Text)
+
 def grow : Nat -> Text -> Text
   | 0,      t => t
   | Succ n, t => grow n (t ++ t)

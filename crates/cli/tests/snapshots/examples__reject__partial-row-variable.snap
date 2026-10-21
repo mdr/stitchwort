@@ -3,13 +3,13 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-PARTIAL] Error: a partial function can't be used where a total one is expected
-   ╭─[ reject/partial-row-variable.sw:8:52 ]
-   │
- 8 │ def printed: List Text := Pair.fst (IO.simulate [] cat)
-   │                                                    ─┬─  
-   │                                                     ╰─── this might not finish: its type says `Partial`
-   │ 
-   │ Note 1: a function whose type doesn't say `Partial` must finish; a row variable like `e` never stands for `Partial`, so a function taking `{… | e}` can't be given a partial one
-   │ 
-   │ Note 2: to accept partial functions, write `Partial` in the row: `{Partial | e}`
-───╯
+    ╭─[ reject/partial-row-variable.sw:11:52 ]
+    │
+ 11 │ def printed: List Text := Pair.fst (IO.simulate [] cat)
+    │                                                    ─┬─  
+    │                                                     ╰─── this might not finish: its type says `Partial`
+    │ 
+    │ Note 1: a function whose type doesn't say `Partial` must finish; a row variable like `e` never stands for `Partial`, so a function taking `{… | e}` can't be given a partial one
+    │ 
+    │ Note 2: to accept partial functions, write `Partial` in the row: `{Partial | e}`
+────╯

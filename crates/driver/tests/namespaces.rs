@@ -70,7 +70,8 @@ fn types_are_hashed_with_their_full_names() {
 #[test]
 fn ambiguity_is_reported_only_where_used() {
     passes(&load(
-        "import List (length)\n\
+        "import Std (List, Text)\n\
+         import List (length)\n\
          import Text (length)\n\n\
          test \"full names\" := List.length [1] == Text.length \"a\"\n",
     ));
@@ -106,7 +107,8 @@ fn importing_twice_is_a_warning() {
 #[test]
 fn constructors_come_with_an_imported_type() {
     passes(&load(
-        "import Std.Effect (Comp)\n\n\
+        "import Std (List)\n\
+         import Std.Effect (Comp)\n\n\
          def one : Comp Std.Builtin.UnitType (o => Std.Builtin.UnitType) Nat := Done 1\n\n\
          test \"done\" := List.length [one, Call () (u => one)] == 2\n",
     ));
@@ -145,7 +147,7 @@ fn qualified_names_work_everywhere() {
          def isEmpty : Std.List Nat -> Bool\n  \
          | Std.List.Nil => True\n  \
          | Std.List.Cons x xs => False\n\n\
-         test \"rows and clauses\" := List.length (collect twice) == 2\n\
+         test \"rows and clauses\" := Std.List.length (collect twice) == 2\n\
          test \"patterns\" := isEmpty Std.List.Nil\n",
     ));
 }
@@ -285,7 +287,9 @@ fn wildcard_precedence_in_a_file() {
 
 #[test]
 fn two_wildcards_are_ambiguous_only_where_used() {
-    load("import List (..)\nimport Text (..)\n\ntest \"qualified\" := List.length [1] == 1\n");
+    load(
+        "import Std (List)\nimport List (..)\nimport Text (..)\n\ntest \"qualified\" := List.length [1] == 1\n",
+    );
     let found =
         error_of("import List (..)\nimport Text (..)\n\ndef n(xs: List Nat): Nat := length xs\n");
     assert_eq!(found[0].code, "E-AMBIGUOUS");

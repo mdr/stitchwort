@@ -3,9 +3,9 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-UNKNOWN-NAME] Error: unknown name `notDefinedAnywhere`
-   ╭─[ reject/failed-handled-function.sw:6:17 ]
+   ╭─[ reject/failed-handled-function.sw:8:17 ]
    │
- 6 │   let unused := notDefinedAnywhere
+ 8 │   let unused := notDefinedAnywhere
    │                 ─────────┬────────  
    │                          ╰────────── not in scope
 ───╯

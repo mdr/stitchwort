@@ -68,7 +68,11 @@ fn pairs(paths: &[String], texts: &[String]) -> Vec<(String, String)> {
 /// aren't `.sw` (the bundled puzzle inputs), from memory: the same files,
 /// with the same paths, that the CLI reads from disk. No server is involved.
 fn new_session(paths: &[String], texts: &[String], navigation: bool) -> Session {
-    let mut session = if navigation { Session::navigable() } else { Session::new() };
+    let mut session = if navigation {
+        Session::navigable()
+    } else {
+        Session::new()
+    };
     session.elab.limits = limits();
     let files = paths
         .iter()

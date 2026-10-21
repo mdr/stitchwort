@@ -202,7 +202,7 @@ pub const ALL: &[Benchmark] = &[
         name: "check-closed-list-eqeq",
         about: "checks `List.range 100000 == List.range 100000`",
         prepare: || {
-            check("def big (u : ()) : Bool := List.range 100000 == List.range 100000\n".into())
+            check("import Std (List)\ndef big (u : ()) : Bool := List.range 100000 == List.range 100000\n".into())
         },
     },
     // These still compute `cost` while checking, since a type needs its
@@ -232,11 +232,13 @@ pub const ALL: &[Benchmark] = &[
 
 /// `body`, after a closed definition `cost` that's expensive to compute.
 fn closed(body: &str) -> String {
-    format!("def cost : Nat := List.length (List.range 200000)\n{body}\n")
+    format!("import Std (List, Nat)\ndef cost : Nat := List.length (List.range 200000)\n{body}\n")
 }
 
 /// From TODO.md's measurements: `length (replicate n 1)`, `k` times.
 const LENGTHS: &str = "
+import Std (List)
+
 def replicate : Nat -> a -> List a
   | Zero,   x => Nil
   | Succ n, x => Cons x (replicate n x)
@@ -247,6 +249,8 @@ def lengths : Nat -> Nat -> Nat
 ";
 
 const TEXT: &str = "
+import Std (Nat, Text)
+
 def repText : Nat -> Text -> Text
   | Zero,   t => \"\"
   | Succ n, t => t ++ repText n t
@@ -262,6 +266,8 @@ def natTexts : Nat -> Nat -> Nat
 ";
 
 const PRINTS: &str = "
+import Std (Nat)
+
 def printMany : Nat -> {IO} ()
   | Zero   => ()
   | Succ n =>
@@ -372,6 +378,8 @@ fn run_prints() -> Result<Prepared, String> {
 /// A record with a proof field, rebuilt for each of 200 input lines: erasure
 /// skips the proof (`erase.rs`).
 const PROOF_FIELDS: &str = "
+import Std (IO, Int, Nat, Text)
+
 type Pos = { at : Nat, ok : at < 100 }
 
 def wrap (x : Int) : Pos := { at = Int.modNat x 100, ok = Int.modNatLt x 100 }

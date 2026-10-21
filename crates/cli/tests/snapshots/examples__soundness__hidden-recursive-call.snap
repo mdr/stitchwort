@@ -3,9 +3,9 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-TERMINATION] Error: can't show that `hidden` terminates
-    ╭─[ soundness/hidden-recursive-call.sw:14:48 ]
+    ╭─[ soundness/hidden-recursive-call.sw:15:48 ]
     │
- 14 │   | Call Choose rest => hidden (rest (Nat.leq (hidden (Call Choose rest)) 0))
+ 15 │   | Call Choose rest => hidden (rest (Nat.leq (hidden (Call Choose rest)) 0))
     │                                                ────────────┬───────────  
     │                                                            ╰───────────── this recursive call might not terminate: no argument is known to be smaller
     │ 

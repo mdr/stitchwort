@@ -3,9 +3,9 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-UNKNOWN-NAME] Error: unknown name `xs`
-   ╭─[ reject/misspelt-variable.sw:4:47 ]
+   ╭─[ reject/misspelt-variable.sw:7:47 ]
    │
- 4 │ theorem lengthNil (ys: List Nat): List.length xs = List.length xs := rfl
+ 7 │ theorem lengthNil (ys: List Nat): List.length xs = List.length xs := rfl
    │                                               ─┬  
    │                                                ╰── not in scope
 ───╯

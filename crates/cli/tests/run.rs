@@ -382,7 +382,8 @@ fn an_endless_partial_main_runs_until_stopped() {
     // Output is flushed before every read, so `started` shows.
     let path = source_file(
         "spin.sw",
-        "def spin (n : Nat) : {Partial} Nat := spin (n + 1)\n\n\
+        "import Std (Nat)\n\n\
+         def spin (n : Nat) : {Partial} Nat := spin (n + 1)\n\n\
          def main () : {IO, Partial} () :=\n  \
          IO.print \"started\"\n  \
          let l := IO.readLine ()\n  \

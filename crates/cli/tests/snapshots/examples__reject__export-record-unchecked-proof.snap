@@ -3,9 +3,9 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-EXPORT] Error: `size` can't be exported
-    ╭─[ reject/export-record-unchecked-proof.sw:11:1 ]
+    ╭─[ reject/export-record-unchecked-proof.sw:13:1 ]
     │
- 11 │ export def size (s: SortedList): Nat := List.length s.items
+ 13 │ export def size (s: SortedList): Nat := List.length s.items
     │ ──────────────────┬─────────────────  
     │                   ╰─────────────────── `SortedList`'s proof field `sorted` (`Sorted items`) can't be checked at runtime
     │ 

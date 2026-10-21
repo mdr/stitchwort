@@ -136,6 +136,8 @@ fn same_both_ways(session: &mut Session, expr: &str) {
 /// (with nested patterns), a fold, and a copy of a text made of ordinary cons
 /// cells.
 const HELPERS: &str = r#"
+import Std (Char, Text)
+
 def swapFirst : Text -> List Char
   | MkText (Cons a (Cons b rest)) => Cons b (Cons a rest)
   | t => Text.toList t
@@ -469,7 +471,8 @@ fn a_million_character_literal_checks_and_runs() {
     let mut session = session_with_helpers();
     let t = literal(&text);
     let source = format!(
-        "def big : Text := {t}\n\n\
+        "import Std (Text)\n\n\
+         def big : Text := {t}\n\n\
          test \"commas\" := countFrom 0 ',' (Text.toList big) == {commas}\n\
          test \"length\" := lengthFrom 0 (Text.toList big) == {n}\n\
          test \"last\" := Text.fromList (dropChars {} (Text.toList big)) == \"{}\"\n\
@@ -501,7 +504,8 @@ fn laws_hold_on_long_texts() {
     load(
         &mut session,
         &format!(
-            "def splitJoin (t : Text) : Bool := Text.join ',' (Text.split ',' t) == t\n\n\
+            "import Std (Text)\n\n\
+             def splitJoin (t : Text) : Bool := Text.join ',' (Text.split ',' t) == t\n\n\
              def lengthsAdd (a : Text) (b : Text) : Bool := Text.length (a ++ b) == Text.length a + Text.length b\n\n\
              def differ (a : Text) (b : Text) : Bool := not (a == b)\n\n\
              test \"split then join\" := splitJoin {t}\n\
@@ -719,14 +723,14 @@ fn proofs_in_characters_are_compared() {
     assert_eq!(
         codes(
             &mut session,
-            "theorem bad (h : Char.isScalar 97 = True) : Text.toList \"a\" = Cons (MkChar 97 h) Nil := rfl\n"
+            "import Std (Char, Text)\ntheorem bad (h : Char.isScalar 97 = True) : Text.toList \"a\" = Cons (MkChar 97 h) Nil := rfl\n"
         ),
         ["E-REFL"]
     );
     assert_eq!(
         codes(
             &mut session,
-            "theorem good : Text.toList \"a\" = Cons (MkChar 97 rfl) Nil := rfl\n"
+            "import Std (Text)\ntheorem good : Text.toList \"a\" = Cons (MkChar 97 rfl) Nil := rfl\n"
         ),
         Vec::<&str>::new()
     );
@@ -751,6 +755,8 @@ fn unification_solves(compact: bool) {
     load(
         &mut session,
         r#"
+import Std (Char, Text)
+
 def headOf [c : Char] [t : List Char] (p : Cons c t = Text.toList "ab") : Char := c
 
 def restOf [c : Char] [t : List Char] (p : Cons c t = Text.toList "ab") : List Char := t
@@ -888,9 +894,9 @@ fn compact_lists_print_as_literals() {
         show(&mut session, "\"a\\u{1F600}\\n\""),
         "\"a\\u{1F600}\\n\""
     );
-    assert_eq!(show(&mut session, "Text.toList \"ab\""), "['a', 'b']");
+    assert_eq!(show(&mut session, "Std.Text.toList \"ab\""), "['a', 'b']");
     assert_eq!(
-        show(&mut session, "Cons 'x' (Text.toList \"ab\")"),
+        show(&mut session, "Cons 'x' (Std.Text.toList \"ab\")"),
         "['x', 'a', 'b']"
     );
     assert_eq!(show(&mut session, "\"x\" ++ \"ab\""), "\"xab\"");
@@ -937,7 +943,8 @@ fn must_reject_examples_still_are() {
             vec![],
         ),
     ] {
-        assert_eq!(codes(&mut Session::new(), source), expected, "{source}");
+        let source = format!("import Std (Text)\n{source}");
+        assert_eq!(codes(&mut Session::new(), &source), expected, "{source}");
     }
 }
 
@@ -1004,7 +1011,7 @@ fn a_changed_builtin_isnt_bound() {
     // Literals still work, as constructors.
     load(
         &mut session,
-        "test \"length\" := Text.length \"abc\" == 3\ntheorem t : Text.toList \"ab\" = ['a', 'b'] := rfl\n",
+        "import Std (Text)\ntest \"length\" := Text.length \"abc\" == 3\ntheorem t : Text.toList \"ab\" = ['a', 'b'] := rfl\n",
     );
     let expr = session.parse_expression("<t>", "\"abc\"").unwrap();
     let (term, _) = session.elab.infer_expr(&expr).unwrap();

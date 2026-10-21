@@ -9,5 +9,5 @@ expression: output
    │                                      ──┬──  
    │                                        ╰──── not in scope
    │ 
-   │ Note: the library has `Text.split`: write it in full, or `import Text (split)`
+   │ Note: the library has `Std.Text.split`: write it in full, or `import Std.Text (split)`
 ───╯

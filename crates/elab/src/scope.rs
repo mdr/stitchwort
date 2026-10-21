@@ -42,8 +42,28 @@ pub const ALIASES: &[(&str, &str)] = &[("not", "Bool.not")];
 /// methods); the rest of its namespace (`List.map`, `Nat.addComm`) needs
 /// `import Std (List)` (D260). Dot notation needs no import (D261).
 pub const PRELUDE: &[&str] = &[
-    "Nat", "Int", "Bool", "Char", "Text", "List", "Pair", "Unit", "Void", "Not", "And", "Or",
-    "Decidable", "Option", "Ordering", "DecEq", "Ord", "Add", "Mul", "Show", "IO", "not",
+    "Nat",
+    "Int",
+    "Bool",
+    "Char",
+    "Text",
+    "List",
+    "Pair",
+    "Unit",
+    "Void",
+    "Not",
+    "And",
+    "Or",
+    "Decidable",
+    "Option",
+    "Ordering",
+    "DecEq",
+    "Ord",
+    "Add",
+    "Mul",
+    "Show",
+    "IO",
+    "not",
 ];
 
 /// Which level a name was found at.
@@ -947,9 +967,7 @@ impl Elaborator {
                 self.resolve_short(first, false),
                 Resolved::Found { level: Level::Default, key, .. } if key == format!("Std.{first}")
             );
-            d = if prelude
-                && (self.scope.get(&full).is_some() || self.scope.is_namespace(&full))
-            {
+            d = if prelude && (self.scope.get(&full).is_some() || self.scope.is_namespace(&full)) {
                 d.with_note(format!(
                     "`{}` needs `import Std ({first})`, or write it in full: `{full}`",
                     name.text

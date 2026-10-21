@@ -3,19 +3,19 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-TYPE-MISMATCH] Error: type mismatch
-    ╭─[ reject/match-written-argument-not-refined.sw:20:63 ]
+    ╭─[ reject/match-written-argument-not-refined.sw:22:63 ]
     │
- 10 │ ╭─▶       (match c with
+ 12 │ ╭─▶       (match c with
     ┆ ┆   
- 12 │ ├─▶          | Succ b => reach flag k b d)
+ 14 │ ├─▶          | Succ b => reach flag k b d)
     │ │                                            
     │ ╰──────────────────────────────────────────── this `match`
     │ 
- 18 │       match e: flag c with
+ 20 │       match e: flag c with
     │                ───┬──  
     │                   ╰──── the `match`'s scrutinee, still in this type
     │ 
- 20 │         | False => n => Bool.andRight b (reach flag (Succ k) c d) hc
+ 22 │         | False => n => Bool.andRight b (reach flag (Succ k) c d) hc
     │                                                                   ─┬  
     │                                                                    ╰── expected `(if b then if flag c then if (match …) flag k c d then True else reach flag k (c + 1) d else reach flag k c d else False) = True`, but this has type `(if b then reach flag k c d else False) = True`
     │     

@@ -106,6 +106,8 @@ fn ticks(trace: &[Event]) -> usize {
 
 /// Definitions shared by the programs below, in Stitchwort.
 const DEFINITIONS: &str = r#"
+import Std (Nat)
+
 def immediate (n : Nat) : {Partial} Nat := n
 
 def countdown : Nat -> {Partial} Nat
@@ -222,6 +224,8 @@ fn ticks_and_results_agree_with_the_model() {
 /// Programs with input and output, in Stitchwort, and the model's
 /// versions of them.
 const IO_DEFINITIONS: &str = r#"
+import Std (List, Nat, Text)
+
 -- echo count: prints each line until the end of the input.
 def echoLine (count : Nat) : Option Text -> (Nat -> {IO, Partial | e} Nat) -> {IO, Partial | e} Nat
   | None, more => count
