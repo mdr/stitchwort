@@ -1,5 +1,5 @@
 {
-  "next": 225,
+  "next": 226,
   "tickets": [
     {
       "id": 1,
@@ -3382,6 +3382,18 @@
       "where": "",
       "labels": [],
       "body": "AoC refresh (D320, Matt 21 Oct 2026): day by day, put each puzzle example inline as a \"\"\" text block next to its tests; use Std.Abort (need/ensure/orAbort) and the new Text helpers (stripPrefix, splitOn, take/drop) where a parser gets clearly simpler; keep the parseX/solvePart1/solvePart2 shape, the real-input tests and every proof intact. Report before/after line counts per day.\n\nStart after slim prelude stage 1 merges (it edits the same AoC files).\n\nDone when: days 1-7 reviewed, changes merged, dev/t aoc passes.\n",
+      "created": "2026-10-21",
+      "updated": "2026-10-21",
+      "commits": []
+    },
+    {
+      "id": 225,
+      "title": "REPL accepts import lines (slim prelude follow-up)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "The interactive REPL (`stitchwort repl`, and the playground REPL) accepts `import` lines, so after the slim prelude (D260) `List.map …` works there once `import Std (List)` has been entered. prelude-slim.md §5.7. Today REPL input sees only the prelude (use `Std.List.map` or dot notation).\n\nDone when: a REPL session can enter `import Std (List)` then `List.map …`; CLI and playground; tests.\n",
       "created": "2026-10-21",
       "updated": "2026-10-21",
       "commits": []
