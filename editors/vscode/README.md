@@ -27,7 +27,8 @@ symbols and error squiggles for `.sw` files.
   Problems panel, with its code (`E-TYPE-MISMATCH`), the explanation, notes, and
   related locations. They are replaced on each indexing run (open, save), and
   cleared for files that no longer have any. A diagnostic in a library file, or
-  with no location, isn't shown.
+  with no location, isn't shown. On save, errors come in two steps (see "Faster
+  errors on save" below).
 
 These come from the compiler's navigation index (`stitchwort check --index -`,
 see `docs/proposals/code-navigation.md`). The extension runs it when a `.sw`
@@ -37,6 +38,28 @@ last saved, not unsaved edits. The project is the nearest folder above the file
 with a `stitchwort.yaml` (the same rule as the command line); a file outside any
 project is indexed on its own. Output from failed runs goes to the "Stitchwort"
 output channel. Diagnostics, like the rest, reflect the file as last saved.
+
+### Faster errors on save
+
+Checking a whole project takes a while (all of `aoc/`, a few seconds), and
+checking one namespace a fraction of that. So in a project, a save runs two
+checks, one at a time per project:
+
+1. A quick check of the saved file's namespace:
+   `stitchwort check --index - --project ROOT Aoc.Day01`. The namespace is the
+   one on the file's `namespace` line (its first declaration, after any comments,
+   as the compiler reads it), which is not always what the folder says. Its
+   diagnostics are shown at once, replacing those of the files that run checked
+   and no others. The navigation index is left alone.
+2. The full-project run, as before. When it finishes it replaces the navigation
+   index and all the diagnostics, so errors the edit caused in other namespaces
+   appear then, and old ones elsewhere go.
+
+A newer save kills whatever is running for that project and starts again from
+step 1. A file with no readable namespace line goes straight to the full run, and
+a single file outside any project is checked once, as before. Opening a file runs
+only the full check. The merging rules are `applyQuick` and `namespaceOf` in
+`navindex.js`.
 
 ## The command line program
 

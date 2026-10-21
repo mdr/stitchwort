@@ -44,6 +44,9 @@ function plan(file) {
       key: root,
       cwd: root,
       args: ['check', '--index', '-', '--project', root],
+      // Arguments for a quick check of one namespace (null for a single file,
+      // which is already just one file).
+      quickArgs: (namespace) => ['check', '--index', '-', '--project', root, namespace],
       indexPath: path.relative(root, file).split(path.sep).join('/'),
     };
   }
@@ -52,6 +55,7 @@ function plan(file) {
     key: file,
     cwd: path.dirname(file),
     args: ['check', '--index', '-', base],
+    quickArgs: null,
     indexPath: base,
   };
 }
@@ -69,14 +73,13 @@ function fileUri(p, relative) {
   return vscode.Uri.file(path.resolve(p.cwd, relative));
 }
 
-// Shows the diagnostics of a root's latest index, and clears the files that
-// had some from its earlier runs and have none now. `s.shown` is the set of
-// URIs (as strings) this root has published.
+// Shows `s.diag` (path -> diagnostics, see navindex.js), and clears the files
+// that had some from earlier and have none now. `s.shown` is the set of URIs
+// (as strings) this root has published.
 function publishDiagnostics(s) {
   const p = s.plan;
-  const byFile = nav.diagnosticsByFile(s.index);
   const now = new Map();
-  for (const [file, list] of byFile) {
+  for (const [file, list] of s.diag) {
     const uri = fileUri(p, file);
     now.set(uri.toString(), uri);
     diagnostics.set(
@@ -112,18 +115,21 @@ function publishDiagnostics(s) {
 function stateFor(p) {
   let s = roots.get(p.key);
   if (!s) {
-    s = { index: null, running: null, timer: null, plan: p };
+    s = { index: null, diag: new Map(), running: null, timer: null, gen: 0, plan: p };
     roots.set(p.key, s);
   }
   s.plan = p;
   return s;
 }
 
-function runIndex(s) {
-  // One run at a time per root: a superseded run is killed by its own handle.
+// Runs the CLI with `args` and calls `done(index)` with its navigation index
+// (nothing if there is none). One run at a time per root: `s.running` is the
+// current one, and a superseded run is killed by its own handle. Resolves when
+// the run is over (also if it was killed, or failed).
+function runCli(s, args, done) {
   if (s.running) s.running.child.kill();
   const p = s.plan;
-  const child = cp.spawn(cliPath(), p.args, { cwd: p.cwd });
+  const child = cp.spawn(cliPath(), args, { cwd: p.cwd });
   const run = { child, promise: null };
   run.promise = new Promise((resolve) => {
     const out = [];
@@ -146,10 +152,8 @@ function runIndex(s) {
       // Exit status 1 means check errors, and the index is still written.
       try {
         const index = JSON.parse(Buffer.concat(out).toString('utf8'));
-        if (index.version === 2) {
-          s.index = index;
-          publishDiagnostics(s);
-        } else output.appendLine(`unsupported index version ${index.version}`);
+        if (index.version === 2) done(index);
+        else output.appendLine(`unsupported index version ${index.version}`);
       } catch (e) {
         output.appendLine(`no index from ${p.cwd} (exit ${code}): ${e.message}`);
       }
@@ -160,13 +164,55 @@ function runIndex(s) {
   return run.promise;
 }
 
+// The full run: replaces the navigation index and all the diagnostics.
+function runIndex(s) {
+  return runCli(s, s.plan.args, (index) => {
+    s.index = index;
+    s.diag = nav.diagnosticsByFile(index);
+    publishDiagnostics(s);
+  });
+}
+
+// A quick run of one namespace: replaces the diagnostics of the files it
+// checked (see nav.applyQuick) and leaves the navigation index alone.
+function runQuick(s, namespace) {
+  return runCli(s, s.plan.quickArgs(namespace), (index) => {
+    s.diag = nav.applyQuick(s.diag, index);
+    publishDiagnostics(s);
+  });
+}
+
+// What a save starts: a quick check of the saved file's namespace, then the
+// full run. A newer save bumps `s.gen` and kills the run in flight, so a stale
+// sequence stops.
+async function runAfterSave(s, file) {
+  const gen = s.gen;
+  let namespace = null;
+  if (s.plan.quickArgs) {
+    try {
+      namespace = nav.namespaceOf(fs.readFileSync(file, 'utf8'));
+    } catch (e) {
+      output.appendLine(`can't read ${file}: ${e.message}`);
+    }
+  }
+  if (namespace) {
+    await runQuick(s, namespace);
+    if (s.gen !== gen) return;
+  }
+  await runIndex(s);
+}
+
 function schedule(file, immediately) {
   const s = stateFor(plan(file));
   if (s.timer) clearTimeout(s.timer);
+  // A save cancels the runs in flight at once, not when the debounce ends.
+  s.gen++;
+  if (s.running) s.running.child.kill();
   s.timer = setTimeout(
     () => {
       s.timer = null;
-      runIndex(s);
+      if (immediately) runIndex(s);
+      else runAfterSave(s, file);
     },
     immediately ? 0 : DEBOUNCE_MS,
   );

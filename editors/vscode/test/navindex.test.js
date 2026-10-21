@@ -178,6 +178,54 @@ test('diagnostics: warnings, notes and secondary labels; library files skipped',
   ]);
 });
 
+test('namespaceOf: the first declaration, after comments and blank lines', () => {
+  assert.strictEqual(nav.namespaceOf('namespace Aoc.Day01\n\ndef x := 1\n'), 'Aoc.Day01');
+  assert.strictEqual(nav.namespaceOf('-- a comment\n\n-- more\nnamespace Main\r\ndef x := 1'), 'Main');
+  assert.strictEqual(nav.namespaceOf('namespace Aoc.Day01.Proofs -- trailing'), 'Aoc.Day01.Proofs');
+  // not first: the parser reports that, and there's nothing to target
+  assert.strictEqual(nav.namespaceOf('def x := 1\nnamespace Main\n'), null);
+  assert.strictEqual(nav.namespaceOf('namespace main\n'), null);
+  assert.strictEqual(nav.namespaceOf(''), null);
+});
+
+function fakeIndex(files, diags) {
+  return {
+    files: files.map((f) => (typeof f === 'string' ? { path: f } : f)),
+    diagnostics: diags.map(([file, code]) => ({
+      severity: 'error', code, message: code, file, range: [0, 0, 0, 1], labels: [], notes: [],
+    })),
+  };
+}
+
+test('applyQuick: the checked files take the quick diagnostics, the rest keep theirs', () => {
+  // The last full run: errors in a.sw (namespace A) and c.sw (another namespace).
+  const current = nav.diagnosticsByFile(fakeIndex(['a.sw', 'b.sw', 'c.sw'], [[0, 'E-OLD-A'], [2, 'E-OLD-C']]));
+  // The quick run checked A (a.sw, b.sw): a.sw now has a different error, and
+  // b.sw (a library file is ignored) has one it didn't.
+  const quick = fakeIndex(
+    ['a.sw', 'b.sw', { path: 'x/core.sw', std: 'core.sw' }],
+    [[0, 'E-NEW-A'], [1, 'E-NEW-B'], [2, 'E-STD']],
+  );
+  const merged = nav.applyQuick(current, quick);
+  const codes = (m) => [...m].map(([p, l]) => [p, l.map((d) => d.code)]);
+  assert.deepStrictEqual(codes(merged), [
+    ['a.sw', ['E-NEW-A']],
+    ['c.sw', ['E-OLD-C']],
+    ['b.sw', ['E-NEW-B']],
+  ]);
+  // the input is untouched
+  assert.deepStrictEqual(codes(current), [['a.sw', ['E-OLD-A']], ['c.sw', ['E-OLD-C']]]);
+});
+
+test('applyQuick: a fixed file is cleared, and an unrelated one stays', () => {
+  const current = nav.diagnosticsByFile(fakeIndex(['a.sw', 'c.sw'], [[0, 'E-A'], [1, 'E-C']]));
+  const merged = nav.applyQuick(current, fakeIndex(['a.sw'], []));
+  assert.deepStrictEqual([...merged.keys()], ['c.sw']);
+  // a full run replaces everything, with no memory of the quick one
+  const full = nav.diagnosticsByFile(fakeIndex(['a.sw', 'c.sw'], [[1, 'E-C2']]));
+  assert.deepStrictEqual([...full.keys()], ['c.sw']);
+});
+
 test('workspace symbols: matching, ranking, and only the project', () => {
   const all = nav.workspaceSymbols(index, '');
   assert.ok(all.length > 20);
