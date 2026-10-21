@@ -245,6 +245,7 @@ impl Elaborator {
             ..ModuleState::default()
         };
         self.scope.clear_imports();
+        self.walk_for_navigation(&files.iter().map(|f| f.module).collect::<Vec<_>>());
         let (items, decl_spans) = self.collect(files, &mut diagnostics);
         let needs = self.dependencies(&items);
         // Library files this module uses load first, so what it names is

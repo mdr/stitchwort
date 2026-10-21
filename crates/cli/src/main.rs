@@ -38,7 +38,15 @@ enum Command {
         /// folder you're in or the nearest one above it
         #[arg(long)]
         project: Option<PathBuf>,
+        /// Also write the code navigation index (JSON; see
+        /// docs/proposals/code-navigation.md) to this file, or to standard
+        /// output for `-`. One file or any number of namespaces
+        #[arg(long, value_name = "FILE")]
+        index: Option<String>,
     },
+    /// Print an embedded standard library file (`List/Toolkit.sw`;
+    /// `core.sw` is the core), as the index's `std` markers name them
+    StdSource { path: String },
     /// Run tests, reusing cached results where nothing they depend on has
     /// changed: a file's, or a namespace's (and those of the namespaces it
     /// uses), or the whole project's
@@ -104,7 +112,21 @@ fn main() -> ExitCode {
 
 fn run(cli: Cli) -> ExitCode {
     match cli.command {
-        Command::Check { targets, project } => check(&targets, project.as_deref()),
+        Command::Check {
+            targets,
+            project,
+            index,
+        } => check(&targets, project.as_deref(), index.as_deref()),
+        Command::StdSource { path } => match stitchwort_cli::nav::std_source(&path, STACK) {
+            Some(text) => {
+                print!("{text}");
+                ExitCode::SUCCESS
+            }
+            None => {
+                eprintln!("error: there's no embedded library file `{path}`");
+                ExitCode::FAILURE
+            }
+        },
         Command::Test {
             target,
             no_cache,
@@ -301,17 +323,46 @@ fn load_file(session: &mut Session, path: &Path, verb: Option<&'static str>) -> 
     }
 }
 
-fn check(targets: &[String], project: Option<&Path>) -> ExitCode {
+/// Writes the navigation index of `session` to `index` (`-` is standard
+/// output).
+fn write_index(session: &Session, ok: bool, index: &str, root: &str) -> bool {
+    let json = stitchwort_cli::nav::index_json(session, !ok, None, root);
+    if index == "-" {
+        println!("{json}");
+        return true;
+    }
+    match std::fs::write(index, json) {
+        Ok(()) => true,
+        Err(err) => {
+            eprintln!("error: can't write {index}: {err}");
+            false
+        }
+    }
+}
+
+fn check(targets: &[String], project: Option<&Path>, index: Option<&str>) -> ExitCode {
     let files = targets.iter().filter(|t| is_file_target(t)).count();
     if files > 0 && files < targets.len() {
         eprintln!("error: give either files or names in the project, not both");
+        return ExitCode::FAILURE;
+    }
+    if files > 1 && index.is_some() {
+        eprintln!("error: --index takes one file, or namespaces of the project");
         return ExitCode::FAILURE;
     }
     if files > 0 {
         let mut ok = true;
         for path in targets {
             // Each file gets its own session.
-            ok &= load_file(&mut new_session(), Path::new(path), Some("checked"));
+            let mut session = new_session();
+            if index.is_some() {
+                session.elab.enable_navigation();
+            }
+            let loaded = load_file(&mut session, Path::new(path), Some("checked"));
+            ok &= loaded;
+            if let Some(index) = index {
+                ok = write_index(&session, loaded, index, "") && ok;
+            }
         }
         return exit(ok);
     }
@@ -323,7 +374,15 @@ fn check(targets: &[String], project: Option<&Path>) -> ExitCode {
     } else {
         Target::Namespaces(targets.to_vec())
     };
-    exit(load_project(&mut new_session(), &project, &target))
+    let mut session = new_session();
+    if index.is_some() {
+        session.elab.enable_navigation();
+    }
+    let mut ok = load_project(&mut session, &project, &target);
+    if let Some(index) = index {
+        ok = write_index(&session, ok, index, &format!("{}/", project.name)) && ok;
+    }
+    exit(ok)
 }
 
 /// The cache to use: `--cache-dir` as given, or `.stitchwort/cache` in

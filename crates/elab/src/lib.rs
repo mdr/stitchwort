@@ -27,6 +27,8 @@ mod local;
 mod logic;
 mod matching;
 mod module;
+mod nav;
+pub use nav::{NavIndex, NavRef, NavSymbol, NavTarget, std_source};
 mod numbers;
 mod partial;
 mod patlet;
@@ -260,6 +262,8 @@ pub struct Elaborator {
     /// type's `auto` parameter must be written as a variable
     /// (docs/proposals/interfaces.md §7.5).
     in_instance_signature: std::cell::Cell<bool>,
+    /// What the code navigation index records, when it's on (`nav.rs`).
+    nav: Option<RefCell<nav::Recorder>>,
 }
 
 /// A pattern that matches a constructor.
@@ -555,6 +559,7 @@ impl Elaborator {
     }
 
     fn clear_metas(&self) {
+        self.flush_navigation();
         self.globals.clear_metas();
         self.drafts.borrow_mut().clear();
         self.local_metas.borrow_mut().clear();
@@ -2715,7 +2720,10 @@ impl Elaborator {
             span,
         };
         match self.resolve_exact(&used)? {
-            (Global::Ctor(d, c), ..) => Ok((d, c)),
+            (Global::Ctor(d, c), target, key) => {
+                self.note_found(span, &key, Global::Ctor(d, c), target);
+                Ok((d, c))
+            }
             (Global::Unchecked(item), ..) => Err(self.unchecked(&used, item)),
             (Global::Failed, ..) => Err(module::failed_name(&used)),
             (Global::Pending(file, _), ..) => Err(self.unloaded(&used, file)),

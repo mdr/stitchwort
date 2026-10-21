@@ -749,10 +749,12 @@ pub(crate) fn infer_app(cx: &mut Ctx, head: &Expr, args: &[Arg]) -> Result<(Term
         return apply_args(cx, head, args);
     };
     if let Some(head) = cx.local(&name.text)? {
+        cx.e.note_local(cx, name, &head.1);
         return apply_args(cx, head, args);
     }
     if let Some(level) = cx.lookup(&name.text) {
         let head = (Term::Var(cx.level() - 1 - level), cx.types[level].clone());
+        cx.e.note_local(cx, name, &head.1);
         return apply_args(cx, head, args);
     }
     if let Some(fields) = as_fields(cx, name) {
@@ -783,6 +785,7 @@ pub(crate) fn infer_app(cx: &mut Ctx, head: &Expr, args: &[Arg]) -> Result<(Term
         }
         _ => {}
     }
+    cx.e.note_name(name);
     match cx.e.named(&name.text) {
         None => Err(cx.e.not_found(name)),
         Some((Global::Def(id), _)) => {
@@ -1947,9 +1950,11 @@ pub(crate) fn known_head(cx: &Ctx, head: &Expr) -> Option<(Term, Value)> {
         return None;
     };
     if let Ok(Some(local)) = cx.local(&name.text) {
+        cx.e.note_local(cx, name, &local.1);
         return Some(local);
     }
     if let Some(level) = cx.lookup(&name.text) {
+        cx.e.note_local(cx, name, &cx.types[level]);
         return Some((Term::Var(cx.level() - 1 - level), cx.types[level].clone()));
     }
     if as_fields(cx, name).is_some() || matches!(name.text.as_str(), "rfl" | "J") {
@@ -2115,6 +2120,7 @@ fn ctor_head<'a>(cx: &Ctx, expr: &'a Expr) -> Result<Option<(DataId, usize, Vec<
     if cx.lookup(&name.text).is_some() || as_fields(cx, name).is_some() {
         return Ok(None);
     }
+    cx.e.note_name(name);
     match cx.e.named(&name.text) {
         Some((Global::Ctor(d, c), _)) => {
             let args = (args.into_iter())

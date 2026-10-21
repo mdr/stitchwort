@@ -871,6 +871,7 @@ fn ability_label(cx: &mut Ctx, expr: &Expr) -> Result<Label> {
     let Expr::Var(name) = head else {
         return Err(cx.error("E-ABILITY", "expected an ability", "here"));
     };
+    cx.e.note_name(name);
     let found = cx.e.named(&name.text).copied();
     if let Some((Global::Unchecked(item), _)) = found {
         return Err(cx.e.unchecked(name, item));
@@ -1391,6 +1392,7 @@ fn comp_app(
         && cx.local(&name.text)?.is_none()
         && let Some((Global::Op(a, i), _)) = cx.e.named(&name.text).copied()
     {
+        cx.e.note_name(name);
         let (term, ty) = op_call(cx, name, a, i, &args, row)?;
         return Ok((term, ty, None));
     }
@@ -1993,6 +1995,7 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
                 ret = Some((var, body));
             }
             Clause::Op { op, .. } => {
+                cx.e.note_name(op);
                 let found = cx.e.named(&op.text).copied();
                 if let Some((Global::Unchecked(item), _)) = found {
                     return Err(cx.e.unchecked(op, item));

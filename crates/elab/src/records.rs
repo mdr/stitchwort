@@ -268,6 +268,7 @@ impl Elaborator {
         };
         let ctor = &g.data(d).ctors[0];
         check_field_names(g, d, fields.iter().map(|(n, _)| n))?;
+        fields.iter().for_each(|(n, _)| self.note_field(d, n));
         let mut args = Vec::new();
         for (field, _) in &ctor.fields {
             match fields.iter().find(|(n, _)| *n.text == **field) {
@@ -411,6 +412,7 @@ fn literal(
 ) -> Result<Term> {
     let g = cx.g();
     check_field_names(g, d, fields.iter().map(|(n, _)| n))?;
+    fields.iter().for_each(|(n, _)| cx.e.note_field(d, n));
     let ctor = &g.data(d).ctors[0];
     // An interface's superclass fields may be left out: they're filled in
     // (docs/proposals/interfaces.md §5.8 (a)).
@@ -469,6 +471,7 @@ fn update(cx: &mut Ctx, base: Term, ty: &Value, fields: &[(ast::Name, Expr)]) ->
     let g = cx.g();
     let (d, params) = record_type(cx, ty, "this update")?;
     check_field_names(g, d, fields.iter().map(|(n, _)| n))?;
+    fields.iter().for_each(|(n, _)| cx.e.note_field(d, n));
     let data = g.data(d);
     let ctor = &data.ctors[0];
     let replaced = |f: &str| fields.iter().any(|(n, _)| n.text == f);
