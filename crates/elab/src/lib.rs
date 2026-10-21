@@ -188,6 +188,15 @@ pub struct Elaborator {
     /// application inside uses its expected type first
     /// (docs/proposals/syntax-conveniences.md §7.4).
     no_propagation: std::cell::Cell<usize>,
+    /// What each receiver's dot call was found to call, by the receiver
+    /// expression and the field written after it: so a chain `x.f.g.h` finds
+    /// each head once instead of inferring the receiver again at every
+    /// level (`dot::prefix_form`).
+    pub(crate) dot_heads:
+        RefCell<std::collections::HashMap<dot::CallKey, (dot::TyHead, stitchwort_core::DefId)>>,
+    /// Dot calls whose prefix form failed, with the metavariable state it
+    /// failed in: not tried again until that changes (`dot::infer_call`).
+    pub(crate) dot_failed: RefCell<std::collections::HashSet<(dot::CallKey, usize, usize)>>,
     /// The address of the condition whose `Bool` reading `logic::condition`
     /// is trying, or 0: a proposition there isn't decided into a `Bool` by
     /// `check::decide_to_bool`, as the condition's proposition reading does

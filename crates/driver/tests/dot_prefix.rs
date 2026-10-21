@@ -39,3 +39,29 @@ fn dot_calls_have_the_hash_of_their_prefix_forms() {
     }
     assert!(pairs >= 6, "only {pairs} pairs found");
 }
+
+/// A long chain of dot calls, each receiver itself a dot call, is checked in
+/// time linear in its length. Each level once inferred its receiver twice
+/// (and the parser computed a chain's span twice per field), so these took
+/// time exponential in the length and never finished.
+#[test]
+fn long_dot_chains_are_cheap() {
+    let chain = |n: usize, end: &str| {
+        format!(
+            "def xs: List Nat := [1, 2, 3]\ndef r: List Nat := xs{}{end}\n",
+            ".reverse".repeat(n)
+        )
+    };
+    let mut ok = Session::new();
+    assert!(ok.load("chain.sw", &chain(60, "")).is_ok());
+    // A failing last call, and a failing first one: each tried the prefix
+    // form and then the dot reading again at every level.
+    let mut bad = Session::new();
+    assert!(bad.load("bad.sw", &chain(60, ".take \"a\"")).is_err());
+    let mut inner = Session::new();
+    let source = format!(
+        "def xs: List Nat := [1, 2, 3]\ndef r: List Nat := xs.nope{}\n",
+        ".reverse".repeat(60)
+    );
+    assert!(inner.load("inner.sw", &source).is_err());
+}

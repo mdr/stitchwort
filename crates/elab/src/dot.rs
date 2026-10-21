@@ -12,8 +12,8 @@ use std::rc::Rc;
 
 use stitchwort_core::value::{Head, eval, force};
 use stitchwort_core::{DataId, DefId, Globals, Icit, Term, Value};
-use stitchwort_syntax::Diagnostic;
 use stitchwort_syntax::ast::{Expr, Name as AstName, SECTION};
+use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::check::{Arg, Ctx, Result, apply_args, check, implicit_arg, infer, insert};
 use crate::{Global, scope};
@@ -186,7 +186,13 @@ fn written_type(cx: &Ctx, term: &Term) -> Result<Option<Ty>> {
             return Ok(None);
         };
         let cod = cod.clone();
-        env.push(cx.eval(arg)?);
+        // An argument the rest of the type doesn't mention isn't evaluated:
+        // evaluating a long chain of calls at every level is exponential.
+        env.push(if cod.mentions(0) {
+            cx.eval(arg)?
+        } else {
+            stitchwort_core::value::unused()
+        });
         ty = cod;
     }
     Ok(Some(Ty::Term(ty, env)))
@@ -602,19 +608,31 @@ pub(crate) fn prefix_form<'a>(
             _ => return Ok(None),
         }
     }
-    let snapshot = crate::undo::Snapshot::take(cx);
-    let found = (|| -> Result<(TyHead, DefId)> {
-        let (rterm, rty) = infer(cx, recv)?;
-        let (rterm, rty) = insert(cx, rterm, rty)?;
-        let start = written_type(cx, &rterm)?.unwrap_or_else(|| Ty::Value(rty.clone()));
-        let (owner, f, _) = find(cx, recv, field, start)?;
-        Ok((owner, f))
-    })();
-    snapshot.restore(cx);
-    let (owner, f) = match found {
-        Ok(found) => found,
-        Err(e) if crate::undo::fatal(&e) => return Err(e),
-        Err(_) => return Ok(None),
+    let key = call_key(recv, field);
+    let cached = cx.e.dot_heads.borrow().get(&key).copied();
+    let (owner, f) = if let Some(found) = cached {
+        found
+    } else {
+        let snapshot = crate::undo::Snapshot::take(cx);
+        let found = (|| -> Result<(TyHead, DefId)> {
+            let (rterm, rty) = infer(cx, recv)?;
+            let (rterm, rty) = insert(cx, rterm, rty)?;
+            let start = written_type(cx, &rterm)?.unwrap_or_else(|| Ty::Value(rty.clone()));
+            let (owner, f, _) = find(cx, recv, field, start)?;
+            Ok((owner, f))
+        })();
+        snapshot.restore(cx);
+        match found {
+            Ok(found) => {
+                cx.e.dot_heads.borrow_mut().insert(key, found);
+                found
+            }
+            Err(e) if crate::undo::fatal(&e) => return Err(e),
+            Err(_) => {
+                mark_failed(cx, key);
+                return Ok(None);
+            }
+        }
     };
     let g = cx.g();
     let Some((_, k)) = receiver_place(cx, &params(g, f), owner)? else {
@@ -633,6 +651,7 @@ pub(crate) fn prefix_form<'a>(
     if written.len() == k {
         full.push(Arg::Explicit(recv));
     }
+    cx.e.note_dot(field, f);
     Ok(Some(((Term::Def(f), g.def(f).ty_value.clone()), full)))
 }
 
@@ -921,12 +940,16 @@ pub(crate) fn infer_call(
     field: &AstName,
     args: &[Arg],
 ) -> Result<(Term, Value)> {
+    if has_failed(cx, call_key(recv, field)) {
+        return infer_dot(cx, recv, field, args);
+    }
     let Some((head, full)) = prefix_form(cx, recv, field, args)? else {
         return infer_dot(cx, recv, field, args);
     };
     let snapshot = crate::undo::Snapshot::take(cx);
     match crate::check::apply_args(cx, head, &full) {
         Err(e) if !crate::undo::fatal(&e) => {
+            mark_failed(cx, call_key(recv, field));
             // The call is wrong either way: say so as dot notation does
             // (it names the receiver's parameter).
             snapshot.restore(cx);
@@ -934,4 +957,28 @@ pub(crate) fn infer_call(
         }
         result => result,
     }
+}
+
+/// Which dot call: the receiver expression (by address and span) and the
+/// field's span.
+pub(crate) type CallKey = (usize, Span, Span);
+
+fn call_key(recv: &Expr, field: &AstName) -> CallKey {
+    (std::ptr::from_ref(recv) as usize, recv.span(), field.span)
+}
+
+/// The metavariable state, which a failure is only valid in.
+fn state(cx: &Ctx) -> (usize, usize) {
+    let g = cx.g();
+    (g.metas.borrow().len(), g.meta_trail.borrow().len())
+}
+
+fn mark_failed(cx: &Ctx, key: CallKey) {
+    let (m, t) = state(cx);
+    cx.e.dot_failed.borrow_mut().insert((key, m, t));
+}
+
+fn has_failed(cx: &Ctx, key: CallKey) -> bool {
+    let (m, t) = state(cx);
+    cx.e.dot_failed.borrow().contains(&(key, m, t))
 }

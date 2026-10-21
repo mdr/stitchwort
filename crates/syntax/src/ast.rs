@@ -313,7 +313,16 @@ impl Expr {
             | Expr::Calc { span, .. }
             | Expr::Rewrite { span, .. }
             | Expr::Match { span, .. } => *span,
-            Expr::Field(e, name) => e.span().to(name.span),
+            // Down a chain of fields in a loop: `e.span()` here would reach
+            // this arm for `e` too, twice per level (the start and the end),
+            // so `x.f.g.h …` would take time exponential in its length.
+            Expr::Field(e, name) => {
+                let mut inner: &Expr = e;
+                while let Expr::Field(i, _) = inner {
+                    inner = i;
+                }
+                inner.span().to(name.span)
+            }
             Expr::Effect(..)
             | Expr::App(..)
             | Expr::Arrow(..)
