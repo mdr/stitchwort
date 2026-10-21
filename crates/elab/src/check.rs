@@ -721,7 +721,7 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             fields,
             ..
         } => records::infer_update(cx, base, fields),
-        Expr::Field(e, field) => crate::dot::infer_dot(cx, e, field, &[]),
+        Expr::Field(e, field) => crate::dot::infer_call(cx, e, field, &[]),
         Expr::List(..) => {
             let list = builtin_data(cx, Builtin::List)?;
             let elem = cx.fresh_meta();
@@ -742,7 +742,7 @@ pub(crate) fn infer_head(cx: &mut Ctx, head: &Expr) -> Result<(Term, Value)> {
 pub(crate) fn infer_app(cx: &mut Ctx, head: &Expr, args: &[Arg]) -> Result<(Term, Value)> {
     let g = cx.g();
     if let Expr::Field(recv, field) = head {
-        return crate::dot::infer_dot(cx, recv, field, args);
+        return crate::dot::infer_call(cx, recv, field, args);
     }
     let Expr::Var(name) = head else {
         let head = infer(cx, head)?;
@@ -1805,15 +1805,26 @@ fn propagate(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Option<Resul
         });
         head = f;
     }
-    if args.is_empty() {
+    if args.is_empty() && !matches!(head, Expr::Field(..)) {
         return Ok(None);
     }
     args.reverse();
-    let Some(head) = known_head(cx, head) else {
-        return Ok(None);
+    let dotted;
+    let (head, args) = if let Expr::Field(recv, field) = head {
+        // `recv.f a` is `T.f … recv …` (SW-129).
+        let Some((head, full)) = crate::dot::prefix_form(cx, recv, field, &args)? else {
+            return Ok(None);
+        };
+        dotted = full;
+        (head, &dotted)
+    } else {
+        let Some(head) = known_head(cx, head) else {
+            return Ok(None);
+        };
+        (head, &args)
     };
     let snapshot = crate::undo::Snapshot::take(cx);
-    let Some((written, mut supply)) = written_result(cx, &head.1, &args)? else {
+    let Some((written, mut supply)) = written_result(cx, &head.1, args)? else {
         snapshot.restore(cx);
         return Ok(None);
     };
@@ -1825,7 +1836,7 @@ fn propagate(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Option<Resul
     let span = expr.span();
     let result = (|| -> Result<Term> {
         cx.g().budget.nesting(PASS)?;
-        let (term, found) = apply_args_with(cx, head, &args, &mut supply)?;
+        let (term, found) = apply_args_with(cx, head, args, &mut supply)?;
         let term = Term::Loc(span, Rc::new(term));
         let (term, found) = insert_with(cx, term, found, &mut supply)?;
         if !supply.is_empty() {
