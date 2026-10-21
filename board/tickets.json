@@ -2968,8 +2968,8 @@
     {
       "id": 193,
       "title": "match h: e doesn't refine a let-bound proof whose type mentions the scrutinee",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [
         "bug",
@@ -2999,8 +2999,8 @@
     {
       "id": 195,
       "title": "Record literal E-CANNOT-INFER inside a match branch under List.append, though the result type fixes it",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [
         "bug",
@@ -3014,8 +3014,8 @@
     {
       "id": 196,
       "title": "Day 7 spec: prove the timelines are pairwise distinct (std List.Distinct/Nodup predicate)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [
         "aoc",
