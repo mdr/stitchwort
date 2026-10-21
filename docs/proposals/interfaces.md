@@ -1466,12 +1466,12 @@ instance Map.instShow [auto showK: Show k] [auto showV: Show v]: Show (Map k v [
   named alternatives that are single definitions, this is rare; it's
   accepted as an initial restriction.
 - **What the map holds.** The ordering adds no runtime field to the map
-  (it's a type parameter; the `ordered` proof is erased). So a map is
-  data whenever its keys and values are: it can be used as `State` when
-  `k` and `v` satisfy `IsData` (DESIGN.md §8). A map whose values are
-  functions isn't data, as today. Whether today's `IsData` check looks at
-  a parameter that appears only in erased fields is **unverified**; the
-  stage 4 tests below settle it.
+  (it's a type parameter; the `ordered` proof is erased), and it doesn't
+  affect what state may hold. State may hold pure functions, so a map of
+  them is accepted as `State`; what is refused is a self-storing ability,
+  an operation that stores a computation using its own ability (Landin's
+  knot, `E-ABILITY`), as with any other type (D203; DESIGN.md §8's
+  `IsData` is gone, abilities.md). The stage 4 tests below check both.
 - The kernel sees an ordinary parameter. Only the elaborator inserts it.
 
 **Stage 4's tests** (the reviewer's list):
@@ -1479,7 +1479,7 @@ instance Map.instShow [auto showK: Show k] [auto showV: Show v]: Show (Map k v [
 | Case | Expected |
 |---|---|
 | A `Map Nat Nat` built with a named alternative ordering, used as `State` | Accepted |
-| A map whose values are functions, used as `State` | Rejected (`IsData`) |
+| A map whose values are pure functions, used as `State` | Accepted: state may hold pure functions (abilities.md replaced `IsData`). An operation that stores a computation using its own ability, in a map's values, is refused (`E-ABILITY`) (D203) |
 | An operation on an existing map while a different `Ord` for the key type is in scope | The map's own ordering is used, from its type |
 | A map passed where a parameter's type names a different ordering | Type error, saying the orderings differ |
 | Resolving an instance whose head fixes a map's ordering (`Show (Map k v [ord := o])`) | `o` is kept, not re-resolved |
@@ -1985,12 +1985,13 @@ What differs from the text above, or wasn't settled by it:
    the edges could see, and they're written instances-last anyway.
 5. **D163 and hashes.** A definition marked `instance` whose result is
    `Decidable …` is a decision procedure: none of §5.2's and §5.6's rules
-   apply, and it isn't in the instance table. Its marker is **not** hashed
-   (a deviation from D171 for these): it only says the search may use it,
-   and what the search chose is in the users' terms. Hashing it would have
-   changed the hash of everything that uses `<`, `&&` or `!=` through the
-   core's procedures, for no change in their terms. Interface instances'
-   markers are hashed, as in stage 1.
+   apply, and it isn't in the instance table. Its marker **is** hashed, like
+   every other instance's (D171, D198). Stage 2 first left it out, to keep
+   the hashes of everything that uses `<`, `&&` or `!=` unchanged; D198
+   reversed that, because the marker changes what the search may find, so
+   it belongs in the hash, and no hash stability is owed (there are no
+   users). The one-off change reached every definition that uses one of
+   the core's marked procedures, directly or through another definition.
 6. **Derived instances.** `T.%decEq: [params] -> [auto decEq: DecEq a] -> (r
    s: T …) -> Decidable (r = s)` and `instance T.%instDecEq … := { decide =
    T.%decEq }`, for data types and records alike (records no longer get

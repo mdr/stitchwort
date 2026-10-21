@@ -52,5 +52,5 @@ Main.test "-f x" 5db4b51b4bae2ddd07c0d2cc2d31450681e4cf2d274877ef3765a50c98f15a2
 Main.test "a - -b" b55ef2ac69b5f7eb6ff6e3368f81096deca2370fd4604e5cad6f7fb59675bed5
 Main.test "-a * b" 1e59668a140fcc5a779e3ba9bf9cae6d40361ecb8e81c55fcb965635ded7da17
 Main.test "Euclidean /" b9b2921086a55fd53048ad7d00fe88e6a60b776467cb22dcbb94e09381a13cb2
-Main.test "ordering" 9fd19be4c675467cf90d65ce456e465d9eae56844bcbe8501d6fab0fb98e6ae0
+Main.test "ordering" 96b35b031b61da6569afac947dd535c33b5a55f978a82f357eb39b9e555b34e2
 Main.test "Nat default" b4e4039fbfcddf5342da61fbc59087df1a30c6efc46ef2899fa57f44caf2b904

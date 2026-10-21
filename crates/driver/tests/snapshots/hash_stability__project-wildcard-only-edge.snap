@@ -4,7 +4,7 @@ expression: "lines(&session, d, f)"
 ---
 data Zed.Token 9c889bfbc95382e9227dc7d780403d559f8665cf648260e6bca2414506e8ca70
 Zed.needsToken d903fb5cc2806d455b6ad96b3df2289e563b73c0e9defce7578a1fb7d5470bec
-Zed.decZ de232f8a2bf9ebb1270656dc7f3b076eca735ff25713f69a0666f58dafc22994
+Zed.decZ f344983c8309032318c947adbb6a1baffcdfbda534a9228eda5a5587d43c6dbe
 Zed.test "zed" fcf6677f6bf550071069ad0c63f52c9bd550410cd40e49aeda36c7658cdcb8e5
 Alpha.client 708c54cd8876e4bb2b83a3aa42a9ef7c9edc7947bf66f48088b9ecc91da068bf
 Alpha.test "client" 9d306b29b0d38c60dc10c0685e76dad3a2478dcdacc8f1ab331f5bfaee42afa4
