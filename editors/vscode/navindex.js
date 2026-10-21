@@ -173,6 +173,35 @@ function diagnosticsByFile(index) {
   return out;
 }
 
+// The namespace a file's `namespace` line names (`namespace Aoc.Day01`), or
+// null. As in the parser, it is the file's first declaration (only blank lines
+// and `--` comments come before it), at the start of a line.
+function namespaceOf(text) {
+  for (const line of text.split(/\r?\n/)) {
+    if (/^\s*$/.test(line) || line.startsWith('--')) continue;
+    const m = /^namespace[ \t]+([A-Z][A-Za-z0-9_']*(?:\.[A-Z][A-Za-z0-9_']*)*)(?![\w'.])/.exec(line);
+    return m ? m[1] : null;
+  }
+  return null;
+}
+
+// Diagnostics after a quick run of some namespaces. `current` is the shown
+// diagnostics (path -> list, as from diagnosticsByFile) and `quick` the index
+// of the quick run. The quick run is newer than whatever `current` holds
+// for the files it checked (each of its non-library files), so those files get
+// its diagnostics, or none; every other file keeps what it had until the next
+// full run replaces everything. Returns a new Map.
+function applyQuick(current, quick) {
+  const out = new Map(current);
+  const fresh = diagnosticsByFile(quick);
+  for (const f of quick.files || []) {
+    if (f.std) continue;
+    if (fresh.has(f.path)) out.set(f.path, fresh.get(f.path));
+    else out.delete(f.path);
+  }
+  return out;
+}
+
 // Whether the letters of `query` appear in order in `name`, ignoring case.
 function subsequence(query, name) {
   const n = name.toLowerCase();
@@ -223,10 +252,12 @@ function workspaceSymbols(index, query) {
 }
 
 module.exports = {
+  applyQuick,
   contains,
   diagnosticsByFile,
   fileIndexByPath,
   hoverOf,
+  namespaceOf,
   outlineOf,
   refAt,
   referencesTo,
