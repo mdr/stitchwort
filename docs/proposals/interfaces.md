@@ -1,8 +1,9 @@
 # Proposal: interfaces
 
-**Status:** draft 3, 20 October 2026. Stages 1 and 2 are built
+**Status:** draft 3, 20 October 2026. Stages 1 to 3 are built
 ([As built (stage 1)](#as-built-stage-1),
-[As built (stage 2)](#as-built-stage-2)); stages 3 to 7 are design only.
+[As built (stage 2)](#as-built-stage-2),
+[As built (stage 3)](#as-built-stage-3)); stages 4 to 7 are design only.
 Review closed and decisions D154-D174, D178-D182, D186, D187 accepted as recommended (D188, Matt, 20 October 2026).
 Ticket SW-4, decision D152 (Matt, 20 October 2026: write this note).
 Draft 2 answered the external review of draft 1
@@ -165,6 +166,7 @@ candidates blocked on unknowns. Every point:
 13. [Risks](#13-risks)
 - [As built (stage 1)](#as-built-stage-1)
 - [As built (stage 2)](#as-built-stage-2)
+- [As built (stage 3)](#as-built-stage-3)
 14. [Decisions](#14-decisions)
 15. [Sources](#15-sources)
 
@@ -1968,6 +1970,61 @@ What differs from the text above, or wasn't settled by it:
     instance, where the derived procedures themselves changed, and in the
     core where `DecEq` and its instances were added; see the stage 2
     report for the list.
+
+## As built (stage 3)
+
+Stage 3 is built (SW-4, 21 October 2026): `Ord` with its laws and
+relation fields, `Ord.fromCompare`, `Ord.byKey`, instances, generic
+`List.sort`, `List.maximum` and `List.minimum`, and §7.6's theorems. The
+library is at the end of `crates/elab/src/std/core.sw`, with
+`List/Sort.sw` (sorting), `List/Toolkit.sw` (maximum, minimum) and
+`Vec/Vec.sw` (`Vec.instOrd`). Tests: `examples/accept/ord-instances.sw`,
+`ord-proofs.sw`, `sort.sw`, `examples/reject/ord-none.sw`. AoC and the
+bench counts are unchanged.
+
+What differs from the text above, or wasn't settled by it:
+
+1. **Field names** (D200): record fields are lowercase, so the relations
+   are `lessThan` and `lessEq`, their deciders `decLessThan` and
+   `decLessEq`. The rest is as §6.2: `eq`, `compare`, and the laws
+   `equal`, `flip`, `trans`, `lessThanOf`, `lessThanTo`, `lessEqOf`,
+   `lessEqTo`. Helpers: `Ord.max`, `Ord.min`, `Ord.compareSelf`,
+   `Ord.leTotal`.
+2. **Instances and their laws.** `Nat` and `Int` are written out with
+   today's functions and relations (`Nat.compare`, `Nat.LessThan`,
+   `Nat.decLessThan`, …), so stage 5's projection can give today's terms;
+   their laws are proved by recursion on both numbers (`Nat.compareSucc` is
+   `rfl`), in the core, since D170 puts the instances there. `Char`,
+   `Bool` and `Ordering` compare by a number (`Char.toNat`, `Bool.toNat`,
+   `Ordering.index`) through `Ord.fromCompare`, not `Ord.byKey`, so that
+   `Char.compare` is literally the comparison inside `Text.compare`.
+   Lists use `List.compareLex`, whose laws are proved once from the
+   elements' (with `Ordering.andThenTrans` for transitivity), and pairs
+   and `Maybe` the same way. `Text.instOrd` uses `Text.compare` itself; the
+   bridge lemma `Text.compareCharsLex` says it's `List.compareLex
+   Char.compare` on the characters, which gives its laws (not proved
+   before). `Vec.instOrd` is `Ord.byKey Vec.toList Vec.toListInjective`,
+   in `Vec.sw` (stage 2's rule for library files' own types).
+3. **Generalised definitions.** `List.sort`, `List.sortPerm`,
+   `List.sortSorted`, `List.sortLength`, `List.maximum` and
+   `List.minimum` now take `[auto ord: Ord a]`; `List.sortSortedNat` keeps
+   the `List.Sorted Nat.leq` form. `List.sort []` and `List.maximum []`
+   with nothing else to say what the elements are need an annotation
+   (`([]: List Nat)`): three examples got one. Their hashes, and their
+   users' (the `sort`, `list-toolkit`, `eqeq-containers` and `pipe`
+   examples), changed; nothing else did.
+4. **Dictionaries found during checking.** A comparison that fails now
+   first finds any outstanding instance whose type is fully known, then
+   compares again (`check::compare`, `Elaborator::solve_ready_instances`).
+   Without it, `List.sortPerm xs (Nat.equal 3)` checked against
+   `(xs.sort).occurrences … = …` failed: the proof's dictionary was still
+   an unknown, and a projection stuck on it doesn't compute. Finding an
+   instance whose type has no unknowns can't depend on when it's done
+   (§5.5), so this doesn't change what's found. Inside the library a few
+   proofs still name the dictionary (`[ord := Nat.instOrd]`) where the
+   comparison is made by `rfl` or a match rather than `compare`.
+5. **Not done here**, as planned: `<` and `<=` through `Ord` (stage 5),
+   derived `Ord` (stage 7).
 
 ---
 
