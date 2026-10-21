@@ -25,6 +25,7 @@ Areas:
   bench      stitchwort-bench
   web        stitchwort-web (unit tests; browser tests are `dev/t browser`)
   browser    web/build.sh then web/test.sh
+  vscode     node --test on the VS Code extension's lookup logic
   lint       cargo fmt --check and clippy
   all        cargo test --release --workspace
   gate       nix flake check (the full gate, 6-7 minutes)
@@ -127,6 +128,14 @@ case "$area" in
   browser)
     nix develop -c ./web/build.sh
     nix develop -c ./web/test.sh
+    exit 0
+    ;;
+  vscode)
+    if [[ -n "${IN_NIX_SHELL:-}" ]]; then
+      node --test "editors/vscode/test/*.test.js"
+    else
+      nix develop -c node --test "editors/vscode/test/*.test.js"
+    fi
     exit 0
     ;;
   lint)

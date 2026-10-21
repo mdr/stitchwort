@@ -1032,6 +1032,7 @@ impl Elaborator {
                     );
                     continue;
                 }
+                self.note_import(item, &key);
                 let file = self.current_file();
                 if self.scope.imports.len() <= file {
                     self.scope.imports.resize_with(file + 1, HashMap::new);

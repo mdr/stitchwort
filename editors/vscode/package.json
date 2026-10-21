@@ -1,12 +1,14 @@
 {
   "name": "stitchwort",
   "displayName": "Stitchwort",
-  "description": "Syntax colouring for Stitchwort (.sw) files",
-  "version": "0.0.3",
+  "description": "Syntax colouring, go to definition, hover and outline for Stitchwort (.sw) files",
+  "version": "0.1.0",
   "publisher": "local",
   "private": true,
   "engines": { "vscode": "^1.60.0" },
   "categories": ["Programming Languages"],
+  "main": "./extension.js",
+  "activationEvents": ["onLanguage:stitchwort"],
   "contributes": {
     "languages": [
       {
@@ -22,6 +24,17 @@
         "scopeName": "source.stitchwort",
         "path": "./syntaxes/stitchwort.tmLanguage.json"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Stitchwort",
+      "properties": {
+        "stitchwort.path": {
+          "type": "string",
+          "default": "stitchwort",
+          "scope": "machine",
+          "markdownDescription": "The `stitchwort` command line program, used to index code for go to definition, hover and outline. A bare name is looked up on PATH."
+        }
+      }
+    }
   }
 }

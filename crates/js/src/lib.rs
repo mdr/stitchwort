@@ -2341,72 +2341,72 @@ const TEXT_NATIVES: &[(Builtin, TextNative, &str)] = &[
     (
         Builtin::TextToList,
         TextNative::TextToList,
-        "5b7bb97178c88fb32f9dd52228e79092ba01b232b2baec6b3c2bbfc149b7ee25",
+        "5abb3da49e0fc62dcfa21f87af3b215730957c07d9549ca3dc2842d6c23d7a27",
     ),
     (
         Builtin::TextFromList,
         TextNative::TextFromList,
-        "ff6dfd79fb5d30f73789a90465220af1262921f825fc279131ec998d77aff52c",
+        "8104e7afa0a8a50d79e4669b0b3a8b65667ce412f2f0e09a84c94c35356384bf",
     ),
     (
         Builtin::TextAppend,
         TextNative::TextAppend,
-        "2932df6055a76217279c02f1029c686f49a3d3f14b07c0d9d2f8d3ad544d228d",
+        "1f34a024df4b7c9cfc3a3fc147e931f14b035c3224988493b469e3a8bfaf0467",
     ),
     (
         Builtin::TextLength,
         TextNative::TextLength,
-        "7d849ba83d94eb1c9582a3aed83f96ee47293ad797eb3ab488312f2322338168",
+        "2647eb8b8cbfb640c41d3b803d33a89765e51750f748e1f97f7b28db5259bb32",
     ),
     (
         Builtin::TextIsEmpty,
         TextNative::TextIsEmpty,
-        "8cf3888e45e7b7f0ffdf72aad1d480c2f5a98de424c3b521f3e37d8ed8bc75ce",
+        "1889f230286963cff75856361014388b31f5036d649d9ac0f3f188b5b4af4661",
     ),
     (
         Builtin::DecEqText,
         TextNative::DecEqText,
-        "f8a116b6a32f76629d63dd09dae98c7d4e573b21a9beac53bf9384f00f23500b",
+        "755f6819d139e6e964ec2d0543dd619dee5b3b5bb5aca81cc687d7a65e6de894",
     ),
     (
         Builtin::TextCompare,
         TextNative::TextCompare,
-        "760170c44c40d109e8575b4d40883f2667258596d31784411edb92856c49d2af",
+        "3a98f1aac6fcb288efa78b2f848214ce19e9146665b0397fb0392aae3f90d37d",
     ),
     (
         Builtin::TextUncons,
         TextNative::TextUncons,
-        "0ae0aa954e25c910ed2a640d244d6cea813d6ade7a4e8aaae3ab6fab52285daa",
+        "dc12eccdfb2e03e842ead8377f4a9ab1fd8cce57d740cdc8922e3c002b133d58",
     ),
     (
         Builtin::TextFold,
         TextNative::TextFold,
-        "097f7308711e9d444266ff6d4cd122a61408939315f34a2f92f7d642ba8a10f7",
+        "0ab7473b8324d4ea62a176128301c5330ed1cc45f5ec9cd842342e0770ce707d",
     ),
     (
         Builtin::TextTrim,
         TextNative::TextTrim,
-        "7cd992f70a7af95942fdee8093070a0c73ce462379478388309a49a7f1d2c70a",
+        "ec78b83ebc8635cb689fec17a0d5bc87423a45979d3b4496a68fe995afc37124",
     ),
     (
         Builtin::TextSplit,
         TextNative::TextSplit,
-        "2129a03514372b94ffa763784132d5fc371b9c9fbdeeca6eb577151284807990",
+        "32813a7f4a37ba5e82e699bfe6763cce7639880f45beaae1f9525305ff996099",
     ),
     (
         Builtin::TextJoin,
         TextNative::TextJoin,
-        "e47161040f4bdf30256086842bada04d4577359e53f6a428f3adcdb7c87d1242",
+        "fbf17affece916ba221e97a7b061f3fb99d5d4c801cc9fc8b607b9549cb3e974",
     ),
     (
         Builtin::NatToText,
         TextNative::NatToText,
-        "80418de4c24c264a31bef72b6173e2ab3ab8e19c2a8bea7c3355314191e2da0a",
+        "5d782d77af9a709c7532a26ad5b9bcdea82f980455e35fd4a5be785156403fac",
     ),
     (
         Builtin::TextToNat,
         TextNative::TextToNat,
-        "97b7fc76c4af2fff57b526a9281489da3096aa21b6374aabbb455b5b06e328aa",
+        "40b834208c0b6345e3b81e200440e69bfc6969c2018de11d932c3c11d18587ed",
     ),
 ];
 
@@ -2489,7 +2489,7 @@ pub const NAT_DATA_HASH: &str = "281ae0d5e9e49941a6eddd8b4d6b3f3f38a80ea3f95f969
 /// `run --js`, which requires it, refuses. A test fails until the
 /// representation has been checked against a changed `Text` and this
 /// updated.
-pub const TEXT_DATA_HASH: &str = "ee08e0a61923998097b784cb6b883ed71dbc2781c5af31f823eb6706aae44ee8";
+pub const TEXT_DATA_HASH: &str = "6ef35ae8fd60047c2bd97ae3fb36e41fabbd60db16bedb2b8c88067372cc65e5";
 
 /// Whether the `bigint` representation applies to the program's `Int`, and
 /// which integer natives apply to its definitions.
@@ -2628,47 +2628,47 @@ const INT_NATIVES: &[(Builtin, IntNative, &str)] = &[
     (
         Builtin::IntMul,
         IntNative::IntMul,
-        "be8f0dc36cee51571529c6f3badbbb2a319ad742a71ca6f8185eba4fba0268d8",
+        "62c9c6f96f3e064a133a3d3c51deface622fde015c6eef3a4a9cff45a5d71e71",
     ),
     (
         Builtin::IntDiv,
         IntNative::IntDiv,
-        "00184364ab716015c02cb9fd21b1a087e7dbf106ae1d4afc176e077e59a71e87",
+        "6fb60aaf472c17c6bc9ecd3a68ec69ff2b4ddc99950a5c9ff34783371ee43958",
     ),
     (
         Builtin::IntMod,
         IntNative::IntMod,
-        "59337e39965a2e98bd60485b9bd781d0bc770b72f9a1d33feaa7b28e8911c8db",
+        "ac4633f8435bedb90554849d7e1808da81fde5289ffd35077689e0b5c93e9440",
     ),
     (
         Builtin::IntTDiv,
         IntNative::IntTDiv,
-        "7b8beafe3bd733da9cc032f34ceff34722d1a765966d4e9d71837f099bf6cd91",
+        "5ebf56573fa6c6481defbfbabbb7bbbf7c86108e625f55bb14feb7378ace0f14",
     ),
     (
         Builtin::IntTMod,
         IntNative::IntTMod,
-        "48b63851b1fed3d950ea3ddd134e4d0ab56653c636e33dd7e9ec4b338aa7602c",
+        "3575c974d3cba5365faa91dbbdb9f203586ef03d3c8af09f43dcd7017a426ceb",
     ),
     (
         Builtin::IntFDiv,
         IntNative::IntFDiv,
-        "fd93a2b681035e898a6ca0ed09c78124e53bc5875c93f2d30b46896dfca56920",
+        "ac60444781afd5dc0f2404c720904cbfe3b81d7e35314965137a208dbd7afed2",
     ),
     (
         Builtin::IntFMod,
         IntNative::IntFMod,
-        "c06a2c8bd4fb9fbe9b77c2499f1669a0b1d0ab5abf17130f110ef7a6f025b084",
+        "d0eac438c0bb4193f1249625e7509e1ea6eca61dae63d3d085784ae424c4ab18",
     ),
     (
         Builtin::IntModNat,
         IntNative::IntModNat,
-        "8a2aad6298178d66ea6eea919447ce977dc966504e0cf63e6ef5a89d982a24c6",
+        "526deb729a9528f5d060fe8eb5b51dbeb95a766aeced14e791e9b03debdfb797",
     ),
     (
         Builtin::DecEqInt,
         IntNative::DecEqInt,
-        "19a294aa23ae9b96c6960af32f50d921968c5921d779ce6dcb550aacadcf2e3f",
+        "bfb9d75432dc4f02599ca684c24b40096a63cafc987808a93c5fe28d31371f8b",
     ),
     (
         Builtin::IntLeq,
@@ -2698,7 +2698,7 @@ const INT_NATIVES: &[(Builtin, IntNative, &str)] = &[
     (
         Builtin::IntToNat,
         IntNative::IntToNat,
-        "ba03131d46190cbd9ce659db558566c7ae783121cd53b42c7214b107bda06eb1",
+        "d0f20cf7ee0670bdf8d81e3d82f871e7c3ea860c70494bc39158cd5ca213dfe7",
     ),
     (
         Builtin::IntToNatChecked,
@@ -2708,17 +2708,17 @@ const INT_NATIVES: &[(Builtin, IntNative, &str)] = &[
     (
         Builtin::IntSign,
         IntNative::IntSign,
-        "0d3ecb4f6ca1f8fcd622fe27004aa12669b02001eb36f4a8479964458da2edc3",
+        "a4532fc4f0fcf19b83dea6cda7a6a42c58e90621c6da5f646036d1224ccaf65e",
     ),
     (
         Builtin::IntToText,
         IntNative::IntToText,
-        "95601003651a6f560af094a588ce3bac634034f85ca0e574524e32383c6e776d",
+        "8c74404e1ba5d6e5e34f8fad9d1560a2992b8554149c04312a1903cbb679ae95",
     ),
     (
         Builtin::TextToInt,
         IntNative::TextToInt,
-        "563e15d014538fc8e81a6607b60b2c064d54fa27e83f114227ec4b3472667b7f",
+        "57c98cd6c3cbc6820ef468b322008a44bbc462168c937464a6feec872de35e7c",
     ),
 ];
 

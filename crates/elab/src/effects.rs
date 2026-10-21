@@ -276,6 +276,7 @@ pub fn decode(cx: &Ctx, op_type: &Value) -> Result<Option<Row>> {
                 value = force(g, args[1].clone())?;
             }
             Value::Data(d, _) if d == no_op => {
+                no_duplicates(cx, &labels)?;
                 return Ok(Some(Row {
                     labels,
                     tail: None,
@@ -289,6 +290,7 @@ pub fn decode(cx: &Ctx, op_type: &Value) -> Result<Option<Row>> {
                 match force(g, x.clone())? {
                     Value::Ctor(d, 0, fields) if d == sig => value = force(g, fields[0].clone())?,
                     x => {
+                        no_duplicates(cx, &labels)?;
                         return Ok(Some(Row {
                             labels,
                             tail: Some(x),
@@ -300,6 +302,32 @@ pub fn decode(cx: &Ctx, op_type: &Value) -> Result<Option<Row>> {
             _ => return Ok(None),
         }
     }
+}
+
+/// A row has each ability at most once. Rows written in source and rows the
+/// elaborator builds always do, but a row variable `e : Sig` instantiated by
+/// hand with a `Sig` that repeats an ability (`{Log | e}` with `e` holding
+/// `Log`) reads as a row that doesn't. Source operations always use the
+/// first copy, and moving a computation between rows maps every copy to the
+/// one of the same ability, so the copies would silently merge. This is the
+/// "lacks" check, made where a row is read (docs/proposals/abilities.md).
+fn no_duplicates(cx: &Ctx, labels: &[Label]) -> Result<()> {
+    for (i, label) in labels.iter().enumerate() {
+        if label.ability != REC && labels[..i].iter().any(|l| l.ability == label.ability) {
+            return Err(cx
+                .error(
+                    "E-DUPLICATE",
+                    format!("`{}` appears twice in this row", ability_name(cx, label)),
+                    "here",
+                )
+                .with_note("a row has each ability at most once")
+                .with_note(
+                    "a row variable (`e` in `{A | e}`) can't stand for a signature that \
+                     already contains `A`",
+                ));
+        }
+    }
+    Ok(())
 }
 
 /// If `ty` is `Comp` or `Delay` over a row of abilities: the row (partial
@@ -871,6 +899,7 @@ fn ability_label(cx: &mut Ctx, expr: &Expr) -> Result<Label> {
     let Expr::Var(name) = head else {
         return Err(cx.error("E-ABILITY", "expected an ability", "here"));
     };
+    cx.e.note_name(name);
     let found = cx.e.named(&name.text).copied();
     if let Some((Global::Unchecked(item), _)) = found {
         return Err(cx.e.unchecked(name, item));
@@ -1391,6 +1420,7 @@ fn comp_app(
         && cx.local(&name.text)?.is_none()
         && let Some((Global::Op(a, i), _)) = cx.e.named(&name.text).copied()
     {
+        cx.e.note_name(name);
         let (term, ty) = op_call(cx, name, a, i, &args, row)?;
         return Ok((term, ty, None));
     }
@@ -1993,6 +2023,7 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
                 ret = Some((var, body));
             }
             Clause::Op { op, .. } => {
+                cx.e.note_name(op);
                 let found = cx.e.named(&op.text).copied();
                 if let Some((Global::Unchecked(item), _)) = found {
                     return Err(cx.e.unchecked(op, item));

@@ -239,6 +239,35 @@
   .banner button { font-size: 0.8rem; padding: 3px 8px; }
   .errorfile { display: flex; flex-direction: column; gap: 4px; }
   button.jump { align-self: flex-start; font-family: var(--mono); font-size: 0.78rem; font-weight: 500; padding: 2px 8px; color: var(--bad); }
+  /* Code navigation: the underline of a name Cmd/Ctrl-click would go to, the
+     hover tooltip, and the bar over the read-only standard library text. */
+  #navlink {
+    position: absolute;
+    border-bottom: 1.5px solid var(--hl-defined);
+    pointer-events: none;
+  }
+  #navtip {
+    position: fixed;
+    z-index: 10;
+    max-width: min(72ch, calc(100vw - 24px));
+    background: var(--petal);
+    color: var(--ink);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 6px 10px;
+    box-shadow: 0 4px 14px rgb(0 0 0 / 0.18);
+    font-family: var(--mono);
+    font-variation-settings: "MONO" 1, "CASL" 0;
+    font-size: 12.5px;
+    line-height: 1.45;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    pointer-events: none;
+  }
+  #navtip .name { font-weight: 700; color: var(--hl-defined); }
+  #navtip .kind { color: var(--muted); }
+  .banner.std { background: var(--leaf-soft); color: var(--ok); }
+  .banner.std code { font-family: var(--mono); font-variation-settings: "MONO" 1; }
   h3.testgroup { margin: 0; font-size: 0.82rem; font-family: var(--mono); font-weight: 600; color: var(--muted); }
 
   .status {
@@ -405,7 +434,11 @@
         <button id="reset-no" class="hint" type="button">No</button></span>
     </div>
     <div id="banner" class="banner" role="status" hidden></div>
-    <div class="editor">
+    <div id="stdbar" class="banner std" hidden>
+      <span>Standard library: <code id="std-name"></code> (read-only)</span>
+      <button id="std-back" type="button" title="Back to where you were (Esc, or Alt+Left)">Back</button>
+    </div>
+    <div class="editor" id="editor">
       <pre id="highlight" aria-hidden="true"></pre>
       <textarea id="source" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="Stitchwort source"></textarea>
     </div>
@@ -754,7 +787,9 @@ export def area: Shape -> Nat
         await compiler.default({ module_or_path: await wasm });
         const sink = { write: (text) => onOutput?.(text) };
         // As in playground-worker.js: a request with `paths` is for a project.
+        if (request.action === "stdsource") return { out: { text: compiler.std_source(request.path) } };
         const answer = request.paths ? {
+          index: () => compiler.check_index_project(request.paths, request.texts, request.targets),
           outline: () => compiler.outline_project(request.paths, request.texts),
           check: () => compiler.check_project(request.paths, request.texts, request.targets),
           checkall: () => compiler.check_project(request.paths, request.texts, ""),
@@ -763,6 +798,7 @@ export def area: Shape -> Nat
           extract: () => compiler.extract_project(request.paths, request.texts, request.namespace),
           run: () => compiler.run_project_streaming(request.paths, request.texts, request.name, request.input, request.maxOutput, sink),
         }[request.action] : {
+          index: () => compiler.check_index(request.source),
           check: () => compiler.check(request.source),
           test: () => compiler.test(request.source, request.known ?? ""),
           evaluate: () => compiler.evaluate(request.source, request.expr),
@@ -782,12 +818,14 @@ export def area: Shape -> Nat
   let checker = new Compiler();
   /** Running `main`, separately, so editing stays responsive during a run. */
   let runner = new Compiler();
+  /** Code navigation's index and library text, in a worker of its own, so a check is never cancelled by it. */
+  let indexer = new Compiler();
 
   /** If the worker couldn't start at all, switches to the in-page compiler. */
   function fallBack(result) {
     if (!result.noWorker || workersWork || checker instanceof InPage) return false;
     console.warn("The playground's worker didn't start, so the compiler runs in the page:", result.error);
-    checker = runner = new InPage();
+    checker = runner = indexer = new InPage();
     return true;
   }
 
@@ -851,6 +889,10 @@ export def area: Shape -> Nat
 
   /** The open project: the manifest, the files, and what's open; or null. */
   let project = null;
+  /** While the read-only library text is shown: { std, stash } (the editor's own state). */
+  let stdView = null;
+  /** The editor's own text, even while the library's is shown. */
+  const sourceText = () => stdView ? stdView.stash.value : source.value;
   const runHint = el("p", { className: "hint" });
   /** The run panel's explanation, for `main` of the program or of a project's day. */
   function setRunHint() {
@@ -1021,11 +1063,11 @@ export def area: Shape -> Nat
 
   /** What a render or a run is for: the source, or the day with every file's text. */
   const stateKey = () => project
-    ? JSON.stringify([project.day, project.manifest.files.map((p) => project.texts.get(p))]) : source.value;
+    ? JSON.stringify([project.day, project.manifest.files.map((p) => project.texts.get(p))]) : sourceText();
 
   /** A compiler request for the open program or project. */
   function requestFor(action, extra = {}) {
-    if (!project) return { action, source: source.value, ...extra };
+    if (!project) return { action, source: sourceText(), ...extra };
     const { manifest } = project;
     const data = manifest.data ?? [];
     return { action, paths: [...manifest.files, ...data],
@@ -1144,6 +1186,7 @@ export def area: Shape -> Nat
   }
 
   function openFile(path) {
+    exitStd();
     if (project.open !== path) {
       rememberCaret();
       if (!tabPaths().includes(path)) project.extras.add(path);
@@ -1237,6 +1280,7 @@ export def area: Shape -> Nat
       output.replaceChildren(el("p", {}, `The bundled project couldn’t be fetched: ${e.message}`));
       return;
     }
+    exitStd();
     if (project) rememberCaret();
     project = state;
     const day = manifest.days[Math.min(index, manifest.days.length - 1)];
@@ -1318,6 +1362,7 @@ export def area: Shape -> Nat
 
   async function loadExample(id) {
     if (id.startsWith("aoc:")) return loadProject(Number(id.slice(4)) || 0);
+    exitStd();
     project = null;
     filebar.hidden = true;
     banner.hidden = true;
@@ -1681,6 +1726,401 @@ export def area: Shape -> Nat
 
   source.addEventListener("scroll", align);
   new ResizeObserver(align).observe(source);
+
+  // ---- Code navigation (docs/proposals/code-navigation.md) ---------------
+  // Hovering a name shows its type; Cmd/Ctrl-click (or F12 at the caret) goes
+  // to its definition: in another file of the project, in the standard
+  // library (its text, read-only, with a way back), or to a local's binder.
+  // The compiler's index says where every written name goes. It is computed
+  // lazily, in a worker of its own, when the pointer first enters the editor
+  // (or navigation is first asked for) after the text changed: a check does
+  // not also build it, so typing costs nothing extra. It elaborates the
+  // program once more, so it takes about as long as a check. An index stays
+  // good for the files whose text it was made from, so one that couldn't be
+  // refreshed (the compiler crashed or timed out) still serves the files
+  // that haven't changed.
+  // Ranges are the compiler's: 0-based lines, UTF-16 columns. A textarea's
+  // offsets count UTF-16 units too, so tabs and astral characters need no
+  // special care; the mapping goes through line starts of the editor's text.
+
+  const editorBox = document.getElementById("editor");
+  const stdbar = document.getElementById("stdbar");
+  const navlink = el("div", { id: "navlink", hidden: true });
+  const navtip = el("div", { id: "navtip", role: "tooltip", hidden: true });
+  editorBox.append(navlink);
+  document.body.append(navtip);
+
+  /** The path the compiler is given for a single file's text (crates/web). */
+  const SINGLE = "playground.sw";
+  const nav = { index: null, pending: null, failed: null, pointer: null, mod: false, hover: null,
+                tipTimer: 0, frame: 0, back: [], std: new Map() };
+
+  const openPath = () => project ? project.open : SINGLE;
+
+  let startsFor = null;
+  let startsList = [0];
+  /** The offsets at which `text`'s lines start. */
+  function lineStarts(text) {
+    if (startsFor !== text) {
+      startsList = [0];
+      for (let i = text.indexOf("\n"); i >= 0; i = text.indexOf("\n", i + 1)) startsList.push(i + 1);
+      startsFor = text;
+    }
+    return startsList;
+  }
+  /** `offset` as [line, character]. */
+  function posOf(text, offset) {
+    const starts = lineStarts(text);
+    let lo = 0, hi = starts.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1;
+      if (starts[mid] <= offset) lo = mid; else hi = mid - 1;
+    }
+    return [lo, offset - starts[lo]];
+  }
+  const offsetOf = (text, line, character) => Math.min((lineStarts(text)[line] ?? text.length) + character, text.length);
+
+  /** The node and offset in the coloured copy for an offset of the text. */
+  function textPoint(offset) {
+    const first = highlighted.firstChild;
+    if (first && first === highlighted.lastChild) return [first, Math.min(offset, first.length)];
+    const walker = document.createTreeWalker(highlighted, NodeFilter.SHOW_TEXT);
+    let at = 0;
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (offset <= at + node.length) return [node, offset - at];
+      at += node.length;
+    }
+    return null;
+  }
+  /** The box, in the viewport, of the text from `from` to `to`: where the browser drew it. */
+  function rectOf(from, to) {
+    const start = textPoint(from), end = textPoint(to);
+    if (!start || !end) return null;
+    const range = document.createRange();
+    range.setStart(...start);
+    range.setEnd(...end);
+    return range.getBoundingClientRect();
+  }
+
+  const isLow = (c) => c >= 0xdc00 && c <= 0xdfff;
+  const isHigh = (c) => c >= 0xd800 && c <= 0xdbff;
+  /**
+   * The offset of the character under a point of the viewport, or null. The
+   * line comes from the line height; within it a binary search over the
+   * characters' drawn boxes, so tabs and wide characters are right.
+   */
+  function offsetAt(x, y) {
+    const text = source.value;
+    const starts = lineStarts(text);
+    const box = highlighted.getBoundingClientRect();
+    const css = getComputedStyle(highlighted);
+    const height = parseFloat(css.lineHeight);
+    const top = box.top + parseFloat(css.borderTopWidth) + parseFloat(css.paddingTop);
+    const line = Math.floor((y - top + highlighted.scrollTop) / height);
+    if (!(line >= 0) || line >= starts.length) return null;
+    const first = starts[line];
+    const last = line + 1 < starts.length ? starts[line + 1] - 1 : text.length;
+    const width = (o) => isHigh(text.charCodeAt(o)) ? 2 : 1;
+    let lo = first, hi = last - 1, found = -1;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      const o = mid > first && isLow(text.charCodeAt(mid)) ? mid - 1 : mid;
+      const r = rectOf(o, o + width(o));
+      if (r && r.left <= x) { found = o; lo = mid + 1; } else hi = mid - 1;
+    }
+    if (found < 0) return null;
+    const r = rectOf(found, found + width(found));
+    return r && x < r.right ? found : null;
+  }
+
+  /** What an index was made from: the day and every file's text, or the single text. */
+  const inputsNow = () => project
+    ? { day: project.day, texts: new Map(project.manifest.files.map((p) => [p, project.texts.get(p)])) }
+    : { day: null, texts: new Map([[SINGLE, sourceText()]]) };
+  function sameInputs(a, b) {
+    if (!a || !b || a.day !== b.day || a.texts.size !== b.texts.size) return false;
+    for (const [path, text] of a.texts) if (b.texts.get(path) !== text) return false;
+    return true;
+  }
+  /** Whether the index's positions in this file are still the text's. */
+  const validFor = (idx, path) => idx.day === (project ? project.day : null) && idx.texts.get(path) === inputsNow().texts.get(path);
+  const failedNow = () => nav.failed && sameInputs(nav.failed, inputsNow());
+
+  /** The index for the current text: computed if it isn't yet (null if the compiler couldn't). */
+  function ensureIndex() {
+    const now = inputsNow();
+    if (nav.index && sameInputs(nav.index, now)) return Promise.resolve(nav.index);
+    if (nav.pending && sameInputs(nav.pending.inputs, now)) return nav.pending.promise;
+    if (failedNow()) return Promise.resolve(nav.index);
+    const request = requestFor("index");
+    const promise = (async () => {
+      let result = await indexer.call(request, CHECK_SECONDS);
+      if (fallBack(result)) result = await indexer.call(request, CHECK_SECONDS);
+      if (result.out) {
+        const byFile = new Map();
+        result.out.refs.forEach((ref) => {
+          if (!byFile.has(ref.file)) byFile.set(ref.file, []);
+          byFile.get(ref.file).push(ref);
+        });
+        nav.index = { out: result.out, byFile, ...now };
+        nav.failed = null;
+      } else if (!result.cancelled) {
+        nav.failed = now;
+      }
+      if (nav.pending?.promise === promise) nav.pending = null;
+      return nav.index;
+    })();
+    nav.pending = { inputs: now, promise };
+    return promise;
+  }
+
+  /** The ref (and its offsets in the editor) at an offset of the open file, or null. */
+  function lookupAt(idx, offset) {
+    const path = openPath();
+    if (stdView || !validFor(idx, path)) return null;
+    const file = idx.out.files.findIndex((f) => f.path === path && !f.std);
+    const refs = idx.byFile.get(file);
+    if (!refs) return null;
+    const text = source.value;
+    const [line, ch] = posOf(text, offset);
+    const before = (l, c, r) => l < r[0] || (l === r[0] && c < r[1]); // (l, c) is before the range's start
+    let lo = 0, hi = refs.length - 1, at = -1;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      if (before(line, ch, refs[mid].range)) hi = mid - 1; else { at = mid; lo = mid + 1; }
+    }
+    if (at < 0) return null;
+    const ref = refs[at];
+    const end = ref.range;
+    if (line > end[2] || (line === end[2] && ch >= end[3])) return null;
+    return { ref, idx, from: offsetOf(text, end[0], end[1]), to: offsetOf(text, end[2], end[3]) };
+  }
+
+  /** Where a ref goes, with what to say about it. */
+  function targetOf(idx, ref) {
+    if (ref.symbol !== undefined) {
+      const s = idx.out.symbols[ref.symbol];
+      return { file: s.file, range: s.range, name: s.name, kind: s.kind, type: ref.type ?? s.type };
+    }
+    return { file: ref.binder.file, range: ref.binder.range, name: ref.binder.name, kind: "local", type: ref.type };
+  }
+
+  // The hover tooltip ------------------------------------------------------
+
+  function hideTip() {
+    clearTimeout(nav.tipTimer);
+    navtip.hidden = true;
+  }
+  function showTip() {
+    const hover = nav.hover;
+    if (!hover) return;
+    const { name, kind, type } = targetOf(hover.idx, hover.ref);
+    navtip.replaceChildren(el("span", { className: "name" }, name), el("span", { className: "kind" }, " " + kind),
+                           ...(type ? [document.createTextNode("\n: " + type)] : []));
+    navtip.hidden = false;
+    const r = rectOf(hover.from, hover.to);
+    if (!r) return;
+    const w = navtip.offsetWidth, h = navtip.offsetHeight;
+    const left = Math.max(8, Math.min(r.left, innerWidth - w - 8));
+    const top = r.bottom + 4 + h > innerHeight - 8 ? Math.max(8, r.top - h - 4) : r.bottom + 4;
+    navtip.style.left = `${left}px`;
+    navtip.style.top = `${top}px`;
+  }
+
+  /** Underlines the hovered name while Cmd/Ctrl is held, as an editor does a link. */
+  function showLink() {
+    const hover = nav.hover;
+    const r = hover && nav.mod && !stdView ? rectOf(hover.from, hover.to) : null;
+    source.style.cursor = r ? "pointer" : "";
+    navlink.hidden = !r;
+    if (!r) return;
+    const box = editorBox.getBoundingClientRect();
+    Object.assign(navlink.style, { left: `${r.left - box.left}px`, top: `${r.top - box.top}px`,
+                                   width: `${r.width}px`, height: `${r.height}px` });
+  }
+
+  function setHover(hit) {
+    if ((hit?.ref ?? null) !== (nav.hover?.ref ?? null) || hit?.idx !== nav.hover?.idx) {
+      nav.hover = hit;
+      hideTip();
+      if (hit) nav.tipTimer = setTimeout(showTip, 300);
+    }
+    showLink();
+  }
+
+  function updateNav() {
+    const p = nav.pointer;
+    let hit = null;
+    if (p && !stdView) {
+      const offset = offsetAt(p.x, p.y);
+      if (offset !== null) {
+        if (nav.index && validFor(nav.index, openPath())) {
+          hit = lookupAt(nav.index, offset);
+        } else if (!failedNow()) {
+          // Wait for the index, then look again (only if it helps: no loop).
+          ensureIndex().then((idx) => { if (idx && validFor(idx, openPath())) scheduleNav(); });
+        }
+      }
+    }
+    setHover(hit);
+  }
+  function scheduleNav() {
+    nav.frame ||= requestAnimationFrame(() => { nav.frame = 0; updateNav(); });
+  }
+  function setMod(on) {
+    if (nav.mod === on) return;
+    nav.mod = on;
+    showLink();
+  }
+
+  // Going there ------------------------------------------------------------
+
+  /** Selects the range of the editor's text and scrolls it into view. */
+  function reveal(range) {
+    const text = source.value;
+    const from = offsetOf(text, range[0], range[1]);
+    const to = offsetOf(text, range[2], range[3]);
+    source.focus({ preventScroll: true });
+    source.setSelectionRange(from, to);
+    const css = getComputedStyle(source);
+    const y = parseFloat(css.paddingTop) + range[0] * parseFloat(css.lineHeight);
+    if (y < source.scrollTop || y + parseFloat(css.lineHeight) > source.scrollTop + source.clientHeight) {
+      source.scrollTop = Math.max(0, y - source.clientHeight / 3);
+    }
+    align();
+    const r = rectOf(from, to);
+    const box = source.getBoundingClientRect();
+    if (r && (r.right > box.right - 24 || r.left < box.left + 8)) {
+      source.scrollLeft = Math.max(0, source.scrollLeft + r.left - box.left - 80);
+      align();
+    }
+  }
+
+  /** Shows a file's range: another file of the project, or the open one. */
+  function openAt(path, range) {
+    if (project) {
+      if (!project.texts.has(path)) return;
+      if (project.open !== path) openFile(path);
+    } else if (path !== SINGLE) {
+      return;
+    }
+    reveal(range);
+  }
+
+  /** Shows the library's text, read-only; `exitStd` puts the editor back. */
+  function enterStd(std, text) {
+    const stash = { value: source.value, start: source.selectionStart, end: source.selectionEnd,
+                    top: source.scrollTop, left: source.scrollLeft };
+    if (project) rememberCaret();
+    stdView = { std, stash };
+    hideTip();
+    source.value = text;
+    source.readOnly = true;
+    source.scrollTop = source.scrollLeft = 0;
+    document.getElementById("std-name").textContent = std;
+    stdbar.hidden = false;
+    paint();
+  }
+  function exitStd() {
+    if (!stdView) return;
+    const { stash } = stdView;
+    stdView = null;
+    source.readOnly = false;
+    stdbar.hidden = true;
+    source.value = stash.value;
+    if (project) {
+      showFile();
+    } else {
+      paint();
+      source.setSelectionRange(stash.start, stash.end);
+      source.scrollTop = stash.top;
+      source.scrollLeft = stash.left;
+      align();
+    }
+  }
+  async function openStd(std, range) {
+    let text = nav.std.get(std);
+    if (text === undefined) {
+      let result = await indexer.call({ action: "stdsource", path: std }, CHECK_SECONDS);
+      if (fallBack(result)) result = await indexer.call({ action: "stdsource", path: std }, CHECK_SECONDS);
+      text = result.out?.text ?? "";
+      if (result.out) nav.std.set(std, text);
+    }
+    if (!text || stdView) return false;
+    enterStd(std, text);
+    reveal(range);
+    return true;
+  }
+
+  /** Remembers where the editor is, to come back to. */
+  function pushBack() {
+    nav.back.push({ path: project?.open ?? null, start: source.selectionStart, end: source.selectionEnd,
+                    top: source.scrollTop, left: source.scrollLeft });
+    if (nav.back.length > 50) nav.back.shift();
+  }
+  /** Back to where the last jump was made from. */
+  function goBack() {
+    const there = nav.back.pop();
+    exitStd();
+    if (!there) return;
+    if (project && there.path !== project.open && project.texts.has(there.path)) openFile(there.path);
+    source.focus({ preventScroll: true });
+    source.setSelectionRange(there.start, there.end);
+    source.scrollTop = there.top;
+    source.scrollLeft = there.left;
+    align();
+  }
+
+  /** Goes to the definition of the name at `offset` of the open file; whether there was one. */
+  async function goToDefinition(offset) {
+    if (stdView) return false;
+    const idx = await ensureIndex();
+    const hit = idx && lookupAt(idx, offset);
+    if (!hit) return false;
+    const { file, range } = targetOf(idx, hit.ref);
+    const target = idx.out.files[file];
+    hideTip();
+    pushBack();
+    const went = target.std ? await openStd(target.std, range) : (openAt(target.path, range), true);
+    if (!went) nav.back.pop();
+    return went;
+  }
+
+  editorBox.addEventListener("mouseenter", () => { if (!stdView) ensureIndex(); });
+  source.addEventListener("mousemove", (e) => {
+    nav.pointer = { x: e.clientX, y: e.clientY };
+    setMod(e.metaKey || e.ctrlKey);
+    scheduleNav();
+  });
+  source.addEventListener("mouseleave", () => { nav.pointer = null; scheduleNav(); });
+  source.addEventListener("mousedown", (e) => {
+    hideTip();
+    if (e.button !== 0 || !(e.metaKey || e.ctrlKey) || stdView) return;
+    e.preventDefault(); // no caret move: it's a jump
+    const offset = offsetAt(e.clientX, e.clientY);
+    if (offset !== null) goToDefinition(offset);
+  });
+  source.addEventListener("scroll", () => { hideTip(); showLink(); });
+  source.addEventListener("input", () => { hideTip(); nav.hover = null; showLink(); });
+  window.addEventListener("keydown", (e) => setMod(e.metaKey || e.ctrlKey));
+  window.addEventListener("keyup", (e) => setMod(e.metaKey || e.ctrlKey));
+  window.addEventListener("blur", () => setMod(false));
+  source.addEventListener("keydown", (e) => {
+    if (e.key === "F12") {
+      e.preventDefault();
+      const at = source.selectionStart;
+      goToDefinition(at).then((went) => { if (!went && at > 0) goToDefinition(at - 1); });
+    } else if (e.key === "Escape" && stdView) {
+      e.preventDefault();
+      goBack();
+    } else if ((e.metaKey || e.ctrlKey) && e.key === "[") {
+      e.preventDefault();
+      goBack();
+    } else if (!["Meta", "Control", "Shift", "Alt"].includes(e.key)) {
+      hideTip();
+    }
+  });
+  document.getElementById("std-back").addEventListener("click", goBack);
 
   let timer = null;
   function refresh() {

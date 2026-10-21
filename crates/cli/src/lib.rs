@@ -1,4 +1,4 @@
 //! The `stitchwort` command. The pipeline itself lives in `stitchwort-driver`;
 //! it's re-exported here for the tests.
 
-pub use stitchwort_driver::{driver, project, render, run};
+pub use stitchwort_driver::{driver, nav, project, render, run};

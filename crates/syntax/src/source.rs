@@ -4,6 +4,13 @@ use std::ops::Range;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct FileId(u32);
 
+impl FileId {
+    /// Its position in the [`SourceMap`] it came from.
+    pub fn index(self) -> usize {
+        self.0 as usize
+    }
+}
+
 /// A byte range within one source file.
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Span {

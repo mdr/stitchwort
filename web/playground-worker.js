@@ -27,7 +27,13 @@ self.onmessage = async ({ data }) => {
     const sink = { write: (output) => self.postMessage({ id: data.id, output }) };
     // A request with `paths` is for a project: the files are `paths` and
     // `texts`, and `targets` are the namespaces to check.
+    // The library's text (for navigation): the one answer that isn't JSON.
+    if (data.action === "stdsource") {
+      self.postMessage({ id: data.id, out: { text: b.std_source(data.path) } });
+      return;
+    }
     const answer = data.paths ? {
+      index: () => b.check_index_project(data.paths, data.texts, data.targets),
       outline: () => b.outline_project(data.paths, data.texts),
       check: () => b.check_project(data.paths, data.texts, data.targets),
       checkall: () => b.check_project(data.paths, data.texts, ""),
@@ -36,6 +42,7 @@ self.onmessage = async ({ data }) => {
       extract: () => b.extract_project(data.paths, data.texts, data.namespace),
       run: () => b.run_project_streaming(data.paths, data.texts, data.name, data.input, data.maxOutput, sink),
     }[data.action] : {
+      index: () => b.check_index(data.source),
       check: () => b.check(data.source),
       test: () => b.test(data.source, data.known ?? ""),
       evaluate: () => b.evaluate(data.source, data.expr),

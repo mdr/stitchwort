@@ -2,10 +2,10 @@
 source: crates/driver/tests/hash_stability.rs
 expression: "lines(&session, d, f)"
 ---
-Day.input 3ce3b05e47af4272d4a746749b8b1bf568f03451ed73536a6528a4c908d66229
-Day.beside 4f4e4b17dbced5cacd83a67efa592ebc71f04ee0a6cc325cb2c757b1a6dd824a
-Day.numbers 3d20617c8eabfb469336b436a4664889d719d7f5d95f0ad51df320ceb4a8b60e
-Day.test "the whole text" 87e67bb1c74f6ca9a7aadf83279e8f69ccadc11cb950e7f404683ded25ca6391
-Day.test "its lines" d7e9074aba16bc7e8a85945711426e6dd447650c6d9ab788fe94c4130746f363
-Day.test "a file beside this one" b4dab0b0652bdcfac98428c4da6c1d25e82ac9c633cbcdea777b022501c0156f
-Day.test "unicode survives" 09f57ea789901fd46927870b79c7e6287672b130bcaa3c4350280b0fbcbd16ce
+Day.input 1c288c45f3bb3ebd648434d4f008a26cf4b95bb2a1d18d28ee60c44a3b33df03
+Day.beside 6f7ff92aa35d46489d77bdd4ef906fd77c5bd5797756495f2c87f026bc725d73
+Day.numbers ea35d19e8dee6041ec57b82f232c37aeeed0ee158608f7245a87d719a308f554
+Day.test "the whole text" c0419664b324b5554bc8034c80b9e18d9e7869a19a552fe3f88f3fb52c9610bc
+Day.test "its lines" 9e8549893872d72f36232d1c6127e9dadeb9cfcf1f3888b43038ad04cbf0bf02
+Day.test "a file beside this one" a1eecbdbffa3be3e0b3e05df3d17d251ad3564428f97860d0447779d780ec047
+Day.test "unicode survives" 2181387b1181ce33dfcf299c66240907e45ae3f68ebc9badea6b83240b3163e2

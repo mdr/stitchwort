@@ -274,6 +274,19 @@ pub fn check_project(paths: Vec<String>, texts: Vec<String>, targets: &str) -> S
     }
 }
 
+/// [`super::check_index`] for a project: the index of the namespaces in
+/// `targets` (empty for the whole project) and what they use, with paths
+/// within the project. Not cached.
+#[wasm_bindgen]
+pub fn check_index_project(paths: Vec<String>, texts: Vec<String>, targets: &str) -> String {
+    let mut session = new_session(&paths, &texts);
+    session.elab.enable_navigation();
+    let ok = session
+        .load_project_sources(PROJECT, pairs(&paths, &texts), &target_of(targets))
+        .is_ok();
+    stitchwort_driver::nav::index_json(&session, !ok, Some(ok), &format!("{PROJECT}/"))
+}
+
 /// [`super::test`] for a project: each result also has its `namespace`.
 #[wasm_bindgen]
 pub fn test_project(paths: Vec<String>, texts: Vec<String>, targets: &str, known: &str) -> String {
@@ -438,6 +451,28 @@ mod tests {
         } else {
             program
         }
+    }
+
+    /// The navigation index of a project: paths within it, a reference
+    /// into another namespace, and a library target with its `std` marker.
+    #[test]
+    fn the_navigation_index_of_a_project() {
+        big(|| {
+            let paths = vec!["src/A/A.sw".to_string(), "src/B/B.sw".to_string()];
+            let texts = vec![
+                "namespace A\n\ndef two: Nat := 2\n".to_string(),
+                "namespace B\n\nimport A (two)\n\ndef f (xs: List Nat): Nat := two + xs.length\n"
+                    .to_string(),
+            ];
+            let index = check_index_project(paths, texts, "");
+            assert!(
+                index.starts_with(r#"{"version":1,"errors":false,"ok":true,"files":["#),
+                "{index}"
+            );
+            assert!(index.contains(r#"{"path":"src/B/B.sw"}"#), "{index}");
+            assert!(index.contains(r#""name":"A.two","kind":"def""#), "{index}");
+            assert!(index.contains(r#""std":"core.sw""#), "{index}");
+        });
     }
 
     #[test]

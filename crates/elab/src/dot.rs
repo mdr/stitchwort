@@ -241,6 +241,7 @@ pub(crate) fn infer_dot(
     args: &[Arg],
 ) -> Result<(Term, Value)> {
     if let Some(id) = helper(cx, recv, field) {
+        cx.e.note_dot(field, id);
         let head = (Term::Def(id), cx.g().def(id).ty_value.clone());
         return crate::check::apply_args(cx, head, args);
     }
@@ -248,6 +249,7 @@ pub(crate) fn infer_dot(
     let (rterm, rty) = insert(cx, rterm, rty)?;
     let start = written_type(cx, &rterm)?.unwrap_or_else(|| Ty::Value(rty.clone()));
     let (owner, f, key) = find(cx, recv, field, start)?;
+    cx.e.note_dot(field, f);
     // The call's implicit arguments are made here, not by `apply_args`, so
     // its dictionaries are found here (`check::found_dictionaries`).
     let (term, ty) = call(cx, recv, field, owner, f, &key, rterm, rty, args)?;

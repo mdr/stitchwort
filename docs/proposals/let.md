@@ -629,6 +629,21 @@ after option A lands before designing them.
    conversion rule with its own soundness questions.
 5. **Dot notation after an effectful `let` (`grid.rolls`) is fixed in step
    0** (stage 1).
+6. **A computation over the empty row is run where a value is expected**
+   (SW-124, 21 October 2026). Step 0 stops *pure blocks* going through
+   `runPure`; it doesn't stop a *computation* from being run in pure code.
+   With `def f: Comp NoOp NoRes Nat := 3` (`Comp` imported from
+   `Std.Effect`), `def g: Nat := f` is accepted and elaborates to
+   `Effect.runPure f`: naming or calling a computation performs it (direct
+   style), and one that may perform nothing needs no handler. It's the
+   same rule that runs `fc 2` for `fc: Nat -> Comp NoOp NoRes Nat`, and a
+   function over any row `{e}` used at the empty row ([abilities.md](abilities.md),
+   "The empty row"). The kernel never sees a conversion: `Comp` is a data
+   type, `Comp NoOp NoRes Nat` and `Nat` aren't convertible, and `f` alone
+   is refused at `Nat` (`crates/driver/tests/empty_row_kernel.rs`). The
+   types stay different, so a `Nat -> Comp NoOp NoRes Nat` isn't a
+   `Nat -> Nat`. A row *written* `{}` is no row at all: `{} Nat` is `Nat`.
+   Examples: `accept/empty-row-run.sw`, `reject/empty-row-function.sw`.
 
 ## Sources
 

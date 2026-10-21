@@ -82,6 +82,7 @@ fn variable(cx: &Ctx, s: &Scrutinee) -> Option<usize> {
         return None;
     };
     let level = cx.lookup(&x.text)?;
+    cx.e.note_local(cx, x, &cx.types[level]);
     is_var(&cx.env[level], level).then_some(level)
 }
 

@@ -1,5 +1,5 @@
 {
-  "next": 211,
+  "next": 213,
   "tickets": [
     {
       "id": 1,
@@ -376,13 +376,13 @@
     {
       "id": 25,
       "title": "Decide: rename Maybe to Option?",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "design"
       ],
-      "body": "Matt's call, kept open (D11). Matt prefers Scala/TypeScript-familiar surface syntax: Scala, Rust and Lean call it `Option` (`Some`/`None`); Haskell and Elm call it `Maybe` (`Just`/`Nothing`). Hashes aren't a constraint (SW-32). Today `type Maybe (a: Type)` is crates/elab/src/std/core.sw:127; `Maybe` occurs about 350 times in .sw files (std, aoc, examples) and also in the Rust JS boundary codec (crates/js/src/lib.rs, crates/driver/src/run.rs, crates/core/src/registry.rs) and its `.d.ts` shape, and in docs/DESIGN.md.\n\nFirst step: a short design note giving the options (keep `Maybe`; rename the type only; rename type and constructors to `Option`/`Some`/`None`), the full list of places to change, and the JS-boundary effect (the `.d.ts` shape and the encoding of `Nothing`/`None`). If Matt chooses to rename, the sweep is mechanical (DeepSeek, with a file-by-file spec).\n\nDone when: Matt has chosen, the decision is recorded here, and (if renaming) the sweep is merged with `dev/t` green.\n\nHistory: D11.\n",
+      "body": "Decided 21 Oct 2026 (D244-D246): yes, Option/Some/None with Scala-style names; done in SW-210.",
       "created": "2026-10-19",
       "updated": "2026-10-21",
       "commits": []
@@ -478,7 +478,7 @@
     {
       "id": 32,
       "title": "Simplify the 'old way first' paths kept only to preserve hashes",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -791,7 +791,7 @@
     {
       "id": 53,
       "title": "`Term::Nat`'s hash doesn't include `Nat`'s own hash",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -1073,7 +1073,7 @@
     {
       "id": 72,
       "title": "Duplicate abilities in a hand-built row are not rejected (no 'lacks' constraint on row variables)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -1876,14 +1876,14 @@
     {
       "id": 124,
       "title": "A pure `Comp NoOp NoRes Nat` is accepted where `Nat` is expected",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
         "elab",
         "bug"
       ],
-      "body": "Problem (reproduced 21 Oct): with `import Std.Effect (Comp, NoOp, NoRes)`, `def f: Comp NoOp NoRes Nat := 3` and `def g: Nat := f` both check. docs/proposals/let.md (stage 1) says a pure block isn't wrapped in `Comp`/`runPure`, which may make `Comp NoOp NoRes a` convert to `a` by design, or it may be a conversion hole.\n\nFirst step: find the conversion that accepts `f` at `Nat` (crates/elab/src/effects.rs or unify.rs) and decide whether it's intended.\n\nDone when: either it is fixed (the repro's `g` is rejected, with a reject example) or the intent is documented in docs/proposals/let.md and docs/syntax.md, with an accept example locking it.\n\nHistory: noticed while writing namespaces §9.\n",
+      "body": "Problem (reproduced 21 Oct): with `import Std.Effect (Comp, NoOp, NoRes)`, `def f: Comp NoOp NoRes Nat := 3` and `def g: Nat := f` both check. docs/proposals/let.md (stage 1) says a pure block isn't wrapped in `Comp`/`runPure`, which may make `Comp NoOp NoRes a` convert to `a` by design, or it may be a conversion hole.\n\nFirst step: find the conversion that accepts `f` at `Nat` (crates/elab/src/effects.rs or unify.rs) and decide whether it's intended.\n\nDone when: either it is fixed (the repro's `g` is rejected, with a reject example) or the intent is documented in docs/proposals/let.md and docs/syntax.md, with an accept example locking it.\n\nHistory: noticed while writing namespaces §9.\n\nOutcome (21 Oct 2026): not a soundness hole. The elaborator runs an empty-row computation used at its result type through Effect.runPure (direct style); the kernel keeps Comp NoOp NoRes Nat and Nat apart (crates/driver/tests/empty_row_kernel.rs). D248 (Matt): keep accepting it. Documented in let.md §8 and syntax.md; examples accept/empty-row-run.sw, reject/empty-row-function.sw. Printing issue split out as SW-212.",
       "created": "2026-10-19",
       "updated": "2026-10-21",
       "commits": []
@@ -3077,7 +3077,7 @@
     {
       "id": 201,
       "title": "Code navigation: resolution index (CLI --index and WASM) + go to definition and hover in VS Code and the playground (D238)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -3214,6 +3214,30 @@
       "where": "",
       "labels": [],
       "body": "Rename the prelude's `Maybe`/`Just`/`Nothing` to `Option`/`Some`/`None` (D244–D246), and drop DESIGN's separately planned `Optional` type: there is one option type.\n\nFunction names: `Maybe.withDefault` → `Option.getOrElse`, `Maybe.andThen` → `Option.flatMap`, `isJust`/`isNothing` → `isSome`/`isNone`, `List.mapMaybe` → `List.filterMap`, `Vec.traverseMaybe` → `Vec.traverseOption`; other names containing Maybe/Just/Nothing follow (`consJust` → `consSome`, `decJust` → `decSome`, …). `Ordering.andThen` is unrelated and stays.\n\nJS boundary tags become `{ tag: \"None\" }` / `{ tag: \"Some\", value }`, TypeScript `Option<A>`.\n\nNot renamed: `comparisons/` (other languages' code), `docs/proposals/` and `docs/history.md` (historical records).\n\nDone when: no `Maybe`/`Just`/`Nothing` names remain outside those exclusions; DESIGN.md describes one option type; snapshots regenerated; gate and browser tests pass.\n",
+      "created": "2026-10-21",
+      "updated": "2026-10-21",
+      "commits": []
+    },
+    {
+      "id": 211,
+      "title": "Code navigation follow-ups: errors in the index, find references, index fixes (D251)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "Code-navigation follow-ups (D251, after SW-201): index format version 2 with `diagnostics` (file, range, severity, code, message, labels) from the same `check --index` run and the WASM calls; a ref at each declaration's own name; single-file names qualified as in project mode; `container` always present; refs inside reachable std files; symbol `range` on the last name component if simple. VS Code: diagnostics on each indexing run, Find All References, workspace symbols (Cmd-T). Playground: find references (Shift+F12) with a clickable list.\n\nDone when: the note documents version 2; VS Code shows errors on save and finds references (pure-module tests); the playground finds references (browser tests); `dev/t bench` unchanged with the index off.\n",
+      "created": "2026-10-21",
+      "updated": "2026-10-21",
+      "commits": []
+    },
+    {
+      "id": 212,
+      "title": "Messages print the empty-row computation type as {} a, which reads as a",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "Messages print `Comp NoOp NoRes a` as `{} a`, but a row written `{}` is no row at all (`{} Nat` is `Nat`, effects.rs:802-804), so messages contradict themselves: \"expected `Nat -> Nat`, but this has type `Nat -> {} Nat`\" (examples/reject/empty-row-function.sw snapshot, from SW-124). First step: decide how the empty computation type is shown (e.g. `Comp NoOp NoRes Nat` spelled out, or a distinct notation), then change the printer.\n\nDone when: no message shows `{} T` for a type that isn't `T`; the reject snapshot reads sensibly.\n",
       "created": "2026-10-21",
       "updated": "2026-10-21",
       "commits": []

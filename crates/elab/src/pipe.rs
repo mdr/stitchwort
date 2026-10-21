@@ -54,6 +54,15 @@ pub(crate) fn infer_pipe(cx: &mut Ctx, value: &Expr, f: &Expr) -> Result<(Term, 
         return lambda(cx, f, piped);
     }
     if let Some(known) = known_head(cx, head) {
+        if let Expr::Var(name) = head {
+            if let Some(level) = cx.lookup(&name.text) {
+                cx.e.note_local(cx, name, &cx.types[level]);
+            } else if let Ok(Some((_, ty))) = cx.local(&name.text) {
+                cx.e.note_local(cx, name, &ty);
+            } else {
+                cx.e.note_name(name);
+            }
+        }
         return receiver_first(cx, known, &args, &piped);
     }
     let call = match head {

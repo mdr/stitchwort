@@ -68,6 +68,27 @@ pub fn check(source: &str) -> String {
     }
 }
 
+/// The code navigation index of a program (docs/proposals/code-navigation.md):
+/// the version 1 JSON the CLI's `check --index` writes, with `"ok"` added.
+/// Written whether or not the program checks, for the parts that were
+/// elaborated. Not cached: it loads the program again with recording on.
+#[wasm_bindgen]
+pub fn check_index(source: &str) -> String {
+    let mut session = Session::new();
+    session.elab.limits = session_limits();
+    session.elab.enable_navigation();
+    let ok = session.load(FILE, source).is_ok();
+    stitchwort_driver::nav::index_json(&session, !ok, Some(ok), "")
+}
+
+/// The text of an embedded library file, by the `std` value of a file of
+/// the index (`List/Toolkit.sw`; `core.sw` is the core): empty if there's
+/// none.
+#[wasm_bindgen]
+pub fn std_source(path: &str) -> String {
+    stitchwort_driver::nav::std_source(path, session_limits().stack).unwrap_or_default()
+}
+
 /// Runs a program's tests, reusing the results in `known`:
 /// `{"ok": true, "tests": [{"name": …, "passed": …, "outcome": …, "cached": …}],
 /// "added": "…"}`, where the outcome is `passed`, `failed`, or what the test
@@ -545,6 +566,21 @@ fn json_string(text: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn indexes_a_program_for_navigation_and_serves_library_text() {
+        let index = check_index("def f (xs: List Nat): Nat := xs.length\n");
+        assert!(
+            index.starts_with(r#"{"version":1,"errors":false,"ok":true,"files":["#),
+            "{index}"
+        );
+        assert!(index.contains(r#"{"path":"playground.sw"}"#), "{index}");
+        assert!(index.contains(r#""name":"Std.List.length""#), "{index}");
+        let failed = check_index("def f : Nat := rfl\n");
+        assert!(failed.contains(r#""errors":true,"ok":false"#), "{failed}");
+        assert!(std_source("core.sw").contains("type List"));
+        assert_eq!(std_source("nope.sw"), "");
+    }
 
     #[test]
     fn reports_success_errors_tests_values_and_extracted_code() {
