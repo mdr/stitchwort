@@ -1,0 +1,2 @@
+# expect-error: E-INSTANCE-ORPHAN
+# A synonym owns nothing (docs/proposals/interfaces.md §5.6 rule 1): `LocalNat` is declared in Report, but it's another name for `Nat`, which Std owns, so `Area LocalNat` is an orphan here, as `Area Nat` is in projects/reject/instance-orphan.

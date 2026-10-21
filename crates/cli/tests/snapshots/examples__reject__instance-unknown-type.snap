@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-INSTANCE-UNKNOWN-TYPE] Error: can't tell which type's `Pretty` to use here
+    ╭─[ reject/instance-unknown-type.sw:15:20 ]
+    │
+ 15 │ def shown: Text := Pretty.pretty []
+    │                    ────────┬───────  
+    │                            ╰───────── this needs `Pretty ?2`
+    │ 
+    │ Note: annotate, so the type is known: e.g. `(xs: List Nat)`
+────╯

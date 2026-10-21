@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-INSTANCE-AMBIGUOUS] Error: two different `Pretty a` dictionaries are in scope: `first` and `second`
+    ╭─[ reject/instance-ambiguous-swapped.sw:10:3 ]
+    │
+ 10 │   Pretty.pretty x
+    │   ───────┬───────  
+    │          ╰───────── this needs `Pretty a`
+    │ 
+    │ Note: nothing says they're the same, so the compiler won't choose: pass one by name, as in `[pretty := first]`
+────╯

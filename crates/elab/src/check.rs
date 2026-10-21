@@ -1092,6 +1092,10 @@ fn insert_with(
 pub(crate) fn implicit_arg(cx: &mut Ctx, icit: Icit, ty: &Value) -> Term {
     let meta = cx.fresh_meta();
     if icit == Icit::Auto {
+        let tree = match meta.spine().0 {
+            Term::Meta(m) => *m,
+            _ => unreachable!("a fresh metavariable"),
+        };
         cx.e.obligations.borrow_mut().push(crate::auto::Obligation {
             env: cx.env.clone(),
             types: cx.types.clone(),
@@ -1099,6 +1103,7 @@ pub(crate) fn implicit_arg(cx: &mut Ctx, icit: Icit, ty: &Value) -> Term {
             goal: ty.clone(),
             meta: meta.clone(),
             span: cx.span,
+            tree,
         });
     }
     meta

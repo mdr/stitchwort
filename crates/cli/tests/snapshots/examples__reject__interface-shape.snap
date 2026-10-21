@@ -1,0 +1,14 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-INTERFACE-SHAPE] Error: an interface has one parameter, a type: `interface Convert (a: Type) = { … }`
+   ╭─[ reject/interface-shape.sw:5:1 ]
+   │
+ 5 │ ╭─▶ interface Convert (a: Type) (b: Type) =
+ 6 │ ├─▶   { convert: a -> b }
+   │ │                           
+   │ ╰─────────────────────────── an interface has one parameter, a type: `interface Convert (a: Type) = { … }`
+   │     
+   │     Note: interfaces with several parameters, or over type constructors, aren't supported
+───╯

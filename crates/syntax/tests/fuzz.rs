@@ -47,6 +47,8 @@ const TOKENS: &[&str] = &[
     "namespace",
     "calc",
     "rewrite",
+    "interface",
+    "instance",
     "import",
     "if",
     "then",

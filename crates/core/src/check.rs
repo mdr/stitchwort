@@ -1276,11 +1276,21 @@ pub fn declare_def(
         arity: 0,
         group: None,
         theorem,
+        instance: false,
         export,
         validators: Vec::new(),
         span,
     });
     Ok(DefId(g.defs.len() - 1))
+}
+
+/// Marks pending definition `id` as an instance
+/// (docs/proposals/interfaces.md §9.3): part of its hash, and nothing else.
+pub fn mark_instance(g: &mut Globals, id: DefId) {
+    let def = &mut g.defs[id.0];
+    if def.state == State::Pending {
+        def.instance = true;
+    }
 }
 
 /// Checks a data type's parameters and adds it with no constructors yet, so

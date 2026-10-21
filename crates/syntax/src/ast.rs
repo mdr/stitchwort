@@ -15,6 +15,11 @@ pub struct Name {
 /// can't write the name, so it never captures one of theirs.
 pub const SECTION: &str = "%section";
 
+/// The name of an `auto` parameter written without one, `[auto Ord a]`
+/// (docs/proposals/interfaces.md §5.3): it can't be referred to, or given by
+/// name.
+pub const NAMELESS: &str = "_";
+
 #[derive(Clone, Debug)]
 pub enum Expr {
     /// A variable, function, data type or constructor name.
@@ -641,6 +646,9 @@ pub enum Decl {
         sort: Option<Expr>,
         ctors: Vec<CtorDecl>,
         record: bool,
+        /// `interface I (a: Type) = { … }`: a record whose values the
+        /// compiler finds by type (docs/proposals/interfaces.md §5.1).
+        interface: bool,
         span: Span,
     },
     /// `name : Type`, optionally preceded by `theorem` or `export`.
@@ -653,6 +661,9 @@ pub enum Decl {
         /// definition but never recursive, so a cycle among synonyms is its
         /// own error (`E-SYNONYM-CYCLE`).
         synonym: bool,
+        /// `instance N: I T := …`: a definition that `auto` finds by its
+        /// type (docs/proposals/interfaces.md §5.2).
+        instance: bool,
         span: Span,
     },
     /// `test "name" = expr`: a `Bool` that `stitchwort test` checks is `True`.

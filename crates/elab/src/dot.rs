@@ -344,6 +344,17 @@ fn find(cx: &Ctx, recv: &Expr, field: &AstName, mut ty: Ty) -> Result<(TyHead, D
                 let ns = namespace(cx, h);
                 let key = format!("{ns}.{}", field.text);
                 let shown_key = scope::display(&key).to_string();
+                // A field of a dictionary is its record's own projection, not
+                // the method of that name (docs/proposals/interfaces.md §5.1).
+                if let TyHead::Data(d) = h
+                    && let Some(info) = cx.e.interfaces.get(&d)
+                    && let Some(i) = g.data(d).ctors[0]
+                        .fields
+                        .iter()
+                        .position(|(n, _)| **n == *field.text)
+                {
+                    return Ok((h, info.projections[i], shown_key));
+                }
                 // A local definition is never found by dot notation (§3.6).
                 let found = match cx.e.helper_keys.contains(&key) {
                     true => None,

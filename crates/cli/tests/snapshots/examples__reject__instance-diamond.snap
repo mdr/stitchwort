@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-INSTANCE-AMBIGUOUS] Error: two different `Root a` dictionaries are in scope: `d.left.root` and `d.right.root`
+    ╭─[ reject/instance-diamond.sw:21:44 ]
+    │
+ 21 │ def named [auto d: Both a] (x: a): Text := Root.name x
+    │                                            ─────┬─────  
+    │                                                 ╰─────── this needs `Root a`
+    │ 
+    │ Note: nothing says they're the same, so the compiler won't choose: pass one by name, as in `[root := d.left.root]`
+────╯

@@ -465,6 +465,7 @@ impl Elaborator {
             theorem: false,
             export: false,
             synonym: false,
+            instance: false,
             span,
         };
 
@@ -598,6 +599,7 @@ impl Elaborator {
                     theorem: false,
                     export: false,
                     synonym: false,
+                    instance: false,
                     span,
                 },
                 Decl::Equation {

@@ -339,7 +339,18 @@ pub(crate) fn file_names(
             function: matches!(decl, Decl::Signature { ty, .. } if crate::module::is_function_type(ty)),
             span: main.span,
         });
+        // An interface's fields are its methods: definitions, listed below.
+        let interface = matches!(
+            decl,
+            Decl::Data {
+                interface: true,
+                ..
+            }
+        );
         for (name, follower) in members {
+            if interface && !follower {
+                continue;
+            }
             out.push(IndexedName {
                 key: Elaborator::member_key(&key, &name.text),
                 kind: if follower { member } else { PendingKind::Other },

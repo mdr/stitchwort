@@ -8,7 +8,7 @@
 //! frames, since the nesting limit is measured in stack.
 
 use super::{Parser, Result, describe, error, has_absurd};
-use crate::ast::{BinOp, Clause, Decl, Expr, Name, Pattern};
+use crate::ast::{BinOp, Clause, Decl, Expr, NAMELESS, Name, Pattern};
 use crate::lexer::Tok;
 use crate::{Diagnostic, Span};
 
@@ -35,7 +35,8 @@ impl Parser<'_> {
     pub(super) fn decl(&mut self) -> Result<Vec<Decl>> {
         let start = self.here();
         match self.peek() {
-            Some(Tok::KwType) => self.data(),
+            Some(Tok::KwType | Tok::KwInterface) => self.data(),
+            Some(Tok::KwInstance) => self.definition(start, false),
             Some(Tok::KwAbility) => Ok(vec![self.ability()?]),
             Some(Tok::KwTest) => Ok(vec![self.test()?]),
             Some(Tok::KwExport) => {
@@ -79,7 +80,8 @@ impl Parser<'_> {
     fn missing_keyword(&self) -> Diagnostic {
         Diagnostic::error(
             "E-PARSE",
-            "expected a declaration: `def`, `theorem`, `type`, `ability` or `test`",
+            "expected a declaration: `def`, `theorem`, `type`, `ability`, `interface`, `instance` \
+             or `test`",
         )
         .with_label(self.here(), "a declaration starts with a keyword")
         .with_note("a definition is written `def name (x: A): B := …`")
@@ -95,7 +97,7 @@ impl Parser<'_> {
     }
 
     /// `def name params : type`, then `:= body` or arms; or the same with
-    /// `theorem`. With neither, a signature alone: only the prelude's
+    /// `theorem` or `instance` (docs/proposals/interfaces.md §5.2). With neither, a signature alone: only the prelude's
     /// primitives are declared that way, which the elaborator checks. At
     /// `def` or `theorem`; `start` is where the declaration starts (at
     /// `export`, if it's there). Once here, it's a header: the parser never
@@ -111,6 +113,7 @@ impl Parser<'_> {
             keyword.column
         };
         let theorem = keyword.tok == Tok::KwTheorem;
+        let instance = keyword.tok == Tok::KwInstance;
         self.bump();
         let name = self.def_name()?;
         let mut params = Vec::new();
@@ -129,6 +132,7 @@ impl Parser<'_> {
             theorem,
             export,
             synonym: false,
+            instance,
             span,
         }];
         match self.peek() {
@@ -176,6 +180,10 @@ impl Parser<'_> {
                     "`:=` and the body, or arms starting with `|` on their own lines",
                 ));
             }
+        }
+        if instance && decls.len() == 1 {
+            return Err(error(span, "an instance needs a body")
+                .with_note("write `:=` and the instance's value after its type"));
         }
         if self.tokens.get(self.pos).map(|t| &t.tok) == Some(&Tok::KwWhere) {
             return Err(Diagnostic::error(
@@ -248,6 +256,7 @@ impl Parser<'_> {
                 theorem: false,
                 export: false,
                 synonym: true,
+                instance: false,
                 span: start.to(name.span),
             },
             Decl::Equation {
@@ -284,7 +293,29 @@ impl Parser<'_> {
             names.push(self.param_name()?);
         }
         // `auto` is only special as the first word of a binder with names
-        // after it, as in types.
+        // after it, as in types; or, without a name, `[auto Ord a]`
+        // (docs/proposals/interfaces.md §5.3).
+        if implicit
+            && names.len() == 1
+            && names[0].text == "auto"
+            && !matches!(self.peek(), Some(Tok::Colon | Tok::RBracket) | None)
+        {
+            let ty = self.expr()?;
+            if self.peek() != Some(&Tok::RBracket) {
+                return Err(self.unexpected("`]` to close the parameter `[auto …]`"));
+            }
+            let end = self.bump().span;
+            return Ok(Param::Named {
+                names: vec![Name {
+                    text: NAMELESS.to_string(),
+                    span: names[0].span,
+                }],
+                ty,
+                implicit,
+                auto: true,
+                span: start.to(end),
+            });
+        }
         let auto = implicit && names.len() > 1 && names[0].text == "auto";
         if auto {
             names.remove(0);
@@ -526,7 +557,7 @@ fn check_duplicates(def: &Name, params: &[Param], result: &Expr) -> Result<()> {
     };
     for param in params {
         if let Param::Named { names, .. } = param {
-            for name in names {
+            for name in names.iter().filter(|n| n.text != NAMELESS) {
                 check(&seen, name)?;
                 seen.push(name);
             }
@@ -544,7 +575,7 @@ fn check_duplicates(def: &Name, params: &[Param], result: &Expr) -> Result<()> {
                 ..
             } => {
                 if *implicit {
-                    for name in names {
+                    for name in names.iter().filter(|n| n.text != NAMELESS) {
                         check(&seen, name)?;
                     }
                 }

@@ -902,7 +902,12 @@ impl<'t> Parser<'t> {
 
     fn data(&mut self) -> Result<Vec<Decl>> {
         let start = self.bump().span;
-        let name = self.upper_q("a data type name (starting with an uppercase letter)")?;
+        let interface = self.tokens[self.pos - 1].tok == Tok::KwInterface;
+        let name = if interface {
+            self.upper_q("an interface name (starting with an uppercase letter)")?
+        } else {
+            self.upper_q("a data type name (starting with an uppercase letter)")?
+        };
         let mut params = Vec::new();
         while self.peek() == Some(&Tok::LParen) {
             params.push(self.binder()?);
@@ -932,6 +937,27 @@ impl<'t> Parser<'t> {
         };
         let mut ctors = Vec::new();
         let mut record = false;
+        // An interface is a record (docs/proposals/interfaces.md §5.1).
+        if interface {
+            if let Some((_, ty)) = indices.first() {
+                return Err(error(ty.span(), "an interface can't have indices"));
+            }
+            self.expect(Tok::Equals, "`=` and the interface's fields, `{ … }`")?;
+            if self.peek() != Some(&Tok::LBrace) {
+                return Err(self.unexpected("`{` and the interface's fields"));
+            }
+            let ctor = self.record_fields(&name)?;
+            return Ok(vec![Decl::Data {
+                span: start.to(self.prev_span()),
+                name,
+                params,
+                indices,
+                sort,
+                ctors: vec![ctor],
+                record: true,
+                interface: true,
+            }]);
+        }
         if self.eat(&Tok::Equals) {
             if !matches!(self.peek(), Some(Tok::LBrace | Tok::Pipe)) {
                 if let Some((_, ty)) = indices.first() {
@@ -998,6 +1024,7 @@ impl<'t> Parser<'t> {
             sort,
             ctors,
             record,
+            interface: false,
         }])
     }
 
@@ -1791,10 +1818,15 @@ impl<'t> Parser<'t> {
         Ok(lhs)
     }
 
-    /// `[ name+ :` starts an implicit binder; `[a, b]` is a list literal.
+    /// `[ name+ :` starts an implicit binder, as does `[auto` followed by an
+    /// uppercase name (`[auto Ord a] -> …`, an auto parameter without a
+    /// name); `[a, b]` is a list literal.
     fn is_implicit_binder(&self) -> bool {
         if self.peek() != Some(&Tok::LBracket) {
             return false;
+        }
+        if self.nameless_auto_at(self.pos) {
+            return true;
         }
         let mut i = self.pos + 1;
         while let Some(Token {
@@ -1806,8 +1838,27 @@ impl<'t> Parser<'t> {
         i > self.pos + 1 && self.tokens.get(i).map(|t| &t.tok) == Some(&Tok::Colon)
     }
 
-    /// `[x y : A]`, or `[auto x : P]`. Returns whether it's `auto`.
+    /// Whether the `[` at token `i` opens an auto binder without a name,
+    /// `[auto Ord a]`: `auto` followed by an uppercase name.
+    fn nameless_auto_at(&self, i: usize) -> bool {
+        matches!(self.tokens.get(i + 1).map(|t| &t.tok), Some(Tok::Lower(w)) if w == "auto")
+            && matches!(self.tokens.get(i + 2).map(|t| &t.tok), Some(Tok::Upper(_)))
+    }
+
+    /// `[x y : A]`, or `[auto x : P]`, or `[auto P]`. Returns whether it's
+    /// `auto`.
     fn implicit_binder(&mut self) -> Result<(Binder, bool)> {
+        if self.nameless_auto_at(self.pos) {
+            self.bump();
+            let auto = self.bump().span;
+            let ty = self.expr()?;
+            self.expect(Tok::RBracket, "`]`")?;
+            let names = vec![Name {
+                text: crate::ast::NAMELESS.to_string(),
+                span: auto,
+            }];
+            return Ok((Binder { names, ty }, true));
+        }
         self.expect(Tok::LBracket, "`[`")?;
         let mut names = vec![self.lower("a name")?];
         while let Some(Tok::Lower(_)) = self.peek() {
@@ -2461,6 +2512,8 @@ fn describe(tok: &Tok) -> String {
         Tok::StrStart(_) | Tok::StrMid(_) | Tok::StrEnd(_) => "a text literal".into(),
         Tok::Char(c) => format!("`'{c}'`"),
         Tok::KwTest => "`test`".into(),
+        Tok::KwInterface => "`interface`".into(),
+        Tok::KwInstance => "`instance`".into(),
         Tok::KwType => "`type`".into(),
         Tok::KwTheorem => "`theorem`".into(),
         Tok::KwDef => "`def`".into(),
@@ -2832,6 +2885,46 @@ mod tests {
             panic!("expected a signature");
         };
         assert!(matches!(ty, Expr::Pi { auto: false, .. }));
+    }
+
+    #[test]
+    fn parses_interfaces_instances_and_auto_binders_without_names() {
+        let module = parse(
+            "interface Pretty (a: Type) = { pretty: a -> Text }\n\
+             instance List.instPretty [auto Pretty a]: Pretty (List a) := { pretty = xs => \"\" }\n\
+             def f: [auto Pretty a] -> a -> Text := x => Pretty.pretty x\n\
+             def g: List [auto] -> Nat := 0\n",
+        );
+        assert!(matches!(
+            &module.decls[0],
+            Decl::Data { record: true, interface: true, ctors, .. } if ctors[0].fields.len() == 1
+        ));
+        let Decl::Signature { ty, instance, .. } = &module.decls[1] else {
+            panic!("expected a signature");
+        };
+        assert!(*instance);
+        assert!(matches!(
+            ty,
+            Expr::Pi { implicit: true, auto: true, names, .. } if names[0].text == crate::ast::NAMELESS
+        ));
+        let Decl::Signature { ty, instance, .. } = &module.decls[3] else {
+            panic!("expected a signature");
+        };
+        assert!(!*instance);
+        assert!(matches!(
+            ty,
+            Expr::Pi { implicit: true, auto: true, names, .. } if names[0].text == crate::ast::NAMELESS
+        ));
+        // `[auto]` is still a list.
+        let Decl::Signature { ty, .. } = &module.decls[5] else {
+            panic!("expected a signature");
+        };
+        assert!(matches!(ty, Expr::Arrow(..)));
+        // An instance needs a body.
+        let mut sources = SourceMap::new();
+        let text = "interface I (a: Type) = { x: a }\ninstance n: I Nat\n";
+        let file = sources.add("test.sw", text);
+        assert!(parse_module(file, text).is_err());
     }
 
     #[test]

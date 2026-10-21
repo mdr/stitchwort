@@ -20,6 +20,12 @@
 //!    in scope. Each recursive search is one deeper, up to `MAX_DEPTH`. It's run at
 //!    compile time, and must say `Yes`. The proof is then `fromYes d Trivial`,
 //!    which the kernel re-checks by running `d` itself.
+//!
+//! An obligation whose type is an interface applied to a type is an instance
+//! to find instead (`interfaces.rs`, docs/proposals/interfaces.md §5.5).
+//! One may have to wait, until solving others has said more about its type
+//! or its candidates; obligations are retried in rounds while a round makes
+//! progress.
 
 use std::rc::Rc;
 
@@ -30,6 +36,7 @@ use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::Elaborator;
 use crate::check::{Ctx, builtin_ctor, builtin_data, builtin_def};
+use crate::interfaces::{self, Attempt};
 
 type Result<T> = std::result::Result<T, Diagnostic>;
 
@@ -45,17 +52,52 @@ pub struct Obligation {
     pub goal: Value,
     pub meta: Term,
     pub span: Span,
+    /// The obligation tree it belongs to (an obligation and the
+    /// prerequisites finding its instance created), whose step budget it
+    /// spends: the first one's metavariable.
+    pub tree: usize,
 }
 
 impl Elaborator {
-    /// Proves every outstanding obligation.
+    /// Proves every outstanding obligation, and finds every instance. An
+    /// instance that can't be found yet waits; the waiting ones are retried
+    /// while anything else gets solved, and reported once nothing does.
     pub(crate) fn solve_obligations(&self) -> Result<()> {
+        let mut waiting: Vec<(Obligation, Diagnostic)> = Vec::new();
+        let mut progress = false;
         loop {
             let obligations = std::mem::take(&mut *self.obligations.borrow_mut());
             if obligations.is_empty() {
-                return Ok(());
+                if waiting.is_empty() {
+                    return Ok(());
+                }
+                if !progress {
+                    return Err(waiting.swap_remove(0).1);
+                }
+                progress = false;
+                self.obligations
+                    .borrow_mut()
+                    .extend(waiting.drain(..).map(|(ob, _)| ob));
+                continue;
             }
             for ob in obligations {
+                if let Some((interface, arg)) = interfaces::interface_goal(self, &ob.goal)? {
+                    let mut cx = Ctx::from_parts(
+                        self,
+                        ob.env.clone(),
+                        ob.types.clone(),
+                        ob.names.clone(),
+                        ob.span,
+                    );
+                    match interfaces::attempt(&mut cx, &ob, interface, &arg)? {
+                        Attempt::Solved => progress = true,
+                        Attempt::Wait(why) => {
+                            self.instance_waits.set(self.instance_waits.get() + 1);
+                            waiting.push((ob, why))
+                        }
+                    }
+                    continue;
+                }
                 let mut cx = Ctx::from_parts(self, ob.env, ob.types, ob.names, ob.span);
                 let placeholder = cx.eval(&ob.meta)?;
                 if !matches!(
@@ -64,6 +106,7 @@ impl Elaborator {
                 ) {
                     continue; // already determined by unification
                 }
+                progress = true;
                 let proof = prove(&mut cx, &ob.goal, 0)?;
                 let proof_value = cx.eval(&proof)?;
                 if !cx.unify(&placeholder, &proof_value)? {
@@ -90,25 +133,51 @@ impl Elaborator {
             .borrow()
             .iter()
             .filter(|ob| matches!(ob.meta.spine().0, Term::Meta(m) if wanted(*m)))
-            .map(|ob| {
-                (
-                    ob.env.clone(),
-                    ob.types.clone(),
-                    ob.names.clone(),
-                    ob.goal.clone(),
-                    ob.meta.clone(),
-                    ob.span,
-                )
-            })
+            .map(|ob| ob.meta.clone())
             .collect();
         let mut proved = false;
-        for (env, types, names, goal, meta, span) in pending {
-            let mut cx = Ctx::from_parts(self, env, types, names, span);
+        for meta in pending {
+            let ob = {
+                let obligations = self.obligations.borrow();
+                let id = |t: &Term| match t.spine().0 {
+                    Term::Meta(m) => Some(*m),
+                    _ => None,
+                };
+                let Some(ob) = obligations.iter().find(|ob| id(&ob.meta) == id(&meta)) else {
+                    continue;
+                };
+                Obligation {
+                    env: ob.env.clone(),
+                    types: ob.types.clone(),
+                    names: ob.names.clone(),
+                    goal: ob.goal.clone(),
+                    meta: ob.meta.clone(),
+                    span: ob.span,
+                    tree: ob.tree,
+                }
+            };
+            let (goal, span) = (ob.goal.clone(), ob.span);
+            let mut cx = Ctx::from_parts(
+                self,
+                ob.env.clone(),
+                ob.types.clone(),
+                ob.names.clone(),
+                span,
+            );
             let placeholder = cx.eval(&meta)?;
             if !matches!(
                 force(cx.g(), placeholder.clone())?,
                 Value::Neutral(Head::Meta(_), _)
             ) {
+                continue;
+            }
+            if interfaces::interface_goal(self, &goal)?.is_some() {
+                self.solve_now(&meta)?;
+                let placeholder = cx.eval(&meta)?;
+                proved |= !matches!(
+                    force(cx.g(), placeholder)?,
+                    Value::Neutral(Head::Meta(_), _)
+                );
                 continue;
             }
             let solved = crate::undo::attempt(&mut cx, |cx| {
@@ -126,9 +195,13 @@ impl Elaborator {
     }
 }
 
-/// A proof of `goal`.
+/// A proof of `goal`. (For an instance, an obligation to find it, solved
+/// with the declaration's others.)
 pub fn prove(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Term> {
     let goal = force(cx.g(), goal.clone())?;
+    if interfaces::interface_goal(cx.e, &goal)?.is_some() {
+        return Ok(crate::check::implicit_arg(cx, Icit::Auto, &goal));
+    }
     for level in (0..cx.level()).rev() {
         let ty = cx.types[level].clone();
         if attempt(cx, |cx| Ok(cx.unify(&ty, &goal)?.then_some(())))?.is_some() {

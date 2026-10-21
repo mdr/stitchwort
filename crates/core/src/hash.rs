@@ -116,6 +116,9 @@ pub fn def_hash(g: &Globals, id: DefId) -> Result<Option<ContentHash>> {
     let mut h = Hasher::new(g, Itself::Def(id));
     h.tag("def");
     h.bool(def.theorem);
+    if def.instance {
+        h.tag("instance");
+    }
     h.term(&def.ty)?;
     h.term(body)?;
     let hash = h.finish();
@@ -164,6 +167,9 @@ fn group_hashes(g: &Globals, members: &[DefId]) -> Result<()> {
             .expect("internal error: hashing a group that isn't final");
         h.tag("def");
         h.bool(def.theorem);
+        if def.instance {
+            h.tag("instance");
+        }
         h.term(&def.ty)?;
         h.term(body)
     };

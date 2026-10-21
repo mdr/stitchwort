@@ -1,0 +1,13 @@
+---
+source: crates/driver/tests/hash_stability.rs
+expression: "lines(&session, d, f)"
+---
+data Main.Same 8f36cb18f3fc45c028085c9dec52fd7c041dbe5c2ffbf3f8e9ce73582483086d
+Main.Same.%same ef43d6a7e343de5660946efc382c9cbc1a8d4e48de83cbc2b959f349359962c0
+Main.Same.same 0aa81bba743d173f26e69520cc2e39cad0a88334a98a0b6cfd1184860e66cf1c
+Main.Same.instNat e0db6fd1407cc365a37b1c081ee279a62b0ef98f4160ab48787d7809bec64229
+Main.sameLists 5123ae9af26437f760ddde009c6bdde9401ebe815b09ed2dec3c262377144055
+Main.Same.instList 9b2aecc9fcb135761e80bd66113251a62f7afe87f5d2730eaca8ca8f8bd98aec
+Main.deep 97ec47a422f437f2f6ebfb7f898fbb141a3050f5a87a4a6dc9d0e2a5baf97fc3
+Main.test "twelve deep" c103f261cdf97b99c43d375019df0d94cf7ac6b0a69646c28582eff90b807178
+Main.test "twelve deep, differing" 2306bed0bda117d73cf9ea85a2a59d07fd17e7614846448ed9ab547d4ccbee7e

@@ -106,11 +106,12 @@ def isOdd: Nat -> Bool
 The design is in [the proposal](proposals/declaration-syntax.md). Until 18 October 2026 definitions were a signature line followed by equations (`length : List a -> Nat`, then `length Nil = 0` …), with `->` in lambdas and arms and `let x = e`; that syntax is gone. Some older documents still use it. A header with no body (`def f : T`) is allowed only for the prelude's primitives; anywhere else it is `E-MISSING-DEFINITION`.
 
 ```
-definition ::= "export"? ("def" | "theorem") name binder* ":" type body
+definition ::= "export"? ("def" | "theorem" | "instance") name binder* ":" type body
 body       ::= ":=" expr | arm+
 arm        ::= "|" pattern ("," pattern)* ("=>" expr)?
 binder     ::= "(" name+ ":" type ")" | "[" name+ ":" type "]"
-             | "[" "auto" name ":" type "]" | "(" ")"
+             | "[" "auto" name ":" type "]" | "[" "auto" type "]" | "(" ")"
+interface  ::= "interface" Name binder ("=" "{" fields "}")
 test       ::= "test" string ":=" expr
 ```
 
@@ -262,6 +263,43 @@ def nameOf: Person -> Text
 - **After an arrow**, `{` starts an ability row, so a record literal in a function type's result needs parentheses: `(p: Person) -> ({ p | age = p.age } = p)`.
 - At the JS boundary a record is a plain object with its fields as keys, in declared order, and no `tag` (DESIGN.md §12).
 
+## Interfaces
+
+An interface describes what a type supports; an instance says how one type supports it; `auto` finds the instance by type (docs/proposals/interfaces.md, stage 1; `examples/accept/interfaces*.sw`). The library has no interfaces yet: programs declare their own.
+
+```
+-- A record of operations (and laws: proof fields), with one parameter, a type.
+interface Pretty (a: Type) =
+  { pretty: a -> Text }
+
+-- An instance: a definition of the interface for one type, marked `instance`.
+instance Item.instPretty: Pretty Item :=
+  { pretty = i => "item" }
+
+-- It may ask for instances of its type's variables.
+instance Pretty.instList [auto p: Pretty a]: Pretty (List a) :=
+  { pretty = xs => Text.join ',' (xs.map Pretty.pretty) }
+
+-- Asking for one, by `auto`, named or not.
+def shout [auto p: Pretty a] (x: a): Text := Pretty.pretty x ++ "!"
+def whisper [auto Pretty a] (x: a): Text := Pretty.pretty x
+
+-- A named alternative: a plain `def` of the interface's type, never found
+-- by `auto`, passed by name.
+def loud: Pretty Item := { pretty = i => "ITEM" }
+
+test "by name" := shout [p := loud] MkItem == "ITEM!"
+```
+
+- **An interface is a record** (`type I (a: Type) = { … }`, [Records](#records)) that the compiler finds values of. It has exactly one parameter, a type, and is in `Type` (`E-INTERFACE-SHAPE`). Its fields are its operations; a field whose type is a proposition is a law, erased at runtime.
+- **Methods.** Each field `f` of `I` gives `I.f: [a: Type] -> [auto i: I a] -> …`, which takes the field from the dictionary it's given: `Pretty.pretty x`. `i` is the interface's name with a lower-case first letter (`pretty`, `decEq`), so `Pretty.pretty [pretty := loud] x` passes one by name. Methods are in the interface's namespace and can be imported: `import Pretty (pretty)`. On a dictionary `d`, `d.pretty` is its field, by dot notation.
+- **Instances** are definitions marked `instance`, always named; `T.instI` or `I.instT` by convention (the name can't be in a namespace of the library: `Pretty.instNat`, not `Nat.instPretty`). The type must be the interface applied to a type name and distinct variables: `Pretty Nat`, `Pretty (List a)`, `Pretty (a, b)`, `Size (Vec a n)`, after unfolding synonyms (`E-INSTANCE-HEAD`: not `Pretty (List Nat)`, not `Pretty a`, not a non-interface). Its parameters may only be those variables (implicit, usually bound automatically) and `auto` parameters asking for an interface of one of them (`E-INSTANCE-PARAMETER`, `E-INSTANCE-CONTEXT`). The body is any expression of the interface type.
+- **One instance per interface and type name** (`E-INSTANCE-OVERLAP`), declared in the module that declares the interface or the type (`E-INSTANCE-ORPHAN`): in a project the namespace, in a single file the file. A synonym owns nothing: `type LocalNat = Nat` doesn't make its module an owner of `Nat`. Another choice for a type is a named alternative.
+- **Finding one.** For `[auto i: I T]`: if unification already fixed it, that; otherwise the dictionaries in scope (parameters and `let`s of interface type, and the superclasses inside them), then the one instance for `T`'s type name, whose own `auto` parameters are found the same way. A dictionary in scope wins over the instance: inside `shout [p := loud]`, every `Pretty Item` is `loud`. Two different ones in scope is `E-INSTANCE-AMBIGUOUS` (pass one by name); none is `E-INSTANCE-NONE`. Nothing is guessed: while what's needed, or whether a dictionary in scope fits, depends on something not yet worked out, it waits until the rest of the declaration is, and is then `E-INSTANCE-UNKNOWN-TYPE` (annotate) or `E-INSTANCE-STUCK`. There's no depth limit, only a large step budget (`E-INSTANCE-BUDGET`, which means resolution stopped, not that there's no instance).
+- **Superclasses.** A field whose type is another interface on the same parameter is a superclass: `interface Child (a: Type) = { base: Base a, law: … }`. The superclasses can't form a cycle (`E-INTERFACE-CYCLE`). A literal of an interface type may leave a superclass out: it's found like an `auto` argument, before the later fields are checked (so `law`'s type can compute with it). A dictionary in scope gives its superclasses too (`[auto c: Child a]` gives a `Base a`, `c.base`). An instance's superclass must be the instance the compiler finds for it (`E-INSTANCE-SUPER`). Asking for an interface and its own superclass on one type is `E-INSTANCE-REDUNDANT`.
+- **Order.** As elsewhere, declarations can be in any order: the rest of the module is checked after its instances, and an instance after the instances of its superclasses and of the interfaces it mentions. An instance needed where it can't be checked first (it depends on the declaration that needs it) is `E-INSTANCE-NONE`, with a note saying so.
+- `[auto` followed by an uppercase name in a type is a binder: `[auto Pretty a] -> Text`. A list literal starting with a variable called `auto` applied to a constructor would need brackets.
+
 ## Abilities
 
 ```
@@ -352,7 +390,8 @@ Loosest-binding first:
 | `x y => e` | Function |
 | `(x y: A) -> B` | Dependent function type |
 | `[x y: A] -> B` | Function type with implicit parameters, filled in by the compiler |
-| `[auto x: P] -> B` | An implicit proof of `P`, found from hypotheses in scope or a decision procedure |
+| `[auto x: P] -> B` | An implicit proof of `P`, found from hypotheses in scope or a decision procedure; or, for an interface `P` (`[auto ord: Ord a]`), an instance ([Interfaces](#interfaces)) |
+| `[auto P] -> B` | The same without a name, for an interface (`[auto Pretty a]`): it can't be referred to or passed by name |
 | `if c then a else b` | On a `Bool`, or on a proposition with a decision procedure, as `if _: c then a else b` (Lean's way): `if x < y`, `if n <= hi`, `if d != 0` work on `Nat` and `Int`. `c` is tried as a `Bool` first, exactly as before, so a `Bool` condition (`if xs == ys`) means what it always has; only if that fails is `c` tried as a proposition, with everything the first try did undone. A proposition nothing decides is `E-AUTO-NONE` at the condition (`if f = g` on functions); a condition that's neither is the `Bool` error. So do `&&`, `\|\|` and `not` on comparisons: `if x < y && y < z`, `if not (x < y)`. A condition that performs operations must be a `Bool` |
 | `if h: P then a else b` | Decides `P` (at runtime if need be). `h: P` in `a`, `h: Not P` in `b` |
 | `A -> B` | Function type |
