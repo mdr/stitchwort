@@ -1,5 +1,5 @@
 {
-  "next": 204,
+  "next": 210,
   "tickets": [
     {
       "id": 1,
@@ -127,9 +127,9 @@
         "elab",
         "design"
       ],
-      "body": "docs/proposals/checker-evaluation.md §6/§9. Options (a) (stages 1A/1B, bind instead of evaluate) and the lazy kernel `Let` are done (f7699c9, 65415c5, fe543b0). Option (b) (lazy values / thunks for dependent application arguments and constructor fields) is shelved: after the checker fixes AoC days check in 0.11-0.28 s. Residual that only (b) fixes: `if h : P` branches still compute the operands about 3 times (was 4). Revisit only if a real program spends more than ~1 s checking values its types don't need. Opus, design review first.",
+      "body": "Problem: checking a dependent application or constructor still computes argument values the types don't need. Residual that only option (b) (lazy values / thunks for dependent application arguments and constructor fields) fixes: `if h : P` branches compute their operands about 3 times (was 4). See docs/proposals/checker-evaluation.md §6, §9.3-9.4.\n\nShelved: options (a) (stages 1A/1B, bind instead of evaluate; f7699c9, 65415c5) and the lazy kernel `Let` (fe543b0) are done, and with the checker fixes AoC days check in 0.11-0.28 s.\n\nTrigger to revisit: a real program spends more than about 1 s checking values its types don't need. First step then: re-measure per §9.1, then a design review (Opus) before any code.\n\nDone when: either a measured program triggers the revisit and (b) is built and gated, or this stays shelved (nothing to do until the trigger).\n\nHistory: shelved after §9 re-measure.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -156,9 +156,9 @@
         "stdlib",
         "proof"
       ],
-      "body": "On a fixed list with a comparison the checker can't decide (a stuck `if le x y`), `List.merge` (prelude.sw:1084) computes both branches, so work doubles per element (0.42 s at 7+7). The fix needed mutual recursion (now complete, 3d73325) and restating the sorting proofs (`List.mergeLeHead`, `Sorted`, `Perm` in prelude.sw ~1133+). `Text.linesFrom` and the min/max folds are similar but rare. Done: merge written as a mutually recursive pair, proofs restated, the 7+7 case measured again.",
+      "body": "On a fixed list whose elements make the comparison stuck (a `if le x y` the checker can't decide), `List.merge` (crates/elab/src/std/List/Sort.sw:463) computes both branches of the `if`, so the work doubles per element (0.42 s at 7+7, from docs/history.md:104; not re-measured). Mutual recursion is now complete (3d73325), so the fix is possible: write merge as a mutually recursive pair (one function for each side that is currently ahead, so each recursive call is in a single branch and neither branch needs to be computed to unstick the other), then restate the sorting proofs that unfold it: `List.mergeLeHead` (Sort.sw:514), `List.mergeSorted` (Sort.sw:523), the `Perm` and length lemmas below them, and `List.pushRunSorted` (Sort.sw:544). `Text.linesFrom` (std/Text/Text.sw:77) and the min/max folds have the same shape but are rare; leave them out.\n\nFirst step: write a benchmark input (merge of two fixed lists of symbolic elements, 7+7) and record its step count, so the before and after are comparable. Done when: merge is a mutually recursive pair, the Sort.sw proofs are restated and check, and the 7+7 case is measured again with the number in the ticket.\n\nHistory: opened from the checker-evaluation work (docs/proposals/checker-evaluation.md:596); waited on mutual recursion.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -193,17 +193,16 @@
     },
     {
       "id": 13,
-      "title": "Decide: start AoC days 6-9 (and their list helpers)?",
+      "title": "Decide: AoC day 9 (movie theatre rectangles): start it, and with what",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [
-        "aoc",
-        "stdlib"
+        "aoc"
       ],
-      "body": "Open decision (D15, Matt's call; keep open). Days 6-9 and the list helpers they'd need were deferred until Matt is happy with the learnings from days 1-5 (docs/aoc-2025.md, docs/comparisons/aoc-day01.md). Related prerequisites: multi-file (SW-89 done, SW-106 stage 2), the parked AoC layout questions (shared Aoc namespace, playground loading, aoc/ layout), SW-100 (division lemmas), SW-99 (calc/rewrite). Already merged: [x, ..rest] list patterns.\n\n19 Oct: Matt started day 6 (SW-137).",
+      "body": "Open decision (D15, Matt's call; keep open). Days 6 and 7 are solved and proved; day 8 is postponed (SW-198, D225). Day 9 is the remaining AoC 2025 day (aoc/inputs/day09.txt exists, there is no aoc/src/Aoc/Day09).\n\nFirst step: decide whether to start it now and which part. Facts (docs/aoc-2025.md:584-600): part 1 (largest rectangle from two red tiles, all ~122,000 pairs, ~12 million steps) is covered by today's library. Part 2 (largest rectangle inside the loop) needs coordinate compression, a flood fill, a 2D prefix-sum table and a sorted dedup with index lookup; random access in a 2D table is O(n) on lists of lists, so an Array (SW-112, backlog) would make it clean, ~120 million steps (~3 s) on lists. The user's Scala solution has no part 2 (`???`), and docs/aoc-2025.md:785 asks whether day 9 part 2 is out of scope.\nOptions: (a) part 1 only, with its proof; (b) part 1 now, part 2 after SW-112; (c) postpone like day 8.\n\nHistory: D15 (days 6-9 deferred until Matt was happy with days 1-5 learnings); 19 Oct Matt started day 6; 21 Oct review: days 6-7 done, 8 split to SW-198.\n\nDone when: Matt has chosen (a), (b) or (c), and a ticket exists for the chosen work (or this one is closed as postponed).\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -215,9 +214,9 @@
       "labels": [
         "elab"
       ],
-      "body": "docs/proposals/namespaces.md §5 mitigation 2 (As built, stage 2, ~line 1889): `e.f` adds a speculative edge to every declaration with a field/function `.f`, which can join unrelated declarations into one checking group. Make the edge certain when the receiver is a parameter/`let` with a declared type head, or an application of a known function with a declared result head (`make n` with `make : Nat -> A`). Syntactic only, no unification. Done: a test where the speculative edge used to cause E-MUTUAL-KIND/E-MUTUAL-SIGNATURE now checks.\n\nSplit 19 Oct into SW-123, SW-124. Done already: `xs.map` on a list works (List.map in the prelude).",
+      "body": "Problem: `e.f` adds a speculative dependency edge to every declaration of the file with a field/function `.f` (docs/proposals/namespaces.md:1299), which can join unrelated declarations into one checking group (E-MUTUAL-KIND / E-MUTUAL-SIGNATURE). The note's worked example is `(make n).value` (:1350-1356).\n\nChange: make the edge certain when the receiver is a parameter or `let` with a declared type head, or an application of a known function with a declared result head (`make n` with `make : Nat -> A`). Syntactic only: no unification, unfolding or implicit arguments (mitigation 2, namespaces.md:1368-1374; as-built note :1933).\n\nDone when: a test where a speculative edge used to cause E-MUTUAL-KIND or E-MUTUAL-SIGNATURE (the `measure`/`B` example) now checks, with the gate green.\n\nHistory: split 19 Oct into SW-123, SW-124. `xs.map` on a list works already (List.map in the prelude).\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -245,9 +244,9 @@
         "proof",
         "stdlib"
       ],
-      "body": "Int stage 6 proved the Euclidean pair's laws (`Int.divAddMod`, remainder bounds, prelude.sw ~1736-1790) but nothing for `Int.tdiv`/`Int.tmod` (truncating) or `Int.fdiv`/`Int.fmod` (flooring) (prelude.sw:1647-1672; no `Int.t*`/`Int.f*` theorems exist). Add `d * tdiv a d + tmod a d = a` and the same for floor, with sign/bound facts, unless a use case says only some are needed. Done: lemmas in prelude with tests.",
+      "body": "Int stage 6 proved the Euclidean pair's laws (`Int.divAddMod` at crates/elab/src/std/Int/Int.sw:105, `Int.modNonneg` :62, `Int.modLtAbs` :69). Nothing is proved for `Int.tdiv`/`Int.tmod` (truncating) or `Int.fdiv`/`Int.fmod` (flooring), defined at crates/elab/src/std/core.sw:807-832; they are only unit-tested by `rfl` on a table in examples/accept/integers.sw. Add `d * Int.tdiv a d + Int.tmod a d = a` and the same for floor, plus the sign and bound facts (tmod takes the sign of `a`, fmod the sign of `d`, and |r| < |d|), as theorems in std/Int/Int.sw with unit tests beside them, unless a use case says only some of them are needed (aoc-2025.md mentions `tdiv`/`fmod` as available but no AoC proof uses them; check before building all).\n\nDone when: the division law and the bound facts for both pairs are theorems in std/Int/Int.sw (or the ticket records which ones were skipped and why), with tests, and `dev/t` passes.\n\nHistory: left over from Int stage 6 (docs/proposals/integers.md).\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -299,7 +298,7 @@
     },
     {
       "id": 20,
-      "title": "Syntax conveniences leftovers: lifted `match` in a partial function, data/ability declarations and the REPL",
+      "title": "Lifted `match` in a partial function and in the REPL gives E-MATCH-MOTIVE: resolve its draft there",
       "status": "backlog",
       "agent": "",
       "where": "",
@@ -307,9 +306,9 @@
         "syntax",
         "elab"
       ],
-      "body": "`E-MATCH-MOTIVE` ('a `match` can't be used here') is still raised when a lifted `match` (a `match` inside a definition, lifted to a helper) occurs in (a) a partial function, (b) a data or ability declaration, (c) the REPL, because drafts aren't resolved there (docs/proposals/syntax-conveniences.md ~1104 and 'Leftovers', ~1184). One task: resolve lifted-`match` drafts in those three contexts. Start with the REPL and partial functions (the ones a user can hit); data/ability declarations may be left refused with a better message. Done: examples for each accepted context.",
+      "body": "A `match` nested in a definition is lifted to a helper (a draft) and resolved after elaboration. Drafts aren't resolved in three places, which give `E-MATCH-MOTIVE` \"a `match` can't be used here: it can't be made into a definition\" (crates/elab/src/lib.rs:615-621; docs/proposals/syntax-conveniences.md:1104-1108 and 'Leftovers' ~1184): (a) a partial function, (b) a data or ability declaration, (c) the REPL.\n\nRepro (release binary, 21 Oct):\n  def f (n: Nat): {Partial} Nat :=\n    let r := match n with | 0 => 1 | Succ m => m\n    if r == 3 then 0 else f (n + 1)\nand, in `stitchwort repl`, `(match 2 with | 0 => 1 | Succ m => m) + 1`.\n\nScope: resolve drafts for (a) and (c), the two a user can hit. (b) may stay refused, with a message that says why (a data or ability declaration has nowhere to put the helper). First step: look at how crates/elab/src/lift.rs resolves drafts for ordinary definitions and where the partial translation and the REPL path bypass it.\n\nDone when: examples/accept has a partial function and a REPL-style test using a nested `match`; (b) has an examples/reject file with the improved message.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -329,16 +328,16 @@
     },
     {
       "id": 22,
-      "title": "`>>` / `<<` function composition (if wanted)",
+      "title": "`>>` / `<<` function composition (not now, D10)",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [
         "syntax"
       ],
-      "body": "\"`>>`/`<<` composition later if wanted\" (TODO.md, Next 3). Surrounding text:\n\n`|>` merges: a small Sonnet sweep making the\nlibrary pipe-friendly — the main value last, Elm-style — starting\nwith `Maybe.andThen` (function first, like `Maybe.map`). `>>`/`<<` composition later if wanted; then one switch commit (convert everything, flip\nthe parser, delete the old one, hash/AST/test comparison); then a\ntidy-up (docs, playground colouring, awkward converter output); then\n`where`. Header and implicit names must differ. Also queued after the switch: `&&`/`||` and\na Prop-aware `not`.\n\nD10 (Matt, 19 Oct): not now (|> exists).",
+      "body": "Problem: no function composition operator. `|>` exists (pipe), and the library was made pipe-friendly. `f >> g` (apply f then g) and `f << g` would be the Elm-style composition operators.\n\nDecision D10 (Matt, 19 Oct): not now, since `|>` exists. First step if revisited: decide whether it's wanted (a lambda `x => g (f x)` is the alternative) and the precedence next to `|>` (docs/syntax.md operators table), before touching the parser.\n\nDone when: either `>>`/`<<` parse, elaborate and are documented in docs/syntax.md with tests, or Matt decides against and the ticket is closed.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -383,9 +382,9 @@
       "labels": [
         "design"
       ],
-      "body": "Open decision (D11, Matt's call; keep open). Matt prefers Scala/TypeScript-familiar surface syntax: Scala, Rust and Lean call it Option (Some/None); Haskell and Elm call it Maybe (Just/Nothing). Hashes aren't a constraint yet. To decide with a short design note: the names, every use in prelude, examples, AoC, docs and the JS boundary codec (.d.ts shape), and whether to rename the constructors too. If yes, it's a mechanical sweep (DeepSeek) after the note.",
+      "body": "Matt's call, kept open (D11). Matt prefers Scala/TypeScript-familiar surface syntax: Scala, Rust and Lean call it `Option` (`Some`/`None`); Haskell and Elm call it `Maybe` (`Just`/`Nothing`). Hashes aren't a constraint (SW-32). Today `type Maybe (a: Type)` is crates/elab/src/std/core.sw:127; `Maybe` occurs about 350 times in .sw files (std, aoc, examples) and also in the Rust JS boundary codec (crates/js/src/lib.rs, crates/driver/src/run.rs, crates/core/src/registry.rs) and its `.d.ts` shape, and in docs/DESIGN.md.\n\nFirst step: a short design note giving the options (keep `Maybe`; rename the type only; rename type and constructors to `Option`/`Some`/`None`), the full list of places to change, and the JS-boundary effect (the `.d.ts` shape and the encoding of `Nothing`/`None`). If Matt chooses to rename, the sweep is mechanical (DeepSeek, with a file-by-file spec).\n\nDone when: Matt has chosen, the decision is recorded here, and (if renaming) the sweep is merged with `dev/t` green.\n\nHistory: D11.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -405,16 +404,16 @@
     },
     {
       "id": 27,
-      "title": "User-level persistent cache",
+      "title": "Parked: user-level persistent cache (`cached f x`) and caching `run` output",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [
         "design"
       ],
-      "body": "**User-level persistent cache** (`cached f x` keyed by definition hash,\nargument hash, compiler fingerprint; safe in pure code): parked until a\nreal need (user, 19 Oct). Likewise caching `run` output by `main` +\nstdin hash.",
+      "body": "Parked until a real need (Matt, 19 Oct): do not start. Idea: `cached f x`, a persistent cache keyed by definition hash, argument hash and compiler fingerprint (safe in pure code); likewise caching `run` output by `main` + stdin hash. Related existing machinery: the test-result cache keyed by content hash plus build fingerprint (crates/driver/build.rs, docs/proposals/compact-text.md 'Hashing and caches').\n\nIf it is ever started, the first step is a design note (key, storage location, invalidation, what 'pure' means for effectful code).\n\nDone when: a user program needs it and a design note is written (until then this ticket stays in backlog as parked).\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -457,9 +456,9 @@
       "labels": [
         "elab"
       ],
-      "body": "**Lambda postponing in effectful calls:** arguments that perform\noperations are applied one at a time, so a lambda there can't wait\nfor a later argument. Leave unless it bites.",
+      "body": "Problem: a lambda argument whose parameter type is fixed by a later argument is postponed in pure calls (check.rs:903-970, examples/accept/lambda-postponed.sw), but not in effectful ones. Repro (type Person = { name: Text, age: Nat }):\n\n    def appIO (f: a -> {IO} b) (x: a): {IO} b := f x\n    def e1 (p: Person): {IO} Text := appIO (q => q.name) p\n    -- E-CANNOT-INFER: can't tell what `q` is, so can't look up `.name`\n\nThe same call written with `appP` (no `{IO}` in the callback type) checks. A pure call placed after an effectful statement in the same block (`IO.print \"x\"` then `appP (q => q.name) p`) also fails. Cause (not yet confirmed): effectful calls apply arguments one at a time (crates/elab/src/effects.rs comp_call) and never go through apply_args_postponing.\n\nFirst step: confirm the cause in effects.rs, then reuse the postponing path for calls whose arguments perform operations.\n\nDone when: the repro above and a pure-after-effect variant check, with a test in examples/accept/ (extend lambda-postponed.sw) and the gate green.\n\nHistory: was 'leave unless it bites'; reproduced 21 Oct. Related: SW-138 (done).\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -471,7 +470,7 @@
       "labels": [
         "tooling"
       ],
-      "body": "Language server for .sw (live errors, hover, go to definition, completion): option C of the 21 Oct code-navigation plan. D239 (Matt, 21 Oct 2026): backlog until the resolution index (D238) has been used for a while; the server reuses that index.",
+      "body": "Language server for .sw: live errors, hover types, go to definition, completion. This is option C of the 21 Oct code-navigation plan (D238/D239). D239 (Matt, 21 Oct 2026): stays in the backlog until the resolution index (D238) has been used for a while; the server reuses that index, so do not start before then. First step when it is picked up: a short design note (which protocol library, how the server holds a Session across edits, how it reuses the index and the incremental/cached checking).\n\nDone when: an editor (the VS Code extension in editors/) shows live diagnostics, hover types and go to definition for a .sw project.\n\nHistory: D238, D239.\n",
       "created": "2026-10-19",
       "updated": "2026-10-21",
       "commits": []
@@ -529,16 +528,16 @@
     },
     {
       "id": 35,
-      "title": "Benchmarks: add rows from generated inputs, and time `stitchwort run` as a subprocess",
+      "title": "Benchmarks: add rows whose input is generated in-language",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [
         "tooling"
       ],
-      "body": "crates/bench/src/programs.rs only has fixed example programs, timed in-process. Add (1) rows whose input is generated in-language (an LCG producing e.g. 4,462 rotations, docs/aoc-2025.md:740-745) so an aoc/ program can be a row without puzzle data; (2) a timing of the `stitchwort run` binary as a subprocess (startup + check + run). Done: both rows exist in bench/baseline.toml and `nix flake check` gates them.\n\nSplit 19 Oct: the third original item (no deterministic count for loops that neither evaluate nor allocate) moved to SW-60.",
+      "body": "crates/bench/src/programs.rs has only fixed example programs, timed in-process. An `aoc/` program can't be a row because its input is a puzzle file we don't commit. Add rows whose input is generated in-language, e.g. an LCG producing 4,462 rotations as day 1 has (docs/aoc-2025.md:748-750 describes the idea and the gap 'generated rows aren't benchmarked').\n\nFirst step: choose which aoc/ programs (day 1 is the obvious one) and write the generator in a form the bench crate can include.\n\nHistory: split 19 Oct from a three-item ticket; the no-deterministic-count item went to SW-60; the subprocess item is a new ticket (21 Oct review).\n\nDone when: at least one generated-input row exists in bench/baseline.toml and `nix flake check` gates it.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -551,9 +550,9 @@
         "kernel",
         "elab"
       ],
-      "body": "docs/proposals/compact-text.md: stage 1 (JS, f2276c0) and stage 2 (B1, compact List Char literals in the kernel, d4d3626) are built. D13 (Matt, 19 Oct): parked until a program needs it. Prerequisites (draft 2): the expansion invariant, the list of passes to update, binding natives to declarations, an automatic build fingerprint in the test-cache key. First native: decEqText, following decEqNat. Decide first whether measurements justify it (compact-text.md 'Expected performance'). Opus, design review. Merged from SW-70 (kernel decEqText native).",
+      "body": "Problem: compact text (stage 2, B1) keeps `List Char` literals compact in the kernel, but the checking evaluator still expands them for text operations. Stage 3 (B2) would add native text operations to the checking evaluator, first `decEqText`, following `decEqNat` (also the former SW-70).\n\nD13 (Matt, 19 Oct): parked until a program needs it. Built so far: stage 1 (JS, f2276c0) and stage 2 (B1, d4d3626); see docs/proposals/compact-text.md.\n\nFirst step if unparked: decide from measurements whether it's justified (compact-text.md 'Expected performance'). Prerequisites (draft 2): the expansion invariant, the list of passes to update, binding natives to declarations, an automatic build fingerprint in the test-cache key. Design review (Opus) before building.\n\nDone when: either a program needing it appears and `decEqText` is a gated native with measurements recorded in compact-text.md, or it stays parked.\n\nHistory: D13. Merged from SW-70.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -580,9 +579,9 @@
       "labels": [
         "js"
       ],
-      "body": "Partly out of date: `textOfChars` is already a loop and `foldChars`/`compareChars` no longer exist. What remains is the 98 ms per 10^6 characters, which is per-character `encodeChar` cost (crates/js/src/lib.rs, CHARS_OF_TEXT/TEXT_AS_STRING). Measure on a 10^6-char text, profile, and decide whether a faster path (e.g. String.fromCodePoint in chunks) is worth it. Done: a measured number and a change or a 'not worth it'.",
+      "body": "Generated JS turns a compact `List Char` into a string one character at a time: `textOfChars` (crates/js/src/lib.rs:890, emitted inside CHARS_OF_TEXT) loops `parts.push(encodeChar(l.head))`, and `encodeChar` (lib.rs:849) is `String.fromCodePoint(Number(v.code))`. The ticket author measured 98 ms per 10^6 characters (not re-measured in this review). Measure on a 10^6-character text under Node, profile, and decide whether a faster path is worth it (for example collecting code points and calling `String.fromCodePoint` in chunks, or skipping the `Number(...)` conversion).\n\nDone when: a measured number is recorded in the ticket, and either a change that improves it measurably (with the extraction tests, crates/cli/tests/extract.rs, passing) or a 'not worth it' note.\n\nHistory: the original said foldChars/compareChars were slow; they no longer exist.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -610,9 +609,9 @@
       "labels": [
         "js"
       ],
-      "body": "Only a function's calls to itself (including in either branch of an `if`) become loops today (crates/js/src/lib.rs). Also loop-ify self tail calls through `if h : P` and helpers like `maybeThen`. Calls between functions are SW-49. Done: examples that overflow today (give one in the ticket) run to 10^7.",
+      "body": "Only a function's calls to itself (including in either branch of a plain `if`) become loops today (self_tail_loop, crates/js/src/lib.rs:1430). A tail call inside `if h: P then a else b` is not recognised, because it is generated as `Decidable.elim … (v => a) (v => b)`; the same goes for helpers like `maybeThen`.\n\nRepro (release binary, 21 Oct): scratch file\n  def loopH (acc: Nat): Nat -> Nat\n    | 0      => acc\n    | Succ n => if h: n = 7 then acc else loopH (acc + 1) n\n  export def count (n: Nat): Nat := loopH 0 n\nbuilt with `stitchwort build --js`; `count(1000000n)` throws `StitchwortResourceError: count: ran out of resources (Maximum call stack size exceeded)`. (The `if h:` here is a Decidable elimination, so the case tree does not see a tail position.)\n\nFirst step: decide whether to treat `Decidable.elim` applications with lambda branches as an `if` in the tail analysis (crates/js/src/lib.rs:1617 `tail`) or to generate `if h:` as a conditional in the first place. Calls between different functions are SW-49.\n\nDone when: the repro above, with 10^7 in place of 10^6, runs; an examples/extract file covers `if h:` in tail position.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -624,9 +623,9 @@
       "labels": [
         "js"
       ],
-      "body": "**JS codecs are about 2× slower on small inputs** since they became\niterative (5,000-element list: 0.3 → 0.7 ms both ways), if it matters.",
+      "body": "Problem: the generated-JS codecs (crates/js/src/lib.rs decoder around :980-1090, encoder) got about 2x slower on small inputs when they became iterative: a 5,000-element list took 0.3 ms before and 0.7 ms after, both ways. Not re-measured in this review.\n\nFirst step: decide whether it matters (add a small-input case to the JS benchmark, crates/bench) and, if so, add a fast path for shallow values.\n\nDone when: a benchmark row for small inputs exists and either the codecs are back near 0.3 ms or the ticket records that 0.7 ms is accepted.\n\nHistory: 'if it matters'; relates to SW-38, SW-42 (JS codec measurements).\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -638,9 +637,9 @@
       "labels": [
         "js"
       ],
-      "body": "A result with much sharing is encoded once per path (`echoTree(dag(12))` gives 2^13-1 objects), so encoding can take exponential time. This is documented as accepted (DESIGN.md:872). Options: bound the output size and fail with a clear error, or memoise encoding of shared nodes (as decoding already does, DESIGN.md:847). Done: a DAG result of depth 60 encodes or fails fast and clearly.",
+      "body": "A result with much sharing is encoded once per path: `echoTree(dag(12))` yields 2^13-1 objects (crates/cli/tests/extract.rs:775), so encoding a deeper DAG takes exponential time and memory. DESIGN.md:875 documents this as accepted; decoding already memoises shared nodes (DESIGN.md:850). Decide between: (a) memoise encoding per shared node, so the output shares objects too (what decoding does; cost: output objects are no longer a fresh tree, which a caller who mutates them could notice); (b) bound the output size and throw a clear `StitchwortResourceError` early; (c) leave as is. First step: choose, and update DESIGN.md:875 accordingly.\n\nDone when: a test in crates/cli/tests/extract.rs encodes (or cleanly refuses) a DAG result of depth 60 quickly, and DESIGN.md:875 matches the behaviour.\n\nHistory: found in the JS boundary work; accepted for the first milestone.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -650,11 +649,12 @@
       "agent": "",
       "where": "",
       "labels": [
-        "js"
+        "js",
+        "performance"
       ],
-      "body": "Decoding scans a string each place it appears: the same 1 MB string in 1,000 slots is scanned 1,000 times (documented, DESIGN.md:872). Remember the strings already validated in one decode (by identity), like shared arrays/objects (DESIGN.md:847). Done: measured before/after on that case.",
+      "body": "Decoding scans a string each place it appears: the same 1 MB string in 1,000 slots is scanned 1,000 times (documented in DESIGN.md:875, 'Caveats'). Arrays and objects reached again by another path are decoded once (DESIGN.md:850, 'Shared parts are decoded once'); do the same for strings: remember the strings already validated in one decode, by identity.\n\nFirst step: find the string validation in the decoder in crates/js/src/lib.rs (the string/Text decode near lines 865-910) and the shared-object table it can reuse; note a JS string has no identity, so the decision is what to key on (the string value itself costs a hash of the whole string, which is the same order as a scan: maybe only worthwhile for very long strings or via a length threshold).\n\nDone when: a before/after measurement on the 1 MB string x 1,000 slots case is recorded in the ticket, and the DESIGN.md caveat is updated or removed. (If no identity-free scheme beats scanning, close with that measurement.)\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -666,9 +666,9 @@
       "labels": [
         "js"
       ],
-      "body": "**Hostile Proxies at the JS boundary:** `Array.isArray`, `length` and\ntraps outside `own()` aren't wrapped, so a throwing trap escapes raw.",
+      "body": "Problem: at the JS boundary the decoder's `Array.isArray(x)` and `x.length` (crates/js/src/lib.rs:1012-1015) run outside `own()` (:1032, :1056-1062, which wraps property reads), so a Proxy whose trap throws makes a raw exception escape instead of a boundary error.\n\nFirst step: decide whether hostile inputs are in scope at all (the boundary already refuses non-plain data) or only containment of exceptions; the cheap fix is to run the whole decode in one try/catch that reports a boundary error.\n\nDone when: a test passes a Proxy with throwing `get`/`has`/`getPrototypeOf` traps (and as an array element) and gets the normal boundary error, not the raw exception.\n\nHistory: from the JS boundary work.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -681,9 +681,9 @@
         "design",
         "kernel"
       ],
-      "body": "Refused on purpose today (E-POSITIVITY, 'whether it's safe inside another type would depend on how that type uses it'). Design: positivity through type parameters (Lean's nested inductives, auxiliary-type compilation), and what it does to termination (size change through `List.map`) and JS extraction. Also covers the `rest : Nest (Box a)` form. Design note first (Opus, external review). Done: a note recommending build/don't build. (The message half is fixed: `type Tree = | Node (kids: List Tree)` now gives E-POSITIVITY with a clear note.)",
+      "body": "Nested recursive types are refused on purpose: `type Tree = | Node (kids: List Tree)` gives E-POSITIVITY (\"`Tree` is used inside another type\"), with the note to write a tree and a forest as a data group instead (verified on the release binary, 21 Oct). The rule is docs/core.md:101: `D` may appear in a field only as `D` applied to its own parameters, or as the result of a function field; nested occurrences like `List D` are rejected conservatively. Allowing them needs a design: positivity through type parameters (Lean's nested inductives, auxiliary-type compilation), what it does to termination (size change through `List.map`) and to JS extraction. The `rest : Nest (Box a)` form (non-uniform nesting) belongs to the same note.\n\nFirst step: a design note (Opus, with external review, per the design-review gate) recommending build or don't build, with what mutual data groups (already implemented, examples/accept/mutual-data.sw) leave unsolved.\n\nDone when: the note exists and Matt has decided build or not; if build, a follow-up implementation ticket is written.\n\nHistory: the 'message half' (a clear E-POSITIVITY note) is fixed.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -702,16 +702,17 @@
     },
     {
       "id": 47,
-      "title": "Browser tests",
+      "title": "Decide: test the playground in Firefox and Safari (and in CI), or document Chrome-only as final",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [
-        "playground"
+        "playground",
+        "tooling"
       ],
-      "body": "**Browser tests** (`web/test.sh`) run only locally with Chrome; Firefox\nand Safari untested.",
+      "body": "`web/test.sh` (docs/testing.md:57-70) runs the playground tests in headless Chrome only, locally; they are not in `nix flake check` because Chrome isn't in the Nix build sandbox and one test waits out the real 15 s timeout. Firefox and Safari are untested. The goal is a public static site (see the playground notes), so other browsers will be used.\n\nFirst step: decide (a) a manual cross-browser checklist run before a public release, (b) Firefox via WebDriver BiDi/Playwright in the same script, (c) leave as is. Safari can only be tested on a Mac.\n\nDone when: the decision is recorded in docs/testing.md, plus the script/checklist if (a) or (b).\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -724,9 +725,9 @@
         "kernel",
         "elab"
       ],
-      "body": "docs/proposals/mutual-recursion.md ~2088: `f` returns a record/closure holding a callback that is called after `f` returns; the mutual-recursion termination check is tested for single definitions only. Add must-accept/must-reject examples and a differential test for a function group, including the unsound-looking case in §6.4 step 4. Done: tests merged, or a counterexample found and written up.\n\nSplit 19 Oct into SW-117. Done already: playground shows warnings (976b912). Dropped: hash stability under reordering of identical-shaped members (explicitly allowed to change; hashes aren't a design constraint).",
+      "body": "Problem: docs/proposals/mutual-recursion.md §6.3 test 2 (:960) is untested for function groups: `f` returns a record (or `Comp` continuation) holding `x => g k x`, and a later, final definition calls it. The milestone-2 notes say it is 'tested for a single definition only' (:2087). The termination argument for it is §6.4 step 4.\n\nChange: add must-accept (the callback's call decreases) and must-reject (it rebuilds the parameter) examples for a function group, plus a differential test, including the unsound-looking case in §6.4 step 4.\n\nDone when: the tests are merged in examples/accept and examples/reject and the gate is green, or a counterexample is found and written up in the note.\n\nHistory: split 19 Oct into SW-117. Playground shows warnings (976b912). Dropped: hash stability under reordering of identical-shaped members (hashes aren't a design constraint).\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -739,9 +740,9 @@
         "js",
         "kernel"
       ],
-      "body": "**Mutual tail calls aren't loops in generated JS** (`isEven 10000000n`\nis a `StitchwortResourceError`).\n\nSW-40 covers self tail calls.",
+      "body": "Mutual tail calls aren't loops in generated JS. Repro (checked 21 Oct with the release binary): `export def isEven: Nat -> Bool | 0 => True | Succ n => isOdd n` and `isOdd` the same the other way, built with `stitchwort build --js`, then `isEven(10000000n)` throws `StitchwortResourceError` (Maximum call stack size exceeded). The generated code is `const $Main$disEven = (v0) => { if (v0 === 0n) {...} else { const v1 = v0 - 1n; return $Main$disOdd(v1); } }` and the mirror image, so each call uses a JS stack frame. Self tail calls already become loops (SW-40 covers the remaining self-call cases); DESIGN.md:874 documents this limit.\n\nFirst step: decide the approach. Options: (a) compile a group of mutually tail-calling functions into one loop with a state variable naming which member runs (no allocation; only works when every call between members is in tail position); (b) a trampoline for those calls (general but allocates a thunk per call); (c) leave it documented. Recommend (a) for groups where every inter-member call is a tail call, and (c) otherwise.\n\nDone when: an extraction test in crates/cli/tests/extract.rs runs `isEven`/`isOdd` on 10000000n, and DESIGN.md:874 no longer lists `isEven`/`isOdd` as an example of overflow.\n\nHistory: see SW-40 for self tail calls.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -754,9 +755,9 @@
         "kernel",
         "elab"
       ],
-      "body": "In a group of mutual data types every member must spell its parameters the same, names included (docs/proposals/mutual-recursion.md, 'Limits'). Allow renamed parameters (compare up to renaming). Done: an example whose members name the shared parameter differently is accepted, and a mismatching one is still rejected with a clear message.\n\nSplit 19 Oct into SW-118. Nested (`List Tree`) is SW-45; inductive-recursive / inductive-inductive types are documented out of scope, not tasks.",
+      "body": "In a group of mutual data types every member must spell its parameters the same, names included (docs/proposals/mutual-recursion.md:2163, 2269, 'Limits'). Allow renamed parameters (compare telescopes up to renaming).\n\nFirst step: find where the group's parameter telescopes are compared (the mutual-data admission in crates/elab and the E-MUTUAL-* diagnostics) and decide the representation: rename each member's parameters to the first member's names before comparing.\n\nHistory: split 19 Oct into SW-118 (JS error paths). Nested (`List Tree`) is SW-45; inductive-recursive and inductive-inductive types are documented out of scope, not tasks.\n\nDone when: an examples/accept file whose members name the shared parameter differently is accepted, and an examples/reject one whose telescopes really differ is rejected with a clear message.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -776,15 +777,15 @@
     {
       "id": 52,
       "title": "Measure compact text (stage 2) in the playground's WASM build",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "playground"
       ],
-      "body": "Compact `List Char` literals (d4d3626) were measured natively only. Measure checking a long text/list literal in the WASM build (limit before E-RESOURCE, time), compare with the stack guard of SW-82. Done: numbers recorded in docs/evaluator-speed.md or compact-text.md.",
+      "body": "Compact `List Char` literals (d4d3626) were measured natively only. Measure checking a long text/list literal in the WASM build (limit before E-RESOURCE, time), compare with the stack guard of SW-82. Done: numbers recorded in docs/evaluator-speed.md or compact-text.md.\n\nClosed in the 21 Oct 2026 backlog review (merge into SW-82): Same work as SW-82: measuring checking of long literals/nesting in the WASM build against the stack guard (crates/web/build.rs:19, WASM_GUARD 128 KiB). One measurement campaign, one ticket.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -796,9 +797,9 @@
       "labels": [
         "kernel"
       ],
-      "body": "crates/core/src/hash.rs:430 hashes `Term::Nat` as the tag and the value only, whereas `Term::Chars` (hash.rs:~440) includes the `List` and `Char` data references it expands to. So changing `Nat`'s definition would not change hashes of terms mentioning numeric literals. Include `Nat`'s hash in `Term::Nat`. Hashes needn't stay stable (SW-32); regenerate snapshots. Done: hash snapshot test updated.",
+      "body": "crates/core/src/hash.rs:486 hashes `Term::Nat` as the tag `nat` and the value only (`self.tag(\"nat\"); self.nat(n)`), whereas `Term::Chars` (hash.rs:493) also hashes the `List` and `Char` data references it expands to (`self.data_ref(text.list)?; self.data_ref(text.char)?`). So changing `Nat`'s definition would not change the hash of a term that mentions a numeric literal. Include `Nat`'s own data reference in the `Term::Nat` hash, the way `Term::Chars` does it (take `Nat` from `self.g.builtins`). Hashes needn't stay stable (SW-32, no users yet); regenerate the snapshots and use them as the check that only the expected hashes moved.\n\nDone when: `Term::Nat` hashes `Nat`'s reference, a unit test shows a different `Nat` definition gives a different hash for a literal, and the hash snapshots are regenerated (`git add` them) with `dev/t hashes` green.\n\nHistory: found while reviewing the compact-text hashing.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -826,7 +827,7 @@
         "kernel",
         "proof"
       ],
-      "body": "docs/proposals/records.md draft 2 §7. Kernel projections and eta, so p = (p.fst, p.snd) holds by rfl for pairs and records (docs/aoc-2025.md:1115); the same-type rule, and eta off in unification's first_order fallback. Do after SW-93 (proof irrelevance) is decided. D8 (Matt, 19 Oct): not now; build when proofs about records need it.\n\nHistory: this was the 'Records follow-ups' umbrella. Split 19 Oct into SW-119 (done), SW-120 (termination through record fields, backlog), SW-121 (done); (.name) sections done (74db93a). 21 Oct review: == for records with proof fields is now partly done (derived DecEq handles proofs of equations in DecEq types; other proof fields still E-INSTANCE-NONE, examples/reject/record-eqeq-proof-field.sw) -> SW-202. JS boundary proof fields for ordinary data types -> SW-203.",
+      "body": "Kernel projections and eta, so `p = (p.fst, p.snd)` holds by `rfl` for pairs and records (docs/aoc-2025.md:1302-1303, 'No pair eta'); see docs/proposals/records.md draft 2 §7 (Stage 2: projections and eta in the kernel). Includes the same-type rule and eta off in unification's `first_order` fallback. Do after proof irrelevance (SW-93) is decided.\n\nD8 (Matt, 19 Oct): not now; build when proofs about records need it.\n\nHistory: this was the 'Records follow-ups' umbrella. Split 19 Oct into SW-119 (done), SW-120 (termination through record fields, backlog), SW-121 (done); (.name) sections done (74db93a). 21 Oct review: `==` for records with proof fields is partly done (derived DecEq handles proofs of equations in DecEq types; other proof fields still E-INSTANCE-NONE, examples/reject/record-eqeq-proof-field.sw) -> SW-202; JS boundary proof fields for ordinary data types -> SW-203.\n\nDone when: `theorem eta (p: Pair a b): p = (p.fst, p.snd) := rfl` checks for pairs and for a record, with the tests of records.md §14.\n",
       "created": "2026-10-19",
       "updated": "2026-10-21",
       "commits": []
@@ -841,9 +842,9 @@
         "kernel",
         "tooling"
       ],
-      "body": "crates/driver/tests/partial.rs compares the runner with the executable model (crates/partial-model) on fixed programs only. Add a generator of small random partial programs (as the model's typed API and as source) and compare the full traces (operations, replies, ticks). Done: the test runs in the gate with a fixed seed and a few hundred programs. (DeepSeek-suitable once the generator is specified.)\n\nSplit 19 Oct into SW-122. An endless partial `main` is decided: it runs until stopped.",
+      "body": "Problem: crates/driver/tests/partial.rs compares the partial runner with the executable model (crates/partial-model) on fixed programs only. Bugs in rarely-combined features would not show.\n\nFirst step: specify the generator (a small typed API building random partial programs: operations, replies, ticks, handlers), emitting both the model's typed form and source text. Then compare the full traces (operations, replies, ticks).\n\nDone when: the test runs in the gate (release, fixed seed, a few hundred programs) and a deliberate bug in the runner makes it fail.\n\nHistory: split 19 Oct into SW-122. An endless partial `main` is decided: it runs until stopped. DeepSeek-suitable once the generator is specified.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -856,9 +857,9 @@
         "js",
         "playground"
       ],
-      "body": "**Measure the JS limits in browsers** (only Node so far).\n\nNode only so far; use web/stress.html; record in DESIGN.md §12.",
+      "body": "Only Node has been measured for the generated JS's limits. DESIGN.md:874 says recursion overflows 'after a few thousand elements' in Node, and docs/proposals/text-and-io.md:57 says 'the limits in browsers, and the `InternalError` branch for SpiderMonkey, aren't tested'. (web/stress.html is the compiler-as-WASM stress page, not this: it doesn't run generated JS.) Measure the recursion depth at which an extracted function throws `StitchwortResourceError` in Chrome, Firefox and Safari, using a small page that loads a generated module (for example the `isEven` or `List.length` recursion from the extraction tests), and check that Firefox's `InternalError: too much recursion` is converted into `StitchwortResourceError` as the generator's `outOfResources` intends.\n\nFirst step: decide where the page lives (a new web/ page, or a mode of stress.html) and which browsers can be driven headlessly here (Chrome yes; Firefox/Safari may need manual runs, mark those as such).\n\nDone when: the measured depths per browser are recorded in DESIGN.md:874 (or the text proposal's as-built section) and the SpiderMonkey error path is confirmed or fixed.\n\nHistory: left over from the text-and-IO JS limits work.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -896,11 +897,12 @@
       "agent": "",
       "where": "",
       "labels": [
-        "elab"
+        "elab",
+        "performance"
       ],
-      "body": "**Elaborating a chain is quadratic:** `expr.span()` and `may_perform` walk\nthe whole subexpression at every level.\n\nA regression guard for this needs a deterministic counter that those walks increment (the step/alloc counts of crates/bench don't see them; e.g. the `expr.span()` walk); add one as part of the fix. (From SW-35, 19 Oct.)",
+      "body": "Elaborating a long chain is suspected to be quadratic: `Expr::span()` (crates/syntax/src/ast.rs:258) and `may_perform` (crates/elab/src/effects.rs:917) walk the whole subexpression at every level. Unverified: the first step is to measure (a chain of N `+` or applications, N = 1,000, 2,000, 4,000: time and a counter of nodes visited).\n\nA regression guard needs a deterministic counter that these walks increment (the step/alloc counts of crates/bench don't see them); add one as part of the fix (from SW-35, 19 Oct: loops that neither evaluate nor allocate have no deterministic count).\n\nDone when: the measurement is recorded; the walks are linear overall (cache the span, compute may_perform bottom-up); a bench row with the new counter guards it in bench/baseline.toml.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -926,9 +928,9 @@
       "labels": [
         "elab"
       ],
-      "body": "A list/text literal stops at ~1,800 elements in a 2 MiB thread (~75,000 in the CLI) because the parser/elaborator recurse per element. Make literal elaboration iterative (or build compact literals directly: compact text stage 2 already stores `List Char` literals compactly in the kernel, d4d3626). Done: a 100,000-element list literal checks in the playground's WASM build.",
+      "body": "Problem: a list or text literal stops at about 1,800 elements in a 2 MiB thread (playground) and about 75,000 in the CLI (64 MiB): 20,000 elements check, 100,000 give E-RESOURCE 'it recursed more deeply than allowed' (repro: a one-line `def xs: List Nat := [1,1,...,1]`). The parser and the elaborator recurse per element.\n\nChange: make literal parsing and elaboration iterative, or build compact literals directly (compact text stage 2 already stores `List Char` literals compactly in the kernel, d4d3626). Related: SW-82 (WASM stack guard), SW-126 (parser stack per level).\n\nDone when: a 100,000-element list literal checks in the CLI and in the playground's WASM build.\n\nHistory: none.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -956,14 +958,14 @@
       "labels": [
         "tooling"
       ],
-      "body": "**Mutation testing** (in small sharded runs): the machine (`value.rs`),\n`budget.rs`, `native.rs` (167 mutants, never done).\n\n19 Oct: runs are cargo-mutants (a tool, no model) driven by scratchpad/mutrun.sh in ~/scratch/mutants-20261019. Pilot budget.rs: 56 mutants, ~12 min, 23 caught / 26 missed (core tests only) / 1 timeout / 6 unviable. Next: re-check survivors against driver+cli tests; then DeepSeek writes tests to kill real survivors (direct-edit spec), Opus judges equivalent mutants.\n\nMatt (19 Oct): paused after the budget.rs pilot; no further mutation runs for now. Survivor results in scratchpad/mut/budget-*.\n\nMerged from SW-87:\n**Remaining surviving mutants** judged equivalent or unreachable:\n`effects.rs` lines 223 (×3), 403, 414, 706 (×2), 709, 745, 844;\n`termination.rs` line 111 (`>` → `>=`); the `auto` fix in step 1 (masked\nby the sticky budget).\n\nSurvivors already judged equivalent/unreachable (line numbers as of 19 Oct): effects.rs 223 (x3), 403, 414, 706 (x2), 709, 745, 844; termination.rs 111 (`>` -> `>=`); the `auto` fix in step 1 (masked by the sticky budget). Put them in a cargo-mutants exclude list (.cargo/mutants.toml; none exists yet) when runs resume. Paused by Matt after the budget.rs pilot; keep as backlog.",
+      "body": "Mutation testing of the core machine, in small sharded runs, to find behaviour no test pins down. Targets: the machine (crates/core/src/value.rs), crates/core/src/budget.rs, crates/core/src/native.rs (167 mutants, never run). Runs are cargo-mutants (a tool, no model) driven by scratchpad/mutrun.sh; always `--jobs 1` and one shard at a time (mutation runs have drained RAM before).\n\nState: the budget.rs pilot ran on 19 Oct: 56 mutants, about 12 min, 23 caught, 26 missed (core tests only), 1 timeout, 6 unviable. Matt paused further runs after it; do not run anything until he asks. Survivors from that run are in scratchpad/mut/budget-*. Survivors already judged equivalent or unreachable (line numbers as of 19 Oct, now probably shifted): crates/elab/src/effects.rs 223 (x3), 403, 414, 706 (x2), 709, 745, 844; crates/core/src/termination.rs 111 (`>` to `>=`); the `auto` fix in step 1 (masked by the sticky budget). When runs resume, put them in an exclude list (.cargo/mutants.toml, which does not exist yet).\n\nPlan when resumed: re-check budget.rs survivors against the driver and cli tests too; DeepSeek writes tests to kill the real survivors (direct-edit spec); Opus judges equivalent mutants; then do native.rs and value.rs in shards.\n\nDone when: budget.rs, native.rs and value.rs have been run, every survivor is either killed by a new test or listed as equivalent in .cargo/mutants.toml.\n\nHistory: paused by Matt 19 Oct 2026; merged SW-87 (the survivor list).\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
       "id": 65,
-      "title": "Prove `textToNat (natToText n) = Just n`",
+      "title": "Prove `Text.toNat (Nat.toText n) = Just n`",
       "status": "backlog",
       "agent": "",
       "where": "",
@@ -971,9 +973,9 @@
         "proof",
         "stdlib"
       ],
-      "body": "**Prove** `textToNat (natToText n) = Just n` (needs lemmas about `/` and\n`%`; tested only, for now).\n\nThe needed lemmas now exist: Nat.divUnique/modUnique (prelude.sw:563-565), Nat.modLess, Nat.addDivSelf; start from them.",
+      "body": "`Text.toNat (Nat.toText n) = Just n` is tested only (crates/elab/src/std/core.sw:630 documents it; examples/accept/text.sw:81 'round trip'). Prove it.\n\nPieces already in the library: `Nat.digits`/`Nat.fromDigits` with `Nat.fromDigitsDigits` (Std Nat/Digits.sw), `Char.digitValueChar` (Digits.sw:303), `Char.digitsOntoValues` (:316) and `Char.toTextDigits` (:329: the digit values of `Nat.toText n` are `Nat.digits n`), `Char.mapDigitValueDigits` (:284), and the division lemmas `Nat.divUnique`, `Nat.modUnique`, `Nat.addDivSelf` (Std Nat/Arith.sw:157-171). Missing: a lemma relating `Text.readDigits acc cs` (core.sw:622-626) to `acc * 10^len + fromDigits (digit values of cs)` when every char is a digit.\n\nDone when: `theorem Text.toNatToText (n: Nat): Text.toNat (Nat.toText n) = Just n` is in the library (Digits.sw) and the example's runtime test stays as a unit test.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -985,9 +987,9 @@
       "labels": [
         "tooling"
       ],
-      "body": "**`stitchwort run` out of resources** is tested only in the driver, not\nthrough the command (with the command's limits it needs about 1.5 GB).\nPerhaps a hidden option or environment variable to lower the limits.",
+      "body": "Problem: `stitchwort run` running out of resources is tested only through the driver (crates/driver/tests/resources.rs sets `Limits` on a Session), not through the command: with the command's own limits it would need about 1.5 GB, and crates/cli/src/main.rs has no way to lower them.\n\nDecide first: a hidden option (`--limits small`) or an environment variable (like STITCHWORT_RUN_JS_DIR, main.rs:566) to lower the limits for tests. Hidden and test-only is enough.\n\nDone when: a CLI test runs `stitchwort run` on a program that exhausts the lowered limits and asserts the 'no answer within the limits' message (main.rs:538) and exit code.\n\nHistory: none.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -1013,11 +1015,12 @@
       "agent": "",
       "where": "",
       "labels": [
-        "stdlib"
+        "stdlib",
+        "design"
       ],
-      "body": "**`IO` operations that return `Result`** for recoverable errors (deferred\nby the text-and-IO proposal).",
+      "body": "Today IO errors stop the program (docs/proposals/text-and-io.md:308: a read, write or flush error stops it with a message and non-zero exit code, never reported as `Nothing`). `Result`-returning operations for recoverable errors were deferred. There is no `Result` type in the standard library yet, and `ability IO` (crates/elab/src/std/core.sw:1058) has only `print`, `readLine` and `readAll`, so nothing can currently fail in a way a program would want to handle except stdin/stdout themselves.\n\nFirst step: decide whether there is a use case (an AoC program or example that wants to handle a failed read) and, if so, the design: a `Result e a` type in std (and its name, vs `Either`), an IO error type, which operations get a `Result` form (for example `IO.tryReadLine`), how `IO.simulate` and the JS boundary encode it. If there is no use case, close this as not needed.\n\nDone when: either a design note is written and approved and an implementation ticket exists, or the ticket is closed with 'no use case'.\n\nHistory: deferred by the text-and-IO proposal.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -1069,30 +1072,30 @@
     },
     {
       "id": 72,
-      "title": "Lacks constraints on row variables",
+      "title": "Duplicate abilities in a hand-built row are not rejected (no 'lacks' constraint on row variables)",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [
         "kernel"
       ],
-      "body": "**Lacks constraints on row variables** aren't enforced (only reachable with\na hand-written `Sig`).",
+      "body": "'Lacks' constraints aren't enforced on row variables (docs/proposals/abilities.md:303): rows built by the elaborator never contain duplicates, but a row variable `e : Sig` instantiated by hand with a `Sig` whose operations repeat one could (see crates/elab/src/effects.rs:9, 60 for row variables). Only reachable with a hand-written `Sig`; not re-tested in this review.\n\nFirst step: write the example (a hand-written `MkSig` with a duplicated operation used as a row tail) and see what is accepted; then decide between enforcing a lacks check when a row tail is unified, or documenting the case as unsupported.\n\nDone when: the example is rejected with a clear message (examples/reject), or abilities.md:303 states it as a decided non-goal and the ticket is closed.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
       "id": 73,
       "title": "Inferring a bare lambda's type",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "elab"
       ],
-      "body": "**Inferring a bare lambda's type** needs an annotation, e.g.\n`runState ((\\n -> n) : Nat -> {Choose} Nat) …`.\n\nRelated: SW-19, SW-90.",
+      "body": "**Inferring a bare lambda's type** needs an annotation, e.g.\n`runState ((\\n -> n) : Nat -> {Choose} Nat) …`.\n\nRelated: SW-19, SW-90.\n\nClosed in the 21 Oct 2026 backlog review (done): Already addressed: annotated lambda parameters (SW-19, done) let a lambda with no expected type be inferred: docs/syntax.md:147 `(p: Person) => p.name` has type `Person -> Text`. And a bare `u => 5` passed to `runState 10` (examples/accept/io.sw:141) checks without annotation (tried both forms appended to a copy of io.sw: no errors). A bare unannotated lambda with no expected type can't be inferred by design.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -1102,11 +1105,12 @@
       "agent": "",
       "where": "",
       "labels": [
-        "elab"
+        "elab",
+        "performance"
       ],
-      "body": "**Performance of effectful code** (deep handler trees) hasn't been measured.",
+      "body": "Effectful code is translated into `Effect.Comp` trees (docs/core.md:14), so a handler over a long computation walks a deep tree. No benchmark measures this: crates/bench/src/programs.rs has `run-prints` (20,000 `IO.print`s, :70) and `run-proof-fields` (:75), but no handler that threads state (a counter or a writer) through, say, 100,000 operations, and none in the checker. Add benchmark rows: (1) a state-handler loop of 10^5 operations through `stitchwort run` and through the evaluator, compared with the same loop written purely; (2) the same checked at type level where it applies. Record steps and time, and if a cost far above the pure version shows up, open a ticket for the cause.\n\nDone when: the benchmark rows exist in crates/bench with a baseline (bench/baseline.toml), and the ticket records the ratio to pure code and whether a speed-up is warranted.\n\nHistory: noted unmeasured from the abilities work (docs/proposals/abilities.md).\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -1118,9 +1122,9 @@
       "labels": [
         "elab"
       ],
-      "body": "docs/proposals/number-patterns.md (the `f6` example, ~line 676): rows after an equation that matches everything still contribute keys, so open terms can stay stuck needlessly. Drop unreachable rows before choosing keys. Done: `f6` computes on open terms; snapshots/hashes updated.\n\nDone already: Char literal patterns `'a' =>` (e5b3eed).\nNEEDS MATT (backlog review): a new ticket \"Number patterns: default inequalities (`n != k`)\" [syntax, elab] was proposed (number-patterns.md open question 2, ~line 543: give the catch-all row the inequalities from earlier rows so the checker knows `n != 0` in a default; decide the surface, design note first). Not created: nobody has asked for it; say if wanted.\n\nD9 (Matt, 19 Oct): default inequalities (n != k) in number patterns: not now.",
+      "body": "Rows after an equation that matches everything still contribute keys to a number case, so open terms stay stuck needlessly: docs/proposals/number-patterns.md:664-681, where `f` has `| _ => 101` before `| 6 => 103` and `| Succ 1 => 104`, and the case on `4 + x` has keys 0, 2, 4 and is stuck although the unreachable `6` row should not count. Drop unreachable rows before choosing keys.\n\nFirst step: decide how reachability is computed (rows after an all-variable row in the same column) in the number-pattern compile step in crates/elab (matching.rs).\n\nHistory: Char literal patterns `'a' =>` done (e5b3eed). D9 (Matt, 19 Oct): default inequalities (`n != k`) in number patterns: not now (number-patterns.md open question 2, ~line 543); no ticket for it.\n\nDone when: `f` from number-patterns.md:664 computes on an open term where it is stuck today (examples/accept test); snapshots and hash tests updated.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -1132,9 +1136,9 @@
       "labels": [
         "tooling"
       ],
-      "body": "**Re-record benchmark times on a quiet machine** (the last `--update` ran\nunder heavy load, so times were taken from earlier runs; counts are\ncurrent).",
+      "body": "Problem: the last `cargo run --release -p stitchwort-bench -- --update` ran under heavy load, so bench/baseline.toml's `time_ms` values (e.g. examples 38601.8 ms) were taken from earlier runs; steps, visits and allocations are current and deterministic.\n\nChange: on an otherwise idle machine, run the update once and commit baseline.toml. Run only when asked and with limited memory use.\n\nDone when: baseline.toml's time_ms values come from a single quiet-machine run and the commit message says so.\n\nHistory: none.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -1146,9 +1150,9 @@
       "labels": [
         "elab"
       ],
-      "body": "`solve`, `rename`, `prune` and `zonk` in the elaborator recurse over a solution. They're guarded, so a deep one is E-RESOURCE, but they share the stack: in the CLI `theorem a : [1, ..., n] = [1, ..., n]` checks up to n = 56,875 with `rfl` but only 26,875 with `sym rfl` (hidden arguments solved to the list). Also (from SW-51): zonk walking computations inside types ran out of resources on `textJoin ... == t` with tens of thousands of characters; re-test, it may be gone after 65415c5. Low priority: only large literal values in types hit it. Done: iterative versions (explicit stack) and the two limits above raised.\n\nMerged from SW-51:\n**`zonk` walks computations inside types recursively**, so a check like\n`textJoin … == t` on tens of thousands of characters runs out of\nresources while checking (found by compact text stage 2).",
+      "body": "The elaborator's `solve`, `rename`, `prune` and `zonk` (zonk is at crates/elab/src/lib.rs:575) recurse over a solution. They're guarded, so a deep one gives E-RESOURCE, but they share the stack: `theorem a : [1, ..., n] = [1, ..., n] := Std.Eq.sym rfl` (hidden arguments solved to the list) checks at n = 20,000 and fails at n = 30,000 with `E-RESOURCE: the program is nested too deeply for the type checker` (reproduced 21 Oct, release binary); the original measurement was 56,875 with `rfl` and 26,875 with `sym rfl`. Bench rows `check-list-rfl` and `check-list-sym-rfl` (crates/bench/src/programs.rs:145-152) cover this. Also from SW-51: zonk walking computations inside types ran out of resources on `textJoin ... == t` with tens of thousands of characters; re-test it first, it may be gone after 65415c5.\n\nLow priority: only large literal values in types hit it. Done when: the four passes use an explicit stack (or are shown not to need one), and `sym rfl` checks at least as far as `rfl` does (n = 56,875), with the benchmark rows updated.\n\nHistory: merged SW-51.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -1181,20 +1185,6 @@
       "commits": []
     },
     {
-      "id": 80,
-      "title": "Row order is fixed by declaration order",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
-      "labels": [
-        "design"
-      ],
-      "body": "**Row order is fixed by declaration order**, so `IO` (declared in the\nprelude) always comes first in a row: `{State Nat, IO}` and\n`{IO, State Nat}` are the same type. Harmless, but it means no test can\nput `IO` on the right of a row.",
-      "created": "2026-10-19",
-      "updated": "2026-10-19",
-      "commits": []
-    },
-    {
       "id": 81,
       "title": "A misleading follow-on error",
       "status": "done",
@@ -1213,16 +1203,16 @@
     },
     {
       "id": 82,
-      "title": "WebAssembly stack guard: calibrate beyond Node/Chrome and choose the guard size",
+      "title": "WebAssembly stack guard: measure limits in all browsers (incl. compact text) and choose the guard size",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [
         "playground"
       ],
-      "body": "Each call uses the stack in linear memory (which the guard measures) and the engine's own call stack (~1 MiB in V8), and the engine's runs out first, so the guard is 128 KiB (crates/web/build.rs), calibrated in Node and Chrome only; Firefox and Safari are unmeasured. 128 KiB gives about 25 levels of nesting and list literals of ~200 elements; 256 KiB would roughly double that with a 2x margin in Node. Measure in all four engines (web/stress.html exists), pick the size, record it. Eliminating recursion (stack-safe-evaluation steps 3 and 4) is the real fix. Done: a table of limits per browser and the guard set from it.\n\nSplit 19 Oct (with the SW-61 merge) into SW-126.\n\nMerged from SW-61:\n**The WebAssembly guard size:** 128 KiB gives the playground about 25\nlevels of nesting and list literals of about 200 elements. 256 KiB would\nroughly double that, with a 2× margin in Node. Separately, the parser's\nstack use per level could be cut (e.g. by boxing the `Diagnostic` in its\n`Result`).",
+      "body": "Problem: each call uses stack in linear memory (which the guard measures) and the engine's own call stack (about 1 MiB in V8); the engine's runs out first, so the guard is 128 KiB (crates/web/build.rs:19, override STITCHWORT_GUARD at :33), calibrated in Node and Chrome only. Firefox and Safari are unmeasured. 128 KiB gives about 25 levels of nesting and list literals of about 200 elements; 256 KiB would roughly double that with a 2x margin in Node. The parser's stack use per level could also be cut (e.g. boxing `Diagnostic` in its `Result`): that is SW-126.\n\nChange, one campaign: measure in all four engines with web/stress.html: nesting depth, long list/text literals (including compact `List Char` literals, d4d3626, which were only measured natively: the limit before E-RESOURCE and the time), then pick the guard size.\n\nEliminating recursion (stack-safe-evaluation steps 3 and 4, docs/proposals/stack-safe-evaluation.md) is the real fix; see also SW-62 (long literals) and SW-57 (JS limits in browsers, different subject: generated code).\n\nDone when: a table of limits per browser (nesting, literal length, compact text) is in docs/evaluator-speed.md or compact-text.md and the guard is set from it.\n\nHistory: split 19 Oct into SW-126; merged SW-61 (guard size) and SW-52 (compact text in WASM).\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -1232,26 +1222,26 @@
       "agent": "",
       "where": "",
       "labels": [
-        "bug",
-        "elab"
+        "elab",
+        "kernel"
       ],
-      "body": "**The machine starts a nested machine** when a native forces an argument\nthat's a solved metavariable (elaboration only). Bounded by the term, not by\nprogram depth, but it's the one exception to \"no re-entry\".",
+      "body": "The machine starts a nested machine when a native forces an argument that is a solved metavariable (elaboration only): natives call the public `force` (crates/core/src/native.rs:41, 427, 441), which enters a fresh machine. docs/proposals/stack-safe-evaluation.md:48 records this as the one exception to the 'no re-entry' rule (and :86, :253 state the rule). It is bounded by the term, not by program depth, so it is not a known failure; the cost is that the invariant 'a deep evaluation runs inside exactly one machine' (the test-only machine-entry counter, :253) has a hole.\n\nFirst step: decide whether to close the hole or keep the exception. Option to close it: make the native return a request to force the metavariable as a machine state (as the `Apply` request does for `sub`, `leq`, `eqNat`), or make the elaborator zonk solved metas in the arguments before natives run. If neither is cheap, keep the exception and strengthen the note in stack-safe-evaluation.md with a depth bound.\n\nDone when: either the machine-entry counter test passes for solved-metavariable arguments, or the doc states the bound and this ticket is closed as accepted.\n\nHistory: stack-safe evaluation step 3.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
       "id": 84,
-      "title": "Memory per frame",
+      "title": "Evaluator frames cost ~750 bytes each: reduce memory per frame",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [
-        "bug"
+        "performance"
       ],
-      "body": "**Memory per frame:** a million-deep recursion peaks at about 750 MB; the\ndefault limit is 2 million frames.",
+      "body": "A million-deep recursion (`length (replicate 1000000 1)`) peaks at about 750 MB; the default frame limit is 2,000,000 (crates/core/src/budget.rs:65-78; docs/aoc-2025.md:754). Each frame keeps its environment alive.\n\nFirst step: measure (peak RSS at 10^6 frames, and what a frame and its environment hold), then decide whether this is worth doing (it matters for the playground and low-memory machines) or should stay a documented limit.\n\nDone when: the measurement is in the ticket and either peak memory at 10^6 frames is reduced (target to be chosen from the measurement) with bench/baseline.toml unchanged or better, or the ticket is closed as a documented limit.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -1264,9 +1254,9 @@
         "bug",
         "tooling"
       ],
-      "body": "**The differential test overflows in debug builds:**\n`the_evaluators_agree_on_the_prelude_and_every_example` overflows its\n64 MiB thread in a debug build (already so before step 4), at\n`examples/accept/io.sw`; release builds, which the gate uses, pass.\n\nAlso listed under Later in TODO.md:\n\n**Differential test overflows in debug** at `io.sw`'s \"5,000 prints\"\n(see Known issues entry, if present).\n\nNot re-verified; the gate runs release builds.",
+      "body": "Problem: `the_evaluators_agree_on_the_prelude_and_every_example` (crates/driver/tests/differential.rs:168) overflows its 64 MiB thread (:19) in a debug build, at examples/accept/io.sw:234 (`test \"5,000 prints\" := ... printMany 5000`); release builds, which the gate uses (dev/t runs `cargo test --release`), pass. Not re-verified in this review.\n\nFirst step: reproduce once in debug (a single run, limited memory), then either raise the thread stack for debug builds (cfg!(debug_assertions)) or lower the 5,000 for that comparison.\n\nDone when: `cargo test -p stitchwort-driver --test differential` passes in a debug build.\n\nHistory: merged duplicate TODO.md 'Later' entry.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -1388,9 +1378,9 @@
       "labels": [
         "syntax"
       ],
-      "body": "From SW-91 research (19 Oct): Unison's `do` delays a block; Stitchwort could make `do e` sugar for `\\() => e`, handy for passing programs to handlers (`IO.simulate lines (do main())`). Pure sugar, no soundness risk. Not now (Matt).",
+      "body": "From SW-91 research (19 Oct): Unison's `do` delays a block. Stitchwort could make `do e` sugar for the thunk `() => e` (the backslash form `\\() => e` in the original no longer exists, docs/syntax.md:148; `() => e` works today), for passing programs to handlers (`IO.simulate lines (() => main ())` vs `IO.simulate lines (do main ())`; note `IO.simulate input main` already passes `main` directly, examples/accept/adder-fuel.sw:53). Pure sugar, no soundness risk; the saving is five characters, so the case is weak. Not now (Matt).\n\nDone when: Matt asks for it, in which case a short design note covers where `do e` may appear (argument position needs brackets as lambdas do, syntax.md:148) and the parser/printer change; otherwise stays parked.\n\nHistory: SW-91 research; 'not now' (Matt, 19 Oct).\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -1403,9 +1393,9 @@
         "kernel",
         "proof"
       ],
-      "body": "Implement stage 1 of docs/proposals/proof-irrelevance.md (draft 3, decided): conv skips arguments/fields whose declared type is in Prop; homogeneous-input precondition documented; unifier rule (whole proof metas only); tests 1-16 incl. the Loop/bad termination test. Kernel work: Opus (spec + implementation or careful review). Stage 2 (remove canonical) follows.\n\nMatt (19 Oct): on hold; multi-file first.\n\nThird motivating example (Matt, 19 Oct): aoc/day01.sw `dialExt`/`dialExtAt` — two `Dial`s at the same position are equal only after a second `J` with `Bool.uniqueEq` on the `inRange` proofs. Under D1′ the proof field is masked, so that step becomes `rfl` (inferred). Matt: still on hold until multi-file is done.",
+      "body": "Implement stage 1 of docs/proposals/proof-irrelevance.md (draft 3, decided): conversion skips arguments and fields whose declared type is in Prop; homogeneous-input precondition documented; unifier rule (whole proof metas only); tests 1-16 including the Loop/bad termination test. Kernel work: Opus (spec + implementation or careful review). Stage 2 (remove canonical) follows.\n\nThird motivating example: Aoc/Day01/Proofs/Part2.sw:65-68 `dialExt`/`dialExtAt`: two `Dial`s at the same position are equal only after a second `J` with `Bool.uniqueEq` on the `inRange` proofs; under D1' the proof field is masked and that step becomes `rfl`.\n\nHistory: Matt (19 Oct): on hold, multi-file first. Multi-file is now done (SW-89, SW-106). NEEDS MATT: confirm this can start now (it unblocks SW-55 and SW-202).\n\nDone when: tests 1-16 of the note pass, `dialExt` is `rfl`-checkable, the full gate is green and hashes are re-baselined.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -1433,9 +1423,9 @@
         "design",
         "proof"
       ],
-      "body": "Idea from aoc/day01.sw `dialExt` (19 Oct): like Lean's `@[ext]`, generate `T.ext : a.f = b.f -> a = b` for a record whose remaining fields are proofs. Easy once proof irrelevance (SW-93, D1′) lands: the proof fields compare equal by masks. Not before SW-93.",
+      "body": "Idea: like Lean's `@[ext]`, generate `T.ext : a.f = b.f -> a = b` for a record whose remaining fields are all proofs (motivation: AoC day 1 `dialExt`). Once proof irrelevance lands (SW-93, D1', docs/proposals/proof-irrelevance.md) the proof fields compare equal by masks, so the lemma is a one-line generated proof.\n\nBlocked on SW-93. First step when unblocked: decide the surface (always generated for such records, or an attribute) and the exact statement for records with several non-proof fields.\n\nDone when: a record with proof fields gets `T.ext`, used to replace the hand-written `dialExt`, with an accept and a reject example.\n\nHistory: 19 Oct idea. Related: SW-202.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -1538,9 +1528,9 @@
         "proof",
         "design"
       ],
-      "body": "From the day 1 comparison (SW-96): recommendation 4, large effort; `calc`/`rewrite` give much of the benefit sooner. Note Lean's omega can't do / or % by a variable either.",
+      "body": "AoC proofs need hand-built arithmetic lemmas because the language has no `omega`/`ring` (docs/aoc-2025.md:96, :182); the day 1 comparison (docs/comparisons/aoc-day01.md, docs/compared.md:116 and :206) found Lean's `omega`, `simp` and `grind` roughly halved proof size. Stitchwort has no tactics, so the way to get such automation is proof by reflection: write an arithmetic normaliser (or a linear-arithmetic decision procedure) as an ordinary total function in the language, prove it sound once, and use it as a proof term (a term-level `omega`). Recommendation 4 from SW-96, large effort; `calc` and `rewrite` (docs/proposals/calc-rewrite.md, built) already give much of the benefit and are cheaper. Note Lean's `omega` can't do `/` or `%` by a variable either.\n\nFirst step: a design note (Opus) scoping a fragment (for example linear `Nat`/`Int` equalities and inequalities over `+`, literal `*`, `<=`, `<`), the soundness proof it needs, and whether checking cost is acceptable given evaluator speed (docs/evaluator-speed.md).\n\nDone when: the note exists with a build/don't-build recommendation and Matt has decided.\n\nHistory: from SW-96 (day 1 comparison), recommendation 4.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -1561,16 +1551,16 @@
     },
     {
       "id": 103,
-      "title": "Shared compile cache across clones and worktrees: try kache (and/or sccache)",
+      "title": "Parked: shared compile cache across clones and worktrees (kache or sccache)",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [
         "tooling"
       ],
-      "body": "Matt (19 Oct): after multi-file lands. A friend recommends https://github.com/kunobi-ninja/kache over sccache: 'does the whole worktree story better by using hardlinks'. Not yet evaluated (unverified): check it's packaged in nixpkgs or buildable via the flake, how it wires into cargo (RUSTC_WRAPPER?), disk use, and measure a cold clone build before/after (today: every new clone/worktree compiles from scratch, ~20 per day).\n\n19 Oct investigation (Sonnet): kache v1.2.2 = RUSTC_WRAPPER with a BLAKE3 content-addressed store, APFS copy-on-write restores (not hardlinks). Second fresh clone: release build 22 s -> 2 s, test build 54 s -> 12 s (sccache: 14 s / 27 s, 40% hits). Not in nixpkgs (source build ~426 derivations); route would be a pinned release binary via fetchurl. Young (8 months, 1.0 on 2026-10-05), spawns a daemon, writes ~/Library/Logs and Caches. Matt: parked; revisit if it reaches nixpkgs or clone volume grows. Scratch dir deleted.",
+      "body": "Parked (Matt, 19 Oct): revisit if kache reaches nixpkgs or clone volume grows. Every new clone or worktree compiles from scratch (~20 per day).\n\n19 Oct investigation (Sonnet): kache v1.2.2 (https://github.com/kunobi-ninja/kache) = RUSTC_WRAPPER with a BLAKE3 content-addressed store and APFS copy-on-write restores (not hardlinks). Second fresh clone: release build 22 s -> 2 s, test build 54 s -> 12 s (sccache: 14 s / 27 s, 40% hits). Not in nixpkgs (source build ~426 derivations); route would be a pinned release binary via fetchurl. Young (8 months, 1.0 on 2026-10-05), spawns a daemon, writes ~/Library/Logs and Caches.\n\nDone when: (if revived) a fresh worktree builds in seconds through the flake devShell with the cache wired by RUSTC_WRAPPER, and the disk use is measured.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -1681,9 +1671,9 @@
         "stdlib",
         "design"
       ],
-      "body": "Split from SW-17 (19 Oct): `map`, `filter` and the folds take pure functions; a callback that uses an ability (IO, a handler's state) can't be passed. Later, when a program needs it: needs effect-polymorphic signatures (`(a -> {e} b) -> List a -> {e} List b`) and checking they don't break existing hashes/inference.",
+      "body": "Problem: `List.map`, `filter` and the folds (crates/elab/src/std/List/Toolkit.sw:12 and following) take pure functions, so a callback using an ability can't be passed. Repro: `def p (xs: List Nat): {IO} List () := List.map (x => IO.print (Nat.toText x)) xs` gives E-ABILITY ('this may perform `IO`, which isn't allowed here').\n\nDecide first: effect-polymorphic signatures (`(a -> {e} b) -> List a -> {e} List b`) versus separate effectful variants (`List.mapM`-style), and whether the pure uses keep elaborating identically (hashes aren't a constraint, but inference is). Check that existing inference of lambdas passed to `List.map` doesn't regress.\n\nDone when: the repro checks and runs, and the gate (all existing List.map uses) is unchanged.\n\nHistory: split from SW-17 (19 Oct): later, when a program needs it.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -1712,9 +1702,9 @@
         "aoc",
         "design"
       ],
-      "body": "docs/aoc-2025.md capability #4: a compact native `Array a` (like compact text) for days 4, 8, 9. Large; design note first (Opus), with a design review before building. Measure after days 4-5 whether it's really needed (aoc-2025.md says so).\n\n20 Oct 2026 (D107): AoC day 4 part 2 would use a worklist (remove a roll, recheck its 8 neighbours) with O(1) grid access; today it sweeps the whole grid ~60 times (5 s). Concrete use case for this ticket.\n",
+      "body": "A compact native `Array a` with get/set/length (like compact text), proposed as capability #4 in docs/aoc-2025.md:688 for days 4, 8 and 9. The std library has `Vec` (length-indexed, std/Vec/Vec.sw) but it is a linked list, so access is O(n). Concrete use case (D107, 20 Oct 2026): AoC day 4 part 2 would use a worklist (remove a roll, recheck its 8 neighbours) with O(1) grid access; today `sweep` (aoc/src/Aoc/Day04/Day04.sw:112) walks the whole grid about 60 times (5 s). Large item: design note first (Opus), then a design review before building.\n\nFirst step: measure whether it is really needed now that days 4 to 7 exist (aoc-2025.md says to measure after days 4-5) and whether `Vec`-based approaches suffice; then the design note (kernel representation, how it hashes, proofs about it, JS extraction as a JS array, and what `set` costs in a pure language: copy vs persistent structure).\n\nDone when: the measurement and note exist and a build/don't-build decision is recorded; building is a separate ticket.\n\nHistory: D107; aoc-2025.md capability #4.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-20",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -1775,9 +1765,9 @@
         "elab",
         "proof"
       ],
-      "body": "In a structural proof, passing the recursive call along un-applied (`... ih ...`) fails; the user writes out `\\c2 a2 ... => pickBest k ih w ...` (aoc-2025.md:1120). Investigate whether eta-expanding a partially applied recursive call is sound for the termination checker (kernel sees an arity-short occurrence) and if so do it automatically. Done: day 3's lambda wrapper in `pickBest` proofs is removable.",
+      "body": "In a structural proof, passing the recursive call along un-applied (`... ih ...`) fails; the user writes out the lambda wrapper `(c2 a2 g1 g2 g3 y2 s2 g4 g5 g6 => pickBest k ih w more c2 a2 g1 g2 g3 y2 s2 g4 g5 g6)` (aoc/src/Aoc/Day03/Proofs/Best.sw:165; docs/aoc-2025.md:1208, 1308). Investigate whether eta-expanding a partially applied recursive call is sound for the termination checker (the kernel sees an arity-short occurrence) and if so do it automatically. The first step is that investigation.\n\nDone when: either the wrapper in `pickBest` (Best.sw:165) is removable and Day 3 still checks, or the ticket records why it can't be done (and docs/syntax.md says so).\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -1804,9 +1794,9 @@
       "labels": [
         "js"
       ],
-      "body": "JS decode error paths through mutual data (e.g. `.kids.first.kids.first...`) aren't shortened the way a single recursive type's are. Find where decoder paths are abbreviated (crates/js/src/lib.rs) and apply the same rule. Done: a test with a 20-level mutual structure shows a short path.",
+      "body": "Problem: JS decode error paths are summarised by `pathText` (crates/js/src/lib.rs:937-950): runs of one repeated step become `(step ×n)` (:947-948) and long paths drop the middle, but a path that alternates two or more steps through mutual data (`.kids.first.kids.first...`, see docs/syntax.md:92) is only cut by the length rule.\n\nChange: also fold repeated multi-step cycles into `(.kids.first ×n)`.\n\nDone when: a test with a 20-level mutual structure (docs/syntax.md:92 shape) shows a short path in the error.\n\nHistory: none.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -1832,9 +1822,9 @@
       "labels": [
         "kernel"
       ],
-      "body": "records.md §6.4 R4 'field paths': a recursive call on `r.list` where `r` is a parameter is refused; flatten record fields into size-change paths one layer deep (dependent fields as a telescope). Refuse `loop r = loop { r | list = r.list }`. Done: examples accepted/rejected per records.md §6.4/§7.5.",
+      "body": "A recursive call on a field of a record parameter is refused today: matching a record binds its fields as `<` the parameter, `p.field` is a call of a generated definition (unknown for size change) and a rebuilt record is unknown, so `sum { list = Cons x xs, acc } = sum { list = xs, acc = acc + x }` is refused (docs/proposals/records.md:700-708). Implement the deferred design (records.md:709, decision R4 in the table at :163, section 7.5 at :1048): treat a known record parameter as its fields for size change, each a separate stable field path (`r.list`, `r.acc`), one layer deep, dependent fields as a telescope, and keep refusing `loop r = loop { r | list = r.list }` (a rebuilt record is not a descendant). The termination checker is crates/core/src/termination.rs.\n\nDone when: examples are accepted and rejected as records.md section 6.4 and 7.5 say (an accept example for `sum` on a record, a reject example for the rebuilt-record loop), with unit tests, and records.md is updated from 'later' to 'as built'.\n\nHistory: records design note; deferred from stages 1 and 2.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -1861,9 +1851,9 @@
         "stdlib",
         "elab"
       ],
-      "body": "docs/proposals/partial.md §7.3.7 / line 670: a library `mapP : (a -> {Partial | e} b) -> List a -> {Partial | e} List b` (total callbacks fit via `lift`). `E-PARTIAL-CALLBACK` (crates/elab/src/check.rs; examples/reject/partial-callback.sw) should then name `mapP` when the library function is `map`. Done: example using mapP, updated snapshot. Related: SW-110.",
+      "body": "docs/proposals/partial.md §7.3.6 (line 670) and line 636 promise a library `mapP : (a -> {Partial | e} b) -> List a -> {Partial | e} List b` (total callbacks fit via `lift`), and that the E-PARTIAL-CALLBACK diagnostic suggests it when the helper is the library's `map`. Neither exists: `mapP` isn't in crates/elab/src/std, and the diagnostic (crates/elab/src/check.rs:1210-1231) only suggests making the helper polymorphic in the row. Add `mapP` (List/Toolkit.sw) and make the diagnostic name it when the helper is `List.map`.\n\nFirst step: check that the type above is accepted given 'row variables range over Partial-free rows' (partial.md:670) and write it with a test. Related: SW-110 (effectful callbacks for List.map/filter/folds).\n\nDone when: an examples/accept file uses `mapP` with a partial recursive callback, examples/reject/partial-callback.sw's snapshot names `mapP` for `map`, and docs mention it.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -1893,9 +1883,9 @@
         "elab",
         "bug"
       ],
-      "body": "Noticed while writing namespaces §9, not investigated: with `import Effect (Comp, NoOp, NoRes)`, `def f: Comp NoOp NoRes Nat := 3` and `def g: Nat := f` both check (reproduced 19 Oct). Find out whether that's intended (a pure block is not wrapped, let.md stage 1) or a conversion hole, then document it as intended (docs/proposals/let.md) or fix it. Done: a test or a doc line recording the answer.",
+      "body": "Problem (reproduced 21 Oct): with `import Std.Effect (Comp, NoOp, NoRes)`, `def f: Comp NoOp NoRes Nat := 3` and `def g: Nat := f` both check. docs/proposals/let.md (stage 1) says a pure block isn't wrapped in `Comp`/`runPure`, which may make `Comp NoOp NoRes a` convert to `a` by design, or it may be a conversion hole.\n\nFirst step: find the conversion that accepts `f` at `Nat` (crates/elab/src/effects.rs or unify.rs) and decide whether it's intended.\n\nDone when: either it is fixed (the repro's `g` is rejected, with a reject example) or the intent is documented in docs/proposals/let.md and docs/syntax.md, with an accept example locking it.\n\nHistory: noticed while writing namespaces §9.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -1922,24 +1912,24 @@
         "elab",
         "playground"
       ],
-      "body": "e.g. box the `Diagnostic` in the parser's `Result` so frames are smaller (from SW-61). Measure frame size before/after with web/stress.html and the nesting tests (crates/driver/tests/nesting.rs). Done: nesting depth in a 2 MiB thread improves measurably.",
+      "body": "Every parser function returns `Result<T, Diagnostic>` with the `Diagnostic` inline (crates/syntax/src/parser.rs:25), so each recursive frame reserves space for the large error value. Box the `Diagnostic` (or return a smaller error type) so frames are smaller, and measure the nesting depth reached before the guard trips: crates/driver/tests/nesting.rs (`nested_parentheses` :104, `nested_applications` :92, run in a 2 MiB child thread) and web/stress.html in a browser (the reason for the playground label: its worker stack is small).\n\nDone when: the nesting depth in the 2 MiB thread improves measurably (record before and after in the ticket), and nesting.rs still passes.\n\nHistory: from SW-61.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
       "id": 127,
       "title": "AoC day 4: prove the grid result for all grids",
-      "status": "backlog",
+      "status": "done",
       "agent": "Opus",
       "where": "part 1 proved, Cell enum (D150) merged; rework in SW-180",
       "labels": [
         "aoc",
         "proof"
       ],
-      "body": "D108 part 2 for day 4. Part 1 proved (merged 20 Oct, over List Text with a rectangular precondition). 20 Oct, Matt: D124 restate theorems at solvePartN level over Grid (solvePart1 grid = part1Spec grid; parseGrid separate). D125 'E with C': spec by position (cell function / sets of positions), program on length-indexed Vec h (Vec w Bool); Vec is new in the library, so design note docs/proposals/vec.md first (design-review gate). D123 (part 2: full sweep proof vs repeated round; measured 4.85 s vs 13.2 s native) PARKED until the restatement.",
+      "body": "D108 part 2 for day 4. Part 1 proved (merged 20 Oct, over List Text with a rectangular precondition). 20 Oct, Matt: D124 restate theorems at solvePartN level over Grid (solvePart1 grid = part1Spec grid; parseGrid separate). D125 'E with C': spec by position (cell function / sets of positions), program on length-indexed Vec h (Vec w Bool); Vec is new in the library, so design note docs/proposals/vec.md first (design-review gate). D123 (part 2: full sweep proof vs repeated round; measured 4.85 s vs 13.2 s native) PARKED until the restatement.\n\nClosed in the 21 Oct 2026 backlog review (done): Day 4 is proved for all grids: aoc/src/Aoc/Day04/Proofs/Part1.sw:43 `part1Correct (grid: Grid): solvePart1 grid = part1Spec grid` and Part2.sw:169 `part2Correct (grid: Grid): solvePart2 grid = part2Spec grid`, over Vec with a position-based spec; commits de8e8f4 (phase 1) and fc28a85 'Day 4 part 2 proved for every grid' (SW-180, status done).\n",
       "created": "2026-10-19",
-      "updated": "2026-10-20",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -1967,9 +1957,9 @@
         "elab",
         "design"
       ],
-      "body": "Found converting examples to dot notation (SW-123, 19 Oct): 14 conversions changed the elaborated term (hash moved), e.g. `[True, False].map not` vs `List.map not [True, False]`, `[1, 2].map …`, `[1, 2].zip …`, several `.sort`/`.sortBy`/`.sortWith` calls in sort.sw, `.elem`/`.lookup` in list-toolkit.sw (DeepSeek log: scratchpad/tasks/dots.log). docs/syntax.md:239 presents them as the same call. Likely cause (inferred): the receiver is checked first without the function's expected type, so a literal list's element type or an implicit is settled differently (Nat vs Int), and evaluation order differs (receiver first). Investigate one case with the printer; then either make them agree or document the difference.",
+      "body": "Problem (reproduced 21 Oct): the dot form settles the receiver's literal type before the function's expected type is known:\n\n    def c: List Int := [1, 2].map (x => x)           -- E-TYPE-MISMATCH: has type List Nat\n    def d: List Int := List.map (x => x) [1, 2]      -- checks\n\nFound converting examples to dot notation (SW-123): 14 conversions changed the elaborated term, e.g. `[True, False].map not`, `[1, 2].zip ...`, `.sort`/`.sortBy`/`.sortWith` in sort.sw, `.elem`/`.lookup` in list-toolkit.sw. docs/syntax.md:239 presents them as one call. Likely cause (inferred): the receiver is checked without the expected type (crates/elab/src/dot.rs), so a literal's type or an implicit is fixed as Nat, and evaluation order differs.\n\nFirst step: print the elaborated terms for `c`/`d` and one of the hash-moving cases, then decide: make dot calls check the receiver against the expected result when the function is known, or document the difference in docs/syntax.md.\n\nDone when: the repro `c` checks (or the difference is documented in docs/syntax.md:239 and the converted examples are annotated) with a test either way.\n\nHistory: from SW-123.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -2122,16 +2112,16 @@
     {
       "id": 139,
       "title": "Prelude: lemmas relating n + 1 and Succ n where specs use + 1",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "stdlib",
         "proof"
       ],
-      "body": "SW-7: `+` recurses on its left argument, so `hi + 1` isn't definitionally `Succ hi`; day 5's proof needed `Nat.addOne` five times between `Range.size`'s `hi + 1 - lo` and `<`. Consider: define `+` by recursion on the right (Lean's choice, so `n + 1 = Succ n` by computation), or add simp-style lemmas. Check hash/perf impact; design note first.",
+      "body": "SW-7: `+` recurses on its left argument, so `hi + 1` isn't definitionally `Succ hi`; day 5's proof needed `Nat.addOne` five times between `Range.size`'s `hi + 1 - lo` and `<`. Consider: define `+` by recursion on the right (Lean's choice, so `n + 1 = Succ n` by computation), or add simp-style lemmas. Check hash/perf impact; design note first.\n\nClosed in the 21 Oct 2026 backlog review (done): The lemma half is built: `Nat.addOne (a: Nat): a + 1 = Succ a` is at crates/elab/src/std/Nat/Arith.sw:182 (also `Nat.addTwo` :468, `Nat.addSucc` core.sw:1809) and is used by the AoC proofs (aoc/src/Aoc/Common/Proofs/Range.sw:15, in a calc). What remains is only the speculative alternative of defining `+` by recursion on the right; `Nat.add` is still left-recursive (core.sw:66) and nothing needs the change. If Matt wants that alternative kept, reopen it as an explicit decision ticket.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -2212,16 +2202,16 @@
     },
     {
       "id": 145,
-      "title": "Faster prelude iteration: load a prelude file without rebuilding the CLI",
+      "title": "Faster library iteration: load Std files from disk without rebuilding the CLI",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [
         "tooling"
       ],
-      "body": "Day 5 and day 6 both hit it: each prelude edit costs a ~9 s CLI rebuild, and a project can't add to List./Nat., so lanes draft lemmas under a scratch namespace (PList, PT) and move them. Options: a --prelude PATH flag, or namespace extension.",
+      "body": "Every edit to a library file (crates/elab/src/std/**/*.sw, embedded with include_str! at crates/elab/src/library.rs:43-) costs a ~9 s CLI rebuild; and a project can't add to `List.`/`Nat.` namespaces (unverified in this review), so lanes (days 5 and 6) draft lemmas under a scratch namespace (PList, PT) and move them later.\n\nFirst step: decide between (a) a `--std PATH` flag or env var that reads the library files from a directory instead of the embedded copies (keeping the build fingerprint and test cache correct, see crates/driver/build.rs), and (b) letting a project extend the library namespaces.\n\nDone when: editing a library file and running `stitchwort check` on a project that uses it takes under 1 s without `cargo build`, and the test cache is not poisoned by the override.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-19",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -2298,9 +2288,9 @@
         "language",
         "namespaces"
       ],
-      "body": "Matt, 20 Oct 2026: helpers (e.g. AoC's twice*/window* lemmas, prelude's Text.splitCons/splitChars) shouldn't join the namespace; only their file should see them.\n\nAlready listed as deferred: multi-file.md §4.5 ('no private yet') and the 'Later' list in §12; namespaces.md §8 table ('private and protected', Lean's modifiers).\n\nSketch: `private` before def/theorem/type; the name resolves only within its file. Two files of one namespace may each have a private `helper` without clashing (the full name gets a file-unique part, as Lean does). Bodies stay visible to the checker: a public function that uses a private helper still unfolds in other files' proofs (it hides the name, not the definition; unlike Idris's `export`). Errors: naming it from another file is E-PRIVATE with 'private to file X'. Precedents: Lean private (file-local), Agda private blocks, Rust (private by default), Scala/TS private. Needs a short design note first.",
+      "body": "Problem: helpers (AoC's twice*/window* lemmas, the prelude's Text.splitCons/splitChars) join their namespace; only their own file should see them (Matt, 20 Oct 2026). There's no `private` today: docs/proposals/multi-file.md:498 ('Visibility of declarations: everything'), :1390 (later list), namespaces.md §8 table.\n\nFirst step: a short design note (docs/proposals/), with the sketch: `private` before def/theorem/type; the name resolves only in its file; two files of one namespace may each have a private `helper` (the full name gets a file-unique part, as Lean does); bodies stay visible to the checker so a public function using a private helper still unfolds in other files' proofs (hides the name, not the definition; unlike Idris `export`); naming it from another file is E-PRIVATE 'private to file X'. Precedents: Lean private, Agda private blocks, Rust, Scala/TS. Design review gate applies.\n\nDone when: the note is reviewed, then `private` is built with accept/reject examples (including the same private name in two files) and the AoC/prelude helpers are marked.\n\nHistory: Matt, 20 Oct 2026.\n",
       "created": "2026-10-20",
-      "updated": "2026-10-20",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -2429,7 +2419,7 @@
     },
     {
       "id": 158,
-      "title": "Cache evaluated closed statements so proof-by-computation facts aren't recomputed (D75)",
+      "title": "Revisit the memo cache for evaluated closed statements if proofs that compute large facts return (D75, D90)",
       "status": "backlog",
       "agent": "",
       "where": "",
@@ -2437,9 +2427,9 @@
         "kernel",
         "performance"
       ],
-      "body": "From SW-154's findings (docs/evaluator-speed.md §8): the evaluator is now 72% of proof checking; 28% is in infer_j where facts proved by computation are computed by the elaborator and again by the kernel; threeChecked alone is 1.1 s. D75 (Matt, 20 Oct 2026): next speed step, an Opus lane, after SW-157 (AoC proof conversion) lands. Glued evaluation is a later design note.\n\nD90 (Matt, 20 Oct 2026): built (branch worktree-agent-a5f8080551d5c389e, 664a0c5; memo cache in crates/core/src/memo.rs, cache on/off differential test) but NOT merged. It targeted computed facts (threeChecked etc.) that SW-166 removed; on current main no measurable gain, and it adds kernel complexity at 2-3% cost when nothing repeats. Revisit if proofs that compute large facts return.\n",
+      "body": "Parked, not scheduled. Background: SW-154's findings (docs/evaluator-speed.md section 8, :299-337) showed the evaluator is 72% of proof checking, and 28% is in `infer_j`, where facts proved by computation are computed by the elaborator and again by the kernel (`threeChecked` alone was 1.1 s). D75 (Matt, 20 Oct 2026) made caching evaluated closed statements the next speed step, after SW-157.\n\nD90 (Matt, 20 Oct 2026): built (branch worktree-agent-a5f8080551d5c389e, commit 664a0c5: a memo cache in crates/core/src/memo.rs with a cache on/off differential test) but NOT merged. It targeted computed facts (`threeChecked` etc.) that SW-166 removed; on current main it shows no measurable gain, and it adds kernel complexity at 2-3% cost when nothing repeats. memo.rs is not on main (checked 21 Oct).\n\nRevisit when proofs that compute large facts return: re-run the AoC proof check profile (docs/evaluator-speed.md section 8) and, if the repeated computation is again a measurable share, rebase the branch. Glued evaluation is a later, separate design note.\n\nDone when: a profile shows repeated closed computations above a threshold Matt accepts and the branch is merged, or Matt closes the ticket as not needed.\n\nHistory: D75, D90.\n",
       "created": "2026-10-20",
-      "updated": "2026-10-20",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -2493,7 +2483,7 @@
     },
     {
       "id": 162,
-      "title": "rewrite: choose occurrences, and rewrite … at h (from SW-157)",
+      "title": "rewrite: choose which occurrence to rewrite",
       "status": "backlog",
       "agent": "",
       "where": "",
@@ -2501,9 +2491,9 @@
         "proof",
         "syntax"
       ],
-      "body": "SW-157 pain points 1-2: no way to rewrite one occurrence (J kept in twiceBlockLength, twiceAbove, repAbove); no rewrite at a named hypothesis (J kept at day02.sw:372, part2proof.sw:157). Stage 3 of calc-rewrite.md already lists 'choosing occurrences'. Details in docs/aoc-2025.md 'Proofs with rewrite and calc'.",
+      "body": "`rewrite` replaces every occurrence of the rule's left side that matches the goal; there is no way to rewrite one occurrence, so a `J` is kept in `twiceBlockLength` (aoc/src/Aoc/Day02/Proofs/Repeated.sw:231), `twiceAbove` (Repeated.sw:269) and `repAbove` (Aoc/Day02/Proofs/Part2.sw:93). docs/proposals/calc-rewrite.md:1232 lists 'Choosing occurrences' under Stage 3; the pain point is in docs/aoc-2025.md, 'Proofs with rewrite and calc' (:1935).\n\nFirst step: decide the surface (e.g. `rewrite p at 2`, a pattern with holes, or a motive written by the user); compare Rocq's `at` clauses and Lean's `nth_rewrite`, noted in calc-rewrite.md §4.5.\n\nHistory: from SW-157 pain point 1.\n\nDone when: the surface is decided in calc-rewrite.md and the `J` in `twiceBlockLength` is replaced by a `rewrite` with the chosen syntax.\n",
       "created": "2026-10-20",
-      "updated": "2026-10-20",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -2516,14 +2506,14 @@
         "tooling",
         "performance"
       ],
-      "body": "SW-157 pain point 8 and SW-147: finding slow proofs needs ad-hoc measurement; rewrite's metrics line doesn't show time. A flag listing each declaration's check time and evaluation steps, slowest first.",
+      "body": "Problem: finding slow proofs needs ad-hoc measurement; the rewrite metrics line shows counts but not time (SW-157 pain point 8, SW-147). `stitchwort check` has no timing option.\n\nChange: a flag `stitchwort check --timings` listing each declaration's check time and evaluation steps, slowest first (names resolved to full names, namespaces and projects included).\n\nFirst step: decide the output (plain table to stderr) and where the per-declaration step counter lives (elaborator limits/steps).\n\nDone when: `stitchwort check --timings aoc/...` prints the table, with a CLI test on a small file checking the declaration names and the ordering.\n\nHistory: from SW-157, SW-147.\n",
       "created": "2026-10-20",
-      "updated": "2026-10-20",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
       "id": 164,
-      "title": "calc accepts a < chain against a <= goal although syntax.md says the relation must match",
+      "title": "calc accepts a `<` chain against a `<=` goal when the sides compute to it; syntax.md:597 says the relation must match",
       "status": "backlog",
       "agent": "",
       "where": "",
@@ -2531,9 +2521,9 @@
         "proof",
         "docs"
       ],
-      "body": "SW-157 pain point 10. Decide: document it (a < b implies a <= b, accepted by conversion?) or make it an error; check why it is accepted first. Also pain points 3-7 and 9 in docs/aoc-2025.md.",
+      "body": "SW-157 pain point 10 (docs/aoc-2025.md:2068). Reproduced (21 Oct, release binary): `theorem t1 (a: Nat) (b: Nat) (h: a < Succ b): a <= b := calc a / _ < Succ b := h` (steps on separate lines) is accepted, while `calc a / _ < b := h` against `a <= b` gives E-CALC-GOAL ('the chain's relation is `<`, but the goal's is `<=`'). Cause: the goal check is by computation (syntax.md:597 'checked against it by computation'), and `a < Succ b` computes to `a <= b` (`Nat.leq (Succ a) (Succ b)` reduces to `Nat.leq a b`), so the check passes by conversion, not by weakening. It is harmless and handy; `rangeEnd` (aoc/src/Aoc/Common/Proofs/Range.sw:9) relies on it.\n\nDecide: (a) document it (change syntax.md:597 from 'its relation must be the goal's' to say that a relation which computes to the goal's is accepted, with this example and a test in examples/accept/calc.sw), or (b) make it an error (compare the relation syntactically before conversion). Recommend (a): (b) adds a special case and breaks `rangeEnd`.\n\nDone when: the decision is recorded and either syntax.md and examples/accept/calc.sw match the behaviour, or the error exists with a reject example.\n\nHistory: SW-157 pain point 10. The other pain points (3-7, 9) are now separate tickets.\n",
       "created": "2026-10-20",
-      "updated": "2026-10-20",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -2634,9 +2624,9 @@
         "elab",
         "syntax"
       ],
-      "body": "D91 (Matt, 20 Oct 2026): after the backslash switch (SW-90 build). The grammar already admits it; the elaborator needs binder modes Explicit | Implicit | Auto (not an implicit flag): checking [a: Type] => e consumes a compatible implicit Pi rather than auto-introducing one; inferring builds an implicit Pi; [auto h: P] => e builds/consumes an auto Pi; distinct from today's silent introduction when x => x checks against [a: Type] -> a -> a. See docs/proposals/lambda-syntax.md (draft 3).",
+      "body": "D91 (Matt, 20 Oct 2026), after the backslash switch (SW-90, done): lambdas can bind implicit and auto parameters: `[a: Type] => (x: a) => x`, `[auto h: P] => e`. Today the parser refuses it: crates/syntax/src/parser.rs:1985 gives E-PARSE \"implicit lambda parameters aren't supported yet\" (repro 21 Oct: `def idf: [a: Type] -> a -> a := [a: Type] => (x: a) => x`).\n\nThe elaborator needs binder modes `Explicit | Implicit | Auto` (not an implicit flag): checking `[a: Type] => e` consumes a compatible implicit Pi rather than auto-introducing one; inferring builds an implicit Pi; `[auto h: P] => e` builds/consumes an auto Pi; distinct from today's silent introduction when `x => x` checks against `[a: Type] -> a -> a`. See docs/proposals/lambda-syntax.md (draft 3).\n\nDone when: the repro checks, with examples/accept for implicit and auto lambdas and examples/reject for a mode mismatch; the parser message is removed.\n",
       "created": "2026-10-20",
-      "updated": "2026-10-20",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -2681,9 +2671,9 @@
       "labels": [
         "web"
       ],
-      "body": "D118 (Matt, 20 Oct 2026): yes, but not until Stitchwort is further along. Per the note §10: switch the ?load=<time> cache-busting to a content hash (pkg/version.json), check .wasm compression on the real site, publish the nix build .#playground output, decide on loading the font from Google.",
+      "body": "D118 (Matt, 20 Oct 2026): yes, host the playground publicly on GitHub Pages, but not until Stitchwort is further along. Plan per docs/proposals/playground-projects.md §10: replace the `?load=${Date.now()}` cache-busting (web/index.html:667) with a content hash (pkg/version.json), check `.wasm` compression on the real site, publish the `nix build .#playground` output, decide on loading the font from Google. Designs stay static-only.\n\nDone when: the playground is served from GitHub Pages from the nix build output and a load after a deploy gets the new files (and a repeat load uses the cache).\n\nHistory: D118.\n",
       "created": "2026-10-20",
-      "updated": "2026-10-20",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -2711,9 +2701,9 @@
         "design",
         "syntax"
       ],
-      "body": "D120 (Matt, 20 Oct 2026): keep AoC day 1's `Dial highest` as is for now; consider a feature like Lean's `variable {highest : Nat}` so a file or section declares a shared parameter once and every definition below gets it. Motivation: aoc/src/Aoc/Day01 repeats `highest` 13 times in the program and 71 in Proofs/Part2.sw, kept generic so the part 2 proof covers any dial size. Design-review gate: research Lean 4 variable/section, Agda parameterised modules, Coq Section/Variable; write a note before implementing.",
+      "body": "D120 (Matt, 20 Oct 2026): keep AoC day 1's `Dial highest` as it is for now; consider a feature like Lean's `variable {highest : Nat}` so a file or section declares a shared parameter once and every definition below gets it. Motivation: `highest` is written 18 times in aoc/src/Aoc/Day01/Day01.sw and 139 times in aoc/src/Aoc/Day01/Proofs/Part2.sw (counted 21 Oct; the ticket said 13 and 71), kept generic so the part 2 proof covers any dial size. Nothing like it exists in docs/syntax.md.\n\nFirst step (design-review gate): research Lean 4 `variable`/`section`, Agda parameterised modules, Coq `Section`/`Variable`; write a note covering how it interacts with namespaces (a file is a namespace, docs/proposals/namespaces.md), with the lifting of local definitions (syntax.md:179 captures variables the same way), and with implicit/auto parameters. Then stop for review before implementing.\n\nDone when: the note is written and reviewed, and Matt has decided build or not; if build, an implementation ticket exists.\n\nHistory: D120.\n",
       "created": "2026-10-20",
-      "updated": "2026-10-20",
+      "updated": "2026-10-21",
       "commits": []
     },
     {
@@ -2806,14 +2796,14 @@
     },
     {
       "id": 182,
-      "title": "Derived == for indexed families",
+      "title": "Derived == for indexed families (parked until a program needs it)",
       "status": "backlog",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "elab"
       ],
-      "body": "Derived == (DecEq) for indexed families. Bug sweep 21 Oct 2026: derive.rs:214 refuses types with indices, and derive handles only fields whose types don't depend on earlier fields (line 13); families like VCons [n := m] x (xs: Vec a m) need dependent injectivity projections, index-generic tag/differ helpers, and a J-based proof carrying index unification (>300 lines). Options: (1) only families whose fields don't depend on implicit fields; (2) full dependent derivation; (3) leave it. Note Fin's FSucc [n := j] (i: Fin j) has a dependent field, so option 1 doesn't cover Fin. Parked (Claude, 21 Oct): Vec has a library DecEq (Vec.sw:115); Fin has none yet (SW-191). Revisit when a program needs == on a user-defined family.",
+      "body": "Derived `==` (DecEq) refuses types with indices (crates/elab/src/derive.rs:214-217, 'has indices, which … isn't derived for yet') and handles only fields whose types don't depend on earlier fields (derive.rs:10-15). Families like `VCons [n := m] x (xs: Vec a m)` need dependent injectivity projections, index-generic tag/differ helpers and a J-based proof carrying index unification (>300 lines).\n\nOptions: (1) only families whose fields don't depend on implicit fields; (2) full dependent derivation; (3) leave it. Fin's `FSucc [n := j] (i: Fin j)` has a dependent field, so option 1 doesn't cover Fin.\n\nHistory: bug sweep 21 Oct 2026. Parked (Claude, 21 Oct): Vec has a library DecEq (Vec.sw:115) and Fin has a hand-written instance (SW-191, done), so the library needs nothing; revisit when a program needs `==` on a user-defined family. First step then: choose among the options.\n\nDone when: a user-defined indexed family gets a derived `==` (options 1 or 2), with examples/accept, or option (3) is recorded in docs/syntax.md:413 and the ticket closed.\n",
       "created": "2026-10-20",
       "updated": "2026-10-21",
       "commits": []
@@ -2828,7 +2818,7 @@
         "elab",
         "interfaces"
       ],
-      "body": "D209 (Matt, 21 Oct): for now a hand-written DecEq for T blocks the derived Ord (E-INSTANCE-NONE with a note). Option b: derive Ord after the module's own instances are checked, using the hand-written DecEq as eq. Caveat: if that == ignores a field, a field-by-field Ord breaks the laws (a proof that fails to check, with a confusing error); consider detecting that and giving a clear message.",
+      "body": "Problem (D209, Matt, 21 Oct): a hand-written `DecEq` for T currently blocks the derived `Ord` (E-INSTANCE-NONE with a note; see crates/elab/src/derive_ord.rs:12, :53-64). Option b: derive `Ord` after the module's own instances are checked, using the hand-written `DecEq` as `eq`.\n\nCaveat: if that `==` ignores a field, the field-by-field `Ord` breaks the laws (a proof fails to check, with a confusing error). First step: detect that case (the law proof failing for a derived Ord) and design a clear message.\n\nDone when: a type with a hand-written `DecEq` gets a derived `Ord` (accept example), and the lawless case gives a clear error (reject example).\n\nHistory: D209 (option a: block it, is today's behaviour).\n",
       "created": "2026-10-21",
       "updated": "2026-10-21",
       "commits": []
@@ -2857,7 +2847,7 @@
         "performance",
         "tooling"
       ],
-      "body": "Stage 5 (interfaces, operators through dictionaries) moved laws into the bootstrap phase; each session's prelude now costs 861k steps (was 708k), which is ~68M of the +80M (+14.6%) examples benchmark rise. Accepted for now (21 Oct 2026). Options: share the checked core across sessions in one process, or a persistent cache (SW-27).",
+      "body": "Stage 5 of interfaces (operators through dictionaries) moved laws into the bootstrap phase, so each session's prelude check now costs more: 708k to 861k steps per session, which is about 68M of the +80M (+14.6%) rise of the examples benchmark (figures as recorded 21 Oct; not re-measured in this review; the current baseline is 713,266,318 steps over 467 files, bench/baseline.toml:7-10). Accepted for now (21 Oct 2026).\n\nOptions: (a) share the checked core across sessions inside one process (the test runner and playground create many sessions); (b) a persistent on-disk cache of the checked core, keyed by its hash (SW-27 is a different feature, the user-level `cached f x`; there is no ticket for this); (c) leave it. First step: measure how many sessions the examples benchmark creates and what share of total steps the prelude is, then pick.\n\nDone when: the share is measured and either a change is made (steps down, `bench/baseline.toml` re-recorded) or Matt accepts the cost and the ticket is closed.\n\nHistory: accepted 21 Oct 2026 after the stage 5 merge.\n",
       "created": "2026-10-21",
       "updated": "2026-10-21",
       "commits": []
@@ -3049,7 +3039,7 @@
       "labels": [
         "aoc"
       ],
-      "body": "D225 (Matt, 21 Oct 2026): postponed. Plan when resumed: lists + Map + List.sortBy, measure where time goes (estimate 15-25 s: 499,500 pairs sorted); fallback Array (SW-112, also backlog). docs/aoc-2025.md Day 8.",
+      "body": "D225 (Matt, 21 Oct 2026): postponed. Plan when resumed: lists + Map + List.sortBy; measure where time goes (estimate 15-25 s: 499,500 pairs sorted); fallback Array (SW-112, also backlog). docs/aoc-2025.md, 'Day 8: junction boxes' (:557). Input is aoc/inputs/day08.txt; the program goes in aoc/src/Aoc/Day08 with parseX / solvePart1 / solvePart2 and proofs in Aoc.Day08.Proofs, like days 1-7.\n\nDone when: Day 8 runs on the real input with answers tested, and part 1 and part 2 are proved for all inputs against puzzle-literal specs (or the proof scope is decided and recorded).\n",
       "created": "2026-10-21",
       "updated": "2026-10-21",
       "commits": []
@@ -3065,7 +3055,7 @@
         "kernel",
         "proof"
       ],
-      "body": "D234 (Matt, 21 Oct 2026): backlog. Fuel today: Nat.divFuel (/ and %), Nat.digits, transposeN, day 4 settle, day 2 weightFuel; each needs fuel-enough/fuel-irrelevant lemmas. Options sketched 21 Oct: A Acc-based (Lean termination_by; WF defs compute badly — bad for rfl/test-heavy Stitchwort), B measure compiled to hidden fuel + generated equation lemmas (kernel unchanged; brings back equation-lemmas D231), C kernel primitive (Dafny-like), D sized types. Early read: B. Write a design note with external review before building.",
+      "body": "Problem: recursion that isn't structural is written with fuel today: Nat.divFuel (`/` and `%`, std/core.sw:366), Nat.digitsFuel (std/Nat/Digits.sw:7), transposeN, AoC day 4 settle, day 2 weightFuel; each needs fuel-enough and fuel-irrelevant lemmas.\n\nDesired: write `decreasing n` instead. Options sketched 21 Oct: A) Acc-based (Lean termination_by; WF definitions compute badly, bad for rfl/test-heavy Stitchwort); B) a measure compiled to hidden fuel plus generated equation lemmas (kernel unchanged; reuses the equation-lemmas work, D231); C) kernel primitive (Dafny-like); D) sized types. Early read: B.\n\nFirst step: write a design note with external review (design review gate), including how B interacts with equation lemmas stages 1-2.\n\nDone when: the note is reviewed and accepted, then `decreasing` exists and Nat.divFuel / Nat.digitsFuel are rewritten with it, with their lemmas shrinking.\n\nHistory: D234 (Matt, 21 Oct 2026): backlog.\n",
       "created": "2026-10-21",
       "updated": "2026-10-21",
       "commits": []
@@ -3079,7 +3069,7 @@
       "labels": [
         "stdlib"
       ],
-      "body": "D237 (Matt, 21 Oct 2026: not yet). ~100 uses in std List/Sort.sw, Toolkit.sw, Map.sw, Set.sw, Vec.sw, day 7 proofs, some examples. !b elaborates to exactly Std.Bool.not b, so every hash snapshot must stay identical: dev/t hashes is the acceptance test. Keep parens in argument position (f (!x)); leave lemma names like Bool.notTrue.",
+      "body": "D237 (Matt, 21 Oct 2026: not yet). Replace `Bool.not (E)` by `!E` across .sw files. Counts as of 21 Oct (`grep -rn 'Bool\\.not\\b' --include=*.sw crates aoc examples`, 107 hits): crates/elab/src/std/List/Sort.sw 44, examples/accept/eqeq-data.sw 18, examples/accept/eqeq-containers.sw 16, crates/elab/src/std/List/Toolkit.sw 7, aoc/src/Aoc/Day07/Proofs/Part1.sw 6, examples/accept/operators.sw 3, examples/accept/list-toolkit.sw 2, crates/elab/src/std/Set/Set.sw 2, and single hits in a few other examples (none in Map.sw or Vec.sw). `!b` elaborates to exactly `Std.Bool.not b`, so every hash snapshot must stay identical: `dev/t hashes` is the acceptance test. Keep parentheses in argument position (`f (!x)`), leave lemma names such as `Bool.notTrue` and `Bool.notFalse`, and leave examples whose point is the spelling `Bool.not` (operators.sw, the reject example match-written-argument-not-refined.sw: check the line before changing). Spec for DeepSeek: direct file-by-file edits with the counts above, not a script.\n\nDone when: the listed files use `!` where `Bool.not` was applied, `dev/t hashes` shows no change, and the full gate passes on main.\n\nHistory: D237 (not yet).\n",
       "created": "2026-10-21",
       "updated": "2026-10-21",
       "commits": []
@@ -3109,7 +3099,7 @@
         "elab",
         "interfaces"
       ],
-      "body": "From SW-55 (21 Oct review). Derived DecEq already handles proof fields that are equations in DecEq types (DecEq.uniqueEq); any other proof field gives E-INSTANCE-NONE (examples/reject/record-eqeq-proof-field.sw; docs/syntax.md:413). Needs proof irrelevance (SW-93) or ext lemmas (SW-95) to show two values with equal data fields are equal.",
+      "body": "Derived DecEq already handles proof fields that are equations in DecEq types (`DecEq.uniqueEq`, docs/syntax.md:413); any other proof field (e.g. `h: a <= b`) gives E-INSTANCE-NONE (examples/reject/record-eqeq-proof-field.sw). To derive `==` for those, two values with equal data fields must be shown equal: that needs proof irrelevance (SW-93) or auto-generated ext lemmas (SW-95). Blocked by one of those.\n\nFirst step (after SW-93 or SW-95 lands): extend the field classification in crates/elab/src/derive.rs to accept proof fields in Prop, ignoring them in the comparison.\n\nHistory: from SW-55 (21 Oct review).\n\nDone when: examples/reject/record-eqeq-proof-field.sw becomes an examples/accept file whose `==` works (e.g. aoc `Dial`-style records), and docs/syntax.md:413 is updated.\n",
       "created": "2026-10-21",
       "updated": "2026-10-21",
       "commits": []
@@ -3123,7 +3113,95 @@
       "labels": [
         "js"
       ],
-      "body": "From SW-55 (21 Oct review). crates/js/src/lib.rs ~318-339: a record's proof field is checked at the boundary by its decision procedure (records.md §11.3); an ordinary data type's proof field is refused ('has a proof or type field, which can't be checked at the boundary yet'). Extend validators to constructors of non-record data.",
+      "body": "Problem: a record's proof field is checked at the JS boundary by its decision procedure (records.md §11.3; crates/js/src/lib.rs:320-324), but an ordinary data type's proof field is refused: '`T` has a proof or type field, which can't be checked at the boundary yet' (:336).\n\nChange: extend the validators to constructors of non-record data types with proof fields. Type fields stay refused.\n\nDone when: a data type with a decidable proof field crosses the boundary in both directions and a violating value is rejected with a boundary error (test in crates/js), and the :336 message no longer applies to proofs.\n\nHistory: from SW-55 (21 Oct review).\n",
+      "created": "2026-10-21",
+      "updated": "2026-10-21",
+      "commits": []
+    },
+    {
+      "id": 204,
+      "title": "calc: a first expression containing `||` or `&&` needs parentheses",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "syntax",
+        "proof"
+      ],
+      "body": "SW-157 pain point 6 (docs/aoc-2025.md:2051). Reproduced (21 Oct, release binary): `theorem t (a: Bool) (b: Bool): a || b = b || a := calc a || b` with the step `_ = b || a := Bool.orComm a b` on the next line gives E-PARSE 'expected a step `_ = e` on the next line, indented past `calc`, but found `||`' pointing at the `||` on the calc line, with the note 'a `calc` needs at least one step'; the same happens for a step's expression. `+` and `*` are fine. The parser reads the first expression of a `calc` before it knows an operator may continue it (crates/syntax/src/parser.rs, `starts_calc_step` :330 is the nearby logic). Either parse a full expression after `calc` and in steps, or make the message say to write `(a || b)`.\n\nDone when: `calc a || b` with a `_ = ...` step parses (or the error names the fix), with an accept (or reject) example under examples/.\n",
+      "created": "2026-10-21",
+      "updated": "2026-10-21",
+      "commits": []
+    },
+    {
+      "id": 205,
+      "title": "match reports only one branch error at a time",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "SW-157 pain point 9 (docs/aoc-2025.md:2065): in `mergedContains` three branches were each wrong and each fix revealed the next error. Reproduced (21 Oct, release binary): `def f: Bool -> Nat -> Nat | True, n => True | False, n => False` reports a single E-TYPE-MISMATCH (for the `False` arm) instead of both arms. The branches are independent, so all type errors could be collected and reported. First step: find where the elaborator stops at the first branch error (crates/elab/src/check.rs or the case-tree builder) and whether recovery (checking the remaining branches against their expected type after an error) is safe for unification state.\n\nDone when: a `match` or function with two bad arms reports both errors, with a reject example listing both (examples/reject/ with snapshot).\n",
+      "created": "2026-10-21",
+      "updated": "2026-10-21",
+      "commits": []
+    },
+    {
+      "id": 206,
+      "title": "match generalisation surprises: branch goals computed one step, `Decidable.toBool` leaks, E-MATCH-MOTIVE on `match h: a <= b`",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab",
+        "proof"
+      ],
+      "body": "SW-157 pain points 3, 4 and 5 (docs/aoc-2025.md:2033-2050), all about `match` generalising more than the scrutinee you see. (3) A branch's goal has already computed one step (syntax.md's 'branch goals have already computed one step'), so a proof written for the original goal doesn't fit (`termsSum`/`twiceTerms`, `coveredTop`). (4) Generalising leaks `Decidable.toBool (Bool.decTrue (Nat.leq id (hi r)))` into messages where `Nat.leq id (hi r) = False` was written; the workaround is the lemma `Bool.decTrueToBool` (`x <= y` as a `Bool` should print and compute as `Nat.leq`). (5) `match h: a <= b with` can give E-MATCH-MOTIVE (\"generalising this `match`'s scrutinee makes its type ill-formed\") while `match h: Nat.leq a b with` is fine, and the message doesn't say which form to use.\n\nNot re-verified in this review (the AoC files they cite have since been restructured). First step: write a minimal example for each of the three on current main, then decide per item: fix, or improve the message/doc.\n\nDone when: each of the three is either fixed with an example or documented, with the decision recorded here.\n",
+      "created": "2026-10-21",
+      "updated": "2026-10-21",
+      "commits": []
+    },
+    {
+      "id": 207,
+      "title": "rewrite diagnostics: E-REWRITE-NOTHING after `%` and `/` unfold, and an unreadable E-REWRITE-BUDGET term",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab",
+        "proof"
+      ],
+      "body": "SW-157 pain points 7 and 8 (docs/aoc-2025.md:2054-2064). (7) `%` and `/` unfold before `rewrite` searches the goal, so a rule about them finds nothing: `rewrite Nat.divOne n, Nat.divOne (Succ n)` gave E-REWRITE-NOTHING 'found no `Succ (Nat.divFuel n n 1)` in the goal' because the first rule had already rewritten both. The computed goal in the note made each quick to fix, so the improvement is to say in the message that the goal is searched after computation. (8) `E-REWRITE-BUDGET` shows an unreadable term when the rule is closed and big; the per-declaration time report that would have found the slow `rewrite` at once is SW-163 and is not part of this ticket.\n\nNot re-verified on current main. First step: reproduce each with a small example, then change the message text (with reject-example snapshots).\n\nDone when: both messages say what happened (goal searched after computation; the big closed rule is printed abbreviated, cf. STITCHWORT_FULL_TERMS in docs/core.md:276), with reject-example snapshots.\n",
+      "created": "2026-10-21",
+      "updated": "2026-10-21",
+      "commits": []
+    },
+    {
+      "id": 208,
+      "title": "Benchmarks: time `stitchwort run` as a subprocess (startup + check + run)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tooling"
+      ],
+      "body": "crates/bench/src/programs.rs times everything in-process, so process startup, loading the Std library and the CLI's own overhead are not measured. Add a row that times the `stitchwort run` binary as a subprocess on an example program (startup + check + run).\n\nFirst step: decide how the bench crate finds the binary under `nix flake check` (built in the same derivation or an explicit path) and how to keep the timing deterministic enough to gate (bench rows are step/alloc counts, not wall time: a subprocess has neither, so the decision may be to report wall time without gating, or to expose counts through a flag).\n\nDone when: the row exists in bench/baseline.toml (gated or, if decided, reported only) and `nix flake check` passes with it.\n",
+      "created": "2026-10-21",
+      "updated": "2026-10-21",
+      "commits": []
+    },
+    {
+      "id": 209,
+      "title": "rewrite ... at h: rewrite a named hypothesis",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "proof",
+        "syntax"
+      ],
+      "body": "`rewrite p in t` rewrites the goal; there is no way to rewrite the type of a named hypothesis (docs/syntax.md:619-630 documents only `rewrite p, q in t`). A `J` is kept for this at Aoc/Day02/Proofs/Repeated.sw:221-224 and :238 (examples of `J (z q => …)` on a hypothesis). docs/proposals/calc-rewrite.md §6.4 and Stage 3 mention rewriting 'in the body's own type when no goal is known'.\n\nFirst step: decide the surface (`rewrite p at h in t`, or `rewrite p in h` giving a new hypothesis) and whether it overlaps with the Stage 3 'goal not known' item.\n\nHistory: from SW-157 pain point 2.\n\nDone when: the surface is decided and one of the `J`s above is replaced by it.\n",
       "created": "2026-10-21",
       "updated": "2026-10-21",
       "commits": []
