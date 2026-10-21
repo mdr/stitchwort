@@ -7,6 +7,7 @@ usage() {
   cat <<'EOF'
 Usage: dev/t AREA [FILTER]
        dev/t snap AREA [FILTER]
+       dev/t affected [--dry-run] [BASE]
        dev/t help
 
 Run just the tests for one area instead of the full gate.
@@ -30,6 +31,17 @@ Areas:
   all        cargo test --release --workspace
   gate       nix flake check (the full gate, 6-7 minutes)
 
+`dev/t affected [BASE]` runs only the areas the change touches, never more.
+The change is `git diff BASE...HEAD` (BASE defaults to main; on main itself
+pass the last gated commit, e.g. HEAD~1) plus uncommitted and untracked
+files. Prose (docs, *.md) triggers nothing; Rust triggers lint; a crate
+triggers its own area and the few areas that really exercise it, not the
+whole suite (the table is the comment above `affected_map` in this script).
+Areas run in as few cargo invocations as possible, stopping at the first
+failure. `--dry-run` prints each chosen area with the path that triggered
+it, and runs nothing. A regression caught later by the full gate is fine;
+wasted CPU minutes are not, so the table errs towards fewer areas.
+
 FILTER selects what to run. For `examples` and `hashes` it is passed as
 EXAMPLES, so only example files or project folders whose names contain it
 run; for other areas it is passed as the test-name filter after `--`.
@@ -50,6 +62,273 @@ run_cargo() {
   fi
 }
 
+# ---------------------------------------------------------------- affected
+#
+# `dev/t affected` maps each changed path to the areas worth running. The
+# table errs strongly towards fewer areas: a regression that slips through is
+# caught by the next full gate, but re-running tests costs CPU minutes.
+#
+#   path                                  areas
+#   docs/**, *.md, comparisons/, LICENSE  none (prose)
+#   board/**                              board (node --test board.test.js)
+#   dev/t                                 shell (bash -n)
+#   flake.nix                             nixparse (nix-instantiate --parse)
+#   *.rs, Cargo.toml, Cargo.lock,
+#     rust-toolchain.toml                 lint (clippy --all-targets also
+#                                         proves the whole workspace builds)
+#   crates/syntax/**                      syntax elab driver examples
+#   crates/core/** (the kernel)           core elab driver examples js
+#   crates/elab/src/std/** (library .sw)  std hashes examples
+#   crates/elab/** (the rest)             elab driver examples
+#   crates/js/**                          js
+#   crates/driver/**                      driver examples
+#   crates/cli/**                         cli (every cli test except aoc)
+#   crates/partial-model/**               partial-model driver/partial
+#                                         driver/partial_kernel
+#   crates/bench/**, bench/**             bench
+#   crates/web/**, web/**                 web browser
+#   editors/vscode/**                     vscode
+#   aoc/**                                aoc
+#   examples/**                           examples hashes; plus js for
+#                                         accept/ and extract/ (run_js and
+#                                         extract read them)
+#   crates/CRATE/tests/NAME.rs            CRATE/NAME (just that test target)
+#   crates/CRATE/tests/**/ (fixtures)     CRATE (that package's tests)
+#   crates/CRATE/tests/snapshots/N__*.snap  CRATE/N (the test that owns it)
+#   crates/driver/src/snapshots/*.snap    driver/lib
+#
+# Nominal dependencies are not followed: a core change does not run cli,
+# aoc, web or bench (their tests only reach core through driver and elab),
+# a driver change does not run web, and a library .sw change does not run
+# aoc (the real-input run is the most expensive area; the gate catches it).
+# The differential/erasure/conv_shortcut driver tests are not triggered by
+# examples/** alone for the same reason; they run when driver, elab or core
+# change.
+
+affected_hits=""
+
+# affected_hit AREA PATH: record AREA once, with the first path that
+# triggered it.
+affected_hit() {
+  if ! printf '%s' "$affected_hits" | grep -q "^$1	"; then
+    affected_hits="${affected_hits}$1	$2
+"
+  fi
+}
+
+# affected_map PATH: add the areas a changed path touches.
+affected_map() {
+  local p="$1" a rest crate name
+  case "$p" in
+    *.rs | Cargo.toml | Cargo.lock | rust-toolchain.toml | */Cargo.toml)
+      affected_hit lint "$p" ;;
+  esac
+  case "$p" in
+    docs/* | *.md | comparisons/* | LICENSE | .gitignore) ;;
+    board/*) affected_hit board "$p" ;;
+    dev/t) affected_hit shell "$p" ;;
+    flake.nix) affected_hit nixparse "$p" ;;
+    crates/*/tests/snapshots/*.snap)
+      rest="${p#crates/}"
+      crate="${rest%%/*}"
+      name="${p##*/}"
+      name="${name%%__*}"
+      case "$name" in
+        examples) affected_hit examples "$p" ;;
+        hash_stability) affected_hit hashes "$p" ;;
+        *) affected_hit "$crate/$name" "$p" ;;
+      esac ;;
+    crates/driver/src/snapshots/*) affected_hit driver/lib "$p" ;;
+    crates/*/tests/*.rs)
+      rest="${p#crates/}"
+      crate="${rest%%/*}"
+      name="${p##*/}"
+      name="${name%.rs}"
+      case "$crate/$name" in
+        cli/examples) affected_hit examples "$p" ;;
+        driver/hash_stability) affected_hit hashes "$p" ;;
+        driver/std_library) affected_hit std "$p" ;;
+        cli/aoc_answers) affected_hit aoc "$p" ;;
+        *) affected_hit "$crate/$name" "$p" ;;
+      esac ;;
+    crates/*/tests/*)
+      rest="${p#crates/}"
+      affected_hit "${rest%%/*}" "$p" ;;
+    crates/syntax/*)
+      for a in syntax elab driver examples; do affected_hit $a "$p"; done ;;
+    crates/core/*)
+      for a in core elab driver examples js; do affected_hit $a "$p"; done ;;
+    crates/elab/src/std/*)
+      for a in std hashes examples; do affected_hit $a "$p"; done ;;
+    crates/elab/*)
+      for a in elab driver examples; do affected_hit $a "$p"; done ;;
+    crates/js/*) affected_hit js "$p" ;;
+    crates/driver/*)
+      for a in driver examples; do affected_hit $a "$p"; done ;;
+    crates/cli/*) affected_hit cli "$p" ;;
+    crates/partial-model/*)
+      for a in partial-model driver/partial driver/partial_kernel; do
+        affected_hit $a "$p"
+      done ;;
+    crates/bench/* | bench/*) affected_hit bench "$p" ;;
+    crates/web/* | web/*)
+      affected_hit web "$p"
+      affected_hit browser "$p" ;;
+    editors/vscode/*) affected_hit vscode "$p" ;;
+    aoc/*) affected_hit aoc "$p" ;;
+    examples/accept/* | examples/extract/*)
+      for a in examples hashes js; do affected_hit $a "$p"; done ;;
+    examples/*)
+      for a in examples hashes; do affected_hit $a "$p"; done ;;
+  esac
+}
+
+# affected_specs AREA: the cargo test selection of a cargo-backed area, as
+# "package|target flags" lines (empty flags = the whole package).
+affected_specs() {
+  case "$1" in
+    syntax) echo "stitchwort-syntax|" ;;
+    core) echo "stitchwort-core|" ;;
+    elab) echo "stitchwort-elab|" ;;
+    driver) echo "stitchwort-driver|" ;;
+    js)
+      echo "stitchwort-js|"
+      echo "stitchwort-cli|--test extract --test run_js" ;;
+    cli)
+      # Every integration test but the real-input AoC run, plus unit tests.
+      local t tests="--bins"
+      for t in crates/cli/tests/*.rs; do
+        t="${t##*/}"; t="${t%.rs}"
+        [[ "$t" == aoc_answers ]] || tests="$tests --test $t"
+      done
+      echo "stitchwort-cli|$tests" ;;
+    aoc) echo "stitchwort-cli|--test aoc_answers" ;;
+    examples) echo "stitchwort-cli|--test examples" ;;
+    hashes) echo "stitchwort-driver|--test hash_stability" ;;
+    std) echo "stitchwort-driver|--test std_library" ;;
+    bench) echo "stitchwort-bench|" ;;
+    web) echo "stitchwort-web|" ;;
+    partial-model) echo "stitchwort-partial-model|" ;;
+    */lib) echo "stitchwort-${1%/lib}|--lib" ;;
+    */*) echo "stitchwort-${1%%/*}|--test ${1#*/}" ;;
+  esac
+}
+
+affected() {
+  local dry=0 base="" arg
+  for arg in "$@"; do
+    case "$arg" in
+      --dry-run) dry=1 ;;
+      -*) usage >&2; exit 2 ;;
+      *) [[ -z "$base" ]] || { usage >&2; exit 2; }; base="$arg" ;;
+    esac
+  done
+  base="${base:-main}"
+  git rev-parse --verify --quiet "$base^{commit}" >/dev/null \
+    || { echo "dev/t affected: unknown base '$base'" >&2; exit 2; }
+
+  local files f
+  # AFFECTED_HEAD=REV (for testing the table on past commits) replaces HEAD
+  # and ignores the working tree.
+  files="$({
+    git diff --name-only --no-renames "$base...${AFFECTED_HEAD:-HEAD}"
+    if [[ -z "${AFFECTED_HEAD:-}" ]]; then
+      git diff --name-only --no-renames HEAD
+      git ls-files --others --exclude-standard
+    fi
+  } | sort -u)"
+  while IFS= read -r f; do
+    if [[ -n "$f" ]]; then affected_map "$f"; fi
+  done <<<"$files"
+
+  # Run order: cheap checks first, then cargo, then the slow web steps.
+  local a checks="" cargo_areas="" tail_areas=""
+  for a in board shell nixparse lint; do
+    if printf '%s' "$affected_hits" | grep -q "^$a	"; then checks="$checks $a"; fi
+  done
+  while IFS=$'\t' read -r a f; do
+    [[ -z "$a" ]] && continue
+    case "$a" in
+      board | shell | nixparse | lint) ;;
+      vscode | browser) tail_areas="$tail_areas $a" ;;
+      *) cargo_areas="$cargo_areas $a" ;;
+    esac
+  done <<<"$affected_hits"
+
+  if [[ -z "$checks$cargo_areas$tail_areas" ]]; then
+    echo "affected (base $base): nothing to run"
+    exit 0
+  fi
+
+  echo "affected (base $base):"
+  while IFS=$'\t' read -r a f; do
+    [[ -z "$a" ]] && continue
+    printf '  %-22s %s\n' "$a" "$f"
+  done <<<"$affected_hits"
+
+  # Fold the cargo areas into one selection per package: whole packages
+  # share one invocation, the rest get one each with all their --test flags.
+  local whole="" pkgs="" pkg targ
+  for a in $cargo_areas; do
+    while IFS='|' read -r pkg targ; do
+      [[ -z "$pkg" ]] && continue
+      case " $pkgs " in *" $pkg "*) ;; *) pkgs="$pkgs $pkg" ;; esac
+      if [[ -z "$targ" ]]; then
+        case " $whole " in *" $pkg "*) ;; *) whole="$whole $pkg" ;; esac
+      else
+        eval "t_${pkg//-/_}=\"\${t_${pkg//-/_}:-} $targ\""
+      fi
+    done < <(affected_specs "$a")
+  done
+
+  local cmds=() cmd="" w v tok prev out
+  for w in $whole; do cmd="$cmd -p $w"; done
+  if [[ -n "$cmd" ]]; then cmds+=("test --release$cmd"); fi
+  for pkg in $pkgs; do
+    case " $whole " in *" $pkg "*) continue ;; esac
+    v="t_${pkg//-/_}"
+    out="" prev=""
+    for tok in ${!v}; do
+      # Drop flags repeated by areas that share a package.
+      if [[ "$prev" == --test ]]; then
+        case "$out " in *" --test $tok "*) ;; *) out="$out --test $tok" ;; esac
+      elif [[ "$tok" != --test ]]; then
+        case "$out " in *" $tok "*) ;; *) out="$out $tok" ;; esac
+      fi
+      prev="$tok"
+    done
+    cmds+=("test --release -p $pkg$out")
+  done
+
+  local step
+  echo "would run:"
+  for a in $checks; do echo "  [$a]"; done
+  for step in "${cmds[@]}"; do echo "  cargo $step"; done
+  for a in $tail_areas; do echo "  [$a]"; done
+  if [[ "$dry" -eq 1 ]]; then exit 0; fi
+
+  if [[ "$snap" -eq 1 ]]; then export INSTA_UPDATE=always; fi
+  for a in $checks; do
+    echo ">> $a"
+    case "$a" in
+      board) (cd board && node --test board.test.js) ;;
+      shell) bash -n dev/t ;;
+      nixparse) nix-instantiate --parse flake.nix >/dev/null ;;
+      lint) "$0" lint ;;
+    esac
+  done
+  for step in "${cmds[@]}"; do
+    echo ">> cargo $step"
+    # shellcheck disable=SC2086
+    run_cargo $step
+  done
+  for a in $tail_areas; do
+    echo ">> $a"
+    "$0" "$a"
+  done
+  exit 0
+}
+
 snap=0
 if [[ "${1:-}" == "snap" ]]; then
   snap=1
@@ -63,6 +342,10 @@ fi
 
 area="$1"
 shift
+
+if [[ "$area" == "affected" ]]; then
+  affected "$@"
+fi
 
 if [[ $# -gt 1 ]]; then
   usage >&2
