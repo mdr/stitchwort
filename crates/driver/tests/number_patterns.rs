@@ -22,7 +22,7 @@ use stitchwort_core::reference;
 use stitchwort_core::term::{Branch, NumArm};
 use stitchwort_core::value::{self, Elim, Head, Value};
 use stitchwort_core::{BigUint, DataId, DefId, Globals, Icit, Term};
-use stitchwort_driver::driver::{Session, with_stack};
+use stitchwort_driver::driver::{Session, par_map, with_stack};
 use stitchwort_syntax::{SourceMap, Span};
 
 const STACK: usize = 64 * 1024 * 1024;
@@ -723,52 +723,50 @@ fn open(c: Col) -> Vec<Arg> {
 /// expansion, which the kernel accepts.
 #[test]
 fn generated_matches_agree_with_the_rows_the_old_compilation_and_the_expansion() {
-    with_stack(STACK, || {
-        let mut rng = Rng(0x5717_c4b0_e7a1_4040);
-        let mut num_cases = 0;
-        for i in 0..300 {
-            let generated = generate(&mut rng);
-            let name = format!("f{i}");
-            let text = generated.source(&name);
-            let mut new = session_with(&text);
-            let mut old = Session::new();
-            old.elab.numbers_as_succ = true;
-            load(&mut old, &text);
-            let f = def(&new.elab.globals, &name);
-            let f_old = def(&old.elab.globals, &name);
-            if has_num_case(new.elab.globals.def(f).body().unwrap()) {
-                num_cases += 1;
-            }
-            assert!(!has_num_case(old.elab.globals.def(f_old).body().unwrap()));
-            let g = &mut new.elab.globals;
-            let expanded = define_expansion(g, f);
-            for args in product(&generated.cols, closed) {
-                let expected = generated.expected(&args);
-                let what = || format!("{text}on {args:?}");
-                assert_eq!(run(g, f, &args).as_deref(), Some(&*expected), "{}", what());
-                assert_eq!(
-                    run(g, expanded, &args).as_deref(),
-                    Some(&*expected),
-                    "{}",
-                    what()
-                );
-                assert_eq!(
-                    run(&old.elab.globals, f_old, &args).as_deref(),
-                    Some(&*expected),
-                    "old: {}",
-                    what()
-                );
-            }
-            for args in product(&generated.cols, open) {
-                assert_eq!(
-                    run(g, f, &args),
-                    run(g, expanded, &args),
-                    "{text}on {args:?}"
-                );
-            }
+    // Generated in order from one seed, then checked in parallel.
+    let mut rng = Rng(0x5717_c4b0_e7a1_4040);
+    let cases: Vec<(usize, Generated)> = (0..300).map(|i| (i, generate(&mut rng))).collect();
+    let had_num_case = par_map(STACK, &cases, |(i, generated)| {
+        let name = format!("f{i}");
+        let text = generated.source(&name);
+        let mut new = session_with(&text);
+        let mut old = Session::new();
+        old.elab.numbers_as_succ = true;
+        load(&mut old, &text);
+        let f = def(&new.elab.globals, &name);
+        let f_old = def(&old.elab.globals, &name);
+        let had_num_case = has_num_case(new.elab.globals.def(f).body().unwrap());
+        assert!(!has_num_case(old.elab.globals.def(f_old).body().unwrap()));
+        let g = &mut new.elab.globals;
+        let expanded = define_expansion(g, f);
+        for args in product(&generated.cols, closed) {
+            let expected = generated.expected(&args);
+            let what = || format!("{text}on {args:?}");
+            assert_eq!(run(g, f, &args).as_deref(), Some(&*expected), "{}", what());
+            assert_eq!(
+                run(g, expanded, &args).as_deref(),
+                Some(&*expected),
+                "{}",
+                what()
+            );
+            assert_eq!(
+                run(&old.elab.globals, f_old, &args).as_deref(),
+                Some(&*expected),
+                "old: {}",
+                what()
+            );
         }
-        assert!(num_cases > 100, "only {num_cases} number cases generated");
+        for args in product(&generated.cols, open) {
+            assert_eq!(
+                run(g, f, &args),
+                run(g, expanded, &args),
+                "{text}on {args:?}"
+            );
+        }
+        had_num_case
     });
+    let num_cases = had_num_case.into_iter().filter(|b| *b).count();
+    assert!(num_cases > 100, "only {num_cases} number cases generated");
 }
 
 /// The examples in the proposal, and the number cases in the prelude and the

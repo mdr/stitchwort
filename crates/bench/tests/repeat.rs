@@ -13,6 +13,10 @@ fn counts_repeat_within_a_process() {
         eprintln!("skipped: run in a release build (`cargo test --release`)");
         return;
     }
+    // About 95 s: serial by nature (allocations are counted per process).
+    if !stitchwort_driver::driver::slow_tier("counts_repeat_within_a_process") {
+        return;
+    }
     let examples = programs::ALL.iter().find(|b| b.name == "examples").unwrap();
     let outcome = run(examples, 2, false).expect("the examples run");
     assert!(

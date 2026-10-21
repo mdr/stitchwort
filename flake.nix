@@ -82,6 +82,7 @@
             // {
               inherit cargoArtifacts;
               INSTA_UPDATE = "no"; # fail on snapshot changes instead of writing .snap.new files
+              STITCHWORT_SLOW = "1"; # the full gate also runs the slow tier of tests (`dev/t slow`)
               # Differential tests run extracted JS; generated declarations are type-checked.
               nativeCheckInputs = [
                 pkgs.nodejs_22

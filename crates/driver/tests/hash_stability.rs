@@ -12,8 +12,11 @@ use std::path::Path;
 
 use stitchwort_core::hash::{ContentHash, data_hash, def_hash};
 use stitchwort_core::{DataId, DefId};
-use stitchwort_driver::driver::Session;
+use stitchwort_driver::driver::{Session, par_map};
 use stitchwort_driver::project::{DiskFiles, Target};
+
+/// Stack for the worker threads that load examples.
+const STACK: usize = 16 * 1024 * 1024;
 
 fn show(h: stitchwort_core::budget::Result<Option<ContentHash>>) -> String {
     match h {
@@ -68,37 +71,40 @@ fn prelude() {
 #[test]
 fn examples() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples");
-    let mut checked = 0;
+    let mut files: Vec<(&str, std::path::PathBuf)> = Vec::new();
     for dir in ["accept", "extract"] {
-        let mut files: Vec<_> = std::fs::read_dir(root.join(dir))
+        let mut found: Vec<_> = std::fs::read_dir(root.join(dir))
             .unwrap()
             .map(|e| e.unwrap().path())
             .filter(|p| p.extension().is_some_and(|e| e == "sw"))
             .filter(|p| wanted(&p.file_name().unwrap().to_string_lossy()))
             .collect();
-        files.sort();
-        for path in files {
-            let text = std::fs::read_to_string(&path).unwrap();
-            // Every library file loaded first, so the lines are the file's own.
-            let mut session = Session::eager();
-            let (d, f) = (
-                session.elab.globals.datas.len(),
-                session.elab.globals.defs.len(),
-            );
-            if session.load(&path.display().to_string(), &text).is_err() {
-                eprintln!("skipped {}", path.display());
-                continue;
-            }
-            let stem = path.file_stem().unwrap().to_string_lossy();
-            let name = if dir == "accept" {
-                stem.to_string()
-            } else {
-                format!("extract-{stem}")
-            };
-            insta::assert_snapshot!(name, lines(&session, d, f));
-            checked += 1;
-        }
+        found.sort();
+        files.extend(found.into_iter().map(|p| (dir, p)));
     }
+    let checked = par_map(STACK, &files, |(dir, path)| {
+        let text = std::fs::read_to_string(path).unwrap();
+        // Every library file loaded first, so the lines are the file's own.
+        let mut session = Session::eager_for_stack(STACK);
+        let (d, f) = (
+            session.elab.globals.datas.len(),
+            session.elab.globals.defs.len(),
+        );
+        if session.load(&path.display().to_string(), &text).is_err() {
+            eprintln!("skipped {}", path.display());
+            return 0;
+        }
+        let stem = path.file_stem().unwrap().to_string_lossy();
+        let name = if *dir == "accept" {
+            stem.to_string()
+        } else {
+            format!("extract-{stem}")
+        };
+        insta::assert_snapshot!(name, lines(&session, d, f));
+        1
+    })
+    .into_iter()
+    .sum::<usize>();
     if !filtering() {
         assert!(checked > 0);
     }
@@ -119,9 +125,9 @@ fn projects() {
     if !filtering() {
         assert!(!dirs.is_empty());
     }
-    for dir in dirs {
+    par_map(STACK, &dirs, |dir| {
         let name = dir.file_name().unwrap().to_string_lossy().to_string();
-        let mut session = Session::eager();
+        let mut session = Session::eager_for_stack(STACK);
         let (d, f) = (
             session.elab.globals.datas.len(),
             session.elab.globals.defs.len(),
@@ -131,7 +137,7 @@ fn projects() {
             panic!("{name} doesn't load: {errors:#?}");
         }
         insta::assert_snapshot!(format!("project-{name}"), lines(&session, d, f));
-    }
+    });
 }
 
 /// Checking a namespace on its own gives the same hashes as checking the
@@ -160,7 +166,7 @@ fn a_namespace_checked_alone_has_the_same_hashes() {
             );
         }
     }
-    for dir in dirs {
+    par_map(STACK, &dirs, |dir| {
         let name = dir.file_name().unwrap().to_string_lossy().to_string();
         let files = DiskFiles { root: dir.clone() };
         let mut whole = Session::new();
@@ -204,7 +210,7 @@ fn a_namespace_checked_alone_has_the_same_hashes() {
                 "{name}: {namespace} alone lacks declarations"
             );
         }
-    }
+    });
 }
 
 /// Writes every declaration's hash, for the prelude with every library file

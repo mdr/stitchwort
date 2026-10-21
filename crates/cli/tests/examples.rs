@@ -12,7 +12,7 @@
 
 use std::path::{Path, PathBuf};
 
-use stitchwort_cli::driver::{Cache, Outcome, Session, with_stack};
+use stitchwort_cli::driver::{Cache, Outcome, Session, par_map};
 use stitchwort_cli::project::{DiskFiles, Target};
 use stitchwort_cli::render::render;
 use stitchwort_syntax::{Diagnostic, SourceMap};
@@ -87,31 +87,14 @@ const STACK: usize = 16 * 1024 * 1024;
 
 #[test]
 fn accepted_examples_check() {
-    with_stack(STACK, accepted_examples)
-}
-
-fn accepted_examples() {
-    let mut failures = Vec::new();
-    for example in examples("accept").into_iter().chain(examples("extract")) {
-        let mut session = Session::for_stack(STACK);
-        if let Err(diagnostics) = session.load(&example.name, &example.text) {
-            failures.push(format!(
-                "{}:\n{}",
-                example.name,
-                rendered(&session.sources, &diagnostics)
-            ));
-            continue;
-        }
-        // Their tests must pass too.
-        for result in session.run_tests(&Cache::disabled()) {
-            if result.outcome != Outcome::Passed {
-                failures.push(format!(
-                    "{}: test \"{}\" failed\n",
-                    example.name, result.name
-                ));
-            }
-        }
-    }
+    let all: Vec<Example> = examples("accept")
+        .into_iter()
+        .chain(examples("extract"))
+        .collect();
+    let failures: Vec<String> = par_map(STACK, &all, accepted_example)
+        .into_iter()
+        .flatten()
+        .collect();
     assert!(
         failures.is_empty(),
         "these examples should check but don't:\n\n{}",
@@ -119,18 +102,40 @@ fn accepted_examples() {
     );
 }
 
+/// The failures (if any) of one accepted example, rendered.
+fn accepted_example(example: &Example) -> Vec<String> {
+    let mut failures = Vec::new();
+    let mut session = Session::for_stack(STACK);
+    if let Err(diagnostics) = session.load(&example.name, &example.text) {
+        failures.push(format!(
+            "{}:\n{}",
+            example.name,
+            rendered(&session.sources, &diagnostics)
+        ));
+        return failures;
+    }
+    // Their tests must pass too.
+    for result in session.run_tests(&Cache::disabled()) {
+        if result.outcome != Outcome::Passed {
+            failures.push(format!(
+                "{}: test \"{}\" failed\n",
+                example.name, result.name
+            ));
+        }
+    }
+    failures
+}
+
 #[test]
 fn rejected_examples_fail_for_the_expected_reason() {
-    for example in examples("reject") {
-        assert_rejected(&example);
-    }
+    par_map(STACK, &examples("reject"), assert_rejected);
 }
 
 #[test]
 fn soundness_examples_fail_for_the_expected_reason() {
-    for example in examples("soundness") {
+    par_map(STACK, &examples("soundness"), |example| {
         if example.text.starts_with(KNOWN_GAP) {
-            if let (sources, Err(diagnostics)) = check(&example) {
+            if let (sources, Err(diagnostics)) = check(example) {
                 panic!(
                     "{} is marked `{KNOWN_GAP}` but is now rejected. Remove the marker!\n\n{}",
                     example.name,
@@ -138,9 +143,9 @@ fn soundness_examples_fail_for_the_expected_reason() {
                 );
             }
         } else {
-            assert_rejected(&example);
+            assert_rejected(example);
         }
-    }
+    });
 }
 
 /// The project folders under `examples/projects/<dir>/`, sorted.
@@ -175,72 +180,72 @@ fn load_project(name: &str, path: &Path, session: &mut Session) -> Result<(), Ve
 
 #[test]
 fn accepted_projects_check() {
-    with_stack(STACK, || {
+    let all = projects("accept");
+    if std::env::var("EXAMPLES").map_or(true, |v| v.is_empty()) {
+        assert!(!all.is_empty());
+    }
+    let failures: Vec<String> = par_map(STACK, &all, |(name, path)| {
         let mut failures = Vec::new();
-        let all = projects("accept");
-        if std::env::var("EXAMPLES").map_or(true, |v| v.is_empty()) {
-            assert!(!all.is_empty());
+        let mut session = Session::for_stack(STACK);
+        if let Err(diagnostics) = load_project(name, path, &mut session) {
+            failures.push(format!(
+                "{name}:\n{}",
+                rendered(&session.sources, &diagnostics)
+            ));
+            return failures;
         }
-        for (name, path) in all {
-            let mut session = Session::for_stack(STACK);
-            if let Err(diagnostics) = load_project(&name, &path, &mut session) {
+        for result in session.run_tests(&Cache::disabled()) {
+            if result.outcome != Outcome::Passed {
                 failures.push(format!(
-                    "{name}:\n{}",
-                    rendered(&session.sources, &diagnostics)
+                    "{name}: test \"{}\" in {} failed\n",
+                    result.name, result.namespace
                 ));
-                continue;
-            }
-            for result in session.run_tests(&Cache::disabled()) {
-                if result.outcome != Outcome::Passed {
-                    failures.push(format!(
-                        "{name}: test \"{}\" in {} failed\n",
-                        result.name, result.namespace
-                    ));
-                }
             }
         }
-        assert!(
-            failures.is_empty(),
-            "these projects should check but don't:\n\n{}",
-            failures.join("\n")
-        );
+        failures
     })
+    .into_iter()
+    .flatten()
+    .collect();
+    assert!(
+        failures.is_empty(),
+        "these projects should check but don't:\n\n{}",
+        failures.join("\n")
+    );
 }
 
 #[test]
 fn rejected_projects_fail_for_the_expected_reason() {
-    with_stack(STACK, || {
-        let all = projects("reject");
-        if std::env::var("EXAMPLES").map_or(true, |v| v.is_empty()) {
-            assert!(!all.is_empty());
-        }
-        for (name, path) in all {
-            let config = std::fs::read_to_string(path.join("stitchwort.yaml"))
-                .expect("a project has a stitchwort.yaml");
-            let Some(expected) = config
-                .lines()
-                .take_while(|line| line.starts_with('#'))
-                .find_map(|line| line.strip_prefix("# expect-error:"))
-                .map(str::trim)
-            else {
-                panic!(
-                    "projects/reject/{name} must declare the error it expects, e.g. `# expect-error: E-NAMESPACE-CYCLE`"
+    let all = projects("reject");
+    if std::env::var("EXAMPLES").map_or(true, |v| v.is_empty()) {
+        assert!(!all.is_empty());
+    }
+    par_map(STACK, &all, |(name, path)| {
+        let config = std::fs::read_to_string(path.join("stitchwort.yaml"))
+            .expect("a project has a stitchwort.yaml");
+        let Some(expected) = config
+            .lines()
+            .take_while(|line| line.starts_with('#'))
+            .find_map(|line| line.strip_prefix("# expect-error:"))
+            .map(str::trim)
+        else {
+            panic!(
+                "projects/reject/{name} must declare the error it expects, e.g. `# expect-error: E-NAMESPACE-CYCLE`"
+            );
+        };
+        let mut session = Session::for_stack(STACK);
+        match load_project(name, path, &mut session) {
+            Ok(()) => panic!("projects/reject/{name} should be rejected but checks"),
+            Err(diagnostics) => {
+                let output = rendered(&session.sources, &diagnostics);
+                assert!(
+                    diagnostics.iter().any(|d| d.code == expected),
+                    "projects/reject/{name} was rejected, but not with {expected}:\n\n{output}"
                 );
-            };
-            let mut session = Session::for_stack(STACK);
-            match load_project(&name, &path, &mut session) {
-                Ok(()) => panic!("projects/reject/{name} should be rejected but checks"),
-                Err(diagnostics) => {
-                    let output = rendered(&session.sources, &diagnostics);
-                    assert!(
-                        diagnostics.iter().any(|d| d.code == expected),
-                        "projects/reject/{name} was rejected, but not with {expected}:\n\n{output}"
-                    );
-                    insta::assert_snapshot!(format!("projects__reject__{name}"), output);
-                }
+                insta::assert_snapshot!(format!("projects__reject__{name}"), output);
             }
         }
-    })
+    });
 }
 
 fn assert_rejected(example: &Example) {
