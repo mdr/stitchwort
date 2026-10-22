@@ -1,5 +1,5 @@
 {
-  "next": 314,
+  "next": 316,
   "tickets": [
     {
       "id": 1,
@@ -1529,9 +1529,9 @@
     {
       "id": 101,
       "title": "Proof by reflection: an arithmetic normaliser as an ordinary proof term (term-level `omega`)",
-      "status": "review",
+      "status": "done",
       "agent": "Matt",
-      "where": "omega.md draft 2; D545-D547",
+      "where": "design decided D545-D547",
       "labels": [
         "proof",
         "design"
@@ -4843,6 +4843,36 @@
         "performance"
       ],
       "body": "Found by SW-62. A list literal split with bare newlines over 100,000 lines gives E-PARSE (expected) but takes 146 s in WASM.",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 314,
+      "title": "omega milestone 1a: Std.Omega library (syntax, certificate calculus, checker, proved soundness, bridge lemmas) (D545)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "worktree lane",
+      "labels": [
+        "proof",
+        "stdlib"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 315,
+      "title": "omega milestone 1b: elaborator (omega keyword, reification, search, acceptance table) (D545/D546)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab",
+        "proof"
+      ],
+      "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
       "commits": []
