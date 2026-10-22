@@ -4510,7 +4510,7 @@
     {
       "id": 295,
       "title": "Playground: type of a selection (index exprs, tooltip in selection, status line) (D526)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "worktree lane",
       "labels": [
@@ -4520,7 +4520,10 @@
       "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "419c7272",
+        "84abb5d5"
+      ]
     }
   ]
 }
