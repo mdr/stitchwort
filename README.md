@@ -10,7 +10,8 @@ nix develop                     # or `direnv allow`
 cargo run -- check examples/extract/append.sw
 cargo run -- eval examples/extract/append.sw "appendNats [1, 2] [3]"
 cargo run -- test examples/accept/tests.sw      # run it twice: results are cached
-cargo run -- run examples/accept/adder.sw       # run `main`, reading and printing lines
+cargo run -- run examples/accept/adder.sw       # run `main` on the fast runtime, reading and printing lines
+cargo run -- run --reference examples/accept/adder.sw  # the same on the type checker's own evaluator (slower)
 cargo run -- run --js examples/accept/adder.sw  # the same, compiled to JS and run under Node (much faster)
 cargo run -- repl examples/extract/append.sw
 cargo run -- build --js examples/extract/append.sw -o out/

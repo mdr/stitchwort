@@ -576,6 +576,69 @@ The merge sort's peak memory: 94 MB on the machine, 232 MB under `run`.
   `Session::for_stack`, as the machine's tests do.
 - Effort: under one lane-day, against the 3–4 estimated.
 
+## As built (stage 3)
+
+SW-232, 22 October 2026. The machine is the default: `stitchwort run` and the playground's
+Run tab (and each project day's) run `main` on it. `stitchwort run --reference` runs it on
+the type checker's evaluator as before (the oracle, and a way to check a suspect result);
+`--js` is unchanged, and `--reference` and `--js` can't be combined.
+
+**Wiring.** `Session::run_main_fast` (`crates/driver/src/run.rs`) lowers `main`'s term
+(`stitchwort_rt::lower_main`) and runs it (`stitchwort_rt::run_main`) with the same input
+reading, output flushing and `RunError`s as `Session::run_main`; the CLI and the web crate
+call it where they called `run_main`. A failure to lower (nesting too deep for the session's
+stack limit, or an internal error) is a new `RunError::Lowering(Diagnostic)`, reported as
+that diagnostic. Exit codes, `E-RESOURCE`'s message and label ("while running this
+program"), `E-IO`, and what is printed before an error are as before; the playground's
+`E-OUTPUT` and `E-INPUT` limits are enforced by the same `Write`/`BufRead` wrappers, so they
+work unchanged, and the worker's timeout and Stop terminate the worker as before (the
+runaway-run browser test passes). Streaming is as before: the machine writes each `print`
+to the writer as it happens.
+
+**What stays on the reference evaluator, and why.**
+
+- `stitchwort test` and the playground's Tests tab: a test's result is a claim the cache,
+  the gate and the library rely on, and the evaluator is the trusted one (the machine, like
+  the JS backend, can only be differentially tested). Tests are small and their results are
+  cached by content hash (the key would have to include the runner if two runners could
+  disagree); a failing comparison test also shows both sides, which needs the evaluator's
+  values. Running the 1,100 tests on the machine is already part of the differential tests.
+- `stitchwort eval`, the REPL and the Evaluate tab: they print a value of any type, with
+  types, proofs and functions in it, from the evaluator's values; the machine's are erased.
+
+**Differential tests** (the reference evaluator is the oracle; `dev/t rt`, `dev/t cli`):
+`crates/rt/tests/machine.rs` as in stage 2, plus the two `bench` programs that have a
+`main` (20,000 prints; a record with a proof field over 200 input lines), and both runners
+running out of resources (work and frames) after the same output. New:
+`crates/cli/tests/run_reference.rs` runs the built command both ways: every example `main`
+on three inputs (same output, exit code and error text), AoC day 4 by its full name,
+`readLine`/`readAll` on ten edge-case inputs, a type error, a recursion a million frames deep
+(machine only), `E-RESOURCE` (both), and the `--reference`/`--js` conflict. The existing
+`run.rs`, `run_js.rs` (`--js` against the default, now the machine) and `aoc_answers.rs`
+tests run through the machine's path. Every comparison agrees: no mismatch was found, which
+is why the default switched (D386). A browser test runs a non-tail recursion a million calls
+deep in the playground.
+
+**Resource limits.** The machine's step count is frames entered, not the evaluator's steps,
+so the same program may stop at different points (day 2's brute force gives `E-RESOURCE`
+after 2.7 s under `--reference` and finishes in 23 s on the machine). Only the way it's
+reported is the same; tests check that, not the point.
+
+**Playground.** The WebAssembly bundle grew from 3,584,945 to 3,709,918 bytes (+125 KB, 3.5%;
+gzipped 1,293,638 to 1,339,305, +45 KB). The reference evaluator already kept its pending work
+on the heap, so a deep recursion that "failed before" doesn't: a million calls deep ran on the
+old build as well. The gain is speed, and recursion deeper than the evaluator's memory allows.
+
+**Measurements** (release build, Apple M4 Pro, load average about 4–5, real seconds, each
+including checking):
+
+| Program | `run` (machine) | `run --reference` | `run --js` |
+|---|---:|---:|---:|
+| AoC day 4 | 0.77 | 5.01 | 0.62 |
+| merge sort, 100,000 | 0.68 | 5.85 | 0.84 |
+| day 1 brute force | 0.77 | 5.38 | 1.06 |
+| day 2 brute force | 23.1 | `E-RESOURCE` after 2.7 | 66.8 |
+
 ## Decisions
 
 | ID | Question | Recommendation |
@@ -585,7 +648,7 @@ The merge sort's peak memory: 94 MB on the machine, 232 MB under `run`.
 | D383 | Values: small numbers inline with `BigUint` fallback, `Rc` cells, reuse in place in stage 4? | [Yes] |
 | D384 | Effects: keep `Comp` as data with the existing runner loop for now; native handler support only if SW-74's benchmarks show handlers are slow? | [Yes] |
 | D385 | Make `run --js` the default meanwhile? | [No: keep it explicit; it needs Node and reports running out of resources differently] |
-| D386 | When the runtime passes the differential tests, make it the default for `run` and the playground, keeping the reference evaluator behind `run --reference` and in tests? | [Yes] |
+| D386 | When the runtime passes the differential tests, make it the default for `run` and the playground, keeping the reference evaluator behind `run --reference` and in tests? | [Yes: done in stage 3; every differential test agreed] |
 | D387 | Embed a JS engine (QuickJS or V8) to make `run --js` self-contained? | [No: QuickJS is 8× slower than Node and needs a huge stack; V8 is too large and hard to build under Nix] |
 | D388 | Native code (Chez, C, Cranelift, LLVM)? | [Not now; revisit from the same IR if programs need it, Chez text or C first] |
 | D389 | Share the erased IR's lowering with the JS backend (eventually generating JS from it)? | [Yes for erasure and natives from the start; moving the JS generator onto the IR later, as its own lane] |

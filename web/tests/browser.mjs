@@ -609,6 +609,26 @@ test("a runaway run is stopped by the timeout, with its output", async (page) =>
   assert.equal(await page.printed(), "tick\n");
 }, { ms: (RUN_SECONDS + 30) * 1000 });
 
+// The machine keeps a program's recursion in its own memory, not on the
+// browser's stack: this sum is a million calls deep and not a tail call.
+// (The reference evaluator, which also keeps its pending work on the heap,
+// managed this too; the test guards the machine.)
+test("a deep recursion runs", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  await page.setSource(`def sumTo : Nat -> Nat
+  | 0      => 0
+  | Succ n => (n + 1) + sumTo n
+
+def main () : {IO} () :=
+  IO.print (sumTo 1000000).toText
+`);
+  await page.untilChecked();
+  const result = await page.run(30000);
+  assert.match(result, /Finished in/);
+  assert.equal(await page.printed(), "500000500000\n");
+});
+
 // No program is known to crash the compiler any more: its depth guards stop
 // deep programs with E-RESOURCE first. So this test serves a worker that
 // checks a program containing CRASH with the engine's stack almost used up,

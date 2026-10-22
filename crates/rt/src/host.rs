@@ -21,6 +21,9 @@ pub enum RunError {
     InvalidUtf8 { line: usize },
     /// Writing or flushing standard output failed.
     Write(io::Error),
+    /// The program couldn't be lowered for the machine (`E-RESOURCE` for
+    /// nesting too deep, or an internal error). Only the machine reports it.
+    Lowering(Diagnostic),
 }
 
 impl fmt::Display for RunError {
@@ -32,6 +35,7 @@ impl fmt::Display for RunError {
                 write!(f, "line {line} of standard input isn't valid UTF-8")
             }
             RunError::Write(e) => write!(f, "can't write standard output: {e}"),
+            RunError::Lowering(d) => write!(f, "{}", d.message),
         }
     }
 }
@@ -45,6 +49,7 @@ impl RunError {
             RunError::Resource(e) => {
                 Diagnostic::from(*e).with_label(main, "while running this program")
             }
+            RunError::Lowering(d) => d.clone(),
             _ => Diagnostic::error("E-IO", self.to_string()),
         }
     }

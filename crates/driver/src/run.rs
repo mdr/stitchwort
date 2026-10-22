@@ -314,6 +314,27 @@ impl Session {
         }
     }
 
+    /// Runs `main` on the machine of `stitchwort-rt` (docs/proposals/fast-runtime.md)
+    /// instead of the reference evaluator: the same reading and writing, and the
+    /// same errors (`RunError`), but not the same step counts, so a program may
+    /// run out of resources at a different point, or not at all. Lowers `main`
+    /// first; a failure to do so is [`RunError::Lowering`].
+    pub fn run_main_fast(
+        &self,
+        main: &Main,
+        input: &mut impl BufRead,
+        output: &mut impl Write,
+    ) -> Result<(), RunError> {
+        let program = stitchwort_rt::lower_main(&self.elab.globals, self.elab.limits, main.term())
+            .map_err(RunError::Lowering)?;
+        stitchwort_rt::run_main(
+            &program,
+            stitchwort_rt::Limits::from_core(self.elab.limits),
+            input,
+            output,
+        )
+    }
+
     /// Runs `main` as [`Session::run_main`] does, within `policy`, telling
     /// `trace` each thing it does, in order. Doesn't flush `output`.
     pub fn run_main_with(

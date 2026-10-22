@@ -1,5 +1,7 @@
 # Where `stitchwort run` spends its time
 
+**Update (22 October 2026):** since stage 3 of [the fast runtime](proposals/fast-runtime.md), `stitchwort run` runs on a separate machine (day 4 in 0.8 s); this note describes the reference evaluator, still behind `run --reference`.
+
 **Status:** measurements and recommendations, 19 October 2026. Docs only: nothing here
 changes the compiler. The counters and experiments below were scratch changes, measured and
 then thrown away.

@@ -79,6 +79,10 @@ enum Command {
         /// on the PATH), which is much faster
         #[arg(long)]
         js: bool,
+        /// Run on the reference evaluator (the type checker's own, which is
+        /// much slower and recurses less deeply) instead of the fast runtime
+        #[arg(long, conflicts_with = "js")]
+        reference: bool,
         /// The project folder, if not the folder you're in or the nearest
         /// one above it
         #[arg(long)]
@@ -140,8 +144,9 @@ fn run(cli: Cli) -> ExitCode {
         Command::Run {
             target,
             js,
+            reference,
             project,
-        } => run_target(&target, js, project.as_deref()),
+        } => run_target(&target, js, reference, project.as_deref()),
         Command::Eval { file, expr } => eval(&file, &expr),
         Command::Repl { file } => repl(file.as_deref()),
         Command::Build {
@@ -516,7 +521,7 @@ fn print_tests(results: &[TestResult], grouped: bool) -> ExitCode {
 }
 
 /// `run`: a file's `main`, or a function of the project by its full name.
-fn run_target(target: &str, js: bool, project: Option<&Path>) -> ExitCode {
+fn run_target(target: &str, js: bool, reference: bool, project: Option<&Path>) -> ExitCode {
     let mut session = new_session(false);
     let main = if is_file_target(target) {
         if !load_file(&mut session, Path::new(target), Some("run")) {
@@ -570,14 +575,19 @@ fn run_target(target: &str, js: bool, project: Option<&Path>) -> ExitCode {
     if js {
         run_main_js(&mut session, main)
     } else {
-        run_main(&mut session, &main)
+        run_main(&mut session, &main, reference)
     }
 }
 
-fn run_main(session: &mut Session, main: &Main) -> ExitCode {
+fn run_main(session: &mut Session, main: &Main, reference: bool) -> ExitCode {
     let mut input = std::io::stdin().lock();
     let mut output = std::io::BufWriter::new(std::io::stdout().lock());
-    match session.run_main(main, &mut input, &mut output) {
+    let result = if reference {
+        session.run_main(main, &mut input, &mut output)
+    } else {
+        session.run_main_fast(main, &mut input, &mut output)
+    };
+    match result {
         Ok(()) => ExitCode::SUCCESS,
         Err(err) => {
             report(&session.sources, &[err.diagnostic(main)]);

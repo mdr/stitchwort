@@ -440,3 +440,89 @@ def main(): {IO} () :=
     assert_eq!(result, Ok(()));
     assert_eq!(out, "6\n4\n15\n9\n3,6,9\nabc!\n");
 }
+
+/// The programs of `crates/bench` that have a `main` (`programs.rs`), run
+/// both ways.
+#[test]
+fn bench_programs_agree() {
+    let (out, result) = both_ways(
+        "
+import Std (Nat)
+
+def printMany : Nat -> {IO} ()
+  | Zero   => ()
+  | Succ n =>
+    IO.print (Nat.toText n)
+    printMany n
+
+def main () : {IO} () := printMany 20000
+",
+        b"",
+    );
+    assert_eq!(result, Ok(()));
+    assert_eq!(out.lines().count(), 20_000);
+    let (out, result) = both_ways(
+        "
+import Std (IO, Int, Nat, Text)
+
+type Pos = { at : Nat, ok : at < 100 }
+
+def wrap (x : Int) : Pos := { at = Int.modNat x 100, ok = Int.modNatLt x 100 }
+
+def walk : List Text -> Pos -> Nat
+  | Nil,       p => p.at
+  | Cons t ts, p => walk ts (wrap (p.at.toInt + Nat.toInt (Text.length t * 37)))
+
+def main () : {IO} () := IO.print (Nat.toText (walk (IO.readAllLines ()) (wrap 50)))
+",
+        "L68\n".repeat(200).as_bytes(),
+    );
+    assert_eq!(result, Ok(()));
+    assert_eq!(out, "50\n");
+}
+
+/// A program that runs out of resources is reported as `E-RESOURCE` by both
+/// runners, after the same output, though not necessarily at the same
+/// point or with the same words (the machine counts frames entered, the
+/// reference evaluator its own steps).
+#[test]
+fn running_out_of_resources_is_reported_alike() {
+    with_stack(STACK, || {
+        let mut session = Session::for_stack(STACK);
+        session
+            .load(
+                "test.sw",
+                r#"
+import Std (Nat, Text)
+
+def spin: Nat -> Nat
+  | 0 => 0
+  | Succ n => spin n
+
+def deep: Nat -> Nat
+  | 0 => 0
+  | Succ n => 1 + deep n
+
+def main(): {IO} () :=
+  IO.print "before"
+  let line := IO.readAll ()
+  IO.print (Nat.toText (if Text.length line == 1 then spin 5000000 else deep 100000))
+"#,
+            )
+            .unwrap_or_else(|e| panic!("doesn't check: {e:?}"));
+        session.elab.limits.work = 1_000_000;
+        session.elab.limits.frames = 10_000;
+        let main = session.main().expect("main");
+        let program = lowered(&session, &main, "test.sw");
+        for input in [&b"x"[..], b"xy"] {
+            let expected = reference(&session, &main, input);
+            let got = machine(&program, Limits::from_core(session.elab.limits), input);
+            assert_eq!(got.0, "before\n");
+            assert_eq!(got.0, expected.0);
+            for run in [&got, &expected] {
+                let message = run.1.as_ref().expect_err("it runs out");
+                assert!(message.starts_with("ran out of resources: "), "{message}");
+            }
+        }
+    });
+}
