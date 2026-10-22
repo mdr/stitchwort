@@ -1,5 +1,5 @@
 {
-  "next": 328,
+  "next": 329,
   "tickets": [
     {
       "id": 1,
@@ -5122,6 +5122,21 @@
       "where": "research lane (note, stop for review)",
       "labels": [
         "design"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 328,
+      "title": "Exploration: reimplement a real TS event-merge resolver in Stitchwort with proofs, exported as TS-usable JS (private code: nothing committed to this repo)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "exploration lane in scratchpad (private)",
+      "labels": [
+        "design",
+        "js"
       ],
       "body": "",
       "created": "2026-10-22",
