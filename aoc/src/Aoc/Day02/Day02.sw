@@ -41,6 +41,11 @@ def solvePart2 (ranges: List Range): Nat := Int.toNat (ranges.sumBy sumOfIdsWrit
 -- times: its template is { blockLength = 2, copies = 3 }.
 type RepetitionTemplate = { blockLength: Nat, copies: Nat }
 
+-- What a block is multiplied by to write it out: 12 written 3 times is
+-- 12 * 10101, and 10101 is 1 + 10^2 + 10^4.
+def RepetitionTemplate.multiplier (template: RepetitionTemplate): Nat :=
+  List.range template.copies |> .sumBy (i => Nat.pow 10 (template.blockLength * i))
+
 -- Every template that fits in the digits of the range's end: a block of one or
 -- more digits written two or more times. Some may have no ids in the range;
 -- `sumOfIdsInRangeMatchingTemplate` gives those 0.
@@ -82,9 +87,8 @@ def copiesWeight (copies: Nat): Int
 -- The sum of the ids in the range whose digits are a block of the template's
 -- length written the template's number of copies.
 def sumOfIdsInRangeMatchingTemplate (range: Range) (template: RepetitionTemplate): Nat :=
-  -- The multiplier: 12 written 3 times is 12 * 10101, and 10101 is
-  -- 1 + 10^2 + 10^4. Every such id is a block times the multiplier.
-  let multiplier := List.range template.copies |> .sumBy (i => Nat.pow 10 (template.blockLength * i))
+  -- Every such id is a block times the multiplier.
+  let multiplier := template.multiplier
   if multiplier != 0 then
     -- The blocks have blockLength digits: from 10^(n-1) up to 10^n - 1.
     let smallestBlock := Nat.pow 10 (template.blockLength - 1)
