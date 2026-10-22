@@ -584,8 +584,8 @@ mod tests {
         let value = evaluate_project(
             paths.clone(),
             texts.clone(),
-            "Aoc.Day02",
-            "Aoc.Day02.solvePart1 Aoc.Day02.exampleRanges",
+            "Aoc.Day02,Aoc.Day02.Tests",
+            "Aoc.Day02.solvePart1 Aoc.Day02.Tests.exampleRanges",
         );
         assert!(
             value.starts_with(r#"{"ok":true,"value":"1227775554""#),

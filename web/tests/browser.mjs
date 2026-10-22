@@ -940,7 +940,7 @@ const AOC_PUZZLE = ["Part 1: 1076\nPart 2: 6379\n", "Part 1: 16793817782\nPart 2
 /** Every day has proofs. */
 const dayStatus = (day) => `Day ${day} and its proofs checked by the kernel`;
 const DAY2 = "src/Aoc/Day02/Day02.sw";
-const DAY2_TABS = ["Day02.sw", "Input.sw", "Proofs/Part1.sw", "Proofs/Part2.sw", "Proofs/Repeated.sw", "Common/Proofs/Range.sw", "Common/Range.sw"];
+const DAY2_TABS = ["Day02.sw", "Tests/BruteForce.sw", "Tests/Examples.sw", "Tests/Input.sw", "Proofs/Part1.sw", "Proofs/Part2.sw", "Proofs/Repeated.sw", "Common/Proofs/Range.sw", "Common/Range.sw"];
 
 /** The labels of the file tabs. */
 const fileTabs = (page) => page.ev(`[...document.querySelectorAll("#filetabs button")].map((b) => b.firstChild.textContent)`);
