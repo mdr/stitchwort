@@ -47,50 +47,51 @@ theorem tooLong (r: Range): (k: Nat) -> Nat.leq (k * 2) (List.length (Nat.digits
           _ <= b * Nat.pow 10 (Succ k) + b                := Nat.leAddRight (b * Nat.pow 10 (Succ k)) b))
       (Nat.pow 10 (Succ k) - Nat.pow 10 k) (Nat.pow 10 k) (Nat.leRefl (Nat.pow 10 k))
 
--- Repeat counts from 3 on count for nothing in part 1.
-theorem otherCounts (r: Range) (k: Nat) (size: Nat): (c: Nat) -> (s: Nat) ->
-    List.sumBy (n => if Nat.leq (k * n) size then twice n * (repeated r k n).toInt else 0) (List.rangeFrom c (Succ (Succ (Succ s)))) = 0
+-- Copies from 3 on count for nothing in part 1.
+theorem otherCopies (r: Range) (k: Nat) (size: Nat): (c: Nat) -> (s: Nat) ->
+    List.sumBy (n => if Nat.leq (k * n) size then (if n == 2 then sumWithShape r { blockLength = k, copies = n } else 0) else 0) (List.rangeFrom c (Succ (Succ (Succ s)))) = 0
   | Zero,   s => rfl
   | Succ c, s =>
     match h: Nat.leq (k * Succ (Succ (Succ s))) size with
-      | True  => otherCounts r k size c (Succ s)
-      | False => otherCounts r k size c (Succ s)
+      | True  => otherCopies r k size c (Succ s)
+      | False => otherCopies r k size c (Succ s)
 
 -- One block length's terms: the block written twice, if it fits.
 theorem twiceTerms (r: Range): (k: Nat) -> (size: Nat) -> 1 <= k -> (Nat.leq (k * 2) size = False -> repeatedSpec r k 2 = 0) ->
-    List.sumBy (n => if Nat.leq (k * n) size then twice n * (repeated r k n).toInt else 0) (List.rangeFrom (size - 1) 2) = (repeatedSpec r k 2).toInt
+    List.sumBy (n => if Nat.leq (k * n) size then (if n == 2 then sumWithShape r { blockLength = k, copies = n } else 0) else 0) (List.rangeFrom (size - 1) 2) = repeatedSpec r k 2
   | Zero,   size,          hk, fits => Void.exfalso (Bool.falseNotTrue hk)
-  | Succ k, Zero,          hk, fits => Eq.cong Nat.toInt (Eq.sym (fits rfl))
-  | Succ k, Succ Zero,     hk, fits => Eq.cong Nat.toInt (Eq.sym (fits rfl))
+  | Succ k, Zero,          hk, fits => Eq.sym (fits rfl)
+  | Succ k, Succ Zero,     hk, fits => Eq.sym (fits rfl)
   | Succ k, Succ (Succ s), hk, fits =>
-    let f: Nat -> Int := n => if Nat.leq (Succ k * n) (Succ (Succ s)) then twice n * (repeated r (Succ k) n).toInt else 0
+    let f: Nat -> Nat := n => if Nat.leq (Succ k * n) (Succ (Succ s)) then (if n == 2 then sumWithShape r { blockLength = Succ k, copies = n } else 0) else 0
     match h: Nat.leq (Succ k * 2) (Succ (Succ s)) with
       | True =>
         -- (the match has already chosen the first term, n = 2)
-        calc List.foldLeft (acc n => acc + f n) (1 * (repeated r (Succ k) 2).toInt) (List.rangeFrom s 3)
-          _ = 1 * (repeated r (Succ k) 2).toInt + List.sumBy f (List.rangeFrom s 3) := List.sumByFrom f (1 * (repeated r (Succ k) 2).toInt) (List.rangeFrom s 3)
-          _ = 1 * (repeated r (Succ k) 2).toInt + 0 := rewrite otherCounts r (Succ k) (Succ (Succ s)) s 0
-          _ = (repeated r (Succ k) 2).toInt         := Eq.trans (Int.addZero (1 * (repeated r (Succ k) 2).toInt)) (Int.oneMul (repeated r (Succ k) 2).toInt)
-          _ = (repeatedSpec r (Succ k) 2).toInt     := Eq.cong Nat.toInt (repeatedCorrect r (Succ k) 2)
-      | False => Eq.trans (otherCounts r (Succ k) (Succ (Succ s)) s 0) (Eq.cong Nat.toInt (Eq.sym (fits rfl)))
+        calc List.foldLeft (acc n => acc + f n) (0 + sumWithShape r { blockLength = Succ k, copies = 2 }) (List.rangeFrom s 3)
+          _ = 0 + sumWithShape r { blockLength = Succ k, copies = 2 } + List.sumBy f (List.rangeFrom s 3)
+              := List.sumByFrom f (0 + sumWithShape r { blockLength = Succ k, copies = 2 }) (List.rangeFrom s 3)
+          _ = 0 + sumWithShape r { blockLength = Succ k, copies = 2 } + 0 := rewrite otherCopies r (Succ k) (Succ (Succ s)) s 0
+          _ = sumWithShape r { blockLength = Succ k, copies = 2 } := Eq.trans (Nat.addZero (0 + sumWithShape r { blockLength = Succ k, copies = 2 })) (Eq.trans (Nat.addComm 0 (sumWithShape r { blockLength = Succ k, copies = 2 })) (Nat.addZero (sumWithShape r { blockLength = Succ k, copies = 2 })))
+          _ = repeatedSpec r (Succ k) 2 := repeatedCorrect r (Succ k) 2
+      | False => Eq.trans (otherCopies r (Succ k) (Succ (Succ s)) s 0) (Eq.sym (fits rfl))
 
-theorem weightedTwice (r: Range): weighted twice r = (List.rangeFrom (Nat.digits r.to).length 1 |> .sumBy (k => repeatedSpec r k 2)).toInt :=
-  Eq.trans
-    (List.sumRangeCongr
-      (k => List.sumBy (n => if Nat.leq (k * n) (List.length (Nat.digits r.to)) then twice n * (repeated r k n).toInt else 0) (List.rangeFrom (List.length (Nat.digits r.to) - 1) 2))
-      (k => (repeatedSpec r k 2).toInt) (List.length (Nat.digits r.to)) 1
-      (k k1 k2 => twiceTerms r k (List.length (Nat.digits r.to)) k1 (tooLong r k)))
-    (Eq.sym (Int.toIntSumBy (k => repeatedSpec r k 2) (List.rangeFrom (Nat.digits r.to).length 1)))
+-- One range: the ids written exactly twice are the sum over block lengths
+-- of the blocks written twice.
+theorem rangeDoubled (r: Range): sumDoubled r = List.sumBy (k => repeatedSpec r k 2) (List.rangeFrom (Nat.digits r.to).length 1) :=
+  calc sumDoubled r
+    _ = List.sumBy (shape => if shape.copies == 2 then sumWithShape r shape else 0) (shapes r)
+        := List.sumByFilter (sumWithShape r) (shape => shape.copies == 2) (shapes r)
+    _ = List.sumBy (k => List.sumBy (n => if Nat.leq (k * n) (List.length (Nat.digits r.to)) then (if n == 2 then sumWithShape r { blockLength = k, copies = n } else 0) else 0)
+          (List.rangeFrom (List.length (Nat.digits r.to) - 1) 2)) (List.rangeFrom (List.length (Nat.digits r.to)) 1)
+        := shapesSum r (shape => if shape.copies == 2 then sumWithShape r shape else 0)
+    _ = List.sumBy (k => repeatedSpec r k 2) (List.rangeFrom (Nat.digits r.to).length 1)
+        := List.sumRangeCongr (k => List.sumBy (n => if Nat.leq (k * n) (List.length (Nat.digits r.to)) then (if n == 2 then sumWithShape r { blockLength = k, copies = n } else 0) else 0)
+             (List.rangeFrom (List.length (Nat.digits r.to) - 1) 2)) (k => repeatedSpec r k 2) (List.length (Nat.digits r.to)) 1
+             (k k1 k2 => twiceTerms r k (List.length (Nat.digits r.to)) k1 (tooLong r k))
 
--- (b) Part 1 is the brute-force sum over blocks: the signed total is the
--- block sum, embedded, so converting it back gives the block sum.
+-- (b) Part 1 is the brute-force sum over blocks.
 theorem part1BlocksCorrect (ranges: List Range): solvePart1 ranges = part1Blocks ranges :=
-  calc solvePart1 ranges
-    _ = Int.toNat (List.sumBy (r => (List.rangeFrom (Nat.digits r.to).length 1 |> .sumBy (k => repeatedSpec r k 2)).toInt) ranges)
-        := Eq.cong Int.toNat (List.sumByCong (weighted twice) (r => (List.rangeFrom (Nat.digits r.to).length 1 |> .sumBy (k => repeatedSpec r k 2)).toInt) ranges weightedTwice)
-    _ = Int.toNat (part1Blocks ranges).toInt
-        := Eq.cong Int.toNat (Eq.sym (Int.toIntSumBy (r => List.rangeFrom (Nat.digits r.to).length 1 |> .sumBy (k => repeatedSpec r k 2)) ranges))
-    _ = part1Blocks ranges := Int.toNatToInt (part1Blocks ranges)
+  List.sumByCong sumDoubled (r => List.rangeFrom (Nat.digits r.to).length 1 |> .sumBy (k => repeatedSpec r k 2)) ranges rangeDoubled
 
 -- Why part 1 is right (c): `part1Correct` says the printed part 1 is
 -- `part1Spec`, the puzzle's own method: walk every id of every range, keep

@@ -239,11 +239,32 @@ theorem List.sumBySwap [auto add: Add c] (h: a -> b -> c) (ys: List b): (xs: Lis
           (List.sumByCong (y => h x y + List.sumBy (x => h x y) xs) (y => List.sumBy (x => h x y) (Cons x xs))
             ys (y => Eq.sym (List.sumByCons (x => h x y) x xs)))))
 
-theorem List.sumByMap (g: b -> Nat) (f: a -> b): (xs: List a) -> List.sumBy g (List.map f xs) = List.sumBy (x => g (f x)) xs
+theorem List.sumByMap [auto add: Add c] (g: b -> c) (f: a -> b): (xs: List a) -> List.sumBy g (List.map f xs) = List.sumBy (x => g (f x)) xs
   | Nil       => rfl
   | Cons x xs =>
     Eq.trans (List.sumByCons g (f x) (List.map f xs))
       (Eq.trans (Eq.cong (t => g (f x) + t) (List.sumByMap g f xs)) (Eq.sym (List.sumByCons (x => g (f x)) x xs)))
+
+-- Summing over a `flatMap` is summing the sums.
+theorem List.sumByFlatMap [auto add: Add c] (f: b -> c) (g: a -> List b): (xs: List a) -> List.sumBy f (List.flatMap xs g) = List.sumBy (x => List.sumBy f (g x)) xs
+  | Nil       => rfl
+  | Cons x xs =>
+    Eq.trans (List.sumByAppend f (g x) (List.flatMap xs g))
+      (Eq.trans (Eq.cong (t => List.sumBy f (g x) + t) (List.sumByFlatMap f g xs)) (Eq.sym (List.sumByCons (x => List.sumBy f (g x)) x xs)))
+
+-- Summing over a `filter` is summing the terms that pass, the rest counting 0.
+theorem List.sumByFilter [auto add: Add c] (f: a -> c) (p: a -> Bool): (xs: List a) -> List.sumBy f (List.filter p xs) = List.sumBy (x => if p x then f x else Add.zero) xs
+  | Nil       => rfl
+  | Cons x xs =>
+    Bool.inspect (p x) (b => List.sumBy f (List.filter p (Cons x xs)) = List.sumBy (x => if p x then f x else Add.zero) (Cons x xs))
+      (h => Eq.trans (Eq.cong (List.sumBy f) (List.filterKeep p x xs h))
+        (Eq.trans (List.sumByCons f x (List.filter p xs))
+          (Eq.trans (Eq.cong (t => f x + t) (List.sumByFilter f p xs))
+            (Eq.sym (Eq.trans (List.sumByCons (x => if p x then f x else Add.zero) x xs) (Eq.cong (t => (if t then f x else Add.zero) + List.sumBy (x => if p x then f x else Add.zero) xs) h))))))
+      (h => Eq.trans (Eq.cong (List.sumBy f) (List.filterSkip p x xs h))
+        (Eq.trans (List.sumByFilter f p xs)
+          (Eq.trans (Eq.sym (add.zeroAdd (List.sumBy (x => if p x then f x else Add.zero) xs)))
+            (Eq.sym (Eq.trans (List.sumByCons (x => if p x then f x else Add.zero) x xs) (Eq.cong (t => (if t then f x else Add.zero) + List.sumBy (x => if p x then f x else Add.zero) xs) h))))))
 
 theorem List.sumFilter (p: Nat -> Bool): (xs: List Nat) -> List.sum (List.filter p xs) = List.sumBy (x => Nat.keepIf x (p x)) xs
   | Nil       => rfl
