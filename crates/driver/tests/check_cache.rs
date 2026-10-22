@@ -590,7 +590,21 @@ fn run_target(
     cache: Option<&Path>,
     fail_late: bool,
 ) -> (Run, Vec<String>) {
+    run_target_recording(dir, target, cache, fail_late, false)
+}
+
+/// [`run_target`], also recording the type of every expression if `exprs`.
+fn run_target_recording(
+    dir: &Path,
+    target: &Target,
+    cache: Option<&Path>,
+    fail_late: bool,
+    exprs: bool,
+) -> (Run, Vec<String>) {
     let mut session = Session::navigable_for_stack(STACK);
+    if exprs {
+        session.elab.enable_expression_types();
+    }
     if let Some(cache) = cache {
         session.use_check_cache(cache);
     }
@@ -724,4 +738,29 @@ fn a_replay_that_fails_part_way_gives_the_same_result() {
     }
     let _ = std::fs::remove_dir_all(&dir);
     let _ = std::fs::remove_dir_all(&cache);
+}
+
+/// The types of expressions (for hovering over a selection) are in the
+/// cache's entries: a namespace loaded from it records what checking it did.
+#[test]
+fn expression_types_come_back_from_the_cache() {
+    let dir = temp_project("expression-types", SPLIT);
+    let cache = temp_dir("expression-types-cache");
+    let (written, _) = run_target_recording(&dir, &target(&[]), Some(&cache), false, true);
+    let (cached, _) = run_target_recording(&dir, &target(&[]), Some(&cache), false, true);
+    let (fresh, _) = run_target_recording(&dir, &target(&[]), None, false, true);
+    let _ = std::fs::remove_dir_all(&cache);
+    assert!(
+        fresh.dump.contains("\nnav expr "),
+        "no expression types recorded"
+    );
+    assert!(
+        cached.stats.namespace_hits > 0,
+        "nothing came from the cache"
+    );
+    assert!(
+        cached.dump == fresh.dump && written.dump == fresh.dump,
+        "the cache changed the result: {}",
+        first_difference(&fresh.dump, &cached.dump)
+    );
 }

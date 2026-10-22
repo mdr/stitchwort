@@ -32,7 +32,7 @@ pub(crate) struct Recorder {
     /// The types of local variables where they're used, not yet printed
     /// (the metavariables in them are solved by the end of the
     /// declaration): the span, the type, and the names of the context.
-    pub(crate) pending: Vec<(Span, Value, Vec<Name>)>,
+    pub(crate) pending: Vec<(Span, Value, Vec<Name>, bool)>,
     /// The printed types, by where the use starts.
     pub(crate) local_types: HashMap<(FileId, u32), String>,
     /// Local variables used, from the walk.
@@ -43,6 +43,12 @@ pub(crate) struct Recorder {
     pub(crate) outline: Vec<OutlineItem>,
     /// Each record field's name, by its type's declaration and its name.
     pub(crate) field_spans: HashMap<(Span, String), Span>,
+    /// Whether to note the type of every elaborated expression
+    /// ([`Elaborator::enable_expression_types`]).
+    pub(crate) exprs: bool,
+    /// The printed type of the expression written at a span (the last one
+    /// elaborated there), for hovering over a selection.
+    pub(crate) expr_types: HashMap<Span, String>,
 }
 
 impl Recorder {
@@ -106,6 +112,11 @@ impl Recorder {
                 .iter()
                 .map(|((at, name), s)| format!("nav field {} {name} {}", span(*at), span(*s))),
         );
+        lines.extend(
+            self.expr_types
+                .iter()
+                .map(|(at, ty)| format!("nav expr {} {ty}", span(*at))),
+        );
         lines.push(format!("nav pending {}", self.pending.len()));
         lines.sort();
         for line in lines {
@@ -162,6 +173,9 @@ pub(crate) struct OutlineItem {
 pub struct NavIndex {
     pub symbols: Vec<NavSymbol>,
     pub refs: Vec<NavRef>,
+    /// The type of the expression written at each span, if recorded
+    /// ([`Elaborator::enable_expression_types`]), sorted by position.
+    pub exprs: Vec<(Span, String)>,
 }
 
 pub struct NavSymbol {
@@ -228,6 +242,28 @@ impl Elaborator {
     /// that should be in it.
     pub fn enable_navigation(&mut self) {
         self.nav = Some(RefCell::new(Recorder::default()));
+    }
+
+    /// Also records the type of every expression elaborated, for the
+    /// language server's hover over a selection. Call right after
+    /// [`Elaborator::enable_navigation`].
+    pub fn enable_expression_types(&mut self) {
+        if let Some(nav) = &mut self.nav {
+            nav.get_mut().exprs = true;
+        }
+    }
+
+    /// The expression written at `span` has type `ty` in `cx`.
+    pub(crate) fn note_expr(&self, cx: &Ctx, span: Span, ty: &Value) {
+        if span.start == span.end {
+            return;
+        }
+        if let Some(nav) = &self.nav {
+            let mut nav = nav.borrow_mut();
+            if nav.exprs {
+                nav.pending.push((span, ty.clone(), cx.names.clone(), true));
+            }
+        }
     }
 
     pub(crate) fn note(&self, at: Span, noted: Noted) {
@@ -332,7 +368,7 @@ impl Elaborator {
         if let Some(nav) = &self.nav {
             nav.borrow_mut()
                 .pending
-                .push((name.span, ty.clone(), cx.names.clone()));
+                .push((name.span, ty.clone(), cx.names.clone(), false));
         }
     }
 
@@ -363,9 +399,13 @@ impl Elaborator {
         };
         let mut nav = nav.borrow_mut();
         let pending = std::mem::take(&mut nav.pending);
-        for (span, ty, names) in pending {
+        for (span, ty, names, expr) in pending {
             let text = pretty::value_for_message(&self.globals, &names, &ty);
-            nav.local_types.insert((span.file, span.start), text);
+            if expr {
+                nav.expr_types.insert(span, text);
+            } else {
+                nav.local_types.insert((span.file, span.start), text);
+            }
         }
     }
 
@@ -409,6 +449,7 @@ impl Elaborator {
             return NavIndex {
                 symbols: Vec::new(),
                 refs: Vec::new(),
+                exprs: Vec::new(),
             };
         };
         let nav = nav.borrow();
@@ -561,7 +602,17 @@ impl Elaborator {
             });
         }
         refs.sort_by_key(|r| (r.span.file.index(), r.span.start, r.span.end));
-        NavIndex { symbols, refs }
+        let mut exprs: Vec<(Span, String)> = nav
+            .expr_types
+            .iter()
+            .map(|(at, ty)| (*at, ty.clone()))
+            .collect();
+        exprs.sort_by_key(|(at, _)| (at.file.index(), at.start, at.end));
+        NavIndex {
+            symbols,
+            refs,
+            exprs,
+        }
     }
 
     /// How many of a session's first files are the core and the library's

@@ -81,6 +81,8 @@ pub fn capabilities() -> serde_json::Value {
         },
         "definitionProvider": true,
         "hoverProvider": true,
+        "selectionRangeProvider": true,
+        "experimental": { "hoverRange": true },
         "referencesProvider": true,
         "documentSymbolProvider": true,
         "workspaceSymbolProvider": true
@@ -328,9 +330,33 @@ impl Main<'_> {
                 }),
             request::HoverRequest::METHOD => parse::<lsp_types::HoverParams>(&request).map(|p| {
                 let at = p.text_document_position_params;
+                // rust-analyzer's extension: a `range` beside the position,
+                // when the position is inside a non-empty selection.
+                let selection = request
+                    .params
+                    .get("range")
+                    .and_then(|r| serde_json::from_value::<lsp_types::Range>(r.clone()).ok())
+                    .filter(|r| r.start != r.end);
+                if let Some(selection) = selection
+                    && let Some(found) = selection_hover(&nav, &at.text_document.uri, selection)
+                {
+                    return serde_json::to_value(Some(found));
+                }
                 let found = lookup(&nav, &at.text_document.uri, at.position);
                 serde_json::to_value(found.map(|(_, _, r)| hover(r)))
             }),
+            request::SelectionRangeRequest::METHOD => {
+                parse::<lsp_types::SelectionRangeParams>(&request).map(|p| {
+                    let found = locate(&nav, &p.text_document.uri)
+                        .and_then(|(_, ws, place)| ws.files.get(&place));
+                    let chains: Vec<lsp_types::SelectionRange> = p
+                        .positions
+                        .iter()
+                        .map(|at| selection_range(found, *at))
+                        .collect();
+                    serde_json::to_value(chains)
+                })
+            }
             request::References::METHOD => parse::<lsp_types::ReferenceParams>(&request).map(|p| {
                 let at = p.text_document_position;
                 let found = lookup(&nav, &at.text_document.uri, at.position);
@@ -422,6 +448,62 @@ fn lookup<'n>(
     let (root, ws, place) = locate(nav, uri)?;
     let r = ws.files.get(&place)?.ref_at(at.line, at.character)?;
     Some((root, ws, r))
+}
+
+/// The type of the smallest expression containing `selection`, for hover
+/// over a selection.
+fn selection_hover(nav: &Nav, uri: &Url, selection: lsp_types::Range) -> Option<Hover> {
+    let (_, ws, place) = locate(nav, uri)?;
+    let file = ws.files.get(&place)?;
+    let want = [
+        selection.start.line,
+        selection.start.character,
+        selection.end.line,
+        selection.end.character,
+    ];
+    let (at, ty) = file.expr_covering(want)?;
+    Some(Hover {
+        contents: HoverContents::Markup(MarkupContent {
+            kind: MarkupKind::Markdown,
+            value: format!("```stitchwort\n{ty}\n```"),
+        }),
+        range: Some(range(at)),
+    })
+}
+
+/// The ranges around `at`, as Expand Selection steps through them: the
+/// expressions containing it, innermost first, then the declarations. An
+/// empty range at `at` if nothing is known.
+fn selection_range(file: Option<&FileAnswers>, at: Position) -> lsp_types::SelectionRange {
+    let here = [at.line, at.character, at.line, at.character];
+    let mut chain: Vec<[u32; 4]> = vec![here];
+    if let Some(file) = file {
+        let mut outer = file.expr_chain(here);
+        let mut decls: Vec<[u32; 4]> = file
+            .outline
+            .iter()
+            .map(|item| item.full_range)
+            .filter(|r| (r[0], r[1]) <= (here[0], here[1]) && (here[2], here[3]) <= (r[2], r[3]))
+            .collect();
+        decls.sort_by_key(|r| (std::cmp::Reverse((r[0], r[1])), (r[2], r[3])));
+        outer.extend(decls);
+        for r in outer {
+            // Each step must strictly contain the one before it.
+            let last = chain[chain.len() - 1];
+            let contains = (r[0], r[1]) <= (last[0], last[1]) && (last[2], last[3]) <= (r[2], r[3]);
+            if contains && r != last {
+                chain.push(r);
+            }
+        }
+    }
+    let mut parent: Option<Box<lsp_types::SelectionRange>> = None;
+    for r in chain.into_iter().rev() {
+        parent = Some(Box::new(lsp_types::SelectionRange {
+            range: range(r),
+            parent,
+        }));
+    }
+    *parent.expect("the chain has the position")
 }
 
 /// The hover of a reference: its type, then what it is.
@@ -929,6 +1011,7 @@ impl Checker {
             return;
         }
         let mut session = Session::navigable_for_stack(self.options.stack);
+        session.elab.enable_expression_types();
         session.share_cancel_flag(self.cancel.clone());
         let include: Option<(Rc<dyn stitchwort_elab::project::IncludeFiles>, String)> =
             path.file_name().and_then(|n| n.to_str()).map(|name| {
@@ -968,6 +1051,7 @@ impl Checker {
             parse_config(id, "stitchwort.yaml", text).ok()
         })?;
         let mut session = Session::navigable_for_stack(self.options.stack);
+        session.elab.enable_expression_types();
         session.share_cancel_flag(self.cancel.clone());
         let writable = Rc::new(Cell::new(true));
         if let Some(cache) = cache_dir(dir) {

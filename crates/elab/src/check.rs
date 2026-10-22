@@ -506,6 +506,7 @@ pub fn infer(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
     let span = expr.span();
     with_span(cx, span, |cx| {
         let (term, ty) = infer_inner(cx, expr)?;
+        cx.e.note_expr(cx, span, &ty);
         Ok((Term::Loc(span, Rc::new(term)), ty))
     })
 }
@@ -1327,6 +1328,7 @@ pub fn check(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     with_span(cx, span, |cx| {
         let term = check_inner(cx, expr, expected)
             .map_err(|e| crate::numbers::explain_default(cx, e, &[expected]))?;
+        cx.e.note_expr(cx, span, expected);
         Ok(Term::Loc(span, Rc::new(term)))
     })
 }

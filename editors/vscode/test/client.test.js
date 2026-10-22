@@ -80,3 +80,19 @@ test('fake server answers the standard methods, with full-text sync', async () =
   await conn.sendNotification('exit');
   await new Promise((r) => child.on('close', r));
 });
+
+test('hover range: only a position inside a non-empty selection sends the selection', () => {
+  const p = (line, character) => ({ line, character });
+  const sel = { start: p(2, 10), end: p(2, 20) };
+  assert.deepStrictEqual(cfg.hoverRangeParams('file:///a.sw', p(2, 12), sel), {
+    textDocument: { uri: 'file:///a.sw' },
+    position: p(2, 12),
+    range: { start: p(2, 10), end: p(2, 20) },
+  });
+  assert.ok(cfg.hoverRangeParams('u', p(2, 10), sel), 'at the start');
+  assert.ok(cfg.hoverRangeParams('u', p(2, 20), sel), 'at the end');
+  assert.strictEqual(cfg.hoverRangeParams('u', p(2, 9), sel), undefined);
+  assert.strictEqual(cfg.hoverRangeParams('u', p(3, 0), sel), undefined);
+  assert.strictEqual(cfg.hoverRangeParams('u', p(2, 10), { start: p(2, 10), end: p(2, 10) }), undefined);
+  assert.strictEqual(cfg.hoverRangeParams('u', p(2, 10), undefined), undefined);
+});

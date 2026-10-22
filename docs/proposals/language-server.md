@@ -910,6 +910,38 @@ declaration's reference to itself only where its name is written there
 (`navigation_index`, as for every other reference). The server's lookup
 also picks the innermost reference that contains the position.
 
+**Hover over a selection and Expand Selection (SW-293, D523).** The
+elaborator's `infer` and `check` entry points each note the type of the
+expression they were given, by its span (`note_expr` in
+`crates/elab/src/nav.rs`). Like a local variable's type, it is printed at
+the end of the declaration, when its metavariables are solved, and an
+undone attempt drops what it noted. This costs a printed type per
+expression, so it is off unless the server turns it on
+(`Elaborator::enable_expression_types`); it has its own check-cache tag
+(`+nav+ty`) and entry section (`FORMAT` 5), so a namespace loaded from
+the cache has its expression types too. `FileAnswers::exprs` keeps them
+for the program's files only (library files have none). A call's span ends
+at its last argument, so the end moves over the `)` that closes a `(`
+inside it.
+
+- **Hover with a range.** `textDocument/hover` may carry `range` beside the
+  position (rust-analyzer's convention; the server advertises
+  `experimental.hoverRange`). A non-empty range is answered with the type
+  of the smallest expression containing it, as a `stitchwort` code block
+  whose range is that expression's. With nothing found, or no range, it is
+  the ordinary hover. A type under binders is printed in its own context
+  (it may name locals); showing the context is not done.
+- **`textDocument/selectionRange`**: the expressions containing the
+  position, innermost first, then the declarations (outline ranges).
+- **VS Code.** `middleware.provideHover` sends the request itself, with the
+  selection, when the active selection is non-empty and contains the hover
+  position (`hoverRangeParams` in `client.js`, unit tested); otherwise it
+  calls `next`. Not run in a real VS Code.
+- Tests: `hover_over_a_selection_gives_the_type_of_the_expression` and
+  `selection_ranges_walk_outward_through_the_expressions` (`tests/lsp.rs`),
+  `expression_types_come_back_from_the_cache` (`check_cache.rs`), and the
+  `hover range` test of `editors/vscode/test/client.test.js`.
+
 ### Not done (later, or for the next lane)
 
 - **Shifting ranges** by the edit's line delta between an edit and its
