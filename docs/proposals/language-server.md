@@ -898,6 +898,18 @@ which is what stage 5 is for. Other numbers:
 The AoC tests share a copy of `aoc` in Cargo's test temporary folder, whose
 cache is kept between runs.
 
+**Fixed after the merge: nested references.** A record's generated `ext`
+lemma (SW-263) is declared at the whole record declaration. Once
+something used it, the index gave it a reference covering the whole
+declaration, which contained the names written inside it. The
+extension's `refAt` is a binary search that assumes references don't
+overlap, so what it found at a position depended on the array it
+searched. On `type Dial (n: Nat) = …`, at `n`, `check --index` gave the
+whole declaration and the server gave the binder. Now the index makes a
+declaration's reference to itself only where its name is written there
+(`navigation_index`, as for every other reference). The server's lookup
+also picks the innermost reference that contains the position.
+
 ### Not done (later, or for the next lane)
 
 - **Shifting ranges** by the edit's line delta between an edit and its

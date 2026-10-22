@@ -524,15 +524,20 @@ impl Elaborator {
         }
         // The same for a declaration outside the outline (the library's: only
         // the ones something refers to), so that hover and references work on
-        // its name when a library file is open.
+        // its name when a library file is open. Not for a generated
+        // declaration whose span isn't its name (a record's `ext` lemma is at
+        // the whole record declaration): such a reference would contain the
+        // names written inside it, and a lookup by position finds one
+        // reference, which must be the innermost.
         for (i, symbol) in symbols.iter().enumerate() {
+            let last = symbol.name.rsplit('.').next().unwrap_or_default();
             if symbol.range.is_some()
                 || symbol.kind == "test"
+                || !wanted(symbol.span, Some(last))
                 || !taken.insert((symbol.span.file, symbol.span.start))
             {
                 continue;
             }
-            let last = symbol.name.rsplit('.').next().unwrap_or_default();
             refs.push(NavRef {
                 span: symbol.span,
                 dot: Some(last.to_string()),
