@@ -175,7 +175,11 @@ impl Session {
             h.update(bytes);
         };
         part(&mut common, b"namespaces");
-        let mut names: Vec<&str> = analysis.namespaces.iter().map(|n| n.name.as_str()).collect();
+        let mut names: Vec<&str> = analysis
+            .namespaces
+            .iter()
+            .map(|n| n.name.as_str())
+            .collect();
         names.sort_unstable();
         for name in &names {
             part(&mut common, name.as_bytes());

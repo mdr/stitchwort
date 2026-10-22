@@ -54,13 +54,13 @@ use stitchwort_syntax::{FileId, Span};
 use crate::effects::AbilityInfo;
 use crate::interfaces::{InstanceInfo, InstanceParam, InterfaceInfo};
 use crate::library::{Needs, PendingKind};
-use crate::project::SourceUnit;
-use stitchwort_syntax::{Diagnostic, Label, Severity};
 use crate::nav::{LocalUse, Noted};
+use crate::project::SourceUnit;
 use crate::records::RecordInfo;
 use crate::scope::ScopeOp;
 use crate::{Elaborator, Global};
 use codec::{Bad, Read, ReadRefs, Reader, Refs, TermWriter, Terms, Writer, bad};
+use stitchwort_syntax::{Diagnostic, Label, Severity};
 
 /// The version of the entry format, part of every key: a change to what an
 /// entry holds or how it is written bumps it, and old entries are misses.
@@ -2520,7 +2520,9 @@ impl Elaborator {
                 namespace: test.namespace,
                 def: test.def,
                 span: test.span,
-                sides: test.sides.map(|(op, left, right)| crate::TestSides { op, left, right }),
+                sides: test
+                    .sides
+                    .map(|(op, left, right)| crate::TestSides { op, left, right }),
             });
         }
         if let (Some(nav), Some(entry)) = (&self.nav, t.nav) {

@@ -185,11 +185,17 @@ fn a_warm_test_run_elaborates_and_runs_nothing() {
     let cold = stitchwort(&args, &timings);
     assert!(cold.status.success(), "{}", shown(&cold));
     let out = String::from_utf8_lossy(&cold.stdout).to_string();
-    assert!(out.contains("2 test(s): 2 passed, 0 failed (0 from the cache)"), "{out}");
+    assert!(
+        out.contains("2 test(s): 2 passed, 0 failed (0 from the cache)"),
+        "{out}"
+    );
     let warm = stitchwort(&args, &timings);
     assert!(warm.status.success(), "{}", shown(&warm));
     let out = String::from_utf8_lossy(&warm.stdout).to_string();
-    assert!(out.contains("2 test(s): 2 passed, 0 failed (2 from the cache)"), "{out}");
+    assert!(
+        out.contains("2 test(s): 2 passed, 0 failed (2 from the cache)"),
+        "{out}"
+    );
     let err = String::from_utf8_lossy(&warm.stderr).to_string();
     for ns in ["Lib", "App"] {
         assert!(err.contains(&format!("{ns} (cached)")), "{err}");

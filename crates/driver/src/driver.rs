@@ -638,12 +638,11 @@ impl Cache {
     /// Where the result of test `unit` ([`Cache::unit`]) with `hash` is
     /// kept, when run with `modes`.
     pub fn path(&self, unit: &str, hash: &ContentHash, modes: &str) -> Option<PathBuf> {
-        Some(
-            self.dir
-                .as_ref()?
-                .join("tests")
-                .join(format!("{}-{unit}-{}", Self::build(modes), hash.hex())),
-        )
+        Some(self.dir.as_ref()?.join("tests").join(format!(
+            "{}-{unit}-{}",
+            Self::build(modes),
+            hash.hex()
+        )))
     }
 
     /// The start of the file names of this build's results with `modes`.

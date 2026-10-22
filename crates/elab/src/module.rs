@@ -217,7 +217,10 @@ impl Elaborator {
             (Some((unit, key)), Some(ns), Some(closure)) => {
                 e.elaborate_namespace_cached(ns, files, closure, unit, key)
             }
-            _ => (e.elaborate_namespace_untimed(namespace, files, closure), false),
+            _ => (
+                e.elaborate_namespace_untimed(namespace, files, closure),
+                false,
+            ),
         };
         if !crate::timings::enabled() {
             return run(self).0;
