@@ -145,7 +145,9 @@ fn bind_natives<N: Copy>(
     table
         .iter()
         .map(|&(builtin, native, expected)| {
-            let id = g.registry.def(builtin);
+            // Natives are mostly library built-ins, whose file may not have
+            // loaded: then the program has no such definition to replace.
+            let id = g.registry.loaded_def(builtin);
             let hash = match id {
                 Some(id) => def_hash(g, id)?.map(|h| h.hex()),
                 None => None,
