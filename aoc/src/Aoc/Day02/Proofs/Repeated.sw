@@ -384,13 +384,13 @@ theorem betweenTwo: (n: Nat) -> List.between 2 n = List.rangeFrom (n - 1) 2
   | Succ n => Eq.cong (t => List.rangeFrom t 2) (Nat.addSub n 1)
 
 theorem shapesSum [auto add: Add c] (r: Range) (f: RepetitionTemplate -> c):
-    List.sumBy f (shapes r)
+    List.sumBy f (allTemplatesForRange r)
       = List.sumBy (k => List.sumBy (n => if Nat.leq (k * n) (List.length (Nat.digits r.to)) then f { blockLength = k, copies = n } else Add.zero)
           (List.rangeFrom (List.length (Nat.digits r.to) - 1) 2)) (List.rangeFrom (List.length (Nat.digits r.to)) 1) :=
   let size := List.length (Nat.digits r.to)
   let fits: Nat -> Nat -> Bool := k n => k * n <= size
   let withCopies: Nat -> List RepetitionTemplate := k => List.map (n => { blockLength = k, copies = n }) (List.filter (fits k) (List.between 2 size))
-  calc List.sumBy f (shapes r)
+  calc List.sumBy f (allTemplatesForRange r)
     _ = List.sumBy (k => List.sumBy f (withCopies k)) (List.between 1 size) := List.sumByFlatMap f withCopies (List.between 1 size)
     _ = List.sumBy (k => List.sumBy (n => if fits k n then f { blockLength = k, copies = n } else Add.zero) (List.between 2 size)) (List.between 1 size)
         := List.sumByCong (k => List.sumBy f (withCopies k)) (k => List.sumBy (n => if fits k n then f { blockLength = k, copies = n } else Add.zero) (List.between 2 size))

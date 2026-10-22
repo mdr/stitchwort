@@ -40,7 +40,7 @@ def solvePart2 (ranges: List Range): Nat := Int.toNat (ranges.sumBy sumRepeated)
 type RepetitionTemplate = { blockLength: Nat, copies: Nat }
 
 -- Every shape of two or more copies that fits in the digits of the range's end.
-def shapes (range: Range): List RepetitionTemplate :=
+def allTemplatesForRange (range: Range): List RepetitionTemplate :=
   let digits := (Nat.digits range.to).length
   List.between 1 digits |> .flatMap (blockLength =>
     let fittingCopies := List.between 2 digits |> .filter (copies => blockLength * copies <= digits)
@@ -48,13 +48,13 @@ def shapes (range: Range): List RepetitionTemplate :=
 
 -- Part 1: the ids in the range written exactly twice.
 def sumDoubled (range: Range): Nat :=
-  let twoCopies := (shapes range).filter (shape => shape.copies == 2)
+  let twoCopies := (allTemplatesForRange range).filter (shape => shape.copies == 2)
   twoCopies.sumBy (sumWithShape range)
 
 -- Part 2: the ids in the range written two or more times, each counted once.
 -- 111111 has shapes 1×6, 11×3 and 111×2; the weights cancel the repeats.
 def sumRepeated (range: Range): Int :=
-  (shapes range).sumBy (shape =>
+  (allTemplatesForRange range).sumBy (shape =>
     let idsTotal := sumWithShape range shape
     let weight := copiesWeight shape.copies
     weight * idsTotal.toInt)

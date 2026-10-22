@@ -79,8 +79,8 @@ theorem twiceTerms (r: Range): (k: Nat) -> (size: Nat) -> 1 <= k -> (Nat.leq (k 
 -- of the blocks written twice.
 theorem rangeDoubled (r: Range): sumDoubled r = List.sumBy (k => repeatedSpec r k 2) (List.rangeFrom (Nat.digits r.to).length 1) :=
   calc sumDoubled r
-    _ = List.sumBy (shape => if shape.copies == 2 then sumWithShape r shape else 0) (shapes r)
-        := List.sumByFilter (sumWithShape r) (shape => shape.copies == 2) (shapes r)
+    _ = List.sumBy (shape => if shape.copies == 2 then sumWithShape r shape else 0) (allTemplatesForRange r)
+        := List.sumByFilter (sumWithShape r) (shape => shape.copies == 2) (allTemplatesForRange r)
     _ = List.sumBy (k => List.sumBy (n => if Nat.leq (k * n) (List.length (Nat.digits r.to)) then (if n == 2 then sumWithShape r { blockLength = k, copies = n } else 0) else 0)
           (List.rangeFrom (List.length (Nat.digits r.to) - 1) 2)) (List.rangeFrom (List.length (Nat.digits r.to)) 1)
         := shapesSum r (shape => if shape.copies == 2 then sumWithShape r shape else 0)
