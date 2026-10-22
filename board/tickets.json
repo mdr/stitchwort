@@ -4246,7 +4246,7 @@
     {
       "id": 279,
       "title": "Option/Pair injectivity lemmas (Some x = Some y -> x = y; MkPair injective) so List.unfold shrink proofs are short",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [
@@ -4255,7 +4255,9 @@
       "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "bcd7bed4"
+      ]
     },
     {
       "id": 280,
