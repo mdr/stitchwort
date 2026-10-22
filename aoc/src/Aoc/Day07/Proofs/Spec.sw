@@ -32,6 +32,7 @@
 
 namespace Aoc.Day07.Proofs
 import Aoc.Day07 (..)
+import Aoc.Day07.Tests (example)
 import Std (List, Option)
 
 -- Column c of a line; empty space past its end.

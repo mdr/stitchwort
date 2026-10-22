@@ -17,8 +17,8 @@
 --
 -- Both answers are proved right for every input, against the puzzle's own
 -- wording read cell by cell, in `Aoc.Day06.Proofs` (Proofs/Spec.sw,
--- Proofs/Correct.sw; the grid's shape in Proofs/Grid.sw), which `run` does
--- not check.
+-- Proofs/Correct.sw; the grid's shape in Proofs/Grid.sw), and the tests are
+-- in `Aoc.Day06.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Day06
 import Std (Char, IO, Nat)
@@ -36,19 +36,9 @@ type Operator =
 -- block has no + or *).
 type Problem = { operator: Option Operator, rowNumbers: List Nat, columnNumbers: List Nat }
 
--- (The lines end in spaces, as in the puzzle.)
-def example: List Text := """
-  123 328  51 64 
-   45 64  387 23 
-    6 98  215 314
-  *   +   *   +  
-  """.lines
-
 def parseWorksheet (lines: List Text): List Problem := (blocks lines).map parseProblem
 
 def isBlank (column: List Char): Bool := column.all Char.isSpace
-
-test "blank column" := isBlank [' ', ' '] && not (isBlank [' ', '7'])
 
 -- The blocks of columns that make the problems: the runs of columns that
 -- aren't blank.
@@ -62,23 +52,12 @@ def gridWidth (lines: List Text): Nat := lines.foldLeft widen 0
 
 def widen (width: Nat) (line: Text): Nat := Nat.max width line.length
 
-test "grid width" := gridWidth ["ab", "abcd", "a"] == 4
-test "padded grid" := paddedGrid ["ab", "a"] == [['a', 'b'], ['a', ' ']]
-
 -- One block of columns, the last character of each being the operator row.
 def parseProblem (columns: List (List Char)): Problem :=
   let rows := columns.transpose
   { operator = (columns.filterMap (column => column.last.flatMap Operator.parse)).head
   , rowNumbers = rows.init.map readNumber
   , columnNumbers = columns.map (column => readNumber column.init) }
-
-test "example problems" :=
-  (parseWorksheet example).map (p => (p.rowNumbers, p.columnNumbers))
-    == [ ([123, 45, 6], [1, 24, 356]), ([328, 64, 98], [369, 248, 8])
-       , ([51, 387, 215], [32, 581, 175]), ([64, 23, 314], [623, 431, 4]) ]
-test "example operators" :=
-  (parseWorksheet example).map (p => p.operator) == [Some Multiply, Some Add, Some Multiply, Some Add]
-test "no operator" := (parseWorksheet ["1", "2", " "]).map (p => p.operator) == [None]
 
 def Operator.parse: Char -> Option Operator
   | '+' => Some Add
@@ -87,8 +66,6 @@ def Operator.parse: Char -> Option Operator
 
 -- The number written with these digits; spaces (and anything else) are skipped.
 def readNumber (cells: List Char): Nat := Nat.fromDigits (cells.filterMap Char.digitValue)
-
-test "read number" := (readNumber [' ', '4', '5'], readNumber ['3', ' ', ' '], readNumber [' ']) == (45, 3, 0)
 
 def Operator.apply: Operator -> List Nat -> Nat
   | Add,      numbers => numbers.sum
@@ -103,10 +80,5 @@ def evaluate (operator: Option Operator) (numbers: List Nat): Nat :=
 -- Part 1: the answers of the problems read by rows.
 def solvePart1 (problems: List Problem): Nat := problems.sumBy (p => evaluate p.operator p.rowNumbers)
 
-test "example part 1" := solvePart1 (parseWorksheet example) == 4277556
-
 -- Part 2: the answers of the problems read by columns.
 def solvePart2 (problems: List Problem): Nat := problems.sumBy (p => evaluate p.operator p.columnNumbers)
-
-test "example part 2" := solvePart2 (parseWorksheet example) == 3263827
-test "no problems" := (solvePart1 [], solvePart2 []) == (0, 0)

@@ -7,6 +7,7 @@ namespace Aoc.Day02.Proofs
 import Aoc.Common (..)
 import Aoc.Common.Proofs (..)
 import Aoc.Day02 (..)
+import Aoc.Day02.Tests (exampleRanges)
 import Std (Bool, Eq, List, Nat, Void)
 
 -- Why part 1 is right (b): `part1BlocksCorrect` says the printed part 1 is

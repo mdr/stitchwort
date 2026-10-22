@@ -28,6 +28,7 @@ namespace Aoc.Day02.Proofs
 import Aoc.Common (Range)
 import Aoc.Common.Proofs (rangeEnd)
 import Aoc.Day02 (..)
+import Aoc.Day02.Tests (exampleRanges)
 import Std (Bool, Decidable, Eq, List, Nat, Void)
 
 -- (1) n copies ------------------------------------------------------------

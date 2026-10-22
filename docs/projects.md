@@ -90,7 +90,7 @@ The rules:
 - **File names and folders mean nothing.** `range.sw` could be called
   `helpers.sw` and nothing would change. A file's namespace comes from its
   first line, not its path. (The `aoc/` project, by convention, keeps folders matching namespaces:
-  `Aoc.Day02.Proofs` lives in `src/Aoc/Day02/Proofs/`, and holds the theorems that
+  `Aoc.Day02.Tests` and `Aoc.Day02.Proofs` live in `src/Aoc/Day02/Tests/` and `.../Proofs/`, and hold the tests and theorems that
   `Aoc.Day02` leaves out so that running the day does not check them.)
 - **Every declaration of a namespace is visible to all its files by short
   name**, in any order. Definitions in different files can call each other,

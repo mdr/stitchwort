@@ -13,7 +13,7 @@
 -- extends it) or starts a new one. The merged ranges are disjoint, so their
 -- sizes add up. `Aoc.Day05.Proofs.solvePart2Correct` (Proofs/Part2.sw) proves
 -- that, for every database: part 2 is the brute-force count of the ids some
--- range holds. `run` does not check it.
+-- range holds. The tests are in `Aoc.Day05.Tests` (Tests/). `run` checks neither.
 
 namespace Aoc.Day05
 import Aoc.Common (Range)
@@ -32,33 +32,12 @@ type Database = { fresh: List Range, available: List Nat }
 def parseDatabase (lines: List Text): Database :=
   { fresh = lines.filterMap Range.parse, available = lines.filterMap Text.toNat }
 
-def example: List Text := """
-  3-5
-  10-14
-  16-20
-  12-18
-
-  1
-  5
-  8
-  11
-  17
-  32
-  """.lines
-
-test "example parse" := (parseDatabase example).available == [1, 5, 8, 11, 17, 32]
-
 -- Part 1: the available ids that are fresh.
 def solvePart1 (db: Database): Nat :=
   db.available.count (id => db.fresh.any (r => r.contains id))
 
-test "example part 1" := solvePart1 (parseDatabase example) == 3
-
 -- Part 2: every id the fresh ranges cover.
 def solvePart2 (db: Database): Nat := merge db.fresh |> .sumBy Range.size
-
-test "example part 2" := solvePart2 (parseDatabase example) == 14
-test "no ranges" := solvePart2 { fresh = [], available = [] } == 0
 
 -- Merge ranges that overlap or touch. The list is sorted by start, then
 -- folded into a list of merged ranges with the latest first.
@@ -67,11 +46,6 @@ def merge (ranges: List Range): List Range :=
     |> .sortBy (a b => Nat.compare a.from b.from)
     |> .foldLeft absorb []
     |> .reverse
-
-test "example merged" := merge (parseDatabase example).fresh == [{ from = 3, to = 5 }, { from = 10, to = 20 }]
-test "touching ranges merge" := merge [{ from = 4, to = 6 }, { from = 1, to = 3 }] == [{ from = 1, to = 6 }]
-test "nested range" := merge [{ from = 1, to = 9 }, { from = 2, to = 3 }] == [{ from = 1, to = 9 }]
-test "gap stays" := merge [{ from = 1, to = 2 }, { from = 4, to = 5 }] == [{ from = 1, to = 2 }, { from = 4, to = 5 }]
 
 -- Add a range, starting no earlier than the ones already merged, to them.
 def absorb (merged: List Range) (r: Range): List Range :=

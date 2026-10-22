@@ -447,16 +447,18 @@ mod tests {
         std::fs::read_to_string(root.join(format!("day{day:02}.txt"))).expect("an example input")
     }
 
-    /// What the page does for a day: its namespaces are `Aoc.DayNN` and
-    /// `Aoc.DayNN.Proofs` if the outline has it.
+    /// What the page does for a day: its namespaces are `Aoc.DayNN`, with
+    /// `Aoc.DayNN.Tests` and `Aoc.DayNN.Proofs` if the outline has them.
     fn day_targets(outline: &str, day: u32) -> String {
         let program = format!("Aoc.Day{day:02}");
-        let proofs = format!("{program}.Proofs");
-        if outline.contains(&format!(r#""name":"{proofs}""#)) {
-            format!("{program},{proofs}")
-        } else {
-            program
+        let mut targets = vec![program.clone()];
+        for extra in ["Tests", "Proofs"] {
+            let name = format!("{program}.{extra}");
+            if outline.contains(&format!(r#""name":"{name}""#)) {
+                targets.push(name);
+            }
         }
+        targets.join(",")
     }
 
     /// The navigation index of a project: paths within it, a reference
@@ -495,7 +497,7 @@ mod tests {
         );
         assert!(
             outline.contains(
-                r#"{"name":"Aoc.Day02","files":["src/Aoc/Day02/Day02.sw","src/Aoc/Day02/Input.sw"],"uses":["Aoc.Common"#
+                r#"{"name":"Aoc.Day02","files":["src/Aoc/Day02/Day02.sw"],"uses":["Aoc.Common"#
             ),
             "{outline}"
         );
@@ -509,7 +511,7 @@ mod tests {
             assert!(tests.starts_with(r#"{"ok":true,"tests":["#), "day {day}");
             assert!(!tests.contains(r#""passed":false"#), "day {day}: {tests}");
             assert!(tests.contains(r#""namespace":"Aoc.Day"#), "day {day}");
-            // `Input.sw` includes the real input from the bundle.
+            // `Tests/Input.sw` includes the real input from the bundle.
             assert!(tests.contains("real input"), "day {day}: {tests}");
             let main = format!("Aoc.Day{day:02}.main");
             let mut out = String::new();
@@ -582,8 +584,8 @@ mod tests {
         let value = evaluate_project(
             paths.clone(),
             texts.clone(),
-            "Aoc.Day02",
-            "Aoc.Day02.solvePart1 Aoc.Day02.exampleRanges",
+            "Aoc.Day02,Aoc.Day02.Tests",
+            "Aoc.Day02.solvePart1 Aoc.Day02.Tests.exampleRanges",
         );
         assert!(
             value.starts_with(r#"{"ok":true,"value":"1227775554""#),

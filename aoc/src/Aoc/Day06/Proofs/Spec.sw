@@ -31,6 +31,7 @@
 
 namespace Aoc.Day06.Proofs
 import Aoc.Day06 (..)
+import Aoc.Day06.Tests (example)
 import Std (Char, List, Nat, Text)
 
 -- Column c of a line; a space past its end.

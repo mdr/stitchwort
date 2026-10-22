@@ -7,6 +7,7 @@ namespace Aoc.Day05.Proofs
 import Aoc.Common (..)
 import Aoc.Common.Proofs (..)
 import Aoc.Day05 (..)
+import Aoc.Day05.Tests (example)
 import Std (Bool, Eq, List, Nat, Ordering, Void)
 
 -- Part 2 as the puzzle says it, by brute force: the ids, up to the largest

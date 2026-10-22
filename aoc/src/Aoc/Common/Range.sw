@@ -1,4 +1,5 @@
--- Generic range code, shared between days.
+-- Generic range code, shared between days. Its tests are in `Aoc.Common.Tests`
+-- (Tests/); the proofs about it in `Aoc.Common.Proofs` (Proofs/).
 
 namespace Aoc.Common
 import Std (List, Text)
@@ -11,17 +12,9 @@ def Range.parse (t: Text): Option Range :=
     | [Some from, Some to] => Some { from, to }
     | _                    => None
 
-test "parse" := Range.parse "3-5" == Some { from = 3, to = 5 }
-test "parse junk" := Range.parse "4-x" == None
-
 def Range.contains (r: Range) (id: Nat): Bool := r.from <= id && id <= r.to
-
-test "contains" := (Range.contains { from = 3, to = 5 } 3, Range.contains { from = 3, to = 5 } 5, Range.contains { from = 3, to = 5 } 6) == (True, True, False)
 
 def Range.size (r: Range): Nat := r.to + 1 - r.from
 
-test "size" := Range.size { from = 3, to = 5 } == 3
-
 def Range.ids (r: Range): List Nat := List.rangeFrom r.size r.from
 
-test "ids" := Range.ids { from = 3, to = 5 } == [3, 4, 5]

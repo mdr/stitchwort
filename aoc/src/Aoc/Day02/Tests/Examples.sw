@@ -1,0 +1,25 @@
+-- Day 2's tests: the example from the puzzle and unit tests. Kept apart from
+-- the program, so `stitchwort run Aoc.Day02.main` doesn't check them.
+
+namespace Aoc.Day02.Tests
+import Aoc.Common (Range)
+import Aoc.Day02 (..)
+import Std (List, Nat, Text)
+
+def example: Text := "11-22,95-115,998-1012,1188511880-1188511890,222220-222224,1698522-1698528,446443-446449,38593856-38593862,565653-565659,824824821-824824827,2121212118-2121212124"
+
+def range (from to: Nat): Range := { from, to }
+
+def exampleRanges: List Range := parseRanges example
+
+test "example" := (solvePart1 exampleRanges, solvePart2 exampleRanges) == (1227775554, 4174379265)
+test "parse" := parseRanges "4-14,1490-3407\n" == [range 4 14, range 1490 3407]
+
+test "weights" := List.map (n => (plus n).toInt - (minus n).toInt) (List.rangeFrom 11 2) == [1, 1, 0, 1, -1, 1, 0, 0, -1, 1, 0]
+
+test "single range" := weighted twice (range 11 22) == 33
+test "no double counting" := invalid (range 111110 111112) == 111111
+test "period three" := invalid (range 998 1012) == 999 + 1010
+test "empty overlap" := invalid (range 12 21) == 0
+
+test "12 written 3 times" := repeated { from = 0, to = 1000000 } 2 3 == 10101 * ((10 + 99) * 90 / 2)

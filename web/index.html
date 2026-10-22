@@ -1134,7 +1134,7 @@ export def area: Shape -> Nat
   function initialTabs() {
     const day = project.manifest.days[project.day];
     const folder = day.open.replace(/[^/]*$/, "");
-    return [day.open, ...project.manifest.files.filter((p) => p.startsWith(`${folder}Proofs/`))];
+    return [day.open, ...project.manifest.files.filter((p) => p.startsWith(`${folder}Tests/`) || p.startsWith(`${folder}Proofs/`))];
   }
 
   function tabPaths() {
@@ -1339,7 +1339,7 @@ export def area: Shape -> Nat
     filebar.hidden = false;
     store("stitchwort.example", `aoc:${project.day}`);
     store(`${PROJECT_KEYS}open`, project.open);
-    evalInput = day.main === "Aoc.Day02.main" ? "Aoc.Day02.solvePart1 Aoc.Day02.exampleRanges" : `${day.main.replace(/main$/, "example")}`;
+    evalInput = day.main === "Aoc.Day02.main" ? "Aoc.Day02.solvePart1 Aoc.Day02.Tests.exampleRanges" : `${day.main.replace(/main$/, "Tests.example")}`;
     // The Run input: what was saved for this day, else the day's first
     // bundled input (the example).
     inputChoice.replaceChildren(el("option", { value: "" }, "Input…"),

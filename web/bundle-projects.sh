@@ -43,8 +43,9 @@ for path in $files $examples; do
   cp "$path" "$dest/$path"
 done
 
-# One day per src/Aoc/DayNN/DayNN.sw, with its proofs if src/Aoc/DayNN/Proofs
-# exists and its example input if examples/dayNN.txt exists.
+# One day per src/Aoc/DayNN/DayNN.sw, with its tests if src/Aoc/DayNN/Tests
+# exists, its proofs if src/Aoc/DayNN/Proofs exists and its example input if
+# examples/dayNN.txt exists.
 {
   printf '{\n  "name": "aoc",\n  "title": "Advent of Code 2025",\n  "files": ['
   sep=""
@@ -66,6 +67,9 @@ done
     day=$(basename "$program" .sw)
     n=${day#Day}
     namespaces="\"Aoc.$day\""
+    if [ -d "src/Aoc/$day/Tests" ]; then
+      namespaces="$namespaces, \"Aoc.$day.Tests\""
+    fi
     if [ -d "src/Aoc/$day/Proofs" ]; then
       namespaces="$namespaces, \"Aoc.$day.Proofs\""
     fi
