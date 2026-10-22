@@ -726,6 +726,13 @@ theorem List.memMap (f: a -> b) (x: a): (xs: List a) -> List.Mem x xs -> List.Me
   | Cons z zs, Inl h => Inl (Eq.cong f h)
   | Cons z zs, Inr h => Inr (List.memMap f x zs h)
 
+-- Use "some element satisfies `p`": take that element, know it is in the
+-- list, and carry on to the goal. (The library has no `Exists`.)
+theorem List.anyElim (p: a -> Prop) (goal: Prop): (xs: List a) -> List.Any p xs -> ((x: a) -> List.Mem x xs -> p x -> goal) -> goal
+  | Nil,       h,     k => Void.exfalso h
+  | Cons z zs, Inl h, k => k z (Inl rfl) h
+  | Cons z zs, Inr h, k => List.anyElim p goal zs h (x inZs px => k x (Inr inZs) px)
+
 -- What is in `List.map f xs` is `f x` for some `x` in `xs` (said with
 -- `List.Any`, since the library has no `Exists`).
 theorem List.memMapAny (f: a -> b) (y: b): (xs: List a) -> List.Mem y (List.map f xs) -> List.Any (x => f x = y) xs
@@ -763,6 +770,36 @@ theorem List.memBetween [x lo hi: Nat] (h: List.Mem x (List.between lo hi)): And
   match List.memRangeFrom x (hi + 1 - lo) lo h with
     | Both above below => Both above (Nat.ltCongRight x (hi + 1) (Succ hi) (Nat.addOne hi) (Nat.ltOfRunSub lo x (hi + 1) above below))
 
+-- The other way: every number from `s` up to, not including, `s + c` is in
+-- the run `List.rangeFrom c s`.
+theorem List.memRangeFromIntro (x: Nat): (c: Nat) -> (s: Nat) -> s <= x -> x < s + c -> List.Mem x (List.rangeFrom c s)
+  | Zero,   s, lo, hi => Void.exfalso (Nat.lessIrrefl x (Nat.leTrans (Succ x) s x (Nat.ltCongRight x (s + 0) s (Nat.addZero s) hi) lo))
+  | Succ c, s, lo, hi =>
+    match e: Nat.leq (Succ s) x with
+      | True  => Inr (List.memRangeFromIntro x c (Succ s) e (Nat.ltSuccAdd s c x hi))
+      | False => Inl (Nat.leAntisym s x lo (Nat.leqFalse (Succ s) x e))
+
+-- And for `List.between lo hi`: every number from `lo` to `hi`, both included.
+theorem List.memBetweenIntro (x: Nat) (lo: Nat) (hi: Nat) (above: lo <= x) (below: x <= hi): List.Mem x (List.between lo hi) :=
+  List.memRangeFromIntro x (hi + 1 - lo) lo above
+    (Nat.ltCongRight x (hi + 1) (lo + (hi + 1 - lo))
+      (Eq.sym (Nat.addSubCancel lo (hi + 1) (Nat.leTrans lo x (hi + 1) above (Nat.leTrans x hi (hi + 1) below (Nat.leCongRight hi (Succ hi) (hi + 1) (Eq.sym (Nat.addOne hi)) (Nat.leSucc hi))))))
+      (Nat.ltCongRight x (Succ hi) (hi + 1) (Eq.sym (Nat.addOne hi)) (Nat.leLessSucc x hi below)))
+
+-- A list's `flatMap`: an element of `f x` for an `x` of the list is in it.
+theorem List.memFlatMapIntro (f: a -> List b) (x: a) (y: b): (xs: List a) -> List.Mem x xs -> List.Mem y (f x) -> List.Mem y (List.flatMap xs f)
+  | Nil,       h, m => Void.exfalso h
+  | Cons z zs, Inl h, m => List.anyAppendLeft (w => w = y) (f z) (List.concat (List.map f zs)) (rewrite h in m)
+  | Cons z zs, Inr h, m => List.anyAppendRight (w => w = y) (f z) (List.concat (List.map f zs)) (List.memFlatMapIntro f x y zs h m)
+
+-- And back: what is in a `flatMap` is in `f x` for some `x` of the list.
+theorem List.memFlatMapElim (f: a -> List b) (y: b): (xs: List a) -> List.Mem y (List.flatMap xs f) -> List.Any (x => List.Mem y (f x)) xs
+  | Nil,       h => h
+  | Cons z zs, h =>
+    match List.memAppend y (f z) (List.concat (List.map f zs)) h with
+      | Inl m => Inl m
+      | Inr m => Inr (List.memFlatMapElim f y zs m)
+
 -- Mapping an injective function keeps a list distinct.
 theorem List.distinctMap (f: a -> b) (inj: (x: a) -> (y: a) -> f x = f y -> x = y): (xs: List a) -> List.Distinct xs -> List.Distinct (List.map f xs)
   | Nil,       d => Trivial
@@ -778,6 +815,38 @@ theorem List.distinctAppend: (xs: List a) -> (ys: List a) -> List.Distinct xs ->
               | Inr inYs => hj inYs)
       (List.distinctAppend xs ys dx dy dj)
 
+-- A run of numbers has no repeats.
+theorem List.distinctRangeFrom: (c: Nat) -> (s: Nat) -> List.Distinct (List.rangeFrom c s)
+  | Zero,   s => Trivial
+  | Succ c, s =>
+    Both (m => match List.memRangeFrom s c (Succ s) m with
+                 | Both above _ => Nat.lessIrrefl s above)
+         (List.distinctRangeFrom c (Succ s))
+
+theorem List.distinctBetween (lo: Nat) (hi: Nat): List.Distinct (List.between lo hi) := List.distinctRangeFrom (hi + 1 - lo) lo
+
+-- Every element of the list passes, given that each element that is in it does.
+theorem List.allOfMem (p: a -> Prop): (xs: List a) -> ((x: a) -> List.Mem x xs -> p x) -> List.All p xs
+  | Nil,       h => Trivial
+  | Cons z zs, h => Both (h z (Inl rfl)) (List.allOfMem p zs (x inZs => h x (Inr inZs)))
+
+-- A `flatMap` of distinct lists has no repeats if the list mapped over has none
+-- and the lists apart: `key` says which element of `xs` each result came from.
+theorem List.distinctFlatMap (f: a -> List b) (key: b -> a): (xs: List a) -> List.Distinct xs ->
+    ((x: a) -> List.Mem x xs -> List.Distinct (f x)) ->
+    ((x: a) -> List.Mem x xs -> (y: b) -> List.Mem y (f x) -> key y = x) ->
+    List.Distinct (List.flatMap xs f)
+  | Nil,       d, distinctEach, keyed => Trivial
+  | Cons x xs, Both notLater later, distinctEach, keyed =>
+    List.distinctAppend (f x) (List.flatMap xs f)
+      (distinctEach x (Inl rfl))
+      (List.distinctFlatMap f key xs later (z inXs => distinctEach z (Inr inXs)) (z inXs => keyed z (Inr inXs)))
+      -- Nothing in `f x` is in a later `f z`: it would have key `x` and key `z`.
+      (List.allOfMem (y => Not (List.Mem y (List.flatMap xs f))) (f x) (y fromX inLater =>
+        List.anyElim (z => List.Mem y (f z)) Void xs (List.memFlatMapElim f y xs inLater)
+          (z inXs fromZ =>
+            notLater (rewrite Eq.trans (Eq.sym (keyed x (Inl rfl) y fromX)) (keyed z (Inr inXs) y fromZ) in inXs))))
+
 theorem List.distinctExample: List.Distinct [1, 2] :=
   Both (m => match m with
                | Inl p => Nat.succNotZero 0 (Nat.succInjective 1 0 p)
@@ -786,6 +855,11 @@ theorem List.distinctExample: List.Distinct [1, 2] :=
 
 theorem List.distinctMapExample: List.Distinct (List.map Succ [1, 2]) :=
   List.distinctMap Succ (x y p => Nat.succInjective x y p) [1, 2] List.distinctExample
+
+theorem List.memBetweenIntroExample: List.Mem 3 (List.between 1 5) := List.memBetweenIntro 3 1 5 rfl rfl
+
+theorem List.memFlatMapExample: List.Mem 20 (List.flatMap [1, 2] (x => [x, x * 10])) :=
+  List.memFlatMapIntro (x => [x, x * 10]) 2 20 [1, 2] (Inr (Inl rfl)) (Inr (Inl rfl))
 
 theorem List.distinctAppendExample: List.Distinct (List.append [1] [2]) :=
   List.distinctAppend [1] [2]

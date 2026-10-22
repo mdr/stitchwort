@@ -259,6 +259,13 @@ theorem Nat.digitsLengthLe: (x: Nat) -> (m: Nat) -> 1 <= m -> x < Nat.pow 10 m -
           (Nat.fromDigitsHeadBound (Nat.digits (Succ y)) (Nat.digitsHead (Succ y) rfl)))
         h)
 
+-- A bigger number has at least as many digits.
+theorem Nat.digitsLengthMono (x: Nat) (y: Nat) (h: x <= y): List.length (Nat.digits x) <= List.length (Nat.digits y) :=
+  Nat.digitsLengthLe x (List.length (Nat.digits y)) (Nat.digitsNonEmpty y)
+    (Nat.leTrans (Succ x) (Succ y) (Nat.pow 10 (List.length (Nat.digits y))) h (Nat.ltPowTenDigits y))
+
+theorem Nat.digitsLengthMonoExample: List.length (Nat.digits 99) <= List.length (Nat.digits 100) := Nat.digitsLengthMono 99 100 rfl
+
 -- `Char.digitValue` gives a digit, or nothing (so `Char.toDigit` loses
 -- nothing).
 def Option.IsDigit: Option Nat -> Prop
