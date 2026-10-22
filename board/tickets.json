@@ -4318,7 +4318,7 @@
     {
       "id": 284,
       "title": "decreasing stage 3a design addendum: revising per external review (approves D517-D519; generator contract, attach typing, stage order)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -4328,7 +4328,8 @@
       "created": "2026-10-22",
       "updated": "2026-10-22",
       "commits": [
-        "c47fd243"
+        "c47fd243",
+        "f92cdd17"
       ]
     },
     {
@@ -4364,7 +4365,7 @@
     {
       "id": 287,
       "title": "decreasing stage 3a: calls under lambdas via congruence lemmas (FCong by name, shape-checked); sumBy support (D517, D518), after SW-284 revision",
-      "status": "next",
+      "status": "doing",
       "agent": "Opus",
       "where": "",
       "labels": [
