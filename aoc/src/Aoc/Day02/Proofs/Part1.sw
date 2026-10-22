@@ -28,7 +28,7 @@ theorem noneInRange (from: Nat) (to: Nat) (w: Nat -> Nat) (low: Nat) (big: (b: N
   | Zero,   s, h => rfl
   | Succ c, s, h =>
     Eq.trans (Eq.cong List.sum (List.filterSkip (x => from <= x && x <= to) (w s) (List.map w (List.rangeFrom c (Succ s))) (Nat.betweenOver from to (w s) (big s h))))
-      (noneInRange from to w low big c (Succ s) (Nat.leTrans low s (Succ s) h (Nat.leSucc s)))
+      (noneInRange from to w low big c (Succ s) omega)
 
 -- A block of k digits written twice has 2k digits, too many when `to` has fewer.
 theorem tooLong (r: Range): (k: Nat) -> Nat.leq (k * 2) (List.length (Nat.digits r.to)) = False -> repeatedSpec r k 2 = 0
@@ -38,14 +38,10 @@ theorem tooLong (r: Range): (k: Nat) -> Nat.leq (k * 2) (List.length (Nat.digits
       (b hb => Nat.leqFalseOfLess r.to (b * Nat.pow 10 (Succ k) + b)
         (calc r.to
           _ < Nat.pow 10 (List.length (Nat.digits r.to))  := Nat.ltPowTenDigits r.to
-          _ <= Nat.pow 10 (k + Succ k)
-              := Nat.powMono 9 (List.length (Nat.digits r.to)) (k + Succ k)
-                   (calc List.length (Nat.digits r.to)
-                     _ <= Succ (k * 2) := Nat.leqFalse (Succ k * 2) (List.length (Nat.digits r.to)) h
-                     _ = k + Succ k    := Eq.trans (Eq.cong Succ (Eq.trans (Nat.mulSucc k 1) (Eq.cong (t => k + t) (Nat.mulOne k)))) (Eq.sym (Nat.addSucc k k)))
+          _ <= Nat.pow 10 (k + Succ k) := Nat.powMono 9 (List.length (Nat.digits r.to)) (k + Succ k) omega
           _ = Nat.pow 10 k * Nat.pow 10 (Succ k)          := Nat.powAdd 10 k (Succ k)
           _ <= b * Nat.pow 10 (Succ k)                    := Nat.leMulRight (Nat.pow 10 k) b (Nat.pow 10 (Succ k)) hb
-          _ <= b * Nat.pow 10 (Succ k) + b                := Nat.leAddRight (b * Nat.pow 10 (Succ k)) b))
+          _ <= b * Nat.pow 10 (Succ k) + b                := omega))
       (Nat.pow 10 (Succ k) - Nat.pow 10 k) (Nat.pow 10 k) (Nat.leRefl (Nat.pow 10 k))
 
 -- Copies from 3 on count for nothing in part 1.
@@ -72,7 +68,7 @@ theorem twiceTerms (r: Range): (k: Nat) -> (size: Nat) -> 1 <= k -> (Nat.leq (k 
           _ = 0 + sumOfIdsInRangeMatchingTemplate r { blockLength = Succ k, copies = 2 } + List.sumBy f (List.rangeFrom s 3)
               := List.sumByFrom f (0 + sumOfIdsInRangeMatchingTemplate r { blockLength = Succ k, copies = 2 }) (List.rangeFrom s 3)
           _ = 0 + sumOfIdsInRangeMatchingTemplate r { blockLength = Succ k, copies = 2 } + 0 := rewrite otherCopies r (Succ k) (Succ (Succ s)) s 0
-          _ = sumOfIdsInRangeMatchingTemplate r { blockLength = Succ k, copies = 2 } := Eq.trans (Nat.addZero (0 + sumOfIdsInRangeMatchingTemplate r { blockLength = Succ k, copies = 2 })) (Eq.trans (Nat.addComm 0 (sumOfIdsInRangeMatchingTemplate r { blockLength = Succ k, copies = 2 })) (Nat.addZero (sumOfIdsInRangeMatchingTemplate r { blockLength = Succ k, copies = 2 })))
+          _ = sumOfIdsInRangeMatchingTemplate r { blockLength = Succ k, copies = 2 } := omega
           _ = repeatedSpec r (Succ k) 2 := repeatedCorrect r (Succ k) 2
       | False => Eq.trans (otherCopies r (Succ k) (Succ (Succ s)) s 0) (Eq.sym (fits rfl))
 
@@ -125,7 +121,7 @@ theorem idCount (to: Nat) (x: Nat) (hx: x <= to):
               (Eq.trans (Eq.cong (t => t / 2) (Eq.trans (twiceHalf x k hk) (Eq.sym (twiceHalf x k0 hk0)))) (Nat.halfDouble k0)))
             (List.length (Nat.digits to)) 1 h1
             (Nat.lessLe k0 (List.length (Nat.digits to))
-              (Nat.powTenLt k0 (List.length (Nat.digits to)) x (twiceAtLeast x k0 hk0) (Nat.leTrans (Succ x) (Succ to) (Nat.pow 10 (List.length (Nat.digits to))) hx (Nat.ltPowTenDigits to)))))
+              (Nat.powTenLt k0 (List.length (Nat.digits to)) x (twiceAtLeast x k0 hk0) (omega [Nat.ltPowTenDigits to]))))
     | False =>
       List.sumRangeNone (k => writtenAs (Nat.digits x) k 2) (k => x) (List.length (Nat.digits to)) 1
         (k h1 h2 =>
@@ -133,7 +129,7 @@ theorem idCount (to: Nat) (x: Nat) (hx: x <= to):
             | True =>
               Void.exfalso (Bool.trueNotFalse (Eq.trans
                 (Eq.sym (List.anyRangeIntro (k => writtenAs (Nat.digits x) k 2) (List.length (Nat.digits x)) 1 k h1
-                  (Nat.leCongRight k (k + k) (List.length (Nat.digits x)) (twiceHalf x k t) (Nat.leAddRight k k)) t))
+                  (omega [twiceHalf x k t]) t))
                 hd))
             | False => rfl)
 
