@@ -860,6 +860,34 @@ fn a_call_with_a_postponed_lambda_navigates_to_the_function() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// Selecting a type declaration shows nothing of what is derived for it
+/// (SW-302): the equality lemma's statement mentions `%a0`.
+const TYPE_PROGRAM: &str = "type Pt = { x: Nat, y: Nat }\ntype Shape = | Circle (r: Nat) | Square (a: Nat) (b: Nat)\n";
+
+#[test]
+fn selecting_a_type_declaration_shows_no_derived_types() {
+    let dir = temp_dir("type-decl-select");
+    let file = dir.join("types.sw");
+    std::fs::write(&file, TYPE_PROGRAM).unwrap();
+    let uri = uri(&file);
+    let mut client = Client::start();
+    client.open(&uri, TYPE_PROGRAM);
+    assert_eq!(client.diagnostics(&uri, 1), Vec::<Value>::new());
+    for (line, text) in TYPE_PROGRAM.lines().enumerate() {
+        let selection = json!({
+            "start": {"line": line, "character": 0},
+            "end": {"line": line, "character": text.len()}
+        });
+        let found = client.request(
+            "textDocument/hover",
+            json!({"textDocument": {"uri": uri}, "position": selection["start"], "range": selection}),
+        );
+        assert!(!found.to_string().contains('%'), "{found}");
+    }
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// `Eq.sym` and `Eq.trans` have results that do not depend on their explicit
 /// arguments, so they are elaborated by propagation (SW-301).
 const EQ_PROGRAM: &str = "import Std (Eq)\ntheorem t [x y z: Nat] (p: x = y) (q: y = z): z = x := Eq.sym (Eq.trans p q)\n";
