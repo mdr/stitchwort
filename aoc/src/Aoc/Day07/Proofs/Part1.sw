@@ -41,15 +41,14 @@ theorem natEqBelow (m: Nat) (n: Nat) (h: m < n): (m == n) = False :=
   rewrite Nat.eqIsEqual m n in natEqualBelow m n h
 
 theorem natEqualBelow: (m: Nat) -> (n: Nat) -> m < n -> Nat.equal m n = False
-  | m,      Zero,   h => Void.exfalso (Bool.falseNotTrue h)
+  | m,      Zero,   h => Void.exfalso omega
   | Zero,   Succ n, h => rfl
   | Succ m, Succ n, h => natEqualBelow m n h
 
 theorem natEqAbove (m: Nat) (n: Nat) (h: n < m): (m == n) = False :=
   rewrite Nat.eqIsEqual m n in Nat.equalOfLess n m h
 
-theorem ltSucc (m: Nat) (n: Nat) (h: m < n): m < n + 1 :=
-  rewrite Nat.addOne n in Nat.leTrans (Succ m) n (Succ n) h (Nat.leSucc n)
+theorem ltSucc (m: Nat) (n: Nat) (h: m < n): m < n + 1 := omega
 
 -- Past the right edge there is no splitter.
 theorem splitterPast (row: Vec Bool w) (c: Nat) (h: w <= c): splitterAt row c = False :=
@@ -93,8 +92,7 @@ theorem timelinesSome: (r: Nat) -> (c: Nat) -> (ls: List (Vec Bool w)) -> 0 < Li
     match e: splitterAt row c with
       | True  =>
         rewrite List.lengthAppend _ _, List.lengthMap _ _ in
-          Nat.leTrans 1 (List.length (timelinesFrom (r + 1) (c + 1) rest)) _
-            (timelinesSome (r + 1) (c + 1) rest) (Nat.leAddLeft _ _)
+          omega [timelinesSome (r + 1) (c + 1) rest]
       | False => timelinesSome (r + 1) c rest
 
 -- ... so putting the splitter looked for in front of them finds it.
@@ -118,9 +116,9 @@ theorem noHitsAbove (x: Nat) (d: Nat): (r: Nat) -> (c: Nat) -> (ls: List (Vec Bo
             | Succ b => rewrite anyConsMiss x d { row = r, column = Succ b, turn = Left } (miss Left) _, noHitsAbove x d (r + 1) b rest (ltSucc x r h)
       | False => noHitsAbove x d (r + 1) c rest (ltSucc x r h)
 
-theorem ltSelfSucc (r: Nat): r < r + 1 := rewrite Nat.addOne r in Nat.leRefl (Succ r)
+theorem ltSelfSucc (r: Nat): r < r + 1 := omega
 
-theorem shift (k: Nat) (r: Nat): k + (r + 1) = Succ (k + r) := rewrite Nat.addOne r in Nat.addSucc k r
+theorem shift (k: Nat) (r: Nat): k + (r + 1) = Succ (k + r) := omega
 
 -- A timeline reaches the splitter in row k (counted from r), column d,
 -- exactly when there is a splitter there and the particle can fall into it.
@@ -152,7 +150,7 @@ theorem hitsAt: (ls: List (Vec Bool w)) -> (r: Nat) -> (c: Nat) -> (k: Nat) -> (
   | Cons row rest, r, c, Succ k, d =>
     let ih: (c2: Nat) -> List.any (hitIn (Succ (k + r)) d) (timelinesFrom (r + 1) c2 rest) = (splitterIn rest k d && reach rest c2 k d) :=
       c2 => rewrite <- shift k r in hitsAt rest (r + 1) c2 k d
-    let above: (r == Succ (k + r)) = False := natEqBelow r (Succ (k + r)) (Nat.leAddLeft k r)
+    let above: (r == Succ (k + r)) = False := natEqBelow r (Succ (k + r)) omega
     match e: splitterAt row c with
       | True  =>
         rewrite List.anyAppend (hitIn (Succ (k + r)) d) _ _,
@@ -164,7 +162,7 @@ theorem hitsAt: (ls: List (Vec Bool w)) -> (r: Nat) -> (c: Nat) -> (k: Nat) -> (
 
 -- Past the right edge there are no splitters: a particle there stays there.
 theorem reachPast (w: Nat): (ls: List (Vec Bool w)) -> (c: Nat) -> (k: Nat) -> (d: Nat) -> w <= c -> d < w -> reach ls c k d = False
-  | ls,            c, Zero,   d, hc, hd => natEqAbove c d (Nat.leTrans (Succ d) w c hd hc)
+  | ls,            c, Zero,   d, hc, hd => natEqAbove c d omega
   | Nil,           c, Succ k, d, hc, hd => rfl
   | Cons row rest, c, Succ k, d, hc, hd =>
     rewrite splitterPast row c hc in reachPast w rest c k d hc hd
@@ -219,7 +217,7 @@ theorem beamReachZero (w: Nat) (beams: List Bool) (ls: List (Vec Bool w)) (d: Na
   Bool.eqOf (beamReach w beams ls 0 d) (List.getOr False d beams)
     (h => List.anyRangeElim (c => List.getOr False c beams && reach ls c 0 d) (List.getOr False d beams = True) w 0 h
        (c lo hi hc => rewrite <- DecEq.sound c d (Bool.andRight (List.getOr False c beams) (c == d) hc) in Bool.andLeft (List.getOr False c beams) (c == d) hc))
-    (h => List.anyRangeIntro (c => List.getOr False c beams && reach ls c 0 d) w 0 d (Nat.zeroLe d) hd
+    (h => List.anyRangeIntro (c => List.getOr False c beams && reach ls c 0 d) w 0 d omega hd
        (Bool.andIntro (List.getOr False d beams) (d == d) h (natEqSelf d)))
 
 -- One row of `fall` carries the beams down: the particle can fall into
@@ -251,14 +249,14 @@ theorem fallKeeps (w: Nat) (row: Vec Bool w) (rest: List (Vec Bool w)) (v: Vec B
                  | Succ b =>
                    let hF: splitterAt row b = True := Bool.andLeft (List.getOr False b flags) (List.getOr False b beams) h3
                    let hB := Bool.andRight (List.getOr False b flags) (List.getOr False b beams) h3
-                   List.anyRangeIntro before w 0 b (Nat.zeroLe b) (Nat.lessTrans b (Succ b) w (Nat.leRefl (Succ b)) hi)
+                   List.anyRangeIntro before w 0 b omega omega
                      (Bool.andIntro (List.getOr False b beams) (reach (Cons row rest) b (Succ k) d) hB
                         (rewrite hF, Nat.addOne b, hr in Bool.orTrue _)))
              (h4 =>
                let hF: splitterAt row (Succ c) = True := Bool.andLeft (List.getOr False (Succ c) flags) (List.getOr False (Succ c) beams) h4
                let hB := Bool.andRight (List.getOr False (Succ c) flags) (List.getOr False (Succ c) beams) h4
                let inside: Succ c < w := rewrite <- hb in setInside beams (Succ c) hB
-               List.anyRangeIntro before w 0 (Succ c) (Nat.zeroLe (Succ c)) inside
+               List.anyRangeIntro before w 0 (Succ c) omega inside
                  (Bool.andIntro (List.getOr False (Succ c) beams) (reach (Cons row rest) (Succ c) (Succ k) d) hB (rewrite hF, hr))))))
     (h => List.anyRangeElim before (beamReach w fallen rest k d = True) w 0 h
        (c lo hi hc =>
@@ -272,21 +270,21 @@ theorem fallKeeps (w: Nat) (row: Vec Bool w) (rest: List (Vec Bool w)) (v: Vec B
                  match c with
                    | Zero   => Void.exfalso (Bool.falseNotTrue hl)
                    | Succ b =>
-                     let hb2: b < w := Nat.lessTrans b (Succ b) w (Nat.leRefl (Succ b)) hi
-                     List.anyRangeIntro after w 0 b (Nat.zeroLe b) hb2
+                     let hb2: b < w := omega
+                     List.anyRangeIntro after w 0 b omega hb2
                        (Bool.andIntro (List.getOr False b fallen) (reach rest b k d)
                           (rewrite at b hb2 in orThird _ _ _ (Bool.andIntro (List.getOr False (Succ b) flags) (List.getOr False (Succ b) beams) e hB))
                           hl))
                (hrr =>
                  match g: Nat.leq (Succ (Succ c)) w with
                    | True  =>
-                     List.anyRangeIntro after w 0 (Succ c) (Nat.zeroLe (Succ c)) g
+                     List.anyRangeIntro after w 0 (Succ c) omega g
                        (Bool.andIntro (List.getOr False (Succ c) fallen) (reach rest (Succ c) k d)
                           (rewrite at (Succ c) g in orSecond _ _ _ (Bool.andIntro (List.getOr False c flags) (List.getOr False c beams) e hB))
                           (rewrite <- Nat.addOne c in hrr))
                    | False =>
                      Void.exfalso (Bool.falseNotTrue
-                       (Eq.trans (Eq.sym (reachPast w rest (Succ c) k d (Nat.leqFalse (Succ (Succ c)) w g) hd)) (rewrite <- Nat.addOne c in hrr))))
+                       (Eq.trans (Eq.sym (reachPast w rest (Succ c) k d omega hd)) (rewrite <- Nat.addOne c in hrr))))
            | False =>
              List.anyRangeIntro after w 0 c lo hi
                (Bool.andIntro (List.getOr False c fallen) (reach rest c k d)
@@ -332,7 +330,7 @@ theorem beamStart (w: Nat) (st: Fin w) (ls: List (Vec Bool w)) (k: Nat) (d: Nat)
        (c lo hi hc =>
          let same := DecEq.sound (Fin.ofNatLt w c hi) st (Eq.trans (Eq.sym (at c hi)) (Bool.andLeft (List.getOr False c start) (reach ls c k d) hc))
          rewrite <- Eq.trans (Eq.sym (Fin.toNatOfNatLt w c hi)) (Eq.cong Fin.toNat same) in Bool.andRight (List.getOr False c start) (reach ls c k d) hc))
-    (h => List.anyRangeIntro (c => List.getOr False c start && reach ls c k d) w 0 st.toNat (Nat.zeroLe st.toNat) hs
+    (h => List.anyRangeIntro (c => List.getOr False c start && reach ls c k d) w 0 st.toNat omega hs
        (Bool.andIntro (List.getOr False st.toNat start) (reach ls st.toNat k d)
           (rewrite at st.toNat hs, Fin.toNatInjective (Fin.ofNatLt w st.toNat hs) st (Fin.toNatOfNatLt w st.toNat hs) in
              Decidable.toBoolOf (DecEq.decide st st) rfl)

@@ -79,8 +79,6 @@ theorem connectionsInRange (k: Nat) (points: List Point): List.all (boxesBelow p
 
 -- The program's sizes are the spec's ----------------------------------------
 
-theorem lessTrans (a: Nat) (b: Nat) (c: Nat) (ab: a < b) (bc: b < c): a < c := Nat.leTrans (Succ a) b c ab (Nat.leTrans b (Succ b) c (Nat.leSucc b) bc)
-
 -- Counted with "same label" as the test, the spec's sizes are the program's.
 theorem sizesAreCircuitSizes (c: Circuits) (n: Nat): c.sizes n = circuitSizes n (a b => c.labelOf a == c.labelOf b) :=
   rewrite List.filterCongMem
@@ -88,7 +86,7 @@ theorem sizesAreCircuitSizes (c: Circuits) (n: Nat): c.sizes n = circuitSizes n 
       (box => !(List.any (other => c.labelOf other == c.labelOf box) (List.range box)))
       (List.range n)
       (box m =>
-        rewrite List.takeMap c.labelOf box (List.range n), List.takeRangeFrom box n 0 (Nat.lessLe box n (And.right (List.memRangeFrom box n 0 m))),
+        rewrite List.takeMap c.labelOf box (List.range n), List.takeRangeFrom box n 0 (omega [And.right (List.memRangeFrom box n 0 m)]),
           List.anyMap (label => label == c.labelOf box) c.labelOf (List.range box) in rfl)
     in List.mapCong _ _ _ (box => List.countMap (label => label == c.labelOf box) c.labelOf (List.range n))
 
@@ -102,7 +100,7 @@ theorem circuitSizesCong (n: Nat) (same1: Nat -> Nat -> Bool) (same2: Nat -> Nat
       (List.range n)
       (box m =>
         rewrite List.anyCongMem (other => same1 other box) (other => same2 other box) (List.range box)
-          (other m2 => agree other box (lessTrans other box n (And.right (List.memRangeFrom other box 0 m2)) (below box m)) (below box m))
+          (other m2 => agree other box (omega [And.right (List.memRangeFrom other box 0 m2), below box m]) (below box m))
           in rfl)
     in List.mapCongMem _ _ _
       (box m => List.countCongMem (other => same1 other box) (other => same2 other box) (List.range n)

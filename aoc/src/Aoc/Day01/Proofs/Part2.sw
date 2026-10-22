@@ -74,8 +74,8 @@ def place (highest: Nat) (x: Int): Nat := Int.modNat x (Succ highest)
 theorem rightCases (n: Nat) [auto ok: n != 0] (a: Nat) (h: a < n) (goal: Prop)
     (wraps: a + 1 = n -> goal) (below: Succ a < n -> goal): goal :=
   match e: Nat.leq n (Succ a) with
-    | True  => wraps (Eq.trans (Nat.addOne a) (Nat.leAntisym (Succ a) n h e))
-    | False => below (Nat.leqFalse n (Succ a) e)
+    | True  => wraps omega
+    | False => below omega
 
 theorem stepRightAt (d: Nat) [auto ok: d != 0] (a: Nat) (n: Nat):
     ((a + 1) % d + n) % d = (a + Succ n) % d :=
@@ -95,7 +95,7 @@ theorem leftZero (highest: Nat): place highest (Int.subNatNat 0 1) = highest := 
 theorem leftOne (highest: Nat) (m: Nat) (h: Succ m <= highest): place highest (Int.subNatNat (Succ m) 1) = m :=
   calc place highest (Int.subNatNat (Succ m) 1)
     _ = place highest (OfNat m) := Eq.cong (x => place highest x) (Eq.trans (Int.subNatNatSucc m 0) (Int.subNatNatZeroRight m))
-    _ = m := Nat.modSmall m (Succ highest) (Nat.leTrans m (Succ m) highest (Nat.leSucc m) h)
+    _ = m := Nat.modSmall m (Succ highest) omega
 
 theorem stepLeftAt (highest: Nat): (a: Nat) -> a <= highest -> (n: Nat) ->
     place highest (Nat.toInt (place highest (Int.subNatNat a 1)) - Nat.toInt n)
@@ -123,7 +123,7 @@ theorem stepRight (d: Nat) [auto ok: d != 0] (a: Nat) (h: a < d) (n: Nat):
       calc Bool.toNat ((a + 1) % d == 0) + ((a + 1) % d + n) / d
         _ = Succ (n / d)       := rewrite e, Nat.modSelf d
         _ = (d + n) / d        := Eq.sym (Nat.addDivSelf d n)
-        _ = (Succ a + n) / d   := Eq.cong (x => (x + n) / d) (Eq.sym (Eq.trans (Eq.sym (Nat.addOne a)) e))
+        _ = (Succ a + n) / d   := Eq.cong (x => (x + n) / d) (omega: d = Succ a)
         _ = (a + Succ n) / d   := rewrite Nat.addSucc a n)
     (lt => rewrite Nat.addOne a, Nat.modSmall (Succ a) d lt, Nat.addSucc a n)
 
@@ -141,12 +141,12 @@ theorem stepLeftFrom (highest: Nat): (m: Nat) -> Succ m <= highest -> (n: Nat) -
     Bool.toNat (m == 0) + ((Succ highest - m) % Succ highest + n) / Succ highest
       = ((Succ highest - Succ m) % Succ highest + Succ n) / Succ highest
   | Zero,   h, n =>
-    rewrite Nat.modSelf (Succ highest), Nat.modSmall highest (Succ highest) (Nat.leRefl highest), Nat.addSucc highest n
+    rewrite Nat.modSelf (Succ highest), Nat.modSmall highest (Succ highest) omega, Nat.addSucc highest n
       in Eq.sym (Nat.addDivSelf (Succ highest) n)
   | Succ j, h, n =>
     rewrite Nat.modSmall (highest - j) (Succ highest) (Nat.subLe highest j),
         Nat.modSmall (highest - Succ j) (Succ highest) (Nat.subLe highest (Succ j)),
-        Nat.subSuccRight j highest (Nat.leTrans (Succ j) (Succ (Succ j)) highest (Nat.leSucc (Succ j)) h),
+        Nat.subSuccRight j highest omega,
         Nat.addSucc (highest - Succ j) n
       in rfl
 

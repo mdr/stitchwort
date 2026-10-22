@@ -73,7 +73,7 @@ theorem peelRowCells (cells: Cells) (r: Nat) (c: Nat) (a: Vec Cell w) (x: Vec Ce
             := rewrite triCol cells r a x b ha hx hb c, triCol cells r a x b ha hx hb (Succ c), triCol cells r a x b ha hx hb (Succ (Succ c)), hx (Succ c)
     | False =>
       -- Past the last column both sides are floor.
-      rewrite Vec.getOrPast Floor (peelRow a x b) c (Nat.leqFalse (Succ c) w e), <- hx (Succ c), Vec.getOrPast Floor x c (Nat.leqFalse (Succ c) w e)
+      rewrite Vec.getOrPast Floor (peelRow a x b) c omega, <- hx (Succ c), Vec.getOrPast Floor x c omega
 
 -- Row r (counted from 1) of a grid's rows, with a row of floor above the
 -- first and past the last.
@@ -108,7 +108,7 @@ theorem cellRound (rows: Vec (Vec Cell w) h) (r: Nat) (c: Nat):
             := peelRowCells (rowsCells rows) r c (rowB rows r) (rowB rows (Succ r)) (rowB rows (Succ (Succ r)))
                  (rowBIs rows r) (rowBIs rows (Succ r)) (rowBIs rows (Succ (Succ r)))
     | False =>
-      rewrite rowsCellsBelow (Vec.around gap peelRow rows) r c (Nat.leqFalse (Succ r) h e), rowsCellsBelow rows r c (Nat.leqFalse (Succ r) h e)
+      rewrite rowsCellsBelow (Vec.around gap peelRow rows) r c omega, rowsCellsBelow rows r c omega
 
 -- The window, reindexed: positions at most 1 away.
 
@@ -118,10 +118,10 @@ def near (r: Nat) (x: Nat): Bool := Nat.absDiff r x <= 1
 -- At most 1 away is one below, the same, or one above.
 theorem nearSplit (v: Nat): (r: Nat) -> (x: Nat) ->
     Nat.keepIf v (near r x) = Nat.keepIf v (Nat.equal r (Succ x)) + Nat.keepIf v (Nat.equal r x) + Nat.keepIf v (Nat.equal (Succ r) x)
-  | Zero,          Zero          => Eq.sym (Nat.addZero v)
+  | Zero,          Zero          => omega
   | Zero,          Succ Zero     => rfl
   | Zero,          Succ (Succ k) => rfl
-  | Succ Zero,     Zero          => Eq.sym (Eq.trans (Nat.addZero (v + 0)) (Nat.addZero v))
+  | Succ Zero,     Zero          => omega
   | Succ (Succ k), Zero          => rfl
   | Succ r,        Succ x        => nearSplit v r x
 
@@ -165,7 +165,7 @@ theorem splitSelf: (n1: Bool) -> (n2: Bool) -> (e: Bool) -> (x: Bool) -> (e = Tr
   | True,  True,  True,  x, h => rfl
   | True,  False, True,  x, h => Void.exfalso (Bool.falseNotTrue (And.right (h rfl)))
   | False, n2,    True,  x, h => Void.exfalso (Bool.falseNotTrue (And.left (h rfl)))
-  | True,  True,  False, x, h => Eq.sym (Nat.addZero (Bool.toNat x))
+  | True,  True,  False, x, h => omega
   | True,  False, False, x, h => rfl
   | False, n2,    False, x, h => rfl
 
@@ -251,11 +251,7 @@ theorem nineSum (grid: Grid) (cells: Cells) (below: (r: Nat) -> (c: Nat) -> grid
 
 theorem transpose9 (a: Nat) (b: Nat) (c: Nat) (d: Nat) (e: Nat) (f: Nat) (g: Nat) (h: Nat) (i: Nat):
     (a + b + c) + (d + e + f) + (g + h + i) = (a + d + g) + (b + e + h) + (c + f + i) :=
-  calc (a + b + c) + (d + e + f) + (g + h + i)
-    _ = ((a + b) + (d + e)) + (c + f) + (g + h + i) := rewrite Nat.addSwap (a + b) c (d + e) f
-    _ = ((a + d) + (b + e)) + (c + f) + (g + h + i) := rewrite Nat.addSwap a b d e
-    _ = (((a + d) + (b + e)) + (g + h)) + ((c + f) + i) := Nat.addSwap ((a + d) + (b + e)) (c + f) (g + h) i
-    _ = (((a + d) + g) + ((b + e) + h)) + ((c + f) + i) := rewrite Nat.addSwap (a + d) (b + e) g h
+  omega
 
 -- The window by rows instead of columns.
 theorem windowRows (cells: Cells) (r: Nat) (c: Nat): window cells r c = rowSum cells r c + rowSum cells (Succ r) c + rowSum cells (Succ (Succ r)) c :=

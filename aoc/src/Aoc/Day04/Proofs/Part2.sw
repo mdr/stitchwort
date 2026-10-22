@@ -23,7 +23,7 @@ theorem countMono (grid: Grid) (t: Cells) (s: Cells) (h: Sub t s): rollCount gri
 
 theorem subZeroLe: (n: Nat) -> (m: Nat) -> n - m = 0 -> n <= m
   | Zero,   m,      h => rfl
-  | Succ n, Zero,   h => Void.exfalso (Nat.succNotZero n h)
+  | Succ n, Zero,   h => Void.exfalso omega
   | Succ n, Succ m, h => subZeroLe n m h
 
 -- Equal sums of terms each at most the other's: equal terms.
@@ -31,15 +31,14 @@ theorem sumEqEach (f: Nat -> Nat) (g: Nat -> Nat) (le: (x: Nat) -> g x <= f x) (
     (eq: List.sumBy g (List.range n) = List.sumBy f (List.range n)) (x: Nat) (hx: x < n): g x = f x :=
   let split := List.sumBySplit f g le (List.range n)
   let rest: List.sumBy (y => f y - g y) (List.range n) = 0 :=
-    Nat.addCancelLeft (List.sumBy g (List.range n)) (List.sumBy (y => f y - g y) (List.range n)) 0
-      (Eq.trans (Eq.sym split) (Eq.trans (Eq.sym eq) (Eq.sym (Nat.addZero (List.sumBy g (List.range n))))))
-  Nat.leAntisym (g x) (f x) (le x) (subZeroLe (f x) (g x) (List.sumRangeZero (y => f y - g y) n 0 rest x (Nat.zeroLe x) hx))
+    omega [split]
+  omega [le x, subZeroLe (f x) (g x) (List.sumRangeZero (y => f y - g y) n 0 rest x omega hx)]
 
 theorem cellOfToNat: (a: Cell) -> (b: Cell) -> Bool.toNat (a == Roll) = Bool.toNat (b == Roll) -> a = b
   | Roll,  Roll,  h => rfl
   | Floor, Floor, h => rfl
-  | Roll,  Floor, h => Void.exfalso (Nat.succNotZero 0 h)
-  | Floor, Roll,  h => Void.exfalso (Nat.zeroNotSucc 0 h)
+  | Roll,  Floor, h => Void.exfalso omega
+  | Floor, Roll,  h => Void.exfalso omega
 
 -- Off the grid both are floor: only the grid's positions need checking.
 theorem sameWhere (grid: Grid) (s: Cells) (t: Cells) (is: Inside grid s) (it: Inside grid t)
@@ -47,8 +46,8 @@ theorem sameWhere (grid: Grid) (s: Cells) (t: Cells) (is: Inside grid s) (it: In
   r c =>
     match e1: Nat.leq (Succ r) grid.height, e2: Nat.leq (Succ c) grid.width with
       | True,  True  => good r c e1 e2
-      | False, b     => Eq.trans (And.left is r c (Nat.leqFalse (Succ r) grid.height e1)) (Eq.sym (And.left it r c (Nat.leqFalse (Succ r) grid.height e1)))
-      | True,  False => Eq.trans (And.right is r c (Nat.leqFalse (Succ c) grid.width e2)) (Eq.sym (And.right it r c (Nat.leqFalse (Succ c) grid.width e2)))
+      | False, b     => Eq.trans (And.left is r c omega) (Eq.sym (And.left it r c omega))
+      | True,  False => Eq.trans (And.right is r c omega) (Eq.sym (And.right it r c omega))
 
 -- Removing rolls without changing the count removes none.
 theorem countEqSame (grid: Grid) (t: Cells) (s: Cells) (it: Inside grid t) (is: Inside grid s) (h: Sub t s) (eq: rollCount grid t = rollCount grid s): Same t s :=
@@ -84,7 +83,7 @@ theorem sameMarks (grid: Grid) (m: Marked grid.width grid.height) (same: Same (m
           (c => Eq.trans (Eq.sym (mcellsEntry (sweep m) r c)) (Eq.trans (same r c) (mcellsEntry m r c)))
       Eq.trans (Eq.cong Pair.snd st)
         (sweepRowMark p.fst p.snd x.fst n.fst x.snd n.snd (Eq.trans (Eq.cong Pair.fst (Eq.sym st)) rowEq))
-    | False => rewrite entryPast (sweep m) r (Nat.leqFalse (Succ r) grid.height e)
+    | False => rewrite entryPast (sweep m) r omega
 
 theorem ifTrueFalse: (b: Bool) -> (c: Bool) -> (if b then True else c) = False -> (b = False && c = False)
   | True,  c, h => Void.exfalso (Bool.trueNotFalse h)
@@ -197,7 +196,7 @@ theorem part2Correct (grid: Grid): solvePart2 grid = part2Spec grid :=
   let f := settleMarked m0
   let spec := rounds grid start s0
   let specKeep := roundsKeep grid s0 start s0 (k st sub => sub) (subRefl s0)
-  let specStable := roundsStable grid start s0 (insideGrid grid) (Nat.leRefl start)
+  let specStable := roundsStable grid start s0 (insideGrid grid) omega
   let same := endsAgree grid s0 (mcells f) spec (And.right (And.right ends)) (And.left ends) (And.left (And.right ends))
     (And.right specKeep) specStable (And.left specKeep)
   calc solvePart2 grid

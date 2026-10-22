@@ -119,7 +119,7 @@ theorem unchanged (m: Marked w h) (j: Nat) (hm: Pair.snd (entry (sweep m) (Succ 
       let n := entry m (Succ (Succ j))
       Eq.trans (Eq.cong Pair.fst st)
         (sweepRowSame p.fst p.snd x.fst n.fst x.snd n.snd (Eq.trans (Eq.cong Pair.snd (Eq.sym st)) hm))
-    | False => rewrite entryPast (sweep m) j (Nat.leqFalse (Succ j) h e), entryPast m j (Nat.leqFalse (Succ j) h e)
+    | False => rewrite entryPast (sweep m) j omega, entryPast m j omega
 
 theorem prevSame (m: Marked w h): (r: Nat) -> Pair.snd (entry (sweep m) r) = False -> Pair.fst (entry (sweep m) r) = Pair.fst (entry m r)
   | Zero,   hm => rfl
@@ -200,12 +200,9 @@ theorem rowStep (grid: Grid) (s: Cells) (t: Cells) (ins: Inside grid s) (k: Nat)
     match row c with
       | Inl e => Void.exfalso (rollNotFloor (Eq.trans (Eq.sym ht) (Eq.trans e hs)))
       | Inr e =>
-        let n := neighbours grid s k c
         let few: window s k c < 5 :=
           keepFloor (window s k c) (Eq.trans (Eq.cong (a => keep a (window s k c)) (Eq.sym hs)) (Eq.trans (Eq.sym e) ht))
-        let few2: n + (s k c).count < 5 := Nat.ltCongLeft (window s k c) (n + (s k c).count) 5 (windowIsNeighbours grid s (And.left ins) (And.right ins) k c) few
-        let few3: n + 1 < 5 := Nat.ltCongLeft (n + (s k c).count) (n + 1) 5 (Eq.cong ((a: Cell) => n + a.count) hs) few2
-        Nat.ltCongLeft (n + 1) (Succ n) 5 (Nat.addOne n) few3
+        omega [windowIsNeighbours grid s (And.left ins) (And.right ins) k c, Eq.cong Cell.count hs]
   Both
     (r c ht =>
       match Nat.decEq r k with
@@ -227,7 +224,7 @@ theorem bordMixIn (k: Nat) (out: Cells) (inp: Cells) (r: Nat) (h: k <= r): (j: N
 
 theorem bordMixPrev (out: Cells) (inp: Cells): (k: Nat) -> (j: Nat) -> bord out k j = bord (mix k out inp) k j
   | Zero,   j => rfl
-  | Succ r, j => bordMixOut (Succ r) out inp r (Nat.leRefl r) j
+  | Succ r, j => bordMixOut (Succ r) out inp r omega j
 
 theorem rowIsMove (cells: Cells) (other: Cells) (r: Nat) (v: Vec Cell w) (hv: RowIs cells r v) (same: (j: Nat) -> bord cells r j = bord other r j): RowIs other r v :=
   j => Eq.trans (hv j) (same j)
@@ -249,12 +246,12 @@ theorem passRow (grid: Grid) (m: Marked grid.width grid.height) (k: Nat) (hk: k 
     | Inl e => Inl (Eq.trans rowOut (rewrite e in Eq.sym (mcellsEntry m k c)))
     | Inr e =>
       let ha: RowIs s k p.fst := rowIsMove out s k p.fst (rowIsEntry (sweep m) k) (j => bordMixPrev out inp k j)
-      let hx: RowIs s (Succ k) x.fst := rowIsMove inp s (Succ k) x.fst (rowIsEntry m (Succ k)) (j => bordMixIn k out inp k (Nat.leRefl k) j)
-      let hn: RowIs s (Succ (Succ k)) n.fst := rowIsMove inp s (Succ (Succ k)) n.fst (rowIsEntry m (Succ (Succ k))) (j => bordMixIn k out inp (Succ k) (Nat.leSucc k) j)
+      let hx: RowIs s (Succ k) x.fst := rowIsMove inp s (Succ k) x.fst (rowIsEntry m (Succ k)) (j => bordMixIn k out inp k omega j)
+      let hn: RowIs s (Succ (Succ k)) n.fst := rowIsMove inp s (Succ (Succ k)) n.fst (rowIsEntry m (Succ (Succ k))) (j => bordMixIn k out inp (Succ k) omega j)
       Inr (calc mcells (sweep m) k c
         _ = List.getOr Floor c (Vec.toList (peelRow p.fst x.fst n.fst)) := rewrite <- e in rowOut
         _ = keep (s k c) (window s k c) := peelRowCells s k c p.fst x.fst n.fst ha hx hn
-        _ = keep (inp k c) (window s k c) := rewrite mixAbove k out inp k c (Nat.leRefl k))
+        _ = keep (inp k c) (window s k c) := rewrite mixAbove k out inp k c omega)
 
 -- Rows 0 to k - 1 swept to rows 0 to k: a step.
 theorem mixStep (grid: Grid) (m: Marked grid.width grid.height) (k: Nat) (hk: k < grid.height):
@@ -264,11 +261,11 @@ theorem mixStep (grid: Grid) (m: Marked grid.width grid.height) (k: Nat) (hk: k 
   rowStep grid (mix k out inp) (mix (Succ k) out inp) (mixInside grid k out inp (mcellsInside grid (sweep m)) (mcellsInside grid m)) k
     (r c ne =>
       match e: Nat.leq (Succ r) k with
-        | True  => mixBelow (Succ k) out inp r c (Nat.leTrans (Succ r) k (Succ k) e (Nat.leSucc k))
+        | True  => mixBelow (Succ k) out inp r c omega
         | False => mixAbove (Succ k) out inp r c (Nat.leNeSucc k r (Nat.leqFalse (Succ r) k e) (q => ne (Eq.sym q))))
     (c =>
-      let now := mixBelow (Succ k) out inp k c (Nat.leRefl k)
-      let before := mixAbove k out inp k c (Nat.leRefl k)
+      let now := mixBelow (Succ k) out inp k c omega
+      let before := mixAbove k out inp k c omega
       match passRow grid m k hk c with
         | Inl e => Inl (Eq.trans now (Eq.trans e (Eq.sym before)))
         | Inr e => Inr (Eq.trans now (Eq.trans e (Eq.cong ((a: Cell) => keep a (window (mix k out inp) k c)) (Eq.sym before)))))
@@ -280,7 +277,7 @@ theorem mixChain (grid: Grid) (s0: Cells) (m: Marked grid.width grid.height) (hk
   | Succ k, h =>
     let out := mcells (sweep m)
     let inp := mcells m
-    let prev := mixChain grid s0 m hk k (Nat.leTrans k (Succ k) grid.height (Nat.leSucc k) h)
+    let prev := mixChain grid s0 m hk k omega
     let step := mixStep grid m k h
     Both (keepsStep grid s0 (mix k out inp) (mix (Succ k) out inp) (And.left prev) step)
       (subTrans (mix (Succ k) out inp) (mix k out inp) inp (And.left step) (And.right prev))
@@ -289,12 +286,12 @@ theorem passKeeps (grid: Grid) (s0: Cells) (m: Marked grid.width grid.height) (h
     Keeps grid s0 (mcells (sweep m)) && Sub (mcells (sweep m)) (mcells m) :=
   let out := mcells (sweep m)
   let inp := mcells m
-  let chain := mixChain grid s0 m hk grid.height (Nat.leRefl grid.height)
+  let chain := mixChain grid s0 m hk grid.height omega
   let same: Same out (mix grid.height out inp) := r c =>
     match e: Nat.leq (Succ r) grid.height with
       | True  => rfl
       | False =>
-        let past := Nat.leqFalse (Succ r) grid.height e
+        let past: grid.height <= r := omega
         Eq.trans (And.left (mcellsInside grid (sweep m)) r c past) (Eq.sym (And.left (mcellsInside grid m) r c past))
   Both (k st sub r c hk2 => Eq.trans (same r c) (And.left chain k st sub r c hk2))
     (r c ho => And.right chain r c (Eq.trans (Eq.sym (same r c)) ho))
@@ -304,7 +301,6 @@ theorem settledStable (grid: Grid) (m: Marked grid.width grid.height) (inv: Inv 
   stableWhere grid (mcells m) (mcellsInside grid m) (r c hr hc hs =>
     let cells := mcells m
     let w := window cells r c
-    let n := neighbours grid cells r c
     let same: keep (cells r c) w = cells r c :=
       calc keep (cells r c) w
         _ = List.getOr Floor c (Vec.toList (peelRow (Pair.fst (entry m r)) (Pair.fst (entry m (Succ r))) (Pair.fst (entry m (Succ (Succ r))))))
@@ -313,7 +309,4 @@ theorem settledStable (grid: Grid) (m: Marked grid.width grid.height) (inv: Inv 
         _ = List.getOr Floor c (Vec.toList (Pair.fst (entry m (Succ r)))) := rewrite inv r hr (none r) (none (Succ r))
         _ = cells r c := Eq.sym (mcellsEntry m r c)
     let kept: keep Roll w = Roll := Eq.trans (Eq.cong (a => keep a w) (Eq.sym hs)) (Eq.trans same hs)
-    let many: 5 <= n + (cells r c).count :=
-      Nat.leCongRight 5 w (n + (cells r c).count) (windowIsNeighbours grid cells (And.left (mcellsInside grid m)) (And.right (mcellsInside grid m)) r c) (keepRollGe w kept)
-    let many2: 5 <= n + 1 := Nat.leCongRight 5 (n + (cells r c).count) (n + 1) (Eq.cong ((a: Cell) => n + a.count) hs) many
-    Nat.leCongRight 5 (n + 1) (Succ n) (Nat.addOne n) many2)
+    omega [windowIsNeighbours grid cells (And.left (mcellsInside grid m)) (And.right (mcellsInside grid m)) r c, keepRollGe w kept, Eq.cong Cell.count hs])
