@@ -1,4 +1,4 @@
--- Day 2, why `sumWithShape` is right: the arithmetic sum of the ids that are a
+-- Day 2, why `sumMatchingTemplate` is right: the arithmetic sum of the ids that are a
 -- k-digit block written n times equals the brute-force sum over blocks
 -- (`repeatedCorrect`), and for n = 2 the sum over the ids themselves
 -- (`repeatedTwice`). Kept apart from the program, so `stitchwort run
@@ -10,7 +10,7 @@ import Aoc.Common.Proofs (..)
 import Aoc.Day02 (..)
 import Std (Bool, Decidable, Eq, List, Nat, Void)
 
--- Why `sumWithShape` is right (a): `sumWithShape r shape` equals
+-- Why `sumMatchingTemplate` is right (a): `sumMatchingTemplate r template` equals
 -- `repeatedSpec r k n`, the brute-force sum below, for every range, block
 -- length and repeat count.
 --
@@ -36,7 +36,7 @@ def repeatedSpec (r: Range) (k: Nat) (n: Nat): Nat :=
     |> .filter (x => r.from <= x && x <= r.to)
     |> .sum
 
--- `sumWithShape` with its parts as parameters: the multiplier `m`, the
+-- `sumMatchingTemplate` with its parts as parameters: the multiplier `m`, the
 -- smallest block `low` and the first number too long to be a block `p`.
 def multiplier (k: Nat) (n: Nat): Nat := List.range n |> .sumBy (i => Nat.pow 10 (k * i))
 
@@ -47,7 +47,7 @@ def blocksAt (r: Range) (low: Nat) (p: Nat) (m: Nat): Nat :=
     if from <= to then m * ((from + to) * (to - from + 1) / 2) else 0
   else 0
 
-theorem repeatedAt (r: Range) (k: Nat) (n: Nat): sumWithShape r { blockLength = k, copies = n } = blocksAt r (Nat.pow 10 (k - 1)) (Nat.pow 10 k) (multiplier k n) := rfl
+theorem repeatedAt (r: Range) (k: Nat) (n: Nat): sumMatchingTemplate r { blockLength = k, copies = n } = blocksAt r (Nat.pow 10 (k - 1)) (Nat.pow 10 k) (multiplier k n) := rfl
 
 -- The multiplier: writing `b` n times is `b * multiplier k n`.
 theorem multiplierSucc (k: Nat) (n: Nat): multiplier k (Succ n) = 1 + Nat.pow 10 k * multiplier k n :=
@@ -195,12 +195,12 @@ theorem blocksWindow (r: Range) (low: Nat): (p: Nat) -> 0 < p -> low <= p -> (m:
                (Succ p - low) low)
 
 -- (a) The arithmetic sum is the brute-force one.
-theorem repeatedCorrect (r: Range) (k: Nat) (n: Nat): sumWithShape r { blockLength = k, copies = n } = repeatedSpec r k n :=
+theorem repeatedCorrect (r: Range) (k: Nat) (n: Nat): sumMatchingTemplate r { blockLength = k, copies = n } = repeatedSpec r k n :=
   Eq.trans (blocksWindow r (Nat.pow 10 (k - 1)) (Nat.pow 10 k) (Nat.powSuccPos 9 k) (Nat.powTenPredLe k) (multiplier k n))
     (Eq.sym (specWindow r k n))
 
--- Why `sumWithShape` is right (a'), for a block written twice:
--- `repeatedTwice` says `sumWithShape r` of the shape k by 2 is the sum the puzzle
+-- Why `sumMatchingTemplate` is right (a'), for a block written twice:
+-- `repeatedTwice` says `sumMatchingTemplate r` of the template k by 2 is the sum the puzzle
 -- describes, walking the ids of the range and keeping those whose digits are
 -- some k-digit block written twice (any k from 1 on).
 --
@@ -367,15 +367,15 @@ theorem twiceIds (r: Range) (k: Nat) (hk: 1 <= k):
 -- (a') A block written twice: the arithmetic sum is the sum of the ids in
 -- the range whose digits are some k-digit block written twice.
 theorem repeatedTwice (r: Range) (k: Nat) (hk: 1 <= k):
-    sumWithShape r { blockLength = k, copies = 2 } = (r.ids |> .filter (x => writtenAs (Nat.digits x) k 2) |> .sum) :=
-  calc sumWithShape r { blockLength = k, copies = 2 }
+    sumMatchingTemplate r { blockLength = k, copies = 2 } = (r.ids |> .filter (x => writtenAs (Nat.digits x) k 2) |> .sum) :=
+  calc sumMatchingTemplate r { blockLength = k, copies = 2 }
     _ = repeatedSpec r k 2 := repeatedCorrect r k 2
     _ = List.sumBy (x => Nat.keepIf x (writtenAs (Nat.digits x) k 2)) r.ids := twiceIds r k hk
     _ = (r.ids |> .filter (x => writtenAs (Nat.digits x) k 2) |> .sum) := Eq.sym (List.sumFilter (x => writtenAs (Nat.digits x) k 2) r.ids)
 
--- The shapes of a range, as a grid: summing over them is summing over every
+-- The templates of a range, as a grid: summing over them is summing over every
 -- block length up to the digits and every number of copies from 2, where
--- the shapes that don't fit count 0. (The grid is what Part1.sw and
+-- the templates that don't fit count 0. (The grid is what Part1.sw and
 -- Part2.sw work with.)
 theorem betweenOne (n: Nat): List.between 1 n = List.rangeFrom n 1 := Eq.cong (t => List.rangeFrom t 1) (Nat.addSub n 1)
 
@@ -383,7 +383,7 @@ theorem betweenTwo: (n: Nat) -> List.between 2 n = List.rangeFrom (n - 1) 2
   | Zero   => rfl
   | Succ n => Eq.cong (t => List.rangeFrom t 2) (Nat.addSub n 1)
 
-theorem shapesSum [auto add: Add c] (r: Range) (f: RepetitionTemplate -> c):
+theorem templatesSum [auto add: Add c] (r: Range) (f: RepetitionTemplate -> c):
     List.sumBy f (allTemplatesForRange r)
       = List.sumBy (k => List.sumBy (n => if Nat.leq (k * n) (List.length (Nat.digits r.to)) then f { blockLength = k, copies = n } else Add.zero)
           (List.rangeFrom (List.length (Nat.digits r.to) - 1) 2)) (List.rangeFrom (List.length (Nat.digits r.to)) 1) :=

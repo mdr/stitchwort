@@ -22,4 +22,4 @@ test "no double counting" := sumRepeated (range 111110 111112) == 111111
 test "period three" := sumRepeated (range 998 1012) == 999 + 1010
 test "empty overlap" := sumRepeated (range 12 21) == 0
 
-test "12 written 3 times" := sumWithShape { from = 0, to = 1000000 } { blockLength = 2, copies = 3 } == 10101 * ((10 + 99) * 90 / 2)
+test "12 written 3 times" := sumMatchingTemplate { from = 0, to = 1000000 } { blockLength = 2, copies = 3 } == 10101 * ((10 + 99) * 90 / 2)

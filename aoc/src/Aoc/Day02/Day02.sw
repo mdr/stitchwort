@@ -7,17 +7,17 @@
 -- The puzzle input is committed in aoc/inputs/ (D119).
 --
 -- Rather than test every id, add up the invalid ones arithmetically. The
--- ids made of a k-digit block written n times (a shape of k by n) are
+-- ids made of a k-digit block written n times (a template of k by n) are
 -- base * m for the k-digit bases, where m = 1 + 10^k + 10^2k + ... (12
 -- written 3 times is 12 * 10101). Those bases form an interval, so their sum
--- is an arithmetic series (`sumWithShape`). Part 2 must not count
+-- is an arithmetic series (`sumMatchingTemplate`). Part 2 must not count
 -- 111111 three times (1 six times, 11 three times, 111 twice): by
 -- inclusion-exclusion over n, the ids with some proper period are the sum
 -- over n of -mu(n) times the ids with n copies, where mu is the Moebius
 -- function. The weights -mu(n) are computed (`copiesWeight`, a signed sum
 -- over the divisors), so ids of any length work.
 --
--- That `sumWithShape` adds up the right ids is proved in
+-- That `sumMatchingTemplate` adds up the right ids is proved in
 -- `Aoc.Day02.Proofs` (Proofs/Repeated.sw); the tests are in
 -- `Aoc.Day02.Tests` (Tests/). `run` checks neither.
 
@@ -35,11 +35,11 @@ def solvePart1 (ranges: List Range): Nat := ranges.sumBy sumOfInvalidIdsInRange
 -- The weighted sum is signed; it comes out as a natural number.
 def solvePart2 (ranges: List Range): Nat := Int.toNat (ranges.sumBy sumRepeated)
 
--- An invalid id's digits are a block written several times: its shape is the
--- block's length and the number of copies. 1212 has shape 2 × 2.
+-- An invalid id's digits are a block written several times: its template is the
+-- block's length and the number of copies. 1212 has template 2 × 2.
 type RepetitionTemplate = { blockLength: Nat, copies: Nat }
 
--- Every shape of two or more copies that fits in the digits of the range's end.
+-- Every template of two or more copies that fits in the digits of the range's end.
 def allTemplatesForRange (range: Range): List RepetitionTemplate :=
   let digits := (Nat.digits range.to).length
   List.between 1 digits |> .flatMap (blockLength =>
@@ -48,15 +48,15 @@ def allTemplatesForRange (range: Range): List RepetitionTemplate :=
 
 -- Part 1: the ids in the range written exactly twice.
 def sumOfInvalidIdsInRange (range: Range): Nat :=
-  let twoCopies := (allTemplatesForRange range).filter (shape => shape.copies == 2)
-  twoCopies.sumBy (sumWithShape range)
+  let twoCopies := (allTemplatesForRange range).filter (template => template.copies == 2)
+  twoCopies.sumBy (sumMatchingTemplate range)
 
 -- Part 2: the ids in the range written two or more times, each counted once.
--- 111111 has shapes 1×6, 11×3 and 111×2; the weights cancel the repeats.
+-- 111111 has templates 1×6, 11×3 and 111×2; the weights cancel the repeats.
 def sumRepeated (range: Range): Int :=
-  (allTemplatesForRange range).sumBy (shape =>
-    let idsTotal := sumWithShape range shape
-    let weight := copiesWeight shape.copies
+  (allTemplatesForRange range).sumBy (template =>
+    let idsTotal := sumMatchingTemplate range template
+    let weight := copiesWeight template.copies
     weight * idsTotal.toInt)
 
 -- The weight of a number of copies: 1, less the weights of the divisors of
@@ -73,16 +73,16 @@ def copiesWeight (copies: Nat): Int
     if h: d < copies then (if Nat.divides d copies then copiesWeight d else 0) else 0)
   1 - divisorWeights
 
--- The sum of the ids in the range whose digits are a block of the shape's
--- length written the shape's number of copies.
-def sumWithShape (range: Range) (shape: RepetitionTemplate): Nat :=
+-- The sum of the ids in the range whose digits are a block of the template's
+-- length written the template's number of copies.
+def sumMatchingTemplate (range: Range) (template: RepetitionTemplate): Nat :=
   -- The multiplier: 12 written 3 times is 12 * 10101, and 10101 is
   -- 1 + 10^2 + 10^4. Every such id is a block times the multiplier.
-  let multiplier := List.range shape.copies |> .sumBy (i => Nat.pow 10 (shape.blockLength * i))
+  let multiplier := List.range template.copies |> .sumBy (i => Nat.pow 10 (template.blockLength * i))
   if multiplier != 0 then
     -- The blocks have blockLength digits: from 10^(n-1) up to 10^n - 1.
-    let smallestBlock := Nat.pow 10 (shape.blockLength - 1)
-    let largestBlock := Nat.pow 10 shape.blockLength - 1
+    let smallestBlock := Nat.pow 10 (template.blockLength - 1)
+    let largestBlock := Nat.pow 10 template.blockLength - 1
     -- Those whose id lies in the range: the block times the multiplier is at
     -- least range.from (round up) and at most range.to (round down).
     let firstBlock := Nat.max smallestBlock ((range.from + multiplier - 1) / multiplier)
