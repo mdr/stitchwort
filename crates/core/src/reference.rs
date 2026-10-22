@@ -302,6 +302,15 @@ fn unfold_folded(g: &Globals, value: Value) -> Result<Value> {
     Ok(value)
 }
 
+/// The number `value` is, as `k` plus what's unknown, a folded definition
+/// taken apart first as `value.rs` does. Its own frame, so `eval_tree`'s
+/// recursion keeps a small one.
+#[inline(never)]
+fn number_view(g: &Globals, value: &Value) -> Result<(num_bigint::BigUint, Option<Value>)> {
+    let value = unfold_folded(g, force(g, value.clone())?)?;
+    native::view_with(g, &value, force)
+}
+
 fn eval_tree(g: &Globals, mut env: Vec<Value>, term: &Term) -> Result<Option<Value>> {
     match term.strip_loc() {
         Term::Case(ix, d, branches) => {
@@ -323,7 +332,7 @@ fn eval_tree(g: &Globals, mut env: Vec<Value>, term: &Term) -> Result<Option<Val
             eval_tree(g, env, body)
         }
         Term::NumCase(ix, arms, default) => {
-            let (k, base) = native::view_with(g, &env[env.len() - 1 - ix], force)?;
+            let (k, base) = number_view(g, &env[env.len() - 1 - ix])?;
             let body = if base.is_none() {
                 match arms.iter().find(|a| *a.value == k) {
                     Some(arm) => &arm.body,

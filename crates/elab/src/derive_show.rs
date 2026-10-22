@@ -242,6 +242,7 @@ impl Elaborator {
             export: false,
             synonym: false,
             instance,
+            decreasing: None,
             span,
         };
         let text = |s: &str| Expr::Str(s.to_string(), span);

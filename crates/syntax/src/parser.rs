@@ -186,7 +186,9 @@ fn split_decls(tokens: &[Token]) -> Result<Vec<&[Token]>> {
         ));
     }
     let starts: Vec<usize> = (0..tokens.len())
-        .filter(|&i| tokens[i].column == 0)
+        // `:=` never starts a declaration: at the start of a line, it ends
+        // a header (`decreasing e` then `:=`, docs/proposals/well-founded-recursion.md §6.1).
+        .filter(|&i| tokens[i].column == 0 && tokens[i].tok != Tok::ColonEq)
         .collect();
     let mut groups = Vec::new();
     for (n, &start) in starts.iter().enumerate() {
@@ -2605,11 +2607,21 @@ impl<'t> Parser<'t> {
                 Ok(inner)
             }
             Some(Tok::LBracket)
-                if matches!(self.peek_at(1), Some(Tok::Lower(_)))
+                if matches!(self.peek_at(1), Some(Tok::Lower(_) | Tok::KwDecreasing))
                     && self.peek_at(2) == Some(&Tok::ColonEq) =>
             {
                 self.bump();
-                let name = self.lower("a name")?;
+                // `[decreasing := p]`: the proof a recursive call of a
+                // definition with `decreasing` needs.
+                let name = if self.peek() == Some(&Tok::KwDecreasing) {
+                    let span = self.bump().span;
+                    Name {
+                        text: "decreasing".to_string(),
+                        span,
+                    }
+                } else {
+                    self.lower("a name")?
+                };
                 self.bump();
                 let value = self.expr()?;
                 let end = self.expect(Tok::RBracket, "`]`")?.span;
@@ -2745,6 +2757,7 @@ fn describe(tok: &Tok) -> String {
         Tok::KwNamespace => "`namespace`".into(),
         Tok::KwCalc => "`calc`".into(),
         Tok::KwRewrite => "`rewrite`".into(),
+        Tok::KwDecreasing => "`decreasing`".into(),
         Tok::LBrace => "`{`".into(),
         Tok::RBrace => "`}`".into(),
         Tok::FatArrow => "`=>`".into(),
@@ -3194,6 +3207,37 @@ mod tests {
         assert!(d.message.contains("must be `auto`"), "{}", d.message);
         let d = parse_error("type T (a: Type) [auto Ord a] = { x: a }\n");
         assert!(d.message.contains("needs a name"), "{}", d.message);
+    }
+
+    #[test]
+    fn decreasing_goes_after_the_result_type() {
+        // `:=` may start a line at the declaration's column after it.
+        for source in [
+            "def f (n: Nat): Nat\n  decreasing n\n:=\n  f (n / 2) [decreasing := p]\n",
+            "def f (n: Nat): Nat decreasing n := f (n / 2) [decreasing := p]\n",
+            "def f (n: Nat): Nat -> Nat\n  decreasing n\n  | Zero => 0\n  | Succ k => k\n",
+        ] {
+            let module = parse(source);
+            assert!(
+                matches!(
+                    &module.decls[0],
+                    Decl::Signature {
+                        decreasing: Some(_),
+                        ..
+                    }
+                ),
+                "{source}"
+            );
+            assert!(module.decls.len() >= 2, "{source}");
+        }
+        let module = parse("def f (n: Nat): Nat decreasing n := f (n / 2) [decreasing := p]\n");
+        let Decl::Equation { rhs: Some(rhs), .. } = &module.decls[1] else {
+            panic!("expected the body");
+        };
+        let Expr::App(_, arg) = rhs else {
+            panic!("expected a call, got {rhs:?}");
+        };
+        assert!(matches!(&**arg, Expr::NamedArg(n, ..) if n.text == "decreasing"));
     }
 
     #[test]

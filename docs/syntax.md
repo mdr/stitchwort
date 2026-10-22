@@ -412,6 +412,58 @@ def parse (t: Text): Option Int := toOption (() => turn t)
 - The operation is `Abort.stop: () -> {Abort} Empty`, for handlers of your own. Its result is `Std.Empty`, a `Type` with no values (`Empty.absurd: Empty -> a`), so no handler can resume it. (`Void` is a proposition, and an operation's result must be a type.) `abort()` is `Empty.absurd (stop())`.
 - `Abort.toOption (() => need o) = o` and `Abort.orElse d (() => need o) = o.getOrElse d` hold for every `o`, by `rfl` on each case (`Abort.toOptionNeed`, `Abort.orElseNeed`).
 
+## `decreasing`
+
+A definition (or theorem) whose recursion isn't on a piece of an argument
+says why it ends: `decreasing e` after the result type, before `:=` or the
+arms, where `e` is a `Nat` of the parameters named in the header
+(docs/proposals/well-founded-recursion.md, stage 1). Every recursive call
+needs a proof that `e` is smaller there: `auto` finds one in scope, or the
+call gives it as `[decreasing := proof]`.
+
+```
+def digitsOnto (n: Nat) (acc: List Nat): List Nat
+  decreasing n
+:=
+  if big: Nat.leq n 9 = False
+  then digitsOnto (n / 10) (Cons (n % 10) acc) [decreasing := Nat.divTenLess n big]
+  else Cons n acc
+
+-- The guard style: the `if` puts the proof in scope, and `auto` finds it.
+def halvings (n: Nat) (count: Nat): Nat
+  decreasing n
+:=
+  let next := n / 2
+  if h: next < n then halvings next (count + 1) else count
+
+-- A theorem recursing on the same measure; `evens.unfold n` is `evens n`'s
+-- own equation.
+theorem evensShort (n: Nat): List.length (evens n) <= n
+  decreasing n
+:=
+  rewrite evens.unfold n in
+  match n with …
+```
+
+- `:=` may start a line of its own after `decreasing e`, at the
+  declaration's column. On one line: `def f (n: Nat): Nat decreasing n := …`.
+- `f.unfold: (x…) -> f x… = <the body, with f in its recursive calls>` is
+  generated for every `def` with `decreasing` (not for a theorem). `f x`
+  doesn't unfold by itself on an argument that isn't known; `rewrite
+  f.unfold x in` takes one step. On known arguments it computes: tests and
+  `rfl` work as for any definition.
+- Refused, with `E-DECREASING`: a recursive call `auto` can't prove smaller
+  (the message shows the goal and the hypotheses in scope), a recursive call
+  inside a lambda (`List.map (y => f y) xs`), a measure that uses no header
+  parameter, definitions that call each other, a recursive call in an `if`'s
+  condition or with another recursive call in its arguments, and a body that
+  returns a function. A measure that isn't a `Nat` is `E-TYPE-MISMATCH`. A
+  definition that never calls itself gets `W-DECREASING-UNUSED`.
+- A recursive call written with a dot (`rest.total`) works when `auto`
+  finds the proof; one that gives `[decreasing := …]` is written in prefix
+  form.
+- `decreasing` is a keyword.
+
 ## `Partial`
 
 A function that might not finish says `Partial` in its row, and so does

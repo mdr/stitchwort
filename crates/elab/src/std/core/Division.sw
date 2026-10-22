@@ -30,6 +30,10 @@ theorem Nat.leTrans: (a: Nat) -> (b: Nat) -> (c: Nat) -> a <= b -> b <= c -> a <
   | Succ a, Succ b, Zero, h1, h2 => Void.exfalso (Bool.falseNotTrue h2)
   | Succ a, Succ b, Succ c, h1, h2 => Nat.leTrans a b c h1 h2
 
+theorem Nat.leRefl: (n: Nat) -> n <= n
+  | Zero => rfl
+  | Succ n => Nat.leRefl n
+
 theorem Nat.lessLe (m: Nat) (n: Nat) (h: m < n): m <= n := Nat.leTrans m (Succ m) n (Nat.leSucc m) h
 
 theorem Nat.lessTrans (m: Nat) (n: Nat) (p: Nat) (h1: m < n) (h2: n < p): m < p := Nat.leTrans (Succ m) n p h1 (Nat.lessLe n p h2)

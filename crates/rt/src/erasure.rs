@@ -86,7 +86,7 @@ pub fn reachable(
             continue;
         }
         let def = g.def(id);
-        if let Some(body) = def.body()
+        if let Some(body) = def.run_body()
             && !opaque(id)
         {
             visit(body, &mut stack);

@@ -13,6 +13,7 @@ pub mod cache;
 mod calc;
 mod check;
 mod data_auto;
+mod decreasing;
 mod derive;
 mod derive_ext;
 mod derive_ord;
@@ -281,6 +282,9 @@ pub struct Elaborator {
     /// `check::decide_to_bool`, as the condition's proposition reading does
     /// that its own way.
     condition: std::cell::Cell<usize>,
+    /// While the body of a definition with `decreasing` is elaborated: what
+    /// its recursive calls stand for (`decreasing.rs`).
+    decreasing: RefCell<Option<decreasing::Active>>,
     /// While the members of a partial recursive group are described: their
     /// private recursion signature (`partial.rs`).
     recursion: Option<effects::Recursion>,
@@ -1019,6 +1023,7 @@ impl Elaborator {
             export: false,
             synonym: false,
             instance: false,
+            decreasing: None,
             span: *span,
         };
         let res_eqs: Vec<Decl> = sigs
@@ -1116,6 +1121,7 @@ impl Elaborator {
             export: false,
             synonym: false,
             instance: false,
+            decreasing: None,
             span: *span,
         };
         let elim_eqs: Vec<Decl> = sigs
@@ -1738,6 +1744,18 @@ impl Elaborator {
         members: &[(usize, &Decl, &[Decl])],
         recursive: bool,
     ) -> Vec<(usize, Diagnostic)> {
+        // Recursion on a measure (`decreasing.rs`).
+        if members.iter().any(|(_, s, _)| {
+            matches!(
+                s,
+                Decl::Signature {
+                    decreasing: Some(_),
+                    ..
+                }
+            )
+        }) {
+            return self.decreasing_group(members);
+        }
         let mut out = Vec::new();
         let mut ids = Vec::new();
         for &(item, signature, _) in members {
@@ -1853,6 +1871,7 @@ impl Elaborator {
             export,
             synonym: _,
             instance,
+            decreasing: _,
             span,
         } = signature
         else {

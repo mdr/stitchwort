@@ -98,6 +98,9 @@ pub enum Tok {
     KwCalc,
     /// `rewrite p in t`: replace `p`'s left side in the goal by its right.
     KwRewrite,
+    /// `decreasing e` in a definition's header, and `[decreasing := p]`
+    /// at a recursive call (docs/proposals/well-founded-recursion.md).
+    KwDecreasing,
     LBrace,
     RBrace,
     /// `=>`, in a handler clause: `get () => k -> …`.
@@ -228,6 +231,7 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
                     "namespace" => Tok::KwNamespace,
                     "calc" => Tok::KwCalc,
                     "rewrite" => Tok::KwRewrite,
+                    "decreasing" => Tok::KwDecreasing,
                     "Type" => Tok::TypeU,
                     "Prop" => Tok::Prop,
                     _ if c.is_ascii_uppercase() => Tok::Upper(word.to_string()),

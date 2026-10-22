@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-DECREASING] Error: `weight` is called inside a function (`x => …`), which `decreasing` doesn't support yet
+   ╭─[ reject/decreasing-under-lambda.sw:9:32 ]
+   │
+ 9 │   1 + List.sum (List.map (d => weight d) (List.range n))
+   │                                ───┬──  
+   │                                   ╰──── this call has no proof that its measure is smaller
+   │ 
+   │ Note 1: the function is called by whatever it's passed to, and nothing says that's only on arguments with a smaller measure
+   │ 
+   │ Note 2: give `weight` a fuel argument for now
+───╯

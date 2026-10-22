@@ -1286,6 +1286,7 @@ pub fn declare_def(
         fold: false,
         export,
         validators: Vec::new(),
+        run_body: None,
         span,
     });
     Ok(DefId(g.defs.len() - 1))
@@ -1298,6 +1299,37 @@ pub fn mark_instance(g: &mut Globals, id: DefId) {
     if def.state == State::Pending {
         def.instance = true;
     }
+}
+
+/// Gives final definition `id` a body for the runtimes to run instead of its
+/// own ([`Def::run_body`]): `body` must have `id`'s type and as many leading
+/// lambdas as its arity, refer only to final declarations (`id` included)
+/// and have no `case`. It isn't checked for termination, never unfolds in
+/// the kernel and isn't hashed: the runtimes are untrusted (docs/core.md),
+/// and a proof never depends on what they compute.
+pub fn set_run_body(g: &mut Globals, id: DefId, body: &Term) -> Result<()> {
+    let def = g.def(id);
+    let mut cx = Ctx::new(g, def.span);
+    if def.state != State::Final {
+        return Err(malformed(
+            &cx,
+            "a run body for a definition that isn't final",
+        ));
+    }
+    if def.run_body.is_some() || body.count_lams() != def.arity {
+        return Err(malformed(
+            &cx,
+            "a run body of the wrong arity, or a second one",
+        ));
+    }
+    if !case_only_in_tree(body, false) {
+        return Err(malformed(&cx, "a run body with a `case`"));
+    }
+    admissible(&cx, [body], None)?;
+    let ty = def.ty_value.clone();
+    let checked = check(&mut cx, body, &ty)?;
+    g.defs[id.0].run_body = Some(Rc::new(checked));
+    Ok(())
 }
 
 /// Marks pending definition `id` as a dictionary, which stays folded until

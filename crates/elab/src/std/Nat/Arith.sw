@@ -11,10 +11,6 @@ theorem Nat.addCancelLeft: (a: Nat) -> (b: Nat) -> (c: Nat) -> a + b = a + c -> 
 
 theorem Nat.mulDistribLeft (a: Nat) (b: Nat) (c: Nat): a * (b + c) = a * b + a * c := Eq.trans (Nat.mulComm a (b + c)) (Eq.trans (Nat.mulDistribRight b c a) (Eq.trans (Eq.cong (t => t + c * a) (Nat.mulComm b a)) (Eq.cong (t => a * b + t) (Nat.mulComm c a))))
 
-theorem Nat.leRefl: (n: Nat) -> n <= n
-  | Zero => rfl
-  | Succ n => Nat.leRefl n
-
 theorem Nat.zeroLe (n: Nat): 0 <= n := rfl
 
 theorem Nat.leAntisym: (a: Nat) -> (b: Nat) -> a <= b -> b <= a -> a = b

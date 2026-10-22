@@ -163,6 +163,19 @@ Definitions are admitted in **groups** of one or more that may call each other (
 - **The elaborator's groups.** Every top-level name is visible throughout its module. The elaborator collects each declaration's free references (a local variable named like a definition isn't a reference to it), splits the declarations into strongly connected components and checks them in dependency order, earliest in the source first among those ready. A component of several definitions, or of one that calls itself, is one group. Its signatures are elaborated first, and a signature that mentions a member is `E-MUTUAL-SIGNATURE`; then its bodies. A component of data types is a [data group](#groups-of-data-types); one mixing data types and definitions, or with an ability, is refused (`E-MUTUAL-KIND`).
 - **Hashes.** A group of two or more definitions is hashed as a unit: members are ordered by their *shape* (their hash with references to members replaced by one marker; ties in submission order), the group's hash covers every member's type and body in that order with references to members as their index, and each member's hash is the group's hash and its index. A single definition is hashed as before.
 
+### Recursion on a measure (`decreasing`)
+
+The kernel knows only structural recursion. `def f (x: A) (c: C): B decreasing m x := body` (docs/syntax.md; docs/proposals/well-founded-recursion.md, option B) is elaborated (`crates/elab/src/decreasing.rs`) into ordinary declarations, each checked by the kernel like any other, so nothing new is trusted:
+
+1. `f.%step (x: A) (%rec: (y: A) -> (c: C) -> [auto decreasing: m y < m x] -> B) (c: C): B`: the body, with every recursive call `f y c'` elaborated as `%rec y c'` and its `decreasing` argument found by `auto` or given as `[decreasing := p]`. Not recursive; its `match`es are lifted as usual and take `%rec` as a capture.
+2. `f.%go (k: Nat) (x: A) (c: C) (h: m x < k): B`, structural on `k`. `Zero` is absurd (`m x < 0` is `False = True`); `Succ k` is `f.%step x (y c' p => f.%go k y c' (Nat.leTrans (Succ (m y)) (m x) k p h)) c`.
+3. `f (x: A) (c: C): B := f.%go (Succ (m x)) x c (Nat.leRefl (m x))`, marked folded (`Def::fold`, as a dictionary is): applied to all its arguments it stays `f x c` until something takes it apart (a `case`, or a comparison its name doesn't settle). So on open arguments goals show `f x c`, and on known ones tests and `rfl` compute: the fuel is a number, one step per call, and `m x` is computed once per outside call.
+4. For a `def` (not a theorem): `f.%step.%respects` (and one for each lifted helper that passes `%rec` on), proving that `f.%step` gives equal results for two `%rec`s equal on every argument. Its case tree is `f.%step`'s; each leaf is proved by rewriting one recursive call at a time with `J`, and through an `if` by `Decidable.elimCong` or `Bool.ifThenElseCong` (core lemmas). No function extensionality is needed.
+5. `f.%irrel`: `f.%go k x c h = f.%go j x c g`, by induction on both fuels.
+6. `f.unfold (x: A) (c: C): f x c = f.%step x (y c' => f y c') c`: the definition's own equation, which `f.%step` unfolds to the body with `f` in its recursive calls. Users name it `f.unfold` (it's in scope like a local definition, `f.go`).
+
+`f`'s **run body** (`Def::run_body`, `check::set_run_body`) is `x c => f.%step x (y c' => f y c') c`: the kernel checks its type and arity, never its termination, and never unfolds it. `stitchwort run` (`crates/rt`) and JS run it instead of the body, so the fuel, `f.%go` and the measure are never computed there (a run body isn't hashed; the check cache stores it). `stitchwort test` and `run --reference` use the kernel's evaluator, with the fuel.
+
 ### Groups of data types
 
 Data types are admitted in **data groups** of one or more whose fields may mention each other (docs/proposals/mutual-recursion.md §5.4, §7). `declare_data` and `define_ctors` are a group of one.
@@ -378,6 +391,7 @@ What's erased:
 - **Parameters:** a parameter is erased if its type is a proposition or a type former. Calls to definitions drop erased arguments. Lambdas keep all their parameters, and erased arguments passed to them become `undefined`.
 - **Terms:** `Data`, `Sort`, `Pi`, `Eq` and `Refl` compile to `undefined`. `J P d p` compiles to `d`.
 - **Case on a proof:** this is only possible for the subsingleton propositions above, so it compiles to its single branch.
+- **Run bodies:** a definition with a run body (a `decreasing` one, [above](#recursion-on-a-measure-decreasing)) is emitted, and lowered for `stitchwort run`, from that instead of its body.
 - **Impossible branches** (indexed families) have no body and generate no code. A case with no possible branch generates a `throw`, as does the fall-through after a switch; running such a case in the kernel with erasure panics with `unreachable`. Typing keeps well-typed programs from reaching either (`examples/extract/vec-inside.sw` runs `head` through the JS differential test).
 
 Representations: `Nat` is `bigint` (`Zero` is `0n`, `Succ n` is `n + 1n`, a case on `Nat` tests `=== 0n`, and a `NumCase` is a `switch` whose arms each return, followed by the default). Other data types are `{ tag, …fields }`, omitting erased fields (an indexed family's computational fields are kept, forced implicit ones like `n` in `VCons` included, and its proof fields are erased: `Certified n` with `ok: IsPrime n` stores only the number); a record is `{ …fields }`, with no tag (docs/proposals/records.md §11).
@@ -414,6 +428,7 @@ Only definitions reachable from the exports (and their checks) are emitted, in t
 | `E-MUTUAL-SIGNATURE` / `E-MUTUAL-CONSTRUCTOR` / `E-MUTUAL-PARAMETERS` / `E-MUTUAL-KIND` | A type or header mentioning something it's checked together with; a field using a constructor of its own group; data types defined together with different parameters or universes; a cycle mixing data types and definitions, or with an ability |
 | `E-PROP-ELIM` | Matching on a proof to produce data, where that's not allowed |
 | `E-EXPORT` | Export can't cross the JS boundary |
+| `E-DECREASING` | A definition with `decreasing` whose recursion can't be compiled: a call `auto` can't prove smaller, a call under a lambda, a measure with no header parameter, a mutual group, or (an internal error) a generated definition the kernel refused |
 | `E-UNSOLVED` | An implicit argument the elaborator couldn't work out |
 | `E-AUTO-FALSE` / `E-AUTO-STUCK` / `E-AUTO-NONE` | An auto argument is false, can't be decided at compile time, or has no decision procedure |
 | `E-NOT-EMPTY` | An absurd pattern `()` for a type that has values |

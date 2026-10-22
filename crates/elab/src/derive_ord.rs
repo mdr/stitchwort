@@ -249,6 +249,7 @@ impl Elaborator {
             export: false,
             synonym: false,
             instance,
+            decreasing: None,
             span: s.span,
         };
         let mut out: Vec<Definition> = Vec::new();

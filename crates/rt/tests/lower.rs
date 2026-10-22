@@ -332,3 +332,21 @@ def main(): {IO} () :=
   IO.print (Nat.toText ((scale k 1 [1, 2]).foldLeft (acc x => acc + x + k) 0))
 "#));
 }
+
+/// A definition with `decreasing` runs the recursion as written: its fuel,
+/// the fuelled `%go` and the measure aren't part of the program
+/// (docs/proposals/well-founded-recursion.md §6.5).
+#[test]
+fn decreasing_drops_the_fuel() {
+    let ir = ir(r#"
+import Std (Nat)
+def gcd (a: Nat) (b: Nat): Nat
+  decreasing b
+:=
+  if h: b = 0 then a else gcd b (a % b) [decreasing := Nat.modLess a b h]
+
+def main(): {IO} () := IO.print (Nat.toText (gcd 12 18))
+"#);
+    assert!(ir.contains("gcd.%step"), "{ir}");
+    assert!(!ir.contains("%go"), "the fuelled helper is lowered:\n{ir}");
+}

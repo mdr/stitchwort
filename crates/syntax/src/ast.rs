@@ -701,6 +701,10 @@ pub enum Decl {
         /// `instance N: I T := …`: a definition that `auto` finds by its
         /// type (docs/proposals/interfaces.md §5.2).
         instance: bool,
+        /// `decreasing e` after the result type: the measure of a
+        /// well-founded recursive definition or theorem
+        /// (docs/proposals/well-founded-recursion.md §6.1).
+        decreasing: Option<Box<Expr>>,
         span: Span,
     },
     /// `test "name" = expr`: a `Bool` that `stitchwort test` checks is `True`.

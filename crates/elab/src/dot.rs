@@ -256,6 +256,18 @@ pub(crate) fn infer_dot(
     let start = written_type(cx, &rterm)?.unwrap_or_else(|| Ty::Value(rty.clone()));
     let (owner, f, key) = find(cx, recv, field, start)?;
     cx.e.note_dot(field, f);
+    // A recursive call of a definition with `decreasing` passes its proof
+    // by name, which only the prefix form takes.
+    if cx.decreasing_rec(Some(f)).is_some() {
+        return Err(cx.error(
+            "E-DECREASING",
+            format!(
+                "write this recursive call as `{} …`, not with a dot",
+                cx.g().def(f).name
+            ),
+            "a recursive call with `[decreasing := …]` is written in prefix form",
+        ));
+    }
     // The call's implicit arguments are made here, not by `apply_args`, so
     // its dictionaries are found here (`check::found_dictionaries`).
     let (term, ty) = call(cx, recv, field, owner, f, &key, rterm, rty, args)?;
@@ -743,6 +755,10 @@ pub(crate) fn prefix_form<'a>(
         full.push(Arg::Explicit(recv));
     }
     cx.e.note_dot(field, f);
+    // A recursive call of a definition with `decreasing` (`decreasing.rs`).
+    if let Some(rec) = cx.decreasing_rec(Some(f)) {
+        return Ok(Some((rec, full)));
+    }
     Ok(Some(((Term::Def(f), g.def(f).ty_value.clone()), full)))
 }
 
