@@ -41,12 +41,14 @@ def solvePart2 (ranges: List Range): Nat := Int.toNat (ranges.sumBy sumOfIdsWrit
 -- times: its template is { blockLength = 2, copies = 3 }.
 type RepetitionTemplate = { blockLength: Nat, copies: Nat }
 
--- Every template of two or more copies that fits in the digits of the range's end.
+-- Every template an id in the range could have: a block of one or more digits,
+-- written two or more times, in no more digits than the range's end has.
 def allTemplatesForRange (range: Range): List RepetitionTemplate :=
-  let digits := (Nat.digits range.to).length
-  List.between 1 digits |> .flatMap (blockLength =>
-    let fittingCopies := List.between 2 digits |> .filter (copies => blockLength * copies <= digits)
-    fittingCopies |> .map (copies => { blockLength, copies }))
+  let maxDigits := (Nat.digits range.to).length
+  List.between 1 maxDigits |> .flatMap (blockLength =>
+    List.between 2 maxDigits
+      |> .filter (copies => blockLength * copies <= maxDigits)
+      |> .map (copies => { blockLength, copies }))
 
 -- Part 1: the ids in the range written exactly twice.
 def sumOfIdsWrittenTwice (range: Range): Nat :=
