@@ -4457,8 +4457,8 @@
     },
     {
       "id": 292,
-      "title": "AoC Day 2 readability: Shape record, Range.shapes/sumDoubled/sumRepeated, named locals, List.between in std (D522)",
-      "status": "doing",
+      "title": "AoC Day 2 readability: merged first pass (Shape, named locals, List.between); iterating with Matt (D522)",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -4467,7 +4467,9 @@
       "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "4174eda8"
+      ]
     }
   ]
 }
