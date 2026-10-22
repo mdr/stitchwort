@@ -1,5 +1,5 @@
 {
-  "next": 329,
+  "next": 330,
   "tickets": [
     {
       "id": 1,
@@ -5139,6 +5139,20 @@
       "labels": [
         "design",
         "js"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 329,
+      "title": "nix run github:mdr/stitchwort: untested stitchwort-bin as the default package; tested build stays in checks (D559)",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "opencode clone",
+      "labels": [
+        "tooling"
       ],
       "body": "",
       "created": "2026-10-22",
