@@ -323,7 +323,9 @@ fn eval_tree(g: &Globals, mut env: Vec<Value>, term: &Term) -> Result<Option<Val
             eval_tree(g, env, body)
         }
         Term::NumCase(ix, arms, default) => {
-            let (k, base) = native::view_with(g, &env[env.len() - 1 - ix], force)?;
+            // A folded definition is taken apart here too, as `value.rs` does.
+            let scrutinee = unfold_folded(g, force(g, env[env.len() - 1 - ix].clone())?)?;
+            let (k, base) = native::view_with(g, &scrutinee, force)?;
             let body = if base.is_none() {
                 match arms.iter().find(|a| *a.value == k) {
                     Some(arm) => &arm.body,
