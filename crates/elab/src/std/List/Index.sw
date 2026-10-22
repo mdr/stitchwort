@@ -127,3 +127,19 @@ theorem List.sumByGetOr (f: a -> Nat) (d: a) (xs: List a): List.sumBy f xs = Lis
   calc List.sumBy f xs
     _ = List.sumBy f (List.map (i => List.getOr d i xs) (List.range (List.length xs))) := rewrite List.mapGetOr d xs
     _ = List.sumBy (i => f (List.getOr d i xs)) (List.range (List.length xs)) := List.sumByMap f (i => List.getOr d i xs) (List.range (List.length xs))
+
+-- Each element with its index is each index with its element.
+theorem List.withIndexFromRange (d: a): (s: Nat) -> (xs: List a) ->
+    List.withIndexFrom s xs = List.map (i => MkPair (s + i) (List.getOr d i xs)) (List.range (List.length xs))
+  | s, Nil       => rfl
+  | s, Cons x xs =>
+    rewrite Nat.addZero s, List.withIndexFromRange d (Succ s) xs,
+      List.mapRangeShift (i => MkPair (s + i) (List.getOr d i (Cons x xs))) (List.length xs) 0 in
+      Eq.cong (Cons (MkPair s x))
+        (List.mapCong (i => MkPair (Succ s + i) (List.getOr d i xs)) (i => MkPair (s + Succ i) (List.getOr d (Succ i) (Cons x xs)))
+          (List.range (List.length xs)) (i => rewrite Nat.addSucc s i))
+
+theorem List.withIndexRange (d: a) (xs: List a): List.withIndex xs = List.map (i => MkPair i (List.getOr d i xs)) (List.range (List.length xs)) :=
+  List.withIndexFromRange d 0 xs
+
+test "List.withIndexRange" := ["a", "b"].withIndex == List.map (i => MkPair i (List.getOr "" i ["a", "b"])) (List.range 2)

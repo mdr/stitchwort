@@ -293,6 +293,10 @@ theorem List.anyAppendLeft (p: a -> Prop): (xs: List a) -> (ys: List a) -> List.
   | Cons x xs, ys, Inl h => Inl h
   | Cons x xs, ys, Inr h => Inr (List.anyAppendLeft p xs ys h)
 
+theorem List.anyAppendRight (p: a -> Prop): (xs: List a) -> (ys: List a) -> List.Any p ys -> List.Any p (List.append xs ys)
+  | Nil,       ys, h => h
+  | Cons x xs, ys, h => Inr (List.anyAppendRight p xs ys h)
+
 -- `List.any` of two lists joined: either list has one.
 theorem List.anyAppend (p: a -> Bool): (xs: List a) -> (ys: List a) -> List.any p (List.append xs ys) = (List.any p xs || List.any p ys)
   | Nil,       ys => rfl
@@ -990,3 +994,61 @@ test "List.flatMap" := [1, 2, 3].flatMap (x => List.replicate x x) == [1, 2, 2, 
 test "List.pairs" := [1, 2, 3].pairs == [MkPair 1 2, MkPair 1 3, MkPair 2 3] && (Nil: List Nat).pairs == Nil && [1].pairs == (Nil: List (Pair Nat Nat))
 test "List.pairs count" := (List.range 10).pairs.length == 45
 test "List.cross" := [1, 2].cross ["a", "b"] == [MkPair 1 "a", MkPair 1 "b", MkPair 2 "a", MkPair 2 "b"] && [1].cross (Nil: List Nat) == Nil
+
+-- `map` through the other list functions (SW-198, day 8).
+
+theorem List.mapAppend (f: a -> b): (xs: List a) -> (ys: List a) -> List.map f (List.append xs ys) = List.append (List.map f xs) (List.map f ys)
+  | Nil,       ys => rfl
+  | Cons x xs, ys => rewrite List.mapAppend f xs ys
+
+theorem List.takeMap (f: a -> b): (k: Nat) -> (xs: List a) -> List.take k (List.map f xs) = List.map f (List.take k xs)
+  | Zero,   xs        => rfl
+  | Succ k, Nil       => rfl
+  | Succ k, Cons x xs => rewrite List.takeMap f k xs
+
+theorem List.foldLeftMap (f: c -> b -> c) (g: a -> b): (z: c) -> (xs: List a) ->
+    List.foldLeft f z (List.map g xs) = List.foldLeft (acc x => f acc (g x)) z xs
+  | z, Nil       => rfl
+  | z, Cons x xs => List.foldLeftMap f g (f z (g x)) xs
+
+theorem List.anyMap (p: b -> Bool) (f: a -> b): (xs: List a) -> List.any p (List.map f xs) = List.any (x => p (f x)) xs
+  | Nil       => rfl
+  | Cons x xs => rewrite List.anyMap p f xs
+
+theorem List.countMap (p: b -> Bool) (f: a -> b) (xs: List a): List.count p (List.map f xs) = List.count (x => p (f x)) xs :=
+  List.foldLeftMap (n x => Nat.succIf n (p x)) f 0 xs
+
+-- The first k numbers of a longer run.
+theorem List.takeRangeFrom: (k: Nat) -> (n: Nat) -> (s: Nat) -> k <= n -> List.take k (List.rangeFrom n s) = List.rangeFrom k s
+  | Zero,   n,      s, h => rfl
+  | Succ k, Zero,   s, h => Void.exfalso (Bool.falseNotTrue h)
+  | Succ k, Succ n, s, h => rewrite List.takeRangeFrom k n (Succ s) h
+
+-- The pairs of a mapped list are the list's pairs, mapped.
+theorem List.pairsMap (f: a -> b): (xs: List a) -> List.pairs (List.map f xs) = List.map (p => MkPair (f (Pair.fst p)) (f (Pair.snd p))) (List.pairs xs)
+  | Nil       => rfl
+  | Cons x xs =>
+    rewrite List.mapAppend (p => MkPair (f (Pair.fst p)) (f (Pair.snd p))) (List.map (y => MkPair x y) xs) (List.pairs xs),
+      List.mapMap (y => MkPair (f x) y) f xs, List.mapMap (p => MkPair (f (Pair.fst p)) (f (Pair.snd p))) (y => MkPair x y) xs,
+      List.pairsMap f xs
+
+-- Callbacks that agree on the list's elements (not everywhere, as for
+-- `List.mapCong`) give the same result.
+theorem List.mapCongMem (f1: a -> b) (f2: a -> b): (xs: List a) -> ((x: a) -> List.Mem x xs -> f1 x = f2 x) -> List.map f1 xs = List.map f2 xs
+  | Nil,       ef => rfl
+  | Cons x xs, ef => rewrite ef x (Inl rfl), List.mapCongMem f1 f2 xs (y m => ef y (Inr m))
+
+theorem List.filterCongMem (p1: a -> Bool) (p2: a -> Bool): (xs: List a) -> ((x: a) -> List.Mem x xs -> p1 x = p2 x) -> List.filter p1 xs = List.filter p2 xs
+  | Nil,       ep => rfl
+  | Cons x xs, ep => rewrite ep x (Inl rfl), List.filterCongMem p1 p2 xs (y m => ep y (Inr m))
+
+theorem List.anyCongMem (p1: a -> Bool) (p2: a -> Bool): (xs: List a) -> ((x: a) -> List.Mem x xs -> p1 x = p2 x) -> List.any p1 xs = List.any p2 xs
+  | Nil,       ep => rfl
+  | Cons x xs, ep => rewrite ep x (Inl rfl), List.anyCongMem p1 p2 xs (y m => ep y (Inr m))
+
+theorem List.occurrencesCongMem (p1: a -> Bool) (p2: a -> Bool): (xs: List a) -> ((x: a) -> List.Mem x xs -> p1 x = p2 x) ->
+    List.occurrences p1 xs = List.occurrences p2 xs
+  | Nil,       ep => rfl
+  | Cons x xs, ep => rewrite ep x (Inl rfl), List.occurrencesCongMem p1 p2 xs (y m => ep y (Inr m))
+
+test "List.pairsMap" := (List.map Succ [1, 2, 3]).pairs == List.map (p => MkPair (Succ p.fst) (Succ p.snd)) [1, 2, 3].pairs
