@@ -23,7 +23,7 @@
 namespace Aoc.Day08.Proofs
 import Aoc.Day08 (..)
 import Aoc.Day08.Tests (example)
-import Std (List, Nat, Ord, Ordering)
+import Std (Iff, List, Nat, Ord, Ordering)
 
 -- Box number i.
 def boxAt (points: List Point) (i: Nat): Point := points.getOr origin i
@@ -51,9 +51,6 @@ type Joined (connections: List (Nat, Nat)): Nat -> Nat -> Prop =
   | Connected [a b: Nat] (connection: List.Mem (a, b) connections): Joined connections a b
   | Backwards [a b: Nat] (joined: Joined connections a b): Joined connections b a
   | Chain [a b c: Nat] (first: Joined connections a b) (next: Joined connections b c): Joined connections a c
-
--- Each of p and q follows from the other.
-def Iff (p: Prop) (q: Prop): Prop := And (p -> q) (q -> p)
 
 -- `sameCircuit` tells, for any two of the boxes 0 to n - 1, whether they
 -- are in the same circuit. (`Joined` is a proposition, so the sizes below,

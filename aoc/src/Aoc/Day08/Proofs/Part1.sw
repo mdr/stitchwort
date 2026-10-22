@@ -127,8 +127,8 @@ theorem circuitSizesCong (n: Nat) (same1: Nat -> Nat -> Bool) (same2: Nat -> Nat
 theorem tellersAgree (n: Nat) (connections: List (Nat, Nat)) (same1: Nat -> Nat -> Bool) (same2: Nat -> Nat -> Bool)
     (t1: Tells n connections same1) (t2: Tells n connections same2) (a: Nat) (b: Nat) (ha: a < n) (hb: b < n): same1 a b = same2 a b :=
   Bool.eqOf (same1 a b) (same2 a b)
-    (s => And.right (t2 a b ha hb) (And.left (t1 a b ha hb) s))
-    (s => And.right (t1 a b ha hb) (And.left (t2 a b ha hb) s))
+    (s => (t2 a b ha hb).backward ((t1 a b ha hb).forward s))
+    (s => (t1 a b ha hb).backward ((t2 a b ha hb).forward s))
 
 -- Part 1 is right: for every list of boxes and every k, the program's
 -- answer is the product of the three largest circuits after the first k

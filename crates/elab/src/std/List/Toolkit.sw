@@ -727,7 +727,7 @@ theorem List.memMap (f: a -> b) (x: a): (xs: List a) -> List.Mem x xs -> List.Me
   | Cons z zs, Inr h => Inr (List.memMap f x zs h)
 
 -- What is in `List.map f xs` is `f x` for some `x` in `xs` (said with
--- `List.Any`, since the library has no `Exists`).
+-- `List.Any`, which also says where `x` is: `Exists` wouldn't).
 theorem List.memMapAny (f: a -> b) (y: b): (xs: List a) -> List.Mem y (List.map f xs) -> List.Any (x => f x = y) xs
   | Nil,       h => h
   | Cons z zs, Inl h => Inl h
