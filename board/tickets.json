@@ -3854,7 +3854,7 @@
     {
       "id": 255,
       "title": "Cached run after a whole-project check fails with E-DUPLICATE main (check cache stage 2)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -3863,12 +3863,14 @@
       "body": "Reproduced on main (22 Oct): in aoc/, with a fresh --cache-dir C: `stitchwort check --cache-dir C` then `stitchwort run --cache-dir C Aoc.Day07.main < inputs/day07.txt` gives [E-DUPLICATE] main is already defined (Day07.sw:29). run alone (cold or warm) works; test-then-run works. Reported by two lanes for days 3,4,6,7. aoc_answers.rs uses --no-cache so tests miss it. From SW-245 (project namespaces in the cache).",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "b17c24b4"
+      ]
     },
     {
       "id": 256,
       "title": "calc passes the written lines as Eq.trans's hidden arguments (folded-calls.md step 1)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -3877,7 +3879,9 @@
       "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "9721174a"
+      ]
     },
     {
       "id": 257,
