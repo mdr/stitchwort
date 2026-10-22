@@ -464,7 +464,7 @@
     {
       "id": 31,
       "title": "Language server for .sw (live errors, hover types, go to definition)",
-      "status": "doing",
+      "status": "next",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -3055,7 +3055,7 @@
     },
     {
       "id": 199,
-      "title": "Well-founded recursion: write decreasing n instead of fuel (design note)",
+      "title": "Well-founded recursion: decreasing n instead of fuel (note done; stage 1 building, stage 2 Nat.digits/chunksOf/Day 4 next)",
       "status": "doing",
       "agent": "Opus",
       "where": "",
@@ -3726,7 +3726,7 @@
     {
       "id": 247,
       "title": "AoC days 4-7: community research (Arctic Shift megathreads, Lean/Idris/Agda/FP solutions), one note + artifact per day (D413)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -3795,7 +3795,7 @@
     {
       "id": 251,
       "title": "Design note: keep calls folded while checking instead of unfolding into hidden arguments (D480)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
