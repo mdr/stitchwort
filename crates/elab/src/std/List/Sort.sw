@@ -1086,3 +1086,82 @@ theorem List.sumByLe (f: a -> Nat) (g: a -> Nat) (h: (x: a) -> g x <= f x) (xs: 
 theorem List.sumBySub (f: a -> Nat) (g: a -> Nat) (h: (x: a) -> g x <= f x) (xs: List a):
     List.sumBy f xs - List.sumBy g xs = List.sumBy (x => f x - g x) xs :=
   rewrite List.sumBySplit f g h xs in Nat.addSubLeft (List.sumBy g xs) (List.sumBy (x => f x - g x) xs)
+
+-- Counting with tests that agree on the list's elements (SW-198, day 8).
+theorem List.countCongMem (p1: a -> Bool) (p2: a -> Bool) (xs: List a) (ep: (x: a) -> List.Mem x xs -> p1 x = p2 x): List.count p1 xs = List.count p2 xs :=
+  rewrite List.countOccurrences p1 xs, List.countOccurrences p2 xs in List.occurrencesCongMem p1 p2 xs ep
+
+-- `all` is "no element fails", so a permutation keeps it.
+theorem List.allNotAny (p: a -> Bool): (xs: List a) -> List.all p xs = !(List.any (x => !(p x)) xs)
+  | Nil       => rfl
+  | Cons x xs =>
+    match e: p x with
+      | True  => List.allNotAny p xs
+      | False => rfl
+
+theorem List.allPerm (p: a -> Bool) (xs: List a) (ys: List a) (h: List.Perm xs ys): List.all p xs = List.all p ys :=
+  rewrite List.allNotAny p xs, List.allNotAny p ys, List.anyPerm (x => !(p x)) xs ys h in rfl
+
+-- Sorting commutes with `map` when the comparison of the mapped elements is
+-- that of the elements (SW-198, day 8): sorting pairs by a key, then taking
+-- the keys, is sorting the keys. Proved through each step of the merge sort.
+def List.mapRuns (f: a -> b): List (Option (List a)) -> List (Option (List b))
+  | Nil                => Nil
+  | Cons None rest     => Cons None (List.mapRuns f rest)
+  | Cons (Some r) rest => Cons (Some (List.map f r)) (List.mapRuns f rest)
+
+theorem List.mergeMap (f: a -> b) (le: b -> b -> Bool) (le2: a -> a -> Bool) (h: (x: a) -> (y: a) -> le2 x y = le (f x) (f y)):
+    (xs: List a) -> (ys: List a) -> List.map f (List.merge le2 xs ys) = List.merge le (List.map f xs) (List.map f ys)
+  | Nil,       ys        => rfl
+  | Cons x xs, Nil       => rfl
+  | Cons x xs, Cons y ys =>
+    rewrite h x y in
+      List.mergeMapStep f (le (f x) (f y)) x y (List.merge le2 xs (Cons y ys)) (List.merge le2 (Cons x xs) ys)
+        (List.merge le (List.map f xs) (List.map f (Cons y ys))) (List.merge le (List.map f (Cons x xs)) (List.map f ys))
+        (List.mergeMap f le le2 h xs (Cons y ys)) (List.mergeMap f le le2 h (Cons x xs) ys)
+
+theorem List.mergeMapStep (f: a -> b) (c: Bool) (x: a) (y: a) (l1: List a) (l2: List a) (r1: List b) (r2: List b)
+    (e1: List.map f l1 = r1) (e2: List.map f l2 = r2):
+    List.map f (if c then Cons x l1 else Cons y l2) = (if c then Cons (f x) r1 else Cons (f y) r2) :=
+  match c with
+    | True  => rewrite e1 in rfl
+    | False => rewrite e2 in rfl
+
+theorem List.pushRunMap (f: a -> b) (le: b -> b -> Bool) (le2: a -> a -> Bool) (h: (x: a) -> (y: a) -> le2 x y = le (f x) (f y)):
+    (run: List a) -> (c: List (Option (List a))) -> List.mapRuns f (List.pushRun le2 run c) = List.pushRun le (List.map f run) (List.mapRuns f c)
+  | run, Nil                => rfl
+  | run, Cons None rest     => rfl
+  | run, Cons (Some r) rest => rewrite List.pushRunMap f le le2 h (List.merge le2 r run) rest, List.mergeMap f le le2 h r run
+
+theorem List.buildRunsMap (f: a -> b) (le: b -> b -> Bool) (le2: a -> a -> Bool) (h: (x: a) -> (y: a) -> le2 x y = le (f x) (f y)):
+    (c: List (Option (List a))) -> (xs: List a) -> List.mapRuns f (List.buildRuns le2 c xs) = List.buildRuns le (List.mapRuns f c) (List.map f xs)
+  | c, Nil       => rfl
+  | c, Cons x xs => rewrite List.buildRunsMap f le le2 h (List.pushRun le2 (Cons x Nil) c) xs, List.pushRunMap f le le2 h (Cons x Nil) c
+
+theorem List.mergeRunsMap (f: a -> b) (le: b -> b -> Bool) (le2: a -> a -> Bool) (h: (x: a) -> (y: a) -> le2 x y = le (f x) (f y)):
+    (acc: List a) -> (c: List (Option (List a))) -> List.map f (List.mergeRuns le2 acc c) = List.mergeRuns le (List.map f acc) (List.mapRuns f c)
+  | acc, Nil                => rfl
+  | acc, Cons None rest     => List.mergeRunsMap f le le2 h acc rest
+  | acc, Cons (Some r) rest => rewrite List.mergeRunsMap f le le2 h (List.merge le2 r acc) rest, List.mergeMap f le le2 h r acc
+
+theorem List.sortWithMap (f: a -> b) (le: b -> b -> Bool) (le2: a -> a -> Bool) (h: (x: a) -> (y: a) -> le2 x y = le (f x) (f y)) (xs: List a):
+    List.map f (List.sortWith le2 xs) = List.sortWith le (List.map f xs) :=
+  rewrite List.mergeRunsMap f le le2 h Nil (List.buildRuns le2 Nil xs), List.buildRunsMap f le le2 h Nil xs in rfl
+
+theorem List.sortByMap (f: a -> b) (cmp: b -> b -> Ordering) (cmp2: a -> a -> Ordering) (h: (x: a) -> (y: a) -> cmp2 x y = cmp (f x) (f y)) (xs: List a):
+    List.map f (List.sortBy cmp2 xs) = List.sortBy cmp (List.map f xs) :=
+  List.sortWithMap f (x y => Ordering.isLessEq (cmp x y)) (x y => Ordering.isLessEq (cmp2 x y)) (x y => rewrite h x y in rfl) xs
+
+theorem List.mapId: (xs: List a) -> List.map (x => x) xs = xs
+  | Nil       => rfl
+  | Cons x xs => rewrite List.mapId xs
+
+-- Sorting by two comparisons that agree everywhere.
+theorem List.sortByCong (cmp1: a -> a -> Ordering) (cmp2: a -> a -> Ordering) (xs: List a) (h: (x: a) -> (y: a) -> cmp1 x y = cmp2 x y):
+    List.sortBy cmp1 xs = List.sortBy cmp2 xs :=
+  calc List.sortBy cmp1 xs
+    _ = List.map (x => x) (List.sortBy cmp1 xs) := Eq.sym (List.mapId (List.sortBy cmp1 xs))
+    _ = List.sortBy cmp2 (List.map (x => x) xs) := List.sortByMap (x => x) cmp2 cmp1 h xs
+    _ = List.sortBy cmp2 xs := rewrite List.mapId xs
+
+test "List.sortByMap" := List.map (p => p.fst) (List.sortBy (p q => Nat.compare p.fst q.fst) [MkPair 3 "c", MkPair 1 "a"]) == List.sortBy Nat.compare [3, 1]

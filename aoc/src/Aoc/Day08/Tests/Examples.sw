@@ -19,10 +19,10 @@ test "closest first" := closestFirst [box 0 0 0, box 10 0 0, box 1 0 0] == [(1, 
 test "equal distances come in box order" := closestFirst [box 0 0 0, box 1 0 0, box 2 0 0, box 3 0 0] == [(1, 0, 1), (1, 1, 2), (1, 2, 3), (4, 0, 2), (4, 1, 3), (9, 0, 3)]
 test "the closest pair in the example" := example.pairs.take 1 == [(100427, 0, 19)]
 test "all pairs are there" := example.pairs.length == 190
-test "separate circuits" := (Circuits.separate 3).sizes == [1, 1, 1] && (Circuits.separate 3).count == 3
+test "separate circuits" := (Circuits.separate 3).sizes 3 == [1, 1, 1] && (Circuits.separate 3).count == 3
 test "join" :=
   let joined := (Circuits.separate 4).join 0 1 |> .join 2 1
-  (joined.count, joined.sizes, joined.labelOf 0 == joined.labelOf 2, joined.labelOf 3 == joined.labelOf 0) == (2, [3, 1], True, False)
+  (joined.count, joined.sizes 4, joined.labelOf 0 == joined.labelOf 2, joined.labelOf 3 == joined.labelOf 0) == (2, [3, 1], True, False)
 test "joining boxes in one circuit changes nothing" := (((Circuits.separate 3).join 0 1).join 1 0).count == 2
 test "example part 1" := solvePart1 10 example == 40
 test "example part 2" := solvePart2 example == Some 25272
