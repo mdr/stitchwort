@@ -1,5 +1,5 @@
 {
-  "next": 242,
+  "next": 243,
   "tickets": [
     {
       "id": 1,
@@ -3601,6 +3601,20 @@
         "perf"
       ],
       "body": "docs/proposals/prelude-slim.md §4.3 and §8.1 stage 3 (D404). Use closure_report to find core.sw declarations that nothing in §2.1 needs (operators/==/Show/deriving/auto/natives/runner) and move them into the library files they belong to (Text.split/join/trim, Int.tdiv/fdiv, Option helpers, Bool.xor, ...). Natives that move become Home::Library built-ins (D56). Keep every name in §2.1's table in core. Measure with STITCHWORT_TIMINGS before/after.",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 242,
+      "title": "AoC: move tests, example texts and test-only helpers into Aoc.DayNN.Tests (D405, D406)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "D405: each day's tests go to namespace Aoc.DayNN.Tests in aoc/src/Aoc/DayNN/Tests/, mirroring Proofs, so run doesn't check them. D406: the example puzzle texts and helpers used only by tests move with them; DayNN.sw keeps only the program (and helpers that proofs or dot notation need). Input.sw's real-input tests move to Tests/Input.sw.",
       "created": "2026-10-22",
       "updated": "2026-10-22",
       "commits": []
