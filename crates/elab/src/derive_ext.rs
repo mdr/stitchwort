@@ -174,6 +174,7 @@ impl Elaborator {
             export: false,
             synonym: false,
             instance: false,
+            decreasing: None,
             span,
         };
         let a = |k: usize| format!("%a{k}");
