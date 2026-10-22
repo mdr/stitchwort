@@ -4260,8 +4260,8 @@
     {
       "id": 280,
       "title": "Bug: debug-build stitchwort run of decreasing examples panics 'Text.length before its file loads' (release and --js fine)",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [
         "bug"
