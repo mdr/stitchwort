@@ -146,6 +146,20 @@ theorem Nat.gaussSpan (d: Nat) (lo: Nat) (hi: Nat) (h: lo <= hi): d * ((lo + hi)
     (Eq.trans (Eq.cong (t => d * t) (Nat.halfDouble (List.sum (List.rangeFrom (Succ (hi - lo)) lo))))
       (Eq.sym (Eq.cong (t => d * List.sum (List.rangeFrom t lo)) (Nat.subSuccRight lo (Succ hi) h))))
 
+-- first + (first + 1) + ... + last, for first <= last: an arithmetic series,
+-- the number of terms times their average. (For first > last it isn't 0.)
+def Nat.sumBetween (first: Nat) (last: Nat): Nat := (first + last) * (last - first + 1) / 2
+
+-- Gauss's formula is the sum of the numbers from first to last.
+theorem Nat.sumBetweenCorrect (first: Nat) (last: Nat) (h: first <= last): Nat.sumBetween first last = (List.between first last).sum :=
+  calc Nat.sumBetween first last
+    _ = 1 * Nat.sumBetween first last := Eq.sym (Nat.oneMul (Nat.sumBetween first last))
+    _ = 1 * Nat.span first (Succ last) := Nat.gaussSpan 1 first last h
+    _ = Nat.span first (Succ last) := Nat.oneMul (Nat.span first (Succ last))
+    _ = (List.between first last).sum := Eq.cong (t => List.sum (List.rangeFrom (t - first) first)) (Eq.sym (Nat.addOne last))
+
+test "Nat.sumBetween" := Nat.sumBetween 3 7 == 25 && Nat.sumBetween 5 5 == 5 && Nat.sumBetween 1 100 == 5050
+
 -- `p` written n times: n times as long, and one more copy goes on the end.
 theorem List.lengthConcatReplicate (p: List a): (n: Nat) -> List.length (List.concat (List.replicate n p)) = n * List.length p
   | Zero   => rfl

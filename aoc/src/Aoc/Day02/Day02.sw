@@ -99,11 +99,7 @@ def sumOfIdsInRangeMatchingTemplate (range: Range) (template: RepetitionTemplate
     -- at least range.from (round up) and at most range.to (round down).
     let firstBlock := Nat.max template.smallestBlock ((range.from + multiplier - 1) / multiplier)
     let lastBlock := Nat.min template.largestBlock (range.to / multiplier)
-    if firstBlock <= lastBlock then multiplier * sumBetween firstBlock lastBlock else 0
+    if firstBlock <= lastBlock then multiplier * Nat.sumBetween firstBlock lastBlock else 0
   else 0
-
--- first + (first + 1) + ... + last, for first <= last: an arithmetic series,
--- the number of terms times their average.
-def sumBetween (first: Nat) (last: Nat): Nat := (first + last) * (last - first + 1) / 2
 
 def parseRanges (t: Text): List Range := t.trim.split ',' |> .filterMap Range.parse
