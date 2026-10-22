@@ -25,8 +25,9 @@ theorem Nat.fromDigitsFrom: (a: Nat) -> (ds: List Nat) ->
     Eq.trans (Nat.fromDigitsFrom (a * 10 + d) ds)
       (Eq.trans (Eq.cong (t => t + Nat.fromDigits ds) (Nat.mulDistribRight (a * 10) d (Nat.pow 10 (List.length ds))))
         (Eq.trans (Nat.addAssoc ((a * 10) * Nat.pow 10 (List.length ds)) (d * Nat.pow 10 (List.length ds)) (Nat.fromDigits ds))
-          (Eq.trans (Eq.cong (t => t + (d * Nat.pow 10 (List.length ds) + Nat.fromDigits ds)) (Nat.mulAssoc a 10 (Nat.pow 10 (List.length ds))))
-            (Eq.cong (t => a * (10 * Nat.pow 10 (List.length ds)) + t) (Eq.sym (Nat.fromDigitsFrom d ds))))))
+          (Eq.trans (Eq.cong (t => t + (d * Nat.pow 10 (List.length ds) + Nat.fromDigits ds))
+              (Eq.trans (Nat.mulAssoc a 10 (Nat.pow 10 (List.length ds))) (Eq.cong (u => a * u) (Nat.mulComm 10 (Nat.pow 10 (List.length ds))))))
+            (Eq.cong (t => a * (Nat.pow 10 (List.length ds) * 10) + t) (Eq.sym (Nat.fromDigitsFrom d ds))))))
 
 -- The first digit counts 10^n, for the n digits after it.
 theorem Nat.fromDigitsCons (d: Nat) (ds: List Nat):
@@ -49,12 +50,13 @@ theorem Nat.digitsFuelBound: (fuel: Nat) -> (n: Nat) -> (acc: List Nat) -> n < f
     Bool.inspect (Nat.leq n 9)
       (c => Succ n * Nat.pow 10 (List.length acc)
         <= Nat.pow 10 (List.length (Bool.ifThenElse c (u => Cons n acc) (u => Nat.digitsFuel fuel (n / 10) (Cons (n % 10) acc)))))
-      (small => Nat.leMulRight (Succ n) 10 (Nat.pow 10 (List.length acc)) small)
+      (small => Nat.leCongRight (Succ n * Nat.pow 10 (List.length acc)) (10 * Nat.pow 10 (List.length acc)) (Nat.pow 10 (List.length acc) * 10)
+        (Nat.mulComm 10 (Nat.pow 10 (List.length acc))) (Nat.leMulRight (Succ n) 10 (Nat.pow 10 (List.length acc)) small))
       (big => Nat.leTrans (Succ n * Nat.pow 10 (List.length acc)) ((Succ (n / 10) * 10) * Nat.pow 10 (List.length acc))
         (Nat.pow 10 (List.length (Nat.digitsFuel fuel (n / 10) (Cons (n % 10) acc))))
         (Nat.leMulRight (Succ n) (Succ (n / 10) * 10) (Nat.pow 10 (List.length acc)) (Nat.divFuelBound n n 10 (Nat.succNotZero 9) (Nat.leRefl n)))
-        (Nat.leCongLeft (Succ (n / 10) * (10 * Nat.pow 10 (List.length acc))) ((Succ (n / 10) * 10) * Nat.pow 10 (List.length acc)) (Nat.pow 10 (List.length (Nat.digitsFuel fuel (n / 10) (Cons (n % 10) acc))))
-          (Eq.sym (Nat.mulAssoc (Succ (n / 10)) 10 (Nat.pow 10 (List.length acc))))
+        (Nat.leCongLeft (Succ (n / 10) * (Nat.pow 10 (List.length acc) * 10)) ((Succ (n / 10) * 10) * Nat.pow 10 (List.length acc)) (Nat.pow 10 (List.length (Nat.digitsFuel fuel (n / 10) (Cons (n % 10) acc))))
+          (Eq.sym (Eq.trans (Nat.mulAssoc (Succ (n / 10)) 10 (Nat.pow 10 (List.length acc))) (Eq.cong (u => Succ (n / 10) * u) (Nat.mulComm 10 (Nat.pow 10 (List.length acc))))))
           (Nat.digitsFuelBound fuel (n / 10) (Cons (n % 10) acc) (Nat.leTrans (Succ (n / 10)) n fuel (Nat.divTenLess n big) h))))
 
 theorem Nat.ltPowTenDigits (hi: Nat): hi < Nat.pow 10 (List.length (Nat.digits hi)) :=
@@ -80,11 +82,12 @@ theorem Nat.fromDigitsConsLen (d: Nat) (s: List Nat) (r: List Nat) (hl: List.len
 theorem Nat.fromDigitsBound: (s: List Nat) -> Nat.Digits s -> Nat.fromDigits s < Nat.pow 10 (List.length s)
   | Nil,      h          => rfl
   | Cons d s, Both hd hs =>
-    Nat.ltCongLeft (d * Nat.pow 10 (List.length s) + Nat.fromDigits s) (Nat.fromDigits (Cons d s)) (10 * Nat.pow 10 (List.length s))
+    Nat.ltCongLeft (d * Nat.pow 10 (List.length s) + Nat.fromDigits s) (Nat.fromDigits (Cons d s)) (Nat.pow 10 (List.length s) * 10)
       (Eq.sym (Nat.fromDigitsCons d s))
-      (Nat.leTrans (Succ (d * Nat.pow 10 (List.length s) + Nat.fromDigits s)) (d * Nat.pow 10 (List.length s) + Nat.pow 10 (List.length s)) (10 * Nat.pow 10 (List.length s))
+      (Nat.leTrans (Succ (d * Nat.pow 10 (List.length s) + Nat.fromDigits s)) (d * Nat.pow 10 (List.length s) + Nat.pow 10 (List.length s)) (Nat.pow 10 (List.length s) * 10)
         (Nat.ltAddCong (d * Nat.pow 10 (List.length s)) (Nat.fromDigits s) (Nat.pow 10 (List.length s)) (Nat.fromDigitsBound s hs))
-        (Nat.nextMultipleLe d 10 (Nat.pow 10 (List.length s)) hd))
+        (Nat.leCongRight (d * Nat.pow 10 (List.length s) + Nat.pow 10 (List.length s)) (10 * Nat.pow 10 (List.length s)) (Nat.pow 10 (List.length s) * 10)
+          (Nat.mulComm 10 (Nat.pow 10 (List.length s))) (Nat.nextMultipleLe d 10 (Nat.pow 10 (List.length s)) hd)))
 
 -- Equal-length numbers: a smaller first digit gives a smaller number.
 theorem Nat.fromDigitsHeadLess (y: Nat) (t: Nat) (s: List Nat) (r: List Nat) (hl: List.length s = List.length r)
@@ -148,11 +151,12 @@ theorem Nat.digitsFuelDigits: (f: Nat) -> (n: Nat) -> (acc: List Nat) -> n < f -
 
 theorem Nat.digitsDigits (n: Nat): Nat.Digits (Nat.digits n) := Nat.digitsFuelDigits (Succ n) n Nil (Nat.leRefl n) Trivial
 
--- a * 10^(k+1) + (b * 10^k + r) = (a * 10 + b) * 10^k + r
-theorem Nat.shiftDigitArith (a: Nat) (b: Nat) (p: Nat) (r: Nat): a * (10 * p) + (b * p + r) = (a * 10 + b) * p + r :=
-  Eq.trans (Eq.sym (Nat.addAssoc (a * (10 * p)) (b * p) r))
+-- a * (10^k * 10) + (b * 10^k + r) = (a * 10 + b) * 10^k + r
+theorem Nat.shiftDigitArith (a: Nat) (b: Nat) (p: Nat) (r: Nat): a * (p * 10) + (b * p + r) = (a * 10 + b) * p + r :=
+  Eq.trans (Eq.sym (Nat.addAssoc (a * (p * 10)) (b * p) r))
     (Eq.cong (t => t + r)
-      (Eq.trans (Eq.cong (t => t + b * p) (Eq.sym (Nat.mulAssoc a 10 p))) (Eq.sym (Nat.mulDistribRight (a * 10) b p))))
+      (Eq.trans (Eq.cong (t => t + b * p) (Eq.trans (Eq.cong (u => a * u) (Nat.mulComm p 10)) (Eq.sym (Nat.mulAssoc a 10 p))))
+        (Eq.sym (Nat.mulDistribRight (a * 10) b p))))
 
 theorem Nat.fromDigitsFuel: (f: Nat) -> (n: Nat) -> (acc: List Nat) -> n < f ->
     Nat.fromDigits (Nat.digitsFuel f n acc) = n * Nat.pow 10 (List.length acc) + Nat.fromDigits acc
@@ -210,7 +214,7 @@ theorem Nat.digitsShift: (ds: List Nat) -> (a: Nat) -> 1 <= a -> Nat.Digits ds -
   | Nil,       a, ha, hd => Eq.trans (Eq.cong Nat.digits (Eq.trans (Nat.addZero (a * 1)) (Nat.mulOne a))) (Eq.sym (List.appendNil (Nat.digits a)))
   | Cons d ds, a, ha, Both hd hds =>
     Eq.trans (Eq.cong Nat.digits
-        (Eq.trans (Eq.cong (t => a * (10 * Nat.pow 10 (List.length ds)) + t) (Nat.fromDigitsCons d ds))
+        (Eq.trans (Eq.cong (t => a * (Nat.pow 10 (List.length ds) * 10) + t) (Nat.fromDigitsCons d ds))
           (Nat.shiftDigitArith a d (Nat.pow 10 (List.length ds)) (Nat.fromDigits ds))))
       (Eq.trans (Nat.digitsShift ds (a * 10 + d) (Nat.leTrans 1 a (a * 10 + d) ha (Nat.leTrans a (a * 10) (a * 10 + d) (Nat.leMulPos a 10 rfl) (Nat.leAddRight (a * 10) d))) hds)
         (Eq.trans (Eq.cong (l => List.append l ds) (Nat.digitsSnoc a d ha hd))
