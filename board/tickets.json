@@ -1,5 +1,5 @@
 {
-  "next": 331,
+  "next": 332,
   "tickets": [
     {
       "id": 1,
@@ -5102,7 +5102,7 @@
     {
       "id": 326,
       "title": "omega: convert the AoC proofs stage 1 can handle; measure lines/lemma calls/check time (D558)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "worktree lane",
       "labels": [
@@ -5112,7 +5112,12 @@
       "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "e12a7595",
+        "a0eb4e97",
+        "ce69d5eb",
+        "2eb123e2"
+      ]
     },
     {
       "id": 327,
@@ -5170,6 +5175,21 @@
         "proof"
       ],
       "body": "From the language survey (docs/comparisons/practical-proof-languages.md, shortlist #1; Isabelle Quickcheck/Nitpick, Lean Plausible). Motivation: wrong specs are the costly mistakes in real deployments. Design note first. D570 (Matt, 22 Oct): yes, in Next; not started yet.",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 331,
+      "title": "omega stage 2: truncated a - b, contradictory facts for any goal, max/min, products up to commutativity, Not (a = b), Int atoms (order from SW-326)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "worktree lane (D574 item 1)",
+      "labels": [
+        "proof",
+        "elab"
+      ],
+      "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
       "commits": []
