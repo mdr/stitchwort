@@ -290,23 +290,23 @@ theorem Nat.leqFalseOfLess (a: Nat) (b: Nat) (h: a < b): Nat.leq b a = False :=
 
 -- `lo <= x && x <= hi`, by cases on where `x` is.
 theorem Nat.betweenYes (lo: Nat) (hi: Nat) (x: Nat) (h1: lo <= x) (h2: x <= hi): (lo <= x && x <= hi) = True :=
-  J (c q => Bool.ifThenElse (Decidable.toBool (Bool.decTrue c)) (u => Decidable.toBool (Bool.decTrue (Nat.leq x hi))) (u => False) = True)
-    (J (c q => Decidable.toBool (Bool.decTrue c) = True) rfl (Eq.sym h2)) (Eq.sym h1)
+  J (c q => Bool.ifThenElse c (u => Nat.leq x hi) (u => False) = True)
+    h2 (Eq.sym h1)
 
 theorem Nat.betweenBelow (lo: Nat) (hi: Nat) (x: Nat) (h: Nat.leq lo x = False): (lo <= x && x <= hi) = False :=
-  J (c q => Bool.ifThenElse (Decidable.toBool (Bool.decTrue c)) (u => Decidable.toBool (Bool.decTrue (Nat.leq x hi))) (u => False) = False) rfl (Eq.sym h)
+  J (c q => Bool.ifThenElse c (u => Nat.leq x hi) (u => False) = False) rfl (Eq.sym h)
 
 theorem Nat.betweenAbove (lo: Nat) (hi: Nat) (x: Nat) (h1: lo <= x) (h2: Nat.leq x hi = False): (lo <= x && x <= hi) = False :=
-  J (c q => Bool.ifThenElse (Decidable.toBool (Bool.decTrue c)) (u => Decidable.toBool (Bool.decTrue (Nat.leq x hi))) (u => False) = False)
-    (J (c q => Decidable.toBool (Bool.decTrue c) = False) rfl (Eq.sym h2)) (Eq.sym h1)
+  J (c q => Bool.ifThenElse c (u => Nat.leq x hi) (u => False) = False)
+    h2 (Eq.sym h1)
 
 theorem Nat.betweenOver (lo: Nat) (hi: Nat) (x: Nat) (h: Nat.leq x hi = False): (lo <= x && x <= hi) = False :=
   Bool.inspect (Nat.leq lo x) (c => (lo <= x && x <= hi) = False) (t => Nat.betweenAbove lo hi x t h) (f => Nat.betweenBelow lo hi x f)
 
 -- `lo <= x && x <= hi` once `lo <= x` is known.
 theorem Nat.betweenFrom (lo: Nat) (hi: Nat) (x: Nat) (h: lo <= x): (lo <= x && x <= hi) = Nat.leq x hi :=
-  J (c q => Bool.ifThenElse (Decidable.toBool (Bool.decTrue c)) (u => Decidable.toBool (Bool.decTrue (Nat.leq x hi))) (u => False) = Nat.leq x hi)
-    (Bool.decTrueToBool (Nat.leq x hi)) (Eq.sym h)
+  J (c q => Bool.ifThenElse c (u => Nat.leq x hi) (u => False) = Nat.leq x hi)
+    rfl (Eq.sym h)
 
 -- Each end, from the whole test.
 theorem Nat.betweenLo (lo: Nat) (hi: Nat) (x: Nat) (h: (lo <= x && x <= hi) = True): lo <= x :=

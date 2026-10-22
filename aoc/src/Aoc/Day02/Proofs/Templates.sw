@@ -61,7 +61,7 @@ theorem templatesAsGrid (range: Range):
                         keptIfFits size k n)
                         (List.between 2 size) (n =>
                         Eq.trans (Each.collectRequire (u => ({ blockLength = k, copies = n }: RepetitionTemplate)) (k * n <= size))
-                          (Eq.cong (b => if b then [({ blockLength = k, copies = n }: RepetitionTemplate)] else []) (Bool.decTrueToBool (Nat.leq (k * n) size)))))))
+                          rfl))))
 
 -- Membership (1): a listed template fits.
 theorem templateFits (range: Range) (template: RepetitionTemplate)

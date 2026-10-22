@@ -138,11 +138,7 @@ fn golden_terms_on_nat_and_int() {
             "(fun (fun (((((Std.Decidable.elim implicit ((Std.Int.LessEq #1) #0)) implicit \
              (Std.Int )) ((Std.Int.decLessEq #1) #0)) (fun #2)) (fun #1))))",
         ),
-        (
-            "leNat",
-            "(fun (fun ((Std.Decidable.toBool implicit ((Std.Nat.LessEq #1) #0)) \
-             ((Std.Nat.decLessEq #1) #0))))",
-        ),
+        ("leNat", "(fun (fun ((Std.Nat.leq #1) #0)))"),
         ("useNat", "(((Main.provedNat 1) 2) auto Refl)"),
         (
             "useInt",

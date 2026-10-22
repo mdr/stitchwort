@@ -64,7 +64,7 @@ theorem countEmpty (r: Range) (e: Nat.leq r.from r.to = False) (ids: List Nat): 
     _ = 0 := List.occurrencesNone (id => r.contains id)
           (id =>
             match t: Nat.leq r.from id with
-              | True  => Eq.trans (Bool.decTrueToBool (Nat.leq id r.to)) (Nat.leqFalseOfLess r.to id omega)
+              | True  => Nat.leqFalseOfLess r.to id omega
               | False => rfl)
           ids
     _ = r.size := rewrite Nat.addOne r.to, Nat.subEqZero (Succ r.to) r.from omega
