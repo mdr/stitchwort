@@ -66,6 +66,13 @@ pub struct Def {
     pub export: bool,
     /// For an export: how to check each proof parameter at runtime.
     pub validators: Vec<Validator>,
+    /// What the untrusted runtimes (`crates/rt`, JS) run instead of the body,
+    /// if set ([`crate::check::set_run_body`]): for a definition with
+    /// `decreasing`, the recursion as written, without the fuel the body
+    /// recurses on (docs/proposals/well-founded-recursion.md §6.5). Checked to
+    /// have the definition's type and arity, but not for termination; never
+    /// unfolded by the kernel, and not hashed (it's determined by the body).
+    pub(crate) run_body: Option<Rc<Term>>,
     pub span: Span,
 }
 
@@ -73,6 +80,16 @@ impl Def {
     /// The definition's body, once it has been admitted.
     pub fn body(&self) -> Option<&Rc<Term>> {
         self.body.as_ref()
+    }
+
+    /// What a runtime runs for it: [`Def::run_body`] if set, else its body.
+    pub fn run_body(&self) -> Option<&Rc<Term>> {
+        self.run_body.as_ref().or(self.body.as_ref())
+    }
+
+    /// The run body, only if one was set.
+    pub fn own_run_body(&self) -> Option<&Rc<Term>> {
+        self.run_body.as_ref()
     }
 
     /// Where the definition is in its admission.

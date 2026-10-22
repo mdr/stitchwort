@@ -224,6 +224,17 @@ def Decidable.elim: [p: Prop] -> [a: Type] -> Decidable p -> (p -> a) -> (Not p 
   | Yes h, yes, no => yes h
   | No r,  yes, no => no r
 
+-- An `if` gives equal results when its branches do, whichever way it goes.
+-- The proofs that `decreasing` generates (`f.unfold`) take a step through an
+-- `if` with these (docs/proposals/well-founded-recursion.md §6.2).
+theorem Decidable.elimCong: [p: Prop] -> [a: Type] -> (d: Decidable p) -> (y1: p -> a) -> (y2: p -> a) -> (n1: Not p -> a) -> (n2: Not p -> a) -> ((h: p) -> y1 h = y2 h) -> ((r: Not p) -> n1 r = n2 r) -> Decidable.elim d y1 n1 = Decidable.elim d y2 n2
+  | Yes h, y1, y2, n1, n2, ey, en => ey h
+  | No r,  y1, y2, n1, n2, ey, en => en r
+
+theorem Bool.ifThenElseCong: [a: Type] -> (c: Bool) -> (t1: Unit -> a) -> (t2: Unit -> a) -> (e1: Unit -> a) -> (e2: Unit -> a) -> ((u: Unit) -> t1 u = t2 u) -> ((u: Unit) -> e1 u = e2 u) -> Bool.ifThenElse c t1 e1 = Bool.ifThenElse c t2 e2
+  | True,  t1, t2, e1, e2, et, ee => et Trivial
+  | False, t1, t2, e1, e2, et, ee => ee Trivial
+
 -- Decision procedures. `auto` and `if h: …` use those marked `instance`
 -- (docs/proposals/interfaces.md §5.12); `=` is decided through `DecEq`
 -- instead (below), and the procedures for `=` here are what its instances
@@ -363,6 +374,10 @@ theorem Nat.leTrans: (a: Nat) -> (b: Nat) -> (c: Nat) -> a <= b -> b <= c -> a <
   | Succ a, Zero, c, h1, h2 => Void.exfalso (Bool.falseNotTrue h1)
   | Succ a, Succ b, Zero, h1, h2 => Void.exfalso (Bool.falseNotTrue h2)
   | Succ a, Succ b, Succ c, h1, h2 => Nat.leTrans a b c h1 h2
+
+theorem Nat.leRefl: (n: Nat) -> n <= n
+  | Zero => rfl
+  | Succ n => Nat.leRefl n
 
 theorem Nat.lessLe (m: Nat) (n: Nat) (h: m < n): m <= n := Nat.leTrans m (Succ m) n (Nat.leSucc m) h
 

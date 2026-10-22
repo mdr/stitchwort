@@ -435,7 +435,7 @@ impl<'g> Lowerer<'g> {
     /// frame's first slots, the erased ones left out.
     fn def_body(&mut self, id: DefId) -> Result<Body> {
         let def = self.g.def(id);
-        let body = def.body().expect("checked by lower_program").clone();
+        let body = def.run_body().expect("checked by lower_program").clone();
         let mask = self.shape(id)?.mask().to_vec();
         let params: Vec<bool> = (0..def.arity)
             .map(|i| mask.get(i).copied().unwrap_or(false))

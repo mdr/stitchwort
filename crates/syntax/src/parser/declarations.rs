@@ -125,6 +125,28 @@ impl Parser<'_> {
         check_duplicates(&name, &params, &result)?;
         let result_is_equation = matches!(result, Expr::Binary(BinOp::Eq, ..));
         let span = start.to(result.span());
+        // `decreasing e`, before `:=` or the arms (D474).
+        let decreasing = if self.eat(&Tok::KwDecreasing) {
+            if instance {
+                return Err(error(
+                    self.prev_span(),
+                    "an instance can't have `decreasing`",
+                ));
+            }
+            let measure = self.expr()?;
+            // After it, `:=` may start a line of its own, at the
+            // declaration's column (§6.1's layout).
+            if self
+                .tokens
+                .get(self.pos)
+                .is_some_and(|t| t.tok == Tok::ColonEq && t.line_start)
+            {
+                self.allow = Some(self.pos);
+            }
+            Some(Box::new(measure))
+        } else {
+            None
+        };
         let (ty, header) = lower_header(params, result);
         let mut decls = vec![Decl::Signature {
             name: name.clone(),
@@ -133,6 +155,7 @@ impl Parser<'_> {
             export,
             synonym: false,
             instance,
+            decreasing,
             span,
         }];
         match self.peek() {
@@ -262,6 +285,7 @@ impl Parser<'_> {
                 export: false,
                 synonym: true,
                 instance: false,
+                decreasing: None,
                 span: start.to(name.span),
             },
             Decl::Equation {

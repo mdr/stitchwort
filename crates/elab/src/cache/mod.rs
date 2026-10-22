@@ -64,7 +64,7 @@ use stitchwort_syntax::{Diagnostic, Label, Severity};
 
 /// The version of the entry format, part of every key: a change to what an
 /// entry holds or how it is written bumps it, and old entries are misses.
-pub const FORMAT: u32 = 3;
+pub const FORMAT: u32 = 4;
 
 const MAGIC: &[u8; 8] = b"SWCHECK\0";
 
@@ -1213,6 +1213,11 @@ impl Elaborator {
                 }
                 e.w.usize(m.0 - before.defs);
             }
+            // What the runtimes run instead, for a definition with `decreasing`.
+            e.w.bool(def.own_run_body().is_some());
+            if let Some(run) = def.own_run_body() {
+                e.term(run);
+            }
         }
         e.w.usize(datas.len());
         for d in datas.clone().map(DataId) {
@@ -1667,6 +1672,7 @@ struct DefEntry {
     ty: Term,
     body: Term,
     group: Vec<usize>,
+    run_body: Option<Term>,
 }
 
 /// A constructor, read.
@@ -2025,6 +2031,11 @@ impl Elaborator {
                 ty: body.term()?,
                 body: body.term()?,
                 group: body.offsets(n)?,
+                run_body: if body.r.bool()? {
+                    Some(body.term()?)
+                } else {
+                    None
+                },
             });
         }
         let n_defs = defs.len();
@@ -2388,6 +2399,14 @@ impl Elaborator {
                             def_final[*m] = true;
                             self.bind_builtin_def(DefId(base_defs + m))
                                 .map_err(refused)?;
+                        }
+                        for m in &group.members {
+                            if let Some(run) = &defs[*m].run_body {
+                                self.kernel_op(|g| {
+                                    kernel::set_run_body(g, DefId(base_defs + m), run)
+                                })
+                                .map_err(refused)?;
+                            }
                         }
                     }
                     group.done = true;

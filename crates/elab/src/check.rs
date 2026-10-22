@@ -284,7 +284,7 @@ impl<'e> Ctx<'e> {
     /// any variable of that name. Its term (in the current context) and type.
     pub(crate) fn local(&self, name: &str) -> Result<Option<(Term, Value)>> {
         let Some(local) = self.local_entry(name) else {
-            return Ok(None);
+            return Ok(self.decreasing_call(name));
         };
         let term = local.term.shift(self.g(), self.level() - local.base, 0)?;
         Ok(Some((term, local.ty.clone())))

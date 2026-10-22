@@ -107,7 +107,12 @@ impl Elaborator {
                     continue; // already determined by unification
                 }
                 progress = true;
-                let proof = prove(&mut cx, &ob.goal, 0)?;
+                let proof = match prove(&mut cx, &ob.goal, 0) {
+                    Ok(proof) => proof,
+                    Err(e) => {
+                        return Err(crate::decreasing::explain_obligation(&mut cx, &ob.goal, e));
+                    }
+                };
                 let proof_value = cx.eval(&proof)?;
                 if !cx.unify(&placeholder, &proof_value)? {
                     return Err(cx.error(

@@ -129,6 +129,13 @@ builtins! {
     EqTrans = "Eq.trans": Def,
     LeTrans = "Nat.leTrans": Def,
     LessTrans = "Nat.lessTrans": Def,
+    // What `decreasing` generates refers to these (crates/elab/src/decreasing.rs)
+    VoidAbsurd = "Void.absurd": Def,
+    VoidExfalso = "Void.exfalso": Def,
+    FalseNotTrue = "Bool.falseNotTrue": Def,
+    LeRefl = "Nat.leRefl": Def,
+    ElimDecCong = "Decidable.elimCong": Def,
+    IfCong = "Bool.ifThenElseCong": Def,
     // Numbers: syntax and natives
     Nat = "Nat": Data,
     Zero = "Zero": Ctor(Builtin::Nat),

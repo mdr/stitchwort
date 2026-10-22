@@ -1306,7 +1306,7 @@ impl<'g> Gen<'g> {
                 run::primitive_js(prim)
             ));
         }
-        let Some(body) = def.body() else {
+        let Some(body) = def.run_body() else {
             unreachable!("`generate_with` refuses a definition without a body");
         };
         if let Some(op) = self.text_natives.get(&id) {

@@ -1,7 +1,7 @@
 # Proposal: well-founded recursion, `decreasing n` instead of fuel
 
-**Status:** draft 1, 22 October 2026. Design only: nothing is built. Ticket SW-199, decision
-D472 (write this note). Decisions D473 to D475 ([§10](#10-decisions)) are open. The critical
+**Status:** draft 1, 22 October 2026; stage 1 built (see [As built](#as-built-stage-1)). Ticket SW-199, decision
+D472 (write this note). Decisions D473 to D475 ([§10](#10-decisions)) were taken by Matt. The critical
 review ([§9](#9-critical-review)) was written as a separate, adversarial pass by the same
 author, not by an outside reviewer. Related: [equation-lemmas.md](equation-lemmas.md) (D226
 to D233; this note brings back a narrow form of D231), [partial.md](partial.md) (`{Partial}`,
@@ -791,6 +791,76 @@ Written as an adversarial pass over draft 1; each point says what I changed or w
   x then … else …`), which needs no lemma in the program; when a guard would change what the
   program means or costs too much, allow the decrease lemma in the program file, as an
   exception to "programs plain, theorems in `Proofs/`". [yes; day 4 uses the guard]
+
+## As built (stage 1)
+
+Built 22 October 2026 (SW-199), as §6 and §8 describe, with these
+differences and findings:
+
+1. **Names.** The internal pieces are `f.%step` (the body over `%rec`),
+   `f.%go` (the fuel), `f.%irrel` and `f.%step.%respects`; only `f.unfold`
+   can be written. `%` names can't clash with a user's local `go`.
+2. **The body is elaborated once, over `%rec`.** Rather than replacing each
+   call of `f` by `f.go k y q` (§6.2 item 1), the body becomes `f.%step x
+   %rec`, where `%rec: (y…) -> [auto decreasing: m y < m x] -> B`; a name
+   that resolves to `f` in the body means `%rec` (`Ctx::decreasing_call`,
+   and the prefix form of a dot call). So `[decreasing := p]` is an ordinary
+   named argument and `auto` is the ordinary auto search. `f.%go`'s `Succ`
+   case is `f.%step` applied to the fuelled `%rec`.
+3. **The "fuel doesn't matter" proof is split in two.** `f.%step.%respects`
+   says the body gives equal results for two `%rec`s that agree everywhere
+   (Rocq's `fix_sub_eq` hypothesis, §4.3, proved per definition); `f.%irrel`
+   is then a generic induction on the two fuels. The respects proof copies
+   the case tree of `f.%step` (and of each lifted `match` that captures
+   `%rec`), and proves each leaf by rewriting the recursive calls one at a
+   time with `J`, at a leaf's known type; an `if` goes through two new core
+   lemmas, `Decidable.elimCong` and `Bool.ifThenElseCong`; `let`s are
+   unfolded first. The §3.1 trap (`E-MATCH-MOTIVE`) doesn't arise: the
+   kernel's case trees split on variables, and `if`'s proofs stay inside
+   the lambdas the lemma's hypotheses take.
+4. **`f.unfold` states `f x = f.%step x (y => f y)`**, which `f.%step`
+   unfolds to the body with `f` in the recursive calls (shown as such:
+   `:t digitsOnto.unfold` prints the `if`). With an inner `match`, the goal
+   after `rewrite f.unfold x in` shows the lifted `match` until the user
+   matches; per-leaf lemmas stay future work.
+5. **Folding (§6.4)** uses the fallback, `Def::fold`: `f x` stays folded
+   until something takes it apart, on open and closed arguments alike (a
+   test or `rfl` takes it apart, so they compute). The case-on-the-measure
+   encoding wasn't possible: a `case` must be on a variable, and the
+   measure isn't one.
+6. **Erasure (§6.5)** is a *run body*, not an erased fuel parameter:
+   `Def::run_body`, checked by the kernel for type and arity only, which
+   `crates/rt` lowering and JS use instead of the body
+   (`f x = f.%step x (y => f y)`). `f.%go` and the measure never reach a
+   runtime (`crates/rt/tests/lower.rs`, `decreasing_drops_the_fuel`). The
+   check cache stores it (format 4). Natives are untouched.
+7. **`Nat.leRefl`** moved from `Nat/Arith.sw` to the core, which the
+   generated proofs need.
+8. **Layout.** `:=` may start a line at the declaration's column after
+   `decreasing e` (the §6.1 layout); `decreasing` is a keyword.
+9. **Errors.** `E-DECREASING` for an obligation `auto` can't prove (with
+   the goal as `new < old`, the hypotheses in scope and both remedies), a
+   call under a lambda (found in the source before elaborating), a measure
+   with no header parameter, a mutual group, a call in an `if`'s condition
+   or nested in another call's arguments, a body returning a function, and
+   generator refusals (as an internal error naming the definition).
+   `W-DECREASING-UNUSED` when the definition never calls itself. The goal
+   still shows `n / 10` as `Nat.divFuel n n 10`, as other messages do.
+10. **§6.6's theorem doesn't check as written.** After `rewrite
+    Nat.digitsOnto.unfold n acc in`, `match e: Nat.leq n 9 with` gives
+    `E-MATCH-MOTIVE`: the goal's `Nat.divTenLess n big` mentions the
+    scrutinee. This is the existing limit of `match e:`, not of
+    `decreasing`; a theorem about a body with an `if h:` generalises over
+    the decision, as `Fin.ofNatCheckDec` does, and one about a `match` on a
+    variable works directly (`evensShort` in
+    `examples/accept/decreasing.sw`). Stage 2's migration of
+    `Nat/Digits.sw` will need the generalising form.
+
+Tests: `examples/accept/decreasing.sw` (digits, gcd, guard style, a
+`match`, arms with an implicit type, a dot call, `rfl`, `unfold`, a
+theorem with `decreasing`; its `main` joins the `run` / `--js` /
+`--reference` differential tests), six `examples/reject/decreasing-*.sw`,
+a parser test, and the lowering test above.
 
 ## Sources
 
