@@ -153,10 +153,6 @@ theorem Nat.gaussSpan (d: Nat) (lo: Nat) (hi: Nat) (h: lo <= hi): d * ((lo + hi)
     (Eq.trans (Eq.cong (t => d * t) (Nat.halfDouble (List.sum (List.rangeFrom (Succ (hi - lo)) lo))))
       (Eq.sym (Eq.cong (t => d * List.sum (List.rangeFrom t lo)) (Nat.subSuccRight lo (Succ hi) h))))
 
-theorem List.mapCongr (f: a -> b) (g: a -> b) (h: (x: a) -> f x = g x): (xs: List a) -> List.map f xs = List.map g xs
-  | Nil       => rfl
-  | Cons x xs => Eq.trans (Eq.cong (y => Cons y (List.map f xs)) (h x)) (Eq.cong (ys => Cons (g x) ys) (List.mapCongr f g h xs))
-
 -- `p` written n times: n times as long, and one more copy goes on the end.
 theorem List.lengthConcatReplicate (p: List a): (n: Nat) -> List.length (List.concat (List.replicate n p)) = n * List.length p
   | Zero   => rfl

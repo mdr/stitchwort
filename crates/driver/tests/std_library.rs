@@ -501,6 +501,12 @@ fn small_programs_load_only_the_library_files_they_can_use() {
                def x (d: Dial): Int := d.size.toInt\n";
     let loaded = std_loaded_by(own);
     assert!(!loaded.iter().any(|f| f.starts_with("Mod/")), "{loaded:?}");
+    // SW-250: the list grid helpers don't load `Vec`, and plain list
+    // programs don't load them.
+    let grid =
+        std_loaded_by("def g (rows: List (List Nat)): List (List Nat) := rows.transposeFill 0\n");
+    assert!(grid.contains(&"List/Grid.sw".to_string()), "{grid:?}");
+    assert!(!grid.iter().any(|f| f.starts_with("Vec/")), "{grid:?}");
     // A program using `Mod` loads it, of course.
     let modular = "import Std (Mod)\ndef x : Mod 10 := Mod.ofNat 3 + Mod.ofNat 9\n";
     assert!(std_loaded_by(modular).contains(&"Mod/Mod.sw".to_string()));

@@ -30,6 +30,14 @@ def Vec.replicate: (n: Nat) -> a -> Vec a n
   | Zero,   _ => VNil
   | Succ k, x => VCons x (Vec.replicate k x)
 
+-- A vector from a function of the position: `Vec.tabulate 3 f` is
+-- `[f 0, f 1, f 2]` (Lean's `Vector.ofFn`, Agda's `tabulate`). The position
+-- is a `Fin n`, as `Vec.get` takes, so `Vec.get (Vec.tabulate n f) i` is
+-- `f i`; `Fin.toNat` gives its number.
+def Vec.tabulate: (n: Nat) -> (f: Fin n -> a) -> Vec a n
+  | Zero,   f => VNil
+  | Succ k, f => VCons (f FZero) (Vec.tabulate k (i => f (FSucc i)))
+
 def Vec.map (f: a -> b): Vec a n -> Vec b n
   | VNil       => VNil
   | VCons x xs => VCons (f x) (Vec.map f xs)
@@ -212,10 +220,34 @@ theorem Vec.getZipWith3 (f: a -> b -> c -> d): (u: Vec a n) -> (v: Vec b n) -> (
   | VCons x xs, VCons y ys, VCons z zs, FZero   => rfl
   | VCons x xs, VCons y ys, VCons z zs, FSucc i => Vec.getZipWith3 f xs ys zs i
 
+theorem Vec.getTabulate: (n: Nat) -> (f: Fin n -> a) -> (i: Fin n) -> Vec.get (Vec.tabulate n f) i = f i
+  | _, f, FZero            => rfl
+  | _, f, FSucc [n := k] i => Vec.getTabulate k (j => f (FSucc j)) i
+
+-- `getOr` of a `tabulate` at a `Nat` index in range.
+theorem Vec.getOrTabulate (d: a): (n: Nat) -> (f: Fin n -> a) -> (i: Nat) -> (h: i < n) ->
+    List.getOr d i (Vec.toList (Vec.tabulate n f)) = f (Fin.ofNatLt n i h)
+  | Zero,   f, i,      h => Void.exfalso (Bool.falseNotTrue h)
+  | Succ k, f, Zero,   h => rfl
+  | Succ k, f, Succ i, h => Vec.getOrTabulate d k (j => f (FSucc j)) i h
+
+-- Past the end of a vector, `getOr` is the default.
+theorem Vec.getOrPast (d: a) (v: Vec a n) (i: Nat) (h: n <= i): List.getOr d i (Vec.toList v) = d :=
+  List.getOrPast d i (Vec.toList v) (rewrite Vec.lengthToList v in h)
+
 -- `headOr` is index 0 of the list.
 theorem Vec.headOrToList (d: a): (v: Vec a n) -> Vec.headOr d v = List.getOr d 0 (Vec.toList v)
   | VNil       => rfl
   | VCons x xs => rfl
+
+-- `getOr` on the list of a `zipWith`, at any index, with defaults that `f`
+-- maps to the default (`f d1 d2 = d`, often `rfl`).
+theorem Vec.getOrZipWith (f: a -> b -> c) (d1: a) (d2: b) (d: c) (hd: f d1 d2 = d):
+    (u: Vec a n) -> (v: Vec b n) -> (i: Nat) ->
+    List.getOr d i (Vec.toList (Vec.zipWith f u v)) = f (List.getOr d1 i (Vec.toList u)) (List.getOr d2 i (Vec.toList v))
+  | VNil,       VNil,       i      => Eq.sym hd
+  | VCons x xs, VCons y ys, Zero   => rfl
+  | VCons x xs, VCons y ys, Succ i => Vec.getOrZipWith f d1 d2 d hd xs ys i
 
 -- `getOr` on the list of a `zipWith3`, at any index, with defaults that
 -- `f` maps to the default.
@@ -255,6 +287,10 @@ test "traverseOption" := Option.map Vec.toList (Vec.traverseOption (x => if x < 
 test "traverseOption fails" := Option.map Vec.toList (Vec.traverseOption (x => if x < 3 then Some x else None) Vec.example) == None
 test "any" := Vec.any (x => x == 2) Vec.example && !(Vec.any (x => x == 4) Vec.example)
 test "get" := Vec.get Vec.example (FSucc FZero) == 2 && Vec.getLt Vec.example 0 == 1
+test "tabulate" := Vec.toList (Vec.tabulate 4 (i => Fin.toNat i * 10)) == [0, 10, 20, 30]
+test "tabulate none" := Vec.toList (Vec.tabulate 0 Fin.toNat) == []
+
+theorem Vec.tabulateExample: Vec.toList (Vec.tabulate 3 Fin.toNat) = [0, 1, 2] := rfl
 
 -- Like a list: `[1, 2, 3]`.
 instance Vec.instShow [auto show: Show a]: Show (Vec a n) :=
