@@ -1,5 +1,5 @@
 {
-  "next": 321,
+  "next": 324,
   "tickets": [
     {
       "id": 1,
@@ -4854,7 +4854,7 @@
     {
       "id": 314,
       "title": "omega milestone 1a: Std.Omega library (syntax, certificate calculus, checker, proved soundness, bridge lemmas) (D545)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "worktree lane",
       "labels": [
@@ -4864,14 +4864,17 @@
       "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "023bbd14",
+        "56d9f356"
+      ]
     },
     {
       "id": 315,
       "title": "omega milestone 1b: elaborator (omega keyword, reification, search, acceptance table) (D545/D546)",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "worktree lane: omega milestone 1b",
       "labels": [
         "elab",
         "proof"
@@ -4952,6 +4955,51 @@
         "aoc"
       ],
       "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 321,
+      "title": "Kernel: literal * x unfolds k times; 100000 * x <= 5 := h costs 14.4M steps, 1000000 overflows the stack",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "kernel",
+        "performance"
+      ],
+      "body": "Found by SW-314. theorem (h: 100000 * x <= 5): 100000 * x <= 5 := h alone; not omega's fault. Nat.mul recurses on its first (literal) argument.",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 322,
+      "title": "Std load: Int/Int.sw pulls List/Toolkit.sw (~39 ms) only for two List.sumBy lemmas; split them out",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "stdlib",
+        "performance"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 323,
+      "title": "Eq.cong whose lambda mentions c % d (auto proof) refused against an identically printed type",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab",
+        "bug"
+      ],
+      "body": "Found by SW-314; replacing the term by a variable passes. Unexplained.",
       "created": "2026-10-22",
       "updated": "2026-10-22",
       "commits": []
