@@ -1,5 +1,5 @@
 {
-  "next": 296,
+  "next": 297,
   "tickets": [
     {
       "id": 1,
@@ -4524,6 +4524,21 @@
         "419c7272",
         "84abb5d5"
       ]
+    },
+    {
+      "id": 296,
+      "title": "Each ability: flatMap/filter chains as effects (each, require, Each.collect) + Day 2 trial (D528)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "worktree lane",
+      "labels": [
+        "abilities",
+        "aoc"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
     }
   ]
 }
