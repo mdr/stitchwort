@@ -2353,10 +2353,10 @@ impl<'t> Parser<'t> {
             let dot = self.tokens[self.pos].span;
             let field = match self.tokens.get(self.pos + 1) {
                 Some(Token {
-                    tok: Tok::Lower(text),
+                    tok: Tok::Lower(text) | Tok::Upper(text),
                     span,
                     ..
-                }) if self.peek_at(1).is_some() => Name {
+                }) if !text.contains('.') && self.peek_at(1).is_some() => Name {
                     text: text.clone(),
                     span: *span,
                 },
@@ -2947,9 +2947,22 @@ mod tests {
         assert!(matches!(&e, Expr::Field(inner, _) if matches!(**inner, Expr::Field(..))));
         assert!(matches!(expression("(f x).age").unwrap(), Expr::Field(..)));
         // No spaces around the dot, and a field name after it.
-        for bad in ["p. name", "p.Name", "p.1"] {
+        for bad in ["p. name", "p.1", "p.Foo.Bar"] {
             assert!(expression(bad).is_err(), "{bad}");
         }
+        // A capitalised field names a function of the value's type, as in
+        // `xs.Distinct` for `List.Distinct xs`.
+        let e = expression("xs.Distinct").unwrap();
+        assert!(
+            matches!(&e, Expr::Field(r, n) if n.text == "Distinct" && matches!(**r, Expr::Var(_)))
+        );
+        let e = expression("on.Subsequence bank").unwrap();
+        let Expr::App(_, arg) = &e else {
+            panic!("{e:?}")
+        };
+        assert!(matches!(&**arg, Expr::Var(n) if n.text == "bank"));
+        let Expr::App(f, _) = &e else { panic!("{e:?}") };
+        assert!(matches!(&**f, Expr::Field(_, n) if n.text == "Subsequence"));
     }
 
     #[test]
