@@ -510,6 +510,37 @@ day, medium about a day, large several lanes. Estimates.
 Stages 2 and 3 can run in parallel after stage 1. Stage 0a is worth doing
 now whatever happens to the rest.
 
+### 6.1 As built (stage 0a)
+
+- `parse_module_recovering` (`crates/syntax/src/parser.rs`) returns the
+  declarations that parsed plus every syntax error; `parse_module_within`
+  is that, returning `Err` if there are errors, so library and other
+  callers are unchanged. Recovery is at declaration boundaries only (a
+  line at column 0, as `split_decls` already split them). A lexical error,
+  or a first declaration not at column 0, still stops at that one error.
+- A declaration that failed to parse is left out of `Module::decls`; the
+  names it would have declared are read off its tokens into
+  `Module::failed`: the name after `def`, `theorem`, `instance`, `type`,
+  `interface` or `ability` (after `export` too), and for the last three
+  each name after a top-level `|`. A declaration that broke before its
+  name declares nothing.
+- The elaborator enters each failed name as `Global::Failed` (the state
+  elaboration failures already use), unless something else declared it.
+  A use then gives `E-FAILED-DEPENDENCY`, which the load drops when there
+  are syntax errors: the syntax error says it. `E-UNKNOWN-NAME` doesn't
+  appear for it.
+- A single file (`load_file`) and a project namespace check what parsed
+  and report parse and check errors together, in file order. Such a load
+  is always an error. A project namespace with syntax errors is never
+  cached, its dependents are skipped as before (`E-NAMESPACE-FAILED`),
+  and `import N (..)` of it brings no names, as before.
+- Not recovered: inside a declaration (the whole declaration is dropped,
+  so errors in its later lines aren't seen), and the namespace and import
+  lines (an error in one is reported but its effect is lost: a bad import
+  adds no names, so uses can give `E-UNKNOWN-NAME`).
+- Examples: `reject/syntax-errors-two`, `syntax-error-and-type-error`
+  (the §1.1 file), `syntax-error-then-use`.
+
 ## 7. What to measure
 
 - **Time from keystroke to squiggle**, per namespace of `aoc`, at level 1:

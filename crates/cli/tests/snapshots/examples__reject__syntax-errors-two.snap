@@ -1,0 +1,20 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: expected a field name after `.`
+   ╭─[ reject/syntax-errors-two.sw:3:32 ]
+   │
+ 3 │ def f (xs: List Nat): Nat := xs.
+   │                                ┬  
+   │                                ╰── expected a field name after `.`
+   │ 
+   │ Note: `.` is for field access, as in `p.name`
+───╯
+[E-PARSE] Error: expected an expression, but reached the end of the declaration
+   ╭─[ reject/syntax-errors-two.sw:7:28 ]
+   │
+ 7 │ def g (n: Nat): Nat := (n +
+   │                            │ 
+   │                            ╰─ expected an expression, but reached the end of the declaration
+───╯

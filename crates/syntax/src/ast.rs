@@ -769,4 +769,7 @@ pub struct Module {
     /// At the top of the file, before any declaration.
     pub imports: Vec<Import>,
     pub decls: Vec<Decl>,
+    /// Names declared by declarations that failed to parse, so aren't in
+    /// `decls` (only `parse_module_recovering` fills it).
+    pub failed: Vec<Name>,
 }
