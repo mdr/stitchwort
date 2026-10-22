@@ -1,5 +1,5 @@
 {
-  "next": 255,
+  "next": 256,
   "tickets": [
     {
       "id": 1,
@@ -3837,6 +3837,20 @@
         "bug"
       ],
       "body": "Found by SW-235. A test written as [1, 2].span p pulled in Nat.span from Sort.sw. Probably numeric-literal elements + the receiver rule (first parameter of matching type) or SW-234's namespace-aware loading choosing by short name. Reproduce and fix.",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 255,
+      "title": "Cached stitchwort run reported E-DUPLICATE main for days 3, 4, 6, 7 in a lane worktree (not reproduced on main)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "body": "Reported by the SW-250 Day 6 port lane: with the cache on, run Aoc.DayNN.main failed with E-DUPLICATE (main already defined) for days 3,4,6,7 in its worktree; --no-cache worked. On main (after merging SW-245 stage 2 + Day 4 port) cold, warm and after a full check all print the right answers. Possibly a cache entry from a different tree/build in the worktree's aoc/.stitchwort. Watch for it; the check-cache differential test should catch a real case.",
       "created": "2026-10-22",
       "updated": "2026-10-22",
       "commits": []
