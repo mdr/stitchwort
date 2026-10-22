@@ -4505,7 +4505,7 @@
     {
       "id": 293,
       "title": "LSP: type of a selected expression (hover on selection + Expand Selection) (D523)",
-      "status": "review",
+      "status": "done",
       "agent": "Matt",
       "where": "main; try in VS Code",
       "labels": [
