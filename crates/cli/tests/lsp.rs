@@ -908,7 +908,9 @@ fn text_literals_and_interpolations_are_expressions() {
     assert!(a.is_some() && b.is_some() && c.is_some(), "{texts:?}");
     assert!(a < b && b < c, "{texts:?}");
     assert!(
-        !texts.iter().any(|t| t.ends_with('}') && !t.starts_with('$')),
+        !texts
+            .iter()
+            .any(|t| t.ends_with('}') && !t.starts_with('$')),
         "{texts:?}"
     );
     client.shutdown();
@@ -916,7 +918,8 @@ fn text_literals_and_interpolations_are_expressions() {
 }
 
 /// Declarations that end in a closing parenthesis (SW-303).
-const CLOSING_PAREN_PROGRAM: &str = "def k (n: Nat): Nat := Succ (n + 1)\ndef m (n: Nat): Nat :=\n  Succ (Succ (n + 1))\n";
+const CLOSING_PAREN_PROGRAM: &str =
+    "def k (n: Nat): Nat := Succ (n + 1)\ndef m (n: Nat): Nat :=\n  Succ (Succ (n + 1))\n";
 
 #[test]
 fn outline_ranges_keep_the_closing_parenthesis() {
@@ -965,7 +968,13 @@ fn a_call_with_a_postponed_lambda_navigates_to_the_function() {
     let mut client = Client::start();
     client.open(&uri, POSTPONED_PROGRAM);
     assert_eq!(client.diagnostics(&uri, 1), Vec::<Value>::new());
-    let ch = POSTPONED_PROGRAM.lines().nth(1).unwrap().find("List.foldLeft").unwrap() as u32 + 6;
+    let ch = POSTPONED_PROGRAM
+        .lines()
+        .nth(1)
+        .unwrap()
+        .find("List.foldLeft")
+        .unwrap() as u32
+        + 6;
     let definition = client.at("textDocument/definition", &uri, 1, ch);
     assert!(!definition.is_null(), "no definition for List.foldLeft");
     let hover = client.at("textDocument/hover", &uri, 1, ch);
@@ -977,7 +986,8 @@ fn a_call_with_a_postponed_lambda_navigates_to_the_function() {
 
 /// Selecting a type declaration shows nothing of what is derived for it
 /// (SW-302): the equality lemma's statement mentions `%a0`.
-const TYPE_PROGRAM: &str = "type Pt = { x: Nat, y: Nat }\ntype Shape = | Circle (r: Nat) | Square (a: Nat) (b: Nat)\n";
+const TYPE_PROGRAM: &str =
+    "type Pt = { x: Nat, y: Nat }\ntype Shape = | Circle (r: Nat) | Square (a: Nat) (b: Nat)\n";
 
 #[test]
 fn selecting_a_type_declaration_shows_no_derived_types() {
