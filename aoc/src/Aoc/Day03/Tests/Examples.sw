@@ -13,8 +13,8 @@ def example: List Text := """
   """.lines
 
 test "example" := (solvePart1 (parseBanks example), solvePart2 (parseBanks example)) == (357, 3121910778619)
-test "banks part 1" := (parseBanks example).map (joltage 2) == [98, 89, 78, 92]
-test "banks part 2" := (parseBanks example).map (joltage 12) == [987654321111, 811111111119, 434234234278, 888911112111]
+test "banks part 1" := (parseBanks example).map (maxJoltage 2) == [98, 89, 78, 92]
+test "banks part 2" := (parseBanks example).map (maxJoltage 12) == [987654321111, 811111111119, 434234234278, 888911112111]
 
 test "parse" := (Bank.parse "1x02").map Fin.toNat == [1, 0, 2]
 
