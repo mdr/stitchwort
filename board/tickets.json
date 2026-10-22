@@ -1,5 +1,5 @@
 {
-  "next": 279,
+  "next": 281,
   "tickets": [
     {
       "id": 1,
@@ -4165,7 +4165,7 @@
     {
       "id": 274,
       "title": "LSP stage 0a: parser keeps going after a syntax error; broken declarations' names declared as failed (language-server.md §6)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -4174,7 +4174,9 @@
       "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "718f50b4"
+      ]
     },
     {
       "id": 275,
@@ -4233,6 +4235,34 @@
       "commits": [
         "ab8bffbe"
       ]
+    },
+    {
+      "id": 279,
+      "title": "Option/Pair injectivity lemmas (Some x = Some y -> x = y; MkPair injective) so List.unfold shrink proofs are short",
+      "status": "next",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 280,
+      "title": "Bug: debug-build stitchwort run of decreasing examples panics 'Text.length before its file loads' (release and --js fine)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
     }
   ]
 }
