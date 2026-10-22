@@ -235,7 +235,7 @@ What this means for us:
 
 ```
 crates/elab/src/std/
-  core.sw            -- always loaded: today's prelude minus what moves (D49)
+  core/*.sw          -- always loaded: today's prelude minus what moves (D49), in small files (SW-260)
   Nat/Division.sw    -- namespace Std.Nat: div/mod lemmas
   Nat/Compare.sw     -- namespace Std.Nat: max/min, ordering lemmas
   List/Sort.sw       -- namespace Std.List: sorting and its proofs
@@ -685,6 +685,12 @@ more natives and some helpers and lemmas became library files: `Text/Basics.sw` 
 `abs`, `Nat.toInt`, …), `Option/Option.sw`, `Ord/Ord.sw` (`Ord.max`, `min`, `byKey`) and
 `Decidable/Decidable.sw`. `std/core.sw` is 1,806 lines. Details and what stayed are in
 prelude-slim.md, "As built (stage 3)".
+
+SW-260 (D493) then split `std/core.sw` into the folder `std/core/` (22 files, all still loaded
+up front, in the order `core_files!` lists in `crates/elab/src/lib.rs`): same names, same
+namespaces, same hashes. Library files are still `LIBRARY_FILES`; the core's files are
+`CORE_LAYOUT`, and `std-source core/Data.sw` reads one. See prelude-slim.md, "As built (the core
+in small files)".
 
 **Dot notation by namespace (22 October 2026, SW-234).** `x.f` used to load every file with a
 function whose last name is `f`, so `d.size` (on the program's own `Dial`) and `n.toInt` loaded

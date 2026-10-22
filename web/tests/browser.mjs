@@ -1380,9 +1380,9 @@ test("Inside a library file: hover, Cmd-click, F12, find references and the menu
   await page.untilChecked();
   await page.setSource(STD_SOURCE);
   await page.untilChecked();
-  // Program -> List.length in core.sw.
+  // Program -> List.length in core/Data.sw.
   await cmdClick(page, await whereIs(page, "List.length xs", 5, 6));
-  await untilStd(page, "core.sw", "core.sw");
+  await untilStd(page, "core/Data.sw", "core/Data.sw");
   assert.match(await textAtCaret(page), /^def List\.length\b/);
   // Hover in the library file: a name in its type, then a constructor in its body.
   await hoverAt(page, await whereIs(page, "List a -> Nat\n  | Nil       => 0", 10, 3));
@@ -1396,23 +1396,23 @@ test("Inside a library file: hover, Cmd-click, F12, find references and the menu
   await page.until(`(() => { const l = document.getElementById("navlink"); return !l.hidden && l.getBoundingClientRect().width > 10; })()`, 10000, "the underline in the library file");
   assert.equal(await page.ev(`document.getElementById("source").style.cursor`), "pointer");
   await shots(page, "std-hover-underline");
-  // Cmd-click: to the definition of Nat, in core.sw again (a second hop).
+  // Cmd-click: to the definition of Nat, in core/Data.sw again (a second hop).
   await cmdClick(page, nat);
-  await page.until(`document.getElementById("source").value.slice(document.getElementById("source").selectionStart, document.getElementById("source").selectionEnd) === "Nat" && document.getElementById("source").value.slice(0, document.getElementById("source").selectionStart).split("\\n").length < 100`, 10000, "the jump to Nat's definition");
+  await page.until(`document.getElementById("source").value.slice(document.getElementById("source").selectionStart, document.getElementById("source").selectionEnd) === "Nat" && document.getElementById("source").value.slice(0, document.getElementById("source").selectionStart).split("\\n").length < 40`, 10000, "the jump to Nat's definition");
   assert.match(await textAtCaret(page), /^type Nat\b/);
-  assert.equal(await stdName(page), "core.sw");
+  assert.equal(await stdName(page), "core/Data.sw");
   assert.equal((await selected(page)).readOnly, true);
-  // Back, once: to List.length in core.sw; twice: to the program, editable again.
+  // Back, once: to List.length in core/Data.sw; twice: to the program, editable again.
   await page.key("[", "BracketLeft", 219, { modifiers: CMD });
-  await page.until(`document.getElementById("source").value.slice(0, document.getElementById("source").selectionStart).split("\\n").length > 100`, 10000, "back to List.length");
+  await page.until(`document.getElementById("source").value.slice(0, document.getElementById("source").selectionStart).split("\\n").length > 40`, 10000, "back to List.length");
   assert.match(await textAtCaret(page), /^def List\.length\b/);
-  assert.equal(await stdName(page), "core.sw");
+  assert.equal(await stdName(page), "core/Data.sw");
   await page.key("[", "BracketLeft", 219, { modifiers: CMD });
   await page.until(`document.getElementById("stdbar").hidden`, 10000, "back to the program");
   assert.equal(await sourceText(page), STD_SOURCE);
   assert.equal((await selected(page)).readOnly, false);
 
-  // Program -> List.sum in List/Toolkit.sw -> Add.add in core.sw: another library file, then Back twice.
+  // Program -> List.sum in List/Toolkit.sw -> Add.add in core/AddMul.sw: another library file, then Back twice.
   await cmdClick(page, await whereIs(page, "List.sum xs", 5, 3));
   await untilStd(page, "List/Toolkit.sw", "List/Toolkit.sw");
   assert.match(await textAtCaret(page), /^def List\.sum\b/);
@@ -1420,7 +1420,7 @@ test("Inside a library file: hover, Cmd-click, F12, find references and the menu
   await page.ev(`(() => { const s = document.getElementById("source"); s.focus();
     const i = s.value.indexOf("Add.add Add.zero") + 1; s.setSelectionRange(i, i); })()`);
   await page.key("F12", "F12", 123);
-  await untilStd(page, "core.sw", "core.sw from the toolkit");
+  await untilStd(page, "core/AddMul.sw", "core/AddMul.sw from the toolkit");
   assert.match(await textAtCaret(page), /Add\b|add\b/);
   await shots(page, "std-after-jump");
   await page.key("[", "BracketLeft", 219, { modifiers: CMD });
@@ -1482,7 +1482,7 @@ const refRows = (page) => page.ev(`(() => { const p = document.getElementById("n
   return { title: p.querySelector("header .title").textContent,
            rows: [...p.querySelectorAll("li button")].map((b) => [b.querySelector(".where").textContent, b.querySelector(".snippet").textContent,
                                                                     b.classList.contains("decl")]) }; })()`);
-// Find references may first build the index, including the library (all of core.sw), in its
+// Find references may first build the index, including the library (all of the core), in its
 // worker; under load that took over 30 s three times on 21-22 Oct 2026, so allow 90 s.
 const untilRefs = (page) => page.until(`!document.getElementById("navrefs").hidden`, 90000, "the references panel");
 /** Puts the caret `delta` into the first `needle`, and presses Shift+F12. */

@@ -238,10 +238,10 @@ The elaborator keeps every global name in one flat map from a string to what
 it names (`names: HashMap<String, (Global, Span)>`,
 `crates/elab/src/lib.rs:67`). That covers definitions, data types,
 constructors, abilities and operations. The prelude
-(`crates/elab/src/prelude.sw`, 770 lines; now `std/core.sw`) is loaded first, as a module of
+(`crates/elab/src/prelude.sw`, 770 lines; now `std/core/`, see std-library.md) is loaded first, as a module of
 its own (`crates/driver/src/driver.rs:56-60`), and the user's file is
 elaborated against the same table. (Since docs/proposals/std-library.md stage
-1, `std/core.sw` (formerly `prelude.sw`) is the always-loaded *core*, and the library files under
+1, `std/core/` (formerly `prelude.sw`) is the always-loaded *core*, and the library files under
 `crates/elab/src/std/` are checked when a program uses them; their names are
 in the same table from the start, as pending entries.)
 

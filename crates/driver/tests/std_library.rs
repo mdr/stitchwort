@@ -47,10 +47,33 @@ fn files_on_disk() -> Vec<String> {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../elab/src/std");
     let mut out = Vec::new();
     walk(&root, &root, &mut out);
-    // The core is `PRELUDE`, not a library file.
-    out.retain(|p| p != "core.sw");
     out.sort();
     out
+}
+
+/// The core's files (`std/core/`), `PRELUDE`, are not library files.
+fn is_core(path: &str) -> bool {
+    path.starts_with("core/")
+}
+
+/// Every `.sw` file under `std/core/` is in `CORE_LAYOUT`, and each file's
+/// text, read back by path, is what the layout says: they join to `PRELUDE`.
+#[test]
+fn the_core_layout_lists_every_core_file() {
+    let on_disk: Vec<String> = files_on_disk().into_iter().filter(|p| is_core(p)).collect();
+    let mut listed: Vec<String> = stitchwort_elab::CORE_LAYOUT
+        .iter()
+        .map(|(p, _)| p.to_string())
+        .collect();
+    listed.sort();
+    assert_eq!(listed, on_disk);
+    let mut joined = String::new();
+    for (path, len) in stitchwort_elab::CORE_LAYOUT {
+        let text = stitchwort_driver::nav::std_source(path, STACK).expect("a core file");
+        assert_eq!(text.len(), *len, "{path}");
+        joined.push_str(&text);
+    }
+    assert_eq!(joined, PRELUDE);
 }
 
 #[test]
@@ -58,7 +81,10 @@ fn the_table_lists_every_library_file_in_order() {
     let listed: Vec<String> = LIBRARY_FILES.iter().map(|(p, _)| p.to_string()).collect();
     assert_eq!(
         listed,
-        files_on_disk(),
+        files_on_disk()
+            .into_iter()
+            .filter(|p| !is_core(p))
+            .collect::<Vec<_>>(),
         "LIBRARY_FILES in crates/elab/src/library.rs"
     );
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../elab/src/std");

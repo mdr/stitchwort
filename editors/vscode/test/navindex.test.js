@@ -69,7 +69,7 @@ test('project declaration', () => {
 test('standard library declaration carries std', () => {
   const ref = nav.refAt(index, file, ...at(20, 'toText'));
   const t = nav.targetOf(index, ref);
-  assert.strictEqual(t.std, 'core.sw');
+  assert.strictEqual(t.std, 'core/Data.sw');
   assert.strictEqual(nav.hoverOf(index, ref).name, 'Std.Nat.toText');
 });
 
@@ -150,7 +150,7 @@ test('diagnostics by file', () => {
 
 test('diagnostics: warnings, notes and secondary labels; library files skipped', () => {
   const fake = {
-    files: [{ path: 'a.sw' }, { path: 'b.sw' }, { path: 'x/core.sw', std: 'core.sw' }],
+    files: [{ path: 'a.sw' }, { path: 'b.sw' }, { path: 'x/core/Data.sw', std: 'core/Data.sw' }],
     diagnostics: [
       {
         severity: 'warning',
@@ -203,7 +203,7 @@ test('applyQuick: the checked files take the quick diagnostics, the rest keep th
   // The quick run checked A (a.sw, b.sw): a.sw now has a different error, and
   // b.sw (a library file is ignored) has one it didn't.
   const quick = fakeIndex(
-    ['a.sw', 'b.sw', { path: 'x/core.sw', std: 'core.sw' }],
+    ['a.sw', 'b.sw', { path: 'x/core/Data.sw', std: 'core/Data.sw' }],
     [[0, 'E-NEW-A'], [1, 'E-NEW-B'], [2, 'E-STD']],
   );
   const merged = nav.applyQuick(current, quick);
@@ -271,12 +271,12 @@ test('outline nests constructors and fields under their type', () => {
 
 // Library documents (stitchwort-std:/List/Toolkit.sw): the lookups work in them
 // from the index of a program that loaded the file. A synthetic index: file 0
-// the program, 1 core.sw, 2 List/Toolkit.sw.
+// the program, 1 core/Data.sw, 2 List/Toolkit.sw.
 const libIndex = {
   version: 2,
   files: [
     { path: 'a.sw' },
-    { path: 'crates/elab/src/std/core.sw', std: 'core.sw' },
+    { path: 'crates/elab/src/std/core/Data.sw', std: 'core/Data.sw' },
     { path: 'crates/elab/src/std/List/Toolkit.sw', std: 'List/Toolkit.sw' },
   ],
   symbols: [
@@ -293,8 +293,8 @@ const libIndex = {
 
 test('library documents: path to std name, and entry by std', () => {
   assert.strictEqual(nav.stdOfPath('/List/Toolkit.sw'), 'List/Toolkit.sw');
-  assert.strictEqual(nav.stdOfPath('/core.sw'), 'core.sw');
-  assert.strictEqual(nav.fileIndexByStd(libIndex, 'core.sw'), 1);
+  assert.strictEqual(nav.stdOfPath('/core/Data.sw'), 'core/Data.sw');
+  assert.strictEqual(nav.fileIndexByStd(libIndex, 'core/Data.sw'), 1);
   assert.strictEqual(nav.fileIndexByStd(libIndex, 'List/Toolkit.sw'), 2);
   assert.strictEqual(nav.fileIndexByStd(libIndex, 'Nope.sw'), -1);
 });
@@ -305,13 +305,13 @@ test('inside a library file: a ref has a target in another library file, and use
   const ref = nav.refAt(libIndex, picked.file, 3, 31);
   assert.strictEqual(ref.symbol, 0);
   const t = nav.targetOf(libIndex, ref);
-  assert.deepStrictEqual({ std: t.std, range: t.range }, { std: 'core.sw', range: [5, 5, 5, 8] });
+  assert.deepStrictEqual({ std: t.std, range: t.range }, { std: 'core/Data.sw', range: [5, 5, 5, 8] });
   assert.strictEqual(nav.hoverOf(libIndex, ref).name, 'Std.Nat');
   // Off a name there is no ref.
   assert.strictEqual(nav.refAt(libIndex, picked.file, 3, 20), null);
-  // References from here: the declaration and the use in core.sw, and the use in this file.
+  // References from here: the declaration and the use in core/Data.sw, and the use in this file.
   const refs = nav.referencesTo(libIndex, ref, true).map((r) => [r.std || r.path, r.range[0]]);
-  assert.deepStrictEqual(refs, [['core.sw', 5], ['core.sw', 20], ['List/Toolkit.sw', 3]]);
+  assert.deepStrictEqual(refs, [['core/Data.sw', 5], ['core/Data.sw', 20], ['List/Toolkit.sw', 3]]);
   // The declaration's own name in a library file points at itself.
   const own = nav.refAt(libIndex, 2, 3, 10);
   assert.strictEqual(nav.targetOf(libIndex, own).std, 'List/Toolkit.sw');
@@ -321,8 +321,8 @@ test('which index serves a library document: the project it was opened from, if 
   const bare = { ...libIndex, refs: libIndex.refs.filter((r) => r.file === 0) };
   const a = { key: 'a', index: bare };
   const b = { key: 'b', index: libIndex };
-  assert.strictEqual(nav.pickIndexForStd([a, b], 'core.sw', 'a').candidate.key, 'b'); // a has none in core.sw
-  assert.strictEqual(nav.pickIndexForStd([b, { key: 'c', index: libIndex }], 'core.sw', 'c').candidate.key, 'c');
-  assert.strictEqual(nav.pickIndexForStd([a], 'core.sw', 'a'), null);
+  assert.strictEqual(nav.pickIndexForStd([a, b], 'core/Data.sw', 'a').candidate.key, 'b'); // a has none in core/Data.sw
+  assert.strictEqual(nav.pickIndexForStd([b, { key: 'c', index: libIndex }], 'core/Data.sw', 'c').candidate.key, 'c');
+  assert.strictEqual(nav.pickIndexForStd([a], 'core/Data.sw', 'a'), null);
   assert.strictEqual(nav.pickIndexForStd([b], 'Other.sw', undefined), null);
 });

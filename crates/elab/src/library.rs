@@ -1,7 +1,7 @@
 //! The standard library's files, its name index, and loading it on demand
 //! (docs/proposals/std-library.md).
 //!
-//! The always-loaded **core** is `std/core.sw`. Everything else is a
+//! The always-loaded **core** is the files of `std/core/`, joined (`PRELUDE`). Everything else is a
 //! **library file** under `std/`, checked only when a program uses
 //! something in it. Lazy loading is an implementation detail (§4.0): a
 //! program resolves and elaborates exactly as if every file were loaded.
@@ -25,7 +25,7 @@
 //!   internal error naming both files, never a hang or a silent skip.
 //!
 //! Library files are elaborated as the prelude is: names are written as in
-//! `std/core.sw`, in the namespace they declare into.
+//! `std/core/`, in the namespace they declare into.
 
 use std::cmp::Reverse;
 use std::collections::{BTreeSet, BinaryHeap, HashMap};

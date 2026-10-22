@@ -19,7 +19,7 @@ function fileIndexByPath(index, path) {
 }
 
 // The index entry of an embedded library file, by its `std` value
-// (`List/Toolkit.sw`; `core.sw` is the core), or -1.
+// (`List/Toolkit.sw`; `core/Data.sw` is a file of the core), or -1.
 function fileIndexByStd(index, std) {
   return index.files.findIndex((f) => f.std === std);
 }

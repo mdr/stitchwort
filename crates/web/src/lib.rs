@@ -86,7 +86,7 @@ pub fn check_index(source: &str) -> String {
 }
 
 /// The text of an embedded library file, by the `std` value of a file of
-/// the index (`List/Toolkit.sw`; `core.sw` is the core): empty if there's
+/// the index (`List/Toolkit.sw`; `core/Int.sw` is a file of the core): empty if there's
 /// none.
 #[wasm_bindgen]
 pub fn std_source(path: &str) -> String {
@@ -611,7 +611,7 @@ mod tests {
         assert!(index.contains(r#""name":"Std.List.length""#), "{index}");
         let failed = check_index("def f : Nat := rfl\n");
         assert!(failed.contains(r#""errors":true,"ok":false"#), "{failed}");
-        assert!(std_source("core.sw").contains("type List"));
+        assert!(std_source("core/Data.sw").contains("type List"));
         assert_eq!(std_source("nope.sw"), "");
     }
 

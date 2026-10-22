@@ -51,7 +51,7 @@ enum Command {
         cache: CacheArgs,
     },
     /// Print an embedded standard library file (`List/Toolkit.sw`;
-    /// `core.sw` is the core), as the index's `std` markers name them
+    /// `core/Int.sw` is a file of the core), as the index's `std` markers name them
     StdSource { path: String },
     /// Run tests, reusing cached results where nothing they depend on has
     /// changed: a file's, or a namespace's (and those of the namespaces it

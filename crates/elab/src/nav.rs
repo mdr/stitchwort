@@ -191,18 +191,33 @@ pub enum NavTarget {
 }
 
 /// The text of an embedded library file, by its path under `std/`
-/// (`core.sw` is the core). Read from the library index (built if it
-/// isn't yet, with `stack` for the parser): a lookup in the constants the
-/// files are embedded as would copy them, which doubles their size in
-/// WebAssembly.
+/// (`core/Int.sw` is one of the core's files). Read from the library index
+/// (built if it isn't yet, with `stack` for the parser): a lookup in the
+/// constants the files are embedded as would copy them, which doubles their
+/// size in WebAssembly. A core file is cut from the core's text, which the
+/// index holds whole.
 pub fn std_source(path: &str, stack: usize) -> Option<String> {
     let index = crate::LibraryIndex::standard(stack).ok()?;
-    let file = if path == "core.sw" {
-        index.files.first()
-    } else {
-        index.files.iter().skip(1).find(|f| f.path == path)
-    };
-    file.map(|f| f.text.clone())
+    if path.starts_with("core/") {
+        let start: usize = crate::CORE_LAYOUT
+            .iter()
+            .take_while(|(p, _)| *p != path)
+            .map(|(_, len)| len)
+            .sum();
+        let (_, len) = crate::CORE_LAYOUT.iter().find(|(p, _)| *p == path)?;
+        return index
+            .files
+            .first()?
+            .text
+            .get(start..start + len)
+            .map(str::to_string);
+    }
+    index
+        .files
+        .iter()
+        .skip(1)
+        .find(|f| f.path == path)
+        .map(|f| f.text.clone())
 }
 
 impl Elaborator {

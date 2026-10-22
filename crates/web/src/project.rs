@@ -471,7 +471,7 @@ mod tests {
             );
             assert!(index.contains(r#"{"path":"src/B/B.sw"}"#), "{index}");
             assert!(index.contains(r#""name":"A.two","kind":"def""#), "{index}");
-            assert!(index.contains(r#""std":"core.sw""#), "{index}");
+            assert!(index.contains(r#""std":"core/Data.sw""#), "{index}");
         });
     }
 

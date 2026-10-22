@@ -151,7 +151,7 @@ impl Session {
 
     /// A session recording what code navigation needs (the index of
     /// `nav::index_json`), from the core on: recording turned on after the
-    /// session was made would miss the names in the core (`core.sw`).
+    /// session was made would miss the names in the core (`std/core/`).
     pub fn navigable() -> Self {
         Self::start(PRELUDE, Library::Standard, false, false, true)
             .unwrap_or_else(|report| panic!("{report}"))

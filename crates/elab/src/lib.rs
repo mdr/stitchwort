@@ -64,7 +64,62 @@ use stitchwort_syntax::{Diagnostic, Span, ast};
 use check::{Ctx, check, check_type, infer};
 use module::Phase;
 
-pub const PRELUDE: &str = include_str!("std/core.sw");
+/// Defines [`PRELUDE`], the core: the files of `std/core/`, in this order,
+/// joined as they are (checked as one module, so declarations are as they
+/// would be in one file), and [`CORE_LAYOUT`], each file's path and length,
+/// which is how a position in the core is traced to its file. The text is in
+/// the program once: a length is computed without keeping the text.
+macro_rules! core_files {
+    ($($name:literal),* $(,)?) => {
+        pub const PRELUDE: &str = concat!($(include_str!(concat!("std/core/", $name, ".sw"))),*);
+        pub const CORE_LAYOUT: &[(&str, usize)] = &[$((
+            concat!("core/", $name, ".sw"),
+            include_str!(concat!("std/core/", $name, ".sw")).len(),
+        )),*];
+    };
+}
+
+// Dependency order: each file uses only what the files before it declare.
+// `Imports` is first, and its imports cover them all. A test checks this
+// lists every file in `std/core/`.
+core_files!(
+    "Imports",
+    "Logic",
+    "Data",
+    "Equality",
+    "Decidable",
+    "Char",
+    "Division",
+    "ListOptionPair",
+    "Ordering",
+    "Helpers",
+    "Text",
+    "Int",
+    "Effect",
+    "IO",
+    "DecEq",
+    "Compare",
+    "CompareData",
+    "Ord",
+    "OrdDerived",
+    "Show",
+    "Arith",
+    "AddMul",
+);
+
+/// The core's file that holds `offset` of [`PRELUDE`]: its path (under
+/// `std/`), where it starts in [`PRELUDE`], and its index in
+/// [`CORE_LAYOUT`].
+pub fn core_file_at(offset: usize) -> (&'static str, usize, usize) {
+    let mut start = 0;
+    for (i, (path, len)) in CORE_LAYOUT.iter().enumerate() {
+        if offset < start + len || i + 1 == CORE_LAYOUT.len() {
+            return (path, start, i);
+        }
+        start += len;
+    }
+    unreachable!("the core has files")
+}
 
 type Result<T> = std::result::Result<T, Diagnostic>;
 
