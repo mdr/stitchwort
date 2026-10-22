@@ -8,7 +8,8 @@
 --
 -- The dial's size is a parameter, `highest` being its largest number (99 in
 -- the puzzle). Part 2 is proved correct, for a dial of any size, in
--- `Aoc.Day01.Proofs` (Proofs/Part2.sw), which `run` does not check.
+-- `Aoc.Day01.Proofs` (Proofs/Part2.sw), and the tests are in `Aoc.Day01.Tests`
+-- (Tests/); `run` checks neither.
 
 namespace Aoc.Day01
 import Std (IO, Int, List)
@@ -26,21 +27,6 @@ def solvePart2 (turns: List Turn): Nat := zerosPassed dial turns
 
 -- The puzzle's dial, at 50.
 def dial: Dial 99 := { position = 50, inRange = rfl }
-
-def example: List Text := """
-  L68
-  L30
-  R48
-  L5
-  R60
-  L55
-  L1
-  L99
-  R14
-  L82
-  """.lines
-
-test "example" := (solvePart1 (parseTurns example), solvePart2 (parseTurns example)) == (3, 6)
 
 -- Part 1: the positions after each turn that are 0.
 def zerosLandedOn (start: Dial highest) (turns: List Turn): Nat :=
@@ -66,12 +52,6 @@ def Turn.parse (t: Text): Option Turn :=
     | Some ('L', rest) => rest.toNat.map Left
     | Some ('R', rest) => rest.toNat.map Right
     | _                => None
-
-def after (t: Text): Option Nat := (Turn.parse t).map (turn => (dial.move turn).position)
-
-test "parse" := after "L68" == Some 82
-test "parse right" := after "R5" == Some 55
-test "parse junk" := after "X5" == None
 
 -- A turn, one click at a time: `Left 3` is three `Left 1`s. Only the
 -- specification of part 2 and its proofs (`Aoc.Day01.Proofs`) use it; it stays
@@ -103,11 +83,3 @@ def Dial.isZero (d: Dial highest): Bool := d.position == 0
 def Dial.zerosDuring (d: Dial highest): Turn -> Nat
   | Right n => (d.position + n) / d.size
   | Left n  => ((d.size - d.position) % d.size + n) / d.size
-
-def zerosFrom (x: Int) (t: Turn): Nat := (Dial.fromInt 99 x).zerosDuring t
-
-test "left past zero" := zerosFrom 10 (Left 40) == 1
-test "left onto zero" := zerosFrom 20 (Left 20) == 1
-test "right onto zero" := zerosFrom 0 (Right 100) == 1
-test "left from zero" := zerosFrom 0 (Left 42) == 0
-test "left a full turn from zero" := zerosFrom 0 (Left 200) == 2

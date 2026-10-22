@@ -9,6 +9,7 @@
 
 namespace Aoc.Day01.Proofs
 import Aoc.Day01 (..)
+import Aoc.Day01.Tests (example)
 import Std (Bool, Eq, Int, List, Nat)
 
 -- The specification of part 2: turn the dial one click at a time, and count

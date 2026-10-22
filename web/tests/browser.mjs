@@ -1018,10 +1018,10 @@ test("the AoC tests are grouped by namespace, and cached on the next visit", asy
              rows: [...o.querySelectorAll("ul.tests li")].map((li) => li.textContent) };
   })()`, 60000, "the tests");
   const first = await results();
-  assert.equal(first.groups[0], "Aoc.Day03");
+  assert.equal(first.groups[0], "Aoc.Day03.Tests");
   assert.ok(first.rows.length >= 2 && first.rows.every((r) => r.startsWith("✓")), first.rows.join("\n"));
   assert.doesNotMatch(first.summary, /failed, [1-9]|[1-9]\d* failed/);
-  // `Input.sw` reads the bundled puzzle input through `include` (SW-187).
+  // `Tests/Input.sw` reads the bundled puzzle input through `include` (SW-187).
   assert.ok(first.rows.some((r) => r.includes("real input")), first.rows.join("\n"));
   await page.reload();
   await page.until(`document.getElementById("status").textContent === ${JSON.stringify(dayStatus(3))}`, 60000);
@@ -1131,7 +1131,7 @@ test("Evaluate takes full names in a project", async (page) => {
   await page.untilChecked();
   await openDay(page, 2);
   await page.tab("eval");
-  assert.equal(await page.until(`document.getElementById("eval-input")?.value`, 10000), "Aoc.Day02.solvePart1 Aoc.Day02.exampleRanges");
+  assert.equal(await page.until(`document.getElementById("eval-input")?.value`, 10000), "Aoc.Day02.solvePart1 Aoc.Day02.Tests.exampleRanges");
   await page.until(`document.querySelector(".result")?.textContent.startsWith("1227775554")`, 30000, "the value");
   // A short name isn't in scope.
   await page.ev(`(() => { const i = document.getElementById("eval-input"); i.value = "solvePart1";

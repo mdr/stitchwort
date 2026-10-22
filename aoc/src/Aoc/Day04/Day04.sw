@@ -16,8 +16,8 @@
 --
 -- Both parts are proved right for every grid in `Aoc.Day04.Proofs`
 -- (Proofs/Spec.sw states the puzzle by positions; Proofs/Part1.sw and
--- Proofs/Part2.sw; the parser in Proofs/Parse.sw), which `run` does not
--- check.
+-- Proofs/Part2.sw; the parser in Proofs/Parse.sw), and the tests are in
+-- `Aoc.Day04.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Day04
 import Std (IO, Option, Pair, Vec)
@@ -47,29 +47,6 @@ def solvePart1 (grid: Grid): Nat := grid.rolls - grid.round.rolls
 -- Part 2: the rolls removed by rounds until none is accessible.
 def solvePart2 (grid: Grid): Nat := grid.rolls - grid.settle.rolls
 
-def example: List Text := """
-  ..@@.@@@@.
-  @@@.@.@.@@
-  @@@@@.@.@@
-  @.@@@@..@.
-  @@.@@@@.@@
-  .@@@@@@@.@
-  .@.@.@.@@@
-  @.@@@.@@@@
-  .@@@@@@@@.
-  @.@.@@@.@.
-  """.lines
-
--- Both answers for some lines, if they make a grid.
-def answers (lines: List Text): Option (Nat, Nat) := Option.map (grid => (solvePart1 grid, solvePart2 grid)) (parseGrid lines)
-
-test "example" := answers example == Some (13, 43)
-test "lone roll" := answers ["@"] == Some (1, 1)
-test "full square" := answers ["@@", "@@"] == Some (4, 4)
-test "plus shape keeps its centre" := answers [".@.", "@@@", ".@."] == Some (4, 5)
-test "no lines" := answers [] == Some (0, 0)
-test "ragged" := answers ["@@", "@"] == None
-
 -- `None` if the lines are not all as long as the first.
 def parseGrid (lines: List Text): Option Grid :=
   let width := (lines.headOr "").length
@@ -82,8 +59,6 @@ def parseLine (line: Text): List Cell := line.toList.map parseChar
 def parseChar (ch: Char): Cell := if ch == '@' then Roll else Floor
 
 def Grid.rolls (grid: Grid): Nat := grid.rows.sumBy (row => row.sumBy Cell.count)
-
-test "rolls" := Option.map Grid.rolls (parseGrid example) == Some 71
 
 -- Remove every accessible roll, all at once: each row sees the rows above
 -- and below as they were.
