@@ -303,6 +303,23 @@ test("loads and checks the default example", async (page) => {
   await assertAligned(page, "the default example");
 });
 
+test("the compiler's files are asked for by content hash (pkg/version.json)", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  const version = await page.ev(`fetch("pkg/version.json").then((r) => r.json())`);
+  assert.match(version.compiler, /^[0-9a-f]{16}$/);
+  assert.match(version.projects, /^[0-9a-f]{16}$/);
+  const asked = await page.ev(`performance.getEntriesByType("resource").map((e) => new URL(e.name).pathname.split("/").pop() + new URL(e.name).search)`);
+  assert.ok(asked.includes("version.json"), `version.json is fetched: ${asked}`);
+  assert.ok(asked.includes(`stitchwort_web_bg.wasm?v=${version.compiler}`), `the WebAssembly: ${asked}`);
+  assert.ok(asked.includes(`playground-worker.js?v=${version.compiler}`), `the worker: ${asked}`);
+  assert.ok(!asked.some((a) => a.includes("load=")), `no ?load=: ${asked}`);
+  await page.pick("aoc:0");
+  await page.untilStatus(dayStatus(1), 60000);
+  const manifest = await page.ev(`performance.getEntriesByType("resource").map((e) => new URL(e.name).pathname.split("/").pop() + new URL(e.name).search).filter((a) => a.startsWith("manifest.json"))`);
+  assert.deepEqual(manifest, [`manifest.json?v=${version.projects}`]);
+});
+
 test("every example checks, and passes its tests but the failing one", async (page) => {
   await page.open();
   await page.untilChecked();

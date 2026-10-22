@@ -122,6 +122,7 @@
                 cp ${./web/index.html} $out/index.html
                 cp ${./web/playground-worker.js} $out/playground-worker.js
                 bash ${./web/bundle-projects.sh} ${aocBundle} $out/pkg
+                bash ${./web/write-version.sh} $out
               '';
             }
           );
