@@ -46,6 +46,10 @@ type RepetitionTemplate = { blockLength: Nat, copies: Nat }
 def RepetitionTemplate.multiplier (template: RepetitionTemplate): Nat :=
   List.range template.copies |> .sumBy (i => Nat.pow 10 (template.blockLength * i))
 
+-- The blocks have blockLength digits: from 10^(blockLength-1) up to 10^blockLength - 1.
+def RepetitionTemplate.smallestBlock (template: RepetitionTemplate): Nat := Nat.pow 10 (template.blockLength - 1)
+def RepetitionTemplate.largestBlock (template: RepetitionTemplate): Nat := Nat.pow 10 template.blockLength - 1
+
 -- Every template that fits in the digits of the range's end: a block of one or
 -- more digits written two or more times. Some may have no ids in the range;
 -- `sumOfIdsInRangeMatchingTemplate` gives those 0.
@@ -90,13 +94,10 @@ def sumOfIdsInRangeMatchingTemplate (range: Range) (template: RepetitionTemplate
   -- Every such id is a block times the multiplier.
   let multiplier := template.multiplier
   if multiplier != 0 then
-    -- The blocks have blockLength digits: from 10^(n-1) up to 10^n - 1.
-    let smallestBlock := Nat.pow 10 (template.blockLength - 1)
-    let largestBlock := Nat.pow 10 template.blockLength - 1
-    -- Those whose id lies in the range: the block times the multiplier is at
-    -- least range.from (round up) and at most range.to (round down).
-    let firstBlock := Nat.max smallestBlock ((range.from + multiplier - 1) / multiplier)
-    let lastBlock := Nat.min largestBlock (range.to / multiplier)
+    -- The blocks whose id lies in the range: the block times the multiplier is
+    -- at least range.from (round up) and at most range.to (round down).
+    let firstBlock := Nat.max template.smallestBlock ((range.from + multiplier - 1) / multiplier)
+    let lastBlock := Nat.min template.largestBlock (range.to / multiplier)
     -- The blocks form an interval: add them up as an arithmetic series.
     if firstBlock <= lastBlock then multiplier * ((firstBlock + lastBlock) * (lastBlock - firstBlock + 1) / 2) else 0
   else 0
