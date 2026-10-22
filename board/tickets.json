@@ -1,5 +1,5 @@
 {
-  "next": 310,
+  "next": 311,
   "tickets": [
     {
       "id": 1,
@@ -4750,7 +4750,7 @@
     {
       "id": 308,
       "title": "AoC day 8 community research note (other languages; before our own solution)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "worktree lane",
       "labels": [
@@ -4759,7 +4759,9 @@
       "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "658772a5"
+      ]
     },
     {
       "id": 309,
@@ -4772,6 +4774,21 @@
         "tests"
       ],
       "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 310,
+      "title": "Parser: tuple pattern (Some x, Some y, Some z) gives E-PARSE",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "syntax",
+        "bug"
+      ],
+      "body": "Found by SW-308 (day 8 note); cause unverified; worked around with flatMap.",
       "created": "2026-10-22",
       "updated": "2026-10-22",
       "commits": []
