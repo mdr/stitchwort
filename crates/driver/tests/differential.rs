@@ -16,7 +16,8 @@ use stitchwort_core::{DefId, Globals, Icit};
 use stitchwort_driver::driver::{Session, with_stack};
 use stitchwort_syntax::{SourceMap, Span};
 
-const STACK: usize = 64 * 1024 * 1024;
+// Debug builds use much more stack per frame (io.sw's 5,000 prints overflow 64 MiB).
+const STACK: usize = if cfg!(debug_assertions) { 512 } else { 64 } * 1024 * 1024;
 
 /// The normal form of `value`, as printed by the reference.
 fn normal(g: &Globals, level: usize, value: &Value) -> String {
