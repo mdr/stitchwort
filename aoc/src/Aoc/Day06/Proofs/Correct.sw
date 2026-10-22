@@ -73,9 +73,7 @@ theorem evaluateReverse: (op: Option Operator) -> (xs: List Nat) -> evaluate op 
 
 -- A problem has at least one column.
 theorem problemWide (lines: List Text) (lo: Nat) (hi: Nat) (h: isProblem lines lo hi = True): lo < hi :=
-  rewrite <- Bool.decTrueToBool (Nat.leq (Succ lo) hi) in
-    Bool.andLeft (lo < hi) (List.all (c => not (blank lines c)) (List.rangeFrom (hi - lo) lo) && blank lines hi)
-      (Bool.andRight (lo == 0 || blank lines (lo - 1)) (lo < hi && (List.all (c => not (blank lines c)) (List.rangeFrom (hi - lo) lo) && blank lines hi)) h)
+  omega
 
 -- The columns of a problem start with its first.
 theorem problemColumns (lo: Nat) (hi: Nat) (h: lo < hi): List.rangeFrom (hi - lo) lo = Cons lo (List.rangeFrom (hi - Succ lo) (Succ lo)) :=
