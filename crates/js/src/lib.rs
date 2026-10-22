@@ -5,7 +5,7 @@
 //! (`Nat`, `Bool`, `Text`, `Char`, `List`, and data types built from them,
 //! such as `Option Text`), and their proof arguments are checked at runtime.
 
-use std::cell::{Cell, OnceCell};
+use std::cell::{Cell, OnceCell, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::fmt::Write;
 
@@ -1213,6 +1213,15 @@ struct Gen<'g> {
     /// definitions are generated, and `Delay`'s constants build
     /// `StitchwortDelay` objects.
     run_delay: bool,
+    /// While a loop's body is being generated ([`Gen::self_tail_loop`]): the
+    /// variables that stand for a call to the definition itself, which was
+    /// an argument to a helper that's been inlined ([`Gen::tail`]), by
+    /// level, with what the next turn of the loop would be passed.
+    holes: RefCell<Vec<(usize, Passed)>>,
+    /// Whether such a variable was used any way but in tail position, or
+    /// as a field of a constructor in tail position, where it can't be
+    /// compiled.
+    hole_misused: Cell<bool>,
 }
 
 /// What the generator decides about a definition from its type.
@@ -1254,10 +1263,48 @@ enum Convention {
 /// The definition being generated, for turning calls to itself in tail
 /// position into another turn of a loop. JS engines don't eliminate tail
 /// calls, so otherwise each would use a stack frame.
+/// What a turn of a loop is passed: parameter levels and JS values.
+type Passed = Vec<(usize, String)>;
+
+/// The cells a constructor makes (`Gen::cons_cells`): the outermost, the
+/// innermost, its field that takes the rest, and what the next turn is passed.
+type Cells = (String, String, String, Passed);
+
 struct SelfCall {
     id: DefId,
     /// Whether any call was turned into a loop.
     used: Cell<bool>,
+    /// Whether a call in a constructor's field, in tail position, is a turn
+    /// of the loop too (tail recursion modulo constructor): the loop builds
+    /// the result a cell at a time.
+    cons: bool,
+    /// Whether any was.
+    cons_used: Cell<bool>,
+    /// Whether to inline a helper that a call to the definition is an
+    /// argument of, in tail position.
+    inline: bool,
+    /// How many helpers are being inlined, and a counter for names.
+    inlining: Cell<usize>,
+    fresh: Cell<usize>,
+}
+
+impl SelfCall {
+    fn new(id: DefId, cons: bool, inline: bool) -> Self {
+        SelfCall {
+            id,
+            used: Cell::new(false),
+            cons,
+            cons_used: Cell::new(false),
+            inline,
+            inlining: Cell::new(0),
+            fresh: Cell::new(0),
+        }
+    }
+
+    fn fresh(&self) -> usize {
+        self.fresh.set(self.fresh.get() + 1);
+        self.fresh.get()
+    }
 }
 
 impl<'g> Gen<'g> {
@@ -1280,6 +1327,8 @@ impl<'g> Gen<'g> {
             infos: g.defs.iter().map(|_| OnceCell::new()).collect(),
             if_then_else: g.registry.def(Builtin::IfThenElse),
             run_delay: false,
+            holes: RefCell::new(Vec::new()),
+            hole_misused: Cell::new(false),
         })
     }
 
@@ -1439,14 +1488,29 @@ impl<'g> Gen<'g> {
         tree: &Term,
         env: &mut Vec<bool>,
     ) -> Fallible<Option<String>> {
-        let call = SelfCall {
-            id,
-            used: Cell::new(false),
-        };
-        let block = self.tree(tree, env, 2, Some(&call))?;
-        if !call.used.get() {
-            return Ok(None);
+        // The most it can do first: calls modulo constructors, through
+        // inlined helpers. If that can't be compiled (a helper uses the
+        // result some other way), less, and last, only direct tail calls.
+        for (cons, inline) in [(true, true), (true, false), (false, false)] {
+            let call = SelfCall::new(id, cons, inline);
+            self.holes.borrow_mut().clear();
+            self.hole_misused.set(false);
+            let block = self.tree(tree, env, 2, Some(&call))?;
+            let ok = call.used.get() && !self.hole_misused.get() && (!cons || call.cons_used.get());
+            self.holes.borrow_mut().clear();
+            self.hole_misused.set(false);
+            if ok {
+                return Ok(Some(Self::loop_block(env, &block, cons)));
+            }
         }
+        Ok(None)
+    }
+
+    /// The loop of [`Gen::self_tail_loop`], around the case tree's `block`.
+    /// With `cons`, the result is built by a chain of cells (a constructor's
+    /// object) that the loop links as it makes them: `h$` is the first, `l$`
+    /// the last, and `k$` the name of its field that the rest goes in.
+    fn loop_block(env: &[bool], block: &str, cons: bool) -> String {
         let slots: Vec<usize> = (0..env.len()).filter(|level| !env[*level]).collect();
         let copy = |from: fn(usize) -> String, to: fn(usize) -> String| {
             slots
@@ -1455,11 +1519,16 @@ impl<'g> Gen<'g> {
                 .collect::<Vec<_>>()
                 .join(", ")
         };
-        Ok(Some(format!(
-            "{{\n  let {};\n  for (;;) {{\n    const {};\n{block}  }}\n}}",
+        let chain = if cons {
+            "  let h$ = null, l$ = null, k$ = null;\n"
+        } else {
+            ""
+        };
+        format!(
+            "{{\n  let {};\n{chain}  for (;;) {{\n    const {};\n{block}  }}\n}}",
             copy(var, slot),
             copy(slot, var)
-        )))
+        )
     }
 
     /// Statements for a case tree, ending in `return` (or, for a call to
@@ -1477,7 +1546,7 @@ impl<'g> Gen<'g> {
         if let Term::NumCase(ix, arms, default) = term.strip_loc() {
             // Each arm ends in `return` (or `continue`), so nothing falls
             // through, and after the `switch` comes the default.
-            let scrutinee = var(env.len() - 1 - ix);
+            let scrutinee = self.scrutinee(env, *ix);
             let mut out = format!("{pad}switch ({scrutinee}) {{\n");
             for arm in arms.iter() {
                 let _ = writeln!(out, "{pad}  case {}n: {{", arm.value);
@@ -1501,7 +1570,7 @@ impl<'g> Gen<'g> {
             };
         };
         let data = self.g.data(*d);
-        let scrutinee = var(env.len() - 1 - ix);
+        let scrutinee = self.scrutinee(env, *ix);
         let mut out = String::new();
         let predecessor = var(env.len());
         let mut branch = |out: &mut String, c: usize, b: &Branch, depth: usize| {
@@ -1635,19 +1704,54 @@ impl<'g> Gen<'g> {
             env.pop();
             return Ok(out);
         }
+        // A variable that stands for a call to itself, in a helper that's
+        // been inlined: the next turn.
+        if let Term::Var(ix) = term.strip_loc()
+            && let Some(passed) = self.hole_at(env.len() - 1 - ix)
+        {
+            return Ok(Self::next_turn(&pad, &passed));
+        }
+        // A constructor with the call in a field: the call is the next turn,
+        // and its result will be put in that field of this cell.
+        if call.cons
+            && let Term::Ctor(..) = term.strip_loc()
+            && self.hole_path(term, env, call).is_some()
+        {
+            let mut out = String::new();
+            let (cell, last_cell, key, passed) =
+                self.cons_cells(term, env, &pad, call, &mut out)?;
+            call.cons_used.set(true);
+            call.used.set(true);
+            let _ = writeln!(
+                out,
+                "{pad}if (l$ === null) {{ h$ = {cell}; }} else {{ l$[k$] = {cell}; }}"
+            );
+            let _ = writeln!(
+                out,
+                "{pad}l$ = {last_cell}; k$ = {};",
+                js_string_literal(&key)
+            );
+            out.push_str(&Self::next_turn(&pad, &passed));
+            return Ok(out);
+        }
         let (head, args) = term.spine();
         let Term::Def(id) = head else {
-            return Ok(format!("{pad}return {};\n", self.expr(term, env)?));
+            return self.leaf_return(term, env, &pad, call);
         };
         if *id == call.id && args.len() == self.g.def(*id).arity {
             call.used.set(true);
-            let mut out = String::new();
+            let mut passed = Vec::new();
             for (level, arg) in args.iter().enumerate() {
                 if !env[level] {
-                    let _ = writeln!(out, "{pad}{} = {};", slot(level), self.expr(arg, env)?);
+                    passed.push((level, self.expr(arg, env)?));
                 }
             }
-            let _ = writeln!(out, "{pad}continue;");
+            return Ok(Self::next_turn(&pad, &passed));
+        }
+        if call.inline
+            && call.inlining.get() < 3
+            && let Some(out) = self.inline_helper(*id, &args, env, depth, call)?
+        {
             return Ok(out);
         }
         if Some(*id) == self.if_then_else
@@ -1669,7 +1773,270 @@ impl<'g> Gen<'g> {
                 "{pad}if ({cond}.tag === \"True\") {{\n{then}{pad}}} else {{\n{otherwise}{pad}}}\n"
             ));
         }
-        Ok(format!("{pad}return {};\n", self.expr(term, env)?))
+        self.leaf_return(term, env, &pad, call)
+    }
+
+    /// `term`, a leaf of a loop that isn't another turn, is its result. If
+    /// the loop is building a chain of cells, it's the rest of the chain.
+    fn leaf_return(
+        &self,
+        term: &Term,
+        env: &mut Vec<bool>,
+        pad: &str,
+        call: &SelfCall,
+    ) -> Fallible<String> {
+        let value = self.expr(term, env)?;
+        Ok(if call.cons {
+            format!(
+                "{pad}{{ const r$ = {value}; if (l$ === null) return r$; l$[k$] = r$; return h$; }}\n"
+            )
+        } else {
+            format!("{pad}return {value};\n")
+        })
+    }
+
+    /// The next turn of a loop, passing `passed` (parameter level and JS
+    /// value).
+    fn next_turn(pad: &str, passed: &[(usize, String)]) -> String {
+        let mut out = String::new();
+        for (level, value) in passed {
+            let _ = writeln!(out, "{pad}{} = {value};", slot(*level));
+        }
+        let _ = writeln!(out, "{pad}continue;");
+        out
+    }
+
+    /// What the next turn would be passed, if variable `level` stands for a
+    /// call to the definition itself.
+    fn hole_at(&self, level: usize) -> Option<Vec<(usize, String)>> {
+        self.holes
+            .borrow()
+            .iter()
+            .rev()
+            .find(|(l, _)| *l == level)
+            .map(|(_, passed)| passed.clone())
+    }
+
+    /// The variable for `ix`, as a case's scrutinee. A variable that stands
+    /// for a call to itself has no value, so it can't be matched on.
+    fn scrutinee(&self, env: &[bool], ix: usize) -> String {
+        let level = env.len() - 1 - ix;
+        if self.hole_at(level).is_some() {
+            self.hole_misused.set(true);
+        }
+        var(level)
+    }
+
+    /// If `term` is a call to the definition itself, or a variable that
+    /// stands for one, what the next turn would be passed.
+    fn hole_passed(
+        &self,
+        term: &Term,
+        env: &mut Vec<bool>,
+        call: &SelfCall,
+    ) -> Fallible<Option<Vec<(usize, String)>>> {
+        if let Term::Var(ix) = term.strip_loc() {
+            return Ok(self.hole_at(env.len() - 1 - ix));
+        }
+        let (head, args) = term.spine();
+        if let Term::Def(id) = head
+            && *id == call.id
+            && args.len() == self.g.def(*id).arity
+        {
+            let mut passed = Vec::new();
+            for (level, arg) in args.iter().enumerate() {
+                if !env[level] {
+                    passed.push((level, self.expr(arg, env)?));
+                }
+            }
+            return Ok(Some(passed));
+        }
+        Ok(None)
+    }
+
+    /// Whether `term` has a call to the definition itself (or a variable
+    /// that stands for one) as a field, or in a constructor in a field:
+    /// which field, if only one has it. (Nothing is generated.)
+    fn hole_path(&self, term: &Term, env: &[bool], call: &SelfCall) -> Option<usize> {
+        let Term::Ctor(d, _, args) = term.strip_loc() else {
+            return None;
+        };
+        let data = self.g.data(*d);
+        if data.sort == Sort::Prop
+            || Some(*d) == self.text
+            || Some(*d) == self.nat
+            || Some(*d) == self.int
+        {
+            return None;
+        }
+        let mut found = None;
+        for (i, arg) in args.iter().enumerate() {
+            let is_hole = match arg.strip_loc() {
+                Term::Var(ix) => self.hole_at(env.len() - 1 - ix).is_some(),
+                Term::Ctor(..) => self.hole_path(arg, env, call).is_some(),
+                other => {
+                    let (head, args) = other.spine();
+                    matches!(head, Term::Def(id) if *id == call.id
+                        && args.len() == self.g.def(*id).arity)
+                }
+            };
+            if is_hole {
+                if found.is_some() {
+                    return None;
+                }
+                found = Some(i);
+            }
+        }
+        // The field mustn't be erased, or there's no cell to put it in.
+        let ctor_erased = |c: usize, i: usize| self.g.data(*d).ctors[c].field_erased[i];
+        let Term::Ctor(_, c, _) = term.strip_loc() else {
+            return None;
+        };
+        found.filter(|i| !ctor_erased(*c, *i))
+    }
+
+    /// Statements that make the cells of `term` (a constructor with a call
+    /// to itself in a field, [`Gen::hole_path`]), and what to do next:
+    /// the outermost cell, the innermost, the field of the innermost that
+    /// takes the rest, and what the next turn is passed. The cells' other
+    /// fields are computed now, as the whole constructor would have been.
+    fn cons_cells(
+        &self,
+        term: &Term,
+        env: &mut Vec<bool>,
+        pad: &str,
+        call: &SelfCall,
+        out: &mut String,
+    ) -> Fallible<Cells> {
+        let Term::Ctor(d, c, args) = term.strip_loc() else {
+            unreachable!("`hole_path` found a constructor");
+        };
+        let hole = self
+            .hole_path(term, env, call)
+            .expect("`hole_path` found a hole");
+        let data = self.g.data(*d);
+        let ctor = &data.ctors[*c];
+        let mut fields = Vec::new();
+        if !data.record {
+            fields.push(format!("tag: \"{}\"", ctor.name));
+        }
+        let mut inner = None;
+        for (f, (erased, arg)) in ctor.field_erased.iter().zip(args.iter()).enumerate() {
+            if *erased {
+                continue;
+            }
+            let key = field_key_at(self.g, *d, *c, f);
+            let value = if f != hole {
+                self.expr(arg, env)?
+            } else if let Term::Ctor(..) = arg.strip_loc() {
+                let (cell, last, last_key, passed) = self.cons_cells(arg, env, pad, call, out)?;
+                inner = Some((last, last_key, passed));
+                cell
+            } else {
+                let passed = self
+                    .hole_passed(arg, env, call)?
+                    .expect("`hole_path` found a call");
+                inner = Some((String::new(), key.clone(), passed));
+                "null".to_string()
+            };
+            fields.push(format!("{}: {value}", ts_key(&key)));
+        }
+        let cell = format!("c{}$", call.fresh());
+        let _ = writeln!(out, "{pad}const {cell} = {{ {} }};", fields.join(", "));
+        let (last, key, passed) = inner.expect("the hole's field is not erased");
+        // A direct call: this cell is the last, and the field is its own.
+        let last = if last.is_empty() { cell.clone() } else { last };
+        Ok((cell, last, key, passed))
+    }
+
+    /// A call to `id`, with `args`, in tail position, where some of the
+    /// arguments are calls to the definition itself: if `id` is a helper
+    /// that only matches on its other arguments, it's inlined, so that
+    /// the calls are in tail position in its case tree: `List.filter`'s
+    /// `List.filterStep x (List.filter p xs) (p x)`, where the step has
+    /// the rest as the tail of a `Cons`, or as itself. The calls' results
+    /// are variables that can only be used in tail position or in a
+    /// constructor there ([`Gen::hole_misused`]).
+    fn inline_helper(
+        &self,
+        id: DefId,
+        args: &[&Term],
+        env: &mut Vec<bool>,
+        depth: usize,
+        call: &SelfCall,
+    ) -> Fallible<Option<String>> {
+        let def = self.g.def(id);
+        if id == call.id
+            || def.arity != args.len()
+            || self.text_natives.contains_key(&id)
+            || self.int_natives.contains_key(&id)
+            || self.kernel_native(id).is_some()
+        {
+            return Ok(None);
+        }
+        let Some(info) = self.infos[id.0].get() else {
+            return Ok(None);
+        };
+        if info.convention != Convention::Function || info.delay.is_some() {
+            return Ok(None);
+        }
+        let Some(body) = def.run_body() else {
+            return Ok(None);
+        };
+        // The arguments, in this call's environment. A call to itself isn't
+        // made: it's the next turn, if the helper puts it in tail position.
+        let mut bound: Vec<Option<Result<String, Passed>>> = Vec::new();
+        let mut any_hole = false;
+        for (i, arg) in args.iter().enumerate() {
+            if info.mask[i] {
+                bound.push(None);
+            } else if let Some(passed) = self.hole_passed(arg, env, call)? {
+                any_hole = true;
+                bound.push(Some(Err(passed)));
+            } else {
+                bound.push(Some(Ok(self.expr(arg, env)?)));
+            }
+        }
+        if !any_hole {
+            return Ok(None);
+        }
+        let pad = "  ".repeat(depth);
+        let base = env.len();
+        let mut out = String::new();
+        let mut registered = 0;
+        for (i, b) in bound.into_iter().enumerate() {
+            match b {
+                None => env.push(true),
+                Some(Ok(value)) => {
+                    let _ = writeln!(out, "{pad}const {} = {value};", var(base + i));
+                    env.push(false);
+                }
+                Some(Err(passed)) => {
+                    // The values are computed now, as the call's arguments
+                    // would have been; the next turn is passed them.
+                    let mut named = Vec::new();
+                    for (level, value) in passed {
+                        let name = format!("p{}_{level}$", call.fresh());
+                        let _ = writeln!(out, "{pad}const {name} = {value};");
+                        named.push((level, name));
+                    }
+                    self.holes.borrow_mut().push((base + i, named));
+                    registered += 1;
+                    env.push(false);
+                }
+            }
+        }
+        call.inlining.set(call.inlining.get() + 1);
+        let tree = body.peel_lams(def.arity);
+        let result = self.tree(tree, env, depth, Some(call));
+        call.inlining.set(call.inlining.get() - 1);
+        env.truncate(base);
+        let mut holes = self.holes.borrow_mut();
+        let keep = holes.len() - registered;
+        holes.truncate(keep);
+        drop(holes);
+        out.push_str(&result?);
+        Ok(Some(out))
     }
 
     fn expr(&self, term: &Term, env: &mut Vec<bool>) -> Fallible<String> {
@@ -1678,6 +2045,9 @@ impl<'g> Gen<'g> {
             Term::Loc(_, t) | Term::Ann(t, _) => self.expr(t, env)?,
             Term::Var(ix) => {
                 let level = env.len() - 1 - ix;
+                if self.hole_at(level).is_some() {
+                    self.hole_misused.set(true);
+                }
                 if env[level] {
                     "undefined".into()
                 } else {

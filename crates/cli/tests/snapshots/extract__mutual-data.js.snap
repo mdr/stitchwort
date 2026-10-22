@@ -433,17 +433,27 @@ define(info$Main$dRoses, [
 
 const $Std$dNat$dadd = (m) => (n) => m + n;
 const $Std$dList$dappend = (v1) => (v2) => {
-  switch (v1.tag) {
-    case "Nil": {
-      return v2;
+  let s1 = v1, s2 = v2;
+  let h$ = null, l$ = null, k$ = null;
+  for (;;) {
+    const v1 = s1, v2 = s2;
+    switch (v1.tag) {
+      case "Nil": {
+        { const r$ = v2; if (l$ === null) return r$; l$[k$] = r$; return h$; }
+      }
+      case "Cons": {
+        const v3 = v1.head;
+        const v4 = v1.tail;
+        const c1$ = { tag: "Cons", head: v3, tail: null };
+        if (l$ === null) { h$ = c1$; } else { l$[k$] = c1$; }
+        l$ = c1$; k$ = "tail";
+        s1 = v4;
+        s2 = v2;
+        continue;
+      }
     }
-    case "Cons": {
-      const v3 = v1.head;
-      const v4 = v1.tail;
-      return { tag: "Cons", head: v3, tail: $Std$dList$dappend(v4)(v2) };
-    }
+    throw new Error("unreachable");
   }
-  throw new Error("unreachable");
 };
 const $Main$dsizeForest = (v0) => {
   switch (v0.tag) {
@@ -469,17 +479,26 @@ const $Main$dsize = (v0) => {
   throw new Error("unreachable");
 };
 const $Main$drelabelAll = (v0) => {
-  switch (v0.tag) {
-    case "FNil": {
-      return { tag: "FNil" };
+  let s0 = v0;
+  let h$ = null, l$ = null, k$ = null;
+  for (;;) {
+    const v0 = s0;
+    switch (v0.tag) {
+      case "FNil": {
+        { const r$ = { tag: "FNil" }; if (l$ === null) return r$; l$[k$] = r$; return h$; }
+      }
+      case "FCons": {
+        const v1 = v0.first;
+        const v2 = v0.rest;
+        const c1$ = { tag: "FCons", first: $Main$drelabel(v1), rest: null };
+        if (l$ === null) { h$ = c1$; } else { l$[k$] = c1$; }
+        l$ = c1$; k$ = "rest";
+        s0 = v2;
+        continue;
+      }
     }
-    case "FCons": {
-      const v1 = v0.first;
-      const v2 = v0.rest;
-      return { tag: "FCons", first: $Main$drelabel(v1), rest: $Main$drelabelAll(v2) };
-    }
+    throw new Error("unreachable");
   }
-  throw new Error("unreachable");
 };
 const $Main$drelabel = (v0) => {
   switch (v0.tag) {

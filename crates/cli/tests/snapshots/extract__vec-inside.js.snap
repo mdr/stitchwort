@@ -462,17 +462,26 @@ const $Std$dList$dfoldLeft = (v2) => (v3) => (v4) => {
 };
 const $Std$dList$dsum = (v1) => (v2) => $Std$dList$dfoldLeft($Std$dAdd$dadd(v1))($Std$dAdd$dzero(v1))(v2);
 const $Main$dfromList = (v1) => {
-  switch (v1.tag) {
-    case "Nil": {
-      return { tag: "VNil" };
+  let s1 = v1;
+  let h$ = null, l$ = null, k$ = null;
+  for (;;) {
+    const v1 = s1;
+    switch (v1.tag) {
+      case "Nil": {
+        { const r$ = { tag: "VNil" }; if (l$ === null) return r$; l$[k$] = r$; return h$; }
+      }
+      case "Cons": {
+        const v2 = v1.head;
+        const v3 = v1.tail;
+        const c1$ = { tag: "VCons", n: $Std$dList$dlength(v3), x: v2, xs: null };
+        if (l$ === null) { h$ = c1$; } else { l$[k$] = c1$; }
+        l$ = c1$; k$ = "xs";
+        s1 = v3;
+        continue;
+      }
     }
-    case "Cons": {
-      const v2 = v1.head;
-      const v3 = v1.tail;
-      return { tag: "VCons", n: $Std$dList$dlength(v3), x: v2, xs: $Main$dfromList(v3) };
-    }
+    throw new Error("unreachable");
   }
-  throw new Error("unreachable");
 };
 const $Main$dhead = (v1) => (v2) => {
   switch (v2.tag) {
@@ -489,54 +498,76 @@ const $Main$dhead = (v1) => (v2) => {
   throw new Error("unreachable");
 };
 const $Main$dzipWith = (v3) => (v4) => (v5) => (v6) => {
-  switch (v5.tag) {
-    case "VNil": {
-      switch (v6.tag) {
-        case "VNil": {
-          return { tag: "VNil" };
+  let s3 = v3, s4 = v4, s5 = v5, s6 = v6;
+  let h$ = null, l$ = null, k$ = null;
+  for (;;) {
+    const v3 = s3, v4 = s4, v5 = s5, v6 = s6;
+    switch (v5.tag) {
+      case "VNil": {
+        switch (v6.tag) {
+          case "VNil": {
+            { const r$ = { tag: "VNil" }; if (l$ === null) return r$; l$[k$] = r$; return h$; }
+          }
+          case "VCons": {
+            const v7 = v6.n;
+            const v8 = v6.x;
+            const v9 = v6.xs;
+            throw new Error("unreachable");
+          }
         }
-        case "VCons": {
-          const v7 = v6.n;
-          const v8 = v6.x;
-          const v9 = v6.xs;
-          throw new Error("unreachable");
-        }
+        throw new Error("unreachable");
       }
-      throw new Error("unreachable");
-    }
-    case "VCons": {
-      const v7 = v5.n;
-      const v8 = v5.x;
-      const v9 = v5.xs;
-      switch (v6.tag) {
-        case "VNil": {
-          throw new Error("unreachable");
+      case "VCons": {
+        const v7 = v5.n;
+        const v8 = v5.x;
+        const v9 = v5.xs;
+        switch (v6.tag) {
+          case "VNil": {
+            throw new Error("unreachable");
+          }
+          case "VCons": {
+            const v10 = v6.n;
+            const v11 = v6.x;
+            const v12 = v6.xs;
+            const c1$ = { tag: "VCons", n: v7, x: (v4)(v8)(v11), xs: null };
+            if (l$ === null) { h$ = c1$; } else { l$[k$] = c1$; }
+            l$ = c1$; k$ = "xs";
+            s3 = v7;
+            s4 = v4;
+            s5 = v9;
+            s6 = v12;
+            continue;
+          }
         }
-        case "VCons": {
-          const v10 = v6.n;
-          const v11 = v6.x;
-          const v12 = v6.xs;
-          return { tag: "VCons", n: v7, x: (v4)(v8)(v11), xs: $Main$dzipWith(v7)(v4)(v9)(v12) };
-        }
+        throw new Error("unreachable");
       }
-      throw new Error("unreachable");
     }
+    throw new Error("unreachable");
   }
-  throw new Error("unreachable");
 };
 const $Main$dtoList = (v1) => (v2) => {
-  switch (v2.tag) {
-    case "VNil": {
-      return { tag: "Nil" };
+  let s1 = v1, s2 = v2;
+  let h$ = null, l$ = null, k$ = null;
+  for (;;) {
+    const v1 = s1, v2 = s2;
+    switch (v2.tag) {
+      case "VNil": {
+        { const r$ = { tag: "Nil" }; if (l$ === null) return r$; l$[k$] = r$; return h$; }
+      }
+      case "VCons": {
+        const v3 = v2.n;
+        const v4 = v2.x;
+        const v5 = v2.xs;
+        const c1$ = { tag: "Cons", head: v4, tail: null };
+        if (l$ === null) { h$ = c1$; } else { l$[k$] = c1$; }
+        l$ = c1$; k$ = "tail";
+        s1 = v3;
+        s2 = v5;
+        continue;
+      }
     }
-    case "VCons": {
-      const v3 = v2.n;
-      const v4 = v2.x;
-      const v5 = v2.xs;
-      return { tag: "Cons", head: v4, tail: $Main$dtoList(v3)(v5) };
-    }
+    throw new Error("unreachable");
   }
-  throw new Error("unreachable");
 };
 const $Main$dfirstOr = (v0) => (v1) => {
   switch (v1.tag) {
