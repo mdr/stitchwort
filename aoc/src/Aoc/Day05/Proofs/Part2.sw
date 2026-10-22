@@ -37,21 +37,14 @@ def Below (b: Nat) (rs: List Range): Prop := (id: Nat) -> covered rs id = True -
 
 -- Every id the ranges hold is at most the largest end.
 theorem topGe: (z: Nat) -> (rs: List Range) -> z <= rs.foldLeft (m r => Nat.max m r.to) z
-  | z, Nil       => Nat.leRefl z
-  | z, Cons r rs =>
-    calc z
-      _ <= Nat.max z r.to                                       := Nat.leMaxLeft z r.to
-      _ <= rs.foldLeft (m r => Nat.max m r.to) (Nat.max z r.to) := topGe (Nat.max z r.to) rs
+  | z, Nil       => omega
+  | z, Cons r rs => omega [Nat.leMaxLeft z r.to, topGe (Nat.max z r.to) rs]
 
 theorem coveredTop: (z: Nat) -> (rs: List Range) -> (id: Nat) -> covered rs id = True -> id <= rs.foldLeft (m r => Nat.max m r.to) z
   | z, Nil,       id, h => Void.exfalso (Bool.falseNotTrue h)
   | z, Cons r rs, id, h =>
     match e: r.contains id with
-      | True =>
-        calc id
-          _ <= r.to                                                  := containsHi r id e
-          _ <= Nat.max z r.to                                        := Nat.leMaxRight z r.to
-          _ <= rs.foldLeft (m r => Nat.max m r.to) (Nat.max z r.to) := topGe (Nat.max z r.to) rs
+      | True  => omega [Nat.leMaxRight z r.to, topGe (Nat.max z r.to) rs]
       | False => coveredTop (Nat.max z r.to) rs id h
 
 -- Ranges, latest first, each starting after every id the ones after it hold.
@@ -63,7 +56,7 @@ def Stacked: List Range -> Prop
 theorem headCount (m: Range) (rest: List Range) (n: Nat) (b: Below n (Cons m rest)):
     List.occurrences (id => m.contains id) (List.range n) = m.size :=
   match e: Nat.leq m.from m.to with
-    | True  => countBelow m n (b m.to (coveredFirst m rest m.to (Nat.betweenYes m.from m.to m.to e (Nat.leRefl m.to))))
+    | True  => countBelow m n (b m.to (coveredFirst m rest m.to (Nat.betweenYes m.from m.to m.to e omega)))
     | False => countEmpty m e (List.range n)
 
 -- Stacked ranges hold different ids, so the ids below `n` they hold number
@@ -77,7 +70,7 @@ theorem stackedCount (n: Nat): (ms: List Range) -> Stacked ms -> Below n ms ->
           := List.occurrencesOr (id => m.contains id) (id => covered rest id)
                (id h =>
                  match t: covered rest id with
-                   | True  => Void.exfalso (Nat.lessIrrefl id (Nat.leTrans (Succ id) m.from id (bm id t) (containsLo m id h)))
+                   | True  => Void.exfalso (omega [bm id t, containsLo m id h])
                    | False => rfl)
                (List.range n)
       _ = m.size + List.occurrences (id => covered rest id) (List.range n) := rewrite headCount m rest n b
@@ -95,8 +88,7 @@ theorem solvePart2Correct (db: Database): solvePart2 db = countFresh db :=
     _ = (stack db.fresh).sumBy Range.size := List.sumByReverse Range.size (stack db.fresh)
     _ = List.occurrences (id => covered (stack db.fresh) id) (List.range (top + 1))
         := Eq.sym (stackedCount (top + 1) (stack db.fresh) (stackStacked db.fresh)
-             (id h => Nat.ltCongRight id (Succ top) (top + 1) (Eq.sym (Nat.addOne top))
-               (Nat.leLessSucc id top (coveredTop 0 db.fresh id (Eq.trans (Eq.sym (stackCovers db.fresh id)) h)))))
+             (id h => omega [coveredTop 0 db.fresh id (Eq.trans (Eq.sym (stackCovers db.fresh id)) h)]))
     _ = List.occurrences (id => covered db.fresh id) (List.range (top + 1))
         := List.occurrencesCong (id => covered (stack db.fresh) id) (id => covered db.fresh id) (List.range (top + 1)) (stackCovers db.fresh)
     _ = countFresh db := Eq.sym (List.countOccurrences (id => covered db.fresh id) (List.range (top + 1)))
@@ -133,13 +125,12 @@ theorem mergedContains (a: Range) (r: Range) (id: Nat) (h1: a.from <= r.from) (h
     Range.contains { from = a.from, to = Nat.max a.to r.to } id = (a.contains id || r.contains id) :=
   match t: Nat.leq a.from id, i: Nat.leq id a.to with
     | True, True =>
-      Eq.trans (Bool.decTrueToBool (Nat.leq id (Nat.max a.to r.to))) (Nat.leTrans id a.to (Nat.max a.to r.to) i (Nat.leMaxLeft a.to r.to))
+      Eq.trans (Bool.decTrueToBool (Nat.leq id (Nat.max a.to r.to))) (omega [Nat.leMaxLeft a.to r.to])
     | True, False =>
       Eq.trans (Bool.decTrueToBool (Nat.leq id (Nat.max a.to r.to)))
         (Eq.trans (Nat.leqMaxAbove id a.to r.to i)
-          (Eq.sym (Nat.betweenFrom r.from r.to id
-            (Nat.leTrans r.from (a.to + 1) id h2 (Nat.leCongLeft (Succ a.to) (a.to + 1) id (Eq.sym (Nat.addOne a.to)) (Nat.leqFalse id a.to i))))))
-    | False, _ => Eq.sym (Nat.betweenBelow r.from r.to id (Nat.leqFalseOfLess id r.from (Nat.leTrans (Succ id) a.from r.from (Nat.leqFalse a.from id t) h1)))
+          (Eq.sym (Nat.betweenFrom r.from r.to id omega)))
+    | False, _ => Eq.sym (Nat.betweenBelow r.from r.to id omega)
 
 theorem absorbCovers (r: Range) (id: Nat): (merged: List Range) -> LoAtMost r.from merged ->
     covered (absorb merged r) id = (covered merged id || r.contains id)
@@ -158,10 +149,7 @@ theorem absorbLo (r: Range) (b: Nat) (h: r.from <= b): (merged: List Range) -> L
   | Nil,               ok => h
   | Cons last earlier, ok =>
     match e: Nat.leq r.from (last.to + 1) with
-      | True =>
-        calc last.from
-          _ <= r.from := ok
-          _ <= b    := h
+      | True  => omega
       | False => h
 
 theorem absorbStacked (r: Range): (merged: List Range) -> LoAtMost r.from merged -> Stacked merged -> Stacked (absorb merged r)
@@ -173,15 +161,8 @@ theorem absorbStacked (r: Range): (merged: List Range) -> LoAtMost r.from merged
         Both
           (id h =>
             match i: last.contains id with
-              | True =>
-                calc id
-                  _ < Succ last.to := containsHi last id i
-                  _ = last.to + 1  := Eq.sym (Nat.addOne last.to)
-                  _ <= r.from        := Nat.lessLe (last.to + 1) r.from (Nat.leqFalse r.from (last.to + 1) e)
-              | False =>
-                calc Succ id
-                  _ <= last.from := b id h
-                  _ <= r.from    := ok)
+              | True  => omega
+              | False => omega [b id h])
           (Both b rest)
 
 -- Folding: the next range starts no earlier than the latest merged one.

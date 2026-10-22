@@ -305,6 +305,32 @@ impl<'e> Ctx<'e> {
         }
     }
 
+    /// Every local definition that can be referred to: its name, its term in
+    /// the current context, and its type (for `omega`, which reads them as
+    /// facts).
+    pub(crate) fn visible_locals(&self) -> Result<Vec<(String, Term, Value)>> {
+        let mut out = Vec::new();
+        for local in &self.locals {
+            if self
+                .local_entry(&local.name)
+                .is_some_and(|l| std::ptr::eq(l, local))
+            {
+                let term = local.term.shift(self.g(), self.level() - local.base, 0)?;
+                out.push((local.name.clone(), term, local.ty.clone()));
+            }
+        }
+        Ok(out)
+    }
+
+    /// The name `level` can be referred to by, if any.
+    pub(crate) fn name_of_level(&self, level: usize) -> Option<&str> {
+        self.scope
+            .iter()
+            .rev()
+            .find(|(n, l)| *l == level && self.lookup(n) == Some(level))
+            .map(|(n, _)| n.as_str())
+    }
+
     fn local_entry(&self, name: &str) -> Option<&LocalName> {
         let local = self.locals.iter().rev().find(|l| l.name == name)?;
         let shadowed = self.scope[local.scope..].iter().any(|(n, _)| n == name);
@@ -547,6 +573,7 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
         Expr::Match { .. } => crate::matching::infer_match(cx, expr),
         Expr::Calc { .. } => crate::calc::infer_calc(cx, expr),
         Expr::Rewrite { .. } => crate::rewrite::infer_rewrite(cx, expr),
+        Expr::Omega { .. } => Err(crate::omega::no_goal(cx, expr)),
         Expr::LocalDefs { defs, body, .. } => crate::local::around(cx, defs, |cx| infer(cx, body)),
         Expr::Effect(row, ty) => {
             let (term, sort) = effects::effect_type(cx, row, ty)?;
@@ -1427,6 +1454,7 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
         (Expr::Match { .. }, _) => crate::matching::check_match(cx, expr, &expected),
         (Expr::Calc { .. }, _) => crate::calc::check_calc(cx, expr, &expected),
         (Expr::Rewrite { .. }, _) => crate::rewrite::check_rewrite(cx, expr, &expected),
+        (Expr::Omega { .. }, _) => crate::omega::check_omega(cx, expr, &expected),
         (
             Expr::If {
                 binder,

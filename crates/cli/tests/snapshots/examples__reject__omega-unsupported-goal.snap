@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-OMEGA] Error: `omega` can't prove `xs = xs`
+   ╭─[ reject/omega-unsupported-goal.sw:5:45 ]
+   │
+ 5 │ theorem notArith (xs: List Nat): xs = xs := omega
+   │                                             ──┬──  
+   │                                               ╰──── unsupported structure: this goal isn't linear arithmetic on `Nat`
+   │ 
+   │ Note: `omega` proves `a <= b`, `a < b` and `a = b` between `Nat`s built from `+`, numbers and multiplication by a number, `Void`, and `Not`, `&&` and `Nat.leq … = True`/`False` around them
+───╯

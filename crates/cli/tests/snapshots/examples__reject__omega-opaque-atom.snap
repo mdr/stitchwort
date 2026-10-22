@@ -1,0 +1,19 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-OMEGA] Error: `omega` can't prove `x <= x * y`
+   ╭─[ reject/omega-opaque-atom.sw:5:49 ]
+   │
+ 5 │ theorem opaque (x: Nat) (y: Nat): x <= x * y := omega
+   │                                                 ──┬──  
+   │                                                   ╰──── an integer model of the arithmetic abstraction satisfies the facts and the goal's negation
+   │ 
+   │ Note 1: facts: none in scope
+   │ 
+   │ Note 2: atoms: `x`, `x * y`
+   │ 
+   │ Note 3: an integer model of the arithmetic abstraction (it may not be a real counterexample): x = 1, x * y = 0
+   │ 
+   │ Note 4: unsupported structure: `x * y` is an atom (a product of two unknowns isn't linear)
+───╯

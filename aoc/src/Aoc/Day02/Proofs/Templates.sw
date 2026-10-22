@@ -119,12 +119,11 @@ theorem fittingTemplateListed (range: Range) (template: RepetitionTemplate)
       List.memFlatMapIntro (blockLength => List.flatMap (List.between 2 size) (copies => keptIfFits size blockLength copies))
         template.blockLength template (List.between 1 size)
         (List.memBetweenIntro template.blockLength 1 size blockNotEmpty
-          (Nat.leTrans template.blockLength (template.blockLength * template.copies) size
-            (blockLengthLeProduct template.blockLength template.copies (Nat.leTrans 1 2 template.copies (Nat.leSucc 1) writtenTwice)) room))
+          (omega [blockLengthLeProduct template.blockLength template.copies omega]))
         -- and of its number of copies, in the loop over `2..size`,
         (List.memFlatMapIntro (copies => keptIfFits size template.blockLength copies) template.copies template (List.between 2 size)
           (List.memBetweenIntro template.copies 2 size writtenTwice
-            (Nat.leTrans template.copies (template.blockLength * template.copies) size (copiesLeProduct template.blockLength template.copies blockNotEmpty) room))
+            (omega [copiesLeProduct template.blockLength template.copies blockNotEmpty]))
           -- where it fits, so it is kept.
           (rewrite room in Inl (templateEta template)))
 
@@ -149,7 +148,7 @@ theorem writtenAsFillsDigits (digits: List Nat) (hasDigits: 1 <= List.length dig
     -- times as many digits as there are would be as many as there are,
     -- which two or more copies can't be.
     | False =>
-      let takesAll := List.takeAll blockLength digits (Nat.lessLe _ _ (Nat.leqFalse blockLength (List.length digits) room))
+      let takesAll := List.takeAll blockLength digits omega
       let sameCount: copies * List.length digits = List.length digits := rewrite takesAll at counted
       let twiceLe: List.length digits + List.length digits <= List.length digits :=
         calc List.length digits + List.length digits
@@ -157,8 +156,7 @@ theorem writtenAsFillsDigits (digits: List Nat) (hasDigits: 1 <= List.length dig
           _ = 2 * List.length digits := Nat.mulComm (List.length digits) 2
           _ <= copies * List.length digits := Nat.leMulRight 2 copies (List.length digits) atLeastTwo
           _ = List.length digits := sameCount
-      Void.exfalso (Nat.addSelfNotSelf (List.length digits) hasDigits
-        (Nat.leAntisym _ _ twiceLe (Nat.leAddRight (List.length digits) (List.length digits))))
+      Void.exfalso omega
 
 -- Coverage: every invalid id in the range has its template listed. If `x` is
 -- in the range and its digits are a block of `blockLength` digits written
@@ -179,10 +177,10 @@ theorem writtenIdTemplateListed (range: Range) (x: Nat) (inRange: List.Mem x ran
   -- so the block has a digit (or the x would have none)
   let blockNotEmpty: 1 <= blockLength :=
     match blockLength with
-      | Zero   => Void.exfalso (Bool.falseNotTrue (Nat.leCongRight 1 (List.length (Nat.digits x)) 0 (Eq.trans (Eq.sym filled) (Eq.trans (Nat.mulComm 0 copies) (Nat.mulZero copies))) (Nat.digitsNonEmpty x)))
+      | Zero   => omega [Nat.digitsNonEmpty x]
       | Succ k => rfl
   fittingTemplateListed range { blockLength, copies }
-    (Both blockNotEmpty (Both atLeastTwo (Nat.leCongLeft _ _ _ (Eq.sym filled) fewerDigits)))
+    (Both blockNotEmpty (Both atLeastTwo omega))
 
 -- What `keptIfFits` gives is at most one template, and it is that of its arguments.
 theorem keptIfFitsDistinct (size: Nat) (blockLength: Nat) (copies: Nat): List.Distinct (keptIfFits size blockLength copies) :=

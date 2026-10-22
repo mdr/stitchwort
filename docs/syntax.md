@@ -885,6 +885,39 @@ Limits:
 
 Examples: `examples/accept/let-patterns.sw`. Design: [syntax-conveniences.md](proposals/syntax-conveniences.md) section 5.
 
+### `omega`
+
+`omega` is a proof of a linear arithmetic fact about `Nat`s, found by the compiler from the facts in scope and checked by the kernel:
+
+```
+theorem stacked (id: Nat) (lastTo: Nat) (rFrom: Nat) (h1: id <= lastTo) (h2: lastTo + 1 <= rFrom): id < rFrom :=
+  omega
+
+theorem topGe: (z: Nat) -> (rs: List Range) -> z <= rs.foldLeft (m r => Nat.max m r.to) z
+  | z, Nil       => Nat.leRefl z
+  | z, Cons r rs => omega [Nat.leMaxLeft z r.to, topGe (Nat.max z r.to) rs]
+```
+
+| form | meaning |
+|---|---|
+| `omega` | proves the goal from every arithmetic fact in scope |
+| `omega [e1, e2]` | the same, with the facts `e1` and `e2` (any proofs, such as a lemma applied to its arguments) added |
+
+`omega` is a keyword and a term, like `rfl`: it can be a definition's body, a `calc` step's proof, an argument whose type is fixed, or `(omega: x * 3 = x + x + x)` given to `rewrite`. Where nothing says what it proves (`let p := omega`) it is `E-OMEGA`. The proof it writes is an application of `Std.Omega.prove` (or `Std.Omega.proveEq` for an equation) to the facts and goal as syntax, a certificate saying how to combine them, `rfl` (the kernel running the library's checker) and the facts' proofs; nothing new is trusted. Design and as built: [omega.md](proposals/omega.md).
+
+- **Goals.** `a <= b`, `a < b` and `a = b` between `Nat`s, and `Void` (the facts contradict each other). Around those: `Not p` (proved as `h => …` with `h: p` as a fact), `And p q`, `(p && q) = True`, `Nat.leq a b = False` (from `b < a`), and a decided proposition `Decidable.toBool d = True`/`False`, which is how `a <= b` inside `&&` comes out. A goal is read as it computes, so `x < 0` is `False = True` and `2 < 3` is `True = True`, both fine.
+- **Arithmetic.** `+`, numbers, `Succ`, and multiplication by a number on either side: `x * 3` and `3 * x` (which computes to `x + (x + (x + 0))`; `k * x` is taken for `k` up to 1000, and a larger `k` is `E-OMEGA` with a note to write `x * k`). Anything else of type `Nat` is an **atom**, an unknown `omega` knows only to be at least 0: `List.length xs`, `r.to`, `x * y`, `a - b`, `Nat.max a b`, `x / 2`, a call. Two atoms are the same if they're the same term or the compiler can quickly show they compute to the same value; otherwise they're different, which can lose a proof but never makes a wrong one. So `get xs i h1` and `get xs i h2` are different atoms unless they compute to the same thing.
+- **Facts** are every hypothesis in scope (parameters, pattern variables, `match e:` and `if h:` equations, `let`s, local theorems) and the listed terms whose type, after computing, is `a <= b`, `a < b`, `a = b` on `Nat`, `Not (a <= b)`, `Not (a < b)`, `And p q`, `(p && q) = True`, `Nat.leq a b = False`, or `Decidable.toBool d = True`/`False` of one of these. The others are ignored, and a fact `Not (a = b)` is noted in the error message as unsupported. A quantified fact (`(id: Nat) -> covered rs id = True -> id < b`) is used by applying it: `omega [b id h]`. The emitted proof mentions only the facts it uses.
+- **Whole numbers.** `omega` knows the unknowns are whole: from `2 * x <= 3` it gets `x <= 1`, `2 * x = 1` is a contradiction, and when the facts only have fractional solutions it tries a few levels of case splits (`x <= v` or `x >= v + 1`).
+- **When it fails** it is `E-OMEGA`, listing the facts and atoms it used and saying which of these it found. None of them is a counterexample to the goal; each says why the search stopped:
+  - *an integer model of the arithmetic abstraction*: whole values for the atoms that satisfy every fact and the goal's negation (with atoms like `x * y` or `List.length xs` treated as unknowns, so it may not be a real counterexample);
+  - *a rational model of the relaxation*: only fractional values were found, and the case splits didn't rule them out;
+  - *unsupported structure*: the goal isn't in the fragment above, or (as a note) an atom such as `x * y` or a fact such as `a != b` is outside it;
+  - *budget exhausted*: the search made its limit of rows; nothing is claimed.
+- **Not yet** (stage 2 of the design): `-`, `Nat.max`/`Nat.min`, `if`, `/` and `%` by a number, `a != b` and `||` facts, and `Int`. A goal that is a `Bool` equation between comparisons (`(a <= b) == (c <= d)`) is stage 3.
+
+Examples: `examples/accept/omega-basics.sw`, `examples/accept/omega-day05.sw`, `examples/reject/omega-*.sw`.
+
 ### Numbers
 
 A non-negative numeric literal is a `Nat` or an `Int`, depending on what's expected (`Nat` if nothing says); a negative literal such as `-5` is always an `Int`, and `-0` is `0`. An arithmetic expression or comparison has one number type for all its operands, chosen by the first of these that applies: the expected type; a prefix minus (which forces `Int`); an operand with no literal in it; any other operand; else `Nat`. So `3 - 5 = -2` is on `Int`, and `x + 1` follows `x`. A `let` binding keeps its own type: `let m := 3 - 5` is a `Nat`, and `m + i` with `i: Int` is an error.

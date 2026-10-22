@@ -86,25 +86,25 @@ theorem lookupBelow (b: Nat): (c: Nat) -> (s: Nat) -> b < s ->
     Map.lookupLast b (List.map (box => (box, box)) (List.rangeFrom c s)) = None
   | Zero,   s, h => rfl
   | Succ c, s, h =>
-    rewrite lookupBelow b c (Succ s) (Nat.leTrans (Succ b) s (Succ s) h (Nat.leSucc s)) in
+    rewrite lookupBelow b c (Succ s) omega in
       match e: Ord.compare b s with
         | Less    => rfl
-        | Equal   => Void.exfalso (Nat.lessIrrefl s (rewrite Nat.compareEqual b s e at h))
+        | Equal   => Void.exfalso (omega [Nat.compareEqual b s e])
         | Greater => rfl
 
 -- ... and each box from s on is its own label.
 theorem lookupRange (b: Nat): (c: Nat) -> (s: Nat) -> s <= b -> b < s + c ->
     Map.lookupLast b (List.map (box => (box, box)) (List.rangeFrom c s)) = Some b
-  | Zero,   s, h1, h2 => Void.exfalso (Nat.lessIrrefl b (Nat.leTrans (Succ b) s b (rewrite Nat.addZero s at h2) h1))
+  | Zero,   s, h1, h2 => Void.exfalso omega
   | Succ c, s, h1, h2 =>
     match e: Nat.equal s b with
       | True  =>
-        rewrite <- Nat.equalSound s b e, lookupBelow s c (Succ s) (Nat.leRefl (Succ s)), Ord.compareSelf s in rfl
+        rewrite <- Nat.equalSound s b e, lookupBelow s c (Succ s) omega, Ord.compareSelf s in rfl
       | False =>
-        rewrite lookupRange b c (Succ s) (Nat.leNeSucc s b h1 (Nat.equalFalse s b e)) (rewrite Nat.addSucc s c at h2) in rfl
+        rewrite lookupRange b c (Succ s) (Nat.leNeSucc s b h1 (Nat.equalFalse s b e)) omega in rfl
 
 theorem storedAtStart (n: Nat) (b: Nat) (h: b < n): Map.get b (Circuits.separate n).labels = Some b :=
-  rewrite Map.getFromList b (List.map (box => (box, box)) (List.range n)) in lookupRange b n 0 (Nat.zeroLe b) h
+  rewrite Map.getFromList b (List.map (box => (box, box)) (List.range n)) in lookupRange b n 0 omega h
 
 theorem labelAtStart (n: Nat) (b: Nat) (h: b < n): (Circuits.separate n).labelOf b = b := rewrite storedAtStart n b h in rfl
 

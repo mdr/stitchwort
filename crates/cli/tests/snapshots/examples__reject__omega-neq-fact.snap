@@ -1,0 +1,19 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-OMEGA] Error: `omega` can't prove `x < y`
+   ╭─[ reject/omega-neq-fact.sw:5:71 ]
+   │
+ 5 │ theorem neq (x: Nat) (y: Nat) (h: Not (x = y)) (h2: x <= y): x < y := omega
+   │                                                                       ──┬──  
+   │                                                                         ╰──── an integer model of the arithmetic abstraction satisfies the facts and the goal's negation
+   │ 
+   │ Note 1: facts: `x <= y` (h2)
+   │ 
+   │ Note 2: atoms: `x`, `y`
+   │ 
+   │ Note 3: an integer model of the arithmetic abstraction (it may not be a real counterexample): x = 0, y = 0
+   │ 
+   │ Note 4: unsupported structure: `h`: `a != b` facts need case splits (stage 2 of docs/proposals/omega.md)
+───╯
