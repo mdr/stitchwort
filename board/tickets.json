@@ -1,5 +1,5 @@
 {
-  "next": 300,
+  "next": 307,
   "tickets": [
     {
       "id": 1,
@@ -4569,7 +4569,7 @@
     {
       "id": 298,
       "title": "Exploratory testing: code navigation + expression type hints (VS Code LSP and playground)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "test session, report only",
       "labels": [
@@ -4591,6 +4591,109 @@
         "js"
       ],
       "body": "Found by SW-296. Reproduces with Abort alone: run --js gives ReferenceError: Cannot access '$Main$dhalves$d$gmatch1' before initialization. Writing def halves(): … works.",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 300,
+      "title": "Nav: calls whose lambda argument is postponed lose their reference (List.foldLeft missing at 13/20 uses in Toolkit; List.sumBy 10/22)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lsp",
+        "bug"
+      ],
+      "body": "Found by SW-298; repro scripts in scratchpad/t/. gsum with acc + f x under [auto add: Add b]: definition on List.foldLeft undefined.",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 301,
+      "title": "Nav: Eq.sym / Eq.trans never navigate or hover (Eq.cong does)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lsp",
+        "bug"
+      ],
+      "body": "Found by SW-298; repro scripts in scratchpad/t/. Eq.trans missing at 26/26 uses in List/Toolkit.sw.",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 302,
+      "title": "Type hints: selecting a type declaration shows the derived equality lemma's statement",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lsp",
+        "bug"
+      ],
+      "body": "Found by SW-298; repro scripts in scratchpad/t/. type Pt = { x: Nat, y: Nat } selection -> '{ x = %a0, y = %a1 } = { x = %b0, y = %b1 }' (LSP and playground).",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 303,
+      "title": "Nav: outline ranges drop a trailing ), so Expand Selection loses the declaration step",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lsp",
+        "bug"
+      ],
+      "body": "Found by SW-298; repro scripts in scratchpad/t/. Day02 solvePart2 / allTemplatesForRange / sumOfIdsWrittenRepeatedly.",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 304,
+      "title": "Type hints: string literals and interpolations have no type (or the enclosing let's)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lsp",
+        "bug"
+      ],
+      "body": "Found by SW-298; repro scripts in scratchpad/t/. Day02 \"Part 1: ${solvePart1 ranges}\" gives {IO} () for the whole body; selectionRange inside ${} includes the }.",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 305,
+      "title": "LSP: workspace symbols only cover the open file's namespace and imports",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lsp"
+      ],
+      "body": "Found by SW-298; repro scripts in scratchpad/t/.",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 306,
+      "title": "Nav small: binder hovers lack types; rewrite hover shows elaborated type; Pt in def Pt.sum and operators not navigable; { x, y } shorthand goes to field; let binder selection; double space in hovers; Expand Selection empty first step",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lsp"
+      ],
+      "body": "Found by SW-298; repro scripts in scratchpad/t/. Item 7 of the SW-298 report.",
       "created": "2026-10-22",
       "updated": "2026-10-22",
       "commits": []
