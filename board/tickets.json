@@ -1,5 +1,5 @@
 {
-  "next": 294,
+  "next": 295,
   "tickets": [
     {
       "id": 1,
@@ -4487,6 +4487,20 @@
         "47f30f5c",
         "4f821df6"
       ]
+    },
+    {
+      "id": 294,
+      "title": "AoC Day 2: allTemplatesForRange with tight bounds, reprove templatesSum (D524)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree lane",
+      "labels": [
+        "aoc"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
     }
   ]
 }
