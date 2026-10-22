@@ -3461,25 +3461,25 @@
     {
       "id": 231,
       "title": "Fast runtime stage 2: bytecode machine",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "Interpreter with its own frame stack, small Nat inline + BigUint fallback, Rc values, nullary constructors without allocation, iterative freeing, tail calls, resource limits (E-RESOURCE), Comp runner and Delay stepping as run --js. fast-runtime.md stage 2. Done when: runs IR from stage 1 on the examples with outputs equal to the reference evaluator.\n\nD381 (Matt, 21 Oct 2026).\n",
       "created": "2026-10-21",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
       "id": 232,
       "title": "Fast runtime stage 3: wiring and differential tests",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "run --rt and the playground behind a switch; every examples/ and aoc/ main and bench program on both the runtime and the reference evaluator with equal output. fast-runtime.md stage 3. Done when: differential tests pass; then D386 default switch.\n\nD381 (Matt, 21 Oct 2026).\n",
       "created": "2026-10-21",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
