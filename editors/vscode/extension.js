@@ -8,7 +8,7 @@
 
 const vscode = require('vscode');
 const cp = require('child_process');
-const { LanguageClient, TransportKind } = require('vscode-languageclient/node');
+const { LanguageClient } = require('vscode-languageclient/node');
 const cfg = require('./client');
 
 /** @type {LanguageClient | undefined} */
@@ -25,8 +25,9 @@ function startClient() {
   const serverOptions = {
     command: s.command,
     args: s.args,
+    // No `transport`: an Executable without one still talks over stdio, while
+    // TransportKind.stdio appends `--stdio`, which `stitchwort lsp` rejects.
     options: s.options,
-    transport: TransportKind.stdio,
   };
   const clientOptions = {
     documentSelector: cfg.documentSelector,
