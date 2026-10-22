@@ -295,6 +295,14 @@ theorem Int.toIntSumBy (f: a -> Nat): (xs: List a) -> (List.sumBy f xs).toInt = 
       (Eq.trans (Eq.cong (t => Int.add (Nat.toInt (f x)) t) (Int.toIntSumBy f xs))
         (Eq.sym (List.sumByCons (y => (f y).toInt) x xs)))
 
+-- A common factor comes out of a sum.
+theorem Int.sumByMulLeft (c: Int) (f: a -> Int): (xs: List a) -> List.sumBy (x => c * f x) xs = c * List.sumBy f xs
+  | Nil       => Eq.sym (Int.mulZero c)
+  | Cons x xs =>
+    Eq.trans (List.sumByCons (y => c * f y) x xs)
+      (Eq.trans (Eq.cong (t => c * f x + t) (Int.sumByMulLeft c f xs))
+        (Eq.sym (Eq.trans (Eq.cong (t => c * t) (List.sumByCons f x xs)) (Int.mulDistribLeft c (f x) (List.sumBy f xs)))))
+
 theorem Int.mulCommExample: (-3) * 4 = 4 * (-3) := rfl
 
 test "Int.toIntSumBy" := (List.sumBy (x => x * x) [1, 2, 3]).toInt == List.sumBy (x => (x * x).toInt) [1, 2, 3]

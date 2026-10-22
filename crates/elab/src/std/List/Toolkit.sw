@@ -509,6 +509,14 @@ theorem List.splitByConcat (p: a -> Bool) (xs: List a):
 theorem Add.addZero [auto add: Add a] (x: a): x + Add.zero = x :=
   Eq.trans (add.comm x Add.zero) (add.zeroAdd x)
 
+theorem Add.addSwap [auto add: Add a] (w: a) (x: a) (y: a) (z: a): (w + x) + (y + z) = (w + y) + (x + z) :=
+  calc (w + x) + (y + z)
+    _ = w + (x + (y + z)) := add.assoc w x (y + z)
+    _ = w + ((x + y) + z) := Eq.cong (t => w + t) (Eq.sym (add.assoc x y z))
+    _ = w + ((y + x) + z) := Eq.cong (t => w + (t + z)) (add.comm x y)
+    _ = w + (y + (x + z)) := Eq.cong (t => w + t) (add.assoc y x z)
+    _ = (w + y) + (x + z) := Eq.sym (add.assoc w y (x + z))
+
 theorem List.sumByFrom [auto add: Add b] (f: a -> b): (z: b) -> (xs: List a) -> List.foldLeft (acc x => acc + f x) z xs = z + List.sumBy f xs
   | z, Nil       => Eq.sym (Add.addZero z)
   | z, Cons x xs =>

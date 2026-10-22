@@ -13,8 +13,8 @@
 -- series. Part 2 must not count 111111 three times (1 six times, 11 three
 -- times, 111 twice): by inclusion-exclusion over n, the ids with some proper
 -- period are the sum over n of -mu(n) times the ids with n blocks, where mu
--- is the Moebius function. The weights -mu(n) are computed (`plus`, `minus`),
--- so ids of any length work.
+-- is the Moebius function. The weights -mu(n) are computed (`weight`, a
+-- signed sum over the divisors), so ids of any length work.
 --
 -- That `repeated` adds up the right ids is proved in `Aoc.Day02.Proofs`
 -- (Proofs/Repeated.sw); the tests are in `Aoc.Day02.Tests` (Tests/). `run` checks
@@ -22,54 +22,40 @@
 
 namespace Aoc.Day02
 import Aoc.Common (Range)
-import Std (List, Nat)
+import Std (Int, List, Nat)
 
 def main(): {IO} () :=
   let ranges := parseRanges IO.readAll()
   IO.print "Part 1: ${solvePart1 ranges}"
   IO.print "Part 2: ${solvePart2 ranges}"
 
-def solvePart1 (ranges: List Range): Nat := ranges |> .sumBy (weighted twice)
+-- The weighted sums are signed; both come out as natural numbers.
+def solvePart1 (ranges: List Range): Nat := Int.toNat (ranges |> .sumBy (weighted twice))
 
-def solvePart2 (ranges: List Range): Nat := ranges |> .sumBy invalid
-
--- One range: the ids counted with a plus, less those counted with a minus.
-def invalid (r: Range): Nat := weighted plus r - weighted minus r
+def solvePart2 (ranges: List Range): Nat := Int.toNat (ranges |> .sumBy (weighted weight))
 
 -- The ids in the range under weights `w` for the repeat counts: for every
 -- block length k and repeat count n whose ids fit in the digits of `to`, the
 -- ids that are a k-digit block written n times, times `w n`.
-def weighted (w: Nat -> Nat) (r: Range): Nat :=
+def weighted (w: Nat -> Int) (r: Range): Int :=
   let size := (Nat.digits r.to).length
   List.rangeFrom size 1 |> .sumBy (k =>
-    List.rangeFrom (size - 1) 2 |> .sumBy (n => if Nat.leq (k * n) size then w n * repeated r k n else 0))
+    List.rangeFrom (size - 1) 2 |> .sumBy (n => if Nat.leq (k * n) size then w n * (repeated r k n).toInt else 0))
 
--- The weights. Repeat count n has weight `plus n - minus n` (minus the
--- Moebius function), chosen so that for every K >= 2 the weights of the
--- divisors of K from 2 on add up to 1:
---
---   plus K  = 1 + (minus d, added up over the divisors d of K with 2 <= d < K)
---   minus K =     (plus d,  added up over the same divisors)
---
--- The two parts are kept apart so that everything is a natural number.
--- `weightFuel fuel True n` is `plus n` and `weightFuel fuel False n` is
--- `minus n`; the fuel makes the recursion structural, and n + 1 is enough.
-def plus (n: Nat): Nat := weightFuel (Succ n) True n
-
-def minus (n: Nat): Nat := weightFuel (Succ n) False n
-
-def weightFuel: Nat -> Bool -> Nat -> Nat
-  | Zero,   s,     n => 0
-  | Succ f, True,  n => 1 + divisorWeights (d => weightFuel f False d) n (n - 2)
-  | Succ f, False, n => divisorWeights (d => weightFuel f True d) n (n - 2)
-
--- The weights w of the divisors of m among 2, 3, ..., c + 1, added up. (An
--- `if` rather than `Nat.keepIf`, so that only the divisors' weights are computed.)
-def divisorWeights (w: Nat -> Nat) (m: Nat) (c: Nat): Nat :=
-  List.rangeFrom c 2 |> .sumBy (d => if Nat.divides d m then w d else 0)
+-- The weight of repeat count n: 1, less the weights of the divisors of n
+-- from 2 to n - 1. For n >= 2 this is minus the Moebius function (weight 0
+-- and weight 1 are 1, and are never used). It is chosen so that for every
+-- K >= 2 the weights of K's divisors from 2 on (K itself included) add up to
+-- 1: an id whose digits are a block written K times, and no fewer, is then
+-- counted once. The guard `d < n` always holds; it is there to show that the
+-- recursion ends.
+def weight (n: Nat): Int
+  decreasing n
+:=
+  1 - (List.rangeFrom (n - 2) 2 |> .sumBy (d => if h: d < n then (if Nat.divides d n then weight d else 0) else 0))
 
 -- Part 1 only wants a block written exactly twice.
-def twice (n: Nat): Nat := if n == 2 then 1 else 0
+def twice (n: Nat): Int := if n == 2 then 1 else 0
 
 -- The sum of the ids in the range that are a k-digit block written n times.
 -- m is the multiplier: 12 written 3 times is 12 * 10101, and 10101 is
