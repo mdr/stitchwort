@@ -325,6 +325,24 @@
   /* The warning count: a button that shows them in the Check tab. */
   button.status.warn { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
   button.status.warn:hover { border-color: var(--warn); }
+  /* The type of the selected expression: small, beside the status. */
+  #seltype {
+    min-width: 0;
+    max-width: 100%;
+    background: var(--petal);
+    color: var(--muted);
+    border: 1px solid var(--line);
+    font-family: var(--mono);
+    font-variation-settings: "MONO" 1, "CASL" 0;
+    font-size: 0.76rem;
+    font-weight: 400;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: inline-block;
+  }
+  #seltype::before { content: none; }
+  #seltype[hidden] { display: none; }
   .status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 
   .tabs { display: flex; flex-wrap: wrap; gap: 4px; }
@@ -462,6 +480,7 @@
     <div class="pane-head">
       <span id="status" class="status idle">Loading the compiler…</span>
       <button id="warning-count" class="status warn" type="button" title="Show the warnings" hidden></button>
+      <span id="seltype" class="status" hidden></span>
       <button id="run" class="primary run" type="button" title="Run main (Ctrl+Enter)">Run ▸</button>
     </div>
     <div id="filebar" class="filebar" hidden>
@@ -1823,7 +1842,7 @@ export def area: Shape -> Nat
   /** The path the compiler is given for a single file's text (crates/web). */
   const SINGLE = "playground.sw";
   const nav = { index: null, pending: null, failed: null, pointer: null, mod: false, hover: null,
-                tipTimer: 0, frame: 0, back: [], std: new Map() };
+                tipTimer: 0, frame: 0, back: [], std: new Map(), selFrame: 0, selCache: null };
 
   const openPath = () => project ? project.open : SINGLE;
 
@@ -1938,8 +1957,16 @@ export def area: Shape -> Nat
           if (!byFile.has(ref.file)) byFile.set(ref.file, []);
           byFile.get(ref.file).push(ref);
         });
-        nav.index = { out: result.out, byFile, ...now };
+        // The expressions of the program's files, with their types (the
+        // compiler has put the parentheses back: see `index_data_of`).
+        const exprsByFile = new Map();
+        (result.out.exprs ?? []).forEach((e) => {
+          if (!exprsByFile.has(e[0])) exprsByFile.set(e[0], []);
+          exprsByFile.get(e[0]).push(e);
+        });
+        nav.index = { out: result.out, byFile, exprsByFile, ...now };
         nav.failed = null;
+        scheduleSelectionType();
       } else if (!result.cancelled) {
         nav.failed = now;
       }
@@ -1981,6 +2008,64 @@ export def area: Shape -> Nat
     return { file: ref.binder.file, range: ref.binder.range, name: ref.binder.name, kind: "local", type: ref.type };
   }
 
+  // The type of a selection ---------------------------------------------------
+
+  const seltype = document.getElementById("seltype");
+  const isSpace = (c) => c === " " || c === "\n" || c === "\t" || c === "\r";
+
+  /**
+   * The smallest expression containing the selection (less the whitespace at
+   * its ends), as { entry, from, to, start, end }: `entry` is [file, range,
+   * type] from the index; from and to are the expression's offsets, start and
+   * end the selection's. Null if nothing is selected, the index isn't ready
+   * for this text, or no expression covers it.
+   */
+  function selectionExpr() {
+    const idx = nav.index;
+    if (stdView || !idx || !validHere(idx)) return null;
+    const text = source.value;
+    let start = source.selectionStart, end = source.selectionEnd;
+    if (start >= end) return null;
+    const rawStart = start, rawEnd = end;
+    while (start < end && isSpace(text[start])) start++;
+    while (end > start && isSpace(text[end - 1])) end--;
+    if (start >= end) return null;
+    const cache = nav.selCache;
+    if (cache && cache.idx === idx && cache.text === text && cache.rawStart === rawStart && cache.rawEnd === rawEnd) return cache.result;
+    const path = openPath();
+    const file = idx.out.files.findIndex((f) => f.path === path && !f.std);
+    const [l1, c1] = posOf(text, start), [l2, c2] = posOf(text, end);
+    let best = null;
+    for (const entry of idx.exprsByFile.get(file) ?? []) {
+      const r = entry[1];
+      if (r[0] > l1 || (r[0] === l1 && r[1] > c1) || r[2] < l2 || (r[2] === l2 && r[3] < c2)) continue;
+      const from = offsetOf(text, r[0], r[1]), to = offsetOf(text, r[2], r[3]);
+      if (!best || to - from < best.to - best.from) best = { entry, from, to, start, end, rawStart, rawEnd };
+    }
+    nav.selCache = { idx, text, rawStart, rawEnd, result: best };
+    return best;
+  }
+
+  /** Shows the selection's type next to the status, or clears it. */
+  function updateSelectionType() {
+    nav.selFrame = 0;
+    const idx = nav.index;
+    const selected = source.selectionStart < source.selectionEnd;
+    if (selected && !stdView && !(idx && validHere(idx)) && !failedNow()) {
+      // Wait for the index, then look again (only if it helps: no loop).
+      ensureIndex().then((got) => { if (got && validHere(got)) scheduleSelectionType(); });
+    }
+    const found = selectionExpr();
+    const type = found ? found.entry[2].replace(/\s+/g, " ") : "";
+    seltype.hidden = !type;
+    seltype.textContent = type ? "selection: " + type : "";
+    seltype.title = found ? "The type of the selected expression: " + found.entry[2] : "";
+    scheduleNav();
+  }
+  function scheduleSelectionType() {
+    nav.selFrame ||= requestAnimationFrame(updateSelectionType);
+  }
+
   // The hover tooltip ------------------------------------------------------
 
   function hideTip() {
@@ -1990,11 +2075,18 @@ export def area: Shape -> Nat
   function showTip() {
     const hover = nav.hover;
     if (!hover) return;
-    const { name, kind, type } = targetOf(hover.idx, hover.ref);
-    navtip.replaceChildren(el("span", { className: "name" }, name), el("span", { className: "kind" }, " " + kind),
-                           ...(type ? [document.createTextNode("\n: " + type)] : []));
+    if (hover.sel) {
+      navtip.replaceChildren(el("span", { className: "kind" }, "selection"),
+                             document.createTextNode("\n: " + hover.sel.entry[2]));
+    } else {
+      const { name, kind, type } = targetOf(hover.idx, hover.ref);
+      navtip.replaceChildren(el("span", { className: "name" }, name), el("span", { className: "kind" }, " " + kind),
+                             ...(type ? [document.createTextNode("\n: " + type)] : []));
+    }
     navtip.hidden = false;
-    const r = rectOf(hover.from, hover.to);
+    const p = nav.pointer;
+    // A selection may span many lines: put the tip by the pointer.
+    const r = hover.sel && p ? { left: p.x, top: p.y - 10, bottom: p.y + 14 } : rectOf(hover.from, hover.to);
     if (!r) return;
     const w = navtip.offsetWidth, h = navtip.offsetHeight;
     const left = Math.max(8, Math.min(r.left, innerWidth - w - 8));
@@ -2006,7 +2098,7 @@ export def area: Shape -> Nat
   /** Underlines the hovered name while Cmd/Ctrl is held, as an editor does a link. */
   function showLink() {
     const hover = nav.hover;
-    const r = hover && nav.mod ? rectOf(hover.from, hover.to) : null;
+    const r = hover && !hover.sel && nav.mod ? rectOf(hover.from, hover.to) : null;
     source.style.cursor = r ? "pointer" : "";
     navlink.hidden = !r;
     if (!r) return;
@@ -2031,7 +2123,9 @@ export def area: Shape -> Nat
       const offset = offsetAt(p.x, p.y);
       if (offset !== null) {
         if (nav.index && validHere(nav.index)) {
-          hit = lookupAt(nav.index, offset);
+          // Inside a selection: its type, ahead of the name's.
+          const sel = offset >= source.selectionStart && offset < source.selectionEnd ? selectionExpr() : null;
+          hit = sel ? { ref: sel.entry, sel, idx: nav.index, from: sel.from, to: sel.to } : lookupAt(nav.index, offset);
         } else if (!failedNow()) {
           // Wait for the index, then look again (only if it helps: no loop).
           ensureIndex().then((idx) => { if (idx && validHere(idx)) scheduleNav(); });
@@ -2350,6 +2444,12 @@ export def area: Shape -> Nat
     scheduleNav();
   });
   source.addEventListener("mouseleave", () => { nav.pointer = null; scheduleNav(); });
+  // The selection's type: on any change of the selection (the mouse, the
+  // keyboard, a phone's handles), and when an edit takes it away.
+  document.addEventListener("selectionchange", scheduleSelectionType);
+  source.addEventListener("select", scheduleSelectionType);
+  source.addEventListener("keyup", scheduleSelectionType);
+  source.addEventListener("pointerup", scheduleSelectionType);
   source.addEventListener("mousedown", (e) => {
     hideTip();
     if (e.button !== 0 || !(e.metaKey || e.ctrlKey)) return;

@@ -1357,6 +1357,50 @@ def lengths (xs: List Nat) : Nat := List.length xs
 def total (xs: List Nat) : Nat := List.sum xs
 `;
 
+/** Selects `len` characters at `delta` into the first `needle` of the editor, as a keyboard or a phone's handles would. */
+const selectText = (page, needle, delta, len) => page.ev(`(() => { const s = document.getElementById("source");
+  const i = s.value.indexOf(${JSON.stringify(needle)}) + ${delta};
+  s.focus({ preventScroll: true }); s.setSelectionRange(i, i + ${len}); })()`);
+const selectionStatus = (page) => page.ev(`(() => { const t = document.getElementById("seltype"); return t.hidden ? null : t.textContent; })()`);
+const untilSelectionStatus = (page, text) => page.until(`(() => { const t = document.getElementById("seltype"); return !t.hidden && t.textContent === ${JSON.stringify(text)}; })()`, 30000, `the selection's type ${text}`);
+
+test("selecting an expression shows its type in the status line, and in the tooltip when the pointer is over the selection", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  await page.setSource(NAV_SOURCE);
+  await page.untilChecked();
+  // The whole call: the index is computed on demand.
+  await selectText(page, "double (double n)", 0, 17);
+  await untilSelectionStatus(page, "selection: Nat");
+  await hoverAt(page, await whereIs(page, "double (double n)", 9, 3));
+  await page.until(`!document.getElementById("navtip").hidden && document.getElementById("navtip").textContent.startsWith("selection")`, 10000, "the selection's tooltip");
+  assert.equal(await tooltip(page), "selection\n: Nat");
+  await shots(page, "selection-type");
+  // The argument: the name under the pointer gives way to the selection.
+  await selectText(page, "double (double n)", 8, 8);
+  await untilSelectionStatus(page, "selection: Nat");
+  await hoverAt(page, await whereIs(page, "double (double n)", 14, 1));
+  await page.until(`document.getElementById("navtip").textContent === "selection\\n: Nat"`, 10000, "the argument's tooltip");
+  // Whitespace at the ends is trimmed, and parentheses may or may not be in.
+  await selectText(page, "length xs", 6, 4);
+  await untilSelectionStatus(page, "selection: List Nat");
+  await selectText(page, "(double n)", 0, 10);
+  await untilSelectionStatus(page, "selection: Nat");
+  await selectText(page, "double n)", 0, 8);
+  await untilSelectionStatus(page, "selection: Nat");
+  // A selection no expression covers (a keyword and a name) has no type.
+  await selectText(page, "def quad", 0, 8);
+  await page.until(`document.getElementById("seltype").hidden`, 10000, "the status to clear");
+  // Pointer outside the selection: the ordinary hover.
+  await selectText(page, "double (double n)", 8, 8);
+  await untilSelectionStatus(page, "selection: Nat");
+  await hoverAt(page, await whereIs(page, "length xs", 7, 2));
+  await page.until(`document.getElementById("navtip").textContent.startsWith("xs")`, 10000, "the name's tooltip");
+  // Collapsed, the status goes.
+  await page.ev(`(() => { const s = document.getElementById("source"); s.setSelectionRange(3, 3); })()`);
+  await page.until(`document.getElementById("seltype").hidden`, 10000, "the status to clear");
+}, { ms: 120000 });
+
 const stdName = (page) => page.ev(`document.getElementById("stdbar").hidden ? null : document.getElementById("std-name").textContent`);
 const untilStd = (page, name, what) => page.until(`!document.getElementById("stdbar").hidden && document.getElementById("std-name").textContent === ${JSON.stringify(name)}`, 30000, what);
 const textAtCaret = (page) => page.ev(`(() => { const s = document.getElementById("source");
