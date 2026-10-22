@@ -8,6 +8,7 @@ namespace Aoc.Day02.Proofs
 import Aoc.Common (..)
 import Aoc.Common.Proofs (..)
 import Aoc.Day02 (..)
+import Aoc.Day02.Spec (..)
 import Std (Bool, Decidable, Eq, List, Nat, Void)
 
 -- Why `sumMatchingTemplate` is right (a): `sumMatchingTemplate r template` equals

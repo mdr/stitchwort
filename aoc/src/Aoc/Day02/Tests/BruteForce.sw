@@ -7,6 +7,7 @@
 namespace Aoc.Day02.Tests
 import Aoc.Common (Range)
 import Aoc.Day02 (..)
+import Aoc.Day02.Spec (..)
 import Std (Bool, List, Nat)
 
 test "written as" := (writtenAs [1, 2, 1, 2] 2 2, writtenAs [1, 2, 1, 2] 1 4, writtenAs [1, 1, 1] 1 3) == (True, False, True)

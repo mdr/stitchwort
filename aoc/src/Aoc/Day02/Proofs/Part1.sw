@@ -7,6 +7,7 @@ namespace Aoc.Day02.Proofs
 import Aoc.Common (..)
 import Aoc.Common.Proofs (..)
 import Aoc.Day02 (..)
+import Aoc.Day02.Spec (..)
 import Aoc.Day02.Tests (exampleRanges)
 import Std (Bool, Eq, Int, List, Nat, Void)
 

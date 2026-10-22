@@ -19,7 +19,8 @@
 --
 -- That `sumMatchingTemplate` adds up the right ids is proved in
 -- `Aoc.Day02.Proofs` (Proofs/Repeated.sw); the tests are in
--- `Aoc.Day02.Tests` (Tests/). `run` checks neither.
+-- `Aoc.Day02.Tests` (Tests/), both against the puzzle-literal spec in
+-- `Aoc.Day02.Spec` (Spec/). `run` checks none of them.
 
 namespace Aoc.Day02
 import Aoc.Common (Range)
@@ -69,7 +70,7 @@ def sumOfIdsWrittenRepeatedly (range: Range): Int :=
 def copiesWeight (copies: Nat): Int
   decreasing copies
 :=
-  let divisorWeights := List.rangeFrom (copies - 2) 2 |> .sumBy (d =>
+  let divisorWeights := List.between 2 (copies - 1) |> .sumBy (d =>
     if h: d < copies then (if Nat.divides d copies then copiesWeight d else 0) else 0)
   1 - divisorWeights
 
@@ -92,17 +93,3 @@ def sumMatchingTemplate (range: Range) (template: RepetitionTemplate): Nat :=
   else 0
 
 def parseRanges (t: Text): List Range := t.trim.split ',' |> .filterMap Range.parse
-
--- The puzzle read digit by digit: the specification that the proofs, and the
--- brute-force tests (Tests/BruteForce.sw), compare the arithmetic with. The
--- digits are some block of k digits written n times.
-def writtenAs (ds: List Nat) (k: Nat) (n: Nat): Bool := List.concat (List.replicate n (List.take k ds)) == ds
-
--- Part 1: written twice; part 2: written two or more times.
-def doubled (x: Nat): Bool :=
-  let ds := Nat.digits x
-  List.rangeFrom ds.length 1 |> .any (k => writtenAs ds k 2)
-
-def repeats (x: Nat): Bool :=
-  let ds := Nat.digits x
-  List.rangeFrom ds.length 1 |> .any (k => List.rangeFrom ds.length 2 |> .any (n => writtenAs ds k n))

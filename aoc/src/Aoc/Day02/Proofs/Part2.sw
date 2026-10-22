@@ -30,6 +30,7 @@ namespace Aoc.Day02.Proofs
 import Aoc.Common (Range)
 import Aoc.Common.Proofs (rangeEnd)
 import Aoc.Day02 (..)
+import Aoc.Day02.Spec (..)
 import Aoc.Day02.Tests (exampleRanges)
 import Std (Bool, Decidable, Eq, Int, List, Nat, Void)
 
@@ -275,7 +276,8 @@ theorem weightBelow (j: Nat): copiesWeight (Succ (Succ j)) = 1 - divisorWeights 
   let guarded: Nat -> Int := d => if h: d < Succ (Succ j) then (if Nat.divides d (Succ (Succ j)) then copiesWeight d else 0) else 0
   let plain: Nat -> Int := d => if Nat.divides d (Succ (Succ j)) then copiesWeight d else 0
   calc copiesWeight (Succ (Succ j))
-    _ = 1 - List.sumBy guarded (List.rangeFrom j 2) := copiesWeight.unfold (Succ (Succ j))
+    _ = 1 - List.sumBy guarded (List.rangeFrom (j + 1 - 1) 2) := copiesWeight.unfold (Succ (Succ j))
+    _ = 1 - List.sumBy guarded (List.rangeFrom j 2) := Eq.cong (t => 1 - List.sumBy guarded (List.rangeFrom t 2)) (Nat.addSub j 1)
     _ = 1 - List.sumBy plain (List.rangeFrom j 2)
         := Eq.cong (Int.sub 1)
              (List.sumRangeCongr guarded plain j 2
