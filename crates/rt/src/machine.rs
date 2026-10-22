@@ -336,7 +336,7 @@ impl State {
                 self.push(image, code, args, Some(fun.clone()), ret)?;
                 Ok(None)
             }
-            Fun::DoneK => Ok(Some((Value::data(program.shapes.done, args), ret))),
+            Fun::DoneK => Ok(Some((Value::data_vec(program.shapes.done, args), ret))),
             Fun::Pap { .. } => unreachable!("a partial application's head"),
         }
     }

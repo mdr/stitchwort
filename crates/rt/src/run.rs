@@ -215,7 +215,7 @@ impl Runner<'_> {
 
     fn apply_cont(&mut self, cont: &Cont, v: Value) -> Result<Value, ResourceError> {
         match cont {
-            Cont::Done => Ok(Value::data(self.m.shapes().done, vec![v])),
+            Cont::Done => Ok(Value::data(self.m.shapes().done, [v])),
             Cont::Fn(rest) => self.m.call(rest.clone(), vec![v]),
         }
     }
@@ -322,7 +322,7 @@ impl Runner<'_> {
         } else if tag == s.read_line {
             output.flush().map_err(RunError::Write)?;
             match read_line(input, &mut self.lines)? {
-                Some(line) => Value::data(s.some, vec![Value::Text(line.into())]),
+                Some(line) => Value::data(s.some, [Value::Text(line.into())]),
                 None => Value::Tag(s.none),
             }
         } else if tag == s.read_all {
