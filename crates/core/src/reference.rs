@@ -276,7 +276,7 @@ fn unfold(g: &Globals, id: DefId, spine: Vec<Elim>) -> Result<Value> {
 /// all its arguments, except while a program runs.
 fn folds(g: &Globals, id: DefId) -> bool {
     let def = g.def(id);
-    (def.fold || def.theorem) && !g.erasure.active()
+    (def.fold || def.theorem) && !g.erasure.program_running()
 }
 
 /// Whether `value` is a folded definition with all its arguments.

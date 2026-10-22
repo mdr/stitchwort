@@ -69,6 +69,9 @@ pub struct DefErasure {
 pub struct Erasure {
     /// Whether the machine is erasing now.
     active: Cell<bool>,
+    /// Whether a program or test is running now ([`Erasure::running`]),
+    /// erasing or not.
+    program: Cell<bool>,
     /// Off only to compare runs with and without erasure, in tests.
     disabled: Cell<bool>,
     /// Each definition's, worked out on first use (from its type, which
@@ -80,11 +83,13 @@ pub struct Erasure {
 pub struct Running<'g> {
     erasure: &'g Erasure,
     was: bool,
+    was_program: bool,
 }
 
 impl Drop for Running<'_> {
     fn drop(&mut self) {
         self.erasure.active.set(self.was);
+        self.erasure.program.set(self.was_program);
     }
 }
 
@@ -98,7 +103,20 @@ impl Erasure {
     /// Erases until the result is dropped: for running a program or test.
     pub fn running(&self) -> Running<'_> {
         let was = self.active.replace(!self.disabled.get());
-        Running { erasure: self, was }
+        let was_program = self.program.replace(true);
+        Running {
+            erasure: self,
+            was,
+            was_program,
+        }
+    }
+
+    /// Whether a program or test is running now, erasing or not (erasure is
+    /// [`Erasure::set_disabled`] to compare the two): then dictionaries and
+    /// theorems don't stay folded and calls aren't glued, as they do while
+    /// checking. So a run without erasure computes its proofs.
+    pub fn program_running(&self) -> bool {
+        self.program.get()
     }
 
     /// Whether the machine is erasing now.

@@ -1186,7 +1186,7 @@ fn branch(
         // An impossible branch is never reached by a well-typed value
         // (docs/proposals/indexed-families.md §6.8). A run that reaches one
         // anyway fails loudly; checking leaves the definition folded.
-        if g.erasure.active() {
+        if g.erasure.program_running() {
             panic!("internal error: unreachable: an impossible branch was reached");
         }
         return Ok(stuck_tree(stuck));
@@ -1217,7 +1217,7 @@ fn unfold(g: &Globals, id: DefId, spine: Spine) -> Result<Control> {
 #[cold]
 #[inline(never)]
 fn glues(g: &Globals, id: DefId) -> bool {
-    !g.erasure.active() && g.builtins.native(id).is_none()
+    !g.erasure.program_running() && g.builtins.native(id).is_none()
 }
 
 /// [`unfold`], gluing only if `glue`: a call being forced unfolds now.
@@ -1267,7 +1267,7 @@ fn unfold_now(g: &Globals, id: DefId, spine: Spine, glue: bool) -> Result<Contro
 /// doesn't change, only when it's computed.
 fn folds(g: &Globals, id: DefId) -> bool {
     let def = g.def(id);
-    (def.fold || def.theorem) && !g.erasure.active()
+    (def.fold || def.theorem) && !g.erasure.program_running()
 }
 
 /// Folded call `value` ([`is_folded`]) is taken apart by the frame `next`:
