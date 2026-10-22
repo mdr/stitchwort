@@ -43,6 +43,7 @@ use crate::{Elaborator, Global, PRELUDE};
 /// checks this lists every `.sw` file under `std/`.
 pub const LIBRARY_FILES: &[(&str, &str)] = &[
     ("Abort/Abort.sw", include_str!("std/Abort/Abort.sw")),
+    ("Bool/Bool.sw", include_str!("std/Bool/Bool.sw")),
     (
         "Decidable/Decidable.sw",
         include_str!("std/Decidable/Decidable.sw"),
@@ -63,6 +64,8 @@ pub const LIBRARY_FILES: &[(&str, &str)] = &[
     ("Nat/Digits.sw", include_str!("std/Nat/Digits.sw")),
     ("Nat/Divides.sw", include_str!("std/Nat/Divides.sw")),
     ("Nat/Iterate.sw", include_str!("std/Nat/Iterate.sw")),
+    ("Omega/Omega.sw", include_str!("std/Omega/Omega.sw")),
+    ("Omega/Sound.sw", include_str!("std/Omega/Sound.sw")),
     ("Option/Option.sw", include_str!("std/Option/Option.sw")),
     ("Ord/Ord.sw", include_str!("std/Ord/Ord.sw")),
     ("Set/Set.sw", include_str!("std/Set/Set.sw")),

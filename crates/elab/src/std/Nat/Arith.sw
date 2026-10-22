@@ -87,6 +87,16 @@ theorem Nat.leqFalse: (d: Nat) -> (n: Nat) -> Nat.leq d n = False -> n < d
   | Succ d, Zero, h => rfl
   | Succ d, Succ n, h => Nat.leqFalse d n h
 
+-- Comparisons from their negations and from equations (the bridge lemmas of
+-- docs/proposals/omega.md §6.4).
+theorem Nat.ltOfNotLe (a: Nat) (b: Nat) (h: Not (a <= b)): b < a := Nat.leqFalse a b (Bool.falseOfNotTrue (Nat.leq a b) h)
+
+theorem Nat.leOfNotLt (a: Nat) (b: Nat) (h: Not (a < b)): b <= a := Nat.leqFalse (Succ a) b (Bool.falseOfNotTrue (Nat.leq (Succ a) b) h)
+
+theorem Nat.leOfEq (a: Nat) (b: Nat) (e: a = b): a <= b := J (y p => a <= y) (Nat.leRefl a) e
+
+theorem Nat.ltOfNotLeExample: 2 < 3 := Nat.ltOfNotLe 3 2 Bool.falseNotTrue
+
 theorem Nat.subLtAdd: (n: Nat) -> (x: Nat) -> (d: Nat) -> x <= n -> n < d + x -> n - x < d
   | n, Zero, d, hx, h => Nat.ltCongRight n (d + 0) d (Nat.addZero d) h
   | Zero, Succ x, d, hx, h => Void.exfalso (Bool.falseNotTrue hx)

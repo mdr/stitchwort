@@ -1,59 +1,12 @@
 -- Sorting: merge sort and its proofs (sorted, a permutation, the same length),
--- with the Bool, Nat and List lemmas around them (sums of lists, Gauss, counting
+-- with the Nat and List lemmas around them (sums of lists, Gauss, counting
 -- occurrences). This file was the prelude's "Sorting" section; the declarations
--- that the core or a later section of the prelude uses stayed there.
+-- that the core or a later section of the prelude uses stayed there, and its
+-- opening `Bool` lemmas are now std/Bool/Bool.sw.
 --
 -- A library file is written like the prelude: names are as they are in the
 -- namespaces they go in (`List.sort` is `Std.List.sort`), so one file can add
 -- to several namespaces. It is checked when a program uses something in it.
-
--- `||` on `Bool`s: `False` is its unit, `True` absorbs, and it groups and
--- commutes.
-theorem Bool.orFalse: (b: Bool) -> (b || False) = b
-  | True  => rfl
-  | False => rfl
-
-theorem Bool.orTrue: (b: Bool) -> (b || True) = True
-  | True  => rfl
-  | False => rfl
-
-theorem Bool.orAssoc: (a: Bool) -> (b: Bool) -> (c: Bool) -> ((a || b) || c) = (a || (b || c))
-  | True,  b, c => rfl
-  | False, b, c => rfl
-
-theorem Bool.orComm: (a: Bool) -> (b: Bool) -> (a || b) = (b || a)
-  | True,  True  => rfl
-  | True,  False => rfl
-  | False, True  => rfl
-  | False, False => rfl
-
--- `&&` from its sides and back; `not a || b` as "a implies b"; two booleans
--- are equal when each implies the other.
-theorem Bool.andIntro: (a: Bool) -> (b: Bool) -> a = True -> b = True -> (a && b) = True
-  | True,  b, ha, hb => hb
-  | False, b, ha, hb => Void.exfalso (Bool.falseNotTrue ha)
-
-theorem Bool.andLeft: (a: Bool) -> (b: Bool) -> (a && b) = True -> a = True
-  | True,  b, h => rfl
-  | False, b, h => Void.exfalso (Bool.falseNotTrue h)
-
-theorem Bool.andRight: (a: Bool) -> (b: Bool) -> (a && b) = True -> b = True
-  | True,  b, h => h
-  | False, b, h => Void.exfalso (Bool.falseNotTrue h)
-
-theorem Bool.impIntro: (a: Bool) -> (b: Bool) -> (a = True -> b = True) -> (!a || b) = True
-  | True,  b, h => h rfl
-  | False, b, h => rfl
-
-theorem Bool.impElim: (a: Bool) -> (b: Bool) -> (!a || b) = True -> a = True -> b = True
-  | True,  b, h, ha => h
-  | False, b, h, ha => Void.exfalso (Bool.falseNotTrue ha)
-
-theorem Bool.eqOf: (a: Bool) -> (b: Bool) -> (a = True -> b = True) -> (b = True -> a = True) -> a = b
-  | True,  True,  f, g => rfl
-  | True,  False, f, g => Void.exfalso (Bool.falseNotTrue (f rfl))
-  | False, True,  f, g => Void.exfalso (Bool.falseNotTrue (g rfl))
-  | False, False, f, g => rfl
 
 theorem Nat.addRotate (a: Nat) (b: Nat) (c: Nat): (a + b) + c = b + (a + c) := Eq.trans (Eq.cong (t => t + c) (Nat.addComm a b)) (Nat.addAssoc b a c)
 

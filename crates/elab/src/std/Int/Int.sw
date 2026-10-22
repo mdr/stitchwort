@@ -306,3 +306,94 @@ theorem Int.sumByMulLeft (c: Int) (f: a -> Int): (xs: List a) -> List.sumBy (x =
 theorem Int.mulCommExample: (-3) * 4 = 4 * (-3) := rfl
 
 test "Int.toIntSumBy" := (List.sumBy (x => x * x) [1, 2, 3]).toInt == List.sumBy (x => (x * x).toInt) [1, 2, 3]
+
+-- Lemmas (checkpoint 4): order. `0 <= x` is `Int.leq 0 x = True`, which
+-- computes to `True` exactly for an `OfNat`, so these are by cases. They are
+-- what `omega`'s soundness proof needs (docs/proposals/omega.md §6.6): sums and
+-- natural multiples of non-negative numbers are non-negative, a difference
+-- `n - m` of naturals is when `m <= n`, and dividing by a positive number and
+-- rounding down keeps `0 <= c + d * s`.
+
+theorem Int.addCong [a a2 b b2: Int] (p: a = a2) (q: b = b2): a + b = a2 + b2 :=
+  Eq.trans (Eq.cong (t => Int.add t b) p) (Eq.cong (Int.add a2) q)
+
+theorem Int.addNonneg: (a: Int) -> (b: Int) -> 0 <= a -> 0 <= b -> 0 <= a + b
+  | OfNat m,   OfNat n,   ha, hb => rfl
+  | OfNat m,   NegSucc n, ha, hb => Void.exfalso (Bool.falseNotTrue hb)
+  | NegSucc m, b,         ha, hb => Void.exfalso (Bool.falseNotTrue ha)
+
+theorem Int.mulNonneg: (a: Int) -> (b: Int) -> 0 <= a -> 0 <= b -> 0 <= a * b
+  | OfNat m,   OfNat n,   ha, hb => rfl
+  | OfNat m,   NegSucc n, ha, hb => Void.exfalso (Bool.falseNotTrue hb)
+  | NegSucc m, b,         ha, hb => Void.exfalso (Bool.falseNotTrue ha)
+
+theorem Int.notNonnegOfIsNeg: (c: Int) -> Int.isNeg c = True -> 0 <= c -> Void
+  | OfNat n,   n1, h => Bool.falseNotTrue n1
+  | NegSucc n, n1, h => Bool.falseNotTrue h
+
+theorem Int.zeroMul: (a: Int) -> Int.mul (OfNat 0) a = OfNat 0
+  | OfNat n   => rfl
+  | NegSucc n => rfl
+
+theorem Int.negOneMul (a: Int): Int.mul (NegSucc 0) a = Int.neg a :=
+  Eq.trans (Int.mulNegSucc 0 a) (Eq.cong Int.neg (Int.oneMul a))
+
+theorem Int.addAddSwap (a: Int) (b: Int) (c: Int) (d: Int): (a + b) + (c + d) = (a + c) + (b + d) :=
+  calc (a + b) + (c + d)
+    _ = a + (b + (c + d)) := Int.addAssoc a b (c + d)
+    _ = a + ((b + c) + d) := Eq.cong (Int.add a) (Eq.sym (Int.addAssoc b c d))
+    _ = a + ((c + b) + d) := Eq.cong (t => a + (t + d)) (Int.addComm b c)
+    _ = a + (c + (b + d)) := Eq.cong (Int.add a) (Int.addAssoc c b d)
+    _ = (a + c) + (b + d) := Eq.sym (Int.addAssoc a c (b + d))
+
+theorem Int.subNonnegOfLe (m: Nat) (n: Nat) (h: m <= n): 0 <= Nat.toInt n - Nat.toInt m :=
+  J (y e => Int.leq (OfNat 0) y = True)
+    (J (k e => Int.leq (OfNat 0) (Int.subNatNatFrom n m k) = True) rfl (Eq.sym (Nat.subEqZero m n h)))
+    (Eq.sym (Int.subOfNats n m))
+
+-- If `0 <= v` is false, then `0 <= -1 - v`: the two sides of a case split
+-- on a whole number.
+theorem Int.negOneSubNonneg: (v: Int) -> Int.leq (OfNat 0) v = False -> 0 <= Int.add (NegSucc 0) (Int.neg v)
+  | OfNat n,   h => Void.exfalso (Bool.trueNotFalse h)
+  | NegSucc n, h =>
+    J (y e => Int.leq (OfNat 0) y = True) rfl
+      (Eq.sym (Eq.trans (Int.subNatNatSucc n 0) (Int.subNatNatZeroRight n)))
+
+-- `0 <= (d + 1) * y + r` with `r <= d` means `0 <= y`: a negative `y` makes
+-- the product at most `-(d + 1)`, which `r` can't make up.
+theorem Int.nonnegOfMulAddSmall (d: Nat) (r: Nat) (hr: r <= d): (y: Int) -> 0 <= OfNat (Succ d) * y + OfNat r -> 0 <= y
+  | OfNat n,   h => rfl
+  | NegSucc n, h =>
+    Void.exfalso (Bool.falseNotTrue
+      (rewrite Nat.subSuccRight r (Succ (n + d * Succ n))
+        (Nat.leTrans r d (n + d * Succ n) hr
+          (Nat.leTrans d (d * Succ n) (n + d * Succ n)
+            (rewrite Nat.mulSucc d n in Nat.leAddRight d (d * n))
+            (Nat.leAddLeft n (d * Succ n))))
+        at h))
+
+theorem Int.nonnegOfMulAddMod (d: Nat): (m: Int) -> 0 <= m -> m < OfNat (Succ d) -> (y: Int) -> 0 <= OfNat (Succ d) * y + m -> 0 <= y
+  | OfNat r,   hm, hd, y, h => Int.nonnegOfMulAddSmall d r hd y h
+  | NegSucc r, hm, hd, y, h => Void.exfalso (Bool.falseNotTrue hm)
+
+theorem Int.mulAddAddMul (d: Int) (q: Int) (m: Int) (s: Int): (d * q + m) + d * s = d * (q + s) + m :=
+  calc (d * q + m) + d * s
+    _ = d * q + (m + d * s) := Int.addAssoc (d * q) m (d * s)
+    _ = d * q + (d * s + m) := Eq.cong (Int.add (d * q)) (Int.addComm m (d * s))
+    _ = (d * q + d * s) + m := Eq.sym (Int.addAssoc (d * q) (d * s) m)
+    _ = d * (q + s) + m     := Eq.cong (t => Int.add t m) (Eq.sym (Int.mulDistribLeft d q s))
+
+-- Dividing by a positive `d` and rounding down: from `0 <= c + d * s`,
+-- `0 <= c / d + s` (`/` by a positive number is floor division). The floor is
+-- what turns `2 * x - 1 >= 0` into `x - 1 >= 0`; rounding toward zero would
+-- give the weaker `x >= 0`, and rounding up would be wrong.
+theorem Int.divFloorNonneg (d: Nat) (c: Int) (s: Int) (h: 0 <= c + OfNat (Succ d) * s): 0 <= c / OfNat (Succ d) + s :=
+  Int.nonnegOfMulAddMod d (c % OfNat (Succ d)) (Int.modNonneg c (OfNat (Succ d))) (Int.modLtAbs c (OfNat (Succ d))) (c / OfNat (Succ d) + s)
+    (J (z p => Int.leq (OfNat 0) z = True) h
+      (Eq.trans (Eq.cong (t => Int.add t (OfNat (Succ d) * s)) (Eq.sym (Int.divAddMod c (OfNat (Succ d)))))
+        (Int.mulAddAddMul (OfNat (Succ d)) (c / OfNat (Succ d)) (c % OfNat (Succ d)) s)))
+
+-- `2 * x - 1 >= 0` gives `x - 1 >= 0`, at `x = 1`.
+theorem Int.divFloorNonnegExample: 0 <= (-1) / 2 + 1 := Int.divFloorNonneg 1 (-1) 1 rfl
+
+test "Int.divFloorNonneg rounds down" := (-1) / 2 == (-1: Int) && (-3) / 2 == (-2: Int) && 3 / 2 == (1: Int)
