@@ -414,20 +414,20 @@ const encode = (t, v) => {
 
 
 const $Std$dNat$dadd = (m) => (n) => m + n;
-const $Main$disEven = (v0) => {
-  if (v0 === 0n) {
-    return { tag: "True" };
-  } else {
-    const v1 = v0 - 1n;
-    return $Main$disOdd(v1);
-  }
-};
 const $Main$disOdd = (v0) => {
   if (v0 === 0n) {
     return { tag: "False" };
   } else {
     const v1 = v0 - 1n;
     return $Main$disEven(v1);
+  }
+};
+const $Main$disEven = (v0) => {
+  if (v0 === 0n) {
+    return { tag: "True" };
+  } else {
+    const v1 = v0 - 1n;
+    return $Main$disOdd(v1);
   }
 };
 const $Main$dmapList = (v2) => (v3) => {
@@ -444,14 +444,6 @@ const $Main$dmapList = (v2) => (v3) => {
   throw new Error("unreachable");
 };
 const $Main$dparities = (v0) => $Main$dmapList($Main$disEven)(v0);
-const $Main$devenShift = (v0) => (v1) => {
-  if (v0 === 0n) {
-    return v1;
-  } else {
-    const v2 = v0 - 1n;
-    return $Main$doddShift(v2)(v1);
-  }
-};
 const $Main$doddShift = (v0) => (v1) => {
   if (v0 === 0n) {
     return (v1 + 1n);
@@ -460,22 +452,17 @@ const $Main$doddShift = (v0) => (v1) => {
     return $Main$devenShift(v2)(v1);
   }
 };
+const $Main$devenShift = (v0) => (v1) => {
+  if (v0 === 0n) {
+    return v1;
+  } else {
+    const v2 = v0 - 1n;
+    return $Main$doddShift(v2)(v1);
+  }
+};
 const $Main$dshifted = (v0) => (v1) => $Main$devenShift(v0)(v1);
 const $Main$dten = $Main$disEven(10n);
 const $Main$dtenIsEven = (v0) => $Main$dten;
-const $Main$dtotal = (v0) => {
-  switch (v0.tag) {
-    case "Nil": {
-      return 0n;
-    }
-    case "Cons": {
-      const v1 = v0.head;
-      const v2 = v0.tail;
-      return $Main$dinner(v1)(v2);
-    }
-  }
-  throw new Error("unreachable");
-};
 const $Main$dinner = (v0) => (v1) => {
   switch (v0.tag) {
     case "Nil": {
@@ -485,6 +472,19 @@ const $Main$dinner = (v0) => (v1) => {
       const v2 = v0.head;
       const v3 = v0.tail;
       return $Std$dNat$dadd(v2)($Main$dinner(v3)(v1));
+    }
+  }
+  throw new Error("unreachable");
+};
+const $Main$dtotal = (v0) => {
+  switch (v0.tag) {
+    case "Nil": {
+      return 0n;
+    }
+    case "Cons": {
+      const v1 = v0.head;
+      const v2 = v0.tail;
+      return $Main$dinner(v1)(v2);
     }
   }
   throw new Error("unreachable");

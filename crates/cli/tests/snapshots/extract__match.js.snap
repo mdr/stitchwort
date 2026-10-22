@@ -414,7 +414,6 @@ const encode = (t, v) => {
 
 
 const $Std$dNat$dadd = (m) => (n) => m + n;
-const $Main$dcount = (v0) => $Std$dNat$dadd(1n)($Main$dcount$d$gmatch1(v0));
 const $Main$dcount$d$gmatch1 = (v0) => {
   if (v0 === 0n) {
     return 0n;
@@ -423,6 +422,7 @@ const $Main$dcount$d$gmatch1 = (v0) => {
     return $Main$dcount(v1);
   }
 };
+const $Main$dcount = (v0) => $Std$dNat$dadd(1n)($Main$dcount$d$gmatch1(v0));
 const $Main$dcountTail = (v0) => {
   let s0 = v0;
   for (;;) {
@@ -436,7 +436,6 @@ const $Main$dcountTail = (v0) => {
     }
   }
 };
-const $Main$dcountNamed = (v0) => $Main$dcountNamed$d$gmatch1(v0);
 const $Main$dcountNamed$d$gmatch1 = (v0) => {
   if (v0 === 0n) {
     return 0n;
@@ -445,6 +444,7 @@ const $Main$dcountNamed$d$gmatch1 = (v0) => {
     return $Main$dcountNamed(v1);
   }
 };
+const $Main$dcountNamed = (v0) => $Main$dcountNamed$d$gmatch1(v0);
 const $Main$ddescribe = (v0) => {
   switch (v0.tag) {
     case "Nil": {

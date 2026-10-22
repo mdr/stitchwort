@@ -466,20 +466,6 @@ const $Main$dOrdered$d$gcompare = (v1) => {
 };
 const $Main$dOrdered$dinstNat = { compare: $Std$dNat$dcompare };
 const $Main$ddescending = { compare: ((v0) => ((v1) => $Std$dNat$dcompare(v1)(v0))) };
-const $Main$dTree$dinsert = (v1) => (v2) => (v3) => {
-  switch (v3.tag) {
-    case "Leaf": {
-      return { tag: "Node", left: { tag: "Leaf" }, key: v2, right: { tag: "Leaf" } };
-    }
-    case "Node": {
-      const v4 = v3.left;
-      const v5 = v3.key;
-      const v6 = v3.right;
-      return $Main$dTree$dinsert$d$gmatch1(v1)(v2)(v4)(v5)(v6)($Main$dOrdered$d$gcompare(v1)(v2)(v5));
-    }
-  }
-  throw new Error("unreachable");
-};
 const $Main$dTree$dinsert$d$gmatch1 = (v1) => (v2) => (v3) => (v4) => (v5) => (v6) => {
   switch (v6.tag) {
     case "Less": {
@@ -490,6 +476,20 @@ const $Main$dTree$dinsert$d$gmatch1 = (v1) => (v2) => (v3) => (v4) => (v5) => (v
     }
     case "Greater": {
       return { tag: "Node", left: v3, key: v4, right: $Main$dTree$dinsert(v1)(v2)(v5) };
+    }
+  }
+  throw new Error("unreachable");
+};
+const $Main$dTree$dinsert = (v1) => (v2) => (v3) => {
+  switch (v3.tag) {
+    case "Leaf": {
+      return { tag: "Node", left: { tag: "Leaf" }, key: v2, right: { tag: "Leaf" } };
+    }
+    case "Node": {
+      const v4 = v3.left;
+      const v5 = v3.key;
+      const v6 = v3.right;
+      return $Main$dTree$dinsert$d$gmatch1(v1)(v2)(v4)(v5)(v6)($Main$dOrdered$d$gcompare(v1)(v2)(v5));
     }
   }
   throw new Error("unreachable");

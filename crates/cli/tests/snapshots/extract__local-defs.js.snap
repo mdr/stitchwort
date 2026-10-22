@@ -437,7 +437,6 @@ const $Std$dDecidable$dtoBool = (v1) => {
   throw new Error("unreachable");
 };
 const $Std$dNat$ddecEq = (m) => (n) => ({ tag: m === n ? "Yes" : "No" });
-const $Main$dsumTo = (v0) => $Main$dsumTo$dgo(v0)(0n);
 const $Main$dsumTo$dgo = (v0) => (v1) => {
   let s0 = v0, s1 = v1;
   for (;;) {
@@ -452,7 +451,7 @@ const $Main$dsumTo$dgo = (v0) => (v1) => {
     }
   }
 };
-const $Main$dcountIf = (v0) => (v1) => $Main$dcountIf$dgo(v0)(0n)(v1);
+const $Main$dsumTo = (v0) => $Main$dsumTo$dgo(v0)(0n);
 const $Main$dcountIf$dgo = (v0) => (v1) => (v2) => {
   let s0 = v0, s1 = v1, s2 = v2;
   for (;;) {
@@ -473,15 +472,7 @@ const $Main$dcountIf$dgo = (v0) => (v1) => (v2) => {
     throw new Error("unreachable");
   }
 };
-const $Main$dparity = (v0) => $Main$dparity$disEven(v0);
-const $Main$dparity$disEven = (v0) => {
-  if (v0 === 0n) {
-    return { tag: "True" };
-  } else {
-    const v1 = v0 - 1n;
-    return $Main$dparity$disOdd(v1);
-  }
-};
+const $Main$dcountIf = (v0) => (v1) => $Main$dcountIf$dgo(v0)(0n)(v1);
 const $Main$dparity$disOdd = (v0) => {
   if (v0 === 0n) {
     return { tag: "False" };
@@ -490,6 +481,15 @@ const $Main$dparity$disOdd = (v0) => {
     return $Main$dparity$disEven(v1);
   }
 };
+const $Main$dparity$disEven = (v0) => {
+  if (v0 === 0n) {
+    return { tag: "True" };
+  } else {
+    const v1 = v0 - 1n;
+    return $Main$dparity$disOdd(v1);
+  }
+};
+const $Main$dparity = (v0) => $Main$dparity$disEven(v0);
 
 function $$sumTo(arg0) {
   try {

@@ -444,7 +444,6 @@ const $Std$dBool$difThenElse = (v1) => (v2) => (v3) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dNat$dequal = (m) => (n) => ({ tag: m === n ? "True" : "False" });
 const $Std$dDecidable$dtoBool = (v1) => {
   switch (v1.tag) {
     case "Yes": {

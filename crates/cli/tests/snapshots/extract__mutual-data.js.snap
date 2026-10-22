@@ -445,16 +445,6 @@ const $Std$dList$dappend = (v1) => (v2) => {
   }
   throw new Error("unreachable");
 };
-const $Main$dsize = (v0) => {
-  switch (v0.tag) {
-    case "Node": {
-      const v1 = v0.label;
-      const v2 = v0.kids;
-      return ($Main$dsizeForest(v2) + 1n);
-    }
-  }
-  throw new Error("unreachable");
-};
 const $Main$dsizeForest = (v0) => {
   switch (v0.tag) {
     case "FNil": {
@@ -468,12 +458,12 @@ const $Main$dsizeForest = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $Main$drelabel = (v0) => {
+const $Main$dsize = (v0) => {
   switch (v0.tag) {
     case "Node": {
       const v1 = v0.label;
       const v2 = v0.kids;
-      return { tag: "Node", label: (v1 + 1n), kids: $Main$drelabelAll(v2) };
+      return ($Main$dsizeForest(v2) + 1n);
     }
   }
   throw new Error("unreachable");
@@ -487,6 +477,16 @@ const $Main$drelabelAll = (v0) => {
       const v1 = v0.first;
       const v2 = v0.rest;
       return { tag: "FCons", first: $Main$drelabel(v1), rest: $Main$drelabelAll(v2) };
+    }
+  }
+  throw new Error("unreachable");
+};
+const $Main$drelabel = (v0) => {
+  switch (v0.tag) {
+    case "Node": {
+      const v1 = v0.label;
+      const v2 = v0.kids;
+      return { tag: "Node", label: (v1 + 1n), kids: $Main$drelabelAll(v2) };
     }
   }
   throw new Error("unreachable");
@@ -508,16 +508,6 @@ const $Main$ddeepOnto = (v0) => (v1) => {
   }
 };
 const $Main$ddeep = (v0) => $Main$ddeepOnto({ tag: "Node", label: 0n, kids: { tag: "FNil" } })(v0);
-const $Main$dflattenRose = (v1) => {
-  switch (v1.tag) {
-    case "Bloom": {
-      const v2 = v1.value;
-      const v3 = v1.kids;
-      return { tag: "Cons", head: v2, tail: $Main$dflattenRoses(v3) };
-    }
-  }
-  throw new Error("unreachable");
-};
 const $Main$dflattenRoses = (v1) => {
   switch (v1.tag) {
     case "NoRoses": {
@@ -527,6 +517,16 @@ const $Main$dflattenRoses = (v1) => {
       const v2 = v1.first;
       const v3 = v1.rest;
       return $Std$dList$dappend($Main$dflattenRose(v2))($Main$dflattenRoses(v3));
+    }
+  }
+  throw new Error("unreachable");
+};
+const $Main$dflattenRose = (v1) => {
+  switch (v1.tag) {
+    case "Bloom": {
+      const v2 = v1.value;
+      const v3 = v1.kids;
+      return { tag: "Cons", head: v2, tail: $Main$dflattenRoses(v3) };
     }
   }
   throw new Error("unreachable");
