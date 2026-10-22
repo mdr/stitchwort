@@ -1,6 +1,7 @@
 # A language server for Stitchwort
 
-**Status:** design note, 22 October 2026 (SW-31). Nothing here is built.
+**Status:** design note, 22 October 2026 (SW-31). Stages 0b and 0c are
+built (SW-275, [As built](#as-built-stages-0b-0c)); nothing else is.
 Decisions D496–D498 are in the [table at the end](#decisions). Measured on
 `main` at `d61ff947` with the release CLI, on a copy of `aoc/` with its own
 cache folder, load average about 3. Claims about the code were checked by
@@ -583,6 +584,113 @@ now whatever happens to the rest.
   a VS Code webview with its own protocol extension; outside VS Code, the
   hover and the diagnostic are what remain. That's why §5.2 puts the goal
   in a diagnostic first.
+
+## As built (stages 0b, 0c)
+
+*SW-275, 22 October 2026.*
+
+**The API** (`crates/driver/src/rewind.rs`, on the existing `Session`):
+
+| | |
+|---|---|
+| `session.mark() -> Mark` | Where the session is. Only between loads (it asserts no metavariables and no library file loading). |
+| `session.rewind(&mark)` | Back to the mark. A mark can be rewound to any number of times, until the session is rewound to an earlier one. |
+| `session.cancel_flag() -> Arc<AtomicBool>` | The flag another thread sets to stop the check running. |
+| `session.cancellable(\|s\| …) -> Result<T, Cancelled>` | Runs a check that the flag can stop: clears the flag, marks, watches the flag while the closure runs, and if it was seen, rewinds and returns `Cancelled` instead of what the half-finished check reported. |
+
+The elaborator's part is `Elaborator::mark`/`rewind` (`crates/elab/src/rewind.rs`)
+and the kernel environment's is `Globals::mark`/`rewind`
+(`crates/core/src/globals.rs`), which changes no rule of the kernel: it
+removes declarations, and what was recorded about them.
+
+**What rewinds, and how.** Each table goes back one of three ways:
+
+- *Cut back to its length*: definitions, data types, abilities, lifted
+  helpers, tests, the source map, the session's warnings, and the caches
+  indexed by definition (erasure, result heads, `performs`, content hashes).
+  Natives and primitives registered for removed definitions, and built-ins
+  bound to them, are dropped (`Builtins::rewind`, `Registry::forget_from`).
+- *Rows for removed data types dropped*: records, interfaces, data owners,
+  and why `==`, `show` and `compare` aren't derived.
+- *A copy taken at the mark put back*: the name scope, instances, the module
+  state, the project's tables, the check cache's namespace keys and
+  replayed names, the library's load state (so library files loaded since
+  are unloaded), the dot-call caches, the `include` locations, and the whole
+  navigation recorder. These are the tables a later load can change an old
+  row of, or whose keys are spans in files that exist before the mark.
+- *Emptied*: every per-declaration table (obligations, drafts, local
+  definitions, `decreasing`'s state, metavariables), which a cancelled
+  check can leave half-full; the budget goes back to "no operation
+  running". The `glue` switch and `Globals::module` are restored.
+- *Left alone*: settings (limits, test switches, `disable_natives`), the
+  check cache's store and statistics, and `STITCHWORT_TIMINGS`' rows, which
+  are process-wide and describe time spent, rewound work included.
+
+`Elaborator::rewind` and `Globals::rewind` destructure every field without
+`..`, so a new field doesn't compile until it says how it rewinds.
+
+**Cancellation.** `ResourceError::Cancelled`, from a flag in `Budget`. The
+fast path of `Budget::step` is unchanged: while the flag is watched, the
+threshold it compares against is the next poll point (every 16,384 steps,
+`POLL`) instead of the limit, and the cold path reads the flag. It is also
+read when every operation starts, and once seen it is sticky: every later
+operation fails at once, so the rest of the check runs through in
+microseconds per declaration. Only `cancellable` watches the flag, so
+printing, the index and tests afterwards never stop. A check cache entry
+is never written once cancellation is seen (`cache/mod.rs`), and test
+results that ran out of resources were already never cached.
+
+**Tests** (`crates/driver/tests/rewind.rs`). Compared with a fresh session:
+the canonical dump, every definition's and data type's content hash, the
+navigation index JSON and the rendered diagnostics. Three ways: check,
+rewind, check (and the rewound session must equal a fresh one before the
+second check, and a mark is rewound to twice); in a project, every
+namespace checked, rewound to just before it and checked again (a hidden
+`recheck_namespaces` switch in the project loop); and a check cancelled at
+its first operation, then checked again. With `STITCHWORT_SLOW=1`: every
+example (506 files, 53 projects) and `aoc` pass, and a check of `aoc`
+cancelled from another thread at 1, 10, 50, 150, 400 and 900 ms rewinds and
+the next check matches a fresh one. The normal tier runs every eighth file
+and every fourth project.
+
+**Measured.**
+
+- *Cost of the flag*, `aoc`, `check --no-cache`, release, instructions
+  retired (`/usr/bin/time -l`, 3 runs each): before 19.12–19.15 G; after,
+  flag not watched (the CLI) 19.08–19.12 G; after, the whole check run
+  through `cancellable` 18.97–18.98 G. All within run-to-run noise (about
+  0.3%), so no measurable cost. `STITCHWORT_TIMINGS` wall time, best of 3:
+  1,489 ms before, 1,483 ms after, 1,464 ms watched.
+- *Cancellation delay*: 5–23 ms from setting the flag to `cancellable`
+  returning, with the full example test running on 8 other threads. The
+  slow part is elaboration that takes no evaluation steps, which only an
+  operation start notices.
+- *Mark and rewind*, after a full `aoc` check with navigation: `mark()`
+  1.9 ms, rewinding to it 3.5 ms, rewinding to an empty session 34 ms
+  (dropping every declaration).
+
+**What the note got wrong or left open.**
+
+- §5.1 says a mark "notes every table's size" and rewind "truncates them
+  all". Sizes are enough for less than half the tables; the scope,
+  instances, module state, navigation and the dot-call caches are copied
+  (§9's third point predicted this). At a namespace boundary that costs 2 ms
+  for `aoc`; per declaration (stage 5) it would need an undo log instead.
+- §3.4 says rewinding "never frees the memory of the library files a
+  session loaded (they're kept)". As built it unloads them, because keeping
+  them changes definition ids and the order of names, and then nothing
+  equals a fresh check. Keeping them is a possible stage-1 optimisation, but
+  needs a different notion of "the same result" (by path and hash, not id).
+- §3.3's "checked there every few thousand steps … stops any check
+  promptly": the 20 ms target of §7 is only just met under load. If stage 1
+  measures worse, `Budget::nesting` can poll too.
+- D498's "a crate with no file or thread access": the session layer is in
+  `crates/driver`, which `crates/web` already uses. `Session`, `mark`,
+  `rewind` and `cancellable` touch neither files nor threads, but the crate
+  also holds `DiskFiles` and the test thread pool. Splitting those out is
+  only needed if the rule is to be enforced by the compiler.
+- Marks are only valid between loads. Rewinding to a point inside a
+  namespace (stage 5) needs the module loop to stop between declarations.
 
 ## Decisions
 

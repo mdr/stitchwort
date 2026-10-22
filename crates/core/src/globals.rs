@@ -352,4 +352,90 @@ impl Globals {
         self.meta_trail.borrow_mut().clear();
         self.print_labels.borrow_mut().clear();
     }
+
+    /// Where the environment is now, for [`Globals::rewind`]. Taken between
+    /// declarations (no operation running, no metavariables): the
+    /// elaborator's `mark` is the only caller.
+    pub fn mark(&self) -> GlobalsMark {
+        GlobalsMark {
+            defs: self.defs.len(),
+            datas: self.datas.len(),
+            builtins: self.builtins.mark(),
+            failed_mentioned: self.failed_mentioned.get(),
+            module: self.module.clone(),
+            glue: self.glue.get(),
+        }
+    }
+
+    /// Puts the environment back as it was at `mark`: the definitions and
+    /// data types declared since are removed, with everything recorded
+    /// about them (built-ins bound, natives registered, hashes, erasure),
+    /// and the metavariables and the budget are cleared, as if no operation
+    /// were running. Declarations from before the mark are never changed
+    /// after they are final, so nothing else needs undoing; the elaborator
+    /// rewinds its own tables. The settings (the `disable_*` switches,
+    /// erasure's) and the cancellation flag stay as they are.
+    ///
+    /// Every field is named here, so a new one can't be forgotten.
+    pub fn rewind(&mut self, mark: &GlobalsMark) {
+        let Globals {
+            defs,
+            datas,
+            builtins,
+            registry,
+            metas: _,
+            meta_trail: _,
+            frozen_metas: _,
+            print_labels: _,
+            hashes,
+            budget,
+            failed_mentioned,
+            erasure,
+            module,
+            glue,
+            meta_epoch: _,
+        } = self;
+        assert!(
+            mark.defs <= defs.len() && mark.datas <= datas.len(),
+            "a mark from after the point the session was rewound to"
+        );
+        defs.truncate(mark.defs);
+        datas.truncate(mark.datas);
+        builtins.rewind(&mark.builtins, mark.defs);
+        registry.forget_from(mark.defs, mark.datas);
+        hashes.borrow_mut().retain(|k, _| match k {
+            HashKey::Def(id) => id.0 < mark.defs,
+            HashKey::Data(d) => d.0 < mark.datas,
+        });
+        budget.reset();
+        failed_mentioned.set(mark.failed_mentioned);
+        erasure.forget_from(mark.defs);
+        *module = mark.module.clone();
+        glue.set(mark.glue);
+        // Bumps the epoch, so no kept unfolding is trusted.
+        self.clear_metas();
+    }
+}
+
+/// A point [`Globals::rewind`] goes back to.
+#[derive(Clone)]
+pub struct GlobalsMark {
+    defs: usize,
+    datas: usize,
+    builtins: crate::native::BuiltinsMark,
+    failed_mentioned: bool,
+    module: Name,
+    glue: bool,
+}
+
+impl GlobalsMark {
+    /// How many definitions there were.
+    pub fn defs(&self) -> usize {
+        self.defs
+    }
+
+    /// How many data types there were.
+    pub fn datas(&self) -> usize {
+        self.datas
+    }
 }

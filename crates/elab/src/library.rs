@@ -525,6 +525,7 @@ pub(crate) enum LoadState {
 
 /// What an elaborator knows about the library: the index, and the state of
 /// each file.
+#[derive(Clone)]
 pub(crate) struct LibraryState {
     pub index: Arc<LibraryIndex>,
     pub state: Vec<LoadState>,

@@ -89,6 +89,12 @@ impl Drop for Running<'_> {
 }
 
 impl Erasure {
+    /// Forgets what was worked out for the definitions from `defs` on, when
+    /// they are removed again ([`Globals::rewind`]).
+    pub(crate) fn forget_from(&self, defs: usize) {
+        self.defs.borrow_mut().truncate(defs);
+    }
+
     /// Erases until the result is dropped: for running a program or test.
     pub fn running(&self) -> Running<'_> {
         let was = self.active.replace(!self.disabled.get());

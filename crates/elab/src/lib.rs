@@ -39,10 +39,12 @@ mod patlet;
 mod pipe;
 pub mod project;
 mod records;
+mod rewind;
 mod rewrite;
 mod scope;
 pub mod timings;
 pub use library::{LIBRARY_FILES, LibraryIndex};
+pub use rewind::Mark;
 pub use scope::edit_distance;
 mod undo;
 mod unify;
@@ -387,6 +389,10 @@ pub struct Elaborator {
     /// For tests: every namespace replay fails part way
     /// (`fail_namespace_replays_late`).
     fail_replays_late: bool,
+    /// For the rewind test: a project's driver checks each namespace, rewinds
+    /// to just before it, and checks it again (`rewind.rs`).
+    #[doc(hidden)]
+    pub recheck_namespaces: bool,
     /// The files `include` read in the namespace being elaborated, with a
     /// hash of their text, for its cache entry.
     include_trace: RefCell<Vec<(String, cache::Key)>>,

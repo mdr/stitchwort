@@ -6,4 +6,5 @@ pub mod driver;
 pub mod nav;
 pub mod project;
 pub mod render;
+pub mod rewind;
 pub mod run;

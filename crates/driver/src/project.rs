@@ -132,6 +132,14 @@ impl Session {
                     module,
                 })
                 .collect();
+            // The rewind test's hook: check it, rewind, check it again.
+            if self.elab.recheck_namespaces {
+                let mark = self.mark();
+                let _ = self
+                    .elab
+                    .elaborate_namespace(Some(name), &units, Some(&dependencies));
+                self.rewind(&mark);
+            }
             let first_new_def = self.elab.globals.defs.len();
             let mut found = self
                 .elab
