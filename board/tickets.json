@@ -922,15 +922,15 @@
     {
       "id": 62,
       "title": "Long list and text literals",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree lane: investigate + fix",
       "labels": [
         "elab"
       ],
       "body": "Problem: a list or text literal stops at about 1,800 elements in a 2 MiB thread (playground) and about 75,000 in the CLI (64 MiB): 20,000 elements check, 100,000 give E-RESOURCE 'it recursed more deeply than allowed' (repro: a one-line `def xs: List Nat := [1,1,...,1]`). The parser and the elaborator recurse per element.\n\nChange: make literal parsing and elaboration iterative, or build compact literals directly (compact text stage 2 already stores `List Char` literals compactly in the kernel, d4d3626). Related: SW-82 (WASM stack guard), SW-126 (parser stack per level).\n\nDone when: a 100,000-element list literal checks in the CLI and in the playground's WASM build.\n\nHistory: none.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
