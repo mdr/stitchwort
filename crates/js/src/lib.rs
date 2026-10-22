@@ -19,11 +19,13 @@ use stitchwort_core::{
     BigUint, DataId, DefId, Globals, Limits, ResourceError, Sort, Term, Value, pretty,
 };
 use stitchwort_rt::erasure::{def_shape, reachable, text_literal};
-use stitchwort_rt::natives::{Representation, int_data, nat_data, text_data};
+use stitchwort_rt::natives::{
+    Representation, int_data, nat_data, safe_int_data, safe_nat_data, text_data,
+};
 // Shared with the runtime (D389), and part of this crate's interface.
 pub use stitchwort_rt::natives::{
-    IntBinding, IntNative, NAT_DATA_HASH, NativeBinding, TEXT_DATA_HASH, TextBinding, TextNative,
-    bind_int, bind_text_natives,
+    IntBinding, IntNative, NAT_DATA_HASH, NativeBinding, SAFE_INT_HASH, SAFE_NAT_HASH,
+    TEXT_DATA_HASH, TextBinding, TextNative, bind_int, bind_text_natives,
 };
 use stitchwort_syntax::Diagnostic;
 
@@ -43,6 +45,14 @@ pub enum Boundary {
     /// `bigint`, of either sign: the prelude's `Int`, when it's the data type
     /// the representation was written for ([`bind_int`]).
     Int,
+    /// `number`, a whole number from 0 to 2^53 - 1: the library's `SafeNat`
+    /// (std/Int/Safe.sw), when it's the data type the codec was written for
+    /// ([`SAFE_NAT_HASH`]).
+    SafeNat,
+    /// `number`, a whole number from -(2^53 - 1) to 2^53 - 1: the library's
+    /// `SafeInt`, when it's the data type the codec was written for
+    /// ([`SAFE_INT_HASH`]).
+    SafeInt,
     /// `boolean`.
     Bool,
     /// `string`, well-formed (no lone surrogates): the prelude's `Text`, when
@@ -234,6 +244,15 @@ fn boundary(
         }
         Value::Data(d, args) => {
             let data = g.data(*d);
+            // `SafeNat` and `SafeInt` are records of a `Nat` or `Int` inside
+            // generated code, and `number`s at the boundary, which the codec
+            // needs the `bigint` representations for.
+            if args.is_empty() && safe_nat_data(g) == Some(*d) && nat_data(g).is_some() {
+                return Ok(Boundary::SafeNat);
+            }
+            if args.is_empty() && safe_int_data(g) == Some(*d) && int_data(g).is_some() {
+                return Ok(Boundary::SafeInt);
+            }
             if args.is_empty() && int_data(g) == Some(*d) {
                 return Ok(Boundary::Int);
             }
@@ -590,19 +609,29 @@ pub fn generate_exports(
         js.push_str(CHARS_OF_TEXT);
     }
     // `INT` only where it's used.
-    let at_boundary = |b: &Boundary| b.mentions(&Boundary::Int);
-    let int_crosses = exports
-        .iter()
-        .flat_map(|sig| sig.params.iter().map(|(_, b)| b).chain([&sig.result]))
-        .any(at_boundary)
-        || boundary_datas.iter().any(|d| {
-            generic_field_boundaries(g, *d)
-                .iter()
-                .flatten()
-                .any(|(_, b)| at_boundary(b))
-        });
-    if let Some(int) = int_data(g).filter(|_| int_crosses) {
+    let crosses = |leaf: Boundary| {
+        let at_boundary = |b: &Boundary| b.mentions(&leaf);
+        exports
+            .iter()
+            .flat_map(|sig| sig.params.iter().map(|(_, b)| b).chain([&sig.result]))
+            .any(at_boundary)
+            || boundary_datas.iter().any(|d| {
+                generic_field_boundaries(g, *d)
+                    .iter()
+                    .flatten()
+                    .any(|(_, b)| at_boundary(b))
+            })
+    };
+    let safe_nat_crosses = crosses(Boundary::SafeNat);
+    let safe_int_crosses = crosses(Boundary::SafeInt);
+    if let Some(int) = int_data(g).filter(|_| safe_int_crosses || crosses(Boundary::Int)) {
         js.push_str(&codegen.int_codec(int));
+    }
+    if safe_nat_crosses || safe_int_crosses {
+        js.push_str(&codegen.safe_codecs(
+            safe_nat_data(g).filter(|_| safe_nat_crosses),
+            safe_int_data(g).filter(|_| safe_int_crosses),
+        ));
     }
     js.push_str(RUNTIME_CODECS);
     js.push('\n');
@@ -691,6 +720,8 @@ fn collect_datas(g: &Globals, b: &Boundary, out: &mut Vec<DataId>) {
     match b {
         Boundary::Nat
         | Boundary::Int
+        | Boundary::SafeNat
+        | Boundary::SafeInt
         | Boundary::Bool
         | Boundary::Text
         | Boundary::Char
@@ -1940,6 +1971,51 @@ impl<'g> Gen<'g> {
         )
     }
 
+    /// The runtime's `SAFE_NAT` and `SAFE_INT` codecs, for the library's
+    /// `SafeNat` and `SafeInt` (only those that cross, given their data
+    /// types). At the boundary each is a `number` that is a whole number
+    /// within the bounds the types' proof fields state; inside generated
+    /// code it's a record with one field, which holds the `Nat` or `Int`.
+    /// Decoding refuses a `bigint` or anything but a `number`, a fraction,
+    /// `NaN`, an infinity and anything out of range (a whole `number` beyond
+    /// 2^53 - 1 may already have been rounded, so it can't be trusted), and
+    /// reads `-0` as 0. Encoding is exact, as the bounds hold of every value.
+    fn safe_codecs(&self, nat: Option<DataId>, int: Option<DataId>) -> String {
+        let mut out = String::from(
+            "\n// A whole number a `number` holds exactly (the library's `SafeNat` and\n\
+             // `SafeInt`), as a `bigint`.\n\
+             const safeNumber = (x, lowest) => {\n  \
+               if (typeof x !== \"number\") refuse(\"expected a number\");\n  \
+               if (!Number.isInteger(x)) refuse(\"expected a whole number\");\n  \
+               if (x < lowest || x > 9007199254740991) {\n    \
+                 refuse(`expected a whole number from ${lowest} to 9007199254740991`);\n  \
+               }\n  \
+               return BigInt(x);\n\
+             };\n",
+        );
+        let field = |d: DataId| {
+            let data = self.g.data(d);
+            let name = &data.ctors[0].fields[0].0;
+            let k = key(self.g, d, name);
+            (ts_key(&k), member(&k))
+        };
+        if let Some(d) = nat {
+            let (k, m) = field(d);
+            let _ = writeln!(
+                out,
+                "const SAFE_NAT = leaf((x) => ({{ {k}: safeNumber(x, 0) }}), (v) => Number(v{m}));"
+            );
+        }
+        if let Some(d) = int {
+            let (k, m) = field(d);
+            let _ = writeln!(
+                out,
+                "const SAFE_INT = leaf(\n  (x) => ({{ {k}: INT.dec(safeNumber(x, -9007199254740991)) }}),\n  (v) => Number(INT.enc(v{m})),\n);"
+            );
+        }
+        out
+    }
+
     /// The tag of `Decidable`'s first constructor (`Yes`).
     fn decision_yes_tag(&self) -> String {
         self.g.registry.data(Builtin::Decidable).map_or_else(
@@ -1954,6 +2030,8 @@ impl<'g> Gen<'g> {
         match b {
             Boundary::Nat => "NAT".into(),
             Boundary::Int => "INT".into(),
+            Boundary::SafeNat => "SAFE_NAT".into(),
+            Boundary::SafeInt => "SAFE_INT".into(),
             Boundary::Bool => "BOOL".into(),
             Boundary::Text => "TEXT".into(),
             Boundary::Char => "CHAR".into(),
@@ -2063,6 +2141,7 @@ impl<'g> Gen<'g> {
     fn ts_type(&self, b: &Boundary, readonly: bool, params: &[String]) -> String {
         match b {
             Boundary::Nat | Boundary::Int => "bigint".into(),
+            Boundary::SafeNat | Boundary::SafeInt => "number".into(),
             Boundary::Bool => "boolean".into(),
             Boundary::Text | Boundary::Char => "string".into(),
             Boundary::List(elem) if readonly => {
@@ -2664,6 +2743,23 @@ pub fn boundary_literal(g: &Globals, b: &Boundary, value: &Value) -> Result<Stri
                 None => Err(stuck()),
             }
         }
+        // A `SafeNat` or `SafeInt` record is its first field, as a `number`.
+        (Boundary::SafeNat, Value::Ctor(_, _, fields)) => {
+            match native::as_nat(g, &fields[0]).map_err(|e| e.to_string())? {
+                Some(n) => Ok(n.to_string()),
+                None => Err(stuck()),
+            }
+        }
+        (Boundary::SafeInt, Value::Ctor(_, _, fields)) => match &fields[0] {
+            Value::Ctor(_, c, inner) => {
+                match native::as_nat(g, &inner[0]).map_err(|e| e.to_string())? {
+                    Some(n) if *c == 0 => Ok(n.to_string()),
+                    Some(n) => Ok(format!("-{}", n + 1u32)),
+                    None => Err(stuck()),
+                }
+            }
+            _ => Err(stuck()),
+        },
         // A list, possibly ending in a compact one, walked one cell at a time
         // as matching would.
         (Boundary::List(elem), _) => {

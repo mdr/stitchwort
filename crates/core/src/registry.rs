@@ -74,6 +74,8 @@ const LIBRARY: &[Builtin] = &[
     Builtin::TextIsEmpty,
     Builtin::TextUncons,
     Builtin::TextFold,
+    Builtin::SafeNat,
+    Builtin::SafeInt,
 ];
 
 macro_rules! builtins {
@@ -191,6 +193,10 @@ builtins! {
     NatToInt = "Nat.toInt": Def,
     IntToText = "Int.toText": Def,
     TextToInt = "Text.toInt": Def,
+    // Whole numbers that cross the JS boundary as a `number`
+    // (std/Int/Safe.sw)
+    SafeNat = "SafeNat": Data,
+    SafeInt = "SafeInt": Data,
     // Booleans and decisions
     Bool = "Bool": Data,
     False = "False": Ctor(Builtin::Bool),
@@ -309,6 +315,15 @@ impl Registry {
         self.assert_usable(b);
         match self.entries.get(&b) {
             Some(Entry::Def(id)) => Some(*id),
+            _ => None,
+        }
+    }
+
+    /// Built-in data type `b` if it is bound yet: for a library built-in,
+    /// whose file may not have loaded (see [`Registry::loaded_def`]).
+    pub fn loaded_data(&self, b: Builtin) -> Option<DataId> {
+        match self.entries.get(&b) {
+            Some(Entry::Data(d)) => Some(*d),
             _ => None,
         }
     }

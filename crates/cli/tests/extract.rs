@@ -379,6 +379,24 @@ fn random_value(g: &Globals, b: &Boundary, rng: &mut Rng, depth: usize) -> Value
                 vec![Value::Nat(std::rc::Rc::new(magnitude))].into(),
             )
         }
+        // Mostly small, sometimes at or just beyond the bounds, where the
+        // generated decoder must refuse what the proof field says doesn't hold.
+        Boundary::SafeNat | Boundary::SafeInt => {
+            let magnitude = match rng.below(4) {
+                0 => BigUint::from(MAX_SAFE) + BigUint::from(rng.below(3)) - BigUint::from(1u32),
+                _ => BigUint::from(rng.below(13)),
+            };
+            let nat = Value::Nat(std::rc::Rc::new(magnitude));
+            let (record, value) = if matches!(b, Boundary::SafeNat) {
+                ("SafeNat", nat)
+            } else {
+                (
+                    "SafeInt",
+                    Value::Ctor(named("Int"), rng.below(2), vec![nat].into()),
+                )
+            };
+            Value::Ctor(named(record), 0, vec![value, Value::Refl].into())
+        }
         Boundary::Char => random_char(g, rng),
         Boundary::Text => {
             let len = rng.below(7);
@@ -448,8 +466,28 @@ fn proofs_hold(g: &Globals, b: &Boundary, value: &Value) -> bool {
                     .zip(runtime)
                     .all(|((_, fb), (v, _))| proofs_hold(g, fb, v))
         }
+        // The bound the type's proof field states.
+        (Boundary::SafeNat, Value::Ctor(_, _, fields)) => {
+            nat_of(g, &fields[0]) <= BigUint::from(MAX_SAFE)
+        }
+        (Boundary::SafeInt, Value::Ctor(_, _, fields)) => match &fields[0] {
+            // `OfNat n` is `n`, and `NegSucc n` is `-n - 1`, so both are in
+            // bounds up to 2^53 - 1 in magnitude.
+            Value::Ctor(_, 0, inner) => nat_of(g, &inner[0]) <= BigUint::from(MAX_SAFE),
+            Value::Ctor(_, _, inner) => nat_of(g, &inner[0]) < BigUint::from(MAX_SAFE),
+            _ => panic!("an evaluated `Int`"),
+        },
         _ => true,
     }
+}
+
+/// 2^53 - 1: the largest whole number a JS `number` holds exactly.
+const MAX_SAFE: u64 = 9_007_199_254_740_991;
+
+fn nat_of(g: &Globals, v: &Value) -> BigUint {
+    stitchwort_core::native::as_nat(g, v)
+        .expect("evaluates")
+        .expect("an evaluated `Nat`")
 }
 
 /// Characters where JavaScript's strings and Stitchwort's text disagree
@@ -1775,6 +1813,38 @@ fn nat_and_text_are_bound_to_the_prelude() {
     );
 }
 
+/// The `number` codec of `SafeNat` and `SafeInt` is written for the library's
+/// declarations (std/Int/Safe.sw), bounds included. If they change, this
+/// prints the new hashes: re-check the codec in `crates/js` (`safe_codecs`)
+/// against the changed declarations before updating `SAFE_NAT_HASH` or
+/// `SAFE_INT_HASH` in `crates/rt`.
+#[test]
+fn safe_numbers_are_bound_to_the_library() {
+    let examples = examples();
+    let session = example(&examples, "safe-numbers.sw");
+    let g = &session.elab.globals;
+    let mut unbound = Vec::new();
+    for (name, builtin, expected) in [
+        ("SafeNat", Builtin::SafeNat, stitchwort_js::SAFE_NAT_HASH),
+        ("SafeInt", Builtin::SafeInt, stitchwort_js::SAFE_INT_HASH),
+    ] {
+        let d = g
+            .registry
+            .data(builtin)
+            .unwrap_or_else(|| panic!("the library declares {name}"));
+        let hash = data_hash(g, d).expect("hashes").expect("checked").hex();
+        if hash != expected {
+            unbound.push(format!("the data type `{name}`: {hash:?}"));
+        }
+    }
+    assert!(
+        unbound.is_empty(),
+        "`SafeNat` or `SafeInt` codec not bound to the library's declarations; \
+         re-check the JS codec and update its hash in `crates/rt`:\n{}",
+        unbound.join("\n")
+    );
+}
+
 /// Definitions that call each other (docs/proposals/mutual-recursion.md
 /// §8.6). Only a definition's tail calls to itself are loops, so `isEven` on
 /// a large number uses a stack frame per step and runs out: a resource
@@ -2216,6 +2286,133 @@ assert.deepEqual(m.firstNeg([3n, -4n, -5n]), { tag: "Some", value: -4n });
 console.log("ok");
 "#;
     run_script("int-boundary", &[("integers.mjs", session)], script);
+}
+
+/// `SafeNat` and `SafeInt` cross as `number`s (SW-337): whole numbers within
+/// 2^53 - 1, in both directions, in the declarations too. Decoding refuses a
+/// `bigint`, a string, a fraction, `NaN`, an infinity and anything out of
+/// range (even a whole number: beyond 2^53 - 1 it may be rounded already),
+/// and accepts `-0` as 0. Encoding is exact.
+#[test]
+fn safe_numbers_cross_the_boundary_as_numbers() {
+    let examples = examples();
+    let session = example(&examples, "safe-numbers.sw");
+    let dts = stitchwort_js::generate(&session.elab.globals, session.elab.limits)
+        .expect("extraction succeeds")
+        .dts;
+    for declaration in [
+        "export declare function addSafe(a: number, b: number): Option<number>;",
+        "export declare function negateSafe(a: number): Option<number>;",
+        "export declare function toSafe(n: bigint): Option<number>;",
+        "export type Counter = { readonly count: number; readonly delta: number };",
+        "export declare function sumAll(xs: readonly number[]): Option<number>;",
+    ] {
+        assert!(dts.contains(declaration), "{declaration}\n{dts}");
+    }
+    let script = r#"
+import * as m from "./safe-numbers.mjs";
+import assert from "node:assert/strict";
+
+const MAX = 9007199254740991;
+const refused = (f, pattern) =>
+  assert.throws(f, (e) => e instanceof m.StitchwortInputError && pattern.test(e.message));
+const some = (value) => ({ tag: "Some", value });
+
+// Numbers in, numbers out, exactly.
+assert.deepEqual(m.addSafe(2, 3), some(5));
+assert.deepEqual(m.addSafe(MAX, 0), some(MAX));
+assert.deepEqual(m.addSafe(0, MAX), some(MAX));
+assert.deepEqual(m.addSafe(MAX - 1, 1), some(MAX));
+assert.deepEqual(m.addSafe(MAX, 1), { tag: "None" });
+assert.deepEqual(m.addSafe(MAX, MAX), { tag: "None" });
+assert.deepEqual(m.negateSafe(-5), some(5));
+assert.deepEqual(m.negateSafe(-MAX), some(MAX));
+assert.deepEqual(m.negateSafe(MAX), some(-MAX));
+for (const x of [0, 1, 255, 65536, 2 ** 31, 2 ** 32 + 1, 2 ** 52 + 1, MAX]) {
+  assert.deepEqual(m.sumAll([x]), some(x));
+  assert.equal(typeof m.sumAll([x]).value, "number");
+  assert.deepEqual(m.negateSafe(-x), some(x));
+}
+assert.deepEqual(m.sumAll([]), some(0));
+assert.deepEqual(m.sumAll([1, 2, 3]), some(6));
+assert.deepEqual(m.lengths(["ab", "", "cde"]), [some(2), some(0), some(3)]);
+
+// A result is never -0, whichever way it's produced.
+assert.ok(Object.is(m.negateSafe(0).value, 0));
+assert.ok(Object.is(m.addSafe(0, 0).value, 0));
+
+// `bigint` in, `number` out, and the other way: the bounds decide.
+assert.deepEqual(m.toSafe(5n), some(5));
+assert.deepEqual(m.toSafe(2n ** 53n - 1n), some(MAX));
+assert.deepEqual(m.toSafe(2n ** 53n), { tag: "None" });
+assert.deepEqual(m.toSafe(2n ** 100n), { tag: "None" });
+assert.deepEqual(m.toSafeInt(-(2n ** 53n) + 1n), some(-MAX));
+assert.deepEqual(m.toSafeInt(-(2n ** 53n)), { tag: "None" });
+assert.deepEqual(m.toSafeInt(2n ** 53n), { tag: "None" });
+assert.deepEqual(m.toSafeInt(-7n), some(-7));
+
+// A `-0` is the whole number 0.
+assert.deepEqual(m.addSafe(-0, -0), some(0));
+assert.deepEqual(m.negateSafe(-0), some(0));
+
+// Anything but a `number` is refused, a `bigint` and a numeric string too.
+for (const bad of [5n, "5", null, undefined, {}, [], true, Object(5), { valueOf: () => 5 }]) {
+  refused(() => m.addSafe(bad, 1), /^a: expected a number$/);
+  refused(() => m.negateSafe(bad), /^a: expected a number$/);
+}
+refused(() => m.addSafe(1, 2n), /^b: expected a number$/);
+
+// A number that isn't a whole number is refused.
+for (const bad of [1.5, -1.5, 0.1, 2 ** 51 + 0.5, NaN, Infinity, -Infinity, Number.MIN_VALUE]) {
+  refused(() => m.addSafe(bad, 1), /^a: expected a whole number$/);
+  refused(() => m.negateSafe(bad), /^a: expected a whole number$/);
+}
+
+// Out of range, at the very edge and far beyond. 2^53 is a whole number a
+// `number` holds, and so is 2^53 + 2, but not 2^53 + 1.
+const natRange = /^a: expected a whole number from 0 to 9007199254740991$/;
+const intRange = /^a: expected a whole number from -9007199254740991 to 9007199254740991$/;
+for (const bad of [MAX + 1, MAX + 2, 2 ** 64, 1e21, Number.MAX_VALUE, -1, -MAX, -Number.MAX_VALUE]) {
+  refused(() => m.addSafe(bad, 1), natRange);
+}
+for (const bad of [MAX + 1, MAX + 2, -MAX - 1, -MAX - 2, 2 ** 64, -(2 ** 64), 1e21, -1e21, Number.MAX_VALUE]) {
+  refused(() => m.negateSafe(bad), intRange);
+}
+
+// Inside lists and records, with the path to the problem.
+refused(() => m.sumAll([1, 2.5]), /^xs\[1\]: expected a whole number$/);
+refused(() => m.sumAll([1, 2n]), /^xs\[1\]: expected a number$/);
+refused(() => m.sumAll([1, -1]), /^xs\[1\]: expected a whole number from 0 to 9007199254740991$/);
+assert.deepEqual(m.bump({ count: 41, delta: 1 }), some(42));
+assert.deepEqual(m.bump({ count: 41, delta: -1 }), some(41));
+refused(() => m.bump({ count: 1, delta: 1.5 }), /^c\.delta: expected a whole number$/);
+refused(() => m.bump({ count: 1n, delta: 1 }), /^c\.count: expected a number$/);
+refused(() => m.bump({ count: -1, delta: 1 }), /^c\.count: expected a whole number from 0 to 9007199254740991$/);
+refused(() => m.bump({ count: 1, delta: 2 ** 53 }), /^c\.delta: expected a whole number from -/);
+refused(() => m.bump({ count: 1 }), /^c\.delta: missing$/);
+
+// `Nat` and `Int` are still `bigint`s.
+refused(() => m.toSafe(5), /^n: expected a non-negative bigint$/);
+refused(() => m.toSafeInt(5), /^n: expected a bigint$/);
+console.log("ok");
+"#;
+    run_script("safe-numbers", &[("safe-numbers.mjs", session)], script);
+
+    // A program's own `SafeNat` is an ordinary record, not the library's.
+    let mut own = Session::new();
+    own.load(
+        "own.sw",
+        "type SafeNat = { value: Nat, fits: value <= 9007199254740991 }\n\
+         export def same (n: SafeNat): SafeNat := n\n",
+    )
+    .unwrap_or_else(|_| panic!("a program's own `SafeNat` checks"));
+    let dts = stitchwort_js::generate(&own.elab.globals, own.elab.limits)
+        .expect("extraction succeeds")
+        .dts;
+    assert!(
+        dts.contains("export type SafeNat = { readonly value: bigint };"),
+        "{dts}"
+    );
 }
 
 /// The prelude with `from` replaced by `to`, which must occur.

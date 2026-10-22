@@ -52,6 +52,7 @@ pub const LIBRARY_FILES: &[(&str, &str)] = &[
     ("Fin/Fin.sw", include_str!("std/Fin/Fin.sw")),
     ("Int/Basics.sw", include_str!("std/Int/Basics.sw")),
     ("Int/Int.sw", include_str!("std/Int/Int.sw")),
+    ("Int/Safe.sw", include_str!("std/Int/Safe.sw")),
     ("List/Attach.sw", include_str!("std/List/Attach.sw")),
     ("List/Grid.sw", include_str!("std/List/Grid.sw")),
     ("List/Index.sw", include_str!("std/List/Index.sw")),
