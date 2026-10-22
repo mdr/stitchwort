@@ -966,7 +966,7 @@
     {
       "id": 65,
       "title": "Prove `Text.toNat (Nat.toText n) = Just n`",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "worktree lane (D538)",
       "labels": [
@@ -976,7 +976,10 @@
       "body": "`Text.toNat (Nat.toText n) = Just n` is tested only (crates/elab/src/std/core.sw:630 documents it; examples/accept/text.sw:81 'round trip'). Prove it.\n\nPieces already in the library: `Nat.digits`/`Nat.fromDigits` with `Nat.fromDigitsDigits` (Std Nat/Digits.sw), `Char.digitValueChar` (Digits.sw:303), `Char.digitsOntoValues` (:316) and `Char.toTextDigits` (:329: the digit values of `Nat.toText n` are `Nat.digits n`), `Char.mapDigitValueDigits` (:284), and the division lemmas `Nat.divUnique`, `Nat.modUnique`, `Nat.addDivSelf` (Std Nat/Arith.sw:157-171). Missing: a lemma relating `Text.readDigits acc cs` (core.sw:622-626) to `acc * 10^len + fromDigits (digit values of cs)` when every char is a digit.\n\nDone when: `theorem Text.toNatToText (n: Nat): Text.toNat (Nat.toText n) = Just n` is in the library (Digits.sw) and the example's runtime test stays as a unit test.\n",
       "created": "2026-10-19",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "10655fe7",
+        "38c1d56d"
+      ]
     },
     {
       "id": 66,
