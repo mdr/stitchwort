@@ -661,7 +661,11 @@ impl Elaborator {
         };
         if timed {
             // A miss is timed again below, as an ordinary load.
-            let label = format!("std/{} ({})", file.path, if hit { "cached" } else { "cache miss" });
+            let label = format!(
+                "std/{} ({})",
+                file.path,
+                if hit { "cached" } else { "cache miss" }
+            );
             crate::timings::end(&self.globals, label);
         }
         if hit {
