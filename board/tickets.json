@@ -3205,7 +3205,7 @@
     {
       "id": 209,
       "title": "rewrite ... at h: rewrite a named hypothesis",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -3215,7 +3215,12 @@
       "body": "`rewrite p in t` rewrites the goal; there is no way to rewrite the type of a named hypothesis (docs/syntax.md:619-630 documents only `rewrite p, q in t`). A `J` is kept for this at Aoc/Day02/Proofs/Repeated.sw:221-224 and :238 (examples of `J (z q => …)` on a hypothesis). docs/proposals/calc-rewrite.md §6.4 and Stage 3 mention rewriting 'in the body's own type when no goal is known'.\n\nFirst step: decide the surface (`rewrite p at h in t`, or `rewrite p in h` giving a new hypothesis) and whether it overlaps with the Stage 3 'goal not known' item.\n\nHistory: from SW-157 pain point 2.\n\nDone when: the surface is decided and one of the `J`s above is replaced by it.\n\nD243 (Matt, 21 Oct 2026): proof-ergonomics cluster on ice for now.\n\n22 Oct 2026: D461 — Matt lifted D243 for this ticket. First: a short design note with the surface options, stop for review.\n\n22 Oct 2026: design note docs/proposals/rewrite-hypothesis.md (merged); D463-D465 asked.\n\n22 Oct 2026: D463 (rewrite p at h in t / rewrite p at h), D464 (any expression after at), D465 (drop calc-rewrite Stage 3 'no goal' item) — Matt: yes. Implement stages 1-2 of the note.",
       "created": "2026-10-21",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "1c4be1f2",
+        "bee3c895",
+        "082a4553",
+        "103575cf"
+      ]
     },
     {
       "id": 210,
