@@ -1,5 +1,5 @@
 {
-  "next": 335,
+  "next": 338,
   "tickets": [
     {
       "id": 1,
@@ -5265,6 +5265,50 @@
         "tests"
       ],
       "body": "After SW-333 the without-erasure runs compute every proof again (1.26e9 steps, ~80 s release). Use a few examples with proofs in data; keep catching erasure regressions. Start after the checkpoint rerun.",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 335,
+      "title": "JS: Text == at inlined call sites compares char lists instead of the native Text.decEq (top profile cost in a real-world port)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree lane",
+      "labels": [
+        "js",
+        "performance"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 336,
+      "title": "JS: stack-safe std list functions (map, filter, filterMap, merge sort overflow Node's stack at 2,000-3,000 elements)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree lane",
+      "labels": [
+        "js",
+        "stdlib"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 337,
+      "title": "JS boundary: checked number codec for whole numbers up to 2^53 (instead of bigint only)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree lane",
+      "labels": [
+        "js"
+      ],
+      "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
       "commits": []
