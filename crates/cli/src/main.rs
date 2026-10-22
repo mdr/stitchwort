@@ -798,7 +798,7 @@ fn repl(path: Option<&Path>) -> ExitCode {
         }
     };
     println!(
-        "Stitchwort {}. Enter an expression to evaluate it, `:t expr` for its type, `:q` to quit.",
+        "Stitchwort {}. Enter an expression to evaluate it, `import Std (List)` to use a namespace's names, `:t expr` for its type, `:q` to quit.",
         env!("CARGO_PKG_VERSION")
     );
 
@@ -816,6 +816,14 @@ fn repl(path: Option<&Path>) -> ExitCode {
             continue;
         }
         let _ = editor.add_history_entry(input);
+        if input == "import" || input.starts_with("import ") {
+            // Imports accumulate over the session, as a file's do.
+            let diagnostics = session.add_imports("<input>", input);
+            if !diagnostics.is_empty() {
+                report(&session.sources, &diagnostics);
+            }
+            continue;
+        }
         let result = match input {
             ":q" | ":quit" => return ExitCode::SUCCESS,
             _ => match input.strip_prefix(":t ") {

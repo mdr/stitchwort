@@ -5,8 +5,9 @@ use stitchwort_syntax::parse_expression;
 
 /// Evaluates `source` and prints `value : type`, or returns the error code.
 fn eval(session: &mut Session, source: &str) -> Result<String, &'static str> {
-    let file = session.sources.add("<test>", source);
-    let expr = parse_expression(file, source).map_err(|d| d.code)?;
+    let expr = session
+        .parse_expression("<test>", source)
+        .map_err(|d| d.code)?;
     let (term, ty) = session.elab.infer_expr(&expr).map_err(|d| d.code)?;
     let value = session.elab.eval(&term).unwrap();
     Ok(format!(
@@ -72,4 +73,45 @@ fn files_build_on_the_prelude_and_earlier_files() {
         .load("b.sw", "def double : Nat := 1\n")
         .expect_err("redefinition");
     assert_eq!(errors[0].code, "E-DUPLICATE");
+}
+
+#[test]
+fn imports_typed_in_accumulate() {
+    let mut session = Session::new();
+    // Without an import, `List.` isn't a prefix yet.
+    assert_eq!(
+        eval(&mut session, "List.map (n => n + 1) [1, 2]"),
+        Err("E-UNKNOWN-NAME")
+    );
+    assert!(
+        session
+            .add_imports("<input>", "import Std (List)")
+            .is_empty()
+    );
+    assert_eq!(
+        eval(&mut session, "List.map (n => n + 1) [1, 2]").as_deref(),
+        Ok("[2, 3] : List Nat")
+    );
+    // A second import keeps the first.
+    assert!(
+        session
+            .add_imports("<input>", "import Std.Nat (add)")
+            .is_empty()
+    );
+    assert_eq!(eval(&mut session, "add 1 2").as_deref(), Ok("3 : Nat"));
+    assert_eq!(
+        eval(&mut session, "List.length [1]").as_deref(),
+        Ok("1 : Nat")
+    );
+    // Importing twice is the usual warning; unknown names and namespaces
+    // are the usual errors.
+    let again = session.add_imports("<input>", "import Std (List)");
+    assert_eq!(again[0].code, "W-IMPORT-TWICE");
+    let unknown = session.add_imports("<input>", "import Std (Nope)");
+    assert_eq!(unknown[0].code, "E-IMPORT-UNKNOWN");
+    let namespace = session.add_imports("<input>", "import Nope (x)");
+    assert_eq!(namespace[0].code, "E-IMPORT-UNKNOWN");
+    // Declarations aren't imports.
+    let decl = session.add_imports("<input>", "def x : Nat := 1");
+    assert_eq!(decl[0].code, "E-PARSE");
 }

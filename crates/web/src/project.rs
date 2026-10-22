@@ -15,7 +15,8 @@ use stitchwort_syntax::{Diagnostic, Severity};
 use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::{
-    MAX_READS_PAST_END, OutputSink, failure, json_string, rendered, run_by_line_of, test_answer,
+    MAX_READS_PAST_END, OutputSink, evaluate_in, failure, json_string, rendered, run_by_line_of,
+    test_answer,
 };
 
 /// The project's name in messages: errors show `aoc/src/Aoc/Day02/Day02.sw`,
@@ -309,23 +310,14 @@ pub fn evaluate_project(
     paths: Vec<String>,
     texts: Vec<String>,
     targets: &str,
+    imports: &str,
     expr: &str,
 ) -> String {
     let mut session = match load(&paths, &texts, targets) {
         Ok(loaded) => loaded.session,
         Err(failed) => return failed,
     };
-    let result = session
-        .parse_expression("expression", expr)
-        .and_then(|e| session.elab.eval_expr(&e));
-    match result {
-        Ok((value, ty)) => format!(
-            r#"{{"ok":true,"value":{},"type":{}}}"#,
-            json_string(&value),
-            json_string(&ty)
-        ),
-        Err(error) => failure(&rendered(&session, &[error])),
-    }
+    evaluate_in(&mut session, imports, expr)
 }
 
 /// [`super::extract`] for one namespace of a project, as `build --js NS`
@@ -585,11 +577,24 @@ mod tests {
             paths.clone(),
             texts.clone(),
             "Aoc.Day02,Aoc.Day02.Tests",
+            "",
             "Aoc.Day02.solvePart1 Aoc.Day02.Tests.exampleRanges",
         );
         assert!(
             value.starts_with(r#"{"ok":true,"value":"1227775554""#),
             "{value}"
+        );
+        // An import of the project's namespaces gives short names.
+        let short = evaluate_project(
+            paths.clone(),
+            texts.clone(),
+            "Aoc.Day02,Aoc.Day02.Tests",
+            "import Aoc.Day02 (solvePart1)\nimport Aoc.Day02.Tests (exampleRanges)",
+            "solvePart1 exampleRanges",
+        );
+        assert!(
+            short.starts_with(r#"{"ok":true,"value":"1227775554""#),
+            "{short}"
         );
         let nothing = extract_project(paths, texts, "Aoc.Day02");
         assert!(nothing.starts_with(r#"{"ok":true,"js":"#), "{nothing}");

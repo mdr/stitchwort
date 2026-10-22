@@ -462,6 +462,24 @@ impl Session {
         Ok(expr)
     }
 
+    /// Adds `import` lines typed in (the REPL, the playground's Evaluate
+    /// tab) to the imports that expressions see; they accumulate. Returns
+    /// the errors and warnings, as a file's imports give.
+    pub fn add_imports(&mut self, name: &str, text: &str) -> Vec<Diagnostic> {
+        let file = self.sources.add(name, text);
+        let module = match parse_module_within(file, text, self.elab.limits.stack) {
+            Ok(module) => module,
+            Err(diagnostics) => return diagnostics,
+        };
+        if !module.decls.is_empty() || module.namespace.is_some() {
+            return vec![Diagnostic::error(
+                "E-PARSE",
+                "only `import` lines and expressions can be entered here, not declarations",
+            )];
+        }
+        self.elab.add_session_imports(&module.imports)
+    }
+
     /// Parses an expression the driver wrote itself.
     pub(crate) fn parse_internal(&mut self, name: &str, text: &str) -> Result<Expr, Diagnostic> {
         self.parse_expression(name, text)

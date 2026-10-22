@@ -15,7 +15,7 @@ self.onmessage = async ({ data }) => {
     const run = {
       check: () => check(data.source),
       test: () => test(data.source),
-      evaluate: () => evaluate(data.source, data.expr),
+      evaluate: () => evaluate(data.source, "", data.expr),
       limits: () => limits(),
     }[data.action];
     const out = JSON.parse(run());

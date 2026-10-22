@@ -702,6 +702,8 @@ export def area: Shape -> Nat
 
   let view = "check";
   let evalInput = "";
+  /** The `import` lines entered in the Evaluate tab, kept until the program changes, like a REPL's. */
+  let evalImports = [];
 
   for (const ex of examples) {
     const option = document.createElement("option");
@@ -840,14 +842,14 @@ export def area: Shape -> Nat
           check: () => compiler.check_project(request.paths, request.texts, request.targets),
           checkall: () => compiler.check_project(request.paths, request.texts, ""),
           test: () => compiler.test_project(request.paths, request.texts, request.targets, request.known ?? ""),
-          evaluate: () => compiler.evaluate_project(request.paths, request.texts, request.targets, request.expr),
+          evaluate: () => compiler.evaluate_project(request.paths, request.texts, request.targets, request.imports ?? "", request.expr),
           extract: () => compiler.extract_project(request.paths, request.texts, request.namespace),
           run: () => compiler.run_project_streaming(request.paths, request.texts, request.name, request.input, request.maxOutput, sink),
         }[request.action] : {
           index: () => compiler.check_index(request.source),
           check: () => compiler.check(request.source),
           test: () => compiler.test(request.source, request.known ?? ""),
-          evaluate: () => compiler.evaluate(request.source, request.expr),
+          evaluate: () => compiler.evaluate(request.source, request.imports ?? "", request.expr),
           extract: () => compiler.extract(request.source),
           run: () => compiler.run_streaming(request.source, request.input, request.maxOutput, sink),
         }[request.action];
@@ -1339,6 +1341,7 @@ export def area: Shape -> Nat
     filebar.hidden = false;
     store("stitchwort.example", `aoc:${project.day}`);
     store(`${PROJECT_KEYS}open`, project.open);
+    evalImports = [];
     evalInput = day.main === "Aoc.Day02.main" ? "Aoc.Day02.solvePart1 Aoc.Day02.Tests.exampleRanges" : `${day.main.replace(/main$/, "Tests.example")}`;
     // The Run input: what was saved for this day, else the day's first
     // bundled input (the example).
@@ -1416,6 +1419,7 @@ export def area: Shape -> Nat
     const ex = document.getElementById(id) || examples[0];
     picker.value = ex.id;
     source.value = ex.textContent.replace(/^\n/, "");
+    evalImports = [];
     evalInput = { "ex-lists": "reverse [1, 2, 3]", "ex-division": "safeDiv 9 0",
                   "ex-tests": "double 21", "ex-js": "applyDiscount 8 25",
                   "ex-main": 'printed ["Ada", "1", "2"]' }[ex.id] || "";
@@ -1561,22 +1565,36 @@ export def area: Shape -> Nat
 
     if (view === "eval") {
       const input = el("input", { type: "text", id: "eval-input", value: evalInput, spellcheck: false,
-                                  placeholder: "an expression, e.g. [1, 2].length" });
+                                  placeholder: "an expression, e.g. [1, 2].length, or an import, e.g. import Std (List)" });
       input.setAttribute("aria-label", "Expression to evaluate");
       const go = el("button", { className: "primary", type: "submit" }, "Evaluate");
       const form = el("form", { className: "evalrow" }, input, go);
+      const imported = el("pre", { id: "eval-imports", className: "hint" });
+      const showImports = () => { imported.hidden = !evalImports.length; imported.textContent = evalImports.join("\n"); };
+      showImports();
       const answer = el("div");
       const evaluate = async() => {
-        evalInput = input.value;
+        const text = input.value;
+        const isImport = /^\s*import\b/.test(text);
         answer.replaceChildren(el("p", { className: "hint" }, "Evaluating…"));
-        const result = await ask(requestFor("evaluate", { expr: input.value }));
+        // An import line is checked, then kept for the expressions after it.
+        const imports = (isImport ? [...evalImports, text.trim()] : evalImports).join("\n");
+        const result = await ask(requestFor("evaluate", { imports, expr: isImport ? "" : text }));
         if (current !== rendering || !result) return;
+        if (isImport && result.ok) {
+          evalImports.push(text.trim());
+          evalInput = input.value = "";
+          showImports();
+          answer.replaceChildren();
+          return;
+        }
+        if (!isImport) evalInput = text;
         answer.replaceChildren(result.ok
           ? el("div", { className: "result" }, result.value, el("span", { className: "type" }, ": " + result.type))
           : el("pre", { className: "errors" }, result.errors));
       };
       form.addEventListener("submit", (e) => { e.preventDefault(); evaluate(); });
-      output.append(form, answer);
+      output.append(imported, form, answer);
       if (input.value) evaluate();
       return;
     }
