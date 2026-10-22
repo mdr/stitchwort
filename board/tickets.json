@@ -1527,9 +1527,9 @@
     {
       "id": 101,
       "title": "Proof by reflection: an arithmetic normaliser as an ordinary proof term (term-level `omega`)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "design doc lane (research + note, stop for review)",
       "labels": [
         "proof",
         "design"
