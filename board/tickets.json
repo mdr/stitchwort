@@ -1,5 +1,5 @@
 {
-  "next": 273,
+  "next": 274,
   "tickets": [
     {
       "id": 1,
@@ -4133,11 +4133,27 @@
     {
       "id": 272,
       "title": "AoC proofs: dot syntax where it reads better (s.length, on.Subsequence bank, p.fst) (D510), after SW-269",
-      "status": "doing",
-      "agent": "DeepSeek",
+      "status": "done",
+      "agent": "Claude",
       "where": "",
       "labels": [
         "aoc"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": [
+        "c4262345"
+      ]
+    },
+    {
+      "id": 273,
+      "title": "Dot calls to capitalised functions (s.Subsequence l, xs.Distinct) are a parse error: E-PARSE expected a field name after .",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "syntax"
       ],
       "body": "",
       "created": "2026-10-22",
