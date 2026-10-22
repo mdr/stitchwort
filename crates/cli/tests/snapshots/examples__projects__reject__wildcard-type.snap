@@ -9,5 +9,5 @@ expression: output
    │        ────┬────  
    │            ╰────── `Lib.Range` is declared in Lib
    │ 
-   │ Note: import the names you need, `import Lib.Range (ext)`, or import `Range` from Lib and write `Range.ext`
+   │ Note: import the names you need, `import Lib.Range (hi)`, or import `Range` from Lib and write `Range.hi`
 ───╯

@@ -1411,7 +1411,9 @@ impl Elaborator {
                 .keys()
                 .filter_map(|key| key.strip_prefix(&prefix))
                 .filter(|x| !x.contains('.') && !x.starts_with('%'))
-                .min()
+                // A record's generated `ext` lemma is a poor example of its
+                // names: prefer anything else.
+                .min_by_key(|x| (*x == "ext", *x))
         };
         let (message, label, note) = match refusal {
             Refusal::StdRoot => (
