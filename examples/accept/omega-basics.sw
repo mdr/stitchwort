@@ -97,8 +97,13 @@ theorem viaRewrite (x: Nat) (f: Nat -> Nat) (h: f (x + x + x) = 7): f (x * 3) = 
 
 theorem castBy (x: Nat) (h: x * 3 = 21): x + x + x = 21 := rewrite <- (omega: x * 3 = x + x + x) in h
 
--- Cost: a literal factor costs proof size, so large ones are capped. These
--- literals are small, or right at the cap (see the reject examples).
+-- A transport along an `omega` equation computes: the proof reduces to `rfl`.
+def transport (x: Nat) (n: Nat): Nat := J (y p => Nat) n (omega: x * 3 = x + x + x)
+
+theorem transportComputes: transport 7 42 = 42 := rfl
+
+-- Cost: `k * x` unfolds `k` times when its type is checked, so `omega` takes
+-- `k` up to 1000 (omega-mul-left-limit.sw); `x * k` stays as written, at any size.
 theorem big0 (x: Nat) (h: 10 * x <= 20): x <= 2 := omega
 
 theorem big1 (x: Nat) (h: 1000 * x <= 2000): x <= 2 := omega
