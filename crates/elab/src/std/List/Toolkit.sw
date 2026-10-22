@@ -226,7 +226,9 @@ def List.transposeN: Nat -> List (List a) -> List (List a)
 -- Swaps rows and columns: the columns of a list of rows, as many as the first
 -- row is long. For rows that are all the same length, the cell at row r and
 -- column c moves to row c and column r. A row that's too short just leaves
--- its column out.
+-- its column out, and a row longer than the first loses its extra cells: the
+-- result has the first row's width, so `[[1], [2, 3]].transpose` is
+-- `[[1, 2]]` (Haskell's `transpose` goes to the longest row instead).
 def List.transpose (rows: List (List a)): List (List a) := List.transposeN (List.length (List.headOr Nil rows)) rows
 
 theorem List.padRightExample: List.padRight 4 0 [1, 2] = [1, 2, 0, 0] := rfl
