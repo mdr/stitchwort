@@ -3,7 +3,7 @@
 
 namespace Aoc.Day07.Tests
 import Aoc.Day07 (..)
-import Std (List, Option, Text)
+import Std (List, Option, Text, Vec)
 
 def example: List Text := """
   .......S.......
@@ -24,11 +24,13 @@ def example: List Text := """
   ...............
   """.lines
 
+def row4 (a: x) (b: x) (c: x) (d: x): Vec x 4 := VCons a (VCons b (VCons c (VCons d VNil)))
+
 test "find start" := (findStart example, findStart ["..", ".S", "S."], findStart [".."]) == (Some (0, 7), Some (1, 1), None)
 test "manifold" := Option.map (m => (m.width, m.start.toNat, m.rows.length)) (parseManifold example) == Some (15, 7, 15)
 test "splitter row" := ((splitterRow 5 ".^.").toList, (splitterRow 2 ".^.").toList) == ([False, True, False, False, False], [False, True])
-test "fall" := fall False [False, True, False, False] [True, True, False, False] == [True, False, True, False]
-test "split row" := splitRow 1 [False, True, False, True] [2, 3, 4, 5] == [2, 6, 4, 5]
+test "fall" := (fall (row4 False True False False) (row4 True True False False)).toList == [True, False, True, False]
+test "split row" := (splitRow (row4 False True False True) (row4 2 3 4 5)).toList == [2, 6, 4, 5]
 test "example part 1" := Option.map solvePart1 (parseManifold example) == Some 21
 test "example part 2" := Option.map solvePart2 (parseManifold example) == Some 40
 test "splitter at the left edge" := Option.map (m => (solvePart1 m, solvePart2 m)) (parseManifold ["S.", "^.", ".."]) == Some (1, 2)
