@@ -3204,7 +3204,7 @@
         "proof",
         "syntax"
       ],
-      "body": "`rewrite p in t` rewrites the goal; there is no way to rewrite the type of a named hypothesis (docs/syntax.md:619-630 documents only `rewrite p, q in t`). A `J` is kept for this at Aoc/Day02/Proofs/Repeated.sw:221-224 and :238 (examples of `J (z q => …)` on a hypothesis). docs/proposals/calc-rewrite.md §6.4 and Stage 3 mention rewriting 'in the body's own type when no goal is known'.\n\nFirst step: decide the surface (`rewrite p at h in t`, or `rewrite p in h` giving a new hypothesis) and whether it overlaps with the Stage 3 'goal not known' item.\n\nHistory: from SW-157 pain point 2.\n\nDone when: the surface is decided and one of the `J`s above is replaced by it.\n\nD243 (Matt, 21 Oct 2026): proof-ergonomics cluster on ice for now.\n\n22 Oct 2026: D461 — Matt lifted D243 for this ticket. First: a short design note with the surface options, stop for review.",
+      "body": "`rewrite p in t` rewrites the goal; there is no way to rewrite the type of a named hypothesis (docs/syntax.md:619-630 documents only `rewrite p, q in t`). A `J` is kept for this at Aoc/Day02/Proofs/Repeated.sw:221-224 and :238 (examples of `J (z q => …)` on a hypothesis). docs/proposals/calc-rewrite.md §6.4 and Stage 3 mention rewriting 'in the body's own type when no goal is known'.\n\nFirst step: decide the surface (`rewrite p at h in t`, or `rewrite p in h` giving a new hypothesis) and whether it overlaps with the Stage 3 'goal not known' item.\n\nHistory: from SW-157 pain point 2.\n\nDone when: the surface is decided and one of the `J`s above is replaced by it.\n\nD243 (Matt, 21 Oct 2026): proof-ergonomics cluster on ice for now.\n\n22 Oct 2026: D461 — Matt lifted D243 for this ticket. First: a short design note with the surface options, stop for review.\n\n22 Oct 2026: design note docs/proposals/rewrite-hypothesis.md (merged); D463-D465 asked.",
       "created": "2026-10-21",
       "updated": "2026-10-22",
       "commits": []
@@ -3718,7 +3718,7 @@
     {
       "id": 248,
       "title": "Set literals at Int: Set.fromList [1, 2, 3] at Set Int is E-TYPE-MISMATCH (Set Nat found); also [(3, 3)] at Set (Int, Int) (D420)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -3727,7 +3727,9 @@
       "body": "From docs/comparisons/aoc-day04-community.md (D420). Same lists at List Int pass; some short ones pass. Find the elaboration rule (expected type not reaching number literals through Set.fromList / instance arguments?), fix it, and add the failing cases as tests.",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "82b74500"
+      ]
     },
     {
       "id": 249,
