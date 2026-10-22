@@ -14,7 +14,7 @@ def choices: Nat -> Bank -> List Bank
   | Succ k, Cons d rest => (choices k rest).map (Cons d) ++ choices (Succ k) rest
 
 def bruteForce (k: Nat) (bank: Bank): Nat :=
-  (choices k bank).map (c => Nat.fromDigits (c.map Fin.toNat)) |> .foldLeft Nat.max 0
+  (choices k bank).map joltageOf |> .foldLeft Nat.max 0
 
 test "choices" := (choices 2 (Bank.parse "123")).map (c => c.map Fin.toNat) == [[1, 2], [1, 3], [2, 3]]
 test "brute force, 2 batteries" := (parseBanks example).all (b => maxJoltage 2 b == bruteForce 2 b)
