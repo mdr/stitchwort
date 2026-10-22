@@ -314,6 +314,22 @@ fn find(cx: &Ctx, recv: &Expr, field: &AstName, mut ty: Ty) -> Result<(TyHead, D
             Step::Unknown if matches!(recv, Expr::Var(n) if n.text == SECTION) => {
                 return Err(section_unknown_name(cx, field));
             }
+            Step::Unknown if matches!(recv, Expr::Hole(_)) => {
+                return Err(cx
+                    .error(
+                        "E-CANNOT-INFER",
+                        format!(
+                            "can't tell what the value is, so can't look up `.{}`",
+                            field.text
+                        ),
+                        "`_` is a hole for the compiler to fill in, not a parameter",
+                    )
+                    .with_note(format!(
+                        "to pass the function `x => x.{f}`, write the method section `.{f}`, \
+                         as in `xs.map .{f}`",
+                        f = field.text
+                    )));
+            }
             Step::Unknown => {
                 return Err(cx
                     .error(
@@ -434,6 +450,81 @@ fn find(cx: &Ctx, recv: &Expr, field: &AstName, mut ty: Ty) -> Result<(TyHead, D
                     _ => return Err(unknown_member(cx, field, &tried)),
                 }
             }
+        }
+    }
+}
+
+/// A method section `.f a…` checked against `dom -> cod` whose receiver
+/// lands in `T.f`'s last explicit parameter: the partial application
+/// `T.f a…` itself, not the lambda `x => T.f a… x` (docs/proposals/
+/// method-sections.md §5, D506), so `xs.any .snd` and `xs.any Pair.snd` are
+/// the same term and a proof restating one with the other still matches.
+/// `None` where the section stays a lambda: the receiver isn't last, the
+/// section has chained fields or named arguments, its argument's type isn't
+/// known yet, or the partial application doesn't fit the expected type.
+pub(crate) fn section_partial(
+    cx: &mut Ctx,
+    section: &Expr,
+    dom: &Value,
+    expected: &Value,
+) -> Result<Option<Term>> {
+    let Expr::Lam(names, body, _) = section else {
+        return Ok(None);
+    };
+    let Some(field) = section.section_name() else {
+        return Ok(None);
+    };
+    // `.f a b`: the section's field applied to explicit arguments, nothing
+    // else (not a chain such as `.name.length`).
+    let mut written: Vec<&Expr> = Vec::new();
+    let mut head: &Expr = body;
+    while let Expr::App(f, a) = head {
+        if matches!(**a, Expr::NamedArg(..)) {
+            return Ok(None);
+        }
+        written.push(a);
+        head = f;
+    }
+    written.reverse();
+    let recv = Expr::Var(names[0].clone());
+    let Expr::Field(r, name) = head else {
+        return Ok(None);
+    };
+    if !matches!(&**r, Expr::Var(v) if v.text == SECTION) || name.text != field.text {
+        return Ok(None);
+    }
+    let Ok((owner, f, _)) = find(cx, &recv, field, Ty::Value(dom.clone())) else {
+        return Ok(None);
+    };
+    let g = cx.g();
+    let all = params(g, f);
+    let Some((depth, k)) = receiver_place(cx, &all, owner)? else {
+        return Ok(None);
+    };
+    if written.len() != k || all[depth + 1..].iter().any(|p| p.icit == Icit::Explicit) {
+        return Ok(None);
+    }
+    let head = (Term::Def(f), g.def(f).ty_value.clone());
+    let args: Vec<Arg> = written.iter().map(|e| Arg::Explicit(e)).collect();
+    let snapshot = crate::undo::Snapshot::take(cx);
+    let attempt = (|| -> Result<Option<Term>> {
+        let (term, ty) = apply_args(cx, head, &args)?;
+        let (term, ty) = insert(cx, term, ty)?;
+        Ok(cx.unify(&ty, expected)?.then_some(term))
+    })();
+    match attempt {
+        Ok(Some(term)) => {
+            cx.e.note_dot(field, f);
+            Ok(Some(term))
+        }
+        Ok(None) => {
+            snapshot.restore(cx);
+            Ok(None)
+        }
+        Err(e) if crate::undo::fatal(&e) => Err(e),
+        Err(_) => {
+            snapshot.restore(cx);
+            Ok(None)
         }
     }
 }
