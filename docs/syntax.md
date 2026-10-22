@@ -472,6 +472,26 @@ theorem evensShort (n: Nat): List.length (evens n) <= n
   (acc x => …)`), `match` on its argument, and sit inside another such
   function; a `theorem` with `decreasing` may recurse inside any function
   (it needs no lemma).
+- When there's no cheap guard to test, `List.attach` (stage 3b) gives the
+  function its proof instead: `xs.attach` is the elements of `xs`, each a
+  `List.Member a xs`, a record of the element (`value`) and the proof that
+  it's in `xs` (`isIn: List.Mem value xs`). A fact about membership turns
+  `isIn` into the decrease, written in the call:
+
+  ```
+  List.range n |> .attach |> .sumBy (({ value = d, isIn }) =>
+    if Nat.divides d n then f d [decreasing := And.right (List.memRangeFrom d n 0 isIn)] else 0)
+  ```
+
+  `List.Mem x xs` is `List.Any (y => y = x) xs`, so on a written-out list
+  it computes to a chain of `Or`s. The facts: `List.memRangeFrom` (`s <=
+  x` and `x < s + c` in `List.rangeFrom c s`), `List.memBetween` (`lo <= x`
+  and `x <= hi`, its numbers implicit), `List.memFilter`, `List.memMap`,
+  `List.memMapAny` and `List.memAppend`. Once the call is made the proofs
+  can be dropped: `List.attachValues`, `List.sumByAttach` and
+  `List.mapAttach` say that mapping or summing over `e.value` is the same
+  as over `xs`. At run time `attach` builds the list of records (returning
+  `xs` itself is a later optimisation).
 - Refused, with `E-DECREASING`: a recursive call `auto` can't prove smaller
   (the message shows the goal and the hypotheses in scope); one inside a
   function passed to a function with no congruence lemma, or one of the

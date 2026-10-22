@@ -884,7 +884,7 @@ a parser test, and the lowering test above.
 
 ## Stage 3a: calls under lambdas (addendum)
 
-**Status:** stage 3a built (SW-287, [as built](#as-built-stage-3a)); 3b and 3c not yet. Ticket SW-284, decision D516
+**Status:** stage 3a built (SW-287, [as built](#as-built-stage-3a)), 3c (day 2, SW-285) and 3b (SW-288, [as built](#as-built-stage-3b)). Ticket SW-284, decision D516
 (Matt: rewrite day 2 as one function on `Int`, the signed weight, and design calls under lambdas
 for it). **Draft 2, after an external review** (received 22 October 2026), which approved the
 direction of D517 to D519 and asked for the changes made here: the generator is specified by the
@@ -1429,6 +1429,52 @@ inside the callback; strong induction as a `theorem` recursing inside a lambda; 
 output agrees under `run`, `run --js` and `run --reference`), and `examples/reject/`
 `decreasing-no-cong.sw` (error 1), `decreasing-bad-cong.sw` (2), `decreasing-function-result.sw`
 and `decreasing-lambda-in-data.sw` (3), `decreasing-under-lambda.sw` (now 4: no proof of `d < n`).
+
+### As built (stage 3b)
+
+Built 22 October 2026 (SW-288), as 3a.3 describes, with these differences and findings:
+
+1. **`List.Mem` already existed**, contrary to 3a.3 ("`std` has no membership proposition"):
+   SW-196 added it for day 7's `List.Distinct`, as `List.Any (y => y = x) xs` (the equation the
+   other way round from 3a.3's `x = y`). It's kept as it was: either direction computes to a chain
+   of `Or`s on a written-out list, and turning it round would only move day 7's proofs.
+2. **`List.memMap` was taken** by the injective direction (`List.Mem (f x) (List.map f xs) ->
+   List.Mem x xs` given `f` injective, used by `List.distinctMap`). It's renamed
+   `List.memMapInjective`, and `List.memMap` is now 3a.3's forward direction; the other direction
+   is `List.memMapAny: List.Mem y (List.map f xs) -> List.Any (x => f x = y) xs`.
+3. **Where things are.** `List.Member`, `attachFrom`, `attach` and their lemmas are a file of
+   their own, `List/Attach.sw` (a program that doesn't attach doesn't check it). The membership
+   facts sit beside `List.Mem` in `List/Toolkit.sw`: `List.memMap`, `memMapAny`, `memFilter`
+   (`And (List.Mem x xs) (p x = True)`), `memRangeFrom` (`And (s <= x) (x < s + c)`) and
+   `memBetween` (`And (lo <= x) (x <= hi)`). `memBetween`'s numbers are implicit (`[x lo hi:
+   Nat]`), so a program writes `List.memBetween e.isIn`; the others take theirs explicitly, as
+   `memAppend` does. `memBetween` needs no case for `lo > hi + 1`: `Nat.ltOfRunSub` already
+   covers an empty run.
+4. **Lemmas.** `List.attachFromValues` then `List.attachValues`; `List.sumByAttachFrom` then
+   `List.sumByAttach`, over any `Add`, from `List.sumByMap` (already general) and `attachValues`;
+   `List.mapAttach` from `List.mapMap`. No `any`, `all` or `foldLeft` versions: nothing needed
+   them.
+5. **The congruence lemmas work on attached lists as they are.** The respects proof of a
+   recursive call inside `xs.attach.sumBy (e => …)` goes through `List.sumByCong` at element type
+   `List.Member a xs` with nothing new; `weight.unfold` on an open `n` checks.
+6. **Implicit arguments and closed lists.** `List.memBetween h` with `h: List.Mem 4 (List.between
+   2 6)` written as a closed theorem fails to infer the implicits: the expected type of `h` has
+   been computed to the chain of `Or`s by then. With an open element (`(x: Nat) (h: List.Mem x
+   (List.between 2 6))`) or inside a lambda over a `Member`, it works. Not fixed here.
+7. **Day 2 keeps its guards** (D519). Both were tried with `attach`: `allTemplatesForRange`'s
+   `if h: blockLength != 0` became `let notZero: blockLength != 0 := Nat.nonzeroOfPos
+   blockLength (List.memBetween isIn).left` in a record-pattern lambda, and `copiesWeight`'s `if
+   h: d < copies` became `[decreasing := belowOfBetween d copies isIn]` with a three-line theorem
+   beside it (a case for `copies = 0`, where the list is empty). Both checked and gave the same
+   answers, but each guard is a plain test a reader follows at once, and each replacement names
+   library lemmas and a proof, so the guards stay.
+
+Tests: `examples/accept/decreasing-attach.sw`: the day 2 weight over an attached `List.rangeFrom`
+with no guard (`[decreasing := belowOfRun d.value n d.isIn]`, through `List.memRangeFrom` and
+`Nat.ltOfRunSub`), `rfl` on `weight 12`, `weight.unfold` on an open `n`, and `List.sumByAttach`
+taking the proofs back out; a record-pattern lambda `({ value = d, isIn }) => …` naming `isIn` in
+its `[decreasing := …]`; `List.memBetween`; a `main` that agrees under `run`, `run --js` and `run
+--reference`. `std`'s own `List.attachExample`.
 
 ## As built (SW-281): `rfl` through `decreasing` no longer computes the proofs
 
