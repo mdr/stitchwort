@@ -15,7 +15,7 @@
 -- neither.
 
 namespace Aoc.Day03
-import Std (Char, IO, Nat)
+import Std (Char, Fin, IO, Nat)
 
 def main(): {IO} () :=
   let banks := parseBanks (IO.readAllLines())
@@ -30,21 +30,21 @@ def solvePart2 (banks: List Bank): Nat := total 12 banks
 
 def total (k: Nat) (banks: List Bank): Nat := banks |> .sumBy (joltage k)
 
-def joltage (k: Nat) (bank: Bank): Nat := bank |> .best k |> Nat.fromDigits
+def joltage (k: Nat) (bank: Bank): Nat := bank |> .best k |> .map Fin.toNat |> Nat.fromDigits
 
--- A bank of batteries: one digit per battery.
-def Bank: Type := List Nat
+-- A bank of batteries: a digit on each.
+def Bank: Type := List (Fin 10)
 
-def Bank.parse (t: Text): Bank := t.toList |> .filterMap Char.digitValue
+def Bank.parse (t: Text): Bank := t.toList |> .filterMap Char.toDigit
 
--- The digits of the largest k-digit number that is a subsequence of ds.
+-- The digits of the largest k-digit number that is a subsequence of the bank.
 def Bank.best: Nat -> Bank -> Bank
   | Zero,   _           => []
   | Succ _, []          => []
   | Succ k, Cons d rest =>
     -- The leftmost largest of the next w digits, and what follows it. The
     -- candidate so far is c, followed by `after`.
-    def pick: Nat -> List Nat -> Nat -> List Nat -> (Nat, List Nat)
+    def pick: Nat -> Bank -> Fin 10 -> Bank -> (Fin 10, Bank)
       | Zero,   _,           c, after => (c, after)
       | Succ _, [],          c, after => (c, after)
       | Succ w, Cons x more, c, after =>
