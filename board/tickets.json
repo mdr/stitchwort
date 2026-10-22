@@ -4493,9 +4493,9 @@
     {
       "id": 294,
       "title": "AoC Day 2: allTemplatesForRange with tight bounds, reprove templatesSum (D524)",
-      "status": "doing",
-      "agent": "Sonnet",
-      "where": "worktree lane",
+      "status": "review",
+      "agent": "Matt",
+      "where": "branch worktree-agent-ad734d4508798eee8 (1c7c9ec0), unmerged: guard question",
       "labels": [
         "aoc"
       ],
