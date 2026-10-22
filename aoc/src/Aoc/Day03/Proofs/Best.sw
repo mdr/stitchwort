@@ -13,6 +13,8 @@ import Std (Bool, Decidable, Eq, Fin, List, Nat, Or, Ordering, Pair, Void)
 --      larger joltage.
 --   4. `maxJoltageIsLargest`: so no k batteries make more joltage than
 --      `maxJoltage k bank`.
+--   5. `maxJoltageIsMaximum`, the headline: `maxJoltage k bank` is the
+--      largest joltage from turning on exactly k batteries of the bank.
 -- The optimality argument: every choice starts with some digit y inside the
 -- window that `pick` scans (it must leave k - 1 digits after it). If y is
 -- below pick's digit, the choice loses on its first digit
@@ -212,7 +214,25 @@ theorem bestOptimalStep (k: Nat) (d: Fin 10) (rest: Bank) (y: Fin 10) (s: Bank) 
     (t g => g) y s hk
     (Or.andWith (Nat.leSubAdd k (List.length rest) (Nat.leCongLeft (List.length s) k (List.length rest) hk (List.subsequenceLength (Cons y s) (Cons d rest) h))) h)
 
+-- `on` is k of the bank's batteries, turned on in the bank's order.
+def TurnsOn (k: Nat) (bank: Bank) (on: List Battery): Prop :=
+  And (List.Subsequence on bank) (on.length = k)
+
 -- 4. Whichever k batteries you turn on, they produce no more than maxJoltage.
 theorem maxJoltageIsLargest (k: Nat) (bank: Bank) (on: List Battery)
-    (inBank: List.Subsequence on bank) (exactlyK: List.length on = k):
-  joltageOf on <= maxJoltage k bank := bestOptimal k bank on inBank exactlyK
+    (turnsOn: TurnsOn k bank on):
+  joltageOf on <= maxJoltage k bank := bestOptimal k bank on turnsOn.left turnsOn.right
+
+-- 5. The headline, in the puzzle's words. When the bank has at least k
+-- batteries, `maxJoltage k bank` is the largest joltage you can get by
+-- turning on exactly k of them: some k batteries of the bank, turned on in
+-- order, do produce it (the ones `Bank.best k bank` picks), and no k batteries
+-- of the bank produce more.
+theorem maxJoltageIsMaximum (k: Nat) (bank: Bank) (enough: k <= bank.length):
+  And (And (TurnsOn k bank (Bank.best k bank)) (joltageOf (Bank.best k bank) = maxJoltage k bank))
+      ((on: List Battery) -> TurnsOn k bank on -> joltageOf on <= maxJoltage k bank) :=
+  Both
+    (Both
+      (Both (bestSub k bank) (Eq.trans (bestLength k bank) (Nat.minLeft k bank.length enough)))
+      rfl)
+    (on turnsOn => maxJoltageIsLargest k bank on turnsOn)
