@@ -350,3 +350,21 @@ def main(): {IO} () := IO.print (Nat.toText (gcd 12 18))
     assert!(ir.contains("gcd.%step"), "{ir}");
     assert!(!ir.contains("%go"), "the fuelled helper is lowered:\n{ir}");
 }
+
+/// The proof of a measure's decrease can be a parameter (`shrinks`): the
+/// `[decreasing := shrinks x h]` at the recursive call applies an erased
+/// variable, which is erased, not applied.
+#[test]
+fn decreasing_proof_parameter_is_not_applied() {
+    let ir = ir(r#"
+import Std (IO, Nat, Void)
+def until (x: Nat) (step: Nat -> Nat) (measure: Nat -> Nat)
+    (shrinks: (y: Nat) -> Not (step y = y) -> measure (step y) < measure y): Nat
+  decreasing measure x
+:=
+  if h: step x = x then x else until (step x) step measure shrinks [decreasing := shrinks x h]
+
+def main(): {IO} () := IO.print (Nat.toText (until 3 (n => n) (n => n) (y h => Void.exfalso (h rfl))))
+"#);
+    assert!(!ir.contains("apply erased"), "{ir}");
+}

@@ -1649,7 +1649,13 @@ impl<'g> Gen<'g> {
                 if let Term::Def(id) = head {
                     return self.def_ref(*id, &args, env);
                 }
-                let mut out = format!("({})", self.expr(head, env)?);
+                let head = self.expr(head, env)?;
+                // An erased function (a proof parameter) applied to
+                // anything is erased too.
+                if head == "undefined" {
+                    return Ok(head);
+                }
+                let mut out = format!("({head})");
                 for arg in args {
                     let _ = write!(out, "({})", self.expr(arg, env)?);
                 }
