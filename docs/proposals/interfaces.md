@@ -98,7 +98,7 @@ they become implicit arguments automatically.)
   `Nat`. **Dot notation** `x.compare y` looks in the namespace of `x`'s
   type. A file starts with `namespace …` and can `import Std (List)` or
   `import Aoc.Common (Range)`; explicit imports are normal and cheap.
-- **The standard library** is a core file (`crates/elab/src/std/core.sw`)
+- **The standard library** is a core (the files of `crates/elab/src/std/core/`)
   plus library files (`List/Sort.sw`, `Int/Int.sw`, …) loaded when a
   program first uses one of their names.
 - **Projects** are folders of `.sw` files whose namespaces follow their

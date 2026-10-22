@@ -187,9 +187,9 @@ fn library_targets_are_marked() {
         .load("one.sw", "def f (xs: List Nat): Nat := xs.length\n")
         .expect("checks");
     let json = index_json(&session, false, None, "", &[]);
-    assert!(json.contains(r#"{"path":"crates/elab/src/std/core.sw","std":"core.sw"}"#));
-    let text =
-        stitchwort_driver::nav::std_source("core.sw", session.elab.limits.stack).expect("embedded");
+    assert!(json.contains(r#"{"path":"crates/elab/src/std/core/Data.sw","std":"core/Data.sw"}"#));
+    let text = stitchwort_driver::nav::std_source("core/Data.sw", session.elab.limits.stack)
+        .expect("embedded");
     assert!(text.contains("List"));
     assert!(stitchwort_driver::nav::std_source("nope.sw", session.elab.limits.stack).is_none());
 }
@@ -258,7 +258,7 @@ fn library_files_have_references() {
 }
 
 /// The core's own names are references too (it is the first file of the
-/// index, `core.sw`): a user of the playground or editor who jumps into it
+/// index, `core/Data.sw` among its files): a user of the playground or editor who jumps into it
 /// can go on from there. This needs recording from the start of the session,
 /// since the core is loaded when the session is made.
 #[test]
@@ -276,7 +276,7 @@ fn the_core_has_references() {
     assert!(in_core > 100, "only {in_core} references in the core");
     // A name used in the core refers to its declaration there.
     let json = index_json(&session, false, None, "", &[]);
-    assert!(json.contains(r#"{"path":"crates/elab/src/std/core.sw","std":"core.sw"}"#));
+    assert!(json.contains(r#"{"path":"crates/elab/src/std/core/Data.sw","std":"core/Data.sw"}"#));
 }
 
 /// A library declaration that something refers to has a reference at its own

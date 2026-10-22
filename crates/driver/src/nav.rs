@@ -16,7 +16,7 @@ pub const VERSION: u32 = 2;
 const STD_DIR: &str = "crates/elab/src/std/";
 
 /// The text of an embedded library file, by its path under `std/`
-/// (`core.sw` is the core), as a file's `std` marker names it.
+/// (`core/Int.sw` is a file of the core), as a file's `std` marker names it.
 ///
 /// (Looked up inside the elaborator's crate: the texts are constants, and a
 /// constant used from another crate is copied into it, which in WebAssembly
@@ -41,11 +41,14 @@ pub fn index_json(
     let sources = &session.sources;
     let index = index_of(session);
     let mut lines = Lines::default();
-    let mut files: Vec<FileId> = Vec::new();
-    let mut file_index: HashMap<FileId, usize> = HashMap::new();
-    let mut file_of = |file: FileId, files: &mut Vec<FileId>| {
-        *file_index.entry(file).or_insert_with(|| {
-            files.push(file);
+    // A file of the index: a source file, or for the core, one of the files
+    // it is made of (the second member; 0 for any other file).
+    let mut files: Vec<(FileId, usize)> = Vec::new();
+    let mut file_index: HashMap<(FileId, usize), usize> = HashMap::new();
+    let mut file_of = |span: Span, files: &mut Vec<(FileId, usize)>| {
+        let key = (span.file, core_part(sources, span).map_or(0, |(i, _)| i));
+        *file_index.entry(key).or_insert_with(|| {
+            files.push(key);
             files.len() - 1
         })
     };
@@ -54,7 +57,7 @@ pub fn index_json(
         if i > 0 {
             symbols.push(',');
         }
-        let file = file_of(symbol.span.file, &mut files);
+        let file = file_of(symbol.span, &mut files);
         let _ = write!(
             symbols,
             r#"{{"name":{},"kind":"{}","file":{file},"range":{}"#,
@@ -86,7 +89,7 @@ pub fn index_json(
     let mut ordered: Vec<(usize, &stitchwort_elab::NavRef)> = index
         .refs
         .iter()
-        .map(|r| (file_of(r.span.file, &mut files), r))
+        .map(|r| (file_of(r.span, &mut files), r))
         .collect();
     ordered.sort_by_key(|(file, r)| (*file, r.span.start, r.span.end));
     let mut refs = String::new();
@@ -104,7 +107,7 @@ pub fn index_json(
                 let _ = write!(refs, r#","symbol":{s}"#);
             }
             NavTarget::Binder { name, span } => {
-                let binder_file = file_of(span.file, &mut files);
+                let binder_file = file_of(*span, &mut files);
                 let _ = write!(
                     refs,
                     r#","binder":{{"name":{},"file":{binder_file},"range":{}}}"#,
@@ -137,7 +140,7 @@ pub fn index_json(
         // The first label is where the diagnostic is; the others are
         // secondary and come in `labels` with it.
         if let Some(first) = d.labels.first() {
-            let file = file_of(first.span.file, &mut files);
+            let file = file_of(first.span, &mut files);
             let _ = write!(
                 diags,
                 r#","file":{file},"range":{}"#,
@@ -149,7 +152,7 @@ pub fn index_json(
             if j > 0 {
                 diags.push(',');
             }
-            let file = file_of(label.span.file, &mut files);
+            let file = file_of(label.span, &mut files);
             let _ = write!(
                 diags,
                 r#"{{"file":{file},"range":{},"message":{}}}"#,
@@ -172,7 +175,7 @@ pub fn index_json(
         let _ = write!(out, r#","ok":{ok}"#);
     }
     out.push_str(r#","files":["#);
-    for (i, file) in files.iter().enumerate() {
+    for (i, (file, part)) in files.iter().enumerate() {
         if i > 0 {
             out.push(',');
         }
@@ -181,7 +184,12 @@ pub fn index_json(
             let name = name.strip_prefix(root).unwrap_or(name);
             let _ = write!(out, r#"{{"path":{}}}"#, string(name));
         } else {
-            let std = name.strip_prefix("std/").unwrap_or("core.sw");
+            let std = match name.strip_prefix("std/") {
+                Some(std) => std,
+                None => stitchwort_elab::CORE_LAYOUT
+                    .get(*part)
+                    .map_or("core", |(p, _)| p),
+            };
             let _ = write!(
                 out,
                 r#"{{"path":{},"std":{}}}"#,
@@ -235,9 +243,28 @@ fn range(lines: &mut Lines, sources: &SourceMap, span: Span, last: Option<&str>)
     {
         start = end - last.len();
     }
-    let (l1, c1) = lines.position(sources, span.file, start);
-    let (l2, c2) = lines.position(sources, span.file, end);
+    let (mut l1, c1) = lines.position(sources, span.file, start);
+    let (mut l2, c2) = lines.position(sources, span.file, end);
+    // In a file of the core, lines count from that file's start (each file
+    // of the core starts at a line start).
+    if let Some((_, base)) = core_part(sources, span) {
+        let (before, _) = lines.position(sources, span.file, base);
+        l1 -= before;
+        l2 -= before;
+    }
     format!("[{l1},{c1},{l2},{c2}]")
+}
+
+/// If `span` is in the core's text, the core file it is in, and where that
+/// file starts in the core: the core is one source file here, and the index
+/// shows it as the files it is made of.
+fn core_part(sources: &SourceMap, span: Span) -> Option<(usize, usize)> {
+    let file = sources.get(span.file);
+    if file.name != "<prelude>" || file.text.len() != stitchwort_elab::PRELUDE.len() {
+        return None;
+    }
+    let (_, start, part) = stitchwort_elab::core_file_at(span.start as usize);
+    Some((part, start))
 }
 
 /// What the index holds for the files of `session` that are the program's

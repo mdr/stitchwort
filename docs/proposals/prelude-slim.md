@@ -585,6 +585,45 @@ moved name loads more than a few hundred lines for it. `aoc/` doesn't change: it
 those files anyway. The saving is smaller than §7.2's estimate (0.01–0.02 s) because the
 instance laws, which §2.1 and D170 keep, are most of what is left.
 
+## As built (the core in small files, 22 October 2026, SW-260, D493)
+
+`std/core.sw` (1,806 lines) is now the folder `crates/elab/src/std/core/`: 22 files of 17 to
+192 lines (1,926 in all), each with a header saying what it holds and why it is in the core (§2.1). The
+files are still all loaded up front, as one module, and nothing else changed: names,
+namespaces, declaration order and the text of every declaration are as they were.
+
+**How it loads.** `PRELUDE` (`crates/elab/src/lib.rs`) is the files' text joined in the order
+the `core_files!` list gives, so every test that edits `PRELUDE` still works and the elaborator
+sees the same declarations in the same order. The same macro builds `CORE_LAYOUT`, each file's
+path and length, which maps a position in the core to its file. The files are in dependency
+order (each uses only what the files before it declare); `Imports.sw` is first, so the one
+`import Effect (...)` covers them all. A test (`the_core_layout_lists_every_core_file`) checks
+the list against the directory and that the files join to `PRELUDE`.
+
+**The files, in load order** (lines, header included):
+`Imports` 17 (the header and the effect imports), `Logic` 45, `Data` 99 (`Nat`, `Bool`, `List`,
+`Option`, `Pair`), `Equality` 58, `Decidable` 117, `Char` 37, `Division` 36,
+`ListOptionPair` 76, `Ordering` 36, `Helpers` 25, `Text` 68, `Int` 143, `Effect` 185,
+`IO` 41, `DecEq` 60, `Compare` 163 (laws for `Ordering`, `Nat`, `Int`), `CompareData` 150
+(laws for `List`, `Pair`, `Option`, `Char`, `Text`), `Ord` 128, `OrdDerived` 79, `Show` 131,
+`Arith` 192 (arithmetic laws), `AddMul` 40. The 1,806 old lines are cut where the old file had a
+section comment, in the old order, so no declaration moved relative to another: reordering
+would have changed instance search order (`auto` searches defs newest first). The headers add
+the other 120 lines.
+
+**Navigation.** The core is still one source file in a session (`<prelude>`), so error
+messages that point into it show positions in the joined text. The navigation index
+(`nav::index_json`) splits it: a core file is listed as `{"path":
+"crates/elab/src/std/core/Data.sw","std":"core/Data.sw"}`, and line numbers are counted from the
+start of that file. `std-source core/Data.sw`, the VS Code extension's read-only view and the
+playground's library view read the file by that `std` name (`nav::std_source`). Both follow
+the same `std` marker as any library file; the editor and the browser needed no change but
+their tests' expectations (`core.sw` became `core/Data.sw` and `core/AddMul.sw`).
+
+**Hashes.** No hash changed: `dev/t hashes` passes with no snapshot diff. The one snapshot
+that changed is `crates/driver/tests/snapshots/navigation__nav-project.snap`, which prints
+`<prelude>:line:col`: the headers shifted the core's lines (`Nat` from 60 to 76).
+
 ## Appendix A: the measurement scripts
 
 Kept outside the repository, in the session scratchpad

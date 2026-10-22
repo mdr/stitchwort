@@ -71,7 +71,7 @@ fn a_project_to_standard_output() {
     assert!(json.contains(r#""name":"Lib.Range.size","kind":"def""#));
     assert!(json.contains(r#""name":"Lib.Range.hi","kind":"field""#));
     assert!(json.contains(r#""name":"Std.List.length","kind":"def""#));
-    assert!(json.contains(r#""std":"core.sw""#));
+    assert!(json.contains(r#""std":"core/Data.sw""#));
 }
 
 #[test]
@@ -112,7 +112,7 @@ fn errors_still_write_the_index_and_fail() {
 #[test]
 fn std_source_prints_embedded_files() {
     let dir = project("std", &[]);
-    let output = stitchwort(&dir, &["std-source", "core.sw"]);
+    let output = stitchwort(&dir, &["std-source", "core/Data.sw"]);
     assert!(output.status.success());
     assert!(out(&output).contains("type List"));
     let output = stitchwort(&dir, &["std-source", "List/Toolkit.sw"]);

@@ -83,7 +83,7 @@ Local definitions aren't listed (they are binders).
 - `files`: indexed by position; `file` fields elsewhere are indexes into it.
   `path` is relative to the project root (for a single file, as given on the
   command line). A *standard library* file has `std` set to its path under
-  `std/` (`core.sw` is the core), and `path` is its repo-relative location
+  `std/` (`core/Data.sw` is one of the core's files), and `path` is its repo-relative location
   (`crates/elab/src/std/...`), which exists only in a checkout of this repo. A
   client without that checkout shows the text from `stitchwort std-source
   <std>` (read-only).
@@ -109,7 +109,7 @@ Local definitions aren't listed (they are binders).
   their own, with the same rules, so navigation continues inside them. (A
   library file's local variables and its names are covered, and the name of
   a declaration something refers to has a ref to itself; its outline is not,
-  only the symbols something refers to. The core, `core.sw`, is covered like
+  only the symbols something refers to. The core, `std/core/`, is covered like
   the other files: a session must record from its start, as
   `Session::navigable` does, since the core loads when it is made.)
 - `errors`: whether checking reported errors. The index is still written, for
