@@ -630,10 +630,11 @@ pub fn generate_exports(
             Diagnostic::from(e).with_label(g.def(id).span, "while generating JavaScript for this")
         }
     };
-    for id in (0..g.defs.len())
+    let wanted: Vec<DefId> = (0..g.defs.len())
         .map(DefId)
         .filter(|id| used[id.0] && codegen.info(*id).delay.is_none())
-    {
+        .collect();
+    for id in dependency_order(g, &wanted) {
         // Only an admitted definition has a body. The driver doesn't extract
         // a module with errors, but if it were asked to, the JS would call a
         // function that isn't there.
@@ -2754,6 +2755,58 @@ pub fn js_string_literal(text: &str) -> String {
     out
 }
 
+/// `ids` (in declaration order) reordered so that a definition comes after
+/// the definitions its body refers to, where it can: a lifted helper (a
+/// `match`'s) is declared after its owner, but a constant computed when
+/// the module loads (`const halves = toOption(...)`) uses it at once, so it
+/// must already exist. A cycle is a group, whose members are functions or
+/// thunks that look each other up only when called, so any order serves
+/// there: the back edge is ignored.
+pub(crate) fn dependency_order(g: &Globals, ids: &[DefId]) -> Vec<DefId> {
+    let wanted: HashSet<DefId> = ids.iter().copied().collect();
+    let mut state: HashMap<DefId, bool> = HashMap::new(); // false: open, true: done
+    let mut out = Vec::with_capacity(ids.len());
+    for &root in ids {
+        if state.contains_key(&root) {
+            continue;
+        }
+        state.insert(root, false);
+        // (definition, the definitions it refers to, how many are handled)
+        let mut stack = vec![(root, refs(g, root, &wanted), 0)];
+        while let Some((id, deps, next)) = stack.last_mut() {
+            if let Some(&dep) = deps.get(*next) {
+                *next += 1;
+                if let std::collections::hash_map::Entry::Vacant(e) = state.entry(dep) {
+                    e.insert(false);
+                    stack.push((dep, refs(g, dep, &wanted), 0));
+                }
+            } else {
+                let id = *id;
+                state.insert(id, true);
+                out.push(id);
+                stack.pop();
+            }
+        }
+    }
+    out
+}
+
+/// The wanted definitions `id`'s body refers to, in order.
+fn refs(g: &Globals, id: DefId, wanted: &HashSet<DefId>) -> Vec<DefId> {
+    let mut found: Vec<DefId> = g
+        .def(id)
+        .run_body()
+        .into_iter()
+        .flat_map(|b| b.subterms())
+        .filter_map(|(t, _)| match t {
+            Term::Def(d) if wanted.contains(d) && *d != id => Some(*d),
+            _ => None,
+        })
+        .collect();
+    let mut seen = HashSet::new();
+    found.retain(|d| seen.insert(*d));
+    found
+}
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
