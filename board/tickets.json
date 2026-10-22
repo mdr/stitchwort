@@ -3400,14 +3400,16 @@
     {
       "id": 225,
       "title": "REPL accepts import lines (slim prelude follow-up)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "body": "The interactive REPL (`stitchwort repl`, and the playground REPL) accepts `import` lines, so after the slim prelude (D260) `List.map …` works there once `import Std (List)` has been entered. prelude-slim.md §5.7. Today REPL input sees only the prelude (use `Std.List.map` or dot notation).\n\nDone when: a REPL session can enter `import Std (List)` then `List.map …`; CLI and playground; tests.\n",
       "created": "2026-10-21",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "436ebb09"
+      ]
     },
     {
       "id": 226,
@@ -3734,7 +3736,7 @@
     {
       "id": 249,
       "title": "AoC tidy from days 4-7 research: tests (non-square D426, community bugs D431, trimmed example D441), Day 5 ranges.sort (D430) + Range.ids comment (D438), Day 6 Correct.sw tidy with _ holes (D442), Day 7 Abort in parseManifold (D453), document List.transpose's first-row rule (D444), refresh stale timings (D428)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -3743,7 +3745,13 @@
       "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "b16a533d",
+        "dcf55986",
+        "8d3143d4",
+        "586720d1",
+        "c3b668dd"
+      ]
     },
     {
       "id": 250,
