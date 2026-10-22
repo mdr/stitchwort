@@ -3064,7 +3064,7 @@
     {
       "id": 200,
       "title": "Sweep: Bool.not (E) → !E across .sw files (DeepSeek; hashes must not change)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [
@@ -3073,7 +3073,9 @@
       "body": "D237 (Matt, 21 Oct 2026: not yet). Replace `Bool.not (E)` by `!E` across .sw files. Counts as of 21 Oct (`grep -rn 'Bool\\.not\\b' --include=*.sw crates aoc examples`, 107 hits): crates/elab/src/std/List/Sort.sw 44, examples/accept/eqeq-data.sw 18, examples/accept/eqeq-containers.sw 16, crates/elab/src/std/List/Toolkit.sw 7, aoc/src/Aoc/Day07/Proofs/Part1.sw 6, examples/accept/operators.sw 3, examples/accept/list-toolkit.sw 2, crates/elab/src/std/Set/Set.sw 2, and single hits in a few other examples (none in Map.sw or Vec.sw). `!b` elaborates to exactly `Std.Bool.not b`, so every hash snapshot must stay identical: `dev/t hashes` is the acceptance test. Keep parentheses in argument position (`f (!x)`), leave lemma names such as `Bool.notTrue` and `Bool.notFalse`, and leave examples whose point is the spelling `Bool.not` (operators.sw, the reject example match-written-argument-not-refined.sw: check the line before changing). Spec for DeepSeek: direct file-by-file edits with the counts above, not a script.\n\nDone when: the listed files use `!` where `Bool.not` was applied, `dev/t hashes` shows no change, and the full gate passes on main.\n\nHistory: D237 (not yet).\n\n22 Oct 2026: D462 — Matt lifted D237; running.",
       "created": "2026-10-21",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "a4319d20"
+      ]
     },
     {
       "id": 201,
