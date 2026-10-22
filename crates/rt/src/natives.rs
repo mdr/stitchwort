@@ -271,6 +271,39 @@ pub fn text_data(g: &Globals) -> Option<DataId> {
     (hash.hex() == TEXT_DATA_HASH).then_some(d)
 }
 
+/// The content hash of the library's `SafeNat` (std/Int/Safe.sw), which the
+/// JS `number` codec was written for. It covers the field names and types
+/// and the bound in the proof field, so the codec's range check and the type
+/// agree exactly when this matches; otherwise `SafeNat` is an ordinary record
+/// at the boundary (with a `bigint` field). A test fails until the codec has
+/// been checked against a changed `SafeNat` and this updated.
+pub const SAFE_NAT_HASH: &str = "85a218ab4335f853f23a5970eef0042ad79b979333b57c13b1400ef39bd29bd5";
+
+/// The content hash of the library's `SafeInt`, as [`SAFE_NAT_HASH`].
+pub const SAFE_INT_HASH: &str = "f83abb645b0b44d517077c186e28726771d9394db53853820765ca4f4962708a";
+
+/// The library's `SafeNat`, if its file is loaded and the `number` codec
+/// applies to it ([`SAFE_NAT_HASH`]).
+pub fn safe_nat_data(g: &Globals) -> Option<DataId> {
+    let d = g.registry.loaded_data(Builtin::SafeNat)?;
+    let _op = g
+        .budget
+        .operation(Limits::stack_only(Limits::default().stack));
+    let hash = data_hash(g, d).expect("internal error: hashing `SafeNat` ran out of resources")?;
+    (hash.hex() == SAFE_NAT_HASH).then_some(d)
+}
+
+/// The library's `SafeInt`, if its file is loaded and the `number` codec
+/// applies to it ([`SAFE_INT_HASH`]).
+pub fn safe_int_data(g: &Globals) -> Option<DataId> {
+    let d = g.registry.loaded_data(Builtin::SafeInt)?;
+    let _op = g
+        .budget
+        .operation(Limits::stack_only(Limits::default().stack));
+    let hash = data_hash(g, d).expect("internal error: hashing `SafeInt` ran out of resources")?;
+    (hash.hex() == SAFE_INT_HASH).then_some(d)
+}
+
 /// A prelude integer operation with a native implementation, where an `Int`
 /// is a native number (in JS a `bigint`, with the backend's
 /// `Options::native_int`). Like the

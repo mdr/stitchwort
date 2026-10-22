@@ -243,3 +243,37 @@ fn type_errors_stop_it_before_node() {
     let js = same_both_ways(&path, b"", true);
     assert_eq!(js.status.code(), Some(1));
 }
+
+/// `SafeNat` and `SafeInt` are ordinary records inside a program, so
+/// `run --js` prints what `run` does: the `number` codec only applies at an
+/// export's boundary (SW-337).
+#[test]
+fn safe_numbers_print_the_same_both_ways() {
+    let path = source_file(
+        "safe-numbers.sw",
+        r#"
+import Std (Int, Nat, Option, SafeInt, SafeNat, Text)
+
+def show : Option SafeNat -> Text
+  | None   => "too big"
+  | Some n => Nat.toText n.value
+
+def showInt : Option SafeInt -> Text
+  | None   => "out of range"
+  | Some n => Int.toText n.value
+
+def main () : {IO} () :=
+  IO.print (show (SafeNat.ofNat 5))
+  IO.print (show (SafeNat.ofNat 9007199254740991))
+  IO.print (show (SafeNat.ofNat 9007199254740992))
+  IO.print (showInt (SafeInt.ofInt (-9007199254740991)))
+  IO.print (showInt (SafeInt.ofInt (-9007199254740992)))
+"#,
+    );
+    let js = same_both_ways(&path, b"", true);
+    assert!(js.status.success(), "{}", text(&js.stderr));
+    assert_eq!(
+        text(&js.stdout),
+        "5\n9007199254740991\ntoo big\n-9007199254740991\nout of range\n"
+    );
+}

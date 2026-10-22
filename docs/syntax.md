@@ -278,6 +278,28 @@ def nameOf: Person -> Text
 - **After an arrow**, `{` starts an ability row, so a record literal in a function type's result needs parentheses: `(p: Person) -> ({ p | age = p.age } = p)`.
 - At the JS boundary a record is a plain object with its fields as keys, in declared order, and no `tag` (DESIGN.md §12).
 
+## Numbers in an `export`
+
+An exported `Nat` or `Int` crosses the JS boundary as a `bigint`. To take or return a plain JS `number`, use the library's `SafeNat` or `SafeInt` (`std/Int/Safe.sw`, SW-337) as the parameter or result type:
+
+```
+import Std (Option, SafeNat)
+
+export def addSafe (a: SafeNat) (b: SafeNat): Option SafeNat := SafeNat.ofNat (a.value + b.value)
+```
+
+```ts
+export declare function addSafe(a: number, b: number): Option<number>;
+```
+
+- **They are records.** `type SafeNat = { value: Nat, fits: value <= 9007199254740991 }` and `type SafeInt = { value: Int, fits: Int.natAbs value <= 9007199254740991 }`: a number and a proof that it's at most 2^53 - 1 in magnitude, the largest whole number a JS `number` holds exactly (`Number.MAX_SAFE_INTEGER`). In Stitchwort they're ordinary records, so `n.value` is the `Nat` or `Int`; `SafeNat.ofNat` and `SafeInt.ofInt` give `Some` when a number is within the bounds, and the `fits` proof is what a function builds by comparing, as above.
+- **Decoding is checked.** A JS argument must be a `number` that is a whole number from 0 to 2^53 - 1 (`SafeNat`) or from -(2^53 - 1) to 2^53 - 1 (`SafeInt`). A `bigint`, a string, `NaN`, an infinity, a fraction and a whole number out of range are refused with `StitchwortInputError`: `a: expected a number`, `a: expected a whole number`, `a: expected a whole number from 0 to 9007199254740991`. A whole `number` beyond 2^53 - 1 may have been rounded already, so it's out of range, not repaired. `-0` is read as 0.
+- **Encoding is exact**, because the type bounds every value of it, so a function can't return a number a JS `number` can't hold: it has to show (`fits`) that it fits, or return `None`.
+- **Everywhere a type goes**: inside lists, `Option`, data types and records, with the path to the problem as for any input. `Nat` and `Int` are unchanged and remain `bigint`.
+- **Only the library's types.** A program's own record called `SafeNat` is an ordinary record. The JS codec is used only for the library's exact declarations, by content hash.
+
+Example: `examples/extract/safe-numbers.sw`. See DESIGN.md §12.
+
 ## Interfaces
 
 An interface describes what a type supports; an instance says how one type supports it; `auto` finds the instance by type (docs/proposals/interfaces.md, stages 1 to 5; `examples/accept/interfaces*.sw`, `examples/accept/eqeq-*.sw`, `examples/accept/operators.sw`).
