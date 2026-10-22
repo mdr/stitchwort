@@ -523,7 +523,7 @@ fn small_programs_load_only_the_library_files_they_can_use() {
     // by dot notation only on a `Mod`, so programs that make none don't
     // load `Mod/Mod.sw` (nor `Map`, `Set` or `Vec`).
     let toolkit = [
-        "Decidable/Decidable.sw",
+        "Bool/Bool.sw",
         "Nat/Arith.sw",
         "Option/Option.sw",
         "Ord/Ord.sw",
@@ -537,7 +537,9 @@ fn small_programs_load_only_the_library_files_they_can_use() {
         std_loaded_by("def t (xs: List Nat): Nat := xs.foldLeft (a b => a + b) 0\n"),
         toolkit
     );
+    // `List/Sort.sw`'s lemmas use `Decidable.toBoolSound` and friends.
     let mut sort = toolkit.to_vec();
+    sort.insert(1, "Decidable/Decidable.sw");
     sort.push("List/Sort.sw");
     assert_eq!(
         std_loaded_by("def s (xs: List Nat): List Nat := xs.sort\n"),

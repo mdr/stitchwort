@@ -1066,7 +1066,7 @@ test "List.findMap" := [1, 2, 3, 4].findMap (x => if Nat.leq 3 x then Some (x * 
 test "List.between" := List.between 2 5 == [2, 3, 4, 5] && List.between 3 3 == [3] && List.between 4 2 == Nil && List.between 0 1 == [0, 1]
 test "List.flatMap" := [1, 2, 3].flatMap (x => List.replicate x x) == [1, 2, 2, 3, 3, 3]
 test "List.pairs" := [1, 2, 3].pairs == [MkPair 1 2, MkPair 1 3, MkPair 2 3] && (Nil: List Nat).pairs == Nil && [1].pairs == (Nil: List (Pair Nat Nat))
-test "List.pairs count" := (List.range 10).pairs.length == 45
+test "List.pairs count" := List.length (List.range 10).pairs == 45
 test "List.cross" := [1, 2].cross ["a", "b"] == [MkPair 1 "a", MkPair 1 "b", MkPair 2 "a", MkPair 2 "b"] && [1].cross (Nil: List Nat) == Nil
 
 -- `map` through the other list functions (SW-198, day 8).
