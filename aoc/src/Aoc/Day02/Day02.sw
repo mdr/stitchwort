@@ -46,10 +46,10 @@ type RepetitionTemplate = { blockLength: Nat, copies: Nat }
 -- `sumOfIdsMatchingTemplate` gives those 0.
 def allTemplatesForRange (range: Range): List RepetitionTemplate :=
   let maxDigits := (Nat.digits range.to).length
-  List.between 1 maxDigits |> .flatMap (blockLength =>
-    List.between 2 maxDigits
-      |> .filter (copies => blockLength * copies <= maxDigits)
-      |> .map (copies => { blockLength, copies }))
+  List.between 1 (maxDigits / 2) |> .flatMap (blockLength =>
+    if h: blockLength != 0 then
+      List.between 2 (maxDigits / blockLength) |> .map (copies => { blockLength, copies })
+    else [])
 
 -- Part 1: the ids in the range written exactly twice.
 def sumOfIdsWrittenTwice (range: Range): Nat :=
