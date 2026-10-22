@@ -5150,9 +5150,9 @@
     {
       "id": 328,
       "title": "Exploration: reimplement a real TS event-merge resolver in Stitchwort with proofs, exported as TS-usable JS (private code: nothing committed to this repo)",
-      "status": "doing",
-      "agent": "Opus",
-      "where": "exploration lane in scratchpad (private)",
+      "status": "review",
+      "agent": "Matt",
+      "where": "report in scratchpad/event-resolver/REPORT.md; D563-D565",
       "labels": [
         "design",
         "js"
