@@ -1,5 +1,5 @@
 {
-  "next": 271,
+  "next": 273,
   "tickets": [
     {
       "id": 1,
@@ -4085,8 +4085,8 @@
     {
       "id": 269,
       "title": "Bug: bank.best k resolves to List.best in Aoc.Day03.Proofs (Bank := List Battery) though it works in Aoc.Day03",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [
         "bug"
@@ -4111,6 +4111,34 @@
       "commits": [
         "b1aa8639"
       ]
+    },
+    {
+      "id": 271,
+      "title": "Errors inside the core name the core/ file and line, not <prelude>:line",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 272,
+      "title": "AoC proofs: dot syntax where it reads better (s.length, on.Subsequence bank, p.fst) (D510), after SW-269",
+      "status": "next",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
     }
   ]
 }
