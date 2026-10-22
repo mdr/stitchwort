@@ -26,7 +26,7 @@ fn check(day: &str, part1: &str, part2: &str) {
         .expect("open the puzzle input");
     let output = spawn(
         Command::new(env!("CARGO_BIN_EXE_stitchwort"))
-            .arg("run")
+            .args(["run", "--no-cache"])
             .arg(format!("Aoc.Day{day}.main"))
             .current_dir(&dir)
             .stdin(Stdio::from(input))

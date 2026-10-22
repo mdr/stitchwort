@@ -17,9 +17,23 @@ fn project(test: &str, files: &[(&str, &str)]) -> PathBuf {
     dir
 }
 
+/// `args`, with `--no-cache` for a command that checks: tests don't use the
+/// check cache (docs/proposals/check-cache.md, D286) unless they say so.
+fn without_caches<'a>(args: &[&'a str]) -> Vec<&'a str> {
+    let mut args = args.to_vec();
+    let checks = matches!(
+        args.first(),
+        Some(&("check" | "test" | "run" | "eval" | "build"))
+    );
+    if checks && !args.contains(&"--no-cache") {
+        args.push("--no-cache");
+    }
+    args
+}
+
 fn stitchwort(cwd: &Path, args: &[&str]) -> Output {
     Command::new(env!("CARGO_BIN_EXE_stitchwort"))
-        .args(args)
+        .args(without_caches(args))
         .current_dir(cwd)
         .stdin(Stdio::null())
         .output()

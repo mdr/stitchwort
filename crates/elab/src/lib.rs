@@ -9,6 +9,7 @@
 mod auto;
 mod autobind;
 mod bind;
+pub mod cache;
 mod calc;
 mod check;
 mod data_auto;
@@ -298,6 +299,10 @@ pub struct Elaborator {
     in_instance_signature: std::cell::Cell<bool>,
     /// What the code navigation index records, when it's on (`nav.rs`).
     nav: Option<RefCell<nav::Recorder>>,
+    /// Where library files' results are kept between runs, if anywhere
+    /// (`cache`).
+    check_cache: Option<Rc<dyn cache::Store>>,
+    cache_stats: cache::Stats,
 }
 
 /// A pattern that matches a constructor.

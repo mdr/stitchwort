@@ -649,6 +649,29 @@ impl Elaborator {
             }
             LoadState::NotLoaded => {}
         }
+        // From the check cache, if it has the file (`cache`).
+        let cached = self.cache_lookup(f);
+        let timed = cached.is_some() && crate::timings::enabled();
+        if timed {
+            crate::timings::begin(&self.globals);
+        }
+        let hit = match &cached {
+            Some((unit, key)) => self.load_from_cache(f, unit, key),
+            None => false,
+        };
+        if timed {
+            // A miss is timed again below, as an ordinary load.
+            let label = format!("std/{} ({})", file.path, if hit { "cached" } else { "cache miss" });
+            crate::timings::end(&self.globals, label);
+        }
+        if hit {
+            let lib = self.library.as_mut().expect("a library is installed");
+            lib.state[f] = LoadState::Loaded;
+            lib.order.push(f);
+            return Ok(());
+        }
+        let before = cached.as_ref().map(|_| self.cache_before());
+        let lib = self.library.as_mut().expect("a library is installed");
         lib.state[f] = LoadState::Loading;
         lib.stack.push(f);
         let saved = Context {
@@ -683,7 +706,11 @@ impl Elaborator {
         lib.stack.pop();
         lib.state[f] = LoadState::Loaded;
         lib.order.push(f);
-        if diagnostics.iter().any(|d| d.severity == Severity::Error) {
+        let ok = !diagnostics.iter().any(|d| d.severity == Severity::Error);
+        if let (Some(before), Some((unit, key))) = (before, &cached) {
+            self.cache_after(f, before, ok, unit, key);
+        }
+        if !ok {
             let mut all = vec![internal(format!("the library file `{name}` doesn't check"))];
             all.extend(diagnostics);
             return Err(all);

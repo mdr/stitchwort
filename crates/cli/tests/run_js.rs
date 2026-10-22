@@ -23,7 +23,7 @@ fn examples() -> PathBuf {
 /// Runs `stitchwort run [--js] path` with `input` piped to it.
 fn run(path: &Path, js: bool, input: &[u8]) -> Output {
     let mut command = Command::new(env!("CARGO_BIN_EXE_stitchwort"));
-    command.arg("run");
+    command.args(["run", "--no-cache"]);
     if js {
         command.arg("--js");
     }
@@ -223,7 +223,7 @@ def main () : {IO} () :=
 fn a_missing_node_is_reported() {
     let path = examples().join("collatz.sw");
     let output = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
-        .args(["run", "--js"])
+        .args(["run", "--no-cache", "--js"])
         .arg(&path)
         .env("PATH", "")
         .output()

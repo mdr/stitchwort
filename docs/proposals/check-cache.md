@@ -3,6 +3,9 @@
 **Status:** Draft 1, 21 October 2026 (SW-215, D276). A design note only:
 nothing is built until Matt has reviewed it. Decisions D277–D287 are in the
 [table at the end](#decisions). **Decided (21 Oct 2026, Claude, as recommended):** D277–D287.
+D277 was then reopened: stage 1 builds option A, with the load arranged so
+that skipping the kernel would be one switch. **Stage 1 is built** (SW-240,
+22 Oct 2026): see [As built (stage 1)](#as-built-stage-1).
 
 This note can be read without knowing the codebase. The main part takes about
 15 minutes. The [appendix](#appendix) has the evidence: the profile, the
@@ -380,6 +383,178 @@ Each stage is separately mergeable and useful on its own.
   covers the sources, so a rebuilt compiler always starts fresh. A `cargo
   run` from a dirty tree is no different.
 - **Disk growth.** Eviction (§6).
+
+## As built (stage 1)
+
+SW-240, 22 October 2026. Standard library files are cached. Project
+namespaces are not yet (stage 2).
+
+### What there is
+
+- **The code.** `crates/elab/src/cache/` encodes, reads and replays one
+  library file's entry. `codec.rs` is the byte format, `mod.rs` the entry,
+  the key and the replay, and `dump.rs` the canonical dump for the
+  differential test. `crates/driver/src/check_cache.rs` is the directory
+  that keeps the entries. Nothing was added to `stitchwort-core`.
+- **The hook.** `load_library_file` (`library.rs`) computes the file's key,
+  tries the entry, and on a miss elaborates the file as before and then
+  writes the entry. Nothing else in the elaborator knows about the cache.
+- **The format** (D282) is our own. Variable-length integers, a string
+  table, a file table, then a table of term nodes, each written after the
+  nodes it points to. So writing walks a term with a work list and reading
+  is one loop, and neither recurses. A subterm shared through an `Rc` is
+  written once and read back shared. The header holds a magic number, the
+  format version (`FORMAT`, now 1), the key, the directory's salt and the
+  dependencies with their expected content hashes. A BLAKE3 checksum of
+  everything comes last.
+- **The key** (§4.2) is a BLAKE3 hash of: the compiler version and the
+  build fingerprint (which `build.rs` now also takes over `Cargo.lock`),
+  the format version, the modes and limits (natives, compact text,
+  `numbers_as_succ`, the four limits, `rewrite_budget`, `instance_budget`,
+  `uniform_operators`, and whether navigation is recorded), the core's
+  text, the file's path and text, and the keys of the files it needs.
+- **References** to declarations outside the entry are by full path, with
+  the content hash they must have. A path that names two declarations
+  can't be written (the file is then not cached). Spans are written as
+  (file path, start, length).
+- **Where.** `.stitchwort/cache/check/` in the project folder (D281). For a
+  single file it is `.stitchwort/cache` in the current folder, as for the
+  test cache. `--cache-dir` works for every command. An entry's file name
+  is `{fingerprint}-{unit}-{key}`, where the unit is the library file
+  (`std.List.Sort`) with `+nav` when navigation is recorded. The salt is
+  in `check/header`, made the first time.
+- **Writing** goes to a temporary file in the same folder, which is then
+  renamed.
+- **Eviction (D283)** for the check cache: writing an entry deletes the
+  unit's other entries from the same build, and the first write of a run
+  deletes other builds' entries that are more than a day old. The test
+  cache's eviction is left for stage 2.
+- **Commands (D285).** `check`, `test`, `run`, `build` and `eval` use the
+  cache. Each has `--no-cache` and `--cache-dir`. For `test`, `--no-cache`
+  turns off both caches.
+- **Tests (D286).** A `Session` has no cache unless `use_check_cache` is
+  called, and only the CLI calls it. So `cargo test`, the snapshots,
+  `dev/t` and the benchmark run without it. The CLI tests that start the
+  binary pass `--no-cache`. One test, `the_cache_is_in_the_project_folder`,
+  uses the default cache in its own temporary project on purpose.
+
+### Loading is replay, and the kernel checks everything
+
+`Elaborator::admit_replayed` is the one place a replay reaches the kernel.
+It calls `declare_def`, `mark_folded`, `mark_instance`,
+`declare_indexed_data_group`, `mark_auto_params`, `define_group` and
+`define_data_group`, each as its own operation with its own limits, as
+elaborating a component does. Option B would replace that one function.
+There is no "admit without checking" in the kernel.
+
+After the kernel, the side tables go in through the same insertion
+functions elaboration uses: `Scope::insert` and `mark_member` for names,
+and the records, interfaces, instances, owners, `no_eq`/`no_show`/`no_ord`,
+abilities, lifted helpers and local definitions' keys. When navigation is
+on, the references, local variables' types, uses, binders and record
+fields recorded in the file go in too.
+
+If anything in an entry doesn't fit, it is a miss and the file is
+elaborated. That covers a bad checksum, another key or salt, a dependency
+whose path or hash differs, and anything malformed. The whole body is read
+and checked before anything changes. If the kernel refuses a declaration,
+everything the replay added is removed again first.
+
+### What turned out differently
+
+1. **The order of the kernel calls is worked out, not recorded.** The
+   entry holds the final declarations, not a log of the elaborator's calls.
+   Replay declares them in their original order. A data group goes where
+   its `defs_before` and `datas_before` say. Each group is defined as soon
+   as everything its terms refer to is final. That is never later than the
+   elaborator defined it, so every declaration finds what it needs. The
+   kernel gets the terms it checked the first time, not the elaborator's
+   originals. It accepts them, and the differential test shows it gives
+   back the same terms.
+2. **Side tables are found by comparing before and after.** Before a file
+   loads, the cache notes the sizes of the tables and copies the name
+   table. Afterwards, what is new is the file's. The one exception is new
+   names. `Scope` keeps a log of them while a file loads (`ScopeOp`), since
+   the order constructors are added in decides the order of
+   `followers`.
+3. **Some loads can't be cached, and are just elaborated.** That happens
+   when a declaration isn't final, when something is exported or has
+   validators, when a built-in is bound, when a test is kept, when an
+   older instance or table row changed, or when a path names two
+   declarations. Today no library file hits any of these, and the
+   differential test checks that.
+4. **Navigation is in stage 1.** Library files record navigation (the
+   editor shows their references when you open one), so an entry has to
+   hold it. Entries with and without it are separate units, so the editor
+   and the command line don't evict each other's.
+5. **Warnings aren't stored.** A library file's warnings were never
+   reported (`load_library_file` drops them), so there is nothing to
+   replay.
+6. **The navigation index can't be compared directly.** When two
+   references share a span, the index names the symbol after whichever
+   comes first in a hash map. Six runs of `stitchwort check --no-cache
+   --index -` on one file named one symbol `Std.Ord.%equal` or
+   `Std.Ord.equal`, with either of two types. So the dump compares what
+   navigation recorded,
+   which the index is made from. That is a separate bug in the index,
+   outside the cache.
+
+### The differential test (§5.4)
+
+`crates/driver/tests/check_cache.rs` loads a source fresh, then twice
+through a new cache, cold and then warm. It compares a canonical dump of
+the elaborator: every definition and data type with all flags, terms,
+names and spans, the registry, the whole name table (with followers,
+namespaces, the library root and members), every side table, the
+library's load order, and what navigation recorded, plus the diagnostics.
+It also checks that the cold run wrote an entry for every library file it
+loaded, and that the warm run loaded every one from the cache.
+
+- Always: the whole library loaded up front, with and without navigation,
+  and every eighth example (files and projects) with navigation.
+- Slow tier: every example, and `aoc` with and without navigation (about
+  20 s in all).
+- Also: a corrupt entry and a cut-short one are misses and get rewritten;
+  entries copied from another cache directory are misses (salt); an entry
+  under another file's key is a miss; navigation has entries of its own;
+  writing deletes the unit's older entries and keeps another build's
+  recent ones.
+
+I checked by hand that it catches a forgotten table: taking out the replay
+of lifted helpers, of members, or of local variables' types makes it fail.
+Taking out `no_eq` doesn't, because no library type has a row in it.
+
+### Measurements
+
+Release CLI, wall time, median of 7 runs, with the three kinds of run taken
+in turn. The machine was loaded (load average 7–15). `STITCHWORT_TIMINGS`
+(SW-239) wasn't on main yet.
+
+| Run | `--no-cache` | Cold (writing) | Warm |
+|---|---|---|---|
+| `check` one line, core only | 0.094 s | 0.093 s | 0.094 s |
+| `check` one line using `Std.List.sort` | 0.258 s | 0.271 s | 0.141 s |
+| `check` on `aoc` | 1.910 s | 1.936 s | 1.624 s |
+| `run Aoc.Day04.main` | 0.611 s | 0.654 s | 0.424 s |
+
+On `aoc` the warm run saves about 0.29 s, 15%, which matches the library
+share in §A.1. Writing the entries costs about 1–7% on a cold run. A
+program that loads no library file doesn't change.
+
+Most of a warm load is the kernel checking the declarations again. For the
+one-liner, timing replay by hand gave these figures:
+
+| File | Read and check the header | Dependencies | Decode | Kernel | Side tables |
+|---|---|---|---|---|---|
+| `Nat/Arith.sw` | 0.06 ms | 0.2 ms | 0.5 ms | 6.3 ms | 0.01 ms |
+| `List/Toolkit.sw` | 0.06 ms | 0.3 ms | 0.4 ms | 9.3 ms | 0.02 ms |
+| `List/Sort.sw` | 0.17 ms | 0.5 ms | 1.2 ms | 23.8 ms | 0.02 ms |
+
+So option B would save most of what is left of a warm library load.
+
+**Sizes.** An entry is 5.5 KB (`Fin`) to 368 KB (`List/Sort`, 5.4 times
+its source). The nine files `aoc` loads take 831 KB. That is within the
+estimate in §6.
 
 ## Decisions
 

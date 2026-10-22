@@ -5,10 +5,11 @@
 //! program but not the compiler. So the cache key also has this fingerprint,
 //! of the sources of the syntax, the core (the evaluator, the kernel, the
 //! natives and the compact representations), the elaborator with the prelude,
-//! and this crate, which runs the tests: a change to any of them, even
-//! without a new version number, starts a fresh cache. That invalidates more
-//! than it needs to, which is preferred to tracking which Rust code a result
-//! depends on.
+//! and this crate, which runs the tests, and of `Cargo.lock`: a change to
+//! any of them, even without a new version number, starts a fresh cache.
+//! That invalidates more than it needs to, which is preferred to tracking
+//! which Rust code a result depends on. The check cache's keys have it too
+//! (docs/proposals/check-cache.md §4.2).
 
 use std::path::{Path, PathBuf};
 
@@ -18,6 +19,16 @@ const SOURCES: &[&str] = &["../syntax/src", "../core/src", "../elab/src", "src"]
 fn main() {
     let manifest = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").expect("set by cargo"));
     let mut hasher = blake3::Hasher::new();
+    // The versions of the crates it's built with, too
+    // (docs/proposals/check-cache.md §4.2): a new `num-bigint` could change
+    // what the checker computes.
+    let lock = manifest.join("../../Cargo.lock");
+    println!("cargo:rerun-if-changed={}", lock.display());
+    if let Ok(text) = std::fs::read(&lock) {
+        hasher.update(b"Cargo.lock");
+        hasher.update(&(text.len() as u64).to_le_bytes());
+        hasher.update(&text);
+    }
     for dir in SOURCES {
         println!("cargo:rerun-if-changed={dir}");
         let mut files = Vec::new();

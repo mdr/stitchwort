@@ -47,6 +47,8 @@ enum Command {
         /// output for `-`. One file or any number of namespaces
         #[arg(long, value_name = "FILE")]
         index: Option<String>,
+        #[command(flatten)]
+        cache: CacheArgs,
     },
     /// Print an embedded standard library file (`List/Toolkit.sw`;
     /// `core.sw` is the core), as the index's `std` markers name them
@@ -57,13 +59,8 @@ enum Command {
     Test {
         /// A file, or a namespace of the project
         target: Option<String>,
-        /// Run every test, ignoring (and not writing) cached results
-        #[arg(long)]
-        no_cache: bool,
-        /// Where to keep cached results (default: `.stitchwort/cache` in the
-        /// project folder, or in this folder for a file)
-        #[arg(long)]
-        cache_dir: Option<PathBuf>,
+        #[command(flatten)]
+        cache: CacheArgs,
         /// The project folder, if not the folder you're in or the nearest
         /// one above it
         #[arg(long)]
@@ -87,9 +84,16 @@ enum Command {
         /// one above it
         #[arg(long)]
         project: Option<PathBuf>,
+        #[command(flatten)]
+        cache: CacheArgs,
     },
     /// Evaluate an expression in the context of a file
-    Eval { file: PathBuf, expr: String },
+    Eval {
+        file: PathBuf,
+        expr: String,
+        #[command(flatten)]
+        cache: CacheArgs,
+    },
     /// Start an interactive session, optionally with a file loaded
     Repl { file: Option<PathBuf> },
     /// Extract a file's exports, or a namespace's, to JavaScript
@@ -106,7 +110,23 @@ enum Command {
         /// one above it
         #[arg(long)]
         project: Option<PathBuf>,
+        #[command(flatten)]
+        cache: CacheArgs,
     },
+}
+
+/// The caches: checked library files (docs/proposals/check-cache.md) and,
+/// for `test`, test results.
+#[derive(clap::Args)]
+struct CacheArgs {
+    /// Don't read or write the caches: check everything (and for `test`,
+    /// run every test)
+    #[arg(long)]
+    no_cache: bool,
+    /// Where to keep the caches (default: `.stitchwort/cache` in the
+    /// project folder, or in this folder for a file)
+    #[arg(long)]
+    cache_dir: Option<PathBuf>,
 }
 
 /// The compiler runs on a thread with this much stack, so that deep programs
@@ -129,7 +149,8 @@ fn run(cli: Cli) -> ExitCode {
             targets,
             project,
             index,
-        } => check(&targets, project.as_deref(), index.as_deref()),
+            cache,
+        } => check(&targets, project.as_deref(), index.as_deref(), &cache),
         Command::StdSource { path } => match stitchwort_cli::nav::std_source(&path, STACK) {
             Some(text) => {
                 print!("{text}");
@@ -142,24 +163,25 @@ fn run(cli: Cli) -> ExitCode {
         },
         Command::Test {
             target,
-            no_cache,
-            cache_dir,
+            cache,
             project,
-        } => test(target.as_deref(), no_cache, cache_dir, project.as_deref()),
+        } => test(target.as_deref(), &cache, project.as_deref()),
         Command::Run {
             target,
             js,
             reference,
             project,
-        } => run_target(&target, js, reference, project.as_deref()),
-        Command::Eval { file, expr } => eval(&file, &expr),
+            cache,
+        } => run_target(&target, js, reference, project.as_deref(), &cache),
+        Command::Eval { file, expr, cache } => eval(&file, &expr, &cache),
         Command::Repl { file } => repl(file.as_deref()),
         Command::Build {
             target,
             out,
             project,
+            cache,
             ..
-        } => build(&target, &out, project.as_deref()),
+        } => build(&target, &out, project.as_deref(), &cache),
     }
 }
 
@@ -384,7 +406,12 @@ fn write_index(
     }
 }
 
-fn check(targets: &[String], project: Option<&Path>, index: Option<&str>) -> ExitCode {
+fn check(
+    targets: &[String],
+    project: Option<&Path>,
+    index: Option<&str>,
+    cache: &CacheArgs,
+) -> ExitCode {
     let files = targets.iter().filter(|t| is_file_target(t)).count();
     if files > 0 && files < targets.len() {
         eprintln!("error: give either files or names in the project, not both");
@@ -399,6 +426,7 @@ fn check(targets: &[String], project: Option<&Path>, index: Option<&str>) -> Exi
         for path in targets {
             // Each file gets its own session.
             let mut session = new_session(index.is_some());
+            use_cache(&mut session, cache, Path::new("."));
             let mut reported = Vec::new();
             let loaded = load_file_into(
                 &mut session,
@@ -422,6 +450,7 @@ fn check(targets: &[String], project: Option<&Path>, index: Option<&str>) -> Exi
         Target::Namespaces(targets.to_vec())
     };
     let mut session = new_session(index.is_some());
+    use_cache(&mut session, cache, &project.dir);
     let mut reported = Vec::new();
     let mut ok = load_project_into(&mut session, &project, &target, &mut reported);
     if let Some(index) = index {
@@ -431,36 +460,44 @@ fn check(targets: &[String], project: Option<&Path>, index: Option<&str>) -> Exi
     exit(ok)
 }
 
-/// The cache to use: `--cache-dir` as given, or `.stitchwort/cache` in
-/// `base`, making `.stitchwort/` (with a `.gitignore` that ignores it all)
-/// if there isn't one yet.
-fn cache(no_cache: bool, cache_dir: Option<PathBuf>, base: &Path) -> Cache {
-    if no_cache {
-        return Cache::disabled();
+/// The cache directory to use, if any: `--cache-dir` as given, or
+/// `.stitchwort/cache` in `base`, making `.stitchwort/` (with a
+/// `.gitignore` that ignores it all) if there isn't one yet.
+fn cache_dir(cache: &CacheArgs, base: &Path) -> Option<PathBuf> {
+    if cache.no_cache {
+        return None;
     }
-    if let Some(dir) = cache_dir {
-        return Cache::at(dir);
+    if let Some(dir) = &cache.cache_dir {
+        return Some(dir.clone());
     }
     let stitchwort = base.join(".stitchwort");
     if !stitchwort.exists() && std::fs::create_dir_all(&stitchwort).is_ok() {
         let _ = std::fs::write(stitchwort.join(".gitignore"), "*\n");
     }
-    Cache::at(stitchwort.join("cache"))
+    Some(stitchwort.join("cache"))
 }
 
-fn test(
-    target: Option<&str>,
-    no_cache: bool,
-    cache_dir: Option<PathBuf>,
-    project: Option<&Path>,
-) -> ExitCode {
+/// Loads library files through the check cache, unless `--no-cache`.
+fn use_cache(session: &mut Session, cache: &CacheArgs, base: &Path) {
+    if let Some(dir) = cache_dir(cache, base) {
+        session.use_check_cache(&dir);
+    }
+}
+
+/// The test results' cache.
+fn test_cache(cache: &CacheArgs, base: &Path) -> Cache {
+    cache_dir(cache, base).map_or_else(Cache::disabled, Cache::at)
+}
+
+fn test(target: Option<&str>, cache: &CacheArgs, project: Option<&Path>) -> ExitCode {
     let mut session = new_session(false);
     match target {
         Some(file) if is_file_target(file) => {
+            use_cache(&mut session, cache, Path::new("."));
             if !load_file(&mut session, Path::new(file), Some("tested")) {
                 return ExitCode::FAILURE;
             }
-            let cache = cache(no_cache, cache_dir, Path::new("."));
+            let cache = test_cache(cache, Path::new("."));
             print_tests(&session.run_tests(&cache), false)
         }
         _ => {
@@ -471,10 +508,11 @@ fn test(
                 Some(name) => Target::Namespaces(vec![name.to_string()]),
                 None => Target::Everything,
             };
+            use_cache(&mut session, cache, &project.dir);
             if !load_project(&mut session, &project, &target) {
                 return ExitCode::FAILURE;
             }
-            let cache = cache(no_cache, cache_dir, &project.dir);
+            let cache = test_cache(cache, &project.dir);
             print_tests(&session.run_tests(&cache), true)
         }
     }
@@ -526,9 +564,16 @@ fn print_tests(results: &[TestResult], grouped: bool) -> ExitCode {
 }
 
 /// `run`: a file's `main`, or a function of the project by its full name.
-fn run_target(target: &str, js: bool, reference: bool, project: Option<&Path>) -> ExitCode {
+fn run_target(
+    target: &str,
+    js: bool,
+    reference: bool,
+    project: Option<&Path>,
+    cache: &CacheArgs,
+) -> ExitCode {
     let mut session = new_session(false);
     let main = if is_file_target(target) {
+        use_cache(&mut session, cache, Path::new("."));
         if !load_file(&mut session, Path::new(target), Some("run")) {
             return ExitCode::FAILURE;
         }
@@ -537,6 +582,7 @@ fn run_target(target: &str, js: bool, reference: bool, project: Option<&Path>) -
         let Some(project) = locate_project(project, "run", "run hello.sw") else {
             return ExitCode::FAILURE;
         };
+        use_cache(&mut session, cache, &project.dir);
         session.include_from(std::rc::Rc::new(DiskFiles {
             root: project.dir.clone(),
         }));
@@ -708,8 +754,9 @@ impl Drop for TempDir {
     }
 }
 
-fn eval(path: &Path, expr: &str) -> ExitCode {
+fn eval(path: &Path, expr: &str, cache: &CacheArgs) -> ExitCode {
     let mut session = new_session(false);
+    use_cache(&mut session, cache, Path::new("."));
     if !load(&mut session, path) {
         return ExitCode::FAILURE;
     }
@@ -783,12 +830,13 @@ fn repl(path: Option<&Path>) -> ExitCode {
     }
 }
 
-fn build(target: &str, out: &Path, project: Option<&Path>) -> ExitCode {
+fn build(target: &str, out: &Path, project: Option<&Path>, cache: &CacheArgs) -> ExitCode {
     if !is_file_target(target) {
-        return build_namespace(target, out, project);
+        return build_namespace(target, out, project, cache);
     }
     let path = Path::new(target);
     let mut session = new_session(false);
+    use_cache(&mut session, cache, Path::new("."));
     if !load_file(&mut session, path, Some("built")) {
         return ExitCode::FAILURE;
     }
@@ -807,11 +855,17 @@ fn build(target: &str, out: &Path, project: Option<&Path>) -> ExitCode {
 
 /// `build --js NAMESPACE`: the exports of one namespace of the project, in
 /// `{NAMESPACE}.js` and `{NAMESPACE}.d.ts`.
-fn build_namespace(namespace: &str, out: &Path, project: Option<&Path>) -> ExitCode {
+fn build_namespace(
+    namespace: &str,
+    out: &Path,
+    project: Option<&Path>,
+    cache: &CacheArgs,
+) -> ExitCode {
     let Some(project) = locate_project(project, "build", "build --js hello.sw") else {
         return ExitCode::FAILURE;
     };
     let mut session = new_session(false);
+    use_cache(&mut session, cache, &project.dir);
     if !load_project(
         &mut session,
         &project,

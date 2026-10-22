@@ -28,8 +28,27 @@ fn project(test: &str, files: &[(&str, &str)]) -> PathBuf {
     dir
 }
 
-/// Runs `stitchwort args` in `cwd`.
+/// `args`, with `--no-cache` for a command that checks: tests don't use the
+/// check cache (docs/proposals/check-cache.md, D286) unless they say so.
+fn without_caches<'a>(args: &[&'a str]) -> Vec<&'a str> {
+    let mut args = args.to_vec();
+    let checks = matches!(
+        args.first(),
+        Some(&("check" | "test" | "run" | "eval" | "build"))
+    );
+    if checks && !args.contains(&"--no-cache") {
+        args.push("--no-cache");
+    }
+    args
+}
+
+/// Runs `stitchwort args` in `cwd`, without the caches.
 fn stitchwort(cwd: &Path, args: &[&str]) -> Output {
+    with_caches(cwd, &without_caches(args))
+}
+
+/// Runs `stitchwort args` in `cwd`, with the caches if it checks.
+fn with_caches(cwd: &Path, args: &[&str]) -> Output {
     Command::new(env!("CARGO_BIN_EXE_stitchwort"))
         .args(args)
         .current_dir(cwd)
@@ -253,15 +272,18 @@ fn test_a_namespace_runs_its_dependencies_tests_grouped() {
 fn the_cache_is_in_the_project_folder() {
     let dir = standard("cache");
     let sub = dir.join("src");
-    succeeds(&sub, &["test"]);
+    let output = with_caches(&sub, &["test"]);
+    assert!(output.status.success(), "{}", err(&output));
     let cache = dir.join(".stitchwort/cache/tests");
     assert!(std::fs::read_dir(&cache).unwrap().count() > 0);
+    // The check cache beside it (docs/proposals/check-cache.md, D281).
+    assert!(dir.join(".stitchwort/cache/check/header").is_file());
     assert_eq!(
         std::fs::read_to_string(dir.join(".stitchwort/.gitignore")).unwrap(),
         "*\n"
     );
     assert!(!sub.join(".stitchwort").exists());
-    let again = succeeds(&sub, &["test"]);
+    let again = out(&with_caches(&sub, &["test"])).to_string();
     assert!(again.contains("(4 from the cache)"), "{again}");
     assert!(!again.contains(" ran"), "{again}");
 }

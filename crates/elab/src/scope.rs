@@ -129,6 +129,16 @@ pub struct Scope {
     /// While a library file loads: its own index entries are out of the way,
     /// so it can declare the names the index promised.
     pub(crate) loading: Option<usize>,
+    /// While a library file loads for the check cache: each key declared
+    /// for the first time, in order, and each member marked (`cache`).
+    pub(crate) log: Option<Vec<ScopeOp>>,
+}
+
+/// A change [`Scope::log`] records.
+pub(crate) enum ScopeOp {
+    /// A new key, and whether it was declared as a follower.
+    New(String, bool),
+    Member(String),
 }
 
 /// A file's imports, set aside while a library file loads in the middle of
@@ -301,6 +311,9 @@ impl Scope {
     /// Declares `key`. A constructor or operation is a follower.
     pub fn insert(&mut self, key: &str, global: Global, span: Span, follower: bool) {
         if !self.entries.contains_key(key) {
+            if let Some(log) = &mut self.log {
+                log.push(ScopeOp::New(key.to_string(), follower));
+            }
             let mut prefix = key;
             while let Some(p) = parent(prefix) {
                 self.namespaces.insert(p.to_string());
@@ -385,6 +398,9 @@ impl Scope {
     /// Records that `key` belongs to its type's own declaration (a record
     /// field, an interface method), like a constructor.
     pub(crate) fn mark_member(&mut self, key: &str) {
+        if let Some(log) = &mut self.log {
+            log.push(ScopeOp::Member(key.to_string()));
+        }
         self.members.insert(key.to_string());
     }
 
@@ -408,6 +424,33 @@ impl Scope {
     /// Every key, for suggestions.
     pub fn keys(&self) -> impl Iterator<Item = &String> {
         self.entries.keys()
+    }
+
+    /// Everything that outlives a module, in a canonical order: for the
+    /// check cache's differential test (`cache::dump`).
+    pub(crate) fn dump(&self, out: &mut String) {
+        use std::fmt::Write;
+        let mut lines: Vec<String> = self
+            .entries
+            .iter()
+            .map(|(k, (g, s))| format!("scope {k} {g:?} @{}:{}-{}", s.file.index(), s.start, s.end))
+            .collect();
+        lines.extend(
+            self.followers
+                .iter()
+                .map(|(k, v)| format!("followers {k} {v:?}")),
+        );
+        lines.extend(self.namespaces.iter().map(|k| format!("namespace {k}")));
+        lines.extend(
+            self.std_root
+                .iter()
+                .map(|(k, v)| format!("std_root {k} {v}")),
+        );
+        lines.extend(self.members.iter().map(|k| format!("member {k}")));
+        lines.sort();
+        for line in lines {
+            let _ = writeln!(out, "{line}");
+        }
     }
 }
 
