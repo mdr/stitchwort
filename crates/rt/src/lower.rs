@@ -486,6 +486,13 @@ impl<'g> Lowerer<'g> {
             Term::Lam(..) => self.beta(head, args),
             _ => {
                 let f = self.expr(head)?;
+                // An erased function (a proof of a `∀`, or a type-level
+                // function) applied to anything is erased too: the
+                // `[decreasing := shrinks x h]` of a definition whose
+                // `shrinks` is a proof parameter.
+                if matches!(f, Expr::Erased) {
+                    return Ok(Expr::Erased);
+                }
                 let args = self.exprs(args)?;
                 Ok(apply(f, args))
             }
