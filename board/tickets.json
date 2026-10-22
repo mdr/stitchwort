@@ -4085,7 +4085,7 @@
     {
       "id": 269,
       "title": "Bug: bank.best k resolves to List.best in Aoc.Day03.Proofs (Bank := List Battery) though it works in Aoc.Day03",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -4094,7 +4094,9 @@
       "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "eb4b4594"
+      ]
     },
     {
       "id": 270,
@@ -4131,7 +4133,7 @@
     {
       "id": 272,
       "title": "AoC proofs: dot syntax where it reads better (s.length, on.Subsequence bank, p.fst) (D510), after SW-269",
-      "status": "next",
+      "status": "doing",
       "agent": "DeepSeek",
       "where": "",
       "labels": [
