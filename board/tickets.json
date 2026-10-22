@@ -4904,7 +4904,7 @@
     {
       "id": 317,
       "title": "AoC Day 2: properties of allTemplatesForRange (membership, coverage, no duplicates) (D555)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "worktree lane",
       "labels": [
@@ -4914,12 +4914,14 @@
       "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "775e0e42"
+      ]
     },
     {
       "id": 318,
       "title": "Std: Iff and Exists as plain definitions with basic lemmas; Day 8 uses them (D549)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "worktree lane",
       "labels": [
@@ -4928,12 +4930,14 @@
       "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "791f9311"
+      ]
     },
     {
       "id": 319,
       "title": "Pattern lambdas with irrefutable (pair/record) patterns compile to field access, no hidden match; clearer error otherwise (D550/D552)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "worktree lane",
       "labels": [
@@ -4942,14 +4946,16 @@
       "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "43690f82"
+      ]
     },
     {
       "id": 320,
       "title": "List.sortOn + sortOnMap lemma; build comparisons once; Day 8 Connection record with derived Ord (D551)",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree lane",
       "labels": [
         "stdlib",
         "aoc"
