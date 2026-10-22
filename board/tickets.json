@@ -1529,9 +1529,9 @@
     {
       "id": 101,
       "title": "Proof by reflection: an arithmetic normaliser as an ordinary proof term (term-level `omega`)",
-      "status": "doing",
-      "agent": "Opus",
-      "where": "draft 2 lane (D548): fold external review",
+      "status": "review",
+      "agent": "Matt",
+      "where": "omega.md draft 2; D545-D547",
       "labels": [
         "proof",
         "design"
@@ -1540,7 +1540,8 @@
       "created": "2026-10-19",
       "updated": "2026-10-22",
       "commits": [
-        "2e053550"
+        "2e053550",
+        "1d4d0026"
       ]
     },
     {
