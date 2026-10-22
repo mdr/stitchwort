@@ -4474,16 +4474,19 @@
     {
       "id": 293,
       "title": "LSP: type of a selected expression (hover on selection + Expand Selection) (D523)",
-      "status": "doing",
-      "agent": "Sonnet",
-      "where": "worktree lane",
+      "status": "review",
+      "agent": "Matt",
+      "where": "main; try in VS Code",
       "labels": [
         "lsp"
       ],
       "body": "Hover inside a selection reports the type of the smallest expression covering it (rust-analyzer style hoverRange, client middleware sends the selection). textDocument/selectionRange drives Expand Selection through enclosing expressions. Lane first reports whether the elaborator keeps subexpression types with spans; stops for go-ahead if a big change is needed.",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "47f30f5c",
+        "4f821df6"
+      ]
     }
   ]
 }
