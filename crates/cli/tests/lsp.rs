@@ -836,3 +836,26 @@ fn a_recursive_call_of_a_decreasing_function_navigates_to_it() {
     client.shutdown();
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// A call whose lambda argument is postponed (SW-300): the generic `acc + f x`
+/// can't be checked until `xs` fixes the element type.
+const POSTPONED_PROGRAM: &str = "import Std (List)\ndef gsum [auto add: Add b] (f: a -> b) (xs: List a): b := List.foldLeft (acc x => acc + f x) Add.zero xs\n";
+
+#[test]
+fn a_call_with_a_postponed_lambda_navigates_to_the_function() {
+    let dir = temp_dir("postponed-call");
+    let file = dir.join("post.sw");
+    std::fs::write(&file, POSTPONED_PROGRAM).unwrap();
+    let uri = uri(&file);
+    let mut client = Client::start();
+    client.open(&uri, POSTPONED_PROGRAM);
+    assert_eq!(client.diagnostics(&uri, 1), Vec::<Value>::new());
+    let ch = POSTPONED_PROGRAM.lines().nth(1).unwrap().find("List.foldLeft").unwrap() as u32 + 6;
+    let definition = client.at("textDocument/definition", &uri, 1, ch);
+    assert!(!definition.is_null(), "no definition for List.foldLeft");
+    let hover = client.at("textDocument/hover", &uri, 1, ch);
+    let text = hover["contents"]["value"].as_str().unwrap();
+    assert!(text.contains("foldLeft"), "{text}");
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
