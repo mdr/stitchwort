@@ -412,6 +412,26 @@ def parse (t: Text): Option Int := toOption (() => turn t)
 - The operation is `Abort.stop: () -> {Abort} Empty`, for handlers of your own. Its result is `Std.Empty`, a `Type` with no values (`Empty.absurd: Empty -> a`), so no handler can resume it. (`Void` is a proposition, and an operation's result must be a type.) `abort()` is `Empty.absurd (stop())`.
 - `Abort.toOption (() => need o) = o` and `Abort.orElse d (() => need o) = o.getOrElse d` hold for every `o`, by `rfl` on each case (`Abort.toOptionNeed`, `Abort.orElseNeed`).
 
+## `Each`
+
+`Std.Each` (`crates/elab/src/std/Each/Each.sw`) runs the rest of a computation once for each element of a list and collects every result, as Scala's `for`/`yield` or Haskell's list monad do ([proposals/each-ability.md](proposals/each-ability.md)).
+
+```
+import Std (Each)
+import Std.Each (each, require)
+
+def pairs (n: Nat): List (Pair Nat Nat) := Each.collect (() =>
+  let a := each (List.between 1 n)
+  let b := each (List.between a n)    -- may depend on `a`
+  require (a + b == n)                -- drops this choice unless it holds
+  (a, b))
+```
+
+- `Each.each: List a -> {Each} a` and `Each.require: Bool -> {Each} ()`.
+- `Each.collect: (() -> {Each} a) -> List a` gives the results in order, the first choice varying slowest. `Each.collectIn: (() -> {Each | e} a) -> {e} List a` is the same with other abilities passing through; the handler outside decides, so `Abort` outside `Each` gives up on everything, and inside it gives up on one choice.
+- The operations are `Each.fork: () -> {Each} Bool` (both answers) and `Each.stop: () -> {Each} Empty` (none); `each` is a loop of `fork`s. An operation can't be polymorphic, so there is no `each` operation of its own.
+- Proofs: `Each.collectEach k xs` (`collect (() => k (each xs)) = xs.flatMap (x => collect (() => k x))`, by induction), `Each.collectRequire k ok` (`collect` of `require ok` then `k()` is `if ok then collect k else []`, by `rfl` on each case), `Each.collectPure v` (`[v]`, by `rfl`) and `Each.collectEachSelf xs` (`xs`).
+
 ## `decreasing`
 
 A definition (or theorem) whose recursion isn't on a piece of an argument

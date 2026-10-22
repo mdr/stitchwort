@@ -24,7 +24,8 @@
 
 namespace Aoc.Day02
 import Aoc.Common (Range)
-import Std (Int, List, Nat)
+import Std (Each, Int, List, Nat)
+import Std.Each (each, require)
 
 def main(): {IO} () :=
   let ranges := parseRanges IO.readAll()
@@ -53,12 +54,12 @@ def RepetitionTemplate.largestBlock (template: RepetitionTemplate): Nat := Nat.p
 -- Every template that fits in the digits of the range's end: a block of one or
 -- more digits written two or more times. Some may have no ids in the range;
 -- `sumOfIdsInRangeMatchingTemplate` gives those 0.
-def allTemplatesForRange (range: Range): List RepetitionTemplate :=
+def allTemplatesForRange (range: Range): List RepetitionTemplate := Each.collect (() =>
   let maxDigits := (Nat.digits range.to).length
-  List.between 1 (maxDigits / 2) |> .flatMap (blockLength =>
-    if h: blockLength != 0 then
-      List.between 2 (maxDigits / blockLength) |> .map (copies => { blockLength, copies })
-    else [])
+  let blockLength := each (List.between 1 maxDigits)
+  let copies := each (List.between 2 maxDigits)
+  require (blockLength * copies <= maxDigits)
+  { blockLength, copies })
 
 -- Part 1: the ids in the range written exactly twice.
 def sumOfIdsWrittenTwice (range: Range): Nat :=
