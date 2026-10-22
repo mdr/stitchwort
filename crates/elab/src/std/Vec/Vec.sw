@@ -253,7 +253,7 @@ test "ofList" := Option.map Vec.toList (Vec.ofList 2 [4, 5]) == Some [4, 5]
 test "ofList refuses another length" := Option.map Vec.toList (Vec.ofList 3 [4, 5]) == None
 test "traverseOption" := Option.map Vec.toList (Vec.traverseOption (x => if x < 5 then Some (x + 1) else None) Vec.example) == Some [2, 3, 4]
 test "traverseOption fails" := Option.map Vec.toList (Vec.traverseOption (x => if x < 3 then Some x else None) Vec.example) == None
-test "any" := Vec.any (x => x == 2) Vec.example && Bool.not (Vec.any (x => x == 4) Vec.example)
+test "any" := Vec.any (x => x == 2) Vec.example && !(Vec.any (x => x == 4) Vec.example)
 test "get" := Vec.get Vec.example (FSucc FZero) == 2 && Vec.getLt Vec.example 0 == 1
 
 -- Like a list: `[1, 2, 3]`.

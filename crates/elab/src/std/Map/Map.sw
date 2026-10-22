@@ -583,7 +583,7 @@ def Map.example: Map Nat Text := Map.fromList [(3, "c"), (1, "a"), (2, "b")]
 test "map: toList is in key order" := Map.toList Map.example == [(1, "a"), (2, "b"), (3, "c")]
 test "map: get" := Map.get 2 Map.example == Some "b" && Map.get 4 Map.example == None
 test "map: getOr" := Map.getOr "?" 4 Map.example == "?"
-test "map: contains" := Map.contains 1 Map.example && Bool.not (Map.contains 0 Map.example)
+test "map: contains" := Map.contains 1 Map.example && !(Map.contains 0 Map.example)
 test "map: insert replaces" := Map.toList (Map.insert 2 "B" Map.example) == [(1, "a"), (2, "B"), (3, "c")]
 test "map: insertWith counts" :=
   Map.toList (List.foldLeft (m c => Map.insertWith Nat.add c 1 m) Map.empty ['b', 'a', 'b']) == [('a', 1), ('b', 2)]
