@@ -4872,7 +4872,7 @@
     {
       "id": 315,
       "title": "omega milestone 1b: elaborator (omega keyword, reification, search, acceptance table) (D545/D546)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "worktree lane: omega milestone 1b",
       "labels": [
@@ -4882,7 +4882,16 @@
       "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "569003aa",
+        "5fa12f69",
+        "b6dc3914",
+        "fec3ae6f",
+        "0eb0a287",
+        "55c1a0fc",
+        "62b96e73",
+        "12392945"
+      ]
     },
     {
       "id": 316,
