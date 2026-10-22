@@ -1845,10 +1845,10 @@ impl<'t> Parser<'t> {
         } else {
             None
         };
-        let end = body.as_ref().or(target.as_ref()).map_or_else(
-            || rules.last().expect("a rule").span,
-            |b| b.span(),
-        );
+        let end = body
+            .as_ref()
+            .or(target.as_ref())
+            .map_or_else(|| rules.last().expect("a rule").span, |b| b.span());
         Ok(Expr::Rewrite {
             rules,
             target,
@@ -4569,7 +4569,8 @@ mod tests {
             (rules.clone(), target.clone(), body.clone())
         };
         // `at` ends the rules, `in` ends the target.
-        let (rules, target, body) = parts("def f (a: Nat): a = a :=\n  rewrite p, <- q x at h y in t\n");
+        let (rules, target, body) =
+            parts("def f (a: Nat): a = a :=\n  rewrite p, <- q x at h y in t\n");
         assert_eq!(rules.len(), 2);
         assert!(matches!(&rules[1].proof, Expr::App(..)));
         assert!(matches!(target.as_deref(), Some(Expr::App(..))));
@@ -4580,7 +4581,8 @@ mod tests {
         assert!(body.is_none());
         // An `at` that starts a rule is a name, so is a bracketed one, and so
         // is a field `.at`.
-        let (rules, target, body) = parts("def f (a: Nat): a = a :=\n  rewrite at b (at) r.at at at in at\n");
+        let (rules, target, body) =
+            parts("def f (a: Nat): a = a :=\n  rewrite at b (at) r.at at at in at\n");
         let Expr::App(f, arg) = &rules[0].proof else {
             panic!("expected an application");
         };

@@ -188,7 +188,13 @@ fn rewrite_at(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(Te
     let mark = cx.mark();
     let x: stitchwort_core::Name = name.text.as_str().into();
     let result = cx
-        .define(Some(&name.text), x.clone(), ty, ty_term.clone(), term.clone())
+        .define(
+            Some(&name.text),
+            x.clone(),
+            ty,
+            ty_term.clone(),
+            term.clone(),
+        )
         .and_then(|()| match expected {
             Some(t) => check(cx, body, t).map(|b| (b, t.clone())),
             None => infer(cx, body),
@@ -764,13 +770,11 @@ fn check_motive(
                 e.message, l.message
             ))
         ))
-        .with_note(
-            format!(
-                "something in {} can depend on the term being replaced, such as the proof an \
+        .with_note(format!(
+            "something in {} can depend on the term being replaced, such as the proof an \
                  `auto` argument carries (the `d != 0` in `x % d`)",
-                place.the()
-            ),
-        )
+            place.the()
+        ))
         .with_note(
             "rewrite a larger term that contains it (such as `x % d`), or state the step with \
              `calc`",
