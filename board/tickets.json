@@ -3064,15 +3064,15 @@
     {
       "id": 200,
       "title": "Sweep: Bool.not (E) → !E across .sw files (DeepSeek; hashes must not change)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "DeepSeek",
       "where": "",
       "labels": [
         "stdlib"
       ],
-      "body": "D237 (Matt, 21 Oct 2026: not yet). Replace `Bool.not (E)` by `!E` across .sw files. Counts as of 21 Oct (`grep -rn 'Bool\\.not\\b' --include=*.sw crates aoc examples`, 107 hits): crates/elab/src/std/List/Sort.sw 44, examples/accept/eqeq-data.sw 18, examples/accept/eqeq-containers.sw 16, crates/elab/src/std/List/Toolkit.sw 7, aoc/src/Aoc/Day07/Proofs/Part1.sw 6, examples/accept/operators.sw 3, examples/accept/list-toolkit.sw 2, crates/elab/src/std/Set/Set.sw 2, and single hits in a few other examples (none in Map.sw or Vec.sw). `!b` elaborates to exactly `Std.Bool.not b`, so every hash snapshot must stay identical: `dev/t hashes` is the acceptance test. Keep parentheses in argument position (`f (!x)`), leave lemma names such as `Bool.notTrue` and `Bool.notFalse`, and leave examples whose point is the spelling `Bool.not` (operators.sw, the reject example match-written-argument-not-refined.sw: check the line before changing). Spec for DeepSeek: direct file-by-file edits with the counts above, not a script.\n\nDone when: the listed files use `!` where `Bool.not` was applied, `dev/t hashes` shows no change, and the full gate passes on main.\n\nHistory: D237 (not yet).\n",
+      "body": "D237 (Matt, 21 Oct 2026: not yet). Replace `Bool.not (E)` by `!E` across .sw files. Counts as of 21 Oct (`grep -rn 'Bool\\.not\\b' --include=*.sw crates aoc examples`, 107 hits): crates/elab/src/std/List/Sort.sw 44, examples/accept/eqeq-data.sw 18, examples/accept/eqeq-containers.sw 16, crates/elab/src/std/List/Toolkit.sw 7, aoc/src/Aoc/Day07/Proofs/Part1.sw 6, examples/accept/operators.sw 3, examples/accept/list-toolkit.sw 2, crates/elab/src/std/Set/Set.sw 2, and single hits in a few other examples (none in Map.sw or Vec.sw). `!b` elaborates to exactly `Std.Bool.not b`, so every hash snapshot must stay identical: `dev/t hashes` is the acceptance test. Keep parentheses in argument position (`f (!x)`), leave lemma names such as `Bool.notTrue` and `Bool.notFalse`, and leave examples whose point is the spelling `Bool.not` (operators.sw, the reject example match-written-argument-not-refined.sw: check the line before changing). Spec for DeepSeek: direct file-by-file edits with the counts above, not a script.\n\nDone when: the listed files use `!` where `Bool.not` was applied, `dev/t hashes` shows no change, and the full gate passes on main.\n\nHistory: D237 (not yet).\n\n22 Oct 2026: D462 — Matt lifted D237; running.",
       "created": "2026-10-21",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
@@ -3195,16 +3195,16 @@
     {
       "id": 209,
       "title": "rewrite ... at h: rewrite a named hypothesis",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Opus",
       "where": "",
       "labels": [
         "proof",
         "syntax"
       ],
-      "body": "`rewrite p in t` rewrites the goal; there is no way to rewrite the type of a named hypothesis (docs/syntax.md:619-630 documents only `rewrite p, q in t`). A `J` is kept for this at Aoc/Day02/Proofs/Repeated.sw:221-224 and :238 (examples of `J (z q => …)` on a hypothesis). docs/proposals/calc-rewrite.md §6.4 and Stage 3 mention rewriting 'in the body's own type when no goal is known'.\n\nFirst step: decide the surface (`rewrite p at h in t`, or `rewrite p in h` giving a new hypothesis) and whether it overlaps with the Stage 3 'goal not known' item.\n\nHistory: from SW-157 pain point 2.\n\nDone when: the surface is decided and one of the `J`s above is replaced by it.\n\nD243 (Matt, 21 Oct 2026): proof-ergonomics cluster on ice for now.\n",
+      "body": "`rewrite p in t` rewrites the goal; there is no way to rewrite the type of a named hypothesis (docs/syntax.md:619-630 documents only `rewrite p, q in t`). A `J` is kept for this at Aoc/Day02/Proofs/Repeated.sw:221-224 and :238 (examples of `J (z q => …)` on a hypothesis). docs/proposals/calc-rewrite.md §6.4 and Stage 3 mention rewriting 'in the body's own type when no goal is known'.\n\nFirst step: decide the surface (`rewrite p at h in t`, or `rewrite p in h` giving a new hypothesis) and whether it overlaps with the Stage 3 'goal not known' item.\n\nHistory: from SW-157 pain point 2.\n\nDone when: the surface is decided and one of the `J`s above is replaced by it.\n\nD243 (Matt, 21 Oct 2026): proof-ergonomics cluster on ice for now.\n\n22 Oct 2026: D461 — Matt lifted D243 for this ticket. First: a short design note with the surface options, stop for review.",
       "created": "2026-10-21",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
