@@ -431,17 +431,27 @@ const $Main$disEven = (v0) => {
   }
 };
 const $Main$dmapList = (v2) => (v3) => {
-  switch (v3.tag) {
-    case "Nil": {
-      return { tag: "Nil" };
+  let s2 = v2, s3 = v3;
+  let h$ = null, l$ = null, k$ = null;
+  for (;;) {
+    const v2 = s2, v3 = s3;
+    switch (v3.tag) {
+      case "Nil": {
+        { const r$ = { tag: "Nil" }; if (l$ === null) return r$; l$[k$] = r$; return h$; }
+      }
+      case "Cons": {
+        const v4 = v3.head;
+        const v5 = v3.tail;
+        const c1$ = { tag: "Cons", head: (v2)(v4), tail: null };
+        if (l$ === null) { h$ = c1$; } else { l$[k$] = c1$; }
+        l$ = c1$; k$ = "tail";
+        s2 = v2;
+        s3 = v5;
+        continue;
+      }
     }
-    case "Cons": {
-      const v4 = v3.head;
-      const v5 = v3.tail;
-      return { tag: "Cons", head: (v2)(v4), tail: $Main$dmapList(v2)(v5) };
-    }
+    throw new Error("unreachable");
   }
-  throw new Error("unreachable");
 };
 const $Main$dparities = (v0) => $Main$dmapList($Main$disEven)(v0);
 const $Main$doddShift = (v0) => (v1) => {
