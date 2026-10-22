@@ -196,9 +196,9 @@ theorem Nat.ifKeep (x: Nat): (b: Bool) -> (if b then x else 0) = Nat.keepIf x b
   | True  => rfl
   | False => rfl
 
-theorem List.sumByZero: (xs: List a) -> List.sumBy (x => 0) xs = 0
+theorem List.sumByZero [auto add: Add c]: (xs: List a) -> List.sumBy (x => Add.zero) xs = (Add.zero: c)
   | Nil       => rfl
-  | Cons x xs => Eq.trans (List.sumByCons (x => 0) x xs) (List.sumByZero xs)
+  | Cons x xs => Eq.trans (List.sumByCons (x => Add.zero) x xs) (Eq.trans (add.zeroAdd (List.sumBy (x => Add.zero) xs)) (List.sumByZero xs))
 
 theorem Nat.keepIfZero: (b: Bool) -> Nat.keepIf 0 b = 0
   | True  => rfl
@@ -207,7 +207,7 @@ theorem Nat.keepIfZero: (b: Bool) -> Nat.keepIf 0 b = 0
 -- Keeping a sum is keeping each term.
 theorem Nat.keepIfSumBy (g: a -> Nat) (xs: List a): (b: Bool) -> Nat.keepIf (List.sumBy g xs) b = List.sumBy (x => Nat.keepIf (g x) b) xs
   | True  => rfl
-  | False => Eq.sym (List.sumByZero xs)
+  | False => Eq.sym (List.sumByZero [add := Nat.instAdd] xs)
 
 -- `keepIf` as multiplying by 1 or 0.
 theorem Nat.mulToNat (x: Nat): (a: Bool) -> x * Bool.toNat a = Nat.keepIf x a
@@ -220,16 +220,16 @@ theorem Nat.keepIfKeepIf (x: Nat): (a: Bool) -> (b: Bool) -> Nat.keepIf (Nat.kee
   | False, True  => Eq.sym (Nat.mulZero x)
   | False, False => Eq.sym (Nat.mulZero x)
 
-theorem List.sumByAdd (f: a -> Nat) (g: a -> Nat): (xs: List a) -> List.sumBy (x => f x + g x) xs = List.sumBy f xs + List.sumBy g xs
-  | Nil       => rfl
+theorem List.sumByAdd [auto add: Add c] (f: a -> c) (g: a -> c): (xs: List a) -> List.sumBy (x => f x + g x) xs = List.sumBy f xs + List.sumBy g xs
+  | Nil       => Eq.sym (add.zeroAdd Add.zero)
   | Cons x xs =>
     Eq.trans (List.sumByCons (y => f y + g y) x xs)
       (Eq.trans (Eq.cong (t => (f x + g x) + t) (List.sumByAdd f g xs))
-        (Eq.trans (Nat.addSwap (f x) (g x) (List.sumBy f xs) (List.sumBy g xs))
+        (Eq.trans (Add.addSwap (f x) (g x) (List.sumBy f xs) (List.sumBy g xs))
           (Eq.sym (Eq.trans (Eq.cong (t => t + List.sumBy g (Cons x xs)) (List.sumByCons f x xs))
             (Eq.cong (t => (f x + List.sumBy f xs) + t) (List.sumByCons g x xs))))))
 
-theorem List.sumBySwap (h: a -> b -> Nat) (ys: List b): (xs: List a) ->
+theorem List.sumBySwap [auto add: Add c] (h: a -> b -> c) (ys: List b): (xs: List a) ->
     List.sumBy (x => List.sumBy (y => h x y) ys) xs = List.sumBy (y => List.sumBy (x => h x y) xs) ys
   | Nil       => Eq.sym (List.sumByZero ys)
   | Cons x xs =>
@@ -288,7 +288,7 @@ theorem List.sumRangeOne (q: Nat -> Bool) (g: Nat -> Nat) (v: Nat) (hv: q v = Tr
             (Nat.leNeSucc s v h1 (e => Bool.trueNotFalse (Eq.trans (Eq.sym hv) (Eq.trans (Eq.cong q (Eq.sym e)) hs))))
             (Nat.ltSuccAdd s c v h2))))
 
-theorem List.sumRangeCongr (f: Nat -> Nat) (g: Nat -> Nat): (c: Nat) -> (s: Nat) -> ((x: Nat) -> s <= x -> x < s + c -> f x = g x) ->
+theorem List.sumRangeCongr [auto add: Add c] (f: Nat -> c) (g: Nat -> c): (c: Nat) -> (s: Nat) -> ((x: Nat) -> s <= x -> x < s + c -> f x = g x) ->
     List.sumBy f (List.rangeFrom c s) = List.sumBy g (List.rangeFrom c s)
   | Zero,   s, h => rfl
   | Succ c, s, h =>
