@@ -119,14 +119,14 @@ The main findings:
    version of `Common.sw`]**; nested `flatMap`s replaced it. The cause is **[unverified]** (my
    guess: an application pattern after a comma in a tuple pattern needs its own parentheses).
 
-The recommended approach and decisions D537 to D539 are in §6. The cheapest useful ones:
+The recommended approach and decisions D542 to D544 are in §6. The cheapest useful ones:
 
 - sort all pairs once with `List.sortBy` on a `(distance, i, j)` key, fold the sorted list into a
   `Map` of circuit labels or a `Map` of parent pointers, stop part 2 at the first pair after which one
-  circuit is left (D537);
+  circuit is left (D542);
 - prove the labels equal the connectivity of the pairs joined so far, with the 1,000 as "pairs, not
-  merges", and say how ties are broken (D538);
-- add `Map.map`'s `get` lemma and a `List.pairs`-style helper only (D539); no `Array`, no partial sort.
+  merges", and say how ties are broken (D543);
+- add `Map.map`'s `get` lemma and a `List.pairs`-style helper only (D544); no `Array`, no partial sort.
 
 ## 2. The solutions
 
@@ -537,14 +537,14 @@ to 100 lines, `docs/aoc-2025.md`'s "worth proving" list). Rough sizes **[inferre
 
 | ID | Decision | Recommendation |
 |---|---|---|
-| D537 | Day 8 program shape: sort all 499,500 pairs by `(d², i, j)` and fold into a `Map` (labels, or parent pointers), part 2 by continuing the same fold; no `Array`, no heap, no partial sort, no Prim. | [yes; labels `Map` first, parent `Map` in reserve] |
-| D538 | Proof spec level: the full connectivity spec (`Joined` closure, label theorem, `part1Correct`, `part2Correct`), against the cheaper counting-only version (C) or the refinement to a naive model (A). And ties: break them by `(d², i, j)` in the spec, and count a "connection" inside one circuit as one of the `k`. | [full spec, ties by `(d², i, j)`; start with C as a stage if the full one slips] |
-| D539 | Library additions with the day: `List.pairs` (with `length = n(n-1)/2`) and the `Map.map`/`Map.fromList` `get` lemmas; leave `Set.partition`/`unions`/`disjoint`, `Array` (SW-112), heaps and graph code for later. Also add `aoc/examples/day08.txt` (the 20-point example, expected 40 and 25,272). | [yes] |
+| D542 | Day 8 program shape: sort all 499,500 pairs by `(d², i, j)` and fold into a `Map` (labels, or parent pointers), part 2 by continuing the same fold; no `Array`, no heap, no partial sort, no Prim. | [yes; labels `Map` first, parent `Map` in reserve] |
+| D543 | Proof spec level: the full connectivity spec (`Joined` closure, label theorem, `part1Correct`, `part2Correct`), against the cheaper counting-only version (C) or the refinement to a naive model (A). And ties: break them by `(d², i, j)` in the spec, and count a "connection" inside one circuit as one of the `k`. | [full spec, ties by `(d², i, j)`; start with C as a stage if the full one slips] |
+| D544 | Library additions with the day: `List.pairs` (with `length = n(n-1)/2`) and the `Map.map`/`Map.fromList` `get` lemmas; leave `Set.partition`/`unions`/`disjoint`, `Array` (SW-112), heaps and graph code for later. Also add `aoc/examples/day08.txt` (the 20-point example, expected 40 and 25,272). | [yes] |
 
 ---
 
-**Status** (short form, 22 October 2026): D537 program shape, pending; D538 proof spec level and
-ties, pending; D539 `List.pairs` and `Map.map` lemma, pending. SW-308 (this note) done once
+**Status** (short form, 22 October 2026): D542 program shape, pending; D543 proof spec level and
+ties, pending; D544 `List.pairs` and `Map.map` lemma, pending. SW-308 (this note) done once
 reviewed; the day 8 program, proof and gap analysis come after. Unchanged by day 8: SW-112 `Array`
 backlog, SW-199 `decreasing` (stage 1 built), SW-235 list batch 2 (parked), D299 local mutable
 variables not now.
