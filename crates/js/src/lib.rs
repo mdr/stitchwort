@@ -942,18 +942,35 @@ const describe = (x) =>
 
 // The path to a value, as in `arg0.left[2].tail`, from its steps: an array
 // index or a field's key. A path into deeply nested input is summarised, so
-// that the message stays short: a run of the same step is written once with
-// a count, and the middle of a long path is left out.
+// that the message stays short: a run of the same step, or of a cycle of up
+// to three steps, is written once with a count, and the middle of a long path
+// is left out.
 const step = (s) => (typeof s === "number" ? `[${s}]` : `.${s}`);
 const pathText = (root, path) => {
   if (path.length <= 12) return root + path.map(step).join("");
   const runs = [];
   for (let i = 0; i < path.length; ) {
-    let j = i + 1;
-    while (j < path.length && path[j] === path[i]) j++;
-    const text = j - i > 3 ? `(${step(path[i])} ×${j - i})` : path.slice(i, j).map(step).join("");
-    runs.push({ text, steps: j - i });
-    i = j;
+    let length = 0, count = 0;
+    for (let l = 1; l <= 3 && i + l <= path.length; l++) {
+      let n = 1;
+      while (i + (n + 1) * l <= path.length) {
+        let same = true;
+        for (let k = 0; k < l; k++) {
+          if (path[i + n * l + k] !== path[i + k]) { same = false; break; }
+        }
+        if (!same) break;
+        n++;
+      }
+      if (n > 3) { length = l; count = n; break; }
+    }
+    if (count > 3) {
+      const block = path.slice(i, i + length).map(step).join("");
+      runs.push({ text: `(${block} ×${count})`, steps: length * count });
+      i += length * count;
+    } else {
+      runs.push({ text: step(path[i]), steps: 1 });
+      i++;
+    }
   }
   const text = (rs) => rs.map((r) => r.text).join("");
   if (runs.length <= 12) return root + text(runs);

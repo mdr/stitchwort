@@ -1303,7 +1303,7 @@ const checkSpine = (t, n) => {
 checkSpine(m.echoTree(tree), N);
 checkSpine(m.spine(BigInt(N)), N);
 
-// A zigzag path doesn't repeat, so its middle is left out.
+// A zigzag path repeats a two-step cycle, which is folded.
 let zigzag = { tag: "Node", left: { tag: "Leaf" }, right: 7 };
 for (let i = 0; i < N; i++) {
   zigzag = i % 2 === 0
@@ -1311,7 +1311,7 @@ for (let i = 0; i < N; i++) {
     : { tag: "Node", left: { tag: "Leaf" }, right: zigzag };
 }
 refused(() => m.echoTree(zigzag),
-  /^t\.right\.left\.right\.left\.right\.left…\(999989 more steps\)…\.left\.right\.left\.right\.left\.right: expected a Tree object$/);
+  /^t\(\.right\.left ×500000\)\.right: expected a Tree object$/);
 
 // A list type with a parameter.
 let seq = { tag: "Stop" };
@@ -1380,7 +1380,12 @@ checkDeep(back.first, N);
 let bad = { tag: "Node", label: -1n, kids: { tag: "FNil" } };
 for (let i = 0; i < N; i++) bad = { tag: "Node", label: 0n, kids: { tag: "FCons", first: bad, rest: { tag: "FNil" } } };
 refused(() => m.echoTree(bad),
-  /^t\.kids\.first\.kids\.first\.kids\.first…\(1999989 more steps\)…\.first\.kids\.first\.kids\.first\.label: expected a non-negative bigint$/);
+  /^t\(\.kids\.first ×1000000\)\.label: expected a non-negative bigint$/);
+// An alternating path folds its two-step cycle.
+let alternating = { tag: "Node", label: -1n, kids: { tag: "FNil" } };
+for (let i = 0; i < 6; i++) alternating = { tag: "Node", label: 0n, kids: { tag: "FCons", first: alternating, rest: { tag: "FNil" } } };
+refused(() => m.echoTree(alternating),
+  /^t\(\.kids\.first ×6\)\.label: expected a non-negative bigint$/);
 // A tree that contains itself, through its forest.
 const loop = { tag: "Node", label: 0n, kids: { tag: "FNil" } };
 loop.kids = { tag: "FCons", first: loop, rest: { tag: "FNil" } };
