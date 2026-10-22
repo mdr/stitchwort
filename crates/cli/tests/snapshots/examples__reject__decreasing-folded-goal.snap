@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REFL] Error: `rfl` can't prove this
+    ╭─[ reject/decreasing-folded-goal.sw:14:45 ]
+    │
+ 14 │ theorem evensNil (n: Nat): evens n = Nil := rfl
+    │                                             ─┬─  
+    │                                              ╰─── `evens n` and `[]` aren't equal
+    │ 
+    │ Note: `rfl` proves `a = b` only when both sides compute to the same value
+────╯

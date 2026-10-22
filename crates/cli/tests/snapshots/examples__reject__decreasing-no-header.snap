@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-DECREASING] Error: `count`'s measure needs the parameters it uses named in its header
+   ╭─[ reject/decreasing-no-header.sw:6:14 ]
+   │
+ 6 │   decreasing 0
+   │              ┬  
+   │              ╰── this measure
+   │ 
+   │ Note: write them before the colon: `def count (n: Nat): … decreasing n`
+───╯
