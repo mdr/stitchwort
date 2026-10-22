@@ -196,7 +196,7 @@ theorem part2Correct (grid: Grid): solvePart2 grid = part2Spec grid :=
   let f := settleMarked m0
   let spec := rounds grid start s0
   let specKeep := roundsKeep grid s0 start s0 (k st sub => sub) (subRefl s0)
-  let specStable := roundsStable grid start s0 (insideGrid grid) (Nat.leRefl start)
+  let specStable := roundsStable grid start s0 (insideGrid grid) omega
   let same := endsAgree grid s0 (mcells f) spec (And.right (And.right ends)) (And.left ends) (And.left (And.right ends))
     (And.right specKeep) specStable (And.left specKeep)
   calc solvePart2 grid

@@ -70,7 +70,7 @@ theorem stackedCount (n: Nat): (ms: List Range) -> Stacked ms -> Below n ms ->
           := List.occurrencesOr (id => m.contains id) (id => covered rest id)
                (id h =>
                  match t: covered rest id with
-                   | True  => Void.exfalso (Nat.lessIrrefl id (Nat.leTrans (Succ id) m.from id (bm id t) (containsLo m id h)))
+                   | True  => Void.exfalso (omega [bm id t, containsLo m id h])
                    | False => rfl)
                (List.range n)
       _ = m.size + List.occurrences (id => covered rest id) (List.range n) := rewrite headCount m rest n b

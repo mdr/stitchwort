@@ -359,7 +359,7 @@ theorem periodMul (g: Nat -> Nat) (len: Nat) (hl: len != 0) (p: Nat) (hp: Period
 def isPeriod (g: Nat -> Nat) (len: Nat) (hl: len != 0) (p: Nat): Bool := List.range len |> .all (i => g ((i + p) % len) == g i)
 
 theorem periodOfTest (g: Nat -> Nat) (len: Nat) (hl: len != 0) (p: Nat) (h: isPeriod g len hl p = True): Period g len hl p :=
-  i hi => Decidable.toBoolSound (Nat.decEq (g ((i + p) % len)) (g i)) (List.allRangeElim (i => g ((i + p) % len) == g i) len 0 h i (Nat.zeroLe i) hi)
+  i hi => Decidable.toBoolSound (Nat.decEq (g ((i + p) % len)) (g i)) (List.allRangeElim (i => g ((i + p) % len) == g i) len 0 h i omega hi)
 
 theorem periodTest (g: Nat -> Nat) (len: Nat) (hl: len != 0) (p: Nat) (h: Period g len hl p): isPeriod g len hl p = True :=
   List.allRangeIntro (i => g ((i + p) % len) == g i) len 0 (i h1 h2 => Decidable.toBoolOf (Nat.decEq (g ((i + p) % len)) (g i)) (h i h2))
@@ -462,7 +462,7 @@ theorem smallestIsPeriod (x: Nat): Period (digitAt (Nat.digits x)) (digitCount x
 
 theorem smallestDivides (x: Nat) (p: Nat) (hp: Period (digitAt (Nat.digits x)) (digitCount x) (digitCountNonZero x) p): p % smallestPeriod x = 0 :=
   periodDvd (digitAt (Nat.digits x)) (digitCount x) (digitCountNonZero x) (periodIndex x) (smallestIsPeriod x)
-    (r hr => Nat.firstFromBefore (j => periodOf x (Succ j)) (digitCount x) 0 r (Nat.zeroLe r) hr) p hp
+    (r hr => Nat.firstFromBefore (j => periodOf x (Succ j)) (digitCount x) 0 r omega hr) p hp
 
 theorem countTimesPeriod (x: Nat): digitCount x = blockCount x * smallestPeriod x :=
   calc digitCount x
@@ -485,8 +485,7 @@ theorem dividesOfWritten (x: Nat) (n: Nat) (hn: 2 <= n) (k: Nat) (hk1: 1 <= k) (
   -- k is t times the smallest period
   let t := k / smallestPeriod x
   let ek: k = t * smallestPeriod x :=
-    Eq.trans (Nat.divModEq k (smallestPeriod x) (Nat.succNotZero (periodIndex x)))
-      (Eq.trans (Eq.cong (r => t * smallestPeriod x + r) (smallestDivides x k per)) (Nat.addZero (t * smallestPeriod x)))
+    omega [Nat.divModEq k (smallestPeriod x) (Nat.succNotZero (periodIndex x)), smallestDivides x k per]
   let eK: blockCount x = n * t :=
     Nat.mulSuccCancel (blockCount x) (n * t) (periodIndex x)
       (calc blockCount x * smallestPeriod x

@@ -42,7 +42,7 @@ theorem tooLong (r: Range): (k: Nat) -> Nat.leq (k * 2) (List.length (Nat.digits
           _ = Nat.pow 10 k * Nat.pow 10 (Succ k)          := Nat.powAdd 10 k (Succ k)
           _ <= b * Nat.pow 10 (Succ k)                    := Nat.leMulRight (Nat.pow 10 k) b (Nat.pow 10 (Succ k)) hb
           _ <= b * Nat.pow 10 (Succ k) + b                := omega))
-      (Nat.pow 10 (Succ k) - Nat.pow 10 k) (Nat.pow 10 k) (Nat.leRefl (Nat.pow 10 k))
+      (Nat.pow 10 (Succ k) - Nat.pow 10 k) (Nat.pow 10 k) omega
 
 -- Copies from 3 on count for nothing in part 1.
 theorem otherCopies (r: Range) (k: Nat) (size: Nat): (c: Nat) -> (s: Nat) ->

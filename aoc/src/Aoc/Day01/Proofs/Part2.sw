@@ -141,7 +141,7 @@ theorem stepLeftFrom (highest: Nat): (m: Nat) -> Succ m <= highest -> (n: Nat) -
     Bool.toNat (m == 0) + ((Succ highest - m) % Succ highest + n) / Succ highest
       = ((Succ highest - Succ m) % Succ highest + Succ n) / Succ highest
   | Zero,   h, n =>
-    rewrite Nat.modSelf (Succ highest), Nat.modSmall highest (Succ highest) (Nat.leRefl highest), Nat.addSucc highest n
+    rewrite Nat.modSelf (Succ highest), Nat.modSmall highest (Succ highest) omega, Nat.addSucc highest n
       in Eq.sym (Nat.addDivSelf (Succ highest) n)
   | Succ j, h, n =>
     rewrite Nat.modSmall (highest - j) (Succ highest) (Nat.subLe highest j),
