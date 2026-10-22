@@ -98,3 +98,26 @@ def Text.split (s: Char) (t: Text): List Text := Text.splitTexts (Text.splitChar
 def Text.join (s: Char): List Text -> Text
   | Nil       => MkText Nil
   | Cons t ts => MkText (Text.joinChars s (Text.toList t) (Text.charListsOf ts))
+
+-- Words: the runs of non-whitespace (as `Char.isSpace` defines it) between
+-- runs of whitespace, with no empty ones. `Text.wordsChars cs` is the word
+-- that `cs` starts with (so far) and the finished words after it.
+def Text.wordsClose: List Char -> List (List Char) -> List (List Char)
+  | Nil,       ws => ws
+  | Cons c cs, ws => Cons (Cons c cs) ws
+
+def Text.wordsStep (c: Char): Bool -> Pair (List Char) (List (List Char)) -> Pair (List Char) (List (List Char))
+  | True,  MkPair w ws => MkPair Nil (Text.wordsClose w ws)
+  | False, MkPair w ws => MkPair (Cons c w) ws
+
+def Text.wordsChars: List Char -> Pair (List Char) (List (List Char))
+  | Nil       => MkPair Nil Nil
+  | Cons c cs => Text.wordsStep c (Char.isSpace c) (Text.wordsChars cs)
+
+def Text.wordsFinish: Pair (List Char) (List (List Char)) -> List Text
+  | MkPair w ws => Text.textsOf (Text.wordsClose w ws)
+
+-- `"a  b".words` is `["a", "b"]`, where `"a  b".split ' '` is `["a", "", "b"]`;
+-- `"".words` and `"  ".words` are `[]`. Splits on any whitespace, not only
+-- spaces.
+def Text.words (t: Text): List Text := Text.wordsFinish (Text.wordsChars (Text.toList t))

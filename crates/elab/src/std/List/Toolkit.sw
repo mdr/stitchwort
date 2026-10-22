@@ -765,3 +765,118 @@ test "List.chunksOf empty" := List.chunksOf (Nil: List Nat) 3 == Nil
 test "List.chunksOf zero is one chunk" := List.chunksOf [1, 2, 3] 0 == [[1, 2, 3]] && List.chunksOf (Nil: List Nat) 0 == Nil
 test "List.distinct" := [3, 1, 3, 2, 1].distinct == [3, 1, 2]
 test "List.distinct empty" := (Nil: List Nat).distinct == Nil
+-- Second batch (SW-235). The main value comes first, the function last.
+
+-- The element with the largest key, or `None` for an empty list. When several
+-- keys are largest, the FIRST of those elements wins: `[(1, "a"), (3, "b"),
+-- (3, "c")].maxBy Pair.fst` is `Some (3, "b")`. (Haskell's `maximumBy` and
+-- Clojure's `max-key` return the last one, so a port must not assume they agree.)
+def List.maxByStep [auto ord: Ord b] (f: a -> b) (best: a) (x: a): a := match Ord.compare (f best) (f x) with
+  | Less => x
+  | _    => best
+
+def List.maxBy [auto ord: Ord b] (xs: List a) (f: a -> b): Option a :=
+  match xs with
+    | Nil       => None
+    | Cons x ys => Some (List.foldLeft (best y => List.maxByStep f best y) x ys)
+
+-- The element with the smallest key; on a tie the FIRST one wins, as for
+-- `List.maxBy`.
+def List.minByStep [auto ord: Ord b] (f: a -> b) (best: a) (x: a): a := match Ord.compare (f best) (f x) with
+  | Greater => x
+  | _       => best
+
+def List.minBy [auto ord: Ord b] (xs: List a) (f: a -> b): Option a :=
+  match xs with
+    | Nil       => None
+    | Cons x ys => Some (List.foldLeft (best y => List.minByStep f best y) x ys)
+
+-- The longest prefix of elements satisfying `p`.
+def List.takeWhile (xs: List a) (p: a -> Bool): List a :=
+  match xs with
+    | Nil       => Nil
+    | Cons x ys => if p x then Cons x (List.takeWhile ys p) else Nil
+
+-- What is left after `List.takeWhile`: from the first element not satisfying `p`.
+def List.dropWhile (xs: List a) (p: a -> Bool): List a :=
+  match xs with
+    | Nil       => Nil
+    | Cons x ys => if p x then List.dropWhile ys p else Cons x ys
+
+def List.spanCons (x: a): Pair (List a) (List a) -> Pair (List a) (List a)
+  | MkPair front back => MkPair (Cons x front) back
+
+-- `List.takeWhile` and `List.dropWhile` together, in one pass.
+def List.span (xs: List a) (p: a -> Bool): Pair (List a) (List a) :=
+  match xs with
+    | Nil       => MkPair Nil Nil
+    | Cons x ys => if p x then List.spanCons x (List.span ys p) else MkPair Nil (Cons x ys)
+
+-- The first `n` elements and the rest: `xs.splitAt 2` is `(xs.take 2, xs.drop 2)`.
+def List.splitAt (xs: List a) (n: Nat): Pair (List a) (List a) := MkPair (List.take n xs) (List.drop n xs)
+
+-- Without the last `n` elements (all of them if there are fewer).
+def List.dropRight (xs: List a) (n: Nat): List a := List.take (List.length xs - n) xs
+
+-- Every suffix, longest first, ending with the empty list:
+-- `[1, 2].tails` is `[[1, 2], [2], []]`.
+def List.tails: List a -> List (List a)
+  | Nil       => Cons Nil Nil
+  | Cons x xs => Cons (Cons x xs) (List.tails xs)
+
+-- The index of the first element satisfying `p`.
+def List.findIndexFrom (i: Nat) (p: a -> Bool): List a -> Option Nat
+  | Nil       => None
+  | Cons x xs => if p x then Some i else List.findIndexFrom (Succ i) p xs
+
+def List.findIndex (xs: List a) (p: a -> Bool): Option Nat := List.findIndexFrom 0 p xs
+
+-- Each element with its index from `i`.
+def List.withIndexFrom (i: Nat): List a -> List (Pair Nat a)
+  | Nil       => Nil
+  | Cons x xs => Cons (MkPair i x) (List.withIndexFrom (Succ i) xs)
+
+-- Pairs each element with its position, counting from 0, the position first
+-- (Rust's `enumerate`): `["a", "b"].withIndex` is `[(0, "a"), (1, "b")]`.
+def List.withIndex (xs: List a): List (Pair Nat a) := List.withIndexFrom 0 xs
+
+-- The first option if it is a `Some`, else the second.
+def List.orElseSome: Option b -> Option b -> Option b
+  | Some y, rest => Some y
+  | None,   rest => rest
+
+-- The first `Some` that `f` gives (Lean's `findSome?`, Scala's `collectFirst`).
+def List.findMap (xs: List a) (f: a -> Option b): Option b :=
+  match xs with
+    | Nil       => None
+    | Cons x ys => List.orElseSome (f x) (List.findMap ys f)
+
+-- Maps, then joins: `xs.flatMap f` is `List.concat (List.map f xs)`.
+def List.flatMap (xs: List a) (f: a -> List b): List b := List.concat (List.map f xs)
+
+-- Every pair, the first elements in order and the second elements within
+-- each: `[1, 2].cross ["a", "b"]` is `[(1, "a"), (1, "b"), (2, "a"), (2, "b")]`.
+def List.cross (xs: List a) (ys: List b): List (Pair a b) := List.flatMap xs (x => List.map (y => MkPair x y) ys)
+
+theorem List.lengthTails: (xs: List a) -> List.length (List.tails xs) = Succ (List.length xs)
+  | Nil       => rfl
+  | Cons x xs => Eq.cong Succ (List.lengthTails xs)
+
+theorem List.splitAtFst (xs: List a) (n: Nat): Pair.fst (List.splitAt xs n) = List.take n xs := rfl
+
+theorem List.spanExample: List.span [1, 2, 3, 1] (x => Nat.leq x 2) = MkPair [1, 2] [3, 1] := rfl
+
+test "List.maxBy" := [MkPair 2 "bb", MkPair 1 "a", MkPair 3 "ccc"].maxBy Pair.fst == Some (MkPair 3 "ccc") && (Nil: List Nat).maxBy (x => x) == None
+test "List.maxBy first wins a tie" := [MkPair 1 "a", MkPair 3 "b", MkPair 3 "c"].maxBy Pair.fst == Some (MkPair 3 "b")
+test "List.minBy first wins a tie" := [MkPair 3 "z", MkPair 1 "a", MkPair 1 "b"].minBy Pair.fst == Some (MkPair 1 "a") && (Nil: List Nat).minBy (x => x) == None
+test "List.takeWhile and dropWhile" := [1, 2, 5, 1].takeWhile (x => Nat.leq x 2) == [1, 2] && [1, 2, 5, 1].dropWhile (x => Nat.leq x 2) == [5, 1]
+test "List.takeWhile all and none" := [1, 2].takeWhile (x => Nat.leq x 8) == [1, 2] && [1, 2].dropWhile (x => Nat.leq x 8) == Nil && [4].takeWhile (x => Nat.leq x 2) == Nil
+test "List.span" := List.span [1, 2, 5, 1] (x => Nat.leq x 2) == MkPair [1, 2] [5, 1] && List.span (Nil: List Nat) (x => Nat.leq x 2) == MkPair Nil Nil
+test "List.splitAt" := [1, 2, 3].splitAt 1 == MkPair [1] [2, 3] && [1, 2].splitAt 5 == MkPair [1, 2] Nil && [1, 2].splitAt 0 == MkPair Nil [1, 2]
+test "List.dropRight" := [1, 2, 3, 4].dropRight 1 == [1, 2, 3] && [1, 2].dropRight 5 == Nil && [1, 2].dropRight 0 == [1, 2]
+test "List.tails" := [1, 2].tails == [[1, 2], [2], Nil] && (Nil: List Nat).tails == [Nil]
+test "List.findIndex" := [5, 6, 7].findIndex (x => Nat.leq 6 x) == Some 1 && [5].findIndex (x => Nat.leq 10 x) == None
+test "List.withIndex" := ["a", "b"].withIndex == [MkPair 0 "a", MkPair 1 "b"] && (Nil: List Nat).withIndex == Nil
+test "List.findMap" := [1, 2, 3, 4].findMap (x => if Nat.leq 3 x then Some (x * 10) else None) == Some 30 && [1].findMap (x => (None: Option Nat)) == None
+test "List.flatMap" := [1, 2, 3].flatMap (x => List.replicate x x) == [1, 2, 2, 3, 3, 3]
+test "List.cross" := [1, 2].cross ["a", "b"] == [MkPair 1 "a", MkPair 1 "b", MkPair 2 "a", MkPair 2 "b"] && [1].cross (Nil: List Nat) == Nil

@@ -58,6 +58,7 @@ pub const LIBRARY_FILES: &[(&str, &str)] = &[
     ("Nat/Arith.sw", include_str!("std/Nat/Arith.sw")),
     ("Nat/Digits.sw", include_str!("std/Nat/Digits.sw")),
     ("Nat/Divides.sw", include_str!("std/Nat/Divides.sw")),
+    ("Nat/Iterate.sw", include_str!("std/Nat/Iterate.sw")),
     ("Option/Option.sw", include_str!("std/Option/Option.sw")),
     ("Ord/Ord.sw", include_str!("std/Ord/Ord.sw")),
     ("Set/Set.sw", include_str!("std/Set/Set.sw")),

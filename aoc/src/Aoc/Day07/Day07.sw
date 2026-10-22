@@ -45,22 +45,8 @@ def parseManifold (lines: List Text): Option Manifold :=
       ({ width, start, rows = (lines.drop (r + 1)).map (splitterRow width) }: Manifold)))
 
 -- Row and column of the first S, reading top to bottom, left to right.
-def findStart (lines: List Text): Option (Nat, Nat) := startFrom 0 lines
-
--- `r` is the row number of the first of `lines`.
-def startFrom (r: Nat): List Text -> Option (Nat, Nat)
-  | Nil            => None
-  | Cons line rest => firstFound ((columnOf 'S' line.toList).map (c => (r, c))) (startFrom (r + 1) rest)
-
--- The first of two results, if it found something; else the second.
-def firstFound: Option a -> Option a -> Option a
-  | Some x,  later => Some x
-  | None, later => later
-
--- Where `ch` first appears.
-def columnOf (ch: Char): List Char -> Option Nat
-  | Nil       => None
-  | Cons x xs => if x == ch then Some 0 else (columnOf ch xs).map Succ
+def findStart (lines: List Text): Option (Nat, Nat) :=
+  lines.withIndex.findMap (((r, line)) => (line.toList.findIndex (c => c == 'S')).map (c => (r, c)))
 
 -- The widest line's length.
 def gridWidth (lines: List Text): Nat := lines.foldLeft widen 0
