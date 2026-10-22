@@ -23,6 +23,7 @@ use crate::ir::{
     PrimOp, Program, Shapes, Slot, TypeId, TypeInfo,
 };
 use crate::natives::{IntNative, Representation, TextNative};
+use crate::opt::{Types, optimize};
 
 type Result<T> = std::result::Result<T, Diagnostic>;
 
@@ -126,13 +127,20 @@ fn lower_roots(g: &Globals, limits: Limits, roots: Vec<DefId>, entry: &Term) -> 
         });
     }
     let entry = cx.frame_body(&[], |cx| cx.expr(entry))?;
-    Ok(Program {
+    // The simplifier needs to recognise, and build, `Bool` and `Decidable`.
+    let types = Types {
+        bool_: g.registry.data(Builtin::Bool).map(|d| cx.type_id(d)),
+        decidable: g.registry.data(Builtin::Decidable).map(|d| cx.type_id(d)),
+    };
+    let mut program = Program {
         globals,
         lambdas: cx.lambdas,
         types: cx.types,
         entry,
         shapes: shapes(g)?,
-    })
+    };
+    optimize(&mut program, types);
+    Ok(program)
 }
 
 /// The constructors the runtime builds and takes apart, from the prelude:

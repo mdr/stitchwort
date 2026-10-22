@@ -19,9 +19,21 @@ fn Std.List.foldLeft(v0, v1, v2) {5 slots} =
 fn Main.scale(v0, v1, v2) {3 slots} =
   Std.List.map(λ0[c0 = v0, c1 = v1](v0) {1 slots} =>
     %Nat.add(%Nat.mul(c0, v0), c1), v2)
-fn Main.main(v0) {3 slots} =
-  let v1 = 3
-  let v2 = %NatToText(Std.List.foldLeft(λ1[c0 = v1](v0, v1) {2 slots} =>
-    %Nat.add(%Nat.add(v0, v1), c0), 0, Main.scale(v1, 1, Cons(1, Cons(2, Nil)))))
-  Call(L(%print(v2)), done-k)
-entry {1 slots} = %Effect.lift(Main.main(UnitValue))
+fn Main.main(v0) {2 slots} =
+  let v1 = %NatToText(Std.List.foldLeft(λ2(v0, v1) {2 slots} =>
+    %Nat.add(%Nat.add(v0, v1), 3), 0, {
+    let v1 = Cons(1, Cons(2, Nil))
+    Std.List.map(λ3(v0) {1 slots} =>
+      %Nat.add(%Nat.mul(3, v0), 1), v1)
+  }))
+  Call(L(%print(v1)), done-k)
+entry {1 slots} =
+  %Effect.lift({
+    let v0 = %NatToText(Std.List.foldLeft(λ2(v0, v1) {2 slots} =>
+      %Nat.add(%Nat.add(v0, v1), 3), 0, {
+      let v0 = Cons(1, Cons(2, Nil))
+      Std.List.map(λ3(v0) {1 slots} =>
+        %Nat.add(%Nat.mul(3, v0), 1), v0)
+    }))
+    Call(L(%print(v0)), done-k)
+  })

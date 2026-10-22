@@ -12,6 +12,10 @@ fn Main.sumTo.go(v0, v1) {3 slots} =
     Succ(pred: v2) => Main.sumTo.go(v2, %Nat.add(%Nat.add(v1, v2), 1))
   }
 fn Main.main(v0) {2 slots} =
-  let v1 = %NatToText(Main.sumTo(10))
+  let v1 = %NatToText(Main.sumTo.go(10, 0))
   Call(L(%print(v1)), done-k)
-entry {1 slots} = %Effect.lift(Main.main(UnitValue))
+entry {1 slots} =
+  %Effect.lift({
+    let v0 = %NatToText(Main.sumTo.go(10, 0))
+    Call(L(%print(v0)), done-k)
+  })

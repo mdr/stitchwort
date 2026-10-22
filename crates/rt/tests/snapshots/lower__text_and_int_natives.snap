@@ -3,10 +3,10 @@ source: crates/rt/tests/lower.rs
 expression: "ir(r#\"\nimport Std (Nat, Text, Int)\ndef signed (t: Text): Int :=\n  match Text.toInt t with\n    | Some n => n * -3 + 7\n    | None => 0\n\ndef main(): {IO} () :=\n  let parts := Text.split ',' \"12,-5,x\"\n  IO.print (Text.join ' ' (parts.map (t => Int.toText (signed t))))\n  IO.print (if Text.length \"abc\" == 3 && \"a\" < \"b\" then \"yes\" else \"no\")\n\"#)"
 ---
 fn Std.Bool.ifThenElse(v0, v1, v2) {3 slots} =
-  match v0: Bool {
-    False => apply v2(erased)
-    True => apply v1(erased)
-  }
+  if v0 then
+    apply v1(erased)
+  else
+    apply v2(erased)
 fn Std.Decidable.toBool(v0) {1 slots} =
   match v0: Decidable {
     Yes => True
@@ -58,21 +58,52 @@ fn Std.Effect.bind(v0, v1) {4 slots} =
   match v0: Effect.Comp {
     Done(value: v2) => apply v1(v2)
     Call(o: v2, rest: v3) =>
-      Call(v2, λ0[c0 = v3, c1 = v1](v0) {1 slots} =>
-        Std.Effect.bind(apply c0(v0), c1))
+      Call(v2, λ0[c0 = v3, c1 = v1](v0) {4 slots} =>
+        let v1 = apply c0(v0)
+        match v1: Effect.Comp {
+          Done(value: v2) => apply c1(v2)
+          Call(o: v2, rest: v3) =>
+            Call(v2, λ0[c0 = v3, c1 = c1] (recursive))
+        })
   }
 native Std.Effect.lift = %Effect.lift/1
 const Std.Text.instDecEq {0 slots} = %mk(Std.Text.decEq)
-fn Std.Ord.%decLessThan(v0) {5 slots} =
+fn Std.Ord.%decLessThan(v0) {2 slots} =
   match v0: Ord (record) {
-    %mk(decLessThan: v3) => v3
+    %mk(decLessThan: v1) => v1
   }
-fn Std.Ord.decLessThan(v0) {1 slots} = Std.Ord.%decLessThan(v0)
+fn Std.Ord.decLessThan(v0) {2 slots} =
+  match v0: Ord (record) {
+    %mk(decLessThan: v1) => v1
+  }
 fn Std.Ord.fromCompare(v0, v1) {2 slots} =
-  %mk(v0, v1, λ1[c0 = v1](v0, v1) {2 slots} =>
-    Std.Ordering.decEq(apply c0(v0, v1), Less), λ2[c0 = v1](v0, v1) {2 slots} =>
-    Std.Decidable.not(Std.Ordering.decEq(apply c0(v0, v1), Greater)))
-const Std.Text.instOrd {0 slots} = Std.Ord.fromCompare(Std.Text.instDecEq, Std.Text.compare)
+  %mk(v0, v1, λ1[c0 = v1](v0, v1) {3 slots} =>
+    let v2 = apply c0(v0, v1)
+    match v2: Ordering {
+      Less => Yes
+      Equal => No
+      Greater => No
+    }, λ2[c0 = v1](v0, v1) {3 slots} =>
+    let v2 = apply c0(v0, v1)
+    match v2: Ordering {
+      Less => Yes
+      Equal => Yes
+      Greater => No
+    })
+const Std.Text.instOrd {0 slots} =
+  %mk(Std.Text.instDecEq, Std.Text.compare, λ5(v0, v1) {3 slots} =>
+    let v2 = %TextCompare(v0, v1)
+    match v2: Ordering {
+      Less => Yes
+      Equal => No
+      Greater => No
+    }, λ6(v0, v1) {3 slots} =>
+    let v2 = %TextCompare(v0, v1)
+    match v2: Ordering {
+      Less => Yes
+      Equal => Yes
+      Greater => No
+    })
 fn Std.List.map(v0, v1) {4 slots} =
   match v1: List {
     Nil => Nil
@@ -84,26 +115,59 @@ fn Main.signed.%match1(v0) {2 slots} =
     None => int(0)
     Some(value: v1) => %IntAdd(%IntMul(v1, int(-3)), int(7))
   }
-fn Main.main(v0) {3 slots} =
+fn Main.main(v0) {6 slots} =
   let v1 = %TextSplit(MkChar(44), "12,-5,x")
-  Std.Effect.bind({
-    let v2 = %TextJoin(MkChar(32), Std.List.map(λ3(v0) {1 slots} =>
-      %IntToText(Main.signed(v0)), v1))
+  let v2 = {
+    let v2 = %TextJoin(MkChar(32), Std.List.map(λ3(v0) {3 slots} =>
+      %IntToText({
+        let v1 = %TextToInt(v0)
+        match v1: Option {
+          None => int(0)
+          Some(value: v2) => %IntAdd(%IntMul(v2, int(-3)), int(7))
+        }
+      }), v1))
     Call(L(%print(v2)), done-k)
-  }, λ4(v0) {2 slots} =>
+  }
+  let v3 = λ4(v0) {2 slots} =>
     let v1 = {
       if {
-        if {
-          let v1 = %TextLength("abc")
-          %Nat.equal(v1, 3)
-        } then
-          Std.Decidable.toBool(apply Std.Ord.decLessThan(Std.Text.instOrd)("a", "b"))
-        else
-          False
+        let v1 = %TextLength("abc")
+        %Nat.equal(v1, 3)
       } then
-        "yes"
+        let v1 = %TextCompare("a", "b")
+        match v1: Ordering {
+          Less => "yes"
+          Equal => "no"
+          Greater => "no"
+        }
       else
         "no"
     }
-    Call(L(%print(v1)), done-k))
-entry {1 slots} = %Effect.lift(Main.main(UnitValue))
+    Call(L(%print(v1)), done-k)
+  match v2: Effect.Comp {
+    Done =>
+      let v4 = {
+        if {
+          let v4 = %TextLength("abc")
+          %Nat.equal(v4, 3)
+        } then
+          let v4 = %TextCompare("a", "b")
+          match v4: Ordering {
+            Less => "yes"
+            Equal => "no"
+            Greater => "no"
+          }
+        else
+          "no"
+      }
+      Call(L(%print(v4)), done-k)
+    Call(o: v4, rest: v5) =>
+      Call(v4, λ0[c0 = v5, c1 = v3](v0) {4 slots} =>
+        let v1 = apply c0(v0)
+        match v1: Effect.Comp {
+          Done(value: v2) => apply c1(v2)
+          Call(o: v2, rest: v3) =>
+            Call(v2, λ0[c0 = v3, c1 = c1] (recursive))
+        })
+  }
+entry {0 slots} = %Effect.lift(Main.main(UnitValue))

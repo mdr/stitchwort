@@ -3,10 +3,10 @@ source: crates/rt/tests/lower.rs
 expression: "ir(r#\"\nimport Std (Nat, Text, Int)\ndef nats (a: Nat) (b: Nat): Bool := a == b || a < b\ndef ints (a: Int) (b: Int): Bool := a == b || a < b\ndef chars (a: Char) (b: Char): Bool := a == b\ndef texts (a: Text) (b: Text): Bool := a == b\n\ndef main(): {IO} () :=\n  if nats 1 2 && ints 3 (-4) && chars 'a' 'b' && texts \"x\" \"y\" then IO.print \"yes\" else ()\n\"#)"
 ---
 fn Std.Bool.ifThenElse(v0, v1, v2) {3 slots} =
-  match v0: Bool {
-    False => apply v2(erased)
-    True => apply v1(erased)
-  }
+  if v0 then
+    apply v1(erased)
+  else
+    apply v2(erased)
 native Std.Nat.leq = %Nat.leq/2
 fn Std.Decidable.toBool(v0) {1 slots} =
   match v0: Decidable {
@@ -14,12 +14,16 @@ fn Std.Decidable.toBool(v0) {1 slots} =
     No => False
   }
 fn Std.Bool.decTrue(v0) {1 slots} =
-  match v0: Bool {
-    False => No
-    True => Yes
-  }
+  if v0 then
+    Yes
+  else
+    No
 native Std.Nat.decEq = %Nat.decEq/2
-fn Std.Nat.decLessThan(v0, v1) {2 slots} = Std.Bool.decTrue(%Nat.leq(%Nat.add(v0, 1), v1))
+fn Std.Nat.decLessThan(v0, v1) {2 slots} =
+  if %Nat.leq(%Nat.add(v0, 1), v1) then
+    Yes
+  else
+    No
 fn Std.Char.toNat(v0) {2 slots} =
   match v0: Char {
     MkChar(code: v1) => v1
@@ -29,38 +33,84 @@ fn Std.Char.decEqFrom(v0, v1, v2) {3 slots} =
     Yes => Yes
     No => No
   }
-fn Std.Char.decEq(v0, v1) {2 slots} = Std.Char.decEqFrom(v0, v1, %Nat.decEq(Std.Char.toNat(v0), Std.Char.toNat(v1)))
+fn Std.Char.decEq(v0, v1) {3 slots} =
+  if %Nat.equal({
+    match v0: Char {
+      MkChar(code: v2) => v2
+    }
+  }, {
+    match v1: Char {
+      MkChar(code: v2) => v2
+    }
+  }) then
+    Yes
+  else
+    No
 native Std.Text.decEq = %DecEqText/2
 native Std.Int.decEq = %DecEqInt/2
 native Std.Int.less = %IntLess/2
-fn Std.Int.decLessThan(v0, v1) {2 slots} = Std.Bool.decTrue(%IntLess(v0, v1))
+fn Std.Int.decLessThan(v0, v1) {2 slots} =
+  if %IntLess(v0, v1) then
+    Yes
+  else
+    No
 native Std.Effect.lift = %Effect.lift/1
 fn Main.nats(v0, v1) {2 slots} =
   if %Nat.equal(v0, v1) then
     True
   else
-    Std.Decidable.toBool(Std.Nat.decLessThan(v0, v1))
+    %Nat.leq(%Nat.add(v0, 1), v1)
 fn Main.ints(v0, v1) {2 slots} =
   if %IntEqual(v0, v1) then
     True
   else
-    Std.Decidable.toBool(Std.Int.decLessThan(v0, v1))
-fn Main.chars(v0, v1) {2 slots} = Std.Decidable.toBool(Std.Char.decEq(v0, v1))
+    %IntLess(v0, v1)
+fn Main.chars(v0, v1) {3 slots} =
+  %Nat.equal({
+    match v0: Char {
+      MkChar(code: v2) => v2
+    }
+  }, {
+    match v1: Char {
+      MkChar(code: v2) => v2
+    }
+  })
 fn Main.texts(v0, v1) {2 slots} = %TextEqual(v0, v1)
 fn Main.main(v0) {1 slots} =
   if {
-    if Main.nats(1, 2) then
-      if Main.ints(int(3), int(-4)) then
-        if Main.chars(MkChar(97), MkChar(98)) then
-          Main.texts("x", "y")
+    if %Nat.equal(1, 2) then
+      if %IntEqual(int(3), int(-4)) then
+        if %Nat.equal(97, 98) then
+          %TextEqual("x", "y")
         else
           False
       else
-        False
+        if %IntLess(int(3), int(-4)) then
+          if %Nat.equal(97, 98) then
+            %TextEqual("x", "y")
+          else
+            False
+        else
+          False
     else
-      False
+      if %Nat.leq(%Nat.add(1, 1), 2) then
+        if %IntEqual(int(3), int(-4)) then
+          if %Nat.equal(97, 98) then
+            %TextEqual("x", "y")
+          else
+            False
+        else
+          if %IntLess(int(3), int(-4)) then
+            if %Nat.equal(97, 98) then
+              %TextEqual("x", "y")
+            else
+              False
+          else
+            False
+      else
+        False
   } then
     Call(L(%print("yes")), done-k)
   else
     Done(UnitValue)
-entry {1 slots} = %Effect.lift(Main.main(UnitValue))
+entry {0 slots} = %Effect.lift(Main.main(UnitValue))

@@ -57,6 +57,11 @@ impl fmt::Display for Program {
     }
 }
 
+thread_local! {
+    /// The lambdas whose bodies are being written.
+    static PRINTING: std::cell::RefCell<Vec<u32>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
 fn slots(body: &Body) -> String {
     format!("{{{} slots}}", body.frame)
 }
@@ -170,10 +175,19 @@ impl Program {
                     }
                     out.push(']');
                 }
+                // After inlining, a lambda can make a closure of itself:
+                // its body is written once, where it's outermost.
+                let inside = PRINTING.with(|p| p.borrow().contains(&id.0));
+                if inside {
+                    out.push_str(" (recursive)");
+                    return;
+                }
                 let params: Vec<String> = (0..lambda.params).map(|i| format!("v{i}")).collect();
                 let _ = write!(out, "({}) {} =>", params.join(", "), slots(&lambda.body));
                 pad(out, indent + 1);
+                PRINTING.with(|p| p.borrow_mut().push(id.0));
                 self.expr(out, &lambda.body.expr, indent + 1);
+                PRINTING.with(|p| p.borrow_mut().pop());
             }
             Expr::Let(slot, value, body) => {
                 let _ = write!(out, "let v{slot} = ");
