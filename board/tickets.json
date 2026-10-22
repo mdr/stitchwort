@@ -1247,7 +1247,7 @@
     {
       "id": 85,
       "title": "The differential test overflows in debug builds",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "lane",
       "labels": [
@@ -1257,7 +1257,9 @@
       "body": "Problem: `the_evaluators_agree_on_the_prelude_and_every_example` (crates/driver/tests/differential.rs:168) overflows its 64 MiB thread (:19) in a debug build, at examples/accept/io.sw:234 (`test \"5,000 prints\" := ... printMany 5000`); release builds, which the gate uses (dev/t runs `cargo test --release`), pass. Not re-verified in this review.\n\nFirst step: reproduce once in debug (a single run, limited memory), then either raise the thread stack for debug builds (cfg!(debug_assertions)) or lower the 5,000 for that comparison.\n\nDone when: `cargo test -p stitchwort-driver --test differential` passes in a debug build.\n\nHistory: merged duplicate TODO.md 'Later' entry.\n",
       "created": "2026-10-19",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "c5cd31b8"
+      ]
     },
     {
       "id": 86,
@@ -4607,7 +4609,7 @@
     {
       "id": 300,
       "title": "Nav: calls whose lambda argument is postponed lose their reference (List.foldLeft missing at 13/20 uses in Toolkit; List.sumBy 10/22)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "lane sw300-nav-fixes",
       "labels": [
@@ -4617,12 +4619,15 @@
       "body": "Found by SW-298; repro scripts in scratchpad/t/. gsum with acc + f x under [auto add: Add b]: definition on List.foldLeft undefined.",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "14683f8e",
+        "2c1da78a"
+      ]
     },
     {
       "id": 301,
       "title": "Nav: Eq.sym / Eq.trans never navigate or hover (Eq.cong does)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "lane sw300-nav-fixes",
       "labels": [
@@ -4632,12 +4637,15 @@
       "body": "Found by SW-298; repro scripts in scratchpad/t/. Eq.trans missing at 26/26 uses in List/Toolkit.sw.",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "14683f8e",
+        "5e5e5873"
+      ]
     },
     {
       "id": 302,
       "title": "Type hints: selecting a type declaration shows the derived equality lemma's statement",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "lane sw300-nav-fixes",
       "labels": [
@@ -4647,12 +4655,15 @@
       "body": "Found by SW-298; repro scripts in scratchpad/t/. type Pt = { x: Nat, y: Nat } selection -> '{ x = %a0, y = %a1 } = { x = %b0, y = %b1 }' (LSP and playground).",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "14683f8e",
+        "7143c958"
+      ]
     },
     {
       "id": 303,
       "title": "Nav: outline ranges drop a trailing ), so Expand Selection loses the declaration step",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "lane sw300-nav-fixes",
       "labels": [
@@ -4662,12 +4673,15 @@
       "body": "Found by SW-298; repro scripts in scratchpad/t/. Day02 solvePart2 / allTemplatesForRange / sumOfIdsWrittenRepeatedly.",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "14683f8e",
+        "f40c2db8"
+      ]
     },
     {
       "id": 304,
       "title": "Type hints: string literals and interpolations have no type (or the enclosing let's)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "lane sw300-nav-fixes",
       "labels": [
@@ -4677,7 +4691,10 @@
       "body": "Found by SW-298; repro scripts in scratchpad/t/. Day02 \"Part 1: ${solvePart1 ranges}\" gives {IO} () for the whole body; selectionRange inside ${} includes the }.",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "14683f8e",
+        "5081d08b"
+      ]
     },
     {
       "id": 305,
@@ -4710,7 +4727,7 @@
     {
       "id": 307,
       "title": "Nat.sumBetween in std with Nat.sumBetweenCorrect; Day 2 uses it",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "opencode clone",
       "labels": [
@@ -4719,7 +4736,9 @@
       "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "5fdc9a5f"
+      ]
     }
   ]
 }
