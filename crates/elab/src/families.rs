@@ -6,7 +6,7 @@
 use std::borrow::Cow;
 use std::rc::Rc;
 
-use stitchwort_core::check as kernel;
+use crate::kernel;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::term::Branch;
 use stitchwort_core::unify_index::{Constraint, Outcome, Reason, Scope, unify};

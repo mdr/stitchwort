@@ -28,7 +28,7 @@
 
 use std::rc::Rc;
 
-use stitchwort_core::check as kernel;
+use crate::kernel;
 use stitchwort_core::value::{Head, conv, force, unfold_folded};
 use stitchwort_core::{DataId, DefId, Icit, Name, Term, Value, pretty};
 use stitchwort_syntax::ast::{self, Decl};

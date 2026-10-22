@@ -22,7 +22,7 @@ use std::borrow::Cow;
 use std::collections::HashSet;
 use std::rc::Rc;
 
-use stitchwort_core::check as kernel;
+use crate::kernel;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::term::Branch;
 use stitchwort_core::value::{eval, force, quote, unused};

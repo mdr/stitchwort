@@ -42,8 +42,8 @@
 use std::cmp::Reverse;
 use std::collections::{BinaryHeap, HashMap, HashSet};
 
+use crate::kernel;
 use stitchwort_core::DefId;
-use stitchwort_core::check as kernel;
 use stitchwort_core::registry::Builtin;
 use stitchwort_syntax::ast::{self, Clause, Decl, Expr, Module, Pattern};
 use stitchwort_syntax::{Diagnostic, FileId, Severity, Span};
@@ -206,6 +206,33 @@ impl Elaborator {
     /// `closure` is `None` in file mode; in a project, the namespaces this
     /// one depends on, in canonical order.
     pub fn elaborate_namespace(
+        &mut self,
+        namespace: Option<&str>,
+        files: &[SourceUnit],
+        closure: Option<&[String]>,
+    ) -> Vec<Diagnostic> {
+        if !crate::timings::enabled() {
+            return self.elaborate_namespace_untimed(namespace, files, closure);
+        }
+        crate::timings::begin(&self.globals);
+        let diagnostics = self.elaborate_namespace_untimed(namespace, files, closure);
+        let label = namespace
+            .map(str::to_string)
+            .or_else(|| files.first().map(|f| f.name.to_string()))
+            .filter(|l| !l.is_empty())
+            .unwrap_or_else(|| {
+                if self.loading_prelude {
+                    "core"
+                } else {
+                    "(file)"
+                }
+                .to_string()
+            });
+        crate::timings::end(&self.globals, label);
+        diagnostics
+    }
+
+    fn elaborate_namespace_untimed(
         &mut self,
         namespace: Option<&str>,
         files: &[SourceUnit],

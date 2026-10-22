@@ -19,6 +19,7 @@ mod dot;
 mod effects;
 mod families;
 mod interfaces;
+mod kernel;
 mod library;
 #[cfg(test)]
 mod library_tests;
@@ -37,6 +38,7 @@ pub mod project;
 mod records;
 mod rewrite;
 mod scope;
+pub mod timings;
 pub use library::{LIBRARY_FILES, LibraryIndex};
 pub use scope::edit_distance;
 mod undo;
@@ -49,7 +51,6 @@ use std::rc::Rc;
 
 use num_bigint::BigUint;
 use stitchwort_core::chars;
-use stitchwort_core::check as kernel;
 use stitchwort_core::native::{self, Native};
 use stitchwort_core::partial::Primitive;
 use stitchwort_core::registry::{self, Builtin};
