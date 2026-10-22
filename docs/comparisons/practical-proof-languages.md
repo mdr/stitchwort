@@ -1,7 +1,7 @@
 # Practical languages with proofs: a survey, and what Stitchwort might adopt
 
 **Date:** 22 October 2026. **Ticket:** SW-327. **Kind:** research note (design-review gate:
-research, write, stop for review). Nothing is implemented. Decisions D559 to D562 are in §8.
+research, write, stop for review). Nothing is implemented. Decisions D570 to D573 are in §8.
 
 Stitchwort's mission is "to be a practical programming language in which you can prove theorems
 about your programs". Several other languages share some or all of that aim, and they made
@@ -543,11 +543,11 @@ Costs are lane-days, rough **[inferred]**.
 
 | Option | Who | Fit for us | Our problem | Cost | Risk | Verdict |
 |---|---|---|---|---|---|---|
-| SMT solver in the trusted path | Dafny, F*, LH, Verus | Breaks principle 4 (small kernel); no Z3 in the browser without a large WASM build **[inferred]** | proof length | large | trust, instability | **No** (D562) |
+| SMT solver in the trusted path | Dafny, F*, LH, Verus | Breaks principle 4 (small kernel); no Z3 in the browser without a large WASM build **[inferred]** | proof length | large | trust, instability | **No** (D573) |
 | SMT as an untrusted oracle with proof replay | Isabelle Sledgehammer, CoqHammer | Fits "find outside, check inside", but needs a reconstruction engine (a `metis`-like prover inside our terms) | proof length | very large | engineering size | Not now |
 | Reflection with certificates | Rocq `lia`, our `omega` | Already the design | arithmetic (6 of 8 days) | stage 2: medium | check speed (SW-321) | **Yes: `omega` stage 2** |
 | `decide` | Lean, Rocq | We have it as `auto` with a decision procedure, and `test` | none new | none | none | Have it |
-| Rewriting term (`simp`-like) | Lean `simp`, Isabelle `simp`, ACL2 rewriter, LH PLE | An untrusted search that emits ordinary `rewrite`/`calc` terms; the kernel checks the result as today | long proofs; helper lemmas; `*Congr` lemmas (day 6) | large | brittleness (Lean's experience), large proof terms, check time | **Design note** (D560) |
+| Rewriting term (`simp`-like) | Lean `simp`, Isabelle `simp`, ACL2 rewriter, LH PLE | An untrusted search that emits ordinary `rewrite`/`calc` terms; the kernel checks the result as today | long proofs; helper lemmas; `*Congr` lemmas (day 6) | large | brittleness (Lean's experience), large proof terms, check time | **Design note** (D571) |
 | E-matching (`grind`) | Lean 4.22+ | Same pattern as `simp`, harder | as above | very large | as above | Later, after `simp` |
 
 **A `simp`-like term, narrowly.** The lesson from Lean, Dafny and Liquid Haskell is that
@@ -663,7 +663,7 @@ deployment in §4.4 reports as a real cost, and which on our side show up as lon
 lemmas that turn out false (no measured count yet; the AoC friction lists would be the place to
 start counting) **[inferred]**. **Risks:** time (needs a budget, reported as "inconclusive" like
 tests, DESIGN §3); statements over function types or `Prop`-valued hypotheses without decision
-procedures (skip them, and say so). **Verdict: yes** (D559).
+procedures (skip them, and say so). **Verdict: yes** (D570).
 
 ### 5.8 Extraction and interop
 
@@ -713,7 +713,7 @@ as stage 2's follow-ups** (one ticket, after stage 2).
 and `Int` ships with its interaction lemmas (with `length`, `map`, `++`, membership, `get`), named
 by a written scheme; each AoC day's generic helpers move to Std as part of that day's gap note.
 **Cost:** small per function, ongoing. **Risk:** Std grows and its load time with it (SW-322 already
-measures Std load cost) **[checked]**. **Verdict: yes** (D561).
+measures Std load cost) **[checked]**. **Verdict: yes** (D572).
 
 ### 5.12 Documentation and the learning curve
 
@@ -736,17 +736,17 @@ By value over cost. "Planned" means a ticket or design already exists; this surv
 
 | Rank | What | From | Solves (ours) | Cost | Risk | Status |
 |---|---|---|---|---|---|---|
-| 1 | **Counterexample search on theorem statements**, plus property tests (§5.7) | Isabelle Quickcheck/Nitpick, Lean Plausible | wrong statements and lemmas; spec bugs (§4.4) | medium (generators, budget, report) | low: untrusted, kernel unchanged | new (D559) |
+| 1 | **Counterexample search on theorem statements**, plus property tests (§5.7) | Isabelle Quickcheck/Nitpick, Lean Plausible | wrong statements and lemmas; spec bugs (§4.4) | medium (generators, budget, report) | low: untrusted, kernel unchanged | new (D570) |
 | 2 | **Goal holes, then Idris-style hole actions** (§5.10) | Agda, Idris 2, Lean | proof writing speed; LH's named barrier | stage 2 medium; actions small each | low | planned (SW-31, D497); actions new |
 | 3 | **`omega` stage 2**: `-`, `max`/`min`, `/` and `%` by a number, `Int` (§5.1) | Rocq `lia`, Lean `omega` | arithmetic, 6 of 8 days | medium | check speed (SW-321) | planned (omega.md) |
-| 4 | **Lemma-complete Std policy** with a naming scheme (§5.11) | Lean Std | day 8's 17 helpers and 28 new lemmas | small, ongoing | Std load time | new (D561) |
-| 5 | **A `simp`-like rewriting term**, explicit lemma lists, emits ordinary terms (§5.1) | Lean `simp`, LH PLE, ACL2 | long proofs; `*Congr` lemmas | large; design note first | brittleness, term size | new (D560) |
+| 4 | **Lemma-complete Std policy** with a naming scheme (§5.11) | Lean Std | day 8's 17 helpers and 28 new lemmas | small, ongoing | Std load time | new (D572) |
+| 5 | **A `simp`-like rewriting term**, explicit lemma lists, emits ordinary terms (§5.1) | Lean `simp`, LH PLE, ACL2 | long proofs; `*Congr` lemmas | large; design note first | brittleness, term size | new (D571) |
 | 6 | **`{x: T \| p}` refinement sugar** over a record with a proof field, discharged by `auto`/`omega` (§5.2) | Lean `Subtype`, LH, Flux | readable bounds and invariants | small | overlap with records; wants SW-93 | new |
 | 7 | **Assurance-ladder page** in the docs (§5.12) | SPARK levels | learning curve; selling the cheap rungs | a page | none | new |
 | 8 | **In-place `Array` via uniqueness**, logically a `Vec` (§5.4) | Lean, Koka Perceus | SW-112 when a program needs it | large | multi-shot sharing; JS | backlog (SW-112); design notes now |
 
 Also, as policies rather than lanes: automation failures say why (§5.9); assumptions shown in
-the playground and LSP (§5.8); "find outside, check inside" for every new piece of automation (D562).
+the playground and LSP (§5.8); "find outside, check inside" for every new piece of automation (D573).
 
 ---
 
@@ -770,10 +770,10 @@ Stated neutrally: these are choices other languages made for their goals, which 
 
 | ID | Decision | Recommendation |
 |---|---|---|
-| D559 | **Counterexample search.** When a theorem's parameters have generators and its hypotheses and goal are decidable, `check` tries small and random inputs on the fast runtime and reports a counterexample: (a) only when the proof fails (and on demand at a `?` hole), (b) on every theorem as it's stated, as Isabelle does, or (c) only in explicit `property` tests (DESIGN §7). | **(a) plus (c)**: a design note covering both, sharing generators; (b) later if (a) proves cheap |
-| D560 | **Rewriting automation.** Write a design note for a `simp [eqs]` term: untrusted search that rewrites with listed equations and equation lemmas (also under binders) and emits an ordinary term; no global `@[simp]` set at first. Alternatives: an SMT oracle with proof replay (Sledgehammer-style; very large), or nothing beyond `omega`. | **Design note**, after `omega` stage 2 |
-| D561 | **Std lemma policy.** Every public Std function on `List`/`Map`/`Set`/`Nat`/`Int` ships with its interaction lemmas, under a written naming scheme; each AoC gap note moves that day's generic helpers into Std. | **Yes** |
-| D562 | **Automation principle.** Add to DESIGN §2: "automation finds, the kernel checks". No SMT solver or compiled code in the trusted path; every automatic proof is an ordinary term the kernel re-checks (as `omega` does now). | **Yes** |
+| D570 | **Counterexample search.** When a theorem's parameters have generators and its hypotheses and goal are decidable, `check` tries small and random inputs on the fast runtime and reports a counterexample: (a) only when the proof fails (and on demand at a `?` hole), (b) on every theorem as it's stated, as Isabelle does, or (c) only in explicit `property` tests (DESIGN §7). | **(a) plus (c)**: a design note covering both, sharing generators; (b) later if (a) proves cheap |
+| D571 | **Rewriting automation.** Write a design note for a `simp [eqs]` term: untrusted search that rewrites with listed equations and equation lemmas (also under binders) and emits an ordinary term; no global `@[simp]` set at first. Alternatives: an SMT oracle with proof replay (Sledgehammer-style; very large), or nothing beyond `omega`. | **Design note**, after `omega` stage 2 |
+| D572 | **Std lemma policy.** Every public Std function on `List`/`Map`/`Set`/`Nat`/`Int` ships with its interaction lemmas, under a written naming scheme; each AoC gap note moves that day's generic helpers into Std. | **Yes** |
+| D573 | **Automation principle.** Add to DESIGN §2: "automation finds, the kernel checks". No SMT solver or compiled code in the trusted path; every automatic proof is an ordinary term the kernel re-checks (as `omega` does now). | **Yes** |
 
 Refinement sugar (rank 6), the assurance-ladder page (rank 7) and hole actions (rank 2's
 follow-ups) are implementation details within decided directions, and can become tickets without
