@@ -144,6 +144,9 @@ For comparison: day 7's part 1 proof was 387 lines and part 2's 69 (community no
   Notation (`<->`, `exists x, p x`) can wait. Small: about 40 lines.
 - **Value:** medium. Statements read the way the puzzle says them, and one-off types disappear.
   **Ticket:** none. **D549.**
+- **Done (SW-318):** std `Iff` is a record with `forward` and `backward`, and
+  `Exists (a: Type) (p: a -> Prop)` has the constructor `Witness`
+  (`crates/elab/src/std/Logic/Logic.sw`). The names differ from the proposal above (`Found`).
 
 ### 4.2 Map lemmas: `toList`, `values`, `keys`
 
@@ -209,6 +212,10 @@ For comparison: day 7's part 1 proof was 387 lines and part 2's 69 (community no
   (`Ord/Ord.sw:13`) but needs the key to tell values apart. Small, since the lemmas now exist.
 - **Value:** medium. It also avoids the instance cost of §6.1, because the instance is resolved
   once, at the call **[inferred from G4 against G2]**. **Ticket:** none.
+- **Done (SW-320, D551):** `List.sortOn (key: a -> k) [auto ord: Ord k] (xs: List a)` is in Std
+  (`List/Sort.sw`), used as `xs |> .sortOn key`, with `sortOnEq`, `sortOnPerm` and `sortOnMap`
+  (`map key (sortOn key xs) = sort (map key xs)`). Day 8's `Connection` proof now uses
+  `sortOnMap` directly, and `compareIsKeyOrder`, `sortByCong` are no longer needed there.
 
 ### 4.5 Connectivity: a closure relation, union-find, graphs
 
@@ -281,6 +288,8 @@ hypothesis. No change.
 - **Value:** medium to high. Pattern lambdas are the idiomatic way to fold over tuples. Two
   are still in `Day08.sw` (lines 65 and 118; the proof got past them by computing), and the
   third was the fold step. Each one can block a proof without saying why. **Ticket:** none. **D550.**
+- **Done (SW-319), D550/D552:** a pattern lambda with a tuple or record pattern is match-free (it
+  elaborates to projections), so it is an ordinary lambda that proofs can state and compare.
 
 ### 5.2 Termination through a generated match (friction 16)
 
@@ -454,8 +463,8 @@ library (§4.5).
 
 ---
 
-**Status** (short form, 22 October 2026): D549 `Iff`/`Exists` in Std, pending. D550 pattern
-lambdas as projections, pending. D551 day 8 `Connection` record, pending. SW-316 (this note) done
+**Status** (short form, 22 October 2026): D549 `Iff`/`Exists` in Std, done (SW-318). D550/D552 pattern
+lambdas as projections, done (SW-319). D551 `List.sortOn` and day 8 `Connection` record, done (SW-320). SW-316 (this note) done
 once reviewed. Existing tickets touched: SW-206 (raise), SW-207 (two more messages), SW-314/315
 (day 8 acceptance rows), SW-310, SW-112 (third day of "not needed"), SW-55, SW-150 and SW-222
 unchanged.
