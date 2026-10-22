@@ -46,6 +46,10 @@ pub(crate) struct Recorder {
     /// Whether to note the type of every elaborated expression
     /// ([`Elaborator::enable_expression_types`]).
     pub(crate) exprs: bool,
+    /// More than 0 while elaborating what a declaration generates (the
+    /// equality lemmas, `Show` and `Ord`): written nowhere, so nothing is
+    /// noted under the declaration's span.
+    pub(crate) generated: usize,
     /// The printed type of the expression written at a span (the last one
     /// elaborated there), for hovering over a selection.
     pub(crate) expr_types: HashMap<Span, String>,
@@ -260,7 +264,7 @@ impl Elaborator {
         }
         if let Some(nav) = &self.nav {
             let mut nav = nav.borrow_mut();
-            if nav.exprs {
+            if nav.exprs && nav.generated == 0 {
                 nav.pending.push((span, ty.clone(), cx.names.clone(), true));
             }
         }
@@ -268,8 +272,25 @@ impl Elaborator {
 
     pub(crate) fn note(&self, at: Span, noted: Noted) {
         if let Some(nav) = &self.nav {
-            nav.borrow_mut().refs.insert(at, noted);
+            let mut nav = nav.borrow_mut();
+            if nav.generated == 0 {
+                nav.refs.insert(at, noted);
+            }
         }
+    }
+
+    /// Runs `f`, which elaborates what a declaration generates: nothing it
+    /// notes (references, types) is kept, as the generated code is written
+    /// nowhere (its spans are the declaration's).
+    pub(crate) fn unnoted<T>(&mut self, f: impl FnOnce(&mut Self) -> T) -> T {
+        if let Some(nav) = &self.nav {
+            nav.borrow_mut().generated += 1;
+        }
+        let out = f(self);
+        if let Some(nav) = &self.nav {
+            nav.borrow_mut().generated -= 1;
+        }
+        out
     }
 
     /// `name`, written, resolved to a declaration.
@@ -366,9 +387,11 @@ impl Elaborator {
     /// A local variable used at `name`, of type `ty` in `cx`.
     pub(crate) fn note_local(&self, cx: &Ctx, name: &ast::Name, ty: &Value) {
         if let Some(nav) = &self.nav {
-            nav.borrow_mut()
-                .pending
-                .push((name.span, ty.clone(), cx.names.clone(), false));
+            let mut nav = nav.borrow_mut();
+            if nav.generated == 0 {
+                nav.pending
+                    .push((name.span, ty.clone(), cx.names.clone(), false));
+            }
         }
     }
 

@@ -1994,7 +1994,12 @@ pub(crate) fn known_head(cx: &Ctx, head: &Expr) -> Option<(Term, Value)> {
         return None;
     }
     match cx.e.named(&name.text) {
-        Some((Global::Def(id), _)) => Some((Term::Def(*id), cx.g().def(*id).ty_value.clone())),
+        Some((Global::Def(id), _)) => {
+            // Propagation elaborates the application from this head without
+            // going through `infer_app`, which would note the name.
+            cx.e.note_name(name);
+            Some((Term::Def(*id), cx.g().def(*id).ty_value.clone()))
+        }
         _ => None,
     }
 }

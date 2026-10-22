@@ -56,13 +56,15 @@ impl Elaborator {
                 .collect();
             self.after_interface(d, projections)?;
         }
-        self.derive_data_eq(d)?;
-        self.derive_data_show(d)?;
-        self.derive_data_ord(d)?;
-        if !interface {
-            self.derive_record_ext(d)?;
-        }
-        Ok(())
+        self.unnoted(|e| {
+            e.derive_data_eq(d)?;
+            e.derive_data_show(d)?;
+            e.derive_data_ord(d)?;
+            if !interface {
+                e.derive_record_ext(d)?;
+            }
+            Ok(())
+        })
     }
 
     /// Defines `R.field : [params] -> (r : R params) -> T` for each field,

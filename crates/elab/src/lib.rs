@@ -1643,9 +1643,11 @@ impl Elaborator {
             );
             self.after_record(d, interface)?;
         } else {
-            self.derive_data_eq(d)?;
-            self.derive_data_show(d)?;
-            self.derive_data_ord(d)?;
+            self.unnoted(|e| {
+                e.derive_data_eq(d)?;
+                e.derive_data_show(d)?;
+                e.derive_data_ord(d)
+            })?;
         }
         Ok(())
     }

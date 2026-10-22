@@ -836,3 +836,205 @@ fn a_recursive_call_of_a_decreasing_function_navigates_to_it() {
     client.shutdown();
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// Text with interpolations (SW-304): `${n + 1}` and the whole literal are
+/// expressions of type `Text`.
+const STRING_PROGRAM: &str = "def label (n: Nat): Text :=\n  let a := \"n is ${n + 1}, twice ${n}!\"\n  let b := \"${n}\"\n  a ++ b\n";
+
+#[test]
+fn text_literals_and_interpolations_are_expressions() {
+    let dir = temp_dir("text-literals");
+    let file = dir.join("text.sw");
+    std::fs::write(&file, STRING_PROGRAM).unwrap();
+    let uri = uri(&file);
+    let mut client = Client::start();
+    client.open(&uri, STRING_PROGRAM);
+    assert_eq!(client.diagnostics(&uri, 1), Vec::<Value>::new());
+    let lines: Vec<&str> = STRING_PROGRAM.lines().collect();
+    let select = |client: &mut Client, line: usize, needle: &str| {
+        let start = lines[line].find(needle).unwrap();
+        let selection = json!({
+            "start": {"line": line, "character": start},
+            "end": {"line": line, "character": start + needle.len()}
+        });
+        let found = client.request(
+            "textDocument/hover",
+            json!({"textDocument": {"uri": uri}, "position": selection["start"], "range": selection}),
+        );
+        (found, selection)
+    };
+    for (line, needle) in [
+        (1, "\"n is ${n + 1}, twice ${n}!\""),
+        (1, "${n + 1}"),
+        (1, "${n}"),
+        (2, "\"${n}\""),
+        (2, "${n}"),
+    ] {
+        let (found, selection) = select(&mut client, line, needle);
+        assert_eq!(
+            found["contents"]["value"].as_str().unwrap(),
+            "```stitchwort\nText\n```",
+            "{needle}: {found}"
+        );
+        assert_eq!(found["range"], selection, "{needle}: {found}");
+    }
+    // Outward from the `n` in `${n + 1}`: the sum, the interpolation, the
+    // whole text, then the `let`s.
+    let at = lines[1].find("n + 1").unwrap();
+    let answer = client.request(
+        "textDocument/selectionRange",
+        json!({"textDocument": {"uri": uri}, "positions": [{"line": 1, "character": at}]}),
+    );
+    let mut texts: Vec<String> = Vec::new();
+    let mut node = &answer[0];
+    while node.is_object() {
+        let r = &node["range"];
+        if r["start"]["line"] == r["end"]["line"] {
+            let line = lines[r["start"]["line"].as_u64().unwrap() as usize];
+            texts.push(
+                line[r["start"]["character"].as_u64().unwrap() as usize
+                    ..r["end"]["character"].as_u64().unwrap() as usize]
+                    .to_string(),
+            );
+        }
+        node = &node["parent"];
+    }
+    let position = |needle: &str| texts.iter().position(|t| t == needle);
+    let (a, b, c) = (
+        position("n + 1"),
+        position("${n + 1}"),
+        position("\"n is ${n + 1}, twice ${n}!\""),
+    );
+    assert!(a.is_some() && b.is_some() && c.is_some(), "{texts:?}");
+    assert!(a < b && b < c, "{texts:?}");
+    assert!(
+        !texts
+            .iter()
+            .any(|t| t.ends_with('}') && !t.starts_with('$')),
+        "{texts:?}"
+    );
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Declarations that end in a closing parenthesis (SW-303).
+const CLOSING_PAREN_PROGRAM: &str =
+    "def k (n: Nat): Nat := Succ (n + 1)\ndef m (n: Nat): Nat :=\n  Succ (Succ (n + 1))\n";
+
+#[test]
+fn outline_ranges_keep_the_closing_parenthesis() {
+    let dir = temp_dir("outline-paren");
+    let file = dir.join("paren.sw");
+    std::fs::write(&file, CLOSING_PAREN_PROGRAM).unwrap();
+    let uri = uri(&file);
+    let mut client = Client::start();
+    client.open(&uri, CLOSING_PAREN_PROGRAM);
+    assert_eq!(client.diagnostics(&uri, 1), Vec::<Value>::new());
+    let outline = client.request(
+        "textDocument/documentSymbol",
+        json!({"textDocument": {"uri": uri}}),
+    );
+    let lines: Vec<&str> = CLOSING_PAREN_PROGRAM.lines().collect();
+    let ends: Vec<(u64, u64)> = outline
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| {
+            (
+                s["range"]["end"]["line"].as_u64().unwrap(),
+                s["range"]["end"]["character"].as_u64().unwrap(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        ends,
+        [(0, lines[0].len() as u64), (2, lines[2].len() as u64)],
+        "{outline}"
+    );
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// A call whose lambda argument is postponed (SW-300): the generic `acc + f x`
+/// can't be checked until `xs` fixes the element type.
+const POSTPONED_PROGRAM: &str = "import Std (List)\ndef gsum [auto add: Add b] (f: a -> b) (xs: List a): b := List.foldLeft (acc x => acc + f x) Add.zero xs\n";
+
+#[test]
+fn a_call_with_a_postponed_lambda_navigates_to_the_function() {
+    let dir = temp_dir("postponed-call");
+    let file = dir.join("post.sw");
+    std::fs::write(&file, POSTPONED_PROGRAM).unwrap();
+    let uri = uri(&file);
+    let mut client = Client::start();
+    client.open(&uri, POSTPONED_PROGRAM);
+    assert_eq!(client.diagnostics(&uri, 1), Vec::<Value>::new());
+    let ch = POSTPONED_PROGRAM
+        .lines()
+        .nth(1)
+        .unwrap()
+        .find("List.foldLeft")
+        .unwrap() as u32
+        + 6;
+    let definition = client.at("textDocument/definition", &uri, 1, ch);
+    assert!(!definition.is_null(), "no definition for List.foldLeft");
+    let hover = client.at("textDocument/hover", &uri, 1, ch);
+    let text = hover["contents"]["value"].as_str().unwrap();
+    assert!(text.contains("foldLeft"), "{text}");
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Selecting a type declaration shows nothing of what is derived for it
+/// (SW-302): the equality lemma's statement mentions `%a0`.
+const TYPE_PROGRAM: &str =
+    "type Pt = { x: Nat, y: Nat }\ntype Shape = | Circle (r: Nat) | Square (a: Nat) (b: Nat)\n";
+
+#[test]
+fn selecting_a_type_declaration_shows_no_derived_types() {
+    let dir = temp_dir("type-decl-select");
+    let file = dir.join("types.sw");
+    std::fs::write(&file, TYPE_PROGRAM).unwrap();
+    let uri = uri(&file);
+    let mut client = Client::start();
+    client.open(&uri, TYPE_PROGRAM);
+    assert_eq!(client.diagnostics(&uri, 1), Vec::<Value>::new());
+    for (line, text) in TYPE_PROGRAM.lines().enumerate() {
+        let selection = json!({
+            "start": {"line": line, "character": 0},
+            "end": {"line": line, "character": text.len()}
+        });
+        let found = client.request(
+            "textDocument/hover",
+            json!({"textDocument": {"uri": uri}, "position": selection["start"], "range": selection}),
+        );
+        assert!(!found.to_string().contains('%'), "{found}");
+    }
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// `Eq.sym` and `Eq.trans` have results that do not depend on their explicit
+/// arguments, so they are elaborated by propagation (SW-301).
+const EQ_PROGRAM: &str = "import Std (Eq)\ntheorem t [x y z: Nat] (p: x = y) (q: y = z): z = x := Eq.sym (Eq.trans p q)\n";
+
+#[test]
+fn eq_sym_and_eq_trans_navigate_to_their_definitions() {
+    let dir = temp_dir("eq-lemmas");
+    let file = dir.join("eq.sw");
+    std::fs::write(&file, EQ_PROGRAM).unwrap();
+    let uri = uri(&file);
+    let mut client = Client::start();
+    client.open(&uri, EQ_PROGRAM);
+    assert_eq!(client.diagnostics(&uri, 1), Vec::<Value>::new());
+    let line = EQ_PROGRAM.lines().nth(1).unwrap();
+    for name in ["Eq.sym", "Eq.trans"] {
+        let ch = line.find(name).unwrap() as u32 + 4;
+        let definition = client.at("textDocument/definition", &uri, 1, ch);
+        assert!(!definition.is_null(), "no definition for {name}");
+        let hover = client.at("textDocument/hover", &uri, 1, ch);
+        let text = hover["contents"]["value"].as_str().unwrap();
+        assert!(text.contains(&format!("Std.{name}")), "{text}");
+    }
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
