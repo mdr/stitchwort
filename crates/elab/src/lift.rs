@@ -450,10 +450,8 @@ impl Elaborator {
                 // A frozen metavariable left in its type is a member of its
                 // own component, not declared yet.
                 let mut unfinished = BTreeSet::new();
-                metas(
-                    &self.parts(d, &ordered[i], &in_batch, false)?.0,
-                    &mut unfinished,
-                );
+                let kept = self.parts(d, &ordered[i], &in_batch, false)?;
+                metas(&kept.0, &mut unfinished);
                 if !unfinished.is_empty() {
                     return Err(Diagnostic::error(
                         "E-MUTUAL-SIGNATURE",
@@ -468,7 +466,18 @@ impl Elaborator {
                          ones it calls and that call it aren't finished until it is",
                     ));
                 }
-                let (ty, _, args) = self.parts(d, &ordered[i], &|_| false, false)?;
+                // With no metavariable left in the type or the call's
+                // arguments, keeping the batch's unsolved ones kept none:
+                // the parts are what keeping none gives, so they aren't
+                // worked out again (the type can be large).
+                for (arg, _) in &kept.2 {
+                    metas(arg, &mut unfinished);
+                }
+                let (ty, _, args) = if unfinished.is_empty() {
+                    kept
+                } else {
+                    self.parts(d, &ordered[i], &|_| false, false)?
+                };
                 let id = self.declare_helper(d, &keys[i], &ty)?;
                 let g = &self.globals;
                 let mut call = Term::Def(id);

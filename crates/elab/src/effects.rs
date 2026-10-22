@@ -1034,6 +1034,7 @@ fn call_performs(cx: &Ctx, expr: &Expr, extra: usize) -> Result<bool> {
             // An operation on its own is a function value.
             HeadType::Op => explicit > 0,
             HeadType::Typed(ty) => performs_after(cx, ty, explicit)?,
+            HeadType::Def(id) => def_performs_after(cx, id, explicit)?,
             HeadType::Other => false,
         },
         Expr::Field(recv, field) => {
@@ -1048,10 +1049,10 @@ fn call_performs(cx: &Ctx, expr: &Expr, extra: usize) -> Result<bool> {
 fn dot_performs(cx: &Ctx, recv: &Expr, field: &AstName, explicit: usize) -> Result<bool> {
     // A local definition named from outside: the receiver isn't an argument.
     if let Some(f) = crate::dot::helper(cx, recv, field) {
-        return performs_after(cx, cx.g().def(f).ty_value.clone(), explicit);
+        return def_performs_after(cx, f, explicit);
     }
     match crate::dot::target(cx, recv, field)? {
-        Some(f) => performs_after(cx, cx.g().def(f).ty_value.clone(), explicit + 1),
+        Some(f) => def_performs_after(cx, f, explicit + 1),
         None => Ok(false),
     }
 }
@@ -1059,6 +1060,7 @@ fn dot_performs(cx: &Ctx, recv: &Expr, field: &AstName, explicit: usize) -> Resu
 enum HeadType {
     Op,
     Typed(Value),
+    Def(DefId),
     Other,
 }
 
@@ -1071,9 +1073,27 @@ fn head_type(cx: &Ctx, name: &AstName) -> HeadType {
     }
     match cx.e.named(&name.text) {
         Some((Global::Op(..), _)) => HeadType::Op,
-        Some((Global::Def(id), _)) => HeadType::Typed(cx.g().def(*id).ty_value.clone()),
+        Some((Global::Def(id), _)) => HeadType::Def(*id),
         _ => HeadType::Other,
     }
+}
+
+/// [`performs_after`] for a call of definition `id`. Remembered for a final
+/// definition (`Elaborator::performs`): its type never changes, and this is
+/// asked for every call each time an expression around it is checked. What
+/// else the answer reads (the abilities declared so far, and whether a
+/// description's recursion is in scope, [`decode`]) is part of the key.
+fn def_performs_after(cx: &Ctx, id: DefId, explicit: usize) -> Result<bool> {
+    let g = cx.g();
+    let key = (id, explicit, cx.e.abilities.len(), cx.e.recursion.is_some());
+    if let Some(&known) = cx.e.performs.borrow().get(&key) {
+        return Ok(known);
+    }
+    let found = performs_after(cx, g.def(id).ty_value.clone(), explicit)?;
+    if g.def(id).state() == stitchwort_core::globals::State::Final {
+        cx.e.performs.borrow_mut().insert(key, found);
+    }
+    Ok(found)
 }
 
 /// Whether a function of type `ty`, given `explicit` arguments, reaches a

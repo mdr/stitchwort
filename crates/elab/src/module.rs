@@ -335,8 +335,16 @@ impl Elaborator {
             self.module.current = component.clone();
             let before = diagnostics.len();
             self.globals.failed_mentioned.set(false);
+            let timed = crate::timings::enabled();
+            if timed {
+                crate::timings::decl_begin(&self.globals);
+            }
             self.check_component(&items, &component, &mut diagnostics);
             self.globals.budget.restore(saved);
+            if timed {
+                let label = self.component_label(&items, &component);
+                crate::timings::decl_end(&self.globals, label);
+            }
             self.blame_failed_dependency(&component, before, diagnostics.as_mut_slice());
             let failed = diagnostics[before..]
                 .iter()
@@ -1202,6 +1210,26 @@ impl Elaborator {
         if let Err(d) = result {
             diagnostics.push((item.position, self.explain_lifted(d)));
         }
+    }
+
+    /// The full names of a component's declarations, for `STITCHWORT_TIMINGS`.
+    fn component_label(&self, items: &[Item], component: &[usize]) -> String {
+        let prefix = if self.namespace_root.is_empty() {
+            format!("{}.", self.globals.module)
+        } else {
+            self.namespace_root.clone()
+        };
+        let names: Vec<String> = component
+            .iter()
+            .map(|&i| match items[i].decl {
+                Decl::Test { name, .. } => format!("{prefix}test {name:?}"),
+                decl => match declared_names(decl).0 {
+                    Some(n) => format!("{prefix}{}", n.text),
+                    None => format!("{prefix}?"),
+                },
+            })
+            .collect();
+        names.join(", ")
     }
 
     /// A path of references from `from` to `to`, through the component

@@ -17,6 +17,7 @@ stitchwort-js.workspace = true
 stitchwort-driver.workspace = true
 clap.workspace = true
 rustyline.workspace = true
+mimalloc.workspace = true
 
 [dev-dependencies]
 insta.workspace = true

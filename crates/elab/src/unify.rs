@@ -747,13 +747,49 @@ pub(crate) fn zonk_in(
     keep: &dyn Fn(usize) -> bool,
     lets: &[Around],
 ) -> std::result::Result<Term, ZonkError> {
+    Ok(zonk_changed(g, level, term, keep, lets)?.unwrap_or_else(|| term.clone()))
+}
+
+/// Whether `term` is a metavariable, or one applied to arguments.
+fn meta_headed(term: &Term) -> bool {
+    let mut head = term.strip_loc();
+    while let Term::App(f, _, _) = head {
+        head = f.strip_loc();
+    }
+    matches!(head, Term::Meta(_))
+}
+
+/// [`zonk_in`]'s pass: `None` if `term` has nothing to replace. What's
+/// unchanged is shared, not rebuilt: most of a large elaborated term has no
+/// metavariables in it, and rebuilding it (and dropping the old copy) on
+/// every pass cost more than the substitution itself.
+fn zonk_changed(
+    g: &Globals,
+    level: usize,
+    term: &Term,
+    keep: &dyn Fn(usize) -> bool,
+    lets: &[Around],
+) -> std::result::Result<Option<Term>, ZonkError> {
     g.budget.step()?;
-    let zonk_keeping = |g: &Globals, level: usize, t: &Term, keep: &dyn Fn(usize) -> bool| {
-        zonk_in(g, level, t, keep, lets)
+    // A child, zonked; `None` if unchanged.
+    let go = |t: &Rc<Term>, level| -> std::result::Result<Option<Rc<Term>>, ZonkError> {
+        Ok(zonk_changed(g, level, t, keep, lets)?.map(Rc::new))
     };
-    let go = |t: &Term, level| zonk_keeping(g, level, t, keep).map(Rc::new);
+    let or = |new: Option<Rc<Term>>, old: &Rc<Term>| new.unwrap_or_else(|| old.clone());
+    // The arguments, if any changed.
+    let all = |ts: &[Rc<Term>]| -> std::result::Result<Option<Vec<Rc<Term>>>, ZonkError> {
+        let mut out: Option<Vec<Rc<Term>>> = None;
+        for (i, t) in ts.iter().enumerate() {
+            if let Some(new) = go(t, level)? {
+                out.get_or_insert_with(|| ts[..i].to_vec()).push(new);
+            } else if let Some(out) = &mut out {
+                out.push(t.clone());
+            }
+        }
+        Ok(out)
+    };
     Ok(match term {
-        Term::Meta(_) | Term::App(..) if matches!(term.spine().0, Term::Meta(_)) => {
+        Term::Meta(_) | Term::App(..) if meta_headed(term) => {
             let env: Vec<Value> = (0..level).map(Value::var).collect();
             let solved = quote(g, level, &eval(g, &env, term)?)?;
             if let Some(m) = solved.subterms().find_map(|(t, _)| match t {
@@ -762,22 +798,26 @@ pub(crate) fn zonk_in(
             }) {
                 return Err(ZonkError::Unsolved(m));
             }
-            refold(g, solved, level, lets)?
+            Some(refold(g, solved, level, lets)?)
         }
         Term::Let(x, a, v, b, e) => {
-            let a = go(a, level)?;
-            let v = go(v, level)?;
+            let a2 = go(a, level)?;
+            let v2 = go(v, level)?;
+            let v_now = v2.clone().unwrap_or_else(|| v.clone());
             let env: Vec<Value> = (0..level).map(Value::var).collect();
-            let normal = cheaply(g, || quote(g, level, &eval(g, &env, &v)?));
-            let b = match normal {
+            let normal = cheaply(g, || quote(g, level, &eval(g, &env, &v_now)?));
+            let b2 = match normal {
                 Some(normal) if worth_folding(&normal) => {
                     let mut inner = lets.to_vec();
                     inner.push((level, Rc::new(normal)));
-                    Rc::new(zonk_in(g, level + 1, b, keep, &inner)?)
+                    zonk_changed(g, level + 1, b, keep, &inner)?.map(Rc::new)
                 }
                 _ => go(b, level + 1)?,
             };
-            Term::Let(x.clone(), a, v, b, *e)
+            match (a2, v2, b2) {
+                (None, None, None) => None,
+                (a2, v2, b2) => Some(Term::Let(x.clone(), or(a2, a), or(v2, v), or(b2, b), *e)),
+            }
         }
         Term::Var(_)
         | Term::Def(_)
@@ -785,62 +825,88 @@ pub(crate) fn zonk_in(
         | Term::Chars(_)
         | Term::Sort(_)
         | Term::Refl
-        | Term::Meta(_) => term.clone(),
-        Term::Data(d, args) => Term::Data(
-            *d,
-            args.iter()
-                .map(|a| zonk_keeping(g, level, a, keep).map(Rc::new))
-                .collect::<std::result::Result<_, _>>()?,
-        ),
-        Term::Ctor(d, c, args) => Term::Ctor(
-            *d,
-            *c,
-            args.iter()
-                .map(|a| zonk_keeping(g, level, a, keep).map(Rc::new))
-                .collect::<std::result::Result<_, _>>()?,
-        ),
-        Term::Pi(x, i, a, b) => Term::Pi(x.clone(), *i, go(a, level)?, go(b, level + 1)?),
-        Term::Lam(x, i, b) => Term::Lam(x.clone(), *i, go(b, level + 1)?),
-        Term::App(f, a, i) => Term::App(go(f, level)?, go(a, level)?, *i),
-        Term::Ann(e, t) => Term::Ann(go(e, level)?, go(t, level)?),
-        Term::Case(ix, d, branches) => Term::Case(
-            *ix,
-            *d,
-            branches
-                .iter()
-                .map(|b| {
-                    Ok(stitchwort_core::term::Branch {
-                        names: b.names.clone(),
-                        body: b
-                            .body
-                            .as_ref()
-                            .map(|body| {
-                                zonk_keeping(g, level + b.names.len(), body, keep).map(Rc::new)
-                            })
-                            .transpose()?,
-                    })
-                })
-                .collect::<std::result::Result<_, ZonkError>>()?,
-        ),
-        Term::NumCase(ix, arms, default) => Term::NumCase(
-            *ix,
-            arms.iter()
-                .map(|a| {
-                    Ok(stitchwort_core::term::NumArm {
-                        value: a.value.clone(),
-                        body: go(&a.body, level)?,
-                    })
-                })
-                .collect::<std::result::Result<_, ZonkError>>()?,
-            go(default, level)?,
-        ),
-        Term::Eq(t, a, b) => Term::Eq(
-            t.as_ref().map(|t| go(t, level)).transpose()?,
-            go(a, level)?,
-            go(b, level)?,
-        ),
-        Term::J(m, b, p) => Term::J(go(m, level)?, go(b, level)?, go(p, level)?),
-        Term::Loc(span, t) => Term::Loc(*span, go(t, level)?),
+        | Term::Meta(_) => None,
+        Term::Data(d, args) => all(args)?.map(|args| Term::Data(*d, args)),
+        Term::Ctor(d, c, args) => all(args)?.map(|args| Term::Ctor(*d, *c, args)),
+        Term::Pi(x, i, a, b) => match (go(a, level)?, go(b, level + 1)?) {
+            (None, None) => None,
+            (a2, b2) => Some(Term::Pi(x.clone(), *i, or(a2, a), or(b2, b))),
+        },
+        Term::Lam(x, i, b) => go(b, level + 1)?.map(|b| Term::Lam(x.clone(), *i, b)),
+        Term::App(f, a, i) => match (go(f, level)?, go(a, level)?) {
+            (None, None) => None,
+            (f2, a2) => Some(Term::App(or(f2, f), or(a2, a), *i)),
+        },
+        Term::Ann(e, t) => match (go(e, level)?, go(t, level)?) {
+            (None, None) => None,
+            (e2, t2) => Some(Term::Ann(or(e2, e), or(t2, t))),
+        },
+        Term::Case(ix, d, branches) => {
+            let mut new: Vec<Option<Rc<Term>>> = Vec::with_capacity(branches.len());
+            for b in branches.iter() {
+                new.push(match &b.body {
+                    Some(body) => go(body, level + b.names.len())?,
+                    None => None,
+                });
+            }
+            if new.iter().all(Option::is_none) {
+                None
+            } else {
+                Some(Term::Case(
+                    *ix,
+                    *d,
+                    branches
+                        .iter()
+                        .zip(new)
+                        .map(|(b, n)| stitchwort_core::term::Branch {
+                            names: b.names.clone(),
+                            body: b.body.as_ref().map(|old| or(n, old)),
+                        })
+                        .collect(),
+                ))
+            }
+        }
+        Term::NumCase(ix, arms, default) => {
+            let mut new: Vec<Option<Rc<Term>>> = Vec::with_capacity(arms.len());
+            for a in arms.iter() {
+                new.push(go(&a.body, level)?);
+            }
+            let default2 = go(default, level)?;
+            if new.iter().all(Option::is_none) && default2.is_none() {
+                None
+            } else {
+                Some(Term::NumCase(
+                    *ix,
+                    arms.iter()
+                        .zip(new)
+                        .map(|(a, n)| stitchwort_core::term::NumArm {
+                            value: a.value.clone(),
+                            body: or(n, &a.body),
+                        })
+                        .collect(),
+                    or(default2, default),
+                ))
+            }
+        }
+        Term::Eq(t, a, b) => {
+            let t2 = match t {
+                Some(t) => go(t, level)?,
+                None => None,
+            };
+            match (t2, go(a, level)?, go(b, level)?) {
+                (None, None, None) => None,
+                (t2, a2, b2) => Some(Term::Eq(
+                    t.as_ref().map(|t| or(t2, t)),
+                    or(a2, a),
+                    or(b2, b),
+                )),
+            }
+        }
+        Term::J(m, b, p) => match (go(m, level)?, go(b, level)?, go(p, level)?) {
+            (None, None, None) => None,
+            (m2, b2, p2) => Some(Term::J(or(m2, m), or(b2, b), or(p2, p))),
+        },
+        Term::Loc(span, t) => go(t, level)?.map(|t| Term::Loc(*span, t)),
     })
 }
 
