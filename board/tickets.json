@@ -4047,7 +4047,7 @@
     {
       "id": 267,
       "title": "AoC Day 3: Battery, joltageOf, maxJoltage, maxJoltageIsLargest with named hypotheses (D508)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [
@@ -4056,12 +4056,14 @@
       "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "5c68dd98"
+      ]
     },
     {
       "id": 268,
       "title": "AoC Day 3: maxJoltageIsMaximum, reached and largest in one theorem (D509), after SW-267",
-      "status": "next",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [
