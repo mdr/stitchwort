@@ -4316,7 +4316,7 @@
     {
       "id": 284,
       "title": "decreasing stage 3 design addendum: calls under lambdas via List.attach (D516)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -4325,7 +4325,9 @@
       "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "c47fd243"
+      ]
     },
     {
       "id": 285,
