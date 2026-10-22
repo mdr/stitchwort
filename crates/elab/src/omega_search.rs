@@ -53,9 +53,9 @@ pub(crate) enum Source {
 #[derive(Clone, Debug)]
 enum Node {
     Source(Source),
-    /// The row a split adds at this depth: `l` on the left, `-1 - l` on the
-    /// right. Nothing else is written before a split, so it is the branch's
-    /// row number `depth`.
+    /// A row a split adds (`l` on the left, `-1 - l` on the right) or one of
+    /// the rows a case of a fact adds. Nothing else is written before a
+    /// split, so it is the branch's row with this number.
     Split(usize),
     /// `Σ k * row`, every `k > 0`.
     Combine(Vec<(i128, usize)>),
@@ -74,6 +74,12 @@ enum Tree {
         left: Box<Tree>,
         right: Box<Tree>,
     },
+    /// The cases of `problem.cases[case]`.
+    Cases {
+        case: usize,
+        left: Box<Tree>,
+        right: Box<Tree>,
+    },
 }
 
 /// A certificate as `Std.Omega.Cert` has it, with rows numbered from 0 in
@@ -83,6 +89,8 @@ pub(crate) enum Cert {
     Close(usize),
     Then(Step, Box<Cert>),
     Split(Row, Box<Cert>, Box<Cert>),
+    /// The cases of the fact with this number (in the caller's numbering).
+    Cases(usize, Box<Cert>, Box<Cert>),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -198,11 +206,12 @@ pub(crate) const LIMITS: Limits = Limits {
     depth: 6,
 };
 
-struct Search {
+struct Search<'p> {
     n: usize,
     nodes: Vec<(Node, Row)>,
     made: usize,
     limits: Limits,
+    cases: &'p [Case],
 }
 
 /// The rows of one stage of elimination, at most one per coefficient list
@@ -228,7 +237,7 @@ enum Elim {
     Ineq { var: usize, rows: Vec<usize> },
 }
 
-impl Search {
+impl Search<'_> {
     fn push(&mut self, node: Node, row: Row) -> Option<usize> {
         self.made += 1;
         if self.made > self.limits.rows {
@@ -496,9 +505,18 @@ impl Search {
         Some(x.into_iter().map(|v| v.unwrap_or(Rat::int(0))).collect())
     }
 
-    /// Refutes `base` plus the split rows `splits` (ancestors' first), splitting
-    /// on a fractional variable when the rows have only a fractional solution.
-    fn refute(&mut self, base: &[usize], splits: &mut Vec<usize>) -> Result<Tree, Failure> {
+    /// Refutes `base` plus the split rows `splits` (ancestors' first). When
+    /// the rows have a solution, it splits: first on a fact with cases (from
+    /// `cases`, not yet split on here) whose cases the solution both
+    /// violates, otherwise on a variable whose value is fractional.
+    fn refute(
+        &mut self,
+        base: &[usize],
+        cases: &[usize],
+        splits: &mut Vec<usize>,
+        depth: usize,
+        used: &mut Vec<usize>,
+    ) -> Result<Tree, Failure> {
         let mut start = base.to_vec();
         start.extend(splits.iter().copied());
         let model = match self.fm(&start) {
@@ -506,13 +524,40 @@ impl Search {
             Fm::Budget => return Err(Failure::Budget),
             Fm::Model(model) => model,
         };
-        let Some(j) = model.iter().position(|v| !v.is_int()) else {
+        let case = cases.iter().copied().find(|&k| {
+            !used.contains(&k)
+                && !holds_all(&self.cases[k].left, &model)
+                && !holds_all(&self.cases[k].right, &model)
+        });
+        let fractional = model.iter().position(|v| !v.is_int());
+        if case.is_none() && fractional.is_none() {
             return Err(Failure::Integer(model));
-        };
-        let depth = splits.len();
-        if depth >= self.limits.depth {
-            return Err(Failure::Rational(model));
         }
+        if depth >= self.limits.depth {
+            return Err(if fractional.is_some() {
+                Failure::Rational(model)
+            } else {
+                Failure::Integer(model)
+            });
+        }
+        if let Some(k) = case {
+            used.push(k);
+            let left_rows = self.cases[k].left.clone();
+            let right_rows = self.cases[k].right.clone();
+            let left = self.refute_with(base, cases, splits, depth, used, &left_rows);
+            let right = match &left {
+                Ok(_) => self.refute_with(base, cases, splits, depth, used, &right_rows),
+                Err(_) => Err(Failure::Budget),
+            };
+            used.pop();
+            let left = left?;
+            return Ok(Tree::Cases {
+                case: k,
+                left: Box::new(left),
+                right: Box::new(right?),
+            });
+        }
+        let j = fractional.expect("a fractional value");
         // `v - x_j >= 0` on the left, `x_j - v - 1 >= 0` on the right.
         let v = model[j].floor();
         let mut l = Row::zero(self.n);
@@ -521,27 +566,39 @@ impl Search {
         let mut other = Row::zero(self.n);
         other.c = -1 - v;
         other.a[j] = 1;
-        let left_id = self
-            .push(Node::Split(depth), l.clone())
-            .ok_or(Failure::Budget)?;
-        splits.push(left_id);
-        let left = self.refute(base, splits);
-        splits.pop();
-        let left = left?;
-        let right_id = self
-            .push(Node::Split(depth), other)
-            .ok_or(Failure::Budget)?;
-        splits.push(right_id);
-        let right = self.refute(base, splits);
-        splits.pop();
+        let left = self.refute_with(base, cases, splits, depth, used, std::slice::from_ref(&l))?;
+        let right = self.refute_with(base, cases, splits, depth, used, &[other])?;
         Ok(Tree::Split {
             l,
             left: Box::new(left),
-            right: Box::new(right?),
+            right: Box::new(right),
         })
     }
 
-    /// The certificate for `tree`, at split depth `depth`.
+    /// [`Search::refute`] one level down, with `rows` added as split rows.
+    fn refute_with(
+        &mut self,
+        base: &[usize],
+        cases: &[usize],
+        splits: &mut Vec<usize>,
+        depth: usize,
+        used: &mut Vec<usize>,
+        rows: &[Row],
+    ) -> Result<Tree, Failure> {
+        let mark = splits.len();
+        for row in rows {
+            let Some(id) = self.push(Node::Split(splits.len()), row.clone()) else {
+                splits.truncate(mark);
+                return Err(Failure::Budget);
+            };
+            splits.push(id);
+        }
+        let tree = self.refute(base, cases, splits, depth + 1, used);
+        splits.truncate(mark);
+        tree
+    }
+
+    /// The certificate for `tree`, below `depth` rows added by splits.
     fn emit(&self, tree: &Tree, depth: usize) -> Cert {
         match tree {
             Tree::Split { l, left, right } => Cert::Split(
@@ -549,6 +606,14 @@ impl Search {
                 Box::new(self.emit(left, depth + 1)),
                 Box::new(self.emit(right, depth + 1)),
             ),
+            Tree::Cases { case, left, right } => {
+                let c = &self.cases[*case];
+                Cert::Cases(
+                    c.fact,
+                    Box::new(self.emit(left, depth + c.left.len())),
+                    Box::new(self.emit(right, depth + c.right.len())),
+                )
+            }
             Tree::Closed(id) => {
                 let mut numbers: HashMap<usize, usize> = HashMap::new();
                 let mut steps: Vec<Step> = Vec::new();
@@ -599,10 +664,50 @@ impl Search {
 }
 
 /// One refutation problem: the input rows, each with its source, over `n`
-/// atoms.
+/// atoms, and the facts with cases.
 pub(crate) struct Problem {
     pub n: usize,
     pub rows: Vec<(Source, Row)>,
+    pub cases: Vec<Case>,
+}
+
+/// A fact with two cases (`Std.Omega.Fact.left`/`right`): `t = a - b`, `max`,
+/// `min`, `a != b`. Each case is the rows it adds.
+#[derive(Clone, Debug)]
+pub(crate) struct Case {
+    /// The fact's number, which the certificate names.
+    pub fact: usize,
+    pub left: Vec<Row>,
+    pub right: Vec<Row>,
+}
+
+impl Case {
+    /// The atoms either case mentions, as a row of 0s and 1s.
+    fn atoms(&self, n: usize) -> Row {
+        Row {
+            c: 0,
+            a: (0..n)
+                .map(|j| i128::from(self.left.iter().chain(&self.right).any(|r| r.a[j] != 0)))
+                .collect(),
+        }
+    }
+}
+
+/// Whether `model` satisfies every row.
+fn holds_all(rows: &[Row], model: &[Rat]) -> bool {
+    rows.iter().all(|r| {
+        let mut sum = Rat::int(r.c);
+        for (j, &a) in r.a.iter().enumerate() {
+            if a == 0 {
+                continue;
+            }
+            match model[j].mul_int(a).and_then(|v| sum.add(v)) {
+                Some(v) => sum = v,
+                None => return false,
+            }
+        }
+        Rat::int(0).le(sum) == Some(true)
+    })
 }
 
 /// Refutes `problem`: the rows connected to the goal's negation first (with
@@ -617,6 +722,7 @@ pub(crate) fn refute(problem: &Problem, limits: Limits) -> Result<Cert, Failure>
         nodes: Vec::new(),
         made: 0,
         limits,
+        cases: &problem.cases,
     };
     let mut parent: Vec<usize> = (0..n).collect();
     fn find(parent: &mut [usize], mut i: usize) -> usize {
@@ -626,7 +732,14 @@ pub(crate) fn refute(problem: &Problem, limits: Limits) -> Result<Cert, Failure>
         }
         i
     }
-    for (_, row) in &problem.rows {
+    // A fact with cases joins every atom of both cases.
+    let joins: Vec<Row> = problem
+        .rows
+        .iter()
+        .map(|(_, r)| r.clone())
+        .chain(problem.cases.iter().map(|c| c.atoms(n)))
+        .collect();
+    for row in &joins {
         let atoms: Vec<usize> = (0..n).filter(|&j| row.a[j] != 0).collect();
         for w in atoms.windows(2) {
             let (a, b) = (find(&mut parent, w[0]), find(&mut parent, w[1]));
@@ -684,6 +797,15 @@ pub(crate) fn refute(problem: &Problem, limits: Limits) -> Result<Cert, Failure>
             base.push(ids[k]);
             atoms.extend((0..n).filter(|&j| row.a[j] != 0));
         }
+        let mut cases: Vec<usize> = Vec::new();
+        for (k, c) in problem.cases.iter().enumerate() {
+            let joined = c.atoms(n);
+            let g = component(&mut parent, &joined);
+            if g == group || g.is_none() {
+                cases.push(k);
+                atoms.extend((0..n).filter(|&j| joined.a[j] != 0));
+            }
+        }
         atoms.sort_unstable();
         atoms.dedup();
         for j in atoms {
@@ -694,7 +816,7 @@ pub(crate) fn refute(problem: &Problem, limits: Limits) -> Result<Cert, Failure>
                 None => return Err(Failure::Budget),
             }
         }
-        match search.refute(&base, &mut Vec::new()) {
+        match search.refute(&base, &cases, &mut Vec::new(), 0, &mut Vec::new()) {
             Ok(tree) => return Ok(search.emit(&tree, 0)),
             Err(Failure::Budget) => return Err(Failure::Budget),
             Err(failure) => {
@@ -743,6 +865,7 @@ pub(crate) fn replay(problem: &Problem, cert: &Cert) -> bool {
         n: usize,
         input: &dyn Fn(usize) -> Option<Row>,
         neg: &Option<Row>,
+        cases: &[Case],
         ctx: &mut Vec<Row>,
         cert: &Cert,
     ) -> bool {
@@ -788,7 +911,7 @@ pub(crate) fn replay(problem: &Problem, cert: &Cert) -> bool {
                     }
                 };
                 ctx.push(row);
-                let ok = go(n, input, neg, ctx, rest);
+                let ok = go(n, input, neg, cases, ctx, rest);
                 ctx.pop();
                 ok
             }
@@ -796,20 +919,33 @@ pub(crate) fn replay(problem: &Problem, cert: &Cert) -> bool {
                 let mut l = l.clone();
                 l.a.resize(n, 0);
                 ctx.push(l.clone());
-                let ok = go(n, input, neg, ctx, left);
+                let ok = go(n, input, neg, cases, ctx, left);
                 ctx.pop();
                 let other = Row {
                     c: -1 - l.c,
                     a: l.a.iter().map(|x| -x).collect(),
                 };
                 ctx.push(other);
-                let ok2 = go(n, input, neg, ctx, right);
+                let ok2 = go(n, input, neg, cases, ctx, right);
                 ctx.pop();
+                ok && ok2
+            }
+            Cert::Cases(f, left, right) => {
+                let Some(c) = cases.iter().find(|c| c.fact == *f) else {
+                    return false;
+                };
+                let mark = ctx.len();
+                ctx.extend(c.left.iter().cloned());
+                let ok = go(n, input, neg, cases, ctx, left);
+                ctx.truncate(mark);
+                ctx.extend(c.right.iter().cloned());
+                let ok2 = go(n, input, neg, cases, ctx, right);
+                ctx.truncate(mark);
                 ok && ok2
             }
         }
     }
-    go(n, &input, &neg, &mut Vec::new(), cert)
+    go(n, &input, &neg, &problem.cases, &mut Vec::new(), cert)
 }
 
 #[cfg(test)]
@@ -829,7 +965,11 @@ mod tests {
         if let Some(g) = goal {
             rows.push((Source::NegGoal, g));
         }
-        Problem { n, rows }
+        Problem {
+            n,
+            rows,
+            cases: Vec::new(),
+        }
     }
 
     fn proves(p: &Problem) -> bool {
@@ -897,6 +1037,87 @@ mod tests {
             Err(Failure::Integer(m)) => assert_eq!(m[0], m[1]),
             other => panic!("{other:?}"),
         }
+    }
+
+    fn has_cases(cert: &Cert) -> bool {
+        match cert {
+            Cert::Close(_) => false,
+            Cert::Then(_, rest) => has_cases(rest),
+            Cert::Split(_, l, r) => has_cases(l) || has_cases(r),
+            Cert::Cases(..) => true,
+        }
+    }
+
+    /// `t = a - b` (atoms t, a, b) as stage 2 quotes it: the rows that always
+    /// hold, as facts 0 and 1, and the two cases.
+    fn sub_problem(more: &[Row], goal: Option<Row>) -> Problem {
+        let mut facts = vec![row(0, &[-1, 1, 0]), row(0, &[1, -1, 1])];
+        facts.extend(more.iter().cloned());
+        let mut p = problem(3, &facts, goal);
+        p.cases.push(Case {
+            fact: 0,
+            left: vec![row(0, &[0, 1, -1]), row(0, &[-1, 1, -1]), row(0, &[1, -1, 1])],
+            right: vec![row(-1, &[0, -1, 1]), row(0, &[-1, 0, 0]), row(0, &[1, 0, 0])],
+        });
+        p
+    }
+
+    #[test]
+    fn cheap_bound_needs_no_split() {
+        // |- a - b <= a: negation t - a - 1 >= 0.
+        let p = sub_problem(&[], Some(row(-1, &[1, -1, 0])));
+        let cert = refute(&p, LIMITS).expect("proved");
+        assert!(replay(&p, &cert));
+        assert!(!has_cases(&cert), "{cert:?}");
+    }
+
+    #[test]
+    fn subtraction_splits_on_demand() {
+        // b <= a |- (a - b) + b <= a: negation t + b - a - 1 >= 0.
+        let p = sub_problem(&[row(0, &[0, 1, -1])], Some(row(-1, &[1, -1, 1])));
+        let cert = refute(&p, LIMITS).expect("proved");
+        assert!(replay(&p, &cert));
+        assert!(has_cases(&cert), "{cert:?}");
+    }
+
+    #[test]
+    fn subtraction_without_its_cases_fails() {
+        let mut p = sub_problem(&[row(0, &[0, 1, -1])], Some(row(-1, &[1, -1, 1])));
+        p.cases.clear();
+        assert!(matches!(refute(&p, LIMITS), Err(Failure::Integer(_))));
+    }
+
+    #[test]
+    fn subtraction_false_goal_fails() {
+        // |- (a - b) + b <= a is false at a = 0, b = 1: the cases don't help.
+        let p = sub_problem(&[], Some(row(-1, &[1, -1, 1])));
+        match refute(&p, LIMITS) {
+            Err(Failure::Integer(m)) => assert!(m[1].n < m[2].n, "{m:?}"),
+            other => panic!("{other:?}"),
+        }
+    }
+
+    #[test]
+    fn not_equal_splits() {
+        // x <= y, x != y |- x < y: negation x - y >= 0.
+        let mut p = problem(2, &[row(0, &[-1, 1])], Some(row(0, &[1, -1])));
+        p.cases.push(Case {
+            fact: 1,
+            left: vec![row(-1, &[-1, 1])],
+            right: vec![row(-1, &[1, -1])],
+        });
+        let cert = refute(&p, LIMITS).expect("proved");
+        assert!(replay(&p, &cert));
+        assert!(matches!(cert, Cert::Cases(1, ..)), "{cert:?}");
+    }
+
+    #[test]
+    fn replay_refuses_a_missing_case() {
+        let p = sub_problem(&[row(0, &[0, 1, -1])], Some(row(-1, &[1, -1, 1])));
+        let cert = refute(&p, LIMITS).expect("proved");
+        let mut q = sub_problem(&[row(0, &[0, 1, -1])], Some(row(-1, &[1, -1, 1])));
+        q.cases[0].fact = 7;
+        assert!(!replay(&q, &cert));
     }
 
     #[test]
