@@ -3273,9 +3273,9 @@
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "Design note: cache checked definitions across runs by content hash (D276), extending the test-result cache, so check/test/editor/lanes/gate skip unchanged declarations. Soundness first: what a cached \"checked\" result may skip (kernel re-check), what the key must cover (the declaration, everything it depends on, compiler/kernel version, natives), invalidation, and where it lives. Then CLI, editor and test integration; relation to SW-185 (cache checked core) and SW-31 (LSP).\n\nDone when: the note is reviewed by Matt with decisions recorded; implementation stages are separate tickets.\n",
+      "body": "Design note: cache checked definitions across runs by content hash (D276), extending the test-result cache, so check/test/editor/lanes/gate skip unchanged declarations. Soundness first: what a cached \"checked\" result may skip (kernel re-check), what the key must cover (the declaration, everything it depends on, compiler/kernel version, natives), invalidation, and where it lives. Then CLI, editor and test integration; relation to SW-185 (cache checked core) and SW-31 (LSP).\n\nDone when: the note is reviewed by Matt with decisions recorded; implementation stages are separate tickets.\n\n22 Oct 2026: D277 (does a cache hit still run the kernel?) reopened by Matt — he may be happy to trust the cache more (option B). Stages 0–2 are needed under both options; build them so B is a small switch, and decide D277 on stage 2's measurements.",
       "created": "2026-10-21",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
