@@ -1,5 +1,5 @@
 {
-  "next": 269,
+  "next": 270,
   "tickets": [
     {
       "id": 1,
@@ -4063,11 +4063,27 @@
     {
       "id": 268,
       "title": "AoC Day 3: maxJoltageIsMaximum, reached and largest in one theorem (D509), after SW-267",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "aoc"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": [
+        "983a8886"
+      ]
+    },
+    {
+      "id": 269,
+      "title": "Bug: bank.best k resolves to List.best in Aoc.Day03.Proofs (Bank := List Battery) though it works in Aoc.Day03",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
       ],
       "body": "",
       "created": "2026-10-22",
