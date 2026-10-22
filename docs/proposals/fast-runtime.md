@@ -748,6 +748,13 @@ caching a checked prelude across runs) would now gain more than the machine.
   are library definitions over `List Char`. Native versions bound by content hash, as the
   other text natives are, would remove that; they'd need registry entries and JS code as
   well, and each is a trusted native, so that's a decision rather than tuning (not done).
+- The differential tests (every example and AoC `main` both ways, the IR interpreter over
+  about 1,100 tests, the validator over every lowered definition) all passed throughout, but
+  reviewing the simplifier found a bug they missed: a variable known to be a constructor
+  counted as true or false by its tag alone, so `if c then x else y` with `x` known `Some …`
+  and `y` known `None` became `c`. Fixed (a known constructor carries its type), with a
+  test. The simplifier is where a wrong answer could now come from; more small programs
+  run both ways would be cheap insurance.
 - The step count (frames entered) falls with inlining, so a program runs further before
   `E-RESOURCE` than before; only the way it's reported is the same, as in stage 3.
 - Effort: under one lane-day, against the 2 estimated.
