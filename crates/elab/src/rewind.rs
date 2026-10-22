@@ -157,6 +157,7 @@ impl Elaborator {
             module,
             warnings,
             lambda_warnings,
+            branch_errors,
             arm_reach,
             no_propagation,
             dot_heads,
@@ -226,6 +227,7 @@ impl Elaborator {
         *module = mark.module.clone();
         *warnings = mark.warnings.clone();
         lambda_warnings.get_mut().clear();
+        branch_errors.get_mut().clear();
         *arm_reach.get_mut() = Default::default();
         no_propagation.set(0);
         *dot_heads.get_mut() = mark.dot_heads.clone();

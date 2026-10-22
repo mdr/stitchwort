@@ -1,0 +1,25 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+   ╭─[ reject/match-three-bad-branches.sw:5:20 ]
+   │
+ 5 │   | False, Zero => False
+   │                    ──┬──  
+   │                      ╰──── expected `Nat`, but this has type `Bool`
+───╯
+[E-TYPE-MISMATCH] Error: type mismatch
+   ╭─[ reject/match-three-bad-branches.sw:6:22 ]
+   │
+ 6 │   | False, Succ m => "no"
+   │                      ──┬─  
+   │                        ╰─── expected `Nat`, but this has type `Text`
+───╯
+[E-TYPE-MISMATCH] Error: type mismatch
+   ╭─[ reject/match-three-bad-branches.sw:4:16 ]
+   │
+ 4 │   | True, n => True
+   │                ──┬─  
+   │                  ╰─── expected `Nat`, but this has type `Bool`
+───╯

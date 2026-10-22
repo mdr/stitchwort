@@ -260,6 +260,12 @@ pub struct Elaborator {
     /// a shared reference to the elaborator is at hand. One per lambda
     /// (checking can reach the same lambda twice); drained with `warnings`.
     lambda_warnings: RefCell<Vec<Diagnostic>>,
+    /// Errors from the other bad branches of a case whose first bad branch's
+    /// error is the one returned. Where only a shared reference to the
+    /// elaborator is at hand; a definition that fails reports them after its
+    /// own error, and one that succeeds (the check was an attempt that was
+    /// undone) drops them.
+    branch_errors: RefCell<Vec<Diagnostic>>,
     /// Arms of the definition being checked that a case on an indexed family
     /// dropped because their constructor can't be there, with a reason, and
     /// the arms that were reached: those dropped and never reached are
@@ -1836,12 +1842,30 @@ impl Elaborator {
             self.module.item = Some(item);
             self.module.phase = Phase::Body;
             self.clear_metas();
+            self.branch_errors.take();
             match self.lifted_body(*id, def_name, equations) {
                 Ok((body, joined)) => {
                     bodies.push((*id, body));
                     helpers.extend(joined);
                 }
-                Err(d) => out.push((item, d)),
+                Err(d) => {
+                    out.push((item, d));
+                    // The other bad branches of the case it failed in.
+                    let mut seen: Vec<Span> = Vec::new();
+                    for d in self.branch_errors.take() {
+                        let at = d.labels.first().map(|l| l.span);
+                        let repeated = at.is_some_and(|at| seen.contains(&at))
+                            || out.iter().any(|(_, o)| {
+                                o.code == d.code
+                                    && o.message == d.message
+                                    && o.labels.first().map(|l| l.span) == at
+                            });
+                        if !repeated {
+                            seen.extend(at);
+                            out.push((item, d));
+                        }
+                    }
+                }
             }
             out.extend(self.lambda_warnings.take().into_iter().map(|w| (item, w)));
         }
@@ -3130,6 +3154,29 @@ fn check_tree_from(cx: &mut Ctx, start: usize, tree: &Tree, goal: &Value) -> Res
     result
 }
 
+/// A branch of a case failed: keep its error and go on with the other
+/// branches, which don't depend on it, so one run reports every bad branch.
+/// Running out of resources stops everything instead.
+fn branch_failed(cx: &Ctx, error: Diagnostic, failed: &mut Vec<Diagnostic>) -> Result<()> {
+    if error.code == "E-RESOURCE" || cx.g().budget.exhausted().is_some() {
+        return Err(error);
+    }
+    failed.push(error);
+    Ok(())
+}
+
+/// Fails with the first failed branch's error, leaving the others (those not
+/// already reported at the same place) for the definition to report after it
+/// (`Elaborator::branch_errors`).
+fn report_failed_branches(cx: &Ctx, failed: Vec<Diagnostic>) -> Result<()> {
+    let mut failed = failed.into_iter();
+    let Some(first) = failed.next() else {
+        return Ok(());
+    };
+    cx.e.branch_errors.borrow_mut().extend(failed);
+    Err(first)
+}
+
 fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
     cx.g().budget.nesting(check::PASS)?;
     match tree {
@@ -3238,6 +3285,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                 return Ok(Term::Loc(*span, Rc::new(term)));
             }
             let mut out = Vec::new();
+            let mut failed = Vec::new();
             for (c, ((names, subtree), ctor)) in branches.iter().zip(&data.ctors).enumerate() {
                 let mark = cx.mark();
                 let base = cx.level();
@@ -3290,11 +3338,15 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                 cx.reset(mark);
                 cx.env = saved_env;
                 cx.types = saved_types;
-                out.push(Branch {
-                    names: names.clone(),
-                    body: Some(Rc::new(result?)),
-                });
+                match result {
+                    Ok(body) => out.push(Branch {
+                        names: names.clone(),
+                        body: Some(Rc::new(body)),
+                    }),
+                    Err(e) => branch_failed(cx, e, &mut failed)?,
+                }
             }
+            report_failed_branches(cx, failed)?;
             Ok(Term::Loc(
                 *span,
                 Rc::new(Term::Case(cx.level() - 1 - x, *d, out.into())),
@@ -3323,6 +3375,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
             }
             let goal_term = cx.quote(goal)?;
             let mut out = Vec::new();
+            let mut failed = Vec::new();
             for (key, subtree) in arms {
                 // In this arm, the matched variable *is* the number, so it's
                 // substituted into the goal and the whole context (as the
@@ -3341,10 +3394,13 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                 let result = check_tree(cx, subtree, &arm_goal);
                 cx.env = saved_env;
                 cx.types = saved_types;
-                out.push(NumArm {
-                    value: Rc::new(key.clone()),
-                    body: Rc::new(result?),
-                });
+                match result {
+                    Ok(body) => out.push(NumArm {
+                        value: Rc::new(key.clone()),
+                        body: Rc::new(body),
+                    }),
+                    Err(e) => branch_failed(cx, e, &mut failed)?,
+                }
             }
             // The default knows nothing new about the variable. If its type
             // mentions it, the programmer may have expected otherwise.
@@ -3363,7 +3419,16 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                 } else {
                     d
                 }
-            })?;
+            });
+            let default = match default {
+                Ok(default) => default,
+                Err(e) => {
+                    branch_failed(cx, e, &mut failed)?;
+                    report_failed_branches(cx, failed)?;
+                    unreachable!("a failed default leaves an error to report")
+                }
+            };
+            report_failed_branches(cx, failed)?;
             Ok(Term::Loc(
                 *span,
                 Rc::new(Term::NumCase(
