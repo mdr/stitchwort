@@ -42,7 +42,7 @@ def Set.union [auto ord: Ord k] (a: Set k) (b: Set k): Set k := { items = Map.un
 def Set.intersect [auto ord: Ord k] (a: Set k) (b: Set k): Set k := Set.filter (key => Set.contains key b) a
 
 -- The keys of `a` that aren't in `b`.
-def Set.difference [auto ord: Ord k] (a: Set k) (b: Set k): Set k := Set.filter (key => Bool.not (Set.contains key b)) a
+def Set.difference [auto ord: Ord k] (a: Set k) (b: Set k): Set k := Set.filter (key => !(Set.contains key b)) a
 
 theorem Set.containsInsert [auto ord: Ord k] (key: k) (s: Set k): (s |> Set.insert key |> Set.contains key) = True :=
   rewrite Map.getInsert key () s.items in rfl
@@ -55,7 +55,7 @@ def Set.example: Set Nat := Set.fromList [3, 1, 2, 3]
 
 test "set: toList is in order, without repeats" := Set.toList Set.example == [1, 2, 3]
 test "set: size" := Set.size Set.example == 3 && Set.isEmpty (Set.empty: Set Nat)
-test "set: contains" := Set.contains 2 Set.example && Bool.not (Set.contains 4 Set.example)
+test "set: contains" := Set.contains 2 Set.example && !(Set.contains 4 Set.example)
 test "set: insert" := Set.toList (Set.insert 0 Set.example) == [0, 1, 2, 3] && Set.size (Set.insert 1 Set.example) == 3
 test "set: remove" := Set.toList (Set.remove 2 Set.example) == [1, 3] && Set.size (Set.remove 7 Set.example) == 3
 test "set: foldLeft" := Set.foldLeft (acc x => acc * 10 + x) 0 Set.example == 123

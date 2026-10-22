@@ -1714,7 +1714,7 @@ theorem Nat.oneMul (n: Nat): 1 * n = n := Nat.addZero n
 -- `b`'s, negated when exactly one of them is negative.
 def Bool.xor: Bool -> Bool -> Bool
   | False, b => b
-  | True,  b => Bool.not b
+  | True,  b => !b
 
 theorem Bool.xorAssoc: (a: Bool) -> (b: Bool) -> (c: Bool) -> Bool.xor (Bool.xor a b) c = Bool.xor a (Bool.xor b c)
   | False, b,     c     => rfl

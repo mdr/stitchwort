@@ -195,7 +195,7 @@ def List.elem (d: (x: a) -> (y: a) -> Decidable (x = y)) (z: a): List a -> Bool
   | Cons x xs => if Decidable.toBool (d z x) then True else List.elem d z xs
 
 -- The elements that satisfy `p`, and those that don't.
-def List.partition (p: a -> Bool) (xs: List a): Pair (List a) (List a) := MkPair (List.filter p xs) (List.filter (x => Bool.not (p x)) xs)
+def List.partition (p: a -> Bool) (xs: List a): Pair (List a) (List a) := MkPair (List.filter p xs) (List.filter (x => !(p x)) xs)
 
 -- The value for the first pair whose key is equal, given a decision for equality.
 def List.lookup (d: (x: k) -> (y: k) -> Decidable (x = y)) (key: k): List (Pair k v) -> Option v
@@ -439,7 +439,7 @@ theorem List.splitByLength (p: a -> Bool) (xs: List a):
   Eq.trans (Eq.cong (t => t + List.occurrences p xs) (List.finishGroupsSum (List.splitGroups p xs))) (List.splitGroupsTotal p xs)
 
 -- The group has no separator in it.
-def List.NonSep (p: a -> Bool) (g: List a): Prop := List.all (x => Bool.not (p x)) g = True
+def List.NonSep (p: a -> Bool) (g: List a): Prop := List.all (x => !(p x)) g = True
 
 -- Every group is non-empty and has no separator in it.
 def List.Groups (p: a -> Bool): List (List a) -> Prop
@@ -455,7 +455,7 @@ theorem List.closeGroupGroups (p: a -> Bool): (cur: List a) -> (done: List (List
   | Cons y ys, done, hc, hd => Both (Both (Nat.zeroLe (List.length ys)) hc) hd
 
 theorem List.nonSepCons (p: a -> Bool) (x: a) (cur: List a) (h: p x = False) (hc: List.NonSep p cur): List.NonSep p (Cons x cur) :=
-  J (y q => (if Bool.not y then List.all (z => Bool.not (p z)) cur else False) = True) hc (Eq.sym h)
+  J (y q => (if !y then List.all (z => !(p z)) cur else False) = True) hc (Eq.sym h)
 
 theorem List.splitStepOk (p: a -> Bool) (x: a): (b: Bool) -> p x = b -> (st: Pair (List a) (List (List a))) -> List.SplitOk p st ->
     List.SplitOk p (List.splitStep x b st)
@@ -479,15 +479,15 @@ theorem List.closeGroupConcat: (cur: List a) -> (done: List (List a)) ->
   | Cons y ys, done => rfl
 
 def List.SplitKeeps (p: a -> Bool) (xs: List a) (st: Pair (List a) (List (List a))): Prop :=
-  List.append (Pair.fst st) (List.concat (Pair.snd st)) = List.filter (x => Bool.not (p x)) xs
+  List.append (Pair.fst st) (List.concat (Pair.snd st)) = List.filter (x => !(p x)) xs
 
 theorem List.splitStepKeeps (p: a -> Bool) (x: a) (xs: List a): (b: Bool) -> p x = b -> (st: Pair (List a) (List (List a))) ->
     List.SplitKeeps p xs st -> List.SplitKeeps p (Cons x xs) (List.splitStep x b st)
   | True,  e, MkPair cur done, h =>
     Eq.trans (List.closeGroupConcat cur done)
-      (Eq.trans h (Eq.sym (List.filterSkip (z => Bool.not (p z)) x xs (Eq.cong Bool.not e))))
+      (Eq.trans h (Eq.sym (List.filterSkip (z => !(p z)) x xs (Eq.cong Bool.not e))))
   | False, e, MkPair cur done, h =>
-    Eq.trans (Eq.cong (Cons x) h) (Eq.sym (List.filterKeep (z => Bool.not (p z)) x xs (Eq.cong Bool.not e)))
+    Eq.trans (Eq.cong (Cons x) h) (Eq.sym (List.filterKeep (z => !(p z)) x xs (Eq.cong Bool.not e)))
 
 theorem List.splitGroupsKeeps (p: a -> Bool): (xs: List a) -> List.SplitKeeps p xs (List.splitGroups p xs)
   | Nil       => rfl
@@ -499,7 +499,7 @@ theorem List.finishGroupsConcat: (st: Pair (List a) (List (List a))) ->
 
 -- Joining the groups gives back the elements that aren't separators, in order.
 theorem List.splitByConcat (p: a -> Bool) (xs: List a):
-    List.concat (List.splitBy p xs) = List.filter (x => Bool.not (p x)) xs :=
+    List.concat (List.splitBy p xs) = List.filter (x => !(p x)) xs :=
   Eq.trans (List.finishGroupsConcat (List.splitGroups p xs)) (List.splitGroupsKeeps p xs)
 
 -- Sums from a starting total, and one element at a time, for any `Add`:

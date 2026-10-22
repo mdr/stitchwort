@@ -31,7 +31,7 @@ theorem andOr: (a: Bool) -> (x: Bool) -> (y: Bool) -> ((a && x) || (a && y)) = (
   | True,  x, y => rfl
   | False, x, y => rfl
 
-theorem notTrue: (a: Bool) -> Bool.not a = True -> a = False
+theorem notTrue: (a: Bool) -> !a = True -> a = False
   | False, h => rfl
   | True,  h => Void.exfalso (Bool.falseNotTrue h)
 
@@ -191,7 +191,7 @@ def fromLeft (fl: Bool) (ss: List Bool) (bs: List Bool): Nat -> Bool
 -- the splitters beside it send theirs.
 theorem fallAt: (fl: Bool) -> (ss: List Bool) -> (bs: List Bool) -> List.length ss = List.length bs -> (c: Nat) -> c < List.length bs ->
     List.getOr False c (fall fl ss bs)
-      = ((List.getOr False c bs && Bool.not (List.getOr False c ss)) || (fromLeft fl ss bs c || (List.getOr False (Succ c) ss && List.getOr False (Succ c) bs)))
+      = ((List.getOr False c bs && !(List.getOr False c ss)) || (fromLeft fl ss bs c || (List.getOr False (Succ c) ss && List.getOr False (Succ c) bs)))
   | fl, Nil,       Nil,       e, c,      h => Void.exfalso (Bool.falseNotTrue h)
   | fl, Nil,       Cons b bs, e, c,      h => Void.exfalso (Nat.zeroNotSucc (List.length bs) e)
   | fl, Cons s ss, Nil,       e, c,      h => Void.exfalso (Nat.succNotZero (List.length ss) e)
@@ -251,7 +251,7 @@ theorem fallKeeps (w: Nat) (row: Vec Bool w) (rest: List (Vec Bool w))
   let fallen := fall False flags beams
   let hf: List.length flags = List.length beams := rewrite Vec.lengthToList row, hb
   let at: (c: Nat) -> c < w -> List.getOr False c fallen
-      = ((List.getOr False c beams && Bool.not (List.getOr False c flags)) || (fromLeft False flags beams c || (List.getOr False (Succ c) flags && List.getOr False (Succ c) beams))) :=
+      = ((List.getOr False c beams && !(List.getOr False c flags)) || (fromLeft False flags beams c || (List.getOr False (Succ c) flags && List.getOr False (Succ c) beams))) :=
     c hc => fallAt False flags beams hf c (rewrite hb in hc)
   let after: Nat -> Bool := c => List.getOr False c fallen && reach rest c k d
   let before: Nat -> Bool := c => List.getOr False c beams && reach (Cons row rest) c (Succ k) d
@@ -262,8 +262,8 @@ theorem fallKeeps (w: Nat) (row: Vec Bool w) (rest: List (Vec Bool w))
          let into := Eq.trans (Eq.sym (at c hi)) (Bool.andLeft (List.getOr False c fallen) (reach rest c k d) hc)
          orCases (beamReach w beams (Cons row rest) (Succ k) d = True) _ _ into
            (h1 =>
-             let hB := Bool.andLeft (List.getOr False c beams) (Bool.not (List.getOr False c flags)) h1
-             let hF: splitterAt row c = False := notTrue (List.getOr False c flags) (Bool.andRight (List.getOr False c beams) (Bool.not (List.getOr False c flags)) h1)
+             let hB := Bool.andLeft (List.getOr False c beams) (!(List.getOr False c flags)) h1
+             let hF: splitterAt row c = False := notTrue (List.getOr False c flags) (Bool.andRight (List.getOr False c beams) (!(List.getOr False c flags)) h1)
              List.anyRangeIntro before w 0 c lo hi (Bool.andIntro (List.getOr False c beams) (reach (Cons row rest) c (Succ k) d) hB (rewrite hF in hr)))
            (h2 => orCases (beamReach w beams (Cons row rest) (Succ k) d = True) _ _ h2
              (h3 =>
@@ -311,7 +311,7 @@ theorem fallKeeps (w: Nat) (row: Vec Bool w) (rest: List (Vec Bool w))
            | False =>
              List.anyRangeIntro after w 0 c lo hi
                (Bool.andIntro (List.getOr False c fallen) (reach rest c k d)
-                  (rewrite at c hi in orFirst _ _ _ (Bool.andIntro (List.getOr False c beams) (Bool.not (List.getOr False c flags)) hB (rewrite e)))
+                  (rewrite at c hi in orFirst _ _ _ (Bool.andIntro (List.getOr False c beams) (!(List.getOr False c flags)) hB (rewrite e)))
                   hr)))
 
 -- The splitters the beams reach in row k, and all of them below.

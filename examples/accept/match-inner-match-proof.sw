@@ -23,7 +23,7 @@ theorem orCases (goal: Prop): (a: Bool) -> (b: Bool) -> (a || b) = True -> (a = 
 
 -- Where the condition fails, `reach` skips the row.
 theorem skip (flag: Nat -> Bool) (k: Nat) (c: Nat) (d: Nat) (h: reach flag (Succ k) c d = True):
-    Bool.not (flag c) = True -> reach flag k c d = True :=
+    !(flag c) = True -> reach flag k c d = True :=
   match e: flag c with
     | True  => n => Void.exfalso (Bool.falseNotTrue n)
     | False => n => h
