@@ -164,20 +164,54 @@ fn long_pattern_blocks() {
     });
 }
 
-/// Literals are flat to parse, but are long chains of constructors once
-/// elaborated.
+/// Literals are flat to parse, but would be chains of constructors as deep as
+/// they are long once elaborated: a long one is cut into short chains joined
+/// by a balanced tree of `append`s, so 100,000 elements check and run
+/// (SW-62).
 #[test]
 fn long_list_literals() {
     isolated("long_list_literals", || {
-        just_past_the_limit(|x, n| {
-            format!("def {x} : List Nat := [{}]\n", vec!["1"; n].join(", "))
-        });
+        let mut session = Session::new();
+        if let Err(ds) = session.load("xs.sw", &list_program(100_000)) {
+            panic!("{}", ds[0].message);
+        }
+        let main = session.main().expect("`main` has the right type");
+        let mut output = Vec::new();
+        session
+            .run_main(&main, &mut &b""[..], &mut output)
+            .expect("runs");
+        assert_eq!(String::from_utf8(output).unwrap(), "100000\n");
     });
+}
+
+/// The same under a small stack guard (the playground's is 128 KiB, but its
+/// frames are smaller than native ones; see `crates/web/build.rs`), where a
+/// single chain of a few hundred elements runs out.
+#[test]
+fn long_list_literals_with_a_small_guard() {
+    isolated("long_list_literals_with_a_small_guard", || {
+        let mut session = Session::new();
+        session.elab.limits = Limits {
+            stack: 256 * 1024,
+            ..Limits::default()
+        };
+        if let Err(ds) = session.load("xs.sw", &list_program(100_000)) {
+            panic!("{}", ds[0].message);
+        }
+    });
+}
+
+/// A program with a list literal of `n` ones, whose `main` prints its length.
+fn list_program(n: usize) -> String {
+    format!(
+        "import Std (List)\n\ndef xs : List Nat := [{}]\n\ndef main () : {{IO}} () := IO.print (List.length xs).toText\n",
+        vec!["1"; n].join(", ")
+    )
 }
 
 /// A text literal is one compact list in the term however long it is
 /// (docs/proposals/compact-text.md, stage 2), so it doesn't nest: four
-/// million characters check. (A list literal still nests, above.)
+/// million characters check.
 #[test]
 fn long_text_literals() {
     isolated("long_text_literals", || {

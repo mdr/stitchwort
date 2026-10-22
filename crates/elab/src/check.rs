@@ -23,6 +23,10 @@ pub type Result<T> = std::result::Result<T, Diagnostic>;
 /// (docs/proposals/stack-safe-evaluation.md).
 pub(crate) const PASS: &str = "elaborator";
 
+/// How many elements of a list literal are written as one `Cons` chain; a
+/// longer literal is several chains joined by `append`s (SW-62).
+const LITERAL_CHUNK: usize = 64;
+
 pub struct Ctx<'e> {
     pub e: &'e Elaborator,
     /// What each variable evaluates to (inside a case branch, the matched
@@ -1528,11 +1532,42 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
             for item in items {
                 terms.push(check(cx, item, &elem)?);
             }
-            let mut term = Term::Ctor(list, nil, Vec::new());
-            for item in terms.into_iter().rev() {
-                term = Term::ctor(list, cons, vec![item, term]);
+            // A long literal would be a `Cons` chain as deep as it is long,
+            // and every pass over terms recurses on that depth (the checker,
+            // zonking, lowering, code generation, …): so it's cut into chunks
+            // joined by a balanced tree of `append`s, which is as deep as a
+            // chunk plus the logarithm of their number (SW-62).
+            let mut chunks: Vec<Term> = terms
+                .chunks(LITERAL_CHUNK)
+                .map(|chunk| {
+                    let mut term = Term::Ctor(list, nil, Vec::new());
+                    for item in chunk.iter().rev() {
+                        term = Term::ctor(list, cons, vec![item.clone(), term]);
+                    }
+                    term
+                })
+                .collect();
+            if chunks.len() > 1 {
+                let append = Term::app_icit(
+                    Term::Def(builtin_def(cx, Builtin::Append)?),
+                    cx.quote(&elem)?,
+                    Icit::Implicit,
+                );
+                while chunks.len() > 1 {
+                    let mut joined = Vec::with_capacity(chunks.len().div_ceil(2));
+                    let mut pairs = chunks.into_iter();
+                    while let Some(a) = pairs.next() {
+                        joined.push(match pairs.next() {
+                            Some(b) => Term::app(Term::app(append.clone(), a), b),
+                            None => a,
+                        });
+                    }
+                    chunks = joined;
+                }
             }
-            Ok(term)
+            Ok(chunks
+                .pop()
+                .unwrap_or_else(|| Term::Ctor(list, nil, Vec::new())))
         }
         (Expr::Var(_) | Expr::App(..), Value::Data(..) | Value::Pi(_, Icit::Explicit, _, _)) => {
             match ctor_head(cx, expr)? {
