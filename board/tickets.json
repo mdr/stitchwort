@@ -1,5 +1,5 @@
 {
-  "next": 316,
+  "next": 317,
   "tickets": [
     {
       "id": 1,
@@ -3059,7 +3059,7 @@
     {
       "id": 198,
       "title": "AoC day 8: junction boxes (resumed D535: after the community note; then solve + prove; then gap analysis)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "stage B: proofs (D543); stage A merged",
       "labels": [
@@ -3071,7 +3071,11 @@
       "updated": "2026-10-22",
       "commits": [
         "160ab3c4",
-        "be9956bc"
+        "be9956bc",
+        "92603a54",
+        "6d386e5b",
+        "dd264045",
+        "a1efa40d"
       ]
     },
     {
@@ -4871,6 +4875,21 @@
       "labels": [
         "elab",
         "proof"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 316,
+      "title": "AoC day 8 gap analysis: what was missing in Stitchwort; features / std additions to consider",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "worktree lane",
+      "labels": [
+        "aoc",
+        "design"
       ],
       "body": "",
       "created": "2026-10-22",
