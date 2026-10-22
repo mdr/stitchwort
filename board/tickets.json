@@ -1,5 +1,5 @@
 {
-  "next": 307,
+  "next": 308,
   "tickets": [
     {
       "id": 1,
@@ -1247,16 +1247,16 @@
     {
       "id": 85,
       "title": "The differential test overflows in debug builds",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "lane",
       "labels": [
         "bug",
         "tooling"
       ],
       "body": "Problem: `the_evaluators_agree_on_the_prelude_and_every_example` (crates/driver/tests/differential.rs:168) overflows its 64 MiB thread (:19) in a debug build, at examples/accept/io.sw:234 (`test \"5,000 prints\" := ... printMany 5000`); release builds, which the gate uses (dev/t runs `cargo test --release`), pass. Not re-verified in this review.\n\nFirst step: reproduce once in debug (a single run, limited memory), then either raise the thread stack for debug builds (cfg!(debug_assertions)) or lower the 5,000 for that comparison.\n\nDone when: `cargo test -p stitchwort-driver --test differential` passes in a debug build.\n\nHistory: merged duplicate TODO.md 'Later' entry.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
@@ -3140,30 +3140,30 @@
     {
       "id": 204,
       "title": "calc: a first expression containing `||` or `&&` needs parentheses",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "lane",
       "labels": [
         "syntax",
         "proof"
       ],
       "body": "SW-157 pain point 6 (docs/aoc-2025.md:2051). Reproduced (21 Oct, release binary): `theorem t (a: Bool) (b: Bool): a || b = b || a := calc a || b` with the step `_ = b || a := Bool.orComm a b` on the next line gives E-PARSE 'expected a step `_ = e` on the next line, indented past `calc`, but found `||`' pointing at the `||` on the calc line, with the note 'a `calc` needs at least one step'; the same happens for a step's expression. `+` and `*` are fine. The parser reads the first expression of a `calc` before it knows an operator may continue it (crates/syntax/src/parser.rs, `starts_calc_step` :330 is the nearby logic). Either parse a full expression after `calc` and in steps, or make the message say to write `(a || b)`.\n\nDone when: `calc a || b` with a `_ = ...` step parses (or the error names the fix), with an accept (or reject) example under examples/.\n",
       "created": "2026-10-21",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
       "id": 205,
       "title": "match reports only one branch error at a time",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "lane",
       "labels": [
         "elab"
       ],
       "body": "SW-157 pain point 9 (docs/aoc-2025.md:2065): in `mergedContains` three branches were each wrong and each fix revealed the next error. Reproduced (21 Oct, release binary): `def f: Bool -> Nat -> Nat | True, n => True | False, n => False` reports a single E-TYPE-MISMATCH (for the `False` arm) instead of both arms. The branches are independent, so all type errors could be collected and reported. First step: find where the elaborator stops at the first branch error (crates/elab/src/check.rs or the case-tree builder) and whether recovery (checking the remaining branches against their expected type after an error) is safe for unification state.\n\nDone when: a `match` or function with two bad arms reports both errors, with a reject example listing both (examples/reject/ with snapshot).\n\nD243 (Matt, 21 Oct 2026): proof-ergonomics cluster on ice for now.\n",
       "created": "2026-10-21",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
@@ -4584,9 +4584,9 @@
     {
       "id": 299,
       "title": "JS backend: parameterless top-level def whose body is a handler with an if fails (ReferenceError before initialization)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "lane",
       "labels": [
         "js"
       ],
@@ -4598,9 +4598,9 @@
     {
       "id": 300,
       "title": "Nav: calls whose lambda argument is postponed lose their reference (List.foldLeft missing at 13/20 uses in Toolkit; List.sumBy 10/22)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "lane sw300-nav-fixes",
       "labels": [
         "lsp",
         "bug"
@@ -4613,9 +4613,9 @@
     {
       "id": 301,
       "title": "Nav: Eq.sym / Eq.trans never navigate or hover (Eq.cong does)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "lane sw300-nav-fixes",
       "labels": [
         "lsp",
         "bug"
@@ -4628,9 +4628,9 @@
     {
       "id": 302,
       "title": "Type hints: selecting a type declaration shows the derived equality lemma's statement",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "lane sw300-nav-fixes",
       "labels": [
         "lsp",
         "bug"
@@ -4643,9 +4643,9 @@
     {
       "id": 303,
       "title": "Nav: outline ranges drop a trailing ), so Expand Selection loses the declaration step",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "lane sw300-nav-fixes",
       "labels": [
         "lsp",
         "bug"
@@ -4658,9 +4658,9 @@
     {
       "id": 304,
       "title": "Type hints: string literals and interpolations have no type (or the enclosing let's)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "lane sw300-nav-fixes",
       "labels": [
         "lsp",
         "bug"
@@ -4694,6 +4694,20 @@
         "lsp"
       ],
       "body": "Found by SW-298; repro scripts in scratchpad/t/. Item 7 of the SW-298 report.",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 307,
+      "title": "Nat.sumBetween in std with Nat.sumBetweenCorrect; Day 2 uses it",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "opencode clone",
+      "labels": [
+        "stdlib"
+      ],
+      "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
       "commits": []
