@@ -10,4 +10,7 @@ wasm-opt -Oz --enable-bulk-memory --enable-nontrapping-float-to-int \
   web/pkg/stitchwort_web_bg.wasm -o web/pkg/stitchwort_web_bg.wasm
 # The AoC project's files, for the playground's Advent of Code group.
 web/bundle-projects.sh . web/pkg
+# pkg/version.json: the content hashes the page caches by (docs/proposals/
+# playground-projects.md §10.2).
+web/write-version.sh web
 ls -lh web/pkg

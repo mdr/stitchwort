@@ -1,0 +1,75 @@
+# Builds the browser playground (`nix build .#playground`) and publishes it to
+# GitHub Pages: https://mdr.github.io/stitchwort/
+# How to enable Pages, run this and change it: docs/publishing.md.
+name: Playground
+
+on:
+  # Manual only for now (Actions tab -> Playground -> Run workflow).
+  workflow_dispatch:
+  # To publish on every push to main that could change the site, add:
+  #
+  #   push:
+  #     branches: [main]
+  #     paths:
+  #       - "crates/**"
+  #       - "web/**"
+  #       - "aoc/**"
+  #       - "Cargo.toml"
+  #       - "Cargo.lock"
+  #       - "rust-toolchain.toml"
+  #       - "flake.nix"
+  #       - "flake.lock"
+  #       - ".github/workflows/playground.yml"
+
+# The least a job needs; the deploy job adds what Pages needs.
+permissions:
+  contents: read
+
+# One deployment at a time. A queued run waits rather than cancelling one that
+# is publishing (GitHub's own Pages starter workflow does the same).
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest # 24.04: 4 vCPU, 16 GB RAM, 14 GB disk on a public repository
+    steps:
+      - uses: actions/checkout@v7
+      # Third-party actions are pinned to a full commit SHA (GitHub's advice
+      # for actions you don't control), with the release in the comment.
+      - uses: DeterminateSystems/determinate-nix-action@96c5ee93a9dddf2830d31e1da6ec719077336c28 # v3.23.3
+      # Caches the Nix store in GitHub's own Actions cache: no account and no
+      # secrets. FlakeHub Cache is switched off explicitly (it needs a paid plan).
+      - uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
+        with:
+          use-gha-cache: true
+          use-flakehub: false
+      - name: Build the playground
+        run: nix build .#playground --print-build-logs
+      - name: Check the build has what the page needs
+        run: |
+          test -s result/index.html
+          test -s result/playground-worker.js
+          test -s result/pkg/stitchwort_web_bg.wasm
+          test -s result/pkg/version.json
+          cat result/pkg/version.json
+      - uses: actions/configure-pages@v6
+      # `result` is a symlink into the Nix store; this action archives with
+      # `tar --dereference`, so it can be given as it is.
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: result
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write # to deploy
+      id-token: write # to verify the deployment comes from this workflow
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

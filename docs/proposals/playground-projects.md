@@ -711,3 +711,34 @@ the note:
   (D118), adding, renaming or deleting files, and short names in Evaluate
   (D115). The page still adds `?load=<time>` to the bundle's URLs, as it does
   for the compiler.
+
+### As built: hosting (SW-173, D533, 22 October 2026)
+
+Prepared, not yet published; see `docs/publishing.md` for the steps and the
+research behind the workflow.
+
+- **Content-hash caching (§10.2) is in.** `web/write-version.sh SITE_DIR`
+  writes `pkg/version.json`, `{"compiler": H, "projects": H}` (16 hex digits
+  of SHA-256). `compiler` hashes the WebAssembly, the bindings and the worker
+  script; `projects` hashes every file under `pkg/projects/` (paths and
+  contents). `web/build.sh` and the `playground` package in `flake.nix` both
+  call it. The page fetches it with `cache: "no-cache"` and uses
+  `?v=<compiler>` for the WebAssembly, the worker and the bindings (the
+  worker passes its own query to the bindings, unchanged) and `?v=<projects>`
+  for the manifest and every project file. If `version.json` can't be read,
+  the page falls back to `?v=<time>`, as `?load=<time>` was. `?load=` is gone.
+- **Differs from §10.2: one hash for the whole bundle, not one per file.**
+  A per-file hash in the manifest would give finer reuse, but the bundle is
+  about 160 KB before compression and changes together, so one hash is
+  simpler and always correct. (The saved-edit "edited from" hash, §6, is
+  separate and unchanged.)
+- **Browser test**: "the compiler's files are asked for by content hash".
+  Checked by hand, serving the `nix build .#playground` output under
+  `/stitchwort/` with `cache-control: max-age=600` as Pages does: the page
+  and AoC day 2 work under the prefix; a reload asks the server only for
+  `version.json` (and the page); the WebAssembly, bindings and project files
+  come from the browser's cache.
+- **The workflow** `.github/workflows/playground.yml` is `workflow_dispatch`
+  only, builds `.#playground`, and deploys with the Pages actions.
+- Still open: whether Pages compresses `.wasm`, the font (§10.1), and the
+  puzzle inputs being public once published (D119 against §10.3's [A1]).

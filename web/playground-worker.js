@@ -11,7 +11,7 @@
 // any time, and the worker can't send anything later, being busy until the
 // run ends.
 
-// The bindings are imported with the worker's own `?load=…`, so they always
+// The bindings are imported with the worker's own `?v=…`, so they always
 // come from the same page load as the worker (see index.html). They're
 // imported in the handler: `onmessage` must be set before the first message
 // arrives, which a top-level `await` would delay.

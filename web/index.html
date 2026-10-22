@@ -762,10 +762,25 @@ export def area: Shape -> Nat
   // fresh one. A request that's superseded, stopped or too slow is cancelled
   // by terminating its worker. The page compiles the WebAssembly once and
   // hands the module to each new worker, so restarting is quick.
-  // Each page load asks for the compiler's files afresh (`?load=…`), so a
-  // browser that cached an older worker or bundle can't mix it with the rest.
-  const LOAD = `?load=${Date.now()}`;
-  const wasm = fetch(new URL(`pkg/stitchwort_web_bg.wasm${LOAD}`, import.meta.url))
+  // The build writes pkg/version.json: a hash of the compiler's files (the
+  // WebAssembly, the bindings and the worker script) and one of the bundled
+  // projects. It's fetched with `no-cache` (always checked with the server),
+  // and the other files are asked for as `?v=<hash>`, so a browser reuses
+  // them until a build changes them, and can't mix an old worker with a new
+  // bundle. If it can't be read, each page load asks afresh (`?v=<time>`).
+  let LOAD = `?v=${Date.now()}`;
+  let PROJECT_LOAD = LOAD;
+  const versionReady = fetch(new URL("pkg/version.json", import.meta.url), { cache: "no-cache" })
+    .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+    .then((v) => {
+      if (/^[0-9a-f]+$/.test(v.compiler) && /^[0-9a-f]+$/.test(v.projects)) {
+        LOAD = `?v=${v.compiler}`;
+        PROJECT_LOAD = `?v=${v.projects}`;
+      }
+    })
+    .catch(() => {});
+  const wasm = versionReady
+    .then(() => fetch(new URL(`pkg/stitchwort_web_bg.wasm${LOAD}`, import.meta.url)))
     .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.arrayBuffer(); })
     .then((bytes) => WebAssembly.compile(bytes));
 
@@ -1085,11 +1100,11 @@ export def area: Shape -> Nat
     return (h >>> 0).toString(16);
   }
 
-  const projectUrl = (path) => new URL(`pkg/projects/aoc/${path}${LOAD}`, import.meta.url);
+  const projectUrl = (path) => new URL(`pkg/projects/aoc/${path}${PROJECT_LOAD}`, import.meta.url);
 
   /** The manifest, or null if this build has no project. */
   function fetchManifest() {
-    manifestPromise ??= fetch(projectUrl("manifest.json"))
+    manifestPromise ??= versionReady.then(() => fetch(projectUrl("manifest.json")))
       .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
       .catch(() => null);
     return manifestPromise;
@@ -1381,6 +1396,7 @@ export def area: Shape -> Nat
   async function bundledInput(path) {
     if (!path) return null;
     try {
+      await versionReady;
       const r = await fetch(projectUrl(path));
       return r.ok ? await r.text() : null;
     } catch { return null; }
