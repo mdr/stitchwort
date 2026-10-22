@@ -340,6 +340,7 @@ impl Elaborator {
                 &a,
                 &b,
                 &field_equal,
+                &|j| format!("%p{j}"),
             );
             equations.push(equation(
                 &equal,

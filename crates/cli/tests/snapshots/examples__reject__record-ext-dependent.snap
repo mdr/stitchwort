@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-UNKNOWN-NAME] Error: no function `ext` in `Sized`
+   ╭─[ reject/record-ext-dependent.sw:9:67 ]
+   │
+ 9 │ theorem same (a: Sized) (b: Sized) (e: a.size = b.size): a = b := Sized.ext a b e
+   │                                                                   ────┬────  
+   │                                                                       ╰────── `Sized` has no `ext`
+───╯

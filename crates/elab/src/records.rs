@@ -58,7 +58,11 @@ impl Elaborator {
         }
         self.derive_data_eq(d)?;
         self.derive_data_show(d)?;
-        self.derive_data_ord(d)
+        self.derive_data_ord(d)?;
+        if !interface {
+            self.derive_record_ext(d)?;
+        }
+        Ok(())
     }
 
     /// Defines `R.field : [params] -> (r : R params) -> T` for each field,

@@ -14,6 +14,7 @@ mod calc;
 mod check;
 mod data_auto;
 mod derive;
+mod derive_ext;
 mod derive_ord;
 mod derive_show;
 mod dot;

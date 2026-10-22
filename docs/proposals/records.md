@@ -816,6 +816,26 @@ parameters, or a field type without a decision procedure). Proof-field
 records via proof-uniqueness lemmas and dependent fields via transport are
 left to the user for now; there's no data-only `sameData`.
 
+**`R.ext`** (SW-263, D503, `derive_ext.rs`). Each record gets a generated
+extensionality lemma, like Lean's `@[ext]`: `theorem R.ext [params] (x: R)
+(y: R) (f1Eq: x.f1 = y.f1) … : x = y`, one hypothesis for each data field and
+none for proof fields. It's source, elaborated as any theorem, so the kernel
+re-checks it; the proof is `derive::fields_equal`, the one `==` uses, each
+data field's `J` carrying the proof fields along, whose own equality is
+`DecEq.uniqueEq` (there's no definitional proof irrelevance, SW-93). So it
+exists for the records `==` can be derived for, except that data fields need
+no `DecEq` and may be functions, types of fields containing `R` are fine, and
+a data field may not depend on an earlier field (the hypothesis `x.f = y.f`
+wouldn't be well typed). A proof field must prove an equation in a type with
+`DecEq` that mentions neither `R` nor a type parameter (a proof of an `Or`
+has two different proofs). Records with no data fields get `R.ext x y: x = y`
+(`{}` too). Parameters, value parameters and `auto` parameters are binders.
+Not generated for interfaces, `Prop` records, records in a mutual group or
+with indices; then `R.ext` is an unknown name. A module declaring its own
+`R.ext` (found by the names of its items) keeps it, with no error. The library's records are skipped (the lazy-loading index lists names
+from source, so a generated one would be unpromised): `Std.Mod` keeps its hand-written `Mod.ext`. A generated one is at the record's position, for
+hover and go-to.
+
 **Termination.** No new principle (§6.4): a record pattern binds its fields
 as `<` the record, like any constructor; `p.f` is a call, so unknown for
 size change. The `sum` example is refused; field-path descent is later.

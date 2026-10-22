@@ -199,6 +199,20 @@ impl Elaborator {
         interface: DataId,
         label: &str,
     ) -> Result<std::result::Result<Plan, String>> {
+        self.field_plan_for(d, interface, label, true)
+    }
+
+    /// [`Self::field_plan`], where `compare` says whether data fields are
+    /// compared (needing instances, and not functions). The generated
+    /// extensionality lemma (`derive_ext.rs`) only states `x.f = y.f` for
+    /// them, so it leaves those requirements out and keeps the rest.
+    pub(crate) fn field_plan_for(
+        &mut self,
+        d: DataId,
+        interface: DataId,
+        label: &str,
+        compare: bool,
+    ) -> Result<std::result::Result<Plan, String>> {
         let g = &self.globals;
         let data = g.data(d);
         let name = data.name.to_string();
@@ -298,7 +312,7 @@ impl Elaborator {
                     .chain((0..i).map(|_| unused()))
                     .collect();
                 let value = force(g, eval(g, &env, ty)?)?;
-                if matches!(value, Value::Pi(..)) {
+                if compare && matches!(value, Value::Pi(..)) {
                     return Ok(Err(format!(
                         "{what} is a function, and functions can't be compared"
                     )));
@@ -313,20 +327,23 @@ impl Elaborator {
                     kinds.push(Field::Recursive);
                     continue;
                 }
-                if ty
-                    .subterms()
-                    .any(|(t, _)| matches!(t, Term::Data(e, _) if *e == d))
+                if compare
+                    && ty
+                        .subterms()
+                        .any(|(t, _)| matches!(t, Term::Data(e, _) if *e == d))
                 {
                     return Ok(Err(format!(
                         "{what} contains `{name}` inside another type, which {label} isn't \
                          derived for yet"
                     )));
                 }
-                for j in mentioned(ty, i) {
-                    deciders[j] |= param_is_type[j];
-                }
                 kinds.push(Field::Decided);
-                to_decide.push((value, what, false));
+                if compare {
+                    for j in mentioned(ty, i) {
+                        deciders[j] |= param_is_type[j];
+                    }
+                    to_decide.push((value, what, false));
+                }
             }
             fields.push(kinds);
         }
@@ -643,6 +660,7 @@ impl Elaborator {
                 &a,
                 &b,
                 &|k| var(&h(k)),
+                &|j| format!("%p{j}"),
             );
             let mut body = apps(var("Std.Decidable.Yes"), vec![proof]);
             for &k in data_fields.iter().rev() {
@@ -782,6 +800,7 @@ pub(crate) fn fields_equal(
     a: &dyn Fn(usize) -> String,
     b: &dyn Fn(usize) -> String,
     h: &dyn Fn(usize) -> Expr,
+    param: &dyn Fn(usize) -> String,
 ) -> Expr {
     let n = |text: &str| ast::Name {
         text: text.to_string(),
@@ -804,7 +823,6 @@ pub(crate) fn fields_equal(
         cod: Box::new(cod),
         span,
     };
-    let param = |j: usize| format!("%p{j}");
     let z = |k: usize| format!("%z{k}");
     let count = is_proof.len();
     let ctor_name = format!("{ty_name}.{ctor}");
