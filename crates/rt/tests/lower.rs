@@ -6,7 +6,7 @@
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
-use stitchwort_core::{DefId, Limits};
+use stitchwort_core::DefId;
 use stitchwort_driver::driver::{Cache, Outcome, Session, with_stack};
 use stitchwort_driver::project::{DiskFiles, Target};
 use stitchwort_rt::{Program, lower_definitions, lower_main};
@@ -33,7 +33,7 @@ fn lower_everything(session: &Session, what: &str) -> usize {
         .map(DefId)
         .filter(|id| g.def(*id).body().is_some() || g.builtins.primitive(*id).is_some())
         .collect();
-    let program = lower_definitions(g, Limits::default(), &ids)
+    let program = lower_definitions(g, session.elab.limits, &ids)
         .unwrap_or_else(|e| panic!("{what}: lowering every definition: {e:?}"));
     // Well formed, and printable.
     well_formed(&program, what);
@@ -126,7 +126,7 @@ fn every_example_lowers() {
                         .main()
                         .unwrap_or_else(|e| panic!("{what}: main: {e:?}"));
                     let g = &session.elab.globals;
-                    let program = lower_main(g, Limits::default(), main.term())
+                    let program = lower_main(g, session.elab.limits, main.term())
                         .unwrap_or_else(|e| panic!("{what}: lowering main: {e:?}"));
                     well_formed(&program, &what);
                     mains += 1;
@@ -166,7 +166,7 @@ fn lower_project(dir: &Path) -> usize {
             .main_named(main_name, &name)
             .unwrap_or_else(|e| panic!("{name}: {main_name}: {e:?}"));
         let g = &session.elab.globals;
-        let program = lower_main(g, Limits::default(), main.term())
+        let program = lower_main(g, session.elab.limits, main.term())
             .unwrap_or_else(|e| panic!("{name}: lowering {main_name}: {e:?}"));
         well_formed(&program, main_name);
     }
@@ -209,7 +209,7 @@ fn the_library_lowers_and_its_tests_agree() {
             .map(DefId)
             .filter(|id| g.def(*id).body().is_some() || g.builtins.primitive(*id).is_some())
             .collect();
-        let program = lower_definitions(g, Limits::default(), &ids).expect("lowers");
+        let program = lower_definitions(g, session.elab.limits, &ids).expect("lowers");
         well_formed(&program, "the library");
         let ran = run_tests(&session, &program, "the library", true);
         eprintln!("ran {ran} library tests on the IR");
@@ -226,7 +226,7 @@ fn ir(source: &str) -> String {
             .unwrap_or_else(|e| panic!("doesn't check: {e:?}"));
         let main = session.main().expect("main");
         let g = &session.elab.globals;
-        let program = lower_main(g, Limits::default(), main.term())
+        let program = lower_main(g, session.elab.limits, main.term())
             .unwrap_or_else(|e| panic!("lowering: {e:?}"));
         well_formed(&program, "main");
         program.to_string()

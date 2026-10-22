@@ -8,7 +8,7 @@
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
-use stitchwort_core::{DefId, Limits as CoreLimits};
+use stitchwort_core::DefId;
 use stitchwort_driver::driver::{Cache, Outcome, Session, with_stack};
 use stitchwort_driver::project::{DiskFiles, Target};
 use stitchwort_driver::run::Main;
@@ -45,7 +45,7 @@ fn machine(program: &Program, limits: Limits, input: &[u8]) -> Run {
 
 fn lowered(session: &Session, main: &Main, what: &str) -> Program {
     let g = &session.elab.globals;
-    lower_main(g, CoreLimits::default(), main.term())
+    lower_main(g, session.elab.limits, main.term())
         .unwrap_or_else(|e| panic!("{what}: lowering main: {e:?}"))
 }
 
@@ -107,7 +107,7 @@ fn everything(session: &Session, what: &str) -> Program {
         .map(DefId)
         .filter(|id| g.def(*id).body().is_some() || g.builtins.primitive(*id).is_some())
         .collect();
-    lower_definitions(g, CoreLimits::default(), &ids)
+    lower_definitions(g, session.elab.limits, &ids)
         .unwrap_or_else(|e| panic!("{what}: lowering every definition: {e:?}"))
 }
 
