@@ -91,6 +91,17 @@
               meta.mainProgram = "stitchwort";
             }
           );
+          # The CLI binary alone, without running the test suite: what `nix run`
+          # and `nix build` give by default. The tested build is `stitchwort`
+          # (in `checks`, so `nix flake check` still runs every test).
+          stitchwort-bin = craneLib.buildPackage (
+            commonArgs
+            // {
+              inherit cargoArtifacts;
+              doCheck = false;
+              meta.mainProgram = "stitchwort";
+            }
+          );
           clippy = craneLib.cargoClippy (
             commonArgs
             // {
@@ -130,8 +141,8 @@
     in
     {
       packages = forAllSystems (pkgs: rec {
-        inherit (buildsFor pkgs) stitchwort playground;
-        default = stitchwort;
+        inherit (buildsFor pkgs) stitchwort stitchwort-bin playground;
+        default = stitchwort-bin;
       });
 
       # `nix flake check`: build + tests, clippy, rustfmt
