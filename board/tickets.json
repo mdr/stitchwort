@@ -5200,7 +5200,7 @@
     {
       "id": 331,
       "title": "omega stage 2: truncated a - b, contradictory facts for any goal, max/min, products up to commutativity, Not (a = b), Int atoms (order from SW-326)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "worktree lane (D574 item 1)",
       "labels": [
@@ -5210,7 +5210,12 @@
       "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "e09e5a5d",
+        "64579fe5",
+        "fc43a2ac",
+        "30a50c15"
+      ]
     },
     {
       "id": 332,
