@@ -389,6 +389,11 @@ fn walk_at(
             }
         }
         Expr::Field(x, _) => walk(e, x, bound, false, uses)?,
+        Expr::Omega { facts, .. } => {
+            for fact in facts {
+                walk(e, fact, bound, false, uses)?;
+            }
+        }
         Expr::Calc { first, steps, .. } => {
             walk(e, first, bound, false, uses)?;
             for step in steps {

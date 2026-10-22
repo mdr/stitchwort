@@ -2394,6 +2394,7 @@ impl<'t> Parser<'t> {
                     | Tok::Str(_)
                     | Tok::StrStart(_)
                     | Tok::KwInclude
+                    | Tok::KwOmega
                     | Tok::TypeU
                     | Tok::Prop
                     | Tok::LParen
@@ -2660,6 +2661,23 @@ impl<'t> Parser<'t> {
                 self.bump();
                 Ok(Expr::Char(c, span))
             }
+            Some(Tok::KwOmega) => {
+                self.bump();
+                // `omega [e1, e2]`: extra facts, by term.
+                if self.peek() != Some(&Tok::LBracket) {
+                    return Ok(Expr::Omega {
+                        facts: Vec::new(),
+                        span,
+                    });
+                }
+                let Expr::List(facts, list_span) = &mut self.list_expr(self.here())? else {
+                    unreachable!("list_expr makes a list")
+                };
+                Ok(Expr::Omega {
+                    facts: std::mem::take(facts),
+                    span: span.to(*list_span),
+                })
+            }
             Some(Tok::Underscore) => {
                 self.bump();
                 Ok(Expr::Hole(span))
@@ -2851,6 +2869,7 @@ fn describe(tok: &Tok) -> String {
         Tok::KwNamespace => "`namespace`".into(),
         Tok::KwCalc => "`calc`".into(),
         Tok::KwRewrite => "`rewrite`".into(),
+        Tok::KwOmega => "`omega`".into(),
         Tok::KwDecreasing => "`decreasing`".into(),
         Tok::LBrace => "`{`".into(),
         Tok::RBrace => "`}`".into(),
@@ -4683,6 +4702,31 @@ mod tests {
         );
         // The `_` argument stays an argument when it isn't at the start of a line.
         assert!(matches!(&steps[2].proof, Some(Expr::App(..))));
+    }
+
+    #[test]
+    fn omega_takes_an_optional_list_of_facts() {
+        let expr = rhs("theorem t (a: Nat): a <= a := omega\n");
+        assert!(matches!(&expr, Expr::Omega { facts, .. } if facts.is_empty()), "{expr:?}");
+        let expr = rhs("theorem t (a: Nat): a <= a := omega [h a, Nat.leRefl a]\n");
+        let Expr::Omega { facts, .. } = &expr else {
+            panic!("expected omega, got {expr:?}");
+        };
+        assert_eq!(facts.len(), 2);
+        assert!(facts.iter().all(|f| matches!(f, Expr::App(..))));
+        // As an argument, and as a calc step's proof.
+        let expr = rhs("theorem t (a: Nat): a <= a := f omega x\n");
+        assert!(matches!(&expr, Expr::App(..)));
+        let expr = rhs("def f (a: Nat): a <= a :=\n  calc a\n    _ <= a := omega\n");
+        let Expr::Calc { steps, .. } = &expr else {
+            panic!("expected a calc");
+        };
+        assert!(matches!(&steps[0].proof, Some(Expr::Omega { .. })));
+    }
+
+    #[test]
+    fn omega_is_a_keyword() {
+        assert!(parse_module_text("def omega: Nat := 1\n").is_err());
     }
 
     #[test]

@@ -40,7 +40,7 @@ impl std::fmt::Debug for Span {
 
 impl Span {
     /// For placeholders that are never shown.
-    pub(crate) const NOWHERE: Span = Span {
+    pub const NOWHERE: Span = Span {
         file: FileId(0),
         start: 0,
         end: 0,

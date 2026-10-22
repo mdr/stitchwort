@@ -98,6 +98,9 @@ pub enum Tok {
     KwCalc,
     /// `rewrite p in t`: replace `p`'s left side in the goal by its right.
     KwRewrite,
+    /// `omega` or `omega [e1, e2]`: a linear arithmetic proof found by the
+    /// compiler (docs/proposals/omega.md).
+    KwOmega,
     /// `decreasing e` in a definition's header, and `[decreasing := p]`
     /// at a recursive call (docs/proposals/well-founded-recursion.md).
     KwDecreasing,
@@ -231,6 +234,7 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
                     "namespace" => Tok::KwNamespace,
                     "calc" => Tok::KwCalc,
                     "rewrite" => Tok::KwRewrite,
+                    "omega" => Tok::KwOmega,
                     "decreasing" => Tok::KwDecreasing,
                     "Type" => Tok::TypeU,
                     "Prop" => Tok::Prop,

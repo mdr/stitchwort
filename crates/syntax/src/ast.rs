@@ -146,6 +146,11 @@ pub enum Expr {
         body: Option<Box<Expr>>,
         span: Span,
     },
+    /// `omega`, or `omega [e1, e2]` with extra facts (docs/syntax.md,
+    /// omega): a proof of a linear arithmetic goal from the facts in scope
+    /// and the ones listed, found by the compiler and checked by the kernel
+    /// (docs/proposals/omega.md).
+    Omega { facts: Vec<Expr>, span: Span },
     /// Field access `e.name`.
     Field(Box<Expr>, Name),
 }
@@ -317,6 +322,7 @@ impl Expr {
             | Expr::Handle { span, .. }
             | Expr::Calc { span, .. }
             | Expr::Rewrite { span, .. }
+            | Expr::Omega { span, .. }
             | Expr::Match { span, .. } => *span,
             // Down a chain of fields in a loop: `e.span()` here would reach
             // this arm for `e` too, twice per level (the start and the end),
@@ -398,6 +404,7 @@ fn has_nested(expr: &Expr) -> bool {
                 || body.as_deref().is_some_and(nested)
         }
         Expr::LocalDefs { body, .. } => nested(body),
+        Expr::Omega { facts, .. } => facts.iter().any(nested),
         Expr::Match {
             scrutinees, alts, ..
         } => scrutinees.iter().any(|s| nested(&s.expr)) || alts.iter().any(|a| nested(&a.body)),
@@ -506,6 +513,11 @@ fn take_children(expr: &mut Expr, pending: &mut Vec<Expr>) {
         }
         // A long block of local definitions nests its rest here.
         Expr::LocalDefs { body, .. } => take(body),
+        Expr::Omega { facts, .. } => {
+            for fact in facts {
+                pending.push(std::mem::replace(fact, Expr::Prop(Span::NOWHERE)));
+            }
+        }
         // A pattern `let` nests the rest of its block in its alternative,
         // so a long block nests deeply there.
         Expr::Match {

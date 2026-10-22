@@ -991,6 +991,7 @@ fn has_number(expr: &Expr) -> bool {
             }
             // The definitions are elaborated on their own.
             Expr::LocalDefs { body, .. } => stack.push(body),
+            Expr::Omega { facts, .. } => stack.extend(facts),
             Expr::Calc { first, steps, .. } => {
                 stack.push(first);
                 for step in steps {

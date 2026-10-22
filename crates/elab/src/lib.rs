@@ -34,6 +34,8 @@ mod module;
 mod nav;
 pub use nav::{NavIndex, NavRef, NavSymbol, NavTarget, std_source};
 mod numbers;
+mod omega;
+mod omega_search;
 mod partial;
 mod patlet;
 mod pipe;
