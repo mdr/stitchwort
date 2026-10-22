@@ -1,5 +1,5 @@
 {
-  "next": 295,
+  "next": 296,
   "tickets": [
     {
       "id": 1,
@@ -4498,6 +4498,21 @@
       "where": "worktree lane",
       "labels": [
         "aoc"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 295,
+      "title": "Playground: type of a selection (index exprs, tooltip in selection, status line) (D526)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree lane",
+      "labels": [
+        "playground",
+        "lsp"
       ],
       "body": "",
       "created": "2026-10-22",
