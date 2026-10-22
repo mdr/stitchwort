@@ -7,30 +7,30 @@ import Aoc.Day04 (..)
 import Std (Eq, Fin, List, Nat, Option, Text, Vec, Void)
 
 -- Rows that `traverseOption` accepted, cell by cell.
-theorem parsedCell (lines: List Text) (rows: Vec (Vec Cell (Text.length (List.headOr "" lines))) (List.length lines))
+theorem parsedCell (lines: List Text) (rows: Vec (Vec Cell (Text.length (List.headOr "" lines))) lines.length)
     (ok: Vec.traverseOption (line => Vec.ofList (Text.length (List.headOr "" lines)) (parseLine line)) (Vec.fromList lines) = Some rows) (r: Nat) (c: Nat):
     rowsCells rows r c = List.getOr Floor c (parseLine (List.getOr "" r lines)) :=
   let width := Text.length (List.headOr "" lines)
-  match e: Nat.leq (Succ r) (List.length lines) with
+  match e: Nat.leq (Succ r) lines.length with
     | True  =>
-      let i := Fin.ofNatLt (List.length lines) r e
+      let i := Fin.ofNatLt lines.length r e
       calc rowsCells rows r c
         _ = List.getOr Floor c (Vec.toList (Vec.get rows i))
-            := rewrite <- Vec.getToList (Vec.replicate width Floor) rows i, Fin.toNatOfNatLt (List.length lines) r e
+            := rewrite <- Vec.getToList (Vec.replicate width Floor) rows i, Fin.toNatOfNatLt lines.length r e
         _ = List.getOr Floor c (parseLine (Vec.get (Vec.fromList lines) i))
             := rewrite Vec.ofListToList width (parseLine (Vec.get (Vec.fromList lines) i)) (Vec.get rows i)
                  (Vec.traverseOptionGet (line => Vec.ofList width (parseLine line)) (Vec.fromList lines) rows ok i)
         _ = List.getOr Floor c (parseLine (List.getOr "" r lines))
-            := rewrite <- Vec.getToList "" (Vec.fromList lines) i, Vec.toListFromList lines, Fin.toNatOfNatLt (List.length lines) r e
+            := rewrite <- Vec.getToList "" (Vec.fromList lines) i, Vec.toListFromList lines, Fin.toNatOfNatLt lines.length r e
     | False =>
-      let past := Nat.leqFalse (Succ r) (List.length lines) e
+      let past := Nat.leqFalse (Succ r) lines.length e
       rewrite rowsCellsBelow rows r c past, List.getOrPast "" r lines past
 
 theorem parseGridCells (lines: List Text) (grid: Grid) (h: parseGrid lines = Some grid) (r: Nat) (c: Nat):
     cellsOf grid r c = List.getOr Floor c (parseLine (List.getOr "" r lines)) :=
   let width := Text.length (List.headOr "" lines)
   let f := (line: Text) => Vec.ofList width (parseLine line)
-  let g := (rows: Vec (Vec Cell width) (List.length lines)) => ({ height = List.length lines, width, rows }: Grid)
+  let g := (rows: Vec (Vec Cell width) lines.length) => ({ height = lines.length, width, rows }: Grid)
   match e: Vec.traverseOption f (Vec.fromList lines) with
     | None   => Void.exfalso (Option.noneNotSome grid h)
     | Some rows =>

@@ -91,8 +91,8 @@ theorem peelOrSettled (a: Vec Cell w) (ac: Bool) (x: Vec Cell w) (b: Vec Cell w)
 -- One pass, row by row.
 
 def stepAt (prev: (Vec Cell w, Bool)) (cur: (Vec Cell w, Bool)) (next: (Vec Cell w, Bool)): (Vec Cell w, Bool) :=
-  let y := sweepRow (Pair.fst prev) (Pair.snd prev) (Pair.fst cur) (Pair.snd cur) (Pair.fst next) (Pair.snd next)
-  (Pair.fst y, Pair.snd y)
+  let y := sweepRow prev.fst prev.snd cur.fst cur.snd next.fst next.snd
+  (y.fst, y.snd)
 
 theorem sweepFromAt [w: Nat] [h: Nat] (gap: Vec Cell w): (above: Vec Cell w) -> (ch: Bool) -> (m: Marked w h) -> (r: Nat) -> r < h ->
     List.getOr (gap, False) r (Vec.toList (sweepFrom gap above ch m))
@@ -102,7 +102,7 @@ theorem sweepFromAt [w: Nat] [h: Nat] (gap: Vec Cell w): (above: Vec Cell w) -> 
   | above, ch, VCons (MkPair row moved) rest, Zero,   hr => rewrite Vec.headOrToList (gap, False) rest
   | above, ch, VCons (MkPair row moved) rest, Succ r, hr =>
     let y := sweepRow above ch row moved (Pair.fst (Vec.headOr (gap, False) rest)) (Pair.snd (Vec.headOr (gap, False) rest))
-    sweepFromAt gap (Pair.fst y) (Pair.snd y) rest r hr
+    sweepFromAt gap y.fst y.snd rest r hr
 
 -- Row r after a pass: from the swept row above it, and the row and the
 -- row below as they were.
@@ -118,7 +118,7 @@ theorem unchanged (m: Marked w h) (j: Nat) (hm: Pair.snd (entry (sweep m) (Succ 
       let x := entry m (Succ j)
       let n := entry m (Succ (Succ j))
       Eq.trans (Eq.cong Pair.fst st)
-        (sweepRowSame (Pair.fst p) (Pair.snd p) (Pair.fst x) (Pair.fst n) (Pair.snd x) (Pair.snd n) (Eq.trans (Eq.cong Pair.snd (Eq.sym st)) hm))
+        (sweepRowSame p.fst p.snd x.fst n.fst x.snd n.snd (Eq.trans (Eq.cong Pair.snd (Eq.sym st)) hm))
     | False => rewrite entryPast (sweep m) j (Nat.leqFalse (Succ j) h e), entryPast m j (Nat.leqFalse (Succ j) h e)
 
 theorem prevSame (m: Marked w h): (r: Nat) -> Pair.snd (entry (sweep m) r) = False -> Pair.fst (entry (sweep m) r) = Pair.fst (entry m r)
@@ -141,10 +141,10 @@ theorem invSweep (m: Marked w h) (inv: Inv m): Inv (sweep m) :=
     let p := entry (sweep m) r
     let x := entry m (Succ r)
     let n := entry m (Succ (Succ r))
-    let quiet: Pair.snd (sweepRow (Pair.fst p) (Pair.snd p) (Pair.fst x) (Pair.snd x) (Pair.fst n) (Pair.snd n)) = False :=
+    let quiet: Pair.snd (sweepRow p.fst p.snd x.fst x.snd n.fst n.snd) = False :=
       Eq.trans (Eq.cong Pair.snd (Eq.sym st)) h1
     rewrite unchanged m r h1, unchanged m (Succ r) h2 in
-      peelOrSettled (Pair.fst p) (Pair.snd p) (Pair.fst x) (Pair.fst n) (Pair.snd x) (Pair.snd n) quiet
+      peelOrSettled p.fst p.snd x.fst n.fst x.snd n.snd quiet
         (e1 e2 e3 => rewrite prevSame m r e3 in inv r hr e1 e2)
 
 -- A pass is a run of steps, one row at a time.
@@ -242,18 +242,18 @@ theorem passRow (grid: Grid) (m: Marked grid.width grid.height) (k: Nat) (hk: k 
   let p := entry (sweep m) k
   let x := entry m (Succ k)
   let n := entry m (Succ (Succ k))
-  let y := sweepRow (Pair.fst p) (Pair.snd p) (Pair.fst x) (Pair.snd x) (Pair.fst n) (Pair.snd n)
-  let rowOut: mcells (sweep m) k c = List.getOr Floor c (Vec.toList (Pair.fst y)) :=
-    Eq.trans (mcellsEntry (sweep m) k c) (Eq.cong (v => List.getOr Floor c (Vec.toList (Pair.fst v))) st)
-  match sweepRowCases (Pair.fst p) (Pair.snd p) (Pair.fst x) (Pair.fst n) (Pair.snd x) (Pair.snd n) with
+  let y := sweepRow p.fst p.snd x.fst x.snd n.fst n.snd
+  let rowOut: mcells (sweep m) k c = List.getOr Floor c (Vec.toList y.fst) :=
+    Eq.trans (mcellsEntry (sweep m) k c) (Eq.cong (v => List.getOr Floor c (Vec.toList v.fst)) st)
+  match sweepRowCases p.fst p.snd x.fst n.fst x.snd n.snd with
     | Inl e => Inl (Eq.trans rowOut (rewrite e in Eq.sym (mcellsEntry m k c)))
     | Inr e =>
-      let ha: RowIs s k (Pair.fst p) := rowIsMove out s k (Pair.fst p) (rowIsEntry (sweep m) k) (j => bordMixPrev out inp k j)
-      let hx: RowIs s (Succ k) (Pair.fst x) := rowIsMove inp s (Succ k) (Pair.fst x) (rowIsEntry m (Succ k)) (j => bordMixIn k out inp k (Nat.leRefl k) j)
-      let hn: RowIs s (Succ (Succ k)) (Pair.fst n) := rowIsMove inp s (Succ (Succ k)) (Pair.fst n) (rowIsEntry m (Succ (Succ k))) (j => bordMixIn k out inp (Succ k) (Nat.leSucc k) j)
+      let ha: RowIs s k p.fst := rowIsMove out s k p.fst (rowIsEntry (sweep m) k) (j => bordMixPrev out inp k j)
+      let hx: RowIs s (Succ k) x.fst := rowIsMove inp s (Succ k) x.fst (rowIsEntry m (Succ k)) (j => bordMixIn k out inp k (Nat.leRefl k) j)
+      let hn: RowIs s (Succ (Succ k)) n.fst := rowIsMove inp s (Succ (Succ k)) n.fst (rowIsEntry m (Succ (Succ k))) (j => bordMixIn k out inp (Succ k) (Nat.leSucc k) j)
       Inr (calc mcells (sweep m) k c
-        _ = List.getOr Floor c (Vec.toList (peelRow (Pair.fst p) (Pair.fst x) (Pair.fst n))) := rewrite <- e in rowOut
-        _ = keep (s k c) (window s k c) := peelRowCells s k c (Pair.fst p) (Pair.fst x) (Pair.fst n) ha hx hn
+        _ = List.getOr Floor c (Vec.toList (peelRow p.fst x.fst n.fst)) := rewrite <- e in rowOut
+        _ = keep (s k c) (window s k c) := peelRowCells s k c p.fst x.fst n.fst ha hx hn
         _ = keep (inp k c) (window s k c) := rewrite mixAbove k out inp k c (Nat.leRefl k))
 
 -- Rows 0 to k - 1 swept to rows 0 to k: a step.

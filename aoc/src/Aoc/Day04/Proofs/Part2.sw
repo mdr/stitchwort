@@ -79,11 +79,11 @@ theorem sameMarks (grid: Grid) (m: Marked grid.width grid.height) (same: Same (m
       let p := entry (sweep m) r
       let x := entry m (Succ r)
       let n := entry m (Succ (Succ r))
-      let rowEq: Pair.fst (entry (sweep m) (Succ r)) = Pair.fst x :=
-        rowExt (Pair.fst (entry (sweep m) (Succ r))) (Pair.fst x)
+      let rowEq: Pair.fst (entry (sweep m) (Succ r)) = x.fst :=
+        rowExt (Pair.fst (entry (sweep m) (Succ r))) x.fst
           (c => Eq.trans (Eq.sym (mcellsEntry (sweep m) r c)) (Eq.trans (same r c) (mcellsEntry m r c)))
       Eq.trans (Eq.cong Pair.snd st)
-        (sweepRowMark (Pair.fst p) (Pair.snd p) (Pair.fst x) (Pair.fst n) (Pair.snd x) (Pair.snd n) (Eq.trans (Eq.cong Pair.fst (Eq.sym st)) rowEq))
+        (sweepRowMark p.fst p.snd x.fst n.fst x.snd n.snd (Eq.trans (Eq.cong Pair.fst (Eq.sym st)) rowEq))
     | False => rewrite entryPast (sweep m) r (Nat.leqFalse (Succ r) grid.height e)
 
 theorem ifTrueFalse: (b: Bool) -> (c: Bool) -> (if b then True else c) = False -> (b = False && c = False)

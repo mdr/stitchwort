@@ -99,7 +99,7 @@ theorem timelinesSome: (r: Nat) -> (c: Nat) -> (ls: List (Vec Bool w)) -> 0 < Li
 
 -- ... so putting the splitter looked for in front of them finds it.
 theorem anyConsHit (x: Nat) (d: Nat) (h: Hit) (hit: (h.row == x && h.column == d) = True):
-    (ts: List (List Hit)) -> 0 < List.length ts -> List.any (hitIn x d) (List.map (Cons h) ts) = True
+    (ts: List (List Hit)) -> 0 < ts.length -> List.any (hitIn x d) (List.map (Cons h) ts) = True
   | Nil,       some => Void.exfalso (Bool.falseNotTrue some)
   | Cons t ts, some => rewrite hit
 
@@ -177,7 +177,7 @@ theorem orSecond (x: Bool) (y: Bool) (z: Bool) (h: y = True): (x || (y || z)) = 
 theorem orThird (x: Bool) (y: Bool) (z: Bool) (h: z = True): (x || (y || z)) = True := rewrite h, Bool.orTrue y, Bool.orTrue x
 
 -- A flag that is set is inside the row.
-theorem setInside: (xs: List Bool) -> (i: Nat) -> List.getOr False i xs = True -> i < List.length xs
+theorem setInside: (xs: List Bool) -> (i: Nat) -> List.getOr False i xs = True -> i < xs.length
   | Nil,       i,      h => Void.exfalso (Bool.falseNotTrue h)
   | Cons x xs, Zero,   h => rfl
   | Cons x xs, Succ i, h => setInside xs i h
@@ -229,7 +229,7 @@ theorem fallKeeps (w: Nat) (row: Vec Bool w) (rest: List (Vec Bool w)) (v: Vec B
     beamReach w (Vec.toList (fall row v)) rest k d = beamReach w (Vec.toList v) (Cons row rest) (Succ k) d :=
   let flags := Vec.toList row
   let beams := Vec.toList v
-  let hb: List.length beams = w := Vec.lengthToList v
+  let hb: beams.length = w := Vec.lengthToList v
   let fallen := Vec.toList (fall row v)
   let at := fallAt row v
   let after: Nat -> Bool := c => List.getOr False c fallen && reach rest c k d
@@ -298,16 +298,16 @@ def splitsAt (w: Nat) (beams: List Bool) (ls: List (Vec Bool w)) (k: Nat): Nat :
   List.sumBy (d => Bool.toNat (splitterIn ls k d && beamReach w beams ls k d)) (List.range w)
 
 theorem splitsBelowSum (w: Nat): (ls: List (Vec Bool w)) -> (beams: Vec Bool w) ->
-    splitsBelow beams ls = List.sumBy (k => splitsAt w (Vec.toList beams) ls k) (List.range (List.length ls))
+    splitsBelow beams ls = List.sumBy (k => splitsAt w (Vec.toList beams) ls k) (List.range ls.length)
   | Nil,         beams => rfl
   | Cons l rest, beams =>
     let fallen := fall l beams
     let bl := Vec.toList beams
     calc splitsIn l beams + splitsBelow fallen rest
       _ = List.sumBy (d => Bool.toNat (splitterAt l d && List.getOr False d bl)) (List.range w)
-            + List.sumBy (k => splitsAt w (Vec.toList fallen) rest k) (List.range (List.length rest))
+            + List.sumBy (k => splitsAt w (Vec.toList fallen) rest k) (List.range rest.length)
           := rewrite splitsInSum l beams, splitsBelowSum w rest fallen
-      _ = splitsAt w bl (Cons l rest) 0 + List.sumBy (k => splitsAt w bl (Cons l rest) (Succ k)) (List.range (List.length rest))
+      _ = splitsAt w bl (Cons l rest) 0 + List.sumBy (k => splitsAt w bl (Cons l rest) (Succ k)) (List.range rest.length)
           := rewrite
                List.sumRangeCongr (d => Bool.toNat (splitterAt l d && List.getOr False d bl))
                  (d => Bool.toNat (splitterAt l d && beamReach w bl (Cons l rest) 0 d)) w 0
@@ -316,10 +316,10 @@ theorem splitsBelowSum (w: Nat): (ls: List (Vec Bool w)) -> (beams: Vec Bool w) 
                  (k => List.sumRangeCongr (d => Bool.toNat (splitterIn rest k d && beamReach w (Vec.toList fallen) rest k d))
                          (d => Bool.toNat (splitterIn rest k d && beamReach w bl (Cons l rest) (Succ k) d)) w 0
                          (d lo hd => rewrite fallKeeps w l rest beams k d hd))
-                 (List.range (List.length rest))
-      _ = List.sumBy (k => splitsAt w bl (Cons l rest) k) (List.range (Succ (List.length rest)))
-          := Eq.sym (Eq.trans (List.sumByCons (k => splitsAt w bl (Cons l rest) k) 0 (List.rangeFrom (List.length rest) 1))
-               (Eq.cong (t => splitsAt w bl (Cons l rest) 0 + t) (List.sumByRangeShift (k => splitsAt w bl (Cons l rest) k) (List.length rest) 0)))
+                 (List.range rest.length)
+      _ = List.sumBy (k => splitsAt w bl (Cons l rest) k) (List.range (Succ rest.length))
+          := Eq.sym (Eq.trans (List.sumByCons (k => splitsAt w bl (Cons l rest) k) 0 (List.rangeFrom rest.length 1))
+               (Eq.cong (t => splitsAt w bl (Cons l rest) 0 + t) (List.sumByRangeShift (k => splitsAt w bl (Cons l rest) k) rest.length 0)))
 
 -- At the start, the only beam is in S's column.
 theorem beamStart (w: Nat) (st: Fin w) (ls: List (Vec Bool w)) (k: Nat) (d: Nat):

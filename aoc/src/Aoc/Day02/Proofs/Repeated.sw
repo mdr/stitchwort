@@ -286,7 +286,7 @@ theorem twiceAtLeast (x: Nat) (k: Nat) (hq: writtenAs (Nat.digits x) k 2 = True)
     _ = x := twiceValue x k hq
 
 -- The other way: a k-digit block written twice has digits that are a block written twice.
-theorem writtenTwiceOf (p: List Nat) (k: Nat) (hk: List.length p = k): writtenAs (List.append p p) k 2 = True :=
+theorem writtenTwiceOf (p: List Nat) (k: Nat) (hk: p.length = k): writtenAs (List.append p p) k 2 = True :=
   Decidable.toBoolOf (List.decEq (a b => Nat.decEq a b) (List.concat (List.replicate 2 (List.take k (List.append p p)))) (List.append p p))
     (rewrite <- hk, List.takeAppend p p, List.appendNil p)
 

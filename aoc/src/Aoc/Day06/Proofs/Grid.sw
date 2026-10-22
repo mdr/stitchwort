@@ -9,7 +9,7 @@ import Std (List, Nat, Text)
 
 -- Every column has a cell for every line, whatever the input.
 theorem columnsRectangular (lines: List Text) (c: Nat) (h: c < gridWidth lines):
-    List.length (List.getOr Nil c ((lines.map Text.toList).transposeFill ' ')) = List.length lines :=
+    List.length (List.getOr Nil c ((lines.map Text.toList).transposeFill ' ')) = lines.length :=
   rewrite List.lengthColumnTransposeFill ' ' (lines.map Text.toList) c h in List.lengthMap Text.toList lines
 
 -- So the columns lose nothing: a grid with some width has columns that

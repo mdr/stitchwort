@@ -35,13 +35,13 @@ import Std (Bool, Decidable, Eq, List, Nat, Void)
 -- The twice* lemmas of Repeated.sw, for any number of copies n >= 2.
 
 -- The digits `p` written n times make `fromDigits p` written n times.
-theorem fromDigitsRep (p: List Nat): (n: Nat) -> Nat.fromDigits (List.concat (List.replicate n p)) = writeTimes (List.length p) (Nat.fromDigits p) n
+theorem fromDigitsRep (p: List Nat): (n: Nat) -> Nat.fromDigits (List.concat (List.replicate n p)) = writeTimes p.length (Nat.fromDigits p) n
   | Zero   => rfl
   | Succ n =>
     calc Nat.fromDigits (List.concat (List.replicate (Succ n) p))
       _ = Nat.fromDigits (List.append (List.concat (List.replicate n p)) p) := Eq.cong Nat.fromDigits (List.concatReplicateSnoc p n)
-      _ = Nat.fromDigits (List.concat (List.replicate n p)) * Nat.pow 10 (List.length p) + Nat.fromDigits p := Nat.fromDigitsAppend (List.concat (List.replicate n p)) p
-      _ = writeTimes (List.length p) (Nat.fromDigits p) n * Nat.pow 10 (List.length p) + Nat.fromDigits p := rewrite fromDigitsRep p n
+      _ = Nat.fromDigits (List.concat (List.replicate n p)) * Nat.pow 10 p.length + Nat.fromDigits p := Nat.fromDigitsAppend (List.concat (List.replicate n p)) p
+      _ = writeTimes p.length (Nat.fromDigits p) n * Nat.pow 10 p.length + Nat.fromDigits p := rewrite fromDigitsRep p n
 
 theorem repAppend (x: Nat) (k: Nat) (n: Nat) (hq: writtenAs (Nat.digits x) k n = True):
     List.concat (List.replicate n (List.take k (Nat.digits x))) = Nat.digits x :=
@@ -115,7 +115,7 @@ theorem digitsRep (b: Nat) (hb: 1 <= b): (n: Nat) ->
       _ = List.append (List.concat (List.replicate (Succ n) (Nat.digits b))) (Nat.digits b) := rewrite digitsRep b hb n
       _ = List.concat (List.replicate (Succ (Succ n)) (Nat.digits b)) := Eq.sym (List.concatReplicateSnoc (Nat.digits b) (Succ n))
 
-theorem writtenRepOf (p: List Nat) (k: Nat) (hk: List.length p = k) (n: Nat): writtenAs (List.concat (List.replicate (Succ n) p)) k (Succ n) = True :=
+theorem writtenRepOf (p: List Nat) (k: Nat) (hk: p.length = k) (n: Nat): writtenAs (List.concat (List.replicate (Succ n) p)) k (Succ n) = True :=
   Decidable.toBoolOf (List.decEq (a b => Nat.decEq a b) (List.concat (List.replicate (Succ n) (List.take k (List.concat (List.replicate (Succ n) p))))) (List.concat (List.replicate (Succ n) p)))
     (rewrite <- hk, List.takeAppend p (List.concat (List.replicate n p)))
 
@@ -395,38 +395,38 @@ def digitAt (ds: List Nat) (i: Nat): Nat := List.getOr 0 i ds
 
 -- Digits that are their first k digits written n times: each digit is the
 -- one at its position within the first k.
-theorem writtenBlock (ds: List Nat) (k: Nat) (n: Nat) [auto hk: k != 0] (hn: 1 <= n) (e: k * n = List.length ds) (hw: writtenAs ds k n = True)
-    (j: Nat) (hj: j < List.length ds): digitAt ds j = digitAt ds (j % k) :=
+theorem writtenBlock (ds: List Nat) (k: Nat) (n: Nat) [auto hk: k != 0] (hn: 1 <= n) (e: k * n = ds.length) (hw: writtenAs ds k n = True)
+    (j: Nat) (hj: j < ds.length): digitAt ds j = digitAt ds (j % k) :=
   calc List.getOr 0 j ds
     _ = List.getOr 0 j (List.concat (List.replicate n (List.take k ds)))
         := Eq.cong (l => List.getOr 0 j l) (Eq.sym (Decidable.toBoolSound (List.decEq (a b => Nat.decEq a b) (List.concat (List.replicate n (List.take k ds))) ds) hw))
     _ = List.getOr 0 (j % k) (List.take k ds)
-        := List.getOrConcatReplicate 0 (List.take k ds) k (List.lengthTake k ds (Nat.leCongRight k (k * n) (List.length ds) e (Nat.leMulPos k n hn))) n j
-             (Nat.ltCongRight j (List.length ds) (n * k) (Eq.trans (Eq.sym e) (Nat.mulComm k n)) hj)
+        := List.getOrConcatReplicate 0 (List.take k ds) k (List.lengthTake k ds (Nat.leCongRight k (k * n) ds.length e (Nat.leMulPos k n hn))) n j
+             (Nat.ltCongRight j ds.length (n * k) (Eq.trans (Eq.sym e) (Nat.mulComm k n)) hj)
     _ = List.getOr 0 (j % k) ds := List.getOrTake 0 k (j % k) ds (Nat.modLess j k hk)
 
-theorem writtenPeriod (ds: List Nat) (hl: List.length ds != 0) (k: Nat) (n: Nat) [auto hk: k != 0] (hn: 1 <= n) (e: k * n = List.length ds)
-    (hw: writtenAs ds k n = True): Period (digitAt ds) (List.length ds) hl k :=
+theorem writtenPeriod (ds: List Nat) (hl: ds.length != 0) (k: Nat) (n: Nat) [auto hk: k != 0] (hn: 1 <= n) (e: k * n = ds.length)
+    (hw: writtenAs ds k n = True): Period (digitAt ds) ds.length hl k :=
   i hi =>
-    calc digitAt ds ((i + k) % List.length ds)
-      _ = digitAt ds ((i + k) % List.length ds % k) := writtenBlock ds k n hn e hw ((i + k) % List.length ds) (Nat.modLess (i + k) (List.length ds) hl)
-      _ = digitAt ds ((i + k) % k)                  := Eq.cong (digitAt ds) (Nat.modModOfMul (i + k) (List.length ds) k n (Eq.trans (Eq.sym e) (Nat.mulComm k n)))
+    calc digitAt ds ((i + k) % ds.length)
+      _ = digitAt ds ((i + k) % ds.length % k) := writtenBlock ds k n hn e hw ((i + k) % ds.length) (Nat.modLess (i + k) ds.length hl)
+      _ = digitAt ds ((i + k) % k)                  := Eq.cong (digitAt ds) (Nat.modModOfMul (i + k) ds.length k n (Eq.trans (Eq.sym e) (Nat.mulComm k n)))
       _ = digitAt ds (i % k)                        := Eq.cong (digitAt ds) (Eq.trans (Eq.cong (y => y % k) (Nat.addComm i k)) (Nat.addModSelf k i))
       _ = digitAt ds i                              := Eq.sym (writtenBlock ds k n hn e hw i hi)
 
 -- With period k, each digit is the one at its position within the first k.
-theorem periodBlock (ds: List Nat) (hl: List.length ds != 0) (k: Nat) [auto hk: k != 0] (hp: Period (digitAt ds) (List.length ds) hl k)
-    (i: Nat) (hi: i < List.length ds): digitAt ds i = digitAt ds (i % k) :=
+theorem periodBlock (ds: List Nat) (hl: ds.length != 0) (k: Nat) [auto hk: k != 0] (hp: Period (digitAt ds) ds.length hl k)
+    (i: Nat) (hi: i < ds.length): digitAt ds i = digitAt ds (i % k) :=
   calc digitAt ds i
-    _ = digitAt ds (i % List.length ds)                     := Eq.cong (digitAt ds) (Eq.sym (Nat.modSmall i (List.length ds) hi))
-    _ = digitAt ds ((i % k + (i / k) * k) % List.length ds)
-        := Eq.cong (y => digitAt ds (y % List.length ds)) (Eq.trans (Nat.divModEq i k hk) (Nat.addComm ((i / k) * k) (i % k)))
+    _ = digitAt ds (i % ds.length)                     := Eq.cong (digitAt ds) (Eq.sym (Nat.modSmall i ds.length hi))
+    _ = digitAt ds ((i % k + (i / k) * k) % ds.length)
+        := Eq.cong (y => digitAt ds (y % ds.length)) (Eq.trans (Nat.divModEq i k hk) (Nat.addComm ((i / k) * k) (i % k)))
     _ = digitAt ds (i % k)
-        := periodMul (digitAt ds) (List.length ds) hl k hp (i / k) (i % k) (Nat.leTrans (Succ (i % k)) (Succ i) (List.length ds) (Nat.subLe i ((i / k) * k)) hi)
+        := periodMul (digitAt ds) ds.length hl k hp (i / k) (i % k) (Nat.leTrans (Succ (i % k)) (Succ i) ds.length (Nat.subLe i ((i / k) * k)) hi)
 
-theorem periodWritten (ds: List Nat) (hl: List.length ds != 0) (k: Nat) (n: Nat) [auto hk: k != 0] (hn: 1 <= n) (e: k * n = List.length ds)
-    (hp: Period (digitAt ds) (List.length ds) hl k): writtenAs ds k n = True :=
-  let ht: List.length (List.take k ds) = k := List.lengthTake k ds (Nat.leCongRight k (k * n) (List.length ds) e (Nat.leMulPos k n hn))
+theorem periodWritten (ds: List Nat) (hl: ds.length != 0) (k: Nat) (n: Nat) [auto hk: k != 0] (hn: 1 <= n) (e: k * n = ds.length)
+    (hp: Period (digitAt ds) ds.length hl k): writtenAs ds k n = True :=
+  let ht: List.length (List.take k ds) = k := List.lengthTake k ds (Nat.leCongRight k (k * n) ds.length e (Nat.leMulPos k n hn))
   let len: List.length (List.concat (List.replicate n (List.take k ds))) = n * k :=
     Eq.trans (List.lengthConcatReplicate (List.take k ds) n) (Eq.cong (t => n * t) ht)
   Decidable.toBoolOf (List.decEq (a b => Nat.decEq a b) (List.concat (List.replicate n (List.take k ds))) ds)
@@ -436,7 +436,7 @@ theorem periodWritten (ds: List Nat) (hl: List.length ds != 0) (k: Nat) (n: Nat)
           _ = List.getOr 0 (i % k) (List.take k ds) := List.getOrConcatReplicate 0 (List.take k ds) k ht n i (Nat.ltCongRight i (List.length (List.concat (List.replicate n (List.take k ds)))) (n * k) len hi)
           _ = List.getOr 0 (i % k) ds               := List.getOrTake 0 k (i % k) ds (Nat.modLess i k hk)
           _ = List.getOr 0 i ds
-              := Eq.sym (periodBlock ds hl k hp i (Nat.ltCongRight i (n * k) (List.length ds) (Eq.trans (Nat.mulComm n k) e) (Nat.ltCongRight i (List.length (List.concat (List.replicate n (List.take k ds)))) (n * k) len hi)))))
+              := Eq.sym (periodBlock ds hl k hp i (Nat.ltCongRight i (n * k) ds.length (Eq.trans (Nat.mulComm n k) e) (Nat.ltCongRight i (List.length (List.concat (List.replicate n (List.take k ds)))) (n * k) len hi)))))
 
 
 -- (5) One id -----------------------------------------------------------------
