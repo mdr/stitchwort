@@ -1,7 +1,8 @@
 # Proposal: `omega`, linear arithmetic proved by a checked certificate
 
-**Status:** draft 2, 22 October 2026, after an external expert review (D548). Docs only:
-nothing is built. Ticket SW-101 (from SW-96, recommendation 4; D434 made day 5 the acceptance
+**Status:** draft 2, 22 October 2026, after an external expert review (D548). Milestone 1a,
+the library half (`Std.Omega`, the checker and its proved soundness theorem), is built
+(SW-314, [As built](#as-built-milestone-1a)); the elaborator half is milestone 1b (SW-315). Ticket SW-101 (from SW-96, recommendation 4; D434 made day 5 the acceptance
 example). Decisions D545 to D547 ([§10](#10-decisions)) are for Matt; the review agreed with
 all three, with changes this draft folds in ([Response to review](#response-to-review-draft-2)).
 Related: [calc-rewrite.md](calc-rewrite.md) (built; much of the cheap benefit),
@@ -44,6 +45,7 @@ This note can be read without knowing type theory. Draft 1's code references wer
 ## Contents
 
 - [Response to review (draft 2)](#response-to-review-draft-2)
+- [As built (milestone 1a)](#as-built-milestone-1a)
 - [0. Summary](#0-summary)
 - [1. The problem, with our own code](#1-the-problem-with-our-own-code)
 - [2. Words this note uses](#2-words-this-note-uses)
@@ -95,6 +97,180 @@ point:
 - **Dimension (§6.6).** The counterexample is right for a checker that sizes vectors by `n`;
   the prototype doesn't, so draft 1's checker wasn't unsound, only unspecified. We drop `n`
   anyway, as the review's third option suggests.
+
+## As built (milestone 1a)
+
+SW-314 built the **library half** of the §8.1 slice: `Std.Omega` with the checker and its
+soundness theorem, fully proved, plus the `Int` order lemmas and bridge lemmas it needs. The
+elaborator half (the `omega` keyword, quoting, the search, `E-OMEGA`) is milestone 1b (SW-315).
+Everything below is **[checked]** against the files named, and the costs are **[run]** with the
+release CLI built from this branch.
+
+**Files.** `crates/elab/src/std/Omega/Omega.sw` (syntax, meanings, rows, the checker, and the
+checker's unit tests), `crates/elab/src/std/Omega/Sound.sw` (the soundness proof),
+`crates/elab/src/std/Int/Int.sw` ("checkpoint 4": the order lemmas), `crates/elab/src/std/Bool/Bool.sw`
+(new: `List/Sort.sw`'s opening `Bool` lemmas moved here so a `&&` bridge doesn't load the sorting
+proofs, plus `Bool.falseOfNotTrue`), `crates/elab/src/std/Nat/Arith.sw` (three bridges), and
+`examples/accept/omega-certificates.sw` (hand-written uses).
+
+**The interface** (constructors live in their type's namespace, `Std.Omega.NTerm.NV` and so on):
+
+```
+type Omega.Env   = | MkEnv (nats: List Nat) (ints: List Int)        -- Int atoms: stage 2
+type Omega.NTerm = | NV (i: Nat) | NLit (n: Nat) | NAdd (a b) | NSucc (a)
+                   | MulLeft (k: Nat) (t) | MulRight (t) (k: Nat)
+type Omega.Fact  = | FLe (a b) | FLt (a b) | FEq (a b) | FNotLe (a b) | FNotLt (a b)
+type Omega.Goal  = | GLe (a b) | GLt (a b) | GVoid
+type Omega.Row   = | MkRow (c: Int) (nats: List Int) (ints: List Int)
+type Omega.Step  = | Input (i: Nat) | NegGoal | NatNonneg (i: Nat)
+                   | Combine (terms: List (Pair Nat Nat)) | Divide (r: Nat) (d: Nat)
+type Omega.Cert  = | Close (r: Nat) | Then (s: Step) (rest: Cert) | Split (l: Row) (left right: Cert)
+
+def Omega.check (facts: List Omega.Fact) (goal: Omega.Goal) (cert: Omega.Cert): Bool
+
+theorem Omega.prove (env: Omega.Env) (facts: List Omega.Fact): (goal: Omega.Goal) -> (cert: Omega.Cert) ->
+    Omega.check facts goal cert = True -> Omega.Facts.holds env facts -> Omega.Goal.holds env goal
+
+theorem Omega.proveEq (env: Omega.Env) (facts: List Omega.Fact) (a: Omega.NTerm) (b: Omega.NTerm) (c1: Omega.Cert) (c2: Omega.Cert)
+    (ok1: Omega.check facts (GLe a b) c1 = True) (ok2: Omega.check facts (GLe b a) c2 = True) (hs: Omega.Facts.holds env facts):
+    Omega.NTerm.eval env a = Omega.NTerm.eval env b
+```
+
+`Omega.prove` has no hypothesis beyond the two shown: no `Sound` assumption, no length premise
+on `env`. `Facts.holds` is `And (holds f1) (And (holds f2) … Unit)`, so the proofs are passed
+as `Both h1 (Both h2 Trivial)`. The meanings use the surface definitions, so a quoted fact
+converts with its source: `FLe a b` means `eval a <= eval b`, `FNotLe a b` means
+`Not (eval a <= eval b)`, `MulLeft k t` means `k * eval t` and `MulRight t k` means
+`eval t * k`, `NSucc a` means `Succ (eval a)`, and `NV i` is the `i`th Nat atom, 0 past the end.
+
+**The rules as built.** All rows go through one function, `Omega.leRow a b` (the row `b - a`),
+which is §6.3's table: `FLt a b` is `leRow (NSucc a) b`, `FNotLe a b` is `leRow (NSucc b) a`,
+`FNotLt a b` is `leRow b a`, `FEq a b` is two rows, and the negated goal of `GLe a b` is
+`leRow (NSucc b) a`, of `GLt a b` `leRow b a`. Certificates as in §6.6, with these choices:
+
+- `Input i` is the `i`th of the facts' rows **flattened** (`Omega.Facts.rows`: an `FEq` gives
+  two), and the negated goal is its own step, `NegGoal` (rejected for `GVoid`), rather than an
+  `Input` index that would shift with the goal kind.
+- The certificate's rows start empty and are numbered from 0 in the order the steps make
+  them; `Split l` gives the left branch `l` and the right branch `-1 - l`, each at the next
+  number, and the tree keeps one branch's rows from the other.
+- `Combine` pairs are `MkPair k r`: `k` times row `r`, `k` a `Nat`.
+- `Divide r d` needs `d > 0` and checks that `d` divides every coefficient, Nat and Int side
+  (`Int.mod … == 0`); the constant uses `Int.div`, which for a positive divisor rounds down.
+- A missing row reads as the zero row (`0 <= 0`, true), so references can't make the proof
+  unsound; `Step.valid` still rejects them so a malformed certificate fails. Only `Divide`'s
+  validity is used in the soundness proof.
+- `FEq`, `FNotLe` and `FNotLt` are in `Fact`, so an equation or a negated comparison can be
+  quoted directly; the bridges below remain for the other source forms.
+- Constructor names carry `F`/`G` prefixes (`FEq`, not `Eq`, which is the equality namespace).
+
+**The proof** (`Omega/Sound.sw`) is the §6.6 list, as planned and in about that shape:
+`Omega.linEval` (a term's linear form means the term, by induction, with `Nat.mulComm` for
+`MulRight`); `Omega.dotAdd`/`dotScale`/`dotDiv`/`dotAllZero`/`dotUnit` (the coefficient lists,
+pointwise); `Omega.leRowHolds` (the convention); `combineHolds`, `divideHolds`
+(`Int.divFloorNonneg`), `splitOtherHolds` (a `Bool.inspect` on `Int.leq 0 l`, no classical
+logic); `contraVoid`; then `checkCertSound` by induction on the certificate, and `prove` by
+`Bool.inspect` on the goal's own `Nat.leq`. No extensionality was needed. One elaboration quirk
+on the way: an `Eq.cong (t => Int.add t (c % d))` whose lambda mentions `%` (an `auto` proof)
+was refused against a statement printed identically, while the same step with the `%` term
+abstracted to a variable passed **[run]**; the proof avoids it by stating `Int.mulAddAddMul`
+over variables. Not investigated further.
+
+**`Int` lemmas added** (`Int/Int.sw`, all by cases on the constructors): `Int.addCong`,
+`Int.addNonneg`, `Int.mulNonneg`, `Int.notNonnegOfIsNeg`, `Int.zeroMul`, `Int.negOneMul`,
+`Int.addAddSwap`, `Int.subNonnegOfLe` (`m <= n` gives `0 <= n - m`), `Int.negOneSubNonneg`
+(`Int.leq 0 v = False` gives `0 <= -1 - v`), `Int.nonnegOfMulAddSmall`,
+`Int.nonnegOfMulAddMod`, `Int.mulAddAddMul`, and `Int.divFloorNonneg`
+(`0 <= c + (d+1) * s` gives `0 <= c / (d+1) + s`). The order algebra needed was only about
+`0 <= x`, so no general `a <= b` lemmas were added.
+
+**Bridge lemmas** for 1b, with their real names:
+
+| Source hypothesis | Bridge | File |
+|---|---|---|
+| `Nat.leq a b = False` | `Nat.leqFalse a b e : b < a` (existing) | `Nat/Arith.sw` |
+| `(p && q) = True` | `Bool.andLeft p q e`, `Bool.andRight p q e` (moved) | `Bool/Bool.sw` |
+| `Not (x = True)` | `Bool.falseOfNotTrue x h : x = False` (new) | `Bool/Bool.sw` |
+| `Not (a <= b)` | `Nat.ltOfNotLe a b h : b < a` (new), or quote as `FNotLe` | `Nat/Arith.sw` |
+| `Not (a < b)` | `Nat.leOfNotLt a b h : b <= a` (new), or quote as `FNotLt` | `Nat/Arith.sw` |
+| `a = b` | `Nat.leOfEq a b e : a <= b` (new), or quote as `FEq` | `Nat/Arith.sw` |
+| equality goal | `Omega.proveEq` (or `Nat.leAntisym` with two `prove`s) | `Omega/Sound.sw` |
+
+**Size.** `Omega/Omega.sw` 387 lines (about 290 of definitions and comments, then 24 `test`s),
+`Omega/Sound.sw` 269 lines (237 non-blank) of proof, `Int/Int.sw` +91 lines, `Bool/Bool.sw`
+61 lines (mostly moved), `Nat/Arith.sw` +10. That is inside §8.2's 450–700 for the library.
+
+**Acceptance cases covered here** (library-side; the elaborator rows of §8.1's table are 1b's):
+
+| Area | Where | Case |
+|---|---|---|
+| Atom dimensions | `Omega.sw` test `check: no dropped coefficient` | `[] ⊢ GLe (NV 0) (NLit 0)` with `Then NegGoal (Close 0)` refused |
+| Nat domain | example `leAddRight` | `x <= x + y` with `NatNonneg 1`, no hypothesis |
+| Multiplication shape | examples `mulRight3`, `mulLeft3`, `mulRight0`, `mulLeft0`, `mulRight1`, `mulLeft1` | `x * 3 = x + x + x`, `3 * x = …`, `* 0` and `* 1` on both sides, by `proveEq` |
+| Boolean preprocessing | example `absorbTrue` | `Bool.andRight` and `Nat.leqFalse` bridges (day 5's `True` arm) |
+| Equality | examples `antisym` and the `mul…` ones | an equation from two refutations |
+| Contradiction | examples `threeLtTwo`, `disconnected` (`h: y < y ⊢ x < 0`), `twoFactsVoid` | closed, disconnected, and a `Void` goal |
+| Integer reasoning | examples `twoXEqOne` (`Divide`), `splitRegression` (§6.6's four constraints, `Split` on `y`, four `Divide`s) | |
+| Day 5 | examples `stacked`, `absorbTrue`, `absorbFalse` | `absorbStacked`'s steps |
+| Malformed certificates | `Omega.sw`, 10 `check refuses: …` tests, each paired with an accepted fix | missing row in `Combine`, `Close`, `Input`; `NegGoal` for `GVoid`; a row from the other `Split` branch (in `Close` and in `Combine`); `Divide` by 0; a non-dividing `d` on a Nat coefficient at atom 7 and on an Int coefficient; `Close` with an atom beyond the facts |
+| Rounding | `Omega.sw` tests `Divide floors a negative/positive constant` | certificates that close only with the floor |
+
+"A certificate that only closes if the constant is rounded up or toward zero" (§8.1) can't be
+written: those roundings give weaker rows than the floor, so anything they close the floor
+closes too. The floor tests are the observable form of that requirement.
+
+One finding for 1b: `absorbTrue` states its hypothesis as `(Nat.leq lastFrom id && Nat.leq id
+lastTo) = True`. Written with `<=` inside the `&&`, as day 5 does, the `&&` operands elaborate
+through `Decidable.toBool`, and `Bool.andRight` on the `Nat.leq` forms was refused **[run, by
+the sub-agent]**. 1b's `&&` bridge must quote the operands as the hypothesis has them (or use
+`Nat.betweenLo`/`Nat.betweenHi`, which take that form, `Nat/Arith.sw`).
+
+**Costs [run]** (`STITCHWORT_TIMINGS=decls stitchwort check --no-cache`, one run, elaboration
+and kernel together; steps are evaluation steps):
+
+| case | steps | ms (elab + kernel) |
+|---|---:|---:|
+| day 5 `stacked` (3 atoms, 2 facts) | 10,814 | 0.4 |
+| day 5 `absorbTrue`, with two bridges | 13,165 | 0.5 |
+| `antisym` (`proveEq`, 2 facts) | 14,423 | 0.5 |
+| `twoXEqOne` (two `Divide`s) | 9,407 | 0.3 |
+| `splitRegression` (`Split`, four `Divide`s) | 46,195 | 1.4 |
+| `chain10` (10 atoms, 9 facts; the prototype's 54,751) | 61,310 | 1.9 |
+| `x * 10 <= 20`, `x * 1000 …`, `x * 1000000 <= 2000000` (`MulRight`) | 5,960 each | 0.2 each |
+| `10 * x <= 20` (`MulLeft`) | 7,000 | 0.3 |
+| `1000 * x <= 2000` (`MulLeft`) | 109,960 | 2.9 |
+| `10000 * x <= 20000` (`MulLeft`) | 1,045,960 | 26.3 |
+| `100000 * x …`, `1000000 * x …` (`MulLeft`) | stack overflow | — |
+| `x * 3 = x + x + x` by `proveEq` | 6,352 | 0.3 |
+| that equation used by `rewrite` (`J`) | 1,169 | 0.1 |
+| a `J` transport along it, computed (`castBy 7 42 = 42 := rfl`) | 1,903 | <0.1 |
+| loading the library for a first `Omega.prove` | — | about 90 (`Omega` 2.0, `Sound` 10.8, plus `Int/Int.sw` 16, `Nat/Arith.sw` 19, and `List/Toolkit.sw` 39 that `Int/Int.sw` pulls in) |
+
+What the numbers say:
+
+- **Replay stays cheap** with real proofs: the soundness proof is never unfolded by checking a
+  use, and the day 5 step costs about what the prototype's did (§3).
+- **Large `MulLeft` literals are the cost risk the review predicted**, but it isn't `omega`'s:
+  `k * x` unfolds `k` times whenever the goal's own type is compared. Without any `omega`,
+  `theorem (x: Nat) (h: 100000 * x <= 5): 100000 * x <= 5 := h` takes 14.4 million steps
+  (664 ms), and the same with `1000000` overflows the checker's stack **[run]**. `MulRight`
+  (`x * k`, stuck) costs the same for every `k`. So 1b should accept `MulLeft k` only up to a
+  bound (say `k <= 1000`) and refuse larger ones with a clear message; the overflow itself is a
+  separate evaluator issue, worth its own ticket.
+- **Proof consumption is cheap**: `rewrite` with an `omega` equation, and a `J` that must
+  compute the proof to `rfl`, cost under 2,000 steps.
+- **Library load** is a one-off per program (and cached by the check cache); most of it is
+  `List/Toolkit.sw`, which `Int/Int.sw` needs only for its two `List.sumBy` lemmas. Splitting
+  those out would cut it to about 50 ms.
+
+**What 1b must emit.** For a goal `A <= B` or `A < B`:
+`Std.Omega.prove (Std.Omega.Env.MkEnv [atoms…] []) [facts…] (GLe a b) cert rfl (Both p1 (Both p2 … Trivial))`,
+with each `p` a hypothesis or a bridge application from the table, the facts in the order of
+the `Both`s, and `Input` indexes counting an `FEq` as two rows. For `Void`, goal `GVoid`. For
+an equation, `Std.Omega.proveEq env facts a b c1 c2 rfl rfl hs`. The quoted trees must mirror
+the goal's computed shape (§6.5); `Succ x` is `NSucc`, a literal is `NLit`. `Split` rows are
+written as `MkRow c [coefficients…] []` with `Int` literals. Only used facts and atoms (§6.8).
+The elaborator's pre-check runs `Omega.check` itself, which costs what the kernel's run costs.
 
 ## 0. Summary
 
@@ -279,7 +455,8 @@ Two findings beyond the numbers:
    quadratic in the same way.
 
 Not run: the soundness proof, the search, `Divide`/`Split` steps, and a checker that also
-searched (option C, §5).
+searched (option C, §5). (Milestone 1a has since built and proved the checker, with `Divide`
+and `Split`, and measured it with real proofs: [As built](#as-built-milestone-1a), "Costs".)
 
 ## 4. How other systems do it
 

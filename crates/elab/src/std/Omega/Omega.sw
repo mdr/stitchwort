@@ -298,3 +298,90 @@ test "check: absorbStacked" := Omega.check [FLe (NV 0) (NV 1), FLe (NAdd (NV 1) 
 -- No `n`: with `x = 1`, `x <= 0` is false, and its negation's row `x - 1 >= 0`
 -- keeps `x`'s coefficient, so `Close` refuses it.
 test "check: no dropped coefficient" := Bool.not (Omega.check [] (GLe (NV 0) (NLit 0)) (Then NegGoal (Close 0)))
+
+-- Malformed certificates: each must be refused. Each comes with the same
+-- certificate corrected, which is accepted, so the refusal is for the reason named.
+
+-- A row that doesn't exist yet: `Combine` naming row 5 when there are 2 (it would read as the zero row).
+test "check refuses: Combine of a missing row" := Bool.not (Omega.check [FLt (NV 0) (NV 0)] GVoid
+  (Then (Input 0) (Then (Combine [MkPair 1 0, MkPair 1 5]) (Close 1))))
+
+test "check accepts: Combine of an existing row" := Omega.check [FLt (NV 0) (NV 0)] GVoid
+  (Then (Input 0) (Then (Combine [MkPair 1 0, MkPair 1 0]) (Close 1)))
+
+-- `Close` on a row that doesn't exist (the zero row isn't a contradiction).
+test "check refuses: Close of a missing row" := Bool.not (Omega.check [FLt (NV 0) (NV 0)] GVoid
+  (Then (Input 0) (Close 3)))
+
+test "check accepts: Close of an existing row" := Omega.check [FLt (NV 0) (NV 0)] GVoid
+  (Then (Input 0) (Close 0))
+
+-- `Input 3` with one fact: it would give the zero row, and row 1 would close.
+test "check refuses: Input of a missing fact" := Bool.not (Omega.check [FLt (NV 0) (NV 0)] GVoid
+  (Then (Input 3) (Then (Input 0) (Close 1))))
+
+test "check accepts: Input of an existing fact" := Omega.check [FLt (NV 0) (NV 0)] GVoid
+  (Then (Input 0) (Then (Input 0) (Close 1)))
+
+-- `NegGoal` when the goal is `GVoid`: there is no negation to use.
+test "check refuses: NegGoal for a void goal" := Bool.not (Omega.check [FLt (NV 0) (NV 0)] GVoid
+  (Then NegGoal (Then (Input 0) (Close 1))))
+
+test "check accepts: NegGoal for a goal that has one" := Omega.check [FLt (NV 0) (NV 0)] (GLe (NV 0) (NV 0))
+  (Then NegGoal (Then (Input 0) (Close 1)))
+
+-- A row made in the left branch of a `Split` isn't there in the right one:
+-- the left makes row 2, the right (which has rows 0 and 1) closes it.
+test "check refuses: Close of the other branch's row" := Bool.not (Omega.check [FLt (NV 0) (NV 0)] GVoid
+  (Then (Input 0) (Split (MkRow 0 [1] []) (Then (Combine [MkPair 1 0]) (Close 2)) (Close 2))))
+
+test "check accepts: Close of the branch's own row" := Omega.check [FLt (NV 0) (NV 0)] GVoid
+  (Then (Input 0) (Split (MkRow 0 [1] []) (Then (Combine [MkPair 1 0]) (Close 2)) (Close 0)))
+
+-- The same for `Combine`: the right branch's new row would be 2, which it names.
+test "check refuses: Combine of the other branch's row" := Bool.not (Omega.check [FLt (NV 0) (NV 0)] GVoid
+  (Then (Input 0) (Split (MkRow 0 [1] []) (Then (Combine [MkPair 1 0]) (Close 2)) (Then (Combine [MkPair 1 0, MkPair 1 2]) (Close 2)))))
+
+test "check accepts: Combine of the branch's own rows" := Omega.check [FLt (NV 0) (NV 0)] GVoid
+  (Then (Input 0) (Split (MkRow 0 [1] []) (Then (Combine [MkPair 1 0]) (Close 2)) (Then (Combine [MkPair 1 0]) (Close 2))))
+
+-- `Divide` by 0 would leave the row alone, and row 1 would close.
+test "check refuses: Divide by 0" := Bool.not (Omega.check [FLt (NV 0) (NV 0)] GVoid
+  (Then (Input 0) (Then (Divide 0 0) (Close 1))))
+
+test "check accepts: Divide by 1" := Omega.check [FLt (NV 0) (NV 0)] GVoid
+  (Then (Input 0) (Then (Divide 0 1) (Close 1)))
+
+-- `Divide` where `d` doesn't divide a `Nat` coefficient (3 at atom 7, by 2 ...).
+test "check refuses: Divide by a non-divisor, Nat coefficient" := Bool.not (Omega.check
+  [FLe (NLit 1) (MulLeft 3 (NV 7)), FLe (MulLeft 3 (NV 7)) (NLit 0)] GVoid
+  (Then (Input 0) (Then (Input 1) (Then (Divide 0 2) (Then (Divide 1 2) (Then (Combine [MkPair 1 2, MkPair 1 3]) (Close 4)))))))
+
+-- ... and by 3, which divides it.
+test "check accepts: Divide by a divisor, Nat coefficient" := Omega.check
+  [FLe (NLit 1) (MulLeft 3 (NV 7)), FLe (MulLeft 3 (NV 7)) (NLit 0)] GVoid
+  (Then (Input 0) (Then (Input 1) (Then (Divide 0 3) (Then (Divide 1 3) (Then (Combine [MkPair 1 2, MkPair 1 3]) (Close 4))))))
+
+-- The same for an `Int` coefficient: the split's row `3 * y >= 0`, divided by 2.
+test "check refuses: Divide by a non-divisor, Int coefficient" := Bool.not (Omega.check [FLt (NV 0) (NV 0)] GVoid
+  (Then (Input 0) (Split (MkRow 0 [] [3]) (Then (Divide 1 2) (Close 0)) (Close 0))))
+
+test "check accepts: Divide by a divisor, Int coefficient" := Omega.check [FLt (NV 0) (NV 0)] GVoid
+  (Then (Input 0) (Split (MkRow 0 [] [3]) (Then (Divide 1 3) (Close 0)) (Close 0)))
+
+-- `Close` needs every coefficient 0, including one past the facts' highest atom:
+-- `x_5 - 1 >= 0` is satisfiable.
+test "check refuses: Close with an atom beyond the facts" := Bool.not (Omega.check [FLt (NV 0) (NV 0)] GVoid
+  (Then (Input 0) (Then (NatNonneg 5) (Then (Combine [MkPair 1 0, MkPair 1 1]) (Close 2)))))
+
+test "check accepts: Close without that atom" := Omega.check [FLt (NV 0) (NV 0)] GVoid
+  (Then (Input 0) (Then (NatNonneg 5) (Then (Combine [MkPair 1 0]) (Close 2))))
+
+-- `Divide` rounds down: `2x - 1 >= 0` gives `x - 1 >= 0`, so with `-x >= 0` the sum is `-1`
+-- (rounding to `x + 0` would not close).
+test "check: Divide floors a negative constant" := Omega.check [FLe (NLit 1) (MulLeft 2 (NV 0)), FLe (NV 0) (NLit 0)] GVoid
+  (Then (Input 0) (Then (Input 1) (Then (Divide 0 2) (Then (Combine [MkPair 1 2, MkPair 1 1]) (Close 3)))))
+
+-- `1 - 2x >= 0` gives `-x >= 0` (the `1 / 2` is 0), so with `x - 1 >= 0` the sum is `-1`.
+test "check: Divide floors a positive constant" := Omega.check [FLe (MulLeft 2 (NV 0)) (NLit 1), FLe (NLit 1) (NV 0)] GVoid
+  (Then (Input 0) (Then (Input 1) (Then (Divide 0 2) (Then (Combine [MkPair 1 2, MkPair 1 1]) (Close 3)))))
