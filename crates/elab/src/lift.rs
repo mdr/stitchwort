@@ -1102,6 +1102,9 @@ impl Elaborator {
             .collect();
         lifted.sort_by_key(|(name, _)| std::cmp::Reverse(name.len()));
         let mut owners: Vec<String> = Vec::new();
+        // How many different generated helpers the message mentions inline:
+        // each prints as `(match …)`, so two of them look like one.
+        let mut inline_helpers = 0;
         for (bare, span) in lifted {
             let mentioned = d.message.contains(&bare)
                 || d.labels.iter().any(|l| l.message.contains(&bare))
@@ -1116,6 +1119,9 @@ impl Elaborator {
                 .chain(d.labels.iter().map(|l| &l.message))
                 .chain(d.notes.iter())
                 .any(|s| s.replace(&quoted, "").contains(&bare));
+            if inline {
+                inline_helpers += 1;
+            }
             if inline
                 && let Some((owner, _)) = bare.rsplit_once(".%match")
                 && !owners.iter().any(|o| o == owner)
@@ -1153,6 +1159,14 @@ impl Elaborator {
                  (docs/syntax.md, \"Proving things about a definition with an inner \
                  `match`\")"
             ));
+        }
+        if inline_helpers >= 2 {
+            d = d.with_note(
+                "two different `(match …)` appear here, which print alike but are different \
+                 hidden functions, and two such functions are never equal, even when written \
+                 the same; to prove something about both, name the step as a `def` and use it \
+                 in both places",
+            );
         }
         d
     }
