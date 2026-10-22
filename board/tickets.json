@@ -1,5 +1,5 @@
 {
-  "next": 276,
+  "next": 279,
   "tickets": [
     {
       "id": 1,
@@ -3055,7 +3055,7 @@
     },
     {
       "id": 199,
-      "title": "Well-founded recursion: decreasing n instead of fuel (note done; stage 1 building, stage 2 Nat.digits/chunksOf/Day 4 next)",
+      "title": "Well-founded recursion: decreasing (stage 1 merged; stage 2 migration in progress)",
       "status": "doing",
       "agent": "Opus",
       "where": "",
@@ -4182,6 +4182,48 @@
       "where": "",
       "labels": [
         "lsp"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 276,
+      "title": "decreasing stage 2: Nat.digits, Nat.digitsOnto and Day 4 settle off fuel (D513)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "decreasing"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 277,
+      "title": "decreasing stage 2: List.unfold and iterate-until-stable loops with a measure (D423 deferred, D513)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "decreasing"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 278,
+      "title": "decreasing stage 2: List.chunksOf off fuel (D513)",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [
+        "decreasing"
       ],
       "body": "",
       "created": "2026-10-22",
