@@ -115,7 +115,12 @@ const STACK: usize = 64 * 1024 * 1024;
 
 fn main() -> ExitCode {
     let cli = Cli::parse();
-    stitchwort_cli::driver::with_stack(STACK, move || run(cli))
+    stitchwort_cli::driver::with_stack(STACK, move || {
+        stitchwort_elab::timings::start();
+        let code = run(cli);
+        stitchwort_elab::timings::report();
+        code
+    })
 }
 
 fn run(cli: Cli) -> ExitCode {

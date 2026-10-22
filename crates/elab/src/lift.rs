@@ -30,7 +30,7 @@
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::rc::Rc;
 
-use stitchwort_core::check as kernel;
+use crate::kernel;
 use stitchwort_core::globals::State;
 use stitchwort_core::term::{Branch, NumArm};
 use stitchwort_core::value::{Head, eval, quote};

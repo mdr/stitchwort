@@ -4,8 +4,8 @@
 
 use std::rc::Rc;
 
+use crate::kernel;
 use stitchwort_core::chars::{self as compact, Chars};
-use stitchwort_core::check as kernel;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{Closure, Head, apply, eval, force, quote, unused};
 use stitchwort_core::{DataId, Globals, Icit, Name, Sort, Term, Value, pretty};

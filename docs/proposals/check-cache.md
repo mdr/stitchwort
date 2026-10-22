@@ -538,3 +538,87 @@ imports. All of the proof assistants trust their cache files on import and
 offer a separate full re-check for assurance. Under option A we re-check on
 every load, which is stronger than any of them by default. It is affordable
 because the kernel is only about a fifth of our cost.
+
+### A.5 As measured (stage 0)
+
+Stage 0 is built: `STITCHWORT_TIMINGS=1` makes the CLI print, per unit (the
+core prelude, each library file, each project namespace, in load order),
+elaboration time, kernel admission time and core term size to stderr
+(`crates/elab/src/timings.rs`). Elaboration time excludes both the kernel
+time and the library files loaded inside the unit. Kernel time is the time
+inside the elaborator's calls to the kernel's `declare_*` and `define_*`
+functions (wrappers in `crates/elab/src/kernel.rs`; the core crate has no
+timing code). It doesn't include the `infer` and `check` calls the elaborator
+makes along the way, so those count as elaboration. Nodes are tree nodes of
+the types and bodies (for data types: parameters, indices, field types and
+results), not counting source-location wrappers; a shared subterm counts each
+time it appears. Declarations are defs and data types, the generated ones
+too. With the variable unset, a full `aoc` check took 1.84 s and 1.80 s,
+against 1.85 s for the main checkout's binary, so the overhead is below the
+noise.
+
+Release build, `aoc` as of this commit, load average about 8, so trust the
+proportions more than the milliseconds. Times in ms. Three runs of the full
+check agreed within about 5%; the table uses the first.
+
+| Command | wall | elab | kernel | outside the units | nodes | decls |
+|---|---|---|---|---|---|---|
+| `check` (whole `aoc`) | 1,894 | 1,289 | 532 | 74 | 1,101,469 | 2,204 |
+| `check Aoc.Day05` | 516 | 329 | 151 | 37 | 298,011 | 1,271 |
+| `check` one-line file | 70 | 39 | 12 | 18 | 21,680 | 432 |
+| `run Aoc.Day04.main` | 563 | 254 | 75 | 235 (the program running) | 124,529 | 1,186 |
+
+Where the full check's time and terms come from:
+
+| Part | elab | kernel | nodes | decls | source |
+|---|---|---|---|---|---|
+| core prelude | 46 | 14 | 21,678 | 431 | |
+| 13 library files loaded | 314 | 146 | 293,289 | 847 | 259 KB |
+| 16 project namespaces | 928 | 371 | 786,502 | 926 | 318 KB |
+
+`aoc` loads 13 of the library's files: 259 KB of the 323 KB in §6.
+
+**What differs from §6 and §8.**
+
+- **The kernel share is bigger.** Admission is 29% of unit time (532 of
+  1,820 ms), not the ~19% of §A.1, and elaboration is 71%, not ~81%. This
+  counts only the declare and define calls, so it is a lower bound on all
+  kernel work. §8's warm-run estimate (kernel about 0.5 s for the whole
+  project) agrees with the measured 0.53 s.
+- **The library share is bigger.** Library files are 460 ms of 1,820 (25%),
+  not ~13%, and the core prelude adds 60 ms. For a small target the library
+  dominates: `check Aoc.Day05` spends 418 of 480 ms in library files (87%),
+  and `run Aoc.Day04.main` 267 of 328 ms (81%). Stage 1 (library files
+  only) is therefore worth more than §9 says. If replay re-admits the
+  library in the kernel (137 ms for Day 5), `check Aoc.Day05` would take
+  about 0.23 s instead of 0.52 s, and Day 4's `run` about 0.36 s instead of
+  0.56 s, of which 0.23 s is the program.
+- **The cost is concentrated.** `Aoc.Day02.Proofs` (537 ms, 437k nodes) and
+  `Aoc.Day04.Proofs` (487 ms, 230k nodes) together are 1,025 ms of 1,820:
+  56% of all unit time. The other project namespaces are each under 120 ms
+  (`Aoc.Day07.Proofs` is the next, 120 ms). So §8's "edit one leaf
+  namespace, ~0.7 s" holds for most namespaces but not these two, where it
+  is about 1.2 s even with a perfect cache.
+- **One library outlier.** `std/Mod/Mod.sw` is 12 KB of source, 167,748
+  nodes (14 per source byte) and 146 ms, with kernel time equal to
+  elaboration time (74 and 73 ms), where 30% is usual. Worth a look as its
+  own ticket, separate from the cache.
+- **Parsing and printing are small.** The time outside the units (the core
+  load counts as a unit) is 74 ms of 1,894 (4%). The timings don't split
+  `elab::lift`, which §8 put at 43% of samples; it is inside elaboration.
+
+**Term size as a guide to entry size (§6).** 259 KB of library source
+produced 293k nodes (1.1 nodes per source byte), and 318 KB of `aoc` 787k (2.5
+per byte). The two big proof namespaces are 85% of `aoc`'s nodes (666k) from
+168 KB of source (4 per byte); the rest of `aoc` is 120k nodes from 150 KB
+(0.8 per byte). No serialiser exists yet, so entry size in bytes is still
+not measured. If a node encodes in 2 to 4 bytes before any sharing, the
+library comes to 0.6 to 1.2 MB and `aoc` to 1.6 to 3.1 MB, with most of
+`aoc` in two entries (1.3 to 2.7 MB of it). That is the same order as §6's
+1 to 3 MB, and probably an overestimate once the encoding shares subterms:
+these counts are trees, and the full check peaks at 112 MB in memory. Disk
+and read time stay fine even if the two proof entries come to a megabyte or
+more each.
+
+To reproduce, run `STITCHWORT_TIMINGS=1 stitchwort check` in `aoc/`. Any
+command works; the table goes to stderr.

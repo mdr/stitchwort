@@ -21,7 +21,7 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use stitchwort_core::check as kernel;
+use crate::kernel;
 use stitchwort_core::value::{Head, quote};
 use stitchwort_core::{Name, Term, Value};
 use stitchwort_syntax::Diagnostic;
