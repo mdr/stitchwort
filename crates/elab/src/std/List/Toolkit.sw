@@ -958,6 +958,12 @@ def List.flatMap (xs: List a) (f: a -> List b): List b := List.concat (List.map 
 -- each: `[1, 2].cross ["a", "b"]` is `[(1, "a"), (1, "b"), (2, "a"), (2, "b")]`.
 def List.cross (xs: List a) (ys: List b): List (Pair a b) := List.flatMap xs (x => List.map (y => MkPair x y) ys)
 
+-- Every element with each later one, in order: `[1, 2, 3].pairs` is
+-- `[(1, 2), (1, 3), (2, 3)]`. A list of n elements has n(n - 1)/2 of them.
+def List.pairs: List a -> List (Pair a a)
+  | Nil       => Nil
+  | Cons x xs => List.append (List.map (y => MkPair x y) xs) (List.pairs xs)
+
 theorem List.lengthTails: (xs: List a) -> List.length (List.tails xs) = Succ (List.length xs)
   | Nil       => rfl
   | Cons x xs => Eq.cong Succ (List.lengthTails xs)
@@ -981,4 +987,6 @@ test "List.withIndex" := ["a", "b"].withIndex == [MkPair 0 "a", MkPair 1 "b"] &&
 test "List.findMap" := [1, 2, 3, 4].findMap (x => if Nat.leq 3 x then Some (x * 10) else None) == Some 30 && [1].findMap (x => (None: Option Nat)) == None
 test "List.between" := List.between 2 5 == [2, 3, 4, 5] && List.between 3 3 == [3] && List.between 4 2 == Nil && List.between 0 1 == [0, 1]
 test "List.flatMap" := [1, 2, 3].flatMap (x => List.replicate x x) == [1, 2, 2, 3, 3, 3]
+test "List.pairs" := [1, 2, 3].pairs == [MkPair 1 2, MkPair 1 3, MkPair 2 3] && (Nil: List Nat).pairs == Nil && [1].pairs == (Nil: List (Pair Nat Nat))
+test "List.pairs count" := (List.range 10).pairs.length == 45
 test "List.cross" := [1, 2].cross ["a", "b"] == [MkPair 1 "a", MkPair 1 "b", MkPair 2 "a", MkPair 2 "b"] && [1].cross (Nil: List Nat) == Nil
