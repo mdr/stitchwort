@@ -11,17 +11,17 @@
 --
 -- The puzzle input is committed in aoc/inputs/ (D119).
 --
--- The lines are padded with spaces to the same length (editors trim the
--- trailing ones), turned into columns, and split into blocks at the blank
+-- The lines are turned into columns, a short line read as ending in spaces
+-- (editors trim the trailing ones), and split into blocks at the blank
 -- columns. Each block gives a problem its operator and both readings.
 --
 -- Both answers are proved right for every input, against the puzzle's own
 -- wording read cell by cell, in `Aoc.Day06.Proofs` (Proofs/Spec.sw,
--- Proofs/Correct.sw; the grid's shape in Proofs/Grid.sw), and the tests are
+-- Proofs/Correct.sw; the columns' shape in Proofs/Grid.sw), and the tests are
 -- in `Aoc.Day06.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Day06
-import Std (Char, IO, Nat)
+import Std (Char, IO, Nat, Text)
 
 def main(): {IO} () :=
   let problems := parseWorksheet (IO.readAllLines())
@@ -41,16 +41,10 @@ def parseWorksheet (lines: List Text): List Problem := (blocks lines).map parseP
 def isBlank (column: List Char): Bool := column.all Char.isSpace
 
 -- The blocks of columns that make the problems: the runs of columns that
--- aren't blank.
-def blocks (lines: List Text): List (List (List Char)) := (paddedGrid lines).transpose.splitBy isBlank
-
--- Every line, padded with spaces on the right to the longest line's length.
-def paddedGrid (lines: List Text): List (List Char) :=
-  lines.map (line => line.toList.padRight (gridWidth lines) ' ')
-
-def gridWidth (lines: List Text): Nat := lines.foldLeft widen 0
-
-def widen (width: Nat) (line: Text): Nat := Nat.max width line.length
+-- aren't blank. A short line reads as spaces past its end, and there are as
+-- many columns as the longest line is long.
+def blocks (lines: List Text): List (List (List Char)) :=
+  (lines.map Text.toList).transposeFill ' ' |> .splitBy isBlank
 
 -- One block of columns, the last character of each being the operator row.
 def parseProblem (columns: List (List Char)): Problem :=

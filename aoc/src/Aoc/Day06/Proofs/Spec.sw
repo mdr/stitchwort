@@ -25,9 +25,8 @@
 -- Shared with the program: `readNumber` (the digits of some cells, spaces
 -- skipped, as a number; `readNumberWritten` below shows a number written with
 -- spaces around it reads back as itself), `evaluate` (+ adds, * multiplies; a
--- problem with no operator, which the puzzle never has, counts 0),
--- `Operator.parse` and `gridWidth` (the widest line's length: only a bound on
--- where problems can be).
+-- problem with no operator, which the puzzle never has, counts 0) and
+-- `Operator.parse`.
 
 namespace Aoc.Day06.Proofs
 import Aoc.Day06 (..)
@@ -36,6 +35,9 @@ import Std (Char, List, Nat, Text)
 
 -- Column c of a line; a space past its end.
 def charAt (line: Text) (c: Nat): Char := line.toList.getOr ' ' c
+
+-- The widest line's length: only a bound on where problems can be.
+def gridWidth (lines: List Text): Nat := (lines.map Text.toList).maxLength
 
 -- Column c of the worksheet, top to bottom.
 def column (lines: List Text) (c: Nat): List Char := lines.map (line => charAt line c)
