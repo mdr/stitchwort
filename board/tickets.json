@@ -1,5 +1,5 @@
 {
-  "next": 270,
+  "next": 271,
   "tickets": [
     {
       "id": 1,
@@ -4086,6 +4086,20 @@
       "where": "",
       "labels": [
         "bug"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 270,
+      "title": "AoC proofs: write And/Or as && / || (19 sites)",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [
+        "aoc"
       ],
       "body": "",
       "created": "2026-10-22",
