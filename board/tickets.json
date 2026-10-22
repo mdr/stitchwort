@@ -4001,7 +4001,7 @@
     {
       "id": 264,
       "title": "Method sections: pass a method by short name as a function argument, e.g. .count _.isZero (D504 note first)",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -4017,8 +4017,8 @@
     {
       "id": 265,
       "title": "AoC: pass methods as sections (.isZero) at 13 sites; inline Day 3 total (D505)",
-      "status": "doing",
-      "agent": "DeepSeek",
+      "status": "done",
+      "agent": "Claude",
       "where": "",
       "labels": [
         "aoc"
@@ -4026,7 +4026,9 @@
       "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "179434bb"
+      ]
     },
     {
       "id": 266,
