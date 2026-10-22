@@ -665,7 +665,11 @@ impl Reader<'_> {
                 };
                 let l_forced = force(cx.g(), (**l).clone())?;
                 if let Some([x, y]) = call_args(&l_forced, lib.nat_equal).as_deref() {
-                    let which = if truth { lib.equal_sound } else { lib.equal_false };
+                    let which = if truth {
+                        lib.equal_sound
+                    } else {
+                        lib.equal_false
+                    };
                     let args = [both(cx, x)?, both(cx, y)?, (proof.clone(), prop.clone())];
                     let (p, ty) = lemma(cx, which, &args)?;
                     return self.read(cx, p, &ty, origin, depth + 1);
@@ -962,10 +966,13 @@ impl Quoter {
         }
         if let Some((kind, a, b)) = self.operation(cx, lib, &base)? {
             let t = self.atom(cx, base, None)?;
-            if !self.ops.iter().any(|o| o.t == t) {
-                if let (Ok(a), Ok(b)) = (self.quote(cx, lib, &a, span)?, self.quote(cx, lib, &b, span)?) {
-                    self.ops.push(Op { kind, t, a, b });
-                }
+            if !self.ops.iter().any(|o| o.t == t)
+                && let (Ok(a), Ok(b)) = (
+                    self.quote(cx, lib, &a, span)?,
+                    self.quote(cx, lib, &b, span)?,
+                )
+            {
+                self.ops.push(Op { kind, t, a, b });
             }
             return Ok(Ok(NTerm::V(t)));
         }
@@ -1117,7 +1124,10 @@ impl Quoted {
         let (a, b) = (&self.a, &self.b);
         let (left, right) = match self.fact.kind {
             Kind::Le | Kind::Eq | Kind::NotLe => return Some(None),
-            Kind::Ne => (form_rows(&[Form::Lt(a, b)], n)?, form_rows(&[Form::Lt(b, a)], n)?),
+            Kind::Ne => (
+                form_rows(&[Form::Lt(a, b)], n)?,
+                form_rows(&[Form::Lt(b, a)], n)?,
+            ),
             Kind::Op(OpKind::Sub) => {
                 let t = self.t();
                 let tb = NTerm::Add(Box::new(t.clone()), Box::new(b.clone()));
@@ -1148,7 +1158,10 @@ impl Quoted {
     }
 
     fn term(&self, lib: &Lib, map: &[Option<usize>]) -> Term {
-        let (a, b) = (self.a.renumber(map).term(lib), self.b.renumber(map).term(lib));
+        let (a, b) = (
+            self.a.renumber(map).term(lib),
+            self.b.renumber(map).term(lib),
+        );
         let which = match self.fact.kind {
             Kind::Le => lib.fle,
             Kind::Eq => lib.feq,
@@ -1238,7 +1251,11 @@ fn linear(
     for op in quoter.ops.clone() {
         let atom = &quoter.atoms[op.t];
         let nat = Rc::new(Value::Data(lib.nat, Vec::new()));
-        let prop = Value::Eq(nat, Rc::new(atom.value.clone()), Rc::new(atom.value.clone()));
+        let prop = Value::Eq(
+            nat,
+            Rc::new(atom.value.clone()),
+            Rc::new(atom.value.clone()),
+        );
         let fact = Fact {
             kind: Kind::Op(op.kind),
             a: atom.value.clone(),
@@ -1652,10 +1669,7 @@ fn cert_term(
                     lib.list(Vec::new()),
                 ],
             );
-            lib.ctor(
-                lib.split,
-                vec![row, sub(left), sub(right)],
-            )
+            lib.ctor(lib.split, vec![row, sub(left), sub(right)])
         }
     }
 }

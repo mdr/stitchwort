@@ -1056,8 +1056,16 @@ mod tests {
         let mut p = problem(3, &facts, goal);
         p.cases.push(Case {
             fact: 0,
-            left: vec![row(0, &[0, 1, -1]), row(0, &[-1, 1, -1]), row(0, &[1, -1, 1])],
-            right: vec![row(-1, &[0, -1, 1]), row(0, &[-1, 0, 0]), row(0, &[1, 0, 0])],
+            left: vec![
+                row(0, &[0, 1, -1]),
+                row(0, &[-1, 1, -1]),
+                row(0, &[1, -1, 1]),
+            ],
+            right: vec![
+                row(-1, &[0, -1, 1]),
+                row(0, &[-1, 0, 0]),
+                row(0, &[1, 0, 0]),
+            ],
         });
         p
     }
