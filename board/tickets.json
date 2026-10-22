@@ -1,5 +1,5 @@
 {
-  "next": 274,
+  "next": 276,
   "tickets": [
     {
       "id": 1,
@@ -464,7 +464,7 @@
     {
       "id": 31,
       "title": "Language server for .sw (live errors, hover types, go to definition)",
-      "status": "next",
+      "status": "doing",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -4154,6 +4154,34 @@
       "where": "",
       "labels": [
         "syntax"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 274,
+      "title": "LSP stage 0a: parser keeps going after a syntax error; broken declarations' names declared as failed (language-server.md §6)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "lsp"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 275,
+      "title": "LSP stages 0b+0c: session mark()/rewind() with check-rewind-check differential test; cancellation flag in Budget::step",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "lsp"
       ],
       "body": "",
       "created": "2026-10-22",
