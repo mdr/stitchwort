@@ -2288,13 +2288,40 @@ impl<'t> Parser<'t> {
         ) || (self.peek() == Some(&Tok::Dot) && self.section_at(self.pos))
     }
 
+    /// Whether the next tokens are `()` written right after the name before
+    /// them and right before a `.name`, as in `f().x`: a zero-argument call
+    /// whose result the dot applies to. `f ().x` (a space) stays `f (().x)`.
+    fn unit_call_then_dot(&self) -> bool {
+        let at = |i: usize| self.tokens.get(self.pos + i);
+        let (Some(open), Some(close), Some(dot), Some(name)) = (at(0), at(1), at(2), at(3)) else {
+            return false;
+        };
+        open.tok == Tok::LParen
+            && close.tok == Tok::RParen
+            && dot.tok == Tok::Dot
+            && matches!(name.tok, Tok::Lower(_))
+            && self.pos > 0
+            && self.tokens[self.pos - 1].span.end == open.span.start
+            && open.span.end == close.span.start
+            && close.span.end == dot.span.start
+            && dot.span.end == name.span.start
+    }
+
     /// An atom followed by any field accesses, `p.address.city`. The `.` is
     /// written with no space on either side.
     fn atom(&mut self) -> Result<Expr> {
         let section = self.peek() == Some(&Tok::Dot);
         let start = self.here();
         let mut expr = self.atom_base()?;
-        while self.peek() == Some(&Tok::Dot) && !self.section_at(self.pos) {
+        loop {
+            if matches!(expr, Expr::Var(_) | Expr::Field(..)) && self.unit_call_then_dot() {
+                let open = self.bump().span;
+                let close = self.bump().span;
+                expr = Expr::App(Box::new(expr), Box::new(Expr::Unit(open.to(close))));
+            }
+            if !(self.peek() == Some(&Tok::Dot) && !self.section_at(self.pos)) {
+                break;
+            }
             let dot = self.tokens[self.pos].span;
             let field = match self.tokens.get(self.pos + 1) {
                 Some(Token {
@@ -2824,6 +2851,32 @@ mod tests {
         assert!(matches!(&e, Expr::Record { base: None, fields, .. } if fields.is_empty()));
         // An update needs a field.
         assert!(expression("{ p | }").is_err());
+    }
+
+    #[test]
+    fn unit_call_then_dot_applies_to_the_result() {
+        let shape = |text: &str| match &expression(text).unwrap() {
+            Expr::Field(r, n) => format!("{:?}.{}", matches!(**r, Expr::App(..)), n.text),
+            Expr::App(f, _) => format!("app({})", matches!(**f, Expr::Field(..))),
+            _ => "other".into(),
+        };
+        // `f().x` is `(f()).x`; `IO.readAll().lines` too.
+        assert_eq!(shape("f().x"), "true.x");
+        assert_eq!(shape("IO.readAll().lines"), "true.lines");
+        // `f().g y` is `(f()).g y`: an application of a field of the call.
+        let e = expression("f().g y").unwrap();
+        let Expr::App(g, _) = &e else { panic!("{e:?}") };
+        assert!(matches!(&**g, Expr::Field(r, n) if n.text == "g" && matches!(**r, Expr::App(..))));
+        // Chains.
+        let e = expression("f().x.y").unwrap();
+        assert!(matches!(&e, Expr::Field(r, _) if matches!(**r, Expr::Field(..))));
+        let e = expression("p.f().x").unwrap();
+        assert!(matches!(&e, Expr::Field(r, _) if matches!(**r, Expr::App(..))));
+        // A space keeps ordinary application: `f ().x` is `f (().x)`.
+        assert_eq!(shape("f ().x"), "app(false)");
+        // Without a following `.name`, `g f()` is still `g f ()`.
+        let e = expression("g f()").unwrap();
+        assert!(matches!(&e, Expr::App(f, _) if matches!(**f, Expr::App(..))));
     }
 
     #[test]

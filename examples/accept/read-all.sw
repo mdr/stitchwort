@@ -94,3 +94,10 @@ test "readAllLines of empty input is empty" :=
 
 test "readAllLines keeps an empty line" :=
   eqTexts (result (IO.simulate ["a", "", "b"] allLines)) ["a", "", "b"]
+
+-- `f().x` is `(f()).x`: dot notation applies to the result of the call.
+
+def inputLines(): {IO} List Text := IO.readAll().lines
+
+test "dot notation applies to the result of a zero-argument call" :=
+  result (IO.simulate ["a", "b"] inputLines) == ["a", "b"]

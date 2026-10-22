@@ -33,3 +33,5 @@ Main.allLines 20ea12d0d6d571b2d98b65898c6279815098fb663b2abff5575a12e3767d7021
 Main.test "readAllLines is total under simulate" 075f7b5ef05634d060c38e519ac875b5cab598deceb12f1e6d8edc9d782ffc2a
 Main.test "readAllLines of empty input is empty" add9a0e189e35b7e5f6ffef533a8cd62a42c286e2088c64d74caa433b589a47c
 Main.test "readAllLines keeps an empty line" 161e5c12250c536027de1e75731f4b9c21466d363d5372dc4c6be99a83611266
+Main.inputLines 15ef7aeb8955530779f8a0037fa4e8467c20099d6afbcb583431dba9343fa4f5
+Main.test "dot notation applies to the result of a zero-argument call" c11f553038b326b8fe1f478ce4dd175b22205cc86814497ee3d7de88b09d24da
