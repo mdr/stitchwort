@@ -489,6 +489,8 @@ enum Frame {
     JProof { term: Rc<Term>, env: Env },
     /// The forced proof of `J`.
     JForced { term: Rc<Term>, env: Env },
+    /// The forced proof of `J`, already unfolded if it was a folded call.
+    JReady { term: Rc<Term>, env: Env },
     /// The motive of a stuck `J` (the base is next).
     JMotive {
         term: Rc<Term>,
@@ -505,6 +507,18 @@ enum Frame {
         env: Vec<Value>,
         stuck: Option<(DefId, Spine)>,
     },
+    /// The scrutinee of the case node `tree`, already unfolded if it was a
+    /// folded call.
+    ScrutineeReady {
+        tree: Rc<Term>,
+        env: Vec<Value>,
+        stuck: Option<(DefId, Spine)>,
+    },
+    /// The unfolding of a folded call (a dictionary or a theorem, [`folds`])
+    /// that the frame `next` takes apart: unfolded again if it's another
+    /// folded call, and given to `next` as it is if it's this call, stuck.
+    /// (Boxed: it's large, and rare.)
+    Unfolding(Box<(DefId, Spine, Frame)>),
     /// A metavariable's solution, or the result of applying it so far:
     /// apply the eliminations of `spine` from `next` on, then force again.
     Replay { spine: Spine, next: usize },
@@ -628,7 +642,7 @@ fn run(g: &Globals, mut control: Control) -> Result<Value> {
                 match &*node {
                     Term::Case(ix, ..) | Term::NumCase(ix, ..) => {
                         let scrutinee = env[env.len() - 1 - ix].clone();
-                        if needs_forcing(g, &scrutinee) {
+                        if needs_forcing(g, &scrutinee) || is_folded(g, &scrutinee) {
                             push(
                                 g,
                                 &mut stack,
@@ -957,7 +971,12 @@ fn resume(g: &Globals, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Re
             push(g, stack, Frame::JForced { term, env })?;
             Control::Force(value)
         }
-        Frame::JForced { term, env } => {
+        // A folded call is taken apart: it unfolds (in this machine, so a
+        // proof made of many folded steps needs no Rust stack).
+        Frame::JForced { term, env } if is_folded(g, &value) => {
+            unfold_for(g, stack, value, Frame::JReady { term, env })?
+        }
+        Frame::JForced { term, env } | Frame::JReady { term, env } => {
             let Term::J(motive, base, _) = &*term else {
                 unreachable!("a `JForced` frame is for `J`")
             };
@@ -1002,7 +1021,27 @@ fn resume(g: &Globals, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Re
             });
             Control::Return(Value::Neutral(head, spine))
         }
-        Frame::Scrutinee { tree, env, stuck } => branch(g, tree, env, stuck, value)?,
+        // A folded call is taken apart: it unfolds.
+        Frame::Scrutinee { tree, env, stuck } if is_folded(g, &value) => {
+            unfold_for(g, stack, value, Frame::ScrutineeReady { tree, env, stuck })?
+        }
+        Frame::Scrutinee { tree, env, stuck } | Frame::ScrutineeReady { tree, env, stuck } => {
+            branch(g, tree, env, stuck, value)?
+        }
+        Frame::Unfolding(unfolding) => {
+            let (id, spine, next) = *unfolding;
+            match &value {
+                // Stuck: `next` gets the call as it is.
+                Value::Neutral(Head::Def(i2), s2) if *i2 == id && s2.ptr_eq(&spine) => {
+                    resume(g, next, value, stack)?
+                }
+                _ if is_folded(g, &value) => unfold_for(g, stack, value, next)?,
+                _ => {
+                    push(g, stack, next)?;
+                    Control::Force(value)
+                }
+            }
+        }
         Frame::Replay { spine, next } => match spine.get(next) {
             None => Control::Force(value),
             Some(Elim::App(arg, icit)) => {
@@ -1027,6 +1066,9 @@ fn resume(g: &Globals, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Re
             let Elim::J { base, .. } = &elim else {
                 unreachable!("a `ReplayJ` frame is for a `J` elimination")
             };
+            // Only while elaborating (a metavariable's solution), so the
+            // machine this starts for a folded proof is bounded by the program.
+            let value = unfold_folded(g, &value)?.unwrap_or(value);
             let result = match value {
                 Value::Refl => (**base).clone(),
                 Value::Neutral(head, mut s) => {
@@ -1098,8 +1140,7 @@ fn branch(
     stuck: Option<(DefId, Spine)>,
     value: Value,
 ) -> Result<Control> {
-    // A dictionary is taken apart: it unfolds.
-    let value = unfold_folded(g, &value)?.unwrap_or(value);
+    // A folded call was unfolded before this (`Frame::Scrutinee`).
     let (d, branches) = match &*tree {
         Term::Case(_, d, branches) => (d, branches),
         Term::NumCase(_, arms, default) => {
@@ -1217,10 +1258,44 @@ fn unfold_now(g: &Globals, id: DefId, spine: Spine, glue: bool) -> Result<Contro
     Ok(Control::Return(Value::Neutral(Head::Def(id), spine)))
 }
 
-/// Whether definition `id` stays folded when it has all its arguments: a
-/// dictionary ([`crate::globals::Def::fold`]), except while a program runs.
+/// Whether definition `id` stays folded when it has all its arguments, except
+/// while a program runs: a dictionary ([`crate::globals::Def::fold`]) or a
+/// theorem. A theorem's value is a proof, which only a `case` (on a
+/// proposition), `J` or a comparison looks inside, and each of those unfolds
+/// it first; so a proof that's only passed along is never computed (SW-281:
+/// the fuel's proofs in a definition with `decreasing`). What's equal
+/// doesn't change, only when it's computed.
 fn folds(g: &Globals, id: DefId) -> bool {
-    g.def(id).fold && !g.erasure.active()
+    let def = g.def(id);
+    (def.fold || def.theorem) && !g.erasure.active()
+}
+
+/// Folded call `value` ([`is_folded`]) is taken apart by the frame `next`:
+/// its case tree runs in this machine, and `next` gets the result
+/// ([`Frame::Unfolding`]).
+fn unfold_for(g: &Globals, stack: &mut Vec<Frame>, value: Value, next: Frame) -> Result<Control> {
+    let Value::Neutral(Head::Def(id), spine) = value else {
+        unreachable!("checked by is_folded")
+    };
+    let def = g.def(id);
+    let body = def.body.as_ref().expect("checked by is_folded");
+    let args: Option<Vec<Value>> = spine
+        .iter()
+        .map(|e| match e {
+            Elim::App(v, _) => Some(v.clone()),
+            Elim::J { .. } => None,
+        })
+        .collect();
+    let Some(args) = args else {
+        return resume(g, next, Value::Neutral(Head::Def(id), spine), stack);
+    };
+    let tree = Term::peel_lams_rc(body, def.arity);
+    push(
+        g,
+        stack,
+        Frame::Unfolding(Box::new((id, spine.clone(), next))),
+    )?;
+    Ok(Control::Tree(tree, args, Some((id, spine))))
 }
 
 /// Whether `value` is a dictionary left folded by name ([`folds`]) that

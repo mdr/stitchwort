@@ -276,9 +276,7 @@ theorem Char.digitValueDigit (c: Char): Option.IsDigit (Char.digitValue c) :=
 
 theorem Nat.digitsZero: Nat.digits 0 = [0] := rfl
 
--- A test, not an `rfl` theorem: `rfl` through `decreasing` computes the decrease
--- proofs, which costs about 10^9 kernel steps for four digits (SW-281).
-test "Nat.digits 1205" := Nat.digits 1205 == [1, 2, 0, 5]
+theorem Nat.digitsExample: Nat.digits 1205 = [1, 2, 0, 5] := rfl
 
 theorem Nat.fromDigitsExample: Nat.fromDigits [1, 2, 0, 5] = 1205 := rfl
 
@@ -288,8 +286,7 @@ theorem Nat.digitsTen: Nat.digits 10 = [1, 0] := rfl
 
 theorem Nat.fromDigitsNil: Nat.fromDigits Nil = 0 := rfl
 
--- A test, not `rfl`: `rfl` would compute `Nat.divTenLess`'s proof at each step.
-test "digits round trip" := Nat.fromDigits (Nat.digits 9876543210) == 9876543210
+theorem Nat.digitsRoundTrip: Nat.fromDigits (Nat.digits 9876543210) = 9876543210 := rfl
 
 -- Digit characters read back as their digits.
 theorem Char.digitValueChar: (d: Nat) -> Nat.leq d 9 = True -> Char.digitValue (Nat.digitChar d) = Some d

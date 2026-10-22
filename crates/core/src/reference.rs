@@ -88,7 +88,7 @@ pub fn eval(g: &Globals, env: &[Value], term: &Term) -> Result<Value> {
             Rc::new(eval(g, env, b)?),
         ),
         Term::Refl => Value::Refl,
-        Term::J(motive, base, proof) => match force(g, eval(g, env, proof)?)? {
+        Term::J(motive, base, proof) => match unfold_folded(g, force(g, eval(g, env, proof)?)?)? {
             Value::Refl => eval(g, env, base)?,
             Value::Neutral(head, mut spine) => {
                 spine.push(Elim::J {
@@ -128,7 +128,7 @@ fn apply_spine(g: &Globals, mut value: Value, spine: &[Elim]) -> Result<Value> {
     for elim in spine {
         value = match elim {
             Elim::App(arg, icit) => apply_icit(g, value, arg.clone(), *icit)?,
-            Elim::J { base, .. } => match force(g, value)? {
+            Elim::J { base, .. } => match unfold_folded(g, force(g, value)?)? {
                 Value::Refl => (**base).clone(),
                 Value::Neutral(head, mut spine) => {
                     spine.push(elim.clone());
@@ -272,14 +272,21 @@ fn unfold(g: &Globals, id: DefId, spine: Vec<Elim>) -> Result<Value> {
     Ok(Value::Neutral(Head::Def(id), spine.into()))
 }
 
-/// Whether a dictionary stays folded when it has all its arguments
-/// (`Def::fold`), except while a program runs.
+/// Whether a dictionary (`Def::fold`) or a theorem stays folded when it has
+/// all its arguments, except while a program runs.
 fn folds(g: &Globals, id: DefId) -> bool {
-    g.def(id).fold && !g.erasure.active()
+    let def = g.def(id);
+    (def.fold || def.theorem) && !g.erasure.active()
 }
 
-/// A dictionary left folded, unfolded (repeatedly) for a `case` to take it
-/// apart; anything else as it is.
+/// Whether `value` is a folded definition with all its arguments.
+fn is_folded(g: &Globals, value: &Value) -> bool {
+    matches!(value, Value::Neutral(Head::Def(id), spine)
+        if folds(g, *id) && spine.len() == g.def(*id).arity && g.def(*id).body.is_some())
+}
+
+/// A dictionary or theorem left folded, unfolded (repeatedly) for a `case`
+/// or `J` to take it apart; anything else as it is.
 fn unfold_folded(g: &Globals, value: Value) -> Result<Value> {
     if let Value::Neutral(Head::Def(id), spine) = &value
         && folds(g, *id)
@@ -415,6 +422,28 @@ pub fn quote(g: &Globals, level: usize, value: &Value) -> Result<Term> {
 /// Definitional equality (the recursive version `value::conv` was derived
 /// from).
 pub fn conv(g: &Globals, level: usize, a: &Value, b: &Value) -> Result<bool> {
+    // Folded calls: the same one applied to equal arguments is equal;
+    // otherwise they're compared unfolded.
+    if is_folded(g, a) || is_folded(g, b) {
+        if let (Value::Neutral(Head::Def(i1), s1), Value::Neutral(Head::Def(i2), s2)) = (a, b)
+            && i1 == i2
+            && s1.len() == s2.len()
+            && conv_spines(g, level, s1, s2)?
+        {
+            return Ok(true);
+        }
+        let a2 = unfold_folded(g, a.clone())?;
+        let b2 = unfold_folded(g, b.clone())?;
+        let moved = |x: &Value, y: &Value| match (x, y) {
+            (Value::Neutral(Head::Def(i1), s1), Value::Neutral(Head::Def(i2), s2)) => {
+                !(i1 == i2 && s1.ptr_eq(s2))
+            }
+            _ => true,
+        };
+        if (is_folded(g, a) && moved(a, &a2)) || (is_folded(g, b) && moved(b, &b2)) {
+            return conv(g, level, &a2, &b2);
+        }
+    }
     if matches!(a, Value::Chars(_)) || matches!(b, Value::Chars(_)) {
         return conv(g, level, &force(g, a.clone())?, &force(g, b.clone())?);
     }
