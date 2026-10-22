@@ -64,3 +64,17 @@ test "set: union, intersect, difference" :=
     && Set.toList (Set.intersect Set.example (Set.fromList [2, 3, 4])) == [2, 3]
     && Set.toList (Set.difference Set.example (Set.fromList [2])) == [1, 3]
 test "set: show" := "${Set.fromList ["b", "a"]}" == "Set.fromList [\"a\", \"b\"]"
+
+-- The set of `f` applied to each key; keys that map to the same value merge,
+-- and the result is ordered by the new ordering.
+def Set.map [auto ord: Ord j] (s: Set k [ord := o]) (f: k -> j): Set j := Set.foldLeft (acc key => Set.insert (f key) acc) Set.empty s
+
+-- Whether some key satisfies `p`.
+def Set.any (s: Set k [ord := o]) (p: k -> Bool): Bool := Set.foldLeft (acc key => acc || p key) False s
+
+-- The number of keys satisfying `p`.
+def Set.count (s: Set k [ord := o]) (p: k -> Bool): Nat := Set.foldLeft (n key => Nat.succIf n (p key)) 0 s
+
+test "set: map merges and reorders" := Set.toList (Set.map Set.example (x => 10 - x / 2)) == [9, 10]
+test "set: any" := Set.any Set.example (x => x > 2) && Bool.not (Set.any Set.example (x => x > 3)) && Bool.not (Set.any (Set.empty: Set Nat) (x => True))
+test "set: count" := Set.count Set.example (x => x != 2) == 2
