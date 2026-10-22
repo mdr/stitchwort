@@ -338,7 +338,7 @@ theorem Nat.roundDownNo (hi: Nat) (m: Nat) (b: Nat) (h: Nat.leq b (hi / Succ m) 
 
 theorem Nat.powTenPredLe: (k: Nat) -> Nat.pow 10 (k - 1) <= Nat.pow 10 k
   | Zero   => rfl
-  | Succ k => Nat.leAddRight (Nat.pow 10 k) (9 * Nat.pow 10 k)
+  | Succ k => Nat.leMulPos (Nat.pow 10 k) 10 rfl
 
 -- `y * p + p` is at most `t * p` when `y < t`.
 theorem Nat.nextMultipleLe (y: Nat) (t: Nat) (p: Nat) (h: y < t): y * p + p <= t * p :=
@@ -472,17 +472,22 @@ theorem Nat.absDiffOfLe (m: Nat) (n: Nat) (h: m <= n): Nat.absDiff m n = n - m :
 -- `Nat.pow b e` is b to the power e.
 def Nat.pow (b: Nat): Nat -> Nat
   | Zero   => 1
-  | Succ e => b * Nat.pow b e
+  | Succ e => Nat.pow b e * b
+
+-- The power with the base on the left, as `b * b^e`.
+theorem Nat.powSucc (b: Nat) (e: Nat): Nat.pow b (Succ e) = b * Nat.pow b e := Nat.mulComm (Nat.pow b e) b
 
 -- Powers: adding exponents, positive for a positive base, growing with the
 -- exponent.
 theorem Nat.powAdd (b: Nat): (e1: Nat) -> (e2: Nat) -> Nat.pow b (e1 + e2) = Nat.pow b e1 * Nat.pow b e2
   | Zero,    e2 => Eq.sym (Nat.addZero (Nat.pow b e2))
-  | Succ e1, e2 => Eq.trans (Eq.cong (t => b * t) (Nat.powAdd b e1 e2)) (Eq.sym (Nat.mulAssoc b (Nat.pow b e1) (Nat.pow b e2)))
+  | Succ e1, e2 =>
+    rewrite Nat.powAdd b e1 e2, Nat.mulAssoc (Nat.pow b e1) (Nat.pow b e2) b, Nat.mulComm (Nat.pow b e2) b,
+      Nat.mulAssoc (Nat.pow b e1) b (Nat.pow b e2)
 
 theorem Nat.powSuccPos (b: Nat): (e: Nat) -> 0 < Nat.pow (Succ b) e
   | Zero   => rfl
-  | Succ e => Nat.leTrans 1 (Nat.pow (Succ b) e) (Nat.pow (Succ b) e + b * Nat.pow (Succ b) e) (Nat.powSuccPos b e) (Nat.leAddRight (Nat.pow (Succ b) e) (b * Nat.pow (Succ b) e))
+  | Succ e => Nat.leTrans 1 (Nat.pow (Succ b) e) (Nat.pow (Succ b) e * Succ b) (Nat.powSuccPos b e) (Nat.leMulPos (Nat.pow (Succ b) e) (Succ b) rfl)
 
 theorem Nat.powMono (b: Nat) (e: Nat) (f: Nat) (h: e <= f): Nat.pow (Succ b) e <= Nat.pow (Succ b) f :=
   Nat.leCongRight (Nat.pow (Succ b) e) (Nat.pow (Succ b) e * Nat.pow (Succ b) (f - e)) (Nat.pow (Succ b) f)
