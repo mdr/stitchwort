@@ -1,5 +1,5 @@
 {
-  "next": 289,
+  "next": 290,
   "tickets": [
     {
       "id": 1,
@@ -4381,6 +4381,20 @@
       "title": "decreasing stage 3b: List.attach (typed, structural), Member record, attachFrom lemmas, memMap (after 3c)",
       "status": "backlog",
       "agent": "",
+      "where": "",
+      "labels": [
+        "decreasing"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 289,
+      "title": "Int lemmas for stage 3c: Int.mulComm, mulZero, mulDistribLeft/Right, addSubCancel, toIntSumBy (part of SW-285, independent of 3a)",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [
         "decreasing"
