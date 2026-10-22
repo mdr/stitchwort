@@ -1,5 +1,5 @@
 {
-  "next": 332,
+  "next": 333,
   "tickets": [
     {
       "id": 1,
@@ -5206,6 +5206,21 @@
       "labels": [
         "proof",
         "elab"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 332,
+      "title": "Checkpoint regressions: bench check-list-rfl +574% steps, check-list-sym-rfl +279%, check-closed-* +15%; browser 'Cmd-click in a project … library name shows a tooltip' times out",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree lane: bisect + fix",
+      "labels": [
+        "bug",
+        "performance"
       ],
       "body": "",
       "created": "2026-10-22",
