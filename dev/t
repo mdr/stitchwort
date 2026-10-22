@@ -92,8 +92,10 @@ run_cargo() {
 #                                         proves the whole workspace builds)
 #   crates/syntax/**                      syntax elab driver examples
 #   crates/core/** (the kernel)           core elab driver examples js rt
-#   crates/elab/src/std/** (library .sw)  std hashes examples
+#                                         bench/check_work
+#   crates/elab/src/std/** (library .sw)  std hashes examples bench/check_work
 #   crates/elab/** (the rest)             elab driver examples rt
+#                                         bench/check_work
 #   crates/js/**                          js
 #   crates/rt/** (shared with js)         rt js
 #   crates/driver/**                      driver examples
@@ -113,9 +115,13 @@ run_cargo() {
 #   crates/driver/src/snapshots/*.snap    driver/lib
 #
 # Nominal dependencies are not followed: a core change does not run cli,
-# aoc, web or bench (their tests only reach core through driver and elab),
-# a driver change does not run web, and a library .sw change does not run
-# aoc (the real-input run is the most expensive area; the gate catches it).
+# aoc, web or the rest of bench (their tests only reach core through driver
+# and elab), a driver change does not run web, and a library .sw change
+# does not run aoc (the real-input run is the most expensive area; the
+# gate catches it).
+# The exception is bench's check_work, run for core and elab (library
+# included): it measures how much the checker computes, which no other area
+# checks, and takes seconds.
 # The differential/erasure/conv_shortcut driver tests are not triggered by
 # examples/** alone for the same reason; they run when driver, elab or core
 # change.
@@ -177,11 +183,13 @@ affected_map() {
     crates/syntax/*)
       for a in syntax elab driver examples; do affected_hit $a "$p"; done ;;
     crates/core/*)
-      for a in core elab driver examples js rt; do affected_hit $a "$p"; done ;;
+      for a in core elab driver examples js rt bench/check_work; do
+        affected_hit $a "$p"
+      done ;;
     crates/elab/src/std/*)
-      for a in std hashes examples; do affected_hit $a "$p"; done ;;
+      for a in std hashes examples bench/check_work; do affected_hit $a "$p"; done ;;
     crates/elab/*)
-      for a in elab driver examples rt; do affected_hit $a "$p"; done ;;
+      for a in elab driver examples rt bench/check_work; do affected_hit $a "$p"; done ;;
     crates/js/*) affected_hit js "$p" ;;
     crates/rt/*)
       for a in rt js; do affected_hit $a "$p"; done ;;
