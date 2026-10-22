@@ -361,7 +361,7 @@ theorem List.allRangeElim (q: Nat -> Bool): (c: Nat) -> (s: Nat) -> List.all q (
   | Succ c, s, h, k, h1, h2 =>
     Bool.inspect (q s) (u => q k = True)
       (t => Bool.inspect (k == s) (u => q k = True)
-        (e => J (z p => q z = True) t (Eq.sym (Decidable.toBoolSound (Nat.decEq k s) e)))
+        (e => rewrite <- Decidable.toBoolSound (Nat.decEq k s) e at t)
         (ne => List.allRangeElim q c (Succ s)
           (Eq.trans (Eq.cong (b => Bool.ifThenElse b (u => List.all q (List.rangeFrom c (Succ s))) (u => False)) (Eq.sym t)) h)
           k (Nat.leNeSucc s k h1 (e => Bool.trueNotFalse (Eq.trans (Eq.sym (Decidable.toBoolOf (Nat.decEq k s) (Eq.sym e))) ne))) (Nat.ltSuccAdd s c k h2)))
@@ -395,7 +395,7 @@ theorem Nat.firstFromAtLeast (q: Nat -> Bool): (c: Nat) -> (s: Nat) -> s <= Nat.
   | Succ c, s =>
     Bool.inspect (q s) (u => s <= Nat.firstFrom q (Succ c) s)
       (t => J (z p => s <= z) (Nat.leRefl s) (Eq.sym (Nat.firstFromStop q c s t)))
-      (f => J (z p => s <= z) (Nat.leTrans s (Succ s) (Nat.firstFrom q c (Succ s)) (Nat.leSucc s) (Nat.firstFromAtLeast q c (Succ s))) (Eq.sym (Nat.firstFromSkip q c s f)))
+      (f => rewrite <- Nat.firstFromSkip q c s f at Nat.leTrans s (Succ s) (Nat.firstFrom q c (Succ s)) (Nat.leSucc s) (Nat.firstFromAtLeast q c (Succ s)))
 
 theorem Nat.firstFromBefore (q: Nat -> Bool): (c: Nat) -> (s: Nat) -> (j: Nat) -> s <= j -> j < Nat.firstFrom q c s -> q j = False
   | Zero,   s, j, h1, h2 => Void.exfalso (Nat.lessIrrefl j (Nat.leTrans (Succ j) s j h2 h1))
@@ -403,7 +403,7 @@ theorem Nat.firstFromBefore (q: Nat -> Bool): (c: Nat) -> (s: Nat) -> (j: Nat) -
     Bool.inspect (q s) (u => q j = False)
       (t => Void.exfalso (Nat.lessIrrefl j (Nat.leTrans (Succ j) s j (Nat.ltCongRight j (Nat.firstFrom q (Succ c) s) s (Nat.firstFromStop q c s t) h2) h1)))
       (f => Bool.inspect (j == s) (u => q j = False)
-        (e => J (z p => q z = False) f (Eq.sym (Decidable.toBoolSound (Nat.decEq j s) e)))
+        (e => rewrite <- Decidable.toBoolSound (Nat.decEq j s) e at f)
         (ne => Nat.firstFromBefore q c (Succ s) j
           (Nat.leNeSucc s j h1 (e => Bool.trueNotFalse (Eq.trans (Eq.sym (Decidable.toBoolOf (Nat.decEq j s) (Eq.sym e))) ne)))
           (Nat.ltCongRight j (Nat.firstFrom q (Succ c) s) (Nat.firstFrom q c (Succ s)) (Nat.firstFromSkip q c s f) h2)))
@@ -412,12 +412,11 @@ theorem Nat.firstFromFound (q: Nat -> Bool): (c: Nat) -> (s: Nat) -> (k: Nat) ->
   | Zero,   s, k, h1, h2, hk => Void.exfalso (Nat.lessIrrefl k (Nat.leTrans (Succ k) s k (Nat.ltCongRight k (s + 0) s (Nat.addZero s) h2) h1))
   | Succ c, s, k, h1, h2, hk =>
     Bool.inspect (q s) (u => q (Nat.firstFrom q (Succ c) s) = True)
-      (t => J (z p => q z = True) t (Eq.sym (Nat.firstFromStop q c s t)))
-      (f => J (z p => q z = True)
-        (Nat.firstFromFound q c (Succ s) k
+      (t => rewrite <- Nat.firstFromStop q c s t at t)
+      (f => rewrite <- Nat.firstFromSkip q c s f at
+        Nat.firstFromFound q c (Succ s) k
           (Nat.leNeSucc s k h1 (e => Bool.trueNotFalse (Eq.trans (Eq.sym hk) (Eq.trans (Eq.cong q (Eq.sym e)) f))))
           (Nat.ltSuccAdd s c k h2) hk)
-        (Eq.sym (Nat.firstFromSkip q c s f)))
 
 theorem Nat.firstFromLe (q: Nat -> Bool) (c: Nat) (s: Nat) (k: Nat) (h1: s <= k) (hk: q k = True): Nat.firstFrom q c s <= k :=
   match e: Nat.leq (Nat.firstFrom q c s) k with

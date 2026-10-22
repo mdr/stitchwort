@@ -41,7 +41,7 @@ theorem Nat.dividesSmall: (d: Nat) -> (n: Nat) -> 1 <= n -> n < d -> Nat.divides
   | Zero,   n, h1, h2 => Void.exfalso (Bool.falseNotTrue h2)
   | Succ d, n, h1, h2 =>
     Decidable.toBoolOfNot (Nat.decEq (n % Succ d) 0)
-      (e => Bool.falseNotTrue (J (y q => 1 <= y) h1 (Eq.trans (Eq.sym (Nat.modSmall n (Succ d) h2)) e)))
+      (e => Bool.falseNotTrue (rewrite <- Nat.modSmall n (Succ d) h2, e at h1))
 
 theorem Nat.dividesLe (d: Nat) (n: Nat) (hn: 1 <= n) (h: Nat.divides d n = True): d <= n :=
   match e: Nat.leq d n with

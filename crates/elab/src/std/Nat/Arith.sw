@@ -52,13 +52,13 @@ theorem Nat.subLe: (n: Nat) -> (m: Nat) -> n - m <= n
   | n, Zero => Nat.leRefl n
   | Zero, Succ m => rfl
   | Succ n, Succ m => Nat.leTrans (n - m) n (Succ n) (Nat.subLe n m) (Nat.leSucc n)
-theorem Nat.leCongLeft (a: Nat) (b: Nat) (n: Nat) (p: a = b) (h: a <= n): b <= n := J (y q => y <= n) h p
+theorem Nat.leCongLeft (a: Nat) (b: Nat) (n: Nat) (p: a = b) (h: a <= n): b <= n := rewrite p at h
 
-theorem Nat.leCongRight (a: Nat) (b: Nat) (n: Nat) (p: b = n) (h: a <= b): a <= n := J (y q => a <= y) h p
+theorem Nat.leCongRight (a: Nat) (b: Nat) (n: Nat) (p: b = n) (h: a <= b): a <= n := rewrite p at h
 
-theorem Nat.ltCongLeft (a: Nat) (b: Nat) (n: Nat) (p: a = b) (h: a < n): b < n := J (y q => y < n) h p
+theorem Nat.ltCongLeft (a: Nat) (b: Nat) (n: Nat) (p: a = b) (h: a < n): b < n := rewrite p at h
 
-theorem Nat.ltCongRight (a: Nat) (b: Nat) (n: Nat) (p: b = n) (h: a < b): a < n := J (y q => a < y) h p
+theorem Nat.ltCongRight (a: Nat) (b: Nat) (n: Nat) (p: b = n) (h: a < b): a < n := rewrite p at h
 
 theorem Nat.leAddCong: (d: Nat) -> (a: Nat) -> (b: Nat) -> a <= b -> d + a <= d + b
   | Zero, a, b, h => h
@@ -126,7 +126,7 @@ theorem Nat.nonzeroPos: (d: Nat) -> Not (d = 0) -> 0 < d
   | Zero, ok => Void.exfalso (ok rfl)
   | Succ d, ok => rfl
 
-theorem Nat.nonzeroOfPos (d: Nat) (h: 1 <= d): d != 0 := e => Bool.falseNotTrue (J (y q => 1 <= y) h e)
+theorem Nat.nonzeroOfPos (d: Nat) (h: 1 <= d): d != 0 := e => Bool.falseNotTrue (rewrite e at h)
 
 theorem Nat.divFuelBound: (fuel: Nat) -> (n: Nat) -> (d: Nat) -> Not (d = 0) -> n <= fuel -> n < Succ (Nat.divFuel fuel n d) * d
   | Zero, Zero, d, ok, hn => Nat.ltCongRight 0 d (d + 0) (Eq.sym (Nat.addZero d)) (Nat.nonzeroPos d ok)
@@ -378,7 +378,7 @@ theorem Nat.doubleNotOne: (k: Nat) -> k + k = 1 -> Void
   | Succ k, e => Nat.succNotZero (k + k) (Eq.trans (Eq.sym (Nat.addSucc k k)) (Nat.succInjective (k + Succ k) 0 e))
 
 theorem Nat.posOfDouble: (k: Nat) -> (n: Nat) -> k + k = n -> 1 <= n -> 1 <= k
-  | Zero,   n, e, h => Void.exfalso (Bool.falseNotTrue (J (m q => Nat.leq 1 m = True) h (Eq.sym e)))
+  | Zero,   n, e, h => Void.exfalso (Bool.falseNotTrue (rewrite <- e at h))
   | Succ k, n, e, h => rfl
 
 theorem Nat.leNeSucc (s: Nat) (v: Nat) (h: s <= v) (ne: Not (s = v)): Succ s <= v :=
