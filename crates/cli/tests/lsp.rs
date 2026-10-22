@@ -686,6 +686,69 @@ fn hover_over_a_selection_gives_the_type_of_the_expression() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// Parenthesised receivers, a pipe, and a parenthesised value, each on a
+/// line of a `let` block.
+const PAREN_PROGRAM: &str = "def h (xs: List Nat): List Nat :=\n  let a := (xs.map (x => x + 1)).filter (x => x < 5)\n  let b := xs |> .map (x => x + 1)\n  let c := (a)\n  c ++ b\n";
+
+#[test]
+fn hover_over_a_selection_covers_parentheses_and_trims_whitespace() {
+    let dir = temp_dir("hover-parens");
+    let file = dir.join("select.sw");
+    std::fs::write(&file, PAREN_PROGRAM).unwrap();
+    let uri = uri(&file);
+    let mut client = Client::start();
+    client.open(&uri, PAREN_PROGRAM);
+    client.diagnostics(&uri, 1);
+    // Hover over `needle` of line `line`: the answer's text and the text of
+    // the range it gives.
+    let hover = |client: &mut Client, line: usize, needle: &str| {
+        let text = PAREN_PROGRAM.lines().nth(line).unwrap();
+        let start = text.find(needle).unwrap();
+        let selection = json!({
+            "start": {"line": line, "character": start},
+            "end": {"line": line, "character": start + needle.len()}
+        });
+        let found = client.request(
+            "textDocument/hover",
+            json!({"textDocument": {"uri": uri}, "position": selection["start"], "range": selection}),
+        );
+        let range = &found["range"];
+        let (from, to) = (
+            range["start"]["character"].as_u64().unwrap() as usize,
+            range["end"]["character"].as_u64().unwrap() as usize,
+        );
+        assert_eq!(range["start"]["line"], line, "{found}");
+        assert_eq!(range["end"]["line"], line, "{found}");
+        (
+            found["contents"]["value"].as_str().unwrap().to_string(),
+            text[from..to].to_string(),
+        )
+    };
+    let list = "```stitchwort\nList Nat\n```";
+    // A method call on a parenthesised receiver, not the `let` body.
+    let call = "(xs.map (x => x + 1)).filter (x => x < 5)";
+    assert_eq!(hover(&mut client, 1, call), (list.into(), call.into()));
+    // The receiver with its parentheses.
+    let receiver = "(xs.map (x => x + 1))";
+    assert_eq!(
+        hover(&mut client, 1, receiver),
+        (list.into(), receiver.into())
+    );
+    // Inside the parentheses, the expression without them.
+    let inner = "xs.map (x => x + 1)";
+    assert_eq!(hover(&mut client, 1, inner), (list.into(), inner.into()));
+    // A pipe into a method section.
+    let pipe = "xs |> .map (x => x + 1)";
+    assert_eq!(hover(&mut client, 2, pipe), (list.into(), pipe.into()));
+    // A parenthesised value, with and without the parentheses.
+    assert_eq!(hover(&mut client, 3, "(a)"), (list.into(), "(a)".into()));
+    assert_eq!(hover(&mut client, 3, "a)"), (list.into(), "(a)".into()));
+    // Whitespace around the selection doesn't count.
+    assert_eq!(hover(&mut client, 3, " (a)"), (list.into(), "(a)".into()));
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 #[test]
 fn selection_ranges_walk_outward_through_the_expressions() {
     let dir = temp_dir("selection-range");

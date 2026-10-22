@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::fmt::Write;
 
 use stitchwort_elab::{NavIndex, NavTarget};
-use stitchwort_syntax::{Diagnostic, FileId, Severity, SourceMap, Span};
+use stitchwort_syntax::{Diagnostic, FileId, Severity, SourceMap, Span, Tok};
 
 use crate::driver::Session;
 
@@ -324,15 +324,20 @@ pub fn index_data_of(
     }
 
     let mut exprs = Vec::new();
+    let mut parens: HashMap<FileId, Parens> = HashMap::new();
     for (span, ty) in &index.exprs {
         if user(span.file) {
             let file = file_of(*span, &mut files);
-            let span = Span::new(
-                span.file,
-                span.start,
-                closed(&sources.get(span.file).text, *span),
-            );
-            exprs.push((file, range(&mut lines, sources, span, None), ty.clone()));
+            let parens = parens
+                .entry(span.file)
+                .or_insert_with(|| Parens::of(span.file, &sources.get(span.file).text));
+            // The expression, and again with the parentheses around it.
+            let inner = parens.around(*span, false);
+            let outer = parens.around(*span, true);
+            exprs.push((file, range(&mut lines, sources, inner, None), ty.clone()));
+            if outer != inner {
+                exprs.push((file, range(&mut lines, sources, outer, None), ty.clone()));
+            }
         }
     }
 
@@ -393,25 +398,78 @@ pub fn index_data_of(
     }
 }
 
-/// Where the expression at `span` ends: a call's span ends at its last
-/// argument, short of the `)` that closes a parenthesised one, so the end
-/// moves over `)`s that close a `(` inside it.
-fn closed(text: &str, span: Span) -> u32 {
-    let Some(inside) = text.get(span.range()) else {
-        return span.end;
-    };
-    let mut open = inside.matches('(').count() as i64 - inside.matches(')').count() as i64;
-    let mut end = span.end as usize;
-    while open > 0 {
-        let rest = &text[end..];
-        let trimmed = rest.trim_start();
-        if !trimmed.starts_with(')') {
-            break;
+/// The parentheses of a file, matched, to put back around an expression:
+/// the parser drops them, so the span of `(a).f x` starts at `a` and the
+/// span of `f (x + 1)` ends at `1`.
+struct Parens {
+    /// Every token's span, as (start, end), in order.
+    spans: Vec<(u32, u32)>,
+    /// For each `(` or `)` token, the index of its partner.
+    partner: HashMap<usize, usize>,
+}
+
+impl Parens {
+    fn of(file: FileId, text: &str) -> Parens {
+        let mut spans = Vec::new();
+        let mut partner = HashMap::new();
+        let mut open = Vec::new();
+        for (i, token) in stitchwort_syntax::lex(file, text)
+            .unwrap_or_default()
+            .iter()
+            .enumerate()
+        {
+            spans.push((token.span.start, token.span.end));
+            match token.tok {
+                Tok::LParen => open.push(i),
+                Tok::RParen => {
+                    if let Some(o) = open.pop() {
+                        partner.insert(o, i);
+                        partner.insert(i, o);
+                    }
+                }
+                _ => {}
+            }
         }
-        end += rest.len() - trimmed.len() + 1;
-        open -= 1;
+        Parens { spans, partner }
     }
-    end as u32
+
+    /// `span`, widened over each `(` before it whose `)` is inside it, and
+    /// each `)` after it whose `(` is inside it; with `wrap`, also over a
+    /// pair around the whole of it.
+    fn around(&self, span: Span, wrap: bool) -> Span {
+        let (mut start, mut end) = (span.start, span.end);
+        loop {
+            // The last token ending by `start`, and the first starting at
+            // or after `end`.
+            let before = self
+                .spans
+                .partition_point(|&(_, e)| e <= start)
+                .checked_sub(1);
+            let after = self.spans.partition_point(|&(s, _)| s < end);
+            let after = (after < self.spans.len()).then_some(after);
+            if let Some(b) = before
+                && let Some(&c) = self.partner.get(&b)
+                && c > b
+                && ((wrap && Some(c) == after) || self.spans[c].1 <= end)
+            {
+                start = self.spans[b].0;
+                if wrap && Some(c) == after {
+                    end = self.spans[c].1;
+                }
+            } else if let Some(a) = after
+                && let Some(&o) = self.partner.get(&a)
+                && o < a
+                && ((wrap && Some(o) == before) || self.spans[o].0 >= start)
+            {
+                end = self.spans[a].1;
+                if wrap && Some(o) == before {
+                    start = self.spans[o].0;
+                }
+            } else {
+                return Span::new(span.file, start, end);
+            }
+        }
+    }
 }
 
 fn json_range([l1, c1, l2, c2]: Range) -> String {
