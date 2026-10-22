@@ -3234,7 +3234,7 @@
     {
       "id": 206,
       "title": "match generalisation surprises: branch goals computed one step, `Decidable.toBool` leaks, E-MATCH-MOTIVE on `match h: a <= b`",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "worktree lane (D574 item 4)",
       "labels": [
@@ -3244,7 +3244,11 @@
       "body": "SW-157 pain points 3, 4 and 5 (docs/aoc-2025.md:2033-2050), all about `match` generalising more than the scrutinee you see. (3) A branch's goal has already computed one step (syntax.md's 'branch goals have already computed one step'), so a proof written for the original goal doesn't fit (`termsSum`/`twiceTerms`, `coveredTop`). (4) Generalising leaks `Decidable.toBool (Bool.decTrue (Nat.leq id (hi r)))` into messages where `Nat.leq id (hi r) = False` was written; the workaround is the lemma `Bool.decTrueToBool` (`x <= y` as a `Bool` should print and compute as `Nat.leq`). (5) `match h: a <= b with` can give E-MATCH-MOTIVE (\"generalising this `match`'s scrutinee makes its type ill-formed\") while `match h: Nat.leq a b with` is fine, and the message doesn't say which form to use.\n\nNot re-verified in this review (the AoC files they cite have since been restructured). First step: write a minimal example for each of the three on current main, then decide per item: fix, or improve the message/doc.\n\nDone when: each of the three is either fixed with an example or documented, with the decision recorded here.\n\nD243 (Matt, 21 Oct 2026): proof-ergonomics cluster on ice for now.\n",
       "created": "2026-10-21",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "c941b99d",
+        "2368a32f",
+        "ebcf4f2c"
+      ]
     },
     {
       "id": 207,
