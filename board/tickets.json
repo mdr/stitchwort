@@ -1,5 +1,5 @@
 {
-  "next": 297,
+  "next": 298,
   "tickets": [
     {
       "id": 1,
@@ -4538,6 +4538,21 @@
       "labels": [
         "abilities",
         "aoc"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 297,
+      "title": "LSP/nav: recursive call inside a decreasing function doesn't navigate; hover shows Int",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree lane",
+      "labels": [
+        "lsp",
+        "decreasing"
       ],
       "body": "",
       "created": "2026-10-22",
