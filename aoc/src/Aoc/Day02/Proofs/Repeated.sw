@@ -504,3 +504,13 @@ theorem templatesSum [auto add: Add c] (r: Range) (f: RepetitionTemplate -> c):
         := Eq.sym (List.sumByAppend row (List.rangeFrom (size / 2) 1) (List.rangeFrom (size - size / 2) (1 + size / 2)))
     _ = List.sumBy row (List.rangeFrom (size / 2 + (size - size / 2)) 1) := Eq.cong (l => List.sumBy row l) (Eq.sym (List.rangeFromAppend (size / 2) (size - size / 2) 1))
     _ = List.sumBy row (List.rangeFrom size 1) := Eq.cong (t => List.sumBy row (List.rangeFrom t 1)) (Nat.addSubCancel (size / 2) size halfLe)
+
+-- `sumBetween` is right: Gauss's formula is the sum of the numbers from first
+-- to last. (For first > last the formula isn't 0, which is why the program
+-- tests first <= last before using it.)
+theorem sumBetweenCorrect (first: Nat) (last: Nat) (h: first <= last): sumBetween first last = (List.between first last).sum :=
+  calc sumBetween first last
+    _ = 1 * sumBetween first last := Eq.sym (Nat.oneMul (sumBetween first last))
+    _ = 1 * Nat.span first (Succ last) := Nat.gaussSpan 1 first last h
+    _ = Nat.span first (Succ last) := Nat.oneMul (Nat.span first (Succ last))
+    _ = (List.between first last).sum := Eq.cong (t => List.sum (List.rangeFrom (t - first) first)) (Eq.sym (Nat.addOne last))

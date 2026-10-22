@@ -23,3 +23,4 @@ test "period three" := sumOfIdsWrittenRepeatedly (range 998 1012) == 999 + 1010
 test "empty overlap" := sumOfIdsWrittenRepeatedly (range 12 21) == 0
 
 test "12 written 3 times" := sumOfIdsInRangeMatchingTemplate { from = 0, to = 1000000 } { blockLength = 2, copies = 3 } == 10101 * ((10 + 99) * 90 / 2)
+test "sumBetween" := sumBetween 3 7 == 25 && sumBetween 5 5 == 5 && sumBetween 1 100 == 5050
