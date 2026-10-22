@@ -4707,7 +4707,10 @@ mod tests {
     #[test]
     fn omega_takes_an_optional_list_of_facts() {
         let expr = rhs("theorem t (a: Nat): a <= a := omega\n");
-        assert!(matches!(&expr, Expr::Omega { facts, .. } if facts.is_empty()), "{expr:?}");
+        assert!(
+            matches!(&expr, Expr::Omega { facts, .. } if facts.is_empty()),
+            "{expr:?}"
+        );
         let expr = rhs("theorem t (a: Nat): a <= a := omega [h a, Nat.leRefl a]\n");
         let Expr::Omega { facts, .. } = &expr else {
             panic!("expected omega, got {expr:?}");

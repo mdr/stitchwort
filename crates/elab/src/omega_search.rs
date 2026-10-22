@@ -121,7 +121,9 @@ impl Rat {
 
     fn add(self, o: Rat) -> Option<Rat> {
         Rat::new(
-            self.n.checked_mul(o.d)?.checked_add(o.n.checked_mul(self.d)?)?,
+            self.n
+                .checked_mul(o.d)?
+                .checked_add(o.n.checked_mul(self.d)?)?,
             self.d.checked_mul(o.d)?,
         )
     }
@@ -278,9 +280,8 @@ impl Search {
     fn fm_inner(&mut self, start: &[usize]) -> Option<Fm> {
         let mut rows = Rows::default();
         for &id in start {
-            match self.add_row(&mut rows, id)? {
-                Some(contra) => return Some(Fm::Contradiction(contra)),
-                None => {}
+            if let Some(contra) = self.add_row(&mut rows, id)? {
+                return Some(Fm::Contradiction(contra));
             }
         }
         let mut history: Vec<Elim> = Vec::new();
@@ -641,9 +642,7 @@ pub(crate) fn refute(problem: &Problem, limits: Limits) -> Result<Cert, Failure>
         })
         .collect();
     let component = |parent: &mut Vec<usize>, row: &Row| -> Option<usize> {
-        (0..n)
-            .find(|&j| row.a[j] != 0)
-            .map(|j| find(parent, j))
+        (0..n).find(|&j| row.a[j] != 0).map(|j| find(parent, j))
     };
     // The groups to try, in order: the goal's first (if there's a goal).
     let mut order: Vec<Option<usize>> = Vec::new();
@@ -846,7 +845,11 @@ mod tests {
     #[test]
     fn stacked() {
         // x0 <= x1, x1 + 1 <= x2 |- x0 < x2: negation x0 - x2 >= 0.
-        let p = problem(3, &[row(0, &[-1, 1, 0]), row(-1, &[0, -1, 1])], Some(row(0, &[1, 0, -1])));
+        let p = problem(
+            3,
+            &[row(0, &[-1, 1, 0]), row(-1, &[0, -1, 1])],
+            Some(row(0, &[1, 0, -1])),
+        );
         assert!(proves(&p));
     }
 
@@ -899,7 +902,16 @@ mod tests {
     #[test]
     fn budget() {
         let limits = Limits { rows: 3, depth: 6 };
-        let p = problem(2, &[row(-1, &[2, 3]), row(4, &[-2, -3]), row(1, &[3, -2]), row(2, &[-3, 2])], None);
+        let p = problem(
+            2,
+            &[
+                row(-1, &[2, 3]),
+                row(4, &[-2, -3]),
+                row(1, &[3, -2]),
+                row(2, &[-3, 2]),
+            ],
+            None,
+        );
         assert_eq!(refute(&p, limits), Err(Failure::Budget));
     }
 }

@@ -150,7 +150,10 @@ pub enum Expr {
     /// omega): a proof of a linear arithmetic goal from the facts in scope
     /// and the ones listed, found by the compiler and checked by the kernel
     /// (docs/proposals/omega.md).
-    Omega { facts: Vec<Expr>, span: Span },
+    Omega {
+        facts: Vec<Expr>,
+        span: Span,
+    },
     /// Field access `e.name`.
     Field(Box<Expr>, Name),
 }

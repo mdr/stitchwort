@@ -291,9 +291,12 @@ fn nat_term(n: impl Into<BigUint>) -> Term {
 }
 
 fn internal(span: Span, message: String) -> Diagnostic {
-    Diagnostic::error("E-OMEGA-INTERNAL", "`omega` made a proof that doesn't check")
-        .with_label(span, message)
-        .with_note("this is a bug in the compiler's `omega`, not in the program")
+    Diagnostic::error(
+        "E-OMEGA-INTERNAL",
+        "`omega` made a proof that doesn't check",
+    )
+    .with_label(span, message)
+    .with_note("this is a bug in the compiler's `omega`, not in the program")
 }
 
 /// What `omega` was asked to prove, as far as it's linear: `a <= b`, `a = b`
@@ -386,7 +389,10 @@ fn lemma(cx: &Ctx, which: DefId, args: &[(Term, Value)]) -> Result<(Term, Value)
     let mut ty = g.def(which).ty_value.clone();
     for (arg, value) in args {
         let Value::Pi(_, icit, _, cod) = force(g, ty)? else {
-            return Err(internal(cx.span, "a bridge lemma has fewer parameters than expected".into()));
+            return Err(internal(
+                cx.span,
+                "a bridge lemma has fewer parameters than expected".into(),
+            ));
         };
         term = Term::app_icit(term, arg.clone(), icit);
         ty = cod.apply(g, value.clone())?;
@@ -401,11 +407,24 @@ fn both(cx: &Ctx, value: &Value) -> Result<(Term, Value)> {
 
 /// Proves `expected`, taking it apart where it's a logical form around
 /// arithmetic.
-fn prove_goal(cx: &mut Ctx, lib: &Lib, expected: &Value, extra: &[Extra], span: Span) -> Result<Term> {
+fn prove_goal(
+    cx: &mut Ctx,
+    lib: &Lib,
+    expected: &Value,
+    extra: &[Extra],
+    span: Span,
+) -> Result<Term> {
     let goal = force(cx.g(), expected.clone())?;
     match &goal {
         Value::Eq(ty, l, r) if is_data(cx, ty, lib.nat)? => {
-            return linear(cx, lib, Goal::Eq((**l).clone(), (**r).clone()), expected, extra, span);
+            return linear(
+                cx,
+                lib,
+                Goal::Eq((**l).clone(), (**r).clone()),
+                expected,
+                extra,
+                span,
+            );
         }
         Value::Eq(ty, l, r) if is_data(cx, ty, lib.bool)? => {
             let truth = if is_ctor(cx, r, lib.tru)? {
@@ -445,7 +464,8 @@ fn prove_goal(cx: &mut Ctx, lib: &Lib, expected: &Value, extra: &[Extra], span: 
                 (Some(true), Some(BoolForm::And(p, q))) => {
                     let true_v = cx.eval(&Term::ctor(lib.tru.0, lib.tru.1, Vec::new()))?;
                     let bool_ty = Rc::new(Value::Data(lib.bool, Vec::new()));
-                    let p_true = Value::Eq(bool_ty.clone(), Rc::new(p.clone()), Rc::new(true_v.clone()));
+                    let p_true =
+                        Value::Eq(bool_ty.clone(), Rc::new(p.clone()), Rc::new(true_v.clone()));
                     let q_true = Value::Eq(bool_ty, Rc::new(q.clone()), Rc::new(true_v));
                     let hp = prove_goal(cx, lib, &p_true, extra, span)?;
                     let hq = prove_goal(cx, lib, &q_true, extra, span)?;
@@ -472,7 +492,13 @@ fn prove_goal(cx: &mut Ctx, lib: &Lib, expected: &Value, extra: &[Extra], span: 
 }
 
 /// `Not p`, as `h => …` proving `Void` with `h: p` in scope.
-fn refute_hypothesis(cx: &mut Ctx, lib: &Lib, p: &Value, extra: &[Extra], span: Span) -> Result<Term> {
+fn refute_hypothesis(
+    cx: &mut Ctx,
+    lib: &Lib,
+    p: &Value,
+    extra: &[Extra],
+    span: Span,
+) -> Result<Term> {
     let void = Value::Data(lib.void, Vec::new());
     let mut shifted = Vec::new();
     for e in extra {
@@ -526,7 +552,14 @@ struct Reader<'l> {
 }
 
 impl Reader<'_> {
-    fn read(&mut self, cx: &Ctx, proof: Term, prop: &Value, origin: &str, depth: usize) -> Result<()> {
+    fn read(
+        &mut self,
+        cx: &Ctx,
+        proof: Term,
+        prop: &Value,
+        origin: &str,
+        depth: usize,
+    ) -> Result<()> {
         if depth > 16 {
             return Ok(());
         }
@@ -596,7 +629,9 @@ impl Reader<'_> {
                 };
                 let p = force(cx.g(), p)?;
                 match &p {
-                    Value::Eq(ty, l, r) if is_data(cx, ty, lib.bool)? && is_ctor(cx, r, lib.tru)? => {
+                    Value::Eq(ty, l, r)
+                        if is_data(cx, ty, lib.bool)? && is_ctor(cx, r, lib.tru)? =>
+                    {
                         match bool_form(cx, lib, l)? {
                             Some(BoolForm::Leq(x, y)) => self.facts.push(fact(Kind::NotLe, &x, &y)),
                             // `Not (Decidable.toBool d = True)`: `= False` first.
@@ -676,7 +711,9 @@ impl NTerm {
                 row.c = row.c.checked_add(1)?;
                 row
             }
-            NTerm::MulLeft(k, a) | NTerm::MulRight(a, k) => scale(&a.lin(n)?, i128::try_from(k).ok()?)?,
+            NTerm::MulLeft(k, a) | NTerm::MulRight(a, k) => {
+                scale(&a.lin(n)?, i128::try_from(k).ok()?)?
+            }
         })
     }
 
@@ -687,7 +724,9 @@ impl NTerm {
             NTerm::Add(a, b) => lib.ctor(lib.nadd, vec![a.term(lib), b.term(lib)]),
             NTerm::Succ(a) => lib.ctor(lib.nsucc, vec![a.term(lib)]),
             NTerm::MulLeft(k, a) => lib.ctor(lib.mul_left, vec![nat_term(k.clone()), a.term(lib)]),
-            NTerm::MulRight(a, k) => lib.ctor(lib.mul_right, vec![a.term(lib), nat_term(k.clone())]),
+            NTerm::MulRight(a, k) => {
+                lib.ctor(lib.mul_right, vec![a.term(lib), nat_term(k.clone())])
+            }
         }
     }
 }
@@ -728,7 +767,13 @@ struct Quoter {
 struct Unknown;
 
 impl Quoter {
-    fn quote(&mut self, cx: &Ctx, lib: &Lib, value: &Value, span: Span) -> Result<std::result::Result<NTerm, Unknown>> {
+    fn quote(
+        &mut self,
+        cx: &Ctx,
+        lib: &Lib,
+        value: &Value,
+        span: Span,
+    ) -> Result<std::result::Result<NTerm, Unknown>> {
         let g = cx.g();
         let value = force(g, value.clone())?;
         let (k, base) = stitchwort_core::native::view(g, &value)?;
@@ -788,7 +833,11 @@ impl Quoter {
                 };
                 return Ok(Ok(NTerm::MulRight(Box::new(a), k)));
             }
-            return Ok(Ok(NTerm::V(self.atom(cx, base, Some("a product of two unknowns isn't linear"))?)));
+            return Ok(Ok(NTerm::V(self.atom(
+                cx,
+                base,
+                Some("a product of two unknowns isn't linear"),
+            )?)));
         }
         Ok(Ok(NTerm::V(self.atom(cx, base, None)?)))
     }
@@ -877,7 +926,13 @@ impl Quoted {
             Kind::Eq => lib.feq,
             Kind::NotLe => lib.fnotle,
         };
-        lib.ctor(which, vec![self.a.renumber(map).term(lib), self.b.renumber(map).term(lib)])
+        lib.ctor(
+            which,
+            vec![
+                self.a.renumber(map).term(lib),
+                self.b.renumber(map).term(lib),
+            ],
+        )
     }
 }
 
@@ -887,7 +942,14 @@ fn neg_goal_row(a: &NTerm, b: &NTerm, n: usize) -> Option<Row> {
 }
 
 /// Proves a linear goal (or `Void`) from the facts in scope and `extra`.
-fn linear(cx: &mut Ctx, lib: &Lib, goal: Goal, expected: &Value, extra: &[Extra], span: Span) -> Result<Term> {
+fn linear(
+    cx: &mut Ctx,
+    lib: &Lib,
+    goal: Goal,
+    expected: &Value,
+    extra: &[Extra],
+    span: Span,
+) -> Result<Term> {
     let mut reader = Reader {
         lib,
         facts: Vec::new(),
@@ -915,8 +977,12 @@ fn linear(cx: &mut Ctx, lib: &Lib, goal: Goal, expected: &Value, extra: &[Extra]
     };
     let sides = match &goal {
         Goal::Le(a, b) | Goal::Eq(a, b) => {
-            let a = quoter.quote(cx, lib, a, span)?.map_err(|_| unknown("the goal"))?;
-            let b = quoter.quote(cx, lib, b, span)?.map_err(|_| unknown("the goal"))?;
+            let a = quoter
+                .quote(cx, lib, a, span)?
+                .map_err(|_| unknown("the goal"))?;
+            let b = quoter
+                .quote(cx, lib, b, span)?
+                .map_err(|_| unknown("the goal"))?;
             Some((a, b))
         }
         Goal::Void => None,
@@ -933,8 +999,10 @@ fn linear(cx: &mut Ctx, lib: &Lib, goal: Goal, expected: &Value, extra: &[Extra]
     }
     let n = quoter.atoms.len();
     let too_large = || {
-        Diagnostic::error("E-OMEGA", "`omega` can't handle numbers this large")
-            .with_label(span, "a number in the goal or a fact is too large for the search")
+        Diagnostic::error("E-OMEGA", "`omega` can't handle numbers this large").with_label(
+            span,
+            "a number in the goal or a fact is too large for the search",
+        )
     };
     // The facts' rows, flattened, and which fact each comes from.
     let mut rows: Vec<(Source, Row)> = Vec::new();
@@ -970,17 +1038,44 @@ fn linear(cx: &mut Ctx, lib: &Lib, goal: Goal, expected: &Value, extra: &[Extra]
         match search::refute(&problem, search::LIMITS) {
             Ok(cert) => {
                 if !search::replay(&problem, &cert) {
-                    return Err(internal(span, "the search's certificate doesn't replay".into()));
+                    return Err(internal(
+                        span,
+                        "the search's certificate doesn't replay".into(),
+                    ));
                 }
                 certs.push(cert);
             }
             Err(failure) => {
-                let what = if neg.is_some() { "the facts and the goal's negation" } else { "the facts" };
-                return Err(failed(cx, &shown, what, &quoted, &quoter, &reader.skipped, &failure, span));
+                let what = if neg.is_some() {
+                    "the facts and the goal's negation"
+                } else {
+                    "the facts"
+                };
+                return Err(failed(
+                    cx,
+                    &shown,
+                    what,
+                    &quoted,
+                    &quoter,
+                    &reader.skipped,
+                    &failure,
+                    span,
+                ));
             }
         }
     }
-    emit(cx, lib, &goal, expected, sides, &quoted, &fact_of_row, &quoter, &certs, span)
+    emit(
+        cx,
+        lib,
+        &goal,
+        expected,
+        sides,
+        &quoted,
+        &fact_of_row,
+        &quoter,
+        &certs,
+        span,
+    )
 }
 
 /// A quoted term as a message shows it: `k * x`, `x + 1`, atoms as the
@@ -1027,10 +1122,18 @@ fn render_le(cx: &Ctx, quoter: &Quoter, a: &NTerm, b: &NTerm) -> String {
 }
 
 /// The goal as a message shows it.
-fn show_goal(cx: &Ctx, quoter: &Quoter, goal: &Goal, sides: Option<&(NTerm, NTerm)>, expected: &Value) -> String {
+fn show_goal(
+    cx: &Ctx,
+    quoter: &Quoter,
+    goal: &Goal,
+    sides: Option<&(NTerm, NTerm)>,
+    expected: &Value,
+) -> String {
     match (goal, sides) {
         (Goal::Le(..), Some((a, b))) => render_le(cx, quoter, a, b),
-        (Goal::Eq(..), Some((a, b))) => format!("{} = {}", render(cx, quoter, a), render(cx, quoter, b)),
+        (Goal::Eq(..), Some((a, b))) => {
+            format!("{} = {}", render(cx, quoter, a), render(cx, quoter, b))
+        }
         _ => cx.show(expected),
     }
 }
@@ -1038,13 +1141,18 @@ fn show_goal(cx: &Ctx, quoter: &Quoter, goal: &Goal, sides: Option<&(NTerm, NTer
 fn show_fact(cx: &Ctx, quoter: &Quoter, q: &Quoted) -> String {
     match q.fact.kind {
         Kind::Le => render_le(cx, quoter, &q.a, &q.b),
-        Kind::Eq => format!("{} = {}", render(cx, quoter, &q.a), render(cx, quoter, &q.b)),
+        Kind::Eq => format!(
+            "{} = {}",
+            render(cx, quoter, &q.a),
+            render(cx, quoter, &q.b)
+        ),
         Kind::NotLe => format!("not ({})", render_le(cx, quoter, &q.a, &q.b)),
     }
 }
 
 /// `E-OMEGA` for a goal the search couldn't prove, labelled with what it
 /// found (docs/proposals/omega.md §6.8). Nothing here claims the goal is false.
+#[allow(clippy::too_many_arguments)]
 fn failed(
     cx: &Ctx,
     shown: &str,
@@ -1065,11 +1173,14 @@ fn failed(
             .join(", ")
     };
     let label = match failure {
-        Failure::Integer(_) => format!("an integer model of the arithmetic abstraction satisfies {what}"),
+        Failure::Integer(_) => {
+            format!("an integer model of the arithmetic abstraction satisfies {what}")
+        }
         Failure::Rational(_) => format!("a rational model of the relaxation satisfies {what}"),
         Failure::Budget => "budget exhausted: the search stopped before finishing".to_string(),
     };
-    let mut d = Diagnostic::error("E-OMEGA", format!("`omega` can't prove `{shown}`")).with_label(span, label);
+    let mut d = Diagnostic::error("E-OMEGA", format!("`omega` can't prove `{shown}`"))
+        .with_label(span, label);
     let facts: Vec<String> = quoted
         .iter()
         .map(|q| format!("`{}` ({})", show_fact(cx, quoter, q), q.fact.origin))
@@ -1080,7 +1191,9 @@ fn failed(
         format!("facts: {}", facts.join(", "))
     });
     if !quoter.atoms.is_empty() {
-        let atoms: Vec<String> = (0..quoter.atoms.len()).map(|i| format!("`{}`", atom_name(i))).collect();
+        let atoms: Vec<String> = (0..quoter.atoms.len())
+            .map(|i| format!("`{}`", atom_name(i)))
+            .collect();
         d = d.with_note(format!("atoms: {}", atoms.join(", ")));
     }
     d = match failure {
@@ -1130,7 +1243,12 @@ fn used_inputs(cert: &Cert, out: &mut BTreeSet<usize>, atoms: &mut BTreeSet<usiz
             used_inputs(rest, out, atoms);
         }
         Cert::Split(l, left, right) => {
-            atoms.extend(l.a.iter().enumerate().filter(|(_, x)| **x != 0).map(|(j, _)| j));
+            atoms.extend(
+                l.a.iter()
+                    .enumerate()
+                    .filter(|(_, x)| **x != 0)
+                    .map(|(j, _)| j),
+            );
             used_inputs(left, out, atoms);
             used_inputs(right, out, atoms);
         }
@@ -1138,12 +1256,21 @@ fn used_inputs(cert: &Cert, out: &mut BTreeSet<usize>, atoms: &mut BTreeSet<usiz
 }
 
 /// The certificate as a term, with inputs and atoms renumbered.
-fn cert_term(lib: &Lib, cert: &Cert, inputs: &[Option<usize>], atoms: &[Option<usize>], n: usize) -> Term {
+fn cert_term(
+    lib: &Lib,
+    cert: &Cert,
+    inputs: &[Option<usize>],
+    atoms: &[Option<usize>],
+    n: usize,
+) -> Term {
     match cert {
         Cert::Close(r) => lib.ctor(lib.close, vec![nat_term(*r as u64)]),
         Cert::Then(step, rest) => {
             let step = match step {
-                Step::Input(i) => lib.ctor(lib.input, vec![nat_term(inputs[*i].expect("a used input") as u64)]),
+                Step::Input(i) => lib.ctor(
+                    lib.input,
+                    vec![nat_term(inputs[*i].expect("a used input") as u64)],
+                ),
                 Step::NegGoal => lib.ctor(lib.neg_goal, Vec::new()),
                 Step::NatNonneg(i) => lib.ctor(
                     lib.nat_nonneg,
@@ -1152,11 +1279,19 @@ fn cert_term(lib: &Lib, cert: &Cert, inputs: &[Option<usize>], atoms: &[Option<u
                 Step::Combine(terms) => {
                     let pairs = terms
                         .iter()
-                        .map(|&(k, r)| lib.ctor(lib.mk_pair, vec![nat_term(k.unsigned_abs()), nat_term(r as u64)]))
+                        .map(|&(k, r)| {
+                            lib.ctor(
+                                lib.mk_pair,
+                                vec![nat_term(k.unsigned_abs()), nat_term(r as u64)],
+                            )
+                        })
                         .collect();
                     lib.ctor(lib.combine, vec![lib.list(pairs)])
                 }
-                Step::Divide(r, d) => lib.ctor(lib.divide, vec![nat_term(*r as u64), nat_term(d.unsigned_abs())]),
+                Step::Divide(r, d) => lib.ctor(
+                    lib.divide,
+                    vec![nat_term(*r as u64), nat_term(d.unsigned_abs())],
+                ),
             };
             lib.ctor(lib.then, vec![step, cert_term(lib, rest, inputs, atoms, n)])
         }
@@ -1228,7 +1363,11 @@ fn emit(
     let mut next = 0;
     for &f in &used_facts {
         first_row[f] = Some(next);
-        next += if quoted[f].fact.kind == Kind::Eq { 2 } else { 1 };
+        next += if quoted[f].fact.kind == Kind::Eq {
+            2
+        } else {
+            1
+        };
     }
     let input_map: Vec<Option<usize>> = fact_of_row
         .iter()
@@ -1238,11 +1377,19 @@ fn emit(
     let env = lib.ctor(
         lib.mk_env,
         vec![
-            lib.list(atoms.iter().map(|&i| quoter.atoms[i].term.clone()).collect()),
+            lib.list(
+                atoms
+                    .iter()
+                    .map(|&i| quoter.atoms[i].term.clone())
+                    .collect(),
+            ),
             lib.list(Vec::new()),
         ],
     );
-    let fact_terms: Vec<Term> = used_facts.iter().map(|&f| quoted[f].term(lib, &atom_map)).collect();
+    let fact_terms: Vec<Term> = used_facts
+        .iter()
+        .map(|&f| quoted[f].term(lib, &atom_map))
+        .collect();
     let facts = lib.list(fact_terms.clone());
     let mut proofs = Term::ctor(lib.unit, 0, Vec::new());
     for &f in used_facts.iter().rev() {
@@ -1253,7 +1400,13 @@ fn emit(
         .map(|c| cert_term(lib, c, &input_map, &atom_map, n))
         .collect();
     let goal_le = |a: &NTerm, b: &NTerm| {
-        lib.ctor(lib.gle, vec![a.renumber(&atom_map).term(lib), b.renumber(&atom_map).term(lib)])
+        lib.ctor(
+            lib.gle,
+            vec![
+                a.renumber(&atom_map).term(lib),
+                b.renumber(&atom_map).term(lib),
+            ],
+        )
     };
     // The goals the certificates refute, for the pre-check.
     let (term, goals) = match (goal, &sides) {
@@ -1261,7 +1414,14 @@ fn emit(
             let g = goal_le(a, b);
             let term = apps(
                 Term::Def(lib.prove),
-                vec![env.clone(), facts.clone(), g.clone(), cert_terms[0].clone(), Term::Refl, proofs],
+                vec![
+                    env.clone(),
+                    facts.clone(),
+                    g.clone(),
+                    cert_terms[0].clone(),
+                    Term::Refl,
+                    proofs,
+                ],
             );
             (term, vec![g])
         }
@@ -1286,7 +1446,14 @@ fn emit(
             let g = lib.ctor(lib.gvoid, Vec::new());
             let term = apps(
                 Term::Def(lib.prove),
-                vec![env.clone(), facts.clone(), g.clone(), cert_terms[0].clone(), Term::Refl, proofs],
+                vec![
+                    env.clone(),
+                    facts.clone(),
+                    g.clone(),
+                    cert_terms[0].clone(),
+                    Term::Refl,
+                    proofs,
+                ],
             );
             (term, vec![g])
         }
@@ -1294,13 +1461,22 @@ fn emit(
     // The pre-check: the checker accepts, each fact's meaning is its proof's
     // type, and the whole proves the goal.
     for (g, c) in goals.iter().zip(&cert_terms) {
-        let ok = cx.eval(&apps(Term::Def(lib.check), vec![facts.clone(), g.clone(), c.clone()]))?;
+        let ok = cx.eval(&apps(
+            Term::Def(lib.check),
+            vec![facts.clone(), g.clone(), c.clone()],
+        ))?;
         if !is_ctor(cx, &ok, lib.tru)? {
-            return Err(internal(span, "`Std.Omega.check` refuses the certificate".into()));
+            return Err(internal(
+                span,
+                "`Std.Omega.check` refuses the certificate".into(),
+            ));
         }
     }
     for (&f, t) in used_facts.iter().zip(&fact_terms) {
-        let meaning = cx.eval(&apps(Term::Def(lib.fact_holds), vec![env.clone(), t.clone()]))?;
+        let meaning = cx.eval(&apps(
+            Term::Def(lib.fact_holds),
+            vec![env.clone(), t.clone()],
+        ))?;
         if !cx.unify(&meaning, &quoted[f].fact.prop)? {
             return Err(internal(
                 span,
@@ -1314,15 +1490,23 @@ fn emit(
         }
     }
     let proved = match goal {
-        Goal::Le(..) | Goal::Void => {
-            lemma_result(cx, lib.prove, &[env.clone(), facts.clone(), goals[0].clone()], 3)?
-        }
+        Goal::Le(..) | Goal::Void => lemma_result(
+            cx,
+            lib.prove,
+            &[env.clone(), facts.clone(), goals[0].clone()],
+            3,
+        )?,
         Goal::Eq(..) => {
             let (a, b) = sides.as_ref().expect("an equation has sides");
             lemma_result(
                 cx,
                 lib.prove_eq,
-                &[env.clone(), facts.clone(), a.renumber(&atom_map).term(lib), b.renumber(&atom_map).term(lib)],
+                &[
+                    env.clone(),
+                    facts.clone(),
+                    a.renumber(&atom_map).term(lib),
+                    b.renumber(&atom_map).term(lib),
+                ],
                 5,
             )?
         }
@@ -1352,7 +1536,10 @@ fn lemma_result(cx: &Ctx, which: DefId, args: &[Term], rest: usize) -> Result<Va
     let mut ty = g.def(which).ty_value.clone();
     for arg in args {
         let Value::Pi(_, _, _, cod) = force(g, ty)? else {
-            return Err(internal(cx.span, "`Std.Omega.prove` has fewer parameters than expected".into()));
+            return Err(internal(
+                cx.span,
+                "`Std.Omega.prove` has fewer parameters than expected".into(),
+            ));
         };
         ty = cod.apply(g, cx.eval(arg)?)?;
     }
@@ -1360,7 +1547,10 @@ fn lemma_result(cx: &Ctx, which: DefId, args: &[Term], rest: usize) -> Result<Va
     let mut remaining = rest;
     while remaining > 0 {
         let Value::Pi(_, _, _, cod) = force(g, ty)? else {
-            return Err(internal(cx.span, "`Std.Omega.prove` has fewer parameters than expected".into()));
+            return Err(internal(
+                cx.span,
+                "`Std.Omega.prove` has fewer parameters than expected".into(),
+            ));
         };
         ty = cod.apply(g, Value::var(cx.level()))?;
         remaining -= 1;
